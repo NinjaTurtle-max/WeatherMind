@@ -1,0 +1,75 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    env_file: .env
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  ai-worker:
+    build: ./ai-worker
+    ports:
+      - "8001:8001"
+    env_file: .env
+    volumes:
+      - ./database/seed:/app/database/seed:ro
+    depends_on:
+      - chroma
+      - redis
+
+  celery-worker:
+    build: ./celery
+    command: celery -A app.celery_app worker --loglevel=info
+    env_file: .env
+    depends_on:
+      - redis
+      - postgres
+      - ai-worker
+
+  celery-beat:
+    build: ./celery
+    command: celery -A app.celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+    env_file: .env
+    depends_on:
+      - redis
+
+  postgres:
+    image: postgres:16-alpine
+    env_file: .env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:7-alpine
+    env_file: .env
+    volumes:
+      - redisdata:/data
+
+  chroma:
+    image: chromadb/chroma:latest
+    env_file: .env
+    ports:
+      - "8002:8000"
+    volumes:
+      - chromadata:/chroma/chroma
+
+volumes:
+  pgdata:
+  redisdata:
+  chromadata:

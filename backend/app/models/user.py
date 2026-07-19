@@ -1,0 +1,39 @@
+import uuid
+from datetime import date, datetime
+
+from sqlalchemy import CheckConstraint, Date, DateTime, Integer, String, text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.models.base import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint(
+            "level_group IN ('elementary', 'middle_high', 'adult')",
+            name="ck_users_level_group",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    nickname: Mapped[str] = mapped_column(String(50), nullable=False)
+    level_group: Mapped[str] = mapped_column(String(20), nullable=False)
+    xp: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    streak_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    last_login_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    quiz_logs: Mapped[list["QuizLog"]] = relationship(back_populates="user")  # noqa: F821
+    weak_tags: Mapped[list["WeakTag"]] = relationship(back_populates="user")  # noqa: F821
+    attendances: Mapped[list["Attendance"]] = relationship(back_populates="user")  # noqa: F821
+    league_results: Mapped[list["LeagueResult"]] = relationship(back_populates="user")  # noqa: F821

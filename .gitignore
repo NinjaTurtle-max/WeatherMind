@@ -1,0 +1,22 @@
+# 환경변수 · 시크릿
+.env
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node
+node_modules/
+frontend/dist/
+
+# OS / 에디터
+.DS_Store
+.idea/
+.vscode/
+
+# 데이터 볼륨
+chroma-data/
+postgres-data/
