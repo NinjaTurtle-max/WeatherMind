@@ -18,6 +18,7 @@ passlib[bcrypt]==1.7.*
 httpx==0.28.*
 redis==5.2.*
 python-multipart==0.0.*
+slowapi==0.1.*
 ```
 
 ## ai-worker/requirements.txt

@@ -12,6 +12,10 @@ services:
     ports:
       - "8000:8000"
     env_file: .env
+    volumes:
+      # 문항 시드 적재(app.scripts.seed_content)용 — 스크립트의 컨테이너 내
+      # 기본 경로가 /database/seed/content_items.json 이다 (RUNBOOK 참조)
+      - ./database/seed:/database/seed:ro
     depends_on:
       - postgres
       - redis

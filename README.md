@@ -34,13 +34,19 @@ docker compose exec backend alembic upgrade head
 # 4. Chroma 시드 적재 (멱등 — 재실행해도 중복 없음)
 docker compose exec ai-worker python -m app.embeddings.seed_concepts
 
-# 5. 상태 확인
+# 5. 문항 뱅크 시드 적재 (멱등 upsert — 세션 배합의 1차 소스)
+docker compose exec backend python -m app.scripts.seed_content
+
+# 6. 상태 확인
 curl http://localhost:8000/health
 curl http://localhost:8001/health
 
-# 6. 프론트 접속
+# 7. 프론트 접속
 # http://localhost (nginx가 80포트 서빙)
 ```
+
+운영 절차(상태 확인·장애 대응·롤백)는 `docs/team/RUNBOOK.md` 참조.
+커밋 전 로컬 CI: `scripts/ci.sh` (lint → test → compose config → frontend build).
 
 ## 개발 중 개별 실행 (hot reload)
 
@@ -56,6 +62,7 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 
 - `POST /auth/register` · `/login` · `/refresh` · `/logout`
 - `GET /quiz/today` · `POST /quiz/{quiz_id}/answer` · `GET /quiz/history`
+- `GET /session/today` · `POST /session/{session_id}/answer` · `/{session_id}/complete`
 - `GET /progress/me` · `/weak-tags` · `POST /progress/attendance`
 - `GET /league/current` · `/leaderboard` · `/me/results` · `POST /league/predict`
 
