@@ -1,7 +1,9 @@
 """WeatherMind backend FastAPI 앱 (포트 8000).
 
-- 라우터 4종: /api/v1/auth, /api/v1/quiz, /api/v1/progress, /api/v1/league (02번 스펙)
+- 라우터 5종: /api/v1/auth, /api/v1/quiz, /api/v1/session (R2-01 §3.1),
+  /api/v1/progress, /api/v1/league (02번 스펙)
 - 에러 응답 포맷: {"detail": "메시지", "code": "ERROR_CODE"} (02번 공통 규칙)
+- 레이트리밋(slowapi): R2-01 §3.6 — 초과 시 429 + code=RATE_LIMITED
 - /health: 05번 스펙 필수 구현
 - CORS: 프론트엔드 origin 허용 (nginx 80 / vite dev 5173)
 """
@@ -11,11 +13,13 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.database import engine
+from app.core.rate_limit import limiter
 from app.core.redis import close_redis
-from app.routers import auth, league, progress, quiz
+from app.routers import auth, league, progress, quiz, session
 
 # 상태코드 → 기본 에러 코드
 _DEFAULT_CODES = {
@@ -41,6 +45,7 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+app.state.limiter = limiter
 
 app.add_middleware(
     CORSMiddleware,
@@ -76,6 +81,18 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     )
 
 
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    """R2-01 §3.6 — 한도 초과 시 429 + 표준 에러 포맷."""
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={
+            "detail": f"요청이 너무 잦습니다. 잠시 후 다시 시도해주세요. (한도: {exc.detail})",
+            "code": "RATE_LIMITED",
+        },
+    )
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
@@ -98,5 +115,6 @@ async def health():
 
 app.include_router(auth.router)
 app.include_router(quiz.router)
+app.include_router(session.router)
 app.include_router(progress.router)
 app.include_router(league.router)

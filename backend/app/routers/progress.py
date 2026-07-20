@@ -1,6 +1,6 @@
 """Progress API (/api/v1/progress) — 02번 스펙.
 
-| GET  | /me         | XP·레벨·스트릭 조회 → {xp, level, streak_count, next_level_xp} |
+| GET  | /me         | XP·레벨·스트릭 조회 → {xp, level, streak_count, streak_freeze_count, next_level_xp} |
 | GET  | /weak-tags  | 내 약점 태그 목록 (accuracy_rate 오름차순) → WeakTag[] |
 | POST | /attendance | 출석 체크 (하루 1회) → {streak_count, is_new_record} |
 """
@@ -28,6 +28,7 @@ async def get_me(user: User = Depends(get_current_user)) -> ProgressMe:
         xp=user.xp,
         level=level,
         streak_count=user.streak_count,
+        streak_freeze_count=user.streak_freeze_count,
         next_level_xp=xp_service.next_level_xp(level),
     )
 
@@ -79,7 +80,8 @@ async def check_attendance(
     ).scalar_one()
 
     db_user = await db.get(User, user.id)
-    streak, milestone_hit = xp_service.update_streak(db_user, today)
+    # 프리즈 소모 여부(freeze_used)는 응답 계약 밖 — 스트릭 유지 결과로만 반영
+    streak, milestone_hit, _freeze_used = xp_service.update_streak(db_user, today)
 
     db.add(
         Attendance(

@@ -8,6 +8,8 @@ class ProgressMe(BaseModel):
     xp: int
     level: int
     streak_count: int
+    # 스트릭 프리즈("구름 방패") 보유 수 — R2-01 §3.5
+    streak_freeze_count: int
     next_level_xp: int
 
 

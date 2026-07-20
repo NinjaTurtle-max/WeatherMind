@@ -17,6 +17,7 @@ const state = {
   xp: 1180,
   level: 4,
   streak: 6,
+  streakFreeze: 1, // 구름 방패 보유 수 (§3.5, 최대 2)
   answeredToday: false,
   predicted: false,
 };
@@ -37,6 +38,142 @@ const QUIZ = {
   ],
   level_group: 'middle_high',
 };
+
+// ── 세션 모드 (R2-01 계약 §3.1) ─────────────────────────────────────────────
+// SessionItem = QuizQuestion + {source, slot_filled}. 배합 §3.2를 흉내 내되
+// (new 2 / review 2 / live 1, 같은 question_type 3연속 금지) 데이터는 고정이다.
+// _mock 필드는 목 전용 채점 정보로, 실제 응답 직전에 제거한다.
+const SESSION_ITEMS = [
+  {
+    quiz_id: `${todayISO()}-s1-bank`,
+    concept_tag: 'pressure_front',
+    question_type: 'multiple_choice',
+    question_text: '전선을 경계로 성질이 다른 두 공기가 만납니다. 찬 공기가 따뜻한 공기를 밀어 올리며 이동할 때 만들어지는 전선은?',
+    options: ['한랭 전선', '온난 전선', '정체 전선', '폐색 전선'],
+    level_group: 'middle_high',
+    source: 'bank',
+    slot_filled: false,
+    _mock: {
+      correct: '한랭 전선',
+      feedbackCorrect:
+        '정확해요! 찬 공기는 무거워서 따뜻한 공기 밑을 파고들며 급하게 밀어 올립니다. 그래서 한랭 전선 뒤에는 적운형 구름과 소나기가 잘 생겨요.',
+      feedbackWrong:
+        '아쉬워요! 정답은 "한랭 전선"이에요. 찬 공기가 따뜻한 공기를 밀어 올리면 상승 기류가 급해져 적운형 구름과 짧고 강한 비가 내립니다. 온난 전선은 반대로 따뜻한 공기가 찬 공기 위로 완만하게 타고 오르는 경우예요.',
+    },
+  },
+  {
+    quiz_id: `${todayISO()}-s2-bank`,
+    concept_tag: 'air_mass',
+    question_type: 'short_answer',
+    question_text: '여름철 우리나라에 덥고 습한 날씨를 가져오는, 남동쪽 해양에서 발달하는 기단의 이름은? (○○○○ 기단)',
+    options: null,
+    level_group: 'middle_high',
+    source: 'bank',
+    slot_filled: false,
+    _mock: {
+      correct: '북태평양 기단',
+      accept: ['북태평양', '북태평양기단', '북태평양 기단'],
+      feedbackCorrect:
+        '맞아요! 북태평양 기단은 저위도 해양에서 만들어져 고온 다습합니다. 한여름 무더위와 열대야의 주범이에요.',
+      feedbackWrong:
+        '아쉬워요! 정답은 "북태평양 기단"이에요. 저위도 해양에서 발달해 고온 다습하고, 여름철 우리나라를 덮으면 무더위와 열대야가 이어집니다. 시베리아 기단(한랭 건조)과 성질을 비교해 기억해 보세요.',
+    },
+  },
+  {
+    quiz_id: `${todayISO()}-s3-review`,
+    concept_tag: 'typhoon',
+    question_type: 'multiple_choice',
+    question_text: '태풍이 우리나라 쪽으로 북상할 때, 일반적으로 바람 피해가 더 큰 "위험 반원"은 태풍 진행 방향의 어느 쪽일까요?',
+    options: ['오른쪽(동쪽) 반원', '왼쪽(서쪽) 반원', '태풍의 눈 정중앙', '진행 방향과 무관하게 남쪽'],
+    level_group: 'middle_high',
+    source: 'bank',
+    slot_filled: false,
+    _mock: {
+      correct: '오른쪽(동쪽) 반원',
+      feedbackCorrect:
+        '정답이에요! 오른쪽 반원에서는 태풍 자체의 바람과 태풍을 이동시키는 바람(이동 속도)이 같은 방향으로 겹쳐 풍속이 더 강해집니다. 그래서 위험 반원이라고 불러요.',
+      feedbackWrong:
+        '아쉬워요! 정답은 "오른쪽(동쪽) 반원"이에요. 태풍의 회전 바람에 태풍의 이동 방향 바람이 더해지는 쪽이라 풍속이 훨씬 강해집니다. 왼쪽 반원은 두 바람이 반대로 작용해 상대적으로 약한 "가항 반원"이에요.',
+    },
+  },
+  {
+    quiz_id: `${todayISO()}-s4-live`,
+    concept_tag: 'anomaly',
+    question_type: 'slider',
+    question_text: '오늘 서울의 강수확률은 60%로 예보됐어요. 예보관이 말하는 "강수확률 60%"에 가장 가까운 값을 슬라이더로 맞춰보세요. (같은 조건이 100번 있을 때 비가 오는 횟수)',
+    options: null,
+    level_group: 'middle_high',
+    source: 'generated',
+    slot_filled: true,
+    _mock: {
+      correct: '60',
+      tolerance: 10,
+      feedbackCorrect:
+        '잘했어요! 강수확률 60%는 "오늘과 같은 기상 조건이 100번 있으면 약 60번은 비가 온다"는 통계적 의미예요. 우산을 챙기는 게 합리적인 수준이죠.',
+      feedbackWrong:
+        '아쉬워요! 정답은 60이에요. 강수확률은 비의 양이 아니라, 같은 조건에서 비가 관측될 통계적 빈도를 뜻해요. 60%면 100번 중 60번꼴이니 우산을 챙기는 편이 좋아요.',
+    },
+  },
+  {
+    quiz_id: `${todayISO()}-s5-review`,
+    concept_tag: 'heat_island',
+    question_type: 'multiple_choice',
+    question_text: '한여름 밤, 도심 기온이 주변 교외보다 눈에 띄게 높게 유지되는 열섬 현상의 원인으로 보기 어려운 것은?',
+    options: [
+      '도시 상공의 오존층이 두꺼워져서',
+      '아스팔트·콘크리트가 낮 동안 저장한 열을 밤에 방출해서',
+      '건물·자동차·에어컨 실외기가 인공열을 배출해서',
+      '녹지와 수면이 적어 증발 냉각이 약해서',
+    ],
+    level_group: 'middle_high',
+    source: 'bank',
+    slot_filled: false,
+    _mock: {
+      correct: '도시 상공의 오존층이 두꺼워져서',
+      feedbackCorrect:
+        '정확해요! 오존층은 성층권의 이야기로 열섬과는 무관해요. 열섬은 인공 피복의 축열, 인공열 배출, 증발 냉각 감소가 겹쳐 생기는 도시 기후 현상입니다.',
+      feedbackWrong:
+        '아쉬워요! 정답은 "오존층" 보기예요. 오존층은 성층권에 있어 도시 열섬과 관련이 없습니다. 열섬은 아스팔트의 축열, 인공열, 녹지 부족으로 인한 증발 냉각 감소가 원인이에요.',
+    },
+  },
+];
+
+// 목 세션 상태: 당일 1세션 멱등. answers는 quiz_id → 채점 결과.
+let mockSession = null;
+
+function ensureSession() {
+  const today = todayISO();
+  if (!mockSession || mockSession.session_date !== today) {
+    mockSession = {
+      session_id: '5e1c8b1e-0000-4000-8000-0000000000aa',
+      session_date: today,
+      mode: 'daily',
+      answers: {},
+      completed: false,
+    };
+  }
+  return mockSession;
+}
+
+const sessionProgress = (s) => ({
+  answered: Object.keys(s.answers).length,
+  total: SESSION_ITEMS.length,
+});
+
+const stripMock = ({ _mock, ...item }) => item;
+
+function gradeSessionItem(item, rawAnswer) {
+  const answer = String(rawAnswer ?? '').trim();
+  const { correct, accept, tolerance } = item._mock;
+  if (item.question_type === 'slider') {
+    return Math.abs(Number(answer) - Number(correct)) <= (tolerance ?? 0);
+  }
+  if (item.question_type === 'short_answer') {
+    const norm = (v) => v.replace(/\s+/g, '').toLowerCase();
+    return [correct, ...(accept ?? [])].some((a) => norm(a) === norm(answer));
+  }
+  return answer === correct;
+}
 
 const routes = {
   'POST /auth/register': () => [
@@ -84,6 +221,82 @@ const routes = {
     })),
   ],
 
+  // ── 세션 API (R2-01 계약 §3.1) ──
+  'GET /session/today': () => {
+    const s = ensureSession();
+    return [
+      200,
+      {
+        session_id: s.session_id,
+        session_date: s.session_date,
+        mode: s.mode,
+        items: SESSION_ITEMS.map(stripMock),
+        progress: sessionProgress(s),
+      },
+    ];
+  },
+  'POST /session/:id/answer': (body, params) => {
+    const s = ensureSession();
+    if (params?.id !== s.session_id) {
+      return [404, { detail: '세션을 찾을 수 없습니다', code: 'SESSION_NOT_FOUND' }];
+    }
+    if (s.completed) {
+      // 완료된 세션 = 전 문항 응답 완료이므로 실서버와 동일하게 ALREADY_ANSWERED (§3.1 코드 표준)
+      return [409, { detail: '이미 답안을 제출한 퀴즈입니다.', code: 'ALREADY_ANSWERED' }];
+    }
+    const item = SESSION_ITEMS.find((it) => it.quiz_id === body?.quiz_id);
+    if (!item) {
+      return [404, { detail: '세션에 없는 문항입니다', code: 'QUIZ_NOT_FOUND' }];
+    }
+    // 멱등 가드: 이미 응답한 문항 재제출 금지 (덮어쓰기·XP 중복 가산 원천 차단)
+    if (s.answers[item.quiz_id]) {
+      return [409, { detail: '이미 답한 문항이에요', code: 'ALREADY_ANSWERED' }];
+    }
+    const isCorrect = gradeSessionItem(item, body?.answer);
+    const xp = isCorrect ? 15 : 2;
+    s.answers[item.quiz_id] = { is_correct: isCorrect, xp_earned: xp };
+    state.xp += xp;
+    state.answeredToday = true;
+    return [
+      200,
+      {
+        is_correct: isCorrect,
+        correct_answer: item._mock.correct,
+        feedback: isCorrect ? item._mock.feedbackCorrect : item._mock.feedbackWrong,
+        xp_earned: xp,
+        concept_tag: item.concept_tag,
+        session_progress: sessionProgress(s),
+      },
+    ];
+  },
+  'POST /session/:id/complete': (_body, params) => {
+    const s = ensureSession();
+    if (params?.id !== s.session_id) {
+      return [404, { detail: '세션을 찾을 수 없습니다', code: 'SESSION_NOT_FOUND' }];
+    }
+    const progress = sessionProgress(s);
+    if (progress.answered < progress.total) {
+      return [
+        409,
+        {
+          detail: `아직 답하지 않은 문항이 있어요 (${progress.answered}/${progress.total})`,
+          code: 'SESSION_NOT_COMPLETED',
+        },
+      ];
+    }
+    s.completed = true;
+    const results = Object.values(s.answers);
+    return [
+      200,
+      {
+        xp_total: results.reduce((sum, r) => sum + r.xp_earned, 0),
+        correct_count: results.filter((r) => r.is_correct).length,
+        total: progress.total,
+        streak_count: state.streak,
+      },
+    ];
+  },
+
   'GET /progress/me': () => [
     200,
     {
@@ -91,6 +304,7 @@ const routes = {
       level: state.level,
       streak_count: state.streak,
       next_level_xp: nextLevelXp(state.level),
+      streak_freeze_count: state.streakFreeze,
     },
   ],
   'GET /progress/weak-tags': () => [
@@ -149,8 +363,20 @@ function matchRoute(method, path) {
   for (const key of Object.keys(routes)) {
     const [m, pattern] = key.split(' ');
     if (m !== method) continue;
-    const re = new RegExp('^' + pattern.replace(/:[^/]+/g, '[^/]+') + '$');
-    if (re.test(path)) return routes[key];
+    const paramNames = [];
+    const re = new RegExp(
+      '^' +
+        pattern.replace(/:[^/]+/g, (seg) => {
+          paramNames.push(seg.slice(1));
+          return '([^/]+)';
+        }) +
+        '$',
+    );
+    const matched = path.match(re);
+    if (matched) {
+      const params = Object.fromEntries(paramNames.map((name, i) => [name, matched[i + 1]]));
+      return (body) => routes[key](body, params);
+    }
   }
   return null;
 }

@@ -1,0 +1,144 @@
+{
+  "_comment": "품질 게이트(§3.4) 1단 휴리스틱 골든셋 v1 (2026-07-19). expect_failed_checks는 반드시 실패해야 하는 체크 name 목록.",
+  "cases": [
+    {
+      "id": "ok_multiple_choice",
+      "description": "정상 객관식 — 모든 휴리스틱 통과",
+      "expect_passed": true,
+      "expect_failed_checks": [],
+      "request": {
+        "question": {
+          "question_text": "저기압이 다가올 때 일반적으로 나타나는 날씨는 무엇일까요?",
+          "question_type": "multiple_choice",
+          "options": ["맑고 건조하다", "흐리고 비가 오기 쉽다", "기온이 급격히 떨어진다", "바람이 전혀 불지 않는다"],
+          "correct_answer": "흐리고 비가 오기 쉽다",
+          "explanation_hint": "저기압 중심에서는 상승기류가 발달해 구름이 만들어진다."
+        },
+        "concept_tag": "pressure_front",
+        "level_group": "elementary"
+      }
+    },
+    {
+      "id": "ok_short_answer",
+      "description": "정상 주관식 — options 관련 체크는 '해당 없음' 통과",
+      "expect_passed": true,
+      "expect_failed_checks": [],
+      "request": {
+        "question": {
+          "question_text": "우리나라 여름철에 덥고 습한 날씨를 가져오는 기단의 이름은 무엇일까요?",
+          "question_type": "short_answer",
+          "correct_answer": "북태평양 기단"
+        },
+        "concept_tag": "air_mass",
+        "level_group": "middle_high"
+      }
+    },
+    {
+      "id": "ok_slider",
+      "description": "정상 슬라이더 — 정답이 0~100 숫자 문자열",
+      "expect_passed": true,
+      "expect_failed_checks": [],
+      "request": {
+        "question": {
+          "question_text": "산업화 이전 대비 현재 대기 중 CO2 농도 증가율을 추정해 슬라이더로 표시하세요 (0~100%)",
+          "question_type": "slider",
+          "correct_answer": "50"
+        },
+        "concept_tag": "co2_climate",
+        "level_group": "adult"
+      }
+    },
+    {
+      "id": "bad_duplicate_options",
+      "description": "불량 — 객관식 보기 중복 (options_unique 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["options_unique"],
+      "request": {
+        "question": {
+          "question_text": "태풍이 에너지를 얻는 주된 원천은 무엇일까요?",
+          "question_type": "multiple_choice",
+          "options": ["따뜻한 바닷물의 수증기", "차가운 육지의 바람", "따뜻한 바닷물의 수증기", "사막의 모래바람"],
+          "correct_answer": "차가운 육지의 바람"
+        },
+        "concept_tag": "typhoon",
+        "level_group": "elementary"
+      }
+    },
+    {
+      "id": "bad_answer_not_in_options",
+      "description": "불량 — 정답이 보기에 미포함 (answer_in_options 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["answer_in_options"],
+      "request": {
+        "question": {
+          "question_text": "도시가 주변 시골보다 더 더운 열섬 현상의 주요 원인은 무엇일까요?",
+          "question_type": "multiple_choice",
+          "options": ["도시에 비가 더 많이 와서", "도시가 바다와 가까워서", "도시의 나무가 더 많아서", "도시에 눈이 자주 와서"],
+          "correct_answer": "아스팔트와 콘크리트가 열을 저장해서"
+        },
+        "concept_tag": "heat_island",
+        "level_group": "middle_high"
+      }
+    },
+    {
+      "id": "bad_slider_out_of_range",
+      "description": "불량 — 슬라이더 정답이 0~100 범위 초과 (slider_range 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["slider_range"],
+      "request": {
+        "question": {
+          "question_text": "오늘 서울의 강수확률을 추정해 슬라이더로 표시하세요 (0~100%)",
+          "question_type": "slider",
+          "correct_answer": "150"
+        },
+        "concept_tag": "anomaly",
+        "level_group": "adult"
+      }
+    },
+    {
+      "id": "bad_question_too_short",
+      "description": "불량 — 질문 길이 10자 미만 (question_length 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["question_length"],
+      "request": {
+        "question": {
+          "question_text": "기압이란?",
+          "question_type": "short_answer",
+          "correct_answer": "공기가 누르는 힘"
+        },
+        "concept_tag": "pressure_front",
+        "level_group": "elementary"
+      }
+    },
+    {
+      "id": "bad_missing_correct_answer",
+      "description": "불량 — correct_answer 필드 누락 (required_fields 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["required_fields"],
+      "request": {
+        "question": {
+          "question_text": "찬 공기가 따뜻한 공기를 파고들며 강한 비를 내리는 전선의 이름은?",
+          "question_type": "short_answer"
+        },
+        "concept_tag": "pressure_front",
+        "level_group": "middle_high"
+      }
+    },
+    {
+      "id": "bad_options_count",
+      "description": "불량 — 객관식 보기 3개 (options_count 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["options_count"],
+      "request": {
+        "question": {
+          "question_text": "지구 온난화로 인해 더 자주 나타날 것으로 예상되는 현상은 무엇일까요?",
+          "question_type": "multiple_choice",
+          "options": ["폭염과 집중호우 같은 극한 날씨", "사계절이 없어지는 것", "지진의 감소"],
+          "correct_answer": "폭염과 집중호우 같은 극한 날씨"
+        },
+        "concept_tag": "anomaly",
+        "level_group": "adult"
+      }
+    }
+  ]
+}

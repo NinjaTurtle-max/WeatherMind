@@ -28,6 +28,11 @@ class User(Base):
     streak_count: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("0")
     )
+    # 스트릭 프리즈("구름 방패") 보유 수 — R2-01 §3.5, 최대 2.
+    # 파이썬측 default=0: flush 전 인스턴스의 None 산술 비교 방지 (리뷰 5번)
+    streak_freeze_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
     last_login_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
@@ -37,3 +42,4 @@ class User(Base):
     weak_tags: Mapped[list["WeakTag"]] = relationship(back_populates="user")  # noqa: F821
     attendances: Mapped[list["Attendance"]] = relationship(back_populates="user")  # noqa: F821
     league_results: Mapped[list["LeagueResult"]] = relationship(back_populates="user")  # noqa: F821
+    sessions: Mapped[list["Session"]] = relationship(back_populates="user")  # noqa: F821

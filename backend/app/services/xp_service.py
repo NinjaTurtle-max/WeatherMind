@@ -40,6 +40,10 @@ WEAK_ACCURACY_THRESHOLD = 60
 # 스트릭 마일스톤 (7일/30일/100일 달성 시 배지 + 보너스 XP)
 STREAK_MILESTONES = (7, 30, 100)
 
+# ── 스트릭 프리즈 "구름 방패" (스프린트 R2-01 §3.5) ──
+MAX_STREAK_FREEZE = 2          # 최대 보유 수
+FREEZE_GRANT_MILESTONE = 7     # 7일 마일스톤 달성 시 +1 지급
+
 
 def level_from_xp(xp: int) -> int:
     """레벨 N에 필요한 누적 XP = 50 * N^2. Lv1: 0~49, Lv2: 50~199, Lv3: 200~449 ..."""
@@ -113,17 +117,36 @@ async def add_xp(session: AsyncSession, user: User, amount: int) -> int:
     return amount
 
 
-def update_streak(user: User, today: date) -> tuple[int, bool]:
-    """출석 시점 스트릭 계산 (07번 공식 그대로).
+def update_streak(user: User, today: date) -> tuple[int, bool, bool]:
+    """출석 시점 스트릭 계산 (07번 공식 + R2-01 §3.5 스트릭 프리즈).
 
-    반환: (streak_count, milestone_hit — 마일스톤(7/30/100) 신규 달성 여부)
+    - 어제 출석: 연속 +1
+    - 그제(이틀 전) 출석 + freeze ≥ 1: 프리즈 1 소모, 연속 유지(+1)
+    - 사흘 이상 결손: 프리즈 보유와 무관하게 1로 리셋
+    - 스트릭 7일 마일스톤 달성 시 프리즈 +1 지급 (최대 2, 초과 시 미지급)
+
+    반환: (streak_count,
+           milestone_hit — 마일스톤(7/30/100) 신규 달성 여부,
+           freeze_used — 이번 출석에서 프리즈를 소모했는지)
     """
     yesterday = today - timedelta(days=1)
+    day_before = today - timedelta(days=2)
+    freeze_used = False
     if user.last_login_date == today:
-        return user.streak_count, False  # 이미 출석, 변화 없음
+        return user.streak_count, False, False  # 이미 출석, 변화 없음
     elif user.last_login_date == yesterday:
         user.streak_count += 1  # 연속
+    elif user.last_login_date == day_before and user.streak_freeze_count >= 1:
+        user.streak_freeze_count -= 1  # 하루 결손 방어 — 프리즈 소모
+        user.streak_count += 1
+        freeze_used = True
     else:
         user.streak_count = 1  # 끊김, 리셋
     user.last_login_date = today
-    return user.streak_count, user.streak_count in STREAK_MILESTONES
+    milestone_hit = user.streak_count in STREAK_MILESTONES
+    if (
+        user.streak_count == FREEZE_GRANT_MILESTONE
+        and user.streak_freeze_count < MAX_STREAK_FREEZE
+    ):
+        user.streak_freeze_count += 1  # 7일 마일스톤 보상
+    return user.streak_count, milestone_hit, freeze_used

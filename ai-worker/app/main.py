@@ -6,6 +6,9 @@ DEVELOPMENT_PLAN.md 2.1 backend → ai-worker 내부 API 계약:
   POST /internal/quiz-generate  {weather_data, level_group, route, target_concept_tag} → QuizQuestion JSON
   GET  /health                  → {status, service}
 
+스프린트 R2-01 §3.4 품질 게이트:
+  POST /internal/quiz-validate  {question, concept_tag, level_group} → {passed, checks}
+
 모든 /internal/* 엔드포인트는 X-Internal-API-Key 헤더를
 AI_WORKER_INTERNAL_API_KEY와 비교해 검증한다 (불일치 시 401).
 """
@@ -19,7 +22,7 @@ from typing import Optional
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from app.chains import quiz_gen_chain, rag_chain, router_chain
+from app.chains import quiz_gen_chain, rag_chain, router_chain, validate_chain
 from app.config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -79,6 +82,23 @@ class QuizGenerateRequest(BaseModel):
     target_concept_tag: Optional[str] = None
 
 
+class QuizValidateRequest(BaseModel):
+    question: dict  # §3.3 template_json 형식
+    concept_tag: str
+    level_group: str
+
+
+class ValidationCheck(BaseModel):
+    name: str
+    passed: bool
+    reason: str
+
+
+class QuizValidateResponse(BaseModel):
+    passed: bool
+    checks: list[ValidationCheck]
+
+
 # ── 엔드포인트 ─────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
@@ -125,3 +145,17 @@ def quiz_generate(body: QuizGenerateRequest) -> dict:
         route=body.route,
         target_concept_tag=body.target_concept_tag,
     )
+
+
+@app.post(
+    "/internal/quiz-validate",
+    response_model=QuizValidateResponse,
+    dependencies=[Depends(verify_internal_api_key)],
+)
+def quiz_validate(body: QuizValidateRequest) -> QuizValidateResponse:
+    result = validate_chain.validate_quiz(
+        question=body.question,
+        concept_tag=body.concept_tag,
+        level_group=body.level_group,
+    )
+    return QuizValidateResponse(**result)

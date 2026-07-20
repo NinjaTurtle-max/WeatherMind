@@ -10,23 +10,30 @@
 3. general → Redis quiz:{date}:{level_group}(24h) 캐시 우선, miss 시 생성 후 캐시
    focused/advanced → 개인화 문제 즉시 생성 (공용 캐시 미사용)
 4. quiz_logs에 발급 기록(미응답 상태) 저장 → /answer가 이 행으로 채점
+
+R2-01 변경: 채점·XP·weak_tags 파이프라인은 services/answer_service.py로,
+Router Chain 분기(decide_route)·quiz_id 채번(allocate_quiz_ids)은
+services/session_service로 추출해 /session/* 경로와 공유한다
+(응답 스키마·동작은 기존 그대로 — 하위 호환).
+레이트리밋: GET /today 10회/분/유저, POST answer 30회/분/유저 (§3.6).
 """
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db_with_rls
+from app.core.rate_limit import LIMIT_ANSWER, LIMIT_TODAY, limiter, user_or_ip_key
 from app.core.redis import get_redis
 from app.models.quiz_log import QuizLog
 from app.models.user import User
-from app.models.weak_tag import WeakTag
 from app.schemas.quiz import AnswerRequest, AnswerResult, QuizLogOut, QuizQuestion
-from app.services import ai_client, xp_service
+from app.services import ai_client, answer_service, session_service
 from app.services.ai_client import AIWorkerError
+from app.services.answer_service import AlreadyAnsweredError
 from app.services.weather_api import KST, get_today_weather
 
 logger = logging.getLogger(__name__)
@@ -34,9 +41,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/quiz", tags=["quiz"])
 
 QUIZ_CACHE_TTL_SEC = 24 * 60 * 60  # quiz:{date}:{level_group} — 24시간
-
-# 슬라이더 채점 허용 오차 (0~100 스케일)
-SLIDER_TOLERANCE = 10.0
 
 
 def quiz_cache_key(date_str: str, level_group: str) -> str:
@@ -55,48 +59,10 @@ def _to_question_schema(quiz_id: str, question: dict, level_group: str) -> QuizQ
     )
 
 
-def _grade(question: dict, answer: str) -> bool:
-    """채점: slider는 ±10 오차 허용, 그 외 공백/대소문자 무시 비교."""
-    correct = str(question.get("correct_answer", "")).strip()
-    submitted = answer.strip()
-    if question.get("question_type") == "slider":
-        try:
-            return abs(float(submitted) - float(correct)) <= SLIDER_TOLERANCE
-        except ValueError:
-            return False
-    return submitted.casefold() == correct.casefold()
-
-
-async def _decide_route(db: AsyncSession, user: User) -> dict:
-    """weak_tags + 최근 정오답으로 Router Chain 분기 (실패 시 general)."""
-    tags = (
-        (await db.execute(select(WeakTag).where(WeakTag.user_id == user.id)))
-        .scalars()
-        .all()
-    )
-    weak_tags = [
-        {"concept_tag": t.concept_tag, "accuracy_rate": float(t.accuracy_rate or 0)}
-        for t in tags
-        if t.total_count
-    ]
-    recent = (
-        (
-            await db.execute(
-                select(QuizLog.is_correct)
-                .where(QuizLog.user_id == user.id, QuizLog.is_correct.is_not(None))
-                .order_by(QuizLog.answered_at.desc())
-                .limit(5)
-            )
-        )
-        .scalars()
-        .all()
-    )
-    recent_results = [bool(v) for v in reversed(recent)]  # 시간순(과거 → 최근)
-    return await ai_client.router_decide(str(user.id), weak_tags, recent_results)
-
-
 @router.get("/today", response_model=list[QuizQuestion])
+@limiter.limit(LIMIT_TODAY, key_func=user_or_ip_key)
 async def get_today_quiz(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_with_rls),
 ) -> list[QuizQuestion]:
@@ -119,8 +85,8 @@ async def get_today_quiz(
             _to_question_schema(existing.quiz_id, existing.question_json, user.level_group)
         ]
 
-    # 2) Router Chain 분기
-    decision = await _decide_route(db, user)
+    # 2) Router Chain 분기 (session_service와 공유)
+    decision = await session_service.decide_route(db, user)
     route = decision.get("route", "general")
     target_concept_tag = decision.get("target_concept_tag")
 
@@ -159,15 +125,8 @@ async def get_today_quiz(
                 json.dumps(question, ensure_ascii=False),
             )
 
-    # 4) 발급 기록 저장 (미응답 상태) — quiz_id = 날짜 + 시퀀스
-    count = (
-        await db.execute(
-            select(func.count())
-            .select_from(QuizLog)
-            .where(QuizLog.user_id == user.id, QuizLog.quiz_id.like(f"{today}-%"))
-        )
-    ).scalar_one()
-    quiz_id = f"{today}-{count + 1:03d}"
+    # 4) 발급 기록 저장 (미응답 상태) — quiz_id 채번은 세션 발급과 공용 헬퍼
+    quiz_id = (await session_service.allocate_quiz_ids(db, user.id, today, 1))[0]
 
     db.add(
         QuizLog(
@@ -184,7 +143,9 @@ async def get_today_quiz(
 
 
 @router.post("/{quiz_id}/answer", response_model=AnswerResult)
+@limiter.limit(LIMIT_ANSWER, key_func=user_or_ip_key)
 async def submit_answer(
+    request: Request,
     quiz_id: str,
     body: AnswerRequest,
     user: User = Depends(get_current_user),
@@ -202,52 +163,17 @@ async def submit_answer(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"detail": "해당 퀴즈를 찾을 수 없습니다.", "code": "QUIZ_NOT_FOUND"},
         )
-    if log.user_answer is not None or log.is_correct is not None:
+    # 채점·XP·weak_tags·세션 XP 누적·RAG 피드백 — 세션 경로와 공통 파이프라인
+    # (멱등 가드는 서비스 층 — R2-01 웨이브 1 리뷰 1번)
+    try:
+        return await answer_service.submit_answer_for_log(
+            db, user, log, body.answer, body.elapsed_sec
+        )
+    except AlreadyAnsweredError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"detail": "이미 답안을 제출한 퀴즈입니다.", "code": "ALREADY_ANSWERED"},
         )
-
-    question = log.question_json or {}
-    is_correct = _grade(question, body.answer)
-    concept_tag = log.concept_tag
-
-    # 약점 여부는 이번 답안 반영 "이전" 기준으로 판단 (07번 약점 극복 보너스)
-    weak_tag = await xp_service.get_weak_tag(db, user.id, concept_tag)
-    is_weak = xp_service.is_weak_concept(weak_tag)
-
-    # XP 계산 (문항당 1회 제출 → 정답이면 곧 첫 시도 정답 보너스 대상)
-    xp_earned = xp_service.quiz_xp(is_correct, is_first_try=True, is_weak=is_weak)
-
-    # weak_tags 갱신 + 유저 XP 가산 + 로그 확정
-    await xp_service.update_weak_tag(db, user.id, concept_tag, is_correct)
-    db_user = await db.get(User, user.id)
-    if db_user is not None:
-        await xp_service.add_xp(db, db_user, xp_earned)
-
-    log.user_answer = body.answer
-    log.is_correct = is_correct
-    log.elapsed_sec = body.elapsed_sec
-    log.answered_at = datetime.now(timezone.utc)
-    await db.flush()
-
-    # RAG Chain 피드백 (실패 시 ai_client 내부 정적 문구 fallback)
-    today_weather = await get_today_weather()
-    feedback = await ai_client.rag_feedback(
-        question_text=question.get("question_text", ""),
-        user_answer=body.answer,
-        is_correct=is_correct,
-        concept_tag=concept_tag,
-        today_weather=today_weather,
-    )
-
-    return AnswerResult(
-        is_correct=is_correct,
-        correct_answer=str(question.get("correct_answer", "")),
-        feedback=feedback,
-        xp_earned=xp_earned,
-        concept_tag=concept_tag,
-    )
 
 
 @router.get("/history", response_model=list[QuizLogOut])

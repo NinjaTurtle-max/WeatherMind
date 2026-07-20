@@ -1,0 +1,448 @@
+[
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "elementary",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "고기압이 우리나라에 자리 잡으면 하늘은 보통 어떻게 될까요?",
+      "options": [
+        "구름이 적고 맑아진다",
+        "굵은 비가 계속 내린다",
+        "태풍이 만들어진다",
+        "천둥 번개가 자주 친다"
+      ],
+      "correct_answer": "구름이 적고 맑아진다",
+      "explanation_hint": "고기압에서는 공기가 천천히 내려오는 하강기류가 생겨 구름이 잘 만들어지지 않아요. 그래서 일기예보에서 '고기압의 영향으로 맑겠습니다'라고 말해요."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-2"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "한랭전선이 지나갈 때 나타나는 비의 특징으로 옳은 것은?",
+      "options": [
+        "좁은 지역에 강한 비가 짧게 내린다",
+        "넓은 지역에 약한 비가 오래 내린다",
+        "비가 전혀 내리지 않고 맑기만 하다",
+        "전국에 똑같은 양의 비가 일주일 내내 내린다"
+      ],
+      "correct_answer": "좁은 지역에 강한 비가 짧게 내린다",
+      "explanation_hint": "한랭전선은 찬 공기가 따뜻한 공기를 급하게 밀어올려 좁은 지역에 강한 비를 내립니다. 넓은 지역에 약한 비를 오래 내리는 것은 온난전선입니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "성질이 다른 두 기단이 만나는 경계면을 무엇이라고 하는가?",
+      "correct_answer": "전선",
+      "explanation_hint": "전선은 성질이 다른 두 기단이 만나는 경계면으로, 한랭전선과 온난전선이 대표적입니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "elementary",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 하늘은 '{today.sky}', 비 올 확률은 {today.rain_prob}%예요. 만약 저기압이 우리 동네로 다가온다면 비 올 확률은 보통 어떻게 될까요?",
+      "options": [
+        "높아진다",
+        "낮아진다",
+        "항상 0%가 된다",
+        "기압과 비는 아무 관계가 없다"
+      ],
+      "correct_answer": "높아진다",
+      "explanation_hint": "저기압에서는 공기가 모여 상승기류가 생기고, 올라간 공기가 식으면서 구름이 만들어져 비가 내리기 쉬워요."
+    },
+    "uses_live_slots": true,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "middle_high",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "태풍이 세력을 키우는 에너지원으로 가장 알맞은 것은?",
+      "options": [
+        "따뜻한 바다에서 증발한 수증기가 응결하며 내놓는 열",
+        "육지의 뜨거운 아스팔트에서 올라오는 열",
+        "번개가 칠 때 생기는 전기 에너지",
+        "달의 인력으로 생기는 밀물과 썰물"
+      ],
+      "correct_answer": "따뜻한 바다에서 증발한 수증기가 응결하며 내놓는 열",
+      "explanation_hint": "태풍은 따뜻한 바닷물에서 증발한 수증기가 응결하면서 내놓는 열을 에너지원으로 삼습니다. 그래서 육지에 상륙하면 수증기 공급이 줄어 세력이 급격히 약해집니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: typhoon-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "elementary",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "태풍은 주로 어디에서 만들어질까요?",
+      "options": [
+        "따뜻한 열대 바다 위",
+        "차가운 극지방 바다 위",
+        "비가 오지 않는 사막 위",
+        "눈 덮인 높은 산꼭대기"
+      ],
+      "correct_answer": "따뜻한 열대 바다 위",
+      "explanation_hint": "태풍은 북태평양 서쪽의 따뜻한 열대 바다에서 만들어지는 강한 열대 저기압이에요."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: typhoon-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "elementary",
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "태풍의 한가운데에 있는, 바람이 약하고 하늘이 맑기도 한 곳을 무엇이라고 부를까요?",
+      "correct_answer": "태풍의 눈",
+      "explanation_hint": "태풍의 눈은 바람이 약하고 맑기도 하지만, 그 주변은 가장 강한 바람과 비가 몰아치는 곳이라 끝까지 조심해야 해요."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: typhoon-2"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "middle_high",
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "열대 저기압은 중심 부근 최대 풍속이 초속 몇 m 이상일 때 태풍으로 분류되는가? (단위: m/s)",
+      "correct_answer": "17",
+      "explanation_hint": "중심 부근 최대 풍속이 17m/s 이상인 열대 저기압을 태풍이라고 부릅니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: typhoon-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "elementary",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 비 올 확률은 {today.rain_prob}%예요. 태풍이 우리 동네 가까이 다가오면 비와 바람은 보통 어떻게 될까요?",
+      "options": [
+        "훨씬 더 강해진다",
+        "훨씬 더 약해진다",
+        "비와 바람이 완전히 사라진다",
+        "태풍은 날씨에 아무 영향을 주지 않는다"
+      ],
+      "correct_answer": "훨씬 더 강해진다",
+      "explanation_hint": "태풍은 중심으로 갈수록 기압이 낮고 바람이 강해지며, 많은 비와 강한 바람을 몰고 와요."
+    },
+    "uses_live_slots": true,
+    "source": {"kind": "seed", "refs": ["climate_concepts: typhoon-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "겨울철 우리나라에 차고 건조한 날씨를 가져오는 기단은?",
+      "options": [
+        "시베리아 기단",
+        "북태평양 기단",
+        "오호츠크해 기단",
+        "양쯔강 기단"
+      ],
+      "correct_answer": "시베리아 기단",
+      "explanation_hint": "겨울에는 차고 건조한 시베리아 기단, 여름에는 덥고 습한 북태평양 기단이 우리나라 날씨를 지배합니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: air_mass-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "elementary",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "여름에 우리나라가 덥고 끈적끈적한 까닭은 무엇일까요?",
+      "options": [
+        "남쪽 바다에서 덥고 습한 공기 덩어리가 올라와서",
+        "북쪽에서 차갑고 건조한 공기 덩어리가 내려와서",
+        "여름에는 태양이 지구에서 멀어져서",
+        "여름에 바닷물이 모두 차가워져서"
+      ],
+      "correct_answer": "남쪽 바다에서 덥고 습한 공기 덩어리가 올라와서",
+      "explanation_hint": "여름에는 남쪽 바다에서 온 덥고 습한 공기 덩어리(북태평양 기단)가 올라와 덥고 끈적끈적해져요."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: air_mass-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "초여름 우리나라에 영향을 주며 차고 습한 성질을 가진 기단의 이름을 쓰시오.",
+      "correct_answer": "오호츠크해 기단",
+      "explanation_hint": "초여름에는 차고 습한 오호츠크해 기단이 우리나라에 영향을 줍니다. 시베리아 기단(겨울), 북태평양 기단(여름), 양쯔강 기단(봄·가을)과 구분해 두세요."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: air_mass-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "{today.region}의 내일 날씨를 예상하려고 합니다. 우리나라 날씨가 대체로 이동해 오는 방향은 어느 쪽인가?",
+      "options": [
+        "서쪽에서 동쪽으로",
+        "동쪽에서 서쪽으로",
+        "남쪽에서 북쪽으로만",
+        "이동 방향에는 아무 규칙이 없다"
+      ],
+      "correct_answer": "서쪽에서 동쪽으로",
+      "explanation_hint": "우리나라는 중위도 편서풍대에 위치해 날씨가 대체로 서쪽에서 동쪽으로 이동합니다. 그래서 중국 쪽 기압계를 보면 하루 이틀 뒤 날씨를 예상할 수 있습니다."
+    },
+    "uses_live_slots": true,
+    "source": {"kind": "seed", "refs": ["climate_concepts: air_mass-2"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "elementary",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "도시가 시골보다 더 더운 가장 큰 까닭은 무엇일까요?",
+      "options": [
+        "아스팔트와 콘크리트가 낮 동안 열을 저장했다가 내보내서",
+        "도시에는 해가 더 오래 떠 있어서",
+        "시골에는 바람이 전혀 불지 않아서",
+        "도시의 공기가 원래 더 무거워서"
+      ],
+      "correct_answer": "아스팔트와 콘크리트가 낮 동안 열을 저장했다가 내보내서",
+      "explanation_hint": "아스팔트와 콘크리트는 낮 동안 햇빛의 열을 저장했다가 밤에 내보내요. 자동차와 에어컨에서 나오는 열도 도시를 더 덥게 만들어요. 이것이 도시 열섬 현상이에요."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: heat_island-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "middle_high",
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "밤 최저기온이 몇 ℃ 아래로 내려가지 않을 때 '열대야'라고 하는가? (단위: ℃)",
+      "correct_answer": "25",
+      "explanation_hint": "밤 최저기온이 25℃ 아래로 내려가지 않는 밤을 열대야라고 하며, 잘 식지 않는 도시에서 더 자주 발생합니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: heat_island-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "middle_high",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "열대야가 시골보다 도시에서 더 자주 나타나는 이유로 가장 알맞은 것은?",
+      "options": [
+        "도시는 밤에도 잘 식지 않아 기온이 높게 유지되기 때문",
+        "도시 상공에서만 해가 지지 않기 때문",
+        "시골의 밤 기온은 여름에도 항상 영하로 떨어지기 때문",
+        "도시에는 수증기가 전혀 없기 때문"
+      ],
+      "correct_answer": "도시는 밤에도 잘 식지 않아 기온이 높게 유지되기 때문",
+      "explanation_hint": "열섬 현상으로 도심 기온은 교외보다 2~5℃가량 높게 나타나기도 하고, 건물이 빽빽해 바람이 잘 통하지 않아 밤에도 열이 빠져나가기 어렵습니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: heat_island-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "elementary",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도였어요. 밤이 되어도 기온이 잘 내려가지 않는 곳은 어디일까요?",
+      "options": [
+        "아스팔트와 건물이 많은 도시 한가운데",
+        "나무와 흙이 많은 시골 들판",
+        "도시와 시골의 밤 기온은 언제나 똑같다",
+        "밤에는 어느 곳이든 기온이 내려가지 않는다"
+      ],
+      "correct_answer": "아스팔트와 건물이 많은 도시 한가운데",
+      "explanation_hint": "아스팔트와 콘크리트는 낮에 저장한 열을 밤에 내보내서, 도시는 밤에도 잘 식지 않아요. 이것이 도시 열섬 현상이에요."
+    },
+    "uses_live_slots": true,
+    "source": {"kind": "seed", "refs": ["climate_concepts: heat_island-0", "climate_concepts: heat_island-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "elementary",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "지구를 알맞은 온도로 지켜 주는 '온실효과'를 가장 잘 비유한 것은 무엇일까요?",
+      "options": [
+        "지구를 따뜻하게 감싸 주는 담요",
+        "지구를 차갑게 식혀 주는 얼음",
+        "지구를 밝게 비추는 손전등",
+        "지구를 빙글빙글 돌리는 팽이"
+      ],
+      "correct_answer": "지구를 따뜻하게 감싸 주는 담요",
+      "explanation_hint": "공기 속의 온실가스는 담요처럼 지구를 따뜻하게 감싸 줘요. 하지만 이산화탄소가 너무 많아지면 담요가 두꺼워진 것처럼 지구가 점점 더워져요."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: co2_climate-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "middle_high",
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "산업화 이전 약 280ppm이던 대기 중 이산화탄소 농도는 현재 420ppm을 넘었다. 산업화 이전과 비교해 약 몇 % 증가했는가?",
+      "correct_answer": "50",
+      "explanation_hint": "280ppm에서 420ppm으로 약 140ppm, 즉 약 50% 증가했습니다. 화석연료를 태우는 발전·교통과 숲의 파괴가 주요 원인입니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: co2_climate-2"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "middle_high",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "산업화 이후 대기 중 이산화탄소 농도가 크게 증가한 주요 원인으로 옳은 것은?",
+      "options": [
+        "화석연료의 연소와 숲의 파괴",
+        "화산 폭발 횟수의 감소",
+        "바닷물 증발량의 감소",
+        "지구 자전 속도의 변화"
+      ],
+      "correct_answer": "화석연료의 연소와 숲의 파괴",
+      "explanation_hint": "석탄·석유 같은 화석연료를 태우는 발전과 교통, 그리고 숲의 파괴가 주요 원인입니다. 이산화탄소는 한번 배출되면 대기에 수백 년 머물 수 있습니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: co2_climate-2"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "지구가 방출하는 적외선을 흡수해 대기 온도를 높이는 대표적인 온실가스는 무엇인가?",
+      "correct_answer": "이산화탄소",
+      "explanation_hint": "이산화탄소(CO₂)는 지구가 방출하는 적외선을 흡수해 대기 온도를 높이는 대표적인 온실가스로, 산업화 이후 농도가 크게 증가했습니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: co2_climate-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "middle_high",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "'이상기후'에 대한 설명으로 옳은 것은?",
+      "options": [
+        "기온·강수량 등이 평년(최근 30년 평균) 범위를 크게 벗어나는 현상",
+        "매일 날씨가 조금씩 달라지는 자연스러운 변화",
+        "계절이 봄, 여름, 가을, 겨울 순서로 바뀌는 것",
+        "하루 중 아침과 한낮의 기온이 서로 다른 현상"
+      ],
+      "correct_answer": "기온·강수량 등이 평년(최근 30년 평균) 범위를 크게 벗어나는 현상",
+      "explanation_hint": "이상기후는 기온이나 강수량 등이 평년(최근 30년 평균) 범위를 크게 벗어나는 현상으로, 기록적인 폭염·한파·극한 호우가 그 예입니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: anomaly-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "elementary",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "'엘니뇨'는 어떤 현상일까요?",
+      "options": [
+        "적도 근처 동쪽 태평양의 바닷물 온도가 평소보다 높아지는 현상",
+        "북극의 얼음이 겨울마다 두꺼워지는 현상",
+        "사막에서 모래바람이 부는 현상",
+        "달이 지구 그림자에 가려지는 현상"
+      ],
+      "correct_answer": "적도 근처 동쪽 태평양의 바닷물 온도가 평소보다 높아지는 현상",
+      "explanation_hint": "엘니뇨가 생기면 지구 곳곳의 날씨가 크게 달라져서 어떤 곳은 홍수, 어떤 곳은 가뭄이 들어요. 바다와 하늘의 날씨가 서로 연결되어 있다는 것을 보여 줘요."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: anomaly-2"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "기온이 1℃ 오를 때마다 공기가 머금을 수 있는 수증기의 양은 약 몇 % 늘어나는가?",
+      "correct_answer": "7",
+      "explanation_hint": "공기는 기온이 1℃ 오를 때마다 수증기를 약 7% 더 머금을 수 있어, 따뜻해진 대기는 한 번에 더 많은 비를 쏟아내는 집중호우를 만들기 쉽습니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: anomaly-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "middle_high",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도다. 이 기온이 '이상고온'인지 판단하려면 무엇과 비교해야 하는가?",
+      "options": [
+        "최근 30년 평균인 평년값",
+        "어제 하루의 기온",
+        "이웃 도시의 오늘 기온",
+        "내일의 비 올 확률"
+      ],
+      "correct_answer": "최근 30년 평균인 평년값",
+      "explanation_hint": "이상기후는 평년(최근 30년 평균) 범위를 크게 벗어나는 현상이므로, 하루의 기온이 이상한지 판단하려면 평년값과 비교해야 합니다."
+    },
+    "uses_live_slots": true,
+    "source": {"kind": "seed", "refs": ["climate_concepts: anomaly-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "elementary",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도였어요. 하루하루의 '날씨'와 달리 '기후'는 무엇을 말할까요?",
+      "options": [
+        "아주 오랜 기간(약 30년) 날씨의 평균적인 모습",
+        "오늘 하루 하늘의 상태",
+        "지금 이 순간의 바람 세기",
+        "내일 아침의 기온"
+      ],
+      "correct_answer": "아주 오랜 기간(약 30년) 날씨의 평균적인 모습",
+      "explanation_hint": "날씨는 그날그날 변하지만, 기후는 최근 30년처럼 오랜 기간 날씨의 평균적인 모습이에요. 그래서 '평년'과 비교해 이상기후인지 판단해요."
+    },
+    "uses_live_slots": true,
+    "source": {"kind": "seed", "refs": ["climate_concepts: anomaly-0"]},
+    "status": "active"
+  }
+]

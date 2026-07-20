@@ -5,7 +5,7 @@ import { NavLink } from 'react-router-dom';
  * detective 모듈은 이번 라운드 제외(Phase 3)라 탭에 노출하지 않는다.
  */
 const TABS = [
-  { to: '/', label: '오늘의 퀴즈', icon: '🌤️', end: true },
+  { to: '/', label: '오늘의 세션', icon: '🌤️', end: true },
   { to: '/simulator', label: '시뮬레이터', icon: '🌡️' },
   { to: '/league', label: '기상 리그', icon: '🏆' },
 ];

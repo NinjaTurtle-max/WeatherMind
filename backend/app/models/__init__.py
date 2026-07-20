@@ -4,5 +4,16 @@ from app.models.quiz_log import QuizLog
 from app.models.weak_tag import WeakTag
 from app.models.attendance import Attendance
 from app.models.league_result import LeagueResult
+from app.models.content_item import ContentItem
+from app.models.session import Session
 
-__all__ = ["Base", "User", "QuizLog", "WeakTag", "Attendance", "LeagueResult"]
+__all__ = [
+    "Base",
+    "User",
+    "QuizLog",
+    "WeakTag",
+    "Attendance",
+    "LeagueResult",
+    "ContentItem",
+    "Session",
+]

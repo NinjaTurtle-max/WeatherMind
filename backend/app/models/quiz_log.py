@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -27,6 +27,7 @@ class QuizLog(Base):
             name="ck_quiz_logs_question_type",
         ),
         Index("idx_quiz_logs_user_concept", "user_id", "concept_tag"),
+        Index("idx_quiz_logs_session", "session_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -34,6 +35,13 @@ class QuizLog(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    # 세션 발급 문항이면 소속 세션, 뱅크 출제 문항이면 원본 문항 (R2-01 §3.7, 기존 행은 NULL)
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sessions.id"), nullable=True
+    )
+    content_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("content_items.id"), nullable=True
     )
     quiz_id: Mapped[str] = mapped_column(String(50), nullable=False)
     concept_tag: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -47,3 +55,4 @@ class QuizLog(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="quiz_logs")  # noqa: F821
+    session: Mapped[Optional["Session"]] = relationship(back_populates="quiz_logs")  # noqa: F821

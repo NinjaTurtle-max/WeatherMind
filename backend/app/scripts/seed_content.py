@@ -1,0 +1,177 @@
+"""content_items 시드 적재 스크립트 — 스프린트 R2-01 §3.3 (S8 산출물의 백엔드 적재).
+
+database/seed/content_items.json을 읽어 §3.3 스키마를 검증한 뒤 content_items에
+멱등 upsert 한다. 멱등 기준: (concept_tag, template_json->>'question_text')가
+같은 행이 있으면 갱신, 없으면 삽입 — 재실행해도 중복이 생기지 않는다.
+
+파일이 아직 없으면(데이터 담당이 병렬 저작 중) 안내 후 정상 종료한다.
+
+실행 (backend/ 디렉토리에서):
+    python -m app.scripts.seed_content [경로 생략 시 database/seed/content_items.json]
+"""
+import asyncio
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+from sqlalchemy import select
+
+from app.core.database import async_session, engine
+from app.models.content_item import ContentItem
+
+# 저장소 루트 기준 기본 시드 경로 (backend/app/scripts/ → 3단계 상위)
+DEFAULT_SEED_PATH = (
+    Path(__file__).resolve().parents[3] / "database" / "seed" / "content_items.json"
+)
+
+# DEVELOPMENT_PLAN §1 표준: concept_tag 6종 / level_group 3종 / question_type 3종
+ALLOWED_CONCEPT_TAGS = {
+    "pressure_front",
+    "typhoon",
+    "air_mass",
+    "heat_island",
+    "co2_climate",
+    "anomaly",
+}
+ALLOWED_LEVEL_GROUPS = {"elementary", "middle_high", "adult"}
+ALLOWED_QUESTION_TYPES = {"multiple_choice", "short_answer", "slider"}
+ALLOWED_STATUSES = {"draft", "active", "retired"}
+
+
+def validate_entry(entry: dict[str, Any], index: int) -> list[str]:
+    """§3.3 스키마 검증 (순수 함수). 반환: 위반 사유 목록 (비면 통과)."""
+    errors: list[str] = []
+    prefix = f"[{index}]"
+
+    concept_tag = entry.get("concept_tag")
+    if concept_tag not in ALLOWED_CONCEPT_TAGS:
+        errors.append(f"{prefix} concept_tag 불허: {concept_tag!r}")
+    if entry.get("level_group") not in ALLOWED_LEVEL_GROUPS:
+        errors.append(f"{prefix} level_group 불허: {entry.get('level_group')!r}")
+    question_type = entry.get("question_type")
+    if question_type not in ALLOWED_QUESTION_TYPES:
+        errors.append(f"{prefix} question_type 불허: {question_type!r}")
+    if entry.get("status", "active") not in ALLOWED_STATUSES:
+        errors.append(f"{prefix} status 불허: {entry.get('status')!r}")
+
+    template = entry.get("template_json")
+    if not isinstance(template, dict):
+        errors.append(f"{prefix} template_json 누락 또는 형식 오류")
+        return errors
+
+    question_text = template.get("question_text")
+    if not isinstance(question_text, str) or not question_text.strip():
+        errors.append(f"{prefix} template_json.question_text 누락")
+
+    correct = template.get("correct_answer")
+    if correct is None or str(correct).strip() == "":
+        errors.append(f"{prefix} template_json.correct_answer 누락")
+
+    if question_type == "multiple_choice":
+        options = template.get("options")
+        if not isinstance(options, list) or len(options) != 4:
+            errors.append(f"{prefix} multiple_choice options는 4개여야 함")
+        elif len(set(options)) != len(options):
+            errors.append(f"{prefix} options 중복 금지")
+        elif correct not in options:
+            errors.append(f"{prefix} correct_answer가 options에 없음")
+
+    if question_type == "slider" and correct is not None:
+        try:
+            value = float(str(correct))
+            if not 0 <= value <= 100:
+                errors.append(f"{prefix} slider 정답은 0~100 범위여야 함: {correct!r}")
+        except ValueError:
+            errors.append(f"{prefix} slider 정답이 숫자가 아님: {correct!r}")
+
+    return errors
+
+
+async def upsert_entries(entries: list[dict[str, Any]]) -> tuple[int, int]:
+    """검증 통과분을 멱등 upsert. 반환: (inserted, updated)."""
+    inserted = updated = 0
+    async with async_session() as session:
+        async with session.begin():
+            for entry in entries:
+                question_text = entry["template_json"]["question_text"]
+                existing = (
+                    await session.execute(
+                        select(ContentItem).where(
+                            ContentItem.concept_tag == entry["concept_tag"],
+                            ContentItem.template_json["question_text"].astext
+                            == question_text,
+                        )
+                    )
+                ).scalar_one_or_none()
+
+                if existing is not None:
+                    existing.level_group = entry["level_group"]
+                    existing.question_type = entry["question_type"]
+                    existing.template_json = entry["template_json"]
+                    existing.uses_live_slots = bool(entry.get("uses_live_slots", False))
+                    existing.source = entry.get("source")
+                    existing.status = entry.get("status", "active")
+                    updated += 1
+                else:
+                    session.add(
+                        ContentItem(
+                            concept_tag=entry["concept_tag"],
+                            level_group=entry["level_group"],
+                            question_type=entry["question_type"],
+                            template_json=entry["template_json"],
+                            uses_live_slots=bool(entry.get("uses_live_slots", False)),
+                            source=entry.get("source"),
+                            # 시드는 사람 저작 — 기본 active (§3.3)
+                            status=entry.get("status", "active"),
+                        )
+                    )
+                    inserted += 1
+    return inserted, updated
+
+
+async def run(seed_path: Path) -> int:
+    if not seed_path.exists():
+        print(
+            f"[seed_content] 시드 파일이 아직 없습니다: {seed_path}\n"
+            "데이터 담당(S8)이 database/seed/content_items.json을 저작하면 "
+            "이 스크립트를 다시 실행하세요. (아무 것도 적재하지 않고 종료합니다)"
+        )
+        return 0
+
+    try:
+        raw = json.loads(seed_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"[seed_content] JSON 파싱 실패: {exc}")
+        return 1
+    if not isinstance(raw, list):
+        print("[seed_content] 최상위는 배열이어야 합니다 (§3.3)")
+        return 1
+
+    valid: list[dict[str, Any]] = []
+    skipped = 0
+    for index, entry in enumerate(raw):
+        errors = validate_entry(entry, index)
+        if errors:
+            skipped += 1
+            for error in errors:
+                print(f"[seed_content] 스킵 {error}")
+        else:
+            valid.append(entry)
+
+    inserted, updated = await upsert_entries(valid)
+    await engine.dispose()
+    print(
+        f"[seed_content] 완료 — 삽입 {inserted} / 갱신 {updated} / 스킵 {skipped} "
+        f"(총 {len(raw)}건, 파일: {seed_path})"
+    )
+    return 0
+
+
+def main() -> None:
+    seed_path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_SEED_PATH
+    sys.exit(asyncio.run(run(seed_path)))
+
+
+if __name__ == "__main__":
+    main()

@@ -7,16 +7,18 @@
 
 refresh token은 Redis session:{user_id}에 7일 TTL로 저장 (08번 스펙).
 로그아웃 시 세션 삭제 → 이후 모든 access token 무효화.
+레이트리밋 (R2-01 §3.6): login·register 5회/분/IP.
 """
 import uuid
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.dependencies import get_current_user, get_db
+from app.core.rate_limit import LIMIT_AUTH, limiter
 from app.core.redis import get_redis
 from app.core.security import (
     JWTError,
@@ -51,8 +53,9 @@ async def _store_session(user_id: uuid.UUID, refresh_token: str) -> None:
 @router.post(
     "/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED
 )
+@limiter.limit(LIMIT_AUTH)
 async def register(
-    body: RegisterRequest, db: AsyncSession = Depends(get_db)
+    request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)
 ) -> RegisterResponse:
     exists = await db.execute(select(User.id).where(User.email == body.email))
     if exists.scalar_one_or_none() is not None:
@@ -82,7 +85,10 @@ async def register(
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)) -> LoginResponse:
+@limiter.limit(LIMIT_AUTH)
+async def login(
+    request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)
+) -> LoginResponse:
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if user is None or not verify_password(body.password, user.password_hash):
