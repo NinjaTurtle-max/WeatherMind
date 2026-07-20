@@ -33,6 +33,13 @@ export default function LoginPage() {
     }
   };
 
+  const handleGuestLogin = (e) => {
+    e.preventDefault();
+    setTokens({ accessToken: 'guest_access_token', refreshToken: 'guest_refresh_token' });
+    setUser({ email: 'guest@weathermind.ai' });
+    navigate('/', { replace: true });
+  };
+
   return (
     <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6 py-10">
       <div className="mb-8 text-center">
@@ -80,6 +87,13 @@ export default function LoginPage() {
           className="mt-2 rounded-xl bg-sky-600 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:opacity-50"
         >
           {submitting ? '로그인 중...' : '로그인'}
+        </button>
+        <button
+          type="button"
+          onClick={handleGuestLogin}
+          className="mt-2 rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
+        >
+          🚀 게스트(테스트) 계정으로 바로 시작하기
         </button>
       </form>
 
