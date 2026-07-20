@@ -32,6 +32,8 @@ XP_DAILY_ATTENDANCE = 5
 XP_STREAK_7_BONUS = 50
 XP_DETECTIVE_SOLVE = 30
 XP_LEAGUE_TOP10 = 40
+# 대기 보드 퍼즐 최초 클리어 보상 (스프린트 R3-01 §3.5, 재도전 0)
+XP_BOARD_CLEAR = 5
 
 # 약점 개념 정답 보너스 배율 / 임계값
 WEAK_TAG_XP_MULTIPLIER = 1.5

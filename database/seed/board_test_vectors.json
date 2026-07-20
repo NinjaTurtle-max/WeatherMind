@@ -1,0 +1,164 @@
+[
+  {
+    "name": "cold_front_shower: 한랭전선+고습으로 수도권 소나기",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "front", "subtype": "cold", "zone": 1},
+        {"type": "moisture", "level": 75, "zone": 1}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "shower", "cloud": "cumulonimbus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "warm_front_steady_rain: 온난전선+습기로 수도권 약한 비",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "front", "subtype": "warm", "zone": 1},
+        {"type": "moisture", "level": 60, "zone": 1}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "rain", "cloud": "nimbostratus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "stationary_front_monsoon: 정체전선+고습으로 서해 장마",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "front", "subtype": "stationary", "zone": 0},
+        {"type": "moisture", "level": 85, "zone": 0}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "persistent_rain", "cloud": "nimbostratus"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "convective_shower: 전선 없이 강한 일사+습기로 태백산맥 소나기",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "sun", "level": 90, "zone": 2},
+        {"type": "moisture", "level": 70, "zone": 2}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "shower", "cloud": "cumulonimbus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "radiation_fog: 약한 일사+고습으로 동해안 복사안개",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "sun", "level": 20, "zone": 3},
+        {"type": "moisture", "level": 85, "zone": 3}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "fog", "cloud": "stratus"}
+    ]
+  },
+  {
+    "name": "north_pacific_heatwave: 북태평양 기단+강한 일사로 서해 폭염",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 0},
+        {"type": "sun", "level": 85, "zone": 0}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "heatwave", "cloud": "none"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "siberian_snow: 시베리아 기단+습기(변질)로 서해 눈",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "siberian", "zone": 0},
+        {"type": "moisture", "level": 70, "zone": 0}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "snow", "cloud": "nimbostratus"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "siberian_clear: 시베리아 기단+건조로 동해안 맑음",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "siberian", "zone": 3},
+        {"type": "moisture", "level": 20, "zone": 3},
+        {"type": "sun", "level": 60, "zone": 3}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "clear", "cloud": "none"}
+    ]
+  },
+  {
+    "name": "default_no_rule: 어떤 규칙도 성립하지 않으면 기본값(온난전선이지만 습기 부족)",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "front", "subtype": "warm", "zone": 1},
+        {"type": "moisture", "level": 45, "zone": 1}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "priority_conflict: 한랭전선(100)과 대류(60)가 함께 성립 → 한랭전선 우선",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "front", "subtype": "cold", "zone": 1},
+        {"type": "moisture", "level": 80, "zone": 1},
+        {"type": "sun", "level": 90, "zone": 1}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "shower", "cloud": "cumulonimbus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  }
+]

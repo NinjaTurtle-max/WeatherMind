@@ -1,5 +1,5 @@
 {
-  "_comment": "품질 게이트(§3.4) 1단 휴리스틱 골든셋 v1 (2026-07-19). expect_failed_checks는 반드시 실패해야 하는 체크 name 목록.",
+  "_comment": "품질 게이트 1단 휴리스틱 골든셋 v2 (2026-07-20, R3-S8). v1(§3.4-R2) 9건 유지 + §3.7-R3 신규 4유형 정상 4건·위반 8건 추가. expect_failed_checks는 반드시 실패해야 하는 체크 name 목록.",
   "cases": [
     {
       "id": "ok_multiple_choice",
@@ -46,6 +46,85 @@
         },
         "concept_tag": "co2_climate",
         "level_group": "adult"
+      }
+    },
+    {
+      "id": "ok_board_guided",
+      "description": "정상 보드(guided) — §3.3: correct_answer 빈 문자열 허용, locked 요소 포함 initial_state 유효",
+      "expect_passed": true,
+      "expect_failed_checks": [],
+      "request": {
+        "question": {
+          "question_text": "수도권에 소나기를 내려 보세요",
+          "question_type": "board",
+          "correct_answer": "",
+          "mode": "guided",
+          "guide_steps": ["한랭전선을 수도권에 놓아 보세요", "습기를 60 이상으로 올려 보세요"],
+          "initial_state": {
+            "zones": ["서해", "수도권", "태백산맥", "동해안"],
+            "elements": [
+              {"type": "moisture", "level": 70, "zone": 1, "locked": true},
+              {"type": "sun", "level": 50, "zone": 1}
+            ]
+          },
+          "palette": ["front:cold", "moisture"],
+          "goal_conditions": [{"zone": 1, "phenomenon": "shower"}],
+          "hints": ["비가 오려면 공기 중에 무엇이 충분해야 할까요?", "차가운 공기가 파고들면 강한 상승기류가 생겨요"]
+        },
+        "concept_tag": "pressure_front",
+        "level_group": "elementary"
+      }
+    },
+    {
+      "id": "ok_match",
+      "description": "정상 짝맞추기 — pairs 3쌍, left/right 중복 없음",
+      "expect_passed": true,
+      "expect_failed_checks": [],
+      "request": {
+        "question": {
+          "question_text": "구름의 종류와 그 특징을 알맞게 연결해 보세요",
+          "question_type": "match",
+          "pairs": [
+            {"left": "적란운", "right": "소나기와 천둥번개를 몰고 온다"},
+            {"left": "층운", "right": "안개처럼 하늘을 낮게 덮는다"},
+            {"left": "권운", "right": "높은 하늘에 새털처럼 떠 있다"}
+          ],
+          "correct_answer": "적란운:소나기와 천둥번개를 몰고 온다|층운:안개처럼 하늘을 낮게 덮는다|권운:높은 하늘에 새털처럼 떠 있다"
+        },
+        "concept_tag": "cloud_types",
+        "level_group": "elementary"
+      }
+    },
+    {
+      "id": "ok_ordering",
+      "description": "정상 순서 배열 — items 4개(정답 순서 저작), 중복 없음",
+      "expect_passed": true,
+      "expect_failed_checks": [],
+      "request": {
+        "question": {
+          "question_text": "비가 만들어지는 과정을 순서대로 배열해 보세요",
+          "question_type": "ordering",
+          "items": ["바다와 땅에서 수증기가 증발한다", "공기가 상승하며 차가워진다", "수증기가 응결해 구름이 된다", "물방울이 커져 비로 내린다"],
+          "shuffled": true,
+          "correct_answer": "0,1,2,3"
+        },
+        "concept_tag": "water_cycle",
+        "level_group": "elementary"
+      }
+    },
+    {
+      "id": "ok_cloze",
+      "description": "정상 빈칸 채우기 — question_text에 '___' 정확히 1곳",
+      "expect_passed": true,
+      "expect_failed_checks": [],
+      "request": {
+        "question": {
+          "question_text": "차가운 공기가 따뜻한 공기 아래를 파고들며 만들어지는 전선을 ___ 전선이라고 합니다.",
+          "question_type": "cloze",
+          "correct_answer": "한랭"
+        },
+        "concept_tag": "pressure_front",
+        "level_group": "middle_high"
       }
     },
     {
@@ -112,7 +191,7 @@
     },
     {
       "id": "bad_missing_correct_answer",
-      "description": "불량 — correct_answer 필드 누락 (required_fields 위반)",
+      "description": "불량 — correct_answer 필드 누락 (required_fields 위반, board 외 유형은 필수)",
       "expect_passed": false,
       "expect_failed_checks": ["required_fields"],
       "request": {
@@ -138,6 +217,182 @@
         },
         "concept_tag": "anomaly",
         "level_group": "adult"
+      }
+    },
+    {
+      "id": "bad_board_zone_out_of_range",
+      "description": "불량 보드 — initial_state 요소의 zone이 0~3 범위 초과 (board_initial_state 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["board_initial_state"],
+      "request": {
+        "question": {
+          "question_text": "동해안에 눈을 내려 보세요",
+          "question_type": "board",
+          "correct_answer": "",
+          "mode": "goal_only",
+          "initial_state": {
+            "zones": ["서해", "수도권", "태백산맥", "동해안"],
+            "elements": [
+              {"type": "moisture", "level": 80, "zone": 4}
+            ]
+          },
+          "palette": ["air_mass:siberian", "moisture"],
+          "goal_conditions": [{"zone": 3, "phenomenon": "snow"}],
+          "hints": ["시베리아기단이 바다를 건너오면 어떻게 될까요?"]
+        },
+        "concept_tag": "air_mass",
+        "level_group": "middle_high"
+      }
+    },
+    {
+      "id": "bad_board_two_air_masses_in_zone",
+      "description": "불량 보드 — 같은 존에 기단 2개 배치 (§3.1 존당 최대 1, board_initial_state 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["board_initial_state"],
+      "request": {
+        "question": {
+          "question_text": "서해 위 공기를 관찰하며 수도권 날씨를 만들어 보세요",
+          "question_type": "board",
+          "correct_answer": "",
+          "mode": "goal_only",
+          "initial_state": {
+            "zones": ["서해", "수도권", "태백산맥", "동해안"],
+            "elements": [
+              {"type": "air_mass", "subtype": "siberian", "zone": 0},
+              {"type": "air_mass", "subtype": "north_pacific", "zone": 0}
+            ]
+          },
+          "palette": ["front:cold", "moisture"],
+          "goal_conditions": [{"zone": 1, "phenomenon": "shower"}],
+          "hints": ["한 존에는 기단이 하나만 자리 잡아요"]
+        },
+        "concept_tag": "air_mass",
+        "level_group": "middle_high"
+      }
+    },
+    {
+      "id": "bad_board_unknown_phenomenon",
+      "description": "불량 보드 — goal_conditions의 phenomenon이 enum 밖 (board_goal_conditions 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["board_goal_conditions"],
+      "request": {
+        "question": {
+          "question_text": "수도권에 강한 날씨 현상을 만들어 보세요",
+          "question_type": "board",
+          "correct_answer": "",
+          "mode": "goal_only",
+          "initial_state": {
+            "zones": ["서해", "수도권", "태백산맥", "동해안"],
+            "elements": []
+          },
+          "palette": ["front:cold", "moisture", "sun"],
+          "goal_conditions": [{"zone": 1, "phenomenon": "tornado"}],
+          "hints": ["우리 보드가 만들 수 있는 현상인지 생각해 보세요"]
+        },
+        "concept_tag": "pressure_front",
+        "level_group": "adult"
+      }
+    },
+    {
+      "id": "bad_board_guided_without_steps",
+      "description": "불량 보드 — mode=guided인데 guide_steps 없음 (board_guide_steps 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["board_guide_steps"],
+      "request": {
+        "question": {
+          "question_text": "태백산맥 서쪽에 지속성 비를 내려 보세요",
+          "question_type": "board",
+          "correct_answer": "",
+          "mode": "guided",
+          "initial_state": {
+            "zones": ["서해", "수도권", "태백산맥", "동해안"],
+            "elements": [
+              {"type": "moisture", "level": 65, "zone": 1}
+            ]
+          },
+          "palette": ["front:warm"],
+          "goal_conditions": [{"zone": 1, "phenomenon": "persistent_rain"}],
+          "hints": ["온난전선은 완만하게 타고 올라가요"]
+        },
+        "concept_tag": "pressure_front",
+        "level_group": "middle_high"
+      }
+    },
+    {
+      "id": "bad_board_empty_palette",
+      "description": "불량 보드 — palette가 빈 배열 (board_palette 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["board_palette"],
+      "request": {
+        "question": {
+          "question_text": "서해안에 복사안개를 만들어 보세요",
+          "question_type": "board",
+          "correct_answer": "",
+          "mode": "goal_only",
+          "initial_state": {
+            "zones": ["서해", "수도권", "태백산맥", "동해안"],
+            "elements": [
+              {"type": "sun", "level": 20, "zone": 0}
+            ]
+          },
+          "palette": [],
+          "goal_conditions": [{"zone": 0, "phenomenon": "fog"}],
+          "hints": ["안개는 습하고 일사가 약할 때 생겨요"]
+        },
+        "concept_tag": "fog",
+        "level_group": "elementary"
+      }
+    },
+    {
+      "id": "bad_match_duplicate_left",
+      "description": "불량 짝맞추기 — left 항목 중복 (match_pairs 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["match_pairs"],
+      "request": {
+        "question": {
+          "question_text": "우리나라에 영향을 주는 기단과 계절을 연결해 보세요",
+          "question_type": "match",
+          "pairs": [
+            {"left": "시베리아 기단", "right": "겨울철 춥고 건조한 날씨"},
+            {"left": "시베리아 기단", "right": "여름철 덥고 습한 날씨"},
+            {"left": "오호츠크해 기단", "right": "초여름 서늘하고 습한 날씨"}
+          ],
+          "correct_answer": "시베리아 기단:겨울철 춥고 건조한 날씨|시베리아 기단:여름철 덥고 습한 날씨|오호츠크해 기단:초여름 서늘하고 습한 날씨"
+        },
+        "concept_tag": "air_mass",
+        "level_group": "middle_high"
+      }
+    },
+    {
+      "id": "bad_ordering_duplicate_items",
+      "description": "불량 순서 배열 — items 중복 (ordering_items 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["ordering_items"],
+      "request": {
+        "question": {
+          "question_text": "태풍이 발생해 소멸하기까지의 과정을 순서대로 배열해 보세요",
+          "question_type": "ordering",
+          "items": ["따뜻한 바다에서 수증기를 공급받는다", "소용돌이가 강해지며 태풍이 된다", "따뜻한 바다에서 수증기를 공급받는다", "육지에 상륙해 세력이 약해진다"],
+          "shuffled": true,
+          "correct_answer": "0,1,2,3"
+        },
+        "concept_tag": "typhoon",
+        "level_group": "middle_high"
+      }
+    },
+    {
+      "id": "bad_cloze_two_blanks",
+      "description": "불량 빈칸 채우기 — '___'가 2곳 (cloze_blank 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["cloze_blank"],
+      "request": {
+        "question": {
+          "question_text": "여름 장마는 ___ 기단과 오호츠크해 기단 사이의 ___ 전선 때문에 생깁니다.",
+          "question_type": "cloze",
+          "correct_answer": "북태평양"
+        },
+        "concept_tag": "air_mass",
+        "level_group": "middle_high"
       }
     }
   ]

@@ -1,20 +1,29 @@
-"""Validate Chain — 스프린트 R2-01 §3.4 품질 게이트 (스토리 S4).
+"""Validate Chain — 품질 게이트 (R2-01 §3.4 + R3-01 §3.7 확장, 스토리 R3-S8).
 
 생성/저작 문항이 문항 뱅크(content_items)에 들어가기 전에 통과해야 하는
-2단 검증 체인. 요청/응답 계약은 SPRINT_R2_01.md §3.4에 고정되어 있다.
+2단 검증 체인. 요청/응답 계약은 SPRINT_R2_01.md §3.4에 고정되어 있고,
+SPRINT_R3_01.md §3.3·§3.6·§3.7이 신규 4유형(board/match/ordering/cloze)
+검증을 추가한다.
 
 검증 항목 표:
 
 | 단계 | name                  | 대상 question_type | 기준                                              |
 |------|-----------------------|--------------------|---------------------------------------------------|
-| 1단  | required_fields       | 전체               | question_text·question_type·correct_answer 존재, 허용 type, 객관식은 options 존재 |
+| 1단  | required_fields       | 전체               | question_text·question_type·correct_answer 존재(§3.3-R3: board는 correct_answer 면제 — 빈 문자열 허용), 허용 type 7종, 객관식은 options 존재 |
 | 1단  | options_count         | multiple_choice    | options가 정확히 4개                              |
 | 1단  | options_unique        | multiple_choice    | 보기 간 중복 없음                                 |
 | 1단  | answer_in_options     | multiple_choice    | correct_answer가 options에 포함                   |
 | 1단  | slider_range          | slider             | 정답이 0~100 범위의 숫자(숫자 문자열 허용)        |
 | 1단  | question_length       | 전체               | question_text 10~300자                            |
-| 2단  | llm_answer_uniqueness | 전체               | 정답이 유일하게 옳은가 (Gemini 판정)              |
-| 2단  | llm_option_clarity    | 전체               | 보기가 모호하지 않은가 (비객관식은 통과)          |
+| 1단  | board_initial_state   | board              | §3.1 스키마 유효 — 요소 type·subtype enum, 존 0~3, 존당 기단/전선 최대 1, moisture/sun 수치 0~100 |
+| 1단  | board_goal_conditions | board              | 비어있지 않음, 각 항목 zone 0~3·phenomenon이 §3.2 enum 내 |
+| 1단  | board_palette         | board              | palette 비어있지 않음                              |
+| 1단  | board_guide_steps     | board              | mode가 guided 또는 goal_only, guided면 guide_steps 존재 |
+| 1단  | match_pairs           | match              | pairs 3~4쌍, 각 쌍 left/right 존재, left·right 각각 중복 없음 |
+| 1단  | ordering_items        | ordering           | items 3~5개, 중복 없음                             |
+| 1단  | cloze_blank           | cloze              | question_text에 빈칸("___") 정확히 1곳             |
+| 2단  | llm_answer_uniqueness | 기존 3유형         | 정답이 유일하게 옳은가 (Gemini 판정, 신규 4유형은 "해당 없음" 통과) |
+| 2단  | llm_option_clarity    | 기존 3유형         | 보기가 모호하지 않은가 (비객관식·신규 4유형은 통과) |
 | 2단  | llm_concept_match     | 전체               | 문항이 concept_tag 개념에 부합하는가              |
 | 2단  | llm_skipped           | -                  | 2단 미실행 시 대체 표기 (항상 passed=true)        |
 
@@ -47,15 +56,58 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# ── 휴리스틱 기준값 (§3.4 고정 계약) ──────────────────────────────────────
-ALLOWED_QUESTION_TYPES = ("multiple_choice", "short_answer", "slider")
+# ── 휴리스틱 기준값 (§3.4-R2 + §3.7-R3 고정 계약) ─────────────────────────
+ALLOWED_QUESTION_TYPES = (
+    "multiple_choice",
+    "short_answer",
+    "slider",
+    "board",
+    "match",
+    "ordering",
+    "cloze",
+)
+# R3 신규 4유형 — LLM 2단은 concept_match만 적용 (§3.7)
+NEW_R3_QUESTION_TYPES = ("board", "match", "ordering", "cloze")
 OPTION_COUNT = 4
 SLIDER_MIN, SLIDER_MAX = 0, 100
 QUESTION_TEXT_MIN, QUESTION_TEXT_MAX = 10, 300
 
+# ── board 기준값 (§3.1·§3.2·§3.3) ─────────────────────────────────────────
+BOARD_ZONE_MIN, BOARD_ZONE_MAX = 0, 3  # 한반도 단면 4존 (index 0~3 고정)
+BOARD_LEVEL_MIN, BOARD_LEVEL_MAX = 0, 100  # moisture/sun 수치
+BOARD_ELEMENT_SUBTYPES = {
+    "air_mass": ("siberian", "north_pacific", "yangtze", "okhotsk"),
+    "front": ("cold", "warm", "stationary"),
+}
+BOARD_LEVEL_TYPES = ("moisture", "sun")
+# 존당 최대 1개 제약 대상 (§3.1: 존당 기단 최대 1, 전선 최대 1)
+BOARD_PER_ZONE_UNIQUE_TYPES = ("air_mass", "front")
+PHENOMENON_ENUM = (
+    "shower",
+    "rain",
+    "persistent_rain",
+    "snow",
+    "fog",
+    "heatwave",
+    "clear",
+    "cloudy",
+)
+BOARD_MODES = ("guided", "goal_only")
+
+# ── match/ordering/cloze 기준값 (§3.6) ────────────────────────────────────
+MATCH_PAIRS_MIN, MATCH_PAIRS_MAX = 3, 4
+ORDERING_ITEMS_MIN, ORDERING_ITEMS_MAX = 3, 5
+# 빈칸 = 밑줄 3개 이상 연속 1런. "____"(4개)도 빈칸 1곳으로 세어
+# 저작 시 밑줄 개수 흔들림에 관대하되, 빈칸 위치는 정확히 1곳만 허용한다.
+CLOZE_BLANK_PATTERN = re.compile(r"_{3,}")
+
 # ── 2단 LLM System Prompt ─────────────────────────────────────────────────
 # v1 (2026-07-19): 최초 작성 — 정답 유일성·보기 모호성·concept_tag 부합
 #   3항목을 JSON으로 판정. 출력 스키마 강제 문구는 quiz_gen_chain 관례를 따름.
+# v2 (2026-07-20, R3-S8 §3.7): 신규 4유형(board/match/ordering/cloze) 안내 추가.
+#   신규 유형은 concept_match만 실제 판정 대상 — answer_uniqueness·option_clarity는
+#   true로 반환하게 지시하고, 코드에서도 "해당 없음"으로 확정 덮어쓴다(이중 가드).
+#   문항 형식(스키마) 판정은 1단 휴리스틱 소관이므로 LLM에게 요구하지 않는다.
 VALIDATE_SYSTEM_PROMPT = """당신은 대한민국 초·중·고등학생과 일반 성인을 위한 기상·기후 교육 퀴즈의 품질 검수 AI입니다.
 아래 퀴즈 1문항을 검토해 세 가지 항목을 각각 판정하세요.
 
@@ -65,10 +117,14 @@ VALIDATE_SYSTEM_PROMPT = """당신은 대한민국 초·중·고등학생과 일
 2. option_clarity: 보기(options)가 서로 명확히 구분되고 모호하지 않은가
    (객관식이 아니면 true)
 3. concept_match: 문항 내용이 주어진 concept_tag 개념에 부합하는가
+   (board 유형은 question_text·goal_conditions·initial_state가 concept_tag 개념의
+   대기현상 만들기에 부합하는지, match/ordering/cloze는 문항 내용 기준으로 판정)
 
 규칙:
 1. level_group 눈높이(elementary=초등, middle_high=중고등, adult=성인)를 감안해 판정할 것
-2. 출력은 반드시 아래 JSON 스키마만 반환. 다른 설명 텍스트 절대 포함하지 말 것.
+2. question_type이 board·match·ordering·cloze면 concept_match만 실제로 판정하고,
+   answer_uniqueness와 option_clarity는 true로 반환할 것 (형식 검증은 별도 단계 소관)
+3. 출력은 반드시 아래 JSON 스키마만 반환. 다른 설명 텍스트 절대 포함하지 말 것.
 
 출력 스키마:
 {
@@ -117,15 +173,19 @@ def run_heuristic_checks(question: dict) -> list[dict]:
     correct_answer = question.get("correct_answer")
     is_mc = question_type == "multiple_choice"
     is_slider = question_type == "slider"
+    is_board = question_type == "board"
 
-    # 1. required_fields — 필수 필드 존재 + question_type 허용값
+    # 1. required_fields — 필수 필드 존재 + question_type 허용값(7종).
+    #    §3.3-R3: board는 correct_answer 미사용(빈 문자열 허용)이므로 필수 검사 면제.
+    required_pairs = [
+        ("question_text", question_text),
+        ("question_type", question_type),
+    ]
+    if not is_board:
+        required_pairs.append(("correct_answer", correct_answer))
     missing = [
         key
-        for key, value in (
-            ("question_text", question_text),
-            ("question_type", question_type),
-            ("correct_answer", correct_answer),
-        )
+        for key, value in required_pairs
         if value is None or (isinstance(value, str) and not value.strip())
     ]
     if is_mc and not options:
@@ -256,10 +316,301 @@ def run_heuristic_checks(question: dict) -> list[dict]:
                 )
             )
 
+    # ── R3-S8 §3.7 신규 4유형 체크 (7~13) ─────────────────────────────────
+    # 기존과 동일 원칙: 해당 없는 유형은 passed=true("해당 없음")로 포함해
+    # 배열 구성을 결정적으로 유지한다.
+    not_applicable = f"해당 없음 (question_type={question_type})"
+
+    # 7. board_initial_state — §3.1 스키마 유효
+    if not is_board:
+        checks.append(_check("board_initial_state", True, not_applicable))
+    else:
+        errors = _board_initial_state_errors(question.get("initial_state"))
+        if errors:
+            checks.append(
+                _check("board_initial_state", False, "; ".join(errors))
+            )
+        else:
+            checks.append(
+                _check("board_initial_state", True, "initial_state §3.1 스키마 유효")
+            )
+
+    # 8. board_goal_conditions — 비어있지 않고 zone 0~3·phenomenon enum 내
+    if not is_board:
+        checks.append(_check("board_goal_conditions", True, not_applicable))
+    else:
+        goals = question.get("goal_conditions")
+        if not isinstance(goals, list) or not goals:
+            checks.append(
+                _check(
+                    "board_goal_conditions",
+                    False,
+                    "goal_conditions가 비어 있거나 리스트가 아님",
+                )
+            )
+        else:
+            errors = []
+            for i, goal in enumerate(goals):
+                if not isinstance(goal, dict):
+                    errors.append(f"goal_conditions[{i}]이(가) 객체가 아님")
+                    continue
+                zone = goal.get("zone")
+                if not _is_int(zone) or not (BOARD_ZONE_MIN <= zone <= BOARD_ZONE_MAX):
+                    errors.append(
+                        f"goal_conditions[{i}] zone이 {BOARD_ZONE_MIN}~{BOARD_ZONE_MAX}"
+                        f" 범위의 정수가 아님: {zone}"
+                    )
+                phenomenon = goal.get("phenomenon")
+                if phenomenon not in PHENOMENON_ENUM:
+                    errors.append(
+                        f"goal_conditions[{i}] phenomenon이 enum"
+                        f"({', '.join(PHENOMENON_ENUM)}) 밖: {phenomenon}"
+                    )
+            if errors:
+                checks.append(_check("board_goal_conditions", False, "; ".join(errors)))
+            else:
+                checks.append(
+                    _check(
+                        "board_goal_conditions",
+                        True,
+                        f"goal_conditions {len(goals)}건 유효",
+                    )
+                )
+
+    # 9. board_palette — 비어있지 않음
+    if not is_board:
+        checks.append(_check("board_palette", True, not_applicable))
+    else:
+        palette = question.get("palette")
+        if not isinstance(palette, list) or not palette:
+            checks.append(
+                _check("board_palette", False, "palette가 비어 있거나 리스트가 아님")
+            )
+        else:
+            checks.append(_check("board_palette", True, f"palette {len(palette)}종"))
+
+    # 10. board_guide_steps — mode enum + guided면 guide_steps 존재
+    if not is_board:
+        checks.append(_check("board_guide_steps", True, not_applicable))
+    else:
+        mode = question.get("mode")
+        guide_steps = question.get("guide_steps")
+        if mode not in BOARD_MODES:
+            checks.append(
+                _check(
+                    "board_guide_steps",
+                    False,
+                    f"mode가 {'|'.join(BOARD_MODES)}이(가) 아님: {mode}",
+                )
+            )
+        elif mode == "guided" and (
+            not isinstance(guide_steps, list) or not guide_steps
+        ):
+            checks.append(
+                _check(
+                    "board_guide_steps",
+                    False,
+                    "mode=guided인데 guide_steps가 비어 있거나 없음",
+                )
+            )
+        else:
+            reason = (
+                f"guided — guide_steps {len(guide_steps)}단계"
+                if mode == "guided"
+                else "goal_only — guide_steps 불필요"
+            )
+            checks.append(_check("board_guide_steps", True, reason))
+
+    # 11. match_pairs — 3~4쌍, 각 쌍 left/right 존재, left·right 각각 중복 없음
+    if question_type != "match":
+        checks.append(_check("match_pairs", True, not_applicable))
+    else:
+        pairs = question.get("pairs")
+        if not isinstance(pairs, list):
+            checks.append(_check("match_pairs", False, "pairs가 리스트가 아니거나 없음"))
+        elif not (MATCH_PAIRS_MIN <= len(pairs) <= MATCH_PAIRS_MAX):
+            checks.append(
+                _check(
+                    "match_pairs",
+                    False,
+                    f"pairs는 {MATCH_PAIRS_MIN}~{MATCH_PAIRS_MAX}쌍이어야 함"
+                    f" (현재 {len(pairs)}쌍)",
+                )
+            )
+        else:
+            errors = []
+            lefts: list[str] = []
+            rights: list[str] = []
+            for i, pair in enumerate(pairs):
+                if not isinstance(pair, dict):
+                    errors.append(f"pairs[{i}]이(가) 객체가 아님")
+                    continue
+                for side, bucket in (("left", lefts), ("right", rights)):
+                    value = pair.get(side)
+                    if not isinstance(value, str) or not value.strip():
+                        errors.append(f"pairs[{i}].{side}이(가) 비어 있거나 없음")
+                    else:
+                        bucket.append(value.strip())
+            for side, bucket in (("left", lefts), ("right", rights)):
+                duplicates = sorted({v for v in bucket if bucket.count(v) > 1})
+                if duplicates:
+                    errors.append(f"{side} 중복: {', '.join(duplicates)}")
+            if errors:
+                checks.append(_check("match_pairs", False, "; ".join(errors)))
+            else:
+                checks.append(
+                    _check("match_pairs", True, f"pairs {len(pairs)}쌍, 중복 없음")
+                )
+
+    # 12. ordering_items — 3~5개, 중복 없음
+    if question_type != "ordering":
+        checks.append(_check("ordering_items", True, not_applicable))
+    else:
+        items = question.get("items")
+        if not isinstance(items, list):
+            checks.append(
+                _check("ordering_items", False, "items가 리스트가 아니거나 없음")
+            )
+        elif not (ORDERING_ITEMS_MIN <= len(items) <= ORDERING_ITEMS_MAX):
+            checks.append(
+                _check(
+                    "ordering_items",
+                    False,
+                    f"items는 {ORDERING_ITEMS_MIN}~{ORDERING_ITEMS_MAX}개여야 함"
+                    f" (현재 {len(items)}개)",
+                )
+            )
+        else:
+            normalized = [str(item).strip() for item in items]
+            duplicates = sorted({v for v in normalized if normalized.count(v) > 1})
+            if duplicates:
+                checks.append(
+                    _check(
+                        "ordering_items", False, f"items 중복: {', '.join(duplicates)}"
+                    )
+                )
+            else:
+                checks.append(
+                    _check("ordering_items", True, f"items {len(items)}개, 중복 없음")
+                )
+
+    # 13. cloze_blank — question_text에 빈칸("___") 정확히 1곳
+    if question_type != "cloze":
+        checks.append(_check("cloze_blank", True, not_applicable))
+    elif not isinstance(question_text, str):
+        checks.append(
+            _check("cloze_blank", False, "question_text가 문자열이 아니거나 없음")
+        )
+    else:
+        blank_count = len(CLOZE_BLANK_PATTERN.findall(question_text))
+        if blank_count == 1:
+            checks.append(_check("cloze_blank", True, "빈칸('___') 정확히 1곳"))
+        else:
+            checks.append(
+                _check(
+                    "cloze_blank",
+                    False,
+                    f"빈칸('___')은 정확히 1곳이어야 함 (현재 {blank_count}곳)",
+                )
+            )
+
     return checks
 
 
+# ── board §3.1 스키마 검증 헬퍼 ───────────────────────────────────────────
+def _is_int(value) -> bool:
+    """bool을 제외한 정수 여부 (True/False가 zone으로 오인되는 것 방지)."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _board_initial_state_errors(state) -> list[str]:
+    """initial_state의 §3.1 스키마 위반 사유 목록을 반환한다 (없으면 빈 리스트).
+
+    검증 항목(§3.7): 요소 type·subtype enum, zone 0~3, 존당 기단/전선 최대 1,
+    moisture/sun 수치 0~100. 잠금 표시("locked": true) 등 부가 키는 허용.
+    goal_only 퍼즐의 빈 보드(elements: [])는 유효하다.
+    """
+    if not isinstance(state, dict):
+        return ["initial_state가 객체가 아니거나 없음"]
+    elements = state.get("elements")
+    if not isinstance(elements, list):
+        return ["initial_state.elements가 리스트가 아니거나 없음"]
+
+    errors: list[str] = []
+    per_zone_count: dict[tuple[int, str], int] = {}
+    for i, element in enumerate(elements):
+        if not isinstance(element, dict):
+            errors.append(f"elements[{i}]이(가) 객체가 아님")
+            continue
+        etype = element.get("type")
+        if etype not in (*BOARD_ELEMENT_SUBTYPES, *BOARD_LEVEL_TYPES):
+            errors.append(f"elements[{i}] type이 허용값이 아님: {etype}")
+            continue
+        zone = element.get("zone")
+        if not _is_int(zone) or not (BOARD_ZONE_MIN <= zone <= BOARD_ZONE_MAX):
+            errors.append(
+                f"elements[{i}] zone이 {BOARD_ZONE_MIN}~{BOARD_ZONE_MAX}"
+                f" 범위의 정수가 아님: {zone}"
+            )
+        elif etype in BOARD_PER_ZONE_UNIQUE_TYPES:
+            key = (zone, etype)
+            per_zone_count[key] = per_zone_count.get(key, 0) + 1
+        if etype in BOARD_ELEMENT_SUBTYPES:
+            subtype = element.get("subtype")
+            if subtype not in BOARD_ELEMENT_SUBTYPES[etype]:
+                errors.append(
+                    f"elements[{i}] {etype} subtype이 enum"
+                    f"({', '.join(BOARD_ELEMENT_SUBTYPES[etype])}) 밖: {subtype}"
+                )
+        else:  # moisture | sun
+            level = element.get("level")
+            if not _is_number(level) or not (
+                BOARD_LEVEL_MIN <= level <= BOARD_LEVEL_MAX
+            ):
+                errors.append(
+                    f"elements[{i}] {etype} level이 {BOARD_LEVEL_MIN}~"
+                    f"{BOARD_LEVEL_MAX} 범위의 숫자가 아님: {level}"
+                )
+    for (zone, etype), count in sorted(per_zone_count.items()):
+        if count > 1:
+            errors.append(f"존 {zone}에 {etype} {count}개 — 존당 최대 1개(§3.1)")
+    return errors
+
+
 # ── 2단 LLM 검증 (Gemini, 키 있을 때만) ───────────────────────────────────
+def _llm_checks_from_result(
+    result: LLMValidationResult, question_type: str | None
+) -> list[dict]:
+    """LLM 판정 결과를 계약 checks 배열로 변환한다 (순서 고정).
+
+    §3.7-R3: 신규 4유형(board/match/ordering/cloze)은 concept_match만 적용 —
+    answer_uniqueness·option_clarity는 LLM 출력과 무관하게 "해당 없음" 통과로
+    확정한다(프롬프트 v2 지시 + 코드 이중 가드). LLM 없이 테스트 가능하도록
+    순수 함수로 분리했다.
+    """
+    dumped = result.model_dump()
+    checks = []
+    for field, check_name in _LLM_CHECK_NAMES:
+        if question_type in NEW_R3_QUESTION_TYPES and field != "concept_match":
+            checks.append(
+                _check(
+                    check_name,
+                    True,
+                    f"해당 없음 (question_type={question_type} — §3.7 신규 유형은"
+                    " concept_match만 적용)",
+                )
+            )
+        else:
+            checks.append(
+                _check(check_name, dumped[field]["passed"], dumped[field]["reason"])
+            )
+    return checks
+
+
 def _parse_llm_output(raw: str) -> LLMValidationResult:
     """모델 출력에서 JSON을 추출해 Pydantic으로 검증한다 (quiz_gen_chain 관례)."""
     text = raw.strip()
@@ -323,11 +674,7 @@ def run_llm_checks(question: dict, concept_tag: str, level_group: str) -> list[d
     if result is None:
         raise RuntimeError(f"LLM 검증 2회 연속 실패: {last_error}")
 
-    dumped = result.model_dump()
-    return [
-        _check(check_name, dumped[field]["passed"], dumped[field]["reason"])
-        for field, check_name in _LLM_CHECK_NAMES
-    ]
+    return _llm_checks_from_result(result, question.get("question_type"))
 
 
 # ── 진입점 ─────────────────────────────────────────────────────────────────

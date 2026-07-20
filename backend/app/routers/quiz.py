@@ -33,7 +33,8 @@ from app.models.user import User
 from app.schemas.quiz import AnswerRequest, AnswerResult, QuizLogOut, QuizQuestion
 from app.services import ai_client, answer_service, session_service
 from app.services.ai_client import AIWorkerError
-from app.services.answer_service import AlreadyAnsweredError
+from app.services.answer_service import AlreadyAnsweredError, BoardStateRequiredError
+from app.services.board_engine import BoardRulesError, BoardValidationError
 from app.services.weather_api import KST, get_today_weather
 
 logger = logging.getLogger(__name__)
@@ -163,16 +164,38 @@ async def submit_answer(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"detail": "해당 퀴즈를 찾을 수 없습니다.", "code": "QUIZ_NOT_FOUND"},
         )
+    # board 유형(§3.4): board_state 필수·검증, answer 문자열로 정규화
+    try:
+        answer = answer_service.resolve_answer(log, body.answer, body.board_state)
+    except BoardStateRequiredError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "detail": "보드 유형 문항은 board_state가 필요합니다.",
+                "code": "BOARD_STATE_REQUIRED",
+            },
+        )
+    except BoardValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"detail": f"보드 상태가 올바르지 않습니다: {exc}", "code": "BOARD_STATE_INVALID"},
+        )
+
     # 채점·XP·weak_tags·세션 XP 누적·RAG 피드백 — 세션 경로와 공통 파이프라인
     # (멱등 가드는 서비스 층 — R2-01 웨이브 1 리뷰 1번)
     try:
         return await answer_service.submit_answer_for_log(
-            db, user, log, body.answer, body.elapsed_sec
+            db, user, log, answer, body.elapsed_sec
         )
     except AlreadyAnsweredError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"detail": "이미 답안을 제출한 퀴즈입니다.", "code": "ALREADY_ANSWERED"},
+        )
+    except BoardRulesError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"detail": str(exc), "code": "BOARD_RULES_UNAVAILABLE"},
         )
 
 

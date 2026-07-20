@@ -1,6 +1,6 @@
 /**
  * FeedbackPanel (04번 스펙) — RAG 피드백 표시용 슬라이드업 패널.
- * 4개 모듈(quiz/detective/simulator/league) 공용 — props로 message, isCorrect를 받는다.
+ * 모듈(quiz/session/board/league) 공용 — props로 message, isCorrect를 받는다.
  */
 export default function FeedbackPanel({ open = true, message, isCorrect, title, onClose, children }) {
   if (!open || (!message && !children)) return null;

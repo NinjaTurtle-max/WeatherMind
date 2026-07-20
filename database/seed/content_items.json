@@ -444,5 +444,325 @@
     "uses_live_slots": true,
     "source": {"kind": "seed", "refs": ["climate_concepts: anomaly-0"]},
     "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "question_type": "board",
+    "template_json": {
+      "question_text": "수도권에 소나기를 내려 보세요.",
+      "mode": "guided",
+      "guide_steps": [
+        "수도권(존 1)에 한랭전선을 놓아 보세요.",
+        "같은 존의 습기를 60 이상으로 올려 보세요."
+      ],
+      "initial_state": {"zones": ["서해", "수도권", "태백산맥", "동해안"], "elements": []},
+      "palette": ["front:cold", "moisture"],
+      "goal_conditions": [{"zone": 1, "phenomenon": "shower"}],
+      "hints": [
+        "비가 내리려면 공기 중에 수증기(습기)가 충분해야 해요.",
+        "차가운 공기가 따뜻하고 습한 공기를 파고들면 적란운이 발달해 소나기가 쏟아져요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "question_type": "board",
+    "template_json": {
+      "question_text": "수도권에 넓게 퍼지는 약한 비를 오래 내려 보세요.",
+      "mode": "guided",
+      "guide_steps": [
+        "수도권(존 1)에 온난전선을 놓아 보세요.",
+        "같은 존의 습기를 50 이상으로 올려 보세요."
+      ],
+      "initial_state": {"zones": ["서해", "수도권", "태백산맥", "동해안"], "elements": []},
+      "palette": ["front:warm", "moisture"],
+      "goal_conditions": [{"zone": 1, "phenomenon": "rain"}],
+      "hints": [
+        "온난전선은 따뜻한 공기가 찬 공기 위로 완만히 타고 올라요.",
+        "넓은 지역에 약한 비가 오래 내리는 것이 온난전선 비의 특징이에요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "question_type": "board",
+    "template_json": {
+      "question_text": "서해에 여러 날 이어지는 장마 비를 만들어 보세요.",
+      "mode": "guided",
+      "guide_steps": [
+        "서해(존 0)에 정체전선을 놓아 보세요.",
+        "같은 존의 습기를 70 이상으로 올려 보세요."
+      ],
+      "initial_state": {"zones": ["서해", "수도권", "태백산맥", "동해안"], "elements": []},
+      "palette": ["front:stationary", "moisture"],
+      "goal_conditions": [{"zone": 0, "phenomenon": "persistent_rain"}],
+      "hints": [
+        "세력이 비슷한 두 기단이 만나면 전선이 한곳에 오래 머물러요.",
+        "습한 공기가 계속 공급되면 장마처럼 비가 여러 날 이어져요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-3"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "question_type": "board",
+    "template_json": {
+      "question_text": "전선을 쓰지 않고, 한여름 오후의 소나기를 태백산맥에 내려 보세요.",
+      "mode": "goal_only",
+      "initial_state": {"zones": ["서해", "수도권", "태백산맥", "동해안"], "elements": []},
+      "palette": ["sun", "moisture"],
+      "goal_conditions": [{"zone": 2, "phenomenon": "shower"}],
+      "hints": [
+        "강한 햇볕이 지면을 데우면 공기가 활발히 상승해요.",
+        "전선이 없어도 강한 일사와 충분한 습기가 함께 있으면 적란운이 생겨 소나기가 내려요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-4"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "question_type": "board",
+    "template_json": {
+      "question_text": "동해안에 지표를 덮는 안개를 만들어 보세요.",
+      "mode": "goal_only",
+      "initial_state": {"zones": ["서해", "수도권", "태백산맥", "동해안"], "elements": []},
+      "palette": ["sun", "moisture"],
+      "goal_conditions": [{"zone": 3, "phenomenon": "fog"}],
+      "hints": [
+        "안개는 햇볕이 약하고 공기가 매우 습할 때 잘 생겨요.",
+        "지표가 복사냉각으로 식으면 습한 공기 속 수증기가 물방울로 응결해 안개가 껴요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-5"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "question_type": "board",
+    "template_json": {
+      "question_text": "서해에 한여름 폭염을 불러와 보세요.",
+      "mode": "goal_only",
+      "initial_state": {"zones": ["서해", "수도권", "태백산맥", "동해안"], "elements": []},
+      "palette": ["air_mass:north_pacific", "sun"],
+      "goal_conditions": [{"zone": 0, "phenomenon": "heatwave"}],
+      "hints": [
+        "여름 무더위를 부르는, 덥고 습한 기단을 떠올려 보세요.",
+        "강한 일사가 더해지면 기온이 크게 올라 폭염이 나타나요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: air_mass-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "question_type": "board",
+    "template_json": {
+      "question_text": "겨울, 서해안에 눈을 내려 보세요.",
+      "mode": "goal_only",
+      "initial_state": {"zones": ["서해", "수도권", "태백산맥", "동해안"], "elements": []},
+      "palette": ["air_mass:siberian", "moisture"],
+      "goal_conditions": [{"zone": 0, "phenomenon": "snow"}],
+      "hints": [
+        "차고 건조한 시베리아 기단도 따뜻한 서해를 건너며 수증기를 얻어요.",
+        "기단이 변질되어 눈구름이 생기면 서해안에 많은 눈이 내려요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: air_mass-3"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "question_type": "board",
+    "template_json": {
+      "question_text": "동해안에 춥고 맑은 겨울 날씨를 만들어 보세요.",
+      "mode": "goal_only",
+      "initial_state": {"zones": ["서해", "수도권", "태백산맥", "동해안"], "elements": []},
+      "palette": ["air_mass:siberian", "moisture"],
+      "goal_conditions": [{"zone": 3, "phenomenon": "clear"}],
+      "hints": [
+        "시베리아 기단은 원래 매우 건조해요.",
+        "공기 중 수증기가 적으면 구름이 잘 생기지 않아 하늘이 맑아요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: air_mass-3"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "question_type": "match",
+    "template_json": {
+      "question_text": "계절과, 그 계절에 우리나라에 영향을 주는 대표 기단을 알맞게 연결하세요.",
+      "pairs": [
+        {"left": "겨울", "right": "시베리아 기단"},
+        {"left": "여름", "right": "북태평양 기단"},
+        {"left": "초여름", "right": "오호츠크해 기단"},
+        {"left": "봄·가을", "right": "양쯔강 기단"}
+      ],
+      "correct_answer": "겨울:시베리아 기단|여름:북태평양 기단|초여름:오호츠크해 기단|봄·가을:양쯔강 기단"
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: air_mass-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "question_type": "match",
+    "template_json": {
+      "question_text": "전선의 종류와, 그 전선이 만드는 비의 특징을 연결하세요.",
+      "pairs": [
+        {"left": "한랭전선", "right": "좁은 지역에 강한 소나기"},
+        {"left": "온난전선", "right": "넓은 지역에 오래 내리는 약한 비"},
+        {"left": "정체전선", "right": "여러 날 이어지는 장마"}
+      ],
+      "correct_answer": "한랭전선:좁은 지역에 강한 소나기|온난전선:넓은 지역에 오래 내리는 약한 비|정체전선:여러 날 이어지는 장마"
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-1", "climate_concepts: pressure_front-3"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "middle_high",
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "태풍의 일생을 일어나는 순서대로 배열하세요.",
+      "items": [
+        "따뜻한 열대 바다에서 수증기가 증발해 열대 저기압이 생긴다",
+        "수증기가 응결하며 내놓는 열을 에너지로 삼아 태풍으로 발달한다",
+        "태풍이 육지에 상륙한다",
+        "수증기 공급이 줄어 세력이 급격히 약해진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3"
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: typhoon-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "middle_high",
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "이산화탄소 증가가 기온을 높이는 과정을 순서대로 배열하세요.",
+      "items": [
+        "화석연료를 태워 대기 중 이산화탄소가 늘어난다",
+        "늘어난 이산화탄소가 지구가 내보내는 적외선을 더 많이 흡수한다",
+        "대기에 붙잡히는 열이 많아진다",
+        "지구 평균기온이 올라간다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3"
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: co2_climate-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "middle_high",
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "밤 최저기온이 ___℃ 아래로 내려가지 않는 밤을 열대야라고 한다.",
+      "correct_answer": "25"
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: heat_island-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "middle_high",
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "기온이나 강수량이 최근 30년 평균인 ___값의 범위를 크게 벗어나는 현상을 이상기후라고 한다.",
+      "correct_answer": "평년"
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: anomaly-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "세력이 비슷한 두 기단이 만나 한곳에 오래 머물며 초여름 장마를 몰고 오는 전선을 무엇이라 하는가?",
+      "correct_answer": "정체전선",
+      "explanation_hint": "정체전선은 세력이 비슷한 두 기단이 만나 오래 머무는 전선으로, 초여름 오호츠크해 기단과 북태평양 기단이 만나 장마전선을 이룹니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-3"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "adult",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "북상하던 태풍이 육지에 상륙한 뒤 세력이 빠르게 약해지는 주된 이유로 가장 알맞은 것은?",
+      "options": [
+        "에너지원인 수증기 공급이 끊기고 지면 마찰이 커지기 때문",
+        "달의 인력이 갑자기 사라지기 때문",
+        "상공의 편서풍이 태풍을 완전히 밀어내기 때문",
+        "육지의 기압이 바다보다 훨씬 낮아지기 때문"
+      ],
+      "correct_answer": "에너지원인 수증기 공급이 끊기고 지면 마찰이 커지기 때문",
+      "explanation_hint": "태풍은 따뜻한 바다의 수증기가 응결하며 내놓는 열을 에너지원으로 삼습니다. 육지에 상륙하면 수증기 공급이 줄고 지면 마찰이 더해져 세력이 급격히 약해집니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: typhoon-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "adult",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "도시 열섬을 완화하는 대책으로 보기 어려운 것은?",
+      "options": [
+        "건물을 더 빽빽하게 지어 바람을 막는다",
+        "도심에 옥상 녹화와 도시 숲을 늘린다",
+        "물과 바람이 지나는 통로(바람길)를 확보한다",
+        "햇빛을 반사하는 밝은색 지붕과 차열성 포장을 쓴다"
+      ],
+      "correct_answer": "건물을 더 빽빽하게 지어 바람을 막는다",
+      "explanation_hint": "옥상 녹화·도시 숲, 바람길 확보, 밝은색 지붕과 차열성 포장은 모두 열섬 완화 대책입니다. 건물을 빽빽하게 지으면 바람이 막혀 열이 빠져나가기 어려워 오히려 열섬을 심화시킵니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: heat_island-2"]},
+    "status": "active"
   }
 ]

@@ -84,6 +84,11 @@ template_json:
 ```
 correct_answer는 보드 유형에서 미사용(빈 문자열). §3.3(R2)의 나머지 필드 규칙 동일.
 
+**세션 내 board 렌더 (리뷰 후 추가, R3-S2 충족)**: SessionItem에 `template_json`
+(board 유형만, optional) 필드를 노출한다 — board는 비밀 정답이 없으므로 mode·guide_steps·
+initial_state·palette·goal_conditions·hints를 담는다(슬롯 치환 적용 후). 그 외 유형은 null.
+mock이 이미 이 키를 쓰므로 서버가 이에 맞춘다.
+
 ### 3.4 세션 answer 확장 (§3.1-R2 하위 호환)
 
 - `AnswerRequest`에 `board_state`(§3.1 JSON, optional) 추가. question_type=="board"면 필수
@@ -139,4 +144,22 @@ concept_match만 적용(문항 형식 판정은 휴리스틱 소관).
 
 ## 5. 리뷰 노트 · 회고
 
-(웨이브 종료 시 PM 기록)
+### 웨이브 1 코드 리뷰 (2026-07-20, PM 타겟 리뷰)
+
+R3는 핵심 리스크가 명확해 PM 직접 타겟 리뷰로 진행(R2의 8관점 결과와 각 직군 자체
+테스트가 이미 방어). 점검 영역과 결과:
+- **양측 엔진 판정 일치(최대 리스크)**: 공유 벡터 10케이스를 백엔드 pytest·프론트
+  vitest가 **같은 파일로 각각 10/10 통과** → R3-S1 충족, 결함 없음.
+- **데이터 규칙 무결성**: priority 전역 유일 + 조건공간 2,000뷰 tie-free 전수 검증,
+  보드 8퍼즐 해 존재 8/8 → 결함 없음.
+- **권위 채점**: board attempt·세션 answer가 서버 board_engine으로 재판정 → 확인.
+- **에러 코드 계약**: BOARD_STATE_REQUIRED/INVALID mock↔서버 일치 확인.
+
+**확정 결함 1건 (배정)**
+- [계약 간극·기능] SessionItem이 board template 필드를 노출하지 않아 실서버 세션에서
+  board 문항 렌더 불가(R3-S2 미충족). mock은 template_json을 넣어 가려져 있었음.
+  → 백엔드: SessionItem.template_json(board만, 정답 제외) 노출 + 발급부 반영 + 테스트.
+  → 프론트: 세션 board 렌더가 SessionItem.template_json 소비(이미 mock이 사용 중, 실서버 대응 확인).
+
+**부채 기록**: 세션 board 문항의 time_limit·재현 메타는 R4에서 SessionItem에 함께
+노출 검토. 백엔드가 지목한 이 간극 외 신규 결함 없음.

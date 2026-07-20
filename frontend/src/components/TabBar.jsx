@@ -2,11 +2,12 @@ import { NavLink } from 'react-router-dom';
 
 /**
  * 하단 탭바 네비게이션 (04번 스펙 — 모바일 대응)
+ * R3-01 S4: 시뮬레이터 탭 폐지 → 대기 보드 퍼즐 탭으로 교체.
  * detective 모듈은 이번 라운드 제외(Phase 3)라 탭에 노출하지 않는다.
  */
 const TABS = [
   { to: '/', label: '오늘의 세션', icon: '🌤️', end: true },
-  { to: '/simulator', label: '시뮬레이터', icon: '🌡️' },
+  { to: '/board', label: '대기 보드', icon: '🧩' },
   { to: '/league', label: '기상 리그', icon: '🏆' },
 ];
 

@@ -39,10 +39,10 @@ export default function SessionSummary({ summary }) {
 
       <p className="mt-6 text-sm text-slate-500">내일 또 새로운 5문항 세션이 준비돼요.</p>
       <Link
-        to="/simulator"
+        to="/board"
         className="mt-4 inline-block rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700"
       >
-        시뮬레이터 둘러보기 →
+        대기 보드 풀어보기 →
       </Link>
     </div>
   );

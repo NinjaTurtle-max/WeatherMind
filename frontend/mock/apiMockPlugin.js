@@ -2,7 +2,42 @@
  * 디자인/개발용 목 API 플러그인.
  * `VITE_MOCK=1 npm run dev`로 실행하면 backend 없이 /api/v1 전 엔드포인트가 동작한다.
  * 응답 스키마는 backend/app/schemas/*.py(02번 스펙)와 1:1로 맞춘다.
+ *
+ * R3-01: 대기 보드(§3.5)·신규 4유형(§3.6) 엔드포인트를 추가한다.
+ * 보드 판정은 프론트 인터프리터(src/lib/boardEngine.js)를 그대로 재사용해
+ * 백엔드 권위 채점(§3.4)을 흉내 낸다.
  */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { evaluateBoard, checkGoals, validateBoardState } from '../src/lib/boardEngine.js';
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+// 규칙은 database/seed/board_rules.json을 단일 진실원으로 읽는다(데이터 직군 저작).
+// 파일이 없으면 계약 §3.2의 8종 명세로 임시 작성한 폴백을 쓴다(주석 표시).
+function loadBoardRules() {
+  try {
+    return JSON.parse(readFileSync(resolve(here, '../../database/seed/board_rules.json'), 'utf-8'));
+  } catch {
+    // --- 폴백(임시): board_rules.json 부재 시 계약 §3.2 8종 명세로 작성 ---
+    return FALLBACK_BOARD_RULES;
+  }
+}
+
+// 계약 §3.2 8종 임시 규칙(데이터 실제 파일이 있으면 위에서 덮어씀)
+const FALLBACK_BOARD_RULES = [
+  { id: 'cold_front_shower', priority: 100, when: ['front:cold', 'moisture>=60'], then: { phenomenon: 'shower', cloud: 'cumulonimbus' }, explain: '한랭전선이 습한 공기를 파고들면 강한 상승기류로 적란운이 발달해 소나기가 내린다.' },
+  { id: 'stationary_front_monsoon', priority: 90, when: ['front:stationary', 'moisture>=70'], then: { phenomenon: 'persistent_rain', cloud: 'nimbostratus' }, explain: '정체전선에 습기가 계속 공급되면 장마처럼 여러 날 비가 이어진다.' },
+  { id: 'warm_front_steady_rain', priority: 80, when: ['front:warm', 'moisture>=50'], then: { phenomenon: 'rain', cloud: 'nimbostratus' }, explain: '온난전선은 따뜻한 공기가 완만하게 타고 올라 넓은 지역에 약한 비를 오래 내린다.' },
+  { id: 'siberian_snow', priority: 70, when: ['air_mass:siberian', 'moisture>=60'], then: { phenomenon: 'snow', cloud: 'nimbostratus' }, explain: '시베리아 기단이 서해를 건너며 수증기를 얻으면 눈구름이 발달한다.' },
+  { id: 'convective_shower', priority: 60, when: ['sun>=80', 'moisture>=60'], then: { phenomenon: 'shower', cloud: 'cumulonimbus' }, explain: '강한 일사가 습한 공기를 데우면 대류로 적란운이 발달해 소나기가 쏟아진다.' },
+  { id: 'radiation_fog', priority: 50, when: ['sun<=30', 'moisture>=80'], then: { phenomenon: 'fog', cloud: 'stratus' }, explain: '일사가 약하고 습도가 높으면 복사냉각으로 안개가 낀다.' },
+  { id: 'north_pacific_heatwave', priority: 40, when: ['air_mass:north_pacific', 'sun>=70'], then: { phenomenon: 'heatwave', cloud: 'none' }, explain: '덥고 습한 북태평양 기단과 강한 일사가 겹치면 폭염이 나타난다.' },
+  { id: 'siberian_clear', priority: 30, when: ['air_mass:siberian', 'moisture<=40'], then: { phenomenon: 'clear', cloud: 'none' }, explain: '차고 건조한 시베리아 기단이 자리 잡으면 춥고 맑다.' },
+];
+
+const BOARD_RULES = loadBoardRules();
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -136,7 +171,150 @@ const SESSION_ITEMS = [
         '아쉬워요! 정답은 "오존층" 보기예요. 오존층은 성층권에 있어 도시 열섬과 관련이 없습니다. 열섬은 아스팔트의 축열, 인공열, 녹지 부족으로 인한 증발 냉각 감소가 원인이에요.',
     },
   },
+  // ── R3-01 §3.6 신규 유형 4종 (세션 통합 검증용, 각 1건) ──
+  {
+    quiz_id: `${todayISO()}-s6-board`,
+    concept_tag: 'pressure_front',
+    question_type: 'board',
+    question_text: '수도권에 소나기를 내려 보세요',
+    template_json: {
+      question_text: '수도권에 소나기를 내려 보세요',
+      mode: 'guided',
+      guide_steps: [
+        '수도권(2번째 존)에 한랭전선을 놓아 보세요.',
+        '습기 슬라이더를 60 이상으로 올려 상승기류를 강하게 만드세요.',
+      ],
+      initial_state: { zones: ['서해', '수도권', '태백산맥', '동해안'], elements: [] },
+      palette: ['front:cold', 'moisture'],
+      goal_conditions: [{ zone: 1, phenomenon: 'shower' }],
+      hints: ['비가 오려면 공기 중에 무엇이 충분해야 할까요?', '차가운 공기가 파고들면 상승기류가 강해져요.'],
+    },
+    level_group: 'middle_high',
+    source: 'bank',
+    slot_filled: false,
+    _mock: {
+      goal_conditions: [{ zone: 1, phenomenon: 'shower' }],
+      feedbackCorrect: '정확해요! 한랭전선이 습한 공기를 파고들며 적란운이 발달해 수도권에 소나기가 내렸어요.',
+      feedbackWrong: '아직이에요. 수도권에 한랭전선을 놓고 습기를 60 이상으로 올려 보세요.',
+    },
+  },
+  {
+    quiz_id: `${todayISO()}-s7-match`,
+    concept_tag: 'air_mass',
+    question_type: 'match',
+    question_text: '기단과 그 성질을 알맞게 연결하세요.',
+    pairs: [
+      { left: '시베리아 기단', right: '한랭 건조' },
+      { left: '북태평양 기단', right: '고온 다습' },
+      { left: '오호츠크해 기단', right: '한랭 다습' },
+      { left: '양쯔강 기단', right: '온난 건조' },
+    ],
+    level_group: 'middle_high',
+    source: 'bank',
+    slot_filled: false,
+    _mock: {
+      pairs: [
+        { left: '시베리아 기단', right: '한랭 건조' },
+        { left: '북태평양 기단', right: '고온 다습' },
+        { left: '오호츠크해 기단', right: '한랭 다습' },
+        { left: '양쯔강 기단', right: '온난 건조' },
+      ],
+      feedbackCorrect: '완벽해요! 각 기단은 발원지(대륙/해양·고위도/저위도)에 따라 성질이 결정됩니다.',
+      feedbackWrong: '아쉬워요! 발원지가 대륙이면 건조, 해양이면 다습하고, 고위도면 한랭, 저위도면 고온입니다.',
+    },
+  },
+  {
+    quiz_id: `${todayISO()}-s8-ordering`,
+    concept_tag: 'typhoon',
+    question_type: 'ordering',
+    question_text: '태풍의 일생을 이른 단계부터 순서대로 정렬하세요.',
+    items: ['열대저압부 발생', '태풍으로 발달', '최성기(최대 세력)', '온대저기압으로 쇠약'],
+    shuffled: true,
+    level_group: 'middle_high',
+    source: 'bank',
+    slot_filled: false,
+    _mock: {
+      // items가 정답 순서로 저작됨 → 정답 순열은 항등 "0,1,2,3" (§3.6)
+      correctOrder: '0,1,2,3',
+      feedbackCorrect: '정확해요! 태풍은 열대저압부 → 발달 → 최성기 → 쇠약(온대저기압) 순으로 일생을 마칩니다.',
+      feedbackWrong: '아쉬워요! 태풍은 열대저압부에서 시작해 세력을 키우다 최성기를 지나 온대저기압으로 약해집니다.',
+    },
+  },
+  {
+    quiz_id: `${todayISO()}-s9-cloze`,
+    concept_tag: 'pressure_front',
+    question_type: 'cloze',
+    question_text: '공기가 상승하면 단열 팽창으로 온도가 낮아지고, 수증기가 ___하여 구름이 만들어진다.',
+    level_group: 'middle_high',
+    source: 'bank',
+    slot_filled: false,
+    _mock: {
+      correct: '응결',
+      accept: ['응결', '응축'],
+      feedbackCorrect: '맞아요! 상승한 공기가 이슬점 아래로 식으면 수증기가 응결해 물방울(구름)이 됩니다.',
+      feedbackWrong: '아쉬워요! 정답은 "응결"이에요. 수증기가 물방울로 바뀌는 과정을 응결이라고 합니다.',
+    },
+  },
 ];
+
+// ── 보드 연습 퍼즐 (§3.5 /board/puzzles) ──
+const BOARD_PUZZLES = [
+  {
+    content_item_id: 'b0000001-0000-4000-8000-000000000001',
+    template_json: {
+      question_text: '수도권에 소나기를 내려 보세요',
+      mode: 'guided',
+      guide_steps: [
+        '수도권(2번째 존)에 한랭전선을 놓아 보세요.',
+        '습기 슬라이더를 60 이상으로 올려 보세요.',
+      ],
+      initial_state: { zones: ['서해', '수도권', '태백산맥', '동해안'], elements: [] },
+      palette: ['front:cold', 'moisture'],
+      goal_conditions: [{ zone: 1, phenomenon: 'shower' }],
+      hints: ['비가 오려면 공기 중에 무엇이 충분해야 할까요?', '차가운 공기가 파고들면 상승기류가 강해져요.'],
+    },
+  },
+  {
+    content_item_id: 'b0000002-0000-4000-8000-000000000002',
+    template_json: {
+      question_text: '동해안에 폭염을 만들어 보세요',
+      mode: 'goal_only',
+      initial_state: { zones: ['서해', '수도권', '태백산맥', '동해안'], elements: [] },
+      palette: ['air_mass:north_pacific', 'sun'],
+      goal_conditions: [{ zone: 3, phenomenon: 'heatwave' }],
+      hints: ['여름철 무더위를 부르는 기단은 무엇일까요?', '강한 햇볕(일사 70 이상)이 더해져야 해요.'],
+    },
+  },
+  {
+    content_item_id: 'b0000003-0000-4000-8000-000000000003',
+    template_json: {
+      question_text: '서해안에 눈을 내려 보세요',
+      mode: 'goal_only',
+      initial_state: { zones: ['서해', '수도권', '태백산맥', '동해안'], elements: [] },
+      palette: ['air_mass:siberian', 'moisture'],
+      goal_conditions: [{ zone: 0, phenomenon: 'snow' }],
+      hints: ['겨울철 찬 공기를 몰고 오는 기단은?', '서해를 건너며 습기를 얻어야 눈구름이 생겨요(습기 60 이상).'],
+    },
+  },
+];
+
+// 최초 클리어 기록 (content_item_id 집합) — 재도전 0 XP (§3.5)
+const clearedBoardPuzzles = new Set();
+
+/** 보드 재판정 + 목표 검사 → {passed, phenomena, feedback} (권위 채점 흉내) */
+function judgeBoard(boardState, goalConditions) {
+  const phenomena = evaluateBoard(boardState, BOARD_RULES);
+  const { passed, unmet } = checkGoals(phenomena, goalConditions);
+  let feedback;
+  if (passed) {
+    // 목표 존의 성립 규칙 explain을 우선 사용(§3.4 RAG 절약)
+    const goalZone = goalConditions?.[0]?.zone ?? 0;
+    feedback = phenomena[goalZone]?.explain ?? '목표 대기현상을 만들었어요!';
+  } else {
+    feedback = `아직 목표에 도달하지 않았어요. (${unmet.map((u) => `${u.zone}번 존`).join(', ')} 조건 미충족)`;
+  }
+  return { passed, phenomena, feedback };
+}
 
 // 목 세션 상태: 당일 1세션 멱등. answers는 quiz_id → 채점 결과.
 let mockSession = null;
@@ -165,12 +343,27 @@ const stripMock = ({ _mock, ...item }) => item;
 function gradeSessionItem(item, rawAnswer) {
   const answer = String(rawAnswer ?? '').trim();
   const { correct, accept, tolerance } = item._mock;
+  const norm = (v) => v.replace(/\s+/g, '').toLowerCase();
+
   if (item.question_type === 'slider') {
     return Math.abs(Number(answer) - Number(correct)) <= (tolerance ?? 0);
   }
-  if (item.question_type === 'short_answer') {
-    const norm = (v) => v.replace(/\s+/g, '').toLowerCase();
+  if (item.question_type === 'short_answer' || item.question_type === 'cloze') {
+    // cloze는 short_answer와 동일 규칙(공백·대소문자 무시) (§3.6)
     return [correct, ...(accept ?? [])].some((a) => norm(a) === norm(answer));
+  }
+  if (item.question_type === 'match') {
+    // 제출 "left:right|left:right" 전 쌍 일치 (순서 무관)
+    const submitted = new Map(answer.split('|').map((seg) => {
+      const idx = seg.indexOf(':');
+      return [seg.slice(0, idx).trim(), seg.slice(idx + 1).trim()];
+    }));
+    const expected = item._mock.pairs ?? [];
+    return expected.length === submitted.size && expected.every((p) => submitted.get(p.left) === p.right);
+  }
+  if (item.question_type === 'ordering') {
+    // 제출 "0,2,1,3" 원본 인덱스 순열이 정답 순서와 완전 일치 (§3.6)
+    return answer === item._mock.correctOrder;
   }
   return answer === correct;
 }
@@ -252,7 +445,25 @@ const routes = {
     if (s.answers[item.quiz_id]) {
       return [409, { detail: '이미 답한 문항이에요', code: 'ALREADY_ANSWERED' }];
     }
-    const isCorrect = gradeSessionItem(item, body?.answer);
+
+    // board 유형(§3.4): board_state 필수, 서버가 재판정(권위 채점)
+    let isCorrect;
+    let phenomena;
+    if (item.question_type === 'board') {
+      if (!body?.board_state) {
+        return [422, { detail: '보드 상태(board_state)가 필요합니다', code: 'BOARD_STATE_REQUIRED' }];
+      }
+      const validationErrors = validateBoardState(body.board_state);
+      if (validationErrors.length > 0) {
+        return [422, { detail: `보드 상태가 올바르지 않습니다: ${validationErrors[0]}`, code: 'BOARD_STATE_INVALID' }];
+      }
+      const judged = judgeBoard(body.board_state, item._mock.goal_conditions);
+      isCorrect = judged.passed;
+      phenomena = judged.phenomena;
+    } else {
+      isCorrect = gradeSessionItem(item, body?.answer);
+    }
+
     const xp = isCorrect ? 15 : 2;
     s.answers[item.quiz_id] = { is_correct: isCorrect, xp_earned: xp };
     state.xp += xp;
@@ -261,11 +472,12 @@ const routes = {
       200,
       {
         is_correct: isCorrect,
-        correct_answer: item._mock.correct,
+        correct_answer: item._mock.correct ?? null,
         feedback: isCorrect ? item._mock.feedbackCorrect : item._mock.feedbackWrong,
         xp_earned: xp,
         concept_tag: item.concept_tag,
         session_progress: sessionProgress(s),
+        ...(phenomena ? { phenomena } : {}),
       },
     ];
   },
@@ -295,6 +507,39 @@ const routes = {
         streak_count: state.streak,
       },
     ];
+  },
+
+  // ── 대기 보드 연습 API (R3-01 §3.5) ──
+  'GET /board/rules': () => [200, BOARD_RULES],
+  'GET /board/puzzles': () => [
+    200,
+    BOARD_PUZZLES.map((p) => ({
+      content_item_id: p.content_item_id,
+      template_json: p.template_json,
+      cleared: clearedBoardPuzzles.has(p.content_item_id),
+    })),
+  ],
+  'POST /board/puzzles/:id/attempt': (body, params) => {
+    const puzzle = BOARD_PUZZLES.find((p) => p.content_item_id === params?.id);
+    if (!puzzle) {
+      return [404, { detail: '퍼즐을 찾을 수 없습니다', code: 'PUZZLE_NOT_FOUND' }];
+    }
+    if (!body?.board_state) {
+      return [422, { detail: '보드 상태(board_state)가 필요합니다', code: 'BOARD_STATE_REQUIRED' }];
+    }
+    const validationErrors = validateBoardState(body.board_state);
+    if (validationErrors.length > 0) {
+      return [422, { detail: `보드 상태가 올바르지 않습니다: ${validationErrors[0]}`, code: 'BOARD_STATE_INVALID' }];
+    }
+    const { passed, phenomena, feedback } = judgeBoard(body.board_state, puzzle.template_json.goal_conditions);
+    // 최초 클리어만 +5 XP (재도전 0) (§3.5)
+    let xpEarned = 0;
+    if (passed && !clearedBoardPuzzles.has(puzzle.content_item_id)) {
+      clearedBoardPuzzles.add(puzzle.content_item_id);
+      xpEarned = 5;
+      state.xp += 5;
+    }
+    return [200, { passed, phenomena, feedback, xp_earned: xpEarned }];
   },
 
   'GET /progress/me': () => [

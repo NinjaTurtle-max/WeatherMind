@@ -13,11 +13,13 @@ export async function fetchTodaySession() {
   return res.data;
 }
 
-// POST /session/{session_id}/answer {quiz_id, answer, elapsed_sec?}
+// POST /session/{session_id}/answer {quiz_id, answer, elapsed_sec?, board_state?}
 //   → AnswerResult + {session_progress: {answered, total}}
-export async function submitSessionAnswer(sessionId, { quizId, answer, elapsedSec }) {
-  const body = { quiz_id: quizId, answer: String(answer) };
+//   board 유형(§3.4)은 board_state 필수 — 누락 시 서버가 422 BOARD_STATE_REQUIRED.
+export async function submitSessionAnswer(sessionId, { quizId, answer, elapsedSec, boardState }) {
+  const body = { quiz_id: quizId, answer: String(answer ?? '') };
   if (typeof elapsedSec === 'number') body.elapsed_sec = elapsedSec;
+  if (boardState) body.board_state = boardState;
   const res = await client.post(`/session/${sessionId}/answer`, body);
   return res.data;
 }

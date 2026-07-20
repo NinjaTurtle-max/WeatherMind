@@ -23,7 +23,8 @@ class QuizLog(Base):
     __tablename__ = "quiz_logs"
     __table_args__ = (
         CheckConstraint(
-            "question_type IN ('multiple_choice', 'short_answer', 'slider')",
+            "question_type IN ('multiple_choice', 'short_answer', 'slider', "
+            "'board', 'match', 'ordering', 'cloze')",
             name="ck_quiz_logs_question_type",
         ),
         Index("idx_quiz_logs_user_concept", "user_id", "concept_tag"),

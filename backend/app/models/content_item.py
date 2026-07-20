@@ -24,7 +24,8 @@ class ContentItem(Base):
             name="ck_content_items_status",
         ),
         CheckConstraint(
-            "question_type IN ('multiple_choice', 'short_answer', 'slider')",
+            "question_type IN ('multiple_choice', 'short_answer', 'slider', "
+            "'board', 'match', 'ordering', 'cloze')",
             name="ck_content_items_question_type",
         ),
         CheckConstraint(

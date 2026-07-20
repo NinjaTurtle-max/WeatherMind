@@ -1,0 +1,29 @@
+"""대기 보드 연습 API 스키마 — 스프린트 R3-01 §3.5.
+
+보드 유형은 비밀 정답이 없으므로 template_json 전체를 노출한다(힌트 단계 공개는
+클라이언트가 제어). attempt 응답은 서버 권위 판정 결과(passed·phenomena)와
+피드백·획득 XP를 담는다.
+"""
+from typing import Any
+from uuid import UUID
+
+from pydantic import BaseModel
+
+
+class BoardPuzzle(BaseModel):
+    """GET /puzzles 항목 — active board 문항 + cleared 여부."""
+
+    content_item_id: UUID
+    template_json: dict[str, Any]
+    cleared: bool
+
+
+class BoardAttemptRequest(BaseModel):
+    board_state: dict[str, Any] | None = None
+
+
+class BoardAttemptResult(BaseModel):
+    passed: bool
+    phenomena: list[dict[str, Any]]
+    feedback: str
+    xp_earned: int

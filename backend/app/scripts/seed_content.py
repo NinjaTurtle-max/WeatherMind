@@ -35,7 +35,19 @@ ALLOWED_CONCEPT_TAGS = {
     "anomaly",
 }
 ALLOWED_LEVEL_GROUPS = {"elementary", "middle_high", "adult"}
-ALLOWED_QUESTION_TYPES = {"multiple_choice", "short_answer", "slider"}
+# 스프린트 R3-01 §3.8 — question_type 7종 (§3.6 신규 4종 포함)
+ALLOWED_QUESTION_TYPES = {
+    "multiple_choice",
+    "short_answer",
+    "slider",
+    "board",
+    "match",
+    "ordering",
+    "cloze",
+}
+# correct_answer(정답 문자열)를 쓰는 유형 — board/match/ordering은 미사용(§3.3·§3.6):
+# board는 goal_conditions, match는 pairs, ordering은 items 순서로 채점한다.
+CORRECT_ANSWER_TYPES = {"multiple_choice", "short_answer", "slider", "cloze"}
 ALLOWED_STATUSES = {"draft", "active", "retired"}
 
 
@@ -65,7 +77,9 @@ def validate_entry(entry: dict[str, Any], index: int) -> list[str]:
         errors.append(f"{prefix} template_json.question_text 누락")
 
     correct = template.get("correct_answer")
-    if correct is None or str(correct).strip() == "":
+    if question_type in CORRECT_ANSWER_TYPES and (
+        correct is None or str(correct).strip() == ""
+    ):
         errors.append(f"{prefix} template_json.correct_answer 누락")
 
     if question_type == "multiple_choice":

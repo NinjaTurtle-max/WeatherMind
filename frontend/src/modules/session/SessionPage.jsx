@@ -78,8 +78,8 @@ export default function SessionPage() {
 
   // POST /session/{id}/answer
   const answerMutation = useMutation({
-    mutationFn: ({ quizId, answer, elapsedSec }) =>
-      sessionApi.submitSessionAnswer(sessionId, { quizId, answer, elapsedSec }),
+    mutationFn: ({ quizId, answer, elapsedSec, boardState }) =>
+      sessionApi.submitSessionAnswer(sessionId, { quizId, answer, elapsedSec, boardState }),
     onMutate: () => startSubmitting(),
     onSuccess: (result) => {
       showFeedback(result);
@@ -133,10 +133,16 @@ export default function SessionPage() {
   const currentItem = items[currentIndex] ?? null;
   const isLastItem = currentIndex + 1 >= items.length;
 
-  const handleSubmit = (answer) => {
+  // board 유형은 onSubmit('', {boardState})로 board_state를 별도 전달한다 (§3.4)
+  const handleSubmit = (answer, options = {}) => {
     if (!currentItem || status !== SESSION_STATUS.IN_PROGRESS || isSubmitting) return;
     const elapsedSec = Math.max(1, Math.round((Date.now() - shownAtRef.current) / 1000));
-    answerMutation.mutate({ quizId: currentItem.quiz_id, answer, elapsedSec });
+    answerMutation.mutate({
+      quizId: currentItem.quiz_id,
+      answer,
+      elapsedSec,
+      boardState: options.boardState,
+    });
   };
 
   const handleNext = () => {
