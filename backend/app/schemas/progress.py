@@ -11,6 +11,28 @@ class ProgressMe(BaseModel):
     # 스트릭 프리즈("구름 방패") 보유 수 — R2-01 §3.5
     streak_freeze_count: int
     next_level_xp: int
+    # 현재 리그 티어(최근 정산 기준, 없으면 stratus) — R4-01 §3.2
+    tier: str
+
+
+class QuestOut(BaseModel):
+    """GET /progress/quests 응답 항목 — R4-01 §3.1."""
+
+    code: str
+    title: str
+    progress: int
+    target: int
+    done: bool
+    xp_reward: int
+
+
+class BadgeOut(BaseModel):
+    """GET /progress/badges 응답 항목 — R4-01 §3.3 (미획득은 earned_at=null)."""
+
+    code: str
+    title: str
+    description: str
+    earned_at: datetime | None = None
 
 
 class WeakTagOut(BaseModel):

@@ -19,7 +19,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.database import engine
 from app.core.rate_limit import limiter
 from app.core.redis import close_redis
-from app.routers import auth, board, league, progress, quiz, session
+from app.routers import auth, board, duel, league, progress, quiz, session
 
 # 상태코드 → 기본 에러 코드
 _DEFAULT_CODES = {
@@ -119,3 +119,4 @@ app.include_router(session.router)
 app.include_router(board.router)
 app.include_router(progress.router)
 app.include_router(league.router)
+app.include_router(duel.router)

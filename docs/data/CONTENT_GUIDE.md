@@ -65,34 +65,37 @@
 - [ ] 학령별 어휘 기준(§3)을 지켰다
 - [ ] JSON 배열 전체가 파싱된다 (`python3 -m json.tool` 통과)
 
-## 5. 커버리지 현황 (2026-07-20 시드 v2, 총 43문항 — 자체 검증 스크립트 집계)
+## 5. 커버리지 현황 (2026-07-21 시드 v3, 총 47문항 — 자체 검증 스크립트 집계)
+
+> v3(R4-S5): 미니 미션 2·재현 퍼즐 2 = board 4건 추가(43→47). 상세 저작 규칙은 §10.
 
 ### 태그 × 학령
 
 | concept_tag | elementary | middle_high | adult | 계 |
 |---|---|---|---|---|
-| pressure_front | 2 | 8 | 1 | 11 |
+| pressure_front | 2 | 9 | 1 | 12 |
 | typhoon | 3 | 3 | 1 | 7 |
-| air_mass | 1 | 6 | 1 | 8 |
+| air_mass | 1 | 7 | 1 | 9 |
 | heat_island | 2 | 3 | 1 | 6 |
 | co2_climate | 1 | 3 | 1 | 5 |
-| anomaly | 2 | 3 | 1 | 6 |
-| **계** | **11** | **26** | **6** | **43** |
+| anomaly | 2 | 3 | 3 | 8 |
+| **계** | **11** | **28** | **8** | **47** |
 
 > R2 QA 지적(adult 시드 부족, 3건) 반영: adult를 6태그 전부 **각 1건 이상**으로 보강(총 3→6).
-> board 8건은 규칙 8종을 1:1로 커버하며 pressure_front(5)·air_mass(3)에 집중되어 middle_high가 늘었다.
+> v3에서 재현 퍼즐 2건이 anomaly·adult여서 adult 6→8, anomaly adult 1→3으로 늘었다.
+> board 12건은 규칙 8종을 모두 커버하며 pressure_front(6)·air_mass(4)·anomaly(2)에 집중되어 middle_high·adult가 늘었다.
 
 ### 태그 × 유형
 
 | concept_tag | mc | short | slider | board | match | ordering | cloze | 계 |
 |---|---|---|---|---|---|---|---|---|
-| pressure_front | 3 | 2 | 0 | 5 | 1 | 0 | 0 | 11 |
+| pressure_front | 3 | 2 | 0 | 6 | 1 | 0 | 0 | 12 |
 | typhoon | 4 | 1 | 1 | 0 | 0 | 1 | 0 | 7 |
-| air_mass | 3 | 1 | 0 | 3 | 1 | 0 | 0 | 8 |
+| air_mass | 3 | 1 | 0 | 4 | 1 | 0 | 0 | 9 |
 | heat_island | 4 | 0 | 1 | 0 | 0 | 0 | 1 | 6 |
 | co2_climate | 2 | 1 | 1 | 0 | 0 | 1 | 0 | 5 |
-| anomaly | 4 | 0 | 1 | 0 | 0 | 0 | 1 | 6 |
-| **계** | **20** | **5** | **4** | **8** | **2** | **2** | **2** | **43** |
+| anomaly | 4 | 0 | 1 | 2 | 0 | 0 | 1 | 8 |
+| **계** | **20** | **5** | **4** | **12** | **2** | **2** | **2** | **47** |
 
 ### 규칙 × 보드 퍼즐 (규칙마다 최소 1건 — R3-S7 AC)
 
@@ -106,6 +109,17 @@
 | north_pacific_heatwave | heatwave | goal_only | 서해 |
 | siberian_snow | snow | goal_only | 서해 |
 | siberian_clear | clear | goal_only | 동해안 |
+
+### R4-S5 board 확장 4건 (미니 미션·재현 퍼즐 — §10)
+
+| 종류 | 태그 | 학령 | 재사용 규칙 | 목표 현상 | 존 | 특수 필드 |
+|---|---|---|---|---|---|---|
+| 미니 미션 | pressure_front | middle_high | convective_shower | shower | 수도권 | `time_limit_sec: 60` |
+| 미니 미션 | air_mass | middle_high | siberian_snow | snow | 서해 | `time_limit_sec: 90` |
+| 재현 퍼즐 | anomaly | adult | north_pacific_heatwave | heatwave | 수도권 | `based_on` (2018 폭염) |
+| 재현 퍼즐 | anomaly | adult | stationary_front_monsoon | persistent_rain | 수도권 | `based_on` (2020 장마) |
+
+> 4건 모두 §7.3 전수 탐색으로 palette 내 목표 달성 배치 실존 확인(해 15·5·4·4개). 재사용 규칙은 기존 board_rules 8종이므로 규칙 파일·테스트 벡터 무변경.
 
 ### 실황 슬롯 문항 (`uses_live_slots: true`) — 6건
 
@@ -172,3 +186,37 @@
 - **priority 전역 유일 권장**: 같은 존에서 두 규칙이 같은 priority로 동시 성립하면 판정이 모호해진다. v1은 8종에 priority 30~100을 10 간격으로 부여해 **전 조건공간에서 tie가 없음**을 스크립트로 확인했다(설계표는 팀 보고 참조). 새 규칙 추가 시 전 조건공간 tie-free를 재확인한다.
 - 경계값·priority는 기상학적 타당성으로 정하되 climate_concepts와 정합해야 하고, `explain`은 중고등 눈높이 교육 문장으로 쓴다.
 - `board_test_vectors.json`은 **백엔드(Py)·프론트(JS) 테스트가 공동 의존**하는 동일 판정 보증 자산이다. 기대값(`expected`, 존 4개 전부)은 §3.2 의미론으로 **손으로 도출**하고, 검증 스크립트가 규칙 인터프리터로 재계산해 일치를 확인한다. 규칙을 바꾸면 벡터 기대값을 반드시 재도출한다.
+
+---
+
+## 10. 미니 미션·재현 퍼즐 저작 (board 확장) — SPRINT_R4_01.md §3.5
+
+미니 미션과 재현 퍼즐은 **일반 board 퍼즐(§7)에 template_json 선택 필드 하나를 더한 것**이다. 보드 모델·palette·goal·해 존재 검증(§7.1~§7.3)은 그대로 적용되며, 서버 채점기도 기존 board 채점기를 그대로 쓴다(시간은 v1에서 클라이언트 신고 — 부채). 새 규칙을 만들지 말고 **기존 board_rules 8종으로 달성 가능한 palette·goal**만 저작한다.
+
+### 10.1 미니 미션 (`time_limit_sec`)
+
+| 필드 | 규칙 |
+|---|---|
+| `time_limit_sec` | **60~120 정수**. 프론트가 카운트다운, 초과 시 실패(재도전 무제한). 품질 게이트 §3.6이 범위·정수 검사 |
+
+- **palette 최소·시간압박 성립**: 목표 달성에 꼭 필요한 요소만 넣어(§7.2), 정해진 배치 수가 제한 시간 안에 끝낼 만큼 적어야 한다. 배치 1~2개 + 레벨 1~2개로 끝나는 goal이 적절하다. palette가 크면 탐색이 길어져 시간압박이 성립하지 않는다.
+- `based_on`은 넣지 않는다. mode는 `goal_only` 권장(시간 승부에 guide_steps 노출은 부적합).
+- 예: `palette: ["sun","moisture"]`, `goal: [{"zone":1,"phenomenon":"shower"}]`, `time_limit_sec: 60` → 대류성 소나기(convective_shower). 60초 안에 일사·습기 두 값만 올리면 된다.
+
+### 10.2 재현 퍼즐 (`based_on`)
+
+| 필드 | 규칙 |
+|---|---|
+| `based_on` | `{"event_name","event_date","region"}` **3필드 모두 필수**. `concept_tag`는 반드시 `anomaly`. 품질 게이트 §3.6이 3필드 존재 + anomaly 태그를 검사 |
+
+- **실제 한국 이상기상 사건 기반**: event_name·event_date·region은 실측 근거가 있는 사건이어야 하고, 저작 시 KMA 관측 사실을 확인한다(허구·미확인 사건 금지). 프론트가 "실화 배지"로 사건명·날짜를 노출하므로 사실 오류는 대외 신뢰 문제다.
+- **기상 메커니즘 = 재사용 규칙**: 사건의 성인(成因)에 맞는 기존 규칙을 골라 palette·goal을 구성한다. 예) 폭염 사건 → north_pacific_heatwave(북태평양 기단+일사), 장마 사건 → stationary_front_monsoon(정체전선+습기).
+- `source.refs`는 anomaly 청크(이상기후 정의·온난화)로 이상기상 프레이밍을 잡고, 메커니즘 청크(air_mass·pressure_front)를 함께 나열해 성인 서술을 근거화한다.
+- goal의 `zone`은 사건 지역과 최대한 정합하는 존을 고른다(수도권 사건 → 존 1 등). `based_on.region`은 사건의 실제 지역 표기(자유 서술)이고 존 이름과 일치할 필요는 없다.
+
+### 10.3 v3 채택 사건 사실 근거
+
+| event_name | event_date | 사실 근거 (KMA 관측) | 재사용 규칙 |
+|---|---|---|---|
+| 2018년 기록적 폭염 | 2018-08-01 | 2018-08-01 홍천 41.0℃로 한국 기상관측 사상 최고기온 경신, 같은 날 서울 39.6℃(1907년 관측 이래 최고). 강한 북태평양 고기압 지배가 성인 | north_pacific_heatwave |
+| 2020년 중부지방 역대 최장 장마 | 2020-08-16 | 2020년 중부지방 장마가 6/24~8/16 **54일** 지속, 종전 최장(2013년 49일)을 경신한 역대 최장. 정체전선(장마전선)이 성인 | stationary_front_monsoon |

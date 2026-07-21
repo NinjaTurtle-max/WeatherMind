@@ -32,7 +32,7 @@ from app.schemas.session import (
     SessionProgress,
     SessionToday,
 )
-from app.services import answer_service, session_service
+from app.services import answer_service, badge_service, quest_service, session_service
 from app.services.ai_client import AIWorkerError
 from app.services.answer_service import AlreadyAnsweredError, BoardStateRequiredError
 from app.services.board_engine import BoardRulesError, BoardValidationError
@@ -292,11 +292,18 @@ async def complete_session(
             },
         )
 
+    correct_count = sum(1 for log in logs if log.is_correct)
+
     if session.completed_at is None:
         session.completed_at = datetime.now(timezone.utc)
         await db.flush()
+        # 무오답 세션 배지(perfect_session) — 5/5 정답, 중복은 UNIQUE로 방어 (R4-01 §3.3)
+        if badge_service.is_perfect_session(correct_count, progress.total):
+            await badge_service.award_badge(db, user.id, badge_service.BADGE_PERFECT_SESSION)
 
-    correct_count = sum(1 for log in logs if log.is_correct)
+    # 일일 퀘스트 재계산 — 세션 complete 트리거(당일 집계 멱등 재계산) (R4-01 §3.1)
+    await quest_service.recalculate_quests(db, user, session.session_date)
+
     db_user = await db.get(User, user.id)
     streak_count = db_user.streak_count if db_user is not None else user.streak_count
     return SessionCompleteResult(

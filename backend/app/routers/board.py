@@ -28,8 +28,9 @@ from app.models.content_item import ContentItem
 from app.models.quiz_log import QuizLog
 from app.models.user import User
 from app.schemas.board import BoardAttemptRequest, BoardAttemptResult, BoardPuzzle
-from app.services import board_engine, xp_service
+from app.services import board_engine, quest_service, xp_service
 from app.services.answer_service import evaluate_board_answer
+from app.services.weather_api import KST
 from app.services.board_engine import BoardRulesError, BoardValidationError
 
 logger = logging.getLogger(__name__)
@@ -203,6 +204,10 @@ async def attempt_puzzle(
         )
     )
     await db.flush()
+
+    # 보드 attempt 성공 시 일일 퀘스트 재계산 (당일 집계 멱등 재계산) (R4-01 §3.1)
+    if passed:
+        await quest_service.recalculate_quests(db, user, datetime.now(KST).date())
 
     return BoardAttemptResult(
         passed=passed,

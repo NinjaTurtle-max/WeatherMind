@@ -22,6 +22,8 @@ SPRINT_R3_01.md §3.3·§3.6·§3.7이 신규 4유형(board/match/ordering/cloze
 | 1단  | match_pairs           | match              | pairs 3~4쌍, 각 쌍 left/right 존재, left·right 각각 중복 없음 |
 | 1단  | ordering_items        | ordering           | items 3~5개, 중복 없음                             |
 | 1단  | cloze_blank           | cloze              | question_text에 빈칸("___") 정확히 1곳             |
+| 1단  | board_time_limit      | board              | §3.6-R4 미니 미션: time_limit_sec 있으면 60~120 정수(없으면 선택 필드 통과) |
+| 1단  | board_based_on        | board              | §3.6-R4 재현 퍼즐: based_on 있으면 event_name·event_date·region 3필드 + concept_tag가 anomaly(없으면 선택 필드 통과) |
 | 2단  | llm_answer_uniqueness | 기존 3유형         | 정답이 유일하게 옳은가 (Gemini 판정, 신규 4유형은 "해당 없음" 통과) |
 | 2단  | llm_option_clarity    | 기존 3유형         | 보기가 모호하지 않은가 (비객관식·신규 4유형은 통과) |
 | 2단  | llm_concept_match     | 전체               | 문항이 concept_tag 개념에 부합하는가              |
@@ -101,6 +103,12 @@ ORDERING_ITEMS_MIN, ORDERING_ITEMS_MAX = 3, 5
 # 저작 시 밑줄 개수 흔들림에 관대하되, 빈칸 위치는 정확히 1곳만 허용한다.
 CLOZE_BLANK_PATTERN = re.compile(r"_{3,}")
 
+# ── R4-S6 미니 미션·재현 퍼즐 기준값 (§3.5·§3.6) ──────────────────────────
+# board template_json의 선택 필드. 부재 시 "해당 없음" 통과, 존재 시 값 검증.
+TIME_LIMIT_MIN, TIME_LIMIT_MAX = 60, 120  # 미니 미션 카운트다운 초
+BASED_ON_FIELDS = ("event_name", "event_date", "region")  # 재현 퍼즐 필수 3필드
+BASED_ON_REQUIRED_CONCEPT = "anomaly"  # 재현 퍼즐은 anomaly 태그 필수 (§3.5)
+
 # ── 2단 LLM System Prompt ─────────────────────────────────────────────────
 # v1 (2026-07-19): 최초 작성 — 정답 유일성·보기 모호성·concept_tag 부합
 #   3항목을 JSON으로 판정. 출력 스키마 강제 문구는 quiz_gen_chain 관례를 따름.
@@ -159,11 +167,14 @@ def _check(name: str, passed: bool, reason: str) -> dict:
 
 
 # ── 1단 휴리스틱 (LLM 불필요, 결정적) ─────────────────────────────────────
-def run_heuristic_checks(question: dict) -> list[dict]:
+def run_heuristic_checks(question: dict, concept_tag: str | None = None) -> list[dict]:
     """template_json 형식 문항에 대해 1단 휴리스틱 체크 목록을 반환한다.
 
     모든 체크는 {"name", "passed", "reason"} dict이며, 해당 없는 체크도
     passed=true("해당 없음")로 포함해 배열 구성을 결정적으로 유지한다.
+
+    concept_tag는 §3.6-R4 재현 퍼즐(based_on) 체크에서 anomaly 태그 여부를
+    판정하는 데 쓰인다. board가 아니거나 based_on이 없으면 사용되지 않는다.
     """
     checks: list[dict] = []
 
@@ -514,6 +525,70 @@ def run_heuristic_checks(question: dict) -> list[dict]:
                 )
             )
 
+    # ── R4-S6 §3.6 미니 미션·재현 퍼즐 필드 (14~15) ───────────────────────
+    # board template_json의 선택 필드. 부재 시 passed=true("해당 없음")로 포함해
+    # 배열 구성을 결정적으로 유지하고, 존재 시에만 값 유효성을 검증한다.
+
+    # 14. board_time_limit — time_limit_sec 있으면 60~120 정수 (미니 미션)
+    if not is_board:
+        checks.append(_check("board_time_limit", True, not_applicable))
+    elif "time_limit_sec" not in question:
+        checks.append(
+            _check("board_time_limit", True, "time_limit_sec 없음 — 해당 없음 (선택 필드)")
+        )
+    else:
+        time_limit = question.get("time_limit_sec")
+        if not _is_int(time_limit) or not (
+            TIME_LIMIT_MIN <= time_limit <= TIME_LIMIT_MAX
+        ):
+            checks.append(
+                _check(
+                    "board_time_limit",
+                    False,
+                    f"time_limit_sec은 {TIME_LIMIT_MIN}~{TIME_LIMIT_MAX}"
+                    f" 범위의 정수여야 함: {time_limit}",
+                )
+            )
+        else:
+            checks.append(
+                _check(
+                    "board_time_limit", True, f"time_limit_sec {time_limit}초 (범위 내)"
+                )
+            )
+
+    # 15. board_based_on — based_on 있으면 3필드 존재 + concept_tag=anomaly (재현 퍼즐)
+    if not is_board:
+        checks.append(_check("board_based_on", True, not_applicable))
+    elif "based_on" not in question:
+        checks.append(
+            _check("board_based_on", True, "based_on 없음 — 해당 없음 (선택 필드)")
+        )
+    else:
+        based_on = question.get("based_on")
+        errors = []
+        if not isinstance(based_on, dict):
+            errors.append("based_on이 객체가 아님")
+        else:
+            for field in BASED_ON_FIELDS:
+                value = based_on.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    errors.append(f"based_on.{field}이(가) 비어 있거나 없음")
+        if concept_tag != BASED_ON_REQUIRED_CONCEPT:
+            errors.append(
+                f"재현 퍼즐(based_on)은 concept_tag가"
+                f" '{BASED_ON_REQUIRED_CONCEPT}'여야 함: {concept_tag}"
+            )
+        if errors:
+            checks.append(_check("board_based_on", False, "; ".join(errors)))
+        else:
+            checks.append(
+                _check(
+                    "board_based_on",
+                    True,
+                    f"based_on 3필드 존재 + concept_tag={concept_tag}",
+                )
+            )
+
     return checks
 
 
@@ -684,7 +759,7 @@ def validate_quiz(question: dict, concept_tag: str, level_group: str) -> dict:
     Returns:
         {"passed": bool, "checks": [{"name", "passed", "reason"}, ...]}
     """
-    checks = run_heuristic_checks(question)
+    checks = run_heuristic_checks(question, concept_tag)
     heuristic_passed = all(c["passed"] for c in checks)
 
     if not heuristic_passed:

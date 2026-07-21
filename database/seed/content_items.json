@@ -764,5 +764,109 @@
     "uses_live_slots": false,
     "source": {"kind": "seed", "refs": ["climate_concepts: heat_island-2"]},
     "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "question_type": "board",
+    "template_json": {
+      "question_text": "제한 시간 안에! 전선 없이 강한 일사와 습기만으로 수도권에 소나기를 내려 보세요.",
+      "mode": "goal_only",
+      "time_limit_sec": 60,
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["sun", "moisture"],
+      "goal_conditions": [{"zone": 1, "phenomenon": "shower"}],
+      "hints": [
+        "여름 오후, 뜨겁게 달궈진 지면 위 습한 공기가 어떻게 움직일지 떠올려 보세요.",
+        "수도권(존 1)의 일사를 80 이상, 습기를 60 이상으로 함께 올리면 대류가 일어나 적란운이 발달해요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-4"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "question_type": "board",
+    "template_json": {
+      "question_text": "제한 시간 안에! 차고 건조한 시베리아 기단을 서해에서 변질시켜 눈을 내려 보세요.",
+      "mode": "goal_only",
+      "time_limit_sec": 90,
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["air_mass:siberian", "moisture"],
+      "goal_conditions": [{"zone": 0, "phenomenon": "snow"}],
+      "hints": [
+        "메마른 시베리아 기단도 따뜻한 바다를 건너면 성질이 달라져요.",
+        "서해(존 0)에 시베리아 기단을 놓고 습기를 60 이상으로 올리면 기단이 변질해 눈구름이 만들어져요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: air_mass-3"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "question_type": "board",
+    "template_json": {
+      "question_text": "실화 재현: 2018년 여름, 강한 북태평양 고기압이 한반도를 덮으며 서울이 39.6℃까지 오른 기록적 폭염이 있었어요. 수도권에 그 폭염을 재현해 보세요.",
+      "mode": "goal_only",
+      "based_on": {
+        "event_name": "2018년 기록적 폭염",
+        "event_date": "2018-08-01",
+        "region": "서울·수도권"
+      },
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["air_mass:north_pacific", "sun"],
+      "goal_conditions": [{"zone": 1, "phenomenon": "heatwave"}],
+      "hints": [
+        "이상기후로 꼽히는 폭염은 평년을 크게 벗어난 고온이에요. 어떤 공기 덩어리가 여름 무더위를 몰고 오는지 떠올려 보세요.",
+        "수도권(존 1)에 북태평양 기단을 놓고 일사를 70 이상으로 올리면 기온이 크게 올라 폭염이 나타나요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: anomaly-0", "climate_concepts: air_mass-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "question_type": "board",
+    "template_json": {
+      "question_text": "실화 재현: 2020년 중부지방은 6월 24일부터 8월 16일까지 54일간 이어진 역대 최장 장마를 겪었어요. 정체전선을 세워 수도권에 그 긴 장마를 재현해 보세요.",
+      "mode": "goal_only",
+      "based_on": {
+        "event_name": "2020년 중부지방 역대 최장 장마",
+        "event_date": "2020-08-16",
+        "region": "중부지방"
+      },
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["front:stationary", "moisture"],
+      "goal_conditions": [{"zone": 1, "phenomenon": "persistent_rain"}],
+      "hints": [
+        "온난화로 대기가 더 많은 수증기를 머금으면 집중호우가 잦아져요. 한곳에 오래 머무는 전선이 장마를 만듭니다.",
+        "수도권(존 1)에 정체전선을 놓고 습기를 70 이상으로 올리면 여러 날 이어지는 장마 같은 비가 내려요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: anomaly-0", "climate_concepts: pressure_front-3"]},
+    "status": "active"
   }
 ]

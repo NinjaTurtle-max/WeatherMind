@@ -19,3 +19,17 @@ export async function checkAttendance() {
   const res = await client.post('/progress/attendance');
   return res.data;
 }
+
+// GET /progress/quests (R4-01 §3.1)
+//   → [{code, title, progress, target, done, xp_reward}]
+export async function fetchQuests() {
+  const res = await client.get('/progress/quests');
+  return res.data;
+}
+
+// GET /progress/badges (R4-01 §3.3)
+//   → [{code, title, description, earned_at|null}]
+export async function fetchBadges() {
+  const res = await client.get('/progress/badges');
+  return res.data;
+}

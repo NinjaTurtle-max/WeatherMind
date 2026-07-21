@@ -38,13 +38,36 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   const [hintLevel, setHintLevel] = useState(0); // 공개한 힌트 수 (2단계 순차)
   const [guideStep, setGuideStep] = useState(0); // guided 안내 진행
 
-  // 문항이 바뀌면 상태 초기화
+  // 미니 미션(§3.5): time_limit_sec 있으면 카운트다운, 초과 시 실패(재도전 무제한).
+  const timeLimit = Number(puzzle?.time_limit_sec);
+  const hasTimer = Number.isFinite(timeLimit) && timeLimit > 0;
+  const [attemptKey, setAttemptKey] = useState(0); // 재도전마다 보드·타이머 리셋
+  const [remaining, setRemaining] = useState(hasTimer ? timeLimit : 0);
+  const [timedOut, setTimedOut] = useState(false);
+
+  // 문항이 바뀌거나 재도전하면 상태 초기화 (타이머 포함)
   useEffect(() => {
     setBoard(createBoard(puzzle?.initial_state));
     setSelected(null);
     setHintLevel(0);
     setGuideStep(0);
-  }, [puzzle]);
+    setTimedOut(false);
+    setRemaining(hasTimer ? timeLimit : 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [puzzle, attemptKey]);
+
+  // 카운트다운: 제출(result)·시간초과 전까지 1초씩 감소, 0에서 실패 처리
+  useEffect(() => {
+    if (!hasTimer || timedOut || result) return;
+    if (remaining <= 0) {
+      setTimedOut(true);
+      return;
+    }
+    const t = setTimeout(() => setRemaining((r) => r - 1), 1000);
+    return () => clearTimeout(t);
+  }, [hasTimer, remaining, timedOut, result]);
+
+  const retry = () => setAttemptKey((k) => k + 1);
 
   const { data: rules } = useQuery({
     queryKey: ['board', 'rules'],
@@ -65,7 +88,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     [preview, puzzle?.goal_conditions],
   );
 
-  const interactive = !disabled && !submitting && !result;
+  const interactive = !disabled && !submitting && !result && !timedOut;
 
   // 존에 배치 (선택된 팔레트 항목 사용)
   const placeOn = (zone, item) => {
@@ -86,7 +109,33 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
       {/* 목표 배너 */}
       <div className="mb-3 rounded-xl bg-sky-50 px-4 py-3 ring-1 ring-sky-100">
-        <p className="text-sm font-bold text-sky-900">🎯 {puzzle?.question_text}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-bold text-sky-900">🎯 {puzzle?.question_text}</p>
+          {hasTimer && (
+            <span
+              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold tabular-nums ${
+                timedOut
+                  ? 'bg-slate-200 text-slate-500'
+                  : remaining <= 10
+                    ? 'animate-pulse bg-orange-100 text-orange-700'
+                    : 'bg-sky-100 text-sky-700'
+              }`}
+              title="제한 시간"
+            >
+              ⏱ {formatClock(remaining)}
+            </span>
+          )}
+        </div>
+
+        {/* 재현 퍼즐(§3.5): based_on 있으면 "실화" 배지 (사건명·날짜·지역) */}
+        {puzzle?.based_on?.event_name && (
+          <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-700">
+            <span aria-hidden="true">📖</span>
+            실화 · {puzzle.based_on.event_name}
+            {puzzle.based_on.event_date && <span className="font-medium">({puzzle.based_on.event_date}{puzzle.based_on.region ? `, ${puzzle.based_on.region}` : ''})</span>}
+          </div>
+        )}
+
         {puzzle?.mode === 'guided' && (puzzle?.guide_steps?.length ?? 0) > 0 && (
           <div className="mt-2 flex items-center gap-2">
             <p className="flex-1 text-xs text-sky-800">
@@ -255,8 +304,22 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         </div>
       )}
 
+      {/* 시간 초과(§3.5) — 실패 처리 + 재도전(무제한) */}
+      {timedOut && !result && (
+        <div className="mt-3 rounded-xl bg-orange-50 px-4 py-3 ring-1 ring-orange-200">
+          <p className="text-sm font-bold text-orange-700">⏱ 시간 초과! 제한 시간 안에 완성하지 못했어요</p>
+          <button
+            type="button"
+            onClick={retry}
+            className="mt-2 w-full rounded-xl bg-orange-600 py-2.5 text-sm font-bold text-white transition hover:bg-orange-700"
+          >
+            다시 도전 ({timeLimit}초)
+          </button>
+        </div>
+      )}
+
       {/* 제출 */}
-      {!result && (
+      {!result && !timedOut && (
         <button
           type="button"
           onClick={() => onSubmit?.(toSubmitState(board))}
@@ -268,6 +331,14 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
       )}
     </div>
   );
+}
+
+/** 초 → M:SS 표시 (미니 미션 카운트다운) */
+function formatClock(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, '0')}`;
 }
 
 function PlacedChip({ label, locked, onRemove }) {

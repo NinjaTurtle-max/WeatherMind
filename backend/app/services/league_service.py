@@ -14,6 +14,41 @@ from app.models.league_result import LeagueResult
 ELO_INITIAL = 1200
 ELO_K = 32
 
+# ── 리그 티어 (스프린트 R4-01 §3.2 — 구름 분류 네이밍) ──
+# (코드, 하한 ELO). 낮은 순서 → 높은 순서. 인덱스가 승급 판정의 서열이다.
+TIER_THRESHOLDS: tuple[tuple[str, int], ...] = (
+    ("stratus", 0),          # 층운 — 기본(<1100)
+    ("cumulus", 1100),       # 적운
+    ("nimbostratus", 1250),  # 난층운
+    ("cumulonimbus", 1400),  # 적란운
+    ("typhoon_eye", 1550),   # 태풍의 눈
+)
+TIER_ORDER: tuple[str, ...] = tuple(code for code, _ in TIER_THRESHOLDS)
+DEFAULT_TIER = TIER_ORDER[0]
+
+
+def tier_from_elo(elo: int) -> str:
+    """정산 시점 ELO를 구름 티어 코드로 산정한다 (§3.2, 순수 함수).
+
+    임계값 이상이면 해당 티어 — <1100 stratus / ≥1100 cumulus / ≥1250 nimbostratus /
+    ≥1400 cumulonimbus / ≥1550 typhoon_eye. 경계는 하한 포함(≥).
+    """
+    tier = DEFAULT_TIER
+    for code, floor in TIER_THRESHOLDS:
+        if elo >= floor:
+            tier = code
+    return tier
+
+
+def is_tier_promoted(previous_tier: str | None, new_tier: str) -> bool:
+    """직전 대비 티어가 상승했는지 (§3.2 tier_promoted 배지 조건, 순수 함수).
+
+    직전 tier가 없으면(첫 정산) 기본 티어(stratus) 기준으로 비교한다 —
+    첫 정산에서 cumulus 이상이면 승급으로 본다.
+    """
+    prev = previous_tier if previous_tier in TIER_ORDER else DEFAULT_TIER
+    return TIER_ORDER.index(new_tier) > TIER_ORDER.index(prev)
+
 
 def accuracy_score(predicted: dict, actual: dict) -> float:
     """각 항목 오차를 0~100 점수로 환산 후 평균 (07번 원문 그대로)."""
@@ -50,3 +85,18 @@ async def get_current_rating(session: AsyncSession, user_id: uuid.UUID) -> int:
     )
     rating = result.scalar_one_or_none()
     return rating if rating is not None else ELO_INITIAL
+
+
+async def get_current_tier(session: AsyncSession, user_id: uuid.UUID) -> str:
+    """최근 정산된 league_results.tier. 정산 이력이 없으면 기본 티어(stratus) (§3.2)."""
+    result = await session.execute(
+        select(LeagueResult.tier)
+        .where(
+            LeagueResult.user_id == user_id,
+            LeagueResult.tier.is_not(None),
+        )
+        .order_by(LeagueResult.week_start.desc())
+        .limit(1)
+    )
+    tier = result.scalar_one_or_none()
+    return tier if tier is not None else DEFAULT_TIER

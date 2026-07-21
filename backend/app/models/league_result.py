@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Date, ForeignKey, Integer, Numeric, text
+from sqlalchemy import Date, ForeignKey, Integer, Numeric, String, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,5 +24,7 @@ class LeagueResult(Base):
     actual_value: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     accuracy_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     elo_rating_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # 정산 시점 ELO(elo_rating_after)로 산정한 구름 티어 (스프린트 R4-01 §3.2)
+    tier: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="league_results")  # noqa: F821

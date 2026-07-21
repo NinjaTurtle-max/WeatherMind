@@ -5,3 +5,4 @@ export * as sessionApi from './session';
 export * as boardApi from './board';
 export * as progressApi from './progress';
 export * as leagueApi from './league';
+export * as duelApi from './duel';

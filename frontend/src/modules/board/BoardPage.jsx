@@ -35,6 +35,7 @@ export default function BoardPage() {
         addXp(res.xp_earned);
         setToast(`🧩 첫 클리어! +${res.xp_earned} XP`);
         queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
+        queryClient.invalidateQueries({ queryKey: ['progress', 'quests'] });
         queryClient.invalidateQueries({ queryKey: ['board', 'puzzles'] });
         setTimeout(() => setToast(null), 2600);
       }

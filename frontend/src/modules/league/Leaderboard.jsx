@@ -1,4 +1,5 @@
 import { useAuthStore } from '../../store/authStore';
+import TierBadge from '../../components/TierBadge';
 
 /**
  * Leaderboard (04번 스펙) — 테이블, 내 순위 하이라이트
@@ -45,8 +46,15 @@ export default function Leaderboard({ ranks }) {
                   {rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
                 </td>
                 <td className="px-4 py-2.5">
-                  {row.nickname ?? '익명'}
-                  {me && <span className="ml-1 text-xs font-bold text-sky-600">(나)</span>}
+                  <div className="flex items-center gap-1.5">
+                    <span>{row.nickname ?? '익명'}</span>
+                    {me && <span className="text-xs font-bold text-sky-600">(나)</span>}
+                  </div>
+                  {row.tier && (
+                    <div className="mt-1">
+                      <TierBadge tier={row.tier} />
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   {row.accuracy_score != null ? `${row.accuracy_score}점` : '-'}

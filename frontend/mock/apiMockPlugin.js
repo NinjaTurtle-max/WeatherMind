@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { evaluateBoard, checkGoals, validateBoardState } from '../src/lib/boardEngine.js';
+import { tierFromElo } from '../src/lib/tierMeta.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -55,7 +56,81 @@ const state = {
   streakFreeze: 1, // 구름 방패 보유 수 (§3.5, 최대 2)
   answeredToday: false,
   predicted: false,
+  tier: 'nimbostratus', // 최근 정산 티어 (§3.2 /progress/me)
+  // 일일 퀘스트 진행 (§3.1) — 당일 집계 흉내. 디자인 검토용 초기 진행값 시드.
+  quest: { xpToday: 20, weakCorrect: 0, liveAnswered: 0 },
+  // 예보 대결 (§3.4) — 오늘 제출 상태
+  duel: { submitted: false, userPred: null, aiPred: null },
 };
+
+// 약점 태그(§3.1 weak_correct_1 판정용) — /progress/weak-tags 목데이터와 일치
+const WEAK_TAGS = new Set(['typhoon', 'anomaly', 'pressure_front']);
+
+// 퀘스트 진행 반영 헬퍼 (세션·보드·퀴즈 응답 시 호출 — 당일 재계산 흉내)
+function bumpQuest({ xp = 0, correctTag = null, live = false }) {
+  state.quest.xpToday += xp;
+  if (correctTag && WEAK_TAGS.has(correctTag)) state.quest.weakCorrect = 1;
+  if (live) state.quest.liveAnswered = 1;
+}
+
+// GET /progress/quests 응답 3종 (§3.1 코드 고정)
+function questPayload() {
+  const q = state.quest;
+  return [
+    {
+      code: 'daily_xp_30',
+      title: '오늘 30 XP 모으기',
+      progress: Math.min(q.xpToday, 30),
+      target: 30,
+      done: q.xpToday >= 30,
+      xp_reward: 10,
+    },
+    {
+      code: 'weak_correct_1',
+      title: '약점 개념 정답 맞히기',
+      progress: q.weakCorrect,
+      target: 1,
+      done: q.weakCorrect >= 1,
+      xp_reward: 10,
+    },
+    {
+      code: 'live_answered',
+      title: '오늘의 실황 문항 풀기',
+      progress: q.liveAnswered,
+      target: 1,
+      done: q.liveAnswered >= 1,
+      xp_reward: 5,
+    },
+  ];
+}
+
+// GET /progress/badges 응답 5종 (§3.3 저작 코드) — 일부 획득/미획득 혼합
+const BADGES = [
+  { code: 'streak_7', title: '7일 연속', description: '7일 연속 출석 달성', earned_at: '2026-07-12T00:00:00Z' },
+  { code: 'streak_30', title: '30일 연속', description: '30일 연속 출석 달성', earned_at: null },
+  { code: 'streak_100', title: '100일 연속', description: '100일 연속 출석 달성', earned_at: null },
+  { code: 'perfect_session', title: '무오답 세션', description: '세션 5문항을 모두 맞힘', earned_at: '2026-07-18T09:20:00Z' },
+  { code: 'tier_promoted', title: '티어 승급', description: '리그 티어 승급 달성', earned_at: null },
+];
+
+// 예보 대결 참고 예보(§3.4 KMA 내일 예보 흉내)와 AI 캐스터 결정적 예측
+const DUEL_BASE_FORECAST = { temp_max: 30, rain_prob: 40 };
+const DUEL_AI_PRED = { temp_max: 31.2, rain_prob: 55 }; // base + 결정적 노이즈(온도 +1.2·강수 +15)
+
+function duelTodayPayload() {
+  const submitted = state.duel.submitted;
+  return {
+    duel_date: todayISO(),
+    status: submitted ? 'submitted' : 'open',
+    base_forecast: DUEL_BASE_FORECAST,
+    user_pred: state.duel.userPred,
+    ai_pred: submitted ? state.duel.aiPred : null, // 제출 후 공개 (§3.4)
+    actual: null, // 오늘 대결은 미정산 (다음날 실측)
+    user_score: null,
+    ai_score: null,
+    result: null,
+  };
+}
 
 const nextLevelXp = (level) => 50 * (level + 1) ** 2;
 
@@ -262,8 +337,10 @@ const BOARD_PUZZLES = [
   {
     content_item_id: 'b0000001-0000-4000-8000-000000000001',
     template_json: {
-      question_text: '수도권에 소나기를 내려 보세요',
+      question_text: '수도권에 소나기를 내려 보세요 (미니 미션)',
       mode: 'guided',
+      // 미니 미션(§3.5): 제한 시간 90초 카운트다운, 초과 시 실패·재도전
+      time_limit_sec: 90,
       guide_steps: [
         '수도권(2번째 존)에 한랭전선을 놓아 보세요.',
         '습기 슬라이더를 60 이상으로 올려 보세요.',
@@ -294,6 +371,20 @@ const BOARD_PUZZLES = [
       palette: ['air_mass:siberian', 'moisture'],
       goal_conditions: [{ zone: 0, phenomenon: 'snow' }],
       hints: ['겨울철 찬 공기를 몰고 오는 기단은?', '서해를 건너며 습기를 얻어야 눈구름이 생겨요(습기 60 이상).'],
+    },
+  },
+  {
+    // 재현 퍼즐(§3.5): based_on 실제 사건 초기조건 — anomaly 태그 필수
+    content_item_id: 'b0000004-0000-4000-8000-000000000004',
+    concept_tag: 'anomaly',
+    template_json: {
+      question_text: '2018년 기록적 폭염을 재현해 보세요',
+      mode: 'goal_only',
+      based_on: { event_name: '2018년 기록적 폭염', event_date: '2018-08-01', region: '서울' },
+      initial_state: { zones: ['서해', '수도권', '태백산맥', '동해안'], elements: [] },
+      palette: ['air_mass:north_pacific', 'sun'],
+      goal_conditions: [{ zone: 1, phenomenon: 'heatwave' }],
+      hints: ['한여름 무더위를 부르는 기단은?', '강한 일사(70 이상)가 더해져야 폭염이 나타나요.'],
     },
   },
 ];
@@ -386,6 +477,7 @@ const routes = {
     const xp = isCorrect ? 15 : 2;
     state.xp += xp;
     state.answeredToday = true;
+    bumpQuest({ xp, correctTag: isCorrect ? QUIZ.concept_tag : null });
     return [
       200,
       {
@@ -468,6 +560,7 @@ const routes = {
     s.answers[item.quiz_id] = { is_correct: isCorrect, xp_earned: xp };
     state.xp += xp;
     state.answeredToday = true;
+    bumpQuest({ xp, correctTag: isCorrect ? item.concept_tag : null, live: item.slot_filled });
     return [
       200,
       {
@@ -538,6 +631,7 @@ const routes = {
       clearedBoardPuzzles.add(puzzle.content_item_id);
       xpEarned = 5;
       state.xp += 5;
+      bumpQuest({ xp: 5 });
     }
     return [200, { passed, phenomena, feedback, xp_earned: xpEarned }];
   },
@@ -550,8 +644,12 @@ const routes = {
       streak_count: state.streak,
       next_level_xp: nextLevelXp(state.level),
       streak_freeze_count: state.streakFreeze,
+      tier: state.tier, // 현재 리그 티어 (§3.2 — 최근 정산, 없으면 stratus)
     },
   ],
+  // ── 일일 퀘스트·배지 (R4-01 §3.1·§3.3) ──
+  'GET /progress/quests': () => [200, questPayload()],
+  'GET /progress/badges': () => [200, BADGES],
   'GET /progress/weak-tags': () => [
     200,
     [
@@ -580,12 +678,16 @@ const routes = {
   },
   'GET /league/leaderboard': () => [
     200,
-    Array.from({ length: 10 }, (_, i) => ({
-      rank: i + 1,
-      nickname: ['하늘지기', '비요미', '구름사냥꾼', '태풍의눈', '무지개탐정', '요미', '맑음이', '천둥벌거숭이', '이슬비', '바람돌이'][i],
-      accuracy_score: Math.round((97 - i * 4.3) * 10) / 10,
-      elo_rating: 1400 - i * 22,
-    })),
+    Array.from({ length: 10 }, (_, i) => {
+      const elo = 1400 - i * 22;
+      return {
+        rank: i + 1,
+        nickname: ['하늘지기', '비요미', '구름사냥꾼', '태풍의눈', '무지개탐정', '요미', '맑음이', '천둥벌거숭이', '이슬비', '바람돌이'][i],
+        accuracy_score: Math.round((97 - i * 4.3) * 10) / 10,
+        elo_rating: elo,
+        tier: tierFromElo(elo), // 리더보드 행 티어 (§3.2)
+      };
+    }),
   ],
   'GET /league/me/results': () => [
     200,
@@ -601,6 +703,48 @@ const routes = {
           },
         ]
       : [],
+  ],
+
+  // ── 예보 대결 (R4-01 §3.4 /duel) ──
+  'GET /duel/today': () => [200, duelTodayPayload()],
+  'POST /duel/today': (body) => {
+    if (state.duel.submitted) {
+      return [409, { detail: '오늘은 이미 예보를 제출했어요', code: 'ALREADY_SUBMITTED' }];
+    }
+    const tempMax = Number(body?.temp_max);
+    const rainProb = Number(body?.rain_prob);
+    if (Number.isNaN(tempMax) || Number.isNaN(rainProb)) {
+      return [422, { detail: '최고기온·강수확률을 숫자로 입력해주세요', code: 'INVALID_PREDICTION' }];
+    }
+    state.duel.submitted = true;
+    state.duel.userPred = { temp_max: tempMax, rain_prob: rainProb };
+    state.duel.aiPred = DUEL_AI_PRED; // 제출 시점 결정적 생성·고정 (§3.4)
+    return [200, duelTodayPayload()];
+  },
+  'GET /duel/history': () => [
+    200,
+    [
+      {
+        id: 'd0000001-0000-4000-8000-000000000001',
+        duel_date: '2026-07-20',
+        user_pred: { temp_max: 29, rain_prob: 60 },
+        ai_pred: { temp_max: 31, rain_prob: 40 },
+        actual: { temp_max: 28.5, rain_prob: 70 },
+        user_score: 92.1,
+        ai_score: 78.3,
+        result: 'win',
+      },
+      {
+        id: 'd0000002-0000-4000-8000-000000000002',
+        duel_date: '2026-07-19',
+        user_pred: { temp_max: 33, rain_prob: 20 },
+        ai_pred: { temp_max: 31, rain_prob: 30 },
+        actual: { temp_max: 30.8, rain_prob: 35 },
+        user_score: 74.0,
+        ai_score: 88.5,
+        result: 'lose',
+      },
+    ],
   ],
 };
 

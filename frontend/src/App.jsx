@@ -5,6 +5,8 @@ import SessionPage from './modules/session/SessionPage';
 import QuizPage from './modules/quiz/QuizPage';
 import BoardPage from './modules/board/BoardPage';
 import LeaguePage from './modules/league/LeaguePage';
+import DuelPage from './modules/duel/DuelPage';
+import ProgressPage from './modules/progress/ProgressPage';
 import LoginPage from './modules/auth/LoginPage';
 import RegisterPage from './modules/auth/RegisterPage';
 
@@ -52,7 +54,9 @@ export default function App() {
           <Route path="/" element={<SessionPage />} />
           <Route path="/quiz" element={<QuizPage />} />
           <Route path="/board" element={<BoardPage />} />
+          <Route path="/duel" element={<DuelPage />} />
           <Route path="/league" element={<LeaguePage />} />
+          <Route path="/me" element={<ProgressPage />} />
         </Route>
       </Route>
 

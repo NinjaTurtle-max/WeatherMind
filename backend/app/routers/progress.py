@@ -1,8 +1,10 @@
-"""Progress API (/api/v1/progress) — 02번 스펙.
+"""Progress API (/api/v1/progress) — 02번 스펙 + R4-01 §3.1·§3.2·§3.3.
 
-| GET  | /me         | XP·레벨·스트릭 조회 → {xp, level, streak_count, streak_freeze_count, next_level_xp} |
+| GET  | /me         | XP·레벨·스트릭·티어 → {xp, level, streak_count, streak_freeze_count, next_level_xp, tier} |
 | GET  | /weak-tags  | 내 약점 태그 목록 (accuracy_rate 오름차순) → WeakTag[] |
 | POST | /attendance | 출석 체크 (하루 1회) → {streak_count, is_new_record} |
+| GET  | /quests     | 오늘의 일일 퀘스트 진행/완료 (R4-01 §3.1) |
+| GET  | /badges     | 배지 정의 + 획득 시각 (R4-01 §3.3) |
 """
 from datetime import datetime
 
@@ -14,23 +16,53 @@ from app.core.dependencies import get_current_user, get_db_with_rls
 from app.models.attendance import Attendance
 from app.models.user import User
 from app.models.weak_tag import WeakTag
-from app.schemas.progress import AttendanceResult, ProgressMe, WeakTagOut
-from app.services import xp_service
+from app.schemas.progress import (
+    AttendanceResult,
+    BadgeOut,
+    ProgressMe,
+    QuestOut,
+    WeakTagOut,
+)
+from app.services import badge_service, league_service, quest_service, xp_service
 from app.services.weather_api import KST
 
 router = APIRouter(prefix="/api/v1/progress", tags=["progress"])
 
 
 @router.get("/me", response_model=ProgressMe)
-async def get_me(user: User = Depends(get_current_user)) -> ProgressMe:
+async def get_me(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_with_rls),
+) -> ProgressMe:
     level = xp_service.level_from_xp(user.xp)
+    tier = await league_service.get_current_tier(db, user.id)
     return ProgressMe(
         xp=user.xp,
         level=level,
         streak_count=user.streak_count,
         streak_freeze_count=user.streak_freeze_count,
         next_level_xp=xp_service.next_level_xp(level),
+        tier=tier,
     )
+
+
+@router.get("/quests", response_model=list[QuestOut])
+async def get_quests(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_with_rls),
+) -> list[QuestOut]:
+    today = datetime.now(KST).date()
+    rows = await quest_service.list_quests(db, user, today)
+    return [QuestOut(**row) for row in rows]
+
+
+@router.get("/badges", response_model=list[BadgeOut])
+async def get_badges(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_with_rls),
+) -> list[BadgeOut]:
+    rows = await badge_service.list_badges(db, user.id)
+    return [BadgeOut(**row) for row in rows]
 
 
 @router.get("/weak-tags", response_model=list[WeakTagOut])
@@ -94,6 +126,13 @@ async def check_attendance(
     if milestone_hit:
         xp += xp_service.XP_STREAK_7_BONUS
     await xp_service.add_xp(db, db_user, xp)
+
+    # 스트릭 마일스톤 배지(streak_7/30/100) 지급 — 중복은 UNIQUE로 방어 (R4-01 §3.3)
+    if milestone_hit:
+        badge_code = badge_service.streak_badge_code(streak)
+        if badge_code is not None:
+            await badge_service.award_badge(db, user.id, badge_code)
+
     await db.flush()
 
     return AttendanceResult(streak_count=streak, is_new_record=streak > prev_best)

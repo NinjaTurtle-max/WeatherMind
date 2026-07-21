@@ -1,5 +1,5 @@
 {
-  "_comment": "품질 게이트 1단 휴리스틱 골든셋 v2 (2026-07-20, R3-S8). v1(§3.4-R2) 9건 유지 + §3.7-R3 신규 4유형 정상 4건·위반 8건 추가. expect_failed_checks는 반드시 실패해야 하는 체크 name 목록.",
+  "_comment": "품질 게이트 1단 휴리스틱 골든셋 v3 (2026-07-21, R4-S6). v2(§3.4-R2·§3.7-R3) 유지 + §3.6-R4 board 미니 미션(time_limit_sec)·재현 퍼즐(based_on) 정상 2건·위반 3건 추가. expect_failed_checks는 반드시 실패해야 하는 체크 name 목록.",
   "cases": [
     {
       "id": "ok_multiple_choice",
@@ -392,6 +392,150 @@
           "correct_answer": "북태평양"
         },
         "concept_tag": "air_mass",
+        "level_group": "middle_high"
+      }
+    },
+    {
+      "id": "ok_board_mini_mission",
+      "description": "정상 미니 미션 — time_limit_sec 90(60~120 범위 내), 나머지 board 필드 유효",
+      "expect_passed": true,
+      "expect_failed_checks": [],
+      "request": {
+        "question": {
+          "question_text": "제한 시간 안에 수도권에 소나기를 내려 보세요",
+          "question_type": "board",
+          "correct_answer": "",
+          "mode": "goal_only",
+          "time_limit_sec": 90,
+          "initial_state": {
+            "zones": ["서해", "수도권", "태백산맥", "동해안"],
+            "elements": [
+              {"type": "moisture", "level": 60, "zone": 1}
+            ]
+          },
+          "palette": ["front:cold", "moisture"],
+          "goal_conditions": [{"zone": 1, "phenomenon": "shower"}],
+          "hints": ["차가운 공기를 빠르게 밀어 넣어 상승기류를 만들어 보세요"]
+        },
+        "concept_tag": "pressure_front",
+        "level_group": "elementary"
+      }
+    },
+    {
+      "id": "ok_board_reproduction_puzzle",
+      "description": "정상 재현 퍼즐 — based_on 3필드 존재 + concept_tag=anomaly",
+      "expect_passed": true,
+      "expect_failed_checks": [],
+      "request": {
+        "question": {
+          "question_text": "2022년 수도권 집중호우 당시의 초기 조건을 재현해 지속성 비를 만들어 보세요",
+          "question_type": "board",
+          "correct_answer": "",
+          "mode": "goal_only",
+          "based_on": {
+            "event_name": "2022년 수도권 집중호우",
+            "event_date": "2022-08-08",
+            "region": "수도권"
+          },
+          "initial_state": {
+            "zones": ["서해", "수도권", "태백산맥", "동해안"],
+            "elements": [
+              {"type": "moisture", "level": 90, "zone": 1},
+              {"type": "front", "subtype": "stationary", "zone": 1}
+            ]
+          },
+          "palette": ["front:stationary", "moisture", "air_mass:north_pacific"],
+          "goal_conditions": [{"zone": 1, "phenomenon": "persistent_rain"}],
+          "hints": ["정체전선이 오래 머물면 같은 지역에 비가 계속 내려요"]
+        },
+        "concept_tag": "anomaly",
+        "level_group": "adult"
+      }
+    },
+    {
+      "id": "bad_board_time_limit_out_of_range",
+      "description": "불량 미니 미션 — time_limit_sec 40으로 60~120 범위 밖 (board_time_limit 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["board_time_limit"],
+      "request": {
+        "question": {
+          "question_text": "제한 시간 안에 동해안에 눈을 내려 보세요",
+          "question_type": "board",
+          "correct_answer": "",
+          "mode": "goal_only",
+          "time_limit_sec": 40,
+          "initial_state": {
+            "zones": ["서해", "수도권", "태백산맥", "동해안"],
+            "elements": [
+              {"type": "air_mass", "subtype": "siberian", "zone": 0}
+            ]
+          },
+          "palette": ["air_mass:siberian", "moisture"],
+          "goal_conditions": [{"zone": 3, "phenomenon": "snow"}],
+          "hints": ["시베리아기단이 서해를 건너며 습기를 얻어요"]
+        },
+        "concept_tag": "air_mass",
+        "level_group": "middle_high"
+      }
+    },
+    {
+      "id": "bad_board_based_on_missing_region",
+      "description": "불량 재현 퍼즐 — based_on에 region 필드 누락 (board_based_on 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["board_based_on"],
+      "request": {
+        "question": {
+          "question_text": "2018년 기록적 폭염 당시의 초기 조건을 재현해 폭염을 만들어 보세요",
+          "question_type": "board",
+          "correct_answer": "",
+          "mode": "goal_only",
+          "based_on": {
+            "event_name": "2018년 폭염",
+            "event_date": "2018-08-01"
+          },
+          "initial_state": {
+            "zones": ["서해", "수도권", "태백산맥", "동해안"],
+            "elements": [
+              {"type": "air_mass", "subtype": "north_pacific", "zone": 1},
+              {"type": "sun", "level": 95, "zone": 1}
+            ]
+          },
+          "palette": ["air_mass:north_pacific", "sun"],
+          "goal_conditions": [{"zone": 1, "phenomenon": "heatwave"}],
+          "hints": ["북태평양고기압이 오래 버티면 폭염이 이어져요"]
+        },
+        "concept_tag": "anomaly",
+        "level_group": "adult"
+      }
+    },
+    {
+      "id": "bad_board_based_on_concept_not_anomaly",
+      "description": "불량 재현 퍼즐 — based_on 3필드는 있으나 concept_tag가 anomaly 아님 (board_based_on 위반)",
+      "expect_passed": false,
+      "expect_failed_checks": ["board_based_on"],
+      "request": {
+        "question": {
+          "question_text": "2020년 역대 최장 장마 당시의 초기 조건을 재현해 지속성 비를 만들어 보세요",
+          "question_type": "board",
+          "correct_answer": "",
+          "mode": "goal_only",
+          "based_on": {
+            "event_name": "2020년 역대 최장 장마",
+            "event_date": "2020-08-16",
+            "region": "중부지방"
+          },
+          "initial_state": {
+            "zones": ["서해", "수도권", "태백산맥", "동해안"],
+            "elements": [
+              {"type": "front", "subtype": "stationary", "zone": 1},
+              {"type": "moisture", "level": 85, "zone": 1}
+            ]
+          },
+          "palette": ["front:stationary", "moisture"],
+          "goal_conditions": [{"zone": 1, "phenomenon": "persistent_rain"}],
+          "hints": ["정체전선이 오래 머물수록 장마가 길어져요"]
+        },
+        "concept_tag": "pressure_front",
         "level_group": "middle_high"
       }
     }

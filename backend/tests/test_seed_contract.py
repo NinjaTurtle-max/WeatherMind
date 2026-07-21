@@ -137,6 +137,6 @@ class TestHeuristicQualityGate:
     )
     def test_휴리스틱_전체_통과(self, index, item):
         question = {**item["template_json"], "question_type": item["question_type"]}
-        checks = validate_chain.run_heuristic_checks(question)
+        checks = validate_chain.run_heuristic_checks(question, item["concept_tag"])
         failed = [c for c in checks if not c["passed"]]
         assert not failed, f"[{index}] 휴리스틱 실패: {failed}"

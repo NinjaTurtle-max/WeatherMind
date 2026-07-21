@@ -27,6 +27,8 @@ class LeagueRank(BaseModel):
     nickname: str
     accuracy_score: Decimal | None = None
     elo_rating: int | None = None
+    # 정산 시점 ELO로 산정한 구름 티어 (R4-01 §3.2, 미정산은 null)
+    tier: str | None = None
 
 
 class LeagueResultOut(BaseModel):
@@ -38,3 +40,4 @@ class LeagueResultOut(BaseModel):
     actual_value: dict[str, Any] | None = None
     accuracy_score: Decimal | None = None
     elo_rating_after: int | None = None
+    tier: str | None = None

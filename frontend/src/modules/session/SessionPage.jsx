@@ -85,6 +85,8 @@ export default function SessionPage() {
       showFeedback(result);
       if (result.xp_earned > 0) addXp(result.xp_earned);
       queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
+      // 보드 attempt 성공 시점 퀘스트 재계산(§3.1 당일 집계) — 문항 응답마다 무효화
+      queryClient.invalidateQueries({ queryKey: ['progress', 'quests'] });
     },
     onError: (err) => {
       showFeedback({
@@ -104,6 +106,9 @@ export default function SessionPage() {
     onSuccess: (result) => {
       showSummary(result);
       queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
+      // 세션 완료 → 퀘스트 완료 전환·무오답 배지 반영 가능 (§3.1·§3.3)
+      queryClient.invalidateQueries({ queryKey: ['progress', 'quests'] });
+      queryClient.invalidateQueries({ queryKey: ['progress', 'badges'] });
     },
     onError: (err) => {
       // 409(미완료) 등 — 피드백 화면 유지 + 안내

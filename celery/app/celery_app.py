@@ -57,4 +57,9 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.retrain.retrain_weatherbrain",
         "schedule": crontab(hour=3, minute=0),
     },
+    # (e) 매일 새벽 4시 — 어제 예보 대결 정산 (R4-01 §3.4, 실측 반영 → 승패·XP)
+    "settle-daily-duel": {
+        "task": "app.tasks.league.settle_daily_duel",
+        "schedule": crontab(hour=4, minute=0),
+    },
 }

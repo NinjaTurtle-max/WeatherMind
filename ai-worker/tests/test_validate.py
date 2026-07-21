@@ -1,8 +1,9 @@
 """품질 게이트 1단 휴리스틱 골든셋 회귀 테스트 (§3.4-R2 + §3.7-R3).
 
 LLM(GEMINI_API_KEY) 없이 실행 가능해야 한다 (TEAM_PROCESS.md §1.4).
-골든셋: tests/golden_validate.json — 정상 7건(기존 3 + 신규 4) +
-휴리스틱 위반 13건(기존 6 + 신규 8, 6종 이상 위반 유형 커버).
+골든셋: tests/golden_validate.json — 정상 9건(R2 3 + R3 4 + R4 2) +
+휴리스틱 위반 17건(R2 6 + R3 8 + R4 3, 다양한 위반 유형 커버).
+R4-S6 §3.6: 미니 미션(time_limit_sec)·재현 퍼즐(based_on) board 필드 확장.
 
 실행: ai-worker 디렉토리에서 `python -m pytest tests -q`
 """
@@ -22,7 +23,7 @@ GOLDEN_PATH = Path(__file__).parent / "golden_validate.json"
 with GOLDEN_PATH.open(encoding="utf-8") as f:
     GOLDEN_CASES = json.load(f)["cases"]
 
-# 체크 배열은 §3.4(6종) + §3.7(신규 7종) = 13개 고정 순서
+# 체크 배열은 §3.4(6종) + §3.7(신규 7종) + §3.6-R4(board 2종) = 15개 고정 순서
 HEURISTIC_CHECK_NAMES = [
     "required_fields",
     "options_count",
@@ -37,13 +38,17 @@ HEURISTIC_CHECK_NAMES = [
     "match_pairs",
     "ordering_items",
     "cloze_blank",
+    "board_time_limit",
+    "board_based_on",
 ]
 
 
 @pytest.mark.parametrize("case", GOLDEN_CASES, ids=[c["id"] for c in GOLDEN_CASES])
 def test_golden_heuristic(case: dict) -> None:
     """골든셋 각 문항의 1단 휴리스틱 판정이 기대와 일치한다."""
-    checks = validate_chain.run_heuristic_checks(case["request"]["question"])
+    checks = validate_chain.run_heuristic_checks(
+        case["request"]["question"], case["request"].get("concept_tag")
+    )
 
     # 계약 §3.4: 각 체크는 {"name", "passed", "reason"} 형태
     for check in checks:

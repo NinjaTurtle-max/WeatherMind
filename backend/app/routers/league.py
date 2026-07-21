@@ -90,7 +90,12 @@ async def get_leaderboard(
 
     rows = (
         await db.execute(
-            select(User.nickname, LeagueResult.accuracy_score, LeagueResult.elo_rating_after)
+            select(
+                User.nickname,
+                LeagueResult.accuracy_score,
+                LeagueResult.elo_rating_after,
+                LeagueResult.tier,
+            )
             .join(User, User.id == LeagueResult.user_id)
             .where(LeagueResult.week_start == week_start)
             .order_by(
@@ -106,8 +111,11 @@ async def get_leaderboard(
             nickname=nickname,
             accuracy_score=accuracy_score,
             elo_rating=elo_rating_after,
+            tier=tier,
         )
-        for i, (nickname, accuracy_score, elo_rating_after) in enumerate(rows, start=1)
+        for i, (nickname, accuracy_score, elo_rating_after, tier) in enumerate(
+            rows, start=1
+        )
     ]
 
 
