@@ -19,7 +19,16 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.database import engine
 from app.core.rate_limit import limiter
 from app.core.redis import close_redis
-from app.routers import auth, board, duel, league, progress, quiz, session
+from app.routers import (
+    auth,
+    board,
+    curriculum,
+    duel,
+    league,
+    progress,
+    quiz,
+    session,
+)
 
 # 상태코드 → 기본 에러 코드
 _DEFAULT_CODES = {
@@ -71,6 +80,10 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             "detail": exc.detail["detail"],
             "code": exc.detail.get("code", _DEFAULT_CODES.get(exc.status_code, "ERROR")),
         }
+        # detail/code 외 부가 필드는 그대로 통과 (예: OUT_OF_CLOUDS의 next_regen_sec)
+        for key, value in exc.detail.items():
+            if key not in ("detail", "code"):
+                content[key] = value
     else:
         content = {
             "detail": exc.detail if isinstance(exc.detail, str) else str(exc.detail),
@@ -120,3 +133,4 @@ app.include_router(board.router)
 app.include_router(progress.router)
 app.include_router(league.router)
 app.include_router(duel.router)
+app.include_router(curriculum.router)

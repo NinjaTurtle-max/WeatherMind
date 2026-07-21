@@ -33,3 +33,10 @@ export async function fetchBadges() {
   const res = await client.get('/progress/badges');
   return res.data;
 }
+
+// GET /progress/energy (R5-01 §3.3) — 구름 에너지 잔량·회복 ETA
+//   → {clouds, max, next_regen_sec, updated_at}
+export async function fetchEnergy() {
+  const res = await client.get('/progress/energy');
+  return res.data;
+}

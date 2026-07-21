@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import CheckConstraint, Date, DateTime, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
@@ -34,6 +34,17 @@ class User(Base):
         Integer, nullable=False, default=0, server_default=text("0")
     )
     last_login_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # ── 구름 에너지 (R5-01 §3.3) — 스트릭 프리즈("구름 방패")와 독립 자원 ──
+    # 파이썬측 default 포함: flush 전 인스턴스의 None 산술/시각 비교 방지 (R4 교훈)
+    clouds: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=5, server_default=text("5")
+    )
+    clouds_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )

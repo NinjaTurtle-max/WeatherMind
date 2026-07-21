@@ -19,11 +19,18 @@ from app.models.weak_tag import WeakTag
 from app.schemas.progress import (
     AttendanceResult,
     BadgeOut,
+    EnergyState,
     ProgressMe,
     QuestOut,
     WeakTagOut,
 )
-from app.services import badge_service, league_service, quest_service, xp_service
+from app.services import (
+    badge_service,
+    energy_service,
+    league_service,
+    quest_service,
+    xp_service,
+)
 from app.services.weather_api import KST
 
 router = APIRouter(prefix="/api/v1/progress", tags=["progress"])
@@ -36,6 +43,8 @@ async def get_me(
 ) -> ProgressMe:
     level = xp_service.level_from_xp(user.xp)
     tier = await league_service.get_current_tier(db, user.id)
+    # 구름 에너지: 읽기 시점에 지연 회복 반영(§3.3)
+    energy = await energy_service.get_state(db, user)
     return ProgressMe(
         xp=user.xp,
         level=level,
@@ -43,7 +52,18 @@ async def get_me(
         streak_freeze_count=user.streak_freeze_count,
         next_level_xp=xp_service.next_level_xp(level),
         tier=tier,
+        clouds=energy["clouds"],
+        next_regen_sec=energy["next_regen_sec"],
     )
+
+
+@router.get("/energy", response_model=EnergyState)
+async def get_energy(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_with_rls),
+) -> EnergyState:
+    """구름 에너지 상태 (§3.3) — 읽기 시점 지연 회복 반영."""
+    return EnergyState(**await energy_service.get_state(db, user))
 
 
 @router.get("/quests", response_model=list[QuestOut])

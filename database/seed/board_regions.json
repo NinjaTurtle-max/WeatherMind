@@ -1,0 +1,26 @@
+[
+  {
+    "zone": 0,
+    "name": "서해상",
+    "svg_point": [20, 45],
+    "label_anchor": [18, 56]
+  },
+  {
+    "zone": 1,
+    "name": "수도권",
+    "svg_point": [42, 38],
+    "label_anchor": [42, 49]
+  },
+  {
+    "zone": 2,
+    "name": "영서·태백",
+    "svg_point": [62, 30],
+    "label_anchor": [62, 21]
+  },
+  {
+    "zone": 3,
+    "name": "영동·동해",
+    "svg_point": [78, 42],
+    "label_anchor": [82, 52]
+  }
+]

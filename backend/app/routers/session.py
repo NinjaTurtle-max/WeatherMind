@@ -32,7 +32,14 @@ from app.schemas.session import (
     SessionProgress,
     SessionToday,
 )
-from app.services import answer_service, badge_service, quest_service, session_service
+from app.services import (
+    answer_service,
+    badge_service,
+    curriculum_service,
+    energy_service,
+    quest_service,
+    session_service,
+)
 from app.services.ai_client import AIWorkerError
 from app.services.answer_service import AlreadyAnsweredError, BoardStateRequiredError
 from app.services.board_engine import BoardRulesError, BoardValidationError
@@ -41,6 +48,18 @@ from app.services.weather_api import KST
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/session", tags=["session"])
+
+
+def _out_of_clouds(exc: energy_service.OutOfCloudsError) -> HTTPException:
+    """구름 소진 → 429 OUT_OF_CLOUDS (다음 회복 ETA 포함, §3.3·§3.5)."""
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail={
+            "detail": "구름이 부족합니다. 시간이 지나면 회복됩니다.",
+            "code": "OUT_OF_CLOUDS",
+            "next_regen_sec": exc.next_regen_sec,
+        },
+    )
 
 
 # board 플레이에 필요한 template 필드 화이트리스트 (§3.3) — correct_answer는
@@ -247,6 +266,19 @@ async def submit_session_answer(
             detail={"detail": "세션에 해당 퀴즈가 없습니다.", "code": "QUIZ_NOT_FOUND"},
         )
 
+    # 구름 에너지(§3.3): 최초(비멱등) 제출에만 1 소모 — 0이면 제출 전 429.
+    # 재제출(멱등 가드 히트)은 미소모하도록 이미 응답된 로그면 소모를 건너뛴다
+    # (submit_answer_for_log이 AlreadyAnsweredError로 409 처리).
+    already_answered = log.user_answer is not None or log.is_correct is not None
+    if not already_answered:
+        # 소모는 요청 트랜잭션(get_db_with_rls) 안에서 일어나므로, 이후 422/503/409로
+        # 예외가 나면 롤백되어 구름이 새지 않는다 — "제출 성공 시에만 소모"가 성립한다.
+        # (이 속성은 소모가 요청 트랜잭션을 공유할 때만 유효: 별도 커밋/예외 삼킴 금지.)
+        try:
+            await energy_service.consume(db, user)
+        except energy_service.OutOfCloudsError as exc:
+            raise _out_of_clouds(exc)
+
     # board 유형(§3.4): board_state 필수·검증, answer 문자열로 정규화
     answer = _resolve_board_answer(log, body.answer, body.board_state)
 
@@ -300,6 +332,14 @@ async def complete_session(
         # 무오답 세션 배지(perfect_session) — 5/5 정답, 중복은 UNIQUE로 방어 (R4-01 §3.3)
         if badge_service.is_perfect_session(correct_count, progress.total):
             await badge_service.award_badge(db, user.id, badge_service.BADGE_PERFECT_SESSION)
+        # 유닛 세션이 5/5(또는 board 클리어)로 완료되면 왕관 +1·cleared 전환 +20 XP (§3.2).
+        # 세션 최초 완료 시에만(멱등) 왕관을 가산한다.
+        if (
+            session.unit_id is not None
+            and progress.total > 0
+            and correct_count == progress.total
+        ):
+            await curriculum_service.grant_unit_crown(db, user, session.unit_id)
 
     # 일일 퀘스트 재계산 — 세션 complete 트리거(당일 집계 멱등 재계산) (R4-01 §3.1)
     await quest_service.recalculate_quests(db, user, session.session_date)

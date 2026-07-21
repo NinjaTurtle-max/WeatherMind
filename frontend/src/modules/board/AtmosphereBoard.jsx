@@ -75,6 +75,18 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     staleTime: 60 * 60 * 1000, // 규칙은 세션 내 불변 — 한 번만 로드
   });
 
+  // 지도 지역 좌표(R5-01 §3.1) — zone index↔지역 고정 매핑. 렌더 전용(판정 불변).
+  // 로드 실패/지연 시 지리적 폴백 좌표를 쓴다(서해 왼쪽·수도권 중앙·태백 우측·동해 맨우측).
+  const { data: regionsData } = useQuery({
+    queryKey: ['board', 'regions'],
+    queryFn: boardApi.fetchBoardRegions,
+    staleTime: 60 * 60 * 1000,
+  });
+  const regions = useMemo(() => {
+    const byZone = new Map((regionsData ?? []).map((r) => [r.zone, r]));
+    return ZONES.map((zoneName, zone) => byZone.get(zone) ?? { zone, name: zoneName, ...FALLBACK_REGIONS[zone] });
+  }, [regionsData]);
+
   const palette = puzzle?.palette ?? [];
   const paletteItems = useMemo(() => palette.map((t) => ({ token: t, ...parsePaletteToken(t) })), [palette]);
   const allowMoisture = palette.includes('moisture');
@@ -99,6 +111,12 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   };
   const handleZoneClick = (zone) => {
     if (selected) placeOn(zone, selected);
+  };
+  const handleDrop = (e, zone) => {
+    if (!interactive) return;
+    e.preventDefault();
+    const token = e.dataTransfer.getData('text/board-token');
+    if (token) placeOn(zone, { token, ...parsePaletteToken(token) });
   };
 
   const zoneElement = (zone, type) =>
@@ -186,9 +204,23 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         </div>
       )}
 
-      {/* 4존 가로 보드 */}
+      {/* 한반도 지도 — 지역 노드에 요소를 드롭·탭 배치 (R5-01 §3.1). zone↔지역 고정 매핑. */}
+      <PeninsulaMap
+        regions={regions}
+        preview={preview}
+        board={board}
+        goals={goals}
+        goalConditions={puzzle?.goal_conditions}
+        selected={selected}
+        interactive={interactive}
+        onZoneTap={handleZoneClick}
+        onZoneDrop={handleDrop}
+      />
+
+      {/* 4개 지역 상세 조절(노드별 기단·전선·습기·일사) — 지도와 같은 zone을 가리킨다 */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {ZONES.map((zoneName, zone) => {
+        {ZONES.map((_zoneName, zone) => {
+          const region = regions[zone];
           const airEl = zoneElement(zone, 'air_mass');
           const frontEl = zoneElement(zone, 'front');
           const pv = preview[zone];
@@ -202,17 +234,12 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
               key={zone}
               onClick={() => handleZoneClick(zone)}
               onDragOver={(e) => interactive && e.preventDefault()}
-              onDrop={(e) => {
-                if (!interactive) return;
-                e.preventDefault();
-                const token = e.dataTransfer.getData('text/board-token');
-                if (token) placeOn(zone, { token, ...parsePaletteToken(token) });
-              }}
+              onDrop={(e) => handleDrop(e, zone)}
               className={`flex flex-col rounded-xl border p-2 transition ${
                 selected && interactive ? 'cursor-pointer border-dashed border-sky-400 bg-sky-50/40' : 'border-slate-200'
               } ${goalMet ? 'ring-2 ring-emerald-400' : ''}`}
             >
-              <p className="mb-1 text-center text-xs font-bold text-slate-600">{zoneName}</p>
+              <p className="mb-1 text-center text-xs font-bold text-slate-600">{region.name}</p>
 
               {/* 미리보기 현상/구름 (즉시 가시화) */}
               <div className="mb-2 rounded-lg bg-slate-50 py-2 text-center">
@@ -290,8 +317,16 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         </div>
       )}
 
+      {/* 구름 소진(§3.3) — 에너지 부족 안내(판정 실패와 구분) */}
+      {result?.outOfClouds && (
+        <div className="mt-3 rounded-xl bg-rose-50 px-4 py-3 ring-1 ring-rose-200">
+          <p className="text-sm font-bold text-rose-700">☁️ 구름이 모두 흩어졌어요</p>
+          {result.feedback && <p className="mt-1 whitespace-pre-line text-xs text-rose-600">{result.feedback}</p>}
+        </div>
+      )}
+
       {/* 서버 판정 결과 */}
-      {result && (
+      {result && !result.outOfClouds && (
         <div
           className={`mt-3 rounded-xl px-4 py-3 ${
             result.passed ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-orange-50 ring-1 ring-orange-200'
@@ -331,6 +366,86 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
       )}
     </div>
   );
+}
+
+// 지리적 폴백 좌표(정규화 0~100) — /board/regions 미로드 시 사용.
+// 서해상 왼쪽 · 수도권 중앙상단 · 영서·태백 우측 · 영동·동해 맨우측(§3.1 배치 지시).
+const FALLBACK_REGIONS = [
+  { name: '서해상', svg_point: [21, 54], label_anchor: [21, 66] },
+  { name: '수도권', svg_point: [43, 33], label_anchor: [43, 21] },
+  { name: '영서·태백', svg_point: [61, 47], label_anchor: [61, 35] },
+  { name: '영동·동해', svg_point: [82, 43], label_anchor: [88, 55] },
+];
+
+/**
+ * PeninsulaMap — 단순화한 한반도 지도(인라인 SVG, CSP상 외부 이미지 금지) 위에
+ * 4개 지역 노드를 배치한다. 노드는 요소 드롭·탭 배치 대상이며 즉시 미리보기 현상을
+ * 아이콘으로 보여준다. 판정 로직(boardEngine)은 불변 — zone index↔지역 매핑만 표현.
+ */
+function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected, interactive, onZoneTap, onZoneDrop }) {
+  return (
+    <div className="relative mb-3 h-44 w-full overflow-hidden rounded-xl bg-gradient-to-b from-sky-100 to-sky-200 ring-1 ring-sky-200 sm:h-52">
+      {/* 단순화 한반도 실루엣 (동서 단면 개념) */}
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
+        <path
+          d="M34,14 C40,10 50,12 53,20 C55,26 60,24 65,28 C70,32 67,39 71,44 C76,50 82,49 82,57
+             C82,65 74,66 70,72 C65,79 60,86 52,88 C46,89 41,86 39,80 C37,74 40,69 35,65
+             C30,61 24,60 24,52 C24,44 30,42 30,35 C30,29 28,24 32,19 C33,17 33,15 34,14 Z"
+          fill="#bbf7d0"
+          stroke="#86efac"
+          strokeWidth="1"
+        />
+        {/* 태백산맥 능선 힌트 */}
+        <path d="M56,30 L60,44 L57,58 L61,70" fill="none" stroke="#4ade80" strokeWidth="1.2" strokeLinejoin="round" opacity="0.7" />
+      </svg>
+
+      {/* 지역 노드 */}
+      {regions.map((region, zone) => {
+        const [x, y] = region.svg_point ?? [50, 50];
+        const pv = preview?.[zone];
+        const ph = phenomenonMeta(pv?.phenomenon);
+        const airEl = board?.elements?.find((el) => el.zone === zone && el.type === 'air_mass');
+        const frontEl = board?.elements?.find((el) => el.zone === zone && el.type === 'front');
+        const goalMet =
+          (goals?.unmet ?? []).every((g) => g.zone !== zone) &&
+          (goalConditions ?? []).some((g) => g.zone === zone);
+        const isGoalZone = (goalConditions ?? []).some((g) => g.zone === zone);
+        return (
+          <button
+            type="button"
+            key={zone}
+            onClick={() => interactive && onZoneTap(zone)}
+            onDragOver={(e) => interactive && e.preventDefault()}
+            onDrop={(e) => onZoneDrop(e, zone)}
+            disabled={!interactive}
+            style={{ left: `${x}%`, top: `${y}%` }}
+            title={region.name}
+            className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-xl px-1.5 py-1 shadow-md ring-1 transition ${
+              goalMet
+                ? 'bg-emerald-50 ring-2 ring-emerald-400'
+                : isGoalZone
+                  ? 'bg-white/95 ring-sky-300'
+                  : 'bg-white/90 ring-slate-200'
+            } ${selected && interactive ? 'cursor-pointer ring-2 ring-sky-400 hover:ring-sky-500' : ''}`}
+          >
+            <span className="text-xl leading-none" aria-hidden="true">{ph.icon}</span>
+            <span className="mt-0.5 whitespace-nowrap text-[10px] font-bold text-slate-700">{region.name}</span>
+            <span className="mt-0.5 flex gap-0.5 text-[9px]">
+              {airEl && <span aria-hidden="true">{subtypeIcon('air_mass', airEl.subtype)}</span>}
+              {frontEl && <span aria-hidden="true">{subtypeIcon('front', frontEl.subtype)}</span>}
+              {isGoalZone && !goalMet && <span className="text-slate-400">🎯</span>}
+              {goalMet && <span className="text-emerald-500">✓</span>}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 배치 요소 아이콘(지도 노드 미니 배지용) */
+function subtypeIcon(type, subtype) {
+  return parsePaletteToken(`${type}:${subtype}`).icon;
 }
 
 /** 초 → M:SS 표시 (미니 미션 카운트다운) */

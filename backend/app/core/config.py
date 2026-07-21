@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     AI_WORKER_INTERNAL_URL: str = "http://ai-worker:8001"
     AI_WORKER_INTERNAL_API_KEY: str = "changeme-internal-secret"
 
+    # ── 구름 에너지 (R5-01 §3.3·§3.4) ──
+    # false면 무제한(소모 없음) — 기존 동작, 데모·테스트 유연성. 레이트리밋과 별개 층.
+    ENERGY_ENABLED: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

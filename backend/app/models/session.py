@@ -10,7 +10,7 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, UniqueConstraint, text
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,9 +19,18 @@ from app.models.base import Base
 
 class Session(Base):
     __tablename__ = "sessions"
+    # daily 멱등성은 unit_id IS NULL 행에만 적용하는 부분 유니크 인덱스로 보장한다
+    # (R5-01 §3.2, 0005). 유닛 세션(unit_id NOT NULL, mode='unit')은 같은 날 여러
+    # 유닛을 발급하므로 이 제약 밖이다. get_today_session의 동시 발급 IntegrityError
+    # 재조회 경로는 daily 부분 인덱스가 그대로 발생시키므로 동작 불변.
     __table_args__ = (
-        UniqueConstraint(
-            "user_id", "session_date", "mode", name="uq_sessions_user_date_mode"
+        Index(
+            "uq_sessions_daily",
+            "user_id",
+            "session_date",
+            "mode",
+            unique=True,
+            postgresql_where=text("unit_id IS NULL"),
         ),
     )
 
@@ -30,6 +39,10 @@ class Session(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    # 유닛 세션 발급 시 소속 유닛 (R5-01 §3.2). daily/일일 세션은 NULL.
+    unit_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("units.id"), nullable=True
     )
     session_date: Mapped[date] = mapped_column(Date, nullable=False)
     mode: Mapped[str] = mapped_column(

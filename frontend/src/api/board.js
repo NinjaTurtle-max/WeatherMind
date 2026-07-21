@@ -12,6 +12,13 @@ export async function fetchBoardRules() {
   return res.data;
 }
 
+// GET /board/regions → [{zone, name, svg_point:[x,y], label_anchor:[x,y]}] (R5-01 §3.1)
+//   지도 렌더 전용 좌표(정규화 0~100). 판정에 미사용 — zone index↔지역 고정 매핑.
+export async function fetchBoardRegions() {
+  const res = await client.get('/board/regions');
+  return res.data;
+}
+
 // GET /board/puzzles → [{content_item_id, template_json, cleared}]
 //   보드 유형은 비밀 정답이 없으므로 template_json 전체 노출(힌트 단계 공개는 클라이언트 제어).
 export async function fetchBoardPuzzles() {

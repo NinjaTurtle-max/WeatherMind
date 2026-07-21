@@ -752,6 +752,216 @@ def run_llm_checks(question: dict, concept_tag: str, level_group: str) -> list[d
     return _llm_checks_from_result(result, question.get("question_type"))
 
 
+# ── R5-S6 §3.6 커리큘럼 무결성 게이트 (휴리스틱, LLM 불필요) ────────────────
+# units.json 시드가 문항 풀·잠금 규칙과 정합한지 결정적으로 검증한다. 게이트이므로
+# 어떤 입력(누락 필드·잘못된 타입·units가 리스트 아님)도 예외 대신 "실패한 체크"로
+# 환원한다. 체크 배열은 항상 6개·고정 순서로 구성해 응답을 결정적으로 유지한다.
+CURRICULUM_CONCEPT_TAGS = (
+    "pressure_front",
+    "typhoon",
+    "air_mass",
+    "heat_island",
+    "co2_climate",
+    "anomaly",
+)
+UNIT_KINDS = ("quiz", "board")
+BOARD_QUESTION_TYPE = "board"  # content_items에서 board 퍼즐 판별 (§3.7 유형과 동일)
+
+
+def _find_prereq_cycle_units(units: list[dict]) -> set:
+    """prereq_unit_id 그래프에서 순환에 속한 unit id 집합을 반환한다.
+
+    각 유닛의 prereq_unit_id는 단일 FK이므로 그래프는 각 노드의 진출차수가
+    최대 1인 함수형 그래프다(체인·ρ 형태만 가능). 존재하지 않는 id를 가리키는
+    prereq는 순환이 아니라 dangling으로 취급하여 걷기를 종료한다(순환 오판 방지).
+    """
+    id_to_prereq: dict = {}
+    for unit in units:
+        if not isinstance(unit, dict):
+            continue
+        uid = unit.get("id")
+        if uid is None:
+            continue
+        prereq = unit.get("prereq_unit_id")
+        # 존재하는 unit을 가리킬 때만 간선으로 인정 (dangling은 prereq_exists 소관)
+        if prereq is not None and prereq in {
+            u.get("id") for u in units if isinstance(u, dict)
+        }:
+            id_to_prereq[uid] = prereq
+
+    cycle_ids: set = set()
+    safe: set = set()  # 순환에 이르지 않음이 확인된 노드 (재방문 방지)
+    for start in id_to_prereq:
+        if start in safe or start in cycle_ids:
+            continue
+        path: list = []
+        seen: set = set()
+        node = start
+        while node in id_to_prereq and node not in seen and node not in safe:
+            seen.add(node)
+            path.append(node)
+            node = id_to_prereq[node]
+        if node in seen:  # 현재 경로로 되돌아옴 → node부터가 순환
+            in_cycle = False
+            for p in path:
+                if p == node:
+                    in_cycle = True
+                if in_cycle:
+                    cycle_ids.add(p)
+        else:  # 체인이 순환 없이 끝남 → 경로 전체 안전
+            safe.update(path)
+    return cycle_ids
+
+
+def validate_curriculum(units: list, content_items: list) -> dict:
+    """units.json 시드의 §3.6 무결성을 검증한다 (순수 함수, LLM 불필요).
+
+    Args:
+        units: unit dict 목록. 각 unit은 id·section·unit_order·concept_tag·
+            kind·prereq_unit_id(nullable) 필드를 가진다(§3.2).
+        content_items: 문항 dict 목록. board 퍼즐은 question_type='board'.
+
+    Returns:
+        {"passed": bool, "checks": [{"name", "passed", "reason"}, ...]}
+        체크는 항상 6개·고정 순서. passed = 모든 체크 통과.
+    """
+    checks: list[dict] = []
+    unit_list = units if isinstance(units, list) else []
+    item_list = content_items if isinstance(content_items, list) else []
+    unit_dicts = [u for u in unit_list if isinstance(u, dict)]
+
+    # 1. unit_order_unique — section 내에서 unit_order 유일
+    if not isinstance(units, list):
+        checks.append(_check("unit_order_unique", False, "units가 리스트가 아님"))
+    else:
+        seen_orders: dict[tuple, int] = {}
+        for unit in unit_dicts:
+            key = (unit.get("section"), unit.get("unit_order"))
+            seen_orders[key] = seen_orders.get(key, 0) + 1
+        dupes = sorted(
+            (f"section={sec!r} unit_order={order!r}×{count}")
+            for (sec, order), count in seen_orders.items()
+            if count > 1
+        )
+        if dupes:
+            checks.append(
+                _check(
+                    "unit_order_unique",
+                    False,
+                    f"section 내 unit_order 중복: {'; '.join(dupes)}",
+                )
+            )
+        else:
+            checks.append(
+                _check("unit_order_unique", True, f"section별 unit_order 유일 ({len(unit_dicts)}개)")
+            )
+
+    # 2. prereq_exists — prereq_unit_id가 존재하는 unit id를 참조 (null 허용)
+    known_ids = {u.get("id") for u in unit_dicts if u.get("id") is not None}
+    dangling = sorted(
+        f"{u.get('id')!r}→{u.get('prereq_unit_id')!r}"
+        for u in unit_dicts
+        if u.get("prereq_unit_id") is not None
+        and u.get("prereq_unit_id") not in known_ids
+    )
+    if dangling:
+        checks.append(
+            _check(
+                "prereq_exists",
+                False,
+                f"존재하지 않는 unit을 참조하는 prereq_unit_id: {', '.join(dangling)}",
+            )
+        )
+    else:
+        checks.append(_check("prereq_exists", True, "모든 prereq_unit_id가 존재하는 unit 참조"))
+
+    # 3. prereq_no_cycle — prereq 그래프에 순환 없음 (자기참조 A→A 포함)
+    cycle_ids = _find_prereq_cycle_units(unit_dicts)
+    if cycle_ids:
+        checks.append(
+            _check(
+                "prereq_no_cycle",
+                False,
+                f"prereq 순환에 속한 unit: {', '.join(sorted(str(i) for i in cycle_ids))}",
+            )
+        )
+    else:
+        checks.append(_check("prereq_no_cycle", True, "prereq 그래프에 순환 없음"))
+
+    # 4. concept_tag_valid — 6종 표준 concept_tag만 허용
+    bad_tags = sorted(
+        {
+            f"{u.get('id')!r}:{u.get('concept_tag')!r}"
+            for u in unit_dicts
+            if u.get("concept_tag") not in CURRICULUM_CONCEPT_TAGS
+        }
+    )
+    if bad_tags:
+        checks.append(
+            _check(
+                "concept_tag_valid",
+                False,
+                f"concept_tag가 표준 6종({', '.join(CURRICULUM_CONCEPT_TAGS)}) 밖: "
+                f"{', '.join(bad_tags)}",
+            )
+        )
+    else:
+        checks.append(_check("concept_tag_valid", True, "모든 concept_tag가 표준 6종 내"))
+
+    # 5. kind_enum — kind가 'quiz'|'board'
+    bad_kinds = sorted(
+        {
+            f"{u.get('id')!r}:{u.get('kind')!r}"
+            for u in unit_dicts
+            if u.get("kind") not in UNIT_KINDS
+        }
+    )
+    if bad_kinds:
+        checks.append(
+            _check(
+                "kind_enum",
+                False,
+                f"kind가 enum({'|'.join(UNIT_KINDS)}) 밖: {', '.join(bad_kinds)}",
+            )
+        )
+    else:
+        checks.append(_check("kind_enum", True, "모든 kind가 enum 내"))
+
+    # 6. board_puzzle_exists — board 유닛은 해당 concept_tag board 퍼즐이 1건 이상 존재
+    board_tags = {
+        item.get("concept_tag")
+        for item in item_list
+        if isinstance(item, dict)
+        and item.get("question_type") == BOARD_QUESTION_TYPE
+    }
+    missing_board = sorted(
+        {
+            f"{u.get('id')!r}(concept_tag={u.get('concept_tag')!r})"
+            for u in unit_dicts
+            if u.get("kind") == "board" and u.get("concept_tag") not in board_tags
+        }
+    )
+    if missing_board:
+        checks.append(
+            _check(
+                "board_puzzle_exists",
+                False,
+                f"board 유닛에 해당 concept_tag board 퍼즐 없음: {', '.join(missing_board)}",
+            )
+        )
+    else:
+        board_unit_count = sum(1 for u in unit_dicts if u.get("kind") == "board")
+        checks.append(
+            _check(
+                "board_puzzle_exists",
+                True,
+                f"모든 board 유닛({board_unit_count}개)에 해당 concept_tag board 퍼즐 존재",
+            )
+        )
+
+    return {"passed": all(c["passed"] for c in checks), "checks": checks}
+
+
 # ── 진입점 ─────────────────────────────────────────────────────────────────
 def validate_quiz(question: dict, concept_tag: str, level_group: str) -> dict:
     """문항 1건을 2단 검증하고 계약 §3.4 응답 형태로 반환한다.

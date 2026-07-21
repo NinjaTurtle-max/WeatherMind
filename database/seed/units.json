@@ -1,0 +1,122 @@
+[
+  {
+    "id": "read-sky-pressure",
+    "section": "하늘 읽기",
+    "unit_order": 1,
+    "title": "고기압과 저기압, 하늘을 읽다",
+    "concept_tag": "pressure_front",
+    "prereq_unit_id": null,
+    "kind": "quiz",
+    "crown_target": 1
+  },
+  {
+    "id": "read-sky-fronts",
+    "section": "하늘 읽기",
+    "unit_order": 2,
+    "title": "전선의 종류와 비의 성격",
+    "concept_tag": "pressure_front",
+    "prereq_unit_id": "read-sky-pressure",
+    "kind": "quiz",
+    "crown_target": 1
+  },
+  {
+    "id": "read-sky-board",
+    "section": "하늘 읽기",
+    "unit_order": 3,
+    "title": "지도에 전선을 세워 비를 내려라",
+    "concept_tag": "pressure_front",
+    "prereq_unit_id": "read-sky-fronts",
+    "kind": "board",
+    "crown_target": 2
+  },
+  {
+    "id": "air-power-masses",
+    "section": "공기의 힘",
+    "unit_order": 1,
+    "title": "계절을 지배하는 네 기단",
+    "concept_tag": "air_mass",
+    "prereq_unit_id": "read-sky-board",
+    "kind": "quiz",
+    "crown_target": 1
+  },
+  {
+    "id": "air-power-transform",
+    "section": "공기의 힘",
+    "unit_order": 2,
+    "title": "기단의 이동과 변질",
+    "concept_tag": "air_mass",
+    "prereq_unit_id": "air-power-masses",
+    "kind": "quiz",
+    "crown_target": 1
+  },
+  {
+    "id": "air-power-board",
+    "section": "공기의 힘",
+    "unit_order": 3,
+    "title": "기단으로 날씨를 빚어라",
+    "concept_tag": "air_mass",
+    "prereq_unit_id": "air-power-transform",
+    "kind": "board",
+    "crown_target": 2
+  },
+  {
+    "id": "big-wind-birth",
+    "section": "큰 바람",
+    "unit_order": 1,
+    "title": "태풍은 어떻게 태어나는가",
+    "concept_tag": "typhoon",
+    "prereq_unit_id": "air-power-board",
+    "kind": "quiz",
+    "crown_target": 1
+  },
+  {
+    "id": "big-wind-lifecycle",
+    "section": "큰 바람",
+    "unit_order": 2,
+    "title": "태풍의 일생과 소멸",
+    "concept_tag": "typhoon",
+    "prereq_unit_id": "big-wind-birth",
+    "kind": "quiz",
+    "crown_target": 1
+  },
+  {
+    "id": "city-heat-island",
+    "section": "도시와 기후",
+    "unit_order": 1,
+    "title": "도시는 왜 더 뜨거운가 — 열섬",
+    "concept_tag": "heat_island",
+    "prereq_unit_id": "big-wind-lifecycle",
+    "kind": "quiz",
+    "crown_target": 1
+  },
+  {
+    "id": "city-greenhouse",
+    "section": "도시와 기후",
+    "unit_order": 2,
+    "title": "온실효과와 이산화탄소",
+    "concept_tag": "co2_climate",
+    "prereq_unit_id": "city-heat-island",
+    "kind": "quiz",
+    "crown_target": 1
+  },
+  {
+    "id": "city-anomaly",
+    "section": "도시와 기후",
+    "unit_order": 3,
+    "title": "평년을 벗어난 하늘 — 이상기후",
+    "concept_tag": "anomaly",
+    "prereq_unit_id": "city-greenhouse",
+    "kind": "quiz",
+    "crown_target": 1
+  },
+  {
+    "id": "city-anomaly-board",
+    "section": "도시와 기후",
+    "unit_order": 4,
+    "title": "실화 재현: 기록적 폭염과 최장 장마",
+    "concept_tag": "anomaly",
+    "prereq_unit_id": "city-anomaly",
+    "kind": "board",
+    "crown_target": 2
+  }
+]

@@ -14,8 +14,10 @@
 - 규칙 파일 부재/스키마 오류는 503(데이터 저작 대기·데이터 오류) — 판정 불가 시
   퍼즐 클리어를 기록하지 않는다.
 """
+import json
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -28,7 +30,7 @@ from app.models.content_item import ContentItem
 from app.models.quiz_log import QuizLog
 from app.models.user import User
 from app.schemas.board import BoardAttemptRequest, BoardAttemptResult, BoardPuzzle
-from app.services import board_engine, quest_service, xp_service
+from app.services import board_engine, energy_service, quest_service, xp_service
 from app.services.answer_service import evaluate_board_answer
 from app.services.weather_api import KST
 from app.services.board_engine import BoardRulesError, BoardValidationError
@@ -36,6 +38,54 @@ from app.services.board_engine import BoardRulesError, BoardValidationError
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/board", tags=["board"])
+
+# 지도 지역 좌표 파일 (§3.1) — 판정 미사용, 프론트 렌더 전용. 프로세스 캐시.
+REGIONS_PATH = (
+    Path(__file__).resolve().parents[3] / "database" / "seed" / "board_regions.json"
+)
+_regions_cache: list[dict] | None = None
+
+
+def _out_of_clouds(exc: energy_service.OutOfCloudsError) -> HTTPException:
+    """구름 소진 → 429 OUT_OF_CLOUDS (다음 회복 ETA 포함, §3.3·§3.5)."""
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail={
+            "detail": "구름이 부족합니다. 시간이 지나면 회복됩니다.",
+            "code": "OUT_OF_CLOUDS",
+            "next_regen_sec": exc.next_regen_sec,
+        },
+    )
+
+
+def load_regions() -> list[dict]:
+    """board_regions.json 로드(프로세스 캐시). 부재·오류 시 빈 배열 + 로그 (§3.1).
+
+    데이터 직군이 병렬 저작 중이므로 부재해도 라우터는 동작한다(seed_content 패턴).
+    """
+    global _regions_cache
+    if _regions_cache is not None:
+        return _regions_cache
+    if not REGIONS_PATH.exists():
+        logger.info("board_regions.json 부재 — 빈 배열 반환 (데이터 저작 대기): %s", REGIONS_PATH)
+        _regions_cache = []
+        return _regions_cache
+    try:
+        data = json.loads(REGIONS_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        logger.warning("board_regions.json 파싱 실패 — 빈 배열 반환: %s", exc)
+        _regions_cache = []
+        return _regions_cache
+    _regions_cache = data if isinstance(data, list) else []
+    return _regions_cache
+
+
+@router.get("/regions")
+async def get_regions(
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    """지도 지역 좌표(board_regions.json) — 존↔지역 매핑 렌더 전용 (§3.1)."""
+    return load_regions()
 
 
 def board_clear_xp(passed: bool, already_cleared: bool) -> int:
@@ -170,6 +220,15 @@ async def attempt_puzzle(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"detail": f"보드 상태가 올바르지 않습니다: {exc}", "code": "BOARD_STATE_INVALID"},
         )
+
+    # 구름 에너지(§3.3): 유효한 보드 시도 1 소모 — 0이면 판정 전 429.
+    # 보드 attempt는 멱등 가드가 없어 매 시도가 소모 대상이다(세션 재제출과 달리).
+    # 소모는 요청 트랜잭션을 공유하므로 이후 503(규칙 부재) 등으로 예외 시 롤백되어
+    # 구름이 새지 않는다 — 별도 커밋/예외 삼킴을 넣으면 이 보장이 깨진다.
+    try:
+        await energy_service.consume(db, user)
+    except energy_service.OutOfCloudsError as exc:
+        raise _out_of_clouds(exc)
 
     # 서버 권위 판정 (§3.4) — 규칙 파일 부재/오류 시 503, 클리어 미기록
     try:

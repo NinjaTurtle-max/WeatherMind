@@ -34,6 +34,8 @@ XP_DETECTIVE_SOLVE = 30
 XP_LEAGUE_TOP10 = 40
 # 대기 보드 퍼즐 최초 클리어 보상 (스프린트 R3-01 §3.5, 재도전 0)
 XP_BOARD_CLEAR = 5
+# 커리큘럼 유닛 clear 전환 보상 (스프린트 R5-01 §3.2, cleared 전환 시 1회)
+XP_UNIT_CLEAR = 20
 
 # 약점 개념 정답 보너스 배율 / 임계값
 WEAK_TAG_XP_MULTIPLIER = 1.5

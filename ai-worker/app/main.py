@@ -9,6 +9,9 @@ DEVELOPMENT_PLAN.md 2.1 backend → ai-worker 내부 API 계약:
 스프린트 R2-01 §3.4 품질 게이트:
   POST /internal/quiz-validate  {question, concept_tag, level_group} → {passed, checks}
 
+스프린트 R5-01 §3.6 커리큘럼 무결성 게이트:
+  POST /internal/curriculum-validate  {units, content_items} → {passed, checks}
+
 모든 /internal/* 엔드포인트는 X-Internal-API-Key 헤더를
 AI_WORKER_INTERNAL_API_KEY와 비교해 검증한다 (불일치 시 401).
 """
@@ -99,6 +102,16 @@ class QuizValidateResponse(BaseModel):
     checks: list[ValidationCheck]
 
 
+class CurriculumValidateRequest(BaseModel):
+    units: list[dict] = Field(default_factory=list)  # §3.2 units.json 시드
+    content_items: list[dict] = Field(default_factory=list)
+
+
+class CurriculumValidateResponse(BaseModel):
+    passed: bool
+    checks: list[ValidationCheck]
+
+
 # ── 엔드포인트 ─────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
@@ -159,3 +172,16 @@ def quiz_validate(body: QuizValidateRequest) -> QuizValidateResponse:
         level_group=body.level_group,
     )
     return QuizValidateResponse(**result)
+
+
+@app.post(
+    "/internal/curriculum-validate",
+    response_model=CurriculumValidateResponse,
+    dependencies=[Depends(verify_internal_api_key)],
+)
+def curriculum_validate(body: CurriculumValidateRequest) -> CurriculumValidateResponse:
+    result = validate_chain.validate_curriculum(
+        units=body.units,
+        content_items=body.content_items,
+    )
+    return CurriculumValidateResponse(**result)

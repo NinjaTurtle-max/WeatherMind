@@ -53,7 +53,7 @@ const state = {
   xp: 1180,
   level: 4,
   streak: 6,
-  streakFreeze: 1, // 구름 방패 보유 수 (§3.5, 최대 2)
+  streakFreeze: 1, // 구름 방패 보유 수 (§3.5, 최대 2) — 스트릭 방어 자원(clouds와 독립)
   answeredToday: false,
   predicted: false,
   tier: 'nimbostratus', // 최근 정산 티어 (§3.2 /progress/me)
@@ -61,7 +61,140 @@ const state = {
   quest: { xpToday: 20, weakCorrect: 0, liveAnswered: 0 },
   // 예보 대결 (§3.4) — 오늘 제출 상태
   duel: { submitted: false, userPred: null, aiPred: null },
+  // 구름 에너지 (R5-01 §3.3) — 소모성 플레이 자원. 지연 회복 모델.
+  clouds: 5,
+  cloudsUpdatedAt: Date.now(),
 };
+
+// ── 구름 에너지 상수 (R5-01 §3.3) ──
+const ENERGY_ENABLED = true; // §3.4 기능 플래그(기본 true). false면 무제한.
+const CLOUD_MAX = 5;
+const CLOUD_REGEN_MS = 20 * 60 * 1000; // 20분당 1개 회복
+
+/** 지연 회복(§3.3): 읽기·소모 시점에 elapsed로 회복량 계산·clamp·anchor 갱신 */
+function regenClouds() {
+  if (state.clouds >= CLOUD_MAX) {
+    state.cloudsUpdatedAt = Date.now();
+    return;
+  }
+  const elapsed = Date.now() - state.cloudsUpdatedAt;
+  const gained = Math.floor(elapsed / CLOUD_REGEN_MS);
+  if (gained > 0) {
+    state.clouds = Math.min(CLOUD_MAX, state.clouds + gained);
+    state.cloudsUpdatedAt =
+      state.clouds >= CLOUD_MAX ? Date.now() : state.cloudsUpdatedAt + gained * CLOUD_REGEN_MS;
+  }
+}
+
+/** 다음 1개 회복까지 남은 초 (가득 차면 0) */
+function nextRegenSec() {
+  if (state.clouds >= CLOUD_MAX) return 0;
+  return Math.max(0, Math.ceil((state.cloudsUpdatedAt + CLOUD_REGEN_MS - Date.now()) / 1000));
+}
+
+/** GET /progress/energy 페이로드 (§3.3) */
+function energyPayload() {
+  regenClouds();
+  return {
+    clouds: state.clouds,
+    max: CLOUD_MAX,
+    next_regen_sec: nextRegenSec(),
+    updated_at: new Date(state.cloudsUpdatedAt).toISOString(),
+  };
+}
+
+/** 구름 1 소모 시도. {ok:true} 또는 {ok:false, next_regen_sec} (§3.3 원자 소모 흉내) */
+function consumeCloud() {
+  if (!ENERGY_ENABLED) return { ok: true };
+  regenClouds();
+  if (state.clouds <= 0) return { ok: false, next_regen_sec: nextRegenSec() };
+  // MAX에서 처음 소모하면 이 시점부터 회복 타이머 시작
+  if (state.clouds >= CLOUD_MAX) state.cloudsUpdatedAt = Date.now();
+  state.clouds -= 1;
+  return { ok: true };
+}
+
+/** OUT_OF_CLOUDS 429 응답 본문 (회복 ETA 포함 — 리텐션 훅 §3.3) */
+function outOfCloudsError(nextSec) {
+  const min = Math.max(1, Math.ceil(nextSec / 60));
+  return [
+    429,
+    {
+      detail: `구름이 모두 흩어졌어요 — 약 ${min}분 후 구름 1개가 회복돼요.`,
+      code: 'OUT_OF_CLOUDS',
+      next_regen_sec: nextSec,
+      clouds: 0,
+      max: CLOUD_MAX,
+    },
+  ];
+}
+
+// ── 지도 지역 좌표 (R5-01 §3.1) — 판정 미사용, 렌더 전용. 정규화 0~100. ──
+// zone index 0~3 ↔ 지역 고정 매핑(계약 §3.1). 존 의미(boardEngine.ZONES)는 불변.
+const BOARD_REGIONS = [
+  { zone: 0, name: '서해상', svg_point: [21, 54], label_anchor: [21, 66] },
+  { zone: 1, name: '수도권', svg_point: [43, 33], label_anchor: [43, 21] },
+  { zone: 2, name: '영서·태백', svg_point: [61, 47], label_anchor: [61, 35] },
+  { zone: 3, name: '영동·동해', svg_point: [82, 43], label_anchor: [88, 55] },
+];
+
+// ── 커리큘럼 유닛 (R5-01 §3.2) — 2섹션·유닛 5개·선행 잠금 포함 ──
+//   각 유닛은 concept_tag로 기존 content_items 풀과 연결(§3.2). kind: quiz|board.
+const UNITS = [
+  { id: 'u0000001-0000-4000-8000-000000000001', section: '하늘 읽기', unit_order: 1, title: '기압과 전선 입문', concept_tag: 'pressure_front', prereq_unit_id: null, kind: 'quiz', crown_target: 1 },
+  { id: 'u0000002-0000-4000-8000-000000000002', section: '하늘 읽기', unit_order: 2, title: '기단의 성질', concept_tag: 'air_mass', prereq_unit_id: 'u0000001-0000-4000-8000-000000000001', kind: 'quiz', crown_target: 1 },
+  { id: 'u0000003-0000-4000-8000-000000000003', section: '하늘 읽기', unit_order: 3, title: '전선으로 날씨 만들기', concept_tag: 'pressure_front', prereq_unit_id: 'u0000002-0000-4000-8000-000000000002', kind: 'board', crown_target: 1 },
+  { id: 'u0000004-0000-4000-8000-000000000004', section: '큰 바람', unit_order: 1, title: '태풍의 구조', concept_tag: 'typhoon', prereq_unit_id: null, kind: 'quiz', crown_target: 1 },
+  { id: 'u0000005-0000-4000-8000-000000000005', section: '큰 바람', unit_order: 2, title: '이상 기후 재현', concept_tag: 'anomaly', prereq_unit_id: 'u0000004-0000-4000-8000-000000000004', kind: 'board', crown_target: 1 },
+];
+
+// user_unit_progress 흉내 (unit_id → {crowns, cleared_at}). 첫 유닛 1개를 클리어 상태로 시드
+// → u2 열림(현재), u3 잠금, u4 열림, u5 잠금 혼합을 학습 홈에서 보여준다.
+const unitProgress = new Map([
+  ['u0000001-0000-4000-8000-000000000001', { crowns: 1, cleared_at: '2026-07-18T09:00:00Z' }],
+]);
+
+const getUnit = (id) => UNITS.find((u) => u.id === id) ?? null;
+const getUnitProgress = (id) => {
+  if (!unitProgress.has(id)) unitProgress.set(id, { crowns: 0, cleared_at: null });
+  return unitProgress.get(id);
+};
+/** 선행 잠금(§3.2): prereq 유닛 crowns>=1 이어야 열림. 첫 유닛(무 prereq)은 항상 열림 */
+const isUnitLocked = (unit) => {
+  if (!unit.prereq_unit_id) return false;
+  return (unitProgress.get(unit.prereq_unit_id)?.crowns ?? 0) < 1;
+};
+
+/** GET /curriculum 트리 (섹션→유닛→유저 진도·잠금·상태) */
+function curriculumPayload() {
+  const bySection = new Map();
+  for (const u of UNITS) {
+    const prog = getUnitProgress(u.id);
+    const cleared = prog.crowns >= u.crown_target;
+    const locked = isUnitLocked(u);
+    const status = cleared ? 'cleared' : locked ? 'locked' : 'current';
+    const node = {
+      id: u.id,
+      unit_order: u.unit_order,
+      title: u.title,
+      concept_tag: u.concept_tag,
+      kind: u.kind,
+      crown_target: u.crown_target,
+      crowns: prog.crowns,
+      cleared,
+      cleared_at: prog.cleared_at,
+      locked,
+      status,
+    };
+    if (!bySection.has(u.section)) bySection.set(u.section, []);
+    bySection.get(u.section).push(node);
+  }
+  const sections = [...bySection.entries()].map(([section, units]) => ({
+    section,
+    units: units.sort((a, b) => a.unit_order - b.unit_order),
+  }));
+  return { sections };
+}
 
 // 약점 태그(§3.1 weak_correct_1 판정용) — /progress/weak-tags 목데이터와 일치
 const WEAK_TAGS = new Set(['typhoon', 'anomaly', 'pressure_front']);
@@ -407,27 +540,100 @@ function judgeBoard(boardState, goalConditions) {
   return { passed, phenomena, feedback };
 }
 
-// 목 세션 상태: 당일 1세션 멱등. answers는 quiz_id → 채점 결과.
-let mockSession = null;
+// 목 세션 저장소: session_id → 세션. 일일 세션과 유닛 세션(§3.2)이 같은
+// /session/:id/answer·/complete 엔진을 공유한다(계약: 기존 세션 엔진 재사용).
+// 각 세션은 자체 items(_mock 포함)를 들고 있어 세션별로 독립 채점한다.
+const sessions = new Map();
+const DAILY_SESSION_ID = '5e1c8b1e-0000-4000-8000-0000000000aa';
 
 function ensureSession() {
   const today = todayISO();
-  if (!mockSession || mockSession.session_date !== today) {
-    mockSession = {
-      session_id: '5e1c8b1e-0000-4000-8000-0000000000aa',
+  const existing = sessions.get(DAILY_SESSION_ID);
+  if (!existing || existing.session_date !== today) {
+    sessions.set(DAILY_SESSION_ID, {
+      session_id: DAILY_SESSION_ID,
       session_date: today,
       mode: 'daily',
+      unit_id: null,
+      items: SESSION_ITEMS,
       answers: {},
       completed: false,
-    };
+    });
   }
-  return mockSession;
+  return sessions.get(DAILY_SESSION_ID);
 }
 
 const sessionProgress = (s) => ({
   answered: Object.keys(s.answers).length,
-  total: SESSION_ITEMS.length,
+  total: s.items.length,
 });
+
+/** 유닛 kind+concept_tag로 문항 풀을 결정해 세션 items 구성 (§3.2) */
+function buildUnitItems(unit) {
+  if (unit.kind === 'board') {
+    const puzzle =
+      BOARD_PUZZLES.find((p) => p.concept_tag === unit.concept_tag) ?? BOARD_PUZZLES[0];
+    return [
+      {
+        quiz_id: `${todayISO()}-unit${unit.unit_order}-${unit.section}-board`,
+        concept_tag: unit.concept_tag,
+        question_type: 'board',
+        question_text: puzzle.template_json.question_text,
+        template_json: puzzle.template_json,
+        level_group: 'middle_high',
+        source: 'bank',
+        slot_filled: false,
+        _mock: {
+          goal_conditions: puzzle.template_json.goal_conditions,
+          feedbackCorrect: '정확해요! 목표 대기현상을 만들었어요.',
+          feedbackWrong: '아직이에요 — 배치를 바꿔 다시 시도해 보세요.',
+        },
+      },
+    ];
+  }
+  // quiz 유닛: 같은 concept_tag 기존 문항(board 제외) 최대 3건 (기존 시드 하위 호환)
+  const pool = SESSION_ITEMS.filter(
+    (it) => it.concept_tag === unit.concept_tag && it.question_type !== 'board',
+  );
+  return (pool.length ? pool : SESSION_ITEMS.filter((it) => it.question_type !== 'board')).slice(0, 3);
+}
+
+/** POST /curriculum/units/{id}/session — 유닛 문항으로 세션 발급(멱등, §3.2) */
+function startUnitSession(unitId) {
+  const unit = getUnit(unitId);
+  if (!unit) return [404, { detail: '유닛을 찾을 수 없습니다', code: 'UNIT_NOT_FOUND' }];
+  if (isUnitLocked(unit)) {
+    return [403, { detail: '선행 유닛을 먼저 완료해야 열려요', code: 'UNIT_LOCKED' }];
+  }
+  const today = todayISO();
+  const sessionId = `unit-${unitId}-${today}`;
+  let s = sessions.get(sessionId);
+  if (!s || s.completed || s.session_date !== today) {
+    // 미완료 당일 세션은 멱등 재사용, 완료됐으면 새 세션(재도전) 발급
+    s = {
+      session_id: sessionId,
+      session_date: today,
+      mode: 'unit',
+      unit_id: unitId,
+      items: buildUnitItems(unit),
+      answers: {},
+      completed: false,
+    };
+    sessions.set(sessionId, s);
+  }
+  return [
+    200,
+    {
+      session_id: s.session_id,
+      session_date: s.session_date,
+      mode: s.mode,
+      unit_id: s.unit_id,
+      unit: { id: unit.id, title: unit.title, kind: unit.kind, concept_tag: unit.concept_tag },
+      items: s.items.map(stripMock),
+      progress: sessionProgress(s),
+    },
+  ];
+}
 
 const stripMock = ({ _mock, ...item }) => item;
 
@@ -515,32 +721,46 @@ const routes = {
         session_id: s.session_id,
         session_date: s.session_date,
         mode: s.mode,
-        items: SESSION_ITEMS.map(stripMock),
+        items: s.items.map(stripMock),
+        progress: sessionProgress(s),
+      },
+    ];
+  },
+  // GET /session/{id} — 세션 재조회(유닛 세션 새로고침 복원용)
+  'GET /session/:id': (_body, params) => {
+    const s = sessions.get(params?.id);
+    if (!s) return [404, { detail: '세션을 찾을 수 없습니다', code: 'SESSION_NOT_FOUND' }];
+    return [
+      200,
+      {
+        session_id: s.session_id,
+        session_date: s.session_date,
+        mode: s.mode,
+        unit_id: s.unit_id ?? null,
+        items: s.items.map(stripMock),
         progress: sessionProgress(s),
       },
     ];
   },
   'POST /session/:id/answer': (body, params) => {
-    const s = ensureSession();
-    if (params?.id !== s.session_id) {
+    const s = sessions.get(params?.id);
+    if (!s) {
       return [404, { detail: '세션을 찾을 수 없습니다', code: 'SESSION_NOT_FOUND' }];
     }
     if (s.completed) {
       // 완료된 세션 = 전 문항 응답 완료이므로 실서버와 동일하게 ALREADY_ANSWERED (§3.1 코드 표준)
       return [409, { detail: '이미 답안을 제출한 퀴즈입니다.', code: 'ALREADY_ANSWERED' }];
     }
-    const item = SESSION_ITEMS.find((it) => it.quiz_id === body?.quiz_id);
+    const item = s.items.find((it) => it.quiz_id === body?.quiz_id);
     if (!item) {
       return [404, { detail: '세션에 없는 문항입니다', code: 'QUIZ_NOT_FOUND' }];
     }
-    // 멱등 가드: 이미 응답한 문항 재제출 금지 (덮어쓰기·XP 중복 가산 원천 차단)
+    // 멱등 가드: 이미 응답한 문항 재제출 금지 (재제출은 구름 미소모 — §3.3)
     if (s.answers[item.quiz_id]) {
       return [409, { detail: '이미 답한 문항이에요', code: 'ALREADY_ANSWERED' }];
     }
 
-    // board 유형(§3.4): board_state 필수, 서버가 재판정(권위 채점)
-    let isCorrect;
-    let phenomena;
+    // board 유형(§3.4): board_state 필수·유효성 검사 (구름 소모 전에 422 판정)
     if (item.question_type === 'board') {
       if (!body?.board_state) {
         return [422, { detail: '보드 상태(board_state)가 필요합니다', code: 'BOARD_STATE_REQUIRED' }];
@@ -549,6 +769,15 @@ const routes = {
       if (validationErrors.length > 0) {
         return [422, { detail: `보드 상태가 올바르지 않습니다: ${validationErrors[0]}`, code: 'BOARD_STATE_INVALID' }];
       }
+    }
+
+    // 구름 소모 (§3.3): 멱등 가드·유효성 통과 후, 채점 직전 1 소모. 0이면 429.
+    const spend = consumeCloud();
+    if (!spend.ok) return outOfCloudsError(spend.next_regen_sec);
+
+    let isCorrect;
+    let phenomena;
+    if (item.question_type === 'board') {
       const judged = judgeBoard(body.board_state, item._mock.goal_conditions);
       isCorrect = judged.passed;
       phenomena = judged.phenomena;
@@ -575,8 +804,8 @@ const routes = {
     ];
   },
   'POST /session/:id/complete': (_body, params) => {
-    const s = ensureSession();
-    if (params?.id !== s.session_id) {
+    const s = sessions.get(params?.id);
+    if (!s) {
       return [404, { detail: '세션을 찾을 수 없습니다', code: 'SESSION_NOT_FOUND' }];
     }
     const progress = sessionProgress(s);
@@ -591,19 +820,51 @@ const routes = {
     }
     s.completed = true;
     const results = Object.values(s.answers);
+    const correctCount = results.filter((r) => r.is_correct).length;
+
+    // 유닛 세션(§3.2): 전 문항 정답 시 왕관 +1, cleared 전환 시 +20 XP(1회)
+    let unitResult = null;
+    if (s.unit_id) {
+      const unit = getUnit(s.unit_id);
+      const prog = getUnitProgress(s.unit_id);
+      const allCorrect = correctCount === progress.total;
+      let unitXp = 0;
+      let newlyCleared = false;
+      if (allCorrect && prog.crowns < (unit?.crown_target ?? 1)) {
+        prog.crowns += 1;
+        if (prog.crowns >= (unit?.crown_target ?? 1) && !prog.cleared_at) {
+          prog.cleared_at = new Date().toISOString();
+          unitXp = 20;
+          state.xp += 20;
+          newlyCleared = true;
+        }
+      }
+      unitResult = {
+        unit_id: s.unit_id,
+        crowns: prog.crowns,
+        crown_target: unit?.crown_target ?? 1,
+        cleared: prog.crowns >= (unit?.crown_target ?? 1),
+        newly_cleared: newlyCleared,
+        unit_xp: unitXp,
+        all_correct: allCorrect,
+      };
+    }
     return [
       200,
       {
         xp_total: results.reduce((sum, r) => sum + r.xp_earned, 0),
-        correct_count: results.filter((r) => r.is_correct).length,
+        correct_count: correctCount,
         total: progress.total,
         streak_count: state.streak,
+        ...(unitResult ? { unit_result: unitResult } : {}),
       },
     ];
   },
 
   // ── 대기 보드 연습 API (R3-01 §3.5) ──
   'GET /board/rules': () => [200, BOARD_RULES],
+  // GET /board/regions (R5-01 §3.1) — 지도 지역 좌표(렌더 전용, 판정 미사용)
+  'GET /board/regions': () => [200, BOARD_REGIONS],
   'GET /board/puzzles': () => [
     200,
     BOARD_PUZZLES.map((p) => ({
@@ -624,6 +885,9 @@ const routes = {
     if (validationErrors.length > 0) {
       return [422, { detail: `보드 상태가 올바르지 않습니다: ${validationErrors[0]}`, code: 'BOARD_STATE_INVALID' }];
     }
+    // 구름 소모 (§3.3): board attempt도 문항 시도로 1 소모. 0이면 429.
+    const spend = consumeCloud();
+    if (!spend.ok) return outOfCloudsError(spend.next_regen_sec);
     const { passed, phenomena, feedback } = judgeBoard(body.board_state, puzzle.template_json.goal_conditions);
     // 최초 클리어만 +5 XP (재도전 0) (§3.5)
     let xpEarned = 0;
@@ -636,17 +900,30 @@ const routes = {
     return [200, { passed, phenomena, feedback, xp_earned: xpEarned }];
   },
 
-  'GET /progress/me': () => [
-    200,
-    {
-      xp: state.xp,
-      level: state.level,
-      streak_count: state.streak,
-      next_level_xp: nextLevelXp(state.level),
-      streak_freeze_count: state.streakFreeze,
-      tier: state.tier, // 현재 리그 티어 (§3.2 — 최근 정산, 없으면 stratus)
-    },
-  ],
+  'GET /progress/me': () => {
+    regenClouds();
+    return [
+      200,
+      {
+        xp: state.xp,
+        level: state.level,
+        streak_count: state.streak,
+        next_level_xp: nextLevelXp(state.level),
+        streak_freeze_count: state.streakFreeze,
+        tier: state.tier, // 현재 리그 티어 (§3.2 — 최근 정산, 없으면 stratus)
+        clouds: state.clouds, // 구름 에너지 잔량 (§3.3)
+        max_clouds: CLOUD_MAX,
+        next_regen_sec: nextRegenSec(),
+      },
+    ];
+  },
+  // ── 구름 에너지 (R5-01 §3.3) ──
+  'GET /progress/energy': () => [200, energyPayload()],
+
+  // ── 커리큘럼 단계별 학습 (R5-01 §3.2) ──
+  'GET /curriculum': () => [200, curriculumPayload()],
+  'POST /curriculum/units/:id/session': (_body, params) => startUnitSession(params?.id),
+
   // ── 일일 퀘스트·배지 (R4-01 §3.1·§3.3) ──
   'GET /progress/quests': () => [200, questPayload()],
   'GET /progress/badges': () => [200, BADGES],

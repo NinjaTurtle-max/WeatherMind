@@ -9,6 +9,7 @@ from app.models.session import Session
 from app.models.quest import Quest, UserQuestProgress
 from app.models.badge import Badge, UserBadge
 from app.models.duel import Duel
+from app.models.unit import Unit, UserUnitProgress
 
 __all__ = [
     "Base",
@@ -24,4 +25,6 @@ __all__ = [
     "Badge",
     "UserBadge",
     "Duel",
+    "Unit",
+    "UserUnitProgress",
 ]

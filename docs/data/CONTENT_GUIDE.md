@@ -1,9 +1,9 @@
 # 문항 저작 가이드 (CONTENT_GUIDE)
 
-> 대상 파일: `database/seed/content_items.json`, `database/seed/board_rules.json`, `database/seed/board_test_vectors.json`
-> 스키마 계약: docs/team/SPRINT_R2_01.md §3.3 + docs/team/SPRINT_R3_01.md §3.1~§3.3·§3.6 (**고정** — 변경은 PM 보고 후 문서 선수정)
+> 대상 파일: `database/seed/content_items.json`, `database/seed/board_rules.json`, `database/seed/board_test_vectors.json`, `database/seed/units.json`(§11), `database/seed/board_regions.json`(§12)
+> 스키마 계약: docs/team/SPRINT_R2_01.md §3.3 + docs/team/SPRINT_R3_01.md §3.1~§3.3·§3.6 + docs/team/SPRINT_R5_01.md §3.1~§3.2 (**고정** — 변경은 PM 보고 후 문서 선수정)
 > 과학적 근거 SSOT: `database/seed/climate_concepts.json` (docs/specs/09_seed_data_spec.md의 concept_tag 6종)
-> 소비자: 백엔드 적재(§3.7 content_items 테이블) · 세션 배합(§3.2) · AI 품질 게이트(§3.4·R3 §3.7) · 규칙 엔진(양측 인터프리터, R3 §3.2)
+> 소비자: 백엔드 적재(§3.7 content_items 테이블) · 세션 배합(§3.2) · 커리큘럼 API(R5 §3.2) · AI 품질 게이트(§3.4·R3 §3.7·R5 §3.6) · 규칙 엔진(양측 인터프리터, R3 §3.2)
 
 ---
 
@@ -220,3 +220,87 @@
 |---|---|---|---|
 | 2018년 기록적 폭염 | 2018-08-01 | 2018-08-01 홍천 41.0℃로 한국 기상관측 사상 최고기온 경신, 같은 날 서울 39.6℃(1907년 관측 이래 최고). 강한 북태평양 고기압 지배가 성인 | north_pacific_heatwave |
 | 2020년 중부지방 역대 최장 장마 | 2020-08-16 | 2020년 중부지방 장마가 6/24~8/16 **54일** 지속, 종전 최장(2013년 49일)을 경신한 역대 최장. 정체전선(장마전선)이 성인 | stationary_front_monsoon |
+
+---
+
+## 11. 커리큘럼 저작 (`units.json`) — SPRINT_R5_01.md §3.2
+
+듀오링고식 단계별 학습의 유닛 트리. 유닛은 **문항을 담지 않고** `kind`+`concept_tag`로 기존 `content_items` 문항 풀을 가리킨다(content_items에 unit_id를 넣지 않음 → R2~R4 시드 하위 호환). 진도는 왕관(crowns), 잠금은 선행 유닛으로 표현한다.
+
+### 11.1 스키마 (필드 추가·개명 금지)
+
+| 필드 | 타입 | 규칙 |
+|---|---|---|
+| `id` | string | **위치 무관 안정 slug**(예: `read-sky-fronts`). `s1u2` 같은 위치 인코딩 금지 — 재정렬 시 깨진다. FK로 참조되므로 한번 발행하면 불변 |
+| `section` | string | 계약 4섹션 중 하나: `하늘 읽기` `공기의 힘` `큰 바람` `도시와 기후` (관측보고서 №2 §4.2, **고정**) |
+| `unit_order` | int | 섹션 내 표시 순서, **1부터**. 같은 섹션 안에서 유일 |
+| `title` | string | 유닛 제목(한국어) |
+| `concept_tag` | string | 표준 6태그 중 하나(§1). 문항 풀 결정 키 |
+| `prereq_unit_id` | string\|null | 직전 유닛 `id` 또는 `null`. 이 유닛이 열리려면 선행 유닛 crowns≥1(R5 §3.2 잠금 규칙) |
+| `kind` | string | `quiz`(문항 세션) \| `board`(대기 보드 퍼즐) |
+| `crown_target` | int | 완전 클리어에 필요한 왕관 수(≥1). 기본 1. board 유닛은 반복 퍼즐이 여러 개면 2 이상 가능 |
+
+### 11.2 트리·잠금 규칙 (linear chain)
+
+- **선형 사슬**: 전체에서 `prereq_unit_id=null`은 **딱 1개**(맨 첫 유닛). 각 섹션의 첫 유닛은 이전 섹션의 마지막 유닛을 선행으로 가리켜, 섹션이 순서대로 열린다(순서대로 클리어·유닛 트리 지시 반영). 판정은 백엔드가 crowns로 하고, 시드는 사슬 구조만 정의한다.
+- **unit_order 유일**: 같은 섹션 내에서 중복 금지(정렬·표시용).
+- **순환 금지**: prereq를 따라가면 반드시 null에서 끝나야 한다(사이클 없음).
+- 유닛 수 **8~12개**(현재 12개).
+
+### 11.3 유닛 ↔ 문항 풀 연결 규칙 (핵심 무결성)
+
+유닛은 세션 발급 시 `kind`+`concept_tag`로 `content_items`에서 문항을 뽑는다. 따라서 **문항 풀이 실재해야** 유닛이 성립한다.
+
+- **quiz 유닛**: 해당 `concept_tag`의 **비-board 문항**(quiz 세션이 서빙하는 유형: mc·short·slider·match·ordering·cloze)이 **최소 2건** 있어야 한다.
+- **board 유닛**: 해당 `concept_tag`의 **board 퍼즐(`question_type=="board"`)이 최소 1건** 있어야 한다. → board 유닛은 board 퍼즐이 실재하는 태그에만 배정한다.
+- 현재 `content_items.json`(47건)의 태그별 풀: board 퍼즐은 **pressure_front(6)·air_mass(4)·anomaly(2)** 에만 존재(typhoon·heat_island·co2_climate은 0). 따라서 board 유닛은 이 3태그로 한정된다. anomaly board 2건은 실화 재현 퍼즐(2018 폭염·2020 장마, §10.3)로 `도시와 기후` 섹션 주제와 정합한다.
+- 같은 `concept_tag`를 여러 quiz 유닛이 공유하면 문항 풀이 동일하다(pool = kind+concept_tag). 유닛 수 10~12는 태그 6종·board 3태그 제약상 일부 태그 재사용이 불가피하다 — v1 허용, 유닛은 개념 진행(기초→심화)으로 구분한다.
+
+### 11.4 현재 유닛 구조 (2026-07-21, units.json v1 — 12유닛 4섹션)
+
+| 섹션 | # | id | kind | concept_tag | 선행 | 문항 풀 |
+|---|---|---|---|---|---|---|
+| 하늘 읽기 | 1 | read-sky-pressure | quiz | pressure_front | ∅(첫 유닛) | quiz 6 |
+| 하늘 읽기 | 2 | read-sky-fronts | quiz | pressure_front | read-sky-pressure | quiz 6 |
+| 하늘 읽기 | 3 | read-sky-board | board | pressure_front | read-sky-fronts | board 6 |
+| 공기의 힘 | 1 | air-power-masses | quiz | air_mass | read-sky-board | quiz 5 |
+| 공기의 힘 | 2 | air-power-transform | quiz | air_mass | air-power-masses | quiz 5 |
+| 공기의 힘 | 3 | air-power-board | board | air_mass | air-power-transform | board 4 |
+| 큰 바람 | 1 | big-wind-birth | quiz | typhoon | air-power-board | quiz 7 |
+| 큰 바람 | 2 | big-wind-lifecycle | quiz | typhoon | big-wind-birth | quiz 7 |
+| 도시와 기후 | 1 | city-heat-island | quiz | heat_island | big-wind-lifecycle | quiz 6 |
+| 도시와 기후 | 2 | city-greenhouse | quiz | co2_climate | city-heat-island | quiz 5 |
+| 도시와 기후 | 3 | city-anomaly | quiz | anomaly | city-greenhouse | quiz 6 |
+| 도시와 기후 | 4 | city-anomaly-board | board | anomaly | city-anomaly | board 2 |
+
+### 11.5 증보·검증 절차
+
+1. §11.1~§11.3 기준으로 저작 → 안정 slug 발행(위치 무관).
+2. 자체 검증(스크립트): JSON 파싱, 필수 필드·enum(section 4·concept_tag 6·kind 2), unit_order 섹션 내 유일, prereq 존재·순환 없음·null 정확히 1개, quiz 풀≥2·board 퍼즐≥1을 `content_items.json` 대조로 확인. (R5 §3.6 품질 게이트 `POST /internal/curriculum-validate`와 동일 규칙.)
+3. §11.4 표 갱신 → PM 리뷰 요청(데이터 직군 직접 커밋 없음).
+
+---
+
+## 12. 지도 지역 좌표 (`board_regions.json`) — SPRINT_R5_01.md §3.1
+
+R3 추상 4존 단면 보드를 한반도 지도 위 지역 노드로 렌더하기 위한 **좌표 전용** 파일. board_engine 판정 로직·zone 필드 의미는 **불변**이며 이 파일은 **판정에 미사용**(렌더 전용). 존 index 0~3 ↔ 지도 지역 고정 매핑만 추가한다.
+
+### 12.1 스키마
+
+| 필드 | 규칙 |
+|---|---|
+| `zone` | 존 index **0~3**(board_state zone과 동일 의미). 배열은 0,1,2,3 순서 |
+| `name` | **계약 고정** 4지역: `서해상`·`수도권`·`영서·태백`·`영동·동해`(R5 §3.1). 변경 금지 |
+| `svg_point` | 지도 SVG 위 노드 좌표 `[x,y]`, **정규화 0~100**. 요소 드롭 지점 |
+| `label_anchor` | 지역 라벨 텍스트 앵커 `[x,y]`, 정규화 0~100 |
+
+### 12.2 좌표 배치 원칙
+
+한반도 단순 배치의 정규화 좌표(0=좌/상, 100=우/하): **서해상 왼쪽 → 수도권 중앙 → 영서·태백 오른쪽 위 → 영동·동해 오른쪽**. 좌표는 렌더 심미성 값이며 판정과 무관하므로 프론트 지도 SVG에 맞춰 조정 가능(단 name·zone 매핑은 고정).
+
+| zone | name | svg_point | label_anchor |
+|---|---|---|---|
+| 0 | 서해상 | [20, 45] | [18, 56] |
+| 1 | 수도권 | [42, 38] | [42, 49] |
+| 2 | 영서·태백 | [62, 30] | [62, 21] |
+| 3 | 영동·동해 | [78, 42] | [82, 52] |

@@ -31,6 +31,8 @@ export default function BoardPage() {
     mutationFn: ({ id, boardState }) => boardApi.submitBoardAttempt(id, boardState),
     onSuccess: (res) => {
       setResult(res);
+      // 보드 attempt는 구름 1 소모(§3.3) — 성공/실패 무관하게 에너지 헤더 갱신
+      queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
       if (res.passed && res.xp_earned > 0) {
         addXp(res.xp_earned);
         setToast(`🧩 첫 클리어! +${res.xp_earned} XP`);
@@ -41,6 +43,12 @@ export default function BoardPage() {
       }
     },
     onError: (err) => {
+      // 구름 소진(§3.3): 소모 전 429 — 잔량 갱신 + 회복 ETA 안내
+      if (err.code === 'OUT_OF_CLOUDS') {
+        queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
+        setResult({ passed: false, outOfClouds: true, feedback: err.detail ?? '구름이 모두 흩어졌어요 — 잠시 후 다시 시도해주세요.' });
+        return;
+      }
       setResult({ passed: false, feedback: err.detail ?? '제출에 실패했어요. 잠시 후 다시 시도해주세요.' });
     },
   });

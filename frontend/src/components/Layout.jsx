@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import XPBar from './XPBar';
 import StreakBadge from './StreakBadge';
+import CloudEnergyBadge from './CloudEnergyBadge';
 import TabBar from './TabBar';
 import { authApi, progressApi } from '../api';
 import { useAuthStore } from '../store/authStore';
@@ -49,6 +50,7 @@ export default function Layout() {
             ⛅ WeatherMind
           </span>
           <XPBar />
+          <CloudEnergyBadge />
           <StreakBadge />
           <button
             type="button"

@@ -13,6 +13,18 @@ class ProgressMe(BaseModel):
     next_level_xp: int
     # 현재 리그 티어(최근 정산 기준, 없으면 stratus) — R4-01 §3.2
     tier: str
+    # 구름 에너지 잔량·다음 회복 ETA(초) — R5-01 §3.3 (clouds=플레이 에너지)
+    clouds: int
+    next_regen_sec: int
+
+
+class EnergyState(BaseModel):
+    """GET /progress/energy 응답 — R5-01 §3.3."""
+
+    clouds: int
+    max: int
+    next_regen_sec: int
+    updated_at: datetime | None = None
 
 
 class QuestOut(BaseModel):

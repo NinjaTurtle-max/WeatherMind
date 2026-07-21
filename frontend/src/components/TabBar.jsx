@@ -3,10 +3,12 @@ import { NavLink } from 'react-router-dom';
 /**
  * 하단 탭바 네비게이션 (04번 스펙 — 모바일 대응)
  * R3-01 S4: 시뮬레이터 탭 폐지 → 대기 보드 퍼즐 탭으로 교체.
+ * R5-01 S4: 기본 진입(/)을 학습 홈(커리큘럼)으로 교체. 자유 일일 세션(/daily)은
+ * 학습 홈의 별도 진입 카드로 접근한다(탭 과밀 방지).
  * detective 모듈은 이번 라운드 제외(Phase 3)라 탭에 노출하지 않는다.
  */
 const TABS = [
-  { to: '/', label: '세션', icon: '🌤️', end: true },
+  { to: '/', label: '학습', icon: '🎓', end: true },
   { to: '/board', label: '보드', icon: '🧩' },
   { to: '/duel', label: '예보 대결', icon: '🌡️' },
   { to: '/league', label: '리그', icon: '🏆' },
