@@ -189,7 +189,155 @@ curl -s http://localhost:8000/api/v1/session/today -H "Authorization: Bearer $TO
 - [ ] 기대(DB 레벨): `SET ROLE`+`app.current_user_id` 기반 조회 시 타 유저 행 0건
       (0001 user_isolation 패턴 — 필요 시 psql로 `SET app.current_user_id='<B_id>'; SELECT count(*) FROM sessions;`).
 
-## 8. 정리
+---
+
+# PART B — R3~R5 실기동 시나리오 (통합 웨이브 2)
+
+> R2(§1~§7)에 이어 대기 보드 퍼즐(R3)·보상 루프(R4)·커리큘럼·구름 에너지(R5)를
+> 실기동으로 검증한다. 자동화(backend 404 / ai-worker 53)가 못 잡는 **배선**만 다룬다:
+> 마이그레이션 0003~0005 순차 적용·신규 시드 적재·구름 소모/회복 원자성·대결 정산 크론·
+> 잠금 해제 흐름. §3의 TOKEN_A/SID 준비를 재사용한다.
+
+## 9. 마이그레이션 0003~0005 순차 적용
+
+```bash
+docker compose exec backend alembic upgrade head
+docker compose exec backend alembic current   # 0005_curriculum_energy = head
+docker compose exec postgres psql -U weathermind -d weathermind \
+  -c "SELECT conname FROM pg_constraint WHERE conname LIKE '%question_type%';" \
+  -c "\d quests" -c "\d user_quest_progress" -c "\d badges" -c "\d user_badges" \
+  -c "\d duels" -c "\d league_results" \
+  -c "\d units" -c "\d user_unit_progress" \
+  -c "SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name IN ('clouds','clouds_updated_at');"
+```
+- [ ] 기대(0003): question_type CHECK가 7종('multiple_choice','short_answer','slider','board','match','ordering','cloze').
+- [ ] 기대(0004): `quests`(3행 정적 시드), `user_quest_progress`·`badges`·`user_badges`·`duels` 존재, `league_results.tier` 컬럼 존재. RLS policy `user_isolation`이 user_quest_progress·user_badges·duels에 존재.
+- [ ] 기대(0005): `units`(slug UNIQUE)·`user_unit_progress` 존재, `users.clouds`(DEFAULT 5)·`users.clouds_updated_at` 존재.
+- [ ] 기대(롤백 가능): `alembic downgrade 0002 && alembic upgrade head` 무오류(마이그레이션 가역성).
+
+## 10. 신규 시드 적재 (content 47 · units 12 · badges 5 + 멱등)
+
+```bash
+docker compose exec backend python -m app.scripts.seed_content   # content_items 47
+docker compose exec backend python -m app.scripts.seed_units     # units 12 (slug 2-pass)
+docker compose exec backend python -m app.scripts.seed_badges    # badges 5
+docker compose exec postgres psql -U weathermind -d weathermind \
+  -c "SELECT count(*) FROM content_items;" \
+  -c "SELECT question_type, count(*) FROM content_items GROUP BY question_type;" \
+  -c "SELECT count(*) FROM units;" \
+  -c "SELECT count(*) FROM units WHERE prereq_unit_id IS NOT NULL;" \
+  -c "SELECT count(*) FROM badges;"
+# 멱등 재실행
+docker compose exec backend python -m app.scripts.seed_units
+```
+- [ ] 기대: content_items 47건(board/match/ordering/cloze 신규 유형 포함), units 12건, badges 5건.
+- [ ] 기대(핵심 — 잠금 체인 생존): `units WHERE prereq_unit_id IS NOT NULL` = **11건**. 0건이면 R5 slug↔자연키 결함 재발(모든 유닛 무잠금) — **P0**.
+- [ ] 기대(멱등): units 재적재 시 행 수 불변·slug 중복 없음.
+- [ ] board_rules.json은 파일 캐시(적재 아님) — `GET /api/v1/board/rules`가 8종 반환(§13).
+
+## 11. 대기 보드 — 세션 내 board 문항 + 단독 연습
+
+```bash
+# 세션에 board 문항이 있으면 template_json이 노출되는지 (R3 리뷰 결함 회귀)
+curl -s http://localhost:8000/api/v1/session/today -H "Authorization: Bearer $TOKEN_A" \
+  | jq '.items[] | select(.question_type=="board") | {question_type, has_tmpl: (.template_json!=null), has_goal: (.template_json.goal_conditions!=null)}'
+# 단독 연습: 퍼즐 목록 → 시도(권위 채점) → 최초 클리어 +5 XP
+curl -s http://localhost:8000/api/v1/board/puzzles -H "Authorization: Bearer $TOKEN_A" | jq '.[0] | {content_item_id, cleared}'
+PID=$(curl -s http://localhost:8000/api/v1/board/puzzles -H "Authorization: Bearer $TOKEN_A" | jq -r '.[0].content_item_id')
+# 오답 board_state (목표 미달) → passed=false, 0 XP
+curl -s -X POST http://localhost:8000/api/v1/board/puzzles/$PID/attempt \
+  -H "Authorization: Bearer $TOKEN_A" -H 'Content-Type: application/json' \
+  -d '{"board_state":{"elements":[]}}' | jq '{passed, xp_earned, code}'
+```
+- [ ] 기대(R3 리뷰 회귀): 세션 board 문항에 `template_json`(mode·initial_state·palette·goal_conditions·hints) 노출, 정답 필드는 부재.
+- [ ] 기대(권위 채점 §3.4): 서버가 board_state를 board_rules로 재판정 → `passed`·`phenomena`(존 4개) 반환. 클라이언트 신고 무시.
+- [ ] 기대(최초 클리어): 정답 board_state 제출 시 passed=true·xp_earned=5, **재시도는 xp_earned=0**. quiz_logs에 `board-{...}` quiz_id 기록(session_id NULL).
+- [ ] 기대(누락 가드): board 문항에 board_state 없이 answer 제출 → 422 `BOARD_STATE_REQUIRED`.
+
+## 12. 커리큘럼 — 유닛 트리·선행 잠금 해제
+
+```bash
+curl -s http://localhost:8000/api/v1/curriculum -H "Authorization: Bearer $TOKEN_A" \
+  | jq '[.[].units[] | {id, locked}] | {total: length, unlocked: (map(select(.locked==false))|length)}'
+ROOT=read-sky-pressure
+# 잠긴 유닛 세션 발급 시도 → 403
+LOCKED=$(curl -s http://localhost:8000/api/v1/curriculum -H "Authorization: Bearer $TOKEN_A" | jq -r '[.[].units[] | select(.locked)][0].id')
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8000/api/v1/curriculum/units/$LOCKED/session -H "Authorization: Bearer $TOKEN_A"
+# 루트 유닛 세션 발급 → 200, 클리어(전 문항 정답) → crowns+1·+20 XP·다음 유닛 해제
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8000/api/v1/curriculum/units/$ROOT/session -H "Authorization: Bearer $TOKEN_A"
+```
+- [ ] 기대(초기): 12유닛 중 **루트 1개만 unlocked**(read-sky-pressure), 11개 locked.
+- [ ] 기대(잠금 가드): 잠긴 유닛 세션 발급 403 `UNIT_LOCKED`, 없는 유닛 404 `UNIT_NOT_FOUND`.
+- [ ] 기대(진도): 루트 유닛 완주(전 문항 정답) → crowns 1·cleared_at 기록·+20 XP(1회), 직후 유닛(read-sky-fronts) 잠금 해제. 재완주 시 XP 0.
+- [ ] 기대(체류 유도): 완료 응답이 다음 유닛을 즉시 노출.
+
+## 13. 구름 에너지 — 소모·회복·플래그
+
+```bash
+curl -s http://localhost:8000/api/v1/progress/energy -H "Authorization: Bearer $TOKEN_A" | jq .
+# 구름 5개 → 문항 제출로 소모, 0에서 429
+docker compose exec postgres psql -U weathermind -d weathermind \
+  -c "UPDATE users SET clouds=1, clouds_updated_at=now() WHERE nickname='qa-a';"
+# 1개 소모하는 제출 성공 후, 다음 제출은 429
+curl -s http://localhost:8000/api/v1/progress/energy -H "Authorization: Bearer $TOKEN_A" | jq '{clouds, next_regen_sec}'
+docker compose exec postgres psql -U weathermind -d weathermind \
+  -c "UPDATE users SET clouds=0, clouds_updated_at=now() WHERE nickname='qa-a';"
+# board attempt/세션 answer가 429 OUT_OF_CLOUDS 반환(회복 ETA 포함)
+curl -s -X POST http://localhost:8000/api/v1/board/puzzles/$PID/attempt \
+  -H "Authorization: Bearer $TOKEN_A" -H 'Content-Type: application/json' \
+  -d '{"board_state":{"elements":[]}}' | jq '{code, next_regen_sec}'
+# 20분 경과 시뮬레이션 → 1개 회복
+docker compose exec postgres psql -U weathermind -d weathermind \
+  -c "UPDATE users SET clouds=0, clouds_updated_at=now()-interval '21 minutes' WHERE nickname='qa-a';"
+curl -s http://localhost:8000/api/v1/progress/energy -H "Authorization: Bearer $TOKEN_A" | jq .clouds
+```
+- [ ] 기대(상수): max=5, 소진 시 `OUT_OF_CLOUDS`(429) + `next_regen_sec`. `/progress/me`에 clouds·next_regen_sec 포함.
+- [ ] 기대(지연 회복): clouds_updated_at을 21분 전으로 조작 후 조회 시 clouds=1(elapsed//20). 읽기 시점 계산(크론 불필요).
+- [ ] 기대(원자성): 동시 2회 소모 시 이중 차감 없음(원자 UPDATE). 재제출(멱등 가드 히트)은 미소모.
+- [ ] 기대(독립성): clouds와 streak_freeze_count(구름 방패)는 별개 자원 — 프리즈 소모가 clouds에 영향 없음.
+- [ ] 기대(플래그): `.env`에 `ENERGY_ENABLED=false` 후 재기동 시 소진 상태에서도 429 없이 무제한 제출(기존 동작).
+
+## 14. 예보 대결 — 제출·AI 예측·정산
+
+```bash
+# 오늘 대결 상태(제출 전 AI 예측 비공개)
+curl -s http://localhost:8000/api/v1/duel/today -H "Authorization: Bearer $TOKEN_A" | jq .
+# 제출(1일 1회) → AI 예측 공개, 재제출 409
+curl -s -X POST http://localhost:8000/api/v1/duel/today \
+  -H "Authorization: Bearer $TOKEN_A" -H 'Content-Type: application/json' \
+  -d '{"temp_max":29.0,"rain_prob":40}' | jq '{user_pred, ai_pred}'
+curl -s -X POST http://localhost:8000/api/v1/duel/today \
+  -H "Authorization: Bearer $TOKEN_A" -H 'Content-Type: application/json' \
+  -d '{"temp_max":29.0,"rain_prob":40}' | jq .code
+# 잘못된 예측값 → 422 INVALID_PREDICTION
+curl -s -X POST http://localhost:8000/api/v1/duel/today \
+  -H "Authorization: Bearer $TOKEN_A" -H 'Content-Type: application/json' \
+  -d '{"temp_max":999,"rain_prob":40}' | jq .code
+# 정산: 어제 대결에 실측 기록 후 크론(또는 수동 실행) → result·+15 XP
+docker compose exec celery-worker celery -A app.celery_app call app.tasks.league.settle_daily_duel
+```
+- [ ] 기대(결정성): 같은 유저·같은 날 AI 예측이 재현 가능(해시 시드 노이즈, 온도 ±2.0·강수 ±15 범위). LLM 키 불필요.
+- [ ] 기대(1일 1회): 재제출 409 `ALREADY_SUBMITTED`, 범위 밖 값 422 `INVALID_PREDICTION`.
+- [ ] 기대(정산): 어제 duels에 실측 기록·점수 비교로 result('win'|'lose'|'draw'), 승리 시 +15 XP. 무실측 시 재시도(리그 패턴). beat에 04:00 크론 등록(리그 03:30 이후).
+
+## 15. 퀘스트·배지·리그 티어
+
+```bash
+curl -s http://localhost:8000/api/v1/progress/quests -H "Authorization: Bearer $TOKEN_A" | jq .
+curl -s http://localhost:8000/api/v1/progress/badges -H "Authorization: Bearer $TOKEN_A" | jq .
+# 퀘스트 멱등: 세션 complete/board 성공 후 재계산이 이벤트 카운터가 아니라 당일 집계
+curl -s http://localhost:8000/api/v1/progress/quests -H "Authorization: Bearer $TOKEN_A" | jq '.[] | {code, progress, target, done}'
+# 무오답 세션 → perfect_session 배지
+# 티어: 주간 리그 정산이 elo로 tier 산정
+docker compose exec celery-worker celery -A app.celery_app call app.tasks.league.settle_weekly_league
+curl -s http://localhost:8000/api/v1/progress/me -H "Authorization: Bearer $TOKEN_A" | jq '{tier, clouds}'
+curl -s http://localhost:8000/api/v1/league/leaderboard -H "Authorization: Bearer $TOKEN_A" | jq '.[0] | {tier}'
+```
+- [ ] 기대(퀘스트 3종): daily_xp_30·weak_correct_1·live_answered가 당일 quiz_logs·XP 집계로 재계산(멱등). 완료 전환 시 xp_reward 1회 지급.
+- [ ] 기대(배지 5종): streak_7/30/100(출석 마일스톤)·perfect_session(5/5 정답)·tier_promoted(정산 승급). 중복 지급 없음(UNIQUE).
+- [ ] 기대(티어): 정산이 elo_rating_after로 tier 산정(stratus<1100≤cumulus<1250≤nimbostratus<1400≤cumulonimbus<1550≤typhoon_eye). `/progress/me`·리더보드에 tier 포함(무정산 시 stratus).
+
+## 16. 정리
 
 ```bash
 docker compose down          # 데이터 유지

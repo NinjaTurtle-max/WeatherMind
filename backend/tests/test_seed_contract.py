@@ -21,7 +21,11 @@ from app.scripts.seed_content import validate_entry
 from app.services.session_service import ALLOWED_SLOTS, SLOT_RE
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SEED_PATH = REPO_ROOT / "database" / "seed" / "content_items.json"
+SEED_DIR = REPO_ROOT / "database" / "seed"
+SEED_PATH = SEED_DIR / "content_items.json"
+UNITS_PATH = SEED_DIR / "units.json"
+BADGES_PATH = SEED_DIR / "badges.json"
+BOARD_RULES_PATH = SEED_DIR / "board_rules.json"
 AI_WORKER_DIR = REPO_ROOT / "ai-worker"
 
 
@@ -58,6 +62,10 @@ class TestSeedSchema:
 
     def test_S8_AC_24건_이상(self):
         assert len(SEED_ITEMS) >= 24
+
+    def test_R3_R5_시드_증보_47건(self):
+        """R3~R5 콘텐츠 증보 후 현재 계약 규모(신규 유형·유닛 풀 확보)."""
+        assert len(SEED_ITEMS) == 47
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
@@ -140,3 +148,88 @@ class TestHeuristicQualityGate:
         checks = validate_chain.run_heuristic_checks(question, item["concept_tag"])
         failed = [c for c in checks if not c["passed"]]
         assert not failed, f"[{index}] 휴리스틱 실패: {failed}"
+
+
+# ═══════════════════════════════════════════════════════════════
+# R3~R5 신규 시드 계약: units(12) · badges(5) · board_rules(8종)
+# ═══════════════════════════════════════════════════════════════
+
+from app.services import board_engine  # noqa: E402  (파일 하단 R3~R5 확장)
+
+UNITS = json.loads(UNITS_PATH.read_text(encoding="utf-8"))
+BADGES = json.loads(BADGES_PATH.read_text(encoding="utf-8"))
+BOARD_RULES = json.loads(BOARD_RULES_PATH.read_text(encoding="utf-8"))
+
+
+class TestUnitsSeedContract:
+    """§3.2-R5: units.json 12유닛(로더/잠금 정합은 test_curriculum_tree가 담당)."""
+
+    def test_12유닛(self):
+        assert len(UNITS) == 12
+
+    def test_섹션은_관측보고서_4섹션(self):
+        sections = list(dict.fromkeys(u["section"] for u in UNITS))
+        assert sections == ["하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후"]
+
+    def test_board_유닛은_board_퍼즐_태그를_가진다(self):
+        """board kind 유닛의 concept_tag는 board 퍼즐이 존재하는 태그여야 한다
+        (§3.2 board 유닛은 해당 concept_tag board 퍼즐 사용)."""
+        board_tags = {
+            item["concept_tag"]
+            for item in SEED_ITEMS
+            if item["question_type"] == "board"
+        }
+        for u in UNITS:
+            if u["kind"] == "board":
+                assert u["concept_tag"] in board_tags, (
+                    f"board 유닛 {u['id']}의 태그 {u['concept_tag']}에 board 퍼즐 없음"
+                )
+
+
+class TestBadgesSeedContract:
+    """§3.3-R4: badges.json 5종(streak 3 + perfect_session + tier_promoted)."""
+
+    def test_5종_코드_정확(self):
+        codes = {b["code"] for b in BADGES}
+        assert codes == {
+            "streak_7", "streak_30", "streak_100",
+            "perfect_session", "tier_promoted",
+        }
+
+    def test_필수_필드_존재(self):
+        for b in BADGES:
+            assert b.get("code") and b.get("title") and b.get("description"), b
+
+
+class TestBoardRulesSeedContract:
+    """§3.2-R3: board_rules.json v1 필수 8종 + priority 전역 유일 + 스키마 통과."""
+
+    def test_8종(self):
+        assert len(BOARD_RULES) == 8
+
+    def test_엔진_스키마_통과(self):
+        """적재 없이 규칙 엔진 검증기를 그대로 통과(단일 진실원)."""
+        board_engine.validate_rules(BOARD_RULES)  # 위반 시 BoardRulesError
+
+    def test_priority_전역_유일(self):
+        """엔진은 (priority, when집합) 동률만 거부 — 전역 priority 유일성은
+        R5 리뷰가 수기 검증한 별도 계약이라 여기서 회귀 고정한다."""
+        priorities = [r["priority"] for r in BOARD_RULES]
+        assert len(priorities) == len(set(priorities)), f"priority 중복: {priorities}"
+
+    def test_v1_필수_현상_전부_커버(self):
+        """§3.2 v1 8규칙이 내는 대기현상(한랭전선 소나기·온난전선 비·정체전선 장마·
+        대류성 소나기·복사안개·폭염·눈·맑음)이 모두 존재한다."""
+        phenomena = {r["then"]["phenomenon"] for r in BOARD_RULES}
+        required = {
+            "shower", "rain", "persistent_rain",
+            "fog", "heatwave", "snow", "clear",
+        }
+        assert required <= phenomena, f"누락 현상: {required - phenomena}"
+
+    def test_v1_필수_조건_요소_전부_등장(self):
+        """전선 3종·기단(시베리아·북태평양)이 규칙 조건에 등장(8규칙 계열 커버)."""
+        conditions = " ".join(c for r in BOARD_RULES for c in r["when"])
+        for token in ("front:cold", "front:warm", "front:stationary",
+                      "air_mass:siberian", "air_mass:north_pacific"):
+            assert token in conditions, f"필수 조건 요소 누락: {token}"

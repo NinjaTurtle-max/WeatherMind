@@ -15,6 +15,8 @@ mock은 QA 소유가 아니므로 읽기만 한다. mock에 RATE_LIMITED 핸들�
 import re
 from pathlib import Path
 
+import pytest
+
 BACKEND_APP = Path(__file__).resolve().parents[1] / "app"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MOCK_PATH = REPO_ROOT / "frontend" / "mock" / "apiMockPlugin.js"
@@ -29,6 +31,17 @@ STANDARD_CODES = {
     "ALREADY_ANSWERED",
     "SESSION_NOT_FOUND",
     "RATE_LIMITED",
+}
+
+# R3~R5 신규 코드 → 담당 라우터 소스 파일 (계약 §3.4-R3 / §3.4-R4 / §3.3·§3.5-R5)
+R3_R5_CODE_SOURCES = {
+    "BOARD_STATE_REQUIRED": ("session.py", "quiz.py", "board.py"),  # §3.4-R3
+    "BOARD_STATE_INVALID": ("session.py", "quiz.py", "board.py"),
+    "OUT_OF_CLOUDS": ("session.py", "board.py"),                    # §3.3-R5
+    "UNIT_LOCKED": ("curriculum.py",),                              # §3.5-R5
+    "UNIT_NOT_FOUND": ("curriculum.py",),
+    "ALREADY_SUBMITTED": ("duel.py",),                             # §3.4-R4
+    "INVALID_PREDICTION": ("duel.py",),
 }
 
 
@@ -61,6 +74,40 @@ class TestBackendStandardCodes:
 
     def test_표준_4종_모두_백엔드에_존재(self):
         assert STANDARD_CODES <= _all_backend_codes()
+
+
+class TestR3R5NewCodes:
+    """R3~R5 신규 에러 코드가 담당 라우터에 실재하고 mock 문자열과 일치한다.
+
+    R2 표준 4종만 가드하던 계약을 R3~R5 7종으로 총점검한다(소스 텍스트 수준).
+    RATE_LIMITED와 달리 이 7종은 프론트가 mock으로 UX를 리허설하므로 mock에도
+    존재해야 한다(문자열 정확 일치).
+    """
+
+    def test_신규_7종_모두_백엔드에_존재(self):
+        missing = set(R3_R5_CODE_SOURCES) - _all_backend_codes()
+        assert not missing, f"백엔드에 없는 신규 코드: {sorted(missing)}"
+
+    @pytest.mark.parametrize("code", sorted(R3_R5_CODE_SOURCES))
+    def test_담당_라우터_소스에_실재(self, code):
+        routers = BACKEND_APP / "routers"
+        located = {
+            fname
+            for fname in R3_R5_CODE_SOURCES[code]
+            if code in _codes_in(routers / fname, BACKEND_CODE_RE)
+        }
+        assert located, (
+            f"{code}가 담당 라우터 {R3_R5_CODE_SOURCES[code]} 어디에도 없음 "
+            "— 계약(§3.4-R3/§3.4-R4/§3.3·§3.5-R5) 위반"
+        )
+
+    def test_신규_7종_mock과_문자열_일치(self):
+        mock_codes = _codes_in(MOCK_PATH, MOCK_CODE_RE)
+        missing = set(R3_R5_CODE_SOURCES) - mock_codes
+        assert not missing, (
+            f"mock에 없는 신규 코드: {sorted(missing)} — 프론트가 해당 에러 UX를 "
+            "mock으로 리허설 불가"
+        )
 
 
 class TestMockContractSync:

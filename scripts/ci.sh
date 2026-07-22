@@ -4,7 +4,7 @@
 #
 # 사용법:
 #   scripts/ci.sh              # 전체 단계 순차 실행
-#   scripts/ci.sh lint         # 특정 단계만 실행: lint | test | config | frontend
+#   scripts/ci.sh lint         # 특정 단계만 실행: lint | test | board | config | frontend
 #
 # 단계:
 #   lint     pyflakes로 backend/app, ai-worker/app, celery/app 정적 검사.
@@ -17,6 +17,11 @@
 #            pytest·서비스 의존성 미설치 시 안내 메시지와 함께 FAIL.
 #            설치: pip install pytest -r backend/requirements.txt
 #                  (ai-worker 테스트는 pydantic만 있으면 LLM 키 없이 동작)
+#   board    프론트 board_engine 공유 벡터 검증 (R3-01 §4 / R5-01 §3.1).
+#            node로 frontend/tests/boardEngine.vectors.test.mjs 직접 실행 —
+#            node_modules 불필요(순수 stdlib + 로컬 src). node 미설치 시 SKIP.
+#            시드 파일(board_rules·board_test_vectors) 부재 시 테스트가 스스로
+#            SKIP(exit 0)하므로, node 존재 + 비0 = 실제 판정 불일치(FAIL).
 #   config   docker compose config -q 로 compose 정합 검증.
 #   frontend frontend/node_modules 있으면 npm run build, 없으면 SKIP.
 #
@@ -112,7 +117,24 @@ step_test() {
   run_pytest_in "ai-worker" "$ROOT/ai-worker"
 }
 
-# ── 3. config: docker compose config -q ─────────────────────────────────────
+# ── 3. board: 프론트 board_engine 공유 벡터 검증 ─────────────────────────────
+# node 한 줄로 실행되는 순수 스크립트(node_modules 불필요). 프론트/백엔드가 같은
+# database/seed/board_test_vectors.json을 읽으므로 판정 의미론 일치를 보증한다.
+step_board() {
+  banner "board: board_engine 공유 벡터 (node)"
+  if ! command -v node >/dev/null 2>&1; then
+    echo "node 미설치 — 건너뜁니다. (Node.js 설치 후 재실행)"
+    record "board" "SKIP" "node 미설치"
+    return 0
+  fi
+  if (cd "$ROOT/frontend" && node tests/boardEngine.vectors.test.mjs); then
+    record "board" "OK" "board_engine 벡터 일치 (또는 시드 부재 시 자체 SKIP)"
+  else
+    record "board" "FAIL" "board_engine 벡터 불일치 (위 출력 참조)"
+  fi
+}
+
+# ── 4. config: docker compose config -q ─────────────────────────────────────
 step_config() {
   banner "config: docker compose config -q"
   if ! docker compose version >/dev/null 2>&1; then
@@ -128,7 +150,7 @@ step_config() {
   fi
 }
 
-# ── 4. frontend (선택): node_modules 있으면 빌드 ─────────────────────────────
+# ── 5. frontend (선택): node_modules 있으면 빌드 ─────────────────────────────
 step_frontend() {
   banner "frontend: npm run build (선택)"
   if [ ! -d "$ROOT/frontend/node_modules" ]; then
@@ -148,11 +170,12 @@ STEP="${1:-all}"
 case "$STEP" in
   lint)     step_lint ;;
   test)     step_test ;;
+  board)    step_board ;;
   config)   step_config ;;
   frontend) step_frontend ;;
-  all)      step_lint; step_test; step_config; step_frontend ;;
+  all)      step_lint; step_test; step_board; step_config; step_frontend ;;
   *)
-    echo "사용법: scripts/ci.sh [lint|test|config|frontend]" >&2
+    echo "사용법: scripts/ci.sh [lint|test|board|config|frontend]" >&2
     exit 2
     ;;
 esac

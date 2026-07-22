@@ -1,6 +1,7 @@
 # WeatherMind
 
 날씨 데이터 기반 기후 학습 서비스 — 오늘의 AI 퀴즈 · 기후 시뮬레이터 · 날씨 예측 리그.
+R3~R5: 지도 기반 대기 보드 · 단계별 커리큘럼(유닛 트리·왕관 진도) · 구름 에너지(소모/회복 리텐션 루프).
 
 상세 스펙은 `docs/specs/`(SSOT), 실행 계획·표준 결정사항은 `docs/DEVELOPMENT_PLAN.md` 참조.
 
@@ -34,8 +35,10 @@ docker compose exec backend alembic upgrade head
 # 4. Chroma 시드 적재 (멱등 — 재실행해도 중복 없음)
 docker compose exec ai-worker python -m app.embeddings.seed_concepts
 
-# 5. 문항 뱅크 시드 적재 (멱등 upsert — 세션 배합의 1차 소스)
-docker compose exec backend python -m app.scripts.seed_content
+# 5. 시드 적재 (전부 멱등 upsert — 권장 순서: content → units → badges)
+docker compose exec backend python -m app.scripts.seed_content   # 문항 뱅크(세션 배합 1차 소스)
+docker compose exec backend python -m app.scripts.seed_units     # 커리큘럼 유닛 트리
+docker compose exec backend python -m app.scripts.seed_badges    # 뱃지 정의
 
 # 6. 상태 확인
 curl http://localhost:8000/health
@@ -65,6 +68,8 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 - `GET /session/today` · `POST /session/{session_id}/answer` · `/{session_id}/complete`
 - `GET /progress/me` · `/weak-tags` · `POST /progress/attendance`
 - `GET /league/current` · `/leaderboard` · `/me/results` · `POST /league/predict`
+- `GET /board/regions` · `/rules` · `/puzzles` · `POST /board/puzzles/{id}/attempt` (지도 대기 보드)
+- `GET /curriculum` · `POST /curriculum/units/{slug}/session` · `GET /progress/energy` (커리큘럼·구름 에너지)
 
 에러 포맷은 전부 `{"detail": ..., "code": ...}`, 인증은 Bearer JWT.
 
