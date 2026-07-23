@@ -38,7 +38,7 @@ from app.models.user import User
 from app.models.weak_tag import WeakTag
 from app.services import ai_client
 from app.services.ai_client import AIWorkerError
-from app.services.weather_api import KST, get_today_weather
+from app.services.weather_api import KST, SKY_TEXT, get_today_weather
 
 # 약점 분기 임계값 — xp_service와 단일 공급원 공유 (웨이브 1 리뷰 6번)
 from app.services.xp_service import WEAK_ACCURACY_THRESHOLD
@@ -59,7 +59,7 @@ ALLOWED_SLOTS = (
     "today.region",
 )
 SLOT_RE = re.compile(r"\{(today\.[a-z_]+)\}")
-SKY_TEXT = {1: "맑음", 3: "구름많음", 4: "흐림"}  # KMA SKY 코드 → 표현
+# SKY_TEXT는 KMA 도메인 소유자 weather_api에서 import (중복 정의 제거, R5.5).
 
 
 # ═══════════════════════════════════════════════════════════════

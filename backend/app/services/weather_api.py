@@ -58,6 +58,9 @@ KMA_CATEGORY = {
 # 문자열로 오는 무강수 표기들 (PCP/PTY/sumRn 공통)
 NO_RAIN_STRINGS = {"강수없음", "적설없음", "없음", "", None}
 
+# SKY 코드 → 한국어 표현 (KMA 카테고리 의미의 단일 소유자 — session_service가 import).
+SKY_TEXT = {1: "맑음", 3: "구름많음", 4: "흐림"}
+
 # 퀴즈/리그 기준 지역 (MVP 기본값 — celery/app/config.py DEFAULT_REGION과 일치)
 DEFAULT_REGION = "서울"
 
