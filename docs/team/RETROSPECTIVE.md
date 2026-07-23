@@ -61,9 +61,14 @@ R2는 8관점 병렬 리뷰(후보 33건→확정 10건), R3~R5는 PM 타겟 리
   실제 KMA/Gemini 키로 INTEGRATION_CHECKLIST 실행은 키 발급 후(체크리스트 준비 완료).
 - **로드맵 유지**: 기후 탐정 스토리·AI 캐스터 롤플레이(LLM 키), 웹푸시(구름 회복 알림),
   WeatherBrain IRT 재학습(사용자 데이터 축적 후 — 콜드스타트는 weak_tags·규칙으로 동작).
-- **경미 부채**: ai-worker conftest.py 부재(bare pytest 수집 실패, CI 무영향), 밸런스
-  튜닝(구름 비율·세션 문항 수 원격 구성화), ai-worker 파싱 로직 공용화, KMA 카테고리
-  해석 3원화(weather_api·celery·session_service).
+- **경미 부채 — R5.5 정리 완료(2026-07-23)**: 아래 4건을 독립 커밋으로 해소.
+  - ai-worker conftest.py 부재(bare pytest 수집 실패) → conftest 추가(1b967e8).
+  - 밸런스 튜닝(구름 비율·세션 문항 수) → Settings/env 외부화, 기본=계약수치(13e46fc).
+  - ai-worker 파싱 로직 공용화 → json_output.extract_json_object로 단일화(7246989).
+  - KMA 카테고리 해석 3원화 → 같은 컨텍스트 DRY(SKY_TEXT) + 교차 컨텍스트 계약
+    테스트(test_kma_contract)로 분해 해소(8725877). 빌드 컨텍스트 재구성은 회피.
+  교훈: 교차 빌드 컨텍스트의 "공용화"는 물리적 병합이 아니라 단일 진실원 + 계약
+  테스트를 뜻한다(board_rules 관례). backend 422 · ai-worker 59 통과.
 
 ## 6. 지표 요약
 
