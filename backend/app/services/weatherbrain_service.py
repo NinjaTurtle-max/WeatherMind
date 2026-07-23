@@ -54,6 +54,59 @@ def theta_level_label(theta: float) -> str:
     return "advanced"
 
 
+# ai-worker priors.LEVEL_GROUP_ITEM_B와 동일값의 backend 상수 — 뱅크 풀 정렬에서
+# 보정 이력 없는 문항의 사전 난이도 b(coalesce 폴백 CASE)로 쓴다. backend는
+# ai-worker를 임포트하지 않으므로 값을 여기 고정하고, 드리프트는
+# test_weatherbrain_contract가 감시한다(교차 서비스 상수 이원화 관례).
+LEVEL_GROUP_ITEM_B: dict[str, float] = {
+    "elementary": -1.0,
+    "middle_high": 0.0,
+    "adult": 1.0,
+}
+# 미지 level_group 방어값 (ai-worker priors._DEFAULT_ITEM_B와 동일 — 중립).
+DEFAULT_ITEM_B: float = 0.0
+
+
+def theta_to_level_group(theta: float) -> str:
+    """추정 θ → 출제 난이도 level_group (R7 §3.2 — θ→출제 난이도 연결).
+
+    ai-worker priors.theta_to_target_level_group과 동일 의미·동일 경계:
+    θ < -0.5 → elementary, -0.5 ≤ θ < 0.5 → middle_high, θ ≥ 0.5 → adult
+    (경계는 하위 구간 제외·상위 구간 포함). 동일성은 계약 테스트가 감시한다.
+    """
+    if theta < _THETA_BEGINNER_MAX:
+        return "elementary"
+    if theta < _THETA_INTERMEDIATE_MAX:
+        return "middle_high"
+    return "adult"
+
+
+def overall_theta(
+    abilities: list, target_concept_tag: str | None = None
+) -> float | None:
+    """출제 난이도 산출용 대표 θ (R7 §3.2).
+
+    - target_concept_tag가 지정되고 그 개념의 θ가 있으면 그 값(route 목표 개념 우선)
+    - 아니면 num_responses(n) 가중 평균 — 전부 n=0이면 단순 평균
+    - abilities가 비면 None (콜드스타트 — 소비자가 user.level_group으로 폴백)
+
+    abilities 원소는 refresh_abilities 반환 형식
+    ({"concept_tag", "theta", "se", "n"})과 동일하다.
+    """
+    if not abilities:
+        return None
+    if target_concept_tag is not None:
+        for ab in abilities:
+            if ab["concept_tag"] == target_concept_tag:
+                return float(ab["theta"])
+    total_n = sum(int(ab["n"]) for ab in abilities)
+    if total_n <= 0:
+        return sum(float(ab["theta"]) for ab in abilities) / len(abilities)
+    return (
+        sum(float(ab["theta"]) * int(ab["n"]) for ab in abilities) / total_n
+    )
+
+
 async def _load_calibrated_b(
     db: AsyncDBSession, content_item_ids: set[uuid.UUID]
 ) -> dict[uuid.UUID, float]:
