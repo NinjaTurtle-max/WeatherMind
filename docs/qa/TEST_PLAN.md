@@ -127,6 +127,28 @@ E2E, RLS(quests·badges·duels·user_unit_progress). → INTEGRATION_CHECKLIST.m
 R5 slug 로더 정합·잠금 체인 생존(test_curriculum_tree·test_r3_r5_contract) —
 각 회귀 테스트가 존재하며 전건 통과.
 
+---
+
+# PART C — R6~R7 적응 루프 (WeatherBrain·배치고사, 2026-07-23)
+
+## C-1. 자동화 커버리지 (2026-07-23, R7-01 통합 웨이브 2)
+
+backend **490 passed** + ai-worker **86 passed + 1 skipped** = **576 통과 / 1 skip**.
+
+| 계약 | 테스트 파일 | 건수 | 라운드 |
+|---|---|---|---|
+| R6 §5 IRT(2PL) EAP θ·JML b 보정·합성 복원 | ai-worker/test_weatherbrain_irt.py | (R6분) | R6 |
+| R6 §5 내부 API(place/estimate)·Router θ 1순위 | ai-worker/test_weatherbrain_endpoints.py·test_router_theta.py | (R6분) | R6 |
+| R7 §3.1·3.3 배치고사 — 배합(교차 그룹)·응답 조립·complete 분기(구름·XP 면제)·409·abilities 형식 | backend/test_placement.py | 28 | **R7 S1** |
+| R7 §3.2 θ→출제 난이도 — 순수함수 2종·풀 확장·\|b−θ\| 정렬·quiz-generate 주입 | backend/test_theta_difficulty.py | 20 | **R7 S2** |
+| R6~R7 backend↔ai-worker 교차 계약 — θ 매핑 경계·사전 b 드리프트(**단일 소유** — placement는 weatherbrain_service 임포트) | backend/test_weatherbrain_contract.py | 16 | R6+**R7** |
+| R7 S4 시드 증보 — 49건(air_mass×adult 커버리지 보강 2건) | backend/test_seed_contract.py | 118 | R2~**R7** |
+
+**자동화 미커버 → 자동 스모크(scripts/smoke.sh 1~9)가 대체**: 마이그레이션
+0006·0007 실적용, θ 시드·RLS 실동작, 세션 왕복 θ 전이, ai-worker 폴백,
+배치고사 전체 왕복(6문항·구름 미소모·초기 θ 배정·409·progress 노출).
+**UI 흐름만 수기 잔존** → INTEGRATION_CHECKLIST.md PART C(§17~§19).
+
 ## 4. 실행 방법·환경
 
 ```bash

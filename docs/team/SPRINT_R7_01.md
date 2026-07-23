@@ -139,6 +139,73 @@
 각 브랜치: 항목 단위 원자 커밋 → `/code-review`(P0~P2 반영, 불가 시 §2.3 기준 자체
 검토) → PR → merge commit(squash 금지) → 브랜치 삭제.
 
-## 5. 리뷰 노트·회고
+## 5. 리뷰 노트·회고 (통합 웨이브 2 종료, 2026-07-23)
 
-(웨이브 종료 시 기록)
+### 5.1 통합 결과
+
+- `chore/r7-06-integration` = `chore/r7-01-db-smoke` + 5개 브랜치 merge --no-ff
+  (docs → S2 → S1 → S3 → S4). **병합 충돌 0건** — 파일 소유 경계가 지켜졌다.
+- 회귀: backend **490 passed** · ai-worker **86 passed + 1 skipped** ·
+  pyflakes 신규 지적 0 · frontend build 통과.
+- 스모크 1~9 전 단계 그린, **재실행 멱등 확인**(2회 연속 전건 OK).
+  실측: 배치 6문항 전부 오답 제출 후 max|θ| = **0.5865** (사전값 0.0에서 이동,
+  2회 실행 동일값 — EAP 추정 결정성 방증), 구름 5→5 불변, 409
+  PLACEMENT_ALREADY_DONE·progress placement_done=true 확인.
+
+### 5.2 확정 결함 (수정 완료)
+
+| # | 발견 경로 | 내용 | 수정 |
+|---|---|---|---|
+| 1 | **스모크 7단계** (웨이브 0) | `/session/today` 당일 재조회 경로에 `refresh_abilities` 미배선 — 답안을 내도 재조회로는 θ가 안 움직임. FakeDB 단위 테스트가 못 잡던 실왕복 결함 | `03f2c1e` (db-smoke 브랜치에서 백엔드 리드 수정) |
+
+통합 웨이브 자체(병합·스모크 재실행)에서 신규 결함 0건.
+
+### 5.3 계약 보강 이력 (웨이브 1 중 확정)
+
+- **abilities 필드 통일**: 배치 complete 응답의 abilities를 §3.1 초안 형식
+  (`{theta, se, n}`)이 아니라 `/progress/abilities`의 `ConceptAbilityOut`
+  형식(`{concept_tag, theta, theta_se, num_responses, level_label}`)으로 통일 —
+  프론트가 진단 패널(WeatherBrainPanel)과 같은 렌더러를 쓴다.
+  (S1 `to_progress_abilities` + S3 `0d47333`)
+- **XP·스트릭·퀘스트 미부여 정렬**: placement complete가 보상 루프를 완전히
+  스킵함을 프론트 표시와 mock 계약까지 맞춤 (S3 `0274aa2`).
+
+### 5.4 LEVEL_GROUP_ITEM_B 중복 — 워크트리 격리의 비용
+
+S1(placement_service)과 S2(weatherbrain_service)가 **같은 상수**(ai-worker
+priors 미러)를 각자 정의했다. 병렬 워크트리는 충돌은 없앴지만 서로의 신설
+코드가 안 보여 같은 컨텍스트(backend) 내 중복을 만들었다 — R5.5에서 세운
+"같은 컨텍스트 중복만 물리적 DRY" 원칙의 정확한 위반 사례. 통합 커밋에서
+weatherbrain_service 단일 소유로 합치고(placement는 임포트), ai-worker와의
+드리프트 계약은 test_weatherbrain_contract 단독 소유로 정리했다.
+**교훈**: 계약 문서(§3)에 "신설 공용 상수의 소유 파일"까지 못 박으면 병렬
+스토리가 같은 것을 두 번 만들지 않는다 — R8 백로그 작성 시 반영.
+
+### 5.5 잘된 것
+
+- 계약 선고정(§3) → 병렬 4스토리 병합 충돌 0. 특히 S1↔S2가 같은 파일
+  (session router·weatherbrain_service)을 만지고도 교집합이 안 겹쳤다.
+- 스모크가 웨이브 0에서 실배선 결함(refresh 미배선)을 코드리뷰·단위테스트보다
+  먼저 잡았다 — "pytest가 못 보는 실DB 경로" 가설이 첫 실행에서 입증.
+- 배치 에너지 면제를 산술(구름 5 < 6문항)로 사전 확정 — 구현 중 발견이었다면
+  스키마·계약 재작업이었다.
+
+### 5.6 아쉬운 것
+
+- LEVEL_GROUP_ITEM_B 중복(§5.4) — 통합에서 잡았지만 애초에 안 만들 수 있었다.
+- 스모크 재실행이 register 레이트리밋(5회/분)과 간섭할 수 있다(1회 실행에
+  가입 3회) — 현재는 "1분 뒤 재시도" 운영 수칙으로 우회(RUNBOOK §6.3).
+- item_params가 여전히 0행(재학습 크론 실가동 전) — |b−θ| 정렬이 전부 사전 b
+  CASE 폴백으로만 동작 중. 보정값 경로는 합성 데이터 단위 테스트로만 검증됨.
+
+### 5.7 범위 밖 (R8 부채 — 우선순위 순)
+
+1. **유닛 세션 θ 확장** — 커리큘럼 세션은 아직 신고 level_group 고정(§3.2 범위 외).
+2. **QuizGenerateRequest `target_theta` 계약 확장** — 현재는 level_group 이산화로만
+   전달, 연속값 전달 시 ai-worker 생성 프롬프트 정밀도 상승 여지.
+3. **배치 재응시** — placement_completed_at 단일 타임스탬프로는 재응시 이력 표현
+   불가(정책·스키마 함께 결정).
+4. **비특권 DB 롤 분리** — backend가 슈퍼유저 접속이라 RLS를 우회한다. 스모크가
+   비특권 롤로 검증하듯 앱 커넥션도 전용 롤로 — 상업 배포 전 필수.
+5. **배치 풀 셀당 1문항 셀 7개 증보** — 6개념×3그룹 18셀 중 적격 문항이 1건뿐인
+   셀 7개(docs/data/PLACEMENT_COVERAGE_R7.md §2 참고) — 문항 노출 다양성 부족.

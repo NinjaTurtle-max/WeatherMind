@@ -46,10 +46,15 @@ curl http://localhost:8001/health
 
 # 7. 프론트 접속
 # http://localhost (nginx가 80포트 서빙)
+
+# 8. (선택) DB 왕복 스모크 — 기동~배치고사 왕복까지 9단계 자동 검증 (멱등)
+bash scripts/smoke.sh          # 또는: scripts/ci.sh smoke
 ```
 
-운영 절차(상태 확인·장애 대응·롤백)는 `docs/team/RUNBOOK.md` 참조.
+운영 절차(상태 확인·장애 대응·롤백·스모크 운영)는 `docs/team/RUNBOOK.md` 참조.
 커밋 전 로컬 CI: `scripts/ci.sh` (lint → test → compose config → frontend build).
+통합·릴리스 전에는 opt-in 스모크(`scripts/ci.sh smoke` — 기본 실행엔 미포함)로
+DB 실경로(마이그레이션·RLS·θ 왕복·배치고사)까지 확인한다.
 
 ## 개발 중 개별 실행 (hot reload)
 
