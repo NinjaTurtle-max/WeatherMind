@@ -10,6 +10,14 @@ import {
 } from 'recharts';
 import { progressApi } from '../../api';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import {
+  CONCEPT_KO,
+  LEVEL_KO,
+  LEVEL_CHIP,
+  COLOR_MEASURED,
+  COLOR_PRIOR,
+  thetaToScore,
+} from '../../lib/abilityDisplay';
 
 /**
  * WeatherBrainPanel (R6 WeatherBrain) — 개념별 능력(θ) 분석 패널.
@@ -19,39 +27,9 @@ import LoadingSpinner from '../../components/LoadingSpinner';
  * WeatherMind 자체 적응형 모델(WeatherBrain)이 개념별 이해도를 추정해 난이도를
  * 배정한다. θ(로짓 -3..3)를 0..100 표시 스케일로 정규화해 가로 막대로 보여주고,
  * num_responses===0(사전 배정, 아직 측정 아님) 개념은 옅은 막대·안내 문구로 구분한다.
+ * θ 표시 헬퍼(정규화·한글 라벨·칩 색)는 lib/abilityDisplay로 추출해
+ * 배치고사 결과 화면(R7-01 S3)과 공유한다.
  */
-
-// concept_tag → 한글 표시명
-const CONCEPT_KO = {
-  air_mass: '기단',
-  anomaly: '이상기후',
-  co2_climate: 'CO₂·기후변화',
-  heat_island: '열섬효과',
-  pressure_front: '기압·전선',
-  typhoon: '태풍',
-};
-
-// level_label → 한글 + 배지 색(항상 텍스트와 함께 표기 — 색 단독 의미 아님)
-const LEVEL_KO = {
-  beginner: '초급',
-  intermediate: '중급',
-  advanced: '고급',
-};
-const LEVEL_CHIP = {
-  beginner: 'bg-slate-100 text-slate-600',
-  intermediate: 'bg-sky-100 text-sky-700',
-  advanced: 'bg-indigo-100 text-indigo-700',
-};
-
-// 단일 시리즈(사용자 1인의 능력) — 한 가지 색조(sky)만 사용.
-const COLOR_MEASURED = '#0284c7'; // sky-600 — 측정된 능력
-const COLOR_PRIOR = '#cbd5e1'; // slate-300 — 사전 배정(초기값)
-
-// θ(로짓 ~ -3..3) → 0..100 표시 스케일
-function thetaToScore(theta) {
-  const t = typeof theta === 'number' ? theta : 0;
-  return Math.round(Math.min(100, Math.max(0, ((t + 3) / 6) * 100)));
-}
 
 function AbilityTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
