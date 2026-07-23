@@ -9,10 +9,11 @@ import {
 
 /**
  * PlacementSummary (R7-01 S3) — 배치고사 완료 후 개념별 진단 결과(θ) 화면.
- * POST /session/{id}/complete 응답의 abilities: [{concept_tag, theta, se, n}]를
- * WeatherBrainPanel과 같은 표현 문법(thetaToScore 정규화 막대 + 레벨 칩)으로 보여준다.
- * complete 응답에는 level_label이 없어 levelFromTheta로 파생한다(backend 경계와 동일).
- * 약한 개념 우선 정렬 — /progress/abilities(WeatherBrainPanel) 정렬과 같은 방향.
+ * POST /session/{id}/complete 응답의 abilities:
+ *   [{concept_tag, theta, theta_se, num_responses, level_label}] (/progress/abilities와 동일 형식)
+ * 를 WeatherBrainPanel과 같은 표현 문법(thetaToScore 정규화 막대 + 레벨 칩)으로 보여준다.
+ * level_label은 서버값을 우선 쓰고, 부재 시에만 levelFromTheta로 파생(폴백).
+ * 약한 개념 우선 정렬 — /progress/abilities(WeatherBrainPanel) 정렬과 같은 방향(서버 비의존).
  */
 export default function PlacementSummary({ summary, onDone }) {
   const abilities = [...(summary?.abilities ?? [])].sort((a, b) => (a.theta ?? 0) - (b.theta ?? 0));
@@ -31,7 +32,7 @@ export default function PlacementSummary({ summary, onDone }) {
       {abilities.length > 0 ? (
         <div className="mt-6 flex flex-col gap-3 text-left">
           {abilities.map((a) => {
-            const level = levelFromTheta(a.theta);
+            const level = a.level_label ?? levelFromTheta(a.theta); // 서버값 우선, 부재 시 폴백
             return (
               <div key={a.concept_tag}>
                 <div className="flex items-center justify-between gap-2">

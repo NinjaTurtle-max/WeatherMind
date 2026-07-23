@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { evaluateBoard, checkGoals, validateBoardState } from '../src/lib/boardEngine.js';
 import { tierFromElo } from '../src/lib/tierMeta.js';
+import { levelFromTheta } from '../src/lib/abilityDisplay.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -922,14 +923,19 @@ const routes = {
         if (r.is_correct) agg.correct += 1;
         byConcept.set(item.concept_tag, agg);
       }
+      // 필드 형식은 /progress/abilities와 통일 (PM 계약 확정 — R7-01 S3)
       placementResult = {
         placement_done: true,
-        abilities: [...byConcept.entries()].map(([conceptTag, { correct, n }]) => ({
-          concept_tag: conceptTag,
-          theta: Number(((correct / n - 0.5) * 2.4).toFixed(2)), // 0%→-1.2 · 50%→0 · 100%→+1.2
-          se: Number((1 / Math.sqrt(n + 1)).toFixed(2)),
-          n,
-        })),
+        abilities: [...byConcept.entries()].map(([conceptTag, { correct, n }]) => {
+          const theta = Number(((correct / n - 0.5) * 2.4).toFixed(2)); // 0%→-1.2 · 50%→0 · 100%→+1.2
+          return {
+            concept_tag: conceptTag,
+            theta,
+            theta_se: Number((1 / Math.sqrt(n + 1)).toFixed(2)),
+            num_responses: n,
+            level_label: levelFromTheta(theta),
+          };
+        }),
       };
     }
     return [

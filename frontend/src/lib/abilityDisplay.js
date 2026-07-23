@@ -37,9 +37,9 @@ export function thetaToScore(theta) {
 }
 
 /**
- * θ → 레벨 라벨(초급/중급/고급) 클라이언트 파생.
+ * θ → 레벨 라벨(초급/중급/고급) 클라이언트 파생 — 서버 level_label 부재 시 폴백 전용.
  * 경계(-0.5, 0.5)는 backend weatherbrain_service.theta_level_label과 동일해야 한다.
- * (배치고사 complete 응답 abilities에는 level_label이 없어 프론트에서 파생 — R7-01 S3)
+ * (R7-01 S3 계약 확정: 배치 complete abilities도 level_label을 포함 — 서버값 우선 사용)
  */
 export function levelFromTheta(theta) {
   const t = typeof theta === 'number' ? theta : 0;
