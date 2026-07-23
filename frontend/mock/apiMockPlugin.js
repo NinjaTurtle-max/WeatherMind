@@ -845,11 +845,15 @@ const routes = {
       isCorrect = gradeSessionItem(item, body?.answer);
     }
 
-    const xp = isCorrect ? 15 : 2;
+    // 배치고사(R7-01 S3 계약 확정): 진단 전용 — XP·스트릭·퀘스트 미부여
+    const isPlacement = s.mode === 'placement';
+    const xp = isPlacement ? 0 : isCorrect ? 15 : 2;
     s.answers[item.quiz_id] = { is_correct: isCorrect, xp_earned: xp };
-    state.xp += xp;
-    state.answeredToday = true;
-    bumpQuest({ xp, correctTag: isCorrect ? item.concept_tag : null, live: item.slot_filled });
+    if (!isPlacement) {
+      state.xp += xp;
+      state.answeredToday = true;
+      bumpQuest({ xp, correctTag: isCorrect ? item.concept_tag : null, live: item.slot_filled });
+    }
     return [
       200,
       {
