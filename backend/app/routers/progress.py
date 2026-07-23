@@ -15,15 +15,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user, get_db_with_rls
 from app.models.attendance import Attendance
 from app.models.user import User
+from app.models.user_concept_ability import UserConceptAbility
 from app.models.weak_tag import WeakTag
 from app.schemas.progress import (
     AttendanceResult,
     BadgeOut,
+    ConceptAbilityOut,
     EnergyState,
     ProgressMe,
     QuestOut,
     WeakTagOut,
 )
+from app.services import weatherbrain_service
 from app.services import (
     badge_service,
     energy_service,
@@ -102,6 +105,39 @@ async def get_weak_tags(
         .all()
     )
     return [WeakTagOut.model_validate(t) for t in tags]
+
+
+@router.get("/abilities", response_model=list[ConceptAbilityOut])
+async def get_abilities(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_with_rls),
+) -> list[ConceptAbilityOut]:
+    """WeatherBrain IRT 개념별 능력 θ (약한 개념 순). R6 §5.
+
+    가입 시 사전 배정된 초기 θ부터 시작해 응답이 쌓일수록 갱신된다.
+    """
+    rows = (
+        (
+            await db.execute(
+                select(UserConceptAbility)
+                .where(UserConceptAbility.user_id == user.id)
+                .order_by(UserConceptAbility.theta.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [
+        ConceptAbilityOut(
+            concept_tag=r.concept_tag,
+            theta=r.theta,
+            theta_se=r.theta_se,
+            num_responses=r.num_responses,
+            level_label=weatherbrain_service.theta_level_label(r.theta),
+            updated_at=r.updated_at,
+        )
+        for r in rows
+    ]
 
 
 @router.post("/attendance", response_model=AttendanceResult)

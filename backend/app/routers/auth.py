@@ -13,7 +13,7 @@ import uuid
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -29,6 +29,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User
+from app.services import weatherbrain_service
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
@@ -73,6 +74,17 @@ async def register(
     db.add(user)
     await db.commit()
     await db.refresh(user)
+
+    # R6 WeatherBrain: 가입 직후 초기 난이도 배정 — level_group 사전으로 개념별 θ 배정.
+    # 실패해도 가입은 성공(이후 세션 발급의 refresh_abilities가 사전값을 다시 채운다).
+    # user_concept_ability는 RLS(user_isolation) 대상이므로, get_db(무RLS 컨텍스트)에서
+    # 쓰기 전에 get_db_with_rls와 동일하게 app.current_user_id를 주입한다(WITH CHECK 충족).
+    await db.execute(
+        text("SELECT set_config('app.current_user_id', :uid, true)"),
+        {"uid": str(user.id)},
+    )
+    await weatherbrain_service.seed_placement(db, user)
+    await db.commit()
 
     # 가입 직후 발급되는 access token이 즉시 유효하도록 세션 생성
     refresh_token = create_refresh_token(str(user.id))

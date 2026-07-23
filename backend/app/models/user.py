@@ -51,6 +51,7 @@ class User(Base):
 
     quiz_logs: Mapped[list["QuizLog"]] = relationship(back_populates="user")  # noqa: F821
     weak_tags: Mapped[list["WeakTag"]] = relationship(back_populates="user")  # noqa: F821
+    concept_abilities: Mapped[list["UserConceptAbility"]] = relationship(back_populates="user")  # noqa: F821
     attendances: Mapped[list["Attendance"]] = relationship(back_populates="user")  # noqa: F821
     league_results: Mapped[list["LeagueResult"]] = relationship(back_populates="user")  # noqa: F821
     sessions: Mapped[list["Session"]] = relationship(back_populates="user")  # noqa: F821

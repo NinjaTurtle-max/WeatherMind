@@ -36,7 +36,7 @@ from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.user import User
 from app.models.weak_tag import WeakTag
-from app.services import ai_client
+from app.services import ai_client, weatherbrain_service
 from app.services.ai_client import AIWorkerError
 from app.services.weather_api import KST, SKY_TEXT, get_today_weather
 
@@ -255,7 +255,12 @@ async def decide_route(
         .all()
     )
     recent_results = [bool(v) for v in reversed(recent)]  # 시간순(과거 → 최근)
-    return await ai_client.router_decide(str(user.id), weak_tags, recent_results)
+    # R6 WeatherBrain: 누적 응답으로 θ 재추정·영속화 후 Router 1순위 신호로 공급.
+    # 실패해도 refresh_abilities가 저장된 θ(또는 빈 리스트)로 폴백 → 세션 발급 계속.
+    abilities = await weatherbrain_service.refresh_abilities(db, user)
+    return await ai_client.router_decide(
+        str(user.id), weak_tags, recent_results, abilities
+    )
 
 
 async def _fetch_pools(

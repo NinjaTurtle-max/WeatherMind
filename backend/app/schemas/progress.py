@@ -57,6 +57,24 @@ class WeakTagOut(BaseModel):
     updated_at: datetime | None = None
 
 
+class ConceptAbilityOut(BaseModel):
+    """WeatherBrain IRT 개념별 능력 θ (로짓 스케일). R6 §5.
+
+    theta: 능력 추정치(높을수록 강함). theta_se: 불확실성(응답 적을수록 큼).
+    num_responses: 반영된 실제 응답 수(0이면 가입 시 사전 배정값).
+    level_label: θ를 초급/중급/고급으로 이산화한 사람이 읽는 난이도 라벨.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    concept_tag: str
+    theta: float
+    theta_se: float
+    num_responses: int
+    level_label: str
+    updated_at: datetime | None = None
+
+
 class AttendanceResult(BaseModel):
     streak_count: int
     is_new_record: bool
