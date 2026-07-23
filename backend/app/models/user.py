@@ -45,6 +45,10 @@ class User(Base):
         default=lambda: datetime.now(timezone.utc),
         server_default=text("now()"),
     )
+    # 배치고사(진단 퀴즈) 완료 시각 (R7-01 §3.1) — NULL이면 미완료(온보딩 진행 가능)
+    placement_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
