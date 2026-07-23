@@ -57,6 +57,7 @@ async def get_me(
         tier=tier,
         clouds=energy["clouds"],
         next_regen_sec=energy["next_regen_sec"],
+        placement_done=user.placement_completed_at is not None,
     )
 
 
