@@ -304,6 +304,116 @@ SQL
   record "6 rls" "OK" "타유저 0행 · 무컨텍스트 INSERT 거부 · item_params 전역 통과"
 }
 
+# ── 7. roundtrip: 세션 왕복 → num_responses 전이 ────────────────────────────
+step_roundtrip() {
+  banner "7 roundtrip: session/today → answer x3 → 재발급 → θ 전이"
+  ensure_user || { record "7 roundtrip" "FAIL" "스모크 유저 가입 실패"; return 0; }
+
+  # 1차 발급 — 5문항
+  local out http body
+  out="$(http_get "$API/api/v1/session/today" "$SMOKE_TOKEN")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "200" ]; then
+    record "7 roundtrip" "FAIL" "GET /session/today http=$http: $(head -c200 <<<"$body")"
+    return 0
+  fi
+  local session_id n_items
+  session_id="$(json_field "$body" session_id)"
+  n_items="$("$PYTHON" -c 'import json,sys; print(len(json.load(sys.stdin)["items"]))' <<<"$body")"
+  echo "  session_id=$session_id items=$n_items"
+  if [ "$n_items" != "5" ]; then
+    record "7 roundtrip" "FAIL" "5문항 기대, 실제 $n_items"
+    return 0
+  fi
+
+  # 비board 3문항 선택 (board는 board_state 필수 — 스모크 범위 밖)
+  local quiz_ids
+  quiz_ids="$("$PYTHON" -c '
+import json, sys
+items = json.load(sys.stdin)["items"]
+picks = [i["quiz_id"] for i in items if i.get("question_type") != "board"][:3]
+print("\n".join(picks))
+' <<<"$body")"
+  if [ "$(wc -l <<<"$quiz_ids" | tr -d ' ')" -lt 3 ]; then
+    record "7 roundtrip" "FAIL" "비board 문항이 3개 미만 (재실행하면 다른 배합)"
+    return 0
+  fi
+
+  local qid answered=0
+  while IFS= read -r qid; do
+    out="$(http_post "$API/api/v1/session/$session_id/answer" \
+      "{\"quiz_id\":\"$qid\",\"answer\":\"smoke\"}" "$SMOKE_TOKEN")"
+    http="$(tail -n1 <<<"$out")"
+    if [ "$http" != "200" ]; then
+      record "7 roundtrip" "FAIL" "answer($qid) http=$http: $(sed '$d' <<<"$out" | head -c200)"
+      return 0
+    fi
+    answered=$((answered + 1))
+  done <<<"$quiz_ids"
+  echo "  answer x$answered 제출 (채점 기록 → quiz_logs.is_correct)"
+
+  # 재차 /today — refresh_abilities 트리거 (θ 재추정·upsert)
+  out="$(http_get "$API/api/v1/session/today" "$SMOKE_TOKEN")"
+  http="$(tail -n1 <<<"$out")"
+  if [ "$http" != "200" ]; then
+    record "7 roundtrip" "FAIL" "재차 GET /session/today http=$http"
+    return 0
+  fi
+
+  local row cnt nsum
+  row="$(psql_c "SELECT count(*) || '|' || coalesce(sum(num_responses),0) FROM user_concept_ability WHERE user_id='$SMOKE_USER_ID'")" || {
+    record "7 roundtrip" "FAIL" "psql 조회 실패"
+    return 0
+  }
+  IFS='|' read -r cnt nsum <<<"$row"
+  echo "  user_concept_ability: rows=$cnt sum(num_responses)=$nsum"
+  if [ "$cnt" = "6" ] && [ "$nsum" -gt 0 ] 2>/dev/null; then
+    record "7 roundtrip" "OK" "num_responses 0→$nsum 전이 (행 수 6 유지)"
+  else
+    record "7 roundtrip" "FAIL" "num_responses>0 전이 실패 (rows=$cnt, sum=$nsum) — refresh_abilities 미트리거?"
+  fi
+}
+
+# ── 8. fallback: ai-worker 정지 중 가입 → 폴백 커밋 유지 ────────────────────
+step_fallback() {
+  banner "8 fallback: ai-worker stop → register → θ 0행 → start"
+  if ! compose stop ai-worker; then
+    record "8 fallback" "FAIL" "docker compose stop ai-worker 실패"
+    return 0
+  fi
+
+  register_user "smoke-fb"
+  local http="$REG_HTTP" uid="$REG_USER_ID" verdict=""
+  if [ "$http" != "201" ]; then
+    verdict="가입이 폴백으로 살아남지 못함 (http=$http)"
+  else
+    echo "  201 Created (ai-worker 정지 중), user_id=$uid"
+    local rows
+    rows="$(psql_c "SELECT count(*) FROM user_concept_ability WHERE user_id='$uid'")" || rows="?"
+    echo "  user_concept_ability rows=$rows (기대 0 — placement 조용한 폴백)"
+    if [ "$rows" != "0" ]; then
+      verdict="폴백인데 θ 행이 생김 (rows=$rows)"
+    fi
+  fi
+
+  # 정지시킨 것은 반드시 되살린다 — 검증 실패와 무관하게.
+  if ! compose start ai-worker; then
+    record "8 fallback" "FAIL" "ai-worker 재기동 실패 (수동 확인 필요)"
+    return 0
+  fi
+  wait_health "$AI/health" "ai-worker(8001)" || {
+    record "8 fallback" "FAIL" "재기동 후 /health 미응답"
+    return 0
+  }
+
+  if [ -n "$verdict" ]; then
+    record "8 fallback" "FAIL" "$verdict"
+  else
+    record "8 fallback" "OK" "정지 중 가입 201 + θ 0행 (커밋 유지) · 재기동 OK"
+  fi
+}
+
 # ── 실행 ─────────────────────────────────────────────────────────────────────
 STEP="${1:-all}"
 case "$STEP" in
@@ -313,6 +423,8 @@ case "$STEP" in
   register)  step_register ;;
   theta)     step_theta ;;
   rls)       step_rls ;;
+  roundtrip) step_roundtrip ;;
+  fallback)  step_fallback ;;
   all)
     step_up
     if [ "$FAILED" -ne 0 ]; then
@@ -324,13 +436,14 @@ case "$STEP" in
       step_register
       step_theta
       step_rls
+      step_roundtrip
+      step_fallback
     fi
     ;;
   *)
-    echo "사용법: scripts/smoke.sh [up|migrate|seed|register|theta|rls]" >&2
+    echo "사용법: scripts/smoke.sh [up|migrate|seed|register|theta|rls|roundtrip|fallback]" >&2
     exit 2
     ;;
-
 esac
 
 # ── 요약 ─────────────────────────────────────────────────────────────────────
