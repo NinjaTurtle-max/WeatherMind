@@ -16,6 +16,8 @@ class ProgressMe(BaseModel):
     # 구름 에너지 잔량·다음 회복 ETA(초) — R5-01 §3.3 (clouds=플레이 에너지)
     clouds: int
     next_regen_sec: int
+    # 배치고사 완료 여부 — R7-01 §3.5 (additive: 프론트 온보딩 진입 분기용)
+    placement_done: bool = False
 
 
 class EnergyState(BaseModel):

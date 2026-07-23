@@ -25,6 +25,7 @@ from app.routers import (
     curriculum,
     duel,
     league,
+    onboarding,
     progress,
     quiz,
     session,
@@ -134,3 +135,4 @@ app.include_router(progress.router)
 app.include_router(league.router)
 app.include_router(duel.router)
 app.include_router(curriculum.router)
+app.include_router(onboarding.router)

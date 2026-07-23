@@ -55,8 +55,26 @@ class SessionAnswerResult(AnswerResult):
     session_progress: SessionProgress
 
 
+class PlacementAbility(BaseModel):
+    """배치고사 완료 응답의 개념별 초기 θ (R7-01 §3.3).
+
+    GET /progress/abilities(ConceptAbilityOut)와 동일 형식 — 프론트가 한 렌더러로
+    두 응답을 그린다(§3.1 보강 확정: se/n 축약형 금지). updated_at은 완료 직후라
+    의미가 없어 제외.
+    """
+
+    concept_tag: str
+    theta: float
+    theta_se: float
+    num_responses: int
+    level_label: str
+
+
 class SessionCompleteResult(BaseModel):
     xp_total: int
     correct_count: int
     total: int
     streak_count: int
+    # ── 배치고사(mode='placement') 전용 (R7-01 §3.3) — daily/unit 세션은 None ──
+    abilities: list[PlacementAbility] | None = None
+    placement_done: bool | None = None

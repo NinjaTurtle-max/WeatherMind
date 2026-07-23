@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     CLOUD_REGEN_MINUTES: int = 20
     CLOUD_COST: int = 1
 
+    # 배치고사(진단 퀴즈) 문항 수 (R7-01 §3.1): 기본값 = 계약 수치(6문항 —
+    # CONCEPT_TAGS 6개념당 1문항). 드리프트는 test_placement가 감시.
+    PLACEMENT_SIZE: int = 6
+
     @field_validator("SESSION_RECIPE")
     @classmethod
     def _validate_recipe(cls, value: dict[str, int]) -> dict[str, int]:
