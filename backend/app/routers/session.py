@@ -39,6 +39,7 @@ from app.services import (
     energy_service,
     quest_service,
     session_service,
+    weatherbrain_service,
 )
 from app.services.ai_client import AIWorkerError
 from app.services.answer_service import AlreadyAnsweredError, BoardStateRequiredError
@@ -155,8 +156,14 @@ async def get_today_session(
 ) -> SessionToday:
     today = datetime.now(KST).date()
 
-    # 1) 오늘 세션이 이미 있으면 그대로 반환 (멱등)
+    # 1) 오늘 세션이 이미 있으면 그대로 반환 (멱등) — 단, 발급 후 쌓인 응답이
+    #    θ에 반영되도록 재조회 경로에서도 refresh_abilities를 호출한다
+    #    (R7-01 §3.4-7 "answer×3 → 재발급 → num_responses>0 전이" 실왕복 계약.
+    #    발급 경로는 create_daily_session→decide_route가 이미 호출하므로 제외).
+    #    ai-worker 실패 시 저장된 θ 폴백이라 세션 반환은 항상 진행된다.
     session = await _get_today_session(db, user, today)
+    if session is not None:
+        await weatherbrain_service.refresh_abilities(db, user)
 
     # 2) 없으면 발급 — 동시 요청이 UNIQUE 제약에 걸리면 재조회
     if session is None:
