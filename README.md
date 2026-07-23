@@ -66,7 +66,7 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 - `POST /auth/register` · `/login` · `/refresh` · `/logout`
 - `GET /quiz/today` · `POST /quiz/{quiz_id}/answer` · `GET /quiz/history`
 - `GET /session/today` · `POST /session/{session_id}/answer` · `/{session_id}/complete`
-- `GET /progress/me` · `/weak-tags` · `POST /progress/attendance`
+- `GET /progress/me` · `/weak-tags` · `/abilities`(WeatherBrain θ) · `POST /progress/attendance`
 - `GET /league/current` · `/leaderboard` · `/me/results` · `POST /league/predict`
 - `GET /board/regions` · `/rules` · `/puzzles` · `POST /board/puzzles/{id}/attempt` (지도 대기 보드)
 - `GET /curriculum` · `POST /curriculum/units/{slug}/session` · `GET /progress/energy` (커리큘럼·구름 에너지)

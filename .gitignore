@@ -20,3 +20,6 @@ frontend/dist/
 # 데이터 볼륨
 chroma-data/
 postgres-data/
+
+# Claude 프롬프트 기록 (개인 로그)
+.claude/prompt-logs/
