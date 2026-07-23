@@ -8,12 +8,38 @@ DB·네트워크 불필요(순수 상수/함수 검사).
 
 from __future__ import annotations
 
+import importlib
 import json
+import sys
 from pathlib import Path
+
+import pytest
 
 from app.services import weatherbrain_service as wb
 
-SEED = Path(__file__).resolve().parents[1].parent / "database" / "seed" / "content_items.json"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SEED = REPO_ROOT / "database" / "seed" / "content_items.json"
+AI_WORKER_DIR = REPO_ROOT / "ai-worker"
+
+
+def _import_ai_worker_priors():
+    """ai-worker priors를 backend `app` 패키지와 충돌 없이 임포트
+    (test_seed_contract._import_ai_worker_validate_chain 관례 답습)."""
+    saved = {k: m for k, m in sys.modules.items() if k == "app" or k.startswith("app.")}
+    for key in saved:
+        del sys.modules[key]
+    sys.path.insert(0, str(AI_WORKER_DIR))
+    try:
+        module = importlib.import_module("app.weatherbrain.priors")
+    finally:
+        sys.path.remove(str(AI_WORKER_DIR))
+        for key in [k for k in sys.modules if k == "app" or k.startswith("app.")]:
+            del sys.modules[key]
+        sys.modules.update(saved)
+    return module
+
+
+priors = _import_ai_worker_priors()
 
 
 class TestConceptTagContract:
@@ -48,3 +74,28 @@ class TestThetaLabelContract:
         assert wb.theta_level_label(0.0) == "intermediate"
         assert wb.theta_level_label(0.5) == "advanced"
         assert wb.theta_level_label(2.0) == "advanced"
+
+
+class TestThetaToLevelGroupContract:
+    """R7 §3.2: backend theta_to_level_group ↔ ai-worker
+    priors.theta_to_target_level_group — 같은 θ에 같은 그룹(경계 포함/제외까지)."""
+
+    @pytest.mark.parametrize(
+        "theta",
+        [-3.0, -1.0, -0.51, -0.5, -0.49, 0.0, 0.49, 0.5, 0.51, 1.0, 3.0],
+    )
+    def test_대표값_경계값에서_ai_worker와_동일(self, theta):
+        assert wb.theta_to_level_group(theta) == (
+            priors.theta_to_target_level_group(theta)
+        ), f"θ={theta}에서 backend↔ai-worker 매핑 드리프트"
+
+
+class TestPriorItemBContract:
+    """R7 §3.2: 뱅크 풀 정렬의 사전 b CASE 값은 ai-worker LEVEL_GROUP_ITEM_B와
+    동일해야 한다 (backend는 ai-worker를 임포트하지 않으므로 상수를 이원 유지)."""
+
+    def test_사전_b_상수_동일(self):
+        assert wb.LEVEL_GROUP_ITEM_B == priors.LEVEL_GROUP_ITEM_B
+
+    def test_방어_기본값_동일(self):
+        assert wb.DEFAULT_ITEM_B == priors._DEFAULT_ITEM_B
