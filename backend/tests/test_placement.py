@@ -8,6 +8,8 @@ plan_placement_picks·assemble_placement_responses는 DB 의존이 없는 순수
 실행: backend 디렉토리에서 `python -m pytest tests/test_placement.py -q`.
 """
 import asyncio
+import re
+from pathlib import Path
 from types import SimpleNamespace
 
 from app.core.config import Settings
@@ -192,6 +194,15 @@ class TestPlacementContract:
         assert ps.LEVEL_GROUPS == ("elementary", "middle_high", "adult")
         for group, allowed in ps.ADJACENT_GROUPS.items():
             assert group in allowed
+
+    def test_에러_코드_PLACEMENT_ALREADY_DONE_존재(self):
+        """§3.1: 완료자 재응시 409 — 담당 라우터 소스에 실재
+        (test_error_code_contract의 소스 텍스트 가드 방식)."""
+        source = (
+            Path(__file__).resolve().parents[1] / "app" / "routers" / "onboarding.py"
+        ).read_text(encoding="utf-8")
+        codes = set(re.findall(r'"code":\s*"([A-Z_]+)"', source))
+        assert "PLACEMENT_ALREADY_DONE" in codes
 
 
 class TestAIClientPlacementPayload:
