@@ -30,6 +30,7 @@ from typing import Any, Callable, Sequence
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession as AsyncDBSession
 
+from app.core.config import settings
 from app.models.content_item import ContentItem
 from app.models.quiz_log import QuizLog
 from app.models.session import Session
@@ -44,8 +45,8 @@ from app.services.xp_service import WEAK_ACCURACY_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
-# ── 배합 계약 (§3.2) ──
-DEFAULT_RECIPE = {"new": 2, "review": 2, "live": 1}
+# ── 배합 계약 (§3.2) ── 기본값은 settings(env 튜닝, R5.5). SESSION_SIZE는 합에서 파생.
+DEFAULT_RECIPE = settings.SESSION_RECIPE
 SESSION_SIZE = sum(DEFAULT_RECIPE.values())
 MODE_DAILY = "daily"
 

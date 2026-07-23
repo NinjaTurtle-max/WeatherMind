@@ -30,9 +30,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 AI_WORKER_DIR = REPO_ROOT / "ai-worker"
 UNITS_JSON = REPO_ROOT / "database" / "seed" / "units.json"
 CONTENT_JSON = REPO_ROOT / "database" / "seed" / "content_items.json"
-ENERGY_SERVICE_SRC = (
-    Path(__file__).resolve().parents[1] / "app" / "services" / "energy_service.py"
-)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -127,7 +124,12 @@ class TestBoardAuthorityGrading:
 
 
 class TestCloudEnergyConstants:
-    """§3.3 상수값이 소스에 리터럴로 고정되어 있다 (동작은 test_cloud_energy 담당)."""
+    """§3.3 상수값이 계약 수치로 고정되어 있다 (동작은 test_cloud_energy 담당).
+
+    R5.5에서 값을 env로 튜닝 가능하게 외부화했으므로 '소스 리터럴' 대신 **Settings
+    기본값**이 계약 수치와 일치하는지 감시한다(기본값 변경 = 스펙 드리프트). 서비스가
+    실제로 그 기본값을 반영하는지도 임포트값으로 확인한다.
+    """
 
     def test_상수_임포트값(self):
         from app.services import energy_service
@@ -135,11 +137,14 @@ class TestCloudEnergyConstants:
         assert energy_service.CLOUD_MAX == 5
         assert energy_service.CLOUD_REGEN_MINUTES == 20
 
-    def test_소스_리터럴_명시(self):
-        """계약 수치가 코드에 직접 박혀 있는지(우회 계산 아님) 소스 텍스트로 확인."""
-        src = ENERGY_SERVICE_SRC.read_text(encoding="utf-8")
-        assert "CLOUD_MAX = 5" in src
-        assert "CLOUD_REGEN_MINUTES = 20" in src
+    def test_Settings_기본값_계약수치(self):
+        """계약 수치(§3.3)가 Settings 기본값에 고정되어 있는지(우회 아님) 확인."""
+        from app.core.config import Settings
+
+        fields = Settings.model_fields
+        assert fields["CLOUD_MAX"].default == 5
+        assert fields["CLOUD_REGEN_MINUTES"].default == 20
+        assert fields["CLOUD_COST"].default == 1
 
     def test_ENERGY_ENABLED_기본_true(self):
         """§3.4 하위 호환: 기능 플래그 기본값 true (false면 무제한)."""

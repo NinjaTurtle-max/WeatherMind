@@ -25,11 +25,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.user import User
 
-# ── 상수 (§3.3) ──
-CLOUD_MAX = 5
-CLOUD_REGEN_MINUTES = 20             # 구름 1개 회복 주기
+# ── 상수 (§3.3) ── 계약 기본값은 settings에 있고(만렙 5·20분·1 소모), env로만
+# 튜닝한다(R5.5 밸런스 외부화). 서버 기동 시점에 바인딩 — 변경은 재시작 반영.
+CLOUD_MAX = settings.CLOUD_MAX
+CLOUD_REGEN_MINUTES = settings.CLOUD_REGEN_MINUTES   # 구름 1개 회복 주기(분)
 CLOUD_REGEN_SECONDS = CLOUD_REGEN_MINUTES * 60
-CLOUD_COST = 1                       # 시도당 소모량
+CLOUD_COST = settings.CLOUD_COST                     # 시도당 소모량
 
 
 class OutOfCloudsError(Exception):

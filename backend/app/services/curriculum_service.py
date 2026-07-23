@@ -16,6 +16,7 @@ from typing import Any, Iterable
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.content_item import ContentItem
 from app.models.quiz_log import QuizLog
 from app.models.session import Session
@@ -25,7 +26,7 @@ from app.services import session_service, xp_service
 from app.services.weather_api import KST
 
 MODE_UNIT = "unit"
-UNIT_SESSION_SIZE = 5
+UNIT_SESSION_SIZE = settings.UNIT_SESSION_SIZE   # 기본 5 — env 튜닝(R5.5)
 
 # §0 제품 결정의 4섹션 교육적 순서 (섹션 정렬 키 — DB 컬럼 없이 표현).
 # 미등재 섹션은 뒤로(알파벳). unit_order는 섹션 내 유일(§3.6).
