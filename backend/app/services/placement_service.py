@@ -71,6 +71,26 @@ def prior_item_b(level_group: str) -> float:
     return LEVEL_GROUP_ITEM_B.get(level_group, _DEFAULT_ITEM_B)
 
 
+def to_progress_abilities(abilities: Sequence[dict]) -> list[dict[str, Any]]:
+    """내부 θ 형식({theta, se, n}) → /progress/abilities 응답 형식 (§3.1 보강).
+
+    배치고사 완료 응답의 abilities 원소는 ConceptAbilityOut과 동일 형식
+    ({concept_tag, theta, theta_se, num_responses, level_label})이어야 한다 —
+    프론트가 진단 화면과 같은 렌더러를 쓴다. level_label은
+    weatherbrain_service.theta_level_label 재사용(경계 단일 소유).
+    """
+    return [
+        {
+            "concept_tag": ab["concept_tag"],
+            "theta": float(ab["theta"]),
+            "theta_se": float(ab["se"]),
+            "num_responses": int(ab["n"]),
+            "level_label": weatherbrain_service.theta_level_label(float(ab["theta"])),
+        }
+        for ab in abilities
+    ]
+
+
 # ═══════════════════════════════════════════════════════════════
 # 순수 함수 — DB·네트워크 의존 없음 (단위 테스트 대상)
 # ═══════════════════════════════════════════════════════════════

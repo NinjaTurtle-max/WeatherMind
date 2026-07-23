@@ -9,11 +9,16 @@ plan_placement_picks·assemble_placement_responses는 DB 의존이 없는 순수
 """
 import asyncio
 import re
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+from sqlalchemy import Update
+
 from app.core.config import Settings
-from app.services import ai_client
+from app.models.quiz_log import QuizLog
+from app.services import ai_client, answer_service
 from app.services import placement_service as ps
 from app.services.weatherbrain_service import CONCEPT_TAGS
 
@@ -203,6 +208,143 @@ class TestPlacementContract:
         ).read_text(encoding="utf-8")
         codes = set(re.findall(r'"code":\s*"([A-Z_]+)"', source))
         assert "PLACEMENT_ALREADY_DONE" in codes
+
+
+class TestToProgressAbilities:
+    """§3.1 보강: complete 응답 abilities는 /progress/abilities와 동일 형식."""
+
+    def test_내부_형식을_progress_형식으로_변환(self):
+        out = ps.to_progress_abilities(
+            [{"concept_tag": "typhoon", "theta": -0.8, "se": 0.9, "n": 3}]
+        )
+        assert out == [
+            {
+                "concept_tag": "typhoon",
+                "theta": -0.8,
+                "theta_se": 0.9,
+                "num_responses": 3,
+                "level_label": "beginner",
+            }
+        ]
+
+    def test_level_label은_weatherbrain_경계_재사용(self):
+        labels = [
+            ab["level_label"]
+            for ab in ps.to_progress_abilities(
+                [
+                    {"concept_tag": "a", "theta": -0.5, "se": 1.0, "n": 0},
+                    {"concept_tag": "b", "theta": 0.5, "se": 1.0, "n": 0},
+                ]
+            )
+        ]
+        assert labels == ["intermediate", "advanced"]  # 경계는 상위 구간
+
+    def test_스키마_필드와_정합(self):
+        """PlacementAbility(응답 스키마)가 변환 결과를 그대로 수용한다."""
+        from app.schemas.session import PlacementAbility
+
+        out = ps.to_progress_abilities(
+            [{"concept_tag": "typhoon", "theta": 1.2, "se": 0.7, "n": 6}]
+        )
+        ability = PlacementAbility(**out[0])
+        assert ability.num_responses == 6
+        assert ability.level_label == "advanced"
+
+
+class _FakeResult:
+    def scalar_one_or_none(self):
+        return None
+
+
+class _FakeDB:
+    """실행 statement 수집 대역 (test_answer_service.FakeDB 관례)."""
+
+    def __init__(self):
+        self.executed = []
+        self.get_calls = []
+
+    async def execute(self, stmt):
+        self.executed.append(stmt)
+        return _FakeResult()
+
+    async def get(self, model, pk):
+        self.get_calls.append((model, pk))
+        return None
+
+    async def flush(self):
+        pass
+
+    def add(self, obj):
+        pass
+
+    def updates_on(self, table_name: str) -> list:
+        return [
+            stmt
+            for stmt in self.executed
+            if isinstance(stmt, Update) and stmt.table.name == table_name
+        ]
+
+
+class TestAnswerGrantXpSkip:
+    """§3.3 보강: 배치고사 answer 경로는 XP 미부여(grant_xp=False) —
+    채점·weak_tags·뱅크 통계는 유지(진단 응답도 실제 학습 데이터)."""
+
+    @pytest.fixture(autouse=True)
+    def stub_external(self, monkeypatch):
+        async def fake_weather(*args, **kwargs):
+            return {}
+
+        async def fake_feedback(**kwargs):
+            return "피드백"
+
+        monkeypatch.setattr(answer_service, "get_today_weather", fake_weather)
+        monkeypatch.setattr(answer_service.ai_client, "rag_feedback", fake_feedback)
+
+    def _log(self, session_id):
+        return QuizLog(
+            user_id=uuid.uuid4(),
+            quiz_id="20260723-001",
+            concept_tag="typhoon",
+            question_type="multiple_choice",
+            question_json={
+                "question_type": "multiple_choice",
+                "question_text": "태풍의 에너지원은?",
+                "correct_answer": "수증기 응결열",
+            },
+            session_id=session_id,
+        )
+
+    def _submit(self, db, log, grant_xp):
+        user = SimpleNamespace(id=uuid.uuid4())
+        return asyncio.run(
+            answer_service.submit_answer_for_log(
+                db, user, log, "수증기 응결열", None, grant_xp=grant_xp
+            )
+        )
+
+    def test_grant_xp_False면_XP_0_세션_xp_미갱신(self):
+        db = _FakeDB()
+        result = self._submit(db, self._log(uuid.uuid4()), grant_xp=False)
+        assert result.is_correct is True
+        assert result.xp_earned == 0
+        assert db.updates_on("sessions") == []  # xp_total 불변
+        assert db.get_calls == []  # add_xp 경로 미진입
+
+    def test_grant_xp_False여도_weak_tags는_갱신(self):
+        db = _FakeDB()
+        self._submit(db, self._log(uuid.uuid4()), grant_xp=False)
+        weak_upserts = [
+            stmt
+            for stmt in db.executed
+            if getattr(getattr(stmt, "table", None), "name", None) == "weak_tags"
+        ]
+        assert len(weak_upserts) == 1
+
+    def test_기본값_True는_기존_동작(self):
+        db = _FakeDB()
+        result = self._submit(db, self._log(uuid.uuid4()), grant_xp=True)
+        assert result.xp_earned == 15  # 정답 10 + 첫 시도 5 (07번)
+        assert len(db.updates_on("sessions")) == 1
 
 
 class TestAIClientPlacementPayload:
