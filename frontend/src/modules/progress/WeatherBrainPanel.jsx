@@ -1,0 +1,202 @@
+import { useQuery } from '@tanstack/react-query';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from 'recharts';
+import { progressApi } from '../../api';
+import LoadingSpinner from '../../components/LoadingSpinner';
+
+/**
+ * WeatherBrainPanel (R6 WeatherBrain) — 개념별 능력(θ) 분석 패널.
+ * GET /progress/abilities → [{concept_tag, theta, theta_se, num_responses,
+ *   level_label, updated_at}] (약한 개념 우선 정렬).
+ *
+ * WeatherMind 자체 적응형 모델(WeatherBrain)이 개념별 이해도를 추정해 난이도를
+ * 배정한다. θ(로짓 -3..3)를 0..100 표시 스케일로 정규화해 가로 막대로 보여주고,
+ * num_responses===0(사전 배정, 아직 측정 아님) 개념은 옅은 막대·안내 문구로 구분한다.
+ */
+
+// concept_tag → 한글 표시명
+const CONCEPT_KO = {
+  air_mass: '기단',
+  anomaly: '이상기후',
+  co2_climate: 'CO₂·기후변화',
+  heat_island: '열섬효과',
+  pressure_front: '기압·전선',
+  typhoon: '태풍',
+};
+
+// level_label → 한글 + 배지 색(항상 텍스트와 함께 표기 — 색 단독 의미 아님)
+const LEVEL_KO = {
+  beginner: '초급',
+  intermediate: '중급',
+  advanced: '고급',
+};
+const LEVEL_CHIP = {
+  beginner: 'bg-slate-100 text-slate-600',
+  intermediate: 'bg-sky-100 text-sky-700',
+  advanced: 'bg-indigo-100 text-indigo-700',
+};
+
+// 단일 시리즈(사용자 1인의 능력) — 한 가지 색조(sky)만 사용.
+const COLOR_MEASURED = '#0284c7'; // sky-600 — 측정된 능력
+const COLOR_PRIOR = '#cbd5e1'; // slate-300 — 사전 배정(초기값)
+
+// θ(로짓 ~ -3..3) → 0..100 표시 스케일
+function thetaToScore(theta) {
+  const t = typeof theta === 'number' ? theta : 0;
+  return Math.round(Math.min(100, Math.max(0, ((t + 3) / 6) * 100)));
+}
+
+function AbilityTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0].payload;
+  return (
+    <div className="rounded-xl bg-white px-3 py-2 text-xs shadow-md ring-1 ring-slate-200">
+      <p className="font-bold text-slate-800">{row.name}</p>
+      <p className="mt-0.5 text-slate-500">
+        레벨 <span className="font-semibold text-slate-700">{row.levelKo}</span>
+        {' · '}θ {row.theta.toFixed(2)}
+      </p>
+      <p className="mt-0.5 text-slate-400">
+        {row.isPrior ? '아직 응답 없음 · 초기 배정' : `응답 ${row.num_responses}회 기반`}
+      </p>
+    </div>
+  );
+}
+
+export default function WeatherBrainPanel() {
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['progress', 'abilities'],
+    queryFn: progressApi.fetchAbilities,
+    staleTime: 30_000,
+  });
+
+  const Card = ({ children }) => (
+    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">{children}</div>
+  );
+  const Header = () => (
+    <div className="mb-1 flex items-center gap-2">
+      <h2 className="text-base font-extrabold text-slate-900">🧠 WeatherBrain 능력 분석</h2>
+    </div>
+  );
+
+  if (isLoading) {
+    return (
+      <Card>
+        <Header />
+        <LoadingSpinner label="능력 분석을 불러오는 중..." />
+      </Card>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card>
+        <Header />
+        <p className="text-center text-sm text-slate-500">
+          능력 분석을 불러오지 못했어요. {error?.detail ?? ''}
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="mt-2 block w-full rounded-lg bg-slate-100 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200"
+        >
+          다시 시도
+        </button>
+      </Card>
+    );
+  }
+
+  const rows = (Array.isArray(data) ? data : []).map((a) => ({
+    name: CONCEPT_KO[a.concept_tag] ?? a.concept_tag,
+    score: thetaToScore(a.theta),
+    theta: typeof a.theta === 'number' ? a.theta : 0,
+    levelKo: LEVEL_KO[a.level_label] ?? a.level_label ?? '초급',
+    level_label: a.level_label,
+    num_responses: a.num_responses ?? 0,
+    isPrior: (a.num_responses ?? 0) === 0,
+  }));
+
+  if (rows.length === 0) {
+    return (
+      <Card>
+        <Header />
+        <p className="mt-1 text-sm text-slate-500">
+          아직 능력 데이터가 없어요. 세션을 풀면 개념별 이해도가 분석돼요.
+        </p>
+      </Card>
+    );
+  }
+
+  const chartHeight = rows.length * 40 + 12;
+
+  return (
+    <Card>
+      <Header />
+      <p className="mb-3 text-xs leading-relaxed text-slate-500">
+        WeatherMind 자체 적응형 모델 <span className="font-semibold text-sky-700">WeatherBrain</span>이
+        개념별 이해도를 추정해 문제 난이도를 맞춰줘요. 막대가 짧을수록 더 연습이 필요한 개념이에요.
+      </p>
+
+      <div style={{ width: '100%', height: chartHeight }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={rows}
+            layout="vertical"
+            margin={{ top: 0, right: 12, bottom: 0, left: 0 }}
+            barCategoryGap={8}
+          >
+            <XAxis type="number" domain={[0, 100]} hide />
+            <YAxis
+              type="category"
+              dataKey="name"
+              width={78}
+              tickLine={false}
+              axisLine={false}
+              tick={{ fontSize: 12, fill: '#475569' }}
+            />
+            <Tooltip cursor={{ fill: '#f1f5f9' }} content={<AbilityTooltip />} />
+            <Bar dataKey="score" radius={[0, 6, 6, 0]} isAnimationActive={false}>
+              {rows.map((row, i) => (
+                <Cell
+                  key={i}
+                  fill={row.isPrior ? COLOR_PRIOR : COLOR_MEASURED}
+                  fillOpacity={row.isPrior ? 0.7 : 1}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* 개념별 레벨 + 초기 배정 안내 */}
+      <ul className="mt-3 flex flex-col gap-1.5">
+        {rows.map((row) => (
+          <li key={row.name} className="flex items-center justify-between gap-2 text-xs">
+            <span className="min-w-0 truncate font-semibold text-slate-700">{row.name}</span>
+            <span className="flex shrink-0 items-center gap-1.5">
+              {row.isPrior && (
+                <span className="text-[10px] font-medium text-slate-400">
+                  아직 응답 없음 · 초기 배정
+                </span>
+              )}
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  LEVEL_CHIP[row.level_label] ?? 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {row.levelKo}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}

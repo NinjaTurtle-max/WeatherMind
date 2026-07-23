@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore';
 import TierBadge from '../../components/TierBadge';
 import QuestList from './QuestList';
 import BadgeCollection from './BadgeCollection';
+import WeatherBrainPanel from './WeatherBrainPanel';
 
 /**
  * ProgressPage (R4-01 S1·S2·S3) — "내 정보" 탭.
@@ -52,6 +53,10 @@ export default function ProgressPage() {
             <p className="text-[11px] text-sky-200">현재 레벨</p>
           </div>
         </div>
+      </div>
+
+      <div className="mb-5">
+        <WeatherBrainPanel />
       </div>
 
       <div className="mb-5">

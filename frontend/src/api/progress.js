@@ -40,3 +40,12 @@ export async function fetchEnergy() {
   const res = await client.get('/progress/energy');
   return res.data;
 }
+
+// GET /progress/abilities (R6 WeatherBrain) — 개념별 IRT 능력 θ (약한 개념 우선)
+//   → [{concept_tag, theta, theta_se, num_responses, level_label, updated_at}]
+//   theta: 로짓 스케일 능력치(대략 -3..+3, 높을수록 강함).
+//   num_responses:0 이면 사전(prior)만 반영된 초기 배정으로 아직 측정값 아님.
+export async function fetchAbilities() {
+  const res = await client.get('/progress/abilities');
+  return res.data;
+}
