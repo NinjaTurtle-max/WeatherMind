@@ -64,6 +64,8 @@ const state = {
   // 구름 에너지 (R5-01 §3.3) — 소모성 플레이 자원. 지연 회복 모델.
   clouds: 5,
   cloudsUpdatedAt: Date.now(),
+  // 온보딩 배치고사 (R7-01 S3) — 1회 완료 여부. 완료 후 start는 409.
+  placementDone: false,
 };
 
 // ── 구름 에너지 상수 (R5-01 §3.3) ──
@@ -465,6 +467,60 @@ const SESSION_ITEMS = [
   },
 ];
 
+// ── 온보딩 배치고사 (R7-01 S3) — 6문항 진단 세션. 6개 concept_tag 전 영역 1문항씩. ──
+// 기존 세션 문항을 배치 전용 quiz_id로 재사용하고(응답은 세션별 독립 저장),
+// 세션 시드에 없는 co2_climate 1문항만 새로 저작한다. 실황 슬롯 없음(진단 성격).
+const PLACEMENT_ITEMS = [
+  { ...SESSION_ITEMS[0], quiz_id: `${todayISO()}-p1` }, // pressure_front
+  { ...SESSION_ITEMS[1], quiz_id: `${todayISO()}-p2` }, // air_mass
+  { ...SESSION_ITEMS[2], quiz_id: `${todayISO()}-p3` }, // typhoon
+  { ...SESSION_ITEMS[3], quiz_id: `${todayISO()}-p4`, source: 'bank', slot_filled: false }, // anomaly
+  { ...SESSION_ITEMS[4], quiz_id: `${todayISO()}-p5` }, // heat_island
+  {
+    quiz_id: `${todayISO()}-p6`,
+    concept_tag: 'co2_climate',
+    question_type: 'multiple_choice',
+    question_text: '대기 중 이산화탄소(CO₂)가 지구 평균 기온을 높이는 주된 원리는 무엇일까요?',
+    options: [
+      '지표가 내보내는 적외선(지구 복사)을 흡수해 다시 방출하기 때문',
+      '태양에서 오는 자외선을 모두 반사하기 때문',
+      '공기의 무게를 늘려 지표 기압을 높이기 때문',
+      '구름 생성을 막아 비를 줄이기 때문',
+    ],
+    level_group: 'middle_high',
+    source: 'bank',
+    slot_filled: false,
+    _mock: {
+      correct: '지표가 내보내는 적외선(지구 복사)을 흡수해 다시 방출하기 때문',
+      feedbackCorrect:
+        '정확해요! CO₂는 지표가 내보내는 적외선을 흡수했다가 다시 방출해 열을 대기에 가두는 온실 효과를 일으킵니다.',
+      feedbackWrong:
+        '아쉬워요! 정답은 "적외선 흡수·재방출"이에요. CO₂는 지구 복사(적외선)를 가두는 온실 기체로, 자외선 반사나 기압 변화와는 무관합니다.',
+    },
+  },
+];
+
+const PLACEMENT_SESSION_ID = '91ac8b1e-0000-4000-8000-0000000000bb';
+
+/** 배치 세션 발급(미완료 당일 세션은 멱등 재사용) — mode:'placement'는 구름 미소모 */
+function ensurePlacementSession() {
+  const today = todayISO();
+  let s = sessions.get(PLACEMENT_SESSION_ID);
+  if (!s || s.completed || s.session_date !== today) {
+    s = {
+      session_id: PLACEMENT_SESSION_ID,
+      session_date: today,
+      mode: 'placement',
+      unit_id: null,
+      items: PLACEMENT_ITEMS,
+      answers: {},
+      completed: false,
+    };
+    sessions.set(PLACEMENT_SESSION_ID, s);
+  }
+  return s;
+}
+
 // ── 보드 연습 퍼즐 (§3.5 /board/puzzles) ──
 const BOARD_PUZZLES = [
   {
@@ -772,8 +828,11 @@ const routes = {
     }
 
     // 구름 소모 (§3.3): 멱등 가드·유효성 통과 후, 채점 직전 1 소모. 0이면 429.
-    const spend = consumeCloud();
-    if (!spend.ok) return outOfCloudsError(spend.next_regen_sec);
+    // 배치고사 세션(R7-01 S3)은 진단이므로 구름 미소모 — 429 OUT_OF_CLOUDS 없음.
+    if (s.mode !== 'placement') {
+      const spend = consumeCloud();
+      if (!spend.ok) return outOfCloudsError(spend.next_regen_sec);
+    }
 
     let isCorrect;
     let phenomena;
@@ -849,6 +908,30 @@ const routes = {
         all_correct: allCorrect,
       };
     }
+    // 배치고사 세션(R7-01 S3): 응답 이력으로 개념별 초기 능력(θ) 배정 흉내.
+    // 실서버는 IRT EAP 추정 — 목은 개념별 정답률의 결정적 선형 근사를 쓴다.
+    let placementResult = null;
+    if (s.mode === 'placement') {
+      state.placementDone = true;
+      const byConcept = new Map();
+      for (const item of s.items) {
+        const r = s.answers[item.quiz_id];
+        if (!r) continue;
+        const agg = byConcept.get(item.concept_tag) ?? { correct: 0, n: 0 };
+        agg.n += 1;
+        if (r.is_correct) agg.correct += 1;
+        byConcept.set(item.concept_tag, agg);
+      }
+      placementResult = {
+        placement_done: true,
+        abilities: [...byConcept.entries()].map(([conceptTag, { correct, n }]) => ({
+          concept_tag: conceptTag,
+          theta: Number(((correct / n - 0.5) * 2.4).toFixed(2)), // 0%→-1.2 · 50%→0 · 100%→+1.2
+          se: Number((1 / Math.sqrt(n + 1)).toFixed(2)),
+          n,
+        })),
+      };
+    }
     return [
       200,
       {
@@ -857,6 +940,25 @@ const routes = {
         total: progress.total,
         streak_count: state.streak,
         ...(unitResult ? { unit_result: unitResult } : {}),
+        ...(placementResult ?? {}),
+      },
+    ];
+  },
+
+  // ── 온보딩 배치고사 (R7-01 S3) — SessionToday 형태로 진단 세션 발급 ──
+  'POST /onboarding/placement/start': () => {
+    if (state.placementDone) {
+      return [409, { detail: '이미 실력 진단을 마쳤어요', code: 'PLACEMENT_ALREADY_DONE' }];
+    }
+    const s = ensurePlacementSession();
+    return [
+      200,
+      {
+        session_id: s.session_id,
+        session_date: s.session_date,
+        mode: s.mode,
+        items: s.items.map(stripMock),
+        progress: sessionProgress(s),
       },
     ];
   },
@@ -914,6 +1016,7 @@ const routes = {
         clouds: state.clouds, // 구름 에너지 잔량 (§3.3)
         max_clouds: CLOUD_MAX,
         next_regen_sec: nextRegenSec(),
+        placement_done: state.placementDone, // 온보딩 배치고사 완료 여부 (R7-01 S3)
       },
     ];
   },
