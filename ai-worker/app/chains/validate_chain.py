@@ -54,6 +54,7 @@ import re
 
 from pydantic import BaseModel
 
+from app.chains.json_output import extract_json_object
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -687,15 +688,8 @@ def _llm_checks_from_result(
 
 
 def _parse_llm_output(raw: str) -> LLMValidationResult:
-    """모델 출력에서 JSON을 추출해 Pydantic으로 검증한다 (quiz_gen_chain 관례)."""
-    text = raw.strip()
-    # 마크다운 코드펜스 제거
-    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.MULTILINE).strip()
-    # 앞뒤 설명 텍스트가 섞인 경우 첫 '{' ~ 마지막 '}' 구간만 사용
-    start, end = text.find("{"), text.rfind("}")
-    if start != -1 and end > start:
-        text = text[start : end + 1]
-    return LLMValidationResult(**json.loads(text))
+    """모델 출력에서 JSON을 추출해 Pydantic으로 검증한다 (json_output 공용)."""
+    return LLMValidationResult(**extract_json_object(raw))
 
 
 def run_llm_checks(question: dict, concept_tag: str, level_group: str) -> list[dict]:

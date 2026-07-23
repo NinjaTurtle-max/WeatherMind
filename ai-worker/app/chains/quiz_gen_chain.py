@@ -11,13 +11,14 @@ from __future__ import annotations
 import json
 import logging
 import random
-import re
 import threading
 from datetime import date
 from typing import Literal, Optional
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
+
+from app.chains.json_output import extract_json_object
 from langchain_core.runnables import RunnableLambda
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field, model_validator
@@ -182,14 +183,7 @@ def _build_chain(temperature: float):
 
 def _parse_output(raw: str) -> QuizQuestion:
     """모델 출력에서 JSON을 추출해 Pydantic으로 검증한다."""
-    text = raw.strip()
-    # 마크다운 코드펜스 제거
-    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.MULTILINE).strip()
-    # 앞뒤 설명 텍스트가 섞인 경우 첫 '{' ~ 마지막 '}' 구간만 사용
-    start, end = text.find("{"), text.rfind("}")
-    if start != -1 and end > start:
-        text = text[start : end + 1]
-    return QuizQuestion(**json.loads(text))
+    return QuizQuestion(**extract_json_object(raw))
 
 
 def _fallback_question(target_concept_tag: str | None = None) -> QuizQuestion:
