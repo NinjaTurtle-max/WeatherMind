@@ -76,11 +76,23 @@ async def weatherbrain_estimate(
     )
 
 
-async def weatherbrain_placement(level_group: str, concept_tags: list[str]) -> dict:
-    """WeatherBrain 초기 난이도 배정(사전만). 반환: {abilities: [...]}."""
+async def weatherbrain_placement(
+    level_group: str,
+    concept_tags: list[str],
+    placement_responses: dict | None = None,
+) -> dict:
+    """WeatherBrain 초기 난이도 배정. 반환: {abilities: [...]}.
+
+    placement_responses가 None이면 사전(prior)만으로 배정(가입 시 시드 경로),
+    None이 아니면 배치고사 응답({concept_tag: [{b|null, a, correct}]})을 사전과
+    결합해 개인화 배정한다(R7-01 §3.3 — ai-worker PlacementRequest가 이미 수신).
+    """
+    payload: dict = {"level_group": level_group, "concept_tags": concept_tags}
+    if placement_responses is not None:
+        payload["placement_responses"] = placement_responses
     return await _post(
         "/internal/weatherbrain/placement",
-        {"level_group": level_group, "concept_tags": concept_tags},
+        payload,
         timeout=15.0,
     )
 
