@@ -11,14 +11,17 @@ import DuelPage from './modules/duel/DuelPage';
 import ProgressPage from './modules/progress/ProgressPage';
 import LoginPage from './modules/auth/LoginPage';
 import RegisterPage from './modules/auth/RegisterPage';
+import PlacementPage from './modules/onboarding/PlacementPage';
 
 /**
- * 라우팅 (04번 스펙 + R2-01 S7 + R3-01 S4 + R5-01 S4) — react-router-dom v6, 하단 탭바.
+ * 라우팅 (04번 스펙 + R2-01 S7 + R3-01 S4 + R5-01 S4 + R7-01 S3) — react-router-dom v6, 하단 탭바.
  * R5-01: 기본 진입(/)은 학습 홈(CurriculumHome, 유닛 경로). 유닛 세션은 /learn/units/:unitId.
  * 자유 일일 세션(SessionPage)은 /daily로 병존 유지(§3.4).
  * 기존 "오늘의 퀴즈" 단일 문항 화면은 /quiz로 유지(하위 호환).
  * R3-01 §0 제품 결정: 기후 시뮬레이터(/simulator) 폐지 → 대기 보드 퍼즐(/board)로 대체.
  * detective(/detective)는 이번 라운드 제외(Phase 3 후순위)로 라우트 미등록.
+ * R7-01 S3: 온보딩 배치고사(/onboarding/placement)는 인증 필요하되 Layout(탭바) 밖
+ * 전체 화면 — 가입 직후 진입, 건너뛰기 가능.
  */
 function RequireAuth() {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -53,6 +56,8 @@ export default function App() {
       />
 
       <Route element={<RequireAuth />}>
+        {/* 온보딩 배치고사 — 탭바 없는 전체 화면(Layout 밖) */}
+        <Route path="/onboarding/placement" element={<PlacementPage />} />
         <Route element={<Layout />}>
           <Route path="/" element={<CurriculumHome />} />
           <Route path="/learn/units/:unitId" element={<UnitSessionPage />} />

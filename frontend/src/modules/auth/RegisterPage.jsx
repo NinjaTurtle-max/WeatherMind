@@ -52,7 +52,8 @@ export default function RegisterPage() {
         nickname: form.nickname,
         level_group: form.level_group,
       });
-      navigate('/', { replace: true });
+      // 가입 직후 온보딩 배치고사로 (R7-01 S3 — 건너뛰기 가능, 게스트 로그인은 대상 아님)
+      navigate('/onboarding/placement', { replace: true });
     } catch (err) {
       setErrorMsg(err.detail ?? '회원가입에 실패했습니다.');
     } finally {
