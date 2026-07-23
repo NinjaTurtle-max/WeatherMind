@@ -185,15 +185,14 @@ class TestPlacementContract:
         assert Settings.model_fields["PLACEMENT_SIZE"].default == 6
         assert ps.PLACEMENT_SIZE == 6
 
-    def test_사전_b가_ai_worker_priors와_정합(self):
-        """LEVEL_GROUP_ITEM_B는 ai-worker priors.LEVEL_GROUP_ITEM_B의 미러값
-        (backend는 ai-worker 미임포트 — theta_level_label 경계 계약과 동일 방식)."""
-        assert ps.LEVEL_GROUP_ITEM_B == {
-            "elementary": -1.0,
-            "middle_high": 0.0,
-            "adult": 1.0,
-        }
-        assert ps.prior_item_b("unknown_group") == 0.0
+    def test_사전_b는_weatherbrain_service_단일_소유(self):
+        """R7 통합 DRY: placement_service는 사전 b를 재정의하지 않고
+        weatherbrain_service 것을 임포트한다(동일 객체). ai-worker priors와의
+        값 드리프트 감시는 test_weatherbrain_contract가 단독 소유."""
+        from app.services import weatherbrain_service as wb
+
+        assert ps.LEVEL_GROUP_ITEM_B is wb.LEVEL_GROUP_ITEM_B
+        assert ps.prior_item_b("unknown_group") == wb.DEFAULT_ITEM_B
 
     def test_교차_배치_그룹은_저작_순서와_정합(self):
         assert ps.LEVEL_GROUPS == ("elementary", "middle_high", "adult")

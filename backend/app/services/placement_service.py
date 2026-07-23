@@ -55,20 +55,16 @@ ADJACENT_GROUPS: dict[str, tuple[str, ...]] = {
     "adult": ("middle_high", "adult"),
 }
 
-# level_group → 사전 난이도 b — ai-worker priors.LEVEL_GROUP_ITEM_B와 동일값
-# (backend는 ai-worker를 임포트하지 않으므로 값 자체를 고정한다 — 교차 서비스
-# 의미론, theta_level_label 경계와 같은 방식. 드리프트는 test_placement가 감시).
-LEVEL_GROUP_ITEM_B: dict[str, float] = {
-    "elementary": -1.0,
-    "middle_high": 0.0,
-    "adult": 1.0,
-}
-_DEFAULT_ITEM_B: float = 0.0
+# level_group → 사전 난이도 b — backend 내 단일 소유자는 weatherbrain_service
+# (ai-worker priors.LEVEL_GROUP_ITEM_B의 미러, 드리프트는
+# test_weatherbrain_contract가 감시). 같은 컨텍스트(backend) 내 중복은 물리적
+# DRY 대상이므로 여기서는 재정의하지 않고 임포트한다.
+LEVEL_GROUP_ITEM_B = weatherbrain_service.LEVEL_GROUP_ITEM_B
 
 
 def prior_item_b(level_group: str) -> float:
     """level_group의 사전 난이도 b (보정 이력 없는 문항의 폴백값)."""
-    return LEVEL_GROUP_ITEM_B.get(level_group, _DEFAULT_ITEM_B)
+    return LEVEL_GROUP_ITEM_B.get(level_group, weatherbrain_service.DEFAULT_ITEM_B)
 
 
 def to_progress_abilities(abilities: Sequence[dict]) -> list[dict[str, Any]]:
