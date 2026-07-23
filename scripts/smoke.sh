@@ -3,15 +3,15 @@
 # WeatherMind DB 왕복 스모크 — R7-01 S0 (docs/team/SPRINT_R7_01.md §3.4)
 #
 # 사용법:
-#   scripts/smoke.sh             # 전체 단계 순차 실행 (1~8)
+#   scripts/smoke.sh             # 전체 단계 순차 실행 (1~9)
 #   scripts/smoke.sh <단계>      # 특정 단계만: up | migrate | seed | register |
-#                                #   theta | rls | roundtrip | fallback
+#                                #   theta | rls | roundtrip | fallback | placement
 #                                # (register 이후 단계는 필요 시 스스로 가입한다)
 #
 # 단계 (§3.4 계약 — 9단계 placement는 R7 웨이브 2에서 추가):
 #   1 up        docker compose up -d --build postgres redis backend ai-worker
 #               → /health 폴링 (8000·8001, 첫 빌드는 오래 걸리므로 타임아웃 넉넉히)
-#   2 migrate   alembic upgrade head → current == 0006_weatherbrain (head)
+#   2 migrate   alembic upgrade head → current == 0007_placement (head)
 #   3 seed      seed_content → seed_units → seed_badges (전부 멱등 upsert)
 #   4 register  POST /auth/register (고유 이메일, middle_high) → 201 + access_token
 #   5 theta     psql: user_concept_ability 6행 · num_responses=0 · θ≈사전값(0.0)
@@ -24,6 +24,12 @@
 #               (refresh_abilities 트리거) → psql: num_responses>0 전이
 #   8 fallback  compose stop ai-worker → register 201 + θ 0행(placement 폴백이
 #               조용히 통과, 가입 커밋 유지) → compose start ai-worker
+#   9 placement 새 유저 register → POST /onboarding/placement/start (200, 6문항)
+#               → 6문항 answer(구름 미소모 — /progress/me clouds 불변)
+#               → POST /session/{id}/complete (abilities에 level_label,
+#                 placement_done=true) → psql: placement_completed_at NOT NULL
+#               + θ가 사전값(0.0)에서 이동 → start 재호출 409
+#               PLACEMENT_ALREADY_DONE → GET /progress/me placement_done=true
 #
 # 멱등성: 스모크 유저는 매 실행 고유 이메일(smoke+epoch@example.com), 시드는
 # upsert, RLS 롤 생성은 IF NOT EXISTS. 볼륨 파괴 명령(down -v 등)은 없다.
@@ -180,10 +186,10 @@ step_migrate() {
   local current
   current="$(compose exec -T backend alembic current 2>/dev/null)"
   echo "  alembic current: $current"
-  if grep -q "0006_weatherbrain" <<<"$current" && grep -q "(head)" <<<"$current"; then
-    record "2 migrate" "OK" "current == 0006_weatherbrain (head)"
+  if grep -q "0007_placement" <<<"$current" && grep -q "(head)" <<<"$current"; then
+    record "2 migrate" "OK" "current == 0007_placement (head)"
   else
-    record "2 migrate" "FAIL" "current가 0006 head가 아님: $current"
+    record "2 migrate" "FAIL" "current가 0007 head가 아님: $current"
   fi
 }
 
@@ -414,6 +420,151 @@ step_fallback() {
   fi
 }
 
+# ── 9. placement: 배치고사 전체 왕복 → 초기 θ 배정 (R7-01 §3.1·§3.3) ────────
+step_placement() {
+  banner "9 placement: register → start → answer x6 → complete → θ 이동 → 409"
+
+  # 새 유저 — 배치 미완료·구름 만렙 상태에서 시작해야 하므로 공용 스모크
+  # 유저를 쓰지 않는다 (7단계가 이미 구름을 소모했을 수 있다).
+  register_user "smoke-pl"
+  if [ "$REG_HTTP" != "201" ]; then
+    record "9 placement" "FAIL" "가입 실패 http=$REG_HTTP (레이트리밋이면 잠시 후 재실행)"
+    return 0
+  fi
+  local token="$REG_TOKEN" uid="$REG_USER_ID"
+  echo "  user_id=$uid"
+
+  # 구름 잔량 (before) — placement answer는 소모하지 않아야 한다 (§3.3)
+  local out http body clouds_before clouds_after
+  out="$(http_get "$API/api/v1/progress/me" "$token")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "200" ]; then
+    record "9 placement" "FAIL" "GET /progress/me http=$http"
+    return 0
+  fi
+  clouds_before="$(json_field "$body" clouds)"
+
+  # start → 200 + 6문항 (response_model SessionToday)
+  out="$(http_post "$API/api/v1/onboarding/placement/start" "{}" "$token")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "200" ]; then
+    record "9 placement" "FAIL" "placement/start http=$http: $(head -c200 <<<"$body")"
+    return 0
+  fi
+  local session_id n_items
+  session_id="$(json_field "$body" session_id)"
+  n_items="$("$PYTHON" -c 'import json,sys; print(len(json.load(sys.stdin)["items"]))' <<<"$body")"
+  echo "  session_id=$session_id items=$n_items clouds=$clouds_before"
+  if [ "$n_items" != "6" ]; then
+    record "9 placement" "FAIL" "6문항 기대, 실제 $n_items"
+    return 0
+  fi
+
+  # 6문항 전부 answer — placement 풀은 board·live 슬롯 제외라 문자열 답 제출 가능
+  local quiz_ids qid answered=0
+  quiz_ids="$("$PYTHON" -c '
+import json, sys
+print("\n".join(i["quiz_id"] for i in json.load(sys.stdin)["items"]))
+' <<<"$body")"
+  while IFS= read -r qid; do
+    out="$(http_post "$API/api/v1/session/$session_id/answer" \
+      "{\"quiz_id\":\"$qid\",\"answer\":\"smoke\"}" "$token")"
+    http="$(tail -n1 <<<"$out")"
+    if [ "$http" != "200" ]; then
+      record "9 placement" "FAIL" "answer($qid) http=$http: $(sed '$d' <<<"$out" | head -c200)"
+      return 0
+    fi
+    answered=$((answered + 1))
+  done <<<"$quiz_ids"
+  echo "  answer x$answered 제출 (placement — 구름 미소모여야 함)"
+
+  # 구름 잔량 (after) — 불변 확인
+  out="$(http_get "$API/api/v1/progress/me" "$token")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  clouds_after="$(json_field "$body" clouds 2>/dev/null || echo '?')"
+  if [ "$clouds_after" != "$clouds_before" ]; then
+    record "9 placement" "FAIL" "구름 소모됨: $clouds_before → $clouds_after (placement는 미소모 계약)"
+    return 0
+  fi
+  echo "  clouds 불변 확인: $clouds_before → $clouds_after"
+
+  # complete → abilities(level_label 포함)·placement_done=true
+  out="$(http_post "$API/api/v1/session/$session_id/complete" "{}" "$token")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "200" ]; then
+    record "9 placement" "FAIL" "complete http=$http: $(head -c200 <<<"$body")"
+    return 0
+  fi
+  local complete_check
+  complete_check="$("$PYTHON" -c '
+import json, sys
+d = json.load(sys.stdin)
+ab = d.get("abilities") or []
+ok = (
+    d.get("placement_done") is True
+    and len(ab) > 0
+    and all(a.get("level_label") for a in ab)
+)
+done = d.get("placement_done")
+print("ok" if ok else "bad: placement_done=%s abilities=%d" % (done, len(ab)))
+' <<<"$body")"
+  if [ "$complete_check" != "ok" ]; then
+    record "9 placement" "FAIL" "complete 응답 계약 위반 — $complete_check"
+    return 0
+  fi
+  echo "  complete OK: placement_done=true, abilities에 level_label 존재"
+
+  # psql: placement_completed_at NOT NULL + θ가 사전값(0.0)에서 이동
+  local row done_flag theta_max
+  row="$(psql_c "SELECT (placement_completed_at IS NOT NULL)::text FROM users WHERE id='$uid'")" || {
+    record "9 placement" "FAIL" "psql users 조회 실패"
+    return 0
+  }
+  done_flag="$row"
+  theta_max="$(psql_c "SELECT coalesce(max(abs(theta)),-1) FROM user_concept_ability WHERE user_id='$uid'")" || {
+    record "9 placement" "FAIL" "psql θ 조회 실패"
+    return 0
+  }
+  echo "  placement_completed_at NOT NULL=$done_flag · max|θ|=$theta_max (사전값 0.0)"
+  if [ "$done_flag" != "true" ]; then
+    record "9 placement" "FAIL" "users.placement_completed_at이 NULL"
+    return 0
+  fi
+  # middle_high 사전 θ = 정확히 0.0 — 이동했다면 |θ| > 0 (부동소수 여유 1e-9)
+  if ! "$PYTHON" -c 'import sys; sys.exit(0 if float(sys.argv[1]) > 1e-9 else 1)' "$theta_max"; then
+    record "9 placement" "FAIL" "θ가 사전값 0.0에서 이동하지 않음 (max|θ|=$theta_max — ai-worker 폴백?)"
+    return 0
+  fi
+
+  # 완료 후 start 재호출 → 409 PLACEMENT_ALREADY_DONE
+  out="$(http_post "$API/api/v1/onboarding/placement/start" "{}" "$token")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "409" ] || ! grep -q "PLACEMENT_ALREADY_DONE" <<<"$body"; then
+    record "9 placement" "FAIL" "재호출 기대 409 PLACEMENT_ALREADY_DONE, 실제 http=$http: $(head -c200 <<<"$body")"
+    return 0
+  fi
+  echo "  start 재호출 409 PLACEMENT_ALREADY_DONE 확인"
+
+  # GET /progress/me → placement_done=true
+  out="$(http_get "$API/api/v1/progress/me" "$token")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  local me_done
+  me_done="$(json_field "$body" placement_done 2>/dev/null || echo '?')"
+  if [ "$http" != "200" ] || [ "$me_done" != "True" ]; then
+    record "9 placement" "FAIL" "/progress/me placement_done 기대 true, 실제 $me_done (http=$http)"
+    return 0
+  fi
+  echo "  /progress/me placement_done=true 확인"
+
+  record "9 placement" "OK" "6문항 왕복·구름 불변($clouds_before)·max|θ|=$theta_max 이동·409·me=true"
+}
+
 # ── 실행 ─────────────────────────────────────────────────────────────────────
 STEP="${1:-all}"
 case "$STEP" in
@@ -425,6 +576,7 @@ case "$STEP" in
   rls)       step_rls ;;
   roundtrip) step_roundtrip ;;
   fallback)  step_fallback ;;
+  placement) step_placement ;;
   all)
     step_up
     if [ "$FAILED" -ne 0 ]; then
@@ -438,10 +590,11 @@ case "$STEP" in
       step_rls
       step_roundtrip
       step_fallback
+      step_placement
     fi
     ;;
   *)
-    echo "사용법: scripts/smoke.sh [up|migrate|seed|register|theta|rls|roundtrip|fallback]" >&2
+    echo "사용법: scripts/smoke.sh [up|migrate|seed|register|theta|rls|roundtrip|fallback|placement]" >&2
     exit 2
     ;;
 esac
