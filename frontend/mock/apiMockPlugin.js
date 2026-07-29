@@ -162,40 +162,60 @@ const getUnitProgress = (id) => {
   if (!unitProgress.has(id)) unitProgress.set(id, { crowns: 0, cleared_at: null });
   return unitProgress.get(id);
 };
-/** 선행 잠금(§3.2): prereq 유닛 crowns>=1 이어야 열림. 첫 유닛(무 prereq)은 항상 열림 */
+// 배치 θ 선해제(R7-02 S4): 배치 실응답 θ로 선두 연속 잠금 유닛이 왕관 0인 채
+// 열릴 수 있다(백엔드 파생). 목은 선해제된 유닛 id 집합으로 흉내 낸다.
+const preUnlockedUnits = new Set();
+
+/** 선행 잠금(§3.2): prereq 유닛 crowns>=1 이어야 열림. 첫 유닛(무 prereq)은 항상 열림.
+ *  배치 θ 선해제(R7-02 S4) 유닛은 왕관 0이어도 열림. */
 const isUnitLocked = (unit) => {
   if (!unit.prereq_unit_id) return false;
+  if (preUnlockedUnits.has(unit.id)) return false;
   return (unitProgress.get(unit.prereq_unit_id)?.crowns ?? 0) < 1;
 };
 
-/** GET /curriculum 트리 (섹션→유닛→유저 진도·잠금·상태) */
+/** GET /curriculum 트리 (섹션→유닛→유저 진도·잠금·상태)
+ *  status 4종(R7-02 S4 계약): cleared(완료) > current(섹션 내 첫 미완 열림 유닛)
+ *  > unlocked(그 외 열림 — 배치 θ 선해제 포함) > locked. 기존 crowns/cleared/locked 불변. */
 function curriculumPayload() {
   const bySection = new Map();
   for (const u of UNITS) {
-    const prog = getUnitProgress(u.id);
-    const cleared = prog.crowns >= u.crown_target;
-    const locked = isUnitLocked(u);
-    const status = cleared ? 'cleared' : locked ? 'locked' : 'current';
-    const node = {
-      id: u.id,
-      unit_order: u.unit_order,
-      title: u.title,
-      concept_tag: u.concept_tag,
-      kind: u.kind,
-      crown_target: u.crown_target,
-      crowns: prog.crowns,
-      cleared,
-      cleared_at: prog.cleared_at,
-      locked,
-      status,
-    };
     if (!bySection.has(u.section)) bySection.set(u.section, []);
-    bySection.get(u.section).push(node);
+    bySection.get(u.section).push(u);
   }
-  const sections = [...bySection.entries()].map(([section, units]) => ({
-    section,
-    units: units.sort((a, b) => a.unit_order - b.unit_order),
-  }));
+  const sections = [...bySection.entries()].map(([section, units]) => {
+    let currentAssigned = false; // 섹션 내 첫 미완 열림 유닛 = current
+    return {
+      section,
+      units: [...units]
+        .sort((a, b) => a.unit_order - b.unit_order)
+        .map((u) => {
+          const prog = getUnitProgress(u.id);
+          const cleared = prog.crowns >= u.crown_target;
+          const locked = isUnitLocked(u);
+          let status;
+          if (cleared) status = 'cleared';
+          else if (locked) status = 'locked';
+          else if (!currentAssigned) {
+            status = 'current';
+            currentAssigned = true;
+          } else status = 'unlocked';
+          return {
+            id: u.id,
+            unit_order: u.unit_order,
+            title: u.title,
+            concept_tag: u.concept_tag,
+            kind: u.kind,
+            crown_target: u.crown_target,
+            crowns: prog.crowns,
+            cleared,
+            cleared_at: prog.cleared_at,
+            locked,
+            status,
+          };
+        }),
+    };
+  });
   return { sections };
 }
 
@@ -523,9 +543,12 @@ function ensurePlacementSession() {
 }
 
 // ── 보드 연습 퍼즐 (§3.5 /board/puzzles) ──
+// difficulty 1|2|3 (R7-02 S5): 목록은 서버가 θ 인접 정렬로 내려준다 — 목은
+// 저작 순서를 그대로 반환(비단조 난이도로 클라이언트가 재정렬하지 않음을 검증).
 const BOARD_PUZZLES = [
   {
     content_item_id: 'b0000001-0000-4000-8000-000000000001',
+    difficulty: 1,
     template_json: {
       question_text: '수도권에 소나기를 내려 보세요 (미니 미션)',
       mode: 'guided',
@@ -543,6 +566,7 @@ const BOARD_PUZZLES = [
   },
   {
     content_item_id: 'b0000002-0000-4000-8000-000000000002',
+    difficulty: 2,
     template_json: {
       question_text: '동해안에 폭염을 만들어 보세요',
       mode: 'goal_only',
@@ -554,6 +578,7 @@ const BOARD_PUZZLES = [
   },
   {
     content_item_id: 'b0000003-0000-4000-8000-000000000003',
+    difficulty: 1,
     template_json: {
       question_text: '서해안에 눈을 내려 보세요',
       mode: 'goal_only',
@@ -566,6 +591,7 @@ const BOARD_PUZZLES = [
   {
     // 재현 퍼즐(§3.5): based_on 실제 사건 초기조건 — anomaly 태그 필수
     content_item_id: 'b0000004-0000-4000-8000-000000000004',
+    difficulty: 3,
     concept_tag: 'anomaly',
     template_json: {
       question_text: '2018년 기록적 폭염을 재현해 보세요',
@@ -941,6 +967,20 @@ const routes = {
           };
         }),
       };
+      // 배치 θ 선해제(R7-02 S4): 평균 θ>0이면 커리큘럼 선두(트리 순서)에서
+      // 잠금 유닛을 1개(θ>=0.6이면 2개) 연속 선해제 — 왕관 0인데 열림(unlocked)
+      // 케이스를 만든다. 실서버는 θ 기반 파생 — 목은 결정적 근사.
+      const thetas = placementResult.abilities.map((a) => a.theta);
+      const meanTheta = thetas.length ? thetas.reduce((sum, t) => sum + t, 0) / thetas.length : 0;
+      const unlockCount = meanTheta >= 0.6 ? 2 : meanTheta > 0 ? 1 : 0;
+      let unlocked = 0;
+      for (const u of UNITS) {
+        if (unlocked >= unlockCount) break;
+        if (isUnitLocked(u)) {
+          preUnlockedUnits.add(u.id);
+          unlocked += 1;
+        }
+      }
     }
     return [
       200,
@@ -973,6 +1013,33 @@ const routes = {
     ];
   },
 
+  // POST /onboarding/placement/submit-all (R7-02 S1) — 일괄 채점.
+  // body {answers:[{quiz_id, answer, elapsed_sec?}]} → {results, progress}.
+  // 이미 채점된 로그는 멱등 스킵(재채점 없이 저장된 결과 반환). 피드백 텍스트 없음.
+  // 채점은 기존 answer mock 로직(gradeSessionItem)을 재사용한다(placement에 board 없음).
+  'POST /onboarding/placement/submit-all': (body) => {
+    const s = sessions.get(PLACEMENT_SESSION_ID);
+    if (!s || s.session_date !== todayISO()) {
+      return [404, { detail: '배치 세션을 찾을 수 없습니다', code: 'SESSION_NOT_FOUND' }];
+    }
+    const answers = Array.isArray(body?.answers) ? body.answers : [];
+    const results = [];
+    for (const a of answers) {
+      const item = s.items.find((it) => it.quiz_id === a?.quiz_id);
+      if (!item) continue; // 세션에 없는 문항은 무시(관대 처리)
+      const prev = s.answers[item.quiz_id];
+      if (prev) {
+        // 멱등 스킵 — 이미 채점된 로그는 저장된 결과를 그대로 돌려준다
+        results.push({ quiz_id: item.quiz_id, is_correct: prev.is_correct });
+        continue;
+      }
+      const isCorrect = gradeSessionItem(item, a?.answer);
+      s.answers[item.quiz_id] = { is_correct: isCorrect, xp_earned: 0 }; // 진단 — XP 미부여
+      results.push({ quiz_id: item.quiz_id, is_correct: isCorrect });
+    }
+    return [200, { results, progress: sessionProgress(s) }];
+  },
+
   // ── 대기 보드 연습 API (R3-01 §3.5) ──
   'GET /board/rules': () => [200, BOARD_RULES],
   // GET /board/regions (R5-01 §3.1) — 지도 지역 좌표(렌더 전용, 판정 미사용)
@@ -981,6 +1048,7 @@ const routes = {
     200,
     BOARD_PUZZLES.map((p) => ({
       content_item_id: p.content_item_id,
+      difficulty: p.difficulty ?? 1, // R7-02 S5: 난이도 1|2|3
       template_json: p.template_json,
       cleared: clearedBoardPuzzles.has(p.content_item_id),
     })),

@@ -12,8 +12,31 @@ import { ZONES } from '../../lib/boardEngine';
  * GET /board/puzzles 목록(클리어 표시) → 선택 → 플레이 → POST attempt.
  * 최초 클리어 시 +5 XP 토스트(재도전 0). 시뮬레이터 탭을 대체한다.
  *
+ * R7-02 S5: 퍼즐 카드에 난이도 배지(difficulty 1|2|3 → 쉬움/보통/도전).
+ * 목록은 서버가 θ 인접 정렬로 내려주므로 클라이언트는 서버 순서 그대로 렌더한다.
+ *
  * 화면 상태: LOADING → ERROR(재시도) → LIST(목록) → PLAY(선택 퍼즐 플레이).
  */
+
+// 난이도 배지(R7-02 S5) — 색 구분 + 텍스트 병기(색맹 접근성: 색에만 의존하지 않음)
+const DIFFICULTY_META = {
+  1: { label: '쉬움', className: 'bg-emerald-100 text-emerald-700' },
+  2: { label: '보통', className: 'bg-amber-100 text-amber-700' },
+  3: { label: '도전', className: 'bg-rose-100 text-rose-700' },
+};
+
+function DifficultyBadge({ difficulty }) {
+  const meta = DIFFICULTY_META[difficulty];
+  if (!meta) return null; // 구 백엔드(difficulty 부재) 하위 호환 — 배지 미표시
+  return (
+    <span
+      aria-label={`난이도: ${meta.label}`}
+      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${meta.className}`}
+    >
+      난이도 {meta.label}
+    </span>
+  );
+}
 export default function BoardPage() {
   const queryClient = useQueryClient();
   const addXp = useProgressStore((s) => s.addXp);
@@ -139,9 +162,12 @@ export default function BoardPage() {
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-slate-800">{p.template_json?.question_text}</p>
-                <p className="mt-0.5 text-xs text-slate-400">
-                  {p.template_json?.mode === 'guided' ? '안내 모드' : '목표 모드'}
-                </p>
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <p className="text-xs text-slate-400">
+                    {p.template_json?.mode === 'guided' ? '안내 모드' : '목표 모드'}
+                  </p>
+                  <DifficultyBadge difficulty={p.difficulty} />
+                </div>
               </div>
               <span
                 className={`ml-3 shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${

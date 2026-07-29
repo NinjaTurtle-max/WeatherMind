@@ -26,11 +26,30 @@ export default {
           '0%, 100%': { boxShadow: '0 0 0 0 rgba(14,165,233,0.5)' },
           '50%': { boxShadow: '0 0 0 6px rgba(14,165,233,0)' },
         },
+        // 배치 "내 난이도를 찾는 중" 전환 화면 (R7-02 S1) — 구름·기압계 모티프
+        'cloud-drift': {
+          '0%, 100%': { transform: 'translateX(-6px)' },
+          '50%': { transform: 'translateX(6px)' },
+        },
+        // 기압계 바늘 스윕 — translate로 다이얼 중심에 바늘 밑을 고정한 뒤 회전
+        'gauge-sweep': {
+          '0%, 100%': { transform: 'translate(-50%, -100%) rotate(-55deg)' },
+          '50%': { transform: 'translate(-50%, -100%) rotate(55deg)' },
+        },
+        // 불확정 진행 바(좌→우 스캔)
+        'scan-x': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(300%)' },
+        },
       },
       animation: {
         'slide-up': 'slide-up 0.3s ease-out',
         'xp-pop': 'xp-pop 0.5s ease-out',
         'pulse-ring': 'pulse-ring 1.8s ease-out infinite',
+        'cloud-drift': 'cloud-drift 2.4s ease-in-out infinite',
+        'cloud-drift-slow': 'cloud-drift 3.6s ease-in-out infinite',
+        'gauge-sweep': 'gauge-sweep 1.6s ease-in-out infinite',
+        'scan-x': 'scan-x 1.4s ease-in-out infinite',
       },
     },
   },

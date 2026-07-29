@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sessionApi } from '../../api';
 import { SESSION_STATUS, useSessionStore } from '../../store/sessionStore';
@@ -30,6 +30,12 @@ import SessionSummary from './SessionSummary';
  *   - subheader: 제목 아래 보조 영역(유닛 배지 등)
  *   - renderSummary(summary): 완료 요약 렌더(기본 SessionSummary)
  *   - onSessionComplete(summary): 완료 후 부수효과(예: 커리큘럼 무효화)
+ *
+ * bulkMode (R7-02 S1 — 배치고사 전용, daily/unit 경로 불변):
+ *   - 문항 제출 시 서버 왕복·스피너·피드백 없이 로컬 수집 후 즉시 다음 문항.
+ *   - 전 문항 응답 후 finalizingScreen(전환 화면)을 띄우고 finalizeBulk 호출.
+ *   - finalizeBulk({sessionId, answers}): 일괄 채점→완료를 수행하고 summary를 반환.
+ *   - 실패 시 로컬 답안을 유지한 채 재시도 버튼 제공(답안 유실 없음).
  */
 export default function SessionRunner({
   queryKey,
@@ -40,6 +46,9 @@ export default function SessionRunner({
   subheader = null,
   renderSummary,
   onSessionComplete,
+  bulkMode = false,
+  finalizeBulk,
+  finalizingScreen = null,
 }) {
   const queryClient = useQueryClient();
   const {
@@ -57,6 +66,7 @@ export default function SessionRunner({
     showFeedback,
     nextItem,
     retryItem,
+    advanceBulk,
     showSummary,
     reset,
   } = useSessionStore();
@@ -64,10 +74,18 @@ export default function SessionRunner({
 
   useAttendance(attendance);
 
+  // bulkMode(R7-02 S1): 로컬 수집 답안·일괄 제출 상태
+  const bulkAnswersRef = useRef([]);
+  const bulkFinalizingRef = useRef(false);
+  const [bulkError, setBulkError] = useState(null);
+
   // 진입 시 상태머신 초기화(공용 store가 이전 진입 상태를 들고 있을 수 있음).
   const keyString = JSON.stringify(queryKey);
   useEffect(() => {
     reset();
+    bulkAnswersRef.current = [];
+    bulkFinalizingRef.current = false;
+    setBulkError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyString]);
 
@@ -134,6 +152,7 @@ export default function SessionRunner({
 
   useEffect(() => {
     if (
+      !bulkMode && // bulkMode는 finalizeBulk(일괄 채점→완료)가 대신 처리
       status === SESSION_STATUS.IN_PROGRESS &&
       total > 0 &&
       answered >= total &&
@@ -146,12 +165,41 @@ export default function SessionRunner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, answered, total, sessionId, summary]);
 
+  // bulkMode(R7-02 S1): 전 문항 응답 → 전환 화면 뒤에서 finalizeBulk(submit-all→complete)
+  useEffect(() => {
+    if (!bulkMode || typeof finalizeBulk !== 'function') return;
+    if (status !== SESSION_STATUS.IN_PROGRESS || total === 0 || answered < total) return;
+    if (!sessionId || summary || bulkError || bulkFinalizingRef.current) return;
+    bulkFinalizingRef.current = true;
+    finalizeBulk({ sessionId, answers: bulkAnswersRef.current })
+      .then((result) => {
+        showSummary(result);
+        onSessionComplete?.(result);
+      })
+      .catch((err) => {
+        bulkFinalizingRef.current = false; // 로컬 답안 유지 — 재시도 가능
+        setBulkError(err);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bulkMode, status, answered, total, sessionId, summary, bulkError]);
+
   const currentItem = items[currentIndex] ?? null;
   const isLastItem = currentIndex + 1 >= items.length;
 
   const handleSubmit = (answer, options = {}) => {
     if (!currentItem || status !== SESSION_STATUS.IN_PROGRESS || isSubmitting) return;
     const elapsedSec = Math.max(1, Math.round((Date.now() - shownAtRef.current) / 1000));
+    if (bulkMode) {
+      // 로컬 수집(R7-02 S1): 서버 호출·피드백 없이 즉시 다음 문항(빠른 진행감)
+      if (answered >= total) return; // 전 문항 응답 후 중복 제출 방지
+      bulkAnswersRef.current.push({
+        quiz_id: currentItem.quiz_id,
+        answer: String(answer ?? ''),
+        elapsed_sec: elapsedSec,
+      });
+      advanceBulk();
+      return;
+    }
     answerMutation.mutate({
       quizId: currentItem.quiz_id,
       answer,
@@ -194,6 +242,29 @@ export default function SessionRunner({
 
   if (status === SESSION_STATUS.SUMMARY) {
     return renderSummary ? renderSummary(summary) : <SessionSummary summary={summary} />;
+  }
+
+  // bulkMode(R7-02 S1): 전 문항 응답 완료 — 전환 화면(그 뒤에서 submit-all→complete)
+  if (bulkMode && status === SESSION_STATUS.IN_PROGRESS && total > 0 && answered >= total && !summary) {
+    if (bulkError) {
+      return (
+        <div className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
+          <p className="text-3xl">🌧️</p>
+          <p className="mt-2 font-bold text-slate-800">결과 계산에 실패했어요</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {bulkError?.detail ?? '잠시 후 다시 시도해주세요. 푼 답안은 그대로 남아 있어요.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => setBulkError(null)}
+            className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
+          >
+            다시 시도
+          </button>
+        </div>
+      );
+    }
+    return finalizingScreen ?? <LoadingSpinner label="결과를 계산하고 있어요..." />;
   }
 
   const outOfClouds = answerState?._outOfClouds;

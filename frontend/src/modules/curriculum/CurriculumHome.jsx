@@ -99,16 +99,22 @@ export default function CurriculumHome() {
   );
 }
 
+// status 4종(R7-02 S4 백엔드 파생 필드): 🔒 locked · current 강조 링(맥동) ·
+// unlocked(열림, 강조 없음 — 배치 θ 선해제 포함) · cleared 👑.
+const RING_BY_STATUS = {
+  cleared: 'bg-amber-400 text-white ring-amber-200',
+  current: 'bg-sky-500 text-white ring-sky-200 animate-pulse-ring',
+  unlocked: 'bg-sky-400 text-white ring-sky-100',
+  locked: 'bg-slate-200 text-slate-400 ring-slate-100',
+};
+
 function UnitNode({ unit, offset, isFirst, onOpen }) {
   const meta = CONCEPT_META[unit.concept_tag] ?? { label: unit.concept_tag, icon: '📘' };
-  const { status } = unit; // 'cleared' | 'current' | 'locked'
+  // 서버 status 우선 — 부재 시(구 백엔드) 기존 cleared/locked로 파생(하위 호환)
+  const status = unit.status ?? (unit.cleared ? 'cleared' : unit.locked ? 'locked' : 'current');
   const locked = status === 'locked';
-
-  const ringByStatus = {
-    cleared: 'bg-amber-400 text-white ring-amber-200',
-    current: 'bg-sky-500 text-white ring-sky-200 animate-pulse-ring',
-    locked: 'bg-slate-200 text-slate-400 ring-slate-100',
-  };
+  // 배치 θ 선해제(R7-02 S4): 왕관 0인데 열려 있는 유닛 — 진단으로 열렸음을 표기
+  const openedByPlacement = status === 'unlocked' && (unit.crowns ?? 0) === 0;
 
   return (
     <div className="flex w-full flex-col items-center">
@@ -120,9 +126,9 @@ function UnitNode({ unit, offset, isFirst, onOpen }) {
           disabled={locked}
           aria-label={`${unit.title}${locked ? ' (잠김)' : ''}`}
           title={locked ? '선행 유닛을 완료하면 열려요' : unit.title}
-          className={`relative flex h-16 w-16 items-center justify-center rounded-full text-2xl shadow-md ring-4 transition ${ringByStatus[status]} ${
-            locked ? 'cursor-not-allowed' : 'hover:brightness-105 active:scale-95'
-          }`}
+          className={`relative flex h-16 w-16 items-center justify-center rounded-full text-2xl shadow-md ring-4 transition ${
+            RING_BY_STATUS[status] ?? RING_BY_STATUS.current
+          } ${locked ? 'cursor-not-allowed' : 'hover:brightness-105 active:scale-95'}`}
         >
           {locked ? '🔒' : status === 'cleared' ? '👑' : meta.icon}
           {unit.kind === 'board' && !locked && (
@@ -135,6 +141,11 @@ function UnitNode({ unit, offset, isFirst, onOpen }) {
           {unit.title}
         </p>
         <p className="text-[10px] text-slate-400">{meta.label}</p>
+        {openedByPlacement && (
+          <p className="mt-0.5 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
+            🧭 진단으로 열림
+          </p>
+        )}
       </div>
     </div>
   );
