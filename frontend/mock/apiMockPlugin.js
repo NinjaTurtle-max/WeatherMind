@@ -162,40 +162,60 @@ const getUnitProgress = (id) => {
   if (!unitProgress.has(id)) unitProgress.set(id, { crowns: 0, cleared_at: null });
   return unitProgress.get(id);
 };
-/** 선행 잠금(§3.2): prereq 유닛 crowns>=1 이어야 열림. 첫 유닛(무 prereq)은 항상 열림 */
+// 배치 θ 선해제(R7-02 S4): 배치 실응답 θ로 선두 연속 잠금 유닛이 왕관 0인 채
+// 열릴 수 있다(백엔드 파생). 목은 선해제된 유닛 id 집합으로 흉내 낸다.
+const preUnlockedUnits = new Set();
+
+/** 선행 잠금(§3.2): prereq 유닛 crowns>=1 이어야 열림. 첫 유닛(무 prereq)은 항상 열림.
+ *  배치 θ 선해제(R7-02 S4) 유닛은 왕관 0이어도 열림. */
 const isUnitLocked = (unit) => {
   if (!unit.prereq_unit_id) return false;
+  if (preUnlockedUnits.has(unit.id)) return false;
   return (unitProgress.get(unit.prereq_unit_id)?.crowns ?? 0) < 1;
 };
 
-/** GET /curriculum 트리 (섹션→유닛→유저 진도·잠금·상태) */
+/** GET /curriculum 트리 (섹션→유닛→유저 진도·잠금·상태)
+ *  status 4종(R7-02 S4 계약): cleared(완료) > current(섹션 내 첫 미완 열림 유닛)
+ *  > unlocked(그 외 열림 — 배치 θ 선해제 포함) > locked. 기존 crowns/cleared/locked 불변. */
 function curriculumPayload() {
   const bySection = new Map();
   for (const u of UNITS) {
-    const prog = getUnitProgress(u.id);
-    const cleared = prog.crowns >= u.crown_target;
-    const locked = isUnitLocked(u);
-    const status = cleared ? 'cleared' : locked ? 'locked' : 'current';
-    const node = {
-      id: u.id,
-      unit_order: u.unit_order,
-      title: u.title,
-      concept_tag: u.concept_tag,
-      kind: u.kind,
-      crown_target: u.crown_target,
-      crowns: prog.crowns,
-      cleared,
-      cleared_at: prog.cleared_at,
-      locked,
-      status,
-    };
     if (!bySection.has(u.section)) bySection.set(u.section, []);
-    bySection.get(u.section).push(node);
+    bySection.get(u.section).push(u);
   }
-  const sections = [...bySection.entries()].map(([section, units]) => ({
-    section,
-    units: units.sort((a, b) => a.unit_order - b.unit_order),
-  }));
+  const sections = [...bySection.entries()].map(([section, units]) => {
+    let currentAssigned = false; // 섹션 내 첫 미완 열림 유닛 = current
+    return {
+      section,
+      units: [...units]
+        .sort((a, b) => a.unit_order - b.unit_order)
+        .map((u) => {
+          const prog = getUnitProgress(u.id);
+          const cleared = prog.crowns >= u.crown_target;
+          const locked = isUnitLocked(u);
+          let status;
+          if (cleared) status = 'cleared';
+          else if (locked) status = 'locked';
+          else if (!currentAssigned) {
+            status = 'current';
+            currentAssigned = true;
+          } else status = 'unlocked';
+          return {
+            id: u.id,
+            unit_order: u.unit_order,
+            title: u.title,
+            concept_tag: u.concept_tag,
+            kind: u.kind,
+            crown_target: u.crown_target,
+            crowns: prog.crowns,
+            cleared,
+            cleared_at: prog.cleared_at,
+            locked,
+            status,
+          };
+        }),
+    };
+  });
   return { sections };
 }
 
@@ -941,6 +961,28 @@ const routes = {
           };
         }),
       };
+      // 배치 θ 선해제(R7-02 S4): 평균 θ>0이면 섹션별 선두 연속 잠금 유닛을
+      // 1개(θ>=0.6이면 2개) 선해제 — 왕관 0인데 열림(unlocked) 케이스를 만든다.
+      const thetas = placementResult.abilities.map((a) => a.theta);
+      const meanTheta = thetas.length ? thetas.reduce((sum, t) => sum + t, 0) / thetas.length : 0;
+      const unlockCount = meanTheta >= 0.6 ? 2 : meanTheta > 0 ? 1 : 0;
+      if (unlockCount > 0) {
+        const bySection = new Map();
+        for (const u of UNITS) {
+          if (!bySection.has(u.section)) bySection.set(u.section, []);
+          bySection.get(u.section).push(u);
+        }
+        for (const units of bySection.values()) {
+          let unlocked = 0;
+          for (const u of [...units].sort((a, b) => a.unit_order - b.unit_order)) {
+            if (unlocked >= unlockCount) break;
+            if (isUnitLocked(u)) {
+              preUnlockedUnits.add(u.id);
+              unlocked += 1;
+            }
+          }
+        }
+      }
     }
     return [
       200,
