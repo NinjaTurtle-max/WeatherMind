@@ -113,6 +113,58 @@
 - 웨이브 2 (통합): `chore/r7-14-integration` — merge 순서 SA-2→SA-3→SA-1→AI→프론트
   →데이터→docs, 시드 총량 53 갱신, 전체 회귀+스모크(submit-all 반영), 문서·회고.
 
-## 5. 리뷰 노트·회고
+## 5. 리뷰 노트·회고 (웨이브 2 — 2026-07-29, `chore/r7-14-integration`)
 
-(웨이브 2 종료 시 기록)
+### 5.1 통합 결과
+
+- 병합 7건 전부 `--no-ff`, **충돌 0** — §4의 파일 소유 분할(SA별 라우터·서비스·
+  스키마, 프론트=frontend만, AI=ai-worker만)이 그대로 들어맞았다.
+  순서: docs → SA-2(S3+S4) → SA-3(S2+S5) → SA-1(S1) → AI(S7) → 프론트 → 데이터(S8).
+- 통합 지점 교차 커밋: 시드 계약 49→**53**(§3.8 예고분 이관), mock 'current'
+  전역 1개 정렬, mock 세션 외 quiz_id 404 정렬, 스모크 submit-all 전환(아래).
+- 중복·드리프트 감사: SA-1(rate_limit `LIMIT_SUBMIT_ALL`·`RAG_FEEDBACK_TIMEOUT`)·
+  SA-2(`unlock_floor`)·SA-3(`board_difficulty`) 상수는 각 1곳 정의·테스트도
+  비중복 — 단일화 조치 불필요(계약 테스트 `test_placement_bulk`가 SA-1 상수를,
+  `test_curriculum_tree`·`test_board_difficulty`가 각자 소유 함수만 검증).
+
+### 5.2 회귀·스모크 실측
+
+- backend pytest **568 passed** · ai-worker **88 passed + 5 skipped** ·
+  pyflakes 3앱 무결 · frontend build OK · `scripts/ci.sh` 전 단계 OK.
+- 이미지 재빌드(backend·ai-worker·frontend) + 시드 재적재(삽입 4/갱신 49 → 53건)
+  후 `scripts/smoke.sh` **10단계 전부 그린, 재실행 멱등**:
+  - 9 placement(submit-all 전환): is_correct 주입 → **422 거부**(extra='forbid'
+    실검증) · submit-all 6건 일괄 채점(results 6·progress 6/6) · 구름 불변(5→5) ·
+    complete 후 **max|θ|=0.586**(사전값 0.0에서 이동, 재실행도 동일값 — 결정적) ·
+    409 PLACEMENT_ALREADY_DONE · /progress/me placement_done=true.
+  - 10 unit(신설): 유닛 12개 전부 status 보유·current 정확히 1개, 첫 유닛
+    (read-sky-pressure) 세션 발급 200·문항 3~4건(θ 풀 확장 실기동).
+
+### 5.3 계약 판정 (통합 확정 4건)
+
+| 판정 대상 | 결론 |
+|---|---|
+| submit-all의 세션 식별 — body에 session_id 없이 당일 placement 세션 암묵 식별 | **일치**(백엔드·mock·프론트 동일) |
+| complete 경로 — submit-all 도입 후에도 /session/{id}/complete 불변 | **일치**(θ 배정·409·구름 면제 기존 그대로) |
+| 커리큘럼 'current' — 트리 전체에서 잠기지 않은 첫 미클리어 **정확히 1개** | 백엔드 기준 확정. mock이 섹션별 1개였음 → **전역 1개로 정렬함** |
+| submit-all에 세션 외 quiz_id 제출 | **404 QUIZ_NOT_FOUND**(QuizNotInSessionError). mock '관대 무시'였음 → 404로 정렬함 |
+
+### 5.4 발견·수정 결함
+
+| # | 결함 | 원인 | 조치 |
+|---|---|---|---|
+| 1 | 스모크 10단계 `unbound variable` 중단 | macOS bash 3.2가 `"$n_units개"`의 한글 첫 바이트를 변수명에 포함해 파싱(set -u) | `${n_units}` 중괄호 경계 명시. 전 스크립트 동일 패턴 부재 확인 |
+| 2 | mock 'current' 섹션별 다중 부여 | mock이 섹션 루프 안에서 승격 — 백엔드는 트리 전역 1개 | status 산정 후 전역 첫 unlocked 1개만 승격으로 재작성, mock 스모크로 확인 |
+| 3 | mock submit-all 세션 외 quiz_id 무시 | '관대 처리' 주석의 의도적 완화가 백엔드 404 계약과 드리프트 | 404 QUIZ_NOT_FOUND로 정렬 |
+
+### 5.5 잘된 것 / 아쉬운 것 / 범위 밖
+
+- **잘된 것**: 파일 소유 분할로 7-way 병합 충돌 0. S8 문서(§6.3)가 시드 계약
+  드리프트를 미리 예고해 통합 지점 갱신이 기계적이었다. 스모크 θ 이동값이
+  재실행에서 동일(0.586) — 채점·EAP 경로의 결정성을 실기동으로 재확인.
+- **아쉬운 것**: mock의 계약 드리프트 2건(current·404)이 통합에서야 발견 —
+  mock은 "응답 스키마 1:1" 선언에도 상태 전이 의미론까지 계약 테스트가 없다.
+  스모크 셸이 bash 3.2 호환 함정(한글 연접 변수명)을 리뷰에서 못 걸렀다.
+- **범위 밖(다음 증분)**: daily 세션 일괄 채점(에너지 회계 미해결 — §3.1),
+  mock↔백엔드 의미론 자동 대조(계약 스냅샷), θ→quiz-generate 실기동 검증은
+  KMA/Gemini 키 발급 후 실통합 테스트에서.
