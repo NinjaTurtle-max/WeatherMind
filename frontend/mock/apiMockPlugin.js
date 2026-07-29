@@ -175,47 +175,45 @@ const isUnitLocked = (unit) => {
 };
 
 /** GET /curriculum 트리 (섹션→유닛→유저 진도·잠금·상태)
- *  status 4종(R7-02 S4 계약): cleared(완료) > current(섹션 내 첫 미완 열림 유닛)
- *  > unlocked(그 외 열림 — 배치 θ 선해제 포함) > locked. 기존 crowns/cleared/locked 불변. */
+ *  status 4종(R7-02 S4 계약, 백엔드 build_curriculum과 동일): cleared(완료)
+ *  > locked > unlocked(열림 — 배치 θ 선해제 포함). 이후 트리 전체 노출 순서에서
+ *  잠기지 않은 첫 미클리어(unlocked) 유닛 **정확히 1개**를 current로 승격한다
+ *  — 섹션별 1개가 아니라 전역 1개(R7-14 통합에서 백엔드 계약과 정렬).
+ *  기존 crowns/cleared/locked 불변. */
 function curriculumPayload() {
   const bySection = new Map();
   for (const u of UNITS) {
     if (!bySection.has(u.section)) bySection.set(u.section, []);
     bySection.get(u.section).push(u);
   }
-  const sections = [...bySection.entries()].map(([section, units]) => {
-    let currentAssigned = false; // 섹션 내 첫 미완 열림 유닛 = current
-    return {
-      section,
-      units: [...units]
-        .sort((a, b) => a.unit_order - b.unit_order)
-        .map((u) => {
-          const prog = getUnitProgress(u.id);
-          const cleared = prog.crowns >= u.crown_target;
-          const locked = isUnitLocked(u);
-          let status;
-          if (cleared) status = 'cleared';
-          else if (locked) status = 'locked';
-          else if (!currentAssigned) {
-            status = 'current';
-            currentAssigned = true;
-          } else status = 'unlocked';
-          return {
-            id: u.id,
-            unit_order: u.unit_order,
-            title: u.title,
-            concept_tag: u.concept_tag,
-            kind: u.kind,
-            crown_target: u.crown_target,
-            crowns: prog.crowns,
-            cleared,
-            cleared_at: prog.cleared_at,
-            locked,
-            status,
-          };
-        }),
-    };
-  });
+  const sections = [...bySection.entries()].map(([section, units]) => ({
+    section,
+    units: [...units]
+      .sort((a, b) => a.unit_order - b.unit_order)
+      .map((u) => {
+        const prog = getUnitProgress(u.id);
+        const cleared = prog.crowns >= u.crown_target;
+        const locked = isUnitLocked(u);
+        const status = cleared ? 'cleared' : locked ? 'locked' : 'unlocked';
+        return {
+          id: u.id,
+          unit_order: u.unit_order,
+          title: u.title,
+          concept_tag: u.concept_tag,
+          kind: u.kind,
+          crown_target: u.crown_target,
+          crowns: prog.crowns,
+          cleared,
+          cleared_at: prog.cleared_at,
+          locked,
+          status,
+        };
+      }),
+  }));
+  // 'current' 승격 — 백엔드 build_curriculum과 동일: 트리 노출 순서 전체에서
+  // 첫 'unlocked' 정확히 1개만 current (없으면 0개).
+  const firstOpen = sections.flatMap((s) => s.units).find((v) => v.status === 'unlocked');
+  if (firstOpen) firstOpen.status = 'current';
   return { sections };
 }
 
