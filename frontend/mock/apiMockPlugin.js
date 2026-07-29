@@ -967,26 +967,18 @@ const routes = {
           };
         }),
       };
-      // 배치 θ 선해제(R7-02 S4): 평균 θ>0이면 섹션별 선두 연속 잠금 유닛을
-      // 1개(θ>=0.6이면 2개) 선해제 — 왕관 0인데 열림(unlocked) 케이스를 만든다.
+      // 배치 θ 선해제(R7-02 S4): 평균 θ>0이면 커리큘럼 선두(트리 순서)에서
+      // 잠금 유닛을 1개(θ>=0.6이면 2개) 연속 선해제 — 왕관 0인데 열림(unlocked)
+      // 케이스를 만든다. 실서버는 θ 기반 파생 — 목은 결정적 근사.
       const thetas = placementResult.abilities.map((a) => a.theta);
       const meanTheta = thetas.length ? thetas.reduce((sum, t) => sum + t, 0) / thetas.length : 0;
       const unlockCount = meanTheta >= 0.6 ? 2 : meanTheta > 0 ? 1 : 0;
-      if (unlockCount > 0) {
-        const bySection = new Map();
-        for (const u of UNITS) {
-          if (!bySection.has(u.section)) bySection.set(u.section, []);
-          bySection.get(u.section).push(u);
-        }
-        for (const units of bySection.values()) {
-          let unlocked = 0;
-          for (const u of [...units].sort((a, b) => a.unit_order - b.unit_order)) {
-            if (unlocked >= unlockCount) break;
-            if (isUnitLocked(u)) {
-              preUnlockedUnits.add(u.id);
-              unlocked += 1;
-            }
-          }
+      let unlocked = 0;
+      for (const u of UNITS) {
+        if (unlocked >= unlockCount) break;
+        if (isUnitLocked(u)) {
+          preUnlockedUnits.add(u.id);
+          unlocked += 1;
         }
       }
     }
