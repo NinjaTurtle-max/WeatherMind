@@ -13,7 +13,7 @@ import uuid
 from datetime import date, datetime, timezone
 from typing import Any, Iterable
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -22,7 +22,7 @@ from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.unit import Unit, UserUnitProgress
 from app.models.user import User
-from app.services import session_service, xp_service
+from app.services import session_service, weatherbrain_service, xp_service
 from app.services.weather_api import KST
 
 MODE_UNIT = "unit"
@@ -172,31 +172,32 @@ async def get_curriculum(db: AsyncSession, user: User) -> list[dict[str, Any]]:
 async def _unit_content_pool(
     db: AsyncSession, user: User, unit: Unit
 ) -> list[ContentItem]:
-    """유닛의 concept_tag+kind에 해당하는 문항 풀 (active + level_group 일치, 랜덤)."""
-    base = (
-        (ContentItem.status == "active")
-        & (ContentItem.level_group == user.level_group)
-        & (ContentItem.concept_tag == unit.concept_tag)
+    """유닛의 concept_tag+kind 문항 풀 — θ→난이도 연결 (R7-02 §3.3).
+
+    daily 세션과 동일한 θ 풀 확장·정렬을 session_service의
+    pool_level_groups+build_pool_query **재사용**으로 적용한다:
+    - θ = overall_theta(load_abilities, unit.concept_tag) — 저장된 θ만 읽는
+      read-only 경로(refresh_abilities·ai-worker 호출 없음).
+    - θ가 있으면 level_group이 가입 그룹 ∪ θ 매핑 그룹으로 확장되고
+      |b−θ| 오름차순 정렬 — 초등 board 0건 같은 학령 풀 공백이 θ로 해소된다.
+    - 콜드스타트(θ None)는 현행과 동일: 가입 그룹 단일 + random 정렬.
+    - 슬롯 미치환 노출 방지의 live 슬롯 제외(live=False)는 board에도 적용된다
+      (유닛 세션은 슬롯 치환이 없고, 시드상 board는 전부 uses_live_slots=false).
+    """
+    abilities = await weatherbrain_service.load_abilities(db, user)
+    theta = weatherbrain_service.overall_theta(abilities, unit.concept_tag)
+    stmt = session_service.build_pool_query(
+        level_groups=session_service.pool_level_groups(user.level_group, theta),
+        theta=theta,
+        live=False,
+        weak_concepts=[unit.concept_tag],
+        limit=UNIT_SESSION_SIZE,
     )
     if unit.kind == "board":
-        base = base & (ContentItem.question_type == "board")
+        stmt = stmt.where(ContentItem.question_type == "board")
     else:
-        # quiz 유닛: board 외 유형 + 슬롯 미치환 노출 방지 위해 live 슬롯 문항 제외
-        base = base & (ContentItem.question_type != "board") & (
-            ContentItem.uses_live_slots.is_(False)
-        )
-    return list(
-        (
-            await db.execute(
-                select(ContentItem)
-                .where(base)
-                .order_by(func.random())
-                .limit(UNIT_SESSION_SIZE)
-            )
-        )
-        .scalars()
-        .all()
-    )
+        stmt = stmt.where(ContentItem.question_type != "board")
+    return list((await db.execute(stmt)).scalars().all())
 
 
 async def create_unit_session(
