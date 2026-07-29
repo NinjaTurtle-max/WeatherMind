@@ -5,17 +5,24 @@ FakeDB(실행 statement 수집 대역)·순수 함수 관례로 DB 없이 검증
 
 - answer_service.submit_answers_bulk: 전건 채점·멱등 스킵·RAG/XP 미수행·
   weak_tags/뱅크 통계 갱신·GRADERS 정합
+- submit-all 스키마: 채점 결과 필드 주입 거부(extra='forbid' → FastAPI 422)
+- 라우터 계약: 에러 코드 실재(소스 텍스트 가드)·레이트리밋 LIMIT_TODAY급
 - ai_client.rag_feedback 타임아웃 10s 계약 (§3.7 — 채점 지연 원인 제거,
   드리프트 감시)
 """
 import asyncio
+import re
 import uuid
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import Update
 
+from app.core.rate_limit import LIMIT_SUBMIT_ALL, LIMIT_TODAY
 from app.models.quiz_log import QuizLog
+from app.schemas.onboarding import PlacementAnswerItem, PlacementSubmitAllRequest
 from app.services import ai_client, answer_service
 from app.services.answer_service import QuizNotInSessionError
 
@@ -251,6 +258,59 @@ class TestBulkGraderRegistry:
             "multiple_choice", "short_answer", "slider",
             "board", "match", "ordering", "cloze",
         }
+
+
+class TestSubmitAllSchema:
+    """§3.1: 채점 결과 필드 수신 금지 — 채점 권위 서버 소유 (CLAUDE.md).
+
+    스키마에 결과 필드를 정의하지 않고 extra='forbid'로 주입 자체를 거부한다.
+    pydantic ValidationError는 FastAPI가 422로 변환한다.
+    """
+
+    def test_채점_결과_필드_주입은_검증_실패(self):
+        with pytest.raises(ValidationError):
+            PlacementAnswerItem(quiz_id="20260729-001", answer="a", is_correct=True)
+
+    @pytest.mark.parametrize("field", ["is_correct", "correct", "xp_earned", "score"])
+    def test_결과성_미정의_필드는_전부_거부(self, field):
+        with pytest.raises(ValidationError):
+            PlacementSubmitAllRequest(
+                answers=[{"quiz_id": "20260729-001", "answer": "a", field: 1}]
+            )
+
+    def test_요청_최상위_미정의_필드도_거부(self):
+        with pytest.raises(ValidationError):
+            PlacementSubmitAllRequest(answers=[], results=[])
+
+    def test_정상_body는_수용_elapsed_sec은_선택(self):
+        req = PlacementSubmitAllRequest(
+            answers=[
+                {"quiz_id": "20260729-001", "answer": "a", "elapsed_sec": 3},
+                {"quiz_id": "20260729-002", "answer": "b"},
+            ]
+        )
+        assert req.answers[1].elapsed_sec is None
+
+    def test_스키마에_결과_필드_미정의(self):
+        assert not (
+            {"is_correct", "xp_earned"} & set(PlacementAnswerItem.model_fields)
+        )
+
+
+class TestSubmitAllRouterContract:
+    """라우터 계약 — 에러 코드 실재(소스 텍스트 가드)·레이트리밋 LIMIT_TODAY급."""
+
+    def test_에러_코드_실재(self):
+        """404 2종이 담당 라우터 소스에 실재 (test_error_code_contract 방식)."""
+        source = (
+            Path(__file__).resolve().parents[1] / "app" / "routers" / "onboarding.py"
+        ).read_text(encoding="utf-8")
+        codes = set(re.findall(r'"code":\s*"([A-Z_]+)"', source))
+        assert {"PLACEMENT_SESSION_NOT_FOUND", "QUIZ_NOT_FOUND"} <= codes
+
+    def test_레이트리밋은_LIMIT_TODAY급(self):
+        """§3.1: 요청 1건이 세션 전체 채점 — 발급 계열과 동급 한도."""
+        assert LIMIT_SUBMIT_ALL == LIMIT_TODAY == "10/minute"
 
 
 class TestRagFeedbackTimeoutContract:
