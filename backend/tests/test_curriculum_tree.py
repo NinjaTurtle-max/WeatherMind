@@ -23,7 +23,8 @@ UNITS_JSON = (
 
 
 def make_unit(
-    section, order, *, slug=None, prereq=None, kind="quiz", crown_target=1, title="U"
+    section, order, *, slug=None, prereq=None, kind="quiz", crown_target=1,
+    title="U", concept_tag="pressure_front",
 ):
     return SimpleNamespace(
         id=uuid.uuid4(),
@@ -31,7 +32,7 @@ def make_unit(
         section=section,
         unit_order=order,
         title=title,
-        concept_tag="pressure_front",
+        concept_tag=concept_tag,
         kind=kind,
         crown_target=crown_target,
         prereq_unit_id=prereq,
@@ -43,6 +44,23 @@ def prog(crowns=0, cleared=False):
         crowns=crowns,
         cleared_at=datetime.now(timezone.utc) if cleared else None,
     )
+
+
+def ability(tag, theta, n=1):
+    """load_abilities 반환 형식의 개념 θ 1건."""
+    return {"concept_tag": tag, "theta": theta, "se": 0.4, "n": n}
+
+
+def chain(n=3, section="하늘 읽기"):
+    """prereq로 이어진 선형 유닛 체인 n개."""
+    units = [make_unit(section, 1)]
+    for i in range(2, n + 1):
+        units.append(make_unit(section, i, prereq=units[-1].id))
+    return units
+
+
+def flat_views(tree):
+    return {u["id"]: u for s in tree for u in s["units"]}
 
 
 class TestIsLocked:
@@ -60,6 +78,122 @@ class TestIsLocked:
         u1 = make_unit("하늘 읽기", 1)
         u2 = make_unit("하늘 읽기", 2, prereq=u1.id)
         assert cs.is_locked(u2, {u1.id: prog(crowns=1)}) is False
+
+    # ── 배치 선해제 (R7-02 §3.4) — unlock_floor·order_index ──
+
+    def test_unlock_floor_안이면_prereq_무관_열림(self):
+        u1 = make_unit("하늘 읽기", 1)
+        u2 = make_unit("하늘 읽기", 2, prereq=u1.id)
+        assert cs.is_locked(u2, {}, unlock_floor=2, order_index=1) is False
+
+    def test_unlock_floor_밖이면_기존_prereq_규칙(self):
+        u1 = make_unit("하늘 읽기", 1)
+        u2 = make_unit("하늘 읽기", 2, prereq=u1.id)
+        assert cs.is_locked(u2, {}, unlock_floor=1, order_index=1) is True
+        assert (
+            cs.is_locked(
+                u2, {u1.id: prog(crowns=1)}, unlock_floor=1, order_index=1
+            )
+            is False
+        )
+
+    def test_기본값_floor_0은_현행_동작(self):
+        u1 = make_unit("하늘 읽기", 1)
+        u2 = make_unit("하늘 읽기", 2, prereq=u1.id)
+        assert cs.is_locked(u2, {}, order_index=1) is True
+        assert cs.is_locked(u2, {}, unlock_floor=0, order_index=1) is True
+
+
+class TestPlacementUnlockFloor:
+    """§3.4 시작점 산출 — 선두 연속 "θ≥0.5 AND n>0"만 인정 (순수)."""
+
+    def _units(self):
+        # 전체 순서: 하늘 읽기(pressure_front×2) → 공기의 힘(air_mass) → 큰 바람(typhoon)
+        return [
+            make_unit("하늘 읽기", 1, concept_tag="pressure_front"),
+            make_unit("하늘 읽기", 2, concept_tag="pressure_front"),
+            make_unit("공기의 힘", 1, concept_tag="air_mass"),
+            make_unit("큰 바람", 1, concept_tag="typhoon"),
+        ]
+
+    def test_빈_abilities는_0(self):
+        assert cs.placement_unlock_floor([], self._units()) == 0
+
+    def test_n_0_사전_θ는_불인정(self):
+        abilities = [ability("pressure_front", 2.0, n=0)]
+        assert cs.placement_unlock_floor(abilities, self._units()) == 0
+
+    def test_경계_0_5는_포함_미만은_제외(self):
+        units = self._units()
+        assert cs.placement_unlock_floor(
+            [ability("pressure_front", 0.5)], units
+        ) == 2  # 선두 pressure_front 2개
+        assert cs.placement_unlock_floor(
+            [ability("pressure_front", 0.49)], units
+        ) == 0
+
+    def test_연속_끊기면_중단_중간_점프_없음(self):
+        # air_mass가 낮으면 뒤의 typhoon이 높아도 3·4번째는 열리지 않는다
+        abilities = [
+            ability("pressure_front", 1.0),
+            ability("air_mass", 0.0),
+            ability("typhoon", 2.0),
+        ]
+        assert cs.placement_unlock_floor(abilities, self._units()) == 2
+
+    def test_전부_통과면_전체_개수(self):
+        abilities = [
+            ability("pressure_front", 1.0),
+            ability("air_mass", 0.7),
+            ability("typhoon", 0.5),
+        ]
+        assert cs.placement_unlock_floor(abilities, self._units()) == 4
+
+    def test_전체_순서는_SECTION_ORDER_기준(self):
+        # 입력 순서를 섞어도 ordered_units(섹션 교육 순서)가 선두를 결정한다
+        units = list(reversed(self._units()))
+        assert cs.placement_unlock_floor(
+            [ability("pressure_front", 1.0)], units
+        ) == 2
+
+
+class TestStatus:
+    """UnitOut.status 파생(§3.4) — cleared/current/unlocked/locked 각 1케이스."""
+
+    def test_cleared(self):
+        u1, u2, u3 = chain(3)
+        tree = cs.build_curriculum(
+            [u1, u2, u3], {u1.id: prog(crowns=1, cleared=True)}
+        )
+        assert flat_views(tree)[u1.slug]["status"] == "cleared"
+
+    def test_current는_잠기지_않은_첫_미클리어_1개(self):
+        u1, u2, u3 = chain(3)
+        views = flat_views(cs.build_curriculum([u1, u2, u3], {}))
+        assert views[u1.slug]["status"] == "current"
+        statuses = [v["status"] for v in views.values()]
+        assert statuses.count("current") == 1
+
+    def test_unlocked_열렸으나_current_아님(self):
+        u1, u2, u3 = chain(3)
+        views = flat_views(cs.build_curriculum([u1, u2, u3], {}, unlock_floor=3))
+        assert views[u1.slug]["status"] == "current"
+        assert views[u2.slug]["status"] == "unlocked"
+        assert views[u3.slug]["status"] == "unlocked"
+        assert all(v["locked"] is False for v in views.values())
+
+    def test_locked(self):
+        u1, u2, u3 = chain(3)
+        views = flat_views(cs.build_curriculum([u1, u2, u3], {}))
+        assert views[u3.slug]["status"] == "locked"
+        assert views[u3.slug]["locked"] is True
+
+    def test_기존_필드는_불변_유지(self):
+        """additive 계약 — crowns/cleared/locked 키가 그대로 남는다."""
+        u1, u2, u3 = chain(3)
+        views = flat_views(cs.build_curriculum([u1, u2, u3], {}))
+        for v in views.values():
+            assert {"crowns", "cleared", "locked", "status"} <= set(v)
 
 
 class TestBuildCurriculum:
@@ -276,6 +410,9 @@ class TestRealUnitsJson:
         assert roots == {"read-sky-pressure"}  # 데이터상 단일 루트
         # prereq가 있는 유닛(11개)은 진도 0에서 전부 잠금 — 잠금 소실 회귀 가드
         assert sum(1 for v in flat.values() if v["locked"]) == 11
+        # status 파생: 루트가 유일한 current, 나머지는 locked
+        assert flat["read-sky-pressure"]["status"] == "current"
+        assert sum(1 for v in flat.values() if v["status"] == "locked") == 11
 
     def test_선행_clear시_다음_유닛만_열림(self):
         units = _units_from_json(_load_real_units())
@@ -286,6 +423,30 @@ class TestRealUnitsJson:
         assert flat["read-sky-pressure"]["locked"] is False
         assert flat["read-sky-fronts"]["locked"] is False  # 선행 clear → 열림
         assert flat["read-sky-board"]["locked"] is True  # 그 다음은 여전히 잠금
+        # status: 미클리어 선두(pressure)가 current, fronts는 unlocked
+        assert flat["read-sky-pressure"]["status"] == "current"
+        assert flat["read-sky-fronts"]["status"] == "unlocked"
+        assert flat["read-sky-board"]["status"] == "locked"
+
+    def test_배치_선해제_실데이터_시작점(self):
+        """§3.4 소급 적용: pressure_front θ≥0.5(실응답)면 하늘 읽기 3유닛 선해제.
+
+        선해제 유닛은 왕관 0 그대로(잠금만 해제)이고, current는 첫 미클리어
+        유닛(read-sky-pressure — 클리어 강제 아님)에 남는다.
+        """
+        units = _units_from_json(_load_real_units())
+        abilities = [ability("pressure_front", 0.8, n=5)]
+        floor = cs.placement_unlock_floor(abilities, units)
+        assert floor == 3  # 하늘 읽기 pressure_front 3유닛(선두 연속)
+        tree = cs.build_curriculum(units, {}, unlock_floor=floor)
+        flat = {u["id"]: u for s in tree for u in s["units"]}
+        opened = {uid for uid, v in flat.items() if not v["locked"]}
+        assert opened == {"read-sky-pressure", "read-sky-fronts", "read-sky-board"}
+        # 잠금만 해제 — 왕관·클리어는 소급되지 않는다
+        assert all(flat[uid]["crowns"] == 0 for uid in opened)
+        assert flat["read-sky-pressure"]["status"] == "current"
+        assert flat["read-sky-fronts"]["status"] == "unlocked"
+        assert flat["air-power-masses"]["status"] == "locked"
 
     def test_순차_클리어로_전_체인_해제(self):
         """의존 순서대로 각 유닛을 clear하면 다음이 열려 결국 12유닛 전부 해제된다."""

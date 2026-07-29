@@ -39,12 +39,23 @@ SECTION_ORDER = ("하늘 읽기", "공기의 힘", "큰 바람", "도시와 기�
 
 
 def is_locked(
-    unit: Any, progress_by_unit: dict[Any, Any]
+    unit: Any,
+    progress_by_unit: dict[Any, Any],
+    unlock_floor: int = 0,
+    order_index: int | None = None,
 ) -> bool:
-    """§3.2 잠금 판정: prereq_unit_id가 있고 그 유닛 crowns<1 이면 잠금. 첫 유닛 무잠금.
+    """잠금 판정 — 유일 지점(트리 노출·403 게이트 동일 적용).
+
+    §3.2: prereq_unit_id가 있고 그 유닛 crowns<1 이면 잠금. 첫 유닛 무잠금.
+    R7-02 §3.4 배치 선해제: 유닛의 전체 순서 인덱스(order_index, ordered_units
+    기준) < unlock_floor 이면 prereq와 무관하게 열림 — placement_unlock_floor가
+    산출한 선두 연속 구간. 기본값 unlock_floor=0 은 현행 동작(선해제 없음).
+    순수 함수라 전체 순서를 스스로 알 수 없어 호출측이 order_index를 공급한다.
 
     progress_by_unit: {unit_id: progress}(progress는 .crowns 속성 보유).
     """
+    if order_index is not None and order_index < unlock_floor:
+        return False
     prereq = unit.prereq_unit_id
     if prereq is None:
         return False
@@ -59,20 +70,63 @@ def _section_key(section: str) -> tuple[int, str]:
         return (len(SECTION_ORDER), section)
 
 
+def ordered_units(units: Iterable[Any]) -> list[Any]:
+    """유닛 전체 순서 — 섹션은 SECTION_ORDER, 섹션 내 unit_order 오름차순.
+
+    build_curriculum의 노출 순서와 동일 기준(단일 정의) — 배치 선해제(§3.4)의
+    "전체 순서 인덱스"는 이 리스트의 위치다.
+    """
+    return sorted(units, key=lambda u: (_section_key(u.section), u.unit_order))
+
+
+def placement_unlock_floor(abilities: list, units: Iterable[Any]) -> int:
+    """배치 기반 커리큘럼 시작점 (R7-02 §3.4, 순수) — 선두 연속 선해제 유닛 수.
+
+    전체 순서(ordered_units) 선두부터 "그 유닛 concept_tag의 θ ≥ 0.5
+    (_THETA_INTERMEDIATE_MAX 재사용 — 상급 경계) AND num_responses>0"가 연속으로
+    성립하는 유닛 개수. 조건이 끊기면 즉시 중단(선두 연속만 — 중간 점프 없음).
+    n=0(placement 사전 θ)은 실응답 근거가 없으므로 불인정 — 배치고사 실응답 후
+    refresh_abilities가 n을 채워야 선해제된다. 빈 abilities → 0(현행 동작).
+    선해제는 잠금만 풀며 왕관·XP는 0 그대로(소급 보상 없음).
+
+    abilities 원소는 load_abilities 반환 형식({"concept_tag","theta","se","n"}).
+    """
+    by_tag = {ab["concept_tag"]: ab for ab in abilities}
+    floor = 0
+    for unit in ordered_units(units):
+        ab = by_tag.get(unit.concept_tag)
+        if (
+            ab is None
+            or int(ab["n"]) <= 0
+            or float(ab["theta"]) < weatherbrain_service._THETA_INTERMEDIATE_MAX
+        ):
+            break
+        floor += 1
+    return floor
+
+
 def unit_view(
     unit: Any,
     progress_by_unit: dict[Any, Any],
     slug_by_id: dict[Any, str],
+    unlock_floor: int = 0,
+    order_index: int | None = None,
 ) -> dict[str, Any]:
-    """유닛 1개의 트리 표현(진도·잠금 포함).
+    """유닛 1개의 트리 표현(진도·잠금·status 포함).
 
     API에는 안정 참조인 **slug**를 id로 노출한다(프론트·URL이 UUID 대신 slug 사용).
     prereq_unit_id도 대상 유닛의 slug로 변환해 노출한다(slug_by_id: {내부 id → slug}).
-    잠금 판정은 내부 id(UUID) 키의 progress_by_unit으로 수행한다(is_locked).
+    잠금 판정은 내부 id(UUID) 키의 progress_by_unit으로 수행한다(is_locked —
+    unlock_floor·order_index는 배치 선해제 §3.4).
+
+    status(파생, additive — crowns/cleared/locked 기존 필드 불변):
+    'cleared' | 'locked' | 'unlocked'. "잠기지 않은 첫 미클리어 유닛 1개"의
+    'current' 승격은 전체 순서를 아는 build_curriculum이 수행한다.
     """
     prog = progress_by_unit.get(unit.id)
     crowns = prog.crowns if prog is not None else 0
     cleared = bool(prog is not None and prog.cleared_at is not None)
+    locked = is_locked(unit, progress_by_unit, unlock_floor, order_index)
     prereq_slug = (
         slug_by_id.get(unit.prereq_unit_id)
         if unit.prereq_unit_id is not None
@@ -89,7 +143,8 @@ def unit_view(
         "prereq_unit_id": prereq_slug,
         "crowns": crowns,
         "cleared": cleared,
-        "locked": is_locked(unit, progress_by_unit),
+        "locked": locked,
+        "status": "cleared" if cleared else ("locked" if locked else "unlocked"),
     }
 
 
@@ -108,15 +163,20 @@ def plan_crown(
 
 
 def build_curriculum(
-    units: Iterable[Any], progress_by_unit: dict[Any, Any]
+    units: Iterable[Any],
+    progress_by_unit: dict[Any, Any],
+    unlock_floor: int = 0,
 ) -> list[dict[str, Any]]:
-    """섹션→유닛 트리를 구성한다 (§3.2, 순수).
+    """섹션→유닛 트리를 구성한다 (§3.2 + 배치 선해제·status §3.4, 순수).
 
     반환: [{"section": str, "units": [unit_view, ...]}] — 섹션은 SECTION_ORDER,
-    유닛은 unit_order 오름차순.
+    유닛은 unit_order 오름차순. unlock_floor(기본 0=현행)는 전체 순서 선두
+    unlock_floor개 유닛의 잠금을 해제한다(placement_unlock_floor 산출값).
+    status 'current'는 전체 순서상 "잠기지 않은 첫 미클리어 유닛" 정확히 1개.
     """
     units = list(units)
     slug_by_id = {u.id: u.slug for u in units}  # prereq(UUID) → slug 노출 변환용
+    index_of = {u.id: i for i, u in enumerate(ordered_units(units))}
     grouped: dict[str, list[Any]] = {}
     for unit in units:
         grouped.setdefault(unit.section, []).append(unit)
@@ -127,9 +187,21 @@ def build_curriculum(
         sections.append(
             {
                 "section": section,
-                "units": [unit_view(u, progress_by_unit, slug_by_id) for u in ordered],
+                "units": [
+                    unit_view(
+                        u, progress_by_unit, slug_by_id, unlock_floor, index_of[u.id]
+                    )
+                    for u in ordered
+                ],
             }
         )
+    # 'current' 승격 — 트리 노출 순서 == ordered_units 전체 순서(동일 정렬 기준)
+    first_open = next(
+        (v for s in sections for v in s["units"] if v["status"] == "unlocked"),
+        None,
+    )
+    if first_open is not None:
+        first_open["status"] = "current"
     return sections
 
 
@@ -166,7 +238,28 @@ async def load_progress_by_unit(
 async def get_curriculum(db: AsyncSession, user: User) -> list[dict[str, Any]]:
     units = await load_units(db)
     progress = await load_progress_by_unit(db, user)
-    return build_curriculum(units, progress)
+    abilities = await weatherbrain_service.load_abilities(db, user)  # read-only
+    return build_curriculum(
+        units, progress, unlock_floor=placement_unlock_floor(abilities, units)
+    )
+
+
+async def is_unit_locked(db: AsyncSession, user: User, unit: Unit) -> bool:
+    """403 게이트용 잠금 판정 — 트리 노출(get_curriculum)과 동일 규칙 적용 (§3.4).
+
+    prereq 판정 + 배치 선해제(unlock_floor)를 is_locked 한 지점으로 통과시킨다.
+    θ 읽기는 load_abilities(read-only) — ai-worker 미호출.
+    """
+    progress = await load_progress_by_unit(db, user)
+    units = await load_units(db)
+    abilities = await weatherbrain_service.load_abilities(db, user)
+    index_of = {u.id: i for i, u in enumerate(ordered_units(units))}
+    return is_locked(
+        unit,
+        progress,
+        unlock_floor=placement_unlock_floor(abilities, units),
+        order_index=index_of.get(unit.id),
+    )
 
 
 async def _unit_content_pool(
