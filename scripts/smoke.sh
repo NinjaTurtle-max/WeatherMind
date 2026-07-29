@@ -629,7 +629,7 @@ else:
   fi
   local n_units
   IFS='|' read -r _ first_slug n_units <<<"$tree_check"
-  echo "  유닛 $n_units개 전부 status 보유 · current 정확히 1개 · 첫 유닛=$first_slug"
+  echo "  유닛 ${n_units}개 전부 status 보유 · current 정확히 1개 · 첫 유닛=$first_slug"
 
   # 첫 유닛(무 prereq — 항상 열림) 세션 발급 → 200 + 문항 ≥1 (θ 풀 확장 실기동)
   out="$(http_post "$API/api/v1/curriculum/units/$first_slug/session" "{}" "$SMOKE_TOKEN")"
