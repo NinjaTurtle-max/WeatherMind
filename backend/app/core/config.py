@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     # CONCEPT_TAGS 6개념당 1문항). 드리프트는 test_placement가 감시.
     PLACEMENT_SIZE: int = 6
 
+    # ── 개발자 모드 (R7-03) ──
+    # true면 /api/v1/dev 라우터(자기 계정 상태 진단·조작)가 등록된다. 개발 전용 —
+    # 운영 금지. 기본 false 고정은 계약 테스트가 감시한다(test_dev_mode —
+    # PLACEMENT_SIZE 드리프트 감시 전례): 운영에 켜진 채 배포되는 실수 방지 가드.
+    DEV_MODE: bool = False
+
     @field_validator("SESSION_RECIPE")
     @classmethod
     def _validate_recipe(cls, value: dict[str, int]) -> dict[str, int]:

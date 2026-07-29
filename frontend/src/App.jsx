@@ -12,6 +12,7 @@ import ProgressPage from './modules/progress/ProgressPage';
 import LoginPage from './modules/auth/LoginPage';
 import RegisterPage from './modules/auth/RegisterPage';
 import PlacementPage from './modules/onboarding/PlacementPage';
+import DevPanel from './modules/dev/DevPanel';
 
 /**
  * 라우팅 (04번 스펙 + R2-01 S7 + R3-01 S4 + R5-01 S4 + R7-01 S3) — react-router-dom v6, 하단 탭바.
@@ -26,7 +27,13 @@ import PlacementPage from './modules/onboarding/PlacementPage';
 function RequireAuth() {
   const accessToken = useAuthStore((s) => s.accessToken);
   if (!accessToken) return <Navigate to="/login" replace />;
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      {/* R7-03 개발자 모드 플로팅 패널 — GET /dev/state 200일 때만 렌더(404=비활성) */}
+      <DevPanel />
+    </>
+  );
 }
 
 function RedirectIfAuthed({ children }) {
