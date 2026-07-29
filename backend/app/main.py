@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.config import settings
 from app.core.database import engine
 from app.core.rate_limit import limiter
 from app.core.redis import close_redis
@@ -23,6 +24,7 @@ from app.routers import (
     auth,
     board,
     curriculum,
+    dev,
     duel,
     league,
     onboarding,
@@ -136,3 +138,8 @@ app.include_router(league.router)
 app.include_router(duel.router)
 app.include_router(curriculum.router)
 app.include_router(onboarding.router)
+
+# 개발자 모드(R7-03) — DEV_MODE=true일 때만 등록. 꺼져 있으면(기본 false,
+# test_dev_mode 계약이 감시) /api/v1/dev 경로 자체가 존재하지 않아 404.
+if settings.DEV_MODE:
+    app.include_router(dev.router)
