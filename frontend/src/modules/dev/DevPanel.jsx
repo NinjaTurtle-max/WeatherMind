@@ -17,8 +17,8 @@ import { CONCEPT_KO } from '../../lib/abilityDisplay';
  * 계약은 백엔드 병렬 구현 중이라 미확정 — 본문에 의존하지 않는다.
  */
 
-// 구름 최대치 — 계약값(R5-01 §3.3 CLOUD_MAX=5). /dev/state에 max가 없어 상수 사용.
-const CLOUD_MAX = 5;
+// 구름 최대치 폴백 — 서버 /dev/state의 max_clouds가 1차 소스(env 튜닝값 추종).
+const CLOUD_MAX_FALLBACK = 5;
 
 // 조작별 invalidate 대상 (['dev']는 항상 포함 — 패널 인스펙터 갱신)
 const KEYS = {
@@ -110,8 +110,9 @@ export default function DevPanel() {
     thetaMut.mutate(abilities);
   };
 
+  const maxClouds = data?.max_clouds ?? CLOUD_MAX_FALLBACK;
   const setCloudsClamped = (value) =>
-    cloudsMut.mutate(Math.max(0, Math.min(CLOUD_MAX, value)));
+    cloudsMut.mutate(Math.max(0, Math.min(maxClouds, value)));
 
   const applyStreak = () => {
     const streakCount = Math.max(0, Number(streakInput) || 0);
@@ -149,7 +150,7 @@ export default function DevPanel() {
             <Badge label="θ평균" value={data.overall_theta?.toFixed?.(2) ?? data.overall_theta} />
             <Badge label="레벨그룹" value={data.target_level_group} />
             <Badge label="선해제" value={data.unlock_floor} />
-            <Badge label="구름" value={`${data.clouds}/${CLOUD_MAX}`} tone={data.clouds === 0 ? 'amber' : 'slate'} />
+            <Badge label="구름" value={`${data.clouds}/${maxClouds}`} tone={data.clouds === 0 ? 'amber' : 'slate'} />
             <Badge label="스트릭" value={data.streak_count} />
             <Badge
               label="배치"
@@ -249,7 +250,7 @@ export default function DevPanel() {
           <div className="mb-3">
             <p className={sectionTitle}>구름 에너지</p>
             <div className="mt-1 flex items-center gap-2">
-              <button type="button" className={btn} onClick={() => setCloudsClamped(CLOUD_MAX)} disabled={busy}>
+              <button type="button" className={btn} onClick={() => setCloudsClamped(maxClouds)} disabled={busy}>
                 리필
               </button>
               <button type="button" className={btn} onClick={() => setCloudsClamped(0)} disabled={busy}>
@@ -270,7 +271,7 @@ export default function DevPanel() {
                   type="button"
                   className={btn}
                   onClick={() => setCloudsClamped(data.clouds + 1)}
-                  disabled={busy || data.clouds >= CLOUD_MAX}
+                  disabled={busy || data.clouds >= maxClouds}
                   aria-label="구름 1 증가"
                 >
                   +
