@@ -8,3 +8,4 @@ export * as progressApi from './progress';
 export * as leagueApi from './league';
 export * as duelApi from './duel';
 export * as placementApi from './placement';
+export * as devApi from './dev';
