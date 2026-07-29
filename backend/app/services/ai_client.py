@@ -21,6 +21,13 @@ class AIWorkerError(Exception):
     """ai-worker 호출 실패 (호출부에서 fallback 처리)."""
 
 
+# rag-feedback 타임아웃 (R7-02 §3.7) — 기존 60s(_post 기본값)가 문항별 answer
+# 경로의 채점 지연 원인이었다. 다른 내부 호출(15s)과 정합하는 10s로 제한하고,
+# 초과 시 rag_feedback의 정적 문구 fallback이 그대로 동작한다(UX 무손실).
+# 계약 테스트(test_placement_bulk)가 드리프트를 감시한다.
+RAG_FEEDBACK_TIMEOUT = 10.0
+
+
 async def _post(path: str, payload: dict, timeout: float = 60.0) -> dict:
     url = f"{settings.AI_WORKER_INTERNAL_URL}{path}"
     headers = {"X-Internal-API-Key": settings.AI_WORKER_INTERNAL_API_KEY}
@@ -115,6 +122,7 @@ async def rag_feedback(
                 "concept_tag": concept_tag,
                 "today_weather": today_weather,
             },
+            timeout=RAG_FEEDBACK_TIMEOUT,
         )
         return result.get("feedback", "")
     except AIWorkerError:
