@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+from functools import lru_cache
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -100,15 +101,27 @@ def _format_context(chunks: list[dict]) -> str:
     return "\n\n".join(blocks)
 
 
-def _build_chain():
-    """LCEL: 프롬프트 → Gemini → 순수 텍스트."""
+@lru_cache(maxsize=4)
+def _cached_chain(model: str, api_key: str):
+    """(model, api_key) 조합별 LCEL 체인 캐시.
+
+    ChatGoogleGenerativeAI 인스턴스 생성 비용이 피드백 호출마다 반복되지 않도록
+    모듈 수명 동안 재사용한다(R7-02 S7 지연 완화). 지연 초기화이므로 LLM 키 부재
+    환경에서도 임포트는 깨지지 않고, 생성 실패 예외는 lru_cache에 캐시되지 않아
+    호출부의 기본 피드백 폴백 동작이 그대로 유지된다.
+    """
     prompt = ChatPromptTemplate.from_messages([("system", SYSTEM_PROMPT)])
     llm = ChatGoogleGenerativeAI(
-        model=settings.GEMINI_MODEL,
-        google_api_key=settings.GEMINI_API_KEY,
+        model=model,
+        google_api_key=api_key,
         temperature=0.5,
     )
     return prompt | llm | StrOutputParser()
+
+
+def _build_chain():
+    """LCEL: 프롬프트 → Gemini → 순수 텍스트 (settings 기준 캐시 조회)."""
+    return _cached_chain(settings.GEMINI_MODEL, settings.GEMINI_API_KEY)
 
 
 def generate_feedback(

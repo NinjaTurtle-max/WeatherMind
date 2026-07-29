@@ -27,6 +27,10 @@ ALL_COLLECTIONS = (
 _lock = threading.Lock()
 _client: chromadb.HttpClient | None = None
 _embeddings: OpenAIEmbeddings | None = None
+# 컬렉션 핸들 캐시 — get_or_create_collection은 HTTP 왕복이므로 호출마다
+# 재수행하지 않는다(R7-02 S7 지연 완화). 성공한 핸들만 캐시해 Chroma 장애 시
+# 폴백 동작(호출부 예외 처리)은 기존과 동일하게 유지된다.
+_collections: dict[str, object] = {}
 
 
 def get_chroma_client() -> "chromadb.api.ClientAPI":
@@ -56,13 +60,20 @@ def get_embeddings() -> OpenAIEmbeddings:
 
 
 def get_collection(name: str):
-    """컬렉션 get_or_create (cosine 거리 공간)."""
+    """컬렉션 get_or_create (cosine 거리 공간). 핸들은 최초 1회만 조회 후 캐시."""
     if name not in ALL_COLLECTIONS:
         raise ValueError(f"unknown collection: {name}")
-    return get_chroma_client().get_or_create_collection(
-        name=name,
-        metadata={"hnsw:space": "cosine"},
-    )
+    collection = _collections.get(name)
+    if collection is None:
+        with _lock:
+            collection = _collections.get(name)
+            if collection is None:
+                collection = get_chroma_client().get_or_create_collection(
+                    name=name,
+                    metadata={"hnsw:space": "cosine"},
+                )
+                _collections[name] = collection
+    return collection
 
 
 def ensure_collections() -> None:
