@@ -185,7 +185,7 @@ class TestBuildState:
         ]
 
     def test_원값_노출과_overall_target(self):
-        state = dev.build_state(_user(), self._abilities(), [], 4, ["typhoon"])
+        state = dev.build_state(_user(), self._abilities(), [], 4, 5, ["typhoon"])
         assert state.dev_mode is True
         by_tag = {ab.concept_tag: ab for ab in state.abilities}
         assert by_tag["air_mass"].theta_se == 0.2
@@ -194,12 +194,13 @@ class TestBuildState:
         assert state.overall_theta == 1.0
         assert state.target_level_group == "adult"
         assert state.clouds == 4
+        assert state.max_clouds == 5
         assert state.streak_count == 3
         assert state.placement_done is False
         assert state.weak_tags == ["typhoon"]
 
     def test_콜드스타트는_가입_그룹_폴백(self):
-        state = dev.build_state(_user(level_group="elementary"), [], [], 5, [])
+        state = dev.build_state(_user(level_group="elementary"), [], [], 5, 5, [])
         assert state.overall_theta is None
         assert state.target_level_group == "elementary"
         assert state.unlock_floor == 0
@@ -208,12 +209,12 @@ class TestBuildState:
     def test_unlock_floor는_placement_unlock_floor_재사용(self):
         # 선두 유닛(air_mass): θ=1.0·n=4 → 해제, 다음(typhoon): θ<0.5 → 중단
         units = [_unit("air_mass", 1), _unit("typhoon", 2)]
-        state = dev.build_state(_user(), self._abilities(), units, 5, [])
+        state = dev.build_state(_user(), self._abilities(), units, 5, 5, [])
         assert state.unlock_floor == 1
 
     def test_placement_done은_완료시각_기준(self):
         user = _user(placement_completed_at=datetime.now(timezone.utc))
-        assert dev.build_state(user, [], [], 5, []).placement_done is True
+        assert dev.build_state(user, [], [], 5, 5, []).placement_done is True
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -245,6 +246,7 @@ class TestStateEndpoint:
         state = asyncio.run(dev.get_dev_state(user, db))
         assert state.dev_mode is True
         assert state.clouds == 2
+        assert state.max_clouds == 5  # energy_service.get_state의 max 그대로
         assert state.overall_theta == 0.7
         assert state.target_level_group == "adult"
         assert state.unlock_floor == 1

@@ -113,6 +113,7 @@ def build_state(
     abilities: Sequence[dict],
     units: Sequence[Any],
     clouds: int,
+    max_clouds: int,
     weak_tags: Sequence[str],
 ) -> DevState:
     """진단 상태 조립 (순수) — abilities는 load_abilities 반환 형식
@@ -143,6 +144,7 @@ def build_state(
             list(abilities), units
         ),
         clouds=clouds,
+        max_clouds=max_clouds,
         streak_count=user.streak_count,
         placement_done=user.placement_completed_at is not None,
         weak_tags=list(weak_tags),
@@ -174,7 +176,9 @@ async def get_dev_state(
         .scalars()
         .all()
     )
-    return build_state(user, abilities, units, energy["clouds"], list(weak_rows))
+    return build_state(
+        user, abilities, units, energy["clouds"], energy["max"], list(weak_rows)
+    )
 
 
 @router.post("/reset-me", response_model=DevResetResult)

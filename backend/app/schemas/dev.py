@@ -29,6 +29,9 @@ class DevState(BaseModel):
     target_level_group: str
     unlock_floor: int
     clouds: int
+    # 구름 만렙(Settings.CLOUD_MAX, env 튜닝) — 프론트 리필/상한 clamp가
+    # 하드코딩 상수 대신 이 값을 쓴다 (PM 계약 보강).
+    max_clouds: int
     streak_count: int
     placement_done: bool
     weak_tags: list[str]
