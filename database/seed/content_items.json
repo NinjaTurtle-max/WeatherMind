@@ -900,5 +900,67 @@
     "uses_live_slots": false,
     "source": {"kind": "seed", "refs": ["climate_concepts: anomaly-0", "climate_concepts: pressure_front-3"]},
     "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "elementary",
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "겨울에 우리나라를 몹시 춥게 만드는, 북쪽 시베리아에서 내려오는 차갑고 건조한 공기 덩어리를 무엇이라고 부를까요?",
+      "correct_answer": "시베리아 기단",
+      "explanation_hint": "겨울에 몹시 추운 이유는 북쪽 시베리아에서 온 차갑고 건조한 공기 덩어리(시베리아 기단)가 내려오기 때문이에요."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: air_mass-1"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "elementary",
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "아주 심한 더위(폭염)나 갑작스러운 심한 추위(한파)처럼, 날씨가 평소 범위를 크게 벗어나는 현상을 ___(이)라고 해요.",
+      "correct_answer": "이상기후"
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: anomaly-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "저기압이 다가올 때 하늘이 흐려지고 비가 내리기까지의 과정을 순서대로 배열하세요.",
+      "items": [
+        "주변보다 기압이 낮은 저기압 중심으로 공기가 모여든다",
+        "모여든 공기가 상승기류를 이루며 위로 올라간다",
+        "상승한 공기가 냉각되면서 구름이 만들어진다",
+        "구름이 발달해 비가 내린다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3"
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: pressure_front-0"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "adult",
+    "question_type": "match",
+    "template_json": {
+      "question_text": "태풍에 관한 항목과 그 설명을 알맞게 연결하세요.",
+      "pairs": [
+        {"left": "발생 해역", "right": "북태평양 서쪽의 따뜻한 열대 바다"},
+        {"left": "에너지원", "right": "수증기가 응결하며 내놓는 열"},
+        {"left": "태풍의 눈", "right": "바람이 약하고 맑기도 한 중심부"},
+        {"left": "상륙 후", "right": "수증기 공급이 줄어 세력이 급격히 약해짐"}
+      ],
+      "correct_answer": "발생 해역:북태평양 서쪽의 따뜻한 열대 바다|에너지원:수증기가 응결하며 내놓는 열|태풍의 눈:바람이 약하고 맑기도 한 중심부|상륙 후:수증기 공급이 줄어 세력이 급격히 약해짐"
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: typhoon-0", "climate_concepts: typhoon-1", "climate_concepts: typhoon-2"]},
+    "status": "active"
   }
 ]
