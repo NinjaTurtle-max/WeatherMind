@@ -69,6 +69,59 @@ const state = {
   placementDone: false,
 };
 
+// ── 개발자 모드 (R7-03) ─────────────────────────────────────────────────────
+// 실서버는 Settings.DEV_MODE가 꺼져 있으면 /dev/* 전 경로 404 — 목은
+// VITE_MOCK_DEV=0 으로 같은 404 모드를 재현한다(기본은 켜짐).
+const DEV_MODE = process.env.VITE_MOCK_DEV !== '0';
+
+// 개념별 능력(θ) 저장소 — /dev/state·/dev/theta·(배치 완료 시 갱신) 공유.
+// 초기값은 사전(prior) 배정 흉내: θ 0.0 · num_responses 0.
+const CONCEPT_TAGS = ['air_mass', 'anomaly', 'co2_climate', 'heat_island', 'pressure_front', 'typhoon'];
+const seedAbilities = () =>
+  new Map(CONCEPT_TAGS.map((tag) => [tag, { theta: 0.0, num_responses: 0 }]));
+let devAbilities = seedAbilities();
+
+const abilitySE = (n) => Number((1 / Math.sqrt(n + 1)).toFixed(2));
+const abilityRows = () =>
+  [...devAbilities.entries()].map(([concept_tag, { theta, num_responses }]) => ({
+    concept_tag,
+    theta: Number(theta.toFixed(2)),
+    theta_se: abilitySE(num_responses),
+    num_responses,
+  }));
+
+/** θ 평균 → 출제 대상 레벨 그룹. 경계(-0.5, 0.5)는 backend
+ *  weatherbrain_service.theta_level_label·ai-worker theta_to_target_level_group과 동일. */
+function thetaToLevelGroup(theta) {
+  if (theta < -0.5) return 'elementary';
+  if (theta < 0.5) return 'middle_high';
+  return 'adult';
+}
+
+// DEV_MODE 꺼진 실서버(FastAPI 라우터 미등록)의 기본 404 본문과 동일
+const DEV_404 = [404, { detail: 'Not Found' }];
+
+/** GET /dev/state 페이로드 (R7-03 계약) — 조작 POST들도 최신 상태를 되돌려준다 */
+function devStatePayload() {
+  regenClouds();
+  const rows = abilityRows();
+  const overallTheta = rows.length
+    ? Number((rows.reduce((sum, r) => sum + r.theta, 0) / rows.length).toFixed(2))
+    : 0;
+  return {
+    dev_mode: true,
+    abilities: rows,
+    overall_theta: overallTheta,
+    target_level_group: thetaToLevelGroup(overallTheta),
+    // unlock_floor: 배치 θ 선해제가 연 선두 연속 유닛 수 (backend placement_unlock_floor)
+    unlock_floor: preUnlockedUnits.size,
+    clouds: state.clouds,
+    streak_count: state.streak,
+    placement_done: state.placementDone,
+    weak_tags: [...WEAK_TAGS],
+  };
+}
+
 // ── 구름 에너지 상수 (R5-01 §3.3) ──
 const ENERGY_ENABLED = true; // §3.4 기능 플래그(기본 true). false면 무제한.
 const CLOUD_MAX = 5;
@@ -965,6 +1018,10 @@ const routes = {
           };
         }),
       };
+      // 배치 실응답 θ를 능력 저장소에도 반영 — /dev/state·/progress/abilities 일관 (R7-03)
+      for (const a of placementResult.abilities) {
+        devAbilities.set(a.concept_tag, { theta: a.theta, num_responses: a.num_responses });
+      }
       // 배치 θ 선해제(R7-02 S4): 평균 θ>0이면 커리큘럼 선두(트리 순서)에서
       // 잠금 유닛을 1개(θ>=0.6이면 2개) 연속 선해제 — 왕관 0인데 열림(unlocked)
       // 케이스를 만든다. 실서버는 θ 기반 파생 — 목은 결정적 근사.
@@ -1121,6 +1178,126 @@ const routes = {
     200,
     { streak_count: state.streak, is_new_record: false },
   ],
+  // GET /progress/abilities (R6 WeatherBrain) — 약한 개념(θ 낮은 순) 우선 정렬.
+  // R7-03에서 devAbilities 저장소를 공유해 /dev/theta 조작이 즉시 반영된다.
+  'GET /progress/abilities': () => [
+    200,
+    abilityRows()
+      .sort((a, b) => a.theta - b.theta)
+      .map((row) => ({ ...row, level_label: levelFromTheta(row.theta), updated_at: null })),
+  ],
+
+  // ── 개발자 모드 (R7-03 계약 — /dev/*) ──────────────────────────────────────
+  // DEV_MODE(=VITE_MOCK_DEV!=='0')가 꺼지면 실서버(FastAPI 라우터 미등록)와
+  // 동일하게 전 경로 404 {"detail":"Not Found"} — 프론트 노출 게이트.
+  'GET /dev/state': () => {
+    if (!DEV_MODE) return DEV_404;
+    return [200, devStatePayload()];
+  },
+  // POST /dev/reset-me {reset:true} — 계정 진행 전체 초기화(신규 가입 직후 상태로)
+  'POST /dev/reset-me': (body) => {
+    if (!DEV_MODE) return DEV_404;
+    if (body?.reset !== true) {
+      return [422, { detail: 'reset:true 가 필요합니다', code: 'INVALID_DEV_REQUEST' }];
+    }
+    Object.assign(state, {
+      xp: 0,
+      level: 1,
+      streak: 0,
+      streakFreeze: 0,
+      answeredToday: false,
+      predicted: false,
+      tier: 'stratus',
+      quest: { xpToday: 0, weakCorrect: 0, liveAnswered: 0 },
+      duel: { submitted: false, userPred: null, aiPred: null },
+      clouds: CLOUD_MAX,
+      cloudsUpdatedAt: Date.now(),
+      placementDone: false,
+    });
+    devAbilities = seedAbilities();
+    unitProgress.clear();
+    preUnlockedUnits.clear();
+    sessions.clear();
+    clearedBoardPuzzles.clear();
+    return [200, devStatePayload()];
+  },
+  // POST /dev/theta {abilities:[{concept_tag, theta, num_responses?}]}
+  'POST /dev/theta': (body) => {
+    if (!DEV_MODE) return DEV_404;
+    const abilities = Array.isArray(body?.abilities) ? body.abilities : [];
+    if (!abilities.length) {
+      return [422, { detail: 'abilities 배열이 필요합니다', code: 'INVALID_DEV_REQUEST' }];
+    }
+    for (const a of abilities) {
+      const theta = Number(a?.theta);
+      if (!a?.concept_tag || Number.isNaN(theta)) {
+        return [422, { detail: 'concept_tag·theta(숫자)가 필요합니다', code: 'INVALID_DEV_REQUEST' }];
+      }
+      const prev = devAbilities.get(a.concept_tag) ?? { theta: 0, num_responses: 0 };
+      const numResponses =
+        a.num_responses != null ? Math.max(0, Number(a.num_responses) || 0) : prev.num_responses;
+      devAbilities.set(a.concept_tag, { theta, num_responses: numResponses });
+    }
+    return [200, devStatePayload()];
+  },
+  // POST /dev/placement {action:"reset"|"complete"}
+  'POST /dev/placement': (body) => {
+    if (!DEV_MODE) return DEV_404;
+    if (body?.action === 'reset') {
+      state.placementDone = false;
+      sessions.delete(PLACEMENT_SESSION_ID);
+      preUnlockedUnits.clear(); // 배치 θ 선해제도 함께 철회
+    } else if (body?.action === 'complete') {
+      state.placementDone = true;
+    } else {
+      return [422, { detail: 'action은 reset|complete 입니다', code: 'INVALID_DEV_REQUEST' }];
+    }
+    return [200, devStatePayload()];
+  },
+  // POST /dev/clouds {clouds} — 0..CLOUD_MAX clamp, 회복 타이머 anchor 재설정
+  'POST /dev/clouds': (body) => {
+    if (!DEV_MODE) return DEV_404;
+    const clouds = Number(body?.clouds);
+    if (Number.isNaN(clouds)) {
+      return [422, { detail: 'clouds(숫자)가 필요합니다', code: 'INVALID_DEV_REQUEST' }];
+    }
+    state.clouds = Math.max(0, Math.min(CLOUD_MAX, Math.round(clouds)));
+    state.cloudsUpdatedAt = Date.now();
+    return [200, devStatePayload()];
+  },
+  // POST /dev/curriculum {action:"unlock_all"|"crown"|"reset", unit_slug?, crowns?}
+  'POST /dev/curriculum': (body) => {
+    if (!DEV_MODE) return DEV_404;
+    if (body?.action === 'unlock_all') {
+      for (const u of UNITS) preUnlockedUnits.add(u.id);
+    } else if (body?.action === 'reset') {
+      unitProgress.clear();
+      preUnlockedUnits.clear();
+    } else if (body?.action === 'crown') {
+      // 목 유닛엔 slug가 없어 unit_slug에 유닛 id를 받는다(백엔드는 slug — §계약 확인 필요)
+      const unit = getUnit(body?.unit_slug);
+      if (!unit) return [404, { detail: '유닛을 찾을 수 없습니다', code: 'UNIT_NOT_FOUND' }];
+      const prog = getUnitProgress(unit.id);
+      prog.crowns = Math.max(0, Number(body?.crowns ?? 1) || 0);
+      prog.cleared_at = prog.crowns >= unit.crown_target ? new Date().toISOString() : null;
+    } else {
+      return [422, { detail: 'action은 unlock_all|crown|reset 입니다', code: 'INVALID_DEV_REQUEST' }];
+    }
+    return [200, devStatePayload()];
+  },
+  // POST /dev/streak {streak_count, last_login_days_ago?}
+  'POST /dev/streak': (body) => {
+    if (!DEV_MODE) return DEV_404;
+    const streakCount = Number(body?.streak_count);
+    if (Number.isNaN(streakCount) || streakCount < 0) {
+      return [422, { detail: 'streak_count(0 이상 숫자)가 필요합니다', code: 'INVALID_DEV_REQUEST' }];
+    }
+    state.streak = Math.round(streakCount);
+    // last_login_days_ago: 실서버는 last_login_date를 오늘-N일로 설정(출석 판정용).
+    // 목은 출석 시뮬레이션이 없어 저장만 한다.
+    state.devLastLoginDaysAgo = body?.last_login_days_ago ?? null;
+    return [200, devStatePayload()];
+  },
 
   'GET /league/current': () => [
     200,
