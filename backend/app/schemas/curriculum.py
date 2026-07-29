@@ -6,6 +6,9 @@ class UnitOut(BaseModel):
     """유닛 1개 — 진도(왕관)·잠금 상태 포함.
 
     id·prereq_unit_id는 안정 참조인 slug 문자열이다(프론트·URL이 UUID 대신 사용).
+    status는 crowns/cleared/locked에서 파생한 표시용 필드(R7-02 §3.4, additive):
+    'cleared' | 'current'(잠기지 않은 첫 미클리어 유닛 정확히 1개) | 'unlocked' |
+    'locked'. 기존 필드는 불변 유지.
     """
 
     id: str
@@ -19,6 +22,7 @@ class UnitOut(BaseModel):
     crowns: int
     cleared: bool
     locked: bool
+    status: str
 
 
 class SectionOut(BaseModel):

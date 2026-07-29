@@ -73,6 +73,18 @@ export const useSessionStore = create((set, get) => ({
   /** 제출 실패한 문항을 같은 위치에서 다시 풀기 (FEEDBACK → IN_PROGRESS) */
   retryItem: () => set({ answerState: null, status: SESSION_STATUS.IN_PROGRESS }),
 
+  /** bulkMode(R7-02 S1): FEEDBACK 스킵 전이 — 서버 왕복 없이 로컬 기록 후 즉시
+   *  다음 문항으로(IN_PROGRESS 유지). 기존 전이(showFeedback/nextItem)는 불변 —
+   *  daily/unit 경로 하위 호환. 마지막 문항이면 answered만 올라가고 러너가
+   *  일괄 제출(submit-all)로 넘어간다. */
+  advanceBulk: () =>
+    set((state) => ({
+      answered: state.answered + 1,
+      currentIndex: Math.min(state.currentIndex + 1, Math.max(state.items.length - 1, 0)),
+      answerState: null,
+      status: SESSION_STATUS.IN_PROGRESS,
+    })),
+
   /** FEEDBACK → 다음 문항 IN_PROGRESS (마지막 문항이면 페이지가 complete를 호출) */
   nextItem: () => {
     const { currentIndex, items } = get();

@@ -63,10 +63,10 @@ class TestSeedSchema:
     def test_S8_AC_24건_이상(self):
         assert len(SEED_ITEMS) >= 24
 
-    def test_R3_R7_시드_증보_49건(self):
-        """R3~R5 증보 47건 + R7 배치고사 커버리지 보강 2건(air_mass×adult,
-        docs/data/PLACEMENT_COVERAGE_R7.md §5) = 49건."""
-        assert len(SEED_ITEMS) == 49
+    def test_R3_R7_시드_증보_53건(self):
+        """R3~R5 증보 47건 + R7-01 배치 커버리지 보강 2건(§5)
+        + R7-02 배치 취약 셀 보강 4건(docs/data/PLACEMENT_COVERAGE_R7.md §6.3) = 53건."""
+        assert len(SEED_ITEMS) == 53
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS

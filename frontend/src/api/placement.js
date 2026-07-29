@@ -18,3 +18,13 @@ export async function startPlacement() {
   const res = await client.post('/onboarding/placement/start');
   return res.data;
 }
+
+// POST /onboarding/placement/submit-all (R7-02 S1)
+//   body {answers: [{quiz_id, answer, elapsed_sec?}]}
+//   → {results: [{quiz_id, is_correct}], progress: {answered, total}}
+//   일괄 채점 — 이미 채점된 로그는 서버가 멱등 스킵(기존 결과 반환).
+//   피드백 텍스트 없음(진단은 문항별 해설 없이 빠르게 진행).
+export async function submitPlacementAll(answers) {
+  const res = await client.post('/onboarding/placement/submit-all', { answers });
+  return res.data;
+}

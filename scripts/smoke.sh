@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # =============================================================================
 # WeatherMind DB 왕복 스모크 — R7-01 S0 (docs/team/SPRINT_R7_01.md §3.4)
+#                              + R7-02 (submit-all 경로·유닛 세션, SPRINT_R7_02.md)
 #
 # 사용법:
-#   scripts/smoke.sh             # 전체 단계 순차 실행 (1~9)
+#   scripts/smoke.sh             # 전체 단계 순차 실행 (1~10)
 #   scripts/smoke.sh <단계>      # 특정 단계만: up | migrate | seed | register |
-#                                #   theta | rls | roundtrip | fallback | placement
+#                                #   theta | rls | roundtrip | fallback |
+#                                #   placement | unit
 #                                # (register 이후 단계는 필요 시 스스로 가입한다)
 #
-# 단계 (§3.4 계약 — 9단계 placement는 R7 웨이브 2에서 추가):
+# 단계 (§3.4 계약 — 9 placement는 R7-01, 10 unit과 9의 submit-all 전환은 R7-02):
 #   1 up        docker compose up -d --build postgres redis backend ai-worker
 #               → /health 폴링 (8000·8001, 첫 빌드는 오래 걸리므로 타임아웃 넉넉히)
 #   2 migrate   alembic upgrade head → current == 0007_placement (head)
@@ -25,11 +27,17 @@
 #   8 fallback  compose stop ai-worker → register 201 + θ 0행(placement 폴백이
 #               조용히 통과, 가입 커밋 유지) → compose start ai-worker
 #   9 placement 새 유저 register → POST /onboarding/placement/start (200, 6문항)
-#               → 6문항 answer(구름 미소모 — /progress/me clouds 불변)
+#               → 채점 필드(is_correct) 주입 submit-all 1건 → 422 거부
+#                 (extra='forbid' — 채점 권위 서버 소유 실검증, R7-02 §3.1)
+#               → POST /onboarding/placement/submit-all (answers 6건 일괄 채점,
+#                 구름 미소모 — /progress/me clouds 불변)
 #               → POST /session/{id}/complete (abilities에 level_label,
 #                 placement_done=true) → psql: placement_completed_at NOT NULL
 #               + θ가 사전값(0.0)에서 이동 → start 재호출 409
 #               PLACEMENT_ALREADY_DONE → GET /progress/me placement_done=true
+#  10 unit      GET /curriculum → 전 유닛 status 존재·'current' 정확히 1개
+#               → 첫 유닛 POST /curriculum/units/{slug}/session 200 + 문항 ≥1
+#               (θ 풀 확장 경로 실기동 — R7-02 S3·S4)
 #
 # 멱등성: 스모크 유저는 매 실행 고유 이메일(smoke+epoch@example.com), 시드는
 # upsert, RLS 롤 생성은 IF NOT EXISTS. 볼륨 파괴 명령(down -v 등)은 없다.
@@ -421,8 +429,10 @@ step_fallback() {
 }
 
 # ── 9. placement: 배치고사 전체 왕복 → 초기 θ 배정 (R7-01 §3.1·§3.3) ────────
+#      R7-02: 문항별 answer 루프 → submit-all 일괄 채점 경로로 전환 + 채점
+#      필드 주입 422 가드 실검증. 기존 검증(구름 불변·θ 이동·409 등)은 유지.
 step_placement() {
-  banner "9 placement: register → start → answer x6 → complete → θ 이동 → 409"
+  banner "9 placement: register → start → 주입 422 → submit-all → complete → θ 이동 → 409"
 
   # 새 유저 — 배치 미완료·구름 만렙 상태에서 시작해야 하므로 공용 스모크
   # 유저를 쓰지 않는다 (7단계가 이미 구름을 소모했을 수 있다).
@@ -462,23 +472,45 @@ step_placement() {
     return 0
   fi
 
-  # 6문항 전부 answer — placement 풀은 board·live 슬롯 제외라 문자열 답 제출 가능
-  local quiz_ids qid answered=0
-  quiz_ids="$("$PYTHON" -c '
+  # 채점 필드 주입 시도 → 422 (R7-02 §3.1: extra='forbid' — 채점 권위 서버 소유)
+  local first_qid inj_out inj_http
+  first_qid="$("$PYTHON" -c 'import json,sys; print(json.load(sys.stdin)["items"][0]["quiz_id"])' <<<"$body")"
+  inj_out="$(http_post "$API/api/v1/onboarding/placement/submit-all" \
+    "{\"answers\":[{\"quiz_id\":\"$first_qid\",\"answer\":\"smoke\",\"is_correct\":true}]}" "$token")"
+  inj_http="$(tail -n1 <<<"$inj_out")"
+  if [ "$inj_http" != "422" ]; then
+    record "9 placement" "FAIL" "is_correct 주입 기대 422, 실제 http=$inj_http: $(sed '$d' <<<"$inj_out" | head -c200)"
+    return 0
+  fi
+  echo "  is_correct 주입 시도 422 거부 확인 (채점 권위 가드)"
+
+  # submit-all — answers 6건 일괄 채점 (R7-02 §3.1, placement — 구름 미소모여야 함)
+  local submit_json sub_body sub_check
+  submit_json="$("$PYTHON" -c '
 import json, sys
-print("\n".join(i["quiz_id"] for i in json.load(sys.stdin)["items"]))
+items = json.load(sys.stdin)["items"]
+print(json.dumps({"answers": [{"quiz_id": i["quiz_id"], "answer": "smoke"} for i in items]}))
 ' <<<"$body")"
-  while IFS= read -r qid; do
-    out="$(http_post "$API/api/v1/session/$session_id/answer" \
-      "{\"quiz_id\":\"$qid\",\"answer\":\"smoke\"}" "$token")"
-    http="$(tail -n1 <<<"$out")"
-    if [ "$http" != "200" ]; then
-      record "9 placement" "FAIL" "answer($qid) http=$http: $(sed '$d' <<<"$out" | head -c200)"
-      return 0
-    fi
-    answered=$((answered + 1))
-  done <<<"$quiz_ids"
-  echo "  answer x$answered 제출 (placement — 구름 미소모여야 함)"
+  out="$(http_post "$API/api/v1/onboarding/placement/submit-all" "$submit_json" "$token")"
+  http="$(tail -n1 <<<"$out")"
+  sub_body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "200" ]; then
+    record "9 placement" "FAIL" "submit-all http=$http: $(head -c200 <<<"$sub_body")"
+    return 0
+  fi
+  sub_check="$("$PYTHON" -c '
+import json, sys
+d = json.load(sys.stdin)
+n = len(d.get("results") or [])
+p = d.get("progress") or {}
+ok = n == 6 and p.get("answered") == 6 and p.get("total") == 6
+print("ok" if ok else "bad: results=%d progress=%s" % (n, p))
+' <<<"$sub_body")"
+  if [ "$sub_check" != "ok" ]; then
+    record "9 placement" "FAIL" "submit-all 응답 계약 위반 — $sub_check"
+    return 0
+  fi
+  echo "  submit-all 일괄 채점 OK (results 6건, progress 6/6)"
 
   # 구름 잔량 (after) — 불변 확인
   out="$(http_get "$API/api/v1/progress/me" "$token")"
@@ -562,7 +594,59 @@ print("ok" if ok else "bad: placement_done=%s abilities=%d" % (done, len(ab)))
   fi
   echo "  /progress/me placement_done=true 확인"
 
-  record "9 placement" "OK" "6문항 왕복·구름 불변($clouds_before)·max|θ|=$theta_max 이동·409·me=true"
+  record "9 placement" "OK" "주입 422·submit-all 6건·구름 불변($clouds_before)·max|θ|=$theta_max 이동·409·me=true"
+}
+
+# ── 10. unit: 커리큘럼 status → 첫 유닛 세션 발급 (R7-02 S3·S4) ─────────────
+step_unit() {
+  banner "10 unit: GET /curriculum(status·current 1개) → 첫 유닛 세션 발급"
+  ensure_user || { record "10 unit" "FAIL" "스모크 유저 가입 실패"; return 0; }
+
+  # GET /curriculum — 전 유닛 status 존재(4종) + 'current' 정확히 1개
+  local out http body tree_check first_slug
+  out="$(http_get "$API/api/v1/curriculum" "$SMOKE_TOKEN")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "200" ]; then
+    record "10 unit" "FAIL" "GET /curriculum http=$http: $(head -c200 <<<"$body")"
+    return 0
+  fi
+  tree_check="$("$PYTHON" -c '
+import json, sys
+d = json.load(sys.stdin)
+units = [u for s in d["sections"] for u in s["units"]]
+allowed = {"cleared", "current", "unlocked", "locked"}
+bad = [u["id"] for u in units if u.get("status") not in allowed]
+cur = [u["id"] for u in units if u.get("status") == "current"]
+if not units or bad or len(cur) != 1:
+    print("bad: units=%d status위반=%s current=%s" % (len(units), bad, cur))
+else:
+    print("ok|%s|%d" % (units[0]["id"], len(units)))
+' <<<"$body")"
+  if [[ "$tree_check" != ok\|* ]]; then
+    record "10 unit" "FAIL" "커리큘럼 status 계약 위반 — $tree_check"
+    return 0
+  fi
+  local n_units
+  IFS='|' read -r _ first_slug n_units <<<"$tree_check"
+  echo "  유닛 ${n_units}개 전부 status 보유 · current 정확히 1개 · 첫 유닛=$first_slug"
+
+  # 첫 유닛(무 prereq — 항상 열림) 세션 발급 → 200 + 문항 ≥1 (θ 풀 확장 실기동)
+  out="$(http_post "$API/api/v1/curriculum/units/$first_slug/session" "{}" "$SMOKE_TOKEN")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "200" ]; then
+    record "10 unit" "FAIL" "유닛 세션 발급 http=$http: $(head -c200 <<<"$body")"
+    return 0
+  fi
+  local n_items
+  n_items="$("$PYTHON" -c 'import json,sys; print(len(json.load(sys.stdin)["items"]))' <<<"$body")"
+  echo "  유닛 세션 발급 OK (items=$n_items)"
+  if [ "$n_items" -lt 1 ] 2>/dev/null; then
+    record "10 unit" "FAIL" "유닛 세션 문항 0건 (θ 풀 확장 경로 확인 필요)"
+    return 0
+  fi
+  record "10 unit" "OK" "status 4종·current 1개·유닛($first_slug) 세션 items=$n_items"
 }
 
 # ── 실행 ─────────────────────────────────────────────────────────────────────
@@ -577,6 +661,7 @@ case "$STEP" in
   roundtrip) step_roundtrip ;;
   fallback)  step_fallback ;;
   placement) step_placement ;;
+  unit)      step_unit ;;
   all)
     step_up
     if [ "$FAILED" -ne 0 ]; then
@@ -591,10 +676,11 @@ case "$STEP" in
       step_roundtrip
       step_fallback
       step_placement
+      step_unit
     fi
     ;;
   *)
-    echo "사용법: scripts/smoke.sh [up|migrate|seed|register|theta|rls|roundtrip|fallback|placement]" >&2
+    echo "사용법: scripts/smoke.sh [up|migrate|seed|register|theta|rls|roundtrip|fallback|placement|unit]" >&2
     exit 2
     ;;
 esac

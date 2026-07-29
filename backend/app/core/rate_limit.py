@@ -24,6 +24,9 @@ from app.core.security import JWTError, decode_token
 LIMIT_AUTH = "5/minute"      # 로그인·가입 (IP 기준)
 LIMIT_TODAY = "10/minute"    # 오늘의 세션·퀴즈 발급 (유저 기준)
 LIMIT_ANSWER = "30/minute"   # 답안 제출 계열 (유저 기준)
+# 배치고사 일괄 제출 (유저 기준) — 요청 1건이 세션 전체를 채점하므로 문항별
+# LIMIT_ANSWER가 아니라 발급 계열(LIMIT_TODAY)급으로 묶는다 (R7-02 §3.1).
+LIMIT_SUBMIT_ALL = "10/minute"
 
 
 def client_ip_key(request: Request) -> str:

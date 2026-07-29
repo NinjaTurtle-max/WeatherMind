@@ -149,6 +149,23 @@ backend **490 passed** + ai-worker **86 passed + 1 skipped** = **576 통과 / 1 
 배치고사 전체 왕복(6문항·구름 미소모·초기 θ 배정·409·progress 노출).
 **UI 흐름만 수기 잔존** → INTEGRATION_CHECKLIST.md PART C(§17~§19).
 
+## C-2. R7-02 갱신 (2026-07-29, 통합 웨이브 2 — chore/r7-14-integration)
+
+backend **568 passed** + ai-worker **88 passed + 5 skipped**. 추가 커버리지:
+
+| 계약 | 테스트 파일 | 건수 |
+|---|---|---|
+| §3.1 submit-all 일괄 채점 — 멱등 스킵·채점 권위(extra='forbid')·404·레이트리밋·rag 타임아웃 10s | backend/test_placement_bulk.py | 17 |
+| §3.2 신고 그룹별 서로소 배치 — 쌍별 교집합 0·배합비·결정성 | backend/test_placement.py (확장) | 36 |
+| §3.3 θ→유닛 세션 풀 — daily 풀 로직 재사용·콜드스타트 불변 | backend/test_unit_pool_theta.py | 5 |
+| §3.4 선해제·status — unlock_floor·placement_unlock_floor·current 전역 1개 | backend/test_curriculum_tree.py (확장) | 39 |
+| §3.5 보드 난이도 라벨·θ 인접 정렬 | backend/test_board_difficulty.py | 17 |
+| §3.7 체인·핸들·클라이언트 캐시 | ai-worker/test_chain_cache.py | 6 (2+4 LLM 의존 skip) |
+| §3.8 시드 53건(취약 셀 4건 보강) | backend/test_seed_contract.py (계약 갱신) | — |
+
+스모크는 1~**10**단계로 확장(9 submit-all 전환 + 채점 주입 422 가드,
+10 유닛 세션·커리큘럼 status) — RUNBOOK §6. UI 수기는 INTEGRATION_CHECKLIST §20.
+
 ## 4. 실행 방법·환경
 
 ```bash

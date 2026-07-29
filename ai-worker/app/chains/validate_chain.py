@@ -692,6 +692,29 @@ def _parse_llm_output(raw: str) -> LLMValidationResult:
     return LLMValidationResult(**extract_json_object(raw))
 
 
+# (model, api_key, temperature) → ChatGoogleGenerativeAI 캐시 (R7-02 S7 지연 완화).
+# langchain 의존성 부재 환경에서도 모듈 임포트가 깨지지 않도록 lru_cache 대신
+# 지연 임포트를 유지하는 모듈 전역 dict를 쓴다. 성공한 인스턴스만 캐시하므로
+# 생성 실패 시 llm_skipped 폴백 동작은 기존과 동일하다.
+_llm_cache: dict[tuple, object] = {}
+
+
+def _cached_validate_llm(temperature: float):
+    """settings 기준으로 검증용 Gemini 클라이언트를 캐시에서 얻는다 (지연 임포트)."""
+    from langchain_google_genai import ChatGoogleGenerativeAI
+
+    key = (settings.GEMINI_MODEL, settings.GEMINI_API_KEY, temperature)
+    llm = _llm_cache.get(key)
+    if llm is None:
+        llm = ChatGoogleGenerativeAI(
+            model=settings.GEMINI_MODEL,
+            google_api_key=settings.GEMINI_API_KEY,
+            temperature=temperature,
+        )
+        _llm_cache[key] = llm
+    return llm
+
+
 def run_llm_checks(question: dict, concept_tag: str, level_group: str) -> list[dict]:
     """Gemini로 정답 유일성·보기 모호성·concept_tag 부합을 판정한다.
 
@@ -702,7 +725,6 @@ def run_llm_checks(question: dict, concept_tag: str, level_group: str) -> list[d
     from langchain_core.messages import HumanMessage, SystemMessage
     from langchain_core.output_parsers import StrOutputParser
     from langchain_core.runnables import RunnableLambda
-    from langchain_google_genai import ChatGoogleGenerativeAI
 
     def _build_messages(inputs: dict) -> list:
         payload = {
@@ -728,11 +750,7 @@ def run_llm_checks(question: dict, concept_tag: str, level_group: str) -> list[d
     last_error: Exception | None = None
     for attempt, temperature in enumerate((0.2, 0.0), start=1):
         try:
-            llm = ChatGoogleGenerativeAI(
-                model=settings.GEMINI_MODEL,
-                google_api_key=settings.GEMINI_API_KEY,
-                temperature=temperature,
-            )
+            llm = _cached_validate_llm(temperature)
             chain = RunnableLambda(_build_messages) | llm | StrOutputParser()
             result = _parse_llm_output(chain.invoke(inputs))
             break
