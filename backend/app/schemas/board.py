@@ -11,11 +11,16 @@ from pydantic import BaseModel
 
 
 class BoardPuzzle(BaseModel):
-    """GET /puzzles 항목 — active board 문항 + cleared 여부."""
+    """GET /puzzles 항목 — active board 문항 + cleared 여부 + 난이도 라벨.
+
+    difficulty: 1(쉬움)~3(어려움) — routers.board.board_difficulty가 template_json
+    (mode·time_limit_sec·palette)과 level_group에서 산출(R7-02 §3.5). 표시 전용
+    additive 필드이며 잠금 없음(전 퍼즐 개방 유지)."""
 
     content_item_id: UUID
     template_json: dict[str, Any]
     cleared: bool
+    difficulty: int
 
 
 class BoardAttemptRequest(BaseModel):

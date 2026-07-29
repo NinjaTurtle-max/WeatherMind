@@ -5,6 +5,12 @@ level_group의 인접 그룹 분산)로 6문항을 뽑아 mode='placement' 세�
 완료 시 응답을 IRT 형식으로 조립해 ai-worker placement(사전+응답 결합 EAP)로
 개인화된 초기 θ를 배정한다.
 
+서로소 배치(R7-02 §3.2): 신고 그룹이 달라도 같은 문항이 겹치지 않도록
+(1) 목표 그룹 시퀀스를 신고 그룹별로 회전(k = 그룹 순위×2 % size)해 개념→목표
+그룹 매핑을 분산하고, (2) 셀((개념, 그룹) 버킷) 안에서도 그룹 순위 오프셋
+(rank % len)으로 서로 다른 문항을 집게 한다. 실 시드 기준 세 신고 그룹의 픽이
+쌍별 교집합 0 — test_placement의 실 시드 계약 테스트가 감시한다.
+
 구조적 결정 (session_service의 순수/결합 분리 관례 답습):
 - 배합(plan_placement_picks)·응답 조립(assemble_placement_responses)은 DB 의존이
   없는 순수 함수 — pytest가 DB 없이 검증한다 (TEAM_PROCESS §1.2).
@@ -44,7 +50,7 @@ MODE_PLACEMENT = "placement"
 # 배치고사 문항 수 계약(§3.1) — 기본값은 settings(env 튜닝). 6 = CONCEPT_TAGS 6개념당 1.
 PLACEMENT_SIZE = settings.PLACEMENT_SIZE
 
-# level_group 저작 순서(난이도 오름차순) — 교차 배치·결정적 폴백의 순회 기준.
+# level_group 저작 순서(난이도 오름차순) — 교차 배치·서로소 회전·결정적 폴백의 순회 기준.
 LEVEL_GROUPS: tuple[str, ...] = ("elementary", "middle_high", "adult")
 
 # 신고 그룹 → 교차 배치 대상(인접 그룹 포함, 난이도 오름차순). §3.1
@@ -98,7 +104,7 @@ def _attr(item: Any, name: str) -> Any:
 
 
 def _group_rank(group: str) -> int:
-    """level_group 정렬 키 (미지 그룹은 맨 뒤)."""
+    """level_group 정렬 키이자 서로소 배치의 회전·오프셋 순위 (미지 그룹은 맨 뒤)."""
     return LEVEL_GROUPS.index(group) if group in LEVEL_GROUPS else len(LEVEL_GROUPS)
 
 
@@ -106,7 +112,8 @@ def target_group_sequence(level_group: str, size: int) -> list[str]:
     """size개 슬롯의 목표 level_group 시퀀스 — 인접 그룹 교차 배치 (§3.1).
 
     인접 그룹(ADJACENT_GROUPS)에 균등 분배하고, 나머지는 신고 그룹 우선으로
-    배분한다(결정적). 시퀀스는 난이도 오름차순으로 나열한다.
+    배분한다(결정적). 시퀀스는 난이도 오름차순으로 나열한다 — 소비자
+    (plan_placement_picks)가 신고 그룹별 회전을 얹는다(§3.2 서로소 배치).
     예: middle_high·6 → [elementary×2, middle_high×2, adult×2],
         elementary·6 → [elementary×3, middle_high×3].
     """
@@ -125,16 +132,21 @@ def plan_placement_picks(
     size: int | None = None,
     concept_tags: Sequence[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """배치고사 배합 — 개념 커버리지 × 난이도 교차 배치 (순수 함수, §3.1).
+    """배치고사 배합 — 개념 커버리지 × 난이도 교차 × 서로소 배치 (순수 함수, §3.1·§3.2).
 
     candidates: 후보 문항(concept_tag·level_group·question_type·uses_live_slots
     속성 — dict/ORM 겸용). 필터·정렬을 내부에서 수행하므로 입력 순서와 무관하게
-    결정적이다(정렬 키: 그룹 난이도 순 → str(id)).
+    결정적이다(정렬 키: 그룹 난이도 순 → (question_type, str(id)) — question_type
+    1차 키가 콘텐츠 기반이라 DB 재적재로 id(UUID)가 바뀌어도 셀 내 순서가 유지된다).
 
     규칙:
     - question_type != 'board' 그리고 uses_live_slots == false 만 선발.
     - 개념당 1문항 × size개 (size > 개념 수면 개념을 라운드로빈 재순회).
-    - 각 슬롯의 목표 그룹은 target_group_sequence — 신고 그룹 인접 교차 배치.
+    - 각 슬롯의 목표 그룹은 target_group_sequence를 신고 그룹별로
+      k = _group_rank(level_group)*2 % size 만큼 회전한 시퀀스 — 신고 그룹이
+      달라지면 개념→목표 그룹 매핑이 어긋나 그룹 간 픽이 서로소가 된다(§3.2).
+    - 셀 내 선택도 그룹 순위 오프셋(rank % len(bucket))으로 — 두 신고 그룹이
+      같은 셀을 겨냥해도 서로 다른 문항을 집는다.
     - 목표 그룹에 그 개념 문항이 없으면 신고 그룹 폴백, 그래도 없으면 남은 그룹을
       난이도 오름차순으로 폴백(개념 커버리지 > 그룹 배치 우선순위).
       개념에 문항이 전혀 없으면 그 슬롯은 생략된다(size 미만 반환 가능).
@@ -143,8 +155,9 @@ def plan_placement_picks(
     """
     size = size if size is not None else PLACEMENT_SIZE
     concepts = list(concept_tags or weatherbrain_service.CONCEPT_TAGS)
+    rank = _group_rank(level_group)
 
-    # (concept, group) 버킷 — 결정적 소비 순서로 정렬
+    # (concept, group) 버킷 — 결정적 소비 순서로 정렬(콘텐츠 기반 키)
     buckets: dict[tuple[str, str], list[Any]] = defaultdict(list)
     for item in candidates:
         if _attr(item, "question_type") == "board":
@@ -154,13 +167,19 @@ def plan_placement_picks(
         key = (_attr(item, "concept_tag"), _attr(item, "level_group"))
         buckets[key].append(item)
     for bucket in buckets.values():
-        bucket.sort(key=lambda it: str(_attr(it, "id")))
+        bucket.sort(key=lambda it: (_attr(it, "question_type"), str(_attr(it, "id"))))
 
     def take(concept: str, group: str) -> Any | None:
         bucket = buckets.get((concept, group))
-        return bucket.pop(0) if bucket else None
+        # 신고 그룹 순위 오프셋 — 같은 셀에서도 그룹마다 다른 문항 (§3.2 서로소)
+        return bucket.pop(rank % len(bucket)) if bucket else None
 
     group_seq = target_group_sequence(level_group, size)
+    # 신고 그룹별 회전(§3.2) — 배합비(그룹별 문항 수)는 순열이라 불변이고,
+    # 개념(슬롯 위치 고정)→목표 그룹 매핑만 그룹마다 어긋난다.
+    if group_seq:
+        k = rank * 2 % len(group_seq)
+        group_seq = group_seq[k:] + group_seq[:k]
     picks: list[dict[str, Any]] = []
     for slot, target in enumerate(group_seq):
         concept = concepts[slot % len(concepts)]

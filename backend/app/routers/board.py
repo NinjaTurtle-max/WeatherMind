@@ -4,7 +4,7 @@
 퍼즐 판정은 서버가 board_state를 규칙 엔진으로 재판정하는 권위 채점이다(§3.4).
 
 | GET  | /rules                        | board_rules.json 원문(서버 캐시) — 프론트 로컬 미리보기 |
-| GET  | /puzzles                      | active board 문항 + cleared 여부 |
+| GET  | /puzzles                      | active board 문항 + cleared 여부 + 난이도(1~3), θ 근접 정렬 |
 | POST | /puzzles/{content_item_id}/attempt | {board_state} → {passed, phenomena, feedback, xp_earned} |
 
 - cleared = quiz_logs에 해당 content_item_id로 is_correct=true 로그가 존재.
@@ -30,7 +30,13 @@ from app.models.content_item import ContentItem
 from app.models.quiz_log import QuizLog
 from app.models.user import User
 from app.schemas.board import BoardAttemptRequest, BoardAttemptResult, BoardPuzzle
-from app.services import board_engine, energy_service, quest_service, xp_service
+from app.services import (
+    board_engine,
+    energy_service,
+    quest_service,
+    weatherbrain_service,
+    xp_service,
+)
 from app.services.answer_service import evaluate_board_answer
 from app.services.weather_api import KST
 from app.services.board_engine import BoardRulesError, BoardValidationError
@@ -113,6 +119,48 @@ async def get_rules(
         raise _rules_unavailable(exc)
 
 
+def board_difficulty(template_json: dict, level_group: str) -> int:
+    """보드 퍼즐 난이도 라벨 1(쉬움)~3(어려움) — R7-02 §3.5 (표시 전용, 잠금 없음).
+
+    규칙(순수 함수 — 가중은 시드 12건에서 1~3이 고루 나오도록 조정, 테스트 고정):
+    - 기본점: mode == "guided"(단계 안내) → 1, 그 외(goal_only 등 목표만 제시) → 2
+    - time_limit_sec 존재(양수) → +1 (시간 압박)
+    - palette 요소 3개 이상 → +1 (배치 조합 공간 확대)
+    - level_group == "adult" → +1 (서버측 유일 난이도 축 — content_items.level_group)
+    - 상한 3·하한 1 클램프
+    """
+    template = template_json or {}
+    score = 1 if template.get("mode") == "guided" else 2
+    if template.get("time_limit_sec"):
+        score += 1
+    palette = template.get("palette")
+    if isinstance(palette, (list, dict)) and len(palette) >= 3:
+        score += 1
+    if level_group == "adult":
+        score += 1
+    return max(1, min(3, score))
+
+
+def order_puzzles_for_theta(items: list, theta: float | None) -> list:
+    """퍼즐 목록을 |사전 b(level_group) − θ| 오름차순으로 정렬 (R7-02 §3.5).
+
+    사전 b는 weatherbrain_service.LEVEL_GROUP_ITEM_B(session_service 뱅크 풀
+    정렬과 동일 상수 — 단일 소유) 재사용. θ가 None(콜드스타트: 능력 미배정)이면
+    입력 순서(created_at) 그대로 반환하고, 동률도 입력 순서를 유지한다(안정 정렬).
+    잠금 없음 — 순서만 바꾸고 전 퍼즐을 노출한다.
+    """
+    if theta is None:
+        return list(items)
+
+    def gap(item) -> float:
+        b = weatherbrain_service.LEVEL_GROUP_ITEM_B.get(
+            item.level_group, weatherbrain_service.DEFAULT_ITEM_B
+        )
+        return abs(b - theta)
+
+    return sorted(items, key=gap)
+
+
 async def _cleared_item_ids(db: AsyncSession, user: User) -> set[UUID]:
     """유저가 클리어한(board 로그 is_correct=true) content_item_id 집합."""
     rows = (
@@ -136,8 +184,13 @@ async def list_puzzles(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_with_rls),
 ) -> list[BoardPuzzle]:
-    """active board 문항 목록 — template_json 전체 노출 + cleared 여부(§3.5)."""
-    items = (
+    """active board 문항 목록 — template_json 전체 + cleared + 난이도(R7-02 §3.5).
+
+    정렬: 저장된 θ(전 개념 가중 overall_theta)가 있으면 |사전 b(level_group) − θ|
+    오름차순(동률·콜드스타트는 created_at) — 내 수준에 맞는 퍼즐이 앞에 온다.
+    잠금 없음: 순서·라벨만 제공하고 전 퍼즐 개방을 유지한다(제품 결정).
+    """
+    items = list(
         (
             await db.execute(
                 select(ContentItem)
@@ -151,12 +204,17 @@ async def list_puzzles(
         .scalars()
         .all()
     )
+    abilities = await weatherbrain_service.load_abilities(db, user)
+    items = order_puzzles_for_theta(
+        items, weatherbrain_service.overall_theta(abilities)
+    )
     cleared = await _cleared_item_ids(db, user)
     return [
         BoardPuzzle(
             content_item_id=item.id,
             template_json=item.template_json or {},
             cleared=item.id in cleared,
+            difficulty=board_difficulty(item.template_json, item.level_group),
         )
         for item in items
     ]
