@@ -13,6 +13,7 @@ import logging
 import random
 import threading
 from datetime import date
+from functools import lru_cache
 from typing import Literal, Optional
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -152,14 +153,6 @@ FALLBACK_QUESTIONS: list[dict] = [
 
 
 # ── LLM 호출 ───────────────────────────────────────────────────────────────
-def _make_llm(temperature: float) -> ChatGoogleGenerativeAI:
-    return ChatGoogleGenerativeAI(
-        model=settings.GEMINI_MODEL,
-        google_api_key=settings.GEMINI_API_KEY,
-        temperature=temperature,
-    )
-
-
 def _build_messages(inputs: dict) -> list:
     """system prompt + few-shot + 이번 입력 데이터를 메시지로 구성한다."""
     input_data = {
@@ -176,9 +169,25 @@ def _build_messages(inputs: dict) -> list:
     return [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=human_text)]
 
 
+@lru_cache(maxsize=8)
+def _cached_chain(model: str, api_key: str, temperature: float):
+    """(model, api_key, temperature) 조합별 LCEL 체인 캐시.
+
+    시도 온도는 (0.7, 0.1) 2종뿐이므로 문항 생성마다 ChatGoogleGenerativeAI를
+    재생성하지 않는다(R7-02 S7 지연 완화). 생성 실패 예외는 캐시되지 않아
+    폴백 문제 세트 동작은 기존과 동일하다.
+    """
+    llm = ChatGoogleGenerativeAI(
+        model=model,
+        google_api_key=api_key,
+        temperature=temperature,
+    )
+    return RunnableLambda(_build_messages) | llm | StrOutputParser()
+
+
 def _build_chain(temperature: float):
-    """LCEL: 메시지 구성 → Gemini → 문자열."""
-    return RunnableLambda(_build_messages) | _make_llm(temperature) | StrOutputParser()
+    """LCEL: 메시지 구성 → Gemini → 문자열 (settings 기준 캐시 조회)."""
+    return _cached_chain(settings.GEMINI_MODEL, settings.GEMINI_API_KEY, temperature)
 
 
 def _parse_output(raw: str) -> QuizQuestion:
