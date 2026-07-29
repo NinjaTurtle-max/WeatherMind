@@ -62,9 +62,8 @@ async def create_unit_session(
             detail={"detail": "해당 유닛을 찾을 수 없습니다.", "code": "UNIT_NOT_FOUND"},
         )
 
-    # 잠금 판정: 선행 유닛 crowns>=1 필요 (§3.2)
-    progress = await curriculum_service.load_progress_by_unit(db, user)
-    if curriculum_service.is_locked(unit, progress):
+    # 잠금 판정: 선행 crowns>=1 또는 배치 선해제(§3.4) — 트리 노출과 동일 규칙
+    if await curriculum_service.is_unit_locked(db, user, unit):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
