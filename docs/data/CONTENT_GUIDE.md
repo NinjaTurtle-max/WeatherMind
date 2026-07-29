@@ -65,23 +65,25 @@
 - [ ] 학령별 어휘 기준(§3)을 지켰다
 - [ ] JSON 배열 전체가 파싱된다 (`python3 -m json.tool` 통과)
 
-## 5. 커버리지 현황 (2026-07-23 시드 v4, 총 49문항 — 자체 검증 스크립트 집계)
+## 5. 커버리지 현황 (2026-07-29 시드 v5, 총 53문항 — 자체 검증 스크립트 집계)
 
 > v3(R4-S5): 미니 미션 2·재현 퍼즐 2 = board 4건 추가(43→47). 상세 저작 규칙은 §10.
 > v4(R7-01 S4): 배치고사 커버리지 보강 — air_mass·adult 비-live 문항 2건 추가(47→49).
-> 감사 근거·매트릭스는 docs/data/PLACEMENT_COVERAGE_R7.md.
+> v5(R7-02 S8): 배치 취약 셀 보강 — air_mass·elem / anomaly·elem / pressure_front·adult /
+> typhoon·adult 비-live 문항 4건 추가(49→53).
+> 감사 근거·매트릭스는 docs/data/PLACEMENT_COVERAGE_R7.md(§6이 v5분).
 
 ### 태그 × 학령
 
 | concept_tag | elementary | middle_high | adult | 계 |
 |---|---|---|---|---|
-| pressure_front | 2 | 9 | 1 | 12 |
-| typhoon | 3 | 3 | 1 | 7 |
-| air_mass | 1 | 7 | 3 | 11 |
+| pressure_front | 2 | 9 | 2 | 13 |
+| typhoon | 3 | 3 | 2 | 8 |
+| air_mass | 2 | 7 | 3 | 12 |
 | heat_island | 2 | 3 | 1 | 6 |
 | co2_climate | 1 | 3 | 1 | 5 |
-| anomaly | 2 | 3 | 3 | 8 |
-| **계** | **11** | **28** | **10** | **49** |
+| anomaly | 3 | 3 | 3 | 9 |
+| **계** | **13** | **28** | **12** | **53** |
 
 > R2 QA 지적(adult 시드 부족, 3건) 반영: adult를 6태그 전부 **각 1건 이상**으로 보강(총 3→6).
 > v3에서 재현 퍼즐 2건이 anomaly·adult여서 adult 6→8, anomaly adult 1→3으로 늘었다.
@@ -91,13 +93,13 @@
 
 | concept_tag | mc | short | slider | board | match | ordering | cloze | 계 |
 |---|---|---|---|---|---|---|---|---|
-| pressure_front | 3 | 2 | 0 | 6 | 1 | 0 | 0 | 12 |
-| typhoon | 4 | 1 | 1 | 0 | 0 | 1 | 0 | 7 |
-| air_mass | 4 | 2 | 0 | 4 | 1 | 0 | 0 | 11 |
+| pressure_front | 3 | 2 | 0 | 6 | 1 | 1 | 0 | 13 |
+| typhoon | 4 | 1 | 1 | 0 | 1 | 1 | 0 | 8 |
+| air_mass | 4 | 3 | 0 | 4 | 1 | 0 | 0 | 12 |
 | heat_island | 4 | 0 | 1 | 0 | 0 | 0 | 1 | 6 |
 | co2_climate | 2 | 1 | 1 | 0 | 0 | 1 | 0 | 5 |
-| anomaly | 4 | 0 | 1 | 2 | 0 | 0 | 1 | 8 |
-| **계** | **21** | **6** | **4** | **12** | **2** | **2** | **2** | **49** |
+| anomaly | 4 | 0 | 1 | 2 | 0 | 0 | 2 | 9 |
+| **계** | **21** | **7** | **4** | **12** | **3** | **3** | **3** | **53** |
 
 ### 규칙 × 보드 퍼즐 (규칙마다 최소 1건 — R3-S7 AC)
 
@@ -255,24 +257,24 @@
 
 - **quiz 유닛**: 해당 `concept_tag`의 **비-board 문항**(quiz 세션이 서빙하는 유형: mc·short·slider·match·ordering·cloze)이 **최소 2건** 있어야 한다.
 - **board 유닛**: 해당 `concept_tag`의 **board 퍼즐(`question_type=="board"`)이 최소 1건** 있어야 한다. → board 유닛은 board 퍼즐이 실재하는 태그에만 배정한다.
-- 현재 `content_items.json`(49건)의 태그별 풀: board 퍼즐은 **pressure_front(6)·air_mass(4)·anomaly(2)** 에만 존재(typhoon·heat_island·co2_climate은 0). 따라서 board 유닛은 이 3태그로 한정된다. anomaly board 2건은 실화 재현 퍼즐(2018 폭염·2020 장마, §10.3)로 `도시와 기후` 섹션 주제와 정합한다.
+- 현재 `content_items.json`(53건)의 태그별 풀: board 퍼즐은 **pressure_front(6)·air_mass(4)·anomaly(2)** 에만 존재(typhoon·heat_island·co2_climate은 0). 따라서 board 유닛은 이 3태그로 한정된다. anomaly board 2건은 실화 재현 퍼즐(2018 폭염·2020 장마, §10.3)로 `도시와 기후` 섹션 주제와 정합한다.
 - 같은 `concept_tag`를 여러 quiz 유닛이 공유하면 문항 풀이 동일하다(pool = kind+concept_tag). 유닛 수 10~12는 태그 6종·board 3태그 제약상 일부 태그 재사용이 불가피하다 — v1 허용, 유닛은 개념 진행(기초→심화)으로 구분한다.
 
 ### 11.4 현재 유닛 구조 (2026-07-21, units.json v1 — 12유닛 4섹션)
 
 | 섹션 | # | id | kind | concept_tag | 선행 | 문항 풀 |
 |---|---|---|---|---|---|---|
-| 하늘 읽기 | 1 | read-sky-pressure | quiz | pressure_front | ∅(첫 유닛) | quiz 6 |
-| 하늘 읽기 | 2 | read-sky-fronts | quiz | pressure_front | read-sky-pressure | quiz 6 |
+| 하늘 읽기 | 1 | read-sky-pressure | quiz | pressure_front | ∅(첫 유닛) | quiz 7 |
+| 하늘 읽기 | 2 | read-sky-fronts | quiz | pressure_front | read-sky-pressure | quiz 7 |
 | 하늘 읽기 | 3 | read-sky-board | board | pressure_front | read-sky-fronts | board 6 |
-| 공기의 힘 | 1 | air-power-masses | quiz | air_mass | read-sky-board | quiz 7 |
-| 공기의 힘 | 2 | air-power-transform | quiz | air_mass | air-power-masses | quiz 7 |
+| 공기의 힘 | 1 | air-power-masses | quiz | air_mass | read-sky-board | quiz 8 |
+| 공기의 힘 | 2 | air-power-transform | quiz | air_mass | air-power-masses | quiz 8 |
 | 공기의 힘 | 3 | air-power-board | board | air_mass | air-power-transform | board 4 |
-| 큰 바람 | 1 | big-wind-birth | quiz | typhoon | air-power-board | quiz 7 |
-| 큰 바람 | 2 | big-wind-lifecycle | quiz | typhoon | big-wind-birth | quiz 7 |
+| 큰 바람 | 1 | big-wind-birth | quiz | typhoon | air-power-board | quiz 8 |
+| 큰 바람 | 2 | big-wind-lifecycle | quiz | typhoon | big-wind-birth | quiz 8 |
 | 도시와 기후 | 1 | city-heat-island | quiz | heat_island | big-wind-lifecycle | quiz 6 |
 | 도시와 기후 | 2 | city-greenhouse | quiz | co2_climate | city-heat-island | quiz 5 |
-| 도시와 기후 | 3 | city-anomaly | quiz | anomaly | city-greenhouse | quiz 6 |
+| 도시와 기후 | 3 | city-anomaly | quiz | anomaly | city-greenhouse | quiz 7 |
 | 도시와 기후 | 4 | city-anomaly-board | board | anomaly | city-anomaly | board 2 |
 
 ### 11.5 증보·검증 절차
