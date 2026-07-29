@@ -1,15 +1,20 @@
-"""배치고사(진단 퀴즈) 단위·계약 테스트 — 스프린트 R7-01 §3.1·§3.3·§3.5.
+"""배치고사(진단 퀴즈) 단위·계약 테스트 — 스프린트 R7-01 §3.1·§3.3·§3.5 + R7-02 §3.2.
 
 plan_placement_picks·assemble_placement_responses는 DB 의존이 없는 순수 함수라
-교차 배치·구멍(개념 결손) 폴백·board/live 제외·결정성·b 폴백 규칙을 DB 없이
-검증한다 (test_session_mix 관례). 계약 상수(PLACEMENT_SIZE=6, ai-worker 사전 b
-미러값)는 드리프트 감시 (test_r3_r5_contract·test_weatherbrain_contract 관례).
+교차 배치·서로소 회전·구멍(개념 결손) 폴백·board/live 제외·결정성·b 폴백 규칙을
+DB 없이 검증한다 (test_session_mix 관례). 계약 상수(PLACEMENT_SIZE=6, ai-worker
+사전 b 미러값)는 드리프트 감시 (test_r3_r5_contract·test_weatherbrain_contract 관례).
+서로소 AC는 실 시드(database/seed/content_items.json)를 직접 로드해 세 신고 그룹의
+픽이 쌍별 교집합 0임을 고정한다 (test_seed_contract의 실 시드 로드 관례).
 
 실행: backend 디렉토리에서 `python -m pytest tests/test_placement.py -q`.
 """
 import asyncio
+import itertools
+import json
 import re
 import uuid
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -74,12 +79,49 @@ class TestTargetGroupSequence:
 
 class TestPlanPlacementPicks:
     def test_6문항_개념당_1_교차_배치(self):
+        """배합비 계약: 개념당 1 + 그룹별 문항 수(2·2·2)는 회전과 무관하게 불변."""
         picks = ps.plan_placement_picks(full_bank(), "middle_high")
         assert len(picks) == 6
         assert sorted(concepts_of(picks)) == sorted(CONCEPT_TAGS)  # 개념당 1
-        assert groups_of(picks) == (
-            ["elementary"] * 2 + ["middle_high"] * 2 + ["adult"] * 2
+        assert Counter(groups_of(picks)) == {
+            "elementary": 2, "middle_high": 2, "adult": 2,
+        }
+
+    def test_신고_그룹별_회전_시퀀스(self):
+        """§3.2 서로소 회전: k = 그룹 순위×2 % 6 → elementary 0·middle_high 2·
+        adult 4 만큼 목표 시퀀스가 회전한다(개념 슬롯은 고정)."""
+        expected = {
+            "elementary": ["elementary"] * 3 + ["middle_high"] * 3,  # k=0
+            "middle_high": ["middle_high"] * 2 + ["adult"] * 2 + ["elementary"] * 2,  # k=2
+            "adult": ["adult"] * 2 + ["middle_high"] * 3 + ["adult"],  # k=4
+        }
+        for group, seq in expected.items():
+            picks = ps.plan_placement_picks(full_bank(), group)
+            assert groups_of(picks) == seq, group
+
+    def test_같은_셀을_겨냥해도_그룹마다_다른_문항(self):
+        """§3.2: 두 신고 그룹이 같은 (개념, 그룹) 셀을 겨냥해도 셀 내 오프셋
+        (rank % len)이 달라 다른 문항을 집는다 — 셀 깊이 3(실 시드의 공유 셀
+        middle_high 깊이와 동일)이면 세 그룹 전부 서로소."""
+        bank = full_bank(per_group=3)
+        picks = {
+            g: {p["item"]["id"] for p in ps.plan_placement_picks(bank, g)}
+            for g in ps.LEVEL_GROUPS
+        }
+        for a, b in itertools.combinations(ps.LEVEL_GROUPS, 2):
+            assert not picks[a] & picks[b], f"{a}∩{b}: {picks[a] & picks[b]}"
+
+    def test_셀_정렬은_question_type_우선_콘텐츠_기반(self):
+        """셀 내 순서 1차 키는 question_type — id(UUID)가 재적재로 바뀌어도
+        선발이 유지되는 콘텐츠 기반 키 (§3.2)."""
+        bank = [
+            make_item("air_mass", "elementary", "z-먼저", question_type="cloze"),
+            make_item("air_mass", "elementary", "a-나중", question_type="slider"),
+        ]
+        picks = ps.plan_placement_picks(
+            bank, "elementary", size=1, concept_tags=["air_mass"]
         )
+        assert picks[0]["item"]["id"] == "z-먼저"  # cloze < slider (id 역순이어도)
 
     def test_board와_live_슬롯_문항_제외(self):
         bank = [
@@ -99,13 +141,12 @@ class TestPlanPlacementPicks:
         assert all(not p["item"]["uses_live_slots"] for p in picks)
 
     def test_목표_그룹에_없으면_신고_그룹_폴백(self):
-        # adult 문항이 없는 뱅크 — middle_high 신고면 adult 슬롯 2개가 신고 그룹으로
+        # adult 문항이 없는 뱅크 — middle_high 신고면 adult 슬롯 2개(회전 시퀀스의
+        # 3·4번째)가 신고 그룹으로 폴백
         bank = full_bank(groups=("elementary", "middle_high"))
         picks = ps.plan_placement_picks(bank, "middle_high")
         assert len(picks) == 6
-        assert groups_of(picks) == (
-            ["elementary"] * 2 + ["middle_high"] * 2 + ["middle_high"] * 2
-        )
+        assert groups_of(picks) == ["middle_high"] * 4 + ["elementary"] * 2
 
     def test_개념에_문항이_전혀_없으면_슬롯_생략(self):
         # air_mass 개념 결손 — 나머지 5개념만 선발 (구멍은 생략, 다른 개념 중복 금지)
@@ -128,6 +169,78 @@ class TestPlanPlacementPicks:
         picks = ps.plan_placement_picks(full_bank(per_group=1), "elementary")
         ids = [p["item"]["id"] for p in picks]
         assert len(ids) == len(set(ids))
+
+
+SEED_PATH = (
+    Path(__file__).resolve().parents[2] / "database" / "seed" / "content_items.json"
+)
+
+
+def load_seed_candidates() -> list[dict]:
+    """실 시드를 plan_placement_picks 후보 형식으로 로드 (id는 시드 순번 —
+    셀 정렬 1차 키가 question_type(콘텐츠 기반)이라 실 UUID와 무관하게 대표적)."""
+    entries = json.loads(SEED_PATH.read_text(encoding="utf-8"))
+    return [
+        make_item(
+            e["concept_tag"],
+            e["level_group"],
+            f"seed-{i:02d}",
+            question_type=e["question_type"],
+            live=bool(e.get("uses_live_slots")),
+        )
+        for i, e in enumerate(entries)
+    ]
+
+
+class TestDisjointPicksRealSeed:
+    """AC(R7-02 §3.2): 실 시드 기준 세 신고 그룹의 픽이 쌍별 교집합 0.
+
+    database/seed/content_items.json을 직접 로드해 검증한다(test_seed_contract의
+    실 시드 로드 관례). 시드 증보로 셀 구성이 바뀌어 서로소가 깨지면 여기서 잡힌다.
+    """
+
+    @pytest.fixture
+    def picks_by_group(self):
+        candidates = load_seed_candidates()
+        return {g: ps.plan_placement_picks(candidates, g) for g in ps.LEVEL_GROUPS}
+
+    def test_세_그룹_쌍별_교집합_0(self, picks_by_group):
+        ids = {
+            g: {p["item"]["id"] for p in picks}
+            for g, picks in picks_by_group.items()
+        }
+        for a, b in itertools.combinations(ps.LEVEL_GROUPS, 2):
+            assert not ids[a] & ids[b], f"{a}∩{b} 겹침: {sorted(ids[a] & ids[b])}"
+
+    def test_그룹별_6문항_개념_커버리지(self, picks_by_group):
+        for group, picks in picks_by_group.items():
+            assert len(picks) == 6, group
+            assert sorted(concepts_of(picks)) == sorted(CONCEPT_TAGS), group
+
+    def test_그룹별_난이도_배합비_불변(self, picks_by_group):
+        """§3.2 불변: elementary 3E/3M · middle_high 2E/2M/2A · adult 3M/3A."""
+        assert Counter(groups_of(picks_by_group["elementary"])) == {
+            "elementary": 3, "middle_high": 3,
+        }
+        assert Counter(groups_of(picks_by_group["middle_high"])) == {
+            "elementary": 2, "middle_high": 2, "adult": 2,
+        }
+        assert Counter(groups_of(picks_by_group["adult"])) == {
+            "middle_high": 3, "adult": 3,
+        }
+
+    def test_board_live_미선발(self, picks_by_group):
+        for picks in picks_by_group.values():
+            assert all(p["item"]["question_type"] != "board" for p in picks)
+            assert all(not p["item"]["uses_live_slots"] for p in picks)
+
+    def test_결정성_입력_순서와_무관(self, picks_by_group):
+        candidates = load_seed_candidates()
+        for group in ps.LEVEL_GROUPS:
+            rerun = ps.plan_placement_picks(list(reversed(candidates)), group)
+            assert [p["item"]["id"] for p in rerun] == [
+                p["item"]["id"] for p in picks_by_group[group]
+            ], group
 
 
 class TestAssemblePlacementResponses:
