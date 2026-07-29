@@ -543,9 +543,12 @@ function ensurePlacementSession() {
 }
 
 // ── 보드 연습 퍼즐 (§3.5 /board/puzzles) ──
+// difficulty 1|2|3 (R7-02 S5): 목록은 서버가 θ 인접 정렬로 내려준다 — 목은
+// 저작 순서를 그대로 반환(비단조 난이도로 클라이언트가 재정렬하지 않음을 검증).
 const BOARD_PUZZLES = [
   {
     content_item_id: 'b0000001-0000-4000-8000-000000000001',
+    difficulty: 1,
     template_json: {
       question_text: '수도권에 소나기를 내려 보세요 (미니 미션)',
       mode: 'guided',
@@ -563,6 +566,7 @@ const BOARD_PUZZLES = [
   },
   {
     content_item_id: 'b0000002-0000-4000-8000-000000000002',
+    difficulty: 2,
     template_json: {
       question_text: '동해안에 폭염을 만들어 보세요',
       mode: 'goal_only',
@@ -574,6 +578,7 @@ const BOARD_PUZZLES = [
   },
   {
     content_item_id: 'b0000003-0000-4000-8000-000000000003',
+    difficulty: 1,
     template_json: {
       question_text: '서해안에 눈을 내려 보세요',
       mode: 'goal_only',
@@ -586,6 +591,7 @@ const BOARD_PUZZLES = [
   {
     // 재현 퍼즐(§3.5): based_on 실제 사건 초기조건 — anomaly 태그 필수
     content_item_id: 'b0000004-0000-4000-8000-000000000004',
+    difficulty: 3,
     concept_tag: 'anomaly',
     template_json: {
       question_text: '2018년 기록적 폭염을 재현해 보세요',
@@ -1050,6 +1056,7 @@ const routes = {
     200,
     BOARD_PUZZLES.map((p) => ({
       content_item_id: p.content_item_id,
+      difficulty: p.difficulty ?? 1, // R7-02 S5: 난이도 1|2|3
       template_json: p.template_json,
       cleared: clearedBoardPuzzles.has(p.content_item_id),
     })),
