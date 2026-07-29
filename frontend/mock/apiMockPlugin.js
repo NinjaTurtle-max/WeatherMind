@@ -1198,7 +1198,7 @@ const routes = {
   'POST /dev/reset-me': (body) => {
     if (!DEV_MODE) return DEV_404;
     if (body?.reset !== true) {
-      return [422, { detail: 'reset:true 가 필요합니다', code: 'INVALID_DEV_REQUEST' }];
+      return [422, { detail: 'reset:true 가 필요합니다', code: 'VALIDATION_ERROR' }];
     }
     Object.assign(state, {
       xp: 0,
@@ -1226,12 +1226,12 @@ const routes = {
     if (!DEV_MODE) return DEV_404;
     const abilities = Array.isArray(body?.abilities) ? body.abilities : [];
     if (!abilities.length) {
-      return [422, { detail: 'abilities 배열이 필요합니다', code: 'INVALID_DEV_REQUEST' }];
+      return [422, { detail: 'abilities 배열이 필요합니다', code: 'VALIDATION_ERROR' }];
     }
     for (const a of abilities) {
       const theta = Number(a?.theta);
       if (!a?.concept_tag || Number.isNaN(theta)) {
-        return [422, { detail: 'concept_tag·theta(숫자)가 필요합니다', code: 'INVALID_DEV_REQUEST' }];
+        return [422, { detail: 'concept_tag·theta(숫자)가 필요합니다', code: 'VALIDATION_ERROR' }];
       }
       const prev = devAbilities.get(a.concept_tag) ?? { theta: 0, num_responses: 0 };
       const numResponses =
@@ -1250,7 +1250,7 @@ const routes = {
     } else if (body?.action === 'complete') {
       state.placementDone = true;
     } else {
-      return [422, { detail: 'action은 reset|complete 입니다', code: 'INVALID_DEV_REQUEST' }];
+      return [422, { detail: 'action은 reset|complete 입니다', code: 'VALIDATION_ERROR' }];
     }
     return [200, devStatePayload()];
   },
@@ -1259,7 +1259,7 @@ const routes = {
     if (!DEV_MODE) return DEV_404;
     const clouds = Number(body?.clouds);
     if (Number.isNaN(clouds)) {
-      return [422, { detail: 'clouds(숫자)가 필요합니다', code: 'INVALID_DEV_REQUEST' }];
+      return [422, { detail: 'clouds(숫자)가 필요합니다', code: 'VALIDATION_ERROR' }];
     }
     state.clouds = Math.max(0, Math.min(CLOUD_MAX, Math.round(clouds)));
     state.cloudsUpdatedAt = Date.now();
@@ -1281,7 +1281,7 @@ const routes = {
       prog.crowns = Math.max(0, Number(body?.crowns ?? 1) || 0);
       prog.cleared_at = prog.crowns >= unit.crown_target ? new Date().toISOString() : null;
     } else {
-      return [422, { detail: 'action은 unlock_all|crown|reset 입니다', code: 'INVALID_DEV_REQUEST' }];
+      return [422, { detail: 'action은 unlock_all|crown|reset 입니다', code: 'VALIDATION_ERROR' }];
     }
     return [200, devStatePayload()];
   },
@@ -1290,7 +1290,7 @@ const routes = {
     if (!DEV_MODE) return DEV_404;
     const streakCount = Number(body?.streak_count);
     if (Number.isNaN(streakCount) || streakCount < 0) {
-      return [422, { detail: 'streak_count(0 이상 숫자)가 필요합니다', code: 'INVALID_DEV_REQUEST' }];
+      return [422, { detail: 'streak_count(0 이상 숫자)가 필요합니다', code: 'VALIDATION_ERROR' }];
     }
     state.streak = Math.round(streakCount);
     // last_login_days_ago: 실서버는 last_login_date를 오늘-N일로 설정(출석 판정용).
