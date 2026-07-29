@@ -973,6 +973,33 @@ const routes = {
     ];
   },
 
+  // POST /onboarding/placement/submit-all (R7-02 S1) — 일괄 채점.
+  // body {answers:[{quiz_id, answer, elapsed_sec?}]} → {results, progress}.
+  // 이미 채점된 로그는 멱등 스킵(재채점 없이 저장된 결과 반환). 피드백 텍스트 없음.
+  // 채점은 기존 answer mock 로직(gradeSessionItem)을 재사용한다(placement에 board 없음).
+  'POST /onboarding/placement/submit-all': (body) => {
+    const s = sessions.get(PLACEMENT_SESSION_ID);
+    if (!s || s.session_date !== todayISO()) {
+      return [404, { detail: '배치 세션을 찾을 수 없습니다', code: 'SESSION_NOT_FOUND' }];
+    }
+    const answers = Array.isArray(body?.answers) ? body.answers : [];
+    const results = [];
+    for (const a of answers) {
+      const item = s.items.find((it) => it.quiz_id === a?.quiz_id);
+      if (!item) continue; // 세션에 없는 문항은 무시(관대 처리)
+      const prev = s.answers[item.quiz_id];
+      if (prev) {
+        // 멱등 스킵 — 이미 채점된 로그는 저장된 결과를 그대로 돌려준다
+        results.push({ quiz_id: item.quiz_id, is_correct: prev.is_correct });
+        continue;
+      }
+      const isCorrect = gradeSessionItem(item, a?.answer);
+      s.answers[item.quiz_id] = { is_correct: isCorrect, xp_earned: 0 }; // 진단 — XP 미부여
+      results.push({ quiz_id: item.quiz_id, is_correct: isCorrect });
+    }
+    return [200, { results, progress: sessionProgress(s) }];
+  },
+
   // ── 대기 보드 연습 API (R3-01 §3.5) ──
   'GET /board/rules': () => [200, BOARD_RULES],
   // GET /board/regions (R5-01 §3.1) — 지도 지역 좌표(렌더 전용, 판정 미사용)
