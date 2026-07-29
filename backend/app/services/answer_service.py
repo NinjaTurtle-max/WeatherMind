@@ -24,7 +24,7 @@ weak_tags 갱신·RAG 피드백 흐름을 /quiz/{id}/answer와 /session/{id}/ans
 """
 import json
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,6 +49,10 @@ class AlreadyAnsweredError(Exception):
 
 class BoardStateRequiredError(Exception):
     """board 유형인데 board_state 누락 (라우터에서 422 BOARD_STATE_REQUIRED 변환)."""
+
+
+class QuizNotInSessionError(Exception):
+    """세션 로그에 없는 quiz_id 제출 (라우터에서 404 QUIZ_NOT_FOUND 변환)."""
 
 
 def resolve_answer(
@@ -283,3 +287,70 @@ async def submit_answer_for_log(
         concept_tag=concept_tag,
         phenomena=phenomena,
     )
+
+
+async def submit_answers_bulk(
+    db: AsyncSession,
+    user: User,
+    logs: Sequence[QuizLog],
+    answers: Sequence[tuple[str, str, int | None]],
+) -> list[tuple[str, bool]]:
+    """미채점 로그 일괄 채점 — 배치고사 submit-all (R7-02 §3.1).
+
+    submit_answer_for_log에서 채점 코어만 남긴 순수 루프: GRADERS 채점 →
+    weak_tags 갱신 → 로그 확정 → 뱅크 통계 원자 UPDATE(기존 answer 경로와
+    동일 패턴). 채점 지연의 원인이던 문항별 RAG 피드백(외부 동기 대기)과
+    XP·세션 xp_total 가산은 수행하지 않는다 — placement는 원래 grant_xp=False
+    계약(§3.3)이고 진단 UX에 문항별 해설이 필요 없다. 에너지·스트릭·퀘스트도
+    없음(placement 계약 유지). 채점은 서버가 GRADERS로 재계산 — 클라이언트가
+    결과를 주입할 통로 없음(채점 권위 서버 소유).
+
+    answers: (quiz_id, answer, elapsed_sec) 시퀀스. 이미 채점된 로그는 멱등
+    스킵하고 기존 is_correct를 결과에 싣는다(재진입 시 전체 409로 죽이지 않음 —
+    같은 요청 안의 중복 quiz_id도 두 번째부터 같은 가드에 걸린다).
+
+    board 유형은 다루지 않는다 — placement 풀이 구조적으로 제외한다
+    (placement_service._placement_pool). 반환: [(quiz_id, is_correct)] 제출 순.
+
+    Raises:
+        QuizNotInSessionError: logs에 없는 quiz_id 제출.
+    """
+    by_quiz_id = {log.quiz_id: log for log in logs}
+    now = datetime.now(timezone.utc)
+
+    results: list[tuple[str, bool]] = []
+    for quiz_id, answer, elapsed_sec in answers:
+        log = by_quiz_id.get(quiz_id)
+        if log is None:
+            raise QuizNotInSessionError(f"quiz_id={quiz_id}")
+
+        # 멱등 스킵 — 이미 채점된 로그는 부수효과 없이 기존 결과만 보고
+        if log.user_answer is not None or log.is_correct is not None:
+            results.append((quiz_id, bool(log.is_correct)))
+            continue
+
+        question = log.question_json or {}
+        is_correct = grade(question, answer)
+
+        # weak_tags 갱신 + 로그 확정 — 진단 응답도 실제 학습 데이터 (§3.3)
+        await xp_service.update_weak_tag(db, user.id, log.concept_tag, is_correct)
+        log.user_answer = answer
+        log.is_correct = is_correct
+        log.elapsed_sec = elapsed_sec
+        log.answered_at = now
+
+        # 뱅크 문항 노출·정답 통계 — 원자 UPDATE (submit_answer_for_log 동일)
+        if log.content_item_id is not None:
+            await db.execute(
+                update(ContentItem)
+                .where(ContentItem.id == log.content_item_id)
+                .values(
+                    stat_total=ContentItem.stat_total + 1,
+                    stat_correct=ContentItem.stat_correct + (1 if is_correct else 0),
+                )
+            )
+
+        results.append((quiz_id, is_correct))
+
+    await db.flush()
+    return results
