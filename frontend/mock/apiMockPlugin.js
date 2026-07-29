@@ -1024,7 +1024,10 @@ const routes = {
     const results = [];
     for (const a of answers) {
       const item = s.items.find((it) => it.quiz_id === a?.quiz_id);
-      if (!item) continue; // 세션에 없는 문항은 무시(관대 처리)
+      if (!item) {
+        // 세션 외 quiz_id → 404 (백엔드 QuizNotInSessionError 계약과 일치 — R7-14 판정)
+        return [404, { detail: '세션에 해당 퀴즈가 없습니다.', code: 'QUIZ_NOT_FOUND' }];
+      }
       const prev = s.answers[item.quiz_id];
       if (prev) {
         // 멱등 스킵 — 이미 채점된 로그는 저장된 결과를 그대로 돌려준다
