@@ -12,11 +12,12 @@
 # 1. 전체 기동
 docker compose up -d --build
 
-# 2. DB 마이그레이션 (0001 초기 → 0005 커리큘럼·에너지까지 순차 head)
+# 2. DB 마이그레이션 (0001 초기 → 0007 배치고사까지 순차 head)
 docker compose exec backend alembic upgrade head
 #    체인: 0001_initial → 0002_session_bank → 0003_question_type_7
 #          → 0004_rewards_loop → 0005_curriculum_energy
-#    확인: alembic current → 0005_curriculum_energy (head)
+#          → 0006_weatherbrain → 0007_placement
+#    확인: alembic current → 0007_placement (head)
 
 # 3. Chroma 기후 개념 시드 (멱등)
 docker compose exec ai-worker python -m app.embeddings.seed_concepts
@@ -207,3 +208,41 @@ docker compose exec backend alembic downgrade 0001_initial
 단계 단위 실행: `scripts/ci.sh test` / `scripts/ci.sh board`. board 단계는
 node_modules 없이 실행되며(순수 스크립트), 프론트/백엔드 board_engine 판정
 의미론 일치(database/seed/board_test_vectors.json)를 지킨다.
+
+## 6. DB 왕복 스모크 (scripts/smoke.sh — R7-01 §3.4)
+
+pytest가 SQLite·mock으로 검증하지 못하는 **실 PostgreSQL 경로**(마이그레이션
+체인·RLS 정책·θ 왕복·배치고사 온보딩)를 컨테이너 실기동으로 검증한다.
+
+### 6.1 언제 돌리나
+
+- 통합 브랜치(웨이브 병합) 완료 후, PR 올리기 전.
+- 마이그레이션·RLS·시드·온보딩 경로를 건드린 변경 후.
+- 릴리스 태깅 전 최종 게이트. 일상 커밋에는 `scripts/ci.sh`(스모크 미포함)면 충분.
+
+### 6.2 실행
+
+```bash
+bash scripts/smoke.sh            # 전 단계 1~9 (스스로 compose up -d --build)
+scripts/ci.sh smoke              # 동일 — CI 관용구로 위임 실행 (opt-in, all 미포함)
+scripts/smoke.sh placement       # 특정 단계만: up|migrate|seed|register|theta|
+                                 #   rls|roundtrip|fallback|placement
+```
+
+단계: 1 up(기동·/health) → 2 migrate(0007 head) → 3 seed(멱등 upsert) →
+4 register → 5 theta(사전 θ 시드) → 6 rls(비특권 롤 3종) → 7 roundtrip
+(세션 왕복·θ 전이) → 8 fallback(ai-worker 정지 폴백) → 9 placement
+(배치고사 왕복 — 6문항·구름 미소모·초기 θ 배정·409·progress 노출).
+
+### 6.3 운영 수칙
+
+- **멱등**: 스모크 유저는 매 실행 고유 이메일, 시드는 upsert, RLS 롤은
+  IF NOT EXISTS. 재실행 안전 — 실패 시 그냥 다시 돌린다.
+- **비파괴**: 스크립트에 볼륨 파괴 명령(`down -v` 등)은 없다. 수동 정리 시에도
+  `down -v`는 금지 절차(§4 롤백의 데이터 소실 경고와 동일 급).
+- register 계열 단계는 5회/분 레이트리밋(§2.4)에 걸릴 수 있다 — 연속 재실행이
+  429로 실패하면 1분 뒤 재시도.
+- 8단계가 중간에 끊기면 ai-worker가 정지 상태로 남을 수 있다 —
+  `docker compose start ai-worker`로 복구(스크립트는 검증 실패와 무관하게
+  재기동을 시도한다).
+- .env 값(자격증명·키)은 스크립트가 절대 출력하지 않는다 — 로그 공유 안전.

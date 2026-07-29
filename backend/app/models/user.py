@@ -45,12 +45,17 @@ class User(Base):
         default=lambda: datetime.now(timezone.utc),
         server_default=text("now()"),
     )
+    # 배치고사(진단 퀴즈) 완료 시각 (R7-01 §3.1) — NULL이면 미완료(온보딩 진행 가능)
+    placement_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
 
     quiz_logs: Mapped[list["QuizLog"]] = relationship(back_populates="user")  # noqa: F821
     weak_tags: Mapped[list["WeakTag"]] = relationship(back_populates="user")  # noqa: F821
+    concept_abilities: Mapped[list["UserConceptAbility"]] = relationship(back_populates="user")  # noqa: F821
     attendances: Mapped[list["Attendance"]] = relationship(back_populates="user")  # noqa: F821
     league_results: Mapped[list["LeagueResult"]] = relationship(back_populates="user")  # noqa: F821
     sessions: Mapped[list["Session"]] = relationship(back_populates="user")  # noqa: F821

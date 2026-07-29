@@ -37,8 +37,10 @@ from app.services import (
     badge_service,
     curriculum_service,
     energy_service,
+    placement_service,
     quest_service,
     session_service,
+    weatherbrain_service,
 )
 from app.services.ai_client import AIWorkerError
 from app.services.answer_service import AlreadyAnsweredError, BoardStateRequiredError
@@ -155,8 +157,14 @@ async def get_today_session(
 ) -> SessionToday:
     today = datetime.now(KST).date()
 
-    # 1) 오늘 세션이 이미 있으면 그대로 반환 (멱등)
+    # 1) 오늘 세션이 이미 있으면 그대로 반환 (멱등) — 단, 발급 후 쌓인 응답이
+    #    θ에 반영되도록 재조회 경로에서도 refresh_abilities를 호출한다
+    #    (R7-01 §3.4-7 "answer×3 → 재발급 → num_responses>0 전이" 실왕복 계약.
+    #    발급 경로는 create_daily_session→decide_route가 이미 호출하므로 제외).
+    #    ai-worker 실패 시 저장된 θ 폴백이라 세션 반환은 항상 진행된다.
     session = await _get_today_session(db, user, today)
+    if session is not None:
+        await weatherbrain_service.refresh_abilities(db, user)
 
     # 2) 없으면 발급 — 동시 요청이 UNIQUE 제약에 걸리면 재조회
     if session is None:
@@ -269,8 +277,12 @@ async def submit_session_answer(
     # 구름 에너지(§3.3): 최초(비멱등) 제출에만 1 소모 — 0이면 제출 전 429.
     # 재제출(멱등 가드 히트)은 미소모하도록 이미 응답된 로그면 소모를 건너뛴다
     # (submit_answer_for_log이 AlreadyAnsweredError로 409 처리).
+    # 배치고사(mode='placement')는 온보딩 진단이므로 구름을 소모하지 않고
+    # XP도 부여하지 않는다 (R7-01 §3.3 — 에너지 면제와 동일한 mode 분기.
+    # 신규 유저가 에너지 걱정 없이 6문항을 끝내야 초기 θ가 선다).
+    is_placement = session.mode == placement_service.MODE_PLACEMENT
     already_answered = log.user_answer is not None or log.is_correct is not None
-    if not already_answered:
+    if not already_answered and not is_placement:
         # 소모는 요청 트랜잭션(get_db_with_rls) 안에서 일어나므로, 이후 422/503/409로
         # 예외가 나면 롤백되어 구름이 새지 않는다 — "제출 성공 시에만 소모"가 성립한다.
         # (이 속성은 소모가 요청 트랜잭션을 공유할 때만 유효: 별도 커밋/예외 삼킴 금지.)
@@ -286,7 +298,7 @@ async def submit_session_answer(
     # /quiz 경로로 세션 문항을 제출해도 session.xp_total이 정확)
     try:
         result = await answer_service.submit_answer_for_log(
-            db, user, log, answer, body.elapsed_sec
+            db, user, log, answer, body.elapsed_sec, grant_xp=not is_placement
         )
     except AlreadyAnsweredError:
         raise HTTPException(
@@ -325,6 +337,30 @@ async def complete_session(
         )
 
     correct_count = sum(1 for log in logs if log.is_correct)
+
+    # 배치고사(§3.3) — 진단 전용 완료 경로: XP·스트릭·퀘스트·배지·왕관 부여를
+    # 모두 스킵하고, 응답을 IRT 형식으로 조립해 개인화된 초기 θ를 배정한다.
+    if session.mode == placement_service.MODE_PLACEMENT:
+        if session.completed_at is None:
+            session.completed_at = datetime.now(timezone.utc)
+            # ai-worker 장애 시 사전 θ 유지 + 완료는 기록(재시도 강요 금지 — §3.3)
+            abilities = await placement_service.finalize_placement(db, user, logs)
+            db_user = await db.get(User, user.id)
+            if db_user is not None and db_user.placement_completed_at is None:
+                db_user.placement_completed_at = datetime.now(timezone.utc)
+            await db.flush()
+        else:
+            # 재완료(멱등) — 저장된 θ 재조회 (재추정·재기록 없음)
+            abilities = await weatherbrain_service.load_abilities(db, user)
+        return SessionCompleteResult(
+            xp_total=session.xp_total,
+            correct_count=correct_count,
+            total=progress.total,
+            streak_count=user.streak_count,
+            # /progress/abilities와 동일 형식(§3.1 보강 — 프론트 렌더러 공유)
+            abilities=placement_service.to_progress_abilities(abilities),
+            placement_done=True,
+        )
 
     if session.completed_at is None:
         session.completed_at = datetime.now(timezone.utc)

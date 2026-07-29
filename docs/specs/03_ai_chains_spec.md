@@ -5,15 +5,23 @@
 ## 0. 이중 레이어 원칙
 
 ```
-WeatherBrain (자체, ai-worker/app/weatherbrain/)
-  → quiz_logs 누적 데이터로 IRT 파라미터 재학습
-  → Router Chain에 "이 사용자의 개념별 실력 추정치"를 제공
+WeatherBrain (자체, ai-worker/app/weatherbrain/) — R6 구현 완료
+  → IRT(2PL) 순수 파이썬 엔진: EAP로 개념별 능력 θ 추정, JML로 문항난이도 b 보정
+  → 가입 시 level_group 사전분포로 초기 능력(θ) 배정, 응답 누적 시 재추정
+  → Router Chain에 "이 사용자의 개념별 실력 추정치(θ)"를 1순위 신호로 제공
+  → 무상태: 수학은 ai-worker 소유, 영속화(user_concept_ability·item_params)는 backend
+
+경계(R6 현재): θ는 Router 분기(focused/general/advanced) 타게팅과 진단 노출을 구동한다.
+  그러나 **출제 난이도**(뱅크 풀 필터·quiz-generate 프롬프트)는 아직 유저 신고 level_group을
+  쓴다 — θ→출제난이도(theta_to_target_level_group을 서빙 경로에 연결 + 풀을 θ 인접
+  레벨로 확장)는 다음 증분이다(세션 배합 계약 테스트 갱신 동반). 즉 "능력 측정·배정"은
+  실동작하나 "측정 θ로 출제 난이도를 바꾼다"는 아직 미연결.
 
 Gemini 3.1 Flash-Lite (외부 API, ai-worker/app/gemini_client.py)
   → Quiz Gen Chain, RAG Chain 두 곳에서 실제 텍스트 생성 담당
 
-Fallback: WeatherBrain 추정치가 없는 신규 유저(콜드스타트)는
-  weak_tags 테이블의 단순 정답률로 대체 → Router Chain 분기는 항상 동작 가능
+Fallback: θ가 없거나(콜드스타트·추정 실패) 응답 반영 전(n=0)이면 Router Chain은
+  weak_tags 정답률로 폴백 → 분기는 항상 동작 가능(ai-worker 장애에도 세션 발급 진행)
 ```
 
 ---
@@ -136,17 +144,35 @@ Chroma 검색 결과를 프롬프트에 삽입할 때 포맷:
 
 ---
 
-## 5. WeatherBrain 재학습 트리거 (celery/app/tasks/)
+## 5. WeatherBrain — 구현 (R6)
 
-```
-조건: quiz_logs 신규 row가 100개 누적될 때마다 (또는 매일 새벽 3시, Quiz Gen 다음)
-동작: ai-worker/app/weatherbrain/train.py 실행
-      → IRT 파라미터(문제 난이도 b, 학습자 능력 θ) 재추정
-      → 결과를 weak_tags.accuracy_rate 보정치로 반영 (선택적, MVP 이후 단계)
+### 5.1 코어 (`ai-worker/app/weatherbrain/`, 순수 파이썬·무의존)
+- `irt.py`: 2PL 문항반응함수 `irf`, EAP 능력추정 `estimate_ability`(정규 사전분포,
+  격자 81점, 로그공간 정규화), JML 문항난이도 보정 `calibrate_items`(θ↔b 교대추정 후
+  b 평균 0 센터링). 합성 θ·b 복원 테스트가 정확성을 고정(tests/test_weatherbrain_irt).
+- `priors.py`: `level_group_prior`(초등 -1.0/중고 0.0/성인 1.0, σ=1.0),
+  `prior_item_b`(보정 전 문항 난이도), `theta_to_target_level_group`(경계 ±0.5).
+- `placement.py`: `initial_abilities` — 사전만 또는 배치고사 응답 결합으로 초기 θ 배정.
 
-MVP 범위: 콜드스타트 대응으로 초기엔 weak_tags의 단순 정답률만으로 Router Chain 운영,
-         WeatherBrain 학습은 데이터 누적 후 2단계로 통합 (로드맵 항목)
-```
+### 5.2 내부 엔드포인트 (X-Internal-API-Key)
+- `POST /internal/weatherbrain/estimate` {level_group, concepts:[{concept_tag,
+  responses:[{b|null,a,correct}]}]} → {abilities:[{concept_tag,theta,se,n}]}.
+  b=null이면 level_group 사전난이도로 대체(사전값 ai-worker 단일 소유).
+- `POST /internal/weatherbrain/placement` {level_group, concept_tags} → {abilities}.
+- `POST /internal/weatherbrain/calibrate` {responses:[{user_id,item_id,correct}]}
+  → {item_b:{item_id:b}}. 재학습(celery)이 호출.
+- `POST /internal/router-decide` 는 `abilities`를 받아 θ를 1순위 분기 신호로 사용.
+
+### 5.3 backend 영속화·연결
+- 테이블(마이그레이션 0006): `user_concept_ability`(RLS, θ·se·응답수),
+  `item_params`(전역, 보정 b). 소비: `weatherbrain_service`(θ 조립·upsert),
+  `session_service.decide_route`(세션 발급 시 θ 재추정→Router), 가입 시 `seed_placement`.
+- 노출: `GET /api/v1/progress/abilities` — 개념별 θ·난이도 라벨(약한 개념 순).
+
+### 5.4 재학습 (celery `tasks/retrain.py`, 매일 03시)
+- 뱅크 문항 채점 응답을 모아 /calibrate 위임 → `item_params` upsert.
+- 휴면-정확 가드: 전체 응답 ≥200 & 문항당 ≥20 미만이면 스킵(사전값 유지).
+  콜드스타트 동안에도 θ 추정은 level_group 사전으로 정상 동작.
 
 ---
 

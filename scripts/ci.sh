@@ -5,6 +5,9 @@
 # 사용법:
 #   scripts/ci.sh              # 전체 단계 순차 실행
 #   scripts/ci.sh lint         # 특정 단계만 실행: lint | test | board | config | frontend
+#   scripts/ci.sh smoke        # (opt-in) DB 왕복 스모크 — 기본 실행엔 미포함.
+#                              # docker compose 기동·빌드가 필요해 오래 걸리므로
+#                              # 통합·릴리스 전 단독 실행한다. docker 없으면 SKIP.
 #
 # 단계:
 #   lint     pyflakes로 backend/app, ai-worker/app, celery/app 정적 검사.
@@ -24,6 +27,8 @@
 #            SKIP(exit 0)하므로, node 존재 + 비0 = 실제 판정 불일치(FAIL).
 #   config   docker compose config -q 로 compose 정합 검증.
 #   frontend frontend/node_modules 있으면 npm run build, 없으면 SKIP.
+#   smoke    (opt-in — `all`에 미포함) scripts/smoke.sh 전 단계(1~9) 위임 실행.
+#            compose 기동 상태를 전제로 하지 않는다(스스로 up -d --build).
 #
 # 종료 코드: 모든 단계 OK/SKIP → 0, 하나라도 FAIL → 1.
 # 근거: docs/team/TEAM_PROCESS.md §1.7 (CI는 lint → test → build 파이프라인)
@@ -165,6 +170,23 @@ step_frontend() {
   fi
 }
 
+# ── 6. smoke (opt-in): DB 왕복 스모크 — 기본 `all`에는 포함하지 않는다 ───────
+# docker compose 기동·이미지 빌드까지 수행해 수 분이 걸리므로, 통합 브랜치나
+# 릴리스 전 `scripts/ci.sh smoke`로 단독 실행한다 (docs/team/RUNBOOK.md).
+step_smoke() {
+  banner "smoke: scripts/smoke.sh (DB 왕복 1~9)"
+  if ! docker compose version >/dev/null 2>&1; then
+    echo "docker compose(v2) 미설치 — 스모크를 건너뜁니다."
+    record "smoke" "SKIP" "docker compose v2 미설치"
+    return 0
+  fi
+  if bash "$ROOT/scripts/smoke.sh"; then
+    record "smoke" "OK" "스모크 1~9 전 단계 통과"
+  else
+    record "smoke" "FAIL" "스모크 실패 (위 요약 참조)"
+  fi
+}
+
 # ── 실행 ─────────────────────────────────────────────────────────────────────
 STEP="${1:-all}"
 case "$STEP" in
@@ -173,9 +195,10 @@ case "$STEP" in
   board)    step_board ;;
   config)   step_config ;;
   frontend) step_frontend ;;
+  smoke)    step_smoke ;;
   all)      step_lint; step_test; step_board; step_config; step_frontend ;;
   *)
-    echo "사용법: scripts/ci.sh [lint|test|board|config|frontend]" >&2
+    echo "사용법: scripts/ci.sh [lint|test|board|config|frontend|smoke]" >&2
     exit 2
     ;;
 esac

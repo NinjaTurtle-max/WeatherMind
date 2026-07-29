@@ -27,16 +27,17 @@ from collections import Counter
 from datetime import date, datetime
 from typing import Any, Callable, Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession as AsyncDBSession
 
 from app.core.config import settings
 from app.models.content_item import ContentItem
+from app.models.item_param import ItemParam
 from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.user import User
 from app.models.weak_tag import WeakTag
-from app.services import ai_client
+from app.services import ai_client, weatherbrain_service
 from app.services.ai_client import AIWorkerError
 from app.services.weather_api import KST, SKY_TEXT, get_today_weather
 
@@ -191,6 +192,63 @@ def plan_bank_picks(
     return picks, total - len(picks)
 
 
+def pool_level_groups(user_level_group: str, theta: float | None) -> list[str]:
+    """뱅크 풀 level_group 필터 집합 (R7 §3.2 — θ→출제 난이도 연결).
+
+    θ가 있으면 가입 그룹 ∪ θ 매핑 그룹(theta_to_level_group) — θ가 가입 학령을
+    넘어서면 더 어려운(또는 쉬운) 그룹의 문항이 풀에 들어온다. θ None(콜드스타트)
+    이면 기존과 동일하게 가입 그룹 하나만(동작 불변).
+    """
+    if theta is None:
+        return [user_level_group]
+    return sorted(
+        {user_level_group, weatherbrain_service.theta_to_level_group(theta)}
+    )
+
+
+def build_pool_query(
+    *,
+    level_groups: Sequence[str],
+    theta: float | None,
+    live: bool,
+    served_subq: Any | None = None,
+    weak_concepts: Sequence[str] | None = None,
+    limit: int,
+):
+    """new/review/live 풀 SELECT 구성 — 실행 없는 순수 구성이라 DB 없이 검증 가능.
+
+    θ가 있으면 item_params를 outerjoin해 `abs(coalesce(보정 b, 사전 b CASE) − θ)`
+    오름차순(동률은 random)으로 정렬한다 — θ에 가장 알맞은 난이도의 문항부터.
+    사전 b CASE는 weatherbrain_service.LEVEL_GROUP_ITEM_B(ai-worker priors와
+    동일값 — 계약 테스트 감시). θ None이면 기존 그대로 random 정렬만.
+    """
+    stmt = select(ContentItem)
+    if theta is not None:
+        stmt = stmt.outerjoin(
+            ItemParam, ItemParam.content_item_id == ContentItem.id
+        )
+    stmt = stmt.where(
+        ContentItem.status == "active",
+        ContentItem.level_group.in_(list(level_groups)),
+        ContentItem.uses_live_slots.is_(live),
+    )
+    if served_subq is not None:
+        stmt = stmt.where(ContentItem.id.not_in(served_subq))
+    if weak_concepts is not None:
+        stmt = stmt.where(ContentItem.concept_tag.in_(list(weak_concepts)))
+    if theta is None:
+        return stmt.order_by(func.random()).limit(limit)
+    prior_b = case(
+        *(
+            (ContentItem.level_group == lg, b)
+            for lg, b in weatherbrain_service.LEVEL_GROUP_ITEM_B.items()
+        ),
+        else_=weatherbrain_service.DEFAULT_ITEM_B,
+    )
+    difficulty_distance = func.abs(func.coalesce(ItemParam.b, prior_b) - theta)
+    return stmt.order_by(difficulty_distance, func.random()).limit(limit)
+
+
 def enforce_type_variety(
     items: Sequence[Any],
     type_of: Callable[[Any], Any] | None = None,
@@ -225,12 +283,18 @@ async def _load_weak_tag_rows(db: AsyncDBSession, user: User) -> list[WeakTag]:
 
 
 async def decide_route(
-    db: AsyncDBSession, user: User, weak_tag_rows: list[WeakTag] | None = None
+    db: AsyncDBSession,
+    user: User,
+    weak_tag_rows: list[WeakTag] | None = None,
+    abilities: list[dict] | None = None,
 ) -> dict:
-    """weak_tags + 최근 정오답으로 Router Chain 분기 (실패 시 general).
+    """weak_tags + 최근 정오답 + θ로 Router Chain 분기 (실패 시 general).
 
     routers/quiz.py에 있던 _decide_route를 세션 발급(S1)과 공유하도록 이동.
     weak_tag_rows를 넘기면 재조회를 생략한다 (세션 발급이 이미 조회한 결과 재사용).
+    abilities도 같은 전례 — 넘기면 refresh_abilities를 생략한다 (세션 발급이
+    이미 재추정한 θ 재사용, 이중 refresh 금지 — R7 §3.2). None이면 현행처럼
+    내부에서 재추정한다 (quiz.py 등 레거시 호출부 하위 호환).
     """
     tags = (
         weak_tag_rows
@@ -255,38 +319,46 @@ async def decide_route(
         .all()
     )
     recent_results = [bool(v) for v in reversed(recent)]  # 시간순(과거 → 최근)
-    return await ai_client.router_decide(str(user.id), weak_tags, recent_results)
+    # R6 WeatherBrain: 누적 응답으로 θ 재추정·영속화 후 Router 1순위 신호로 공급.
+    # 실패해도 refresh_abilities가 저장된 θ(또는 빈 리스트)로 폴백 → 세션 발급 계속.
+    if abilities is None:
+        abilities = await weatherbrain_service.refresh_abilities(db, user)
+    return await ai_client.router_decide(
+        str(user.id), weak_tags, recent_results, abilities
+    )
 
 
 async def _fetch_pools(
-    db: AsyncDBSession, user: User, weak_concepts: Sequence[str]
+    db: AsyncDBSession,
+    user: User,
+    weak_concepts: Sequence[str],
+    theta: float | None = None,
 ) -> tuple[list[ContentItem], list[ContentItem], list[ContentItem]]:
-    """new/review/live 후보 풀 조회 (active + level_group 일치, 랜덤 정렬).
+    """new/review/live 후보 풀 조회 (active + level_group, θ 난이도 정렬).
 
     weak_concepts는 호출측이 weak_tags 조회 결과에서 산출해 넘긴다
     (accuracy_rate < 60 — 중복 SELECT 방지, 리뷰 6번).
+    theta는 호출측이 refresh_abilities 결과에서 산출해 넘긴다 (R7 §3.2 —
+    풀 그룹 확장 + |b−θ| 정렬은 build_pool_query·pool_level_groups 참조.
+    None이면 기존 단일 그룹·random 정렬 그대로 — 콜드스타트 동작 불변).
     풀 크기는 배합 요구량보다 넉넉히(new 10 · review 10 · live 5) 가져와
     중복 제거·치환 실패 시의 여유분으로 쓴다.
     """
     served_subq = select(QuizLog.content_item_id).where(
         QuizLog.user_id == user.id, QuizLog.content_item_id.is_not(None)
     )
-    base_filter = (
-        (ContentItem.status == "active")
-        & (ContentItem.level_group == user.level_group)
-    )
+    groups = pool_level_groups(user.level_group, theta)
 
     new_pool = (
         (
             await db.execute(
-                select(ContentItem)
-                .where(
-                    base_filter,
-                    ContentItem.uses_live_slots.is_(False),
-                    ContentItem.id.not_in(served_subq),
+                build_pool_query(
+                    level_groups=groups,
+                    theta=theta,
+                    live=False,
+                    served_subq=served_subq,
+                    limit=10,
                 )
-                .order_by(func.random())
-                .limit(10)
             )
         )
         .scalars()
@@ -298,14 +370,13 @@ async def _fetch_pools(
         review_pool = (
             (
                 await db.execute(
-                    select(ContentItem)
-                    .where(
-                        base_filter,
-                        ContentItem.uses_live_slots.is_(False),
-                        ContentItem.concept_tag.in_(list(weak_concepts)),
+                    build_pool_query(
+                        level_groups=groups,
+                        theta=theta,
+                        live=False,
+                        weak_concepts=weak_concepts,
+                        limit=10,
                     )
-                    .order_by(func.random())
-                    .limit(10)
                 )
             )
             .scalars()
@@ -315,10 +386,9 @@ async def _fetch_pools(
     live_pool = (
         (
             await db.execute(
-                select(ContentItem)
-                .where(base_filter, ContentItem.uses_live_slots.is_(True))
-                .order_by(func.random())
-                .limit(5)
+                build_pool_query(
+                    level_groups=groups, theta=theta, live=True, limit=5
+                )
             )
         )
         .scalars()
@@ -361,7 +431,10 @@ async def create_daily_session(
 
     # weak_tags는 한 번만 조회 — 분기와 review 풀 구성이 공유 (리뷰 6번)
     weak_rows = await _load_weak_tag_rows(db, user)
-    route_decision = await decide_route(db, user, weak_rows)
+    # θ 재추정도 정확히 1회 — 분기(decide_route)와 풀 난이도(_fetch_pools)·
+    # quiz-generate 난이도가 공유한다 (weak_tag_rows 재사용과 같은 전례, R7 §3.2).
+    abilities = await weatherbrain_service.refresh_abilities(db, user)
+    route_decision = await decide_route(db, user, weak_rows, abilities=abilities)
     weak_concepts = [
         row.concept_tag
         for row in weak_rows
@@ -373,7 +446,13 @@ async def create_daily_session(
     weather = await get_today_weather()
     slot_values = extract_slot_values(weather)
 
-    new_pool, review_pool, live_pool = await _fetch_pools(db, user, weak_concepts)
+    # 대표 θ — route 목표 개념 우선, 없으면 가중 평균 (콜드스타트면 None)
+    theta = weatherbrain_service.overall_theta(
+        abilities, route_decision.get("target_concept_tag")
+    )
+    new_pool, review_pool, live_pool = await _fetch_pools(
+        db, user, weak_concepts, theta=theta
+    )
     picks, generate_count = plan_bank_picks(new_pool, review_pool, live_pool)
 
     entries: list[dict[str, Any]] = []
@@ -407,11 +486,17 @@ async def create_daily_session(
 
     # 뱅크 부족분 — 현행 quiz-generate 경로로 병렬 폴백 (S2, 리뷰 3번)
     if generate_count:
+        # 생성 난이도도 θ를 따른다 (R7 §3.2 — API 계약 무변경, 값만 θ 매핑)
+        generate_level_group = (
+            weatherbrain_service.theta_to_level_group(theta)
+            if theta is not None
+            else user.level_group
+        )
         results = await asyncio.gather(
             *(
                 ai_client.quiz_generate(
                     weather_data=weather,
-                    level_group=user.level_group,
+                    level_group=generate_level_group,
                     route=route_decision.get("route", "general"),
                     target_concept_tag=route_decision.get("target_concept_tag"),
                 )

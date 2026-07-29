@@ -7,3 +7,4 @@ export * as curriculumApi from './curriculum';
 export * as progressApi from './progress';
 export * as leagueApi from './league';
 export * as duelApi from './duel';
+export * as placementApi from './placement';

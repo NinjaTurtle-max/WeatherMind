@@ -181,6 +181,7 @@ async def submit_answer_for_log(
     log: QuizLog,
     answer: str,
     elapsed_sec: int | None,
+    grant_xp: bool = True,
 ) -> AnswerResult:
     """미응답 quiz_log 1건에 대한 답안 처리 전체 흐름.
 
@@ -190,6 +191,11 @@ async def submit_answer_for_log(
 
     board 유형(§3.4): answer에 board_state JSON을 담아 전달한다. 엔진으로
     phenomena를 산출해 결과에 싣고, 피드백은 RAG 없이 규칙에서 구성한다.
+
+    grant_xp=False(R7-01 §3.3 배치고사): XP를 계산·가산하지 않는다(xp_earned=0,
+    유저 XP·세션 xp_total 불변). 채점·weak_tags·뱅크 통계·피드백은 그대로 —
+    진단 응답도 실제 학습 데이터이므로 XP 보상만 뗀다. 기본값 True는 기존
+    경로(daily·unit·/quiz) 동작 불변(additive).
 
     Raises:
         AlreadyAnsweredError: 이미 답안이 제출된 로그.
@@ -212,17 +218,19 @@ async def submit_answer_for_log(
         is_correct = grade(question, answer)
 
     # 약점 여부는 이번 답안 반영 "이전" 기준으로 판단 (07번 약점 극복 보너스)
-    weak_tag = await xp_service.get_weak_tag(db, user.id, concept_tag)
-    is_weak = xp_service.is_weak_concept(weak_tag)
-
-    # XP 계산 (문항당 1회 제출 → 정답이면 곧 첫 시도 정답 보너스 대상)
-    xp_earned = xp_service.quiz_xp(is_correct, is_first_try=True, is_weak=is_weak)
+    xp_earned = 0
+    if grant_xp:
+        weak_tag = await xp_service.get_weak_tag(db, user.id, concept_tag)
+        is_weak = xp_service.is_weak_concept(weak_tag)
+        # XP 계산 (문항당 1회 제출 → 정답이면 곧 첫 시도 정답 보너스 대상)
+        xp_earned = xp_service.quiz_xp(is_correct, is_first_try=True, is_weak=is_weak)
 
     # weak_tags 갱신 + 유저 XP 가산 + 로그 확정
     await xp_service.update_weak_tag(db, user.id, concept_tag, is_correct)
-    db_user = await db.get(User, user.id)
-    if db_user is not None:
-        await xp_service.add_xp(db, db_user, xp_earned)
+    if grant_xp:
+        db_user = await db.get(User, user.id)
+        if db_user is not None:
+            await xp_service.add_xp(db, db_user, xp_earned)
 
     log.user_answer = answer
     log.is_correct = is_correct
@@ -241,7 +249,8 @@ async def submit_answer_for_log(
         )
 
     # 세션 문항이면 세션 XP 누적 — 제출 경로(/quiz·/session)와 무관하게 정확
-    if log.session_id is not None:
+    # (grant_xp=False인 배치고사는 미갱신 — xp_total 0 유지)
+    if log.session_id is not None and grant_xp:
         await db.execute(
             update(Session)
             .where(Session.id == log.session_id)

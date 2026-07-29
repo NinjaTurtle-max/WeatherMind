@@ -16,6 +16,8 @@ class ProgressMe(BaseModel):
     # 구름 에너지 잔량·다음 회복 ETA(초) — R5-01 §3.3 (clouds=플레이 에너지)
     clouds: int
     next_regen_sec: int
+    # 배치고사 완료 여부 — R7-01 §3.5 (additive: 프론트 온보딩 진입 분기용)
+    placement_done: bool = False
 
 
 class EnergyState(BaseModel):
@@ -54,6 +56,24 @@ class WeakTagOut(BaseModel):
     wrong_count: int
     total_count: int
     accuracy_rate: Decimal
+    updated_at: datetime | None = None
+
+
+class ConceptAbilityOut(BaseModel):
+    """WeatherBrain IRT 개념별 능력 θ (로짓 스케일). R6 §5.
+
+    theta: 능력 추정치(높을수록 강함). theta_se: 불확실성(응답 적을수록 큼).
+    num_responses: 반영된 실제 응답 수(0이면 가입 시 사전 배정값).
+    level_label: θ를 초급/중급/고급으로 이산화한 사람이 읽는 난이도 라벨.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    concept_tag: str
+    theta: float
+    theta_se: float
+    num_responses: int
+    level_label: str
     updated_at: datetime | None = None
 
 

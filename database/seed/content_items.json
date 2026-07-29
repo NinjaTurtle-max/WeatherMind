@@ -766,6 +766,38 @@
     "status": "active"
   },
   {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "겨울철 차고 건조한 시베리아 기단이 남하하며 상대적으로 따뜻한 서해를 건널 때, 서해안 지역에 많은 눈이 내리는 주된 이유는?",
+      "options": [
+        "바다에서 열과 수증기를 공급받아 기단이 변질되며 눈구름이 발달하기 때문",
+        "시베리아 기단이 원래부터 수증기를 많이 머금은 습한 기단이기 때문",
+        "서해의 바닷물이 겨울마다 얼어붙으며 찬 공기를 내뿜기 때문",
+        "태백산맥을 넘은 동해안의 공기가 서쪽으로 되돌아 내려오기 때문"
+      ],
+      "correct_answer": "바다에서 열과 수증기를 공급받아 기단이 변질되며 눈구름이 발달하기 때문",
+      "explanation_hint": "차고 건조한 시베리아 기단도 상대적으로 따뜻한 서해를 건너면 바다에서 열과 수증기를 공급받아 성질이 변합니다(기단의 변질). 이렇게 만들어진 눈구름이 서해안에 많은 눈을 내리며, 태백산맥을 넘은 동해안 쪽은 공기가 더 건조해져 맑은 날이 많습니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: air_mass-3"]},
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "대기 대순환에서 적도의 더운 공기와 극지방의 찬 공기 사이 열 수송을 담당하며, 중위도에 위치한 우리나라의 날씨를 대체로 서쪽에서 동쪽으로 이동시키는 바람을 무엇이라 하는가?",
+      "correct_answer": "편서풍",
+      "explanation_hint": "우리나라는 중위도 편서풍대에 위치해 날씨가 대체로 서쪽에서 동쪽으로 이동합니다. 그래서 중국 쪽 기압계 변화를 보면 하루 이틀 뒤 우리나라 날씨를 예상할 수 있습니다."
+    },
+    "uses_live_slots": false,
+    "source": {"kind": "seed", "refs": ["climate_concepts: air_mass-2"]},
+    "status": "active"
+  },
+  {
     "concept_tag": "pressure_front",
     "level_group": "middle_high",
     "question_type": "board",

@@ -25,6 +25,7 @@ from typing import Optional
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from app import weatherbrain
 from app.chains import quiz_gen_chain, rag_chain, router_chain, validate_chain
 from app.config import settings
 
@@ -55,10 +56,21 @@ class WeakTag(BaseModel):
     model_config = {"extra": "allow"}  # weak_tags row의 부가 필드 허용
 
 
+class Ability(BaseModel):
+    """WeatherBrain IRT 개념별 능력 추정치 (θ)."""
+
+    concept_tag: str
+    theta: float
+    se: float = 1.0
+    n: int = 0
+
+
 class RouterDecideRequest(BaseModel):
     user_id: str
     weak_tags: list[WeakTag] = Field(default_factory=list)
     recent_results: list[bool] = Field(default_factory=list)
+    # R6 WeatherBrain: 있으면 θ가 1순위 분기 신호, weak_tags는 폴백.
+    abilities: list[Ability] = Field(default_factory=list)
 
 
 class RouterDecideResponse(BaseModel):
@@ -112,6 +124,69 @@ class CurriculumValidateResponse(BaseModel):
     checks: list[ValidationCheck]
 
 
+# ── WeatherBrain (IRT) 스키마 — R6 §5 ──────────────────────────────────────
+class IRTResponse(BaseModel):
+    """단일 채점 응답 — 문항난이도 b, 변별도 a, 정오답.
+
+    b가 null이면 보정 이력이 없는 문항 — level_group 사전 난이도로 대체한다
+    (사전값을 ai-worker에 단일 소유하기 위한 계약).
+    """
+
+    b: Optional[float] = None
+    a: float = 1.0
+    correct: bool
+
+
+class ConceptResponses(BaseModel):
+    concept_tag: str
+    responses: list[IRTResponse] = Field(default_factory=list)
+
+
+class EstimateRequest(BaseModel):
+    """개념별 θ 추정 — 배치고사·주기적 재추정 공용. 응답 0개면 사전값 반환."""
+
+    level_group: str
+    concepts: list[ConceptResponses] = Field(default_factory=list)
+
+
+class AbilityOut(BaseModel):
+    concept_tag: str
+    theta: float
+    se: float
+    n: int
+
+
+class EstimateResponse(BaseModel):
+    abilities: list[AbilityOut]
+
+
+class PlacementRequest(BaseModel):
+    """신규 유저 초기 난이도 배정 — 사전(prior)만 또는 배치고사 응답 결합."""
+
+    level_group: str
+    concept_tags: list[str] = Field(default_factory=list)
+    placement_responses: dict[str, list[IRTResponse]] = Field(default_factory=dict)
+
+
+class CalibrateItem(BaseModel):
+    user_id: str
+    item_id: str
+    correct: bool
+
+
+class CalibrateRequest(BaseModel):
+    """문항난이도 b 재보정 — celery 재학습이 누적 quiz_logs로 호출(휴면-정확)."""
+
+    responses: list[CalibrateItem] = Field(default_factory=list)
+    iterations: int = 20
+
+
+class CalibrateResponse(BaseModel):
+    item_b: dict[str, float]
+    n_items: int
+    n_responses: int
+
+
 # ── 엔드포인트 ─────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
@@ -127,6 +202,7 @@ def router_decide(body: RouterDecideRequest) -> RouterDecideResponse:
     result = router_chain.route(
         weak_tags=[t.model_dump() for t in body.weak_tags],
         recent_results=body.recent_results,
+        abilities=[a.model_dump() for a in body.abilities],
     )
     return RouterDecideResponse(**result)
 
@@ -185,3 +261,72 @@ def curriculum_validate(body: CurriculumValidateRequest) -> CurriculumValidateRe
         content_items=body.content_items,
     )
     return CurriculumValidateResponse(**result)
+
+
+# ── WeatherBrain (IRT) 엔드포인트 — R6 §5 ──────────────────────────────────
+@app.post(
+    "/internal/weatherbrain/estimate",
+    response_model=EstimateResponse,
+    dependencies=[Depends(verify_internal_api_key)],
+)
+def weatherbrain_estimate(body: EstimateRequest) -> EstimateResponse:
+    """개념별 θ를 EAP로 추정한다. level_group이 사전분포를 정한다."""
+    mean, sd = weatherbrain.level_group_prior(body.level_group)
+    prior_b = weatherbrain.prior_item_b(body.level_group)
+    out: list[AbilityOut] = []
+    for concept in body.concepts:
+        resp = [
+            (r.b if r.b is not None else prior_b, r.a, r.correct)
+            for r in concept.responses
+        ]
+        est = weatherbrain.estimate_ability(resp, prior_mean=mean, prior_sd=sd)
+        out.append(
+            AbilityOut(
+                concept_tag=concept.concept_tag,
+                theta=est.theta,
+                se=est.se,
+                n=est.n,
+            )
+        )
+    return EstimateResponse(abilities=out)
+
+
+@app.post(
+    "/internal/weatherbrain/placement",
+    response_model=EstimateResponse,
+    dependencies=[Depends(verify_internal_api_key)],
+)
+def weatherbrain_placement(body: PlacementRequest) -> EstimateResponse:
+    """신규 유저 초기 난이도 배정 — 사전만 또는 배치고사 응답 결합."""
+    prior_b = weatherbrain.prior_item_b(body.level_group)
+    placement = {
+        tag: [(r.b if r.b is not None else prior_b, r.a, r.correct) for r in responses]
+        for tag, responses in body.placement_responses.items()
+    }
+    abilities = weatherbrain.initial_abilities(
+        level_group=body.level_group,
+        concept_tags=body.concept_tags,
+        placement_responses=placement,
+    )
+    return EstimateResponse(
+        abilities=[
+            AbilityOut(concept_tag=tag, theta=v["theta"], se=v["se"], n=int(v["n"]))
+            for tag, v in abilities.items()
+        ]
+    )
+
+
+@app.post(
+    "/internal/weatherbrain/calibrate",
+    response_model=CalibrateResponse,
+    dependencies=[Depends(verify_internal_api_key)],
+)
+def weatherbrain_calibrate(body: CalibrateRequest) -> CalibrateResponse:
+    """누적 응답에서 문항난이도 b를 결합추정한다(재학습). 데이터 희소 시 빈 결과."""
+    responses = [(r.user_id, r.item_id, r.correct) for r in body.responses]
+    item_b = weatherbrain.calibrate_items(responses, iterations=body.iterations)
+    return CalibrateResponse(
+        item_b=item_b,
+        n_items=len(item_b),
+        n_responses=len(responses),
+    )

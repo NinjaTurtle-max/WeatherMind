@@ -38,10 +38,12 @@ async def router_decide(
     user_id: str,
     weak_tags: list[dict[str, Any]],
     recent_results: list[bool],
+    abilities: list[dict[str, Any]] | None = None,
 ) -> dict:
     """Router Chain 분기. 반환: {route, target_concept_tag}.
 
     recent_results는 시간순(과거 → 최근) bool 리스트.
+    abilities는 WeatherBrain IRT θ 추정치 — 있으면 θ가 1순위 분기 신호(폴백: weak_tags).
     실패 시 general로 fallback (콜드스타트와 동일 동작 — 서비스는 항상 진행).
     """
     try:
@@ -51,11 +53,48 @@ async def router_decide(
                 "user_id": user_id,
                 "weak_tags": weak_tags,
                 "recent_results": recent_results,
+                "abilities": abilities or [],
             },
             timeout=15.0,
         )
     except AIWorkerError:
         return {"route": "general", "target_concept_tag": None}
+
+
+async def weatherbrain_estimate(
+    level_group: str, concepts: list[dict[str, Any]]
+) -> dict:
+    """WeatherBrain IRT 개념별 θ 추정. 반환: {abilities: [{concept_tag, theta, se, n}]}.
+
+    concepts: [{concept_tag, responses: [{b|null, a, correct}]}]. 실패 시 AIWorkerError
+    전파(호출측 refresh_abilities가 저장된 θ로 폴백).
+    """
+    return await _post(
+        "/internal/weatherbrain/estimate",
+        {"level_group": level_group, "concepts": concepts},
+        timeout=15.0,
+    )
+
+
+async def weatherbrain_placement(
+    level_group: str,
+    concept_tags: list[str],
+    placement_responses: dict | None = None,
+) -> dict:
+    """WeatherBrain 초기 난이도 배정. 반환: {abilities: [...]}.
+
+    placement_responses가 None이면 사전(prior)만으로 배정(가입 시 시드 경로),
+    None이 아니면 배치고사 응답({concept_tag: [{b|null, a, correct}]})을 사전과
+    결합해 개인화 배정한다(R7-01 §3.3 — ai-worker PlacementRequest가 이미 수신).
+    """
+    payload: dict = {"level_group": level_group, "concept_tags": concept_tags}
+    if placement_responses is not None:
+        payload["placement_responses"] = placement_responses
+    return await _post(
+        "/internal/weatherbrain/placement",
+        payload,
+        timeout=15.0,
+    )
 
 
 async def rag_feedback(
