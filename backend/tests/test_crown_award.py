@@ -9,11 +9,14 @@ FakeDB로 배선(unlock_floor 공급·grant 반환 노출)만 검증한다.
 실행: backend 디렉토리에서 `python -m pytest tests/test_crown_award.py -q`.
 """
 import asyncio
+import inspect
 import uuid
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
+from app.routers import board as board_router
 from app.routers import session as session_router
+from app.schemas.board import BoardAttemptRequest
 from app.services import curriculum_service as cs
 
 
@@ -489,3 +492,132 @@ class TestCompleteSessionUnitResult:
         result, calls = run_complete(monkeypatch, session, logs)
         assert "unit_result" not in calls
         assert result.unit_result is None
+
+
+# ═══════════════════════════════════════════════════════════════
+# POST /board/puzzles/{id}/attempt — 최초 클리어 왕관 유입 (R8-01 §3.4)
+# — limiter는 inspect.unwrap으로 우회 (test_review_fix_regressions 관례)
+# ═══════════════════════════════════════════════════════════════
+
+
+class _Result:
+    def __init__(self, value):
+        self.value = value
+
+    def scalar_one_or_none(self):
+        return self.value
+
+
+class BoardFakeDB:
+    """attempt_puzzle 배선 테스트용 — ContentItem 조회만 응답, 나머지는 noop."""
+
+    def __init__(self, item):
+        self.item = item
+
+    async def execute(self, stmt):
+        return _Result(self.item)
+
+    async def get(self, model, pk):
+        return None  # XP add_xp 경로 스킵 (db_user None 가드)
+
+    def add(self, obj):
+        pass
+
+    async def flush(self):
+        pass
+
+
+def make_puzzle_item(concept_tag="humidity"):
+    return SimpleNamespace(
+        id=uuid.uuid4(), concept_tag=concept_tag, template_json={"mode": "guided"}
+    )
+
+
+def run_attempt(
+    monkeypatch, item, *, passed=True, already_cleared=False, award=None
+):
+    """attempt_puzzle을 배선 검증용으로 실행 — award 호출 인자를 수집한다."""
+    calls = {}
+
+    def fake_validate(board_state):
+        pass
+
+    async def fake_consume(db, user):
+        pass
+
+    def fake_evaluate(question, board_state):
+        return [], passed, []
+
+    def fake_feedback(question, phenomena, ok, rules):
+        return "피드백"
+
+    async def fake_cleared(db, user):
+        return {item.id} if already_cleared else set()
+
+    async def fake_quiz_id(db, user, content_item_id):
+        return "board-테스트-001"
+
+    async def fake_award(db, user, *, concept_tag, kind):
+        calls["award"] = (concept_tag, kind)
+        return award
+
+    async def fake_quests(db, user, day):
+        pass
+
+    monkeypatch.setattr(board_router.board_engine, "validate_board", fake_validate)
+    monkeypatch.setattr(board_router.energy_service, "consume", fake_consume)
+    monkeypatch.setattr(board_router, "evaluate_board_answer", fake_evaluate)
+    monkeypatch.setattr(
+        board_router.board_engine, "select_feedback", fake_feedback
+    )
+    monkeypatch.setattr(board_router, "_cleared_item_ids", fake_cleared)
+    monkeypatch.setattr(board_router, "_next_board_quiz_id", fake_quiz_id)
+    monkeypatch.setattr(cs, "award_crown_for_activity", fake_award)
+    monkeypatch.setattr(
+        board_router.quest_service, "recalculate_quests", fake_quests
+    )
+
+    endpoint = inspect.unwrap(board_router.attempt_puzzle)
+    result = asyncio.run(
+        endpoint(
+            None,  # request — limiter 우회로 미사용
+            item.id,
+            BoardAttemptRequest(board_state={"zones": [], "elements": []}),
+            _FAKE_USER,
+            BoardFakeDB(item),
+        )
+    )
+    return result, calls
+
+
+class TestBoardAttemptCrownAward:
+    def test_최초_클리어는_같은_개념_board_유닛에_왕관(self, monkeypatch):
+        item = make_puzzle_item(concept_tag="humidity")
+        result, calls = run_attempt(monkeypatch, item, award=AWARD)
+        assert calls["award"] == ("humidity", "board")
+        assert result.crown_award is not None
+        assert result.crown_award.unit_slug == "sky-1"
+        assert result.crown_award.cleared is True
+        assert result.xp_earned == 5  # 기존 XP+5 판정과 동일 조건 공유
+
+    def test_같은_퍼즐_재클리어는_불인정(self, monkeypatch):
+        item = make_puzzle_item()
+        result, calls = run_attempt(
+            monkeypatch, item, already_cleared=True, award=AWARD
+        )
+        assert "award" not in calls
+        assert result.crown_award is None
+        assert result.xp_earned == 0
+
+    def test_실패_시도는_왕관_미부여(self, monkeypatch):
+        item = make_puzzle_item()
+        result, calls = run_attempt(monkeypatch, item, passed=False, award=AWARD)
+        assert "award" not in calls
+        assert result.crown_award is None
+
+    def test_대상_유닛_없으면_crown_award_null(self, monkeypatch):
+        item = make_puzzle_item()
+        result, calls = run_attempt(monkeypatch, item, award=None)
+        assert calls["award"] == ("humidity", "board")
+        assert result.crown_award is None
+        assert result.passed is True

@@ -9,6 +9,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.schemas.curriculum import CrownAward
+
 
 class BoardPuzzle(BaseModel):
     """GET /puzzles 항목 — active board 문항 + cleared 여부 + 난이도 라벨.
@@ -32,3 +34,6 @@ class BoardAttemptResult(BaseModel):
     phenomena: list[dict[str, Any]]
     feedback: str
     xp_earned: int
+    # R8-01 §3.4 (additive): 그 퍼즐 최초 클리어가 같은 concept_tag의 열린
+    # kind='board' 유닛에 왕관 +1을 유발했을 때만 채워진다 — 프론트 토스트용.
+    crown_award: CrownAward | None = None
