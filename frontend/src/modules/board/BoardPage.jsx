@@ -58,10 +58,23 @@ export default function BoardPage() {
       queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
       if (res.passed && res.xp_earned > 0) {
         addXp(res.xp_earned);
-        setToast(`🧩 첫 클리어! +${res.xp_earned} XP`);
         queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
         queryClient.invalidateQueries({ queryKey: ['progress', 'quests'] });
         queryClient.invalidateQueries({ queryKey: ['board', 'puzzles'] });
+      }
+      // 왕관 유입(R8-01 §3.4): 최초 클리어가 열린 board 유닛 왕관으로 인정되면
+      // 스파인·커리큘럼 갱신 + 왕관 토스트(첫 클리어 XP 토스트보다 우선 — 단일 노출)
+      if (res.crown_award) {
+        queryClient.invalidateQueries({ queryKey: ['curriculum'] });
+        queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
+      }
+      const toastMsg = res.crown_award
+        ? `👑 왕관 획득 — ${res.crown_award.unit_title}`
+        : res.passed && res.xp_earned > 0
+          ? `🧩 첫 클리어! +${res.xp_earned} XP`
+          : null;
+      if (toastMsg) {
+        setToast(toastMsg);
         setTimeout(() => setToast(null), 2600);
       }
     },

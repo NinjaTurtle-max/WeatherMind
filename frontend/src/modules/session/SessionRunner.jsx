@@ -131,6 +131,9 @@ export default function SessionRunner({
     },
   });
 
+  // 왕관 획득 토스트 (R8-01 §3.7⑤) — daily complete 응답의 crown_award(§3.4).
+  const [crownToast, setCrownToast] = useState(null);
+
   const completeMutation = useMutation({
     mutationFn: () => sessionApi.completeSession(sessionId),
     onMutate: () => startSubmitting(),
@@ -139,6 +142,13 @@ export default function SessionRunner({
       queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
       queryClient.invalidateQueries({ queryKey: ['progress', 'quests'] });
       queryClient.invalidateQueries({ queryKey: ['progress', 'badges'] });
+      // 왕관 유입(R8-01 §3.4): daily 만점이 열린 quiz 유닛 왕관으로 인정되면
+      // 커리큘럼(다음 유닛 열림)·스파인을 갱신하고 토스트를 띄운다.
+      if (result.crown_award) {
+        queryClient.invalidateQueries({ queryKey: ['curriculum'] });
+        setCrownToast(`👑 왕관 획득 — ${result.crown_award.unit_title}`);
+        setTimeout(() => setCrownToast(null), 3000);
+      }
       onSessionComplete?.(result);
     },
     onError: (err) => {
@@ -241,7 +251,16 @@ export default function SessionRunner({
   }
 
   if (status === SESSION_STATUS.SUMMARY) {
-    return renderSummary ? renderSummary(summary) : <SessionSummary summary={summary} />;
+    return (
+      <>
+        {crownToast && (
+          <div className="fixed left-1/2 top-16 z-50 -translate-x-1/2 animate-xp-pop rounded-full bg-amber-500 px-4 py-2 text-sm font-bold text-white shadow-lg">
+            {crownToast}
+          </div>
+        )}
+        {renderSummary ? renderSummary(summary) : <SessionSummary summary={summary} />}
+      </>
+    );
   }
 
   // bulkMode(R7-02 S1): 전 문항 응답 완료 — 전환 화면(그 뒤에서 submit-all→complete)
