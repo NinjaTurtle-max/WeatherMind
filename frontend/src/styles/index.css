@@ -31,3 +31,25 @@ body {
 input[type='range'] {
   @apply h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-sky-600;
 }
+
+/* SVG 애니메이션 대상(보드 2.0 §3.3 ④) — CSS transform 기준을 요소 자신으로.
+   scale/rotate 키프레임이 viewBox 원점이 아니라 요소 중심에서 동작한다. */
+.svg-anim {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* 접근성(R9-01 §3.3 ④): 시스템 '동작 줄이기' 설정 시 모든 애니메이션·전환을
+   일괄 정지한다 — 기존 무한 애니메이션(pulse-ring·cloud-drift·gauge-sweep·
+   scan-x·animate-pulse 등) 포함. 현상 스테이지는 컴포넌트 수준에서도
+   정적 장면으로 대체된다(boardAnimations.usePrefersReducedMotion). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

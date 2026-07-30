@@ -18,6 +18,9 @@ import {
   phenomenonMeta,
   cloudMeta,
 } from './boardDisplay';
+import { Glyph, SymbolIcon } from './boardSymbols';
+import { PhenomenonStage } from './boardAnimations';
+import useBoardDrag from './useBoardDrag';
 
 /**
  * AtmosphereBoard (R3-01 S3·S5) — 한반도 단면 4존 대기 보드 플레이어.
@@ -27,16 +30,22 @@ import {
  *   - puzzle: template_json (§3.3) — question_text/mode/guide_steps/initial_state/palette/goal_conditions/hints
  *   - onSubmit(boardState): 제출 콜백. 부모가 실제 API(연습 attempt / 세션 answer)를 호출.
  *   - disabled, submitting: 제출 중/비활성
- *   - result: 서버 판정 결과 {passed, phenomena, feedback} (있으면 표시)
+ *   - result: 서버 판정 결과 {passed, phenomena, feedback} (있으면 표시 — 연습 탭 경로)
+ *   - phenomena: 서버 판정 존별 현상 배열만 (R9-01 §3.3 ⑤ 세션 경로 —
+ *     세션은 피드백 UI(ResultBanner)를 부모가 그리므로 결과 배너 없이
+ *     확정 리플레이(현상 스테이지)만 트리거한다)
+ *   - sandbox: 자유 실험 모드 (R9-01 §3.3 ⑥) — 목표·채점·제출 없이 배치→
+ *     로컬 엔진 즉시 반응만. 서버 호출 0 (구름 미소모·로그 없음).
  *
  * 규칙(§3.2)은 GET /board/rules로 로드해 배치 즉시 로컬 미리보기 판정을 한다(단일 진실원).
  * 서버 재판정이 권위 채점이며(§3.4), 로컬 판정은 학습용 미리보기일 뿐이다.
  */
-export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null }) {
+export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null, phenomena = null, sandbox = false }) {
   const [board, setBoard] = useState(() => createBoard(puzzle?.initial_state));
   const [selected, setSelected] = useState(null); // 선택된 팔레트 토큰(탭 배치용)
   const [hintLevel, setHintLevel] = useState(0); // 공개한 힌트 수 (2단계 순차)
   const [guideStep, setGuideStep] = useState(0); // guided 안내 진행
+  const [activeZone, setActiveZone] = useState(null); // 현상 스테이지 포커스 존(마지막 조작 존)
 
   // 미니 미션(§3.5): time_limit_sec 있으면 카운트다운, 초과 시 실패(재도전 무제한).
   const timeLimit = Number(puzzle?.time_limit_sec);
@@ -51,6 +60,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     setSelected(null);
     setHintLevel(0);
     setGuideStep(0);
+    setActiveZone(null);
     setTimedOut(false);
     setRemaining(hasTimer ? timeLimit : 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,28 +120,43 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     if (!interactive || !item) return;
     if (item.type === 'air_mass' || item.type === 'front') {
       setBoard((b) => placeElement(b, zone, item.type, item.subtype));
+      setActiveZone(zone); // 배치 즉시 해당 존 현상 재생(§3.3 ④)
     }
   };
   const handleZoneClick = (zone) => {
     if (selected) placeOn(zone, selected);
+    else setActiveZone(zone); // 조회 탭 — 스테이지 포커스만 이동
   };
-  const handleDrop = (e, zone) => {
-    if (!interactive) return;
-    e.preventDefault();
-    const token = e.dataTransfer.getData('text/board-token');
-    if (token) placeOn(zone, { token, ...parsePaletteToken(token) });
-  };
+
+  // Pointer Events 드래그(R9-01 §3.3 ③) — 마우스+터치 공통, 탭-탭 경로 병행
+  const { drag, dragging, handlePointerDown, shouldSuppressClick } = useBoardDrag({
+    enabled: interactive,
+    onDropZone: (zone, item) => placeOn(zone, item),
+  });
 
   const zoneElement = (zone, type) =>
     board.elements.find((el) => el.zone === zone && el.type === type);
   const zoneLevel = (zone, type, dflt) => zoneElement(zone, type)?.level ?? dflt;
+
+  // 현상 스테이지(§3.3 ④) 데이터 — 로컬 미리보기 즉시 재생, 서버 판정 후 확정 리플레이.
+  // 서버 phenomena는 로컬 엔진과 같은 형태({zone, zone_name, phenomenon, cloud, rule_id, explain}).
+  const goalZone = puzzle?.goal_conditions?.[0]?.zone ?? null;
+  const confirmedPhenomena = Array.isArray(result?.phenomena)
+    ? result.phenomena // 연습 탭: attempt 응답
+    : Array.isArray(phenomena)
+      ? phenomena // 세션: AnswerResult.phenomena (§3.3 ⑤)
+      : null;
+  const stageZone = confirmedPhenomena ? (goalZone ?? activeZone ?? 0) : (activeZone ?? goalZone ?? 0);
+  const stageResult = confirmedPhenomena
+    ? (confirmedPhenomena.find((p) => p.zone === stageZone) ?? confirmedPhenomena[stageZone] ?? null)
+    : (preview[stageZone] ?? null);
 
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
       {/* 목표 배너 */}
       <div className="mb-3 rounded-xl bg-sky-50 px-4 py-3 ring-1 ring-sky-100">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-bold text-sky-900">🎯 {puzzle?.question_text}</p>
+          <p className="text-sm font-bold text-sky-900">{sandbox ? '🧪' : '🎯'} {puzzle?.question_text}</p>
           {hasTimer && (
             <span
               className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold tabular-nums ${
@@ -187,18 +212,22 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                 <button
                   key={item.token}
                   type="button"
-                  draggable={interactive}
-                  onDragStart={(e) => e.dataTransfer.setData('text/board-token', item.token)}
-                  onClick={() => interactive && setSelected(isSel ? null : item)}
+                  onPointerDown={handlePointerDown(item)}
+                  onClick={() => {
+                    if (shouldSuppressClick()) return; // 드래그 직후 합성 click 무시
+                    if (interactive) setSelected(isSel ? null : item);
+                  }}
                   disabled={!interactive}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-60 ${
+                  style={{ touchAction: 'none' }} // 터치 드래그 중 스크롤 차단(§3.3 ③)
+                  className={`flex min-h-[44px] items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-60 ${
                     isSel
                       ? 'border-sky-500 bg-sky-600 text-white shadow'
                       : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-sky-400 hover:bg-sky-50'
-                  }`}
+                  } ${dragging && drag?.item?.token === item.token ? 'opacity-40' : ''}`}
                   title={item.hint}
                 >
-                  <span aria-hidden="true">{item.icon}</span>
+                  {/* 표준 표기 SVG 심볼 (R9-01 §3.3 ② — 이모지 폴백은 SymbolIcon 내부) */}
+                  <SymbolIcon kind={item.type} value={item.subtype} className="h-5 w-5" />
                   {item.label}
                 </button>
               );
@@ -217,8 +246,36 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         selected={selected}
         interactive={interactive}
         onZoneTap={handleZoneClick}
-        onZoneDrop={handleDrop}
+        dragging={dragging}
+        dragOverZone={drag?.overZone ?? null}
       />
+
+      {/* 드래그 고스트(§3.3 ③) — 존 위에서는 존 중심으로 스냅 */}
+      {drag && (
+        <div
+          className="pointer-events-none fixed z-50"
+          style={{
+            left: drag.snap?.x ?? drag.x,
+            top: drag.snap?.y ?? drag.y,
+            transform: 'translate(-50%, -50%)',
+          }}
+          aria-hidden="true"
+        >
+          <div
+            className={`flex items-center gap-1.5 rounded-xl border bg-white/95 px-3 py-2 text-sm font-bold shadow-lg transition-transform ${
+              drag.overZone != null ? 'scale-110 border-sky-400 ring-2 ring-sky-500' : 'border-slate-200 ring-1 ring-slate-300'
+            }`}
+          >
+            <SymbolIcon kind={drag.item.type} value={drag.item.subtype} className="h-5 w-5" />
+            {drag.item.label}
+          </div>
+        </div>
+      )}
+
+      {/* 현상 스테이지(§3.3 ④) — rule_id→프리셋 애니메이션 + explain 캡션.
+          로컬 미리보기 엔진 결과로 즉시 재생, 서버 판정 도착 시 확정 리플레이.
+          prefers-reduced-motion이면 정적 장면으로 대체. */}
+      <PhenomenonStage zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
 
       {/* 4개 지역 상세 조절(노드별 기단·전선·습기·일사) — 지도와 같은 zone을 가리킨다 */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -235,20 +292,29 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
           return (
             <div
               key={zone}
+              data-board-zone={zone}
               onClick={() => handleZoneClick(zone)}
-              onDragOver={(e) => interactive && e.preventDefault()}
-              onDrop={(e) => handleDrop(e, zone)}
               className={`flex flex-col rounded-xl border p-2 transition ${
                 selected && interactive ? 'cursor-pointer border-dashed border-sky-400 bg-sky-50/40' : 'border-slate-200'
+              } ${
+                dragging
+                  ? drag?.overZone === zone
+                    ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-400'
+                    : 'border-dashed border-sky-300 bg-sky-50/30'
+                  : ''
               } ${goalMet ? 'ring-2 ring-emerald-400' : ''}`}
             >
               <p className="mb-1 text-center text-xs font-bold text-slate-600">{region.name}</p>
 
-              {/* 미리보기 현상/구름 (즉시 가시화) */}
+              {/* 미리보기 현상/구름 (즉시 가시화) — 표준 표기 SVG(§3.3 ②) */}
               <div className="mb-2 rounded-lg bg-slate-50 py-2 text-center">
-                <div className="text-2xl leading-none" aria-hidden="true">{ph.icon}</div>
+                <div className="flex justify-center">
+                  <SymbolIcon kind="phenomenon" value={pv.phenomenon} className="h-8 w-8" />
+                </div>
                 <div className="mt-0.5 text-xs font-bold text-slate-800">{ph.label}</div>
-                <div className="text-[10px] text-slate-400">{cl.icon} {cl.label}</div>
+                <div className="flex items-center justify-center gap-1 text-[10px] text-slate-400">
+                  <SymbolIcon kind="cloud" value={pv.cloud} className="h-3.5 w-3.5" /> {cl.label}
+                </div>
               </div>
 
               {/* 배치된 기단/전선 칩 */}
@@ -257,14 +323,28 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                   <PlacedChip
                     label={subtypeLabel('air_mass', airEl.subtype)}
                     locked={isLocked(board, zone, 'air_mass')}
-                    onRemove={interactive ? () => setBoard((b) => removeElement(b, zone, 'air_mass')) : null}
+                    onRemove={
+                      interactive
+                        ? () => {
+                            setBoard((b) => removeElement(b, zone, 'air_mass'));
+                            setActiveZone(zone);
+                          }
+                        : null
+                    }
                   />
                 )}
                 {frontEl && (
                   <PlacedChip
                     label={subtypeLabel('front', frontEl.subtype)}
                     locked={isLocked(board, zone, 'front')}
-                    onRemove={interactive ? () => setBoard((b) => removeElement(b, zone, 'front')) : null}
+                    onRemove={
+                      interactive
+                        ? () => {
+                            setBoard((b) => removeElement(b, zone, 'front'));
+                            setActiveZone(zone);
+                          }
+                        : null
+                    }
                   />
                 )}
               </div>
@@ -276,7 +356,10 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                   value={zoneLevel(zone, 'moisture', 40)}
                   locked={isLocked(board, zone, 'moisture')}
                   disabled={!interactive}
-                  onChange={(v) => setBoard((b) => setLevel(b, zone, 'moisture', v))}
+                  onChange={(v) => {
+                    setBoard((b) => setLevel(b, zone, 'moisture', v));
+                    setActiveZone(zone);
+                  }}
                 />
               )}
               {allowSun && (
@@ -285,7 +368,10 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                   value={zoneLevel(zone, 'sun', 50)}
                   locked={isLocked(board, zone, 'sun')}
                   disabled={!interactive}
-                  onChange={(v) => setBoard((b) => setLevel(b, zone, 'sun', v))}
+                  onChange={(v) => {
+                    setBoard((b) => setLevel(b, zone, 'sun', v));
+                    setActiveZone(zone);
+                  }}
                 />
               )}
             </div>
@@ -356,8 +442,8 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         </div>
       )}
 
-      {/* 제출 */}
-      {!result && !timedOut && (
+      {/* 제출 — 자유 실험(§3.3 ⑥)은 채점 자체가 없어 제출 버튼 미노출 */}
+      {!result && !timedOut && !sandbox && (
         <button
           type="button"
           onClick={() => onSubmit?.(toSubmitState(board))}
@@ -372,83 +458,166 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
 }
 
 // 지리적 폴백 좌표(정규화 0~100) — /board/regions 미로드 시 사용.
-// 서해상 왼쪽 · 수도권 중앙상단 · 영서·태백 우측 · 영동·동해 맨우측(§3.1 배치 지시).
+// 좌표 SSOT = database/seed/board_regions.json (R9-01 §3.3 선행 리팩터: 시드↔폴백 일치).
+// 값 변경은 시드 파일에서만 — 여기는 시드 사본(드리프트 금지).
 const FALLBACK_REGIONS = [
-  { name: '서해상', svg_point: [21, 54], label_anchor: [21, 66] },
-  { name: '수도권', svg_point: [43, 33], label_anchor: [43, 21] },
-  { name: '영서·태백', svg_point: [61, 47], label_anchor: [61, 35] },
-  { name: '영동·동해', svg_point: [82, 43], label_anchor: [88, 55] },
+  { name: '서해상', svg_point: [20, 45], label_anchor: [18, 56] },
+  { name: '수도권', svg_point: [42, 38], label_anchor: [42, 49] },
+  { name: '영서·태백', svg_point: [62, 30], label_anchor: [62, 21] },
+  { name: '영동·동해', svg_point: [78, 42], label_anchor: [82, 52] },
 ];
+
+// ── SVG userSpace 단일 좌표계 (R9-01 §3.3 선행 리팩터) ──────────────────────
+// viewBox 100×80 고정 종횡비(aspect-ratio) — preserveAspectRatio="none" 왜곡과
+// "SVG 안 지도 + SVG 밖 절대배치 노드" 2원화를 함께 제거한다.
+// 시드 좌표(0~100 정규화)는 y만 0.8 사영해 같은 userSpace에 놓는다.
+// userSpace는 등방(1unit x = 1unit y)이므로 노드·심볼은 왜곡되지 않는다.
+const VIEW_W = 100;
+const VIEW_H = 80;
+/** 정규화 좌표(0~100) → SVG userSpace */
+function toUser(point, dflt = [50, 50]) {
+  const [x, y] = Array.isArray(point) && point.length >= 2 ? point : dflt;
+  return [x * (VIEW_W / 100), y * (VIEW_H / 100)];
+}
 
 /**
  * PeninsulaMap — 단순화한 한반도 지도(인라인 SVG, CSP상 외부 이미지 금지) 위에
  * 4개 지역 노드를 배치한다. 노드는 요소 드롭·탭 배치 대상이며 즉시 미리보기 현상을
  * 아이콘으로 보여준다. 판정 로직(boardEngine)은 불변 — zone index↔지역 매핑만 표현.
+ *
+ * R9-01 §3.3: 지도와 노드가 하나의 SVG userSpace를 공유한다(<g transform>).
+ * 지역 라벨은 시드의 label_anchor 좌표를 사용한다.
+ * 드래그 중(dragging)에는 유효 존 전체를 하이라이트하고 dragOverZone을 강조한다.
  */
-function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected, interactive, onZoneTap, onZoneDrop }) {
+function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected, interactive, onZoneTap, dragging = false, dragOverZone = null }) {
   return (
-    <div className="relative mb-3 h-44 w-full overflow-hidden rounded-xl bg-gradient-to-b from-sky-100 to-sky-200 ring-1 ring-sky-200 sm:h-52">
-      {/* 단순화 한반도 실루엣 (동서 단면 개념) */}
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
-        <path
-          d="M34,14 C40,10 50,12 53,20 C55,26 60,24 65,28 C70,32 67,39 71,44 C76,50 82,49 82,57
-             C82,65 74,66 70,72 C65,79 60,86 52,88 C46,89 41,86 39,80 C37,74 40,69 35,65
-             C30,61 24,60 24,52 C24,44 30,42 30,35 C30,29 28,24 32,19 C33,17 33,15 34,14 Z"
-          fill="#bbf7d0"
-          stroke="#86efac"
-          strokeWidth="1"
-        />
-        {/* 태백산맥 능선 힌트 */}
-        <path d="M56,30 L60,44 L57,58 L61,70" fill="none" stroke="#4ade80" strokeWidth="1.2" strokeLinejoin="round" opacity="0.7" />
-      </svg>
+    <div className="relative mb-3 w-full overflow-hidden rounded-xl bg-gradient-to-b from-sky-100 to-sky-200 ring-1 ring-sky-200">
+      <svg
+        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+        className="block h-auto w-full"
+        role="group"
+        aria-label="한반도 대기 보드 지도 — 4개 지역 노드에 요소를 배치하세요"
+      >
+        {/* 단순화 한반도 실루엣 (장식) — 정규화 좌표(0~100)로 저작된 path를 y 사영과 함께 스케일 */}
+        <g transform={`scale(1 ${VIEW_H / 100})`} aria-hidden="true">
+          <path
+            d="M34,14 C40,10 50,12 53,20 C55,26 60,24 65,28 C70,32 67,39 71,44 C76,50 82,49 82,57
+               C82,65 74,66 70,72 C65,79 60,86 52,88 C46,89 41,86 39,80 C37,74 40,69 35,65
+               C30,61 24,60 24,52 C24,44 30,42 30,35 C30,29 28,24 32,19 C33,17 33,15 34,14 Z"
+            fill="#bbf7d0"
+            stroke="#86efac"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+          />
+          {/* 태백산맥 능선 힌트 */}
+          <path
+            d="M56,30 L60,44 L57,58 L61,70"
+            fill="none"
+            stroke="#4ade80"
+            strokeWidth="1.2"
+            strokeLinejoin="round"
+            opacity="0.7"
+            vectorEffect="non-scaling-stroke"
+          />
+        </g>
 
-      {/* 지역 노드 */}
-      {regions.map((region, zone) => {
-        const [x, y] = region.svg_point ?? [50, 50];
-        const pv = preview?.[zone];
-        const ph = phenomenonMeta(pv?.phenomenon);
-        const airEl = board?.elements?.find((el) => el.zone === zone && el.type === 'air_mass');
-        const frontEl = board?.elements?.find((el) => el.zone === zone && el.type === 'front');
-        const goalMet =
-          (goals?.unmet ?? []).every((g) => g.zone !== zone) &&
-          (goalConditions ?? []).some((g) => g.zone === zone);
-        const isGoalZone = (goalConditions ?? []).some((g) => g.zone === zone);
-        return (
-          <button
-            type="button"
-            key={zone}
-            onClick={() => interactive && onZoneTap(zone)}
-            onDragOver={(e) => interactive && e.preventDefault()}
-            onDrop={(e) => onZoneDrop(e, zone)}
-            disabled={!interactive}
-            style={{ left: `${x}%`, top: `${y}%` }}
-            title={region.name}
-            className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-xl px-1.5 py-1 shadow-md ring-1 transition ${
-              goalMet
-                ? 'bg-emerald-50 ring-2 ring-emerald-400'
-                : isGoalZone
-                  ? 'bg-white/95 ring-sky-300'
-                  : 'bg-white/90 ring-slate-200'
-            } ${selected && interactive ? 'cursor-pointer ring-2 ring-sky-400 hover:ring-sky-500' : ''}`}
-          >
-            <span className="text-xl leading-none" aria-hidden="true">{ph.icon}</span>
-            <span className="mt-0.5 whitespace-nowrap text-[10px] font-bold text-slate-700">{region.name}</span>
-            <span className="mt-0.5 flex gap-0.5 text-[9px]">
-              {airEl && <span aria-hidden="true">{subtypeIcon('air_mass', airEl.subtype)}</span>}
-              {frontEl && <span aria-hidden="true">{subtypeIcon('front', frontEl.subtype)}</span>}
-              {isGoalZone && !goalMet && <span className="text-slate-400">🎯</span>}
-              {goalMet && <span className="text-emerald-500">✓</span>}
-            </span>
-          </button>
-        );
-      })}
+        {/* 지역 노드 — 지도와 같은 userSpace(<g transform>) */}
+        {regions.map((region, zone) => {
+          const [ux, uy] = toUser(region.svg_point);
+          const [lx, ly] = toUser(region.label_anchor, [
+            region.svg_point?.[0] ?? 50,
+            (region.svg_point?.[1] ?? 50) + 11,
+          ]);
+          const pv = preview?.[zone];
+          const ph = phenomenonMeta(pv?.phenomenon);
+          const airEl = board?.elements?.find((el) => el.zone === zone && el.type === 'air_mass');
+          const frontEl = board?.elements?.find((el) => el.zone === zone && el.type === 'front');
+          const goalMet =
+            (goals?.unmet ?? []).every((g) => g.zone !== zone) &&
+            (goalConditions ?? []).some((g) => g.zone === zone);
+          const isGoalZone = (goalConditions ?? []).some((g) => g.zone === zone);
+          return (
+            <g key={zone}>
+              {/* 지역 라벨 — 시드 label_anchor 위치 (R9-01 §3.3) */}
+              <text
+                x={lx}
+                y={ly}
+                textAnchor="middle"
+                fontSize="3.6"
+                fontWeight="700"
+                fill="#334155"
+                stroke="#f0f9ff"
+                strokeWidth="0.8"
+                paintOrder="stroke"
+                style={{ pointerEvents: 'none' }}
+              >
+                {region.name}
+              </text>
+
+              <g
+                transform={`translate(${ux} ${uy})`}
+                data-board-zone={zone}
+                role="button"
+                tabIndex={interactive ? 0 : -1}
+                aria-label={`${region.name} 존${isGoalZone ? ' (목표 존)' : ''} — 현재 ${ph.label}`}
+                aria-disabled={!interactive}
+                onClick={() => interactive && onZoneTap(zone)}
+                onKeyDown={(e) => {
+                  if (interactive && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    onZoneTap(zone);
+                  }
+                }}
+                className={interactive ? 'cursor-pointer' : ''}
+              >
+                {/* 터치 히트 영역 — 지도폭 320px 기준 지름 ≥44px (r 8.5 = 17unit ≈ 54px) */}
+                <circle r="8.5" fill="transparent" />
+
+                {/* 목표/충족 링 */}
+                {isGoalZone && !goalMet && (
+                  <circle r="7.4" fill="none" stroke="#7dd3fc" strokeWidth="0.8" strokeDasharray="1.6 1.2" />
+                )}
+                {goalMet && <circle r="7.4" fill="none" stroke="#34d399" strokeWidth="1" />}
+                {/* 탭 배치 대기(팔레트 선택 중)·드래그 중 유효 존 안내 링 */}
+                {(selected || dragging) && interactive && (
+                  <circle r="8.2" fill="none" stroke="#38bdf8" strokeWidth="0.6" strokeDasharray="1 1" opacity="0.9" />
+                )}
+                {/* 드래그 오버 존 강조(스냅 대상) */}
+                {dragging && dragOverZone === zone && (
+                  <circle r="8.2" fill="#e0f2fe" fillOpacity="0.55" stroke="#0284c7" strokeWidth="1" />
+                )}
+
+                {/* 노드 본체 + 미리보기 현상 아이콘 */}
+                <circle
+                  r="6"
+                  fill={goalMet ? '#ecfdf5' : '#ffffff'}
+                  fillOpacity="0.95"
+                  stroke={goalMet ? '#34d399' : isGoalZone ? '#7dd3fc' : '#cbd5e1'}
+                  strokeWidth="0.5"
+                />
+                <Glyph kind="phenomenon" value={pv?.phenomenon} scale={0.4} />
+
+                {/* 배치된 요소 미니 배지 (노드 우측 스택) — 표준 표기 SVG(§3.3 ②) */}
+                {airEl && <Glyph kind="air_mass" value={airEl.subtype} x={8.4} y={-2.6} scale={0.26} />}
+                {frontEl && <Glyph kind="front" value={frontEl.subtype} x={8.4} y={3.2} scale={0.28} />}
+                {/* 목표 마커 */}
+                {isGoalZone && !goalMet && (
+                  <text x="-7.6" y="-5.4" textAnchor="middle" fontSize="3.2" aria-hidden="true" style={{ pointerEvents: 'none' }}>
+                    🎯
+                  </text>
+                )}
+                {goalMet && (
+                  <text x="-7.6" y="-5.4" textAnchor="middle" fontSize="3.6" fill="#059669" fontWeight="700" aria-hidden="true" style={{ pointerEvents: 'none' }}>
+                    ✓
+                  </text>
+                )}
+              </g>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
-}
-
-/** 배치 요소 아이콘(지도 노드 미니 배지용) */
-function subtypeIcon(type, subtype) {
-  return parsePaletteToken(`${type}:${subtype}`).icon;
 }
 
 /** 초 → M:SS 표시 (미니 미션 카운트다운) */
