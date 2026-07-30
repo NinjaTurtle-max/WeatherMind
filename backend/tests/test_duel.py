@@ -1,4 +1,4 @@
-"""예보 대결 계약 테스트 — 스프린트 R4-01 §3.4 (R4-S4) + R9-01 §3.1.
+"""예보 대결 계약 테스트 — 스프린트 R4-01 §3.4 (R4-S4) + R9-01 §3.1 (R9-S1)·§3.2 (R9-S2).
 
 순수 함수(ai_caster_prediction·duel_result·settle_scores·extract_forecast_for_date)를
 고정한다. 핵심 불변식:
@@ -14,9 +14,15 @@ R9-01 §3.1 추가분은 라우터 함수를 직접 호출해 검증한다(FakeD
   폴백 base로 캐스터는 동작)
 - POST evidence 화이트리스트(미지 코드 422 INVALID_EVIDENCE)·user_pred 동봉 저장
 - 정산 후 evidence_review 노출 (판정 규칙 자체는 review_evidence 순수 함수 테스트)
+
+적응형 캐스터(R9-01 §3.2): caster_noise_scale 티어 5계단 계약 수치,
+noise_scale은 시드 불변·진폭에만 적용(기본값 1.0 하위 호환), POST 배선
+(ELO 조달→scale→ai_pred JSONB 스냅샷→caster_grade 노출)을 고정한다.
+승률 밸런스 시뮬은 test_duel_balance.py 별도.
 """
 import asyncio
 import inspect
+import random
 import uuid
 from datetime import date, timedelta
 from types import SimpleNamespace
@@ -26,12 +32,15 @@ from fastapi import HTTPException
 
 from app.models.duel import Duel
 from app.routers import duel as duel_router
-from app.schemas.duel import DuelSubmitRequest
-from app.services import duel_service
+from app.schemas.duel import DuelHistoryItem, DuelSubmitRequest
+from app.services import duel_service, league_service
 from app.services.duel_service import (
+    CASTER_NOISE_SCALES,
     RAIN_NOISE,
     TEMP_NOISE,
     ai_caster_prediction,
+    caster_grade,
+    caster_noise_scale,
     duel_result,
     extract_forecast_for_date,
     settle_scores,
@@ -176,6 +185,115 @@ class FakeDB:
 
     def add(self, obj):
         self.added.append(obj)
+
+
+# ═══════════════════════════════════════════════════════════════
+# 적응형 캐스터 — R9-01 §3.2 (R9-S2)
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestCasterNoiseScale:
+    """caster_noise_scale/caster_grade — 티어 5계단 계약 수치 고정."""
+
+    @pytest.mark.parametrize(
+        "elo, expected_tier, expected_scale",
+        [
+            (None, "stratus", 1.00),   # 첫 참가(정산 이력 없음)
+            (0, "stratus", 1.00),
+            (1099, "stratus", 1.00),   # 경계 직전
+            (1100, "cumulus", 0.85),   # 하한 포함(≥)
+            (1249, "cumulus", 0.85),
+            (1250, "nimbostratus", 0.70),
+            (1399, "nimbostratus", 0.70),
+            (1400, "cumulonimbus", 0.55),
+            (1549, "cumulonimbus", 0.55),
+            (1550, "typhoon_eye", 0.40),
+            (2000, "typhoon_eye", 0.40),
+        ],
+    )
+    def test_티어_5계단_계약수치(self, elo, expected_tier, expected_scale):
+        assert caster_grade(elo) == expected_tier
+        assert caster_noise_scale(elo) == expected_scale
+
+    def test_배율표_키는_리그_티어와_일치(self):
+        """티어 추가·개명 시 드리프트 감지 — TIER_THRESHOLDS 단일 소유(§3.2)."""
+        assert set(CASTER_NOISE_SCALES) == set(league_service.TIER_ORDER)
+
+    def test_배율은_티어_서열대로_단조_감소(self):
+        scales = [CASTER_NOISE_SCALES[t] for t in league_service.TIER_ORDER]
+        assert scales == sorted(scales, reverse=True)
+        assert len(set(scales)) == len(scales)  # 계단마다 실제로 달라야 한다
+
+
+class TestNoiseScaleDeterminism:
+    """noise_scale — 시드 (user,date) 불변, 배율은 진폭에만 적용 (§3.2)."""
+
+    def test_기본값_1은_기존_결과와_동일(self):
+        """하위 호환 — noise_scale 미지정·1.0 명시가 같은 결과(기존 테스트 불변)."""
+        assert ai_caster_prediction(28.0, 40, USER, DAY) == ai_caster_prediction(
+            28.0, 40, USER, DAY, noise_scale=1.0
+        )
+
+    def test_같은_scale_같은_출력(self):
+        a = ai_caster_prediction(28.0, 40, USER, DAY, noise_scale=0.55)
+        b = ai_caster_prediction(28.0, 40, USER, DAY, noise_scale=0.55)
+        assert a == b
+
+    @pytest.mark.parametrize("scale", [0.85, 0.70, 0.55, 0.40])
+    def test_배율은_같은_난수의_진폭에만_곱한다(self, scale):
+        """시드 불변 화이트박스 — scale이 달라도 원시 난수 추출은 동일해야 한다."""
+        rng = random.Random(duel_service._seed(USER, DAY))
+        noise_t = rng.uniform(-TEMP_NOISE, TEMP_NOISE)
+        noise_r = rng.uniform(-RAIN_NOISE, RAIN_NOISE)
+        expected = {
+            "temp_max": round(28.0 + noise_t * scale, 1),
+            "rain_prob": max(0, min(100, round(40 + noise_r * scale))),
+        }
+        assert ai_caster_prediction(28.0, 40, USER, DAY, noise_scale=scale) == expected
+
+    @pytest.mark.parametrize("scale", [1.0, 0.85, 0.70, 0.55, 0.40])
+    def test_scale별_오차_범위(self, scale):
+        """노이즈 범위가 ±TEMP_NOISE×scale / ±RAIN_NOISE×scale로 줄어든다."""
+        for seed_day in range(1, 28):
+            pred = ai_caster_prediction(
+                25.0, 50, USER, date(2026, 8, seed_day), noise_scale=scale
+            )
+            assert abs(pred["temp_max"] - 25.0) <= TEMP_NOISE * scale + 0.05  # 반올림 여유
+            assert abs(pred["rain_prob"] - 50) <= RAIN_NOISE * scale + 0.5
+
+    def test_scale_0은_기준_예보_그대로(self):
+        pred = ai_caster_prediction(28.3, 40, USER, DAY, noise_scale=0.0)
+        assert pred == {"temp_max": 28.3, "rain_prob": 40}
+
+
+# ═══════════════════════════════════════════════════════════════
+# POST /duel/today 배선 — ELO 조달→scale→스냅샷→caster_grade (R9-01 §3.2)
+# — limiter는 inspect.unwrap으로 우회 (test_crown_award 관례)
+# ═══════════════════════════════════════════════════════════════
+
+
+class _Result:
+    def __init__(self, value):
+        self.value = value
+
+    def scalar_one_or_none(self):
+        return self.value
+
+
+class DuelFakeDB:
+    """submit_today_duel 배선 테스트용 — 기존 대결 없음, add/flush noop."""
+
+    def __init__(self):
+        self.added = []
+
+    async def execute(self, stmt):
+        return _Result(None)
+
+    def add(self, obj):
+        self.added.append(obj)
+
+    async def flush(self):
+        pass
 
 
 def _weather_for(target: date, temp: float = 31.0, pop: int = 60) -> dict:
@@ -449,3 +567,112 @@ class TestReviewEvidenceRules:
         pred = {"temp_max": 28.0, "rain_prob": 70, "evidence": ["legacy_code"]}
         (review,) = duel_service.review_evidence(pred, self.RAINED)
         assert review["hit"] is False
+
+
+def run_submit(monkeypatch, *, elo):
+    """submit_today_duel을 배선 검증용으로 실행 — KMA 폴백 base 고정."""
+    fake_user = SimpleNamespace(id=uuid.UUID(USER))
+
+    async def fake_weather():
+        return {}  # 예보 없음 → _FALLBACK_BASE 사용 (결정적)
+
+    async def fake_rating(db, user_id):
+        return elo
+
+    monkeypatch.setattr(duel_router, "get_today_weather", fake_weather)
+    monkeypatch.setattr(
+        duel_router.league_service, "get_current_rating", fake_rating
+    )
+    endpoint = inspect.unwrap(duel_router.submit_today_duel)
+    db = DuelFakeDB()
+    response = asyncio.run(
+        endpoint(
+            None,  # request — limiter 우회로 미사용
+            DuelSubmitRequest(temp_max=27.0, rain_prob=40),
+            fake_user,
+            db,
+        )
+    )
+    return response, db
+
+
+class TestSubmitAdaptiveCasterWiring:
+    def test_ELO로_scale_적용_및_스냅샷_동봉(self, monkeypatch):
+        response, db = run_submit(monkeypatch, elo=1600)  # typhoon_eye
+        duel = db.added[0]
+        base = duel_router._FALLBACK_BASE
+        expected = ai_caster_prediction(
+            base["temp_max"], base["rain_prob"], USER, duel.duel_date, noise_scale=0.40
+        )
+        assert duel.ai_pred["temp_max"] == expected["temp_max"]
+        assert duel.ai_pred["rain_prob"] == expected["rain_prob"]
+        assert duel.ai_pred["noise_scale"] == 0.40   # JSONB 감사 스냅샷
+        assert duel.ai_pred["caster_grade"] == "typhoon_eye"
+        assert response.caster_grade == "typhoon_eye"
+        assert response.ai_pred.noise_scale == 0.40
+
+    def test_첫_참가는_기본_노이즈_1점0_stratus(self, monkeypatch):
+        """정산 이력 없음(None) → scale 1.0 — 기존 예측과 동일(하위 호환)."""
+        response, db = run_submit(monkeypatch, elo=None)
+        duel = db.added[0]
+        base = duel_router._FALLBACK_BASE
+        legacy = ai_caster_prediction(
+            base["temp_max"], base["rain_prob"], USER, duel.duel_date
+        )
+        assert duel.ai_pred["temp_max"] == legacy["temp_max"]
+        assert duel.ai_pred["rain_prob"] == legacy["rain_prob"]
+        assert duel.ai_pred["noise_scale"] == 1.0
+        assert response.caster_grade == "stratus"
+
+
+class TestCasterGradeSchema:
+    def test_history는_스냅샷에서_caster_grade_파생(self):
+        row = SimpleNamespace(
+            id=uuid.uuid4(),
+            duel_date=DAY,
+            user_pred={"temp_max": 27.0, "rain_prob": 40},
+            ai_pred={
+                "temp_max": 26.5,
+                "rain_prob": 35,
+                "noise_scale": 0.85,
+                "caster_grade": "cumulus",
+            },
+            actual=None,
+            user_score=None,
+            ai_score=None,
+            result=None,
+        )
+        item = DuelHistoryItem.model_validate(row)
+        assert item.caster_grade == "cumulus"
+        assert item.model_dump()["caster_grade"] == "cumulus"  # 직렬화에도 노출
+
+    def test_R9_이전_행은_caster_grade_null(self):
+        """스냅샷 없는 과거 행 — additive 필드는 null (하위 호환)."""
+        row = SimpleNamespace(
+            id=uuid.uuid4(),
+            duel_date=DAY,
+            user_pred={"temp_max": 27.0, "rain_prob": 40},
+            ai_pred={"temp_max": 26.5, "rain_prob": 35},
+            actual=None,
+            user_score=None,
+            ai_score=None,
+            result=None,
+        )
+        item = DuelHistoryItem.model_validate(row)
+        assert item.caster_grade is None
+
+    def test_today_응답도_과거_행이면_null(self):
+        duel = SimpleNamespace(
+            duel_date=DAY,
+            user_pred={"temp_max": 27.0, "rain_prob": 40},
+            ai_pred={"temp_max": 26.5, "rain_prob": 35},
+            actual=None,
+            user_score=None,
+            ai_score=None,
+            result=None,
+        )
+        got = duel_router._to_today_response(duel, DAY)
+        assert got.caster_grade is None
+        assert got.ai_pred.noise_scale is None
+
+

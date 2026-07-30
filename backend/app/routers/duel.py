@@ -25,7 +25,7 @@ from app.core.rate_limit import LIMIT_ANSWER, LIMIT_TODAY, limiter, user_or_ip_k
 from app.models.duel import Duel
 from app.models.user import User
 from app.schemas.duel import DuelBriefing, DuelHistoryItem, DuelSubmitRequest, DuelToday
-from app.services import duel_service
+from app.services import duel_service, league_service
 from app.services.weather_api import (
     DEFAULT_REGION,
     KST,
@@ -108,6 +108,8 @@ def _to_today_response(
         result=duel.result,
         evidence=(duel.user_pred or {}).get("evidence"),
         evidence_review=duel_service.review_evidence(duel.user_pred, duel.actual),
+        # R9-01 §3.2 — 제출 시점 스냅샷(ai_pred JSONB)에서 파생. R9 이전 행은 null.
+        caster_grade=(duel.ai_pred or {}).get("caster_grade"),
     )
 
 
@@ -206,9 +208,25 @@ async def submit_today_duel(
     weather = await get_today_weather()
     base_forecast = duel_service.extract_forecast_for_date(weather, duel_date)
     base = base_forecast or _FALLBACK_BASE
+
+    # 적응형 캐스터(R9-01 §3.2): 유저 ELO 조달 → 티어별 노이즈 배율.
+    # 시드는 (user,date) 불변 — 배율은 진폭에만 적용(결정성 보존).
+    elo = await league_service.get_current_rating(db, user.id)
+    noise_scale = duel_service.caster_noise_scale(elo)
     ai_pred = duel_service.ai_caster_prediction(
-        base["temp_max"], base["rain_prob"], str(user.id), duel_date
+        base["temp_max"],
+        base["rain_prob"],
+        str(user.id),
+        duel_date,
+        noise_scale=noise_scale,
     )
+    # 제출 시점 스냅샷을 ai_pred JSONB에 동봉(§3.2 감사 가능) — noise_scale은 계약
+    # 필드, caster_grade는 컬럼·마이그레이션 없이 history 노출을 위한 티어명 스냅샷
+    # (이후 티어가 변해도 과거 대결의 등급 표시는 제출 시점 그대로).
+    ai_pred |= {
+        "noise_scale": noise_scale,
+        "caster_grade": duel_service.caster_grade(elo),
+    }
 
     # 근거 선택은 user_pred JSONB에 동봉 저장 (§3.1 ③ — 마이그레이션 0).
     # temp_drop 판정용 기준 기온(제출일 예보 최고기온)도 함께 스냅샷해

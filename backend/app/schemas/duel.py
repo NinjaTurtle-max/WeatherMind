@@ -7,14 +7,19 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class DuelPrediction(BaseModel):
-    """예보 예측값(유저·AI 공통) — 내일 최고기온·강수확률."""
+    """예보 예측값(유저·AI 공통) — 내일 최고기온·강수확률.
+
+    noise_scale은 AI 캐스터 전용(R9-01 §3.2 감사 스냅샷) — 유저 예측·R9 이전
+    행에는 없어 null이다(additive).
+    """
 
     temp_max: float
     rain_prob: int = Field(ge=0, le=100)
+    noise_scale: float | None = None
 
 
 class DuelSubmitRequest(BaseModel):
@@ -48,6 +53,8 @@ class DuelToday(BaseModel):
     base_forecast는 KMA 대상일 예보(참고용, R9-01 §3.1 additive) — 프론트 DuelForm
     배너가 렌더한다. KMA 실패·키 부재 시 null(캐스터는 내부 폴백 base로 동작하되
     브리핑엔 비노출).
+    caster_grade(R9-01 §3.2 additive): 제출 시점 캐스터 티어명 — 프론트
+    "🤖 {티어}급 캐스터" 표시용. 미제출·R9 이전 행은 null.
     """
 
     duel_date: date
@@ -62,6 +69,8 @@ class DuelToday(BaseModel):
     # R9-01 §3.1 ③·④ additive — 제출 시 선택한 근거 코드와 정산 후 적중 해설
     evidence: list[str] | None = None
     evidence_review: list[EvidenceReviewItem] | None = None
+    # R9-01 §3.2 additive — 제출 시점 캐스터 티어명 스냅샷
+    caster_grade: str | None = None
 
 
 class DuelBriefingHour(BaseModel):
@@ -126,3 +135,11 @@ class DuelHistoryItem(BaseModel):
     result: str | None = None
     evidence: list[str] | None = None
     evidence_review: list[EvidenceReviewItem] | None = None
+
+    @computed_field  # R9-01 §3.2 additive — ai_pred JSONB 스냅샷에서 파생
+    @property
+    def caster_grade(self) -> str | None:
+        """제출 시점 캐스터 티어명. R9 이전 행(스냅샷 없음)은 null."""
+        if isinstance(self.ai_pred, dict):
+            return self.ai_pred.get("caster_grade")
+        return None
