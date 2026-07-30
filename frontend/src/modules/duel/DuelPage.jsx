@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { duelApi } from '../../api';
+import { DUEL_WIN_XP } from '../../lib/xpConstants';
 import { useProgressStore } from '../../store/progressStore';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import DuelForm from './DuelForm';
@@ -56,9 +57,9 @@ export default function DuelPage() {
     if (!today?.result || seenSettled) return;
     const meta = RESULT_META[today.result];
     if (!meta) return;
-    const xpNote = today.result === 'win' ? ' (+15 XP)' : '';
+    const xpNote = today.result === 'win' ? ` (+${DUEL_WIN_XP} XP)` : '';
     setToast(`${meta.icon} 어제 대결 ${meta.label}!${xpNote}`);
-    if (today.result === 'win') addXp(15);
+    if (today.result === 'win') addXp(DUEL_WIN_XP);
     setSeenSettled(true);
     setTimeout(() => setToast(null), 3000);
   }, [today, seenSettled, addXp]);
@@ -143,7 +144,7 @@ function DuelResultCard({ duel }) {
           <span aria-hidden="true">{meta.icon}</span>
           {meta.label}
           {duel.result === 'win' && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">+15 XP</span>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">+{DUEL_WIN_XP} XP</span>
           )}
         </div>
       ) : (
