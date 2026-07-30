@@ -36,7 +36,9 @@ class AnswerResult(BaseModel):
     feedback: str
     xp_earned: int
     concept_tag: str
-    # board 유형만: 존별 판정 결과 배열 (그 외 유형은 None)
+    # board 유형만: 존별 판정 결과 배열 (그 외 유형은 None) —
+    # {zone, zone_name, phenomenon, cloud, rule_id, explain}
+    # (zone_name·explain은 R9-01 §1 additive — 확정 리플레이 캡션용)
     phenomena: list[dict[str, Any]] | None = None
 
 

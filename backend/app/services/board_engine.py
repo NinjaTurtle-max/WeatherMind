@@ -235,8 +235,13 @@ def validate_rules(rules: Any) -> None:
 def evaluate(board: dict[str, Any], rules: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """보드 상태 → 존별 대기현상 판정 (§3.2). 존 4개 전부 반환.
 
-    반환: [{"zone": 0, "phenomenon": ..., "cloud": ..., "rule_id": ...|None}, ...]
-    rule_id None = 성립 규칙 없음(기본값 cloudy/cumulus).
+    반환: [{"zone": 0, "zone_name": ..., "phenomenon": ..., "cloud": ...,
+            "rule_id": ...|None, "explain": ...|None}, ...]
+    rule_id None = 성립 규칙 없음(기본값 cloudy/cumulus, explain=None).
+
+    zone_name·explain(R9-01 §1 additive): 프론트 확정 리플레이 캡션용 —
+    로컬 엔진(frontend/src/lib/boardEngine.js evaluateBoard)과 형태 통일.
+    판정(phenomenon·cloud·rule_id)에는 영향 없다.
     """
     validate_board(board)
     validate_rules(rules)
@@ -253,14 +258,24 @@ def evaluate(board: dict[str, Any], rules: list[dict[str, Any]]) -> list[dict[st
                 if best_priority is None or rule["priority"] > best_priority:
                     best, best_priority = rule, rule["priority"]
         if best is None:
-            results.append({"zone": zone, **DEFAULT_OUTCOME, "rule_id": None})
+            results.append(
+                {
+                    "zone": zone,
+                    "zone_name": ZONES[zone],
+                    **DEFAULT_OUTCOME,
+                    "rule_id": None,
+                    "explain": None,
+                }
+            )
         else:
             results.append(
                 {
                     "zone": zone,
+                    "zone_name": ZONES[zone],
                     "phenomenon": best["then"]["phenomenon"],
                     "cloud": best["then"]["cloud"],
                     "rule_id": best["id"],
+                    "explain": best["explain"],
                 }
             )
     return results

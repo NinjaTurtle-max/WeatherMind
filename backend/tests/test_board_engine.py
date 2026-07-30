@@ -209,6 +209,39 @@ class TestEvaluate:
         assert be.evaluate(board, MINI_RULES)[0]["rule_id"] == "front_only_low"
 
 
+class TestEvaluateCaptionFields:
+    """R9-01 §1 additive — zone_name·explain (프론트 확정 리플레이 캡션용).
+
+    로컬 엔진(boardEngine.js evaluateBoard)과 형태 통일: 성립 규칙이 있으면
+    그 규칙의 explain, 무성립이면 null. zone_name은 ZONES[zone] 고정.
+    """
+
+    def test_zone_name은_ZONES_순서_고정(self):
+        results = be.evaluate(_board([]), MINI_RULES)
+        assert [r["zone_name"] for r in results] == list(be.ZONES)
+
+    def test_성립_규칙의_explain_동봉(self):
+        board = _board(
+            [
+                {"type": "front", "subtype": "cold", "zone": 1},
+                {"type": "moisture", "level": 70, "zone": 1},
+            ]
+        )
+        r1 = be.evaluate(board, MINI_RULES)[1]
+        assert r1["explain"] == "한랭전선이 습한 공기를 파고들어 적란운·소나기."
+
+    def test_무성립이면_explain_null(self):
+        for r in be.evaluate(_board([]), MINI_RULES):
+            assert r["explain"] is None
+
+    def test_판정_키_형태_로컬_엔진과_통일(self):
+        """{zone, zone_name, phenomenon, cloud, rule_id, explain} — 키 집합 고정."""
+        for r in be.evaluate(_board([]), MINI_RULES):
+            assert set(r) == {
+                "zone", "zone_name", "phenomenon", "cloud", "rule_id", "explain"
+            }
+
+
 class TestBoundary6059:
     """§3.2 경계값 — moisture>=60은 60 성립·59 미성립."""
 
