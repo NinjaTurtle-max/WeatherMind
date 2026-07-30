@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { leagueApi } from '../../api';
+import { duelApi, leagueApi } from '../../api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import PredictionForm from './PredictionForm';
 import Leaderboard from './Leaderboard';
+import BriefingRoom from '../duel/BriefingRoom';
 
 /**
  * LeaguePage (04번 스펙 섹션 4 — 축소판)
@@ -11,6 +12,10 @@ import Leaderboard from './Leaderboard';
  * 제출 여부는 GET /league/me/results에 이번 주(week_start) 기록이 있는지로 판별하고,
  * 중복 제출(주 1회 제한) 에러는 서버 응답으로 처리한다.
  * RESULT_REVEALED(ELO 변동 애니메이션)는 주간 배치 이후 이력 리스트로 축소 표현.
+ *
+ * R9-01 §3.1: mid_forecast raw JSON 노출을 /duel/briefing 재사용 카드
+ * (BriefingRoom compact)로 대체 — 리그 라우터의 mid_forecast는 하위 호환으로
+ * 유지되지만 프론트는 더 이상 그리지 않는다.
  */
 export default function LeaguePage() {
   const queryClient = useQueryClient();
@@ -32,6 +37,14 @@ export default function LeaguePage() {
     queryKey: ['league', 'myResults'],
     queryFn: leagueApi.fetchMyLeagueResults,
     retry: 1,
+  });
+
+  // 브리핑 재사용 (R9-01 §3.1) — 듀얼과 같은 자료·같은 캐시 키를 공유한다
+  const briefingQ = useQuery({
+    queryKey: ['duel', 'briefing'],
+    queryFn: duelApi.fetchDuelBriefing,
+    retry: 1,
+    staleTime: 60_000,
   });
 
   const predictMutation = useMutation({
@@ -76,18 +89,15 @@ export default function LeaguePage() {
         {current.region ?? '전국'} 날씨 예측 대결
       </p>
 
-      {current.mid_forecast && (
-        <div className="mb-4 rounded-2xl bg-sky-900 p-4 text-sm text-sky-100">
-          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-sky-300">
-            중기예보 참고자료
-          </p>
-          <p className="whitespace-pre-line leading-relaxed">
-            {typeof current.mid_forecast === 'string'
-              ? current.mid_forecast
-              : JSON.stringify(current.mid_forecast)}
-          </p>
-        </div>
-      )}
+      {/* 참고자료: mid_forecast raw JSON → 브리핑 카드 재사용 (R9-01 §3.1) */}
+      <div className="mb-4">
+        <BriefingRoom
+          compact
+          briefing={briefingQ.data}
+          loading={briefingQ.isLoading}
+          error={briefingQ.isError}
+        />
+      </div>
 
       {alreadySubmitted ? (
         <div className="mb-4 rounded-2xl bg-emerald-50 p-4 text-center ring-1 ring-emerald-200">

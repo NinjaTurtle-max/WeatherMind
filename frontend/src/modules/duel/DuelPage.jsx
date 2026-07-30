@@ -5,14 +5,20 @@ import { DUEL_WIN_XP } from '../../lib/xpConstants';
 import { useProgressStore } from '../../store/progressStore';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import DuelForm from './DuelForm';
+import BriefingRoom from './BriefingRoom';
+import EvidencePicker from './EvidencePicker';
+import CasterJudgmentCard, { CasterGradeBadge } from './CasterJudgmentCard';
+import { evidenceMeta } from './briefingDisplay';
 
 /**
- * DuelPage (R4-01 S4) — "예보 대결" 탭.
- * GET /duel/today 오늘 상태 → 미제출: DuelForm / 제출됨: 내 예보 vs AI 예측 공개.
- * 정산 완료(actual 존재) 시 승패 결과·점수·승리 XP 표시. GET /duel/history 이력.
- * 승패 결과 토스트는 정산된 대결(오늘 또는 이력의 최신)이 확인될 때 노출한다.
+ * DuelPage (R4-01 S4 → R9-01 S4 브리핑 룸 개편) — "예보 대결" 탭.
+ * 미제출: 브리핑(차트 3종+보조) → 판단 근거 선택 → 예측 입력.
+ * 제출됨: 내 예보 vs AI 예측 공개 + "AI 캐스터의 판단" 3단계 카드(§3.4 ④).
+ * 정산 완료: 승패·점수·근거 적중 해설(evidence_review). 이력 행은 정산분에
+ * 한해 근거 해설을 펼쳐볼 수 있다.
  *
- * 화면 상태: LOADING → ERROR(재시도) → OPEN(폼) / SUBMITTED(공개) / SETTLED(결과).
+ * degraded(§3.4): briefing이 비어도(KMA 키 부재) 예측 입력은 그대로 가능.
+ * 화면 상태: LOADING → ERROR(재시도) → OPEN(브리핑+근거+폼) / SUBMITTED(공개) / SETTLED(결과).
  */
 
 const RESULT_META = {
@@ -27,11 +33,20 @@ export default function DuelPage() {
   const [submitError, setSubmitError] = useState(null);
   const [toast, setToast] = useState(null);
   const [seenSettled, setSeenSettled] = useState(false);
+  const [evidence, setEvidence] = useState([]); // 선택한 판단 근거 코드 (§3.1)
 
   const todayQ = useQuery({
     queryKey: ['duel', 'today'],
     queryFn: duelApi.fetchTodayDuel,
     retry: 1,
+  });
+
+  // 브리핑 자료(§3.1) — 실패해도 예측 플로우는 막지 않는다(degraded)
+  const briefingQ = useQuery({
+    queryKey: ['duel', 'briefing'],
+    queryFn: duelApi.fetchDuelBriefing,
+    retry: 1,
+    staleTime: 60_000,
   });
 
   const historyQ = useQuery({
@@ -86,6 +101,9 @@ export default function DuelPage() {
   const submitted = Boolean(today?.user_pred) || submitMutation.isSuccess || today?.status === 'submitted' || today?.status === 'settled';
   const history = Array.isArray(historyQ.data) ? historyQ.data : [];
 
+  const toggleEvidence = (code) =>
+    setEvidence((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
+
   return (
     <div className="pt-2">
       {toast && (
@@ -94,20 +112,42 @@ export default function DuelPage() {
         </div>
       )}
 
-      <h1 className="mb-1 text-lg font-extrabold text-slate-900">🌡️ 예보 대결</h1>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <h1 className="text-lg font-extrabold text-slate-900">🌡️ 예보 대결</h1>
+        {today?.caster_grade && <CasterGradeBadge grade={today.caster_grade} />}
+      </div>
       <p className="mb-4 text-sm text-slate-500">
-        {today?.duel_date ? `${today.duel_date} · ` : ''}AI 캐스터와 내일 예보를 겨뤄요.
+        {today?.duel_date ? `${today.duel_date} · ` : ''}브리핑을 읽고 AI 캐스터와 내일 예보를 겨뤄요.
       </p>
 
       {submitted ? (
-        <DuelResultCard duel={today} />
+        <>
+          <DuelResultCard duel={today} />
+          <CasterJudgmentCard
+            baseForecast={today?.base_forecast}
+            aiPred={today?.ai_pred}
+            casterGrade={today?.caster_grade}
+          />
+        </>
       ) : (
         <>
-          <DuelForm
-            onSubmit={(values) => submitMutation.mutate(values)}
-            submitting={submitMutation.isPending}
-            baseForecast={today?.base_forecast}
+          <BriefingRoom
+            briefing={briefingQ.data}
+            loading={briefingQ.isLoading}
+            error={briefingQ.isError}
           />
+          <EvidencePicker
+            selected={evidence}
+            onToggle={toggleEvidence}
+            disabled={submitMutation.isPending}
+          />
+          <div className="mt-3">
+            <DuelForm
+              onSubmit={(values) => submitMutation.mutate({ ...values, evidence })}
+              submitting={submitMutation.isPending}
+              baseForecast={today?.base_forecast}
+            />
+          </div>
           {submitError && (
             <p className="mt-2 rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">{submitError}</p>
           )}
@@ -132,7 +172,7 @@ export default function DuelPage() {
   );
 }
 
-/** 오늘 대결(제출 후) 카드 — 내 예보 vs AI 예측, 정산 시 결과 표시 */
+/** 오늘 대결(제출 후) 카드 — 내 예보 vs AI 예측, 정산 시 결과·근거 해설 표시 */
 function DuelResultCard({ duel }) {
   const settled = Boolean(duel?.actual) && duel?.result;
   const meta = settled ? RESULT_META[duel.result] : null;
@@ -166,6 +206,65 @@ function DuelResultCard({ duel }) {
           </p>
         </div>
       )}
+
+      {/* 근거 적중 해설(정산 후 — §3.1 evidence_review) / 선택한 근거(정산 전) */}
+      {Array.isArray(duel?.evidence_review) && duel.evidence_review.length > 0 ? (
+        <EvidenceReviewList review={duel.evidence_review} />
+      ) : (
+        Array.isArray(duel?.evidence) &&
+        duel.evidence.length > 0 && (
+          <div className="mt-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">내가 고른 근거</p>
+            <p className="mt-1 flex flex-wrap gap-1">
+              {duel.evidence.map((code) => {
+                const m = evidenceMeta(code);
+                return (
+                  <span
+                    key={code}
+                    className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-700 ring-1 ring-sky-200"
+                  >
+                    {m.icon} {m.label}
+                  </span>
+                );
+              })}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-400">정산 후 근거가 맞았는지 해설해 드려요.</p>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+/** 근거 적중 해설 (§3.4 ④) — hit별 ✓/✗ 아이콘 + 텍스트 라벨 병기 + note */
+function EvidenceReviewList({ review }) {
+  return (
+    <div className="mt-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+      <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">근거 적중 해설</p>
+      <ul className="flex flex-col gap-1.5">
+        {review.map((r) => {
+          const m = evidenceMeta(r.code);
+          return (
+            <li key={r.code} className="flex items-start gap-2 text-xs">
+              <span
+                className={`mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ring-1 ${
+                  r.hit
+                    ? 'bg-emerald-100 text-emerald-700 ring-emerald-200'
+                    : 'bg-orange-100 text-orange-700 ring-orange-200'
+                }`}
+              >
+                {r.hit ? '✓ 적중' : '✗ 빗나감'}
+              </span>
+              <span className="min-w-0">
+                <span className="font-bold text-slate-700">
+                  {m.icon} {m.label}
+                </span>
+                {r.note && <span className="mt-0.5 block leading-relaxed text-slate-500">{r.note}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -183,20 +282,49 @@ function PredColumn({ title, pred, score, highlight = false }) {
   );
 }
 
+/** 이력 행 — 정산분(evidence_review 보유)은 탭하면 근거 해설을 펼친다 */
 function DuelHistoryRow({ duel }) {
   const meta = duel?.result ? RESULT_META[duel.result] : null;
+  const [open, setOpen] = useState(false);
+  const hasReview = Array.isArray(duel?.evidence_review) && duel.evidence_review.length > 0;
+
   return (
-    <li className="flex items-center justify-between rounded-xl bg-white px-4 py-3 text-sm shadow-sm ring-1 ring-slate-200">
-      <span className="font-medium text-slate-700">{duel?.duel_date ?? '-'}</span>
-      <span className="text-xs text-slate-500">
-        내 {fmt(duel?.user_pred?.temp_max)}℃ vs AI {fmt(duel?.ai_pred?.temp_max)}℃
-      </span>
-      {meta ? (
-        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ring-1 ${meta.chip}`}>
-          {meta.icon} {meta.label}
+    <li className="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+      <button
+        type="button"
+        disabled={!hasReview}
+        aria-expanded={hasReview ? open : undefined}
+        onClick={() => hasReview && setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm disabled:cursor-default"
+      >
+        <span className="font-medium text-slate-700">{duel?.duel_date ?? '-'}</span>
+        <span className="text-xs text-slate-500">
+          내 {fmt(duel?.user_pred?.temp_max)}℃ vs AI {fmt(duel?.ai_pred?.temp_max)}℃
         </span>
-      ) : (
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-400">정산 중</span>
+        <span className="flex items-center gap-1.5">
+          {meta ? (
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ring-1 ${meta.chip}`}>
+              {meta.icon} {meta.label}
+            </span>
+          ) : (
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-400">정산 중</span>
+          )}
+          {hasReview && (
+            <span aria-hidden="true" className="text-xs text-slate-400">
+              {open ? '▲' : '▼'}
+            </span>
+          )}
+        </span>
+      </button>
+      {open && hasReview && (
+        <div className="border-t border-slate-100 px-4 pb-3 pt-1">
+          {duel?.caster_grade && (
+            <p className="mt-1.5">
+              <CasterGradeBadge grade={duel.caster_grade} />
+            </p>
+          )}
+          <EvidenceReviewList review={duel.evidence_review} />
+        </div>
       )}
     </li>
   );
