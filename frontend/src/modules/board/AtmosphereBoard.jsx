@@ -372,76 +372,171 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
 }
 
 // 지리적 폴백 좌표(정규화 0~100) — /board/regions 미로드 시 사용.
-// 서해상 왼쪽 · 수도권 중앙상단 · 영서·태백 우측 · 영동·동해 맨우측(§3.1 배치 지시).
+// 좌표 SSOT = database/seed/board_regions.json (R9-01 §3.3 선행 리팩터: 시드↔폴백 일치).
+// 값 변경은 시드 파일에서만 — 여기는 시드 사본(드리프트 금지).
 const FALLBACK_REGIONS = [
-  { name: '서해상', svg_point: [21, 54], label_anchor: [21, 66] },
-  { name: '수도권', svg_point: [43, 33], label_anchor: [43, 21] },
-  { name: '영서·태백', svg_point: [61, 47], label_anchor: [61, 35] },
-  { name: '영동·동해', svg_point: [82, 43], label_anchor: [88, 55] },
+  { name: '서해상', svg_point: [20, 45], label_anchor: [18, 56] },
+  { name: '수도권', svg_point: [42, 38], label_anchor: [42, 49] },
+  { name: '영서·태백', svg_point: [62, 30], label_anchor: [62, 21] },
+  { name: '영동·동해', svg_point: [78, 42], label_anchor: [82, 52] },
 ];
+
+// ── SVG userSpace 단일 좌표계 (R9-01 §3.3 선행 리팩터) ──────────────────────
+// viewBox 100×80 고정 종횡비(aspect-ratio) — preserveAspectRatio="none" 왜곡과
+// "SVG 안 지도 + SVG 밖 절대배치 노드" 2원화를 함께 제거한다.
+// 시드 좌표(0~100 정규화)는 y만 0.8 사영해 같은 userSpace에 놓는다.
+// userSpace는 등방(1unit x = 1unit y)이므로 노드·심볼은 왜곡되지 않는다.
+const VIEW_W = 100;
+const VIEW_H = 80;
+/** 정규화 좌표(0~100) → SVG userSpace */
+function toUser(point, dflt = [50, 50]) {
+  const [x, y] = Array.isArray(point) && point.length >= 2 ? point : dflt;
+  return [x * (VIEW_W / 100), y * (VIEW_H / 100)];
+}
 
 /**
  * PeninsulaMap — 단순화한 한반도 지도(인라인 SVG, CSP상 외부 이미지 금지) 위에
  * 4개 지역 노드를 배치한다. 노드는 요소 드롭·탭 배치 대상이며 즉시 미리보기 현상을
  * 아이콘으로 보여준다. 판정 로직(boardEngine)은 불변 — zone index↔지역 매핑만 표현.
+ *
+ * R9-01 §3.3: 지도와 노드가 하나의 SVG userSpace를 공유한다(<g transform>).
+ * 지역 라벨은 시드의 label_anchor 좌표를 사용한다.
  */
 function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected, interactive, onZoneTap, onZoneDrop }) {
   return (
-    <div className="relative mb-3 h-44 w-full overflow-hidden rounded-xl bg-gradient-to-b from-sky-100 to-sky-200 ring-1 ring-sky-200 sm:h-52">
-      {/* 단순화 한반도 실루엣 (동서 단면 개념) */}
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
-        <path
-          d="M34,14 C40,10 50,12 53,20 C55,26 60,24 65,28 C70,32 67,39 71,44 C76,50 82,49 82,57
-             C82,65 74,66 70,72 C65,79 60,86 52,88 C46,89 41,86 39,80 C37,74 40,69 35,65
-             C30,61 24,60 24,52 C24,44 30,42 30,35 C30,29 28,24 32,19 C33,17 33,15 34,14 Z"
-          fill="#bbf7d0"
-          stroke="#86efac"
-          strokeWidth="1"
-        />
-        {/* 태백산맥 능선 힌트 */}
-        <path d="M56,30 L60,44 L57,58 L61,70" fill="none" stroke="#4ade80" strokeWidth="1.2" strokeLinejoin="round" opacity="0.7" />
-      </svg>
+    <div className="relative mb-3 w-full overflow-hidden rounded-xl bg-gradient-to-b from-sky-100 to-sky-200 ring-1 ring-sky-200">
+      <svg
+        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+        className="block h-auto w-full"
+        role="group"
+        aria-label="한반도 대기 보드 지도 — 4개 지역 노드에 요소를 배치하세요"
+      >
+        {/* 단순화 한반도 실루엣 (장식) — 정규화 좌표(0~100)로 저작된 path를 y 사영과 함께 스케일 */}
+        <g transform={`scale(1 ${VIEW_H / 100})`} aria-hidden="true">
+          <path
+            d="M34,14 C40,10 50,12 53,20 C55,26 60,24 65,28 C70,32 67,39 71,44 C76,50 82,49 82,57
+               C82,65 74,66 70,72 C65,79 60,86 52,88 C46,89 41,86 39,80 C37,74 40,69 35,65
+               C30,61 24,60 24,52 C24,44 30,42 30,35 C30,29 28,24 32,19 C33,17 33,15 34,14 Z"
+            fill="#bbf7d0"
+            stroke="#86efac"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+          />
+          {/* 태백산맥 능선 힌트 */}
+          <path
+            d="M56,30 L60,44 L57,58 L61,70"
+            fill="none"
+            stroke="#4ade80"
+            strokeWidth="1.2"
+            strokeLinejoin="round"
+            opacity="0.7"
+            vectorEffect="non-scaling-stroke"
+          />
+        </g>
 
-      {/* 지역 노드 */}
-      {regions.map((region, zone) => {
-        const [x, y] = region.svg_point ?? [50, 50];
-        const pv = preview?.[zone];
-        const ph = phenomenonMeta(pv?.phenomenon);
-        const airEl = board?.elements?.find((el) => el.zone === zone && el.type === 'air_mass');
-        const frontEl = board?.elements?.find((el) => el.zone === zone && el.type === 'front');
-        const goalMet =
-          (goals?.unmet ?? []).every((g) => g.zone !== zone) &&
-          (goalConditions ?? []).some((g) => g.zone === zone);
-        const isGoalZone = (goalConditions ?? []).some((g) => g.zone === zone);
-        return (
-          <button
-            type="button"
-            key={zone}
-            onClick={() => interactive && onZoneTap(zone)}
-            onDragOver={(e) => interactive && e.preventDefault()}
-            onDrop={(e) => onZoneDrop(e, zone)}
-            disabled={!interactive}
-            style={{ left: `${x}%`, top: `${y}%` }}
-            title={region.name}
-            className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-xl px-1.5 py-1 shadow-md ring-1 transition ${
-              goalMet
-                ? 'bg-emerald-50 ring-2 ring-emerald-400'
-                : isGoalZone
-                  ? 'bg-white/95 ring-sky-300'
-                  : 'bg-white/90 ring-slate-200'
-            } ${selected && interactive ? 'cursor-pointer ring-2 ring-sky-400 hover:ring-sky-500' : ''}`}
-          >
-            <span className="text-xl leading-none" aria-hidden="true">{ph.icon}</span>
-            <span className="mt-0.5 whitespace-nowrap text-[10px] font-bold text-slate-700">{region.name}</span>
-            <span className="mt-0.5 flex gap-0.5 text-[9px]">
-              {airEl && <span aria-hidden="true">{subtypeIcon('air_mass', airEl.subtype)}</span>}
-              {frontEl && <span aria-hidden="true">{subtypeIcon('front', frontEl.subtype)}</span>}
-              {isGoalZone && !goalMet && <span className="text-slate-400">🎯</span>}
-              {goalMet && <span className="text-emerald-500">✓</span>}
-            </span>
-          </button>
-        );
-      })}
+        {/* 지역 노드 — 지도와 같은 userSpace(<g transform>) */}
+        {regions.map((region, zone) => {
+          const [ux, uy] = toUser(region.svg_point);
+          const [lx, ly] = toUser(region.label_anchor, [
+            region.svg_point?.[0] ?? 50,
+            (region.svg_point?.[1] ?? 50) + 11,
+          ]);
+          const pv = preview?.[zone];
+          const ph = phenomenonMeta(pv?.phenomenon);
+          const airEl = board?.elements?.find((el) => el.zone === zone && el.type === 'air_mass');
+          const frontEl = board?.elements?.find((el) => el.zone === zone && el.type === 'front');
+          const goalMet =
+            (goals?.unmet ?? []).every((g) => g.zone !== zone) &&
+            (goalConditions ?? []).some((g) => g.zone === zone);
+          const isGoalZone = (goalConditions ?? []).some((g) => g.zone === zone);
+          return (
+            <g key={zone}>
+              {/* 지역 라벨 — 시드 label_anchor 위치 (R9-01 §3.3) */}
+              <text
+                x={lx}
+                y={ly}
+                textAnchor="middle"
+                fontSize="3.6"
+                fontWeight="700"
+                fill="#334155"
+                stroke="#f0f9ff"
+                strokeWidth="0.8"
+                paintOrder="stroke"
+                style={{ pointerEvents: 'none' }}
+              >
+                {region.name}
+              </text>
+
+              <g
+                transform={`translate(${ux} ${uy})`}
+                data-board-zone={zone}
+                role="button"
+                tabIndex={interactive ? 0 : -1}
+                aria-label={`${region.name} 존${isGoalZone ? ' (목표 존)' : ''} — 현재 ${ph.label}`}
+                aria-disabled={!interactive}
+                onClick={() => interactive && onZoneTap(zone)}
+                onKeyDown={(e) => {
+                  if (interactive && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    onZoneTap(zone);
+                  }
+                }}
+                onDragOver={(e) => interactive && e.preventDefault()}
+                onDrop={(e) => onZoneDrop(e, zone)}
+                className={interactive ? 'cursor-pointer' : ''}
+              >
+                {/* 터치 히트 영역 — 지도폭 320px 기준 지름 ≥44px (r 8.5 = 17unit ≈ 54px) */}
+                <circle r="8.5" fill="transparent" />
+
+                {/* 목표/충족 링 */}
+                {isGoalZone && !goalMet && (
+                  <circle r="7.4" fill="none" stroke="#7dd3fc" strokeWidth="0.8" strokeDasharray="1.6 1.2" />
+                )}
+                {goalMet && <circle r="7.4" fill="none" stroke="#34d399" strokeWidth="1" />}
+                {/* 탭 배치 대기(팔레트 선택 중) 안내 링 */}
+                {selected && interactive && (
+                  <circle r="8.2" fill="none" stroke="#38bdf8" strokeWidth="0.6" strokeDasharray="1 1" opacity="0.9" />
+                )}
+
+                {/* 노드 본체 + 미리보기 현상 아이콘 */}
+                <circle
+                  r="6"
+                  fill={goalMet ? '#ecfdf5' : '#ffffff'}
+                  fillOpacity="0.95"
+                  stroke={goalMet ? '#34d399' : isGoalZone ? '#7dd3fc' : '#cbd5e1'}
+                  strokeWidth="0.5"
+                />
+                <text y="2.1" textAnchor="middle" fontSize="6" aria-hidden="true" style={{ pointerEvents: 'none' }}>
+                  {ph.icon}
+                </text>
+
+                {/* 배치된 요소 미니 배지 (노드 우측 스택) */}
+                {airEl && (
+                  <text x="8.2" y="-1.4" textAnchor="middle" fontSize="3.4" aria-hidden="true" style={{ pointerEvents: 'none' }}>
+                    {subtypeIcon('air_mass', airEl.subtype)}
+                  </text>
+                )}
+                {frontEl && (
+                  <text x="8.2" y="3.4" textAnchor="middle" fontSize="3.4" aria-hidden="true" style={{ pointerEvents: 'none' }}>
+                    {subtypeIcon('front', frontEl.subtype)}
+                  </text>
+                )}
+                {/* 목표 마커 */}
+                {isGoalZone && !goalMet && (
+                  <text x="-7.6" y="-5.4" textAnchor="middle" fontSize="3.2" aria-hidden="true" style={{ pointerEvents: 'none' }}>
+                    🎯
+                  </text>
+                )}
+                {goalMet && (
+                  <text x="-7.6" y="-5.4" textAnchor="middle" fontSize="3.6" fill="#059669" fontWeight="700" aria-hidden="true" style={{ pointerEvents: 'none' }}>
+                    ✓
+                  </text>
+                )}
+              </g>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
