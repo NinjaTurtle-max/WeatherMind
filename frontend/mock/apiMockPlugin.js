@@ -781,13 +781,16 @@ function buildUnitItems(unit) {
   return (pool.length ? pool : SESSION_ITEMS.filter((it) => it.question_type !== 'board')).slice(0, 3);
 }
 
-/** POST /curriculum/units/{id}/session — 유닛 문항으로 세션 발급(멱등, §3.2) */
-function startUnitSession(unitId) {
-  const unit = getUnit(unitId);
+/** POST /curriculum/units/{id|slug}/session — 유닛 문항으로 세션 발급(멱등, §3.2).
+ *  R8-01: slug 진입("이어서 학습")도 허용 — 세션 unit_id는 항상 정규 id로 저장해
+ *  id/slug 어느 쪽으로 발급해도 같은 세션·같은 진도 키(unitProgress)를 쓴다. */
+function startUnitSession(unitIdOrSlug) {
+  const unit = getUnit(unitIdOrSlug);
   if (!unit) return [404, { detail: '유닛을 찾을 수 없습니다', code: 'UNIT_NOT_FOUND' }];
   if (isUnitLocked(unit)) {
     return [403, { detail: '선행 유닛을 먼저 완료해야 열려요', code: 'UNIT_LOCKED' }];
   }
+  const unitId = unit.id; // 정규화 — slug 발급이어도 진도는 id 키로 기록
   const today = todayISO();
   const sessionId = `unit-${unitId}-${today}`;
   let s = sessions.get(sessionId);
