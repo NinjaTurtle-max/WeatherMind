@@ -37,3 +37,14 @@ class Settings:
 
 
 settings = Settings()
+
+# GEMINI 키가 이 부분 문자열을 포함하면 미발급 플레이스홀더로 간주한다
+# (.env.example 의 "발급받은_키" 등). 키 없이 LLM 호출을 시도하면 실패 대기
+# (호출당 수 초~수십 초)만 남기므로, 각 체인은 이 판정으로 시도 자체를 생략한다.
+_LLM_KEY_PLACEHOLDERS = ("발급받은", "changeme", "your-", "placeholder")
+
+
+def llm_configured() -> bool:
+    """GEMINI_API_KEY가 실사용 가능한 형태면 True — 빈 값·플레이스홀더면 False."""
+    value = (settings.GEMINI_API_KEY or "").strip()
+    return bool(value) and not any(p in value for p in _LLM_KEY_PLACEHOLDERS)

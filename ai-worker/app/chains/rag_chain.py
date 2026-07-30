@@ -20,7 +20,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from app.config import settings
+from app.config import llm_configured, settings
 from app.embeddings.chroma_client import (
     COLLECTION_CLIMATE_CONCEPTS,
     COLLECTION_WEATHER_DAILY,
@@ -132,6 +132,10 @@ def generate_feedback(
     today_weather: dict | None = None,
 ) -> str:
     """문제 풀이 직후 학습자에게 줄 피드백(순수 텍스트)을 생성한다."""
+    if not llm_configured():
+        # 키 미설정 시 검색·LLM 시도 없이 즉시 기본 피드백 (실패 대기 방지).
+        return DEFAULT_FEEDBACK_CORRECT if is_correct else DEFAULT_FEEDBACK_INCORRECT
+
     chunks = _retrieve_chunks(concept_tag, question_text)
 
     try:

@@ -24,7 +24,7 @@ from langchain_core.runnables import RunnableLambda
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field, model_validator
 
-from app.config import settings
+from app.config import llm_configured, settings
 
 logger = logging.getLogger(__name__)
 
@@ -223,13 +223,17 @@ def generate_quiz(
     }
 
     question: QuizQuestion | None = None
-    for attempt, temperature in enumerate((0.7, 0.1), start=1):
-        try:
-            raw = _build_chain(temperature).invoke(inputs)
-            question = _parse_output(raw)
-            break
-        except Exception as exc:  # LLM 장애, JSON 파싱, Pydantic 검증 실패 모두 포함
-            logger.warning("quiz generation attempt %d failed: %s", attempt, exc)
+    if not llm_configured():
+        # 키 미설정 시 LLM 시도 자체를 생략 — 실패 대기 없이 즉시 폴백 뱅크.
+        logger.info("GEMINI 키 미설정 — LLM 생성 생략, 폴백 뱅크 사용")
+    else:
+        for attempt, temperature in enumerate((0.7, 0.1), start=1):
+            try:
+                raw = _build_chain(temperature).invoke(inputs)
+                question = _parse_output(raw)
+                break
+            except Exception as exc:  # LLM 장애, JSON 파싱, Pydantic 검증 실패 모두 포함
+                logger.warning("quiz generation attempt %d failed: %s", attempt, exc)
 
     if question is None:
         logger.warning("falling back to predefined quiz set")

@@ -55,7 +55,7 @@ import re
 from pydantic import BaseModel
 
 from app.chains.json_output import extract_json_object
-from app.config import settings
+from app.config import llm_configured, settings
 
 logger = logging.getLogger(__name__)
 
@@ -721,6 +721,10 @@ def run_llm_checks(question: dict, concept_tag: str, level_group: str) -> list[d
     1차 시도(temperature 0.2) → 파싱/검증 실패 시 temperature 0.0으로 1회 재시도
     → 2회 연속 실패 시 예외를 올린다 (호출부가 llm_skipped로 폴백).
     """
+    if not llm_configured():
+        # 키 미설정 시 LLM 시도 없이 즉시 예외 → 호출부의 llm_skipped 폴백(기존 경로).
+        raise RuntimeError("GEMINI 키 미설정 — 2단 LLM 검증 생략")
+
     # LLM 의존성 부재 환경에서도 1단이 동작하도록 지연 임포트 (모듈 docstring 참고)
     from langchain_core.messages import HumanMessage, SystemMessage
     from langchain_core.output_parsers import StrOutputParser
