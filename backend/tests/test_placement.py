@@ -367,6 +367,9 @@ class _FakeResult:
     def scalar_one_or_none(self):
         return None
 
+    def all(self):
+        return []  # load_abilities(θ 조회, R8-01 §3.5) — 능력 행 없음(약점 아님)
+
 
 class _FakeDB:
     """실행 statement 수집 대역 (test_answer_service.FakeDB 관례)."""
@@ -427,7 +430,7 @@ class TestAnswerGrantXpSkip:
         )
 
     def _submit(self, db, log, grant_xp):
-        user = SimpleNamespace(id=uuid.uuid4())
+        user = SimpleNamespace(id=uuid.uuid4(), level_group="middle_high")
         return asyncio.run(
             answer_service.submit_answer_for_log(
                 db, user, log, "수증기 응결열", None, grant_xp=grant_xp

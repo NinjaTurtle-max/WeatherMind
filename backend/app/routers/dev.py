@@ -114,14 +114,15 @@ def build_state(
     units: Sequence[Any],
     clouds: int,
     max_clouds: int,
-    weak_tags: Sequence[str],
 ) -> DevState:
     """진단 상태 조립 (순수) — abilities는 load_abilities 반환 형식
     ({"concept_tag","theta","se","n"}), 원값 그대로 노출한다.
 
     target_level_group은 overall θ의 theta_to_level_group, 콜드스타트(θ 없음)는
     소비자 폴백 관례대로 가입 level_group. unlock_floor는 placement_unlock_floor
-    재사용(커리큘럼 트리와 동일 산출).
+    재사용(커리큘럼 트리와 동일 산출). weak_tags는 θ 파생 단일 공급원
+    (weatherbrain_service.weak_concepts — 학령 상대 임계 적용, R8-01 §3.5)으로
+    abilities에서 산출한다 — 구 '임계 미적용 weak_tags 행 나열' 불일치 해소.
     """
     overall = weatherbrain_service.overall_theta(list(abilities))
     return DevState(
@@ -147,7 +148,9 @@ def build_state(
         max_clouds=max_clouds,
         streak_count=user.streak_count,
         placement_done=user.placement_completed_at is not None,
-        weak_tags=list(weak_tags),
+        weak_tags=weatherbrain_service.weak_concepts(
+            list(abilities), user.level_group
+        ),
     )
 
 
@@ -161,24 +164,15 @@ async def get_dev_state(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_with_rls),
 ) -> DevState:
-    """진단용 읽기 — 프론트는 이 엔드포인트 200 여부로 dev 패널 노출을 결정한다."""
+    """진단용 읽기 — 프론트는 이 엔드포인트 200 여부로 dev 패널 노출을 결정한다.
+
+    weak_tags는 build_state가 abilities에서 θ 파생으로 산출한다(R8-01 §3.5)
+    — weak_tags 테이블 조회 없음.
+    """
     abilities = await weatherbrain_service.load_abilities(db, user)
     units = await curriculum_service.load_units(db)
     energy = await energy_service.get_state(db, user)
-    weak_rows = (
-        (
-            await db.execute(
-                select(WeakTag.concept_tag)
-                .where(WeakTag.user_id == user.id)
-                .order_by(WeakTag.accuracy_rate.asc())
-            )
-        )
-        .scalars()
-        .all()
-    )
-    return build_state(
-        user, abilities, units, energy["clouds"], energy["max"], list(weak_rows)
-    )
+    return build_state(user, abilities, units, energy["clouds"], energy["max"])
 
 
 @router.post("/reset-me", response_model=DevResetResult)

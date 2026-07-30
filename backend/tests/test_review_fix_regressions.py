@@ -12,7 +12,6 @@ DB 없이 검증: FakeDB가 select 대상 테이블별로 준비된 객체를 �
 import asyncio
 import inspect
 import uuid
-from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -27,19 +26,25 @@ from app.services.answer_service import AlreadyAnsweredError
 
 
 class FakeResult:
-    def __init__(self, value=None):
+    def __init__(self, value=None, rows=None):
         self._value = value
+        self._rows = rows or []
 
     def scalar_one_or_none(self):
         return self._value
+
+    def all(self):
+        return list(self._rows)
 
 
 class FakeDB:
     """select 대상 테이블별 반환값을 갖고, 실행 statement를 수집하는 대역."""
 
-    def __init__(self, quiz_log=None, weak_tag=None):
+    def __init__(self, quiz_log=None, abilities=None):
         self.quiz_log = quiz_log
-        self.weak_tag = weak_tag
+        # user_concept_ability 행 튜플 (concept_tag, theta, theta_se, num_responses)
+        # — θ 파생 약점 판정(R8-01 §3.5)의 load_abilities가 읽는다
+        self.abilities = abilities or []
         self.executed = []
         self.added = []
         self.get_calls = 0
@@ -50,8 +55,8 @@ class FakeDB:
             table = stmt.get_final_froms()[0].name
             if table == "quiz_logs":
                 return FakeResult(self.quiz_log)
-            if table == "weak_tags":
-                return FakeResult(self.weak_tag)
+            if table == "user_concept_ability":
+                return FakeResult(rows=self.abilities)
         return FakeResult()
 
     async def get(self, model, pk):
@@ -182,11 +187,13 @@ class TestQuizRouteSessionXpAccrual:
         assert session_id in params.values()
 
     def test_quiz_경로_약점_보너스도_세션에_그대로_누적(self):
-        """세션 누적액 = xp_earned (약점 1.5배 반영 후 금액) — 불일치 방지."""
+        """세션 누적액 = xp_earned (약점 1.5배 반영 후 금액) — 불일치 방지.
+
+        약점 판정은 θ 파생(R8-01 §3.5): middle_high 임계 ≈ 0.405, θ=-1.0·n>0 → 약점.
+        """
         session_id = uuid.uuid4()
         log = make_log(session_id=session_id)
-        weak = SimpleNamespace(total_count=4, wrong_count=3, accuracy_rate=Decimal("25.00"))
-        db = FakeDB(quiz_log=log, weak_tag=weak)
+        db = FakeDB(quiz_log=log, abilities=[("typhoon", -1.0, 0.3, 4)])
 
         result = _call_quiz_answer_route(db, log)
 

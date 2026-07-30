@@ -13,6 +13,7 @@ ai-worker 장애 시에는 저장된 θ(또는 빈 결과)로 폴백하므로 �
 from __future__ import annotations
 
 import logging
+import math
 import uuid
 from collections import defaultdict
 
@@ -65,6 +66,38 @@ LEVEL_GROUP_ITEM_B: dict[str, float] = {
 }
 # 미지 level_group 방어값 (ai-worker priors._DEFAULT_ITEM_B와 동일 — 중립).
 DEFAULT_ITEM_B: float = 0.0
+
+# 약점 판정 기대확률 계약 (R8-01 §3.5) — "학령 표준 문항(사전 b)을 맞힐 기대확률
+# P = σ(θ − b)가 이 값 미만"이면 약점. 구 weak_tags의 정답률 60% 임계와 수치는
+# 같지만 등가가 아니다 — P는 학령 사전 b에 상대적이므로 임계 θ가 학령별로 다르다.
+WEAK_EXPECTED_P: float = 0.6
+
+
+def weak_theta_threshold(level_group: str) -> float:
+    """학령 상대 약점 θ 임계 (R8-01 §3.5) — 단일 공급원.
+
+    P(정답) = σ(θ − b) < WEAK_EXPECTED_P  ⟺  θ < b(lg) + logit(WEAK_EXPECTED_P).
+    b(lg)는 LEVEL_GROUP_ITEM_B 사전값(미지 학령은 DEFAULT_ITEM_B),
+    logit(0.6) = ln(0.6/0.4) ≈ 0.405. 수치는 계약 테스트가 고정한다.
+    """
+    prior_b = LEVEL_GROUP_ITEM_B.get(level_group, DEFAULT_ITEM_B)
+    return prior_b + math.log(WEAK_EXPECTED_P / (1.0 - WEAK_EXPECTED_P))
+
+
+def weak_concepts(abilities: list, level_group: str) -> list[str]:
+    """θ 파생 약점 개념 목록 (R8-01 §3.5) — weak 판정의 단일 공급원.
+
+    num_responses > 0 AND θ < weak_theta_threshold(level_group).
+    n=0(placement 사전값뿐)은 제외 — "한 번도 안 푼 태그는 약점 아님" 의미론 유지.
+    abilities 원소는 load/refresh_abilities 반환 형식
+    ({"concept_tag", "theta", "se", "n"}), 순서는 입력 순서를 보존한다.
+    """
+    threshold = weak_theta_threshold(level_group)
+    return [
+        ab["concept_tag"]
+        for ab in abilities
+        if int(ab["n"]) > 0 and float(ab["theta"]) < threshold
+    ]
 
 
 def theta_to_level_group(theta: float) -> str:

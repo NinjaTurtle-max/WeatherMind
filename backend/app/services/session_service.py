@@ -2,7 +2,8 @@
 
 배합 규칙 (§3.2): recipe {"new": 2, "review": 2, "live": 1} 합계 5문항.
 - new: 뱅크 active 문항 중 해당 유저 미출제분 (level_group 일치, 슬롯 문항 제외)
-- review: weak_tags accuracy_rate < 60 태그의 뱅크 문항 우선, 없으면 new로 대체
+- review: θ 파생 약점 개념(weatherbrain_service.weak_concepts — 학령 상대 임계,
+  R8-01 §3.5) 태그의 뱅크 문항 우선, 없으면 new로 대체
 - live: uses_live_slots=true 문항 + {today.*} 슬롯을 Redis weather 캐시 값으로 치환,
   치환 불가(문항 없음·날씨 값 부재) 시 기존 quiz-generate 폴백
 - 뱅크 부족분은 ai-worker quiz-generate 폴백 (현행 /quiz/today 경로와 동일).
@@ -40,9 +41,6 @@ from app.models.weak_tag import WeakTag
 from app.services import ai_client, weatherbrain_service
 from app.services.ai_client import AIWorkerError
 from app.services.weather_api import KST, SKY_TEXT, get_today_weather
-
-# 약점 분기 임계값 — xp_service와 단일 공급원 공유 (웨이브 1 리뷰 6번)
-from app.services.xp_service import WEAK_ACCURACY_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
@@ -336,8 +334,8 @@ async def _fetch_pools(
 ) -> tuple[list[ContentItem], list[ContentItem], list[ContentItem]]:
     """new/review/live 후보 풀 조회 (active + level_group, θ 난이도 정렬).
 
-    weak_concepts는 호출측이 weak_tags 조회 결과에서 산출해 넘긴다
-    (accuracy_rate < 60 — 중복 SELECT 방지, 리뷰 6번).
+    weak_concepts는 호출측이 θ(refresh_abilities 결과)에서 산출해 넘긴다
+    (weatherbrain_service.weak_concepts — θ 파생 단일 공급원, R8-01 §3.5).
     theta는 호출측이 refresh_abilities 결과에서 산출해 넘긴다 (R7 §3.2 —
     풀 그룹 확장 + |b−θ| 정렬은 build_pool_query·pool_level_groups 참조.
     None이면 기존 단일 그룹·random 정렬 그대로 — 콜드스타트 동작 불변).
@@ -429,19 +427,15 @@ async def create_daily_session(
     today = today or now.date()
     today_str = now.strftime("%Y%m%d")
 
-    # weak_tags는 한 번만 조회 — 분기와 review 풀 구성이 공유 (리뷰 6번)
+    # weak_tags 조회는 라우터 폴백 payload 전용으로만 남는다 (decide_route —
+    # ai-worker 장애 복원력 유지, R8-01 §3.5).
     weak_rows = await _load_weak_tag_rows(db, user)
     # θ 재추정도 정확히 1회 — 분기(decide_route)와 풀 난이도(_fetch_pools)·
     # quiz-generate 난이도가 공유한다 (weak_tag_rows 재사용과 같은 전례, R7 §3.2).
     abilities = await weatherbrain_service.refresh_abilities(db, user)
     route_decision = await decide_route(db, user, weak_rows, abilities=abilities)
-    weak_concepts = [
-        row.concept_tag
-        for row in weak_rows
-        if row.total_count
-        and row.accuracy_rate is not None
-        and row.accuracy_rate < WEAK_ACCURACY_THRESHOLD
-    ]
+    # review 풀의 약점 개념은 θ 파생 단일 공급원 (R8-01 §3.5, 학령 상대 임계)
+    weak_concepts = weatherbrain_service.weak_concepts(abilities, user.level_group)
 
     weather = await get_today_weather()
     slot_values = extract_slot_values(weather)

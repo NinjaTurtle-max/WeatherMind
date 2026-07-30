@@ -1,5 +1,4 @@
 from datetime import datetime
-from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -49,14 +48,19 @@ class BadgeOut(BaseModel):
     earned_at: datetime | None = None
 
 
-class WeakTagOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class WeakConceptOut(BaseModel):
+    """GET /progress/weak-tags 응답 항목 — θ 파생 약점 개념 (R8-01 §3.5).
+
+    구 WeakTagOut(weak_tags 테이블 원값 노출)을 대체한다 — 프론트 소비 0 확인
+    (api/progress.js fetchWeakTags 래퍼만 존재, 호출부 없음).
+    threshold: 학령 상대 임계 θ(weatherbrain_service.weak_theta_threshold) —
+    θ < threshold AND num_responses > 0 인 개념만 목록에 실린다.
+    """
 
     concept_tag: str
-    wrong_count: int
-    total_count: int
-    accuracy_rate: Decimal
-    updated_at: datetime | None = None
+    theta: float
+    threshold: float
+    num_responses: int
 
 
 class ConceptAbilityOut(BaseModel):

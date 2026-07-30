@@ -24,6 +24,9 @@ class FakeResult:
     def scalar_one_or_none(self):
         return None
 
+    def all(self):
+        return []  # load_abilities(θ 조회) — 기본은 능력 행 없음(약점 아님)
+
 
 class FakeDB:
     """실행된 statement만 수집하는 AsyncSession 대역."""
@@ -87,7 +90,8 @@ def make_log(session_id=None, content_item_id=None, answered=False) -> QuizLog:
 
 
 def submit(db, log, answer="수증기 응결열"):
-    user = SimpleNamespace(id=uuid.uuid4())
+    # level_group은 θ 파생 약점 판정(R8-01 §3.5)의 학령 임계 선택에 쓰인다
+    user = SimpleNamespace(id=uuid.uuid4(), level_group="middle_high")
     return asyncio.run(
         answer_service.submit_answer_for_log(db, user, log, answer, None)
     )
@@ -129,6 +133,31 @@ class TestSessionXpAccrual:
         assert result.xp_earned == 2  # 오답 참여 XP (07번)
         params = db.updates_on("sessions")[0].compile().params
         assert 2 in params.values()
+
+
+class TestWeakThetaXpBonus:
+    """약점 XP 1.5배는 θ 파생 판정 (R8-01 §3.5) — 저장 θ read-only 스냅샷 기준."""
+
+    def test_θ가_학령_임계_미만이면_1_5배(self, monkeypatch):
+        async def fake_abilities(db, u):
+            # middle_high 임계 ≈ 0.405 — θ=-1.0·n>0 → 약점
+            return [{"concept_tag": "typhoon", "theta": -1.0, "se": 0.3, "n": 4}]
+
+        monkeypatch.setattr(
+            answer_service.weatherbrain_service, "load_abilities", fake_abilities
+        )
+        result = submit(FakeDB(), make_log())
+        assert result.xp_earned == 22  # (10+5)*1.5 반올림
+
+    def test_placement_사전값뿐이면_배율_없음(self, monkeypatch):
+        async def fake_abilities(db, u):
+            return [{"concept_tag": "typhoon", "theta": -1.0, "se": 1.0, "n": 0}]
+
+        monkeypatch.setattr(
+            answer_service.weatherbrain_service, "load_abilities", fake_abilities
+        )
+        result = submit(FakeDB(), make_log())
+        assert result.xp_earned == 15  # n=0 → 약점 아님
 
 
 class TestContentItemStats:

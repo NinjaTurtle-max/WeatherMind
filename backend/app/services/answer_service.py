@@ -34,7 +34,7 @@ from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.user import User
 from app.schemas.quiz import AnswerResult
-from app.services import ai_client, board_engine, xp_service
+from app.services import ai_client, board_engine, weatherbrain_service, xp_service
 from app.services.weather_api import get_today_weather
 
 # 슬라이더 채점 허용 오차 (0~100 스케일)
@@ -189,7 +189,7 @@ async def submit_answer_for_log(
 ) -> AnswerResult:
     """미응답 quiz_log 1건에 대한 답안 처리 전체 흐름.
 
-    멱등 가드 → 채점 → 약점 판정(반영 이전 기준, 07번 약점 극복 보너스) →
+    멱등 가드 → 채점 → 약점 판정(θ 파생, R8-01 §3.5 — 07번 약점 극복 보너스) →
     XP 가산 → weak_tags 갱신 → 로그 확정 → 뱅크 통계·세션 XP 원자 가산 →
     피드백(board는 규칙 explain/hints, 그 외 RAG). 404 검증은 라우터가 담당한다.
 
@@ -221,11 +221,17 @@ async def submit_answer_for_log(
     else:
         is_correct = grade(question, answer)
 
-    # 약점 여부는 이번 답안 반영 "이전" 기준으로 판단 (07번 약점 극복 보너스)
+    # 약점 여부는 θ 파생 단일 공급원 (R8-01 §3.5). refresh_abilities 호출 금지 —
+    # 저장된 θ를 read-only(load_abilities)로만 읽는다. θ는 세션 발급 시점의
+    # refresh_abilities가 영속화한 스냅샷이라 세션 안에서 변하지 않으므로,
+    # 문항별로 약점 판정이 뒤집히던 구 weak_tags(매 답안 갱신) 동작이 사라진다
+    # — 계약이 수용한 행동 변화.
     xp_earned = 0
     if grant_xp:
-        weak_tag = await xp_service.get_weak_tag(db, user.id, concept_tag)
-        is_weak = xp_service.is_weak_concept(weak_tag)
+        abilities = await weatherbrain_service.load_abilities(db, user)
+        is_weak = concept_tag in weatherbrain_service.weak_concepts(
+            abilities, user.level_group
+        )
         # XP 계산 (문항당 1회 제출 → 정답이면 곧 첫 시도 정답 보너스 대상)
         xp_earned = xp_service.quiz_xp(is_correct, is_first_try=True, is_weak=is_weak)
 
