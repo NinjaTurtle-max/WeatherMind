@@ -503,6 +503,11 @@ const SESSION_ITEMS = [
     template_json: {
       question_text: '수도권에 소나기를 내려 보세요',
       mode: 'guided',
+      // R8-01 버그픽스 B①: 백엔드 세션 template_json 화이트리스트에
+      // time_limit_sec·based_on이 추가됨 — 세션 안 board 문항에도 미니 미션
+      // 타이머(§3.5)와 실화 배지가 렌더되는지 목으로 검증한다.
+      time_limit_sec: 90,
+      based_on: { event_name: '2022년 8월 수도권 집중호우', event_date: '2022-08-08', region: '수도권' },
       guide_steps: [
         '수도권(2번째 존)에 한랭전선을 놓아 보세요.',
         '습기 슬라이더를 60 이상으로 올려 상승기류를 강하게 만드세요.',

@@ -56,16 +56,19 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [puzzle, attemptKey]);
 
-  // 카운트다운: 제출(result)·시간초과 전까지 1초씩 감소, 0에서 실패 처리
+  // 카운트다운: 제출(result)·시간초과 전까지 1초씩 감소, 0에서 실패 처리.
+  // 세션 컨텍스트(R8-01 B①): 부모가 disabled/submitting으로 잠근 동안(채점 왕복·
+  // 피드백 표시 — 세션은 result prop을 쓰지 않음)은 타이머를 일시정지해
+  // 응답 완료된 문항이 뒤늦게 '시간 초과'로 뒤집히지 않게 한다.
   useEffect(() => {
-    if (!hasTimer || timedOut || result) return;
+    if (!hasTimer || timedOut || result || disabled || submitting) return;
     if (remaining <= 0) {
       setTimedOut(true);
       return;
     }
     const t = setTimeout(() => setRemaining((r) => r - 1), 1000);
     return () => clearTimeout(t);
-  }, [hasTimer, remaining, timedOut, result]);
+  }, [hasTimer, remaining, timedOut, result, disabled, submitting]);
 
   const retry = () => setAttemptKey((k) => k + 1);
 
