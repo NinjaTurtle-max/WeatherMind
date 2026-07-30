@@ -2,12 +2,13 @@
 # =============================================================================
 # WeatherMind DB 왕복 스모크 — R7-01 S0 (docs/team/SPRINT_R7_01.md §3.4)
 #                              + R7-02 (submit-all 경로·유닛 세션, SPRINT_R7_02.md)
+#                              + R8-01 (스파인·왕관 유입·θ 파생 약점, SPRINT_R8_01.md)
 #
 # 사용법:
-#   scripts/smoke.sh             # 전체 단계 순차 실행 (1~10)
+#   scripts/smoke.sh             # 전체 단계 순차 실행 (1~11)
 #   scripts/smoke.sh <단계>      # 특정 단계만: up | migrate | seed | register |
 #                                #   theta | rls | roundtrip | fallback |
-#                                #   placement | unit
+#                                #   placement | unit | r8
 #                                # (register 이후 단계는 필요 시 스스로 가입한다)
 #
 # 단계 (§3.4 계약 — 9 placement는 R7-01, 10 unit과 9의 submit-all 전환은 R7-02):
@@ -38,6 +39,22 @@
 #  10 unit      GET /curriculum → 전 유닛 status 존재·'current' 정확히 1개
 #               → 첫 유닛 POST /curriculum/units/{slug}/session 200 + 문항 ≥1
 #               (θ 풀 확장 경로 실기동 — R7-02 S3·S4)
+#  11 r8        R8-01 검증 5종 (SPRINT_R8_01.md — 판정: 트리 id==slug 계약):
+#   11a spine     GET /progress/me → spine {units_total=12, units_cleared,
+#                 crowns_earned, crowns_total, current_unit} 서버 집계 (§3.3)
+#   11b unit-id   트리 노출 id와 spine.current_unit.slug가 동일 값(계약)임을
+#                 확인하고, 두 진입점 값 각각으로 유닛 세션 발급 200 (§1 판정:
+#                 UnitOut.id == unit.slug — 실서버는 slug 하나로 양쪽 커버)
+#   11c crown     새 유저 + psql로 quiz 유닛 전부 클리어(픽스처) → 보드 퍼즐
+#                 정답 배치(시드 goal_conditions: zone1 shower ← 한랭전선+습기75,
+#                 board_test_vectors 공유 벡터) attempt → passed·xp_earned=5·
+#                 crown_award{unit_slug, crowns=1} 왕관 유입 실검증 (§3.4)
+#   11d weak      GET /progress/weak-tags → θ 파생 WeakConceptOut[] 신 형태
+#                 ({concept_tag, theta, threshold, num_responses}, θ<threshold,
+#                 middle_high threshold≈0.405) (§3.5)
+#   11e board-tls 보드 유닛 세션 발급 → board 문항에 time_limit_sec 노출(SA-5
+#                 화이트리스트). 세션 풀이 time_limit_sec 있는 시드를 못 잡으면
+#                 SKIP(psql로 포착 여부를 판별 — 확률적 미포착과 실결함 구분)
 #
 # 멱등성: 스모크 유저는 매 실행 고유 이메일(smoke+epoch@example.com), 시드는
 # upsert, RLS 롤 생성은 IF NOT EXISTS. 볼륨 파괴 명령(down -v 등)은 없다.
@@ -107,6 +124,10 @@ http_get() { # http_get <url> <token>
 
 json_field() { # json_field <json> <key>  (최상위 문자열/숫자 필드)
   "$PYTHON" -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$2" <<<"$1"
+}
+
+json_len() { # json_len <json>  (최상위 배열 길이)
+  "$PYTHON" -c 'import json,sys; print(len(json.load(sys.stdin)))' <<<"$1"
 }
 
 wait_health() { # wait_health <url> <이름>
@@ -649,6 +670,292 @@ else:
   record "10 unit" "OK" "status 4종·current 1개·유닛($first_slug) 세션 items=$n_items"
 }
 
+# ── 11. r8: R8-01 검증 5종 (스파인·유닛 id/slug·왕관 유입·θ 약점·board 필드) ─
+
+# R8 크라운 검증용 유저 — quiz 유닛 전부 클리어된 픽스처(psql, RLS는 슈퍼유저
+# 우회)를 깔아 board 유닛의 잠금을 연다. 왕관 유입 경로 자체(attempt →
+# award_crown_for_activity → crown_award)는 실 API로 검증한다.
+R8_TOKEN=""
+R8_USER_ID=""
+
+ensure_r8_user() {
+  if [ -n "$R8_TOKEN" ]; then return 0; fi
+  echo "· R8 크라운 유저 가입 + quiz 유닛 클리어 픽스처(psql)"
+  register_user "smoke-r8"
+  if [ "$REG_HTTP" != "201" ]; then return 1; fi
+  R8_TOKEN="$REG_TOKEN"
+  R8_USER_ID="$REG_USER_ID"
+  psql_c "INSERT INTO user_unit_progress (user_id, unit_id, crowns, cleared_at)
+          SELECT '$R8_USER_ID', id, crown_target, now() FROM units WHERE kind='quiz'
+          ON CONFLICT (user_id, unit_id) DO NOTHING" >/dev/null || return 1
+  echo "  user_id=$R8_USER_ID (quiz 유닛 클리어 픽스처 적재)"
+  return 0
+}
+
+step_r8_spine() { # ① /progress/me spine 서버 집계 (R8-01 §3.3)
+  banner "11a r8-spine: GET /progress/me → spine 집계 (units_total=12)"
+  ensure_user || { record "11a spine" "FAIL" "스모크 유저 가입 실패"; return 0; }
+  local out http body check
+  out="$(http_get "$API/api/v1/progress/me" "$SMOKE_TOKEN")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "200" ]; then
+    record "11a spine" "FAIL" "GET /progress/me http=$http"
+    return 0
+  fi
+  check="$("$PYTHON" -c '
+import json, sys
+d = json.load(sys.stdin)
+sp = d.get("spine")
+keys = {"units_total", "units_cleared", "crowns_earned", "crowns_total", "current_unit"}
+if not isinstance(sp, dict) or not keys <= set(sp):
+    print("bad: spine 필드 누락 — %s" % sp); sys.exit()
+if sp["units_total"] != 12:
+    print("bad: units_total=%s (기대 12 — 시드 units.json)" % sp["units_total"]); sys.exit()
+cu = sp["current_unit"]
+if cu is not None and not ({"slug", "title"} <= set(cu)):
+    print("bad: current_unit 형태 위반 — %s" % cu); sys.exit()
+print("ok|cleared=%s crowns=%s/%s current=%s"
+      % (sp["units_cleared"], sp["crowns_earned"], sp["crowns_total"],
+         (cu or {}).get("slug")))
+' <<<"$body")"
+  if [[ "$check" != ok\|* ]]; then
+    record "11a spine" "FAIL" "$check"
+    return 0
+  fi
+  echo "  spine OK: ${check#ok|}"
+  record "11a spine" "OK" "units_total=12 · ${check#ok|}"
+}
+
+step_r8_unitid() { # ② 트리 id == spine slug 계약 + 양쪽 값으로 발급 200 (§1 판정)
+  banner "11b r8-unit-id: 트리 id·spine slug 동일 계약 + 각각 발급 200"
+  ensure_user || { record "11b unit-id" "FAIL" "스모크 유저 가입 실패"; return 0; }
+
+  local out http tree_body me_body pair tree_id spine_slug
+  out="$(http_get "$API/api/v1/curriculum" "$SMOKE_TOKEN")"
+  http="$(tail -n1 <<<"$out")"
+  tree_body="$(sed '$d' <<<"$out")"
+  [ "$http" = "200" ] || { record "11b unit-id" "FAIL" "GET /curriculum http=$http"; return 0; }
+  out="$(http_get "$API/api/v1/progress/me" "$SMOKE_TOKEN")"
+  http="$(tail -n1 <<<"$out")"
+  me_body="$(sed '$d' <<<"$out")"
+  [ "$http" = "200" ] || { record "11b unit-id" "FAIL" "GET /progress/me http=$http"; return 0; }
+
+  # 트리의 'current' 유닛 id ↔ spine.current_unit.slug — 동일 값 계약(UnitOut.id==slug)
+  pair="$("$PYTHON" -c '
+import json, sys
+tree, me = json.loads(sys.argv[1]), json.loads(sys.argv[2])
+cur = next((u for s in tree["sections"] for u in s["units"] if u["status"] == "current"), None)
+sp = (me.get("spine") or {}).get("current_unit")
+if cur is None or sp is None:
+    print("skip: current 유닛 없음 (전부 클리어/잠금)"); sys.exit()
+if cur["id"] != sp["slug"]:
+    print("bad: 트리 id=%s != spine slug=%s" % (cur["id"], sp["slug"])); sys.exit()
+print("ok|%s|%s" % (cur["id"], sp["slug"]))
+' "$tree_body" "$me_body")"
+  if [[ "$pair" == skip:* ]]; then
+    record "11b unit-id" "SKIP" "${pair#skip: }"
+    return 0
+  fi
+  if [[ "$pair" != ok\|* ]]; then
+    record "11b unit-id" "FAIL" "$pair"
+    return 0
+  fi
+  IFS='|' read -r _ tree_id spine_slug <<<"$pair"
+  echo "  트리 id == spine slug 확인: $tree_id"
+
+  # 두 진입점 값 각각으로 발급 — 실서버는 slug 단일 조회지만 값이 같아 양쪽 200
+  local val
+  for val in "$tree_id" "$spine_slug"; do
+    out="$(http_post "$API/api/v1/curriculum/units/$val/session" "{}" "$SMOKE_TOKEN")"
+    http="$(tail -n1 <<<"$out")"
+    if [ "$http" != "200" ]; then
+      record "11b unit-id" "FAIL" "units/$val/session http=$http: $(sed '$d' <<<"$out" | head -c200)"
+      return 0
+    fi
+    echo "  POST /units/$val/session → 200"
+  done
+  record "11b unit-id" "OK" "트리 id==spine slug($tree_id) · 양쪽 값 발급 200"
+}
+
+step_r8_crown() { # ③ 보드 attempt 성공 → crown_award 왕관 유입 (§3.4)
+  banner "11c r8-crown: 보드 정답 배치 attempt → crown_award"
+  ensure_r8_user || { record "11c crown" "FAIL" "R8 유저 준비 실패"; return 0; }
+
+  local out http body target
+  out="$(http_get "$API/api/v1/board/puzzles" "$R8_TOKEN")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  [ "$http" = "200" ] || { record "11c crown" "FAIL" "GET /board/puzzles http=$http"; return 0; }
+
+  # 시드 goal_conditions가 [{zone:1, phenomenon:shower}]인 퍼즐 — 정답 배치는
+  # board_test_vectors.json 공유 벡터(한랭전선 zone1 + 습기 75)로 안다.
+  target="$("$PYTHON" -c '
+import json, sys
+for p in json.load(sys.stdin):
+    goals = (p.get("template_json") or {}).get("goal_conditions")
+    if goals == [{"zone": 1, "phenomenon": "shower"}]:
+        print(p["content_item_id"]); break
+' <<<"$body")"
+  if [ -z "$target" ]; then
+    record "11c crown" "SKIP" "zone1 shower 퍼즐이 시드에 없음 (정답 배치 유도 불가)"
+    return 0
+  fi
+  echo "  대상 퍼즐: $target (goal: zone1 shower)"
+
+  local state='{"board_state":{"zones":["서해","수도권","태백산맥","동해안"],"elements":[{"type":"front","subtype":"cold","zone":1},{"type":"moisture","level":75,"zone":1}]}}'
+  out="$(http_post "$API/api/v1/board/puzzles/$target/attempt" "$state" "$R8_TOKEN")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  [ "$http" = "200" ] || { record "11c crown" "FAIL" "attempt http=$http: $(head -c200 <<<"$body")"; return 0; }
+
+  local check
+  check="$("$PYTHON" -c '
+import json, sys
+d = json.load(sys.stdin)
+if d.get("passed") is not True:
+    print("bad: passed=%s (정답 배치인데 미통과 — 판정 회귀?)" % d.get("passed")); sys.exit()
+if d.get("xp_earned") != 5:
+    print("bad: xp_earned=%s (최초 클리어 기대 5)" % d.get("xp_earned")); sys.exit()
+ca = d.get("crown_award")
+if not isinstance(ca, dict) or not ca.get("unit_slug") or ca.get("crowns") != 1:
+    print("bad: crown_award=%s (열린 board 유닛 왕관 +1 기대)" % ca); sys.exit()
+print("ok|%s|crowns=%s cleared=%s" % (ca["unit_slug"], ca["crowns"], ca["cleared"]))
+' <<<"$body")"
+  if [[ "$check" != ok\|* ]]; then
+    record "11c crown" "FAIL" "$check"
+    return 0
+  fi
+  echo "  attempt passed · +5 XP · crown_award: ${check#ok|}"
+  record "11c crown" "OK" "정답 배치 통과 · crown_award ${check#ok|}"
+}
+
+step_r8_weak() { # ④ /progress/weak-tags 신 형태 (θ 파생, threshold 포함 — §3.5)
+  banner "11d r8-weak: GET /progress/weak-tags → WeakConceptOut[] (threshold 포함)"
+  ensure_user || { record "11d weak" "FAIL" "스모크 유저 가입 실패"; return 0; }
+
+  fetch_weak() { http_get "$API/api/v1/progress/weak-tags" "$SMOKE_TOKEN"; }
+  local out http body
+  out="$(fetch_weak)"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  [ "$http" = "200" ] || { record "11d weak" "FAIL" "GET /weak-tags http=$http"; return 0; }
+
+  # 단독 실행 대비: 응답 이력이 없어 빈 목록이면 오답 1건 + 재발급(θ 재추정)으로 유도
+  if [ "$(json_len "$body")" = "0" ]; then
+    echo "· 약점 없음(응답 이력 없음) — 오답 1건 주입 후 θ 재추정 유도"
+    local s_out s_body sid qid
+    s_out="$(http_get "$API/api/v1/session/today" "$SMOKE_TOKEN")"
+    [ "$(tail -n1 <<<"$s_out")" = "200" ] || { record "11d weak" "FAIL" "GET /session/today 실패"; return 0; }
+    s_body="$(sed '$d' <<<"$s_out")"
+    sid="$(json_field "$s_body" session_id)"
+    qid="$("$PYTHON" -c '
+import json, sys
+items = json.load(sys.stdin)["items"]
+picks = [i["quiz_id"] for i in items if i.get("question_type") != "board"]
+print(picks[0] if picks else "")
+' <<<"$s_body")"
+    [ -n "$qid" ] || { record "11d weak" "SKIP" "비board 문항 없음 (재실행 시 다른 배합)"; return 0; }
+    http_post "$API/api/v1/session/$sid/answer" "{\"quiz_id\":\"$qid\",\"answer\":\"smoke-wrong\"}" "$SMOKE_TOKEN" >/dev/null
+    http_get "$API/api/v1/session/today" "$SMOKE_TOKEN" >/dev/null  # refresh_abilities 트리거
+    out="$(fetch_weak)"
+    http="$(tail -n1 <<<"$out")"
+    body="$(sed '$d' <<<"$out")"
+    [ "$http" = "200" ] || { record "11d weak" "FAIL" "재조회 http=$http"; return 0; }
+  fi
+
+  local check
+  check="$("$PYTHON" -c '
+import json, sys
+rows = json.load(sys.stdin)
+if not rows:
+    print("bad: 오답 이후에도 약점 0건 (θ 파생 경로 확인 필요)"); sys.exit()
+keys = {"concept_tag", "theta", "threshold", "num_responses"}
+for r in rows:
+    if not keys <= set(r):
+        print("bad: 필드 누락 — %s" % sorted(r)); sys.exit()
+    if not (r["theta"] < r["threshold"] and r["num_responses"] > 0):
+        print("bad: 판정 위반 — %s" % r); sys.exit()
+th = rows[0]["threshold"]
+if not (0.3 < th < 0.5):  # middle_high: b(0.0)+logit(0.6)≈0.405
+    print("bad: threshold=%s (middle_high 기대 ≈0.405)" % th); sys.exit()
+thetas = [r["theta"] for r in rows]
+if thetas != sorted(thetas):
+    print("bad: θ 오름차순 위반 — %s" % thetas); sys.exit()
+print("ok|%d건 threshold=%.3f" % (len(rows), th))
+' <<<"$body")"
+  if [[ "$check" != ok\|* ]]; then
+    record "11d weak" "FAIL" "$check"
+    return 0
+  fi
+  echo "  weak-tags 신 형태 OK: ${check#ok|}"
+  record "11d weak" "OK" "θ 파생 4필드·θ<threshold·오름차순 (${check#ok|})"
+}
+
+step_r8_tls() { # ⑤ 세션 board 문항 time_limit_sec 노출 (SA-5 화이트리스트)
+  banner "11e r8-board-tls: 보드 유닛 세션 → board 문항 time_limit_sec 노출"
+  ensure_r8_user || { record "11e board-tls" "FAIL" "R8 유저 준비 실패"; return 0; }
+
+  # 열린 board 유닛(quiz 전부 클리어 픽스처로 잠금 해제됨) 첫 번째로 세션 발급
+  local out http body board_slug
+  out="$(http_get "$API/api/v1/curriculum" "$R8_TOKEN")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  [ "$http" = "200" ] || { record "11e board-tls" "FAIL" "GET /curriculum http=$http"; return 0; }
+  board_slug="$("$PYTHON" -c '
+import json, sys
+d = json.load(sys.stdin)
+for s in d["sections"]:
+    for u in s["units"]:
+        if u["kind"] == "board" and not u["locked"]:
+            print(u["id"]); sys.exit()
+' <<<"$body")"
+  [ -n "$board_slug" ] || { record "11e board-tls" "SKIP" "열린 board 유닛 없음"; return 0; }
+
+  out="$(http_post "$API/api/v1/curriculum/units/$board_slug/session" "{}" "$R8_TOKEN")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  [ "$http" = "200" ] || { record "11e board-tls" "FAIL" "유닛($board_slug) 세션 발급 http=$http"; return 0; }
+  local sid exposed
+  sid="$(json_field "$body" session_id)"
+  exposed="$("$PYTHON" -c '
+import json, sys
+items = json.load(sys.stdin)["items"]
+boards = [i for i in items if i.get("question_type") == "board"]
+with_tls = [i for i in boards if isinstance(i.get("time_limit_sec"), int) and i["time_limit_sec"] > 0]
+print("%d|%d" % (len(boards), len(with_tls)))
+' <<<"$body")"
+  local n_boards n_tls
+  IFS='|' read -r n_boards n_tls <<<"$exposed"
+  echo "  유닛($board_slug) 세션: board ${n_boards}건 중 time_limit_sec 노출 ${n_tls}건"
+  if [ "$n_boards" = "0" ]; then
+    record "11e board-tls" "SKIP" "세션에 board 문항 없음 (풀 확인 필요)"
+    return 0
+  fi
+  if [ "$n_tls" != "0" ]; then
+    record "11e board-tls" "OK" "board 문항 time_limit_sec 노출 (${n_tls}/${n_boards}건)"
+    return 0
+  fi
+  # 노출 0건 — 원본 템플릿에 time_limit_sec가 있는 문항이 이 세션에 잡혔는지
+  # psql로 판별해, 확률적 미포착(SKIP)과 화이트리스트 누락(FAIL)을 구분한다.
+  local caught
+  caught="$(psql_c "SELECT count(*) FROM quiz_logs ql JOIN content_items ci ON ci.id = ql.content_item_id
+                    WHERE ql.session_id='$sid' AND ci.template_json ? 'time_limit_sec'")" || caught="?"
+  if [ "$caught" = "0" ]; then
+    record "11e board-tls" "SKIP" "time_limit_sec 있는 시드가 세션 풀에 안 잡힘 (확률적 — 재실행 시 변동)"
+  else
+    record "11e board-tls" "FAIL" "템플릿엔 time_limit_sec 있는데(${caught}건) 응답에 미노출 — 화이트리스트 회귀(SA-5)"
+  fi
+}
+
+step_r8() {
+  step_r8_spine
+  step_r8_unitid
+  step_r8_crown
+  step_r8_weak
+  step_r8_tls
+}
+
 # ── 실행 ─────────────────────────────────────────────────────────────────────
 STEP="${1:-all}"
 case "$STEP" in
@@ -662,6 +969,7 @@ case "$STEP" in
   fallback)  step_fallback ;;
   placement) step_placement ;;
   unit)      step_unit ;;
+  r8)        step_r8 ;;
   all)
     step_up
     if [ "$FAILED" -ne 0 ]; then
@@ -677,10 +985,11 @@ case "$STEP" in
       step_fallback
       step_placement
       step_unit
+      step_r8
     fi
     ;;
   *)
-    echo "사용법: scripts/smoke.sh [up|migrate|seed|register|theta|rls|roundtrip|fallback|placement|unit]" >&2
+    echo "사용법: scripts/smoke.sh [up|migrate|seed|register|theta|rls|roundtrip|fallback|placement|unit|r8]" >&2
     exit 2
     ;;
 esac
