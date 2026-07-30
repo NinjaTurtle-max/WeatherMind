@@ -1,8 +1,9 @@
 """예보 대결 API (/api/v1/duel) — 스프린트 R4-01 §3.4 (R4-S4).
 
-| GET  | /today   | 오늘 만드는 대결(=내일 예보) 상태. AI 예측은 제출 후에만 공개 |
-| POST | /today   | {temp_max, rain_prob} 내일 예보 제출 (1일 1회, 재제출 409) |
-| GET  | /history | 내 지난 대결 이력(정산 결과 포함) |
+| GET  | /today    | 오늘 만드는 대결(=내일 예보) 상태 + base_forecast. AI 예측은 제출 후에만 공개 |
+| POST | /today    | {temp_max, rain_prob} 내일 예보 제출 (1일 1회, 재제출 409) |
+| GET  | /briefing | 대상일 판단 재료(시간별 예보·오늘/최근 실측) — R9-01 §3.1 ② |
+| GET  | /history  | 내 지난 대결 이력(정산 결과 포함) |
 
 대결 모델(§3.4): duel_date = **예보 대상일(내일)**. 유저는 오늘 내일의 최고기온·
 강수확률을 제출하고, AI 캐스터 예측을 결정적 노이즈로 함께 생성·고정한다(LLM 불필요).
@@ -23,9 +24,15 @@ from app.core.dependencies import get_current_user, get_db_with_rls
 from app.core.rate_limit import LIMIT_ANSWER, LIMIT_TODAY, limiter, user_or_ip_key
 from app.models.duel import Duel
 from app.models.user import User
-from app.schemas.duel import DuelHistoryItem, DuelSubmitRequest, DuelToday
+from app.schemas.duel import DuelBriefing, DuelHistoryItem, DuelSubmitRequest, DuelToday
 from app.services import duel_service
-from app.services.weather_api import KST, get_today_weather
+from app.services.weather_api import (
+    DEFAULT_REGION,
+    KST,
+    KMAApiError,
+    get_past_observation,
+    get_today_weather,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +118,44 @@ async def get_today_duel(
     duel = await _get_duel(db, user, duel_date)
     base_forecast = await _base_forecast_for(duel_date)
     return _to_today_response(duel, duel_date, base_forecast)
+
+
+@router.get("/briefing", response_model=DuelBriefing)
+@limiter.limit(LIMIT_TODAY, key_func=user_or_ip_key)
+async def get_duel_briefing(
+    request: Request,
+    user: User = Depends(get_current_user),
+) -> DuelBriefing:
+    """예보 브리핑 (R9-01 §3.1 ②) — 대상일 예측 판단 재료 일괄 제공.
+
+    전부 기존 weather_api 재사용(Redis 1h 캐시+실패 마커 뒤). 부분 실패는 해당
+    필드만 null/빈 배열로 내리고 200을 유지한다 — KMA 키 부재 시 프론트 degraded
+    모드(예측 입력은 가능). 시간별 시계열은 제출일+대상일을 함께 담아 추세
+    (pop_trend)·전일 대비(temp_drop) 판단이 가능하게 한다. DB 미사용.
+    """
+    today = datetime.now(KST).date()
+    target_date = _duel_target_date()
+
+    weather = await get_today_weather()  # 실패 시 {} — hourly는 빈 배열이 된다
+    hourly = duel_service.briefing_hourly(weather, (today, target_date))
+
+    try:
+        rows = await get_past_observation(
+            (today - timedelta(days=duel_service.BRIEFING_RECENT_DAYS_MAX)).strftime("%Y%m%d"),
+            today.strftime("%Y%m%d"),
+        )
+    except (KMAApiError, ValueError) as exc:
+        logger.error("브리핑 과거관측 조회 실패: %s", exc)
+        rows = []
+    today_observed, recent_days = duel_service.split_daily_observations(rows, today)
+
+    return DuelBriefing(
+        region=DEFAULT_REGION,
+        target_date=target_date,
+        hourly=hourly,
+        today_observed=today_observed,
+        recent_days=recent_days,
+    )
 
 
 @router.post("/today", response_model=DuelToday)

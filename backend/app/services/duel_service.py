@@ -26,6 +26,11 @@ DUEL_WIN_XP = 15
 TEMP_NOISE = 2.0     # 온도 ±2.0℃
 RAIN_NOISE = 15      # 강수확률 ±15%p
 
+# 브리핑 시간별 시계열에 담는 KMA 카테고리 (R9-01 §3.1 ② — 응답 키는 소문자)
+BRIEFING_HOURLY_CATEGORIES = ("TMP", "POP", "PCP", "REH", "WSD", "SKY", "PTY")
+# 브리핑 최근 실측 추이 최대 일수 (R9-01 §3.1 ② — recent_days ≤ 7)
+BRIEFING_RECENT_DAYS_MAX = 7
+
 
 # ═══════════════════════════════════════════════════════════════
 # 순수 함수 — DB 의존 없음 (단위 테스트 대상)
@@ -69,6 +74,58 @@ def settle_scores(user_pred: dict, ai_pred: dict, actual: dict) -> tuple[float, 
     user_score = accuracy_score(user_pred, actual)
     ai_score = accuracy_score(ai_pred, actual)
     return user_score, ai_score, duel_result(user_score, ai_score)
+
+
+def briefing_hourly(weather: dict, dates: tuple[date, ...]) -> list[dict]:
+    """단기예보(get_short_forecast 형식)에서 브리핑 대상 날짜들의 시간별 시계열 추출.
+
+    R9-01 §3.1 ② — 키는 KMA 카테고리 소문자(tmp·pop·pcp·reh·wsd·sky·pty),
+    숫자가 아닌 값(결측·비숫자 문자열)은 None. 제출일+대상일을 함께 담아
+    pop_trend(추세)·temp_drop(전일 대비) 판단 재료가 되도록 한다.
+    빈/실패 날씨({})는 빈 리스트 — 순수 함수(FakeDB·네트워크 불필요).
+    """
+    allowed = {d.strftime("%Y%m%d") for d in dates}
+    hours = []
+    for f in weather.get("forecasts") or []:
+        dt = str(f.get("datetime", ""))
+        if dt[:8] not in allowed:
+            continue
+        row: dict = {"datetime": dt}
+        for cat in BRIEFING_HOURLY_CATEGORIES:
+            value = f.get(cat)
+            row[cat.lower()] = float(value) if isinstance(value, (int, float)) else None
+        hours.append(row)
+    return hours
+
+
+def split_daily_observations(rows: list[dict], today: date) -> tuple[dict | None, list[dict]]:
+    """ASOS 일자료(get_past_observation 형식)를 (today_observed, recent_days)로 분리.
+
+    R9-01 §3.1 ② — today_observed는 오늘(tm==today) 행의 {max_ta, min_ta, sum_rn}
+    (ASOS 일자료는 보통 D+1 공표라 대개 None), recent_days는 오늘 이전 행들을
+    날짜 오름차순으로 최대 BRIEFING_RECENT_DAYS_MAX(=7)건. 숫자가 아닌 값은 None.
+    """
+
+    def _num(value):
+        return float(value) if isinstance(value, (int, float)) else None
+
+    today_iso = today.isoformat()
+    today_observed = None
+    recent: list[dict] = []
+    for row in rows or []:
+        tm = str(row.get("tm") or "")
+        if tm == today_iso:
+            today_observed = {
+                "max_ta": _num(row.get("maxTa")),
+                "min_ta": _num(row.get("minTa")),
+                "sum_rn": _num(row.get("sumRn")),
+            }
+        elif tm and tm < today_iso:
+            recent.append(
+                {"date": tm, "max_ta": _num(row.get("maxTa")), "sum_rn": _num(row.get("sumRn"))}
+            )
+    recent.sort(key=lambda r: r["date"])
+    return today_observed, recent[-BRIEFING_RECENT_DAYS_MAX:]
 
 
 def extract_forecast_for_date(weather: dict, target: date) -> dict | None:

@@ -50,6 +50,49 @@ class DuelToday(BaseModel):
     result: str | None = None
 
 
+class DuelBriefingHour(BaseModel):
+    """브리핑 시간별 예보 슬롯 (R9-01 §3.1 ②) — KMA 카테고리 소문자, 결측은 null."""
+
+    datetime: str
+    tmp: float | None = None   # 기온 ℃
+    pop: float | None = None   # 강수확률 %
+    pcp: float | None = None   # 강수량 mm ("강수없음"은 0.0으로 파싱됨)
+    reh: float | None = None   # 습도 %
+    wsd: float | None = None   # 풍속 m/s
+    sky: int | None = None     # 하늘상태 1맑음/3구름많음/4흐림
+    pty: int | None = None     # 강수형태 0없음/1비/2비눈/3눈/4소나기
+
+
+class DuelBriefingObserved(BaseModel):
+    """오늘 실측 요약 (ASOS 일자료 — 보통 D+1 공표라 당일엔 null인 경우가 많다)."""
+
+    max_ta: float | None = None
+    min_ta: float | None = None
+    sum_rn: float | None = None
+
+
+class DuelBriefingDay(BaseModel):
+    """최근 실측 추이 1일치 (recent_rain 근거·차트 재료)."""
+
+    date: date
+    max_ta: float | None = None
+    sum_rn: float | None = None
+
+
+class DuelBriefing(BaseModel):
+    """GET /duel/briefing 응답 (R9-01 §3.1 ②) — 대상일 판단 재료 일괄.
+
+    부분 실패는 해당 필드만 null/빈 배열(200 유지) — KMA 키 부재 시 프론트가
+    degraded 모드("실황 자료 수신 대기")로 표시하되 예측 입력은 그대로 가능.
+    """
+
+    region: str
+    target_date: date
+    hourly: list[DuelBriefingHour]
+    today_observed: DuelBriefingObserved | None = None
+    recent_days: list[DuelBriefingDay]
+
+
 class DuelHistoryItem(BaseModel):
     """GET /duel/history 항목."""
 
