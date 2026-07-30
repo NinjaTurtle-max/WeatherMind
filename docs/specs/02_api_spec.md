@@ -62,9 +62,53 @@ JWT payload: `{"sub": user_id, "level_group": ..., "exp": ...}`
 
 | Method | Path | 설명 | 응답 |
 |---|---|---|---|
-| GET | /me | XP·레벨·스트릭 조회 | `{xp, level, streak_count, next_level_xp}` |
-| GET | /weak-tags | 내 약점 태그 목록 (accuracy_rate 오름차순) | `WeakTag[]` |
+| GET | /me | XP·레벨·스트릭·티어·에너지·스파인 종합 | `ProgressMe` (아래) |
+| GET | /weak-tags | θ 파생 약점 개념 (학령 상대 임계, θ 오름차순 — R8-01 §3.5) | `WeakConceptOut[]` (아래) |
 | POST | /attendance | 출석 체크 (하루 1회) | `{streak_count, is_new_record}` |
+| GET | /quests | 오늘의 일일 퀘스트 진행/완료 (R4-01 §3.1) | `[{code, title, progress, target, done, xp_reward}]` |
+| GET | /badges | 배지 정의 + 획득 시각 — 미획득은 `earned_at: null` (R4-01 §3.3) | `[{code, title, description, earned_at}]` |
+| GET | /energy | 구름 에너지 잔량·회복 ETA (R5-01 §3.3) | `{clouds, max, next_regen_sec, updated_at}` |
+| GET | /abilities | WeatherBrain 개념별 IRT 능력 θ, 약한 순 (R6 §5) | `[{concept_tag, theta, theta_se, num_responses, level_label, updated_at}]` |
+
+**ProgressMe 스키마** (GET /me — 현행 전체 필드, R8-01 §3.3 기준)
+```json
+{
+  "xp": 120,
+  "level": 2,
+  "streak_count": 4,
+  "streak_freeze_count": 1,
+  "next_level_xp": 200,
+  "tier": "cumulus",
+  "clouds": 3,
+  "next_regen_sec": 840,
+  "placement_done": true,
+  "spine": {
+    "units_total": 12,
+    "units_cleared": 2,
+    "crowns_earned": 3,
+    "crowns_total": 15,
+    "current_unit": {"slug": "read-sky-board", "title": "지도에 전선을 세워 비를 내려라"}
+  }
+}
+```
+- `streak_freeze_count`: 스트릭 프리즈("구름 방패") 보유 수 (R2-01 §3.5)
+- `tier`: 최근 리그 정산 티어, 없으면 `stratus` (R4-01 §3.2)
+- `clouds`/`next_regen_sec`: 구름 에너지 잔량·다음 회복 ETA(초) (R5-01 §3.3)
+- `placement_done`: 배치고사 완료 여부 — 온보딩 진입 분기 (R7-01 §3.5)
+- `spine`: 유닛 진도 축 서버 집계 (R8-01 §3.3). `current_unit`은 잠기지 않은
+  첫 미클리어 유닛(`{slug, title}`), 전부 클리어/잠금이면 `null`. `slug`는
+  커리큘럼 트리 노출 `id`와 동일한 안정 참조 — `POST /curriculum/units/{slug}/session`
+  경로 파라미터로 그대로 쓴다.
+
+**WeakConceptOut 스키마** (GET /weak-tags — R8-01 §3.5, 구 `WeakTag[]`(accuracy_rate 집계) 대체)
+```json
+[
+  {"concept_tag": "typhoon", "theta": -0.62, "threshold": 0.405, "num_responses": 4}
+]
+```
+- 판정(θ 파생 단일 공급원): `num_responses > 0 AND theta < threshold` 인 개념만
+  실린다 — 목록에 있으면 곧 약점. `threshold`는 학령 상대 임계
+  (`b(level_group) + logit(0.6)`; middle_high ≈ 0.405). 정렬은 θ 오름차순(약한 순).
 
 ---
 

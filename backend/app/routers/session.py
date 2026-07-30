@@ -24,6 +24,7 @@ from app.core.rate_limit import LIMIT_ANSWER, LIMIT_TODAY, limiter, user_or_ip_k
 from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.user import User
+from app.schemas.curriculum import CrownAward
 from app.schemas.session import (
     SessionAnswerRequest,
     SessionAnswerResult,
@@ -31,6 +32,7 @@ from app.schemas.session import (
     SessionItem,
     SessionProgress,
     SessionToday,
+    UnitResult,
 )
 from app.services import (
     answer_service,
@@ -64,8 +66,10 @@ def _out_of_clouds(exc: energy_service.OutOfCloudsError) -> HTTPException:
     )
 
 
-# board 플레이에 필요한 template 필드 화이트리스트 (§3.3) — correct_answer는
+# board 플레이에 필요한 template 필드 화이트리스트 (§3.3·§3.5) — correct_answer는
 # 이 목록에 없으므로 구조적으로 노출되지 않는다(방어적 비밀 정답 제외).
+# 프론트 AtmosphereBoard.jsx가 소비하는 표시용 필드 집합과 1:1 —
+# 드리프트는 tests/test_session_board_item.py 계약 테스트가 감시한다.
 BOARD_TEMPLATE_FIELDS = (
     "question_text",
     "mode",
@@ -74,6 +78,8 @@ BOARD_TEMPLATE_FIELDS = (
     "palette",
     "goal_conditions",
     "hints",
+    "time_limit_sec",  # §3.5 미니 미션 타이머 (표시·카운트다운 전용, 정답 정보 없음)
+    "based_on",  # §3.5 재현 퍼즐 "실화" 배지 (event_name·event_date·region, 표시 전용)
 )
 
 
@@ -362,20 +368,47 @@ async def complete_session(
             placement_done=True,
         )
 
-    if session.completed_at is None:
+    all_correct = progress.total > 0 and correct_count == progress.total
+    is_first_complete = session.completed_at is None
+    crown_award: CrownAward | None = None
+
+    if is_first_complete:
         session.completed_at = datetime.now(timezone.utc)
         await db.flush()
         # 무오답 세션 배지(perfect_session) — 5/5 정답, 중복은 UNIQUE로 방어 (R4-01 §3.3)
         if badge_service.is_perfect_session(correct_count, progress.total):
             await badge_service.award_badge(db, user.id, badge_service.BADGE_PERFECT_SESSION)
-        # 유닛 세션이 5/5(또는 board 클리어)로 완료되면 왕관 +1·cleared 전환 +20 XP (§3.2).
-        # 세션 최초 완료 시에만(멱등) 왕관을 가산한다.
-        if (
-            session.unit_id is not None
-            and progress.total > 0
-            and correct_count == progress.total
-        ):
-            await curriculum_service.grant_unit_crown(db, user, session.unit_id)
+        # 데일리 만점 → 왕관 유입 (R8-01 §3.4): 세션 문항 최다 개념(동률: route
+        # target 우선→사전순)의 "열린 첫 미클리어 quiz 유닛"에 왕관 +1. daily는
+        # 하루 1세션(멱등 인덱스) + 최초 완료에만 부여라 파밍 상한이 선다.
+        # placement는 위에서 조기 반환, 유닛 세션은 mode 분기로 제외된다.
+        if session.mode == session_service.MODE_DAILY and all_correct:
+            concept = curriculum_service.majority_concept(
+                (log.concept_tag for log in logs),
+                (session.route_decision or {}).get("target_concept_tag"),
+            )
+            if concept is not None:
+                award = await curriculum_service.award_crown_for_activity(
+                    db, user, concept_tag=concept, kind="quiz"
+                )
+                if award is not None:
+                    crown_award = CrownAward(**award)
+
+    # 유닛 세션 unit_result (R8-01 §3.1 계약 복구) — grant_unit_crown 반환을
+    # 버리지 않고 노출한다(프론트 UnitSummary가 읽는 필드). 왕관 가산(§3.2)은
+    # 기존과 동일하게 "세션 최초 완료 + 전 문항 정답"일 때만(멱등) — 그 외
+    # (오답 있음·재완료)엔 저장된 진도 스냅샷을 unit_xp=0으로 돌려준다.
+    unit_result: UnitResult | None = None
+    if session.unit_id is not None:
+        payload = await curriculum_service.unit_result_for_session(
+            db,
+            user,
+            session.unit_id,
+            all_correct=all_correct,
+            grant_crown=is_first_complete and all_correct,
+        )
+        if payload is not None:
+            unit_result = UnitResult(**payload)
 
     # 일일 퀘스트 재계산 — 세션 complete 트리거(당일 집계 멱등 재계산) (R4-01 §3.1)
     await quest_service.recalculate_quests(db, user, session.session_date)
@@ -387,4 +420,6 @@ async def complete_session(
         correct_count=correct_count,
         total=progress.total,
         streak_count=streak_count,
+        unit_result=unit_result,
+        crown_award=crown_award,
     )

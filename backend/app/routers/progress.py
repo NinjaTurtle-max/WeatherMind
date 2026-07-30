@@ -1,7 +1,7 @@
 """Progress API (/api/v1/progress) — 02번 스펙 + R4-01 §3.1·§3.2·§3.3.
 
-| GET  | /me         | XP·레벨·스트릭·티어 → {xp, level, streak_count, streak_freeze_count, next_level_xp, tier} |
-| GET  | /weak-tags  | 내 약점 태그 목록 (accuracy_rate 오름차순) → WeakTag[] |
+| GET  | /me         | XP·레벨·스트릭·티어·스파인 → {xp, level, streak_count, streak_freeze_count, next_level_xp, tier, ..., spine} |
+| GET  | /weak-tags  | θ 파생 약점 개념 (학령 상대 임계, θ 오름차순 — R8-01 §3.5) → WeakConceptOut[] |
 | POST | /attendance | 출석 체크 (하루 1회) → {streak_count, is_new_record} |
 | GET  | /quests     | 오늘의 일일 퀘스트 진행/완료 (R4-01 §3.1) |
 | GET  | /badges     | 배지 정의 + 획득 시각 (R4-01 §3.3) |
@@ -16,7 +16,6 @@ from app.core.dependencies import get_current_user, get_db_with_rls
 from app.models.attendance import Attendance
 from app.models.user import User
 from app.models.user_concept_ability import UserConceptAbility
-from app.models.weak_tag import WeakTag
 from app.schemas.progress import (
     AttendanceResult,
     BadgeOut,
@@ -24,11 +23,13 @@ from app.schemas.progress import (
     EnergyState,
     ProgressMe,
     QuestOut,
-    WeakTagOut,
+    SpineOut,
+    WeakConceptOut,
 )
 from app.services import weatherbrain_service
 from app.services import (
     badge_service,
+    curriculum_service,
     energy_service,
     league_service,
     quest_service,
@@ -48,6 +49,8 @@ async def get_me(
     tier = await league_service.get_current_tier(db, user.id)
     # 구름 에너지: 읽기 시점에 지연 회복 반영(§3.3)
     energy = await energy_service.get_state(db, user)
+    # 스파인(유닛 진도 축) 서버 집계 — R8-01 §3.3 (트리와 동일 정의, read-only)
+    spine = await curriculum_service.get_spine(db, user)
     return ProgressMe(
         xp=user.xp,
         level=level,
@@ -58,6 +61,7 @@ async def get_me(
         clouds=energy["clouds"],
         next_regen_sec=energy["next_regen_sec"],
         placement_done=user.placement_completed_at is not None,
+        spine=SpineOut(**spine),
     )
 
 
@@ -89,23 +93,29 @@ async def get_badges(
     return [BadgeOut(**row) for row in rows]
 
 
-@router.get("/weak-tags", response_model=list[WeakTagOut])
+@router.get("/weak-tags", response_model=list[WeakConceptOut])
 async def get_weak_tags(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_with_rls),
-) -> list[WeakTagOut]:
-    tags = (
-        (
-            await db.execute(
-                select(WeakTag)
-                .where(WeakTag.user_id == user.id)
-                .order_by(WeakTag.accuracy_rate.asc())
-            )
+) -> list[WeakConceptOut]:
+    """θ 파생 약점 개념 목록 (R8-01 §3.5) — 학령 상대 임계 적용, θ 오름차순(약한 순).
+
+    구 weak_tags 테이블 노출을 대체한다(임계 적용 — 목록에 있으면 곧 약점).
+    저장 θ read-only(load_abilities), ai-worker 미호출.
+    """
+    abilities = await weatherbrain_service.load_abilities(db, user)
+    weak = set(weatherbrain_service.weak_concepts(abilities, user.level_group))
+    threshold = weatherbrain_service.weak_theta_threshold(user.level_group)
+    return [
+        WeakConceptOut(
+            concept_tag=ab["concept_tag"],
+            theta=ab["theta"],
+            threshold=threshold,
+            num_responses=ab["n"],
         )
-        .scalars()
-        .all()
-    )
-    return [WeakTagOut.model_validate(t) for t in tags]
+        for ab in sorted(abilities, key=lambda ab: ab["theta"])
+        if ab["concept_tag"] in weak
+    ]
 
 
 @router.get("/abilities", response_model=list[ConceptAbilityOut])
@@ -181,7 +191,7 @@ async def check_attendance(
     # 일일 출석 +5, 스트릭 마일스톤(7/30/100일) 달성 시 +50 보너스
     xp = xp_service.XP_DAILY_ATTENDANCE
     if milestone_hit:
-        xp += xp_service.XP_STREAK_7_BONUS
+        xp += xp_service.XP_STREAK_MILESTONE_BONUS
     await xp_service.add_xp(db, db_user, xp)
 
     # 스트릭 마일스톤 배지(streak_7/30/100) 지급 — 중복은 UNIQUE로 방어 (R4-01 §3.3)

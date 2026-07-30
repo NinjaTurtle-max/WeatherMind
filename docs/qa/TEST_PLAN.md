@@ -166,6 +166,25 @@ backend **568 passed** + ai-worker **88 passed + 5 skipped**. 추가 커버리�
 스모크는 1~**10**단계로 확장(9 submit-all 전환 + 채점 주입 422 가드,
 10 유닛 세션·커리큘럼 status) — RUNBOOK §6. UI 수기는 INTEGRATION_CHECKLIST §20.
 
+## C-3. R8-01 갱신 (2026-07-30, 통합 웨이브 2 — chore/r8-07-integration)
+
+backend **682 passed** + ai-worker **97 passed + 7 skipped**. 추가 커버리지:
+
+| 계약 | 테스트 파일 | 건수 |
+|---|---|---|
+| §3.1·§3.4 unit_result 5필드 복구·왕관 유입로(보드 attempt·데일리 만점, 동률 route target 우선) | backend/test_crown_award.py | 신규 |
+| §3.3 스파인 서버 집계 — build_curriculum 정의 재사용·current 동일성·/me additive | backend/test_spine_aggregate.py | 신규 |
+| §3.2 유닛 세션 발급 θ 재추정 — refresh 1회·잠금/풀 공유·404는 refresh 전 | backend/test_unit_session_theta_refresh.py | 신규 |
+| §3.5 weak 판정 θ 파생 단일 공급원 — 임계 공식·소비자 5곳 전환 | backend/test_weatherbrain_contract.py (확장) 외 | — |
+| §3.6 XP 원천 카탈로그 — DUEL_WIN_XP 교차 계약·상수 정리 | backend/test_xp_contract.py | — |
+| SA-5 board 화이트리스트 time_limit_sec·based_on + 시드 왕복 | backend/test_session_board_item.py | 신규 |
+
+스모크는 1~**11**단계로 확장(11 r8: a spine 집계 · b 트리 id==spine slug 계약
++ 두 진입점 발급 · c 보드 정답 배치→crown_award · d weak-tags θ 파생 신 형태 ·
+e board time_limit_sec 노출) — RUNBOOK §6. 통합 중 스모크가 잡은 것: 11e 검증
+위치 오독(계약은 template_json 내부 — 스크립트 교정), 7단계 확률적 배합 FAIL
+(비board ≥1로 완화). 실서버 결함 0.
+
 ## 4. 실행 방법·환경
 
 ```bash

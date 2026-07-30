@@ -3,12 +3,29 @@
 실서버 세션에서 board 문항이 오면 프론트가 palette·initial_state 없이는 보드를
 못 그린다. SessionItem이 render된 board 플레이 필드를 template_json으로 노출하되,
 비밀 정답(correct_answer)은 방어적으로 제외하는지 순수 함수 수준에서 검증한다(DB 불필요).
+
+R8-09 확장: 화이트리스트 누락으로 세션 내 보드에서 §3.5 타이머(time_limit_sec)·
+실화 배지(based_on)가 사라진 버그의 재발 방지 —
+- 화이트리스트 ↔ 프론트 AtmosphereBoard.jsx 소비 필드 집합 일치 (소스 텍스트 계약,
+  test_error_code_contract 전례)
+- 실제 시드 board 12건 전부: 화이트리스트 통과 후에도 렌더 필수 필드 온전 +
+  correct_answer 무유출
 """
+import json
+import re
+from pathlib import Path
+
 from app.routers.session import (
     BOARD_TEMPLATE_FIELDS,
     _board_template_json,
     _to_session_item,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+ATMOSPHERE_BOARD_PATH = (
+    REPO_ROOT / "frontend" / "src" / "modules" / "board" / "AtmosphereBoard.jsx"
+)
+SEED_PATH = REPO_ROOT / "database" / "seed" / "content_items.json"
 
 BOARD_QUESTION = {
     "question_type": "board",
@@ -20,6 +37,13 @@ BOARD_QUESTION = {
     "palette": ["front:cold", "moisture"],
     "goal_conditions": [{"zone": 1, "phenomenon": "shower"}],
     "hints": ["공기 중에 무엇이 충분해야 할까요?", "차가운 공기가 파고들면..."],
+    # §3.5 표시용 필드 — 세션 내 보드에서도 노출돼야 한다 (R8-09)
+    "time_limit_sec": 60,
+    "based_on": {
+        "event_name": "2018년 기록적 폭염",
+        "event_date": "2018-08-01",
+        "region": "서울·수도권",
+    },
     # 방어 대상 — 노출되면 안 됨 (board는 미사용 필드지만 만약 저작되어도 제외)
     "correct_answer": "비밀",
 }
@@ -40,6 +64,13 @@ class TestBoardTemplateJson:
         for field in ("mode", "guide_steps", "initial_state", "palette", "goal_conditions", "hints"):
             assert tj[field] == BOARD_QUESTION[field]
         assert tj["question_text"] == BOARD_QUESTION["question_text"]
+
+    def test_미니미션_타이머_실화배지_노출(self):
+        """R8-09: §3.5 표시용 필드(time_limit_sec·based_on)가 세션 내 보드에서
+        사라지지 않는다 — 화이트리스트 누락 버그의 재발 가드."""
+        tj = _board_template_json(BOARD_QUESTION)
+        assert tj["time_limit_sec"] == 60
+        assert tj["based_on"] == BOARD_QUESTION["based_on"]
 
     def test_correct_answer_제외(self):
         tj = _board_template_json(BOARD_QUESTION)
@@ -81,3 +112,107 @@ class TestSessionItemBoard:
         )
         assert item.template_json is None
         assert item.options == MC_QUESTION["options"]
+
+
+# AtmosphereBoard.jsx의 puzzle.<field> / puzzle?.<field> 접근 리터럴
+PUZZLE_FIELD_RE = re.compile(r"\bpuzzle\??\.(\w+)")
+
+
+class TestWhitelistFrontendContract:
+    """R8-09 계약: 화이트리스트 = AtmosphereBoard가 소비하는 puzzle 필드 집합.
+
+    프론트가 새 표시 필드를 소비하기 시작했는데 백엔드 화이트리스트가 안 따라오면
+    (이번 버그) 여기서 잡힌다. 역방향(프론트가 안 쓰는 필드를 노출)도 드리프트로
+    간주해 양방향 일치를 요구한다. test_error_code_contract의 소스 텍스트 검사 전례.
+    """
+
+    def test_프론트_파일_존재(self):
+        assert ATMOSPHERE_BOARD_PATH.exists(), (
+            "AtmosphereBoard.jsx 경로 변경 시 이 테스트를 갱신할 것"
+        )
+
+    def test_화이트리스트가_프론트_소비_필드와_일치(self):
+        src = ATMOSPHERE_BOARD_PATH.read_text(encoding="utf-8")
+        consumed = set(PUZZLE_FIELD_RE.findall(src))
+        assert consumed, "puzzle 필드 접근을 하나도 못 찾음 — 정규식/컴포넌트 확인"
+        whitelist = set(BOARD_TEMPLATE_FIELDS)
+        missing = consumed - whitelist
+        assert not missing, (
+            f"프론트가 소비하는데 화이트리스트에 없는 필드: {sorted(missing)} — "
+            "세션 내 보드에서 해당 UI가 사라진다 (R8-09 버그의 재발)"
+        )
+        unused = whitelist - consumed
+        assert not unused, (
+            f"화이트리스트에 있는데 프론트가 소비하지 않는 필드: {sorted(unused)} — "
+            "불필요 노출(드리프트), 목록을 정리하거나 프론트 소비를 확인할 것"
+        )
+
+    def test_프론트가_정답_필드를_소비하지_않는다(self):
+        """양방향 일치의 안전 전제 — 프론트가 correct/answer성 필드를 쓰기 시작하면
+        일치 강제가 정답 유출 압력이 되므로 여기서 먼저 실패시킨다."""
+        src = ATMOSPHERE_BOARD_PATH.read_text(encoding="utf-8")
+        consumed = set(PUZZLE_FIELD_RE.findall(src))
+        leaky = {f for f in consumed if "correct" in f.lower() or "answer" in f.lower()}
+        assert not leaky, f"프론트가 정답성 필드를 소비: {sorted(leaky)}"
+        assert "correct_answer" not in BOARD_TEMPLATE_FIELDS
+
+
+class TestSeedBoardRoundTrip:
+    """R8-09: 실제 시드 board 문항 전건이 화이트리스트 통과 후에도 렌더 온전.
+
+    서빙 경로(session_service.create_daily_session)와 동일하게
+    question = {**template_json, concept_tag, question_type}를 만들어
+    _board_template_json에 통과시킨다.
+    """
+
+    # 세션 내 보드 렌더에 반드시 필요한 필드 (AtmosphereBoard·§3.3)
+    RENDER_REQUIRED = ("question_text", "mode", "initial_state", "palette", "goal_conditions", "hints")
+
+    @classmethod
+    def setup_class(cls):
+        items = json.loads(SEED_PATH.read_text(encoding="utf-8"))
+        cls.boards = [it for it in items if it["question_type"] == "board"]
+
+    def _serve(self, item: dict) -> dict:
+        question = {
+            **item["template_json"],
+            "concept_tag": item["concept_tag"],
+            "question_type": item["question_type"],
+        }
+        return _board_template_json(question)
+
+    def test_시드_board_12건(self):
+        """시드 board 문항 수 고정 — 증감 시 이 계약과 §3.5 커버리지를 함께 갱신."""
+        assert len(self.boards) == 12
+
+    def test_전건_렌더_필수_필드_온전(self):
+        for i, item in enumerate(self.boards):
+            tj = self._serve(item)
+            assert tj is not None, f"[{i}] board인데 template_json이 None"
+            for field in self.RENDER_REQUIRED:
+                assert tj.get(field) == item["template_json"][field], (
+                    f"[{i}] {item['concept_tag']}: 렌더 필수 필드 {field}가 "
+                    "화이트리스트 통과 후 소실/변형"
+                )
+
+    def test_전건_표시용_확장_필드_보존(self):
+        """template에 저작된 time_limit_sec·based_on은 그대로 서빙된다."""
+        timers = badges = 0
+        for item in self.boards:
+            tpl, tj = item["template_json"], self._serve(item)
+            if "time_limit_sec" in tpl:
+                timers += 1
+                assert tj["time_limit_sec"] == tpl["time_limit_sec"]
+            if "based_on" in tpl:
+                badges += 1
+                assert tj["based_on"] == tpl["based_on"]
+        # 시드 현행: 미니 미션 2건 · 재현 퍼즐 2건 (§3.5)
+        assert timers == 2 and badges == 2
+
+    def test_전건_정답_무유출(self):
+        for i, item in enumerate(self.boards):
+            tj = self._serve(item)
+            assert "correct_answer" not in tj, f"[{i}] correct_answer 유출"
+            assert set(tj).issubset(set(BOARD_TEMPLATE_FIELDS)), (
+                f"[{i}] 화이트리스트 밖 키 유출: {set(tj) - set(BOARD_TEMPLATE_FIELDS)}"
+            )

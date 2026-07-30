@@ -118,7 +118,11 @@ function devStatePayload() {
     clouds: state.clouds,
     streak_count: state.streak,
     placement_done: state.placementDone,
-    weak_tags: [...WEAK_TAGS],
+    // θ 파생 약점 (R8-01 §3.5, backend build_state와 동일 규칙): n>0 AND θ<0.41.
+    // /dev/theta 조작이 즉시 반영된다 — 정적 WEAK_TAGS(퀘스트 판정용)와 별개.
+    weak_tags: rows
+      .filter((r) => r.num_responses > 0 && r.theta < 0.41)
+      .map((r) => r.concept_tag),
   };
 }
 
@@ -196,12 +200,13 @@ const BOARD_REGIONS = [
 
 // ── 커리큘럼 유닛 (R5-01 §3.2) — 2섹션·유닛 5개·선행 잠금 포함 ──
 //   각 유닛은 concept_tag로 기존 content_items 풀과 연결(§3.2). kind: quiz|board.
+//   slug(R8-01 §3.3): 백엔드 유닛 식별자 — spine.current_unit·crown_award가 노출한다.
 const UNITS = [
-  { id: 'u0000001-0000-4000-8000-000000000001', section: '하늘 읽기', unit_order: 1, title: '기압과 전선 입문', concept_tag: 'pressure_front', prereq_unit_id: null, kind: 'quiz', crown_target: 1 },
-  { id: 'u0000002-0000-4000-8000-000000000002', section: '하늘 읽기', unit_order: 2, title: '기단의 성질', concept_tag: 'air_mass', prereq_unit_id: 'u0000001-0000-4000-8000-000000000001', kind: 'quiz', crown_target: 1 },
-  { id: 'u0000003-0000-4000-8000-000000000003', section: '하늘 읽기', unit_order: 3, title: '전선으로 날씨 만들기', concept_tag: 'pressure_front', prereq_unit_id: 'u0000002-0000-4000-8000-000000000002', kind: 'board', crown_target: 1 },
-  { id: 'u0000004-0000-4000-8000-000000000004', section: '큰 바람', unit_order: 1, title: '태풍의 구조', concept_tag: 'typhoon', prereq_unit_id: null, kind: 'quiz', crown_target: 1 },
-  { id: 'u0000005-0000-4000-8000-000000000005', section: '큰 바람', unit_order: 2, title: '이상 기후 재현', concept_tag: 'anomaly', prereq_unit_id: 'u0000004-0000-4000-8000-000000000004', kind: 'board', crown_target: 1 },
+  { id: 'u0000001-0000-4000-8000-000000000001', slug: 'pressure-front-intro', section: '하늘 읽기', unit_order: 1, title: '기압과 전선 입문', concept_tag: 'pressure_front', prereq_unit_id: null, kind: 'quiz', crown_target: 1 },
+  { id: 'u0000002-0000-4000-8000-000000000002', slug: 'air-mass-basics', section: '하늘 읽기', unit_order: 2, title: '기단의 성질', concept_tag: 'air_mass', prereq_unit_id: 'u0000001-0000-4000-8000-000000000001', kind: 'quiz', crown_target: 1 },
+  { id: 'u0000003-0000-4000-8000-000000000003', slug: 'front-weather-board', section: '하늘 읽기', unit_order: 3, title: '전선으로 날씨 만들기', concept_tag: 'pressure_front', prereq_unit_id: 'u0000002-0000-4000-8000-000000000002', kind: 'board', crown_target: 1 },
+  { id: 'u0000004-0000-4000-8000-000000000004', slug: 'typhoon-structure', section: '큰 바람', unit_order: 1, title: '태풍의 구조', concept_tag: 'typhoon', prereq_unit_id: null, kind: 'quiz', crown_target: 1 },
+  { id: 'u0000005-0000-4000-8000-000000000005', slug: 'anomaly-replay-board', section: '큰 바람', unit_order: 2, title: '이상 기후 재현', concept_tag: 'anomaly', prereq_unit_id: 'u0000004-0000-4000-8000-000000000004', kind: 'board', crown_target: 1 },
 ];
 
 // user_unit_progress 흉내 (unit_id → {crowns, cleared_at}). 첫 유닛 1개를 클리어 상태로 시드
@@ -210,7 +215,8 @@ const unitProgress = new Map([
   ['u0000001-0000-4000-8000-000000000001', { crowns: 1, cleared_at: '2026-07-18T09:00:00Z' }],
 ]);
 
-const getUnit = (id) => UNITS.find((u) => u.id === id) ?? null;
+// id 또는 slug로 조회 — 프론트 라우트는 트리의 id를, spine.current_unit은 slug를 쓴다(R8-01 §3.3).
+const getUnit = (idOrSlug) => UNITS.find((u) => u.id === idOrSlug || u.slug === idOrSlug) ?? null;
 const getUnitProgress = (id) => {
   if (!unitProgress.has(id)) unitProgress.set(id, { crowns: 0, cleared_at: null });
   return unitProgress.get(id);
@@ -250,6 +256,7 @@ function curriculumPayload() {
         const status = cleared ? 'cleared' : locked ? 'locked' : 'unlocked';
         return {
           id: u.id,
+          slug: u.slug,
           unit_order: u.unit_order,
           title: u.title,
           concept_tag: u.concept_tag,
@@ -268,6 +275,48 @@ function curriculumPayload() {
   const firstOpen = sections.flatMap((s) => s.units).find((v) => v.status === 'unlocked');
   if (firstOpen) firstOpen.status = 'current';
   return { sections };
+}
+
+/** 스파인 집계 (R8-01 §3.3) — GET /progress/me의 additive spine 필드.
+ *  서버 계산과 동일 정의: cleared=crown_target 도달, crowns_total=Σcrown_target,
+ *  current=트리 노출 순서에서 잠기지 않은 첫 미클리어 유닛(없으면 null). */
+function spinePayload() {
+  let unitsCleared = 0;
+  let crownsEarned = 0;
+  let crownsTotal = 0;
+  for (const u of UNITS) {
+    const crowns = unitProgress.get(u.id)?.crowns ?? 0;
+    crownsTotal += u.crown_target;
+    crownsEarned += Math.min(crowns, u.crown_target);
+    if (crowns >= u.crown_target) unitsCleared += 1;
+  }
+  const current =
+    UNITS.find((u) => (unitProgress.get(u.id)?.crowns ?? 0) < u.crown_target && !isUnitLocked(u)) ?? null;
+  return {
+    units_total: UNITS.length,
+    units_cleared: unitsCleared,
+    crowns_earned: crownsEarned,
+    crowns_total: crownsTotal,
+    current_unit: current ? { slug: current.slug, title: current.title } : null,
+  };
+}
+
+/** 왕관 유입로 (R8-01 §3.4) — 유닛에 왕관 +1(crown_target 초과 불가).
+ *  실제로 부여됐을 때만 crown_award 페이로드 {unit_slug, unit_title, crowns, cleared}를
+ *  반환하고, 대상 없음/이미 만관이면 null(무동작). 백엔드 grant_unit_crown과 동일하게
+ *  cleared 전환 시 +20 XP(XP_UNIT_CLEAR) 1회 — 보드 +5 XP·데일리 문항 XP는 별도
+ *  기존 경로 그대로다. crown_award 페이로드 계약(4필드)은 불변. */
+function grantUnitCrown(unit) {
+  if (!unit) return null;
+  const prog = getUnitProgress(unit.id);
+  if (prog.crowns >= unit.crown_target) return null;
+  prog.crowns += 1;
+  const cleared = prog.crowns >= unit.crown_target;
+  if (cleared && !prog.cleared_at) {
+    prog.cleared_at = new Date().toISOString();
+    state.xp += 20; // 유닛 cleared 전환 보상 — backend xp_service.XP_UNIT_CLEAR
+  }
+  return { unit_slug: unit.slug, unit_title: unit.title, crowns: prog.crowns, cleared };
 }
 
 // 약점 태그(§3.1 weak_correct_1 판정용) — /progress/weak-tags 목데이터와 일치
@@ -462,6 +511,11 @@ const SESSION_ITEMS = [
     template_json: {
       question_text: '수도권에 소나기를 내려 보세요',
       mode: 'guided',
+      // R8-01 버그픽스 B①: 백엔드 세션 template_json 화이트리스트에
+      // time_limit_sec·based_on이 추가됨 — 세션 안 board 문항에도 미니 미션
+      // 타이머(§3.5)와 실화 배지가 렌더되는지 목으로 검증한다.
+      time_limit_sec: 90,
+      based_on: { event_name: '2022년 8월 수도권 집중호우', event_date: '2022-08-08', region: '수도권' },
       guide_steps: [
         '수도권(2번째 존)에 한랭전선을 놓아 보세요.',
         '습기 슬라이더를 60 이상으로 올려 상승기류를 강하게 만드세요.',
@@ -600,6 +654,7 @@ const BOARD_PUZZLES = [
   {
     content_item_id: 'b0000001-0000-4000-8000-000000000001',
     difficulty: 1,
+    concept_tag: 'pressure_front',
     template_json: {
       question_text: '수도권에 소나기를 내려 보세요 (미니 미션)',
       mode: 'guided',
@@ -618,6 +673,7 @@ const BOARD_PUZZLES = [
   {
     content_item_id: 'b0000002-0000-4000-8000-000000000002',
     difficulty: 2,
+    concept_tag: 'air_mass',
     template_json: {
       question_text: '동해안에 폭염을 만들어 보세요',
       mode: 'goal_only',
@@ -630,6 +686,7 @@ const BOARD_PUZZLES = [
   {
     content_item_id: 'b0000003-0000-4000-8000-000000000003',
     difficulty: 1,
+    concept_tag: 'air_mass',
     template_json: {
       question_text: '서해안에 눈을 내려 보세요',
       mode: 'goal_only',
@@ -692,6 +749,10 @@ function ensureSession() {
       items: SESSION_ITEMS,
       answers: {},
       completed: false,
+      // Router 라우팅 결정 흉내 (backend sessions.route_decision.target_concept_tag)
+      // — 데일리 만점 왕관 동률 시 이 개념 우선(R8-01 §3.4 majority_concept 정렬).
+      // 목 Router는 약점 θ 최하 개념을 겨냥한다고 가정: typhoon(WEAK_TAGS 최약).
+      route_target_concept_tag: 'typhoon',
     });
   }
   return sessions.get(DAILY_SESSION_ID);
@@ -732,13 +793,16 @@ function buildUnitItems(unit) {
   return (pool.length ? pool : SESSION_ITEMS.filter((it) => it.question_type !== 'board')).slice(0, 3);
 }
 
-/** POST /curriculum/units/{id}/session — 유닛 문항으로 세션 발급(멱등, §3.2) */
-function startUnitSession(unitId) {
-  const unit = getUnit(unitId);
+/** POST /curriculum/units/{id|slug}/session — 유닛 문항으로 세션 발급(멱등, §3.2).
+ *  R8-01: slug 진입("이어서 학습")도 허용 — 세션 unit_id는 항상 정규 id로 저장해
+ *  id/slug 어느 쪽으로 발급해도 같은 세션·같은 진도 키(unitProgress)를 쓴다. */
+function startUnitSession(unitIdOrSlug) {
+  const unit = getUnit(unitIdOrSlug);
   if (!unit) return [404, { detail: '유닛을 찾을 수 없습니다', code: 'UNIT_NOT_FOUND' }];
   if (isUnitLocked(unit)) {
     return [403, { detail: '선행 유닛을 먼저 완료해야 열려요', code: 'UNIT_LOCKED' }];
   }
+  const unitId = unit.id; // 정규화 — slug 발급이어도 진도는 id 키로 기록
   const today = todayISO();
   const sessionId = `unit-${unitId}-${today}`;
   let s = sessions.get(sessionId);
@@ -963,32 +1027,58 @@ const routes = {
     const results = Object.values(s.answers);
     const correctCount = results.filter((r) => r.is_correct).length;
 
-    // 유닛 세션(§3.2): 전 문항 정답 시 왕관 +1, cleared 전환 시 +20 XP(1회)
+    // 유닛 세션(§3.2 + R8-01 §3.1): 전 문항 정답 시 왕관 +1, cleared 전환 시 +20 XP(1회).
+    // unit_result는 백엔드 grant_unit_crown 반환 dict와 동일한 5필드 고정 형태
+    // {all_correct, crowns, crown_target, cleared, unit_xp} — 유닛 세션이 아니면 null.
     let unitResult = null;
     if (s.unit_id) {
       const unit = getUnit(s.unit_id);
       const prog = getUnitProgress(s.unit_id);
-      const allCorrect = correctCount === progress.total;
+      const crownTarget = unit?.crown_target ?? 1;
+      const allCorrect = progress.total > 0 && correctCount === progress.total;
       let unitXp = 0;
-      let newlyCleared = false;
-      if (allCorrect && prog.crowns < (unit?.crown_target ?? 1)) {
+      if (allCorrect && prog.crowns < crownTarget) {
         prog.crowns += 1;
-        if (prog.crowns >= (unit?.crown_target ?? 1) && !prog.cleared_at) {
+        if (prog.crowns >= crownTarget && !prog.cleared_at) {
           prog.cleared_at = new Date().toISOString();
           unitXp = 20;
           state.xp += 20;
-          newlyCleared = true;
         }
       }
       unitResult = {
-        unit_id: s.unit_id,
-        crowns: prog.crowns,
-        crown_target: unit?.crown_target ?? 1,
-        cleared: prog.crowns >= (unit?.crown_target ?? 1),
-        newly_cleared: newlyCleared,
-        unit_xp: unitXp,
         all_correct: allCorrect,
+        crowns: prog.crowns,
+        crown_target: crownTarget,
+        cleared: prog.crowns >= crownTarget,
+        unit_xp: unitXp,
       };
+    }
+    // 데일리 왕관 유입로 (R8-01 §3.4): daily 세션 전 문항 정답이면 세션 문항 최다
+    // 개념의 "열려 있는 첫 미클리어 quiz 유닛"에 왕관 +1. 동률 규칙은 백엔드
+    // majority_concept과 동일 — route target_concept_tag 우선, 그래도 동률이면
+    // 태그 사전순(결정적). 대상 없으면 무동작(null).
+    // placement는 제외. daily는 하루 1세션 멱등이라 파밍 자연 상한.
+    let crownAward = null;
+    if (s.mode === 'daily' && progress.total > 0 && correctCount === progress.total) {
+      const tagCounts = new Map();
+      for (const item of s.items) {
+        tagCounts.set(item.concept_tag, (tagCounts.get(item.concept_tag) ?? 0) + 1);
+      }
+      const topCount = Math.max(0, ...tagCounts.values());
+      const tied = [...tagCounts.entries()]
+        .filter(([, count]) => count === topCount)
+        .map(([tag]) => tag)
+        .sort();
+      const routeTarget = s.route_target_concept_tag ?? null;
+      const topTag = tied.includes(routeTarget) ? routeTarget : tied[0];
+      const target = UNITS.find(
+        (u) =>
+          u.kind === 'quiz' &&
+          u.concept_tag === topTag &&
+          !isUnitLocked(u) &&
+          (unitProgress.get(u.id)?.crowns ?? 0) < u.crown_target,
+      );
+      crownAward = grantUnitCrown(target ?? null);
     }
     // 배치고사 세션(R7-01 S3): 응답 이력으로 개념별 초기 능력(θ) 배정 흉내.
     // 실서버는 IRT EAP 추정 — 목은 개념별 정답률의 결정적 선형 근사를 쓴다.
@@ -1044,7 +1134,8 @@ const routes = {
         correct_count: correctCount,
         total: progress.total,
         streak_count: state.streak,
-        ...(unitResult ? { unit_result: unitResult } : {}),
+        unit_result: unitResult, // R8-01 §3.1 — 유닛 세션이 아니면 null(additive)
+        crown_award: crownAward, // R8-01 §3.4 — daily 만점 왕관 유입, 없으면 null(additive)
         ...(placementResult ?? {}),
       },
     ];
@@ -1128,14 +1219,25 @@ const routes = {
     if (!spend.ok) return outOfCloudsError(spend.next_regen_sec);
     const { passed, phenomena, feedback } = judgeBoard(body.board_state, puzzle.template_json.goal_conditions);
     // 최초 클리어만 +5 XP (재도전 0) (§3.5)
+    const firstClear = passed && !clearedBoardPuzzles.has(puzzle.content_item_id);
     let xpEarned = 0;
-    if (passed && !clearedBoardPuzzles.has(puzzle.content_item_id)) {
+    if (firstClear) {
       clearedBoardPuzzles.add(puzzle.content_item_id);
       xpEarned = 5;
       state.xp += 5;
       bumpQuest({ xp: 5 });
     }
-    return [200, { passed, phenomena, feedback, xp_earned: xpEarned }];
+    // 보드 왕관 유입로 (R8-01 §3.4): 그 퍼즐 최초 클리어(기존 +5 XP와 동일 조건)이고
+    // 같은 concept_tag의 kind='board' 유닛이 열려 있으면 왕관 +1. 같은 퍼즐 재클리어
+    // 불인정(첫 클리어 집합이 자연 차단 — crown_target=2는 서로 다른 퍼즐 2개로 달성).
+    let crownAward = null;
+    if (firstClear && puzzle.concept_tag) {
+      const unit = UNITS.find(
+        (u) => u.kind === 'board' && u.concept_tag === puzzle.concept_tag && !isUnitLocked(u),
+      );
+      crownAward = grantUnitCrown(unit ?? null);
+    }
+    return [200, { passed, phenomena, feedback, xp_earned: xpEarned, crown_award: crownAward }];
   },
 
   'GET /progress/me': () => {
@@ -1153,6 +1255,7 @@ const routes = {
         max_clouds: CLOUD_MAX,
         next_regen_sec: nextRegenSec(),
         placement_done: state.placementDone, // 온보딩 배치고사 완료 여부 (R7-01 S3)
+        spine: spinePayload(), // 스파인 집계 (R8-01 §3.3, additive)
       },
     ];
   },
@@ -1166,14 +1269,24 @@ const routes = {
   // ── 일일 퀘스트·배지 (R4-01 §3.1·§3.3) ──
   'GET /progress/quests': () => [200, questPayload()],
   'GET /progress/badges': () => [200, BADGES],
-  'GET /progress/weak-tags': () => [
-    200,
-    [
-      { concept_tag: 'typhoon', wrong_count: 4, total_count: 6, accuracy_rate: 33.3, updated_at: null },
-      { concept_tag: 'anomaly', wrong_count: 3, total_count: 7, accuracy_rate: 57.1, updated_at: null },
-      { concept_tag: 'pressure_front', wrong_count: 2, total_count: 9, accuracy_rate: 77.8, updated_at: null },
-    ],
-  ],
+  // GET /progress/weak-tags (R8-01 §3.5) — θ 파생 WeakConceptOut[] 형태.
+  // 백엔드와 동일 판정: num_responses>0 AND θ < threshold, θ 오름차순(약한 순).
+  // threshold는 middle_high 기준 b(0.0)+logit(0.6)≈0.41 고정(목 단순화).
+  'GET /progress/weak-tags': () => {
+    const threshold = 0.41;
+    return [
+      200,
+      abilityRows()
+        .filter((row) => row.num_responses > 0 && row.theta < threshold)
+        .sort((a, b) => a.theta - b.theta)
+        .map(({ concept_tag, theta, num_responses }) => ({
+          concept_tag,
+          theta,
+          threshold,
+          num_responses,
+        })),
+    ];
+  },
   'POST /progress/attendance': () => [
     200,
     { streak_count: state.streak, is_new_record: false },
@@ -1274,7 +1387,7 @@ const routes = {
       unitProgress.clear();
       preUnlockedUnits.clear();
     } else if (body?.action === 'crown') {
-      // 목 유닛엔 slug가 없어 unit_slug에 유닛 id를 받는다(백엔드는 slug — §계약 확인 필요)
+      // unit_slug는 slug 또는 목 내부 id 둘 다 허용(getUnit — 백엔드는 slug)
       const unit = getUnit(body?.unit_slug);
       if (!unit) return [404, { detail: '유닛을 찾을 수 없습니다', code: 'UNIT_NOT_FOUND' }];
       const prog = getUnitProgress(unit.id);

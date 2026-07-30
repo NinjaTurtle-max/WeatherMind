@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -99,3 +100,57 @@ class TestPriorItemBContract:
 
     def test_방어_기본값_동일(self):
         assert wb.DEFAULT_ITEM_B == priors._DEFAULT_ITEM_B
+
+
+class TestWeakThetaContract:
+    """R8-01 §3.5: weak 판정 θ 파생 단일 공급원 — 계약 수치 고정.
+
+    WEAK_EXPECTED_P와 학령별 임계 3종을 수치로 못 박는다(드리프트 감시).
+    ai-worker와 무관한 백엔드 전용 계약이다.
+    """
+
+    def test_WEAK_EXPECTED_P_계약값(self):
+        assert wb.WEAK_EXPECTED_P == 0.6
+
+    def test_학령별_임계_3종_수치_고정(self):
+        """임계 = 사전 b + ln(0.6/0.4) ≈ b + 0.4054651081081644."""
+        assert wb.weak_theta_threshold("elementary") == pytest.approx(
+            -0.5945348918918356
+        )
+        assert wb.weak_theta_threshold("middle_high") == pytest.approx(
+            0.4054651081081644
+        )
+        assert wb.weak_theta_threshold("adult") == pytest.approx(
+            1.4054651081081644
+        )
+
+    def test_임계는_사전_b에서_파생(self):
+        """단일 공급원 검증 — LEVEL_GROUP_ITEM_B를 바꾸면 임계도 따라 움직인다."""
+        logit = math.log(wb.WEAK_EXPECTED_P / (1 - wb.WEAK_EXPECTED_P))
+        for lg, b in wb.LEVEL_GROUP_ITEM_B.items():
+            assert wb.weak_theta_threshold(lg) == pytest.approx(b + logit)
+
+    def test_미지_학령은_DEFAULT_ITEM_B_기준(self):
+        assert wb.weak_theta_threshold("ghost") == pytest.approx(
+            wb.DEFAULT_ITEM_B + math.log(1.5)
+        )
+
+    def test_weak_concepts_판정_규칙(self):
+        """num_responses>0 AND θ<임계 — n=0(사전값뿐)은 약점 아님."""
+        abilities = [
+            {"concept_tag": "typhoon", "theta": -1.0, "se": 0.3, "n": 4},   # 약점
+            {"concept_tag": "air_mass", "theta": -1.0, "se": 0.3, "n": 0},  # n=0 제외
+            {"concept_tag": "anomaly", "theta": 1.0, "se": 0.3, "n": 4},    # θ 충분
+        ]
+        assert wb.weak_concepts(abilities, "middle_high") == ["typhoon"]
+
+    def test_weak_concepts_임계_경계는_약점_아님(self):
+        theta = wb.weak_theta_threshold("middle_high")
+        abilities = [{"concept_tag": "typhoon", "theta": theta, "se": 0.3, "n": 4}]
+        assert wb.weak_concepts(abilities, "middle_high") == []
+
+    def test_weak_concepts_학령_상대적(self):
+        """같은 θ=0.0·n>0 — 초등(임계 −0.594)에선 정상, 성인(임계 1.405)에선 약점."""
+        abilities = [{"concept_tag": "typhoon", "theta": 0.0, "se": 0.3, "n": 4}]
+        assert wb.weak_concepts(abilities, "elementary") == []
+        assert wb.weak_concepts(abilities, "adult") == ["typhoon"]

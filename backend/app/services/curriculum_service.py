@@ -10,6 +10,7 @@ clear 왕관/XP 처리(DB 결합부)를 담당한다. 유닛 세션은 기존 �
 cleared 전환 시 +20 XP 1회.
 """
 import uuid
+from collections import Counter
 from datetime import date, datetime, timezone
 from typing import Any, Iterable
 
@@ -162,6 +163,56 @@ def plan_crown(
     return new_crowns, newly_cleared, xp
 
 
+def majority_concept(
+    concept_tags: Iterable[str | None], route_target: str | None = None
+) -> str | None:
+    """데일리 만점 왕관 대상 개념 선정 (R8-01 §3.4, 순수) — 세션 문항 최다 개념.
+
+    동률이면 route target_concept_tag 우선, 그래도 동률이면 태그 사전순 — 결정적.
+    빈 입력(태그 없음)은 None.
+    """
+    counts = Counter(tag for tag in concept_tags if tag)
+    if not counts:
+        return None
+    top = max(counts.values())
+    tied = sorted(tag for tag, count in counts.items() if count == top)
+    if route_target in tied:
+        return route_target
+    return tied[0]
+
+
+def pick_crown_unit(
+    units: Iterable[Any],
+    progress_by_unit: dict[Any, Any],
+    *,
+    concept_tag: str,
+    kind: str,
+    unlock_floor: int = 0,
+    uncleared_only: bool = False,
+) -> Any | None:
+    """유닛 밖 활동(보드 탭·데일리)의 왕관 대상 유닛 선정 (R8-01 §3.4, 순수).
+
+    전체 순서(ordered_units)상 concept_tag·kind가 일치하고 잠금을 통과한
+    (is_locked — 트리 노출과 동일 규칙·unlock_floor 포함) **첫** 유닛을 돌려준다.
+    uncleared_only=True면 미클리어(crowns < crown_target) 유닛만 후보 — 이미
+    왕관이 가득 찬 유닛은 건너뛴다(grant가 어차피 무동작이라 중복 보상·거짓
+    토스트 방지). 대상이 없으면 None(무동작).
+    """
+    ordered = ordered_units(units)
+    for order_index, unit in enumerate(ordered):
+        if unit.concept_tag != concept_tag or unit.kind != kind:
+            continue
+        if is_locked(unit, progress_by_unit, unlock_floor, order_index):
+            continue
+        if uncleared_only:
+            prog = progress_by_unit.get(unit.id)
+            crowns = prog.crowns if prog is not None else 0
+            if crowns >= unit.crown_target:
+                continue
+        return unit
+    return None
+
+
 def build_curriculum(
     units: Iterable[Any],
     progress_by_unit: dict[Any, Any],
@@ -205,6 +256,39 @@ def build_curriculum(
     return sections
 
 
+def build_spine(
+    units: Iterable[Any],
+    progress_by_unit: dict[Any, Any],
+    unlock_floor: int = 0,
+) -> dict[str, Any]:
+    """스파인(유닛 진도 축) 집계 (R8-01 §3.3, 순수) — /progress/me additive용.
+
+    build_curriculum의 unit_view 위에서 집계해 CurriculumHome 클라 계산과
+    정의가 항상 일치한다(단일 정의 재사용 — 별도 판정 로직 없음):
+    - units_total: 전체 유닛 수 / units_cleared: cleared(=cleared_at 존재) 수
+    - crowns_earned: Σ crowns / crowns_total: Σ crown_target
+    - current_unit: build_curriculum의 'current'(전체 순서상 잠기지 않은 첫
+      미클리어 유닛) 그대로 — {"slug", "title"} 또는 전부 클리어/잠금이면 None.
+    """
+    views = [
+        view
+        for section in build_curriculum(units, progress_by_unit, unlock_floor)
+        for view in section["units"]
+    ]
+    current = next((v for v in views if v["status"] == "current"), None)
+    return {
+        "units_total": len(views),
+        "units_cleared": sum(1 for v in views if v["cleared"]),
+        "crowns_earned": sum(v["crowns"] for v in views),
+        "crowns_total": sum(v["crown_target"] for v in views),
+        "current_unit": (
+            {"slug": current["id"], "title": current["title"]}
+            if current is not None
+            else None
+        ),
+    }
+
+
 # ═══════════════════════════════════════════════════════════════
 # DB 결합부 — 조회·유닛 세션 발급·clear 처리
 # ═══════════════════════════════════════════════════════════════
@@ -244,15 +328,34 @@ async def get_curriculum(db: AsyncSession, user: User) -> list[dict[str, Any]]:
     )
 
 
-async def is_unit_locked(db: AsyncSession, user: User, unit: Unit) -> bool:
+async def get_spine(db: AsyncSession, user: User) -> dict[str, Any]:
+    """스파인 집계 조회 (R8-01 §3.3) — /progress/me 서버 계산.
+
+    트리 노출(get_curriculum)과 동일한 잠금 규칙(배치 선해제 포함)으로
+    build_spine을 평가한다. θ 읽기는 load_abilities(read-only) — ai-worker 미호출.
+    """
+    units = await load_units(db)
+    progress = await load_progress_by_unit(db, user)
+    abilities = await weatherbrain_service.load_abilities(db, user)
+    return build_spine(
+        units, progress, unlock_floor=placement_unlock_floor(abilities, units)
+    )
+
+
+async def is_unit_locked(
+    db: AsyncSession, user: User, unit: Unit, abilities: list | None = None
+) -> bool:
     """403 게이트용 잠금 판정 — 트리 노출(get_curriculum)과 동일 규칙 적용 (§3.4).
 
     prereq 판정 + 배치 선해제(unlock_floor)를 is_locked 한 지점으로 통과시킨다.
-    θ 읽기는 load_abilities(read-only) — ai-worker 미호출.
+    abilities 미전달 시 load_abilities(read-only, ai-worker 미호출) — 트리 GET과
+    동일. 유닛 세션 발급 경로는 라우터가 refresh_abilities 1회 결과를 넘겨
+    잠금 판정이 신선한 θ를 쓴다 (R8-01 §3.2 — session_service:295 전례).
     """
     progress = await load_progress_by_unit(db, user)
     units = await load_units(db)
-    abilities = await weatherbrain_service.load_abilities(db, user)
+    if abilities is None:
+        abilities = await weatherbrain_service.load_abilities(db, user)
     index_of = {u.id: i for i, u in enumerate(ordered_units(units))}
     return is_locked(
         unit,
@@ -263,21 +366,24 @@ async def is_unit_locked(db: AsyncSession, user: User, unit: Unit) -> bool:
 
 
 async def _unit_content_pool(
-    db: AsyncSession, user: User, unit: Unit
+    db: AsyncSession, user: User, unit: Unit, abilities: list | None = None
 ) -> list[ContentItem]:
     """유닛의 concept_tag+kind 문항 풀 — θ→난이도 연결 (R7-02 §3.3).
 
     daily 세션과 동일한 θ 풀 확장·정렬을 session_service의
     pool_level_groups+build_pool_query **재사용**으로 적용한다:
-    - θ = overall_theta(load_abilities, unit.concept_tag) — 저장된 θ만 읽는
-      read-only 경로(refresh_abilities·ai-worker 호출 없음).
+    - θ = overall_theta(abilities, unit.concept_tag). abilities 미전달 시
+      load_abilities — 저장된 θ만 읽는 read-only 경로(refresh_abilities·
+      ai-worker 호출 없음). 발급 경로는 라우터의 refresh_abilities 1회 결과를
+      받아 풀 정렬이 신선한 θ를 쓴다 (R8-01 §3.2).
     - θ가 있으면 level_group이 가입 그룹 ∪ θ 매핑 그룹으로 확장되고
       |b−θ| 오름차순 정렬 — 초등 board 0건 같은 학령 풀 공백이 θ로 해소된다.
     - 콜드스타트(θ None)는 현행과 동일: 가입 그룹 단일 + random 정렬.
     - 슬롯 미치환 노출 방지의 live 슬롯 제외(live=False)는 board에도 적용된다
       (유닛 세션은 슬롯 치환이 없고, 시드상 board는 전부 uses_live_slots=false).
     """
-    abilities = await weatherbrain_service.load_abilities(db, user)
+    if abilities is None:
+        abilities = await weatherbrain_service.load_abilities(db, user)
     theta = weatherbrain_service.overall_theta(abilities, unit.concept_tag)
     stmt = session_service.build_pool_query(
         level_groups=session_service.pool_level_groups(user.level_group, theta),
@@ -294,19 +400,24 @@ async def _unit_content_pool(
 
 
 async def create_unit_session(
-    db: AsyncSession, user: User, unit: Unit, today: date | None = None
+    db: AsyncSession,
+    user: User,
+    unit: Unit,
+    today: date | None = None,
+    abilities: list | None = None,
 ) -> tuple[Session, list[dict[str, Any]]]:
     """유닛 문항으로 세션을 발급한다 (기존 세션 엔진 재사용, mode='unit', unit_id 기록).
 
     반환: (Session, entries — [{"quiz_id", "question", "source", "slot_filled",
     "content_item_id"}]). 잠금·미존재 판정은 라우터가 담당한다.
+    abilities는 라우터의 refresh_abilities 1회 결과(R8-01 §3.2) — 풀 정렬에 전달.
     문항 풀이 비면 0문항 세션이 발급된다(데이터 저작 대기 — 클리어 불가).
     """
     now = datetime.now(KST)
     today = today or now.date()
     today_str = now.strftime("%Y%m%d")
 
-    items = await _unit_content_pool(db, user, unit)
+    items = await _unit_content_pool(db, user, unit, abilities)
     entries: list[dict[str, Any]] = []
     for item in items:
         template = dict(item.template_json or {})
@@ -404,4 +515,94 @@ async def grant_unit_crown(
         "cleared": prog.cleared_at is not None,
         "newly_cleared": newly_cleared,
         "xp_earned": xp_earned,
+    }
+
+
+async def find_crown_unit(
+    db: AsyncSession,
+    user: User,
+    *,
+    concept_tag: str,
+    kind: str,
+    uncleared_only: bool = False,
+) -> Unit | None:
+    """왕관 유입로(R8-01 §3.4)의 DB 결합부 — pick_crown_unit에 잠금 맥락 공급.
+
+    is_unit_locked와 동일한 잠금 맥락(진도·배치 선해제 unlock_floor)을 한 번만
+    로드해 후보 전체를 순수 함수로 스캔한다. θ 읽기는 load_abilities(read-only).
+    """
+    units = await load_units(db)
+    progress = await load_progress_by_unit(db, user)
+    abilities = await weatherbrain_service.load_abilities(db, user)
+    return pick_crown_unit(
+        units,
+        progress,
+        concept_tag=concept_tag,
+        kind=kind,
+        unlock_floor=placement_unlock_floor(abilities, units),
+        uncleared_only=uncleared_only,
+    )
+
+
+async def award_crown_for_activity(
+    db: AsyncSession,
+    user: User,
+    *,
+    concept_tag: str,
+    kind: str,
+) -> dict[str, Any] | None:
+    """유닛 밖 활동(보드 탭 최초 클리어·데일리 만점)의 왕관 부여 (R8-01 §3.4).
+
+    concept_tag·kind가 일치하고 열려 있는(잠금 통과) 첫 미클리어 유닛에
+    grant_unit_crown +1. 대상이 없으면 None(무동작 — 응답 crown_award=null).
+    반환은 crown_award 응답 형태: {"unit_slug","unit_title","crowns","cleared"}.
+    """
+    unit = await find_crown_unit(
+        db, user, concept_tag=concept_tag, kind=kind, uncleared_only=True
+    )
+    if unit is None:
+        return None
+    grant = await grant_unit_crown(db, user, unit.id)
+    return {
+        "unit_slug": unit.slug,
+        "unit_title": unit.title,
+        "crowns": grant["crowns"],
+        "cleared": grant["cleared"],
+    }
+
+
+async def unit_result_for_session(
+    db: AsyncSession,
+    user: User,
+    unit_id: uuid.UUID,
+    *,
+    all_correct: bool,
+    grant_crown: bool,
+) -> dict[str, Any] | None:
+    """유닛 세션 complete의 unit_result 조립 (R8-01 §3.1).
+
+    grant_crown=True(세션 최초 완료 + 전 문항 정답 — 판정은 호출측)면
+    grant_unit_crown을 호출해 그 반환을 그대로 노출하고, 아니면(오답 있음·재완료
+    멱등) 저장된 진도 스냅샷(unit_xp=0)을 쓴다. 유닛 미존재면 None.
+    반환: {"all_correct","crowns","crown_target","cleared","unit_xp"}.
+    """
+    unit = await db.get(Unit, unit_id)
+    if unit is None:
+        return None
+    if grant_crown:
+        grant = await grant_unit_crown(db, user, unit_id)
+        crowns, cleared, unit_xp = (
+            grant["crowns"], grant["cleared"], grant["xp_earned"],
+        )
+    else:
+        prog = (await load_progress_by_unit(db, user)).get(unit_id)
+        crowns = prog.crowns if prog is not None else 0
+        cleared = bool(prog is not None and prog.cleared_at is not None)
+        unit_xp = 0
+    return {
+        "all_correct": all_correct,
+        "crowns": crowns,
+        "crown_target": unit.crown_target,
+        "cleared": cleared,
+        "unit_xp": unit_xp,
     }

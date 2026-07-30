@@ -26,6 +26,10 @@ export async function submitSessionAnswer(sessionId, { quizId, answer, elapsedSe
 
 // POST /session/{session_id}/complete
 //   → {xp_total, correct_count, total, streak_count} — 전 문항 응답 시에만 성공, 미완료 시 409
+//   + unit_result (R8-01 §3.1, additive): {all_correct, crowns, crown_target, cleared,
+//     unit_xp} | null — 유닛 세션일 때만.
+//   + crown_award (R8-01 §3.4, additive): {unit_slug, unit_title, crowns, cleared} | null
+//     — daily 만점 시 최다 개념의 열린 quiz 유닛 왕관 유입(placement 제외).
 export async function completeSession(sessionId) {
   const res = await client.post(`/session/${sessionId}/complete`);
   return res.data;
