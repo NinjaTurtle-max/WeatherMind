@@ -362,7 +362,9 @@ step_roundtrip() {
     return 0
   fi
 
-  # 비board 3문항 선택 (board는 board_state 필수 — 스모크 범위 밖)
+  # 비board 최대 3문항 선택 (board는 board_state 필수 — 스모크 범위 밖).
+  # θ 전이(num_responses>0) 검증엔 1건이면 충분 — 배합이 board 위주로 뽑힌
+  # 날에도 그린을 유지한다(과거: 3건 미만이면 확률적 FAIL).
   local quiz_ids
   quiz_ids="$("$PYTHON" -c '
 import json, sys
@@ -370,8 +372,8 @@ items = json.load(sys.stdin)["items"]
 picks = [i["quiz_id"] for i in items if i.get("question_type") != "board"][:3]
 print("\n".join(picks))
 ' <<<"$body")"
-  if [ "$(wc -l <<<"$quiz_ids" | tr -d ' ')" -lt 3 ]; then
-    record "7 roundtrip" "FAIL" "비board 문항이 3개 미만 (재실행하면 다른 배합)"
+  if [ -z "$quiz_ids" ]; then
+    record "7 roundtrip" "FAIL" "비board 문항 0건 (5문항 전부 board — 배합 확인 필요)"
     return 0
   fi
 
