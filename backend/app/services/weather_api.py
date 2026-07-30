@@ -291,23 +291,52 @@ async def get_mid_forecast(region: str = DEFAULT_REGION, tm_fc: str | None = Non
     return items[0] if items else {}
 
 
+def asos_cache_key(start_dt: str, end_dt: str, region: str) -> str:
+    return f"asos:{start_dt}:{end_dt}:{region}"
+
+
+def asos_fail_key(start_dt: str, end_dt: str, region: str) -> str:
+    return f"asos:fail:{start_dt}:{end_dt}:{region}"
+
+
 async def get_past_observation(start_dt: str, end_dt: str, region: str = DEFAULT_REGION) -> list[dict]:
     """과거관측(getAsosDalyInfoList). 일별 관측값 리스트.
 
     각 항목: {'tm': 'YYYY-MM-DD', 'avgTa': float, 'maxTa': float, 'minTa': float, 'sumRn': float}
+
+    단기예보와 동일한 Redis 캐시(1h)+실패 마커(5분) 패턴 (R9-01 §3.1 ② — 브리핑
+    GET이 요청마다 이 함수를 타므로, 키 미발급·KMA 장애 시 매 요청 타임아웃·재시도
+    대기를 지불하지 않도록 한다). 실패는 KMAApiError로 전파(호출측이 폴백 판단).
     """
     stn_id = KMA_STATION.get(region, KMA_STATION[DEFAULT_REGION])
-    items = await _request_items(settings.KMA_ASOS_DALY_URL, {
-        "pageNo": 1,
-        "numOfRows": 31,
-        "dataType": "JSON",
-        "dataCd": "ASOS",
-        "dateCd": "DAY",
-        "startDt": start_dt,
-        "endDt": end_dt,
-        "stnIds": stn_id,
-    })
-    return [
+    redis = get_redis()
+
+    cached = await redis.get(asos_cache_key(start_dt, end_dt, region))
+    if cached:
+        try:
+            return json.loads(cached)
+        except json.JSONDecodeError:
+            logger.warning("asos 캐시 JSON 파싱 실패 — API 재호출 (%s)", region)
+
+    if await redis.get(asos_fail_key(start_dt, end_dt, region)):
+        raise KMAApiError("ASOS 최근 실패 마커 활성 — 재호출 대기 중")
+
+    try:
+        items = await _request_items(settings.KMA_ASOS_DALY_URL, {
+            "pageNo": 1,
+            "numOfRows": 31,
+            "dataType": "JSON",
+            "dataCd": "ASOS",
+            "dateCd": "DAY",
+            "startDt": start_dt,
+            "endDt": end_dt,
+            "stnIds": stn_id,
+        })
+    except KMAApiError:
+        await redis.setex(asos_fail_key(start_dt, end_dt, region), WEATHER_FAIL_TTL_SEC, "1")
+        raise
+
+    result = [
         {
             "tm": item.get("tm"),
             "avgTa": parse_kma_value(item.get("avgTa")),
@@ -317,3 +346,9 @@ async def get_past_observation(start_dt: str, end_dt: str, region: str = DEFAULT
         }
         for item in items
     ]
+    await redis.setex(
+        asos_cache_key(start_dt, end_dt, region),
+        WEATHER_CACHE_TTL_SEC,
+        json.dumps(result, ensure_ascii=False),
+    )
+    return result
