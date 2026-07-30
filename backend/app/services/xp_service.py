@@ -6,7 +6,7 @@
 | 퀴즈 오답 (참여만) | +2 |
 | 첫 시도 정답 (한 번에 맞춤) | +5 보너스 |
 | 일일 출석 | +5 |
-| 스트릭 7일 달성 | +50 보너스 |
+| 스트릭 마일스톤(7/30/100일) 달성 | +50 보너스 |
 
 약점 개념 정답 보너스: accuracy_rate < 60인 concept_tag 문제를 맞히면 XP 1.5배.
 """
@@ -27,7 +27,9 @@ XP_QUIZ_CORRECT = 10
 XP_QUIZ_WRONG = 2
 XP_FIRST_TRY_BONUS = 5
 XP_DAILY_ATTENDANCE = 5
-XP_STREAK_7_BONUS = 50
+# 스트릭 마일스톤(7/30/100일) 공통 보너스 — 07 원안 "7일 +50"이 R4-01 §3.3에서
+# 마일스톤 3종으로 확장되며 전부 동일 지급(progress.py 출석 경로)
+XP_STREAK_MILESTONE_BONUS = 50
 # 대기 보드 퍼즐 최초 클리어 보상 (스프린트 R3-01 §3.5, 재도전 0)
 XP_BOARD_CLEAR = 5
 # 커리큘럼 유닛 clear 전환 보상 (스프린트 R5-01 §3.2, cleared 전환 시 1회)
