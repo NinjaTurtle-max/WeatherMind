@@ -64,8 +64,10 @@ def _out_of_clouds(exc: energy_service.OutOfCloudsError) -> HTTPException:
     )
 
 
-# board 플레이에 필요한 template 필드 화이트리스트 (§3.3) — correct_answer는
+# board 플레이에 필요한 template 필드 화이트리스트 (§3.3·§3.5) — correct_answer는
 # 이 목록에 없으므로 구조적으로 노출되지 않는다(방어적 비밀 정답 제외).
+# 프론트 AtmosphereBoard.jsx가 소비하는 표시용 필드 집합과 1:1 —
+# 드리프트는 tests/test_session_board_item.py 계약 테스트가 감시한다.
 BOARD_TEMPLATE_FIELDS = (
     "question_text",
     "mode",
@@ -74,6 +76,8 @@ BOARD_TEMPLATE_FIELDS = (
     "palette",
     "goal_conditions",
     "hints",
+    "time_limit_sec",  # §3.5 미니 미션 타이머 (표시·카운트다운 전용, 정답 정보 없음)
+    "based_on",  # §3.5 재현 퍼즐 "실화" 배지 (event_name·event_date·region, 표시 전용)
 )
 
 
