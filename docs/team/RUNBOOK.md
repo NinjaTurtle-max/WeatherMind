@@ -223,10 +223,10 @@ pytest가 SQLite·mock으로 검증하지 못하는 **실 PostgreSQL 경로**(�
 ### 6.2 실행
 
 ```bash
-bash scripts/smoke.sh            # 전 단계 1~10 (스스로 compose up -d --build)
+bash scripts/smoke.sh            # 전 단계 1~11 (스스로 compose up -d --build)
 scripts/ci.sh smoke              # 동일 — CI 관용구로 위임 실행 (opt-in, all 미포함)
 scripts/smoke.sh placement       # 특정 단계만: up|migrate|seed|register|theta|
-                                 #   rls|roundtrip|fallback|placement|unit
+                                 #   rls|roundtrip|fallback|placement|unit|r8
 ```
 
 단계: 1 up(기동·/health) → 2 migrate(0007 head) → 3 seed(멱등 upsert) →
@@ -234,7 +234,12 @@ scripts/smoke.sh placement       # 특정 단계만: up|migrate|seed|register|th
 (세션 왕복·θ 전이) → 8 fallback(ai-worker 정지 폴백) → 9 placement
 (배치고사 왕복 — R7-02부터 **submit-all 일괄 채점** 경로: 채점 필드 주입 422
 가드·6문항 일괄·구름 미소모·초기 θ 배정·409·progress 노출) → 10 unit
-(R7-02 — 커리큘럼 status·current 1개 + 첫 유닛 세션 발급, θ 풀 확장 실기동).
+(R7-02 — 커리큘럼 status·current 1개 + 첫 유닛 세션 발급, θ 풀 확장 실기동)
+→ 11 r8(R8-01 — 5종: a. /progress/me spine 집계, b. 트리 id==spine slug 계약
++ 두 진입점 값 발급 200, c. 보드 정답 배치 attempt→crown_award 왕관 유입
+(psql quiz 클리어 픽스처), d. /weak-tags θ 파생 신 형태(threshold 포함),
+e. 세션 board 문항 time_limit_sec 노출 — 확률적 미포착은 SKIP, psql로
+실결함과 구분).
 
 ### 6.3 운영 수칙
 
