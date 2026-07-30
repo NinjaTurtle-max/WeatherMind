@@ -76,6 +76,16 @@ def weather_cache_key(date_str: str, region: str) -> str:
     return f"weather:{date_str}:{region}"
 
 
+# KMA 호출 실패 마커 — 이 TTL 동안은 재호출 없이 즉시 폴백 경로를 탄다.
+# 키 미발급·KMA 장애 시 답안 제출마다 타임아웃·재시도 대기를 지불하는 것을 방지
+# (채점 지연의 주범). 성공 캐시(weather:*)와 별도 키라 회복도 TTL 내 자동.
+WEATHER_FAIL_TTL_SEC = 60 * 5
+
+
+def weather_fail_key(date_str: str, region: str) -> str:
+    return f"weather:fail:{date_str}:{region}"
+
+
 def parse_kma_value(raw):
     """KMA 값 파싱: '강수없음' 등 문자열이면 0.0, 숫자면 float 변환."""
     if raw in NO_RAIN_STRINGS:
@@ -196,6 +206,13 @@ async def get_short_forecast(
         except json.JSONDecodeError:
             logger.warning("weather 캐시 JSON 파싱 실패 — API 재호출 (%s)", region)
 
+    # 1.5) 최근 실패 마커 — 재호출 대기 없이 실패 시와 동일한 폴백 경로
+    if await redis.get(weather_fail_key(today, region)):
+        fallback = await _cached_fallback(region)
+        if fallback is not None:
+            return fallback
+        raise KMAApiError("KMA 최근 실패 마커 활성 — 재호출 대기 중")
+
     if base_date is None or base_time is None:
         base_date, base_time = latest_base_datetime()
 
@@ -212,6 +229,7 @@ async def get_short_forecast(
             "ny": ny,
         })
     except KMAApiError:
+        await redis.setex(weather_fail_key(today, region), WEATHER_FAIL_TTL_SEC, "1")
         fallback = await _cached_fallback(region)
         if fallback is not None:
             return fallback
