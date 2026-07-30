@@ -155,18 +155,20 @@ step_config() {
   fi
 }
 
-# ── 5. frontend (선택): node_modules 있으면 빌드 ─────────────────────────────
+# ── 5. frontend (선택): node_modules 있으면 빌드 + 탐구 시뮬 테스트 ──────────
+# test:explore(R9-01 §3.5)는 렌더 스모크가 react/vite에 의존하므로 board 단계
+# (node_modules 불필요)가 아니라 여기서 빌드와 함께 실행한다.
 step_frontend() {
-  banner "frontend: npm run build (선택)"
+  banner "frontend: npm run build + test:explore (선택)"
   if [ ! -d "$ROOT/frontend/node_modules" ]; then
     echo "frontend/node_modules 없음 — 건너뜁니다. (cd frontend && npm install)"
     record "frontend" "SKIP" "node_modules 없음"
     return 0
   fi
-  if (cd "$ROOT/frontend" && npm run build); then
-    record "frontend" "OK" "vite build 성공"
+  if (cd "$ROOT/frontend" && npm run build && npm run test:explore); then
+    record "frontend" "OK" "vite build + 탐구 시뮬 테스트 성공"
   else
-    record "frontend" "FAIL" "npm run build 실패 (위 출력 참조)"
+    record "frontend" "FAIL" "npm run build 또는 test:explore 실패 (위 출력 참조)"
   fi
 }
 
