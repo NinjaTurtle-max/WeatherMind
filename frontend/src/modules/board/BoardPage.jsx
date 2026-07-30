@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { boardApi } from '../../api';
 import { useProgressStore } from '../../store/progressStore';
@@ -199,18 +200,30 @@ export default function BoardPage() {
       <h1 className="mb-1 text-lg font-extrabold text-slate-900">🧩 대기 보드</h1>
       <p className="mb-3 text-sm text-slate-500">기상요소를 한반도 4개 지역에 배치해 목표 날씨를 만들어 보세요.</p>
 
-      {/* 자유 실험 진입(R9-01 §3.3 ⑥) — 채점·구름 소모 없는 탐구 모드 */}
-      <button
-        type="button"
-        onClick={() => setSandbox(true)}
-        className="mb-3 flex w-full items-center justify-between rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 p-4 text-left shadow-sm transition hover:from-sky-600 hover:to-indigo-600"
-      >
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-white">🧪 자유 실험</p>
-          <p className="mt-0.5 text-xs text-sky-100">목표 없이 마음껏 배치하고 즉시 반응을 관찰해요 (채점·구름 소모 없음)</p>
-        </div>
-        <span className="ml-3 shrink-0 rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white">입장 →</span>
-      </button>
+      {/* 자유 실험(R9-01 §3.3 ⑥) + 탐구 실험실(§3.5) 진입 — 나란히 배치 */}
+      <div className="mb-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setSandbox(true)}
+          className="flex flex-col justify-between rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 p-4 text-left shadow-sm transition hover:from-sky-600 hover:to-indigo-600"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white">🧪 자유 실험</p>
+            <p className="mt-0.5 text-xs text-sky-100">목표 없이 마음껏 배치하고 즉시 반응을 관찰해요 (채점·구름 소모 없음)</p>
+          </div>
+          <span className="mt-2 self-start rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white">입장 →</span>
+        </button>
+        <Link
+          to="/explore"
+          className="flex flex-col justify-between rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-500 p-4 text-left shadow-sm transition hover:from-violet-600 hover:to-fuchsia-600"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white">🌀 탐구 실험실</p>
+            <p className="mt-0.5 text-xs text-violet-100">태풍·기후변화 시뮬로 변수를 바꿔 보며 원리를 탐구해요</p>
+          </div>
+          <span className="mt-2 self-start rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white">입장 →</span>
+        </Link>
+      </div>
 
       {list.length === 0 ? (
         <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">

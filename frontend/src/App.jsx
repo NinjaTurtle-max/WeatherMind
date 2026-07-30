@@ -6,6 +6,9 @@ import CurriculumHome from './modules/curriculum/CurriculumHome';
 import UnitSessionPage from './modules/curriculum/UnitSessionPage';
 import QuizPage from './modules/quiz/QuizPage';
 import BoardPage from './modules/board/BoardPage';
+import ExploreHome from './modules/explore/ExploreHome';
+import TyphoonSimPage from './modules/explore/TyphoonSimPage';
+import ClimateSimPage from './modules/explore/ClimateSimPage';
 import LeaguePage from './modules/league/LeaguePage';
 import DuelPage from './modules/duel/DuelPage';
 import ProgressPage from './modules/progress/ProgressPage';
@@ -71,6 +74,10 @@ export default function App() {
           <Route path="/daily" element={<SessionPage />} />
           <Route path="/quiz" element={<QuizPage />} />
           <Route path="/board" element={<BoardPage />} />
+          {/* R9-01 §3.5: 탐구 시뮬 v1 — 순수 클라이언트 모듈(진입은 BoardPage 카드) */}
+          <Route path="/explore" element={<ExploreHome />} />
+          <Route path="/explore/typhoon" element={<TyphoonSimPage />} />
+          <Route path="/explore/climate" element={<ClimateSimPage />} />
           <Route path="/duel" element={<DuelPage />} />
           <Route path="/league" element={<LeaguePage />} />
           <Route path="/me" element={<ProgressPage />} />
