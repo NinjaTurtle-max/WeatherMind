@@ -1,4 +1,4 @@
-"""예보 대결 계약 테스트 — 스프린트 R4-01 §3.4 (R4-S4).
+"""예보 대결 계약 테스트 — 스프린트 R4-01 §3.4 (R4-S4) + R9-01 §3.2 (R9-S2).
 
 순수 함수(ai_caster_prediction·duel_result·settle_scores·extract_forecast_for_date)를
 고정한다. 핵심 불변식:
@@ -7,16 +7,24 @@
 - 승패: accuracy_score 비교로 win/lose/draw
 재제출 409(ALREADY_SUBMITTED)는 duels UNIQUE(user_id, duel_date) + 라우터 선조회로
 강제하며(league /predict 패턴과 동일), 여기서는 판정·생성 로직을 검증한다.
+
+적응형 캐스터(R9-01 §3.2): caster_noise_scale 티어 5계단 계약 수치,
+noise_scale은 시드 불변·진폭에만 적용(기본값 1.0 하위 호환)을 고정한다.
+승률 밸런스 시뮬은 test_duel_balance.py 별도.
 """
+import random
 from datetime import date
 
 import pytest
 
-from app.services import duel_service
+from app.services import duel_service, league_service
 from app.services.duel_service import (
+    CASTER_NOISE_SCALES,
     RAIN_NOISE,
     TEMP_NOISE,
     ai_caster_prediction,
+    caster_grade,
+    caster_noise_scale,
     duel_result,
     extract_forecast_for_date,
     settle_scores,
@@ -125,3 +133,84 @@ class TestExtractForecast:
 
     def test_빈_예보는_None(self):
         assert extract_forecast_for_date({}, date(2026, 7, 21)) is None
+
+
+# ═══════════════════════════════════════════════════════════════
+# 적응형 캐스터 — R9-01 §3.2 (R9-S2)
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestCasterNoiseScale:
+    """caster_noise_scale/caster_grade — 티어 5계단 계약 수치 고정."""
+
+    @pytest.mark.parametrize(
+        "elo, expected_tier, expected_scale",
+        [
+            (None, "stratus", 1.00),   # 첫 참가(정산 이력 없음)
+            (0, "stratus", 1.00),
+            (1099, "stratus", 1.00),   # 경계 직전
+            (1100, "cumulus", 0.85),   # 하한 포함(≥)
+            (1249, "cumulus", 0.85),
+            (1250, "nimbostratus", 0.70),
+            (1399, "nimbostratus", 0.70),
+            (1400, "cumulonimbus", 0.55),
+            (1549, "cumulonimbus", 0.55),
+            (1550, "typhoon_eye", 0.40),
+            (2000, "typhoon_eye", 0.40),
+        ],
+    )
+    def test_티어_5계단_계약수치(self, elo, expected_tier, expected_scale):
+        assert caster_grade(elo) == expected_tier
+        assert caster_noise_scale(elo) == expected_scale
+
+    def test_배율표_키는_리그_티어와_일치(self):
+        """티어 추가·개명 시 드리프트 감지 — TIER_THRESHOLDS 단일 소유(§3.2)."""
+        assert set(CASTER_NOISE_SCALES) == set(league_service.TIER_ORDER)
+
+    def test_배율은_티어_서열대로_단조_감소(self):
+        scales = [CASTER_NOISE_SCALES[t] for t in league_service.TIER_ORDER]
+        assert scales == sorted(scales, reverse=True)
+        assert len(set(scales)) == len(scales)  # 계단마다 실제로 달라야 한다
+
+
+class TestNoiseScaleDeterminism:
+    """noise_scale — 시드 (user,date) 불변, 배율은 진폭에만 적용 (§3.2)."""
+
+    def test_기본값_1은_기존_결과와_동일(self):
+        """하위 호환 — noise_scale 미지정·1.0 명시가 같은 결과(기존 테스트 불변)."""
+        assert ai_caster_prediction(28.0, 40, USER, DAY) == ai_caster_prediction(
+            28.0, 40, USER, DAY, noise_scale=1.0
+        )
+
+    def test_같은_scale_같은_출력(self):
+        a = ai_caster_prediction(28.0, 40, USER, DAY, noise_scale=0.55)
+        b = ai_caster_prediction(28.0, 40, USER, DAY, noise_scale=0.55)
+        assert a == b
+
+    @pytest.mark.parametrize("scale", [0.85, 0.70, 0.55, 0.40])
+    def test_배율은_같은_난수의_진폭에만_곱한다(self, scale):
+        """시드 불변 화이트박스 — scale이 달라도 원시 난수 추출은 동일해야 한다."""
+        rng = random.Random(duel_service._seed(USER, DAY))
+        noise_t = rng.uniform(-TEMP_NOISE, TEMP_NOISE)
+        noise_r = rng.uniform(-RAIN_NOISE, RAIN_NOISE)
+        expected = {
+            "temp_max": round(28.0 + noise_t * scale, 1),
+            "rain_prob": max(0, min(100, round(40 + noise_r * scale))),
+        }
+        assert ai_caster_prediction(28.0, 40, USER, DAY, noise_scale=scale) == expected
+
+    @pytest.mark.parametrize("scale", [1.0, 0.85, 0.70, 0.55, 0.40])
+    def test_scale별_오차_범위(self, scale):
+        """노이즈 범위가 ±TEMP_NOISE×scale / ±RAIN_NOISE×scale로 줄어든다."""
+        for seed_day in range(1, 28):
+            pred = ai_caster_prediction(
+                25.0, 50, USER, date(2026, 8, seed_day), noise_scale=scale
+            )
+            assert abs(pred["temp_max"] - 25.0) <= TEMP_NOISE * scale + 0.05  # 반올림 여유
+            assert abs(pred["rain_prob"] - 50) <= RAIN_NOISE * scale + 0.5
+
+    def test_scale_0은_기준_예보_그대로(self):
+        pred = ai_caster_prediction(28.3, 40, USER, DAY, noise_scale=0.0)
+        assert pred == {"temp_max": 28.3, "rain_prob": 40}
+
+
