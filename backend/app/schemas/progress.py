@@ -3,6 +3,28 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
+class SpineCurrentUnit(BaseModel):
+    """스파인 current 유닛 참조 — slug는 트리 노출 id와 동일한 안정 참조."""
+
+    slug: str
+    title: str
+
+
+class SpineOut(BaseModel):
+    """유닛 진도 축(스파인) 서버 집계 — R8-01 §3.3.
+
+    CurriculumHome 클라 계산과 동일 정의(cleared=cleared_at 존재,
+    crowns_total=Σcrown_target). current_unit은 build_curriculum의
+    'current'(잠기지 않은 첫 미클리어) — 전부 클리어/잠금이면 null.
+    """
+
+    units_total: int
+    units_cleared: int
+    crowns_earned: int
+    crowns_total: int
+    current_unit: SpineCurrentUnit | None = None
+
+
 class ProgressMe(BaseModel):
     xp: int
     level: int
@@ -17,6 +39,8 @@ class ProgressMe(BaseModel):
     next_regen_sec: int
     # 배치고사 완료 여부 — R7-01 §3.5 (additive: 프론트 온보딩 진입 분기용)
     placement_done: bool = False
+    # 스파인(유닛 진도 축) 집계 — R8-01 §3.3 (additive: 홈 헤더 1순위 표시용)
+    spine: SpineOut
 
 
 class EnergyState(BaseModel):

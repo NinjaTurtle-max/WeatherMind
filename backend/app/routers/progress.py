@@ -1,6 +1,6 @@
 """Progress API (/api/v1/progress) — 02번 스펙 + R4-01 §3.1·§3.2·§3.3.
 
-| GET  | /me         | XP·레벨·스트릭·티어 → {xp, level, streak_count, streak_freeze_count, next_level_xp, tier} |
+| GET  | /me         | XP·레벨·스트릭·티어·스파인 → {xp, level, streak_count, streak_freeze_count, next_level_xp, tier, ..., spine} |
 | GET  | /weak-tags  | θ 파생 약점 개념 (학령 상대 임계, θ 오름차순 — R8-01 §3.5) → WeakConceptOut[] |
 | POST | /attendance | 출석 체크 (하루 1회) → {streak_count, is_new_record} |
 | GET  | /quests     | 오늘의 일일 퀘스트 진행/완료 (R4-01 §3.1) |
@@ -23,11 +23,13 @@ from app.schemas.progress import (
     EnergyState,
     ProgressMe,
     QuestOut,
+    SpineOut,
     WeakConceptOut,
 )
 from app.services import weatherbrain_service
 from app.services import (
     badge_service,
+    curriculum_service,
     energy_service,
     league_service,
     quest_service,
@@ -47,6 +49,8 @@ async def get_me(
     tier = await league_service.get_current_tier(db, user.id)
     # 구름 에너지: 읽기 시점에 지연 회복 반영(§3.3)
     energy = await energy_service.get_state(db, user)
+    # 스파인(유닛 진도 축) 서버 집계 — R8-01 §3.3 (트리와 동일 정의, read-only)
+    spine = await curriculum_service.get_spine(db, user)
     return ProgressMe(
         xp=user.xp,
         level=level,
@@ -57,6 +61,7 @@ async def get_me(
         clouds=energy["clouds"],
         next_regen_sec=energy["next_regen_sec"],
         placement_done=user.placement_completed_at is not None,
+        spine=SpineOut(**spine),
     )
 
 
