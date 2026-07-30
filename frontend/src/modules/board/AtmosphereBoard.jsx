@@ -19,6 +19,7 @@ import {
   cloudMeta,
 } from './boardDisplay';
 import { Glyph, SymbolIcon } from './boardSymbols';
+import { PhenomenonStage } from './boardAnimations';
 import useBoardDrag from './useBoardDrag';
 
 /**
@@ -39,6 +40,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   const [selected, setSelected] = useState(null); // 선택된 팔레트 토큰(탭 배치용)
   const [hintLevel, setHintLevel] = useState(0); // 공개한 힌트 수 (2단계 순차)
   const [guideStep, setGuideStep] = useState(0); // guided 안내 진행
+  const [activeZone, setActiveZone] = useState(null); // 현상 스테이지 포커스 존(마지막 조작 존)
 
   // 미니 미션(§3.5): time_limit_sec 있으면 카운트다운, 초과 시 실패(재도전 무제한).
   const timeLimit = Number(puzzle?.time_limit_sec);
@@ -53,6 +55,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     setSelected(null);
     setHintLevel(0);
     setGuideStep(0);
+    setActiveZone(null);
     setTimedOut(false);
     setRemaining(hasTimer ? timeLimit : 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,10 +115,12 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     if (!interactive || !item) return;
     if (item.type === 'air_mass' || item.type === 'front') {
       setBoard((b) => placeElement(b, zone, item.type, item.subtype));
+      setActiveZone(zone); // 배치 즉시 해당 존 현상 재생(§3.3 ④)
     }
   };
   const handleZoneClick = (zone) => {
     if (selected) placeOn(zone, selected);
+    else setActiveZone(zone); // 조회 탭 — 스테이지 포커스만 이동
   };
 
   // Pointer Events 드래그(R9-01 §3.3 ③) — 마우스+터치 공통, 탭-탭 경로 병행
@@ -127,6 +132,15 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   const zoneElement = (zone, type) =>
     board.elements.find((el) => el.zone === zone && el.type === type);
   const zoneLevel = (zone, type, dflt) => zoneElement(zone, type)?.level ?? dflt;
+
+  // 현상 스테이지(§3.3 ④) 데이터 — 로컬 미리보기 즉시 재생, 서버 판정 후 확정 리플레이.
+  // 서버 phenomena는 로컬 엔진과 같은 형태({zone, zone_name, phenomenon, cloud, rule_id, explain}).
+  const goalZone = puzzle?.goal_conditions?.[0]?.zone ?? null;
+  const confirmedPhenomena = Array.isArray(result?.phenomena) ? result.phenomena : null;
+  const stageZone = confirmedPhenomena ? (goalZone ?? activeZone ?? 0) : (activeZone ?? goalZone ?? 0);
+  const stageResult = confirmedPhenomena
+    ? (confirmedPhenomena.find((p) => p.zone === stageZone) ?? confirmedPhenomena[stageZone] ?? null)
+    : (preview[stageZone] ?? null);
 
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
@@ -249,6 +263,11 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         </div>
       )}
 
+      {/* 현상 스테이지(§3.3 ④) — rule_id→프리셋 애니메이션 + explain 캡션.
+          로컬 미리보기 엔진 결과로 즉시 재생, 서버 판정 도착 시 확정 리플레이.
+          prefers-reduced-motion이면 정적 장면으로 대체. */}
+      <PhenomenonStage zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
+
       {/* 4개 지역 상세 조절(노드별 기단·전선·습기·일사) — 지도와 같은 zone을 가리킨다 */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {ZONES.map((_zoneName, zone) => {
@@ -295,14 +314,28 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                   <PlacedChip
                     label={subtypeLabel('air_mass', airEl.subtype)}
                     locked={isLocked(board, zone, 'air_mass')}
-                    onRemove={interactive ? () => setBoard((b) => removeElement(b, zone, 'air_mass')) : null}
+                    onRemove={
+                      interactive
+                        ? () => {
+                            setBoard((b) => removeElement(b, zone, 'air_mass'));
+                            setActiveZone(zone);
+                          }
+                        : null
+                    }
                   />
                 )}
                 {frontEl && (
                   <PlacedChip
                     label={subtypeLabel('front', frontEl.subtype)}
                     locked={isLocked(board, zone, 'front')}
-                    onRemove={interactive ? () => setBoard((b) => removeElement(b, zone, 'front')) : null}
+                    onRemove={
+                      interactive
+                        ? () => {
+                            setBoard((b) => removeElement(b, zone, 'front'));
+                            setActiveZone(zone);
+                          }
+                        : null
+                    }
                   />
                 )}
               </div>
@@ -314,7 +347,10 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                   value={zoneLevel(zone, 'moisture', 40)}
                   locked={isLocked(board, zone, 'moisture')}
                   disabled={!interactive}
-                  onChange={(v) => setBoard((b) => setLevel(b, zone, 'moisture', v))}
+                  onChange={(v) => {
+                    setBoard((b) => setLevel(b, zone, 'moisture', v));
+                    setActiveZone(zone);
+                  }}
                 />
               )}
               {allowSun && (
@@ -323,7 +359,10 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                   value={zoneLevel(zone, 'sun', 50)}
                   locked={isLocked(board, zone, 'sun')}
                   disabled={!interactive}
-                  onChange={(v) => setBoard((b) => setLevel(b, zone, 'sun', v))}
+                  onChange={(v) => {
+                    setBoard((b) => setLevel(b, zone, 'sun', v));
+                    setActiveZone(zone);
+                  }}
                 />
               )}
             </div>
