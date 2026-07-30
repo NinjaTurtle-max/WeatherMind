@@ -124,7 +124,63 @@
   상태이므로 통합 시 기동 후 재정지)·회고.
 - KMA 키: 사용자 발급 대기 — 개발은 mock·폴백으로 진행, 키 도착 시 실통합 검증.
 
-## 5. 리뷰 노트·회고
+## 5. 리뷰 노트·회고 (2026-07-30, 웨이브 2 종료 — chore/r9-07-integration)
 
-(웨이브 2 종료 시. 부채 후보: 강수 Brier 채점 전환, duel 지역 선택, history
-페이지네이션, 기압 차트용 ASOS 시간자료 API)
+### 5.1 통합 결과
+
+- 병합 순서: docs/r9-01-backlog → S1 → S2 → S3 → S4 → S5, 전부 merge --no-ff.
+  충돌은 **S2 병합 시 4파일**(routers/duel.py·schemas/duel.py·
+  services/duel_service.py·tests/test_duel.py) — 전부 additive라 양쪽 보존으로
+  해소(S1 evidence·briefing·base_forecast + S2 caster_grade·noise_scale).
+  예상됐던 S3↔S4 mock 충돌은 영역이 달라 자동 병합(무충돌).
+- 회귀: backend **763 passed**(S1 +33·S2 +33 등 duel 계열 100건 포함) ·
+  ai-worker 97+7skip · pyflakes 3앱 무결 · npm run build OK ·
+  test:board 10/10 · test:explore 52+3 · `scripts/ci.sh` 전 단계 OK.
+- 스모크: 12단계(r9 신설 — 브리핑 degraded 형태·422 INVALID_EVIDENCE·
+  evidence+caster_grade 노출·base_forecast 존재)까지 **2연속 전 단계 그린**
+  (멱등 확인). 재빌드(backend·ai-worker·frontend)·시드 재적재 포함.
+  실서버 결함 0. 도커는 검증 후 원상 정지.
+
+### 5.2 웨이브 1 질의 판정 (통합 반영분)
+
+| 질의 | 판정 | 반영 |
+|---|---|---|
+| mock evidence 422 코드 | 백엔드 계약 `INVALID_EVIDENCE`로 정렬 | mock 수정 + test_error_code_contract 맵에 §3.1-R9 추가(재발 가드) |
+| 서버 판정 캡션 재료 | board_engine.evaluate에 `zone_name`·`explain` additive | 로컬 엔진과 키 집합 통일({zone, zone_name, phenomenon, cloud, rule_id, explain}) — 판정 불변, 공유 벡터 투영 비교 무영향 |
+| explore 라우트·진입점 | App.jsx Layout 내부 3줄 + BoardPage 진입 카드 | 자유 실험 카드와 2열 그리드로 "🌀 탐구 실험실" 병치 |
+| test:explore CI 편입 | frontend 단계(build와 함께) | 렌더 스모크가 react/vite 의존 — node_modules 불필요한 board 단계가 아니라 frontend 단계가 맞다 |
+| 시드 board_regions 좌표 | R5 폴백 좌표가 지리적으로 자연(영서·태백은 수도권 남동) | 시드를 구 폴백 값으로 복원, 3사본(시드 SSOT·프론트 폴백·mock) 동기화. 렌더 전용 — 판정 불변 |
+| noise_scale 노출 | SA-2 스키마 additive로 충족 | FE-2는 ai_pred.noise_scale 스냅샷 우선 + §3.2 계약 매핑 폴백 — 정합 확인만(수정 0) |
+
+### 5.3 발견 결함
+
+- **교차 결함 2건**(위 표 — mock 에러 코드 불일치·시드 좌표 부정합), 통합에서
+  수정. 실서버(P0~P2) 결함 0.
+
+### 5.4 잘된 것 / 아쉬운 것 / 부채
+
+**잘된 것**
+- additive 설계 원칙이 충돌 해소를 기계적으로 만들었다 — S1·S2가 같은 파일
+  4개를 건드렸는데도 의미 충돌 0(양쪽 보존이 항상 정답).
+- 스모크 r9 단계가 "키 부재 degraded" 계약(200 유지·빈 배열·null)을 실서버로
+  고정 — KMA 키 도착 후에도 같은 스크립트로 정합 재검증 가능.
+- 로컬 엔진↔서버 판정 형태 통일(zone_name·explain)로 프론트 확정 리플레이가
+  분기 없이 서버 응답을 그대로 캡션에 쓸 수 있게 됐다.
+
+**아쉬운 것**
+- board_regions 좌표가 R9 선행 리팩터에서 시드↔폴백을 "일치"시키며 방향을
+  거꾸로 잡았다(폴백을 시드에 맞춤) — 좌표처럼 눈으로만 검증되는 값은 일치
+  여부만이 아니라 **어느 쪽이 맞는지**의 근거(지리 정합)를 기록해야 한다.
+- mock 에러 코드 불일치가 리뷰 단계까지 살아남았다 — 신규 도메인 코드는
+  구현과 동시에 계약 테스트 맵에 넣는 것을 관례화(이번에 INVALID_EVIDENCE로
+  선례).
+
+**부채 (다음 스프린트 후보 — §5 초안에서 이월·확정)**
+- 강수 Brier 채점 전환: 실측 0/100 이진화 vs 확률 예측 불일치 — 공식 변경이라
+  단독 스프린트 항목으로.
+- duel 지역 선택(현재 서울 고정 DEFAULT_REGION).
+- GET /duel/history 페이지네이션(현재 전량 반환 — 이력 누적 시 성능·전송량).
+- 기압 차트: ASOS 시간자료 신규 KMA API 필요(단기예보에 기압 카테고리 없음).
+- reduced-motion 타 모듈 시각 회귀: 체크리스트 §24에 수기 항목으로 편입 —
+  이번 통합에서는 보드·탐구 모듈만 코드 검증(자동), XP 토스트·스파인 배지 등
+  타 모듈은 **브라우저 수기 확인 대기**(키 도착 후 실기동 세션에서 일괄).
