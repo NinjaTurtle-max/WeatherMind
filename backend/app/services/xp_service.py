@@ -7,8 +7,6 @@
 | 첫 시도 정답 (한 번에 맞춤) | +5 보너스 |
 | 일일 출석 | +5 |
 | 스트릭 7일 달성 | +50 보너스 |
-| 기후 탐정 사건 해결 | +30 |
-| 기상 리그 예측 정확도 상위 10% | +40 |
 
 약점 개념 정답 보너스: accuracy_rate < 60인 concept_tag 문제를 맞히면 XP 1.5배.
 """
@@ -30,8 +28,6 @@ XP_QUIZ_WRONG = 2
 XP_FIRST_TRY_BONUS = 5
 XP_DAILY_ATTENDANCE = 5
 XP_STREAK_7_BONUS = 50
-XP_DETECTIVE_SOLVE = 30
-XP_LEAGUE_TOP10 = 40
 # 대기 보드 퍼즐 최초 클리어 보상 (스프린트 R3-01 §3.5, 재도전 0)
 XP_BOARD_CLEAR = 5
 # 커리큘럼 유닛 clear 전환 보상 (스프린트 R5-01 §3.2, cleared 전환 시 1회)
