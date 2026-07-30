@@ -15,6 +15,10 @@ import WeatherBrainPanel from './WeatherBrainPanel';
  * R7-02 S6 — 진단 입구 배너: /progress/me의 placement_done=false면 WeatherBrain
  * 패널 상단에 배치고사 진입 배너를 띄운다(true 또는 부재 시 미렌더).
  * 이미 완료한 사용자가 진입해도 PlacementPage의 409 방어가 홈으로 돌려보낸다.
+ *
+ * R8-01 §3.7④ — 스파인 카드: /progress/me의 spine(§3.3)으로 유닛 진도율·왕관·
+ * current_unit을 보여주고 "이어서 학습"으로 해당 유닛 세션에 바로 진입시킨다.
+ * 제품 결정(§1) "유닛 진척 1순위"에 따라 프로필 헤더 바로 아래 배치.
  */
 export default function ProgressPage() {
   const user = useAuthStore((s) => s.user);
@@ -60,6 +64,9 @@ export default function ProgressPage() {
         </div>
       </div>
 
+      {/* 스파인 카드 (R8-01 §3.7④) — spine 부재(구 백엔드) 시 미렌더 */}
+      {me?.spine && <SpineCard spine={me.spine} />}
+
       <div className="mb-5">
         {/* 진단 입구 배너 (R7-02 S6) — placement_done=false일 때만 */}
         {me?.placement_done === false && (
@@ -89,6 +96,61 @@ export default function ProgressPage() {
       </div>
 
       <BadgeCollection />
+    </div>
+  );
+}
+
+/**
+ * SpineCard — 스파인 집계(§3.3) 렌더: 유닛 진도율 바 + 왕관 + current_unit.
+ * current_unit이 있으면 "이어서 학습" CTA로 /learn/units/{slug} 세션에 진입,
+ * 전 유닛 클리어(current_unit=null)면 완주 상태를 보여준다.
+ */
+function SpineCard({ spine }) {
+  const total = spine.units_total ?? 0;
+  const cleared = spine.units_cleared ?? 0;
+  const ratio = total > 0 ? Math.round((cleared / total) * 100) : 0;
+  const current = spine.current_unit;
+
+  return (
+    <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-extrabold text-slate-900">🎓 학습 진도</p>
+        <p className="text-xs font-bold text-amber-500">
+          👑 {spine.crowns_earned ?? 0}
+          <span className="font-medium text-amber-400">/{spine.crowns_total ?? 0}</span>
+        </p>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-sky-400 to-sky-500 transition-all duration-500"
+            style={{ width: `${ratio}%` }}
+          />
+        </div>
+        <p className="shrink-0 text-xs font-bold text-slate-600 tabular-nums">
+          {cleared}/{total} 유닛 · {ratio}%
+        </p>
+      </div>
+
+      {current ? (
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-sky-50 px-3 py-2.5 ring-1 ring-sky-100">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-sky-500">지금 배울 유닛</p>
+            <p className="truncate text-sm font-bold text-sky-900">{current.title}</p>
+          </div>
+          <Link
+            to={`/learn/units/${current.slug}`}
+            className="shrink-0 rounded-xl bg-sky-600 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-sky-700"
+          >
+            이어서 학습 →
+          </Link>
+        </div>
+      ) : (
+        <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-center text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
+          🌈 열린 유닛을 모두 클리어했어요!
+        </p>
+      )}
     </div>
   );
 }
