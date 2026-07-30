@@ -193,10 +193,10 @@ function outOfCloudsError(nextSec) {
 // zone index 0~3 ↔ 지역 고정 매핑(계약 §3.1). 존 의미(boardEngine.ZONES)는 불변.
 // 좌표 SSOT = database/seed/board_regions.json — R9-01 §3.3 시드↔목 일치(사본, 드리프트 금지).
 const BOARD_REGIONS = [
-  { zone: 0, name: '서해상', svg_point: [20, 45], label_anchor: [18, 56] },
-  { zone: 1, name: '수도권', svg_point: [42, 38], label_anchor: [42, 49] },
-  { zone: 2, name: '영서·태백', svg_point: [62, 30], label_anchor: [62, 21] },
-  { zone: 3, name: '영동·동해', svg_point: [78, 42], label_anchor: [82, 52] },
+  { zone: 0, name: '서해상', svg_point: [21, 54], label_anchor: [21, 66] },
+  { zone: 1, name: '수도권', svg_point: [43, 33], label_anchor: [43, 21] },
+  { zone: 2, name: '영서·태백', svg_point: [61, 47], label_anchor: [61, 35] },
+  { zone: 3, name: '영동·동해', svg_point: [82, 43], label_anchor: [88, 55] },
 ];
 
 // ── 커리큘럼 유닛 (R5-01 §3.2) — 2섹션·유닛 5개·선행 잠금 포함 ──

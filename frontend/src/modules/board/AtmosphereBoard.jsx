@@ -461,10 +461,10 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
 // 좌표 SSOT = database/seed/board_regions.json (R9-01 §3.3 선행 리팩터: 시드↔폴백 일치).
 // 값 변경은 시드 파일에서만 — 여기는 시드 사본(드리프트 금지).
 const FALLBACK_REGIONS = [
-  { name: '서해상', svg_point: [20, 45], label_anchor: [18, 56] },
-  { name: '수도권', svg_point: [42, 38], label_anchor: [42, 49] },
-  { name: '영서·태백', svg_point: [62, 30], label_anchor: [62, 21] },
-  { name: '영동·동해', svg_point: [78, 42], label_anchor: [82, 52] },
+  { name: '서해상', svg_point: [21, 54], label_anchor: [21, 66] },
+  { name: '수도권', svg_point: [43, 33], label_anchor: [43, 21] },
+  { name: '영서·태백', svg_point: [61, 47], label_anchor: [61, 35] },
+  { name: '영동·동해', svg_point: [82, 43], label_anchor: [88, 55] },
 ];
 
 // ── SVG userSpace 단일 좌표계 (R9-01 §3.3 선행 리팩터) ──────────────────────
