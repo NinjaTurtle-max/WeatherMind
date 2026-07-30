@@ -30,12 +30,15 @@ import useBoardDrag from './useBoardDrag';
  *   - puzzle: template_json (§3.3) — question_text/mode/guide_steps/initial_state/palette/goal_conditions/hints
  *   - onSubmit(boardState): 제출 콜백. 부모가 실제 API(연습 attempt / 세션 answer)를 호출.
  *   - disabled, submitting: 제출 중/비활성
- *   - result: 서버 판정 결과 {passed, phenomena, feedback} (있으면 표시)
+ *   - result: 서버 판정 결과 {passed, phenomena, feedback} (있으면 표시 — 연습 탭 경로)
+ *   - phenomena: 서버 판정 존별 현상 배열만 (R9-01 §3.3 ⑤ 세션 경로 —
+ *     세션은 피드백 UI(ResultBanner)를 부모가 그리므로 결과 배너 없이
+ *     확정 리플레이(현상 스테이지)만 트리거한다)
  *
  * 규칙(§3.2)은 GET /board/rules로 로드해 배치 즉시 로컬 미리보기 판정을 한다(단일 진실원).
  * 서버 재판정이 권위 채점이며(§3.4), 로컬 판정은 학습용 미리보기일 뿐이다.
  */
-export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null }) {
+export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null, phenomena = null }) {
   const [board, setBoard] = useState(() => createBoard(puzzle?.initial_state));
   const [selected, setSelected] = useState(null); // 선택된 팔레트 토큰(탭 배치용)
   const [hintLevel, setHintLevel] = useState(0); // 공개한 힌트 수 (2단계 순차)
@@ -136,7 +139,11 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   // 현상 스테이지(§3.3 ④) 데이터 — 로컬 미리보기 즉시 재생, 서버 판정 후 확정 리플레이.
   // 서버 phenomena는 로컬 엔진과 같은 형태({zone, zone_name, phenomenon, cloud, rule_id, explain}).
   const goalZone = puzzle?.goal_conditions?.[0]?.zone ?? null;
-  const confirmedPhenomena = Array.isArray(result?.phenomena) ? result.phenomena : null;
+  const confirmedPhenomena = Array.isArray(result?.phenomena)
+    ? result.phenomena // 연습 탭: attempt 응답
+    : Array.isArray(phenomena)
+      ? phenomena // 세션: AnswerResult.phenomena (§3.3 ⑤)
+      : null;
   const stageZone = confirmedPhenomena ? (goalZone ?? activeZone ?? 0) : (activeZone ?? goalZone ?? 0);
   const stageResult = confirmedPhenomena
     ? (confirmedPhenomena.find((p) => p.zone === stageZone) ?? confirmedPhenomena[stageZone] ?? null)
