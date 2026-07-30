@@ -22,7 +22,9 @@ from datetime import date, timedelta
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 
+from app.models.duel import Duel
 from app.routers import duel as duel_router
 from app.schemas.duel import DuelSubmitRequest
 from app.services import duel_service
@@ -152,6 +154,12 @@ class FakeResult:
     def scalar_one_or_none(self):
         return self._value
 
+    def scalars(self):
+        return self
+
+    def all(self):
+        return [self._value] if self._value is not None else []
+
 
 class FakeDB:
     """duels 단건 조회(select→scalar_one_or_none)·add·flush만 흉내내는 대역."""
@@ -245,3 +253,199 @@ class TestBaseForecast:
         assert res.base_forecast is None
         assert res.ai_pred is not None  # _FALLBACK_BASE 기준 예측은 생성됨
         assert abs(res.ai_pred.temp_max - 20.0) <= TEMP_NOISE + 1e-9
+
+
+class TestEvidenceWhitelist:
+    """R9-01 §3.1 ③ — 근거 코드 화이트리스트·저장·노출."""
+
+    def test_계약_코드_5종_고정(self):
+        assert duel_service.EVIDENCE_CODES == (
+            "pop_trend", "humidity_high", "temp_drop", "sky_overcast", "recent_rain"
+        )
+
+    def test_미지_코드_422_INVALID_EVIDENCE(self, monkeypatch):
+        with pytest.raises(HTTPException) as exc:
+            _call_post_today(FakeDB(), monkeypatch, {}, evidence=["recent_rain", "bogus"])
+        assert exc.value.status_code == 422
+        assert exc.value.detail["code"] == "INVALID_EVIDENCE"
+
+    def test_유효_근거_user_pred_동봉_저장_및_응답_노출(self, monkeypatch):
+        db = FakeDB()
+        res = _call_post_today(
+            db, monkeypatch, {}, evidence=["pop_trend", "recent_rain"]
+        )
+        assert res.evidence == ["pop_trend", "recent_rain"]
+        assert res.evidence_review is None  # 미정산 — 해설은 정산 후에만
+        stored = db.added[0].user_pred
+        assert stored["evidence"] == ["pop_trend", "recent_rain"]
+        assert stored["temp_max"] == 29.0  # 기존 채점 키는 그대로 (celery 정산 호환)
+
+    def test_중복은_순서_보존_제거(self, monkeypatch):
+        res = _call_post_today(
+            FakeDB(), monkeypatch, {}, evidence=["recent_rain", "recent_rain", "pop_trend"]
+        )
+        assert res.evidence == ["recent_rain", "pop_trend"]
+
+    def test_빈_리스트는_미선택으로_정규화(self, monkeypatch):
+        db = FakeDB()
+        res = _call_post_today(db, monkeypatch, {}, evidence=[])
+        assert res.evidence is None
+        assert "evidence" not in db.added[0].user_pred
+
+    def test_temp_drop_기준기온_스냅샷_저장(self, monkeypatch):
+        today = duel_router._duel_target_date() - timedelta(days=1)
+        weather = {
+            "region": "서울",
+            "forecasts": [
+                {"datetime": today.strftime("%Y%m%d") + "1200", "TMX": 30.0, "POP": 10}
+            ],
+        }
+        db = FakeDB()
+        _call_post_today(db, monkeypatch, weather, evidence=["temp_drop"])
+        assert db.added[0].user_pred["evidence_ctx"] == {"today_temp_max": 30.0}
+
+    def test_temp_drop_KMA_실패시_기준_None_스냅샷(self, monkeypatch):
+        db = FakeDB()
+        _call_post_today(db, monkeypatch, {}, evidence=["temp_drop"])
+        assert db.added[0].user_pred["evidence_ctx"] == {"today_temp_max": None}
+
+
+def _settled_duel(evidence, actual, ctx=None):
+    user_pred = {"temp_max": 28.0, "rain_prob": 70, "evidence": evidence}
+    if ctx is not None:
+        user_pred["evidence_ctx"] = ctx
+    return Duel(
+        id=uuid.uuid4(),  # 실DB에선 server_default — 이력 스키마 검증용으로 채움
+        user_id=uuid.uuid4(),
+        duel_date=duel_router._duel_target_date(),
+        user_pred=user_pred,
+        ai_pred={"temp_max": 27.5, "rain_prob": 55},
+        actual=actual,
+        user_score=90.0,
+        ai_score=80.0,
+        result="win",
+    )
+
+
+class TestEvidenceReviewExposure:
+    """R9-01 §3.1 ④ — 정산 후 GET/today·history에 evidence_review 노출."""
+
+    RAINED = {"temp_max": 27.0, "rain_prob": 100.0}
+
+    def test_GET_정산후_적중_해설(self, monkeypatch):
+        duel = _settled_duel(["recent_rain"], self.RAINED)
+        res = _call_get_today(FakeDB(duel=duel), monkeypatch, {})
+        assert res.evidence == ["recent_rain"]
+        (review,) = res.evidence_review
+        assert review.code == "recent_rain"
+        assert review.hit is True
+        assert review.note
+
+    def test_history_노출(self, monkeypatch):
+        duel = _settled_duel(["sky_overcast"], {"temp_max": 27.0, "rain_prob": 0.0})
+        endpoint = inspect.unwrap(duel_router.get_duel_history)
+        (item,) = asyncio.run(
+            endpoint(user=SimpleNamespace(id=duel.user_id), db=FakeDB(duel=duel))
+        )
+        assert item.evidence == ["sky_overcast"]
+        assert item.evidence_review[0].hit is False
+
+    def test_근거_없는_이력은_null(self, monkeypatch):
+        duel = _settled_duel(None, self.RAINED)
+        duel.user_pred = {"temp_max": 28.0, "rain_prob": 70}
+        res = _call_get_today(FakeDB(duel=duel), monkeypatch, {})
+        assert res.evidence is None
+        assert res.evidence_review is None
+
+
+class TestReviewEvidenceRules:
+    """review_evidence 판정 규칙 — 전 코드별, 결정적 순수 함수 (R9-01 §3.1 ④)."""
+
+    RAINED = {"temp_max": 27.0, "rain_prob": 100.0}
+    DRY = {"temp_max": 27.0, "rain_prob": 0.0}
+
+    @pytest.mark.parametrize(
+        "code", ["pop_trend", "humidity_high", "sky_overcast", "recent_rain"]
+    )
+    def test_강수신호_실측_강수시_적중(self, code):
+        pred = {"temp_max": 28.0, "rain_prob": 70, "evidence": [code]}
+        (review,) = duel_service.review_evidence(pred, self.RAINED)
+        assert review == {"code": code, "hit": True, "note": review["note"]}
+        assert review["note"]
+
+    @pytest.mark.parametrize(
+        "code", ["pop_trend", "humidity_high", "sky_overcast", "recent_rain"]
+    )
+    def test_강수신호_무강수시_미적중(self, code):
+        pred = {"temp_max": 28.0, "rain_prob": 70, "evidence": [code]}
+        (review,) = duel_service.review_evidence(pred, self.DRY)
+        assert review["hit"] is False
+
+    def test_temp_drop_기준보다_낮으면_적중(self):
+        pred = {
+            "temp_max": 28.0, "rain_prob": 0,
+            "evidence": ["temp_drop"],
+            "evidence_ctx": {"today_temp_max": 30.0},
+        }
+        (review,) = duel_service.review_evidence(pred, {"temp_max": 27.0, "rain_prob": 0.0})
+        assert review["hit"] is True
+        assert "30.0" in review["note"] and "27.0" in review["note"]
+
+    @pytest.mark.parametrize("actual_temp", [30.0, 31.5])  # 같거나 높음 — 엄격 미만만 적중
+    def test_temp_drop_같거나_높으면_미적중(self, actual_temp):
+        pred = {
+            "temp_max": 28.0, "rain_prob": 0,
+            "evidence": ["temp_drop"],
+            "evidence_ctx": {"today_temp_max": 30.0},
+        }
+        (review,) = duel_service.review_evidence(
+            pred, {"temp_max": actual_temp, "rain_prob": 0.0}
+        )
+        assert review["hit"] is False
+
+    def test_temp_drop_기준_없으면_미적중_사유_명시(self):
+        pred = {"temp_max": 28.0, "rain_prob": 0, "evidence": ["temp_drop"]}
+        (review,) = duel_service.review_evidence(pred, self.DRY)
+        assert review["hit"] is False
+        assert "기준 기온" in review["note"]
+
+    def test_temp_drop_기준_None_스냅샷도_미적중(self):
+        pred = {
+            "temp_max": 28.0, "rain_prob": 0,
+            "evidence": ["temp_drop"],
+            "evidence_ctx": {"today_temp_max": None},
+        }
+        (review,) = duel_service.review_evidence(pred, self.DRY)
+        assert review["hit"] is False
+
+    def test_미정산이면_None(self):
+        pred = {"temp_max": 28.0, "rain_prob": 70, "evidence": ["recent_rain"]}
+        assert duel_service.review_evidence(pred, None) is None
+
+    def test_근거_미선택이면_None(self):
+        assert duel_service.review_evidence({"temp_max": 28.0, "rain_prob": 70}, self.RAINED) is None
+        assert duel_service.review_evidence(None, self.RAINED) is None
+
+    def test_선택_순서_보존(self):
+        pred = {
+            "temp_max": 28.0, "rain_prob": 70,
+            "evidence": ["recent_rain", "pop_trend", "humidity_high"],
+        }
+        reviews = duel_service.review_evidence(pred, self.RAINED)
+        assert [r["code"] for r in reviews] == ["recent_rain", "pop_trend", "humidity_high"]
+
+    def test_결정성_같은_입력_같은_출력(self):
+        pred = {
+            "temp_max": 28.0, "rain_prob": 70,
+            "evidence": list(duel_service.EVIDENCE_CODES),
+            "evidence_ctx": {"today_temp_max": 30.0},
+        }
+        assert duel_service.review_evidence(pred, self.RAINED) == duel_service.review_evidence(
+            pred, self.RAINED
+        )
+
+    def test_미지_저장_코드_방어(self):
+        """저장 경로가 화이트리스트를 막지만, 과거 데이터 방어 — hit=False."""
+        pred = {"temp_max": 28.0, "rain_prob": 70, "evidence": ["legacy_code"]}
+        (review,) = duel_service.review_evidence(pred, self.RAINED)
+        assert review["hit"] is False

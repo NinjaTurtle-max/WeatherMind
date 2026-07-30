@@ -1,7 +1,7 @@
 """예보 대결 API (/api/v1/duel) — 스프린트 R4-01 §3.4 (R4-S4).
 
 | GET  | /today    | 오늘 만드는 대결(=내일 예보) 상태 + base_forecast. AI 예측은 제출 후에만 공개 |
-| POST | /today    | {temp_max, rain_prob} 내일 예보 제출 (1일 1회, 재제출 409) |
+| POST | /today    | {temp_max, rain_prob, evidence?} 내일 예보 제출 (1일 1회, 재제출 409) |
 | GET  | /briefing | 대상일 판단 재료(시간별 예보·오늘/최근 실측) — R9-01 §3.1 ② |
 | GET  | /history  | 내 지난 대결 이력(정산 결과 포함) |
 
@@ -62,6 +62,26 @@ def _duel_target_date():
     return datetime.now(KST).date() + timedelta(days=1)
 
 
+def _validate_evidence(evidence: list[str] | None) -> list[str] | None:
+    """근거 코드 화이트리스트 검증 + 순서 보존 중복 제거 (R9-01 §3.1 ③).
+
+    미지 코드는 422 INVALID_EVIDENCE(도메인 코드 — INVALID_PREDICTION과 동일 관례).
+    빈 리스트는 미선택(None)으로 정규화한다.
+    """
+    if not evidence:
+        return None
+    unknown = [c for c in evidence if c not in duel_service.EVIDENCE_CODES]
+    if unknown:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "detail": f"알 수 없는 근거 코드입니다: {', '.join(unknown)}",
+                "code": "INVALID_EVIDENCE",
+            },
+        )
+    return list(dict.fromkeys(evidence))
+
+
 def _to_today_response(
     duel: Duel | None, duel_date, base_forecast: dict | None = None
 ) -> DuelToday:
@@ -69,6 +89,8 @@ def _to_today_response(
 
     base_forecast는 KMA 대상일 예보(R9-01 §3.1 additive) — 실패 시 None 그대로
     내려 프론트가 배너를 숨긴다(_FALLBACK_BASE는 캐스터 내부용, 여기 비노출).
+    evidence는 user_pred JSONB 동봉분에서 추출, evidence_review는 정산 후에만
+    계산된다(§3.1 ④ — review_evidence가 미정산이면 None).
     """
     if duel is None:
         return DuelToday(
@@ -84,6 +106,8 @@ def _to_today_response(
         user_score=duel.user_score,
         ai_score=duel.ai_score,
         result=duel.result,
+        evidence=(duel.user_pred or {}).get("evidence"),
+        evidence_review=duel_service.review_evidence(duel.user_pred, duel.actual),
     )
 
 
@@ -167,6 +191,7 @@ async def submit_today_duel(
     db: AsyncSession = Depends(get_db_with_rls),
 ) -> DuelToday:
     _validate_prediction(body.temp_max, body.rain_prob)
+    evidence = _validate_evidence(body.evidence)
     duel_date = _duel_target_date()
 
     # 1일 1회 — 이미 제출했으면 409 (league /predict 패턴)
@@ -185,7 +210,19 @@ async def submit_today_duel(
         base["temp_max"], base["rain_prob"], str(user.id), duel_date
     )
 
+    # 근거 선택은 user_pred JSONB에 동봉 저장 (§3.1 ③ — 마이그레이션 0).
+    # temp_drop 판정용 기준 기온(제출일 예보 최고기온)도 함께 스냅샷해
+    # 정산 후 review_evidence가 결정적으로 대조할 수 있게 한다(§3.1 ④).
     user_pred = {"temp_max": body.temp_max, "rain_prob": body.rain_prob}
+    if evidence:
+        user_pred["evidence"] = evidence
+        if "temp_drop" in evidence:
+            today_base = duel_service.extract_forecast_for_date(
+                weather, datetime.now(KST).date()
+            )
+            user_pred["evidence_ctx"] = {
+                "today_temp_max": today_base["temp_max"] if today_base else None
+            }
     duel = Duel(
         user_id=user.id,
         duel_date=duel_date,
@@ -205,6 +242,22 @@ async def submit_today_duel(
     return _to_today_response(duel, duel_date, base_forecast)
 
 
+def _history_item(duel: Duel) -> DuelHistoryItem:
+    """이력 항목 구성 — evidence는 user_pred 동봉분 추출, 적중 해설은 정산분만 계산."""
+    return DuelHistoryItem(
+        id=duel.id,
+        duel_date=duel.duel_date,
+        user_pred=duel.user_pred,
+        ai_pred=duel.ai_pred,
+        actual=duel.actual,
+        user_score=duel.user_score,
+        ai_score=duel.ai_score,
+        result=duel.result,
+        evidence=(duel.user_pred or {}).get("evidence"),
+        evidence_review=duel_service.review_evidence(duel.user_pred, duel.actual),
+    )
+
+
 @router.get("/history", response_model=list[DuelHistoryItem])
 async def get_duel_history(
     user: User = Depends(get_current_user),
@@ -221,4 +274,4 @@ async def get_duel_history(
         .scalars()
         .all()
     )
-    return [DuelHistoryItem.model_validate(d) for d in duels]
+    return [_history_item(d) for d in duels]

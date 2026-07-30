@@ -23,10 +23,21 @@ class DuelSubmitRequest(BaseModel):
     범위 검증은 라우터에서 수행해 도메인 에러 코드(INVALID_PREDICTION)로 응답한다
     (프론트 mock 계약과 문자열 일치). 여기서 ge/le를 걸면 일반 VALIDATION_ERROR로
     선점되므로 걸지 않는다 — 숫자 형변환 실패만 pydantic이 잡는다.
+    evidence(R9-01 §3.1 ③ additive)도 같은 이유로 라우터가 화이트리스트를 검증해
+    미지 코드를 422 INVALID_EVIDENCE로 응답한다.
     """
 
     temp_max: float
     rain_prob: int
+    evidence: list[str] | None = None
+
+
+class EvidenceReviewItem(BaseModel):
+    """근거 적중 판정 1건 (R9-01 §3.1 ④) — 정산 후 조회 시 계산·노출."""
+
+    code: str
+    hit: bool
+    note: str
 
 
 class DuelToday(BaseModel):
@@ -48,6 +59,9 @@ class DuelToday(BaseModel):
     user_score: Decimal | None = None
     ai_score: Decimal | None = None
     result: str | None = None
+    # R9-01 §3.1 ③·④ additive — 제출 시 선택한 근거 코드와 정산 후 적중 해설
+    evidence: list[str] | None = None
+    evidence_review: list[EvidenceReviewItem] | None = None
 
 
 class DuelBriefingHour(BaseModel):
@@ -94,7 +108,11 @@ class DuelBriefing(BaseModel):
 
 
 class DuelHistoryItem(BaseModel):
-    """GET /duel/history 항목."""
+    """GET /duel/history 항목.
+
+    evidence·evidence_review는 user_pred JSONB 동봉분에서 라우터가 추출·계산해
+    채운다 (R9-01 §3.1 — 마이그레이션 0).
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -106,3 +124,5 @@ class DuelHistoryItem(BaseModel):
     user_score: Decimal | None = None
     ai_score: Decimal | None = None
     result: str | None = None
+    evidence: list[str] | None = None
+    evidence_review: list[EvidenceReviewItem] | None = None

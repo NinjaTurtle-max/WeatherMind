@@ -31,6 +31,35 @@ BRIEFING_HOURLY_CATEGORIES = ("TMP", "POP", "PCP", "REH", "WSD", "SKY", "PTY")
 # 브리핑 최근 실측 추이 최대 일수 (R9-01 §3.1 ② — recent_days ≤ 7)
 BRIEFING_RECENT_DAYS_MAX = 7
 
+# 근거 선택 화이트리스트 (R9-01 §3.1 ③ — 계약 코드 5종, 미지 코드는 라우터가 422)
+EVIDENCE_CODES = (
+    "pop_trend",      # 강수확률 추세
+    "humidity_high",  # 높은 습도
+    "temp_drop",      # 전일 대비 기온 하강
+    "sky_overcast",   # 흐린 하늘
+    "recent_rain",    # 최근 강수 이력
+)
+
+# 강수 신호 근거의 결과 해설 (미적중, 적중) — review_evidence가 인덱싱
+_RAIN_SIGNAL_NOTES = {
+    "pop_trend": (
+        "강수확률 추세와 달리 실제로는 비가 오지 않았어요.",
+        "강수확률 추세대로 실제 비가 왔어요.",
+    ),
+    "humidity_high": (
+        "습도가 높았지만 실제 비로 이어지지는 않았어요.",
+        "높은 습도 신호가 실제 강수로 이어졌어요.",
+    ),
+    "sky_overcast": (
+        "하늘이 흐렸어도 실제 비는 오지 않았어요.",
+        "흐린 하늘 신호가 실제 강수로 이어졌어요.",
+    ),
+    "recent_rain": (
+        "최근 강수 흐름이 이번에는 이어지지 않았어요.",
+        "최근 강수 이력대로 실제 비가 왔어요.",
+    ),
+}
+
 
 # ═══════════════════════════════════════════════════════════════
 # 순수 함수 — DB 의존 없음 (단위 테스트 대상)
@@ -74,6 +103,55 @@ def settle_scores(user_pred: dict, ai_pred: dict, actual: dict) -> tuple[float, 
     user_score = accuracy_score(user_pred, actual)
     ai_score = accuracy_score(ai_pred, actual)
     return user_score, ai_score, duel_result(user_score, ai_score)
+
+
+def review_evidence(user_pred: dict | None, actual: dict | None) -> list[dict] | None:
+    """근거 적중 판정 (R9-01 §3.1 ④) — 정산 후 조회 시 계산하는 결정적 순수 함수.
+
+    실측 대조 규칙 — actual은 celery 일일 정산이 기록한
+    ``{"temp_max": 실측 최고기온(℃), "rain_prob": 100.0(강수)|0.0(무강수 이진화)}``:
+
+    - **강수 신호 4종**(pop_trend·humidity_high·sky_overcast·recent_rain)은 모두
+      "비가 올 것"이라는 신호를 근거로 삼은 것 — **실측 강수 발생(rain_prob > 0)이면
+      hit=True**. 예: recent_rain 선택 & 실측 강수>0 → 적중 (§3.1 예시 그대로).
+    - **temp_drop**(전일 대비 하강)은 제출 시점에 저장한 기준 기온
+      ``user_pred["evidence_ctx"]["today_temp_max"]``(제출일 KMA 예보 최고기온)
+      대비 **실측 최고기온이 엄격히 낮으면 hit=True**. 기준 기온이 없으면
+      (제출 시 KMA 실패) hit=False + note에 사유를 남긴다.
+    - 화이트리스트 밖 코드가 저장돼 있으면(방어) hit=False + 일반 note.
+
+    반환: 선택 순서 그대로 ``[{code, hit, note}]``.
+    evidence 미선택 또는 미정산(actual 없음)이면 None.
+    같은 입력은 항상 같은 출력(외부 상태·난수·시계 미사용).
+    """
+    evidence = (user_pred or {}).get("evidence")
+    if not evidence or not isinstance(actual, dict):
+        return None
+
+    rain_prob = actual.get("rain_prob")
+    rained = isinstance(rain_prob, (int, float)) and rain_prob > 0
+    actual_temp = actual.get("temp_max")
+    ctx = (user_pred or {}).get("evidence_ctx") or {}
+    ref_temp = ctx.get("today_temp_max")
+
+    reviews = []
+    for code in evidence:
+        if code in _RAIN_SIGNAL_NOTES:
+            hit = rained
+            note = _RAIN_SIGNAL_NOTES[code][int(hit)]
+        elif code == "temp_drop":
+            if isinstance(ref_temp, (int, float)) and isinstance(actual_temp, (int, float)):
+                hit = actual_temp < ref_temp
+                direction = "실제로 내려갔어요." if hit else "내려가지 않았어요."
+                note = f"제출일 예보 최고기온 {ref_temp}℃ 대비 실측 {actual_temp}℃ — {direction}"
+            else:
+                hit = False
+                note = "제출 시점의 기준 기온 자료가 없어 미적중으로 처리했어요."
+        else:  # 화이트리스트 밖(저장 경로가 막지만 방어적으로 처리)
+            hit = False
+            note = "알 수 없는 근거 코드예요."
+        reviews.append({"code": code, "hit": hit, "note": note})
+    return reviews
 
 
 def briefing_hourly(weather: dict, dates: tuple[date, ...]) -> list[dict]:
