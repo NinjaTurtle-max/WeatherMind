@@ -34,10 +34,14 @@ class DuelToday(BaseModel):
 
     submitted=false면 ai_pred=null(제출 전 비공개), true면 내 예측·AI 예측을 함께 준다.
     result/user_score/ai_score는 다음날 정산 후 채워진다(그 전엔 null).
+    base_forecast는 KMA 대상일 예보(참고용, R9-01 §3.1 additive) — 프론트 DuelForm
+    배너가 렌더한다. KMA 실패·키 부재 시 null(캐스터는 내부 폴백 base로 동작하되
+    브리핑엔 비노출).
     """
 
     duel_date: date
     submitted: bool
+    base_forecast: DuelPrediction | None = None
     user_pred: DuelPrediction | None = None
     ai_pred: DuelPrediction | None = None
     actual: DuelPrediction | None = None

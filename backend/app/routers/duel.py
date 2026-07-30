@@ -55,13 +55,22 @@ def _duel_target_date():
     return datetime.now(KST).date() + timedelta(days=1)
 
 
-def _to_today_response(duel: Duel | None, duel_date) -> DuelToday:
-    """오늘 대결 상태 응답 구성 — 미제출이면 submitted=false·AI 비공개."""
+def _to_today_response(
+    duel: Duel | None, duel_date, base_forecast: dict | None = None
+) -> DuelToday:
+    """오늘 대결 상태 응답 구성 — 미제출이면 submitted=false·AI 비공개.
+
+    base_forecast는 KMA 대상일 예보(R9-01 §3.1 additive) — 실패 시 None 그대로
+    내려 프론트가 배너를 숨긴다(_FALLBACK_BASE는 캐스터 내부용, 여기 비노출).
+    """
     if duel is None:
-        return DuelToday(duel_date=duel_date, submitted=False)
+        return DuelToday(
+            duel_date=duel_date, submitted=False, base_forecast=base_forecast
+        )
     return DuelToday(
         duel_date=duel.duel_date,
         submitted=True,
+        base_forecast=base_forecast,
         user_pred=duel.user_pred,
         ai_pred=duel.ai_pred,  # 제출 후 공개
         actual=duel.actual,
@@ -69,6 +78,16 @@ def _to_today_response(duel: Duel | None, duel_date) -> DuelToday:
         ai_score=duel.ai_score,
         result=duel.result,
     )
+
+
+async def _base_forecast_for(duel_date) -> dict | None:
+    """대상일 KMA 기준 예보 {temp_max, rain_prob} — 실패·키 부재·대상일 미포함이면 None.
+
+    get_today_weather가 Redis 1h 캐시(+5분 실패 마커) 뒤에 있어 GET마다 호출해도
+    KMA 재호출·타임아웃 비용은 지불하지 않는다 (R9-01 §1).
+    """
+    weather = await get_today_weather()
+    return duel_service.extract_forecast_for_date(weather, duel_date)
 
 
 async def _get_duel(db: AsyncSession, user: User, duel_date) -> Duel | None:
@@ -90,7 +109,8 @@ async def get_today_duel(
 ) -> DuelToday:
     duel_date = _duel_target_date()
     duel = await _get_duel(db, user, duel_date)
-    return _to_today_response(duel, duel_date)
+    base_forecast = await _base_forecast_for(duel_date)
+    return _to_today_response(duel, duel_date, base_forecast)
 
 
 @router.post("/today", response_model=DuelToday)
@@ -114,7 +134,8 @@ async def submit_today_duel(
 
     # AI 캐스터 예측 — KMA 내일 예보(TMX·POP) 기준 결정적 노이즈로 제출 시점에 고정(§3.4)
     weather = await get_today_weather()
-    base = duel_service.extract_forecast_for_date(weather, duel_date) or _FALLBACK_BASE
+    base_forecast = duel_service.extract_forecast_for_date(weather, duel_date)
+    base = base_forecast or _FALLBACK_BASE
     ai_pred = duel_service.ai_caster_prediction(
         base["temp_max"], base["rain_prob"], str(user.id), duel_date
     )
@@ -136,7 +157,7 @@ async def submit_today_duel(
             detail={"detail": "오늘 예보 대결을 이미 제출했습니다.", "code": "ALREADY_SUBMITTED"},
         )
 
-    return _to_today_response(duel, duel_date)
+    return _to_today_response(duel, duel_date, base_forecast)
 
 
 @router.get("/history", response_model=list[DuelHistoryItem])
