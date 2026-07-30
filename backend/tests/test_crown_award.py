@@ -10,9 +10,10 @@ FakeDB로 배선(unlock_floor 공급·grant 반환 노출)만 검증한다.
 """
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
+from app.routers import session as session_router
 from app.services import curriculum_service as cs
 
 
@@ -162,7 +163,9 @@ class FakeDB:
         pass
 
 
-_FAKE_USER = SimpleNamespace(id=uuid.uuid4(), level_group="elementary")
+_FAKE_USER = SimpleNamespace(
+    id=uuid.uuid4(), level_group="elementary", streak_count=3
+)
 
 
 def _patch_loaders(monkeypatch, *, units, progress, abilities=None):
@@ -322,3 +325,167 @@ class TestUnitResultForSession:
             )
         )
         assert result is None
+
+
+# ═══════════════════════════════════════════════════════════════
+# POST /session/{id}/complete 응답 계약 (R8-01 §3.1·§3.4)
+# — 라우터 헬퍼·서비스를 monkeypatch해 배선만 검증 (limiter 없는 endpoint)
+# ═══════════════════════════════════════════════════════════════
+
+
+def make_session(mode="daily", unit_id=None, completed=False, route_target=None):
+    return SimpleNamespace(
+        id=uuid.uuid4(),
+        user_id=_FAKE_USER.id,
+        mode=mode,
+        unit_id=unit_id,
+        session_date=date(2026, 7, 30),
+        completed_at=datetime.now(timezone.utc) if completed else None,
+        xp_total=50,
+        route_decision=(
+            {"target_concept_tag": route_target} if route_target else None
+        ),
+    )
+
+
+def make_log(concept_tag, correct=True):
+    return SimpleNamespace(
+        concept_tag=concept_tag, is_correct=correct, user_answer="답"
+    )
+
+
+def run_complete(monkeypatch, session, logs, *, award=None, unit_payload=None):
+    """complete_session을 배선 검증용으로 실행 — 호출 인자를 수집해 돌려준다."""
+    calls = {}
+
+    async def fake_load(db, user, session_id):
+        return session
+
+    async def fake_logs(db, s):
+        return logs
+
+    async def fake_award(db, user, *, concept_tag, kind):
+        calls["award"] = (concept_tag, kind)
+        return award
+
+    async def fake_unit_result(db, user, unit_id, *, all_correct, grant_crown):
+        calls["unit_result"] = (unit_id, all_correct, grant_crown)
+        return unit_payload
+
+    async def fake_badge(db, user_id, badge):
+        calls["badge"] = badge
+
+    async def fake_quests(db, user, day):
+        calls["quests"] = day
+
+    monkeypatch.setattr(session_router, "_load_session_or_404", fake_load)
+    monkeypatch.setattr(session_router, "_session_logs", fake_logs)
+    monkeypatch.setattr(cs, "award_crown_for_activity", fake_award)
+    monkeypatch.setattr(cs, "unit_result_for_session", fake_unit_result)
+    monkeypatch.setattr(
+        session_router.badge_service, "award_badge", fake_badge
+    )
+    monkeypatch.setattr(
+        session_router.quest_service, "recalculate_quests", fake_quests
+    )
+    result = asyncio.run(
+        session_router.complete_session(session.id, _FAKE_USER, FakeDB())
+    )
+    return result, calls
+
+
+AWARD = {"unit_slug": "sky-1", "unit_title": "구름 읽기", "crowns": 1, "cleared": True}
+
+
+class TestCompleteSessionCrownAward:
+    def test_데일리_만점_최초_완료는_최다_개념으로_crown_award(self, monkeypatch):
+        session = make_session(route_target="typhoon")
+        logs = [make_log(t) for t in
+                ["air_mass", "typhoon", "typhoon", "humidity", "air_mass"]]
+        result, calls = run_complete(monkeypatch, session, logs, award=AWARD)
+        # 동률(air_mass 2·typhoon 2) → route target 우선
+        assert calls["award"] == ("typhoon", "quiz")
+        assert result.crown_award is not None
+        assert result.crown_award.unit_slug == "sky-1"
+        assert result.crown_award.crowns == 1
+        assert result.unit_result is None  # 데일리엔 unit_result 없음
+        assert session.completed_at is not None
+
+    def test_대상_유닛_없으면_crown_award_null(self, monkeypatch):
+        session = make_session()
+        logs = [make_log("air_mass") for _ in range(3)]
+        result, calls = run_complete(monkeypatch, session, logs, award=None)
+        assert calls["award"] == ("air_mass", "quiz")
+        assert result.crown_award is None
+
+    def test_오답_있으면_왕관_미부여(self, monkeypatch):
+        session = make_session()
+        logs = [make_log("air_mass"), make_log("air_mass", correct=False)]
+        result, calls = run_complete(monkeypatch, session, logs, award=AWARD)
+        assert "award" not in calls
+        assert result.crown_award is None
+
+    def test_재완료_멱등_왕관_미부여(self, monkeypatch):
+        session = make_session(completed=True)
+        logs = [make_log("air_mass")]
+        result, calls = run_complete(monkeypatch, session, logs, award=AWARD)
+        assert "award" not in calls
+        assert result.crown_award is None
+        # 퀘스트 재계산은 재완료에도 수행(기존 동작 유지)
+        assert calls["quests"] == session.session_date
+
+
+class TestCompleteSessionUnitResult:
+    UNIT_PAYLOAD = {
+        "all_correct": True, "crowns": 1, "crown_target": 1,
+        "cleared": True, "unit_xp": 20,
+    }
+
+    def test_유닛_세션_만점_최초_완료는_grant_crown_True(self, monkeypatch):
+        unit_id = uuid.uuid4()
+        session = make_session(mode="unit", unit_id=unit_id)
+        logs = [make_log("air_mass") for _ in range(5)]
+        result, calls = run_complete(
+            monkeypatch, session, logs, unit_payload=self.UNIT_PAYLOAD
+        )
+        assert calls["unit_result"] == (unit_id, True, True)
+        assert result.unit_result is not None
+        assert result.unit_result.all_correct is True
+        assert result.unit_result.crowns == 1
+        assert result.unit_result.crown_target == 1
+        assert result.unit_result.cleared is True
+        assert result.unit_result.unit_xp == 20
+        # 데일리 유입로(mode 분기)는 유닛 세션에 미적용
+        assert "award" not in calls and result.crown_award is None
+
+    def test_오답_있으면_grant_crown_False_스냅샷(self, monkeypatch):
+        unit_id = uuid.uuid4()
+        session = make_session(mode="unit", unit_id=unit_id)
+        logs = [make_log("air_mass"), make_log("air_mass", correct=False)]
+        payload = {
+            "all_correct": False, "crowns": 0, "crown_target": 1,
+            "cleared": False, "unit_xp": 0,
+        }
+        result, calls = run_complete(
+            monkeypatch, session, logs, unit_payload=payload
+        )
+        assert calls["unit_result"] == (unit_id, False, False)
+        assert result.unit_result.all_correct is False
+        assert result.unit_result.unit_xp == 0
+
+    def test_재완료_멱등도_스냅샷_grant_crown_False(self, monkeypatch):
+        unit_id = uuid.uuid4()
+        session = make_session(mode="unit", unit_id=unit_id, completed=True)
+        logs = [make_log("air_mass") for _ in range(5)]
+        result, calls = run_complete(
+            monkeypatch, session, logs, unit_payload=self.UNIT_PAYLOAD
+        )
+        assert calls["unit_result"] == (unit_id, True, False)
+        assert result.unit_result is not None  # 재완료에도 계약 필드는 노출
+
+    def test_데일리_세션은_unit_result_null(self, monkeypatch):
+        session = make_session()
+        logs = [make_log("air_mass", correct=False)]
+        result, calls = run_complete(monkeypatch, session, logs)
+        assert "unit_result" not in calls
+        assert result.unit_result is None

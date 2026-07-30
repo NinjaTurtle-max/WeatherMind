@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from app.schemas.curriculum import CrownAward
 from app.schemas.quiz import AnswerResult, QuizQuestion
 
 
@@ -70,6 +71,21 @@ class PlacementAbility(BaseModel):
     level_label: str
 
 
+class UnitResult(BaseModel):
+    """유닛 세션 complete의 유닛 진도 결과 (R8-01 §3.1) — 유닛 세션일 때만.
+
+    grant_unit_crown 반환을 그대로 노출한다(all_correct·crown_target 보강) —
+    프론트 UnitSessionPage(UnitSummary)가 읽는 계약 필드. 만점이 아니거나
+    재완료(멱등)면 저장된 진도 스냅샷(unit_xp=0)이다.
+    """
+
+    all_correct: bool
+    crowns: int
+    crown_target: int
+    cleared: bool
+    unit_xp: int
+
+
 class SessionCompleteResult(BaseModel):
     xp_total: int
     correct_count: int
@@ -78,3 +94,7 @@ class SessionCompleteResult(BaseModel):
     # ── 배치고사(mode='placement') 전용 (R7-01 §3.3) — daily/unit 세션은 None ──
     abilities: list[PlacementAbility] | None = None
     placement_done: bool | None = None
+    # ── 유닛 세션 전용 (R8-01 §3.1, additive) — daily/placement는 None ──
+    unit_result: UnitResult | None = None
+    # ── 데일리 만점 왕관 유입 (R8-01 §3.4, additive) — 대상 없으면 None ──
+    crown_award: CrownAward | None = None
