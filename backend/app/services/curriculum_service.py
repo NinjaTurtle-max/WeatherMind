@@ -10,6 +10,7 @@ clear 왕관/XP 처리(DB 결합부)를 담당한다. 유닛 세션은 기존 �
 cleared 전환 시 +20 XP 1회.
 """
 import uuid
+from collections import Counter
 from datetime import date, datetime, timezone
 from typing import Any, Iterable
 
@@ -160,6 +161,56 @@ def plan_crown(
     newly_cleared = new_crowns >= crown_target and not cleared
     xp = xp_service.XP_UNIT_CLEAR if newly_cleared else 0
     return new_crowns, newly_cleared, xp
+
+
+def majority_concept(
+    concept_tags: Iterable[str | None], route_target: str | None = None
+) -> str | None:
+    """데일리 만점 왕관 대상 개념 선정 (R8-01 §3.4, 순수) — 세션 문항 최다 개념.
+
+    동률이면 route target_concept_tag 우선, 그래도 동률이면 태그 사전순 — 결정적.
+    빈 입력(태그 없음)은 None.
+    """
+    counts = Counter(tag for tag in concept_tags if tag)
+    if not counts:
+        return None
+    top = max(counts.values())
+    tied = sorted(tag for tag, count in counts.items() if count == top)
+    if route_target in tied:
+        return route_target
+    return tied[0]
+
+
+def pick_crown_unit(
+    units: Iterable[Any],
+    progress_by_unit: dict[Any, Any],
+    *,
+    concept_tag: str,
+    kind: str,
+    unlock_floor: int = 0,
+    uncleared_only: bool = False,
+) -> Any | None:
+    """유닛 밖 활동(보드 탭·데일리)의 왕관 대상 유닛 선정 (R8-01 §3.4, 순수).
+
+    전체 순서(ordered_units)상 concept_tag·kind가 일치하고 잠금을 통과한
+    (is_locked — 트리 노출과 동일 규칙·unlock_floor 포함) **첫** 유닛을 돌려준다.
+    uncleared_only=True면 미클리어(crowns < crown_target) 유닛만 후보 — 이미
+    왕관이 가득 찬 유닛은 건너뛴다(grant가 어차피 무동작이라 중복 보상·거짓
+    토스트 방지). 대상이 없으면 None(무동작).
+    """
+    ordered = ordered_units(units)
+    for order_index, unit in enumerate(ordered):
+        if unit.concept_tag != concept_tag or unit.kind != kind:
+            continue
+        if is_locked(unit, progress_by_unit, unlock_floor, order_index):
+            continue
+        if uncleared_only:
+            prog = progress_by_unit.get(unit.id)
+            crowns = prog.crowns if prog is not None else 0
+            if crowns >= unit.crown_target:
+                continue
+        return unit
+    return None
 
 
 def build_curriculum(
@@ -404,4 +455,94 @@ async def grant_unit_crown(
         "cleared": prog.cleared_at is not None,
         "newly_cleared": newly_cleared,
         "xp_earned": xp_earned,
+    }
+
+
+async def find_crown_unit(
+    db: AsyncSession,
+    user: User,
+    *,
+    concept_tag: str,
+    kind: str,
+    uncleared_only: bool = False,
+) -> Unit | None:
+    """왕관 유입로(R8-01 §3.4)의 DB 결합부 — pick_crown_unit에 잠금 맥락 공급.
+
+    is_unit_locked와 동일한 잠금 맥락(진도·배치 선해제 unlock_floor)을 한 번만
+    로드해 후보 전체를 순수 함수로 스캔한다. θ 읽기는 load_abilities(read-only).
+    """
+    units = await load_units(db)
+    progress = await load_progress_by_unit(db, user)
+    abilities = await weatherbrain_service.load_abilities(db, user)
+    return pick_crown_unit(
+        units,
+        progress,
+        concept_tag=concept_tag,
+        kind=kind,
+        unlock_floor=placement_unlock_floor(abilities, units),
+        uncleared_only=uncleared_only,
+    )
+
+
+async def award_crown_for_activity(
+    db: AsyncSession,
+    user: User,
+    *,
+    concept_tag: str,
+    kind: str,
+) -> dict[str, Any] | None:
+    """유닛 밖 활동(보드 탭 최초 클리어·데일리 만점)의 왕관 부여 (R8-01 §3.4).
+
+    concept_tag·kind가 일치하고 열려 있는(잠금 통과) 첫 미클리어 유닛에
+    grant_unit_crown +1. 대상이 없으면 None(무동작 — 응답 crown_award=null).
+    반환은 crown_award 응답 형태: {"unit_slug","unit_title","crowns","cleared"}.
+    """
+    unit = await find_crown_unit(
+        db, user, concept_tag=concept_tag, kind=kind, uncleared_only=True
+    )
+    if unit is None:
+        return None
+    grant = await grant_unit_crown(db, user, unit.id)
+    return {
+        "unit_slug": unit.slug,
+        "unit_title": unit.title,
+        "crowns": grant["crowns"],
+        "cleared": grant["cleared"],
+    }
+
+
+async def unit_result_for_session(
+    db: AsyncSession,
+    user: User,
+    unit_id: uuid.UUID,
+    *,
+    all_correct: bool,
+    grant_crown: bool,
+) -> dict[str, Any] | None:
+    """유닛 세션 complete의 unit_result 조립 (R8-01 §3.1).
+
+    grant_crown=True(세션 최초 완료 + 전 문항 정답 — 판정은 호출측)면
+    grant_unit_crown을 호출해 그 반환을 그대로 노출하고, 아니면(오답 있음·재완료
+    멱등) 저장된 진도 스냅샷(unit_xp=0)을 쓴다. 유닛 미존재면 None.
+    반환: {"all_correct","crowns","crown_target","cleared","unit_xp"}.
+    """
+    unit = await db.get(Unit, unit_id)
+    if unit is None:
+        return None
+    if grant_crown:
+        grant = await grant_unit_crown(db, user, unit_id)
+        crowns, cleared, unit_xp = (
+            grant["crowns"], grant["cleared"], grant["xp_earned"],
+        )
+    else:
+        prog = (await load_progress_by_unit(db, user)).get(unit_id)
+        crowns = prog.crowns if prog is not None else 0
+        cleared = bool(prog is not None and prog.cleared_at is not None)
+        unit_xp = 0
+    return {
+        "all_correct": all_correct,
+        "crowns": crowns,
+        "crown_target": unit.crown_target,
+        "cleared": cleared,
+        "unit_xp": unit_xp,
     }
