@@ -311,6 +311,7 @@ export default function SessionRunner({
         question={currentItem}
         disabled={status !== SESSION_STATUS.IN_PROGRESS || isSubmitting}
         onSubmit={handleSubmit}
+        answerResult={status === SESSION_STATUS.FEEDBACK ? answerState : null}
       />
 
       {isSubmitting && status === SESSION_STATUS.IN_PROGRESS && (

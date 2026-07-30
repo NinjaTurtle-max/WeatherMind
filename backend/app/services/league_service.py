@@ -72,8 +72,14 @@ def week_start_of(day: date) -> date:
     return day - timedelta(days=day.weekday())
 
 
-async def get_current_rating(session: AsyncSession, user_id: uuid.UUID) -> int:
-    """마지막으로 정산된 elo_rating_after. 없으면 초기 1200."""
+async def get_current_rating(session: AsyncSession, user_id: uuid.UUID) -> int | None:
+    """마지막으로 정산된 elo_rating_after. 정산 이력이 없으면 None(첫 참가).
+
+    R9-01 §3.2: None은 적응형 캐스터에서 "첫 참가 = 기본 노이즈 1.00"으로
+    해석된다(duel_service.caster_noise_scale). 정산 이력 없는 유저를 stratus로
+    보는 get_current_tier와 일관 — ELO_INITIAL(1200) 폴백을 쓰면 첫 참가가
+    cumulus(≥1100)로 오판정되므로 여기서 폴백하지 않는다.
+    """
     result = await session.execute(
         select(LeagueResult.elo_rating_after)
         .where(
@@ -83,8 +89,7 @@ async def get_current_rating(session: AsyncSession, user_id: uuid.UUID) -> int:
         .order_by(LeagueResult.week_start.desc())
         .limit(1)
     )
-    rating = result.scalar_one_or_none()
-    return rating if rating is not None else ELO_INITIAL
+    return result.scalar_one_or_none()
 
 
 async def get_current_tier(session: AsyncSession, user_id: uuid.UUID) -> str:

@@ -123,6 +123,71 @@ JWT payload: `{"sub": user_id, "level_group": ..., "exp": ...}`
 
 ---
 
+## 5. Duel API (`/api/v1/duel`) — R4-01 §3.4 + R9-01 §3.1·§3.2 현행화
+
+| Method | Path | 설명 | 요청 | 응답 |
+|---|---|---|---|---|
+| GET | /today | 오늘 대결(=내일 예보) 상태 | - | `DuelToday` |
+| POST | /today | 내일 예보 제출 (1일 1회) | `{temp_max, rain_prob, evidence?}` | `DuelToday` |
+| GET | /briefing | 대상일 판단 재료 일괄 (R9-01 §3.1 ②) | - | `DuelBriefing` |
+| GET | /history | 내 지난 대결 이력 (정산 포함) | - | `DuelHistoryItem[]` |
+
+**DuelToday 스키마** (R9-01 additive 필드 포함)
+```json
+{
+  "duel_date": "2026-07-31",
+  "submitted": true,
+  "base_forecast": {"temp_max": 31.0, "rain_prob": 60, "noise_scale": null},
+  "user_pred": {"temp_max": 29.0, "rain_prob": 40},
+  "ai_pred": {"temp_max": 31.2, "rain_prob": 55, "noise_scale": 0.7},
+  "actual": null,
+  "user_score": null,
+  "ai_score": null,
+  "result": null,
+  "evidence": ["pop_trend", "recent_rain"],
+  "evidence_review": null,
+  "caster_grade": "nimbostratus"
+}
+```
+- `base_forecast`(R9-01 §3.1 ① additive): KMA 대상일 기준 예보. 실패·키 부재·
+  대상일 미포함이면 `null` — 캐스터 내부 폴백 base(20.0/30)는 비노출.
+- `ai_pred`는 제출 후에만 공개(`submitted=false`면 `null`). `noise_scale`은
+  AI 캐스터 전용 감사 스냅샷(§3.2) — 유저 예측·R9 이전 행은 `null`.
+- `evidence`(§3.1 ③ additive): 제출 시 선택한 근거 코드(user_pred JSONB 동봉
+  저장, 마이그레이션 0). 화이트리스트 5종: `pop_trend`·`humidity_high`·
+  `temp_drop`·`sky_overcast`·`recent_rain`. 순서 보존 중복 제거, 빈 배열은 `null`.
+- `evidence_review`(§3.1 ④ additive): 정산 후에만 채워지는 근거 적중 해설
+  `[{code, hit, note}]` — 결정적 순수 함수(`review_evidence`)로 계산.
+- `caster_grade`(§3.2 additive): 제출 시점 캐스터 티어명 스냅샷(ai_pred JSONB
+  파생). 티어별 노이즈 배율(계약 수치): stratus 1.00 / cumulus 0.85 /
+  nimbostratus 0.70 / cumulonimbus 0.55 / typhoon_eye 0.40 — 기본 노이즈
+  ±2.0℃/±15%p에 진폭만 곱한다(시드 (user,date) 불변 — 결정성 보존).
+
+**DuelBriefing 스키마** (GET /briefing — R9-01 §3.1 ②)
+```json
+{
+  "region": "서울",
+  "target_date": "2026-07-31",
+  "hourly": [{"datetime": "202607301500", "tmp": 30.0, "pop": 60, "pcp": 0.0,
+              "reh": 75.0, "wsd": 2.5, "sky": 3, "pty": 0}],
+  "today_observed": {"max_ta": 31.2, "min_ta": 24.0, "sum_rn": 0.0},
+  "recent_days": [{"date": "2026-07-29", "max_ta": 30.1, "sum_rn": 12.5}]
+}
+```
+- 전부 Redis 1h 캐시 뒤 — 부분 실패는 해당 필드만 `null`/빈 배열로 내리고
+  **200 유지**(KMA 키 부재 시 프론트 degraded 모드, 예측 입력은 가능). DB 미사용.
+- `hourly`는 제출일+대상일을 함께 담아 추세(pop_trend)·전일 대비(temp_drop)
+  판단 재료를 제공. `today_observed`는 ASOS 일자료(D+1 공표라 당일 `null` 흔함).
+
+**DuelHistoryItem**: DuelToday와 동일 정산 필드 + `evidence`·`evidence_review`·
+`caster_grade`(전부 JSONB 스냅샷 파생 — R9 이전 행은 `null`).
+
+**에러 코드**: 재제출 409 `ALREADY_SUBMITTED` · 범위 밖 예측 422
+`INVALID_PREDICTION` · 미지 근거 코드 422 `INVALID_EVIDENCE`(§3.1-R9,
+frontend mock과 문자열 일치 — test_error_code_contract가 가드).
+
+---
+
 ## 내부 전용 엔드포인트 (ai-worker ↔ backend 통신, 프론트 미노출)
 
 | Method | Path | 설명 |

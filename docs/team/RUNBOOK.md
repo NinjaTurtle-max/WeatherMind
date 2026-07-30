@@ -223,10 +223,10 @@ pytest가 SQLite·mock으로 검증하지 못하는 **실 PostgreSQL 경로**(�
 ### 6.2 실행
 
 ```bash
-bash scripts/smoke.sh            # 전 단계 1~11 (스스로 compose up -d --build)
+bash scripts/smoke.sh            # 전 단계 1~12 (스스로 compose up -d --build)
 scripts/ci.sh smoke              # 동일 — CI 관용구로 위임 실행 (opt-in, all 미포함)
 scripts/smoke.sh placement       # 특정 단계만: up|migrate|seed|register|theta|
-                                 #   rls|roundtrip|fallback|placement|unit|r8
+                                 #   rls|roundtrip|fallback|placement|unit|r8|r9
 ```
 
 단계: 1 up(기동·/health) → 2 migrate(0007 head) → 3 seed(멱등 upsert) →
@@ -239,7 +239,11 @@ scripts/smoke.sh placement       # 특정 단계만: up|migrate|seed|register|th
 + 두 진입점 값 발급 200, c. 보드 정답 배치 attempt→crown_award 왕관 유입
 (psql quiz 클리어 픽스처), d. /weak-tags θ 파생 신 형태(threshold 포함),
 e. 세션 board 문항 time_limit_sec 노출 — 확률적 미포착은 SKIP, psql로
-실결함과 구분).
+실결함과 구분) → 12 r9(R9-01 duel 4종 — a. GET /duel/briefing 200+형태
+(KMA 키 부재 degraded: hourly 빈 배열·today_observed null 허용), b. 미지
+evidence 코드 422 INVALID_EVIDENCE, c. evidence 2종 동봉 제출 200 +
+caster_grade·noise_scale 노출, d. GET /duel/today base_forecast 필드 존재
+(null 허용). duel은 1일 1회 UNIQUE라 새 유저로 제출 — 멱등 유지).
 
 ### 6.3 운영 수칙
 

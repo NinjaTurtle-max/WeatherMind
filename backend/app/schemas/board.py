@@ -31,6 +31,8 @@ class BoardAttemptRequest(BaseModel):
 
 class BoardAttemptResult(BaseModel):
     passed: bool
+    # 존별 판정 4건 — {zone, zone_name, phenomenon, cloud, rule_id, explain}
+    # (zone_name·explain은 R9-01 §1 additive — 프론트 확정 리플레이 캡션용)
     phenomena: list[dict[str, Any]]
     feedback: str
     xp_earned: int

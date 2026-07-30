@@ -42,6 +42,7 @@ R3_R5_CODE_SOURCES = {
     "UNIT_NOT_FOUND": ("curriculum.py",),
     "ALREADY_SUBMITTED": ("duel.py",),                             # §3.4-R4
     "INVALID_PREDICTION": ("duel.py",),
+    "INVALID_EVIDENCE": ("duel.py",),                              # §3.1-R9
 }
 
 

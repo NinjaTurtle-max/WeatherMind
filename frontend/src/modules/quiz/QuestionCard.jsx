@@ -22,8 +22,12 @@ const CONCEPT_LABEL = {
  *
  * board는 board_state를 answer와 별도로 넘겨야 하므로(§3.4) onSubmit(answer, options)
  * 2인자 형태를 쓴다. 나머지 유형은 onSubmit(answer) 문자열만 넘긴다.
+ *
+ * answerResult (R9-01 §3.3 ⑤, board 분기 전용): 세션 채점 응답(AnswerResult).
+ * phenomena가 있으면 AtmosphereBoard가 서버 판정 확정 리플레이(현상 애니메이션)를
+ * 재생한다. 다른 유형은 무시(기존 렌더 불변).
  */
-export default function QuestionCard({ question, disabled, onSubmit }) {
+export default function QuestionCard({ question, disabled, onSubmit, answerResult = null }) {
   const [textAnswer, setTextAnswer] = useState('');
   const [sliderValue, setSliderValue] = useState(50);
 
@@ -144,6 +148,7 @@ export default function QuestionCard({ question, disabled, onSubmit }) {
           puzzle={question.template_json ?? question}
           disabled={disabled}
           submitting={disabled}
+          phenomena={answerResult?.phenomena ?? null}
           onSubmit={(boardState) => onSubmit('', { boardState })}
         />
       )}

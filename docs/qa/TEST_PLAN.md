@@ -185,6 +185,30 @@ e board time_limit_sec 노출) — RUNBOOK §6. 통합 중 스모크가 잡은 �
 위치 오독(계약은 template_json 내부 — 스크립트 교정), 7단계 확률적 배합 FAIL
 (비board ≥1로 완화). 실서버 결함 0.
 
+## C-4. R9-01 갱신 (2026-07-30, 통합 웨이브 2 — chore/r9-07-integration)
+
+backend **763 passed** + ai-worker **97 passed + 7 skipped** + 프론트
+test:board 10/10 + test:explore 52+3(신규 — package.json 스크립트,
+ci.sh frontend 단계 편입). 추가 커버리지:
+
+| 계약 | 테스트 파일 | 건수 |
+|---|---|---|
+| §3.1 브리핑 순수 함수(briefing_hourly·split_daily_observations)·라우터 degraded | backend/test_duel_briefing.py | 신규 |
+| §3.1 base_forecast additive·evidence 화이트리스트 422·review_evidence 규칙 | backend/test_duel.py (확장) | +33 |
+| §3.2 캐스터 티어 5계단 계약수치·noise_scale 시드 불변·POST 배선 | backend/test_duel.py (확장) | +33 |
+| §3.2 승률 밸런스 시뮬(티어별 캐스터 우위 단조) | backend/test_duel_balance.py | 신규 |
+| §1 서버 판정 zone_name·explain additive(로컬 엔진 형태 통일) | backend/test_board_engine.py (확장) | +4 |
+| §3.1-R9 INVALID_EVIDENCE mock↔서버 문자열 일치 | backend/test_error_code_contract.py (확장) | — |
+| §3.5 탐구 시뮬 모델(태풍 임계·기후 민감도)·페이지 렌더 스모크 | frontend/tests/exploreSims.{test,render.test}.mjs | 52+3 |
+
+스모크는 1~**12**단계로 확장(12 r9: a 브리핑 200+degraded 형태 · b 미지
+evidence 422 INVALID_EVIDENCE · c evidence 제출+caster_grade·noise_scale
+노출 · d base_forecast 필드 존재) — RUNBOOK §6. 2연속 실행 그린(멱등 확인).
+통합 중 교차 결함 2건 수정: mock evidence 422가 VALIDATION_ERROR로 계약
+불일치(INVALID_EVIDENCE로 정렬 + 계약 테스트 맵 확장), 시드 board_regions
+y좌표 지리 부정합(영서·태백이 수도권보다 북쪽 — R5 폴백 좌표로 복원, 3사본
+동기화). 실서버 결함 0.
+
 ## 4. 실행 방법·환경
 
 ```bash

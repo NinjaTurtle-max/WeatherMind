@@ -60,8 +60,8 @@ const state = {
   tier: 'nimbostratus', // 최근 정산 티어 (§3.2 /progress/me)
   // 일일 퀘스트 진행 (§3.1) — 당일 집계 흉내. 디자인 검토용 초기 진행값 시드.
   quest: { xpToday: 20, weakCorrect: 0, liveAnswered: 0 },
-  // 예보 대결 (§3.4) — 오늘 제출 상태
-  duel: { submitted: false, userPred: null, aiPred: null },
+  // 예보 대결 (§3.4) — 오늘 제출 상태. evidence: 선택한 판단 근거 (R9-01 §3.1)
+  duel: { submitted: false, userPred: null, aiPred: null, evidence: null },
   // 구름 에너지 (R5-01 §3.3) — 소모성 플레이 자원. 지연 회복 모델.
   clouds: 5,
   cloudsUpdatedAt: Date.now(),
@@ -191,6 +191,7 @@ function outOfCloudsError(nextSec) {
 
 // ── 지도 지역 좌표 (R5-01 §3.1) — 판정 미사용, 렌더 전용. 정규화 0~100. ──
 // zone index 0~3 ↔ 지역 고정 매핑(계약 §3.1). 존 의미(boardEngine.ZONES)는 불변.
+// 좌표 SSOT = database/seed/board_regions.json — R9-01 §3.3 시드↔목 일치(사본, 드리프트 금지).
 const BOARD_REGIONS = [
   { zone: 0, name: '서해상', svg_point: [21, 54], label_anchor: [21, 66] },
   { zone: 1, name: '수도권', svg_point: [43, 33], label_anchor: [43, 21] },
@@ -369,18 +370,93 @@ const BADGES = [
   { code: 'tier_promoted', title: '티어 승급', description: '리그 티어 승급 달성', earned_at: null },
 ];
 
-// 예보 대결 참고 예보(§3.4 KMA 내일 예보 흉내)와 AI 캐스터 결정적 예측
+// ── 예보 대결 브리핑 (R9-01 §3.1 /duel/briefing) ─────────────────────────────
+// KMA 키 부재 degraded 모드 재현: VITE_MOCK_BRIEFING=degraded 로 실행하면
+// briefing 필드가 null/빈 배열이고 base_forecast도 null(§3.1 — 실패 시 비노출).
+const BRIEFING_DEGRADED = process.env.VITE_MOCK_BRIEFING === 'degraded';
+
+// 예보 대결 참고 예보(§3.4 KMA 내일 예보 흉내)와 AI 캐스터 결정적 예측.
+// R9-01 §3.2: ai_pred JSONB에 noise_scale 스냅샷 동봉(감사 가능) —
+// state.tier(nimbostratus)의 티어 5계단 계약값 0.70.
 const DUEL_BASE_FORECAST = { temp_max: 30, rain_prob: 40 };
-const DUEL_AI_PRED = { temp_max: 31.2, rain_prob: 55 }; // base + 결정적 노이즈(온도 +1.2·강수 +15)
+const DUEL_AI_PRED = { temp_max: 31.2, rain_prob: 55, noise_scale: 0.7 }; // base + 결정적 노이즈(온도 +1.2·강수 +15)
+
+// 근거 선택 화이트리스트 5종 (R9-01 §3.1 — 미지 코드 422)
+const EVIDENCE_CODES = ['pop_trend', 'humidity_high', 'temp_drop', 'sky_overcast', 'recent_rain'];
+
+const isoDaysFromToday = (offset) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10);
+};
+
+/** 내일 3시간 간격 8행 결정적 시계열 — 랜덤 없음(스모크·디자인 재현성).
+ *  시나리오: 오후 소나기(pop 상승 추세·습도 높음 — 근거 판정 이야기와 정합). */
+function briefingHourly() {
+  const target = isoDaysFromToday(1);
+  const rows = [
+    // [시, tmp℃, pop%, pcp(mm), reh%, wsd(m/s), sky(1맑음|3구름많음|4흐림), pty(0없음|1비|4소나기)]
+    [0, 24.1, 20, 0, 70, 1.8, 1, 0],
+    [3, 23.4, 20, 0, 75, 1.5, 1, 0],
+    [6, 23.9, 30, 0, 80, 2.0, 3, 0],
+    [9, 26.8, 40, 0, 70, 2.6, 3, 0],
+    [12, 29.6, 60, 1.5, 65, 3.4, 4, 1],
+    [15, 30.4, 70, 4.0, 60, 3.8, 4, 4],
+    [18, 28.2, 60, 1.0, 70, 3.0, 4, 1],
+    [21, 25.7, 40, 0, 80, 2.2, 3, 0],
+  ];
+  return rows.map(([h, tmp, pop, pcp, reh, wsd, sky, pty]) => ({
+    datetime: `${target}T${String(h).padStart(2, '0')}:00:00`,
+    tmp,
+    pop,
+    pcp,
+    reh,
+    wsd,
+    sky,
+    pty,
+  }));
+}
+
+/** GET /duel/briefing 페이로드 (§3.1) — 실패 필드는 null/빈 배열 */
+function duelBriefingPayload() {
+  if (BRIEFING_DEGRADED) {
+    return {
+      region: '서울',
+      target_date: isoDaysFromToday(1),
+      hourly: [],
+      today_observed: null,
+      recent_days: [],
+    };
+  }
+  return {
+    region: '서울',
+    target_date: isoDaysFromToday(1),
+    hourly: briefingHourly(),
+    today_observed: { max_ta: 29.3, min_ta: 22.8, sum_rn: 0.0 },
+    // 최근 7일 실측(어제부터 역순) — 3일 전 강수 이력(recent_rain 근거 판정용)
+    recent_days: [
+      { date: isoDaysFromToday(-1), max_ta: 29.3, sum_rn: 0.0 },
+      { date: isoDaysFromToday(-2), max_ta: 28.1, sum_rn: 12.5 },
+      { date: isoDaysFromToday(-3), max_ta: 27.4, sum_rn: 3.0 },
+      { date: isoDaysFromToday(-4), max_ta: 30.2, sum_rn: 0.0 },
+      { date: isoDaysFromToday(-5), max_ta: 31.0, sum_rn: 0.0 },
+      { date: isoDaysFromToday(-6), max_ta: 29.8, sum_rn: 0.5 },
+      { date: isoDaysFromToday(-7), max_ta: 28.6, sum_rn: 0.0 },
+    ],
+  };
+}
 
 function duelTodayPayload() {
   const submitted = state.duel.submitted;
   return {
     duel_date: todayISO(),
     status: submitted ? 'submitted' : 'open',
-    base_forecast: DUEL_BASE_FORECAST,
+    base_forecast: BRIEFING_DEGRADED ? null : DUEL_BASE_FORECAST,
+    caster_grade: state.tier, // R9-01 §3.2 — 유저 티어 기준 적응형 캐스터 등급(additive)
     user_pred: state.duel.userPred,
     ai_pred: submitted ? state.duel.aiPred : null, // 제출 후 공개 (§3.4)
+    evidence: state.duel.evidence, // R9-01 §3.1 — 선택한 판단 근거(additive)
+    evidence_review: null, // 정산 후 조회 시 계산 — 오늘 대결은 미정산이므로 null
     actual: null, // 오늘 대결은 미정산 (다음날 실측)
     user_score: null,
     ai_score: null,
@@ -1322,7 +1398,7 @@ const routes = {
       predicted: false,
       tier: 'stratus',
       quest: { xpToday: 0, weakCorrect: 0, liveAnswered: 0 },
-      duel: { submitted: false, userPred: null, aiPred: null },
+      duel: { submitted: false, userPred: null, aiPred: null, evidence: null },
       clouds: CLOUD_MAX,
       cloudsUpdatedAt: Date.now(),
       placementDone: false,
@@ -1454,8 +1530,9 @@ const routes = {
       : [],
   ],
 
-  // ── 예보 대결 (R4-01 §3.4 /duel) ──
+  // ── 예보 대결 (R4-01 §3.4 /duel + R9-01 §3.1 브리핑·근거) ──
   'GET /duel/today': () => [200, duelTodayPayload()],
+  'GET /duel/briefing': () => [200, duelBriefingPayload()],
   'POST /duel/today': (body) => {
     if (state.duel.submitted) {
       return [409, { detail: '오늘은 이미 예보를 제출했어요', code: 'ALREADY_SUBMITTED' }];
@@ -1465,11 +1542,24 @@ const routes = {
     if (Number.isNaN(tempMax) || Number.isNaN(rainProb)) {
       return [422, { detail: '최고기온·강수확률을 숫자로 입력해주세요', code: 'INVALID_PREDICTION' }];
     }
+    // 근거 선택(R9-01 §3.1 additive): 배열이 아니거나 미지 코드가 있으면 422
+    let evidence = null;
+    if (body?.evidence != null) {
+      if (
+        !Array.isArray(body.evidence) ||
+        body.evidence.some((code) => !EVIDENCE_CODES.includes(code))
+      ) {
+        return [422, { detail: '알 수 없는 근거 코드가 있어요', code: 'INVALID_EVIDENCE' }];
+      }
+      evidence = [...new Set(body.evidence)];
+    }
     state.duel.submitted = true;
     state.duel.userPred = { temp_max: tempMax, rain_prob: rainProb };
     state.duel.aiPred = DUEL_AI_PRED; // 제출 시점 결정적 생성·고정 (§3.4)
+    state.duel.evidence = evidence; // user_pred JSONB 동봉 저장 흉내 (§3.1)
     return [200, duelTodayPayload()];
   },
+  // 정산 완료분은 evidence_review(근거 적중 해설)·caster_grade 포함 (R9-01 §3.1·§3.2)
   'GET /duel/history': () => [
     200,
     [
@@ -1477,21 +1567,32 @@ const routes = {
         id: 'd0000001-0000-4000-8000-000000000001',
         duel_date: '2026-07-20',
         user_pred: { temp_max: 29, rain_prob: 60 },
-        ai_pred: { temp_max: 31, rain_prob: 40 },
+        ai_pred: { temp_max: 31, rain_prob: 40, noise_scale: 0.7 },
         actual: { temp_max: 28.5, rain_prob: 70 },
         user_score: 92.1,
         ai_score: 78.3,
         result: 'win',
+        caster_grade: 'nimbostratus',
+        evidence: ['pop_trend', 'recent_rain'],
+        evidence_review: [
+          { code: 'pop_trend', hit: true, note: '강수확률이 오후로 갈수록 상승했고 실측에서도 비가 관측됐어요.' },
+          { code: 'recent_rain', hit: true, note: '최근 7일 중 강수 이력이 있었고 실제로도 비가 이어졌어요.' },
+        ],
       },
       {
         id: 'd0000002-0000-4000-8000-000000000002',
         duel_date: '2026-07-19',
         user_pred: { temp_max: 33, rain_prob: 20 },
-        ai_pred: { temp_max: 31, rain_prob: 30 },
+        ai_pred: { temp_max: 31, rain_prob: 30, noise_scale: 0.7 },
         actual: { temp_max: 30.8, rain_prob: 35 },
         user_score: 74.0,
         ai_score: 88.5,
         result: 'lose',
+        caster_grade: 'nimbostratus',
+        evidence: ['sky_overcast'],
+        evidence_review: [
+          { code: 'sky_overcast', hit: false, note: '흐림을 근거로 골랐지만 실측 하늘은 구름많음에 그쳤어요.' },
+        ],
       },
     ],
   ],
