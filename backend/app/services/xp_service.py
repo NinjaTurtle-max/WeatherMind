@@ -10,7 +10,10 @@
 | 기후 탐정 사건 해결 | +30 |
 | 기상 리그 예측 정확도 상위 10% | +40 |
 
-약점 개념 정답 보너스: accuracy_rate < 60인 concept_tag 문제를 맞히면 XP 1.5배.
+약점 개념 정답 보너스: 약점 concept_tag 문제를 맞히면 XP 1.5배. 약점 판정은
+θ 파생 단일 공급원 weatherbrain_service.weak_concepts(학령 상대 임계 —
+R8-01 §3.5)이고, 이 모듈의 is_weak_concept(구 accuracy_rate < 60 기준)는
+deprecated shim으로만 남아 있다.
 """
 import math
 import uuid
@@ -37,8 +40,10 @@ XP_BOARD_CLEAR = 5
 # 커리큘럼 유닛 clear 전환 보상 (스프린트 R5-01 §3.2, cleared 전환 시 1회)
 XP_UNIT_CLEAR = 20
 
-# 약점 개념 정답 보너스 배율 / 임계값
+# 약점 개념 정답 보너스 배율
 WEAK_TAG_XP_MULTIPLIER = 1.5
+# [Deprecated — R8-01 §3.5] 구 accuracy 기준 임계. is_weak_concept shim 전용 —
+# 약점 판정 소비자는 weatherbrain_service.WEAK_EXPECTED_P·weak_theta_threshold를 쓴다.
 WEAK_ACCURACY_THRESHOLD = 60
 
 # 스트릭 마일스톤 (7일/30일/100일 달성 시 배지 + 보너스 XP)
@@ -70,7 +75,12 @@ async def get_weak_tag(
 
 
 def is_weak_concept(weak_tag: WeakTag | None) -> bool:
-    """accuracy_rate < 60 → 약점 개념 (한 번도 안 푼 태그는 약점 아님)."""
+    """[Deprecated — R8-01 §3.5] 구 accuracy 기준 약점 판정의 하위 호환 shim.
+
+    weak 판정의 단일 공급원은 weatherbrain_service.weak_concepts(θ 파생,
+    학령 상대 임계)로 이관됐다 — 신규 소비 금지. 동작은 구 기준 그대로 유지:
+    accuracy_rate < 60 → 약점 개념 (한 번도 안 푼 태그는 약점 아님).
+    """
     if weak_tag is None or weak_tag.total_count == 0:
         return False
     return weak_tag.accuracy_rate is not None and weak_tag.accuracy_rate < Decimal(

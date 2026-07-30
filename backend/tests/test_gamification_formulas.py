@@ -18,6 +18,7 @@ from app.services.league_service import (
     accuracy_score,
     update_elo,
 )
+from app.services.weatherbrain_service import weak_concepts, weak_theta_threshold
 from app.services.xp_service import (
     WEAK_ACCURACY_THRESHOLD,
     is_weak_concept,
@@ -85,24 +86,54 @@ class TestQuizXp:
         assert quiz_xp(is_correct=True, is_first_try=True, is_weak=True) == round(22.5) == 22
 
 
-class TestIsWeakConcept:
-    """약점 판정: accuracy_rate < 60. 한 번도 안 푼 태그는 약점 아님."""
+class TestWeakConceptJudgment:
+    """약점 판정(XP 1.5배 대상 선별)은 θ 파생 단일 공급원 — R8-01 §3.5.
+
+    weatherbrain_service.weak_concepts: num_responses > 0 AND
+    θ < weak_theta_threshold(level_group) = 사전 b + ln(0.6/0.4).
+    구 accuracy_rate < 60 기준(is_weak_concept)은 deprecated shim.
+    """
+
+    @staticmethod
+    def _ab(theta, n=4):
+        return [{"concept_tag": "typhoon", "theta": theta, "se": 0.3, "n": n}]
+
+    def test_임계_미만은_약점(self):
+        thr = weak_theta_threshold("middle_high")  # ≈ 0.405
+        assert weak_concepts(self._ab(thr - 0.01), "middle_high") == ["typhoon"]
+
+    def test_임계_정확히는_약점_아님(self):
+        thr = weak_theta_threshold("middle_high")
+        assert weak_concepts(self._ab(thr), "middle_high") == []
+
+    def test_기록_없으면_약점_아님(self):
+        assert weak_concepts([], "middle_high") == []
+
+    def test_응답_0건_사전값뿐이면_약점_아님(self):
+        # 한 번도 안 푼 태그는 약점 아님 — placement 사전 θ(n=0)만으로는 미판정
+        assert weak_concepts(self._ab(-3.0, n=0), "middle_high") == []
+
+    def test_임계는_학령_상대적(self):
+        """같은 θ=0.0이라도 초등(임계 −0.594)은 정상, 성인(임계 1.405)은 약점."""
+        assert weak_concepts(self._ab(0.0), "elementary") == []
+        assert weak_concepts(self._ab(0.0), "adult") == ["typhoon"]
+
+
+class TestIsWeakConceptDeprecatedShim:
+    """deprecated shim(구 accuracy_rate < 60) 동작 보존 — 신규 소비 금지."""
 
     @staticmethod
     def _tag(rate, total=10):
         return SimpleNamespace(total_count=total, accuracy_rate=Decimal(str(rate)))
 
-    def test_임계값_미만은_약점(self):
+    def test_구_기준_동작_유지(self):
         assert is_weak_concept(self._tag("59.99")) is True
-
-    def test_임계값_60_정확히는_약점_아님(self):
         assert is_weak_concept(self._tag(WEAK_ACCURACY_THRESHOLD)) is False
-
-    def test_기록_없으면_약점_아님(self):
         assert is_weak_concept(None) is False
-
-    def test_total_count_0이면_약점_아님(self):
         assert is_weak_concept(self._tag(0, total=0)) is False
+
+    def test_docstring이_deprecated를_명시(self):
+        assert "Deprecated" in is_weak_concept.__doc__
 
 
 class TestAccuracyScore:
