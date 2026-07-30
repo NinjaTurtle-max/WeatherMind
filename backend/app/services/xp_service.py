@@ -1,19 +1,31 @@
 """XP · 레벨 · 스트릭 계산 (docs/specs/07_gamification_spec.md 공식 그대로).
 
-| 행동 | XP |
-|---|---|
-| 퀴즈 정답 | +10 |
-| 퀴즈 오답 (참여만) | +2 |
-| 첫 시도 정답 (한 번에 맞춤) | +5 보너스 |
-| 일일 출석 | +5 |
-| 스트릭 7일 달성 | +50 보너스 |
-| 기후 탐정 사건 해결 | +30 |
-| 기상 리그 예측 정확도 상위 10% | +40 |
+XP 원천 전수 카탈로그 — 유저 XP(users.xp)를 바꾸는 경로 전부, 11종 (R8-01 §3.6).
+XP는 소비·게이팅이 없는 순수 보상 표시축이다(진척 모델은 07 §0).
 
-약점 개념 정답 보너스: 약점 concept_tag 문제를 맞히면 XP 1.5배. 약점 판정은
-θ 파생 단일 공급원 weatherbrain_service.weak_concepts(학령 상대 임계 —
-R8-01 §3.5)이고, 이 모듈의 is_weak_concept(구 accuracy_rate < 60 기준)는
-deprecated shim으로만 남아 있다.
+| # | 원천 | XP | 지급 위치 | 출처 |
+|---|---|---|---|---|
+| 1 | 퀴즈 정답 | +10 (XP_QUIZ_CORRECT) | answer_service | 07 원안 |
+| 2 | 퀴즈 오답(참여) | +2 (XP_QUIZ_WRONG) | answer_service | 07 원안 |
+| 3 | 첫 시도 정답 보너스 | +5 (XP_FIRST_TRY_BONUS) | answer_service | 07 원안 |
+| 4 | 일일 출석 | +5 (XP_DAILY_ATTENDANCE) | progress.py /attendance | 07 원안 |
+| 5 | 스트릭 마일스톤 7/30/100일 공통 | +50 (XP_STREAK_MILESTONE_BONUS) | progress.py /attendance | 07 원안(7일)+R4-01 §3.3 확장 |
+| 6 | 보드 퍼즐 최초 클리어 | +5 (XP_BOARD_CLEAR) | board.py attempt | R3-01 §3.5 |
+| 7 | 유닛 cleared 전환 | +20 (XP_UNIT_CLEAR) | curriculum_service.grant_unit_crown | R5-01 §3.2 |
+| 8 | 퀘스트 daily_xp_30 완료 | +10 | quest_service.recalculate_quests | R4-01 §3.1 |
+| 9 | 퀘스트 weak_correct_1 완료 | +10 | quest_service.recalculate_quests | R4-01 §3.1 |
+| 10 | 퀘스트 live_answered 완료 | +5 | quest_service.recalculate_quests | R4-01 §3.1 |
+| 11 | 예보 대결 승리 | +15 (duel_service.DUEL_WIN_XP) | celery settle_daily_duel | R4-01 §3.4 |
+
+- 약점 개념 정답 배율: 원천 1·3의 합에 1.5배 (WEAK_TAG_XP_MULTIPLIER) —
+  독립 원천이 아니라 배율. 약점 판정은 θ 파생 단일 공급원
+  weatherbrain_service.weak_concepts(학령 상대 임계 — R8-01 §3.5)이고, 이
+  모듈의 is_weak_concept(구 accuracy_rate < 60 기준)는 deprecated shim.
+- 원천 11만 add_xp를 거치지 않는다: celery는 별도 빌드 컨텍스트라 생 SQL
+  (UPDATE users SET xp = xp + :bonus)로 지급. 상수 단일 소유는 duel_service,
+  복제본 드리프트는 tests/test_xp_contract.py 교차 계약 테스트가 감시.
+- 진단(placement) 세션은 grant_xp=False — 원천 1~3 미지급(answer_service).
+- 로드맵(미구현, 상수 없음): 기후 탐정 +30 · 리그 상위 10% +40 (07 §1 로드맵 절).
 """
 import math
 import uuid
@@ -32,9 +44,9 @@ XP_QUIZ_CORRECT = 10
 XP_QUIZ_WRONG = 2
 XP_FIRST_TRY_BONUS = 5
 XP_DAILY_ATTENDANCE = 5
-XP_STREAK_7_BONUS = 50
-XP_DETECTIVE_SOLVE = 30
-XP_LEAGUE_TOP10 = 40
+# 스트릭 마일스톤(7/30/100일) 공통 보너스 — 07 원안 "7일 +50"이 R4-01 §3.3에서
+# 마일스톤 3종으로 확장되며 전부 동일 지급(progress.py 출석 경로)
+XP_STREAK_MILESTONE_BONUS = 50
 # 대기 보드 퍼즐 최초 클리어 보상 (스프린트 R3-01 §3.5, 재도전 0)
 XP_BOARD_CLEAR = 5
 # 커리큘럼 유닛 clear 전환 보상 (스프린트 R5-01 §3.2, cleared 전환 시 1회)

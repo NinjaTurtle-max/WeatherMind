@@ -17,7 +17,9 @@ from datetime import date
 
 from app.services.league_service import accuracy_score
 
-# 승리 보상 (§3.4)
+# 승리 보상 (§3.4) — **단일 소유자**(R8-01 §3.6). celery/app/tasks/league.py의
+# 복제본은 교차 빌드 컨텍스트라 import 불가 — 값 변경은 여기서 하고, 드리프트는
+# tests/test_xp_contract.py 계약 테스트가 CI 실패로 잡는다.
 DUEL_WIN_XP = 15
 
 # AI 캐스터 노이즈 범위 (§3.4)
