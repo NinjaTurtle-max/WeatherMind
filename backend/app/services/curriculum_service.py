@@ -244,15 +244,20 @@ async def get_curriculum(db: AsyncSession, user: User) -> list[dict[str, Any]]:
     )
 
 
-async def is_unit_locked(db: AsyncSession, user: User, unit: Unit) -> bool:
+async def is_unit_locked(
+    db: AsyncSession, user: User, unit: Unit, abilities: list | None = None
+) -> bool:
     """403 게이트용 잠금 판정 — 트리 노출(get_curriculum)과 동일 규칙 적용 (§3.4).
 
     prereq 판정 + 배치 선해제(unlock_floor)를 is_locked 한 지점으로 통과시킨다.
-    θ 읽기는 load_abilities(read-only) — ai-worker 미호출.
+    abilities 미전달 시 load_abilities(read-only, ai-worker 미호출) — 트리 GET과
+    동일. 유닛 세션 발급 경로는 라우터가 refresh_abilities 1회 결과를 넘겨
+    잠금 판정이 신선한 θ를 쓴다 (R8-01 §3.2 — session_service:295 전례).
     """
     progress = await load_progress_by_unit(db, user)
     units = await load_units(db)
-    abilities = await weatherbrain_service.load_abilities(db, user)
+    if abilities is None:
+        abilities = await weatherbrain_service.load_abilities(db, user)
     index_of = {u.id: i for i, u in enumerate(ordered_units(units))}
     return is_locked(
         unit,
@@ -263,21 +268,24 @@ async def is_unit_locked(db: AsyncSession, user: User, unit: Unit) -> bool:
 
 
 async def _unit_content_pool(
-    db: AsyncSession, user: User, unit: Unit
+    db: AsyncSession, user: User, unit: Unit, abilities: list | None = None
 ) -> list[ContentItem]:
     """유닛의 concept_tag+kind 문항 풀 — θ→난이도 연결 (R7-02 §3.3).
 
     daily 세션과 동일한 θ 풀 확장·정렬을 session_service의
     pool_level_groups+build_pool_query **재사용**으로 적용한다:
-    - θ = overall_theta(load_abilities, unit.concept_tag) — 저장된 θ만 읽는
-      read-only 경로(refresh_abilities·ai-worker 호출 없음).
+    - θ = overall_theta(abilities, unit.concept_tag). abilities 미전달 시
+      load_abilities — 저장된 θ만 읽는 read-only 경로(refresh_abilities·
+      ai-worker 호출 없음). 발급 경로는 라우터의 refresh_abilities 1회 결과를
+      받아 풀 정렬이 신선한 θ를 쓴다 (R8-01 §3.2).
     - θ가 있으면 level_group이 가입 그룹 ∪ θ 매핑 그룹으로 확장되고
       |b−θ| 오름차순 정렬 — 초등 board 0건 같은 학령 풀 공백이 θ로 해소된다.
     - 콜드스타트(θ None)는 현행과 동일: 가입 그룹 단일 + random 정렬.
     - 슬롯 미치환 노출 방지의 live 슬롯 제외(live=False)는 board에도 적용된다
       (유닛 세션은 슬롯 치환이 없고, 시드상 board는 전부 uses_live_slots=false).
     """
-    abilities = await weatherbrain_service.load_abilities(db, user)
+    if abilities is None:
+        abilities = await weatherbrain_service.load_abilities(db, user)
     theta = weatherbrain_service.overall_theta(abilities, unit.concept_tag)
     stmt = session_service.build_pool_query(
         level_groups=session_service.pool_level_groups(user.level_group, theta),
@@ -294,19 +302,24 @@ async def _unit_content_pool(
 
 
 async def create_unit_session(
-    db: AsyncSession, user: User, unit: Unit, today: date | None = None
+    db: AsyncSession,
+    user: User,
+    unit: Unit,
+    today: date | None = None,
+    abilities: list | None = None,
 ) -> tuple[Session, list[dict[str, Any]]]:
     """유닛 문항으로 세션을 발급한다 (기존 세션 엔진 재사용, mode='unit', unit_id 기록).
 
     반환: (Session, entries — [{"quiz_id", "question", "source", "slot_filled",
     "content_item_id"}]). 잠금·미존재 판정은 라우터가 담당한다.
+    abilities는 라우터의 refresh_abilities 1회 결과(R8-01 §3.2) — 풀 정렬에 전달.
     문항 풀이 비면 0문항 세션이 발급된다(데이터 저작 대기 — 클리어 불가).
     """
     now = datetime.now(KST)
     today = today or now.date()
     today_str = now.strftime("%Y%m%d")
 
-    items = await _unit_content_pool(db, user, unit)
+    items = await _unit_content_pool(db, user, unit, abilities)
     entries: list[dict[str, Any]] = []
     for item in items:
         template = dict(item.template_json or {})

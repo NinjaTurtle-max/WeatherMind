@@ -6,6 +6,9 @@
 유닛 세션은 mode='unit'·sessions.unit_id로 발급되며, 이후 답안 제출/완료는 기존
 /session/{id}/answer·/complete 경로를 재사용한다(구름 소모·유닛 clear 왕관 포함).
 잠금 유닛 403 UNIT_LOCKED, 미존재 404 UNIT_NOT_FOUND (§3.5).
+
+발급 경로는 refresh_abilities 1회로 θ를 재추정한다(R8-01 §3.2 — 데일리 전례).
+트리 GET은 read-only(load_abilities) 유지 — ai-worker 미호출.
 """
 from datetime import datetime
 
@@ -20,7 +23,7 @@ from app.models.user import User
 from app.routers.session import _progress_of, _session_logs, _to_session_item
 from app.schemas.curriculum import CurriculumOut, SectionOut, UnitOut
 from app.schemas.session import SessionToday
-from app.services import curriculum_service
+from app.services import curriculum_service, weatherbrain_service
 from app.services.weather_api import KST
 
 router = APIRouter(prefix="/api/v1/curriculum", tags=["curriculum"])
@@ -62,8 +65,14 @@ async def create_unit_session(
             detail={"detail": "해당 유닛을 찾을 수 없습니다.", "code": "UNIT_NOT_FOUND"},
         )
 
+    # θ 재추정 1회 (R8-01 §3.2) — 데일리 발급(session_service:436)과 동일 전례.
+    # 커리큘럼만 하는 유저의 θ 동결 해소: 유닛 세션 응답도 다음 발급에 반영된다.
+    # ai-worker 실패 시 refresh_abilities가 내부에서 load_abilities로 폴백하므로
+    # 발급은 항상 진행. 잠금 판정·풀 정렬이 이 결과를 공유한다(이중 refresh 금지).
+    abilities = await weatherbrain_service.refresh_abilities(db, user)
+
     # 잠금 판정: 선행 crowns>=1 또는 배치 선해제(§3.4) — 트리 노출과 동일 규칙
-    if await curriculum_service.is_unit_locked(db, user, unit):
+    if await curriculum_service.is_unit_locked(db, user, unit, abilities=abilities):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
@@ -73,7 +82,9 @@ async def create_unit_session(
         )
 
     today = datetime.now(KST).date()
-    session, _ = await curriculum_service.create_unit_session(db, user, unit, today)
+    session, _ = await curriculum_service.create_unit_session(
+        db, user, unit, today, abilities=abilities
+    )
 
     logs = await _session_logs(db, session)
     meta = {
