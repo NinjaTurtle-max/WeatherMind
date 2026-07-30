@@ -34,11 +34,13 @@ import useBoardDrag from './useBoardDrag';
  *   - phenomena: 서버 판정 존별 현상 배열만 (R9-01 §3.3 ⑤ 세션 경로 —
  *     세션은 피드백 UI(ResultBanner)를 부모가 그리므로 결과 배너 없이
  *     확정 리플레이(현상 스테이지)만 트리거한다)
+ *   - sandbox: 자유 실험 모드 (R9-01 §3.3 ⑥) — 목표·채점·제출 없이 배치→
+ *     로컬 엔진 즉시 반응만. 서버 호출 0 (구름 미소모·로그 없음).
  *
  * 규칙(§3.2)은 GET /board/rules로 로드해 배치 즉시 로컬 미리보기 판정을 한다(단일 진실원).
  * 서버 재판정이 권위 채점이며(§3.4), 로컬 판정은 학습용 미리보기일 뿐이다.
  */
-export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null, phenomena = null }) {
+export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null, phenomena = null, sandbox = false }) {
   const [board, setBoard] = useState(() => createBoard(puzzle?.initial_state));
   const [selected, setSelected] = useState(null); // 선택된 팔레트 토큰(탭 배치용)
   const [hintLevel, setHintLevel] = useState(0); // 공개한 힌트 수 (2단계 순차)
@@ -154,7 +156,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
       {/* 목표 배너 */}
       <div className="mb-3 rounded-xl bg-sky-50 px-4 py-3 ring-1 ring-sky-100">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-bold text-sky-900">🎯 {puzzle?.question_text}</p>
+          <p className="text-sm font-bold text-sky-900">{sandbox ? '🧪' : '🎯'} {puzzle?.question_text}</p>
           {hasTimer && (
             <span
               className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold tabular-nums ${
@@ -440,8 +442,8 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         </div>
       )}
 
-      {/* 제출 */}
-      {!result && !timedOut && (
+      {/* 제출 — 자유 실험(§3.3 ⑥)은 채점 자체가 없어 제출 버튼 미노출 */}
+      {!result && !timedOut && !sandbox && (
         <button
           type="button"
           onClick={() => onSubmit?.(toSubmitState(board))}

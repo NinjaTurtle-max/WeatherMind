@@ -38,12 +38,34 @@ function DifficultyBadge({ difficulty }) {
     </span>
   );
 }
+
+// 자유 실험(R9-01 §3.3 ⑥) — 목표·채점·타이머 없는 전 요소 팔레트 샌드박스.
+// 순수 클라이언트: 서버 호출 0 → 구름 미소모·시도 로그 없음(로컬 엔진만).
+const SANDBOX_PUZZLE = {
+  question_text: '자유 실험 — 요소를 마음껏 배치하고 어떤 날씨가 만들어지는지 관찰해 보세요',
+  mode: 'sandbox',
+  initial_state: { zones: [...ZONES], elements: [] },
+  palette: [
+    'air_mass:siberian',
+    'air_mass:north_pacific',
+    'air_mass:yangtze',
+    'air_mass:okhotsk',
+    'front:cold',
+    'front:warm',
+    'front:stationary',
+    'moisture',
+    'sun',
+  ],
+  goal_conditions: [],
+  hints: [],
+};
 export default function BoardPage() {
   const queryClient = useQueryClient();
   const addXp = useProgressStore((s) => s.addXp);
   const [selected, setSelected] = useState(null); // 플레이 중 퍼즐 {content_item_id, template_json}
   const [result, setResult] = useState(null); // 서버 판정 결과
   const [toast, setToast] = useState(null); // XP 토스트 메시지
+  const [sandbox, setSandbox] = useState(false); // 자유 실험 모드(R9-01 §3.3 ⑥)
 
   const { data: puzzles, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['board', 'puzzles'],
@@ -97,7 +119,23 @@ export default function BoardPage() {
   const backToList = () => {
     setSelected(null);
     setResult(null);
+    setSandbox(false);
   };
+
+  // 자유 실험 화면(R9-01 §3.3 ⑥) — 퍼즐 목록보다 먼저 분기(로딩과 무관하게 진입 가능)
+  if (sandbox) {
+    return (
+      <div className="pt-2">
+        <button type="button" onClick={backToList} className="mb-2 text-sm font-medium text-slate-500 hover:text-slate-700">
+          ← 목록으로
+        </button>
+        <AtmosphereBoard puzzle={SANDBOX_PUZZLE} sandbox />
+        <p className="mt-2 text-center text-xs text-slate-400">
+          자유 실험은 채점하지 않아요 — 구름도 소모되지 않아요 ☁️
+        </p>
+      </div>
+    );
+  }
 
   if (isLoading) return <LoadingSpinner label="대기 보드 퍼즐을 불러오고 있어요..." />;
 
@@ -160,6 +198,19 @@ export default function BoardPage() {
       )}
       <h1 className="mb-1 text-lg font-extrabold text-slate-900">🧩 대기 보드</h1>
       <p className="mb-3 text-sm text-slate-500">기상요소를 한반도 4개 지역에 배치해 목표 날씨를 만들어 보세요.</p>
+
+      {/* 자유 실험 진입(R9-01 §3.3 ⑥) — 채점·구름 소모 없는 탐구 모드 */}
+      <button
+        type="button"
+        onClick={() => setSandbox(true)}
+        className="mb-3 flex w-full items-center justify-between rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 p-4 text-left shadow-sm transition hover:from-sky-600 hover:to-indigo-600"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-white">🧪 자유 실험</p>
+          <p className="mt-0.5 text-xs text-sky-100">목표 없이 마음껏 배치하고 즉시 반응을 관찰해요 (채점·구름 소모 없음)</p>
+        </div>
+        <span className="ml-3 shrink-0 rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white">입장 →</span>
+      </button>
 
       {list.length === 0 ? (
         <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
