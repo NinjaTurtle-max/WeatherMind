@@ -10,7 +10,10 @@ export async function fetchMyProgress() {
   return res.data;
 }
 
-// GET /progress/weak-tags → WeakTag[] (accuracy_rate 오름차순)
+// GET /progress/weak-tags (R8-01 §3.5) — θ 파생 약점 개념, WeakConceptOut[]
+//   → [{concept_tag, theta, threshold, num_responses}] (θ 오름차순 = 약한 순)
+//   판정: num_responses > 0 AND θ < threshold(학령 상대 임계).
+//   구 WeakTag[]({wrong_count, total_count, accuracy_rate, ...}) 형태를 대체.
 export async function fetchWeakTags() {
   const res = await client.get('/progress/weak-tags');
   return res.data;
