@@ -30,8 +30,10 @@ from app.models.content_item import ContentItem
 from app.models.quiz_log import QuizLog
 from app.models.user import User
 from app.schemas.board import BoardAttemptRequest, BoardAttemptResult, BoardPuzzle
+from app.schemas.curriculum import CrownAward
 from app.services import (
     board_engine,
+    curriculum_service,
     energy_service,
     quest_service,
     weatherbrain_service,
@@ -304,6 +306,18 @@ async def attempt_puzzle(
         if db_user is not None:
             await xp_service.add_xp(db, db_user, xp_earned)
 
+    # 보드 탭 → 왕관 유입 (R8-01 §3.4): 그 퍼즐 **최초 클리어**(기존 XP+5와
+    # 동일 조건)일 때만, 같은 concept_tag의 열린(잠금 통과) kind='board' 유닛에
+    # 왕관 +1. 같은 퍼즐 재클리어는 불인정 — crown_target=2는 서로 다른 퍼즐
+    # 2개로 달성한다. 대상 유닛이 없거나 이미 왕관이 가득이면 무동작(null).
+    crown_award: CrownAward | None = None
+    if passed and not already_cleared:
+        award = await curriculum_service.award_crown_for_activity(
+            db, user, concept_tag=item.concept_tag, kind="board"
+        )
+        if award is not None:
+            crown_award = CrownAward(**award)
+
     # 시도 기록 (session_id NULL) — quiz_id "board-{앞8자}-{seq}"
     quiz_id = await _next_board_quiz_id(db, user, item.id)
     db.add(
@@ -331,4 +345,5 @@ async def attempt_puzzle(
         phenomena=phenomena,
         feedback=feedback,
         xp_earned=xp_earned,
+        crown_award=crown_award,
     )

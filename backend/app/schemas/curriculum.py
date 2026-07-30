@@ -36,3 +36,17 @@ class CurriculumOut(BaseModel):
     """GET /curriculum 응답 — 섹션→유닛 트리."""
 
     sections: list[SectionOut]
+
+
+class CrownAward(BaseModel):
+    """유닛 밖 활동의 왕관 부여 알림 (R8-01 §3.4) — 프론트 토스트용.
+
+    보드 attempt(그 퍼즐 최초 클리어)·데일리 complete(만점) 응답의 additive
+    필드로 노출된다. 대상 유닛이 없으면 필드 자체가 null(무동작).
+    crowns/cleared는 grant_unit_crown 반환(부여 후 상태) 그대로.
+    """
+
+    unit_slug: str
+    unit_title: str
+    crowns: int
+    cleared: bool
