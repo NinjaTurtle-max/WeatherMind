@@ -7,14 +7,19 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class DuelPrediction(BaseModel):
-    """예보 예측값(유저·AI 공통) — 내일 최고기온·강수확률."""
+    """예보 예측값(유저·AI 공통) — 내일 최고기온·강수확률.
+
+    noise_scale은 AI 캐스터 전용(R9-01 §3.2 감사 스냅샷) — 유저 예측·R9 이전
+    행에는 없어 null이다(additive).
+    """
 
     temp_max: float
     rain_prob: int = Field(ge=0, le=100)
+    noise_scale: float | None = None
 
 
 class DuelSubmitRequest(BaseModel):
@@ -34,6 +39,8 @@ class DuelToday(BaseModel):
 
     submitted=false면 ai_pred=null(제출 전 비공개), true면 내 예측·AI 예측을 함께 준다.
     result/user_score/ai_score는 다음날 정산 후 채워진다(그 전엔 null).
+    caster_grade(R9-01 §3.2 additive): 제출 시점 캐스터 티어명 — 프론트
+    "🤖 {티어}급 캐스터" 표시용. 미제출·R9 이전 행은 null.
     """
 
     duel_date: date
@@ -44,6 +51,7 @@ class DuelToday(BaseModel):
     user_score: Decimal | None = None
     ai_score: Decimal | None = None
     result: str | None = None
+    caster_grade: str | None = None
 
 
 class DuelHistoryItem(BaseModel):
@@ -59,3 +67,11 @@ class DuelHistoryItem(BaseModel):
     user_score: Decimal | None = None
     ai_score: Decimal | None = None
     result: str | None = None
+
+    @computed_field  # R9-01 §3.2 additive — ai_pred JSONB 스냅샷에서 파생
+    @property
+    def caster_grade(self) -> str | None:
+        """제출 시점 캐스터 티어명. R9 이전 행(스냅샷 없음)은 null."""
+        if isinstance(self.ai_pred, dict):
+            return self.ai_pred.get("caster_grade")
+        return None
