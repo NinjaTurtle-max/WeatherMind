@@ -19,6 +19,7 @@ import {
   cloudMeta,
 } from './boardDisplay';
 import { Glyph, SymbolIcon } from './boardSymbols';
+import useBoardDrag from './useBoardDrag';
 
 /**
  * AtmosphereBoard (R3-01 S3·S5) — 한반도 단면 4존 대기 보드 플레이어.
@@ -116,12 +117,12 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   const handleZoneClick = (zone) => {
     if (selected) placeOn(zone, selected);
   };
-  const handleDrop = (e, zone) => {
-    if (!interactive) return;
-    e.preventDefault();
-    const token = e.dataTransfer.getData('text/board-token');
-    if (token) placeOn(zone, { token, ...parsePaletteToken(token) });
-  };
+
+  // Pointer Events 드래그(R9-01 §3.3 ③) — 마우스+터치 공통, 탭-탭 경로 병행
+  const { drag, dragging, handlePointerDown, shouldSuppressClick } = useBoardDrag({
+    enabled: interactive,
+    onDropZone: (zone, item) => placeOn(zone, item),
+  });
 
   const zoneElement = (zone, type) =>
     board.elements.find((el) => el.zone === zone && el.type === type);
@@ -188,15 +189,18 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                 <button
                   key={item.token}
                   type="button"
-                  draggable={interactive}
-                  onDragStart={(e) => e.dataTransfer.setData('text/board-token', item.token)}
-                  onClick={() => interactive && setSelected(isSel ? null : item)}
+                  onPointerDown={handlePointerDown(item)}
+                  onClick={() => {
+                    if (shouldSuppressClick()) return; // 드래그 직후 합성 click 무시
+                    if (interactive) setSelected(isSel ? null : item);
+                  }}
                   disabled={!interactive}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-60 ${
+                  style={{ touchAction: 'none' }} // 터치 드래그 중 스크롤 차단(§3.3 ③)
+                  className={`flex min-h-[44px] items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-60 ${
                     isSel
                       ? 'border-sky-500 bg-sky-600 text-white shadow'
                       : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-sky-400 hover:bg-sky-50'
-                  }`}
+                  } ${dragging && drag?.item?.token === item.token ? 'opacity-40' : ''}`}
                   title={item.hint}
                 >
                   {/* 표준 표기 SVG 심볼 (R9-01 §3.3 ② — 이모지 폴백은 SymbolIcon 내부) */}
@@ -219,8 +223,31 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         selected={selected}
         interactive={interactive}
         onZoneTap={handleZoneClick}
-        onZoneDrop={handleDrop}
+        dragging={dragging}
+        dragOverZone={drag?.overZone ?? null}
       />
+
+      {/* 드래그 고스트(§3.3 ③) — 존 위에서는 존 중심으로 스냅 */}
+      {drag && (
+        <div
+          className="pointer-events-none fixed z-50"
+          style={{
+            left: drag.snap?.x ?? drag.x,
+            top: drag.snap?.y ?? drag.y,
+            transform: 'translate(-50%, -50%)',
+          }}
+          aria-hidden="true"
+        >
+          <div
+            className={`flex items-center gap-1.5 rounded-xl border bg-white/95 px-3 py-2 text-sm font-bold shadow-lg transition-transform ${
+              drag.overZone != null ? 'scale-110 border-sky-400 ring-2 ring-sky-500' : 'border-slate-200 ring-1 ring-slate-300'
+            }`}
+          >
+            <SymbolIcon kind={drag.item.type} value={drag.item.subtype} className="h-5 w-5" />
+            {drag.item.label}
+          </div>
+        </div>
+      )}
 
       {/* 4개 지역 상세 조절(노드별 기단·전선·습기·일사) — 지도와 같은 zone을 가리킨다 */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -237,11 +264,16 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
           return (
             <div
               key={zone}
+              data-board-zone={zone}
               onClick={() => handleZoneClick(zone)}
-              onDragOver={(e) => interactive && e.preventDefault()}
-              onDrop={(e) => handleDrop(e, zone)}
               className={`flex flex-col rounded-xl border p-2 transition ${
                 selected && interactive ? 'cursor-pointer border-dashed border-sky-400 bg-sky-50/40' : 'border-slate-200'
+              } ${
+                dragging
+                  ? drag?.overZone === zone
+                    ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-400'
+                    : 'border-dashed border-sky-300 bg-sky-50/30'
+                  : ''
               } ${goalMet ? 'ring-2 ring-emerald-400' : ''}`}
             >
               <p className="mb-1 text-center text-xs font-bold text-slate-600">{region.name}</p>
@@ -407,8 +439,9 @@ function toUser(point, dflt = [50, 50]) {
  *
  * R9-01 §3.3: 지도와 노드가 하나의 SVG userSpace를 공유한다(<g transform>).
  * 지역 라벨은 시드의 label_anchor 좌표를 사용한다.
+ * 드래그 중(dragging)에는 유효 존 전체를 하이라이트하고 dragOverZone을 강조한다.
  */
-function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected, interactive, onZoneTap, onZoneDrop }) {
+function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected, interactive, onZoneTap, dragging = false, dragOverZone = null }) {
   return (
     <div className="relative mb-3 w-full overflow-hidden rounded-xl bg-gradient-to-b from-sky-100 to-sky-200 ring-1 ring-sky-200">
       <svg
@@ -487,8 +520,6 @@ function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected
                     onZoneTap(zone);
                   }
                 }}
-                onDragOver={(e) => interactive && e.preventDefault()}
-                onDrop={(e) => onZoneDrop(e, zone)}
                 className={interactive ? 'cursor-pointer' : ''}
               >
                 {/* 터치 히트 영역 — 지도폭 320px 기준 지름 ≥44px (r 8.5 = 17unit ≈ 54px) */}
@@ -499,9 +530,13 @@ function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected
                   <circle r="7.4" fill="none" stroke="#7dd3fc" strokeWidth="0.8" strokeDasharray="1.6 1.2" />
                 )}
                 {goalMet && <circle r="7.4" fill="none" stroke="#34d399" strokeWidth="1" />}
-                {/* 탭 배치 대기(팔레트 선택 중) 안내 링 */}
-                {selected && interactive && (
+                {/* 탭 배치 대기(팔레트 선택 중)·드래그 중 유효 존 안내 링 */}
+                {(selected || dragging) && interactive && (
                   <circle r="8.2" fill="none" stroke="#38bdf8" strokeWidth="0.6" strokeDasharray="1 1" opacity="0.9" />
+                )}
+                {/* 드래그 오버 존 강조(스냅 대상) */}
+                {dragging && dragOverZone === zone && (
+                  <circle r="8.2" fill="#e0f2fe" fillOpacity="0.55" stroke="#0284c7" strokeWidth="1" />
                 )}
 
                 {/* 노드 본체 + 미리보기 현상 아이콘 */}
