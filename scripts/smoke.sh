@@ -918,11 +918,17 @@ for s in d["sections"]:
   [ "$http" = "200" ] || { record "11e board-tls" "FAIL" "유닛($board_slug) 세션 발급 http=$http"; return 0; }
   local sid exposed
   sid="$(json_field "$body" session_id)"
+  # 계약: board 문항의 time_limit_sec는 item.template_json 안에 실린다
+  # (BOARD_TEMPLATE_FIELDS 화이트리스트 — 프론트 AtmosphereBoard 소비 지점 동일)
   exposed="$("$PYTHON" -c '
 import json, sys
 items = json.load(sys.stdin)["items"]
 boards = [i for i in items if i.get("question_type") == "board"]
-with_tls = [i for i in boards if isinstance(i.get("time_limit_sec"), int) and i["time_limit_sec"] > 0]
+with_tls = [
+    i for i in boards
+    if isinstance((i.get("template_json") or {}).get("time_limit_sec"), int)
+    and i["template_json"]["time_limit_sec"] > 0
+]
 print("%d|%d" % (len(boards), len(with_tls)))
 ' <<<"$body")"
   local n_boards n_tls
