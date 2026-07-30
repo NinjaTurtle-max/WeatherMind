@@ -3,12 +3,13 @@
 # WeatherMind DB 왕복 스모크 — R7-01 S0 (docs/team/SPRINT_R7_01.md §3.4)
 #                              + R7-02 (submit-all 경로·유닛 세션, SPRINT_R7_02.md)
 #                              + R8-01 (스파인·왕관 유입·θ 파생 약점, SPRINT_R8_01.md)
+#                              + R9-01 (예보 브리핑·evidence·적응형 캐스터, SPRINT_R9_01.md)
 #
 # 사용법:
-#   scripts/smoke.sh             # 전체 단계 순차 실행 (1~11)
+#   scripts/smoke.sh             # 전체 단계 순차 실행 (1~12)
 #   scripts/smoke.sh <단계>      # 특정 단계만: up | migrate | seed | register |
 #                                #   theta | rls | roundtrip | fallback |
-#                                #   placement | unit | r8
+#                                #   placement | unit | r8 | r9
 #                                # (register 이후 단계는 필요 시 스스로 가입한다)
 #
 # 단계 (§3.4 계약 — 9 placement는 R7-01, 10 unit과 9의 submit-all 전환은 R7-02):
@@ -55,6 +56,14 @@
 #   11e board-tls 보드 유닛 세션 발급 → board 문항에 time_limit_sec 노출(SA-5
 #                 화이트리스트). 세션 풀이 time_limit_sec 있는 시드를 못 잡으면
 #                 SKIP(psql로 포착 여부를 판별 — 확률적 미포착과 실결함 구분)
+#  12 r9        R9-01 duel 검증 4종 (KMA 키 부재 환경 전제 — degraded 허용):
+#   12a briefing  GET /duel/briefing 200 + 형태(hourly 빈 배열·today_observed
+#                 null 허용, region·target_date·recent_days 존재) (§3.1 ②)
+#   12b evidence  미지 evidence 코드 → 422 INVALID_EVIDENCE (§3.1 ③,
+#                 제출 이전에 검증되므로 순서 무관하지만 제출 전에 확인)
+#   12c submit    POST /duel/today evidence 2종 동봉 → 200 + 응답에
+#                 caster_grade·evidence 노출 (§3.1 ③·§3.2)
+#   12d base      GET /duel/today에 base_forecast 필드 존재 (null 허용, §3.1 ①)
 #
 # 멱등성: 스모크 유저는 매 실행 고유 이메일(smoke+epoch@example.com), 시드는
 # upsert, RLS 롤 생성은 IF NOT EXISTS. 볼륨 파괴 명령(down -v 등)은 없다.
@@ -964,6 +973,117 @@ step_r8() {
   step_r8_tls
 }
 
+# ── 12. r9: R9-01 duel 검증 4종 (브리핑·evidence·캐스터 등급·base_forecast) ──
+# KMA 키 부재 환경 전제: 브리핑은 degraded(빈 배열·null)로 200을 유지해야 하고,
+# 캐스터는 내부 폴백 base로 동작해야 한다. duel은 1일 1회(UNIQUE)라 새 유저로
+# 제출한다(멱등 — 재실행 시 매번 고유 이메일).
+step_r9() {
+  banner "12 r9: duel briefing → 422 INVALID_EVIDENCE → submit(evidence) → base_forecast"
+
+  register_user "smoke-r9"
+  if [ "$REG_HTTP" != "201" ]; then
+    record "12 r9" "FAIL" "가입 실패 http=$REG_HTTP (레이트리밋이면 잠시 후 재실행)"
+    return 0
+  fi
+  local token="$REG_TOKEN"
+  echo "  user_id=$REG_USER_ID"
+
+  # ① GET /duel/briefing — 200 + 형태 (키 부재: hourly 빈 배열·today_observed null 허용)
+  local out http body check
+  out="$(http_get "$API/api/v1/duel/briefing" "$token")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "200" ]; then
+    record "12 r9" "FAIL" "① GET /duel/briefing http=$http: $(head -c200 <<<"$body")"
+    return 0
+  fi
+  check="$("$PYTHON" -c '
+import json, sys
+d = json.load(sys.stdin)
+keys = {"region", "target_date", "hourly", "today_observed", "recent_days"}
+if not keys <= set(d):
+    print("bad: 필드 누락 — %s" % sorted(d)); sys.exit()
+if not isinstance(d["hourly"], list) or not isinstance(d["recent_days"], list):
+    print("bad: hourly/recent_days가 배열이 아님"); sys.exit()
+if d["today_observed"] is not None and not isinstance(d["today_observed"], dict):
+    print("bad: today_observed 형태 위반 — %s" % d["today_observed"]); sys.exit()
+print("ok|hourly=%d observed=%s recent=%d"
+      % (len(d["hourly"]), "null" if d["today_observed"] is None else "obj", len(d["recent_days"])))
+' <<<"$body")"
+  if [[ "$check" != ok\|* ]]; then
+    record "12 r9" "FAIL" "① 브리핑 형태 위반 — $check"
+    return 0
+  fi
+  echo "  ① briefing 200 + 형태 OK (${check#ok|} — 키 부재 degraded 허용)"
+
+  # ② 미지 evidence 코드 → 422 INVALID_EVIDENCE (검증이 제출 가드보다 앞)
+  out="$(http_post "$API/api/v1/duel/today" \
+    '{"temp_max":27.5,"rain_prob":40,"evidence":["bogus_code"]}' "$token")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "422" ] || ! grep -q "INVALID_EVIDENCE" <<<"$body"; then
+    record "12 r9" "FAIL" "② 기대 422 INVALID_EVIDENCE, 실제 http=$http: $(head -c200 <<<"$body")"
+    return 0
+  fi
+  echo "  ② 미지 evidence 코드 422 INVALID_EVIDENCE 확인"
+
+  # ③ evidence 2종 동봉 제출 → 200 + caster_grade·evidence 노출
+  out="$(http_post "$API/api/v1/duel/today" \
+    '{"temp_max":27.5,"rain_prob":40,"evidence":["pop_trend","recent_rain"]}' "$token")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "200" ] && [ "$http" != "201" ]; then
+    record "12 r9" "FAIL" "③ POST /duel/today http=$http: $(head -c200 <<<"$body")"
+    return 0
+  fi
+  check="$("$PYTHON" -c '
+import json, sys
+d = json.load(sys.stdin)
+if d.get("submitted") is not True:
+    print("bad: submitted=%s" % d.get("submitted")); sys.exit()
+if d.get("evidence") != ["pop_trend", "recent_rain"]:
+    print("bad: evidence=%s" % d.get("evidence")); sys.exit()
+grade = d.get("caster_grade")
+if grade not in {"stratus", "cumulus", "nimbostratus", "cumulonimbus", "typhoon_eye"}:
+    print("bad: caster_grade=%s (티어명 기대)" % grade); sys.exit()
+ai = d.get("ai_pred") or {}
+if not isinstance(ai.get("noise_scale"), (int, float)):
+    print("bad: ai_pred.noise_scale=%s" % ai.get("noise_scale")); sys.exit()
+print("ok|grade=%s scale=%s" % (grade, ai["noise_scale"]))
+' <<<"$body")"
+  if [[ "$check" != ok\|* ]]; then
+    record "12 r9" "FAIL" "③ 제출 응답 계약 위반 — $check"
+    return 0
+  fi
+  echo "  ③ submit 200 + evidence 2종·caster_grade 노출 (${check#ok|})"
+
+  # ④ GET /duel/today — base_forecast 필드 존재 (KMA 키 부재면 null 허용)
+  out="$(http_get "$API/api/v1/duel/today" "$token")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "200" ]; then
+    record "12 r9" "FAIL" "④ GET /duel/today http=$http"
+    return 0
+  fi
+  check="$("$PYTHON" -c '
+import json, sys
+d = json.load(sys.stdin)
+if "base_forecast" not in d:
+    print("bad: base_forecast 필드 자체가 없음 (additive 계약 위반)"); sys.exit()
+bf = d["base_forecast"]
+if bf is not None and not ("temp_max" in bf and "rain_prob" in bf):
+    print("bad: base_forecast 형태 위반 — %s" % bf); sys.exit()
+print("ok|base_forecast=%s" % ("null" if bf is None else "obj"))
+' <<<"$body")"
+  if [[ "$check" != ok\|* ]]; then
+    record "12 r9" "FAIL" "④ $check"
+    return 0
+  fi
+  echo "  ④ GET /duel/today base_forecast 필드 존재 (${check#ok|})"
+
+  record "12 r9" "OK" "브리핑 200·422 INVALID_EVIDENCE·evidence+caster_grade 노출·base_forecast 존재"
+}
+
 # ── 실행 ─────────────────────────────────────────────────────────────────────
 STEP="${1:-all}"
 case "$STEP" in
@@ -978,6 +1098,7 @@ case "$STEP" in
   placement) step_placement ;;
   unit)      step_unit ;;
   r8)        step_r8 ;;
+  r9)        step_r9 ;;
   all)
     step_up
     if [ "$FAILED" -ne 0 ]; then
@@ -994,10 +1115,11 @@ case "$STEP" in
       step_placement
       step_unit
       step_r8
+      step_r9
     fi
     ;;
   *)
-    echo "사용법: scripts/smoke.sh [up|migrate|seed|register|theta|rls|roundtrip|fallback|placement|unit|r8]" >&2
+    echo "사용법: scripts/smoke.sh [up|migrate|seed|register|theta|rls|roundtrip|fallback|placement|unit|r8|r9]" >&2
     exit 2
     ;;
 esac
