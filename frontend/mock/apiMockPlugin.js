@@ -118,7 +118,11 @@ function devStatePayload() {
     clouds: state.clouds,
     streak_count: state.streak,
     placement_done: state.placementDone,
-    weak_tags: [...WEAK_TAGS],
+    // θ 파생 약점 (R8-01 §3.5, backend build_state와 동일 규칙): n>0 AND θ<0.41.
+    // /dev/theta 조작이 즉시 반영된다 — 정적 WEAK_TAGS(퀘스트 판정용)와 별개.
+    weak_tags: rows
+      .filter((r) => r.num_responses > 0 && r.theta < 0.41)
+      .map((r) => r.concept_tag),
   };
 }
 
@@ -299,15 +303,19 @@ function spinePayload() {
 
 /** 왕관 유입로 (R8-01 §3.4) — 유닛에 왕관 +1(crown_target 초과 불가).
  *  실제로 부여됐을 때만 crown_award 페이로드 {unit_slug, unit_title, crowns, cleared}를
- *  반환하고, 대상 없음/이미 만관이면 null(무동작). XP는 부여하지 않는다(§3.4 —
- *  보드 +5 XP·데일리 XP는 기존 경로 그대로, 왕관만 추가). */
+ *  반환하고, 대상 없음/이미 만관이면 null(무동작). 백엔드 grant_unit_crown과 동일하게
+ *  cleared 전환 시 +20 XP(XP_UNIT_CLEAR) 1회 — 보드 +5 XP·데일리 문항 XP는 별도
+ *  기존 경로 그대로다. crown_award 페이로드 계약(4필드)은 불변. */
 function grantUnitCrown(unit) {
   if (!unit) return null;
   const prog = getUnitProgress(unit.id);
   if (prog.crowns >= unit.crown_target) return null;
   prog.crowns += 1;
   const cleared = prog.crowns >= unit.crown_target;
-  if (cleared && !prog.cleared_at) prog.cleared_at = new Date().toISOString();
+  if (cleared && !prog.cleared_at) {
+    prog.cleared_at = new Date().toISOString();
+    state.xp += 20; // 유닛 cleared 전환 보상 — backend xp_service.XP_UNIT_CLEAR
+  }
   return { unit_slug: unit.slug, unit_title: unit.title, crowns: prog.crowns, cleared };
 }
 
@@ -741,6 +749,10 @@ function ensureSession() {
       items: SESSION_ITEMS,
       answers: {},
       completed: false,
+      // Router 라우팅 결정 흉내 (backend sessions.route_decision.target_concept_tag)
+      // — 데일리 만점 왕관 동률 시 이 개념 우선(R8-01 §3.4 majority_concept 정렬).
+      // 목 Router는 약점 θ 최하 개념을 겨냥한다고 가정: typhoon(WEAK_TAGS 최약).
+      route_target_concept_tag: 'typhoon',
     });
   }
   return sessions.get(DAILY_SESSION_ID);
@@ -1042,8 +1054,9 @@ const routes = {
       };
     }
     // 데일리 왕관 유입로 (R8-01 §3.4): daily 세션 전 문항 정답이면 세션 문항 최다
-    // 개념(동률 시 태그 사전순 — 목 daily에는 route target_concept_tag가 없어 생략)의
-    // "열려 있는 첫 미클리어 quiz 유닛"에 왕관 +1. 대상 없으면 무동작(null).
+    // 개념의 "열려 있는 첫 미클리어 quiz 유닛"에 왕관 +1. 동률 규칙은 백엔드
+    // majority_concept과 동일 — route target_concept_tag 우선, 그래도 동률이면
+    // 태그 사전순(결정적). 대상 없으면 무동작(null).
     // placement는 제외. daily는 하루 1세션 멱등이라 파밍 자연 상한.
     let crownAward = null;
     if (s.mode === 'daily' && progress.total > 0 && correctCount === progress.total) {
@@ -1051,9 +1064,13 @@ const routes = {
       for (const item of s.items) {
         tagCounts.set(item.concept_tag, (tagCounts.get(item.concept_tag) ?? 0) + 1);
       }
-      const topTag = [...tagCounts.entries()].sort(
-        (a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1),
-      )[0]?.[0];
+      const topCount = Math.max(0, ...tagCounts.values());
+      const tied = [...tagCounts.entries()]
+        .filter(([, count]) => count === topCount)
+        .map(([tag]) => tag)
+        .sort();
+      const routeTarget = s.route_target_concept_tag ?? null;
+      const topTag = tied.includes(routeTarget) ? routeTarget : tied[0];
       const target = UNITS.find(
         (u) =>
           u.kind === 'quiz' &&
@@ -1252,14 +1269,24 @@ const routes = {
   // ── 일일 퀘스트·배지 (R4-01 §3.1·§3.3) ──
   'GET /progress/quests': () => [200, questPayload()],
   'GET /progress/badges': () => [200, BADGES],
-  'GET /progress/weak-tags': () => [
-    200,
-    [
-      { concept_tag: 'typhoon', wrong_count: 4, total_count: 6, accuracy_rate: 33.3, updated_at: null },
-      { concept_tag: 'anomaly', wrong_count: 3, total_count: 7, accuracy_rate: 57.1, updated_at: null },
-      { concept_tag: 'pressure_front', wrong_count: 2, total_count: 9, accuracy_rate: 77.8, updated_at: null },
-    ],
-  ],
+  // GET /progress/weak-tags (R8-01 §3.5) — θ 파생 WeakConceptOut[] 형태.
+  // 백엔드와 동일 판정: num_responses>0 AND θ < threshold, θ 오름차순(약한 순).
+  // threshold는 middle_high 기준 b(0.0)+logit(0.6)≈0.41 고정(목 단순화).
+  'GET /progress/weak-tags': () => {
+    const threshold = 0.41;
+    return [
+      200,
+      abilityRows()
+        .filter((row) => row.num_responses > 0 && row.theta < threshold)
+        .sort((a, b) => a.theta - b.theta)
+        .map(({ concept_tag, theta, num_responses }) => ({
+          concept_tag,
+          theta,
+          threshold,
+          num_responses,
+        })),
+    ];
+  },
   'POST /progress/attendance': () => [
     200,
     { streak_count: state.streak, is_new_record: false },
@@ -1360,7 +1387,7 @@ const routes = {
       unitProgress.clear();
       preUnlockedUnits.clear();
     } else if (body?.action === 'crown') {
-      // 목 유닛엔 slug가 없어 unit_slug에 유닛 id를 받는다(백엔드는 slug — §계약 확인 필요)
+      // unit_slug는 slug 또는 목 내부 id 둘 다 허용(getUnit — 백엔드는 slug)
       const unit = getUnit(body?.unit_slug);
       if (!unit) return [404, { detail: '유닛을 찾을 수 없습니다', code: 'UNIT_NOT_FOUND' }];
       const prog = getUnitProgress(unit.id);
