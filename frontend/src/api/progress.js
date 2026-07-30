@@ -2,7 +2,9 @@ import client from './client';
 
 /** Progress API (02번 스펙 — /api/v1/progress) */
 
-// GET /progress/me → {xp, level, streak_count, next_level_xp}
+// GET /progress/me → {xp, level, streak_count, next_level_xp, ...}
+//   + spine (R8-01 §3.3, additive): {units_total, units_cleared, crowns_earned,
+//     crowns_total, current_unit: {slug, title} | null} — 서버 계산 스파인 집계.
 export async function fetchMyProgress() {
   const res = await client.get('/progress/me');
   return res.data;

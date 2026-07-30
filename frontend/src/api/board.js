@@ -28,6 +28,8 @@ export async function fetchBoardPuzzles() {
 
 // POST /board/puzzles/{content_item_id}/attempt {board_state}
 //   → {passed, phenomena, feedback, xp_earned} — 최초 클리어만 +5 XP(재도전 0)
+//   + crown_award (R8-01 §3.4, additive): {unit_slug, unit_title, crowns, cleared} | null
+//     — 퍼즐 최초 클리어이고 같은 concept_tag의 kind='board' 유닛이 열려 있으면 왕관 +1.
 export async function submitBoardAttempt(contentItemId, boardState) {
   const res = await client.post(`/board/puzzles/${contentItemId}/attempt`, {
     board_state: boardState,
