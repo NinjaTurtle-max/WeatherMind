@@ -18,6 +18,7 @@ import {
   phenomenonMeta,
   cloudMeta,
 } from './boardDisplay';
+import { Glyph, SymbolIcon } from './boardSymbols';
 
 /**
  * AtmosphereBoard (R3-01 S3·S5) — 한반도 단면 4존 대기 보드 플레이어.
@@ -198,7 +199,8 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                   }`}
                   title={item.hint}
                 >
-                  <span aria-hidden="true">{item.icon}</span>
+                  {/* 표준 표기 SVG 심볼 (R9-01 §3.3 ② — 이모지 폴백은 SymbolIcon 내부) */}
+                  <SymbolIcon kind={item.type} value={item.subtype} className="h-5 w-5" />
                   {item.label}
                 </button>
               );
@@ -244,11 +246,15 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
             >
               <p className="mb-1 text-center text-xs font-bold text-slate-600">{region.name}</p>
 
-              {/* 미리보기 현상/구름 (즉시 가시화) */}
+              {/* 미리보기 현상/구름 (즉시 가시화) — 표준 표기 SVG(§3.3 ②) */}
               <div className="mb-2 rounded-lg bg-slate-50 py-2 text-center">
-                <div className="text-2xl leading-none" aria-hidden="true">{ph.icon}</div>
+                <div className="flex justify-center">
+                  <SymbolIcon kind="phenomenon" value={pv.phenomenon} className="h-8 w-8" />
+                </div>
                 <div className="mt-0.5 text-xs font-bold text-slate-800">{ph.label}</div>
-                <div className="text-[10px] text-slate-400">{cl.icon} {cl.label}</div>
+                <div className="flex items-center justify-center gap-1 text-[10px] text-slate-400">
+                  <SymbolIcon kind="cloud" value={pv.cloud} className="h-3.5 w-3.5" /> {cl.label}
+                </div>
               </div>
 
               {/* 배치된 기단/전선 칩 */}
@@ -506,21 +512,11 @@ function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected
                   stroke={goalMet ? '#34d399' : isGoalZone ? '#7dd3fc' : '#cbd5e1'}
                   strokeWidth="0.5"
                 />
-                <text y="2.1" textAnchor="middle" fontSize="6" aria-hidden="true" style={{ pointerEvents: 'none' }}>
-                  {ph.icon}
-                </text>
+                <Glyph kind="phenomenon" value={pv?.phenomenon} scale={0.4} />
 
-                {/* 배치된 요소 미니 배지 (노드 우측 스택) */}
-                {airEl && (
-                  <text x="8.2" y="-1.4" textAnchor="middle" fontSize="3.4" aria-hidden="true" style={{ pointerEvents: 'none' }}>
-                    {subtypeIcon('air_mass', airEl.subtype)}
-                  </text>
-                )}
-                {frontEl && (
-                  <text x="8.2" y="3.4" textAnchor="middle" fontSize="3.4" aria-hidden="true" style={{ pointerEvents: 'none' }}>
-                    {subtypeIcon('front', frontEl.subtype)}
-                  </text>
-                )}
+                {/* 배치된 요소 미니 배지 (노드 우측 스택) — 표준 표기 SVG(§3.3 ②) */}
+                {airEl && <Glyph kind="air_mass" value={airEl.subtype} x={8.4} y={-2.6} scale={0.26} />}
+                {frontEl && <Glyph kind="front" value={frontEl.subtype} x={8.4} y={3.2} scale={0.28} />}
                 {/* 목표 마커 */}
                 {isGoalZone && !goalMet && (
                   <text x="-7.6" y="-5.4" textAnchor="middle" fontSize="3.2" aria-hidden="true" style={{ pointerEvents: 'none' }}>
@@ -539,11 +535,6 @@ function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected
       </svg>
     </div>
   );
-}
-
-/** 배치 요소 아이콘(지도 노드 미니 배지용) */
-function subtypeIcon(type, subtype) {
-  return parsePaletteToken(`${type}:${subtype}`).icon;
 }
 
 /** 초 → M:SS 표시 (미니 미션 카운트다운) */

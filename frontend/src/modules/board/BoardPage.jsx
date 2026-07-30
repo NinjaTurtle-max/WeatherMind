@@ -5,6 +5,7 @@ import { useProgressStore } from '../../store/progressStore';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import AtmosphereBoard from './AtmosphereBoard';
 import { phenomenonMeta } from './boardDisplay';
+import { SymbolIcon } from './boardSymbols';
 import { ZONES } from '../../lib/boardEngine';
 
 /**
@@ -208,7 +209,9 @@ function PhenomenaSummary({ phenomena }) {
           const meta = phenomenonMeta(p.phenomenon);
           return (
             <div key={i} className="rounded-lg bg-slate-50 py-1.5 text-center">
-              <div className="text-lg leading-none" aria-hidden="true">{meta.icon}</div>
+              <div className="flex justify-center">
+                <SymbolIcon kind="phenomenon" value={p.phenomenon} className="h-6 w-6" />
+              </div>
               <div className="text-[10px] text-slate-500">{p.zone_name ?? ZONES[p.zone] ?? ''}</div>
               <div className="text-[11px] font-bold text-slate-700">{meta.label}</div>
             </div>
