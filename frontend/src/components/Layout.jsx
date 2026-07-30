@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import XPBar from './XPBar';
+import SpineBadge from './SpineBadge';
 import StreakBadge from './StreakBadge';
 import CloudEnergyBadge from './CloudEnergyBadge';
 import TabBar from './TabBar';
@@ -10,8 +11,10 @@ import { useAuthStore } from '../store/authStore';
 import { useProgressStore } from '../store/progressStore';
 
 /**
- * 로그인 후 공통 레이아웃: 상단 고정 헤더(XPBar + StreakBadge) + 하단 탭바.
+ * 로그인 후 공통 레이아웃: 상단 고정 헤더 + 하단 탭바.
  * GET /progress/me 를 조회해 progressStore에 동기화한다.
+ * 헤더 진척 표시(R8-01 §3.7③ 제품 결정): 스파인(유닛 진도·왕관) 1순위 —
+ * 로고 바로 옆 SpineBadge — 그리고 XPBar를 보상감으로 병기(교체 아님).
  */
 export default function Layout() {
   const navigate = useNavigate();
@@ -49,6 +52,7 @@ export default function Layout() {
           <span className="shrink-0 text-base font-extrabold tracking-tight text-white">
             ⛅ WeatherMind
           </span>
+          <SpineBadge />
           <XPBar />
           <CloudEnergyBadge />
           <StreakBadge />
