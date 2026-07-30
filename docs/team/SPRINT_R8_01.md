@@ -120,6 +120,67 @@ session_service.py:436 전례와 동일 — 실패 시 load_abilities 폴백). �
   회귀, 스모크 확장(유닛 세션 θ 재추정·spine 필드·왕관 유입 1건), 02 스펙 /me
   갱신, 회고.
 
-## 5. 리뷰 노트·회고
+## 5. 리뷰 노트·회고 (웨이브 2, 2026-07-30 — chore/r8-07-integration)
 
-(웨이브 2 종료 시 기록)
+### 5.1 통합 결과
+
+- 병합 7건(--no-ff, 스토리 명기): docs 백로그 → SA-5(board 화이트리스트) →
+  S3(weak θ) → S4(XP 카탈로그) → S2(스파인 집계) → S1(unit_result·왕관) →
+  프론트(S5). 충돌 2건, 전부 additive라 의도 병존으로 해소 —
+  ① xp_service.py docstring(S4 카탈로그 표 채택 + 약점 배율 서술을 S3 θ 파생으로)
+  ② routers/progress.py(라우트 표 병기 + import SpineOut·WeakConceptOut 공존).
+- 회귀 전부 그린: backend **682 passed** · ai-worker **97 passed + 7 skipped** ·
+  pyflakes 3앱 무결 · npm run build 성공 · scripts/ci.sh 전 단계 OK.
+- 스모크 1~11 전 단계 그린 + 재실행 멱등(연속 실행 검증). 11단계(r8 5종) 신설 —
+  spine 집계·id/slug 발급·보드 정답 배치→crown_award·weak-tags 신 형태·
+  board time_limit_sec 노출.
+
+### 5.2 프론트 질의 3건 판정
+
+1. **유닛 세션 발급 식별자**: 실버그 아님 — `UnitOut.id`가 곧 slug(문서화된
+   계약, unit_view가 `"id": unit.slug` 노출). 트리 경유·spine.current_unit 경유
+   모두 같은 값이 `POST /units/{slug}/session`에 도달한다. 백엔드 무변경,
+   동일성은 기존 계약 테스트(test_curriculum_tree·test_spine_aggregate)가 이미
+   고정 + 스모크 11b가 실기동으로 재확인.
+2. **왕관 경유 클리어 XP**: 백엔드는 3개 유입로(유닛 세션·보드 탭·데일리 만점)
+   전부 grant_unit_crown 경유 — cleared 전환 시 +20 XP 동일 지급 확인.
+   mock grantUnitCrown이 XP 미지급으로 어긋나 있어 정렬(+20, crown_award
+   4필드 계약 불변).
+3. **mock daily 왕관 동률**: majority_concept과 동일 규칙으로 정렬 — route
+   target 우선 → 태그 사전순. 목 daily 세션에 route_target_concept_tag(typhoon,
+   WEAK_TAGS 최약 가정) 부여.
+
+부수: fetchWeakTags 주석·mock /progress/weak-tags·/dev/state.weak_tags를 신
+WeakConceptOut/θ 파생 계약으로 갱신(드리프트 방지).
+
+### 5.3 결함·스모크가 잡은 것
+
+- 실서버 결함 **0** (P0~P3 신규 없음).
+- 스모크 자체 결함 2건 발견·수정: ① 11e가 time_limit_sec를 item 최상위에서
+  찾음 — 계약은 template_json 내부(BOARD_TEMPLATE_FIELDS·AtmosphereBoard 소비
+  지점). 첫 실행 거짓 FAIL 후 교정 ② 7 roundtrip이 비board 정확히 3건을 요구 —
+  데일리 배합이 board 위주로 뽑히면 확률적 FAIL(2회 연속 재현). θ 전이 검증엔
+  1건이면 충분해 ≥1로 완화.
+
+### 5.4 행동 변화 (weak θ 전환 — §3.5)
+
+- 약점 판정이 정답률 캐시(weak_tags, 임계 60%)에서 θ 파생 단일 공급원
+  (`weak_concepts`, 학령 상대 임계 b(lg)+logit(0.6)≈middle_high 0.405)으로 전환.
+- 사용자 가시 변화: /weak-tags 응답 형태 교체(WeakConceptOut — threshold 포함,
+  θ 오름차순), XP 1.5배 판정이 세션 θ 스냅샷 기준(문항별 뒤집힘 소멸),
+  /dev/state.weak_tags 임계 적용. weak_tags 테이블·writer·라우터 폴백은 유지
+  (ai-worker 장애 복원력).
+
+### 5.5 잘된 것 / 아쉬운 것 / 범위 밖
+
+- **잘된 것**: 예상 충돌면 5곳 중 실충돌 2곳, 전부 additive 설계 덕에 기계적
+  해소. 스모크 신설 단계가 첫 실행에서 곧바로 검증 위치 오독을 드러내 계약
+  이해를 교정(문서보다 실기동이 빠름). psql 픽스처(quiz 유닛 클리어)로 왕관
+  유입 경로를 결정적으로 실검증.
+- **아쉬운 것**: 데일리 만점 crown_award는 정답을 알 수 없어 스모크에서 보드
+  경로로 대체(데일리 경로는 pytest 커버만). 7단계 배합 확률 FAIL이 R7부터
+  잠복해 있었는데 이번에야 연속 재현으로 드러남 — 스모크도 flake 예산 관점
+  점검 필요.
+- **범위 밖(다음 증분)**: 데일리 만점 스모크(시드 정답 노출 없는 검증 설계),
+  mock 유닛 트리 id의 slug 통일(현재 목은 UUID id+slug 병행 — 실서버는 id==slug),
+  θ→출제 난이도 잔여 연결(§0), 리그·듀얼의 스파인 기여 검토.
