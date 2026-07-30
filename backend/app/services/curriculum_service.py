@@ -205,6 +205,39 @@ def build_curriculum(
     return sections
 
 
+def build_spine(
+    units: Iterable[Any],
+    progress_by_unit: dict[Any, Any],
+    unlock_floor: int = 0,
+) -> dict[str, Any]:
+    """스파인(유닛 진도 축) 집계 (R8-01 §3.3, 순수) — /progress/me additive용.
+
+    build_curriculum의 unit_view 위에서 집계해 CurriculumHome 클라 계산과
+    정의가 항상 일치한다(단일 정의 재사용 — 별도 판정 로직 없음):
+    - units_total: 전체 유닛 수 / units_cleared: cleared(=cleared_at 존재) 수
+    - crowns_earned: Σ crowns / crowns_total: Σ crown_target
+    - current_unit: build_curriculum의 'current'(전체 순서상 잠기지 않은 첫
+      미클리어 유닛) 그대로 — {"slug", "title"} 또는 전부 클리어/잠금이면 None.
+    """
+    views = [
+        view
+        for section in build_curriculum(units, progress_by_unit, unlock_floor)
+        for view in section["units"]
+    ]
+    current = next((v for v in views if v["status"] == "current"), None)
+    return {
+        "units_total": len(views),
+        "units_cleared": sum(1 for v in views if v["cleared"]),
+        "crowns_earned": sum(v["crowns"] for v in views),
+        "crowns_total": sum(v["crown_target"] for v in views),
+        "current_unit": (
+            {"slug": current["id"], "title": current["title"]}
+            if current is not None
+            else None
+        ),
+    }
+
+
 # ═══════════════════════════════════════════════════════════════
 # DB 결합부 — 조회·유닛 세션 발급·clear 처리
 # ═══════════════════════════════════════════════════════════════
@@ -240,6 +273,20 @@ async def get_curriculum(db: AsyncSession, user: User) -> list[dict[str, Any]]:
     progress = await load_progress_by_unit(db, user)
     abilities = await weatherbrain_service.load_abilities(db, user)  # read-only
     return build_curriculum(
+        units, progress, unlock_floor=placement_unlock_floor(abilities, units)
+    )
+
+
+async def get_spine(db: AsyncSession, user: User) -> dict[str, Any]:
+    """스파인 집계 조회 (R8-01 §3.3) — /progress/me 서버 계산.
+
+    트리 노출(get_curriculum)과 동일한 잠금 규칙(배치 선해제 포함)으로
+    build_spine을 평가한다. θ 읽기는 load_abilities(read-only) — ai-worker 미호출.
+    """
+    units = await load_units(db)
+    progress = await load_progress_by_unit(db, user)
+    abilities = await weatherbrain_service.load_abilities(db, user)
+    return build_spine(
         units, progress, unlock_floor=placement_unlock_floor(abilities, units)
     )
 
