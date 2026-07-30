@@ -1549,7 +1549,7 @@ const routes = {
         !Array.isArray(body.evidence) ||
         body.evidence.some((code) => !EVIDENCE_CODES.includes(code))
       ) {
-        return [422, { detail: '알 수 없는 근거 코드가 있어요', code: 'VALIDATION_ERROR' }];
+        return [422, { detail: '알 수 없는 근거 코드가 있어요', code: 'INVALID_EVIDENCE' }];
       }
       evidence = [...new Set(body.evidence)];
     }
