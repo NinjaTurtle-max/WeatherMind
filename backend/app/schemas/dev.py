@@ -34,6 +34,8 @@ class DevState(BaseModel):
     max_clouds: int
     streak_count: int
     placement_done: bool
+    # θ 파생 약점 개념 (weatherbrain_service.weak_concepts — 학령 상대 임계 적용,
+    # R8-01 §3.5). 구 weak_tags 행 나열(임계 미적용)과 달리 목록에 있으면 곧 약점.
     weak_tags: list[str]
 
 
