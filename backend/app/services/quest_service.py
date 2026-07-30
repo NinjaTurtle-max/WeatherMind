@@ -2,7 +2,7 @@
 
 정의 3종(코드 고정, quests 테이블 정적 시드와 일치):
 - daily_xp_30: 오늘 획득 XP 합계 ≥ 30 → 보상 +10
-- weak_correct_1: 약점 태그(accuracy_rate < 60) 문항 정답 1회 → +10
+- weak_correct_1: 약점 개념(θ < 학령 상대 임계 — R8-01 §3.5) 문항 정답 1회 → +10
 - live_answered: 실황 문항(uses_live_slots) 1회 응답 → +5
 
 갱신 시점(§3.1): 세션 complete·보드 attempt 성공 시 **당일 quiz_logs·XP 집계로
@@ -31,8 +31,7 @@ from app.models.quest import Quest, UserQuestProgress
 from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.user import User
-from app.models.weak_tag import WeakTag
-from app.services import xp_service
+from app.services import weatherbrain_service, xp_service
 
 # ── 퀘스트 정의 (코드 고정 — quests 정적 시드와 일치, §3.1) ──
 QUEST_DAILY_XP = "daily_xp_30"
@@ -59,8 +58,8 @@ QUEST_ORDER = (QUEST_DAILY_XP, QUEST_WEAK_CORRECT, QUEST_LIVE_ANSWERED)
 class AnswerFact:
     """오늘 응답한 quiz_log 1건의 퀘스트 재계산용 사실.
 
-    is_correct: 정답 여부, is_weak: 약점 태그 문항 여부(현재 약점 스냅샷 기준),
-    is_live: 실황 문항(uses_live_slots) 여부.
+    is_correct: 정답 여부, is_weak: 약점 개념 문항 여부(θ 파생 스냅샷 기준 —
+    R8-01 §3.5), is_live: 실황 문항(uses_live_slots) 여부.
     """
 
     is_correct: bool
@@ -134,14 +133,14 @@ def plan_transitions(
 # ═══════════════════════════════════════════════════════════════
 
 
-async def _weak_concepts(db: AsyncSession, user_id: uuid.UUID) -> set[str]:
-    """유저의 현재 약점 태그(accuracy_rate < 60, 응답 이력 있음) 집합."""
-    rows = (
-        (await db.execute(select(WeakTag).where(WeakTag.user_id == user_id)))
-        .scalars()
-        .all()
-    )
-    return {t.concept_tag for t in rows if xp_service.is_weak_concept(t)}
+async def _weak_concepts(db: AsyncSession, user: User) -> set[str]:
+    """유저의 현재 약점 개념 집합 — θ 파생 단일 공급원 (R8-01 §3.5).
+
+    저장 θ read-only(load_abilities) + weatherbrain_service.weak_concepts
+    (num_responses>0 AND θ < 학령 상대 임계). ai-worker 미호출.
+    """
+    abilities = await weatherbrain_service.load_abilities(db, user)
+    return set(weatherbrain_service.weak_concepts(abilities, user.level_group))
 
 
 async def _today_facts(
@@ -206,7 +205,7 @@ async def _today_facts(
             .all()
         )
 
-    weak = await _weak_concepts(db, user.id)
+    weak = await _weak_concepts(db, user)
     return [
         AnswerFact(
             is_correct=bool(log.is_correct),
