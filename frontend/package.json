@@ -10,7 +10,8 @@
     "test:board": "node tests/boardEngine.vectors.test.mjs",
     "test:explore": "node tests/exploreSims.test.mjs && node tests/exploreSims.render.test.mjs",
     "test:session": "node tests/sessionRunner.render.test.mjs",
-    "test:placement": "node tests/placementEntry.smoke.test.mjs"
+    "test:placement": "node tests/placementEntry.smoke.test.mjs",
+    "test:visual": "node tests/precipEngine.test.mjs && node tests/boardVisual.render.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",

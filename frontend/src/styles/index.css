@@ -39,10 +39,11 @@ input[type='range'] {
   transform-origin: center;
 }
 
-/* 접근성(R9-01 §3.3 ④): 시스템 '동작 줄이기' 설정 시 모든 애니메이션·전환을
+/* 접근성(R9-01 §3.3 ④·R9-08): 시스템 '동작 줄이기' 설정 시 모든 애니메이션·전환을
    일괄 정지한다 — 기존 무한 애니메이션(pulse-ring·cloud-drift·gauge-sweep·
-   scan-x·animate-pulse 등) 포함. 현상 스테이지는 컴포넌트 수준에서도
-   정적 장면으로 대체된다(boardAnimations.usePrefersReducedMotion). */
+   scan-x·animate-pulse 등) 포함. 지도 오버레이·단면 모식도 패널은 컴포넌트
+   수준에서도 정적 장면으로 대체된다(realisticEffects.usePrefersReducedMotion —
+   이중 안전망). Canvas 강수는 정적 1프레임만 그린다(PrecipCanvas). */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
