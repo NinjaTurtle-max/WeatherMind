@@ -14,6 +14,7 @@ export async function fetchMyProgress() {
 //   → [{concept_tag, theta, threshold, num_responses}] (θ 오름차순 = 약한 순)
 //   판정: num_responses > 0 AND θ < threshold(학령 상대 임계).
 //   구 WeakTag[]({wrong_count, total_count, accuracy_rate, ...}) 형태를 대체.
+//   아직 호출 화면 없음 — 복습 추천 UI(로드맵)용 사전 배선이라 유지.
 export async function fetchWeakTags() {
   const res = await client.get('/progress/weak-tags');
   return res.data;

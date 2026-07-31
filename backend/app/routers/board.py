@@ -39,9 +39,8 @@ from app.services import (
     weatherbrain_service,
     xp_service,
 )
-from app.services.answer_service import evaluate_board_answer
+from app.services.answer_service import BoardStateRequiredError, evaluate_board_answer
 from app.services.weather_api import KST
-from app.services.board_engine import BoardRulesError, BoardValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -52,18 +51,6 @@ REGIONS_PATH = (
     Path(__file__).resolve().parents[3] / "database" / "seed" / "board_regions.json"
 )
 _regions_cache: list[dict] | None = None
-
-
-def _out_of_clouds(exc: energy_service.OutOfCloudsError) -> HTTPException:
-    """구름 소진 → 429 OUT_OF_CLOUDS (다음 회복 ETA 포함, §3.3·§3.5)."""
-    return HTTPException(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail={
-            "detail": "구름이 부족합니다. 시간이 지나면 회복됩니다.",
-            "code": "OUT_OF_CLOUDS",
-            "next_regen_sec": exc.next_regen_sec,
-        },
-    )
 
 
 def load_regions() -> list[dict]:
@@ -101,24 +88,15 @@ def board_clear_xp(passed: bool, already_cleared: bool) -> int:
     return xp_service.XP_BOARD_CLEAR if (passed and not already_cleared) else 0
 
 
-def _rules_unavailable(exc: BoardRulesError) -> HTTPException:
-    """규칙 파일 부재·스키마 오류 → 503 (데이터 저작 대기 또는 데이터 오류)."""
-    logger.warning("보드 규칙 로드 실패: %s", exc)
-    return HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail={"detail": str(exc), "code": "BOARD_RULES_UNAVAILABLE"},
-    )
-
-
 @router.get("/rules")
 async def get_rules(
     user: User = Depends(get_current_user),
 ) -> list[dict]:
-    """board_rules.json 원문 반환 (서버 파일 캐시 — 프론트 로컬 미리보기 단일 진실원)."""
-    try:
-        return board_engine.load_rules()
-    except BoardRulesError as exc:
-        raise _rules_unavailable(exc)
+    """board_rules.json 원문 반환 (서버 파일 캐시 — 프론트 로컬 미리보기 단일 진실원).
+
+    규칙 부재·스키마 오류(BoardRulesError) → 503은 main.py 전역 핸들러 담당.
+    """
+    return board_engine.load_rules()
 
 
 def board_difficulty(template_json: dict, level_group: str) -> int:
@@ -264,37 +242,19 @@ async def attempt_puzzle(
     template = item.template_json or {}
     question = {**template, "question_type": "board", "concept_tag": item.concept_tag}
 
-    # board_state 필수·검증 (§3.4)
+    # board_state 필수·검증 (§3.4) — 422 변환은 main.py 전역 핸들러 담당
     if body.board_state is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "detail": "보드 유형 문항은 board_state가 필요합니다.",
-                "code": "BOARD_STATE_REQUIRED",
-            },
-        )
-    try:
-        board_engine.validate_board(body.board_state)
-    except BoardValidationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"detail": f"보드 상태가 올바르지 않습니다: {exc}", "code": "BOARD_STATE_INVALID"},
-        )
+        raise BoardStateRequiredError(f"content_item_id={item.id}")
+    board_engine.validate_board(body.board_state)
 
     # 구름 에너지(§3.3): 유효한 보드 시도 1 소모 — 0이면 판정 전 429.
     # 보드 attempt는 멱등 가드가 없어 매 시도가 소모 대상이다(세션 재제출과 달리).
     # 소모는 요청 트랜잭션을 공유하므로 이후 503(규칙 부재) 등으로 예외 시 롤백되어
     # 구름이 새지 않는다 — 별도 커밋/예외 삼킴을 넣으면 이 보장이 깨진다.
-    try:
-        await energy_service.consume(db, user)
-    except energy_service.OutOfCloudsError as exc:
-        raise _out_of_clouds(exc)
+    await energy_service.consume(db, user)
 
-    # 서버 권위 판정 (§3.4) — 규칙 파일 부재/오류 시 503, 클리어 미기록
-    try:
-        phenomena, passed, rules = evaluate_board_answer(question, body.board_state)
-    except BoardRulesError as exc:
-        raise _rules_unavailable(exc)
+    # 서버 권위 판정 (§3.4) — 규칙 파일 부재/오류(BoardRulesError→503)는 전역 핸들러
+    phenomena, passed, rules = evaluate_board_answer(question, body.board_state)
 
     feedback = board_engine.select_feedback(question, phenomena, passed, rules)
 
@@ -302,9 +262,7 @@ async def attempt_puzzle(
     already_cleared = item.id in await _cleared_item_ids(db, user)
     xp_earned = board_clear_xp(passed, already_cleared)
     if xp_earned:
-        db_user = await db.get(User, user.id)
-        if db_user is not None:
-            await xp_service.add_xp(db, db_user, xp_earned)
+        await xp_service.add_xp(db, user.id, xp_earned)
 
     # 보드 탭 → 왕관 유입 (R8-01 §3.4): 그 퍼즐 **최초 클리어**(기존 XP+5와
     # 동일 조건)일 때만, 같은 concept_tag의 열린(잠금 통과) kind='board' 유닛에

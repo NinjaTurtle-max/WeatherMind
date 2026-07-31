@@ -23,7 +23,11 @@ from app.core.dependencies import get_current_user, get_db_with_rls
 from app.core.rate_limit import LIMIT_SUBMIT_ALL, LIMIT_TODAY, limiter, user_or_ip_key
 from app.models.session import Session
 from app.models.user import User
-from app.routers.session import _progress_of, _session_logs, _to_session_item
+from app.routers.session import (
+    _progress_of,
+    _session_logs,
+    session_today_response,
+)
 from app.schemas.onboarding import (
     PlacementAnswerOutcome,
     PlacementSubmitAllRequest,
@@ -90,28 +94,7 @@ async def start_placement(
             if session is None:
                 raise
 
-    logs = await _session_logs(db, session)
-    meta = {
-        m.get("quiz_id"): m
-        for m in (session.recipe_json or {}).get("items", [])
-    }
-    items = [
-        _to_session_item(
-            log.quiz_id,
-            log.question_json or {},
-            meta.get(log.quiz_id, {}).get("level_group", user.level_group),
-            source=meta.get(log.quiz_id, {}).get("source", "bank"),
-            slot_filled=meta.get(log.quiz_id, {}).get("slot_filled", False),
-        )
-        for log in logs
-    ]
-    return SessionToday(
-        session_id=session.id,
-        session_date=session.session_date,
-        mode=session.mode,
-        items=items,
-        progress=_progress_of(logs),
-    )
+    return await session_today_response(db, session, user)
 
 
 @router.post("/placement/submit-all", response_model=PlacementSubmitAllResult)

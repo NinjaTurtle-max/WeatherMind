@@ -112,6 +112,25 @@ def group_forecast_items(items: list[dict]) -> list[dict]:
     ]
 
 
+def forecast_numbers(forecasts: list[dict], category: str) -> list[float]:
+    """예보 항목 리스트에서 category 숫자값만 추출 (문자·결측 무시) —
+    세션 슬롯 주입(session_service)과 대결 정산(duel_service)이 공유."""
+    return [
+        float(f[category])
+        for f in forecasts
+        if isinstance(f.get(category), (int, float))
+    ]
+
+
+def forecast_temp_max(forecasts: list[dict]) -> float | None:
+    """일 최고기온 — TMX(일 1회) 우선, 없으면 TMP 최대 (06번 파싱 규칙)."""
+    tmx = forecast_numbers(forecasts, "TMX")
+    if tmx:
+        return tmx[0]
+    tmp = forecast_numbers(forecasts, "TMP")
+    return max(tmp) if tmp else None
+
+
 def latest_base_datetime(now: datetime | None = None) -> tuple[str, str]:
     """현재(KST) 기준 가장 최근에 발표된 단기예보 base_date/base_time.
 

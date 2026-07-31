@@ -20,7 +20,7 @@ from app.core.dependencies import get_current_user, get_db_with_rls
 from app.core.rate_limit import LIMIT_TODAY, limiter, user_or_ip_key
 from app.models.unit import Unit
 from app.models.user import User
-from app.routers.session import _progress_of, _session_logs, _to_session_item
+from app.routers.session import session_today_response
 from app.schemas.curriculum import CurriculumOut, SectionOut, UnitOut
 from app.schemas.session import SessionToday
 from app.services import curriculum_service, weatherbrain_service
@@ -86,25 +86,4 @@ async def create_unit_session(
         db, user, unit, today, abilities=abilities
     )
 
-    logs = await _session_logs(db, session)
-    meta = {
-        m.get("quiz_id"): m
-        for m in (session.recipe_json or {}).get("items", [])
-    }
-    items = [
-        _to_session_item(
-            log.quiz_id,
-            log.question_json or {},
-            user.level_group,
-            source=meta.get(log.quiz_id, {}).get("source", "bank"),
-            slot_filled=meta.get(log.quiz_id, {}).get("slot_filled", False),
-        )
-        for log in logs
-    ]
-    return SessionToday(
-        session_id=session.id,
-        session_date=session.session_date,
-        mode=session.mode,
-        items=items,
-        progress=_progress_of(logs),
-    )
+    return await session_today_response(db, session, user)

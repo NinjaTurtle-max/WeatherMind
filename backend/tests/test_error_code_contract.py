@@ -33,16 +33,18 @@ STANDARD_CODES = {
     "RATE_LIMITED",
 }
 
-# R3~R5 신규 코드 → 담당 라우터 소스 파일 (계약 §3.4-R3 / §3.4-R4 / §3.3·§3.5-R5)
+# R3~R5 신규 코드 → 담당 소스 파일(BACKEND_APP 기준 상대경로).
+# 도메인 예외(구름 소진·보드 상태) 변환은 main.py 전역 핸들러로 일원화됐다
+# (계약 §3.4-R3 / §3.4-R4 / §3.3·§3.5-R5).
 R3_R5_CODE_SOURCES = {
-    "BOARD_STATE_REQUIRED": ("session.py", "quiz.py", "board.py"),  # §3.4-R3
-    "BOARD_STATE_INVALID": ("session.py", "quiz.py", "board.py"),
-    "OUT_OF_CLOUDS": ("session.py", "board.py"),                    # §3.3-R5
-    "UNIT_LOCKED": ("curriculum.py",),                              # §3.5-R5
-    "UNIT_NOT_FOUND": ("curriculum.py",),
-    "ALREADY_SUBMITTED": ("duel.py",),                             # §3.4-R4
-    "INVALID_PREDICTION": ("duel.py",),
-    "INVALID_EVIDENCE": ("duel.py",),                              # §3.1-R9
+    "BOARD_STATE_REQUIRED": ("main.py",),                           # §3.4-R3
+    "BOARD_STATE_INVALID": ("main.py",),
+    "OUT_OF_CLOUDS": ("main.py",),                                  # §3.3-R5
+    "UNIT_LOCKED": ("routers/curriculum.py",),                      # §3.5-R5
+    "UNIT_NOT_FOUND": ("routers/curriculum.py",),
+    "ALREADY_SUBMITTED": ("routers/duel.py",),                     # §3.4-R4
+    "INVALID_PREDICTION": ("routers/duel.py",),
+    "INVALID_EVIDENCE": ("routers/duel.py",),                      # §3.1-R9
 }
 
 
@@ -60,12 +62,13 @@ def _all_backend_codes() -> set[str]:
 class TestBackendStandardCodes:
     """§3.1 표준 코드가 담당 소스 파일에 실재한다."""
 
-    def test_session_라우터_3종(self):
+    def test_session_라우터_2종(self):
         codes = _codes_in(BACKEND_APP / "routers" / "session.py", BACKEND_CODE_RE)
-        assert {"SESSION_NOT_COMPLETED", "ALREADY_ANSWERED", "SESSION_NOT_FOUND"} <= codes
+        assert {"SESSION_NOT_COMPLETED", "SESSION_NOT_FOUND"} <= codes
 
-    def test_quiz_라우터_재제출_409(self):
-        codes = _codes_in(BACKEND_APP / "routers" / "quiz.py", BACKEND_CODE_RE)
+    def test_재제출_409는_전역_핸들러(self):
+        """ALREADY_ANSWERED 변환은 main.py 전역 핸들러로 일원화됐다."""
+        codes = _codes_in(BACKEND_APP / "main.py", BACKEND_CODE_RE)
         assert "ALREADY_ANSWERED" in codes
 
     def test_레이트리밋_429_핸들러(self):
@@ -90,15 +93,14 @@ class TestR3R5NewCodes:
         assert not missing, f"백엔드에 없는 신규 코드: {sorted(missing)}"
 
     @pytest.mark.parametrize("code", sorted(R3_R5_CODE_SOURCES))
-    def test_담당_라우터_소스에_실재(self, code):
-        routers = BACKEND_APP / "routers"
+    def test_담당_소스에_실재(self, code):
         located = {
             fname
             for fname in R3_R5_CODE_SOURCES[code]
-            if code in _codes_in(routers / fname, BACKEND_CODE_RE)
+            if code in _codes_in(BACKEND_APP / fname, BACKEND_CODE_RE)
         }
         assert located, (
-            f"{code}가 담당 라우터 {R3_R5_CODE_SOURCES[code]} 어디에도 없음 "
+            f"{code}가 담당 소스 {R3_R5_CODE_SOURCES[code]} 어디에도 없음 "
             "— 계약(§3.4-R3/§3.4-R4/§3.3·§3.5-R5) 위반"
         )
 

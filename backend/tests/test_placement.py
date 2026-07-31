@@ -299,13 +299,13 @@ class TestPlacementContract:
         assert ps.PLACEMENT_SIZE == 6
 
     def test_사전_b는_weatherbrain_service_단일_소유(self):
-        """R7 통합 DRY: placement_service는 사전 b를 재정의하지 않고
-        weatherbrain_service 것을 임포트한다(동일 객체). ai-worker priors와의
+        """R7 통합 DRY: placement_service는 사전 b를 재정의하지 않는다 —
+        weatherbrain_service를 직접 참조(소스 텍스트 가드). ai-worker priors와의
         값 드리프트 감시는 test_weatherbrain_contract가 단독 소유."""
-        from app.services import weatherbrain_service as wb
+        import inspect
 
-        assert ps.LEVEL_GROUP_ITEM_B is wb.LEVEL_GROUP_ITEM_B
-        assert ps.prior_item_b("unknown_group") == wb.DEFAULT_ITEM_B
+        src = inspect.getsource(ps.assemble_placement_responses)
+        assert "weatherbrain_service.LEVEL_GROUP_ITEM_B" in src
 
     def test_교차_배치_그룹은_저작_순서와_정합(self):
         assert ps.LEVEL_GROUPS == ("elementary", "middle_high", "adult")

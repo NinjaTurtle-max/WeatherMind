@@ -11,7 +11,6 @@ export const useProgressStore = create((set) => ({
   level: 1,
   streakCount: 0,
   nextLevelXp: 50,
-  lastXpGain: 0, // XP 획득 애니메이션용 (ResultBanner)
   spine: null, // {units_total, units_cleared, crowns_earned, crowns_total, current_unit|null}
 
   setProgress: ({ xp, level, streak_count, next_level_xp, spine }) =>
@@ -26,13 +25,7 @@ export const useProgressStore = create((set) => ({
   setStreak: (streakCount) => set({ streakCount }),
 
   /** 퀴즈 답안 제출 직후 낙관적 반영 (서버 재조회 전까지) */
-  addXp: (amount) =>
-    set((state) => ({
-      xp: state.xp + (amount || 0),
-      lastXpGain: amount || 0,
-    })),
+  addXp: (amount) => set((state) => ({ xp: state.xp + (amount || 0) })),
 
-  clearLastXpGain: () => set({ lastXpGain: 0 }),
-
-  reset: () => set({ xp: 0, level: 1, streakCount: 0, nextLevelXp: 50, lastXpGain: 0, spine: null }),
+  reset: () => set({ xp: 0, level: 1, streakCount: 0, nextLevelXp: 50, spine: null }),
 }));

@@ -13,10 +13,6 @@ KMA_VILAGE_FCST_URL = os.getenv(
     "KMA_VILAGE_FCST_URL",
     "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst",
 )
-KMA_MID_LAND_FCST_URL = os.getenv(
-    "KMA_MID_LAND_FCST_URL",
-    "https://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst",
-)
 KMA_ASOS_DALY_URL = os.getenv(
     "KMA_ASOS_DALY_URL",
     "https://apis.data.go.kr/1360000/AsosDalyInfoService/getAsosDalyInfoList",
@@ -28,10 +24,6 @@ AI_WORKER_INTERNAL_API_KEY = os.getenv("AI_WORKER_INTERNAL_API_KEY", "")
 
 # ── Redis 키 TTL (docs/specs/01_database_schema.md Redis 키 네이밍 규칙) ──
 WEATHER_CACHE_TTL_SEC = 60 * 60          # weather:{date}:{region} — 1시간
-QUIZ_CACHE_TTL_SEC = 24 * 60 * 60       # quiz:{date}:{level_group} — 24시간
 
-# 일일 퀴즈 대상 레벨 그룹 3종 (01번 스펙 users.level_group CHECK)
-LEVEL_GROUPS = ("elementary", "middle_high", "adult")
-
-# 퀴즈/리그 기준 지역 (MVP 기본값)
+# 리그 기준 지역 (MVP 기본값)
 DEFAULT_REGION = "서울"

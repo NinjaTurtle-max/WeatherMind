@@ -4,7 +4,7 @@ import { duelApi } from '../../api';
 import { DUEL_WIN_XP } from '../../lib/xpConstants';
 import { useProgressStore } from '../../store/progressStore';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import DuelForm from './DuelForm';
+import ForecastForm from '../../components/ForecastForm';
 import BriefingRoom from './BriefingRoom';
 import EvidencePicker from './EvidencePicker';
 import CasterJudgmentCard, { CasterGradeBadge } from './CasterJudgmentCard';
@@ -142,10 +142,20 @@ export default function DuelPage() {
             disabled={submitMutation.isPending}
           />
           <div className="mt-3">
-            <DuelForm
+            <ForecastForm
+              title="내일 예보를 맞혀보세요"
+              description="AI 캐스터와 내일 실측을 두고 대결해요. 승리 시 +15 XP! (하루 1회)"
+              notice={
+                today?.base_forecast &&
+                `📡 참고 예보 — 최고 ${today.base_forecast.temp_max}℃ · 강수확률 ${today.base_forecast.rain_prob}%`
+              }
+              fields={[
+                { name: 'temp_max', label: '내일 최고기온(°C)', step: '0.1' },
+                { name: 'rain_prob', label: '강수확률(%)', min: '0', max: '100' },
+              ]}
+              submitLabel="예보 제출 (1일 1회)"
               onSubmit={(values) => submitMutation.mutate({ ...values, evidence })}
               submitting={submitMutation.isPending}
-              baseForecast={today?.base_forecast}
             />
           </div>
           {submitError && (

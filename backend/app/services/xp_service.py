@@ -32,7 +32,7 @@ import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -136,10 +136,14 @@ def quiz_xp(is_correct: bool, is_first_try: bool, is_weak: bool) -> int:
     return xp
 
 
-async def add_xp(session: AsyncSession, user: User, amount: int) -> int:
-    """유저 XP 가산. 반환: 가산된 XP."""
-    user.xp += amount
-    session.add(user)
+async def add_xp(session: AsyncSession, user_id: uuid.UUID, amount: int) -> int:
+    """유저 XP 원자 가산(UPDATE xp = xp + n). 반환: 가산된 XP.
+
+    User 로드·None 가드가 필요 없다 — 미존재 유저면 무동작(0행 갱신).
+    """
+    await session.execute(
+        update(User).where(User.id == user_id).values(xp=User.xp + amount)
+    )
     return amount
 
 

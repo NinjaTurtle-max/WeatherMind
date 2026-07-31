@@ -1,13 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
-  XAxis,
-  YAxis,
-  Tooltip,
-} from 'recharts';
 import { progressApi } from '../../api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {
@@ -28,25 +19,9 @@ import {
  * 배정한다. θ(로짓 -3..3)를 0..100 표시 스케일로 정규화해 가로 막대로 보여주고,
  * num_responses===0(사전 배정, 아직 측정 아님) 개념은 옅은 막대·안내 문구로 구분한다.
  * θ 표시 헬퍼(정규화·한글 라벨·칩 색)는 lib/abilityDisplay로 추출해
- * 배치고사 결과 화면(R7-01 S3)과 공유한다.
+ * 배치고사 결과 화면(R7-01 S3)과 공유하며, 막대도 같은 div 관용구를 쓴다
+ * (PlacementSummary와 동일 — 차트 라이브러리 불사용).
  */
-
-function AbilityTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const row = payload[0].payload;
-  return (
-    <div className="rounded-xl bg-white px-3 py-2 text-xs shadow-md ring-1 ring-slate-200">
-      <p className="font-bold text-slate-800">{row.name}</p>
-      <p className="mt-0.5 text-slate-500">
-        레벨 <span className="font-semibold text-slate-700">{row.levelKo}</span>
-        {' · '}θ {row.theta.toFixed(2)}
-      </p>
-      <p className="mt-0.5 text-slate-400">
-        {row.isPrior ? '아직 응답 없음 · 초기 배정' : `응답 ${row.num_responses}회 기반`}
-      </p>
-    </div>
-  );
-}
 
 export default function WeatherBrainPanel() {
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -112,8 +87,6 @@ export default function WeatherBrainPanel() {
     );
   }
 
-  const chartHeight = rows.length * 40 + 12;
-
   return (
     <Card>
       <Header />
@@ -122,56 +95,37 @@ export default function WeatherBrainPanel() {
         개념별 이해도를 추정해 문제 난이도를 맞춰줘요. 막대가 짧을수록 더 연습이 필요한 개념이에요.
       </p>
 
-      <div style={{ width: '100%', height: chartHeight }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={rows}
-            layout="vertical"
-            margin={{ top: 0, right: 12, bottom: 0, left: 0 }}
-            barCategoryGap={8}
-          >
-            <XAxis type="number" domain={[0, 100]} hide />
-            <YAxis
-              type="category"
-              dataKey="name"
-              width={78}
-              tickLine={false}
-              axisLine={false}
-              tick={{ fontSize: 12, fill: '#475569' }}
-            />
-            <Tooltip cursor={{ fill: '#f1f5f9' }} content={<AbilityTooltip />} />
-            <Bar dataKey="score" radius={[0, 6, 6, 0]} isAnimationActive={false}>
-              {rows.map((row, i) => (
-                <Cell
-                  key={i}
-                  fill={row.isPrior ? COLOR_PRIOR : COLOR_MEASURED}
-                  fillOpacity={row.isPrior ? 0.7 : 1}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* 개념별 레벨 + 초기 배정 안내 */}
-      <ul className="mt-3 flex flex-col gap-1.5">
+      {/* 개념별 막대(PlacementSummary와 동일 div 관용구) + 레벨 칩 + 초기 배정 안내 */}
+      <ul className="flex flex-col gap-2.5">
         {rows.map((row) => (
-          <li key={row.name} className="flex items-center justify-between gap-2 text-xs">
-            <span className="min-w-0 truncate font-semibold text-slate-700">{row.name}</span>
-            <span className="flex shrink-0 items-center gap-1.5">
-              {row.isPrior && (
-                <span className="text-[10px] font-medium text-slate-400">
-                  아직 응답 없음 · 초기 배정
+          <li key={row.name} title={`θ ${row.theta.toFixed(2)} · ${row.isPrior ? '초기 배정' : `응답 ${row.num_responses}회 기반`}`}>
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="min-w-0 truncate font-semibold text-slate-700">{row.name}</span>
+              <span className="flex shrink-0 items-center gap-1.5">
+                {row.isPrior && (
+                  <span className="text-[10px] font-medium text-slate-400">
+                    아직 응답 없음 · 초기 배정
+                  </span>
+                )}
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                    LEVEL_CHIP[row.level_label] ?? 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {row.levelKo}
                 </span>
-              )}
-              <span
-                className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                  LEVEL_CHIP[row.level_label] ?? 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                {row.levelKo}
               </span>
-            </span>
+            </div>
+            <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full transition-none"
+                style={{
+                  width: `${row.score}%`,
+                  backgroundColor: row.isPrior ? COLOR_PRIOR : COLOR_MEASURED,
+                  opacity: row.isPrior ? 0.7 : 1,
+                }}
+              />
+            </div>
           </li>
         ))}
       </ul>

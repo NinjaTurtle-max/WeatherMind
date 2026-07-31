@@ -50,8 +50,8 @@ class DuelToday(BaseModel):
 
     submitted=false면 ai_pred=null(제출 전 비공개), true면 내 예측·AI 예측을 함께 준다.
     result/user_score/ai_score는 다음날 정산 후 채워진다(그 전엔 null).
-    base_forecast는 KMA 대상일 예보(참고용, R9-01 §3.1 additive) — 프론트 DuelForm
-    배너가 렌더한다. KMA 실패·키 부재 시 null(캐스터는 내부 폴백 base로 동작하되
+    base_forecast는 KMA 대상일 예보(참고용, R9-01 §3.1 additive) — 프론트 예보
+    입력 폼(ForecastForm) 배너가 렌더한다. KMA 실패·키 부재 시 null(캐스터는 내부 폴백 base로 동작하되
     브리핑엔 비노출).
     caster_grade(R9-01 §3.2 additive): 제출 시점 캐스터 티어명 — 프론트
     "🤖 {티어}급 캐스터" 표시용. 미제출·R9 이전 행은 null.
