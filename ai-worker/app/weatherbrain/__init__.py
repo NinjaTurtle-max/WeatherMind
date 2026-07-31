@@ -12,21 +12,3 @@ Router Chain에 "개념별 실력 추정치(θ)"를 공급하고 신규 유저�
 ai-worker는 계산만 담당한다(RUNBOOK §2.8 curriculum-validate와 동일한 무DB 계약).
 """
 
-from app.weatherbrain.irt import (
-    EstimatedAbility,
-    calibrate_items,
-    estimate_ability,
-    irf,
-)
-from app.weatherbrain.placement import initial_abilities
-from app.weatherbrain.priors import level_group_prior, prior_item_b
-
-__all__ = [
-    "EstimatedAbility",
-    "calibrate_items",
-    "estimate_ability",
-    "irf",
-    "initial_abilities",
-    "level_group_prior",
-    "prior_item_b",
-]
