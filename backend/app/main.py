@@ -7,6 +7,7 @@
 - /health: 05번 스펙 필수 구현
 - CORS: 프론트엔드 origin 허용 (nginx 80 / vite dev 5173)
 """
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
@@ -31,6 +32,11 @@ from app.routers import (
     progress,
     session,
 )
+from app.services.answer_service import AlreadyAnsweredError, BoardStateRequiredError
+from app.services.board_engine import BoardRulesError, BoardValidationError
+from app.services.energy_service import OutOfCloudsError
+
+logger = logging.getLogger(__name__)
 
 # 상태코드 → 기본 에러 코드
 _DEFAULT_CODES = {
@@ -105,6 +111,64 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
             "detail": f"요청이 너무 잦습니다. 잠시 후 다시 시도해주세요. (한도: {exc.detail})",
             "code": "RATE_LIMITED",
         },
+    )
+
+
+# ── 도메인 예외 → 표준 에러 응답 (라우터별 try/except 글루 일원화) ────────────
+# 소모·검증은 요청 트랜잭션(get_db_with_rls) 안에서 일어나므로, 여기서 변환되는
+# 예외도 HTTPException과 동일하게 롤백을 거친다 — "제출 성공 시에만 소모" 불변.
+
+
+@app.exception_handler(OutOfCloudsError)
+async def out_of_clouds_handler(request: Request, exc: OutOfCloudsError):
+    """구름 소진 → 429 OUT_OF_CLOUDS (다음 회복 ETA 포함, §3.3·§3.5)."""
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={
+            "detail": "구름이 부족합니다. 시간이 지나면 회복됩니다.",
+            "code": "OUT_OF_CLOUDS",
+            "next_regen_sec": exc.next_regen_sec,
+        },
+    )
+
+
+@app.exception_handler(BoardStateRequiredError)
+async def board_state_required_handler(request: Request, exc: BoardStateRequiredError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "detail": "보드 유형 문항은 board_state가 필요합니다.",
+            "code": "BOARD_STATE_REQUIRED",
+        },
+    )
+
+
+@app.exception_handler(BoardValidationError)
+async def board_validation_handler(request: Request, exc: BoardValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "detail": f"보드 상태가 올바르지 않습니다: {exc}",
+            "code": "BOARD_STATE_INVALID",
+        },
+    )
+
+
+@app.exception_handler(AlreadyAnsweredError)
+async def already_answered_handler(request: Request, exc: AlreadyAnsweredError):
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"detail": "이미 답안을 제출한 퀴즈입니다.", "code": "ALREADY_ANSWERED"},
+    )
+
+
+@app.exception_handler(BoardRulesError)
+async def board_rules_handler(request: Request, exc: BoardRulesError):
+    """규칙 파일 부재·스키마 오류 → 503 (데이터 저작 대기 또는 데이터 오류)."""
+    logger.warning("보드 규칙 로드 실패: %s", exc)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": str(exc), "code": "BOARD_RULES_UNAVAILABLE"},
     )
 
 

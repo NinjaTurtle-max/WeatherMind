@@ -45,25 +45,11 @@ from app.services import (
     weatherbrain_service,
 )
 from app.services.ai_client import AIWorkerError
-from app.services.answer_service import AlreadyAnsweredError, BoardStateRequiredError
-from app.services.board_engine import BoardRulesError, BoardValidationError
 from app.services.weather_api import KST
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/session", tags=["session"])
-
-
-def _out_of_clouds(exc: energy_service.OutOfCloudsError) -> HTTPException:
-    """구름 소진 → 429 OUT_OF_CLOUDS (다음 회복 ETA 포함, §3.3·§3.5)."""
-    return HTTPException(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail={
-            "detail": "구름이 부족합니다. 시간이 지나면 회복됩니다.",
-            "code": "OUT_OF_CLOUDS",
-            "next_regen_sec": exc.next_regen_sec,
-        },
-    )
 
 
 # board 플레이에 필요한 template 필드 화이트리스트 (§3.3·§3.5) — correct_answer는
@@ -217,25 +203,6 @@ async def get_today_session(
     )
 
 
-def _resolve_board_answer(
-    log: QuizLog, answer: str, board_state: dict | None
-) -> str:
-    """§3.4 board 제출을 answer 문자열로 정규화 — 누락 422 / 형식 위반 422."""
-    try:
-        return answer_service.resolve_answer(log, answer, board_state)
-    except BoardStateRequiredError:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "detail": "보드 유형 문항은 board_state가 필요합니다.",
-                "code": "BOARD_STATE_REQUIRED",
-            },
-        )
-    except BoardValidationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"detail": f"보드 상태가 올바르지 않습니다: {exc}", "code": "BOARD_STATE_INVALID"},
-        )
 
 
 async def _load_session_or_404(
@@ -292,30 +259,18 @@ async def submit_session_answer(
         # 소모는 요청 트랜잭션(get_db_with_rls) 안에서 일어나므로, 이후 422/503/409로
         # 예외가 나면 롤백되어 구름이 새지 않는다 — "제출 성공 시에만 소모"가 성립한다.
         # (이 속성은 소모가 요청 트랜잭션을 공유할 때만 유효: 별도 커밋/예외 삼킴 금지.)
-        try:
-            await energy_service.consume(db, user)
-        except energy_service.OutOfCloudsError as exc:
-            raise _out_of_clouds(exc)
+        # OutOfCloudsError → 429는 main.py 전역 핸들러가 변환한다.
+        await energy_service.consume(db, user)
 
-    # board 유형(§3.4): board_state 필수·검증, answer 문자열로 정규화
-    answer = _resolve_board_answer(log, body.answer, body.board_state)
+    # board 유형(§3.4): board_state 필수·검증, answer 문자열로 정규화 —
+    # BoardStateRequired/BoardValidation → 422는 main.py 전역 핸들러가 변환.
+    answer = answer_service.resolve_answer(log, body.answer, body.board_state)
 
-    # 멱등 가드·세션 XP 누적은 서비스 층 (R2-01 웨이브 1 리뷰 1번 —
-    # /quiz 경로로 세션 문항을 제출해도 session.xp_total이 정확)
-    try:
-        result = await answer_service.submit_answer_for_log(
-            db, user, log, answer, body.elapsed_sec, grant_xp=not is_placement
-        )
-    except AlreadyAnsweredError:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"detail": "이미 답안을 제출한 퀴즈입니다.", "code": "ALREADY_ANSWERED"},
-        )
-    except BoardRulesError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"detail": str(exc), "code": "BOARD_RULES_UNAVAILABLE"},
-        )
+    # 멱등 가드·세션 XP 누적은 서비스 층 (R2-01 웨이브 1 리뷰 1번).
+    # AlreadyAnswered → 409, BoardRules → 503도 전역 핸들러 담당.
+    result = await answer_service.submit_answer_for_log(
+        db, user, log, answer, body.elapsed_sec, grant_xp=not is_placement
+    )
 
     logs = await _session_logs(db, session)
     return SessionAnswerResult(
