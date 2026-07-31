@@ -39,9 +39,18 @@ function RequireAuth() {
   );
 }
 
+/**
+ * R9-09 버그픽스: 인증 직후 목적지는 authStore.postAuthRoute가 단일 진실원.
+ * 가입 성공 흐름에서 setTokens(외부 스토어 구독 = sync 우선 플러시)가
+ * 페이지의 navigate('/onboarding/placement')보다 먼저 렌더를 일으키면, 이
+ * 컴포넌트의 <Navigate>가 뒤늦게 발화해 목적지를 '/'로 덮어쓰는 경합이 있었다
+ * (가입 직후 배치고사 미진입 회귀). 페이지가 의도(postAuthRoute)를 스토어에
+ * 실어 두면 어느 쪽이 이기든 같은 곳으로 간다 — 경합 자체가 무해해진다.
+ */
 function RedirectIfAuthed({ children }) {
   const accessToken = useAuthStore((s) => s.accessToken);
-  if (accessToken) return <Navigate to="/" replace />;
+  const postAuthRoute = useAuthStore((s) => s.postAuthRoute);
+  if (accessToken) return <Navigate to={postAuthRoute ?? '/'} replace />;
   return children;
 }
 

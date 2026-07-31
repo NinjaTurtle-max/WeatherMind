@@ -18,6 +18,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
+  const setPostAuthRoute = useAuthStore((s) => s.setPostAuthRoute);
 
   const [form, setForm] = useState({
     email: '',
@@ -45,6 +46,10 @@ export default function RegisterPage() {
       } catch {
         // 로그인 실패 시에도 register가 준 access_token으로 진입 가능
       }
+      // 가입 직후 목적지 의도를 토큰 반영 "전에" 스토어에 실어 둔다(R9-09 버그픽스).
+      // setTokens가 렌더를 먼저 일으켜 RedirectIfAuthed의 <Navigate>가 발화해도
+      // 같은 목적지(배치고사)로 가므로 아래 navigate와 경합하지 않는다.
+      setPostAuthRoute('/onboarding/placement');
       setTokens({ accessToken, refreshToken });
       setUser({
         user_id: registered.user_id,
