@@ -15,7 +15,3 @@ def get_redis() -> redis.Redis:
 
 def weather_key(date_str: str, region: str) -> str:
     return f"weather:{date_str}:{region}"
-
-
-def quiz_key(date_str: str, level_group: str) -> str:
-    return f"quiz:{date_str}:{level_group}"

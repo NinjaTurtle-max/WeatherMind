@@ -1,7 +1,7 @@
 """WeatherMind backend FastAPI 앱 (포트 8000).
 
-- 라우터 5종: /api/v1/auth, /api/v1/quiz, /api/v1/session (R2-01 §3.1),
-  /api/v1/progress, /api/v1/league (02번 스펙)
+- 라우터: /api/v1/auth, /api/v1/session (R2-01 §3.1),
+  /api/v1/progress, /api/v1/league (02번 스펙) 외
 - 에러 응답 포맷: {"detail": "메시지", "code": "ERROR_CODE"} (02번 공통 규칙)
 - 레이트리밋(slowapi): R2-01 §3.6 — 초과 시 429 + code=RATE_LIMITED
 - /health: 05번 스펙 필수 구현
@@ -29,7 +29,6 @@ from app.routers import (
     league,
     onboarding,
     progress,
-    quiz,
     session,
 )
 
@@ -130,7 +129,6 @@ async def health():
 
 
 app.include_router(auth.router)
-app.include_router(quiz.router)
 app.include_router(session.router)
 app.include_router(board.router)
 app.include_router(progress.router)

@@ -35,8 +35,8 @@ STANDARD_CODES = {
 
 # R3~R5 신규 코드 → 담당 라우터 소스 파일 (계약 §3.4-R3 / §3.4-R4 / §3.3·§3.5-R5)
 R3_R5_CODE_SOURCES = {
-    "BOARD_STATE_REQUIRED": ("session.py", "quiz.py", "board.py"),  # §3.4-R3
-    "BOARD_STATE_INVALID": ("session.py", "quiz.py", "board.py"),
+    "BOARD_STATE_REQUIRED": ("session.py", "board.py"),             # §3.4-R3
+    "BOARD_STATE_INVALID": ("session.py", "board.py"),
     "OUT_OF_CLOUDS": ("session.py", "board.py"),                    # §3.3-R5
     "UNIT_LOCKED": ("curriculum.py",),                              # §3.5-R5
     "UNIT_NOT_FOUND": ("curriculum.py",),
@@ -63,10 +63,6 @@ class TestBackendStandardCodes:
     def test_session_라우터_3종(self):
         codes = _codes_in(BACKEND_APP / "routers" / "session.py", BACKEND_CODE_RE)
         assert {"SESSION_NOT_COMPLETED", "ALREADY_ANSWERED", "SESSION_NOT_FOUND"} <= codes
-
-    def test_quiz_라우터_재제출_409(self):
-        codes = _codes_in(BACKEND_APP / "routers" / "quiz.py", BACKEND_CODE_RE)
-        assert "ALREADY_ANSWERED" in codes
 
     def test_레이트리밋_429_핸들러(self):
         """§3.6: 초과 시 429 + code=RATE_LIMITED — main.py 전역 핸들러 담당."""

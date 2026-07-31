@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from app.schemas.board import BoardAttemptRequest, BoardAttemptResult
-from app.schemas.quiz import AnswerRequest, AnswerResult
+from app.schemas.quiz import AnswerResult
 from app.schemas.session import SessionAnswerRequest
 from app.services import answer_service, board_engine
 
@@ -55,13 +55,12 @@ class TestBoardAuthorityStructural:
 
     def test_요청_스키마는_board_state만_받는다(self):
         assert set(BoardAttemptRequest.model_fields) == {"board_state"}
-        # 세션·퀴즈 answer 요청도 board_state 외에 판정 필드가 없다
-        assert "board_state" in AnswerRequest.model_fields
+        # 세션 answer 요청도 board_state 외에 판정 필드가 없다
         assert "board_state" in SessionAnswerRequest.model_fields
 
     def test_요청_스키마에_판정_필드_부재(self):
         forbidden = {"passed", "phenomena", "is_correct", "cleared", "score"}
-        for schema in (BoardAttemptRequest, AnswerRequest, SessionAnswerRequest):
+        for schema in (BoardAttemptRequest, SessionAnswerRequest):
             leaked = forbidden & set(schema.model_fields)
             assert not leaked, f"{schema.__name__}에 클라이언트 판정 주입 필드: {leaked}"
 
