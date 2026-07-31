@@ -13,10 +13,6 @@ KMA_VILAGE_FCST_URL = os.getenv(
     "KMA_VILAGE_FCST_URL",
     "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst",
 )
-KMA_MID_LAND_FCST_URL = os.getenv(
-    "KMA_MID_LAND_FCST_URL",
-    "https://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst",
-)
 KMA_ASOS_DALY_URL = os.getenv(
     "KMA_ASOS_DALY_URL",
     "https://apis.data.go.kr/1360000/AsosDalyInfoService/getAsosDalyInfoList",

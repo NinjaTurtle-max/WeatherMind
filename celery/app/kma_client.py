@@ -125,18 +125,6 @@ def get_short_forecast(region: str, base_date: str, base_time: str) -> dict:
     return {"region": region, "forecasts": forecasts}
 
 
-def get_mid_forecast(reg_id: str, tm_fc: str) -> dict:
-    """중기예보(getMidLandFcst). 3~10일 후 오전/오후 날씨 + 강수확률."""
-    items = _request_items(config.KMA_MID_LAND_FCST_URL, {
-        "pageNo": 1,
-        "numOfRows": 10,
-        "dataType": "JSON",
-        "regId": reg_id,
-        "tmFc": tm_fc,
-    })
-    return items[0] if items else {}
-
-
 def get_past_observation(start_dt: str, end_dt: str, stn_id: str) -> list[dict]:
     """과거관측(getAsosDalyInfoList). 일별 관측값 리스트.
 
