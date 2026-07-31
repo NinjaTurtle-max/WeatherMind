@@ -505,9 +505,7 @@ async def grant_unit_crown(
     prog.crowns = new_crowns
     if newly_cleared:
         prog.cleared_at = datetime.now(timezone.utc)
-        db_user = await db.get(User, user.id)
-        if db_user is not None:
-            await xp_service.add_xp(db, db_user, xp_earned)
+        await xp_service.add_xp(db, user.id, xp_earned)
 
     await db.flush()
     return {

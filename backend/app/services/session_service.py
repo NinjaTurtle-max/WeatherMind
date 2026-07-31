@@ -38,7 +38,7 @@ from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.user import User
 from app.models.weak_tag import WeakTag
-from app.services import ai_client, weatherbrain_service
+from app.services import ai_client, weather_api, weatherbrain_service
 from app.services.ai_client import AIWorkerError
 from app.services.weather_api import KST, SKY_TEXT, get_today_weather
 
@@ -87,28 +87,22 @@ def extract_slot_values(weather: dict) -> dict[str, str]:
 
     forecasts = weather.get("forecasts") or []
 
-    def _numbers(category: str) -> list[float]:
-        return [
-            float(f[category])
-            for f in forecasts
-            if isinstance(f.get(category), (int, float))
-        ]
+    temp_max = weather_api.forecast_temp_max(forecasts)
+    if temp_max is not None:
+        values["today.temp_max"] = _fmt_num(temp_max)
 
-    tmx, tmn, tmp = _numbers("TMX"), _numbers("TMN"), _numbers("TMP")
-    if tmx:
-        values["today.temp_max"] = _fmt_num(tmx[0])
-    elif tmp:
-        values["today.temp_max"] = _fmt_num(max(tmp))
+    tmn = weather_api.forecast_numbers(forecasts, "TMN")
+    tmp = weather_api.forecast_numbers(forecasts, "TMP")
     if tmn:
         values["today.temp_min"] = _fmt_num(tmn[0])
     elif tmp:
         values["today.temp_min"] = _fmt_num(min(tmp))
 
-    pop = _numbers("POP")
+    pop = weather_api.forecast_numbers(forecasts, "POP")
     if pop:
         values["today.rain_prob"] = _fmt_num(max(pop))
 
-    sky = _numbers("SKY")
+    sky = weather_api.forecast_numbers(forecasts, "SKY")
     if sky:
         most_common = Counter(int(v) for v in sky).most_common(1)[0][0]
         values["today.sky"] = SKY_TEXT.get(most_common, "맑음")

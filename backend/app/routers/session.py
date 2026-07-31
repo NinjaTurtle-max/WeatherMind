@@ -126,6 +126,38 @@ def _progress_of(logs: list[QuizLog]) -> SessionProgress:
     return SessionProgress(answered=answered, total=len(logs))
 
 
+async def session_today_response(
+    db: AsyncSession, session: Session, user: User
+) -> SessionToday:
+    """세션 → SessionToday 응답 조립 — daily·unit(curriculum)·placement(onboarding) 공용.
+
+    recipe_json items 메타에 level_group이 있으면(배치고사) 그 값을, 없으면
+    user.level_group을 쓴다 — daily·unit는 메타에 키가 없어 동작 동일.
+    """
+    logs = await _session_logs(db, session)
+    meta = {
+        m.get("quiz_id"): m
+        for m in (session.recipe_json or {}).get("items", [])
+    }
+    items = [
+        _to_session_item(
+            log.quiz_id,
+            log.question_json or {},
+            meta.get(log.quiz_id, {}).get("level_group", user.level_group),
+            source=meta.get(log.quiz_id, {}).get("source", "bank"),
+            slot_filled=meta.get(log.quiz_id, {}).get("slot_filled", False),
+        )
+        for log in logs
+    ]
+    return SessionToday(
+        session_id=session.id,
+        session_date=session.session_date,
+        mode=session.mode,
+        items=items,
+        progress=_progress_of(logs),
+    )
+
+
 async def _get_today_session(
     db: AsyncSession, user: User, today
 ) -> Session | None:
@@ -179,29 +211,7 @@ async def get_today_session(
                 },
             )
 
-    logs = await _session_logs(db, session)
-    meta = {
-        m.get("quiz_id"): m
-        for m in (session.recipe_json or {}).get("items", [])
-    }
-    items = [
-        _to_session_item(
-            log.quiz_id,
-            log.question_json or {},
-            user.level_group,
-            source=meta.get(log.quiz_id, {}).get("source", "bank"),
-            slot_filled=meta.get(log.quiz_id, {}).get("slot_filled", False),
-        )
-        for log in logs
-    ]
-    return SessionToday(
-        session_id=session.id,
-        session_date=session.session_date,
-        mode=session.mode,
-        items=items,
-        progress=_progress_of(logs),
-    )
-
+    return await session_today_response(db, session, user)
 
 
 

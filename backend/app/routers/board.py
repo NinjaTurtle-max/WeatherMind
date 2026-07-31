@@ -262,9 +262,7 @@ async def attempt_puzzle(
     already_cleared = item.id in await _cleared_item_ids(db, user)
     xp_earned = board_clear_xp(passed, already_cleared)
     if xp_earned:
-        db_user = await db.get(User, user.id)
-        if db_user is not None:
-            await xp_service.add_xp(db, db_user, xp_earned)
+        await xp_service.add_xp(db, user.id, xp_earned)
 
     # 보드 탭 → 왕관 유입 (R8-01 §3.4): 그 퍼즐 **최초 클리어**(기존 XP+5와
     # 동일 조건)일 때만, 같은 concept_tag의 열린(잠금 통과) kind='board' 유닛에
