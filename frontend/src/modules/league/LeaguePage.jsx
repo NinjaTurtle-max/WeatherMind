@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { duelApi, leagueApi } from '../../api';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import PredictionForm from './PredictionForm';
+import ForecastForm from '../../components/ForecastForm';
 import Leaderboard from './Leaderboard';
 import BriefingRoom from '../duel/BriefingRoom';
 
@@ -108,7 +108,17 @@ export default function LeaguePage() {
         </div>
       ) : (
         <div className="mb-4">
-          <PredictionForm
+          <ForecastForm
+            title="이번 주 날씨를 예측해보세요"
+            fields={[
+              { name: 'temp_max', label: '최고기온(°C)', step: '0.1' },
+              { name: 'temp_min', label: '최저기온(°C)', step: '0.1' },
+              { name: 'rain_prob', label: '강수확률(%)', min: '0', max: '100' },
+            ]}
+            submitLabel="예측 제출 (주 1회)"
+            validate={(v) =>
+              v.temp_min > v.temp_max ? '최저기온이 최고기온보다 높을 수 없어요.' : null
+            }
             onSubmit={(values) => predictMutation.mutate(values)}
             submitting={predictMutation.isPending}
           />

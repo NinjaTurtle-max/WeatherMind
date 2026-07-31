@@ -34,9 +34,6 @@ export const useSessionStore = create((set, get) => ({
   error: null,
   isSubmitting: false, // answer/complete 왕복 중 (상태 전이 없이 플래그만)
 
-  currentItem: () => get().items[get().currentIndex] ?? null,
-  isLastItem: () => get().currentIndex + 1 >= get().items.length,
-
   startLoading: () => set({ status: SESSION_STATUS.LOADING, error: null }),
 
   /** GET /session/today 응답 반영 — 재진입 시 answered 위치에서 재개 */

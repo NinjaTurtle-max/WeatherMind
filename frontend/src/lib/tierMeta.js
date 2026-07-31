@@ -63,7 +63,7 @@ export function tierMeta(code) {
   return TIER_META[code] ?? DEFAULT_TIER;
 }
 
-/** ELO → tier 코드 (계약 §3.2 정산 산정식 — 표시용 로컬 계산에도 재사용) */
+/** ELO → tier 코드 (계약 §3.2 정산 산정식) — mock 서버(apiMockPlugin)가 사용 */
 export function tierFromElo(elo) {
   const n = Number(elo);
   if (Number.isNaN(n)) return 'stratus';
