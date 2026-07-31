@@ -19,7 +19,7 @@ import {
   cloudMeta,
 } from './boardDisplay';
 import { Glyph, SymbolIcon } from './boardSymbols';
-import { PhenomenonStage } from './boardAnimations';
+import CrossSectionPanel from './CrossSectionPanel';
 import {
   InfographicDefs,
   PrecipCanvas,
@@ -293,10 +293,10 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         </div>
       )}
 
-      {/* 현상 스테이지(§3.3 ④) — rule_id→프리셋 애니메이션 + explain 캡션.
-          로컬 미리보기 엔진 결과로 즉시 재생, 서버 판정 도착 시 확정 리플레이.
-          prefers-reduced-motion이면 정적 장면으로 대체. */}
-      <PhenomenonStage zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
+      {/* 단면 모식도 패널(R9-08 §B) — rule_id→8종 스토리보드 단계 재생 + explain 캡션.
+          로컬 미리보기 판정 성공 시 즉시 재생, 서버 판정 도착 시 확정 리플레이.
+          prefers-reduced-motion이면 최종 장면 정지 + 단계 텍스트 목록. */}
+      <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
 
       {/* 4개 지역 상세 조절(노드별 기단·전선·습기·일사) — 지도와 같은 zone을 가리킨다 */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

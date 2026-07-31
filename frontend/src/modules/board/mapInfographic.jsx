@@ -180,8 +180,7 @@ export function AirMassBloom({ subtype, x, y, animate = true }) {
 const FRONT_COLORS = { cold: '#2563eb', warm: '#dc2626' };
 
 /** 전선 기호 1개 — 접선각에 맞춰 회전. cold=채운 삼각(진행 방향), warm=채운 반원 */
-function FrontTick({ x, y, a, kind, flip = false }) {
-  const s = 2.4; // 기호 크기(userUnit)
+export function FrontTick({ x, y, a, kind, flip = false, s = 2.4 }) {
   const shape = kind === 'cold'
     ? `M${-s},0 L${s},0 L0,${-s * 1.25} Z`
     : `M${-s},0 A${s},${s} 0 0 1 ${s},0 Z`;
