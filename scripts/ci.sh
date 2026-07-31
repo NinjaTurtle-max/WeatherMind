@@ -159,16 +159,16 @@ step_config() {
 # test:explore(R9-01 §3.5)는 렌더 스모크가 react/vite에 의존하므로 board 단계
 # (node_modules 불필요)가 아니라 여기서 빌드와 함께 실행한다.
 step_frontend() {
-  banner "frontend: npm run build + test:explore (선택)"
+  banner "frontend: build + explore/session/placement/visual 테스트 (선택)"
   if [ ! -d "$ROOT/frontend/node_modules" ]; then
     echo "frontend/node_modules 없음 — 건너뜁니다. (cd frontend && npm install)"
     record "frontend" "SKIP" "node_modules 없음"
     return 0
   fi
-  if (cd "$ROOT/frontend" && npm run build && npm run test:explore); then
+  if (cd "$ROOT/frontend" && npm run build && npm run test:explore && npm run test:session && npm run test:placement && npm run test:visual); then
     record "frontend" "OK" "vite build + 탐구 시뮬 테스트 성공"
   else
-    record "frontend" "FAIL" "npm run build 또는 test:explore 실패 (위 출력 참조)"
+    record "frontend" "FAIL" "npm run build 또는 프론트 테스트(explore/session/placement/visual) 실패 (위 출력 참조)"
   fi
 }
 

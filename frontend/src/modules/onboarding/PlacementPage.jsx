@@ -1,7 +1,8 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { placementApi, sessionApi } from '../../api';
+import { useAuthStore } from '../../store/authStore';
 import SessionRunner from '../session/SessionRunner';
 import PlacementSummary from './PlacementSummary';
 import PlacementFinalizing from './PlacementFinalizing';
@@ -25,6 +26,12 @@ import PlacementFinalizing from './PlacementFinalizing';
 export default function PlacementPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // 가입 흐름이 실어 둔 1회성 목적지 의도를 소진(R9-09 버그픽스) — 이후
+  // 인증 상태로 /login·/register에 들어가면 평소처럼 홈('/')으로 돌려보낸다.
+  useEffect(() => {
+    useAuthStore.getState().setPostAuthRoute(null);
+  }, []);
 
   const goHome = useCallback(() => navigate('/', { replace: true }), [navigate]);
 

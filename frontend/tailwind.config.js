@@ -91,6 +91,37 @@ export default {
           '94%': { opacity: '0.2' },
           '96%': { opacity: '0.9' },
         },
+        // ── 보드 실사화 (R9-08) ──
+        // 구름 덩어리 부풀기(무한, 미세)
+        'cloud-billow': {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.06)' },
+        },
+        // 기단 색 번짐 확산 맥동(무한)
+        'tint-spread': {
+          '0%, 100%': { transform: 'scale(0.94)', opacity: '0.8' },
+          '50%': { transform: 'scale(1.06)', opacity: '1' },
+        },
+        // 유동 화살표 중심선 대시 흐름(무한) — stroke-dashoffset
+        'flow-dash': {
+          '0%': { strokeDashoffset: '15' },
+          '100%': { strokeDashoffset: '0' },
+        },
+        // 전선 곡선 미세 숨쉬기(무한)
+        'front-breathe': {
+          '0%, 100%': { opacity: '0.85' },
+          '50%': { opacity: '1' },
+        },
+        // 주석 라벨 등장(1회)
+        'annot-in': {
+          '0%': { opacity: '0', transform: 'translateY(2px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        // 단면 모식도 단계 캡션/요소 등장(1회)
+        'cs-step': {
+          '0%': { opacity: '0', transform: 'translateY(3px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'slide-up': 'slide-up 0.3s ease-out',
@@ -110,6 +141,13 @@ export default {
         'board-shimmer': 'board-shimmer 1.8s ease-in-out infinite',
         'board-sun-pulse': 'board-sun-pulse 2.2s ease-in-out infinite',
         'board-flash': 'board-flash 3.2s linear infinite',
+        // 보드 실사화 (R9-08)
+        'cloud-billow': 'cloud-billow 7s ease-in-out infinite',
+        'tint-spread': 'tint-spread 5s ease-in-out infinite',
+        'flow-dash': 'flow-dash 1.6s linear infinite',
+        'front-breathe': 'front-breathe 3.4s ease-in-out infinite',
+        'annot-in': 'annot-in 0.5s ease-out both',
+        'cs-step': 'cs-step 0.45s ease-out both',
       },
     },
   },
