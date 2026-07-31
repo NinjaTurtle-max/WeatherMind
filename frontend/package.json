@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:board": "node tests/boardEngine.vectors.test.mjs",
-    "test:explore": "node tests/exploreSims.test.mjs && node tests/exploreSims.render.test.mjs"
+    "test:explore": "node tests/exploreSims.test.mjs && node tests/exploreSims.render.test.mjs",
+    "test:visual": "node tests/precipEngine.test.mjs && node tests/boardVisual.render.test.mjs"
   },
   "dependencies": {
     "react": "^18.3.0",
