@@ -5,6 +5,7 @@
 
 | GET  | /rules                        | board_rules.json 원문(서버 캐시) — 프론트 로컬 미리보기 |
 | GET  | /puzzles                      | active board 문항 + cleared 여부 + 난이도(1~3), θ 근접 정렬 |
+| GET  | /puzzles/{content_item_id}    | 퍼즐 단건(플레이 진입) — 구름 진입 게이트 (R10-01 §3.1) |
 | POST | /puzzles/{content_item_id}/attempt | {board_state} → {passed, phenomena, feedback, xp_earned} |
 
 - cleared = quiz_logs에 해당 content_item_id로 is_correct=true 로그가 존재.
@@ -200,6 +201,52 @@ async def list_puzzles(
     ]
 
 
+async def _load_puzzle_or_404(db: AsyncSession, content_item_id: UUID) -> ContentItem:
+    """active board 문항 단건 조회 — 부재 시 404 PUZZLE_NOT_FOUND."""
+    item = (
+        await db.execute(
+            select(ContentItem).where(
+                ContentItem.id == content_item_id,
+                ContentItem.status == "active",
+                ContentItem.question_type == "board",
+            )
+        )
+    ).scalar_one_or_none()
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"detail": "해당 보드 퍼즐을 찾을 수 없습니다.", "code": "PUZZLE_NOT_FOUND"},
+        )
+    return item
+
+
+@router.get("/puzzles/{content_item_id}", response_model=BoardPuzzle)
+async def get_puzzle_detail(
+    content_item_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_with_rls),
+) -> BoardPuzzle:
+    """퍼즐 단건(플레이 진입) — 목록과 **같은 스키마**를 돌려준다 (R10-01 D1·D8-2).
+
+    이 엔드포인트가 R10-01 §3.1의 보드측 진입 차단 지점이다: 잔량 부족이면 퍼즐을
+    열기 전에 429 OUT_OF_CLOUDS(next_regen_sec 동봉)로 막는다. 목록
+    (GET /puzzles)은 **무차단** — 차단하면 잔량 0인 유저가 보드 화면 자체를 못 보고
+    cleared 표시도 사라진다.
+    """
+    item = await _load_puzzle_or_404(db, content_item_id)
+
+    # 진입 게이트 — 무소모 검사. 404 판정 이후에 둔다(없는 퍼즐은 차단 대상이 아니다).
+    await energy_service.require_entry(db, user)
+
+    cleared = await _cleared_item_ids(db, user)
+    return BoardPuzzle(
+        content_item_id=item.id,
+        template_json=item.template_json or {},
+        cleared=item.id in cleared,
+        difficulty=board_difficulty(item.template_json, item.level_group),
+    )
+
+
 async def _next_board_quiz_id(
     db: AsyncSession, user: User, content_item_id: UUID
 ) -> str:
@@ -224,20 +271,7 @@ async def attempt_puzzle(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_with_rls),
 ) -> BoardAttemptResult:
-    item = (
-        await db.execute(
-            select(ContentItem).where(
-                ContentItem.id == content_item_id,
-                ContentItem.status == "active",
-                ContentItem.question_type == "board",
-            )
-        )
-    ).scalar_one_or_none()
-    if item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"detail": "해당 보드 퍼즐을 찾을 수 없습니다.", "code": "PUZZLE_NOT_FOUND"},
-        )
+    item = await _load_puzzle_or_404(db, content_item_id)
 
     template = item.template_json or {}
     question = {**template, "question_type": "board", "concept_tag": item.concept_tag}
@@ -247,16 +281,25 @@ async def attempt_puzzle(
         raise BoardStateRequiredError(f"content_item_id={item.id}")
     board_engine.validate_board(body.board_state)
 
-    # 구름 에너지(§3.3): 유효한 보드 시도 1 소모 — 0이면 판정 전 429.
-    # 보드 attempt는 멱등 가드가 없어 매 시도가 소모 대상이다(세션 재제출과 달리).
-    # 소모는 요청 트랜잭션을 공유하므로 이후 503(규칙 부재) 등으로 예외 시 롤백되어
-    # 구름이 새지 않는다 — 별도 커밋/예외 삼킴을 넣으면 이 보장이 깨진다.
-    await energy_service.consume(db, user)
-
     # 서버 권위 판정 (§3.4) — 규칙 파일 부재/오류(BoardRulesError→503)는 전역 핸들러
     phenomena, passed, rules = evaluate_board_answer(question, body.board_state)
 
     feedback = board_engine.select_feedback(question, phenomena, passed, rules)
+
+    # 구름 에너지(R10-01 §3.1): 소모는 **판정 이후 · 미통과(passed=False)에만** 1.
+    # 통과한 시도는 0 — 재도전 자체가 아니라 "틀린 시도"에만 과금한다. 보드 attempt에는
+    # 멱등 가드도 placement 경로도 없어 판정 결과만이 소모를 결정한다(계약 5).
+    # 잔량 0이면 consume_if_available이 소모를 생략하고 정상 응답한다(429 없음) —
+    # 차단은 진입 게이트(GET /puzzles/{id})의 책임이다. 소모는 요청 트랜잭션을
+    # 공유하므로 이후 예외 시 롤백된다(별도 커밋/예외 삼킴 금지).
+    now = datetime.now(timezone.utc)
+    state = await energy_service.get_state(db, user, now)
+    clouds_spent, clouds_remaining = 0, state["clouds"]
+    if energy_service.should_consume(is_correct=passed):
+        clouds_remaining = await energy_service.consume_if_available(db, user, now)
+        clouds_spent = max(
+            0, min(energy_service.CLOUD_COST, state["clouds"] - clouds_remaining)
+        )
 
     # 최초 클리어만 +5 XP (재도전 0). 클리어 여부는 기존 board 로그로 판별.
     already_cleared = item.id in await _cleared_item_ids(db, user)
@@ -304,4 +347,6 @@ async def attempt_puzzle(
         feedback=feedback,
         xp_earned=xp_earned,
         crown_award=crown_award,
+        clouds_spent=clouds_spent,
+        clouds=clouds_remaining,
     )

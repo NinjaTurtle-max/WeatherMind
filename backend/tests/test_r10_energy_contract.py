@@ -695,7 +695,9 @@ class TestEntryGateCallSites:
             "require_entry가 `if session is None:` 앞에 있다 — 기존 세션 "
             "재조회까지 429가 되어 '풀던 것을 뺏기지 않는다' 불변식이 깨진다"
         )
-        create_at = block.index("create_daily_session")
+        # 앵커에 괄호를 포함해 **실제 호출**만 잡는다 — 함수명만으로 찾으면 앞선
+        # 주석의 언급이 먼저 걸려 게이트 위치가 옳은데도 실패한다(가드 취약성).
+        create_at = block.index("create_daily_session(")
         assert min(gates) < create_at, (
             "require_entry가 create_daily_session 뒤에 있다 — 문항을 만든 뒤 "
             "차단하면 낭비 발급이 남는다"

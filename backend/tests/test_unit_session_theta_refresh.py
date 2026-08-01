@@ -73,6 +73,10 @@ class FakeDB:
 class _FakeUser:
     id = uuid.uuid4()
     level_group = "elementary"
+    # R10-01 §3.1: 발급 경로에 구름 진입 게이트(require_entry)가 붙어 실제 잔량을
+    # 읽는다 — 만렙·기준시각 부재로 두면 게이트를 통과하며 배선 검증에 영향이 없다.
+    clouds = 5
+    clouds_updated_at = None
 
 
 def make_unit(kind="quiz"):

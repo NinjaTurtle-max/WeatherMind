@@ -23,7 +23,7 @@ from app.models.user import User
 from app.routers.session import session_today_response
 from app.schemas.curriculum import CurriculumOut, SectionOut, UnitOut
 from app.schemas.session import SessionToday
-from app.services import curriculum_service, weatherbrain_service
+from app.services import curriculum_service, energy_service, weatherbrain_service
 from app.services.weather_api import KST
 
 router = APIRouter(prefix="/api/v1/curriculum", tags=["curriculum"])
@@ -80,6 +80,12 @@ async def create_unit_session(
                 "code": "UNIT_LOCKED",
             },
         )
+
+    # 진입 게이트(R10-01 §3.1·D6): 잠금 403 판정 **이후**, 세션 생성 **직전**에
+    # 잔량을 검사한다 — 부족하면 429 OUT_OF_CLOUDS(전역 핸들러 변환). 무소모 검사이며,
+    # 유닛 세션은 호출마다 새로 발급되므로(재개 개념 없음 — D10-3) 차단이 진행 중
+    # 풀이를 빼앗지 않는다.
+    await energy_service.require_entry(db, user)
 
     today = datetime.now(KST).date()
     session, _ = await curriculum_service.create_unit_session(
