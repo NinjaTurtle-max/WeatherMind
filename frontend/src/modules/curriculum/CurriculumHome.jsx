@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { curriculumApi } from '../../api';
 import { useAttendance } from '../../hooks/useAttendance';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import PcCurriculumPath from './PcCurriculumPath';
 
 /**
  * CurriculumHome (R5-01 §3.2·S4) — 학습 홈(기본 진입 /).
@@ -55,37 +56,43 @@ export default function CurriculumHome() {
 
   return (
     <div className="pt-2">
-      <h1 className="mb-1 text-lg font-extrabold text-slate-900">🎓 학습</h1>
-      <p className="mb-4 text-sm text-slate-500">유닛을 순서대로 클리어하며 날씨 개념을 쌓아요.</p>
+      <h1 className="mb-1 text-lg font-extrabold text-slate-900 md:hidden">🎓 학습</h1>
+      <p className="mb-4 text-sm text-slate-500 md:hidden">유닛을 순서대로 클리어하며 날씨 개념을 쌓아요.</p>
 
-      {sections.map((section) => (
-        <section key={section.section} className="mb-8">
-          <div className="mb-4 flex items-center gap-2">
-            <span className="rounded-full bg-sky-600 px-3 py-1 text-xs font-extrabold text-white">
-              {section.section}
-            </span>
-            <span className="text-xs font-medium text-slate-400">
-              {section.units.filter((u) => u.cleared).length}/{section.units.length} 완료
-            </span>
-            <div className="h-px flex-1 bg-slate-200" />
-          </div>
+      {/* 모바일: 세로 지그재그 경로(기존 유지) */}
+      <div className="md:hidden">
+        {sections.map((section) => (
+          <section key={section.section} className="mb-8">
+            <div className="mb-4 flex items-center gap-2">
+              <span className="rounded-full bg-sky-600 px-3 py-1 text-xs font-extrabold text-white">
+                {section.section}
+              </span>
+              <span className="text-xs font-medium text-slate-400">
+                {section.units.filter((u) => u.cleared).length}/{section.units.length} 완료
+              </span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
 
-          <div className="flex flex-col items-center gap-1">
-            {section.units.map((unit, i) => (
-              <UnitNode
-                key={unit.id}
-                unit={unit}
-                offset={ZIGZAG[i % ZIGZAG.length]}
-                isFirst={i === 0}
-                onOpen={() => navigate(`/learn/units/${unit.id}`)}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+            <div className="flex flex-col items-center gap-1">
+              {section.units.map((unit, i) => (
+                <UnitNode
+                  key={unit.id}
+                  unit={unit}
+                  offset={ZIGZAG[i % ZIGZAG.length]}
+                  isFirst={i === 0}
+                  onOpen={() => navigate(`/learn/units/${unit.id}`)}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      {/* PC(md↑): 4열 스네이크 곡선 경로 + 튜터 카드 */}
+      <PcCurriculumPath sections={sections} onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)} />
 
       {/* 자유 일일 세션 별도 진입(§3.4 병존) */}
-      <div className="mt-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div className="mt-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:mx-auto md:max-w-5xl">
         <p className="text-sm font-bold text-slate-800">자유 일일 세션</p>
         <p className="mt-0.5 text-xs text-slate-500">정해진 경로 대신 오늘의 5문항을 바로 풀고 싶다면.</p>
         <Link
