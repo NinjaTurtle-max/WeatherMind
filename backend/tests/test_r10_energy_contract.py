@@ -56,6 +56,18 @@ class FakeResult:
     def scalar_one_or_none(self):
         return self._scalar
 
+    def scalar_one(self):
+        return self._scalar
+
+    def scalar(self):
+        return self._scalar
+
+    def scalars(self):
+        return self
+
+    def first(self):
+        return self._scalar
+
 
 class FakeDB:
     """실행 statement 수집 대역.
@@ -63,23 +75,43 @@ class FakeDB:
     guarded_remaining: 가드된 원자 UPDATE(`... RETURNING users.clouds`)가 돌려줄
     잔량. None이면 **0행 반환**(경합·소진) 분기를 재현한다 — §3.1 각주 7의
     "예외 없이 정상 응답" 계약을 검증하는 지점.
+    refetch_clouds: 0행 분기에서 **DB 실측 재조회**(PM 판정, 웨이브 0 회신)가
+    읽어갈 행의 clouds 값. 재조회는 SELECT 또는 db.refresh 어느 쪽으로 구현해도
+    같은 값을 보게 한다(구현 자유, 반환값만 계약).
     """
 
-    def __init__(self, guarded_remaining: int | None = None):
+    def __init__(
+        self,
+        guarded_remaining: int | None = None,
+        refetch_clouds: int | None = None,
+    ):
         self.executed: list = []
         self.guarded_remaining = guarded_remaining
+        self.refetch_clouds = refetch_clouds
+        self.refreshed: list = []
 
     async def execute(self, stmt):
         self.executed.append(stmt)
-        if "returning" in str(stmt).lower():
-            return FakeResult(self.guarded_remaining)
-        return FakeResult(None)
+        if isinstance(stmt, Update):
+            if "returning" in str(stmt).lower():
+                return FakeResult(self.guarded_remaining)
+            return FakeResult(None)
+        # SELECT = 0행 분기의 실측 재조회
+        return FakeResult(self.refetch_clouds)
+
+    async def refresh(self, obj, attribute_names=None):
+        self.refreshed.append(attribute_names)
+        if self.refetch_clouds is not None:
+            obj.clouds = self.refetch_clouds
 
     async def flush(self):  # pragma: no cover - 인터페이스 호환용
         pass
 
     def add(self, obj):  # pragma: no cover - 인터페이스 호환용
         pass
+
+    def selects(self) -> list:
+        return [stmt for stmt in self.executed if not isinstance(stmt, Update)]
 
     def updates_on(self, table_name: str) -> list:
         return [
@@ -260,19 +292,51 @@ class TestConsumeIfAvailable:
         )
         assert user.clouds == 0, "음수 잔량이 유저 객체에 남으면 안 된다"
 
-    def test_계약7_가드_UPDATE_0행이면_예외없이_현재잔량(self):
-        """[계약 7] 동시 소모 경합으로 0행이 돌아와도 OutOfCloudsError 금지.
+    def test_계약7_가드_UPDATE_0행이면_DB_실측_재조회값_반환(self):
+        """[계약 7] 0행이면 그 행의 clouds를 **재조회**해 반환한다 (PM 판정).
 
         기존 consume()은 이 분기에서 방어적으로 429를 던졌다
         (energy_service.py:204~207) — 신규 계약은 진행 중 세션을 끊지 않기 위해
-        소모를 생략하고 정상 반환한다.
+        소모를 생략하고 정상 반환한다. 반환값은 in-memory 잔량이 아니라 DB 실측:
+        여기서는 세션 캐시가 3으로 stale인데 실제 행은 0이므로, 3을 돌려주면
+        재조회를 안 한 것이 드러난다.
         """
-        db = FakeDB(guarded_remaining=None)
-        user = make_user(1, _ago(5))
+        db = FakeDB(guarded_remaining=None, refetch_clouds=0)
+        user = make_user(3, _ago(0))  # stale 캐시(실제 행은 0)
         remaining = asyncio.run(es.consume_if_available(db, user, NOW))
-        assert 0 <= remaining <= es.CLOUD_MAX, (
-            f"0행 분기 반환값이 유효 범위를 벗어남 (got {remaining})"
+        assert remaining == 0, (
+            f"0행 분기가 stale in-memory 값을 반환했다 (got {remaining}, 실측 0) "
+            "— 가드 실패 후에는 DB 행을 재조회해야 한다"
         )
+        assert user.clouds == 0, (
+            f"user.clouds가 재조회 값으로 동기화되지 않았다 (got {user.clouds})"
+        )
+
+    def test_계약7_0을_하드코딩하지_않는다_COST_2(self, monkeypatch):
+        """[계약 7] COST가 env로 2 이상이면 0행 분기의 잔량도 0이 아니다 (PM 판정).
+
+        가드는 `clouds >= CLOUD_COST` 이므로 COST=2·잔량=1이면 0행이 나오지만
+        실제 잔량은 1이다. `return 0` 하드코딩은 이 케이스에서 구름을 삼킨다.
+        """
+        monkeypatch.setattr(es, "CLOUD_COST", 2)
+        db = FakeDB(guarded_remaining=None, refetch_clouds=1)
+        user = make_user(1, _ago(0))
+        remaining = asyncio.run(es.consume_if_available(db, user, NOW))
+        assert remaining == 1, (
+            f"COST=2·잔량=1의 0행 분기에서 {remaining}을 반환했다 — 0 하드코딩 "
+            "의심(실측 재조회 계약 위반)"
+        )
+
+    def test_계약7_어떤_경우도_음수_불가(self):
+        """[계약 7] 반환값·user.clouds는 항상 0 이상이다."""
+        for clouds, refetch in ((0, 0), (1, 0), (3, 0), (0, None)):
+            db = FakeDB(guarded_remaining=None, refetch_clouds=refetch)
+            user = make_user(clouds, _ago(0))
+            remaining = asyncio.run(es.consume_if_available(db, user, NOW))
+            assert remaining >= 0, (
+                f"clouds={clouds}·refetch={refetch}에서 음수 반환 ({remaining})"
+            )
+            assert user.clouds >= 0, f"user.clouds 음수 ({user.clouds})"
 
     def test_계약7_소모는_OutOfClouds를_던지지_않는다(self):
         """[계약 7] 어떤 잔량에서도 소모 경로는 429를 유발하지 않는다."""
@@ -421,6 +485,107 @@ class TestRegenRegression:
             assert callable(getattr(es, name, None)), (
                 f"{name}이 사라졌다 — 회복 모델 순수함수는 시그니처 불변 계약"
             )
+
+
+class TestPlanConsumeOracle:
+    """[계약 8·6] 순수 모델 `plan_consume`을 DB 경로의 **오라클**로 승격 (PM 판정).
+
+    §3.1이 `plan_consume` 시그니처 불변을 명시했으므로 삭제하지 않는다. 대신
+    죽은 코드로 남기지 않기 위해, 순수 모델과 DB 경로가 **경계에서 일치**함을
+    여기서 묶는다 — 중복을 코드가 아니라 테스트로 해소한다.
+
+    불일치가 곧 버그다: plan_consume이 통과시키는 상태를 require_entry가 429로
+    막으면 유저가 있는 구름을 못 쓰고, 반대면 잔량 없이 세션이 발급된다.
+    """
+
+    # (clouds, minutes_ago) — 0·19분·20분·MAX 경계 (§3.1 테스트 8항목의 경계)
+    CASES = [(0, 0), (0, 19), (0, 20), (0, 100), (1, 0), (1, 19), (5, 0), (2, 25)]
+
+    @staticmethod
+    def _plan_raises(clouds: int, minutes: float):
+        try:
+            es.plan_consume(clouds, _ago(minutes), NOW)
+        except es.OutOfCloudsError as exc:
+            return exc
+        return None
+
+    @staticmethod
+    def _entry_raises(clouds: int, minutes: float):
+        db = FakeDB()
+        user = make_user(clouds, _ago(minutes))
+        try:
+            state = asyncio.run(es.require_entry(db, user, NOW))
+        except es.OutOfCloudsError as exc:
+            return exc, None
+        return None, state
+
+    @pytest.mark.parametrize("clouds,minutes", CASES)
+    def test_계약8_순수모델과_진입게이트_차단여부_일치(self, clouds, minutes):
+        plan_exc = self._plan_raises(clouds, minutes)
+        entry_exc, _ = self._entry_raises(clouds, minutes)
+        assert (plan_exc is None) == (entry_exc is None), (
+            f"clouds={clouds}·{minutes}분 경과에서 순수 모델과 진입 게이트가 "
+            f"엇갈렸다 (plan_consume raise={plan_exc is not None}, "
+            f"require_entry raise={entry_exc is not None})"
+        )
+
+    @pytest.mark.parametrize("clouds,minutes", CASES)
+    def test_계약6_차단시_next_regen_sec도_일치(self, clouds, minutes):
+        plan_exc = self._plan_raises(clouds, minutes)
+        entry_exc, _ = self._entry_raises(clouds, minutes)
+        if plan_exc is None or entry_exc is None:
+            pytest.skip("차단되지 않는 경계 — 차단 여부 일치 테스트가 담당")
+        assert entry_exc.next_regen_sec == plan_exc.next_regen_sec, (
+            f"clouds={clouds}·{minutes}분: 회복 ETA 불일치 "
+            f"(plan={plan_exc.next_regen_sec}, entry={entry_exc.next_regen_sec}) "
+            "— 프론트가 표시하는 '구름 회복까지 N분'이 경로마다 달라진다"
+        )
+
+    @pytest.mark.parametrize("clouds,minutes", CASES)
+    def test_계약9_통과시_진입게이트는_소모_전_잔량을_보고(self, clouds, minutes):
+        """진입 게이트 반환 잔량 = apply_regen 결과(소모 **전**).
+
+        plan_consume의 반환값(소모 후)과 정확히 CLOUD_COST만큼 차이나는 것이
+        "게이트는 검사만 한다"의 수치적 증거다.
+        """
+        plan_exc = self._plan_raises(clouds, minutes)
+        entry_exc, state = self._entry_raises(clouds, minutes)
+        if plan_exc is not None or entry_exc is not None:
+            pytest.skip("차단 경계 — 통과 케이스만 검증")
+        after_consume, _ = es.plan_consume(clouds, _ago(minutes), NOW)
+        expected_before, _ = es.apply_regen(clouds, _ago(minutes), NOW)
+        assert state["clouds"] == expected_before, (
+            f"clouds={clouds}·{minutes}분: 게이트 잔량 {state['clouds']} != "
+            f"회복 반영 잔량 {expected_before} — 게이트가 소모했다는 뜻"
+        )
+        assert state["clouds"] - after_consume == es.CLOUD_COST, (
+            "게이트 잔량과 소모 후 잔량의 차가 CLOUD_COST가 아니다"
+        )
+
+    def test_계약9_require_entry는_plan_consume을_호출하지_않는다(self, monkeypatch):
+        """PM 판정: 감소값을 버리는 호출은 의도가 안 읽힌다 — apply_regen+명시 검사.
+
+        오라클 일치는 **테스트가** 보증하므로, 구현이 plan_consume을 재사용해
+        결과를 버리는 방식은 금지한다.
+        """
+
+        def must_not_call(*args, **kwargs):  # pragma: no cover - 호출 시 실패
+            raise AssertionError(
+                "require_entry가 plan_consume을 호출했다 — 소모 계획 함수를 "
+                "검사용으로 재사용하면 '게이트는 소모하지 않는다'가 코드에서 안 읽힌다"
+            )
+
+        monkeypatch.setattr(es, "plan_consume", must_not_call)
+        db = FakeDB()
+        state = asyncio.run(es.require_entry(db, make_user(3, _ago(5)), NOW))
+        assert state["clouds"] == 3
+
+    def test_계약8_plan_consume은_유지된다(self):
+        """[계약 8] 오라클로 쓰이므로 삭제 금지 (§3.1 시그니처 불변)."""
+        assert callable(getattr(es, "plan_consume", None)), (
+            "plan_consume이 사라졌다 — 순수 모델이 없으면 DB 경로를 검증할 "
+            "독립 오라클이 없어진다 (PM 판정: 유지 + 오라클 승격)"
+        )
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -572,6 +737,17 @@ class TestPuzzleDetailRoute:
             for method in (getattr(route, "methods", None) or ())
         }
 
+    @classmethod
+    def _detail_route(cls):
+        from app.main import app
+
+        for route in app.routes:
+            if route.path == cls.DETAIL_PATH and "GET" in (
+                getattr(route, "methods", None) or ()
+            ):
+                return route
+        return None
+
     def test_계약13_퍼즐_상세_GET_라우트_존재(self):
         routes = self._routes()
         assert ("GET", self.DETAIL_PATH) in routes, (
@@ -588,4 +764,44 @@ class TestPuzzleDetailRoute:
         source = _source("routers/board.py")
         assert "require_entry" in source, (
             "board.py에 require_entry 호출이 없다 — 퍼즐 상세 진입 차단 미구현"
+        )
+
+    def test_계약13_응답_모델은_기존_BoardPuzzle_재사용(self):
+        """[계약 13] 새 스키마를 만들지 않는다 (PM 판정) — 목록 원소와 동일 타입."""
+        from app.schemas.board import BoardPuzzle
+
+        route = self._detail_route()
+        assert route is not None, f"GET {self.DETAIL_PATH} 라우트 부재"
+        assert route.response_model is BoardPuzzle, (
+            f"상세 응답 모델이 BoardPuzzle이 아니다 (got {route.response_model}) "
+            "— 단건 전용 스키마 신설 금지(목록과 필드가 갈라진다)"
+        )
+
+    def test_계약13_BoardPuzzle_필드_불변(self):
+        """[계약 13] 상세 신설이 목록 스키마를 확장·변형하지 않는다(회귀)."""
+        from app.schemas.board import BoardPuzzle
+
+        assert set(BoardPuzzle.model_fields) == {
+            "content_item_id",
+            "template_json",
+            "cleared",
+            "difficulty",
+        }, (
+            f"BoardPuzzle 필드가 변경됐다: {sorted(BoardPuzzle.model_fields)} — "
+            "목록·상세가 같은 스키마를 공유한다는 계약이 깨진다"
+        )
+
+    def test_계약13_목록과_상세가_같은_응답_모델(self):
+        """목록의 원소 타입 == 상세의 응답 타입 (PM 판정: 단건 재사용)."""
+        from app.main import app
+        from app.schemas.board import BoardPuzzle
+
+        list_route = next(
+            r
+            for r in app.routes
+            if r.path == "/api/v1/board/puzzles"
+            and "GET" in (getattr(r, "methods", None) or ())
+        )
+        assert list_route.response_model == list[BoardPuzzle], (
+            f"목록 응답 모델이 list[BoardPuzzle]이 아니다 ({list_route.response_model})"
         )

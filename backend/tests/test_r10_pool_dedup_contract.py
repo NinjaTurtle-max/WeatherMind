@@ -233,3 +233,124 @@ class TestPoolDedupWiring:
         assert len(db.stmts) == 2, (
             f"약점 없을 때 쿼리 수가 2(new·live)가 아니다: {len(db.stmts)}"
         )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 계약 19·20 · 유닛 세션 풀 (제외 우선, 부족하면 백필) — PM 판정
+# ═══════════════════════════════════════════════════════════════
+
+
+class _RowsFakeDB:
+    """호출마다 정해진 행 목록을 돌려주는 대역 (백필 2회 조회 재현용)."""
+
+    def __init__(self, *row_batches: list):
+        self.batches = list(row_batches)
+        self.stmts: list = []
+
+    async def execute(self, stmt):
+        self.stmts.append(stmt)
+        rows = self.batches.pop(0) if self.batches else []
+        return _RowsResult(rows)
+
+
+class _RowsResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def scalars(self):
+        return self
+
+    def all(self):
+        return self._rows
+
+
+def make_items(n: int, prefix: str) -> list:
+    """ContentItem 스탠드인 — `_unit_content_pool`은 행을 그대로 돌려준다."""
+    return [
+        SimpleNamespace(id=uuid.uuid4(), question_type="multiple_choice", tag=f"{prefix}{i}")
+        for i in range(n)
+    ]
+
+
+def unit_pool(*row_batches, kind="quiz"):
+    from app.services import curriculum_service as cs
+
+    db = _RowsFakeDB(*row_batches)
+    unit = SimpleNamespace(kind=kind, concept_tag="pressure_front")
+    items = asyncio.run(cs._unit_content_pool(db, make_user(), unit, abilities=[]))
+    return db, items
+
+
+class TestUnitPoolDedupWithBackfill:
+    """[계약 19·20] 유닛 풀도 오늘 응답을 제외하되 **절대 굶기지 않는다** (PM 판정).
+
+    유닛 세션에는 생성 폴백이 없다 — `curriculum_service.create_unit_session`
+    docstring(`curriculum_service.py:415`)이 "문항 풀이 비면 0문항 세션이
+    발급된다"고 명시한다. 따라서 daily 풀처럼 하드 제외하면 같은 유닛을 당일
+    재진입한 유저에게 **0문항 세션**이 발급되어 반복보다 나쁜 회귀가 된다.
+    계약: 신선도 우선 + 부족분은 제외했던 문항으로 백필.
+    """
+
+    @property
+    def size(self) -> int:
+        from app.services import curriculum_service as cs
+
+        return cs.UNIT_SESSION_SIZE
+
+    def test_계약19_풀이_넉넉하면_오늘_응답_제외_적용(self):
+        """(a) 제외 후에도 UNIT_SESSION_SIZE를 채우면 백필하지 않는다."""
+        fresh = make_items(self.size, "fresh")
+        db, items = unit_pool(fresh)
+        assert len(db.stmts) == 1, (
+            f"풀이 넉넉한데 추가 조회가 나갔다 ({len(db.stmts)}건) — 불필요한 백필"
+        )
+        sql = str(db.stmts[0]).lower()
+        assert "not in" in sql and "quiz_logs.answered_at >=" in sql, (
+            "유닛 풀 1차 조회에 '오늘 응답 제외'가 없다 — 같은 유닛 당일 재진입 시 "
+            f"방금 푼 문항이 그대로 재출제된다. SQL: {sql[:400]}"
+        )
+        assert [it.id for it in items] == [it.id for it in fresh]
+
+    def test_계약20_제외가_굶길_상황이면_백필로_개수_유지(self):
+        """(b) 제외 결과가 부족하면 제외했던 문항으로 채워 개수를 유지한다."""
+        fresh = make_items(1, "fresh")
+        stale = make_items(self.size, "stale")  # 오늘 이미 푼 문항(백필 후보)
+        db, items = unit_pool(fresh, stale)
+        assert len(items) == self.size, (
+            f"백필이 없어 {len(items)}문항만 발급된다 (기대 {self.size}) — "
+            "0문항/과소 세션은 반복 노출보다 나쁜 회귀(PM 판정)"
+        )
+        assert len(db.stmts) == 2, (
+            f"백필 조회가 나가지 않았다 (쿼리 {len(db.stmts)}건)"
+        )
+        backfill_sql = str(db.stmts[1]).lower()
+        assert "quiz_logs.answered_at >=" not in backfill_sql, (
+            "백필 조회에도 오늘 제외가 걸려 있다 — 굶주림이 해소되지 않는다"
+        )
+
+    def test_계약20_백필은_중복_없이_신선분_우선(self):
+        """백필이 1차 결과를 덮거나 중복시키지 않는다(신선도 우선)."""
+        fresh = make_items(1, "fresh")
+        stale = make_items(self.size, "stale")
+        _, items = unit_pool(fresh, stale)
+        ids = [it.id for it in items]
+        assert len(set(ids)) == len(ids), f"백필 결과에 중복 문항이 있다: {ids}"
+        assert ids[0] == fresh[0].id, (
+            "신선한 문항이 앞에 오지 않았다 — 제외 우선 순서 계약 위반"
+        )
+
+    def test_계약20_1차가_0건이어도_백필로_채운다(self):
+        """전 문항을 오늘 다 푼 경우 — 0문항 세션 금지."""
+        stale = make_items(self.size, "stale")
+        _, items = unit_pool([], stale)
+        assert len(items) == self.size, (
+            f"1차 0건에서 백필이 동작하지 않아 {len(items)}문항 — 유닛 재진입이 "
+            "0문항 세션으로 깨진다"
+        )
+
+    def test_계약19_board_유닛도_동일_규칙(self):
+        """kind='board' 유닛의 question_type 필터는 유지되고 제외도 적용된다."""
+        db, _ = unit_pool(make_items(self.size, "fresh"), kind="board")
+        sql = str(db.stmts[0]).lower()
+        assert "question_type =" in sql, "board 유닛 필터 회귀"
+        assert "quiz_logs.answered_at >=" in sql, "board 유닛 풀에 오늘 제외 누락"
