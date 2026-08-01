@@ -238,6 +238,18 @@ function consumeCloudIfAvailable() {
   return state.clouds;
 }
 
+/** 소모 결과 응답 필드 {clouds_spent, clouds} (server D10-1 — 서버와 동일 산출).
+ *  소모 **전후 실측 차이**로 낸다: 오답이어도 잔량 0이면 무소모 통과라 0이 되고,
+ *  무제한 모드(ENERGY_ENABLED=false)에서도 0이다. 프론트가 is_correct로 "구름 −1"을
+ *  계산하면 이 두 경우에 거짓 표기가 되므로 서버 실측을 그대로 읽는다.
+ *  trigger = shouldConsumeCloud(...) 결과. */
+function cloudSpendResult(trigger) {
+  regenClouds();
+  const before = ENERGY_ENABLED ? state.clouds : CLOUD_MAX;
+  const clouds = trigger ? consumeCloudIfAvailable() : before;
+  return { clouds_spent: Math.max(0, Math.min(CLOUD_COST, before - clouds)), clouds };
+}
+
 /** OUT_OF_CLOUDS 429 응답 본문 (회복 ETA 포함 — 리텐션 훅 §3.3) */
 function outOfCloudsError(nextSec) {
   const min = Math.max(1, Math.ceil(nextSec / 60));
@@ -1160,7 +1172,7 @@ const routes = {
     // 구름 소모 (R10-01 §3.1): **채점 이후** 오답에만 1. 정답·배치고사는 0.
     // 재제출은 위 멱등 가드(409)에서 이미 걸러졌으므로 alreadyAnswered=false.
     // 잔량 0에서 오답이어도 429가 아니라 무소모 200 (§3.1 각주 7).
-    if (shouldConsumeCloud({ isCorrect, isPlacement })) consumeCloudIfAvailable();
+    const spend = cloudSpendResult(shouldConsumeCloud({ isCorrect, isPlacement }));
     const xp = isPlacement ? 0 : isCorrect ? 15 : 2;
     s.answers[item.quiz_id] = { is_correct: isCorrect, xp_earned: xp };
     if (!isPlacement) {
@@ -1178,6 +1190,9 @@ const routes = {
         xp_earned: xp,
         concept_tag: item.concept_tag,
         session_progress: sessionProgress(s),
+        // D10-1 (additive): 오답 피드백 "구름 −1" 표기용 실측값
+        clouds_spent: spend.clouds_spent,
+        clouds: spend.clouds,
         ...(phenomena ? { phenomena } : {}),
       },
     ];
@@ -1398,7 +1413,7 @@ const routes = {
     const { passed, phenomena, feedback } = judgeBoard(body.board_state, puzzle.template_json.goal_conditions);
     // 보드는 멱등 가드가 없어 매 시도가 새 판정이다 → alreadyAnswered=false.
     // 통과 시 0 (재도전 자체가 무료가 아니라 "틀린 시도"에만 과금 — §3.1).
-    if (shouldConsumeCloud({ isCorrect: passed })) consumeCloudIfAvailable();
+    const spend = cloudSpendResult(shouldConsumeCloud({ isCorrect: passed }));
     // 최초 클리어만 +5 XP (재도전 0) (§3.5)
     const firstClear = passed && !clearedBoardPuzzles.has(puzzle.content_item_id);
     let xpEarned = 0;
@@ -1418,7 +1433,19 @@ const routes = {
       );
       crownAward = grantUnitCrown(unit ?? null);
     }
-    return [200, { passed, phenomena, feedback, xp_earned: xpEarned, crown_award: crownAward }];
+    return [
+      200,
+      {
+        passed,
+        phenomena,
+        feedback,
+        xp_earned: xpEarned,
+        crown_award: crownAward,
+        // D10-1 (additive): 미통과 피드백 "구름 −1" 표기용 실측값
+        clouds_spent: spend.clouds_spent,
+        clouds: spend.clouds,
+      },
+    ];
   },
 
   'GET /progress/me': () => {
