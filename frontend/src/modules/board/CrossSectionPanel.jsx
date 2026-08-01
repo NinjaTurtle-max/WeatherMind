@@ -13,12 +13,25 @@
  *
  * 좌표계: viewBox 260×150.
  *  fp(fx,h) = 전면 단면 평면(fx 0~1 가로, h 0~1 고도) / gp(fx,z) = 지면 평면(z 0~1 깊이)
+ *
+ * ── R10-C(S2): WebGL2 3D 단면 ───────────────────────────────────────────────
+ * 같은 스토리보드 단계 시퀀스를 raw WebGL2로도 그린다(`webgl/crossSection/`).
+ * **아래 SVG 경로는 폴백으로 그대로 남는다 — 삭제 금지**. 3경로에서 SVG를 쓴다:
+ *  (1) SSR — 첫 렌더는 항상 SVG다(GL 판정은 마운트 후 useEffect에서만 일어남)
+ *  (2) prefers-reduced-motion — 정적 최종 프레임 + 단계 텍스트 전체 목록(기존 계약)
+ *  (3) WebGL2 미지원·컨텍스트 생성 실패·컨텍스트 소실 — `glFailed`로 SVG 복귀
+ *  (4) rule_id → 3D 장면 매핑 누락(규칙 드리프트) — CrossSectionGL이 onFail
+ * GL 코드는 `lazy()` 동적 청크다(메인 번들 증가 ≈0). Suspense fallback도 SVG 장면
+ * 이므로 청크 로딩 중에도 화면이 비지 않는다.
  */
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { phenomenonMeta, cloudMeta } from './boardDisplay';
 import { SymbolIcon, SunShape, SnowFlake, WaveLine } from './boardSymbols';
 import { anim, usePrefersReducedMotion } from './realisticEffects';
 import { frontCurveGeometry, taperedArrowPath, FrontTick } from './mapInfographic';
+import { supportsWebGL2 } from './webgl/crossSection/support';
+
+const CrossSectionGL = lazy(() => import('./webgl/crossSection/CrossSectionGL'));
 
 const STEP_MS = 1400; // 단계당 1~1.5s (R9-08 §B)
 
@@ -632,11 +645,24 @@ export default function CrossSectionPanel({ zoneResult, confirmed = false, reduc
   const systemReduced = usePrefersReducedMotion();
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(true);
+  /**
+   * WebGL2 사용 여부 — 초기값 false가 곧 SSR·하이드레이션 폴백이다.
+   * (SSR에서 <canvas>가 나오면 보드 비주얼 스모크의 "강수 존 없으면 Canvas 미마운트"
+   *  계약이 깨지므로, GL 판정은 반드시 마운트 후에만 한다.)
+   */
+  const [glOk, setGlOk] = useState(false);
+  const [glFailed, setGlFailed] = useState(false);
 
   const reduced = reducedProp ?? systemReduced;
   const ruleId = zoneResult?.rule_id ?? null;
   const story = ruleId ? STORYBOARDS[ruleId] : null;
   const storyKey = `${zoneResult?.zone ?? ''}-${ruleId ?? zoneResult?.phenomenon ?? ''}-${confirmed ? 'c' : 'p'}`;
+
+  // WebGL2 지원 판정 — 마운트 후 1회(브라우저 전용). 실패 시 SVG 경로 유지.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setGlOk(supportsWebGL2());
+  }, []);
 
   // 규칙·존·판정 종류가 바뀌면 처음부터 리플레이
   useEffect(() => {
@@ -703,6 +729,9 @@ export default function CrossSectionPanel({ zoneResult, confirmed = false, reduc
   const { Scene, steps, title } = story;
   const displayStep = reduced ? steps.length - 1 : step;
   const atEnd = step >= steps.length - 1;
+  // 3D 경로 조건 — 하나라도 어긋나면 아래 <Scene>(SVG 스토리보드)이 그대로 쓰인다
+  const useGL = glOk && !glFailed && !reduced;
+  const svgScene = <Scene step={displayStep} animate={!reduced} />;
 
   const jump = (i) => {
     setPlaying(false);
@@ -720,7 +749,13 @@ export default function CrossSectionPanel({ zoneResult, confirmed = false, reduc
   return (
     <div className="mb-3 overflow-hidden rounded-xl ring-1 ring-slate-200">
       <div className="relative">
-        <Scene step={displayStep} animate={!reduced} />
+        {useGL ? (
+          <Suspense fallback={svgScene}>
+            <CrossSectionGL ruleId={ruleId} step={displayStep} onFail={() => setGlFailed(true)} />
+          </Suspense>
+        ) : (
+          svgScene
+        )}
         {badges}
         <span className="absolute bottom-1.5 left-2 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">
           단면 모식도 · {title}
