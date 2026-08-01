@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { VIEW_H, VIEW_W, toUser } from './boardLayout';
 import { phenomenonMeta } from './boardDisplay';
 import { Glyph } from './boardSymbols';
@@ -9,6 +10,8 @@ import {
   usePrefersReducedMotion,
 } from './realisticEffects';
 import { AirMassBloom, FlowArrow, FrontCurve, ZoneAnnotation } from './mapInfographic';
+import { webglSupported } from './webgl/mapOverlay/support';
+import { buildScene, cloudVariantFor, precipEmitters, sceneIsEmpty } from './webgl/mapOverlay/overlayScene';
 
 // 한반도 실루엣 path (정규화 0~100 좌표 저작 — scale(1, VIEW_H/100)로 사영)
 const PENINSULA_PATH =
@@ -16,38 +19,53 @@ const PENINSULA_PATH =
   'C82,65 74,66 70,72 C65,79 60,86 52,88 C46,89 41,86 39,80 C37,74 40,69 35,65 ' +
   'C30,61 24,60 24,52 C24,44 30,42 30,35 C30,29 28,24 32,19 C33,17 33,15 34,14 Z';
 
-// 현상 → 지도 구름 변형(R9-08 §A — 적란운 수직 발달·층운 평평·안개 저층 확산)
-function cloudVariantFor(v) {
-  if (!v) return null;
-  if (v.phenomenon === 'fog') return 'fog';
-  if (v.phenomenon === 'snow') return 'snowcloud';
-  if (v.cloud === 'cumulonimbus') return 'cumulonimbus';
-  if (v.cloud === 'nimbostratus') return 'nimbostratus';
-  if (v.cloud === 'stratus') return 'stratus';
-  if (v.rule_id && v.cloud === 'cumulus') return 'cumulus';
-  return null; // 기본 흐림(규칙 미성립)은 노드 아이콘만 — 지도를 어지럽히지 않는다
-}
-
-// 현상 → Canvas 강수 에미터 메타(weight=입자 배분, slant=사선 강도)
-const PRECIP_META = {
-  shower: { kind: 'rain', weight: 2, slant: 1.4 },
-  persistent_rain: { kind: 'rain', weight: 2, slant: 0.7 },
-  rain: { kind: 'rain', weight: 1, slant: 0.9 },
-  snow: { kind: 'snow', weight: 1 },
-};
+// 현상 → 지도 구름 변형 / 강수 에미터 메타는 webgl/mapOverlay/overlayScene가
+// 단일 소유자다(WebGL 경로와 SVG·Canvas2D 폴백 경로가 같은 매핑을 써야 하므로).
 
 /**
  * PeninsulaMap — 기상청 인포그래픽 문법의 한반도 일기도 (R9-08 §A, 기준 하.png).
  * 4개 지역 노드는 요소 드롭·탭 배치 대상(R9-01 드래그 UX 불변)이며, 그 위에
  *  ① 기단 색 번짐 ② 전선 곡선+표준 기호 ③ 곡선 유동 화살표
- *  ④ 현상 구름(터뷸런스 질감)+주석 라벨 ⑤ Canvas 파티클 강수
+ *  ④ 현상 구름(터뷸런스 질감)+주석 라벨 ⑤ 파티클 강수
  * 를 겹친다. 판정 로직(boardEngine)은 불변 — 전부 표현 레이어.
  * prefers-reduced-motion이면 모든 레이어가 정적 최종 장면으로 대체된다.
+ *
+ * R10-01 S3: ①③④⑤는 WebGL2 오버레이 1장(`webgl/mapOverlay`)으로 격상됐다.
+ * **베이스는 SVG 유지** — 반도 지형·존 노드·표준 전선 기호·라벨·주석은 그대로다.
+ * 오버레이 캔버스는 pointer-events:none이라 존 탭·드래그 히트 테스트를 가로막지
+ * 않는다(상호작용 소유자는 계속 SVG 계층).
+ * 폴백 2경로: (a) WebGL2 미지원·초기화 실패·컨텍스트 소실 → 아래 SVG 레이어 +
+ * Canvas2D PrecipCanvas 그대로, (b) SSR → 항상 폴백 경로(GL 접근 0).
  */
 export default function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected, interactive, onZoneTap, dragging = false, dragOverZone = null, zoneVisuals = null }) {
   const reduced = usePrefersReducedMotion();
   const animate = !reduced;
   const zonePoint = (zone) => toUser(regions[zone]?.svg_point);
+
+  // WebGL2 가용 여부는 마운트 시 1회 탐지(모듈 캐시). SSR에서는 항상 false —
+  // 이 앱은 createRoot(하이드레이션 없음)이라 첫 클라이언트 렌더에서 바로 켜도 안전하다.
+  const [glCapable] = useState(() => typeof window !== 'undefined' && webglSupported());
+  const [glFailed, setGlFailed] = useState(false);
+  const [Overlay, setOverlay] = useState(null);
+  const onGlFallback = useCallback(() => setGlFailed(true), []);
+
+  // 오버레이 렌더러는 **동적 청크**다 — 폴백이 있는 향상 계층이므로 메인 번들에
+  // 넣지 않는다. WebGL2 브라우저에서만 내려오고, SSR·미지원·청크 로드 실패에서는
+  // 아래 SVG + Canvas2D 경로가 그대로 남는다(lazy+Suspense 대신 명시 상태를 쓰는
+  // 이유: 청크 로드 실패를 에러 바운더리 없이 폴백으로 흡수하고, 로드되기 전까지
+  // Canvas2D 강수를 계속 보여줄 수 있다).
+  useEffect(() => {
+    if (!glCapable || glFailed || Overlay) return undefined;
+    let alive = true;
+    import('./webgl/mapOverlay/MapOverlayGL')
+      // setOverlay(m.default)로 넘기면 React가 컴포넌트 함수를 updater로 호출한다 —
+      // 반드시 함수를 반환하는 updater 형태로 감싼다.
+      .then((m) => alive && setOverlay(() => m.default))
+      .catch(() => alive && setGlFailed(true));
+    return () => {
+      alive = false;
+    };
+  }, [glCapable, glFailed, Overlay]);
 
   // 전선 곡선(②) — 같은 subtype이 배치된 존들을 잇는 지역 스케일 곡선
   const frontZones = { cold: [], warm: [], stationary: [] };
@@ -58,21 +76,28 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
     }
   }
 
-  // Canvas 강수 에미터(⑤) — 강수 현상 존에만, 좌표는 컨테이너 분율
-  const emitters = regions
-    .map((region, zone) => {
-      const m = PRECIP_META[zoneVisuals?.[zone]?.phenomenon];
-      if (!m) return null;
-      const [ux, uy] = toUser(region.svg_point);
-      return {
-        fx: (ux - 7) / VIEW_W,
-        fy: (uy - 4) / VIEW_H,
-        fw: 14 / VIEW_W,
-        fh: 12 / VIEW_H,
-        ...m,
-      };
-    })
-    .filter(Boolean);
+  // 존 userSpace 좌표 — toUser(동결 계약)가 유일한 사영 경로. WebGL·SVG 공용.
+  const zonePoints = useMemo(() => regions.map((r) => toUser(r?.svg_point)), [regions]);
+
+  // WebGL 오버레이 장면(①③④⑤) — 순수 빌더. 그릴 것이 없으면 컨텍스트도 만들지 않는다.
+  const scene = useMemo(() => buildScene({ board, zoneVisuals, zonePoints }), [board, zoneVisuals, zonePoints]);
+  const glActive = glCapable && !glFailed && Boolean(Overlay) && !sceneIsEmpty(scene);
+
+  // Canvas2D 폴백 강수 에미터(⑤) — userSpace 박스를 컨테이너 분율로 환산.
+  // 박스 수치는 overlayScene.EMITTER_BOX 단일 소유(두 경로 동일 위치 보장).
+  const emitters = useMemo(
+    () =>
+      precipEmitters(zoneVisuals, zonePoints).map((e) => ({
+        fx: e.x / VIEW_W,
+        fy: e.y / VIEW_H,
+        fw: e.w / VIEW_W,
+        fh: e.h / VIEW_H,
+        kind: e.kind,
+        weight: e.weight,
+        slant: e.slant,
+      })),
+    [zoneVisuals, zonePoints],
+  );
 
   return (
     <div className="relative mb-3 w-full overflow-hidden rounded-xl bg-[#dfe9f3] ring-1 ring-slate-200">
@@ -102,8 +127,8 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
           <path d="M55,31 L59,44 L56,58 L60,69" fill="none" stroke="#f8fafc" strokeWidth="0.7" strokeLinejoin="round" opacity="0.5" vectorEffect="non-scaling-stroke" />
         </g>
 
-        {/* ① 기단 색 번짐 + ③ 곡선 유동 화살표 */}
-        {(board?.elements ?? [])
+        {/* ① 기단 색 번짐 + ③ 곡선 유동 화살표 — WebGL 오버레이가 켜지면 그쪽이 그린다 */}
+        {!glActive && (board?.elements ?? [])
           .filter((el) => el.type === 'air_mass')
           .map((el) => {
             const [ux, uy] = zonePoint(el.zone);
@@ -130,7 +155,8 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
           return (
             <g key={`ph-${zone}`}>
               {clearLike && <SunGlint x={ux} y={uy - 6} hot={v.phenomenon === 'heatwave'} animate={animate} />}
-              {variant && (
+              {/* ④ 구름 덩어리 — WebGL 터뷸런스 구름이 켜지면 SVG 질감은 생략 */}
+              {!glActive && variant && (
                 <RealCloudMass
                   variant={variant}
                   x={ux}
@@ -241,9 +267,16 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
         })}
       </svg>
 
-      {/* ⑤ Canvas 파티클 강수 — 비 사선 줄기+지면 스플래시 암시, 눈 흔들 낙하.
-          상한 160(전역 200 이하), 탭 비활성·뷰포트 밖 정지, reduced-motion 정적 프레임. */}
-      <PrecipCanvas emitters={emitters} reduced={reduced} cap={160} />
+      {/* WebGL 오버레이 1장 — ① 번짐 ③ 흐름장 ④ 터뷸런스 구름 ⑤ 강수.
+          pointer-events:none이라 존 탭·드래그는 계속 SVG 계층이 받는다.
+          실패하면 onFallback으로 아래 Canvas2D 경로로 되돌아간다. */}
+      {glActive ? (
+        <Overlay scene={scene} reduced={reduced} cap={160} onFallback={onGlFallback} />
+      ) : (
+        /* ⑤ Canvas2D 파티클 강수(폴백) — 비 사선 줄기+지면 스플래시 암시, 눈 흔들 낙하.
+           상한 160(전역 200 이하), 탭 비활성·뷰포트 밖 정지, reduced-motion 정적 프레임. */
+        <PrecipCanvas emitters={emitters} reduced={reduced} cap={160} />
+      )}
     </div>
   );
 }
