@@ -1,3 +1,4 @@
+import { VIEW_H, VIEW_W, toUser } from './boardLayout';
 import { phenomenonMeta } from './boardDisplay';
 import { Glyph } from './boardSymbols';
 import {
@@ -8,19 +9,6 @@ import {
   usePrefersReducedMotion,
 } from './realisticEffects';
 import { AirMassBloom, FlowArrow, FrontCurve, ZoneAnnotation } from './mapInfographic';
-
-// ── SVG userSpace 단일 좌표계 (R9-01 §3.3 선행 리팩터) ──────────────────────
-// viewBox 100×80 고정 종횡비(aspect-ratio) — preserveAspectRatio="none" 왜곡과
-// "SVG 안 지도 + SVG 밖 절대배치 노드" 2원화를 함께 제거한다.
-// 시드 좌표(0~100 정규화)는 y만 0.8 사영해 같은 userSpace에 놓는다.
-// userSpace는 등방(1unit x = 1unit y)이므로 노드·심볼은 왜곡되지 않는다.
-const VIEW_W = 100;
-const VIEW_H = 80;
-/** 정규화 좌표(0~100) → SVG userSpace */
-function toUser(point, dflt = [50, 50]) {
-  const [x, y] = Array.isArray(point) && point.length >= 2 ? point : dflt;
-  return [x * (VIEW_W / 100), y * (VIEW_H / 100)];
-}
 
 // 한반도 실루엣 path (정규화 0~100 좌표 저작 — scale(1, VIEW_H/100)로 사영)
 const PENINSULA_PATH =

@@ -18,6 +18,7 @@ import {
   phenomenonMeta,
   cloudMeta,
 } from './boardDisplay';
+import { FALLBACK_REGIONS } from './boardLayout';
 import { SymbolIcon } from './boardSymbols';
 import CrossSectionPanel from './CrossSectionPanel';
 import PeninsulaMap from './PeninsulaMap';
@@ -470,16 +471,6 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     </div>
   );
 }
-
-// 지리적 폴백 좌표(정규화 0~100) — /board/regions 미로드 시 사용.
-// 좌표 SSOT = database/seed/board_regions.json (R9-01 §3.3 선행 리팩터: 시드↔폴백 일치).
-// 값 변경은 시드 파일에서만 — 여기는 시드 사본(드리프트 금지).
-const FALLBACK_REGIONS = [
-  { name: '서해상', svg_point: [21, 54], label_anchor: [21, 66] },
-  { name: '수도권', svg_point: [43, 33], label_anchor: [43, 21] },
-  { name: '영서·태백', svg_point: [61, 47], label_anchor: [61, 35] },
-  { name: '영동·동해', svg_point: [82, 43], label_anchor: [88, 55] },
-];
 
 /** 초 → M:SS 표시 (미니 미션 카운트다운) */
 function formatClock(sec) {
