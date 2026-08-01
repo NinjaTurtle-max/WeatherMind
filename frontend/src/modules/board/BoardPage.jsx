@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { boardApi } from '../../api';
+import { boardApi, progressApi } from '../../api';
 import { useProgressStore } from '../../store/progressStore';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import AtmosphereBoard from './AtmosphereBoard';
@@ -16,6 +16,14 @@ import { ZONES } from '../../lib/boardEngine';
  *
  * R7-02 S5: 퍼즐 카드에 난이도 배지(difficulty 1|2|3 → 쉬움/보통/도전).
  * 목록은 서버가 θ 인접 정렬로 내려주므로 클라이언트는 서버 순서 그대로 렌더한다.
+ *
+ * R10-01 D1 (에너지 진입 게이트): 플레이 진입은 **반드시**
+ * GET /board/puzzles/{id}(상세)를 통과한다 — 그 엔드포인트가 보드측 유일한 구름
+ * 진입 차단 지점이라, 목록 payload로 바로 플레이하면 게이트가 도달 불가가 되고
+ * (attempt는 미통과 시에만 소모 + 잔량 0에서는 무소모 200) 잔량 0에서 보드가
+ * 무제한이 된다. 목록 조회 자체는 무차단 유지(잔량 0에서도 cleared 표시는 보인다).
+ * 차단 안내는 429를 받고 나서가 아니라 **누르기 전에** — 잔량 0이면 카드 CTA
+ * 비활성 + 회복 ETA 인라인(§3.1 프론트 절, CurriculumHome과 같은 관례).
  *
  * 화면 상태: LOADING → ERROR(재시도) → LIST(목록) → PLAY(선택 퍼즐 플레이).
  */
@@ -67,6 +75,7 @@ export default function BoardPage() {
   const [result, setResult] = useState(null); // 서버 판정 결과
   const [toast, setToast] = useState(null); // XP 토스트 메시지
   const [sandbox, setSandbox] = useState(false); // 자유 실험 모드(R9-01 §3.3 ⑥)
+  const [entryError, setEntryError] = useState(null); // 진입 실패 안내(429 등)
 
   const { data: puzzles, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['board', 'puzzles'],
@@ -74,11 +83,25 @@ export default function BoardPage() {
     staleTime: 60 * 1000,
   });
 
+  // 구름 잔량 — 진입 차단(§3.1·D6)을 누르기 전에 알리기 위한 조회.
+  // CloudEnergyBadge·CurriculumHome과 같은 쿼리 키라 헤더와 같은 값을 본다
+  // (중복 요청·새 폴링 없음).
+  const { data: energy } = useQuery({
+    queryKey: ['progress', 'energy'],
+    queryFn: progressApi.fetchEnergy,
+    staleTime: 10_000,
+  });
+  // 잔량 0 = 상세(진입)가 429로 막히는 상태. 보드 퍼즐은 매 진입이 새 진입이므로
+  // 세션(데일리)처럼 "이미 발급된 것 재조회" 예외가 없다 → 카드 비활성이 서버 판정과 일치.
+  const energyBlocked = energy?.clouds === 0;
+  const regenMin = Math.max(1, Math.ceil((energy?.next_regen_sec ?? 0) / 60));
+
   const attemptMutation = useMutation({
     mutationFn: ({ id, boardState }) => boardApi.submitBoardAttempt(id, boardState),
     onSuccess: (res) => {
       setResult(res);
-      // 보드 attempt는 구름 1 소모(§3.3) — 성공/실패 무관하게 에너지 헤더 갱신
+      // R10-01 §3.1: 소모는 **미통과 시에만** 1(정답 0). 실측은 응답 clouds_spent가
+      // 갖고 있고 표기는 AtmosphereBoard가 하므로, 여기서는 헤더 잔량만 갱신한다.
       queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
       if (res.passed && res.xp_earned > 0) {
         addXp(res.xp_earned);
@@ -113,14 +136,37 @@ export default function BoardPage() {
     },
   });
 
+  // 진입 게이트(R10-01 D1) — "퍼즐 시작"은 상세 엔드포인트를 통과해야 플레이에 들어간다.
+  // 응답(단건 BoardPuzzle)이 플레이 payload가 된다. 목록 원소를 그대로 쓰지 않는 이유는
+  // 파일 상단 주석 참고(게이트 도달 가능성 + 서버가 내려준 최신 cleared 반영).
+  const entryMutation = useMutation({
+    mutationFn: (contentItemId) => boardApi.fetchBoardPuzzle(contentItemId),
+    onSuccess: (detail) => {
+      setSelected(detail);
+      setResult(null);
+      setEntryError(null);
+    },
+    onError: (err) => {
+      // 잔량 0인데 카드를 누른 경로(잔량 표시가 stale했을 때) — 잔량 갱신 후 안내.
+      // 정상 흐름에서는 여기 오기 전에 카드가 비활성이다(누르기 전에 알린다).
+      if (err.code === 'OUT_OF_CLOUDS') {
+        queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
+      }
+      setEntryError(err.detail ?? '퍼즐을 열지 못했어요. 잠시 후 다시 시도해주세요.');
+    },
+  });
+
   const openPuzzle = (p) => {
-    setSelected(p);
-    setResult(null);
+    setEntryError(null);
+    entryMutation.mutate(p.content_item_id);
   };
   const backToList = () => {
     setSelected(null);
     setResult(null);
     setSandbox(false);
+    setEntryError(null);
+    // 진입 시 소모는 없지만 플레이 중 오답으로 잔량이 줄었을 수 있다 → 목록 복귀 시 최신값.
+    queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
   };
 
   // 자유 실험 화면(R9-01 §3.3 ⑥) — 퍼즐 목록보다 먼저 분기(로딩과 무관하게 진입 가능)
@@ -200,6 +246,25 @@ export default function BoardPage() {
       <h1 className="mb-1 text-lg font-extrabold text-slate-900">🧩 대기 보드</h1>
       <p className="mb-3 text-sm text-slate-500">기상요소를 한반도 4개 지역에 배치해 목표 날씨를 만들어 보세요.</p>
 
+      {/* 구름 소진 안내 (§3.1) — 퍼즐은 열 수 없지만 목록·클리어 표시는 그대로 보인다(D1) */}
+      {energyBlocked && (
+        <div className="mb-3 rounded-2xl bg-rose-50 p-4 ring-1 ring-rose-200">
+          <p className="text-sm font-extrabold text-rose-700">☁️ 구름이 모두 흩어졌어요</p>
+          <p className="mt-1 text-xs leading-relaxed text-rose-600">
+            구름은 <span className="font-bold">틀린 시도에만 1개</span> 줄어들어요 — 열심히 푼
+            만큼이 아니라 실수에만 소모돼요. 약 <span className="font-bold">{regenMin}분</span> 후
+            구름 1개가 회복되면 새 퍼즐을 열 수 있어요. 채점 없는 자유 실험은 지금도 열려 있어요.
+          </p>
+        </div>
+      )}
+
+      {/* 진입 실패(429 경합 등) — 카드 비활성으로 대부분 예방되지만 최후 안내 */}
+      {entryError && (
+        <div className="mb-3 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
+          {entryError}
+        </div>
+      )}
+
       {/* 자유 실험(R9-01 §3.3 ⑥) + 탐구 실험실(§3.5) 진입 — 나란히 배치 */}
       <div className="mb-3 grid grid-cols-2 gap-2">
         <button
@@ -231,31 +296,44 @@ export default function BoardPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {list.map((p) => (
-            <button
-              key={p.content_item_id}
-              type="button"
-              onClick={() => openPuzzle(p)}
-              className="flex items-center justify-between rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 transition hover:ring-sky-300"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-slate-800">{p.template_json?.question_text}</p>
-                <div className="mt-0.5 flex items-center gap-1.5">
-                  <p className="text-xs text-slate-400">
-                    {p.template_json?.mode === 'guided' ? '안내 모드' : '목표 모드'}
-                  </p>
-                  <DifficultyBadge difficulty={p.difficulty} />
-                </div>
-              </div>
-              <span
-                className={`ml-3 shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
-                  p.cleared ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+          {list.map((p) => {
+            const pending = entryMutation.isPending && entryMutation.variables === p.content_item_id;
+            return (
+              <button
+                key={p.content_item_id}
+                type="button"
+                onClick={() => openPuzzle(p)}
+                disabled={energyBlocked || entryMutation.isPending}
+                aria-disabled={energyBlocked ? 'true' : undefined}
+                aria-label={`${p.template_json?.question_text ?? '퍼즐'}${energyBlocked ? ' (구름 부족)' : ''}`}
+                title={energyBlocked ? `구름이 회복되면 열 수 있어요 — 약 ${regenMin}분 후` : undefined}
+                className={`flex items-center justify-between rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 transition ${
+                  energyBlocked ? 'cursor-not-allowed opacity-60' : 'hover:ring-sky-300'
                 }`}
               >
-                {p.cleared ? '✓ 클리어' : '도전'}
-              </span>
-            </button>
-          ))}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-slate-800">{p.template_json?.question_text}</p>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <p className="text-xs text-slate-400">
+                      {p.template_json?.mode === 'guided' ? '안내 모드' : '목표 모드'}
+                    </p>
+                    <DifficultyBadge difficulty={p.difficulty} />
+                  </div>
+                  {/* 누르기 전에 알린다(§3.1) — 429를 받고 나서가 아니다 */}
+                  {energyBlocked && (
+                    <p className="mt-1 text-xs font-bold text-rose-600">☁️ 구름 회복까지 약 {regenMin}분</p>
+                  )}
+                </div>
+                <span
+                  className={`ml-3 shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
+                    p.cleared ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {pending ? '여는 중…' : p.cleared ? '✓ 클리어' : '도전'}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
