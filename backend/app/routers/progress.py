@@ -5,21 +5,26 @@
 | POST | /attendance | 출석 체크 (하루 1회) → {streak_count, is_new_record} |
 | GET  | /quests     | 오늘의 일일 퀘스트 진행/완료 (R4-01 §3.1) |
 | GET  | /badges     | 배지 정의 + 획득 시각 (R4-01 §3.3) |
+| PUT  | /daily-goal | 일일 목표 문항 수 설정 (R10-01 §3.4) → {daily_goal_items} |
 """
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db_with_rls
 from app.models.attendance import Attendance
+from app.models.quiz_log import QuizLog
+from app.models.session import Session
 from app.models.user import User
 from app.models.user_concept_ability import UserConceptAbility
 from app.schemas.progress import (
     AttendanceResult,
     BadgeOut,
     ConceptAbilityOut,
+    DailyGoalOut,
+    DailyGoalUpdate,
     EnergyState,
     ProgressMe,
     QuestOut,
@@ -32,12 +37,60 @@ from app.services import (
     curriculum_service,
     energy_service,
     league_service,
+    placement_service,
     quest_service,
+    session_service,
     xp_service,
 )
 from app.services.weather_api import KST
 
 router = APIRouter(prefix="/api/v1/progress", tags=["progress"])
+
+# 일일 목표 허용값 (R10-01 §3.4·D4) — mock의 DAILY_GOAL_CHOICES와 동일.
+# SESSION_RECIPE(합 5)와 **독립**이다: 표시용 카운터 타깃이지 세션 배합이 아니다.
+DAILY_GOAL_CHOICES = (3, 5, 9)
+
+
+async def _count_answered_today(
+    db: AsyncSession, user: User, today: date
+) -> int:
+    """오늘(KST) 응답 완료한 문항 수 — 배치고사 제외 (R10-01 D10-2).
+
+    `quest_service._today_facts()`를 재사용하지 않는 이유: 그쪽은 mode 필터가
+    없어 placement 6문항이 그대로 잡히고 목표 설정 직후 "6/3 달성"이 뜬다.
+    다만 그 함수를 고치면 퀘스트 3종(daily_xp·weak_correct·live_answered)의
+    의미가 함께 바뀌므로, 목표 표시용 카운트만 별도로 센다.
+
+    "오늘" 판정은 _today_facts 관례를 그대로 따른다 — 세션 로그는 소속 세션의
+    session_date로, 세션 밖 로그(보드 등)는 answered_at이 KST 당일 구간에
+    드는지로 판정한다(경계는 session_service.kst_day_start_utc).
+    """
+    day_start = session_service.kst_day_start_utc(today)
+    day_end = session_service.kst_day_start_utc(today + timedelta(days=1))
+    today_sessions = select(Session.id).where(
+        Session.user_id == user.id,
+        Session.session_date == today,
+        Session.mode != placement_service.MODE_PLACEMENT,
+    )
+    count = (
+        await db.execute(
+            select(func.count())
+            .select_from(QuizLog)
+            .where(
+                QuizLog.user_id == user.id,
+                QuizLog.is_correct.is_not(None),  # 응답 완료분만
+                or_(
+                    QuizLog.session_id.in_(today_sessions),
+                    and_(
+                        QuizLog.session_id.is_(None),
+                        QuizLog.answered_at >= day_start,
+                        QuizLog.answered_at < day_end,
+                    ),
+                ),
+            )
+        )
+    ).scalar_one()
+    return int(count or 0)
 
 
 @router.get("/me", response_model=ProgressMe)
@@ -51,6 +104,8 @@ async def get_me(
     energy = await energy_service.get_state(db, user)
     # 스파인(유닛 진도 축) 서버 집계 — R8-01 §3.3 (트리와 동일 정의, read-only)
     spine = await curriculum_service.get_spine(db, user)
+    # 일일 목표 진행 — R10-01 §3.4·D4 (배치고사 제외 카운트, D10-2)
+    answered_today = await _count_answered_today(db, user, datetime.now(KST).date())
     return ProgressMe(
         xp=user.xp,
         level=level,
@@ -62,7 +117,37 @@ async def get_me(
         next_regen_sec=energy["next_regen_sec"],
         placement_done=user.placement_completed_at is not None,
         spine=SpineOut(**spine),
+        daily_goal_items=user.daily_goal_items,
+        today_answered_count=answered_today,
     )
+
+
+@router.put("/daily-goal", response_model=DailyGoalOut)
+async def set_daily_goal(
+    payload: DailyGoalUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_with_rls),
+) -> DailyGoalOut:
+    """일일 목표 문항 수 설정 (R10-01 §3.4·D4) — 허용값 3·5·9, 그 외 422.
+
+    422는 pydantic Literal이 아니라 명시적 HTTPException으로 낸다(D10-4):
+    기본 RequestValidationError 본문은 `detail`이 리스트라 mock 계약
+    ({detail: str, code: "VALIDATION_ERROR"})과 형식이 갈라진다.
+    """
+    if payload.items not in DAILY_GOAL_CHOICES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "detail": "일일 목표는 "
+                + "·".join(str(c) for c in DAILY_GOAL_CHOICES)
+                + " 중 하나여야 합니다",
+                "code": "VALIDATION_ERROR",
+            },
+        )
+    db_user = await db.get(User, user.id)
+    db_user.daily_goal_items = payload.items
+    await db.flush()
+    return DailyGoalOut(daily_goal_items=payload.items)
 
 
 @router.get("/energy", response_model=EnergyState)

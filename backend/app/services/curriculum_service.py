@@ -381,22 +381,46 @@ async def _unit_content_pool(
     - 콜드스타트(θ None)는 현행과 동일: 가입 그룹 단일 + random 정렬.
     - 슬롯 미치환 노출 방지의 live 슬롯 제외(live=False)는 board에도 적용된다
       (유닛 세션은 슬롯 치환이 없고, 시드상 board는 전부 uses_live_slots=false).
+
+    당일 중복 방지는 **best-effort**다 (R10-01 D2·D8-5): 1차 조회는 오늘 응답분을
+    제외하고(신선도 우선), 그 결과가 UNIT_SESSION_SIZE보다 적으면 제외를 뗀
+    2차 조회로 부족분을 백필한다. 유닛 세션에는 daily의 quiz-generate 폴백이
+    없어(create_unit_session docstring) 하드 제외하면 같은 유닛 당일 재진입이
+    0문항 세션으로 깨진다 — 반복 노출보다 나쁜 회귀다.
     """
     if abilities is None:
         abilities = await weatherbrain_service.load_abilities(db, user)
     theta = weatherbrain_service.overall_theta(abilities, unit.concept_tag)
-    stmt = session_service.build_pool_query(
-        level_groups=session_service.pool_level_groups(user.level_group, theta),
-        theta=theta,
-        live=False,
-        weak_concepts=[unit.concept_tag],
-        limit=UNIT_SESSION_SIZE,
+
+    def _pool_stmt(served_subq):
+        stmt = session_service.build_pool_query(
+            level_groups=session_service.pool_level_groups(user.level_group, theta),
+            theta=theta,
+            live=False,
+            served_subq=served_subq,
+            weak_concepts=[unit.concept_tag],
+            limit=UNIT_SESSION_SIZE,
+        )
+        if unit.kind == "board":
+            return stmt.where(ContentItem.question_type == "board")
+        return stmt.where(ContentItem.question_type != "board")
+
+    today_subq = session_service.answered_today_subq(
+        user.id, session_service.kst_day_start_utc(datetime.now(KST).date())
     )
-    if unit.kind == "board":
-        stmt = stmt.where(ContentItem.question_type == "board")
-    else:
-        stmt = stmt.where(ContentItem.question_type != "board")
-    return list((await db.execute(stmt)).scalars().all())
+    items = list((await db.execute(_pool_stmt(today_subq))).scalars().all())
+    if len(items) >= UNIT_SESSION_SIZE:
+        return items
+
+    seen = {item.id for item in items}
+    backfill = (await db.execute(_pool_stmt(None))).scalars().all()
+    for item in backfill:
+        if len(items) >= UNIT_SESSION_SIZE:
+            break
+        if item.id not in seen:
+            seen.add(item.id)
+            items.append(item)
+    return items
 
 
 async def create_unit_session(

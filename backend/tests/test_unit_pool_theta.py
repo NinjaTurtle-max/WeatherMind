@@ -67,7 +67,15 @@ def pool_sql(monkeypatch, *, abilities, unit) -> str:
     items = asyncio.run(cs._unit_content_pool(db, _FakeUser(), unit))
     assert items == []
     assert calls == {"load": 1, "refresh": 0}
-    assert len(db.stmts) == 1
+    # 쿼리 2개가 정상이다 — 유닛 풀은 R10-01 D8-5의 **best-effort 2단 조회**다.
+    # 1차는 "오늘 이미 응답한 문항" 제외(신선도 우선), 결과가 UNIT_SESSION_SIZE보다
+    # 적으면 제외를 뗀 2차로 백필한다. FakeDB는 항상 빈 결과를 돌려주므로 1차가
+    # 0건 → 백필이 **항상** 발동해 stmts는 결정적으로 2개다.
+    # 하드 제외(1단 조회)로 되돌리면 같은 유닛 당일 재진입 시 0문항 세션이 발급되며,
+    # 유닛 세션에는 daily의 quiz-generate 폴백이 없어 복구되지 않는다(반복보다 나쁜 회귀).
+    # 이 파일이 지키는 계약(θ 그룹 확장·|b−θ| 정렬·kind별 question_type 필터)은
+    # 아래 SQL 텍스트 assert가 검증하며, 1차 조회(stmts[0])에 그대로 걸려 있다.
+    assert len(db.stmts) == 2
     return str(db.stmts[0]).lower()
 
 

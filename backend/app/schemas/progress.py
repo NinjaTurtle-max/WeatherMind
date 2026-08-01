@@ -41,6 +41,31 @@ class ProgressMe(BaseModel):
     placement_done: bool = False
     # 스파인(유닛 진도 축) 집계 — R8-01 §3.3 (additive: 홈 헤더 1순위 표시용)
     spine: SpineOut
+    # 일일 목표 문항 수 — R10-01 §3.4·D4 (additive). null이면 미설정.
+    daily_goal_items: int | None = None
+    # 오늘(KST) 응답한 문항 수 — "오늘 목표 N/M"의 N. 배치고사분은 제외(D10-2).
+    today_answered_count: int = 0
+
+
+class DailyGoalUpdate(BaseModel):
+    """PUT /progress/daily-goal 요청 — R10-01 §3.4·D4.
+
+    허용값 {3, 5, 9} 검증을 Literal에 맡기지 않는 이유(D10-4): FastAPI 기본
+    RequestValidationError 본문과 형식이 갈라지지 않도록 라우터가 명시적
+    HTTPException(422, code="VALIDATION_ERROR")으로 낸다. strict=True도 쓰지
+    않는다 — mock의 `Number(body.items)`와 동일하게 `"5"`를 수용한다(D10-5).
+    """
+
+    items: int
+
+
+class DailyGoalOut(BaseModel):
+    """PUT /progress/daily-goal 응답 — 저장된 목표값 하나뿐(mock 계약 일치, D10-1).
+
+    오늘 응답 수는 GET /progress/me의 today_answered_count에서 읽는다.
+    """
+
+    daily_goal_items: int
 
 
 class EnergyState(BaseModel):
