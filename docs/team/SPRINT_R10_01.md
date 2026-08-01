@@ -174,6 +174,94 @@
   도커 정지 상태이므로 통합 시 `docker compose up -d --build` 후 재정지.
 - CI: `scripts/ci.sh`에 WebGL 폴백 SSR 스모크와 에너지 계약을 편입(상주화).
 
+## 4.1 웨이브 0 결정 기록 (2026-08-01, PM)
+
+> 계약(§3)이 실제 코드와 어긋난 지점을 웨이브 0 탐색에서 발견해 확정한 내역.
+> **아래가 §3보다 우선한다**(§3은 발견 전 작성).
+
+### D1. 보드 진입 차단 지점 — 상세 엔드포인트 신설
+§3.1이 지목한 `GET /api/v1/board/puzzles/{id}`는 **실재하지 않는다**. 현행은 목록
+`GET /board/puzzles`(`routers/board.py:162`) 하나뿐이고 프론트가 목록 payload로
+바로 플레이한다(`BoardPage.jsx:71`). 목록을 차단하면 보드 화면 자체가 막히고
+`cleared` 표시도 못 하므로 —
+- **웨이브 1에서 `GET /api/v1/board/puzzles/{content_item_id}` 신설**(응답은
+  `BoardPuzzle` 단건, 목록 원소와 동일 스키마)하고 **거기에만** 진입 게이트를 건다.
+- 목록 엔드포인트는 **무차단**. 프론트는 "퍼즐 시작" 시 상세를 호출한다.
+
+### D2. 첫날 중복(P0)의 진짜 원인 — 뱅크 규모가 아니라 쿼리 누락
+`new` 풀은 기존 응답 문항을 제외하지만(`served_subq` — `session_service.py:339`가
+구성, `:351`이 전달), **`review`(`:362-376`)·`live`(`:378-388`) 풀에는 그 제외가
+전달되지 않는다**. 그래서 배치고사 직후 첫 세션의 복습·실황 슬롯이 방금 푼 문항을
+재출제한다 — 관찰 보고서의 "9문항 중 4개 동일"은 **뱅크 부족이 아니라 이 누락**이다.
+- **단기 완화책을 S1에 포함**한다(§5의 "웨이브 0에서 판단" 항목 → 포함으로 확정).
+- 범위는 "배치고사 출제분 제외"보다 넓게 **"오늘 이미 응답한 문항은 review·live
+  풀에서 제외"** — 같은 날 재출제는 복습이 아니다(간격 반복 원칙). 배치고사 케이스가
+  자동 포함되고, 다음날부터의 복습 가치는 보존된다.
+- 신규 API: `kst_day_start_utc(day) -> datetime`(순수) ·
+  `answered_today_subq(user_id, day_start_utc)`(쿼리 구성). `_fetch_pools`가
+  review·live 쿼리에 전달. **new 풀의 전기간 제외는 불변**(회귀).
+- 슬롯이 비면 기존 `plan_bank_picks` → quiz-generate 폴백이 받으므로 뱅크가 얇아도
+  발급은 실패하지 않는다. **R10-B(뱅크 확장) 없이 P0 증상이 해소된다.**
+
+### D3. 보드 마운트 경계 — `PeninsulaMap` 물리적 추출 (웨이브 0 선행)
+§4의 파일 소유 계획이 성립하지 않는다: **지도 렌더러 `PeninsulaMap`이
+`AtmosphereBoard.jsx`(788줄) 안에 정의**돼 있어(538줄~) FE-2(지도 오버레이)·
+FE-1(단면 마운트 299줄)·FE-4(조작 127·134·140·229-237·421·458·470줄)가 **같은
+파일을 동시에 수정**하게 된다. `mapInfographic`·`realisticEffects`·`precipEngine`은
+leaf 프리미티브일 뿐 합성 루트가 아니다.
+- 웨이브 0에서 **순수 기계적 추출**(동작 변경 0)을 선행한다:
+  `PeninsulaMap.jsx`(신규, FE-2 소유) + `boardLayout.js`(신규, 양쪽 공용 상수·순수
+  헬퍼) + `AtmosphereBoard.jsx`(정의 삭제·import 교체만).
+- 추출 후 웨이브 1 소유: **FE-1**=`CrossSectionPanel.jsx` + 신규 `webgl/` ·
+  **FE-2**=`PeninsulaMap.jsx` · **FE-4**=`AtmosphereBoard.jsx`(조작·상태) ·
+  마운트 호출 지점(299줄 `<CrossSectionPanel>`)은 **FE-1이 건드리지 않는다**.
+- **동결 계약**: `mapInfographic.jsx`·`realisticEffects.jsx`·`precipEngine.js`·
+  `boardSymbols.jsx`·`useBoardDrag.js`·`boardLayout.js`의 기존 export 시그니처는
+  웨이브 1 동안 변경 금지(추가만 허용). FE-1이 `anim`·`usePrefersReducedMotion`
+  (`CrossSectionPanel.jsx:20`)과 `frontCurveGeometry`·`taperedArrowPath`·`FrontTick`
+  (`:21`)을 import하므로, FE-2가 이를 바꾸면 FE-1이 깨진다.
+- 가드: `frontend/tests/boardVisual.render.test.mjs`가 AtmosphereBoard 통합 SSR
+  렌더를 assert하므로 추출이 렌더 결과를 바꾸면 즉시 깨진다(`npm run test:visual`).
+
+### D4. 일일 목표 저장 — 마이그레이션 `0008` (`users` 컬럼 1개)
+§3.4의 "기존 진척 저장소 재사용" 후보를 조사한 결과 **재사용할 유저 스코프 자유키
+JSON 컬럼이 없다**(`models/user.py:12-53` — JSONB 0개). 기존 JSONB는 전부 세션·
+콘텐츠·퀘스트 정의용이고, `user_quest_progress`는 일자별 진행 행이라 "유저 설정값"에
+부적합하다.
+- **`0008_daily_goal`: `users.daily_goal_items` INTEGER NULL** + 앱 폴백 기본값.
+  `users`는 0001에서 이미 RLS 대상이라 **정책 선언 불필요**. 같은 형태의 선례 2건
+  (0005 `clouds`, 0007 `placement_completed_at`). `down_revision="0007_placement"`.
+- 허용값 `{3, 5, 9}`. `SESSION_RECIPE`(합 5)와는 **독립** — 목표는 표시용 카운터
+  타깃이지 세션 배합이 아니다(계약 수치 드리프트 없음).
+- API: `GET /api/v1/progress` 응답에 `daily_goal_items`(null=미설정)·
+  `today_answered_count` 추가 · `PUT /api/v1/progress/daily-goal` `{items}` →
+  범위 밖 422. "오늘 응답 수"는 `quest_service._today_facts()`(`:146-216`)가 이미
+  집계하므로 **새 테이블·새 집계 불필요**.
+- 담당: SA-1(백엔드·마이그레이션) → FE-3은 이 계약으로 mock 선작업. SA-1의 웨이브 1
+  부하가 커지면 S1(에너지)/S4-백엔드를 원자 커밋 2개로 분리하고, 그래도 넘치면
+  SA-2를 증원한다(TEAM_PROCESS §2.6 조절 시점 ③).
+
+### D5. `apiMockPlugin.js` 단일 소유 (충돌 방지)
+1653줄 단일 파일에 에너지 상태·소모 로직(`:66·136-186`)과 보드·세션 mock이 전부
+들어 있어 SA-1(에너지)·FE-3(목표·게이팅)이 동시 수정 대상이 된다.
+- **웨이브 0에서 SA-1이 확정 계약대로 선반영**하고, 웨이브 1 동안 프론트 3인은
+  **읽기 전용**. 추가 변경이 필요하면 SA-1을 경유한다(직접 수정 금지).
+
+### D6. 진입 차단·소모 면제 지점 (확정 목록)
+- 차단 **적용**: `GET /session/today`의 **신규 발급 분기에서만**(기존 세션 재조회는
+  무차단 — "풀던 것을 뺏기지 않는다" 불변식) · `POST /curriculum/units/{slug}/session`
+  (잠금 403 판정 **이후**, `create_unit_session` 직전) · 신규 `GET /board/puzzles/{id}`.
+- 차단·소모 **면제**: `POST /onboarding/placement/start`,
+  `POST /onboarding/placement/submit-all`(배치고사) · `ENERGY_ENABLED=false`.
+- 소모 시점: `session.py`는 `submit_answer_for_log`(채점) **이후**,
+  `board.py`는 `evaluate_board_answer`(판정) **이후**. 트랜잭션 공유 유지(예외 시 롤백).
+- 진행 중 세션 보호: 소모는 가드 UPDATE(`clouds >= COST`)가 **0행이면 예외 없이
+  통과**(`consume_if_available`) — 잔량 0에서 오답이어도 세션은 끊기지 않는다.
+
+### D7. 테스트 베이스라인 정정
+웨이브 0 시점 backend 스위트 실측 **761 passed**(CLAUDE.md·현황의 "425"는 stale).
+웨이브 2에서 CLAUDE.md 현황 수치를 갱신한다.
+
 ## 5. 범위 밖 · 대기
 
 - **R10-B 콘텐츠 뱅크 확장(P0)** — 규모·저작 주체 **결정 대기**. 결정 시 별도
