@@ -192,7 +192,7 @@ async def check_attendance(
     xp = xp_service.XP_DAILY_ATTENDANCE
     if milestone_hit:
         xp += xp_service.XP_STREAK_MILESTONE_BONUS
-    await xp_service.add_xp(db, db_user, xp)
+    await xp_service.add_xp(db, user.id, xp)
 
     # 스트릭 마일스톤 배지(streak_7/30/100) 지급 — 중복은 UNIQUE로 방어 (R4-01 §3.3)
     if milestone_hit:

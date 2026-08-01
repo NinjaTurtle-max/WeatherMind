@@ -2,25 +2,21 @@
 
 - 리뷰 1번(멱등 가드·세션 XP 누적을 서비스 층으로): 재제출 가드는 채점·XP·
   weak_tags·통계·세션 XP 등 **모든 부수효과가 0**이어야 하고, 세션 문항을
-  /quiz 라우터 경로로 제출해도 sessions.xp_total이 누적되어야 한다.
-- /quiz 라우터의 재제출은 409 + code=ALREADY_ANSWERED로 변환된다 (§3.1).
+  공통 파이프라인(submit_answer_for_log)으로 제출하면 sessions.xp_total이
+  누적되어야 한다. (레거시 /quiz 라우터는 제거 — 파이프라인 불변식만 상주.)
 
 DB 없이 검증: FakeDB가 select 대상 테이블별로 준비된 객체를 돌려주고
 실행된 statement를 수집한다. 외부 호출(날씨·RAG)은 monkeypatch로 대체
 (기존 test_answer_service.py 패턴 준수).
 """
 import asyncio
-import inspect
 import uuid
 from types import SimpleNamespace
 
 import pytest
-from fastapi import HTTPException
 from sqlalchemy import Select, Update
 
 from app.models.quiz_log import QuizLog
-from app.routers import quiz as quiz_router
-from app.schemas.quiz import AnswerRequest
 from app.services import answer_service
 from app.services.answer_service import AlreadyAnsweredError
 
@@ -154,39 +150,32 @@ class TestResubmitZeroSideEffects:
             )
 
 
-def _call_quiz_answer_route(db, log, answer="수증기 응결열"):
-    """/quiz/{quiz_id}/answer 라우터 함수를 직접 호출 (slowapi 데코레이터 해제)."""
-    endpoint = inspect.unwrap(quiz_router.submit_answer)
+def _submit(db, log, answer="수증기 응결열"):
+    """세션 문항을 공통 채점 파이프라인으로 직접 제출."""
     user = SimpleNamespace(id=log.user_id, level_group="middle_high")
     return asyncio.run(
-        endpoint(
-            request=SimpleNamespace(),
-            quiz_id=log.quiz_id,
-            body=AnswerRequest(answer=answer),
-            user=user,
-            db=db,
-        )
+        answer_service.submit_answer_for_log(db, user, log, answer, None)
     )
 
 
-class TestQuizRouteSessionXpAccrual:
-    """리뷰 확정 1번 회귀: 세션 문항을 /quiz 경로로 제출해도 세션 XP가 누적된다."""
+class TestSessionXpAccrual:
+    """리뷰 확정 1번 회귀: 공통 파이프라인 제출 시 세션 XP가 누적된다."""
 
-    def test_quiz_경로_제출시_sessions_xp_total_누적(self):
+    def test_제출시_sessions_xp_total_누적(self):
         session_id = uuid.uuid4()
         log = make_log(session_id=session_id)
         db = FakeDB(quiz_log=log)
 
-        result = _call_quiz_answer_route(db, log)
+        result = _submit(db, log)
 
         assert result.is_correct is True
         updates = db.updates_on("sessions")
-        assert len(updates) == 1, "/quiz 경로에서도 세션 XP 원자 UPDATE가 발행돼야 함"
+        assert len(updates) == 1, "세션 XP 원자 UPDATE가 발행돼야 함"
         params = updates[0].compile().params
         assert result.xp_earned in params.values()
         assert session_id in params.values()
 
-    def test_quiz_경로_약점_보너스도_세션에_그대로_누적(self):
+    def test_약점_보너스도_세션에_그대로_누적(self):
         """세션 누적액 = xp_earned (약점 1.5배 반영 후 금액) — 불일치 방지.
 
         약점 판정은 θ 파생(R8-01 §3.5): middle_high 임계 ≈ 0.405, θ=-1.0·n>0 → 약점.
@@ -195,29 +184,8 @@ class TestQuizRouteSessionXpAccrual:
         log = make_log(session_id=session_id)
         db = FakeDB(quiz_log=log, abilities=[("typhoon", -1.0, 0.3, 4)])
 
-        result = _call_quiz_answer_route(db, log)
+        result = _submit(db, log)
 
         assert result.xp_earned == 22  # (10+5)*1.5 반올림 — 07번 약점 극복 보너스
         params = db.updates_on("sessions")[0].compile().params
         assert 22 in params.values()
-
-    def test_quiz_경로_재제출은_409_ALREADY_ANSWERED(self):
-        log = make_log(answered=True, session_id=uuid.uuid4())
-        db = FakeDB(quiz_log=log)
-
-        with pytest.raises(HTTPException) as exc_info:
-            _call_quiz_answer_route(db, log, answer="지열")
-
-        assert exc_info.value.status_code == 409
-        assert exc_info.value.detail["code"] == "ALREADY_ANSWERED"
-        assert db.updates_on("sessions") == []  # 재제출은 세션 XP 재가산 없음
-
-    def test_quiz_경로_미존재_퀴즈는_404(self):
-        db = FakeDB(quiz_log=None)
-        log = make_log()
-
-        with pytest.raises(HTTPException) as exc_info:
-            _call_quiz_answer_route(db, log)
-
-        assert exc_info.value.status_code == 404
-        assert exc_info.value.detail["code"] == "QUIZ_NOT_FOUND"

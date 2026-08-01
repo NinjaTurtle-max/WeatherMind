@@ -61,18 +61,6 @@ ADJACENT_GROUPS: dict[str, tuple[str, ...]] = {
     "adult": ("middle_high", "adult"),
 }
 
-# level_group → 사전 난이도 b — backend 내 단일 소유자는 weatherbrain_service
-# (ai-worker priors.LEVEL_GROUP_ITEM_B의 미러, 드리프트는
-# test_weatherbrain_contract가 감시). 같은 컨텍스트(backend) 내 중복은 물리적
-# DRY 대상이므로 여기서는 재정의하지 않고 임포트한다.
-LEVEL_GROUP_ITEM_B = weatherbrain_service.LEVEL_GROUP_ITEM_B
-
-
-def prior_item_b(level_group: str) -> float:
-    """level_group의 사전 난이도 b (보정 이력 없는 문항의 폴백값)."""
-    return LEVEL_GROUP_ITEM_B.get(level_group, weatherbrain_service.DEFAULT_ITEM_B)
-
-
 def to_progress_abilities(abilities: Sequence[dict]) -> list[dict[str, Any]]:
     """내부 θ 형식({theta, se, n}) → /progress/abilities 응답 형식 (§3.1 보강).
 
@@ -227,8 +215,12 @@ def assemble_placement_responses(
         item_id = _attr(log, "content_item_id")
         b = calibrated_b.get(item_id) if item_id is not None else None
         if b is None:
+            # 사전 b는 weatherbrain_service 단일 소유 (ai-worker priors 미러,
+            # 드리프트는 test_weatherbrain_contract가 감시)
             group = item_level_groups.get(item_id, default_level_group)
-            b = prior_item_b(group)
+            b = weatherbrain_service.LEVEL_GROUP_ITEM_B.get(
+                group, weatherbrain_service.DEFAULT_ITEM_B
+            )
         by_concept[_attr(log, "concept_tag")].append(
             {"b": float(b), "a": 1.0, "correct": bool(is_correct)}
         )

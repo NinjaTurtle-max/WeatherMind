@@ -3,7 +3,6 @@
 - 브로커/결과 백엔드: Redis (REDIS_URL)
 - 스케줄 (Asia/Seoul 기준):
   (a) 매일 02:00  날씨 수집 + Chroma weather_daily 갱신 트리거
-  (b) 매일 02:30  일일 퀴즈 생성 (레벨그룹 3종 × ai-worker /internal/quiz-generate)
   (c) 매주 월 03:30  지난주 리그 정산 (KMA 실측 반영 → accuracy_score·ELO)
   (d) 매일 03:00  WeatherBrain 재학습 트리거 (로드맵 2단계 placeholder)
 """
@@ -18,7 +17,6 @@ celery_app = Celery(
     backend=config.REDIS_URL,
     include=[
         "app.tasks.weather",
-        "app.tasks.quiz",
         "app.tasks.league",
         "app.tasks.retrain",
     ],
@@ -41,11 +39,6 @@ celery_app.conf.beat_schedule = {
     "collect-daily-weather": {
         "task": "app.tasks.weather.collect_daily_weather",
         "schedule": crontab(hour=2, minute=0),
-    },
-    # (b) 매일 새벽 2시 30분 — 레벨그룹 3종 일일 퀴즈 생성 → Redis 24h 캐시
-    "generate-daily-quiz": {
-        "task": "app.tasks.quiz.generate_daily_quiz",
-        "schedule": crontab(hour=2, minute=30),
     },
     # (c) 매주 월요일 — 지난주 리그 정산 (실측 반영 → accuracy_score·ELO 갱신)
     "settle-weekly-league": {

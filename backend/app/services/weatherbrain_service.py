@@ -46,13 +46,18 @@ _THETA_BEGINNER_MAX = -0.5
 _THETA_INTERMEDIATE_MAX = 0.5
 
 
+def _theta_bucket(theta: float, labels: tuple[str, str, str]) -> str:
+    """θ 3구간 이산화 — 경계(-0.5, 0.5)는 하위 구간 제외·상위 구간 포함."""
+    if theta < _THETA_BEGINNER_MAX:
+        return labels[0]
+    if theta < _THETA_INTERMEDIATE_MAX:
+        return labels[1]
+    return labels[2]
+
+
 def theta_level_label(theta: float) -> str:
     """능력 θ를 초급/중급/고급 라벨로 이산화(표시용)."""
-    if theta < _THETA_BEGINNER_MAX:
-        return "beginner"
-    if theta < _THETA_INTERMEDIATE_MAX:
-        return "intermediate"
-    return "advanced"
+    return _theta_bucket(theta, ("beginner", "intermediate", "advanced"))
 
 
 # ai-worker priors.LEVEL_GROUP_ITEM_B와 동일값의 backend 상수 — 뱅크 풀 정렬에서
@@ -103,15 +108,10 @@ def weak_concepts(abilities: list, level_group: str) -> list[str]:
 def theta_to_level_group(theta: float) -> str:
     """추정 θ → 출제 난이도 level_group (R7 §3.2 — θ→출제 난이도 연결).
 
-    ai-worker priors.theta_to_target_level_group과 동일 의미·동일 경계:
-    θ < -0.5 → elementary, -0.5 ≤ θ < 0.5 → middle_high, θ ≥ 0.5 → adult
-    (경계는 하위 구간 제외·상위 구간 포함). 동일성은 계약 테스트가 감시한다.
+    ai-worker priors.theta_to_target_level_group과 동일 의미·동일 경계.
+    동일성은 계약 테스트가 감시한다.
     """
-    if theta < _THETA_BEGINNER_MAX:
-        return "elementary"
-    if theta < _THETA_INTERMEDIATE_MAX:
-        return "middle_high"
-    return "adult"
+    return _theta_bucket(theta, ("elementary", "middle_high", "adult"))
 
 
 def overall_theta(

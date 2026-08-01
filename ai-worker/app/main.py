@@ -25,9 +25,11 @@ from typing import Optional
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from app import weatherbrain
 from app.chains import quiz_gen_chain, rag_chain, router_chain, validate_chain
 from app.config import settings
+from app.weatherbrain.irt import calibrate_items, estimate_ability
+from app.weatherbrain.placement import initial_abilities
+from app.weatherbrain.priors import level_group_prior, prior_item_b
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -109,7 +111,9 @@ class ValidationCheck(BaseModel):
     reason: str
 
 
-class QuizValidateResponse(BaseModel):
+class ValidateResponse(BaseModel):
+    """quiz-validate·curriculum-validate 공용 — {passed, checks}."""
+
     passed: bool
     checks: list[ValidationCheck]
 
@@ -117,11 +121,6 @@ class QuizValidateResponse(BaseModel):
 class CurriculumValidateRequest(BaseModel):
     units: list[dict] = Field(default_factory=list)  # §3.2 units.json 시드
     content_items: list[dict] = Field(default_factory=list)
-
-
-class CurriculumValidateResponse(BaseModel):
-    passed: bool
-    checks: list[ValidationCheck]
 
 
 # ── WeatherBrain (IRT) 스키마 — R6 §5 ──────────────────────────────────────
@@ -149,15 +148,8 @@ class EstimateRequest(BaseModel):
     concepts: list[ConceptResponses] = Field(default_factory=list)
 
 
-class AbilityOut(BaseModel):
-    concept_tag: str
-    theta: float
-    se: float
-    n: int
-
-
 class EstimateResponse(BaseModel):
-    abilities: list[AbilityOut]
+    abilities: list[Ability]
 
 
 class PlacementRequest(BaseModel):
@@ -238,29 +230,29 @@ def quiz_generate(body: QuizGenerateRequest) -> dict:
 
 @app.post(
     "/internal/quiz-validate",
-    response_model=QuizValidateResponse,
+    response_model=ValidateResponse,
     dependencies=[Depends(verify_internal_api_key)],
 )
-def quiz_validate(body: QuizValidateRequest) -> QuizValidateResponse:
+def quiz_validate(body: QuizValidateRequest) -> ValidateResponse:
     result = validate_chain.validate_quiz(
         question=body.question,
         concept_tag=body.concept_tag,
         level_group=body.level_group,
     )
-    return QuizValidateResponse(**result)
+    return ValidateResponse(**result)
 
 
 @app.post(
     "/internal/curriculum-validate",
-    response_model=CurriculumValidateResponse,
+    response_model=ValidateResponse,
     dependencies=[Depends(verify_internal_api_key)],
 )
-def curriculum_validate(body: CurriculumValidateRequest) -> CurriculumValidateResponse:
+def curriculum_validate(body: CurriculumValidateRequest) -> ValidateResponse:
     result = validate_chain.validate_curriculum(
         units=body.units,
         content_items=body.content_items,
     )
-    return CurriculumValidateResponse(**result)
+    return ValidateResponse(**result)
 
 
 # ── WeatherBrain (IRT) 엔드포인트 — R6 §5 ──────────────────────────────────
@@ -271,17 +263,17 @@ def curriculum_validate(body: CurriculumValidateRequest) -> CurriculumValidateRe
 )
 def weatherbrain_estimate(body: EstimateRequest) -> EstimateResponse:
     """개념별 θ를 EAP로 추정한다. level_group이 사전분포를 정한다."""
-    mean, sd = weatherbrain.level_group_prior(body.level_group)
-    prior_b = weatherbrain.prior_item_b(body.level_group)
-    out: list[AbilityOut] = []
+    mean, sd = level_group_prior(body.level_group)
+    prior_b = prior_item_b(body.level_group)
+    out: list[Ability] = []
     for concept in body.concepts:
         resp = [
             (r.b if r.b is not None else prior_b, r.a, r.correct)
             for r in concept.responses
         ]
-        est = weatherbrain.estimate_ability(resp, prior_mean=mean, prior_sd=sd)
+        est = estimate_ability(resp, prior_mean=mean, prior_sd=sd)
         out.append(
-            AbilityOut(
+            Ability(
                 concept_tag=concept.concept_tag,
                 theta=est.theta,
                 se=est.se,
@@ -298,19 +290,19 @@ def weatherbrain_estimate(body: EstimateRequest) -> EstimateResponse:
 )
 def weatherbrain_placement(body: PlacementRequest) -> EstimateResponse:
     """신규 유저 초기 난이도 배정 — 사전만 또는 배치고사 응답 결합."""
-    prior_b = weatherbrain.prior_item_b(body.level_group)
+    prior_b = prior_item_b(body.level_group)
     placement = {
         tag: [(r.b if r.b is not None else prior_b, r.a, r.correct) for r in responses]
         for tag, responses in body.placement_responses.items()
     }
-    abilities = weatherbrain.initial_abilities(
+    abilities = initial_abilities(
         level_group=body.level_group,
         concept_tags=body.concept_tags,
         placement_responses=placement,
     )
     return EstimateResponse(
         abilities=[
-            AbilityOut(concept_tag=tag, theta=v["theta"], se=v["se"], n=int(v["n"]))
+            Ability(concept_tag=tag, theta=v["theta"], se=v["se"], n=int(v["n"]))
             for tag, v in abilities.items()
         ]
     )
@@ -324,7 +316,7 @@ def weatherbrain_placement(body: PlacementRequest) -> EstimateResponse:
 def weatherbrain_calibrate(body: CalibrateRequest) -> CalibrateResponse:
     """누적 응답에서 문항난이도 b를 결합추정한다(재학습). 데이터 희소 시 빈 결과."""
     responses = [(r.user_id, r.item_id, r.correct) for r in body.responses]
-    item_b = weatherbrain.calibrate_items(responses, iterations=body.iterations)
+    item_b = calibrate_items(responses, iterations=body.iterations)
     return CalibrateResponse(
         item_b=item_b,
         n_items=len(item_b),

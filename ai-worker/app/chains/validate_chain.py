@@ -51,6 +51,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections import Counter
 
 from pydantic import BaseModel
 
@@ -167,6 +168,11 @@ def _check(name: str, passed: bool, reason: str) -> dict:
     return {"name": name, "passed": passed, "reason": reason}
 
 
+def _dupes(values: list[str]) -> list[str]:
+    """2회 이상 등장한 값 목록(정렬) — 중복 메시지 구성용."""
+    return sorted(v for v, n in Counter(values).items() if n > 1)
+
+
 # ── 1단 휴리스틱 (LLM 불필요, 결정적) ─────────────────────────────────────
 def run_heuristic_checks(question: dict, concept_tag: str | None = None) -> list[dict]:
     """template_json 형식 문항에 대해 1단 휴리스틱 체크 목록을 반환한다.
@@ -244,7 +250,7 @@ def run_heuristic_checks(question: dict, concept_tag: str | None = None) -> list
         checks.append(_check("options_unique", False, "options가 리스트가 아니거나 없음"))
     else:
         normalized = [str(o).strip() for o in options]
-        duplicates = sorted({o for o in normalized if normalized.count(o) > 1})
+        duplicates = _dupes(normalized)
         if duplicates:
             checks.append(
                 _check(
@@ -464,7 +470,7 @@ def run_heuristic_checks(question: dict, concept_tag: str | None = None) -> list
                     else:
                         bucket.append(value.strip())
             for side, bucket in (("left", lefts), ("right", rights)):
-                duplicates = sorted({v for v in bucket if bucket.count(v) > 1})
+                duplicates = _dupes(bucket)
                 if duplicates:
                     errors.append(f"{side} 중복: {', '.join(duplicates)}")
             if errors:
@@ -494,7 +500,7 @@ def run_heuristic_checks(question: dict, concept_tag: str | None = None) -> list
             )
         else:
             normalized = [str(item).strip() for item in items]
-            duplicates = sorted({v for v in normalized if normalized.count(v) > 1})
+            duplicates = _dupes(normalized)
             if duplicates:
                 checks.append(
                     _check(

@@ -76,12 +76,6 @@ def get_collection(name: str):
     return collection
 
 
-def ensure_collections() -> None:
-    """컬렉션 3종을 모두 get_or_create 한다 (초기 기동 시 호출)."""
-    for name in ALL_COLLECTIONS:
-        get_collection(name)
-
-
 def query_collection(
     name: str,
     query_text: str,

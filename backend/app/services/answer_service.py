@@ -238,9 +238,7 @@ async def submit_answer_for_log(
     # weak_tags 갱신 + 유저 XP 가산 + 로그 확정
     await xp_service.update_weak_tag(db, user.id, concept_tag, is_correct)
     if grant_xp:
-        db_user = await db.get(User, user.id)
-        if db_user is not None:
-            await xp_service.add_xp(db, db_user, xp_earned)
+        await xp_service.add_xp(db, user.id, xp_earned)
 
     log.user_answer = answer
     log.is_correct = is_correct

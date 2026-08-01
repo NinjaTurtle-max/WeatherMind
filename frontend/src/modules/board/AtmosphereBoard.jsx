@@ -19,7 +19,15 @@ import {
   cloudMeta,
 } from './boardDisplay';
 import { Glyph, SymbolIcon } from './boardSymbols';
-import { PhenomenonStage } from './boardAnimations';
+import CrossSectionPanel from './CrossSectionPanel';
+import {
+  InfographicDefs,
+  PrecipCanvas,
+  RealCloudMass,
+  SunGlint,
+  usePrefersReducedMotion,
+} from './realisticEffects';
+import { AirMassBloom, FlowArrow, FrontCurve, ZoneAnnotation } from './mapInfographic';
 import useBoardDrag from './useBoardDrag';
 
 /**
@@ -151,6 +159,18 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     ? (confirmedPhenomena.find((p) => p.zone === stageZone) ?? confirmedPhenomena[stageZone] ?? null)
     : (preview[stageZone] ?? null);
 
+  // 지도 오버레이용 존별 표시 결과(R9-08 §A) — 서버 확정이 있으면 확정, 없으면 미리보기.
+  const zoneVisuals = useMemo(
+    () =>
+      ZONES.map((_, z) => {
+        if (confirmedPhenomena) {
+          return confirmedPhenomena.find?.((p) => p?.zone === z) ?? confirmedPhenomena[z] ?? preview[z] ?? null;
+        }
+        return preview[z] ?? null;
+      }),
+    [confirmedPhenomena, preview],
+  );
+
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
       {/* 목표 배너 */}
@@ -248,6 +268,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         onZoneTap={handleZoneClick}
         dragging={dragging}
         dragOverZone={drag?.overZone ?? null}
+        zoneVisuals={zoneVisuals}
       />
 
       {/* 드래그 고스트(§3.3 ③) — 존 위에서는 존 중심으로 스냅 */}
@@ -272,10 +293,10 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         </div>
       )}
 
-      {/* 현상 스테이지(§3.3 ④) — rule_id→프리셋 애니메이션 + explain 캡션.
-          로컬 미리보기 엔진 결과로 즉시 재생, 서버 판정 도착 시 확정 리플레이.
-          prefers-reduced-motion이면 정적 장면으로 대체. */}
-      <PhenomenonStage zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
+      {/* 단면 모식도 패널(R9-08 §B) — rule_id→8종 스토리보드 단계 재생 + explain 캡션.
+          로컬 미리보기 판정 성공 시 즉시 재생, 서버 판정 도착 시 확정 리플레이.
+          prefers-reduced-motion이면 최종 장면 정지 + 단계 텍스트 목록. */}
+      <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
 
       {/* 4개 지역 상세 조절(노드별 기단·전선·습기·일사) — 지도와 같은 zone을 가리킨다 */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -480,46 +501,140 @@ function toUser(point, dflt = [50, 50]) {
   return [x * (VIEW_W / 100), y * (VIEW_H / 100)];
 }
 
+// 한반도 실루엣 path (정규화 0~100 좌표 저작 — scale(1, VIEW_H/100)로 사영)
+const PENINSULA_PATH =
+  'M34,14 C40,10 50,12 53,20 C55,26 60,24 65,28 C70,32 67,39 71,44 C76,50 82,49 82,57 ' +
+  'C82,65 74,66 70,72 C65,79 60,86 52,88 C46,89 41,86 39,80 C37,74 40,69 35,65 ' +
+  'C30,61 24,60 24,52 C24,44 30,42 30,35 C30,29 28,24 32,19 C33,17 33,15 34,14 Z';
+
+// 현상 → 지도 구름 변형(R9-08 §A — 적란운 수직 발달·층운 평평·안개 저층 확산)
+function cloudVariantFor(v) {
+  if (!v) return null;
+  if (v.phenomenon === 'fog') return 'fog';
+  if (v.phenomenon === 'snow') return 'snowcloud';
+  if (v.cloud === 'cumulonimbus') return 'cumulonimbus';
+  if (v.cloud === 'nimbostratus') return 'nimbostratus';
+  if (v.cloud === 'stratus') return 'stratus';
+  if (v.rule_id && v.cloud === 'cumulus') return 'cumulus';
+  return null; // 기본 흐림(규칙 미성립)은 노드 아이콘만 — 지도를 어지럽히지 않는다
+}
+
+// 현상 → Canvas 강수 에미터 메타(weight=입자 배분, slant=사선 강도)
+const PRECIP_META = {
+  shower: { kind: 'rain', weight: 2, slant: 1.4 },
+  persistent_rain: { kind: 'rain', weight: 2, slant: 0.7 },
+  rain: { kind: 'rain', weight: 1, slant: 0.9 },
+  snow: { kind: 'snow', weight: 1 },
+};
+
 /**
- * PeninsulaMap — 단순화한 한반도 지도(인라인 SVG, CSP상 외부 이미지 금지) 위에
- * 4개 지역 노드를 배치한다. 노드는 요소 드롭·탭 배치 대상이며 즉시 미리보기 현상을
- * 아이콘으로 보여준다. 판정 로직(boardEngine)은 불변 — zone index↔지역 매핑만 표현.
- *
- * R9-01 §3.3: 지도와 노드가 하나의 SVG userSpace를 공유한다(<g transform>).
- * 지역 라벨은 시드의 label_anchor 좌표를 사용한다.
- * 드래그 중(dragging)에는 유효 존 전체를 하이라이트하고 dragOverZone을 강조한다.
+ * PeninsulaMap — 기상청 인포그래픽 문법의 한반도 일기도 (R9-08 §A, 기준 하.png).
+ * 4개 지역 노드는 요소 드롭·탭 배치 대상(R9-01 드래그 UX 불변)이며, 그 위에
+ *  ① 기단 색 번짐 ② 전선 곡선+표준 기호 ③ 곡선 유동 화살표
+ *  ④ 현상 구름(터뷸런스 질감)+주석 라벨 ⑤ Canvas 파티클 강수
+ * 를 겹친다. 판정 로직(boardEngine)은 불변 — 전부 표현 레이어.
+ * prefers-reduced-motion이면 모든 레이어가 정적 최종 장면으로 대체된다.
  */
-function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected, interactive, onZoneTap, dragging = false, dragOverZone = null }) {
+function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected, interactive, onZoneTap, dragging = false, dragOverZone = null, zoneVisuals = null }) {
+  const reduced = usePrefersReducedMotion();
+  const animate = !reduced;
+  const zonePoint = (zone) => toUser(regions[zone]?.svg_point);
+
+  // 전선 곡선(②) — 같은 subtype이 배치된 존들을 잇는 지역 스케일 곡선
+  const frontZones = { cold: [], warm: [], stationary: [] };
+  for (const el of board?.elements ?? []) {
+    if (el.type === 'front' && frontZones[el.subtype]) {
+      const [x, y] = zonePoint(el.zone);
+      frontZones[el.subtype].push({ x, y });
+    }
+  }
+
+  // Canvas 강수 에미터(⑤) — 강수 현상 존에만, 좌표는 컨테이너 분율
+  const emitters = regions
+    .map((region, zone) => {
+      const m = PRECIP_META[zoneVisuals?.[zone]?.phenomenon];
+      if (!m) return null;
+      const [ux, uy] = toUser(region.svg_point);
+      return {
+        fx: (ux - 7) / VIEW_W,
+        fy: (uy - 4) / VIEW_H,
+        fw: 14 / VIEW_W,
+        fh: 12 / VIEW_H,
+        ...m,
+      };
+    })
+    .filter(Boolean);
+
   return (
-    <div className="relative mb-3 w-full overflow-hidden rounded-xl bg-gradient-to-b from-sky-100 to-sky-200 ring-1 ring-sky-200">
+    <div className="relative mb-3 w-full overflow-hidden rounded-xl bg-[#dfe9f3] ring-1 ring-slate-200">
       <svg
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
         className="block h-auto w-full"
         role="group"
         aria-label="한반도 대기 보드 지도 — 4개 지역 노드에 요소를 배치하세요"
       >
-        {/* 단순화 한반도 실루엣 (장식) — 정규화 좌표(0~100)로 저작된 path를 y 사영과 함께 스케일 */}
-        <g transform={`scale(1 ${VIEW_H / 100})`} aria-hidden="true">
-          <path
-            d="M34,14 C40,10 50,12 53,20 C55,26 60,24 65,28 C70,32 67,39 71,44 C76,50 82,49 82,57
-               C82,65 74,66 70,72 C65,79 60,86 52,88 C46,89 41,86 39,80 C37,74 40,69 35,65
-               C30,61 24,60 24,52 C24,44 30,42 30,35 C30,29 28,24 32,19 C33,17 33,15 34,14 Z"
-            fill="#bbf7d0"
-            stroke="#86efac"
-            strokeWidth="1"
-            vectorEffect="non-scaling-stroke"
-          />
-          {/* 태백산맥 능선 힌트 */}
-          <path
-            d="M56,30 L60,44 L57,58 L61,70"
-            fill="none"
-            stroke="#4ade80"
-            strokeWidth="1.2"
-            strokeLinejoin="round"
-            opacity="0.7"
-            vectorEffect="non-scaling-stroke"
-          />
+        <InfographicDefs />
+
+        {/* 바다 + 주변 대륙 힌트(장식) — 밝은 인포그래픽 톤 */}
+        <g aria-hidden="true">
+          <rect x="0" y="0" width={VIEW_W} height={VIEW_H} fill="url(#wm-sea)" />
+          {/* 대륙(북서) */}
+          <path d="M0,0 L26,0 C20,6 22,13 15,19 C10,23 12,31 5,36 L0,38 Z" fill="url(#wm-land)" opacity="0.85" />
+          {/* 일본 열도 힌트(남동) */}
+          <path d="M100,52 C92,58 88,66 91,74 C93,78 97,80 100,80 Z" fill="url(#wm-land)" opacity="0.8" />
         </g>
+
+        {/* 한반도 — 지형 그라디언트 + 터뷸런스 그레인 음영 + 태백 능선 */}
+        <g transform={`scale(1 ${VIEW_H / 100})`} aria-hidden="true">
+          <path d={PENINSULA_PATH} fill="url(#wm-land)" stroke="#a9bccb" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          <path d={PENINSULA_PATH} fill="#334155" filter="url(#wm-terrain)" opacity="0.5" />
+          {/* 태백산맥 능선 — 음영 + 능선 하이라이트 */}
+          <path d="M56,30 L60,44 L57,58 L61,70" fill="none" stroke="#8a9a7a" strokeWidth="2" strokeLinejoin="round" opacity="0.55" vectorEffect="non-scaling-stroke" />
+          <path d="M55,31 L59,44 L56,58 L60,69" fill="none" stroke="#f8fafc" strokeWidth="0.7" strokeLinejoin="round" opacity="0.5" vectorEffect="non-scaling-stroke" />
+        </g>
+
+        {/* ① 기단 색 번짐 + ③ 곡선 유동 화살표 */}
+        {(board?.elements ?? [])
+          .filter((el) => el.type === 'air_mass')
+          .map((el) => {
+            const [ux, uy] = zonePoint(el.zone);
+            return (
+              <g key={`air-${el.zone}`}>
+                <AirMassBloom subtype={el.subtype} x={ux} y={uy} animate={animate} />
+                <FlowArrow subtype={el.subtype} x={ux} y={uy} animate={animate} />
+              </g>
+            );
+          })}
+
+        {/* ② 전선 곡선 — 지도를 가로지르는 경로 + 표준 기호 반복 */}
+        {Object.entries(frontZones).map(([subtype, pts]) =>
+          pts.length > 0 ? <FrontCurve key={subtype} subtype={subtype} points={pts} animate={animate} /> : null,
+        )}
+
+        {/* ④ 현상 구름(터뷸런스 질감)·태양 글로우 + 주석 라벨 */}
+        {regions.map((region, zone) => {
+          const v = zoneVisuals?.[zone];
+          if (!v) return null;
+          const [ux, uy] = toUser(region.svg_point);
+          const variant = cloudVariantFor(v);
+          const clearLike = v.cloud === 'none' && (v.phenomenon === 'clear' || v.phenomenon === 'heatwave');
+          return (
+            <g key={`ph-${zone}`}>
+              {clearLike && <SunGlint x={ux} y={uy - 6} hot={v.phenomenon === 'heatwave'} animate={animate} />}
+              {variant && (
+                <RealCloudMass
+                  variant={variant}
+                  x={ux}
+                  y={variant === 'fog' ? uy + 2.5 : variant === 'cumulonimbus' ? uy - 8 : uy - 7}
+                  scale={variant === 'fog' ? 1.05 : 0.95}
+                  animate={animate}
+                  flash={v.phenomenon === 'shower' && v.cloud === 'cumulonimbus'}
+                />
+              )}
+              {v.rule_id && <ZoneAnnotation x={ux} y={uy} ruleId={v.rule_id} animate={animate} />}
+            </g>
+          );
+        })}
 
         {/* 지역 노드 — 지도와 같은 userSpace(<g transform>) */}
         {regions.map((region, zone) => {
@@ -616,6 +731,10 @@ function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected
           );
         })}
       </svg>
+
+      {/* ⑤ Canvas 파티클 강수 — 비 사선 줄기+지면 스플래시 암시, 눈 흔들 낙하.
+          상한 160(전역 200 이하), 탭 비활성·뷰포트 밖 정지, reduced-motion 정적 프레임. */}
+      <PrecipCanvas emitters={emitters} reduced={reduced} cap={160} />
     </div>
   );
 }

@@ -19,6 +19,7 @@ import hashlib
 import random
 from datetime import date
 
+from app.services import weather_api
 from app.services.league_service import DEFAULT_TIER, accuracy_score, tier_from_elo
 
 # 승리 보상 (§3.4) — **단일 소유자**(R8-01 §3.6). celery/app/tasks/league.py의
@@ -265,21 +266,10 @@ def extract_forecast_for_date(weather: dict, target: date) -> dict | None:
     if not forecasts:
         return None
 
-    def _nums(category: str) -> list[float]:
-        return [
-            float(f[category])
-            for f in forecasts
-            if isinstance(f.get(category), (int, float))
-        ]
-
-    tmx, tmp = _nums("TMX"), _nums("TMP")
-    if tmx:
-        temp_max = tmx[0]
-    elif tmp:
-        temp_max = max(tmp)
-    else:
+    temp_max = weather_api.forecast_temp_max(forecasts)
+    if temp_max is None:
         return None
 
-    pop = _nums("POP")
+    pop = weather_api.forecast_numbers(forecasts, "POP")
     rain_prob = max(pop) if pop else 0.0
     return {"temp_max": round(temp_max, 1), "rain_prob": round(rain_prob)}

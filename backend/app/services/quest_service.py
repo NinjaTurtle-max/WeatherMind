@@ -261,7 +261,6 @@ async def recalculate_quests(
 
     transitions = plan_transitions(progress_map, prior_done)
 
-    db_user = await db.get(User, user.id)
     for transition in transitions:
         quest = quests.get(transition.code)
         if quest is None:
@@ -275,8 +274,8 @@ async def recalculate_quests(
             rows_by_code[transition.code] = row
         row.progress = transition.progress
         row.done = transition.done
-        if transition.reward_xp and db_user is not None:
-            await xp_service.add_xp(db, db_user, transition.reward_xp)
+        if transition.reward_xp:
+            await xp_service.add_xp(db, user.id, transition.reward_xp)
 
     await db.flush()
     return transitions

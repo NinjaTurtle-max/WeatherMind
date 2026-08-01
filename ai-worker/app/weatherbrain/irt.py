@@ -109,23 +109,17 @@ def estimate_ability(
     return EstimatedAbility(theta=theta_hat, se=math.sqrt(var), n=len(responses))
 
 
-def _estimate_b(
-    outcomes: list[tuple[float, bool]],
-    grid_lo: float = _GRID_LO,
-    grid_hi: float = _GRID_HI,
-    a: float = 1.0,
-) -> float:
-    """단일 문항 난이도 b의 최대우도 추정(1D 격자 탐색).
+def _estimate_b(outcomes: list[tuple[float, bool]]) -> float:
+    """단일 문항 난이도 b의 최대우도 추정(THETA_GRID 1D 격자 탐색).
 
     outcomes: 이 문항을 푼 학습자들의 [(theta, correct), ...]. θ는 고정(현재 추정치).
     b가 클수록 어려워 정답확률이 낮아진다. 우도가 최대인 b를 반환한다.
     """
-    grid = [grid_lo + (grid_hi - grid_lo) * i / (_GRID_N - 1) for i in range(_GRID_N)]
-    best_b, best_ll = grid[0], -math.inf
-    for b in grid:
+    best_b, best_ll = THETA_GRID[0], -math.inf
+    for b in THETA_GRID:
         ll = 0.0
         for theta, correct in outcomes:
-            p = irf(theta, b, a)
+            p = irf(theta, b)
             ll += math.log(p) if correct else math.log(1.0 - p)
         if ll > best_ll:
             best_ll, best_b = ll, b
