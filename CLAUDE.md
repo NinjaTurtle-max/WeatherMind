@@ -29,14 +29,15 @@
   → LLM 2차 게이트. LLM 키 없어도 폴백 문항 뱅크로 전 기능 동작.
 
 ## 프로젝트 현황
-- R2~R6 완료(테스트 backend 425·ai-worker 86+1skip, P0~P2 결함 0). R6: WeatherBrain
-  자체 적응형 엔진 실구현 — IRT(2PL) 순수 파이썬 코어(EAP θ 추정·JML b 보정, 합성
-  복원 테스트로 검증), 가입 시 초기 능력(θ) 배정, θ가 Router 1순위 신호, celery
+- **로드맵 마일스톤 1·2 완료**(6개 중 2개) — 다음은 마일스톤 3(콘텐츠·난이도 다양화).
+  상태·의존 규칙·주차 일정은 `docs/ROADMAP.md`가 SSOT.
+- R2~R9 완료. 테스트 실측 **backend 761**·ai-worker 86+1skip(R6 시점 425는 stale).
+  R6: WeatherBrain 자체 적응형 엔진 — IRT(2PL) 순수 파이썬 코어(EAP θ 추정·JML b
+  보정, 합성 복원 테스트로 검증), 가입 시 초기 θ 배정, θ가 Router 1순위 신호, celery
   재학습 실동작(휴면-정확). 상세 docs/specs/03 §5.
-  **경계**: θ는 라우팅·진단 노출까지 연결됐고, θ→출제난이도(뱅크 풀·quiz-generate)는
-  미연결(다음 증분, §0). DB 경로(마이그레이션 0006·RLS insert·round-trip)는 아직
-  실행 검증 전 — 단위/임포트 테스트만 통과, `docker compose up`+`alembic upgrade`+
-  register→session 스모크가 남았다.
+  **θ→출제난이도는 R7에서 연결 완료**(뱅크 풀 `build_pool_query(theta=)` |b−θ| 정렬 +
+  생성 경로 `theta_to_level_group` 주입 — ROADMAP §3). DB 경로(0006·RLS·round-trip)도
+  실DB 스모크 통과(2026-07-23, R7-01에서 9단계 2회 그린).
 - R2~R5.5 완료. 제품 방향 전환 2건 —
   시뮬레이터 폐지→퍼즐화(R3), 지도+커리큘럼+구름에너지(R5) — Duolingo 벤치마킹
   ([[duolingo-benchmark-report]]) 근거. 메커니즘만 차용, 표현(캐릭터·문항 텍스트)은
@@ -60,9 +61,14 @@
   롤플레이·웹푸시·IRT 재학습).
 
 ## SSOT — 기능 상세는 여기서 확인(위 요약은 진입점이지 전체가 아님)
+**`docs/ROADMAP.md`(전략 — 마일스톤 1~6·의존 규칙·현재 위치·용어 규약)** ·
 `docs/specs/`(제품 스펙, 00~10번) · `docs/DEVELOPMENT_PLAN.md`(표준 결정) ·
-`docs/team/TEAM_PROCESS.md`(팀 운영·§2.4 Git 워크플로우) · `docs/team/RETROSPECTIVE.md`.
-충돌 시 위 문서 우선.
+`docs/team/TEAM_PROCESS.md`(팀 운영·§2.4 Git·§2.6~2.7 동적 편성) ·
+`docs/team/RETROSPECTIVE.md`. 충돌 시 위 문서 우선.
+- **"마일스톤"은 로드맵 1~6만 지칭한다.** 스프린트 우선순위는 "항목"(R10-A~I),
+  실행 단위는 "스토리"(S1~S6) — 혼용 금지(ROADMAP §0).
+- **진행 가능 여부는 ROADMAP §1~2로 판단한다.** 아래 「프로젝트 현황」은 진입점 요약이라
+  뒤처질 수 있다.
 
 ## 명령
 - 테스트: `cd backend && python -m pytest tests -q` / `cd ai-worker && python -m pytest tests -q`
