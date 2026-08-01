@@ -233,9 +233,10 @@ JSON 컬럼이 없다**(`models/user.py:12-53` — JSONB 0개). 기존 JSONB는 
   (0005 `clouds`, 0007 `placement_completed_at`). `down_revision="0007_placement"`.
 - 허용값 `{3, 5, 9}`. `SESSION_RECIPE`(합 5)와는 **독립** — 목표는 표시용 카운터
   타깃이지 세션 배합이 아니다(계약 수치 드리프트 없음).
-- API: `GET /api/v1/progress` 응답에 `daily_goal_items`(null=미설정)·
+- API: `GET /api/v1/progress/me` 응답에 `daily_goal_items`(null=미설정)·
   `today_answered_count` 추가 · `PUT /api/v1/progress/daily-goal` `{items}` →
-  범위 밖 422. "오늘 응답 수"는 `quest_service._today_facts()`(`:146-216`)가 이미
+  범위 밖 422. (prefix `/api/v1/progress`에 `""` 라우트는 없다 —
+  `routers/progress.py:43`의 `/me`가 유일한 진척 페이로드.) "오늘 응답 수"는 `quest_service._today_facts()`(`:146-216`)가 이미
   집계하므로 **새 테이블·새 집계 불필요**.
 - 담당: SA-1(백엔드·마이그레이션) → FE-3은 이 계약으로 mock 선작업. SA-1의 웨이브 1
   부하가 커지면 S1(에너지)/S4-백엔드를 원자 커밋 2개로 분리하고, 그래도 넘치면
@@ -283,6 +284,33 @@ JSON 컬럼이 없다**(`models/user.py:12-53` — JSONB 0개). 기존 JSONB는 
 7. **관찰된 중복 4건의 출처는 실데이터 없이 특정 불가**(review·live·유닛 풀 중
    어디인지 미확인). 세 경로를 모두 막으므로 출처 특정 없이 커버된다.
 
+### D10. mock 선반영에서 드러난 판정 (SA-1 질의 → PM 확정)
+1. **"구름 −1" 피드백에 필드가 필요하다 → `SessionAnswerResult`·`BoardAttemptResult`에
+   additive 추가로 확정.** §3.1 프론트 요구("오답 피드백에 구름 −1 명시")는
+   `is_correct=false`만으로는 구현 불가다 — D6 각주(잔량 0이면 오답이어도 0 소모)
+   때문에 오답이 항상 −1을 의미하지 않는다. 두 응답 스키마에 `clouds_spent`(0|1)·
+   `clouds`(소모 후 잔량)를 **서버와 mock 같은 커밋에서** 추가하고 스키마 계약
+   테스트를 건다. SA-1이 mock에만 넣었다가 되돌린 판단이 맞다 — 서버에 없는 필드를
+   mock에 두면 FE가 그것에 기대어 통합에서 깨진다.
+2. **`today_answered_count`는 배치고사를 제외한다.** `quest_service._today_facts()`는
+   `mode` 필터가 없어(`:157-190`) placement 세션 6문항이 그대로 잡히고, 목표를 정한
+   직후 "6/3 달성"이 뜬다. **단 `_today_facts` 자체를 고치지 마라** — 퀘스트 3종
+   (daily_xp·weak_correct·live_answered) 의미가 바뀌고 기존 테스트가 깨진다.
+   placement를 제외하는 **별도 카운트**를 추가한다.
+3. **유닛 세션은 잔량 0에서 항상 차단이 맞다(현행 수용).** `create_unit_session`은
+   호출마다 새 Session을 만들어(`curriculum_service.py:436~`) 애초에 "재개" 개념이
+   없다 — 새로고침하면 지금도 기존 세션이 아니라 새 세션이 발급된다. 따라서 차단이
+   빼앗는 것이 없고, 데일리와의 비대칭은 **기존 동작**이다. 범위 확대 없음.
+   유닛 세션 멱등 재조회는 D9 부채로 이월.
+4. **`PUT /progress/daily-goal` 422는 명시적 `HTTPException`으로 구현**하고
+   `code: "VALIDATION_ERROR"`를 동봉한다. pydantic `Literal[3,5,9]`에 맡기면 FastAPI
+   기본 422 본문(`detail: [{...}]`, `code` 없음)이 되어 mock과 형식이 갈라진다.
+5. `items: "5"`(문자열)은 pydantic 비-strict 기본 강제변환을 수용한다(`strict=True`
+   금지 — mock의 `Number()`와 동일 동작 유지).
+6. **미해결로 남긴 것**: 계약 7의 재조회를 `SELECT`로 할지 `db.refresh`로 할지는
+   RLS 세션에서 어느 쪽이 안전한지 실DB 없이 판단하지 않았다 → **웨이브 2 스모크
+   대상**. 계약 테스트는 양쪽을 허용하도록 작성돼 있어 구현 자유는 열려 있다.
+
 ### D9. 발견 부채 (이번 스프린트 범위 밖 — 이월)
 - **`preview` vs `zoneVisuals` 이중 진실원**: `PeninsulaMap.jsx`가 오버레이(구름·
   주석)에는 서버 확정 `zoneVisuals`(`:141`)를, 노드 아이콘·aria-label에는 로컬
@@ -292,7 +320,12 @@ JSON 컬럼이 없다**(`models/user.py:12-53` — JSONB 0개). 기존 JSONB는 
   구분이 불가능해진다. R11 이후 별건.
 - 보드 좌표계는 `boardLayout.js` 단일 소유로 통합(FE-2 후속) — 좌표 **데이터**가
   FE-4 파일에, **사영**이 FE-2 파일에 나뉘어 있고 테스트가 좌표를 assert하지
-  않아 어느 쪽이 깨져도 조용히 통과하는 구조였다.
+  않아 어느 쪽이 깨져도 조용히 통과하는 구조였다. 해소 완료 +
+  `boardLayout.contract.test.mjs`(25 assert, 시드 대조 포함)로 기계적 가드.
+- **유닛 세션 멱등 재조회 부재**: `POST /units/{slug}/session`은 호출마다 새 Session을
+  만들어 진행 중 유닛 세션을 재개할 방법이 없다(새로고침 = 새 세션). 데일리
+  (`/session/today`)만 멱등 재조회를 갖는다. D10-3에서 현행 수용으로 판정했으나
+  UX 관점의 비대칭은 남는다 — R11 이후 별건.
 
 ## 5. 범위 밖 · 대기
 
