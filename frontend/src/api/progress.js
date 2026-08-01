@@ -10,6 +10,15 @@ export async function fetchMyProgress() {
   return res.data;
 }
 
+// PUT /progress/daily-goal (R10-01 §3.4·D4) — 온보딩 일일 목표 커밋.
+//   body {items} → 200 {daily_goal_items}. 허용값은 3|5|9(lib/onboardingGate의
+//   DAILY_GOAL_CHOICES)이고 그 밖은 422 {code:"VALIDATION_ERROR"}(D10-4).
+//   읽기는 /progress/me의 daily_goal_items(null=미설정)·today_answered_count.
+export async function setDailyGoal(items) {
+  const res = await client.put('/progress/daily-goal', { items });
+  return res.data;
+}
+
 // GET /progress/weak-tags (R8-01 §3.5) — θ 파생 약점 개념, WeakConceptOut[]
 //   → [{concept_tag, theta, threshold, num_responses}] (θ 오름차순 = 약한 순)
 //   판정: num_responses > 0 AND θ < threshold(학령 상대 임계).

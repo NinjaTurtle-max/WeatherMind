@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import Layout from './components/Layout';
+import FeatureUnlockGate from './components/FeatureUnlockGate';
 import SessionPage from './modules/session/SessionPage';
 import CurriculumHome from './modules/curriculum/CurriculumHome';
 import UnitSessionPage from './modules/curriculum/UnitSessionPage';
@@ -28,6 +29,13 @@ const DevPanel = lazy(() => import('./modules/dev/DevPanel'));
  * detective(/detective)는 이번 라운드 제외(Phase 3 후순위)로 라우트 미등록.
  * R7-01 S3: 온보딩 배치고사(/onboarding/placement)는 인증 필요하되 Layout(탭바) 밖
  * 전체 화면 — 가입 직후 진입, 건너뛰기 가능.
+ *
+ * R10-01 §3.4 (S4 — R10-F): 점진적 잠금 해제는 라우트를 없애지 않는다. 보드·예보
+ * 대결·리그는 FeatureUnlockGate로 감싸 세션 완료 횟수가 모자라면 페이지 대신
+ * **동기 부여 화면**(기능 설명 + 가치 + 해제 조건 + 세션 시작 CTA)을 보여준다.
+ * 조건을 넘으면 원래 페이지가 그대로 렌더된다(자물쇠·차단 없음, 표시 계층 전용).
+ * 하위 경로(/explore/*)는 게이트 밖 — 보드 진입 카드에서만 도달하므로 이중 안내
+ * 불필요.
  */
 function RequireAuth() {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -85,13 +93,34 @@ export default function App() {
           <Route path="/" element={<CurriculumHome />} />
           <Route path="/learn/units/:unitId" element={<UnitSessionPage />} />
           <Route path="/daily" element={<SessionPage />} />
-          <Route path="/board" element={<BoardPage />} />
+          <Route
+            path="/board"
+            element={
+              <FeatureUnlockGate to="/board">
+                <BoardPage />
+              </FeatureUnlockGate>
+            }
+          />
           {/* R9-01 §3.5: 탐구 시뮬 v1 — 순수 클라이언트 모듈(진입은 BoardPage 카드) */}
           <Route path="/explore" element={<ExploreHome />} />
           <Route path="/explore/typhoon" element={<TyphoonSimPage />} />
           <Route path="/explore/climate" element={<ClimateSimPage />} />
-          <Route path="/duel" element={<DuelPage />} />
-          <Route path="/league" element={<LeaguePage />} />
+          <Route
+            path="/duel"
+            element={
+              <FeatureUnlockGate to="/duel">
+                <DuelPage />
+              </FeatureUnlockGate>
+            }
+          />
+          <Route
+            path="/league"
+            element={
+              <FeatureUnlockGate to="/league">
+                <LeaguePage />
+              </FeatureUnlockGate>
+            }
+          />
           <Route path="/me" element={<ProgressPage />} />
         </Route>
       </Route>

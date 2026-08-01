@@ -6,6 +6,9 @@ import LoadingSpinner from '../../components/LoadingSpinner';
  * BadgeCollection (R4-01 §3.3) — 배지 획득/미획득 그리드(5종).
  * GET /progress/badges → [{code, title, description, earned_at|null}]
  * earned_at 있으면 컬러+획득일, 없으면 회색 잠금 표시.
+ *
+ * R10-01 §3.4 (S4): collapsed=true면 **1개만 노출**한다(첫 세션 전 인지 부하 감소).
+ * 기본값 false — 기존 호출·기존 사용자 화면 불변(회귀 0).
  */
 
 // 배지 코드 → 아이콘 (계약 §3.3 5종 저작 코드와 1:1)
@@ -24,7 +27,7 @@ function formatDate(iso) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function BadgeCollection() {
+export default function BadgeCollection({ collapsed = false }) {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['progress', 'badges'],
     queryFn: progressApi.fetchBadges,
@@ -50,6 +53,8 @@ export default function BadgeCollection() {
 
   const badges = Array.isArray(data) ? data : [];
   const earnedCount = badges.filter((b) => b.earned_at).length;
+  const visible = collapsed ? badges.slice(0, 1) : badges;
+  const hiddenCount = badges.length - visible.length;
 
   return (
     <div>
@@ -66,7 +71,7 @@ export default function BadgeCollection() {
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-          {badges.map((b) => {
+          {visible.map((b) => {
             const earned = Boolean(b.earned_at);
             const date = formatDate(b.earned_at);
             return (
@@ -95,6 +100,12 @@ export default function BadgeCollection() {
             );
           })}
         </div>
+      )}
+
+      {hiddenCount > 0 && (
+        <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-center text-xs font-medium text-slate-500 ring-1 ring-slate-200">
+          첫 세션을 마치면 배지 {hiddenCount}개가 더 열려요.
+        </p>
       )}
     </div>
   );

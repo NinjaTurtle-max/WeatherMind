@@ -1,8 +1,12 @@
 import { Link } from 'react-router-dom';
+import { DailyGoalMeter } from '../progress/DailyGoal';
 
 /**
  * SessionSummary (R2-01 S7) — 세션 완료 요약 화면.
  * POST /session/{id}/complete 응답 {xp_total, correct_count, total, streak_count} 표시.
+ *
+ * R10-01 §3.4 (S4 — R10-D): 완료 화면에 "오늘 목표 N/M"을 표기한다
+ * (N=/progress/me의 today_answered_count, M=daily_goal_items — 미설정이면 미렌더).
  */
 export default function SessionSummary({ summary }) {
   if (!summary) return null;
@@ -36,6 +40,9 @@ export default function SessionSummary({ summary }) {
           <p className="mt-0.5 text-xs font-medium text-slate-500">스트릭</p>
         </div>
       </div>
+
+      {/* 오늘 목표 진행 (R10-01 §3.4) — 목표 미설정이면 렌더되지 않는다 */}
+      <DailyGoalMeter className="mt-4" />
 
       <p className="mt-6 text-sm text-slate-500">내일 또 새로운 5문항 세션이 준비돼요.</p>
       <Link

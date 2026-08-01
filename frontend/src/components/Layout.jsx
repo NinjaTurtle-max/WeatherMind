@@ -9,19 +9,39 @@ import TabBar from './TabBar';
 import { authApi, progressApi } from '../api';
 import { useAuthStore } from '../store/authStore';
 import { useProgressStore } from '../store/progressStore';
+import { SESSION_STATUS, useSessionStore } from '../store/sessionStore';
+import { useOnboardingGate } from '../lib/onboardingGate';
 
 /**
  * 로그인 후 공통 레이아웃: 상단 고정 헤더 + 하단 탭바.
  * GET /progress/me 를 조회해 progressStore에 동기화한다.
  * 헤더 진척 표시(R8-01 §3.7③ 제품 결정): 스파인(유닛 진도·왕관) 1순위 —
  * 로고 바로 옆 SpineBadge — 그리고 XPBar를 보상감으로 병기(교체 아님).
+ *
+ * R10-01 §3.4 (S4 — R10-F): 점진적 잠금 해제의 관측 지점.
+ * - /progress/me가 도착하면 온보딩 게이트를 1회 부트스트랩한다(기존 사용자 판정).
+ * - 세션이 SUMMARY에 도달하면 "세션 1회 완료"로 센다. 배치고사는 Layout 밖
+ *   전체 화면(App: /onboarding/placement)에서 돌고 응답에 placement_done이
+ *   실려 오므로 이중으로 제외된다 — 진단은 세션 완료가 아니다.
+ * - 새로 열린 탭은 1회성 축하 토스트로 알린다(§3.4).
  */
 export default function Layout() {
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);
+  const userKey = useAuthStore((s) => s.user?.user_id ?? null);
   const logoutLocal = useAuthStore((s) => s.logout);
   const setProgress = useProgressStore((s) => s.setProgress);
   const resetProgress = useProgressStore((s) => s.reset);
+
+  const syncGate = useOnboardingGate((s) => s.syncFromProgress);
+  const recordSessionComplete = useOnboardingGate((s) => s.recordSessionComplete);
+  const resetGate = useOnboardingGate((s) => s.reset);
+  const unlockToast = useOnboardingGate((s) => s.toast);
+  const clearUnlockToast = useOnboardingGate((s) => s.clearToast);
+
+  const sessionStatus = useSessionStore((s) => s.status);
+  const sessionSummary = useSessionStore((s) => s.summary);
+  const sessionId = useSessionStore((s) => s.sessionId);
 
   const { data: progress } = useQuery({
     queryKey: ['progress', 'me'],
@@ -34,6 +54,23 @@ export default function Layout() {
     if (progress) setProgress(progress);
   }, [progress, setProgress]);
 
+  useEffect(() => {
+    if (progress) syncGate(progress, userKey);
+  }, [progress, userKey, syncGate]);
+
+  // 세션 완료 집계(§3.4) — 완료 요약에 도달한 세션 id를 게이트에 기록(멱등).
+  useEffect(() => {
+    if (sessionStatus !== SESSION_STATUS.SUMMARY || !sessionSummary || !sessionId) return;
+    if (sessionSummary.placement_done) return; // 배치고사는 세지 않는다
+    recordSessionComplete(sessionId);
+  }, [sessionStatus, sessionSummary, sessionId, recordSessionComplete]);
+
+  useEffect(() => {
+    if (!unlockToast) return undefined;
+    const t = setTimeout(clearUnlockToast, 3200);
+    return () => clearTimeout(t);
+  }, [unlockToast, clearUnlockToast]);
+
   const handleLogout = async () => {
     try {
       await authApi.logout();
@@ -42,6 +79,7 @@ export default function Layout() {
     }
     logoutLocal();
     resetProgress();
+    resetGate(); // 다음 로그인 계정에서 다시 판정 — 계정 간 게이트 누출 방지
     navigate('/login', { replace: true });
   };
 
@@ -65,6 +103,16 @@ export default function Layout() {
           </button>
         </div>
       </header>
+
+      {/* 잠금 해제 축하 토스트 (§3.4) — 1회성, 3.2초 후 자동 소멸 */}
+      {unlockToast && (
+        <div
+          role="status"
+          className="fixed left-1/2 top-16 z-50 -translate-x-1/2 animate-xp-pop rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-lg"
+        >
+          {unlockToast}
+        </div>
+      )}
 
       {/* 헤더/탭바 높이만큼 여백 확보 */}
       <main className="flex-1 px-4 pb-20 pt-16">
