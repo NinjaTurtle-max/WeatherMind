@@ -150,7 +150,16 @@ def _source(rel: str) -> str:
 
 
 def _func_block(source: str, name: str) -> str:
-    """`async def name(` 부터 다음 최상위 정의 직전까지의 소스 슬라이스."""
+    """`async def name(` 부터 다음 최상위 정의 직전까지의 소스 슬라이스.
+
+    함수명 자체가 계약이므로(예: `get_puzzle_detail`), 부재는 ValueError가 아니라
+    읽히는 AssertionError로 실패시킨다.
+    """
+    marker = f"async def {name}("
+    assert marker in source, (
+        f"`{marker}` 핸들러가 없다 — 함수명도 계약이다(웨이브 1은 이 이름을 쓴다). "
+        "이름이 바뀌면 이 테스트가 잡는 호출 위치 가드가 전부 무력해진다"
+    )
     start = source.index(f"async def {name}(")
     rest = source[start + 1 :]
     ends = [
@@ -317,6 +326,10 @@ class TestConsumeIfAvailable:
 
         가드는 `clouds >= CLOUD_COST` 이므로 COST=2·잔량=1이면 0행이 나오지만
         실제 잔량은 1이다. `return 0` 하드코딩은 이 케이스에서 구름을 삼킨다.
+
+        범위 주의: 0행 분기 진입은 대역(`guarded_remaining=None`)이 강제하므로
+        COST=2 설정 자체는 비-하중이다. 이 테스트의 검증 대상은 **재조회값을
+        그대로 반환하는가**(0 하드코딩 여부) 하나다.
         """
         monkeypatch.setattr(es, "CLOUD_COST", 2)
         db = FakeDB(guarded_remaining=None, refetch_clouds=1)
@@ -761,9 +774,16 @@ class TestPuzzleDetailRoute:
         assert ("POST", f"{self.DETAIL_PATH}/attempt") in routes
 
     def test_계약13_상세_핸들러가_진입_게이트_호출(self):
-        source = _source("routers/board.py")
-        assert "require_entry" in source, (
-            "board.py에 require_entry 호출이 없다 — 퍼즐 상세 진입 차단 미구현"
+        """[계약 13·14] 게이트는 **상세 핸들러 안**에 있어야 한다.
+
+        핸들러 함수명은 계약으로 고정한다: `async def get_puzzle_detail(...)`.
+        (웨이브 1은 이 이름을 쓴다 — 이름을 못 박지 않으면 함수 스코프를 잡을 수
+        없어 파일 전역 검색이 되고, 게이트를 엉뚱한 함수에 넣어도 통과한다.)
+        """
+        block = _func_block(_source("routers/board.py"), "get_puzzle_detail")
+        assert "require_entry" in block, (
+            "get_puzzle_detail 안에 require_entry 호출이 없다 — 퍼즐 상세 진입 "
+            "차단이 이 핸들러에 걸려 있지 않다(§3.1 차단 지점 3)"
         )
 
     def test_계약13_응답_모델은_기존_BoardPuzzle_재사용(self):

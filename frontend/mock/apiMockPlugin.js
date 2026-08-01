@@ -56,9 +56,11 @@ const state = {
   streak: 6,
   streakFreeze: 1, // 구름 방패 보유 수 (§3.5, 최대 2) — 스트릭 방어 자원(clouds와 독립)
   answeredToday: false,
-  // 오늘 응답한 문항 수 (R10-01 D4) — /progress/me의 today_answered_count.
-  // 서버는 quest_service._today_facts() 집계를 쓴다(새 테이블 없음).
+  // 오늘 응답한 문항 수 (R10-01 D4·D10) — /progress/me의 today_answered_count.
+  // 서버는 answered_at 날짜로 매번 재계산하므로 목도 날짜가 바뀌면 0에서 시작해야
+  // 한다 → answeredCountDate 앵커로 지연 리셋한다(rolloverAnsweredCount).
   answeredTodayCount: 0,
+  answeredCountDate: null, // 카운트가 속한 날짜(todayISO). null이면 다음 접근 시 재앵커.
   // 일일 목표 문항 수 (R10-01 D4, users.daily_goal_items) — null=미설정.
   dailyGoalItems: null,
   predicted: false,
@@ -73,6 +75,34 @@ const state = {
   // 온보딩 배치고사 (R7-01 S3) — 1회 완료 여부. 완료 후 start는 409.
   placementDone: false,
 };
+
+// ── 오늘 응답 수 (R10-01 D4·D10) ────────────────────────────────────────────
+// 목 서버는 며칠씩 떠 있으므로 자정을 넘기면 카운트가 누적돼 "오늘 목표 N/M"이
+// 틀린다. regenClouds가 cloudsUpdatedAt으로 하는 **지연 계산** 관례를 그대로
+// 따라, 읽기·증가 시점에 앵커 날짜를 확인해 하루가 바뀌었으면 0으로 되돌린다.
+// 날짜 기준은 ensureSession의 session_date와 같은 todayISO() — 목 내부 일관성.
+// 기존 answeredToday 불린(R5)은 이번 스코프가 아니므로 동작을 바꾸지 않는다.
+
+/** 앵커 날짜가 오늘이 아니면 카운트를 0으로 되돌린다(지연 리셋). */
+function rolloverAnsweredCount() {
+  const today = todayISO();
+  if (state.answeredCountDate !== today) {
+    state.answeredCountDate = today;
+    state.answeredTodayCount = 0;
+  }
+}
+
+/** 응답 1건 반영 — 증가 전에 날짜 경계를 확인한다. */
+function bumpAnsweredToday() {
+  rolloverAnsweredCount();
+  state.answeredTodayCount += 1;
+}
+
+/** /progress/me의 today_answered_count — 읽기 시점에도 지연 리셋. */
+function todayAnsweredCount() {
+  rolloverAnsweredCount();
+  return state.answeredTodayCount;
+}
 
 // ── 개발자 모드 (R7-03) ─────────────────────────────────────────────────────
 // 실서버는 Settings.DEV_MODE가 꺼져 있으면 /dev/* 전 경로 404 — 목은
@@ -1015,7 +1045,7 @@ const routes = {
     state.answeredToday = true;
     // 레거시 단일 퀴즈도 quiz_logs 1행 → 서버 today_answered_count에 포함된다.
     // (이 경로는 R5부터 구름을 소모하지 않았고 R10에서도 무소모 유지)
-    state.answeredTodayCount += 1;
+    bumpAnsweredToday();
     bumpQuest({ xp, correctTag: isCorrect ? QUIZ.concept_tag : null });
     return [
       200,
@@ -1136,7 +1166,7 @@ const routes = {
     if (!isPlacement) {
       state.xp += xp;
       state.answeredToday = true;
-      state.answeredTodayCount += 1;
+      bumpAnsweredToday();
       bumpQuest({ xp, correctTag: isCorrect ? item.concept_tag : null, live: item.slot_filled });
     }
     return [
@@ -1409,15 +1439,18 @@ const routes = {
         spine: spinePayload(), // 스파인 집계 (R8-01 §3.3, additive)
         // 일일 목표 (R10-01 §3.4·D4, additive) — null이면 미설정(온보딩 1스텝 노출).
         daily_goal_items: state.dailyGoalItems,
-        // 오늘 응답한 문항 수 — "오늘 목표 N/M" 표기의 N.
-        today_answered_count: state.answeredTodayCount,
+        // 오늘 응답한 문항 수 — "오늘 목표 N/M" 표기의 N (자정 지연 리셋 포함).
+        today_answered_count: todayAnsweredCount(),
       },
     ];
   },
   // ── 구름 에너지 (R5-01 §3.3) ──
   'GET /progress/energy': () => [200, energyPayload()],
-  // PUT /progress/daily-goal {items} (R10-01 §3.4·D4) — 허용값 3|5|9, 그 외 422.
+  // PUT /progress/daily-goal {items} (R10-01 §3.4·D4·D10) — 허용값 3|5|9, 그 외 422.
   // SESSION_RECIPE(합 5)와 독립된 표시용 타깃이다(계약 수치 드리프트 아님).
+  // 응답은 `daily_goal_items` **하나뿐**이다 — 서버에 없는 필드를 목에 얹으면
+  // 프론트가 그것에 기대어 통합에서 깨진다(mock↔서버 드리프트 금지, D5).
+  // 오늘 응답 수는 GET /progress/me의 today_answered_count에서 읽는다.
   'PUT /progress/daily-goal': (body) => {
     const items = Number(body?.items);
     if (!DAILY_GOAL_CHOICES.includes(items)) {
@@ -1430,10 +1463,7 @@ const routes = {
       ];
     }
     state.dailyGoalItems = items;
-    return [
-      200,
-      { daily_goal_items: items, today_answered_count: state.answeredTodayCount },
-    ];
+    return [200, { daily_goal_items: items }];
   },
 
   // ── 커리큘럼 단계별 학습 (R5-01 §3.2) ──
@@ -1494,6 +1524,7 @@ const routes = {
       streakFreeze: 0,
       answeredToday: false,
       answeredTodayCount: 0,
+      answeredCountDate: null, // 다음 접근 시 오늘로 재앵커
       dailyGoalItems: null,
       predicted: false,
       tier: 'stratus',
