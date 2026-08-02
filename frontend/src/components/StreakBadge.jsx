@@ -13,7 +13,8 @@ export default function StreakBadge() {
     >
       <span aria-hidden="true">🔥</span>
       {streakCount}
-      <span className="text-xs font-medium text-orange-500">일</span>
+      {/* 최협폭(360px 등)에선 헤더가 넘쳐 '일'을 접는다 — title에 전체 문구가 남는다 */}
+      <span className="hidden text-xs font-medium text-orange-500 sm:inline">일</span>
     </span>
   );
 }
