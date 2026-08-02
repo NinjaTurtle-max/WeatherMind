@@ -1,4 +1,4 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import XPBar from './XPBar';
@@ -18,6 +18,11 @@ import { useProgressStore } from '../store/progressStore';
  */
 export default function Layout() {
   const navigate = useNavigate();
+  // 학습 홈(/)만 데스크톱에서 넓은 컨테이너를 쓴다(PC 경로 뷰가 가로를 넓게 씀).
+  // 페이지 쪽에서 100vw 음수 마진으로 컨테이너를 탈출하면 스크롤바 폭만큼
+  // (100vw > clientWidth) 가로 스크롤이 생기므로, 폭은 레이아웃이 소유한다.
+  const isWide = useLocation().pathname === '/';
+  const shellWidth = isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);
   const logoutLocal = useAuthStore((s) => s.logout);
   const setProgress = useProgressStore((s) => s.setProgress);
@@ -46,12 +51,16 @@ export default function Layout() {
   };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-xl flex-col">
+    <div className={`mx-auto flex min-h-screen max-w-xl flex-col ${shellWidth}`}>
       <header className="fixed inset-x-0 top-0 z-50 bg-sky-900 shadow-md">
         {/* 항목이 7개라 max-w-xl(576px)에선 폭이 모자라 XP 텍스트가 구름 배지 위로
-            넘친다. 데스크톱은 폭을 넓히고(PC 학습 경로도 이미 풀블리드), 모바일은
-            로고 워드마크·XP 숫자를 접어 겹침 없이 들어가게 한다. */}
-        <div className="mx-auto flex max-w-xl items-center gap-2 px-3 py-2.5 sm:px-4 md:max-w-3xl md:gap-3">
+            넘친다. 데스크톱은 폭을 넓히고(넓은 화면에선 본문 컨테이너와 좌우를 맞춤),
+            모바일은 로고 워드마크·XP 숫자를 접어 겹침 없이 들어가게 한다. */}
+        <div
+          className={`mx-auto flex max-w-xl items-center gap-2 px-3 py-2.5 sm:px-4 md:gap-3 ${
+            isWide ? 'md:max-w-6xl' : 'md:max-w-3xl'
+          }`}
+        >
           {/* 로고 탭 → 학습 홈(/) — SpineBadge와 동일 목적지 */}
           <Link
             to="/"

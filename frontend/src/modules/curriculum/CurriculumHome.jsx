@@ -92,7 +92,7 @@ export default function CurriculumHome() {
       <PcCurriculumPath sections={sections} onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)} />
 
       {/* 자유 일일 세션 별도 진입(§3.4 병존) */}
-      <div className="mt-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:mx-auto md:max-w-5xl">
+      <div className="mt-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <p className="text-sm font-bold text-slate-800">자유 일일 세션</p>
         <p className="mt-0.5 text-xs text-slate-500">정해진 경로 대신 오늘의 5문항을 바로 풀고 싶다면.</p>
         <Link

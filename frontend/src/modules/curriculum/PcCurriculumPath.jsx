@@ -102,9 +102,10 @@ export default function PcCurriculumPath({ sections, onOpenUnit }) {
     nodes.find((n) => resolveStatus(n) === 'unlocked');
 
   return (
-    <div className="relative left-1/2 right-1/2 -mx-[50vw] hidden w-screen md:block">
-      <div className="mx-auto max-w-6xl px-6 pb-6">
-        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+    // 폭은 Layout이 소유한다(학습 홈에서 md↑ 컨테이너를 넓힘) — 여기서 100vw
+    // 음수 마진으로 탈출하면 스크롤바 폭만큼 가로 스크롤이 생긴다.
+    <div className="hidden pb-6 md:block">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div
             className="relative min-w-0 rounded-[26px] px-5 py-9"
             style={{ background: 'linear-gradient(180deg, #F3F8FE 0%, #FBF6FF 100%)' }}
@@ -211,8 +212,7 @@ export default function PcCurriculumPath({ sections, onOpenUnit }) {
             </div>
           </div>
 
-          <TutorCard unit={currentUnit} />
-        </div>
+        <TutorCard unit={currentUnit} />
       </div>
     </div>
   );
