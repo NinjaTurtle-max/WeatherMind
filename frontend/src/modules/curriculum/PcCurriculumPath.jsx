@@ -150,7 +150,12 @@ export default function PcCurriculumPath({ sections, onOpenUnit }) {
                     style={{ left: `${n.x}%`, top: n.y }}
                   >
                     {n.isSectionStart && (
-                      <span className="absolute -top-[38px] whitespace-nowrap rounded-full bg-[#0E2A42] px-[11px] py-1 text-[10.5px] font-extrabold text-white">
+                      // 현재 노드에는 썬더가 위에 서므로 섹션 라벨을 더 올려 겹침을 피한다.
+                      <span
+                        className={`absolute whitespace-nowrap rounded-full bg-[#0E2A42] px-[11px] py-1 text-[10.5px] font-extrabold text-white ${
+                          isCurrent ? '-top-[80px]' : '-top-[38px]'
+                        }`}
+                      >
                         {n.sectionName}
                       </span>
                     )}
@@ -159,7 +164,7 @@ export default function PcCurriculumPath({ sections, onOpenUnit }) {
                         src="/기본자세.png"
                         alt=""
                         aria-hidden="true"
-                        className="absolute -top-[30px] w-[54px] drop-shadow-md"
+                        className="absolute -top-[34px] w-[68px] drop-shadow-md"
                       />
                     )}
                     <button
@@ -233,7 +238,7 @@ function TutorCard({ unit }) {
         ⚡ 튜터
       </span>
       <div className="mt-8 flex justify-center">
-        <img src="/헤헤한팔.png" alt="" aria-hidden="true" className="w-[150px] drop-shadow-lg" />
+        <img src="/헤헤한팔.png" alt="" aria-hidden="true" className="w-[200px] drop-shadow-lg" />
       </div>
       <div className="relative mt-1 rounded-2xl bg-white p-3 shadow-md">
         <p className="mb-0.5 text-[11px] font-extrabold text-[#E8A400]">썬더</p>

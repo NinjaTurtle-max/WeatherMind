@@ -22,7 +22,7 @@ export default function FeedbackPanel({ message, isCorrect }) {
             src={tutorImg}
             alt=""
             aria-hidden="true"
-            className="h-12 w-12 shrink-0 object-contain"
+            className="w-16 shrink-0 self-start object-contain"
           />
           <div className="min-w-0 flex-1">
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${tone.badge}`}>
