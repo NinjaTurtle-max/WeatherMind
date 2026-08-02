@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import XPBar from './XPBar';
@@ -52,11 +52,16 @@ export default function Layout() {
             넘친다. 데스크톱은 폭을 넓히고(PC 학습 경로도 이미 풀블리드), 모바일은
             로고 워드마크·XP 숫자를 접어 겹침 없이 들어가게 한다. */}
         <div className="mx-auto flex max-w-xl items-center gap-2 px-3 py-2.5 sm:px-4 md:max-w-3xl md:gap-3">
-          <span className="shrink-0 text-base font-extrabold tracking-tight text-white">
+          {/* 로고 탭 → 학습 홈(/) — SpineBadge와 동일 목적지 */}
+          <Link
+            to="/"
+            title="학습 홈으로"
+            className="shrink-0 rounded-lg text-base font-extrabold tracking-tight text-white transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+          >
             <span aria-hidden="true">⛅</span>
             <span className="ml-1 hidden md:inline">WeatherMind</span>
             <span className="sr-only md:hidden">WeatherMind</span>
-          </span>
+          </Link>
           <SpineBadge />
           <XPBar />
           <CloudEnergyBadge />
