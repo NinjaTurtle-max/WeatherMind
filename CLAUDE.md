@@ -33,21 +33,37 @@
 ## 프로젝트 현황
 - **로드맵 마일스톤 1·2 완료**(6개 중 2개) — 다음은 마일스톤 3(콘텐츠·난이도 다양화).
   상태·의존 규칙·주차 일정은 `docs/ROADMAP.md`가 SSOT.
-- R2~R9 완료 + **R10 웨이브 0~1 + S5 완료**. 진행 상태·이월 항목은
-  `docs/team/SPRINT_R10_01.md`(§4.1 결정 기록 D1~D10이 §3보다 우선), 남은 것은
-  **웨이브 2**(실기동 스모크·CI 상주화·회고).
-- 테스트 실측 **backend 897** · 프론트 스모크 **9종**(`visual`·`board`·`session`·
-  `placement`·`gating`·`board-entry`·`assist`·`webgl`·`overlay`, 전부 `ci.sh`에 편입) ·
-  ai-worker 86+1skip. 실DB 왕복 스모크는 `scripts/smoke_r10.sh`(7단계).
+- **R2~R10 완료**(웨이브 0~2 + S5·S6 + R10-07). 결정 기록·이월은
+  `docs/team/SPRINT_R10_01.md`(§4.1 D1~D10이 §3보다 우선) ·
+  `docs/team/RETROSPECTIVE.md` §R10.7~8. 미배정 항목 R10-I·J·K·L·M·O·P·Q 잔존.
+- 테스트 실측 **backend 937** · **ai-worker 97** · 프론트 `test:*` **10종 전부 CI 편입**
+  — `ci.sh`의 `FRONT_TESTS` 9종(`explore`·`session`·`placement`·`visual`·`gating`·
+  `board-entry`·`assist`·`webgl`·`overlay`) + `board`(board_engine 공유 벡터)는 **별도
+  단계**다. 실DB 왕복 스모크는 `scripts/smoke_r10.sh`(7단계, 전원 OK).
+- **CI 상주화 완료(2026-08-03)**: `.github/workflows/ci.yml`이 PR·push에서 `ci.sh`
+  5단계를 잡으로 돌린다. 워크플로는 검사 명령을 **재구현하지 않고 ci.sh를 호출**한다
+  — 종목 목록은 `FRONT_TESTS` 단일 소유(여기 나열하면 드리프트한다).
 - **실DB 검증 완료(2026-08-03)**: `0008` 마이그레이션(downgrade 포함) ·
   `consume_if_available` 0행 분기가 재조회 SELECT로 감 · `_count_answered_today`의
-  배치고사 제외가 SQL 레벨 성립. 미검증 잔여는 동시성·KST 자정 경계·`CLOUD_COST≥2`.
+  배치고사 제외가 SQL 레벨 성립 · 에너지 진입 경계 ⓐ~ⓕ 전건. 미검증 잔여는
+  **동시성·`CLOUD_COST≥2`**(KST 자정 경계는 목 정렬로 해소 — 아래).
+- 목(`frontend/mock/apiMockPlugin.js`)의 하루 경계는 **KST**다(`KST_OFFSET_MS`).
+  UTC로 되돌리면 `test_목의_하루_경계가_KST다` 계약이 실패한다 — R2~R10 내내 목의
+  하루가 09:00 KST에 넘어갔던 결함이라 되살리지 말 것.
 - ⚠️ **RLS가 런타임에 무효다** — 앱 DB 롤이 `bypassrls` 슈퍼유저 + 테이블 소유자라
   `user_isolation` 정책이 적용되지 않는다. 현재 유저 격리는 앱 `user_id` 필터 단독
   책임(단층). `docs/specs/08` 서술과 실동작이 다르다 — ROADMAP §2.1, 마일스톤 5 최우선.
-- **막힌 것**: KMA 키(브리핑 실데이터·리그 정산 전제, 미발급 시 degraded) ·
-  **Gemini 키**(마일스톤 3 뱅크 확장 + 다국어 문항 번역 + 기초과학 파일럿 3트랙을
-  동시에 막고 있다 — ROADMAP §5.3 임계 경로).
+- **API 키는 발급됨 · 비용 때문에 의도적 미입력**(2026-08-03 클라이언트 결정).
+  "미발급"이 아니다 — **큰 시퀀스마다 3게이트로만 투입**한다(ROADMAP §5.3):
+  G0 도달 스모크(~5콜) / **G1 저작 배치(W2 초입, 1회)** / G2 데모 가동.
+  KMA 키는 별개(브리핑·리그 정산 전제, 없으면 degraded).
+- ⚠️ **G1 전에 생성 문항 영속화가 선행되어야 한다.** `session_service.py`가 생성
+  문항을 `content_item_id=None`으로 버려서 **세션마다·유저마다 재생성**한다 —
+  지금 키를 넣으면 비용이 영구 자산이 아니라 트래픽으로 증발한다. `rag-feedback`도
+  board 외 전 유형에서 **매 답안 1콜**(정오 무관)이라 상시 과금 지점이다.
+- **무키로 가능한 범위**: 마일스톤 4(합성 데이터) · 5(인프라) · 6 다국어 골격·UI en ·
+  6 다과정 구조. **무키로 불가**: 문항 텍스트 대량 생산 3건(마일스톤 3 뱅크 · 문항 en
+  번역 · 기초과학 파일럿 문항).
 - GitHub `NinjaTurtle-max/WeatherMind`(private).
 - **대외 문서에 Duolingo 언급 금지.** 메커니즘만 차용하고 표현(캐릭터·문항 텍스트)은
   자체 제작한다. 벤치마킹 관찰은 `docs/Observation_Report_02·03`에만 둔다.
