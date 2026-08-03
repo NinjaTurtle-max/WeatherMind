@@ -134,6 +134,14 @@ const lockedTabCount = () =>
   [...window.document.querySelectorAll('nav button[disabled]')].length;
 const tabCount = () => window.document.querySelectorAll('nav a, nav button').length;
 
+/** 학습 홈의 두 경로 유닛 버튼 — jsdom은 CSS를 적용하지 않아 둘 다 DOM에 있다.
+ *  PC = `hidden md:block` 컨테이너, 모바일 = `md:hidden` 컨테이너. 클래스 선택자에
+ *  콜론이 들어가므로 속성 부분일치로 고른다. */
+const pcUnitButtons = () =>
+  [...window.document.querySelectorAll('div[class*="md:block"] button[aria-label]')];
+const mobileUnitButtons = () =>
+  [...window.document.querySelectorAll('div[class*="md:hidden"] button[aria-label]')];
+
 /** 인증 상태 주입 — 목은 토큰을 검증하지 않는다(계정 식별만 필요). */
 function authenticate(userId) {
   useAuthStore.getState().setTokens({ accessToken: `t-${userId}`, refreshToken: `r-${userId}` });
@@ -356,6 +364,73 @@ try {
     );
     assert(!text().includes('구름 회복까지 약'), '회복 후에도 차단 안내가 남아 있다');
     r.unmount();
+  });
+
+  // ── 7.1 뷰포트가 갈라지지 않는다: PC 스네이크 경로도 같은 게이트를 받는다 ──
+  await scenario('구름 0: PC 경로(md↑) 유닛 노드가 모바일과 동일하게 잠긴다', async () => {
+    await api('POST', '/dev/reset-me', { reset: true });
+    const zero = await api('POST', '/dev/clouds', { clouds: 0 });
+    assert(zero.status === 200, `/dev/clouds 실패 (${zero.status})`);
+    useOnboardingGate.getState().reset();
+    authenticate('pc-path-clouds-user');
+
+    const r = mount(createElement(App), '/');
+    // assert가 던져도 반드시 unmount한다 — 남은 트리가 다음 시나리오의
+    // 뷰포트 선택자에 섞여 들어가면 실패 원인이 통째로 오해된다.
+    try {
+      await waitFor(() => pcUnitButtons().length > 0, 5000, 'PC 경로 유닛 노드 렌더');
+      // jsdom에는 CSS 엔진이 없어 `md:hidden`/`hidden md:block`이 실제로 숨기지 않는다 —
+      // 두 경로가 **동시에 DOM에 있으므로** 같은 상태에서 직접 대조할 수 있다.
+      const pc = pcUnitButtons();
+      const mobile = mobileUnitButtons();
+      assert(mobile.length > 0, '모바일 지그재그 노드가 렌더되지 않았다');
+
+      const openPc = pc.filter((b) => !b.disabled);
+      assert(
+        openPc.length === 0,
+        `구름 0에서 PC 경로에 누를 수 있는 유닛이 ${openPc.length}개 남아 있다 — ` +
+          'PcCurriculumPath에 energyBlocked가 전달되지 않으면 모바일만 잠기고 PC는 열려, ' +
+          '문항 진입 전 차단(R10-01 S4)이 뷰포트별로 갈라진다',
+      );
+      assert(
+        mobile.filter((b) => !b.disabled).length === 0,
+        '모바일 경로에 누를 수 있는 유닛이 남아 있다(기존 계약 회귀)',
+      );
+
+      // 사유가 구분돼야 한다 — 선행 잠금(🔒)과 자원 부족은 다른 안내다.
+      const energyLabelled = pc.filter((b) => (b.getAttribute('aria-label') ?? '').includes('구름 부족'));
+      assert(
+        energyLabelled.length > 0,
+        'PC 경로에 "(구름 부족)" aria-label이 하나도 없다 — 선행 잠금과 사유가 구분되지 않는다',
+      );
+    } finally {
+      r.unmount();
+    }
+  });
+
+  // ── 7.2 회복 후 두 경로가 함께 열린다 (한쪽만 열리는 비대칭 금지) ─────────
+  await scenario('구름 회복: PC·모바일 경로가 함께 열린다', async () => {
+    await api('POST', '/dev/clouds', { clouds: 5 });
+    useOnboardingGate.getState().reset();
+    authenticate('pc-path-recovered-user');
+
+    const r = mount(createElement(App), '/');
+    try {
+      await waitFor(() => pcUnitButtons().length > 0, 5000, 'PC 경로 유닛 노드 렌더');
+      const pcOpen = pcUnitButtons().filter((b) => !b.disabled).length;
+      const mobileOpen = mobileUnitButtons().filter((b) => !b.disabled).length;
+      assert(pcOpen > 0, '구름 회복 후에도 PC 경로가 전부 잠겨 있다');
+      assert(
+        pcOpen === mobileOpen,
+        `열린 유닛 수가 뷰포트별로 다르다 — PC ${pcOpen} vs 모바일 ${mobileOpen}`,
+      );
+      assert(
+        pcUnitButtons().every((b) => !(b.getAttribute('aria-label') ?? '').includes('구름 부족')),
+        '회복 후에도 "(구름 부족)" 표기가 남아 있다',
+      );
+    } finally {
+      r.unmount();
+    }
   });
 
   // ── 8. "풀던 것을 뺏기지 않는다": 진행 중 세션은 잔량 0에서도 진입 가능 ────
