@@ -14,7 +14,9 @@
     "test:gating": "node tests/onboardingGating.smoke.test.mjs",
     "test:board-entry": "node tests/boardEntryGate.smoke.test.mjs",
     "test:assist": "node tests/boardAssistRetention.smoke.test.mjs",
-    "test:visual": "node tests/boardLayout.contract.test.mjs && node tests/precipEngine.test.mjs && node tests/boardVisual.render.test.mjs"
+    "test:visual": "node tests/boardLayout.contract.test.mjs && node tests/precipEngine.test.mjs && node tests/boardVisual.render.test.mjs",
+    "test:webgl": "node tests/crossSectionWebgl.contract.test.mjs",
+    "test:overlay": "node tests/mapOverlayGeometry.contract.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",

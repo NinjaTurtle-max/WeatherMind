@@ -26,7 +26,10 @@
 #            시드 파일(board_rules·board_test_vectors) 부재 시 테스트가 스스로
 #            SKIP(exit 0)하므로, node 존재 + 비0 = 실제 판정 불일치(FAIL).
 #   config   docker compose config -q 로 compose 정합 검증.
-#   frontend frontend/node_modules 있으면 npm run build, 없으면 SKIP.
+#   frontend frontend/node_modules 있으면 npm run build + 프론트 스모크 9종
+#            (explore·session·placement·visual·gating·board-entry·assist·
+#             webgl·overlay — FRONT_TESTS 배열이 목록), 없으면 SKIP.
+#            새 test:* 스크립트를 만들면 FRONT_TESTS에 등록해야 CI가 지킨다.
 #   smoke    (opt-in — `all`에 미포함) scripts/smoke.sh 전 단계(1~9) 위임 실행.
 #            compose 기동 상태를 전제로 하지 않는다(스스로 up -d --build).
 #
@@ -155,20 +158,45 @@ step_config() {
   fi
 }
 
-# ── 5. frontend (선택): node_modules 있으면 빌드 + 탐구 시뮬 테스트 ──────────
-# test:explore(R9-01 §3.5)는 렌더 스모크가 react/vite에 의존하므로 board 단계
+# ── 5. frontend (선택): node_modules 있으면 빌드 + 프론트 스모크 전 종목 ──────
+# test:explore(R9-01 §3.5) 등 렌더 스모크가 react/vite에 의존하므로 board 단계
 # (node_modules 불필요)가 아니라 여기서 빌드와 함께 실행한다.
+#
+# 종목 목록(FRONT_TESTS)은 frontend/package.json의 test:* 스크립트와 짝이다 —
+# 새 스모크를 추가하면 **여기에도 등록**해야 CI가 그 계약을 지킨다.
+# (R10-01 웨이브 2에서 gating·board-entry·assist·webgl·overlay 5종 편입:
+#  웨이브 1~S5에서 추가됐지만 CI에 없어 회귀를 잡지 못하던 공백이었다.)
+#   explore     탐구 시뮬 + 렌더 스모크            session     세션 러너 렌더
+#   placement   배치고사 진입                      visual      보드 레이아웃 계약·강수 엔진·보드 비주얼 SSR
+#   gating      온보딩 점진적 잠금 해제            board-entry 보드 진입 게이트(구름 잔량 차단)
+#   assist      보드 언두·점진적 힌트 유지         webgl       단면 3D 드로우콜 예산·SCENES↔STORYBOARDS 정합
+#   overlay     지도 오버레이 정점·좌표 경계·파티클 상한·FLOW_META 사본 대조
+# board_engine 공유 벡터(test:board)는 node_modules 없이 도는 전용 `board` 단계가
+# 소유하므로 여기서 중복 실행하지 않는다.
+FRONT_TESTS=(explore session placement visual gating board-entry assist webgl overlay)
+
 step_frontend() {
-  banner "frontend: build + explore/session/placement/visual 테스트 (선택)"
+  banner "frontend: build + 스모크 ${#FRONT_TESTS[@]}종 (선택)"
   if [ ! -d "$ROOT/frontend/node_modules" ]; then
     echo "frontend/node_modules 없음 — 건너뜁니다. (cd frontend && npm install)"
     record "frontend" "SKIP" "node_modules 없음"
     return 0
   fi
-  if (cd "$ROOT/frontend" && npm run build && npm run test:explore && npm run test:session && npm run test:placement && npm run test:visual); then
-    record "frontend" "OK" "vite build + 탐구 시뮬 테스트 성공"
+  if ! (cd "$ROOT/frontend" && npm run build); then
+    record "frontend" "FAIL" "vite build 실패 (위 출력 참조)"
+    return 0
+  fi
+  local bad=()
+  for t in "${FRONT_TESTS[@]}"; do
+    echo "· npm run test:$t"
+    if ! (cd "$ROOT/frontend" && npm run "test:$t"); then
+      bad+=("$t")
+    fi
+  done
+  if [ "${#bad[@]}" -ne 0 ]; then
+    record "frontend" "FAIL" "build OK · 테스트 실패: ${bad[*]} (위 출력 참조)"
   else
-    record "frontend" "FAIL" "npm run build 또는 프론트 테스트(explore/session/placement/visual) 실패 (위 출력 참조)"
+    record "frontend" "OK" "vite build + 스모크 ${#FRONT_TESTS[@]}종 통과 (${FRONT_TESTS[*]})"
   fi
 }
 
