@@ -17,7 +17,7 @@ from pathlib import Path
 
 from app.routers.session import (
     BOARD_TEMPLATE_FIELDS,
-    _board_template_json,
+    _question_payload,
     _to_session_item,
 )
 
@@ -59,7 +59,7 @@ MC_QUESTION = {
 
 class TestBoardTemplateJson:
     def test_board_플레이_필드_노출(self):
-        tj = _board_template_json(BOARD_QUESTION)
+        tj = _question_payload(BOARD_QUESTION)
         assert tj is not None
         for field in ("mode", "guide_steps", "initial_state", "palette", "goal_conditions", "hints"):
             assert tj[field] == BOARD_QUESTION[field]
@@ -68,29 +68,34 @@ class TestBoardTemplateJson:
     def test_미니미션_타이머_실화배지_노출(self):
         """R8-09: §3.5 표시용 필드(time_limit_sec·based_on)가 세션 내 보드에서
         사라지지 않는다 — 화이트리스트 누락 버그의 재발 가드."""
-        tj = _board_template_json(BOARD_QUESTION)
+        tj = _question_payload(BOARD_QUESTION)
         assert tj["time_limit_sec"] == 60
         assert tj["based_on"] == BOARD_QUESTION["based_on"]
 
     def test_correct_answer_제외(self):
-        tj = _board_template_json(BOARD_QUESTION)
+        tj = _question_payload(BOARD_QUESTION)
         assert "correct_answer" not in tj
 
     def test_화이트리스트_외_키는_안_샌다(self):
         """template_json 키는 board 플레이 화이트리스트의 부분집합이어야 한다."""
-        tj = _board_template_json(BOARD_QUESTION)
+        tj = _question_payload(BOARD_QUESTION)
         assert set(tj).issubset(set(BOARD_TEMPLATE_FIELDS))
 
     def test_누락_필드는_생략(self):
         """goal_only 모드 등 guide_steps 없는 board는 해당 키만 빠진다."""
         q = {k: v for k, v in BOARD_QUESTION.items() if k != "guide_steps"}
         q["mode"] = "goal_only"
-        tj = _board_template_json(q)
+        tj = _question_payload(q)
         assert "guide_steps" not in tj
         assert tj["mode"] == "goal_only"
 
-    def test_board_외_유형은_None(self):
-        assert _board_template_json(MC_QUESTION) is None
+    def test_페이로드_불필요_유형은_None(self):
+        """multiple_choice는 options 전용 컬럼으로 나가므로 페이로드가 없다.
+
+        R10-07 §2.1 이후 board 외 유형도 페이로드를 받지만(match·ordering·slider),
+        추가 페이로드가 필요 없는 유형은 여전히 None이다.
+        """
+        assert _question_payload(MC_QUESTION) is None
 
 
 class TestSessionItemBoard:
@@ -162,7 +167,7 @@ class TestSeedBoardRoundTrip:
 
     서빙 경로(session_service.create_daily_session)와 동일하게
     question = {**template_json, concept_tag, question_type}를 만들어
-    _board_template_json에 통과시킨다.
+    _question_payload에 통과시킨다.
     """
 
     # 세션 내 보드 렌더에 반드시 필요한 필드 (AtmosphereBoard·§3.3)
@@ -179,7 +184,7 @@ class TestSeedBoardRoundTrip:
             "concept_tag": item["concept_tag"],
             "question_type": item["question_type"],
         }
-        return _board_template_json(question)
+        return _question_payload(question)
 
     def test_시드_board_12건(self):
         """시드 board 문항 수 고정 — 증감 시 이 계약과 §3.5 커버리지를 함께 갱신."""

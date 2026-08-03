@@ -69,16 +69,36 @@ BOARD_TEMPLATE_FIELDS = (
 )
 
 
-def _board_template_json(question: dict) -> dict | None:
-    """board 유형이면 render된 question_json에서 board 플레이 필드만 추린다.
+# 유형별 플레이 페이로드 화이트리스트 (R10-07 §2.1) — board 전용이던 것을 전 유형으로
+# 일반화한다. 프론트 QuestionCard.jsx가 유형별로 소비하는 필드와 1:1이며
+# (match→pairs, ordering→items·shuffled, slider→min·max·step·unit), 어떤 유형에서도
+# correct_answer·explanation_hint는 목록에 없어 구조적으로 노출되지 않는다.
+# 목록에 없는 유형(multiple_choice·short_answer·cloze)은 추가 페이로드가 필요 없어
+# None이다 — 객관식 보기는 SessionItem.options 전용 컬럼으로 나간다.
+# 드리프트는 tests/test_r10_question_payload_contract.py(시드 전건·7유형 전수)와
+# tests/test_session_board_item.py(board 양방향)가 감시한다.
+QUESTION_PAYLOAD_FIELDS: dict[str, tuple[str, ...]] = {
+    "board": BOARD_TEMPLATE_FIELDS,
+    "match": ("pairs",),
+    "ordering": ("items", "shuffled"),
+    "slider": ("min", "max", "step", "unit"),
+}
+
+
+def _question_payload(question: dict) -> dict | None:
+    """render된 question_json에서 해당 유형의 플레이 필드만 추린다 (§2.1).
 
     create_daily_session이 슬롯 치환을 발급 시점에 마친 question_json을 넘기므로
     여기서 화이트리스트로 뽑기만 하면 슬롯 치환이 반영된 값이 노출된다.
-    화이트리스트에 없는 correct_answer는 제외된다. board 외 유형은 None.
+    화이트리스트에 없는 correct_answer·explanation_hint는 제외된다.
+    페이로드가 필요 없는 유형이거나 저작된 키가 하나도 없으면 None —
+    **없는 키에 빈 값·기본값을 주입하지 않는다**(데이터 부재를 가리면 저작 누락을
+    영원히 못 찾는다. slider의 min·max·step·unit이 지금 그 상태다 — R10-07 S4).
     """
-    if question.get("question_type") != "board":
+    fields = QUESTION_PAYLOAD_FIELDS.get(question.get("question_type"))
+    if not fields:
         return None
-    return {key: question[key] for key in BOARD_TEMPLATE_FIELDS if key in question}
+    return {key: question[key] for key in fields if key in question} or None
 
 
 def _to_session_item(
@@ -90,8 +110,9 @@ def _to_session_item(
 ) -> SessionItem:
     """question_json → SessionItem (correct_answer 미노출 — 기존 /quiz 관례).
 
-    board 유형은 프론트가 보드를 그리도록 template_json(board 플레이 필드)을 함께
-    노출한다(§3.3). 그 외 유형은 template_json=None.
+    유형별 플레이 페이로드(board의 팔레트·초기배치, match의 pairs, ordering의
+    items·shuffled, slider의 min·max·step·unit)는 template_json으로 함께 노출한다
+    (R3-01 §3.3 → R10-07 §2.1로 전 유형 확장). 페이로드가 없는 유형은 None.
     """
     return SessionItem(
         quiz_id=quiz_id,
@@ -102,7 +123,7 @@ def _to_session_item(
         level_group=level_group,
         source=source,
         slot_filled=slot_filled,
-        template_json=_board_template_json(question),
+        template_json=_question_payload(question),
     )
 
 
