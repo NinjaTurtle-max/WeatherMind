@@ -310,11 +310,15 @@ step_energy() {
   local pick_sql attempt=0
   pick_sql="AND is_correct IS NULL AND coalesce(question_json->>'question_type','') <> 'board'"
   ROUND_WRONG_QID=""
-  while [ "$attempt" -lt 3 ]; do
+  # 판정을 **획득 뒤**에 두어야 마지막으로 받은 세션도 검사된다. 상한을 while
+  # 조건에 두면(`while [ $attempt -lt 3 ]`) 3번째 가입 직후 조건이 거짓이 되어
+  # 그 세션을 써보지 못하고 끝난다 — 가입 1회와 레이트리밋 예산만 버린다.
+  while :; do
     if [ -n "$ROUND_SESSION_ID" ]; then
       ROUND_WRONG_QID="$(psql_c "SELECT quiz_id FROM quiz_logs WHERE session_id='$ROUND_SESSION_ID' $pick_sql ORDER BY quiz_id LIMIT 1")"
       [ -n "$ROUND_WRONG_QID" ] && break
     fi
+    [ "$attempt" -ge 3 ] && break
     attempt=$((attempt + 1))
     echo "  미응답 비board 문항 없음 — 전용 유저로 새 세션 확보 (시도 $attempt/3)"
     register_user "smoke-r10-energy" || { record "4 energy" "FAIL" "전용 유저 가입 실패"; return 0; }
