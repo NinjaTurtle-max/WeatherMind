@@ -110,6 +110,7 @@ def _to_today_response(
         evidence_review=duel_service.review_evidence(duel.user_pred, duel.actual),
         # R9-01 §3.2 — 제출 시점 스냅샷(ai_pred JSONB)에서 파생. R9 이전 행은 null.
         caster_grade=(duel.ai_pred or {}).get("caster_grade"),
+        xp_earned=_duel_xp_earned(duel.result),
     )
 
 
@@ -260,6 +261,17 @@ async def submit_today_duel(
     return _to_today_response(duel, duel_date, base_forecast)
 
 
+def _duel_xp_earned(result: str | None) -> int | None:
+    """정산으로 받은 XP (R10 ponytail). 정산 전이면 null, 승리면 DUEL_WIN_XP, 그 외 0.
+
+    액수를 프론트가 하드코딩하지 않게 **서버가 보낸다** — 프론트에 있던 미러 상수
+    (lib/xpConstants.js)를 지운 이유다. 값의 단일 소유자는 duel_service.DUEL_WIN_XP.
+    """
+    if result is None:
+        return None
+    return duel_service.DUEL_WIN_XP if result == "win" else 0
+
+
 def _history_item(duel: Duel) -> DuelHistoryItem:
     """이력 항목 구성 — evidence는 user_pred 동봉분 추출, 적중 해설은 정산분만 계산."""
     return DuelHistoryItem(
@@ -273,6 +285,7 @@ def _history_item(duel: Duel) -> DuelHistoryItem:
         result=duel.result,
         evidence=(duel.user_pred or {}).get("evidence"),
         evidence_review=duel_service.review_evidence(duel.user_pred, duel.actual),
+        xp_earned=_duel_xp_earned(duel.result),
     )
 
 

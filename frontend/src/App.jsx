@@ -26,7 +26,6 @@ const DevPanel = lazy(() => import('./modules/dev/DevPanel'));
  * R5-01: 기본 진입(/)은 학습 홈(CurriculumHome, 유닛 경로). 유닛 세션은 /learn/units/:unitId.
  * 자유 일일 세션(SessionPage)은 /daily로 병존 유지(§3.4).
  * R3-01 §0 제품 결정: 기후 시뮬레이터(/simulator) 폐지 → 대기 보드 퍼즐(/board)로 대체.
- * detective(/detective)는 이번 라운드 제외(Phase 3 후순위)로 라우트 미등록.
  * R7-01 S3: 온보딩 배치고사(/onboarding/placement)는 인증 필요하되 Layout(탭바) 밖
  * 전체 화면 — 가입 직후 진입, 건너뛰기 가능.
  *

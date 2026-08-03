@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { duelApi } from '../../api';
-import { DUEL_WIN_XP } from '../../lib/xpConstants';
 import { useProgressStore } from '../../store/progressStore';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ForecastForm from '../../components/ForecastForm';
@@ -72,9 +71,12 @@ export default function DuelPage() {
     if (!today?.result || seenSettled) return;
     const meta = RESULT_META[today.result];
     if (!meta) return;
-    const xpNote = today.result === 'win' ? ` (+${DUEL_WIN_XP} XP)` : '';
+    // XP 액수는 **서버가 보낸 값만** 쓴다(R10 ponytail — 프론트 미러 상수 제거).
+    // 필드가 없거나 0이면 표기하지 않는다: 추정해서 틀린 액수를 보이지 않는다.
+    const xp = today.xp_earned ?? 0;
+    const xpNote = xp > 0 ? ` (+${xp} XP)` : '';
     setToast(`${meta.icon} 어제 대결 ${meta.label}!${xpNote}`);
-    if (today.result === 'win') addXp(DUEL_WIN_XP);
+    if (xp > 0) addXp(xp);
     setSeenSettled(true);
     setTimeout(() => setToast(null), 3000);
   }, [today, seenSettled, addXp]);
@@ -193,8 +195,8 @@ function DuelResultCard({ duel }) {
         <div className={`mb-3 flex items-center justify-center gap-2 text-lg font-extrabold ${meta.text}`}>
           <span aria-hidden="true">{meta.icon}</span>
           {meta.label}
-          {duel.result === 'win' && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">+{DUEL_WIN_XP} XP</span>
+          {(duel.xp_earned ?? 0) > 0 && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">+{duel.xp_earned} XP</span>
           )}
         </div>
       ) : (
