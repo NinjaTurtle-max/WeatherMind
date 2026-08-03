@@ -123,17 +123,37 @@ async def update_weak_tag(
     await session.execute(stmt)
 
 
+def quiz_xp_breakdown(
+    is_correct: bool, is_first_try: bool, is_weak: bool
+) -> tuple[int, int]:
+    """퀴즈 1문항 XP의 분해값 (base, weak_bonus) — 합은 항상 quiz_xp()와 같다.
+
+    R10-01 §3.5 마감 3: "+15 XP, 약점 극복 +7"의 분리 표기를 프론트가 역산하던
+    구현(xp_earned − 백엔드 상수 사본)을 제거하기 위해 서버가 분해를 소유한다.
+    프론트는 배율(1.5)도 반올림 규칙도 알 필요가 없다 — 두 정수만 읽는다.
+
+    - base = 약점 배율 적용 **전** 금액 (정답 10 + 첫 시도 5 / 오답 2)
+    - weak_bonus = 배율로 늘어난 차액. 약점이 아니거나 오답이면 0
+      (1.5배는 "약점 개념을 맞혔을 때"의 보너스 — 오답에는 적용되지 않는다)
+
+    반올림은 파이썬 round()(banker's rounding)를 그대로 유지한다:
+    (10+5)*1.5 = 22.5 → 22 (base 15 + bonus 7). 이 함수가 그 유일한 소유자다.
+    """
+    if not is_correct:
+        return XP_QUIZ_WRONG, 0
+    base = XP_QUIZ_CORRECT + (XP_FIRST_TRY_BONUS if is_first_try else 0)
+    if not is_weak:
+        return base, 0
+    return base, round(base * WEAK_TAG_XP_MULTIPLIER) - base
+
+
 def quiz_xp(is_correct: bool, is_first_try: bool, is_weak: bool) -> int:
     """퀴즈 1문항 XP: 정답 +10 (+첫 시도 정답 +5), 오답 +2.
 
     약점 개념(accuracy_rate < 60) 정답이면 1.5배 (약점 극복 유도).
+    계산은 quiz_xp_breakdown 단일 소유 — 여기서는 분해값을 합산만 한다.
     """
-    if not is_correct:
-        return XP_QUIZ_WRONG
-    xp = XP_QUIZ_CORRECT + (XP_FIRST_TRY_BONUS if is_first_try else 0)
-    if is_weak:
-        xp = round(xp * WEAK_TAG_XP_MULTIPLIER)
-    return xp
+    return sum(quiz_xp_breakdown(is_correct, is_first_try, is_weak))
 
 
 async def add_xp(session: AsyncSession, user_id: uuid.UUID, amount: int) -> int:

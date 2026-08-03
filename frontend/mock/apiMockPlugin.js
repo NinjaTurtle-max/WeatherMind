@@ -399,6 +399,32 @@ function grantUnitCrown(unit) {
 // 약점 태그(§3.1 weak_correct_1 판정용) — /progress/weak-tags 목데이터와 일치
 const WEAK_TAGS = new Set(['typhoon', 'anomaly', 'pressure_front']);
 
+// ── 세션 문항 XP 분해 (R10-01 §3.5 마감 3 — server xp_service.quiz_xp_breakdown) ──
+// 서버와 같은 커밋에서 동기화한다(D10-1 선례): 응답에 xp_base·xp_weak_bonus를
+// 실어야 프론트가 "약점 극복 +N"을 역산 없이 표기하고, **목에서도 보너스 줄이
+// 실제로 렌더된다**(이전 목은 항상 15를 줘서 이 표기가 검증 불가였다).
+// 기본 지급액은 그대로: 정답 15(=10+첫 시도 5) · 오답 2. 달라진 것은 약점 개념
+// (WEAK_TAGS) **정답**에만 1.5배가 붙는 것뿐 — 서버와 동일 조건.
+const MOCK_XP_CORRECT = 15;
+const MOCK_XP_WRONG = 2;
+/** 파이썬 round()의 half-to-even. Math.round(22.5)=23이라 서버(22)와 어긋난다 —
+ *  약점 첫 시도 정답 15*1.5=22.5가 정확히 이 경계라 별도 구현이 필요하다. */
+function roundHalfToEven(x) {
+  const floor = Math.floor(x);
+  if (x - floor !== 0.5) return Math.round(x);
+  return floor % 2 === 0 ? floor : floor + 1;
+}
+/** {xp_earned, xp_base, xp_weak_bonus} — 합 계약(base+bonus === earned) 유지. */
+function quizXpBreakdown({ isCorrect, conceptTag, isPlacement = false }) {
+  if (isPlacement) return { xp_earned: 0, xp_base: 0, xp_weak_bonus: 0 };
+  const base = isCorrect ? MOCK_XP_CORRECT : MOCK_XP_WRONG;
+  const bonus =
+    isCorrect && WEAK_TAGS.has(conceptTag)
+      ? roundHalfToEven(base * 1.5) - base
+      : 0;
+  return { xp_earned: base + bonus, xp_base: base, xp_weak_bonus: bonus };
+}
+
 // 퀘스트 진행 반영 헬퍼 (세션·보드·퀴즈 응답 시 호출 — 당일 재계산 흉내)
 function bumpQuest({ xp = 0, correctTag = null, live = false }) {
   state.quest.xpToday += xp;
@@ -1173,7 +1199,9 @@ const routes = {
     // 재제출은 위 멱등 가드(409)에서 이미 걸러졌으므로 alreadyAnswered=false.
     // 잔량 0에서 오답이어도 429가 아니라 무소모 200 (§3.1 각주 7).
     const spend = cloudSpendResult(shouldConsumeCloud({ isCorrect, isPlacement }));
-    const xp = isPlacement ? 0 : isCorrect ? 15 : 2;
+    // XP는 분해값으로 계산한다 (§3.5 마감 3) — 약점 개념 정답이면 배율 증분이 붙는다.
+    const xpParts = quizXpBreakdown({ isCorrect, conceptTag: item.concept_tag, isPlacement });
+    const xp = xpParts.xp_earned;
     s.answers[item.quiz_id] = { is_correct: isCorrect, xp_earned: xp };
     if (!isPlacement) {
       state.xp += xp;
@@ -1188,6 +1216,9 @@ const routes = {
         correct_answer: item._mock.correct ?? null,
         feedback: isCorrect ? item._mock.feedbackCorrect : item._mock.feedbackWrong,
         xp_earned: xp,
+        // R10-01 §3.5 마감 3 (additive): "약점 극복 +N" 분리 표기용 실측 분해값
+        xp_base: xpParts.xp_base,
+        xp_weak_bonus: xpParts.xp_weak_bonus,
         concept_tag: item.concept_tag,
         session_progress: sessionProgress(s),
         // D10-1 (additive): 오답 피드백 "구름 −1" 표기용 실측값

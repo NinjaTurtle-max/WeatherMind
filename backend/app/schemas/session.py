@@ -57,6 +57,12 @@ class SessionAnswerResult(AnswerResult):
     is_correct만으로 구현할 수 없다 — 잔량 0에서는 오답이어도 소모가 0이기 때문
     (진행 중 세션을 끊지 않는 계약). 프론트가 계산하지 않고 서버 실측을 읽는다.
     clouds_spent = 실제 소모량(0 또는 CLOUD_COST) · clouds = 소모 후 잔량.
+
+    XP 분해값 xp_base·xp_weak_bonus도 additive로 상속한다 (R10-01 §3.5 마감 3,
+    AnswerResult에 선언 — 이 응답이 유일한 소비자다): 프론트의 "약점 극복 +7"
+    표기가 백엔드 상수 사본으로 역산되던 드리프트를 없앤다.
+    xp_base + xp_weak_bonus == xp_earned가 계약이며
+    tests/test_r10_xp_breakdown_contract.py가 감시한다.
     """
 
     session_progress: SessionProgress

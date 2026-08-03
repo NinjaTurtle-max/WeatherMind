@@ -196,7 +196,8 @@ async def submit_answer_for_log(
     board 유형(§3.4): answer에 board_state JSON을 담아 전달한다. 엔진으로
     phenomena를 산출해 결과에 싣고, 피드백은 RAG 없이 규칙에서 구성한다.
 
-    grant_xp=False(R7-01 §3.3 배치고사): XP를 계산·가산하지 않는다(xp_earned=0,
+    grant_xp=False(R7-01 §3.3 배치고사): XP를 계산·가산하지 않는다(xp_earned=0
+    이며 분해값 xp_base·xp_weak_bonus도 0 — 합 계약 유지,
     유저 XP·세션 xp_total 불변). 채점·weak_tags·뱅크 통계·피드백은 그대로 —
     진단 응답도 실제 학습 데이터이므로 XP 보상만 뗀다. 기본값 True는 기존
     경로(daily·unit·/quiz) 동작 불변(additive).
@@ -227,13 +228,20 @@ async def submit_answer_for_log(
     # 문항별로 약점 판정이 뒤집히던 구 weak_tags(매 답안 갱신) 동작이 사라진다
     # — 계약이 수용한 행동 변화.
     xp_earned = 0
+    xp_base, xp_weak_bonus = 0, 0
     if grant_xp:
         abilities = await weatherbrain_service.load_abilities(db, user)
         is_weak = concept_tag in weatherbrain_service.weak_concepts(
             abilities, user.level_group
         )
-        # XP 계산 (문항당 1회 제출 → 정답이면 곧 첫 시도 정답 보너스 대상)
-        xp_earned = xp_service.quiz_xp(is_correct, is_first_try=True, is_weak=is_weak)
+        # XP 계산 (문항당 1회 제출 → 정답이면 곧 첫 시도 정답 보너스 대상).
+        # 분해값을 함께 실어 보낸다 (R10-01 §3.5 마감 3) — 프론트가 "약점 극복
+        # +N"을 상수 사본으로 역산하지 않게. 합이 xp_earned와 같은 것이 계약이라
+        # 가산·세션 누적은 분해 이전과 동일한 단일 금액을 쓴다.
+        xp_base, xp_weak_bonus = xp_service.quiz_xp_breakdown(
+            is_correct, is_first_try=True, is_weak=is_weak
+        )
+        xp_earned = xp_base + xp_weak_bonus
 
     # weak_tags 갱신 + 유저 XP 가산 + 로그 확정
     await xp_service.update_weak_tag(db, user.id, concept_tag, is_correct)
@@ -288,6 +296,8 @@ async def submit_answer_for_log(
         correct_answer=str(question.get("correct_answer", "")),
         feedback=feedback,
         xp_earned=xp_earned,
+        xp_base=xp_base,
+        xp_weak_bonus=xp_weak_bonus,
         concept_tag=concept_tag,
         phenomena=phenomena,
     )

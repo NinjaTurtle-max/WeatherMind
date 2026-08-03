@@ -6,23 +6,28 @@
  * is_correct로 계산하면 안 된다 — 잔량 0에서는 오답이어도 소모가 0이다(진행 중
  * 세션을 끊지 않는 계약). 필드가 없는 응답(구 백엔드·목)에서는 미표기.
  *
- * R10-01 §3.5 마감 3 (관찰 보고서 §1-5): 약점 극복 보너스가 적용됐는지 UI에서
- * 확인할 수 없었다. 서버는 배율(WEAK_TAG_XP_MULTIPLIER 1.5)을 xp_earned에 이미
- * 녹여 보내고 **is_weak을 노출하지 않으므로**, 기본 지급액과의 차이만큼을
- * "약점 극복" 보너스로 분리 표기한다(차이가 0이면 표기 없음 — 없는 보너스를
- * 만들어 보이지 않는다). 기본 지급액은 xp_service의 계약 수치와 짝이며,
- * 백엔드 상수가 바뀌면 여기도 함께 바꿔야 한다(스키마에 필드가 생기면 그것으로 대체).
+ * R10-01 §3.5 마감 3: 약점 극복 보너스도 같은 원칙 — **서버 실측 분해값만** 쓴다.
+ * 서버가 `xp_base`(배율 적용 전)와 `xp_weak_bonus`(배율 증분)를 함께 보내고
+ * `xp_base + xp_weak_bonus === xp_earned`가 계약이다. 이 파일은 배율(1.5)도
+ * 기본 지급액도 반올림 규칙도 모른다 — 백엔드 상수 사본을 두지 않는 것이 요점
+ * (사본이 있던 이전 구현은 백엔드가 수치를 바꾸면 조용히 틀린 금액을 표기했다.
+ *  backend tests/test_r10_xp_breakdown_contract.py가 이 소스의 상수 부재를 가드).
+ * 분해 필드가 없는 응답(구 백엔드·목)에서는 보너스 줄을 표기하지 않는다 —
+ * 추정하지 않는다.
  */
-// xp_service.quiz_xp의 기본 지급액 — 정답 10 + 첫 시도 보너스 5 / 오답 2.
-// (세션·유닛 경로는 문항당 1회 제출이라 정답이면 항상 첫 시도 정답이다)
-const BASE_XP_CORRECT = 15;
-const BASE_XP_WRONG = 2;
-
 export default function ResultBanner({ result }) {
   if (!result) return null;
-  const { is_correct, correct_answer, xp_earned, clouds_spent: cloudsSpent } = result;
-  const baseXp = is_correct ? BASE_XP_CORRECT : BASE_XP_WRONG;
-  const bonusXp = Number(xp_earned) > baseXp ? Number(xp_earned) - baseXp : 0;
+  const {
+    is_correct,
+    correct_answer,
+    xp_earned,
+    clouds_spent: cloudsSpent,
+    xp_base: xpBase,
+    xp_weak_bonus: xpWeakBonus,
+  } = result;
+  // 서버 분해값만 신뢰: 보너스가 실측 0 초과일 때만 분리 표기한다.
+  const bonusXp = Number(xpWeakBonus) > 0 ? Number(xpWeakBonus) : 0;
+  const baseXp = bonusXp > 0 ? Number(xpBase) : Number(xp_earned);
 
   return (
     <div
@@ -48,9 +53,9 @@ export default function ResultBanner({ result }) {
       {xp_earned > 0 && (
         <span key={xp_earned} className="animate-xp-pop shrink-0 text-right">
           <span className="rounded-full bg-white/20 px-3 py-1.5 text-lg font-extrabold">
-            +{bonusXp > 0 ? baseXp : xp_earned} XP
+            +{baseXp} XP
           </span>
-          {/* 약점 극복 보너스 분리 표기 — "+15 XP, 약점 극복 +7" */}
+          {/* 약점 극복 보너스 분리 표기 — 서버 xp_weak_bonus 그대로 */}
           {bonusXp > 0 && (
             <span className="mt-1 block text-xs font-bold text-white/90">약점 극복 +{bonusXp}</span>
           )}

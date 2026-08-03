@@ -25,6 +25,9 @@
  *   6. 콤보 4단 칭찬 전이(정답이에요→좋아요→훌륭해요→완벽해요, 상한 유지)
  *   7. 이탈 인텐트: 내부 링크 클릭 차단 → 확인 1단, 포커스 트랩·Esc(접근성)
  *   8. 세션 완료 화면 문항 수 카피가 실제 배합(total)과 동기화(§3.5 마감 4)
+ *   9. 약점 보너스 XP 분리 표기가 **서버 실측 분해값**(xp_base·xp_weak_bonus)만
+ *      쓴다(§3.5 마감 3) — 프론트 역산(xp_earned − 상수 사본) 회귀 가드.
+ *      목이 약점 개념 정답에 배율을 적용해 보너스 줄이 실제로 렌더되는 것까지 고정.
  */
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -99,6 +102,7 @@ const QuestionCard = (await vite.ssrLoadModule('/src/modules/quiz/QuestionCard.j
 const SessionSummary = (await vite.ssrLoadModule('/src/modules/session/SessionSummary.jsx')).default;
 const SessionPage = (await vite.ssrLoadModule('/src/modules/session/SessionPage.jsx')).default;
 const { comboPraise, COMBO_PRAISE } = await vite.ssrLoadModule('/src/modules/session/SessionRunner.jsx');
+const ResultBanner = (await vite.ssrLoadModule('/src/modules/quiz/ResultBanner.jsx')).default;
 const { AIR_MASS_META, FRONT_META } = await vite.ssrLoadModule('/src/modules/board/boardDisplay.js');
 const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
 
@@ -496,6 +500,57 @@ try {
     await waitFor(() => text().includes('오늘의 세션 완료'), 4000, '완료 화면 렌더');
     assert(text().includes('9문항'), `실제 배합(9문항)이 카피에 반영되지 않았다: ${text().slice(-200)}`);
     assert(!text().includes('5문항'), '고정 "5문항" 카피가 남아 있다(관찰 §1-4 회귀)');
+  });
+
+  // ── 10. 약점 보너스 XP 분리 표기 = 서버 실측 분해값 (§3.5 마감 3) ───────────
+  // 이전 구현은 프론트가 `xp_earned − 기본지급액(백엔드 상수 사본)`으로 역산했고,
+  // 목이 항상 15를 줘서 보너스 줄이 **한 번도 렌더되지 않았다**(검증 불가 기능).
+  // 여기서는 목 실측 응답(xp_base·xp_weak_bonus)을 그대로 배너에 먹여 고정한다.
+  await scenario('약점 보너스: 목 실측 분해(15+7=22)가 "+15 XP · 약점 극복 +7"로 렌더', async () => {
+    await api('POST', '/dev/clouds', { clouds: 5 });
+    const today = await api('GET', '/session/today');
+    assert(today.status === 200, `세션 조회 실패 (${today.status})`);
+    const sid = today.body.session_id;
+    const pick = (tag) => today.body.items.find((it) => it.concept_tag === tag);
+
+    // (a) 약점 개념(typhoon — 목 WEAK_TAGS) 정답 → base 15 + 보너스 7 = 22
+    const weakItem = pick('typhoon');
+    assert(weakItem, '목 세션에 약점 개념(typhoon) 문항이 없다');
+    const weak = await api('POST', `/session/${sid}/answer`, {
+      quiz_id: weakItem.quiz_id, answer: '오른쪽(동쪽) 반원', elapsed_sec: 4,
+    });
+    assert(weak.status === 200 && weak.body.is_correct === true,
+      `약점 문항 정답 제출 실패 (${weak.status}, is_correct=${weak.body?.is_correct})`);
+    assert(weak.body.xp_base === 15 && weak.body.xp_weak_bonus === 7 && weak.body.xp_earned === 22,
+      `약점 정답 분해값 불일치 — base=${weak.body.xp_base} bonus=${weak.body.xp_weak_bonus} earned=${weak.body.xp_earned} (서버 계약: 15+7=22)`);
+    assert(weak.body.xp_base + weak.body.xp_weak_bonus === weak.body.xp_earned,
+      '합 계약(xp_base + xp_weak_bonus === xp_earned) 위반');
+    mount(createElement(ResultBanner, { result: weak.body }), '/daily');
+    await waitFor(() => text().includes('약점 극복 +7'), 4000, '약점 보너스 분리 표기');
+    assert(text().includes('+15 XP'), `기본 지급액 표기가 없다: ${text()}`);
+    assert(!text().includes('+22 XP'), '보너스가 있는데 합계만 표기됐다(분리 표기 아님)');
+
+    // (b) 비약점 개념(heat_island) 정답 → 보너스 0 → 보너스 줄 없음
+    const plainItem = pick('heat_island');
+    assert(plainItem, '목 세션에 비약점 개념(heat_island) 문항이 없다');
+    const plain = await api('POST', `/session/${sid}/answer`, {
+      quiz_id: plainItem.quiz_id, answer: '도시 상공의 오존층이 두꺼워져서', elapsed_sec: 4,
+    });
+    assert(plain.status === 200 && plain.body.is_correct === true,
+      `비약점 문항 정답 제출 실패 (${plain.status}, is_correct=${plain.body?.is_correct})`);
+    assert(plain.body.xp_base === 15 && plain.body.xp_weak_bonus === 0 && plain.body.xp_earned === 15,
+      `비약점 정답 분해값 불일치 — base=${plain.body.xp_base} bonus=${plain.body.xp_weak_bonus} earned=${plain.body.xp_earned} (기존 목 동작 15 유지)`);
+    mount(createElement(ResultBanner, { result: plain.body }), '/daily');
+    await waitFor(() => text().includes('+15 XP'), 4000, '기본 XP 표기');
+    assert(!text().includes('약점 극복'), '보너스 0인데 보너스 줄이 렌더됐다');
+
+    // (c) 분해 필드 부재(구 백엔드) → 추정 금지: 합계만 표기, 보너스 줄 없음
+    mount(createElement(ResultBanner, {
+      result: { is_correct: true, correct_answer: 'A', xp_earned: 22 },
+    }), '/daily');
+    await waitFor(() => text().includes('+22 XP'), 4000, '분해 필드 부재 시 합계 표기');
+    assert(!text().includes('약점 극복'),
+      '분해 필드가 없는 응답에서 보너스를 추정해 표기했다(역산 회귀)');
   });
 } finally {
   await vite.close();
