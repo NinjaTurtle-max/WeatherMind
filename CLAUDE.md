@@ -16,8 +16,10 @@
 - **문항 유형 7종**(`content_items.question_type`): multiple_choice·short_answer·
   slider·board·match·ordering·cloze. 채점기는 `answer_service.GRADERS` 레지스트리.
 - **구름 에너지**(`progress.py /energy`, `energy_service.py`): 만렙 5·20분당 1 회복·
-  시도당 1 소모(전부 `Settings.CLOUD_*`로 env 조정). 소진 시 429 `OUT_OF_CLOUDS`.
-  스트릭 프리즈("구름 방패")와는 별개 자원.
+  **오답에만 1 소모**(정답·재제출·배치고사 0, 보드는 미통과만 — R10 전환. 수치는
+  `Settings.CLOUD_*`로 env 조정). 차단은 **문항 진입 전**(세션 발급·유닛 발급·
+  `GET /board/puzzles/{id}`)에서 429 `OUT_OF_CLOUDS`이고, **이미 발급된 세션·진입한
+  퍼즐은 잔량 0이어도 끝까지 보장**(소모만 생략, 200). 스트릭 프리즈와 별개 자원.
 - **리그**(`league.py`): ELO 기반, 구름 분류 티어명(stratus<1100→cumulus→
   nimbostratus→cumulonimbus→typhoon_eye≥1550), `POST /predict`로 오늘 기온·강수확률
   예측 후 결정적 AI 캐스터와 대결.
@@ -31,7 +33,9 @@
 ## 프로젝트 현황
 - **로드맵 마일스톤 1·2 완료**(6개 중 2개) — 다음은 마일스톤 3(콘텐츠·난이도 다양화).
   상태·의존 규칙·주차 일정은 `docs/ROADMAP.md`가 SSOT.
-- R2~R9 완료. 테스트 실측 **backend 761**·ai-worker 86+1skip(R6 시점 425는 stale).
+- R2~R9 완료 + **R10 웨이브 0~1 완료**(에너지 정책 전환·뱅크 중복 방지·WebGL 단면·
+  지도 오버레이·온보딩 목표·점진 해제). 테스트 실측 **backend 853**·프론트 스모크 6종
+  (visual·board·session·placement·gating·board-entry)·ai-worker 86+1skip.
   R6: WeatherBrain 자체 적응형 엔진 — IRT(2PL) 순수 파이썬 코어(EAP θ 추정·JML b
   보정, 합성 복원 테스트로 검증), 가입 시 초기 θ 배정, θ가 Router 1순위 신호, celery
   재학습 실동작(휴면-정확). 상세 docs/specs/03 §5.
