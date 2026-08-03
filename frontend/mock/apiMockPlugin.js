@@ -248,11 +248,18 @@ function seedToSessionItem(seed, { quizId, source = 'bank' }) {
   };
 }
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+// 하루 경계는 **KST**다 — 서버가 `datetime.now(KST).date()`로 "오늘"을 정의한다
+// (`session_service.kst_day_start_utc`). `toISOString()`은 UTC라, 이 목은 R2부터
+// 하루가 **09:00 KST**에 넘어갔다: 자정 리셋을 기대하는 화면이 목에서는 오전 9시에
+// 리셋되는 것으로 보였다(R10-01 D9 — 실서버는 정상, 목만 시프트).
+// UTC 시각에 +9h를 더한 뒤 잘라내면 그 순간의 KST 날짜가 나온다.
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const kstDate = (epochMs) => new Date(epochMs + KST_OFFSET_MS);
+const todayISO = () => kstDate(Date.now()).toISOString().slice(0, 10);
 
 const weekStartISO = () => {
-  const d = new Date();
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // 월요일 기준
+  const d = kstDate(Date.now());
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // 월요일 기준(KST 요일)
   return d.toISOString().slice(0, 10);
 };
 
@@ -706,8 +713,8 @@ const DUEL_AI_PRED = { temp_max: 31.2, rain_prob: 55, noise_scale: 0.7 }; // bas
 const EVIDENCE_CODES = ['pop_trend', 'humidity_high', 'temp_drop', 'sky_overcast', 'recent_rain'];
 
 const isoDaysFromToday = (offset) => {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
+  const d = kstDate(Date.now()); // todayISO와 같은 KST 기준(위 주석)
+  d.setUTCDate(d.getUTCDate() + offset);
   return d.toISOString().slice(0, 10);
 };
 

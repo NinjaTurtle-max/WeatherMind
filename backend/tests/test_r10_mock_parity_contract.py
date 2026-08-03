@@ -128,6 +128,30 @@ class TestMockDerivesFromSeed:
             mock_src,
         ), "BOARD_PUZZLES가 시드 파생이 아니다 — 숫자를 손으로 맞추면 다시 갈라진다"
 
+    def test_목의_하루_경계가_KST다(self, mock_src):
+        """목의 "오늘" == 서버의 "오늘" (KST). R10-01 D9 — 웨이브 2 확인 항목.
+
+        서버는 `datetime.now(KST).date()`로 하루를 정의하는데(`kst_day_start_utc`)
+        목은 R2부터 `new Date().toISOString()` = **UTC**를 썼다. UTC 15:00~24:00
+        구간(= KST 익일 00:00~09:00)에서 서버가 하루 앞서므로, **목의 하루가
+        09:00 KST에 넘어갔다** — 자정 리셋을 기대하는 화면이 목에서는 오전 9시에
+        리셋되는 것으로 보였다(실서버는 정상, 목만 시프트).
+
+        `session_date`·`quiz_id` 채번이 전부 `todayISO()` 하나에서 파생되므로
+        경계는 이 함수 한 곳만 지키면 된다.
+        """
+        assert re.search(r"const KST_OFFSET_MS = 9 \* 60 \* 60 \* 1000", mock_src), (
+            "KST 오프셋 상수가 없다 — 목의 하루가 다시 UTC로 돌아갔는지 확인"
+        )
+        assert re.search(
+            r"const todayISO = \(\) => kstDate\(Date\.now\(\)\)\.toISOString\(\)",
+            mock_src,
+        ), "todayISO가 KST 기준이 아니다 — 목의 하루가 09:00 KST에 넘어간다"
+        bare = re.findall(r"new Date\(\)\.toISOString\(\)\.slice\(0, 10\)", mock_src)
+        assert bare == [], (
+            f"UTC 기준 날짜 계산이 {len(bare)}곳 남아 있다 — kstDate()를 거쳐야 한다"
+        )
+
     def test_배합_상수가_SESSION_RECIPE와_동일(self, mock_src):
         """목 배합 상수 == Settings.SESSION_RECIPE (env 기본값=계약값)."""
         m = re.search(r"const MOCK_SESSION_RECIPE = \{([^}]*)\}", mock_src)

@@ -1,0 +1,164 @@
+name: CI
+
+# WeatherMind CI — scripts/ci.sh를 단계별 잡으로 호출한다.
+# 이 워크플로는 lint/test/board/config/frontend 명령을 절대 재구현하지 않는다 —
+# 전부 `bash scripts/ci.sh <단계>` 호출이며, 실제 검사 로직은 scripts/ci.sh(다른
+# 담당 소유)가 단일 진실 소스다. ci.sh 인자: lint | test | board | config |
+# frontend | smoke | all (인자 없으면 all — smoke는 opt-in이라 all에 미포함).
+#
+# 근거: docs/team/TEAM_PROCESS.md §1.7 (CI는 lint → test → build 파이프라인)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12" # backend/ai-worker Dockerfile 기준 (python:3.12-slim)
+  NODE_VERSION: "20" # frontend/Dockerfile 기준 (node:20-alpine)
+
+jobs:
+  # ── lint: pyflakes (backend/app · ai-worker/app · celery/app) ──────────────
+  lint:
+    name: lint (pyflakes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      # ci.sh는 pyflakes 미설치 시 SKIP(실패 아님)으로 처리한다 — CI에서는 항상
+      # 설치해 SKIP이 발생할 수 없게 한다.
+      - name: pyflakes 설치
+        run: pip install pyflakes
+
+      # ci.sh 자체는 재구현하지 않는다. 다만 pyflakes가 설치되어 있어도 ci.sh가
+      # 어떤 이유로든 SKIP을 기록하면(요약 표에 "SKIP" 컬럼) lint 게이트가
+      # 조용히 무의미해지므로, 출력에서 SKIP 문자열을 검사해 방어적으로 FAIL 처리한다.
+      - name: scripts/ci.sh lint
+        run: |
+          set -o pipefail
+          bash scripts/ci.sh lint | tee /tmp/ci-lint.log
+          # 요약 표의 **상태 컬럼**이 SKIP인 행만 잡는다. 단순 `grep SKIP`은
+          # 설명문에 든 "SKIP"에 오탐한다 — board의 성공 비고가 실제로
+          # "(또는 시드 부재 시 자체 SKIP)"이라 board 잡이 상시 실패했다.
+          # 서식: "  <단계><패딩><상태><패딩><비고>" (ci.sh record()).
+          if grep -Eq '^[[:space:]]+lint[[:space:]]+SKIP([[:space:]]|$)' /tmp/ci-lint.log; then
+            echo "::error::lint 단계가 SKIP으로 종료됨 — pyflakes 게이트가 무의미해집니다. 강제 FAIL."
+            exit 1
+          fi
+
+  # ── test: pytest (backend, ai-worker) — 실DB·docker 불필요(FakeDB/mock 단위 테스트) ──
+  test:
+    name: test (pytest backend + ai-worker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            ai-worker/requirements.txt
+
+      - name: 의존성 설치 (pytest + backend + ai-worker)
+        run: |
+          pip install pytest
+          pip install -r backend/requirements.txt
+          pip install -r ai-worker/requirements.txt
+
+      - name: scripts/ci.sh test
+        run: bash scripts/ci.sh test
+
+  # ── board: 프론트 board_engine 공유 벡터 (node, node_modules 불필요) ────────
+  board:
+    name: board (board_engine 공유 벡터)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: scripts/ci.sh board
+        run: |
+          set -o pipefail
+          bash scripts/ci.sh board | tee /tmp/ci-board.log
+          # 요약 표의 **상태 컬럼**이 SKIP인 행만 잡는다. 단순 `grep SKIP`은
+          # 설명문에 든 "SKIP"에 오탐한다 — board의 성공 비고가 실제로
+          # "(또는 시드 부재 시 자체 SKIP)"이라 board 잡이 상시 실패했다.
+          # 서식: "  <단계><패딩><상태><패딩><비고>" (ci.sh record()).
+          if grep -Eq '^[[:space:]]+board[[:space:]]+SKIP([[:space:]]|$)' /tmp/ci-board.log; then
+            echo "::error::board 단계가 SKIP으로 종료됨(node 미설치로 판단) — setup-node 구성을 점검하세요."
+            exit 1
+          fi
+
+  # ── config: docker compose config 정합 검증 ────────────────────────────────
+  # docker-compose.yml의 각 서비스가 env_file: .env를 참조하는데 .env는
+  # gitignore 대상이라 체크아웃만으로는 파일이 없다 — .env.example로 대체 생성한다.
+  # (fresh clone에서 로컬로 scripts/ci.sh config를 바로 돌려도 같은 이유로
+  # 실패하므로 ci.sh 쪽 문서화 여지가 있다 — 5번 항목에 보고)
+  config:
+    name: config (docker compose config)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: .env 준비 (compose env_file 참조용 — .env.example로 대체)
+        run: cp .env.example .env
+
+      - name: scripts/ci.sh config
+        run: bash scripts/ci.sh config
+
+  # ── frontend: vite build + 스모크 9종 (FRONT_TESTS 배열은 ci.sh가 소유) ─────
+  frontend:
+    name: frontend (build + 스모크 9종)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: npm ci
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      # node_modules가 설치돼 있으므로 ci.sh의 frontend 단계는 build 후
+      # FRONT_TESTS(9종: explore·session·placement·visual·gating·board-entry·
+      # assist·webgl·overlay)를 그대로 순회한다 — 여기서 종목을 재나열하지 않는다.
+      - name: scripts/ci.sh frontend
+        run: |
+          set -o pipefail
+          bash scripts/ci.sh frontend | tee /tmp/ci-frontend.log
+          # 요약 표의 **상태 컬럼**이 SKIP인 행만 잡는다. 단순 `grep SKIP`은
+          # 설명문에 든 "SKIP"에 오탐한다 — board의 성공 비고가 실제로
+          # "(또는 시드 부재 시 자체 SKIP)"이라 board 잡이 상시 실패했다.
+          # 서식: "  <단계><패딩><상태><패딩><비고>" (ci.sh record()).
+          if grep -Eq '^[[:space:]]+frontend[[:space:]]+SKIP([[:space:]]|$)' /tmp/ci-frontend.log; then
+            echo "::error::frontend 단계가 SKIP으로 종료됨(node_modules 미검출로 판단) — npm ci 단계를 점검하세요."
+            exit 1
+          fi
