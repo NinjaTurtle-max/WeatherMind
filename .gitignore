@@ -23,3 +23,6 @@ postgres-data/
 
 # Claude 프롬프트 기록 (개인 로그)
 .claude/prompt-logs/
+
+# 병렬 작업용 git 워크트리 (TEAM_PROCESS §2.6.1) — 저장소에 커밋하지 않는다
+.claude/worktrees/
