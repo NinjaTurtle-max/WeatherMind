@@ -420,12 +420,25 @@ export function createRenderer(canvas) {
     return stats.lastDrawCalls;
   }
 
+  /**
+   * GPU 리소스만 반납한다. **loseContext는 절대 호출하지 않는다** —
+   * 같은 <canvas> 엘리먼트의 컨텍스트는 한 번 잃으면 되살아나지 않고
+   * (`getContext('webgl2')`가 죽은 컨텍스트를 그대로 되돌려준다),
+   * StrictMode(dev)의 mount→cleanup→remount에서 2회차가 죽은 컨텍스트로
+   * 셰이더를 컴파일해 `sky.vert 셰이더 컴파일 실패: null`을 내고
+   * **전 사용자가 SVG 폴백으로 떨어진다**(실브라우저 실측으로 잡은 버그).
+   * 지도 오버레이도 같은 버그를 겪었다 — mapOverlay/MapOverlayGL.jsx dispose 주석.
+   * 컨텍스트는 캔버스 엘리먼트가 언마운트될 때 GC된다.
+   * (회귀 가드: tests/crossSectionWebgl.contract.test.mjs — dispose 후 재초기화)
+   */
+  let disposed = false;
   function dispose() {
+    if (disposed) return; // 언마운트 경로가 두 번 불려도 안전(멱등)
+    disposed = true;
     for (const v of Object.values(vaos)) gl.deleteVertexArray(v);
     for (const b of Object.values(gpu)) gl.deleteBuffer(b);
     for (const b of Object.values(geo)) gl.deleteBuffer(b);
     for (const p of Object.values(programs)) gl.deleteProgram(p.prog);
-    gl.getExtension('WEBGL_lose_context')?.loseContext();
   }
 
   return { gl, setScene, setStep, resize, render, dispose, stats, counts, get step() { return step; } };

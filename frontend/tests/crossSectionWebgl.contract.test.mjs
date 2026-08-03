@@ -20,6 +20,22 @@
  *     존재(오타·이름 변경 시 조용히 no-op 되는 것을 잡는다)
  *  4) SCENES ↔ STORYBOARDS 키 1:1 + board_rules.json 8종 커버 +
  *     3D 아이템의 단계 인덱스(at)가 스토리보드 단계 수를 넘지 않음
+ *  5) **컨텍스트 생명주기 — dispose 후 재초기화**(R10-06 실브라우저 결함). 아래 참조.
+ *
+ * ── 스텁의 한계와 그 보완 (R10-06) ──────────────────────────────────────────
+ * 이 가드는 초록색인데 실브라우저(Chrome)에서는 단면이 **한 번도 렌더되지 않았다**.
+ * 원인은 스텁이 컨텍스트 생명주기를 모델링하지 않은 것이었다:
+ *   - `renderer.dispose()`가 `WEBGL_lose_context.loseContext()`로 컨텍스트를 죽였고,
+ *   - StrictMode(dev)의 mount→cleanup→remount에서 2회차 `createRenderer`가
+ *     같은 canvas에서 **죽은 컨텍스트**를 받아(getContext는 기존 컨텍스트를 되돌려준다)
+ *     셰이더 컴파일이 실패했다(`getShaderInfoLog() === null` → "컴파일 실패: null"),
+ *   - 그 결과 onFail → 전 사용자가 SVG 폴백. 3D 캔버스는 DOM에 아예 없었다.
+ * 옛 스텁은 `getExtension: () => null`이라 loseContext가 **아무 일도 하지 않았고**,
+ * `getShaderParameter: () => true`라 컴파일은 항상 성공했다 → 원리적으로 못 잡는 결함.
+ * 보완: 스텁이 `WEBGL_lose_context`를 실제로 구현한다(loseContext 호출 수 계수 +
+ * lost 상태에서 getShaderParameter/getShaderInfoLog가 null — 실제 GL 거동).
+ * 그 위에서 (a) dispose가 loseContext를 호출하지 않음 (b) dispose 후 같은 캔버스로
+ * 재초기화 성공 + 실제 드로우 발생 (c) 소스에 loseContext 부재를 함께 고정한다.
  *
  * vite ssrLoadModule을 쓰는 이유: renderer.js가 확장자 없는 상대 import
  * (`./glCore`)를 쓰므로 순수 node로는 해석되지 않는다. (boardVisual.render.test와
@@ -42,6 +58,9 @@ const EXPECTED_MAX_PASSES = 8;
  *   WM_FAULT=drawcalls  스텁 gl이 drawArrays 1회를 5회로 부풀린다
  *                       (렌더러가 패스를 더 그리는 상황과 동일한 관측)
  *   WM_FAULT=scene-key  SCENES 키 하나를 지운 사본으로 정합을 검사한다
+ *   WM_FAULT=lose-ctx   dispose 직후 테스트가 직접 loseContext를 부른다
+ *                       (= 고쳐지기 전 renderer.dispose()와 동일한 관측 →
+ *                          컨텍스트 생명주기 가드가 실제로 빨개지는지 증명)
  */
 const FAULT = process.env.WM_FAULT ?? '';
 
@@ -60,7 +79,11 @@ const check = (name, cond, detail = '') => {
 // getAttribLocation은 셰이더 소스에 실제로 선언된 속성만 유효 위치를 준다
 // (실제 GL의 "미사용 속성은 링커가 제거" 거동을 흉내내 바인딩 경로도 검증).
 function createStubGL() {
-  const stats = { drawArrays: 0, drawInstanced: 0, uploads: 0, uniformMisses: [], contexts: 1 };
+  const stats = {
+    drawArrays: 0, drawInstanced: 0, uploads: 0, uniformMisses: [], contexts: 1,
+    // 컨텍스트 생명주기 관측점(R10-06) — loseContext 호출 수와 소실 여부
+    loseContextCalls: 0, lost: false,
+  };
   let nextId = 1;
   const names = (src, kw) => {
     const out = [];
@@ -84,8 +107,10 @@ function createStubGL() {
     createShader: (type) => ({ id: nextId++, type, src: '' }),
     shaderSource: (sh, src) => { sh.src = src; },
     compileShader: () => {},
-    getShaderParameter: () => true,
-    getShaderInfoLog: () => '',
+    // 실제 GL 거동: 컨텍스트가 소실되면 질의가 전부 null이 된다
+    // (관측된 실브라우저 증거 "셰이더 컴파일 실패: null"이 정확히 이 경로다)
+    getShaderParameter: () => (stats.lost ? null : true),
+    getShaderInfoLog: () => (stats.lost ? null : ''),
     deleteShader: () => {},
     createProgram: () => ({ id: nextId++, uniforms: [], attribs: [] }),
     attachShader: (prog, sh) => {
@@ -93,7 +118,10 @@ function createStubGL() {
       prog.attribs.push(...names(sh.src, 'in'));
     },
     linkProgram: () => {},
-    getProgramParameter: (prog, p) => (p === C.ACTIVE_UNIFORMS ? prog.uniforms.length : true),
+    getProgramParameter: (prog, p) => {
+      if (stats.lost) return p === C.ACTIVE_UNIFORMS ? 0 : null;
+      return p === C.ACTIVE_UNIFORMS ? prog.uniforms.length : true;
+    },
     getProgramInfoLog: () => '',
     getActiveUniform: (prog, i) => ({ name: prog.uniforms[i], size: 1, type: 0 }),
     getUniformLocation: (prog, name) => (prog.uniforms.includes(name) ? { prog: prog.id, name } : null),
@@ -115,7 +143,15 @@ function createStubGL() {
     // 상태
     viewport: () => {}, disable: () => {}, enable: () => {}, blendFunc: () => {},
     clearColor: () => {}, clear: () => {},
-    getExtension: () => null,
+    // 실제 확장을 구현한다 — 옛 스텁은 null을 돌려주어 loseContext가 no-op이었고,
+    // 그래서 실브라우저를 망가뜨린 컨텍스트 소실을 원리적으로 관측할 수 없었다.
+    isContextLost: () => stats.lost,
+    getExtension: (name) => (name === 'WEBGL_lose_context'
+      ? {
+          loseContext: () => { stats.loseContextCalls += 1; stats.lost = true; },
+          restoreContext: () => { stats.lost = false; },
+        }
+      : null),
     // uniform — location이 null/undefined면 "실제 GL에서 조용히 무시"되는 상황
     uniform1f: (loc) => { if (!loc) stats.uniformMisses.push('uniform1f'); },
     uniform3fv: (loc) => { if (!loc) stats.uniformMisses.push('uniform3fv'); },
@@ -291,8 +327,66 @@ try {
     );
   }
 
+  // ── 3) 컨텍스트 생명주기 — dispose 후 재초기화 (R10-06 실브라우저 결함 회귀) ──
+  const WHO_LIFECYCLE =
+    'dispose()는 GPU 리소스만 반납해야 한다. loseContext로 컨텍스트를 죽이면 같은 <canvas>는 ' +
+    '되살아나지 않고(getContext가 죽은 컨텍스트를 되돌려준다), React StrictMode(dev)의 ' +
+    'mount→cleanup→remount 2회차가 죽은 컨텍스트로 셰이더를 컴파일해 실패한다 ' +
+    '("컴파일 실패: null") → onFail → 전 사용자가 SVG 폴백. 실브라우저에서 3D 캔버스가 ' +
+    'DOM에 아예 없었던 R10-06 결함이 정확히 이것이다. 선례: mapOverlay/MapOverlayGL.jsx dispose.';
+
   r.dispose();
-  console.log(`\n· 요약: 프레임 ${framesMeasured}건 측정, 드로우콜 최대 ${worst.calls}/${DRAW_BUDGET}, 강수 인스턴스 최대 ${maxPrecipSeen}/${MAX_PRECIP}`);
+  check(
+    'dispose()가 loseContext를 호출하지 않는다 (컨텍스트 살려둔다)',
+    canvas.gl.stats.loseContextCalls === 0 && canvas.gl.stats.lost === false,
+    `loseContext ${canvas.gl.stats.loseContextCalls}회 호출 / lost=${canvas.gl.stats.lost}. ${WHO_LIFECYCLE}`,
+  );
+
+  // 고장 주입: 옛 dispose()와 동일한 관측을 만들어 아래 재초기화 가드가 빨개지는지 증명
+  if (FAULT === 'lose-ctx') canvas.gl.getExtension('WEBGL_lose_context').loseContext();
+
+  check('dispose() 2회 호출 안전 (멱등)', (() => { try { r.dispose(); return true; } catch { return false; } })());
+
+  // StrictMode 재마운트 = 같은 canvas에 createRenderer 재호출
+  const r2 = createRenderer(canvas);
+  check(
+    'dispose 후 같은 캔버스로 createRenderer 재성공 (StrictMode 재마운트 경로)',
+    Boolean(r2),
+    `null 반환 = 셰이더 컴파일 실패 = 컨텍스트가 죽어 있다. ${WHO_LIFECYCLE}`,
+  );
+  check(
+    `재초기화가 같은 컨텍스트를 재사용 (getContext 총 2회 요청, 컨텍스트 객체 동일)`,
+    canvas.ctxRequests === 2 && r2?.gl === canvas.gl,
+    `ctxRequests=${canvas.ctxRequests}, 동일객체=${r2?.gl === canvas.gl}. 캔버스당 컨텍스트는 1개다.`,
+  );
+  if (r2) {
+    // 재초기화가 형태만 성공한 게 아니라 실제로 그리는지 — 공허 통과 방지
+    const firstRule = Object.keys(SCENES)[0];
+    r2.setScene(buildScene(firstRule));
+    r2.resize();
+    const before2 = s.drawArrays + s.drawInstanced;
+    const reported2 = r2.render(2000);
+    const calls2 = s.drawArrays + s.drawInstanced - before2;
+    check(
+      `재초기화 렌더러가 실제로 드로우한다 — ${firstRule}: ${calls2}건 (≤ ${DRAW_BUDGET})`,
+      calls2 > 0 && calls2 === reported2 && calls2 <= DRAW_BUDGET,
+      `실측 ${calls2} / 자체집계 ${reported2}. 재초기화가 성공해도 그리지 못하면 화면은 여전히 비어 있다.`,
+    );
+    r2.dispose();
+  }
+
+  // 소스 고정 — 동작 가드가 우회되더라도 loseContext 재도입 자체를 즉시 잡는다
+  {
+    const rendererSrc = readFileSync(resolve(root, 'src/modules/board/webgl/crossSection/renderer.js'), 'utf-8');
+    const code = rendererSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, ''); // 주석 제외
+    check(
+      'renderer.js 코드에 loseContext 호출 없음 (주석 언급은 허용)',
+      !/loseContext/.test(code),
+      `renderer.js가 loseContext를 다시 호출한다. ${WHO_LIFECYCLE}`,
+    );
+  }
+
+  console.log(`\n· 요약: 프레임 ${framesMeasured}건 측정, 드로우콜 최대 ${worst.calls}/${DRAW_BUDGET}, 강수 인스턴스 최대 ${maxPrecipSeen}/${MAX_PRECIP}, loseContext 호출 ${canvas.gl.stats.loseContextCalls}회`);
 } finally {
   await server.close();
 }
