@@ -25,7 +25,7 @@ import logging
 import re
 import uuid
 from collections import Counter
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Callable, Sequence
 
 from sqlalchemy import case, func, select
@@ -198,6 +198,34 @@ def pool_level_groups(user_level_group: str, theta: float | None) -> list[str]:
     )
 
 
+def kst_day_start_utc(day: date) -> datetime:
+    """`day`(KST 달력일) 00:00 KST에 해당하는 UTC 시각 — R10-01 D2.
+
+    세션 발급이 하루를 `datetime.now(KST).date()`로 정의하므로(session.py ·
+    curriculum.py) 당일 중복 제외 경계도 같은 기준이어야 한다. UTC 자정을 쓰면
+    KST 00:00~09:00 응답이 "어제"로 새어 중복 방지가 그 구간에서 무력해진다.
+    반환값은 timestamptz 비교에 안전하도록 UTC로 정규화된 tz-aware datetime.
+    """
+    return datetime(day.year, day.month, day.day, tzinfo=KST).astimezone(timezone.utc)
+
+
+def answered_today_subq(user_id: uuid.UUID, day_start_utc: datetime):
+    """"오늘 이미 응답한 content_item_id" SELECT 구성 (실행 없음) — R10-01 D2.
+
+    review·live 풀의 `NOT IN` 제외 대상. new 풀의 전기간 served 제외와 달리
+    `answered_at >= day_start_utc`로 당일에 한정한다 — 복습·실황 문항은 다음
+    날부터 재출제되는 것이 정상이고, 전기간 제외는 풀을 영구 고갈시킨다.
+    `content_item_id IS NOT NULL` 조건은 필수다: NULL이 섞이면 SQL `NOT IN`이
+    전건 UNKNOWN → false가 되어 풀이 통째로 비워진다(생성 문항·보드 로그는
+    content_item_id가 NULL).
+    """
+    return select(QuizLog.content_item_id).where(
+        QuizLog.user_id == user_id,
+        QuizLog.content_item_id.is_not(None),
+        QuizLog.answered_at >= day_start_utc,
+    )
+
+
 def build_pool_query(
     *,
     level_groups: Sequence[str],
@@ -335,9 +363,17 @@ async def _fetch_pools(
     None이면 기존 단일 그룹·random 정렬 그대로 — 콜드스타트 동작 불변).
     풀 크기는 배합 요구량보다 넉넉히(new 10 · review 10 · live 5) 가져와
     중복 제거·치환 실패 시의 여유분으로 쓴다.
+
+    중복 방지 (R10-01 D2): new는 **전기간** served 제외(한 번 본 문항은 다시
+    '신규'가 아니다), review·live는 **당일** 제외(answered_today_subq) —
+    배치고사 직후 첫 세션이 방금 푼 문항을 재출제하던 P0의 직접 원인이 두 풀에
+    제외가 전달되지 않은 것이었다.
     """
     served_subq = select(QuizLog.content_item_id).where(
         QuizLog.user_id == user.id, QuizLog.content_item_id.is_not(None)
+    )
+    today_subq = answered_today_subq(
+        user.id, kst_day_start_utc(datetime.now(KST).date())
     )
     groups = pool_level_groups(user.level_group, theta)
 
@@ -366,6 +402,7 @@ async def _fetch_pools(
                         level_groups=groups,
                         theta=theta,
                         live=False,
+                        served_subq=today_subq,
                         weak_concepts=weak_concepts,
                         limit=10,
                     )
@@ -379,7 +416,11 @@ async def _fetch_pools(
         (
             await db.execute(
                 build_pool_query(
-                    level_groups=groups, theta=theta, live=True, limit=5
+                    level_groups=groups,
+                    theta=theta,
+                    live=True,
+                    served_subq=today_subq,
+                    limit=5,
                 )
             )
         )

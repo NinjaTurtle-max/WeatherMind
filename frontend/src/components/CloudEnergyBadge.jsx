@@ -10,6 +10,10 @@ import { useAuthStore } from '../store/authStore';
  *   구름 = 플레이 에너지(하늘색), 방패 = 스트릭 방어(주황 StreakBadge).
  * 소진(0) 시 붉은 강조 + 회복 ETA로 재방문을 유도한다(리텐션 훅).
  *
+ * R10-01 §3.1: 소모 규칙이 "시도당 1"에서 **"틀린 문항에만 1"**로 바뀌었다.
+ * 툴팁 문구를 새 규칙(노력이 아니라 실수에 소모)과 진입 차단(새 세션은 구름이
+ * 있어야 열림)에 맞춘다. 수치·회복 모델(만렙 5·20분당 1)은 불변.
+ *
  * GET /progress/energy를 조회하고, next_regen_sec를 로컬에서 1초씩 카운트다운한다.
  * 0에 도달하면 재조회로 잔량·다음 ETA를 갱신한다.
  */
@@ -66,10 +70,10 @@ export default function CloudEnergyBadge() {
       }`}
       title={
         isFull
-          ? '구름 에너지가 가득 찼어요'
+          ? '구름 에너지가 가득 찼어요 — 구름은 틀린 문항에만 1개 줄어들어요'
           : isEmpty
-            ? `구름이 모두 흩어졌어요 — 약 ${Math.max(1, Math.ceil(remaining / 60))}분 후 회복`
-            : `구름 에너지 — 다음 회복까지 ${countdown}`
+            ? `구름이 모두 흩어졌어요 — 약 ${Math.max(1, Math.ceil(remaining / 60))}분 후 회복돼요. 새 세션은 구름이 1개 이상 있어야 열려요(풀던 세션은 끝까지 마칠 수 있어요)`
+            : `구름 에너지 — 틀린 문항에만 1개 소모 · 다음 회복까지 ${countdown}`
       }
     >
       <span aria-hidden="true">☁️</span>

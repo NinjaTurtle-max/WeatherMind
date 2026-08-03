@@ -39,3 +39,8 @@ class BoardAttemptResult(BaseModel):
     # R8-01 §3.4 (additive): 그 퍼즐 최초 클리어가 같은 concept_tag의 열린
     # kind='board' 유닛에 왕관 +1을 유발했을 때만 채워진다 — 프론트 토스트용.
     crown_award: CrownAward | None = None
+    # R10-01 §3.1 (additive, D10-1): 미통과 시도의 "구름 −1" 표기용 실측값.
+    # passed=False라도 잔량 0이면 소모가 0이므로 프론트가 계산할 수 없다.
+    # clouds_spent = 실제 소모량(0 또는 CLOUD_COST) · clouds = 소모 후 잔량.
+    clouds_spent: int = 0
+    clouds: int = 0

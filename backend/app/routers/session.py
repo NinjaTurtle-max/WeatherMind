@@ -192,6 +192,11 @@ async def get_today_session(
 
     # 2) 없으면 발급 — 동시 요청이 UNIQUE 제약에 걸리면 재조회
     if session is None:
+        # 진입 게이트(R10-01 §3.1·D6): 잔량 부족이면 **문항을 만들기 전에** 429
+        # OUT_OF_CLOUDS(전역 핸들러 변환). 이 분기 안에서만 검사하는 것이 계약이다 —
+        # 위의 기존 세션 재조회는 무차단이어야 "풀던 것을 뺏기지 않는다"가 성립한다.
+        # 무소모 검사이므로 발급 실패(503 등)로 구름이 새지 않는다.
+        await energy_service.require_entry(db, user)
         try:
             async with db.begin_nested():
                 session, _ = await session_service.create_daily_session(
@@ -257,20 +262,13 @@ async def submit_session_answer(
             detail={"detail": "세션에 해당 퀴즈가 없습니다.", "code": "QUIZ_NOT_FOUND"},
         )
 
-    # 구름 에너지(§3.3): 최초(비멱등) 제출에만 1 소모 — 0이면 제출 전 429.
-    # 재제출(멱등 가드 히트)은 미소모하도록 이미 응답된 로그면 소모를 건너뛴다
-    # (submit_answer_for_log이 AlreadyAnsweredError로 409 처리).
     # 배치고사(mode='placement')는 온보딩 진단이므로 구름을 소모하지 않고
     # XP도 부여하지 않는다 (R7-01 §3.3 — 에너지 면제와 동일한 mode 분기.
     # 신규 유저가 에너지 걱정 없이 6문항을 끝내야 초기 θ가 선다).
+    # 재제출(멱등 가드 히트)도 새 시도가 아니므로 소모 대상이 아니다
+    # (submit_answer_for_log이 AlreadyAnsweredError로 409 처리).
     is_placement = session.mode == placement_service.MODE_PLACEMENT
     already_answered = log.user_answer is not None or log.is_correct is not None
-    if not already_answered and not is_placement:
-        # 소모는 요청 트랜잭션(get_db_with_rls) 안에서 일어나므로, 이후 422/503/409로
-        # 예외가 나면 롤백되어 구름이 새지 않는다 — "제출 성공 시에만 소모"가 성립한다.
-        # (이 속성은 소모가 요청 트랜잭션을 공유할 때만 유효: 별도 커밋/예외 삼킴 금지.)
-        # OutOfCloudsError → 429는 main.py 전역 핸들러가 변환한다.
-        await energy_service.consume(db, user)
 
     # board 유형(§3.4): board_state 필수·검증, answer 문자열로 정규화 —
     # BoardStateRequired/BoardValidation → 422는 main.py 전역 핸들러가 변환.
@@ -282,9 +280,31 @@ async def submit_session_answer(
         db, user, log, answer, body.elapsed_sec, grant_xp=not is_placement
     )
 
+    # 구름 에너지(R10-01 §3.1): 소모는 **채점 이후 · 오답에만** 1 (should_consume).
+    # 진행 중 세션은 잔량 0이어도 끊지 않는다 — consume_if_available이 가드 UPDATE
+    # 0행이면 소모를 생략하고 실측 잔량을 돌려준다(429 없음, §3.1 각주 7).
+    # 소모는 요청 트랜잭션(get_db_with_rls)을 공유하므로 이후 예외 시 롤백되어 구름이
+    # 새지 않는다 — 별도 커밋/예외 삼킴을 넣으면 이 보장이 깨진다.
+    now = datetime.now(timezone.utc)
+    state = await energy_service.get_state(db, user, now)
+    clouds_spent, clouds_remaining = 0, state["clouds"]
+    if energy_service.should_consume(
+        is_correct=bool(result.is_correct),
+        already_answered=already_answered,
+        is_placement=is_placement,
+    ):
+        clouds_remaining = await energy_service.consume_if_available(db, user, now)
+        # 실측 차이로 산출 — 잔량 0(소모 생략)·무제한 모드에서 0이 된다.
+        clouds_spent = max(
+            0, min(energy_service.CLOUD_COST, state["clouds"] - clouds_remaining)
+        )
+
     logs = await _session_logs(db, session)
     return SessionAnswerResult(
-        **result.model_dump(), session_progress=_progress_of(logs)
+        **result.model_dump(),
+        session_progress=_progress_of(logs),
+        clouds_spent=clouds_spent,
+        clouds=clouds_remaining,
     )
 
 

@@ -51,9 +51,17 @@ class SessionAnswerRequest(BaseModel):
 
 
 class SessionAnswerResult(AnswerResult):
-    """기존 AnswerResult + session_progress (§3.1)."""
+    """기존 AnswerResult + session_progress (§3.1) + 구름 소모 결과 (R10-01 §3.1).
+
+    clouds_spent·clouds는 additive (D10-1): "오답 피드백에 구름 −1 명시"는
+    is_correct만으로 구현할 수 없다 — 잔량 0에서는 오답이어도 소모가 0이기 때문
+    (진행 중 세션을 끊지 않는 계약). 프론트가 계산하지 않고 서버 실측을 읽는다.
+    clouds_spent = 실제 소모량(0 또는 CLOUD_COST) · clouds = 소모 후 잔량.
+    """
 
     session_progress: SessionProgress
+    clouds_spent: int = 0
+    clouds: int = 0
 
 
 class PlacementAbility(BaseModel):

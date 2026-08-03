@@ -26,6 +26,17 @@ export async function fetchBoardPuzzles() {
   return res.data;
 }
 
+// GET /board/puzzles/{content_item_id} → BoardPuzzle 단건 (R10-01 D1 신설)
+//   목록 원소와 **동일 스키마**(전용 단건 스키마 없음 — D8-2).
+//   §3.1의 보드측 **진입 차단 지점**: 잔량 부족이면 퍼즐을 열기 전에
+//   429 OUT_OF_CLOUDS(next_regen_sec 동봉)로 막힌다. 목록(fetchBoardPuzzles)은
+//   무차단이므로 "퍼즐 시작" 시 반드시 이 함수를 통과해야 게이트가 성립한다
+//   — 목록 payload로 바로 플레이하면 게이트가 도달 불가가 된다.
+export async function fetchBoardPuzzle(contentItemId) {
+  const res = await client.get(`/board/puzzles/${contentItemId}`);
+  return res.data;
+}
+
 // POST /board/puzzles/{content_item_id}/attempt {board_state}
 //   → {passed, phenomena, feedback, xp_earned} — 최초 클리어만 +5 XP(재도전 0)
 //   + crown_award (R8-01 §3.4, additive): {unit_slug, unit_title, crowns, cleared} | null

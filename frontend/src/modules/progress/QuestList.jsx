@@ -7,8 +7,12 @@ import LoadingSpinner from '../../components/LoadingSpinner';
  * GET /progress/quests → [{code, title, progress, target, done, xp_reward}]
  * 진행 바(progress/target)·완료 체크·보상 XP를 표시한다.
  * 세션·보드 플레이 후 ['progress','quests'] 무효화로 재조회된다.
+ *
+ * R10-01 §3.4 (S4): collapsed=true면 **1개만 노출**한다 — 첫 세션 전 인지 부하
+ * 감소용(호출측 ProgressPage가 온보딩 게이트 단계로 판단). 기본값 false라
+ * 기존 호출·기존 사용자 화면은 그대로다(회귀 0).
  */
-export default function QuestList() {
+export default function QuestList({ collapsed = false }) {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['progress', 'quests'],
     queryFn: progressApi.fetchQuests,
@@ -42,6 +46,8 @@ export default function QuestList() {
   }
 
   const doneCount = quests.filter((q) => q.done).length;
+  const visible = collapsed ? quests.slice(0, 1) : quests;
+  const hidden = quests.length - visible.length;
 
   return (
     <div>
@@ -52,10 +58,15 @@ export default function QuestList() {
         </span>
       </div>
       <div className="flex flex-col gap-2">
-        {quests.map((q) => (
+        {visible.map((q) => (
           <QuestCard key={q.code} quest={q} />
         ))}
       </div>
+      {hidden > 0 && (
+        <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-center text-xs font-medium text-slate-500 ring-1 ring-slate-200">
+          첫 세션을 마치면 퀘스트 {hidden}개가 더 열려요.
+        </p>
+      )}
     </div>
   );
 }

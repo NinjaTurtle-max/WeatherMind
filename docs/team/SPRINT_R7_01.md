@@ -9,7 +9,8 @@
 ## 0. 배경 — 제품 결정 (2026-07-23, 클라이언트)
 
 - 전체 목표를 "상업 배포 수준 도달"로 확정, 기준선 = 확장 로드맵 6단계(의존 순서).
-  이번 주 초점 = 마일스톤 1. 상세: 메모리 `weathermind-commercial-launch-goal`.
+  이번 주 초점 = 마일스톤 1. 상세: `docs/ROADMAP.md`(전략 SSOT — 2026-08-01 저장소로
+  이관. 그전까지는 에이전트 메모리 `weathermind-commercial-launch-goal`만 참조했다).
 - R6까지의 상태: IRT 엔진·엔드포인트 계층은 완성(합성 복원 검증). 부족한 것은
   **배선 2가닥**(θ→출제 서빙 연결, 배치응답→placement 전달)과 **검증 1가닥**(DB 왕복).
   - `priors.theta_to_target_level_group`: 구현·테스트 완료, 프로덕션 호출 0건.

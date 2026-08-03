@@ -6,6 +6,8 @@ import TierBadge from '../../components/TierBadge';
 import QuestList from './QuestList';
 import BadgeCollection from './BadgeCollection';
 import WeatherBrainPanel from './WeatherBrainPanel';
+import { DailyGoalMeter, DailyGoalPicker } from './DailyGoal';
+import { selectUnlockStage, useOnboardingGate } from '../../lib/onboardingGate';
 
 /**
  * ProgressPage (R4-01 S1·S2·S3) — "내 정보" 탭.
@@ -19,9 +21,16 @@ import WeatherBrainPanel from './WeatherBrainPanel';
  * R8-01 §3.7④ — 스파인 카드: /progress/me의 spine(§3.3)으로 유닛 진도율·왕관·
  * current_unit을 보여주고 "이어서 학습"으로 해당 유닛 세션에 바로 진입시킨다.
  * 제품 결정(§1) "유닛 진척 1순위"에 따라 프로필 헤더 바로 아래 배치.
+ *
+ * R10-01 §3.4 (S4 — R10-D·R10-F):
+ * - "오늘 목표 N/M"(설정 시)·목표 선택(미설정 시 — 배치고사를 건너뛴 사용자 보정).
+ * - **첫 세션 전에는 퀘스트·배지를 1개만 노출**해 인지 부하를 줄인다(collapsed).
+ *   첫 세션을 마치면(게이트 단계 1) 원래대로 전체가 펼쳐진다 — 기존 사용자는
+ *   부트스트랩에서 해제 상태로 계산되므로 회귀가 없다.
  */
 export default function ProgressPage() {
   const user = useAuthStore((s) => s.user);
+  const unlockStage = useOnboardingGate(selectUnlockStage);
 
   const { data: me } = useQuery({
     queryKey: ['progress', 'me'],
@@ -33,6 +42,8 @@ export default function ProgressPage() {
   const level = me?.level ?? 1;
   const streak = me?.streak_count ?? 0;
   const tier = me?.tier ?? 'stratus';
+  // 첫 세션 전(게이트 단계 0) — 퀘스트·배지를 접어 첫 화면 정보량을 줄인다(§3.4)
+  const collapsed = unlockStage < 1;
 
   return (
     <div className="pt-2">
@@ -64,6 +75,13 @@ export default function ProgressPage() {
         </div>
       </div>
 
+      {/* 오늘 목표 (R10-01 §3.4) — 설정됐으면 N/M 진행, 미설정이면 선택 1스텝 */}
+      {me?.daily_goal_items ? (
+        <DailyGoalMeter className="mb-4" />
+      ) : (
+        <DailyGoalPicker className="mb-4" />
+      )}
+
       {/* 스파인 카드 (R8-01 §3.7④) — spine 부재(구 백엔드) 시 미렌더 */}
       {me?.spine && <SpineCard spine={me.spine} />}
 
@@ -92,10 +110,10 @@ export default function ProgressPage() {
       </div>
 
       <div className="mb-5">
-        <QuestList />
+        <QuestList collapsed={collapsed} />
       </div>
 
-      <BadgeCollection />
+      <BadgeCollection collapsed={collapsed} />
     </div>
   );
 }

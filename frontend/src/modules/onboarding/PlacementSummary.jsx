@@ -6,6 +6,7 @@ import {
   thetaToScore,
   levelFromTheta,
 } from '../../lib/abilityDisplay';
+import { DailyGoalPicker } from '../progress/DailyGoal';
 
 /**
  * PlacementSummary (R7-01 S3) — 배치고사 완료 후 개념별 진단 결과(θ) 화면.
@@ -14,6 +15,12 @@ import {
  * 를 WeatherBrainPanel과 같은 표현 문법(thetaToScore 정규화 막대 + 레벨 칩)으로 보여준다.
  * level_label은 서버값을 우선 쓰고, 부재 시에만 levelFromTheta로 파생(폴백).
  * 약한 개념 우선 정렬 — /progress/abilities(WeatherBrainPanel) 정렬과 같은 방향(서버 비의존).
+ *
+ * R10-01 §3.4·D4 (S4 — R10-D): 진단 직후 **일일 목표 선택 1스텝**을 여기에 둔다.
+ * "지금 무엇을 할지"가 가장 분명한 순간에 하루 분량을 스스로 정하게 하는 커밋
+ * 장치다(관찰 보고서 R10-D). 선택은 PUT /progress/daily-goal로 즉시 저장되고,
+ * 이후 세션 완료 화면·프로필의 "오늘 목표 N/M" 표기의 분모가 된다.
+ * 강제하지 않는다 — 고르지 않아도 "학습 시작하기"로 넘어갈 수 있다(미설정 유지).
  */
 export default function PlacementSummary({ summary, onDone }) {
   const abilities = [...(summary?.abilities ?? [])].sort((a, b) => (a.theta ?? 0) - (b.theta ?? 0));
@@ -66,6 +73,9 @@ export default function PlacementSummary({ summary, onDone }) {
           진단 결과가 아직 준비되지 않았어요. 학습을 진행하면 능력 분석이 채워져요.
         </p>
       )}
+
+      {/* 일일 목표 커밋 1스텝 (§3.4·D4) */}
+      <DailyGoalPicker className="mt-6" />
 
       <button
         type="button"

@@ -56,6 +56,13 @@ const state = {
   streak: 6,
   streakFreeze: 1, // 구름 방패 보유 수 (§3.5, 최대 2) — 스트릭 방어 자원(clouds와 독립)
   answeredToday: false,
+  // 오늘 응답한 문항 수 (R10-01 D4·D10) — /progress/me의 today_answered_count.
+  // 서버는 answered_at 날짜로 매번 재계산하므로 목도 날짜가 바뀌면 0에서 시작해야
+  // 한다 → answeredCountDate 앵커로 지연 리셋한다(rolloverAnsweredCount).
+  answeredTodayCount: 0,
+  answeredCountDate: null, // 카운트가 속한 날짜(todayISO). null이면 다음 접근 시 재앵커.
+  // 일일 목표 문항 수 (R10-01 D4, users.daily_goal_items) — null=미설정.
+  dailyGoalItems: null,
   predicted: false,
   tier: 'nimbostratus', // 최근 정산 티어 (§3.2 /progress/me)
   // 일일 퀘스트 진행 (§3.1) — 당일 집계 흉내. 디자인 검토용 초기 진행값 시드.
@@ -68,6 +75,34 @@ const state = {
   // 온보딩 배치고사 (R7-01 S3) — 1회 완료 여부. 완료 후 start는 409.
   placementDone: false,
 };
+
+// ── 오늘 응답 수 (R10-01 D4·D10) ────────────────────────────────────────────
+// 목 서버는 며칠씩 떠 있으므로 자정을 넘기면 카운트가 누적돼 "오늘 목표 N/M"이
+// 틀린다. regenClouds가 cloudsUpdatedAt으로 하는 **지연 계산** 관례를 그대로
+// 따라, 읽기·증가 시점에 앵커 날짜를 확인해 하루가 바뀌었으면 0으로 되돌린다.
+// 날짜 기준은 ensureSession의 session_date와 같은 todayISO() — 목 내부 일관성.
+// 기존 answeredToday 불린(R5)은 이번 스코프가 아니므로 동작을 바꾸지 않는다.
+
+/** 앵커 날짜가 오늘이 아니면 카운트를 0으로 되돌린다(지연 리셋). */
+function rolloverAnsweredCount() {
+  const today = todayISO();
+  if (state.answeredCountDate !== today) {
+    state.answeredCountDate = today;
+    state.answeredTodayCount = 0;
+  }
+}
+
+/** 응답 1건 반영 — 증가 전에 날짜 경계를 확인한다. */
+function bumpAnsweredToday() {
+  rolloverAnsweredCount();
+  state.answeredTodayCount += 1;
+}
+
+/** /progress/me의 today_answered_count — 읽기 시점에도 지연 리셋. */
+function todayAnsweredCount() {
+  rolloverAnsweredCount();
+  return state.answeredTodayCount;
+}
 
 // ── 개발자 모드 (R7-03) ─────────────────────────────────────────────────────
 // 실서버는 Settings.DEV_MODE가 꺼져 있으면 /dev/* 전 경로 404 — 목은
@@ -130,6 +165,10 @@ function devStatePayload() {
 const ENERGY_ENABLED = true; // §3.4 기능 플래그(기본 true). false면 무제한.
 const CLOUD_MAX = 5;
 const CLOUD_REGEN_MS = 20 * 60 * 1000; // 20분당 1개 회복
+const CLOUD_COST = 1; // 소모 1회분 (R10-01 §3.1: 수치 불변, 트리거만 변경)
+
+// 일일 목표 허용값 (R10-01 §3.4·D4) — SESSION_RECIPE(합 5)와 독립된 표시용 타깃.
+const DAILY_GOAL_CHOICES = [3, 5, 9];
 
 /** 지연 회복(§3.3): 읽기·소모 시점에 elapsed로 회복량 계산·clamp·anchor 갱신 */
 function regenClouds() {
@@ -163,15 +202,52 @@ function energyPayload() {
   };
 }
 
-/** 구름 1 소모 시도. {ok:true} 또는 {ok:false, next_regen_sec} (§3.3 원자 소모 흉내) */
-function consumeCloud() {
+// ── R10-01 §3.1 에너지 정책 전환 ────────────────────────────────────────────
+// 구름은 **노력이 아니라 실수에 소모된다**: 소모는 채점 결과가 오답일 때만 1.
+// 대신 문항을 열기 전에 잔량을 검사해 차단한다. 이미 발급된 세션의 진행 중
+// 문항은 절대 차단하지 않는다("풀던 것을 뺏기지 않는다" 불변식 — §3.1 각주 7).
+// 서버 대응: energy_service.should_consume / require_entry / consume_if_available.
+// 회복 모델(만렙 5·20분당 1)은 불변 — 바뀐 것은 소모 트리거와 차단 시점뿐이다.
+
+/** 소모 트리거(순수, server should_consume). 오답·미통과에만 true.
+ *  정답·재제출(멱등 히트)·배치고사는 false. 보드는 passed를 isCorrect로 넘긴다. */
+function shouldConsumeCloud({ isCorrect, alreadyAnswered = false, isPlacement = false }) {
+  return !isCorrect && !alreadyAnswered && !isPlacement;
+}
+
+/** 진입 게이트(server require_entry). {ok:true} 또는 {ok:false, next_regen_sec}.
+ *  **소모하지 않는다** — 검사 전용. 잔량 부족이면 호출측이 429 OUT_OF_CLOUDS로 변환.
+ *  차단 지점 3곳(D6): 세션 신규 발급 · 유닛 세션 발급 · 퍼즐 상세 진입. */
+function requireCloudEntry() {
   if (!ENERGY_ENABLED) return { ok: true };
   regenClouds();
-  if (state.clouds <= 0) return { ok: false, next_regen_sec: nextRegenSec() };
+  if (state.clouds < CLOUD_COST) return { ok: false, next_regen_sec: nextRegenSec() };
+  return { ok: true };
+}
+
+/** 가드된 소모(server consume_if_available). 반환: 소모 후 잔량.
+ *  잔량이 부족하면 **429 없이** 무소모로 통과한다(§3.1 각주 7) — 마지막 구름으로
+ *  진입해 오답을 낸 진행 중 세션을 끊지 않기 위한 예외. 음수가 되지 않는다. */
+function consumeCloudIfAvailable() {
+  if (!ENERGY_ENABLED) return CLOUD_MAX;
+  regenClouds();
+  if (state.clouds < CLOUD_COST) return state.clouds; // 가드 UPDATE 0행 분기
   // MAX에서 처음 소모하면 이 시점부터 회복 타이머 시작
   if (state.clouds >= CLOUD_MAX) state.cloudsUpdatedAt = Date.now();
-  state.clouds -= 1;
-  return { ok: true };
+  state.clouds -= CLOUD_COST;
+  return state.clouds;
+}
+
+/** 소모 결과 응답 필드 {clouds_spent, clouds} (server D10-1 — 서버와 동일 산출).
+ *  소모 **전후 실측 차이**로 낸다: 오답이어도 잔량 0이면 무소모 통과라 0이 되고,
+ *  무제한 모드(ENERGY_ENABLED=false)에서도 0이다. 프론트가 is_correct로 "구름 −1"을
+ *  계산하면 이 두 경우에 거짓 표기가 되므로 서버 실측을 그대로 읽는다.
+ *  trigger = shouldConsumeCloud(...) 결과. */
+function cloudSpendResult(trigger) {
+  regenClouds();
+  const before = ENERGY_ENABLED ? state.clouds : CLOUD_MAX;
+  const clouds = trigger ? consumeCloudIfAvailable() : before;
+  return { clouds_spent: Math.max(0, Math.min(CLOUD_COST, before - clouds)), clouds };
 }
 
 /** OUT_OF_CLOUDS 429 응답 본문 (회복 ETA 포함 — 리텐션 훅 §3.3) */
@@ -792,6 +868,15 @@ const BOARD_PUZZLES = [
 // 최초 클리어 기록 (content_item_id 집합) — 재도전 0 XP (§3.5)
 const clearedBoardPuzzles = new Set();
 
+/** BoardPuzzle 1건 (서버 schemas/board.BoardPuzzle) — 목록·상세가 공유한다.
+ *  R10-01 D1: 상세 엔드포인트는 단건 전용 스키마를 만들지 않고 이 형태를 그대로 쓴다. */
+const boardPuzzlePayload = (p) => ({
+  content_item_id: p.content_item_id,
+  difficulty: p.difficulty ?? 1, // R7-02 S5: 난이도 1|2|3
+  template_json: p.template_json,
+  cleared: clearedBoardPuzzles.has(p.content_item_id),
+});
+
 /** 보드 재판정 + 목표 검사 → {passed, phenomena, feedback} (권위 채점 흉내) */
 function judgeBoard(boardState, goalConditions) {
   const phenomena = evaluateBoard(boardState, BOARD_RULES);
@@ -812,6 +897,14 @@ function judgeBoard(boardState, goalConditions) {
 // 각 세션은 자체 items(_mock 포함)를 들고 있어 세션별로 독립 채점한다.
 const sessions = new Map();
 const DAILY_SESSION_ID = '5e1c8b1e-0000-4000-8000-0000000000aa';
+
+/** 오늘자 일일 세션이 이미 발급돼 있는가 (R10-01 §3.1·D6).
+ *  ensureSession의 발급 조건과 동일 — 진입 게이트를 **신규 발급 분기에서만**
+ *  적용하기 위해 분리했다(기존 세션 재조회는 무차단: "풀던 것을 뺏기지 않는다"). */
+function dailySessionIssued() {
+  const existing = sessions.get(DAILY_SESSION_ID);
+  return !!existing && existing.session_date === todayISO();
+}
 
 function ensureSession() {
   const today = todayISO();
@@ -878,6 +971,11 @@ function startUnitSession(unitIdOrSlug) {
   if (isUnitLocked(unit)) {
     return [403, { detail: '선행 유닛을 먼저 완료해야 열려요', code: 'UNIT_LOCKED' }];
   }
+  // 진입 게이트 (R10-01 §3.1·D6): 잠금 403 판정 **이후**, 세션 생성 직전.
+  // 서버 create_unit_session은 호출마다 새 세션을 만들므로(멱등 재사용 없음)
+  // 이 경로는 조건 없이 차단한다 — 목의 아래 멱등 재사용은 목 전용 편의다.
+  const gate = requireCloudEntry();
+  if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
   const unitId = unit.id; // 정규화 — slug 발급이어도 진도는 id 키로 기록
   const today = todayISO();
   const sessionId = `unit-${unitId}-${today}`;
@@ -957,6 +1055,9 @@ const routes = {
     const xp = isCorrect ? 15 : 2;
     state.xp += xp;
     state.answeredToday = true;
+    // 레거시 단일 퀴즈도 quiz_logs 1행 → 서버 today_answered_count에 포함된다.
+    // (이 경로는 R5부터 구름을 소모하지 않았고 R10에서도 무소모 유지)
+    bumpAnsweredToday();
     bumpQuest({ xp, correctTag: isCorrect ? QUIZ.concept_tag : null });
     return [
       200,
@@ -988,6 +1089,13 @@ const routes = {
 
   // ── 세션 API (R2-01 계약 §3.1) ──
   'GET /session/today': () => {
+    // 진입 게이트 (R10-01 §3.1·D6): **신규 발급 분기에서만** 429 OUT_OF_CLOUDS.
+    // 이미 발급된 오늘 세션의 재조회는 잔량 0이어도 무차단 — 새로고침으로
+    // 진행 중 세션을 잃지 않는다("풀던 것을 뺏기지 않는다" 불변식).
+    if (!dailySessionIssued()) {
+      const gate = requireCloudEntry();
+      if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
+    }
     const s = ensureSession();
     return [
       200,
@@ -1045,13 +1153,10 @@ const routes = {
       }
     }
 
-    // 구름 소모 (§3.3): 멱등 가드·유효성 통과 후, 채점 직전 1 소모. 0이면 429.
-    // 배치고사 세션(R7-01 S3)은 진단이므로 구름 미소모 — 429 OUT_OF_CLOUDS 없음.
-    if (s.mode !== 'placement') {
-      const spend = consumeCloud();
-      if (!spend.ok) return outOfCloudsError(spend.next_regen_sec);
-    }
-
+    // R10-01 §3.1: 여기서는 **아무것도 소모하지 않고 차단하지도 않는다**.
+    // 발급된 세션의 문항 제출은 잔량 0이어도 항상 200 — 소모는 채점 이후,
+    // 오답일 때만 1 (아래 shouldConsumeCloud 분기). 429 OUT_OF_CLOUDS는 발급·
+    // 퍼즐 상세 진입에서만 발생한다.
     let isCorrect;
     let phenomena;
     if (item.question_type === 'board') {
@@ -1064,11 +1169,16 @@ const routes = {
 
     // 배치고사(R7-01 S3 계약 확정): 진단 전용 — XP·스트릭·퀘스트 미부여
     const isPlacement = s.mode === 'placement';
+    // 구름 소모 (R10-01 §3.1): **채점 이후** 오답에만 1. 정답·배치고사는 0.
+    // 재제출은 위 멱등 가드(409)에서 이미 걸러졌으므로 alreadyAnswered=false.
+    // 잔량 0에서 오답이어도 429가 아니라 무소모 200 (§3.1 각주 7).
+    const spend = cloudSpendResult(shouldConsumeCloud({ isCorrect, isPlacement }));
     const xp = isPlacement ? 0 : isCorrect ? 15 : 2;
     s.answers[item.quiz_id] = { is_correct: isCorrect, xp_earned: xp };
     if (!isPlacement) {
       state.xp += xp;
       state.answeredToday = true;
+      bumpAnsweredToday();
       bumpQuest({ xp, correctTag: isCorrect ? item.concept_tag : null, live: item.slot_filled });
     }
     return [
@@ -1080,6 +1190,9 @@ const routes = {
         xp_earned: xp,
         concept_tag: item.concept_tag,
         session_progress: sessionProgress(s),
+        // D10-1 (additive): 오답 피드백 "구름 −1" 표기용 실측값
+        clouds_spent: spend.clouds_spent,
+        clouds: spend.clouds,
         ...(phenomena ? { phenomena } : {}),
       },
     ];
@@ -1269,15 +1382,21 @@ const routes = {
   'GET /board/rules': () => [200, BOARD_RULES],
   // GET /board/regions (R5-01 §3.1) — 지도 지역 좌표(렌더 전용, 판정 미사용)
   'GET /board/regions': () => [200, BOARD_REGIONS],
-  'GET /board/puzzles': () => [
-    200,
-    BOARD_PUZZLES.map((p) => ({
-      content_item_id: p.content_item_id,
-      difficulty: p.difficulty ?? 1, // R7-02 S5: 난이도 1|2|3
-      template_json: p.template_json,
-      cleared: clearedBoardPuzzles.has(p.content_item_id),
-    })),
-  ],
+  // 목록은 **무차단**(R10-01 D1) — 잔량 0이어도 퍼즐 화면·cleared 표시는 열린다.
+  'GET /board/puzzles': () => [200, BOARD_PUZZLES.map(boardPuzzlePayload)],
+  // GET /board/puzzles/{content_item_id} (R10-01 D1 신설) — 단건 BoardPuzzle.
+  // 서버 스키마 재사용(목록 원소와 동일 필드, 단건 전용 스키마 없음).
+  // §3.1 차단 지점 3: **퍼즐 상세 진입**에서 잔량 부족이면 429 OUT_OF_CLOUDS.
+  // 프론트는 "퍼즐 시작" 시 이 엔드포인트를 호출한다(목록 payload로 바로 플레이 금지).
+  'GET /board/puzzles/:id': (_body, params) => {
+    const puzzle = BOARD_PUZZLES.find((p) => p.content_item_id === params?.id);
+    if (!puzzle) {
+      return [404, { detail: '퍼즐을 찾을 수 없습니다', code: 'PUZZLE_NOT_FOUND' }];
+    }
+    const gate = requireCloudEntry();
+    if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
+    return [200, boardPuzzlePayload(puzzle)];
+  },
   'POST /board/puzzles/:id/attempt': (body, params) => {
     const puzzle = BOARD_PUZZLES.find((p) => p.content_item_id === params?.id);
     if (!puzzle) {
@@ -1290,10 +1409,11 @@ const routes = {
     if (validationErrors.length > 0) {
       return [422, { detail: `보드 상태가 올바르지 않습니다: ${validationErrors[0]}`, code: 'BOARD_STATE_INVALID' }];
     }
-    // 구름 소모 (§3.3): board attempt도 문항 시도로 1 소모. 0이면 429.
-    const spend = consumeCloud();
-    if (!spend.ok) return outOfCloudsError(spend.next_regen_sec);
+    // R10-01 §3.1: 시도 시점 소모·차단 없음. 판정 후 **미통과에만** 1 소모.
     const { passed, phenomena, feedback } = judgeBoard(body.board_state, puzzle.template_json.goal_conditions);
+    // 보드는 멱등 가드가 없어 매 시도가 새 판정이다 → alreadyAnswered=false.
+    // 통과 시 0 (재도전 자체가 무료가 아니라 "틀린 시도"에만 과금 — §3.1).
+    const spend = cloudSpendResult(shouldConsumeCloud({ isCorrect: passed }));
     // 최초 클리어만 +5 XP (재도전 0) (§3.5)
     const firstClear = passed && !clearedBoardPuzzles.has(puzzle.content_item_id);
     let xpEarned = 0;
@@ -1313,7 +1433,19 @@ const routes = {
       );
       crownAward = grantUnitCrown(unit ?? null);
     }
-    return [200, { passed, phenomena, feedback, xp_earned: xpEarned, crown_award: crownAward }];
+    return [
+      200,
+      {
+        passed,
+        phenomena,
+        feedback,
+        xp_earned: xpEarned,
+        crown_award: crownAward,
+        // D10-1 (additive): 미통과 피드백 "구름 −1" 표기용 실측값
+        clouds_spent: spend.clouds_spent,
+        clouds: spend.clouds,
+      },
+    ];
   },
 
   'GET /progress/me': () => {
@@ -1332,11 +1464,34 @@ const routes = {
         next_regen_sec: nextRegenSec(),
         placement_done: state.placementDone, // 온보딩 배치고사 완료 여부 (R7-01 S3)
         spine: spinePayload(), // 스파인 집계 (R8-01 §3.3, additive)
+        // 일일 목표 (R10-01 §3.4·D4, additive) — null이면 미설정(온보딩 1스텝 노출).
+        daily_goal_items: state.dailyGoalItems,
+        // 오늘 응답한 문항 수 — "오늘 목표 N/M" 표기의 N (자정 지연 리셋 포함).
+        today_answered_count: todayAnsweredCount(),
       },
     ];
   },
   // ── 구름 에너지 (R5-01 §3.3) ──
   'GET /progress/energy': () => [200, energyPayload()],
+  // PUT /progress/daily-goal {items} (R10-01 §3.4·D4·D10) — 허용값 3|5|9, 그 외 422.
+  // SESSION_RECIPE(합 5)와 독립된 표시용 타깃이다(계약 수치 드리프트 아님).
+  // 응답은 `daily_goal_items` **하나뿐**이다 — 서버에 없는 필드를 목에 얹으면
+  // 프론트가 그것에 기대어 통합에서 깨진다(mock↔서버 드리프트 금지, D5).
+  // 오늘 응답 수는 GET /progress/me의 today_answered_count에서 읽는다.
+  'PUT /progress/daily-goal': (body) => {
+    const items = Number(body?.items);
+    if (!DAILY_GOAL_CHOICES.includes(items)) {
+      return [
+        422,
+        {
+          detail: `일일 목표는 ${DAILY_GOAL_CHOICES.join('·')} 중 하나여야 합니다`,
+          code: 'VALIDATION_ERROR',
+        },
+      ];
+    }
+    state.dailyGoalItems = items;
+    return [200, { daily_goal_items: items }];
+  },
 
   // ── 커리큘럼 단계별 학습 (R5-01 §3.2) ──
   'GET /curriculum': () => [200, curriculumPayload()],
@@ -1395,6 +1550,9 @@ const routes = {
       streak: 0,
       streakFreeze: 0,
       answeredToday: false,
+      answeredTodayCount: 0,
+      answeredCountDate: null, // 다음 접근 시 오늘로 재앵커
+      dailyGoalItems: null,
       predicted: false,
       tier: 'stratus',
       quest: { xpToday: 0, weakCorrect: 0, liveAnswered: 0 },

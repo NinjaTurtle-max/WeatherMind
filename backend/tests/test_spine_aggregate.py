@@ -139,6 +139,10 @@ class _FakeResult:
     def all(self):
         return []
 
+    def scalar_one(self):
+        # /me가 today_answered_count 집계로 SELECT count(*)를 실행한다 (R10-01 D4·D10-2).
+        return 0
+
 
 class FakeDB:
     async def execute(self, stmt):
@@ -152,6 +156,7 @@ class _FakeUser:
     streak_count = 3
     streak_freeze_count = 1
     placement_completed_at = None
+    daily_goal_items = None  # 일일 목표 미설정 (R10-01 D4 — /me additive 필드)
 
 
 class TestGetSpineReadOnly:

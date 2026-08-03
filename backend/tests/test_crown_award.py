@@ -542,8 +542,13 @@ def run_attempt(
     def fake_validate(board_state):
         pass
 
-    async def fake_consume(db, user):
-        pass
+    # 에너지 대역 (R10-01 §3.1 API 전환 — 구 consume() 제거에 따른 배선 갱신).
+    # 이 파일의 검증 대상은 왕관 배선이므로 에너지는 상태만 흉내내고 통과시킨다.
+    async def fake_state(db, user, now=None):
+        return {"clouds": 3, "max": 5, "next_regen_sec": 0, "updated_at": None}
+
+    async def fake_consume_if_available(db, user, now=None):
+        return 2
 
     def fake_evaluate(question, board_state):
         return [], passed, []
@@ -565,7 +570,10 @@ def run_attempt(
         pass
 
     monkeypatch.setattr(board_router.board_engine, "validate_board", fake_validate)
-    monkeypatch.setattr(board_router.energy_service, "consume", fake_consume)
+    monkeypatch.setattr(board_router.energy_service, "get_state", fake_state)
+    monkeypatch.setattr(
+        board_router.energy_service, "consume_if_available", fake_consume_if_available
+    )
     monkeypatch.setattr(board_router, "evaluate_board_answer", fake_evaluate)
     monkeypatch.setattr(
         board_router.board_engine, "select_feedback", fake_feedback

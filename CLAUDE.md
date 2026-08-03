@@ -16,8 +16,10 @@
 - **문항 유형 7종**(`content_items.question_type`): multiple_choice·short_answer·
   slider·board·match·ordering·cloze. 채점기는 `answer_service.GRADERS` 레지스트리.
 - **구름 에너지**(`progress.py /energy`, `energy_service.py`): 만렙 5·20분당 1 회복·
-  시도당 1 소모(전부 `Settings.CLOUD_*`로 env 조정). 소진 시 429 `OUT_OF_CLOUDS`.
-  스트릭 프리즈("구름 방패")와는 별개 자원.
+  **오답에만 1 소모**(정답·재제출·배치고사 0, 보드는 미통과만 — R10 전환. 수치는
+  `Settings.CLOUD_*`로 env 조정). 차단은 **문항 진입 전**(세션 발급·유닛 발급·
+  `GET /board/puzzles/{id}`)에서 429 `OUT_OF_CLOUDS`이고, **이미 발급된 세션·진입한
+  퍼즐은 잔량 0이어도 끝까지 보장**(소모만 생략, 200). 스트릭 프리즈와 별개 자원.
 - **리그**(`league.py`): ELO 기반, 구름 분류 티어명(stratus<1100→cumulus→
   nimbostratus→cumulonimbus→typhoon_eye≥1550), `POST /predict`로 오늘 기온·강수확률
   예측 후 결정적 AI 캐스터와 대결.
@@ -29,14 +31,17 @@
   → LLM 2차 게이트. LLM 키 없어도 폴백 문항 뱅크로 전 기능 동작.
 
 ## 프로젝트 현황
-- R2~R6 완료(테스트 backend 425·ai-worker 86+1skip, P0~P2 결함 0). R6: WeatherBrain
-  자체 적응형 엔진 실구현 — IRT(2PL) 순수 파이썬 코어(EAP θ 추정·JML b 보정, 합성
-  복원 테스트로 검증), 가입 시 초기 능력(θ) 배정, θ가 Router 1순위 신호, celery
+- **로드맵 마일스톤 1·2 완료**(6개 중 2개) — 다음은 마일스톤 3(콘텐츠·난이도 다양화).
+  상태·의존 규칙·주차 일정은 `docs/ROADMAP.md`가 SSOT.
+- R2~R9 완료 + **R10 웨이브 0~1 완료**(에너지 정책 전환·뱅크 중복 방지·WebGL 단면·
+  지도 오버레이·온보딩 목표·점진 해제). 테스트 실측 **backend 853**·프론트 스모크 6종
+  (visual·board·session·placement·gating·board-entry)·ai-worker 86+1skip.
+  R6: WeatherBrain 자체 적응형 엔진 — IRT(2PL) 순수 파이썬 코어(EAP θ 추정·JML b
+  보정, 합성 복원 테스트로 검증), 가입 시 초기 θ 배정, θ가 Router 1순위 신호, celery
   재학습 실동작(휴면-정확). 상세 docs/specs/03 §5.
-  **경계**: θ는 라우팅·진단 노출까지 연결됐고, θ→출제난이도(뱅크 풀·quiz-generate)는
-  미연결(다음 증분, §0). DB 경로(마이그레이션 0006·RLS insert·round-trip)는 아직
-  실행 검증 전 — 단위/임포트 테스트만 통과, `docker compose up`+`alembic upgrade`+
-  register→session 스모크가 남았다.
+  **θ→출제난이도는 R7에서 연결 완료**(뱅크 풀 `build_pool_query(theta=)` |b−θ| 정렬 +
+  생성 경로 `theta_to_level_group` 주입 — ROADMAP §3). DB 경로(0006·RLS·round-trip)도
+  실DB 스모크 통과(2026-07-23, R7-01에서 9단계 2회 그린).
 - R2~R5.5 완료. 제품 방향 전환 2건 —
   시뮬레이터 폐지→퍼즐화(R3), 지도+커리큘럼+구름에너지(R5) — Duolingo 벤치마킹
   ([[duolingo-benchmark-report]]) 근거. 메커니즘만 차용, 표현(캐릭터·문항 텍스트)은
@@ -60,14 +65,32 @@
   롤플레이·웹푸시·IRT 재학습).
 
 ## SSOT — 기능 상세는 여기서 확인(위 요약은 진입점이지 전체가 아님)
+**`docs/ROADMAP.md`(전략 — 마일스톤 1~6·의존 규칙·현재 위치·용어 규약)** ·
 `docs/specs/`(제품 스펙, 00~10번) · `docs/DEVELOPMENT_PLAN.md`(표준 결정) ·
-`docs/team/TEAM_PROCESS.md`(팀 운영·§2.4 Git 워크플로우) · `docs/team/RETROSPECTIVE.md`.
-충돌 시 위 문서 우선.
+`docs/team/TEAM_PROCESS.md`(팀 운영·§2.4 Git·§2.6~2.7 동적 편성) ·
+`docs/team/RETROSPECTIVE.md`. 충돌 시 위 문서 우선.
+- **"마일스톤"은 로드맵 1~6만 지칭한다.** 스프린트 우선순위는 "항목"(R10-A~I),
+  실행 단위는 "스토리"(S1~S6) — 혼용 금지(ROADMAP §0).
+- **진행 가능 여부는 ROADMAP §1~2로 판단한다.** 아래 「프로젝트 현황」은 진입점 요약이라
+  뒤처질 수 있다.
 
 ## 명령
 - 테스트: `cd backend && python -m pytest tests -q` / `cd ai-worker && python -m pytest tests -q`
 - 전체 CI: `scripts/ci.sh` (lint→test→board→config→frontend)
 - lint: `python -m pyflakes backend/app ai-worker/app celery/app`
+
+## 팀 편성 — 오케스트레이트 개발 (상시 적용, 2026-08-01 사용자 지시)
+개발 작업은 단독 순차가 아니라 **오케스트레이트 형태**로 진행한다(서브에이전트 사용
+상시 승인). 상세 규칙: `docs/team/TEAM_PROCESS.md` §2.6~2.7.
+- 직군 7개는 고정, **인원은 직군별 개발량에 따라 가변 배정** — 백로그 확정 시 초기
+  배정 → 웨이브 0 종료 시 재산정 → 블로킹 시 증감. 개발량 0인 직군은 미투입.
+- 인원 2 이상인 직군은 **리드**를 세우고, 리드가 **자기 세션 내에서 워커를 파생**한다
+  (깊이 상한 2: 오케스트레이터 → 리드 → 워커. 워커는 더 파생 금지).
+- 파생 시 필수 전달: 배타적 파일 소유 목록 · 계약 문서 경로 · AC·테스트 명령 ·
+  금지 범위 · 반환 형식. 파일 소유를 쪼갤 수 없으면 증원하지 않는다. 동시 상한 5,
+  2인 이상이면 워크트리 격리.
+- `/code-review` 게이트는 **위임 불가** — 메인(PM)이 브랜치 단위로 직접 실행.
+  에이전트의 "완료" 보고는 실제 테스트 출력·diff로 확인한 뒤 인정한다.
 
 ## Git 워크플로우
 `main` 직접 커밋 금지. `<type>/<scope>-<slug>` 브랜치 → 원자적 커밋 → `/code-review`
