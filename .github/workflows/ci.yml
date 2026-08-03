@@ -76,12 +76,23 @@ jobs:
           cache-dependency-path: |
             backend/requirements.txt
             ai-worker/requirements.txt
+            celery/requirements.txt
 
-      - name: 의존성 설치 (pytest + backend + ai-worker)
+      # **세 컨텍스트를 모두 설치한다.** backend 테스트가 celery·ai-worker 모듈을
+      # 실임포트하는 것이 이 저장소의 설계다 — 교차 빌드 컨텍스트 중복은 물리적
+      # 병합이 아니라 "단일 소유자 + 계약 테스트"로 해소하고(CLAUDE.md), 그 계약
+      # 테스트가 sys.modules 스왑으로 상대 모듈을 실제로 불러 대조한다
+      # (`test_xp_contract` → celery `app.tasks.league`, `test_kma_contract`,
+      #  `test_gen_payload_contract` → ai-worker `app.chains.*`).
+      #
+      # celery를 빼먹으면 그 계약 7건이 ModuleNotFoundError로 죽는다 — 워크플로
+      # 신설(PR #20) 이후 줄곧 그 상태였고, ai-worker 실패에 가려 보이지 않았다.
+      - name: 의존성 설치 (pytest + backend + ai-worker + celery)
         run: |
           pip install pytest
           pip install -r backend/requirements.txt
           pip install -r ai-worker/requirements.txt
+          pip install -r celery/requirements.txt
 
       - name: scripts/ci.sh test
         run: bash scripts/ci.sh test

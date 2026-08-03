@@ -152,8 +152,16 @@ def test_quiz_gen_chain_caches_per_temperature(monkeypatch):
 
     quiz_gen_chain._cached_chain.cache_clear()
     created: list = []
+    # `quiz_gen_chain`은 langchain을 **함수 내부에서 지연 임포트**한다(2026-08-03,
+    # validate_chain과 같은 규약 — 폴백 뱅크가 키·langchain 없이 도달해야 하므로).
+    # 따라서 모듈 재노출 이름은 없다. 지연 임포트는 호출 시점에 원본 모듈의 속성을
+    # 읽으므로 **의존 모듈 자체**를 patch해야 한다.
+    import langchain_google_genai
+
     monkeypatch.setattr(
-        quiz_gen_chain, "ChatGoogleGenerativeAI", _fake_runnable_factory(created)
+        langchain_google_genai,
+        "ChatGoogleGenerativeAI",
+        _fake_runnable_factory(created),
     )
 
     warm_1 = quiz_gen_chain._build_chain(0.7)
