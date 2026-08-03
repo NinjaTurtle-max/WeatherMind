@@ -36,7 +36,7 @@
 - **R2~R10 완료**(웨이브 0~2 + S5·S6 + R10-07). 결정 기록·이월은
   `docs/team/SPRINT_R10_01.md`(§4.1 D1~D10이 §3보다 우선) ·
   `docs/team/RETROSPECTIVE.md` §R10.7~8. 미배정 항목 R10-I·J·K·L·M·O·P·Q 잔존.
-- 테스트 실측 **backend 937** · **ai-worker 97** · 프론트 `test:*` **10종 전부 CI 편입**
+- 테스트 실측 **backend 980** · **ai-worker 169**(의존 전체 설치 시) · 프론트 `test:*` **10종 전부 CI 편입**
   — `ci.sh`의 `FRONT_TESTS` 9종(`explore`·`session`·`placement`·`visual`·`gating`·
   `board-entry`·`assist`·`webgl`·`overlay`) + `board`(board_engine 공유 벡터)는 **별도
   단계**다. 실DB 왕복 스모크는 `scripts/smoke_r10.sh`(7단계, 전원 OK).
@@ -79,6 +79,17 @@
   뒤처질 수 있다.
 
 ## 명령
+- ⚠️ **`ai-worker` 의존을 설치하지 않으면 로컬 초록이 LLM 경로를 검증하지 않는다.**
+  langchain·chromadb 미설치 시 관련 테스트가 `pytest.importorskip`으로 **조용히
+  skip**된다(미설치 158 passed/7 skipped ↔ 설치 169 passed/0 skipped). CI는
+  `ai-worker/requirements.txt`를 설치하므로 **로컬에서 안 도는 테스트가 CI에서만 돈다**
+  — 실제로 이 함정에 걸렸다(2026-08-03, PR #21·#22 CI 실패 2건: 지연 임포트 전환으로
+  사라진 재노출 이름을 monkeypatch하던 테스트, `sys.modules`에 langchain이 **전역
+  부재**임을 단정하던 테스트). ai-worker를 건드리면 `pip install -r
+  ai-worker/requirements.txt` 후 재실행할 것.
+- **환경 전역 상태를 단정하는 테스트를 쓰지 말 것.** "sys.modules에 X가 없다"는 설치
+  여부·테스트 실행 순서에 따라 갈린다. 확인할 것이 "이 import가 무엇을 추가로 적재하나"
+  라면 **전후 차집합**을 봐야 한다.
 - 테스트: `cd backend && python -m pytest tests -q` / `cd ai-worker && python -m pytest tests -q`
 - 전체 CI: `scripts/ci.sh` (lint→test→board→config→frontend)
 - lint: `python -m pyflakes backend/app ai-worker/app celery/app`

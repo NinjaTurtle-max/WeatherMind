@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import contextlib
+import importlib
 import sys
 import types
 
@@ -141,8 +142,20 @@ class TestGeneratedPayloadFields:
         assert set(allowed) == set(GENERATED_PAYLOAD_FIELDS)
 
     def test_계약_모듈은_langchain을_끌어오지_않는다(self):
-        # 계약을 읽으려고 langchain 전체를 적재해야 하면 분리가 무의미해진다.
-        assert not [name for name in sys.modules if "langchain" in name]
+        """계약을 읽으려고 langchain을 적재해야 하면 분리가 무의미해진다.
+
+        **"sys.modules에 langchain이 없다"로 단정하면 안 된다** — 이 환경에는
+        langchain이 없지만 CI는 `ai-worker/requirements.txt`를 설치하고, 같은 프로세스의
+        다른 테스트가 이미 적재해 두므로 그 단정은 **CI에서만 실패**한다(실측: 로컬
+        통과 / CI 실패). 확인해야 하는 것은 전역 부재가 아니라 **이 import가 무엇을
+        추가로 적재하는가**이므로, 모듈을 지우고 다시 import해 전후 차집합을 본다.
+        """
+        before = {name for name in sys.modules if "langchain" in name}
+        for name in [n for n in sys.modules if n.startswith("app.chains.payload_contract")]:
+            del sys.modules[name]
+        importlib.import_module("app.chains.payload_contract")
+        added = {name for name in sys.modules if "langchain" in name} - before
+        assert not added, f"payload_contract가 langchain을 끌어온다: {sorted(added)}"
 
 
 # ── G-1. 유형별 필수 필드 ──────────────────────────────────────────────────
