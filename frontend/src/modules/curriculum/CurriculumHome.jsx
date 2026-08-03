@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { curriculumApi, progressApi } from '../../api';
 import { useAttendance } from '../../hooks/useAttendance';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import PcCurriculumPath from './PcCurriculumPath';
 
 /**
  * CurriculumHome (R5-01 §3.2·S4) — 학습 홈(기본 진입 /).
@@ -85,8 +86,8 @@ export default function CurriculumHome() {
 
   return (
     <div className="pt-2">
-      <h1 className="mb-1 text-lg font-extrabold text-slate-900">🎓 학습</h1>
-      <p className="mb-4 text-sm text-slate-500">유닛을 순서대로 클리어하며 날씨 개념을 쌓아요.</p>
+      <h1 className="mb-1 text-lg font-extrabold text-slate-900 md:hidden">🎓 학습</h1>
+      <p className="mb-4 text-sm text-slate-500 md:hidden">유닛을 순서대로 클리어하며 날씨 개념을 쌓아요.</p>
 
       {/* 구름 소진 안내 (§3.1) — 새 세션은 열 수 없지만 이유·회복 시점을 먼저 알린다 */}
       {energyBlocked && (
@@ -101,33 +102,47 @@ export default function CurriculumHome() {
         </div>
       )}
 
-      {sections.map((section) => (
-        <section key={section.section} className="mb-8">
-          <div className="mb-4 flex items-center gap-2">
-            <span className="rounded-full bg-sky-600 px-3 py-1 text-xs font-extrabold text-white">
-              {section.section}
-            </span>
-            <span className="text-xs font-medium text-slate-400">
-              {section.units.filter((u) => u.cleared).length}/{section.units.length} 완료
-            </span>
-            <div className="h-px flex-1 bg-slate-200" />
-          </div>
+      {/* 모바일: 세로 지그재그 경로(기존 유지) */}
+      <div className="md:hidden">
+        {sections.map((section) => (
+          <section key={section.section} className="mb-8">
+            <div className="mb-4 flex items-center gap-2">
+              <span className="rounded-full bg-sky-600 px-3 py-1 text-xs font-extrabold text-white">
+                {section.section}
+              </span>
+              <span className="text-xs font-medium text-slate-400">
+                {section.units.filter((u) => u.cleared).length}/{section.units.length} 완료
+              </span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
 
-          <div className="flex flex-col items-center gap-1">
-            {section.units.map((unit, i) => (
-              <UnitNode
-                key={unit.id}
-                unit={unit}
-                offset={ZIGZAG[i % ZIGZAG.length]}
-                isFirst={i === 0}
-                energyBlocked={energyBlocked}
-                regenMin={regenMin}
-                onOpen={() => navigate(`/learn/units/${unit.id}`)}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+            <div className="flex flex-col items-center gap-1">
+              {section.units.map((unit, i) => (
+                <UnitNode
+                  key={unit.id}
+                  unit={unit}
+                  offset={ZIGZAG[i % ZIGZAG.length]}
+                  isFirst={i === 0}
+                  energyBlocked={energyBlocked}
+                  regenMin={regenMin}
+                  onOpen={() => navigate(`/learn/units/${unit.id}`)}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      {/* PC(md↑): 4열 스네이크 곡선 경로 + 튜터 카드 */}
+      {/* PC(md↑): 4열 스네이크 곡선 경로 + 튜터 카드.
+          `energyBlocked`를 반드시 넘긴다 — 넘기지 않으면 구름 0에서 모바일은 잠기고
+          PC는 열려, 문항 진입 전 차단(R10-01 S4)이 PC에서만 깨진다. */}
+      <PcCurriculumPath
+        sections={sections}
+        energyBlocked={energyBlocked}
+        regenMin={regenMin}
+        onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
+      />
 
       {/* 자유 일일 세션 별도 진입(§3.4 병존) */}
       <div className="mt-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
