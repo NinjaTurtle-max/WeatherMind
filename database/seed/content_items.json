@@ -127,7 +127,11 @@
     "template_json": {
       "question_text": "열대 저기압은 중심 부근 최대 풍속이 초속 몇 m 이상일 때 태풍으로 분류되는가? (단위: m/s)",
       "correct_answer": "17",
-      "explanation_hint": "중심 부근 최대 풍속이 17m/s 이상인 열대 저기압을 태풍이라고 부릅니다."
+      "explanation_hint": "중심 부근 최대 풍속이 17m/s 이상인 열대 저기압을 태풍이라고 부릅니다.",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "m/s"
     },
     "uses_live_slots": false,
     "source": {"kind": "seed", "refs": ["climate_concepts: typhoon-0"]},
@@ -248,7 +252,11 @@
     "template_json": {
       "question_text": "밤 최저기온이 몇 ℃ 아래로 내려가지 않을 때 '열대야'라고 하는가? (단위: ℃)",
       "correct_answer": "25",
-      "explanation_hint": "밤 최저기온이 25℃ 아래로 내려가지 않는 밤을 열대야라고 하며, 잘 식지 않는 도시에서 더 자주 발생합니다."
+      "explanation_hint": "밤 최저기온이 25℃ 아래로 내려가지 않는 밤을 열대야라고 하며, 잘 식지 않는 도시에서 더 자주 발생합니다.",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "℃"
     },
     "uses_live_slots": false,
     "source": {"kind": "seed", "refs": ["climate_concepts: heat_island-1"]},
@@ -318,7 +326,11 @@
     "template_json": {
       "question_text": "산업화 이전 약 280ppm이던 대기 중 이산화탄소 농도는 현재 420ppm을 넘었다. 산업화 이전과 비교해 약 몇 % 증가했는가?",
       "correct_answer": "50",
-      "explanation_hint": "280ppm에서 420ppm으로 약 140ppm, 즉 약 50% 증가했습니다. 화석연료를 태우는 발전·교통과 숲의 파괴가 주요 원인입니다."
+      "explanation_hint": "280ppm에서 420ppm으로 약 140ppm, 즉 약 50% 증가했습니다. 화석연료를 태우는 발전·교통과 숲의 파괴가 주요 원인입니다.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%"
     },
     "uses_live_slots": false,
     "source": {"kind": "seed", "refs": ["climate_concepts: co2_climate-2"]},
@@ -401,7 +413,11 @@
     "template_json": {
       "question_text": "기온이 1℃ 오를 때마다 공기가 머금을 수 있는 수증기의 양은 약 몇 % 늘어나는가?",
       "correct_answer": "7",
-      "explanation_hint": "공기는 기온이 1℃ 오를 때마다 수증기를 약 7% 더 머금을 수 있어, 따뜻해진 대기는 한 번에 더 많은 비를 쏟아내는 집중호우를 만들기 쉽습니다."
+      "explanation_hint": "공기는 기온이 1℃ 오를 때마다 수증기를 약 7% 더 머금을 수 있어, 따뜻해진 대기는 한 번에 더 많은 비를 쏟아내는 집중호우를 만들기 쉽습니다.",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "unit": "%"
     },
     "uses_live_slots": false,
     "source": {"kind": "seed", "refs": ["climate_concepts: anomaly-1"]},

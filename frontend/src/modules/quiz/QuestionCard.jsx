@@ -29,13 +29,34 @@ const CONCEPT_LABEL = {
  */
 export default function QuestionCard({ question, disabled, onSubmit, answerResult = null }) {
   const [textAnswer, setTextAnswer] = useState('');
-  const [sliderValue, setSliderValue] = useState(50);
+  const [sliderValue, setSliderValue] = useState(null); // null = 아직 초기화 전(렌더는 sliderShown으로 폴백)
+
+  /**
+   * R10-07: slider 파라미터는 서버가 `template_json` 안에 담아 보낸다
+   * (`routers/session.py` QUESTION_PAYLOAD_FIELDS). match·ordering과 **같은 폴백**을
+   * 둔다 — 최상위만 읽던 기존 코드는 시드에 min/max를 저작해도 0~100·무단위로
+   * 렌더했다(S4 저작값이 UI에 닿지 않았다).
+   */
+  const sliderMin = question?.min ?? question?.template_json?.min ?? 0;
+  const sliderMax = question?.max ?? question?.template_json?.max ?? 100;
+  const sliderStep = question?.step ?? question?.template_json?.step ?? 1;
+  const sliderUnit = question?.unit ?? question?.template_json?.unit ?? '';
+  /** 범위 중앙에서 시작 — 고정 50은 max가 40·20인 문항에서 범위를 벗어나
+   *  "손대지 않고 제출하면 자동 오답"이 됐다(step 격자에도 맞춘다). */
+  const sliderStart = useMemo(() => {
+    const mid = sliderMin + (sliderMax - sliderMin) / 2;
+    const snapped = sliderMin + Math.round((mid - sliderMin) / sliderStep) * sliderStep;
+    return Math.min(sliderMax, Math.max(sliderMin, snapped));
+  }, [sliderMin, sliderMax, sliderStep]);
+
+  /** 첫 렌더(효과 실행 전)·SSR에서도 유효한 값을 쓴다 — null이 input에 들어가면 안 된다 */
+  const sliderShown = sliderValue ?? sliderStart;
 
   // 문제가 바뀌면 입력값 초기화
   useEffect(() => {
     setTextAnswer('');
-    setSliderValue(50);
-  }, [question?.quiz_id]);
+    setSliderValue(sliderStart);
+  }, [question?.quiz_id, sliderStart]);
 
   if (!question) return null;
 
@@ -106,28 +127,28 @@ export default function QuestionCard({ question, disabled, onSubmit, answerResul
       {question.question_type === 'slider' && (
         <div>
           <div className="mb-2 text-center text-3xl font-extrabold text-sky-700">
-            {sliderValue}
+            {sliderShown}
             <span className="ml-1 text-base font-medium text-slate-500">
-              {question.unit ?? ''}
+              {sliderUnit}
             </span>
           </div>
           <input
             type="range"
-            min={question.min ?? 0}
-            max={question.max ?? 100}
-            step={question.step ?? 1}
-            value={sliderValue}
+            min={sliderMin}
+            max={sliderMax}
+            step={sliderStep}
+            value={sliderShown}
             disabled={disabled}
             onChange={(e) => setSliderValue(Number(e.target.value))}
           />
           <div className="mt-1 flex justify-between text-xs text-slate-400">
-            <span>{question.min ?? 0}</span>
-            <span>{question.max ?? 100}</span>
+            <span>{sliderMin}</span>
+            <span>{sliderMax}</span>
           </div>
           <button
             type="button"
             disabled={disabled}
-            onClick={() => onSubmit(sliderValue)}
+            onClick={() => onSubmit(sliderShown)}
             className="mt-4 w-full rounded-xl bg-sky-600 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             이 값으로 제출

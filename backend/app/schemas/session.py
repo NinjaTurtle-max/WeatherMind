@@ -15,10 +15,17 @@ from app.schemas.quiz import AnswerResult, QuizQuestion
 class SessionItem(QuizQuestion):
     source: Literal["bank", "generated"] = "bank"
     slot_filled: bool = False
-    # board 유형만: render된 board 플레이 필드(mode·guide_steps·initial_state·
-    # palette·goal_conditions·hints·question_text). 프론트가 팔레트·초기배치 없이는
-    # 보드를 못 그리므로 세션 응답에 노출한다(R3-01 §3.3). 비밀 정답(correct_answer)은
-    # 방어적으로 제외한다. board 외 유형은 None.
+    # 유형별 플레이 페이로드 — render된 값에서 유형 화이트리스트로 추린다
+    # (routers/session.QUESTION_PAYLOAD_FIELDS). 프론트가 이 필드 없이는 문항을
+    # 렌더하지 못한다(R3-01 §3.3 board → R10-07 §2.1 전 유형 확장):
+    #   board    : mode·guide_steps·initial_state·palette·goal_conditions·hints·
+    #              question_text·time_limit_sec·based_on
+    #   match    : pairs
+    #   ordering : items·shuffled
+    #   slider   : min·max·step·unit (시드 저작 대기 — R10-07 S4)
+    # multiple_choice·short_answer·cloze는 추가 페이로드가 필요 없어 None이며,
+    # 저작된 키가 하나도 없는 경우에도 None이다(빈 값 주입 금지).
+    # 비밀 정답(correct_answer)·해설(explanation_hint)은 어떤 유형에서도 제외한다.
     template_json: dict[str, Any] | None = None
 
 
