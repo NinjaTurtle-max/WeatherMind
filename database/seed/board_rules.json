@@ -4,55 +4,63 @@
     "priority": 100,
     "when": ["front:cold", "moisture>=60"],
     "then": {"phenomenon": "shower", "cloud": "cumulonimbus"},
-    "explain": "한랭전선은 찬 공기가 따뜻하고 습한 공기를 급하게 파고들어 밀어 올린다. 강한 상승기류에 적란운이 발달해 좁은 지역에 강한 소나기가 짧게 내린다."
+    "explain": "한랭전선은 찬 공기가 따뜻하고 습한 공기를 급하게 파고들어 밀어 올린다. 강한 상승기류에 적란운이 발달해 좁은 지역에 강한 소나기가 짧게 내린다.",
+    "hint_needs": "전선 계열 요소 하나와 넉넉한 습기가 함께 필요해요. 어떤 전선이 공기를 가장 급하게 밀어 올릴지 떠올려 보세요."
   },
   {
     "id": "stationary_front_monsoon",
     "priority": 90,
     "when": ["front:stationary", "moisture>=70"],
     "then": {"phenomenon": "persistent_rain", "cloud": "nimbostratus"},
-    "explain": "정체전선은 세력이 비슷한 두 기단이 만나 한곳에 오래 머무는 전선이다. 남쪽에서 습한 공기가 계속 공급되면 장마처럼 여러 날 지속되는 비가 내린다."
+    "explain": "정체전선은 세력이 비슷한 두 기단이 만나 한곳에 오래 머무는 전선이다. 남쪽에서 습한 공기가 계속 공급되면 장마처럼 여러 날 지속되는 비가 내린다.",
+    "hint_needs": "전선 계열 요소 하나와 아주 많은 습기가 필요해요. 한곳에 오래 머무는 전선이 어떤 것일지 생각해 보세요."
   },
   {
     "id": "warm_front_steady_rain",
     "priority": 80,
     "when": ["front:warm", "moisture>=50"],
     "then": {"phenomenon": "rain", "cloud": "nimbostratus"},
-    "explain": "온난전선은 따뜻한 공기가 찬 공기 위로 완만하게 타고 오르며 난층운을 만든다. 그래서 넓은 지역에 약한 비가 오래 내린다."
+    "explain": "온난전선은 따뜻한 공기가 찬 공기 위로 완만하게 타고 오르며 난층운을 만든다. 그래서 넓은 지역에 약한 비가 오래 내린다.",
+    "hint_needs": "전선 계열 요소 하나와 어느 정도의 습기가 필요해요. 공기가 완만하게 타고 오르는 전선을 골라 보세요."
   },
   {
     "id": "siberian_snow",
     "priority": 70,
     "when": ["air_mass:siberian", "moisture>=60"],
     "then": {"phenomenon": "snow", "cloud": "nimbostratus"},
-    "explain": "차고 건조한 시베리아 기단도 따뜻한 서해를 건너며 열과 수증기를 공급받으면 성질이 변해 눈구름을 만든다. 그래서 겨울 서해안에 많은 눈이 내린다."
+    "explain": "차고 건조한 시베리아 기단도 따뜻한 서해를 건너며 열과 수증기를 공급받으면 성질이 변해 눈구름을 만든다. 그래서 겨울 서해안에 많은 눈이 내린다.",
+    "hint_needs": "기단 계열 요소 하나와 넉넉한 습기가 필요해요. 차고 메마른 공기가 따뜻한 바다를 건너면 어떻게 달라질지 떠올려 보세요."
   },
   {
     "id": "convective_shower",
     "priority": 60,
     "when": ["sun>=80", "moisture>=60"],
     "then": {"phenomenon": "shower", "cloud": "cumulonimbus"},
-    "explain": "강한 햇볕이 지면을 데우면 습한 공기가 활발히 상승하는 대류가 일어난다. 키 큰 적란운이 발달해 전선이 없어도 한여름 오후 소나기가 쏟아진다."
+    "explain": "강한 햇볕이 지면을 데우면 습한 공기가 활발히 상승하는 대류가 일어난다. 키 큰 적란운이 발달해 전선이 없어도 한여름 오후 소나기가 쏟아진다.",
+    "hint_needs": "전선 없이도 만들 수 있어요. 일사와 습기, 두 조절값을 함께 크게 올려 보세요."
   },
   {
     "id": "radiation_fog",
     "priority": 50,
     "when": ["sun<=30", "moisture>=80"],
     "then": {"phenomenon": "fog", "cloud": "stratus"},
-    "explain": "햇볕이 약한 밤과 이른 아침에는 지표가 복사냉각으로 빠르게 식는다. 지표 근처의 습한 공기가 차가워지면 수증기가 응결해 지표를 덮는 안개가 낀다."
+    "explain": "햇볕이 약한 밤과 이른 아침에는 지표가 복사냉각으로 빠르게 식는다. 지표 근처의 습한 공기가 차가워지면 수증기가 응결해 지표를 덮는 안개가 낀다.",
+    "hint_needs": "전선이나 기단 없이 조절값만으로 가능해요. 일사는 낮추고 습기는 아주 높게 — 서로 반대 방향으로 움직여 보세요."
   },
   {
     "id": "north_pacific_heatwave",
     "priority": 40,
     "when": ["air_mass:north_pacific", "sun>=70"],
     "then": {"phenomenon": "heatwave", "cloud": "none"},
-    "explain": "덥고 습한 북태평양 기단이 자리 잡고 강한 햇볕이 더해지면 기온이 크게 올라 폭염이 나타난다. 여름철 우리나라 무더위의 전형이다."
+    "explain": "덥고 습한 북태평양 기단이 자리 잡고 강한 햇볕이 더해지면 기온이 크게 올라 폭염이 나타난다. 여름철 우리나라 무더위의 전형이다.",
+    "hint_needs": "기단 계열 요소 하나와 강한 일사가 필요해요. 덥고 습한 공기 덩어리가 어느 바다에서 올지 생각해 보세요."
   },
   {
     "id": "siberian_clear",
     "priority": 30,
     "when": ["air_mass:siberian", "moisture<=40"],
     "then": {"phenomenon": "clear", "cloud": "none"},
-    "explain": "차고 건조한 시베리아 기단이 수증기 공급 없이 자리 잡으면 구름이 잘 만들어지지 않는다. 겨울철 춥고 맑은 날씨의 전형이다."
+    "explain": "차고 건조한 시베리아 기단이 수증기 공급 없이 자리 잡으면 구름이 잘 만들어지지 않는다. 겨울철 춥고 맑은 날씨의 전형이다.",
+    "hint_needs": "기단 계열 요소 하나가 필요하고, 습기는 오히려 낮아야 해요. 차고 메마른 공기를 떠올려 보세요."
   }
 ]

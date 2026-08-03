@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { boardApi } from '../../api';
 import {
   ZONES,
+  DEFAULT_MOISTURE,
+  DEFAULT_SUN,
   createBoard,
   evaluateBoard,
   checkGoals,
@@ -11,6 +13,7 @@ import {
   setLevel,
   isLocked,
   toSubmitState,
+  zoneStates,
 } from '../../lib/boardEngine';
 import {
   parsePaletteToken,
@@ -23,6 +26,73 @@ import { SymbolIcon } from './boardSymbols';
 import CrossSectionPanel from './CrossSectionPanel';
 import PeninsulaMap from './PeninsulaMap';
 import useBoardDrag from './useBoardDrag';
+
+// 언두 스택 상한 (§3.5 — "히스토리 스택(≤ 20)")
+export const HISTORY_LIMIT = 20;
+
+// 히스토리 병합 키의 유일 번호 — 배치·제거는 매번 새 칸을 쌓는다(연속 병합 금지).
+let _historySeq = 0;
+const historySeq = () => ++_historySeq;
+
+// 힌트 2단이 노출하는 "요소 종류" 라벨 (§3.5 — subtype = 정답 요소는 절대 미노출)
+export const HINT_KIND_LABEL = Object.freeze({
+  front: '전선 계열',
+  air_mass: '기단 계열',
+  moisture: '습기',
+  sun: '일사',
+});
+
+/** 두 보드의 배치가 실질적으로 같은지 (히스토리에 빈 칸을 쌓지 않기 위한 비교) */
+function sameElements(a, b) {
+  return JSON.stringify(a?.elements ?? []) === JSON.stringify(b?.elements ?? []);
+}
+
+/** 규칙 when 조건에서 요소 **종류**만 뽑는다(타입 접두어). subtype·임계값은 버린다. */
+export function ruleHintKinds(rule) {
+  const kinds = [];
+  for (const cond of rule?.when ?? []) {
+    const m = /^(air_mass|front|moisture|sun)/.exec(String(cond).trim());
+    if (m && !kinds.includes(m[1])) kinds.push(m[1]);
+  }
+  return kinds;
+}
+
+/**
+ * 조건이 이 퍼즐에서 **성립 가능**한지 — 팔레트로 놓을 수 있거나(존재 조건),
+ * 조절 가능하거나 기본값이 이미 만족(수치 조건)이면 true.
+ * 같은 현상을 내는 규칙이 여럿일 때(예: shower = 한랭전선/대류) 이 퍼즐이 겨냥한
+ * 규칙만 남기는 데 쓴다. 판정에는 쓰이지 않는다(힌트 선택 전용).
+ */
+export function conditionReachable(condition, palette, zoneState) {
+  const cond = String(condition ?? '').trim();
+  const exists = /^(air_mass|front):([a-z_]+)$/.exec(cond);
+  if (exists) {
+    const [, type, subtype] = exists;
+    if ((palette ?? []).includes(`${type}:${subtype}`)) return true;
+    return zoneState?.[type === 'air_mass' ? 'airMass' : 'front'] === subtype;
+  }
+  const numeric = /^(moisture|sun)(>=|<=)(\d+(?:\.\d+)?)$/.exec(cond);
+  if (numeric) {
+    const [, field, op, raw] = numeric;
+    if ((palette ?? []).includes(field)) return true; // 슬라이더로 도달 가능
+    const actual = zoneState?.[field] ?? (field === 'moisture' ? DEFAULT_MOISTURE : DEFAULT_SUN);
+    return op === '>=' ? actual >= Number(raw) : actual <= Number(raw);
+  }
+  return false;
+}
+
+/**
+ * 목표 현상을 만드는 규칙 후보 — goal(현상·구름) 일치 + 이 퍼즐에서 성립 가능.
+ * 힌트 2단의 "필요한 요소 종류"·`hint_needs` 문구 출처.
+ */
+export function hintRulesForGoal(rules, goal, palette, zoneState) {
+  if (!goal) return [];
+  return (rules ?? []).filter((rule) => {
+    if (goal.phenomenon != null && rule?.then?.phenomenon !== goal.phenomenon) return false;
+    if (goal.cloud != null && rule?.then?.cloud !== goal.cloud) return false;
+    return (rule?.when ?? []).every((c) => conditionReachable(c, palette, zoneState));
+  });
+}
 
 /**
  * AtmosphereBoard (R3-01 S3·S5) — 한반도 단면 4존 대기 보드 플레이어.
@@ -41,9 +111,24 @@ import useBoardDrag from './useBoardDrag';
  *
  * 규칙(§3.2)은 GET /board/rules로 로드해 배치 즉시 로컬 미리보기 판정을 한다(단일 진실원).
  * 서버 재판정이 권위 채점이며(§3.4), 로컬 판정은 학습용 미리보기일 뿐이다.
+ *
+ * ── R10-01 §3.5 (S5 / R10-E) 풀이 보조 ──
+ * 1) 언두: 배치 히스토리 스택(≤ HISTORY_LIMIT) + "되돌리기". 순수 클라이언트 —
+ *    서버 호출 0이므로 **구름을 소모하지 않는다**(에너지는 오답 제출에만 소모).
+ *    제출·판정 확정·시간 초과 후에는 비활성(interactive=false).
+ * 2) 점진적 힌트 2단(기존 0/2 카운터 재사용) — **정답 배치를 보여주지 않는다**:
+ *      1단 = 목표 존만 하이라이트(어느 지역을 먼저 볼지)
+ *      2단 = 필요한 "요소 종류"(전선 계열·기단 계열·습기·일사) + 저작 문구
+ *    문구는 board_rules.json의 `hint_needs`(R10-01 §3.5 additive 저작 필드, 8종
+ *    전부)를 그대로 쓴다. explain(현상 해설 — 정답 요소명 포함)은 힌트에 쓰지 않고,
+ *    요소 종류는 규칙 `when`의 **타입 접두어만** 사용해 subtype(정답 요소)이 새지
+ *    않게 한다. 문항 저작 `hints`(정답 좌표·수치를 그대로 알려주는 기존 문구)는
+ *    이 경로에서 쓰지 않는다.
  */
 export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null, phenomena = null, sandbox = false }) {
   const [board, setBoard] = useState(() => createBoard(puzzle?.initial_state));
+  const boardRef = useRef(board); // 같은 turn 내 연속 변경의 기준값 (applyBoard)
+  const [history, setHistory] = useState([]); // 언두 스택 [{key, board}] — 최근 HISTORY_LIMIT개
   const [selected, setSelected] = useState(null); // 선택된 팔레트 토큰(탭 배치용)
   const [hintLevel, setHintLevel] = useState(0); // 공개한 힌트 수 (2단계 순차)
   const [guideStep, setGuideStep] = useState(0); // guided 안내 진행
@@ -58,7 +143,10 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
 
   // 문항이 바뀌거나 재도전하면 상태 초기화 (타이머 포함)
   useEffect(() => {
-    setBoard(createBoard(puzzle?.initial_state));
+    const fresh = createBoard(puzzle?.initial_state);
+    boardRef.current = fresh;
+    setBoard(fresh);
+    setHistory([]); // 언두 스택도 함께 초기화 — 다른 문항의 배치로 되돌아가지 않게
     setSelected(null);
     setHintLevel(0);
     setGuideStep(0);
@@ -117,11 +205,42 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
 
   const interactive = !disabled && !submitting && !result && !timedOut;
 
+  // ── 언두(§3.5) — 모든 보드 변경은 이 래퍼를 통과한다(히스토리 누락 방지) ──
+  /**
+   * @param key 연속 병합 키. 같은 키가 스택 top이면 새로 쌓지 않는다 —
+   *   슬라이더 드래그 1회가 히스토리 수십 칸을 먹지 않게 하고, 언두 1회로
+   *   드래그 시작 전 값으로 돌아가게 한다. 배치·제거는 매번 유일 키를 쓴다.
+   */
+  const applyBoard = (key, mutate) => {
+    // boardRef: 같은 이벤트 turn에서 두 번 호출돼도(예: 칩 제거 클릭이 존 카드로
+    // 버블링) 뒤 호출이 앞 호출을 덮어쓰지 않게 최신 상태를 들고 간다.
+    const prev = boardRef.current;
+    const next = mutate(prev);
+    // 잠금·동일 배치 재적용 등 실질 변화가 없으면 히스토리를 남기지 않는다
+    // (되돌리기를 눌러도 아무 일 없는 빈 칸이 쌓이는 것을 막는다)
+    if (next === prev || sameElements(next, prev)) return;
+    boardRef.current = next;
+    setHistory((h) => {
+      const top = h[h.length - 1];
+      if (top && top.key === key) return h; // 같은 조작의 연속 — 최초 상태만 보존
+      return [...h, { key, board: prev }].slice(-HISTORY_LIMIT);
+    });
+    setBoard(next);
+  };
+  const undo = () => {
+    if (!interactive || history.length === 0) return;
+    const last = history[history.length - 1];
+    boardRef.current = last.board;
+    setHistory((h) => h.slice(0, -1));
+    setBoard(last.board);
+    setActiveZone(null);
+  };
+
   // 존에 배치 (선택된 팔레트 항목 사용)
   const placeOn = (zone, item) => {
     if (!interactive || !item) return;
     if (item.type === 'air_mass' || item.type === 'front') {
-      setBoard((b) => placeElement(b, zone, item.type, item.subtype));
+      applyBoard(`place:${zone}:${item.type}:${historySeq()}`, (b) => placeElement(b, zone, item.type, item.subtype));
       setActiveZone(zone); // 배치 즉시 해당 존 현상 재생(§3.3 ④)
     }
   };
@@ -164,6 +283,60 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
       }),
     [confirmedPhenomena, preview],
   );
+
+  // ── 점진적 힌트 2단(§3.5) ──────────────────────────────────────────────────
+  // 1단: 목표 존만 지목·하이라이트 (정답 요소 미공개)
+  // 2단: 필요한 요소 **종류** + board_rules.json `hint_needs` 저작 문구
+  // 문항 저작 hints(정답 배치·수치 노출)는 쓰지 않는다 — 계약 "정답 배치 미공개".
+  const hintZone = goalZone;
+  const hintGoal = puzzle?.goal_conditions?.[0] ?? null;
+  const hintZoneState = useMemo(
+    () => (hintZone == null ? null : zoneStates(createBoard(puzzle?.initial_state))[hintZone] ?? null),
+    [puzzle, hintZone],
+  );
+  const hintRules = useMemo(
+    () => hintRulesForGoal(rules, hintGoal, palette, hintZoneState),
+    [rules, hintGoal, palette, hintZoneState],
+  );
+  const hintKinds = useMemo(() => {
+    const kinds = [];
+    for (const rule of hintRules) {
+      for (const kind of ruleHintKinds(rule)) if (!kinds.includes(kind)) kinds.push(kind);
+    }
+    // 후보 규칙을 못 찾았을 때만 팔레트 종류로 대체(정답 요소는 여전히 미노출).
+    // **방어 코드다** — 실데이터에서는 걸리지 않는다(P2-2 조사, 2026-08-03):
+    // 시드 board 12건 전부 후보 규칙이 정확히 1개로 좁혀지고(폴백 0/12), 규칙 8종이
+    // 모두 어느 퍼즐에서든 후보로 선택된다. `boardAssistRetention.smoke.test.mjs`가
+    // 이 사실을 상주 고정하므로, 새 퍼즐이 폴백에 빠지면 테스트가 먼저 실패한다.
+    // 남겨두는 이유(실제로 도달 가능한 경로):
+    //   ① 규칙 로드 전(GET /board/rules 지연·실패) ② ai-worker 생성 퍼즐이 규칙
+    //   8종으로 성립 불가한 목표를 담은 경우 ③ 규칙 파일만 먼저 축소 저작된 경우.
+    if (kinds.length === 0) {
+      for (const item of paletteItems) if (!kinds.includes(item.type)) kinds.push(item.type);
+    }
+    return kinds;
+  }, [hintRules, paletteItems]);
+  // 문항 저작 `hints`는 **표시하지 않는다** — 시드 문구가 "존 1에 한랭전선을 놓고
+  // 습기를 60 이상"처럼 정답 배치를 그대로 알려주기 때문(§3.5 "정답 배치 미공개").
+  // 다만 "이 퍼즐에 힌트를 제공한다"는 저작 의사는 그대로 존중해 여부만 읽는다
+  // (백엔드 template_json 화이트리스트와 양방향 일치 계약 —
+  //  backend/tests/test_session_board_item.py TestWhitelistFrontendContract).
+  const hintsAuthored = (puzzle?.hints?.length ?? 0) > 0;
+  const hintSteps = useMemo(() => {
+    if (sandbox || hintZone == null || !hintsAuthored) return [];
+    const zoneName = regions[hintZone]?.name ?? ZONES[hintZone];
+    const needs = hintRules.map((r) => r.hint_needs).filter(Boolean);
+    return [
+      `먼저 ${zoneName}만 집중해서 보세요. 목표 현상은 이 지역의 대기 상태에서 만들어져요.`,
+      // needs가 비는 경로는 hintKinds 폴백과 동일한 방어 케이스다(주석 참조 —
+      // 실시드 12/12는 후보 1개). 그때도 "요소 종류" 칩은 팔레트에서 채워지므로
+      // 2단이 완전히 무내용이 되지는 않는다.
+      needs.length > 0
+        ? needs.join(' 또는 — ')
+        : '위 요소 종류를 하나씩 시험해 보세요. 조건이 맞으면 그 지역의 현상이 바로 바뀌어요.',
+    ];
+  }, [sandbox, hintZone, hintsAuthored, regions, hintRules]);
+  const hintZoneActive = hintLevel > 0 && hintZone != null;
 
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
@@ -317,9 +490,18 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                     ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-400'
                     : 'border-dashed border-sky-300 bg-sky-50/30'
                   : ''
-              } ${goalMet ? 'ring-2 ring-emerald-400' : ''}`}
+              } ${goalMet ? 'ring-2 ring-emerald-400' : ''} ${
+                hintZoneActive && hintZone === zone && !goalMet ? 'ring-2 ring-amber-400 bg-amber-50/40' : ''
+              }`}
             >
-              <p className="mb-1 text-center text-xs font-bold text-slate-600">{region.name}</p>
+              <p className="mb-1 text-center text-xs font-bold text-slate-600">
+                {region.name}
+                {hintZoneActive && hintZone === zone && (
+                  <span className="ml-1 rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-900">
+                    💡 여기부터
+                  </span>
+                )}
+              </p>
 
               {/* 미리보기 현상/구름 (즉시 가시화) — 표준 표기 SVG(§3.3 ②) */}
               <div className="mb-2 rounded-lg bg-slate-50 py-2 text-center">
@@ -341,7 +523,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                     onRemove={
                       interactive
                         ? () => {
-                            setBoard((b) => removeElement(b, zone, 'air_mass'));
+                            applyBoard(`remove:${zone}:air_mass:${historySeq()}`, (b) => removeElement(b, zone, 'air_mass'));
                             setActiveZone(zone);
                           }
                         : null
@@ -355,7 +537,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                     onRemove={
                       interactive
                         ? () => {
-                            setBoard((b) => removeElement(b, zone, 'front'));
+                            applyBoard(`remove:${zone}:front:${historySeq()}`, (b) => removeElement(b, zone, 'front'));
                             setActiveZone(zone);
                           }
                         : null
@@ -372,7 +554,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                   locked={isLocked(board, zone, 'moisture')}
                   disabled={!interactive}
                   onChange={(v) => {
-                    setBoard((b) => setLevel(b, zone, 'moisture', v));
+                    applyBoard(`level:${zone}:moisture`, (b) => setLevel(b, zone, 'moisture', v));
                     setActiveZone(zone);
                   }}
                 />
@@ -384,7 +566,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                   locked={isLocked(board, zone, 'sun')}
                   disabled={!interactive}
                   onChange={(v) => {
-                    setBoard((b) => setLevel(b, zone, 'sun', v));
+                    applyBoard(`level:${zone}:sun`, (b) => setLevel(b, zone, 'sun', v));
                     setActiveZone(zone);
                   }}
                 />
@@ -401,22 +583,40 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         </p>
       )}
 
-      {/* 힌트 (2단계 순차 공개) */}
-      {(puzzle?.hints?.length ?? 0) > 0 && !result && (
+      {/* 점진적 힌트 2단(§3.5) — 1단 존 지목 / 2단 요소 종류. 정답 배치는 미공개 */}
+      {hintSteps.length > 0 && !result && (
         <div className="mt-3">
-          {puzzle.hints.slice(0, hintLevel).map((h, i) => (
-            <p key={i} className="mb-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              💡 힌트 {i + 1}: {h}
-            </p>
+          {hintSteps.slice(0, hintLevel).map((h, i) => (
+            <div key={i} className="mb-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <p>
+                💡 힌트 {i + 1}: {h}
+              </p>
+              {/* 2단에서만 "필요한 요소 종류"를 칩으로 — subtype(정답 요소)은 없다 */}
+              {i === 1 && hintKinds.length > 0 && (
+                <p className="mt-1 flex flex-wrap items-center gap-1">
+                  <span className="font-bold">필요한 요소 종류:</span>
+                  {hintKinds.map((kind) => (
+                    <span key={kind} className="rounded-full bg-amber-200 px-2 py-0.5 font-bold text-amber-900">
+                      {HINT_KIND_LABEL[kind] ?? kind}
+                    </span>
+                  ))}
+                </p>
+              )}
+            </div>
           ))}
-          {hintLevel < puzzle.hints.length && interactive && (
+          {hintLevel < hintSteps.length && interactive && (
             <button
               type="button"
-              onClick={() => setHintLevel((l) => Math.min(l + 1, puzzle.hints.length))}
+              onClick={() => setHintLevel((l) => Math.min(l + 1, hintSteps.length))}
               className="text-xs font-bold text-amber-600 hover:text-amber-700"
             >
-              💡 힌트 보기 ({hintLevel}/{puzzle.hints.length})
+              💡 힌트 보기 ({hintLevel}/{hintSteps.length})
             </button>
+          )}
+          {hintLevel >= hintSteps.length && (
+            <p className="text-[11px] text-amber-700">
+              힌트는 정답 배치를 알려주지 않아요 — 남은 한 걸음은 직접 골라 보세요.
+            </p>
           )}
         </div>
       )}
@@ -457,8 +657,27 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         </div>
       )}
 
-      {/* 제출 — 자유 실험(§3.3 ⑥)은 채점 자체가 없어 제출 버튼 미노출 */}
-      {!result && !timedOut && !sandbox && (
+      {/* 되돌리기(§3.5) — 순수 클라이언트 언두. 서버 호출 0 = 구름 무소모.
+          제출·판정 확정 후에는 interactive=false로 비활성된다. */}
+      {!sandbox && (
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={undo}
+            disabled={!interactive || history.length === 0}
+            title="마지막 배치를 되돌립니다 (구름 소모 없음)"
+            className="inline-flex min-h-[36px] items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span aria-hidden="true">↩</span> 되돌리기
+            {history.length > 0 && <span className="tabular-nums text-slate-400">({history.length})</span>}
+          </button>
+        </div>
+      )}
+
+      {/* 제출 — 자유 실험(§3.3 ⑥)은 채점 자체가 없어 제출 버튼 미노출.
+          판정이 확정(confirmedPhenomena)되면 버튼을 내린다 — 세션 경로는 result를
+          쓰지 않아 예전에는 "판정 중..." 표기가 그대로 남았다(§3.5 마감 2). */}
+      {!result && !confirmedPhenomena && !timedOut && !sandbox && (
         <button
           type="button"
           onClick={() => onSubmit?.(toSubmitState(board))}
@@ -490,7 +709,17 @@ function PlacedChip({ label, locked, onRemove }) {
       {locked && <span aria-hidden="true">🔒</span>}
       {label}
       {!locked && onRemove && (
-        <button type="button" onClick={onRemove} aria-label={`${label} 제거`} className="ml-0.5 text-sky-500 hover:text-sky-800">
+        <button
+          type="button"
+          // 존 카드로 버블링되면 "선택된 팔레트 항목 재배치"가 이어 실행돼 제거가
+          // 즉시 되돌려진다(그리고 언두 스택에도 빈 칸이 남는다).
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          aria-label={`${label} 제거`}
+          className="ml-0.5 text-sky-500 hover:text-sky-800"
+        >
           ×
         </button>
       )}

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sessionApi } from '../../api';
 import { SESSION_STATUS, useSessionStore } from '../../store/sessionStore';
@@ -36,7 +37,24 @@ import SessionSummary from './SessionSummary';
  *   - 전 문항 응답 후 finalizingScreen(전환 화면)을 띄우고 finalizeBulk 호출.
  *   - finalizeBulk({sessionId, answers}): 일괄 채점→완료를 수행하고 summary를 반환.
  *   - 실패 시 로컬 답안을 유지한 채 재시도 버튼 제공(답안 유실 없음).
+ *
+ * R10-01 §3.5 (S5 / R10-G):
+ *   - 콤보·칭찬 에스컬레이션: 연속 정답 카운터를 진행바 **위**에 표시하고 칭찬을
+ *     4단으로 올린다(comboPraise — 자체 카피).
+ *   - 이탈 인텐트 1단: 세션 진행 중 앱 내 이동(탭바 등 링크)·뒤로가기·새로고침을
+ *     확인 1단으로 받는다. 주 CTA "계속 풀기"(큼) / 종료는 작은 링크.
+ *     배치고사(bulkMode)는 제외 — 온보딩 "건너뛰기" 경로를 막지 않는다.
  */
+
+// 칭찬 4단 (§3.5 — 자체 카피). 연속 정답 수가 커져도 마지막 단계에서 멈춘다.
+export const COMBO_PRAISE = Object.freeze(['정답이에요', '좋아요', '훌륭해요', '완벽해요']);
+
+/** 연속 정답 수 → 칭찬 문구. 0·음수·비수는 null(표시 없음). */
+export function comboPraise(combo) {
+  const n = Number(combo);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return COMBO_PRAISE[Math.min(Math.floor(n), COMBO_PRAISE.length) - 1];
+}
 export default function SessionRunner({
   queryKey,
   loadSession,
@@ -74,6 +92,9 @@ export default function SessionRunner({
 
   useAttendance(attendance);
 
+  // 연속 정답 콤보(§3.5) — 정답이면 +1, 오답·제출 실패면 0으로 초기화
+  const [combo, setCombo] = useState(0);
+
   // bulkMode(R7-02 S1): 로컬 수집 답안·일괄 제출 상태
   const bulkAnswersRef = useRef([]);
   const bulkFinalizingRef = useRef(false);
@@ -86,6 +107,7 @@ export default function SessionRunner({
     bulkAnswersRef.current = [];
     bulkFinalizingRef.current = false;
     setBulkError(null);
+    setCombo(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyString]);
 
@@ -111,12 +133,14 @@ export default function SessionRunner({
     onMutate: () => startSubmitting(),
     onSuccess: (result) => {
       showFeedback(result);
+      setCombo((c) => (result.is_correct ? c + 1 : 0)); // 콤보(§3.5)
       if (result.xp_earned > 0) addXp(result.xp_earned);
       queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
       queryClient.invalidateQueries({ queryKey: ['progress', 'quests'] });
       queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] }); // 구름 1 소모 반영(§3.3)
     },
     onError: (err) => {
+      setCombo(0); // 제출 실패도 연속 정답 흐름은 끊긴다(§3.5)
       // 구름 소진(§3.3): 소모 전 429 — 채점 실패가 아니라 에너지 부족(재시도 가능)
       const outOfClouds = err.code === 'OUT_OF_CLOUDS';
       if (outOfClouds) queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
@@ -192,6 +216,29 @@ export default function SessionRunner({
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bulkMode, status, answered, total, sessionId, summary, bulkError]);
+
+  // ── 이탈 인텐트(§3.5) ────────────────────────────────────────────────────
+  // 진행 중 = 문항이 남은 상태(요약·에러·로딩 제외). 배치고사는 제외(bulkMode).
+  const navigate = useNavigate();
+  const [leftOnPurpose, setLeftOnPurpose] = useState(false);
+  const leaveGuardActive =
+    !bulkMode &&
+    !leftOnPurpose &&
+    !summary &&
+    items.length > 0 &&
+    (status === SESSION_STATUS.IN_PROGRESS || status === SESSION_STATUS.FEEDBACK);
+  const [leaveIntent, setLeaveIntent] = useLeaveIntent(leaveGuardActive);
+  const stay = useCallback(() => setLeaveIntent(null), [setLeaveIntent]);
+  const leave = useCallback(() => {
+    const to = leaveIntent?.to ?? '/'; // 뒤로가기 인텐트는 학습 홈으로 내보낸다
+    setLeaveIntent(null);
+    setLeftOnPurpose(true); // 가드 해제 → 링크 재클릭 없이 그대로 이동
+    // replace(P2-1): 목적지가 **센티널 항목을 덮어쓴다**. push면 센티널이 히스토리
+    // 중간에 묻혀 회수 불가(cleanup은 최상단만 회수한다)가 되고, 그만두기를 쓸수록
+    // 헛도는 뒤로가기가 쌓인다. 센티널이 없던 환경에서도 안전하다 —
+    // 이탈을 확정한 세션 화면으로 뒤로가기 복귀하지 않게 되는 것뿐이다.
+    navigate(to, { replace: true });
+  }, [leaveIntent, navigate, setLeaveIntent]);
 
   const currentItem = items[currentIndex] ?? null;
   const isLastItem = currentIndex + 1 >= items.length;
@@ -299,6 +346,19 @@ export default function SessionRunner({
 
       {subheader}
 
+      {/* 콤보·칭찬 에스컬레이션(§3.5) — 진행바 위 */}
+      {combo > 0 && (
+        <p
+          data-combo={combo}
+          className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-extrabold text-orange-700"
+        >
+          <span aria-hidden="true">🔥</span>
+          연속 정답 {combo}
+          <span className="text-orange-500">·</span>
+          {comboPraise(combo)}
+        </p>
+      )}
+
       <SessionProgressBar answered={answered} total={total} currentIndex={currentIndex} />
 
       {currentItem?.slot_filled && (
@@ -321,10 +381,19 @@ export default function SessionRunner({
       {status === SESSION_STATUS.FEEDBACK && answerState && (
         <>
           {outOfClouds ? (
+            // 새 에너지 규칙 문구(R10-01 §3.1·D6 — 웨이브 1 잔여): 구름은 "노력"이
+            // 아니라 "실수"에만 줄고, 이미 시작한 세션은 끝까지 마칠 수 있다.
             <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-center ring-1 ring-rose-200">
               <p className="text-2xl">☁️</p>
               <p className="mt-1 text-sm font-bold text-rose-700">구름이 모두 흩어졌어요</p>
-              <p className="mt-1 text-xs text-rose-600">{answerState.feedback}</p>
+              <p className="mt-1 text-xs leading-relaxed text-rose-600">
+                구름은 <span className="font-bold">틀린 문항에만 1개</span> 줄어들어요 — 열심히 푼
+                만큼이 아니라 실수에만 소모돼요. <span className="font-bold">지금 풀던 세션은 끝까지
+                마칠 수 있고</span>, 구름이 1개라도 회복되면 새 세션도 다시 열려요.
+              </p>
+              {answerState.feedback && (
+                <p className="mt-1.5 text-[11px] text-rose-500">{answerState.feedback}</p>
+              )}
             </div>
           ) : (
             <ResultBanner result={answerState} />
@@ -349,6 +418,191 @@ export default function SessionRunner({
           <div className="h-40" />
         </>
       )}
+
+      {/* 이탈 인텐트 확인 1단(§3.5) */}
+      {leaveIntent && <LeaveIntentDialog onStay={stay} onLeave={leave} remaining={Math.max(0, total - answered)} />}
+    </div>
+  );
+}
+
+/**
+ * useLeaveIntent — 세션 진행 중 이탈 의도를 1단 확인으로 받는다(§3.5).
+ *
+ * BrowserRouter(데이터 라우터 아님)라 `useBlocker`를 쓸 수 없어 3경로를 직접 잡는다:
+ *   1. 앱 내 이동: document 캡처 단계에서 내부 링크 클릭을 가로챈다(탭바 NavLink 포함).
+ *      새 탭·수정키·외부 도메인·같은 경로·`data-leave-allow` 링크는 통과시킨다.
+ *   2. 뒤로가기: 활성화 시 **같은 URL**의 센티널 항목을 하나 밀어 넣고, popstate가
+ *      오면 센티널을 다시 세워 그 자리에 머문 뒤 확인을 띄운다. URL이 같으므로
+ *      라우터 위치는 변하지 않는다. 비용은 세션을 마친 뒤 같은 페이지에서 뒤로가기
+ *      1회가 더 필요할 수 있다는 것뿐이며, 진행 중 이탈을 잡는 값이 더 크다.
+ *   3. 새로고침·탭 닫기: beforeunload(브라우저 기본 확인 — 커스텀 모달 불가).
+ *
+ * 반환: [intent|null, setIntent] — intent = {to} | {back:true}
+ */
+function useLeaveIntent(active) {
+  const [intent, setIntent] = useState(null);
+
+  useEffect(() => {
+    if (!active) {
+      setIntent(null);
+      return undefined;
+    }
+
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = ''; // 크롬 계열은 문자열 지정 필요(문구는 브라우저 고정)
+      return '';
+    };
+
+    const onClickCapture = (e) => {
+      if (e.defaultPrevented) return;
+      if (e.button != null && e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const anchor = e.target?.closest?.('a[href]');
+      if (!anchor || anchor.hasAttribute('data-leave-allow')) return;
+      if (anchor.target && anchor.target !== '_self') return;
+      const raw = anchor.getAttribute('href') ?? '';
+      if (!raw || raw.startsWith('#')) return;
+      let url;
+      try {
+        url = new URL(anchor.href, window.location.href);
+      } catch {
+        return;
+      }
+      if (url.origin !== window.location.origin) return; // 외부 링크는 관심 밖
+      const to = `${url.pathname}${url.search}`;
+      if (url.pathname === window.location.pathname) return; // 같은 화면
+      e.preventDefault();
+      e.stopPropagation();
+      setIntent({ to });
+    };
+
+    // 뒤로가기 센티널. **최대 1개 불변식**(P2-1): 이미 센티널 위에 서 있으면
+    // 새로 밀지 않고 재사용한다 — cleanup의 back()은 비동기 큐라, 세션을 닫고
+    // 곧바로 다른 세션을 열면 회수가 착지하기 전에 두 번째 센티널이 쌓인다
+    // (그러면 회수는 1개만 되고 나머지가 영구 잔류 = 헛도는 뒤로가기 누적).
+    // 동기 검사인 history.state로 판별하므로 타이밍과 무관하게 스택되지 않는다.
+    let sentinel = false;
+    try {
+      if (window.history.state?.wmLeaveGuard) {
+        sentinel = true; // 직전 세션이 남긴 센티널을 그대로 물려받는다
+      } else {
+        window.history.pushState({ wmLeaveGuard: true }, '');
+        sentinel = true;
+      }
+    } catch {
+      /* 히스토리 조작 불가 환경(테스트·임베드) — 링크·새로고침 경로만 동작 */
+    }
+    const onPopState = () => {
+      if (!sentinel) return;
+      try {
+        window.history.pushState({ wmLeaveGuard: true }, ''); // 제자리 복귀
+      } catch {
+        /* noop */
+      }
+      setIntent({ back: true });
+    };
+
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('popstate', onPopState);
+    document.addEventListener('click', onClickCapture, true);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('popstate', onPopState);
+      document.removeEventListener('click', onClickCapture, true);
+      // 센티널 회수(P2-1): 리스너를 먼저 떼었으므로 이 back()이 유발하는 popstate는
+      // 아무것도 트리거하지 않는다. **최상단 항목이 우리 센티널일 때만** 되돌린다 —
+      // 그 사이 다른 화면으로 이동했다면(그만두기 등) 최상단은 라우터의 항목이고,
+      // 남의 히스토리를 건드리면 안 된다(그 경우는 leave()의 replace가 처리한다).
+      // 회수하지 않으면 세션을 열 때마다 헛도는 뒤로가기가 1칸씩 쌓인다.
+      if (!sentinel) return;
+      try {
+        if (window.history.state?.wmLeaveGuard) window.history.back();
+      } catch {
+        /* 히스토리 조작 불가 환경 — no-op */
+      }
+    };
+  }, [active]);
+
+  return [intent, setIntent];
+}
+
+/**
+ * LeaveIntentDialog — 확인 1단(§3.5). 주 CTA "계속 풀기"가 크고, 종료는 작은 링크.
+ * 접근성: role=dialog·aria-modal, 진입 시 주 CTA 포커스, Tab 순환(포커스 트랩),
+ * Esc = 계속 풀기, 닫힐 때 이전 포커스 복원. 애니메이션 없음(reduced-motion 무관).
+ */
+function LeaveIntentDialog({ onStay, onLeave, remaining }) {
+  const panelRef = useRef(null);
+  const primaryRef = useRef(null);
+
+  useEffect(() => {
+    const previous = document.activeElement;
+    primaryRef.current?.focus();
+    const focusables = () =>
+      [...(panelRef.current?.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])') ?? [])]
+        .filter((el) => !el.disabled);
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onStay();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const nodes = focusables();
+      if (nodes.length === 0) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      const activeEl = document.activeElement;
+      const inside = panelRef.current?.contains(activeEl);
+      if (e.shiftKey ? activeEl === first || !inside : activeEl === last || !inside) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      if (previous && typeof previous.focus === 'function') previous.focus();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="leave-intent-title"
+        aria-describedby="leave-intent-desc"
+        className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl"
+      >
+        <p className="text-3xl" aria-hidden="true">🌦️</p>
+        <h2 id="leave-intent-title" className="mt-2 text-lg font-extrabold text-slate-900">
+          지금 나가면 오늘 진도가 사라져요
+        </h2>
+        <p id="leave-intent-desc" className="mt-1.5 text-sm leading-relaxed text-slate-500">
+          {remaining > 0 ? `${remaining}문항만 더 풀면 오늘 진도와 스트릭이 기록돼요. ` : '조금만 더 하면 끝나요. '}
+          여기서 멈추면 지금까지 푼 만큼만 남아요.
+        </p>
+        <button
+          ref={primaryRef}
+          type="button"
+          onClick={onStay}
+          className="mt-5 w-full rounded-xl bg-sky-600 py-3.5 text-base font-extrabold text-white transition hover:bg-sky-700"
+        >
+          계속 풀기
+        </button>
+        <button
+          type="button"
+          onClick={onLeave}
+          className="mt-3 text-xs font-medium text-slate-400 underline hover:text-slate-600"
+        >
+          그만두기
+        </button>
+      </div>
     </div>
   );
 }
