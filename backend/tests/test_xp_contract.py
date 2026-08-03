@@ -65,6 +65,38 @@ class TestDuelXpContract:
         assert duel_service.DUEL_WIN_XP == 15
         assert celery_league.DUEL_WIN_XP == 15
 
+    def test_프론트에_XP_상수_사본이_없다(self):
+        """세 번째 복제본 금지 (R10 ponytail).
+
+        프론트는 `lib/xpConstants.js`에 `DUEL_WIN_XP = 15` 미러를 두고 승리 배지·
+        토스트에 하드코딩했다 — backend↔celery 복제본은 이 파일이 감시했지만 프론트
+        사본은 **아무도 감시하지 않았다**. 서버가 `xp_earned`를 응답에 실어 보내도록
+        바꾸고 미러를 지웠으므로, 되살아나는 것을 여기서 막는다.
+        (같은 부류를 R10-07이 두 번 고쳤다: slider min/max, 약점 보너스 XP.)
+        """
+        root = Path(__file__).resolve().parents[2] / "frontend" / "src"
+        assert not (root / "lib" / "xpConstants.js").exists(), (
+            "xpConstants.js가 되살아났다 — XP 액수는 서버 응답(xp_earned)에서 읽는다"
+        )
+        hits = [
+            f"{p.relative_to(root)}"
+            for p in root.rglob("*.js*")
+            if "DUEL_WIN_XP" in p.read_text(encoding="utf-8", errors="replace")
+        ]
+        assert hits == [], f"프론트에 XP 상수 사본 부활: {hits}"
+
+    def test_듀얼_응답이_XP_액수를_보낸다(self):
+        """`xp_earned`가 두 응답 모델에 있고 result에서 파생된다 — 프론트 하드코딩 대체."""
+        from app.routers.duel import _duel_xp_earned
+        from app.schemas.duel import DuelHistoryItem, DuelToday
+
+        assert "xp_earned" in DuelToday.model_fields
+        assert "xp_earned" in DuelHistoryItem.model_fields
+        assert _duel_xp_earned(None) is None, "정산 전이면 null(추정 금지)"
+        assert _duel_xp_earned("win") == duel_service.DUEL_WIN_XP
+        assert _duel_xp_earned("lose") == 0
+        assert _duel_xp_earned("draw") == 0
+
     @pytest.mark.parametrize(
         "user_score,ai_score",
         [(80.0, 70.0), (70.0, 80.0), (75.0, 75.0), (0.0, 0.0), (100.0, 99.99)],

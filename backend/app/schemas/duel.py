@@ -71,6 +71,11 @@ class DuelToday(BaseModel):
     evidence_review: list[EvidenceReviewItem] | None = None
     # R9-01 §3.2 additive — 제출 시점 캐스터 티어명 스냅샷
     caster_grade: str | None = None
+    # R10 ponytail additive — 정산으로 받은 XP. 정산 전(result=null)이면 null,
+    # 패/무는 0. 프론트가 액수를 하드코딩하지 않게 **서버가 액수를 보낸다**
+    # (액수 단일 소유자 = duel_service.DUEL_WIN_XP · celery 복제본은
+    #  tests/test_xp_contract.py가 감시).
+    xp_earned: int | None = None
 
 
 class DuelBriefingHour(BaseModel):
@@ -135,6 +140,8 @@ class DuelHistoryItem(BaseModel):
     result: str | None = None
     evidence: list[str] | None = None
     evidence_review: list[EvidenceReviewItem] | None = None
+    # R10 ponytail additive — 위 DuelToday.xp_earned와 같은 계약
+    xp_earned: int | None = None
 
     @computed_field  # R9-01 §3.2 additive — ai_pred JSONB 스냅샷에서 파생
     @property
