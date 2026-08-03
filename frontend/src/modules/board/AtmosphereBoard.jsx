@@ -303,7 +303,14 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     for (const rule of hintRules) {
       for (const kind of ruleHintKinds(rule)) if (!kinds.includes(kind)) kinds.push(kind);
     }
-    // 후보 규칙을 못 찾았으면 팔레트 종류로 대체(정답 요소는 여전히 미노출)
+    // 후보 규칙을 못 찾았을 때만 팔레트 종류로 대체(정답 요소는 여전히 미노출).
+    // **방어 코드다** — 실데이터에서는 걸리지 않는다(P2-2 조사, 2026-08-03):
+    // 시드 board 12건 전부 후보 규칙이 정확히 1개로 좁혀지고(폴백 0/12), 규칙 8종이
+    // 모두 어느 퍼즐에서든 후보로 선택된다. `boardAssistRetention.smoke.test.mjs`가
+    // 이 사실을 상주 고정하므로, 새 퍼즐이 폴백에 빠지면 테스트가 먼저 실패한다.
+    // 남겨두는 이유(실제로 도달 가능한 경로):
+    //   ① 규칙 로드 전(GET /board/rules 지연·실패) ② ai-worker 생성 퍼즐이 규칙
+    //   8종으로 성립 불가한 목표를 담은 경우 ③ 규칙 파일만 먼저 축소 저작된 경우.
     if (kinds.length === 0) {
       for (const item of paletteItems) if (!kinds.includes(item.type)) kinds.push(item.type);
     }
@@ -321,9 +328,12 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     const needs = hintRules.map((r) => r.hint_needs).filter(Boolean);
     return [
       `먼저 ${zoneName}만 집중해서 보세요. 목표 현상은 이 지역의 대기 상태에서 만들어져요.`,
+      // needs가 비는 경로는 hintKinds 폴백과 동일한 방어 케이스다(주석 참조 —
+      // 실시드 12/12는 후보 1개). 그때도 "요소 종류" 칩은 팔레트에서 채워지므로
+      // 2단이 완전히 무내용이 되지는 않는다.
       needs.length > 0
         ? needs.join(' 또는 — ')
-        : '팔레트에 있는 요소 종류를 하나씩 시험해 보세요. 조건이 맞으면 그 지역의 현상이 바로 바뀌어요.',
+        : '위 요소 종류를 하나씩 시험해 보세요. 조건이 맞으면 그 지역의 현상이 바로 바뀌어요.',
     ];
   }, [sandbox, hintZone, hintsAuthored, regions, hintRules]);
   const hintZoneActive = hintLevel > 0 && hintZone != null;

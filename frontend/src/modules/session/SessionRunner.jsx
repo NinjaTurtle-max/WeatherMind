@@ -233,7 +233,11 @@ export default function SessionRunner({
     const to = leaveIntent?.to ?? '/'; // 뒤로가기 인텐트는 학습 홈으로 내보낸다
     setLeaveIntent(null);
     setLeftOnPurpose(true); // 가드 해제 → 링크 재클릭 없이 그대로 이동
-    navigate(to);
+    // replace(P2-1): 목적지가 **센티널 항목을 덮어쓴다**. push면 센티널이 히스토리
+    // 중간에 묻혀 회수 불가(cleanup은 최상단만 회수한다)가 되고, 그만두기를 쓸수록
+    // 헛도는 뒤로가기가 쌓인다. 센티널이 없던 환경에서도 안전하다 —
+    // 이탈을 확정한 세션 화면으로 뒤로가기 복귀하지 않게 되는 것뿐이다.
+    navigate(to, { replace: true });
   }, [leaveIntent, navigate, setLeaveIntent]);
 
   const currentItem = items[currentIndex] ?? null;
@@ -473,11 +477,19 @@ function useLeaveIntent(active) {
       setIntent({ to });
     };
 
-    // 뒤로가기 센티널
+    // 뒤로가기 센티널. **최대 1개 불변식**(P2-1): 이미 센티널 위에 서 있으면
+    // 새로 밀지 않고 재사용한다 — cleanup의 back()은 비동기 큐라, 세션을 닫고
+    // 곧바로 다른 세션을 열면 회수가 착지하기 전에 두 번째 센티널이 쌓인다
+    // (그러면 회수는 1개만 되고 나머지가 영구 잔류 = 헛도는 뒤로가기 누적).
+    // 동기 검사인 history.state로 판별하므로 타이밍과 무관하게 스택되지 않는다.
     let sentinel = false;
     try {
-      window.history.pushState({ wmLeaveGuard: true }, '');
-      sentinel = true;
+      if (window.history.state?.wmLeaveGuard) {
+        sentinel = true; // 직전 세션이 남긴 센티널을 그대로 물려받는다
+      } else {
+        window.history.pushState({ wmLeaveGuard: true }, '');
+        sentinel = true;
+      }
     } catch {
       /* 히스토리 조작 불가 환경(테스트·임베드) — 링크·새로고침 경로만 동작 */
     }
@@ -498,6 +510,17 @@ function useLeaveIntent(active) {
       window.removeEventListener('beforeunload', onBeforeUnload);
       window.removeEventListener('popstate', onPopState);
       document.removeEventListener('click', onClickCapture, true);
+      // 센티널 회수(P2-1): 리스너를 먼저 떼었으므로 이 back()이 유발하는 popstate는
+      // 아무것도 트리거하지 않는다. **최상단 항목이 우리 센티널일 때만** 되돌린다 —
+      // 그 사이 다른 화면으로 이동했다면(그만두기 등) 최상단은 라우터의 항목이고,
+      // 남의 히스토리를 건드리면 안 된다(그 경우는 leave()의 replace가 처리한다).
+      // 회수하지 않으면 세션을 열 때마다 헛도는 뒤로가기가 1칸씩 쌓인다.
+      if (!sentinel) return;
+      try {
+        if (window.history.state?.wmLeaveGuard) window.history.back();
+      } catch {
+        /* 히스토리 조작 불가 환경 — no-op */
+      }
     };
   }, [active]);
 

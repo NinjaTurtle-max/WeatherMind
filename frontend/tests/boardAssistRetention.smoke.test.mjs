@@ -25,6 +25,8 @@
  *   6. 콤보 4단 칭찬 전이(정답이에요→좋아요→훌륭해요→완벽해요, 상한 유지)
  *   7. 이탈 인텐트: 내부 링크 클릭 차단 → 확인 1단, 포커스 트랩·Esc(접근성)
  *   8. 세션 완료 화면 문항 수 카피가 실제 배합(total)과 동기화(§3.5 마감 4)
+ *   3-b. 시드 board 퍼즐 전건이 힌트 2단 규칙 후보 ≥1로 좁혀진다(무내용 폴백 0건, P2-2)
+ *   8-b. 뒤로가기 센티널이 세션 수만큼 누적되지 않는다(P2-1)
  *   9. 약점 보너스 XP 분리 표기가 **서버 실측 분해값**(xp_base·xp_weak_bonus)만
  *      쓴다(§3.5 마감 3) — 프론트 역산(xp_earned − 상수 사본) 회귀 가드.
  *      목이 약점 개념 정답에 배율을 적용해 보너스 줄이 실제로 렌더되는 것까지 고정.
@@ -103,6 +105,8 @@ const SessionSummary = (await vite.ssrLoadModule('/src/modules/session/SessionSu
 const SessionPage = (await vite.ssrLoadModule('/src/modules/session/SessionPage.jsx')).default;
 const { comboPraise, COMBO_PRAISE } = await vite.ssrLoadModule('/src/modules/session/SessionRunner.jsx');
 const ResultBanner = (await vite.ssrLoadModule('/src/modules/quiz/ResultBanner.jsx')).default;
+const { hintRulesForGoal } = await vite.ssrLoadModule('/src/modules/board/AtmosphereBoard.jsx');
+const { zoneStates, createBoard } = await vite.ssrLoadModule('/src/lib/boardEngine.js');
 const { AIR_MASS_META, FRONT_META } = await vite.ssrLoadModule('/src/modules/board/boardDisplay.js');
 const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
 
@@ -343,6 +347,36 @@ try {
     }
   });
 
+  // ── 3-b. 시드 보드 퍼즐 전건에서 힌트 2단이 무내용 폴백에 빠지지 않는다 (P2-2) ──
+  // hintRules가 비면 2단은 "팔레트 종류를 하나씩 시험해 보세요"가 되어 값이 0에
+  // 가깝다. 폴백 자체는 방어 코드로 남기되(규칙 로드 실패·생성 문항), **실데이터가
+  // 거기에 빠지지 않는다**는 사실을 여기서 고정한다 — 새 퍼즐·규칙 저작이 조합을
+  // 어긋나게 만들면 이 테스트가 먼저 실패한다.
+  await scenario('힌트 2단: 시드 board 퍼즐 전건이 규칙 후보 1개 이상으로 좁혀진다(폴백 0건)', async () => {
+    const items = JSON.parse(readFileSync(resolve(root, '../database/seed/content_items.json'), 'utf-8'));
+    const boards = items.filter((it) => it.question_type === 'board');
+    assert(boards.length > 0, '시드에 board 문항이 없다');
+    const fellBack = [];
+    const covered = new Set();
+    for (const it of boards) {
+      const t = it.template_json ?? {};
+      const goal = t.goal_conditions?.[0] ?? null;
+      assert(goal, `${t.question_text?.slice(0, 20)}: goal_conditions가 없다`);
+      const zs = zoneStates(createBoard(t.initial_state))[goal.zone] ?? null;
+      const cands = hintRulesForGoal(RULES, goal, t.palette ?? [], zs);
+      if (cands.length === 0) fellBack.push(`${goal.phenomenon}@zone${goal.zone} palette=${JSON.stringify(t.palette)}`);
+      for (const c of cands) covered.add(c.id);
+      // 후보가 있으면 2단이 실제로 문구를 갖는다(hint_needs 저작 누락 교차 확인)
+      assert(cands.every((c) => typeof c.hint_needs === 'string' && c.hint_needs.length > 0),
+        `${goal.phenomenon}@zone${goal.zone}: 후보 규칙에 hint_needs가 없다`);
+    }
+    assert(fellBack.length === 0,
+      `힌트 2단이 무내용 폴백에 빠지는 시드 퍼즐 ${fellBack.length}건: ${fellBack.join(' / ')}`);
+    // 규칙 8종이 모두 어느 퍼즐에서든 후보로 쓰인다 = 저작한 hint_needs가 사장되지 않는다
+    const unused = RULES.map((r) => r.id).filter((id) => !covered.has(id));
+    assert(unused.length === 0, `어느 시드 퍼즐에서도 후보가 되지 않는 규칙: ${unused.join(', ')}`);
+  });
+
   // ── 4. 판정 확정 후 "판정 중..." 잔존 없음 (§3.5 마감 2) ────────────────────
   await scenario('보드: 판정 확정(phenomena 도착) 후 "판정 중..." 잔존 없음', async () => {
     // 제출 왕복 중 — 판정 중 표기가 맞다
@@ -490,6 +524,39 @@ try {
     } finally {
       link.remove();
     }
+  });
+
+  // ── 8-b. 뒤로가기 센티널이 세션 수만큼 누적되지 않는다 (P2-1) ───────────────
+  // 가드는 뒤로가기를 잡기 위해 같은 URL의 히스토리 항목(센티널)을 하나 밀어 넣는다.
+  // cleanup이 그것을 회수하지 않으면 데일리→유닛→데일리를 돌 때마다 헛도는
+  // 뒤로가기가 1칸씩 쌓인다(리뷰 P2-1). 세션을 2회 열고 히스토리 길이가
+  // **세션 수에 비례해 늘지 않는지**를 실측한다.
+  await scenario('이탈 인텐트: 세션을 2회 열어도 뒤로가기 센티널이 누적되지 않는다', async () => {
+    assert(typeof window.history.pushState === 'function', 'jsdom 히스토리 미지원');
+    // 기준선. 히스토리 traversal(back)은 비동기 큐라 앞 시나리오의 회수가 끝날
+    // 때까지 기다린다 — 회수 자체가 안 되면 여기서 시간 초과로 실패한다.
+    await waitFor(() => !window.history.state?.wmLeaveGuard, 4000,
+      '앞 시나리오의 센티널 회수(cleanup back)');
+    const base = window.history.length;
+
+    const openAndClose = async (label) => {
+      mount(createElement(SessionPage), '/daily');
+      await waitFor(() => text().includes('문항') && buttons().length > 0, 8000, `${label} 진행 화면`);
+      await sleep(100);
+      const armed = window.history.state?.wmLeaveGuard === true;
+      assert(armed, `${label}: 뒤로가기 센티널이 설치되지 않았다(가드 미작동)`);
+      safeUnmount(); // 가드 비활성 = cleanup → 센티널 회수
+      await waitFor(() => !window.history.state?.wmLeaveGuard, 4000,
+        `${label}: 언마운트 후에도 센티널이 최상단에 남아 있다(회수 실패 — 헛도는 뒤로가기)`);
+      return window.history.length;
+    };
+
+    const afterFirst = await openAndClose('1회차');
+    const afterSecond = await openAndClose('2회차');
+    assert(afterSecond <= afterFirst,
+      `히스토리가 세션 수에 비례해 늘었다: 기준 ${base} → 1회차 ${afterFirst} → 2회차 ${afterSecond}`);
+    assert(afterSecond - base <= 1,
+      `세션 2회에 히스토리가 ${afterSecond - base}칸 늘었다(센티널 누적 — P2-1 회귀)`);
   });
 
   // ── 9. 세션 완료 화면 문항 수 = 실제 배합 (§3.5 마감 4) ─────────────────────
