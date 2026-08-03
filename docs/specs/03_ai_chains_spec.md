@@ -62,6 +62,9 @@ def route(weak_tags: list[dict]) -> str:
 2. level_group이 "elementary"면 초등학생 눈높이 쉬운 용어, "middle_high"면 중학교 2학년
    과학 교과과정 용어, "adult"면 기상청 전문 용어 일부 허용
 3. 출력은 반드시 아래 JSON 스키마만 반환. 다른 설명 텍스트 절대 포함하지 말 것.
+4. question_type이 "slider"면 min·max·step·unit을 **반드시 함께** 반환할 것.
+   정답은 min 이상 max 이하이고 min에서 step 간격 격자에 올라 있어야 한다
+   (예: min=0, step=5면 정답은 0·5·10… 중 하나). 범위는 문항 내용에 맞게 좁게 잡을 것.
 
 출력 스키마:
 {
@@ -69,7 +72,8 @@ def route(weak_tags: list[dict]) -> str:
   "question_type": "multiple_choice" | "short_answer" | "slider",
   "question_text": "<질문>",
   "options": ["<선택지1>", ...] (multiple_choice일 때만),
-  "correct_answer": "<정답>"
+  "correct_answer": "<정답>",
+  "min": <최솟값>, "max": <최댓값>, "step": <간격>, "unit": "<단위>" (slider일 때만)
 }
 ```
 
@@ -91,9 +95,32 @@ def route(weak_tags: list[dict]) -> str:
 [예시 3 - adult, slider]
 입력 데이터: {"region":"전국","co2_context":true}
 출력: {"concept_tag":"co2_climate","question_type":"slider",
-"question_text":"산업화 이전 대비 현재 대기 중 CO2 농도 증가율을 추정해 슬라이더로 표시하세요 (0~100%)",
-"correct_answer":"50"}
+"question_text":"산업화 이전 대비 현재 대기 중 CO2 농도 증가율을 추정해 슬라이더로 표시하세요",
+"correct_answer":"50","min":0,"max":100,"step":5,"unit":"%"}
 ```
+
+> **개정 (2026-08-03) — slider에 min·max·step·unit 추가.**
+>
+> 최초 설계는 슬라이더 척도를 **암묵적 0~100**으로 두고 범위를 질문 텍스트에
+> 적게 했다(예시 3의 "(0~100%)"). `validate_chain`의 `SLIDER_MIN, SLIDER_MAX = 0, 100`
+> 하드코딩이 그 설계의 흔적이다.
+>
+> 그런데 **제품이 유형별 범위로 이동했다.** 시드 slider 4건은 이미 항목별
+> `min`/`max`/`step`/`unit`을 갖고(0~40 m/s · 0~20 % 등), 서버는
+> `QUESTION_PAYLOAD_FIELDS["slider"]`로 그 4필드를 노출하며 프론트
+> (`QuestionCard.jsx`)가 그 값으로 슬라이더를 렌더한다. 즉 **저작 경로는 옮겨갔고
+> 생성 경로만 남아 있었다.**
+>
+> 개정하지 않으면 생성 slider는 범위 없이 만들어져 프론트에서 `?? 0`/`?? 100`으로
+> 폴백한다 — "초속 몇 m 이상"(정답 17, 적정 범위 0~40) 문항이 0~100 슬라이더로
+> 나오고, `SLIDER_TOLERANCE`가 절대값 10이라 사실상 공짜 정답이 된다. 계약
+> `GENERATED_PAYLOAD_FIELDS`(docs/team/CONTRACT_GEN_ITEM.md 계약 G)를 세운 뒤에는
+> 이 문항이 **탈락 → 재시도 → 폴백**이 되어 생성 slider가 사실상 사라지므로,
+> 스키마·예시가 4필드를 요구해야 계약이 실효를 갖는다.
+>
+> 이 문서의 System Prompt·Few-shot은 `quiz_gen_chain.py`가 **원문 그대로** 쓰므로
+> 둘을 동시에 개정했고, 동일성은 `test_prompt_spec_parity.py`가 감시한다(이전에는
+> 감시자가 없었다).
 
 **Output Parser**: `json.loads()` 실패 시 1회 재시도(temperature 낮춰서), 2회 연속 실패 시 사전 정의된 fallback 문제 세트에서 랜덤 선택.
 

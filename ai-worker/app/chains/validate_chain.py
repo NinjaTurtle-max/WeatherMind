@@ -299,12 +299,23 @@ def run_heuristic_checks(question: dict, concept_tag: str | None = None) -> list
                 )
             )
         else:
-            if SLIDER_MIN <= value <= SLIDER_MAX:
+            # 범위는 **문항 자신의 것**을 쓴다. 하드코딩 0~100은 슬라이더 척도가
+            # 암묵적으로 0~100이던 최초 설계(03번 스펙)의 흔적인데, 제품은 항목별
+            # 범위로 옮겨갔다(시드 0~40 m/s 등, `QUESTION_PAYLOAD_FIELDS["slider"]`).
+            # 그대로 두면 계약 G를 통과한 넓은 범위 문항 — 예: 기압 900~1100 hPa,
+            # 정답 1008 — 을 1차 게이트가 **오탈락**시킨다(실측 확인).
+            # min/max가 없는 구형 문항은 종전대로 0~100을 가정한다.
+            low = question.get("min", SLIDER_MIN)
+            high = question.get("max", SLIDER_MAX)
+            if not (_is_number(low) and _is_number(high)) or float(low) >= float(high):
+                low, high = SLIDER_MIN, SLIDER_MAX
+            low, high = float(low), float(high)
+            if low <= value <= high:
                 checks.append(
                     _check(
                         "slider_range",
                         True,
-                        f"정답 {value:g}이(가) {SLIDER_MIN}~{SLIDER_MAX} 범위 내",
+                        f"정답 {value:g}이(가) {low:g}~{high:g} 범위 내",
                     )
                 )
             else:
@@ -312,7 +323,7 @@ def run_heuristic_checks(question: dict, concept_tag: str | None = None) -> list
                     _check(
                         "slider_range",
                         False,
-                        f"슬라이더 정답이 {SLIDER_MIN}~{SLIDER_MAX} 범위를 벗어남: {value:g}",
+                        f"슬라이더 정답이 {low:g}~{high:g} 범위를 벗어남: {value:g}",
                     )
                 )
 
@@ -998,7 +1009,12 @@ def validate_quiz(question: dict, concept_tag: str, level_group: str) -> dict:
         checks.append(
             _check("llm_skipped", True, "1단 휴리스틱 실패로 2단 LLM 검증 생략")
         )
-    elif not settings.GEMINI_API_KEY:
+    elif not llm_configured():
+        # `settings.GEMINI_API_KEY` 진리값만 보면 **플레이스홀더 키**(.env.example의
+        # "발급받은_키")에서 2단에 진입해 `run_llm_checks`가 즉시 예외를 내고, 사유가
+        # "키 부재"가 아니라 "LLM 호출 실패"로 기록된다. 기능은 안 깨지지만 저작 배치
+        # 리포트·`source.refs`에 남는 사유가 오해를 부른다 — 생성·게이트 다른 경로가
+        # 이미 쓰는 `llm_configured()`(플레이스홀더 배제)로 통일한다.
         checks.append(
             _check("llm_skipped", True, "GEMINI_API_KEY 부재로 2단 LLM 검증 생략")
         )

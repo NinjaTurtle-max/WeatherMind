@@ -162,3 +162,45 @@ jobs:
             echo "::error::frontend 단계가 SKIP으로 종료됨(node_modules 미검출로 판단) — npm ci 단계를 점검하세요."
             exit 1
           fi
+
+  # ── authoring: 저작 배치 무키 완주 (dry-run) — DB·키·네트워크 불필요 ────────
+  # G1(ROADMAP §5.3.1)에서 실키로 돌릴 유일한 스크립트라, 무키 완주가 회귀 대상이다.
+  authoring:
+    name: authoring (author_items --dry-run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            ai-worker/requirements.txt
+
+      # 배치는 backend·ai-worker를 실임포트한다(필드 맵 사본 금지 — 계약 P-2 4단계).
+      - name: 의존성 설치
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r ai-worker/requirements.txt
+
+      - name: scripts/ci.sh authoring
+        run: |
+          set -o pipefail
+          bash scripts/ci.sh authoring | tee /tmp/ci-authoring.log
+          if grep -Eq '^[[:space:]]+authoring[[:space:]]+SKIP([[:space:]]|$)' /tmp/ci-authoring.log; then
+            echo "::error::authoring 단계가 SKIP으로 종료됨 — 무키 완주 게이트가 무의미해집니다."
+            exit 1
+          fi
+
+      # 시드는 dry-run에서 절대 바뀌지 않아야 한다(계약 P-3). 바뀌면 --write 경로가
+      # 기본값으로 새어 나온 것이므로 CI가 잡는다.
+      - name: 시드 무변경 확인
+        run: |
+          if ! git diff --quiet -- database/seed/; then
+            echo "::error::dry-run이 시드를 변경했다 — --write 경로가 기본값으로 새어 나왔다."
+            git diff --stat -- database/seed/
+            exit 1
+          fi

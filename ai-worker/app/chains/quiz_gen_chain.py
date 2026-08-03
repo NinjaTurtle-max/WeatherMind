@@ -2,6 +2,10 @@
 
 System Prompt / Few-shot 3개는 스펙 원문 그대로 사용한다 (한 글자도 수정 금지).
 LCEL 스타일: build_messages | ChatGoogleGenerativeAI | StrOutputParser
+주의: LLM 관련 임포트(langchain*)는 실제로 LLM을 쓰는 함수 내부에서 지연 임포트한다
+(validate_chain과 같은 규약). 키가 없으면 generate_quiz는 LLM 경로에 들어가지도
+않으므로, 폴백 뱅크는 langchain 없이 도달해야 한다 — CLAUDE.md가 "키 없어도 폴백
+문항 뱅크로 전 기능 동작"을 계약으로 두기 때문이다.
 Output Parser: json.loads() + Pydantic 검증 실패 시 temperature 낮춰 1회 재시도,
 2회 연속 실패 시 사전 정의된 fallback 문제 세트에서 랜덤 선택.
 """
@@ -14,15 +18,14 @@ import random
 import threading
 from datetime import date
 from functools import lru_cache
-from typing import Literal, Optional
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.output_parsers import StrOutputParser
 
 from app.chains.json_output import extract_json_object
-from langchain_core.runnables import RunnableLambda
-from langchain_google_genai import ChatGoogleGenerativeAI
-from pydantic import BaseModel, Field, model_validator
+
+# 생성 문항 payload 계약(계약 G)은 langchain 없이도 읽혀야 하므로 별도 모듈이 소유한다
+# (payload_contract 모듈 독스트링 참조). 여기서는 재노출만 한다 — 계약을 이 파일에
+# 다시 적으면 두 곳이 드리프트한다.
+from app.chains.payload_contract import GENERATED_PAYLOAD_FIELDS, QuizQuestion
 
 from app.config import llm_configured, settings
 
@@ -37,6 +40,9 @@ SYSTEM_PROMPT = """당신은 대한민국 초·중·고등학생과 일반 성�
 2. level_group이 "elementary"면 초등학생 눈높이 쉬운 용어, "middle_high"면 중학교 2학년
    과학 교과과정 용어, "adult"면 기상청 전문 용어 일부 허용
 3. 출력은 반드시 아래 JSON 스키마만 반환. 다른 설명 텍스트 절대 포함하지 말 것.
+4. question_type이 "slider"면 min·max·step·unit을 **반드시 함께** 반환할 것.
+   정답은 min 이상 max 이하이고 min에서 step 간격 격자에 올라 있어야 한다
+   (예: min=0, step=5면 정답은 0·5·10… 중 하나). 범위는 문항 내용에 맞게 좁게 잡을 것.
 
 출력 스키마:
 {
@@ -44,7 +50,8 @@ SYSTEM_PROMPT = """당신은 대한민국 초·중·고등학생과 일반 성�
   "question_type": "multiple_choice" | "short_answer" | "slider",
   "question_text": "<질문>",
   "options": ["<선택지1>", ...] (multiple_choice일 때만),
-  "correct_answer": "<정답>"
+  "correct_answer": "<정답>",
+  "min": <최솟값>, "max": <최댓값>, "step": <간격>, "unit": "<단위>" (slider일 때만)
 }"""
 
 # ── Few-shot 예시 3개 (03번 스펙 원문 그대로, 프롬프트에 삽입) ─────────────
@@ -64,23 +71,8 @@ FEW_SHOT_EXAMPLES = """[예시 1 - elementary, multiple_choice]
 [예시 3 - adult, slider]
 입력 데이터: {"region":"전국","co2_context":true}
 출력: {"concept_tag":"co2_climate","question_type":"slider",
-"question_text":"산업화 이전 대비 현재 대기 중 CO2 농도 증가율을 추정해 슬라이더로 표시하세요 (0~100%)",
-"correct_answer":"50"}"""
-
-
-# ── 출력 스키마 (Pydantic 검증) ────────────────────────────────────────────
-class QuizQuestion(BaseModel):
-    concept_tag: str = Field(min_length=1)
-    question_type: Literal["multiple_choice", "short_answer", "slider"]
-    question_text: str = Field(min_length=1)
-    options: Optional[list[str]] = None
-    correct_answer: str = Field(min_length=1)
-
-    @model_validator(mode="after")
-    def _check_options(self) -> "QuizQuestion":
-        if self.question_type == "multiple_choice" and not self.options:
-            raise ValueError("multiple_choice 문제는 options가 필수입니다")
-        return self
+"question_text":"산업화 이전 대비 현재 대기 중 CO2 농도 증가율을 추정해 슬라이더로 표시하세요",
+"correct_answer":"50","min":0,"max":100,"step":5,"unit":"%"}"""
 
 
 # ── quiz_id: 날짜 + 시퀀스 (예: 20260705-001) ─────────────────────────────
@@ -155,6 +147,8 @@ FALLBACK_QUESTIONS: list[dict] = [
 # ── LLM 호출 ───────────────────────────────────────────────────────────────
 def _build_messages(inputs: dict) -> list:
     """system prompt + few-shot + 이번 입력 데이터를 메시지로 구성한다."""
+    from langchain_core.messages import HumanMessage, SystemMessage
+
     input_data = {
         "weather_data": inputs["weather_data"],
         "level_group": inputs["level_group"],
@@ -177,6 +171,9 @@ def _cached_chain(model: str, api_key: str, temperature: float):
     재생성하지 않는다(R7-02 S7 지연 완화). 생성 실패 예외는 캐시되지 않아
     폴백 문제 세트 동작은 기존과 동일하다.
     """
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_core.runnables import RunnableLambda
+    from langchain_google_genai import ChatGoogleGenerativeAI
     llm = ChatGoogleGenerativeAI(
         model=model,
         google_api_key=api_key,
@@ -239,8 +236,21 @@ def generate_quiz(
         logger.warning("falling back to predefined quiz set")
         question = _fallback_question(target_concept_tag)
 
-    payload = question.model_dump()
-    if payload.get("options") is None:
-        payload.pop("options", None)
+    # 유형에 해당 없는 선택 필드(None)는 실어 보내지 않는다 — backend
+    # `_question_payload`가 "존재하는 키만" 담는 계약이므로 null을 보내면 유형에
+    # 없는 필드가 payload에 섞이고 quiz_logs에도 빈 값이 쌓인다.
+    # (기존 options-only 처리를 계약 G의 slider 필드까지 일반화한 것)
+    payload = {k: v for k, v in question.model_dump().items() if v is not None}
     payload["quiz_id"] = next_quiz_id()
     return payload
+
+
+# payload_contract에서 온 이름을 이 모듈 경로로도 계속 쓸 수 있게 재노출한다
+# (계약 본체는 payload_contract가 단독 소유 — 여기 다시 적지 않는다).
+__all__ = [
+    "GENERATED_PAYLOAD_FIELDS",
+    "QuizQuestion",
+    "FALLBACK_QUESTIONS",
+    "generate_quiz",
+    "next_quiz_id",
+]

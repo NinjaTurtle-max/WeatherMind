@@ -30,6 +30,8 @@
 #            (explore·session·placement·visual·gating·board-entry·assist·
 #             webgl·overlay — FRONT_TESTS 배열이 목록), 없으면 SKIP.
 #            새 test:* 스크립트를 만들면 FRONT_TESTS에 등록해야 CI가 지킨다.
+#   authoring scripts/author_items.py --dry-run 무키 완주. DB·키·네트워크 불필요.
+#            G1(ROADMAP §5.3.1)에서 실키로 돌릴 스크립트라 무키 완주가 회귀 대상이다.
 #   smoke    (opt-in — `all`에 미포함) scripts/smoke.sh 전 단계(1~9) 위임 실행.
 #            compose 기동 상태를 전제로 하지 않는다(스스로 up -d --build).
 #
@@ -200,7 +202,25 @@ step_frontend() {
   fi
 }
 
-# ── 6. smoke (opt-in): DB 왕복 스모크 — 기본 `all`에는 포함하지 않는다 ───────
+# ── 6. authoring: 저작 배치 무키 완주 (dry-run) ─────────────────────────────
+# `scripts/author_items.py`는 G1(ROADMAP §5.3.1)에서 **실키로 돌릴 유일한 스크립트**다.
+# 그날 처음 실행되는 상황을 피하려면 무키 완주 자체가 회귀 대상이어야 한다 —
+# DB·키·네트워크 없이 2초 안에 끝나므로 기본 `all`에 넣는다.
+# --dry-run이 기본값이라 시드를 건드리지 않는다(계약 P-3).
+step_authoring() {
+  banner "authoring: author_items.py --dry-run (무키 완주)"
+  if [ ! -f "$ROOT/scripts/author_items.py" ]; then
+    record "authoring" "FAIL" "scripts/author_items.py 없음"
+    return 0
+  fi
+  if "$PYTHON" "$ROOT/scripts/author_items.py" --dry-run --count 3; then
+    record "authoring" "OK" "무키 dry-run 완주 (생성→게이트→payload 계약→중복→리포트)"
+  else
+    record "authoring" "FAIL" "저작 배치 dry-run 실패 (위 출력 참조)"
+  fi
+}
+
+# ── 7. smoke (opt-in): DB 왕복 스모크 — 기본 `all`에는 포함하지 않는다 ───────
 # docker compose 기동·이미지 빌드까지 수행해 수 분이 걸리므로, 통합 브랜치나
 # 릴리스 전 `scripts/ci.sh smoke`로 단독 실행한다 (docs/team/RUNBOOK.md).
 step_smoke() {
@@ -225,10 +245,11 @@ case "$STEP" in
   board)    step_board ;;
   config)   step_config ;;
   frontend) step_frontend ;;
+  authoring) step_authoring ;;
   smoke)    step_smoke ;;
-  all)      step_lint; step_test; step_board; step_config; step_frontend ;;
+  all)      step_lint; step_test; step_board; step_config; step_frontend; step_authoring ;;
   *)
-    echo "사용법: scripts/ci.sh [lint|test|board|config|frontend|smoke]" >&2
+    echo "사용법: scripts/ci.sh [lint|test|board|config|frontend|authoring|smoke]" >&2
     exit 2
     ;;
 esac
