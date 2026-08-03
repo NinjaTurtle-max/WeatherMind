@@ -299,17 +299,33 @@ step_energy() {
     record "4 energy" "SKIP" "DEV_MODE!=true — POST /dev/clouds 경로 없음"; return 0
   fi
   ensure_user || { record "4 energy" "FAIL" "가입 실패"; return 0; }
-  # 3단계를 건너뛰고 단독 실행한 경우 세션 확보 (당일 멱등이라 재호출은 같은 세션)
-  if [ -z "$ROUND_SESSION_ID" ]; then
+  # 0행 분기를 치려면 **미응답 비board 문항이 있는 세션**이 필요하다. 이미 푼 문항은
+  # 멱등 가드가 409 ALREADY_ANSWERED로 먼저 답해 분기에 도달하지 못하고, board는
+  # 미통과만 소모해서 소모 경로 자체가 다르다(R10 에너지 정책).
+  #
+  # 3단계 유저를 재사용하면 이 조건이 **세션 배합 운에 걸린다** — 2026-08-03 실측에서
+  # 배합이 mc,board,board,mc,board로 나와 3단계의 정답·오답 2건이 비board를 전부
+  # 소진했고 4단계가 재료를 잃어 FAIL했다. 제품 결함이 아니라 하네스 취약점이므로
+  # 조건을 만족하는 세션을 직접 확보한다(부족하면 전용 유저로 재시도).
+  local pick_sql attempt=0
+  pick_sql="AND is_correct IS NULL AND coalesce(question_json->>'question_type','') <> 'board'"
+  ROUND_WRONG_QID=""
+  while [ "$attempt" -lt 3 ]; do
+    if [ -n "$ROUND_SESSION_ID" ]; then
+      ROUND_WRONG_QID="$(psql_c "SELECT quiz_id FROM quiz_logs WHERE session_id='$ROUND_SESSION_ID' $pick_sql ORDER BY quiz_id LIMIT 1")"
+      [ -n "$ROUND_WRONG_QID" ] && break
+    fi
+    attempt=$((attempt + 1))
+    echo "  미응답 비board 문항 없음 — 전용 유저로 새 세션 확보 (시도 $attempt/3)"
+    register_user "smoke-r10-energy" || { record "4 energy" "FAIL" "전용 유저 가입 실패"; return 0; }
+    SMOKE_TOKEN="$REG_TOKEN"; SMOKE_USER_ID="$REG_USER_ID"
     local o; o="$(http_get "$API/api/v1/session/today" "$SMOKE_TOKEN")"; split_resp "$o"
     [ "$HTTP" = "200" ] || { record "4 energy" "FAIL" "세션 확보 실패 http=$HTTP"; return 0; }
     ROUND_SESSION_ID="$(jq_py "$BODY" 'd["session_id"]')"
-  fi
-  # 아직 **미응답**인 비board 문항을 DB에서 고른다 — 3단계가 이미 푼 문항을 재사용하면
-  # 멱등 가드가 409 ALREADY_ANSWERED로 먼저 응답해서 0행 분기에 도달하지 못한다.
-  ROUND_WRONG_QID="$(psql_c "SELECT quiz_id FROM quiz_logs WHERE session_id='$ROUND_SESSION_ID' AND is_correct IS NULL AND coalesce(question_json->>'question_type','') <> 'board' ORDER BY quiz_id LIMIT 1")"
+    echo "    새 세션=$ROUND_SESSION_ID 배합=$(psql_c "SELECT string_agg(coalesce(question_json->>'question_type','?'), ',' ORDER BY quiz_id) FROM quiz_logs WHERE session_id='$ROUND_SESSION_ID'")"
+  done
   if [ -z "$ROUND_WRONG_QID" ]; then
-    record "4 energy" "FAIL" "세션에 미응답 비board 문항이 없어 0행 분기를 못 친다(세션 배합 확인)"
+    record "4 energy" "FAIL" "3회 시도에도 미응답 비board 문항 확보 실패 — 배합이 board 전량인지 확인"
     return 0
   fi
   echo "  대상 세션=$ROUND_SESSION_ID 미응답 문항=$ROUND_WRONG_QID"
