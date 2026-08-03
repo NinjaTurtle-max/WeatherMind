@@ -157,6 +157,17 @@ export default function QuestionCard({ question, disabled, onSubmit, answerResul
 }
 
 // ── match: 쌍 연결 (§3.6 — 제출 "left1:right1|left2:right2|...") ──────────────
+/**
+ * R10-01 §3.5 마감 1 (관찰 보고서 §1-3 "짝 성립 시 목록 재배열로 연속 클릭이 어긋남"):
+ * 목록의 **자리를 고정**한다. 배열 순서는 원래도 불변이었지만, 짝이 성립하면
+ * 왼쪽 버튼에 "→ 상대 항목" 줄이 추가되며 버튼 높이가 커져 **아래 항목들이
+ * 밀려 내려갔다**(다음 클릭이 옆 항목에 꽂히는 실제 오배치 원인).
+ * → 연결 표시 줄을 처음부터 **항상 자리 확보**(빈 줄 렌더)해 높이가 변하지 않게 하고,
+ *   해제 방법을 명시한다(짝지어진 항목을 다시 누르면 해제).
+ * 두 열의 행 높이는 MATCH_ROW로 함께 고정한다(왼·오른쪽 정렬 유지).
+ */
+const MATCH_ROW = 'min-h-[3.75rem]';
+
 function MatchQuestion({ question, disabled, onSubmit }) {
   const pairs = question.pairs ?? question.template_json?.pairs ?? [];
   const lefts = useMemo(() => pairs.map((p) => p.left), [pairs]);
@@ -182,6 +193,25 @@ function MatchQuestion({ question, disabled, onSubmit }) {
     setActiveLeft(null);
   };
 
+  /** 짝 해제 — 연결된 왼쪽 항목을 다시 누르면 풀린다(해제 방법 미안내 보완) */
+  const unassign = (left) => {
+    if (disabled) return;
+    setMapping((m) => {
+      const next = { ...m };
+      delete next[left];
+      return next;
+    });
+    setActiveLeft(null);
+  };
+
+  const handleLeftClick = (l) => {
+    if (mapping[l]) {
+      unassign(l); // 이미 연결됨 → 해제(자리·순서는 그대로)
+      return;
+    }
+    setActiveLeft(activeLeft === l ? null : l);
+  };
+
   const allMatched = lefts.every((l) => mapping[l]);
   const submit = () => {
     if (!allMatched) return;
@@ -190,16 +220,21 @@ function MatchQuestion({ question, disabled, onSubmit }) {
 
   return (
     <div>
-      <p className="mb-2 text-xs text-slate-500">왼쪽 항목을 누른 뒤 짝이 되는 오른쪽 항목을 누르세요.</p>
+      <p className="mb-2 text-xs text-slate-500">
+        왼쪽 항목을 누른 뒤 짝이 되는 오른쪽 항목을 누르세요. 연결된 왼쪽 항목을 다시 누르면 해제돼요
+        — 목록의 자리는 바뀌지 않아요.
+      </p>
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">
           {lefts.map((l) => (
             <button
               key={l}
               type="button"
+              data-match-left={l}
               disabled={disabled}
-              onClick={() => setActiveLeft(activeLeft === l ? null : l)}
-              className={`rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition disabled:opacity-60 ${
+              aria-pressed={activeLeft === l}
+              onClick={() => handleLeftClick(l)}
+              className={`flex ${MATCH_ROW} flex-col justify-center rounded-xl border px-3 py-2 text-left text-sm font-medium transition disabled:opacity-60 ${
                 activeLeft === l
                   ? 'border-sky-500 bg-sky-600 text-white'
                   : mapping[l]
@@ -207,8 +242,12 @@ function MatchQuestion({ question, disabled, onSubmit }) {
                     : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-sky-400'
               }`}
             >
-              {l}
-              {mapping[l] && <span className="mt-0.5 block text-xs font-normal opacity-80">→ {mapping[l]}</span>}
+              <span>{l}</span>
+              {/* 연결 표시 줄은 **항상** 자리를 차지한다 — 짝 성립으로 높이가 변해
+                  아래 항목이 밀리는 재배열을 원천 차단(§3.5 마감 1). */}
+              <span className="mt-0.5 block text-xs font-normal opacity-80">
+                {mapping[l] ? `→ ${mapping[l]} · 다시 눌러 해제` : ' '}
+              </span>
             </button>
           ))}
         </div>
@@ -219,15 +258,19 @@ function MatchQuestion({ question, disabled, onSubmit }) {
               <button
                 key={r}
                 type="button"
+                data-match-right={r}
                 disabled={disabled || !activeLeft}
                 onClick={() => assign(r)}
-                className={`rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`flex ${MATCH_ROW} flex-col justify-center rounded-xl border px-3 py-2 text-left text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
                   usedBy
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
                     : 'border-slate-200 bg-white text-slate-800 hover:border-sky-400'
                 }`}
               >
-                {r}
+                <span>{r}</span>
+                <span className="mt-0.5 block text-xs font-normal opacity-80">
+                  {usedBy ? `↔ ${usedBy}` : ' '}
+                </span>
               </button>
             );
           })}

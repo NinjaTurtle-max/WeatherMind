@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { curriculumApi } from '../../api';
 import SessionRunner from '../session/SessionRunner';
+import { DailyGoalMeter } from '../progress/DailyGoal';
 
 /**
  * UnitSessionPage (R5-01 §3.2·S4) — 커리큘럼 유닛 세션 플레이어.
@@ -92,6 +93,10 @@ function UnitSummary({ summary, onNext }) {
       {ur.unit_xp > 0 && (
         <p className="mt-3 text-xs font-bold text-amber-600">✨ 유닛 최초 클리어 보너스 +{ur.unit_xp} XP</p>
       )}
+
+      {/* 오늘 목표 N/M (R10-01 §3.4 — 웨이브 1 잔여: 데일리 SessionSummary와 같은 방식).
+          목표 미설정이면 렌더되지 않는다. */}
+      <DailyGoalMeter className="mt-4" />
 
       <button
         type="button"
