@@ -41,6 +41,213 @@ const FALLBACK_BOARD_RULES = [
 
 const BOARD_RULES = loadBoardRules();
 
+// ── 문항 시드 (R10-07 §2.3) ─────────────────────────────────────────────────
+// board_rules.json 선례를 확장해 **database/seed/content_items.json을 단일 진실원**
+// 으로 읽는다. 손으로 베낀 픽스처는 시드가 바뀌면 조용히 갈라지고(보드 퍼즐 4 vs
+// 시드 12), 그 어긋난 숫자가 관찰 보고서의 규모 서술까지 오염시켰다.
+// 파생 대상: 보드 퍼즐 목록 · 배치고사 문항 · 유닛 세션 문항 · 실황 슬롯 문항 ·
+//            세션 배합의 시드 오버플로.
+// 파일 부재 시(테스트 환경) 폴백을 쓰고 SEED_SOURCE='fallback'으로 표시한다 —
+// 계약 테스트가 "폴백으로 조용히 통과"하는 경로를 차단한다.
+let SEED_SOURCE = 'seed';
+function loadSeedItems() {
+  try {
+    const raw = JSON.parse(
+      readFileSync(resolve(here, '../../database/seed/content_items.json'), 'utf-8'),
+    );
+    const active = Array.isArray(raw) ? raw.filter((it) => it?.status === 'active') : [];
+    if (active.length === 0) throw new Error('active 문항 0건');
+    return active;
+  } catch {
+    SEED_SOURCE = 'fallback';
+    return FALLBACK_SEED_ITEMS;
+  }
+}
+
+// 폴백(임시): content_items.json 부재 시 7유형 최소 1건. 실 시드가 있으면 미사용.
+const FALLBACK_SEED_ITEMS = [
+  {
+    concept_tag: 'pressure_front', level_group: 'middle_high', question_type: 'multiple_choice',
+    uses_live_slots: false, status: 'active',
+    template_json: {
+      question_text: '한랭전선이 지나갈 때 나타나는 비의 특징으로 옳은 것은?',
+      options: ['좁은 지역에 강한 비가 짧게 내린다', '넓은 지역에 약한 비가 오래 내린다', '비가 전혀 내리지 않는다', '전국에 같은 양의 비가 내린다'],
+      correct_answer: '좁은 지역에 강한 비가 짧게 내린다',
+      explanation_hint: '한랭전선은 상승기류가 급해 적운형 구름과 짧고 강한 비를 만듭니다.',
+    },
+  },
+  {
+    concept_tag: 'pressure_front', level_group: 'middle_high', question_type: 'short_answer',
+    uses_live_slots: false, status: 'active',
+    template_json: {
+      question_text: '성질이 다른 두 기단이 만나는 경계면을 무엇이라고 하는가?',
+      correct_answer: '전선', explanation_hint: '두 기단의 경계면을 전선이라고 합니다.',
+    },
+  },
+  {
+    concept_tag: 'anomaly', level_group: 'middle_high', question_type: 'multiple_choice',
+    uses_live_slots: true, status: 'active',
+    template_json: {
+      question_text: "오늘 {today.region}의 최고기온은 {today.temp_max}도다. '이상고온' 판단의 기준은?",
+      options: ['최근 30년 평균인 평년값', '어제 기온', '작년 같은 날 기온', '전국 최고기온'],
+      correct_answer: '최근 30년 평균인 평년값',
+      explanation_hint: '이상기후 판단의 기준은 최근 30년 평균인 평년값입니다.',
+    },
+  },
+  {
+    concept_tag: 'typhoon', level_group: 'middle_high', question_type: 'slider',
+    uses_live_slots: false, status: 'active',
+    template_json: {
+      question_text: '열대 저기압은 중심 부근 최대 풍속이 초속 몇 m 이상일 때 태풍인가? (단위: m/s)',
+      correct_answer: '17', explanation_hint: '17m/s 이상인 열대 저기압을 태풍이라고 부릅니다.',
+      min: 0, max: 40, step: 1, unit: 'm/s',
+    },
+  },
+  {
+    concept_tag: 'air_mass', level_group: 'middle_high', question_type: 'match',
+    uses_live_slots: false, status: 'active',
+    template_json: {
+      question_text: '계절과 대표 기단을 연결하세요.',
+      pairs: [
+        { left: '겨울', right: '시베리아 기단' },
+        { left: '여름', right: '북태평양 기단' },
+      ],
+      correct_answer: '겨울:시베리아 기단|여름:북태평양 기단',
+      explanation_hint: '발원지가 대륙이면 건조, 해양이면 다습합니다.',
+    },
+  },
+  {
+    concept_tag: 'typhoon', level_group: 'middle_high', question_type: 'ordering',
+    uses_live_slots: false, status: 'active',
+    template_json: {
+      question_text: '태풍의 일생을 순서대로 배열하세요.',
+      items: ['열대 저기압 발생', '태풍으로 발달', '최성기', '온대저기압으로 쇠약'],
+      shuffled: true, correct_answer: '0,1,2,3',
+      explanation_hint: '태풍은 발생 → 발달 → 최성기 → 쇠약 순으로 일생을 마칩니다.',
+    },
+  },
+  {
+    concept_tag: 'heat_island', level_group: 'middle_high', question_type: 'cloze',
+    uses_live_slots: false, status: 'active',
+    template_json: {
+      question_text: '밤 최저기온이 ___℃ 아래로 내려가지 않는 밤을 열대야라고 한다.',
+      correct_answer: '25', explanation_hint: '열대야의 기준은 밤 최저기온 25℃입니다.',
+    },
+  },
+  {
+    concept_tag: 'pressure_front', level_group: 'middle_high', question_type: 'board',
+    uses_live_slots: false, status: 'active',
+    template_json: {
+      question_text: '수도권에 소나기를 내려 보세요.',
+      mode: 'guided',
+      guide_steps: ['수도권(존 1)에 한랭전선을 놓아 보세요.', '같은 존의 습기를 60 이상으로 올려 보세요.'],
+      initial_state: { zones: ['서해', '수도권', '태백산맥', '동해안'], elements: [] },
+      palette: ['front:cold', 'moisture'],
+      goal_conditions: [{ zone: 1, phenomenon: 'shower' }],
+      hints: ['비가 내리려면 습기가 충분해야 해요.', '찬 공기가 파고들면 적란운이 발달해요.'],
+      correct_answer: '',
+    },
+  },
+];
+
+const SEED_ITEMS = loadSeedItems();
+
+// ── 유형별 플레이 페이로드 화이트리스트 ─────────────────────────────────────
+// backend routers/session.QUESTION_PAYLOAD_FIELDS의 사본. 서버는 이 필드들을
+// **template_json 안에** 실어 보내므로(최상위 아님) 목도 같은 모양으로 낸다 —
+// 최상위만 읽는 컴포넌트를 새로 쓰면 R10-07 결함이 재발한다.
+// correct_answer·explanation_hint는 어떤 유형에서도 목록에 없다(구조적 미노출).
+// 드리프트는 backend tests/test_r10_mock_parity_contract.py가 감시한다.
+const QUESTION_PAYLOAD_FIELDS = {
+  board: [
+    'question_text', 'mode', 'guide_steps', 'initial_state', 'palette',
+    'goal_conditions', 'hints', 'time_limit_sec', 'based_on',
+  ],
+  match: ['pairs'],
+  ordering: ['items', 'shuffled'],
+  slider: ['min', 'max', 'step', 'unit'],
+};
+
+/** 유형별 플레이 필드만 추린 template_json (없으면 null — 빈 값 주입 금지). */
+function questionPayload(template, questionType) {
+  const fields = QUESTION_PAYLOAD_FIELDS[questionType];
+  if (!fields) return null;
+  const payload = {};
+  for (const key of fields) if (key in template) payload[key] = template[key];
+  return Object.keys(payload).length > 0 ? payload : null;
+}
+
+// ── 실황 슬롯 치환 (§3.3 허용 5종) ──────────────────────────────────────────
+// 서버 session_service.fill_live_slots와 같은 규칙으로 {today.*}를 치환한다.
+// 값은 목 고정 실황(KMA 캐시 대역) — 미치환 원문이 유저에게 보이지 않게 한다.
+const LIVE_SLOT_VALUES = {
+  'today.region': '서울',
+  'today.sky': '구름많음',
+  'today.rain_prob': '60',
+  'today.temp_max': '31',
+  'today.temp_min': '24',
+};
+const SLOT_RE = /\{(today\.[a-z_]+)\}/g;
+function fillLiveSlots(value) {
+  if (typeof value === 'string') {
+    return value.replace(SLOT_RE, (m, key) => LIVE_SLOT_VALUES[key] ?? m);
+  }
+  if (Array.isArray(value)) return value.map(fillLiveSlots);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, fillLiveSlots(v)]));
+  }
+  return value;
+}
+
+// 슬라이더 허용 오차 — backend answer_service.SLIDER_TOLERANCE와 동일값
+const SLIDER_TOLERANCE = 10;
+
+/** 시드 template_json → 목 전용 채점 정보(_mock). 응답 직전 stripMock이 제거한다. */
+function seedGrading(questionType, template) {
+  const correct = template.correct_answer ?? '';
+  const hint = template.explanation_hint ?? '';
+  const feedbackCorrect = hint ? `정확해요! ${hint}` : '정확해요!';
+  const feedbackWrong = hint
+    ? `아쉬워요! 정답은 "${correct}"이에요. ${hint}`
+    : `아쉬워요! 정답은 "${correct}"이에요.`;
+  if (questionType === 'board') {
+    return {
+      goal_conditions: template.goal_conditions ?? [],
+      feedbackCorrect: '정확해요! 목표 대기현상을 만들었어요.',
+      feedbackWrong: `아직이에요. ${template.hints?.[0] ?? '배치를 바꿔 다시 시도해 보세요.'}`,
+    };
+  }
+  if (questionType === 'slider') {
+    return { correct, tolerance: SLIDER_TOLERANCE, feedbackCorrect, feedbackWrong };
+  }
+  if (questionType === 'match') {
+    return { correct, pairs: template.pairs ?? [], feedbackCorrect, feedbackWrong };
+  }
+  if (questionType === 'ordering') {
+    return { correct, correctOrder: correct, feedbackCorrect, feedbackWrong };
+  }
+  // multiple_choice·short_answer·cloze — 텍스트 채점은 공백·대소문자 무시
+  return { correct, accept: [correct], feedbackCorrect, feedbackWrong };
+}
+
+/** 시드 1건 → SessionItem 모양의 목 문항(+_mock). 서버 _to_session_item과 같은 형태. */
+function seedToSessionItem(seed, { quizId, source = 'bank' }) {
+  const template = fillLiveSlots(seed.template_json ?? {});
+  const type = seed.question_type;
+  return {
+    quiz_id: quizId,
+    concept_tag: seed.concept_tag,
+    question_type: type,
+    question_text: template.question_text ?? '',
+    options: template.options ?? null,
+    level_group: seed.level_group ?? 'middle_high',
+    source,
+    slot_filled: Boolean(seed.uses_live_slots),
+    template_json: questionPayload(template, type),
+    _mock: seedGrading(type, template),
+  };
+}
+
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const weekStartISO = () => {
@@ -267,13 +474,25 @@ function outOfCloudsError(nextSec) {
 
 // ── 지도 지역 좌표 (R5-01 §3.1) — 판정 미사용, 렌더 전용. 정규화 0~100. ──
 // zone index 0~3 ↔ 지역 고정 매핑(계약 §3.1). 존 의미(boardEngine.ZONES)는 불변.
-// 좌표 SSOT = database/seed/board_regions.json — R9-01 §3.3 시드↔목 일치(사본, 드리프트 금지).
-const BOARD_REGIONS = [
+// 좌표 SSOT = database/seed/board_regions.json — 사본이 아니라 **파일을 읽는다**
+// (R10-07 §2.3: 손으로 베낀 사본은 드리프트한다. board_rules.json과 같은 선례).
+const FALLBACK_BOARD_REGIONS = [
   { zone: 0, name: '서해상', svg_point: [21, 54], label_anchor: [21, 66] },
   { zone: 1, name: '수도권', svg_point: [43, 33], label_anchor: [43, 21] },
   { zone: 2, name: '영서·태백', svg_point: [61, 47], label_anchor: [61, 35] },
   { zone: 3, name: '영동·동해', svg_point: [82, 43], label_anchor: [88, 55] },
 ];
+function loadBoardRegions() {
+  try {
+    const raw = JSON.parse(
+      readFileSync(resolve(here, '../../database/seed/board_regions.json'), 'utf-8'),
+    );
+    return Array.isArray(raw) && raw.length > 0 ? raw : FALLBACK_BOARD_REGIONS;
+  } catch {
+    return FALLBACK_BOARD_REGIONS;
+  }
+}
+const BOARD_REGIONS = loadBoardRegions();
 
 // ── 커리큘럼 유닛 (R5-01 §3.2) — 2섹션·유닛 5개·선행 잠금 포함 ──
 //   각 유닛은 concept_tag로 기존 content_items 풀과 연결(§3.2). kind: quiz|board.
@@ -584,10 +803,24 @@ const QUIZ = {
 };
 
 // ── 세션 모드 (R2-01 계약 §3.1) ─────────────────────────────────────────────
-// SessionItem = QuizQuestion + {source, slot_filled}. 배합 §3.2를 흉내 내되
-// (new 2 / review 2 / live 1, 같은 question_type 3연속 금지) 데이터는 고정이다.
-// _mock 필드는 목 전용 채점 정보로, 실제 응답 직전에 제거한다.
-const SESSION_ITEMS = [
+// SessionItem = QuizQuestion + {source, slot_filled}. 문항 수는 **배합에서 파생**한다
+// (R10-07 §2.3: 손으로 쓴 9건이 서버 배합 5건과 어긋났고, 그 9가 관찰 보고서 §1의
+// 분모로 새어 R10-B 우선순위 판단까지 오염시켰다).
+// 배합 슬롯별 후보 풀 앞쪽에는 프론트 스모크가 문구를 고정한 저작 픽스처를 두고,
+// 뒤쪽은 **시드 파생**으로 잇는다 — 배합이 커지면 시드 문항이 자동으로 채운다.
+// _mock 필드는 목 전용 채점 정보로, 실제 응답 직전에 stripMock이 제거한다.
+//
+// ⚠️ 아래 픽스처를 시드 파생으로 바꾸기 전에 반드시 읽을 것:
+//   frontend/tests/boardAssistRetention.smoke.test.mjs가 세션 1·2번 문항의
+//   **보기 문구·정답 문자열**을 그대로 단정한다 — 시나리오 7('한랭 전선' 버튼 클릭 후
+//   '북태평양 기단' 입력), 시나리오 10(typhoon '오른쪽(동쪽) 반원',
+//   heat_island '도시 상공의 오존층이 두꺼워져서'). 이 문구들은 시드 53문항에
+//   존재하지 않아(전수 grep 확인) 시드 파생으로 대체하면 스모크가 깨진다.
+//   스모크를 함께 손댈 수 있을 때 이 4건도 시드 파생으로 넘긴다(R10-07 보고 사항).
+const MOCK_SESSION_RECIPE = { new: 2, review: 2, live: 1 };
+
+// 신규(new) 슬롯 픽스처 — 스모크 시나리오 7이 1·2번 문항으로 고정
+const PINNED_NEW_ITEMS = [
   {
     quiz_id: `${todayISO()}-s1-bank`,
     concept_tag: 'pressure_front',
@@ -597,6 +830,7 @@ const SESSION_ITEMS = [
     level_group: 'middle_high',
     source: 'bank',
     slot_filled: false,
+    template_json: null, // 서버: 추가 페이로드가 필요 없는 유형은 None
     _mock: {
       correct: '한랭 전선',
       feedbackCorrect:
@@ -614,6 +848,7 @@ const SESSION_ITEMS = [
     level_group: 'middle_high',
     source: 'bank',
     slot_filled: false,
+    template_json: null,
     _mock: {
       correct: '북태평양 기단',
       accept: ['북태평양', '북태평양기단', '북태평양 기단'],
@@ -623,6 +858,11 @@ const SESSION_ITEMS = [
         '아쉬워요! 정답은 "북태평양 기단"이에요. 저위도 해양에서 발달해 고온 다습하고, 여름철 우리나라를 덮으면 무더위와 열대야가 이어집니다. 시베리아 기단(한랭 건조)과 성질을 비교해 기억해 보세요.',
     },
   },
+];
+
+// 복습(review) 슬롯 픽스처 — 스모크 시나리오 10이 개념·정답으로 고정
+// (typhoon = 목 WEAK_TAGS 최약 개념 → 약점 보너스 XP 분해 검증, heat_island = 비약점)
+const PINNED_REVIEW_ITEMS = [
   {
     quiz_id: `${todayISO()}-s3-review`,
     concept_tag: 'typhoon',
@@ -632,30 +872,13 @@ const SESSION_ITEMS = [
     level_group: 'middle_high',
     source: 'bank',
     slot_filled: false,
+    template_json: null,
     _mock: {
       correct: '오른쪽(동쪽) 반원',
       feedbackCorrect:
         '정답이에요! 오른쪽 반원에서는 태풍 자체의 바람과 태풍을 이동시키는 바람(이동 속도)이 같은 방향으로 겹쳐 풍속이 더 강해집니다. 그래서 위험 반원이라고 불러요.',
       feedbackWrong:
         '아쉬워요! 정답은 "오른쪽(동쪽) 반원"이에요. 태풍의 회전 바람에 태풍의 이동 방향 바람이 더해지는 쪽이라 풍속이 훨씬 강해집니다. 왼쪽 반원은 두 바람이 반대로 작용해 상대적으로 약한 "가항 반원"이에요.',
-    },
-  },
-  {
-    quiz_id: `${todayISO()}-s4-live`,
-    concept_tag: 'anomaly',
-    question_type: 'slider',
-    question_text: '오늘 서울의 강수확률은 60%로 예보됐어요. 예보관이 말하는 "강수확률 60%"에 가장 가까운 값을 슬라이더로 맞춰보세요. (같은 조건이 100번 있을 때 비가 오는 횟수)',
-    options: null,
-    level_group: 'middle_high',
-    source: 'generated',
-    slot_filled: true,
-    _mock: {
-      correct: '60',
-      tolerance: 10,
-      feedbackCorrect:
-        '잘했어요! 강수확률 60%는 "오늘과 같은 기상 조건이 100번 있으면 약 60번은 비가 온다"는 통계적 의미예요. 우산을 챙기는 게 합리적인 수준이죠.',
-      feedbackWrong:
-        '아쉬워요! 정답은 60이에요. 강수확률은 비의 양이 아니라, 같은 조건에서 비가 관측될 통계적 빈도를 뜻해요. 60%면 100번 중 60번꼴이니 우산을 챙기는 편이 좋아요.',
     },
   },
   {
@@ -672,6 +895,7 @@ const SESSION_ITEMS = [
     level_group: 'middle_high',
     source: 'bank',
     slot_filled: false,
+    template_json: null,
     _mock: {
       correct: '도시 상공의 오존층이 두꺼워져서',
       feedbackCorrect:
@@ -680,129 +904,72 @@ const SESSION_ITEMS = [
         '아쉬워요! 정답은 "오존층" 보기예요. 오존층은 성층권에 있어 도시 열섬과 관련이 없습니다. 열섬은 아스팔트의 축열, 인공열, 녹지 부족으로 인한 증발 냉각 감소가 원인이에요.',
     },
   },
-  // ── R3-01 §3.6 신규 유형 4종 (세션 통합 검증용, 각 1건) ──
-  {
-    quiz_id: `${todayISO()}-s6-board`,
-    concept_tag: 'pressure_front',
-    question_type: 'board',
-    question_text: '수도권에 소나기를 내려 보세요',
-    template_json: {
-      question_text: '수도권에 소나기를 내려 보세요',
-      mode: 'guided',
-      // R8-01 버그픽스 B①: 백엔드 세션 template_json 화이트리스트에
-      // time_limit_sec·based_on이 추가됨 — 세션 안 board 문항에도 미니 미션
-      // 타이머(§3.5)와 실화 배지가 렌더되는지 목으로 검증한다.
-      time_limit_sec: 90,
-      based_on: { event_name: '2022년 8월 수도권 집중호우', event_date: '2022-08-08', region: '수도권' },
-      guide_steps: [
-        '수도권(2번째 존)에 한랭전선을 놓아 보세요.',
-        '습기 슬라이더를 60 이상으로 올려 상승기류를 강하게 만드세요.',
-      ],
-      initial_state: { zones: ['서해', '수도권', '태백산맥', '동해안'], elements: [] },
-      palette: ['front:cold', 'moisture'],
-      goal_conditions: [{ zone: 1, phenomenon: 'shower' }],
-      hints: ['비가 오려면 공기 중에 무엇이 충분해야 할까요?', '차가운 공기가 파고들면 상승기류가 강해져요.'],
-    },
-    level_group: 'middle_high',
-    source: 'bank',
-    slot_filled: false,
-    _mock: {
-      goal_conditions: [{ zone: 1, phenomenon: 'shower' }],
-      feedbackCorrect: '정확해요! 한랭전선이 습한 공기를 파고들며 적란운이 발달해 수도권에 소나기가 내렸어요.',
-      feedbackWrong: '아직이에요. 수도권에 한랭전선을 놓고 습기를 60 이상으로 올려 보세요.',
-    },
-  },
-  {
-    quiz_id: `${todayISO()}-s7-match`,
-    concept_tag: 'air_mass',
-    question_type: 'match',
-    question_text: '기단과 그 성질을 알맞게 연결하세요.',
-    pairs: [
-      { left: '시베리아 기단', right: '한랭 건조' },
-      { left: '북태평양 기단', right: '고온 다습' },
-      { left: '오호츠크해 기단', right: '한랭 다습' },
-      { left: '양쯔강 기단', right: '온난 건조' },
-    ],
-    level_group: 'middle_high',
-    source: 'bank',
-    slot_filled: false,
-    _mock: {
-      pairs: [
-        { left: '시베리아 기단', right: '한랭 건조' },
-        { left: '북태평양 기단', right: '고온 다습' },
-        { left: '오호츠크해 기단', right: '한랭 다습' },
-        { left: '양쯔강 기단', right: '온난 건조' },
-      ],
-      feedbackCorrect: '완벽해요! 각 기단은 발원지(대륙/해양·고위도/저위도)에 따라 성질이 결정됩니다.',
-      feedbackWrong: '아쉬워요! 발원지가 대륙이면 건조, 해양이면 다습하고, 고위도면 한랭, 저위도면 고온입니다.',
-    },
-  },
-  {
-    quiz_id: `${todayISO()}-s8-ordering`,
-    concept_tag: 'typhoon',
-    question_type: 'ordering',
-    question_text: '태풍의 일생을 이른 단계부터 순서대로 정렬하세요.',
-    items: ['열대저압부 발생', '태풍으로 발달', '최성기(최대 세력)', '온대저기압으로 쇠약'],
-    shuffled: true,
-    level_group: 'middle_high',
-    source: 'bank',
-    slot_filled: false,
-    _mock: {
-      // items가 정답 순서로 저작됨 → 정답 순열은 항등 "0,1,2,3" (§3.6)
-      correctOrder: '0,1,2,3',
-      feedbackCorrect: '정확해요! 태풍은 열대저압부 → 발달 → 최성기 → 쇠약(온대저기압) 순으로 일생을 마칩니다.',
-      feedbackWrong: '아쉬워요! 태풍은 열대저압부에서 시작해 세력을 키우다 최성기를 지나 온대저기압으로 약해집니다.',
-    },
-  },
-  {
-    quiz_id: `${todayISO()}-s9-cloze`,
-    concept_tag: 'pressure_front',
-    question_type: 'cloze',
-    question_text: '공기가 상승하면 단열 팽창으로 온도가 낮아지고, 수증기가 ___하여 구름이 만들어진다.',
-    level_group: 'middle_high',
-    source: 'bank',
-    slot_filled: false,
-    _mock: {
-      correct: '응결',
-      accept: ['응결', '응축'],
-      feedbackCorrect: '맞아요! 상승한 공기가 이슬점 아래로 식으면 수증기가 응결해 물방울(구름)이 됩니다.',
-      feedbackWrong: '아쉬워요! 정답은 "응결"이에요. 수증기가 물방울로 바뀌는 과정을 응결이라고 합니다.',
-    },
-  },
 ];
 
-// ── 온보딩 배치고사 (R7-01 S3) — 6문항 진단 세션. 6개 concept_tag 전 영역 1문항씩. ──
-// 기존 세션 문항을 배치 전용 quiz_id로 재사용하고(응답은 세션별 독립 저장),
-// 세션 시드에 없는 co2_climate 1문항만 새로 저작한다. 실황 슬롯 없음(진단 성격).
-const PLACEMENT_ITEMS = [
-  { ...SESSION_ITEMS[0], quiz_id: `${todayISO()}-p1` }, // pressure_front
-  { ...SESSION_ITEMS[1], quiz_id: `${todayISO()}-p2` }, // air_mass
-  { ...SESSION_ITEMS[2], quiz_id: `${todayISO()}-p3` }, // typhoon
-  { ...SESSION_ITEMS[3], quiz_id: `${todayISO()}-p4`, source: 'bank', slot_filled: false }, // anomaly
-  { ...SESSION_ITEMS[4], quiz_id: `${todayISO()}-p5` }, // heat_island
-  {
-    quiz_id: `${todayISO()}-p6`,
-    concept_tag: 'co2_climate',
-    question_type: 'multiple_choice',
-    question_text: '대기 중 이산화탄소(CO₂)가 지구 평균 기온을 높이는 주된 원리는 무엇일까요?',
-    options: [
-      '지표가 내보내는 적외선(지구 복사)을 흡수해 다시 방출하기 때문',
-      '태양에서 오는 자외선을 모두 반사하기 때문',
-      '공기의 무게를 늘려 지표 기압을 높이기 때문',
-      '구름 생성을 막아 비를 줄이기 때문',
-    ],
-    level_group: 'middle_high',
-    source: 'bank',
-    slot_filled: false,
-    _mock: {
-      correct: '지표가 내보내는 적외선(지구 복사)을 흡수해 다시 방출하기 때문',
-      feedbackCorrect:
-        '정확해요! CO₂는 지표가 내보내는 적외선을 흡수했다가 다시 방출해 열을 대기에 가두는 온실 효과를 일으킵니다.',
-      feedbackWrong:
-        '아쉬워요! 정답은 "적외선 흡수·재방출"이에요. CO₂는 지구 복사(적외선)를 가두는 온실 기체로, 자외선 반사나 기압 변화와는 무관합니다.',
-    },
-  },
+// ── 시드 파생 풀 ────────────────────────────────────────────────────────────
+// quiz 풀: board(=board_state 필요)와 실황 슬롯 문항을 뺀 시드 전건.
+const SEED_QUIZ_POOL = SEED_ITEMS.filter(
+  (it) => it.question_type !== 'board' && !it.uses_live_slots,
+);
+// 실황(live) 풀: uses_live_slots=true 문항. 기존 목과 같은 anomaly 개념을 우선해
+// 결정적으로 고른다({today.*}는 seedToSessionItem이 치환하고 slot_filled=true).
+const SEED_LIVE_POOL = [
+  ...SEED_ITEMS.filter((it) => it.uses_live_slots && it.concept_tag === 'anomaly'),
+  ...SEED_ITEMS.filter((it) => it.uses_live_slots && it.concept_tag !== 'anomaly'),
 ];
+
+const SESSION_SLOT_POOLS = {
+  new: [
+    ...PINNED_NEW_ITEMS,
+    ...SEED_QUIZ_POOL.map((seed, i) =>
+      seedToSessionItem(seed, { quizId: `${todayISO()}-new${i + 1}-bank` }),
+    ),
+  ],
+  review: [
+    ...PINNED_REVIEW_ITEMS,
+    // 복습은 풀 뒤쪽부터 — 신규 슬롯과 같은 시드 문항을 먼저 집지 않는다
+    ...[...SEED_QUIZ_POOL].reverse().map((seed, i) =>
+      seedToSessionItem(seed, { quizId: `${todayISO()}-review${i + 1}-bank` }),
+    ),
+  ],
+  live: SEED_LIVE_POOL.map((seed, i) =>
+    seedToSessionItem(seed, { quizId: `${todayISO()}-live${i + 1}-generated`, source: 'generated' }),
+  ),
+};
+
+/** 배합대로 슬롯을 채운다 — 총 문항 수는 항상 배합 총합. 같은 문항은 한 번만. */
+function buildSessionItems(recipe) {
+  const picked = [];
+  const seen = new Set();
+  for (const kind of ['new', 'review', 'live']) {
+    let taken = 0;
+    for (const item of SESSION_SLOT_POOLS[kind]) {
+      if (taken >= (recipe[kind] ?? 0)) break;
+      if (seen.has(item.question_text)) continue;
+      seen.add(item.question_text);
+      picked.push(item);
+      taken += 1;
+    }
+  }
+  return picked;
+}
+
+const SESSION_ITEMS = buildSessionItems(MOCK_SESSION_RECIPE);
+
+// ── 온보딩 배치고사 (R7-01 S3) — 6문항 진단 세션. 6개 concept_tag 전 영역 1문항씩. ──
+// **시드 파생**(R10-07 §2.3): 개념 태그마다 board·실황을 뺀 첫 문항을 고르되,
+// 아직 쓰지 않은 question_type을 우선해 진단이 한 유형으로 편중되지 않게 한다(결정적).
+// 실황 슬롯 없음(진단 성격) · board 없음(일괄 채점 경로는 board_state를 받지 않는다).
+const PLACEMENT_ITEMS = (() => {
+  const usedTypes = new Set();
+  return CONCEPT_TAGS.map((tag, i) => {
+    const candidates = SEED_QUIZ_POOL.filter((it) => it.concept_tag === tag);
+    const seed = candidates.find((it) => !usedTypes.has(it.question_type)) ?? candidates[0];
+    if (!seed) return null;
+    usedTypes.add(seed.question_type);
+    return seedToSessionItem(seed, { quizId: `${todayISO()}-p${i + 1}` });
+  }).filter(Boolean);
+})();
 
 const PLACEMENT_SESSION_ID = '91ac8b1e-0000-4000-8000-0000000000bb';
 
@@ -825,71 +992,34 @@ function ensurePlacementSession() {
   return s;
 }
 
-// ── 보드 연습 퍼즐 (§3.5 /board/puzzles) ──
-// difficulty 1|2|3 (R7-02 S5): 목록은 서버가 θ 인접 정렬로 내려준다 — 목은
-// 저작 순서를 그대로 반환(비단조 난이도로 클라이언트가 재정렬하지 않음을 검증).
-const BOARD_PUZZLES = [
-  {
-    content_item_id: 'b0000001-0000-4000-8000-000000000001',
-    difficulty: 1,
-    concept_tag: 'pressure_front',
-    template_json: {
-      question_text: '수도권에 소나기를 내려 보세요 (미니 미션)',
-      mode: 'guided',
-      // 미니 미션(§3.5): 제한 시간 90초 카운트다운, 초과 시 실패·재도전
-      time_limit_sec: 90,
-      guide_steps: [
-        '수도권(2번째 존)에 한랭전선을 놓아 보세요.',
-        '습기 슬라이더를 60 이상으로 올려 보세요.',
-      ],
-      initial_state: { zones: ['서해', '수도권', '태백산맥', '동해안'], elements: [] },
-      palette: ['front:cold', 'moisture'],
-      goal_conditions: [{ zone: 1, phenomenon: 'shower' }],
-      hints: ['비가 오려면 공기 중에 무엇이 충분해야 할까요?', '차가운 공기가 파고들면 상승기류가 강해져요.'],
-    },
-  },
-  {
-    content_item_id: 'b0000002-0000-4000-8000-000000000002',
-    difficulty: 2,
-    concept_tag: 'air_mass',
-    template_json: {
-      question_text: '동해안에 폭염을 만들어 보세요',
-      mode: 'goal_only',
-      initial_state: { zones: ['서해', '수도권', '태백산맥', '동해안'], elements: [] },
-      palette: ['air_mass:north_pacific', 'sun'],
-      goal_conditions: [{ zone: 3, phenomenon: 'heatwave' }],
-      hints: ['여름철 무더위를 부르는 기단은 무엇일까요?', '강한 햇볕(일사 70 이상)이 더해져야 해요.'],
-    },
-  },
-  {
-    content_item_id: 'b0000003-0000-4000-8000-000000000003',
-    difficulty: 1,
-    concept_tag: 'air_mass',
-    template_json: {
-      question_text: '서해안에 눈을 내려 보세요',
-      mode: 'goal_only',
-      initial_state: { zones: ['서해', '수도권', '태백산맥', '동해안'], elements: [] },
-      palette: ['air_mass:siberian', 'moisture'],
-      goal_conditions: [{ zone: 0, phenomenon: 'snow' }],
-      hints: ['겨울철 찬 공기를 몰고 오는 기단은?', '서해를 건너며 습기를 얻어야 눈구름이 생겨요(습기 60 이상).'],
-    },
-  },
-  {
-    // 재현 퍼즐(§3.5): based_on 실제 사건 초기조건 — anomaly 태그 필수
-    content_item_id: 'b0000004-0000-4000-8000-000000000004',
-    difficulty: 3,
-    concept_tag: 'anomaly',
-    template_json: {
-      question_text: '2018년 기록적 폭염을 재현해 보세요',
-      mode: 'goal_only',
-      based_on: { event_name: '2018년 기록적 폭염', event_date: '2018-08-01', region: '서울' },
-      initial_state: { zones: ['서해', '수도권', '태백산맥', '동해안'], elements: [] },
-      palette: ['air_mass:north_pacific', 'sun'],
-      goal_conditions: [{ zone: 1, phenomenon: 'heatwave' }],
-      hints: ['한여름 무더위를 부르는 기단은?', '강한 일사(70 이상)가 더해져야 폭염이 나타나요.'],
-    },
-  },
-];
+// ── 보드 연습 퍼즐 (§3.5 /board/puzzles) — **시드 파생**(R10-07 §2.3) ──
+// 목록 = 시드의 question_type==='board' 전건. 손으로 베낀 4건이 시드 12건과
+// 어긋나 "목으로는 퍼즐 커버리지를 판단할 수 없다"는 상태였다.
+// difficulty 1|2|3 (R7-02 S5)도 하드코딩하지 않고 서버 routers/board.board_difficulty와
+// **같은 순수 규칙**으로 계산한다(현 시드 12건 = 1,1,1,2,2,2,2,2,3,3,3,3 — 백엔드
+// test_board_difficulty와 동일 산출). 목록은 시드 순서를 그대로 반환한다(서버는 θ
+// 인접 정렬 — 목은 정렬하지 않음). 시드 순서가 마침 난이도 오름차순이라, "클라이언트가
+// 재정렬하지 않는다"는 성질은 이 목록만으로는 더 이상 눈으로 구분되지 않는다.
+// content_item_id는 시드 순서로 결정적 합성(실서버는 DB UUID).
+function boardDifficulty(template, levelGroup) {
+  let score = template.mode === 'guided' ? 1 : 2;
+  if (template.time_limit_sec) score += 1;
+  if (Array.isArray(template.palette) && template.palette.length >= 3) score += 1;
+  if (levelGroup === 'adult') score += 1;
+  return Math.max(1, Math.min(3, score));
+}
+
+const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board').map((seed, i) => {
+  const n = i + 1;
+  const template = seed.template_json ?? {};
+  return {
+    content_item_id: `b${String(n).padStart(7, '0')}-0000-4000-8000-${String(n).padStart(12, '0')}`,
+    difficulty: boardDifficulty(template, seed.level_group),
+    concept_tag: seed.concept_tag,
+    // 서버 board 화이트리스트와 같은 집합 — 시드의 빈 correct_answer는 싣지 않는다
+    template_json: questionPayload(template, 'board') ?? {},
+  };
+});
 
 // 최초 클리어 기록 (content_item_id 집합) — 재도전 0 XP (§3.5)
 const clearedBoardPuzzles = new Set();
@@ -981,11 +1111,28 @@ function buildUnitItems(unit) {
       },
     ];
   }
-  // quiz 유닛: 같은 concept_tag 기존 문항(board 제외) 최대 3건 (기존 시드 하위 호환)
-  const pool = SESSION_ITEMS.filter(
-    (it) => it.concept_tag === unit.concept_tag && it.question_type !== 'board',
+  // quiz 유닛: **시드 파생**(R10-07 §2.3) — 같은 concept_tag의 board·실황 제외 문항
+  // 최대 3건. 유형이 겹치지 않는 것을 먼저 골라(결정적) 유닛 하나에서 여러 유형이
+  // 보이게 한다(데일리 배합이 5건으로 줄어 유형 전시가 유닛으로 옮겨졌다).
+  const candidates = SEED_QUIZ_POOL.filter((it) => it.concept_tag === unit.concept_tag);
+  const pool = candidates.length > 0 ? candidates : SEED_QUIZ_POOL;
+  const picked = [];
+  const seenTypes = new Set();
+  for (const seed of pool) {
+    if (picked.length >= 3) break;
+    if (seenTypes.has(seed.question_type)) continue;
+    seenTypes.add(seed.question_type);
+    picked.push(seed);
+  }
+  for (const seed of pool) {
+    if (picked.length >= 3) break;
+    if (!picked.includes(seed)) picked.push(seed);
+  }
+  return picked.map((seed, i) =>
+    seedToSessionItem(seed, {
+      quizId: `${todayISO()}-unit${unit.unit_order}-${unit.slug}-${i + 1}`,
+    }),
   );
-  return (pool.length ? pool : SESSION_ITEMS.filter((it) => it.question_type !== 'board')).slice(0, 3);
 }
 
 /** POST /curriculum/units/{id|slug}/session — 유닛 문항으로 세션 발급(멱등, §3.2).
@@ -1808,6 +1955,25 @@ function matchRoute(method, path) {
   }
   return null;
 }
+
+// ── 계약 테스트용 introspection (읽기 전용, R10-07 §2.3) ────────────────────
+// backend tests/test_r10_mock_parity_contract.py가 node로 이 모듈을 import해
+// **목이 실제로 내보내는 페이로드**를 서버 계약과 대조한다(소스 텍스트 파싱이 아니라
+// 실값 대조 — 파생 로직이 바뀌어도 계약이 헛돌지 않는다).
+// 런타임 응답 경로에는 관여하지 않는다. 전부 stripMock을 거쳐 _mock을 제거한다.
+export const __mockFixtures = () => ({
+  seed_source: SEED_SOURCE, // 'seed' | 'fallback' — 폴백으로 조용히 통과하는 경로 차단
+  session_recipe: MOCK_SESSION_RECIPE,
+  session_items: SESSION_ITEMS.map(stripMock),
+  placement_items: PLACEMENT_ITEMS.map(stripMock),
+  board_puzzles: BOARD_PUZZLES.map(boardPuzzlePayload),
+  unit_items: UNITS.map((u) => ({
+    slug: u.slug,
+    kind: u.kind,
+    items: buildUnitItems(u).map(stripMock),
+  })),
+  board_regions: BOARD_REGIONS,
+});
 
 export default function apiMockPlugin() {
   return {

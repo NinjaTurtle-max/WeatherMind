@@ -62,12 +62,10 @@ EXPECTED_TYPES = frozenset(REQUIRED_FIELDS)
 # 어떤 유형의 응답에도 실려선 안 되는 필드 (§2.1 — 정답·정답 유도)
 SECRET_FIELDS = ("correct_answer", "explanation_hint")
 
-# S4(데이터 저작) 대기 중인 **알려진 시드 공백**. 서버 직렬화 결함이 아니라 시드에
-# 값이 없는 것이며, 빈 값·기본값 주입은 금지(§2.1)라 노출도 되지 않는다.
-# 새 공백이 생기면 실패하고, S4가 채우면 그냥 사라진다(부분집합 계약).
-KNOWN_SEED_GAPS = frozenset(
-    {("slider", "min"), ("slider", "max"), ("slider", "step"), ("slider", "unit")}
-)
+# 시드 데이터 공백 허용 목록은 **없다**. S4(§2.4)가 slider 4문항의
+# min·max·step·unit을 저작해 마지막 공백이 메워졌으므로, 예외 목록을 남기면
+# "알려진 공백"이라는 거짓 진술이 상주하게 된다 — 빈 집합 계약으로 바꾼다.
+# 새 유형·새 요구 필드가 저작 없이 들어오면 아래 test_시드_데이터_공백_없음이 잡는다.
 
 
 def _seed_items() -> list[dict]:
@@ -141,17 +139,21 @@ class TestEverySeedItemIsPlayable:
             + "\n  ".join(broken)
         )
 
-    def test_데이터_공백은_알려진_것뿐(self):
-        """시드에 값 자체가 없는 (유형, 필드) 조합은 S4 대기분에 한정된다."""
+    def test_시드_데이터_공백_없음(self):
+        """시드에 값 자체가 없는 (유형, 필드) 조합이 **하나도 없다** (S4 완료 후 계약).
+
+        서버는 시드에 없는 키를 주입하지 않으므로(§2.1) 시드 공백은 그대로
+        프론트 기본값 렌더(예: slider 0~100·무단위)로 이어진다 — 공백 자체가 결함이다.
+        """
         gaps = {
-            (item["question_type"], field)
-            for item in _seed_items()
+            (item["question_type"], field, i)
+            for i, item in enumerate(_seed_items())
             for field in REQUIRED_FIELDS[item["question_type"]]
             if field not in (item.get("template_json") or {})
         }
-        assert gaps <= KNOWN_SEED_GAPS, (
-            f"알려지지 않은 시드 데이터 공백: {sorted(gaps - KNOWN_SEED_GAPS)} — "
-            "저작 누락이거나 요구 필드 표가 바뀌었다"
+        assert not gaps, (
+            "요구 필드가 시드에 저작되지 않은 문항: "
+            f"{sorted(gaps)} — 저작 누락이거나 요구 필드 표가 바뀌었다"
         )
 
     def test_전건_정답_미노출(self):
@@ -267,6 +269,31 @@ class TestFrontendRequirementSource:
         assert pattern.search(src), (
             f"{qtype} 요구 필드 {field}를 QuestionCard.jsx에서 못 찾음 — "
             "요구 필드 표가 프론트와 어긋났다"
+        )
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="알려진 위반 (R10-07 S4 실측): QuestionCard.jsx의 slider 분기는 "
+        "question.min/max/step/unit만 읽고 template_json 폴백이 없다. 서버는 "
+        "그 4필드를 template_json 안에 실어 보내므로(§2.1) 시드에 저작해도 UI에는 "
+        "닿지 않는다 — SSR 실측: template_json 모양 → min=0 max=100 무단위, "
+        "최상위 평면 모양 → min=0 max=40 'm/s'. match·ordering은 폴백이 있어 무수정 "
+        "연결됨. 프론트 소유 파일이라 이 스프린트 범위 밖 — 폴백이 추가되면 XPASS로 "
+        "실패해 이 마커를 지우게 만든다.",
+    )
+    def test_slider_페이로드에_template_json_폴백이_있다(self):
+        """위 test_요구_필드가_실제로_소비된다는 `question.X`만 있어도 통과한다 —
+        서버가 실제로 쓰는 자리(template_json)를 프론트가 읽는지는 구분하지 못한다.
+        그 구멍을 여기서 따로 고정한다(match: `question.pairs ?? question.template_json?.pairs`
+        와 같은 폴백 idiom)."""
+        src = QUESTION_CARD_PATH.read_text(encoding="utf-8")
+        missing = [
+            field
+            for field in REQUIRED_FIELDS["slider"]
+            if f"question.template_json?.{field}" not in src
+        ]
+        assert not missing, (
+            f"slider {missing}에 template_json 폴백이 없다 — 서버가 보낸 저작값이 버려진다"
         )
 
     def test_유형_분기가_7종_전수(self):
