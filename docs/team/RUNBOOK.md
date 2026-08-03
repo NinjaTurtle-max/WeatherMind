@@ -12,12 +12,12 @@
 # 1. 전체 기동
 docker compose up -d --build
 
-# 2. DB 마이그레이션 (0001 초기 → 0007 배치고사까지 순차 head)
+# 2. DB 마이그레이션 (0001 초기 → 0008 일일 목표까지 순차 head)
 docker compose exec backend alembic upgrade head
 #    체인: 0001_initial → 0002_session_bank → 0003_question_type_7
 #          → 0004_rewards_loop → 0005_curriculum_energy
-#          → 0006_weatherbrain → 0007_placement
-#    확인: alembic current → 0007_placement (head)
+#          → 0006_weatherbrain → 0007_placement → 0008_daily_goal
+#    확인: alembic current → 0008_daily_goal (head)
 
 # 3. Chroma 기후 개념 시드 (멱등)
 docker compose exec ai-worker python -m app.embeddings.seed_concepts
@@ -44,7 +44,7 @@ docker compose exec backend python -m app.scripts.seed_badges    # 뱃지 정의
 ```bash
 curl -s http://localhost:8000/health        # backend
 curl -s http://localhost:8001/health        # ai-worker
-docker compose exec backend alembic current # → 0005_curriculum_energy (head)
+docker compose exec backend alembic current # → 0008_daily_goal (head)
 docker compose exec postgres psql -U weathermind -d weathermind \
   -c "SELECT status, count(*) FROM content_items GROUP BY 1;"  # 뱅크 적재 확인
 docker compose exec postgres psql -U weathermind -d weathermind \
@@ -229,6 +229,13 @@ scripts/smoke.sh placement       # 특정 단계만: up|migrate|seed|register|th
                                  #   rls|roundtrip|fallback|placement|unit|r8|r9
 ```
 
+> ⚠️ **알려진 결함(2026-08-03, R10 웨이브 2 QA 발견 — 미수정)**: 2단계가 head를
+> `0007_placement`로 **하드코딩 단정**(`scripts/smoke.sh:227`)해서, R10의
+> `0008_daily_goal` 도입 이후 `alembic current`가 `0008_daily_goal (head)`가 되면
+> 마이그레이션이 정상 적용되었는데도 FAIL로 기록된다(실측 확인). 3단계 이후는
+> 정상. 수정 방향은 리비전 상수를 매 라운드 갱신하는 대신 `(head)` 접미 존재만
+> 확인하거나 `alembic heads`와 대조하는 것 — 소유자 판단 필요.
+
 단계: 1 up(기동·/health) → 2 migrate(0007 head) → 3 seed(멱등 upsert) →
 4 register → 5 theta(사전 θ 시드) → 6 rls(비특권 롤 3종) → 7 roundtrip
 (세션 왕복·θ 전이) → 8 fallback(ai-worker 정지 폴백) → 9 placement
@@ -257,3 +264,62 @@ caster_grade·noise_scale 노출, d. GET /duel/today base_forecast 필드 존재
   `docker compose start ai-worker`로 복구(스크립트는 검증 실패와 무관하게
   재기동을 시도한다).
 - .env 값(자격증명·키)은 스크립트가 절대 출력하지 않는다 — 로그 공유 안전.
+
+## 7. R10 실DB 스모크 (scripts/smoke_r10.sh — R10-01 웨이브 2)
+
+§6의 `smoke.sh`(R7~R9 계약)와 **별도 스크립트**다. R10이 새로 들여온 경로 —
+마이그레이션 0008·에너지 정책 전환(오답만 소모/진입 전 차단)·일일 목표 —
+가운데 **pytest가 구조적으로 못 잡는 것**만 모았다. R10 웨이브 0~1의 backend
+897 passed는 전부 순수 함수·FakeDB 대역·소스 텍스트 계약이어서, 아래 3건은
+실 PostgreSQL·RLS 세션에서만 확인된다.
+
+### 7.1 언제 돌리나
+
+- R10 통합 브랜치 병합 후 PR 올리기 전(§6 `smoke.sh`와 함께).
+- `energy_service`·`progress` 라우터·alembic 0008을 건드린 변경 후.
+- 이후 라운드에서는 §6 스모크로 흡수 통합을 검토한다(현재는 R10 전용).
+
+### 7.2 실행
+
+```bash
+bash scripts/smoke_r10.sh              # 전 단계 1~7
+bash scripts/smoke_r10.sh energy       # 특정 단계만: up|migrate|roundtrip|
+                                       #   energy|count|rls|downgrade
+SMOKE_R10_UP=1 bash scripts/smoke_r10.sh   # 스스로 compose up -d --build도 한다
+```
+
+기본값은 **compose를 건드리지 않는다**(도커는 공유 자원 — 이미 떠 있으면 /health
+폴링만 하고 통과). 컨테이너가 없으면 `SMOKE_R10_UP=1`을 쓰거나 §1로 먼저 기동한다.
+
+단계: 1 up(/health 8000·8001) → 2 migrate(`upgrade head` → `0008_daily_goal
+(head)` + `information_schema`로 `users.daily_goal_items` integer/nullable 실존)
+→ 3 roundtrip(register → `GET /session/today` → **정답** answer(정답 문자열은
+`quiz_logs.question_json->>'correct_answer'`에서 읽음) → **오답** answer →
+`GET /progress/me` → `PUT /progress/daily-goal`(5 → 200, 7 → 422) →
+`GET /board/puzzles` → `GET /board/puzzles/{id}`. 각 단계 실측값 출력) →
+4 energy(dev/clouds로 잔량 0 → ⓐ 진행 중 세션 오답 200·`clouds_spent=0` ·
+ⓑ 신규 세션 발급 429 `OUT_OF_CLOUDS`+`next_regen_sec`>0 · ⓒ 보드 단건 429 ·
+ⓓ 보드 목록 200 무차단 · ⓔ 기존 세션 재조회 200 무차단 · ⓕ 보드 attempt 실패
+200·`clouds_spent=0`) → 5 count(placement 6문항 채점 후
+`today_answered_count`=0 → daily 1문항 후 1, psql 대조 포함) → 6 rls(RLS 정책
+메타데이터 + 비특권 롤에서 가드 UPDATE 0행 → 재조회 SELECT가 자기 행을 읽는지
+직접 실행) → 7 downgrade(`downgrade -1` → 0007 + 컬럼 드롭 확인 → **항상**
+`upgrade head`로 복원).
+
+### 7.3 운영 수칙
+
+- **전제**: `DEV_MODE=true`(4단계의 `POST /api/v1/dev/clouds`). 아니면 4단계 SKIP.
+  시드(§1-4)가 적재되어 있어야 3·4단계의 board 항목이 잡힌다.
+- **멱등**: 스모크 유저는 매 실행 고유 이메일, RLS 검증 롤은 IF NOT EXISTS.
+  볼륨 파괴 명령(`down -v` 등)은 없다.
+- **7단계는 컬럼을 드롭한다** — 기설정된 `daily_goal_items` 값이 소실된다(설계대로,
+  0008 downgrade 계약). 스크립트는 판정 실패와 무관하게 head 복원을 시도하지만,
+  중간에 끊겼다면 `docker compose exec backend alembic upgrade head`로 직접 복원할 것.
+- 가입 계열은 5회/분 레이트리밋(§2.4)에 걸릴 수 있다 — 스크립트가 429를 만나면
+  62초 대기 후 1회 재시도한다. 그래도 실패하면 1분 뒤 재실행.
+- .env 값(자격증명·키)은 절대 출력하지 않는다. KMA·Gemini 키 부재(degraded)는
+  이 스모크의 판정 대상이 아니다.
+- **알려진 상태(결함 아님, 기록용)**: 앱 접속 DB 롤이 슈퍼유저(`bypassrls=true`)이자
+  RLS 테이블 소유자여서 런타임 앱 경로에 RLS가 적용되지 않는다. 6단계가 매 실행
+  이 사실을 출력해 회귀를 감시한다 — 배포 전 앱 전용 비특권 롤 분리는 별건
+  (docs/qa/TEST_PLAN.md §C-5 관찰 1).

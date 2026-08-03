@@ -209,6 +209,32 @@ evidence 422 INVALID_EVIDENCE · c evidence 제출+caster_grade·noise_scale
 y좌표 지리 부정합(영서·태백이 수도권보다 북쪽 — R5 폴백 좌표로 복원, 3사본
 동기화). 실서버 결함 0.
 
+## C-5. R10-01 실DB 스모크 (2026-08-03, 웨이브 2 — chore/r10-06-integration)
+
+배경: R10 웨이브 0~1의 backend **897 passed**는 전부 순수 함수·FakeDB 대역·소스
+텍스트 계약이다. 실 PostgreSQL·RLS 세션에서만 확인 가능한 3건을 신규 스크립트
+`scripts/smoke_r10.sh`(7단계)로 자동화해 실기동 검증했다 — RUNBOOK §7,
+체크리스트 PART F(§27~§30). `docker compose up -d --build` 전 8서비스 재빌드 후
+**전 7단계 OK**(2연속 그린).
+
+| 미검증 항목 | 결과 | 실측 근거 |
+|---|---|---|
+| ① 마이그레이션 `0008_daily_goal` | **통과** | `upgrade head` → `0008_daily_goal (head)`, `users.daily_goal_items`=integer/nullable/no-default. `downgrade -1` → `0007_placement` + 컬럼 0 → 재 upgrade 복원(왕복 가능) |
+| ② `consume_if_available` RLS 하 동작 | **통과** | 잔량0 오답 제출 200·`clouds_spent=0`·`clouds=0`(세션·보드 양쪽). 0행 분기 재조회는 RLS에 막히지 않음 — 비특권 롤 실행 결과 `guard_rows=0 → reselect_rows=1`, 타 컨텍스트 `foreign_ctx_rows=0` |
+| ③ `_count_answered_today` | **통과** | placement 6문항 채점 후 `today_answered_count=0`(채점 로그는 6건), psql 재현 대조도 0. daily 1문항 후 1 — SQL 레벨 제외 성립 |
+
+에너지 정책 경계(R10 §3.1)도 함께 실측: 정답 `clouds_spent=0`·오답 `1`,
+잔량0에서 **신규 세션 발급**·`GET /board/puzzles/{id}` 429 `OUT_OF_CLOUDS`
+(`next_regen_sec=1200`), **목록·기존 세션 재조회**는 200 무차단.
+
+### C-5 관찰 목록 (미검증 3건 전부 통과 · 부수 결함 1건 · 관찰 2건)
+
+| # | 분류 | 내용 | 조치 제안 |
+|---|---|---|---|
+| 1 | 관찰 (**보안 부채**, 코드 결함 아님) | 앱 접속 DB 롤이 `rolsuper=true rolbypassrls=true`이고 RLS 대상 테이블의 소유자다(`relforcerowsecurity=false`). 즉 `user_isolation` 정책은 존재하나 **런타임 앱 경로에는 적용되지 않는다** — 08번 스펙의 "이후 모든 쿼리는 RLS 정책에 의해 자동으로 해당 user_id 데이터만 반환"과 실동작이 다르다. 0001 마이그레이션 주석은 소유자 우회를 의도로 명시하고 있어 **설계된 상태**이지만, bypassrls 슈퍼유저는 주석이 전제한 "소유자" 수준보다 강하다(FORCE RLS를 켜도 무효). 격리는 현재 애플리케이션 필터(`user_id ==`)가 단독으로 책임진다 | 배포 전 앱 전용 비특권 롤(NOSUPERUSER·NOBYPASSRLS) 분리 + `FORCE ROW LEVEL SECURITY` 검토를 로드맵에 등재. 스모크 6단계가 현 상태를 매 실행 기록하므로 회귀 감시는 확보 |
+| 2 | **P2 결함(미수정)** | `scripts/smoke.sh:227`이 2단계 migrate의 head를 `0007_placement`로 **하드코딩 단정**한다. R10의 `0008_daily_goal` 도입으로 `alembic current`가 `0008_daily_goal (head)`가 되어, **마이그레이션이 정상 적용되었는데도 FAIL**로 기록된다 — 실행해 재현 확인(`bash scripts/smoke.sh migrate` → `FAIL current가 0007 head가 아님: 0008_daily_goal (head)`). R7~R9 스모크 게이트가 R10 브랜치에서 상시 적색이 되어 PR 전 게이트로서 신뢰를 잃는다. 3단계 이후는 정상 | 리비전 상수를 라운드마다 갱신하는 방식 자체를 버리고 `(head)` 접미 존재만 확인하거나 `alembic heads`와 대조. **QA-1은 수정하지 않았다**(`scripts/smoke.sh`는 이번 스프린트 배타 소유 밖) — 소유자 지정 필요 |
+| 3 | 관찰 (스모크 설계 함정) | `consume_if_available`의 0행 분기를 치려면 **미응답** 문항을 골라야 한다 — 이미 응답한 문항을 재제출하면 멱등 가드가 409 `ALREADY_ANSWERED`로 먼저 응답해 분기에 도달하지 못한다(스크립트 초판이 이 함정에 걸렸다). 제품 결함이 아니라 검증 설계 주의점 | `smoke_r10.sh` 4단계가 `quiz_logs.is_correct IS NULL` 조건으로 대상 문항을 DB에서 고르도록 반영 완료(주석으로 이유 명시) |
+
 ## 4. 실행 방법·환경
 
 ```bash

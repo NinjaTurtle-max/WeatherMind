@@ -224,10 +224,18 @@ step_migrate() {
   local current
   current="$(compose exec -T backend alembic current 2>/dev/null)"
   echo "  alembic current: $current"
-  if grep -q "0007_placement" <<<"$current" && grep -q "(head)" <<<"$current"; then
-    record "2 migrate" "OK" "current == 0007_placement (head)"
+  # 리비전 번호를 하드코딩하지 않는다 — 라운드마다 상수를 갱신하는 방식은 갱신을
+  # 잊는 순간 "마이그레이션이 정상인데 FAIL"이 되어 게이트 신뢰를 잃는다
+  # (R10에서 0008 추가로 실제 발생 — QA-1 발견, S6에서 수정).
+  # 판정 기준: current가 (head)이고 alembic heads와 같은 리비전을 가리키는가.
+  local heads head_rev cur_rev
+  heads="$(compose exec -T backend alembic heads 2>/dev/null)"
+  head_rev="$(sed -n 's/^\([0-9a-zA-Z_]\{1,\}\).*/\1/p' <<<"$heads" | head -1)"
+  cur_rev="$(sed -n 's/^\([0-9a-zA-Z_]\{1,\}\).*/\1/p' <<<"$current" | head -1)"
+  if [ -n "$head_rev" ] && [ "$cur_rev" = "$head_rev" ] && grep -q "(head)" <<<"$current"; then
+    record "2 migrate" "OK" "current == $cur_rev (head)"
   else
-    record "2 migrate" "FAIL" "current가 0007 head가 아님: $current"
+    record "2 migrate" "FAIL" "current가 head가 아님 (current=$cur_rev, heads=$head_rev): $current"
   fi
 }
 

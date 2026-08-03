@@ -6,9 +6,13 @@
 > 각 항목: 실행 명령 → 기대 결과. 실패 시 P 분류해 TEST_PLAN.md 결함 목록에 기록.
 >
 > **R7부터 이 문서의 curl/psql 항목 대부분은 자동 스모크(`scripts/smoke.sh`,
-> 1~11단계 — 기동·마이그레이션·시드·RLS·θ 왕복·배치고사·유닛 세션·R8 5종)가
+> 1~12단계 — 기동·마이그레이션·시드·RLS·θ 왕복·배치고사·유닛 세션·R8 5종·R9 4종)가
 > 대체한다.** 수기로 남는 것은 **UI 확인**(브라우저 실사용 흐름)뿐이다 —
-> PART C·PART D 참조. 스모크 운영 절차는 docs/team/RUNBOOK.md §6.
+> PART C·PART D·PART E 참조. 스모크 운영 절차는 docs/team/RUNBOOK.md §6.
+>
+> **R10**은 별도 스크립트 `scripts/smoke_r10.sh`(1~7단계 — 0008 마이그레이션
+> 왕복·에너지 정책 경계·일일 목표·배치고사 제외 카운트)를 쓴다 — PART F,
+> RUNBOOK §7.
 
 ## 0. 사전 조건
 
@@ -460,6 +464,86 @@ docker compose down          # 데이터 유지
       (280ppm=+0℃ 기준점).
 - [ ] 각 페이지 "왜 그럴까" 해설과 "교육용 단순화 모델" 고지가 렌더되고,
       /explore 뒤로가기 링크가 동작한다.
+
+---
+
+# PART F — R10 실DB 왕복 (자동: `scripts/smoke_r10.sh`)
+
+> 배경: R10 웨이브 0~1의 backend 897 passed는 전부 **순수 함수·FakeDB 대역·소스
+> 텍스트 계약**이다. 아래 3건은 실 PostgreSQL·RLS 세션에서만 확인할 수 있어
+> pytest가 구조적으로 커버하지 못한다. 전부 `scripts/smoke_r10.sh`로 자동화했다
+> (운영 절차는 docs/team/RUNBOOK.md §7).
+>
+> **실행 이력**: 2026-08-03, QA-1, 브랜치 `chore/r10-06-integration`,
+> `docker compose up -d --build`(전 8서비스 재빌드) 후 전 7단계 **OK**.
+
+## 27. 마이그레이션 0008_daily_goal 왕복 (검증 ①)
+
+```bash
+bash scripts/smoke_r10.sh migrate     # upgrade 방향
+bash scripts/smoke_r10.sh downgrade   # downgrade -1 → 재 upgrade head
+```
+- [x] `alembic upgrade head` → `0007_placement` → `0008_daily_goal` 실행,
+      `alembic current` == `0008_daily_goal (head)`.
+- [x] `information_schema.columns`로 `users.daily_goal_items` 실존 —
+      `integer` · `nullable=YES` · default 없음(스펙 "NULL=목표 미설정"과 일치).
+- [x] `alembic downgrade -1` → `0007_placement` + 컬럼 수 0(깨끗한 드롭),
+      재 `upgrade head` → 컬럼 수 1로 복원. **되돌릴 수 있는 마이그레이션**.
+- 주의: downgrade는 컬럼을 드롭하므로 기설정된 일일 목표값이 소실된다(설계대로).
+  스모크는 실행 후 **항상 head로 복원**한다.
+
+## 28. `consume_if_available` RLS 하 동작 (검증 ②)
+
+```bash
+bash scripts/smoke_r10.sh energy   # HTTP 관측
+bash scripts/smoke_r10.sh rls      # SQL 레벨 근거
+```
+- [x] 잔량 0 + 진행 중 세션의 **오답 제출** → `200` · `clouds_spent=0` ·
+      `clouds=0`. 0행 분기가 실DB에서 **예외 없이** 통과한다(§3.1 각주 7).
+- [x] 잔량 0 + **보드 attempt 실패** → `200` · `clouds_spent=0`(보드측 같은 분기).
+- [x] 잔량 0 + **기존 세션 재조회**(`GET /session/today`) → `200` 무차단
+      ("풀던 것을 뺏기지 않는다" — require_entry는 신규 발급 분기 안에서만 검사).
+- [x] 잔량 0 + **신규 세션 발급** → `429` `OUT_OF_CLOUDS` · `next_regen_sec=1200`.
+- [x] 잔량 0 + `GET /board/puzzles/{id}` → `429` `OUT_OF_CLOUDS` ·
+      `next_regen_sec=1200`. `GET /board/puzzles` 목록은 `200` 무차단.
+- [x] **0행 분기의 재조회 SELECT는 RLS에 막히지 않는다** — 근거 2겹:
+      (a) 비특권 롤 + `app.current_user_id` 설정 상태에서 직접 실행한 결과
+      `guard_rows=0` → `reselect_rows=1`(자기 행 읽힘), 컨텍스트를 타 UUID로
+      바꾸면 `foreign_ctx_rows=0`(정책은 살아 있음).
+      (b) 앱 접속 롤이 `rolsuper=true rolbypassrls=true`이고 `users`의
+      소유자다 — 런타임 경로에서 RLS는 애초에 적용되지 않는다(§29 참조).
+      → 세션 캐시 폴백(`remaining = user.clouds`)은 **사실상 도달 불가한 방어선**.
+
+## 29. `_count_answered_today` 배치고사 제외 (검증 ③)
+
+```bash
+bash scripts/smoke_r10.sh count
+```
+- [x] 배치고사 6문항을 `submit-all`로 채점한 직후 `GET /progress/me`의
+      `today_answered_count` == **0** (채점된 `quiz_logs`는 6건인데 제외됨).
+      psql로 같은 제외 조건을 재현한 대조 쿼리도 0 — SQL 레벨에서 성립.
+- [x] 이어서 daily 세션 1문항 응답 → `today_answered_count` == **1**
+      (배치고사 6건은 계속 제외, 신규 응답만 증가).
+
+## 30. 왕복 스모크 실측값 (참고 — 계약 드리프트 감시용)
+
+```bash
+bash scripts/smoke_r10.sh roundtrip
+```
+- [x] `GET /session/today` 200, items 5건(신규2·복습2·실황1 배합), source는
+      bank 4 + generated 1(뱅크 53건 적재 상태).
+- [x] 정답 제출: `is_correct=true xp_earned=15 xp_base=15 xp_weak_bonus=0`
+      `clouds_spent=0 clouds=5` — **정답에 과금 없음**(R10 정책 전환 실검증).
+- [x] 오답 제출: `is_correct=false xp_earned=2 xp_base=2 xp_weak_bonus=0`
+      `clouds_spent=1 clouds=4` — 오답만 1 소모.
+- [x] `GET /progress/me`: `daily_goal_items=null`(미설정) ·
+      `today_answered_count=2` · `next_regen_sec=1200`.
+- [x] `PUT /progress/daily-goal {items:5}` → 200 `{"daily_goal_items":5}`,
+      `/progress/me`·DB 양쪽 5로 영속. `{items:7}` → 422
+      `{"detail":"일일 목표는 3·5·9 중 하나여야 합니다","code":"VALIDATION_ERROR"}`
+      (mock 계약 형태 — detail이 문자열, D10-4 의도대로).
+- [x] `GET /board/puzzles` 200 · 12건. `GET /board/puzzles/{id}` 200 ·
+      `cleared=false difficulty=1`(목록과 동일 스키마 — D1·D8-2).
 
 ---
 

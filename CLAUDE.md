@@ -36,13 +36,15 @@
 - R2~R9 완료 + **R10 웨이브 0~1 + S5 완료**. 진행 상태·이월 항목은
   `docs/team/SPRINT_R10_01.md`(§4.1 결정 기록 D1~D10이 §3보다 우선), 남은 것은
   **웨이브 2**(실기동 스모크·CI 상주화·회고).
-- 테스트 실측 **backend 897** · 프론트 스모크 7종(`visual`·`board`·`session`·
-  `placement`·`gating`·`board-entry`·`assist`) · ai-worker 86+1skip.
-  ⚠️ `scripts/ci.sh`에는 프론트 신규 3종(`gating`·`board-entry`·`assist`)이 아직
-  미편입 — 웨이브 2에서 상주화.
-- **미검증(실DB 필요)**: `0008` 마이그레이션 `alembic upgrade` · RLS 세션에서
-  `consume_if_available`의 `RETURNING`·재조회 · `_count_answered_today` 실행.
-  도커 정지 상태이므로 통합 시 `docker compose up -d --build` 필요(R9 미반영 이미지).
+- 테스트 실측 **backend 897** · 프론트 스모크 **9종**(`visual`·`board`·`session`·
+  `placement`·`gating`·`board-entry`·`assist`·`webgl`·`overlay`, 전부 `ci.sh`에 편입) ·
+  ai-worker 86+1skip. 실DB 왕복 스모크는 `scripts/smoke_r10.sh`(7단계).
+- **실DB 검증 완료(2026-08-03)**: `0008` 마이그레이션(downgrade 포함) ·
+  `consume_if_available` 0행 분기가 재조회 SELECT로 감 · `_count_answered_today`의
+  배치고사 제외가 SQL 레벨 성립. 미검증 잔여는 동시성·KST 자정 경계·`CLOUD_COST≥2`.
+- ⚠️ **RLS가 런타임에 무효다** — 앱 DB 롤이 `bypassrls` 슈퍼유저 + 테이블 소유자라
+  `user_isolation` 정책이 적용되지 않는다. 현재 유저 격리는 앱 `user_id` 필터 단독
+  책임(단층). `docs/specs/08` 서술과 실동작이 다르다 — ROADMAP §2.1, 마일스톤 5 최우선.
 - **막힌 것**: KMA 키(브리핑 실데이터·리그 정산 전제, 미발급 시 degraded) ·
   **Gemini 키**(마일스톤 3 뱅크 확장 + 다국어 문항 번역 + 기초과학 파일럿 3트랙을
   동시에 막고 있다 — ROADMAP §5.3 임계 경로).
