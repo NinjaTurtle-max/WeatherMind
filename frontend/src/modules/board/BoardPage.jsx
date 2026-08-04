@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { boardApi, progressApi } from '../../api';
@@ -8,6 +8,7 @@ import AtmosphereBoard from './AtmosphereBoard';
 import { phenomenonMeta } from './boardDisplay';
 import { SymbolIcon } from './boardSymbols';
 import { ZONES } from '../../lib/boardEngine';
+import { useT } from '../../i18n';
 
 /**
  * BoardPage (R3-01 S3ui·S4) — "대기 보드" 연습 탭.
@@ -29,29 +30,33 @@ import { ZONES } from '../../lib/boardEngine';
  */
 
 // 난이도 배지(R7-02 S5) — 색 구분 + 텍스트 병기(색맹 접근성: 색에만 의존하지 않음)
+// 라벨은 i18n 키로 — 렌더 시 로케일에 맞춰 해석한다(R11-01 §6.3 외부화).
 const DIFFICULTY_META = {
-  1: { label: '쉬움', className: 'bg-emerald-100 text-emerald-700' },
-  2: { label: '보통', className: 'bg-amber-100 text-amber-700' },
-  3: { label: '도전', className: 'bg-rose-100 text-rose-700' },
+  1: { labelKey: 'board.page.difficulty1', className: 'bg-emerald-100 text-emerald-700' },
+  2: { labelKey: 'board.page.difficulty2', className: 'bg-amber-100 text-amber-700' },
+  3: { labelKey: 'board.page.difficulty3', className: 'bg-rose-100 text-rose-700' },
 };
 
 function DifficultyBadge({ difficulty }) {
+  const t = useT();
   const meta = DIFFICULTY_META[difficulty];
   if (!meta) return null; // 구 백엔드(difficulty 부재) 하위 호환 — 배지 미표시
+  const label = t(meta.labelKey);
   return (
     <span
-      aria-label={`난이도: ${meta.label}`}
+      aria-label={t('board.page.difficultyAria', { label })}
       className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${meta.className}`}
     >
-      난이도 {meta.label}
+      {t('board.page.difficultyText', { label })}
     </span>
   );
 }
 
 // 자유 실험(R9-01 §3.3 ⑥) — 목표·채점·타이머 없는 전 요소 팔레트 샌드박스.
 // 순수 클라이언트: 서버 호출 0 → 구름 미소모·시도 로그 없음(로컬 엔진만).
+// question_text는 로케일 의존이라 렌더 시 useMemo로 주입한다(아래) — 참조 안정성
+// 유지(AtmosphereBoard가 puzzle identity 변화에 보드를 리셋하므로).
 const SANDBOX_PUZZLE = {
-  question_text: '자유 실험 — 요소를 마음껏 배치하고 어떤 날씨가 만들어지는지 관찰해 보세요',
   mode: 'sandbox',
   initial_state: { zones: [...ZONES], elements: [] },
   palette: [
@@ -69,8 +74,16 @@ const SANDBOX_PUZZLE = {
   hints: [],
 };
 export default function BoardPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const addXp = useProgressStore((s) => s.addXp);
+  // 번역된 문자열(로케일 변경 시에만 값이 바뀜)을 메모 키로 써서 puzzle 참조를
+  // 안정화한다 — t 함수 자체는 렌더마다 새 클로저라 의존성으로 부적합.
+  const sandboxQuestion = t('board.page.sandboxQuestion');
+  const sandboxPuzzle = useMemo(
+    () => ({ ...SANDBOX_PUZZLE, question_text: sandboxQuestion }),
+    [sandboxQuestion],
+  );
   const [selected, setSelected] = useState(null); // 플레이 중 퍼즐 {content_item_id, template_json}
   const [result, setResult] = useState(null); // 서버 판정 결과
   const [toast, setToast] = useState(null); // XP 토스트 메시지
@@ -116,9 +129,9 @@ export default function BoardPage() {
         queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
       }
       const toastMsg = res.crown_award
-        ? `👑 왕관 획득 — ${res.crown_award.unit_title}`
+        ? t('board.page.toastCrown', { title: res.crown_award.unit_title })
         : res.passed && res.xp_earned > 0
-          ? `🧩 첫 클리어! +${res.xp_earned} XP`
+          ? t('board.page.toastFirstClear', { xp: res.xp_earned })
           : null;
       if (toastMsg) {
         setToast(toastMsg);
@@ -129,10 +142,10 @@ export default function BoardPage() {
       // 구름 소진(§3.3): 소모 전 429 — 잔량 갱신 + 회복 ETA 안내
       if (err.code === 'OUT_OF_CLOUDS') {
         queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
-        setResult({ passed: false, outOfClouds: true, feedback: err.detail ?? '구름이 모두 흩어졌어요 — 잠시 후 다시 시도해주세요.' });
+        setResult({ passed: false, outOfClouds: true, feedback: err.detail ?? t('board.page.outOfCloudsRetry') });
         return;
       }
-      setResult({ passed: false, feedback: err.detail ?? '제출에 실패했어요. 잠시 후 다시 시도해주세요.' });
+      setResult({ passed: false, feedback: err.detail ?? t('board.page.submitFailed') });
     },
   });
 
@@ -152,7 +165,7 @@ export default function BoardPage() {
       if (err.code === 'OUT_OF_CLOUDS') {
         queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
       }
-      setEntryError(err.detail ?? '퍼즐을 열지 못했어요. 잠시 후 다시 시도해주세요.');
+      setEntryError(err.detail ?? t('board.page.entryFailed'));
     },
   });
 
@@ -174,26 +187,26 @@ export default function BoardPage() {
     return (
       <div className="pt-2">
         <button type="button" onClick={backToList} className="mb-2 text-sm font-medium text-slate-500 hover:text-slate-700">
-          ← 목록으로
+          {t('board.page.backToList')}
         </button>
-        <AtmosphereBoard puzzle={SANDBOX_PUZZLE} sandbox />
+        <AtmosphereBoard puzzle={sandboxPuzzle} sandbox />
         <p className="mt-2 text-center text-xs text-slate-400">
-          자유 실험은 채점하지 않아요 — 구름도 소모되지 않아요 ☁️
+          {t('board.page.sandboxFooter')}
         </p>
       </div>
     );
   }
 
-  if (isLoading) return <LoadingSpinner label="대기 보드 퍼즐을 불러오고 있어요..." />;
+  if (isLoading) return <LoadingSpinner label={t('board.page.loading')} />;
 
   if (isError) {
     return (
       <div className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
         <p className="text-3xl">🧩</p>
-        <p className="mt-2 font-bold text-slate-800">퍼즐을 불러오지 못했어요</p>
-        <p className="mt-1 text-sm text-slate-500">{error?.detail ?? '잠시 후 다시 시도해주세요.'}</p>
+        <p className="mt-2 font-bold text-slate-800">{t('board.page.loadErrorTitle')}</p>
+        <p className="mt-1 text-sm text-slate-500">{error?.detail ?? t('board.page.loadErrorBody')}</p>
         <button type="button" onClick={() => refetch()} className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700">
-          다시 시도
+          {t('board.page.retry')}
         </button>
       </div>
     );
@@ -209,7 +222,7 @@ export default function BoardPage() {
           </div>
         )}
         <button type="button" onClick={backToList} className="mb-2 text-sm font-medium text-slate-500 hover:text-slate-700">
-          ← 목록으로
+          {t('board.page.backToList')}
         </button>
         <AtmosphereBoard
           puzzle={selected.template_json}
@@ -226,7 +239,7 @@ export default function BoardPage() {
               onClick={() => setResult(null)}
               className="w-full rounded-xl border border-slate-300 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
             >
-              {result.passed ? '한 번 더 도전' : '다시 시도'}
+              {result.passed ? t('board.page.retryChallenge') : t('board.page.retry')}
             </button>
           </div>
         )}
@@ -243,17 +256,17 @@ export default function BoardPage() {
           {toast}
         </div>
       )}
-      <h1 className="mb-1 text-lg font-extrabold text-slate-900">🧩 대기 보드</h1>
-      <p className="mb-3 text-sm text-slate-500">기상요소를 한반도 4개 지역에 배치해 목표 날씨를 만들어 보세요.</p>
+      <h1 className="mb-1 text-lg font-extrabold text-slate-900">{t('board.page.title')}</h1>
+      <p className="mb-3 text-sm text-slate-500">{t('board.page.subtitle')}</p>
 
       {/* 구름 소진 안내 (§3.1) — 퍼즐은 열 수 없지만 목록·클리어 표시는 그대로 보인다(D1) */}
       {energyBlocked && (
         <div className="mb-3 rounded-2xl bg-rose-50 p-4 ring-1 ring-rose-200">
-          <p className="text-sm font-extrabold text-rose-700">☁️ 구름이 모두 흩어졌어요</p>
+          <p className="text-sm font-extrabold text-rose-700">{t('board.common.outOfClouds')}</p>
           <p className="mt-1 text-xs leading-relaxed text-rose-600">
-            구름은 <span className="font-bold">틀린 시도에만 1개</span> 줄어들어요 — 열심히 푼
-            만큼이 아니라 실수에만 소모돼요. 약 <span className="font-bold">{regenMin}분</span> 후
-            구름 1개가 회복되면 새 퍼즐을 열 수 있어요. 채점 없는 자유 실험은 지금도 열려 있어요.
+            {t('board.page.depletedBody1')} <span className="font-bold">{t('board.page.depletedBodyBold')}</span>{' '}
+            {t('board.page.depletedBody2')} <span className="font-bold">{t('board.page.depletedMinutes', { min: regenMin })}</span>{' '}
+            {t('board.page.depletedBody3')}
           </p>
         </div>
       )}
@@ -273,26 +286,26 @@ export default function BoardPage() {
           className="flex flex-col justify-between rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 p-4 text-left shadow-sm transition hover:from-sky-600 hover:to-indigo-600"
         >
           <div className="min-w-0">
-            <p className="text-sm font-bold text-white">🧪 자유 실험</p>
-            <p className="mt-0.5 text-xs text-sky-100">목표 없이 마음껏 배치하고 즉시 반응을 관찰해요 (채점·구름 소모 없음)</p>
+            <p className="text-sm font-bold text-white">{t('board.page.sandboxTitle')}</p>
+            <p className="mt-0.5 text-xs text-sky-100">{t('board.page.sandboxDesc')}</p>
           </div>
-          <span className="mt-2 self-start rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white">입장 →</span>
+          <span className="mt-2 self-start rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white">{t('board.page.enter')}</span>
         </button>
         <Link
           to="/explore"
           className="flex flex-col justify-between rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-500 p-4 text-left shadow-sm transition hover:from-violet-600 hover:to-fuchsia-600"
         >
           <div className="min-w-0">
-            <p className="text-sm font-bold text-white">🌀 탐구 실험실</p>
-            <p className="mt-0.5 text-xs text-violet-100">태풍·기후변화 시뮬로 변수를 바꿔 보며 원리를 탐구해요</p>
+            <p className="text-sm font-bold text-white">{t('board.page.exploreTitle')}</p>
+            <p className="mt-0.5 text-xs text-violet-100">{t('board.page.exploreDesc')}</p>
           </div>
-          <span className="mt-2 self-start rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white">입장 →</span>
+          <span className="mt-2 self-start rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white">{t('board.page.enter')}</span>
         </Link>
       </div>
 
       {list.length === 0 ? (
         <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
-          아직 등록된 퍼즐이 없어요.
+          {t('board.page.empty')}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -305,8 +318,8 @@ export default function BoardPage() {
                 onClick={() => openPuzzle(p)}
                 disabled={energyBlocked || entryMutation.isPending}
                 aria-disabled={energyBlocked ? 'true' : undefined}
-                aria-label={`${p.template_json?.question_text ?? '퍼즐'}${energyBlocked ? ' (구름 부족)' : ''}`}
-                title={energyBlocked ? `구름이 회복되면 열 수 있어요 — 약 ${regenMin}분 후` : undefined}
+                aria-label={`${p.template_json?.question_text ?? t('board.page.puzzleFallback')}${energyBlocked ? t('board.page.blockedSuffix') : ''}`}
+                title={energyBlocked ? t('board.page.blockedTitle', { min: regenMin }) : undefined}
                 className={`flex items-center justify-between rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 transition ${
                   energyBlocked ? 'cursor-not-allowed opacity-60' : 'hover:ring-sky-300'
                 }`}
@@ -315,13 +328,13 @@ export default function BoardPage() {
                   <p className="truncate text-sm font-bold text-slate-800">{p.template_json?.question_text}</p>
                   <div className="mt-0.5 flex items-center gap-1.5">
                     <p className="text-xs text-slate-400">
-                      {p.template_json?.mode === 'guided' ? '안내 모드' : '목표 모드'}
+                      {p.template_json?.mode === 'guided' ? t('board.page.modeGuided') : t('board.page.modeGoal')}
                     </p>
                     <DifficultyBadge difficulty={p.difficulty} />
                   </div>
                   {/* 누르기 전에 알린다(§3.1) — 429를 받고 나서가 아니다 */}
                   {energyBlocked && (
-                    <p className="mt-1 text-xs font-bold text-rose-600">☁️ 구름 회복까지 약 {regenMin}분</p>
+                    <p className="mt-1 text-xs font-bold text-rose-600">{t('board.page.cardRecovery', { min: regenMin })}</p>
                   )}
                 </div>
                 <span
@@ -329,7 +342,7 @@ export default function BoardPage() {
                     p.cleared ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
                   }`}
                 >
-                  {pending ? '여는 중…' : p.cleared ? '✓ 클리어' : '도전'}
+                  {pending ? t('board.page.opening') : p.cleared ? t('board.page.cleared') : t('board.page.challenge')}
                 </span>
               </button>
             );
@@ -342,10 +355,11 @@ export default function BoardPage() {
 
 /** 서버 재판정 존별 현상 요약 (§3.4 phenomena) */
 function PhenomenaSummary({ phenomena }) {
+  const t = useT();
   if (!Array.isArray(phenomena) || phenomena.length === 0) return null;
   return (
     <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-      <p className="mb-1.5 text-xs font-bold text-slate-500">서버 판정 결과</p>
+      <p className="mb-1.5 text-xs font-bold text-slate-500">{t('board.page.serverVerdict')}</p>
       <div className="grid grid-cols-4 gap-1">
         {phenomena.map((p, i) => {
           const meta = phenomenonMeta(p.phenomenon);

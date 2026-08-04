@@ -26,6 +26,7 @@ import { SymbolIcon } from './boardSymbols';
 import CrossSectionPanel from './CrossSectionPanel';
 import PeninsulaMap from './PeninsulaMap';
 import useBoardDrag from './useBoardDrag';
+import { useT } from '../../i18n';
 
 // 언두 스택 상한 (§3.5 — "히스토리 스택(≤ 20)")
 export const HISTORY_LIMIT = 20;
@@ -34,12 +35,13 @@ export const HISTORY_LIMIT = 20;
 let _historySeq = 0;
 const historySeq = () => ++_historySeq;
 
-// 힌트 2단이 노출하는 "요소 종류" 라벨 (§3.5 — subtype = 정답 요소는 절대 미노출)
+// 힌트 2단이 노출하는 "요소 종류" 라벨 키 (§3.5 — subtype = 정답 요소는 절대 미노출)
+// 값은 i18n 키 — 렌더 시 t()로 해석한다(R11-01 §6.3 외부화).
 export const HINT_KIND_LABEL = Object.freeze({
-  front: '전선 계열',
-  air_mass: '기단 계열',
-  moisture: '습기',
-  sun: '일사',
+  front: 'board.atmosphere.kind.front',
+  air_mass: 'board.atmosphere.kind.airMass',
+  moisture: 'board.atmosphere.kind.moisture',
+  sun: 'board.atmosphere.kind.sun',
 });
 
 /** 두 보드의 배치가 실질적으로 같은지 (히스토리에 빈 칸을 쌓지 않기 위한 비교) */
@@ -126,6 +128,7 @@ export function hintRulesForGoal(rules, goal, palette, zoneState) {
  *    이 경로에서 쓰지 않는다.
  */
 export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null, phenomena = null, sandbox = false }) {
+  const t = useT();
   const [board, setBoard] = useState(() => createBoard(puzzle?.initial_state));
   const boardRef = useRef(board); // 같은 turn 내 연속 변경의 기준값 (applyBoard)
   const [history, setHistory] = useState([]); // 언두 스택 [{key, board}] — 최근 HISTORY_LIMIT개
@@ -327,15 +330,16 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     const zoneName = regions[hintZone]?.name ?? ZONES[hintZone];
     const needs = hintRules.map((r) => r.hint_needs).filter(Boolean);
     return [
-      `먼저 ${zoneName}만 집중해서 보세요. 목표 현상은 이 지역의 대기 상태에서 만들어져요.`,
+      t('board.atmosphere.hintStep1', { zone: zoneName }),
       // needs가 비는 경로는 hintKinds 폴백과 동일한 방어 케이스다(주석 참조 —
       // 실시드 12/12는 후보 1개). 그때도 "요소 종류" 칩은 팔레트에서 채워지므로
       // 2단이 완전히 무내용이 되지는 않는다.
       needs.length > 0
-        ? needs.join(' 또는 — ')
-        : '위 요소 종류를 하나씩 시험해 보세요. 조건이 맞으면 그 지역의 현상이 바로 바뀌어요.',
+        ? needs.join(t('board.atmosphere.hintJoiner'))
+        : t('board.atmosphere.hintFallbackStep2'),
     ];
-  }, [sandbox, hintZone, hintsAuthored, regions, hintRules]);
+    // t는 렌더마다 새 클로저(로케일 변경 반영) — 매 렌더 재계산이지만 배열 2칸이라 무시 가능
+  }, [sandbox, hintZone, hintsAuthored, regions, hintRules, t]);
   const hintZoneActive = hintLevel > 0 && hintZone != null;
 
   return (
@@ -353,7 +357,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                     ? 'animate-pulse bg-orange-100 text-orange-700'
                     : 'bg-sky-100 text-sky-700'
               }`}
-              title="제한 시간"
+              title={t('board.atmosphere.timerTitle')}
             >
               ⏱ {formatClock(remaining)}
             </span>
@@ -364,7 +368,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         {puzzle?.based_on?.event_name && (
           <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-700">
             <span aria-hidden="true">📖</span>
-            실화 · {puzzle.based_on.event_name}
+            {t('board.atmosphere.basedOn')} {puzzle.based_on.event_name}
             {puzzle.based_on.event_date && <span className="font-medium">({puzzle.based_on.event_date}{puzzle.based_on.region ? `, ${puzzle.based_on.region}` : ''})</span>}
           </div>
         )}
@@ -372,7 +376,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         {puzzle?.mode === 'guided' && (puzzle?.guide_steps?.length ?? 0) > 0 && (
           <div className="mt-2 flex items-center gap-2">
             <p className="flex-1 text-xs text-sky-800">
-              <span className="font-bold">안내 {guideStep + 1}/{puzzle.guide_steps.length}:</span>{' '}
+              <span className="font-bold">{t('board.atmosphere.guidePrefix', { step: guideStep + 1, total: puzzle.guide_steps.length })}</span>{' '}
               {puzzle.guide_steps[guideStep]}
             </p>
             {guideStep + 1 < puzzle.guide_steps.length && (
@@ -381,7 +385,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                 onClick={() => setGuideStep((s) => Math.min(s + 1, puzzle.guide_steps.length - 1))}
                 className="shrink-0 rounded-lg bg-sky-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-sky-700"
               >
-                다음 안내 →
+                {t('board.atmosphere.guideNext')}
               </button>
             )}
           </div>
@@ -391,7 +395,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
       {/* 팔레트 (배치 허용 요소만 — §3.3) */}
       {placeItems.length > 0 && (
         <div className="mb-3">
-          <p className="mb-1.5 text-xs font-bold text-slate-500">요소 팔레트 (탭해서 고른 뒤 존을 탭하거나, 끌어다 놓으세요)</p>
+          <p className="mb-1.5 text-xs font-bold text-slate-500">{t('board.atmosphere.paletteHeader')}</p>
           <div className="flex flex-wrap gap-2">
             {placeItems.map((item) => {
               const isSel = selected?.token === item.token;
@@ -498,7 +502,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                 {region.name}
                 {hintZoneActive && hintZone === zone && (
                   <span className="ml-1 rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-900">
-                    💡 여기부터
+                    {t('board.atmosphere.hintHere')}
                   </span>
                 )}
               </p>
@@ -549,7 +553,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
               {/* moisture/sun 슬라이더 (팔레트 허용 시) */}
               {allowMoisture && (
                 <ZoneSlider
-                  label="💧 습기"
+                  label={t('board.atmosphere.moisture')}
                   value={zoneLevel(zone, 'moisture', 40)}
                   locked={isLocked(board, zone, 'moisture')}
                   disabled={!interactive}
@@ -561,7 +565,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
               )}
               {allowSun && (
                 <ZoneSlider
-                  label="☀️ 일사"
+                  label={t('board.atmosphere.sun')}
                   value={zoneLevel(zone, 'sun', 50)}
                   locked={isLocked(board, zone, 'sun')}
                   disabled={!interactive}
@@ -579,7 +583,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
       {/* 로컬 미리보기 목표 상태 */}
       {!result && (puzzle?.goal_conditions?.length ?? 0) > 0 && (
         <p className={`mt-3 text-center text-xs font-bold ${goals.passed ? 'text-emerald-600' : 'text-slate-400'}`}>
-          {goals.passed ? '✓ 목표 조건을 모두 만족했어요 — 제출해 보세요!' : '미리보기: 아직 목표에 도달하지 않았어요'}
+          {goals.passed ? t('board.atmosphere.goalMet') : t('board.atmosphere.goalPending')}
         </p>
       )}
 
@@ -589,15 +593,15 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
           {hintSteps.slice(0, hintLevel).map((h, i) => (
             <div key={i} className="mb-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
               <p>
-                💡 힌트 {i + 1}: {h}
+                {t('board.atmosphere.hintPrefix', { n: i + 1 })} {h}
               </p>
               {/* 2단에서만 "필요한 요소 종류"를 칩으로 — subtype(정답 요소)은 없다 */}
               {i === 1 && hintKinds.length > 0 && (
                 <p className="mt-1 flex flex-wrap items-center gap-1">
-                  <span className="font-bold">필요한 요소 종류:</span>
+                  <span className="font-bold">{t('board.atmosphere.hintNeedsLabel')}</span>
                   {hintKinds.map((kind) => (
                     <span key={kind} className="rounded-full bg-amber-200 px-2 py-0.5 font-bold text-amber-900">
-                      {HINT_KIND_LABEL[kind] ?? kind}
+                      {HINT_KIND_LABEL[kind] ? t(HINT_KIND_LABEL[kind]) : kind}
                     </span>
                   ))}
                 </p>
@@ -610,12 +614,12 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
               onClick={() => setHintLevel((l) => Math.min(l + 1, hintSteps.length))}
               className="text-xs font-bold text-amber-600 hover:text-amber-700"
             >
-              💡 힌트 보기 ({hintLevel}/{hintSteps.length})
+              {t('board.atmosphere.hintCta', { n: hintLevel, total: hintSteps.length })}
             </button>
           )}
           {hintLevel >= hintSteps.length && (
             <p className="text-[11px] text-amber-700">
-              힌트는 정답 배치를 알려주지 않아요 — 남은 한 걸음은 직접 골라 보세요.
+              {t('board.atmosphere.hintNoAnswer')}
             </p>
           )}
         </div>
@@ -624,7 +628,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
       {/* 구름 소진(§3.3) — 에너지 부족 안내(판정 실패와 구분) */}
       {result?.outOfClouds && (
         <div className="mt-3 rounded-xl bg-rose-50 px-4 py-3 ring-1 ring-rose-200">
-          <p className="text-sm font-bold text-rose-700">☁️ 구름이 모두 흩어졌어요</p>
+          <p className="text-sm font-bold text-rose-700">{t('board.common.outOfClouds')}</p>
           {result.feedback && <p className="mt-1 whitespace-pre-line text-xs text-rose-600">{result.feedback}</p>}
         </div>
       )}
@@ -637,7 +641,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
           }`}
         >
           <p className={`text-sm font-bold ${result.passed ? 'text-emerald-700' : 'text-orange-700'}`}>
-            {result.passed ? '🎉 성공! 목표 대기현상을 만들었어요' : '아직이에요 — 배치를 바꿔 다시 시도해 보세요'}
+            {result.passed ? t('board.atmosphere.resultSuccess') : t('board.atmosphere.resultFail')}
           </p>
           {result.feedback && <p className="mt-1 whitespace-pre-line text-xs text-slate-600">{result.feedback}</p>}
         </div>
@@ -646,13 +650,13 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
       {/* 시간 초과(§3.5) — 실패 처리 + 재도전(무제한) */}
       {timedOut && !result && (
         <div className="mt-3 rounded-xl bg-orange-50 px-4 py-3 ring-1 ring-orange-200">
-          <p className="text-sm font-bold text-orange-700">⏱ 시간 초과! 제한 시간 안에 완성하지 못했어요</p>
+          <p className="text-sm font-bold text-orange-700">{t('board.atmosphere.timeoutTitle')}</p>
           <button
             type="button"
             onClick={retry}
             className="mt-2 w-full rounded-xl bg-orange-600 py-2.5 text-sm font-bold text-white transition hover:bg-orange-700"
           >
-            다시 도전 ({timeLimit}초)
+            {t('board.atmosphere.timeoutRetry', { sec: timeLimit })}
           </button>
         </div>
       )}
@@ -665,10 +669,10 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
             type="button"
             onClick={undo}
             disabled={!interactive || history.length === 0}
-            title="마지막 배치를 되돌립니다 (구름 소모 없음)"
+            title={t('board.atmosphere.undoTitle')}
             className="inline-flex min-h-[36px] items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <span aria-hidden="true">↩</span> 되돌리기
+            <span aria-hidden="true">↩</span> {t('board.atmosphere.undo')}
             {history.length > 0 && <span className="tabular-nums text-slate-400">({history.length})</span>}
           </button>
         </div>
@@ -684,7 +688,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
           disabled={!interactive}
           className="mt-4 w-full rounded-xl bg-sky-600 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? '판정 중...' : '제출하기'}
+          {submitting ? t('board.atmosphere.submitting') : t('board.atmosphere.submit')}
         </button>
       )}
     </div>
@@ -700,6 +704,7 @@ function formatClock(sec) {
 }
 
 function PlacedChip({ label, locked, onRemove }) {
+  const t = useT();
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${
@@ -717,7 +722,7 @@ function PlacedChip({ label, locked, onRemove }) {
             e.stopPropagation();
             onRemove();
           }}
-          aria-label={`${label} 제거`}
+          aria-label={t('board.atmosphere.removeAria', { label })}
           className="ml-0.5 text-sky-500 hover:text-sky-800"
         >
           ×

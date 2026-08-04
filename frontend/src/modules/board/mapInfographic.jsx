@@ -270,6 +270,9 @@ export function FlowArrow({ subtype, x, y, animate = true }) {
 
 // ── ④ 현상 주석 라벨 ────────────────────────────────────────────────────────
 /** 규칙 8종 → 인포그래픽 주석 문구(하.png "정체전선 형성, 집중호우 발생" 문법 — 자체 저작) */
+// ⚠️ i18n 외부화 제외(R11-01 §6.3 판정): rule_id 파생 과학 콘텐츠 클러스터
+// (STORYBOARDS·scenes.js 라벨과 한 묶음)이고 boardVisual.render.test가
+// '소나기·번개' 문구를 렌더 HTML에서 직접 대조한다.
 export const RULE_ANNOTATIONS = {
   cold_front_shower: '한랭전선 통과,\n소나기·번개',
   stationary_front_monsoon: '정체전선 형성,\n집중호우 발생',

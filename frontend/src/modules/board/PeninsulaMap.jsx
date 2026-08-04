@@ -12,6 +12,7 @@ import {
 import { AirMassBloom, FlowArrow, FrontCurve, ZoneAnnotation } from './mapInfographic';
 import { webglSupported } from './webgl/mapOverlay/support';
 import { buildScene, cloudVariantFor, precipEmitters, sceneIsEmpty } from './webgl/mapOverlay/overlayScene';
+import { useT } from '../../i18n';
 
 // 한반도 실루엣 path (정규화 0~100 좌표 저작 — scale(1, VIEW_H/100)로 사영)
 const PENINSULA_PATH =
@@ -38,6 +39,7 @@ const PENINSULA_PATH =
  * Canvas2D PrecipCanvas 그대로, (b) SSR → 항상 폴백 경로(GL 접근 0).
  */
 export default function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected, interactive, onZoneTap, dragging = false, dragOverZone = null, zoneVisuals = null }) {
+  const t = useT();
   const reduced = usePrefersReducedMotion();
   const animate = !reduced;
   const zonePoint = (zone) => toUser(regions[zone]?.svg_point);
@@ -105,7 +107,7 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
         className="block h-auto w-full"
         role="group"
-        aria-label="한반도 대기 보드 지도 — 4개 지역 노드에 요소를 배치하세요"
+        aria-label={t('board.map.mapAria')}
       >
         <InfographicDefs />
 
@@ -209,7 +211,7 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
                 data-board-zone={zone}
                 role="button"
                 tabIndex={interactive ? 0 : -1}
-                aria-label={`${region.name} 존${isGoalZone ? ' (목표 존)' : ''} — 현재 ${ph.label}`}
+                aria-label={t('board.map.zoneAria', { name: region.name, goal: isGoalZone ? t('board.map.goalSuffix') : '', phenomenon: ph.label })}
                 aria-disabled={!interactive}
                 onClick={() => interactive && onZoneTap(zone)}
                 onKeyDown={(e) => {
