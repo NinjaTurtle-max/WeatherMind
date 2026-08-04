@@ -41,10 +41,15 @@
 ## 프로젝트 현황
 - **로드맵 마일스톤 1·2 완료**(6개 중 2개) — 다음은 마일스톤 3(콘텐츠·난이도 다양화).
   상태·의존 규칙·주차 일정은 `docs/ROADMAP.md`가 SSOT.
-- **R2~R10 완료**(웨이브 0~2 + S5·S6 + R10-07). 결정 기록·이월은
-  `docs/team/SPRINT_R10_01.md`(§4.1 D1~D10이 §3보다 우선) ·
-  `docs/team/RETROSPECTIVE.md` §R10.7~8. 미배정 항목 R10-I·J·K·L·M·O·P·Q 잔존.
-- 테스트 실측 **backend 1063** · **ai-worker 193**(의존 전체 설치 시) · 프론트 `test:*` **11종 전부 CI 편입**
+- **R2~R11 완료**(R11 = 무키 웨이브 1·2 — **마일스톤 4 완료 판정** + 6의 무키분:
+  다과정 UI·온보딩 재배치(R10-J 본체)·외부화 572키·스위처). 계약·결정은
+  `docs/team/SPRINT_R11_01.md`(§6 웨이브 2), 이전 이월은 `SPRINT_R10_01.md` §4.1 ·
+  `RETROSPECTIVE.md` §R10.7~8. 판정 대기 R10-I·K·L·M·P·Q 잔존(J·O 해소).
+- **다국어(R11)**: `frontend/src/i18n/` 경량 자체 구현(의존 0), 572키 ko/en 전면
+  외부화 + 헤더 스위처. **ko 리소스 값은 원문 바이트 동일** 원칙 — 스모크가 한국어
+  문구를 단정하며 하네스는 로케일 ko 고정(jsdom 7 + SSR 3, en-US 러너 대비).
+  lib에서 i18n import는 `'../i18n/index.js'` 명시 경로(node ESM 디렉토리 import 불가).
+- 테스트 실측 **backend 1076** · **ai-worker 193**(의존 전체 설치 시) · 프론트 `test:*` **14종 전부 CI 편입**
   — `ci.sh`의 `FRONT_TESTS` 9종(`explore`·`session`·`placement`·`visual`·`gating`·
   `board-entry`·`assist`·`webgl`·`overlay`) + `board`(board_engine 공유 벡터)는 **별도
   단계**다. 실DB 왕복 스모크는 `scripts/smoke_r10.sh`(7단계, 전원 OK).
