@@ -12,6 +12,17 @@ import { dirname, resolve } from 'node:path';
 // 프로덕션 빌드를 쓴다 — CJS 진입점이 require 시점에 NODE_ENV를 읽으므로
 // 반드시 동적 import보다 먼저 설정해야 한다.
 process.env.NODE_ENV = 'production';
+
+// 로케일 고정(ko) — 이 스모크는 "ko 화면 무회귀"를 검증한다. i18n 전면 외부화(R11
+// 웨이브 2) 후 detectLocale()이 localStorage → navigator.language 순으로 고르는데,
+// node에 localStorage가 없고 GitHub 러너의 navigator.language는 en-US라서 고정
+// 없이는 CI에서만 en으로 렌더돼 한국어 단정 17건이 깨진다(en-US 강제 재현으로
+// 실측). jsdom 스모크 7종의 weathermind.locale 고정과 같은 관례의 SSR판.
+globalThis.localStorage = {
+  getItem: (k) => (k === 'weathermind.locale' ? 'ko' : null),
+  setItem() {}, removeItem() {},
+};
+
 const { createElement } = await import('react');
 const { renderToString } = await import('react-dom/server');
 const { MemoryRouter } = await import('react-router-dom');
