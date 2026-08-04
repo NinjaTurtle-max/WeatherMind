@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import AtmosphereBoard from '../board/AtmosphereBoard';
-
-const CONCEPT_LABEL = {
-  pressure_front: '기압과 전선',
-  typhoon: '태풍',
-  air_mass: '기단',
-  heat_island: '열섬 현상',
-  co2_climate: 'CO₂와 기후',
-  anomaly: '이상 기후',
-};
+import { conceptLabel as conceptLabelOf, useT } from '../../i18n';
+// 개념 표시명은 concept.* 리소스(i18n) — 문항 본문·선지·정답 텍스트는 서버
+// 시드/생성 데이터라 외부화 대상이 아니다(§6.3).
 
 /**
  * QuestionCard (04번 스펙 + R3-01 S5) — question_type에 따라 렌더 분기.
@@ -28,6 +22,7 @@ const CONCEPT_LABEL = {
  * 재생한다. 다른 유형은 무시(기존 렌더 불변).
  */
 export default function QuestionCard({ question, disabled, onSubmit, answerResult = null }) {
+  const t = useT();
   const [textAnswer, setTextAnswer] = useState('');
   const [sliderValue, setSliderValue] = useState(null); // null = 아직 초기화 전(렌더는 sliderShown으로 폴백)
 
@@ -60,7 +55,7 @@ export default function QuestionCard({ question, disabled, onSubmit, answerResul
 
   if (!question) return null;
 
-  const conceptLabel = CONCEPT_LABEL[question.concept_tag] ?? question.concept_tag;
+  const conceptLabel = conceptLabelOf(t, question.concept_tag);
   const isBoard = question.question_type === 'board';
 
   return (
@@ -111,7 +106,7 @@ export default function QuestionCard({ question, disabled, onSubmit, answerResul
             value={textAnswer}
             disabled={disabled}
             onChange={(e) => setTextAnswer(e.target.value)}
-            placeholder={question.question_type === 'cloze' ? '빈칸에 들어갈 말을 입력하세요' : '답을 입력하세요'}
+            placeholder={question.question_type === 'cloze' ? t('quiz.clozePlaceholder') : t('quiz.answerPlaceholder')}
             className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
           />
           <button
@@ -119,7 +114,7 @@ export default function QuestionCard({ question, disabled, onSubmit, answerResul
             disabled={disabled || !textAnswer.trim()}
             className="shrink-0 rounded-xl bg-sky-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            제출
+            {t('quiz.submit')}
           </button>
         </form>
       )}
@@ -151,7 +146,7 @@ export default function QuestionCard({ question, disabled, onSubmit, answerResul
             onClick={() => onSubmit(sliderShown)}
             className="mt-4 w-full rounded-xl bg-sky-600 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            이 값으로 제출
+            {t('quiz.sliderSubmit')}
           </button>
         </div>
       )}
@@ -190,6 +185,7 @@ export default function QuestionCard({ question, disabled, onSubmit, answerResul
 const MATCH_ROW = 'min-h-[3.75rem]';
 
 function MatchQuestion({ question, disabled, onSubmit }) {
+  const t = useT();
   const pairs = question.pairs ?? question.template_json?.pairs ?? [];
   const lefts = useMemo(() => pairs.map((p) => p.left), [pairs]);
   const rights = useMemo(() => shuffle(pairs.map((p) => p.right), question.quiz_id), [pairs, question.quiz_id]);
@@ -241,10 +237,7 @@ function MatchQuestion({ question, disabled, onSubmit }) {
 
   return (
     <div>
-      <p className="mb-2 text-xs text-slate-500">
-        왼쪽 항목을 누른 뒤 짝이 되는 오른쪽 항목을 누르세요. 연결된 왼쪽 항목을 다시 누르면 해제돼요
-        — 목록의 자리는 바뀌지 않아요.
-      </p>
+      <p className="mb-2 text-xs text-slate-500">{t('quiz.match.help')}</p>
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">
           {lefts.map((l) => (
@@ -267,7 +260,7 @@ function MatchQuestion({ question, disabled, onSubmit }) {
               {/* 연결 표시 줄은 **항상** 자리를 차지한다 — 짝 성립으로 높이가 변해
                   아래 항목이 밀리는 재배열을 원천 차단(§3.5 마감 1). */}
               <span className="mt-0.5 block text-xs font-normal opacity-80">
-                {mapping[l] ? `→ ${mapping[l]} · 다시 눌러 해제` : ' '}
+                {mapping[l] ? t('quiz.match.assigned', { right: mapping[l] }) : ' '}
               </span>
             </button>
           ))}
@@ -290,7 +283,7 @@ function MatchQuestion({ question, disabled, onSubmit }) {
               >
                 <span>{r}</span>
                 <span className="mt-0.5 block text-xs font-normal opacity-80">
-                  {usedBy ? `↔ ${usedBy}` : ' '}
+                  {usedBy ? t('quiz.match.reverse', { left: usedBy }) : ' '}
                 </span>
               </button>
             );
@@ -303,7 +296,7 @@ function MatchQuestion({ question, disabled, onSubmit }) {
         onClick={submit}
         className="mt-4 w-full rounded-xl bg-sky-600 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        제출
+        {t('quiz.submit')}
       </button>
     </div>
   );
@@ -311,6 +304,7 @@ function MatchQuestion({ question, disabled, onSubmit }) {
 
 // ── ordering: 순서 정렬 (§3.6 — 제출 "0,2,1,3" 원본 인덱스 순열) ──────────────
 function OrderingQuestion({ question, disabled, onSubmit }) {
+  const t = useT();
   const items = question.items ?? question.template_json?.items ?? [];
   const shuffled = question.shuffled ?? question.template_json?.shuffled ?? false;
 
@@ -334,7 +328,7 @@ function OrderingQuestion({ question, disabled, onSubmit }) {
 
   return (
     <div>
-      <p className="mb-2 text-xs text-slate-500">위/아래 버튼으로 올바른 순서로 정렬한 뒤 제출하세요.</p>
+      <p className="mb-2 text-xs text-slate-500">{t('quiz.ordering.help')}</p>
       <div className="flex flex-col gap-2">
         {order.map((item, i) => (
           <div key={item.idx} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
@@ -347,7 +341,7 @@ function OrderingQuestion({ question, disabled, onSubmit }) {
                 type="button"
                 disabled={disabled || i === 0}
                 onClick={() => move(i, i - 1)}
-                aria-label="위로"
+                aria-label={t('quiz.ordering.up')}
                 className="rounded bg-white px-2 text-xs font-bold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100 disabled:opacity-30"
               >
                 ▲
@@ -356,7 +350,7 @@ function OrderingQuestion({ question, disabled, onSubmit }) {
                 type="button"
                 disabled={disabled || i === order.length - 1}
                 onClick={() => move(i, i + 1)}
-                aria-label="아래로"
+                aria-label={t('quiz.ordering.down')}
                 className="rounded bg-white px-2 text-xs font-bold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100 disabled:opacity-30"
               >
                 ▼
@@ -371,7 +365,7 @@ function OrderingQuestion({ question, disabled, onSubmit }) {
         onClick={() => onSubmit(order.map((o) => o.idx).join(','))}
         className="mt-4 w-full rounded-xl bg-sky-600 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        제출
+        {t('quiz.submit')}
       </button>
     </div>
   );

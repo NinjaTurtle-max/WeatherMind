@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { curriculumApi } from '../../api';
+import { useT } from '../../i18n';
 
 /**
  * CourseSwitcher (R11-01 §6.2 — "코스 선택") — 학습 홈 상단 코스 탭.
@@ -31,12 +32,14 @@ export function useCourses() {
 
 export default function CourseSwitcher({ selected, onSelect }) {
   const courses = useCourses();
+  const t = useT();
   if (courses.length < 2) return null; // 단일 코스 = 선택할 것이 없다(현행 화면 유지)
 
+  // 코스 제목·설명은 서버 시드(courses.json) 파생 — 외부화 대상 아님(§6.3).
   const titleBySlug = Object.fromEntries(courses.map((c) => [c.id, c.title]));
 
   return (
-    <div role="tablist" aria-label="코스 선택" className="mb-4 flex flex-wrap gap-2">
+    <div role="tablist" aria-label={t('curriculum.switcher.aria')} className="mb-4 flex flex-wrap gap-2">
       {courses.map((course) => {
         const active = course.id === selected;
         const prereqTitle = course.prereq_course_id
@@ -51,7 +54,7 @@ export default function CourseSwitcher({ selected, onSelect }) {
             onClick={() => onSelect(course.id)}
             title={
               prereqTitle
-                ? `선행 학습(권장): ${prereqTitle} — 권장일 뿐 잠기지 않아요`
+                ? t('curriculum.switcher.prereqTitle', { title: prereqTitle })
                 : course.description ?? course.title
             }
             className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition ${
@@ -67,7 +70,7 @@ export default function CourseSwitcher({ selected, onSelect }) {
                   active ? 'bg-sky-500 text-sky-50' : 'bg-indigo-50 text-indigo-500'
                 }`}
               >
-                선행 학습(권장)
+                {t('curriculum.switcher.prereqChip')}
               </span>
             )}
           </button>

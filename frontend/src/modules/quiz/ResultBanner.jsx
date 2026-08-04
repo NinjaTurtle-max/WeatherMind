@@ -15,7 +15,9 @@
  * 분해 필드가 없는 응답(구 백엔드·목)에서는 보너스 줄을 표기하지 않는다 —
  * 추정하지 않는다.
  */
+import { useT } from '../../i18n';
 export default function ResultBanner({ result }) {
+  const t = useT();
   if (!result) return null;
   const {
     is_correct,
@@ -37,16 +39,17 @@ export default function ResultBanner({ result }) {
     >
       <div>
         <p className="text-base font-extrabold">
-          {is_correct ? '정답이에요! 🎉' : '아쉬워요 😢'}
+          {is_correct ? t('quiz.result.correct') : t('quiz.result.wrong')}
         </p>
         {!is_correct && correct_answer != null && (
           <p className="mt-0.5 text-sm text-white/90">
-            정답: <span className="font-bold">{String(correct_answer)}</span>
+            {t('quiz.result.answerPrefix')}
+            <span className="font-bold">{String(correct_answer)}</span>
           </p>
         )}
         {cloudsSpent > 0 && (
           <p className="mt-0.5 text-xs font-bold text-white/90">
-            ☁️ 구름 −{cloudsSpent} · 구름은 틀린 문항에만 줄어들어요
+            {t('quiz.result.clouds', { count: cloudsSpent })}
           </p>
         )}
       </div>
@@ -57,7 +60,7 @@ export default function ResultBanner({ result }) {
           </span>
           {/* 약점 극복 보너스 분리 표기 — 서버 xp_weak_bonus 그대로 */}
           {bonusXp > 0 && (
-            <span className="mt-1 block text-xs font-bold text-white/90">약점 극복 +{bonusXp}</span>
+            <span className="mt-1 block text-xs font-bold text-white/90">{t('quiz.result.weakBonus', { xp: bonusXp })}</span>
           )}
         </span>
       )}

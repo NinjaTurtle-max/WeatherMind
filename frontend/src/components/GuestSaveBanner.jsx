@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { progressApi } from '../api';
 import { useAuthStore } from '../store/authStore';
 import { isGuestUser } from '../modules/auth/guest';
+import { useT } from '../i18n';
 
 /**
  * 게스트 진도 저장 배너 (R11-01 웨이브 2 §6.2 — R10-J "투자 후 계정 유도")
@@ -19,6 +20,7 @@ import { isGuestUser } from '../modules/auth/guest';
 export default function GuestSaveBanner() {
   const user = useAuthStore((s) => s.user);
   const guest = isGuestUser(user);
+  const t = useT();
 
   const { data: me } = useQuery({
     queryKey: ['progress', 'me'],
@@ -35,21 +37,19 @@ export default function GuestSaveBanner() {
     <Link
       to="/account/convert"
       className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-sky-50 to-indigo-50 p-4 ring-1 ring-sky-200 transition hover:ring-sky-300"
-      aria-label="게스트 진도 저장 — 30초 가입으로 계정 전환"
+      aria-label={t('guestBanner.aria')}
     >
       <div className="flex items-center gap-3">
         <span className="text-2xl" aria-hidden="true">
           💾
         </span>
         <div>
-          <p className="text-sm font-bold text-slate-900">진도가 쌓였어요 — 30초 가입으로 저장</p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            게스트 진도는 이 기기에만 있어요. 계정을 만들면 XP·스트릭이 그대로 옮겨져요.
-          </p>
+          <p className="text-sm font-bold text-slate-900">{t('guestBanner.title')}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{t('guestBanner.body')}</p>
         </div>
       </div>
       <span className="shrink-0 rounded-xl bg-sky-600 px-3 py-2 text-xs font-bold text-white">
-        저장하기
+        {t('guestBanner.cta')}
       </span>
     </Link>
   );

@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { CHART_COLORS, SKY_META, PTY_META, fmtHour, fmtMonthDay } from './briefingDisplay';
+import { useT } from '../../i18n';
 
 /**
  * BriefingRoom (R9-01 §3.4) — 예보 브리핑 차트 묶음.
@@ -28,11 +29,12 @@ import { CHART_COLORS, SKY_META, PTY_META, fmtHour, fmtMonthDay } from './briefi
  * 기온·POP·하늘 타임라인만 그린다.
  */
 export default function BriefingRoom({ briefing, loading = false, error = false, compact = false }) {
+  const t = useT();
   if (loading) {
     return (
       <Card>
         <BriefingHeader briefing={null} />
-        <LoadingSpinner label="브리핑 자료를 불러오는 중..." />
+        <LoadingSpinner label={t('briefing.loading')} />
       </Card>
     );
   }
@@ -41,7 +43,7 @@ export default function BriefingRoom({ briefing, loading = false, error = false,
     return (
       <Card>
         <BriefingHeader briefing={null} />
-        <WaitingNotice text="브리핑 자료를 불러오지 못했어요. 자료 없이도 예측 제출은 가능해요." />
+        <WaitingNotice text={t('briefing.loadError')} />
       </Card>
     );
   }
@@ -54,12 +56,12 @@ export default function BriefingRoom({ briefing, loading = false, error = false,
     return (
       <Card>
         <BriefingHeader briefing={briefing} />
-        <WaitingNotice text="실황 자료 수신 대기 중이에요. 기상 자료가 도착하면 차트가 열려요 — 예측 제출은 지금도 가능해요." />
+        <WaitingNotice text={t('briefing.waitingBody')} />
       </Card>
     );
   }
 
-  const rows = hourly.map((h) => ({ ...h, hour: fmtHour(h.datetime) }));
+  const rows = hourly.map((h) => ({ ...h, hour: fmtHour(h.datetime, t) }));
   const temps = rows.map((r) => r.tmp).filter((v) => typeof v === 'number');
   const tmx = temps.length ? Math.max(...temps) : null;
   const tmn = temps.length ? Math.min(...temps) : null;
@@ -68,28 +70,30 @@ export default function BriefingRoom({ briefing, loading = false, error = false,
     <Card>
       <BriefingHeader briefing={briefing} />
 
-      <SectionTitle color={CHART_COLORS.temp} title="시간별 기온" unit="℃" />
+      <SectionTitle color={CHART_COLORS.temp} title={t('briefing.tempTitle')} unit="℃" />
       <TempChart rows={rows} tmx={tmx} tmn={tmn} />
 
-      <SectionTitle color={CHART_COLORS.pop} title="강수확률" unit="%" />
+      <SectionTitle color={CHART_COLORS.pop} title={t('briefing.popTitle')} unit="%" />
       <PopChart rows={rows} />
       <p className="mb-1 mt-0.5 text-[11px] text-slate-500">
-        <ColorChip color={CHART_COLORS.pop} /> 막대: 강수확률(%) ·{' '}
-        <ColorChip color={CHART_COLORS.rain} /> 막대 위 숫자: 예상 강수량(㎜)
+        <ColorChip color={CHART_COLORS.pop} />
+        {t('briefing.popLegend1')}{' '}
+        <ColorChip color={CHART_COLORS.rain} />
+        {t('briefing.popLegend2')}
       </p>
 
-      <SectionTitle title="하늘 상태 · 강수 형태" />
+      <SectionTitle title={t('briefing.skyTitle')} />
       <SkyTimeline rows={rows} />
 
       {!compact && (
         <>
-          <SectionTitle title="보조 지표" />
+          <SectionTitle title={t('briefing.auxTitle')} />
           <div className="grid grid-cols-2 gap-2">
             <MiniLineChart
               rows={rows}
               dataKey="reh"
               color={CHART_COLORS.pop}
-              title="습도(%)"
+              title={t('briefing.humidity')}
               unit="%"
               domain={[0, 100]}
             />
@@ -97,7 +101,7 @@ export default function BriefingRoom({ briefing, loading = false, error = false,
               rows={rows}
               dataKey="wsd"
               color={CHART_COLORS.wind}
-              title="풍속(m/s)"
+              title={t('briefing.wind')}
               unit="m/s"
               domain={[0, (dataMax) => Math.ceil(dataMax + 1)]}
             />
@@ -105,18 +109,21 @@ export default function BriefingRoom({ briefing, loading = false, error = false,
 
           {briefing.today_observed ? (
             <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200">
-              📡 오늘 실측 — 최고 {briefing.today_observed.max_ta}℃ · 최저{' '}
-              {briefing.today_observed.min_ta}℃ · 강수 {briefing.today_observed.sum_rn}㎜
+              {t('briefing.observed', {
+                max: briefing.today_observed.max_ta,
+                min: briefing.today_observed.min_ta,
+                rain: briefing.today_observed.sum_rn,
+              })}
             </p>
           ) : (
             <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-400 ring-1 ring-slate-200">
-              📡 오늘 실측 자료는 수신 대기 중이에요.
+              {t('briefing.observedWaiting')}
             </p>
           )}
 
           {recentDays.length > 0 && (
             <>
-              <SectionTitle title="최근 7일 실측 추이" />
+              <SectionTitle title={t('briefing.recentTitle')} />
               <RecentDaysCharts recentDays={recentDays} />
             </>
           )}
@@ -133,11 +140,12 @@ function Card({ children }) {
 }
 
 function BriefingHeader({ briefing }) {
+  const t = useT();
   return (
     <div className="mb-2 flex items-baseline justify-between">
-      <h2 className="text-base font-extrabold text-slate-900">📊 예보 브리핑</h2>
+      <h2 className="text-base font-extrabold text-slate-900">{t('briefing.title')}</h2>
       <span className="text-xs text-slate-500">
-        {briefing?.region ?? '서울'}
+        {briefing?.region ?? t('briefing.regionDefault')}
         {briefing?.target_date ? ` · ${briefing.target_date}` : ''}
       </span>
     </div>
@@ -145,23 +153,25 @@ function BriefingHeader({ briefing }) {
 }
 
 function WaitingNotice({ text }) {
+  const t = useT();
   return (
     <div className="rounded-xl bg-slate-50 p-4 text-center ring-1 ring-slate-200">
       <p className="text-2xl" aria-hidden="true">
         📡
       </p>
-      <p className="mt-1 text-sm font-bold text-slate-600">실황 자료 수신 대기</p>
+      <p className="mt-1 text-sm font-bold text-slate-600">{t('briefing.waitingTitle')}</p>
       <p className="mt-1 text-xs leading-relaxed text-slate-500">{text}</p>
     </div>
   );
 }
 
 function SectionTitle({ color, title, unit }) {
+  const t = useT();
   return (
     <p className="mb-1 mt-3 flex items-center gap-1.5 text-xs font-bold text-slate-700">
       {color && <ColorChip color={color} />}
       {title}
-      {unit && <span className="font-medium text-slate-400">단위 {unit}</span>}
+      {unit && <span className="font-medium text-slate-400">{t('briefing.unit', { unit })}</span>}
     </p>
   );
 }
@@ -196,6 +206,7 @@ const AXIS_TICK = { fontSize: 11, fill: CHART_COLORS.tick };
 
 /** ① 시간별 기온 라인 + TMX/TMN 기준선 */
 function TempChart({ rows, tmx, tmn }) {
+  const t = useT();
   const domain = [
     tmn != null ? Math.floor(tmn) - 2 : 'auto',
     tmx != null ? Math.ceil(tmx) + 2 : 'auto',
@@ -208,14 +219,14 @@ function TempChart({ rows, tmx, tmn }) {
           <XAxis dataKey="hour" tick={AXIS_TICK} tickLine={false} axisLine={{ stroke: CHART_COLORS.grid }} />
           <YAxis domain={domain} tick={AXIS_TICK} tickLine={false} axisLine={false} />
           <Tooltip
-            content={<ChartTooltip lines={(r) => [`기온 ${r.tmp}℃ · 습도 ${r.reh}%`]} />}
+            content={<ChartTooltip lines={(r) => [t('briefing.tipTempHum', { tmp: r.tmp, reh: r.reh })]} />}
           />
           {tmx != null && (
             <ReferenceLine
               y={tmx}
               stroke={CHART_COLORS.reference}
               strokeDasharray="4 3"
-              label={{ value: `최고 ${tmx}℃`, position: 'insideTopRight', fontSize: 10, fill: CHART_COLORS.tick }}
+              label={{ value: t('briefing.refMax', { v: tmx }), position: 'insideTopRight', fontSize: 10, fill: CHART_COLORS.tick }}
             />
           )}
           {tmn != null && (
@@ -223,7 +234,7 @@ function TempChart({ rows, tmx, tmn }) {
               y={tmn}
               stroke={CHART_COLORS.reference}
               strokeDasharray="4 3"
-              label={{ value: `최저 ${tmn}℃`, position: 'insideBottomRight', fontSize: 10, fill: CHART_COLORS.tick }}
+              label={{ value: t('briefing.refMin', { v: tmn }), position: 'insideBottomRight', fontSize: 10, fill: CHART_COLORS.tick }}
             />
           )}
           <Line
@@ -258,6 +269,7 @@ function PcpLabel({ x, y, width, value }) {
 
 /** ② 강수확률 바(0~100 고정) + 예상 강수량 라벨 */
 function PopChart({ rows }) {
+  const t = useT();
   return (
     <div style={{ width: '100%', height: 150 }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -270,8 +282,8 @@ function PopChart({ rows }) {
             content={
               <ChartTooltip
                 lines={(r) => [
-                  `강수확률 ${r.pop}%`,
-                  r.pcp > 0 ? `예상 강수량 ${r.pcp}㎜` : '예상 강수량 없음',
+                  t('briefing.tipPop', { pop: r.pop }),
+                  r.pcp > 0 ? t('briefing.tipPcp', { pcp: r.pcp }) : t('briefing.tipNoPcp'),
                 ]}
               />
             }
@@ -287,11 +299,13 @@ function PopChart({ rows }) {
 
 /** ③ SKY/PTY 아이콘 타임라인 — 아이콘+텍스트 병기(색약·이모지 톤 무관 판독) */
 function SkyTimeline({ rows }) {
+  const t = useT();
   return (
     <ul className="flex gap-1 overflow-x-auto pb-1">
       {rows.map((r) => {
-        const sky = SKY_META[r.sky] ?? { label: '-', icon: '❔' };
+        const sky = SKY_META[r.sky] ?? { labelKey: null, icon: '❔' };
         const pty = PTY_META[r.pty] ?? null;
+        const labelKey = pty ? pty.labelKey : sky.labelKey;
         return (
           <li
             key={r.datetime}
@@ -302,7 +316,7 @@ function SkyTimeline({ rows }) {
               {pty ? pty.icon : sky.icon}
             </span>
             <span className="text-[10px] font-medium text-slate-600">
-              {pty ? pty.label : sky.label}
+              {labelKey ? t(labelKey) : '-'}
             </span>
           </li>
         );
@@ -340,6 +354,7 @@ function MiniLineChart({ rows, dataKey, color, title, unit, domain }) {
 
 /** ⑤ 최근 7일 실측 — 기온 라인·강수량 바(0 기준) 미니 차트 2장(이중 축 금지) */
 function RecentDaysCharts({ recentDays }) {
+  const t = useT();
   // 서버는 어제부터 역순(≤7) — 차트는 시간 순으로 뒤집어 그린다
   const rows = [...recentDays]
     .reverse()
@@ -352,7 +367,7 @@ function RecentDaysCharts({ recentDays }) {
     <div className="grid grid-cols-2 gap-2">
       <div className="rounded-xl bg-slate-50 p-2 ring-1 ring-slate-100">
         <p className="mb-0.5 flex items-center gap-1 text-[11px] font-bold text-slate-600">
-          <ColorChip color={CHART_COLORS.temp} /> 최고기온(℃)
+          <ColorChip color={CHART_COLORS.temp} /> {t('briefing.recentTemp')}
         </p>
         <div style={{ width: '100%', height: 96 }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -365,7 +380,7 @@ function RecentDaysCharts({ recentDays }) {
                 interval={1}
               />
               <YAxis domain={tDomain} tick={{ fontSize: 9, fill: CHART_COLORS.tick }} tickLine={false} axisLine={false} />
-              <Tooltip content={<ChartTooltip lines={(r) => [`최고기온 ${r.max_ta}℃`]} />} />
+              <Tooltip content={<ChartTooltip lines={(r) => [t('briefing.tipMaxTemp', { v: r.max_ta })]} />} />
               <Line
                 dataKey="max_ta"
                 stroke={CHART_COLORS.temp}
@@ -379,7 +394,7 @@ function RecentDaysCharts({ recentDays }) {
       </div>
       <div className="rounded-xl bg-slate-50 p-2 ring-1 ring-slate-100">
         <p className="mb-0.5 flex items-center gap-1 text-[11px] font-bold text-slate-600">
-          <ColorChip color={CHART_COLORS.rain} /> 일강수량(㎜)
+          <ColorChip color={CHART_COLORS.rain} /> {t('briefing.recentRain')}
         </p>
         <div style={{ width: '100%', height: 96 }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -399,7 +414,7 @@ function RecentDaysCharts({ recentDays }) {
               />
               <Tooltip
                 cursor={{ fill: '#f1f5f9' }}
-                content={<ChartTooltip lines={(r) => [`일강수량 ${r.sum_rn}㎜`]} />}
+                content={<ChartTooltip lines={(r) => [t('briefing.tipDayRain', { v: r.sum_rn })]} />}
               />
               <Bar dataKey="sum_rn" fill={CHART_COLORS.rain} radius={[3, 3, 0, 0]} isAnimationActive={false} />
             </BarChart>

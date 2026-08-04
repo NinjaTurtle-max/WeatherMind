@@ -5,6 +5,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import ForecastForm from '../../components/ForecastForm';
 import Leaderboard from './Leaderboard';
 import BriefingRoom from '../duel/BriefingRoom';
+import { useT } from '../../i18n';
 
 /**
  * LeaguePage (04번 스펙 섹션 4 — 축소판)
@@ -19,6 +20,7 @@ import BriefingRoom from '../duel/BriefingRoom';
  */
 export default function LeaguePage() {
   const queryClient = useQueryClient();
+  const t = useT();
   const [submitError, setSubmitError] = useState(null);
 
   const currentQ = useQuery({
@@ -53,23 +55,23 @@ export default function LeaguePage() {
       setSubmitError(null);
       queryClient.invalidateQueries({ queryKey: ['league'] });
     },
-    onError: (err) => setSubmitError(err.detail ?? '예측 제출에 실패했어요.'),
+    onError: (err) => setSubmitError(err.detail ?? t('league.submitFailed')),
   });
 
-  if (currentQ.isLoading) return <LoadingSpinner label="이번 주 리그 정보를 불러오는 중..." />;
+  if (currentQ.isLoading) return <LoadingSpinner label={t('league.loading')} />;
 
   if (currentQ.isError) {
     return (
       <div className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
         <p className="text-3xl">🌪️</p>
-        <p className="mt-2 font-bold text-slate-800">리그 정보를 불러오지 못했어요</p>
+        <p className="mt-2 font-bold text-slate-800">{t('league.loadFailed')}</p>
         <p className="mt-1 text-sm text-slate-500">{currentQ.error?.detail}</p>
         <button
           type="button"
           onClick={() => currentQ.refetch()}
           className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
         >
-          다시 시도
+          {t('common.retry')}
         </button>
       </div>
     );
@@ -83,10 +85,11 @@ export default function LeaguePage() {
 
   return (
     <div className="pt-2">
-      <h1 className="mb-1 text-lg font-extrabold text-slate-900">기상 리그</h1>
+      <h1 className="mb-1 text-lg font-extrabold text-slate-900">{t('league.title')}</h1>
       <p className="mb-4 text-sm text-slate-500">
-        {current.week_start ? `${current.week_start} 주` : '이번 주'} ·{' '}
-        {current.region ?? '전국'} 날씨 예측 대결
+        {current.week_start ? t('league.week', { week: current.week_start }) : t('league.thisWeek')} ·{' '}
+        {current.region ?? t('league.regionDefault')}
+        {t('league.subtitleTail')}
       </p>
 
       {/* 참고자료: mid_forecast raw JSON → 브리핑 카드 재사용 (R9-01 §3.1) */}
@@ -101,23 +104,21 @@ export default function LeaguePage() {
 
       {alreadySubmitted ? (
         <div className="mb-4 rounded-2xl bg-emerald-50 p-4 text-center ring-1 ring-emerald-200">
-          <p className="font-bold text-emerald-700">이번 주 예측 제출 완료! ✅</p>
-          <p className="mt-1 text-xs text-emerald-600">
-            주간 정산 후 실제 날씨와 비교해 ELO가 반영돼요.
-          </p>
+          <p className="font-bold text-emerald-700">{t('league.submittedTitle')}</p>
+          <p className="mt-1 text-xs text-emerald-600">{t('league.submittedBody')}</p>
         </div>
       ) : (
         <div className="mb-4">
           <ForecastForm
-            title="이번 주 날씨를 예측해보세요"
+            title={t('league.formTitle')}
             fields={[
-              { name: 'temp_max', label: '최고기온(°C)', step: '0.1' },
-              { name: 'temp_min', label: '최저기온(°C)', step: '0.1' },
-              { name: 'rain_prob', label: '강수확률(%)', min: '0', max: '100' },
+              { name: 'temp_max', label: t('league.tempMax'), step: '0.1' },
+              { name: 'temp_min', label: t('league.tempMin'), step: '0.1' },
+              { name: 'rain_prob', label: t('league.rainProb'), min: '0', max: '100' },
             ]}
-            submitLabel="예측 제출 (주 1회)"
+            submitLabel={t('league.submit')}
             validate={(v) =>
-              v.temp_min > v.temp_max ? '최저기온이 최고기온보다 높을 수 없어요.' : null
+              v.temp_min > v.temp_max ? t('league.minOverMax') : null
             }
             onSubmit={(values) => predictMutation.mutate(values)}
             submitting={predictMutation.isPending}
@@ -130,16 +131,16 @@ export default function LeaguePage() {
         </div>
       )}
 
-      <h2 className="mb-2 text-base font-extrabold text-slate-900">리더보드</h2>
+      <h2 className="mb-2 text-base font-extrabold text-slate-900">{t('league.leaderboard')}</h2>
       {leaderboardQ.isLoading ? (
-        <LoadingSpinner label="순위표 불러오는 중..." />
+        <LoadingSpinner label={t('league.leaderboardLoading')} />
       ) : (
         <Leaderboard ranks={Array.isArray(leaderboardQ.data) ? leaderboardQ.data : []} />
       )}
 
       {myResults.length > 0 && (
         <>
-          <h2 className="mb-2 mt-6 text-base font-extrabold text-slate-900">내 리그 이력</h2>
+          <h2 className="mb-2 mt-6 text-base font-extrabold text-slate-900">{t('league.myHistory')}</h2>
           <ul className="flex flex-col gap-2">
             {myResults.map((r, i) => (
               <li
@@ -148,7 +149,9 @@ export default function LeaguePage() {
               >
                 <span className="font-medium text-slate-700">{r.week_start ?? '-'}</span>
                 <span className="text-slate-500">
-                  정확도 {r.accuracy_score != null ? `${r.accuracy_score}점` : '집계 중'}
+                  {r.accuracy_score != null
+                    ? t('league.accuracy', { score: r.accuracy_score })
+                    : t('league.accuracyPending')}
                 </span>
                 <span className="font-bold text-sky-700">
                   ELO {r.elo_rating_after ?? '-'}

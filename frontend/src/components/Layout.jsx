@@ -5,7 +5,9 @@ import XPBar from './XPBar';
 import SpineBadge from './SpineBadge';
 import StreakBadge from './StreakBadge';
 import CloudEnergyBadge from './CloudEnergyBadge';
+import LocaleSwitcher from './LocaleSwitcher';
 import TabBar from './TabBar';
+import { useT } from '../i18n';
 import { authApi, progressApi } from '../api';
 import { useAuthStore } from '../store/authStore';
 import { useProgressStore } from '../store/progressStore';
@@ -27,6 +29,7 @@ import { useOnboardingGate } from '../lib/onboardingGate';
  */
 export default function Layout() {
   const navigate = useNavigate();
+  const t = useT();
   // 학습 홈(/)만 데스크톱에서 넓은 컨테이너를 쓴다(PC 경로 뷰가 가로를 넓게 씀).
   // 페이지 쪽에서 100vw 음수 마진으로 컨테이너를 탈출하면 스크롤바 폭만큼
   // (100vw > clientWidth) 가로 스크롤이 생기므로, 폭은 레이아웃이 소유한다.
@@ -102,7 +105,7 @@ export default function Layout() {
           {/* 로고 탭 → 학습 홈(/) — SpineBadge와 동일 목적지 */}
           <Link
             to="/"
-            title="학습 홈으로"
+            title={t('nav.homeTitle')}
             className="shrink-0 rounded-lg text-base font-extrabold tracking-tight text-white transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
           >
             <span aria-hidden="true">⛅</span>
@@ -113,12 +116,15 @@ export default function Layout() {
           <XPBar />
           <CloudEnergyBadge />
           <StreakBadge />
+          {/* 로케일 전환(§6.3) — header 안·nav 밖(gating 스모크의 `nav a, nav button`
+              5개 단정 보존). compact = 버튼 1개 아이콘화로 R10 헤더 겹침 재발 방지. */}
+          <LocaleSwitcher compact />
           <button
             type="button"
             onClick={handleLogout}
             className="shrink-0 text-xs font-medium text-sky-200 hover:text-white"
           >
-            로그아웃
+            {t('nav.logout')}
           </button>
         </div>
       </header>

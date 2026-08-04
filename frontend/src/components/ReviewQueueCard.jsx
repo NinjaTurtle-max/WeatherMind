@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import client from '../api/client';
 import { CONCEPT_KO } from '../lib/abilityDisplay';
+import { useT } from '../i18n';
 
 /**
  * ReviewQueueCard (R11-01 §6.2) — 간격반복 복습 큐 카드. props 없는 자급 컴포넌트
@@ -19,6 +20,7 @@ import { CONCEPT_KO } from '../lib/abilityDisplay';
  * 학습자에게 소음이다. 보여주는 것은 "무엇을(개념명) 지금 복습할 때"뿐.
  */
 export default function ReviewQueueCard() {
+  const t = useT();
   const { data } = useQuery({
     queryKey: ['progress', 'review-queue'],
     queryFn: async () => (await client.get('/progress/review-queue')).data,
@@ -40,14 +42,12 @@ export default function ReviewQueueCard() {
         <span aria-hidden="true" className="text-xl">
           🔁
         </span>
-        <p className="font-extrabold text-slate-800">복습할 때가 됐어요</p>
+        <p className="font-extrabold text-slate-800">{t('reviewQueue.title')}</p>
         <span className="ml-auto rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-700 tabular-nums">
-          {due.length}개
+          {t('reviewQueue.count', { count: due.length })}
         </span>
       </div>
-      <p className="mt-1 text-xs text-slate-500">
-        배운 지 시간이 지난 개념이에요 — 잊기 전에 한 번 더 보면 오래 남아요.
-      </p>
+      <p className="mt-1 text-xs text-slate-500">{t('reviewQueue.body')}</p>
       <ul className="mt-3 flex flex-wrap gap-2">
         {top.map((item) => (
           <li
@@ -65,7 +65,7 @@ export default function ReviewQueueCard() {
         to="/daily"
         className="mt-3 inline-block rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-700"
       >
-        복습하러 가기 →
+        {t('reviewQueue.cta')}
       </Link>
     </div>
   );

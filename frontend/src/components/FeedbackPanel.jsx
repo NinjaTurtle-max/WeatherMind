@@ -1,9 +1,13 @@
+import { useT } from '../i18n';
+
 /**
  * FeedbackPanel (04번 스펙) — RAG 피드백 표시용 슬라이드업 패널.
  * 세션 경로 공용 — props로 message, isCorrect를 받는다.
  * 채점 순간에 튜터 캐릭터(썬더)가 정오답에 맞춰 반응한다.
+ * message 본문은 서버(RAG) 파생 — 외부화 대상 아님(§6.3 시드/서버 데이터 제외).
  */
 export default function FeedbackPanel({ message, isCorrect }) {
+  const t = useT();
   if (!message) return null;
 
   const tone = isCorrect
@@ -26,7 +30,7 @@ export default function FeedbackPanel({ message, isCorrect }) {
           />
           <div className="min-w-0 flex-1">
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${tone.badge}`}>
-              AI 피드백
+              {t('feedback.ai')}
             </span>
             <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-700">
               {message}

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import client from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { isGuestUser } from './guest';
+import { useT } from '../../i18n';
 
 /**
  * 게스트 → 정식 계정 전환 페이지 (R11-01 웨이브 2 §6.2 — R10-J "투자 후 계정 유도")
@@ -18,6 +19,7 @@ import { isGuestUser } from './guest';
  */
 export default function ConvertAccountPage() {
   const navigate = useNavigate();
+  const t = useT();
   const user = useAuthStore((s) => s.user);
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
@@ -50,14 +52,11 @@ export default function ConvertAccountPage() {
     } catch (err) {
       if (err.code === 'NOT_GUEST') {
         // 다른 탭·기기에서 이미 전환된 뒤의 재시도 등 — 진도는 이미 안전하다.
-        setErrorMsg('이미 정식 계정이에요 — 진도는 계정에 안전하게 저장되고 있어요.');
+        setErrorMsg(t('auth.convert.errNotGuest'));
       } else if (err.code === 'EMAIL_ALREADY_EXISTS') {
-        setErrorMsg(
-          '이미 가입된 이메일이에요. 다른 이메일을 입력하거나, 그 계정으로 로그인해 주세요. ' +
-            '(로그인하면 지금 게스트 진도는 이 기기에 남지 않아요)',
-        );
+        setErrorMsg(t('auth.convert.errEmailExists'));
       } else {
-        setErrorMsg(err.detail ?? '계정 만들기에 실패했어요. 잠시 후 다시 시도해 주세요.');
+        setErrorMsg(err.detail ?? t('auth.convert.errGeneric'));
       }
     } finally {
       setSubmitting(false);
@@ -71,16 +70,14 @@ export default function ConvertAccountPage() {
     return (
       <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6 py-10 text-center">
         <p className="text-5xl">✅</p>
-        <h1 className="mt-3 text-xl font-extrabold text-slate-900">이미 정식 계정이에요</h1>
-        <p className="mt-2 text-sm text-slate-500">
-          학습 진도는 계정에 자동으로 저장되고 있어요.
-        </p>
+        <h1 className="mt-3 text-xl font-extrabold text-slate-900">{t('auth.convert.alreadyTitle')}</h1>
+        <p className="mt-2 text-sm text-slate-500">{t('auth.convert.alreadyBody')}</p>
         <Link
           to="/"
           replace
           className="mx-auto mt-6 rounded-xl bg-sky-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-sky-700"
         >
-          학습 홈으로
+          {t('auth.convert.goHome')}
         </Link>
       </div>
     );
@@ -90,11 +87,13 @@ export default function ConvertAccountPage() {
     <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6 py-10">
       <div className="mb-6 text-center">
         <p className="text-4xl">💾</p>
-        <h1 className="mt-2 text-2xl font-extrabold text-slate-900">30초 가입으로 진도 저장</h1>
+        <h1 className="mt-2 text-2xl font-extrabold text-slate-900">{t('auth.convert.title')}</h1>
         <p className="mt-2 text-sm text-slate-500">
-          지금까지 쌓은 XP·스트릭·실력 진단이 <b>그대로</b> 내 계정이 돼요.
+          {t('auth.convert.bodySeg1')}
+          <b>{t('auth.convert.bodyStrong')}</b>
+          {t('auth.convert.bodySeg2')}
           <br />
-          어느 기기에서든 이어서 학습할 수 있어요.
+          {t('auth.convert.bodyLine2')}
         </p>
       </div>
 
@@ -103,7 +102,7 @@ export default function ConvertAccountPage() {
         className="flex flex-col gap-3 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
       >
         <label className="text-sm font-semibold text-slate-700">
-          이메일
+          {t('auth.login.email')}
           <input
             type="email"
             name="email"
@@ -115,7 +114,7 @@ export default function ConvertAccountPage() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          비밀번호
+          {t('auth.login.password')}
           <input
             type="password"
             name="password"
@@ -128,7 +127,7 @@ export default function ConvertAccountPage() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          닉네임 <span className="font-normal text-slate-400">(선택 — 비우면 지금 그대로)</span>
+          {t('auth.register.nickname')} <span className="font-normal text-slate-400">{t('auth.convert.nicknameOptional')}</span>
           <input
             type="text"
             name="nickname"
@@ -148,12 +147,12 @@ export default function ConvertAccountPage() {
           disabled={submitting}
           className="mt-2 rounded-xl bg-sky-600 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:opacity-50"
         >
-          {submitting ? '진도 옮기는 중...' : '가입하고 진도 저장하기'}
+          {submitting ? t('auth.convert.submitting') : t('auth.convert.submit')}
         </button>
       </form>
 
       <Link to="/" className="mt-4 text-center text-sm text-slate-500 hover:underline">
-        나중에 할게요 — 학습 계속하기
+        {t('auth.convert.later')}
       </Link>
     </div>
   );

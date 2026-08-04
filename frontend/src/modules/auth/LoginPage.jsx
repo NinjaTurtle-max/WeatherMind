@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../../api';
 import client from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
+import { useT } from '../../i18n';
 
 /**
  * 로그인/시작 페이지 (R11-01 웨이브 2 §6.2 — R10-J 온보딩 재배치)
@@ -18,6 +19,7 @@ import { useAuthStore } from '../../store/authStore';
  */
 export default function LoginPage() {
   const navigate = useNavigate();
+  const t = useT();
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
   const setPostAuthRoute = useAuthStore((s) => s.setPostAuthRoute);
@@ -40,7 +42,7 @@ export default function LoginPage() {
       setUser({ email: form.email });
       navigate('/', { replace: true });
     } catch (err) {
-      setErrorMsg(err.detail ?? '로그인에 실패했습니다.');
+      setErrorMsg(err.detail ?? t('auth.login.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -55,10 +57,10 @@ export default function LoginPage() {
       // RedirectIfAuthed의 <Navigate>가 먼저 발화해도 같은 곳(배치고사)으로 간다.
       setPostAuthRoute('/onboarding/placement');
       setTokens({ accessToken: data.access_token, refreshToken: data.refresh_token });
-      setUser({ nickname: '게스트', is_guest: true });
+      setUser({ nickname: t('auth.login.guestNickname'), is_guest: true });
       navigate('/onboarding/placement', { replace: true });
     } catch (err) {
-      setGuestErrorMsg(err.detail ?? '시작에 실패했어요. 잠시 후 다시 시도해 주세요.');
+      setGuestErrorMsg(err.detail ?? t('auth.login.guestFailed'));
     } finally {
       setGuestSubmitting(false);
     }
@@ -69,7 +71,7 @@ export default function LoginPage() {
       <div className="mb-8 text-center">
         <p className="text-5xl">⛅</p>
         <h1 className="mt-3 text-2xl font-extrabold text-slate-900">WeatherMind</h1>
-        <p className="mt-1 text-sm text-slate-500">오늘의 날씨로 배우는 기상 · 기후 학습</p>
+        <p className="mt-1 text-sm text-slate-500">{t('auth.login.tagline')}</p>
       </div>
 
       {/* ── 주 동선: 계정 없이 즉시 체험 (R10-J) ── */}
@@ -79,12 +81,9 @@ export default function LoginPage() {
         disabled={guestSubmitting}
         className="rounded-2xl bg-sky-600 px-6 py-4 text-base font-extrabold text-white shadow-md transition hover:bg-sky-700 disabled:opacity-50"
       >
-        {guestSubmitting ? '오늘의 하늘을 여는 중...' : '⚡ 계정 없이 바로 시작하기'}
+        {guestSubmitting ? t('auth.login.guestStarting') : t('auth.login.guestCta')}
       </button>
-      <p className="mt-2 text-center text-xs text-slate-500">
-        가입 없이 실력 진단과 오늘의 세션을 바로 체험해요. 쌓인 진도는 나중에 30초 가입으로
-        저장할 수 있어요.
-      </p>
+      <p className="mt-2 text-center text-xs text-slate-500">{t('auth.login.guestNote')}</p>
       {guestErrorMsg && (
         <p className="mt-2 rounded-lg bg-orange-50 px-3 py-2 text-center text-sm text-orange-700">
           {guestErrorMsg}
@@ -94,7 +93,7 @@ export default function LoginPage() {
       {/* ── 보조 동선: 기존 계정 로그인 ── */}
       <div className="my-6 flex items-center gap-3" aria-hidden="true">
         <span className="h-px flex-1 bg-slate-200" />
-        <span className="text-xs font-medium text-slate-400">이미 계정이 있나요?</span>
+        <span className="text-xs font-medium text-slate-400">{t('auth.login.haveAccount')}</span>
         <span className="h-px flex-1 bg-slate-200" />
       </div>
 
@@ -103,7 +102,7 @@ export default function LoginPage() {
         className="flex flex-col gap-3 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
       >
         <label className="text-sm font-semibold text-slate-700">
-          이메일
+          {t('auth.login.email')}
           <input
             type="email"
             name="email"
@@ -115,7 +114,7 @@ export default function LoginPage() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          비밀번호
+          {t('auth.login.password')}
           <input
             type="password"
             name="password"
@@ -136,14 +135,14 @@ export default function LoginPage() {
           disabled={submitting}
           className="mt-1 rounded-xl bg-white py-3 text-sm font-bold text-sky-700 ring-1 ring-sky-200 transition hover:bg-sky-50 disabled:opacity-50"
         >
-          {submitting ? '로그인 중...' : '로그인'}
+          {submitting ? t('auth.login.submitting') : t('auth.login.submit')}
         </button>
       </form>
 
       <p className="mt-4 text-center text-sm text-slate-500">
-        아직 계정이 없나요?{' '}
+        {t('auth.login.noAccount')}{' '}
         <Link to="/register" className="font-bold text-sky-600 hover:underline">
-          회원가입
+          {t('auth.login.register')}
         </Link>
       </p>
     </div>

@@ -1,16 +1,18 @@
 import { useAuthStore } from '../../store/authStore';
 import TierBadge from '../../components/TierBadge';
+import { useT } from '../../i18n';
 
 /**
  * Leaderboard (04번 스펙) — 테이블, 내 순위 하이라이트
  */
 export default function Leaderboard({ ranks }) {
   const user = useAuthStore((s) => s.user);
+  const t = useT();
 
   if (!ranks || ranks.length === 0) {
     return (
       <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
-        아직 순위표가 없어요. 첫 예측의 주인공이 되어보세요!
+        {t('league.board.empty')}
       </div>
     );
   }
@@ -25,9 +27,9 @@ export default function Leaderboard({ ranks }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
-            <th className="px-4 py-2.5 font-semibold">순위</th>
-            <th className="px-4 py-2.5 font-semibold">닉네임</th>
-            <th className="px-4 py-2.5 text-right font-semibold">정확도</th>
+            <th className="px-4 py-2.5 font-semibold">{t('league.board.rank')}</th>
+            <th className="px-4 py-2.5 font-semibold">{t('league.board.nickname')}</th>
+            <th className="px-4 py-2.5 text-right font-semibold">{t('league.board.accuracy')}</th>
             <th className="px-4 py-2.5 text-right font-semibold">ELO</th>
           </tr>
         </thead>
@@ -47,8 +49,8 @@ export default function Leaderboard({ ranks }) {
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-1.5">
-                    <span>{row.nickname ?? '익명'}</span>
-                    {me && <span className="text-xs font-bold text-sky-600">(나)</span>}
+                    <span>{row.nickname ?? t('league.board.anonymous')}</span>
+                    {me && <span className="text-xs font-bold text-sky-600">{t('league.board.me')}</span>}
                   </div>
                   {row.tier && (
                     <div className="mt-1">
@@ -57,7 +59,7 @@ export default function Leaderboard({ ranks }) {
                   )}
                 </td>
                 <td className="px-4 py-2.5 text-right">
-                  {row.accuracy_score != null ? `${row.accuracy_score}점` : '-'}
+                  {row.accuracy_score != null ? t('league.board.score', { score: row.accuracy_score }) : '-'}
                 </td>
                 <td className="px-4 py-2.5 text-right">{row.elo_rating ?? '-'}</td>
               </tr>

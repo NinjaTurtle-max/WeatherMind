@@ -1,16 +1,19 @@
+import { useT } from '../../i18n';
+
 /**
  * SessionProgressBar (R2-01 S7) — 상단 진행 바.
  * answered/total을 세그먼트로 표시 (답한 문항 수 기준, 현재 풀이 중 문항은 하이라이트).
  */
 export default function SessionProgressBar({ answered, total, currentIndex }) {
+  const t = useT();
   if (!total) return null;
 
   return (
     <div className="mb-4">
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-xs font-bold text-slate-500">오늘의 세션</span>
+        <span className="text-xs font-bold text-slate-500">{t('session.progressTitle')}</span>
         <span className="text-xs font-medium text-slate-500">
-          {answered} / {total} 문항 완료
+          {t('session.progressCount', { answered, total })}
         </span>
       </div>
       <div className="flex gap-1.5" role="progressbar" aria-valuenow={answered} aria-valuemin={0} aria-valuemax={total}>

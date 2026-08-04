@@ -85,3 +85,15 @@ export function useT() {
   const locale = useLocaleStore((s) => s.locale);
   return (key, params) => translate(locale, key, params);
 }
+
+/**
+ * 개념 태그 → 표시명 (페이즈 B 공용 헬퍼).
+ * 서버는 태그 코드만 보내고 표시명은 `concept.*` 리소스가 갖는다 — 리소스에
+ * 없는 미지 태그는 (기존 `CONCEPT_LABEL[tag] ?? tag` 폴백과 동일하게) 태그
+ * 원문을 그대로 보여준다. translate()의 "미지 키는 키 반환"을 감지해 폴백한다.
+ */
+export function conceptLabel(t, tag) {
+  const key = `concept.${tag}`;
+  const label = t(key);
+  return label === key ? tag : label;
+}

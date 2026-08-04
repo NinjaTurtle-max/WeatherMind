@@ -1,20 +1,23 @@
 import { tierMeta } from '../../lib/tierMeta';
 import { CASTER_NOISE_SCALE, CASTER_BASE_NOISE } from './briefingDisplay';
+import { useT } from '../../i18n';
 
 /**
  * CasterGradeBadge (R9-01 §3.2) — "🤖 {티어}급 캐스터" 등급 배지.
  * 리그 티어 메타(구름 5단계)를 재사용하되 캐스터 문맥 라벨을 붙인다.
+ * meta.label(티어명)은 lib/tierMeta 소유 — 소유 밖이라 이번 페이즈 미외부화(보고).
  */
 export function CasterGradeBadge({ grade, size = 'sm' }) {
   const meta = tierMeta(grade);
+  const t = useT();
   const sizeClass = size === 'md' ? 'px-3 py-1 text-sm' : 'px-2 py-0.5 text-xs';
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full font-bold ring-1 ${meta.chip} ${sizeClass}`}
-      title={`AI 캐스터 등급: ${meta.label}급 (내 티어에 맞춰 조정돼요)`}
+      title={t('duel.judge.badgeTitle', { label: meta.label })}
     >
       <span aria-hidden="true">🤖</span>
-      {meta.label}급 캐스터
+      {t('duel.judge.badgeLabel', { label: meta.label })}
     </span>
   );
 }
@@ -28,6 +31,7 @@ export function CasterGradeBadge({ grade, size = 'sm' }) {
  * 유지하고 ①만 "수신 대기"로 표기한다.
  */
 export default function CasterJudgmentCard({ baseForecast, aiPred, casterGrade }) {
+  const t = useT();
   if (!aiPred) return null;
   const meta = tierMeta(casterGrade);
   const scale = typeof aiPred.noise_scale === 'number'
@@ -39,31 +43,36 @@ export default function CasterJudgmentCard({ baseForecast, aiPred, casterGrade }
   return (
     <div className="mt-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-extrabold text-slate-900">🔍 AI 캐스터의 판단</h3>
+        <h3 className="text-sm font-extrabold text-slate-900">{t('duel.judge.title')}</h3>
         <CasterGradeBadge grade={casterGrade} />
       </div>
-      <p className="mb-3 text-[11px] leading-relaxed text-slate-500">
-        실제 수치예보도 &quot;기준 자료 → 모델 계산 → 최종 예보&quot; 단계를 거쳐요. 캐스터가 오늘
-        예측을 만든 과정을 공개할게요.
-      </p>
+      <p className="mb-3 text-[11px] leading-relaxed text-slate-500">{t('duel.judge.intro')}</p>
 
       <ol className="flex flex-col">
-        <JudgmentStep no="1" title="기준 예보 (기상청 단기예보)">
+        <JudgmentStep no="1" title={t('duel.judge.step1')}>
           {baseForecast ? (
-            <>최고 <b>{baseForecast.temp_max}℃</b> · 강수확률 <b>{baseForecast.rain_prob}%</b></>
+            <>
+              {t('duel.judge.tempPrefix')}
+              <b>{baseForecast.temp_max}℃</b>
+              {t('duel.judge.rainMid')}
+              <b>{baseForecast.rain_prob}%</b>
+            </>
           ) : (
-            <span className="text-slate-400">실황 자료 수신 대기 — 내부 폴백 예보를 기준으로 사용했어요.</span>
+            <span className="text-slate-400">{t('duel.judge.step1Waiting')}</span>
           )}
         </JudgmentStep>
         <StepArrow />
-        <JudgmentStep no="2" title={`오차 모델 (${meta.label}급 · 배율 ×${scale})`}>
-          기온 ±{CASTER_BASE_NOISE.temp}℃ · 강수 ±{CASTER_BASE_NOISE.rain}%p 기본 오차에 등급
-          배율을 곱해 <b>±{tempAmp}℃ · ±{rainAmp}%p</b> 범위에서 결정적으로 변형해요. 등급이
-          높을수록 오차가 작아 더 정확해져요.
+        <JudgmentStep no="2" title={t('duel.judge.step2', { label: meta.label, scale })}>
+          {t('duel.judge.step2Seg1', { temp: CASTER_BASE_NOISE.temp, rain: CASTER_BASE_NOISE.rain })}
+          <b>{t('duel.judge.step2Strong', { tempAmp, rainAmp })}</b>
+          {t('duel.judge.step2Seg2')}
         </JudgmentStep>
         <StepArrow />
-        <JudgmentStep no="3" title="최종 예측">
-          최고 <b>{aiPred.temp_max}℃</b> · 강수확률 <b>{aiPred.rain_prob}%</b>
+        <JudgmentStep no="3" title={t('duel.judge.step3')}>
+          {t('duel.judge.tempPrefix')}
+          <b>{aiPred.temp_max}℃</b>
+          {t('duel.judge.rainMid')}
+          <b>{aiPred.rain_prob}%</b>
         </JudgmentStep>
       </ol>
     </div>

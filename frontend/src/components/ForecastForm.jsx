@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../i18n';
 
 const FIELD_CLASS =
   'mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200';
@@ -20,6 +21,7 @@ export default function ForecastForm({
   onSubmit,
   submitting,
 }) {
+  const t = useT();
   const [form, setForm] = useState(
     Object.fromEntries(fields.map((f) => [f.name, '']))
   );
@@ -33,11 +35,11 @@ export default function ForecastForm({
       fields.map((f) => [f.name, Number(form[f.name])])
     );
     if (Object.values(values).some(Number.isNaN)) {
-      setErrorMsg('모든 값을 숫자로 입력해주세요.');
+      setErrorMsg(t('forecast.numeric'));
       return;
     }
     if ('rain_prob' in values && (values.rain_prob < 0 || values.rain_prob > 100)) {
-      setErrorMsg('강수확률은 0~100 사이여야 해요.');
+      setErrorMsg(t('forecast.rainRange'));
       return;
     }
     const customError = validate?.(values);
@@ -91,7 +93,7 @@ export default function ForecastForm({
         disabled={submitting}
         className="mt-4 w-full rounded-xl bg-sky-600 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:opacity-50"
       >
-        {submitting ? '제출 중...' : submitLabel}
+        {submitting ? t('forecast.submitting') : submitLabel}
       </button>
     </form>
   );

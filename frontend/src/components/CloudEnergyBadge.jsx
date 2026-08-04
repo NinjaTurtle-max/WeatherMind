@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { progressApi } from '../api';
 import { useAuthStore } from '../store/authStore';
+import { useT } from '../i18n';
 
 /**
  * CloudEnergyBadge (R5-01 §3.3) — 상단 헤더의 구름 에너지 표시.
@@ -20,6 +21,7 @@ import { useAuthStore } from '../store/authStore';
 export default function CloudEnergyBadge() {
   const queryClient = useQueryClient();
   const accessToken = useAuthStore((s) => s.accessToken);
+  const t = useT();
 
   const { data } = useQuery({
     queryKey: ['progress', 'energy'],
@@ -70,10 +72,10 @@ export default function CloudEnergyBadge() {
       }`}
       title={
         isFull
-          ? '구름 에너지가 가득 찼어요 — 구름은 틀린 문항에만 1개 줄어들어요'
+          ? t('energy.full')
           : isEmpty
-            ? `구름이 모두 흩어졌어요 — 약 ${Math.max(1, Math.ceil(remaining / 60))}분 후 회복돼요. 새 세션은 구름이 1개 이상 있어야 열려요(풀던 세션은 끝까지 마칠 수 있어요)`
-            : `구름 에너지 — 틀린 문항에만 1개 소모 · 다음 회복까지 ${countdown}`
+            ? t('energy.empty', { min: Math.max(1, Math.ceil(remaining / 60)) })
+            : t('energy.regen', { countdown })
       }
     >
       <span aria-hidden="true">☁️</span>
