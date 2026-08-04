@@ -17,7 +17,10 @@
     "test:visual": "node tests/boardLayout.contract.test.mjs && node tests/precipEngine.test.mjs && node tests/boardVisual.render.test.mjs",
     "test:webgl": "node tests/crossSectionWebgl.contract.test.mjs",
     "test:overlay": "node tests/mapOverlayGeometry.contract.test.mjs",
-    "test:i18n": "node tests/i18n.smoke.test.mjs"
+    "test:i18n": "node tests/i18n.smoke.test.mjs",
+    "test:guest-convert": "node tests/guest-convert.smoke.test.mjs",
+    "test:review-queue": "node tests/review-queue.smoke.test.mjs",
+    "test:course-select": "node tests/course-select.smoke.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",
