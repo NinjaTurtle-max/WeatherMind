@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../../api';
+import client from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 
 /**
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [errorMsg, setErrorMsg] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [guestSubmitting, setGuestSubmitting] = useState(false);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -33,11 +35,24 @@ export default function LoginPage() {
     }
   };
 
-  const handleGuestLogin = (e) => {
+  // R11-01 J: 가짜 토큰 조작 제거 → POST /auth/guest 실호출(실 유저 + 실 JWT).
+  // 응답 형태는 login과 동일 스키마 {access_token, refresh_token}.
+  // authApi(src/api/auth.js)는 이번 웨이브 소유 밖이라 공통 client를 직접 쓴다
+  // — guest() 승격은 온보딩 재배치(웨이브 2)와 함께.
+  const handleGuestLogin = async (e) => {
     e.preventDefault();
-    setTokens({ accessToken: 'guest_access_token', refreshToken: 'guest_refresh_token' });
-    setUser({ email: 'guest@weathermind.ai' });
-    navigate('/', { replace: true });
+    setErrorMsg(null);
+    setGuestSubmitting(true);
+    try {
+      const { data } = await client.post('/auth/guest');
+      setTokens({ accessToken: data.access_token, refreshToken: data.refresh_token });
+      setUser({ nickname: '게스트', is_guest: true });
+      navigate('/', { replace: true });
+    } catch (err) {
+      setErrorMsg(err.detail ?? '게스트 시작에 실패했습니다.');
+    } finally {
+      setGuestSubmitting(false);
+    }
   };
 
   return (
@@ -91,9 +106,10 @@ export default function LoginPage() {
         <button
           type="button"
           onClick={handleGuestLogin}
-          className="mt-2 rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
+          disabled={guestSubmitting}
+          className="mt-2 rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200 disabled:opacity-50"
         >
-          🚀 게스트(테스트) 계정으로 바로 시작하기
+          {guestSubmitting ? '게스트 계정 만드는 중...' : '🚀 게스트(테스트) 계정으로 바로 시작하기'}
         </button>
       </form>
 
