@@ -5,7 +5,11 @@ database/seed/units.json을 읽어 **slug(id)** 기준으로 units에 멱등 ups
 
 units.json 스키마(§3.2, 데이터·AI 게이트와 동일한 slug 방식):
   {"id": "<slug>", "section", "unit_order", "title", "concept_tag", "kind",
-   "crown_target"?, "prereq_unit_id": "<slug>" | null}
+   "crown_target"?, "prereq_unit_id": "<slug>" | null, "course"?: "<slug>" | null}
+
+course(R11-01 §3 F, 선택)는 코스 slug로, DB의 courses 행(seed_courses 선실행)으로
+해석해 units.course_id를 채운다. 누락·미해석이면 경고 후 NULL — NULL은 기본 코스
+(weather) 취급이라 코스 미시드 환경에서도 현행 그대로 동작한다(하위 호환).
 
 units.json은 UUID를 알 수 없으므로 prereq를 slug로 참조한다. 2-pass 적재:
   (1) 전 유닛을 slug 기준 upsert(prereq_unit_id 제외, slug→Unit 맵 구성),
@@ -28,6 +32,7 @@ from typing import Any
 from sqlalchemy import select
 
 from app.core.database import async_session, engine
+from app.models.course import Course
 from app.models.unit import Unit
 from app.scripts.seed_content import ALLOWED_CONCEPT_TAGS
 
@@ -69,21 +74,41 @@ def validate_entry(entry: dict[str, Any], index: int) -> list[str]:
         errors.append(
             f"{prefix} prereq_unit_id는 null 또는 slug 문자열이어야 함: {prereq!r}"
         )
+
+    course = entry.get("course")  # R11-01 §3 F — 선택(누락 시 NULL=기본 코스 weather)
+    if course is not None and (not isinstance(course, str) or not course.strip()):
+        errors.append(f"{prefix} course는 null 또는 slug 문자열이어야 함: {course!r}")
     return errors
 
 
 async def upsert_entries(entries: list[dict[str, Any]]) -> tuple[int, int, int]:
     """slug(id) 기준 멱등 upsert + prereq_unit_id(slug→UUID) 2-pass 해석.
 
+    course(slug, R11-01 §3 F)는 DB의 courses 행으로 해석해 course_id를 채운다
+    (seed_courses 선실행 전제). 누락·미해석은 경고 후 NULL — NULL은 기본 코스
+    (weather) 취급이라 동작에는 지장이 없다(하위 호환).
+
     반환: (inserted, updated, unresolved_prereq).
     """
     inserted = updated = 0
     async with async_session() as session:
         async with session.begin():
+            # course slug → UUID 맵 (코스 미시드면 빈 맵 — 전부 NULL 귀속)
+            courses = (await session.execute(select(Course))).scalars().all()
+            course_id_by_slug = {c.slug: c.id for c in courses}
+
             # pass 1: 유닛 본문 upsert (prereq 제외), slug → Unit 맵 구성
             by_slug: dict[str, Unit] = {}
             for entry in entries:
                 slug = entry["id"]
+                course_slug = entry.get("course")
+                course_id = course_id_by_slug.get(course_slug)
+                if course_slug is not None and course_id is None:
+                    print(
+                        f"[seed_units] course 미해석 — {slug!r}의 course "
+                        f"{course_slug!r} 없음 (NULL=기본 코스 유지, "
+                        "seed_courses를 먼저 실행하세요)"
+                    )
                 existing = (
                     await session.execute(select(Unit).where(Unit.slug == slug))
                 ).scalar_one_or_none()
@@ -94,6 +119,7 @@ async def upsert_entries(entries: list[dict[str, Any]]) -> tuple[int, int, int]:
                     existing.concept_tag = entry["concept_tag"]
                     existing.kind = entry["kind"]
                     existing.crown_target = entry.get("crown_target", 1)
+                    existing.course_id = course_id
                     by_slug[slug] = existing
                     updated += 1
                 else:
@@ -105,6 +131,7 @@ async def upsert_entries(entries: list[dict[str, Any]]) -> tuple[int, int, int]:
                         concept_tag=entry["concept_tag"],
                         kind=entry["kind"],
                         crown_target=entry.get("crown_target", 1),
+                        course_id=course_id,
                     )
                     session.add(unit)
                     by_slug[slug] = unit

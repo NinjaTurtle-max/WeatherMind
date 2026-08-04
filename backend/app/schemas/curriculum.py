@@ -1,5 +1,29 @@
-"""커리큘럼 API 스키마 — 스프린트 R5-01 §3.2."""
+"""커리큘럼 API 스키마 — 스프린트 R5-01 §3.2 (+ 코스 R11-01 §3 F)."""
 from pydantic import BaseModel
+
+
+class CourseOut(BaseModel):
+    """코스 1개 (R11-01 §3 F) — read-only 목록/상세 공용.
+
+    id·prereq_course_id는 안정 참조인 slug 문자열(UnitOut 선례). prereq는 코스 간
+    선행의 **구조**만 노출한다 — 잠금 UX·판정은 웨이브 2. is_default는 기본 코스
+    (weather — 기존 유저·course 파라미터 생략 시) 여부. units_total은 귀속 유닛
+    수로, 기본 코스는 course_id NULL(레거시 시드) 귀속을 포함한다.
+    """
+
+    id: str
+    title: str
+    description: str | None = None
+    course_order: int
+    prereq_course_id: str | None = None
+    is_default: bool
+    units_total: int
+
+
+class CoursesOut(BaseModel):
+    """GET /courses 응답 — course_order 오름차순 목록."""
+
+    courses: list[CourseOut]
 
 
 class UnitOut(BaseModel):
