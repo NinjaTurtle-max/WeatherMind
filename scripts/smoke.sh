@@ -16,7 +16,9 @@
 #   1 up        docker compose up -d --build postgres redis backend ai-worker
 #               → /health 폴링 (8000·8001, 첫 빌드는 오래 걸리므로 타임아웃 넉넉히)
 #   2 migrate   alembic upgrade head → current == 0007_placement (head)
-#   3 seed      seed_content → seed_units → seed_badges (전부 멱등 upsert)
+#   3 seed      seed_content → seed_courses → seed_units → seed_badges (전부 멱등 upsert)
+#              순서 계약(R11-01 F): seed_units가 units.json의 course slug를 DB courses
+#              행으로 해석하므로 seed_courses가 먼저다.
 #   4 register  POST /auth/register (고유 이메일, middle_high) → 201 + access_token
 #   5 theta     psql: user_concept_ability 6행 · num_responses=0 · θ≈사전값(0.0)
 #               (postgres 슈퍼유저 접속은 RLS를 우회하므로 여기서는 행 검증만)
@@ -241,9 +243,10 @@ step_migrate() {
 
 # ── 3. seed: 시드 3종 (멱등 upsert) ──────────────────────────────────────────
 step_seed() {
-  banner "3 seed: seed_content → seed_units → seed_badges"
+  banner "3 seed: seed_content → seed_courses → seed_units → seed_badges"
   local mod ok=1
-  for mod in seed_content seed_units seed_badges; do
+  # seed_courses가 seed_units보다 먼저 — units.json의 course slug 해석(R11-01 F)
+  for mod in seed_content seed_courses seed_units seed_badges; do
     echo "· python -m app.scripts.$mod"
     if ! compose exec -T backend python -m "app.scripts.$mod"; then
       echo "  $mod 실패"
@@ -251,7 +254,7 @@ step_seed() {
     fi
   done
   if [ "$ok" -eq 1 ]; then
-    record "3 seed" "OK" "content·units·badges 멱등 적재"
+    record "3 seed" "OK" "content·courses·units·badges 멱등 적재"
   else
     record "3 seed" "FAIL" "시드 스크립트 실패 (위 출력 참조)"
   fi
