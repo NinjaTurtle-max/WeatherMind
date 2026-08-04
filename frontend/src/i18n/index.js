@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import ko from './resources/ko.js';
 import en from './resources/en.js';
+// board·explore 네임스페이스는 파일 소유를 갈랐다(§6.3 — D1이 board.*, D2가 나머지).
+import boardKo from './resources/board.ko.js';
+import boardEn from './resources/board.en.js';
 
 /**
  * i18n 골격 (R11-01 §3 D) — 경량 자체 구현.
@@ -24,7 +27,7 @@ import en from './resources/en.js';
  * (키 패리티 자체는 tests/i18n.smoke.test.mjs가 상주 가드)
  */
 
-export const RESOURCES = { ko, en };
+export const RESOURCES = { ko: { ...ko, ...boardKo }, en: { ...en, ...boardEn } };
 export const SUPPORTED_LOCALES = Object.keys(RESOURCES);
 export const DEFAULT_LOCALE = 'ko';
 /** localStorage 키 — 로케일 영속(브라우저 재방문 시 유지) */
