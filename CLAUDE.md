@@ -10,6 +10,9 @@
   KMA 실황값으로 문항에 실시간 주입.
 - **커리큘럼**(`curriculum.py`): 4섹션(하늘 읽기·공기의 힘·큰 바람·도시와 기후) 유닛
   트리, `unit_order`·`prereq` 선행 잠금, 유닛 완료 시 세션 발급(`POST /units/{slug}/session`).
+  **다과정**(R11): `courses` 테이블 + `GET /courses`·`?course=` — `units.course_id`
+  NULL은 기본 코스(weather) 취급이라 완전 하위 호환. basic-science는 빈 트리
+  (`docs/specs/11` 트리 기준 G1 이후 저작). θ는 코스를 가로질러 개념 태그 단위.
 - **대기 보드 퍼즐**(`board.py`): 기단·전선·습기·일사 배치로 실제 대기현상을 만드는
   퍼즐. 서버가 `board_rules.json`(프론트와 공유하는 단일 규칙 파일)로 판정을 재계산
   — 클라이언트가 결과를 주입할 통로 없음(채점 권위 서버 소유).
@@ -24,9 +27,14 @@
   nimbostratus→cumulonimbus→typhoon_eye≥1550), `POST /predict`로 오늘 기온·강수확률
   예측 후 결정적 AI 캐스터와 대결.
 - **보상 루프**(`progress.py`): 퀘스트·배지·출석(streak+freeze), 약점 태그
-  (`weak_tags`, 정답률 임계 이하 자동 분류) 기반 복습 추천.
+  (`weak_tags`, 정답률 임계 이하 자동 분류) 기반 복습 추천. **간격반복**(R11):
+  `GET /progress/review-queue` — quiz_logs read-model, 간격 사다리 1·3·7·14·30일,
+  weak_tags(능력 축)와 축 분리. **BKT 지식 추적**(`weatherbrain/knowledge_tracing.py`,
+  순수 파이썬)은 합성 복원 검증까지 완료 — 실학습자 검증은 데이터 축적 후.
 - **예보 대결**(`duel.py`): 오늘/과거 대결 이력.
-- **인증**(`auth.py`): JWT access/refresh, 게스트 로그인 지원.
+- **인증**(`auth.py`): JWT access/refresh. **게스트는 `POST /auth/guest`가 실 유저 +
+  실 JWT를 발급**(R11에서 실체화 — 그 전에는 프론트가 가짜 토큰을 조작했고 실서버에서
+  깨졌다). 계정 전환 유도(R10-J 본체)는 미구현.
 - **AI 게이트**(ai-worker): Gemini로 문항 생성 → 결정적 휴리스틱(LLM 무관) 1차 게이트
   → LLM 2차 게이트. LLM 키 없어도 폴백 문항 뱅크로 전 기능 동작.
 
@@ -36,7 +44,7 @@
 - **R2~R10 완료**(웨이브 0~2 + S5·S6 + R10-07). 결정 기록·이월은
   `docs/team/SPRINT_R10_01.md`(§4.1 D1~D10이 §3보다 우선) ·
   `docs/team/RETROSPECTIVE.md` §R10.7~8. 미배정 항목 R10-I·J·K·L·M·O·P·Q 잔존.
-- 테스트 실측 **backend 980** · **ai-worker 169**(의존 전체 설치 시) · 프론트 `test:*` **10종 전부 CI 편입**
+- 테스트 실측 **backend 1063** · **ai-worker 193**(의존 전체 설치 시) · 프론트 `test:*` **11종 전부 CI 편입**
   — `ci.sh`의 `FRONT_TESTS` 9종(`explore`·`session`·`placement`·`visual`·`gating`·
   `board-entry`·`assist`·`webgl`·`overlay`) + `board`(board_engine 공유 벡터)는 **별도
   단계**다. 실DB 왕복 스모크는 `scripts/smoke_r10.sh`(7단계, 전원 OK).
