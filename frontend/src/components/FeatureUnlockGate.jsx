@@ -4,6 +4,7 @@ import {
   selectUnlockStage,
   useOnboardingGate,
 } from '../lib/onboardingGate';
+import { useT } from '../i18n';
 
 /**
  * FeatureUnlockGate — 점진적 잠금 해제의 **동기 부여 화면** (R10-01 §3.4 / R10-F,
@@ -21,46 +22,25 @@ import {
  * 해제 조건(§3.4): 보드=세션 1회 · 예보 대결=2회 · 리그=3회.
  */
 
+// 문구는 gate.* 리소스(i18n)에서 — 여기는 아이콘·네임스페이스만 남긴다.
 const COPY = {
-  '/board': {
-    icon: '🧩',
-    title: '대기 보드란 무엇인가요?',
-    points: [
-      '기단·전선·습기·일사를 직접 배치해요',
-      '배치한 대로 실제 대기 현상이 만들어져요',
-      '외우지 않고 원리를 손으로 익혀요',
-    ],
-  },
-  '/duel': {
-    icon: '🌡️',
-    title: '예보 대결이란 무엇인가요?',
-    points: [
-      '오늘의 기온·강수확률을 직접 예측해요',
-      'AI 캐스터의 예보와 정확도를 겨뤄요',
-      '실제 관측값으로 다음 날 채점돼요',
-    ],
-  },
-  '/league': {
-    icon: '🏆',
-    title: '리그란 무엇인가요?',
-    points: [
-      '구름 티어(층운 → 태풍의 눈)로 승급해요',
-      '예보 정확도로 순위가 정해져요',
-      '주간 정산으로 티어가 오르내려요',
-    ],
-  },
+  '/board': { icon: '🧩', ns: 'board' },
+  '/duel': { icon: '🌡️', ns: 'duel' },
+  '/league': { icon: '🏆', ns: 'league' },
 };
 
 /** 해제까지 남은 세션 수를 "지금 할 일"로 번역한 CTA */
-const CTA = { to: '/daily', label: '오늘의 세션 시작하기 →' };
+const CTA_TO = '/daily';
 
 export default function FeatureUnlockGate({ to, children }) {
   const stage = useOnboardingGate(selectUnlockStage);
   const need = requiredStage(to);
+  const t = useT();
 
   if (stage >= need) return children;
 
   const copy = COPY[to];
+  const points = copy ? [1, 2, 3].map((n) => t(`gate.${copy.ns}.p${n}`)) : null;
   const remain = Math.max(1, need - stage);
 
   return (
@@ -69,12 +49,12 @@ export default function FeatureUnlockGate({ to, children }) {
         {copy?.icon ?? '✨'}
       </p>
       <h1 className="mt-3 text-lg font-extrabold text-slate-900">
-        {copy?.title ?? '아직 열리지 않은 기능이에요'}
+        {copy ? t(`gate.${copy.ns}.title`) : t('gate.fallbackTitle')}
       </h1>
 
-      {copy?.points && (
+      {points && (
         <ul className="mx-auto mt-4 flex max-w-xs flex-col gap-2 text-left">
-          {copy.points.map((point) => (
+          {points.map((point) => (
             <li key={point} className="flex items-start gap-2 text-sm text-slate-600">
               <span className="mt-0.5 shrink-0 text-sky-500" aria-hidden="true">
                 ✓
@@ -86,9 +66,9 @@ export default function FeatureUnlockGate({ to, children }) {
       )}
 
       <p className="mt-5 rounded-xl bg-sky-50 px-4 py-3 text-sm font-bold text-sky-800 ring-1 ring-sky-100">
-        세션을 {need}개 완료하면 시작할 수 있어요
+        {t('gate.need', { need })}
         <span className="mt-1 block text-xs font-medium text-sky-600">
-          지금까지 {stage}/{need} 완료 — {remain}개만 더!
+          {t('gate.progress', { stage, need, remain })}
         </span>
       </p>
 
@@ -100,16 +80,16 @@ export default function FeatureUnlockGate({ to, children }) {
       </div>
 
       <Link
-        to={CTA.to}
+        to={CTA_TO}
         className="mt-5 block w-full rounded-xl bg-sky-600 py-3 text-sm font-bold text-white transition hover:bg-sky-700"
       >
-        {CTA.label}
+        {t('gate.cta')}
       </Link>
       <Link
         to="/"
         className="mt-2 inline-block text-xs font-medium text-slate-400 hover:text-slate-600"
       >
-        학습 경로 보기
+        {t('gate.viewPath')}
       </Link>
     </div>
   );

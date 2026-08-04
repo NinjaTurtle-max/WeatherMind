@@ -15,6 +15,7 @@ import DuelPage from './modules/duel/DuelPage';
 import ProgressPage from './modules/progress/ProgressPage';
 import LoginPage from './modules/auth/LoginPage';
 import RegisterPage from './modules/auth/RegisterPage';
+import ConvertAccountPage from './modules/auth/ConvertAccountPage';
 import PlacementPage from './modules/onboarding/PlacementPage';
 
 // R7-03 개발자 패널 — 런타임 게이트(GET /dev/state 404=비활성)는 유지하되,
@@ -88,6 +89,9 @@ export default function App() {
       <Route element={<RequireAuth />}>
         {/* 온보딩 배치고사 — 탭바 없는 전체 화면(Layout 밖) */}
         <Route path="/onboarding/placement" element={<PlacementPage />} />
+        {/* R11-01 웨이브 2 (R10-J): 게스트 → 정식 계정 전환 — 배치고사와 같은
+            전체 화면 관례(Layout 밖). 진입은 GuestSaveBanner(학습 홈)에서. */}
+        <Route path="/account/convert" element={<ConvertAccountPage />} />
         <Route element={<Layout />}>
           <Route path="/" element={<CurriculumHome />} />
           <Route path="/learn/units/:unitId" element={<UnitSessionPage />} />

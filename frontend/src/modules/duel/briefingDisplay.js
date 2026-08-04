@@ -19,35 +19,38 @@ export const CHART_COLORS = {
   tick: '#64748b', // slate-500 — 축 라벨
 };
 
+// 표시 문구는 briefing.*·evidence.* 리소스(i18n) — 이 모듈은 코드→아이콘·키
+// 매핑만 남긴다(페이즈 B 외부화). 라벨은 소비 컴포넌트가 t(labelKey)로 푼다.
+
 // KMA 하늘상태(SKY) 코드 → 표시 메타 (1 맑음 · 3 구름많음 · 4 흐림)
 export const SKY_META = {
-  1: { label: '맑음', icon: '☀️' },
-  3: { label: '구름많음', icon: '⛅' },
-  4: { label: '흐림', icon: '☁️' },
+  1: { labelKey: 'briefing.sky1', icon: '☀️' },
+  3: { labelKey: 'briefing.sky3', icon: '⛅' },
+  4: { labelKey: 'briefing.sky4', icon: '☁️' },
 };
 
 // KMA 강수형태(PTY) 코드 → 표시 메타 (0 없음 — 표시 생략)
 export const PTY_META = {
-  1: { label: '비', icon: '🌧️' },
-  2: { label: '비/눈', icon: '🌨️' },
-  3: { label: '눈', icon: '❄️' },
-  4: { label: '소나기', icon: '🌦️' },
+  1: { labelKey: 'briefing.pty1', icon: '🌧️' },
+  2: { labelKey: 'briefing.pty2', icon: '🌨️' },
+  3: { labelKey: 'briefing.pty3', icon: '❄️' },
+  4: { labelKey: 'briefing.pty4', icon: '🌦️' },
 };
 
 // 판단 근거 코드 5종 (R9-01 §3.1 화이트리스트와 1:1 — 순서 고정)
 export const EVIDENCE_META = [
-  { code: 'pop_trend', icon: '📈', label: '강수확률 추세', desc: '시간이 갈수록 강수확률이 높아져요' },
-  { code: 'humidity_high', icon: '💧', label: '높은 습도', desc: '공기가 습해 비구름이 자라기 좋아요' },
-  { code: 'temp_drop', icon: '🌡️', label: '기온 하강', desc: '전일보다 기온이 내려갈 것 같아요' },
-  { code: 'sky_overcast', icon: '☁️', label: '흐린 하늘', desc: '하늘이 흐려 일사가 약해질 거예요' },
-  { code: 'recent_rain', icon: '🌧️', label: '최근 강수 이력', desc: '최근 며칠 사이 비가 온 적이 있어요' },
+  { code: 'pop_trend', icon: '📈', labelKey: 'evidence.pop_trend.label', descKey: 'evidence.pop_trend.desc' },
+  { code: 'humidity_high', icon: '💧', labelKey: 'evidence.humidity_high.label', descKey: 'evidence.humidity_high.desc' },
+  { code: 'temp_drop', icon: '🌡️', labelKey: 'evidence.temp_drop.label', descKey: 'evidence.temp_drop.desc' },
+  { code: 'sky_overcast', icon: '☁️', labelKey: 'evidence.sky_overcast.label', descKey: 'evidence.sky_overcast.desc' },
+  { code: 'recent_rain', icon: '🌧️', labelKey: 'evidence.recent_rain.label', descKey: 'evidence.recent_rain.desc' },
 ];
 
 const EVIDENCE_BY_CODE = new Map(EVIDENCE_META.map((m) => [m.code, m]));
 
-/** 근거 코드 → 메타 (미지 코드는 코드 문자열 그대로 라벨) */
+/** 근거 코드 → 메타 (미지 코드는 labelKey 없이 — 소비처가 코드 문자열로 폴백) */
 export function evidenceMeta(code) {
-  return EVIDENCE_BY_CODE.get(code) ?? { code, icon: '📌', label: code, desc: '' };
+  return EVIDENCE_BY_CODE.get(code) ?? { code, icon: '📌', labelKey: null, descKey: null };
 }
 
 /** 캐스터 오차 모델 티어 5계단 (R9-01 §3.2 계약 수치 — 표시 전용 폴백).
@@ -63,10 +66,10 @@ export const CASTER_NOISE_SCALE = {
 // 캐스터 기본 노이즈 진폭 (backend §1 탐색 확정: ±2℃ / ±15%p)
 export const CASTER_BASE_NOISE = { temp: 2, rain: 15 };
 
-/** ISO datetime → "HH시" (브리핑 hourly 축 라벨) */
-export function fmtHour(datetime) {
+/** ISO datetime → 시각 라벨(브리핑 hourly 축 — t는 호출부의 useT() 번역기) */
+export function fmtHour(datetime, t) {
   const hh = String(datetime ?? '').slice(11, 13);
-  return hh ? `${Number(hh)}시` : '-';
+  return hh ? t('briefing.hour', { h: Number(hh) }) : '-';
 }
 
 /** ISO date → "M/D" (최근 실측 축 라벨) */

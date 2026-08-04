@@ -30,6 +30,7 @@ import { SymbolIcon, SunShape, SnowFlake, WaveLine } from './boardSymbols';
 import { anim, usePrefersReducedMotion } from './realisticEffects';
 import { frontCurveGeometry, taperedArrowPath, FrontTick } from './mapInfographic';
 import { supportsWebGL2 } from './webgl/crossSection/support';
+import { useT } from '../../i18n';
 
 const CrossSectionGL = lazy(() => import('./webgl/crossSection/CrossSectionGL'));
 
@@ -553,6 +554,11 @@ function SiberianClearScene({ step, animate }) {
 }
 
 // ── 스토리보드 레지스트리 (board_rules.json 8종 — explain을 메커니즘 순서로 분해) ──
+// ⚠️ i18n 외부화 제외(R11-01 §6.3 판정): boardVisual.render.test가 이 모듈 데이터
+// (steps·title)를 렌더 HTML과 **문자열 대조**하고, crossSectionWebgl.contract가
+// steps.length를 SCENES 단계와 정합 검사한다. 장면 내 CSText 라벨·scenes.js 라벨
+// 스프라이트와 한 묶음(rule_id 파생 과학 콘텐츠 클러스터)이라 부분 번역 시 SVG↔GL
+// 표기가 어긋난다 — 로케일화는 테스트가 리소스를 읽도록 바뀌는 후속 웨이브에서.
 export const STORYBOARDS = {
   cold_front_shower: {
     title: '한랭전선 — 좁고 강한 소나기',
@@ -642,6 +648,7 @@ export const STORYBOARDS = {
  * @param reduced    (테스트용) prefers-reduced-motion 강제 오버라이드
  */
 export default function CrossSectionPanel({ zoneResult, confirmed = false, reduced: reducedProp }) {
+  const t = useT();
   const systemReduced = usePrefersReducedMotion();
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -699,11 +706,11 @@ export default function CrossSectionPanel({ zoneResult, confirmed = false, reduc
           confirmed ? 'bg-emerald-500 text-white' : 'bg-white/85 text-slate-500 ring-1 ring-slate-200'
         }`}
       >
-        {confirmed ? '✓ 서버 판정' : '미리보기'}
+        {confirmed ? t('board.panel.badgeConfirmed') : t('board.panel.badgePreview')}
       </span>
       {reduced && (
         <span className="absolute left-2 top-2 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">
-          정적 표시
+          {t('board.panel.badgeStatic')}
         </span>
       )}
     </>
@@ -718,7 +725,7 @@ export default function CrossSectionPanel({ zoneResult, confirmed = false, reduc
           <div className="min-w-0">
             {header}
             <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
-              {zoneResult.explain ?? '아직 성립한 규칙이 없어요 — 기단·전선·습기·일사를 조합해 보세요.'}
+              {zoneResult.explain ?? t('board.panel.noRule')}
             </p>
           </div>
         </div>
@@ -758,7 +765,7 @@ export default function CrossSectionPanel({ zoneResult, confirmed = false, reduc
         )}
         {badges}
         <span className="absolute bottom-1.5 left-2 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">
-          단면 모식도 · {title}
+          {t('board.panel.badgeCaption', { title })}
         </span>
       </div>
 
@@ -782,7 +789,7 @@ export default function CrossSectionPanel({ zoneResult, confirmed = false, reduc
                 {/* 현재 단계 캡션 */}
                 <p key={step} className="animate-cs-step mt-0.5 text-[11px] leading-relaxed text-slate-600">
                   <span className="font-bold text-sky-700">
-                    {step + 1}/{steps.length}단계
+                    {t('board.panel.stepCounter', { n: step + 1, total: steps.length })}
                   </span>{' '}
                   {steps[step]}
                 </p>
@@ -793,7 +800,7 @@ export default function CrossSectionPanel({ zoneResult, confirmed = false, reduc
                     type="button"
                     onClick={() => jump(step - 1)}
                     disabled={step === 0}
-                    aria-label="이전 단계"
+                    aria-label={t('board.panel.prevStep')}
                     className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-200 disabled:opacity-40"
                   >
                     ◁
@@ -801,27 +808,27 @@ export default function CrossSectionPanel({ zoneResult, confirmed = false, reduc
                   <button
                     type="button"
                     onClick={togglePlay}
-                    aria-label={playing ? '일시정지' : '재생'}
+                    aria-label={playing ? t('board.panel.pause') : t('board.panel.play')}
                     className="rounded-lg bg-sky-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-sky-700"
                   >
-                    {playing ? '❚❚ 일시정지' : atEnd ? '↻ 다시 재생' : '▷ 재생'}
+                    {playing ? t('board.panel.pauseBtn') : atEnd ? t('board.panel.replayBtn') : t('board.panel.playBtn')}
                   </button>
                   <button
                     type="button"
                     onClick={() => jump(step + 1)}
                     disabled={atEnd}
-                    aria-label="다음 단계"
+                    aria-label={t('board.panel.nextStep')}
                     className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-200 disabled:opacity-40"
                   >
                     ▷
                   </button>
-                  <div className="ml-1 flex items-center gap-1" role="group" aria-label="단계 이동">
+                  <div className="ml-1 flex items-center gap-1" role="group" aria-label={t('board.panel.jumpGroup')}>
                     {steps.map((_, i) => (
                       <button
                         key={i}
                         type="button"
                         onClick={() => jump(i)}
-                        aria-label={`${i + 1}단계로 이동`}
+                        aria-label={t('board.panel.jumpTo', { n: i + 1 })}
                         className={`h-2 w-2 rounded-full transition ${i === step ? 'bg-sky-600' : 'bg-slate-300 hover:bg-slate-400'}`}
                       />
                     ))}

@@ -7,6 +7,7 @@ import {
   levelFromTheta,
 } from '../../lib/abilityDisplay';
 import { DailyGoalPicker } from '../progress/DailyGoal';
+import { useT } from '../../i18n';
 
 /**
  * PlacementSummary (R7-01 S3) — 배치고사 완료 후 개념별 진단 결과(θ) 화면.
@@ -23,17 +24,18 @@ import { DailyGoalPicker } from '../progress/DailyGoal';
  * 강제하지 않는다 — 고르지 않아도 "학습 시작하기"로 넘어갈 수 있다(미설정 유지).
  */
 export default function PlacementSummary({ summary, onDone }) {
+  const t = useT();
   const abilities = [...(summary?.abilities ?? [])].sort((a, b) => (a.theta ?? 0) - (b.theta ?? 0));
 
   return (
     <div className="mt-10 rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-200">
       <p className="text-4xl">🧭</p>
-      <h2 className="mt-3 text-xl font-extrabold text-slate-900">진단 완료!</h2>
+      <h2 className="mt-3 text-xl font-extrabold text-slate-900">{t('placement.doneTitle')}</h2>
       <p className="mt-1 text-sm text-slate-500">
         {typeof summary?.correct_count === 'number' && typeof summary?.total === 'number'
-          ? `${summary.total}문항 중 ${summary.correct_count}문항을 맞혔어요. `
+          ? t('placement.scored', { total: summary.total, correct: summary.correct_count })
           : null}
-        이제 WeatherBrain이 내 수준에 맞는 문제를 준비해요.
+        {t('placement.doneBody')}
       </p>
 
       {abilities.length > 0 ? (
@@ -64,13 +66,12 @@ export default function PlacementSummary({ summary, onDone }) {
             );
           })}
           <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-            막대가 짧을수록 앞으로 더 자주 만나게 될 개념이에요. 진단 결과는 프로필의
-            WeatherBrain 능력 분석에서 계속 갱신돼요.
+            {t('placement.barsNote')}
           </p>
         </div>
       ) : (
         <p className="mt-6 text-sm text-slate-500">
-          진단 결과가 아직 준비되지 않았어요. 학습을 진행하면 능력 분석이 채워져요.
+          {t('placement.emptyAbilities')}
         </p>
       )}
 
@@ -82,7 +83,7 @@ export default function PlacementSummary({ summary, onDone }) {
         onClick={onDone}
         className="mt-6 w-full rounded-xl bg-slate-900 py-3 text-sm font-bold text-white transition hover:bg-slate-700"
       >
-        학습 시작하기 →
+        {t('placement.start')}
       </button>
     </div>
   );

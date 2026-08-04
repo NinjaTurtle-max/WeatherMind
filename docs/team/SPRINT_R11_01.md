@@ -102,3 +102,73 @@
 
 AI-L·BE-L은 자기 세션에서 워커 1인을 파생한다(깊이 상한 2 준수 — 워커는 재파생 금지).
 파생 브리핑에 §2 소유 목록·§3 해당 계약·§4 금지를 **원문대로** 전달한다.
+
+---
+
+## 6. 웨이브 2 — 프론트 수렴 (2026-08-04 착수)
+
+**PM 판정(착수 시 확정)**: ① 코스 강제 잠금 **안 함** — "선행 학습(권장)" 표기까지
+(specs/11 §0-4의 보수 기본값. 강제는 기존 유저 하위 호환을 깬다). ② R10-K·L·P·Q
+미편입 유지, I·M 판정 대기 유지.
+
+**2페이즈 순차** — 페이즈 B(문자열 외부화)가 프론트 전 파일을 스치므로 기능(A)이
+먼저 착지해야 한다. A 안에서는 "컴포넌트 제작자 ≠ 마운트 지점 소유자" 패턴으로
+CurriculumHome 충돌을 피한다: 제작자는 독립 컴포넌트를 만들고, CurriculumHome
+소유자(FE-A)가 1줄 import로 마운트한다.
+
+### 6.1 페이즈 A — 기능 4건 (병렬 4인)
+
+| 담당 | 항목 | 배타적 소유 |
+|---|---|---|
+| **BE-1** | 게스트→정식 계정 전환 API | `backend/app/routers/auth.py` · `backend/app/schemas/auth.py` · `backend/tests/test_auth_convert.py`(신규) |
+| **FE-A** | 코스 선택 UI + 마운트 통합 | `frontend/src/modules/curriculum/CurriculumHome.jsx` · `PcCurriculumPath.jsx` · `CourseSwitcher.jsx`(신규) · `frontend/tests/course-select.smoke.test.mjs`(신규) |
+| **FE-B** | 온보딩 재배치(R10-J 본체) | `frontend/src/App.jsx` · `frontend/src/modules/auth/**` (`LoginPage`·`ConvertAccountPage`(신규)) · `GuestSaveBanner.jsx`(신규) · `frontend/src/lib/onboardingGate.js` · `frontend/tests/guest-convert.smoke.test.mjs`(신규) |
+| **FE-C** | 복습 큐 카드 + mock | `frontend/src/components/ReviewQueueCard.jsx`(신규) · `frontend/mock/apiMockPlugin.js`(**단일 소유 — 이번 페이즈 mock 추가는 전부 FE-C**: review-queue + guest/convert) · `frontend/tests/review-queue.smoke.test.mjs`(신규) |
+| PM | `scripts/smoke_r10.sh` seed_courses 편입 · 게이트·커밋 | |
+
+### 6.2 계약
+
+**전환 API (BE-1 ↔ FE-B·FE-C의 접점 — 이 형태가 유일한 협상 결과)**
+- `POST /auth/guest/convert` (Bearer 필수): `{email, password, nickname?}` →
+  200 `LoginResponse`(토큰 재발급). 게스트가 아닌 계정 → 409 `NOT_GUEST`.
+  이메일 중복 → register와 동일 의미론. **같은 user_id 유지** — XP·θ·스트릭·진도
+  전부 보존이 이 API의 존재 이유다. 게스트 판별은 이메일 도메인
+  `@guest.weathermind.invalid`(J의 규약).
+- 레이트리밋 가입 관례 준용. users 컬럼 추가 금지.
+
+**코스 선택 (FE-A)**
+- CurriculumHome 상단 코스 탭(`GET /courses` 소비, is_default 우선 선택).
+  weather 트리는 현행 그대로(기존 스모크 무회귀가 판정 기준), basic-science는
+  빈 트리 안내("개념 트리 설계 완료 — 유닛 준비 중", specs/11 §2 3섹션 예고).
+- prereq 표기는 "선행 학습(권장)" — **잠금 아님**(PM 판정 ①).
+- FE-C의 `ReviewQueueCard`·FE-B의 `GuestSaveBanner`를 마운트(각 1줄 — props 없는
+  자급 컴포넌트 계약).
+
+**온보딩 재배치 (FE-B)**
+- 게스트 CTA를 주 동선으로 승격(가입은 보조 동선) — "계정 없이 즉시 체험"이
+  R10-J의 축. 배치고사·첫 세션까지 게스트로 완주 가능해야 한다.
+- `GuestSaveBanner`: 게스트 && 진도 있음(xp>0 등)일 때만 렌더, `ConvertAccountPage`로
+  유도. 전환 성공 시 토큰 교체 + 게스트 표식 해제.
+- props 없는 자급 컴포넌트로 제작(마운트는 FE-A).
+
+**복습 큐 카드 (FE-C)**
+- `GET /progress/review-queue` 소비, due 항목 상위 3개 + "복습하러 가기"(/daily).
+  due 0건이면 렌더 생략(빈 카드 금지). props 없는 자급 컴포넌트.
+- mock: review-queue + guest/convert 두 경로를 서버 형태와 동일하게(parity 관례).
+  전환 mock은 BE-1 계약(위)을 그대로 구현.
+
+### 6.3 페이즈 B — 문자열 외부화 전면 (A 착지 후, 병렬 2인)
+
+| 담당 | 소유 (디렉토리 서로소) |
+|---|---|
+| **FE-D1** | `frontend/src/modules/board/**` · `modules/explore/**` (문자열성 최다 밀집) |
+| **FE-D2** | 그 외 전부(`components/**`·`modules/{curriculum,session,quiz,duel,league,auth,dev}/**`) + **LocaleSwitcher Layout 배선** + i18n 리소스 파일(`ko.js`·`en.js` — D1은 자기 키를 별파일 `resources/board.ko.js`류로 분리해 충돌 회피) |
+
+- 대상은 **화면 노출 문자열만**(FE-1 실측 887라인 기준). 주석·로그·테스트 문자열 제외.
+- en 번역은 담당이 직접 작성(UI 문구 — G1 불요).
+- 판정 기준: 스모크 11종 무회귀 + i18n 키 패리티 가드 통과 + en 전환 실마운트 확인.
+
+### 6.4 공통 (§4 승계)
+
+파괴적 git 금지 · docker 금지 · 소유 밖 보고만 · 테스트 기준선 backend 1063 ·
+ai-worker 193 · 프론트 스모크 10종(+신규). 커밋은 PM.

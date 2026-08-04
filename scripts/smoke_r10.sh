@@ -166,20 +166,24 @@ step_up() {
 
 # ── 2. migrate — 검증 ① 전반부 ───────────────────────────────────────────────
 step_migrate() {
-  banner "2 migrate: alembic upgrade head → 0008_daily_goal + 컬럼 실존"
+  banner "2 migrate: alembic upgrade head → head 일치 + 0008 컬럼 실존"
   if ! compose exec -T backend alembic upgrade head; then
     record "2 migrate" "FAIL" "alembic upgrade head 실패"; return 0
   fi
-  local current col
-  current="$(compose exec -T backend alembic current 2>/dev/null | tr -d '\r')"
-  echo "  alembic current: $(grep -o '0008_daily_goal (head)' <<<"$current" || echo "$current" | tail -1)"
+  # 리비전을 하드코딩하지 않는다 — smoke.sh가 R10-06에서 같은 이유로 고쳐졌는데
+  # 이 파일에는 0008 하드코딩이 남아 있었다(0009_courses가 head가 되자 그대로면
+  # 정상 상태를 FAIL로 판정). current가 코드의 heads와 일치하는지를 본다.
+  local current heads col
+  current="$(compose exec -T backend alembic current 2>/dev/null | tr -d '\r' | grep -o '^[0-9a-z_]*' | tail -1)"
+  heads="$(compose exec -T backend alembic heads 2>/dev/null | tr -d '\r' | grep -o '^[0-9a-z_]*' | tail -1)"
+  echo "  alembic current=$current / heads=$heads"
   col="$(psql_c "SELECT column_name||'|'||data_type||'|nullable='||is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='daily_goal_items'")"
   echo "  users.daily_goal_items = ${col:-<없음>}"
-  if grep -q "0008_daily_goal" <<<"$current" && grep -q "(head)" <<<"$current" \
+  if [ -n "$current" ] && [ "$current" = "$heads" ] \
      && [ "$col" = "daily_goal_items|integer|nullable=YES" ]; then
-    record "2 migrate" "OK" "0008_daily_goal (head) + 컬럼 integer/nullable"
+    record "2 migrate" "OK" "current=heads($current) + 0008 컬럼 integer/nullable"
   else
-    record "2 migrate" "FAIL" "current=$current col=${col:-없음}"
+    record "2 migrate" "FAIL" "current=$current heads=$heads col=${col:-없음}"
   fi
 }
 

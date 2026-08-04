@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useProgressStore } from '../store/progressStore';
+import { useT } from '../i18n';
 
 /**
  * SpineBadge (R8-01 §3.7③) — 헤더 1순위 진척 표시: 스파인(유닛 n/m · 왕관).
@@ -10,19 +11,25 @@ import { useProgressStore } from '../store/progressStore';
  */
 export default function SpineBadge() {
   const spine = useProgressStore((s) => s.spine);
+  const t = useT();
   if (!spine) return null;
 
   return (
     <Link
       to="/"
-      title={`유닛 ${spine.units_cleared}/${spine.units_total} 클리어 · 왕관 ${spine.crowns_earned}/${spine.crowns_total}`}
+      title={t('spine.title', {
+        cleared: spine.units_cleared,
+        total: spine.units_total,
+        crowns: spine.crowns_earned,
+        crownsTotal: spine.crowns_total,
+      })}
       className="flex shrink-0 items-center gap-1 rounded-full bg-sky-950/50 px-2 py-0.5 text-xs font-bold text-white transition hover:bg-sky-950/70"
     >
       <span aria-hidden="true">🎓</span>
       <span className="tabular-nums">
         {spine.units_cleared}/{spine.units_total}
       </span>
-      <span className="text-amber-300 tabular-nums" aria-label="왕관">
+      <span className="text-amber-300 tabular-nums" aria-label={t('spine.crown')}>
         👑{spine.crowns_earned}
       </span>
     </Link>

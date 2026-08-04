@@ -301,12 +301,22 @@ class TestGuestRateLimit:
 
 class TestMockParity:
     def test_mock_guest_경로가_서버와_형태_동일(self):
-        """mock의 POST /auth/guest — 상태코드 201 + LoginResponse 키 집합."""
+        """mock의 POST /auth/guest — 상태코드 201 + LoginResponse 키 집합.
+
+        핸들러 **구현 형태에 과결합하지 않는다** — 초판 정규식은 화살표가 배열
+        리터럴을 바로 돌려주는 형태(`() => [201, {...}]`)만 인식해서, R11 웨이브 2에서
+        핸들러가 상태 전이(`mockAuth.isGuest`) 때문에 블록 본문으로 바뀌자 경로가
+        멀쩡히 있는데도 "경로가 없다"로 죽었다. 계약의 관심사는 형태가 아니라
+        (경로 존재 · 201 · 응답 키 집합) 세 가지이므로, 핸들러 블록을 다음 라우트
+        키(또는 파일 끝)까지 잘라 그 안에서 관심사만 본다.
+        """
         src = MOCK_PATH.read_text(encoding="utf-8")
-        m = re.search(
-            r"'POST /auth/guest':\s*\(\)\s*=>\s*\[\s*(\d+),\s*\{([^}]*)\}", src
-        )
-        assert m, "mock에 POST /auth/guest 경로가 없다 (R11-01 J)"
+        start = src.find("'POST /auth/guest':")
+        assert start != -1, "mock에 POST /auth/guest 경로가 없다 (R11-01 J)"
+        nxt = re.search(r"'(?:GET|POST|PUT|DELETE) /", src[start + 1 :])
+        block = src[start : start + 1 + (nxt.start() if nxt else len(src))]
+        m = re.search(r"\[\s*(\d+)\s*,\s*\{([^}]*)\}", block)
+        assert m, "guest 핸들러에서 [상태코드, {본문}] 반환을 찾지 못했다"
         assert int(m.group(1)) == 201  # 서버 status_code=HTTP_201_CREATED와 동일
         mock_keys = set(re.findall(r"(\w+):", m.group(2)))
         assert mock_keys == set(LoginResponse.model_fields), (

@@ -66,6 +66,10 @@ globalThis.document = window.document;
 Object.defineProperty(globalThis, 'navigator', { value: window.navigator, configurable: true });
 globalThis.localStorage = window.localStorage;
 globalThis.sessionStorage = window.sessionStorage;
+// i18n 전면 외부화(R11-01 §6.3) 이후 UI 문구는 로케일을 따른다 — jsdom의
+// navigator.language 기본값(en-US)에 좌우되지 않도록 제품 기본 로케일(ko)을
+// 저장값으로 고정한다(i18n.smoke.test.mjs와 동일 관례). 한국어 문구 단정은 불변.
+window.localStorage.setItem('weathermind.locale', 'ko');
 for (const k of ['HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'Event', 'CustomEvent', 'MouseEvent', 'KeyboardEvent', 'MutationObserver', 'getComputedStyle']) {
   globalThis[k] = window[k];
 }

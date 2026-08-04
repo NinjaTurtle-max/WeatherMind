@@ -10,6 +10,7 @@
  *     달라져도 선 두께는 일정하게 유지한다.
  *   - 튜터 카드는 lg 미만에서 경로 아래로 쌓아 경로가 좁아지지 않게 한다.
  */
+import { conceptLabel, useT } from '../../i18n';
 
 // 4열 스네이크의 열 중심 x(컨테이너 폭 대비 %)
 const COL_PCT = [12.5, 37.5, 62.5, 87.5];
@@ -19,15 +20,7 @@ const ROW_BOTTOM_PAD = 95; // 마지막 줄 라벨 칩(2~3줄)이 잘리지 않�
 const COLS_PER_ROW = 4;
 
 const STATUS_ICON = { cleared: '👑', current: '🌀', unlocked: '🌀', locked: '🔒' };
-
-const CONCEPT_LABEL = {
-  pressure_front: '기압과 전선',
-  typhoon: '태풍',
-  air_mass: '기단',
-  heat_island: '열섬 현상',
-  co2_climate: 'CO₂와 기후',
-  anomaly: '이상 기후',
-};
+// 개념 표시명은 concept.* 리소스(i18n)의 conceptLabel() 공용 헬퍼로.
 
 const PAW_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72"><g fill="#E8A400" fill-opacity="0.16"><ellipse cx="36" cy="46" rx="13" ry="10.5"/><ellipse cx="20" cy="30" rx="5.6" ry="6.8"/><ellipse cx="34" cy="21" rx="6.2" ry="7.4"/><ellipse cx="49" cy="27" rx="5.8" ry="7"/></g></svg>';
@@ -69,6 +62,7 @@ function badgeStyle(status) {
 }
 
 export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked = false, regenMin = 1 }) {
+  const t = useT();
   const flat = [];
   sections.forEach((section) => {
     section.units.forEach((unit, i) => {
@@ -178,13 +172,17 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
                       onClick={() => !blocked && onOpenUnit(n.id)}
                       disabled={blocked}
                       aria-label={`${n.title}${
-                        locked ? ' (잠김)' : energyBlocked ? ' (구름 부족)' : ''
+                        locked
+                          ? t('curriculum.unit.lockedSuffix')
+                          : energyBlocked
+                            ? t('curriculum.unit.energySuffix')
+                            : ''
                       }`}
                       title={
                         locked
-                          ? '선행 유닛을 완료하면 열려요'
+                          ? t('curriculum.unit.lockedTitle')
                           : energyBlocked
-                            ? `구름이 회복되면 열 수 있어요 — 약 ${regenMin}분 후`
+                            ? t('curriculum.unit.energyTitle', { min: regenMin })
                             : n.title
                       }
                       className={`relative flex h-[68px] w-[68px] items-center justify-center rounded-full border-4 border-white text-[26px] transition ${
@@ -196,7 +194,7 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
                       {n.kind === 'board' && !blocked && (
                         <span
                           className="absolute -bottom-1 -right-1 rounded-full bg-white px-1 text-[10px] shadow ring-1 ring-slate-200"
-                          title="보드 퍼즐 유닛"
+                          title={t('curriculum.unit.boardChip')}
                         >
                           🧩
                         </span>
@@ -211,11 +209,11 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
                         {n.title}
                       </p>
                       <p className="mt-0.5 text-[10px] text-slate-400">
-                        {CONCEPT_LABEL[n.concept_tag] ?? n.concept_tag}
+                        {conceptLabel(t, n.concept_tag)}
                       </p>
                       {openedByPlacement && (
                         <p className="mt-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
-                          🧭 진단으로 열림
+                          {t('curriculum.unit.placementOpened')}
                         </p>
                       )}
                     </div>
@@ -232,10 +230,11 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
 }
 
 function TutorCard({ unit }) {
+  const t = useT();
   // 튜터 코멘트 내용(사전형 기상 용어 등)은 아직 미확정 — 지금은 자리표시 문구만.
   const greeting = unit
-    ? `"${unit.title}" 유닛이네요 — 차근차근 같이 풀어봐요!`
-    : '오늘도 하늘 읽으러 가볼까요?';
+    ? t('curriculum.tutor.greet', { title: unit.title })
+    : t('curriculum.tutor.greetDefault');
 
   return (
     <div
@@ -248,13 +247,13 @@ function TutorCard({ unit }) {
       }}
     >
       <span className="absolute left-4 top-3.5 rounded-full bg-[#0E2A42] px-2.5 py-1 text-[10.5px] font-extrabold text-white">
-        ⚡ 튜터
+        {t('curriculum.tutor.chip')}
       </span>
       <div className="mt-8 flex justify-center">
         <img src="/헤헤한팔.png" alt="" aria-hidden="true" className="w-[200px] drop-shadow-lg" />
       </div>
       <div className="relative mt-1 rounded-2xl bg-white p-3 shadow-md">
-        <p className="mb-0.5 text-[11px] font-extrabold text-[#E8A400]">썬더</p>
+        <p className="mb-0.5 text-[11px] font-extrabold text-[#E8A400]">{t('curriculum.tutor.name')}</p>
         <p className="text-[13.5px] font-bold leading-snug text-slate-800">{greeting}</p>
       </div>
     </div>

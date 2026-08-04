@@ -11,6 +11,7 @@ import QuestionCard from '../quiz/QuestionCard';
 import ResultBanner from '../quiz/ResultBanner';
 import SessionProgressBar from './SessionProgressBar';
 import SessionSummary from './SessionSummary';
+import { translate, useT } from '../../i18n';
 
 /**
  * SessionRunner — 세션 상태머신 컨트롤러(공용 엔진).
@@ -47,9 +48,14 @@ import SessionSummary from './SessionSummary';
  */
 
 // 칭찬 4단 (§3.5 — 자체 카피). 연속 정답 수가 커져도 마지막 단계에서 멈춘다.
-export const COMBO_PRAISE = Object.freeze(['정답이에요', '좋아요', '훌륭해요', '완벽해요']);
+// 문구 원본은 session.praise.* 리소스(i18n) — 이 상수는 ko 사본으로, 계약 테스트
+// (boardAssistRetention: ko 원문 4개 단정)와 순수 함수 comboPraise의 소스다.
+// 렌더는 t('session.praise.{n}')를 직접 써서 로케일에 반응한다.
+export const COMBO_PRAISE = Object.freeze(
+  [1, 2, 3, 4].map((n) => translate('ko', `session.praise.${n}`)),
+);
 
-/** 연속 정답 수 → 칭찬 문구. 0·음수·비수는 null(표시 없음). */
+/** 연속 정답 수 → 칭찬 문구(ko — 계약용 순수 함수). 0·음수·비수는 null(표시 없음). */
 export function comboPraise(combo) {
   const n = Number(combo);
   if (!Number.isFinite(n) || n < 1) return null;
@@ -59,7 +65,7 @@ export default function SessionRunner({
   queryKey,
   loadSession,
   staleTime = 5 * 60 * 1000,
-  title = '오늘의 기상 세션',
+  title = null,
   attendance = false,
   subheader = null,
   renderSummary,
@@ -69,6 +75,7 @@ export default function SessionRunner({
   finalizingScreen = null,
 }) {
   const queryClient = useQueryClient();
+  const t = useT();
   const {
     status,
     sessionId,
@@ -147,7 +154,7 @@ export default function SessionRunner({
       showFeedback({
         is_correct: false,
         correct_answer: null,
-        feedback: err.detail ?? '답안 제출에 실패했어요. 잠시 후 다시 시도해주세요.',
+        feedback: err.detail ?? t('session.submitFailed'),
         xp_earned: 0,
         _submitFailed: true,
         _outOfClouds: outOfClouds,
@@ -170,7 +177,7 @@ export default function SessionRunner({
       // 커리큘럼(다음 유닛 열림)·스파인을 갱신하고 토스트를 띄운다.
       if (result.crown_award) {
         queryClient.invalidateQueries({ queryKey: ['curriculum'] });
-        setCrownToast(`👑 왕관 획득 — ${result.crown_award.unit_title}`);
+        setCrownToast(t('session.crownToast', { title: result.crown_award.unit_title }));
         setTimeout(() => setCrownToast(null), 3000);
       }
       onSessionComplete?.(result);
@@ -178,7 +185,7 @@ export default function SessionRunner({
     onError: (err) => {
       showFeedback({
         ...(answerState ?? { is_correct: false, correct_answer: null, xp_earned: 0 }),
-        feedback: err.detail ?? '세션 완료 처리에 실패했어요. 잠시 후 다시 시도해주세요.',
+        feedback: err.detail ?? t('session.completeFailed'),
         _submitFailed: true,
       });
     },
@@ -277,21 +284,21 @@ export default function SessionRunner({
 
   // ── 렌더 ──
   if (isLoading || status === SESSION_STATUS.LOADING) {
-    return <LoadingSpinner label="세션을 준비하고 있어요..." />;
+    return <LoadingSpinner label={t('session.loading')} />;
   }
 
   if (isError || status === SESSION_STATUS.ERROR) {
     return (
       <div className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
         <p className="text-3xl">🌧️</p>
-        <p className="mt-2 font-bold text-slate-800">세션을 불러오지 못했어요</p>
-        <p className="mt-1 text-sm text-slate-500">{error?.detail ?? '잠시 후 다시 시도해주세요.'}</p>
+        <p className="mt-2 font-bold text-slate-800">{t('session.loadFailed')}</p>
+        <p className="mt-1 text-sm text-slate-500">{error?.detail ?? t('common.retryLater')}</p>
         <button
           type="button"
           onClick={() => refetch()}
           className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
         >
-          다시 시도
+          {t('common.retry')}
         </button>
       </div>
     );
@@ -316,21 +323,21 @@ export default function SessionRunner({
       return (
         <div className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
           <p className="text-3xl">🌧️</p>
-          <p className="mt-2 font-bold text-slate-800">결과 계산에 실패했어요</p>
+          <p className="mt-2 font-bold text-slate-800">{t('session.bulkFailTitle')}</p>
           <p className="mt-1 text-sm text-slate-500">
-            {bulkError?.detail ?? '잠시 후 다시 시도해주세요. 푼 답안은 그대로 남아 있어요.'}
+            {bulkError?.detail ?? t('session.bulkFailBody')}
           </p>
           <button
             type="button"
             onClick={() => setBulkError(null)}
             className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
           >
-            다시 시도
+            {t('common.retry')}
           </button>
         </div>
       );
     }
-    return finalizingScreen ?? <LoadingSpinner label="결과를 계산하고 있어요..." />;
+    return finalizingScreen ?? <LoadingSpinner label={t('session.bulkFinalizing')} />;
   }
 
   const outOfClouds = answerState?._outOfClouds;
@@ -338,9 +345,12 @@ export default function SessionRunner({
   return (
     <div className="pt-2">
       <div className="mb-3 flex items-center justify-between">
-        <h1 className="text-lg font-extrabold text-slate-900">{title}</h1>
+        <h1 className="text-lg font-extrabold text-slate-900">{title ?? t('session.title')}</h1>
         <span className="text-sm font-medium text-slate-500">
-          문항 {Math.min(currentIndex + 1, items.length)} / {items.length}
+          {t('session.itemCount', {
+            current: Math.min(currentIndex + 1, items.length),
+            total: items.length,
+          })}
         </span>
       </div>
 
@@ -353,9 +363,9 @@ export default function SessionRunner({
           className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-extrabold text-orange-700"
         >
           <span aria-hidden="true">🔥</span>
-          연속 정답 {combo}
+          {t('session.combo', { combo })}
           <span className="text-orange-500">·</span>
-          {comboPraise(combo)}
+          {t(`session.praise.${Math.min(Math.floor(combo), 4)}`)}
         </p>
       )}
 
@@ -363,7 +373,7 @@ export default function SessionRunner({
 
       {currentItem?.slot_filled && (
         <p className="mb-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
-          ☀️ 오늘 실황 반영 문항
+          {t('session.slotFilled')}
         </p>
       )}
 
@@ -375,7 +385,7 @@ export default function SessionRunner({
       />
 
       {isSubmitting && status === SESSION_STATUS.IN_PROGRESS && (
-        <LoadingSpinner label="AI가 채점하고 있어요..." />
+        <LoadingSpinner label={t('session.grading')} />
       )}
 
       {status === SESSION_STATUS.FEEDBACK && answerState && (
@@ -385,11 +395,13 @@ export default function SessionRunner({
             // 아니라 "실수"에만 줄고, 이미 시작한 세션은 끝까지 마칠 수 있다.
             <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-center ring-1 ring-rose-200">
               <p className="text-2xl">☁️</p>
-              <p className="mt-1 text-sm font-bold text-rose-700">구름이 모두 흩어졌어요</p>
+              <p className="mt-1 text-sm font-bold text-rose-700">{t('session.clouds.title')}</p>
               <p className="mt-1 text-xs leading-relaxed text-rose-600">
-                구름은 <span className="font-bold">틀린 문항에만 1개</span> 줄어들어요 — 열심히 푼
-                만큼이 아니라 실수에만 소모돼요. <span className="font-bold">지금 풀던 세션은 끝까지
-                마칠 수 있고</span>, 구름이 1개라도 회복되면 새 세션도 다시 열려요.
+                {t('session.clouds.seg1')}
+                <span className="font-bold">{t('session.clouds.strong1')}</span>
+                {t('session.clouds.seg2')}
+                <span className="font-bold">{t('session.clouds.strong2')}</span>
+                {t('session.clouds.seg3')}
               </p>
               {answerState.feedback && (
                 <p className="mt-1.5 text-[11px] text-rose-500">{answerState.feedback}</p>
@@ -405,14 +417,14 @@ export default function SessionRunner({
             className="mt-4 w-full rounded-xl bg-slate-900 py-3 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting
-              ? '세션을 마무리하고 있어요...'
+              ? t('session.finishing')
               : answerState._submitFailed
                 ? outOfClouds
-                  ? '구름 회복 후 다시 시도'
-                  : '다시 시도'
+                  ? t('session.retryAfterRegen')
+                  : t('common.retry')
                 : isLastItem
-                  ? '세션 마치기 →'
-                  : '다음 문항 →'}
+                  ? t('session.finish')
+                  : t('session.next')}
           </button>
           {!outOfClouds && <FeedbackPanel message={answerState.feedback} isCorrect={answerState.is_correct} />}
           <div className="h-40" />
@@ -533,6 +545,7 @@ function useLeaveIntent(active) {
  * Esc = 계속 풀기, 닫힐 때 이전 포커스 복원. 애니메이션 없음(reduced-motion 무관).
  */
 function LeaveIntentDialog({ onStay, onLeave, remaining }) {
+  const t = useT();
   const panelRef = useRef(null);
   const primaryRef = useRef(null);
 
@@ -581,11 +594,11 @@ function LeaveIntentDialog({ onStay, onLeave, remaining }) {
       >
         <p className="text-3xl" aria-hidden="true">🌦️</p>
         <h2 id="leave-intent-title" className="mt-2 text-lg font-extrabold text-slate-900">
-          지금 나가면 오늘 진도가 사라져요
+          {t('session.leave.title')}
         </h2>
         <p id="leave-intent-desc" className="mt-1.5 text-sm leading-relaxed text-slate-500">
-          {remaining > 0 ? `${remaining}문항만 더 풀면 오늘 진도와 스트릭이 기록돼요. ` : '조금만 더 하면 끝나요. '}
-          여기서 멈추면 지금까지 푼 만큼만 남아요.
+          {remaining > 0 ? t('session.leave.remaining', { remaining }) : t('session.leave.almost')}
+          {t('session.leave.tail')}
         </p>
         <button
           ref={primaryRef}
@@ -593,14 +606,14 @@ function LeaveIntentDialog({ onStay, onLeave, remaining }) {
           onClick={onStay}
           className="mt-5 w-full rounded-xl bg-sky-600 py-3.5 text-base font-extrabold text-white transition hover:bg-sky-700"
         >
-          계속 풀기
+          {t('session.leave.stay')}
         </button>
         <button
           type="button"
           onClick={onLeave}
           className="mt-3 text-xs font-medium text-slate-400 underline hover:text-slate-600"
         >
-          그만두기
+          {t('session.leave.quit')}
         </button>
       </div>
     </div>

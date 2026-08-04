@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { curriculumApi } from '../../api';
 import SessionRunner from '../session/SessionRunner';
 import { DailyGoalMeter } from '../progress/DailyGoal';
+import { useT } from '../../i18n';
 
 /**
  * UnitSessionPage (R5-01 §3.2·S4) — 커리큘럼 유닛 세션 플레이어.
@@ -14,20 +15,21 @@ export default function UnitSessionPage() {
   const { unitId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const t = useT();
 
   return (
     <div className="pt-2">
       <Link to="/" className="mb-2 inline-block text-sm font-medium text-slate-500 hover:text-slate-700">
-        ← 학습 경로로
+        {t('unitSession.back')}
       </Link>
       <SessionRunner
         queryKey={['curriculum', 'unit', unitId, 'session']}
         loadSession={() => curriculumApi.startUnitSession(unitId)}
         staleTime={0}
-        title="유닛 학습"
+        title={t('unitSession.title')}
         subheader={
           <p className="mb-2 inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-bold text-sky-700">
-            📚 커리큘럼 유닛
+            {t('unitSession.chip')}
           </p>
         }
         onSessionComplete={() => {
@@ -50,6 +52,7 @@ export default function UnitSessionPage() {
  * "클리어"가 아니라 남은 왕관 안내를 보여준다(crown_target≥2 유닛 대비).
  */
 function UnitSummary({ summary, onNext }) {
+  const t = useT();
   const ur = summary?.unit_result ?? {};
   const cleared = ur.cleared;
   const earnedCrown = ur.all_correct && cleared;
@@ -59,14 +62,14 @@ function UnitSummary({ summary, onNext }) {
     <div className="mt-10 rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-200">
       <p className="text-4xl">{earnedCrown ? '👑' : ur.all_correct ? '🌈' : '⛅'}</p>
       <h2 className="mt-3 text-xl font-extrabold text-slate-900">
-        {earnedCrown ? '유닛 클리어!' : ur.all_correct ? '왕관 획득!' : '유닛을 마쳤어요'}
+        {earnedCrown ? t('unitSession.cleared') : ur.all_correct ? t('unitSession.crowned') : t('unitSession.done')}
       </h2>
       <p className="mt-1 text-sm text-slate-500">
         {ur.all_correct
           ? cleared
-            ? '모든 문항을 맞혔어요. 다음 유닛이 열렸어요!'
-            : `모든 문항을 맞혔어요. 왕관 ${crownTarget}개를 모으면 유닛이 클리어돼요.`
-          : '틀린 문항이 있어요. 다시 도전하면 왕관을 받을 수 있어요.'}
+            ? t('unitSession.allCleared')
+            : t('unitSession.allMore', { target: crownTarget })
+          : t('unitSession.hasWrong')}
       </p>
 
       <div className="mt-6 grid grid-cols-3 gap-2">
@@ -75,23 +78,23 @@ function UnitSummary({ summary, onNext }) {
             👑 {ur.crowns ?? 0}
             <span className="text-sm font-medium text-amber-400">/{crownTarget}</span>
           </p>
-          <p className="mt-0.5 text-xs font-medium text-slate-500">왕관</p>
+          <p className="mt-0.5 text-xs font-medium text-slate-500">{t('unitSession.crowns')}</p>
         </div>
         <div className="rounded-xl bg-emerald-50 p-3">
           <p className="text-lg font-extrabold text-emerald-600">
             {summary?.correct_count ?? 0}
             <span className="text-sm font-medium text-emerald-500">/{summary?.total ?? 0}</span>
           </p>
-          <p className="mt-0.5 text-xs font-medium text-slate-500">정답 수</p>
+          <p className="mt-0.5 text-xs font-medium text-slate-500">{t('session.summary.correct')}</p>
         </div>
         <div className="rounded-xl bg-sky-50 p-3">
           <p className="text-lg font-extrabold text-sky-600">+{(summary?.xp_total ?? 0) + (ur.unit_xp ?? 0)}</p>
-          <p className="mt-0.5 text-xs font-medium text-slate-500">획득 XP</p>
+          <p className="mt-0.5 text-xs font-medium text-slate-500">{t('session.summary.xp')}</p>
         </div>
       </div>
 
       {ur.unit_xp > 0 && (
-        <p className="mt-3 text-xs font-bold text-amber-600">✨ 유닛 최초 클리어 보너스 +{ur.unit_xp} XP</p>
+        <p className="mt-3 text-xs font-bold text-amber-600">{t('unitSession.bonus', { xp: ur.unit_xp })}</p>
       )}
 
       {/* 오늘 목표 N/M (R10-01 §3.4 — 웨이브 1 잔여: 데일리 SessionSummary와 같은 방식).
@@ -103,7 +106,7 @@ function UnitSummary({ summary, onNext }) {
         onClick={onNext}
         className="mt-6 w-full rounded-xl bg-slate-900 py-3 text-sm font-bold text-white transition hover:bg-slate-700"
       >
-        {cleared ? '다음 유닛으로 →' : '학습 경로로 돌아가기'}
+        {cleared ? t('unitSession.next') : t('unitSession.backToPath')}
       </button>
     </div>
   );

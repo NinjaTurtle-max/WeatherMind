@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { progressApi } from '../../api';
 import { DAILY_GOAL_CHOICES } from '../../lib/onboardingGate';
+import { useT } from '../../i18n';
 
 /**
  * 일일 목표(온보딩 커밋 장치) — R10-01 §3.4·D4 (S4 / R10-D)
@@ -30,6 +31,7 @@ function useMe() {
 /** 하루 3·5·9문항 중 하나를 골라 서버에 커밋한다. onSaved(items)는 저장 성공 후 호출. */
 export function DailyGoalPicker({ onSaved, className = '' }) {
   const queryClient = useQueryClient();
+  const t = useT();
   const { data: me } = useMe();
 
   const mutation = useMutation({
@@ -48,9 +50,9 @@ export function DailyGoalPicker({ onSaved, className = '' }) {
 
   return (
     <div className={`rounded-2xl bg-sky-50 p-4 text-left ring-1 ring-sky-100 ${className}`}>
-      <p className="text-sm font-extrabold text-sky-900">🎯 하루 목표를 정해요</p>
+      <p className="text-sm font-extrabold text-sky-900">{t('dailyGoal.pickerTitle')}</p>
       <p className="mt-0.5 text-xs leading-relaxed text-sky-700">
-        작게 시작해도 매일이 더 중요해요. 언제든 바꿀 수 있어요.
+        {t('dailyGoal.pickerBody')}
       </p>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
@@ -71,7 +73,7 @@ export function DailyGoalPicker({ onSaved, className = '' }) {
               }`}
             >
               <span className="block text-base font-extrabold">
-                {pending ? '…' : `${choice.items}문항`}
+                {pending ? '…' : t('dailyGoal.itemsUnit', { items: choice.items })}
               </span>
               <span className={active ? 'text-sky-100' : 'text-slate-400'}>{choice.label}</span>
             </button>
@@ -81,12 +83,12 @@ export function DailyGoalPicker({ onSaved, className = '' }) {
 
       {selected != null && !mutation.isError && (
         <p className="mt-2 text-xs font-bold text-sky-700">
-          좋아요 — 오늘부터 하루 {selected}문항이 목표예요.
+          {t('dailyGoal.saved', { items: selected })}
         </p>
       )}
       {mutation.isError && (
         <p className="mt-2 text-xs font-bold text-rose-600">
-          목표를 저장하지 못했어요. {mutation.error?.detail ?? ''} 다시 눌러주세요.
+          {t('dailyGoal.saveFailed', { detail: mutation.error?.detail ?? '' })}
         </p>
       )}
     </div>
@@ -98,6 +100,7 @@ export function DailyGoalPicker({ onSaved, className = '' }) {
  * 목표 미설정(null)이면 아무것도 렌더하지 않는다(§3.4: 미설정은 선택 노출 대상).
  */
 export function DailyGoalMeter({ className = '' }) {
+  const t = useT();
   const { data: me } = useMe();
   const goal = me?.daily_goal_items ?? null;
   if (!goal) return null;
@@ -114,14 +117,16 @@ export function DailyGoalMeter({ className = '' }) {
     >
       <div className="flex items-center justify-between gap-2">
         <p className={`text-sm font-extrabold ${reached ? 'text-emerald-800' : 'text-slate-900'}`}>
-          🎯 오늘 목표 {Math.min(done, goal)}/{goal}
+          {t('dailyGoal.meterTitle', { done: Math.min(done, goal), goal })}
         </p>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
             reached ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'
           }`}
         >
-          {reached ? '달성!' : `${Math.max(0, goal - done)}문항 남음`}
+          {reached
+            ? t('dailyGoal.reached')
+            : t('dailyGoal.remaining', { count: Math.max(0, goal - done) })}
         </span>
       </div>
       <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-100">

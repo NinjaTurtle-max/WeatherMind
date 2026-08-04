@@ -7,6 +7,7 @@ import {
   CO2_MAX,
   CLIMATE_SENSITIVITY,
 } from '../../lib/exploreSims';
+import { useT } from '../../i18n';
 
 /**
  * 기후변화 체험 페이지 (R9-01 §3.5 S5) — 순수 클라이언트 탐구 모듈, 라우트 /explore/climate.
@@ -32,32 +33,19 @@ function anomalyColor(anomaly) {
   return '#e11d48'; // rose-600
 }
 
-/** 조건별 결정적 설명 문구. */
-function explainWhy(co2, result) {
+/** 조건별 결정적 설명 문구. t는 호출부의 useT(). */
+function explainWhy(t, co2, result) {
   const lines = [];
   lines.push(
-    `CO₂는 지구가 내보내는 적외선(열)을 흡수해 되돌려 보내는 온실기체예요. ` +
-      `농도가 ${CO2_BASELINE}ppm(산업화 이전)에서 ${co2}ppm으로 오르면, 이 모델에서 ` +
-      `지구 평균기온은 약 ${result.anomaly.toFixed(2)}℃ 올라요.`,
+    t('explore.climate.why1', { baseline: CO2_BASELINE, co2, anomaly: result.anomaly.toFixed(2) }),
   );
-  lines.push(
-    '주목할 점은 온도가 농도에 정비례하지 않고 로그(배수)로 반응한다는 거예요. ' +
-      `CO₂가 두 배(280→560ppm)가 될 때마다 약 ${CLIMATE_SENSITIVITY.toFixed(1)}℃씩 오르죠. ` +
-      '같은 +10ppm이라도 농도가 낮을 때 더 큰 효과를 내요.',
-  );
+  lines.push(t('explore.climate.why2', { sens: CLIMATE_SENSITIVITY.toFixed(1) }));
   if (co2 <= CO2_BASELINE) {
-    lines.push('지금은 산업화 이전 수준이에요 — 기준점(아노말리 0℃)입니다.');
+    lines.push(t('explore.climate.whyBaseline'));
   } else if (co2 <= CO2_PRESENT_DAY) {
-    lines.push(
-      '이 구간은 인류가 이미 지나온 길이에요. 산업혁명 이후 화석연료 연소로 ' +
-        `농도가 ${CO2_BASELINE}ppm에서 오늘날 약 ${CO2_PRESENT_DAY}ppm까지 올랐어요.`,
-    );
+    lines.push(t('explore.climate.whyPast', { baseline: CO2_BASELINE, present: CO2_PRESENT_DAY }));
   } else {
-    lines.push(
-      `${CO2_PRESENT_DAY}ppm(현재 근사)을 넘는 구간은 앞으로의 선택에 달린 미래예요. ` +
-        '따뜻해진 바닷물은 부피가 커지고(열팽창) 빙하가 녹아 해수면이 오르고, ' +
-        '평균기온이 조금만 올라도 극단적인 더위는 훨씬 자주 나타나요.',
-    );
+    lines.push(t('explore.climate.whyFuture', { present: CO2_PRESENT_DAY }));
   }
   return lines;
 }
@@ -67,6 +55,7 @@ function explainWhy(co2, result) {
  * 위에 현재 선택값 마커를 얹는다. 경량 SVG(외부 차트 라이브러리 없이).
  */
 function AnomalyCurve({ co2, anomaly }) {
+  const t = useT();
   const w = 280;
   const h = 130;
   const pad = { left: 30, right: 12, top: 12, bottom: 22 };
@@ -85,7 +74,7 @@ function AnomalyCurve({ co2, anomaly }) {
 
   const color = anomalyColor(anomaly);
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label={`CO2 ${co2}ppm에서 온도 아노말리 ${anomaly}℃`}>
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label={t('explore.climate.curveAria', { co2, anomaly })}>
       {/* y 눈금 (1/2/3℃) */}
       {[1, 2, 3].map((g) => (
         <g key={g}>
@@ -114,7 +103,7 @@ function AnomalyCurve({ co2, anomaly }) {
         strokeDasharray="3 3"
       />
       <text x={xOf(CO2_PRESENT_DAY)} y={pad.top - 2} textAnchor="middle" fontSize="8" className="fill-slate-400">
-        현재≈{CO2_PRESENT_DAY}
+        {t('explore.climate.presentMark', { n: CO2_PRESENT_DAY })}
       </text>
       {/* 로그 감도 곡선 */}
       <polyline points={points} fill="none" stroke="#0ea5e9" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
@@ -139,20 +128,21 @@ function IndicatorCard({ icon, title, value, unit, note }) {
 }
 
 export default function ClimateSimPage() {
+  const t = useT();
   const [co2, setCo2] = useState(CO2_PRESENT_DAY);
 
   const result = useMemo(() => climateResponse({ co2 }), [co2]);
   const color = anomalyColor(result.anomaly);
-  const whyLines = explainWhy(co2, result);
+  const whyLines = explainWhy(t, co2, result);
 
   return (
     <div className="space-y-4 py-4">
       <div className="flex items-center justify-between">
         <div>
           <Link to="/explore" className="text-xs font-medium text-sky-600 hover:text-sky-700">
-            ← 탐구
+            {t('explore.common.back')}
           </Link>
-          <h1 className="text-lg font-extrabold text-slate-800">🌡️ 기후변화 체험</h1>
+          <h1 className="text-lg font-extrabold text-slate-800">{t('explore.climate.title')}</h1>
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-extrabold" style={{ color }}>
           +{result.anomaly.toFixed(2)}℃
@@ -160,14 +150,13 @@ export default function ClimateSimPage() {
       </div>
 
       <p className="rounded-xl bg-slate-100 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
-        교육용 단순화 모델이에요. ΔT = S·log₂(C/C₀), S=3.0℃(배증당) 로그 감도
-        근사로, 실제 기후 전망(수치 모델)·특정 연도 예측이 아닙니다.
+        {t('explore.climate.disclaimer')}
       </p>
 
       {/* 아노말리 곡선 카드 */}
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <p className="text-sm font-bold text-slate-700">지구 평균기온 아노말리</p>
-        <p className="text-[11px] text-slate-400">산업화 이전(280ppm) 대비 상승분 — 로그 감도 곡선</p>
+        <p className="text-sm font-bold text-slate-700">{t('explore.climate.anomalyTitle')}</p>
+        <p className="text-[11px] text-slate-400">{t('explore.climate.anomalySub')}</p>
         <div className="mt-2">
           <AnomalyCurve co2={co2} anomaly={result.anomaly} />
         </div>
@@ -177,7 +166,7 @@ export default function ClimateSimPage() {
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div className="flex items-baseline justify-between">
           <label htmlFor="explore-co2" className="text-sm font-bold text-slate-700">
-            CO₂ 농도
+            {t('explore.climate.co2Label')}
           </label>
           <span className="text-sm font-extrabold text-sky-700">{co2}ppm</span>
         </div>
@@ -192,16 +181,16 @@ export default function ClimateSimPage() {
           className="mt-2 w-full accent-sky-600"
         />
         <div className="flex justify-between text-[10px] text-slate-400">
-          <span>{CO2_MIN}ppm 산업화 이전</span>
-          <span className="font-bold text-slate-500">현재 ≈ {CO2_PRESENT_DAY}ppm</span>
-          <span>{CO2_MAX}ppm 배증</span>
+          <span>{t('explore.climate.scaleMin', { min: CO2_MIN })}</span>
+          <span className="font-bold text-slate-500">{t('explore.climate.scaleNow', { n: CO2_PRESENT_DAY })}</span>
+          <span>{t('explore.climate.scaleMax', { max: CO2_MAX })}</span>
         </div>
         <button
           type="button"
           onClick={() => setCo2(CO2_PRESENT_DAY)}
           className="mt-2 w-full rounded-xl bg-slate-100 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200"
         >
-          현재 농도로 되돌리기
+          {t('explore.climate.reset')}
         </button>
       </div>
 
@@ -209,23 +198,23 @@ export default function ClimateSimPage() {
       <div className="grid grid-cols-2 gap-3">
         <IndicatorCard
           icon="🌊"
-          title="해수면 상승"
+          title={t('explore.climate.seaTitle')}
           value={result.sea_level}
-          unit="cm"
-          note="열팽창·빙하 융해를 1℃당 약 23cm로 축약한 교육 근사"
+          unit={t('explore.climate.seaUnit')}
+          note={t('explore.climate.seaNote')}
         />
         <IndicatorCard
           icon="🔥"
-          title="연간 폭염일수"
+          title={t('explore.climate.heatTitle')}
           value={result.heat_days}
-          unit="일"
-          note="기준 10일/년에서 1℃당 약 1.9배로 늘어나는 교육 근사"
+          unit={t('explore.climate.heatUnit')}
+          note={t('explore.climate.heatNote')}
         />
       </div>
 
       {/* 왜 그럴까 설명 패널 */}
       <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
-        <p className="text-sm font-bold text-sky-800">🤔 왜 그럴까?</p>
+        <p className="text-sm font-bold text-sky-800">{t('explore.common.whyTitle')}</p>
         <ul className="mt-2 space-y-2">
           {whyLines.map((line, i) => (
             <li key={i} className="text-xs leading-relaxed text-sky-900">
@@ -234,9 +223,7 @@ export default function ClimateSimPage() {
           ))}
         </ul>
         <p className="mt-3 border-t border-sky-100 pt-2 text-[10px] leading-relaxed text-sky-700/70">
-          단순화: 실제 기후는 해양 열관성(수십 년 지연)·구름 되먹임·지역 차이가 커서
-          같은 농도라도 시점·지역마다 반응이 달라요. 여기 값은 평형 응답의 전 지구
-          평균 경향이에요.
+          {t('explore.climate.caveat')}
         </p>
       </div>
 
@@ -246,7 +233,7 @@ export default function ClimateSimPage() {
         state={{ focusConcept: 'co2_climate' }}
         className="block rounded-2xl bg-sky-600 py-3 text-center text-sm font-bold text-white shadow-sm hover:bg-sky-700"
       >
-        🌡️ CO₂와 기후 개념 퀴즈 풀기 — 학습 경로에서 이어가기
+        {t('explore.climate.cta')}
       </Link>
     </div>
   );

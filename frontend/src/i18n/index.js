@@ -1,6 +1,4 @@
 import { create } from 'zustand';
-import ko from './resources/ko.js';
-import en from './resources/en.js';
 
 /**
  * i18n 골격 (R11-01 §3 D) — 경량 자체 구현.
@@ -24,28 +22,26 @@ import en from './resources/en.js';
  * (키 패리티 자체는 tests/i18n.smoke.test.mjs가 상주 가드)
  */
 
-export const RESOURCES = { ko, en };
-export const SUPPORTED_LOCALES = Object.keys(RESOURCES);
-export const DEFAULT_LOCALE = 'ko';
-/** localStorage 키 — 로케일 영속(브라우저 재방문 시 유지) */
-export const LOCALE_STORAGE_KEY = 'weathermind.locale';
+// 순수부(리소스·translate·detectLocale·conceptLabel)는 core.js가 소유한다 —
+// 분리 근거는 core.js 머리 주석. 여기는 zustand 스토어 + react 훅 + 재노출만.
+export {
+  RESOURCES,
+  SUPPORTED_LOCALES,
+  DEFAULT_LOCALE,
+  LOCALE_STORAGE_KEY,
+  detectLocale,
+  translate,
+  conceptLabel,
+  getCurrentLocale,
+} from './core.js';
 
-function readStoredLocale() {
-  try {
-    const v = globalThis.localStorage?.getItem(LOCALE_STORAGE_KEY);
-    return SUPPORTED_LOCALES.includes(v) ? v : null;
-  } catch {
-    return null; // localStorage 접근 불가(프라이빗 모드 등) — 감지로 폴백
-  }
-}
-
-/** 초기 로케일: localStorage → navigator.language 앞 2자 → ko */
-export function detectLocale() {
-  const stored = readStoredLocale();
-  if (stored) return stored;
-  const lang = (globalThis.navigator?.language ?? '').slice(0, 2).toLowerCase();
-  return SUPPORTED_LOCALES.includes(lang) ? lang : DEFAULT_LOCALE;
-}
+import {
+  SUPPORTED_LOCALES,
+  LOCALE_STORAGE_KEY,
+  detectLocale,
+  translate,
+  _syncLocale,
+} from './core.js';
 
 export const useLocaleStore = create((set) => ({
   locale: detectLocale(),
@@ -56,29 +52,14 @@ export const useLocaleStore = create((set) => ({
     } catch {
       /* 영속 실패해도 메모리 전환은 유지 */
     }
+    _syncLocale(locale); // 스토어 밖 소비자(lib 사전 getter) 동기화
     set({ locale });
   },
 }));
-
-function lookup(locale, key) {
-  let node = RESOURCES[locale];
-  for (const part of key.split('.')) {
-    node = node?.[part];
-  }
-  return typeof node === 'string' ? node : undefined;
-}
-
-/** 순수 함수 번역 — 컴포넌트 밖(테스트·유틸)에서도 쓸 수 있다. */
-export function translate(locale, key, params) {
-  const raw = lookup(locale, key) ?? lookup(DEFAULT_LOCALE, key) ?? key;
-  if (!params) return raw;
-  return raw.replace(/\{(\w+)\}/g, (m, name) =>
-    name in params ? String(params[name]) : m,
-  );
-}
 
 /** 컴포넌트용 훅 — 로케일이 바뀌면 소비 컴포넌트가 리렌더된다. */
 export function useT() {
   const locale = useLocaleStore((s) => s.locale);
   return (key, params) => translate(locale, key, params);
 }
+

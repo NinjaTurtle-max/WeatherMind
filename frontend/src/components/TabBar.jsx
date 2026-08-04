@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { useT } from '../i18n';
 
 /**
  * 하단 탭바 네비게이션 (04번 스펙 — 모바일 대응)
@@ -13,14 +14,15 @@ import { NavLink } from 'react-router-dom';
  * 따라서 이 컴포넌트는 게이트 상태를 알지 않는다 — 탭바는 항상 5탭 활성.
  */
 const TABS = [
-  { to: '/', label: '학습', icon: '🎓', end: true },
-  { to: '/board', label: '보드', icon: '🧩' },
-  { to: '/duel', label: '예보 대결', icon: '🌡️' },
-  { to: '/league', label: '리그', icon: '🏆' },
-  { to: '/me', label: '내 정보', icon: '🏅' },
+  { to: '/', labelKey: 'nav.learn', icon: '🎓', end: true },
+  { to: '/board', labelKey: 'nav.board', icon: '🧩' },
+  { to: '/duel', labelKey: 'nav.duel', icon: '🌡️' },
+  { to: '/league', labelKey: 'nav.league', icon: '🏆' },
+  { to: '/me', labelKey: 'nav.me', icon: '🏅' },
 ];
 
 export default function TabBar() {
+  const t = useT();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-xl">
@@ -38,7 +40,7 @@ export default function TabBar() {
             <span className="text-lg leading-none" aria-hidden="true">
               {tab.icon}
             </span>
-            {tab.label}
+            {t(tab.labelKey)}
           </NavLink>
         ))}
       </div>

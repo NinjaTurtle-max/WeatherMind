@@ -1,4 +1,11 @@
 import { create } from 'zustand';
+// core만 import — index.js(zustand)를 끌면 mock의 순수 node 경로가 죽는다(core.js 주석)
+import { translate, getCurrentLocale } from '../i18n/core.js';
+
+/** 접근 시점의 현재 로케일로 리소스 키를 푼다(§6.3 라벨 외부화 — ko 값 바이트 동일) */
+function tNow(key, params) {
+  return translate(getCurrentLocale(), key, params);
+}
 
 /**
  * 온보딩 게이트 (R10-01 §3.4 — S4 / R10-D·R10-F)
@@ -27,12 +34,21 @@ import { create } from 'zustand';
  *   사용자에게 잠금이 한 번 번쩍이는 회귀를 만들지 않는 쪽이 안전(fail-open).
  */
 
-/** 일일 목표 선택지 (§3.4·D4 — 허용값 {3,5,9}, 그 밖은 서버가 422 VALIDATION_ERROR) */
-export const DAILY_GOAL_CHOICES = [
-  { items: 3, label: '가볍게', caption: '하루 3문항' },
-  { items: 5, label: '보통', caption: '하루 5문항' },
-  { items: 9, label: '열심히', caption: '하루 9문항' },
-];
+/**
+ * 일일 목표 선택지 (§3.4·D4 — 허용값 {3,5,9}, 그 밖은 서버가 422 VALIDATION_ERROR)
+ * label·caption은 리소스(`dailyGoal.*`) 파생 getter — export 형태(객체 배열의
+ * 문자열 속성)는 유지하고, 소비처(DailyGoalPicker — useT 구독)의 리렌더 시점에
+ * 현재 로케일로 풀린다. ko 값은 종전과 바이트 동일.
+ */
+export const DAILY_GOAL_CHOICES = [3, 5, 9].map((items) => ({
+  items,
+  get label() {
+    return tNow(`dailyGoal.choiceLabel.${items}`);
+  },
+  get caption() {
+    return tNow('dailyGoal.choiceCaption', { items });
+  },
+}));
 
 /** 라우트 경로 → 필요한 세션 완료 횟수. 표에 없는 경로는 0(처음부터 열림). */
 export const UNLOCK_STAGE_BY_TAB = {
@@ -44,11 +60,16 @@ export const UNLOCK_STAGE_BY_TAB = {
 /** 전부 해제되는 단계 */
 export const MAX_UNLOCK_STAGE = Math.max(...Object.values(UNLOCK_STAGE_BY_TAB));
 
-/** 해제 순간 1회성 축하 토스트 문구 (§3.4) */
-const UNLOCK_TOAST = {
-  '/board': '🧩 대기 보드가 열렸어요!',
-  '/duel': '🌡️ 예보 대결이 열렸어요!',
-  '/league': '🏆 리그가 열렸어요!',
+/**
+ * 해제 순간 1회성 축하 토스트 리소스 키 (§3.4) — 문구는 `unlock.*` 리소스 소유.
+ * 토스트는 기록(recordSessionComplete) 시점의 로케일로 번역해 문자열로 담는다
+ * (소비처 Layout은 문자열 그대로 렌더 — 계약 불변. 3.2초짜리 순간 표시라
+ * 표시 중 로케일 전환까지 따라가지는 않는다).
+ */
+const UNLOCK_TOAST_KEY = {
+  '/board': 'unlock.board',
+  '/duel': 'unlock.duel',
+  '/league': 'unlock.league',
 };
 
 const STORAGE_KEY = 'weathermind-onboarding-gate';
@@ -179,7 +200,12 @@ export const useOnboardingGate = create((set, get) => ({
       .map(([to]) => to);
     set({
       sessionIds,
-      toast: opened.length > 0 ? (UNLOCK_TOAST[opened[opened.length - 1]] ?? null) : state.toast,
+      toast:
+        opened.length > 0
+          ? (UNLOCK_TOAST_KEY[opened[opened.length - 1]]
+              ? tNow(UNLOCK_TOAST_KEY[opened[opened.length - 1]])
+              : null)
+          : state.toast,
     });
     persist(next);
   },

@@ -318,6 +318,102 @@ function todayAnsweredCount() {
   return state.answeredTodayCount;
 }
 
+// ── 복습 큐 (R11-01 C2 · §6.2) — 응답 이력 파생 read-model ──────────────────
+// 서버 review_schedule_service와 같은 의미론을 **목 내부 응답 이력**에서 매 요청
+// 재계산한다(손으로 박은 정적 큐 금지 — 응답이 큐를 실제로 움직여야 카드가 목에서
+// 검증 가능하다). 서버 계약:
+// - 사다리 REVIEW_INTERVALS_DAYS(1·3·7·14·30) — 인덱스 = 말미 연속 정답 횟수
+//   (오답이 나오면 0으로 리셋), 끝을 넘으면 마지막 값(캡).
+// - 다음 복습일 = 마지막 응답의 KST 달력일 + 간격 → KST 자정(UTC 표기).
+// - 배치고사 응답은 **기록하지 않는다**(서버 history_stmt 제외 — D10-2 전례).
+//   보드 연습 시도는 기록한다(서버가 session_id null quiz_logs로 남기고 이력에 포함).
+// - 전 개념이 실려 오고 due 필터는 소비자(ReviewQueueCard) 몫.
+const REVIEW_INTERVALS_DAYS = [1, 3, 7, 14, 30];
+
+// "N일 전 KST 정오"의 epoch ms — 자정 경계 모호성 없이 항상 그 KST 달력일에 속한다.
+const kstNoonDaysAgoMs = (days) => {
+  const d = kstDate(Date.now());
+  return (
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - days, 12) - KST_OFFSET_MS
+  );
+};
+
+// 초기 이력 시드 — **파생의 입력**이지 큐 자체가 아니다(state.xp=1180 등과 같은
+// 디자인 검토용 시드). answered_at 오름차순. 파생 결과(오늘 기준, 결정적):
+//   typhoon       스트릭 2 → 간격 7일  → 3일 전 도래 (due)
+//   heat_island   스트릭 1 → 간격 3일  → 1일 전 도래 (due)
+//   air_mass      스트릭 0(오답 리셋) → 간격 1일 → 1일 전 도래 (due)
+//   pressure_front 스트릭 3 → 간격 14일 → 내일 도래 (미due — 카드 필터 검증용)
+const seedAnswerHistory = () => [
+  { concept_tag: 'pressure_front', is_correct: true, answered_at: kstNoonDaysAgoMs(15) },
+  { concept_tag: 'pressure_front', is_correct: true, answered_at: kstNoonDaysAgoMs(14) },
+  { concept_tag: 'pressure_front', is_correct: true, answered_at: kstNoonDaysAgoMs(13) },
+  { concept_tag: 'typhoon', is_correct: true, answered_at: kstNoonDaysAgoMs(12) },
+  { concept_tag: 'typhoon', is_correct: true, answered_at: kstNoonDaysAgoMs(10) },
+  { concept_tag: 'heat_island', is_correct: true, answered_at: kstNoonDaysAgoMs(4) },
+  { concept_tag: 'air_mass', is_correct: false, answered_at: kstNoonDaysAgoMs(2) },
+];
+let answerHistory = seedAnswerHistory();
+
+/** 응답 1건 기록(서버 quiz_logs 1행 대응) — 채점 확정 시점 호출, 배치고사 제외. */
+function recordAnswerFact(conceptTag, isCorrect) {
+  answerHistory.push({ concept_tag: conceptTag, is_correct: isCorrect, answered_at: Date.now() });
+}
+
+/** 말미 연속 정답 횟수 → 간격(일). 서버 interval_days와 동일(끝 초과는 캡). */
+const reviewIntervalDays = (streak) =>
+  REVIEW_INTERVALS_DAYS[Math.min(streak, REVIEW_INTERVALS_DAYS.length - 1)];
+
+/** (마지막 응답의 KST 달력일 + 간격일)의 KST 자정 — UTC epoch ms. 서버 next_review_at. */
+function nextReviewAtMs(lastAnsweredMs, streak) {
+  const d = kstDate(lastAnsweredMs); // UTC 필드가 곧 KST 달력일(위 kstDate 주석)
+  return (
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + reviewIntervalDays(streak)) -
+    KST_OFFSET_MS
+  );
+}
+
+/** GET /progress/review-queue 페이로드 — ReviewQueueItem[] 6필드, 서버와 동일 형태.
+ *  이력을 시간 오름차순으로 접어(정답 +1·오답 리셋 0) 개념별 요약을 만들고,
+ *  next_review_at 오름차순(동률은 concept_tag)으로 정렬한다 — due가 자연히 앞. */
+function reviewQueuePayload(nowMs = Date.now()) {
+  const streaks = new Map();
+  const lastAt = new Map();
+  const ordered = [...answerHistory].sort((a, b) => a.answered_at - b.answered_at);
+  for (const fact of ordered) {
+    streaks.set(fact.concept_tag, fact.is_correct ? (streaks.get(fact.concept_tag) ?? 0) + 1 : 0);
+    lastAt.set(fact.concept_tag, fact.answered_at);
+  }
+  return [...lastAt.entries()]
+    .map(([tag, lastMs]) => {
+      const streak = streaks.get(tag);
+      const dueAtMs = nextReviewAtMs(lastMs, streak);
+      return {
+        concept_tag: tag,
+        last_answered_at: new Date(lastMs).toISOString(),
+        consecutive_correct: streak,
+        interval_days: reviewIntervalDays(streak),
+        next_review_at: new Date(dueAtMs).toISOString(),
+        due: nowMs >= dueAtMs,
+      };
+    })
+    .sort((a, b) =>
+      a.next_review_at !== b.next_review_at
+        ? (a.next_review_at < b.next_review_at ? -1 : 1)
+        : (a.concept_tag < b.concept_tag ? -1 : 1),
+    );
+}
+
+// ── 게스트→정식 전환 (R11-01 §6.2 — BE-1 계약의 목 대응) ────────────────────
+// 목은 단일 유저 세계라 "현재 계정이 게스트인가"를 불린 하나로 흉내 낸다:
+// POST /auth/guest → true · register/login/convert 성공 → false.
+// registeredEmails는 서버 users.email 유니크 제약의 대응물 — 중복 검증용으로
+// 기존 가입 이메일 1건을 시드한다(스모크·디자인에서 409 경로 재현).
+const mockAuth = {
+  isGuest: false,
+  registeredEmails: new Set(['taken@weathermind.dev']),
+};
+
 // ── 개발자 모드 (R7-03) ─────────────────────────────────────────────────────
 // 실서버는 Settings.DEV_MODE가 꺼져 있으면 /dev/* 전 경로 404 — 목은
 // VITE_MOCK_DEV=0 으로 같은 404 모드를 재현한다(기본은 켜짐).
@@ -1218,20 +1314,46 @@ function gradeSessionItem(item, rawAnswer) {
 }
 
 const routes = {
-  'POST /auth/register': () => [
-    201,
-    { user_id: '2b1c8b1e-0000-4000-8000-000000000001', access_token: 'mock-access' },
-  ],
-  'POST /auth/login': () => [
-    200,
-    { access_token: 'mock-access', refresh_token: 'mock-refresh' },
-  ],
+  'POST /auth/register': (body) => {
+    if (body?.email) mockAuth.registeredEmails.add(body.email); // convert 중복 판정 공유
+    mockAuth.isGuest = false;
+    return [
+      201,
+      { user_id: '2b1c8b1e-0000-4000-8000-000000000001', access_token: 'mock-access' },
+    ];
+  },
+  'POST /auth/login': () => {
+    mockAuth.isGuest = false;
+    return [200, { access_token: 'mock-access', refresh_token: 'mock-refresh' }];
+  },
   // R11-01 J: 게스트 인증 — 서버 POST /auth/guest와 형태 동일(201 + LoginResponse
   // {access_token, refresh_token}). 드리프트는 test_auth_guest 계약이 감시한다.
-  'POST /auth/guest': () => [
-    201,
-    { access_token: 'mock-guest-access', refresh_token: 'mock-guest-refresh' },
-  ],
+  'POST /auth/guest': () => {
+    mockAuth.isGuest = true;
+    return [201, { access_token: 'mock-guest-access', refresh_token: 'mock-guest-refresh' }];
+  },
+  // R11-01 §6.2: 게스트→정식 계정 전환 — BE-1 서버 계약 그대로.
+  // 게스트 아님 → 409 NOT_GUEST · 이메일 중복 → register 의미론(409 EMAIL_ALREADY_EXISTS,
+  // backend routers/auth.register와 동일 코드) · 성공 → 200 LoginResponse(토큰 재발급).
+  // "같은 user_id 유지"(XP·θ·진도 보존)는 목이 단일 유저 세계라 자연 성립 —
+  // state.*를 건드리지 않는 것이 곧 보존이다. 필수 필드 누락은 422.
+  'POST /auth/guest/convert': (body) => {
+    if (!mockAuth.isGuest) {
+      return [409, { detail: '게스트 계정이 아닙니다.', code: 'NOT_GUEST' }];
+    }
+    if (!body?.email || !body?.password) {
+      return [422, { detail: 'email·password가 필요합니다.', code: 'VALIDATION_ERROR' }];
+    }
+    if (mockAuth.registeredEmails.has(body.email)) {
+      return [409, { detail: '이미 등록된 이메일입니다.', code: 'EMAIL_ALREADY_EXISTS' }];
+    }
+    mockAuth.registeredEmails.add(body.email);
+    mockAuth.isGuest = false;
+    return [
+      200,
+      { access_token: 'mock-converted-access', refresh_token: 'mock-converted-refresh' },
+    ];
+  },
   'POST /auth/refresh': () => [200, { access_token: 'mock-access-2' }],
   'POST /auth/logout': () => [200, { success: true }],
 
@@ -1244,6 +1366,7 @@ const routes = {
     // 레거시 단일 퀴즈도 quiz_logs 1행 → 서버 today_answered_count에 포함된다.
     // (이 경로는 R5부터 구름을 소모하지 않았고 R10에서도 무소모 유지)
     bumpAnsweredToday();
+    recordAnswerFact(QUIZ.concept_tag, isCorrect); // 복습 큐 이력 (R11-01 C2)
     bumpQuest({ xp, correctTag: isCorrect ? QUIZ.concept_tag : null });
     return [
       200,
@@ -1368,6 +1491,8 @@ const routes = {
       state.answeredToday = true;
       bumpAnsweredToday();
       bumpQuest({ xp, correctTag: isCorrect ? item.concept_tag : null, live: item.slot_filled });
+      // 복습 큐 이력 (R11-01 C2) — 배치고사는 이 분기 밖이라 자연 제외(서버와 동일)
+      recordAnswerFact(item.concept_tag, isCorrect);
     }
     return [
       200,
@@ -1602,6 +1727,9 @@ const routes = {
     }
     // R10-01 §3.1: 시도 시점 소모·차단 없음. 판정 후 **미통과에만** 1 소모.
     const { passed, phenomena, feedback } = judgeBoard(body.board_state, puzzle.template_json.goal_conditions);
+    // 복습 큐 이력 (R11-01 C2) — 서버는 보드 시도를 session_id null quiz_logs로
+    // 남기고 history_stmt가 포함하므로 목도 기록한다(통과 여부 = 정오).
+    recordAnswerFact(puzzle.concept_tag, passed);
     // 보드는 멱등 가드가 없어 매 시도가 새 판정이다 → alreadyAnswered=false.
     // 통과 시 0 (재도전 자체가 무료가 아니라 "틀린 시도"에만 과금 — §3.1).
     const spend = cloudSpendResult(shouldConsumeCloud({ isCorrect: passed }));
@@ -1662,6 +1790,10 @@ const routes = {
       },
     ];
   },
+  // ── 복습 큐 (R11-01 C2 · §6.2) — 응답 이력 파생, 전 개념 + due 플래그 ──
+  // 서버 ReviewQueueItem 6필드와 동일 형태(파생 로직은 위 reviewQueuePayload 주석).
+  // due 필터·상위 3개 표시는 소비자(ReviewQueueCard) 몫 — 서버와 같은 분업.
+  'GET /progress/review-queue': () => [200, reviewQueuePayload()],
   // ── 구름 에너지 (R5-01 §3.3) ──
   'GET /progress/energy': () => [200, energyPayload()],
   // PUT /progress/daily-goal {items} (R10-01 §3.4·D4·D10) — 허용값 3|5|9, 그 외 422.
@@ -1757,6 +1889,8 @@ const routes = {
     preUnlockedUnits.clear();
     sessions.clear();
     clearedBoardPuzzles.clear();
+    // 신규 가입 직후 = quiz_logs 0행 → 복습 큐 빈 배열 (디자인 시드도 재주입 안 함)
+    answerHistory = [];
     return [200, devStatePayload()];
   },
   // POST /dev/theta {abilities:[{concept_tag, theta, num_responses?}]}

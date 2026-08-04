@@ -1,5 +1,12 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
+// core만 import — index.js(zustand)를 끌면 mock의 순수 node 경로가 죽는다(core.js 주석)
+import { translate, getCurrentLocale } from '../i18n/core.js';
+
+/** 에러 정규화 시점의 현재 로케일로 폴백 문구를 푼다(§6.3 — ko 값 바이트 동일) */
+function tNow(key) {
+  return translate(getCurrentLocale(), key);
+}
 
 /**
  * 공통 axios 클라이언트 (02번 스펙 공통 규칙)
@@ -42,11 +49,11 @@ function normalizeError(error) {
     // FastAPI 422 validation error는 detail이 배열로 올 수 있음
     const detail = Array.isArray(data.detail)
       ? data.detail.map((d) => d.msg ?? JSON.stringify(d)).join(', ')
-      : (data.detail ?? '요청 처리 중 오류가 발생했습니다.');
+      : (data.detail ?? tNow('apiError.generic'));
     return new ApiError({ detail, code: data.code ?? 'UNKNOWN_ERROR', status: error.response.status });
   }
   return new ApiError({
-    detail: '서버에 연결할 수 없습니다. 네트워크를 확인해주세요.',
+    detail: tNow('apiError.network'),
     code: 'NETWORK_ERROR',
     status: 0,
   });

@@ -185,6 +185,52 @@ class TestMockDerivesFromSeed:
 
 
 @needs_node
+class TestMockPureNodeImportable:
+    """mock의 전이 import 그래프에 bare 지정자(패키지 import)가 없어야 한다.
+
+    이 파일의 다른 테스트들이 mock을 **순수 node 서브프로세스**로 실행한다 — CI
+    `test` 잡에는 node_modules가 없으므로, mock이 상대 경로 사슬 어딘가에서 패키지를
+    끌면 CI에서만 `ERR_MODULE_NOT_FOUND`로 죽는다. 실제로 그랬다(2026-08-04, PR #25):
+    lib 사전 getter화로 mock → tierMeta → i18n/index.js → **zustand** 사슬이 생겨
+    로컬(node_modules 있음)은 통과하고 CI만 죽었다. 해소는 i18n을 순수 코어
+    (core.js)와 스토어(index.js)로 분리 — 이 테스트는 그 사슬이 되살아나는 것을
+    **로컬에서** 잡는다(서브프로세스 실행 없이 정적 그래프 순회라 항상 돈다).
+    """
+
+    def test_전이_import에_bare_지정자가_없다(self):
+        import re
+
+        frontend = REPO_ROOT / "frontend"
+        seen: set = set()
+        queue = [frontend / "mock" / "apiMockPlugin.js"]
+        bare: list[str] = []
+        pattern = re.compile(
+            r"import\s+(?:[\w{},*\s]+\s+from\s+)?['\"]([^'\"]+)['\"]"
+        )
+        while queue:
+            f = queue.pop()
+            if f in seen or not f.exists():
+                continue
+            seen.add(f)
+            for m in pattern.finditer(f.read_text(encoding="utf-8")):
+                spec = m.group(1)
+                if spec.startswith("."):
+                    t = (f.parent / spec).resolve()
+                    if t.is_dir():
+                        t = t / "index.js"
+                    if not t.suffix:
+                        t = t.with_suffix(".js")
+                    queue.append(t)
+                elif not spec.startswith("node:"):
+                    bare.append(f"{f.relative_to(frontend)} → {spec}")
+        assert len(seen) > 1, "그래프 순회가 mock 한 파일에서 멈췄다 — 경로 확인"
+        assert not bare, (
+            "mock의 전이 import가 패키지를 끈다(CI 순수 node에서 죽는다): "
+            + ", ".join(bare)
+            + " — 순수 코어(i18n/core.js류)로 옮기거나 사슬을 끊을 것"
+        )
+
+
 class TestMockServerParity:
     """실값 대조 — 목이 내보내는 페이로드가 서버 계약과 같은가."""
 

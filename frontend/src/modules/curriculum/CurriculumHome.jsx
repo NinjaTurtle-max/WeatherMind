@@ -1,9 +1,15 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { curriculumApi, progressApi } from '../../api';
 import { useAttendance } from '../../hooks/useAttendance';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import PcCurriculumPath from './PcCurriculumPath';
+import CourseSwitcher, { useCourses } from './CourseSwitcher';
+// R11-01 §6.2 마운트 통합 — 둘 다 props 없는 자급 계약(조건 미충족 시 자가 null).
+import ReviewQueueCard from '../../components/ReviewQueueCard';
+import GuestSaveBanner from '../../components/GuestSaveBanner';
+import { conceptLabel, useT } from '../../i18n';
 
 /**
  * CurriculumHome (R5-01 §3.2·S4) — 학습 홈(기본 진입 /).
@@ -21,25 +27,49 @@ import PcCurriculumPath from './PcCurriculumPath';
  * "노력이 아니라 실수" — 틀린 문항에만 1 소모이며, 진행 중 세션은 끊기지 않는다.
  */
 
-const CONCEPT_META = {
-  pressure_front: { label: '기압과 전선', icon: '🌀' },
-  typhoon: { label: '태풍', icon: '🌪️' },
-  air_mass: { label: '기단', icon: '🧊' },
-  heat_island: { label: '열섬 현상', icon: '🏙️' },
-  co2_climate: { label: 'CO₂와 기후', icon: '🌡️' },
-  anomaly: { label: '이상 기후', icon: '⚡' },
+// 표시명은 concept.* 리소스(i18n) — 여기는 아이콘만 남긴다.
+const CONCEPT_ICON = {
+  pressure_front: '🌀',
+  typhoon: '🌪️',
+  air_mass: '🧊',
+  heat_island: '🏙️',
+  co2_climate: '🌡️',
+  anomaly: '⚡',
 };
 
 // 세로 경로의 좌우 지그재그 오프셋(%) — 섹션 내 유닛 순서로 순환
 const ZIGZAG = [0, 16, 24, 16, 0, -16, -24, -16];
 
+// 빈 트리 코스의 섹션 예고(R11-01 §6.2 — specs/11 §2). 유닛이 시드되기 전까지
+// "무엇이 올지"를 보여준다. basic-science 외 코스는 예고 없이 안내문만.
+// 문구는 curriculum.preview.* 리소스(i18n) — 여기는 키·아이콘만.
+const COURSE_SECTION_PREVIEW = {
+  'basic-science': [
+    { k: 'heatLight', icon: '☀️' },
+    { k: 'airWeight', icon: '🎈' },
+    { k: 'waterEnergy', icon: '💧' },
+  ],
+};
+
 export default function CurriculumHome() {
   const navigate = useNavigate();
+  const t = useT();
   useAttendance(true);
 
+  // 코스 선택 (R11-01 §6.2) — 명시 선택 전에는 is_default 코스를 따른다.
+  // 코스 목록이 없는 환경(구 백엔드·미시드 DB)에서는 courses=[] → treeCourse=null
+  // → 쿼리 키·요청이 현행과 동일해 무회귀다.
+  const courses = useCourses();
+  const [pickedCourse, setPickedCourse] = useState(null);
+  const defaultSlug = courses.find((c) => c.is_default)?.id ?? courses[0]?.id ?? null;
+  const selectedCourse = pickedCourse ?? defaultSlug;
+  // 기본 코스(weather)는 ?course= 없이 조회한다 — 쿼리 키 ['curriculum']이 기존과
+  // 같아서 유닛 세션 완료 후 invalidateQueries(['curriculum'])도 그대로 맞는다.
+  const treeCourse = selectedCourse && selectedCourse !== defaultSlug ? selectedCourse : null;
+
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['curriculum'],
-    queryFn: curriculumApi.fetchCurriculum,
+    queryKey: treeCourse ? ['curriculum', treeCourse] : ['curriculum'],
+    queryFn: () => curriculumApi.fetchCurriculum(treeCourse ?? undefined),
     staleTime: 30_000,
   });
 
@@ -67,38 +97,80 @@ export default function CurriculumHome() {
   const dailyBlocked = energyBlocked && (me?.today_answered_count ?? 0) === 0;
   const regenMin = Math.max(1, Math.ceil((energy?.next_regen_sec ?? 0) / 60));
 
-  if (isLoading) return <LoadingSpinner label="학습 경로를 불러오고 있어요..." />;
+  if (isLoading) return <LoadingSpinner label={t('curriculum.loading')} />;
 
   if (isError) {
     return (
       <div className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
         <p className="text-3xl">🎓</p>
-        <p className="mt-2 font-bold text-slate-800">학습 경로를 불러오지 못했어요</p>
-        <p className="mt-1 text-sm text-slate-500">{error?.detail ?? '잠시 후 다시 시도해주세요.'}</p>
+        <p className="mt-2 font-bold text-slate-800">{t('curriculum.loadFailed')}</p>
+        <p className="mt-1 text-sm text-slate-500">{error?.detail ?? t('common.retryLater')}</p>
         <button type="button" onClick={() => refetch()} className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700">
-          다시 시도
+          {t('common.retry')}
         </button>
       </div>
     );
   }
 
   const sections = data?.sections ?? [];
+  // 비기본 코스인데 유닛이 아직 없다 = 트리 설계만 착지한 상태(basic-science 초기).
+  // 기본 코스의 빈 트리는 현행 렌더(빈 경로) 그대로 둔다 — 무회귀.
+  const emptyCourseTree = treeCourse != null && sections.length === 0;
+  const sectionPreview = COURSE_SECTION_PREVIEW[selectedCourse] ?? null;
 
   return (
     <div className="pt-2">
-      <h1 className="mb-1 text-lg font-extrabold text-slate-900 md:hidden">🎓 학습</h1>
-      <p className="mb-4 text-sm text-slate-500 md:hidden">유닛을 순서대로 클리어하며 날씨 개념을 쌓아요.</p>
+      {/* 게스트 진도 저장 배너(§6.2 FE-B) — 게스트+진도 있음에만 자가 렌더 */}
+      <GuestSaveBanner />
+
+      {/* 코스 탭(§6.2) — 코스가 2개 이상일 때만 뜬다. 선택은 잠금이 아니라 조회 스코프. */}
+      <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} />
+
+      <h1 className="mb-1 text-lg font-extrabold text-slate-900 md:hidden">{t('curriculum.title')}</h1>
+      <p className="mb-4 text-sm text-slate-500 md:hidden">{t('curriculum.subtitle')}</p>
 
       {/* 구름 소진 안내 (§3.1) — 새 세션은 열 수 없지만 이유·회복 시점을 먼저 알린다 */}
       {energyBlocked && (
         <div className="mb-4 rounded-2xl bg-rose-50 p-4 ring-1 ring-rose-200">
-          <p className="text-sm font-extrabold text-rose-700">☁️ 구름이 모두 흩어졌어요</p>
+          <p className="text-sm font-extrabold text-rose-700">{t('curriculum.energyEmpty.title')}</p>
           <p className="mt-1 text-xs leading-relaxed text-rose-600">
-            구름은 <span className="font-bold">틀린 문항에만 1개</span> 줄어들어요 — 열심히 푼
-            만큼이 아니라 실수에만 소모돼요. 약 <span className="font-bold">{regenMin}분</span> 후
-            구름 1개가 회복되면 새 세션을 열 수 있어요.
-            {dailyBlocked ? '' : ' 오늘 시작한 세션은 지금도 끝까지 마칠 수 있어요.'}
+            {t('curriculum.energyEmpty.seg1')}
+            <span className="font-bold">{t('curriculum.energyEmpty.strong1')}</span>
+            {t('curriculum.energyEmpty.seg2')}
+            <span className="font-bold">{t('curriculum.energyEmpty.strong2', { min: regenMin })}</span>
+            {t('curriculum.energyEmpty.seg3')}
+            {dailyBlocked ? '' : t('curriculum.energyEmpty.seg4')}
           </p>
+        </div>
+      )}
+
+      {/* 빈 트리 코스 안내(§6.2) — 잠금·오류가 아니라 "준비 중"임을 밝힌다 */}
+      {emptyCourseTree && (
+        <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
+          <p className="text-3xl">🧪</p>
+          <p className="mt-2 font-bold text-slate-800">{t('curriculum.emptyCourse.title')}</p>
+          <p className="mt-1 text-sm text-slate-500">{t('curriculum.emptyCourse.body')}</p>
+          {sectionPreview && (
+            <ul className="mx-auto mt-4 flex max-w-md flex-col gap-2 text-left">
+              {sectionPreview.map((s, i) => (
+                <li
+                  key={s.k}
+                  className="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100"
+                >
+                  <span className="text-xl">{s.icon}</span>
+                  <div>
+                    <p className="text-sm font-bold text-slate-700">
+                      {t('curriculum.emptyCourse.section', {
+                        n: i + 1,
+                        title: t(`curriculum.preview.${s.k}.title`),
+                      })}
+                    </p>
+                    <p className="text-xs text-slate-400">{t(`curriculum.preview.${s.k}.subtitle`)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -111,7 +183,10 @@ export default function CurriculumHome() {
                 {section.section}
               </span>
               <span className="text-xs font-medium text-slate-400">
-                {section.units.filter((u) => u.cleared).length}/{section.units.length} 완료
+                {t('curriculum.sectionDone', {
+                  cleared: section.units.filter((u) => u.cleared).length,
+                  total: section.units.length,
+                })}
               </span>
               <div className="h-px flex-1 bg-slate-200" />
             </div>
@@ -144,10 +219,13 @@ export default function CurriculumHome() {
         onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
       />
 
+      {/* 복습 큐 카드(§6.2 FE-C) — due 0건이면 자가 렌더 생략 */}
+      <ReviewQueueCard />
+
       {/* 자유 일일 세션 별도 진입(§3.4 병존) */}
       <div className="mt-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <p className="text-sm font-bold text-slate-800">자유 일일 세션</p>
-        <p className="mt-0.5 text-xs text-slate-500">정해진 경로 대신 오늘의 5문항을 바로 풀고 싶다면.</p>
+        <p className="text-sm font-bold text-slate-800">{t('curriculum.daily.title')}</p>
+        <p className="mt-0.5 text-xs text-slate-500">{t('curriculum.daily.body')}</p>
         {dailyBlocked ? (
           <>
             <button
@@ -156,10 +234,10 @@ export default function CurriculumHome() {
               aria-disabled="true"
               className="mt-3 inline-block cursor-not-allowed rounded-xl bg-slate-200 px-4 py-2 text-sm font-bold text-slate-400"
             >
-              오늘의 세션 풀기 →
+              {t('curriculum.daily.cta')}
             </button>
             <p className="mt-1.5 text-xs font-bold text-rose-600">
-              ☁️ 구름 회복까지 약 {regenMin}분
+              {t('curriculum.daily.regen', { min: regenMin })}
             </p>
           </>
         ) : (
@@ -168,11 +246,11 @@ export default function CurriculumHome() {
               to="/daily"
               className="mt-3 inline-block rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700"
             >
-              {energyBlocked ? '풀던 세션 이어서 풀기 →' : '오늘의 세션 풀기 →'}
+              {energyBlocked ? t('curriculum.daily.resume') : t('curriculum.daily.cta')}
             </Link>
             {energyBlocked && (
               <p className="mt-1.5 text-xs font-bold text-rose-600">
-                ☁️ 구름 회복까지 약 {regenMin}분 — 오늘 시작한 세션은 끝까지 마칠 수 있어요.
+                {t('curriculum.daily.regenResume', { min: regenMin })}
               </p>
             )}
           </>
@@ -192,7 +270,9 @@ const RING_BY_STATUS = {
 };
 
 function UnitNode({ unit, offset, isFirst, onOpen, energyBlocked = false, regenMin = 1 }) {
-  const meta = CONCEPT_META[unit.concept_tag] ?? { label: unit.concept_tag, icon: '📘' };
+  const t = useT();
+  const icon = CONCEPT_ICON[unit.concept_tag] ?? '📘';
+  const label = conceptLabel(t, unit.concept_tag);
   // 서버 status 우선 — 부재 시(구 백엔드) 기존 cleared/locked로 파생(하위 호환)
   const status = unit.status ?? (unit.cleared ? 'cleared' : unit.locked ? 'locked' : 'current');
   const locked = status === 'locked';
@@ -207,12 +287,14 @@ function UnitNode({ unit, offset, isFirst, onOpen, energyBlocked = false, regenM
           type="button"
           onClick={onOpen}
           disabled={locked || energyBlocked}
-          aria-label={`${unit.title}${locked ? ' (잠김)' : energyBlocked ? ' (구름 부족)' : ''}`}
+          aria-label={`${unit.title}${
+            locked ? t('curriculum.unit.lockedSuffix') : energyBlocked ? t('curriculum.unit.energySuffix') : ''
+          }`}
           title={
             locked
-              ? '선행 유닛을 완료하면 열려요'
+              ? t('curriculum.unit.lockedTitle')
               : energyBlocked
-                ? `구름이 회복되면 열 수 있어요 — 약 ${regenMin}분 후`
+                ? t('curriculum.unit.energyTitle', { min: regenMin })
                 : unit.title
           }
           className={`relative flex h-16 w-16 items-center justify-center rounded-full text-2xl shadow-md ring-4 transition ${
@@ -223,9 +305,9 @@ function UnitNode({ unit, offset, isFirst, onOpen, energyBlocked = false, regenM
               : 'hover:brightness-105 active:scale-95'
           } ${!locked && energyBlocked ? 'opacity-60' : ''}`}
         >
-          {locked ? '🔒' : status === 'cleared' ? '👑' : meta.icon}
+          {locked ? '🔒' : status === 'cleared' ? '👑' : icon}
           {unit.kind === 'board' && !locked && (
-            <span className="absolute -bottom-1 -right-1 rounded-full bg-white px-1 text-[10px] shadow ring-1 ring-slate-200" title="보드 퍼즐 유닛">
+            <span className="absolute -bottom-1 -right-1 rounded-full bg-white px-1 text-[10px] shadow ring-1 ring-slate-200" title={t('curriculum.unit.boardChip')}>
               🧩
             </span>
           )}
@@ -233,10 +315,10 @@ function UnitNode({ unit, offset, isFirst, onOpen, energyBlocked = false, regenM
         <p className={`mt-1.5 max-w-[8rem] text-center text-xs font-bold ${locked ? 'text-slate-400' : 'text-slate-700'}`}>
           {unit.title}
         </p>
-        <p className="text-[10px] text-slate-400">{meta.label}</p>
+        <p className="text-[10px] text-slate-400">{label}</p>
         {openedByPlacement && (
           <p className="mt-0.5 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
-            🧭 진단으로 열림
+            {t('curriculum.unit.placementOpened')}
           </p>
         )}
       </div>

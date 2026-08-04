@@ -1,5 +1,6 @@
 import { sessionApi } from '../../api';
 import SessionRunner from './SessionRunner';
+import { useT } from '../../i18n';
 
 /**
  * SessionPage (R2-01 S7 · R5-01 §3.4) — 자유 일일 세션(하루 1세션 5문항).
@@ -9,12 +10,13 @@ import SessionRunner from './SessionRunner';
  * 출석 체크는 학습 홈(기본 진입)으로 옮겼으므로 여기서는 호출하지 않는다.
  */
 export default function SessionPage() {
+  const t = useT();
   return (
     <SessionRunner
       queryKey={['session', 'today']}
       loadSession={sessionApi.fetchTodaySession}
       staleTime={5 * 60 * 1000}
-      title="오늘의 기상 세션"
+      title={t('session.title')}
     />
   );
 }

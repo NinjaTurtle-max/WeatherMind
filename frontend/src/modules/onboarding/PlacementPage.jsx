@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import SessionRunner from '../session/SessionRunner';
 import PlacementSummary from './PlacementSummary';
 import PlacementFinalizing from './PlacementFinalizing';
+import { useT } from '../../i18n';
 
 /**
  * PlacementPage (R7-01 S3 · R7-02 S1) — 온보딩 배치고사(실력 진단) 전체 화면.
@@ -26,6 +27,7 @@ import PlacementFinalizing from './PlacementFinalizing';
 export default function PlacementPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const t = useT();
 
   // 가입 흐름이 실어 둔 1회성 목적지 의도를 소진(R9-09 버그픽스) — 이후
   // 인증 상태로 /login·/register에 들어가면 평소처럼 홈('/')으로 돌려보낸다.
@@ -74,7 +76,7 @@ export default function PlacementPage() {
           onClick={goHome}
           className="rounded-lg px-2 py-1 text-sm font-medium text-slate-400 transition hover:text-slate-600"
         >
-          건너뛰기 →
+          {t('placement.skip')}
         </button>
       </div>
 
@@ -82,10 +84,10 @@ export default function PlacementPage() {
         queryKey={['placement', 'session']}
         loadSession={loadSession}
         staleTime={0}
-        title="실력 진단 — 내 수준 찾기"
+        title={t('placement.title')}
         subheader={
           <p className="mb-2 inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
-            🧭 딱 6문항이면 충분해요 — 틀려도 괜찮아요, 진단일 뿐!
+            {t('placement.hint')}
           </p>
         }
         bulkMode

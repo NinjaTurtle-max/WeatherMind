@@ -1,3 +1,5 @@
+import { useT } from '../../i18n';
+
 /**
  * PlacementFinalizing (R7-02 S1) — 배치고사 마지막 문항 제출 후 전환 화면.
  * "내 난이도를 찾는 중…" 전체 화면 — 이 화면 뒤에서 submit-all → complete가
@@ -7,6 +9,7 @@
  * 외부 에셋·JS 타이머 없음): 구름 좌우 표류 + 기압계 바늘 스윕 + 진행 바 스캔.
  */
 export default function PlacementFinalizing() {
+  const t = useT();
   return (
     <div
       role="status"
@@ -25,9 +28,9 @@ export default function PlacementFinalizing() {
         </div>
       </div>
 
-      <h2 className="mt-6 text-lg font-extrabold text-slate-900">내 난이도를 찾는 중…</h2>
+      <h2 className="mt-6 text-lg font-extrabold text-slate-900">{t('placement.finalizingTitle')}</h2>
       <p className="mt-1 text-center text-sm text-slate-500">
-        WeatherBrain이 방금 푼 문항을 분석해 딱 맞는 수준을 계산하고 있어요.
+        {t('placement.finalizingBody')}
       </p>
 
       <div className="mt-5 h-1.5 w-48 overflow-hidden rounded-full bg-sky-100">
