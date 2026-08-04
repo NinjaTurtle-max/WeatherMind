@@ -172,3 +172,48 @@ CurriculumHome 충돌을 피한다: 제작자는 독립 컴포넌트를 만들�
 
 파괴적 git 금지 · docker 금지 · 소유 밖 보고만 · 테스트 기준선 backend 1063 ·
 ai-worker 193 · 프론트 스모크 10종(+신규). 커밋은 PM.
+
+---
+
+## 7. 웨이브 3 — 하드닝 (마일스톤 5, 2026-08-04 착수)
+
+### 7.0 PM 실체 판정 — "무엇을 만들면 완료인가"
+
+프로덕션 인프라(서버·클라우드 계정)가 없는 현 단계에서 하드닝 6종의 8/17 실체를
+확정한다. 판정 없이 병렬을 붙이면 각자 다른 크기를 만들어 온다.
+
+| 항목 | 8/17 실체 (이것으로 완료 판정) | 범위 밖 |
+|---|---|---|
+| **RLS 롤 분리** | 앱 전용 비특권 롤(`weathermind_app`, NOSUPERUSER·NOBYPASSRLS·비소유) 신설 + 런타임 접속 전환 + **실DB에서 격리 실증**(타 유저 행 0) + 기존 볼륨용 멱등 SQL | 정책 재설계(기존 user_isolation 유지) |
+| 시크릿 | `changeme` 기본값을 **비-dev에서 fail-fast**(기동 거부) + `.env.example` 위생 + 생성 안내 | Vault류 외부 매니저(인프라 부재) |
+| HTTPS/TLS | prod 오버레이(`docker-compose.prod.yml`) + Caddy 리버스 프록시(도메인 주면 auto-HTTPS) — 로컬은 내부 TLS로 기동 스모크 | 실도메인 인증서(도메인 미보유) |
+| DB 자동백업 | compose 백업 서비스(pg_dump 주기 실행·보존 정책) + **복원 스크립트 + 복원 리허설 실측** | 오프사이트 저장(대상 부재) |
+| CD | main 병합 시 GHCR 이미지 빌드·발행 워크플로 + prod 오버레이가 그 이미지를 참조 | 실서버 배포(대상 부재) |
+| 로깅·헬스체크 | 구조적(JSON) 로깅 + 요청 로그(경로·상태·지연) + `/health`에 의존 상태(DB·Redis) 반영 | APM·분산 트레이싱(로드맵 명시 제외) |
+| Redis 세션 | **실측 결과 이미 구현**(`session:{user_id}` 슬롯·refresh 회전이 이를 전제) — BE-1이 검증·문서화로 완료 판정 | — |
+| + jti | refresh 토큰에 jti(웨이브 2 이월 — 같은 초 발급 토큰 바이트 동일 문제) | — |
+
+### 7.1 편성·소유 (병렬 4 — DO 리드가 워커 파생)
+
+| 담당 | 항목 | 배타적 소유 |
+|---|---|---|
+| **BE-2** | RLS 롤 분리(최우선) | `database/init.sql` · `backend/alembic/env.py` · `backend/app/core/database.py` · `backend/app/scripts/rls_app_role.sql`(신규, 기존 볼륨용 멱등) · `backend/tests/test_rls_role*.py`(신규) · `docs/specs/08_auth_rls_spec.md`(실동작 정합 갱신) |
+| **BE-1** | jti · 시크릿 fail-fast · 로깅·헬스체크 · Redis 세션 검증 | `backend/app/core/{security,config,logging}.py`(logging 신규) · `backend/app/main.py` · 관련 tests |
+| **DO-1 (리드)** | compose 단일 소유 · 백업 · TLS 오버레이 | `docker-compose.yml` · `docker-compose.prod.yml`(신규) · `infra/Caddyfile`(신규) · `scripts/db_backup.sh`·`db_restore.sh`(신규) |
+| **DO-2 (워커, DO-1 파생)** | CD · 시크릿 위생 | `.github/workflows/release.yml`(신규) · `.env.example` |
+| PM | 게이트 · 실DB RLS 적용·격리 실증 · 커밋 | |
+
+**교차 계약**: ① BE-2가 필요로 하는 compose env 키(앱 롤 URL·마이그레이션 URL)는
+BE-2가 계약 형태로 명시하고 DO-1이 compose에 반영한다(파일 소유 불변).
+② 마이그레이션은 **소유자 롤 유지**(DDL·정책 생성 권한) — alembic만
+`MIGRATION_DATABASE_URL`(env 직독, config.py 무접촉), 런타임은 앱 롤.
+③ BE-1의 fail-fast는 dev(DEV_MODE=true)에서 경고, 비-dev에서 기동 거부 —
+로컬 개발·CI·스모크가 깨지면 안 된다.
+
+### 7.2 공통 (§4·§6.4 승계 + 웨이브 3 특칙)
+
+- **되돌리기 어려운 작업 특칙**: DB 롤·grant 변경의 실DB 적용은 담당이 아니라
+  **PM이 게이트에서 실행**한다(담당은 멱등 SQL과 검증 쿼리까지). 볼륨 파괴 명령
+  (down -v 등) 전면 금지. 백업 리허설은 별도 임시 DB 대상.
+- 파괴적 git 금지·docker는 **읽기(ps·logs·exec psql SELECT)만** 허용, 기동·재빌드는 PM.
+- 기준선: backend 1076 · ai-worker 193 · 프론트 13종. 회귀 0.
