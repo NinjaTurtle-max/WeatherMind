@@ -51,6 +51,12 @@ class Unit(Base):
     crown_target: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("1")
     )
+    # 코스 귀속 (R11-01 §3 F, 0009 additive) — NULL은 기본 코스(weather) 소속으로
+    # 간주한다(하위 호환: 0009 이전 시드·기존 픽스처 동일 동작). 판정 유일 지점은
+    # curriculum_service.scope_units_to_course.
+    course_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("courses.id"), nullable=True
+    )
 
 
 class UserUnitProgress(Base):

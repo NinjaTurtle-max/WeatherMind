@@ -9,6 +9,7 @@ from app.models.session import Session
 from app.models.quest import Quest, UserQuestProgress
 from app.models.badge import Badge, UserBadge
 from app.models.duel import Duel
+from app.models.course import Course
 from app.models.unit import Unit, UserUnitProgress
 from app.models.user_concept_ability import UserConceptAbility
 from app.models.item_param import ItemParam
@@ -27,6 +28,7 @@ __all__ = [
     "Badge",
     "UserBadge",
     "Duel",
+    "Course",
     "Unit",
     "UserUnitProgress",
     "UserConceptAbility",

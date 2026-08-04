@@ -2,6 +2,7 @@
 
 | GET  | /me         | XP·레벨·스트릭·티어·스파인 → {xp, level, streak_count, streak_freeze_count, next_level_xp, tier, ..., spine} |
 | GET  | /weak-tags  | θ 파생 약점 개념 (학령 상대 임계, θ 오름차순 — R8-01 §3.5) → WeakConceptOut[] |
+| GET  | /review-queue | 간격반복 복습 큐 (시간 축 — R11-01 C2) → ReviewQueueItem[] |
 | POST | /attendance | 출석 체크 (하루 1회) → {streak_count, is_new_record} |
 | GET  | /quests     | 오늘의 일일 퀘스트 진행/완료 (R4-01 §3.1) |
 | GET  | /badges     | 배지 정의 + 획득 시각 (R4-01 §3.3) |
@@ -28,6 +29,7 @@ from app.schemas.progress import (
     EnergyState,
     ProgressMe,
     QuestOut,
+    ReviewQueueItem,
     SpineOut,
     WeakConceptOut,
 )
@@ -39,6 +41,7 @@ from app.services import (
     league_service,
     placement_service,
     quest_service,
+    review_schedule_service,
     session_service,
     xp_service,
 )
@@ -201,6 +204,24 @@ async def get_weak_tags(
         for ab in sorted(abilities, key=lambda ab: ab["theta"])
         if ab["concept_tag"] in weak
     ]
+
+
+@router.get("/review-queue", response_model=list[ReviewQueueItem])
+async def get_review_queue(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_with_rls),
+) -> list[ReviewQueueItem]:
+    """간격반복 복습 큐 (R11-01 C2) — quiz_logs read-model, 저장·소모 없음.
+
+    weak-tags(θ 파생 약점 — 능력 축)와 다른 축: 마지막 학습 후 시간이 지나
+    복습할 때가 된 개념(시간 축). 다음 복습일 = 마지막 응답 KST 달력일 +
+    간격 사다리(연속 정답 기반, 오답 리셋), 배치고사 응답 제외(D10-2 전례).
+    전 개념이 next_review_at 오름차순으로 실리며 due=도래 여부.
+    """
+    rows = await review_schedule_service.get_review_queue(
+        db, user, datetime.now(KST)
+    )
+    return [ReviewQueueItem(**row) for row in rows]
 
 
 @router.get("/abilities", response_model=list[ConceptAbilityOut])

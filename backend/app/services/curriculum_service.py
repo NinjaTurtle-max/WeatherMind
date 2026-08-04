@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.content_item import ContentItem
+from app.models.course import Course
 from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.unit import Unit, UserUnitProgress
@@ -32,6 +33,10 @@ UNIT_SESSION_SIZE = settings.UNIT_SESSION_SIZE   # 기본 5 — env 튜닝(R5.5)
 # §0 제품 결정의 4섹션 교육적 순서 (섹션 정렬 키 — DB 컬럼 없이 표현).
 # 미등재 섹션은 뒤로(알파벳). unit_order는 섹션 내 유일(§3.6).
 SECTION_ORDER = ("하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후")
+
+# 기본 코스 (R11-01 §3 F) — 기존 유저·course 파라미터 생략·코스 미시드 DB 전부
+# weather가 기본이다. 코스별 유저 선택 영속화는 웨이브 2(코스 선택 UX와 함께).
+DEFAULT_COURSE_SLUG = "weather"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -62,6 +67,52 @@ def is_locked(
         return False
     prog = progress_by_unit.get(prereq)
     return not (prog is not None and prog.crowns >= 1)
+
+
+def scope_units_to_course(
+    units: Iterable[Any], course_id: Any, *, is_default: bool
+) -> list[Any]:
+    """코스 귀속 필터 (R11-01 §3 F, 순수) — 판정 유일 지점.
+
+    **하위 호환 핵심**: 기본 코스(weather)는 course_id가 NULL(또는 속성 부재 —
+    기존 테스트 픽스처)인 유닛을 포함한다. 0009 이전 시드·코스 미시드 DB·기존
+    유저가 코스 도입 후에도 동일한 트리를 본다. 비기본 코스는 정확히 그 코스에
+    귀속된 유닛만 — NULL은 절대 비기본 코스로 새지 않는다.
+    """
+    if is_default:
+        return [
+            u for u in units if getattr(u, "course_id", None) in (None, course_id)
+        ]
+    if course_id is None:  # 비기본 + 코스 미상 — NULL 귀속이 새지 않게 빈 스코프
+        return []
+    return [u for u in units if getattr(u, "course_id", None) == course_id]
+
+
+def course_view(
+    course: Any, units: Iterable[Any], slug_by_id: dict[Any, str]
+) -> dict[str, Any]:
+    """코스 1개의 API 표현 (R11-01 §3 F, 순수) — read-only 목록/상세 공용.
+
+    unit_view 선례: id·prereq_course_id는 안정 참조인 slug로 노출한다
+    (slug_by_id: {내부 id → slug}). units_total은 귀속 유닛 수(기본 코스는
+    NULL 귀속 포함 — scope_units_to_course 단일 정의 재사용).
+    """
+    is_default = course.slug == DEFAULT_COURSE_SLUG
+    scoped = scope_units_to_course(units, course.id, is_default=is_default)
+    prereq_slug = (
+        slug_by_id.get(course.prereq_course_id)
+        if course.prereq_course_id is not None
+        else None
+    )
+    return {
+        "id": course.slug,
+        "title": course.title,
+        "description": course.description,
+        "course_order": course.course_order,
+        "prereq_course_id": prereq_slug,
+        "is_default": is_default,
+        "units_total": len(scoped),
+    }
 
 
 def _section_key(section: str) -> tuple[int, str]:
@@ -304,6 +355,50 @@ async def load_units(db: AsyncSession) -> list[Unit]:
     )
 
 
+async def load_courses(db: AsyncSession) -> list[Course]:
+    """코스 전량 로드 (R11-01 §3 F) — course_order 오름차순. 미시드 DB는 빈 목록."""
+    return list(
+        (await db.execute(select(Course).order_by(Course.course_order)))
+        .scalars()
+        .all()
+    )
+
+
+async def get_course_by_slug(db: AsyncSession, slug: str) -> Course | None:
+    return (
+        await db.execute(select(Course).where(Course.slug == slug))
+    ).scalar_one_or_none()
+
+
+async def load_scoped_units(
+    db: AsyncSession, course_slug: str | None = None
+) -> list[Unit]:
+    """코스 범위 유닛 로드 (R11-01 §3 F) — 트리 GET의 코스 스코프 유일 지점.
+
+    course_slug 생략(None)은 기본 코스(weather)다. 기본 코스는 courses가
+    미시드여도(course 행 없음) NULL 귀속 유닛 전량을 돌려줘 현행과 동일 동작
+    (하위 호환). 비기본 코스인데 course 행이 없으면 빈 목록(방어 —
+    미존재 404는 라우터가 선판정).
+    """
+    units = await load_units(db)
+    slug = course_slug or DEFAULT_COURSE_SLUG
+    is_default = slug == DEFAULT_COURSE_SLUG
+    course = await get_course_by_slug(db, slug)
+    if course is None and not is_default:
+        return []
+    return scope_units_to_course(
+        units, course.id if course is not None else None, is_default=is_default
+    )
+
+
+async def course_views(db: AsyncSession) -> list[dict[str, Any]]:
+    """코스 목록의 API 표현 (R11-01 §3 F) — read-only, course_order 오름차순."""
+    courses = await load_courses(db)
+    units = await load_units(db)
+    slug_by_id = {c.id: c.slug for c in courses}
+    return [course_view(c, units, slug_by_id) for c in courses]
+
+
 async def load_progress_by_unit(
     db: AsyncSession, user: User
 ) -> dict[uuid.UUID, UserUnitProgress]:
@@ -319,8 +414,16 @@ async def load_progress_by_unit(
     return {row.unit_id: row for row in rows}
 
 
-async def get_curriculum(db: AsyncSession, user: User) -> list[dict[str, Any]]:
-    units = await load_units(db)
+async def get_curriculum(
+    db: AsyncSession, user: User, course_slug: str | None = None
+) -> list[dict[str, Any]]:
+    """섹션→유닛 트리 (course_slug additive — R11-01 §3 F).
+
+    course_slug 생략은 기본 코스(weather)이며 코스 미시드 DB에서 현행과 동일
+    동작(load_scoped_units 하위 호환 규칙). 잠금·배치 선해제는 스코프된 유닛
+    집합 위에서 평가한다 — 단일 코스 데이터에서는 전체 집합과 동일.
+    """
+    units = await load_scoped_units(db, course_slug)
     progress = await load_progress_by_unit(db, user)
     abilities = await weatherbrain_service.load_abilities(db, user)  # read-only
     return build_curriculum(

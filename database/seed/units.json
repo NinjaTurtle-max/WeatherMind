@@ -7,7 +7,8 @@
     "concept_tag": "pressure_front",
     "prereq_unit_id": null,
     "kind": "quiz",
-    "crown_target": 1
+    "crown_target": 1,
+    "course": "weather"
   },
   {
     "id": "read-sky-fronts",
@@ -17,7 +18,8 @@
     "concept_tag": "pressure_front",
     "prereq_unit_id": "read-sky-pressure",
     "kind": "quiz",
-    "crown_target": 1
+    "crown_target": 1,
+    "course": "weather"
   },
   {
     "id": "read-sky-board",
@@ -27,7 +29,8 @@
     "concept_tag": "pressure_front",
     "prereq_unit_id": "read-sky-fronts",
     "kind": "board",
-    "crown_target": 2
+    "crown_target": 2,
+    "course": "weather"
   },
   {
     "id": "air-power-masses",
@@ -37,7 +40,8 @@
     "concept_tag": "air_mass",
     "prereq_unit_id": "read-sky-board",
     "kind": "quiz",
-    "crown_target": 1
+    "crown_target": 1,
+    "course": "weather"
   },
   {
     "id": "air-power-transform",
@@ -47,7 +51,8 @@
     "concept_tag": "air_mass",
     "prereq_unit_id": "air-power-masses",
     "kind": "quiz",
-    "crown_target": 1
+    "crown_target": 1,
+    "course": "weather"
   },
   {
     "id": "air-power-board",
@@ -57,7 +62,8 @@
     "concept_tag": "air_mass",
     "prereq_unit_id": "air-power-transform",
     "kind": "board",
-    "crown_target": 2
+    "crown_target": 2,
+    "course": "weather"
   },
   {
     "id": "big-wind-birth",
@@ -67,7 +73,8 @@
     "concept_tag": "typhoon",
     "prereq_unit_id": "air-power-board",
     "kind": "quiz",
-    "crown_target": 1
+    "crown_target": 1,
+    "course": "weather"
   },
   {
     "id": "big-wind-lifecycle",
@@ -77,7 +84,8 @@
     "concept_tag": "typhoon",
     "prereq_unit_id": "big-wind-birth",
     "kind": "quiz",
-    "crown_target": 1
+    "crown_target": 1,
+    "course": "weather"
   },
   {
     "id": "city-heat-island",
@@ -87,7 +95,8 @@
     "concept_tag": "heat_island",
     "prereq_unit_id": "big-wind-lifecycle",
     "kind": "quiz",
-    "crown_target": 1
+    "crown_target": 1,
+    "course": "weather"
   },
   {
     "id": "city-greenhouse",
@@ -97,7 +106,8 @@
     "concept_tag": "co2_climate",
     "prereq_unit_id": "city-heat-island",
     "kind": "quiz",
-    "crown_target": 1
+    "crown_target": 1,
+    "course": "weather"
   },
   {
     "id": "city-anomaly",
@@ -107,7 +117,8 @@
     "concept_tag": "anomaly",
     "prereq_unit_id": "city-greenhouse",
     "kind": "quiz",
-    "crown_target": 1
+    "crown_target": 1,
+    "course": "weather"
   },
   {
     "id": "city-anomaly-board",
@@ -117,6 +128,7 @@
     "concept_tag": "anomaly",
     "prereq_unit_id": "city-anomaly",
     "kind": "board",
-    "crown_target": 2
+    "crown_target": 2,
+    "course": "weather"
   }
 ]

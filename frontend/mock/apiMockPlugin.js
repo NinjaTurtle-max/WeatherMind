@@ -1226,6 +1226,12 @@ const routes = {
     200,
     { access_token: 'mock-access', refresh_token: 'mock-refresh' },
   ],
+  // R11-01 J: 게스트 인증 — 서버 POST /auth/guest와 형태 동일(201 + LoginResponse
+  // {access_token, refresh_token}). 드리프트는 test_auth_guest 계약이 감시한다.
+  'POST /auth/guest': () => [
+    201,
+    { access_token: 'mock-guest-access', refresh_token: 'mock-guest-refresh' },
+  ],
   'POST /auth/refresh': () => [200, { access_token: 'mock-access-2' }],
   'POST /auth/logout': () => [200, { success: true }],
 
