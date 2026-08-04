@@ -103,6 +103,124 @@ export default {
   },
   tier: {
     title: '리그 티어: {label}',
+    // 티어 코드 → 표시명 (lib/tierMeta.js TIER_META.label의 리소스 파생 원본 —
+    // ko 값은 계약 §3.2 표와 바이트 동일)
+    name: {
+      stratus: '층운',
+      cumulus: '적운',
+      nimbostratus: '난층운',
+      cumulonimbus: '적란운',
+      typhoon_eye: '태풍의 눈',
+    },
+  },
+  // lib/abilityDisplay.js CONCEPT_KO·LEVEL_KO의 리소스 파생 원본.
+  // ⚠️ ability.concept.*는 위 concept.*(D2 저작)와 표기가 다르다 — CONCEPT_KO의
+  // ko 값을 기존 스모크가 단정하므로 원문 바이트 동일을 우선했다(§6.3 계약).
+  ability: {
+    concept: {
+      air_mass: '기단',
+      anomaly: '이상기후',
+      co2_climate: 'CO₂·기후변화',
+      heat_island: '열섬효과',
+      pressure_front: '기압·전선',
+      typhoon: '태풍',
+    },
+    level: {
+      beginner: '초급',
+      intermediate: '중급',
+      advanced: '고급',
+    },
+  },
+  // lib/onboardingGate.js DAILY_GOAL_CHOICES 라벨 + DailyGoal.jsx(피커·미터)
+  dailyGoal: {
+    choiceLabel: {
+      3: '가볍게',
+      5: '보통',
+      9: '열심히',
+    },
+    choiceCaption: '하루 {items}문항',
+    itemsUnit: '{items}문항',
+    pickerTitle: '🎯 하루 목표를 정해요',
+    pickerBody: '작게 시작해도 매일이 더 중요해요. 언제든 바꿀 수 있어요.',
+    saved: '좋아요 — 오늘부터 하루 {items}문항이 목표예요.',
+    saveFailed: '목표를 저장하지 못했어요. {detail} 다시 눌러주세요.',
+    meterTitle: '🎯 오늘 목표 {done}/{goal}',
+    reached: '달성!',
+    remaining: '{count}문항 남음',
+  },
+  // lib/onboardingGate.js 해제 축하 토스트 (§3.4)
+  unlock: {
+    board: '🧩 대기 보드가 열렸어요!',
+    duel: '🌡️ 예보 대결이 열렸어요!',
+    league: '🏆 리그가 열렸어요!',
+  },
+  // api/client.js 에러 정규화 폴백 2건
+  apiError: {
+    generic: '요청 처리 중 오류가 발생했습니다.',
+    network: '서버에 연결할 수 없습니다. 네트워크를 확인해주세요.',
+  },
+  // 온보딩 배치고사(modules/onboarding/**)
+  placement: {
+    skip: '건너뛰기 →',
+    title: '실력 진단 — 내 수준 찾기',
+    hint: '🧭 딱 6문항이면 충분해요 — 틀려도 괜찮아요, 진단일 뿐!',
+    finalizingTitle: '내 난이도를 찾는 중…',
+    finalizingBody: 'WeatherBrain이 방금 푼 문항을 분석해 딱 맞는 수준을 계산하고 있어요.',
+    doneTitle: '진단 완료!',
+    scored: '{total}문항 중 {correct}문항을 맞혔어요. ',
+    doneBody: '이제 WeatherBrain이 내 수준에 맞는 문제를 준비해요.',
+    barsNote: '막대가 짧을수록 앞으로 더 자주 만나게 될 개념이에요. 진단 결과는 프로필의 WeatherBrain 능력 분석에서 계속 갱신돼요.',
+    emptyAbilities: '진단 결과가 아직 준비되지 않았어요. 학습을 진행하면 능력 분석이 채워져요.',
+    start: '학습 시작하기 →',
+  },
+  // 내 정보 탭(modules/progress/ProgressPage.jsx — 헤더·진단 배너·스파인 카드)
+  profile: {
+    defaultNickname: '기상 학습자',
+    levelXp: 'Lv.{level} · 누적 {xp} XP',
+    leagueTier: '리그 티어',
+    streakStat: '연속 출석',
+    levelStat: '현재 레벨',
+    placementBannerTitle: '아직 실력 진단 전이에요',
+    placementBannerBody: '6문항 진단을 받으면 WeatherBrain이 내 수준에 맞는 문제를 골라줘요.',
+    placementBannerCta: '진단 받고 내 수준 찾기 →',
+    spineTitle: '🎓 학습 진도',
+    spineProgress: '{cleared}/{total} 유닛 · {ratio}%',
+    spineCurrentLabel: '지금 배울 유닛',
+    spineContinue: '이어서 학습 →',
+    spineAllCleared: '🌈 열린 유닛을 모두 클리어했어요!',
+  },
+  // 배지 컬렉션(modules/progress/BadgeCollection.jsx)
+  badges: {
+    loading: '배지를 불러오는 중...',
+    loadFailed: '배지를 불러오지 못했어요. {detail}',
+    title: '🏅 배지 컬렉션',
+    earnedCount: '{earned}/{total} 획득',
+    empty: '아직 등록된 배지가 없어요.',
+    locked: '미획득',
+    moreAfterFirstSession: '첫 세션을 마치면 배지 {count}개가 더 열려요.',
+  },
+  // 일일 퀘스트(modules/progress/QuestList.jsx)
+  quests: {
+    loading: '오늘의 퀘스트를 불러오는 중...',
+    loadFailed: '퀘스트를 불러오지 못했어요. {detail}',
+    title: '🎯 일일 퀘스트',
+    doneCount: '{done}/{total} 완료',
+    empty: '오늘의 퀘스트가 없어요.',
+    moreAfterFirstSession: '첫 세션을 마치면 퀘스트 {count}개가 더 열려요.',
+  },
+  // WeatherBrain 능력 분석(modules/progress/WeatherBrainPanel.jsx)
+  weatherBrain: {
+    title: '🧠 WeatherBrain 능력 분석',
+    loading: '능력 분석을 불러오는 중...',
+    loadFailed: '능력 분석을 불러오지 못했어요. {detail}',
+    introSeg1: 'WeatherMind 자체 적응형 모델 ',
+    introStrong: 'WeatherBrain',
+    introSeg2: '이 개념별 이해도를 추정해 문제 난이도를 맞춰줘요. 막대가 짧을수록 더 연습이 필요한 개념이에요.',
+    priorNote: '아직 응답 없음 · 초기 배정',
+    rowTitle: 'θ {theta} · {basis}',
+    basisPrior: '초기 배정',
+    basisMeasured: '응답 {count}회 기반',
+    empty: '아직 능력 데이터가 없어요. 세션을 풀면 개념별 이해도가 분석돼요.',
   },
   curriculum: {
     loading: '학습 경로를 불러오고 있어요...',

@@ -11,7 +11,8 @@ import { useT } from '../i18n';
  *   - showIcon: 아이콘 표시 여부 (기본 true)
  */
 export default function TierBadge({ tier, size = 'sm', showIcon = true }) {
-  // meta.label(티어명)은 lib/tierMeta 소유 — 소유 밖이라 이번 페이즈 미외부화(보고).
+  // meta.label(티어명)은 lib/tierMeta의 리소스 파생 getter(tier.name.*) — 아래
+  // useT() 구독이 로케일 전환 리렌더를 보장하므로 접근 시점 로케일로 풀린다(§6.3).
   const meta = tierMeta(tier);
   const t = useT();
   const sizeClass = size === 'md' ? 'px-3 py-1 text-sm' : 'px-2 py-0.5 text-xs';

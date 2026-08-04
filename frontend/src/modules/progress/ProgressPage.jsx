@@ -8,6 +8,7 @@ import BadgeCollection from './BadgeCollection';
 import WeatherBrainPanel from './WeatherBrainPanel';
 import { DailyGoalMeter, DailyGoalPicker } from './DailyGoal';
 import { selectUnlockStage, useOnboardingGate } from '../../lib/onboardingGate';
+import { useT } from '../../i18n';
 
 /**
  * ProgressPage (R4-01 S1·S2·S3) — "내 정보" 탭.
@@ -31,6 +32,7 @@ import { selectUnlockStage, useOnboardingGate } from '../../lib/onboardingGate';
 export default function ProgressPage() {
   const user = useAuthStore((s) => s.user);
   const unlockStage = useOnboardingGate(selectUnlockStage);
+  const t = useT();
 
   const { data: me } = useQuery({
     queryKey: ['progress', 'me'],
@@ -52,13 +54,13 @@ export default function ProgressPage() {
         <div className="flex items-center justify-between">
           <div className="min-w-0">
             <p className="truncate text-lg font-extrabold">
-              {user?.nickname ?? '기상 학습자'}
+              {user?.nickname ?? t('profile.defaultNickname')}
             </p>
-            <p className="mt-0.5 text-xs text-sky-300">Lv.{level} · 누적 {xp} XP</p>
+            <p className="mt-0.5 text-xs text-sky-300">{t('profile.levelXp', { level, xp })}</p>
           </div>
           <div className="shrink-0 text-right">
             <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-sky-300">
-              리그 티어
+              {t('profile.leagueTier')}
             </p>
             <TierBadge tier={tier} size="md" />
           </div>
@@ -66,11 +68,11 @@ export default function ProgressPage() {
         <div className="mt-4 grid grid-cols-2 gap-2">
           <div className="rounded-xl bg-sky-950/50 p-2.5 text-center">
             <p className="text-lg font-extrabold text-amber-300">🔥 {streak}</p>
-            <p className="text-[11px] text-sky-200">연속 출석</p>
+            <p className="text-[11px] text-sky-200">{t('profile.streakStat')}</p>
           </div>
           <div className="rounded-xl bg-sky-950/50 p-2.5 text-center">
             <p className="text-lg font-extrabold text-amber-300">Lv.{level}</p>
-            <p className="text-[11px] text-sky-200">현재 레벨</p>
+            <p className="text-[11px] text-sky-200">{t('profile.levelStat')}</p>
           </div>
         </div>
       </div>
@@ -92,9 +94,9 @@ export default function ProgressPage() {
             <div className="flex items-start gap-3">
               <span className="text-2xl" aria-hidden="true">🧭</span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-indigo-900">아직 실력 진단 전이에요</p>
+                <p className="text-sm font-bold text-indigo-900">{t('profile.placementBannerTitle')}</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-indigo-700">
-                  6문항 진단을 받으면 WeatherBrain이 내 수준에 맞는 문제를 골라줘요.
+                  {t('profile.placementBannerBody')}
                 </p>
               </div>
             </div>
@@ -102,7 +104,7 @@ export default function ProgressPage() {
               to="/onboarding/placement"
               className="mt-3 block w-full rounded-xl bg-indigo-600 py-2.5 text-center text-sm font-bold text-white transition hover:bg-indigo-700"
             >
-              진단 받고 내 수준 찾기 →
+              {t('profile.placementBannerCta')}
             </Link>
           </div>
         )}
@@ -124,6 +126,7 @@ export default function ProgressPage() {
  * 전 유닛 클리어(current_unit=null)면 완주 상태를 보여준다.
  */
 function SpineCard({ spine }) {
+  const t = useT();
   const total = spine.units_total ?? 0;
   const cleared = spine.units_cleared ?? 0;
   const ratio = total > 0 ? Math.round((cleared / total) * 100) : 0;
@@ -132,7 +135,7 @@ function SpineCard({ spine }) {
   return (
     <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-extrabold text-slate-900">🎓 학습 진도</p>
+        <p className="text-sm font-extrabold text-slate-900">{t('profile.spineTitle')}</p>
         <p className="text-xs font-bold text-amber-500">
           👑 {spine.crowns_earned ?? 0}
           <span className="font-medium text-amber-400">/{spine.crowns_total ?? 0}</span>
@@ -147,26 +150,26 @@ function SpineCard({ spine }) {
           />
         </div>
         <p className="shrink-0 text-xs font-bold text-slate-600 tabular-nums">
-          {cleared}/{total} 유닛 · {ratio}%
+          {t('profile.spineProgress', { cleared, total, ratio })}
         </p>
       </div>
 
       {current ? (
         <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-sky-50 px-3 py-2.5 ring-1 ring-sky-100">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-sky-500">지금 배울 유닛</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-sky-500">{t('profile.spineCurrentLabel')}</p>
             <p className="truncate text-sm font-bold text-sky-900">{current.title}</p>
           </div>
           <Link
             to={`/learn/units/${current.slug}`}
             className="shrink-0 rounded-xl bg-sky-600 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-sky-700"
           >
-            이어서 학습 →
+            {t('profile.spineContinue')}
           </Link>
         </div>
       ) : (
         <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-center text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
-          🌈 열린 유닛을 모두 클리어했어요!
+          {t('profile.spineAllCleared')}
         </p>
       )}
     </div>

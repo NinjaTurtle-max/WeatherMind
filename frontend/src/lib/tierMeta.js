@@ -1,3 +1,5 @@
+import { translate, useLocaleStore } from '../i18n/index.js';
+
 /**
  * 리그 티어 메타데이터 (R4-01 계약 §3.2 — 구름 분류 5단계, 독자 세계관).
  * tier 코드 → 표시명/색상/아이콘/ELO 하한. 계약 표와 1:1로 고정한다.
@@ -9,13 +11,25 @@
  *   typhoon_eye   태풍의 눈  >= 1550
  *
  * 색상은 Tailwind 팔레트 클래스로 고정(라이트 전용 — index.css color-scheme).
+ *
+ * §6.3 외부화: label은 i18n 리소스(`tier.name.*`) 파생 getter다 — export 형태
+ * (TIER_META[code].label 문자열)는 유지하고, 접근 시점의 현재 로케일로 푼다.
+ * ko 값은 리소스에 바이트 동일하게 있으므로 ko 결과는 종전과 같다. 소비처
+ * (TierBadge·CasterJudgmentCard)는 useT()를 이미 구독하므로 전환 시 리렌더된다.
  */
 export const TIER_ORDER = ['stratus', 'cumulus', 'nimbostratus', 'cumulonimbus', 'typhoon_eye'];
+
+/** 현재 로케일의 티어 표시명 — 컴포넌트 밖에서도 호출 가능(비반응 함수) */
+export function tierLabel(code) {
+  return translate(useLocaleStore.getState().locale, `tier.name.${code}`);
+}
 
 export const TIER_META = {
   stratus: {
     code: 'stratus',
-    label: '층운',
+    get label() {
+      return tierLabel('stratus');
+    },
     icon: '🌫️',
     minElo: 0,
     // 배지 칩 스타일 (배경/텍스트/링)
@@ -24,7 +38,9 @@ export const TIER_META = {
   },
   cumulus: {
     code: 'cumulus',
-    label: '적운',
+    get label() {
+      return tierLabel('cumulus');
+    },
     icon: '⛅',
     minElo: 1100,
     chip: 'bg-sky-100 text-sky-700 ring-sky-200',
@@ -32,7 +48,9 @@ export const TIER_META = {
   },
   nimbostratus: {
     code: 'nimbostratus',
-    label: '난층운',
+    get label() {
+      return tierLabel('nimbostratus');
+    },
     icon: '🌧️',
     minElo: 1250,
     chip: 'bg-indigo-100 text-indigo-700 ring-indigo-200',
@@ -40,7 +58,9 @@ export const TIER_META = {
   },
   cumulonimbus: {
     code: 'cumulonimbus',
-    label: '적란운',
+    get label() {
+      return tierLabel('cumulonimbus');
+    },
     icon: '⛈️',
     minElo: 1400,
     chip: 'bg-violet-100 text-violet-700 ring-violet-200',
@@ -48,7 +68,9 @@ export const TIER_META = {
   },
   typhoon_eye: {
     code: 'typhoon_eye',
-    label: '태풍의 눈',
+    get label() {
+      return tierLabel('typhoon_eye');
+    },
     icon: '🌀',
     minElo: 1550,
     chip: 'bg-amber-100 text-amber-700 ring-amber-300',

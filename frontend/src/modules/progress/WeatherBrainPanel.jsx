@@ -9,6 +9,7 @@ import {
   COLOR_PRIOR,
   thetaToScore,
 } from '../../lib/abilityDisplay';
+import { useT } from '../../i18n';
 
 /**
  * WeatherBrainPanel (R6 WeatherBrain) — 개념별 능력(θ) 분석 패널.
@@ -24,6 +25,7 @@ import {
  */
 
 export default function WeatherBrainPanel() {
+  const t = useT();
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['progress', 'abilities'],
     queryFn: progressApi.fetchAbilities,
@@ -35,7 +37,7 @@ export default function WeatherBrainPanel() {
   );
   const Header = () => (
     <div className="mb-1 flex items-center gap-2">
-      <h2 className="text-base font-extrabold text-slate-900">🧠 WeatherBrain 능력 분석</h2>
+      <h2 className="text-base font-extrabold text-slate-900">{t('weatherBrain.title')}</h2>
     </div>
   );
 
@@ -43,7 +45,7 @@ export default function WeatherBrainPanel() {
     return (
       <Card>
         <Header />
-        <LoadingSpinner label="능력 분석을 불러오는 중..." />
+        <LoadingSpinner label={t('weatherBrain.loading')} />
       </Card>
     );
   }
@@ -53,14 +55,14 @@ export default function WeatherBrainPanel() {
       <Card>
         <Header />
         <p className="text-center text-sm text-slate-500">
-          능력 분석을 불러오지 못했어요. {error?.detail ?? ''}
+          {t('weatherBrain.loadFailed', { detail: error?.detail ?? '' })}
         </p>
         <button
           type="button"
           onClick={() => refetch()}
           className="mt-2 block w-full rounded-lg bg-slate-100 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200"
         >
-          다시 시도
+          {t('common.retry')}
         </button>
       </Card>
     );
@@ -70,7 +72,7 @@ export default function WeatherBrainPanel() {
     name: CONCEPT_KO[a.concept_tag] ?? a.concept_tag,
     score: thetaToScore(a.theta),
     theta: typeof a.theta === 'number' ? a.theta : 0,
-    levelKo: LEVEL_KO[a.level_label] ?? a.level_label ?? '초급',
+    levelKo: LEVEL_KO[a.level_label] ?? a.level_label ?? LEVEL_KO.beginner,
     level_label: a.level_label,
     num_responses: a.num_responses ?? 0,
     isPrior: (a.num_responses ?? 0) === 0,
@@ -81,7 +83,7 @@ export default function WeatherBrainPanel() {
       <Card>
         <Header />
         <p className="mt-1 text-sm text-slate-500">
-          아직 능력 데이터가 없어요. 세션을 풀면 개념별 이해도가 분석돼요.
+          {t('weatherBrain.empty')}
         </p>
       </Card>
     );
@@ -91,20 +93,29 @@ export default function WeatherBrainPanel() {
     <Card>
       <Header />
       <p className="mb-3 text-xs leading-relaxed text-slate-500">
-        WeatherMind 자체 적응형 모델 <span className="font-semibold text-sky-700">WeatherBrain</span>이
-        개념별 이해도를 추정해 문제 난이도를 맞춰줘요. 막대가 짧을수록 더 연습이 필요한 개념이에요.
+        {t('weatherBrain.introSeg1')}
+        <span className="font-semibold text-sky-700">{t('weatherBrain.introStrong')}</span>
+        {t('weatherBrain.introSeg2')}
       </p>
 
       {/* 개념별 막대(PlacementSummary와 동일 div 관용구) + 레벨 칩 + 초기 배정 안내 */}
       <ul className="flex flex-col gap-2.5">
         {rows.map((row) => (
-          <li key={row.name} title={`θ ${row.theta.toFixed(2)} · ${row.isPrior ? '초기 배정' : `응답 ${row.num_responses}회 기반`}`}>
+          <li
+            key={row.name}
+            title={t('weatherBrain.rowTitle', {
+              theta: row.theta.toFixed(2),
+              basis: row.isPrior
+                ? t('weatherBrain.basisPrior')
+                : t('weatherBrain.basisMeasured', { count: row.num_responses }),
+            })}
+          >
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="min-w-0 truncate font-semibold text-slate-700">{row.name}</span>
               <span className="flex shrink-0 items-center gap-1.5">
                 {row.isPrior && (
                   <span className="text-[10px] font-medium text-slate-400">
-                    아직 응답 없음 · 초기 배정
+                    {t('weatherBrain.priorNote')}
                   </span>
                 )}
                 <span

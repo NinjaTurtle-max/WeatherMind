@@ -5,7 +5,8 @@ import { useT } from '../../i18n';
 /**
  * CasterGradeBadge (R9-01 §3.2) — "🤖 {티어}급 캐스터" 등급 배지.
  * 리그 티어 메타(구름 5단계)를 재사용하되 캐스터 문맥 라벨을 붙인다.
- * meta.label(티어명)은 lib/tierMeta 소유 — 소유 밖이라 이번 페이즈 미외부화(보고).
+ * meta.label(티어명)은 lib/tierMeta의 리소스 파생 getter(tier.name.*) — useT()
+ * 구독이 로케일 전환 리렌더를 보장하므로 접근 시점 로케일로 풀린다(§6.3).
  */
 export function CasterGradeBadge({ grade, size = 'sm' }) {
   const meta = tierMeta(grade);

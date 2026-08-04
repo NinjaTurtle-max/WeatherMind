@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { progressApi } from '../../api';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { useT } from '../../i18n';
 
 /**
  * BadgeCollection (R4-01 §3.3) — 배지 획득/미획득 그리드(5종).
@@ -28,24 +29,25 @@ function formatDate(iso) {
 }
 
 export default function BadgeCollection({ collapsed = false }) {
+  const t = useT();
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['progress', 'badges'],
     queryFn: progressApi.fetchBadges,
     staleTime: 60_000,
   });
 
-  if (isLoading) return <LoadingSpinner label="배지를 불러오는 중..." />;
+  if (isLoading) return <LoadingSpinner label={t('badges.loading')} />;
 
   if (isError) {
     return (
       <div className="rounded-2xl bg-white p-4 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
-        배지를 불러오지 못했어요. {error?.detail ?? ''}
+        {t('badges.loadFailed', { detail: error?.detail ?? '' })}
         <button
           type="button"
           onClick={() => refetch()}
           className="mt-2 block w-full rounded-lg bg-slate-100 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200"
         >
-          다시 시도
+          {t('common.retry')}
         </button>
       </div>
     );
@@ -59,15 +61,15 @@ export default function BadgeCollection({ collapsed = false }) {
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-base font-extrabold text-slate-900">🏅 배지 컬렉션</h2>
+        <h2 className="text-base font-extrabold text-slate-900">{t('badges.title')}</h2>
         <span className="text-xs font-bold text-slate-400">
-          {earnedCount}/{badges.length} 획득
+          {t('badges.earnedCount', { earned: earnedCount, total: badges.length })}
         </span>
       </div>
 
       {badges.length === 0 ? (
         <div className="rounded-2xl bg-white p-4 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
-          아직 등록된 배지가 없어요.
+          {t('badges.empty')}
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
@@ -95,7 +97,7 @@ export default function BadgeCollection({ collapsed = false }) {
                 >
                   {b.title}
                 </p>
-                <p className="mt-0.5 text-[10px] text-slate-400">{earned ? date : '미획득'}</p>
+                <p className="mt-0.5 text-[10px] text-slate-400">{earned ? date : t('badges.locked')}</p>
               </div>
             );
           })}
@@ -104,7 +106,7 @@ export default function BadgeCollection({ collapsed = false }) {
 
       {hiddenCount > 0 && (
         <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-center text-xs font-medium text-slate-500 ring-1 ring-slate-200">
-          첫 세션을 마치면 배지 {hiddenCount}개가 더 열려요.
+          {t('badges.moreAfterFirstSession', { count: hiddenCount })}
         </p>
       )}
     </div>
