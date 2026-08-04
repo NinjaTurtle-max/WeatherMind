@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import { translate, useLocaleStore } from '../i18n/index.js';
+// core만 import — index.js(zustand)를 끌면 mock의 순수 node 경로가 죽는다(core.js 주석)
+import { translate, getCurrentLocale } from '../i18n/core.js';
 
 /** 접근 시점의 현재 로케일로 리소스 키를 푼다(§6.3 라벨 외부화 — ko 값 바이트 동일) */
 function tNow(key, params) {
-  return translate(useLocaleStore.getState().locale, key, params);
+  return translate(getCurrentLocale(), key, params);
 }
 
 /**

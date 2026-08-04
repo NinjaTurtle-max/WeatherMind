@@ -1,4 +1,5 @@
-import { translate, useLocaleStore } from '../i18n/index.js';
+// core만 import — index.js(zustand)를 끌면 mock의 순수 node 경로가 죽는다(core.js 주석)
+import { translate, getCurrentLocale } from '../i18n/core.js';
 
 /**
  * 리그 티어 메타데이터 (R4-01 계약 §3.2 — 구름 분류 5단계, 독자 세계관).
@@ -21,7 +22,7 @@ export const TIER_ORDER = ['stratus', 'cumulus', 'nimbostratus', 'cumulonimbus',
 
 /** 현재 로케일의 티어 표시명 — 컴포넌트 밖에서도 호출 가능(비반응 함수) */
 export function tierLabel(code) {
-  return translate(useLocaleStore.getState().locale, `tier.name.${code}`);
+  return translate(getCurrentLocale(), `tier.name.${code}`);
 }
 
 export const TIER_META = {

@@ -1,4 +1,5 @@
-import { translate, useLocaleStore } from '../i18n/index.js';
+// core만 import — index.js(zustand)를 끌면 mock의 순수 node 경로가 죽는다(core.js 주석)
+import { translate, getCurrentLocale } from '../i18n/core.js';
 
 /**
  * 능력(θ) 표시 공용 헬퍼 — WeatherBrainPanel(R6)에서 추출해
@@ -19,7 +20,7 @@ function localizedDict(prefix, keys) {
   for (const key of keys) {
     Object.defineProperty(dict, key, {
       enumerable: true,
-      get: () => translate(useLocaleStore.getState().locale, `${prefix}.${key}`),
+      get: () => translate(getCurrentLocale(), `${prefix}.${key}`),
     });
   }
   return dict;

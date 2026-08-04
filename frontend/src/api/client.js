@@ -1,10 +1,11 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
-import { translate, useLocaleStore } from '../i18n/index.js';
+// core만 import — index.js(zustand)를 끌면 mock의 순수 node 경로가 죽는다(core.js 주석)
+import { translate, getCurrentLocale } from '../i18n/core.js';
 
 /** 에러 정규화 시점의 현재 로케일로 폴백 문구를 푼다(§6.3 — ko 값 바이트 동일) */
 function tNow(key) {
-  return translate(useLocaleStore.getState().locale, key);
+  return translate(getCurrentLocale(), key);
 }
 
 /**
