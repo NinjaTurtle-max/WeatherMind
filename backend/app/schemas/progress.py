@@ -112,6 +112,25 @@ class WeakConceptOut(BaseModel):
     num_responses: int
 
 
+class ReviewQueueItem(BaseModel):
+    """GET /progress/review-queue 응답 항목 — 간격반복 복습 스케줄 (R11-01 C2).
+
+    weak-tags(θ 파생 약점 — 능력 축)와 다른 축이다: 마지막 학습 후 시간이 지나
+    복습할 때가 된 개념(시간 축). quiz_logs read-model이라 저장 상태가 없고,
+    배치고사 응답은 제외된다(D10-2 전례).
+    next_review_at: 마지막 응답의 KST 달력일 + 간격 사다리(연속 정답 기반,
+    review_schedule_service.REVIEW_INTERVALS_DAYS)의 KST 자정(UTC 표기).
+    due: 그 시점이 이미 도래했는지 — 전 개념이 실려 오므로 큐 표시는 due 필터.
+    """
+
+    concept_tag: str
+    last_answered_at: datetime
+    consecutive_correct: int
+    interval_days: int
+    next_review_at: datetime
+    due: bool
+
+
 class ConceptAbilityOut(BaseModel):
     """WeatherBrain IRT 개념별 능력 θ (로짓 스케일). R6 §5.
 
