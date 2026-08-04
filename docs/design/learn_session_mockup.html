@@ -1,0 +1,674 @@
+<title>WeatherMind — 학습 세션 화면 시안</title>
+<style>
+  /* 앱 방침: OS 다크모드 미추종, 명시적 라이트 색상만 (frontend/tailwind.config.js) */
+  :root {
+    --bg:#F2F6FA; --panel:#FFFFFF; --panel-alt:#F8FBFD;
+    --ink:#0C2C42; --soft:#5B7488; --faint:#93A8B8; --line:#DDE8F1;
+    --accent:#0284C7; --accent-dp:#0369A1; --accent-sf:#E0F2FE; --accent-sf2:#F0F9FF;
+    --deep:#0C4A6E; --ok:#2E9E6D; --gold:#E9A93C;
+    --r:16px;
+    --topbar-h:56px;
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink); overflow:hidden;
+    font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4,p { margin:0; }
+  .num { font-variant-numeric:tabular-nums; }
+  button { font-family:inherit; cursor:pointer; }
+
+  /* ── 앱 셸: 페이지 자체는 스크롤되지 않는다 ── */
+  .app { height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
+
+  .topbar {
+    height:var(--topbar-h); flex:none; background:var(--panel);
+    border-bottom:1px solid var(--line);
+    display:flex; align-items:center; gap:12px; padding:0 18px;
+  }
+  .brand { display:flex; align-items:center; gap:7px; font-size:15px; font-weight:800; color:var(--deep); }
+  .tb-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .pill {
+    display:inline-flex; align-items:center; gap:5px; border-radius:999px;
+    border:1px solid var(--line); background:var(--panel-alt);
+    padding:5px 11px; font-size:12px; font-weight:800;
+  }
+  .pill.lv { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .xpwrap { display:flex; align-items:center; gap:8px; }
+  .xpbar { width:150px; height:8px; border-radius:999px; background:var(--accent-sf); overflow:hidden; }
+  .xpbar i { display:block; height:100%; width:38%; border-radius:999px; background:var(--accent); }
+  .tb-user { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--soft); font-weight:700; }
+  .avatar { width:26px; height:26px; border-radius:50%; background:var(--accent-sf); border:1px solid var(--line); }
+
+  .body { flex:1; min-height:0; display:grid; grid-template-columns:184px minmax(0,1fr) 236px; }
+  /* 그리드 아이템의 기본 min-height:auto는 내용만큼 늘어나 셸을 밀어낸다 —
+     세 칸 모두 0으로 눌러야 트랙만 스크롤되고 페이지는 고정된다. */
+  .body > * { min-height:0; }
+
+  /* ── 좌측 내비 (고정) ── */
+  .side { background:var(--panel); border-right:1px solid var(--line); padding:14px 12px; display:flex; flex-direction:column; gap:14px; overflow:hidden; }
+  .nav { display:flex; flex-direction:column; gap:2px; }
+  .nav a {
+    display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px;
+    font-size:13.5px; font-weight:700; color:var(--soft); text-decoration:none;
+  }
+  .nav a.on { background:var(--accent-sf); color:var(--accent-dp); }
+  .nav a:hover:not(.on) { color:var(--ink); }
+  .nav .ico { width:17px; text-align:center; }
+
+  .tutor { margin-top:auto; text-align:center; }
+  .tutor .who { font-size:12.5px; font-weight:800; margin-top:6px; }
+  .tutor .role { font-size:10.5px; color:var(--faint); margin-top:1px; }
+  .bubble {
+    margin-top:9px; background:var(--accent-sf2); border:1px solid var(--accent-sf);
+    border-radius:12px; padding:9px 10px; font-size:11px; line-height:1.5; color:var(--soft); text-align:left;
+  }
+  .tutor button {
+    margin-top:9px; width:100%; border:1px solid var(--accent); background:var(--panel);
+    color:var(--accent-dp); font-size:12px; font-weight:800; border-radius:10px; padding:8px 0;
+  }
+  .tutor button:hover { background:var(--accent-sf2); }
+
+  /* ── 가운데: 헤더 고정 + 트랙만 스크롤 ── */
+  .center { min-width:0; display:flex; flex-direction:column; padding:14px 16px; gap:10px; }
+  .c-head { flex:none; display:flex; align-items:center; gap:11px; }
+  .c-head .ttl { font-size:16px; font-weight:800; }
+  .c-head .sub { font-size:11.5px; color:var(--soft); margin-top:2px; }
+  .c-head .btns { margin-left:auto; display:flex; gap:7px; }
+  .ghost {
+    border:1px solid var(--line); background:var(--panel); color:var(--soft);
+    font-size:11.5px; font-weight:700; border-radius:10px; padding:7px 11px;
+  }
+  .ghost:hover { color:var(--ink); border-color:#A9D4EC; }
+
+  /* 스크롤 트랙 — 여기 위에서만 휠이 먹고, 스크롤바는 숨긴다 */
+  .track {
+    flex:1; min-height:0; position:relative; border-radius:20px; overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .scroller {
+    height:100%; overflow-y:auto; overscroll-behavior:contain;   /* 페이지로 스크롤 전파 차단 */
+    scroll-snap-type:y mandatory; scroll-behavior:smooth;
+    scrollbar-width:none;                                         /* Firefox */
+    -ms-overflow-style:none;                                      /* 구 Edge */
+  }
+  .scroller::-webkit-scrollbar { display:none; }                  /* Chrome/Safari */
+
+  /* 한 화면에 한 단계 — 헤더는 위에 고정, 유닛 줄은 가운데 */
+  .stage {
+    height:100%; scroll-snap-align:start; scroll-snap-stop:always;
+    position:relative; display:flex; flex-direction:column;
+    padding:20px 22px 54px; overflow:hidden;
+  }
+  .stage-mid { flex:1; min-height:0; display:flex; align-items:center; }
+  /* 섹션별 배경 — 축은 고도가 아니라 시선의 확장이다.
+     하늘 읽기(지상에서 올려다봄) → 공기의 힘(상공) → 큰 바람(바다 위 폭풍) → 도시와 기후(지구 규모·밤).
+     s3·s4는 어두우므로 글자·유리판을 아래에서 통째로 반전한다. */
+  .s1 { background:linear-gradient(180deg,#BFE6F7 0%,#DFF3E4 62%,#CFE9C9 100%); }
+  .s2 { background:linear-gradient(180deg,#8FC9EE 0%,#C4E3F5 52%,#E3F1F7 100%); }
+  .s3 { background:linear-gradient(180deg,#33506E 0%,#4A6E90 48%,#5D839F 100%); }
+  .s4 { background:linear-gradient(180deg,#0E1430 0%,#232C55 52%,#4A3D62 100%); }
+
+  /* 배경 소품(단순 도형만 — 무겁지 않게) */
+  .deco { position:absolute; pointer-events:none; }
+  .cloud { background:rgba(255,255,255,.85); border-radius:999px; filter:blur(.4px); }
+  .cloud::before, .cloud::after {
+    content:""; position:absolute; background:inherit; border-radius:50%;
+  }
+  .cloud::before { width:60%; height:150%; left:12%; top:-58%; }
+  .cloud::after  { width:44%; height:120%; right:12%; top:-42%; }
+  .hill { background:linear-gradient(180deg,#B4DFA2,#8FC97E); border-radius:50% 50% 0 0; }
+  .sea  { background:linear-gradient(180deg,#8FCDEC,#6BB4DE); }
+  .star { background:#fff; border-radius:50%; box-shadow:0 0 4px rgba(255,255,255,.9); }
+  .planet { border-radius:50%; }
+  /* 소품 — 단순 도형이지만 딱딱하지 않게 */
+  .sun-deco { border-radius:50%; background:radial-gradient(circle at 38% 34%,#FFE9A8,#FFD05C); box-shadow:0 0 26px rgba(255,208,92,.55); }
+  .tree { border-radius:50% 50% 42% 42%; background:linear-gradient(180deg,#7FBF6E,#5FA254); }
+  /* 소품은 형체가 읽혀야 뜻이 산다 — 뭉갠 타원 대신 실루엣이 잡히는 SVG로 그린다.
+     Lv.2 열기구(0~2km 저층) · Lv.4 기상 관측 기구(성층권에 실제로 올라가는 것). */
+  .deco svg { display:block; }
+
+  .stage-head {
+    position:relative; z-index:2; flex:none; align-self:flex-start;
+    display:flex; align-items:center; gap:10px;
+    background:rgba(255,255,255,.72); border-radius:999px; padding:6px 14px 6px 6px;
+    backdrop-filter:blur(3px); box-shadow:0 3px 10px rgba(12,44,66,.08);
+  }
+  .s3 .stage-head, .s4 .stage-head { background:rgba(10,24,48,.44); box-shadow:none; }
+  .lvchip {
+    background:rgba(12,44,66,.82); color:#fff; border-radius:999px;
+    padding:4px 11px; font-size:11px; font-weight:800; white-space:nowrap;
+  }
+  .stage-head .nm { font-size:15px; font-weight:800; }
+  .stage-head .alt { font-size:11px; color:rgba(12,44,66,.62); margin-top:1px; }
+  .s3 .stage-head .nm, .s4 .stage-head .nm { color:#fff; }
+  .s3 .stage-head .alt, .s4 .stage-head .alt { color:rgba(255,255,255,.7); }
+
+  .units { position:relative; z-index:2; width:100%; display:flex; justify-content:center; align-items:flex-start; gap:0; }
+  .here-host { position:relative; }
+  .unit { width:134px; text-align:center; flex:none; }
+  /* 보드 퍼즐 유닛 표식 — 실제 seed의 kind:"board" 3개(read-sky-board·air-power-board·city-anomaly-board) */
+  .bmark {
+    position:absolute; right:-4px; bottom:-4px; width:19px; height:19px; border-radius:50%;
+    background:#fff; display:grid; place-items:center; font-size:10px;
+    box-shadow:0 1px 4px rgba(12,44,66,.28);
+  }
+  .node {
+    position:relative;
+    width:56px; height:56px; margin:0 auto; border-radius:50%;
+    border:4px solid #fff; display:grid; place-items:center; font-size:21px;
+    background:#E7EEF5; color:#93A8B8; box-shadow:0 4px 10px rgba(12,44,66,.16);
+  }
+  .node.done { background:var(--ok); color:#fff; }
+  .node.now  { background:var(--accent); color:#fff; box-shadow:0 0 0 5px rgba(2,132,199,.25),0 6px 14px rgba(2,132,199,.35); }
+  .u-t { margin-top:7px; font-size:11.5px; font-weight:800; line-height:1.32; word-break:keep-all; }
+  .u-s { font-size:10px; color:rgba(12,44,66,.55); margin-top:1px; }
+  .s3 .u-t, .s4 .u-t { color:#fff; }
+  .s3 .u-s, .s4 .u-s { color:rgba(255,255,255,.7); }
+  .u-star { margin-top:3px; font-size:9px; letter-spacing:1px; color:var(--gold); }
+  .link { flex:1 1 0; height:3px; margin-top:26px; border-radius:3px; background:rgba(255,255,255,.75); min-width:16px; max-width:132px; }
+  .link.done { background:var(--ok); }
+
+  .reward {
+    margin-left:12px; flex:none; width:96px; border-radius:14px; padding:10px 8px; text-align:center;
+    background:rgba(255,255,255,.9); box-shadow:0 4px 12px rgba(12,44,66,.14);
+  }
+  .reward.done { box-shadow:0 0 0 3px rgba(46,158,109,.28),0 4px 12px rgba(12,44,66,.14); }
+  .reward .box { font-size:24px; }
+  .reward .lb { font-size:10px; font-weight:800; color:var(--soft); margin-top:2px; }
+  .reward .xp { font-size:11.5px; font-weight:800; color:var(--accent-dp); margin-top:2px; }
+
+  /* 현재 위치 마커 */
+  .here {
+    position:absolute; top:-30px; left:50%; transform:translateX(-50%);
+    background:var(--accent); color:#fff; font-size:10px; font-weight:800;
+    padding:3px 8px; border-radius:999px; white-space:nowrap;
+  }
+  .here::after {
+    content:""; position:absolute; left:50%; bottom:-4px; transform:translateX(-50%) rotate(45deg);
+    width:8px; height:8px; background:var(--accent);
+  }
+
+  /* ── 단계 하단 정보 스트립 ──
+     유닛 줄 아래 빈 하늘을 장식이 아니라 정보로 채운다:
+     이 단계에서 뭘 배우는지 · 다루는 개념 · 진도 · 예상 시간. */
+  .stage-foot {
+    position:relative; z-index:2; flex:none; display:flex; align-items:center; gap:14px;
+    background:rgba(255,255,255,.82); border-radius:16px; padding:11px 13px;
+    backdrop-filter:blur(4px); box-shadow:0 5px 16px rgba(12,44,66,.1);
+  }
+  .sf-main { min-width:0; }
+  .sf-t { font-size:9.5px; font-weight:800; letter-spacing:.4px; color:var(--accent-dp); }
+  .sf-d { font-size:12px; font-weight:700; line-height:1.45; margin-top:2px; }
+  .chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; }
+  .chips span {
+    font-size:10px; font-weight:700; border-radius:999px; padding:3px 8px;
+    background:var(--accent-sf); color:var(--accent-dp);
+  }
+  .sf-meta { margin-left:auto; flex:none; display:flex; gap:7px; }
+  .sf-meta > div { min-width:56px; text-align:center; background:rgba(255,255,255,.72); border-radius:11px; padding:6px 8px; }
+  .sf-meta b { display:block; font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .sf-meta i { display:block; font-size:9px; font-style:normal; color:var(--faint); margin-top:1px; }
+  /* 어두운 단계(성층권·우주)는 유리판을 반대로 어둡게 깐다.
+     s4는 그라데이션 아래쪽이 밝아서 흰 유리 위에 흰 글씨를 얹으면 대비가 죽는다. */
+  .s3 .stage-foot, .s4 .stage-foot { background:rgba(8,20,44,.5); box-shadow:none; }
+  .s3 .sf-t, .s4 .sf-t { color:#9CC8F4; }
+  .s3 .sf-d, .s4 .sf-d { color:#fff; }
+  .s3 .chips span, .s4 .chips span { background:rgba(255,255,255,.18); color:#EAF2FC; }
+  .s3 .sf-meta > div, .s4 .sf-meta > div { background:rgba(255,255,255,.13); }
+  .s3 .sf-meta b, .s4 .sf-meta b { color:#fff; }
+  .s3 .sf-meta i, .s4 .sf-meta i { color:rgba(255,255,255,.58); }
+
+  /* 소나기 구름 — 몸통은 회색으로 눌러 일반 구름과 구분 */
+  .rainy { background:rgba(203,216,228,.95); }
+  .rainfall { stroke:rgba(120,165,205,.75); stroke-width:2; stroke-linecap:round; }
+
+  /* 트랙 하단 진도 바 (고정) */
+  .trackfoot {
+    position:absolute; left:0; right:0; bottom:0; z-index:3;
+    background:rgba(255,255,255,.94); border-top:1px solid var(--line);
+    padding:9px 14px; display:flex; align-items:center; gap:10px;
+    backdrop-filter:blur(4px);
+  }
+  .trackfoot .t { font-size:11.5px; font-weight:800; }
+  .tfbar { width:120px; height:7px; border-radius:999px; background:var(--accent-sf); overflow:hidden; }
+  .tfbar i { display:block; height:100%; width:25%; background:var(--accent); border-radius:999px; }
+  .trackfoot .cta {
+    margin-left:auto; border:0; background:var(--accent); color:#fff;
+    font-size:11.5px; font-weight:800; border-radius:9px; padding:7px 13px;
+  }
+  .trackfoot .cta:hover { background:var(--accent-dp); }
+
+  /* 스크롤 힌트 — 아래는 단계 정보 스트립이 차지하므로 위쪽 여백에 둔다 */
+  .hint {
+    position:absolute; right:14px; top:14px; z-index:3;
+    background:rgba(12,44,66,.7); color:#fff; font-size:10.5px; font-weight:700;
+    border-radius:999px; padding:4px 10px; pointer-events:none;
+  }
+
+  /* ── 우측 레일 (고정) ── */
+  .rail { background:var(--panel); border-left:1px solid var(--line); padding:14px 12px; display:flex; flex-direction:column; gap:12px; overflow:hidden; }
+  .rcard { border:1px solid var(--line); border-radius:14px; padding:12px; }
+  .rcard h4 { font-size:12.5px; font-weight:800; display:flex; align-items:center; gap:5px; }
+  .rcard .cnt { margin-left:auto; font-size:10.5px; color:var(--faint); font-weight:700; }
+  .task { display:flex; align-items:center; gap:7px; margin-top:8px; font-size:11.5px; }
+  .chk { width:15px; height:15px; border-radius:5px; border:1.5px solid var(--line); flex:none; display:grid; place-items:center; font-size:9px; color:#fff; }
+  .chk.on { background:var(--ok); border-color:var(--ok); }
+  .task .r { margin-left:auto; color:var(--faint); font-weight:700; font-size:10.5px; }
+  .week { display:flex; gap:4px; margin-top:9px; }
+  .wd { flex:1; text-align:center; }
+  .wd .o { width:100%; aspect-ratio:1; border-radius:50%; border:1.5px solid var(--line); display:grid; place-items:center; font-size:9px; color:#fff; }
+  .wd.on .o { background:var(--accent); border-color:var(--accent); }
+  .wd .l { font-size:9px; color:var(--faint); margin-top:3px; }
+  .badges { display:flex; gap:7px; margin-top:9px; }
+  /* flex:1 1 0 + min-width:0 이라야 nowrap 설명이 칸을 밀어 넓히지 않는다 */
+  .bd { flex:1 1 0; min-width:0; text-align:center; }
+  .bd .ci { width:100%; aspect-ratio:1; border-radius:50%; background:var(--accent-sf); display:grid; place-items:center; font-size:19px; }
+  .bd.locked .ci { background:var(--panel-alt); border:1px dashed var(--line); color:var(--faint); font-size:13px; }
+  .bd .n { font-size:9.5px; font-weight:800; margin-top:4px; }
+  /* 설명은 1줄로 잘라 카드 높이가 배지마다 들쭉날쭉해지지 않게 한다 */
+  .bd .d { font-size:8.5px; color:var(--faint); line-height:1.3; margin-top:1px;
+           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sum { display:flex; gap:6px; margin-top:9px; }
+  .sm { flex:1; text-align:center; background:var(--panel-alt); border-radius:10px; padding:8px 4px; }
+  .sm .i { font-size:15px; }
+  .sm .v { font-size:14px; font-weight:800; margin-top:2px; }
+  .sm .k { font-size:9px; color:var(--faint); margin-top:1px; }
+
+  @media (max-width:1400px) {
+    /* 4유닛 섹션(도시와 기후)이 좁은 화면에서 연결선을 40px 아래로 눌러버린다 */
+    .unit { width:120px; }
+    .reward { width:88px; margin-left:10px; }
+  }
+  @media (max-width:1080px) {
+    .body { grid-template-columns:184px minmax(0,1fr); }
+    .rail { display:none; }
+  }
+</style>
+
+<div class="app">
+  <!-- 상단 (고정) -->
+  <header class="topbar">
+    <div class="brand">⛅ WeatherMind</div>
+    <div class="tb-right">
+      <span class="pill lv">Lv.2</span>
+      <span class="xpwrap"><span class="xpbar"><i></i></span><span class="num" style="font-size:11.5px;font-weight:800;color:var(--soft)">76 / 200 XP</span></span>
+      <span class="pill">☁️ <span class="num">5/5</span></span>
+      <span class="pill">🔥 <span class="num">1</span>일</span>
+      <span class="tb-user"><span class="avatar"></span>로그아웃</span>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- 좌측 내비 (고정) -->
+    <aside class="side">
+      <nav class="nav">
+        <a href="#"><span class="ico">🏠</span>홈</a>
+        <a class="on" href="#"><span class="ico">🎓</span>학습</a>
+        <a href="#"><span class="ico">🧩</span>보드</a>
+        <a href="#"><span class="ico">🌡️</span>예보 대결</a>
+        <a href="#"><span class="ico">🏆</span>리그</a>
+        <a href="#"><span class="ico">🙂</span>내 정보</a>
+      </nav>
+
+      <div class="tutor">
+        <!-- 학습 세션 튜터 = 태양이 (임시 일러스트 — 실제 캐릭터 파일로 교체) -->
+        <svg viewBox="0 0 120 120" width="104" height="104" role="img" aria-label="태양이 캐릭터">
+          <g>
+            <g fill="#FBC94A">
+              <circle cx="60" cy="16" r="6"/><circle cx="60" cy="104" r="6"/>
+              <circle cx="16" cy="60" r="6"/><circle cx="104" cy="60" r="6"/>
+              <circle cx="29" cy="29" r="5"/><circle cx="91" cy="29" r="5"/>
+              <circle cx="29" cy="91" r="5"/><circle cx="91" cy="91" r="5"/>
+            </g>
+            <circle cx="60" cy="60" r="33" fill="#FFD668" stroke="#F0B429" stroke-width="2.5"/>
+            <circle cx="49" cy="55" r="3.6" fill="#5B4A2A"/>
+            <circle cx="71" cy="55" r="3.6" fill="#5B4A2A"/>
+            <ellipse cx="41" cy="65" rx="6" ry="4" fill="#F79BA0" opacity=".65"/>
+            <ellipse cx="79" cy="65" rx="6" ry="4" fill="#F79BA0" opacity=".65"/>
+            <path d="M52 68 Q60 76 68 68" fill="none" stroke="#5B4A2A" stroke-width="2.4" stroke-linecap="round"/>
+          </g>
+        </svg>
+        <p class="who">태양이</p>
+        <p class="role">학습 세션 튜터</p>
+        <div class="bubble">「하늘 읽기」를 마쳤어요! 이제 계절을 밀고 당기는 <b>네 기단</b>을 만나러 가볼까요? ☀️</div>
+        <button type="button">튜터와 대화하기</button>
+      </div>
+    </aside>
+
+    <!-- 가운데: 헤더 고정 + 트랙만 스크롤 -->
+    <section class="center">
+      <div class="c-head">
+        <div>
+          <p class="ttl">🎓 학습 세션</p>
+          <p class="sub">기상 지식을 단계별로 탐험하며 배워보세요</p>
+        </div>
+        <div class="btns">
+          <button class="ghost" type="button">📘 학습 가이드</button>
+          <button class="ghost" type="button">🏅 뱃지 보기</button>
+        </div>
+      </div>
+
+      <div class="track">
+        <div class="scroller" id="scroller" tabindex="0" aria-label="학습 단계 — 위아래로 스크롤해 단계를 이동합니다">
+
+          <!-- ── 1단계 · 하늘 읽기 (database/seed/units.json: read-sky-*) ──
+               지상에서 하늘을 올려다보는 단계. 기압·전선 기호를 배경에 깐다. -->
+          <div class="stage s1">
+            <div class="deco hill" style="left:-9%;bottom:0;width:50%;height:26%"></div>
+            <div class="deco hill" style="right:-11%;bottom:0;width:44%;height:21%;background:linear-gradient(180deg,#A6D795,#7FBF6E)"></div>
+            <div class="deco tree" style="left:13%;bottom:24%;width:17px;height:24px"></div>
+            <div class="deco tree" style="left:20%;bottom:25%;width:13px;height:18px"></div>
+            <div class="deco sun-deco" style="right:8%;top:9%;width:44px;height:44px"></div>
+            <div class="deco cloud" style="left:12%;top:13%;width:72px;height:21px"></div>
+            <div class="deco cloud" style="left:41%;top:22%;width:54px;height:16px"></div>
+            <!-- 마을 — 날씨를 겪는 쪽이 사람이라는 걸 첫 단계에 남긴다 -->
+            <div class="deco" style="right:20%;bottom:22%">
+              <svg width="76" height="34" viewBox="0 0 76 34" aria-hidden="true">
+                <path d="M6 16 18 6l12 10v16H6z" fill="#FDFCF8"/>
+                <path d="M3.4 16.6 18 5l14.6 11.6-1.5 1.9L18 8.4 4.9 18.5z" fill="#E58E7C"/>
+                <rect x="14" y="21" width="8" height="11" rx="1.4" fill="#9EC9E8"/>
+                <path d="M38 20 47 12l9 8v12H38z" fill="#FDFCF8"/>
+                <path d="M35.8 20.5 47 11.2l11.2 9.3-1.4 1.8L47 14.6l-9.8 7.7z" fill="#7FB6D9"/>
+                <rect x="43.6" y="24" width="6.8" height="8" rx="1.2" fill="#F3D08A"/>
+                <path d="M61 24 67 19l6 5v8H61z" fill="#FDFCF8"/>
+                <path d="M59.4 24.4 67 18.1l7.6 6.3-1.2 1.6L67 21.2l-6.4 5.4z" fill="#E58E7C"/>
+              </svg>
+            </div>
+            <!-- 새떼 -->
+            <div class="deco" style="left:30%;top:56%">
+              <svg width="92" height="30" viewBox="0 0 92 30" fill="none" aria-hidden="true"
+                   stroke="rgba(255,255,255,.9)" stroke-width="2" stroke-linecap="round">
+                <path d="M4 12c3.4-4.4 6.8-4.4 9 0 2.2-4.4 5.6-4.4 9 0"/>
+                <path d="M32 22c2.8-3.6 5.6-3.6 7.4 0 1.8-3.6 4.6-3.6 7.4 0"/>
+                <path d="M58 8c3-4 6-4 8 0 2-4 5-4 8 0"/>
+              </svg>
+            </div>
+            <div class="deco cloud" style="left:14%;top:62%;width:88px;height:24px"></div>
+            <div class="deco cloud" style="right:12%;top:56%;width:66px;height:19px"></div>
+            <div class="stage-head">
+              <span class="lvchip">1단계</span>
+              <div><p class="nm">하늘 읽기</p><p class="alt">기압과 전선으로 오늘 하늘을 읽는다</p></div>
+            </div>
+            <div class="stage-mid">
+              <div class="units">
+                <div class="unit"><div class="node done">✓</div><p class="u-t">고기압과 저기압, 하늘을 읽다</p><p class="u-s">기압과 전선</p><p class="u-star">★★★</p></div>
+                <div class="link done"></div>
+                <div class="unit"><div class="node done">✓</div><p class="u-t">전선의 종류와 비의 성격</p><p class="u-s">기압과 전선</p><p class="u-star">★★☆</p></div>
+                <div class="link done"></div>
+                <div class="unit"><div class="node done">✓<span class="bmark">🧩</span></div><p class="u-t">지도에 전선을 세워 비를 내려라</p><p class="u-s">기압과 전선 · 보드</p><p class="u-star">★★☆</p></div>
+                <div class="reward done"><div class="box">🎁</div><div class="lb">섹션 보상</div><div class="xp">+50 XP</div></div>
+              </div>
+            </div>
+            <div class="stage-foot">
+              <div class="sf-main">
+                <p class="sf-t">이 단계에서 배우는 것</p>
+                <p class="sf-d">기압 차이가 왜 바람을 만드는지, 성질이 다른 공기가 만나는 전선이 어떤 비를 뿌리는지 읽어냅니다.</p>
+                <div class="chips"><span>고기압·저기압</span><span>등압선</span><span>온난전선</span><span>한랭전선</span></div>
+              </div>
+              <div class="sf-meta">
+                <div><b>3 / 3</b><i>유닛 완료</i></div>
+                <div><b>14분</b><i>예상 시간</i></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 2단계 · 공기의 힘 (air-power-*) ──
+               한반도로 밀려오는 네 기단. 배경 화살표가 곧 1번째 유닛 내용. -->
+          <div class="stage s2">
+            <!-- 상공의 하늘: 아래로 운해가 깔리고 봉우리만 솟아 있다 -->
+            <div class="deco sun-deco" style="left:9%;top:10%;width:48px;height:48px"></div>
+            <div class="deco" style="left:0;right:0;bottom:18%">
+              <svg width="100%" height="90" viewBox="0 0 900 90" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M0 90 120 26 210 66 320 8 430 62 520 30 640 78 760 20 860 58 900 34V90Z" fill="#8FB4CE" opacity=".5"/>
+                <path d="M0 90 100 44 200 78 330 34 440 74 560 46 690 86 800 40 900 66V90Z" fill="#B7D3E6" opacity=".65"/>
+              </svg>
+            </div>
+            <div class="deco cloud" style="left:4%;bottom:20%;width:150px;height:34px"></div>
+            <div class="deco cloud" style="left:26%;bottom:23%;width:120px;height:28px"></div>
+            <div class="deco cloud" style="left:50%;bottom:19%;width:170px;height:36px"></div>
+            <div class="deco cloud" style="right:3%;bottom:24%;width:130px;height:30px"></div>
+            <div class="deco cloud" style="left:38%;top:16%;width:74px;height:21px"></div>
+            <div class="deco cloud" style="right:15%;top:26%;width:56px;height:17px"></div>
+            <div class="deco" style="left:62%;top:20%">
+              <svg width="86" height="28" viewBox="0 0 86 28" fill="none" aria-hidden="true"
+                   stroke="rgba(255,255,255,.92)" stroke-width="2" stroke-linecap="round">
+                <path d="M4 10c3.2-4.2 6.4-4.2 8.4 0 2-4.2 5.2-4.2 8.4 0"/>
+                <path d="M30 20c2.6-3.4 5.2-3.4 6.8 0 1.6-3.4 4.2-3.4 6.8 0"/>
+                <path d="M56 7c2.8-3.8 5.6-3.8 7.4 0 1.8-3.8 4.6-3.8 7.4 0"/>
+              </svg>
+            </div>
+            <div class="stage-head">
+              <span class="lvchip">2단계</span>
+              <div><p class="nm">공기의 힘</p><p class="alt">계절을 지배하는 네 기단과 그 변질</p></div>
+            </div>
+            <div class="stage-mid">
+              <div class="units">
+                <div class="unit here-host">
+                  <span class="here">지금 여기</span>
+                  <div class="node now">🌀</div><p class="u-t">계절을 지배하는 네 기단</p><p class="u-s">기단</p><p class="u-star">☆☆☆</p>
+                </div>
+                <div class="link"></div>
+                <div class="unit"><div class="node">🔒</div><p class="u-t">기단의 이동과 변질</p><p class="u-s">기단</p></div>
+                <div class="link"></div>
+                <div class="unit"><div class="node">🔒<span class="bmark">🧩</span></div><p class="u-t">기단으로 날씨를 빚어라</p><p class="u-s">기단 · 보드</p></div>
+                <div class="reward"><div class="box">🎁</div><div class="lb">섹션 보상</div><div class="xp">+60 XP</div></div>
+              </div>
+            </div>
+            <div class="stage-foot">
+              <div class="sf-main">
+                <p class="sf-t">이 단계에서 배우는 것</p>
+                <p class="sf-d">한반도 사계절을 밀고 당기는 네 기단의 성질과, 기단이 이동하며 성질을 바꾸는 과정을 다룹니다.</p>
+                <div class="chips"><span>시베리아 기단</span><span>북태평양 기단</span><span>기단 변질</span><span>계절풍</span></div>
+              </div>
+              <div class="sf-meta">
+                <div><b>0 / 3</b><i>유닛 완료</i></div>
+                <div><b>15분</b><i>예상 시간</i></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 3단계 · 큰 바람 (big-wind-*) ──
+               바다 위 태풍. 유닛이 2개뿐이라 줄이 성기므로 배경이 더 일한다. -->
+          <div class="stage s3">
+            <!-- 비 — 앞뒤 두 겹으로 깊이만 주고 밀도는 성기게 -->
+            <div class="deco" style="inset:0">
+              <svg width="100%" height="100%" viewBox="0 0 900 620" preserveAspectRatio="none" fill="none" aria-hidden="true"
+                   stroke="rgba(255,255,255,.24)" stroke-width="2.4" stroke-linecap="round">
+                <path d="M-7 0 -23 29M109 0 93 29M229 0 216 23M324 0 306 32M443 0 430 25M576 0 561 28M684 0 669 28M791 0 778 24M15 124 -3 156M124 124 107 155M241 124 228 147M356 124 340 153M455 124 443 146M584 124 569 152M692 124 674 157M804 124 786 157M19 248 2 280M133 248 115 281M258 248 245 271M349 248 336 273M485 248 470 275M588 248 574 274M697 248 683 275M805 248 789 277M35 372 17 405M151 372 132 405M268 372 249 406M375 372 362 396M493 372 475 406M607 372 591 401M714 372 700 397M830 372 814 401M38 496 25 519M166 496 148 530M257 496 240 528M379 496 366 520M488 496 471 527M617 496 605 519M722 496 710 519M838 496 823 522"/>
+              </svg>
+            </div>
+            <div class="deco" style="inset:0">
+              <svg width="100%" height="100%" viewBox="0 0 900 620" preserveAspectRatio="none" fill="none" aria-hidden="true"
+                   stroke="rgba(255,255,255,.14)" stroke-width="3.2" stroke-linecap="round">
+                <path d="M-1 0 -19 29M192 0 175 28M360 0 342 29M531 0 514 28M724 0 704 32M-0 155 -16 181M180 155 160 187M376 155 362 178M565 155 544 189M735 155 717 184M12 310 -1 332M203 310 189 333M373 310 358 335M549 310 532 338M740 310 720 342M34 465 15 495M213 465 194 495M392 465 376 490M587 465 566 499M763 465 744 495"/>
+              </svg>
+            </div>
+            <!-- 휘몰아치는 바람 — 방향 표시가 아니라 공기가 쓸려가는 결 -->
+            <div class="deco" style="inset:0">
+              <svg width="100%" height="100%" viewBox="0 0 900 620" preserveAspectRatio="none" fill="none" aria-hidden="true"
+                   stroke="rgba(255,255,255,.2)" stroke-width="3" stroke-linecap="round">
+                <path d="M-40 90C140 40 320 130 520 74s280 20 460-34"/>
+                <path d="M-40 168C160 122 300 202 500 152s300 34 460-16" opacity=".8"/>
+                <path d="M-40 258C120 214 340 296 540 240s260 40 440-8" opacity=".65"/>
+                <path d="M-40 372C170 330 310 404 520 356s280 44 460-4" opacity=".55"/>
+                <path d="M-40 452C140 414 330 486 530 438s270 38 450-6" opacity=".45"/>
+              </svg>
+            </div>
+            <!-- 성난 바다 — 수면선과 채움을 한 path에서 뽑아야 끝이 끊기지 않는다.
+                 (이전엔 물결 path가 viewBox 900 중 840까지만 그려져 오른쪽이 잘렸다) -->
+            <div class="deco" style="left:0;right:0;bottom:0;height:29%">
+              <svg width="100%" height="100%" viewBox="0 0 900 200" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id="seaG" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#2C5A80"/><stop offset="1" stop-color="#17364F"/>
+                  </linearGradient>
+                </defs>
+                <path d="M0.0 46.0 L6.0 47.2 L12.0 48.4 L18.0 49.5 L24.0 50.6 L30.0 51.6 L36.0 52.5 L42.0 53.3 L48.0 53.9 L54.0 54.4 L60.0 54.8 L66.0 55.0 L72.0 55.0 L78.0 54.9 L84.0 54.6 L90.0 54.1 L96.0 53.6 L102.0 52.8 L108.0 52.0 L114.0 51.0 L120.0 50.0 L126.0 48.9 L132.0 47.7 L138.0 46.5 L144.0 45.3 L150.0 44.1 L156.0 43.0 L162.0 41.9 L168.0 40.8 L174.0 39.9 L180.0 39.1 L186.0 38.4 L192.0 37.8 L198.0 37.4 L204.0 37.1 L210.0 37.0 L216.0 37.1 L222.0 37.3 L228.0 37.6 L234.0 38.2 L240.0 38.8 L246.0 39.6 L252.0 40.5 L258.0 41.5 L264.0 42.6 L270.0 43.8 L276.0 44.9 L282.0 46.2 L288.0 47.4 L294.0 48.5 L300.0 49.7 L306.0 50.7 L312.0 51.7 L318.0 52.6 L324.0 53.3 L330.0 54.0 L336.0 54.5 L342.0 54.8 L348.0 55.0 L354.0 55.0 L360.0 54.8 L366.0 54.5 L372.0 54.1 L378.0 53.5 L384.0 52.7 L390.0 51.9 L396.0 50.9 L402.0 49.9 L408.0 48.7 L414.0 47.6 L420.0 46.4 L426.0 45.2 L432.0 44.0 L438.0 42.8 L444.0 41.7 L450.0 40.7 L456.0 39.8 L462.0 39.0 L468.0 38.3 L474.0 37.7 L480.0 37.3 L486.0 37.1 L492.0 37.0 L498.0 37.1 L504.0 37.3 L510.0 37.7 L516.0 38.2 L522.0 38.9 L528.0 39.7 L534.0 40.6 L540.0 41.7 L546.0 42.8 L552.0 43.9 L558.0 45.1 L564.0 46.3 L570.0 47.5 L576.0 48.7 L582.0 49.8 L588.0 50.9 L594.0 51.8 L600.0 52.7 L606.0 53.4 L612.0 54.0 L618.0 54.5 L624.0 54.8 L630.0 55.0 L636.0 55.0 L642.0 54.8 L648.0 54.5 L654.0 54.0 L660.0 53.4 L666.0 52.6 L672.0 51.8 L678.0 50.8 L684.0 49.7 L690.0 48.6 L696.0 47.4 L702.0 46.2 L708.0 45.0 L714.0 43.8 L720.0 42.7 L726.0 41.6 L732.0 40.6 L738.0 39.7 L744.0 38.9 L750.0 38.2 L756.0 37.7 L762.0 37.3 L768.0 37.1 L774.0 37.0 L780.0 37.1 L786.0 37.4 L792.0 37.8 L798.0 38.3 L804.0 39.0 L810.0 39.8 L816.0 40.8 L822.0 41.8 L828.0 42.9 L834.0 44.1 L840.0 45.2 L846.0 46.5 L852.0 47.6 L858.0 48.8 L864.0 49.9 L870.0 51.0 L876.0 51.9 L882.0 52.8 L888.0 53.5 L894.0 54.1 L900.0 54.6 L900 200 L0 200 Z" fill="url(#seaG)"/>
+                <path d="M0.0 52.0 L6.0 53.2 L12.0 54.4 L18.0 55.5 L24.0 56.6 L30.0 57.6 L36.0 58.5 L42.0 59.3 L48.0 59.9 L54.0 60.4 L60.0 60.8 L66.0 61.0 L72.0 61.0 L78.0 60.9 L84.0 60.6 L90.0 60.1 L96.0 59.6 L102.0 58.8 L108.0 58.0 L114.0 57.0 L120.0 56.0 L126.0 54.9 L132.0 53.7 L138.0 52.5 L144.0 51.3 L150.0 50.1 L156.0 49.0 L162.0 47.9 L168.0 46.8 L174.0 45.9 L180.0 45.1 L186.0 44.4 L192.0 43.8 L198.0 43.4 L204.0 43.1 L210.0 43.0 L216.0 43.1 L222.0 43.3 L228.0 43.6 L234.0 44.2 L240.0 44.8 L246.0 45.6 L252.0 46.5 L258.0 47.5 L264.0 48.6 L270.0 49.8 L276.0 50.9 L282.0 52.2 L288.0 53.4 L294.0 54.5 L300.0 55.7 L306.0 56.7 L312.0 57.7 L318.0 58.6 L324.0 59.3 L330.0 60.0 L336.0 60.5 L342.0 60.8 L348.0 61.0 L354.0 61.0 L360.0 60.8 L366.0 60.5 L372.0 60.1 L378.0 59.5 L384.0 58.7 L390.0 57.9 L396.0 56.9 L402.0 55.9 L408.0 54.7 L414.0 53.6 L420.0 52.4 L426.0 51.2 L432.0 50.0 L438.0 48.8 L444.0 47.7 L450.0 46.7 L456.0 45.8 L462.0 45.0 L468.0 44.3 L474.0 43.7 L480.0 43.3 L486.0 43.1 L492.0 43.0 L498.0 43.1 L504.0 43.3 L510.0 43.7 L516.0 44.2 L522.0 44.9 L528.0 45.7 L534.0 46.6 L540.0 47.7 L546.0 48.8 L552.0 49.9 L558.0 51.1 L564.0 52.3 L570.0 53.5 L576.0 54.7 L582.0 55.8 L588.0 56.9 L594.0 57.8 L600.0 58.7 L606.0 59.4 L612.0 60.0 L618.0 60.5 L624.0 60.8 L630.0 61.0 L636.0 61.0 L642.0 60.8 L648.0 60.5 L654.0 60.0 L660.0 59.4 L666.0 58.6 L672.0 57.8 L678.0 56.8 L684.0 55.7 L690.0 54.6 L696.0 53.4 L702.0 52.2 L708.0 51.0 L714.0 49.8 L720.0 48.7 L726.0 47.6 L732.0 46.6 L738.0 45.7 L744.0 44.9 L750.0 44.2 L756.0 43.7 L762.0 43.3 L768.0 43.1 L774.0 43.0 L780.0 43.1 L786.0 43.4 L792.0 43.8 L798.0 44.3 L804.0 45.0 L810.0 45.8 L816.0 46.8 L822.0 47.8 L828.0 48.9 L834.0 50.1 L840.0 51.2 L846.0 52.5 L852.0 53.6 L858.0 54.8 L864.0 55.9 L870.0 57.0 L876.0 57.9 L882.0 58.8 L888.0 59.5 L894.0 60.1 L900.0 60.6" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="3.5" stroke-linecap="round"/>
+                <path d="M0.0 92.2 L6.0 92.5 L12.0 92.7 L18.0 92.9 L24.0 93.0 L30.0 93.0 L36.0 93.0 L42.0 92.9 L48.0 92.7 L54.0 92.5 L60.0 92.2 L66.0 91.8 L72.0 91.4 L78.0 91.0 L84.0 90.5 L90.0 89.9 L96.0 89.4 L102.0 88.8 L108.0 88.1 L114.0 87.5 L120.0 86.8 L126.0 86.1 L132.0 85.5 L138.0 84.8 L144.0 84.1 L150.0 83.5 L156.0 82.9 L162.0 82.3 L168.0 81.7 L174.0 81.2 L180.0 80.7 L186.0 80.3 L192.0 80.0 L198.0 79.6 L204.0 79.4 L210.0 79.2 L216.0 79.1 L222.0 79.0 L228.0 79.0 L234.0 79.1 L240.0 79.2 L246.0 79.4 L252.0 79.6 L258.0 80.0 L264.0 80.3 L270.0 80.8 L276.0 81.2 L282.0 81.7 L288.0 82.3 L294.0 82.9 L300.0 83.5 L306.0 84.1 L312.0 84.8 L318.0 85.5 L324.0 86.1 L330.0 86.8 L336.0 87.5 L342.0 88.1 L348.0 88.8 L354.0 89.4 L360.0 89.9 L366.0 90.5 L372.0 91.0 L378.0 91.4 L384.0 91.8 L390.0 92.2 L396.0 92.5 L402.0 92.7 L408.0 92.9 L414.0 93.0 L420.0 93.0 L426.0 93.0 L432.0 92.9 L438.0 92.7 L444.0 92.5 L450.0 92.2 L456.0 91.9 L462.0 91.5 L468.0 91.1 L474.0 90.6 L480.0 90.1 L486.0 89.5 L492.0 88.9 L498.0 88.3 L504.0 87.6 L510.0 86.9 L516.0 86.3 L522.0 85.6 L528.0 84.9 L534.0 84.3 L540.0 83.6 L546.0 83.0 L552.0 82.4 L558.0 81.8 L564.0 81.3 L570.0 80.8 L576.0 80.4 L582.0 80.0 L588.0 79.7 L594.0 79.4 L600.0 79.2 L606.0 79.1 L612.0 79.0 L618.0 79.0 L624.0 79.1 L630.0 79.2 L636.0 79.3 L642.0 79.6 L648.0 79.9 L654.0 80.2 L660.0 80.7 L666.0 81.1 L672.0 81.6 L678.0 82.2 L684.0 82.7 L690.0 83.4 L696.0 84.0 L702.0 84.6 L708.0 85.3 L714.0 86.0 L720.0 86.7 L726.0 87.3 L732.0 88.0 L738.0 88.6 L744.0 89.2 L750.0 89.8 L756.0 90.4 L762.0 90.9 L768.0 91.3 L774.0 91.7 L780.0 92.1 L786.0 92.4 L792.0 92.6 L798.0 92.8 L804.0 92.9 L810.0 93.0 L816.0 93.0 L822.0 92.9 L828.0 92.8 L834.0 92.6 L840.0 92.3 L846.0 92.0 L852.0 91.6 L858.0 91.2 L864.0 90.7 L870.0 90.2 L876.0 89.6 L882.0 89.0 L888.0 88.4 L894.0 87.8 L900.0 87.1" fill="none" stroke="rgba(255,255,255,.17)" stroke-width="3" stroke-linecap="round"/>
+                <path d="M0.0 128.0 L6.0 127.6 L12.0 127.0 L18.0 126.3 L24.0 125.7 L30.0 124.9 L36.0 124.2 L42.0 123.4 L48.0 122.7 L54.0 122.0 L60.0 121.3 L66.0 120.7 L72.0 120.2 L78.0 119.7 L84.0 119.4 L90.0 119.2 L96.0 119.0 L102.0 119.0 L108.0 119.1 L114.0 119.3 L120.0 119.6 L126.0 120.0 L132.0 120.5 L138.0 121.1 L144.0 121.8 L150.0 122.5 L156.0 123.2 L162.0 123.9 L168.0 124.7 L174.0 125.4 L180.0 126.1 L186.0 126.8 L192.0 127.4 L198.0 127.9 L204.0 128.3 L210.0 128.7 L216.0 128.9 L222.0 129.0 L228.0 129.0 L234.0 128.9 L240.0 128.6 L246.0 128.3 L252.0 127.9 L258.0 127.4 L264.0 126.8 L270.0 126.1 L276.0 125.4 L282.0 124.7 L288.0 123.9 L294.0 123.2 L300.0 122.5 L306.0 121.8 L312.0 121.1 L318.0 120.5 L324.0 120.0 L330.0 119.6 L336.0 119.3 L342.0 119.1 L348.0 119.0 L354.0 119.0 L360.0 119.2 L366.0 119.4 L372.0 119.7 L378.0 120.2 L384.0 120.7 L390.0 121.3 L396.0 122.0 L402.0 122.7 L408.0 123.4 L414.0 124.2 L420.0 124.9 L426.0 125.7 L432.0 126.4 L438.0 127.0 L444.0 127.6 L450.0 128.0 L456.0 128.4 L462.0 128.7 L468.0 128.9 L474.0 129.0 L480.0 129.0 L486.0 128.8 L492.0 128.5 L498.0 128.2 L504.0 127.7 L510.0 127.2 L516.0 126.6 L522.0 125.9 L528.0 125.2 L534.0 124.4 L540.0 123.7 L546.0 122.9 L552.0 122.2 L558.0 121.5 L564.0 120.9 L570.0 120.4 L576.0 119.9 L582.0 119.5 L588.0 119.2 L594.0 119.1 L600.0 119.0 L606.0 119.1 L612.0 119.2 L618.0 119.5 L624.0 119.9 L630.0 120.4 L636.0 120.9 L642.0 121.5 L648.0 122.2 L654.0 122.9 L660.0 123.7 L666.0 124.4 L672.0 125.2 L678.0 125.9 L684.0 126.6 L690.0 127.2 L696.0 127.7 L702.0 128.2 L708.0 128.6 L714.0 128.8 L720.0 129.0 L726.0 129.0 L732.0 128.9 L738.0 128.7 L744.0 128.4 L750.0 128.0 L756.0 127.6 L762.0 127.0 L768.0 126.3 L774.0 125.7 L780.0 124.9 L786.0 124.2 L792.0 123.4 L798.0 122.7 L804.0 122.0 L810.0 121.3 L816.0 120.7 L822.0 120.2 L828.0 119.7 L834.0 119.4 L840.0 119.2 L846.0 119.0 L852.0 119.0 L858.0 119.1 L864.0 119.3 L870.0 119.6 L876.0 120.0 L882.0 120.5 L888.0 121.1 L894.0 121.8 L900.0 122.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <!-- 낮게 깔린 먹구름 — 폭 전체에 걸쳐 높낮이를 번갈아 둬야 한쪽으로 안 몰린다 -->
+            <div class="deco cloud" style="left:1%;top:21%;width:152px;height:33px;background:rgba(190,206,222,.8)"></div>
+            <div class="deco cloud" style="left:26%;top:9%;width:184px;height:39px;background:rgba(176,194,213,.85)"></div>
+            <div class="deco cloud" style="left:52%;top:23%;width:162px;height:35px;background:rgba(190,206,222,.82)"></div>
+            <div class="deco cloud" style="left:77%;top:10%;width:172px;height:37px;background:rgba(176,194,213,.8)"></div>
+            <div class="stage-head">
+              <span class="lvchip">3단계</span>
+              <div><p class="nm">큰 바람</p><p class="alt">태풍의 탄생과 일생</p></div>
+            </div>
+            <div class="stage-mid">
+              <div class="units">
+                <div class="unit"><div class="node">🔒</div><p class="u-t">태풍은 어떻게 태어나는가</p><p class="u-s">태풍</p></div>
+                <div class="link"></div>
+                <div class="unit"><div class="node">🔒</div><p class="u-t">태풍의 일생과 소멸</p><p class="u-s">태풍</p></div>
+                <div class="reward"><div class="box">🎁</div><div class="lb">섹션 보상</div><div class="xp">+70 XP</div></div>
+              </div>
+            </div>
+            <div class="stage-foot">
+              <div class="sf-main">
+                <p class="sf-t">이 단계에서 배우는 것</p>
+                <p class="sf-d">따뜻한 바다가 어떻게 하나의 거대한 저기압을 키우는지, 그리고 그것이 어디서 힘을 잃는지 따라갑니다.</p>
+                <div class="chips"><span>열대 저기압</span><span>태풍의 눈</span><span>진로와 반경</span><span>온대저기압 변질</span></div>
+              </div>
+              <div class="sf-meta">
+                <div><b>0 / 2</b><i>유닛 완료</i></div>
+                <div><b>12분</b><i>예상 시간</i></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 4단계 · 도시와 기후 (city-*) ──
+               마지막 단계. 도시에서 지구 규모로 시선이 넓어지므로 하늘도 가장 높고 어둡다. -->
+          <div class="stage s4">
+            <div class="deco star" style="left:11%;top:9%;width:3px;height:3px;opacity:.85"></div>
+            <div class="deco star" style="left:24%;top:16%;width:2px;height:2px;opacity:.6"></div>
+            <div class="deco star" style="left:38%;top:8%;width:2px;height:2px;opacity:.75"></div>
+            <div class="deco star" style="left:52%;top:18%;width:3px;height:3px;opacity:.8"></div>
+            <div class="deco star" style="left:67%;top:10%;width:2px;height:2px;opacity:.6"></div>
+            <div class="deco star" style="left:81%;top:17%;width:2px;height:2px;opacity:.7"></div>
+            <div class="deco star" style="left:92%;top:8%;width:3px;height:3px;opacity:.8"></div>
+            <div class="deco" style="left:8%;top:12%">
+              <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+                <path d="M18.8 19.4A9.2 9.2 0 0 1 9.6 3.1a11 11 0 1 0 12.1 17.8 9.2 9.2 0 0 1-2.9-1.5Z" fill="#F6F9FC" opacity=".85"/>
+              </svg>
+            </div>
+            <!-- 도시 불빛이 물든 밤 노을 — 계기판 표시가 아니라 그냥 하늘빛이다 -->
+            <div class="deco" style="left:0;right:0;bottom:30%;height:120px;background:linear-gradient(180deg,rgba(226,150,110,0),rgba(226,150,110,.22))"></div>
+            <div class="deco cloud" style="left:10%;bottom:40%;width:110px;height:26px;background:rgba(232,228,246,.34)"></div>
+            <div class="deco cloud" style="right:14%;bottom:45%;width:78px;height:20px;background:rgba(232,228,246,.26)"></div>
+            <!-- 도시 스카이라인 — 열섬(1번째 유닛)의 현장. 정보 스트립 위로 올려야 보인다 -->
+            <div class="deco" style="left:0;right:0;bottom:0;height:30%;background:linear-gradient(180deg,rgba(198,120,92,.16),rgba(16,22,42,.72))"></div>
+            <div class="deco" style="left:0;right:0;bottom:18%">
+              <svg width="100%" height="104" viewBox="0 0 870 104" preserveAspectRatio="none" aria-hidden="true">
+                <g fill="#121A32"><rect x="0" y="58" width="26" height="46"/><rect x="32" y="36" width="18" height="68"/><rect x="56" y="78" width="30" height="26"/><rect x="92" y="46" width="22" height="58"/><rect x="120" y="24" width="20" height="80"/><rect x="146" y="66" width="28" height="38"/><rect x="180" y="40" width="16" height="64"/><rect x="202" y="84" width="24" height="20"/><rect x="232" y="52" width="32" height="52"/><rect x="270" y="32" width="18" height="72"/><rect x="294" y="70" width="26" height="34"/><rect x="326" y="44" width="20" height="60"/><rect x="352" y="60" width="30" height="44"/><rect x="388" y="18" width="18" height="86"/><rect x="412" y="74" width="24" height="30"/><rect x="442" y="48" width="28" height="56"/><rect x="476" y="38" width="16" height="66"/><rect x="498" y="80" width="22" height="24"/><rect x="526" y="56" width="26" height="48"/><rect x="558" y="28" width="20" height="76"/><rect x="584" y="64" width="18" height="40"/><rect x="608" y="42" width="30" height="62"/><rect x="644" y="76" width="24" height="28"/><rect x="674" y="50" width="16" height="54"/><rect x="696" y="34" width="28" height="70"/><rect x="730" y="68" width="22" height="36"/><rect x="758" y="46" width="26" height="58"/><rect x="790" y="62" width="18" height="42"/><rect x="814" y="40" width="20" height="64"/><rect x="840" y="54" width="24" height="50"/></g>
+                <g fill="#F5C96B" opacity=".85"><rect x="5" y="66" width="4" height="5"/><rect x="37" y="44" width="4" height="5"/><rect x="45" y="57" width="4" height="5"/><rect x="61" y="86" width="4" height="5"/><rect x="97" y="54" width="4" height="5"/><rect x="125" y="32" width="4" height="5"/><rect x="133" y="45" width="4" height="5"/><rect x="151" y="74" width="4" height="5"/><rect x="159" y="87" width="4" height="5"/><rect x="185" y="48" width="4" height="5"/><rect x="207" y="92" width="4" height="5"/><rect x="237" y="60" width="4" height="5"/><rect x="245" y="73" width="4" height="5"/><rect x="237" y="86" width="4" height="5"/><rect x="275" y="40" width="4" height="5"/><rect x="299" y="78" width="4" height="5"/><rect x="307" y="91" width="4" height="5"/><rect x="331" y="52" width="4" height="5"/><rect x="339" y="65" width="4" height="5"/><rect x="331" y="78" width="4" height="5"/><rect x="357" y="68" width="4" height="5"/><rect x="393" y="26" width="4" height="5"/><rect x="401" y="39" width="4" height="5"/><rect x="417" y="82" width="4" height="5"/><rect x="425" y="95" width="4" height="5"/><rect x="447" y="56" width="4" height="5"/><rect x="481" y="46" width="4" height="5"/><rect x="489" y="59" width="4" height="5"/><rect x="503" y="88" width="4" height="5"/><rect x="531" y="64" width="4" height="5"/><rect x="563" y="36" width="4" height="5"/><rect x="571" y="49" width="4" height="5"/><rect x="589" y="72" width="4" height="5"/><rect x="597" y="85" width="4" height="5"/><rect x="613" y="50" width="4" height="5"/><rect x="649" y="84" width="4" height="5"/><rect x="679" y="58" width="4" height="5"/><rect x="687" y="71" width="4" height="5"/><rect x="679" y="84" width="4" height="5"/><rect x="701" y="42" width="4" height="5"/><rect x="735" y="76" width="4" height="5"/><rect x="743" y="89" width="4" height="5"/><rect x="763" y="54" width="4" height="5"/><rect x="771" y="67" width="4" height="5"/><rect x="763" y="80" width="4" height="5"/><rect x="795" y="70" width="4" height="5"/><rect x="819" y="48" width="4" height="5"/><rect x="827" y="61" width="4" height="5"/><rect x="845" y="62" width="4" height="5"/><rect x="853" y="75" width="4" height="5"/><rect x="845" y="88" width="4" height="5"/></g>
+              </svg>
+            </div>
+            <div class="stage-head">
+              <span class="lvchip">4단계</span>
+              <div><p class="nm">도시와 기후</p><p class="alt">열섬에서 이상기후까지 — 사람이 바꾼 하늘</p></div>
+            </div>
+            <div class="stage-mid">
+              <div class="units">
+                <div class="unit"><div class="node">🔒</div><p class="u-t">도시는 왜 더 뜨거운가 — 열섬</p><p class="u-s">열섬 현상</p></div>
+                <div class="link"></div>
+                <div class="unit"><div class="node">🔒</div><p class="u-t">온실효과와 이산화탄소</p><p class="u-s">CO₂와 기후</p></div>
+                <div class="link"></div>
+                <div class="unit"><div class="node">🔒</div><p class="u-t">평년을 벗어난 하늘 — 이상기후</p><p class="u-s">이상 기후</p></div>
+                <div class="link"></div>
+                <div class="unit"><div class="node">🔒<span class="bmark">🧩</span></div><p class="u-t">실화 재현: 기록적 폭염과 최장 장마</p><p class="u-s">이상 기후 · 보드</p></div>
+                <div class="reward"><div class="box">🏆</div><div class="lb">코스 완주</div><div class="xp">+120 XP</div></div>
+              </div>
+            </div>
+            <div class="stage-foot">
+              <div class="sf-main">
+                <p class="sf-t">이 단계에서 배우는 것</p>
+                <p class="sf-d">도시가 스스로 만든 더위에서 출발해, 실제로 기록된 폭염과 장마를 보드로 재현하며 마무리합니다.</p>
+                <div class="chips"><span>열섬 현상</span><span>온실효과</span><span>CO₂</span><span>이상기후</span><span>실화 재현</span></div>
+              </div>
+              <div class="sf-meta">
+                <div><b>0 / 4</b><i>유닛 완료</i></div>
+                <div><b>22분</b><i>예상 시간</i></div>
+              </div>
+            </div>
+          </div>
+
+
+        </div>
+
+        <div class="hint" id="hint">↓ 스크롤해서 다음 단계</div>
+
+        <div class="trackfoot">
+          <span class="t">현재 진도</span>
+          <span class="t" style="color:var(--accent-dp)">2단계 · 계절을 지배하는 네 기단</span>
+          <span class="tfbar"><i></i></span>
+          <span class="num" style="font-size:11px;font-weight:800;color:var(--soft)">3 / 12 유닛</span>
+          <button class="cta" type="button">이어서 학습하기</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 우측 레일 (고정) -->
+    <aside class="rail">
+      <div class="rcard">
+        <h4>오늘의 목표</h4>
+        <div class="task"><span class="chk on">✓</span><span>학습 세션 유닛 1개 완료</span></div>
+        <div class="task"><span class="chk"></span><span>퀴즈 3문제 맞히기</span><span class="r num">1 / 3</span></div>
+        <div class="task"><span class="chk"></span><span>보드 미션 1개 완료</span><span class="r num">0 / 1</span></div>
+        <div class="task"><span class="chk"></span><span>XP 50 달성하기</span><span class="r num">30 / 50</span></div>
+      </div>
+
+      <div class="rcard">
+        <h4>🔥 연속 학습</h4>
+        <p style="font-size:10.5px;color:var(--faint);margin-top:3px">2일째 연속 학습 중!</p>
+        <div class="week">
+          <div class="wd on"><div class="o">✓</div><div class="l">일</div></div>
+          <div class="wd on"><div class="o">✓</div><div class="l">월</div></div>
+          <div class="wd"><div class="o"></div><div class="l">화</div></div>
+          <div class="wd"><div class="o"></div><div class="l">수</div></div>
+          <div class="wd"><div class="o"></div><div class="l">목</div></div>
+          <div class="wd"><div class="o"></div><div class="l">금</div></div>
+          <div class="wd"><div class="o"></div><div class="l">토</div></div>
+        </div>
+      </div>
+
+      <div class="rcard">
+        <h4>최근 획득 배지 <span class="cnt num">2 / 12</span></h4>
+        <div class="badges">
+          <div class="bd"><div class="ci">🌤️</div><div class="n">하늘 읽기</div><div class="d">1단계 클리어</div></div>
+          <div class="bd"><div class="ci">📗</div><div class="n">학습 시작</div><div class="d">유닛 3개 완료</div></div>
+          <div class="bd locked"><div class="ci">🔒</div><div class="n">다음 배지</div><div class="d">준비 중</div></div>
+        </div>
+      </div>
+
+      <div class="rcard">
+        <h4>학습 요약</h4>
+        <div class="sum">
+          <div class="sm"><div class="i">📘</div><div class="v num">3</div><div class="k">완료 유닛</div></div>
+          <div class="sm"><div class="i">⏱️</div><div class="v num">48분</div><div class="k">학습 시간</div></div>
+          <div class="sm"><div class="i">⭐</div><div class="v num">76</div><div class="k">획득 XP</div></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+  // 시안 편의: 현재 단계(Lv.2)에서 시작하고, 마지막 단계에 닿으면 힌트를 숨긴다.
+  (function () {
+    var sc = document.getElementById('scroller');
+    var hint = document.getElementById('hint');
+    if (!sc) return;
+    var stages = sc.querySelectorAll('.stage');
+    if (stages[1]) sc.scrollTop = stages[1].offsetTop;   // 2단계 공기의 힘 = 현재 섹션
+    sc.addEventListener('scroll', function () {
+      var atEnd = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 8;
+      hint.style.opacity = atEnd ? '0' : '1';
+    });
+  })();
+</script>
