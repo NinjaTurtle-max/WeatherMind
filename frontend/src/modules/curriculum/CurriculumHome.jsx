@@ -1,9 +1,14 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { curriculumApi, progressApi } from '../../api';
 import { useAttendance } from '../../hooks/useAttendance';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import PcCurriculumPath from './PcCurriculumPath';
+import CourseSwitcher, { useCourses } from './CourseSwitcher';
+// R11-01 §6.2 마운트 통합 — 둘 다 props 없는 자급 계약(조건 미충족 시 자가 null).
+import ReviewQueueCard from '../../components/ReviewQueueCard';
+import GuestSaveBanner from '../../components/GuestSaveBanner';
 
 /**
  * CurriculumHome (R5-01 §3.2·S4) — 학습 홈(기본 진입 /).
@@ -33,13 +38,34 @@ const CONCEPT_META = {
 // 세로 경로의 좌우 지그재그 오프셋(%) — 섹션 내 유닛 순서로 순환
 const ZIGZAG = [0, 16, 24, 16, 0, -16, -24, -16];
 
+// 빈 트리 코스의 섹션 예고(R11-01 §6.2 — specs/11 §2). 유닛이 시드되기 전까지
+// "무엇이 올지"를 보여준다. basic-science 외 코스는 예고 없이 안내문만.
+const COURSE_SECTION_PREVIEW = {
+  'basic-science': [
+    { title: '열과 빛', subtitle: '온도·복사', icon: '☀️' },
+    { title: '공기의 무게', subtitle: '압력·밀도', icon: '🎈' },
+    { title: '물과 에너지', subtitle: '상태변화·이동', icon: '💧' },
+  ],
+};
+
 export default function CurriculumHome() {
   const navigate = useNavigate();
   useAttendance(true);
 
+  // 코스 선택 (R11-01 §6.2) — 명시 선택 전에는 is_default 코스를 따른다.
+  // 코스 목록이 없는 환경(구 백엔드·미시드 DB)에서는 courses=[] → treeCourse=null
+  // → 쿼리 키·요청이 현행과 동일해 무회귀다.
+  const courses = useCourses();
+  const [pickedCourse, setPickedCourse] = useState(null);
+  const defaultSlug = courses.find((c) => c.is_default)?.id ?? courses[0]?.id ?? null;
+  const selectedCourse = pickedCourse ?? defaultSlug;
+  // 기본 코스(weather)는 ?course= 없이 조회한다 — 쿼리 키 ['curriculum']이 기존과
+  // 같아서 유닛 세션 완료 후 invalidateQueries(['curriculum'])도 그대로 맞는다.
+  const treeCourse = selectedCourse && selectedCourse !== defaultSlug ? selectedCourse : null;
+
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['curriculum'],
-    queryFn: curriculumApi.fetchCurriculum,
+    queryKey: treeCourse ? ['curriculum', treeCourse] : ['curriculum'],
+    queryFn: () => curriculumApi.fetchCurriculum(treeCourse ?? undefined),
     staleTime: 30_000,
   });
 
@@ -83,9 +109,19 @@ export default function CurriculumHome() {
   }
 
   const sections = data?.sections ?? [];
+  // 비기본 코스인데 유닛이 아직 없다 = 트리 설계만 착지한 상태(basic-science 초기).
+  // 기본 코스의 빈 트리는 현행 렌더(빈 경로) 그대로 둔다 — 무회귀.
+  const emptyCourseTree = treeCourse != null && sections.length === 0;
+  const sectionPreview = COURSE_SECTION_PREVIEW[selectedCourse] ?? null;
 
   return (
     <div className="pt-2">
+      {/* 게스트 진도 저장 배너(§6.2 FE-B) — 게스트+진도 있음에만 자가 렌더 */}
+      <GuestSaveBanner />
+
+      {/* 코스 탭(§6.2) — 코스가 2개 이상일 때만 뜬다. 선택은 잠금이 아니라 조회 스코프. */}
+      <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} />
+
       <h1 className="mb-1 text-lg font-extrabold text-slate-900 md:hidden">🎓 학습</h1>
       <p className="mb-4 text-sm text-slate-500 md:hidden">유닛을 순서대로 클리어하며 날씨 개념을 쌓아요.</p>
 
@@ -99,6 +135,35 @@ export default function CurriculumHome() {
             구름 1개가 회복되면 새 세션을 열 수 있어요.
             {dailyBlocked ? '' : ' 오늘 시작한 세션은 지금도 끝까지 마칠 수 있어요.'}
           </p>
+        </div>
+      )}
+
+      {/* 빈 트리 코스 안내(§6.2) — 잠금·오류가 아니라 "준비 중"임을 밝힌다 */}
+      {emptyCourseTree && (
+        <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
+          <p className="text-3xl">🧪</p>
+          <p className="mt-2 font-bold text-slate-800">개념 트리 설계 완료 — 유닛 준비 중</p>
+          <p className="mt-1 text-sm text-slate-500">
+            이 코스의 유닛이 열리면 여기에 학습 경로가 나타나요.
+          </p>
+          {sectionPreview && (
+            <ul className="mx-auto mt-4 flex max-w-md flex-col gap-2 text-left">
+              {sectionPreview.map((s, i) => (
+                <li
+                  key={s.title}
+                  className="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100"
+                >
+                  <span className="text-xl">{s.icon}</span>
+                  <div>
+                    <p className="text-sm font-bold text-slate-700">
+                      섹션 {i + 1} — {s.title}
+                    </p>
+                    <p className="text-xs text-slate-400">{s.subtitle}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -143,6 +208,9 @@ export default function CurriculumHome() {
         regenMin={regenMin}
         onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
       />
+
+      {/* 복습 큐 카드(§6.2 FE-C) — due 0건이면 자가 렌더 생략 */}
+      <ReviewQueueCard />
 
       {/* 자유 일일 세션 별도 진입(§3.4 병존) */}
       <div className="mt-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
