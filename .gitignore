@@ -29,3 +29,7 @@ backups/
 
 # 병렬 작업용 git 워크트리 (TEAM_PROCESS §2.6.1) — 저장소에 커밋하지 않는다
 .claude/worktrees/
+
+# 해커톤 제출 서류 스캔 — 팀원 서명·개인정보 포함, 커밋 금지 (MENTORING_ALIGNMENT §7)
+docs/SCAN*.PDF
+docs/SCAN*.pdf
