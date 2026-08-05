@@ -189,7 +189,7 @@ export default function BoardPage() {
         <button type="button" onClick={backToList} className="mb-2 text-sm font-medium text-slate-500 hover:text-slate-700">
           {t('board.page.backToList')}
         </button>
-        <AtmosphereBoard puzzle={sandboxPuzzle} sandbox />
+        <AtmosphereBoard puzzle={sandboxPuzzle} sandbox layout="wide" />
         <p className="mt-2 text-center text-xs text-slate-400">
           {t('board.page.sandboxFooter')}
         </p>
@@ -229,6 +229,7 @@ export default function BoardPage() {
           disabled={false}
           submitting={attemptMutation.isPending}
           result={result}
+          layout="wide"
           onSubmit={(boardState) => attemptMutation.mutate({ id: selected.content_item_id, boardState })}
         />
         {result && (
@@ -256,8 +257,35 @@ export default function BoardPage() {
           {toast}
         </div>
       )}
-      <h1 className="mb-1 text-lg font-extrabold text-slate-900">{t('board.page.title')}</h1>
-      <p className="mb-3 text-sm text-slate-500">{t('board.page.subtitle')}</p>
+      {/* 머리말 한 줄에 제목 + 상시 입구 둘. 미션(본선)과 실험(비채점 상시 입구)은
+          격이 달라서, 예전처럼 큰 카드 두 장으로 나란히 두면 "셋 중 하나 고르세요"로
+          읽히고 정작 미션 목록이 화면 아래로 밀린다(실측 첫 미션 y=266).
+          시안 board_mockup의 배치를 따른다 — 실험은 헤더 우측 버튼. */}
+      <div className="mb-3 flex flex-wrap items-end gap-x-3 gap-y-2">
+        <div className="min-w-0">
+          <h1 className="text-lg font-extrabold text-slate-900">{t('board.page.title')}</h1>
+          <p className="text-sm text-slate-500">{t('board.page.subtitle')}</p>
+        </div>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSandbox(true)}
+            title={t('board.page.sandboxDesc')}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-sky-300 hover:text-sky-700"
+          >
+            {/* 아이콘은 리소스 문자열이 이미 갖고 있다(🧪 자유 실험) — 여기서 또
+                붙이면 두 번 뜬다(실측). */}
+            {t('board.page.sandboxTitle')}
+          </button>
+          <Link
+            to="/explore"
+            title={t('board.page.exploreDesc')}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-sky-300 hover:text-sky-700"
+          >
+            {t('board.page.exploreTitle')}
+          </Link>
+        </div>
+      </div>
 
       {/* 구름 소진 안내 (§3.1) — 퍼즐은 열 수 없지만 목록·클리어 표시는 그대로 보인다(D1) */}
       {energyBlocked && (
@@ -278,37 +306,14 @@ export default function BoardPage() {
         </div>
       )}
 
-      {/* 자유 실험(R9-01 §3.3 ⑥) + 탐구 실험실(§3.5) 진입 — 나란히 배치 */}
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => setSandbox(true)}
-          className="flex flex-col justify-between rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 p-4 text-left shadow-sm transition hover:from-sky-600 hover:to-indigo-600"
-        >
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-white">{t('board.page.sandboxTitle')}</p>
-            <p className="mt-0.5 text-xs text-sky-100">{t('board.page.sandboxDesc')}</p>
-          </div>
-          <span className="mt-2 self-start rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white">{t('board.page.enter')}</span>
-        </button>
-        <Link
-          to="/explore"
-          className="flex flex-col justify-between rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-500 p-4 text-left shadow-sm transition hover:from-violet-600 hover:to-fuchsia-600"
-        >
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-white">{t('board.page.exploreTitle')}</p>
-            <p className="mt-0.5 text-xs text-violet-100">{t('board.page.exploreDesc')}</p>
-          </div>
-          <span className="mt-2 self-start rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white">{t('board.page.enter')}</span>
-        </Link>
-      </div>
-
       {list.length === 0 ? (
         <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
           {t('board.page.empty')}
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
+        // 목록은 폭을 제한한다 — 셸은 플레이 3열 때문에 넓은데(7xl), 미션 한 줄이
+        // 1200px로 늘어나면 제목과 오른쪽 「도전」 사이가 텅 빈다.
+        <div className="flex max-w-4xl flex-col gap-2">
           {list.map((p) => {
             const pending = entryMutation.isPending && entryMutation.variables === p.content_item_id;
             return (
