@@ -30,6 +30,9 @@ export default {
     duel: 'Forecast Duel',
     league: 'League',
     me: 'Profile',
+    tutor: {
+      board: { name: 'Sunny', line: 'What weather shall we build?' },
+    },
   },
   concept: {
     pressure_front: 'Pressure & Fronts',

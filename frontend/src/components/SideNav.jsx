@@ -1,4 +1,4 @@
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import Mascot from './Mascot';
 import { NAV_ITEMS } from './navItems';
 import { useT } from '../i18n';
@@ -14,11 +14,22 @@ import { useT } from '../i18n';
  * 탭바/사이드바를 구분해 세야 한다(`data-testid`) — 실제로 gating 스모크가
  * `nav a, nav button` 전체 개수를 단정하고 있어 함께 고쳤다.
  *
- * 튜터는 메인 튜터인 구름이다(`Mascot.jsx` 배정표). 학습 경로 화면의 물방울이는
- * 유닛별 안내라 역할이 다르다 — 같은 화면에 둘이 떠도 중복이 아니다.
+ * 튜터는 **지금 있는 화면의 담당 마스코트**다(`Mascot.jsx` 배정표). 기본은 메인
+ * 튜터인 구름이고, 보드에서는 담당인 태양이가 나온다(시안 board_mockup) — 화면마다
+ * 안내하는 캐릭터가 바뀌는 것이 배정표의 뜻이다. 학습 경로 화면의 물방울이는
+ * 유닛별 안내라 역할이 또 달라, 같은 화면에 둘이 떠도 중복이 아니다.
  */
+const TUTOR_BY_PATH = [
+  { match: (p) => p === '/board' || p.startsWith('/board/'), name: 'sun', key: 'board' },
+];
+
 export default function SideNav() {
   const t = useT();
+  const pathname = useLocation().pathname;
+  const tutor = TUTOR_BY_PATH.find((r) => r.match(pathname));
+  const mascot = tutor?.name ?? 'cloud';
+  const nameKey = tutor ? `nav.tutor.${tutor.key}.name` : 'home.tutor.name';
+  const lineKey = tutor ? `nav.tutor.${tutor.key}.line` : 'home.tutor.line';
   return (
     <aside
       data-testid="sidenav"
@@ -54,9 +65,9 @@ export default function SideNav() {
       </nav>
 
       <div className="mt-auto rounded-2xl border border-slate-200 bg-white p-3 text-center">
-        <Mascot name="cloud" className="mx-auto w-[74px]" />
-        <p className="mt-1.5 text-[12.5px] font-extrabold text-slate-800">{t('home.tutor.name')}</p>
-        <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t('home.tutor.line')}</p>
+        <Mascot name={mascot} className="mx-auto w-[74px]" />
+        <p className="mt-1.5 text-[12.5px] font-extrabold text-slate-800">{t(nameKey)}</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t(lineKey)}</p>
       </div>
     </aside>
   );

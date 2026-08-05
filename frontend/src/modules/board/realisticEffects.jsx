@@ -197,10 +197,13 @@ export function InfographicDefs() {
         <stop offset="55%" stopColor="#d7e5f2" />
         <stop offset="100%" stopColor="#c9dbec" />
       </linearGradient>
-      <linearGradient id="wm-land" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#f2efe4" />
-        <stop offset="55%" stopColor="#e9e5d6" />
-        <stop offset="100%" stopColor="#ddd8c6" />
+      {/* 땅은 초록 계열이다(2026-08-05 결정, 시안 board_mockup 기준). 이전 베이지는
+          바다(청회색)와 명도가 붙어서 "여기가 땅"이 한눈에 안 들어왔다 — 학습자가
+          처음 보는 화면이라 지형임이 먼저 읽히는 쪽을 택한다. */}
+      <linearGradient id="wm-land" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#D3EBCB" />
+        <stop offset="55%" stopColor="#C2E2B7" />
+        <stop offset="100%" stopColor="#AFD9A4" />
       </linearGradient>
       {/* 지형 그레인(wm-terrain)은 제거됐다 — 보드 지형이 "질감 없이 단순하게"로
           가면서 쓰는 곳이 사라졌고, 매 프레임 feTurbulence를 도는 비용만 남았다.

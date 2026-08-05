@@ -35,8 +35,11 @@ export default function Layout() {
   // 넓게 쓴다. 페이지 쪽에서 100vw 음수 마진으로 컨테이너를 탈출하면 스크롤바
   // 폭만큼(100vw > clientWidth) 가로 스크롤이 생기므로, 폭은 레이아웃이 소유한다.
   const pathname = useLocation().pathname;
-  const isWide = pathname === '/' || pathname === '/learn';
-  const shellWidth = isWide ? 'md:max-w-6xl' : '';
+  // /board는 플레이가 3열(팔레트·지도·미션)이라 576px로는 가운데 열이 0으로 눌린다.
+  // 게다가 6xl(1152)에서도 지도가 시안보다 작아서 보드만 한 단계 더 넓게 쓴다.
+  const isBoard = pathname === '/board';
+  const isWide = pathname === '/' || pathname === '/learn' || isBoard;
+  const shellWidth = isBoard ? 'md:max-w-7xl' : isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);
   const userKey = useAuthStore((s) => s.user?.user_id ?? null);
   const logoutLocal = useAuthStore((s) => s.logout);
@@ -106,7 +109,7 @@ export default function Layout() {
             모바일은 로고 워드마크·XP 숫자를 접어 겹침 없이 들어가게 한다. */}
         <div
           className={`mx-auto flex max-w-xl items-center gap-2 px-3 py-2.5 sm:px-4 md:gap-3 ${
-            isWide ? 'md:max-w-6xl' : 'md:max-w-3xl'
+            isBoard ? 'md:max-w-7xl' : isWide ? 'md:max-w-6xl' : 'md:max-w-3xl'
           }`}
         >
           {/* 브랜드는 헤더에 두지 않는다 — PC는 사이드바가, 모바일은 탭바 「홈」이
