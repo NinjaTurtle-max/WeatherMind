@@ -7,6 +7,7 @@
 - /health: 05번 스펙 필수 구현
 - CORS: 프론트엔드 origin 허용 (nginx 80 / vite dev 5173)
 """
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -15,12 +16,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.core.config import settings
+from app.core.config import insecure_secret_defaults, settings
 from app.core.database import engine
+from app.core.logging import RequestLogMiddleware, setup_logging
 from app.core.rate_limit import limiter
-from app.core.redis import close_redis
+from app.core.redis import close_redis, get_redis
 from app.routers import (
     auth,
     board,
@@ -36,7 +39,44 @@ from app.services.answer_service import AlreadyAnsweredError, BoardStateRequired
 from app.services.board_engine import BoardRulesError, BoardValidationError
 from app.services.energy_service import OutOfCloudsError
 
+setup_logging()  # 구조적(JSON) 로깅 — uvicorn 로거는 건드리지 않는다 (core/logging.py)
+
 logger = logging.getLogger(__name__)
+
+
+# ── 시크릿 fail-fast (R11-01 웨이브 3 §7.0 — 교차 계약 ③) ────────────────────
+# 비-dev(DEV_MODE!=true)에서 changeme 계열 기본값이 남아 있으면 **기동을 거부**한다.
+# dev에서는 경고 1회 후 기동 — 로컬 개발·CI·스모크는 깨지지 않는다.
+# lifespan startup에서 검사한다: import 시점 검사는 pytest 수집만으로 전체 테스트를
+# 죽이고, 기동(uvicorn lifespan) 시점 검사가 "기동 거부"의 정확한 의미다.
+_SECRET_GUIDE = (
+    "생성 방법: JWT_SECRET_KEY·AI_WORKER_INTERNAL_API_KEY는 `openssl rand -hex 32` "
+    "출력값을 .env에 설정하고, DATABASE_URL은 실제 DB 계정으로 교체하세요 "
+    "(예: postgresql+asyncpg://weathermind:<실제_암호>@postgres:5432/weathermind). "
+    "backend·ai-worker·celery가 같은 .env를 읽으므로 AI_WORKER_INTERNAL_API_KEY는 "
+    "한 곳만 바꾸면 됩니다."
+)
+
+
+def _enforce_secret_hygiene() -> None:
+    flagged = insecure_secret_defaults()
+    if not flagged:
+        return
+    names = ", ".join(flagged)
+    if settings.DEV_MODE:
+        logger.warning(
+            "[시크릿 경고] %s 가 기본 플레이스홀더(changeme 계열)입니다. "
+            "DEV_MODE=true라 기동은 계속하지만, 운영(DEV_MODE!=true)에서는 "
+            "기동이 거부됩니다. %s",
+            names,
+            _SECRET_GUIDE,
+        )
+        return
+    raise RuntimeError(
+        f"[기동 거부] 시크릿이 기본 플레이스홀더(changeme 계열)입니다: {names}. "
+        f"운영(DEV_MODE!=true)에서는 이 값으로 기동할 수 없습니다. {_SECRET_GUIDE} "
+        "(로컬 개발 한정으로 DEV_MODE=true 설정 시 경고로 완화됩니다.)"
+    )
 
 # 상태코드 → 기본 에러 코드
 _DEFAULT_CODES = {
@@ -52,6 +92,7 @@ _DEFAULT_CODES = {
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _enforce_secret_hygiene()  # 비-dev + changeme 기본값 → 기동 거부 (RuntimeError)
     yield
     await close_redis()
     await engine.dispose()
@@ -77,6 +118,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 요청 로그(JSON 1줄: method·path·status·duration_ms) — 나중에 add한 미들웨어가
+# 바깥층이므로 CORS 처리(프리플라이트 포함)까지 전부 관측된다.
+app.add_middleware(RequestLogMiddleware)
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -187,9 +232,51 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
+# ── /health — 의존 상태 반영 (R11-01 웨이브 3 §7.0) ─────────────────────────
+# 503 판정 근거: DB·Redis는 이 서비스의 **하드 의존**이다 — 인증된 모든 요청이
+# Redis 세션 확인(get_current_user)과 DB 로드를 거치므로, 어느 하나가 죽으면
+# 사실상 전 엔드포인트가 5xx다. 그 상태에서 /health 200은 오케스트레이터
+# (compose healthcheck·k8s readiness·LB)가 죽은 인스턴스로 트래픽을 계속
+# 보내게 만든다 → 어느 하나라도 실패면 503(트래픽 차단이 올바른 신호).
+# 하위 호환: 스모크(smoke*.sh)는 "/health가 200"을 폴링한다 — 정상 기동 시
+# 응답은 여전히 200 + {"status": "ok", "service": ...}(기존 키 유지)이고,
+# 오히려 "200 = 의존까지 준비 완료"가 되어 폴링의 의미가 강해진다.
+# 각 검사는 2초 타임아웃 — 의존이 행에 걸려도 /health 자체는 즉응한다.
+
+_HEALTH_CHECK_TIMEOUT_SEC = 2.0
+
+
+async def _check_db() -> None:
+    async with engine.connect() as conn:
+        await conn.execute(text("SELECT 1"))
+
+
+async def _check_redis() -> None:
+    await get_redis().ping()
+
+
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "weathermind-backend"}
+    checks: dict[str, str] = {}
+    for name, probe in (("db", _check_db), ("redis", _check_redis)):
+        try:
+            await asyncio.wait_for(probe(), timeout=_HEALTH_CHECK_TIMEOUT_SEC)
+            checks[name] = "ok"
+        except Exception as exc:  # 연결 거부·타임아웃·미기동 전부 "fail"
+            logger.warning("/health %s 검사 실패: %s", name, exc)
+            checks[name] = "fail"
+
+    healthy = all(v == "ok" for v in checks.values())
+    body = {
+        "status": "ok" if healthy else "unavailable",
+        "service": "weathermind-backend",
+        "checks": checks,
+    }
+    if healthy:
+        return body
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=body
+    )
 
 
 app.include_router(auth.router)

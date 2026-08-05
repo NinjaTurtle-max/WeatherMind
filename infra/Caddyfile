@@ -1,0 +1,31 @@
+# =============================================================================
+# WeatherMind prod 리버스 프록시 — R11-01 웨이브 3 HTTPS/TLS (SPRINT_R11_01.md §7.0)
+#
+# 동작: DOMAIN(.env) 미설정 → localhost 사이트 — Caddy가 자동으로 internal TLS
+#   (자체 서명 로컬 CA)로 https를 제공한다(로컬 기동 스모크용). DOMAIN=실도메인 →
+#   auto-HTTPS(Let's Encrypt 발급·갱신 자동). 실도메인·공인 인증서는 §7.0 범위 밖
+#   (도메인 미보유) — 오버레이는 도메인이 생기는 즉시 env 한 줄로 전환되게만 한다.
+#
+# 라우팅: /api/* 와 /health 는 Caddy에서 직접 backend로 보낸다 — 프론트 nginx를
+#   경유하면 X-Forwarded-Proto가 http(내부 구간)로 덮여 원 스킴(https)을 잃는다.
+#   나머지 경로는 frontend nginx(정적 SPA + SPA fallback)로.
+# =============================================================================
+
+{$DOMAIN:localhost} {
+	encode gzip
+
+	# API — backend FastAPI (경로 보존: /api/v1/... 그대로 전달)
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# 헬스체크 — 로깅·모니터링이 프록시 뒤에서도 backend 상태를 본다
+	handle /health {
+		reverse_proxy backend:8000
+	}
+
+	# 정적 SPA — frontend nginx (assets 캐시·SPA fallback은 nginx 소유)
+	handle {
+		reverse_proxy frontend:80
+	}
+}

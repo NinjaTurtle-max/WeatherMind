@@ -21,8 +21,15 @@ frontend/dist/
 chroma-data/
 postgres-data/
 
+# DB 수동 백업 산출물 (scripts/db_backup.sh once — 유저 데이터 포함, 커밋 금지)
+backups/
+
 # Claude 프롬프트 기록 (개인 로그)
 .claude/prompt-logs/
 
 # 병렬 작업용 git 워크트리 (TEAM_PROCESS §2.6.1) — 저장소에 커밋하지 않는다
 .claude/worktrees/
+
+# 해커톤 제출 서류 스캔 — 팀원 서명·개인정보 포함, 커밋 금지 (MENTORING_ALIGNMENT §7)
+docs/SCAN*.PDF
+docs/SCAN*.pdf
