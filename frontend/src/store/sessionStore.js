@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 /**
- * 세션 스토어 (스프린트 R2-01 S7 — 하루 1세션 5문항 플로우)
+ * 세션 스토어 (스프린트 R2-01 S7 — 하루 1세션 플로우, 문항 수는 서버 배합 파생 — 기본 10)
  *
  * 화면 상태 머신 (상태를 먼저 정의 — TEAM_PROCESS §1.3 CDD):
  *   LOADING(GET /session/today)

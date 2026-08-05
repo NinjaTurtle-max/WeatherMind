@@ -50,7 +50,7 @@ class User(Base):
         DateTime(timezone=True), nullable=True
     )
     # 일일 목표 문항 수 (R10-01 §3.4·D4) — NULL이면 미설정(온보딩 커밋 스텝 노출).
-    # 허용값 {3, 5, 9}는 API 계층에서 검증한다. SESSION_RECIPE(합 5)와 독립된
+    # 허용값 {3, 5, 9}는 API 계층에서 검증한다. SESSION_RECIPE(합 10)와 독립된
     # 표시용 타깃이라 세션 배합에 영향을 주지 않는다.
     daily_goal_items: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # 사용자 지역 (R11-01 §8.2) — NULL이면 서울(weather_api.user_region이 폴백의

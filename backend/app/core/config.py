@@ -50,9 +50,12 @@ class Settings(BaseSettings):
     # 조정하기 위한 통로다. 기본값을 바꾸면 스펙 드리프트이므로 계약 테스트가 감시한다
     # (test_r3_r5_contract.TestCloudEnergyConstants / test_session_mix).
 
-    # 세션 배합(§3.2): kind→개수. env는 JSON 문자열(예: '{"new":3,"review":2,"live":1}').
+    # 세션 배합(§3.2 → R11-01 §9.2에서 10문항으로 개정): kind→개수.
+    # env는 JSON 문자열(예: '{"new":3,"review":2,"live":1}').
     # SESSION_SIZE(총 문항 수)는 이 합에서 파생 — 둘을 독립 구성하지 않는다(드리프트 방지).
-    SESSION_RECIPE: dict[str, int] = {"new": 2, "review": 2, "live": 1}
+    # 에너지와의 관계: 오답 최대 10 > CLOUD_MAX 5이지만 "진행 중 세션은 잔량 0에도
+    # 완주 보장"(R10 에너지 계약)이 이미 흡수한다 — daily-goal(3·5·9)·CLOUD_*는 불변.
+    SESSION_RECIPE: dict[str, int] = {"new": 5, "review": 4, "live": 1}
     UNIT_SESSION_SIZE: int = 5           # 커리큘럼 유닛 세션 문항 수
 
     # 구름 에너지 경제(§3.3): 기본값 = 계약 수치(만렙 5·20분당 1 회복·시도당 1 소모).

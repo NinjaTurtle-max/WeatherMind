@@ -253,8 +253,12 @@ class TestSessionLiveSlotWiring:
             )
 
         async def fake_pools(db, u, weak, theta=None):
-            # live 풀은 슬롯 없는 템플릿 — 빈 날씨({})여도 치환 성공, 폴백 0
-            return [bank_item() for _ in range(4)], [], [bank_item()]
+            # live 풀은 슬롯 없는 템플릿 — 빈 날씨({})여도 치환 성공, 폴백 0.
+            # new 풀은 배합 파생(new+review 대체분) — 수를 하드코딩하면 배합 개정
+            # (R11-01 §9.2 10문항) 때 생성 폴백이 새어 실 네트워크를 친다.
+            recipe = session_service.DEFAULT_RECIPE
+            new_count = recipe["new"] + recipe["review"]
+            return [bank_item() for _ in range(new_count)], [], [bank_item()]
 
         async def fake_quiz_ids(db, uid, today_str, count):
             return [f"q-{i}" for i in range(count)]

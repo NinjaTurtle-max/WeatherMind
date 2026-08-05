@@ -3,7 +3,7 @@ import SessionRunner from './SessionRunner';
 import { useT } from '../../i18n';
 
 /**
- * SessionPage (R2-01 S7 · R5-01 §3.4) — 자유 일일 세션(하루 1세션 5문항).
+ * SessionPage (R2-01 S7 · R5-01 §3.4) — 자유 일일 세션(하루 1세션, 문항 수는 서버 배합 파생 — 기본 10).
  * R5-01에서 기본 진입(/)은 학습 홈(커리큘럼)으로 바뀌고, 이 자유 세션은 별도 진입(/daily)으로
  * 유지된다(계약 §3.4: 유닛 경로와 자유 일일 세션 병존). 상태머신은 공용 SessionRunner를 쓴다.
  *

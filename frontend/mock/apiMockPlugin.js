@@ -490,7 +490,7 @@ const CLOUD_MAX = 5;
 const CLOUD_REGEN_MS = 20 * 60 * 1000; // 20분당 1개 회복
 const CLOUD_COST = 1; // 소모 1회분 (R10-01 §3.1: 수치 불변, 트리거만 변경)
 
-// 일일 목표 허용값 (R10-01 §3.4·D4) — SESSION_RECIPE(합 5)와 독립된 표시용 타깃.
+// 일일 목표 허용값 (R10-01 §3.4·D4) — SESSION_RECIPE(합 10)와 독립된 표시용 타깃.
 const DAILY_GOAL_CHOICES = [3, 5, 9];
 
 /** 지연 회복(§3.3): 읽기·소모 시점에 elapsed로 회복량 계산·clamp·anchor 갱신 */
@@ -803,7 +803,7 @@ const BADGES = [
   { code: 'streak_7', title: '7일 연속', description: '7일 연속 출석 달성', earned_at: '2026-07-12T00:00:00Z' },
   { code: 'streak_30', title: '30일 연속', description: '30일 연속 출석 달성', earned_at: null },
   { code: 'streak_100', title: '100일 연속', description: '100일 연속 출석 달성', earned_at: null },
-  { code: 'perfect_session', title: '무오답 세션', description: '세션 5문항을 모두 맞힘', earned_at: '2026-07-18T09:20:00Z' },
+  { code: 'perfect_session', title: '무오답 세션', description: '세션 10문항을 모두 맞힘', earned_at: '2026-07-18T09:20:00Z' },
   { code: 'tier_promoted', title: '티어 승급', description: '리그 티어 승급 달성', earned_at: null },
 ];
 
@@ -933,7 +933,9 @@ const QUIZ = {
 //   heat_island '도시 상공의 오존층이 두꺼워져서'). 이 문구들은 시드 53문항에
 //   존재하지 않아(전수 grep 확인) 시드 파생으로 대체하면 스모크가 깨진다.
 //   스모크를 함께 손댈 수 있을 때 이 4건도 시드 파생으로 넘긴다(R10-07 보고 사항).
-const MOCK_SESSION_RECIPE = { new: 2, review: 2, live: 1 };
+// R11-01 §9.2: 세션 디폴트 10문항(신규5·복습4·실황1) — backend
+// Settings.SESSION_RECIPE와 parity 계약(test_r10_mock_parity_contract)이 대조한다.
+const MOCK_SESSION_RECIPE = { new: 5, review: 4, live: 1 };
 
 // 신규(new) 슬롯 픽스처 — 스모크 시나리오 7이 1·2번 문항으로 고정
 const PINNED_NEW_ITEMS = [
@@ -1812,7 +1814,7 @@ const routes = {
   // ── 구름 에너지 (R5-01 §3.3) ──
   'GET /progress/energy': () => [200, energyPayload()],
   // PUT /progress/daily-goal {items} (R10-01 §3.4·D4·D10) — 허용값 3|5|9, 그 외 422.
-  // SESSION_RECIPE(합 5)와 독립된 표시용 타깃이다(계약 수치 드리프트 아님).
+  // SESSION_RECIPE(합 10)와 독립된 표시용 타깃이다(계약 수치 드리프트 아님).
   // 응답은 `daily_goal_items` **하나뿐**이다 — 서버에 없는 필드를 목에 얹으면
   // 프론트가 그것에 기대어 통합에서 깨진다(mock↔서버 드리프트 금지, D5).
   // 오늘 응답 수는 GET /progress/me의 today_answered_count에서 읽는다.
