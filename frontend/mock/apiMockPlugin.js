@@ -13,6 +13,12 @@ import { dirname, resolve } from 'node:path';
 import { evaluateBoard, checkGoals, validateBoardState } from '../src/lib/boardEngine.js';
 import { tierFromElo } from '../src/lib/tierMeta.js';
 import { levelFromTheta } from '../src/lib/abilityDisplay.js';
+// R12 선행 §8.2 — 지역 화이트리스트. 목록의 단일 소스는 프론트 lib(geoSnap.REGIONS,
+// 순수 모듈 — bare 지정자 없음)이고, 서버 KMA_GRID 12도시와의 정합은
+// tests/region.smoke.test.mjs가 파일을 읽어 대조한다(parity 관례).
+import { REGIONS } from '../src/lib/geoSnap.js';
+
+const REGION_VALUES = REGIONS.map((r) => r.value);
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -181,16 +187,20 @@ function questionPayload(template, questionType) {
 // 서버 session_service.fill_live_slots와 같은 규칙으로 {today.*}를 치환한다.
 // 값은 목 고정 실황(KMA 캐시 대역) — 미치환 원문이 유저에게 보이지 않게 한다.
 const LIVE_SLOT_VALUES = {
-  'today.region': '서울',
   'today.sky': '구름많음',
   'today.rain_prob': '60',
   'today.temp_max': '31',
   'today.temp_min': '24',
 };
+// today.region은 유저 설정 지역을 탄다(R12 선행 §8.2 — 서버 fill_live_slots 배선과
+// 동일 의미론). state는 아래에서 선언되지만 이 함수는 요청 시점에만 불린다(TDZ 무관).
+function liveSlotValue(key) {
+  return key === 'today.region' ? state.region : LIVE_SLOT_VALUES[key];
+}
 const SLOT_RE = /\{(today\.[a-z_]+)\}/g;
 function fillLiveSlots(value) {
   if (typeof value === 'string') {
-    return value.replace(SLOT_RE, (m, key) => LIVE_SLOT_VALUES[key] ?? m);
+    return value.replace(SLOT_RE, (m, key) => liveSlotValue(key) ?? m);
   }
   if (Array.isArray(value)) return value.map(fillLiveSlots);
   if (value && typeof value === 'object') {
@@ -288,6 +298,9 @@ const state = {
   cloudsUpdatedAt: Date.now(),
   // 온보딩 배치고사 (R7-01 S3) — 1회 완료 여부. 완료 후 start는 409.
   placementDone: false,
+  // 학습 지역 (R12 선행 §8.2, users.region) — 서버는 NULL=서울로 해석하므로
+  // 목은 해석 완료값 '서울'을 기본으로 든다(me 응답 형태 동일).
+  region: '서울',
 };
 
 // ── 오늘 응답 수 (R10-01 D4·D10) ────────────────────────────────────────────
@@ -1787,6 +1800,8 @@ const routes = {
         daily_goal_items: state.dailyGoalItems,
         // 오늘 응답한 문항 수 — "오늘 목표 N/M" 표기의 N (자정 지연 리셋 포함).
         today_answered_count: todayAnsweredCount(),
+        // 학습 지역 (R12 선행 §8.2, additive) — 서버는 NULL=서울 해석값을 노출.
+        region: state.region,
       },
     ];
   },
@@ -1814,6 +1829,24 @@ const routes = {
     }
     state.dailyGoalItems = items;
     return [200, { daily_goal_items: items }];
+  },
+  // PUT /progress/region {region} (R12 선행 §8.2) — KMA_GRID 12도시 화이트리스트,
+  // 밖은 422(daily-goal과 동일 의미론). 응답은 `region` **하나뿐** — 서버에 없는
+  // 필드를 목에 얹으면 통합에서 깨진다(mock↔서버 형태 동일 계약).
+  // 읽기는 GET /progress/me의 region(기본 '서울' — NULL=서울 해석값).
+  'PUT /progress/region': (body) => {
+    const region = body?.region;
+    if (!REGION_VALUES.includes(region)) {
+      return [
+        422,
+        {
+          detail: `지역은 ${REGION_VALUES.join('·')} 중 하나여야 합니다`,
+          code: 'VALIDATION_ERROR',
+        },
+      ];
+    }
+    state.region = region;
+    return [200, { region }];
   },
 
   // ── 커리큘럼 단계별 학습 (R5-01 §3.2) ──

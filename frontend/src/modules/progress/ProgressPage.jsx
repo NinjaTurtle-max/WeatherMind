@@ -8,6 +8,8 @@ import BadgeCollection from './BadgeCollection';
 import WeatherBrainPanel from './WeatherBrainPanel';
 import { DailyGoalMeter, DailyGoalPicker } from './DailyGoal';
 import { selectUnlockStage, useOnboardingGate } from '../../lib/onboardingGate';
+// R12 선행 §8 — 학습 지역 설정(자급 컴포넌트, 제작 FE-R)
+import RegionPicker from '../../components/RegionPicker';
 import { useT } from '../../i18n';
 
 /**
@@ -116,6 +118,19 @@ export default function ProgressPage() {
       </div>
 
       <BadgeCollection collapsed={collapsed} />
+
+      {/* 설정 — 학습 지역 (R12 선행 §8): 퀴즈 실황·피드백 날씨의 기준 지역.
+          대결/브리핑·리그는 서울 고정(PM 정정 2026-08-05 — 지역 예보로 예측하고
+          서울 실측으로 채점되는 정합성 문제) — 대결 화면에는 칩을 달지 않는다. */}
+      <div className="mt-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-extrabold text-slate-900">{t('region.settingTitle')}</p>
+            <p className="mt-0.5 text-xs text-slate-500">{t('region.settingBody')}</p>
+          </div>
+          <RegionPicker />
+        </div>
+      </div>
     </div>
   );
 }
