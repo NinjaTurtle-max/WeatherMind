@@ -109,20 +109,40 @@ class TestCoursesSeed:
 # ═══════════════════════════════════════════════════════════════
 
 
+WEATHER_SECTIONS = ("하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후")
+
+
 class TestUnitsSeedCourse:
     def test_기존_4섹션_전_유닛이_weather_귀속(self):
-        """계약 F: weather 코스에 기존 4섹션 전부 귀속."""
+        """계약 F: weather 코스에 기존 4섹션 전부 귀속(불변).
+
+        R12 AU-2로 기초과학 유닛이 추가됐으므로, 계약의 원의미(기존 4섹션의
+        코스 귀속)를 섹션 기준으로 판정한다."""
         for entry in load_units_seed():
-            assert entry.get("course") == "weather", entry["id"]
+            if entry["section"] in WEATHER_SECTIONS:
+                assert entry.get("course") == "weather", entry["id"]
 
     def test_참조_코스가_courses_json에_존재(self):
         course_slugs = {c["id"] for c in load_courses_seed()}
         referenced = {e["course"] for e in load_units_seed() if e.get("course")}
         assert referenced <= course_slugs
 
-    def test_basic_science는_빈_트리(self):
-        """계약 F: 유닛 저작은 PM 트리 설계(S) 이후 웨이브 — 지금은 0유닛."""
-        assert all(e.get("course") != "basic-science" for e in load_units_seed())
+    def test_basic_science는_specs11_8유닛(self):
+        """R12 AU-2: 기초과학 트리는 specs/11 §2 그대로 — 3섹션 8유닛,
+        board 1유닛(bs-convection-board), 나머지 quiz. (구 계약 "빈 트리"는
+        유닛 저작 전까지의 상태였고, 저작과 함께 이 계약으로 교체.)"""
+        bs = [e for e in load_units_seed() if e.get("course") == "basic-science"]
+        assert {e["id"] for e in bs} == {
+            "bs-temp-vs-heat", "bs-specific-heat", "bs-radiation",
+            "bs-pressure", "bs-density-buoyancy", "bs-convection-board",
+            "bs-phase-change", "bs-energy-transfer",
+        }
+        assert [e["id"] for e in bs if e["kind"] == "board"] == ["bs-convection-board"]
+        assert all(e["section"] not in WEATHER_SECTIONS for e in bs)
+        # 섹션 간 선행 없음(specs/11 §2): 각 섹션 첫 유닛 prereq=null
+        firsts = [e for e in bs if e["unit_order"] == 1]
+        assert len(firsts) == 3
+        assert all(e["prereq_unit_id"] is None for e in firsts)
 
     def test_units_로더가_course_필드를_수용(self):
         for index, entry in enumerate(load_units_seed()):

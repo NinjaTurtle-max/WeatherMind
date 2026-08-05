@@ -1,6 +1,6 @@
 """Session API (/api/v1/session) — 스프린트 R2-01 §3.1 (S1).
 
-| GET  | /today                  | 오늘의 세션(5문항) — 당일 재호출 시 동일 세션 (멱등) |
+| GET  | /today                  | 오늘의 세션(10문항 — R11-01 §9.2) — 당일 재호출 시 동일 세션 (멱등) |
 | POST | /{session_id}/answer    | {quiz_id, answer, elapsed_sec?} → AnswerResult + session_progress |
 | POST | /{session_id}/complete  | 전 문항 응답 시 {xp_total, correct_count, total, streak_count}, 미완료 409 |
 
@@ -381,7 +381,7 @@ async def complete_session(
     if is_first_complete:
         session.completed_at = datetime.now(timezone.utc)
         await db.flush()
-        # 무오답 세션 배지(perfect_session) — 5/5 정답, 중복은 UNIQUE로 방어 (R4-01 §3.3)
+        # 무오답 세션 배지(perfect_session) — 전 문항 정답(total/total), 중복은 UNIQUE로 방어 (R4-01 §3.3)
         if badge_service.is_perfect_session(correct_count, progress.total):
             await badge_service.award_badge(db, user.id, badge_service.BADGE_PERFECT_SESSION)
         # 데일리 만점 → 왕관 유입 (R8-01 §3.4): 세션 문항 최다 개념(동률: route

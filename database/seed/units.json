@@ -130,5 +130,93 @@
     "kind": "board",
     "crown_target": 2,
     "course": "weather"
+  },
+  {
+    "id": "bs-temp-vs-heat",
+    "section": "열과 빛",
+    "unit_order": 1,
+    "title": "온도와 열은 다르다",
+    "concept_tag": "temperature_heat",
+    "prereq_unit_id": null,
+    "kind": "quiz",
+    "crown_target": 1,
+    "course": "basic-science"
+  },
+  {
+    "id": "bs-specific-heat",
+    "section": "열과 빛",
+    "unit_order": 2,
+    "title": "물은 왜 천천히 데워질까",
+    "concept_tag": "temperature_heat",
+    "prereq_unit_id": "bs-temp-vs-heat",
+    "kind": "quiz",
+    "crown_target": 1,
+    "course": "basic-science"
+  },
+  {
+    "id": "bs-radiation",
+    "section": "열과 빛",
+    "unit_order": 3,
+    "title": "햇빛이 지구를 데우는 방법",
+    "concept_tag": "radiation_budget",
+    "prereq_unit_id": "bs-temp-vs-heat",
+    "kind": "quiz",
+    "crown_target": 1,
+    "course": "basic-science"
+  },
+  {
+    "id": "bs-pressure",
+    "section": "공기의 무게",
+    "unit_order": 1,
+    "title": "공기에도 무게가 있다",
+    "concept_tag": "pressure_basics",
+    "prereq_unit_id": null,
+    "kind": "quiz",
+    "crown_target": 1,
+    "course": "basic-science"
+  },
+  {
+    "id": "bs-density-buoyancy",
+    "section": "공기의 무게",
+    "unit_order": 2,
+    "title": "뜨거운 공기는 왜 올라갈까",
+    "concept_tag": "density_buoyancy",
+    "prereq_unit_id": "bs-pressure",
+    "kind": "quiz",
+    "crown_target": 1,
+    "course": "basic-science"
+  },
+  {
+    "id": "bs-convection-board",
+    "section": "공기의 무게",
+    "unit_order": 3,
+    "title": "대류를 만들어 보자",
+    "concept_tag": "density_buoyancy",
+    "prereq_unit_id": "bs-density-buoyancy",
+    "kind": "board",
+    "crown_target": 2,
+    "course": "basic-science"
+  },
+  {
+    "id": "bs-phase-change",
+    "section": "물과 에너지",
+    "unit_order": 1,
+    "title": "사라진 물은 어디로 갔나",
+    "concept_tag": "phase_change",
+    "prereq_unit_id": null,
+    "kind": "quiz",
+    "crown_target": 1,
+    "course": "basic-science"
+  },
+  {
+    "id": "bs-energy-transfer",
+    "section": "물과 에너지",
+    "unit_order": 2,
+    "title": "열이 이동하는 세 가지 길",
+    "concept_tag": "energy_transfer",
+    "prereq_unit_id": "bs-phase-change",
+    "kind": "quiz",
+    "crown_target": 1,
+    "course": "basic-science"
   }
 ]

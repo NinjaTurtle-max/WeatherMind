@@ -5,7 +5,7 @@
 (Vite)·`ai-worker`(LangChain/Gemini, 문항 생성·품질 게이트)·`celery`(KMA 수집 배치).
 
 ## 핵심 기능 (실제 코드 기준 — API·도메인 모델)
-- **세션 엔진**(`session.py`): `GET /session/today`가 배합(신규2·복습2·실황1=5문항,
+- **세션 엔진**(`session.py`): `GET /session/today`가 배합(신규5·복습4·실황1=**10문항** — R12,
   `Settings.SESSION_RECIPE`로 env 조정 가능)으로 하루 세션 발급. `today.*` 슬롯은
   KMA 실황값으로 문항에 실시간 주입.
 - **커리큘럼**(`curriculum.py`): 4섹션(하늘 읽기·공기의 힘·큰 바람·도시와 기후) 유닛
@@ -49,7 +49,7 @@
   외부화 + 헤더 스위처. **ko 리소스 값은 원문 바이트 동일** 원칙 — 스모크가 한국어
   문구를 단정하며 하네스는 로케일 ko 고정(jsdom 7 + SSR 3, en-US 러너 대비).
   lib에서 i18n import는 `'../i18n/index.js'` 명시 경로(node ESM 디렉토리 import 불가).
-- 테스트 실측 **backend 1145** · **ai-worker 193**(의존 전체 설치 시) · 프론트 `test:*` **15종 전부 CI 편입**
+- 테스트 실측 **backend 1321** · **ai-worker 193**(의존 전체 설치 시) · 프론트 `test:*` **15종 전부 CI 편입**
   — `ci.sh`의 `FRONT_TESTS` 9종(`explore`·`session`·`placement`·`visual`·`gating`·
   `board-entry`·`assist`·`webgl`·`overlay`) + `board`(board_engine 공유 벡터)는 **별도
   단계**다. 실DB 왕복 스모크는 `scripts/smoke_r10.sh`(7단계, 전원 OK).

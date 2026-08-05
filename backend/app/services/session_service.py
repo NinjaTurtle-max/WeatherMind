@@ -1,6 +1,6 @@
 """일일 세션 발급 서비스 — 스프린트 R2-01 §3.1~§3.3 (S1·S2·S3).
 
-배합 규칙 (§3.2): recipe {"new": 2, "review": 2, "live": 1} 합계 5문항.
+배합 규칙 (§3.2 → R11-01 §9.2 개정): recipe {"new": 5, "review": 4, "live": 1} 합계 10문항.
 - new: 뱅크 active 문항 중 해당 유저 미출제분 (level_group 일치, 슬롯 문항 제외)
 - review: θ 파생 약점 개념(weatherbrain_service.weak_concepts — 학령 상대 임계,
   R8-01 §3.5) 태그의 뱅크 문항 우선, 없으면 new로 대체
@@ -9,7 +9,7 @@
 - 뱅크 부족분은 ai-worker quiz-generate 폴백 (현행 /quiz/today 경로와 동일).
   폴백은 asyncio.gather 병렬 실행 — 개별 실패는 수집·로깅하고 성공분으로 세션을
   구성하며, 전부 실패 시에만 AIWorkerError(→503)를 낸다 (웨이브 1 리뷰 3번.
-  부분 세션(5문항 미만) 허용 여부는 R3 검토 — §5 기술 부채)
+  부분 세션(배합 총합 미만) 허용 여부는 R3 검토 — §5 기술 부채)
 - 같은 question_type 3연속 금지 (enforce_type_variety)
 - recipe와 router-decide 결과는 sessions 행 JSONB에 저장 (route 미로깅 부채 상환)
 
@@ -454,7 +454,7 @@ async def create_daily_session(
     """오늘의 daily 세션을 새로 발급한다 (§3.1 GET /today 신규 경로).
 
     반환: (Session 행, entries — [{"quiz_id", "question", "source", "slot_filled"}]).
-    뱅크 0건이어도 quiz-generate 폴백으로 5문항을 채운다 (S2 AC).
+    뱅크 0건이어도 quiz-generate 폴백으로 배합 총합(기본 10문항)을 채운다 (S2 AC).
     생성 폴백이 부분 실패하면 성공분으로 세션을 구성하고,
     전부 실패 시에만 AIWorkerError 전파 (라우터에서 503 처리).
     """

@@ -142,7 +142,9 @@ def plan_placement_picks(
     반환: [{"item", "concept_tag", "level_group", "target_group"}].
     """
     size = size if size is not None else PLACEMENT_SIZE
-    concepts = list(concept_tags or weatherbrain_service.CONCEPT_TAGS)
+    # 진단 도메인은 기상 6종(PLACEMENT_QUIZ_TAGS) — 12종 전체(CONCEPT_TAGS)는
+    # θ 초기화용이라 여기 쓰면 6문항이 개념당 1을 만족할 수 없다(R12 §9 분리).
+    concepts = list(concept_tags or weatherbrain_service.PLACEMENT_QUIZ_TAGS)
     rank = _group_rank(level_group)
 
     # (concept, group) 버킷 — 결정적 소비 순서로 정렬(콘텐츠 기반 키)

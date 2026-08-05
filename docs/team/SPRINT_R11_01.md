@@ -248,3 +248,52 @@ BE-2가 계약 형태로 명시하고 DO-1이 compose에 반영한다(파일 소
 
 §4·§6.4·§7.2 승계(파괴적 git 금지·docker 읽기만·커밋 PM). 기준선 backend 1120 ·
 프론트 스모크 13종.
+
+---
+
+## 9. R12 콘텐츠 — 뱅크 100 + 세션 10문항 디폴트 (2026-08-05 클라이언트 확정)
+
+**클라이언트 결정**: ① 뱅크를 ~100문항으로 저작해 "학습 세션 10~15문제 내외"의
+디폴트를 뱅크가 감당하고, ② 그 이후의 수준별 난이도 생성·조절은 Gemini 런타임
+생성(θ→level_group 매핑 — 기존 코드)이 넘겨받는다. ③ **저작 주체는 Claude** —
+"뱅크 확장=Gemini 키" 도식은 폐기(키는 파이프라인 실증 G0·런타임 데모 G2로 축소).
+
+### 9.1 편성·소유
+
+| 담당 | 항목 | 배타적 소유 |
+|---|---|---|
+| **BE-S** | 세션 디폴트 10(신규5·복습4·실황1) | `backend/app/core/config.py`(SESSION_RECIPE 기본값) · 배합 계약 테스트 · `frontend/mock/apiMockPlugin.js`(MOCK_SESSION_RECIPE — parity 동시 변경) · **시드 lint 하네스** `scripts/lint_seed_items.py`(신규 — author_items의 검사 함수 재사용: 휴리스틱 게이트+payload 계약+중복 배제를 파일 전체에) |
+| **AU-1** | 기상 뱅크 +47 저작 | `database/seed/staging/au1_weather_items.json`(신규 — **staging에만**, 본시드 병합은 PM 게이트) |
+| **AU-2** | 기초과학 40 저작 + 인프라 | `database/seed/staging/au2_basic_science_items.json`(신규) · `backend/app/scripts/seed_content.py`(ALLOWED_CONCEPT_TAGS 6종 개방) · `database/seed/units.json`(bs- 8유닛 — specs/11 §2 그대로) · `database/seed/climate_concepts.json`(신규 태그 개념 청크 추가) |
+| PM | staging → `content_items.json` 병합(append-only)·lint·실DB 왕복·커밋 | |
+
+### 9.2 계약
+
+- **저작 규격 = specs/11 §3**(payload 계약 — slider는 min·max·step·unit 필수·값 정합
+  6규칙) + 기존 시드 스키마(`concept_tag`·`level_group`·`question_type`·
+  `template_json`·`uses_live_slots`·`source`·`status`). `source.kind`는
+  `"claude-authored"` + refs에 근거 개념·저작 스프린트.
+- AU-1 목표 분배(공백 매트릭스 실측 기준): slider +12(태그당 2 — 전 태그 커버),
+  cloze +8, match +8, ordering +8, mc/short +11(elementary·adult 밸런스 —
+  현 13/28/12 → 저작분은 elementary·adult 우선). 과학적 정확성 우선, 문항 간
+  중복 금지(정규화 비교로 lint가 검사).
+- AU-2는 specs/11 §2 트리 그대로(3섹션 8유닛×5문항 하한, elementary 기본 톤).
+  bs-convection-board 유닛은 기존 보드 퍼즐 귀속(신규 판정 규칙 저작 금지).
+- **세션 10문항과 에너지 밸런스**: 오답 최대 10 > 구름 5이지만 "진행 중 세션은
+  잔량 0에도 완주 보장" 계약이 이미 흡수 — 계약 테스트 주석에 명시. daily-goal
+  3·5·9와의 의미 재조정은 **별도 판정**(이번에 안 건드림).
+- staging 산출물은 CI를 건드리지 않는다(로더는 content_items.json만 읽음) —
+  병합·전체 검증은 PM 게이트 1곳.
+
+### 9.2.1 목표 상향 (2026-08-05 클라이언트 정정)
+
+"100개"의 원의는 뱅크 100문항이 아니라 **100세션 × 10~15문제 커버**였다. 유니크
+연소는 신규 슬롯(5/일)뿐이므로(복습 4는 의도적 재사용, 실황 1은 날씨 회전)
+100세션 = 신규 500 × 수준 3축 ≈ **1,500문항**이 최종 목표다. 이번 웨이브의 141은
+품질 코어(첫 열흘 디폴트 + 유형·태그 커버리지 + G1 품질 기준 표본)이고, 잔여
+~1,360은 **G1 배치**(Gemini flash-lite, 3중 검수: 휴리스틱→LLM 검증→lint) 몫으로
+확정한다 — 손 저작 1,360은 가능하나 비합리(비용 수천 원 vs 대량 토큰).
+
+### 9.3 공통
+
+§4·§6.4 승계. 기준선 backend 1145 · 프론트 스모크 14종.

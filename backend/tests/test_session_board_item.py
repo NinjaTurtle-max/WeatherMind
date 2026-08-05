@@ -188,7 +188,7 @@ class TestSeedBoardRoundTrip:
 
     def test_시드_board_12건(self):
         """시드 board 문항 수 고정 — 증감 시 이 계약과 §3.5 커버리지를 함께 갱신."""
-        assert len(self.boards) == 12
+        assert len(self.boards) == 13  # R12 §9 — 기존 12 + bs-convection-board 귀속 1
 
     def test_전건_렌더_필수_필드_온전(self):
         for i, item in enumerate(self.boards):

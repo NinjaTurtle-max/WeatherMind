@@ -27,12 +27,23 @@ DEFAULT_SEED_PATH = (
 
 # DEVELOPMENT_PLAN §1 표준: concept_tag 6종 / level_group 3종 / question_type 3종
 ALLOWED_CONCEPT_TAGS = {
+    # 기상 코스 6종 (DEVELOPMENT_PLAN §1 — 불변, specs/11 §0-2)
     "pressure_front",
     "typhoon",
     "air_mass",
     "heat_island",
     "co2_climate",
     "anomaly",
+    # 기초과학 코스 신규 6종 — specs/11 §1. 코스 접두사 없는 평면 네임스페이스
+    # (θ·약점 태그가 코스를 가로질러 태그 단위로 이어지는 계약). 개방 시점은
+    # 문항 저작과 동시(§1 로더 반영 — 빈 태그가 약점 태그·복습 큐의 빈 축이 되지
+    # 않도록 저작 배치와 함께 연다. R12 AU-2).
+    "temperature_heat",
+    "radiation_budget",
+    "pressure_basics",
+    "phase_change",
+    "density_buoyancy",
+    "energy_transfer",
 }
 ALLOWED_LEVEL_GROUPS = {"elementary", "middle_high", "adult"}
 # 스프린트 R3-01 §3.8 — question_type 7종 (§3.6 신규 4종 포함)

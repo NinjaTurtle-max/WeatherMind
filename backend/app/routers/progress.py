@@ -53,7 +53,7 @@ from app.services.weather_api import KMA_GRID, KST
 router = APIRouter(prefix="/api/v1/progress", tags=["progress"])
 
 # 일일 목표 허용값 (R10-01 §3.4·D4) — mock의 DAILY_GOAL_CHOICES와 동일.
-# SESSION_RECIPE(합 5)와 **독립**이다: 표시용 카운터 타깃이지 세션 배합이 아니다.
+# SESSION_RECIPE(합 10)와 **독립**이다: 표시용 카운터 타깃이지 세션 배합이 아니다.
 DAILY_GOAL_CHOICES = (3, 5, 9)
 
 

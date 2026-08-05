@@ -790,6 +790,14 @@ def run_llm_checks(question: dict, concept_tag: str, level_group: str) -> list[d
 # 어떤 입력(누락 필드·잘못된 타입·units가 리스트 아님)도 예외 대신 "실패한 체크"로
 # 환원한다. 체크 배열은 항상 6개·고정 순서로 구성해 응답을 결정적으로 유지한다.
 CURRICULUM_CONCEPT_TAGS = (
+    # 기초과학 코스 6종 (R12 §9 — specs/11 §1. 유닛 AI 게이트가 bs- 유닛을
+    # concept_tag_valid로 탈락시키지 않도록 seed_content.ALLOWED_CONCEPT_TAGS와 동기)
+    "temperature_heat",
+    "radiation_budget",
+    "pressure_basics",
+    "phase_change",
+    "density_buoyancy",
+    "energy_transfer",
     "pressure_front",
     "typhoon",
     "air_mass",

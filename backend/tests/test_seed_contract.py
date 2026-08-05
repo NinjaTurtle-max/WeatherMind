@@ -66,7 +66,8 @@ class TestSeedSchema:
     def test_R3_R7_시드_증보_53건(self):
         """R3~R5 증보 47건 + R7-01 배치 커버리지 보강 2건(§5)
         + R7-02 배치 취약 셀 보강 4건(docs/data/PLACEMENT_COVERAGE_R7.md §6.3) = 53건."""
-        assert len(SEED_ITEMS) == 53
+        # R12 §9: 53(R3~R7 증보) + 47(기상 확장) + 40(기초과학) + 1(bs 보드) = 141
+        assert len(SEED_ITEMS) == 141
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
@@ -82,7 +83,8 @@ class TestSeedSchema:
         """CONTENT_GUIDE: source.kind=seed + climate_concepts 근거 청크 참조 필수."""
         for i, item in enumerate(SEED_ITEMS):
             source = item.get("source") or {}
-            assert source.get("kind") == "seed", f"[{i}] source.kind"
+            # R12 §9: Claude 저작분은 kind="claude-authored"(출처 추적 — 회수 단위)
+            assert source.get("kind") in ("seed", "claude-authored"), f"[{i}] source.kind"
             refs = source.get("refs")
             assert isinstance(refs, list) and refs, f"[{i}] source.refs 비어 있음"
 
@@ -90,11 +92,14 @@ class TestSeedSchema:
 class TestSeedCoverage:
     """S8 AC: 6태그 × 2학령 커버, 슬롯 문항 ≥ 6건."""
 
-    def test_6태그_전부_존재(self):
+    def test_12태그_전부_존재(self):
+        """기상 6종(R3~) + 기초과학 6종(R12 §9 — specs/11 §1)."""
         tags = {item["concept_tag"] for item in SEED_ITEMS}
         assert tags == {
             "pressure_front", "typhoon", "air_mass",
             "heat_island", "co2_climate", "anomaly",
+            "temperature_heat", "radiation_budget", "pressure_basics",
+            "phase_change", "density_buoyancy", "energy_transfer",
         }
 
     def test_태그마다_2개_이상_학령_커버(self):
@@ -163,25 +168,48 @@ BOARD_RULES = json.loads(BOARD_RULES_PATH.read_text(encoding="utf-8"))
 
 
 class TestUnitsSeedContract:
-    """§3.2-R5: units.json 12유닛(로더/잠금 정합은 test_curriculum_tree가 담당)."""
+    """§3.2-R5: units.json 유닛 계약(로더/잠금 정합은 test_curriculum_tree가 담당).
 
-    def test_12유닛(self):
-        assert len(UNITS) == 12
+    R12 AU-2: 기초과학 코스(specs/11 §2) bs- 8유닛 추가 — 기상 12 + 기초과학 8 = 20.
+    코스 구분은 course 필드로 시드에서 파생한다(하드코딩 대신 시드 파생).
+    """
 
-    def test_섹션은_관측보고서_4섹션(self):
-        sections = list(dict.fromkeys(u["section"] for u in UNITS))
-        assert sections == ["하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후"]
+    def test_20유닛_기상12_기초과학8(self):
+        by_course: dict[str, int] = {}
+        for u in UNITS:
+            by_course[u.get("course")] = by_course.get(u.get("course"), 0) + 1
+        assert len(UNITS) == 20
+        assert by_course == {"weather": 12, "basic-science": 8}
+
+    def test_섹션은_기상4_기초과학3(self):
+        """기상 코스는 관측보고서 4섹션(불변), 기초과학은 specs/11 §2의 3섹션."""
+        weather_sections = list(
+            dict.fromkeys(u["section"] for u in UNITS if u.get("course") == "weather")
+        )
+        assert weather_sections == ["하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후"]
+        bs_sections = list(
+            dict.fromkeys(
+                u["section"] for u in UNITS if u.get("course") == "basic-science"
+            )
+        )
+        assert bs_sections == ["열과 빛", "공기의 무게", "물과 에너지"]
 
     def test_board_유닛은_board_퍼즐_태그를_가진다(self):
         """board kind 유닛의 concept_tag는 board 퍼즐이 존재하는 태그여야 한다
-        (§3.2 board 유닛은 해당 concept_tag board 퍼즐 사용)."""
+        (§3.2 board 유닛은 해당 concept_tag board 퍼즐 사용).
+
+        기상 코스 한정 계약: 기초과학 bs-convection-board(density_buoyancy)의
+        퍼즐 귀속은 specs/11 §2 "기존 퍼즐 중 대류 중심 배치 선별 귀속"으로,
+        au2 staging → content_items.json 병합이 PM 게이트 소관이라 본시드만 읽는
+        이 테스트는 병합 전까지 기상 코스 board 유닛만 검증한다(병합 시 확장).
+        """
         board_tags = {
             item["concept_tag"]
             for item in SEED_ITEMS
             if item["question_type"] == "board"
         }
         for u in UNITS:
-            if u["kind"] == "board":
+            if u["kind"] == "board" and u.get("course") == "weather":
                 assert u["concept_tag"] in board_tags, (
                     f"board 유닛 {u['id']}의 태그 {u['concept_tag']}에 board 퍼즐 없음"
                 )

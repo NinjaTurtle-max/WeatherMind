@@ -70,7 +70,7 @@ class TestBoardDifficultySeedDistribution:
 
     def test_12건_분포_1_2_3_모두_존재(self):
         boards = self._seed_boards()
-        assert len(boards) == 12
+        assert len(boards) == 13  # R12 §9 — bs 대류 퍼즐(guided·elementary) 추가
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
@@ -83,7 +83,8 @@ class TestBoardDifficultySeedDistribution:
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
-        assert dist == {1: 3, 2: 5, 3: 4}
+        # R12 §9: bs 대류 퍼즐이 guided(난이도 1)로 합류 — 1이 3→4
+        assert dist == {1: 4, 2: 5, 3: 4}
 
 
 def _puzzle(name: str, level_group: str):

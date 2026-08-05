@@ -308,7 +308,7 @@ export default {
     },
     daily: {
       title: 'Free daily session',
-      body: "Want today's 5 questions right away instead of the set path?",
+      body: "Want today's 10 questions right away instead of the set path?",
       cta: "Start today's session →",
       resume: 'Resume your session →',
       regen: '☁️ About {min} min until a cloud returns',

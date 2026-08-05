@@ -115,7 +115,7 @@ class TestSeedTypeCoverage:
 
     def test_시드_53문항(self):
         """규모 고정 — 증감 시 이 계약과 §0 영향표를 함께 갱신."""
-        assert len(_seed_items()) == 53
+        assert len(_seed_items()) == 141  # R12 §9 — 53+47+40+1(bs 보드)
 
 
 class TestEverySeedItemIsPlayable:
