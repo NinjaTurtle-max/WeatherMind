@@ -561,6 +561,13 @@ step_downgrade() {
   fi
   cur_restored="$(compose exec -T backend alembic current 2>/dev/null | tr -d '\r' | grep -o '^[0-9a-z_]*' | tail -1)"
   echo "  복원 후 current=$cur_restored"
+  # 왕복이 지우는 것은 스키마만이 아니다 — downgrade가 드롭한 테이블의 **시드
+  # 데이터**는 upgrade가 되살리지 않는다(2026-08-05 실측: courses 0행, units.course_id
+  # 전량 NULL — 하위 호환 설계(NULL=weather) 덕에 앱은 돌지만 코스 전환이 조용히
+  # 사라진다). 멱등 시드로 원상 복구한다. 시드 순서 계약: courses → units.
+  echo "  시드 원상 복구 (courses → units — 멱등)"
+  compose exec -T backend python -m app.scripts.seed_courses >/dev/null 2>&1 || echo "  (seed_courses 없음 — 구 이미지)"
+  compose exec -T backend python -m app.scripts.seed_units >/dev/null 2>&1 || true
   if [ "$cur_after_down" != "$head" ] && [ -n "$cur_after_down" ] && [ "$cur_restored" = "$head" ]; then
     record "7 downgrade" "OK" "$head → $cur_after_down → $head 왕복"
   else
