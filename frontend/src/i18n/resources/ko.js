@@ -343,6 +343,7 @@ export default {
     // 세로 경로(PcCurriculumPath) — 노드 밑 라벨을 뺀 대신 진도 바가 "지금 어디"를 말한다.
     path: {
       introTitle: '이 단계에서 배우는 것',
+      start: '시작',
       fold: '접기',
       unfold: '펼치기',
       scrollHint: '↓ 스크롤해서 다음 단계',

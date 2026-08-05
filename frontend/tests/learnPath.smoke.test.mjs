@@ -13,6 +13,8 @@
  *      (넘기지 않으면 구름 0에서 PC만 열려 문항 진입 전 차단이 뷰포트별로 갈린다).
  *   ④ 접기는 **전 단계에 함께** 적용된다(단계마다 따로면 스크롤할 때마다 다시 접는다).
  *   ⑤ 노드 지름 계산에 쓰는 --n은 그 단계의 실제 노드 수여야 한다.
+ *   ⑥ 접기는 **아이콘 크기를 바꾸지 않는다** — 접을 때마다 커졌다 작아지면
+ *      화면이 출렁인다.
  *
  * 레이아웃 자체(스크롤 스냅·한 화면 한 단계·연결선 좌표)는 jsdom에 레이아웃
  * 엔진이 없어 여기서 재지 않는다 — 실브라우저 실측으로 확인한다.
@@ -50,13 +52,20 @@ for (const k of ['HTMLElement', 'Element', 'Node', 'Event', 'CustomEvent', 'Muta
 }
 globalThis.requestAnimationFrame = window.requestAnimationFrame?.bind(window) ?? ((cb) => setTimeout(cb, 16));
 globalThis.cancelAnimationFrame = window.cancelAnimationFrame?.bind(window) ?? clearTimeout;
-class NoopResizeObserver {
-  observe() {}
+// 관측 대상을 기록하는 ResizeObserver 스텁.
+// 연결선(StageLine)은 layout effect에서 경로 컨테이너를 잡아 관측한다. 그 시점에
+// element가 null이면 선이 영영 안 그려지는데, jsdom은 레이아웃이 없어 좌표로는
+// 확인할 수 없다 — **무엇을 관측했는지**로 대신 확인한다.
+const observed = [];
+class RecordingResizeObserver {
+  observe(el) {
+    observed.push(el);
+  }
   unobserve() {}
   disconnect() {}
 }
-window.ResizeObserver = NoopResizeObserver;
-globalThis.ResizeObserver = NoopResizeObserver;
+window.ResizeObserver = RecordingResizeObserver;
+globalThis.ResizeObserver = RecordingResizeObserver;
 
 const { createElement } = await import('react');
 const { createRoot } = await import('react-dom/client');
@@ -151,6 +160,14 @@ await render({});
     '노드 밑에 유닛명 텍스트를 두지 않는다(진도 바의 현재 유닛명은 예외)',
   );
 
+  // 연결선이 경로 컨테이너를 실제로 잡았는가 — **프로덕션에서만 터진 버그의 가드**.
+  // 부모의 ref를 받아 쓰면 자식 layout effect 시점에 아직 null이라 관측이 0건이 되고,
+  // 개발 모드에서는 StrictMode의 이중 실행이 그걸 가려 준다(실제로 그랬다).
+  ok(observed.length >= stages.length,
+     `단계마다 경로 컨테이너를 관측한다 — 관측 ${observed.length}건 / 단계 ${stages.length}개`);
+  ok(observed.every((el) => el && el.classList?.contains('wm-vpath')),
+     '관측 대상이 전부 .wm-vpath다(부모 ref 미확보로 null이 섞이지 않는다)');
+
   // ⑤ --n 은 그 단계의 노드 수
   const ns = stages.map((s) => s.querySelector('.wm-vpath').style.getPropertyValue('--n'));
   ok(ns.join(',') === '3,3,2,4', `단계별 --n = 3,3,2,4 — 실제 ${ns.join(',')}`);
@@ -172,6 +189,8 @@ await render({});
 {
   const chipsBefore = container.querySelectorAll('.wm-stage .rounded-full.bg-sky-100').length;
   ok(chipsBefore > 0, `펼침 상태에서 개념 칩이 보인다 — ${chipsBefore}개`);
+  const chromeOpen = container.querySelector('.wm-vpath').style.getPropertyValue('--chrome');
+  ok(chromeOpen === '210px', `펼침 상태 --chrome=210px — 실제 ${chromeOpen}`);
   const toggle = container.querySelector('.wm-stage button[aria-expanded]');
   await click(toggle);
   const expandedAll = [...container.querySelectorAll('button[aria-expanded]')].map((b) =>
@@ -182,9 +201,10 @@ await render({});
     container.querySelectorAll('.wm-stage .rounded-full.bg-sky-100').length === 0,
     '접으면 개념 칩이 전 단계에서 사라진다',
   );
-  // 접으면 경로가 쓸 높이가 늘어난다 → --chrome도 함께 줄어야 아이콘이 커진다
-  const chrome = container.querySelector('.wm-vpath').style.getPropertyValue('--chrome');
-  ok(chrome === '150px', `접힘 상태 --chrome=150px — 실제 ${chrome}`);
+  // 접어도 **아이콘 크기는 그대로**다(2026-08-05 결정). 노드 지름은 --chrome에서
+  // 역산하므로, 접기와 연동하면 접을 때마다 아이콘이 커졌다 작아져 화면이 출렁인다.
+  const chromeFolded = container.querySelector('.wm-vpath').style.getPropertyValue('--chrome');
+  ok(chromeFolded === '210px', `접어도 --chrome 불변(210px) — 실제 ${chromeFolded}`);
   await click(toggle); // 원복
 }
 

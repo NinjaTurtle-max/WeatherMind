@@ -316,6 +316,7 @@ export default {
     },
     path: {
       introTitle: 'What this stage covers',
+      start: 'Start',
       fold: 'Collapse',
       unfold: 'Expand',
       scrollHint: '↓ Scroll for the next stage',
