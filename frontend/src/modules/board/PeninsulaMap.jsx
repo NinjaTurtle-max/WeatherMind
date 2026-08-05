@@ -158,10 +158,10 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
             터뷸런스 그레인(wm-terrain)은 뺐다: 질감 없이 단순하게 가는 판단이고,
             그레인은 해안선 곡선을 지저분하게 갉아 각져 보이게 만들었다. */}
         <g transform={`scale(1 ${VIEW_H / 100})`} aria-hidden="true">
-          <path d={PENINSULA_PATH} fill="url(#wm-land)" stroke="#a9bccb" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          <path d={JEJU} fill="url(#wm-land)" stroke="#a9bccb" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          <path d={PENINSULA_PATH} fill="url(#wm-land)" stroke="#95C48B" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          <path d={JEJU} fill="url(#wm-land)" stroke="#95C48B" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           {DOKDO.map((d) => (
-            <path key={d} d={d} fill="url(#wm-land)" stroke="#a9bccb" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <path key={d} d={d} fill="url(#wm-land)" stroke="#95C48B" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           ))}
           {/* 태백산맥 능선 — 음영 + 능선 하이라이트 */}
           <path d={RIDGE} fill="none" stroke="#8a9a7a" strokeWidth="2" strokeLinecap="round" opacity="0.5" vectorEffect="non-scaling-stroke" />
