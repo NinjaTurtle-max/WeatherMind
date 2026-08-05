@@ -73,6 +73,9 @@ async def get_curriculum(
             SectionOut(
                 section=section["section"],
                 units=[UnitOut(**unit) for unit in section["units"]],
+                subtitle=section.get("subtitle"),
+                est_minutes=section.get("est_minutes"),
+                topics=section.get("topics", []),
             )
             for section in sections
         ]

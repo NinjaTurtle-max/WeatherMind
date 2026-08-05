@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { NAV_ITEMS } from './navItems';
 import { useT } from '../i18n';
 
 /**
@@ -7,26 +8,26 @@ import { useT } from '../i18n';
  * R5-01 S4: 기본 진입(/)을 학습 홈(커리큘럼)으로 교체. 자유 일일 세션(/daily)은
  * 학습 홈의 별도 진입 카드로 접근한다(탭 과밀 방지).
  *
+ * 2026-08-05: 홈 대시보드가 생기면서 `/`는 홈, 학습 경로는 `/learn`으로 갈렸다.
+ * 항목 목록은 `navItems.js` 단일 소유 — PC 사이드바(SideNav)와 같은 값을 쓴다.
+ * **PC(md↑)에서는 이 탭바가 숨는다**(사이드바와 중복이라).
+ *
  * R10-01 §3.4 (S4 — R10-F) 클라이언트 판정 정정(2026-08-01):
  * **탭을 자물쇠로 막지 않는다.** 아직 열리지 않은 기능도 탭은 그대로 눌러 들어갈
  * 수 있고, 목적지에서 "무엇인지 · 왜 좋은지 · 언제 열리는지 · 열려면 뭘 하면
  * 되는지"를 보여준다(FeatureUnlockGate). 잠금은 차단이 아니라 동기 부여 화면이다.
- * 따라서 이 컴포넌트는 게이트 상태를 알지 않는다 — 탭바는 항상 5탭 활성.
+ * 따라서 이 컴포넌트는 게이트 상태를 알지 않는다 — 탭은 항상 전부 활성.
  */
-const TABS = [
-  { to: '/', labelKey: 'nav.learn', icon: '🎓', end: true },
-  { to: '/board', labelKey: 'nav.board', icon: '🧩' },
-  { to: '/duel', labelKey: 'nav.duel', icon: '🌡️' },
-  { to: '/league', labelKey: 'nav.league', icon: '🏆' },
-  { to: '/me', labelKey: 'nav.me', icon: '🏅' },
-];
-
 export default function TabBar() {
   const t = useT();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur">
+    <nav
+      data-testid="tabbar"
+      aria-label={t('nav.primary')}
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden"
+    >
       <div className="mx-auto flex max-w-xl">
-        {TABS.map((tab) => (
+        {NAV_ITEMS.map((tab) => (
           <NavLink
             key={tab.to}
             to={tab.to}

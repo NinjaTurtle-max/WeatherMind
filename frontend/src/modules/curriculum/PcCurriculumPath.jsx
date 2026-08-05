@@ -31,10 +31,11 @@ import { conceptLabel, useT } from '../../i18n';
 
 const STATUS_ICON = { cleared: '👑', current: '⭐', unlocked: '🌀', locked: '🔒' };
 
-// 소개 스트립을 접으면 경로가 쓸 수 있는 높이가 늘어난다 — 노드 지름 계산
-// (CSS --chrome)에 그대로 반영해야 접었을 때 아이콘이 커진다.
-const CHROME_OPEN = 210;
-const CHROME_FOLDED = 150;
+// 노드 지름 계산에서 빼는 고정 영역(머리말 + 소개 스트립 + 진도 바)의 높이.
+// **접기 상태와 연동하지 않는다** — 접을 때마다 아이콘이 커졌다 작아지면 화면이
+// 출렁인다. 스트립을 접으면 경로가 쓸 높이는 늘지만 아이콘은 그대로 두고 여백만
+// 늘어난다(2026-08-05 결정).
+const CHROME = 210;
 
 // 단계 경계 너머로 뻗는 길의 꼬리 길이(px).
 const TAIL = 90;
@@ -90,12 +91,22 @@ function badgeStyle(status) {
 /**
  * 한 단계(섹션)의 연결선. 렌더 후 노드 중심을 실측해 폴리라인을 그린다.
  * `doneCount`는 이 단계에서 파란색으로 칠할 **노드 수**(꼬리 포함 판정은 호출부).
+ *
+ * ⚠️ **부모의 ref를 받아 쓰지 말 것.** React는 커밋 때 자식 → 부모 순으로 ref를
+ * 붙이고 layout effect도 그 순서로 돌린다. 그래서 이 컴포넌트의 layout effect가
+ * 도는 시점에 부모(.wm-vpath)의 ref는 아직 null이고, 측정이 그냥 빠져나간 뒤
+ * 다시 그릴 계기가 없어 **선이 영영 안 그려진다**.
+ * 개발 모드에서는 StrictMode가 effect를 두 번 돌려(마운트→언마운트→마운트)
+ * 두 번째에 성공하는 바람에 **프로덕션 빌드에서만** 드러났다(실제로 그랬다).
+ * 그래서 자기 자신(svg)에 ref를 걸고 `parentElement`로 올라간다 — 자기 DOM은
+ * 자기 effect 시점에 반드시 붙어 있다.
  */
-function StageLine({ containerRef, nodeCount, doneCount, leadIn, leadOut }) {
+function StageLine({ nodeCount, doneCount, leadIn, leadOut }) {
+  const svgRef = useRef(null);
   const [d, setD] = useState({ base: '', done: '' });
 
   const draw = useCallback(() => {
-    const el = containerRef.current;
+    const el = svgRef.current?.parentElement;
     if (!el) return;
     const box = el.getBoundingClientRect();
     if (box.height === 0) return;
@@ -123,19 +134,19 @@ function StageLine({ containerRef, nodeCount, doneCount, leadIn, leadOut }) {
       base: line(all),
       done: doneLen >= 2 ? line(all.slice(0, doneLen)) : '',
     });
-  }, [containerRef, nodeCount, doneCount, leadIn, leadOut]);
+  }, [nodeCount, doneCount, leadIn, leadOut]);
 
   useLayoutEffect(() => {
     draw();
-    const el = containerRef.current;
+    const el = svgRef.current?.parentElement;
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
     const ro = new ResizeObserver(draw);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [draw, containerRef]);
+  }, [draw]);
 
   return (
-    <svg className="wm-line" aria-hidden="true">
+    <svg ref={svgRef} className="wm-line" aria-hidden="true">
       <path d={d.base} fill="none" stroke="#E1E8EF" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
       {d.done && (
         <path d={d.done} fill="none" stroke="#9AD5F2" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
@@ -146,13 +157,19 @@ function StageLine({ containerRef, nodeCount, doneCount, leadIn, leadOut }) {
 
 function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit }) {
   const t = useT();
-  const pathRef = useRef(null);
   const units = section.units;
   const cleared = units.filter((u) => resolveStatus(u) === 'cleared').length;
 
-  // 개념 칩 — 유닛의 concept_tag에서 파생(중복 제거). 시안의 부제·예상시간은
-  // API에 대응 필드가 없어 넣지 않는다.
-  const concepts = [...new Set(units.map((u) => u.concept_tag).filter(Boolean))];
+  // 세부 주제 칩 — 서버 메타(section_meta.json)의 topics가 1순위다.
+  // 없으면 유닛 concept_tag로 떨어진다: concept_tag는 IRT 능력 축이라 6종뿐이고,
+  // 한 섹션이 칩 1~2개로 뭉개져 설명이 되지 않는다. 그래서 topics를 따로 둔다.
+  const chips =
+    section.topics?.length > 0
+      ? section.topics.map((tp) => ({ key: tp, label: tp }))
+      : [...new Set(units.map((u) => u.concept_tag).filter(Boolean))].map((c) => ({
+          key: c,
+          label: conceptLabel(t, c),
+        }));
 
   // 이 단계에서 파란색으로 칠할 노드 수 — 전역 blueTo를 단계 로컬로 환산한다.
   const doneCount = stageDoneCount(blueTo, offset, units.length);
@@ -163,7 +180,13 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
         <span className="grid h-7 w-7 flex-none place-items-center rounded-[9px] bg-sky-100 text-[13px] font-extrabold text-sky-700">
           {index + 1}
         </span>
-        <h3 className="text-[15px] font-extrabold text-slate-900">{section.section}</h3>
+        <div className="min-w-0">
+          <h3 className="text-[15px] font-extrabold text-slate-900">{section.section}</h3>
+          {/* 부제는 서버 메타(section_meta.json) — 없으면 줄 자체를 그리지 않는다 */}
+          {section.subtitle && (
+            <p className="mt-0.5 truncate text-[11px] text-slate-400">{section.subtitle}</p>
+          )}
+        </div>
         <span className="ml-auto flex-none rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-extrabold tabular-nums text-slate-500 ring-1 ring-slate-200">
           {cleared} / {units.length}
         </span>
@@ -181,12 +204,17 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
         </button>
         <p className="text-[9.5px] font-extrabold tracking-[0.4px] text-sky-700">
           {t('curriculum.path.introTitle')}
+          {section.est_minutes ? (
+            <span className="ml-1.5 font-bold text-slate-400">
+              · {t('curriculum.path.estMinutes', { min: section.est_minutes })}
+            </span>
+          ) : null}
         </p>
-        {introOpen && concepts.length > 0 && (
+        {introOpen && chips.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {concepts.map((c) => (
-              <span key={c} className="rounded-full bg-sky-100 px-2 py-[3px] text-[10px] font-bold text-sky-700">
-                {conceptLabel(t, c)}
+            {chips.map((c) => (
+              <span key={c.key} className="rounded-full bg-sky-100 px-2 py-[3px] text-[10px] font-bold text-sky-700">
+                {c.label}
               </span>
             ))}
           </div>
@@ -194,12 +222,10 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
       </div>
 
       <div
-        ref={pathRef}
         className="wm-vpath"
-        style={{ '--n': units.length, '--chrome': `${introOpen ? CHROME_OPEN : CHROME_FOLDED}px` }}
+        style={{ '--n': units.length, '--chrome': `${CHROME}px` }}
       >
         <StageLine
-          containerRef={pathRef}
           nodeCount={units.length}
           doneCount={doneCount}
           leadIn={index > 0}
@@ -223,6 +249,13 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
                 : '';
           return (
             <div key={unit.id} data-wm-node className="wm-node" style={{ '--k': weave(i, units.length).toFixed(3) }}>
+              {/* 「시작」 말풍선 — 지금 설 자리를 노드 위에 붙인다(시안). 데이터가
+                  필요 없는 표시라 여기서 만든다. */}
+              {status === 'current' && !blocked && (
+                <span className="pointer-events-none absolute bottom-[calc(100%+9px)] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-sky-600 px-3 py-1 text-[11px] font-extrabold text-white shadow-[0_3px_0_#0369A1]">
+                  {t('curriculum.path.start')}
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => !blocked && onOpenUnit(unit.id)}
@@ -329,8 +362,10 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
             ))}
           </div>
 
+          {/* 스크롤 힌트 — 오른쪽 위에 두면 단계 진도 칩(n/m)을 가린다.
+              진도 바 바로 위, 가운데에 둔다. */}
           {atStart && withUnits.length > 1 && (
-            <div className="pointer-events-none absolute right-4 top-3.5 z-[4] rounded-full bg-slate-800/60 px-2.5 py-1 text-[10.5px] font-bold text-white">
+            <div className="pointer-events-none absolute bottom-14 left-1/2 z-[4] -translate-x-1/2 rounded-full bg-slate-800/60 px-2.5 py-1 text-[10.5px] font-bold text-white">
               {t('curriculum.path.scrollHint')}
             </div>
           )}

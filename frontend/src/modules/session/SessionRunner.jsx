@@ -237,7 +237,7 @@ export default function SessionRunner({
   const [leaveIntent, setLeaveIntent] = useLeaveIntent(leaveGuardActive);
   const stay = useCallback(() => setLeaveIntent(null), [setLeaveIntent]);
   const leave = useCallback(() => {
-    const to = leaveIntent?.to ?? '/'; // 뒤로가기 인텐트는 학습 홈으로 내보낸다
+    const to = leaveIntent?.to ?? '/learn'; // 뒤로가기 인텐트는 학습 경로로 내보낸다
     setLeaveIntent(null);
     setLeftOnPurpose(true); // 가드 해제 → 링크 재클릭 없이 그대로 이동
     // replace(P2-1): 목적지가 **센티널 항목을 덮어쓴다**. push면 센티널이 히스토리

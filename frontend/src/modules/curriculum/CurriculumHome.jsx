@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { curriculumApi, progressApi } from '../../api';
-import { useAttendance } from '../../hooks/useAttendance';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import PcCurriculumPath from './PcCurriculumPath';
 import CourseSwitcher, { useCourses } from './CourseSwitcher';
@@ -56,7 +55,9 @@ const COURSE_SECTION_PREVIEW = {
 export default function CurriculumHome() {
   const navigate = useNavigate();
   const t = useT();
-  useAttendance(true);
+  // 출석 체크(스트릭)는 기본 진입인 홈(HomePage)이 맡는다. useAttendance가
+  // sessionStorage로 하루 1회를 이미 보장하므로 두 곳에서 불러도 POST가 두 번
+  // 가지는 않지만, 호출 지점이 둘이면 "어느 화면이 출석을 만드나"가 흐려진다.
 
   // 코스 선택 (R11-01 §6.2) — 명시 선택 전에는 is_default 코스를 따른다.
   // 코스 목록이 없는 환경(구 백엔드·미시드 DB)에서는 courses=[] → treeCourse=null

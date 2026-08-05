@@ -174,9 +174,10 @@ step_config() {
 #   assist      보드 언두·점진적 힌트 유지         webgl       단면 3D 드로우콜 예산·SCENES↔STORYBOARDS 정합
 #   overlay     지도 오버레이 정점·좌표 경계·파티클 상한·FLOW_META 사본 대조
 #   learn-path  학습 경로: 완료 구간이 섹션 경계를 넘음·노드 aria 라벨·구름 0 차단
+#   home        홈 대시보드: / ↔ /learn 분리·내비 단일 소유·출석 소유자·요일 채움
 # board_engine 공유 벡터(test:board)는 node_modules 없이 도는 전용 `board` 단계가
 # 소유하므로 여기서 중복 실행하지 않는다.
-FRONT_TESTS=(explore session placement visual gating board-entry assist webgl overlay i18n course-select guest-convert review-queue region learn-path)
+FRONT_TESTS=(explore session placement visual gating board-entry assist webgl overlay i18n course-select guest-convert review-queue region learn-path home)
 
 step_frontend() {
   banner "frontend: build + 스모크 ${#FRONT_TESTS[@]}종 (선택)"

@@ -9,9 +9,12 @@ clear 왕관/XP 처리(DB 결합부)를 담당한다. 유닛 세션은 기존 �
 진도: 유닛 세션 5/5(전 문항 정답) 또는 board 클리어 시 crowns +1(crown_target까지),
 cleared 전환 시 +20 XP 1회.
 """
+import json
+import logging
 import uuid
 from collections import Counter
 from datetime import date, datetime, timezone
+from pathlib import Path
 from typing import Any, Iterable
 
 from sqlalchemy import select
@@ -113,6 +116,43 @@ def course_view(
         "is_default": is_default,
         "units_total": len(scoped),
     }
+
+
+# 섹션 표시 메타(부제·예상 소요·세부 주제) — 판정 미사용, 화면 전용. 프로세스 캐시.
+# 유닛에서 파생할 수 없는 값이라 시드가 소유한다. 부재해도 트리는 그대로 동작한다
+# (board_regions 선례) — 프론트가 None/빈 리스트면 아무것도 그리지 않는다.
+logger = logging.getLogger(__name__)
+
+SECTION_META_PATH = (
+    Path(__file__).resolve().parents[3] / "database" / "seed" / "section_meta.json"
+)
+_section_meta_cache: dict[str, dict] | None = None
+
+
+def load_section_meta() -> dict[str, dict]:
+    """section_meta.json → {섹션명: {subtitle, est_minutes, topics}}."""
+    global _section_meta_cache
+    if _section_meta_cache is not None:
+        return _section_meta_cache
+    if not SECTION_META_PATH.exists():
+        logger.info("section_meta.json 부재 — 섹션 메타 없이 진행: %s", SECTION_META_PATH)
+        _section_meta_cache = {}
+        return _section_meta_cache
+    try:
+        rows = json.loads(SECTION_META_PATH.read_text(encoding="utf-8"))
+        _section_meta_cache = {
+            r["section"]: {
+                "subtitle": r.get("subtitle"),
+                "est_minutes": r.get("est_minutes"),
+                "topics": list(r.get("topics") or []),
+            }
+            for r in rows
+            if r.get("section")
+        }
+    except (OSError, ValueError, KeyError, TypeError):
+        logger.exception("section_meta.json 파싱 실패 — 섹션 메타 없이 진행")
+        _section_meta_cache = {}
+    return _section_meta_cache
 
 
 def _section_key(section: str) -> tuple[int, str]:
@@ -286,9 +326,13 @@ def build_curriculum(
     sections: list[dict[str, Any]] = []
     for section in sorted(grouped, key=_section_key):
         ordered = sorted(grouped[section], key=lambda u: u.unit_order)
+        meta = load_section_meta().get(section, {})
         sections.append(
             {
                 "section": section,
+                "subtitle": meta.get("subtitle"),
+                "est_minutes": meta.get("est_minutes"),
+                "topics": meta.get("topics", []),
                 "units": [
                     unit_view(
                         u, progress_by_unit, slug_by_id, unlock_floor, index_of[u.id]
