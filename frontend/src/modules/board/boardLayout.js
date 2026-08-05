@@ -28,9 +28,13 @@ export function toUser(point, dflt = [50, 50]) {
 // 지리적 폴백 좌표(정규화 0~100) — /board/regions 미로드 시 사용.
 // 좌표 SSOT = database/seed/board_regions.json (R9-01 §3.3 선행 리팩터: 시드↔폴백 일치).
 // 값 변경은 시드 파일에서만 — 여기는 시드 사본(드리프트 금지).
+// 값 출처는 docs/design/gen_peninsula.py의 ZONES — 지형 실루엣과 같은 확대 배율을
+// 타므로 지형을 다시 뽑으면 여기·시드도 같이 갱신한다.
+// 존을 프레임 가장자리로 밀지 말 것: 기단 유동 화살표가 오버레이 블리드 범위
+// [-20,120]를 넘어 test:overlay가 깨진다(x=8.7로 밀었다가 실제로 깨뜨렸다).
 export const FALLBACK_REGIONS = [
-  { name: '서해상', svg_point: [21, 54], label_anchor: [21, 66] },
-  { name: '수도권', svg_point: [43, 33], label_anchor: [43, 21] },
-  { name: '영서·태백', svg_point: [61, 47], label_anchor: [61, 35] },
-  { name: '영동·동해', svg_point: [82, 43], label_anchor: [88, 55] },
+  { name: '서해상', svg_point: [14.0, 45.8], label_anchor: [14.0, 56.8] },
+  { name: '수도권', svg_point: [36.0, 32.4], label_anchor: [36.0, 21.4] },
+  { name: '영서·태백', svg_point: [54.0, 47.0], label_anchor: [54.0, 58.0] },
+  { name: '영동·동해', svg_point: [70.0, 39.1], label_anchor: [76.0, 28.1] },
 ];
