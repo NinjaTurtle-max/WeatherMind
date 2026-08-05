@@ -97,7 +97,7 @@ export default function Layout() {
     <div className="md:pl-[208px]">
       <SideNav />
       <div className={`mx-auto flex min-h-screen max-w-xl flex-col ${shellWidth}`}>
-      <header className="fixed inset-x-0 top-0 z-50 bg-sky-900 shadow-md md:left-[208px]">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200 bg-white md:left-[208px]">
         {/* md↑에서 헤더를 사이드바 오른쪽부터 시작시킨다 — inset-x-0 그대로 두면
             헤더는 화면 전체 기준으로, 본문은 사이드바를 뺀 폭 기준으로 가운데
             정렬돼 좌우가 어긋난다. 브랜드는 사이드바 상단이 갖는다. */}
@@ -109,17 +109,14 @@ export default function Layout() {
             isWide ? 'md:max-w-6xl' : 'md:max-w-3xl'
           }`}
         >
-          {/* 로고 탭 → 홈(/). md↑에서는 브랜드를 사이드바가 보여주므로 아이콘만 남긴다. */}
-          <Link
-            to="/"
-            title={t('nav.homeTitle')}
-            className="shrink-0 rounded-lg text-base font-extrabold tracking-tight text-white transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-          >
-            <span aria-hidden="true">⛅</span>
-            <span className="sr-only">WeatherMind</span>
-          </Link>
+          {/* 브랜드는 헤더에 두지 않는다 — PC는 사이드바가, 모바일은 탭바 「홈」이
+              같은 자리를 이미 갖고 있다. 워드마크를 넣었더니 390px에서 로그아웃까지
+              425px로 넘쳤다(실측). 진척·자원 배지에 폭을 준다. */}
           <SpineBadge />
           <XPBar />
+          {/* 좌(진척) ↔ 우(자원·설정)를 갈라 놓는 여백. 이게 없으면 XPBar 상한을
+              둔 뒤로 항목이 전부 왼쪽에 몰린다(1440에서 864px에서 끝났다). */}
+          <div className="flex-1" />
           <CloudEnergyBadge />
           <StreakBadge />
           {/* 로케일 전환(§6.3) — header 안·nav 밖(gating 스모크가 탭바 항목 수를
@@ -128,7 +125,7 @@ export default function Layout() {
           <button
             type="button"
             onClick={handleLogout}
-            className="shrink-0 text-xs font-medium text-sky-200 hover:text-white"
+            className="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-900"
           >
             {t('nav.logout')}
           </button>

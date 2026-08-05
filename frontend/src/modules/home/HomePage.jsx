@@ -16,7 +16,7 @@ import { conceptLabel, useT } from '../../i18n';
  * `/learn`으로 갈렸다(§CurriculumHome).
  *
  * **실제 API에 있는 값만 쓴다.** 시안이 문서로 남긴 매핑을 그대로 따랐다:
- *   Lv·XP·구름·스트릭 → /progress/me · /progress/energy
+ *   Lv·XP·구름·스트릭 → 상단 바(Layout)가 소유한다 — 홈은 다시 그리지 않는다
  *   오늘의 목표      → me.daily_goal_items / me.today_answered_count (배치고사 제외는 서버)
  *   연속 출석        → me.streak_count / me.streak_freeze_count
  *   학습 세션 카드   → /curriculum 의 현재 유닛
@@ -104,11 +104,6 @@ export default function HomePage() {
     queryFn: progressApi.fetchMyProgress,
     staleTime: 30_000,
   });
-  const { data: energy } = useQuery({
-    queryKey: ['progress', 'energy'],
-    queryFn: progressApi.fetchEnergy,
-    staleTime: 10_000,
-  });
   const { data: tree } = useQuery({
     queryKey: ['curriculum'],
     queryFn: () => curriculumApi.fetchCurriculum(),
@@ -147,27 +142,11 @@ export default function HomePage() {
     <div className="pt-2">
       <GuestSaveBanner />
 
-      {/* 인사 + 스탯 */}
-      <div className="mb-4 flex flex-wrap items-center gap-2.5">
-        <div>
-          <h1 className="text-[19px] font-extrabold tracking-tight text-slate-900">{t('home.greet')}</h1>
-          <p className="mt-0.5 text-[12.5px] text-slate-500">{t('home.greetSub')}</p>
-        </div>
-        <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-extrabold text-slate-700">
-            Lv.<span className="tabular-nums">{me?.level ?? 1}</span>
-          </span>
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-extrabold tabular-nums text-slate-700">
-            {me?.xp ?? 0} / {me?.next_level_xp ?? 0} XP
-          </span>
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-extrabold text-slate-700">
-            ☁️ <span className="tabular-nums">{energy?.clouds ?? me?.clouds ?? 0}/{energy?.max ?? 5}</span>
-          </span>
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-extrabold text-slate-700">
-            🔥 <span className="tabular-nums">{me?.streak_count ?? 0}</span>
-            {t('home.dayUnit')}
-          </span>
-        </div>
+      {/* 인사 — 스탯(Lv·XP·구름·스트릭)은 상단 바가 이미 전 화면에서 보여준다.
+          여기 한 번 더 두면 같은 값이 한 화면에 두 벌이라 시선이 오른쪽으로 쏠린다. */}
+      <div className="mb-4">
+        <h1 className="text-[19px] font-extrabold tracking-tight text-slate-900">{t('home.greet')}</h1>
+        <p className="mt-0.5 text-[12.5px] text-slate-500">{t('home.greetSub')}</p>
       </div>
 
       {/* 바로 시작하기 */}
