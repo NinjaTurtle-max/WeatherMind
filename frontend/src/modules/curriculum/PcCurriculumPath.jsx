@@ -322,6 +322,40 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
 
   const onScroll = useCallback((e) => setAtStart(e.currentTarget.scrollTop < 24), []);
 
+  /**
+   * 트랙이 화면 어디서 시작하는지를 재서 CSS로 넘긴다(`--wm-track-top`).
+   * `.wm-track`의 높이가 "화면에서 이 값과 셸 아래 여백을 뺀 나머지"이기 때문이다.
+   *
+   * **상수로 박으면 안 되는 이유**: 트랙 위에 붙는 것이 상황마다 다르다 —
+   * 게스트 저장 배너 · 코스 탭(코스 2개 이상) · 구름 소진 경고. 하나만 떠도
+   * 트랙이 화면 밖으로 밀린다(실측: 코스 탭 하나에 1440×900이 37px 넘쳤다).
+   *
+   * 되먹임 없음: 재는 것은 **top**이고 top은 자기 높이와 무관하다(위쪽 형제들만이
+   * 정한다). 그래서 높이가 바뀌어 부모가 리사이즈돼도 같은 값이 다시 써질 뿐
+   * 값이 진동하지 않는다.
+   */
+  const wrapRef = useRef(null);
+  useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return undefined;
+    const apply = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      el.style.setProperty('--wm-track-top', `${Math.round(top)}px`);
+    };
+    apply();
+    window.addEventListener('resize', apply);
+    let ro;
+    if (typeof ResizeObserver !== 'undefined' && el.parentElement) {
+      // 위쪽 형제(배너·코스 탭·경고)가 나타나거나 사라지면 부모 높이가 바뀐다.
+      ro = new ResizeObserver(apply);
+      ro.observe(el.parentElement);
+    }
+    return () => {
+      window.removeEventListener('resize', apply);
+      ro?.disconnect();
+    };
+  }, []);
+
   // 현재 유닛이 있는 단계로 초깃값 정렬 — 매번 1단계부터 스크롤하게 두지 않는다.
   useEffect(() => {
     const el = scrollerRef.current;
@@ -344,7 +378,7 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
   // pb-6은 뺐다 — main이 이미 pb-8을 갖고 있어, 트랙 아래 여백이 두 겹으로
   // 쌓이면서 그만큼 페이지에 세로 스크롤이 생겼다(실측 28px).
   return (
-    <div className="hidden md:block">
+    <div ref={wrapRef} className="hidden md:block">
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="wm-track min-w-0 rounded-[20px] bg-white ring-1 ring-slate-200">
           <div ref={scrollerRef} className="wm-scroller" onScroll={onScroll}>

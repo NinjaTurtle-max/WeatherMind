@@ -168,10 +168,20 @@ await render({});
   // 연결선이 경로 컨테이너를 실제로 잡았는가 — **프로덕션에서만 터진 버그의 가드**.
   // 부모의 ref를 받아 쓰면 자식 layout effect 시점에 아직 null이라 관측이 0건이 되고,
   // 개발 모드에서는 StrictMode의 이중 실행이 그걸 가려 준다(실제로 그랬다).
-  ok(observed.length >= stages.length,
-     `단계마다 경로 컨테이너를 관측한다 — 관측 ${observed.length}건 / 단계 ${stages.length}개`);
-  ok(observed.every((el) => el && el.classList?.contains('wm-vpath')),
-     '관측 대상이 전부 .wm-vpath다(부모 ref 미확보로 null이 섞이지 않는다)');
+  const vpathObserved = observed.filter((el) => el?.classList?.contains('wm-vpath'));
+  ok(vpathObserved.length >= stages.length,
+     `단계마다 경로 컨테이너를 관측한다 — 관측 ${vpathObserved.length}건 / 단계 ${stages.length}개`);
+  ok(observed.every(Boolean),
+     '관측 대상에 null이 섞이지 않는다(부모 ref 미확보 시 null이 들어온다)');
+
+  // 트랙 높이를 정하는 `--wm-track-top`이 실제로 써지는가.
+  // 트랙 위에 붙는 것(게스트 배너·코스 탭·구름 경고)이 상황마다 달라서 상수로 두면
+  // 하나만 떠도 페이지가 세로로 넘친다 — 실측: 코스 탭 하나에 1440×900이 37px 넘쳤다.
+  // jsdom은 레이아웃이 없어 값은 0px지만, **써졌는지 여부**는 여기서 지킬 수 있다.
+  const pcWrap = container.querySelector('.wm-track')?.closest('div[style*="--wm-track-top"]');
+  ok(pcWrap, '경로 래퍼가 --wm-track-top을 자기 style에 넣는다(트랙 높이의 유일한 입력)');
+  ok(observed.some((el) => el?.contains?.(container.querySelector('.wm-track'))),
+     '트랙을 품은 조상을 관측한다 — 위쪽 형제가 나타났다 사라져도 높이를 다시 잡는다');
 
   // 섹션 메타 — 있으면 그리고, 없으면 그 줄 자체를 만들지 않는다
   ok(container.textContent.includes(SUBTITLE), '메타가 있는 섹션은 부제를 보여준다');
