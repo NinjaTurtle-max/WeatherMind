@@ -202,16 +202,9 @@ export function InfographicDefs() {
         <stop offset="55%" stopColor="#e9e5d6" />
         <stop offset="100%" stopColor="#ddd8c6" />
       </linearGradient>
-      {/* 지형 그레인 — 터뷸런스 알파로 옅은 얼룩(위성 음영 암시) */}
-      <filter id="wm-terrain" x="-5%" y="-5%" width="110%" height="110%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.28 0.34" numOctaves="4" seed="11" result="n" />
-        <feColorMatrix
-          in="n"
-          type="matrix"
-          values="0 0 0 0 0.35  0 0 0 0 0.38  0 0 0 0 0.30  0 0 0 0.35 0"
-        />
-        <feComposite in2="SourceGraphic" operator="in" />
-      </filter>
+      {/* 지형 그레인(wm-terrain)은 제거됐다 — 보드 지형이 "질감 없이 단순하게"로
+          가면서 쓰는 곳이 사라졌고, 매 프레임 feTurbulence를 도는 비용만 남았다.
+          되살릴 일이 있으면 git 이력에서 꺼낼 것. */}
       {/* 구름 질감 — 터뷸런스 변위로 가장자리를 찢는다(상.png 지향) */}
       <filter id="wm-cloud-turb" x="-45%" y="-45%" width="190%" height="190%">
         <feTurbulence type="fractalNoise" baseFrequency="0.14 0.2" numOctaves="3" seed="8" result="n" />

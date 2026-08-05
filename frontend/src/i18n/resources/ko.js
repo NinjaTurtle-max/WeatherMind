@@ -293,8 +293,8 @@ export default {
       regenResume: '☁️ 구름 회복까지 약 {min}분 — 오늘 시작한 세션은 끝까지 마칠 수 있어요.',
     },
     tutor: {
-      chip: '⚡ 튜터',
-      name: '썬더',
+      chip: '💧 튜터',
+      name: '물방울이',
       greet: '"{title}" 유닛이네요 — 차근차근 같이 풀어봐요!',
       greetDefault: '오늘도 하늘 읽으러 가볼까요?',
     },

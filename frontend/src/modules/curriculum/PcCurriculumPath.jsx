@@ -1,7 +1,13 @@
+import Mascot from '../../components/Mascot';
+
 /**
  * PcCurriculumPath — 학습 홈의 PC(데스크톱, md↑) 전용 경로 뷰.
  * 모바일의 세로 지그재그(§CurriculumHome)와 별도로, 섹션 구분 없이 4열 스네이크로
  * 이어진 곡선 리본 경로 + 튜터 카드를 보여준다. 모바일 뷰는 그대로 유지.
+ *
+ * 캐릭터는 학습 세션 담당인 물방울이다(Mascot). 태양이는 게임 보드로 갔고,
+ * 이전 마스코트 「썬더」는 폐기. 이름·칩 문구는 i18n `curriculum.tutor`가 소유한다
+ * — 그림만 바꾸고 문구를 놔두면 물방울이 옆에 "썬더"가 뜬다(실제로 그랬다).
  *
  * 레이아웃 계약: 경로 캔버스는 고정 px 폭을 갖지 않는다(가로 오버플로 방지).
  *   - 노드 x는 컨테이너 폭 대비 %, y는 px.
@@ -22,9 +28,6 @@ const COLS_PER_ROW = 4;
 const STATUS_ICON = { cleared: '👑', current: '🌀', unlocked: '🌀', locked: '🔒' };
 // 개념 표시명은 concept.* 리소스(i18n)의 conceptLabel() 공용 헬퍼로.
 
-const PAW_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72"><g fill="#E8A400" fill-opacity="0.16"><ellipse cx="36" cy="46" rx="13" ry="10.5"/><ellipse cx="20" cy="30" rx="5.6" ry="6.8"/><ellipse cx="34" cy="21" rx="6.2" ry="7.4"/><ellipse cx="49" cy="27" rx="5.8" ry="7"/></g></svg>';
-const PAW_BG = `url("data:image/svg+xml,${encodeURIComponent(PAW_SVG)}")`;
 
 function bezierPath(points) {
   if (points.length === 0) return '';
@@ -150,7 +153,7 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
                     style={{ left: `${n.x}%`, top: n.y }}
                   >
                     {n.isSectionStart && (
-                      // 현재 노드에는 썬더가 위에 서므로 섹션 라벨을 더 올려 겹침을 피한다.
+                      // 현재 노드에는 태양이가 위에 서므로 섹션 라벨을 더 올려 겹침을 피한다.
                       <span
                         className={`absolute whitespace-nowrap rounded-full bg-[#0E2A42] px-[11px] py-1 text-[10.5px] font-extrabold text-white ${
                           isCurrent ? '-top-[80px]' : '-top-[38px]'
@@ -160,12 +163,7 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
                       </span>
                     )}
                     {isCurrent && (
-                      <img
-                        src="/기본자세.png"
-                        alt=""
-                        aria-hidden="true"
-                        className="absolute -top-[34px] w-[68px] drop-shadow-md"
-                      />
+                      <Mascot name="drop" className="absolute -top-[34px] w-[64px] drop-shadow-md" />
                     )}
                     <button
                       type="button"
@@ -240,20 +238,16 @@ function TutorCard({ unit }) {
     <div
       // lg 미만에서는 경로 아래로 쌓이므로, 가로로 늘어져 허전해 보이지 않게 폭을 제한한다.
       className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl p-5 lg:max-w-none"
-      style={{
-        backgroundImage: `${PAW_BG}, linear-gradient(180deg, #FFF9EA 0%, #FFF3D6 55%, #ffffff 100%)`,
-        backgroundRepeat: 'repeat, no-repeat',
-        backgroundSize: '72px 72px, auto',
-      }}
+      style={{ background: 'linear-gradient(180deg, #EFF8FE 0%, #F7FBFE 55%, #ffffff 100%)' }}
     >
       <span className="absolute left-4 top-3.5 rounded-full bg-[#0E2A42] px-2.5 py-1 text-[10.5px] font-extrabold text-white">
         {t('curriculum.tutor.chip')}
       </span>
       <div className="mt-8 flex justify-center">
-        <img src="/헤헤한팔.png" alt="" aria-hidden="true" className="w-[200px] drop-shadow-lg" />
+        <Mascot name="drop" className="w-[180px] drop-shadow-lg" />
       </div>
       <div className="relative mt-1 rounded-2xl bg-white p-3 shadow-md">
-        <p className="mb-0.5 text-[11px] font-extrabold text-[#E8A400]">{t('curriculum.tutor.name')}</p>
+        <p className="mb-0.5 text-[11px] font-extrabold text-[#0369A1]">{t('curriculum.tutor.name')}</p>
         <p className="text-[13.5px] font-bold leading-snug text-slate-800">{greeting}</p>
       </div>
     </div>
