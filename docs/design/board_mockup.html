@@ -250,7 +250,11 @@
         <div class="mapwrap">
           <div class="mapinner" id="mapinner">
            <div class="mapstage">
-            <svg viewBox="0 0 100 80" preserveAspectRatio="none" aria-hidden="true">
+            <!-- preserveAspectRatio는 기본값(meet)으로 둔다. .mapstage가 aspect-ratio로
+                 100/80을 고정하므로 "none"이 있으나 없으나 렌더는 같지만(3해상도 실측
+                 동일), 그 고정이 깨지는 날 "none"은 지도를 조용히 늘여 뭉개진 덩어리로
+                 만든다 — 예전에 실제로 그렇게 깨뜨렸다. -->
+            <svg viewBox="0 0 100 80" aria-hidden="true">
               <defs>
                 <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0" stop-color="#DCF0FA"/><stop offset="1" stop-color="#EAF7FD"/>
