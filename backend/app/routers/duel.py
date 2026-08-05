@@ -119,6 +119,9 @@ async def _base_forecast_for(duel_date) -> dict | None:
 
     get_today_weather가 Redis 1h 캐시(+5분 실패 마커) 뒤에 있어 GET마다 호출해도
     KMA 재호출·타임아웃 비용은 지불하지 않는다 (R9-01 §1).
+    **서울 고정**(R11-01 §8 계약 정정) — 대결은 리그와 같은 채점 축이라 정산
+    (celery settle_daily_duel, 서울 실측)과 같은 지역을 봐야 한다. 유저 지역화는
+    duels.region 스냅샷 + 정산 지역화와 함께만 성립(R12 후속, 아래 submit 주석).
     """
     weather = await get_today_weather()
     return duel_service.extract_forecast_for_date(weather, duel_date)
@@ -163,6 +166,10 @@ async def get_duel_briefing(
     today = datetime.now(KST).date()
     target_date = _duel_target_date()
 
+    # ⚠️ 대결 브리핑은 유저 지역화 **대상이 아니다** (R11-01 §8 계약 정정 — PM 판정).
+    # 정산이 서울 실측 고정(celery settle_daily_duel)이라 판단 재료를 유저 지역으로
+    # 주면 "부산 예보 보고 예측 → 서울 실측 채점"의 정합성 붕괴가 생긴다. 대결·리그는
+    # 같은 채점 축("서울 기준 전국 대결")을 유지한다 — 세션 실황·RAG 피드백과 다른 점.
     weather = await get_today_weather()  # 실패 시 {} — hourly는 빈 배열이 된다
     hourly = duel_service.briefing_hourly(weather, (today, target_date))
 
@@ -205,7 +212,11 @@ async def submit_today_duel(
             detail={"detail": "오늘 예보 대결을 이미 제출했습니다.", "code": "ALREADY_SUBMITTED"},
         )
 
-    # AI 캐스터 예측 — KMA 내일 예보(TMX·POP) 기준 결정적 노이즈로 제출 시점에 고정(§3.4)
+    # AI 캐스터 예측 — KMA 내일 예보(TMX·POP) 기준 결정적 노이즈로 제출 시점에 고정(§3.4).
+    # **서울 고정**(R11-01 §8 계약 정정) — 정산(celery settle_daily_duel)이 서울 실측
+    # 기준이므로 유저·캐스터의 판단 재료도 같은 축이어야 공정하다. 대결의 유저
+    # 지역화는 duels.region 제출 시점 스냅샷 + 정산 지역화 + ASOS 지점 12도시 보강
+    # (현재 서울·부산·강릉 3/12)이 갖춰져야 성립 — KMA 키 이후 별건(R12 후속).
     weather = await get_today_weather()
     base_forecast = duel_service.extract_forecast_for_date(weather, duel_date)
     base = base_forecast or _FALLBACK_BASE

@@ -157,6 +157,7 @@ class _FakeUser:
     streak_freeze_count = 1
     placement_completed_at = None
     daily_goal_items = None  # 일일 목표 미설정 (R10-01 D4 — /me additive 필드)
+    region = None  # 지역 미설정 (R11-01 §8.2 — /me additive 필드, NULL=서울)
 
 
 class TestGetSpineReadOnly:

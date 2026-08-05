@@ -35,7 +35,7 @@ from app.models.session import Session
 from app.models.user import User
 from app.schemas.quiz import AnswerResult
 from app.services import ai_client, board_engine, weatherbrain_service, xp_service
-from app.services.weather_api import get_today_weather
+from app.services.weather_api import get_today_weather, user_region
 
 # 슬라이더 채점 허용 오차 (0~100 스케일)
 SLIDER_TOLERANCE = 10.0
@@ -282,7 +282,8 @@ async def submit_answer_for_log(
             question, phenomena or [], is_correct, board_rules or []
         )
     else:
-        today_weather = await get_today_weather()
+        # RAG 피드백의 오늘 날씨도 유저 지역 기준 (R11-01 §8.2 — NULL=서울)
+        today_weather = await get_today_weather(user_region(user))
         feedback = await ai_client.rag_feedback(
             question_text=question.get("question_text", ""),
             user_answer=answer,

@@ -7,6 +7,7 @@
 | GET  | /quests     | 오늘의 일일 퀘스트 진행/완료 (R4-01 §3.1) |
 | GET  | /badges     | 배지 정의 + 획득 시각 (R4-01 §3.3) |
 | PUT  | /daily-goal | 일일 목표 문항 수 설정 (R10-01 §3.4) → {daily_goal_items} |
+| PUT  | /region     | 사용자 지역 설정 (R11-01 §8.2, KMA_GRID 12도시) → {region} |
 """
 from datetime import date, datetime, timedelta
 
@@ -29,6 +30,8 @@ from app.schemas.progress import (
     EnergyState,
     ProgressMe,
     QuestOut,
+    RegionOut,
+    RegionUpdate,
     ReviewQueueItem,
     SpineOut,
     WeakConceptOut,
@@ -45,7 +48,7 @@ from app.services import (
     session_service,
     xp_service,
 )
-from app.services.weather_api import KST
+from app.services.weather_api import KMA_GRID, KST
 
 router = APIRouter(prefix="/api/v1/progress", tags=["progress"])
 
@@ -122,6 +125,7 @@ async def get_me(
         spine=SpineOut(**spine),
         daily_goal_items=user.daily_goal_items,
         today_answered_count=answered_today,
+        region=user.region,
     )
 
 
@@ -151,6 +155,33 @@ async def set_daily_goal(
     db_user.daily_goal_items = payload.items
     await db.flush()
     return DailyGoalOut(daily_goal_items=payload.items)
+
+
+@router.put("/region", response_model=RegionOut)
+async def set_region(
+    payload: RegionUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_with_rls),
+) -> RegionOut:
+    """사용자 지역 설정 (R11-01 §8.2) — KMA_GRID 12도시 화이트리스트, 그 외 422.
+
+    daily-goal 선례 준용(D10-4): 422는 명시적 HTTPException({detail: str,
+    code: "VALIDATION_ERROR"})으로 낸다. NULL 해제(미설정 복귀)는 제공하지 않는다 —
+    한 번 고르면 지역만 바꾸는 UX(§8.2 픽커)라 계약에 없다.
+    """
+    if payload.region not in KMA_GRID:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "detail": "지원하지 않는 지역입니다: "
+                + "·".join(KMA_GRID) + " 중 하나여야 합니다",
+                "code": "VALIDATION_ERROR",
+            },
+        )
+    db_user = await db.get(User, user.id)
+    db_user.region = payload.region
+    await db.flush()
+    return RegionOut(region=payload.region)
 
 
 @router.get("/energy", response_model=EnergyState)

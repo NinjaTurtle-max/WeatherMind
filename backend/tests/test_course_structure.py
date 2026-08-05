@@ -284,8 +284,12 @@ class TestMigration0009:
         assert 'op.drop_column("units", "course_id")' in source
         assert 'op.drop_table("courses")' in source
 
-    def test_단일_head_0009(self):
-        """alembic heads == 0009_courses 하나 — 병렬 담당의 번호 충돌 감시(§2)."""
+    def test_단일_head는_최신_리비전(self):
+        """alembic heads 단일 — 병렬 담당의 번호 충돌 감시(§2).
+
+        head 값 자체는 최신 마이그레이션 추가 시 함께 전진한다(0010: R11-01 §8
+        users.region — test_user_region.py가 0010 head를 고정).
+        """
         revisions: dict[str, str | None] = {}
         pattern = re.compile(
             r'^(revision|down_revision)(?::\s*[^=]+)?\s*=\s*(?:"([^"]+)"|None)',
@@ -299,7 +303,7 @@ class TestMigration0009:
             revisions[found["revision"]] = found.get("down_revision")
         referenced = {down for down in revisions.values() if down}
         heads = set(revisions) - referenced
-        assert heads == {"0009_courses"}
+        assert len(heads) == 1, f"alembic head가 갈라졌다: {heads}"
 
 
 # ═══════════════════════════════════════════════════════════════

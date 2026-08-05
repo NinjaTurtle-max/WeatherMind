@@ -573,7 +573,7 @@ def run_submit(monkeypatch, *, elo):
     """submit_today_duel을 배선 검증용으로 실행 — KMA 폴백 base 고정."""
     fake_user = SimpleNamespace(id=uuid.UUID(USER))
 
-    async def fake_weather():
+    async def fake_weather(*args, **kwargs):  # region 인자 수용 (R11-01 §8 지역화)
         return {}  # 예보 없음 → _FALLBACK_BASE 사용 (결정적)
 
     async def fake_rating(db, user_id):

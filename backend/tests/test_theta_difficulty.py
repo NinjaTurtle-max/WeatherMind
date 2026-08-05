@@ -213,7 +213,7 @@ class TestSessionWiring:
             calls["generate_level_groups"].append(kwargs["level_group"])
             return {"question_type": "multiple_choice", "concept_tag": "typhoon"}
 
-        async def fake_weather():
+        async def fake_weather(*args, **kwargs):  # region 인자 수용 (R11-01 §8 지역화)
             return {"region": "서울", "forecasts": []}
 
         monkeypatch.setattr(wb, "refresh_abilities", fake_refresh)

@@ -40,7 +40,7 @@ from app.models.user import User
 from app.models.weak_tag import WeakTag
 from app.services import ai_client, weather_api, weatherbrain_service
 from app.services.ai_client import AIWorkerError
-from app.services.weather_api import KST, SKY_TEXT, get_today_weather
+from app.services.weather_api import KST, SKY_TEXT, get_today_weather, user_region
 
 logger = logging.getLogger(__name__)
 
@@ -472,7 +472,9 @@ async def create_daily_session(
     # review 풀의 약점 개념은 θ 파생 단일 공급원 (R8-01 §3.5, 학령 상대 임계)
     weak_concepts = weatherbrain_service.weak_concepts(abilities, user.level_group)
 
-    weather = await get_today_weather()
+    # 실황은 유저 지역 기준 (R11-01 §8.2 — NULL=서울). 캐시 키(weather:{date}:{region})가
+    # 지역별로 갈리므로 today.* 슬롯·생성 폴백 weather_data가 함께 지역화된다.
+    weather = await get_today_weather(user_region(user))
     slot_values = extract_slot_values(weather)
 
     # 대표 θ — route 목표 개념 우선, 없으면 가중 평균 (콜드스타트면 None)

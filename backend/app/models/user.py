@@ -53,6 +53,12 @@ class User(Base):
     # 허용값 {3, 5, 9}는 API 계층에서 검증한다. SESSION_RECIPE(합 5)와 독립된
     # 표시용 타깃이라 세션 배합에 영향을 주지 않는다.
     daily_goal_items: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # 사용자 지역 (R11-01 §8.2) — NULL이면 서울(weather_api.user_region이 폴백의
+    # 단일 소유자). courses의 NULL=weather와 같은 하위 호환 패턴: 기존 유저·게스트
+    # 무변경, backfill 불필요. KMA_GRID 12도시 화이트리스트는 API 계층
+    # (PUT /progress/region, 422)에서 검증한다 — daily_goal_items 선례(CHECK 제약
+    # 없음: 도시 추가 시 마이그레이션 없이 KMA_GRID만 확장).
+    region: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
