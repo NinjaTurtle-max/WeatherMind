@@ -185,8 +185,9 @@ class TestCurriculumThreeWaySchema:
     """
 
     def test_units_json_로드(self):
+        # R12 AU-2: 기상 12 + 기초과학 8(specs/11 §2) = 20
         units = json.loads(UNITS_JSON.read_text(encoding="utf-8"))
-        assert isinstance(units, list) and len(units) == 12
+        assert isinstance(units, list) and len(units) == 20
 
     def test_백엔드_로더_수용(self):
         from app.scripts.seed_units import validate_entry
@@ -200,11 +201,19 @@ class TestCurriculumThreeWaySchema:
 
         board 유닛(concept_tag: pressure_front·air_mass·anomaly)마다 해당 태그의
         board 퍼즐이 content_items에 실재하는지까지 교차 검증한다(board_puzzle_exists).
+
+        R12 AU-2 범위 한정: 이 계약(R5)의 원범위인 **기상 코스 유닛**만 게이트에
+        넣는다. 기초과학 bs- 유닛은 ① validate_chain.CURRICULUM_CONCEPT_TAGS가
+        아직 기상 6종 전용이고(신규 6태그 개정은 specs/11 §3의 03스펙·quiz_gen_chain
+        동시 개정 트랙 — AU-2 소유 밖, PM 보고됨) ② board 퍼즐 귀속이 au2 staging
+        병합(PM 게이트) 이후라, 화이트리스트 개정 시 이 한정을 걷어낸다.
         """
         validate_chain = _import_ai_worker_validate_chain()
         units = json.loads(UNITS_JSON.read_text(encoding="utf-8"))
+        weather_units = [u for u in units if u.get("course") == "weather"]
+        assert len(weather_units) == 12  # 원계약(R5) 범위 불변 가드
         content = json.loads(CONTENT_JSON.read_text(encoding="utf-8"))
-        result = validate_chain.validate_curriculum(units, content)
+        result = validate_chain.validate_curriculum(weather_units, content)
         failed = [c for c in result["checks"] if not c["passed"]]
         assert result["passed"] is True, f"AI 커리큘럼 게이트 실패: {failed}"
         names = {c["name"] for c in result["checks"]}

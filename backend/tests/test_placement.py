@@ -25,7 +25,7 @@ from app.core.config import Settings
 from app.models.quiz_log import QuizLog
 from app.services import ai_client, answer_service
 from app.services import placement_service as ps
-from app.services.weatherbrain_service import CONCEPT_TAGS
+from app.services.weatherbrain_service import PLACEMENT_QUIZ_TAGS as CONCEPT_TAGS  # 진단 도메인(기상 6종) — 12종 전체와 분리(R12 §9)
 
 
 def make_item(concept: str, group: str, item_id: str, *,

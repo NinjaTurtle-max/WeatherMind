@@ -31,6 +31,19 @@ from app.services.ai_client import AIWorkerError
 logger = logging.getLogger(__name__)
 
 # 정본 개념 태그 — database/seed/content_items.json 과 일치(계약 테스트가 감시).
+# 배치고사 6문항의 선별 도메인 — **기상 코스 6종만**(R12 §9 판정).
+# CONCEPT_TAGS(아래, 12종)는 가입 시 θ를 초기화하는 전체 개념 목록이고, 배치 문항은
+# PLACEMENT_SIZE=6으로 개념당 1을 만족해야 하므로 도메인을 기상 6종으로 한정한다.
+# 기초과학 개념의 θ는 사전분포로 초기화되고 실제 응답으로 갱신된다(specs/11 §4).
+PLACEMENT_QUIZ_TAGS: tuple[str, ...] = (
+    "pressure_front",
+    "typhoon",
+    "air_mass",
+    "heat_island",
+    "co2_climate",
+    "anomaly",
+)
+
 CONCEPT_TAGS: tuple[str, ...] = (
     "air_mass",
     "anomaly",
@@ -38,6 +51,15 @@ CONCEPT_TAGS: tuple[str, ...] = (
     "heat_island",
     "pressure_front",
     "typhoon",
+    # 기초과학 6종 (R12 §9 — specs/11 §4 판정: 배치가 bs 개념 θ도 초기화한다.
+    # priors는 level_group 기반이라 태그 추가에 사전값 신설이 필요 없고,
+    # θ가 코스를 가로지르는 단일 통화라는 §5.1.1 원칙이 여기서 성립한다)
+    "temperature_heat",
+    "radiation_budget",
+    "pressure_basics",
+    "phase_change",
+    "density_buoyancy",
+    "energy_transfer",
 )
 
 # θ → 사람이 읽는 난이도 라벨. 경계(-0.5, 0.5)는 ai-worker priors.theta_to_target_level_group

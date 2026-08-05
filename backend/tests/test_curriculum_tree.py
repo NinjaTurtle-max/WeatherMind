@@ -371,12 +371,22 @@ def _has_cycle(entries: list[dict]) -> bool:
     return False
 
 
-class TestRealUnitsJson:
-    """실제 units.json(12유닛, slug 방식) 적재 정합·잠금 체인 생존 검증."""
+# 선행 없는 루트 유닛 — 시드에서 파생(R12 AU-2: 기상 단일 루트 + 기초과학은
+# specs/11 §2 "섹션 간 선행 없음" 규약이라 섹션 첫 유닛 3개가 루트).
+def _real_roots() -> set[str]:
+    return {u["id"] for u in _load_real_units() if u["prereq_unit_id"] is None}
 
-    def test_파일_로드_및_12유닛(self):
+
+class TestRealUnitsJson:
+    """실제 units.json(기상 12 + 기초과학 8 = 20유닛, slug 방식) 적재 정합·잠금 체인 생존 검증."""
+
+    def test_파일_로드_및_20유닛(self):
         units = _load_real_units()
-        assert isinstance(units, list) and len(units) == 12
+        assert isinstance(units, list) and len(units) == 20
+        by_course: dict[str, int] = {}
+        for u in units:
+            by_course[u.get("course")] = by_course.get(u.get("course"), 0) + 1
+        assert by_course == {"weather": 12, "basic-science": 8}
 
     def test_로더_스키마_전부_통과(self):
         units = _load_real_units()
@@ -403,16 +413,22 @@ class TestRealUnitsJson:
         units = _units_from_json(_load_real_units())
         tree = cs.build_curriculum(units, {})
         flat = {u["id"]: u for s in tree for u in s["units"]}
-        assert len(flat) == 12
+        assert len(flat) == 20
         unlocked = {uid for uid, v in flat.items() if not v["locked"]}
         roots = {u.slug for u in units if u.prereq_unit_id is None}
         assert unlocked == roots
-        assert roots == {"read-sky-pressure"}  # 데이터상 단일 루트
-        # prereq가 있는 유닛(11개)은 진도 0에서 전부 잠금 — 잠금 소실 회귀 가드
-        assert sum(1 for v in flat.values() if v["locked"]) == 11
-        # status 파생: 루트가 유일한 current, 나머지는 locked
+        # 데이터 핀: 기상 단일 루트 + 기초과학 섹션 첫 유닛 3개(specs/11 §2)
+        assert roots == {
+            "read-sky-pressure", "bs-temp-vs-heat", "bs-pressure", "bs-phase-change",
+        }
+        # prereq가 있는 유닛은 진도 0에서 전부 잠금 — 잠금 소실 회귀 가드
+        assert sum(1 for v in flat.values() if v["locked"]) == len(flat) - len(roots)
+        # status 파생: 전체 순서상 첫 루트(하늘 읽기)가 유일한 current
         assert flat["read-sky-pressure"]["status"] == "current"
-        assert sum(1 for v in flat.values() if v["status"] == "locked") == 11
+        assert sum(1 for v in flat.values() if v["status"] == "current") == 1
+        assert sum(1 for v in flat.values() if v["status"] == "locked") == len(
+            flat
+        ) - len(roots)
 
     def test_선행_clear시_다음_유닛만_열림(self):
         units = _units_from_json(_load_real_units())
@@ -441,7 +457,10 @@ class TestRealUnitsJson:
         tree = cs.build_curriculum(units, {}, unlock_floor=floor)
         flat = {u["id"]: u for s in tree for u in s["units"]}
         opened = {uid for uid, v in flat.items() if not v["locked"]}
-        assert opened == {"read-sky-pressure", "read-sky-fronts", "read-sky-board"}
+        # 선해제 3유닛 + 진도 0에서도 열려 있는 루트 유닛(기초과학 섹션 첫 유닛 포함)
+        assert opened == {
+            "read-sky-pressure", "read-sky-fronts", "read-sky-board",
+        } | _real_roots()
         # 잠금만 해제 — 왕관·클리어는 소급되지 않는다
         assert all(flat[uid]["crowns"] == 0 for uid in opened)
         assert flat["read-sky-pressure"]["status"] == "current"
@@ -449,7 +468,7 @@ class TestRealUnitsJson:
         assert flat["air-power-masses"]["status"] == "locked"
 
     def test_순차_클리어로_전_체인_해제(self):
-        """의존 순서대로 각 유닛을 clear하면 다음이 열려 결국 12유닛 전부 해제된다."""
+        """의존 순서대로 각 유닛을 clear하면 다음이 열려 결국 20유닛 전부 해제된다."""
         entries = _load_real_units()
         units = _units_from_json(entries)
         # prereq_unit_id로 위상 순서(루트→말단) 구성 (선형·분기 무관)
@@ -474,5 +493,8 @@ class TestRealUnitsJson:
         tree = cs.build_curriculum(units, progress)
         locked = [u["id"] for s in tree for u in s["units"] if u["locked"]]
         assert locked == []
-        assert len(cleared_order) == 12
-        assert cleared_order[0] == "read-sky-pressure"  # 루트가 먼저
+        assert len(cleared_order) == 20
+        # 첫 배치는 정확히 루트 집합(진도 0에서 열려 있는 유닛들 — 순서는
+        # 집합 순회라 비결정이므로 집합으로 판정)
+        roots = _real_roots()
+        assert set(cleared_order[: len(roots)]) == roots
