@@ -39,6 +39,84 @@ input[type='range'] {
   transform-origin: center;
 }
 
+/* ── 학습 홈 세로 경로 (PcCurriculumPath) ─────────────────────────────────
+   시안 `docs/design/learn_session_mockup.html`의 구현. 유틸리티 클래스로 쓰기엔
+   스크롤 스냅·컨테이너 쿼리·커스텀 프로퍼티가 얽혀 있어 여기 모은다.
+
+   핵심 계약 세 가지(시안 README「검증된 동작 계약」):
+     ① 한 화면에 한 단계 — 스크롤 스냅
+     ② 트랙 위에서만 휠이 먹는다 — overscroll-behavior:contain
+     ③ 스크롤바 비표시
+   ────────────────────────────────────────────────────────────────────── */
+.wm-track {
+  position: relative;
+  /* 페이지 전체를 고정하지 않고 트랙만 유한 높이로 둔다 — 앱 셸(헤더·하단 내비·
+     아래 카드들)을 그대로 두면서 "한 화면 한 단계"를 만드는 유일한 방법이다. */
+  height: clamp(480px, 72vh, 680px);
+  overflow: hidden;
+}
+.wm-scroller {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain; /* 트랙 끝에서 페이지로 스크롤이 새지 않게 */
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* 구 Edge */
+}
+.wm-scroller::-webkit-scrollbar {
+  display: none;
+}
+.wm-stage {
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  /* 노드 크기를 트랙 높이에 연동시키기 위한 컨테이너 — cqh의 기준점이 된다. */
+  container-type: size;
+}
+
+.wm-vpath {
+  /* 노드 지름은 **높이와 노드 수 둘 다**가 정한다. 미디어쿼리로 높이만 보면
+     5칸 섹션(도시와 기후)이 3칸 섹션과 같은 크기를 받아 넘친다.
+       필요 높이 = n*dot + (n-1)*gap,  gap = dot * 0.18
+                 = dot * (1.18n - 0.18)
+     --n(노드 수)과 --chrome(머리말+소개 스트립+진도 바)은 컴포넌트가 넣는다. */
+  --dot: max(44px, min(86px, calc((100cqh - var(--chrome, 200px)) / (1.18 * var(--n, 4) - 0.18))));
+  --gap: calc(var(--dot) * 0.18);
+  --amp: clamp(56px, 16cqw, 132px); /* 지그재그 가로 진폭 */
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap);
+}
+/* --k 는 -1~1. %가 아니라 px 진폭을 곱해야 컨테이너 기준으로 흔들린다
+   (translateX(%)는 컨테이너가 아니라 자기 자신의 폭 기준이다). */
+.wm-node {
+  position: relative;
+  z-index: 2;
+  transform: translateX(calc(var(--k, 0) * var(--amp)));
+}
+.wm-dot {
+  width: var(--dot);
+  height: var(--dot);
+  font-size: calc(var(--dot) * 0.4);
+}
+/* 연결선 SVG. **overflow를 열지 말 것** — 길은 단계 경계 너머로 꼬리를 뻗는데,
+   overflow:visible이면 그 꼬리가 경로 영역을 벗어나 머리말(배경 없는 영역) 위에
+   세로줄로 그려진다(실제로 그랬다). 기본값(hidden)으로 두면 경로 영역 위아래
+   끝에서 잘려, "위/아래로 이어진다"는 인상은 남고 삐져나오지는 않는다. */
+.wm-line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 /* 접근성(R9-01 §3.3 ④·R9-08): 시스템 '동작 줄이기' 설정 시 모든 애니메이션·전환을
    일괄 정지한다 — 기존 무한 애니메이션(pulse-ring·cloud-drift·gauge-sweep·
    scan-x·animate-pulse 등) 포함. 지도 오버레이·단면 모식도 패널은 컴포넌트

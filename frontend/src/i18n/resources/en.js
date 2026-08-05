@@ -268,6 +268,15 @@ export default {
       regen: '☁️ About {min} min until a cloud returns',
       regenResume: '☁️ About {min} min until a cloud returns — a session you started today can still be finished.',
     },
+    path: {
+      introTitle: 'What this stage covers',
+      fold: 'Collapse',
+      unfold: 'Expand',
+      scrollHint: '↓ Scroll for the next stage',
+      progressLabel: 'Progress',
+      unitCount: '{done} / {total} units',
+      continue: 'Continue learning',
+    },
     tutor: {
       chip: '💧 Tutor',
       name: 'Drop',
