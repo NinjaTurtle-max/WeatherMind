@@ -9,6 +9,8 @@ import CourseSwitcher, { useCourses } from './CourseSwitcher';
 // R11-01 §6.2 마운트 통합 — 둘 다 props 없는 자급 계약(조건 미충족 시 자가 null).
 import ReviewQueueCard from '../../components/ReviewQueueCard';
 import GuestSaveBanner from '../../components/GuestSaveBanner';
+// R12 선행 §8 — 지역 칩(자급 컴포넌트, 제작 FE-R): 세션 실황 슬롯이 이 지역을 탄다.
+import RegionPicker from '../../components/RegionPicker';
 import { conceptLabel, useT } from '../../i18n';
 
 /**
@@ -224,7 +226,11 @@ export default function CurriculumHome() {
 
       {/* 자유 일일 세션 별도 진입(§3.4 병존) */}
       <div className="mt-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <p className="text-sm font-bold text-slate-800">{t('curriculum.daily.title')}</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-bold text-slate-800">{t('curriculum.daily.title')}</p>
+          {/* 지역 칩(R12 선행 §8) — 실황 문항이 어느 지역 날씨인지 세션 진입 전에 보여준다 */}
+          <RegionPicker />
+        </div>
         <p className="mt-0.5 text-xs text-slate-500">{t('curriculum.daily.body')}</p>
         {dailyBlocked ? (
           <>

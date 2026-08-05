@@ -64,6 +64,18 @@ SKY_TEXT = {1: "맑음", 3: "구름많음", 4: "흐림"}
 # 퀴즈/리그 기준 지역 (MVP 기본값 — celery/app/config.py DEFAULT_REGION과 일치)
 DEFAULT_REGION = "서울"
 
+
+def user_region(user) -> str:
+    """유저 기준 지역 — users.region NULL이면 서울 (R11-01 §8.2 하위 호환 계약).
+
+    NULL=서울 폴백의 **단일 소유자**다: 기존 유저·게스트(region 미설정)가 무변경으로
+    동작하는 근거. 화이트리스트 밖 저장값(과거 데이터·수동 조작)도 서울로 방어한다 —
+    get_short_forecast가 unknown region에 ValueError를 내 날씨가 통째로 {}가 되는
+    것을 막는다. 화이트리스트 강제 자체는 쓰기 시점(PUT /progress/region 422) 담당.
+    """
+    region = getattr(user, "region", None)
+    return region if region in KMA_GRID else DEFAULT_REGION
+
 # 단기예보 발표시각 (하루 8회)
 KMA_BASE_TIMES = ("0200", "0500", "0800", "1100", "1400", "1700", "2000", "2300")
 

@@ -217,3 +217,34 @@ BE-2가 계약 형태로 명시하고 DO-1이 compose에 반영한다(파일 소
   (down -v 등) 전면 금지. 백업 리허설은 별도 임시 DB 대상.
 - 파괴적 git 금지·docker는 **읽기(ps·logs·exec psql SELECT)만** 허용, 기동·재빌드는 PM.
 - 기준선: backend 1076 · ai-worker 193 · 프론트 13종. 회귀 0.
+
+---
+
+## 8. R12 선행 — 사용자 지역화 (2026-08-05 착수, 클라이언트 확정 범위)
+
+**범위**: 지역 선택(12도시) + 옵트인 GPS 스냅(클라이언트 최근접 도시 — 위경도
+비전송·비저장) + **퀴즈 실황·브리핑 지역화. 리그는 서울 유지**(중기 지역코드
+보강은 별건). 무키 개발 — KMA 키 도착 시 12도시 실호출 검증과 합류.
+
+### 8.1 소유
+
+| 담당 | 소유 |
+|---|---|
+| **BE-R** | `backend/alembic/versions/0010_*`(신규 — users.region nullable) · `backend/app/models/user.py` · `backend/app/routers/progress.py`·`schemas/progress.py`(region 설정·노출) · `backend/app/services/`의 region 배선 지점(실측 후 보고) · `backend/tests/test_user_region*.py` |
+| **FE-R** | `frontend/src/components/RegionPicker.jsx`(신규) · `frontend/src/lib/geoSnap.js`(신규 — 12도시 위경도·haversine 최근접) · 마운트 지점(세션 카드 지역 칩 + 프로필 설정 — `modules/progress/**`·세션 카드 소유 파일) · `frontend/mock/apiMockPlugin.js`(region) · i18n `ko.js`·`en.js` 키 추가 · `frontend/tests/region.smoke.test.mjs`(신규) |
+
+### 8.2 계약
+
+- **NULL=서울** — courses의 NULL=weather와 같은 하위 호환 패턴. 기존 유저·게스트
+  무변경 동작. region 값은 `KMA_GRID` 12도시 화이트리스트(서버 검증, 422 밖 거부).
+- 설정 API는 daily-goal 선례(PUT /progress/*) 준용. 응답(me)에 region 노출.
+- 세션 실황 슬롯·RAG 피드백의 오늘 날씨·브리핑이 유저 region을 탄다. **리그
+  정산·중기 기준은 서울 고정 유지**(코드 경로 분리 확인 필수).
+- GPS는 **클라이언트 종결**: 위경도는 스냅 계산에만 쓰고 즉시 폐기 — 서버 전송·저장
+  금지(개인위치정보 미취급 설계). 버튼은 옵트인, 거부·실패 시 픽커 그대로.
+- mock↔서버 형태 동일(parity 관례). 캐시 키는 기존 `weather:{date}:{region}` 재사용.
+
+### 8.3 공통
+
+§4·§6.4·§7.2 승계(파괴적 git 금지·docker 읽기만·커밋 PM). 기준선 backend 1120 ·
+프론트 스모크 13종.

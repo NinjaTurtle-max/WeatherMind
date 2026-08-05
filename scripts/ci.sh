@@ -175,7 +175,7 @@ step_config() {
 #   overlay     지도 오버레이 정점·좌표 경계·파티클 상한·FLOW_META 사본 대조
 # board_engine 공유 벡터(test:board)는 node_modules 없이 도는 전용 `board` 단계가
 # 소유하므로 여기서 중복 실행하지 않는다.
-FRONT_TESTS=(explore session placement visual gating board-entry assist webgl overlay i18n course-select guest-convert review-queue)
+FRONT_TESTS=(explore session placement visual gating board-entry assist webgl overlay i18n course-select guest-convert review-queue region)
 
 step_frontend() {
   banner "frontend: build + 스모크 ${#FRONT_TESTS[@]}종 (선택)"

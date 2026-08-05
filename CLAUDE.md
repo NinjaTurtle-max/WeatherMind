@@ -49,7 +49,7 @@
   외부화 + 헤더 스위처. **ko 리소스 값은 원문 바이트 동일** 원칙 — 스모크가 한국어
   문구를 단정하며 하네스는 로케일 ko 고정(jsdom 7 + SSR 3, en-US 러너 대비).
   lib에서 i18n import는 `'../i18n/index.js'` 명시 경로(node ESM 디렉토리 import 불가).
-- 테스트 실측 **backend 1120** · **ai-worker 193**(의존 전체 설치 시) · 프론트 `test:*` **14종 전부 CI 편입**
+- 테스트 실측 **backend 1145** · **ai-worker 193**(의존 전체 설치 시) · 프론트 `test:*` **15종 전부 CI 편입**
   — `ci.sh`의 `FRONT_TESTS` 9종(`explore`·`session`·`placement`·`visual`·`gating`·
   `board-entry`·`assist`·`webgl`·`overlay`) + `board`(board_engine 공유 벡터)는 **별도
   단계**다. 실DB 왕복 스모크는 `scripts/smoke_r10.sh`(7단계, 전원 OK).

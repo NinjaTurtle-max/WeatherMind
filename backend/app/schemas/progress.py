@@ -45,6 +45,10 @@ class ProgressMe(BaseModel):
     daily_goal_items: int | None = None
     # 오늘(KST) 응답한 문항 수 — "오늘 목표 N/M"의 N. 배치고사분은 제외(D10-2).
     today_answered_count: int = 0
+    # 사용자 지역 — R11-01 §8.2 (additive). null이면 미설정(서버 동작은 서울 폴백,
+    # weather_api.user_region). 저장값 원본을 그대로 노출한다 — 프론트가 "미설정"
+    # (픽커 유도)과 "서울로 설정"을 구분해야 하므로(daily_goal_items 선례).
+    region: str | None = None
 
 
 class DailyGoalUpdate(BaseModel):
@@ -66,6 +70,23 @@ class DailyGoalOut(BaseModel):
     """
 
     daily_goal_items: int
+
+
+class RegionUpdate(BaseModel):
+    """PUT /progress/region 요청 — R11-01 §8.2.
+
+    KMA_GRID 12도시 화이트리스트 검증을 Literal에 맡기지 않는 이유는 daily-goal과
+    동일(D10-4): 라우터가 명시적 HTTPException(422, code="VALIDATION_ERROR")으로
+    내야 mock 계약({detail: str, code}) 형식과 갈라지지 않는다.
+    """
+
+    region: str
+
+
+class RegionOut(BaseModel):
+    """PUT /progress/region 응답 — 저장된 지역값 하나뿐(daily-goal 계약 관례)."""
+
+    region: str
 
 
 class EnergyState(BaseModel):
