@@ -139,8 +139,9 @@ export function hintRulesForGoal(rules, goal, palette, zoneState) {
  * 'wide'에서만 **존 카드 4장을 걷어낸다**(2026-08-05 결정). 같은 값을 지도 노드 ·
  * 요약 줄 · 카드 셋이 말하고 있었고, 카드가 세로 200px를 먹어 지도와 제출 버튼을
  * 한 화면에서 못 봤다. 대신 「지금 고른 존」한 줄 + 팔레트의 슬라이더 1개로 옮긴다.
- * 슬라이더를 1개로 줄여도 잃는 것이 없는 근거: 시드 board 문항 12개가 전부 목표
- * 존 1개다(`goal_conditions` zone 단일). 값 자체는 존마다 그대로 따로 갖는다.
+ * 슬라이더를 1개로 줄여도 잃는 것이 없는 근거: 시드 board 문항이 **전부** 목표 존
+ * 1개다(`goal_conditions` zone 단일 — 문항 수는 늘어나므로 세지 않는다). 값 자체는
+ * 존마다 그대로 따로 갖는다.
  */
 export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null, phenomena = null, sandbox = false, layout = 'stacked' }) {
   const wide = layout === 'wide';
