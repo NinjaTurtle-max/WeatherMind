@@ -14,13 +14,13 @@
   {
     "zone": 2,
     "name": "영서·태백",
-    "svg_point": [54.0, 47.0],
-    "label_anchor": [54.0, 58.0]
+    "svg_point": [58.0, 47.0],
+    "label_anchor": [58.0, 58.0]
   },
   {
     "zone": 3,
     "name": "영동·동해",
-    "svg_point": [70.0, 39.1],
-    "label_anchor": [76.0, 28.1]
+    "svg_point": [74.0, 39.1],
+    "label_anchor": [80.0, 28.1]
   }
 ]
