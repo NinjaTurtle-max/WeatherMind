@@ -90,3 +90,24 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+
+
+# ── 시크릿 플레이스홀더 감지 (R11-01 웨이브 3 — 마일스톤 5 하드닝) ──────────
+# ai-worker `llm_configured()` 선례: 값에 아래 마커가 포함되면 미설정 기본값으로
+# 간주한다(.env.example의 "changeme" 계열). 판정만 여기서 하고, 경고(dev)/기동
+# 거부(비-dev) 분기는 main.py lifespan이 담당한다 — 교차 계약 ③.
+SECRET_PLACEHOLDER_MARKERS = ("changeme", "발급받은", "your-", "placeholder")
+
+# 유출·오설정 시 피해가 큰 시크릿성 설정만 감시한다 (기본값이 changeme 계열인 3개).
+GUARDED_SECRET_NAMES = ("DATABASE_URL", "JWT_SECRET_KEY", "AI_WORKER_INTERNAL_API_KEY")
+
+
+def insecure_secret_defaults(s: Settings | None = None) -> list[str]:
+    """플레이스홀더 기본값이 남아 있는 시크릿 설정 이름 목록 (없으면 빈 리스트)."""
+    s = s or settings
+    flagged = []
+    for name in GUARDED_SECRET_NAMES:
+        value = (getattr(s, name) or "").strip()
+        if not value or any(marker in value for marker in SECRET_PLACEHOLDER_MARKERS):
+            flagged.append(name)
+    return flagged
