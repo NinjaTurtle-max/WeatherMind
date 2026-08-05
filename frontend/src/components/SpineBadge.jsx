@@ -23,13 +23,13 @@ export default function SpineBadge() {
         crowns: spine.crowns_earned,
         crownsTotal: spine.crowns_total,
       })}
-      className="flex shrink-0 items-center gap-1 rounded-full bg-sky-950/50 px-2 py-0.5 text-xs font-bold text-white transition hover:bg-sky-950/70"
+      className="flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
     >
       <span aria-hidden="true">🎓</span>
       <span className="tabular-nums">
         {spine.units_cleared}/{spine.units_total}
       </span>
-      <span className="text-amber-300 tabular-nums" aria-label={t('spine.crown')}>
+      <span className="text-amber-500 tabular-nums" aria-label={t('spine.crown')}>
         👑{spine.crowns_earned}
       </span>
     </Link>

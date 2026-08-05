@@ -29,7 +29,7 @@ export default function LocaleSwitcher({ compact = false }) {
         onClick={() => setLocale(next)}
         aria-label={`${t('locale.label')}: ${nextLabel}`}
         title={nextLabel}
-        className="shrink-0 rounded-full bg-sky-950/50 px-2 py-1 text-[11px] font-bold text-sky-100 transition hover:bg-sky-950/70"
+        className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600 transition hover:bg-slate-200"
       >
         <span aria-hidden="true">🌐</span> {next.toUpperCase()}
       </button>
