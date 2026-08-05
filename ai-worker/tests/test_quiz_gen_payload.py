@@ -149,12 +149,28 @@ class TestGeneratedPayloadFields:
         다른 테스트가 이미 적재해 두므로 그 단정은 **CI에서만 실패**한다(실측: 로컬
         통과 / CI 실패). 확인해야 하는 것은 전역 부재가 아니라 **이 import가 무엇을
         추가로 적재하는가**이므로, 모듈을 지우고 다시 import해 전후 차집합을 본다.
+
+        ⚠️ **재import한 모듈을 그대로 두면 안 된다.** 다시 import된
+        `app.chains.payload_contract`는 `QuizQuestion`을 **새 클래스 객체**로 만드는데,
+        이 파일이 상단에서 잡아 둔 이름은 옛 클래스를 가리킨 채다. 그 뒤에
+        `_quiz_gen_chain()`이 quiz_gen_chain을 새로 import하면 그쪽은 새 클래스로
+        문항을 만들고, `isinstance(question, QuizQuestion)`이 **repr은 같은데 False**가
+        된다(실측: 이 파일 단독 실행에서도 1건 실패). 그래서 원본 모듈 객체를
+        되돌려 클래스 정체성을 유지한다.
         """
         before = {name for name in sys.modules if "langchain" in name}
-        for name in [n for n in sys.modules if n.startswith("app.chains.payload_contract")]:
-            del sys.modules[name]
-        importlib.import_module("app.chains.payload_contract")
-        added = {name for name in sys.modules if "langchain" in name} - before
+        saved = {
+            name: module
+            for name, module in sys.modules.items()
+            if name.startswith("app.chains.payload_contract")
+        }
+        try:
+            for name in saved:
+                del sys.modules[name]
+            importlib.import_module("app.chains.payload_contract")
+            added = {name for name in sys.modules if "langchain" in name} - before
+        finally:
+            sys.modules.update(saved)
         assert not added, f"payload_contract가 langchain을 끌어온다: {sorted(added)}"
 
 
