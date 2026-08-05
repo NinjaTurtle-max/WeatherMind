@@ -543,32 +543,28 @@ SQL
 
 # ── 7. downgrade — 검증 ① 후반부 (되돌릴 수 있는 마이그레이션인가) ──────────
 step_downgrade() {
-  banner "7 downgrade: alembic downgrade -1 → 0007 → upgrade head 복원"
-  local down_ok=1 cur col verdict=""
+  banner "7 downgrade: alembic downgrade -1 → head-1 → upgrade head 복원 (동적)"
+  # 리비전·산출물을 하드코딩하지 않는다 — 2단계와 같은 이유(0008 하드코딩이
+  # 0009 시대에 정상을 FAIL로 판정, 2026-08-05 실측). 검증 의미론은
+  # "head에서 한 칸 내려갔다가 완전히 복원되는가"이고, 개별 마이그레이션의
+  # 내용 검증(컬럼·테이블)은 그 마이그레이션을 도입한 웨이브 게이트가 소유한다.
+  local head cur_after_down cur_restored
+  head="$(compose exec -T backend alembic heads 2>/dev/null | tr -d '\r' | grep -o '^[0-9a-z_]*' | tail -1)"
+  if [ -z "$head" ]; then record "7 downgrade" "FAIL" "heads 조회 실패"; return 0; fi
   if ! compose exec -T backend alembic downgrade -1; then
-    down_ok=0
+    record "7 downgrade" "FAIL" "downgrade -1 실패"; return 0
   fi
-  cur="$(compose exec -T backend alembic current 2>/dev/null | tr -d '\r' | tail -1)"
-  col="$(psql_c "SELECT count(*) FROM information_schema.columns WHERE table_name='users' AND column_name='daily_goal_items'")"
-  echo "  downgrade 후 current=$cur · daily_goal_items 컬럼 수=$col (기대 0)"
-  [ "$down_ok" = "1" ] || verdict="$verdict downgrade -1 실패;"
-  grep -q "0007_placement" <<<"$cur" || verdict="$verdict current=$cur(기대 0007_placement);"
-  [ "$col" = "0" ] || verdict="$verdict 컬럼이 남음($col);"
-
-  # 실패해도 반드시 head로 복원한다.
+  cur_after_down="$(compose exec -T backend alembic current 2>/dev/null | tr -d '\r' | grep -o '^[0-9a-z_]*' | tail -1)"
+  echo "  downgrade 후 current=$cur_after_down (head=$head 에서 이탈해야 정상)"
   if ! compose exec -T backend alembic upgrade head; then
-    verdict="$verdict head 복원 실패(수동 조치 필요);"
+    record "7 downgrade" "FAIL" "재upgrade 실패 — DB가 head-1 상태로 남아 있을 수 있음(수동 확인)"; return 0
   fi
-  cur="$(compose exec -T backend alembic current 2>/dev/null | tr -d '\r' | tail -1)"
-  col="$(psql_c "SELECT count(*) FROM information_schema.columns WHERE table_name='users' AND column_name='daily_goal_items'")"
-  echo "  재upgrade 후 current=$cur · daily_goal_items 컬럼 수=$col (기대 1)"
-  grep -q "0008_daily_goal" <<<"$cur" || verdict="$verdict 복원 후 current=$cur;"
-  [ "$col" = "1" ] || verdict="$verdict 복원 후 컬럼 수=$col;"
-
-  if [ -z "$verdict" ]; then
-    record "7 downgrade" "OK" "0008→0007 컬럼 드롭 · 재upgrade 복원 (왕복 가능)"
+  cur_restored="$(compose exec -T backend alembic current 2>/dev/null | tr -d '\r' | grep -o '^[0-9a-z_]*' | tail -1)"
+  echo "  복원 후 current=$cur_restored"
+  if [ "$cur_after_down" != "$head" ] && [ -n "$cur_after_down" ] && [ "$cur_restored" = "$head" ]; then
+    record "7 downgrade" "OK" "$head → $cur_after_down → $head 왕복"
   else
-    record "7 downgrade" "FAIL" "$verdict"
+    record "7 downgrade" "FAIL" "down=$cur_after_down restored=$cur_restored head=$head"
   fi
 }
 

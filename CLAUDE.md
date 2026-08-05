@@ -49,7 +49,7 @@
   외부화 + 헤더 스위처. **ko 리소스 값은 원문 바이트 동일** 원칙 — 스모크가 한국어
   문구를 단정하며 하네스는 로케일 ko 고정(jsdom 7 + SSR 3, en-US 러너 대비).
   lib에서 i18n import는 `'../i18n/index.js'` 명시 경로(node ESM 디렉토리 import 불가).
-- 테스트 실측 **backend 1076** · **ai-worker 193**(의존 전체 설치 시) · 프론트 `test:*` **14종 전부 CI 편입**
+- 테스트 실측 **backend 1120** · **ai-worker 193**(의존 전체 설치 시) · 프론트 `test:*` **14종 전부 CI 편입**
   — `ci.sh`의 `FRONT_TESTS` 9종(`explore`·`session`·`placement`·`visual`·`gating`·
   `board-entry`·`assist`·`webgl`·`overlay`) + `board`(board_engine 공유 벡터)는 **별도
   단계**다. 실DB 왕복 스모크는 `scripts/smoke_r10.sh`(7단계, 전원 OK).
@@ -63,9 +63,11 @@
 - 목(`frontend/mock/apiMockPlugin.js`)의 하루 경계는 **KST**다(`KST_OFFSET_MS`).
   UTC로 되돌리면 `test_목의_하루_경계가_KST다` 계약이 실패한다 — R2~R10 내내 목의
   하루가 09:00 KST에 넘어갔던 결함이라 되살리지 말 것.
-- ⚠️ **RLS가 런타임에 무효다** — 앱 DB 롤이 `bypassrls` 슈퍼유저 + 테이블 소유자라
-  `user_isolation` 정책이 적용되지 않는다. 현재 유저 격리는 앱 `user_id` 필터 단독
-  책임(단층). `docs/specs/08` 서술과 실동작이 다르다 — ROADMAP §2.1, 마일스톤 5 최우선.
+- **RLS 런타임 실격리 작동 중**(2026-08-05 해소) — 런타임은 비특권 `weathermind_app`
+  롤(NOBYPASSRLS·비소유), 마이그레이션만 소유자 롤(`MIGRATION_DATABASE_URL`).
+  유저 격리 = 앱 필터 + DB 정책 2층. 예외 2건(users 인증 조회·리더보드 SELECT)은
+  `docs/specs/08`에 근거 문서화, 확장은 테스트가 차단. 신규 볼륨은 init.sql,
+  기존 볼륨은 `backend/app/scripts/rls_app_role.sql`(멱등).
 - **API 키는 발급됨 · 비용 때문에 의도적 미입력**(2026-08-03 클라이언트 결정).
   "미발급"이 아니다 — **큰 시퀀스마다 3게이트로만 투입**한다(ROADMAP §5.3):
   G0 도달 스모크(~5콜) / **G1 저작 배치(W2 초입, 1회)** / G2 데모 가동.

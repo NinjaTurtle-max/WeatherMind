@@ -1,0 +1,48 @@
+# =============================================================================
+# WeatherMind prod 오버레이 — R11-01 웨이브 3 HTTPS/TLS (SPRINT_R11_01.md §7.0)
+#
+# 사용:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# 검증:  docker compose -f docker-compose.yml -f docker-compose.prod.yml config -q
+#
+# Caddy 리버스 프록시가 80/443을 단독 소유하고 backend·frontend는 프록시 뒤로
+# 들어간다. DOMAIN(.env) 설정 시 auto-HTTPS(Let's Encrypt), 미설정 시 localhost
+# internal TLS(자체 서명) — 규칙은 infra/Caddyfile 단일 소유. 실서버 배포·실도메인
+# 인증서는 §7.0 범위 밖. CD(GHCR 이미지, release.yml)와의 연결(이미지 참조 전환)은
+# 실서버가 생길 때 image: 키로 교체한다 — 현 단계는 build 유지(대상 부재).
+# =============================================================================
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    # DOMAIN을 .env에서 읽는다(없으면 Caddyfile 기본값 localhost → internal TLS)
+    env_file: .env
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # 인증서·로컬 CA 영속 (재기동 시 재발급 방지)
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+
+  # ── 프록시 뒤로: 호스트 포트 직노출 제거 ──────────────────────────────────
+  # compose 오버레이 병합에서 ports는 union이라 빈 배열로는 못 지운다 —
+  # !reset(compose v2.24+)으로 base의 매핑 자체를 무효화한다.
+  frontend:
+    ports: !reset []
+
+  backend:
+    ports: !reset []
+
+  # 내부 전용 서비스도 prod에서는 호스트에 열지 않는다(하드닝) —
+  # ai-worker는 AI_WORKER_INTERNAL_URL(컨테이너 네트워크), chroma는 ai-worker만 접근.
+  ai-worker:
+    ports: !reset []
+
+  chroma:
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:

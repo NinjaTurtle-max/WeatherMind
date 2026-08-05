@@ -335,10 +335,11 @@ class TestRefreshRotation:
     """결정: **무효화(회전)**. session:{user_id} 단일 슬롯 덮어쓰기(코드 0) +
     login 재발급과 동일 의미론 + 자격 변경 시 토큰 회전 보안 관례.
 
-    주의: refresh 토큰에 jti가 없어 payload가 (sub, type, exp) 뿐이다 — 같은
-    초에 발급된 두 토큰은 **바이트 동일**해서 "이전 토큰" 문자열 비교가 성립하지
-    않는다. 실사용의 게스트 토큰은 전환보다 먼저(다른 exp로) 발급되므로, 여기서는
-    exp가 다른 토큰을 게스트 세션 슬롯에 심어 그 시점을 재현한다."""
+    주의(이력): 웨이브 2 시점에는 refresh payload가 (sub, type, exp)뿐이라 같은
+    초 발급 토큰이 **바이트 동일**했고, 그래서 여기서는 exp가 다른 토큰을 게스트
+    세션 슬롯에 심어 "전환보다 먼저 발급된 토큰"을 재현했다. 웨이브 3에서 jti가
+    추가되어 이제 같은 초 발급도 항상 유일하다(test_jwt_jti가 감시) — 이 재현
+    방식은 jti와 무관하게 여전히 유효해서 그대로 둔다."""
 
     def test_전환_후_기존_게스트_refresh는_401(
         self, client, fake_db, fake_redis, bearer
