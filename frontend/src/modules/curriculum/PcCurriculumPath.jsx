@@ -160,9 +160,16 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
   const units = section.units;
   const cleared = units.filter((u) => resolveStatus(u) === 'cleared').length;
 
-  // 개념 칩 — 유닛의 concept_tag에서 파생(중복 제거). 시안의 부제·예상시간은
-  // API에 대응 필드가 없어 넣지 않는다.
-  const concepts = [...new Set(units.map((u) => u.concept_tag).filter(Boolean))];
+  // 세부 주제 칩 — 서버 메타(section_meta.json)의 topics가 1순위다.
+  // 없으면 유닛 concept_tag로 떨어진다: concept_tag는 IRT 능력 축이라 6종뿐이고,
+  // 한 섹션이 칩 1~2개로 뭉개져 설명이 되지 않는다. 그래서 topics를 따로 둔다.
+  const chips =
+    section.topics?.length > 0
+      ? section.topics.map((tp) => ({ key: tp, label: tp }))
+      : [...new Set(units.map((u) => u.concept_tag).filter(Boolean))].map((c) => ({
+          key: c,
+          label: conceptLabel(t, c),
+        }));
 
   // 이 단계에서 파란색으로 칠할 노드 수 — 전역 blueTo를 단계 로컬로 환산한다.
   const doneCount = stageDoneCount(blueTo, offset, units.length);
@@ -173,7 +180,13 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
         <span className="grid h-7 w-7 flex-none place-items-center rounded-[9px] bg-sky-100 text-[13px] font-extrabold text-sky-700">
           {index + 1}
         </span>
-        <h3 className="text-[15px] font-extrabold text-slate-900">{section.section}</h3>
+        <div className="min-w-0">
+          <h3 className="text-[15px] font-extrabold text-slate-900">{section.section}</h3>
+          {/* 부제는 서버 메타(section_meta.json) — 없으면 줄 자체를 그리지 않는다 */}
+          {section.subtitle && (
+            <p className="mt-0.5 truncate text-[11px] text-slate-400">{section.subtitle}</p>
+          )}
+        </div>
         <span className="ml-auto flex-none rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-extrabold tabular-nums text-slate-500 ring-1 ring-slate-200">
           {cleared} / {units.length}
         </span>
@@ -191,12 +204,17 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
         </button>
         <p className="text-[9.5px] font-extrabold tracking-[0.4px] text-sky-700">
           {t('curriculum.path.introTitle')}
+          {section.est_minutes ? (
+            <span className="ml-1.5 font-bold text-slate-400">
+              · {t('curriculum.path.estMinutes', { min: section.est_minutes })}
+            </span>
+          ) : null}
         </p>
-        {introOpen && concepts.length > 0 && (
+        {introOpen && chips.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {concepts.map((c) => (
-              <span key={c} className="rounded-full bg-sky-100 px-2 py-[3px] text-[10px] font-bold text-sky-700">
-                {conceptLabel(t, c)}
+            {chips.map((c) => (
+              <span key={c.key} className="rounded-full bg-sky-100 px-2 py-[3px] text-[10px] font-bold text-sky-700">
+                {c.label}
               </span>
             ))}
           </div>
@@ -344,8 +362,10 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
             ))}
           </div>
 
+          {/* 스크롤 힌트 — 오른쪽 위에 두면 단계 진도 칩(n/m)을 가린다.
+              진도 바 바로 위, 가운데에 둔다. */}
           {atStart && withUnits.length > 1 && (
-            <div className="pointer-events-none absolute right-4 top-3.5 z-[4] rounded-full bg-slate-800/60 px-2.5 py-1 text-[10.5px] font-bold text-white">
+            <div className="pointer-events-none absolute bottom-14 left-1/2 z-[4] -translate-x-1/2 rounded-full bg-slate-800/60 px-2.5 py-1 text-[10.5px] font-bold text-white">
               {t('curriculum.path.scrollHint')}
             </div>
           )}

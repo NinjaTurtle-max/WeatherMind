@@ -645,6 +645,15 @@ const isUnitLocked = (unit) => {
   return (unitProgress.get(unit.prereq_unit_id)?.crowns ?? 0) < 1;
 };
 
+/** 섹션 표시 메타 — 서버는 database/seed/section_meta.json이 소유한다.
+ *  값이 어긋나면 시안·프론트가 서버와 다른 화면을 그리므로 시드와 같은 값을 둔다. */
+const SECTION_META = {
+  '하늘 읽기': { subtitle: '기압과 전선이 만드는 오늘의 하늘', est_minutes: 15, topics: ['고기압', '저기압', '온난전선', '한랭전선'] },
+  '공기의 힘': { subtitle: '계절을 지배하는 네 기단과 그 변질', est_minutes: 15, topics: ['시베리아 기단', '북태평양 기단', '기단 변질', '계절풍'] },
+  '큰 바람': { subtitle: '태풍의 구조와 이상 기후의 재현', est_minutes: 12, topics: ['태풍의 눈', '위험반원', '집중호우', '이상 기후'] },
+  '도시와 기후': { subtitle: '열섬에서 이상기후까지 — 사람이 바꾼 하늘', est_minutes: 22, topics: ['열섬 현상', '온실효과', 'CO₂', '이상기후'] },
+};
+
 /** GET /curriculum 트리 (섹션→유닛→유저 진도·잠금·상태)
  *  status 4종(R7-02 S4 계약, 백엔드 build_curriculum과 동일): cleared(완료)
  *  > locked > unlocked(열림 — 배치 θ 선해제 포함). 이후 트리 전체 노출 순서에서
@@ -659,6 +668,9 @@ function curriculumPayload() {
   }
   const sections = [...bySection.entries()].map(([section, units]) => ({
     section,
+    subtitle: SECTION_META[section]?.subtitle ?? null,
+    est_minutes: SECTION_META[section]?.est_minutes ?? null,
+    topics: SECTION_META[section]?.topics ?? [],
     units: [...units]
       .sort((a, b) => a.unit_order - b.unit_order)
       .map((u) => {

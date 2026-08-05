@@ -344,6 +344,7 @@ export default {
     path: {
       introTitle: '이 단계에서 배우는 것',
       start: '시작',
+      estMinutes: '예상 {min}분',
       fold: '접기',
       unfold: '펼치기',
       scrollHint: '↓ 스크롤해서 다음 단계',

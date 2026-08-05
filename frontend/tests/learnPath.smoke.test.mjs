@@ -93,8 +93,13 @@ const SHAPE = [
   ['도시와 기후', 4],
 ];
 let n = 0;
-const sections = SHAPE.map(([name, count]) => ({
+const SUBTITLE = '계절을 지배하는 네 기단과 그 변질';
+const sections = SHAPE.map(([name, count], si) => ({
   section: name,
+  // 서버 메타(section_meta.json) — 2번 섹션만 채워서 "없으면 안 그린다"도 함께 본다
+  subtitle: si === 1 ? SUBTITLE : null,
+  est_minutes: si === 1 ? 15 : null,
+  topics: si === 1 ? ['시베리아 기단', '북태평양 기단', '기단 변질', '계절풍'] : [],
   units: Array.from({ length: count }, (_, i) => {
     const idx = n++;
     return {
@@ -167,6 +172,16 @@ await render({});
      `단계마다 경로 컨테이너를 관측한다 — 관측 ${observed.length}건 / 단계 ${stages.length}개`);
   ok(observed.every((el) => el && el.classList?.contains('wm-vpath')),
      '관측 대상이 전부 .wm-vpath다(부모 ref 미확보로 null이 섞이지 않는다)');
+
+  // 섹션 메타 — 있으면 그리고, 없으면 그 줄 자체를 만들지 않는다
+  ok(container.textContent.includes(SUBTITLE), '메타가 있는 섹션은 부제를 보여준다');
+  ok(container.textContent.includes('예상 15분'), '예상 소요시간을 보여준다');
+  ok(container.textContent.includes('시베리아 기단'), 'topics를 칩으로 보여준다');
+  const stage1 = container.querySelectorAll('.wm-stage')[0];
+  ok(!stage1.querySelector('p.truncate'), '메타 없는 섹션은 부제 줄을 만들지 않는다');
+  // topics가 없는 섹션은 concept_tag 파생으로 떨어진다(칩이 아예 없으면 안 된다)
+  ok(stage1.querySelectorAll('.rounded-full.bg-sky-100').length > 0,
+     'topics 없는 섹션은 concept_tag 칩으로 폴백한다');
 
   // ⑤ --n 은 그 단계의 노드 수
   const ns = stages.map((s) => s.querySelector('.wm-vpath').style.getPropertyValue('--n'));

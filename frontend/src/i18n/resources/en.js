@@ -317,6 +317,7 @@ export default {
     path: {
       introTitle: 'What this stage covers',
       start: 'Start',
+      estMinutes: 'about {min} min',
       fold: 'Collapse',
       unfold: 'Expand',
       scrollHint: '↓ Scroll for the next stage',

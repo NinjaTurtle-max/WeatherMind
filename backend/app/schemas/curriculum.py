@@ -50,10 +50,22 @@ class UnitOut(BaseModel):
 
 
 class SectionOut(BaseModel):
-    """섹션 1개 — 소속 유닛(unit_order 오름차순)."""
+    """섹션 1개 — 소속 유닛(unit_order 오름차순) + 표시용 메타(additive).
+
+    메타 3종은 `database/seed/section_meta.json`이 소유한다. 유닛에서 파생할 수
+    없는 값이라(섹션 단위 설명·소요시간·세부 주제) 시드로 둔다. 시드에 없는
+    섹션은 전부 None/빈 리스트 — 프론트가 그 경우 아무것도 그리지 않으므로
+    구 시드·타 코스에서도 무회귀다.
+
+    topics는 유닛의 concept_tag(6종)보다 잘게 쪼갠 **세부 주제**다. concept_tag는
+    IRT 능력 축이라 화면 설명용으로 쓰기엔 너무 굵다(한 섹션이 칩 1개가 된다).
+    """
 
     section: str
     units: list[UnitOut]
+    subtitle: str | None = None
+    est_minutes: int | None = None
+    topics: list[str] = []
 
 
 class CurriculumOut(BaseModel):
