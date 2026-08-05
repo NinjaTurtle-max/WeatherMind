@@ -341,8 +341,10 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
 
   if (flat.length === 0) return null;
 
+  // pb-6은 뺐다 — main이 이미 pb-8을 갖고 있어, 트랙 아래 여백이 두 겹으로
+  // 쌓이면서 그만큼 페이지에 세로 스크롤이 생겼다(실측 28px).
   return (
-    <div className="hidden pb-6 md:block">
+    <div className="hidden md:block">
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="wm-track min-w-0 rounded-[20px] bg-white ring-1 ring-slate-200">
           <div ref={scrollerRef} className="wm-scroller" onScroll={onScroll}>
@@ -424,18 +426,20 @@ function TutorCard({ unit }) {
   return (
     <div
       // lg 미만에서는 경로 아래로 쌓이므로, 가로로 늘어져 허전해 보이지 않게 폭을 제한한다.
-      className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 p-5 lg:max-w-none"
+      // 치수는 **레일이 트랙보다 길어지지 않는 선**으로 잡는다(2026-08-05): 물방울이가
+      // 180px일 때 레일이 트랙 아래로 삐져나와, 정작 주인공인 학습 경로가 작아 보였다.
+      className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 p-4 lg:max-w-none"
       style={{ background: 'linear-gradient(180deg, #EFF8FE 0%, #F7FBFE 55%, #ffffff 100%)' }}
     >
-      <span className="absolute left-4 top-3.5 rounded-full bg-[#0E2A42] px-2.5 py-1 text-[10.5px] font-extrabold text-white">
+      <span className="absolute left-3.5 top-3 rounded-full bg-[#0E2A42] px-2 py-0.5 text-[10px] font-extrabold text-white">
         {t('curriculum.tutor.chip')}
       </span>
-      <div className="mt-8 flex justify-center">
-        <Mascot name="drop" className="w-[180px] drop-shadow-lg" />
+      <div className="mt-6 flex justify-center">
+        <Mascot name="drop" className="w-[124px] drop-shadow-lg" />
       </div>
-      <div className="relative mt-1 rounded-2xl bg-white p-3 shadow-md">
-        <p className="mb-0.5 text-[11px] font-extrabold text-[#0369A1]">{t('curriculum.tutor.name')}</p>
-        <p className="text-[13.5px] font-bold leading-snug text-slate-800">{greeting}</p>
+      <div className="relative mt-1 rounded-2xl bg-white p-2.5 shadow-md">
+        <p className="mb-0.5 text-[10.5px] font-extrabold text-[#0369A1]">{t('curriculum.tutor.name')}</p>
+        <p className="text-[12.5px] font-bold leading-snug text-slate-800">{greeting}</p>
       </div>
     </div>
   );
