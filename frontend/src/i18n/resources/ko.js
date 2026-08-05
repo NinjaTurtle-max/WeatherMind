@@ -29,6 +29,8 @@ export default {
     retryLater: '잠시 후 다시 시도해주세요.',
   },
   nav: {
+    home: '홈',
+    primary: '주 메뉴',
     homeTitle: '학습 홈으로',
     logout: '로그아웃',
     learn: '학습',
@@ -250,6 +252,52 @@ export default {
     basisPrior: '초기 배정',
     basisMeasured: '응답 {count}회 기반',
     empty: '아직 능력 데이터가 없어요. 세션을 풀면 개념별 이해도가 분석돼요.',
+  },
+  // ── 홈 대시보드 (시안 Soft Cloud 홈) ─────────────────────────────────────
+  // 실제 API에 있는 값만 쓴다 — 「최근 활동」은 조회 엔드포인트가 없어 뺐다.
+  home: {
+    greet: '안녕하세요, 기상 탐험가님',
+    greetSub: '오늘도 하늘을 읽어볼까요?',
+    dayUnit: '일',
+    quickStart: '바로 시작하기',
+    tutor: { name: '구름이', line: '무엇부터 해볼까요?' },
+    entry: {
+      learn: '학습 세션',
+      learnEmpty: '첫 유닛부터 시작해요',
+      learnGo: '이어서 풀기 →',
+      go: '바로 가기 →',
+      board: '대기 보드',
+      boardDesc: '기단·전선을 놓아 날씨를 만들어요',
+      duel: '예보 대결',
+      duelDesc: '오늘 기온·강수확률 맞히기',
+      league: '리그',
+      leagueDesc: '{tier} 티어에서 겨루는 중',
+    },
+    goal: {
+      title: '오늘의 목표',
+      cap: '푼 문항 수로 셉니다 — 배치고사는 빼고요.',
+      items: '문항',
+      remaining: '{n}문항만 더 풀면 오늘 목표 달성이에요.',
+      done: '오늘 목표를 달성했어요! 🎉',
+      unset: '아직 목표를 정하지 않았어요.',
+    },
+    streak: {
+      title: '연속 출석',
+      cap: '구름 방패 {n}개 보유 — 하루 빠져도 스트릭이 지켜져요.',
+      days: '월,화,수,목,금,토,일',
+    },
+    review: {
+      title: '다시 볼 개념',
+      cap: '복습 주기가 돌아온 개념이에요.',
+      empty: '지금 복습할 개념이 없어요. 잘하고 있어요!',
+      meta: '연속 정답 {n}회 · {d}일 주기',
+      cta: '복습',
+    },
+    brain: {
+      title: 'WeatherBrain 분석',
+      cap: '개념별 실력(θ) — 문제를 풀수록 정밀해져요.',
+      aria: '개념별 실력 레이더 차트: {list}',
+    },
   },
   curriculum: {
     loading: '학습 경로를 불러오고 있어요...',

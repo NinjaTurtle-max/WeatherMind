@@ -1,5 +1,7 @@
 /**
  * 코스 선택 실마운트 스모크 (R11-01 §6.2 / FE-A) —
+ *
+ * 2026-08-05: `/`가 홈 대시보드로 바뀌면서 코스 탭·유닛 노드는 `/learn`에 있다.
  *   node tests/course-select.smoke.test.mjs
  *
  * 관례는 onboardingGating.smoke.test.mjs와 동일: 테스트 러너 의존 없음,
@@ -192,7 +194,7 @@ function assert(cond, msg) {
 try {
   // ── 1~3. 코스 경로가 있는 환경(픽스처 심) — 탭·기본 선택·전환·빈 트리 ──────
   authenticate('course-user');
-  const r = mount(createElement(App), '/');
+  const r = mount(createElement(App), '/learn');
   try {
     await scenario('코스 탭 렌더 + is_default(weather) 우선 선택 + weather 트리 무회귀', async () => {
       await waitFor(() => courseTabs().length === 2, 6000, '코스 탭 2개 렌더');
@@ -247,7 +249,7 @@ try {
   await scenario('/courses 없는 환경: 탭 미렌더 + weather 트리 현행 유지(디그레이드)', async () => {
     shimEnabled = false;
     authenticate('no-courses-user');
-    const r2 = mount(createElement(App), '/');
+    const r2 = mount(createElement(App), '/learn');
     try {
       await waitFor(() => mobileUnitButtons().length > 0, 6000, '유닛 노드 렌더(현행)');
       // /courses 404가 소화된 뒤에도 탭이 없어야 한다 — 요청이 나갔음을 먼저 확인

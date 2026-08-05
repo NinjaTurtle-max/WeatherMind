@@ -19,7 +19,8 @@ export default function UnitSessionPage() {
 
   return (
     <div className="pt-2">
-      <Link to="/" className="mb-2 inline-block text-sm font-medium text-slate-500 hover:text-slate-700">
+      {/* 학습 경로로 돌아간다 — 홈(/)이 아니다. 유닛은 경로 위의 칸이다. */}
+      <Link to="/learn" className="mb-2 inline-block text-sm font-medium text-slate-500 hover:text-slate-700">
         {t('unitSession.back')}
       </Link>
       <SessionRunner
@@ -38,7 +39,7 @@ export default function UnitSessionPage() {
           queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
         }}
         renderSummary={(summary) => (
-          <UnitSummary summary={summary} onNext={() => navigate('/')} />
+          <UnitSummary summary={summary} onNext={() => navigate('/learn')} />
         )}
       />
     </div>

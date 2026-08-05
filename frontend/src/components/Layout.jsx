@@ -7,6 +7,7 @@ import StreakBadge from './StreakBadge';
 import CloudEnergyBadge from './CloudEnergyBadge';
 import LocaleSwitcher from './LocaleSwitcher';
 import TabBar from './TabBar';
+import SideNav from './SideNav';
 import { useT } from '../i18n';
 import { authApi, progressApi } from '../api';
 import { useAuthStore } from '../store/authStore';
@@ -30,10 +31,11 @@ import { useOnboardingGate } from '../lib/onboardingGate';
 export default function Layout() {
   const navigate = useNavigate();
   const t = useT();
-  // 학습 홈(/)만 데스크톱에서 넓은 컨테이너를 쓴다(PC 경로 뷰가 가로를 넓게 씀).
-  // 페이지 쪽에서 100vw 음수 마진으로 컨테이너를 탈출하면 스크롤바 폭만큼
-  // (100vw > clientWidth) 가로 스크롤이 생기므로, 폭은 레이아웃이 소유한다.
-  const isWide = useLocation().pathname === '/';
+  // 넓은 컨테이너를 쓰는 화면(데스크톱) — 홈 대시보드와 학습 경로 둘 다 가로를
+  // 넓게 쓴다. 페이지 쪽에서 100vw 음수 마진으로 컨테이너를 탈출하면 스크롤바
+  // 폭만큼(100vw > clientWidth) 가로 스크롤이 생기므로, 폭은 레이아웃이 소유한다.
+  const pathname = useLocation().pathname;
+  const isWide = pathname === '/' || pathname === '/learn';
   const shellWidth = isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);
   const userKey = useAuthStore((s) => s.user?.user_id ?? null);
@@ -92,8 +94,13 @@ export default function Layout() {
   };
 
   return (
-    <div className={`mx-auto flex min-h-screen max-w-xl flex-col ${shellWidth}`}>
-      <header className="fixed inset-x-0 top-0 z-50 bg-sky-900 shadow-md">
+    <div className="md:pl-[208px]">
+      <SideNav />
+      <div className={`mx-auto flex min-h-screen max-w-xl flex-col ${shellWidth}`}>
+      <header className="fixed inset-x-0 top-0 z-50 bg-sky-900 shadow-md md:left-[208px]">
+        {/* md↑에서 헤더를 사이드바 오른쪽부터 시작시킨다 — inset-x-0 그대로 두면
+            헤더는 화면 전체 기준으로, 본문은 사이드바를 뺀 폭 기준으로 가운데
+            정렬돼 좌우가 어긋난다. 브랜드는 사이드바 상단이 갖는다. */}
         {/* 항목이 7개라 max-w-xl(576px)에선 폭이 모자라 XP 텍스트가 구름 배지 위로
             넘친다. 데스크톱은 폭을 넓히고(넓은 화면에선 본문 컨테이너와 좌우를 맞춤),
             모바일은 로고 워드마크·XP 숫자를 접어 겹침 없이 들어가게 한다. */}
@@ -102,22 +109,21 @@ export default function Layout() {
             isWide ? 'md:max-w-6xl' : 'md:max-w-3xl'
           }`}
         >
-          {/* 로고 탭 → 학습 홈(/) — SpineBadge와 동일 목적지 */}
+          {/* 로고 탭 → 홈(/). md↑에서는 브랜드를 사이드바가 보여주므로 아이콘만 남긴다. */}
           <Link
             to="/"
             title={t('nav.homeTitle')}
             className="shrink-0 rounded-lg text-base font-extrabold tracking-tight text-white transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
           >
             <span aria-hidden="true">⛅</span>
-            <span className="ml-1 hidden md:inline">WeatherMind</span>
-            <span className="sr-only md:hidden">WeatherMind</span>
+            <span className="sr-only">WeatherMind</span>
           </Link>
           <SpineBadge />
           <XPBar />
           <CloudEnergyBadge />
           <StreakBadge />
-          {/* 로케일 전환(§6.3) — header 안·nav 밖(gating 스모크의 `nav a, nav button`
-              5개 단정 보존). compact = 버튼 1개 아이콘화로 R10 헤더 겹침 재발 방지. */}
+          {/* 로케일 전환(§6.3) — header 안·nav 밖(gating 스모크가 탭바 항목 수를
+              단정한다). compact = 버튼 1개 아이콘화로 R10 헤더 겹침 재발 방지. */}
           <LocaleSwitcher compact />
           <button
             type="button"
@@ -139,12 +145,13 @@ export default function Layout() {
         </div>
       )}
 
-      {/* 헤더/탭바 높이만큼 여백 확보 */}
-      <main className="flex-1 px-4 pb-20 pt-16">
-        <Outlet />
-      </main>
+        {/* 헤더/탭바 높이만큼 여백 확보 — 탭바는 md↑에서 숨으므로 하단 여백을 줄인다 */}
+        <main className="flex-1 px-4 pb-20 pt-16 md:pb-8">
+          <Outlet />
+        </main>
 
-      <TabBar />
+        <TabBar />
+      </div>
     </div>
   );
 }

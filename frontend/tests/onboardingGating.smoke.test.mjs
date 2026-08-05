@@ -134,9 +134,15 @@ const api = async (method, path, body) => {
 };
 
 const text = () => window.document.body.textContent ?? '';
+// 2026-08-05: PC 좌측 사이드바(SideNav)가 생기면서 같은 항목이 DOM에 두 벌
+// 존재한다(탭바는 md:hidden, 사이드바는 hidden md:flex — CSS로만 갈린다).
+// 문서 전체에서 세면 12가 나오므로 **탭바로 한정**하고, 사이드바는 따로 센다.
+const tabbar = () => window.document.querySelector('[data-testid="tabbar"]');
+const sidenav = () => window.document.querySelector('[data-testid="sidenav"]');
 const lockedTabCount = () =>
-  [...window.document.querySelectorAll('nav button[disabled]')].length;
-const tabCount = () => window.document.querySelectorAll('nav a, nav button').length;
+  [...(tabbar()?.querySelectorAll('button[disabled]') ?? [])].length;
+const tabCount = () => tabbar()?.querySelectorAll('a, button').length ?? 0;
+const sideNavCount = () => sidenav()?.querySelectorAll('nav a').length ?? 0;
 
 /** 학습 홈의 두 경로 유닛 버튼 — jsdom은 CSS를 적용하지 않아 둘 다 DOM에 있다.
  *  PC = `hidden md:block` 컨테이너, 모바일 = `md:hidden` 컨테이너. 클래스 선택자에
@@ -181,7 +187,8 @@ try {
     await waitFor(() => text().includes('리그') && !text().includes('리그란 무엇인가요'), 4000, '리그 페이지 렌더');
     assert(!text().includes('세션을 3개 완료하면'), '기존 사용자에게 잠금 안내가 떴다(회귀)');
     assert(lockedTabCount() === 0, '탭바에 비활성 탭이 있다');
-    assert(tabCount() === 5, `탭 5개가 모두 있어야 함 — 실제 ${tabCount()}`);
+    assert(tabCount() === 6, `탭 6개(홈 포함)가 모두 있어야 함 — 실제 ${tabCount()}`);
+    assert(sideNavCount() === 6, `PC 사이드바도 같은 6항목 — 실제 ${sideNavCount()}`);
     r.unmount();
 
     r = mount(createElement(App), '/board');
@@ -209,7 +216,7 @@ try {
       await waitFor(() => text().includes(needText), 4000, `${path} 잠금 안내(${needText})`);
       assert(text().includes('오늘의 세션 시작하기'), `${path}에 해제 CTA가 없다`);
       assert(lockedTabCount() === 0, '잠금은 탭 차단이 아니라 화면 안내여야 한다');
-      assert(tabCount() === 5, '탭 5개는 항상 활성');
+      assert(tabCount() === 6, '탭 6개는 항상 활성');
       r.unmount();
     }
     const stage = selectUnlockStage(useOnboardingGate.getState());
@@ -310,7 +317,7 @@ try {
     useSessionStore.getState().reset();
     authenticate('layout-user');
 
-    const r = mount(createElement(App), '/');
+    const r = mount(createElement(App), '/learn');
     await waitFor(() => useOnboardingGate.getState().bootstrapped, 4000, '게이트 부트스트랩');
     assert(selectUnlockStage(useOnboardingGate.getState()) === 0, '신규 사용자는 단계 0');
 
@@ -349,7 +356,7 @@ try {
     useOnboardingGate.getState().reset();
     authenticate('empty-clouds-user');
 
-    let r = mount(createElement(App), '/');
+    let r = mount(createElement(App), '/learn');
     await waitFor(() => text().includes('구름 회복까지 약'), 5000, '세션 CTA 인라인 회복 ETA');
     assert(text().includes('틀린 문항에만 1개'), '새 소모 규칙(실수에만 소모) 안내가 없다');
     const cta = [...window.document.querySelectorAll('button')].find((b) =>
@@ -378,7 +385,7 @@ try {
     useOnboardingGate.getState().reset();
     authenticate('pc-path-clouds-user');
 
-    const r = mount(createElement(App), '/');
+    const r = mount(createElement(App), '/learn');
     // assert가 던져도 반드시 unmount한다 — 남은 트리가 다음 시나리오의
     // 뷰포트 선택자에 섞여 들어가면 실패 원인이 통째로 오해된다.
     try {
@@ -418,7 +425,7 @@ try {
     useOnboardingGate.getState().reset();
     authenticate('pc-path-recovered-user');
 
-    const r = mount(createElement(App), '/');
+    const r = mount(createElement(App), '/learn');
     try {
       await waitFor(() => pcUnitButtons().length > 0, 5000, 'PC 경로 유닛 노드 렌더');
       const pcOpen = pcUnitButtons().filter((b) => !b.disabled).length;
@@ -458,7 +465,7 @@ try {
 
     useOnboardingGate.getState().reset();
     authenticate('resume-user');
-    const r = mount(createElement(App), '/');
+    const r = mount(createElement(App), '/learn');
     await waitFor(() => text().includes('풀던 세션 이어서 풀기'), 5000, '재개 CTA 문구');
     const disabledCta = [...window.document.querySelectorAll('button[disabled]')].find((b) =>
       b.textContent.includes('세션'),
