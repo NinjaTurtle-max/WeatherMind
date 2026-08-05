@@ -146,11 +146,15 @@ const sideNavCount = () => sidenav()?.querySelectorAll('nav a').length ?? 0;
 
 /** 학습 홈의 두 경로 유닛 버튼 — jsdom은 CSS를 적용하지 않아 둘 다 DOM에 있다.
  *  PC = `hidden md:block` 컨테이너, 모바일 = `md:hidden` 컨테이너. 클래스 선택자에
- *  콜론이 들어가므로 속성 부분일치로 고른다. */
+ *  콜론이 들어가므로 속성 부분일치로 고른다.
+ *
+ *  ⚠️ 유닛 버튼은 `data-wm-unit`으로 고른다 — "aria-label 있는 button"으로 세면
+ *  같은 컨테이너에 카드가 하나 붙을 때마다 개수가 흔들린다(2026-08-05: 우측
+ *  레일·모바일 묶음에 들어간 RegionPicker 칩이 유닛으로 세어졌다). */
 const pcUnitButtons = () =>
-  [...window.document.querySelectorAll('div[class*="md:block"] button[aria-label]')];
+  [...window.document.querySelectorAll('div[class*="md:block"] button[data-wm-unit]')];
 const mobileUnitButtons = () =>
-  [...window.document.querySelectorAll('div[class*="md:hidden"] button[aria-label]')];
+  [...window.document.querySelectorAll('div[class*="md:hidden"] button[data-wm-unit]')];
 
 /** 인증 상태 주입 — 목은 토큰을 검증하지 않는다(계정 식별만 필요). */
 function authenticate(userId) {

@@ -258,6 +258,7 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
               )}
               <button
                 type="button"
+                data-wm-unit
                 onClick={() => !blocked && onOpenUnit(unit.id)}
                 disabled={blocked}
                 // 노드 밑 라벨을 뺐으므로 유닛명은 aria-label·title이 유일한 통로다.
@@ -292,7 +293,7 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
   );
 }
 
-export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked = false, regenMin = 1 }) {
+export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked = false, regenMin = 1, rail = null }) {
   const t = useT();
   const scrollerRef = useRef(null);
   // 접기는 전 단계에 함께 적용한다 — 단계마다 따로 접게 하면 스크롤할 때마다
@@ -401,7 +402,13 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
           </div>
         </div>
 
-        <TutorCard unit={currentUnit} />
+        {/* 우측 레일 — 튜터 아래로 카드를 쌓는다. 트랙이 680px인데 튜터 카드만
+            두면 아래가 350px쯤 비고, 그 카드들을 트랙 밑에 가로로 길게 두면
+            화면이 아래로 늘어진다. 내용은 호출부(CurriculumHome)가 넘긴다. */}
+        <div className="flex flex-col gap-3.5">
+          <TutorCard unit={currentUnit} />
+          {rail}
+        </div>
       </div>
     </div>
   );
@@ -417,7 +424,7 @@ function TutorCard({ unit }) {
   return (
     <div
       // lg 미만에서는 경로 아래로 쌓이므로, 가로로 늘어져 허전해 보이지 않게 폭을 제한한다.
-      className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl p-5 lg:max-w-none"
+      className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 p-5 lg:max-w-none"
       style={{ background: 'linear-gradient(180deg, #EFF8FE 0%, #F7FBFE 55%, #ffffff 100%)' }}
     >
       <span className="absolute left-4 top-3.5 rounded-full bg-[#0E2A42] px-2.5 py-1 text-[10.5px] font-extrabold text-white">

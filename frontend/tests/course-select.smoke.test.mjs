@@ -167,9 +167,10 @@ function mount(element, initialPath) {
 const text = () => window.document.body.textContent ?? '';
 const courseTabs = () => [...window.document.querySelectorAll('[role="tablist"] button[role="tab"]')];
 const selectedTab = () => courseTabs().find((b) => b.getAttribute('aria-selected') === 'true');
-// 학습 홈 유닛 노드(모바일 지그재그) — onboardingGating과 동일 선택자 관례
+// 학습 홈 유닛 노드(모바일 지그재그) — onboardingGating과 동일 선택자 관례.
+// data-wm-unit으로 고른다(aria-label로 세면 같은 묶음의 카드 버튼이 섞인다).
 const mobileUnitButtons = () =>
-  [...window.document.querySelectorAll('div[class*="md:hidden"] button[aria-label]')];
+  [...window.document.querySelectorAll('div[class*="md:hidden"] button[data-wm-unit]')];
 const click = (el) => el.dispatchEvent(new window.Event('click', { bubbles: true }));
 
 function authenticate(userId) {

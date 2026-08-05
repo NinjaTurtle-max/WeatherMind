@@ -119,6 +119,9 @@ export default function CurriculumHome() {
   // 비기본 코스인데 유닛이 아직 없다 = 트리 설계만 착지한 상태(basic-science 초기).
   // 기본 코스의 빈 트리는 현행 렌더(빈 경로) 그대로 둔다 — 무회귀.
   const emptyCourseTree = treeCourse != null && sections.length === 0;
+  // PC 경로 뷰가 실제로 그려지는가 — PcCurriculumPath의 렌더 조건과 같은 식이다
+  // (유닛이 하나도 없으면 null). 우측 레일이 그 안에 있어 여기 분기가 필요하다.
+  const hasPath = sections.some((s) => s.units.length > 0);
   const sectionPreview = COURSE_SECTION_PREVIEW[selectedCourse] ?? null;
 
   return (
@@ -220,49 +223,80 @@ export default function CurriculumHome() {
         energyBlocked={energyBlocked}
         regenMin={regenMin}
         onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
+        rail={
+          <>
+            <ReviewQueueCard />
+            <DailySessionCard
+              energyBlocked={energyBlocked}
+              dailyBlocked={dailyBlocked}
+              regenMin={regenMin}
+            />
+          </>
+        }
       />
 
-      {/* 복습 큐 카드(§6.2 FE-C) — due 0건이면 자가 렌더 생략 */}
-      <ReviewQueueCard />
-
-      {/* 자유 일일 세션 별도 진입(§3.4 병존) */}
-      <div className="mt-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-bold text-slate-800">{t('curriculum.daily.title')}</p>
-          {/* 지역 칩(R12 선행 §8) — 실황 문항이 어느 지역 날씨인지 세션 진입 전에 보여준다 */}
-          <RegionPicker />
-        </div>
-        <p className="mt-0.5 text-xs text-slate-500">{t('curriculum.daily.body')}</p>
-        {dailyBlocked ? (
-          <>
-            <button
-              type="button"
-              disabled
-              aria-disabled="true"
-              className="mt-3 inline-block cursor-not-allowed rounded-xl bg-slate-200 px-4 py-2 text-sm font-bold text-slate-400"
-            >
-              {t('curriculum.daily.cta')}
-            </button>
-            <p className="mt-1.5 text-xs font-bold text-rose-600">
-              {t('curriculum.daily.regen', { min: regenMin })}
-            </p>
-          </>
-        ) : (
-          <>
-            <Link
-              to="/daily"
-              className="mt-3 inline-block rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700"
-            >
-              {energyBlocked ? t('curriculum.daily.resume') : t('curriculum.daily.cta')}
-            </Link>
-            {energyBlocked && (
-              <p className="mt-1.5 text-xs font-bold text-rose-600">
-                {t('curriculum.daily.regenResume', { min: regenMin })}
-              </p>
-            )}
-          </>
-        )}
+      {/* 모바일(md 미만) — 사이드 레일이 없으므로 경로 아래에 쌓는다.
+          PC 경로 뷰는 hidden md:block이라 둘 중 하나만 보인다(기존 관례).
+          단 **경로 자체가 없으면**(빈 트리 코스) PC에도 레일이 안 뜬다
+          — PcCurriculumPath가 통째로 null을 돌려주기 때문이다. 그때는 여기서
+          PC에도 보여준다(자유 세션 진입로가 사라지면 안 된다). */}
+      <div className={hasPath ? 'flex flex-col gap-3 md:hidden' : 'flex max-w-sm flex-col gap-3'}>
+        <ReviewQueueCard />
+        <DailySessionCard
+          energyBlocked={energyBlocked}
+          dailyBlocked={dailyBlocked}
+          regenMin={regenMin}
+        />
       </div>
+
+    </div>
+  );
+}
+
+/**
+ * 자유 일일 세션 카드 (§3.4 병존) — 정해진 경로 대신 오늘의 5문항.
+ * PC는 우측 레일(튜터 아래), 모바일은 경로 아래에 놓인다. 두 자리가 같은 것을
+ * 보여야 하므로 컴포넌트로 뽑아 한 곳에서 정의한다.
+ */
+function DailySessionCard({ energyBlocked, dailyBlocked, regenMin }) {
+  const t = useT();
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[13px] font-bold text-slate-800">{t('curriculum.daily.title')}</p>
+        {/* 지역 칩(R12 선행 §8) — 실황 문항이 어느 지역 날씨인지 세션 진입 전에 보여준다 */}
+        <RegionPicker />
+      </div>
+      <p className="mt-0.5 text-[11px] leading-snug text-slate-500">{t('curriculum.daily.body')}</p>
+      {dailyBlocked ? (
+        <>
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            className="mt-2 inline-block cursor-not-allowed rounded-lg bg-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-400"
+          >
+            {t('curriculum.daily.cta')}
+          </button>
+          <p className="mt-1 text-[11px] font-bold text-rose-600">
+            {t('curriculum.daily.regen', { min: regenMin })}
+          </p>
+        </>
+      ) : (
+        <>
+          <Link
+            to="/daily"
+            className="mt-2 inline-block rounded-lg bg-slate-900 px-3 py-1.5 text-[12px] font-bold text-white transition hover:bg-slate-700"
+          >
+            {energyBlocked ? t('curriculum.daily.resume') : t('curriculum.daily.cta')}
+          </Link>
+          {energyBlocked && (
+            <p className="mt-1 text-[11px] font-bold text-rose-600">
+              {t('curriculum.daily.regenResume', { min: regenMin })}
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -292,6 +326,7 @@ function UnitNode({ unit, offset, isFirst, onOpen, energyBlocked = false, regenM
       <div style={{ transform: `translateX(${offset}%)` }} className="flex flex-col items-center">
         <button
           type="button"
+          data-wm-unit
           onClick={onOpen}
           disabled={locked || energyBlocked}
           aria-label={`${unit.title}${

@@ -38,8 +38,10 @@ export default function CourseSwitcher({ selected, onSelect }) {
   // 코스 제목·설명은 서버 시드(courses.json) 파생 — 외부화 대상 아님(§6.3).
   const titleBySlug = Object.fromEntries(courses.map((c) => [c.id, c.title]));
 
+  // 탭은 학습 경로 위에 얹히는 보조 조작이다 — 크게 잡으면 정작 트랙이 밀린다.
+  // (2026-08-05) 칩 치수를 줄여 세로를 트랙에 돌려준다.
   return (
-    <div role="tablist" aria-label={t('curriculum.switcher.aria')} className="mb-4 flex flex-wrap gap-2">
+    <div role="tablist" aria-label={t('curriculum.switcher.aria')} className="mb-2.5 flex flex-wrap gap-1.5">
       {courses.map((course) => {
         const active = course.id === selected;
         const prereqTitle = course.prereq_course_id
@@ -57,7 +59,7 @@ export default function CourseSwitcher({ selected, onSelect }) {
                 ? t('curriculum.switcher.prereqTitle', { title: prereqTitle })
                 : course.description ?? course.title
             }
-            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition ${
+            className={`flex items-center gap-1 rounded-full px-3 py-1 text-[12.5px] font-bold transition ${
               active
                 ? 'bg-sky-600 text-white shadow-sm'
                 : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
@@ -66,7 +68,7 @@ export default function CourseSwitcher({ selected, onSelect }) {
             {course.title}
             {prereqTitle && (
               <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                className={`rounded-full px-1.5 py-px text-[9.5px] font-bold ${
                   active ? 'bg-sky-500 text-sky-50' : 'bg-indigo-50 text-indigo-500'
                 }`}
               >
