@@ -21,6 +21,9 @@ frontend/dist/
 chroma-data/
 postgres-data/
 
+# DB 수동 백업 산출물 (scripts/db_backup.sh once — 유저 데이터 포함, 커밋 금지)
+backups/
+
 # Claude 프롬프트 기록 (개인 로그)
 .claude/prompt-logs/
 
