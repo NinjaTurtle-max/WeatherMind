@@ -21,7 +21,8 @@
     "test:guest-convert": "node tests/guest-convert.smoke.test.mjs",
     "test:review-queue": "node tests/review-queue.smoke.test.mjs",
     "test:course-select": "node tests/course-select.smoke.test.mjs",
-    "test:region": "node tests/region.smoke.test.mjs"
+    "test:region": "node tests/region.smoke.test.mjs",
+    "test:learn-path": "node tests/learnPath.smoke.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",

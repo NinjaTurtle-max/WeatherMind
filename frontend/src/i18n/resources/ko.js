@@ -292,6 +292,16 @@ export default {
       regen: '☁️ 구름 회복까지 약 {min}분',
       regenResume: '☁️ 구름 회복까지 약 {min}분 — 오늘 시작한 세션은 끝까지 마칠 수 있어요.',
     },
+    // 세로 경로(PcCurriculumPath) — 노드 밑 라벨을 뺀 대신 진도 바가 "지금 어디"를 말한다.
+    path: {
+      introTitle: '이 단계에서 배우는 것',
+      fold: '접기',
+      unfold: '펼치기',
+      scrollHint: '↓ 스크롤해서 다음 단계',
+      progressLabel: '현재 진도',
+      unitCount: '{done} / {total} 유닛',
+      continue: '이어서 학습하기',
+    },
     tutor: {
       chip: '💧 튜터',
       name: '물방울이',
