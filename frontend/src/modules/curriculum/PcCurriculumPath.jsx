@@ -322,6 +322,40 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
 
   const onScroll = useCallback((e) => setAtStart(e.currentTarget.scrollTop < 24), []);
 
+  /**
+   * 트랙이 화면 어디서 시작하는지를 재서 CSS로 넘긴다(`--wm-track-top`).
+   * `.wm-track`의 높이가 "화면에서 이 값과 셸 아래 여백을 뺀 나머지"이기 때문이다.
+   *
+   * **상수로 박으면 안 되는 이유**: 트랙 위에 붙는 것이 상황마다 다르다 —
+   * 게스트 저장 배너 · 코스 탭(코스 2개 이상) · 구름 소진 경고. 하나만 떠도
+   * 트랙이 화면 밖으로 밀린다(실측: 코스 탭 하나에 1440×900이 37px 넘쳤다).
+   *
+   * 되먹임 없음: 재는 것은 **top**이고 top은 자기 높이와 무관하다(위쪽 형제들만이
+   * 정한다). 그래서 높이가 바뀌어 부모가 리사이즈돼도 같은 값이 다시 써질 뿐
+   * 값이 진동하지 않는다.
+   */
+  const wrapRef = useRef(null);
+  useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return undefined;
+    const apply = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      el.style.setProperty('--wm-track-top', `${Math.round(top)}px`);
+    };
+    apply();
+    window.addEventListener('resize', apply);
+    let ro;
+    if (typeof ResizeObserver !== 'undefined' && el.parentElement) {
+      // 위쪽 형제(배너·코스 탭·경고)가 나타나거나 사라지면 부모 높이가 바뀐다.
+      ro = new ResizeObserver(apply);
+      ro.observe(el.parentElement);
+    }
+    return () => {
+      window.removeEventListener('resize', apply);
+      ro?.disconnect();
+    };
+  }, []);
+
   // 현재 유닛이 있는 단계로 초깃값 정렬 — 매번 1단계부터 스크롤하게 두지 않는다.
   useEffect(() => {
     const el = scrollerRef.current;
@@ -341,8 +375,10 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
 
   if (flat.length === 0) return null;
 
+  // pb-6은 뺐다 — main이 이미 pb-8을 갖고 있어, 트랙 아래 여백이 두 겹으로
+  // 쌓이면서 그만큼 페이지에 세로 스크롤이 생겼다(실측 28px).
   return (
-    <div className="hidden pb-6 md:block">
+    <div ref={wrapRef} className="hidden md:block">
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="wm-track min-w-0 rounded-[20px] bg-white ring-1 ring-slate-200">
           <div ref={scrollerRef} className="wm-scroller" onScroll={onScroll}>
@@ -424,18 +460,20 @@ function TutorCard({ unit }) {
   return (
     <div
       // lg 미만에서는 경로 아래로 쌓이므로, 가로로 늘어져 허전해 보이지 않게 폭을 제한한다.
-      className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 p-5 lg:max-w-none"
+      // 치수는 **레일이 트랙보다 길어지지 않는 선**으로 잡는다(2026-08-05): 물방울이가
+      // 180px일 때 레일이 트랙 아래로 삐져나와, 정작 주인공인 학습 경로가 작아 보였다.
+      className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 p-4 lg:max-w-none"
       style={{ background: 'linear-gradient(180deg, #EFF8FE 0%, #F7FBFE 55%, #ffffff 100%)' }}
     >
-      <span className="absolute left-4 top-3.5 rounded-full bg-[#0E2A42] px-2.5 py-1 text-[10.5px] font-extrabold text-white">
+      <span className="absolute left-3.5 top-3 rounded-full bg-[#0E2A42] px-2 py-0.5 text-[10px] font-extrabold text-white">
         {t('curriculum.tutor.chip')}
       </span>
-      <div className="mt-8 flex justify-center">
-        <Mascot name="drop" className="w-[180px] drop-shadow-lg" />
+      <div className="mt-6 flex justify-center">
+        <Mascot name="drop" className="w-[124px] drop-shadow-lg" />
       </div>
-      <div className="relative mt-1 rounded-2xl bg-white p-3 shadow-md">
-        <p className="mb-0.5 text-[11px] font-extrabold text-[#0369A1]">{t('curriculum.tutor.name')}</p>
-        <p className="text-[13.5px] font-bold leading-snug text-slate-800">{greeting}</p>
+      <div className="relative mt-1 rounded-2xl bg-white p-2.5 shadow-md">
+        <p className="mb-0.5 text-[10.5px] font-extrabold text-[#0369A1]">{t('curriculum.tutor.name')}</p>
+        <p className="text-[12.5px] font-bold leading-snug text-slate-800">{greeting}</p>
       </div>
     </div>
   );
