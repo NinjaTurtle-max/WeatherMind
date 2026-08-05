@@ -241,8 +241,8 @@ export default {
       regenResume: '☁️ About {min} min until a cloud returns — a session you started today can still be finished.',
     },
     tutor: {
-      chip: '⚡ Tutor',
-      name: 'Thunder',
+      chip: '💧 Tutor',
+      name: 'Drop',
       greet: '"{title}" is up next — let\'s work through it together!',
       greetDefault: 'Ready to go read the sky today?',
     },

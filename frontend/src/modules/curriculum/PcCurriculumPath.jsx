@@ -5,7 +5,9 @@ import Mascot from '../../components/Mascot';
  * 모바일의 세로 지그재그(§CurriculumHome)와 별도로, 섹션 구분 없이 4열 스네이크로
  * 이어진 곡선 리본 경로 + 튜터 카드를 보여준다. 모바일 뷰는 그대로 유지.
  *
- * 캐릭터는 학습 세션 담당인 태양이다(Mascot). 이전 마스코트 「썬더」는 폐기.
+ * 캐릭터는 학습 세션 담당인 물방울이다(Mascot). 태양이는 게임 보드로 갔고,
+ * 이전 마스코트 「썬더」는 폐기. 이름·칩 문구는 i18n `curriculum.tutor`가 소유한다
+ * — 그림만 바꾸고 문구를 놔두면 물방울이 옆에 "썬더"가 뜬다(실제로 그랬다).
  *
  * 레이아웃 계약: 경로 캔버스는 고정 px 폭을 갖지 않는다(가로 오버플로 방지).
  *   - 노드 x는 컨테이너 폭 대비 %, y는 px.
@@ -161,7 +163,7 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
                       </span>
                     )}
                     {isCurrent && (
-                      <Mascot name="sun" className="absolute -top-[34px] w-[64px] drop-shadow-md" />
+                      <Mascot name="drop" className="absolute -top-[34px] w-[64px] drop-shadow-md" />
                     )}
                     <button
                       type="button"
@@ -242,10 +244,10 @@ function TutorCard({ unit }) {
         {t('curriculum.tutor.chip')}
       </span>
       <div className="mt-8 flex justify-center">
-        <Mascot name="sun" className="w-[180px] drop-shadow-lg" />
+        <Mascot name="drop" className="w-[180px] drop-shadow-lg" />
       </div>
       <div className="relative mt-1 rounded-2xl bg-white p-3 shadow-md">
-        <p className="mb-0.5 text-[11px] font-extrabold text-[#E8A400]">{t('curriculum.tutor.name')}</p>
+        <p className="mb-0.5 text-[11px] font-extrabold text-[#0369A1]">{t('curriculum.tutor.name')}</p>
         <p className="text-[13.5px] font-bold leading-snug text-slate-800">{greeting}</p>
       </div>
     </div>
