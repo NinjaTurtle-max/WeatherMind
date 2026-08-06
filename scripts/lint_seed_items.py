@@ -13,7 +13,7 @@
 #   python scripts/lint_seed_items.py database/seed/staging/au1_weather_items.json
 #   python scripts/lint_seed_items.py <파일> --base database/seed/content_items.json
 #
-# 검사 4종 (문항마다 전부 실행 — 첫 탈락에서 멈추지 않는다):
+# 검사 5종 (문항마다 전부 실행 — 첫 탈락에서 멈추지 않는다):
 #   ① gate1    validate_chain.run_heuristic_checks — LLM 무관·결정적 1차 게이트.
 #              서버 전개형(expand_like_server)에 적용한다.
 #   ② payload  ⓐ 프론트 렌더 필수 필드(REQUIRED_FIELDS — 아래 소유자 주석)가
@@ -32,6 +32,13 @@
 #              board·match·ordering은 correct_answer 없이 채점(goal_conditions·
 #              pairs·items)하므로 빈 정답 키로 비교하면 같은 개념의 전 퍼즐이
 #              서로 중복으로 오탈락한다(2026-08-05 본시드 실측 9건 과탐).
+#   ⑤ vocab    학령 금칙 어휘 (R13-01 §2.3) — level_group이 elementary·middle_high인
+#              문항의 template_json **전체 문자열**(질문·선지·정답·items·pairs·해설·
+#              힌트·guide_steps)에 학령 금칙 어휘가 있으면 탈락. adult·expert는 면제.
+#              목록은 database/seed/level_vocabulary.json이 단독 소유한다 — 코드에
+#              어휘를 박지 않는다(교육과정 근거가 데이터와 같은 곳에 있어야 개정된다).
+#              발단: 본시드 [86] middle_high ordering의 정답 항목이 권운·권층운·
+#              고층운·난층운이었다(중학 교육과정 밖 십운형 명칭).
 #
 # 검사 로직은 전부 author_items.py에서 **import 재사용**한다(사본 금지 —
 # expand_like_server·payload_contract_errors·dedupe_keys·_failed_names,
@@ -48,6 +55,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import sys
 from collections import Counter
 from dataclasses import dataclass, field
@@ -60,6 +68,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 import author_items  # noqa: E402  (검사 로직 단일 소유자 — 사본 금지)
 
 DEFAULT_SEED_PATH = author_items.DEFAULT_SEED_PATH
+VOCABULARY_PATH = author_items.REPO_ROOT / "database" / "seed" / "level_vocabulary.json"
 
 
 def load_render_required() -> dict[str, tuple[str, ...]]:
@@ -91,13 +100,66 @@ def load_render_required() -> dict[str, tuple[str, ...]]:
             del sys.modules[key]
         sys.modules.update(saved)
 
-# 탈락 사유 카테고리 — 리포트는 항상 이 5종을 0건 포함해 전부 출력한다.
+def load_vocabulary(path: Path = VOCABULARY_PATH) -> list[dict]:
+    """학령 금칙 어휘 목록을 JSON에서 읽는다 (코드에 어휘를 박지 않는다 — §2.3).
+
+    파일이 없거나 형태가 어긋나면 예외를 올린다 — 검사가 조용히 꺼지면 규칙이
+    없는 것과 같기 때문이다(호출부가 파이프라인 로드 실패로 종료 코드 2 처리).
+    """
+    data = json.loads(path.read_text(encoding="utf-8"))
+    banned = data["banned"]
+    for entry in banned:
+        if not entry.get("term") or not entry.get("banned_levels"):
+            raise ValueError(f"금칙 어휘 항목에 term/banned_levels 누락: {entry}")
+        if not entry.get("basis"):
+            raise ValueError(f"금칙 어휘 '{entry['term']}'에 교육과정 근거(basis) 없음")
+    return list(banned)
+
+
+def _all_strings(node) -> list[str]:
+    """중첩 구조(dict·list) 안의 모든 문자열을 평탄화한다 — 키는 보지 않는다.
+
+    template_json 전체가 대상이라 유형별 필드(options·items·pairs·hints·
+    guide_steps·explanation_hint…)를 열거하지 않는다. 열거하면 새 유형이 붙을 때
+    조용히 검사에서 빠진다.
+    """
+    if isinstance(node, str):
+        return [node]
+    if isinstance(node, dict):
+        return [s for v in node.values() for s in _all_strings(v)]
+    if isinstance(node, list):
+        return [s for v in node for s in _all_strings(v)]
+    return []
+
+
+def vocabulary_errors(item: dict, vocabulary: list[dict]) -> list[str]:
+    """문항의 학령에서 금칙인 어휘가 template_json 어디든 있으면 사유를 만든다."""
+    level = str(item.get("level_group") or "")
+    blob = " ".join(_all_strings(item.get("template_json") or {}))
+    hits = [
+        entry
+        for entry in vocabulary
+        if level in entry["banned_levels"] and entry["term"] in blob
+    ]
+    # 더 긴 금칙어에 포함되는 짧은 금칙어는 중복 보고하지 않는다
+    # (예: '권층운' 적발 시 '층운'까지 두 줄로 나오는 소음 방지).
+    terms = {e["term"] for e in hits}
+    hits = [e for e in hits if not any(e["term"] != t and e["term"] in t for t in terms)]
+    return [
+        f"'{entry['term']}' — {level} 금칙 어휘. 근거: {entry['basis']}"
+        + (f" / 대안 표현: {entry['suggest']}" if entry.get("suggest") else "")
+        for entry in hits
+    ]
+
+
+# 탈락 사유 카테고리 — 리포트는 항상 이 6종을 0건 포함해 전부 출력한다.
 STAGES: tuple[tuple[str, str], ...] = (
     ("gate1", "① 1차 게이트 탈락 (휴리스틱)"),
     ("payload", "② payload 계약 탈락"),
     ("schema", "③ 스키마 탈락 (validate_entry)"),
     ("dup_file", "④ 중복 (파일 내)"),
     ("dup_base", "④ 중복 (본시드 대조)"),
+    ("vocab", "⑤ 학령 금칙 어휘"),
 )
 
 
@@ -130,9 +192,10 @@ def lint_items(
     backend: "author_items.BackendContract",
     ai: "author_items.AiWorkerApi",
     render_required: dict[str, tuple[str, ...]],
+    vocabulary: list[dict],
     base_items: list[dict] | None = None,
 ) -> LintResult:
-    """전 문항에 4종 검사를 실행한다 (순수 함수 — 출력·exit 없음).
+    """전 문항에 5종 검사를 실행한다 (순수 함수 — 출력·exit 없음).
 
     base_items가 주어지면(=staging lint) 본시드 대조 중복까지 본다.
     중복 비교는 정규화 키 set(O(n)) — dedupe_keys의 두 키(정규화 question_text /
@@ -197,6 +260,11 @@ def lint_items(
         schema_errors = list(backend.validate_entry(item, i))
         if schema_errors:
             found("schema", schema_errors)
+
+        # ⑤ 학령 금칙 어휘 — elementary·middle_high만 대상(목록이 학령을 들고 있다)
+        vocab_errors = vocabulary_errors(item, vocabulary)
+        if vocab_errors:
+            found("vocab", vocab_errors)
 
         # ④ 중복 배제 — 본시드 대조(있으면) + 파일 내. 어느 키가 겹쳐도 중복
         #    (정답 키는 정규화 정답이 있는 문항만 — answer_key_active).
@@ -277,6 +345,7 @@ def main(argv: list[str] | None = None) -> int:
         backend = author_items.load_backend_contract()
         ai = author_items.load_ai_worker(with_generator=False)
         render_required = load_render_required()
+        vocabulary = load_vocabulary()
     except Exception as exc:
         print(f"[lint_seed_items] 파이프라인 로드 실패: {exc}", file=sys.stderr)
         return 2
@@ -296,6 +365,7 @@ def main(argv: list[str] | None = None) -> int:
         backend=backend,
         ai=ai,
         render_required=render_required,
+        vocabulary=vocabulary,
         base_items=base_items,
     )
     print(
