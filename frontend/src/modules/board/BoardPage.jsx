@@ -36,10 +36,13 @@ import { useT } from '../../i18n';
 
 // 난이도 배지(R7-02 S5) — 색 구분 + 텍스트 병기(색맹 접근성: 색에만 의존하지 않음)
 // 라벨은 i18n 키로 — 렌더 시 로케일에 맞춰 해석한다(R11-01 §6.3 외부화).
+// 배경 없이 **글자만** 쓴다(2026-08-06) — 알약 배경이 칸마다 색 덩어리로 튀어,
+// 정작 신호인 「깬 칸(초록) / 미클리어(회색)」보다 먼저 눈에 들어왔다.
+// 색은 남기되 접근성 규칙은 그대로다: 색에만 의존하지 않고 텍스트를 병기한다.
 const DIFFICULTY_META = {
-  1: { labelKey: 'board.page.difficulty1', className: 'bg-emerald-100 text-emerald-700' },
-  2: { labelKey: 'board.page.difficulty2', className: 'bg-amber-100 text-amber-700' },
-  3: { labelKey: 'board.page.difficulty3', className: 'bg-rose-100 text-rose-700' },
+  1: { labelKey: 'board.page.difficulty1', className: 'text-emerald-600' },
+  2: { labelKey: 'board.page.difficulty2', className: 'text-amber-600' },
+  3: { labelKey: 'board.page.difficulty3', className: 'text-rose-600' },
 };
 
 function DifficultyBadge({ difficulty }) {
@@ -50,7 +53,7 @@ function DifficultyBadge({ difficulty }) {
   return (
     <span
       aria-label={t('board.page.difficultyAria', { label })}
-      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${meta.className}`}
+      className={`shrink-0 text-[11px] font-bold ${meta.className}`}
     >
       {t('board.page.difficultyText', { label })}
     </span>
@@ -305,7 +308,9 @@ export default function BoardPage() {
               칸을 따로 띄우지 않고 한 판 안에서 실선으로 가른다. 서버가 저작
               순서(board_order = 난이도 오름차순)로 내려주므로 재정렬하지 않는다. */}
           <div>
-            <div className="grid grid-cols-2 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 sm:grid-cols-4">
+            {/* 판 폭을 조금 묶는다 — 열 너비가 곧 칸 크기라(aspect 고정) 폭을 줄이면
+                판 전체가 같은 비율로 작아진다. */}
+            <div className="grid max-w-[860px] grid-cols-2 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 sm:grid-cols-4">
               {cells.map((p, i) =>
                 p ? (
                   <PuzzlePiece
@@ -327,7 +332,7 @@ export default function BoardPage() {
             </div>
 
             {/* 전체 진행도 — 순차 진행이라 "몇 칸 남았나"가 곧 코스 진도다 */}
-            <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200">
+            <div className="mt-4 flex max-w-[860px] items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200">
               <span className="text-[11.5px] font-extrabold text-slate-500">
                 {t('board.page.progressLabel')}
               </span>
