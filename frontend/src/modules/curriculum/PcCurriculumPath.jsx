@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import Mascot from '../../components/Mascot';
 
 /**
  * PcCurriculumPath — 학습 홈의 PC(데스크톱, md↑) 전용 경로 뷰.
@@ -8,9 +7,9 @@ import Mascot from '../../components/Mascot';
  * **섹션당 한 화면(스크롤 스냅) + 세로 지그재그**로 교체했다. 모바일 뷰
  * (§CurriculumHome)는 그대로 둔다.
  *
- * 캐릭터는 학습 세션 담당인 물방울이다(Mascot). 태양이는 게임 보드로 갔고,
- * 이전 마스코트 「썬더」는 폐기. 이름·칩 문구는 i18n `curriculum.tutor`가 소유한다
- * — 그림만 바꾸고 문구를 놔두면 물방울이 옆에 "썬더"가 뜬다(실제로 그랬다).
+ * 캐릭터(물방울이)는 **좌측 사이드바가 소유한다**(SideNav의 화면별 튜터).
+ * 예전에는 이 화면 우측 레일에도 물방울이 카드가 있었는데, 사이드바 튜터가
+ * 화면별로 바뀌게 되면서 같은 캐릭터가 한 화면에 둘 떴다 — 여기서 뺐다.
  *
  * 레이아웃 계약(시안 README「검증된 동작 계약」):
  *   - 한 화면에 한 단계. 트랙만 스크롤되고 페이지는 따라 움직이지 않는다.
@@ -101,9 +100,10 @@ function badgeStyle(status) {
  * 그래서 자기 자신(svg)에 ref를 걸고 `parentElement`로 올라간다 — 자기 DOM은
  * 자기 effect 시점에 반드시 붙어 있다.
  */
-function StageLine({ nodeCount, doneCount, leadIn, leadOut }) {
+function StageLine({ nodeCount, doneCount, leadIn, leadOut, layoutKey }) {
   const svgRef = useRef(null);
-  const [d, setD] = useState({ base: '', done: '' });
+  const baseRef = useRef(null);
+  const doneRef = useRef(null);
 
   const draw = useCallback(() => {
     const el = svgRef.current?.parentElement;
@@ -130,11 +130,19 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut }) {
     if (doneCount >= nodeCount) doneLen = all.length; // 이 단계 전부 + 아래 꼬리
     else if (doneCount > 0) doneLen = head + doneCount;
 
-    setD({
-      base: line(all),
-      done: doneLen >= 2 ? line(all.slice(0, doneLen)) : '',
-    });
-  }, [nodeCount, doneCount, leadIn, leadOut]);
+    // **state가 아니라 DOM에 직접 쓴다.** setState로 두면 좌표를 잰 프레임과 선이
+    // 실제로 옮겨 그려지는 프레임이 갈라진다 — 그 한 프레임 동안 노드는 이미
+    // 움직였는데 선만 옛 자리에 남아 흔들려 보인다(실측: 소개 스트립을 접었다
+    // 펼 때마다 1프레임 13.5px). ResizeObserver 콜백은 레이아웃 뒤·페인트 전에
+    // 도므로, 여기서 attribute를 바로 쓰면 같은 프레임에 함께 그려진다.
+    baseRef.current?.setAttribute('d', line(all));
+    doneRef.current?.setAttribute('d', doneLen >= 2 ? line(all.slice(0, doneLen)) : '');
+    // layoutKey는 계산에 쓰이지 않는다 — **노드를 움직이는 바깥 변화**(소개 스트립
+    // 접기 등)를 의존성으로 들여와, 그 변화와 **같은 커밋**에서 다시 그리게 하는
+    // 스위치다. ResizeObserver에만 맡기면 다시 그리는 시점이 브라우저의 콜백 전달
+    // 순서에 달리는데, layout effect는 DOM 변경 뒤·페인트 전이 React의 계약이다.
+    void layoutKey;
+  }, [nodeCount, doneCount, leadIn, leadOut, layoutKey]);
 
   useLayoutEffect(() => {
     draw();
@@ -146,11 +154,11 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut }) {
   }, [draw]);
 
   return (
+    // 두 path는 **항상 그린다** — 조건부로 붙였다 떼면 그 순간 ref가 갈려서
+    // draw()가 쓸 대상을 잃는다. 빈 d는 아무것도 그리지 않는다.
     <svg ref={svgRef} className="wm-line" aria-hidden="true">
-      <path d={d.base} fill="none" stroke="#E1E8EF" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
-      {d.done && (
-        <path d={d.done} fill="none" stroke="#9AD5F2" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
-      )}
+      <path ref={baseRef} d="" fill="none" stroke="#E1E8EF" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+      <path ref={doneRef} d="" fill="none" stroke="#9AD5F2" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -226,6 +234,7 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
         style={{ '--n': units.length, '--chrome': `${CHROME}px` }}
       >
         <StageLine
+          layoutKey={introOpen}
           nodeCount={units.length}
           doneCount={doneCount}
           leadIn={index > 0}
@@ -441,40 +450,12 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
         {/* 우측 레일 — 튜터 아래로 카드를 쌓는다. 트랙이 680px인데 튜터 카드만
             두면 아래가 350px쯤 비고, 그 카드들을 트랙 밑에 가로로 길게 두면
             화면이 아래로 늘어진다. 내용은 호출부(CurriculumHome)가 넘긴다. */}
-        <div className="flex flex-col gap-3.5">
-          <TutorCard unit={currentUnit} />
-          {rail}
-        </div>
+        {/* 우측 레일 — 튜터 카드는 뺐다(2026-08-05). 같은 물방울이가 좌측
+            사이드바에도 있어 한 화면에 둘이 떴다. 복습 큐·자유 세션이 그만큼
+            위로 올라온다. 내용은 호출부(CurriculumHome)가 넘긴다. */}
+        <div className="flex flex-col gap-3.5">{rail}</div>
       </div>
     </div>
   );
 }
 
-function TutorCard({ unit }) {
-  const t = useT();
-  // 튜터 코멘트 내용(사전형 기상 용어 등)은 아직 미확정 — 지금은 자리표시 문구만.
-  const greeting = unit
-    ? t('curriculum.tutor.greet', { title: unit.title })
-    : t('curriculum.tutor.greetDefault');
-
-  return (
-    <div
-      // lg 미만에서는 경로 아래로 쌓이므로, 가로로 늘어져 허전해 보이지 않게 폭을 제한한다.
-      // 치수는 **레일이 트랙보다 길어지지 않는 선**으로 잡는다(2026-08-05): 물방울이가
-      // 180px일 때 레일이 트랙 아래로 삐져나와, 정작 주인공인 학습 경로가 작아 보였다.
-      className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 p-4 lg:max-w-none"
-      style={{ background: 'linear-gradient(180deg, #EFF8FE 0%, #F7FBFE 55%, #ffffff 100%)' }}
-    >
-      <span className="absolute left-3.5 top-3 rounded-full bg-[#0E2A42] px-2 py-0.5 text-[10px] font-extrabold text-white">
-        {t('curriculum.tutor.chip')}
-      </span>
-      <div className="mt-6 flex justify-center">
-        <Mascot name="drop" className="w-[124px] drop-shadow-lg" />
-      </div>
-      <div className="relative mt-1 rounded-2xl bg-white p-2.5 shadow-md">
-        <p className="mb-0.5 text-[10.5px] font-extrabold text-[#0369A1]">{t('curriculum.tutor.name')}</p>
-        <p className="text-[12.5px] font-bold leading-snug text-slate-800">{greeting}</p>
-      </div>
-    </div>
-  );
-}

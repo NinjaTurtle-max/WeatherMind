@@ -16,7 +16,12 @@ import { useT } from '../../i18n';
  * 최초 클리어 시 +5 XP 토스트(재도전 0). 시뮬레이터 탭을 대체한다.
  *
  * R7-02 S5: 퍼즐 카드에 난이도 배지(difficulty 1|2|3 → 쉬움/보통/도전).
- * 목록은 서버가 θ 인접 정렬로 내려주므로 클라이언트는 서버 순서 그대로 렌더한다.
+ * 목록은 서버가 **저작 순서(board_order)**로 내려준다 — 순차 진행이라 순서가 곧
+ * 코스다. 클라이언트는 재정렬하지 않는다(2026-08-05, θ 인접 정렬을 대체).
+ *
+ * 순차 잠금: 앞 퍼즐을 전부 깨야 다음이 열린다(`locked`). 잠긴 칸도 제목·요약·
+ * 난이도까지 **보여주고** 진입만 막는다. 판정 권위는 서버(403 PUZZLE_LOCKED)이고
+ * 카드 비활성은 "누르기 전에 알린다"를 위한 표시다.
  *
  * R10-01 D1 (에너지 진입 게이트): 플레이 진입은 **반드시**
  * GET /board/puzzles/{id}(상세)를 통과한다 — 그 엔드포인트가 보드측 유일한 구름
@@ -165,6 +170,14 @@ export default function BoardPage() {
       if (err.code === 'OUT_OF_CLOUDS') {
         queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
       }
+      // 순차 잠금(403)은 **아는 코드**라 우리 리소스로 말한다 — 서버 detail은
+      // 한국어 고정이라 그대로 쓰면 영어 화면에 한국어가 뜬다. 목록도 새로
+      // 받는다: 다른 기기에서 앞 퍼즐을 깼다면 잠금이 이미 풀렸을 수 있다.
+      if (err.code === 'PUZZLE_LOCKED') {
+        queryClient.invalidateQueries({ queryKey: ['board', 'puzzles'] });
+        setEntryError(t('board.page.lockedError'));
+        return;
+      }
       setEntryError(err.detail ?? t('board.page.entryFailed'));
     },
   });
@@ -250,6 +263,7 @@ export default function BoardPage() {
 
   // LIST 화면
   const list = puzzles ?? [];
+  const clearedCount = list.filter((p) => p.cleared).length;
   return (
     <div className="pt-2">
       {toast && (
@@ -257,33 +271,12 @@ export default function BoardPage() {
           {toast}
         </div>
       )}
-      {/* 머리말 한 줄에 제목 + 상시 입구 둘. 미션(본선)과 실험(비채점 상시 입구)은
-          격이 달라서, 예전처럼 큰 카드 두 장으로 나란히 두면 "셋 중 하나 고르세요"로
-          읽히고 정작 미션 목록이 화면 아래로 밀린다(실측 첫 미션 y=266).
-          시안 board_mockup의 배치를 따른다 — 실험은 헤더 우측 버튼. */}
+      {/* 실험 둘은 **우측 레일**이 소유한다(2026-08-05 새 시안) — 머리말에도 두면
+          같은 입구가 화면에 두 번 뜬다. 머리말은 제목·부제만. */}
       <div className="mb-3 flex flex-wrap items-end gap-x-3 gap-y-2">
         <div className="min-w-0">
           <h1 className="text-lg font-extrabold text-slate-900">{t('board.page.title')}</h1>
           <p className="text-sm text-slate-500">{t('board.page.subtitle')}</p>
-        </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setSandbox(true)}
-            title={t('board.page.sandboxDesc')}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-sky-300 hover:text-sky-700"
-          >
-            {/* 아이콘은 리소스 문자열이 이미 갖고 있다(🧪 자유 실험) — 여기서 또
-                붙이면 두 번 뜬다(실측). */}
-            {t('board.page.sandboxTitle')}
-          </button>
-          <Link
-            to="/explore"
-            title={t('board.page.exploreDesc')}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-sky-300 hover:text-sky-700"
-          >
-            {t('board.page.exploreTitle')}
-          </Link>
         </div>
       </div>
 
@@ -311,50 +304,222 @@ export default function BoardPage() {
           {t('board.page.empty')}
         </div>
       ) : (
-        // 목록은 폭을 제한한다 — 셸은 플레이 3열 때문에 넓은데(7xl), 미션 한 줄이
-        // 1200px로 늘어나면 제목과 오른쪽 「도전」 사이가 텅 빈다.
-        <div className="flex max-w-4xl flex-col gap-2">
-          {list.map((p) => {
-            const pending = entryMutation.isPending && entryMutation.variables === p.content_item_id;
-            return (
-              <button
-                key={p.content_item_id}
-                type="button"
-                onClick={() => openPuzzle(p)}
-                disabled={energyBlocked || entryMutation.isPending}
-                aria-disabled={energyBlocked ? 'true' : undefined}
-                aria-label={`${p.template_json?.question_text ?? t('board.page.puzzleFallback')}${energyBlocked ? t('board.page.blockedSuffix') : ''}`}
-                title={energyBlocked ? t('board.page.blockedTitle', { min: regenMin }) : undefined}
-                className={`flex items-center justify-between rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 transition ${
-                  energyBlocked ? 'cursor-not-allowed opacity-60' : 'hover:ring-sky-300'
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-slate-800">{p.template_json?.question_text}</p>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    <p className="text-xs text-slate-400">
-                      {p.template_json?.mode === 'guided' ? t('board.page.modeGuided') : t('board.page.modeGoal')}
-                    </p>
-                    <DifficultyBadge difficulty={p.difficulty} />
-                  </div>
-                  {/* 누르기 전에 알린다(§3.1) — 429를 받고 나서가 아니다 */}
-                  {energyBlocked && (
-                    <p className="mt-1 text-xs font-bold text-rose-600">{t('board.page.cardRecovery', { min: regenMin })}</p>
-                  )}
-                </div>
-                <span
-                  className={`ml-3 shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
-                    p.cleared ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  {pending ? t('board.page.opening') : p.cleared ? t('board.page.cleared') : t('board.page.challenge')}
-                </span>
-              </button>
-            );
-          })}
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+          {/* 왼쪽 — 퍼즐 조각으로 이어지는 미션. 서버가 저작 순서(board_order)로
+              내려주므로 클라이언트는 재정렬하지 않는다(순서가 곧 코스다). */}
+          <div>
+            {/* 정사각에 가깝게 — 3열이면 칸이 가로로 길어진다(실측 285×112).
+                4열로 좁히고 sm↑에서 가로:세로 10:9로 잡는다 — 정사각(218×218)은
+                살짝 키가 커 보여 한 뼘 낮췄다(218×196). 모바일 1열은 비율을 걸면
+                한 칸이 화면을 다 먹으므로 높이를 내용에 맡긴다. */}
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {list.map((p, i) => (
+                <PuzzlePiece
+                  key={p.content_item_id}
+                  puzzle={p}
+                  index={i}
+                  energyBlocked={energyBlocked}
+                  regenMin={regenMin}
+                  pending={entryMutation.isPending && entryMutation.variables === p.content_item_id}
+                  busy={entryMutation.isPending}
+                  onOpen={() => openPuzzle(p)}
+                />
+              ))}
+            </div>
+
+            {/* 전체 진행도 — 순차 진행이라 "몇 칸 남았나"가 곧 코스 진도다 */}
+            <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200">
+              <span className="text-[11.5px] font-extrabold text-slate-500">
+                {t('board.page.progressLabel')}
+              </span>
+              <span className="h-[7px] flex-1 overflow-hidden rounded-full bg-sky-100">
+                <i
+                  className="block h-full rounded-full bg-sky-600 transition-[width]"
+                  style={{ width: `${Math.round((clearedCount / list.length) * 100)}%` }}
+                />
+              </span>
+              <span className="flex-none text-[11.5px] font-bold tabular-nums text-slate-500">
+                {t('board.page.progressCount', { done: clearedCount, total: list.length })}
+              </span>
+            </div>
+          </div>
+
+          {/* 오른쪽 — 채점도 구름 소모도 없는 상시 입구. 본선(미션)과 격이 달라
+              같은 줄에 두지 않는다. */}
+          <aside className="flex flex-col gap-3">
+            <LabCard
+              icon="🧪"
+              title={t('board.page.sandboxTitle')}
+              desc={t('board.page.sandboxDesc')}
+              cta={t('board.page.enter')}
+              onClick={() => setSandbox(true)}
+            />
+            <LabCard
+              icon="🔬"
+              title={t('board.page.exploreTitle')}
+              desc={t('board.page.exploreDesc')}
+              cta={t('board.page.enter')}
+              to="/explore"
+            />
+          </aside>
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * 퍼즐 조각 한 칸 = 미션 하나 (2026-08-05 시안).
+ *
+ * 상태는 셋뿐이다 — 순차 진행이라 "열려 있는데 아직 안 깬" 칸이 **항상 하나**다:
+ *   cleared(깬 칸) · current(지금 풀 칸) · locked(아직 잠긴 칸).
+ * 색을 상태당 하나씩만 쓴다(초록·하늘·회색). 난이도 칩이 이미 색을 세 개 쓰므로
+ * 카드까지 다채로우면 무엇이 신호인지 흐려진다.
+ *
+ * 퍼즐 느낌은 **카드 모양이 아니라 연결 꼭지**가 만든다. 카드를 실제 퍼즐 조각
+ * 실루엣으로 깎으려면 clip-path에 px 좌표를 박아야 해서 반응형이 깨진다 —
+ * 좌우에 작은 원(꼭지/홈)을 붙이면 열 수가 바뀌어도 그대로 이어져 보인다.
+ */
+function PuzzlePiece({ puzzle, index, energyBlocked, regenMin, pending, busy, onOpen }) {
+  const t = useT();
+  const tpl = puzzle.template_json ?? {};
+  const locked = Boolean(puzzle.locked);
+  const cleared = Boolean(puzzle.cleared);
+  // 구름 부족은 **잠금과 사유가 다르다** — 잠긴 칸은 구름이 차도 안 열리고,
+  // 구름이 없는 칸은 기다리면 열린다. 라벨을 구분하고 클릭 차단만 함께 묶는다.
+  const blocked = locked || energyBlocked;
+  const state = cleared ? 'cleared' : locked ? 'locked' : 'current';
+  const goalPhenomenon = tpl.goal_conditions?.[0]?.phenomenon ?? null;
+
+  const skin = {
+    cleared: 'bg-emerald-50 ring-emerald-200 hover:ring-emerald-400',
+    current: 'bg-white ring-sky-500 hover:ring-sky-600',
+    locked: 'bg-slate-50 ring-slate-200',
+  }[state];
+  // 꼭지·홈은 카드 바탕과 페이지 바탕을 각각 흉내 낸다 — 색이 어긋나면 원이 보인다.
+  const knob = { cleared: 'bg-emerald-50', current: 'bg-white', locked: 'bg-slate-50' }[state];
+
+  const suffix = locked
+    ? t('board.page.lockedSuffix')
+    : energyBlocked
+      ? t('board.page.blockedSuffix')
+      : '';
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={blocked || busy}
+        aria-disabled={blocked ? 'true' : undefined}
+        aria-label={`${index + 1}. ${tpl.title ?? tpl.question_text ?? t('board.page.puzzleFallback')}${suffix}`}
+        title={
+          locked
+            ? t('board.page.lockedTitle')
+            : energyBlocked
+              ? t('board.page.blockedTitle', { min: regenMin })
+              : (tpl.question_text ?? undefined)
+        }
+        className={`flex min-h-[132px] w-full flex-col overflow-hidden rounded-2xl p-3.5 text-left shadow-sm ring-1 transition sm:aspect-[10/9] ${skin} ${
+          blocked ? 'cursor-not-allowed' : ''
+        } ${locked ? 'opacity-70' : ''}`}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-extrabold tabular-nums text-slate-400">
+            {String(index + 1).padStart(2, '0')}
+          </span>
+          <span className="ml-auto text-[13px]" aria-hidden="true">
+            {cleared ? '✅' : locked ? '🔒' : '▶'}
+          </span>
+        </div>
+        {/* 목표 현상 아이콘 — 정사각 칸의 빈 가운데를 실데이터로 채운다.
+            정답 누설이 아니다: 목표 현상은 미션 문장이 이미 말한다("소나기를 내려
+            보세요"). 목표가 없는 퍼즐(자유형)은 아이콘 줄 자체를 만들지 않는다. */}
+        {goalPhenomenon && (
+          <div className={`mt-1.5 ${locked ? 'opacity-50 grayscale' : ''}`}>
+            <SymbolIcon kind="phenomenon" value={goalPhenomenon} className="h-8 w-8" />
+          </div>
+        )}
+        <p className={`mt-1.5 text-[13.5px] font-extrabold ${locked ? 'text-slate-500' : 'text-slate-900'}`}>
+          {tpl.title ?? tpl.question_text}
+        </p>
+        {tpl.summary && (
+          <p
+            className={`mt-0.5 overflow-hidden text-[11.5px] leading-snug ${
+              locked ? 'text-slate-400' : 'text-slate-500'
+            }`}
+            // 칸이 정사각이라 요약이 길면 난이도 칩을 밀어낸다 — 3줄에서 자른다.
+            style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3 }}
+          >
+            {tpl.summary}
+          </p>
+        )}
+        <div className="mt-auto flex items-center gap-1.5 pt-2">
+          <DifficultyBadge difficulty={puzzle.difficulty} />
+          {pending && <span className="text-[11px] font-bold text-sky-700">{t('board.page.opening')}</span>}
+          {/* 누르기 전에 알린다(§3.1) — 429를 받고 나서가 아니다 */}
+          {!locked && energyBlocked && (
+            <span className="text-[11px] font-bold text-rose-600">{t('board.page.cardRecovery', { min: regenMin })}</span>
+          )}
+        </div>
+      </button>
+
+      {/* 연결 꼭지(오른쪽)와 홈(왼쪽) — 조각이 옆으로 이어져 보이게 한다.
+          장식이라 스크린리더에서 감춘다. */}
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute -right-[7px] top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 rounded-full ${knob}`}
+      />
+      {/* 홈(왼쪽) — **페이지 바탕색과 같은 값이어야** 파인 것처럼 보인다.
+          body가 slate-100이라 여기도 slate-100이다. 배경을 바꾸면 이 원이
+          동그라미로 드러난다(같이 고칠 것). */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-[7px] top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-slate-100"
+      />
+    </div>
+  );
+}
+
+/**
+ * 실험 입구 카드 — 자유 실험·탐구 실험실이 같은 모양을 쓴다(격이 같다).
+ *
+ * 아이콘은 **prop으로 받는다.** 리소스 문자열이 이미 앞머리에 이모지를 달고 있어
+ * (`🧪 자유 실험`) 그대로 두면 큰 아이콘과 나란히 두 번 뜬다 — 표시할 때 앞
+ * 이모지를 떼고 이름만 쓴다. 리소스 값은 건드리지 않는다(다른 화면·번역 공유).
+ */
+function LabCard({ icon, title, desc, cta, onClick, to }) {
+  const label = title.replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, '');
+  const inner = (
+    <>
+      <span
+        aria-hidden="true"
+        className="grid h-14 w-14 place-items-center rounded-2xl bg-white text-[26px] ring-1 ring-indigo-100"
+      >
+        {icon}
+      </span>
+      <p className="mt-3 text-[13.5px] font-extrabold text-slate-900">{label}</p>
+      <p className="mt-1 text-[11.5px] leading-snug text-slate-500">{desc}</p>
+      {/* mt-auto — 카드를 키운 만큼 남는 높이를 여기서 먹어 CTA를 바닥에 붙인다.
+          두 카드의 버튼 높이가 맞아야 레일이 정돈돼 보인다. */}
+      <span className="mt-auto inline-block self-start rounded-lg bg-slate-900 px-3 py-1.5 text-[12px] font-bold text-white">
+        {cta}
+      </span>
+    </>
+  );
+  // 퍼즐 칸과 **한 눈에 갈리게** 살짝 다른 바탕을 준다(2026-08-05). 미션 칸은
+  // 흰색·초록·회색 셋을 쓰므로 여기만 옅은 남색 계열로 둔다 — 어느 쪽도 아니고
+  // 본선 진도와 무관한 상시 입구라는 뜻이다. 색은 **하나만** 더 쓴다.
+  const cls =
+    'flex min-h-[224px] flex-col rounded-2xl bg-indigo-50 p-4 text-left shadow-sm ring-1 ring-indigo-200 transition hover:ring-indigo-400';
+  return to ? (
+    <Link to={to} className={cls}>
+      {inner}
+    </Link>
+  ) : (
+    <button type="button" onClick={onClick} className={`w-full ${cls}`}>
+      {inner}
+    </button>
   );
 }
 

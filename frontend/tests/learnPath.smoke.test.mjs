@@ -174,6 +174,13 @@ await render({});
   ok(observed.every(Boolean),
      '관측 대상에 null이 섞이지 않는다(부모 ref 미확보 시 null이 들어온다)');
 
+  // 연결선 path 2개는 **항상** DOM에 있어야 한다. 조건부로 붙였다 떼면 그 순간
+  // ref가 갈려서, 좌표를 다시 쓸 대상을 잃는다(선이 옛 자리에 굳는다).
+  // jsdom은 레이아웃이 없어 d는 빈 값이지만, 요소가 있는지는 여기서 지킨다.
+  const linePaths = container.querySelectorAll('.wm-line path');
+  ok(linePaths.length === stages.length * 2,
+     `단계마다 연결선 path 2개(회색·파랑)를 상시 둔다 — 실제 ${linePaths.length} / 기대 ${stages.length * 2}`);
+
   // 트랙 높이를 정하는 `--wm-track-top`이 실제로 써지는가.
   // 트랙 위에 붙는 것(게스트 배너·코스 탭·구름 경고)이 상황마다 달라서 상수로 두면
   // 하나만 떠도 페이지가 세로로 넘친다 — 실측: 코스 탭 하나에 1440×900이 37px 넘쳤다.

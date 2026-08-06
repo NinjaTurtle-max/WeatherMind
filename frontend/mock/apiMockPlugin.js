@@ -1139,17 +1139,41 @@ function boardDifficulty(template, levelGroup) {
   return Math.max(1, Math.min(3, score));
 }
 
-const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board').map((seed, i) => {
-  const n = i + 1;
-  const template = seed.template_json ?? {};
-  return {
-    content_item_id: `b${String(n).padStart(7, '0')}-0000-4000-8000-${String(n).padStart(12, '0')}`,
-    difficulty: boardDifficulty(template, seed.level_group),
-    concept_tag: seed.concept_tag,
-    // 서버 board 화이트리스트와 같은 집합 — 시드의 빈 correct_answer는 싣지 않는다
-    template_json: questionPayload(template, 'board') ?? {},
-  };
-});
+// 서버 order_puzzles_for_progress와 같은 규칙 — 저작 순서(board_order) 오름차순,
+// 없는 문항은 뒤로. 순차 진행에서 순서가 곧 코스라 목이 시드 순서를 그대로 쓰면
+// 잠금 판정이 실서버와 갈린다.
+// 서버와 같은 폴백 — `??`로 두면 board_order=0이 맨 앞으로 가는데 서버는
+// 정수가 아닌 값만 뒤로 보낸다(0은 정수라 그대로 0). 판정이 갈리지 않게 맞춘다.
+const boardOrderOf = (seed) => {
+  const v = seed.template_json?.board_order;
+  return typeof v === 'number' ? v : 10000;
+};
+
+const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board')
+  .slice()
+  .sort((a, b) => boardOrderOf(a) - boardOrderOf(b))
+  .map((seed, i) => {
+    const n = i + 1;
+    const template = seed.template_json ?? {};
+    return {
+      content_item_id: `b${String(n).padStart(7, '0')}-0000-4000-8000-${String(n).padStart(12, '0')}`,
+      difficulty: boardDifficulty(template, seed.level_group),
+      concept_tag: seed.concept_tag,
+      // 세션 payload 화이트리스트(정답성 필드 구조적 제외) + **보드 목록 전용 표시 필드**.
+      // /board/puzzles는 세션 문항 표면이 아니다 — 실서버는 template_json을 통째로
+      // 내려주므로 목이 세션 화이트리스트만 쓰면 카드 제목·요약이 목에서만 빈다.
+      // QUESTION_PAYLOAD_FIELDS 자체는 건드리지 않는다(서버와 같은 집합이어야 하고,
+      // backend test_r10_mock_parity_contract가 그 동일성을 감시한다).
+      template_json: {
+        ...(questionPayload(template, 'board') ?? {}),
+        ...Object.fromEntries(
+          ['board_order', 'title', 'summary']
+            .filter((k) => template[k] !== undefined)
+            .map((k) => [k, template[k]]),
+        ),
+      },
+    };
+  });
 
 // 최초 클리어 기록 (content_item_id 집합) — 재도전 0 XP (§3.5)
 const clearedBoardPuzzles = new Set();
@@ -1161,7 +1185,20 @@ const boardPuzzlePayload = (p) => ({
   difficulty: p.difficulty ?? 1, // R7-02 S5: 난이도 1|2|3
   template_json: p.template_json,
   cleared: clearedBoardPuzzles.has(p.content_item_id),
+  locked: boardLocked(p.content_item_id),
 });
+
+/** 순차 진행 잠금 — 서버 routers/board.locked_flags와 **같은 규칙**.
+ *  앞 퍼즐을 전부 깨야 열리고, **이미 깬 퍼즐은 앞을 건너뛰었어도 열려 있다**. */
+function boardLocked(contentItemId) {
+  let allPrevCleared = true;
+  for (const p of BOARD_PUZZLES) {
+    const isCleared = clearedBoardPuzzles.has(p.content_item_id);
+    if (p.content_item_id === contentItemId) return !isCleared && !allPrevCleared;
+    if (!isCleared) allPrevCleared = false;
+  }
+  return false;
+}
 
 /** 보드 재판정 + 목표 검사 → {passed, phenomena, feedback} (권위 채점 흉내) */
 function judgeBoard(boardState, goalConditions) {
@@ -1736,6 +1773,11 @@ const routes = {
     if (!puzzle) {
       return [404, { detail: '퍼즐을 찾을 수 없습니다', code: 'PUZZLE_NOT_FOUND' }];
     }
+    // 순차 진행 잠금(2026-08-05) — 에너지 검사보다 **먼저**. 잠긴 퍼즐은 구름이
+    // 있든 없든 못 들어가므로 "구름을 기다리면 열린다"는 429를 주면 안 된다.
+    if (boardLocked(puzzle.content_item_id)) {
+      return [403, { detail: '앞의 퍼즐을 먼저 완료해야 열려요.', code: 'PUZZLE_LOCKED' }];
+    }
     const gate = requireCloudEntry();
     if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
     return [200, boardPuzzlePayload(puzzle)];
@@ -1744,6 +1786,11 @@ const routes = {
     const puzzle = BOARD_PUZZLES.find((p) => p.content_item_id === params?.id);
     if (!puzzle) {
       return [404, { detail: '퍼즐을 찾을 수 없습니다', code: 'PUZZLE_NOT_FOUND' }];
+    }
+    // 순차 진행 잠금 재확인 — 진입(GET)만 막으면 잠금이 아니다. 진입을 건너뛰고
+    // 바로 제출하면 잠긴 퍼즐을 깨서 뒤 칸까지 열 수 있다(서버와 같은 지점).
+    if (boardLocked(puzzle.content_item_id)) {
+      return [403, { detail: '앞의 퍼즐을 먼저 완료해야 열려요.', code: 'PUZZLE_LOCKED' }];
     }
     if (!body?.board_state) {
       return [422, { detail: '보드 상태(board_state)가 필요합니다', code: 'BOARD_STATE_REQUIRED' }];

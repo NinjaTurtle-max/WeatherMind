@@ -32,6 +32,7 @@ export default {
     me: 'Profile',
     tutor: {
       board: { name: 'Sunny', line: 'What weather shall we build?' },
+      learn: { name: 'Dewey', line: 'How far shall we go today?' },
     },
   },
   concept: {

@@ -626,7 +626,10 @@
         "비가 내리려면 공기 중에 수증기(습기)가 충분해야 해요.",
         "차가운 공기가 따뜻하고 습한 공기를 파고들면 적란운이 발달해 소나기가 쏟아져요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 2,
+      "title": "수도권에 소나기",
+      "summary": "한랭전선과 습기로 짧고 강한 비를 내려요."
     },
     "uses_live_slots": false,
     "source": {
@@ -671,7 +674,10 @@
         "온난전선은 따뜻한 공기가 찬 공기 위로 완만히 타고 올라요.",
         "넓은 지역에 약한 비가 오래 내리는 것이 온난전선 비의 특징이에요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 4,
+      "title": "약한 비 오래 내리기",
+      "summary": "온난전선으로 넓게 퍼지는 비를 오래 내려요."
     },
     "uses_live_slots": false,
     "source": {
@@ -716,7 +722,10 @@
         "세력이 비슷한 두 기단이 만나면 전선이 한곳에 오래 머물러요.",
         "습한 공기가 계속 공급되면 장마처럼 비가 여러 날 이어져요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 7,
+      "title": "장마 비 만들기",
+      "summary": "정체전선으로 서해에 여러 날 이어지는 비를 만들어요."
     },
     "uses_live_slots": false,
     "source": {
@@ -757,7 +766,10 @@
         "강한 햇볕이 지면을 데우면 공기가 활발히 상승해요.",
         "전선이 없어도 강한 일사와 충분한 습기가 함께 있으면 적란운이 생겨 소나기가 내려요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 3,
+      "title": "전선 없이 소나기",
+      "summary": "일사와 습기만으로 태백산맥에 소나기를 불러요."
     },
     "uses_live_slots": false,
     "source": {
@@ -798,7 +810,10 @@
         "안개는 햇볕이 약하고 공기가 매우 습할 때 잘 생겨요.",
         "지표가 복사냉각으로 식으면 습한 공기 속 수증기가 물방울로 응결해 안개가 껴요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 5,
+      "title": "안개 끼게 하기",
+      "summary": "일사는 낮추고 습기는 높여 동해안에 안개를 만들어요."
     },
     "uses_live_slots": false,
     "source": {
@@ -839,7 +854,10 @@
         "여름 무더위를 부르는, 덥고 습한 기단을 떠올려 보세요.",
         "강한 일사가 더해지면 기온이 크게 올라 폭염이 나타나요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 10,
+      "title": "한여름 폭염 부르기",
+      "summary": "북태평양 기단과 강한 일사로 서해에 더위를 불러요."
     },
     "uses_live_slots": false,
     "source": {
@@ -880,7 +898,10 @@
         "차고 건조한 시베리아 기단도 따뜻한 서해를 건너며 수증기를 얻어요.",
         "기단이 변질되어 눈구름이 생기면 서해안에 많은 눈이 내려요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 8,
+      "title": "서해안에 눈 내리기",
+      "summary": "시베리아 기단이 바다를 건너며 눈구름이 되게 해요."
     },
     "uses_live_slots": false,
     "source": {
@@ -921,7 +942,10 @@
         "시베리아 기단은 원래 매우 건조해요.",
         "공기 중 수증기가 적으면 구름이 잘 생기지 않아 하늘이 맑아요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 11,
+      "title": "춥고 맑은 겨울",
+      "summary": "기단은 두되 습기를 낮춰 맑고 추운 날을 만들어요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1220,7 +1244,10 @@
         "여름 오후, 뜨겁게 달궈진 지면 위 습한 공기가 어떻게 움직일지 떠올려 보세요.",
         "수도권(존 1)의 일사를 80 이상, 습기를 60 이상으로 함께 올리면 대류가 일어나 적란운이 발달해요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 6,
+      "title": "제한 시간: 소나기",
+      "summary": "60초 안에, 전선 없이 일사와 습기만으로 소나기를 만들어요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1262,7 +1289,10 @@
         "메마른 시베리아 기단도 따뜻한 바다를 건너면 성질이 달라져요.",
         "서해(존 0)에 시베리아 기단을 놓고 습기를 60 이상으로 올리면 기단이 변질해 눈구름이 만들어져요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 9,
+      "title": "제한 시간: 눈",
+      "summary": "90초 안에, 시베리아 기단을 서해에서 변질시켜 눈을 내려요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1308,7 +1338,10 @@
         "이상기후로 꼽히는 폭염은 평년을 크게 벗어난 고온이에요. 어떤 공기 덩어리가 여름 무더위를 몰고 오는지 떠올려 보세요.",
         "수도권(존 1)에 북태평양 기단을 놓고 일사를 70 이상으로 올리면 기온이 크게 올라 폭염이 나타나요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 12,
+      "title": "2018년 서울 폭염",
+      "summary": "서울이 39.6℃까지 올랐던 그날의 대기를 재현해요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1355,7 +1388,10 @@
         "온난화로 대기가 더 많은 수증기를 머금으면 집중호우가 잦아져요. 한곳에 오래 머무는 전선이 장마를 만듭니다.",
         "수도권(존 1)에 정체전선을 놓고 습기를 70 이상으로 올리면 여러 날 이어지는 장마 같은 비가 내려요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 13,
+      "title": "2020년 최장 장마",
+      "summary": "54일간 이어진 중부지방 장마를 정체전선으로 재현해요."
     },
     "uses_live_slots": false,
     "source": {
@@ -3585,7 +3621,10 @@
         "차가운 공기보다 뜨거운 공기가 가벼워서 위로 떠올라요 — 이것이 대류예요.",
         "수도권(존 1)의 일사를 80 이상, 습기를 60 이상으로 올리면 대류가 일어나 구름이 자라요."
       ],
-      "correct_answer": ""
+      "correct_answer": "",
+      "board_order": 1,
+      "title": "구름 피워 올리기",
+      "summary": "일사와 습기를 올려 수도권 하늘에 소나기구름을 세워요."
     },
     "uses_live_slots": false,
     "source": {

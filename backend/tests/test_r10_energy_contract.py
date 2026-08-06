@@ -800,7 +800,14 @@ class TestPuzzleDetailRoute:
         )
 
     def test_계약13_BoardPuzzle_필드_불변(self):
-        """[계약 13] 상세 신설이 목록 스키마를 확장·변형하지 않는다(회귀)."""
+        """[계약 13] 목록과 상세가 **한 스키마를 공유**한다(회귀).
+
+        지키는 것은 "필드가 영원히 늘지 않는다"가 아니라 "상세 전용 필드가
+        생기지 않는다"이다 — 둘이 갈라지면 목록에서 본 것과 들어가서 본 것이
+        달라진다. 그래서 필드를 더할 때는 **양쪽이 다 채우는지 확인하고** 이
+        목록을 갱신한다. locked는 2026-08-05 순차 진행에서 추가됐고 목록·상세가
+        모두 채운다(상세는 잠겨 있으면 403이라 항상 False).
+        """
         from app.schemas.board import BoardPuzzle
 
         assert set(BoardPuzzle.model_fields) == {
@@ -808,6 +815,7 @@ class TestPuzzleDetailRoute:
             "template_json",
             "cleared",
             "difficulty",
+            "locked",
         }, (
             f"BoardPuzzle 필드가 변경됐다: {sorted(BoardPuzzle.model_fields)} — "
             "목록·상세가 같은 스키마를 공유한다는 계약이 깨진다"
