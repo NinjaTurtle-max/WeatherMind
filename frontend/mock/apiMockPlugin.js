@@ -945,9 +945,10 @@ const QUIZ = {
 //   heat_island '도시 상공의 오존층이 두꺼워져서'). 이 문구들은 시드 53문항에
 //   존재하지 않아(전수 grep 확인) 시드 파생으로 대체하면 스모크가 깨진다.
 //   스모크를 함께 손댈 수 있을 때 이 4건도 시드 파생으로 넘긴다(R10-07 보고 사항).
-// R11-01 §9.2: 세션 디폴트 10문항(신규5·복습4·실황1) — backend
+// R13-01 §2.10: 세션 디폴트 15문항(신규5·복습4·실황1·**진도5**) — backend
 // Settings.SESSION_RECIPE와 parity 계약(test_r10_mock_parity_contract)이 대조한다.
-const MOCK_SESSION_RECIPE = { new: 5, review: 4, live: 1 };
+// 진도(unit) 블록은 서버에서 "현재 진행 유닛의 다음 문항"이며 항상 **마지막**에 온다.
+const MOCK_SESSION_RECIPE = { new: 5, review: 4, live: 1, unit: 5 };
 
 // 신규(new) 슬롯 픽스처 — 스모크 시나리오 7이 1·2번 문항으로 고정
 const PINNED_NEW_ITEMS = [
@@ -1065,19 +1066,28 @@ const SESSION_SLOT_POOLS = {
   live: SEED_LIVE_POOL.map((seed, i) =>
     seedToSessionItem(seed, { quizId: `${todayISO()}-live${i + 1}-generated`, source: 'generated' }),
   ),
+  // 진도(unit) 슬롯 — R13-01 §2.10. 서버는 "현재 진행 유닛의 다음 문항"을 뽑지만
+  // 목에는 유저 진도 상태가 없어 시드 중간부터 결정적으로 집는다(신규·복습 슬롯이
+  // 앞/뒤 끝에서 집으므로 겹침이 가장 적은 구간). 총합·블록 표기 검증이 목적이다.
+  unit: [...SEED_QUIZ_POOL]
+    .slice(Math.floor(SEED_QUIZ_POOL.length / 2))
+    .map((seed, i) =>
+      seedToSessionItem(seed, { quizId: `${todayISO()}-unit${i + 1}-bank` }),
+    ),
 };
 
-/** 배합대로 슬롯을 채운다 — 총 문항 수는 항상 배합 총합. 같은 문항은 한 번만. */
+/** 배합대로 슬롯을 채운다 — 총 문항 수는 항상 배합 총합. 같은 문항은 한 번만.
+ *  블록 구분(kind)은 서버 SessionItem.kind와 같은 값으로 실어 보낸다(§2.10). */
 function buildSessionItems(recipe) {
   const picked = [];
   const seen = new Set();
-  for (const kind of ['new', 'review', 'live']) {
+  for (const kind of ['new', 'review', 'live', 'unit']) {
     let taken = 0;
     for (const item of SESSION_SLOT_POOLS[kind]) {
       if (taken >= (recipe[kind] ?? 0)) break;
       if (seen.has(item.question_text)) continue;
       seen.add(item.question_text);
-      picked.push(item);
+      picked.push({ ...item, kind });
       taken += 1;
     }
   }

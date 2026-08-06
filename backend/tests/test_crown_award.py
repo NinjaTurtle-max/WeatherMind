@@ -449,14 +449,20 @@ class TestCompleteSessionUnitResult:
         "cleared": True, "unit_xp": 20,
     }
 
-    def test_유닛_세션_만점_최초_완료는_grant_crown_True(self, monkeypatch):
+    def test_유닛_세션_만점_최초_완료도_grant_crown_False(self, monkeypatch):
+        """R13-01 §2.10 왕관 소유권 이전 — 유닛 직접 진입은 **연습 전용**이다.
+
+        개정 전에는 (unit_id, True, True)로 왕관을 가산했다. 왕관 유입로가 일일
+        세션의 진도 블록으로 옮겨졌으므로 여기서 또 주면 하루 1왕관 상한이
+        무너진다(같은 진도에 이중 수여). 진도 스냅샷 노출은 그대로다.
+        """
         unit_id = uuid.uuid4()
         session = make_session(mode="unit", unit_id=unit_id)
         logs = [make_log("air_mass") for _ in range(5)]
         result, calls = run_complete(
             monkeypatch, session, logs, unit_payload=self.UNIT_PAYLOAD
         )
-        assert calls["unit_result"] == (unit_id, True, True)
+        assert calls["unit_result"] == (unit_id, True, False)
         assert result.unit_result is not None
         assert result.unit_result.all_correct is True
         assert result.unit_result.crowns == 1

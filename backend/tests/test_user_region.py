@@ -257,7 +257,8 @@ class TestSessionLiveSlotWiring:
             # new 풀은 배합 파생(new+review 대체분) — 수를 하드코딩하면 배합 개정
             # (R11-01 §9.2 10문항) 때 생성 폴백이 새어 실 네트워크를 친다.
             recipe = session_service.DEFAULT_RECIPE
-            new_count = recipe["new"] + recipe["review"]
+            # new + (review 대체분) + (진도 블록 대체분 — 이 대역엔 유닛이 없다)
+            new_count = recipe["new"] + recipe["review"] + recipe.get("unit", 0)
             return [bank_item() for _ in range(new_count)], [], [bank_item()]
 
         async def fake_quiz_ids(db, uid, today_str, count):
@@ -278,12 +279,25 @@ class TestSessionLiveSlotWiring:
         monkeypatch.setattr(session_service, "_fetch_pools", fake_pools)
         monkeypatch.setattr(session_service, "allocate_quiz_ids", fake_quiz_ids)
 
+        class _EmptyResult:
+            def scalars(self):
+                return self
+
+            def all(self):
+                return []
+
         class _DB:
             def add(self, obj):
                 pass
 
             async def flush(self):
                 pass
+
+            async def execute(self, stmt):
+                # 진도 블록(R13-01 §2.10)이 유닛 트리를 조회한다 — 빈 DB면
+                # 열린 유닛 0 → 진도 블록 0(부족분은 new 대체). 여기 관심사는
+                # 실황 지역 배선이라 유닛은 비워 둔다.
+                return _EmptyResult()
 
         asyncio.run(session_service.create_daily_session(_DB(), user))
         return recorder.regions

@@ -1,6 +1,6 @@
 """Session API (/api/v1/session) — 스프린트 R2-01 §3.1 (S1).
 
-| GET  | /today                  | 오늘의 세션(10문항 — R11-01 §9.2) — 당일 재호출 시 동일 세션 (멱등) |
+| GET  | /today                  | 오늘의 세션(15문항 — R13-01 §2.10: 신규5·복습4·실황1·진도5) — 당일 재호출 시 동일 세션 (멱등) |
 | POST | /{session_id}/answer    | {quiz_id, answer, elapsed_sec?} → AnswerResult + session_progress |
 | POST | /{session_id}/complete  | 전 문항 응답 시 {xp_total, correct_count, total, streak_count}, 미완료 409 |
 
@@ -107,6 +107,7 @@ def _to_session_item(
     level_group: str,
     source: str,
     slot_filled: bool,
+    kind: str = "new",
 ) -> SessionItem:
     """question_json → SessionItem (correct_answer 미노출 — 기존 /quiz 관례).
 
@@ -123,6 +124,7 @@ def _to_session_item(
         level_group=level_group,
         source=source,
         slot_filled=slot_filled,
+        kind=kind,
         template_json=_question_payload(question),
     )
 
@@ -152,6 +154,31 @@ def _is_resolved(log: QuizLog) -> bool:
     return bool(log.is_correct) or bool(log.retry_correct)
 
 
+def _unit_block_meta(session: Session) -> dict:
+    """세션 행에 기록된 진도 블록 메타 (R13-01 §2.10) — 없으면 빈 dict."""
+    return (getattr(session, "recipe_json", None) or {}).get("unit_block") or {}
+
+
+def _crown_scope_logs(session: Session, logs: list[QuizLog]) -> list[QuizLog]:
+    """왕관 판정 대상 문항 (R13-01 §2.10) — 진도 블록(kind='unit') 5문항.
+
+    §2.1의 all_resolved를 **세션 전체가 아니라 진도 블록에** 적용한다: "오늘의
+    발견·복습·실황"은 다양성 블록이라 유닛 진도의 근거가 아니고, 15문항 전건
+    해결을 요구하면 왕관이 사실상 닫힌다(§2.10 "왕관 소유권 이전").
+
+    kind 메타가 없는 세션(개정 전 발급분)은 세션 전체로 폴백해 기존 동작을 그대로
+    유지한다. 진도 블록이 0으로 발급된 세션(열린 유닛 없음)도 같은 폴백인데, 그런
+    유저에겐 award_crown_for_activity가 줄 유닛 자체가 없어 무동작이다.
+    """
+    kinds = {
+        m.get("quiz_id"): m.get("kind")
+        for m in (getattr(session, "recipe_json", None) or {}).get("items", [])
+    }
+    if not kinds:
+        return logs
+    return [log for log in logs if kinds.get(log.quiz_id) == "unit"] or logs
+
+
 async def session_today_response(
     db: AsyncSession, session: Session, user: User
 ) -> SessionToday:
@@ -159,12 +186,15 @@ async def session_today_response(
 
     recipe_json items 메타에 level_group이 있으면(배치고사) 그 값을, 없으면
     user.level_group을 쓴다 — daily·unit는 메타에 키가 없어 동작 동일.
+    kind(R13-01 §2.10)도 같은 메타에서 읽는다. 메타에 없으면(개정 전 발급 세션·
+    유닛/배치 세션) 유닛 세션은 전 문항이 진도이므로 'unit', 나머지는 'new'다.
     """
     logs = await _session_logs(db, session)
     meta = {
         m.get("quiz_id"): m
         for m in (session.recipe_json or {}).get("items", [])
     }
+    default_kind = "unit" if session.mode == curriculum_service.MODE_UNIT else "new"
     items = [
         _to_session_item(
             log.quiz_id,
@@ -172,6 +202,7 @@ async def session_today_response(
             meta.get(log.quiz_id, {}).get("level_group", user.level_group),
             source=meta.get(log.quiz_id, {}).get("source", "bank"),
             slot_filled=meta.get(log.quiz_id, {}).get("slot_filled", False),
+            kind=meta.get(log.quiz_id, {}).get("kind", default_kind),
         )
         for log in logs
     ]
@@ -417,29 +448,38 @@ async def complete_session(
         # 무오답 세션 배지(perfect_session) — 전 문항 정답(total/total), 중복은 UNIQUE로 방어 (R4-01 §3.3)
         if badge_service.is_perfect_session(correct_count, progress.total):
             await badge_service.award_badge(db, user.id, badge_service.BADGE_PERFECT_SESSION)
-        # 데일리 만점 → 왕관 유입 (R8-01 §3.4): 세션 문항 최다 개념(동률: route
-        # target 우선→사전순)의 "열린 첫 미클리어 quiz 유닛"에 왕관 +1. daily는
-        # 하루 1세션(멱등 인덱스) + 최초 완료에만 부여라 파밍 상한이 선다.
+        # 데일리 → 왕관 유입 (R8-01 §3.4 → R13-01 §2.10 소유권 이전): 판정 대상은
+        # **진도 블록 5문항**(_crown_scope_logs)이고, 그 블록이 전건 해결(만회 포함,
+        # §2.1)이면 블록 최다 개념(동률: route target 우선→사전순)의 "열린 첫
+        # 미클리어 유닛"에 왕관 +1. daily는 하루 1세션(멱등 인덱스) + 최초 완료에만
+        # 부여라 **하루 1왕관 상한**이 그대로 선다.
+        # kind는 진도 블록 유닛의 kind(quiz|board) — 메타가 없으면 기존값 'quiz'.
         # placement는 위에서 조기 반환, 유닛 세션은 mode 분기로 제외된다.
-        if session.mode == session_service.MODE_DAILY and all_resolved:
+        crown_logs = _crown_scope_logs(session, logs)
+        crown_resolved = bool(crown_logs) and all(
+            _is_resolved(log) for log in crown_logs
+        )
+        if session.mode == session_service.MODE_DAILY and crown_resolved:
             concept = curriculum_service.majority_concept(
-                (log.concept_tag for log in logs),
+                (log.concept_tag for log in crown_logs),
                 (session.route_decision or {}).get("target_concept_tag"),
             )
             if concept is not None:
                 award = await curriculum_service.award_crown_for_activity(
-                    db, user, concept_tag=concept, kind="quiz"
+                    db,
+                    user,
+                    concept_tag=concept,
+                    kind=_unit_block_meta(session).get("kind", "quiz"),
                 )
                 if award is not None:
                     crown_award = CrownAward(**award)
 
     # 유닛 세션 unit_result (R8-01 §3.1 계약 복구) — grant_unit_crown 반환을
-    # 버리지 않고 노출한다(프론트 UnitSummary가 읽는 필드). 왕관 가산(§3.2)은
-    # "세션 최초 완료 + 전 문항 해결(만회 포함 — R13-01 §2.1)"일 때만(멱등) —
-    # 그 외(미해결 오답 있음·재완료)엔 저장된 진도 스냅샷을 unit_xp=0으로 돌려준다.
-    # all_correct 인자는 최초 만점 뜻 그대로 넘기고(표시용), 만회 포함 판정은
-    # additive 필드 all_resolved로 따로 싣는다 — 두 값을 한 필드에 겹치면
-    # "만점"과 "클리어"가 구분 불가능해진다.
+    # 버리지 않고 노출한다(프론트 UnitSummary가 읽는 필드).
+    # **R13-01 §2.10 왕관 소유권 이전**: 유닛 직접 진입(/learn 유닛 세션)은 이제
+    # **연습 전용**이라 grant_crown=False 고정이다 — 왕관은 일일 세션의 진도 블록이
+    # 유일한 유입로다(같은 진도에 두 번 주면 하루 1왕관 상한이 무너진다).
+    # 진도 스냅샷(crowns·cleared)과 all_correct·all_resolved 표기는 그대로 나간다.
     unit_result: UnitResult | None = None
     if session.unit_id is not None:
         payload = await curriculum_service.unit_result_for_session(
@@ -447,7 +487,7 @@ async def complete_session(
             user,
             session.unit_id,
             all_correct=all_correct,
-            grant_crown=is_first_complete and all_resolved,
+            grant_crown=False,
         )
         if payload is not None:
             unit_result = UnitResult(**payload, all_resolved=all_resolved)

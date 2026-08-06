@@ -438,8 +438,13 @@ class TestCrownPolicyAllResolved:
         assert "award" not in calls and result.crown_award is None
         assert result.all_resolved is True  # 표기는 해결로 나가되 왕관은 없다
 
-    def test_유닛_세션도_만회로_grant_crown(self, monkeypatch):
-        """daily·unit 양쪽 경로 모두 개정 대상(§2.1)."""
+    def test_유닛_세션은_만회로도_왕관_없음(self, monkeypatch):
+        """§2.1 all_resolved 표기는 유지, 왕관은 §2.10에서 회수됐다.
+
+        개정 전(§2.1 단독)에는 만회 해결이 grant_crown=True를 열었다. §2.10이
+        왕관 유입로를 일일 세션 진도 블록으로 옮기면서 유닛 직접 진입은 연습
+        전용이 됐다 — grant는 항상 False이고 all_resolved만 응답에 실린다.
+        """
         unit_id = uuid.uuid4()
         session = make_session(mode="unit", unit_id=unit_id)
         logs = [
@@ -450,7 +455,7 @@ class TestCrownPolicyAllResolved:
             monkeypatch, session, logs, unit_payload=UNIT_PAYLOAD
         )
         unit, all_correct_arg, grant = calls["unit_result"]
-        assert (unit, grant) == (unit_id, True)
+        assert (unit, grant) == (unit_id, False)
         # all_correct는 "최초 만점" 뜻을 유지하고, 만회 포함 판정은 all_resolved
         assert all_correct_arg is False
         assert result.unit_result.all_correct is False

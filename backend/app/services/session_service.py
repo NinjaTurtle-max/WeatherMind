@@ -1,11 +1,16 @@
 """일일 세션 발급 서비스 — 스프린트 R2-01 §3.1~§3.3 (S1·S2·S3).
 
-배합 규칙 (§3.2 → R11-01 §9.2 개정): recipe {"new": 5, "review": 4, "live": 1} 합계 10문항.
+배합 규칙 (§3.2 → R11-01 §9.2 → R13-01 §2.10 개정):
+recipe {"new": 5, "review": 4, "live": 1, "unit": 5} 합계 15문항.
 - new: 뱅크 active 문항 중 해당 유저 미출제분 (level_group 일치, 슬롯 문항 제외)
 - review: θ 파생 약점 개념(weatherbrain_service.weak_concepts — 학령 상대 임계,
   R8-01 §3.5) 태그의 뱅크 문항 우선, 없으면 new로 대체
 - live: uses_live_slots=true 문항 + {today.*} 슬롯을 Redis weather 캐시 값으로 치환,
   치환 불가(문항 없음·날씨 값 부재) 시 기존 quiz-generate 폴백
+- unit(진도 블록, R13-01 §2.10): **현재 진행 유닛의 다음 진도** 5문항을 세션
+  마지막에 덧붙인다(기존 3종을 대체하지 않는다). 풀은 curriculum_service의
+  `progress_block_pool`(= `_unit_content_pool` 재사용) — 유닛 잔여가 5 미만이면
+  다음 열린 유닛으로 이어지고, 그래도 모자라면 부족분을 new로 메워 총합 15를 지킨다.
 - 뱅크 부족분은 ai-worker quiz-generate 폴백 (현행 /quiz/today 경로와 동일).
   폴백은 asyncio.gather 병렬 실행 — 개별 실패는 수집·로깅하고 성공분으로 세션을
   구성하며, 전부 실패 시에만 AIWorkerError(→503)를 낸다 (웨이브 1 리뷰 3번.
@@ -47,6 +52,14 @@ logger = logging.getLogger(__name__)
 # ── 배합 계약 (§3.2) ── 기본값은 settings(env 튜닝, R5.5). SESSION_SIZE는 합에서 파생.
 DEFAULT_RECIPE = settings.SESSION_RECIPE
 SESSION_SIZE = sum(DEFAULT_RECIPE.values())
+# new 풀 조회 한도 — new는 review·unit 부족분의 대체 공급원이라(§3.2·R13-01 §2.10)
+# 최악의 수요가 세 블록의 합이다. 이보다 작으면 뱅크에 문항이 있어도 부족분이
+# quiz-generate 폴백으로 새어 비용이 된다.
+NEW_POOL_LIMIT = (
+    DEFAULT_RECIPE.get("new", 0)
+    + DEFAULT_RECIPE.get("review", 0)
+    + DEFAULT_RECIPE.get("unit", 0)
+)
 MODE_DAILY = "daily"
 
 # ── 실황 슬롯 (§3.3 허용 5종) ──
@@ -151,12 +164,17 @@ def plan_bank_picks(
     review_pool: Sequence[Any],
     live_pool: Sequence[Any],
     recipe: dict[str, int] | None = None,
+    unit_pool: Sequence[Any] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """뱅크 후보 풀에서 §3.2 배합대로 선택한다 (순수 함수 — 풀은 랜덤 정렬 전제).
 
     - review 부족분은 new 풀에서 대체 (§3.2 "없으면 new로 대체")
-    - 같은 문항 중복 선택 금지 (id 기준 — new/review 풀이 겹칠 수 있음)
-    반환: (picks: [{"kind": "new"|"review"|"live", "item": ...}],
+    - unit(진도 블록, R13-01 §2.10) 부족분도 같은 선례로 new 풀에서 대체 —
+      열린 유닛이 없거나(신규 유저) 유닛 잔여가 5 미만이어도 총합은 배합 합계다.
+    - 같은 문항 중복 선택 금지 (id 기준 — new/review/unit 풀이 겹칠 수 있음).
+      **블록 간 중복 차단은 picked_ids 하나가 전담**한다: 신규 5와 유닛 5가 같은
+      뱅크에서 뽑혀도 같은 문항이 두 번 나오지 않는다.
+    반환: (picks: [{"kind": "new"|"review"|"live"|"unit", "item": ...}],
            generate_count — 뱅크가 못 채운 폴백 생성 문항 수)
     """
     recipe = recipe or DEFAULT_RECIPE
@@ -179,6 +197,12 @@ def plan_bank_picks(
     review_picks += take(new_pool, recipe["review"] - len(review_picks), "new")
     picks += review_picks
     picks += take(live_pool, recipe["live"], "live")
+
+    unit_count = recipe.get("unit", 0)
+    if unit_count:
+        unit_picks = take(unit_pool or (), unit_count, "unit")
+        unit_picks += take(new_pool, unit_count - len(unit_picks), "new")
+        picks += unit_picks
 
     total = sum(recipe.values())
     return picks, total - len(picks)
@@ -361,8 +385,11 @@ async def _fetch_pools(
     theta는 호출측이 refresh_abilities 결과에서 산출해 넘긴다 (R7 §3.2 —
     풀 그룹 확장 + |b−θ| 정렬은 build_pool_query·pool_level_groups 참조.
     None이면 기존 단일 그룹·random 정렬 그대로 — 콜드스타트 동작 불변).
-    풀 크기는 배합 요구량보다 넉넉히(new 10 · review 10 · live 5) 가져와
-    중복 제거·치환 실패 시의 여유분으로 쓴다.
+    풀 크기는 배합 요구량보다 넉넉히(new NEW_POOL_LIMIT · review 10 · live 5)
+    가져와 중복 제거·치환 실패 시의 여유분으로 쓴다. new 한도가 배합에서 파생되는
+    이유(R13-01 §2.10): new는 review·unit 부족분의 **대체 공급원**이라 최악의
+    수요가 new+review+unit이다 — 10으로 고정하면 유닛·복습 풀이 빈 유저에게
+    부족분 4건이 매 세션 quiz-generate로 새고, 그건 곧 상시 과금이다.
 
     중복 방지 (R10-01 D2): new는 **전기간** served 제외(한 번 본 문항은 다시
     '신규'가 아니다), review·live는 **당일** 제외(answered_today_subq) —
@@ -385,7 +412,7 @@ async def _fetch_pools(
                     theta=theta,
                     live=False,
                     served_subq=served_subq,
-                    limit=10,
+                    limit=NEW_POOL_LIMIT,
                 )
             )
         )
@@ -428,6 +455,24 @@ async def _fetch_pools(
         .all()
     )
     return list(new_pool), list(review_pool), list(live_pool)
+
+
+async def _fetch_unit_pool(
+    db: AsyncDBSession, user: User, abilities: list, count: int
+) -> tuple[list[ContentItem], Any | None]:
+    """진도 블록(§2.10) 후보 풀 — curriculum_service.progress_block_pool 위임.
+
+    curriculum_service가 session_service를 import하므로(풀 쿼리 재사용) 여기서는
+    **함수 안에서 지연 import**한다 — 모듈 최상단에 두면 순환 import가 된다.
+    반환: (문항 목록, 블록 유닛 or None). count<=0이면 조회 없이 빈 결과.
+    """
+    if count <= 0:
+        return [], None
+    from app.services import curriculum_service
+
+    return await curriculum_service.progress_block_pool(
+        db, user, abilities, count=count
+    )
 
 
 async def allocate_quiz_ids(
@@ -484,7 +529,14 @@ async def create_daily_session(
     new_pool, review_pool, live_pool = await _fetch_pools(
         db, user, weak_concepts, theta=theta
     )
-    picks, generate_count = plan_bank_picks(new_pool, review_pool, live_pool)
+    # 진도 블록(R13-01 §2.10) — 현재 진행 유닛의 다음 문항. 열린 유닛이 없으면
+    # 빈 풀이고 부족분은 plan_bank_picks가 new로 메운다(총합 불변).
+    unit_pool, block_unit = await _fetch_unit_pool(
+        db, user, abilities, DEFAULT_RECIPE.get("unit", 0)
+    )
+    picks, generate_count = plan_bank_picks(
+        new_pool, review_pool, live_pool, unit_pool=unit_pool
+    )
 
     entries: list[dict[str, Any]] = []
     for pick in picks:
@@ -512,6 +564,7 @@ async def create_daily_session(
                 "source": "bank",
                 "slot_filled": slot_filled,
                 "content_item_id": item.id,
+                "kind": pick["kind"],
             }
         )
 
@@ -550,12 +603,24 @@ async def create_daily_session(
                     "source": "generated",
                     "slot_filled": False,
                     "content_item_id": None,
+                    # 생성 폴백은 어느 블록의 부족분인지 구분이 없다 — "오늘의 발견"
+                    # (new)으로 표기한다. 진도(unit)로 새면 왕관 판정 대상이 뱅크
+                    # 유닛 문항이 아닌 것까지 포함되므로 절대 unit을 붙이지 않는다.
+                    "kind": "new",
                 }
             )
 
-    # 같은 question_type 3연속 금지 (§3.2)
-    entries = enforce_type_variety(
-        entries, type_of=lambda e: e["question"].get("question_type")
+    # 같은 question_type 3연속 금지 (§3.2) — 단, 진도 블록(§2.10)은 **세션 끝에
+    # 붙어 있는 것 자체가 계약**("마지막 5문항 = 내 진도")이라 두 구간을 각각
+    # 정렬해 경계를 보존한다. 한 리스트로 섞으면 교환이 블록을 가로질러 진도가
+    # 세션 중간으로 흩어진다.
+    def _variety(block: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return enforce_type_variety(
+            block, type_of=lambda e: e["question"].get("question_type")
+        )
+
+    entries = _variety([e for e in entries if e["kind"] != "unit"]) + _variety(
+        [e for e in entries if e["kind"] == "unit"]
     )
 
     session = Session(
@@ -582,15 +647,30 @@ async def create_daily_session(
             )
         )
 
-    # recipe + 발급 문항 메타 저장 (§3.2 — 멱등 재조회 시 source/slot_filled 복원용)
+    # recipe + 발급 문항 메타 저장 (§3.2 — 멱등 재조회 시 source/slot_filled 복원용).
+    # kind(R13-01 §2.10)는 완료 화면 블록 표기("오늘의 발견/복습/실황/진도")와
+    # **왕관 판정 범위**(진도 블록 5문항)의 유일한 근거다 — 세션 행에 남겨야
+    # 멱등 재조회·complete 시점에도 블록 구분이 복원된다.
     session.recipe_json = {
         "recipe": DEFAULT_RECIPE,
         "generated_count": sum(1 for e in entries if e["source"] == "generated"),
+        # 진도 블록 유닛 — 왕관 대상 선정(kind)에 쓴다. 열린 유닛이 없으면 None.
+        "unit_block": (
+            {
+                "unit_id": str(block_unit.id),
+                "unit_slug": block_unit.slug,
+                "kind": block_unit.kind,
+            }
+            if block_unit is not None
+            and any(e["kind"] == "unit" for e in entries)
+            else None
+        ),
         "items": [
             {
                 "quiz_id": e["quiz_id"],
                 "source": e["source"],
                 "slot_filled": e["slot_filled"],
+                "kind": e["kind"],
             }
             for e in entries
         ],

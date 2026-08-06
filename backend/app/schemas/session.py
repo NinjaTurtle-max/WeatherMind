@@ -15,6 +15,12 @@ from app.schemas.quiz import AnswerResult, QuizQuestion
 class SessionItem(QuizQuestion):
     source: Literal["bank", "generated"] = "bank"
     slot_filled: bool = False
+    # 배합 블록 구분 (R13-01 §2.10, additive) — 완료 화면이 15문항을 "오늘의 발견
+    # (new) / 복습(review) / 실황(live) / 진도(unit)"로 구분 표기하는 근거.
+    # 서버 배합(plan_bank_picks)이 정한 값을 sessions.recipe_json items에 적어 두고
+    # 그대로 흘려보낸다 — 프론트가 문항을 보고 되짚지 않는다(되짚을 방법도 없다).
+    # 생성 폴백 문항은 어느 블록의 부족분인지 구분이 없어 'new'다.
+    kind: Literal["new", "review", "live", "unit"] = "new"
     # 유형별 플레이 페이로드 — render된 값에서 유형 화이트리스트로 추린다
     # (routers/session.QUESTION_PAYLOAD_FIELDS). 프론트가 이 필드 없이는 문항을
     # 렌더하지 못한다(R3-01 §3.3 board → R10-07 §2.1 전 유형 확장):

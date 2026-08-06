@@ -309,6 +309,29 @@ def pick_crown_unit(
     return None
 
 
+def open_units_in_order(
+    units: Iterable[Any],
+    progress_by_unit: dict[Any, Any],
+    unlock_floor: int = 0,
+) -> list[Any]:
+    """전체 순서상 "열려 있고 아직 클리어되지 않은" 유닛 목록 (R13-01 §2.10, 순수).
+
+    build_curriculum이 'current'로 승격하는 유닛(잠기지 않은 첫 미클리어)의 일반화다
+    — 이 목록의 **첫 원소가 곧 current**이고, 그 뒤가 "다음 열린 유닛"이다. 일일
+    세션 진도 블록(§2.10)은 이 순서대로 문항을 모으므로 유닛이 소진되면 자동으로
+    다음 유닛으로 넘어간다. 잠금 규칙은 트리 노출과 동일(is_locked 단일 정의).
+    """
+    result: list[Any] = []
+    for order_index, unit in enumerate(ordered_units(units)):
+        if is_locked(unit, progress_by_unit, unlock_floor, order_index):
+            continue
+        prog = progress_by_unit.get(unit.id)
+        if prog is not None and prog.cleared_at is not None:
+            continue
+        result.append(unit)
+    return result
+
+
 def build_curriculum(
     units: Iterable[Any],
     progress_by_unit: dict[Any, Any],
@@ -573,6 +596,51 @@ async def _unit_content_pool(
             seen.add(item.id)
             items.append(item)
     return items
+
+
+async def progress_block_pool(
+    db: AsyncSession,
+    user: User,
+    abilities: list | None = None,
+    count: int = UNIT_SESSION_SIZE,
+) -> tuple[list[ContentItem], Unit | None]:
+    """일일 세션 진도 블록(R13-01 §2.10)의 문항 풀 — (items, 블록 유닛).
+
+    현재 유닛(open_units_in_order의 첫 원소)부터 순서대로 **`_unit_content_pool`을
+    재사용**해 count개까지 모은다. 한 유닛의 잔여가 모자라면 다음 열린 유닛으로
+    이어붙인다(§2.10 "유닛 소진 시 다음 열린 유닛으로 자동 진행"). 그래도 모자란
+    부족분은 호출측(plan_bank_picks)이 new 블록에서 메운다 — 총합 15는 불변.
+
+    반환 unit은 **블록 첫 문항이 나온 유닛** = 왕관 대상이다. 열린 유닛이 없거나
+    (신규 유저·전 유닛 클리어) 풀이 비면 (빈 목록, None) — 진도 블록 0으로 발급된다.
+    잠금 맥락(진도·배치 선해제)은 트리 노출과 같은 규칙을 한 번만 로드해 쓴다.
+    스캔 유닛 수를 count개로 제한하는 이유는 쿼리 비용 상한이다(유닛당 최대 2회) —
+    풀이 전부 빈 DB에서 20유닛을 훑으면 발급 경로가 40쿼리가 된다.
+    """
+    if count <= 0:
+        return [], None
+    units = await load_units(db)
+    if not units:
+        return [], None
+    progress = await load_progress_by_unit(db, user)
+    if abilities is None:
+        abilities = await weatherbrain_service.load_abilities(db, user)
+    unlock_floor = placement_unlock_floor(abilities, units)
+
+    items: list[ContentItem] = []
+    seen: set = set()
+    block_unit: Unit | None = None
+    for unit in open_units_in_order(units, progress, unlock_floor)[:count]:
+        for item in await _unit_content_pool(db, user, unit, abilities):
+            if item.id in seen:
+                continue
+            seen.add(item.id)
+            items.append(item)
+            if block_unit is None:
+                block_unit = unit
+            if len(items) >= count:
+                return items, block_unit
+    return items, block_unit
 
 
 async def create_unit_session(
