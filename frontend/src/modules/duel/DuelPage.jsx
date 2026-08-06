@@ -152,11 +152,18 @@ export default function DuelPage() {
         // 390px에서 카드가 476px가 되어 페이지에 가로 스크롤이 생겼다(실측).
         // lg:grid-cols-2는 Tailwind가 이미 minmax(0,1fr)로 깔아 준다.
         <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-2">
-          <BriefingRoom
-            briefing={briefingQ.data}
-            loading={briefingQ.isLoading}
-            error={briefingQ.isError}
-          />
+          {/* 브리핑도 감싸 둔다 — 격자 항목은 기본이 stretch라 카드가 오른쪽 열
+              높이까지 늘어난다. 차트가 다 있을 땐 왼쪽이 더 길어 티가 안 나지만,
+              KMA 키가 없어 「실황 자료 수신 대기」 한 장만 뜨는 degraded에서는
+              빈 흰 상자가 570px 늘어난다(실측). 감싸면 늘어나는 건 이 div이고
+              카드는 제 높이를 지킨다. */}
+          <div>
+            <BriefingRoom
+              briefing={briefingQ.data}
+              loading={briefingQ.isLoading}
+              error={briefingQ.isError}
+            />
+          </div>
           {/* 오른쪽 열은 sticky다. 브리핑이 두 배 넘게 길어(1440 실측 940px ↔
               615px) 아래쪽 차트를 보러 내려가면 입력칸이 화면 밖으로 나간다 —
               나란히 놓은 이유가 사라진다. 바깥 div가 왼쪽 높이만큼 늘어나 주고
