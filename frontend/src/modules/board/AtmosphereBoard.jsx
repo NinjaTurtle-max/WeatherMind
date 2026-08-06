@@ -292,6 +292,28 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     ? (confirmedPhenomena.find((p) => p.zone === stageZone) ?? confirmedPhenomena[stageZone] ?? null)
     : (preview[stageZone] ?? null);
 
+  // ── 성공 시 애니메이션으로 스크롤 (2026-08-06 요청) ────────────────────────
+  // 단면 패널은 지도 **아래**에 있어서, 목표를 달성해도 화면 밖에서 재생됐다 —
+  // 직접 내려가야 볼 수 있으니 사실상 못 보고 지나친다. 성공 순간 패널을 화면
+  // 안으로 끌어온다.
+  const stageRef = useRef(null);
+  // 같은 국면으로 두 번 스크롤하지 않는다(리렌더마다 화면이 튄다). 미리보기 성공과
+  // 서버 확정은 **다른 장면**이라 각각 한 번씩 안내한다.
+  const scrolledFor = useRef(null);
+  const scrollPhase = confirmedPhenomena ? 'confirmed' : goals.passed ? 'preview' : null;
+  useEffect(() => {
+    scrolledFor.current = null; // 재도전·다른 퍼즐이면 다시 안내한다
+  }, [attemptKey, puzzle]);
+  useEffect(() => {
+    if (!scrollPhase || scrolledFor.current === scrollPhase) return;
+    scrolledFor.current = scrollPhase;
+    const el = stageRef.current;
+    if (!el?.scrollIntoView) return;
+    // 동작 줄이기 설정이면 순간 이동 — 스크롤도 애니메이션이다(index.css §접근성)
+    const reduce = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+  }, [scrollPhase]);
+
   // 지도 오버레이용 존별 표시 결과(R9-08 §A) — 서버 확정이 있으면 확정, 없으면 미리보기.
   const zoneVisuals = useMemo(
     () =>
@@ -854,7 +876,9 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
           {mapBlock}
           {dragGhost}
-          <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
+          <div ref={stageRef}>
+            <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
+          </div>
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
             {undoButton}
             <div className="ml-auto flex min-w-0 items-center gap-3">
@@ -886,8 +910,12 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
 
       {/* 단면 모식도 패널(R9-08 §B) — rule_id→8종 스토리보드 단계 재생 + explain 캡션.
           로컬 미리보기 판정 성공 시 즉시 재생, 서버 판정 도착 시 확정 리플레이.
-          prefers-reduced-motion이면 최종 장면 정지 + 단계 텍스트 목록. */}
-      <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
+          prefers-reduced-motion이면 최종 장면 정지 + 단계 텍스트 목록.
+          ref는 성공 시 자동 스크롤 대상 — 두 레이아웃 중 실제로 렌더되는 쪽에만
+          붙는다(동시에 렌더되지 않는다). */}
+      <div ref={stageRef}>
+        <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
+      </div>
 
       {zoneCards}
 
