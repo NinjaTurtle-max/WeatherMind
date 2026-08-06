@@ -240,7 +240,7 @@ export default function HomePage() {
           ) : (
             due.map((r) => (
               <div key={r.concept_tag} className="mt-3 flex items-center gap-2.5">
-                <Mascot name={conceptCharacter(r.concept_tag)} className="h-12 w-12 flex-none object-contain" />
+                <Mascot name={conceptCharacter(r.concept_tag)} className="h-12 w-12 flex-none" />
                 <div className="min-w-0">
                   <p className="text-[13px] font-extrabold text-slate-900">{conceptLabel(t, r.concept_tag)}</p>
                   <p className="mt-0.5 text-[11.5px] text-slate-500">
@@ -264,7 +264,7 @@ export default function HomePage() {
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               {(abilities ?? []).map((a) => (
                 <div key={a.concept_tag} className="flex items-center gap-2 text-xs">
-                  <Mascot name={conceptCharacter(a.concept_tag)} className="h-7 w-7 flex-none object-contain" />
+                  <Mascot name={conceptCharacter(a.concept_tag)} className="h-7 w-7 flex-none" />
                   <span className="min-w-0 truncate font-bold text-slate-700">{conceptLabel(t, a.concept_tag)}</span>
                   <span className="ml-auto flex-none text-[11.5px] font-extrabold text-sky-700">
                     {t(`ability.level.${a.level_label}`)}

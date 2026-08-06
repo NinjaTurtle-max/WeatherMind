@@ -76,6 +76,22 @@ function weave(i, n) {
   return side * (0.55 + 0.45 * Math.sin(((i + 0.5) / n) * Math.PI));
 }
 
+/**
+ * 단계 경계에서 **두 단계가 함께 쓸** 흔들림 계수 — 위 단계의 마지막 노드와 아래
+ * 단계의 첫 노드 중간값. 두 단계가 각자 자기 노드 x로 꼬리를 뻗으면 경계에서 길이
+ * 좌우로 튄다(실측: 1→2 경계 11px, 2칸→4칸인 3→4 경계는 185px). 같은 값을 쓰면
+ * 두 꼬리가 한 줄로 이어져 보인다.
+ * 경계 밖(위/아래 끝)은 0 — 뻗을 이웃이 없다.
+ */
+export function joinK(stages, aboveIdx, belowIdx) {
+  const above = stages[aboveIdx];
+  const below = stages[belowIdx];
+  if (!above || !below) return 0;
+  const aK = weave(above.units.length - 1, above.units.length);
+  const bK = weave(0, below.units.length);
+  return (aK + bK) / 2;
+}
+
 function badgeStyle(status) {
   if (status === 'cleared') {
     return { background: 'linear-gradient(160deg, #7DC9F0, #2E9BD6)', color: '#fff', boxShadow: '0 5px 0 #1E7FB4' };
@@ -100,7 +116,7 @@ function badgeStyle(status) {
  * 그래서 자기 자신(svg)에 ref를 걸고 `parentElement`로 올라간다 — 자기 DOM은
  * 자기 effect 시점에 반드시 붙어 있다.
  */
-function StageLine({ nodeCount, doneCount, leadIn, leadOut, layoutKey }) {
+function StageLine({ nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, layoutKey }) {
   const svgRef = useRef(null);
   const baseRef = useRef(null);
   const doneRef = useRef(null);
@@ -117,10 +133,38 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, layoutKey }) {
     if (pts.length === 0) return;
 
     // 위아래 꼬리 — 이웃 단계 쪽으로 뻗어 스냅 경계에서 길이 끊겨 보이지 않게 한다.
+    //
+    // ⚠️ 꼬리 x를 **자기 노드 x로 두면 경계에서 길이 어긋난다.** 위 단계의 아래꼬리는
+    // 자기 마지막 노드 아래로, 아래 단계의 위꼬리는 자기 첫 노드 위로 뻗는데 두 노드의
+    // 좌우 흔들림이 다르기 때문이다(실측: 1→2 경계에서 275.2 vs 264.3). 그래서 **두
+    // 단계가 같은 x**(이웃 노드와의 중간값)로 뻗게 한다 — joinInK/joinOutK가 그 값의
+    // 흔들림 계수이고, 실제 픽셀은 여기서 진폭을 역산해 만든다.
+    const center = box.width / 2;
+    // 진폭은 CSS가 소유한다(`--amp`: clamp(56px, 16cqw, 132px)). 노드 좌표에서
+    // 역산하지 않고 **계산된 값을 그대로 읽는다** — 역산은 흔들린 노드가 하나도
+    // 없는 단계(칸 1개, k=0뿐)에서 0이 되어, 그 경계만 다시 어긋난다.
+    // 진폭(px)은 CSS `--amp`가 정하는데 **읽을 수 없다** — 등록되지 않은 커스텀
+    // 프로퍼티라 getComputedStyle이 `clamp(56px, 16cqw, 132px)` 토큰을 그대로
+    // 돌려준다(실측: parseFloat → NaN). 그래서 이미 그려진 노드에서 역산한다:
+    // 노드 x = 가운데 + k·amp 이므로 k≠0인 노드 하나면 amp가 나온다.
+    let amp = 0;
+    for (const node of el.querySelectorAll('[data-wm-node]')) {
+      const k = parseFloat(node.style.getPropertyValue('--k'));
+      if (Number.isFinite(k) && Math.abs(k) > 0.01) {
+        const r = node.getBoundingClientRect();
+        amp = (r.left + r.width / 2 - box.left - center) / k;
+        break;
+      }
+    }
+    // 칸이 하나뿐인 단계는 k=0밖에 없어 역산이 안 된다 — 그때만 CSS 식을 옮겨 쓴다.
+    // ⚠️ 아래 수치는 index.css `.wm-vpath { --amp }`의 사본이다(둘을 같이 고칠 것).
+    if (amp === 0) amp = Math.min(132, Math.max(56, box.width * 0.16));
+    const joinX = (k) => center + (Number.isFinite(k) ? k : 0) * amp;
+
     const all = [];
-    if (leadIn) all.push({ x: pts[0].x, y: -TAIL });
+    if (leadIn) all.push({ x: joinX(joinInK), y: -TAIL });
     all.push(...pts);
-    if (leadOut) all.push({ x: pts[pts.length - 1].x, y: box.height + TAIL });
+    if (leadOut) all.push({ x: joinX(joinOutK), y: box.height + TAIL });
 
     const line = (list) => list.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
 
@@ -142,7 +186,7 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, layoutKey }) {
     // 스위치다. ResizeObserver에만 맡기면 다시 그리는 시점이 브라우저의 콜백 전달
     // 순서에 달리는데, layout effect는 DOM 변경 뒤·페인트 전이 React의 계약이다.
     void layoutKey;
-  }, [nodeCount, doneCount, leadIn, leadOut, layoutKey]);
+  }, [nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, layoutKey]);
 
   useLayoutEffect(() => {
     draw();
@@ -163,7 +207,7 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, layoutKey }) {
   );
 }
 
-function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit }) {
+function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit, joinInK, joinOutK }) {
   const t = useT();
   const units = section.units;
   const cleared = units.filter((u) => resolveStatus(u) === 'cleared').length;
@@ -235,6 +279,8 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
       >
         <StageLine
           layoutKey={introOpen}
+          joinInK={joinInK}
+          joinOutK={joinOutK}
           nodeCount={units.length}
           doneCount={doneCount}
           leadIn={index > 0}
@@ -397,6 +443,8 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
                 section={section}
                 index={i}
                 total={withUnits.length}
+                joinInK={joinK(withUnits, i - 1, i)}
+                joinOutK={joinK(withUnits, i, i + 1)}
                 offset={offsets[i]}
                 blueTo={blueTo}
                 introOpen={introOpen}

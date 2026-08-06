@@ -42,6 +42,7 @@ export default {
       // 화면 담당 마스코트(Mascot 배정표) — 보드는 태양이
       board: { name: '태양이', line: '어떤 날씨를 만들어 볼까요?' },
       learn: { name: '물방울이', line: '오늘은 어디까지 가볼까요?' },
+      duel: { name: '태풍이', line: '자료를 보고 내일 날씨를 맞혀 봐요!' },
     },
   },
   // 개념 태그 → 표시명 (클라이언트 저작 라벨 — 서버는 태그 코드만 보낸다.
@@ -490,6 +491,9 @@ export default {
     aiPred: '🤖 AI 캐스터',
     actual: '실측',
     actualValue: '최고 {max}℃ · 강수 {prob}%',
+    // PredColumn의 기온 아래 한 줄 — 없으면 화면에 'duel.rainShort'가 그대로
+    // 찍힌다(2026-08-06 리뷰에서 발견. ko·en 둘 다 없어서 패리티 검사를 통과했다).
+    rainShort: '강수확률 {prob}%',
     myEvidence: '내가 고른 근거',
     evidenceNote: '정산 후 근거가 맞았는지 해설해 드려요.',
     reviewTitle: '근거 적중 해설',

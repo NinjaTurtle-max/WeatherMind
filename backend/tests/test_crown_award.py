@@ -559,11 +559,6 @@ def run_attempt(
     async def fake_cleared(db, user):
         return {item.id} if already_cleared else set()
 
-    # 순차 진행 잠금(2026-08-05)은 이 파일의 검증 대상이 아니다 — 열린 퍼즐로 둔다.
-    # 잠금 자체는 tests/test_board_progression.py가 지킨다.
-    async def fake_locked(db, puzzle, cleared):
-        return False
-
     async def fake_quiz_id(db, user, content_item_id):
         return "board-테스트-001"
 
@@ -584,7 +579,6 @@ def run_attempt(
         board_router.board_engine, "select_feedback", fake_feedback
     )
     monkeypatch.setattr(board_router, "_cleared_item_ids", fake_cleared)
-    monkeypatch.setattr(board_router, "_is_locked", fake_locked)
     monkeypatch.setattr(board_router, "_next_board_quiz_id", fake_quiz_id)
     monkeypatch.setattr(cs, "award_crown_for_activity", fake_award)
     monkeypatch.setattr(

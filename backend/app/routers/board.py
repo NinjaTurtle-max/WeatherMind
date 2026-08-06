@@ -4,9 +4,9 @@
 퍼즐 판정은 서버가 board_state를 규칙 엔진으로 재판정하는 권위 채점이다(§3.4).
 
 | GET  | /rules                        | board_rules.json 원문(서버 캐시) — 프론트 로컬 미리보기 |
-| GET  | /puzzles                      | active board 문항 + cleared + 난이도(1~3) + 잠금, 저작 순서 정렬 |
-| GET  | /puzzles/{content_item_id}    | 퍼즐 단건(플레이 진입) — 순차 잠금 + 구름 진입 게이트 |
-| POST | /puzzles/{content_item_id}/attempt | {board_state} → {passed, phenomena, feedback, xp_earned} (잠금 재확인) |
+| GET  | /puzzles                      | active board 문항 + cleared + 난이도(1~3), 저작 순서 정렬 |
+| GET  | /puzzles/{content_item_id}    | 퍼즐 단건(플레이 진입) — 구름 진입 게이트 (R10-01 §3.1) |
+| POST | /puzzles/{content_item_id}/attempt | {board_state} → {passed, phenomena, feedback, xp_earned} |
 
 - cleared = quiz_logs에 해당 content_item_id로 is_correct=true 로그가 존재.
 - 최초 클리어만 +5 XP(재도전 0). 클리어 판정 여부와 무관하게 시도는 quiz_logs
@@ -125,17 +125,16 @@ def board_difficulty(template_json: dict, level_group: str) -> int:
 def order_puzzles_for_progress(items: list) -> list:
     """퍼즐을 **저작된 진행 순서**(template_json.board_order)로 세운다.
 
-    보드가 순차 진행(앞 퍼즐을 깨야 다음이 열림)으로 바뀌면서 순서가 곧 코스가
-    됐다 — 그래서 순서를 서버가 파생하지 않고 **시드가 소유**한다(units.json의
-    `unit_order`와 같은 관례). 난이도 리듬(쉬움 셋 → 보통 → 쉬움 → … → 어려움)은
-    저작 결정이라 코드가 아니라 데이터에 있어야 리뷰·수정이 된다.
+    순서를 서버가 파생하지 않고 **시드가 소유**한다(units.json의 `unit_order`와 같은
+    관례). 난이도 배치(쉬움 → 보통 → 어려움)는 저작 결정이라 코드가 아니라 데이터에
+    있어야 리뷰·수정이 된다. 잠금은 없고 순서는 권유다 — 학습자는 아무 칸이나 고른다.
 
     board_order가 없는 문항은 뒤로 보내고 입력 순서(created_at)를 유지한다 —
     구 시드·새로 생성된 문항이 섞여도 목록이 비지 않는다.
 
-    ⚠️ θ 근접 정렬(order_puzzles_for_theta)을 **대체**한다. 순차 진행에서는 내
-    수준에 맞는 퍼즐을 앞으로 당겨도 어차피 앞에서부터 풀어야 해서 순서가 두 번
-    바뀌기만 한다. θ 함수는 세션 문항 풀에서 계속 쓰이므로 남겨 둔다.
+    ⚠️ θ 근접 정렬(order_puzzles_for_theta)을 **대체**한다. 화면이 난이도 순 격자라
+    개인별로 순서가 흔들리면 "쉬움부터 차례로"가 성립하지 않는다. θ 함수는 세션
+    문항 풀에서 계속 쓰이므로 남겨 둔다.
     """
     def order_of(item) -> int:
         # `or`로 기본값을 주면 board_order=0이 "없음"으로 삼켜진다 — 명시 비교.
@@ -183,38 +182,18 @@ async def _cleared_item_ids(db: AsyncSession, user: User) -> set[UUID]:
     return {row for row in rows if row is not None}
 
 
-def locked_flags(items: list, cleared: set[UUID]) -> list[bool]:
-    """진행 순서대로 세운 퍼즐 목록 → 각 퍼즐의 잠금 여부.
-
-    규칙(2026-08-05 제품 결정 — 순차 진행):
-      · 앞 퍼즐을 **전부** 깼으면 열린다. 그래서 열려 있는 미클리어 퍼즐은 항상 1개.
-      · **이미 깬 퍼즐은 언제나 열려 있다** — 앞을 건너뛰고 깬 이력이 있는 기존
-        유저(순차 잠금 도입 전에 아무 퍼즐이나 열 수 있었다)의 진도를 되돌리지
-        않기 위한 예외다. 이 예외가 없으면 어제 깬 퍼즐이 오늘 잠긴다.
-    """
-    flags: list[bool] = []
-    all_prev_cleared = True
-    for item in items:
-        is_cleared = item.id in cleared
-        flags.append(not is_cleared and not all_prev_cleared)
-        if not is_cleared:
-            all_prev_cleared = False
-    return flags
-
-
 @router.get("/puzzles", response_model=list[BoardPuzzle])
 async def list_puzzles(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_with_rls),
 ) -> list[BoardPuzzle]:
-    """active board 문항 목록 — template_json 전체 + cleared + 난이도 + 잠금.
+    """active board 문항 목록 — template_json 전체 + cleared + 난이도.
 
-    정렬: 시드가 저작한 진행 순서(template_json.board_order). **순차 진행**이라
-    순서가 곧 코스다(2026-08-05 제품 결정 — θ 근접 정렬을 대체).
+    정렬: 시드가 저작한 진행 순서(template_json.board_order) — 난이도 오름차순으로
+    저작돼 있다. θ 근접 정렬을 대체한다(2026-08-05).
 
-    잠금(`locked`): 앞 퍼즐을 전부 깨야 다음이 열린다. 목록 자체는 **무차단**이라
-    잠긴 퍼즐도 제목·요약·난이도까지 보인다 — 무엇이 기다리는지는 보여주고
-    들어가는 것만 막는다(내비 탭 판정 R10-01 §3.4와 같은 태도).
+    **잠금 없다**(2026-08-06 제품 결정): 순차 잠금을 넣었다가 걷어냈다 — 학습자가
+    원하는 퍼즐을 골라 풀게 한다. 순서는 권유이지 강제가 아니다.
     """
     items = list(
         (
@@ -232,16 +211,14 @@ async def list_puzzles(
     )
     items = order_puzzles_for_progress(items)
     cleared = await _cleared_item_ids(db, user)
-    flags = locked_flags(items, cleared)
     return [
         BoardPuzzle(
             content_item_id=item.id,
             template_json=item.template_json or {},
             cleared=item.id in cleared,
             difficulty=board_difficulty(item.template_json, item.level_group),
-            locked=flag,
         )
-        for item, flag in zip(items, flags)
+        for item in items
     ]
 
 
@@ -280,19 +257,6 @@ async def get_puzzle_detail(
     item = await _load_puzzle_or_404(db, content_item_id)
     cleared = await _cleared_item_ids(db, user)
 
-    # 순차 진행 잠금(2026-08-05) — 프론트가 카드를 비활성해도 **여기서 막지 않으면
-    # 잠금이 아니다**. 목록은 무차단이므로 잠금 판정은 이 지점이 유일한 권위다.
-    # 에너지 검사보다 **먼저** 둔다: 잠긴 퍼즐은 구름이 있든 없든 못 들어가므로,
-    # "구름을 기다리면 열린다"는 잘못된 안내(429)를 주지 않기 위해서다.
-    if await _is_locked(db, item, cleared):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "detail": "앞의 퍼즐을 먼저 완료해야 열려요.",
-                "code": "PUZZLE_LOCKED",
-            },
-        )
-
     # 진입 게이트 — 무소모 검사. 404 판정 이후에 둔다(없는 퍼즐은 차단 대상이 아니다).
     await energy_service.require_entry(db, user)
 
@@ -301,37 +265,7 @@ async def get_puzzle_detail(
         template_json=item.template_json or {},
         cleared=item.id in cleared,
         difficulty=board_difficulty(item.template_json, item.level_group),
-        locked=False,
     )
-
-
-async def _is_locked(db: AsyncSession, item: ContentItem, cleared: set[UUID]) -> bool:
-    """이 퍼즐이 순차 진행 잠금에 걸리는가 — 목록과 **같은 규칙**으로 판정한다.
-
-    목록(locked_flags)과 판정이 갈리면 화면은 열려 있는데 진입이 막히거나
-    그 반대가 된다. 그래서 같은 순서·같은 함수로 다시 계산한다.
-    """
-    items = order_puzzles_for_progress(
-        list(
-            (
-                await db.execute(
-                    select(ContentItem)
-                    .where(
-                        ContentItem.status == "active",
-                        ContentItem.question_type == "board",
-                    )
-                    .order_by(ContentItem.created_at.asc())
-                )
-            )
-            .scalars()
-            .all()
-        )
-    )
-    flags = locked_flags(items, cleared)
-    for candidate, flag in zip(items, flags):
-        if candidate.id == item.id:
-            return flag
-    return False
 
 
 async def _next_board_quiz_id(
@@ -360,19 +294,7 @@ async def attempt_puzzle(
 ) -> BoardAttemptResult:
     item = await _load_puzzle_or_404(db, content_item_id)
 
-    # 순차 진행 잠금 — 진입(GET /puzzles/{id})만 막으면 **잠금이 아니다**.
-    # 진입을 건너뛰고 바로 여기로 제출하면 잠긴 퍼즐을 깨서 뒤 칸까지 열 수 있다.
-    # 채점 권위가 서버에 있는 것과 같은 이유로, 잠금 판정도 채점 직전에 한 번 더 건다.
     cleared = await _cleared_item_ids(db, user)
-    if await _is_locked(db, item, cleared):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "detail": "앞의 퍼즐을 먼저 완료해야 열려요.",
-                "code": "PUZZLE_LOCKED",
-            },
-        )
-
     template = item.template_json or {}
     question = {**template, "question_type": "board", "concept_tag": item.concept_tag}
 

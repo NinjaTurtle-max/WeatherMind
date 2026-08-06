@@ -54,9 +54,7 @@ export default {
       challenge: '도전',
       progressLabel: '전체 진행도',
       progressCount: '{done} / {total} 퍼즐 완료',
-      lockedSuffix: ' (앞 퍼즐 먼저)',
-      lockedTitle: '앞의 퍼즐을 먼저 완료하면 열려요',
-      lockedError: '앞의 퍼즐을 먼저 완료해야 열려요.',
+      comingSoon: '아직 준비 중인 자리예요',
       serverVerdict: '서버 판정 결과',
     },
     atmosphere: {

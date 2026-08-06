@@ -1,8 +1,11 @@
-"""보드 순차 진행 — 저작 순서 정렬 + 잠금 규칙 (2026-08-05 제품 결정).
+"""보드 진행 순서 — 저작 순서 정렬 + 시드 저작 상태.
 
-순서와 잠금은 DB 의존이 없는 순수 함수(`order_puzzles_for_progress`·`locked_flags`)라
-DB 없이 고정한다(test_board_difficulty 관례). 시드 실물의 저작 상태(제목·요약·
-순서 완비)도 여기서 함께 지킨다 — 하나만 빠져도 카드가 빈 칸으로 뜬다.
+정렬은 DB 의존이 없는 순수 함수(`order_puzzles_for_progress`)라 DB 없이 고정한다
+(test_board_difficulty 관례). 시드 실물의 저작 상태(제목·요약·순서 완비)도 여기서
+함께 지킨다 — 하나만 빠져도 카드가 빈 칸으로 뜬다.
+
+⚠️ 순차 잠금은 넣었다가 걷어냈다(2026-08-06) — 학습자가 아무 퍼즐이나 고른다.
+순서는 화면 배치(난이도 오름차순 격자)의 근거일 뿐 강제가 아니다.
 
 실행: backend 디렉토리에서 `python -m pytest tests/test_board_progression.py -q`.
 """
@@ -10,11 +13,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from app.routers.board import (
-    board_difficulty,
-    locked_flags,
-    order_puzzles_for_progress,
-)
+from app.routers.board import board_difficulty, order_puzzles_for_progress
 
 SEED_PATH = (
     Path(__file__).resolve().parents[2] / "database" / "seed" / "content_items.json"
@@ -47,36 +46,6 @@ class TestOrder:
         assert [p.id for p in order_puzzles_for_progress(items)] == ["x", "y"]
 
 
-class TestLock:
-    def test_첫_퍼즐은_항상_열린다(self):
-        items = [_p("a", 1), _p("b", 2), _p("c", 3)]
-        assert locked_flags(items, set()) == [False, True, True]
-
-    def test_앞을_깨면_다음_하나가_열린다(self):
-        items = [_p("a", 1), _p("b", 2), _p("c", 3)]
-        assert locked_flags(items, {"a"}) == [False, False, True]
-
-    def test_열려_있는_미클리어_퍼즐은_항상_하나다(self):
-        items = [_p(x, i + 1) for i, x in enumerate("abcde")]
-        for cleared in (set(), {"a"}, {"a", "b"}, {"a", "b", "c"}):
-            flags = locked_flags(items, cleared)
-            open_unsolved = [
-                p.id for p, f in zip(items, flags) if not f and p.id not in cleared
-            ]
-            assert len(open_unsolved) == 1, (cleared, open_unsolved)
-
-    def test_이미_깬_퍼즐은_앞을_건너뛰었어도_잠기지_않는다(self):
-        """순차 잠금 도입 전에는 아무 퍼즐이나 열 수 있었다 — 그때 깬 진도를
-        되돌리면 어제 깬 퍼즐이 오늘 잠긴다."""
-        items = [_p("a", 1), _p("b", 2), _p("c", 3)]
-        flags = locked_flags(items, {"c"})
-        assert flags == [False, True, False], flags
-
-    def test_전부_깨면_전부_열려_있다(self):
-        items = [_p("a", 1), _p("b", 2)]
-        assert locked_flags(items, {"a", "b"}) == [False, False]
-
-
 class TestSeedAuthoring:
     """시드 실물 — 카드가 빈 칸으로 뜨지 않으려면 셋 다 있어야 한다."""
 
@@ -103,16 +72,11 @@ class TestSeedAuthoring:
         first = min(_board_items(), key=lambda i: i["template_json"]["board_order"])
         assert board_difficulty(first["template_json"], first["level_group"]) == 1
 
-    def test_난이도가_뒤로_갈수록_오른다(self):
-        """리듬(중간 스파이크)은 허용하되 **전체 추세**는 올라야 한다 —
-        앞·뒤 절반의 평균 난이도로 본다."""
+    def test_난이도가_쉬움_보통_어려움_순으로_단조_증가한다(self):
+        """화면이 난이도 순 격자라 순서가 곧 난이도 흐름이다 — 되돌아가면 안 된다."""
         rows = sorted(_board_items(), key=lambda i: i["template_json"]["board_order"])
         diffs = [board_difficulty(i["template_json"], i["level_group"]) for i in rows]
-        half = len(diffs) // 2
-        front, back = diffs[:half], diffs[-half:]
-        assert sum(back) / len(back) > sum(front) / len(front), (
-            f"뒤가 더 쉽거나 같다 — 앞 {front} / 뒤 {back}"
-        )
+        assert diffs == sorted(diffs), f"난이도가 되돌아간다: {diffs}"
 
     def test_요약은_카드_한_줄에_들어가는_길이다(self):
         """퍼즐 칸은 좁다 — 길면 잘려서 무슨 미션인지 알 수 없다."""
@@ -128,47 +92,3 @@ class TestSeedAuthoring:
         assert len(set(titles)) == len(titles), f"제목 중복: {titles}"
         long = [t for t in titles if len(t) > 14]
         assert not long, f"제목이 너무 길다(14자 초과): {long}"
-
-
-class TestLockIsEnforcedNotJustLabelled:
-    """잠금을 **어디서** 막는가 — 라벨만 붙이면 잠금이 아니다.
-
-    목록은 무차단이라 잠긴 퍼즐도 내려온다. 그러니 막는 지점은 두 곳뿐이고,
-    둘 다 막아야 한다:
-      · GET  /puzzles/{id}        (진입)
-      · POST /puzzles/{id}/attempt (채점) ← 진입을 건너뛰고 바로 제출하면
-        잠긴 퍼즐을 깨서 뒤 칸까지 열 수 있다.
-    라우트 소스에서 두 핸들러가 잠금 검사를 통과하는지 확인한다(DB 없이).
-    """
-
-    def _source(self, func) -> str:
-        import inspect
-
-        return inspect.getsource(func)
-
-    def test_진입_핸들러가_잠금을_막는다(self):
-        from app.routers.board import get_puzzle_detail
-
-        src = self._source(get_puzzle_detail)
-        assert "_is_locked" in src and "PUZZLE_LOCKED" in src, (
-            "GET /puzzles/{id}에 순차 잠금 검사가 없다 — 목록이 무차단이라 "
-            "여기서 막지 않으면 잠긴 퍼즐로 그냥 들어간다"
-        )
-
-    def test_채점_핸들러도_잠금을_막는다(self):
-        from app.routers.board import attempt_puzzle
-
-        src = self._source(attempt_puzzle)
-        assert "_is_locked" in src and "PUZZLE_LOCKED" in src, (
-            "POST attempt에 순차 잠금 검사가 없다 — 진입을 건너뛰고 바로 제출하면 "
-            "잠긴 퍼즐을 깨서 순차 진행 전체를 우회할 수 있다"
-        )
-
-    def test_잠금_검사가_에너지_검사보다_먼저다(self):
-        """잠긴 퍼즐은 구름이 차도 안 열린다 — 429를 주면 '기다리면 열린다'는 거짓."""
-        from app.routers.board import get_puzzle_detail
-
-        src = self._source(get_puzzle_detail)
-        assert src.index("PUZZLE_LOCKED") < src.index("require_entry"), (
-            "에너지 검사가 잠금보다 먼저다 — 잠긴 퍼즐에 429(구름 부족)를 주게 된다"
-        )

@@ -91,7 +91,10 @@ input[type='range'] {
      --n(노드 수)과 --chrome(머리말+소개 스트립+진도 바)은 컴포넌트가 넣는다. */
   --dot: max(44px, min(86px, calc((100cqh - var(--chrome, 200px)) / (1.18 * var(--n, 4) - 0.18))));
   --gap: calc(var(--dot) * 0.18);
-  --amp: clamp(56px, 16cqw, 132px); /* 지그재그 가로 진폭 */
+  /* 지그재그 가로 진폭. ⚠️ PcCurriculumPath의 StageLine이 **칸 1개짜리 단계에서만**
+     이 식을 JS로 옮겨 쓴다(노드에서 역산이 안 되는 유일한 경우) — 값을 바꾸면
+     거기도 같이 고칠 것. */
+  --amp: clamp(56px, 16cqw, 132px);
   flex: 1;
   min-height: 0;
   position: relative;
