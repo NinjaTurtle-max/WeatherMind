@@ -301,8 +301,9 @@ export default function BoardPage() {
               내려주므로 클라이언트는 재정렬하지 않는다(순서가 곧 코스다). */}
           <div>
             {/* 정사각에 가깝게 — 3열이면 칸이 가로로 길어진다(실측 285×112).
-                4열로 좁히고 sm↑에서 aspect-square를 건다. 모바일 1열은 정사각으로
-                두면 한 칸이 화면을 다 먹으므로 높이를 내용에 맡긴다. */}
+                4열로 좁히고 sm↑에서 가로:세로 10:9로 잡는다 — 정사각(218×218)은
+                살짝 키가 커 보여 한 뼘 낮췄다(218×196). 모바일 1열은 비율을 걸면
+                한 칸이 화면을 다 먹으므로 높이를 내용에 맡긴다. */}
             <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {list.map((p, i) => (
                 <PuzzlePiece
@@ -339,12 +340,14 @@ export default function BoardPage() {
               같은 줄에 두지 않는다. */}
           <aside className="flex flex-col gap-3">
             <LabCard
+              icon="🧪"
               title={t('board.page.sandboxTitle')}
               desc={t('board.page.sandboxDesc')}
               cta={t('board.page.enter')}
               onClick={() => setSandbox(true)}
             />
             <LabCard
+              icon="🔬"
               title={t('board.page.exploreTitle')}
               desc={t('board.page.exploreDesc')}
               cta={t('board.page.enter')}
@@ -409,7 +412,7 @@ function PuzzlePiece({ puzzle, index, energyBlocked, regenMin, pending, busy, on
               ? t('board.page.blockedTitle', { min: regenMin })
               : (tpl.question_text ?? undefined)
         }
-        className={`flex min-h-[132px] w-full flex-col overflow-hidden rounded-2xl p-3.5 text-left shadow-sm ring-1 transition sm:aspect-square ${skin} ${
+        className={`flex min-h-[132px] w-full flex-col overflow-hidden rounded-2xl p-3.5 text-left shadow-sm ring-1 transition sm:aspect-[10/9] ${skin} ${
           blocked ? 'cursor-not-allowed' : ''
         } ${locked ? 'opacity-70' : ''}`}
       >
@@ -467,19 +470,34 @@ function PuzzlePiece({ puzzle, index, energyBlocked, regenMin, pending, busy, on
   );
 }
 
-/** 실험 입구 카드 — 자유 실험·탐구 실험실이 같은 모양을 쓴다(격이 같다). */
-function LabCard({ title, desc, cta, onClick, to }) {
+/**
+ * 실험 입구 카드 — 자유 실험·탐구 실험실이 같은 모양을 쓴다(격이 같다).
+ *
+ * 아이콘은 **prop으로 받는다.** 리소스 문자열이 이미 앞머리에 이모지를 달고 있어
+ * (`🧪 자유 실험`) 그대로 두면 큰 아이콘과 나란히 두 번 뜬다 — 표시할 때 앞
+ * 이모지를 떼고 이름만 쓴다. 리소스 값은 건드리지 않는다(다른 화면·번역 공유).
+ */
+function LabCard({ icon, title, desc, cta, onClick, to }) {
+  const label = title.replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, '');
   const inner = (
     <>
-      <p className="text-[13.5px] font-extrabold text-slate-900">{title}</p>
+      <span
+        aria-hidden="true"
+        className="grid h-14 w-14 place-items-center rounded-2xl bg-slate-50 text-[26px] ring-1 ring-slate-200"
+      >
+        {icon}
+      </span>
+      <p className="mt-3 text-[13.5px] font-extrabold text-slate-900">{label}</p>
       <p className="mt-1 text-[11.5px] leading-snug text-slate-500">{desc}</p>
-      <span className="mt-3 inline-block rounded-lg bg-slate-900 px-3 py-1.5 text-[12px] font-bold text-white">
+      {/* mt-auto — 카드를 키운 만큼 남는 높이를 여기서 먹어 CTA를 바닥에 붙인다.
+          두 카드의 버튼 높이가 맞아야 레일이 정돈돼 보인다. */}
+      <span className="mt-auto inline-block self-start rounded-lg bg-slate-900 px-3 py-1.5 text-[12px] font-bold text-white">
         {cta}
       </span>
     </>
   );
   const cls =
-    'block rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 transition hover:ring-sky-300';
+    'flex min-h-[224px] flex-col rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 transition hover:ring-sky-300';
   return to ? (
     <Link to={to} className={cls}>
       {inner}
