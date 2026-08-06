@@ -1,0 +1,399 @@
+[
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "높은 하늘에서는 기압이 높은 쪽에서 낮은 쪽으로 공기를 미는 힘(기압 경도력)과, 지구 자전 탓에 움직이는 공기의 진로를 북반구에서 오른쪽으로 휘게 하는 힘(전향력)이 서로 맞버틴다. 두 힘의 크기가 같고 방향이 정반대가 되었을 때 바람은 어떻게 부는가?",
+      "options": [
+        "등압선과 나란히 분다",
+        "등압선을 가로질러 고기압에서 저기압으로 곧장 분다",
+        "등압선을 가로질러 저기압에서 고기압으로 거슬러 분다",
+        "두 힘이 상쇄되어 바람이 완전히 멈춘다"
+      ],
+      "correct_answer": "등압선과 나란히 분다",
+      "explanation_hint": "두 힘이 맞버티면 공기에 남는 알짜힘이 없어 진로가 더는 휘지 않는다. 그래서 바람은 등압선과 나란히 흐르고, 이 바람을 지균풍이라고 한다. 북반구에서 바람을 등지고 서면 왼쪽이 저기압이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 지균풍·전향력(introduced_at 6) / R3 미해당(정답이 수치가 아님) / R2 +0",
+        "성취기준 [12지시03-05]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "등압선이 휘어 있으면 그 곡선을 따라 도는 공기에 바깥쪽으로 원심력이 더 붙는다. 북반구에서 저기압성으로 휜 등압선을 따라 부는 바람(경도풍)이 같은 기압 차의 지균풍보다 느린 까닭으로 옳은 것은?",
+      "options": [
+        "원심력이 전향력과 같은 바깥쪽으로 작용해, 더 작은 전향력만으로 기압 경도력과 맞버틸 수 있기 때문",
+        "원심력이 기압 경도력과 같은 안쪽으로 작용해 안쪽으로 미는 힘이 두 배가 되기 때문",
+        "저기압성으로 휜 구간에서는 전향력이 0이 되어 바람을 휘게 하지 못하기 때문",
+        "곡선 구간에서만 지표 마찰력이 새로 생겨나 바람을 붙잡기 때문"
+      ],
+      "correct_answer": "원심력이 전향력과 같은 바깥쪽으로 작용해, 더 작은 전향력만으로 기압 경도력과 맞버틸 수 있기 때문",
+      "explanation_hint": "저기압성 곡률에서는 기압 경도력이 안쪽, 전향력과 원심력이 바깥쪽이다. 바깥쪽 몫을 원심력이 나눠 지므로 전향력이 지균풍일 때보다 작아도 균형이 잡힌다. 전향력은 풍속에 비례하므로 경도풍은 지균풍보다 느리다. 반대로 고기압성 곡률에서는 지균풍보다 빨라진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 경도풍·원심력(introduced_at 6) / R3 미해당 / R2 +0(R1 상한을 넘지 못함)",
+        "성취기준 [12지시03-05] · [12고지02-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "대기의 바람을 만드는 네 가지 힘과, 그 힘이 하는 일을 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "기압 경도력",
+          "right": "기압이 높은 쪽에서 낮은 쪽으로 공기를 밀어낸다"
+        },
+        {
+          "left": "전향력",
+          "right": "지구 자전 탓에 움직이는 공기의 진로를 북반구에서 오른쪽으로 휘게 한다"
+        },
+        {
+          "left": "원심력",
+          "right": "휘어진 경로를 도는 공기를 곡률 중심의 바깥쪽으로 밀어낸다"
+        },
+        {
+          "left": "마찰력",
+          "right": "지표 가까이에서 풍속을 줄여 바람이 등압선을 비스듬히 가로지르게 한다"
+        }
+      ],
+      "correct_answer": "기압 경도력:기압이 높은 쪽에서 낮은 쪽으로 공기를 밀어낸다|전향력:지구 자전 탓에 움직이는 공기의 진로를 북반구에서 오른쪽으로 휘게 한다|원심력:휘어진 경로를 도는 공기를 곡률 중심의 바깥쪽으로 밀어낸다|마찰력:지표 가까이에서 풍속을 줄여 바람이 등압선을 비스듬히 가로지르게 한다",
+      "explanation_hint": "바람은 이 네 힘의 합으로 정해진다. 상층에서는 마찰이 거의 없어 기압 경도력과 전향력만으로 지균풍이 되고, 등압선이 휘면 원심력이 더해져 경도풍이 되며, 지표 부근에서는 마찰력까지 붙어 지상풍이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 전향력·원심력(introduced_at 6) / R3 미해당 / R5 미해당(board 아님)",
+        "성취기준 [12고지02-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "조건부 불안정한 대기에서 공기 덩어리가 억지로 밀려 올라가 큰 소나기 구름으로 자라기까지의 과정을 순서대로 배열하세요.",
+      "items": [
+        "지표 가열이나 산비탈 때문에 공기 덩어리가 억지로 밀려 올라간다",
+        "팽창하며 식던 공기가 상승 응결 고도에 닿아 수증기가 응결하고 구름 밑면이 생긴다",
+        "응결로 나온 잠열이 공기를 데워, 자유 대류 고도부터는 공기 덩어리가 주변보다 따뜻해진다",
+        "밀어 주는 힘이 없어도 부력만으로 스스로 솟구쳐 구름이 위로 크게 자란다",
+        "주변과 기온이 같아지는 평형 고도에 이르러 꼭대기가 옆으로 퍼진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "조건부 불안정이란 구름이 없을 때는 안정하고 구름이 생긴 뒤에는 불안정한 상태다. 그래서 처음에는 밀어 주는 힘이 필요하고, 상승 응결 고도에서 구름이 생긴 뒤 자유 대류 고도를 넘어서야 스스로 솟구친다. 평형 고도에서 부력이 사라지며 꼭대기가 퍼진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 상승 응결 고도·자유 대류 고도·평형 고도(LCL·LFC·EL, introduced_at 6) / R2 +1 (3단계 이상 인과 사슬, R1 상한 유지)",
+        "성취기준 [12고지02-02] · [12지시03-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "정지한 대기에서 공기층을 위로 밀어 올리는 기압 차이의 힘과 아래로 잡아당기는 중력이 거의 같은 크기로 맞버티는 상태를 ___ 균형이라고 한다.",
+      "correct_answer": "정역학",
+      "explanation_hint": "정역학 균형은 대기가 연직으로 거의 움직이지 않는 이유를 설명한다. 이 균형이 깨지는 만큼만 공기가 위아래로 움직이므로, 연직 운동의 크기는 수평 바람에 비하면 아주 작다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 정역학 균형(introduced_at 6, 신설 항목) / R4 적용 불가(정답 문자열이 그 용어)",
+        "성취기준 [12지시03-04]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "정역학 균형에서 공기층 위아래의 기압 차는 '공기 밀도 × 중력가속도 × 층의 두께'로 구한다. 밀도가 1.2kg/m³인 공기층에서 두께 100m 구간의 위아래 기압 차는 몇 hPa인가? (중력가속도 10m/s², 1hPa=100Pa, 단위: hPa)",
+      "correct_answer": "12",
+      "explanation_hint": "1.2 × 10 × 100 = 1200Pa이고 1hPa이 100Pa이므로 12hPa이다. 지표 부근에서 100m 올라갈 때 기압이 약 12hPa 낮아진다는 경험칙이 이 계산에서 나온다. 위로 갈수록 공기 밀도가 작아지므로 같은 두께라도 기압 차는 점점 줄어든다.",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "hPa"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 정역학 균형(introduced_at 6) / R2 +1(두 변수의 정량 계산) / R3 미해당 — 정답이 암기 수치가 아니라 계산 결과다",
+        "성취기준 [12지시03-04]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "지균풍의 속력은 기압 경도(거리 1m당 기압 차)를 '공기 밀도 × 전향력 인자'로 나눈 값이다. 200km 사이에 기압이 5hPa 낮아지고 공기 밀도가 1.25kg/m³, 전향력 인자가 0.0001/s라면 지균풍은 몇 m/s인가? (1hPa=100Pa, 단위: m/s)",
+      "correct_answer": "20",
+      "explanation_hint": "기압 경도는 500Pa ÷ 200000m = 0.0025Pa/m이고, 분모는 1.25 × 0.0001 = 0.000125다. 0.0025 ÷ 0.000125 = 20m/s가 된다. 같은 기압 차라도 등압선 간격이 좁을수록 기압 경도가 커져 바람이 강해진다는 것이 이 식의 뜻이다.",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "m/s"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 지균풍·전향력 인자(introduced_at 6) / R2 +1(정량 계산) / R3 미해당 — 정답이 계산 결과다",
+        "성취기준 [12고지02-03] 해설 '힘의 크기를 수식으로 유도'"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "어느 맑은 날 지표 기온이 20℃, 높이 1km 지점의 기온이 12℃로 관측됐다. 주변 공기가 높이 1km마다 식는 정도인 환경 감률은 몇 ℃/km인가? (단위: ℃/km)",
+      "correct_answer": "8",
+      "explanation_hint": "20℃에서 12℃로 8℃ 떨어졌으므로 환경 감률은 8℃/km다. 구름이 없는 공기 덩어리가 스스로 식는 정도는 약 10℃/km이므로, 올라간 공기는 주변보다 차가워지고 무거워져 제자리로 되돌아온다. 구름이 없는 한 이 대기는 안정하다.",
+      "min": 0,
+      "max": 15,
+      "step": 0.5,
+      "unit": "℃/km"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 환경 감률·단열 감률(introduced_at 6) / R2 +1(계산 뒤 안정도 판정) / R3 미해당 — 관측값에서 구하는 계산 결과다",
+        "성취기준 [12지시03-03] 해설 '단열변화와 단열 감률을 고려한 대기의 안정도'"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "구름이 없는 공기 덩어리는 1km 올라갈 때 약 10℃, 구름이 생긴 뒤에는 약 5℃ 식는다. 주변 공기의 환경 감률과 그때의 대기 안정도를 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "환경 감률 12℃/km",
+          "right": "구름이 있든 없든 올라간 공기가 주변보다 따뜻하다 — 절대 불안정"
+        },
+        {
+          "left": "환경 감률 8℃/km",
+          "right": "구름이 없으면 안정하고 구름이 생기면 불안정하다 — 조건부 불안정"
+        },
+        {
+          "left": "환경 감률 3℃/km",
+          "right": "구름이 있든 없든 올라간 공기가 주변보다 차갑다 — 절대 안정"
+        }
+      ],
+      "correct_answer": "환경 감률 12℃/km:구름이 있든 없든 올라간 공기가 주변보다 따뜻하다 — 절대 불안정|환경 감률 8℃/km:구름이 없으면 안정하고 구름이 생기면 불안정하다 — 조건부 불안정|환경 감률 3℃/km:구름이 있든 없든 올라간 공기가 주변보다 차갑다 — 절대 안정",
+      "explanation_hint": "환경 감률을 두 기준선(약 10℃/km, 약 5℃/km)과 견주면 된다. 두 기준선보다 크면 절대 불안정, 둘 사이면 조건부 불안정, 두 기준선보다 작으면 절대 안정이다. 안정도는 절대적인 기온이 아니라 '주변이 얼마나 빨리 식는가'로 정해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 환경 감률·건조/습윤 단열 감률·대기 안정도(introduced_at 6) / R2 +1(세 상황의 반례 판정)",
+        "성취기준 [12지시03-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "맑고 바람 없는 겨울 새벽에는 지표 가까이에서 위로 갈수록 기온이 오히려 높아지는 층(기온 역전층)이 생긴다. 이 층에서 상승 기류가 억제되는 까닭으로 가장 알맞은 것은?",
+      "options": [
+        "올라간 공기 덩어리는 팽창하며 식는데 주변은 더 따뜻해서, 주변보다 차고 무거워진 공기가 곧 제자리로 되돌아오기 때문",
+        "역전층 안에서는 중력이 사라져 공기가 위아래로 움직이지 못하기 때문",
+        "역전층에서는 기압 경도력이 위쪽으로만 작용해 공기를 붙잡기 때문",
+        "역전층의 공기는 수증기를 전혀 품지 못해 가벼워지지 못하기 때문"
+      ],
+      "correct_answer": "올라간 공기 덩어리는 팽창하며 식는데 주변은 더 따뜻해서, 주변보다 차고 무거워진 공기가 곧 제자리로 되돌아오기 때문",
+      "explanation_hint": "안정도는 올라간 공기와 주변 공기의 기온을 견주어 정해진다. 역전층은 환경 감률이 음수라 어떤 단열 감률보다도 작으므로 절대 안정이다. 연직 운동이 막히는 탓에 오염 물질이 지표 가까이에 갇혀 겨울 새벽 대기질이 나빠진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 기온 역전층·환경 감률·대기 안정도(introduced_at 6) / R2 +0(단일 인과) / R3 미해당",
+        "성취기준 [12지시03-03] '기온의 연직 분포와 대기의 안정도'"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "상승하던 공기 덩어리 안에서 수증기가 응결하기 시작하면 응결하며 나오는 ___이 공기를 데워 식는 속도를 늦춘다. 그래서 습윤 단열 감률은 건조 단열 감률보다 작다.",
+      "correct_answer": "잠열",
+      "explanation_hint": "건조한 공기는 1km 올라갈 때 약 10℃ 식지만, 구름이 생긴 뒤에는 응결 잠열이 공기를 데우기 때문에 약 5℃만 식는다. 두 감률의 차이가 조건부 불안정이라는 상태를 만든다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 습윤/건조 단열 감률(introduced_at 6) — 정답 용어 '잠열' 자체는 3단계([9과04-04])이나 R1은 최댓값을 쓴다",
+        "성취기준 [12지시03-03] · [12지시03-02] 해설"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "여름 오후 하늘에 여러 개의 뭉게구름이 솟아 있을 때, 구름들의 밑면 높이가 거의 한 높이로 가지런히 정렬되어 보인다. 그 까닭으로 가장 알맞은 것은?",
+      "options": [
+        "같은 성질로 출발한 공기 덩어리가 올라가다 처음으로 포화에 이르는 높이, 곧 상승 응결 고도가 서로 같기 때문",
+        "구름은 언제 어디서나 지표에서 1km 높이에서만 만들어지기 때문",
+        "구름 밑면이 상층에서 부는 강한 바람에 깎여 평평해지기 때문",
+        "구름 속 물방울이 무거워 그 높이 아래로는 내려가지 못하기 때문"
+      ],
+      "correct_answer": "같은 성질로 출발한 공기 덩어리가 올라가다 처음으로 포화에 이르는 높이, 곧 상승 응결 고도가 서로 같기 때문",
+      "explanation_hint": "공기 덩어리는 상승하며 팽창해 식고, 기온이 이슬점에 닿는 높이에서 응결이 시작된다. 이 높이가 상승 응결 고도이고 구름 밑면이 된다. 같은 지역의 지표 공기는 기온과 이슬점이 비슷하므로 이 높이도 비슷해, 구름 밑면이 한 줄로 정렬된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 상승 응결 고도(LCL, introduced_at 6) / R2 +0 / R4 적용 안 함 — 정답 문자열에 그 용어가 들어 있다",
+        "성취기준 [12고지02-02] · [12지시03-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "지표나 구름에 닿은 태양 빛 가운데 흡수되지 않고 그대로 되돌아 나가는 비율을 반사율이라고 한다. 대기과학에서 이 반사율을 가리켜 함께 쓰는 다른 이름은 무엇인가?",
+      "correct_answer": "알베도",
+      "explanation_hint": "알베도는 반사율과 같은 말이다. 갓 내린 눈은 0.8을 넘고 짙은 바다는 0.1 안팎이라, 해빙이 녹아 바다가 드러나면 알베도가 낮아지고 흡수하는 태양 에너지가 늘어난다. 국내 고등학교 과학과 교육과정에는 실리지 않은 용어라 이 단계에서만 쓴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 알베도(introduced_at 6 — 별책 9·20 전문 검색 0건, §7.3 정정) / R4 적용 불가(정답이 그 용어)",
+        "교육과정 밖 (standard: null)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "상층의 지균풍과 달리 지표 가까이에서는 마찰력이 함께 작용해, 바람이 등압선을 비스듬히 가로질러 저기압 쪽으로 불어 든다. 이렇게 마찰력까지 작용하는 지표 부근의 바람을 무엇이라고 하는가?",
+      "correct_answer": "지상풍",
+      "explanation_hint": "마찰이 풍속을 줄이면 풍속에 비례하는 전향력도 약해진다. 약해진 전향력이 기압 경도력을 다 막지 못하므로 바람은 등압선을 비스듬히 가로질러 저기압 중심으로 불어 들고, 모인 공기가 위로 올라가 구름이 만들어진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 지상풍·지균풍·마찰력(introduced_at 6) / R3 미해당 / R6 미적용(단계가 갈리지 않음)",
+        "성취기준 [12지시03-05] '지균풍, 경도풍, 지상풍의 발생 원리와 관련된 힘의 작용'"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "중위도 상공의 편서풍은 남북으로 크게 굽이치며 흐른다(편서풍 파동). 이 파동에서 기압골 동쪽 상공은 공기가 옆으로 퍼져 나가는 발산 구역이 되는데, 그 아래 지상 저기압은 어떻게 되는가?",
+      "options": [
+        "상공에서 빠져나간 만큼 지상에서 공기가 모여들며 저기압이 더 발달한다",
+        "상공에서 공기가 빠져나간 만큼 지상 기압이 높아져 저기압이 사라진다",
+        "상공의 발산은 지상 기압에 아무 영향도 주지 않는다",
+        "지상 저기압이 상공 파동을 거슬러 서쪽으로 물러난다"
+      ],
+      "correct_answer": "상공에서 빠져나간 만큼 지상에서 공기가 모여들며 저기압이 더 발달한다",
+      "explanation_hint": "상층에서 공기가 빠져나가면 그 아래 공기 기둥이 가벼워져 지상 기압이 낮아지고, 부족분을 메우려 주변 공기가 모여들며 상승 기류가 강해진다. 편서풍 파동의 골 동쪽에서 지상 저기압이 발달하는 이유이고, 골 서쪽 수렴 구역 아래에서는 반대로 저기압이 약해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 편서풍 파동·상층 발산(introduced_at 6 — '편서풍'만이면 4단계이나 '편서풍 파동'은 별개 항목) / R2 +1(3단계 인과 사슬)",
+        "성취기준 [12지시03-06] '행성파의 발달 과정 … 편서풍 파동의 역할'"
+      ]
+    },
+    "status": "active"
+  }
+]

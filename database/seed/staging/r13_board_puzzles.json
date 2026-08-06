@@ -1,0 +1,233 @@
+[
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "바람이 잔잔한 가을 새벽이다. 태백산맥(존 2) 골짜기에 땅을 덮는 안개를 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["sun", "moisture"],
+      "goal_conditions": [{"zone": 2, "phenomenon": "fog"}],
+      "hints": [
+        "햇볕이 약한 밤과 새벽에는 땅이 빠르게 식는다. 땅에 닿아 있던 축축한 공기도 함께 차가워진다.",
+        "놓을 요소는 없다. 일사는 아주 낮게, 습기는 아주 높게 — 두 조절값을 반대 방향으로 움직여야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건 — 저단계 진입로",
+        "board_rules.json: radiation_fog (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — palette가 일사·습기뿐이고 goal이 안개다. 결정 용어=안개 [6과06-02] '이슬, 안개, 구름을 관찰하고 공통점과 차이점을 찾을 수 있다', 기상 요소 [6과06-01] → 2단계",
+        "본시드 [30]과 다른 존(3→2)이고, 기존 13건에 존 2 안개 목표는 없다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "중위도 저기압이 서해상으로 다가오고 있다. 저기압 앞쪽에서 나타나는 날씨, 곧 넓은 지역에 오래 내리는 약한 비를 서해(존 0)에 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["front:warm", "moisture"],
+      "goal_conditions": [{"zone": 0, "phenomenon": "rain"}],
+      "hints": [
+        "중위도 저기압의 앞쪽에는 따뜻한 공기가 찬 공기 위로 완만하게 타고 오르는 경계가 놓인다.",
+        "완만한 상승은 넓고 두꺼운 비구름을 만들어 약한 비를 오래 내리게 한다. 습기는 50 이상이 필요하다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건",
+        "board_rules.json: warm_front_steady_rain (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 판정 대상 텍스트의 최고 개념은 '중위도 저기압 통과 시 날씨'. 결정 용어=중위도 저기압, [12지구01-03] → 5단계 (전선 4보다 높은 쪽이 지배)",
+        "표기: [12지구01-03] 해설이 '온대 저기압이란 용어는 중위도 저기압으로 표현한다'고 지정 — 정본 표기를 따랐다",
+        "기존 13건에 존 0 rain 목표는 없다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "차고 건조한 시베리아 기단이 남쪽으로 내려오는 겨울이다. 수도권(존 1)에 눈을 내려 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "수도권(존 1)에 시베리아 기단을 놓는다.",
+        "같은 존의 습기를 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["air_mass:siberian", "moisture"],
+      "goal_conditions": [{"zone": 1, "phenomenon": "snow"}],
+      "hints": [
+        "차고 메마른 공기 덩어리도 따뜻한 바다를 건너면 열과 수증기를 받아 성질이 달라진다.",
+        "성질이 바뀐 공기 속에서는 눈구름이 자란다. 습기를 충분히 올려야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건",
+        "board_rules.json: siberian_snow (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 결정 용어=기단, [9과17-04] → 4단계 (specs/12 §7.3 정정). mode=guided는 단계를 바꾸지 않는다",
+        "기존 13건의 눈 목표는 존 0 두 건뿐 — 존 1 snow는 신규"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "같은 겨울 기단이 놓여도 서해안과 영동 지방의 날씨는 갈린다. 서해(존 0)에는 눈을 내리고 동해안(존 3)은 맑게 두어, 한 기단이 만드는 두 날씨를 동시에 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["air_mass:siberian", "moisture"],
+      "goal_conditions": [
+        {"zone": 0, "phenomenon": "snow"},
+        {"zone": 3, "phenomenon": "clear"}
+      ],
+      "hints": [
+        "같은 기단이라도 따뜻한 바다를 건너며 수증기를 받은 쪽과 그렇지 않은 쪽은 결과가 달라진다.",
+        "두 존 모두에 기단을 놓되, 습기는 한쪽만 높이고 다른 쪽은 낮게 두어야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건 — 다존 목표(기존 13건은 전부 단일 존)",
+        "board_rules.json: siberian_snow + siberian_clear를 서로 다른 존에 동시 적용 (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 결정 용어=기단, [9과17-04] → 4단계. 두 존의 결과를 대비시키므로 R2 '여러 요인 중 지배 요인 선택' 후보이나, 지배 요인이 습기 하나로 명시돼 있어 +0"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "찬 공기가 밀려와 동해안(존 3)에 짧고 강한 소나기를 쏟아지게 해 보자. 위로 크게 솟은 적란운까지 만들어야 목표가 달성된다.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["front:cold", "moisture"],
+      "goal_conditions": [{"zone": 3, "phenomenon": "shower", "cloud": "cumulonimbus"}],
+      "hints": [
+        "찬 공기가 따뜻하고 습한 공기를 급하게 파고들면 공기가 세차게 밀려 올라간다.",
+        "세찬 상승이 위로 크게 솟은 적란운을 만든다. 습기가 60 이상이어야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건 — 구름까지 지정하는 목표(check_goals의 'cloud' 비교 경로. 기존 13건은 전부 phenomenon만 지정)",
+        "board_rules.json: cold_front_shower (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 결정 용어=전선 [9과17-04], 적란운(level_vocabulary: middle_high 허용, 초등만 금칙) → 4단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "온난화가 이어지면서 폭염은 더 자주, 더 강하게 나타나는 극한 기상이 되었다. 덥고 습한 여름 기단과 강한 햇볕을 놓아 동해안(존 3)에 폭염을 불러와 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["air_mass:north_pacific", "sun"],
+      "goal_conditions": [{"zone": 3, "phenomenon": "heatwave"}],
+      "hints": [
+        "여름에 우리나라를 덮는 덥고 습한 공기 덩어리는 남쪽 바다에서 올라온다.",
+        "그 위로 강한 햇볕이 더해지면 기온이 크게 오른다. 일사를 70 이상으로 올려야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건",
+        "board_rules.json: north_pacific_heatwave (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 판정 대상 텍스트의 최고 개념은 '극한 기상'. 결정 용어=극한 기상, [12기환02-03] '극한 기상 현상의 종류와 원인' → 5단계 (기단 4보다 높은 쪽이 지배)",
+        "기존 13건의 폭염 목표는 존 0·1 — 존 3 heatwave는 신규"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "대설경보는 24시간 동안 새로 쌓인 눈이 20cm(산지는 30cm) 이상일 것으로 보일 때 발표된다. 태백산맥(존 2)에 그만큼 눈을 뿌릴 겨울 날씨를 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["air_mass:siberian", "moisture"],
+      "goal_conditions": [{"zone": 2, "phenomenon": "snow"}],
+      "hints": [
+        "대설 특보의 기준은 눈이 내리는 세기가 아니라 24시간 동안 새로 쌓인 눈의 깊이다. 산지 기준을 따로 두는 것은 같은 적설도 지형에 따라 피해가 다르기 때문이다.",
+        "차고 건조한 기단이 따뜻한 바다를 건너 수증기를 받으면 눈구름이 만들어진다. 습기를 60 이상으로 올려야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건 — 최상위 단계 보강(specs/12 §8.2 '6단계는 실질적으로 빈 단계')",
+        "board_rules.json: siberian_snow (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "기상청 기상특보 발표 기준 — 대설경보: 24시간 신적설 20cm 이상, 산지 30cm 이상 (대설주의보는 5cm 이상)",
+        "판정: R5 + R3 — 문두·힌트의 대설경보 기준 수치는 교육과정에 실리지 않는 실무 발표 기준이다. specs/12 §4 R3의 상향 예시에 '대설경보'가 포함돼 있다 → 6단계",
+        "기존 13건에 존 2 snow 목표는 없다"
+      ]
+    },
+    "status": "active"
+  }
+]
