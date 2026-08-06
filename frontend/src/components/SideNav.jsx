@@ -68,7 +68,10 @@ export default function SideNav() {
       </nav>
 
       <div className="mt-auto rounded-2xl border border-slate-200 bg-white p-3 text-center">
-        <Mascot name={mascot} className="mx-auto w-[74px]" />
+        {/* 정사각 박스 — 폭만 주면 세로가 원본 비율을 따라가 캐릭터마다 카드
+            높이가 달라지고(가로형 cloud 43px ↔ 세로형 bolt 123px) 화면을 옮길
+            때마다 사이드바 아래가 들썩인다. */}
+        <Mascot name={mascot} className="mx-auto h-[74px] w-[74px]" />
         <p className="mt-1.5 text-[12.5px] font-extrabold text-slate-800">{t(nameKey)}</p>
         <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t(lineKey)}</p>
       </div>
