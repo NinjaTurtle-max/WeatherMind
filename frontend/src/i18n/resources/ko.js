@@ -213,6 +213,15 @@ export default {
   },
   // 내 정보 탭(modules/progress/ProgressPage.jsx — 헤더·진단 배너·스파인 카드)
   profile: {
+    // 2026-08-06 시안 개편 — 2열 대시보드
+    title: '내 정보',
+    subtitle: '지금까지의 활동을 확인하고 더 높은 목표를 향해 나아가세요!',
+    badgeStat: '획득 배지',
+    unitStat: '클리어 유닛',
+    crownStat: '획득 왕관',
+    nextGoals: '다음 목표',
+    goalLevel: '레벨 {level} 달성',
+    goalStreak: '연속 출석 {days}일 달성',
     defaultNickname: '기상 학습자',
     levelXp: 'Lv.{level} · 누적 {xp} XP',
     leagueTier: '리그 티어',

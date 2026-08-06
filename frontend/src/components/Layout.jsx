@@ -50,6 +50,7 @@ export default function Layout() {
     || pathname === '/explore'
     || pathname === '/duel'
     || pathname === '/league'
+    || pathname === '/me'
     || isBoard;
   const shellWidth = isBoard ? 'md:max-w-7xl' : isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);

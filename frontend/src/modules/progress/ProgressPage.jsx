@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { progressApi } from '../../api';
 import { useAuthStore } from '../../store/authStore';
+import Mascot from '../../components/Mascot';
 import TierBadge from '../../components/TierBadge';
 import QuestList from './QuestList';
 import BadgeCollection from './BadgeCollection';
@@ -42,87 +43,68 @@ export default function ProgressPage() {
     staleTime: 30_000,
   });
 
-  const xp = me?.xp ?? 0;
-  const level = me?.level ?? 1;
-  const streak = me?.streak_count ?? 0;
-  const tier = me?.tier ?? 'stratus';
+  const { data: badges } = useQuery({
+    queryKey: ['progress', 'badges'],
+    queryFn: progressApi.fetchBadges,
+    staleTime: 30_000,
+  });
+
   // 첫 세션 전(게이트 단계 0) — 퀘스트·배지를 접어 첫 화면 정보량을 줄인다(§3.4)
   const collapsed = unlockStage < 1;
 
   return (
     <div className="pt-2">
-      {/* 프로필 헤더 */}
-      <div className="mb-4 rounded-2xl bg-sky-900 p-5 text-white shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="truncate text-lg font-extrabold">
-              {user?.nickname ?? t('profile.defaultNickname')}
-            </p>
-            <p className="mt-0.5 text-xs text-sky-300">{t('profile.levelXp', { level, xp })}</p>
-          </div>
-          <div className="shrink-0 text-right">
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-sky-300">
-              {t('profile.leagueTier')}
-            </p>
-            <TierBadge tier={tier} size="md" />
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="rounded-xl bg-sky-950/50 p-2.5 text-center">
-            <p className="text-lg font-extrabold text-amber-300">🔥 {streak}</p>
-            <p className="text-[11px] text-sky-200">{t('profile.streakStat')}</p>
-          </div>
-          <div className="rounded-xl bg-sky-950/50 p-2.5 text-center">
-            <p className="text-lg font-extrabold text-amber-300">Lv.{level}</p>
-            <p className="text-[11px] text-sky-200">{t('profile.levelStat')}</p>
-          </div>
-        </div>
+      <div className="mb-4">
+        <h1 className="text-lg font-extrabold text-slate-900">👤 {t('profile.title')}</h1>
+        <p className="mt-0.5 text-sm text-slate-500">{t('profile.subtitle')}</p>
       </div>
 
-      {/* 오늘 목표 (R10-01 §3.4) — 설정됐으면 N/M 진행, 미설정이면 선택 1스텝 */}
-      {me?.daily_goal_items ? (
-        <DailyGoalMeter className="mb-4" />
-      ) : (
-        <DailyGoalPicker className="mb-4" />
-      )}
-
-      {/* 스파인 카드 (R8-01 §3.7④) — spine 부재(구 백엔드) 시 미렌더 */}
-      {me?.spine && <SpineCard spine={me.spine} />}
-
-      <div className="mb-5">
-        {/* 진단 입구 배너 (R7-02 S6) — placement_done=false일 때만 */}
-        {me?.placement_done === false && (
-          <div className="mb-3 rounded-2xl bg-indigo-50 p-4 ring-1 ring-indigo-200">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl" aria-hidden="true">🧭</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-indigo-900">{t('profile.placementBannerTitle')}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-indigo-700">
-                  {t('profile.placementBannerBody')}
-                </p>
-              </div>
+      {/* 진단 입구 배너 (R7-02 S6) — placement_done=false일 때만. 2열 위가 아니라
+          맨 위 전폭이다: 진단 전에는 아래 능력 분석이 전부 사전 배정값이라,
+          "먼저 진단하라"가 이 화면에서 가장 먼저 읽혀야 한다. */}
+      {me?.placement_done === false && (
+        <div className="mb-4 rounded-2xl bg-indigo-50 p-4 ring-1 ring-indigo-200">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-2xl" aria-hidden="true">🧭</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-indigo-900">{t('profile.placementBannerTitle')}</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-indigo-700">
+                {t('profile.placementBannerBody')}
+              </p>
             </div>
             <Link
               to="/onboarding/placement"
-              className="mt-3 block w-full rounded-xl bg-indigo-600 py-2.5 text-center text-sm font-bold text-white transition hover:bg-indigo-700"
+              className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2.5 text-center text-sm font-bold text-white transition hover:bg-indigo-700"
             >
               {t('profile.placementBannerCta')}
             </Link>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* 시안 배치: 2열 3줄. 왼쪽은 "나"(프로필·능력·배지), 오른쪽은 "할 일"
+          (오늘 목표·진도·퀘스트·다음 목표). lg 미만은 1열로 쌓인다. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">
+        <ProfileCard me={me} user={user} badges={badges} />
+
+        <div className="flex flex-col gap-4">
+          {/* 오늘 목표 (R10-01 §3.4) — 설정됐으면 N/M 진행, 미설정이면 선택 1스텝 */}
+          {me?.daily_goal_items ? <DailyGoalMeter /> : <DailyGoalPicker />}
+          {/* 스파인 카드 (R8-01 §3.7④) — spine 부재(구 백엔드) 시 미렌더 */}
+          {me?.spine && <SpineCard spine={me.spine} />}
+        </div>
+
         <WeatherBrainPanel />
-      </div>
-
-      <div className="mb-5">
         <QuestList collapsed={collapsed} />
-      </div>
 
-      <BadgeCollection collapsed={collapsed} />
+        <BadgeCollection collapsed={collapsed} />
+        <NextGoalsCard me={me} />
+      </div>
 
       {/* 설정 — 학습 지역 (R12 선행 §8): 퀴즈 실황·피드백 날씨의 기준 지역.
           대결/브리핑·리그는 서울 고정(PM 정정 2026-08-05 — 지역 예보로 예측하고
           서울 실측으로 채점되는 정합성 문제) — 대결 화면에는 칩을 달지 않는다. */}
-      <div className="mt-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-extrabold text-slate-900">{t('region.settingTitle')}</p>
@@ -131,6 +113,143 @@ export default function ProgressPage() {
           <RegionPicker />
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * 프로필 카드 — 시안 왼쪽 첫 칸(짙은 남색).
+ *
+ * 메인 캐릭터는 **눈결정**이다(2026-08-06 지시). Mascot 배정표의 화면 담당
+ * (보드 태양이·학습 물방울이·대결 태풍이·리그 번개)과 겹치지 않는 유일한 캐릭터라
+ * "내 정보"의 얼굴로 쓴다.
+ *
+ * 4칸 지표는 **API에 실제로 있는 값만** 쓴다. 시안은 "완료 미션"·"리그 순위"를
+ * 넣었지만 전자는 대응하는 집계가 없고 후자는 리더보드를 따로 불러야 한다 —
+ * 클리어 유닛(spine)·리그 티어(me.tier)로 대체했다. 없는 숫자를 지어내지 않는다.
+ */
+function ProfileCard({ me, user, badges }) {
+  const t = useT();
+  const xp = me?.xp ?? 0;
+  const level = me?.level ?? 1;
+  const nextXp = me?.next_level_xp ?? 0;
+  const pct = nextXp > 0 ? Math.max(0, Math.min(100, (xp / nextXp) * 100)) : 0;
+  const earned = Array.isArray(badges) ? badges.filter((b) => b.earned_at).length : null;
+
+  return (
+    <div className="rounded-2xl bg-sky-900 p-5 text-white shadow-sm">
+      <div className="flex items-center gap-3.5">
+        <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-sky-800/70 ring-1 ring-sky-700">
+          <Mascot name="snow" className="h-12 w-12" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-lg font-extrabold">
+            {user?.nickname ?? t('profile.defaultNickname')}
+          </p>
+          <p className="mt-1">
+            <TierBadge tier={me?.tier ?? 'stratus'} />
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-3.5 text-xs text-sky-300">{t('profile.levelXp', { level, xp })}</p>
+      <div className="mt-1.5 flex items-center gap-2">
+        <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-sky-950/60">
+          <span className="block h-full rounded-full bg-amber-300" style={{ width: `${Math.round(pct)}%` }} />
+        </span>
+        {nextXp > 0 && (
+          <span className="shrink-0 text-[11px] font-bold tabular-nums text-sky-200">
+            {xp} / {nextXp} XP
+          </span>
+        )}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <ProfileStat icon="🔥" value={me?.streak_count ?? 0} label={t('profile.streakStat')} />
+        <ProfileStat icon="🏅" value={earned ?? '—'} label={t('profile.badgeStat')} />
+        <ProfileStat
+          icon="🎓"
+          value={me?.spine ? `${me.spine.units_cleared ?? 0}` : '—'}
+          label={t('profile.unitStat')}
+        />
+        <ProfileStat icon="👑" value={me?.spine?.crowns_earned ?? '—'} label={t('profile.crownStat')} />
+      </div>
+    </div>
+  );
+}
+
+function ProfileStat({ icon, value, label }) {
+  return (
+    <div className="rounded-xl bg-sky-950/50 p-2.5 text-center">
+      <p className="text-lg font-extrabold text-amber-300">
+        <span aria-hidden="true">{icon}</span> {value}
+      </p>
+      <p className="text-[11px] text-sky-200">{label}</p>
+    </div>
+  );
+}
+
+/**
+ * 다음 목표 — 시안 오른쪽 아래 칸.
+ * 지어낸 목표를 늘어놓지 않는다. 서버가 이미 주는 두 값(다음 레벨까지의 XP,
+ * 연속 출석)만 진척 막대로 보여준다.
+ */
+function NextGoalsCard({ me }) {
+  const t = useT();
+  const xp = me?.xp ?? 0;
+  const level = me?.level ?? 1;
+  const nextXp = me?.next_level_xp ?? 0;
+  const streak = me?.streak_count ?? 0;
+  const STREAK_TARGET = 7; // 주 단위 습관 — 서버 목표값이 아니라 화면 표기용 기준
+
+  return (
+    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <h2 className="mb-3 text-sm font-extrabold text-slate-900">🎯 {t('profile.nextGoals')}</h2>
+      <div className="flex flex-col gap-3">
+        {nextXp > 0 && (
+          <GoalRow
+            icon="⬆️"
+            title={t('profile.goalLevel', { level: level + 1 })}
+            now={xp}
+            target={nextXp}
+            unit="XP"
+            chip={`Lv.${level}`}
+          />
+        )}
+        <GoalRow
+          icon="🔥"
+          title={t('profile.goalStreak', { days: STREAK_TARGET })}
+          now={Math.min(streak, STREAK_TARGET)}
+          target={STREAK_TARGET}
+          unit=""
+          chip={`${streak}일`}
+        />
+      </div>
+    </div>
+  );
+}
+
+function GoalRow({ icon, title, now, target, unit, chip }) {
+  const pct = target > 0 ? Math.max(0, Math.min(100, (now / target) * 100)) : 0;
+  return (
+    <div className="flex items-center gap-3">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-[15px]" aria-hidden="true">
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[12.5px] font-bold text-slate-800">{title}</p>
+        <div className="mt-1 flex items-center gap-2">
+          <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+            <span className="block h-full rounded-full bg-sky-500" style={{ width: `${Math.round(pct)}%` }} />
+          </span>
+          <span className="shrink-0 text-[11px] font-bold tabular-nums text-slate-500">
+            {now} / {target} {unit}
+          </span>
+        </div>
+      </div>
+      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+        {chip}
+      </span>
     </div>
   );
 }
