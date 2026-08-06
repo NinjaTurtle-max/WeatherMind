@@ -6,9 +6,19 @@
 #
 # Caddy 리버스 프록시가 80/443을 단독 소유하고 backend·frontend는 프록시 뒤로
 # 들어간다. DOMAIN(.env) 설정 시 auto-HTTPS(Let's Encrypt), 미설정 시 localhost
-# internal TLS(자체 서명) — 규칙은 infra/Caddyfile 단일 소유. 실서버 배포·실도메인
-# 인증서는 §7.0 범위 밖. CD(GHCR 이미지, release.yml)와의 연결(이미지 참조 전환)은
-# 실서버가 생길 때 image: 키로 교체한다 — 현 단계는 build 유지(대상 부재).
+# internal TLS(자체 서명) — 규칙은 infra/Caddyfile 단일 소유.
+#
+# **GHCR 이미지 전환 완료(2026-08-06).** 실서버가 생겼으므로 위 주석이 예고한
+# "image: 키로 교체"를 수행했다. 배포 대상이 1 OCPU급 소형 VM이라 소스 빌드는
+# 현실적이지 않다 — ai-worker 이미지만 791MB이고 langchain·chromadb 컴파일이
+# 들어간다. release.yml이 GHCR에 발행한 이미지를 pull만 한다.
+#
+# 태그는 IMAGE_TAG로 주입한다(.env 또는 환경변수):
+#   IMAGE_TAG=<커밋 sha>  ← 권장. 불변 참조라 "무엇이 떠 있는지"가 확정된다
+#   IMAGE_TAG=latest      ← 기본값. 편의용이며 재기동 시 내용이 바뀔 수 있다
+#
+# build: !reset null 은 base의 build 키를 무효화한다(compose v2.24+). 이게 없으면
+# image와 build가 공존해 로컬 빌드를 시도한다 — ports의 !reset과 같은 관용구다.
 # =============================================================================
 services:
   caddy:
@@ -29,19 +39,53 @@ services:
   # ── 프록시 뒤로: 호스트 포트 직노출 제거 ──────────────────────────────────
   # compose 오버레이 병합에서 ports는 union이라 빈 배열로는 못 지운다 —
   # !reset(compose v2.24+)으로 base의 매핑 자체를 무효화한다.
+  #
+  # mem_limit: 소형 VM(6GB)에서 한 컨테이너의 폭주가 전체를 끌어내리지 않게 하는
+  # 상한이다. 실측 기준선(2026-08-06, 로컬 idle): frontend 10MB · backend 115MB ·
+  # ai-worker 188MB · celery-worker 323MB · postgres 70MB · redis 20MB · chroma 34MB
+  # (합 ~0.8GB). 상한은 실측의 4~8배로 잡되 **합계가 물리 메모리를 넘지 않게** 한다
+  # — 상한의 합이 RAM을 초과하면 상한이 OOM을 막는 게 아니라 앞당긴다.
+  # 합계 4.1GB / 6GB → OS·페이지캐시에 1.9GB 남는다.
+  # ai-worker만 유독 큰 것은 키 투입 후 langchain·chromadb 적재 때문이다.
   frontend:
     ports: !reset []
+    build: !reset null
+    image: ghcr.io/ninjaturtle-max/weathermind-frontend:${IMAGE_TAG:-latest}
+    mem_limit: 128m # 실측 10MB (nginx 정적 서빙)
 
   backend:
     ports: !reset []
+    build: !reset null
+    image: ghcr.io/ninjaturtle-max/weathermind-backend:${IMAGE_TAG:-latest}
+    mem_limit: 768m # 실측 115MB
 
   # 내부 전용 서비스도 prod에서는 호스트에 열지 않는다(하드닝) —
   # ai-worker는 AI_WORKER_INTERNAL_URL(컨테이너 네트워크), chroma는 ai-worker만 접근.
   ai-worker:
     ports: !reset []
+    build: !reset null
+    image: ghcr.io/ninjaturtle-max/weathermind-ai-worker:${IMAGE_TAG:-latest}
+    mem_limit: 1536m # 실측 188MB — 키 투입 후 langchain 적재분을 크게 잡는다
+
+  celery-worker:
+    build: !reset null
+    image: ghcr.io/ninjaturtle-max/weathermind-celery:${IMAGE_TAG:-latest}
+    mem_limit: 512m # 실측 323MB — 배치 수집 중 피크 대비
+
+  celery-beat:
+    build: !reset null
+    image: ghcr.io/ninjaturtle-max/weathermind-celery:${IMAGE_TAG:-latest}
+    mem_limit: 192m # 실측 50MB (스케줄러만)
 
   chroma:
     ports: !reset []
+    mem_limit: 384m # 실측 34MB — 시드 적재 후 증가분 대비
+
+  postgres:
+    mem_limit: 512m # 실측 70MB — shared_buffers·연결당 work_mem 여유
+
+  redis:
+    mem_limit: 192m # 실측 20MB (브로커·캐시)
 
 volumes:
   caddy_data:
