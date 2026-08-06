@@ -131,9 +131,10 @@ LEVEL_GROUP_ITEM_B: dict[str, float] = {
 DEFAULT_ITEM_B: float = 0.0
 
 # ── 2축 분리: 지식 수준(난이도) · 표현 톤(말투) — R13-0 §1 ────────────────────
-# `level_group` 하나가 겸하던 두 일을 가른다. 이 절은 **골격**이다: 단계 정의값은
-# CU-1의 교육과정 조사(docs/specs/12_curriculum_levels.md)가 확정하고, 여기 있는 표는
-# R13 1일차의 4밴드를 6단계로 편 **초안**이다.
+# `level_group` 하나가 겸하던 두 일을 가른다. 단계 정의값의 SSOT는 CU-1의 교육과정
+# 조사(docs/specs/12_curriculum_levels.md)이고, 아래 표는 그 문서 **§5.3 파생 뷰
+# 정의표를 코드로 옮긴 것**이다(골격 착지 시점의 초안을 2026-08-07 정정 — 초안은
+# 3→middle_high·4→adult로 중학 유체 지구 영역을 성인 밴드에 붙여 놓았었다).
 #
 # 단계 수 N을 코드 어디에도 박지 않는다 — N은 오직 아래 튜플의 길이에서 나온다.
 # 조사가 단계 수를 6→7로 바꿔도 이 튜플 한 줄만 고치면 되고, DB DDL은 열지 않는다
@@ -144,12 +145,12 @@ DEFAULT_ITEM_B: float = 0.0
 # 나와야 한다(그래야 level_group→knowledge_level→level_group 왕복이 항등이다).
 # 두 성질 모두 test_two_axis_levels가 감시한다.
 KNOWLEDGE_LEVEL_BANDS: tuple[str, ...] = (
-    "elementary",   # 1 — 초등 3–4학년군
-    "elementary",   # 2 — 초등 5–6학년군
-    "middle_high",  # 3 — 중학교 과학
-    "adult",        # 4 — 고등 통합과학·지구과학Ⅰ
-    "expert",       # 5 — 지구과학Ⅱ·대학 학부
-    "expert",       # 6 — 전문가
+    "elementary",   # 1 — 초등 3~4학년군
+    "elementary",   # 2 — 초등 5~6학년군
+    "middle_high",  # 3 — 중학교 과학 물질·에너지 영역
+    "middle_high",  # 4 — 중학교 과학 유체 지구 영역
+    "adult",        # 5 — 고교 정성 구간
+    "expert",       # 6 — 힘·정량 구간 + 교육과정 밖
 )
 KNOWLEDGE_LEVEL_MIN: int = 1
 KNOWLEDGE_LEVEL_MAX: int = KNOWLEDGE_LEVEL_MIN + len(KNOWLEDGE_LEVEL_BANDS) - 1

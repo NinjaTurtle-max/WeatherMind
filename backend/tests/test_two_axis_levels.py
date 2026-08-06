@@ -53,6 +53,18 @@ def make_item(level_group="middle_high", knowledge_level=None, **overrides):
     return item
 
 
+def _seed_entry(**overrides) -> dict:
+    """시드 JSON 한 항목의 최소 유효형 — validate_entry 계약 테스트용."""
+    entry = {
+        "concept_tag": "typhoon",
+        "level_group": "adult",
+        "question_type": "short_answer",
+        "template_json": {"question_text": "q", "correct_answer": "a"},
+    }
+    entry.update(overrides)
+    return entry
+
+
 def make_user(level_group="middle_high", tone=None, **overrides) -> User:
     user = User(
         id=uuid.uuid4(),
@@ -289,6 +301,96 @@ class TestExistingConsumersUnchanged:
         )
         assert wb.THETA_BAND_BOUNDS == (-0.5, 0.5, 1.5)
         assert len(wb.THETA_BAND_LABELS) == len(wb.LEVEL_GROUP_BANDS)
+
+
+class TestKnowledgeLevelIsPersisted:
+    """시드 적재가 knowledge_level을 **실제로 저장**한다 (R13 2일차 PM).
+
+    발단: 저작 3팀(CT-2·CT-3·CT-4)이 독립적으로 같은 것을 보고했다 — 0012가 컬럼을
+    만들었는데 `upsert_entries`가 그 키를 읽지 않아, staging 문항이 부여한 단계가
+    적재에서 통째로 유실된다. 컬럼이 있는데 값이 안 들어가는 것은 "그릇만 있고
+    내용은 없다"라 골격 작업의 목적 자체를 무효로 만든다.
+
+    상한을 여기서 검증하는 이유: 0012가 DB CHECK에 하한만 걸었다(단계 수 N이
+    6→7로 움직여도 마이그레이션을 다시 열지 않기 위해). 그 대가로 **상한은 앱이
+    본다**는 계약이 생겼고, 그 앱이 시드 로더다.
+    """
+
+    def test_유효한_단계는_통과(self):
+        from app.scripts.seed_content import validate_entry
+
+        for level in range(wb.KNOWLEDGE_LEVEL_MIN, wb.KNOWLEDGE_LEVEL_MAX + 1):
+            assert validate_entry(_seed_entry(knowledge_level=level), 0) == []
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            0,
+            wb.KNOWLEDGE_LEVEL_MAX + 1,
+            -1,
+            "3",  # JSON 문자열 — 조용히 통과하면 DB에서 형 오류로 터진다
+            3.5,
+            True,  # bool은 int의 하위형이라 명시적으로 막지 않으면 1로 샌다
+        ],
+    )
+    def test_범위_밖과_형_불일치는_탈락(self, bad):
+        from app.scripts.seed_content import validate_entry
+
+        errors = validate_entry(_seed_entry(knowledge_level=bad), 0)
+        assert any("knowledge_level" in e for e in errors), (bad, errors)
+
+    def test_생략은_여전히_통과(self):
+        """미분류(NULL) 적재 — 재분류 전 본시드 141건이 전부 이 경로다."""
+        from app.scripts.seed_content import validate_entry
+
+        assert validate_entry(_seed_entry(), 0) == []
+
+    def test_삽입_경로가_컬럼에_값을_넣는다(self):
+        """소스 계약 — upsert 두 갈래 **모두** knowledge_level을 쓴다.
+
+        DB 왕복 없이 소스를 보는 이유: 이 결함의 성격이 "쓰는 코드가 아예 없다"라
+        한 줄의 존재 여부가 곧 계약이다(0011 마이그레이션 소스 단정과 같은 관례).
+        """
+        from app.scripts import seed_content
+
+        src = Path(seed_content.__file__).read_text(encoding="utf-8")
+        assert 'knowledge_level=entry.get("knowledge_level")' in src, "삽입 경로 누락"
+        assert (
+            'existing.knowledge_level = entry.get("knowledge_level")' in src
+        ), "갱신 경로 누락 — 재분류 결과를 재적재해도 반영되지 않는다"
+
+    def test_상한은_표_길이를_따라간다(self):
+        """단계 수가 늘어도 로더를 손댈 필요가 없다 — 숫자를 박지 않았는지 감시."""
+        from app.scripts import seed_content
+
+        src = Path(seed_content.__file__).read_text(encoding="utf-8")
+        assert "KNOWLEDGE_LEVEL_MAX" in src
+        assert f"<= {wb.KNOWLEDGE_LEVEL_MAX}" not in src
+
+
+class TestDerivedViewMatchesSpec:
+    """파생표가 `docs/specs/12` §5.3의 정본과 같은가 (2026-08-07 정정).
+
+    골격 착지 시점의 표는 1일차 4밴드를 기계적으로 편 초안이라 3→middle_high ·
+    4→adult였다. 조사가 확정한 §5.3은 **중학교를 둘로 쪼갠** 결과(3·4 모두
+    middle_high)이고, 그 차이가 실물에 미치는 영향이 크다 — 4단계는 뱅크의 35%다.
+    초안대로 두면 그 49건이 성인 밴드로 흘러 "중급인데 어렵다"는 관찰 문제 #1이
+    분류 체계 안에서 재생산된다.
+    """
+
+    SPEC_5_3 = {1: "elementary", 2: "elementary", 3: "middle_high",
+                4: "middle_high", 5: "adult", 6: "expert"}
+
+    @pytest.mark.parametrize("level,band", sorted(SPEC_5_3.items()))
+    def test_단계별_파생_밴드(self, level, band):
+        assert wb.level_group_of_knowledge_level(level) == band
+
+    def test_단계_수는_여섯(self):
+        assert (wb.KNOWLEDGE_LEVEL_MIN, wb.KNOWLEDGE_LEVEL_MAX) == (1, 6)
+
+    def test_중학교가_두_단계를_갖는다(self):
+        """§3.2 — 안 쪼개면 141문항의 45%가 한 칸에 몰려 중간 구멍이 재발한다."""
+        assert wb.KNOWLEDGE_LEVEL_BANDS.count("middle_high") == 2
 
 
 # ═══════════════════════════════════════════════════════════════

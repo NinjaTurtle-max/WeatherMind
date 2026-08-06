@@ -19,6 +19,10 @@ from sqlalchemy import select
 
 from app.core.database import async_session, engine
 from app.models.content_item import ContentItem
+from app.services.weatherbrain_service import (
+    KNOWLEDGE_LEVEL_MAX,
+    KNOWLEDGE_LEVEL_MIN,
+)
 
 # 저장소 루트 기준 기본 시드 경로 (backend/app/scripts/ → 3단계 상위)
 DEFAULT_SEED_PATH = (
@@ -86,6 +90,22 @@ def validate_entry(entry: dict[str, Any], index: int) -> list[str]:
     if entry.get("status", "active") not in ALLOWED_STATUSES:
         errors.append(f"{prefix} status 불허: {entry.get('status')!r}")
 
+    # 지식 수준 (R13-0 §1) — **선택 키**다. 없으면 미분류(NULL)로 적재되고 소비자는
+    # level_group에서 파생 폴백한다(0012 계약). 141건 전수 재분류가 끝나기 전까지
+    # 본시드 대부분이 이 상태이므로 필수로 만들면 적재가 통째로 막힌다.
+    # 상한은 앱이 소유한다 — DB CHECK에는 하한만 있다(0012 §2: 단계 수 N이 움직여도
+    # 마이그레이션을 다시 열지 않기 위해). 그 "앱"이 여기다.
+    knowledge_level = entry.get("knowledge_level")
+    if knowledge_level is not None and (
+        not isinstance(knowledge_level, int)
+        or isinstance(knowledge_level, bool)
+        or not KNOWLEDGE_LEVEL_MIN <= knowledge_level <= KNOWLEDGE_LEVEL_MAX
+    ):
+        errors.append(
+            f"{prefix} knowledge_level 불허: {knowledge_level!r} "
+            f"({KNOWLEDGE_LEVEL_MIN}~{KNOWLEDGE_LEVEL_MAX} 정수 또는 생략)"
+        )
+
     template = entry.get("template_json")
     if not isinstance(template, dict):
         errors.append(f"{prefix} template_json 누락 또는 형식 오류")
@@ -140,6 +160,10 @@ async def upsert_entries(entries: list[dict[str, Any]]) -> tuple[int, int]:
 
                 if existing is not None:
                     existing.level_group = entry["level_group"]
+                    # 키가 없으면 NULL로 되돌린다 — 시드 파일이 SSOT라는 기존 관례
+                    # (source·status와 같은 취급). 재분류 결과를 파일에서 지우면
+                    # DB에서도 지워지는 것이 맞다.
+                    existing.knowledge_level = entry.get("knowledge_level")
                     existing.question_type = entry["question_type"]
                     existing.template_json = entry["template_json"]
                     existing.uses_live_slots = bool(entry.get("uses_live_slots", False))
@@ -151,6 +175,8 @@ async def upsert_entries(entries: list[dict[str, Any]]) -> tuple[int, int]:
                         ContentItem(
                             concept_tag=entry["concept_tag"],
                             level_group=entry["level_group"],
+                            # 미분류(None)면 NULL — 소비자가 level_group에서 파생한다
+                            knowledge_level=entry.get("knowledge_level"),
                             question_type=entry["question_type"],
                             template_json=entry["template_json"],
                             uses_live_slots=bool(entry.get("uses_live_slots", False)),
