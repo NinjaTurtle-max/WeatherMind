@@ -101,9 +101,10 @@ function badgeStyle(status) {
  * 그래서 자기 자신(svg)에 ref를 걸고 `parentElement`로 올라간다 — 자기 DOM은
  * 자기 effect 시점에 반드시 붙어 있다.
  */
-function StageLine({ nodeCount, doneCount, leadIn, leadOut }) {
+function StageLine({ nodeCount, doneCount, leadIn, leadOut, layoutKey }) {
   const svgRef = useRef(null);
-  const [d, setD] = useState({ base: '', done: '' });
+  const baseRef = useRef(null);
+  const doneRef = useRef(null);
 
   const draw = useCallback(() => {
     const el = svgRef.current?.parentElement;
@@ -130,11 +131,19 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut }) {
     if (doneCount >= nodeCount) doneLen = all.length; // 이 단계 전부 + 아래 꼬리
     else if (doneCount > 0) doneLen = head + doneCount;
 
-    setD({
-      base: line(all),
-      done: doneLen >= 2 ? line(all.slice(0, doneLen)) : '',
-    });
-  }, [nodeCount, doneCount, leadIn, leadOut]);
+    // **state가 아니라 DOM에 직접 쓴다.** setState로 두면 좌표를 잰 프레임과 선이
+    // 실제로 옮겨 그려지는 프레임이 갈라진다 — 그 한 프레임 동안 노드는 이미
+    // 움직였는데 선만 옛 자리에 남아 흔들려 보인다(실측: 소개 스트립을 접었다
+    // 펼 때마다 1프레임 13.5px). ResizeObserver 콜백은 레이아웃 뒤·페인트 전에
+    // 도므로, 여기서 attribute를 바로 쓰면 같은 프레임에 함께 그려진다.
+    baseRef.current?.setAttribute('d', line(all));
+    doneRef.current?.setAttribute('d', doneLen >= 2 ? line(all.slice(0, doneLen)) : '');
+    // layoutKey는 계산에 쓰이지 않는다 — **노드를 움직이는 바깥 변화**(소개 스트립
+    // 접기 등)를 의존성으로 들여와, 그 변화와 **같은 커밋**에서 다시 그리게 하는
+    // 스위치다. ResizeObserver에만 맡기면 다시 그리는 시점이 브라우저의 콜백 전달
+    // 순서에 달리는데, layout effect는 DOM 변경 뒤·페인트 전이 React의 계약이다.
+    void layoutKey;
+  }, [nodeCount, doneCount, leadIn, leadOut, layoutKey]);
 
   useLayoutEffect(() => {
     draw();
@@ -146,11 +155,11 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut }) {
   }, [draw]);
 
   return (
+    // 두 path는 **항상 그린다** — 조건부로 붙였다 떼면 그 순간 ref가 갈려서
+    // draw()가 쓸 대상을 잃는다. 빈 d는 아무것도 그리지 않는다.
     <svg ref={svgRef} className="wm-line" aria-hidden="true">
-      <path d={d.base} fill="none" stroke="#E1E8EF" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
-      {d.done && (
-        <path d={d.done} fill="none" stroke="#9AD5F2" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
-      )}
+      <path ref={baseRef} d="" fill="none" stroke="#E1E8EF" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+      <path ref={doneRef} d="" fill="none" stroke="#9AD5F2" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -226,6 +235,7 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
         style={{ '--n': units.length, '--chrome': `${CHROME}px` }}
       >
         <StageLine
+          layoutKey={introOpen}
           nodeCount={units.length}
           doneCount={doneCount}
           leadIn={index > 0}
