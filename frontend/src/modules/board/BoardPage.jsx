@@ -483,7 +483,7 @@ function LabCard({ icon, title, desc, cta, onClick, to }) {
     <>
       <span
         aria-hidden="true"
-        className="grid h-14 w-14 place-items-center rounded-2xl bg-slate-50 text-[26px] ring-1 ring-slate-200"
+        className="grid h-14 w-14 place-items-center rounded-2xl bg-white text-[26px] ring-1 ring-indigo-100"
       >
         {icon}
       </span>
@@ -496,8 +496,11 @@ function LabCard({ icon, title, desc, cta, onClick, to }) {
       </span>
     </>
   );
+  // 퍼즐 칸과 **한 눈에 갈리게** 살짝 다른 바탕을 준다(2026-08-05). 미션 칸은
+  // 흰색·초록·회색 셋을 쓰므로 여기만 옅은 남색 계열로 둔다 — 어느 쪽도 아니고
+  // 본선 진도와 무관한 상시 입구라는 뜻이다. 색은 **하나만** 더 쓴다.
   const cls =
-    'flex min-h-[224px] flex-col rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 transition hover:ring-sky-300';
+    'flex min-h-[224px] flex-col rounded-2xl bg-indigo-50 p-4 text-left shadow-sm ring-1 ring-indigo-200 transition hover:ring-indigo-400';
   return to ? (
     <Link to={to} className={cls}>
       {inner}
