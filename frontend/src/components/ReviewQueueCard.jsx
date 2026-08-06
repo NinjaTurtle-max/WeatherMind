@@ -37,25 +37,27 @@ export default function ReviewQueueCard() {
     <div
       data-testid="review-queue-card"
       // 여백은 마운트하는 쪽(레일 flex gap · 모바일 flex gap)이 준다 — 여기서
-      // mb를 더하면 카드마다 간격이 달라진다. 치수는 우측 레일 기준으로 촘촘하게
-      // 잡는다(2026-08-05: 레일 카드가 커서 학습 트랙이 상대적으로 작아 보였다).
-      className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200"
+      // mb를 더하면 카드마다 간격이 달라진다.
+      // 세로는 넉넉히 잡는다(2026-08-05): 튜터 카드를 걷어내 레일에 자리가 났고,
+      // 트랙(710px) 옆에서 카드 둘이 150px씩이면 오른쪽이 비어 보였다.
+      // CTA는 mt-auto로 바닥에 붙여 늘어난 높이를 쓴다.
+      className="flex min-h-[236px] flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
     >
-      <div className="flex items-center gap-1.5">
-        <span aria-hidden="true" className="text-base">
+      <div className="flex items-center gap-2">
+        <span aria-hidden="true" className="text-xl">
           🔁
         </span>
-        <p className="text-[13px] font-extrabold text-slate-800">{t('reviewQueue.title')}</p>
-        <span className="ml-auto rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 tabular-nums">
+        <p className="text-[14px] font-extrabold text-slate-800">{t('reviewQueue.title')}</p>
+        <span className="ml-auto rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-700 tabular-nums">
           {t('reviewQueue.count', { count: due.length })}
         </span>
       </div>
-      <p className="mt-0.5 text-[11px] leading-snug text-slate-500">{t('reviewQueue.body')}</p>
-      <ul className="mt-2 flex flex-wrap gap-1.5">
+      <p className="mt-1.5 text-[12px] leading-relaxed text-slate-500">{t('reviewQueue.body')}</p>
+      <ul className="mt-3 flex flex-wrap gap-1.5">
         {top.map((item) => (
           <li
             key={item.concept_tag}
-            className="rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-700 ring-1 ring-slate-100"
+            className="rounded-full bg-slate-50 px-2.5 py-1 text-[12px] font-bold text-slate-700 ring-1 ring-slate-100"
           >
             {CONCEPT_KO[item.concept_tag] ?? item.concept_tag}
           </li>
@@ -66,7 +68,7 @@ export default function ReviewQueueCard() {
       </ul>
       <Link
         to="/daily"
-        className="mt-2 inline-block rounded-lg bg-sky-600 px-3 py-1.5 text-[12px] font-bold text-white transition hover:bg-sky-700"
+        className="mt-auto inline-block self-start rounded-xl bg-sky-600 px-4 py-2 text-[12.5px] font-bold text-white transition hover:bg-sky-700"
       >
         {t('reviewQueue.cta')}
       </Link>
