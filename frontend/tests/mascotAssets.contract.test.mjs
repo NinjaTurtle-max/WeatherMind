@@ -16,10 +16,10 @@
  * 의존 0 — node_modules 없이 돈다. colortype 6(RGBA)·bitdepth 8·비인터레이스만
  * 읽는다(현재 6장 전부 해당). 다른 형식이 들어오면 디코더가 실패로 알린다.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const NAMES = ['bolt', 'cloud', 'drop', 'snow', 'sun', 'typhoon'];
@@ -162,16 +162,20 @@ ok(
 );
 
 console.log('③ 호출부가 가로·세로를 둘 다 준다');
-const CALL_SITES = [
-  'src/components/SideNav.jsx',
-  'src/components/FeedbackPanel.jsx',
-  'src/modules/home/HomePage.jsx',
-];
-for (const rel of CALL_SITES) {
-  const src = readFileSync(join(ROOT, rel), 'utf8');
-  const calls = src.match(/<Mascot[^>]*\/>/g) ?? [];
-  ok(calls.length > 0, `${rel} 에서 Mascot 호출을 찾았다 (${calls.length}건)`);
-  for (const call of calls) {
+// 호출부 목록을 손으로 적지 않는다 — 적어 두면 새로 생긴 호출부가 검사를
+// 조용히 비켜간다. src 전체를 훑어 <Mascot .../>를 찾는다.
+const jsxFiles = (dir) =>
+  readdirSync(dir).flatMap((name) => {
+    const p = join(dir, name);
+    return statSync(p).isDirectory() ? jsxFiles(p) : (/\.jsx$/.test(name) ? [p] : []);
+  });
+let callCount = 0;
+for (const file of jsxFiles(join(ROOT, 'src'))) {
+  if (file.endsWith(`components${sep}Mascot.jsx`)) continue; // 정의부
+  const src = readFileSync(file, 'utf8');
+  const rel = relative(ROOT, file);
+  for (const call of src.match(/<Mascot[^>]*\/>/g) ?? []) {
+    callCount += 1;
     const cls = call.match(/className="([^"]*)"/)?.[1] ?? '';
     ok(
       /(^|\s)h-\S+/.test(cls) && /(^|\s)w-\S+/.test(cls),
@@ -179,6 +183,7 @@ for (const rel of CALL_SITES) {
     );
   }
 }
+ok(callCount >= 3, `Mascot 호출부를 훑었다 — ${callCount}건 (0이면 정규식이 죽은 것)`);
 
 console.log(failures === 0 ? '\n전부 통과' : `\n실패 ${failures}건`);
 process.exit(failures === 0 ? 0 : 1);

@@ -461,6 +461,7 @@ export default {
     aiPred: '🤖 AI caster',
     actual: 'Observed',
     actualValue: 'High {max}℃ · rain {prob}%',
+    rainShort: 'Rain {prob}%',
     myEvidence: 'My chosen evidence',
     evidenceNote: "After settlement we'll explain whether your evidence held up.",
     reviewTitle: 'Evidence review',

@@ -491,6 +491,9 @@ export default {
     aiPred: '🤖 AI 캐스터',
     actual: '실측',
     actualValue: '최고 {max}℃ · 강수 {prob}%',
+    // PredColumn의 기온 아래 한 줄 — 없으면 화면에 'duel.rainShort'가 그대로
+    // 찍힌다(2026-08-06 리뷰에서 발견. ko·en 둘 다 없어서 패리티 검사를 통과했다).
+    rainShort: '강수확률 {prob}%',
     myEvidence: '내가 고른 근거',
     evidenceNote: '정산 후 근거가 맞았는지 해설해 드려요.',
     reviewTitle: '근거 적중 해설',

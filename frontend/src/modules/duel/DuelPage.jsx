@@ -109,6 +109,12 @@ export default function DuelPage() {
   const toggleEvidence = (code) =>
     setEvidence((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
 
+  // 넓은 셸(Layout의 md:max-w-6xl)은 **미제출 2열 브리핑을 위한 것**이다. 제출
+  // 후에는 결과도 이력도 1열이라 그 폭을 그대로 받으면 「내 예보 28℃」 한 칸이
+  // 535px가 된다(1440 실측). 셸은 경로로만 폭을 정해 제출 여부를 모르므로 여기서
+  // 되돌린다 — 결과 카드와 이력이 **같은 폭**이어야 아래위가 어긋나 보이지 않는다.
+  const narrow = submitted ? 'mx-auto w-full max-w-3xl' : '';
+
   return (
     <div className="pt-2">
       {toast && (
@@ -127,14 +133,14 @@ export default function DuelPage() {
       </p>
 
       {submitted ? (
-        <>
+        <div className={narrow}>
           <DuelResultCard duel={today} />
           <CasterJudgmentCard
             baseForecast={today?.base_forecast}
             aiPred={today?.ai_pred}
             casterGrade={today?.caster_grade}
           />
-        </>
+        </div>
       ) : (
         // 자료(왼쪽) ↔ 판단·제출(오른쪽) 2열 — 세로로 쌓으면 브리핑 차트 5종을 다
         // 스크롤해 내려가야 입력칸이 나오고, 값을 채우는 동안에는 근거가 된 차트가
@@ -189,20 +195,22 @@ export default function DuelPage() {
         </div>
       )}
 
-      <h2 className="mb-2 mt-6 text-base font-extrabold text-slate-900">{t('duel.historyTitle')}</h2>
-      {historyQ.isLoading ? (
-        <LoadingSpinner label={t('duel.historyLoading')} />
-      ) : history.length === 0 ? (
-        <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
-          {t('duel.historyEmpty')}
-        </div>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {history.map((d, i) => (
-            <DuelHistoryRow key={d.duel_date ?? i} duel={d} />
-          ))}
-        </ul>
-      )}
+      <div className={narrow}>
+        <h2 className="mb-2 mt-6 text-base font-extrabold text-slate-900">{t('duel.historyTitle')}</h2>
+        {historyQ.isLoading ? (
+          <LoadingSpinner label={t('duel.historyLoading')} />
+        ) : history.length === 0 ? (
+          <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
+            {t('duel.historyEmpty')}
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {history.map((d, i) => (
+              <DuelHistoryRow key={d.duel_date ?? i} duel={d} />
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
