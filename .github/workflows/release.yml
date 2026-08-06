@@ -36,7 +36,9 @@ jobs:
   build-push:
     name: build-push (${{ matrix.service }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # arm64는 QEMU 에뮬레이션이라 amd64보다 몇 배 느리다 — 특히 ai-worker
+    # (langchain·chromadb 컴파일). 30분이면 첫 빌드에서 잘린다.
+    timeout-minutes: 90
     strategy:
       # 한 서비스 빌드 실패가 나머지 발행을 막지 않는다 — 서비스별 독립 발행.
       # (전체 성공 여부는 잡 상태로 그대로 드러난다.)
@@ -54,6 +56,9 @@ jobs:
         run: |
           repo_lc="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
           echo "name=ghcr.io/${repo_lc}-${{ matrix.service }}" >> "$GITHUB_OUTPUT"
+
+      # QEMU: arm64 크로스 빌드에 필요. 러너는 amd64뿐이라 에뮬레이션으로 굽는다.
+      - uses: docker/setup-qemu-action@v3
 
       # buildx: GHA 캐시(type=gha) 사용을 위해 필요 — 재빌드 시간 단축.
       - uses: docker/setup-buildx-action@v3
@@ -73,6 +78,10 @@ jobs:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
           push: true
+          # arm64 필수 — 배포 대상이 ARM 인스턴스다(Oracle Always Free의 x86
+          # 무료분은 1GB뿐이라 우리 스택을 담지 못한다). amd64는 로컬·CI 검증용.
+          # 의존성 arm64 해석은 실측 확인됨(onnxruntime aarch64 휠 포함).
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ steps.image.outputs.name }}:${{ github.sha }}
             ${{ steps.image.outputs.name }}:latest
