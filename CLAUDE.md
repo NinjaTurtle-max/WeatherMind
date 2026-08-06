@@ -93,6 +93,10 @@
 `docs/specs/`(제품 스펙, 00~10번) · `docs/DEVELOPMENT_PLAN.md`(표준 결정) ·
 `docs/team/TEAM_PROCESS.md`(팀 운영·§2.4 Git·§2.6~2.7 동적 편성) ·
 `docs/team/RETROSPECTIVE.md`. 충돌 시 위 문서 우선.
+- **`docs/team/HACKATHON_RULES.md`(대회 규정·제출 요건)는 ROADMAP보다도 우선한다** —
+  규정은 협상 대상이 아니다. 핵심: **API 키 노출=실격** · 제출은 GitHub 링크가 아니라
+  **구글 폼 zip 4종**(구동 URL·소스·**프롬프트 세션**·README) · **로그인 없이 열려야**
+  함 · **8/21 18:00 전면 동결** · **URL은 9월 셋째 주까지 유지**.
 - **"마일스톤"은 로드맵 1~6만 지칭한다.** 스프린트 우선순위는 "항목"(R10-A~I),
   실행 단위는 "스토리"(S1~S6) — 혼용 금지(ROADMAP §0).
 - **진행 가능 여부는 ROADMAP §1~2로 판단한다.** 아래 「프로젝트 현황」은 진입점 요약이라
