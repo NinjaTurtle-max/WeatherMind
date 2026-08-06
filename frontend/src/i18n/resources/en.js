@@ -33,6 +33,7 @@ export default {
     tutor: {
       board: { name: 'Sunny', line: 'What weather shall we build?' },
       learn: { name: 'Dewey', line: 'How far shall we go today?' },
+      duel: { name: 'Twister', line: 'Read the charts and call tomorrow!' },
     },
   },
   concept: {

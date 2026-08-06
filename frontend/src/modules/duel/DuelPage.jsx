@@ -136,41 +136,57 @@ export default function DuelPage() {
           />
         </>
       ) : (
-        <>
+        // 자료(왼쪽) ↔ 판단·제출(오른쪽) 2열 — 세로로 쌓으면 브리핑 차트 5종을 다
+        // 스크롤해 내려가야 입력칸이 나오고, 값을 채우는 동안에는 근거가 된 차트가
+        // 화면 밖이라 되짚어 올라가야 했다. 나란히 두면 보면서 채운다.
+        // lg 미만에서는 그대로 1열 — 브리핑 → 근거 → 폼이 읽는 순서다.
+        // grid-cols-[minmax(0,1fr)]는 장식이 아니다 — 격자 항목은 기본이
+        // min-width:auto라 브리핑 안의 하늘 타임라인(8칸 × 52px = 444px, 자체
+        // overflow-x-auto로 가로 스크롤하게 돼 있다)이 카드를 밀어 올린다.
+        // 390px에서 카드가 476px가 되어 페이지에 가로 스크롤이 생겼다(실측).
+        // lg:grid-cols-2는 Tailwind가 이미 minmax(0,1fr)로 깔아 준다.
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-2">
           <BriefingRoom
             briefing={briefingQ.data}
             loading={briefingQ.isLoading}
             error={briefingQ.isError}
           />
-          <EvidencePicker
-            selected={evidence}
-            onToggle={toggleEvidence}
-            disabled={submitMutation.isPending}
-          />
-          <div className="mt-3">
-            <ForecastForm
-              title={t('duel.form.title')}
-              description={t('duel.form.desc')}
-              notice={
-                today?.base_forecast &&
-                t('duel.form.notice', {
-                  max: today.base_forecast.temp_max,
-                  prob: today.base_forecast.rain_prob,
-                })
-              }
-              fields={[
-                { name: 'temp_max', label: t('duel.form.tempMax'), step: '0.1' },
-                { name: 'rain_prob', label: t('duel.form.rainProb'), min: '0', max: '100' },
-              ]}
-              submitLabel={t('duel.form.submit')}
-              onSubmit={(values) => submitMutation.mutate({ ...values, evidence })}
-              submitting={submitMutation.isPending}
-            />
+          {/* 오른쪽 열은 sticky다. 브리핑이 두 배 넘게 길어(1440 실측 940px ↔
+              615px) 아래쪽 차트를 보러 내려가면 입력칸이 화면 밖으로 나간다 —
+              나란히 놓은 이유가 사라진다. 바깥 div가 왼쪽 높이만큼 늘어나 주고
+              (grid 기본 stretch — items-start를 주면 따라 내려올 여백이 없어져
+              sticky가 죽는다) 안쪽이 따라 내려온다. top은 고정 헤더(64px) 아래. */}
+          <div>
+            <div className="flex flex-col gap-3 lg:sticky lg:top-[72px]">
+              <EvidencePicker
+                selected={evidence}
+                onToggle={toggleEvidence}
+                disabled={submitMutation.isPending}
+              />
+              <ForecastForm
+                title={t('duel.form.title')}
+                description={t('duel.form.desc')}
+                notice={
+                  today?.base_forecast &&
+                  t('duel.form.notice', {
+                    max: today.base_forecast.temp_max,
+                    prob: today.base_forecast.rain_prob,
+                  })
+                }
+                fields={[
+                  { name: 'temp_max', label: t('duel.form.tempMax'), step: '0.1' },
+                  { name: 'rain_prob', label: t('duel.form.rainProb'), min: '0', max: '100' },
+                ]}
+                submitLabel={t('duel.form.submit')}
+                onSubmit={(values) => submitMutation.mutate({ ...values, evidence })}
+                submitting={submitMutation.isPending}
+              />
+              {submitError && (
+                <p className="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">{submitError}</p>
+              )}
+            </div>
           </div>
-          {submitError && (
-            <p className="mt-2 rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">{submitError}</p>
-          )}
-        </>
+        </div>
       )}
 
       <h2 className="mb-2 mt-6 text-base font-extrabold text-slate-900">{t('duel.historyTitle')}</h2>

@@ -176,9 +176,10 @@ step_config() {
 #   learn-path  학습 경로: 완료 구간이 섹션 경계를 넘음·노드 aria 라벨·구름 0 차단
 #   home        홈 대시보드: / ↔ /learn 분리·내비 단일 소유·출석 소유자·요일 채움
 #   mascot      마스코트 정렬: PNG 투명 여백 0 · object-contain · 호출부 가로세로
+#   duel        예보 대결 배치: 2열·격자 항목 최소폭·오른쪽 열 sticky·태풍이 튜터
 # board_engine 공유 벡터(test:board)는 node_modules 없이 도는 전용 `board` 단계가
 # 소유하므로 여기서 중복 실행하지 않는다.
-FRONT_TESTS=(explore session placement visual gating board-entry assist webgl overlay i18n course-select guest-convert review-queue region learn-path home mascot)
+FRONT_TESTS=(explore session placement visual gating board-entry assist webgl overlay i18n course-select guest-convert review-queue region learn-path home mascot duel)
 
 step_frontend() {
   banner "frontend: build + 스모크 ${#FRONT_TESTS[@]}종 (선택)"

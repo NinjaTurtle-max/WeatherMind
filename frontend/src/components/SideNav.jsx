@@ -15,8 +15,8 @@ import { useT } from '../i18n';
  * `nav a, nav button` 전체 개수를 단정하고 있어 함께 고쳤다.
  *
  * 튜터는 **지금 있는 화면의 담당 마스코트**다(`Mascot.jsx` 배정표). 기본은 메인
- * 튜터인 구름이고, 보드에서는 태양이, 학습에서는 물방울이가 나온다 — 화면마다
- * 안내하는 캐릭터가 바뀌는 것이 배정표의 뜻이다.
+ * 튜터인 구름이고, 보드에서는 태양이, 학습에서는 물방울이, 예보 대결에서는
+ * 태풍이가 나온다 — 화면마다 안내하는 캐릭터가 바뀌는 것이 배정표의 뜻이다.
  *
  * 학습 화면 우측 레일에도 물방울이 카드가 있었는데 걷어냈다(2026-08-05) —
  * 같은 캐릭터가 한 화면에 둘 뜨면 어느 쪽이 말하는 건지 알 수 없다.
@@ -24,6 +24,7 @@ import { useT } from '../i18n';
 const TUTOR_BY_PATH = [
   { match: (p) => p === '/board' || p.startsWith('/board/'), name: 'sun', key: 'board' },
   { match: (p) => p === '/learn' || p.startsWith('/learn/'), name: 'drop', key: 'learn' },
+  { match: (p) => p === '/duel' || p.startsWith('/duel/'), name: 'typhoon', key: 'duel' },
 ];
 
 export default function SideNav() {

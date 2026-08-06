@@ -40,8 +40,14 @@ export default function Layout() {
   const isBoard = pathname === '/board';
   // /explore는 시뮬 2종을 정사각으로 나란히 놓는다 — 576px 셸에서는 한 칸이
   // 264px까지 작아진다.
+  // /duel은 브리핑(왼쪽) ↔ 근거·예측(오른쪽) 2열이라 576px에서는 한 열이
+  // 264px — 시간별 기온 차트가 눌린다.
   const isWide =
-    pathname === '/' || pathname === '/learn' || pathname === '/explore' || isBoard;
+    pathname === '/'
+    || pathname === '/learn'
+    || pathname === '/explore'
+    || pathname === '/duel'
+    || isBoard;
   const shellWidth = isBoard ? 'md:max-w-7xl' : isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);
   const userKey = useAuthStore((s) => s.user?.user_id ?? null);
