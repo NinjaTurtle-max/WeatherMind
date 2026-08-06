@@ -9,7 +9,16 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Index, Integer, String, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,9 +37,16 @@ class ContentItem(Base):
             "'board', 'match', 'ordering', 'cloze')",
             name="ck_content_items_question_type",
         ),
+        # 값 목록은 weatherbrain_service.LEVEL_GROUP_BANDS와 같아야 한다(모델이
+        # 서비스를 임포트하면 순환). 드리프트는 test_two_axis_levels가 감시한다.
         CheckConstraint(
-            "level_group IN ('elementary', 'middle_high', 'adult')",
+            "level_group IN ('elementary', 'middle_high', 'adult', 'expert')",
             name="ck_content_items_level_group",
+        ),
+        # 상한 없음 — 단계 수 N은 앱 상수(KNOWLEDGE_LEVEL_MAX)가 소유한다(0012 §2).
+        CheckConstraint(
+            "knowledge_level IS NULL OR knowledge_level >= 1",
+            name="ck_content_items_knowledge_level",
         ),
         Index(
             "idx_content_items_serving", "status", "level_group", "uses_live_slots"
@@ -42,6 +58,11 @@ class ContentItem(Base):
     )
     concept_tag: Mapped[str] = mapped_column(String(50), nullable=False)
     level_group: Mapped[str] = mapped_column(String(20), nullable=False)
+    # 지식 수준 1~N (R13-0 §1 — 난이도 축). **NULL = 미분류**이고 소비자는
+    # level_group에서 파생 폴백한다(weatherbrain_service.effective_knowledge_level).
+    # 단계 정의값은 CU-1의 교육과정 조사(docs/specs/12)가 확정한다 — 이 컬럼은 그릇이고
+    # 아직 어떤 출제 경로도 이 값을 읽지 않는다(값이 없어 검증 불가, R13-0 골격 범위).
+    knowledge_level: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     question_type: Mapped[str] = mapped_column(String(20), nullable=False)
     template_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     uses_live_slots: Mapped[bool] = mapped_column(

@@ -500,8 +500,12 @@ class TestMigration0011:
         assert 'op.add_column(\n        "quiz_logs", sa.Column("retry_correct"' in source
         assert 'op.drop_column("quiz_logs", "retry_correct")' in source
 
-    def test_단일_head_0011(self):
-        """alembic heads == 0011_retry_round 하나 — 병렬 번호 충돌 감시."""
+    def test_단일_head(self):
+        """alembic heads가 **하나** — 병렬 번호 충돌 감시.
+
+        체인 끝은 최신 리비전이다(R13-0에서 0012_two_axis_levels가 0011 위로 올라갔다).
+        감시 대상은 "head가 갈라지지 않는다"이지 특정 번호가 아니다(0010 관례 주석).
+        """
         revisions: dict[str, str | None] = {}
         pattern = re.compile(
             r'^(revision|down_revision)(?::\s*[^=]+)?\s*=\s*(?:"([^"]+)"|None)',
@@ -514,7 +518,7 @@ class TestMigration0011:
             )
             revisions[found["revision"]] = found.get("down_revision")
         referenced = {down for down in revisions.values() if down}
-        assert set(revisions) - referenced == {"0011_retry_round"}
+        assert set(revisions) - referenced == {"0012_two_axis_levels"}
 
     def test_모델_컬럼_계약(self):
         """quiz_logs.retry_correct — nullable Boolean, 서버 기본값 없음(NULL=미시도)."""

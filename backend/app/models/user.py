@@ -10,10 +10,17 @@ from app.models.base import Base
 
 class User(Base):
     __tablename__ = "users"
+    # 값 목록은 weatherbrain_service.LEVEL_GROUP_BANDS·TONES와 같아야 한다
+    # (모델이 서비스를 임포트하면 순환 — weatherbrain_service가 이 모델을 쓴다).
+    # 이원 정의의 드리프트는 test_two_axis_levels가 감시한다. 마이그레이션 0012 참조.
     __table_args__ = (
         CheckConstraint(
-            "level_group IN ('elementary', 'middle_high', 'adult')",
+            "level_group IN ('elementary', 'middle_high', 'adult', 'expert')",
             name="ck_users_level_group",
+        ),
+        CheckConstraint(
+            "tone IS NULL OR tone IN ('child', 'teen', 'adult')",
+            name="ck_users_tone",
         ),
     )
 
@@ -59,6 +66,12 @@ class User(Base):
     # (PUT /progress/region, 422)에서 검증한다 — daily_goal_items 선례(CHECK 제약
     # 없음: 도시 추가 시 마이그레이션 없이 KMA_GRID만 확장).
     region: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # 표현 톤 (R13-0 §1 — 지식 수준과 분리된 두 번째 축). 가입 시 신고이고 거의
+    # 안 바뀐다. NULL이면 level_group에서 파생(elementary→child·middle_high→teen·
+    # adult/expert→adult) — 폴백의 단일 소유자는 weatherbrain_service.effective_tone.
+    # region의 NULL=서울과 같은 하위 호환 패턴이라 기존 유저·게스트 무변경, backfill
+    # 불필요. 설정 API는 이번 범위 밖(신고는 가입 시 — R13-0 §3.2).
+    tone: Mapped[str | None] = mapped_column(String(16), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )

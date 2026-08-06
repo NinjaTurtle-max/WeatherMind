@@ -539,7 +539,7 @@ class TestMigration0010:
             revisions[found["revision"]] = found.get("down_revision")
         referenced = {down for down in revisions.values() if down}
         heads = set(revisions) - referenced
-        assert heads == {"0011_retry_round"}
+        assert heads == {"0012_two_axis_levels"}
         assert revisions["0011_retry_round"] == "0010_user_region"
 
     def test_모델_컬럼_계약(self):
