@@ -128,3 +128,47 @@ class TestSeedAuthoring:
         assert len(set(titles)) == len(titles), f"제목 중복: {titles}"
         long = [t for t in titles if len(t) > 14]
         assert not long, f"제목이 너무 길다(14자 초과): {long}"
+
+
+class TestLockIsEnforcedNotJustLabelled:
+    """잠금을 **어디서** 막는가 — 라벨만 붙이면 잠금이 아니다.
+
+    목록은 무차단이라 잠긴 퍼즐도 내려온다. 그러니 막는 지점은 두 곳뿐이고,
+    둘 다 막아야 한다:
+      · GET  /puzzles/{id}        (진입)
+      · POST /puzzles/{id}/attempt (채점) ← 진입을 건너뛰고 바로 제출하면
+        잠긴 퍼즐을 깨서 뒤 칸까지 열 수 있다.
+    라우트 소스에서 두 핸들러가 잠금 검사를 통과하는지 확인한다(DB 없이).
+    """
+
+    def _source(self, func) -> str:
+        import inspect
+
+        return inspect.getsource(func)
+
+    def test_진입_핸들러가_잠금을_막는다(self):
+        from app.routers.board import get_puzzle_detail
+
+        src = self._source(get_puzzle_detail)
+        assert "_is_locked" in src and "PUZZLE_LOCKED" in src, (
+            "GET /puzzles/{id}에 순차 잠금 검사가 없다 — 목록이 무차단이라 "
+            "여기서 막지 않으면 잠긴 퍼즐로 그냥 들어간다"
+        )
+
+    def test_채점_핸들러도_잠금을_막는다(self):
+        from app.routers.board import attempt_puzzle
+
+        src = self._source(attempt_puzzle)
+        assert "_is_locked" in src and "PUZZLE_LOCKED" in src, (
+            "POST attempt에 순차 잠금 검사가 없다 — 진입을 건너뛰고 바로 제출하면 "
+            "잠긴 퍼즐을 깨서 순차 진행 전체를 우회할 수 있다"
+        )
+
+    def test_잠금_검사가_에너지_검사보다_먼저다(self):
+        """잠긴 퍼즐은 구름이 차도 안 열린다 — 429를 주면 '기다리면 열린다'는 거짓."""
+        from app.routers.board import get_puzzle_detail
+
+        src = self._source(get_puzzle_detail)
+        assert src.index("PUZZLE_LOCKED") < src.index("require_entry"), (
+            "에너지 검사가 잠금보다 먼저다 — 잠긴 퍼즐에 429(구름 부족)를 주게 된다"
+        )

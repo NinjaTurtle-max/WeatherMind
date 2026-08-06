@@ -170,6 +170,14 @@ export default function BoardPage() {
       if (err.code === 'OUT_OF_CLOUDS') {
         queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
       }
+      // 순차 잠금(403)은 **아는 코드**라 우리 리소스로 말한다 — 서버 detail은
+      // 한국어 고정이라 그대로 쓰면 영어 화면에 한국어가 뜬다. 목록도 새로
+      // 받는다: 다른 기기에서 앞 퍼즐을 깼다면 잠금이 이미 풀렸을 수 있다.
+      if (err.code === 'PUZZLE_LOCKED') {
+        queryClient.invalidateQueries({ queryKey: ['board', 'puzzles'] });
+        setEntryError(t('board.page.lockedError'));
+        return;
+      }
       setEntryError(err.detail ?? t('board.page.entryFailed'));
     },
   });
@@ -417,7 +425,7 @@ function PuzzlePiece({ puzzle, index, energyBlocked, regenMin, pending, busy, on
         } ${locked ? 'opacity-70' : ''}`}
       >
         <div className="flex items-center gap-2">
-          <span className={`text-[11px] font-extrabold tabular-nums ${locked ? 'text-slate-400' : 'text-slate-400'}`}>
+          <span className="text-[11px] font-extrabold tabular-nums text-slate-400">
             {String(index + 1).padStart(2, '0')}
           </span>
           <span className="ml-auto text-[13px]" aria-hidden="true">
@@ -462,6 +470,9 @@ function PuzzlePiece({ puzzle, index, energyBlocked, regenMin, pending, busy, on
         aria-hidden="true"
         className={`pointer-events-none absolute -right-[7px] top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 rounded-full ${knob}`}
       />
+      {/* 홈(왼쪽) — **페이지 바탕색과 같은 값이어야** 파인 것처럼 보인다.
+          body가 slate-100이라 여기도 slate-100이다. 배경을 바꾸면 이 원이
+          동그라미로 드러난다(같이 고칠 것). */}
       <span
         aria-hidden="true"
         className="pointer-events-none absolute -left-[7px] top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-slate-100"

@@ -4,9 +4,9 @@
 퍼즐 판정은 서버가 board_state를 규칙 엔진으로 재판정하는 권위 채점이다(§3.4).
 
 | GET  | /rules                        | board_rules.json 원문(서버 캐시) — 프론트 로컬 미리보기 |
-| GET  | /puzzles                      | active board 문항 + cleared 여부 + 난이도(1~3), θ 근접 정렬 |
-| GET  | /puzzles/{content_item_id}    | 퍼즐 단건(플레이 진입) — 구름 진입 게이트 (R10-01 §3.1) |
-| POST | /puzzles/{content_item_id}/attempt | {board_state} → {passed, phenomena, feedback, xp_earned} |
+| GET  | /puzzles                      | active board 문항 + cleared + 난이도(1~3) + 잠금, 저작 순서 정렬 |
+| GET  | /puzzles/{content_item_id}    | 퍼즐 단건(플레이 진입) — 순차 잠금 + 구름 진입 게이트 |
+| POST | /puzzles/{content_item_id}/attempt | {board_state} → {passed, phenomena, feedback, xp_earned} (잠금 재확인) |
 
 - cleared = quiz_logs에 해당 content_item_id로 is_correct=true 로그가 존재.
 - 최초 클리어만 +5 XP(재도전 0). 클리어 판정 여부와 무관하게 시도는 quiz_logs
@@ -137,10 +137,12 @@ def order_puzzles_for_progress(items: list) -> list:
     수준에 맞는 퍼즐을 앞으로 당겨도 어차피 앞에서부터 풀어야 해서 순서가 두 번
     바뀌기만 한다. θ 함수는 세션 문항 풀에서 계속 쓰이므로 남겨 둔다.
     """
-    return sorted(
-        items,
-        key=lambda it: (it.template_json or {}).get("board_order") or 10_000,
-    )
+    def order_of(item) -> int:
+        # `or`로 기본값을 주면 board_order=0이 "없음"으로 삼켜진다 — 명시 비교.
+        value = (item.template_json or {}).get("board_order")
+        return value if isinstance(value, int) else 10_000
+
+    return sorted(items, key=order_of)
 
 
 def order_puzzles_for_theta(items: list, theta: float | None) -> list:
@@ -358,6 +360,19 @@ async def attempt_puzzle(
 ) -> BoardAttemptResult:
     item = await _load_puzzle_or_404(db, content_item_id)
 
+    # 순차 진행 잠금 — 진입(GET /puzzles/{id})만 막으면 **잠금이 아니다**.
+    # 진입을 건너뛰고 바로 여기로 제출하면 잠긴 퍼즐을 깨서 뒤 칸까지 열 수 있다.
+    # 채점 권위가 서버에 있는 것과 같은 이유로, 잠금 판정도 채점 직전에 한 번 더 건다.
+    cleared = await _cleared_item_ids(db, user)
+    if await _is_locked(db, item, cleared):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "detail": "앞의 퍼즐을 먼저 완료해야 열려요.",
+                "code": "PUZZLE_LOCKED",
+            },
+        )
+
     template = item.template_json or {}
     question = {**template, "question_type": "board", "concept_tag": item.concept_tag}
 
@@ -387,7 +402,8 @@ async def attempt_puzzle(
         )
 
     # 최초 클리어만 +5 XP (재도전 0). 클리어 여부는 기존 board 로그로 판별.
-    already_cleared = item.id in await _cleared_item_ids(db, user)
+    # 위 잠금 검사에서 이미 조회했다 — 같은 트랜잭션에서 두 번 돌 이유가 없다.
+    already_cleared = item.id in cleared
     xp_earned = board_clear_xp(passed, already_cleared)
     if xp_earned:
         await xp_service.add_xp(db, user.id, xp_earned)
