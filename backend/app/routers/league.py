@@ -3,6 +3,7 @@
 | GET  | /current     | 이번 주 예측 대상 기간·지역 → {week_start, region, mid_forecast} |
 | POST | /predict     | {temp_max, temp_min, rain_prob} → {"submitted": true} (주 1회) |
 | GET  | /leaderboard | ?week=YYYY-MM-DD → LeagueRank[] |
+| GET  | /division    | ?week=&neighbors= → LeagueDivision (분반 + 이웃 격차) |
 | GET  | /me/results  | 내 리그 이력 → LeagueResult[] |
 
 정산(actual_value·accuracy_score·ELO)은 Celery 주간 태스크가 수행한다.
@@ -18,11 +19,13 @@ from app.models.league_result import LeagueResult
 from app.models.user import User
 from app.schemas.league import (
     LeagueCurrent,
+    LeagueDivision,
     LeagueRank,
     LeagueResultOut,
     PredictRequest,
     PredictResponse,
 )
+from app.services import league_service
 from app.services.league_service import week_start_of
 from app.services.weather_api import DEFAULT_REGION, KST, get_mid_forecast
 
@@ -80,17 +83,16 @@ async def submit_prediction(
     return PredictResponse(submitted=True)
 
 
-@router.get("/leaderboard", response_model=list[LeagueRank])
-async def get_leaderboard(
-    week: date | None = Query(default=None, description="주 시작일(월요일), 기본: 이번 주"),
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),  # 전체 유저 집계 — RLS 미적용 세션
-) -> list[LeagueRank]:
-    week_start = week or _current_week_start()
+async def _ranked_leaderboard(db: AsyncSession, week_start: date) -> list[dict]:
+    """주간 전역 순위(1등이 index 0) — /leaderboard와 /division의 단일 정렬 공급원.
 
+    정렬: 정확도 desc → ELO desc → user_id asc. 마지막 키는 동점자 순서를 고정해
+    분반 소속이 요청마다 흔들리지 않게 하는 결정성 장치다(§2.8).
+    """
     rows = (
         await db.execute(
             select(
+                LeagueResult.user_id,
                 User.nickname,
                 LeagueResult.accuracy_score,
                 LeagueResult.elo_rating_after,
@@ -101,22 +103,58 @@ async def get_leaderboard(
             .order_by(
                 LeagueResult.accuracy_score.desc().nulls_last(),
                 LeagueResult.elo_rating_after.desc().nulls_last(),
+                LeagueResult.user_id.asc(),
             )
         )
     ).all()
-
     return [
-        LeagueRank(
-            rank=i,
-            nickname=nickname,
-            accuracy_score=accuracy_score,
-            elo_rating=elo_rating_after,
-            tier=tier,
-        )
-        for i, (nickname, accuracy_score, elo_rating_after, tier) in enumerate(
-            rows, start=1
-        )
+        {
+            "user_id": user_id,
+            "nickname": nickname,
+            "accuracy_score": accuracy_score,
+            "elo_rating": elo_rating_after,
+            "tier": tier,
+        }
+        for user_id, nickname, accuracy_score, elo_rating_after, tier in rows
     ]
+
+
+@router.get("/leaderboard", response_model=list[LeagueRank])
+async def get_leaderboard(
+    week: date | None = Query(default=None, description="주 시작일(월요일), 기본: 이번 주"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),  # 전체 유저 집계 — RLS 미적용 세션
+) -> list[LeagueRank]:
+    ranked = await _ranked_leaderboard(db, week or _current_week_start())
+    return [
+        LeagueRank(rank=i, **{k: v for k, v in row.items() if k != "user_id"})
+        for i, row in enumerate(ranked, start=1)
+    ]
+
+
+@router.get("/division", response_model=LeagueDivision)
+async def get_division(
+    week: date | None = Query(default=None, description="주 시작일(월요일), 기본: 이번 주"),
+    neighbors: int = Query(
+        default=league_service.NEIGHBOR_SPAN,
+        ge=0,
+        le=league_service.DIVISION_SIZE,
+        description="내 위·아래로 보여줄 이웃 수(분반 경계에서 잘림)",
+    ),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),  # 전체 유저 집계 — RLS 미적용 세션
+) -> LeagueDivision:
+    """분반 리더보드 (R13-01 §2.8) — 전역 순위를 30인 블록으로 잘라 내 블록만."""
+    week_start = week or _current_week_start()
+    ranked = await _ranked_leaderboard(db, week_start)
+    view = league_service.build_division_view(ranked, user.id, span=neighbors)
+    return LeagueDivision(
+        week_start=week_start,
+        **{**view, "entries": [
+            {k: v for k, v in entry.items() if k != "user_id"}
+            for entry in view["entries"]
+        ]},
+    )
 
 
 @router.get("/me/results", response_model=list[LeagueResultOut])

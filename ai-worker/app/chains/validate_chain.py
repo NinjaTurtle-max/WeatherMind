@@ -804,6 +804,10 @@ CURRICULUM_CONCEPT_TAGS = (
     "heat_island",
     "co2_climate",
     "anomaly",
+    # 재난 축 2종 (R13 §2.4 — seed_content.ALLOWED_CONCEPT_TAGS와 동기.
+    # 재난 유닛이 concept_tag_valid로 탈락하지 않도록 개방한다. 지진은 범위 밖)
+    "wildfire_weather",
+    "flood_response",
 )
 UNIT_KINDS = ("quiz", "board")
 BOARD_QUESTION_TYPE = "board"  # content_items에서 board 퍼즐 판별 (§3.7 유형과 동일)
@@ -929,7 +933,7 @@ def validate_curriculum(units: list, content_items: list) -> dict:
     else:
         checks.append(_check("prereq_no_cycle", True, "prereq 그래프에 순환 없음"))
 
-    # 4. concept_tag_valid — 6종 표준 concept_tag만 허용
+    # 4. concept_tag_valid — 표준 concept_tag 목록(CURRICULUM_CONCEPT_TAGS)만 허용
     bad_tags = sorted(
         {
             f"{u.get('id')!r}:{u.get('concept_tag')!r}"
@@ -942,12 +946,12 @@ def validate_curriculum(units: list, content_items: list) -> dict:
             _check(
                 "concept_tag_valid",
                 False,
-                f"concept_tag가 표준 6종({', '.join(CURRICULUM_CONCEPT_TAGS)}) 밖: "
+                f"concept_tag가 표준 목록({', '.join(CURRICULUM_CONCEPT_TAGS)}) 밖: "
                 f"{', '.join(bad_tags)}",
             )
         )
     else:
-        checks.append(_check("concept_tag_valid", True, "모든 concept_tag가 표준 6종 내"))
+        checks.append(_check("concept_tag_valid", True, "모든 concept_tag가 표준 목록 내"))
 
     # 5. kind_enum — kind가 'quiz'|'board'
     bad_kinds = sorted(

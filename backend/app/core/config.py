@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     # CONCEPT_TAGS 6개념당 1문항). 드리프트는 test_placement가 감시.
     PLACEMENT_SIZE: int = 6
 
+    # 분반 리더보드 (R13-01 §2.8): 기본값 = 계약 수치(소집단 30인 · 이웃 위아래 3명).
+    # 드리프트는 test_league_division이 감시한다(PLACEMENT_SIZE 전례).
+    LEAGUE_DIVISION_SIZE: int = 30
+    LEAGUE_NEIGHBOR_SPAN: int = 3
+
     # ── 개발자 모드 (R7-03) ──
     # true면 /api/v1/dev 라우터(자기 계정 상태 진단·조작)가 등록된다. 개발 전용 —
     # 운영 금지. 기본 false 고정은 계약 테스트가 감시한다(test_dev_mode —

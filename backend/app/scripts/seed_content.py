@@ -44,8 +44,16 @@ ALLOWED_CONCEPT_TAGS = {
     "phase_change",
     "density_buoyancy",
     "energy_transfer",
+    # 재난 축 1차 개통 2종 — R13 §2.4. 지진은 범위 밖 확정(지질학).
+    # 기초과학 6종과 같은 평면 네임스페이스(θ가 코스를 가로지르는 단일 통화).
+    "wildfire_weather",
+    "flood_response",
 }
-ALLOWED_LEVEL_GROUPS = {"elementary", "middle_high", "adult"}
+# R13 §2.2 — expert(전문가) 밴드 추가. 순서는 난이도 오름차순이 아니라 집합이므로
+# 무의미하고, 밴드 순서·θ 경계의 정본은 weatherbrain_service.LEVEL_GROUP_BANDS다.
+# ⚠️ DB CHECK 제약(ck_content_items_level_group)은 아직 3종이다 — 실DB 적재는
+# 마이그레이션이 선행돼야 한다(BE-1 0011 소유, PM 보고).
+ALLOWED_LEVEL_GROUPS = {"elementary", "middle_high", "adult", "expert"}
 # 스프린트 R3-01 §3.8 — question_type 7종 (§3.6 신규 4종 포함)
 ALLOWED_QUESTION_TYPES = {
     "multiple_choice",

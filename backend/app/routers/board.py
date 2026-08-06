@@ -107,7 +107,10 @@ def board_difficulty(template_json: dict, level_group: str) -> int:
     - 기본점: mode == "guided"(단계 안내) → 1, 그 외(goal_only 등 목표만 제시) → 2
     - time_limit_sec 존재(양수) → +1 (시간 압박)
     - palette 요소 3개 이상 → +1 (배치 조합 공간 확대)
-    - level_group == "adult" → +1 (서버측 유일 난이도 축 — content_items.level_group)
+    - 사전 b가 adult 이상인 밴드(adult·expert) → +1 (서버측 유일 난이도 축 —
+      content_items.level_group). R13 §2.2로 밴드가 4종이 되면서 "adult" 문자열
+      비교에서 사전 b 임계로 바꿨다 — 상위 밴드가 늘어도 easy로 오분류되지 않는다.
+      결과가 3에서 클램프되므로 adult/expert의 표시값은 여전히 같다.
     - 상한 3·하한 1 클램프
     """
     template = template_json or {}
@@ -117,7 +120,10 @@ def board_difficulty(template_json: dict, level_group: str) -> int:
     palette = template.get("palette")
     if isinstance(palette, (list, dict)) and len(palette) >= 3:
         score += 1
-    if level_group == "adult":
+    prior_b = weatherbrain_service.LEVEL_GROUP_ITEM_B.get(
+        level_group, weatherbrain_service.DEFAULT_ITEM_B
+    )
+    if prior_b >= weatherbrain_service.LEVEL_GROUP_ITEM_B["adult"]:
         score += 1
     return max(1, min(3, score))
 

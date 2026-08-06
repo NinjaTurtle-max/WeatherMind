@@ -60,26 +60,60 @@ CONCEPT_TAGS: tuple[str, ...] = (
     "phase_change",
     "density_buoyancy",
     "energy_transfer",
+    # 재난 축 2종 (R13 §2.4 — 산불 기상·홍수 대응). θ 초기화 대상에는 넣되
+    # PLACEMENT_QUIZ_TAGS(위)에는 넣지 않는다: 배치 6문항이 "개념당 1"을 만족해야
+    # 하므로 진단 도메인은 기상 6종으로 고정한다(R12 §9 판정 준용).
+    "wildfire_weather",
+    "flood_response",
 )
 
-# θ → 사람이 읽는 난이도 라벨. 경계(-0.5, 0.5)는 ai-worker priors.theta_to_target_level_group
-# 및 router_chain.THETA_FOCUS_THRESHOLD와 정합해야 한다(교차 서비스 의미론 — 계약 테스트가 감시).
-_THETA_BEGINNER_MAX = -0.5
-_THETA_INTERMEDIATE_MAX = 0.5
+# ── 학령 밴드(level_group)와 θ 경계 — backend 단일 공급원 (R13 §2.2) ──────────
+# 밴드는 난이도 오름차순, 경계는 **인접 밴드 사전평균의 중점**이다:
+#   elementary −1.0 · middle_high 0.0 · adult 1.0 · expert 2.0
+#   → 경계 −0.5 · 0.5 · 1.5
+# 이 규칙(중점)은 R7부터의 기존 경계 −0.5·0.5를 그대로 재생산하므로, expert 추가가
+# 기존 3밴드의 판정을 한 건도 바꾸지 않는다(순수 확장). ai-worker
+# priors.LEVEL_GROUP_BANDS·THETA_BAND_BOUNDS와 값이 같아야 하고 드리프트는
+# test_weatherbrain_contract가 감시한다. 하단 경계 −0.5는 router_chain.
+# THETA_FOCUS_THRESHOLD와도 같은 값이어야 한다(교차 서비스 의미론).
+#
+# 주의: placement_service.LEVEL_GROUPS(3종)와 다른 상수다 — 배치고사 진단 도메인은
+# 6문항·서로소 계약 때문에 3밴드로 고정한다(R12의 PLACEMENT_QUIZ_TAGS 분리와 동일 취지).
+LEVEL_GROUP_BANDS: tuple[str, ...] = (
+    "elementary",
+    "middle_high",
+    "adult",
+    "expert",
+)
+THETA_BAND_BOUNDS: tuple[float, ...] = (-0.5, 0.5, 1.5)
+# 표시용 라벨(밴드와 1:1, 같은 순서).
+THETA_BAND_LABELS: tuple[str, ...] = (
+    "beginner",
+    "intermediate",
+    "advanced",
+    "expert",
+)
+
+# 기존 이름 유지(계약 테스트·독자 참조) — 경계 튜플에서 파생하므로 이원 정의가 아니다.
+_THETA_BEGINNER_MAX = THETA_BAND_BOUNDS[0]
+_THETA_INTERMEDIATE_MAX = THETA_BAND_BOUNDS[1]
+_THETA_ADVANCED_MAX = THETA_BAND_BOUNDS[2]
 
 
-def _theta_bucket(theta: float, labels: tuple[str, str, str]) -> str:
-    """θ 3구간 이산화 — 경계(-0.5, 0.5)는 하위 구간 제외·상위 구간 포함."""
-    if theta < _THETA_BEGINNER_MAX:
-        return labels[0]
-    if theta < _THETA_INTERMEDIATE_MAX:
-        return labels[1]
-    return labels[2]
+def _theta_bucket(theta: float, labels: tuple[str, ...]) -> str:
+    """θ 밴드 이산화 — 경계는 하위 밴드 제외·상위 밴드 포함(< 비교).
+
+    labels는 THETA_BAND_BOUNDS보다 정확히 1개 많아야 한다(밴드 수 = 경계 수 + 1).
+    """
+    for bound, label in zip(THETA_BAND_BOUNDS, labels):
+        if theta < bound:
+            return label
+    return labels[-1]
 
 
 def theta_level_label(theta: float) -> str:
-    """능력 θ를 초급/중급/고급 라벨로 이산화(표시용)."""
-    return _theta_bucket(theta, ("beginner", "intermediate", "advanced"))
+    """능력 θ를 초급/중급/고급/전문가 라벨로 이산화(표시용)."""
+    return _theta_bucket(theta, THETA_BAND_LABELS)
 
 
 # ai-worker priors.LEVEL_GROUP_ITEM_B와 동일값의 backend 상수 — 뱅크 풀 정렬에서
@@ -90,6 +124,8 @@ LEVEL_GROUP_ITEM_B: dict[str, float] = {
     "elementary": -1.0,
     "middle_high": 0.0,
     "adult": 1.0,
+    # R13 §2.2 전문가 밴드 — 사전평균과 같은 값(로짓 정합: 밴드 내 기대 정답확률 0.5).
+    "expert": 2.0,
 }
 # 미지 level_group 방어값 (ai-worker priors._DEFAULT_ITEM_B와 동일 — 중립).
 DEFAULT_ITEM_B: float = 0.0
@@ -133,7 +169,7 @@ def theta_to_level_group(theta: float) -> str:
     ai-worker priors.theta_to_target_level_group과 동일 의미·동일 경계.
     동일성은 계약 테스트가 감시한다.
     """
-    return _theta_bucket(theta, ("elementary", "middle_high", "adult"))
+    return _theta_bucket(theta, LEVEL_GROUP_BANDS)
 
 
 def overall_theta(
