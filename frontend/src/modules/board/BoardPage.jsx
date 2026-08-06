@@ -300,7 +300,10 @@ export default function BoardPage() {
           {/* 왼쪽 — 퍼즐 조각으로 이어지는 미션. 서버가 저작 순서(board_order)로
               내려주므로 클라이언트는 재정렬하지 않는다(순서가 곧 코스다). */}
           <div>
-            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
+            {/* 정사각에 가깝게 — 3열이면 칸이 가로로 길어진다(실측 285×112).
+                4열로 좁히고 sm↑에서 aspect-square를 건다. 모바일 1열은 정사각으로
+                두면 한 칸이 화면을 다 먹으므로 높이를 내용에 맡긴다. */}
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {list.map((p, i) => (
                 <PuzzlePiece
                   key={p.content_item_id}
@@ -375,6 +378,7 @@ function PuzzlePiece({ puzzle, index, energyBlocked, regenMin, pending, busy, on
   // 구름이 없는 칸은 기다리면 열린다. 라벨을 구분하고 클릭 차단만 함께 묶는다.
   const blocked = locked || energyBlocked;
   const state = cleared ? 'cleared' : locked ? 'locked' : 'current';
+  const goalPhenomenon = tpl.goal_conditions?.[0]?.phenomenon ?? null;
 
   const skin = {
     cleared: 'bg-emerald-50 ring-emerald-200 hover:ring-emerald-400',
@@ -405,7 +409,7 @@ function PuzzlePiece({ puzzle, index, energyBlocked, regenMin, pending, busy, on
               ? t('board.page.blockedTitle', { min: regenMin })
               : (tpl.question_text ?? undefined)
         }
-        className={`flex min-h-[112px] w-full flex-col rounded-2xl p-3.5 text-left shadow-sm ring-1 transition ${skin} ${
+        className={`flex min-h-[132px] w-full flex-col overflow-hidden rounded-2xl p-3.5 text-left shadow-sm ring-1 transition sm:aspect-square ${skin} ${
           blocked ? 'cursor-not-allowed' : ''
         } ${locked ? 'opacity-70' : ''}`}
       >
@@ -417,11 +421,25 @@ function PuzzlePiece({ puzzle, index, energyBlocked, regenMin, pending, busy, on
             {cleared ? '✅' : locked ? '🔒' : '▶'}
           </span>
         </div>
-        <p className={`mt-1 text-[13.5px] font-extrabold ${locked ? 'text-slate-500' : 'text-slate-900'}`}>
+        {/* 목표 현상 아이콘 — 정사각 칸의 빈 가운데를 실데이터로 채운다.
+            정답 누설이 아니다: 목표 현상은 미션 문장이 이미 말한다("소나기를 내려
+            보세요"). 목표가 없는 퍼즐(자유형)은 아이콘 줄 자체를 만들지 않는다. */}
+        {goalPhenomenon && (
+          <div className={`mt-1.5 ${locked ? 'opacity-50 grayscale' : ''}`}>
+            <SymbolIcon kind="phenomenon" value={goalPhenomenon} className="h-8 w-8" />
+          </div>
+        )}
+        <p className={`mt-1.5 text-[13.5px] font-extrabold ${locked ? 'text-slate-500' : 'text-slate-900'}`}>
           {tpl.title ?? tpl.question_text}
         </p>
         {tpl.summary && (
-          <p className={`mt-0.5 text-[11.5px] leading-snug ${locked ? 'text-slate-400' : 'text-slate-500'}`}>
+          <p
+            className={`mt-0.5 overflow-hidden text-[11.5px] leading-snug ${
+              locked ? 'text-slate-400' : 'text-slate-500'
+            }`}
+            // 칸이 정사각이라 요약이 길면 난이도 칩을 밀어낸다 — 3줄에서 자른다.
+            style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3 }}
+          >
             {tpl.summary}
           </p>
         )}
