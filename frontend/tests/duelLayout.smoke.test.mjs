@@ -133,16 +133,27 @@ ok(Boolean(briefingCard), '왼쪽: 예보 브리핑 카드');
 ok(Boolean(evidenceCard), '오른쪽: 판단 근거 고르기 카드');
 ok(Boolean(form), '오른쪽: 예측 입력 폼');
 
-// ── ① 2열 — 브리핑과 「근거+폼」 열이 같은 격자의 형제 ───────────────────────
-const grid = briefingCard?.parentElement ?? null;
+// ── ① 2열 — 브리핑 칸과 「근거+폼」 칸이 같은 격자의 형제 ────────────────────
+// 격자를 briefingCard.parentElement로 잡지 않는다 — 카드를 div로 한 겹 감싸는
+// 순간(실제로 degraded 높이 때문에 감쌌다) 부모가 격자가 아니게 돼 검사 전체가
+// 무너진다. 격자는 클래스로 찾고, 두 덩어리가 **서로 다른 칸**에 들어 있는지를
+// 포함 관계로 본다. 구조 리팩터링에는 견디고 배치가 깨지면 잡힌다.
+const grid = $$('div').find((d) => d.className.includes?.('lg:grid-cols-2')) ?? null;
 const gridCls = grid?.className ?? '';
-ok(gridCls.includes('lg:grid-cols-2'), `격자가 lg에서 2열 — "${gridCls}"`);
+ok(Boolean(grid), `격자가 lg에서 2열 — "${gridCls}"`);
 
-const rightColumn = grid ? [...grid.children].find((c) => c !== briefingCard) : null;
-ok(Boolean(rightColumn), '격자의 두 번째 칸이 있다');
+const cellOf = (node) =>
+  grid && node ? [...grid.children].find((c) => c.contains(node)) ?? null : null;
+const leftCell = cellOf(briefingCard);
+const rightColumn = cellOf(evidenceCard);
+ok(Boolean(leftCell) && Boolean(rightColumn), '브리핑·근거가 각각 격자 칸 안에 있다');
 ok(
-  Boolean(rightColumn && evidenceCard && rightColumn.contains(evidenceCard) && rightColumn.contains(form)),
-  '근거 카드와 폼이 **같은** 오른쪽 칸 안에 있다(브리핑과 형제 아님)',
+  Boolean(leftCell && rightColumn && leftCell !== rightColumn),
+  '브리핑과 근거가 **서로 다른** 칸이다(세로로 쌓이지 않았다)',
+);
+ok(
+  Boolean(rightColumn && form && rightColumn.contains(form)),
+  '폼이 근거와 **같은** 오른쪽 칸 안에 있다',
 );
 
 // ── ② 격자 항목이 줄어들 수 있다 (390px 가로 넘침 회귀 방지) ────────────────
