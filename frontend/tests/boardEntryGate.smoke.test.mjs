@@ -179,7 +179,12 @@ function assert(cond, msg) {
 // 목록 첫 퍼즐 — 카드 텍스트/상세 URL 대조에 쓴다
 const listRes = await api('GET', '/board/puzzles');
 const firstPuzzle = listRes.body?.[0];
-const firstQuestion = firstPuzzle?.template_json?.question_text ?? '';
+// 카드에 **보이는** 문구로 찾는다 — 2026-08-05 퍼즐 조각 카드부터 화면에 뜨는
+// 것은 짧은 제목(template_json.title)이고, 미션 문장 원문은 title 속성에만 있다.
+// question_text로 찾으면 카드가 멀쩡히 떠 있는데도 "목록 렌더" 대기가 터진다.
+const firstQuestion = firstPuzzle?.template_json?.title
+  ?? firstPuzzle?.template_json?.question_text
+  ?? '';
 const detailUrl = `GET /api/v1/board/puzzles/${firstPuzzle?.content_item_id}`;
 
 /** 목록이 렌더될 때까지 대기 + 첫 퍼즐 카드 반환 */

@@ -54,6 +54,11 @@ export default {
       opening: 'Opening…',
       cleared: '✓ Cleared',
       challenge: 'Challenge',
+      progressLabel: 'Overall progress',
+      progressCount: '{done} / {total} puzzles cleared',
+      lockedSuffix: ' (finish the previous puzzle first)',
+      lockedTitle: 'Opens once you clear the previous puzzle',
+      lockedError: 'Clear the previous puzzle first to open this one.',
       serverVerdict: 'Server verdict',
     },
     atmosphere: {
