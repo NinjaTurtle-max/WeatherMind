@@ -147,6 +147,11 @@ def _progress_of(logs: list[QuizLog]) -> SessionProgress:
     return SessionProgress(answered=answered, total=len(logs))
 
 
+def _is_resolved(log: QuizLog) -> bool:
+    """왕관 판정 단위 (R13-01 §2.1) — 최초 정답이거나 만회 정답이면 해결."""
+    return bool(log.is_correct) or bool(log.retry_correct)
+
+
 async def session_today_response(
     db: AsyncSession, session: Session, user: User
 ) -> SessionToday:
@@ -295,6 +300,25 @@ async def submit_session_answer(
     # BoardStateRequired/BoardValidation → 422는 main.py 전역 핸들러가 변환.
     answer = answer_service.resolve_answer(log, body.answer, body.board_state)
 
+    # 만회 라운드(R13-01 §2.1) — 멱등 의미론의 **유일한 예외**. 최초 오답이고 아직
+    # 만회로 해결되지 않은 문항만(is_retry_eligible) 다시 채점해 retry_correct에
+    # 기록한다. 같은 세션 조건은 위 로그 조회가 session_id로 걸러 구조적으로 성립.
+    # 배치고사는 진단이므로 제외 — 만회는 학습 루프의 장치다.
+    # 여기서 조기 반환하므로 구름 소모(should_consume)·XP·weak_tags·뱅크 통계
+    # 어디에도 닿지 않는다: 만회는 벌도 파밍도 아니다.
+    if not is_placement and answer_service.is_retry_eligible(log):
+        retry = await answer_service.submit_retry_for_log(db, user, log, answer)
+        state = await energy_service.get_state(db, user)
+        logs = await _session_logs(db, session)
+        return SessionAnswerResult(
+            **retry.model_dump(),
+            session_progress=_progress_of(logs),
+            clouds_spent=0,
+            clouds=state["clouds"],
+            is_retry=True,
+            retry_correct=retry.is_correct,
+        )
+
     # 멱등 가드·세션 XP 누적은 서비스 층 (R2-01 웨이브 1 리뷰 1번).
     # AlreadyAnswered → 409, BoardRules → 503도 전역 핸들러 담당.
     result = await answer_service.submit_answer_for_log(
@@ -374,7 +398,16 @@ async def complete_session(
             placement_done=True,
         )
 
+    # 왕관 판정 (R13-01 §2.1 개정): all_correct(최초 만점) → all_resolved
+    # (전 문항이 최초 정답 **또는** 만회 정답). "틀린 걸 고쳐서 끝내면 인정한다"가
+    # 개정 취지라, 만회 없는 세션에서는 all_resolved == all_correct로 기존 동작과
+    # 완전히 같다. correct_count·all_correct(unit_result 필드)는 **최초 시도**
+    # 의미를 그대로 유지한다 — 통계·표기의 근거가 흔들리면 안 되기 때문.
     all_correct = progress.total > 0 and correct_count == progress.total
+    all_resolved = progress.total > 0 and all(_is_resolved(log) for log in logs)
+    retry_resolved_count = sum(
+        1 for log in logs if not log.is_correct and log.retry_correct
+    )
     is_first_complete = session.completed_at is None
     crown_award: CrownAward | None = None
 
@@ -388,7 +421,7 @@ async def complete_session(
         # target 우선→사전순)의 "열린 첫 미클리어 quiz 유닛"에 왕관 +1. daily는
         # 하루 1세션(멱등 인덱스) + 최초 완료에만 부여라 파밍 상한이 선다.
         # placement는 위에서 조기 반환, 유닛 세션은 mode 분기로 제외된다.
-        if session.mode == session_service.MODE_DAILY and all_correct:
+        if session.mode == session_service.MODE_DAILY and all_resolved:
             concept = curriculum_service.majority_concept(
                 (log.concept_tag for log in logs),
                 (session.route_decision or {}).get("target_concept_tag"),
@@ -402,8 +435,11 @@ async def complete_session(
 
     # 유닛 세션 unit_result (R8-01 §3.1 계약 복구) — grant_unit_crown 반환을
     # 버리지 않고 노출한다(프론트 UnitSummary가 읽는 필드). 왕관 가산(§3.2)은
-    # 기존과 동일하게 "세션 최초 완료 + 전 문항 정답"일 때만(멱등) — 그 외
-    # (오답 있음·재완료)엔 저장된 진도 스냅샷을 unit_xp=0으로 돌려준다.
+    # "세션 최초 완료 + 전 문항 해결(만회 포함 — R13-01 §2.1)"일 때만(멱등) —
+    # 그 외(미해결 오답 있음·재완료)엔 저장된 진도 스냅샷을 unit_xp=0으로 돌려준다.
+    # all_correct 인자는 최초 만점 뜻 그대로 넘기고(표시용), 만회 포함 판정은
+    # additive 필드 all_resolved로 따로 싣는다 — 두 값을 한 필드에 겹치면
+    # "만점"과 "클리어"가 구분 불가능해진다.
     unit_result: UnitResult | None = None
     if session.unit_id is not None:
         payload = await curriculum_service.unit_result_for_session(
@@ -411,10 +447,10 @@ async def complete_session(
             user,
             session.unit_id,
             all_correct=all_correct,
-            grant_crown=is_first_complete and all_correct,
+            grant_crown=is_first_complete and all_resolved,
         )
         if payload is not None:
-            unit_result = UnitResult(**payload)
+            unit_result = UnitResult(**payload, all_resolved=all_resolved)
 
     # 일일 퀘스트 재계산 — 세션 complete 트리거(당일 집계 멱등 재계산) (R4-01 §3.1)
     await quest_service.recalculate_quests(db, user, session.session_date)
@@ -428,4 +464,6 @@ async def complete_session(
         streak_count=streak_count,
         unit_result=unit_result,
         crown_award=crown_award,
+        all_resolved=all_resolved,
+        retry_resolved_count=retry_resolved_count,
     )

@@ -351,9 +351,14 @@ def make_session(mode="daily", unit_id=None, completed=False, route_target=None)
     )
 
 
-def make_log(concept_tag, correct=True):
+def make_log(concept_tag, correct=True, retry_correct=None):
+    # retry_correct는 R13-01 §2.1(0011)에서 추가된 만회 라운드 컬럼 —
+    # 기본 None(만회 시도 없음)이면 왕관 판정이 개정 전과 동일하다.
     return SimpleNamespace(
-        concept_tag=concept_tag, is_correct=correct, user_answer="답"
+        concept_tag=concept_tag,
+        is_correct=correct,
+        retry_correct=retry_correct,
+        user_answer="답",
     )
 
 

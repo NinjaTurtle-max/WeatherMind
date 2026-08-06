@@ -50,6 +50,10 @@ class QuizLog(Base):
     question_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     user_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # 만회 라운드 결과 (R13-01 §2.1, 0011) — NULL=만회 시도 없음.
+    # 최초 오답(is_correct=false)을 같은 세션에서 다시 푼 결과만 담는다.
+    # is_correct는 만회로 절대 덮지 않는다(θ·뱅크 통계·약점 태그의 근거).
+    retry_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     elapsed_sec: Mapped[int | None] = mapped_column(Integer, nullable=True)
     answered_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")

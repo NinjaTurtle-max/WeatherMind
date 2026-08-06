@@ -520,8 +520,12 @@ class TestMigration0010:
         assert 'op.add_column("users", sa.Column("region"' in source
         assert 'op.drop_column("users", "region")' in source
 
-    def test_단일_head_0010(self):
-        """alembic heads == 0010_user_region 하나 — 병렬 번호 충돌 감시(§2)."""
+    def test_단일_head(self):
+        """alembic heads가 **하나** — 병렬 번호 충돌 감시(§2).
+
+        체인 끝은 최신 리비전이다(R13-01에서 0011_retry_round가 0010 위로 올라갔다).
+        감시 대상은 "head가 갈라지지 않는다"이지 특정 번호가 아니다.
+        """
         revisions: dict[str, str | None] = {}
         pattern = re.compile(
             r'^(revision|down_revision)(?::\s*[^=]+)?\s*=\s*(?:"([^"]+)"|None)',
@@ -535,7 +539,8 @@ class TestMigration0010:
             revisions[found["revision"]] = found.get("down_revision")
         referenced = {down for down in revisions.values() if down}
         heads = set(revisions) - referenced
-        assert heads == {"0010_user_region"}
+        assert heads == {"0011_retry_round"}
+        assert revisions["0011_retry_round"] == "0010_user_region"
 
     def test_모델_컬럼_계약(self):
         """users.region — nullable String(20), 서버 기본값 없음(NULL=서울는 코드 폴백)."""

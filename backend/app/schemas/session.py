@@ -75,6 +75,15 @@ class SessionAnswerResult(AnswerResult):
     session_progress: SessionProgress
     clouds_spent: int = 0
     clouds: int = 0
+    # ── 만회 라운드 (R13-01 §2.1, additive) ──
+    # is_retry: 이 응답이 **만회 재제출** 결과인가. True면 is_correct는 만회 채점
+    #   결과이고 최초 기록(is_correct 컬럼)은 그대로 오답으로 남아 있다 —
+    #   프론트가 "만회 성공/실패"와 "첫 시도 정답"을 구분하는 유일한 신호.
+    # retry_correct: 만회 채점 결과(is_retry=False면 None). is_correct와 중복이지만
+    #   응답만 보고 컬럼 의미를 되짚을 수 있게 명시적으로 싣는다.
+    # xp_earned·clouds_spent는 만회에서 항상 0이다(파밍·벌 둘 다 차단 — §2.1).
+    is_retry: bool = False
+    retry_correct: bool | None = None
 
 
 class PlacementAbility(BaseModel):
@@ -105,6 +114,10 @@ class UnitResult(BaseModel):
     crown_target: int
     cleared: bool
     unit_xp: int
+    # 만회 포함 해결 여부 (R13-01 §2.1, additive) — 왕관 부여 판정과 같은 값.
+    # all_correct는 **최초 시도 만점**이라는 원래 뜻을 유지한다(두 값이 갈리는
+    # 세션 = 만회로 클리어한 세션).
+    all_resolved: bool = False
 
 
 class SessionCompleteResult(BaseModel):
@@ -119,3 +132,9 @@ class SessionCompleteResult(BaseModel):
     unit_result: UnitResult | None = None
     # ── 데일리 만점 왕관 유입 (R8-01 §3.4, additive) — 대상 없으면 None ──
     crown_award: CrownAward | None = None
+    # ── 만회 라운드 (R13-01 §2.1, additive) ──
+    # all_resolved: 전 문항이 (is_correct=true) 또는 (retry_correct=true) — 왕관
+    #   부여의 새 판정값. correct_count는 **최초 정답 수** 그대로다(회귀 방지).
+    # retry_resolved_count: 만회로 해결한 문항 수 → 완료 화면 "만회 완료 N문항".
+    all_resolved: bool = False
+    retry_resolved_count: int = 0
