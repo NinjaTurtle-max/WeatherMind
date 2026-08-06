@@ -32,9 +32,19 @@
 #              board·match·ordering은 correct_answer 없이 채점(goal_conditions·
 #              pairs·items)하므로 빈 정답 키로 비교하면 같은 개념의 전 퍼즐이
 #              서로 중복으로 오탈락한다(2026-08-05 본시드 실측 9건 과탐).
-#   ⑤ vocab    학령 금칙 어휘 (R13-01 §2.3) — level_group이 elementary·middle_high인
+#   ⑤ vocab    단계 금칙 어휘 (R13-01 §2.3 → docs/specs/12 §7.4로 개정) —
 #              문항의 template_json **전체 문자열**(질문·선지·정답·items·pairs·해설·
-#              힌트·guide_steps)에 학령 금칙 어휘가 있으면 탈락. adult·expert는 면제.
+#              힌트·guide_steps)에 등장하는 용어의 도입 단계가 문항의
+#              knowledge_level보다 높으면 탈락:
+#                  탈락 = knowledge_level < (그 용어가 정답·메커니즘 질문에 쓰이면
+#                                            introduced_at, 아니면 name_ok_from)
+#              **면제가 없다** — 6단계 문항에서만 전 용어가 통과하고 그 아래는 전부
+#              걸린다. v1의 adult·expert 통째 면제가 실무 수치 유입 통로였다
+#              (docs/specs/12 §8.2: adult 36건 무검사 → [58] 건조 단열 감률 ·
+#              [98] 위험반원이 게이트 없이 통과).
+#              ⚠️ **전환기 폴백**: knowledge_level이 없는(미분류) 문항은 v1의 학령
+#              규칙(elementary·middle_high만 검사, adult·expert 면제)을 그대로 쓴다 —
+#              vocabulary_errors 아래 주석에 만료 조건이 있다.
 #              목록은 database/seed/level_vocabulary.json이 단독 소유한다 — 코드에
 #              어휘를 박지 않는다(교육과정 근거가 데이터와 같은 곳에 있어야 개정된다).
 #              발단: 본시드 [86] middle_high ordering의 정답 항목이 권운·권층운·
@@ -100,20 +110,60 @@ def load_render_required() -> dict[str, tuple[str, ...]]:
             del sys.modules[key]
         sys.modules.update(saved)
 
-def load_vocabulary(path: Path = VOCABULARY_PATH) -> list[dict]:
-    """학령 금칙 어휘 목록을 JSON에서 읽는다 (코드에 어휘를 박지 않는다 — §2.3).
+def load_vocabulary(path: Path = VOCABULARY_PATH) -> dict:
+    """용어별 도입 단계 표를 JSON에서 읽는다 (코드에 어휘를 박지 않는다 — §2.3).
 
     파일이 없거나 형태가 어긋나면 예외를 올린다 — 검사가 조용히 꺼지면 규칙이
     없는 것과 같기 때문이다(호출부가 파이프라인 로드 실패로 종료 코드 2 처리).
+
+    **단계 수 N을 코드에 박지 않는다** — N은 파일의 anchor 블록 키에서 나온다
+    (weatherbrain_service가 KNOWLEDGE_LEVEL_BANDS 길이로 N을 정하는 것과 같은 관례).
     """
     data = json.loads(path.read_text(encoding="utf-8"))
-    banned = data["banned"]
-    for entry in banned:
-        if not entry.get("term") or not entry.get("banned_levels"):
-            raise ValueError(f"금칙 어휘 항목에 term/banned_levels 누락: {entry}")
+
+    if "banned" in data or "reviewed_allowed" in data:
+        raise ValueError(
+            "level_vocabulary.json이 v1 스키마(banned/reviewed_allowed)다 — "
+            "docs/specs/12 §7.1 개정안(terms + introduced_at)이어야 한다"
+        )
+
+    anchor = data["anchor"]
+    levels = sorted(int(k) for k in anchor)
+    if levels != list(range(1, len(levels) + 1)):
+        raise ValueError(f"anchor 단계 키가 1..N 연속이 아니다: {sorted(anchor)}")
+    max_level = levels[-1]
+
+    if not data.get("mechanism_markers"):
+        raise ValueError("mechanism_markers 누락 — 판정식의 '메커니즘 질문'을 못 본다")
+
+    entries = data["terms"]
+    if not entries:
+        raise ValueError("terms가 비었다")
+    for entry in entries:
+        term = entry.get("term")
+        if not term:
+            raise ValueError(f"어휘 항목에 term 누락: {entry}")
         if not entry.get("basis"):
-            raise ValueError(f"금칙 어휘 '{entry['term']}'에 교육과정 근거(basis) 없음")
-    return list(banned)
+            raise ValueError(f"어휘 '{term}'에 교육과정 근거(basis) 없음")
+        if "standard" not in entry:
+            # 값이 null인 것은 정상(교육과정 밖 신호)이지만 **키 자체가 없는 것**은
+            # 판정을 빠뜨린 것이다 — §7.2가 "비는 항목은 그 자체가 신호"라고 한 것은
+            # 의도적으로 비운 경우를 말한다.
+            raise ValueError(f"어휘 '{term}'에 standard 키 없음(교육과정 밖이면 null)")
+        introduced = entry.get("introduced_at")
+        if not isinstance(introduced, int) or not 1 <= introduced <= max_level:
+            raise ValueError(f"어휘 '{term}'의 introduced_at이 1~{max_level} 밖: {introduced!r}")
+        name_ok = entry.get("name_ok_from")
+        if name_ok is not None and (
+            not isinstance(name_ok, int) or not 1 <= name_ok <= introduced
+        ):
+            raise ValueError(
+                f"어휘 '{term}'의 name_ok_from이 1~introduced_at({introduced}) 밖: {name_ok!r}"
+            )
+        legacy = entry.get("legacy_banned_levels")
+        if legacy is not None and not legacy:
+            raise ValueError(f"어휘 '{term}'의 legacy_banned_levels가 빈 배열이다(생략할 것)")
+    return data
 
 
 def _all_strings(node) -> list[str]:
@@ -122,6 +172,11 @@ def _all_strings(node) -> list[str]:
     template_json 전체가 대상이라 유형별 필드(options·items·pairs·hints·
     guide_steps·explanation_hint…)를 열거하지 않는다. 열거하면 새 유형이 붙을 때
     조용히 검사에서 빠진다.
+
+    **이 범위가 docs/specs/12 §4 R0(판정 대상 텍스트)의 범위와 같다** — R0이
+    "`lint_seed_items._all_strings`와 같은 범위여야 한다"고 이 함수를 지목한다.
+    검사 범위와 판정 범위가 어긋나면 통과한 문항이 오분류되므로, 여기를 좁히거나
+    넓히면 R0도 함께 고쳐야 한다(둘 중 하나만 바뀌면 계약 위반).
     """
     if isinstance(node, str):
         return [node]
@@ -132,23 +187,120 @@ def _all_strings(node) -> list[str]:
     return []
 
 
-def vocabulary_errors(item: dict, vocabulary: list[dict]) -> list[str]:
-    """문항의 학령에서 금칙인 어휘가 template_json 어디든 있으면 사유를 만든다."""
-    level = str(item.get("level_group") or "")
-    blob = " ".join(_all_strings(item.get("template_json") or {}))
-    hits = [
-        entry
-        for entry in vocabulary
-        if level in entry["banned_levels"] and entry["term"] in blob
-    ]
-    # 더 긴 금칙어에 포함되는 짧은 금칙어는 중복 보고하지 않는다
-    # (예: '권층운' 적발 시 '층운'까지 두 줄로 나오는 소음 방지).
-    terms = {e["term"] for e in hits}
-    hits = [e for e in hits if not any(e["term"] != t and e["term"] in t for t in terms)]
+# 정답이 담기는 필드 — 여기 등장한 용어는 "정답에 쓰였다"로 보고 introduced_at을
+# 임계로 쓴다(R4 남용 방지 조건 2와 같은 판단: 정답 문자열에 있으면 예외 불가).
+# 유형별로 정답의 자리가 다르다: multiple_choice·short_answer·slider·cloze는
+# correct_answer, ordering은 items, match는 pairs, board는 goal_conditions.
+ANSWER_FIELDS: tuple[str, ...] = (
+    "correct_answer",
+    "items",
+    "pairs",
+    "goal_conditions",
+)
+
+
+def _term_threshold(entry: dict, *, decisive: bool) -> int:
+    """이 용어가 이 문항에서 요구하는 최소 단계 (§7.4 판정식의 괄호 안)."""
+    if decisive:
+        return int(entry["introduced_at"])
+    return int(entry.get("name_ok_from", entry["introduced_at"]))
+
+
+def _drop_contained(hits: list[dict]) -> list[dict]:
+    """더 긴 적발어에 포함되는 짧은 적발어는 중복 보고하지 않는다.
+
+    (예: '권층운' 적발 시 '층운'까지 두 줄로 나오는 소음 방지)
+    """
+    terms = {h["entry"]["term"] for h in hits}
     return [
-        f"'{entry['term']}' — {level} 금칙 어휘. 근거: {entry['basis']}"
-        + (f" / 대안 표현: {entry['suggest']}" if entry.get("suggest") else "")
-        for entry in hits
+        h
+        for h in hits
+        if not any(h["entry"]["term"] != t and h["entry"]["term"] in t for t in terms)
+    ]
+
+
+def _legacy_vocabulary_errors(item: dict, entries: list[dict], blob: str) -> list[str]:
+    """⚠️ 전환기 폴백 — knowledge_level이 없는(미분류) 문항용 v1 규칙.
+
+    v1(R13 1일차)의 학령 금칙 판정을 **한 글자도 바꾸지 않고** 재현한다:
+    level_group이 elementary·middle_high인 문항만 검사하고 adult·expert는 면제,
+    금칙 여부는 각 항목의 legacy_banned_levels가 소유한다.
+
+    **왜 필요한가**: 본시드 141건의 knowledge_level 부여(전수 재분류)가 별건으로
+    진행 중이라, 미분류 문항에 새 판정식을 걸면 재분류가 착지하기 전에 ci.sh의
+    seed 단계가 붉어진다. 실제로 기단(초등 3건)·엘니뇨·라니냐·푄·높새바람이 새
+    판정식에서 탈락하고, 그 해소는 재분류·재저작의 몫이다(docs/specs/12 §3.3).
+
+    **만료 조건**: 본시드 전건에 knowledge_level이 부여되면 이 함수와 모든
+    legacy_banned_levels 필드, level_vocabulary.json의 transitional 블록을 **함께**
+    제거한다. 그때부터 미분류 문항은 존재하지 않아야 한다.
+    """
+    level_group = str(item.get("level_group") or "")
+    hits = [
+        {"entry": entry}
+        for entry in entries
+        if level_group in (entry.get("legacy_banned_levels") or ())
+        and entry["term"] in blob
+    ]
+    return [
+        f"'{h['entry']['term']}' — {level_group} 금칙 어휘. 근거: {h['entry']['basis']}"
+        + (
+            f" / 대안 표현: {h['entry']['suggest']}"
+            if h["entry"].get("suggest")
+            else ""
+        )
+        for h in _drop_contained(hits)
+    ]
+
+
+def vocabulary_errors(item: dict, vocabulary: dict) -> list[str]:
+    """문항 단계보다 늦게 도입되는 용어가 template_json 어디든 있으면 사유를 만든다.
+
+    판정식(docs/specs/12 §7.4):
+        탈락 = knowledge_level < (그 용어가 정답·메커니즘 질문에 쓰이면 introduced_at,
+                                  아니면 name_ok_from)
+
+    "정답·메커니즘 질문에 쓰였는가"의 기계 판별은 ⓐ 정답 필드(ANSWER_FIELDS)에
+    등장하거나 ⓑ 질문 본문에 메커니즘 표지(왜·까닭·원리…)가 있고 그 본문에 용어가
+    있으면 참이다. 판별할 수 없는 나머지(R2~R6 · 문항 내 정의 R4)는 사람 몫이고,
+    기계 1차 패스는 **보수적으로 상향**한다(§8.1 — 사람이 내리는 편이 안전하다).
+    """
+    template = item.get("template_json") or {}
+    blob = " ".join(_all_strings(template))
+    entries = vocabulary["terms"]
+
+    level = item.get("knowledge_level")
+    if level is None:
+        return _legacy_vocabulary_errors(item, entries, blob)
+    level = int(level)
+
+    answer_blob = " ".join(
+        _all_strings({k: template.get(k) for k in ANSWER_FIELDS})
+    )
+    question = str(template.get("question_text") or "")
+    asks_mechanism = any(m in question for m in vocabulary["mechanism_markers"])
+
+    hits: list[dict] = []
+    for entry in entries:
+        term = entry["term"]
+        if term not in blob:
+            continue
+        decisive = term in answer_blob or (asks_mechanism and term in question)
+        threshold = _term_threshold(entry, decisive=decisive)
+        if level < threshold:
+            hits.append({"entry": entry, "threshold": threshold, "decisive": decisive})
+
+    return [
+        f"'{h['entry']['term']}' — {level}단계 문항인데 도입 단계 {h['threshold']}"
+        f" ({'정답·메커니즘 사용' if h['decisive'] else '배경 어휘'} 기준"
+        + (
+            f", 성취기준 {h['entry']['standard']}"
+            if h["entry"].get("standard")
+            else ", 교육과정 밖"
+        )
+        + f"). 근거: {h['entry']['basis']}"
+        + (f" / 대안 표현: {h['entry']['suggest']}" if h["entry"].get("suggest") else "")
+        for h in _drop_contained(hits)
     ]
 
 
@@ -159,7 +311,7 @@ STAGES: tuple[tuple[str, str], ...] = (
     ("schema", "③ 스키마 탈락 (validate_entry)"),
     ("dup_file", "④ 중복 (파일 내)"),
     ("dup_base", "④ 중복 (본시드 대조)"),
-    ("vocab", "⑤ 학령 금칙 어휘"),
+    ("vocab", "⑤ 단계 금칙 어휘"),
 )
 
 
@@ -192,7 +344,7 @@ def lint_items(
     backend: "author_items.BackendContract",
     ai: "author_items.AiWorkerApi",
     render_required: dict[str, tuple[str, ...]],
-    vocabulary: list[dict],
+    vocabulary: dict,
     base_items: list[dict] | None = None,
 ) -> LintResult:
     """전 문항에 5종 검사를 실행한다 (순수 함수 — 출력·exit 없음).
@@ -261,7 +413,7 @@ def lint_items(
         if schema_errors:
             found("schema", schema_errors)
 
-        # ⑤ 학령 금칙 어휘 — elementary·middle_high만 대상(목록이 학령을 들고 있다)
+        # ⑤ 단계 금칙 어휘 — knowledge_level이 있으면 §7.4 판정식, 없으면 전환기 폴백
         vocab_errors = vocabulary_errors(item, vocabulary)
         if vocab_errors:
             found("vocab", vocab_errors)
