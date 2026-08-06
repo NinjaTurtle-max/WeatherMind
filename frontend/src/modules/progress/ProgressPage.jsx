@@ -267,7 +267,9 @@ function SpineCard({ spine }) {
   const current = spine.current_unit;
 
   return (
-    <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+    // 바깥 여백은 배치하는 쪽(grid gap)이 갖는다 — mb-4를 여기 두면 gap과 겹쳐
+    // 이 카드 아래만 32px가 된다(2열 개편 전 세로 스택 시절의 잔재였다).
+    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
       <div className="flex items-center justify-between">
         <p className="text-sm font-extrabold text-slate-900">{t('profile.spineTitle')}</p>
         <p className="text-xs font-bold text-amber-500">
