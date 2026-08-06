@@ -42,11 +42,14 @@ export default function Layout() {
   // 264px까지 작아진다.
   // /duel은 브리핑(왼쪽) ↔ 근거·예측(오른쪽) 2열이라 576px에서는 한 열이
   // 264px — 시간별 기온 차트가 눌린다.
+  // /league도 대시보드(위 3칸·아래 2칸)라 좁은 셸에서는 칸이 다 눌린다 —
+  // 768px에서 닉네임이 "하."로 잘리고 티어 사다리 라벨이 "태풍…"이 됐다.
   const isWide =
     pathname === '/'
     || pathname === '/learn'
     || pathname === '/explore'
     || pathname === '/duel'
+    || pathname === '/league'
     || isBoard;
   const shellWidth = isBoard ? 'md:max-w-7xl' : isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);
