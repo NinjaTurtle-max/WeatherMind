@@ -34,6 +34,7 @@ import { useT } from '../../i18n';
 export default function LeaguePage() {
   const queryClient = useQueryClient();
   const t = useT();
+  const user = useAuthStore((s) => s.user);
   const [submitError, setSubmitError] = useState(null);
 
   const currentQ = useQuery({
@@ -101,6 +102,10 @@ export default function LeaguePage() {
   const current = currentQ.data ?? {};
   const myResults = Array.isArray(myResultsQ.data) ? myResultsQ.data : [];
   const ranks = Array.isArray(leaderboardQ.data) ? leaderboardQ.data : [];
+  // 내 성적은 **한 곳에서만** 계산해 아래로 내린다. 카드마다 따로 구하면 같은
+  // 규칙이 두 벌이 되어 한쪽만 고치는 사고가 난다(등급 카드와 사다리가 서로 다른
+  // 등급을 가리키는 식).
+  const standing = deriveStanding(ranks, myResults, user);
   const alreadySubmitted =
     predictMutation.isSuccess ||
     (current.week_start && myResults.some((r) => r.week_start === current.week_start));
@@ -119,7 +124,10 @@ export default function LeaguePage() {
 
       {/* 위 3칸 — 내 티어 / 이번 주 요약 / 주간 예측 */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3 lg:items-stretch">
-        <MyTierCard ranks={ranks} myResults={myResults} loading={leaderboardQ.isLoading} />
+        <MyTierCard
+          standing={standing}
+          loading={leaderboardQ.isLoading || myResultsQ.isLoading}
+        />
         <WeekSummaryCard
           weekStart={current.week_start}
           duels={Array.isArray(duelHistoryQ.data) ? duelHistoryQ.data : []}
@@ -151,7 +159,7 @@ export default function LeaguePage() {
       {/* 아래 2칸 — 순위 / 등급 사다리 */}
       <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">
         <RankCard ranks={ranks} loading={leaderboardQ.isLoading} />
-        <TierLadderCard ranks={ranks} myResults={myResults} weekStart={current.week_start} />
+        <TierLadderCard standing={standing} weekStart={current.week_start} />
       </div>
 
       {/* 참고 자료 — 예측의 근거다. 시안엔 없지만 지우면 감으로 찍게 된다. */}
@@ -204,19 +212,10 @@ function Card({ title, children, className = '' }) {
   );
 }
 
-/**
- * 내 티어 — 시안 왼쪽 첫 칸.
- * 내 ELO는 **정산 이력이 1순위**다(elo_rating_after). 리더보드는 상위 N행만
- * 오므로 내가 그 안에 없으면 못 찾는다 — 없으면 "첫 참가"로 그린다(0으로
- * 채우지 않는다. 0은 실제 점수처럼 읽힌다).
- */
-function MyTierCard({ ranks, myResults, loading }) {
+/** 내 티어 — 시안 왼쪽 첫 칸. ELO·순위는 부모가 구한 standing을 그대로 쓴다. */
+function MyTierCard({ standing, loading }) {
   const t = useT();
-  const user = useAuthStore((s) => s.user);
-  const myRow = findMe(ranks, user);
-  const settled = myResults.find((r) => r.elo_rating_after != null);
-  const elo = settled?.elo_rating_after ?? myRow?.elo_rating ?? null;
-  const rank = myRow?.rank ?? null;
+  const { elo, rank } = standing;
 
   if (loading) {
     return (
@@ -244,8 +243,7 @@ function MyTierCard({ ranks, myResults, loading }) {
 
   const code = tierFromElo(elo);
   const meta = tierMeta(code);
-  const nextCode = TIER_ORDER[TIER_ORDER.indexOf(code) + 1] ?? null;
-  const next = nextCode ? tierMeta(nextCode) : null;
+  const next = nextTierOf(code);
   // 진척은 **현재 티어 구간 안에서**의 비율이다. 0부터 재면 최상위 직전에도
   // 막대가 거의 다 차 있어 "곧 승급"처럼 보인다.
   const floor = meta.minElo;
@@ -413,15 +411,14 @@ function RankCard({ ranks, loading }) {
 }
 
 /** 리그 등급 사다리 — 시안 아래 오른쪽. 5단계 + 승급 조건 + 주간 정보. */
-function TierLadderCard({ ranks, myResults, weekStart }) {
+function TierLadderCard({ standing, weekStart }) {
   const t = useT();
-  const user = useAuthStore((s) => s.user);
-  const myRow = findMe(ranks, user);
-  const settled = myResults.find((r) => r.elo_rating_after != null);
-  const elo = settled?.elo_rating_after ?? myRow?.elo_rating ?? null;
+  const { elo } = standing;
   const code = elo == null ? null : tierFromElo(elo);
-  const nextCode = code ? TIER_ORDER[TIER_ORDER.indexOf(code) + 1] ?? null : TIER_ORDER[0];
-  const next = nextCode ? tierMeta(nextCode) : null;
+  // 정산 전(code null)에는 다음 등급을 계산하지 않는다 — 아래 렌더가 그 경우를
+  // 따로 안내하므로, 여기서 TIER_ORDER[0]을 끼워 넣으면 쓰이지도 않는 값이
+  // "다음 등급"인 척 남는다.
+  const next = code ? nextTierOf(code) : null;
 
   return (
     <Card title={t('league.dash.ladder')}>
@@ -490,8 +487,31 @@ function isMe(row, user) {
   );
 }
 
-function findMe(ranks, user) {
-  return ranks.find((r) => isMe(r, user)) ?? null;
+/** 티어 코드 → 다음 티어 메타. 최상위면 null. */
+function nextTierOf(code) {
+  const nextCode = TIER_ORDER[TIER_ORDER.indexOf(code) + 1];
+  return nextCode ? tierMeta(nextCode) : null;
+}
+
+/**
+ * 내 리그 성적 한 벌 — {elo, rank}.
+ *
+ * ELO는 **가장 최근에 정산된 주**의 값이다. 서버가 week_start 내림차순으로
+ * 주지만(routers/league.py) 그 순서에 기대지 않고 여기서 최댓값을 고른다 —
+ * 정렬이 바뀌면 조용히 옛 등급을 보여주게 되고, 화면만 봐서는 알아챌 수 없다.
+ *
+ * 정산 이력이 없으면 리더보드 행으로 넘어간다. 그것도 없으면 null이다 —
+ * 0으로 채우지 않는다(0은 "0점"이라는 실제 성적처럼 읽힌다).
+ */
+function deriveStanding(ranks, myResults, user) {
+  const myRow = ranks.find((r) => isMe(r, user)) ?? null;
+  const settled = myResults
+    .filter((r) => r.elo_rating_after != null)
+    .sort((a, b) => String(b.week_start ?? '').localeCompare(String(a.week_start ?? '')))[0];
+  return {
+    elo: settled?.elo_rating_after ?? myRow?.elo_rating ?? null,
+    rank: myRow?.rank ?? null,
+  };
 }
 
 /** 'YYYY-MM-DD' → Date(로컬 자정). 파싱 실패는 null. */
