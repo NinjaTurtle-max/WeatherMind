@@ -16,7 +16,8 @@ import { useT } from '../i18n';
  *
  * 튜터는 **지금 있는 화면의 담당 마스코트**다(`Mascot.jsx` 배정표). 기본은 메인
  * 튜터인 구름이고, 보드에서는 태양이, 학습에서는 물방울이, 예보 대결에서는
- * 태풍이가 나온다 — 화면마다 안내하는 캐릭터가 바뀌는 것이 배정표의 뜻이다.
+ * 태풍이, 리그에서는 번개가 나온다 — 화면마다 안내하는 캐릭터가 바뀌는 것이
+ * 배정표의 뜻이다.
  *
  * 학습 화면 우측 레일에도 물방울이 카드가 있었는데 걷어냈다(2026-08-05) —
  * 같은 캐릭터가 한 화면에 둘 뜨면 어느 쪽이 말하는 건지 알 수 없다.
@@ -25,6 +26,7 @@ const TUTOR_BY_PATH = [
   { match: (p) => p === '/board' || p.startsWith('/board/'), name: 'sun', key: 'board' },
   { match: (p) => p === '/learn' || p.startsWith('/learn/'), name: 'drop', key: 'learn' },
   { match: (p) => p === '/duel' || p.startsWith('/duel/'), name: 'typhoon', key: 'duel' },
+  { match: (p) => p === '/league' || p.startsWith('/league/'), name: 'bolt', key: 'league' },
 ];
 
 export default function SideNav() {

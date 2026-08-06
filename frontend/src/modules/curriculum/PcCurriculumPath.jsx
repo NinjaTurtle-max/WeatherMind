@@ -207,7 +207,7 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, l
   );
 }
 
-function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit, joinInK, joinOutK }) {
+function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit, joinInK, joinOutK }) {
   const t = useT();
   const units = section.units;
   const cleared = units.filter((u) => resolveStatus(u) === 'cleared').length;
@@ -273,9 +273,14 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
         )}
       </div>
 
+      {/* --n은 **이 단계의 칸 수가 아니라 전 단계 중 최대 칸 수**다(sizingN).
+          자기 칸 수를 넣으면 3칸 섹션이 5칸 섹션보다 큰 동그라미를 받아, 단계를
+          넘길 때마다 아이콘 크기가 들쭉날쭉했다(실측 86px ↔ 58px). 최대값으로
+          통일하면 전 단계가 같은 크기를 쓰면서 가장 긴 섹션도 넘치지 않는다
+          (--dot 식이 "n칸이 들어가는 크기"를 구하므로 최대 n이 곧 안전한 상한). */}
       <div
         className="wm-vpath"
-        style={{ '--n': units.length, '--chrome': `${CHROME}px` }}
+        style={{ '--n': sizingN, '--chrome': `${CHROME}px` }}
       >
         <StageLine
           layoutKey={introOpen}
@@ -357,6 +362,11 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
   const [atStart, setAtStart] = useState(true);
 
   const withUnits = sections.filter((s) => s.units.length > 0);
+
+  // 노드 크기의 기준 칸 수 — **전 단계 중 최대**. 단계마다 자기 칸 수로 크기를
+  // 정하면 아이콘이 단계를 넘길 때마다 커졌다 작아진다. 가장 긴 섹션에 맞춰
+  // 통일하면 어느 단계도 넘치지 않는다. 섹션이 없을 때의 1은 0 나눗셈 방지.
+  const sizingN = Math.max(1, ...withUnits.map((s) => s.units.length));
 
   // 섹션별 시작 인덱스(전역) — 완료 구간을 경계 너머로 잇기 위해 필요하다.
   const offsets = [];
@@ -443,6 +453,7 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
                 section={section}
                 index={i}
                 total={withUnits.length}
+                sizingN={sizingN}
                 joinInK={joinK(withUnits, i - 1, i)}
                 joinOutK={joinK(withUnits, i, i + 1)}
                 offset={offsets[i]}

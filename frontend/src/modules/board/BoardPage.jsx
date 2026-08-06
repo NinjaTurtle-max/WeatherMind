@@ -323,14 +323,19 @@ export default function BoardPage() {
           {t('board.page.empty')}
         </div>
       ) : (
-        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
           {/* 왼쪽 — **하나의 큰 퍼즐**을 구역으로 나눈 미션 격자(2026-08-06 시안).
               칸을 따로 띄우지 않고 한 판 안에서 실선으로 가른다. 서버가 저작
               순서(board_order = 난이도 오름차순)로 내려주므로 재정렬하지 않는다. */}
           <div>
             {/* 판 폭을 조금 묶는다 — 열 너비가 곧 칸 크기라(aspect 고정) 폭을 줄이면
-                판 전체가 같은 비율로 작아진다. */}
-            <div className="grid max-w-[860px] grid-cols-2 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 sm:grid-cols-4">
+                판 전체가 같은 비율로 작아진다.
+                lg:ml-auto — 판이 max-w로 묶여 있어 자기 열 안에 남는 폭이 생기는데,
+                기본 정렬이 왼쪽이라 그 여백이 전부 **오른쪽**에 몰린다. 실측 1440에서
+                판 오른쪽 끝과 실험 카드 사이가 78px 벌어져 둘이 남남처럼 보였다.
+                오른쪽으로 붙이면 남는 폭이 왼쪽으로 가고 실험 레일과 한 덩어리로
+                읽힌다(2026-08-06 요청). */}
+            <div className="grid max-w-[860px] grid-cols-2 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 sm:grid-cols-4 lg:ml-auto">
               {cells.map((p, i) =>
                 p ? (
                   <PuzzlePiece
@@ -351,8 +356,11 @@ export default function BoardPage() {
               )}
             </div>
 
-            {/* 전체 진행도 — 순차 진행이라 "몇 칸 남았나"가 곧 코스 진도다 */}
-            <div className="mt-4 flex max-w-[860px] items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200">
+            {/* 전체 진행도 — 순차 진행이라 "몇 칸 남았나"가 곧 코스 진도다.
+                lg:ml-auto는 위 판과 **짝**이다. 한쪽만 오른쪽으로 붙이면 판과
+                진행도 바의 좌우 끝이 20px 어긋난다(실측). 판 폭을 바꾸면 여기도
+                같이 바꿀 것. */}
+            <div className="mt-4 flex max-w-[860px] items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200 lg:ml-auto">
               <span className="text-[11.5px] font-extrabold text-slate-500">
                 {t('board.page.progressLabel')}
               </span>
@@ -535,15 +543,15 @@ function LabCard({ icon, title, desc, cta, onClick, to }) {
     <>
       <span
         aria-hidden="true"
-        className="grid h-11 w-11 place-items-center rounded-xl bg-white text-[20px] ring-1 ring-indigo-100"
+        className="grid h-14 w-14 place-items-center rounded-xl bg-white text-[26px] ring-1 ring-indigo-100"
       >
         {icon}
       </span>
-      <p className="mt-2 text-[13.5px] font-extrabold text-slate-900">{label}</p>
-      <p className="mt-1 text-[11.5px] leading-snug text-slate-500">{desc}</p>
+      <p className="mt-2.5 text-[17px] font-extrabold text-slate-900">{label}</p>
+      <p className="mt-1.5 text-[12.5px] leading-snug text-slate-500">{desc}</p>
       {/* mt-auto — 카드를 키운 만큼 남는 높이를 여기서 먹어 CTA를 바닥에 붙인다.
           두 카드의 버튼 높이가 맞아야 레일이 정돈돼 보인다. */}
-      <span className="mt-auto inline-block self-start rounded-lg bg-slate-900 px-3 py-1.5 text-[12px] font-bold text-white">
+      <span className="mt-auto inline-block self-start rounded-lg bg-slate-900 px-3.5 py-2 text-[13px] font-bold text-white">
         {cta}
       </span>
     </>
@@ -552,7 +560,7 @@ function LabCard({ icon, title, desc, cta, onClick, to }) {
   // 흰색·초록·회색 셋을 쓰므로 여기만 옅은 남색 계열로 둔다 — 어느 쪽도 아니고
   // 본선 진도와 무관한 상시 입구라는 뜻이다. 색은 **하나만** 더 쓴다.
   const cls =
-    'flex min-h-[168px] flex-col rounded-2xl bg-indigo-50 p-4 text-left shadow-sm ring-1 ring-indigo-200 transition hover:ring-indigo-400';
+    'flex min-h-[210px] flex-col rounded-2xl bg-indigo-50 p-5 text-left shadow-sm ring-1 ring-indigo-200 transition hover:ring-indigo-400';
   return to ? (
     <Link to={to} className={cls}>
       {inner}

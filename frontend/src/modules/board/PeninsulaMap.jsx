@@ -258,7 +258,11 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
                     onZoneTap(zone);
                   }
                 }}
-                className={interactive ? 'cursor-pointer' : ''}
+                // 브라우저 기본 포커스 링을 그대로 두면 존을 고를 때마다 **두꺼운
+                // 검은 사각형**이 지도 위에 뜬다(Chrome이 tabindex 붙은 SVG <g>에
+                // 그리는 기본값). 지워 버리면 키보드 사용자가 지금 어디에 있는지
+                // 알 수 없으므로, 없애지 않고 회색·절반 두께로 낮춘다(2026-08-06).
+                className={`${interactive ? 'cursor-pointer' : ''} outline-none focus:outline focus:outline-[1.5px] focus:outline-offset-2 focus:outline-slate-400`}
               >
                 {/* 터치 히트 영역 — 지도폭 320px 기준 지름 ≥44px (r 8.5 = 17unit ≈ 54px) */}
                 <circle r="8.5" fill="transparent" />

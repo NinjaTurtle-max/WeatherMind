@@ -14,7 +14,7 @@ export default {
     page: {
       difficulty1: '쉬움',
       difficulty2: '보통',
-      difficulty3: '도전',
+      difficulty3: '어려움',
       difficultyAria: '난이도: {label}',
       difficultyText: '난이도 {label}',
       sandboxQuestion: '자유 실험 — 요소를 마음껏 배치하고 어떤 날씨가 만들어지는지 관찰해 보세요',
