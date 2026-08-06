@@ -42,18 +42,18 @@ export default function ExploreHome() {
           쌓아 두니 시뮬 하나하나가 목록 항목처럼 보였다 — 탐구는 둘 중 하나를
           고르는 화면이라 나란히 놓고 크게 잡는다. 모바일은 1열(두 칸을 나란히
           두면 한 칸이 170px라 설명이 안 들어간다). */}
-      <div className="grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid max-w-[760px] grid-cols-1 gap-5 sm:grid-cols-2">
         {SIMS.map((sim) => (
           <Link
             key={sim.to}
             to={sim.to}
-            className="flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:ring-sky-300 sm:aspect-square"
+            className="flex flex-col rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 transition hover:ring-sky-300 sm:aspect-square"
           >
-            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-slate-50 text-[28px] ring-1 ring-slate-200">
+            <span className="grid h-16 w-16 place-items-center rounded-2xl bg-slate-50 text-[32px] ring-1 ring-slate-200">
               {sim.icon}
             </span>
-            <p className="mt-3.5 text-[15px] font-extrabold text-slate-800">{t(sim.titleKey)}</p>
-            <p className="mt-1 text-[12px] leading-relaxed text-slate-500">{t(sim.descriptionKey)}</p>
+            <p className="mt-4 text-[16.5px] font-extrabold text-slate-800">{t(sim.titleKey)}</p>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-slate-500">{t(sim.descriptionKey)}</p>
             <p className="mt-2 text-[11px] font-bold text-sky-600">{t(sim.inputsKey)}</p>
             {/* 「교육용 단순화 모델」 고지는 카드마다 유지한다(R9-01 §3.5) —
                 실제 예보·기후 전망으로 읽히면 안 된다. */}

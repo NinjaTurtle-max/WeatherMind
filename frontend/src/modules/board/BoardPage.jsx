@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { boardApi, progressApi } from '../../api';
@@ -81,8 +81,27 @@ const SANDBOX_PUZZLE = {
   goal_conditions: [],
   hints: [],
 };
+/**
+ * 지금 격자가 **몇 열인가** — 경계선·돌기를 "마지막 열/행에는 긋지 않는다"로
+ * 판정하려면 열 수를 알아야 한다. Tailwind `sm:`(640px)과 같은 기준을 본다.
+ * 하드코딩(4)하면 모바일 2열에서 선이 엉뚱한 칸에 붙고 돌기가 판 밖으로 잘린다.
+ */
+function useGridCols() {
+  const [cols, setCols] = useState(4);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const mq = window.matchMedia('(min-width: 640px)'); // Tailwind sm
+    const apply = () => setCols(mq.matches ? 4 : 2);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+  return cols;
+}
+
 export default function BoardPage() {
   const t = useT();
+  const cols = useGridCols();
   const queryClient = useQueryClient();
   const addXp = useProgressStore((s) => s.addXp);
   // 번역된 문자열(로케일 변경 시에만 값이 바뀜)을 메모 키로 써서 puzzle 참조를
@@ -259,10 +278,11 @@ export default function BoardPage() {
   // LIST 화면
   const list = puzzles ?? [];
   const clearedCount = list.filter((p) => p.cleared).length;
-  // 4열 격자를 **꽉 채운다** — 남는 자리는 「???」(아직 저작되지 않은 칸)로 메운다.
+  // 격자를 **꽉 채운다** — 남는 자리는 「???」(아직 저작되지 않은 칸)로 메운다.
   // 빈 자리를 그냥 두면 한 판짜리 퍼즐의 아래쪽이 뜯겨 나간 것처럼 보인다.
+  // 채우는 개수는 열 수를 따른다(4열 13개 → 3칸, 2열 13개 → 1칸).
   const cells = [...list];
-  while (cells.length % 4 !== 0) cells.push(null);
+  while (cells.length % cols !== 0) cells.push(null);
   return (
     <div className="pt-2">
       {toast && (
@@ -317,7 +337,7 @@ export default function BoardPage() {
                     key={p.content_item_id}
                     puzzle={p}
                     index={i}
-                    cols={4}
+                    cols={cols}
                     total={cells.length}
                     energyBlocked={energyBlocked}
                     regenMin={regenMin}
@@ -326,7 +346,7 @@ export default function BoardPage() {
                     onOpen={() => openPuzzle(p)}
                   />
                 ) : (
-                  <EmptyPiece key={`empty-${i}`} index={i} cols={4} total={cells.length} />
+                  <EmptyPiece key={`empty-${i}`} index={i} cols={cols} total={cells.length} />
                 ),
               )}
             </div>

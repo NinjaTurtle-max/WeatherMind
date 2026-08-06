@@ -19,6 +19,7 @@
  * 레이아웃 자체(스크롤 스냅·한 화면 한 단계·연결선 좌표)는 jsdom에 레이아웃
  * 엔진이 없어 여기서 재지 않는다 — 실브라우저 실측으로 확인한다.
  */
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -77,7 +78,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const mod = await vite.ssrLoadModule('/src/modules/curriculum/PcCurriculumPath.jsx');
 const PcCurriculumPath = mod.default;
-const { blueEndIndex, stageDoneCount } = mod;
+const { blueEndIndex, stageDoneCount, joinK } = mod;
 
 let failures = 0;
 const ok = (cond, label) => {
@@ -125,6 +126,40 @@ const TOTAL = n;
   ok(blueEndIndex(['current', 'locked']) === -1, '완료 0건이면 파란 길 없음(-1)');
   const allDone = ['cleared', 'cleared'];
   ok(blueEndIndex(allDone) === 1, '전부 완료면 마지막 인덱스에서 멈춘다(넘치지 않음)');
+
+  // 단계 경계에서 길이 튀지 않는가 — **위 단계의 아래꼬리와 아래 단계의 위꼬리가
+  // 같은 x를 써야** 한 줄로 이어져 보인다. 각자 자기 노드 x로 뻗던 시절에는
+  // 3→4 경계가 185px 어긋났다(실측). 좌표는 jsdom에서 못 재지만, **두 단계가
+  // 같은 값을 받는가**는 여기서 지킬 수 있다.
+  const stages = [{ units: [1, 2, 3] }, { units: [1, 2, 3] }, { units: [1, 2] }, { units: [1, 2, 3, 4] }];
+  for (let i = 0; i < stages.length - 1; i += 1) {
+    // 컴포넌트의 **두 호출 지점을 그대로** 흉내 낸다:
+    //   위 단계 i   → joinOutK={joinK(stages, i, i + 1)}
+    //   아래 단계 i+1 → joinInK ={joinK(stages, (i + 1) - 1, i + 1)}
+    // 인덱스를 한 칸 잘못 넘기면 여기서 갈린다(그게 원래 버그의 모양이다).
+    const out = joinK(stages, i, i + 1);
+    const below = i + 1;
+    const into = joinK(stages, below - 1, below);
+    ok(out === into, `경계 ${i + 1}→${i + 2}: 두 단계가 같은 값을 쓴다 — ${out} / ${into}`);
+  }
+  // 순수 함수가 맞아도 **컴포넌트가 인덱스를 한 칸 잘못 넘기면** 다시 어긋난다.
+  // 두 호출 지점이 같은 경계를 가리키는지는 소스로 확인한다(계약 테스트 관례).
+  const pcSrc = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), '../src/modules/curriculum/PcCurriculumPath.jsx'),
+    'utf-8',
+  );
+  ok(
+    pcSrc.includes('joinInK={joinK(withUnits, i - 1, i)}')
+      && pcSrc.includes('joinOutK={joinK(withUnits, i, i + 1)}'),
+    '경계 인덱스: 단계 i의 아래꼬리와 i+1의 위꼬리가 같은 쌍(i, i+1)을 가리킨다',
+  );
+
+  ok(joinK(stages, -1, 0) === 0, '맨 위 경계는 0 — 뻗을 이웃이 없다');
+  ok(joinK(stages, stages.length - 1, stages.length) === 0, '맨 아래 경계는 0');
+  // 중간값이 맞는가 — 한쪽 노드 x로 쏠리면 다시 어긋난다
+  const mid = joinK([{ units: [1, 2] }, { units: [1, 2, 3, 4] }], 0, 1);
+  ok(mid > -1 && mid < 1 && Math.abs(mid) < 0.5,
+     `이웃 두 노드의 중간값이다(한쪽으로 쏠리지 않는다) — ${mid.toFixed(3)}`);
 }
 
 // ── 실마운트 헬퍼 ───────────────────────────────────────────────────────────
