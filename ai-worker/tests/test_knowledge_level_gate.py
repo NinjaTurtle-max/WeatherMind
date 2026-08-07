@@ -295,3 +295,62 @@ class TestParityWithLint:
             ) == lint_module.vocabulary_errors(item, vocabulary), item["template_json"][
                 "question_text"
             ]
+
+
+class TestGenerateTimeRejection:
+    """생성 시점 검사 — 신고를 안 믿는다는 계약이 **런타임 경로에도** 걸리는가.
+
+    게이트(`validate_chain` 체크 16)는 `/internal/quiz-validate`를 부르는 경로에만
+    걸린다. 저작 배치는 부르지만 런타임 세션 생성은 부르지 않는다 — backend가
+    `/internal/quiz-generate` 응답을 그대로 쓴다. R13 D 선행으로 그 응답이
+    `content_items`에 **status=active로 영속화**되면서 그 공백이 실제 결함이 됐다:
+    검증되지 않은 문항이 뱅크에 영구히 남아 저학령 학습자에게 서빙된다.
+    """
+
+    def _q(self, level: int, text: str):
+        from app.chains.payload_contract import QuizQuestion
+
+        return QuizQuestion(
+            concept_tag="pressure_front",
+            question_type="multiple_choice",
+            question_text=text,
+            options=["가", "나", "다", "라"],
+            correct_answer="가",
+            knowledge_level=level,
+        )
+
+    def test_상위_어휘를_낮게_신고하면_반려된다(self):
+        from app.chains import quiz_gen_chain as qgc
+
+        with pytest.raises(ValueError, match="늦게 도입되는 용어"):
+            qgc._reject_if_level_overstated(
+                self._q(2, "한랭전선이 다가올 때 하늘은 어떻게 되는가?")
+            )
+
+    def test_신고가_어휘와_맞으면_통과한다(self):
+        from app.chains import quiz_gen_chain as qgc
+
+        qgc._reject_if_level_overstated(
+            self._q(4, "한랭전선이 다가올 때 하늘은 어떻게 되는가?")
+        )
+
+    def test_폴백_뱅크는_전건_자기_신고와_정합하다(self):
+        """반려 시 내려가는 자리 — 여기가 오염돼 있으면 반려가 의미를 잃는다."""
+        from app.chains import quiz_gen_chain as qgc
+
+        for question in qgc.FALLBACK_QUESTIONS:
+            payload = question if isinstance(question, dict) else question.model_dump()
+            level = payload.get("knowledge_level")
+            assert level is not None, payload.get("question_text")
+            assert not kl.vocabulary_violations(
+                payload, int(level), kl.load_vocabulary()
+            ), payload.get("question_text")
+
+    def test_생성_경로가_검사를_실제로_호출한다(self):
+        """소스 계약 — 재시도 루프 안에서 불린다. 빠지면 조용히 무검사로 돌아간다."""
+        source = (
+            Path(qgc_path).read_text(encoding="utf-8")
+            if (qgc_path := str(Path(__file__).resolve().parents[1] / "app" / "chains" / "quiz_gen_chain.py"))
+            else ""
+        )
+        assert "_reject_if_level_overstated(question)" in source
