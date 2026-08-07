@@ -68,27 +68,51 @@ class TestThetaLabelContract:
         """
         assert wb._THETA_BEGINNER_MAX == -0.5
         assert wb._THETA_INTERMEDIATE_MAX == 0.5
+        # R13 §2.2 expert 밴드 경계 — 두 서비스가 같은 값이어야 한다.
+        assert wb._THETA_ADVANCED_MAX == 1.5
+        assert wb.THETA_BAND_BOUNDS == priors.THETA_BAND_BOUNDS
 
     def test_라벨_구간(self):
         assert wb.theta_level_label(-2.0) == "beginner"
         assert wb.theta_level_label(-0.5) == "intermediate"  # 경계는 상위 구간
         assert wb.theta_level_label(0.0) == "intermediate"
         assert wb.theta_level_label(0.5) == "advanced"
-        assert wb.theta_level_label(2.0) == "advanced"
+        assert wb.theta_level_label(1.49) == "advanced"
+        assert wb.theta_level_label(1.5) == "expert"  # R13 §2.2 — 경계는 상위 구간
+        assert wb.theta_level_label(3.0) == "expert"
 
 
 class TestThetaToLevelGroupContract:
     """R7 §3.2: backend theta_to_level_group ↔ ai-worker
-    priors.theta_to_target_level_group — 같은 θ에 같은 그룹(경계 포함/제외까지)."""
+    priors.theta_to_target_level_group — 같은 θ에 같은 그룹(경계 포함/제외까지).
+
+    R13 §2.2에서 밴드가 4종(expert 추가)이 되면서 경계 1.5 전후를 표본에 넣었다.
+    한쪽 서비스만 밴드를 바꾸면 여기서 깨진다(변이 검증으로 확인).
+    """
 
     @pytest.mark.parametrize(
         "theta",
-        [-3.0, -1.0, -0.51, -0.5, -0.49, 0.0, 0.49, 0.5, 0.51, 1.0, 3.0],
+        [
+            -3.0, -1.0, -0.51, -0.5, -0.49, 0.0, 0.49, 0.5, 0.51, 1.0,
+            1.49, 1.5, 1.51, 2.0, 3.0,
+        ],
     )
     def test_대표값_경계값에서_ai_worker와_동일(self, theta):
         assert wb.theta_to_level_group(theta) == (
             priors.theta_to_target_level_group(theta)
         ), f"θ={theta}에서 backend↔ai-worker 매핑 드리프트"
+
+    def test_밴드_목록_자체가_동일(self):
+        """값 매핑뿐 아니라 밴드 목록·순서도 이원 유지 대상이다."""
+        assert wb.LEVEL_GROUP_BANDS == priors.LEVEL_GROUP_BANDS
+
+    def test_사전분포_평균이_사전_b와_같다(self):
+        """로짓 정합(priors 모듈 docstring): 밴드의 θ 사전평균 = 그 밴드 문항의
+        사전 b. expert(2.0)도 이 규칙을 따라야 밴드 내 기대 정답확률이 0.5다."""
+        for band in priors.LEVEL_GROUP_BANDS:
+            assert priors.LEVEL_GROUP_PRIORS[band][0] == (
+                priors.LEVEL_GROUP_ITEM_B[band]
+            ), f"{band}: 사전평균≠사전 b"
 
 
 class TestPriorItemBContract:

@@ -50,13 +50,26 @@ class Settings(BaseSettings):
     # 조정하기 위한 통로다. 기본값을 바꾸면 스펙 드리프트이므로 계약 테스트가 감시한다
     # (test_r3_r5_contract.TestCloudEnergyConstants / test_session_mix).
 
-    # 세션 배합(§3.2 → R11-01 §9.2에서 10문항으로 개정): kind→개수.
-    # env는 JSON 문자열(예: '{"new":3,"review":2,"live":1}').
+    # 세션 배합(§3.2 → R11-01 §9.2 10문항 → R13-01 §2.10 15문항): kind→개수.
+    # env는 JSON 문자열(예: '{"new":3,"review":2,"live":1,"unit":5}').
     # SESSION_SIZE(총 문항 수)는 이 합에서 파생 — 둘을 독립 구성하지 않는다(드리프트 방지).
-    # 에너지와의 관계: 오답 최대 10 > CLOUD_MAX 5이지만 "진행 중 세션은 잔량 0에도
+    # unit(진도 블록, R13-01 §2.10): 현재 진행 유닛의 다음 문항 5건을 **덧붙인다**
+    # (기존 3종을 대체하지 않는다). 유닛 잔여가 모자라면 부족분은 new로 메운다 —
+    # review 부족분을 new로 대체하는 기존 선례 준용이라 총합은 항상 15다.
+    # 에너지와의 관계: 오답 최대 15 > CLOUD_MAX 5이지만 "진행 중 세션은 잔량 0에도
     # 완주 보장"(R10 에너지 계약)이 이미 흡수한다 — daily-goal(3·5·9)·CLOUD_*는 불변.
-    SESSION_RECIPE: dict[str, int] = {"new": 5, "review": 4, "live": 1}
+    SESSION_RECIPE: dict[str, int] = {"new": 5, "review": 4, "live": 1, "unit": 5}
     UNIT_SESSION_SIZE: int = 5           # 커리큘럼 유닛 세션 문항 수
+
+    # 생성 문항 영속화 상태 (R13 A-1/D 선행 — session_service.persist_generated_items).
+    # quiz-generate 폴백 산출물을 content_items에 적재할 때 부여하는 status다.
+    #   'active' — 다음 세션부터 **뱅크로 재사용**된다. 생성 1회 비용이 영구 자산이
+    #              되는 유일한 값이고, 그것이 이 기능의 목적이다(기본값).
+    #   'draft'  — 저장만 하고 재출제하지 않는다(사람 검수 후 승격 전제).
+    #              θ·복습 큐·간격반복 배선(quiz_logs.content_item_id)은 status와
+    #              무관하게 살아 있으므로 draft로 내려도 절반은 남는다.
+    # 값 판단 근거·되돌리는 법은 persist_generated_items 독스트링에 있다.
+    GENERATED_ITEM_STATUS: str = "active"
 
     # 구름 에너지 경제(§3.3): 기본값 = 계약 수치(만렙 5·20분당 1 회복·시도당 1 소모).
     CLOUD_MAX: int = 5
@@ -67,6 +80,11 @@ class Settings(BaseSettings):
     # CONCEPT_TAGS 6개념당 1문항). 드리프트는 test_placement가 감시.
     PLACEMENT_SIZE: int = 6
 
+    # 분반 리더보드 (R13-01 §2.8): 기본값 = 계약 수치(소집단 30인 · 이웃 위아래 3명).
+    # 드리프트는 test_league_division이 감시한다(PLACEMENT_SIZE 전례).
+    LEAGUE_DIVISION_SIZE: int = 30
+    LEAGUE_NEIGHBOR_SPAN: int = 3
+
     # ── 개발자 모드 (R7-03) ──
     # true면 /api/v1/dev 라우터(자기 계정 상태 진단·조작)가 등록된다. 개발 전용 —
     # 운영 금지. 기본 false 고정은 계약 테스트가 감시한다(test_dev_mode —
@@ -76,7 +94,7 @@ class Settings(BaseSettings):
     @field_validator("SESSION_RECIPE")
     @classmethod
     def _validate_recipe(cls, value: dict[str, int]) -> dict[str, int]:
-        allowed = {"new", "review", "live"}
+        allowed = {"new", "review", "live", "unit"}
         unknown = set(value) - allowed
         if unknown:
             raise ValueError(f"SESSION_RECIPE 알 수 없는 kind: {sorted(unknown)}")
@@ -84,6 +102,16 @@ class Settings(BaseSettings):
             raise ValueError("SESSION_RECIPE 개수는 음수일 수 없습니다")
         if sum(value.values()) < 1:
             raise ValueError("SESSION_RECIPE 총합은 1 이상이어야 합니다")
+        return value
+
+    @field_validator("GENERATED_ITEM_STATUS")
+    @classmethod
+    def _validate_generated_status(cls, value: str) -> str:
+        # 'retired'는 뜻이 없다(적재 직후 은퇴). DB CHECK 3종 중 2종만 허용한다.
+        if value not in ("draft", "active"):
+            raise ValueError(
+                f"GENERATED_ITEM_STATUS는 'draft'|'active'만 허용: {value!r}"
+            )
         return value
 
 

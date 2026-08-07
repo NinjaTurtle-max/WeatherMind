@@ -49,6 +49,12 @@ class ProgressMe(BaseModel):
     # weather_api.user_region). 저장값 원본을 그대로 노출한다 — 프론트가 "미설정"
     # (픽커 유도)과 "서울로 설정"을 구분해야 하므로(daily_goal_items 선례).
     region: str | None = None
+    # 표현 톤 — R13-0 §1 (additive). **해석된 값**을 노출한다(child·teen·adult).
+    # region이 저장 원본(null 포함)을 노출한 것과 의도적으로 다르다: region은 프론트가
+    # "미설정"과 "서울로 설정"을 구분해 픽커를 유도해야 했지만, 톤은 설정 화면이
+    # 범위 밖(§3.2)이라 프론트가 구분할 일이 없고 필요한 건 "어떤 말투로 그릴까"
+    # 하나뿐이다. 미신고 폴백은 weatherbrain_service.effective_tone이 소유한다.
+    tone: str = "teen"
 
 
 class DailyGoalUpdate(BaseModel):

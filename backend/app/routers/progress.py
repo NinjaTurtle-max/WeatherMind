@@ -1,6 +1,6 @@
 """Progress API (/api/v1/progress) — 02번 스펙 + R4-01 §3.1·§3.2·§3.3.
 
-| GET  | /me         | XP·레벨·스트릭·티어·스파인 → {xp, level, streak_count, streak_freeze_count, next_level_xp, tier, ..., spine} |
+| GET  | /me         | XP·레벨·스트릭·티어·스파인 → {xp, level, streak_count, streak_freeze_count, next_level_xp, tier, ..., spine, tone} |
 | GET  | /weak-tags  | θ 파생 약점 개념 (학령 상대 임계, θ 오름차순 — R8-01 §3.5) → WeakConceptOut[] |
 | GET  | /review-queue | 간격반복 복습 큐 (시간 축 — R11-01 C2) → ReviewQueueItem[] |
 | POST | /attendance | 출석 체크 (하루 1회) → {streak_count, is_new_record} |
@@ -126,6 +126,7 @@ async def get_me(
         daily_goal_items=user.daily_goal_items,
         today_answered_count=answered_today,
         region=user.region,
+        tone=weatherbrain_service.effective_tone(user),
     )
 
 

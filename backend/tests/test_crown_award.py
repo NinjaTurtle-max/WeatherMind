@@ -351,10 +351,20 @@ def make_session(mode="daily", unit_id=None, completed=False, route_target=None)
     )
 
 
-def make_log(concept_tag, correct=True):
+def make_log(concept_tag, correct=True, retry_correct=None):
+    # retry_correct는 R13-01 §2.1(0011)에서 추가된 만회 라운드 컬럼 —
+    # 기본 None(만회 시도 없음)이면 왕관 판정이 개정 전과 동일하다.
     return SimpleNamespace(
-        concept_tag=concept_tag, is_correct=correct, user_answer="답"
+        concept_tag=concept_tag,
+        is_correct=correct,
+        retry_correct=retry_correct,
+        user_answer="답",
     )
+
+
+async def _no_closing_step(db, user, today=None):
+    """예보 마감 단계 대역 — "단계 없음"(R13 A-1). 배선 하네스 공용."""
+    return None
 
 
 def run_complete(monkeypatch, session, logs, *, award=None, unit_payload=None):
@@ -381,6 +391,12 @@ def run_complete(monkeypatch, session, logs, *, award=None, unit_payload=None):
     async def fake_quests(db, user, day):
         calls["quests"] = day
 
+    # 예보 마감 단계(R13 A-1)는 duels 조회 + KMA 캐시를 타므로 이 배선 하네스의
+    # 관심사가 아니다 — 단계 없음으로 고정한다. 판정 자체는
+    # tests/test_forecast_closing_step.py가 단독으로 문다.
+    monkeypatch.setattr(
+        session_router.session_service, "forecast_closing_step", _no_closing_step
+    )
     monkeypatch.setattr(session_router, "_load_session_or_404", fake_load)
     monkeypatch.setattr(session_router, "_session_logs", fake_logs)
     monkeypatch.setattr(cs, "award_crown_for_activity", fake_award)
@@ -444,14 +460,20 @@ class TestCompleteSessionUnitResult:
         "cleared": True, "unit_xp": 20,
     }
 
-    def test_유닛_세션_만점_최초_완료는_grant_crown_True(self, monkeypatch):
+    def test_유닛_세션_만점_최초_완료도_grant_crown_False(self, monkeypatch):
+        """R13-01 §2.10 왕관 소유권 이전 — 유닛 직접 진입은 **연습 전용**이다.
+
+        개정 전에는 (unit_id, True, True)로 왕관을 가산했다. 왕관 유입로가 일일
+        세션의 진도 블록으로 옮겨졌으므로 여기서 또 주면 하루 1왕관 상한이
+        무너진다(같은 진도에 이중 수여). 진도 스냅샷 노출은 그대로다.
+        """
         unit_id = uuid.uuid4()
         session = make_session(mode="unit", unit_id=unit_id)
         logs = [make_log("air_mass") for _ in range(5)]
         result, calls = run_complete(
             monkeypatch, session, logs, unit_payload=self.UNIT_PAYLOAD
         )
-        assert calls["unit_result"] == (unit_id, True, True)
+        assert calls["unit_result"] == (unit_id, True, False)
         assert result.unit_result is not None
         assert result.unit_result.all_correct is True
         assert result.unit_result.crowns == 1

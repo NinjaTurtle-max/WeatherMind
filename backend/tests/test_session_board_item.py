@@ -186,9 +186,11 @@ class TestSeedBoardRoundTrip:
         }
         return _question_payload(question)
 
-    def test_시드_board_12건(self):
+    def test_시드_board_수_고정(self):
         """시드 board 문항 수 고정 — 증감 시 이 계약과 §3.5 커버리지를 함께 갱신."""
-        assert len(self.boards) == 13  # R12 §9 — 기존 12 + bs-convection-board 귀속 1
+        # R12 §9 13건 → R13 2일차 통합 병합으로 34건(2일차 저작 7 + 규칙 확장 10 +
+        # 재난 연쇄 4). 규칙이 8→13종이 되면서 저단계·상단계 퍼즐이 함께 열렸다.
+        assert len(self.boards) == 34
 
     def test_전건_렌더_필수_필드_온전(self):
         for i, item in enumerate(self.boards):

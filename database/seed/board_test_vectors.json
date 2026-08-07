@@ -160,5 +160,119 @@
       {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
       {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
     ]
+  },
+  {
+    "name": "okhotsk_sea_fog: 오호츠크해 기단+고습으로 동해안 해무 (R13 확장)",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "okhotsk", "zone": 3},
+        {"type": "moisture", "level": 80, "zone": 3}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "fog", "cloud": "stratus"}
+    ]
+  },
+  {
+    "name": "okhotsk_foehn_clear: 오호츠크해 기단+건조(산을 넘은 공기)로 수도권 맑음 (R13 확장)",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "okhotsk", "zone": 1},
+        {"type": "moisture", "level": 20, "zone": 1}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "clear", "cloud": "none"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "yangtze_mild_clear: 양쯔강 기단만 놓아도(습기 미배치 기본 40) 서해 맑음 (R13 확장)",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "yangtze", "zone": 0}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "clear", "cloud": "none"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "yangtze_morning_fog: 양쯔강 기단+약한 일사+습기로 수도권 새벽 안개 (R13 확장)",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "yangtze", "zone": 1},
+        {"type": "sun", "level": 15, "zone": 1},
+        {"type": "moisture", "level": 70, "zone": 1}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "fog", "cloud": "stratus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "dry_convection_clear: 전선·기단 없이 강한 일사+건조로 태백산맥 맑음 (R13 확장)",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "sun", "level": 90, "zone": 2},
+        {"type": "moisture", "level": 20, "zone": 2}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "clear", "cloud": "none"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "priority_expansion_1: 북태평양 폭염(40)과 건조대류 맑음(18)이 함께 성립 → 기존 규칙 우선",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 0},
+        {"type": "sun", "level": 85, "zone": 0},
+        {"type": "moisture", "level": 20, "zone": 0}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "heatwave", "cloud": "none"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "priority_expansion_2: 한랭전선 소나기(100)와 오호츠크 해무(26)가 함께 성립 → 기존 규칙 우선",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "okhotsk", "zone": 3},
+        {"type": "front", "subtype": "cold", "zone": 3},
+        {"type": "moisture", "level": 75, "zone": 3}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "shower", "cloud": "cumulonimbus"}
+    ]
   }
 ]

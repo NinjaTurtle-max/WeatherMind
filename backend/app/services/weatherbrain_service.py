@@ -60,26 +60,60 @@ CONCEPT_TAGS: tuple[str, ...] = (
     "phase_change",
     "density_buoyancy",
     "energy_transfer",
+    # 재난 축 2종 (R13 §2.4 — 산불 기상·홍수 대응). θ 초기화 대상에는 넣되
+    # PLACEMENT_QUIZ_TAGS(위)에는 넣지 않는다: 배치 6문항이 "개념당 1"을 만족해야
+    # 하므로 진단 도메인은 기상 6종으로 고정한다(R12 §9 판정 준용).
+    "wildfire_weather",
+    "flood_response",
 )
 
-# θ → 사람이 읽는 난이도 라벨. 경계(-0.5, 0.5)는 ai-worker priors.theta_to_target_level_group
-# 및 router_chain.THETA_FOCUS_THRESHOLD와 정합해야 한다(교차 서비스 의미론 — 계약 테스트가 감시).
-_THETA_BEGINNER_MAX = -0.5
-_THETA_INTERMEDIATE_MAX = 0.5
+# ── 학령 밴드(level_group)와 θ 경계 — backend 단일 공급원 (R13 §2.2) ──────────
+# 밴드는 난이도 오름차순, 경계는 **인접 밴드 사전평균의 중점**이다:
+#   elementary −1.0 · middle_high 0.0 · adult 1.0 · expert 2.0
+#   → 경계 −0.5 · 0.5 · 1.5
+# 이 규칙(중점)은 R7부터의 기존 경계 −0.5·0.5를 그대로 재생산하므로, expert 추가가
+# 기존 3밴드의 판정을 한 건도 바꾸지 않는다(순수 확장). ai-worker
+# priors.LEVEL_GROUP_BANDS·THETA_BAND_BOUNDS와 값이 같아야 하고 드리프트는
+# test_weatherbrain_contract가 감시한다. 하단 경계 −0.5는 router_chain.
+# THETA_FOCUS_THRESHOLD와도 같은 값이어야 한다(교차 서비스 의미론).
+#
+# 주의: placement_service.LEVEL_GROUPS(3종)와 다른 상수다 — 배치고사 진단 도메인은
+# 6문항·서로소 계약 때문에 3밴드로 고정한다(R12의 PLACEMENT_QUIZ_TAGS 분리와 동일 취지).
+LEVEL_GROUP_BANDS: tuple[str, ...] = (
+    "elementary",
+    "middle_high",
+    "adult",
+    "expert",
+)
+THETA_BAND_BOUNDS: tuple[float, ...] = (-0.5, 0.5, 1.5)
+# 표시용 라벨(밴드와 1:1, 같은 순서).
+THETA_BAND_LABELS: tuple[str, ...] = (
+    "beginner",
+    "intermediate",
+    "advanced",
+    "expert",
+)
+
+# 기존 이름 유지(계약 테스트·독자 참조) — 경계 튜플에서 파생하므로 이원 정의가 아니다.
+_THETA_BEGINNER_MAX = THETA_BAND_BOUNDS[0]
+_THETA_INTERMEDIATE_MAX = THETA_BAND_BOUNDS[1]
+_THETA_ADVANCED_MAX = THETA_BAND_BOUNDS[2]
 
 
-def _theta_bucket(theta: float, labels: tuple[str, str, str]) -> str:
-    """θ 3구간 이산화 — 경계(-0.5, 0.5)는 하위 구간 제외·상위 구간 포함."""
-    if theta < _THETA_BEGINNER_MAX:
-        return labels[0]
-    if theta < _THETA_INTERMEDIATE_MAX:
-        return labels[1]
-    return labels[2]
+def _theta_bucket(theta: float, labels: tuple[str, ...]) -> str:
+    """θ 밴드 이산화 — 경계는 하위 밴드 제외·상위 밴드 포함(< 비교).
+
+    labels는 THETA_BAND_BOUNDS보다 정확히 1개 많아야 한다(밴드 수 = 경계 수 + 1).
+    """
+    for bound, label in zip(THETA_BAND_BOUNDS, labels):
+        if theta < bound:
+            return label
+    return labels[-1]
 
 
 def theta_level_label(theta: float) -> str:
-    """능력 θ를 초급/중급/고급 라벨로 이산화(표시용)."""
-    return _theta_bucket(theta, ("beginner", "intermediate", "advanced"))
+    """능력 θ를 초급/중급/고급/전문가 라벨로 이산화(표시용)."""
+    return _theta_bucket(theta, THETA_BAND_LABELS)
 
 
 # ai-worker priors.LEVEL_GROUP_ITEM_B와 동일값의 backend 상수 — 뱅크 풀 정렬에서
@@ -90,9 +124,116 @@ LEVEL_GROUP_ITEM_B: dict[str, float] = {
     "elementary": -1.0,
     "middle_high": 0.0,
     "adult": 1.0,
+    # R13 §2.2 전문가 밴드 — 사전평균과 같은 값(로짓 정합: 밴드 내 기대 정답확률 0.5).
+    "expert": 2.0,
 }
 # 미지 level_group 방어값 (ai-worker priors._DEFAULT_ITEM_B와 동일 — 중립).
 DEFAULT_ITEM_B: float = 0.0
+
+# ── 2축 분리: 지식 수준(난이도) · 표현 톤(말투) — R13-0 §1 ────────────────────
+# `level_group` 하나가 겸하던 두 일을 가른다. 단계 정의값의 SSOT는 CU-1의 교육과정
+# 조사(docs/specs/12_curriculum_levels.md)이고, 아래 표는 그 문서 **§5.3 파생 뷰
+# 정의표를 코드로 옮긴 것**이다(골격 착지 시점의 초안을 2026-08-07 정정 — 초안은
+# 3→middle_high·4→adult로 중학 유체 지구 영역을 성인 밴드에 붙여 놓았었다).
+#
+# 단계 수 N을 코드 어디에도 박지 않는다 — N은 오직 아래 튜플의 길이에서 나온다.
+# 조사가 단계 수를 6→7로 바꿔도 이 튜플 한 줄만 고치면 되고, DB DDL은 열지 않는다
+# (마이그레이션 0012가 knowledge_level에 상한 제약을 걸지 않은 이유).
+#
+# 색인 i(0-based)의 값 = 지식 수준 (KNOWLEDGE_LEVEL_MIN + i) 이 파생하는 학령 밴드.
+# 밴드는 난이도 오름차순이어야 하고(LEVEL_GROUP_BANDS 순서), 모든 밴드가 최소 한 번
+# 나와야 한다(그래야 level_group→knowledge_level→level_group 왕복이 항등이다).
+# 두 성질 모두 test_two_axis_levels가 감시한다.
+KNOWLEDGE_LEVEL_BANDS: tuple[str, ...] = (
+    "elementary",   # 1 — 초등 3~4학년군
+    "elementary",   # 2 — 초등 5~6학년군
+    "middle_high",  # 3 — 중학교 과학 물질·에너지 영역
+    "middle_high",  # 4 — 중학교 과학 유체 지구 영역
+    "adult",        # 5 — 고교 정성 구간
+    "expert",       # 6 — 힘·정량 구간 + 교육과정 밖
+)
+KNOWLEDGE_LEVEL_MIN: int = 1
+KNOWLEDGE_LEVEL_MAX: int = KNOWLEDGE_LEVEL_MIN + len(KNOWLEDGE_LEVEL_BANDS) - 1
+
+# 무정보 기본값 밴드 — routers.auth.GUEST_LEVEL_GROUP과 같은 값이어야 한다
+# (게스트·미지 값이 같은 자리로 떨어져야 파생 결과가 갈라지지 않는다).
+NEUTRAL_LEVEL_GROUP: str = "middle_high"
+
+# 표현 톤 — 가입 신고값(users.tone). 지식 수준과 달리 조사 대상이 아니라 설계로
+# 고정된 3종이다(§1 표: 어린이·청소년·성인).
+TONES: tuple[str, ...] = ("child", "teen", "adult")
+# users.tone이 NULL(미신고)일 때의 파생표 — 기존 level_group 신고값에서 톤을 읽는다.
+# expert는 신고 학령이 아니지만(§5) 방어적으로 성인 톤에 붙인다.
+LEVEL_GROUP_TONE: dict[str, str] = {
+    "elementary": "child",
+    "middle_high": "teen",
+    "adult": "adult",
+    "expert": "adult",
+}
+
+
+def level_group_of_knowledge_level(level: int) -> str:
+    """지식 수준(1~N) → 학령 밴드 — **하위 호환 파생 뷰**의 핵심.
+
+    범위 밖 값은 양 끝으로 클램프한다(미지 값에 중립 폴백을 주는 DEFAULT_ITEM_B
+    관례). 상한을 DB가 아니라 여기서 보기 때문에 방어가 필요하다.
+    """
+    index = int(level) - KNOWLEDGE_LEVEL_MIN
+    index = max(0, min(index, len(KNOWLEDGE_LEVEL_BANDS) - 1))
+    return KNOWLEDGE_LEVEL_BANDS[index]
+
+
+def knowledge_level_of_level_group(level_group: str) -> int:
+    """학령 밴드 → 지식 수준 대표값 — knowledge_level이 NULL(미분류)일 때의 폴백.
+
+    한 밴드가 여러 단계에 걸치므로 대표값이 필요하다. **밴드의 최하 단계**를 쓴다:
+    미분류 문항을 실제보다 어렵게 보지 않는 쪽이 안전하고(과대평가는 학습자를
+    막는다), 이 선택이 밴드→단계→밴드 왕복을 항등으로 만든다.
+    미지 밴드는 표 중앙(무정보 기본값 — DEFAULT_ITEM_B 중립 관례).
+    """
+    if level_group in KNOWLEDGE_LEVEL_BANDS:
+        return KNOWLEDGE_LEVEL_MIN + KNOWLEDGE_LEVEL_BANDS.index(level_group)
+    return (KNOWLEDGE_LEVEL_MIN + KNOWLEDGE_LEVEL_MAX) // 2
+
+
+def effective_knowledge_level(item) -> int:
+    """문항의 지식 수준 — NULL(미분류)이면 level_group에서 파생 (0012 폴백 계약).
+
+    weather_api.user_region과 같은 방어 관례: 속성이 없는 대역(SimpleNamespace
+    스텁)도 폴백 경로로 떨어진다.
+    """
+    level = getattr(item, "knowledge_level", None)
+    if level is None:
+        return knowledge_level_of_level_group(getattr(item, "level_group", None))
+    return int(level)
+
+
+def effective_level_group(item) -> str:
+    """문항의 학령 밴드 — **하위 호환 파생 뷰**(R13-0 §3.1-2).
+
+    knowledge_level이 있으면 새 축에서 파생하고, 미분류(NULL)면 **저장된
+    level_group을 그대로** 돌려준다. 후자를 정규화하지 않는 것이 요점이다 —
+    기존 소비처(pool_level_groups·placement_service·저작 검증기)가 오늘 보는 값과
+    한 글자도 달라지지 않아야 이 뷰가 무해한 추가가 된다.
+    """
+    level = getattr(item, "knowledge_level", None)
+    if level is None:
+        return getattr(item, "level_group", None)
+    return level_group_of_knowledge_level(level)
+
+
+def effective_tone(user) -> str:
+    """사용자의 표현 톤 — NULL(미신고)이면 level_group에서 파생 (0012 폴백 계약).
+
+    저장값이 톤 어휘 밖이면(과거 데이터·수동 조작) 파생 경로로 방어한다
+    (weather_api.user_region의 화이트리스트 방어와 같은 취지).
+    """
+    tone = getattr(user, "tone", None)
+    if tone in TONES:
+        return tone
+    return LEVEL_GROUP_TONE.get(
+        getattr(user, "level_group", None), LEVEL_GROUP_TONE[NEUTRAL_LEVEL_GROUP]
+    )
 
 # 약점 판정 기대확률 계약 (R8-01 §3.5) — "학령 표준 문항(사전 b)을 맞힐 기대확률
 # P = σ(θ − b)가 이 값 미만"이면 약점. 구 weak_tags의 정답률 60% 임계와 수치는
@@ -133,7 +274,7 @@ def theta_to_level_group(theta: float) -> str:
     ai-worker priors.theta_to_target_level_group과 동일 의미·동일 경계.
     동일성은 계약 테스트가 감시한다.
     """
-    return _theta_bucket(theta, ("elementary", "middle_high", "adult"))
+    return _theta_bucket(theta, LEVEL_GROUP_BANDS)
 
 
 def overall_theta(

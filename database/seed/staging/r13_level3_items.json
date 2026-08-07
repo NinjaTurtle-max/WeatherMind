@@ -1,0 +1,467 @@
+[
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "철로의 이음매나 다리의 연결 부분에 일부러 좁은 틈을 두는 까닭으로 옳은 것은?",
+      "options": [
+        "온도가 올라가면 금속이 늘어나 부피가 커지기 때문이다",
+        "온도가 올라가면 금속의 질량이 늘어나기 때문이다",
+        "온도가 올라가면 금속의 비열이 점점 작아지기 때문이다",
+        "온도가 올라가면 금속이 열을 흡수하지 못하게 되기 때문이다"
+      ],
+      "correct_answer": "온도가 올라가면 금속이 늘어나 부피가 커지기 때문이다",
+      "explanation_hint": "물질은 온도가 올라가면 부피가 커진다. 이것을 열팽창이라고 한다. 틈을 두지 않으면 더운 날 늘어난 금속끼리 서로 밀어 휘어질 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 열팽창·비열(3단계 도입) / R2 +0 (두 개념의 인과 1회 연결)",
+        "성취기준 [9과03-03]",
+        "경계: 4단계 용어(기권·전선·기단) 미사용 — 물질의 성질만 다룬다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "섭씨 온도는 1기압에서 물이 어는 온도와 물이 끓는 온도 사이를 똑같은 간격으로 나누어 한 칸을 1℃로 정한 눈금이다. 두 온도 사이를 몇 등분한 것인가? (단위: 등분)",
+      "correct_answer": "100",
+      "explanation_hint": "섭씨 온도는 물이 어는 온도를 0℃, 끓는 온도를 100℃로 두고 그 사이를 100등분해 한 칸을 1℃로 정한 눈금이다. 온도는 물체가 차갑고 뜨거운 정도를 나타내는 값이다.",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "등분"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 온도·온도계(3단계 재사용) / R2 +0 (단일 사실 회상)",
+        "성취기준 [9과03-01]",
+        "R3 미해당 — 섭씨 눈금 100등분은 교과 정의이지 실무 기준 수치가 아니다",
+        "slider 관용오차 ±10 대응: 오답 후보(10·50)와 50 이상 벌어진다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "같은 열량을 받아도 물질마다 온도가 오르는 정도가 다른 것은, 물질마다 ___이(가) 다르기 때문이다.",
+      "correct_answer": "비열",
+      "explanation_hint": "어떤 물질 1g의 온도를 1℃ 올리는 데 필요한 열량을 비열이라고 한다. 비열이 큰 물질은 같은 열을 받아도 온도가 천천히 오르고 천천히 식는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 비열(3단계 도입, 정답 사용) / R2 +0 (정의 회상)",
+        "성취기준 [9과03-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "적외선 온도계는 물체에 직접 닿지 않고도 물체의 온도를 잴 수 있다. 그 원리로 옳은 것은?",
+      "options": [
+        "모든 물체가 자기 온도에 따라 내보내는 복사 에너지를 재기 때문이다",
+        "물체와 온도계 사이의 공기가 열을 전도해 옮겨 주기 때문이다",
+        "물체 주위의 공기가 대류해 온도계까지 열을 실어 오기 때문이다",
+        "물체가 내보내는 소리의 높낮이를 재어 온도로 바꾸기 때문이다"
+      ],
+      "correct_answer": "모든 물체가 자기 온도에 따라 내보내는 복사 에너지를 재기 때문이다",
+      "explanation_hint": "모든 물체는 온도에 따라 복사의 형태로 에너지를 내보낸다. 복사는 물질의 도움 없이 열이 직접 이동하는 방법이므로, 닿지 않고도 온도를 알아낼 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 복사·전도·대류(2단계 도입) → 열전달 3형식의 구분 요구로 3단계 정박 / R2 +0",
+        "성취기준 [9과03-02]",
+        "경계: 복사 평형·온실효과(4단계 [9과17-01])를 쓰지 않고 열전달 방법으로만 다룬다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "태양의 열이 공기가 거의 없는 우주 공간을 건너 지구까지 오는 것처럼, 중간에 물질이 없어도 열이 직접 이동하는 방법을 무엇이라고 하는가?",
+      "correct_answer": "복사",
+      "explanation_hint": "열이 이동하는 방법에는 전도, 대류, 복사가 있다. 그중 복사는 중간에 물질이 없어도 열이 직접 전달되는 방법이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 복사(2단계 도입) → 3형식 구분·명칭 요구로 3단계 정박 / R2 +0",
+        "성취기준 [9과03-02]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "한여름에 밝은 색 옷이 어두운 색 옷보다 덜 뜨거운 것은, 밝은 색 표면이 햇빛을 더 많이 ___하기 때문이다.",
+      "correct_answer": "반사",
+      "explanation_hint": "표면에 닿은 햇빛 가운데 일부는 흡수되고 나머지는 반사된다. 밝은 색 표면은 반사하는 양이 많아 흡수하는 양이 적으므로 덜 뜨거워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 복사·흡수·반사(3단계 이하) / R2 +0 (단일 인과)",
+        "성취기준 [9과03-02]",
+        "경계: '반사'는 쓰되 '알베도'(6단계, 교육과정 전 범위 미수록)는 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "밀폐된 그릇에 담긴 기체가 그릇의 안쪽 벽을 미는 압력이 생기는 까닭으로 옳은 것은?",
+      "options": [
+        "기체 입자가 쉬지 않고 움직이며 그릇 벽에 부딪히기 때문이다",
+        "기체 입자가 서로 달라붙어 그릇 벽을 밀어내기 때문이다",
+        "기체 입자가 그릇 바닥으로 가라앉아 차곡차곡 쌓이기 때문이다",
+        "기체 입자가 그릇 벽을 바깥쪽에서 잡아당기기 때문이다"
+      ],
+      "correct_answer": "기체 입자가 쉬지 않고 움직이며 그릇 벽에 부딪히기 때문이다",
+      "explanation_hint": "기체 입자는 모든 방향으로 쉬지 않고 움직이며 그릇 벽에 부딪힌다. 이 충돌이 벽을 미는 힘으로 나타난 것이 기체의 압력이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 압력·입자 운동(3단계 도입) / R2 +0 (단일 인과)",
+        "성취기준 [9과06-01]",
+        "경계: 기압의 정의·일기도(4단계 [9과17-04])가 아니라 기체 압력의 입자 모형이다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "찌그러진 탁구공을 뜨거운 물에 담그면 다시 둥글게 펴진다. 그 까닭으로 옳은 것은?",
+      "options": [
+        "온도가 높아져 공 속 기체 입자의 운동이 활발해지고 부피가 커지기 때문이다",
+        "온도가 높아져 공 속 기체 입자의 수가 늘어나기 때문이다",
+        "뜨거운 물이 공의 벽을 통과해 공 안으로 들어가기 때문이다",
+        "온도가 높아져 공 속 기체 입자 하나하나의 크기가 커지기 때문이다"
+      ],
+      "correct_answer": "온도가 높아져 공 속 기체 입자의 운동이 활발해지고 부피가 커지기 때문이다",
+      "explanation_hint": "온도가 높아지면 기체 입자의 운동이 활발해져 같은 압력에서 부피가 커진다. 입자의 수나 입자 하나의 크기가 달라지는 것은 아니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 기체의 온도–부피 관계(3단계 도입) / R2 +0 (단일 인과)",
+        "성취기준 [9과06-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "온도가 일정할 때 밀폐된 기체의 부피를 줄이면 같은 넓이의 벽에 부딪히는 입자 수가 늘어나므로, 기체의 ___이(가) 커진다.",
+      "correct_answer": "압력",
+      "explanation_hint": "온도가 일정할 때 기체의 부피가 줄어들면 벽에 부딪히는 횟수가 늘어나 압력이 커진다. 반대로 부피가 커지면 압력은 작아진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 압력·기체의 압력–부피 관계(3단계 도입, 정답 사용) / R2 +0",
+        "성취기준 [9과06-02]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "1기압에서 얼음에 열을 계속 가하면 얼음이 다 녹을 때까지 온도가 오르지 않고 일정하게 유지된다. 이때 유지되는 온도는 몇 ℃인가? (단위: ℃)",
+      "correct_answer": "0",
+      "explanation_hint": "1기압에서 얼음이 녹는 동안 온도는 0℃로 일정하다. 가한 열이 온도를 올리는 데 쓰이지 않고 상태를 바꾸는 데 쓰이기 때문이다.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "℃"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 융해·상태 변화와 열에너지 출입(3단계 도입) / R2 +0 (단일 사실 회상)",
+        "성취기준 [9과04-04]",
+        "R3 미해당 — 1기압 녹는점 0℃는 교과 수치다",
+        "slider 관용오차 ±10 대응: 최유력 오답 후보(끓는점 100)와 100 벌어진다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "차가운 얼음 조각을 그릇에 담아 약한 불로 계속 가열할 때 관찰되는 변화를 순서대로 배열하세요.",
+      "items": [
+        "얼음의 온도가 0℃까지 올라간다",
+        "0℃를 유지한 채 얼음이 녹아 물이 된다",
+        "다 녹은 물의 온도가 100℃까지 올라간다",
+        "100℃를 유지한 채 물이 끓어 수증기가 된다",
+        "그릇 속의 물이 모두 수증기로 변해 사라진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "상태가 변하는 동안에는 가한 열이 온도를 올리는 데 쓰이지 않고 상태를 바꾸는 데 쓰이므로 온도가 일정하게 유지된다. 상태 변화가 끝나면 다시 온도가 올라간다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 융해·기화·상태 변화와 열에너지 출입(3단계 도입) / R2 +0 (관찰 순서 — 인과 사슬 아님)",
+        "성취기준 [9과04-03]",
+        "중복 회피: 본시드·staging의 ordering|phase_change 정답키 012·0123을 피해 5항목(01234)으로 저작"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "물질의 상태 변화와 그 이름을 알맞게 연결하세요.",
+      "pairs": [
+        { "left": "고체가 액체로 변한다", "right": "융해" },
+        { "left": "액체가 고체로 변한다", "right": "응고" },
+        { "left": "액체가 기체로 변한다", "right": "기화" },
+        { "left": "기체가 액체로 변한다", "right": "액화" }
+      ],
+      "correct_answer": "고체가 액체로 변한다:융해|액체가 고체로 변한다:응고|액체가 기체로 변한다:기화|기체가 액체로 변한다:액화",
+      "explanation_hint": "상태 변화는 융해, 응고, 기화, 액화, 승화로 구분한다. 융해와 기화는 주위에서 열을 흡수하고, 응고와 액화는 주위로 열을 내놓는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 융해·응고·기화·액화(3단계 도입, 정답 사용) / R2 +0 (명칭 대응)",
+        "성취기준 [9과04-02]",
+        "해설 근거: [9과04] 해설 '융해, 응고, 기화, 액화, 승화를 구분'"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "어떤 물질의 질량을 그 물질의 부피로 나눈 값으로, 물질마다 고유하게 정해져 있는 이 값을 무엇이라고 하는가?",
+      "correct_answer": "밀도",
+      "explanation_hint": "질량을 부피로 나눈 값을 밀도라고 한다. 같은 부피라면 질량이 클수록 밀도가 크고, 같은 질량이라면 부피가 작을수록 밀도가 크다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 밀도(3단계 잠정 배치) / R2 +0 (정의 회상)",
+        "성취기준 [9과04-02] 인접 — 밀도의 성취기준 코드는 미확정(docs/specs/12 §9-③, 3단계 잠정)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "질량이 같은 두 물체 A와 B가 있다. A의 부피가 B의 부피보다 작을 때, 두 물체에 대한 설명으로 옳은 것은?",
+      "options": [
+        "A의 밀도가 B의 밀도보다 크다",
+        "B의 밀도가 A의 밀도보다 크다",
+        "질량이 같으므로 두 물체의 밀도도 서로 같다",
+        "부피가 작은 A는 밀도도 함께 작아진다"
+      ],
+      "correct_answer": "A의 밀도가 B의 밀도보다 크다",
+      "explanation_hint": "밀도는 질량을 부피로 나눈 값이다. 질량이 같다면 부피가 작을수록 나눈 값이 커지므로 밀도가 크다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 밀도(3단계 잠정 배치) / R2 +0 (한 관계의 방향 판단 — 수치 계산 없음)",
+        "성취기준 [9과04-02] 인접 — 밀도 코드 미확정(docs/specs/12 §9-③)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "물이 얼어 얼음이 되면 질량은 그대로인데 부피는 늘어난다. 이 사실로 설명할 수 있는 현상으로 옳은 것은?",
+      "options": [
+        "얼음이 물 위에 뜬다",
+        "얼음이 물보다 무거워져 물속으로 가라앉는다",
+        "얼음이 녹으면 물의 질량이 늘어난다",
+        "얼음의 온도가 물의 온도보다 높아진다"
+      ],
+      "correct_answer": "얼음이 물 위에 뜬다",
+      "explanation_hint": "같은 질량의 물이 얼면서 부피가 늘어나므로 얼음의 밀도는 물보다 작다. 밀도가 작은 얼음은 물 위에 뜬다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 상태 변화·밀도(3단계) / R2 +0 (두 개념의 인과 1회 연결)",
+        "성취기준 [9과04-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "열이 이동하는 세 가지 방법과 그 예를 알맞게 연결하세요.",
+      "pairs": [
+        { "left": "전도", "right": "프라이팬을 불에 올려 두면 손잡이까지 뜨거워진다" },
+        { "left": "대류", "right": "에어컨을 높은 곳에 달면 방 전체가 골고루 시원해진다" },
+        { "left": "복사", "right": "햇빛이 닿은 자동차 겉면이 손대기 어려울 만큼 뜨거워진다" }
+      ],
+      "correct_answer": "전도:프라이팬을 불에 올려 두면 손잡이까지 뜨거워진다|대류:에어컨을 높은 곳에 달면 방 전체가 골고루 시원해진다|복사:햇빛이 닿은 자동차 겉면이 손대기 어려울 만큼 뜨거워진다",
+      "explanation_hint": "전도는 물질을 따라 이웃 입자로, 대류는 물질이 직접 움직이며, 복사는 물질 없이 열이 이동한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 전도·대류·복사(2단계 도입) → 3형식 구분 요구로 3단계 정박 / R2 +0 (사례 대응)",
+        "성취기준 [9과03-02]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "쇠막대의 한쪽 끝을 촛불로 가열하는 실험을 한다. 막대 위에 2cm 간격으로 붙여 둔 촛농 네 개가 떨어지는 순서를 배열하세요.",
+      "items": [
+        "불에서 2cm 떨어진 촛농이 떨어진다",
+        "불에서 4cm 떨어진 촛농이 떨어진다",
+        "불에서 6cm 떨어진 촛농이 떨어진다",
+        "불에서 8cm 떨어진 촛농이 떨어진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "고체에서는 열이 입자에서 이웃 입자로 차례차례 전달된다. 이것이 전도이며, 그래서 불에 가까운 쪽부터 차례로 뜨거워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 전도(2단계 도입) → 입자 수준의 열전달 설명 요구로 3단계 정박 / R2 +0 (관찰 순서)",
+        "성취기준 [9과03-02]",
+        "중복 회피: ordering|energy_transfer 정답키는 본시드·staging에 없다(4항목 0123)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "보온병이 안에 담긴 물의 온도를 오래 유지하는 원리로 옳은 것은?",
+      "options": [
+        "두 겹 벽 사이를 진공으로 만들어 전도와 대류로 열이 이동하는 것을 막는다",
+        "두 겹 벽 사이를 공기로 채워 복사로 열이 빠져나가는 것을 늘린다",
+        "담긴 물의 비열을 크게 바꾸어 물의 온도가 변하지 않게 만든다",
+        "담긴 물의 질량을 줄여 열이 빠져나갈 길을 아예 없앤다"
+      ],
+      "correct_answer": "두 겹 벽 사이를 진공으로 만들어 전도와 대류로 열이 이동하는 것을 막는다",
+      "explanation_hint": "보온병은 두 겹 벽 사이를 진공으로 만들어 전도와 대류를 막고, 벽 안쪽을 거울처럼 만들어 복사도 줄인다. 그래서 열의 이동이 느려진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 전도·대류·복사·비열(3단계 이하) / R2 +0 (열전달 3형식의 차단 여부 판단)",
+        "성취기준 [9과03-02]"
+      ]
+    },
+    "status": "active"
+  }
+]

@@ -119,13 +119,23 @@ class TestFlatToNest:
     """생성 결과(flat) → 시드 형태(nest). 방향이 뒤집히면 문항이 깨진다."""
 
     def test_concept_tag와_question_type만_template_json_바깥에_있다(self):
-        item = author_items.to_bank_item(_slider(), "middle_high")
+        """**바깥에 나올 수 있는 키가 무엇인가**를 못박는 계약 — 정확한 집합 단정을
+        유지한다(부분집합·⊇ 비교로 바꾸면 엉뚱한 키가 새어도 안 잡힌다).
+
+        `knowledge_level`이 R13 3일차에 이 집합에 들어왔다. `content_items`의 컬럼이라
+        시드 스키마에서도 `level_group`과 같은 항목 최상위이고, template_json 안에 두면
+        `seed_content.validate_entry`가 읽지 못해 신고값이 미분류로 버려진다.
+        """
+        item = author_items.to_bank_item(_slider(knowledge_level=6), "middle_high")
         assert item["concept_tag"] == "typhoon"
         assert item["question_type"] == "slider"
         assert item["level_group"] == "middle_high"
+        assert item["knowledge_level"] == 6
+        assert "knowledge_level" not in item["template_json"]
         assert set(item) == {
             "concept_tag",
             "level_group",
+            "knowledge_level",
             "question_type",
             "template_json",
             "uses_live_slots",
@@ -144,16 +154,40 @@ class TestFlatToNest:
         assert item["status"] == "active"
 
     def test_시드_slider_항목과_같은_형태를_만든다(self):
-        """database/seed/content_items.json의 slider 항목이 산출 형태의 근거다."""
+        """database/seed/content_items.json의 slider 항목이 산출 형태의 근거다.
+
+        ## 이 단정의 이력 — 부채가 여기서 해소됐다
+
+        **R13 2일차**: 시드에 전수 재분류로 `knowledge_level`이 붙었는데 생성 산출물은
+        그 값을 못 냈다. 단계 판정은 docs/specs/12 §4의 R0~R7이고 그중 R2~R6은 사람
+        몫이며, `level_group`에서 기계로 복원하는 것은 §5.3이 금지한다(파생은 단방향).
+        그래서 생성 문항은 **미분류로 나왔고, 그 상태로는 lint를 통과하지 못했다**
+        (전환기 폴백 만료 후 미분류는 탈락이다). 당시 이 테스트는 그 사실을
+        `set(seed_slider) - set(item) == {"knowledge_level"}`로 못박아 부채를 가리켰다.
+
+        **R13 3일차 — 해소.** 스펙 03 §2가 개정돼 생성 프롬프트가 단계를 **직접
+        신고**하고(규칙 3), `payload_contract.QuizQuestion`이 그 신고를 필수로 받으며,
+        1차 게이트 `knowledge_level_vocabulary`가 신고값을 `level_vocabulary.json`의
+        `introduced_at`과 대조한다(스펙 03 §2.1). 이제 생성 산출물도
+        `knowledge_level`을 갖는다 — 남은 차집합은 **없다**.
+
+        미분류 경로 자체는 사라지지 않았다(신고가 없으면 `to_bank_item`이 키를 만들지
+        않는다 — 조용히 채우면 lint가 잡아야 할 미신고가 정상값으로 위장된다).
+        이 파일의 다른 테스트가 그 경로를 계속 지난다.
+        """
         seed_slider = next(
             item
             for item in json.loads(SEED_PATH.read_text(encoding="utf-8"))
             if item["question_type"] == "slider"
         )
-        item = author_items.to_bank_item(_slider(), "middle_high")
+        item = author_items.to_bank_item(_slider(knowledge_level=6), "middle_high")
         assert set(item) == set(seed_slider)
         assert set(item["template_json"]) <= set(seed_slider["template_json"])
         assert set(item["source"]) == set(seed_slider["source"])
+
+        # 신고가 없으면 키를 만들지 않는다 — 미분류로 적재되고 lint가 탈락시킨다.
+        unreported = author_items.to_bank_item(_slider(), "middle_high")
+        assert "knowledge_level" not in unreported
 
     def test_값이_None인_payload_필드는_버린다(self):
         """QuizQuestion.model_dump()는 비-slider에서 min·max·step·unit을 None으로 낸다.

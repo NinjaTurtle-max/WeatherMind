@@ -24,6 +24,7 @@ SPRINT_R3_01.md §3.3·§3.6·§3.7이 신규 4유형(board/match/ordering/cloze
 | 1단  | cloze_blank           | cloze              | question_text에 빈칸("___") 정확히 1곳             |
 | 1단  | board_time_limit      | board              | §3.6-R4 미니 미션: time_limit_sec 있으면 60~120 정수(없으면 선택 필드 통과) |
 | 1단  | board_based_on        | board              | §3.6-R4 재현 퍼즐: based_on 있으면 event_name·event_date·region 3필드 + concept_tag가 anomaly(없으면 선택 필드 통과) |
+| 1단  | knowledge_level_vocabulary | 전체          | R13 3일차: 신고된 knowledge_level(1~N 정수)보다 늦게 도입되는 용어가 문항 어디에도 없어야 함 — `database/seed/level_vocabulary.json`의 `introduced_at`/`name_ok_from` 대조(docs/specs/12 §7.4). 미신고면 "해당 없음" 통과 |
 | 2단  | llm_answer_uniqueness | 기존 3유형         | 정답이 유일하게 옳은가 (Gemini 판정, 신규 4유형은 "해당 없음" 통과) |
 | 2단  | llm_option_clarity    | 기존 3유형         | 보기가 모호하지 않은가 (비객관식·신규 4유형은 통과) |
 | 2단  | llm_concept_match     | 전체               | 문항이 concept_tag 개념에 부합하는가              |
@@ -55,6 +56,7 @@ from collections import Counter
 
 from pydantic import BaseModel
 
+from app.chains import knowledge_level as kl
 from app.chains.json_output import extract_json_object
 from app.config import llm_configured, settings
 
@@ -607,7 +609,79 @@ def run_heuristic_checks(question: dict, concept_tag: str | None = None) -> list
                 )
             )
 
+    # ── R13 3일차 §7.4 신고 단계 검증 (16) ────────────────────────────────
+    # 16. knowledge_level_vocabulary — 신고 단계보다 늦게 도입되는 용어가 있으면 탈락.
+    #
+    # **신고를 그대로 믿지 않는다는 것이 요점이다.** 생성 프롬프트가 단계를 신고하게
+    # 되면(스펙 03 §2 규칙 2·3) 그 신고는 LLM의 자기 판단이고, 검증 없이 받으면
+    # "6단계 용어를 쓴 2단계 문항"이 뱅크에 그대로 들어간다 — docs/specs/12 §8.2가
+    # 실측한 사고([58] 건조 단열 감률·[98] 위험반원이 `adult` 면제로 통과한 것)의
+    # 생성판 재현이다. 대조는 결정적이므로 **키 없이도 돈다**(1차 게이트인 이유).
+    #
+    # 미신고(키 부재)는 "해당 없음" 통과다 — board_time_limit·board_based_on과 같은
+    # 선택 필드 관례. 생성 경로에서는 `QuizQuestion.knowledge_level`이 필수라 부재가
+    # 나올 수 없고, 저작 시드는 `expand_like_server`가 이 키를 flat에 싣지 않으므로
+    # (session_service 런타임 전개와 동형) `lint_seed_items` 검사 ⑤가 중첩 형태로
+    # 본다. 즉 두 경로 중 어느 쪽도 무검사로 새지 않는다.
+    if "knowledge_level" not in question or question.get("knowledge_level") is None:
+        checks.append(
+            _check(
+                "knowledge_level_vocabulary",
+                True,
+                "knowledge_level 미신고 — 해당 없음 (저작 시드는 lint 검사 ⑤ 소관)",
+            )
+        )
+    else:
+        checks.append(_knowledge_level_check(question))
+
     return checks
+
+
+def _knowledge_level_check(question: dict) -> dict:
+    """신고된 knowledge_level의 형식과 어휘 정합을 본다 (체크 16의 본체).
+
+    어휘표를 읽지 못하면 **통과시키지 않는다.** 게이트가 조용히 꺼지는 것은 게이트가
+    없는 것과 같고, 그 상태로 G1 배치를 태우면 1,360건이 무검사로 들어간다.
+
+    `knowledge_level` 모듈은 **최상단에서** 임포트한다(지연 임포트 금지). 이유는
+    langchain 규약과 반대 방향이다: `scripts/author_items._import_isolated`가 임포트
+    직후 `sys.path`에서 ai-worker를 빼고 `sys.modules`의 `app.*`를 지우므로, 함수
+    안에서 `from app.chains import ...`를 하면 **저작 배치 실행 중에** ModuleNotFound가
+    난다(실측). stdlib만 쓰는 모듈이라 최상단 임포트에 대가가 없다.
+    """
+    level = question.get("knowledge_level")
+    if isinstance(level, bool) or not isinstance(level, int):
+        return _check(
+            "knowledge_level_vocabulary",
+            False,
+            f"knowledge_level이 정수가 아님: {level!r} (docs/specs/12 §2 — 1~N 정수)",
+        )
+
+    try:
+        vocabulary = kl.load_vocabulary()
+    except Exception as exc:  # 파일 부재·스키마 위반 — 검사 불능은 탈락이다
+        return _check(
+            "knowledge_level_vocabulary",
+            False,
+            f"어휘표를 읽을 수 없어 신고 단계를 검증하지 못함: {exc}",
+        )
+
+    max_level = kl.max_knowledge_level(vocabulary)
+    if not kl.KNOWLEDGE_LEVEL_MIN <= level <= max_level:
+        return _check(
+            "knowledge_level_vocabulary",
+            False,
+            f"knowledge_level이 {kl.KNOWLEDGE_LEVEL_MIN}~{max_level} 밖: {level}",
+        )
+
+    violations = kl.vocabulary_violations(question, level, vocabulary)
+    if violations:
+        return _check("knowledge_level_vocabulary", False, "; ".join(violations))
+    return _check(
+        "knowledge_level_vocabulary",
+        True,
+        f"{level}단계 신고 — 도입 단계가 더 높은 용어 없음",
+    )
 
 
 # ── board §3.1 스키마 검증 헬퍼 ───────────────────────────────────────────
@@ -804,6 +878,10 @@ CURRICULUM_CONCEPT_TAGS = (
     "heat_island",
     "co2_climate",
     "anomaly",
+    # 재난 축 2종 (R13 §2.4 — seed_content.ALLOWED_CONCEPT_TAGS와 동기.
+    # 재난 유닛이 concept_tag_valid로 탈락하지 않도록 개방한다. 지진은 범위 밖)
+    "wildfire_weather",
+    "flood_response",
 )
 UNIT_KINDS = ("quiz", "board")
 BOARD_QUESTION_TYPE = "board"  # content_items에서 board 퍼즐 판별 (§3.7 유형과 동일)
@@ -929,7 +1007,7 @@ def validate_curriculum(units: list, content_items: list) -> dict:
     else:
         checks.append(_check("prereq_no_cycle", True, "prereq 그래프에 순환 없음"))
 
-    # 4. concept_tag_valid — 6종 표준 concept_tag만 허용
+    # 4. concept_tag_valid — 표준 concept_tag 목록(CURRICULUM_CONCEPT_TAGS)만 허용
     bad_tags = sorted(
         {
             f"{u.get('id')!r}:{u.get('concept_tag')!r}"
@@ -942,12 +1020,12 @@ def validate_curriculum(units: list, content_items: list) -> dict:
             _check(
                 "concept_tag_valid",
                 False,
-                f"concept_tag가 표준 6종({', '.join(CURRICULUM_CONCEPT_TAGS)}) 밖: "
+                f"concept_tag가 표준 목록({', '.join(CURRICULUM_CONCEPT_TAGS)}) 밖: "
                 f"{', '.join(bad_tags)}",
             )
         )
     else:
-        checks.append(_check("concept_tag_valid", True, "모든 concept_tag가 표준 6종 내"))
+        checks.append(_check("concept_tag_valid", True, "모든 concept_tag가 표준 목록 내"))
 
     # 5. kind_enum — kind가 'quiz'|'board'
     bad_kinds = sorted(

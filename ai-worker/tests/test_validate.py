@@ -23,7 +23,9 @@ GOLDEN_PATH = Path(__file__).parent / "golden_validate.json"
 with GOLDEN_PATH.open(encoding="utf-8") as f:
     GOLDEN_CASES = json.load(f)["cases"]
 
-# 체크 배열은 §3.4(6종) + §3.7(신규 7종) + §3.6-R4(board 2종) = 15개 고정 순서
+# 체크 배열은 §3.4(6종) + §3.7(신규 7종) + §3.6-R4(board 2종) + R13 3일차(단계 1종)
+# = 16개 고정 순서. 새 체크는 **끝에 붙인다** — 중간에 끼우면 골든셋을 읽는 쪽이
+# 인덱스로 잡고 있을 때 조용히 어긋난다.
 HEURISTIC_CHECK_NAMES = [
     "required_fields",
     "options_count",
@@ -40,6 +42,7 @@ HEURISTIC_CHECK_NAMES = [
     "cloze_blank",
     "board_time_limit",
     "board_based_on",
+    "knowledge_level_vocabulary",
 ]
 
 

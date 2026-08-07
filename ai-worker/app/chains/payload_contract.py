@@ -166,6 +166,19 @@ class QuizQuestion(BaseModel):
     """
 
     concept_tag: str = Field(min_length=1)
+    # 지식 수준 신고 (R13 3일차 — 스펙 03 §2 규칙 3). **필수다.**
+    #
+    # 선택으로 두면 모델이 빠뜨리고, 빠뜨린 문항은 `lint_seed_items` 검사 ⑤에서
+    # "knowledge_level 미부여"로 전건 탈락한다(전환기 폴백은 R13 2일차에 만료됐다).
+    # 즉 선택 필드는 "G1 배치 1,360건이 전부 탈락"과 같은 말이다. 여기서 필수로
+    # 막으면 미신고는 pydantic ValueError → temperature 0.1 재시도 → 폴백 뱅크라는
+    # **현행 실패 의미론**을 그대로 타므로, 실패해도 세션은 끊기지 않는다.
+    #
+    # 상한을 여기 박지 않는다 — 단계 수 N은 `level_vocabulary.json`의 `anchor`가
+    # 소유하고(마이그레이션 0012가 상한 CHECK를 걸지 않은 것과 같은 이유), 신고값이
+    # N 이내인지는 1차 게이트의 `knowledge_level_vocabulary`가 어휘표를 읽어 본다.
+    # 이 모듈은 stdlib+pydantic까지가 계약이라 어휘표(파일 I/O)를 읽지 않는다.
+    knowledge_level: int = Field(ge=1)
     question_type: Literal["multiple_choice", "short_answer", "slider"]
     question_text: str = Field(min_length=1)
     options: Optional[list[str]] = None

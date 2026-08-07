@@ -206,6 +206,18 @@ step_frontend() {
   fi
 }
 
+# ── 6. seed: 시드 문항 lint (스키마·게이트·payload·중복·학령 금칙 어휘) ────
+# 저작 산출물이 CI에서 상시 검증되게 한다 — R13 §2.3에서 학령 금칙 어휘 규칙이
+# 추가되며, 이 검사가 없으면 전공 용어가 저학령 문항에 다시 새어든다.
+step_seed() {
+  banner "seed: lint_seed_items (본시드 전건)"
+  if "$PYTHON" "$ROOT/scripts/lint_seed_items.py"; then
+    record "seed" "OK" "시드 문항 전건 통과 (스키마·게이트·payload·중복·금칙 어휘)"
+  else
+    record "seed" "FAIL" "시드 lint 위반 (위 출력 참조)"
+  fi
+}
+
 # ── 6. authoring: 저작 배치 무키 완주 (dry-run) ─────────────────────────────
 # `scripts/author_items.py`는 G1(ROADMAP §5.3.1)에서 **실키로 돌릴 유일한 스크립트**다.
 # 그날 처음 실행되는 상황을 피하려면 무키 완주 자체가 회귀 대상이어야 한다 —
@@ -249,11 +261,12 @@ case "$STEP" in
   board)    step_board ;;
   config)   step_config ;;
   frontend) step_frontend ;;
+  seed)     step_seed ;;
   authoring) step_authoring ;;
   smoke)    step_smoke ;;
-  all)      step_lint; step_test; step_board; step_config; step_frontend; step_authoring ;;
+  all)      step_lint; step_test; step_board; step_config; step_frontend; step_seed; step_authoring ;;
   *)
-    echo "사용법: scripts/ci.sh [lint|test|board|config|frontend|authoring|smoke]" >&2
+    echo "사용법: scripts/ci.sh [lint|test|board|config|frontend|seed|authoring|smoke]" >&2
     exit 2
     ;;
 esac

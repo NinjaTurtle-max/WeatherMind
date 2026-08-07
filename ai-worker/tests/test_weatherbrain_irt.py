@@ -126,4 +126,12 @@ class TestPlacementAndPriors:
     def test_θ를_목표_level_group으로_역매핑(self):
         assert theta_to_target_level_group(-2.0) == "elementary"
         assert theta_to_target_level_group(0.0) == "middle_high"
-        assert theta_to_target_level_group(2.0) == "adult"
+        assert theta_to_target_level_group(1.0) == "adult"
+        # R13 §2.2 — expert 밴드(경계 1.5, 상위 밴드 포함)
+        assert theta_to_target_level_group(1.49) == "adult"
+        assert theta_to_target_level_group(1.5) == "expert"
+        assert theta_to_target_level_group(3.0) == "expert"
+
+    def test_expert_사전분포(self):
+        """전문가 밴드 사전평균 2.0 — adult(1.0)에서 밴드 간격 1.0 유지."""
+        assert level_group_prior("expert") == (2.0, 1.0)

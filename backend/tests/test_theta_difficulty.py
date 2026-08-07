@@ -23,22 +23,32 @@ from app.services.session_service import build_pool_query, pool_level_groups
 
 
 class TestThetaToLevelGroup:
-    def test_경계_3분기(self):
-        """경계 ±0.5: 하위 구간 제외·상위 구간 포함 (ai-worker priors와 동일)."""
+    def test_경계_4분기(self):
+        """경계 −0.5·0.5·1.5: 하위 구간 제외·상위 구간 포함 (ai-worker priors와 동일).
+
+        R13 §2.2에서 expert(경계 1.5)가 4번째 밴드로 붙었다 — 기존 두 경계는 불변.
+        """
         assert wb.theta_to_level_group(-2.0) == "elementary"
         assert wb.theta_to_level_group(-0.51) == "elementary"
         assert wb.theta_to_level_group(-0.5) == "middle_high"  # 경계는 상위 구간
         assert wb.theta_to_level_group(0.0) == "middle_high"
         assert wb.theta_to_level_group(0.49) == "middle_high"
         assert wb.theta_to_level_group(0.5) == "adult"  # 경계는 상위 구간
-        assert wb.theta_to_level_group(2.0) == "adult"
+        assert wb.theta_to_level_group(1.49) == "adult"
+        assert wb.theta_to_level_group(1.5) == "expert"  # 경계는 상위 구간
+        assert wb.theta_to_level_group(3.0) == "expert"
 
     def test_θ에_단조증가(self):
-        """θ가 오르면 목표 난이도 그룹도 오른다 — 증명 사슬 1번 고리."""
-        rank = {"elementary": 0, "middle_high": 1, "adult": 2}
-        thetas = [-2.0, -0.5, 0.0, 0.5, 2.0]
+        """θ가 오르면 목표 난이도 그룹도 오른다 — 증명 사슬 1번 고리.
+
+        서열은 LEVEL_GROUP_BANDS 순서(난이도 오름차순)에서 파생한다 — 밴드가
+        늘어도 이 고리는 그대로 성립해야 한다.
+        """
+        rank = {band: i for i, band in enumerate(wb.LEVEL_GROUP_BANDS)}
+        thetas = [-2.0, -0.5, 0.0, 0.5, 1.5, 3.0]
         ranks = [rank[wb.theta_to_level_group(t)] for t in thetas]
         assert ranks == sorted(ranks) and ranks[0] < ranks[-1]
+        assert ranks[-1] == len(wb.LEVEL_GROUP_BANDS) - 1  # 최상위 밴드 도달
 
 
 class TestOverallTheta:
@@ -90,12 +100,16 @@ class TestDifficultyOrderSemantics:
     """|b−θ| 정렬 + 사전 b 단조 ⇒ θ가 높을수록 높은 b가 앞 — 증명 사슬 2번 고리."""
 
     def test_사전_b_상수는_난이도_단조(self):
+        """밴드 순서(LEVEL_GROUP_BANDS)와 사전 b의 대소가 일치해야 한다 —
+        expert(2.0)까지 포함해 단조여야 |b−θ| 정렬의 의미가 유지된다."""
         b = wb.LEVEL_GROUP_ITEM_B
-        assert b["elementary"] < b["middle_high"] < b["adult"]
+        values = [b[band] for band in wb.LEVEL_GROUP_BANDS]
+        assert values == sorted(values) and len(set(values)) == len(values)
+        assert b["elementary"] < b["middle_high"] < b["adult"] < b["expert"]
 
     @pytest.mark.parametrize(
         ("theta", "expected_first", "expected_last"),
-        [(1.0, "adult", "elementary"), (-1.0, "elementary", "adult")],
+        [(1.0, "adult", "elementary"), (-1.0, "elementary", "expert")],
     )
     def test_거리_정렬은_θ에_가까운_난이도부터(self, theta, expected_first, expected_last):
         """쿼리의 ORDER BY abs(b−θ)와 같은 키로 사전 b들을 정렬해 보인다."""

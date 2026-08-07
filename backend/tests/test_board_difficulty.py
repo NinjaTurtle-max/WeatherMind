@@ -68,23 +68,28 @@ class TestBoardDifficultySeedDistribution:
         entries = json.loads(SEED_PATH.read_text(encoding="utf-8"))
         return [e for e in entries if e["question_type"] == "board"]
 
-    def test_12건_분포_1_2_3_모두_존재(self):
+    def test_분포_1_2_3_모두_존재(self):
         boards = self._seed_boards()
-        assert len(boards) == 13  # R12 §9 — bs 대류 퍼즐(guided·elementary) 추가
+        # R12 §9 13건 → R13 2일차 통합에서 +21(2일차 저작 7 + 규칙 확장 10 + 재난 4)
+        assert len(boards) == 34
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
         assert set(dist) == {1, 2, 3}, f"난이도 결손: {dict(dist)}"
 
     def test_현_시드_분포_고정(self):
-        """현 12건 기준 1×3(guided)·2×5(goal_only)·3×4(time_limit 2+adult 2) —
-        가중 조정이나 시드 증보로 분포가 바뀌면 여기서 드러난다(의도 확인 후 갱신)."""
+        """가중 조정이나 시드 증보로 분포가 바뀌면 여기서 드러난다(의도 확인 후 갱신)."""
         boards = self._seed_boards()
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
-        # R12 §9: bs 대류 퍼즐이 guided(난이도 1)로 합류 — 1이 3→4
-        assert dist == {1: 4, 2: 5, 3: 4}
+        # R12 §9: bs 대류 퍼즐이 guided(난이도 1)로 합류 — 1이 3→4.
+        # R13 2일차: 전수 재분류로 board 13건 중 12건이 4단계(→middle_high)로 모이면서
+        # adult 가중을 받던 2건이 내려왔다 — 3이 4→2, 2가 5→7.
+        # 같은 날 통합 병합으로 13→34건. 재분류 시점에 "한 칸에 몰려 있다"고 적었던
+        # 상태가 실제로 풀렸다 — 3단계 보드가 개통되고(전선·기단을 안 쓰는 대류 규칙)
+        # 양쯔강·오호츠크 기단 퍼즐이 5·6단계로 붙으면서 1·2·3이 11·13·10으로 고르다.
+        assert dist == {1: 11, 2: 13, 3: 10}
 
 
 def _puzzle(name: str, level_group: str):

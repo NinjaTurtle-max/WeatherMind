@@ -9,12 +9,46 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 from app.schemas.curriculum import CrownAward
+from app.schemas.duel import DuelPrediction
 from app.schemas.quiz import AnswerResult, QuizQuestion
+
+
+class ForecastClosingStep(BaseModel):
+    """일일 세션의 **마감 단계** — 예보 대결 (R13 A-1, additive).
+
+    문항이 아니라 단계다: 예보의 정답은 **내일의 관측**이 정하므로 즉시 채점이
+    불가능하고, 그래서 SESSION_RECIPE(15문항)에 들어가지 않는다. XP·구름 에너지·
+    스트릭·만회 큐 어디에도 닿지 않는다 — 보상은 기존 리그·정산 경로가 소유한다.
+
+    필드가 있으면 = 오늘 예보를 아직 안 냈고 판단 재료도 있다 → 프론트가 15문항
+    뒤에 예보 입력 단계를 붙인다. **null이면 단계 없음**이고 세션은 15문항으로
+    끝난다(오늘 이미 제출했거나, KMA 예보 부재 = degraded).
+
+    프론트가 읽는 것:
+    - `duel_date`  예보 대상일(=내일, KST). 화면 문구 "내일(8/8) 예보"
+    - `submit_path` 제출 경로. **새 엔드포인트가 아니라 기존 예보 대결 제출**이다
+      (`POST /api/v1/duel/today`, body는 DuelSubmitRequest). 재제출은 409
+      ALREADY_SUBMITTED — 그때는 이 필드가 애초에 null이어야 정상이다.
+    - `base_forecast` 대상일 KMA 기준 예보(참고 배너). 판단 재료 상세는 기존
+      `GET /api/v1/duel/briefing`, **어제 낸 예보의 결과**는 기존
+      `GET /api/v1/duel/history`(정산된 최신 항목)에서 읽는다 — 둘 다 이미 있다.
+    """
+
+    kind: Literal["forecast_duel"] = "forecast_duel"
+    duel_date: date
+    submit_path: str
+    base_forecast: DuelPrediction | None = None
 
 
 class SessionItem(QuizQuestion):
     source: Literal["bank", "generated"] = "bank"
     slot_filled: bool = False
+    # 배합 블록 구분 (R13-01 §2.10, additive) — 완료 화면이 15문항을 "오늘의 발견
+    # (new) / 복습(review) / 실황(live) / 진도(unit)"로 구분 표기하는 근거.
+    # 서버 배합(plan_bank_picks)이 정한 값을 sessions.recipe_json items에 적어 두고
+    # 그대로 흘려보낸다 — 프론트가 문항을 보고 되짚지 않는다(되짚을 방법도 없다).
+    # 생성 폴백 문항은 어느 블록의 부족분인지 구분이 없어 'new'다.
+    kind: Literal["new", "review", "live", "unit"] = "new"
     # 유형별 플레이 페이로드 — render된 값에서 유형 화이트리스트로 추린다
     # (routers/session.QUESTION_PAYLOAD_FIELDS). 프론트가 이 필드 없이는 문항을
     # 렌더하지 못한다(R3-01 §3.3 board → R10-07 §2.1 전 유형 확장):
@@ -42,6 +76,9 @@ class SessionToday(BaseModel):
     mode: str = "daily"
     items: list[SessionItem]
     progress: SessionProgress
+    # 마감 단계 (R13 A-1, additive) — daily 세션에서만, 필요할 때만 non-null.
+    # unit·placement 세션은 항상 null이다.
+    closing_step: ForecastClosingStep | None = None
 
 
 class SessionAnswerRequest(BaseModel):
@@ -75,6 +112,15 @@ class SessionAnswerResult(AnswerResult):
     session_progress: SessionProgress
     clouds_spent: int = 0
     clouds: int = 0
+    # ── 만회 라운드 (R13-01 §2.1, additive) ──
+    # is_retry: 이 응답이 **만회 재제출** 결과인가. True면 is_correct는 만회 채점
+    #   결과이고 최초 기록(is_correct 컬럼)은 그대로 오답으로 남아 있다 —
+    #   프론트가 "만회 성공/실패"와 "첫 시도 정답"을 구분하는 유일한 신호.
+    # retry_correct: 만회 채점 결과(is_retry=False면 None). is_correct와 중복이지만
+    #   응답만 보고 컬럼 의미를 되짚을 수 있게 명시적으로 싣는다.
+    # xp_earned·clouds_spent는 만회에서 항상 0이다(파밍·벌 둘 다 차단 — §2.1).
+    is_retry: bool = False
+    retry_correct: bool | None = None
 
 
 class PlacementAbility(BaseModel):
@@ -105,6 +151,10 @@ class UnitResult(BaseModel):
     crown_target: int
     cleared: bool
     unit_xp: int
+    # 만회 포함 해결 여부 (R13-01 §2.1, additive) — 왕관 부여 판정과 같은 값.
+    # all_correct는 **최초 시도 만점**이라는 원래 뜻을 유지한다(두 값이 갈리는
+    # 세션 = 만회로 클리어한 세션).
+    all_resolved: bool = False
 
 
 class SessionCompleteResult(BaseModel):
@@ -119,3 +169,14 @@ class SessionCompleteResult(BaseModel):
     unit_result: UnitResult | None = None
     # ── 데일리 만점 왕관 유입 (R8-01 §3.4, additive) — 대상 없으면 None ──
     crown_award: CrownAward | None = None
+    # ── 만회 라운드 (R13-01 §2.1, additive) ──
+    # all_resolved: 전 문항이 (is_correct=true) 또는 (retry_correct=true) — 왕관
+    #   부여의 새 판정값. correct_count는 **최초 정답 수** 그대로다(회귀 방지).
+    # retry_resolved_count: 만회로 해결한 문항 수 → 완료 화면 "만회 완료 N문항".
+    all_resolved: bool = False
+    retry_resolved_count: int = 0
+    # ── 예보 마감 단계 (R13 A-1, additive) ──
+    # 완료 화면이 15문항 결산 뒤에 붙일 단계. /session/today와 **같은 판정**이지만
+    # 완료 시점에 다시 계산한다 — 세션 시작 후 다른 화면에서 예보를 냈으면 여기서
+    # null이 되어야 프론트가 409로 끝나는 단계를 그리지 않는다.
+    closing_step: ForecastClosingStep | None = None

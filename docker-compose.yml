@@ -90,7 +90,11 @@ services:
       - postgres
 
   redis:
-    image: redis:7-alpine
+    # 7.2 고정 — 7.4부터 라이선스가 RSALv2/SSPL(OSI 미승인)로 바뀌었다. 대회 규정이
+    # "GPL 계열은 활용 범위 제약 가능"이라 경고했는데 SSPL은 그보다 강하다.
+    # 7.2는 BSD-3이고 우리는 브로커·캐시로만 쓰므로 기능 손실이 없다.
+    # 근거: docs/team/HACKATHON_RULES.md §4-C
+    image: redis:7.2-alpine
     env_file: .env
     volumes:
       - redisdata:/data

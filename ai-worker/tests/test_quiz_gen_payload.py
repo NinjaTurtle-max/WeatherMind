@@ -43,6 +43,10 @@ def _slider(**overrides) -> dict:
     """계약을 통과하는 slider 문항 dict — 위반 케이스는 여기서 한 필드만 바꾼다."""
     question = {
         "concept_tag": "typhoon",
+        # 신고 단계는 R13 3일차부터 **필수**다(스펙 03 §2 규칙 3). 6단계인 이유는
+        # 본시드 [7]과 같다 — 열대저기압→태풍 기준 17m/s는 교육과정에 없는 실무
+        # 기준 수치라 docs/specs/12 §4 R3이 강제 상향한다.
+        "knowledge_level": 6,
         "question_type": "slider",
         "question_text": "열대 저기압이 태풍으로 분류되는 최대 풍속은 초속 몇 m인가?",
         "correct_answer": "17",
@@ -58,6 +62,7 @@ def _slider(**overrides) -> dict:
 def _mc(**overrides) -> dict:
     question = {
         "concept_tag": "typhoon",
+        "knowledge_level": 5,  # 태풍의 발생 메커니즘 [12지구01-04]
         "question_type": "multiple_choice",
         "question_text": "태풍이 에너지를 얻는 주된 원천은?",
         "options": ["따뜻한 바닷물의 수증기", "높은 산의 눈"],
@@ -191,6 +196,7 @@ class TestRequiredFields:
     def test_short_answer는_payload_필드가_없어도_통과(self):
         question = QuizQuestion(
             concept_tag="pressure_front",
+            knowledge_level=4,  # 한랭전선 introduced_at 4 [9과17-04]
             question_type="short_answer",
             question_text="한랭전선 뒤에는 어떤 공기가 오는가?",
             correct_answer="찬 공기",
@@ -397,7 +403,8 @@ class TestChainSemantics:
     def test_계약을_갖춘_slider는_생성_결과로_통과한다(self, monkeypatch):
         with _quiz_gen_chain() as chain:
             good = (
-                '{"concept_tag":"typhoon","question_type":"slider",'
+                '{"concept_tag":"typhoon","knowledge_level":6,'
+                '"question_type":"slider",'
                 '"question_text":"초속 몇 m 이상일 때 태풍인가?","correct_answer":"17",'
                 '"min":0,"max":40,"step":1,"unit":"m/s"}'
             )

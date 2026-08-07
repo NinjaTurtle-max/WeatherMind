@@ -55,6 +55,18 @@ class QuizNotInSessionError(Exception):
     """세션 로그에 없는 quiz_id 제출 (라우터에서 404 QUIZ_NOT_FOUND 변환)."""
 
 
+def is_retry_eligible(log: QuizLog) -> bool:
+    """만회 라운드(R13-01 §2.1) 재제출 대상인가 — 순수 판정.
+
+    **최초 채점이 오답이고 아직 만회로 해결되지 않은** 문항만 다시 풀 수 있다.
+    미응답(is_correct=None)·최초 정답·이미 만회 성공(retry_correct=True)은 전부
+    False라서 기존 경로를 그대로 탄다 — 만회는 멱등 의미론의 **예외 1개**이지
+    재제출 전면 허용이 아니다. "같은 세션" 조건은 호출측(세션 라우터가
+    session_id로 로그를 조회)이 구조적으로 보장한다.
+    """
+    return log.is_correct is False and log.retry_correct is not True
+
+
 def resolve_answer(
     log: QuizLog, answer: str, board_state: dict[str, Any] | None
 ) -> str:
@@ -179,6 +191,90 @@ def grade(question: dict[str, Any], answer: str) -> bool:
 # ═══════════════════════════════════════════════════════════════
 
 
+async def build_feedback(
+    db: AsyncSession,
+    user: User,
+    question: dict[str, Any],
+    answer: str,
+    is_correct: bool,
+    concept_tag: str,
+    phenomena: list[dict[str, Any]] | None,
+    board_rules: list[dict[str, Any]] | None,
+) -> str:
+    """채점 결과 → 피드백 문자열 — 최초 제출·만회 재제출 공용 (R13-01 §2.1).
+
+    board는 규칙 explain/hints로 구성하고(RAG 미호출 — §3.4), 그 외 유형은 RAG
+    Chain(실패 시 ai_client 내부 정적 문구 fallback). board 판정 여부는 phenomena
+    유무가 아니라 question_type으로 본다 — 판정이 비어도 board는 board다.
+    """
+    if question.get("question_type") == "board":
+        return board_engine.select_feedback(
+            question, phenomena or [], is_correct, board_rules or []
+        )
+    # RAG 피드백의 오늘 날씨도 유저 지역 기준 (R11-01 §8.2 — NULL=서울)
+    today_weather = await get_today_weather(user_region(user))
+    return await ai_client.rag_feedback(
+        question_text=question.get("question_text", ""),
+        user_answer=answer,
+        is_correct=is_correct,
+        concept_tag=concept_tag,
+        today_weather=today_weather,
+    )
+
+
+async def submit_retry_for_log(
+    db: AsyncSession, user: User, log: QuizLog, answer: str
+) -> AnswerResult:
+    """만회 라운드 재제출 (R13-01 §2.1) — 채점해 `retry_correct`에만 기록한다.
+
+    최초 제출(submit_answer_for_log)과 **의도적으로 다른** 점:
+    - `is_correct`·`user_answer`·`elapsed_sec`·`answered_at`을 덮지 않는다 —
+      최초 정오 기록은 θ·통계의 근거다(§2.1 "불변 보존").
+    - XP 0 (유저 XP·세션 xp_total 무가산) — 만회로 XP를 벌면 오답 후 재도전이
+      최적 전략이 되어 파밍이 된다.
+    - weak_tags·ContentItem 노출/정답 통계를 갱신하지 않는다 — 같은 문항의
+      두 번째 풀이는 새 표본이 아니라 같은 표본의 재시도다.
+    - 구름을 소모하지 않는다 — 소모 판정은 라우터의 `should_consume`이 하며
+      만회는 `already_answered=True`라 구조적으로 0이다(만회는 벌이 아니다).
+
+    채점 규칙·피드백 생성은 최초 제출과 완전히 동일한 GRADERS·build_feedback을
+    쓴다 — 채점 권위는 서버 소유이고 만회라고 관대해지지 않는다.
+
+    Raises:
+        AlreadyAnsweredError: 만회 대상이 아닌 재제출(미응답·최초 정답·만회 완료).
+    """
+    if not is_retry_eligible(log):
+        raise AlreadyAnsweredError(f"quiz_id={log.quiz_id}")
+
+    question = log.question_json or {}
+    phenomena: list[dict[str, Any]] | None = None
+    board_rules: list[dict[str, Any]] | None = None
+    if question.get("question_type") == "board":
+        phenomena, is_correct, board_rules = evaluate_board_answer(
+            question, json.loads(answer)
+        )
+    else:
+        is_correct = grade(question, answer)
+
+    log.retry_correct = is_correct
+    await db.flush()
+
+    feedback = await build_feedback(
+        db, user, question, answer, is_correct, log.concept_tag,
+        phenomena, board_rules,
+    )
+    return AnswerResult(
+        is_correct=is_correct,
+        correct_answer=str(question.get("correct_answer", "")),
+        feedback=feedback,
+        xp_earned=0,
+        xp_base=0,
+        xp_weak_bonus=0,
+        concept_tag=log.concept_tag,
+        phenomena=phenomena,
+    )
+
+
 async def submit_answer_for_log(
     db: AsyncSession,
     user: User,
@@ -275,22 +371,11 @@ async def submit_answer_for_log(
 
     await db.flush()
 
-    # 피드백: board는 규칙 explain/hints로 구성(RAG 미호출 — §3.4),
-    # 그 외 유형은 RAG Chain (실패 시 ai_client 내부 정적 문구 fallback)
-    if is_board:
-        feedback = board_engine.select_feedback(
-            question, phenomena or [], is_correct, board_rules or []
-        )
-    else:
-        # RAG 피드백의 오늘 날씨도 유저 지역 기준 (R11-01 §8.2 — NULL=서울)
-        today_weather = await get_today_weather(user_region(user))
-        feedback = await ai_client.rag_feedback(
-            question_text=question.get("question_text", ""),
-            user_answer=answer,
-            is_correct=is_correct,
-            concept_tag=concept_tag,
-            today_weather=today_weather,
-        )
+    # 피드백: board는 규칙 explain/hints, 그 외는 RAG — 만회 경로와 공용
+    # (build_feedback, R13-01 §2.1). 두 경로가 같은 문구 규칙을 쓰는 것이 계약이다.
+    feedback = await build_feedback(
+        db, user, question, answer, is_correct, concept_tag, phenomena, board_rules
+    )
 
     return AnswerResult(
         is_correct=is_correct,

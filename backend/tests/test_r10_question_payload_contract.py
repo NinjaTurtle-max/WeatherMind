@@ -113,9 +113,15 @@ class TestSeedTypeCoverage:
         empty = [t for t, n in counts.items() if n == 0]
         assert not empty, f"시드 0건 유형 — 가드가 무력화된다: {empty} (counts={counts})"
 
-    def test_시드_53문항(self):
+    def test_시드_규모_고정(self):
         """규모 고정 — 증감 시 이 계약과 §0 영향표를 함께 갱신."""
-        assert len(_seed_items()) == 141  # R12 §9 — 53+47+40+1(bs 보드)
+        # R12 §9: 53+47+40+1(bs 보드) = 141
+        # R13 2일차: +13 — 전수 재분류로 배치고사 후보 격자에 빈 칸이 드러나 메운 분
+        #   (pressure_front adult 0 · typhoon middle_high 0 · air_mass elementary 0 ·
+        #    heat_island adult 0). 저작이 아니라 **구멍 메우기**라 본시드 직행이었다.
+        # R13 2일차 통합 병합: +83 = 237. 1단계 18 · 3단계 18 · 6단계 15 · 재난 15 ·
+        #   보드 7 · 보드 규칙 확장 10. 단계 분포 36/43/37/62/28/31.
+        assert len(_seed_items()) == 237
 
 
 class TestEverySeedItemIsPlayable:
