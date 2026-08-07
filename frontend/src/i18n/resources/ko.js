@@ -38,6 +38,13 @@ export default {
     duel: '예보 대결',
     league: '리그',
     me: '내 정보',
+    tutor: {
+      // 화면 담당 마스코트(Mascot 배정표) — 보드는 태양이
+      board: { name: '태양이', line: '어떤 날씨를 만들어 볼까요?' },
+      learn: { name: '물방울이', line: '오늘은 어디까지 가볼까요?' },
+      duel: { name: '태풍이', line: '자료를 보고 내일 날씨를 맞혀 봐요!' },
+      league: { name: '번개', line: '이번 주 순위를 올려볼까요?' },
+    },
   },
   // 개념 태그 → 표시명 (클라이언트 저작 라벨 — 서버는 태그 코드만 보낸다.
   // 미지 태그는 conceptLabel() 헬퍼가 태그 원문으로 폴백)
@@ -206,6 +213,15 @@ export default {
   },
   // 내 정보 탭(modules/progress/ProgressPage.jsx — 헤더·진단 배너·스파인 카드)
   profile: {
+    // 2026-08-06 시안 개편 — 2열 대시보드
+    title: '내 정보',
+    subtitle: '지금까지의 활동을 확인하고 더 높은 목표를 향해 나아가세요!',
+    badgeStat: '획득 배지',
+    unitStat: '클리어 유닛',
+    crownStat: '획득 왕관',
+    nextGoals: '다음 목표',
+    goalLevel: '레벨 {level} 달성',
+    goalStreak: '연속 출석 {days}일 달성',
     defaultNickname: '기상 학습자',
     levelXp: 'Lv.{level} · 누적 {xp} XP',
     leagueTier: '리그 티어',
@@ -485,6 +501,9 @@ export default {
     aiPred: '🤖 AI 캐스터',
     actual: '실측',
     actualValue: '최고 {max}℃ · 강수 {prob}%',
+    // PredColumn의 기온 아래 한 줄 — 없으면 화면에 'duel.rainShort'가 그대로
+    // 찍힌다(2026-08-06 리뷰에서 발견. ko·en 둘 다 없어서 패리티 검사를 통과했다).
+    rainShort: '강수확률 {prob}%',
     myEvidence: '내가 고른 근거',
     evidenceNote: '정산 후 근거가 맞았는지 해설해 드려요.',
     reviewTitle: '근거 적중 해설',
@@ -583,6 +602,33 @@ export default {
     myHistory: '내 리그 이력',
     accuracy: '정확도 {score}점',
     accuracyPending: '정확도 집계 중',
+    // 대시보드 개편(2026-08-06 시안). 등급·주기 문구는 **실제 도메인** 기준이다 —
+    // 시안의 RP·시즌·브론즈는 이 제품에 없다(구름 5단계 · ELO · 주 단위).
+    dash: {
+      subtitle: '예보 대결로 실력을 쌓아 더 높은 등급에 도전하세요!',
+      myTier: '내 등급',
+      unranked: '아직 정산 전이에요',
+      unrankedBody: '이번 주 예측을 제출하면 주간 정산에서 첫 ELO가 매겨져요.',
+      rankNth: '{rank}위',
+      rankPending: '순위 집계 전',
+      toNext: '{tier}까지 {gap}',
+      topTier: '최고 등급이에요! 🎉',
+      weekSummary: '이번 주 요약',
+      played: '예보 대결',
+      won: '승리',
+      winRate: '승률',
+      times: '{n}회',
+      weekEmpty: '이번 주 대결 기록이 아직 없어요. 한 판 해볼까요?',
+      weekTip: '대결을 많이 할수록 실력이 빨리 쌓여요.',
+      goDuel: '예보 대결하러 가기 →',
+      ranking: '리그 순위',
+      ladder: '리그 등급',
+      promoTitle: '승급 조건',
+      promoNeed: '{tier}까지 ELO {gap} 남았어요',
+      weekTitle: '이번 주',
+      weekLeft: '{days}일 남음',
+      resetNote: '리그는 매주 월요일에 새로 시작해요.',
+    },
     board: {
       empty: '아직 순위표가 없어요. 첫 예측의 주인공이 되어보세요!',
       rank: '순위',

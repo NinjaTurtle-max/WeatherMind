@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import Mascot from '../../components/Mascot';
 
 /**
  * PcCurriculumPath — 학습 홈의 PC(데스크톱, md↑) 전용 경로 뷰.
@@ -8,9 +7,9 @@ import Mascot from '../../components/Mascot';
  * **섹션당 한 화면(스크롤 스냅) + 세로 지그재그**로 교체했다. 모바일 뷰
  * (§CurriculumHome)는 그대로 둔다.
  *
- * 캐릭터는 학습 세션 담당인 물방울이다(Mascot). 태양이는 게임 보드로 갔고,
- * 이전 마스코트 「썬더」는 폐기. 이름·칩 문구는 i18n `curriculum.tutor`가 소유한다
- * — 그림만 바꾸고 문구를 놔두면 물방울이 옆에 "썬더"가 뜬다(실제로 그랬다).
+ * 캐릭터(물방울이)는 **좌측 사이드바가 소유한다**(SideNav의 화면별 튜터).
+ * 예전에는 이 화면 우측 레일에도 물방울이 카드가 있었는데, 사이드바 튜터가
+ * 화면별로 바뀌게 되면서 같은 캐릭터가 한 화면에 둘 떴다 — 여기서 뺐다.
  *
  * 레이아웃 계약(시안 README「검증된 동작 계약」):
  *   - 한 화면에 한 단계. 트랙만 스크롤되고 페이지는 따라 움직이지 않는다.
@@ -77,6 +76,22 @@ function weave(i, n) {
   return side * (0.55 + 0.45 * Math.sin(((i + 0.5) / n) * Math.PI));
 }
 
+/**
+ * 단계 경계에서 **두 단계가 함께 쓸** 흔들림 계수 — 위 단계의 마지막 노드와 아래
+ * 단계의 첫 노드 중간값. 두 단계가 각자 자기 노드 x로 꼬리를 뻗으면 경계에서 길이
+ * 좌우로 튄다(실측: 1→2 경계 11px, 2칸→4칸인 3→4 경계는 185px). 같은 값을 쓰면
+ * 두 꼬리가 한 줄로 이어져 보인다.
+ * 경계 밖(위/아래 끝)은 0 — 뻗을 이웃이 없다.
+ */
+export function joinK(stages, aboveIdx, belowIdx) {
+  const above = stages[aboveIdx];
+  const below = stages[belowIdx];
+  if (!above || !below) return 0;
+  const aK = weave(above.units.length - 1, above.units.length);
+  const bK = weave(0, below.units.length);
+  return (aK + bK) / 2;
+}
+
 function badgeStyle(status) {
   if (status === 'cleared') {
     return { background: 'linear-gradient(160deg, #7DC9F0, #2E9BD6)', color: '#fff', boxShadow: '0 5px 0 #1E7FB4' };
@@ -101,9 +116,10 @@ function badgeStyle(status) {
  * 그래서 자기 자신(svg)에 ref를 걸고 `parentElement`로 올라간다 — 자기 DOM은
  * 자기 effect 시점에 반드시 붙어 있다.
  */
-function StageLine({ nodeCount, doneCount, leadIn, leadOut }) {
+function StageLine({ nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, layoutKey }) {
   const svgRef = useRef(null);
-  const [d, setD] = useState({ base: '', done: '' });
+  const baseRef = useRef(null);
+  const doneRef = useRef(null);
 
   const draw = useCallback(() => {
     const el = svgRef.current?.parentElement;
@@ -117,10 +133,38 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut }) {
     if (pts.length === 0) return;
 
     // 위아래 꼬리 — 이웃 단계 쪽으로 뻗어 스냅 경계에서 길이 끊겨 보이지 않게 한다.
+    //
+    // ⚠️ 꼬리 x를 **자기 노드 x로 두면 경계에서 길이 어긋난다.** 위 단계의 아래꼬리는
+    // 자기 마지막 노드 아래로, 아래 단계의 위꼬리는 자기 첫 노드 위로 뻗는데 두 노드의
+    // 좌우 흔들림이 다르기 때문이다(실측: 1→2 경계에서 275.2 vs 264.3). 그래서 **두
+    // 단계가 같은 x**(이웃 노드와의 중간값)로 뻗게 한다 — joinInK/joinOutK가 그 값의
+    // 흔들림 계수이고, 실제 픽셀은 여기서 진폭을 역산해 만든다.
+    const center = box.width / 2;
+    // 진폭은 CSS가 소유한다(`--amp`: clamp(56px, 16cqw, 132px)). 노드 좌표에서
+    // 역산하지 않고 **계산된 값을 그대로 읽는다** — 역산은 흔들린 노드가 하나도
+    // 없는 단계(칸 1개, k=0뿐)에서 0이 되어, 그 경계만 다시 어긋난다.
+    // 진폭(px)은 CSS `--amp`가 정하는데 **읽을 수 없다** — 등록되지 않은 커스텀
+    // 프로퍼티라 getComputedStyle이 `clamp(56px, 16cqw, 132px)` 토큰을 그대로
+    // 돌려준다(실측: parseFloat → NaN). 그래서 이미 그려진 노드에서 역산한다:
+    // 노드 x = 가운데 + k·amp 이므로 k≠0인 노드 하나면 amp가 나온다.
+    let amp = 0;
+    for (const node of el.querySelectorAll('[data-wm-node]')) {
+      const k = parseFloat(node.style.getPropertyValue('--k'));
+      if (Number.isFinite(k) && Math.abs(k) > 0.01) {
+        const r = node.getBoundingClientRect();
+        amp = (r.left + r.width / 2 - box.left - center) / k;
+        break;
+      }
+    }
+    // 칸이 하나뿐인 단계는 k=0밖에 없어 역산이 안 된다 — 그때만 CSS 식을 옮겨 쓴다.
+    // ⚠️ 아래 수치는 index.css `.wm-vpath { --amp }`의 사본이다(둘을 같이 고칠 것).
+    if (amp === 0) amp = Math.min(132, Math.max(56, box.width * 0.16));
+    const joinX = (k) => center + (Number.isFinite(k) ? k : 0) * amp;
+
     const all = [];
-    if (leadIn) all.push({ x: pts[0].x, y: -TAIL });
+    if (leadIn) all.push({ x: joinX(joinInK), y: -TAIL });
     all.push(...pts);
-    if (leadOut) all.push({ x: pts[pts.length - 1].x, y: box.height + TAIL });
+    if (leadOut) all.push({ x: joinX(joinOutK), y: box.height + TAIL });
 
     const line = (list) => list.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
 
@@ -130,11 +174,19 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut }) {
     if (doneCount >= nodeCount) doneLen = all.length; // 이 단계 전부 + 아래 꼬리
     else if (doneCount > 0) doneLen = head + doneCount;
 
-    setD({
-      base: line(all),
-      done: doneLen >= 2 ? line(all.slice(0, doneLen)) : '',
-    });
-  }, [nodeCount, doneCount, leadIn, leadOut]);
+    // **state가 아니라 DOM에 직접 쓴다.** setState로 두면 좌표를 잰 프레임과 선이
+    // 실제로 옮겨 그려지는 프레임이 갈라진다 — 그 한 프레임 동안 노드는 이미
+    // 움직였는데 선만 옛 자리에 남아 흔들려 보인다(실측: 소개 스트립을 접었다
+    // 펼 때마다 1프레임 13.5px). ResizeObserver 콜백은 레이아웃 뒤·페인트 전에
+    // 도므로, 여기서 attribute를 바로 쓰면 같은 프레임에 함께 그려진다.
+    baseRef.current?.setAttribute('d', line(all));
+    doneRef.current?.setAttribute('d', doneLen >= 2 ? line(all.slice(0, doneLen)) : '');
+    // layoutKey는 계산에 쓰이지 않는다 — **노드를 움직이는 바깥 변화**(소개 스트립
+    // 접기 등)를 의존성으로 들여와, 그 변화와 **같은 커밋**에서 다시 그리게 하는
+    // 스위치다. ResizeObserver에만 맡기면 다시 그리는 시점이 브라우저의 콜백 전달
+    // 순서에 달리는데, layout effect는 DOM 변경 뒤·페인트 전이 React의 계약이다.
+    void layoutKey;
+  }, [nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, layoutKey]);
 
   useLayoutEffect(() => {
     draw();
@@ -146,16 +198,16 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut }) {
   }, [draw]);
 
   return (
+    // 두 path는 **항상 그린다** — 조건부로 붙였다 떼면 그 순간 ref가 갈려서
+    // draw()가 쓸 대상을 잃는다. 빈 d는 아무것도 그리지 않는다.
     <svg ref={svgRef} className="wm-line" aria-hidden="true">
-      <path d={d.base} fill="none" stroke="#E1E8EF" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
-      {d.done && (
-        <path d={d.done} fill="none" stroke="#9AD5F2" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
-      )}
+      <path ref={baseRef} d="" fill="none" stroke="#E1E8EF" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+      <path ref={doneRef} d="" fill="none" stroke="#9AD5F2" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit }) {
+function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit, joinInK, joinOutK }) {
   const t = useT();
   const units = section.units;
   const cleared = units.filter((u) => resolveStatus(u) === 'cleared').length;
@@ -221,11 +273,19 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
         )}
       </div>
 
+      {/* --n은 **이 단계의 칸 수가 아니라 전 단계 중 최대 칸 수**다(sizingN).
+          자기 칸 수를 넣으면 3칸 섹션이 5칸 섹션보다 큰 동그라미를 받아, 단계를
+          넘길 때마다 아이콘 크기가 들쭉날쭉했다(실측 86px ↔ 58px). 최대값으로
+          통일하면 전 단계가 같은 크기를 쓰면서 가장 긴 섹션도 넘치지 않는다
+          (--dot 식이 "n칸이 들어가는 크기"를 구하므로 최대 n이 곧 안전한 상한). */}
       <div
         className="wm-vpath"
-        style={{ '--n': units.length, '--chrome': `${CHROME}px` }}
+        style={{ '--n': sizingN, '--chrome': `${CHROME}px` }}
       >
         <StageLine
+          layoutKey={introOpen}
+          joinInK={joinInK}
+          joinOutK={joinOutK}
           nodeCount={units.length}
           doneCount={doneCount}
           leadIn={index > 0}
@@ -303,6 +363,11 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
 
   const withUnits = sections.filter((s) => s.units.length > 0);
 
+  // 노드 크기의 기준 칸 수 — **전 단계 중 최대**. 단계마다 자기 칸 수로 크기를
+  // 정하면 아이콘이 단계를 넘길 때마다 커졌다 작아진다. 가장 긴 섹션에 맞춰
+  // 통일하면 어느 단계도 넘치지 않는다. 섹션이 없을 때의 1은 0 나눗셈 방지.
+  const sizingN = Math.max(1, ...withUnits.map((s) => s.units.length));
+
   // 섹션별 시작 인덱스(전역) — 완료 구간을 경계 너머로 잇기 위해 필요하다.
   const offsets = [];
   let acc = 0;
@@ -321,6 +386,40 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
   const currentSection = withUnits.find((s) => s.units.some((u) => u.id === currentUnit?.id)) ?? null;
 
   const onScroll = useCallback((e) => setAtStart(e.currentTarget.scrollTop < 24), []);
+
+  /**
+   * 트랙이 화면 어디서 시작하는지를 재서 CSS로 넘긴다(`--wm-track-top`).
+   * `.wm-track`의 높이가 "화면에서 이 값과 셸 아래 여백을 뺀 나머지"이기 때문이다.
+   *
+   * **상수로 박으면 안 되는 이유**: 트랙 위에 붙는 것이 상황마다 다르다 —
+   * 게스트 저장 배너 · 코스 탭(코스 2개 이상) · 구름 소진 경고. 하나만 떠도
+   * 트랙이 화면 밖으로 밀린다(실측: 코스 탭 하나에 1440×900이 37px 넘쳤다).
+   *
+   * 되먹임 없음: 재는 것은 **top**이고 top은 자기 높이와 무관하다(위쪽 형제들만이
+   * 정한다). 그래서 높이가 바뀌어 부모가 리사이즈돼도 같은 값이 다시 써질 뿐
+   * 값이 진동하지 않는다.
+   */
+  const wrapRef = useRef(null);
+  useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return undefined;
+    const apply = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      el.style.setProperty('--wm-track-top', `${Math.round(top)}px`);
+    };
+    apply();
+    window.addEventListener('resize', apply);
+    let ro;
+    if (typeof ResizeObserver !== 'undefined' && el.parentElement) {
+      // 위쪽 형제(배너·코스 탭·경고)가 나타나거나 사라지면 부모 높이가 바뀐다.
+      ro = new ResizeObserver(apply);
+      ro.observe(el.parentElement);
+    }
+    return () => {
+      window.removeEventListener('resize', apply);
+      ro?.disconnect();
+    };
+  }, []);
 
   // 현재 유닛이 있는 단계로 초깃값 정렬 — 매번 1단계부터 스크롤하게 두지 않는다.
   useEffect(() => {
@@ -341,8 +440,10 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
 
   if (flat.length === 0) return null;
 
+  // pb-6은 뺐다 — main이 이미 pb-8을 갖고 있어, 트랙 아래 여백이 두 겹으로
+  // 쌓이면서 그만큼 페이지에 세로 스크롤이 생겼다(실측 28px).
   return (
-    <div className="hidden pb-6 md:block">
+    <div ref={wrapRef} className="hidden md:block">
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="wm-track min-w-0 rounded-[20px] bg-white ring-1 ring-slate-200">
           <div ref={scrollerRef} className="wm-scroller" onScroll={onScroll}>
@@ -352,6 +453,9 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
                 section={section}
                 index={i}
                 total={withUnits.length}
+                sizingN={sizingN}
+                joinInK={joinK(withUnits, i - 1, i)}
+                joinOutK={joinK(withUnits, i, i + 1)}
                 offset={offsets[i]}
                 blueTo={blueTo}
                 introOpen={introOpen}
@@ -405,38 +509,12 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
         {/* 우측 레일 — 튜터 아래로 카드를 쌓는다. 트랙이 680px인데 튜터 카드만
             두면 아래가 350px쯤 비고, 그 카드들을 트랙 밑에 가로로 길게 두면
             화면이 아래로 늘어진다. 내용은 호출부(CurriculumHome)가 넘긴다. */}
-        <div className="flex flex-col gap-3.5">
-          <TutorCard unit={currentUnit} />
-          {rail}
-        </div>
+        {/* 우측 레일 — 튜터 카드는 뺐다(2026-08-05). 같은 물방울이가 좌측
+            사이드바에도 있어 한 화면에 둘이 떴다. 복습 큐·자유 세션이 그만큼
+            위로 올라온다. 내용은 호출부(CurriculumHome)가 넘긴다. */}
+        <div className="flex flex-col gap-3.5">{rail}</div>
       </div>
     </div>
   );
 }
 
-function TutorCard({ unit }) {
-  const t = useT();
-  // 튜터 코멘트 내용(사전형 기상 용어 등)은 아직 미확정 — 지금은 자리표시 문구만.
-  const greeting = unit
-    ? t('curriculum.tutor.greet', { title: unit.title })
-    : t('curriculum.tutor.greetDefault');
-
-  return (
-    <div
-      // lg 미만에서는 경로 아래로 쌓이므로, 가로로 늘어져 허전해 보이지 않게 폭을 제한한다.
-      className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 p-5 lg:max-w-none"
-      style={{ background: 'linear-gradient(180deg, #EFF8FE 0%, #F7FBFE 55%, #ffffff 100%)' }}
-    >
-      <span className="absolute left-4 top-3.5 rounded-full bg-[#0E2A42] px-2.5 py-1 text-[10.5px] font-extrabold text-white">
-        {t('curriculum.tutor.chip')}
-      </span>
-      <div className="mt-8 flex justify-center">
-        <Mascot name="drop" className="w-[180px] drop-shadow-lg" />
-      </div>
-      <div className="relative mt-1 rounded-2xl bg-white p-3 shadow-md">
-        <p className="mb-0.5 text-[11px] font-extrabold text-[#0369A1]">{t('curriculum.tutor.name')}</p>
-        <p className="text-[13.5px] font-bold leading-snug text-slate-800">{greeting}</p>
-      </div>
-    </div>
-  );
-}

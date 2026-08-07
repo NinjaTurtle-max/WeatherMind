@@ -11,7 +11,9 @@ export default function EvidencePicker({ selected, onToggle, disabled = false })
   const t = useT();
   const picked = new Set(selected);
   return (
-    <div className="mt-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+    // 바깥 여백은 배치하는 쪽이 정한다 — 2열에서는 오른쪽 열의 첫 카드라 위
+    // 여백이 브리핑 카드와 어긋난다.
+    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
       <h3 className="text-sm font-extrabold text-slate-900">{t('evidence.pickerTitle')}</h3>
       <p className="mb-2 mt-0.5 text-xs text-slate-500">{t('evidence.pickerHelp')}</p>
       <ul className="grid grid-cols-1 gap-1.5">

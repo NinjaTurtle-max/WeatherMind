@@ -1,4 +1,4 @@
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import Mascot from './Mascot';
 import { NAV_ITEMS } from './navItems';
 import { useT } from '../i18n';
@@ -14,11 +14,28 @@ import { useT } from '../i18n';
  * 탭바/사이드바를 구분해 세야 한다(`data-testid`) — 실제로 gating 스모크가
  * `nav a, nav button` 전체 개수를 단정하고 있어 함께 고쳤다.
  *
- * 튜터는 메인 튜터인 구름이다(`Mascot.jsx` 배정표). 학습 경로 화면의 물방울이는
- * 유닛별 안내라 역할이 다르다 — 같은 화면에 둘이 떠도 중복이 아니다.
+ * 튜터는 **지금 있는 화면의 담당 마스코트**다(`Mascot.jsx` 배정표). 기본은 메인
+ * 튜터인 구름이고, 보드에서는 태양이, 학습에서는 물방울이, 예보 대결에서는
+ * 태풍이, 리그에서는 번개가 나온다 — 화면마다 안내하는 캐릭터가 바뀌는 것이
+ * 배정표의 뜻이다.
+ *
+ * 학습 화면 우측 레일에도 물방울이 카드가 있었는데 걷어냈다(2026-08-05) —
+ * 같은 캐릭터가 한 화면에 둘 뜨면 어느 쪽이 말하는 건지 알 수 없다.
  */
+const TUTOR_BY_PATH = [
+  { match: (p) => p === '/board' || p.startsWith('/board/'), name: 'sun', key: 'board' },
+  { match: (p) => p === '/learn' || p.startsWith('/learn/'), name: 'drop', key: 'learn' },
+  { match: (p) => p === '/duel' || p.startsWith('/duel/'), name: 'typhoon', key: 'duel' },
+  { match: (p) => p === '/league' || p.startsWith('/league/'), name: 'bolt', key: 'league' },
+];
+
 export default function SideNav() {
   const t = useT();
+  const pathname = useLocation().pathname;
+  const tutor = TUTOR_BY_PATH.find((r) => r.match(pathname));
+  const mascot = tutor?.name ?? 'cloud';
+  const nameKey = tutor ? `nav.tutor.${tutor.key}.name` : 'home.tutor.name';
+  const lineKey = tutor ? `nav.tutor.${tutor.key}.line` : 'home.tutor.line';
   return (
     <aside
       data-testid="sidenav"
@@ -54,9 +71,12 @@ export default function SideNav() {
       </nav>
 
       <div className="mt-auto rounded-2xl border border-slate-200 bg-white p-3 text-center">
-        <Mascot name="cloud" className="mx-auto w-[74px]" />
-        <p className="mt-1.5 text-[12.5px] font-extrabold text-slate-800">{t('home.tutor.name')}</p>
-        <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t('home.tutor.line')}</p>
+        {/* 정사각 박스 — 폭만 주면 세로가 원본 비율을 따라가 캐릭터마다 카드
+            높이가 달라지고(가로형 cloud 43px ↔ 세로형 bolt 123px) 화면을 옮길
+            때마다 사이드바 아래가 들썩인다. */}
+        <Mascot name={mascot} className="mx-auto h-[74px] w-[74px]" />
+        <p className="mt-1.5 text-[12.5px] font-extrabold text-slate-800">{t(nameKey)}</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t(lineKey)}</p>
       </div>
     </aside>
   );

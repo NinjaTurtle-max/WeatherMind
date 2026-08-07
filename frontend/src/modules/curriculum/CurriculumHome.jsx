@@ -261,20 +261,20 @@ export default function CurriculumHome() {
 function DailySessionCard({ energyBlocked, dailyBlocked, regenMin }) {
   const t = useT();
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+    <div className="flex min-h-[212px] flex-col rounded-2xl border border-slate-200 bg-white p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[13px] font-bold text-slate-800">{t('curriculum.daily.title')}</p>
+        <p className="text-[14px] font-extrabold text-slate-800">{t('curriculum.daily.title')}</p>
         {/* 지역 칩(R12 선행 §8) — 실황 문항이 어느 지역 날씨인지 세션 진입 전에 보여준다 */}
         <RegionPicker />
       </div>
-      <p className="mt-0.5 text-[11px] leading-snug text-slate-500">{t('curriculum.daily.body')}</p>
+      <p className="mt-1.5 text-[12px] leading-relaxed text-slate-500">{t('curriculum.daily.body')}</p>
       {dailyBlocked ? (
         <>
           <button
             type="button"
             disabled
             aria-disabled="true"
-            className="mt-2 inline-block cursor-not-allowed rounded-lg bg-slate-200 px-3 py-1.5 text-[12px] font-bold text-slate-400"
+            className="mt-auto inline-block cursor-not-allowed self-start rounded-xl bg-slate-200 px-4 py-2 text-[12.5px] font-bold text-slate-400"
           >
             {t('curriculum.daily.cta')}
           </button>
@@ -286,7 +286,7 @@ function DailySessionCard({ energyBlocked, dailyBlocked, regenMin }) {
         <>
           <Link
             to="/daily"
-            className="mt-2 inline-block rounded-lg bg-slate-900 px-3 py-1.5 text-[12px] font-bold text-white transition hover:bg-slate-700"
+            className="mt-auto inline-block self-start rounded-xl bg-slate-900 px-4 py-2 text-[12.5px] font-bold text-white transition hover:bg-slate-700"
           >
             {energyBlocked ? t('curriculum.daily.resume') : t('curriculum.daily.cta')}
           </Link>

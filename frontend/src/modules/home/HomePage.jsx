@@ -151,19 +151,13 @@ export default function HomePage() {
 
       {/* 바로 시작하기 */}
       <p className="text-xs font-extrabold tracking-wider text-slate-400">{t('home.quickStart')}</p>
+      {/* 네 칸은 **같은 격**이다 — 마우스를 올린 칸만 파랗게 든다.
+          학습 세션만 늘 진한 파랑이던 것을 걷어냈다(2026-08-05): 고정 강조는
+          "지금 여기가 선택돼 있다"로 읽혀서, 다른 칸에 올려도 반응이 없는 것처럼
+          보였다. 강조는 상태가 아니라 **가리킴**이어야 한다. */}
       <div className="mt-2.5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Link
-          to="/learn"
-          className="flex min-h-[118px] flex-col gap-2 rounded-2xl border border-sky-600 bg-sky-600 p-3.5 text-white transition hover:bg-sky-700"
-        >
-          <span className="text-[22px]" aria-hidden="true">🎓</span>
-          <span className="text-[13.5px] font-extrabold">{t('home.entry.learn')}</span>
-          <span className="text-[11.5px] leading-snug text-sky-100">
-            {current ? current.title : t('home.entry.learnEmpty')}
-          </span>
-          <span className="mt-auto text-[11.5px] font-extrabold">{t('home.entry.learnGo')}</span>
-        </Link>
         {[
+          { to: '/learn', icon: '🎓', k: 'learn', desc: current ? current.title : t('home.entry.learnEmpty'), cta: t('home.entry.learnGo') },
           { to: '/board', icon: '🧩', k: 'board' },
           { to: '/duel', icon: '🌡️', k: 'duel' },
           { to: '/league', icon: '🏆', k: 'league', desc: t('home.entry.leagueDesc', { tier: t(`tier.name.${TIER_KEYS[tierIdx]}`) }) },
@@ -171,12 +165,18 @@ export default function HomePage() {
           <Link
             key={e.to}
             to={e.to}
-            className="flex min-h-[118px] flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3.5 transition hover:border-sky-300"
+            className="group flex min-h-[118px] flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-sky-600 hover:bg-sky-600 focus-visible:border-sky-600 focus-visible:bg-sky-600"
           >
             <span className="text-[22px]" aria-hidden="true">{e.icon}</span>
-            <span className="text-[13.5px] font-extrabold text-slate-900">{t(`home.entry.${e.k}`)}</span>
-            <span className="text-[11.5px] leading-snug text-slate-500">{e.desc ?? t(`home.entry.${e.k}Desc`)}</span>
-            <span className="mt-auto text-[11.5px] font-extrabold text-sky-700">{t('home.entry.go')}</span>
+            <span className="text-[13.5px] font-extrabold text-slate-900 group-hover:text-white group-focus-visible:text-white">
+              {t(`home.entry.${e.k}`)}
+            </span>
+            <span className="text-[11.5px] leading-snug text-slate-500 group-hover:text-sky-100 group-focus-visible:text-sky-100">
+              {e.desc ?? t(`home.entry.${e.k}Desc`)}
+            </span>
+            <span className="mt-auto text-[11.5px] font-extrabold text-sky-700 group-hover:text-white group-focus-visible:text-white">
+              {e.cta ?? t('home.entry.go')}
+            </span>
           </Link>
         ))}
       </div>
@@ -240,7 +240,7 @@ export default function HomePage() {
           ) : (
             due.map((r) => (
               <div key={r.concept_tag} className="mt-3 flex items-center gap-2.5">
-                <Mascot name={conceptCharacter(r.concept_tag)} className="h-12 w-12 flex-none object-contain" />
+                <Mascot name={conceptCharacter(r.concept_tag)} className="h-12 w-12 flex-none" />
                 <div className="min-w-0">
                   <p className="text-[13px] font-extrabold text-slate-900">{conceptLabel(t, r.concept_tag)}</p>
                   <p className="mt-0.5 text-[11.5px] text-slate-500">
@@ -264,7 +264,7 @@ export default function HomePage() {
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               {(abilities ?? []).map((a) => (
                 <div key={a.concept_tag} className="flex items-center gap-2 text-xs">
-                  <Mascot name={conceptCharacter(a.concept_tag)} className="h-7 w-7 flex-none object-contain" />
+                  <Mascot name={conceptCharacter(a.concept_tag)} className="h-7 w-7 flex-none" />
                   <span className="min-w-0 truncate font-bold text-slate-700">{conceptLabel(t, a.concept_tag)}</span>
                   <span className="ml-auto flex-none text-[11.5px] font-extrabold text-sky-700">
                     {t(`ability.level.${a.level_label}`)}

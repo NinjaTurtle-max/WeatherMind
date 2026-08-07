@@ -22,7 +22,7 @@ export default function FeedbackPanel({ message, isCorrect }) {
         <div className="flex gap-3 p-4">
           {/* 정오답은 배지·문구가 전달하므로 캐릭터는 장식 — 스크린리더 중복 방지.
               포즈가 1종뿐이라 정오답으로 그림을 바꾸지 않는다. */}
-          <Mascot name="bolt" className="w-14 shrink-0 self-start object-contain" />
+          <Mascot name="bolt" className="h-14 w-14 shrink-0 self-start" />
           <div className="min-w-0 flex-1">
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${tone.badge}`}>
               {t('feedback.ai')}

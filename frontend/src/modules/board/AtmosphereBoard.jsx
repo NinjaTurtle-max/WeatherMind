@@ -127,7 +127,24 @@ export function hintRulesForGoal(rules, goal, palette, zoneState) {
  *    않게 한다. 문항 저작 `hints`(정답 좌표·수치를 그대로 알려주는 기존 문구)는
  *    이 경로에서 쓰지 않는다.
  */
-export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null, phenomena = null, sandbox = false }) {
+/**
+ * `layout` — 이 보드가 어디에 놓이느냐.
+ *
+ *   'stacked'(기본) : 세로로 쌓는다. **세션 문항**이 쓰는 배치다. 세션은 보드를
+ *                     좁은 문항 카드 안에 넣으므로 3열을 켜면 안 된다(뷰포트 기준
+ *                     미디어쿼리라 카드가 좁아도 3열이 켜진다).
+ *   'wide'          : 보드 탭 전용 3열 — 팔레트 / 지도 / 미션·가이드·판정.
+ *                     시안 `docs/design/board_mockup.html`의 배치다.
+ *
+ * 'wide'에서만 **존 카드 4장을 걷어낸다**(2026-08-05 결정). 같은 값을 지도 노드 ·
+ * 요약 줄 · 카드 셋이 말하고 있었고, 카드가 세로 200px를 먹어 지도와 제출 버튼을
+ * 한 화면에서 못 봤다. 대신 「지금 고른 존」한 줄 + 팔레트의 슬라이더 1개로 옮긴다.
+ * 슬라이더를 1개로 줄여도 잃는 것이 없는 근거: 시드 board 문항이 **전부** 목표 존
+ * 1개다(`goal_conditions` zone 단일 — 문항 수는 늘어나므로 세지 않는다). 값 자체는
+ * 존마다 그대로 따로 갖는다.
+ */
+export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null, phenomena = null, sandbox = false, layout = 'stacked' }) {
+  const wide = layout === 'wide';
   const t = useT();
   const [board, setBoard] = useState(() => createBoard(puzzle?.initial_state));
   const boardRef = useRef(board); // 같은 turn 내 연속 변경의 기준값 (applyBoard)
@@ -275,6 +292,28 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     ? (confirmedPhenomena.find((p) => p.zone === stageZone) ?? confirmedPhenomena[stageZone] ?? null)
     : (preview[stageZone] ?? null);
 
+  // ── 성공 시 애니메이션으로 스크롤 (2026-08-06 요청) ────────────────────────
+  // 단면 패널은 지도 **아래**에 있어서, 목표를 달성해도 화면 밖에서 재생됐다 —
+  // 직접 내려가야 볼 수 있으니 사실상 못 보고 지나친다. 성공 순간 패널을 화면
+  // 안으로 끌어온다.
+  const stageRef = useRef(null);
+  // 같은 국면으로 두 번 스크롤하지 않는다(리렌더마다 화면이 튄다). 미리보기 성공과
+  // 서버 확정은 **다른 장면**이라 각각 한 번씩 안내한다.
+  const scrolledFor = useRef(null);
+  const scrollPhase = confirmedPhenomena ? 'confirmed' : goals.passed ? 'preview' : null;
+  useEffect(() => {
+    scrolledFor.current = null; // 재도전·다른 퍼즐이면 다시 안내한다
+  }, [attemptKey, puzzle]);
+  useEffect(() => {
+    if (!scrollPhase || scrolledFor.current === scrollPhase) return;
+    scrolledFor.current = scrollPhase;
+    const el = stageRef.current;
+    if (!el?.scrollIntoView) return;
+    // 동작 줄이기 설정이면 순간 이동 — 스크롤도 애니메이션이다(index.css §접근성)
+    const reduce = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+  }, [scrollPhase]);
+
   // 지도 오버레이용 존별 표시 결과(R9-08 §A) — 서버 확정이 있으면 확정, 없으면 미리보기.
   const zoneVisuals = useMemo(
     () =>
@@ -342,292 +381,420 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   }, [sandbox, hintZone, hintsAuthored, regions, hintRules, t]);
   const hintZoneActive = hintLevel > 0 && hintZone != null;
 
-  return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-      {/* 목표 배너 */}
-      <div className="mb-3 rounded-xl bg-sky-50 px-4 py-3 ring-1 ring-sky-100">
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-bold text-sky-900">{sandbox ? '🧪' : '🎯'} {puzzle?.question_text}</p>
-          {hasTimer && (
-            <span
-              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold tabular-nums ${
-                timedOut
-                  ? 'bg-slate-200 text-slate-500'
-                  : remaining <= 10
-                    ? 'animate-pulse bg-orange-100 text-orange-700'
-                    : 'bg-sky-100 text-sky-700'
-              }`}
-              title={t('board.atmosphere.timerTitle')}
-            >
-              ⏱ {formatClock(remaining)}
-            </span>
-          )}
-        </div>
+  // 「지금 보고 있는 존」 — wide 배치에서 존 카드 4장을 대신하는 한 줄이 이 존을 말한다.
+  // stageZone과 같은 규칙(마지막 조작 존 → 목표 존 → 0)이라 단면 패널과 초점이 어긋나지 않는다.
+  const focusZone = stageZone;
+  const focusAir = board.elements.find((el) => el.zone === focusZone && el.type === 'air_mass');
+  const focusFront = board.elements.find((el) => el.zone === focusZone && el.type === 'front');
+  const goalTotal = puzzle?.goal_conditions?.length ?? 0;
+  const goalMetCount = goalTotal - goals.unmet.length;
 
-        {/* 재현 퍼즐(§3.5): based_on 있으면 "실화" 배지 (사건명·날짜·지역) */}
-        {puzzle?.based_on?.event_name && (
-          <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-700">
-            <span aria-hidden="true">📖</span>
-            {t('board.atmosphere.basedOn')} {puzzle.based_on.event_name}
-            {puzzle.based_on.event_date && <span className="font-medium">({puzzle.based_on.event_date}{puzzle.based_on.region ? `, ${puzzle.based_on.region}` : ''})</span>}
-          </div>
-        )}
+  // ── 조각들 ────────────────────────────────────────────────────────────────
+  // 배치(stacked/wide)마다 순서가 달라서, 렌더 트리를 먼저 조각으로 만들고 아래에서
+  // 조립한다. 조각 안에서 배치를 분기하지 않는다 — 분기는 조립부 한 곳에만 둔다.
 
-        {puzzle?.mode === 'guided' && (puzzle?.guide_steps?.length ?? 0) > 0 && (
-          <div className="mt-2 flex items-center gap-2">
-            <p className="flex-1 text-xs text-sky-800">
-              <span className="font-bold">{t('board.atmosphere.guidePrefix', { step: guideStep + 1, total: puzzle.guide_steps.length })}</span>{' '}
-              {puzzle.guide_steps[guideStep]}
-            </p>
-            {guideStep + 1 < puzzle.guide_steps.length && (
-              <button
-                type="button"
-                onClick={() => setGuideStep((s) => Math.min(s + 1, puzzle.guide_steps.length - 1))}
-                className="shrink-0 rounded-lg bg-sky-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-sky-700"
-              >
-                {t('board.atmosphere.guideNext')}
-              </button>
-            )}
-          </div>
+  const missionBlock = (
+    <div className="rounded-xl bg-sky-50 px-4 py-3 ring-1 ring-sky-100">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-bold text-sky-900">{sandbox ? '🧪' : '🎯'} {puzzle?.question_text}</p>
+        {hasTimer && (
+          <span
+            className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold tabular-nums ${
+              timedOut
+                ? 'bg-slate-200 text-slate-500'
+                : remaining <= 10
+                  ? 'animate-pulse bg-orange-100 text-orange-700'
+                  : 'bg-sky-100 text-sky-700'
+            }`}
+            title={t('board.atmosphere.timerTitle')}
+          >
+            ⏱ {formatClock(remaining)}
+          </span>
         )}
       </div>
 
-      {/* 팔레트 (배치 허용 요소만 — §3.3) */}
-      {placeItems.length > 0 && (
-        <div className="mb-3">
-          <p className="mb-1.5 text-xs font-bold text-slate-500">{t('board.atmosphere.paletteHeader')}</p>
-          <div className="flex flex-wrap gap-2">
-            {placeItems.map((item) => {
-              const isSel = selected?.token === item.token;
-              return (
-                <button
-                  key={item.token}
-                  type="button"
-                  onPointerDown={handlePointerDown(item)}
-                  onClick={() => {
-                    if (shouldSuppressClick()) return; // 드래그 직후 합성 click 무시
-                    if (interactive) setSelected(isSel ? null : item);
-                  }}
-                  disabled={!interactive}
-                  style={{ touchAction: 'none' }} // 터치 드래그 중 스크롤 차단(§3.3 ③)
-                  className={`flex min-h-[44px] items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-60 ${
-                    isSel
-                      ? 'border-sky-500 bg-sky-600 text-white shadow'
-                      : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-sky-400 hover:bg-sky-50'
-                  } ${dragging && drag?.item?.token === item.token ? 'opacity-40' : ''}`}
-                  title={item.hint}
-                >
-                  {/* 표준 표기 SVG 심볼 (R9-01 §3.3 ② — 이모지 폴백은 SymbolIcon 내부) */}
-                  <SymbolIcon kind={item.type} value={item.subtype} className="h-5 w-5" />
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
+      {/* 재현 퍼즐(§3.5): based_on 있으면 "실화" 배지 (사건명·날짜·지역) */}
+      {puzzle?.based_on?.event_name && (
+        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-700">
+          <span aria-hidden="true">📖</span>
+          {t('board.atmosphere.basedOn')} {puzzle.based_on.event_name}
+          {puzzle.based_on.event_date && <span className="font-medium">({puzzle.based_on.event_date}{puzzle.based_on.region ? `, ${puzzle.based_on.region}` : ''})</span>}
         </div>
       )}
 
-      {/* 한반도 지도 — 지역 노드에 요소를 드롭·탭 배치 (R5-01 §3.1). zone↔지역 고정 매핑. */}
-      <PeninsulaMap
-        regions={regions}
-        preview={preview}
-        board={board}
-        goals={goals}
-        goalConditions={puzzle?.goal_conditions}
-        selected={selected}
-        interactive={interactive}
-        onZoneTap={handleZoneClick}
-        dragging={dragging}
-        dragOverZone={drag?.overZone ?? null}
-        zoneVisuals={zoneVisuals}
-      />
-
-      {/* 드래그 고스트(§3.3 ③) — 존 위에서는 존 중심으로 스냅 */}
-      {drag && (
-        <div
-          className="pointer-events-none fixed z-50"
-          style={{
-            left: drag.snap?.x ?? drag.x,
-            top: drag.snap?.y ?? drag.y,
-            transform: 'translate(-50%, -50%)',
-          }}
-          aria-hidden="true"
-        >
-          <div
-            className={`flex items-center gap-1.5 rounded-xl border bg-white/95 px-3 py-2 text-sm font-bold shadow-lg transition-transform ${
-              drag.overZone != null ? 'scale-110 border-sky-400 ring-2 ring-sky-500' : 'border-slate-200 ring-1 ring-slate-300'
-            }`}
-          >
-            <SymbolIcon kind={drag.item.type} value={drag.item.subtype} className="h-5 w-5" />
-            {drag.item.label}
-          </div>
-        </div>
-      )}
-
-      {/* 단면 모식도 패널(R9-08 §B) — rule_id→8종 스토리보드 단계 재생 + explain 캡션.
-          로컬 미리보기 판정 성공 시 즉시 재생, 서버 판정 도착 시 확정 리플레이.
-          prefers-reduced-motion이면 최종 장면 정지 + 단계 텍스트 목록. */}
-      <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
-
-      {/* 4개 지역 상세 조절(노드별 기단·전선·습기·일사) — 지도와 같은 zone을 가리킨다 */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {ZONES.map((_zoneName, zone) => {
-          const region = regions[zone];
-          const airEl = zoneElement(zone, 'air_mass');
-          const frontEl = zoneElement(zone, 'front');
-          const pv = preview[zone];
-          const ph = phenomenonMeta(pv.phenomenon);
-          const cl = cloudMeta(pv.cloud);
-          const goalMet =
-            goals.unmet.every((g) => g.zone !== zone) &&
-            (puzzle?.goal_conditions ?? []).some((g) => g.zone === zone);
-          return (
-            <div
-              key={zone}
-              data-board-zone={zone}
-              onClick={() => handleZoneClick(zone)}
-              className={`flex flex-col rounded-xl border p-2 transition ${
-                selected && interactive ? 'cursor-pointer border-dashed border-sky-400 bg-sky-50/40' : 'border-slate-200'
-              } ${
-                dragging
-                  ? drag?.overZone === zone
-                    ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-400'
-                    : 'border-dashed border-sky-300 bg-sky-50/30'
-                  : ''
-              } ${goalMet ? 'ring-2 ring-emerald-400' : ''} ${
-                hintZoneActive && hintZone === zone && !goalMet ? 'ring-2 ring-amber-400 bg-amber-50/40' : ''
-              }`}
+      {/* wide는 안내를 아래 「가이드」 카드가 통째로 소유한다 — 여기 한 줄을 같이
+          두면 같은 문장이 두 번 뜬다. stacked(세션)는 카드가 없으니 여기 남긴다. */}
+      {!wide && puzzle?.mode === 'guided' && (puzzle?.guide_steps?.length ?? 0) > 0 && (
+        <div className="mt-2 flex items-center gap-2">
+          <p className="flex-1 text-xs text-sky-800">
+            <span className="font-bold">{t('board.atmosphere.guidePrefix', { step: guideStep + 1, total: puzzle.guide_steps.length })}</span>{' '}
+            {puzzle.guide_steps[guideStep]}
+          </p>
+          {guideStep + 1 < puzzle.guide_steps.length && (
+            <button
+              type="button"
+              onClick={() => setGuideStep((s) => Math.min(s + 1, puzzle.guide_steps.length - 1))}
+              className="shrink-0 rounded-lg bg-sky-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-sky-700"
             >
-              <p className="mb-1 text-center text-xs font-bold text-slate-600">
-                {region.name}
-                {hintZoneActive && hintZone === zone && (
-                  <span className="ml-1 rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-900">
-                    {t('board.atmosphere.hintHere')}
-                  </span>
-                )}
-              </p>
+              {t('board.atmosphere.guideNext')}
+            </button>
+          )}
+        </div>
+      )}
 
-              {/* 미리보기 현상/구름 (즉시 가시화) — 표준 표기 SVG(§3.3 ②) */}
-              <div className="mb-2 rounded-lg bg-slate-50 py-2 text-center">
-                <div className="flex justify-center">
-                  <SymbolIcon kind="phenomenon" value={pv.phenomenon} className="h-8 w-8" />
-                </div>
-                <div className="mt-0.5 text-xs font-bold text-slate-800">{ph.label}</div>
-                <div className="flex items-center justify-center gap-1 text-[10px] text-slate-400">
-                  <SymbolIcon kind="cloud" value={pv.cloud} className="h-3.5 w-3.5" /> {cl.label}
-                </div>
-              </div>
+      {/* 목표 진행 — "무엇을 만들면 끝나는가"를 수로 보여준다. 로컬 미리보기 판정이라
+          제출 전에도 즉시 움직인다(서버 판정이 최종인 것은 아래 「판정」이 말한다).
+          시안의 첫 클리어 XP·왕관 목표는 뺐다 — 사전에 알려 주는 API가 없다. */}
+      {!sandbox && goalTotal > 0 && (
+        <div className="mt-2 flex items-center gap-2 rounded-lg bg-white/70 px-2.5 py-1.5 ring-1 ring-sky-100">
+          <span className="text-[11px] font-bold text-slate-500">{t('board.atmosphere.goalProgressLabel')}</span>
+          <span className="ml-auto text-[11px] font-extrabold tabular-nums text-sky-700">
+            {goalMetCount} / {goalTotal}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 
-              {/* 배치된 기단/전선 칩 */}
-              <div className="mb-1.5 flex min-h-[1.5rem] flex-wrap gap-1">
-                {airEl && (
-                  <PlacedChip
-                    label={subtypeLabel('air_mass', airEl.subtype)}
-                    locked={isLocked(board, zone, 'air_mass')}
-                    onRemove={
-                      interactive
-                        ? () => {
-                            applyBoard(`remove:${zone}:air_mass:${historySeq()}`, (b) => removeElement(b, zone, 'air_mass'));
-                            setActiveZone(zone);
-                          }
-                        : null
-                    }
-                  />
-                )}
-                {frontEl && (
-                  <PlacedChip
-                    label={subtypeLabel('front', frontEl.subtype)}
-                    locked={isLocked(board, zone, 'front')}
-                    onRemove={
-                      interactive
-                        ? () => {
-                            applyBoard(`remove:${zone}:front:${historySeq()}`, (b) => removeElement(b, zone, 'front'));
-                            setActiveZone(zone);
-                          }
-                        : null
-                    }
-                  />
-                )}
-              </div>
+  // wide 전용 「가이드」 — 시안처럼 스텝을 목록으로 남긴다. 지나간 스텝이 사라지면
+  // "방금 뭘 했더라"를 다시 볼 길이 없다(기존 한 줄 표기의 문제).
+  const guidePanel = wide && puzzle?.mode === 'guided' && (puzzle?.guide_steps?.length ?? 0) > 0 && (
+    <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+      <p className="text-[11px] font-extrabold tracking-[0.4px] text-slate-500">
+        {t('board.atmosphere.guidePanelTitle')}
+      </p>
+      <ol className="mt-2 flex flex-col gap-1.5">
+        {puzzle.guide_steps.map((step, i) => {
+          const done = i < guideStep;
+          const now = i === guideStep;
+          return (
+            <li key={i} className="flex gap-2">
+              <span
+                className={`mt-0.5 grid h-4 w-4 flex-none place-items-center rounded-full text-[9px] font-extrabold ${
+                  done ? 'bg-emerald-100 text-emerald-600' : now ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-400'
+                }`}
+              >
+                {done ? '✓' : i + 1}
+              </span>
+              <span className={`text-[12px] leading-snug ${done ? 'text-slate-400 line-through' : now ? 'font-bold text-slate-800' : 'text-slate-500'}`}>
+                {step}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      {guideStep + 1 < puzzle.guide_steps.length && (
+        <button
+          type="button"
+          onClick={() => setGuideStep((s) => Math.min(s + 1, puzzle.guide_steps.length - 1))}
+          className="mt-2.5 w-full rounded-lg bg-sky-600 px-2.5 py-1.5 text-[12px] font-bold text-white hover:bg-sky-700"
+        >
+          {t('board.atmosphere.guideNext')}
+        </button>
+      )}
+    </div>
+  );
 
-              {/* moisture/sun 슬라이더 (팔레트 허용 시) */}
-              {allowMoisture && (
-                <ZoneSlider
-                  label={t('board.atmosphere.moisture')}
-                  value={zoneLevel(zone, 'moisture', 40)}
-                  locked={isLocked(board, zone, 'moisture')}
-                  disabled={!interactive}
-                  onChange={(v) => {
-                    applyBoard(`level:${zone}:moisture`, (b) => setLevel(b, zone, 'moisture', v));
-                    setActiveZone(zone);
-                  }}
-                />
-              )}
-              {allowSun && (
-                <ZoneSlider
-                  label={t('board.atmosphere.sun')}
-                  value={zoneLevel(zone, 'sun', 50)}
-                  locked={isLocked(board, zone, 'sun')}
-                  disabled={!interactive}
-                  onChange={(v) => {
-                    applyBoard(`level:${zone}:sun`, (b) => setLevel(b, zone, 'sun', v));
-                    setActiveZone(zone);
-                  }}
-                />
-              )}
-            </div>
+  const paletteBlock = placeItems.length > 0 && (
+    <div>
+      <p className="mb-1.5 text-xs font-bold text-slate-500">{t('board.atmosphere.paletteHeader')}</p>
+      <div className="flex flex-wrap gap-2">
+        {placeItems.map((item) => {
+          const isSel = selected?.token === item.token;
+          return (
+            <button
+              key={item.token}
+              type="button"
+              onPointerDown={handlePointerDown(item)}
+              onClick={() => {
+                if (shouldSuppressClick()) return; // 드래그 직후 합성 click 무시
+                if (interactive) setSelected(isSel ? null : item);
+              }}
+              disabled={!interactive}
+              style={{ touchAction: 'none' }} // 터치 드래그 중 스크롤 차단(§3.3 ③)
+              className={`flex min-h-[44px] items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-60 ${
+                isSel
+                  ? 'border-sky-500 bg-sky-600 text-white shadow'
+                  : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-sky-400 hover:bg-sky-50'
+              } ${dragging && drag?.item?.token === item.token ? 'opacity-40' : ''}`}
+              title={item.hint}
+            >
+              {/* 표준 표기 SVG 심볼 (R9-01 §3.3 ② — 이모지 폴백은 SymbolIcon 내부) */}
+              <SymbolIcon kind={item.type} value={item.subtype} className="h-5 w-5" />
+              {item.label}
+            </button>
           );
         })}
       </div>
+    </div>
+  );
 
-      {/* 로컬 미리보기 목표 상태 */}
-      {!result && (puzzle?.goal_conditions?.length ?? 0) > 0 && (
-        <p className={`mt-3 text-center text-xs font-bold ${goals.passed ? 'text-emerald-600' : 'text-slate-400'}`}>
-          {goals.passed ? t('board.atmosphere.goalMet') : t('board.atmosphere.goalPending')}
-        </p>
+  // wide 전용 — 「지금 고른 존」 하나만 다루는 카드. 존 카드 4장이 하던 일
+  // (배치 칩 제거 + 조절값)을 여기로 모은다. 현상·구름 표시는 넣지 않는다 —
+  // 지도 아래 단면 패널이 이미 그 존의 현상을 제목으로 달고 있어 겹친다.
+  const focusPanel = wide && (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5">
+      <p className="text-[11px] font-bold text-slate-500">
+        {t('board.atmosphere.focusControls', { zone: regions[focusZone]?.name ?? '' })}
+      </p>
+      <div className="mt-1.5 flex min-h-[1.75rem] flex-wrap items-center gap-1">
+        {focusAir && (
+          <PlacedChip
+            label={subtypeLabel('air_mass', focusAir.subtype)}
+            locked={isLocked(board, focusZone, 'air_mass')}
+            onRemove={
+              interactive
+                ? () => {
+                    applyBoard(`remove:${focusZone}:air_mass:${historySeq()}`, (b) => removeElement(b, focusZone, 'air_mass'));
+                    setActiveZone(focusZone);
+                  }
+                : null
+            }
+          />
+        )}
+        {focusFront && (
+          <PlacedChip
+            label={subtypeLabel('front', focusFront.subtype)}
+            locked={isLocked(board, focusZone, 'front')}
+            onRemove={
+              interactive
+                ? () => {
+                    applyBoard(`remove:${focusZone}:front:${historySeq()}`, (b) => removeElement(b, focusZone, 'front'));
+                    setActiveZone(focusZone);
+                  }
+                : null
+            }
+          />
+        )}
+        {!focusAir && !focusFront && (
+          <span className="text-[11px] text-slate-400">{t('board.atmosphere.focusEmpty')}</span>
+        )}
+      </div>
+      {allowMoisture && (
+        <ZoneSlider
+          label={t('board.atmosphere.moisture')}
+          value={zoneLevel(focusZone, 'moisture', 40)}
+          locked={isLocked(board, focusZone, 'moisture')}
+          disabled={!interactive}
+          onChange={(v) => {
+            applyBoard(`level:${focusZone}:moisture`, (b) => setLevel(b, focusZone, 'moisture', v));
+            setActiveZone(focusZone);
+          }}
+        />
       )}
+      {allowSun && (
+        <ZoneSlider
+          label={t('board.atmosphere.sun')}
+          value={zoneLevel(focusZone, 'sun', 50)}
+          locked={isLocked(board, focusZone, 'sun')}
+          disabled={!interactive}
+          onChange={(v) => {
+            applyBoard(`level:${focusZone}:sun`, (b) => setLevel(b, focusZone, 'sun', v));
+            setActiveZone(focusZone);
+          }}
+        />
+      )}
+    </div>
+  );
 
-      {/* 점진적 힌트 2단(§3.5) — 1단 존 지목 / 2단 요소 종류. 정답 배치는 미공개 */}
-      {hintSteps.length > 0 && !result && (
-        <div className="mt-3">
-          {hintSteps.slice(0, hintLevel).map((h, i) => (
-            <div key={i} className="mb-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              <p>
-                {t('board.atmosphere.hintPrefix', { n: i + 1 })} {h}
-              </p>
-              {/* 2단에서만 "필요한 요소 종류"를 칩으로 — subtype(정답 요소)은 없다 */}
-              {i === 1 && hintKinds.length > 0 && (
-                <p className="mt-1 flex flex-wrap items-center gap-1">
-                  <span className="font-bold">{t('board.atmosphere.hintNeedsLabel')}</span>
-                  {hintKinds.map((kind) => (
-                    <span key={kind} className="rounded-full bg-amber-200 px-2 py-0.5 font-bold text-amber-900">
-                      {HINT_KIND_LABEL[kind] ? t(HINT_KIND_LABEL[kind]) : kind}
-                    </span>
-                  ))}
-                </p>
+  const mapBlock = (
+    <PeninsulaMap
+      regions={regions}
+      preview={preview}
+      board={board}
+      goals={goals}
+      goalConditions={puzzle?.goal_conditions}
+      selected={selected}
+      interactive={interactive}
+      onZoneTap={handleZoneClick}
+      dragging={dragging}
+      dragOverZone={drag?.overZone ?? null}
+      zoneVisuals={zoneVisuals}
+    />
+  );
+
+  const dragGhost = drag && (
+    <div
+      className="pointer-events-none fixed z-50"
+      style={{
+        left: drag.snap?.x ?? drag.x,
+        top: drag.snap?.y ?? drag.y,
+        transform: 'translate(-50%, -50%)',
+      }}
+      aria-hidden="true"
+    >
+      <div
+        className={`flex items-center gap-1.5 rounded-xl border bg-white/95 px-3 py-2 text-sm font-bold shadow-lg transition-transform ${
+          drag.overZone != null ? 'scale-110 border-sky-400 ring-2 ring-sky-500' : 'border-slate-200 ring-1 ring-slate-300'
+        }`}
+      >
+        <SymbolIcon kind={drag.item.type} value={drag.item.subtype} className="h-5 w-5" />
+        {drag.item.label}
+      </div>
+    </div>
+  );
+
+  // stacked 전용 — 4개 지역 상세 조절(노드별 기단·전선·습기·일사). 지도와 같은 zone.
+  const zoneCards = !wide && (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {ZONES.map((_zoneName, zone) => {
+        const region = regions[zone];
+        const airEl = zoneElement(zone, 'air_mass');
+        const frontEl = zoneElement(zone, 'front');
+        const pv = preview[zone];
+        const ph = phenomenonMeta(pv.phenomenon);
+        const cl = cloudMeta(pv.cloud);
+        const goalMet =
+          goals.unmet.every((g) => g.zone !== zone) &&
+          (puzzle?.goal_conditions ?? []).some((g) => g.zone === zone);
+        return (
+          <div
+            key={zone}
+            data-board-zone={zone}
+            onClick={() => handleZoneClick(zone)}
+            className={`flex flex-col rounded-xl border p-2 transition ${
+              selected && interactive ? 'cursor-pointer border-dashed border-sky-400 bg-sky-50/40' : 'border-slate-200'
+            } ${
+              dragging
+                ? drag?.overZone === zone
+                  ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-400'
+                  : 'border-dashed border-sky-300 bg-sky-50/30'
+                : ''
+            } ${goalMet ? 'ring-2 ring-emerald-400' : ''} ${
+              hintZoneActive && hintZone === zone && !goalMet ? 'ring-2 ring-amber-400 bg-amber-50/40' : ''
+            }`}
+          >
+            <p className="mb-1 text-center text-xs font-bold text-slate-600">
+              {region.name}
+              {hintZoneActive && hintZone === zone && (
+                <span className="ml-1 rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-900">
+                  {t('board.atmosphere.hintHere')}
+                </span>
+              )}
+            </p>
+
+            {/* 미리보기 현상/구름 (즉시 가시화) — 표준 표기 SVG(§3.3 ②) */}
+            <div className="mb-2 rounded-lg bg-slate-50 py-2 text-center">
+              <div className="flex justify-center">
+                <SymbolIcon kind="phenomenon" value={pv.phenomenon} className="h-8 w-8" />
+              </div>
+              <div className="mt-0.5 text-xs font-bold text-slate-800">{ph.label}</div>
+              <div className="flex items-center justify-center gap-1 text-[10px] text-slate-400">
+                <SymbolIcon kind="cloud" value={pv.cloud} className="h-3.5 w-3.5" /> {cl.label}
+              </div>
+            </div>
+
+            {/* 배치된 기단/전선 칩 */}
+            <div className="mb-1.5 flex min-h-[1.5rem] flex-wrap gap-1">
+              {airEl && (
+                <PlacedChip
+                  label={subtypeLabel('air_mass', airEl.subtype)}
+                  locked={isLocked(board, zone, 'air_mass')}
+                  onRemove={
+                    interactive
+                      ? () => {
+                          applyBoard(`remove:${zone}:air_mass:${historySeq()}`, (b) => removeElement(b, zone, 'air_mass'));
+                          setActiveZone(zone);
+                        }
+                      : null
+                  }
+                />
+              )}
+              {frontEl && (
+                <PlacedChip
+                  label={subtypeLabel('front', frontEl.subtype)}
+                  locked={isLocked(board, zone, 'front')}
+                  onRemove={
+                    interactive
+                      ? () => {
+                          applyBoard(`remove:${zone}:front:${historySeq()}`, (b) => removeElement(b, zone, 'front'));
+                          setActiveZone(zone);
+                        }
+                      : null
+                  }
+                />
               )}
             </div>
-          ))}
-          {hintLevel < hintSteps.length && interactive && (
-            <button
-              type="button"
-              onClick={() => setHintLevel((l) => Math.min(l + 1, hintSteps.length))}
-              className="text-xs font-bold text-amber-600 hover:text-amber-700"
-            >
-              {t('board.atmosphere.hintCta', { n: hintLevel, total: hintSteps.length })}
-            </button>
-          )}
-          {hintLevel >= hintSteps.length && (
-            <p className="text-[11px] text-amber-700">
-              {t('board.atmosphere.hintNoAnswer')}
+
+            {/* moisture/sun 슬라이더 (팔레트 허용 시) */}
+            {allowMoisture && (
+              <ZoneSlider
+                label={t('board.atmosphere.moisture')}
+                value={zoneLevel(zone, 'moisture', 40)}
+                locked={isLocked(board, zone, 'moisture')}
+                disabled={!interactive}
+                onChange={(v) => {
+                  applyBoard(`level:${zone}:moisture`, (b) => setLevel(b, zone, 'moisture', v));
+                  setActiveZone(zone);
+                }}
+              />
+            )}
+            {allowSun && (
+              <ZoneSlider
+                label={t('board.atmosphere.sun')}
+                value={zoneLevel(zone, 'sun', 50)}
+                locked={isLocked(board, zone, 'sun')}
+                disabled={!interactive}
+                onChange={(v) => {
+                  applyBoard(`level:${zone}:sun`, (b) => setLevel(b, zone, 'sun', v));
+                  setActiveZone(zone);
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const goalPreview = !result && (puzzle?.goal_conditions?.length ?? 0) > 0 && (
+    <p className={`text-center text-xs font-bold ${goals.passed ? 'text-emerald-600' : 'text-slate-400'}`}>
+      {goals.passed ? t('board.atmosphere.goalMet') : t('board.atmosphere.goalPending')}
+    </p>
+  );
+
+  const hintBlock = hintSteps.length > 0 && !result && (
+    <div>
+      {hintSteps.slice(0, hintLevel).map((h, i) => (
+        <div key={i} className="mb-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <p>
+            {t('board.atmosphere.hintPrefix', { n: i + 1 })} {h}
+          </p>
+          {/* 2단에서만 "필요한 요소 종류"를 칩으로 — subtype(정답 요소)은 없다 */}
+          {i === 1 && hintKinds.length > 0 && (
+            <p className="mt-1 flex flex-wrap items-center gap-1">
+              <span className="font-bold">{t('board.atmosphere.hintNeedsLabel')}</span>
+              {hintKinds.map((kind) => (
+                <span key={kind} className="rounded-full bg-amber-200 px-2 py-0.5 font-bold text-amber-900">
+                  {HINT_KIND_LABEL[kind] ? t(HINT_KIND_LABEL[kind]) : kind}
+                </span>
+              ))}
             </p>
           )}
         </div>
+      ))}
+      {hintLevel < hintSteps.length && interactive && (
+        <button
+          type="button"
+          onClick={() => setHintLevel((l) => Math.min(l + 1, hintSteps.length))}
+          className="text-xs font-bold text-amber-600 hover:text-amber-700"
+        >
+          {t('board.atmosphere.hintCta', { n: hintLevel, total: hintSteps.length })}
+        </button>
       )}
+      {hintLevel >= hintSteps.length && (
+        <p className="text-[11px] text-amber-700">
+          {t('board.atmosphere.hintNoAnswer')}
+        </p>
+      )}
+    </div>
+  );
 
+  const verdictBlock = (
+    <>
       {/* 구름 소진(§3.3) — 에너지 부족 안내(판정 실패와 구분) */}
       {result?.outOfClouds && (
-        <div className="mt-3 rounded-xl bg-rose-50 px-4 py-3 ring-1 ring-rose-200">
+        <div className="rounded-xl bg-rose-50 px-4 py-3 ring-1 ring-rose-200">
           <p className="text-sm font-bold text-rose-700">{t('board.common.outOfClouds')}</p>
           {result.feedback && <p className="mt-1 whitespace-pre-line text-xs text-rose-600">{result.feedback}</p>}
         </div>
@@ -636,7 +803,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
       {/* 서버 판정 결과 */}
       {result && !result.outOfClouds && (
         <div
-          className={`mt-3 rounded-xl px-4 py-3 ${
+          className={`rounded-xl px-4 py-3 ${
             result.passed ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-orange-50 ring-1 ring-orange-200'
           }`}
         >
@@ -649,7 +816,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
 
       {/* 시간 초과(§3.5) — 실패 처리 + 재도전(무제한) */}
       {timedOut && !result && (
-        <div className="mt-3 rounded-xl bg-orange-50 px-4 py-3 ring-1 ring-orange-200">
+        <div className="rounded-xl bg-orange-50 px-4 py-3 ring-1 ring-orange-200">
           <p className="text-sm font-bold text-orange-700">{t('board.atmosphere.timeoutTitle')}</p>
           <button
             type="button"
@@ -660,37 +827,103 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
           </button>
         </div>
       )}
+    </>
+  );
 
-      {/* 되돌리기(§3.5) — 순수 클라이언트 언두. 서버 호출 0 = 구름 무소모.
-          제출·판정 확정 후에는 interactive=false로 비활성된다. */}
-      {!sandbox && (
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            onClick={undo}
-            disabled={!interactive || history.length === 0}
-            title={t('board.atmosphere.undoTitle')}
-            className="inline-flex min-h-[36px] items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <span aria-hidden="true">↩</span> {t('board.atmosphere.undo')}
-            {history.length > 0 && <span className="tabular-nums text-slate-400">({history.length})</span>}
-          </button>
+  // 되돌리기(§3.5) — 순수 클라이언트 언두. 서버 호출 0 = 구름 무소모.
+  // 제출·판정 확정 후에는 interactive=false로 비활성된다.
+  const undoButton = !sandbox && (
+    <button
+      type="button"
+      onClick={undo}
+      disabled={!interactive || history.length === 0}
+      title={t('board.atmosphere.undoTitle')}
+      className="inline-flex min-h-[36px] items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      <span aria-hidden="true">↩</span> {t('board.atmosphere.undo')}
+      {history.length > 0 && <span className="tabular-nums text-slate-400">({history.length})</span>}
+    </button>
+  );
+
+  // 제출 — 자유 실험(§3.3 ⑥)은 채점 자체가 없어 제출 버튼 미노출.
+  // 판정이 확정(confirmedPhenomena)되면 버튼을 내린다 — 세션 경로는 result를
+  // 쓰지 않아 예전에는 "판정 중..." 표기가 그대로 남았다(§3.5 마감 2).
+  const submitButton = !result && !confirmedPhenomena && !timedOut && !sandbox && (
+    <button
+      type="button"
+      onClick={() => onSubmit?.(toSubmitState(board))}
+      disabled={!interactive}
+      className={`rounded-xl bg-sky-600 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50 ${
+        wide ? 'flex-none whitespace-nowrap px-6 py-2.5' : 'mt-4 w-full py-3'
+      }`}
+    >
+      {submitting ? t('board.atmosphere.submitting') : t('board.atmosphere.submit')}
+    </button>
+  );
+
+  // ── 조립 ──────────────────────────────────────────────────────────────────
+  if (wide) {
+    return (
+      <div className="grid items-start gap-4 lg:grid-cols-[212px_minmax(0,1fr)_252px]">
+        {/* 좌 — 쓸 수 있는 요소와, 지금 고른 존의 조절값 */}
+        <aside className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          {paletteBlock}
+          {focusPanel}
+          <p className="text-[11px] leading-relaxed text-slate-400">{t('board.atmosphere.paletteHowTo')}</p>
+        </aside>
+
+        {/* 중 — 지도가 주인공. 아래에 단면 패널과 액션 바. */}
+        <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          {mapBlock}
+          {dragGhost}
+          <div ref={stageRef}>
+            <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+            {undoButton}
+            <div className="ml-auto flex min-w-0 items-center gap-3">
+              {goalPreview}
+              {submitButton}
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* 제출 — 자유 실험(§3.3 ⑥)은 채점 자체가 없어 제출 버튼 미노출.
-          판정이 확정(confirmedPhenomena)되면 버튼을 내린다 — 세션 경로는 result를
-          쓰지 않아 예전에는 "판정 중..." 표기가 그대로 남았다(§3.5 마감 2). */}
-      {!result && !confirmedPhenomena && !timedOut && !sandbox && (
-        <button
-          type="button"
-          onClick={() => onSubmit?.(toSubmitState(board))}
-          disabled={!interactive}
-          className="mt-4 w-full rounded-xl bg-sky-600 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {submitting ? t('board.atmosphere.submitting') : t('board.atmosphere.submit')}
-        </button>
-      )}
+        {/* 우 — 이번 미션 · 가이드 · 판정.
+            lg 미만에서는 3열이 한 줄로 접히는데, 그때 미션이 맨 아래로 가면
+            "무엇을 만들어야 하는지"를 다 내려간 뒤에야 읽게 된다 → 맨 위로 올린다. */}
+        <aside className="order-first flex flex-col gap-3 lg:order-none">
+          {missionBlock}
+          {guidePanel}
+          {hintBlock}
+          {verdictBlock}
+        </aside>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div className="mb-3">{missionBlock}</div>
+      {paletteBlock && <div className="mb-3">{paletteBlock}</div>}
+      {mapBlock}
+      {dragGhost}
+
+      {/* 단면 모식도 패널(R9-08 §B) — rule_id→8종 스토리보드 단계 재생 + explain 캡션.
+          로컬 미리보기 판정 성공 시 즉시 재생, 서버 판정 도착 시 확정 리플레이.
+          prefers-reduced-motion이면 최종 장면 정지 + 단계 텍스트 목록.
+          ref는 성공 시 자동 스크롤 대상 — 두 레이아웃 중 실제로 렌더되는 쪽에만
+          붙는다(동시에 렌더되지 않는다). */}
+      <div ref={stageRef}>
+        <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
+      </div>
+
+      {zoneCards}
+
+      {goalPreview && <div className="mt-3">{goalPreview}</div>}
+      {hintBlock && <div className="mt-3">{hintBlock}</div>}
+      <div className="mt-3 flex flex-col gap-3 empty:mt-0">{verdictBlock}</div>
+      {undoButton && <div className="mt-3 flex justify-end">{undoButton}</div>}
+      {submitButton}
     </div>
   );
 }

@@ -35,8 +35,24 @@ export default function Layout() {
   // 넓게 쓴다. 페이지 쪽에서 100vw 음수 마진으로 컨테이너를 탈출하면 스크롤바
   // 폭만큼(100vw > clientWidth) 가로 스크롤이 생기므로, 폭은 레이아웃이 소유한다.
   const pathname = useLocation().pathname;
-  const isWide = pathname === '/' || pathname === '/learn';
-  const shellWidth = isWide ? 'md:max-w-6xl' : '';
+  // /board는 플레이가 3열(팔레트·지도·미션)이라 576px로는 가운데 열이 0으로 눌린다.
+  // 게다가 6xl(1152)에서도 지도가 시안보다 작아서 보드만 한 단계 더 넓게 쓴다.
+  const isBoard = pathname === '/board';
+  // /explore는 시뮬 2종을 정사각으로 나란히 놓는다 — 576px 셸에서는 한 칸이
+  // 264px까지 작아진다.
+  // /duel은 브리핑(왼쪽) ↔ 근거·예측(오른쪽) 2열이라 576px에서는 한 열이
+  // 264px — 시간별 기온 차트가 눌린다.
+  // /league도 대시보드(위 3칸·아래 2칸)라 좁은 셸에서는 칸이 다 눌린다 —
+  // 768px에서 닉네임이 "하."로 잘리고 티어 사다리 라벨이 "태풍…"이 됐다.
+  const isWide =
+    pathname === '/'
+    || pathname === '/learn'
+    || pathname === '/explore'
+    || pathname === '/duel'
+    || pathname === '/league'
+    || pathname === '/me'
+    || isBoard;
+  const shellWidth = isBoard ? 'md:max-w-7xl' : isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);
   const userKey = useAuthStore((s) => s.user?.user_id ?? null);
   const logoutLocal = useAuthStore((s) => s.logout);
@@ -104,11 +120,14 @@ export default function Layout() {
         {/* 항목이 7개라 max-w-xl(576px)에선 폭이 모자라 XP 텍스트가 구름 배지 위로
             넘친다. 데스크톱은 폭을 넓히고(넓은 화면에선 본문 컨테이너와 좌우를 맞춤),
             모바일은 로고 워드마크·XP 숫자를 접어 겹침 없이 들어가게 한다. */}
-        <div
-          className={`mx-auto flex max-w-xl items-center gap-2 px-3 py-2.5 sm:px-4 md:gap-3 ${
-            isWide ? 'md:max-w-6xl' : 'md:max-w-3xl'
-          }`}
-        >
+        {/* 헤더 폭은 **경로와 무관하게 고정**이다(2026-08-06). 본문 폭을 따라가게
+            했더니 화면마다 헤더 항목이 좌우로 튀었다 — 실측 1440에서 홈·학습·
+            대결 1152px, 보드 1232px, 리그·내 정보 768px로 셋이었고, 탭을 옮길
+            때마다 XP 바와 로그아웃이 40~184px씩 이동했다. 헤더는 화면이 바뀌어도
+            제자리에 있어야 하는 붙박이라, 홈 기준(6xl)으로 못 박는다.
+            본문은 종전대로 화면별 폭을 쓴다 — 보드(7xl)에서만 본문이 헤더보다
+            좌우로 40px 넓다. 헤더가 흔들리는 쪽보다 이게 낫다는 판단이다. */}
+        <div className="mx-auto flex max-w-xl items-center gap-2 px-3 py-2.5 sm:px-4 md:max-w-6xl md:gap-3">
           {/* 브랜드는 헤더에 두지 않는다 — PC는 사이드바가, 모바일은 탭바 「홈」이
               같은 자리를 이미 갖고 있다. 워드마크를 넣었더니 390px에서 로그아웃까지
               425px로 넘쳤다(실측). 진척·자원 배지에 폭을 준다. */}

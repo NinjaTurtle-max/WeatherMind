@@ -12,13 +12,17 @@
  *   ③ 구름 0이면 노드가 잠긴다 — 모바일 UnitNode와 같은 의미론이어야 한다
  *      (넘기지 않으면 구름 0에서 PC만 열려 문항 진입 전 차단이 뷰포트별로 갈린다).
  *   ④ 접기는 **전 단계에 함께** 적용된다(단계마다 따로면 스크롤할 때마다 다시 접는다).
- *   ⑤ 노드 지름 계산에 쓰는 --n은 그 단계의 실제 노드 수여야 한다.
- *   ⑥ 접기는 **아이콘 크기를 바꾸지 않는다** — 접을 때마다 커졌다 작아지면
- *      화면이 출렁인다.
+ *   ⑤ 노드 지름 계산에 쓰는 --n은 **전 단계가 공유하는 최대 노드 수**여야 한다.
+ *      단계마다 자기 노드 수를 넣으면 3칸 섹션이 5칸 섹션보다 큰 동그라미를
+ *      받아 단계를 넘길 때마다 아이콘이 커졌다 작아진다(2026-08-06 수정).
+ *      최대값이라야 가장 긴 섹션도 넘치지 않는다 — 더 작은 값은 넘침이다.
+ *   ⑥ 접기도 **아이콘 크기를 바꾸지 않는다** — ⑤와 같은 이유(출렁임 방지)이고,
+ *      축은 다르다: ⑤는 단계 간, ⑥은 같은 단계의 펼침/접힘 간.
  *
  * 레이아웃 자체(스크롤 스냅·한 화면 한 단계·연결선 좌표)는 jsdom에 레이아웃
  * 엔진이 없어 여기서 재지 않는다 — 실브라우저 실측으로 확인한다.
  */
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -77,7 +81,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const mod = await vite.ssrLoadModule('/src/modules/curriculum/PcCurriculumPath.jsx');
 const PcCurriculumPath = mod.default;
-const { blueEndIndex, stageDoneCount } = mod;
+const { blueEndIndex, stageDoneCount, joinK } = mod;
 
 let failures = 0;
 const ok = (cond, label) => {
@@ -125,6 +129,40 @@ const TOTAL = n;
   ok(blueEndIndex(['current', 'locked']) === -1, '완료 0건이면 파란 길 없음(-1)');
   const allDone = ['cleared', 'cleared'];
   ok(blueEndIndex(allDone) === 1, '전부 완료면 마지막 인덱스에서 멈춘다(넘치지 않음)');
+
+  // 단계 경계에서 길이 튀지 않는가 — **위 단계의 아래꼬리와 아래 단계의 위꼬리가
+  // 같은 x를 써야** 한 줄로 이어져 보인다. 각자 자기 노드 x로 뻗던 시절에는
+  // 3→4 경계가 185px 어긋났다(실측). 좌표는 jsdom에서 못 재지만, **두 단계가
+  // 같은 값을 받는가**는 여기서 지킬 수 있다.
+  const stages = [{ units: [1, 2, 3] }, { units: [1, 2, 3] }, { units: [1, 2] }, { units: [1, 2, 3, 4] }];
+  for (let i = 0; i < stages.length - 1; i += 1) {
+    // 컴포넌트의 **두 호출 지점을 그대로** 흉내 낸다:
+    //   위 단계 i   → joinOutK={joinK(stages, i, i + 1)}
+    //   아래 단계 i+1 → joinInK ={joinK(stages, (i + 1) - 1, i + 1)}
+    // 인덱스를 한 칸 잘못 넘기면 여기서 갈린다(그게 원래 버그의 모양이다).
+    const out = joinK(stages, i, i + 1);
+    const below = i + 1;
+    const into = joinK(stages, below - 1, below);
+    ok(out === into, `경계 ${i + 1}→${i + 2}: 두 단계가 같은 값을 쓴다 — ${out} / ${into}`);
+  }
+  // 순수 함수가 맞아도 **컴포넌트가 인덱스를 한 칸 잘못 넘기면** 다시 어긋난다.
+  // 두 호출 지점이 같은 경계를 가리키는지는 소스로 확인한다(계약 테스트 관례).
+  const pcSrc = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), '../src/modules/curriculum/PcCurriculumPath.jsx'),
+    'utf-8',
+  );
+  ok(
+    pcSrc.includes('joinInK={joinK(withUnits, i - 1, i)}')
+      && pcSrc.includes('joinOutK={joinK(withUnits, i, i + 1)}'),
+    '경계 인덱스: 단계 i의 아래꼬리와 i+1의 위꼬리가 같은 쌍(i, i+1)을 가리킨다',
+  );
+
+  ok(joinK(stages, -1, 0) === 0, '맨 위 경계는 0 — 뻗을 이웃이 없다');
+  ok(joinK(stages, stages.length - 1, stages.length) === 0, '맨 아래 경계는 0');
+  // 중간값이 맞는가 — 한쪽 노드 x로 쏠리면 다시 어긋난다
+  const mid = joinK([{ units: [1, 2] }, { units: [1, 2, 3, 4] }], 0, 1);
+  ok(mid > -1 && mid < 1 && Math.abs(mid) < 0.5,
+     `이웃 두 노드의 중간값이다(한쪽으로 쏠리지 않는다) — ${mid.toFixed(3)}`);
 }
 
 // ── 실마운트 헬퍼 ───────────────────────────────────────────────────────────
@@ -168,10 +206,27 @@ await render({});
   // 연결선이 경로 컨테이너를 실제로 잡았는가 — **프로덕션에서만 터진 버그의 가드**.
   // 부모의 ref를 받아 쓰면 자식 layout effect 시점에 아직 null이라 관측이 0건이 되고,
   // 개발 모드에서는 StrictMode의 이중 실행이 그걸 가려 준다(실제로 그랬다).
-  ok(observed.length >= stages.length,
-     `단계마다 경로 컨테이너를 관측한다 — 관측 ${observed.length}건 / 단계 ${stages.length}개`);
-  ok(observed.every((el) => el && el.classList?.contains('wm-vpath')),
-     '관측 대상이 전부 .wm-vpath다(부모 ref 미확보로 null이 섞이지 않는다)');
+  const vpathObserved = observed.filter((el) => el?.classList?.contains('wm-vpath'));
+  ok(vpathObserved.length >= stages.length,
+     `단계마다 경로 컨테이너를 관측한다 — 관측 ${vpathObserved.length}건 / 단계 ${stages.length}개`);
+  ok(observed.every(Boolean),
+     '관측 대상에 null이 섞이지 않는다(부모 ref 미확보 시 null이 들어온다)');
+
+  // 연결선 path 2개는 **항상** DOM에 있어야 한다. 조건부로 붙였다 떼면 그 순간
+  // ref가 갈려서, 좌표를 다시 쓸 대상을 잃는다(선이 옛 자리에 굳는다).
+  // jsdom은 레이아웃이 없어 d는 빈 값이지만, 요소가 있는지는 여기서 지킨다.
+  const linePaths = container.querySelectorAll('.wm-line path');
+  ok(linePaths.length === stages.length * 2,
+     `단계마다 연결선 path 2개(회색·파랑)를 상시 둔다 — 실제 ${linePaths.length} / 기대 ${stages.length * 2}`);
+
+  // 트랙 높이를 정하는 `--wm-track-top`이 실제로 써지는가.
+  // 트랙 위에 붙는 것(게스트 배너·코스 탭·구름 경고)이 상황마다 달라서 상수로 두면
+  // 하나만 떠도 페이지가 세로로 넘친다 — 실측: 코스 탭 하나에 1440×900이 37px 넘쳤다.
+  // jsdom은 레이아웃이 없어 값은 0px지만, **써졌는지 여부**는 여기서 지킬 수 있다.
+  const pcWrap = container.querySelector('.wm-track')?.closest('div[style*="--wm-track-top"]');
+  ok(pcWrap, '경로 래퍼가 --wm-track-top을 자기 style에 넣는다(트랙 높이의 유일한 입력)');
+  ok(observed.some((el) => el?.contains?.(container.querySelector('.wm-track'))),
+     '트랙을 품은 조상을 관측한다 — 위쪽 형제가 나타났다 사라져도 높이를 다시 잡는다');
 
   // 섹션 메타 — 있으면 그리고, 없으면 그 줄 자체를 만들지 않는다
   ok(container.textContent.includes(SUBTITLE), '메타가 있는 섹션은 부제를 보여준다');
@@ -183,9 +238,18 @@ await render({});
   ok(stage1.querySelectorAll('.rounded-full.bg-sky-100').length > 0,
      'topics 없는 섹션은 concept_tag 칩으로 폴백한다');
 
-  // ⑤ --n 은 그 단계의 노드 수
+  // ⑤ --n 은 전 단계가 공유하는 **최대** 노드 수 (픽스처 섹션은 3·3·2·4칸)
   const ns = stages.map((s) => s.querySelector('.wm-vpath').style.getPropertyValue('--n'));
-  ok(ns.join(',') === '3,3,2,4', `단계별 --n = 3,3,2,4 — 실제 ${ns.join(',')}`);
+  const counts = stages.map((s) => s.querySelectorAll('[data-wm-node]').length);
+  const maxCount = Math.max(...counts);
+  ok(
+    new Set(ns).size === 1,
+    `전 단계가 같은 --n을 쓴다(아이콘 크기 통일) — 실제 ${ns.join(',')}`,
+  );
+  ok(
+    Number(ns[0]) === maxCount,
+    `--n이 최대 칸 수와 같다(가장 긴 섹션도 안 넘침) — 칸 수 ${counts.join(',')} · --n ${ns[0]}`,
+  );
 
   // 상태 아이콘: 완료 3 + 현재 1
   ok(nodes.filter((b) => b.textContent.includes('👑')).length === 3, '완료 노드 3개(👑)');

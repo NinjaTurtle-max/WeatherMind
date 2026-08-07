@@ -179,7 +179,12 @@ function assert(cond, msg) {
 // 목록 첫 퍼즐 — 카드 텍스트/상세 URL 대조에 쓴다
 const listRes = await api('GET', '/board/puzzles');
 const firstPuzzle = listRes.body?.[0];
-const firstQuestion = firstPuzzle?.template_json?.question_text ?? '';
+// 카드에 **보이는** 문구로 찾는다 — 2026-08-05 퍼즐 조각 카드부터 화면에 뜨는
+// 것은 짧은 제목(template_json.title)이고, 미션 문장 원문은 title 속성에만 있다.
+// question_text로 찾으면 카드가 멀쩡히 떠 있는데도 "목록 렌더" 대기가 터진다.
+const firstQuestion = firstPuzzle?.template_json?.title
+  ?? firstPuzzle?.template_json?.question_text
+  ?? '';
 const detailUrl = `GET /api/v1/board/puzzles/${firstPuzzle?.content_item_id}`;
 
 /** 목록이 렌더될 때까지 대기 + 첫 퍼즐 카드 반환 */
@@ -242,8 +247,12 @@ try {
     assert(list.body.every((p) => 'cleared' in p), 'cleared 필드가 목록에 있어야 함');
 
     const { r } = await mountListAndFindCard();
-    assert(text().includes('✓ 클리어') || text().includes('도전'),
-      '잔량 0에서 클리어/도전 배지가 사라졌다(목록을 차단한 회귀)');
+    // 난이도 라벨은 '난이도 {쉬움|보통|어려움}' 꼴이다. 예전에는 특정 라벨
+    // 낱말('도전')을 단정했는데, 문구를 바꾸는 순간 검사 절반이 조용히 죽는다
+    // (2026-08-06에 '도전' → '어려움'으로 바꾸며 드러났다). 낱말이 아니라
+    // **배지가 붙었다는 사실**을 본다.
+    assert(text().includes('✓ 클리어') || text().includes('난이도 '),
+      '잔량 0에서 클리어/난이도 배지가 사라졌다(목록을 차단한 회귀)');
     assert(!text().includes('퍼즐을 불러오지 못했어요'), '잔량 0에서 목록이 에러 화면이 됐다');
     // 채점 없는 자유 실험은 잔량 0에서도 열려 있어야 한다(서버 호출 0 = 구름 무관)
     const sandboxBtn = findButton('자유 실험');

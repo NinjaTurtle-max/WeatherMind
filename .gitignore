@@ -21,6 +21,10 @@ frontend/dist/
 chroma-data/
 postgres-data/
 
+# Redis 스냅샷 — redis-server를 로컬에서 띄우면 실행 디렉터리에 떨군다
+# (compose 밖에서 스택을 돌릴 때 backend/ 아래 생겼다). 런타임 산출물이라 커밋 금지.
+dump.rdb
+
 # DB 수동 백업 산출물 (scripts/db_backup.sh once — 유저 데이터 포함, 커밋 금지)
 backups/
 

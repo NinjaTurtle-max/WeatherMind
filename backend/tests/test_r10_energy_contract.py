@@ -800,7 +800,13 @@ class TestPuzzleDetailRoute:
         )
 
     def test_계약13_BoardPuzzle_필드_불변(self):
-        """[계약 13] 상세 신설이 목록 스키마를 확장·변형하지 않는다(회귀)."""
+        """[계약 13] 목록과 상세가 **한 스키마를 공유**한다(회귀).
+
+        지키는 것은 "필드가 영원히 늘지 않는다"가 아니라 "상세 전용 필드가
+        생기지 않는다"이다 — 둘이 갈라지면 목록에서 본 것과 들어가서 본 것이
+        달라진다. 그래서 필드를 더할 때는 **양쪽이 다 채우는지 확인하고** 이
+        목록을 갱신한다.
+        """
         from app.schemas.board import BoardPuzzle
 
         assert set(BoardPuzzle.model_fields) == {

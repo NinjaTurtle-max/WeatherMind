@@ -4,7 +4,7 @@
 퍼즐 판정은 서버가 board_state를 규칙 엔진으로 재판정하는 권위 채점이다(§3.4).
 
 | GET  | /rules                        | board_rules.json 원문(서버 캐시) — 프론트 로컬 미리보기 |
-| GET  | /puzzles                      | active board 문항 + cleared 여부 + 난이도(1~3), θ 근접 정렬 |
+| GET  | /puzzles                      | active board 문항 + cleared + 난이도(1~3), 저작 순서 정렬 |
 | GET  | /puzzles/{content_item_id}    | 퍼즐 단건(플레이 진입) — 구름 진입 게이트 (R10-01 §3.1) |
 | POST | /puzzles/{content_item_id}/attempt | {board_state} → {passed, phenomena, feedback, xp_earned} |
 
@@ -128,6 +128,28 @@ def board_difficulty(template_json: dict, level_group: str) -> int:
     return max(1, min(3, score))
 
 
+def order_puzzles_for_progress(items: list) -> list:
+    """퍼즐을 **저작된 진행 순서**(template_json.board_order)로 세운다.
+
+    순서를 서버가 파생하지 않고 **시드가 소유**한다(units.json의 `unit_order`와 같은
+    관례). 난이도 배치(쉬움 → 보통 → 어려움)는 저작 결정이라 코드가 아니라 데이터에
+    있어야 리뷰·수정이 된다. 잠금은 없고 순서는 권유다 — 학습자는 아무 칸이나 고른다.
+
+    board_order가 없는 문항은 뒤로 보내고 입력 순서(created_at)를 유지한다 —
+    구 시드·새로 생성된 문항이 섞여도 목록이 비지 않는다.
+
+    ⚠️ θ 근접 정렬(order_puzzles_for_theta)을 **대체**한다. 화면이 난이도 순 격자라
+    개인별로 순서가 흔들리면 "쉬움부터 차례로"가 성립하지 않는다. θ 함수는 세션
+    문항 풀에서 계속 쓰이므로 남겨 둔다.
+    """
+    def order_of(item) -> int:
+        # `or`로 기본값을 주면 board_order=0이 "없음"으로 삼켜진다 — 명시 비교.
+        value = (item.template_json or {}).get("board_order")
+        return value if isinstance(value, int) else 10_000
+
+    return sorted(items, key=order_of)
+
+
 def order_puzzles_for_theta(items: list, theta: float | None) -> list:
     """퍼즐 목록을 |사전 b(level_group) − θ| 오름차순으로 정렬 (R7-02 §3.5).
 
@@ -171,11 +193,13 @@ async def list_puzzles(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_with_rls),
 ) -> list[BoardPuzzle]:
-    """active board 문항 목록 — template_json 전체 + cleared + 난이도(R7-02 §3.5).
+    """active board 문항 목록 — template_json 전체 + cleared + 난이도.
 
-    정렬: 저장된 θ(전 개념 가중 overall_theta)가 있으면 |사전 b(level_group) − θ|
-    오름차순(동률·콜드스타트는 created_at) — 내 수준에 맞는 퍼즐이 앞에 온다.
-    잠금 없음: 순서·라벨만 제공하고 전 퍼즐 개방을 유지한다(제품 결정).
+    정렬: 시드가 저작한 진행 순서(template_json.board_order) — 난이도 오름차순으로
+    저작돼 있다. θ 근접 정렬을 대체한다(2026-08-05).
+
+    **잠금 없다**(2026-08-06 제품 결정): 순차 잠금을 넣었다가 걷어냈다 — 학습자가
+    원하는 퍼즐을 골라 풀게 한다. 순서는 권유이지 강제가 아니다.
     """
     items = list(
         (
@@ -191,10 +215,7 @@ async def list_puzzles(
         .scalars()
         .all()
     )
-    abilities = await weatherbrain_service.load_abilities(db, user)
-    items = order_puzzles_for_theta(
-        items, weatherbrain_service.overall_theta(abilities)
-    )
+    items = order_puzzles_for_progress(items)
     cleared = await _cleared_item_ids(db, user)
     return [
         BoardPuzzle(
@@ -240,11 +261,11 @@ async def get_puzzle_detail(
     cleared 표시도 사라진다.
     """
     item = await _load_puzzle_or_404(db, content_item_id)
+    cleared = await _cleared_item_ids(db, user)
 
     # 진입 게이트 — 무소모 검사. 404 판정 이후에 둔다(없는 퍼즐은 차단 대상이 아니다).
     await energy_service.require_entry(db, user)
 
-    cleared = await _cleared_item_ids(db, user)
     return BoardPuzzle(
         content_item_id=item.id,
         template_json=item.template_json or {},
@@ -279,6 +300,7 @@ async def attempt_puzzle(
 ) -> BoardAttemptResult:
     item = await _load_puzzle_or_404(db, content_item_id)
 
+    cleared = await _cleared_item_ids(db, user)
     template = item.template_json or {}
     question = {**template, "question_type": "board", "concept_tag": item.concept_tag}
 
@@ -308,7 +330,8 @@ async def attempt_puzzle(
         )
 
     # 최초 클리어만 +5 XP (재도전 0). 클리어 여부는 기존 board 로그로 판별.
-    already_cleared = item.id in await _cleared_item_ids(db, user)
+    # 위 잠금 검사에서 이미 조회했다 — 같은 트랜잭션에서 두 번 돌 이유가 없다.
+    already_cleared = item.id in cleared
     xp_earned = board_clear_xp(passed, already_cleared)
     if xp_earned:
         await xp_service.add_xp(db, user.id, xp_earned)

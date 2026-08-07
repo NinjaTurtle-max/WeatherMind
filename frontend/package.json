@@ -23,7 +23,9 @@
     "test:course-select": "node tests/course-select.smoke.test.mjs",
     "test:region": "node tests/region.smoke.test.mjs",
     "test:learn-path": "node tests/learnPath.smoke.test.mjs",
-    "test:home": "node tests/home.smoke.test.mjs"
+    "test:home": "node tests/home.smoke.test.mjs",
+    "test:mascot": "node tests/mascotAssets.contract.test.mjs",
+    "test:duel": "node tests/duelLayout.smoke.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",

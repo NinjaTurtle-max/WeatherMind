@@ -132,6 +132,34 @@ try {
     }
   });
 
+  // ── 1-b. 소스가 부르는 키가 실제로 있다 ────────────────────────────────────
+  // 패리티(1)는 **양쪽에 다 없는** 키를 잡지 못한다. 실제로 `duel.rainShort`가
+  // ko·en 둘 다 빠진 채 통과했고, 예보 제출 화면에 "duel.rainShort"라는 글자가
+  // 그대로 찍혔다(2026-08-06 리뷰에서 발견). 소스의 t('literal') 호출을 긁어
+  // 리소스와 대조한다. 동적 키(t(변수)·템플릿 리터럴)는 정적으로 알 수 없어
+  // 빠지므로, 이 검사는 "리터럴 키는 전부 있다"까지만 보장한다.
+  await scenario('t() 리터럴 키가 전부 리소스에 있다(ko·en 동시 누락 차단)', async () => {
+    const { readdirSync, readFileSync, statSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const walk = (dir) =>
+      readdirSync(dir).flatMap((name) => {
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) return walk(p);
+        return /\.(jsx?|mjs)$/.test(name) ? [p] : [];
+      });
+    const used = new Set();
+    for (const file of walk(join(root, 'src'))) {
+      const src = readFileSync(file, 'utf8');
+      for (const m of src.matchAll(/\bt\(\s*'([a-zA-Z0-9_.]+)'/g)) used.add(m[1]);
+    }
+    assert(used.size > 100, `t() 리터럴 키를 못 긁었다 — ${used.size}건`);
+    for (const locale of SUPPORTED_LOCALES) {
+      const have = new Set(flattenKeys(RESOURCES[locale]));
+      const missing = [...used].filter((k) => !have.has(k)).sort();
+      assert(missing.length === 0, `${locale}에 없는 키 ${missing.length}건 — [${missing.slice(0, 8)}]`);
+    }
+  });
+
   // ── 2. translate 순수 함수: 보간 + 미지 키 ────────────────────────────────
   await scenario('translate(): {name} 보간·미지 키는 키 반환·미지 파라미터는 원문 유지', async () => {
     assert(
