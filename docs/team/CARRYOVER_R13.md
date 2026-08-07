@@ -395,6 +395,7 @@ IRT b 재보정 휴면(`MIN_TOTAL_RESPONSES=200` 가드, 8/18 예정) · BKT `fi
 | **K7** 🟠 | 자유 실험 진입 즉시 화면이 튄다 | `SANDBOX_PUZZLE.goal_conditions=[]` → JS `passed:true` → `scrollPhase='preview'` → **마운트 즉시 자동 스크롤**. 아무것도 안 했는데 단면 패널로 내려간다 (K3의 발현) |
 | **K8** 🟠 | 30번 퍼즐 힌트가 **모순 문구** | 후보 규칙 2개(`radiation_fog`+`yangtze_morning_fog`)의 `hint_needs`가 join돼 "전선·기단 **없이**" + "**기단 계열 하나에 더해**"가 이어 붙는다. 코드 주석의 "12건 전부 후보 1개"는 12건 시절 실측이라 낡음 |
 | **K9** 🟡 | 목 `boardDifficulty` 드리프트 | 목은 `levelGroup==='adult'`, 서버는 `prior_b >= LEVEL_GROUP_ITEM_B["adult"]` → **expert 3건이 목 2 / 서버 3**. 파리티 테스트 없음. 목 실패 피드백도 자체 문구라 **서버의 `hints[0]` 경로를 한 번도 안 돈다** |
+| **K11** 🔴 | **성공하고 나면 나가는 문이 화면 밖에 있다 — 그리고 「다음 퍼즐」이 없다** | **클라이언트 직접 관찰(2026-08-07)**. 유일한 출구는 화면 **맨 위**의 작은 회색 링크 `board.page.backToList` 하나인데, 성공하는 순간 `AtmosphereBoard`의 `scrollIntoView({block:'center'})`가 단면 패널을 화면 가운데로 끌어와 **그 링크가 화면 밖으로 밀린다**. 그 자리에서 보이는 유일한 버튼이 **가로 꽉 찬 「다시 도전」**(`BoardPage.jsx:266-273`)이고 그건 나가는 게 아니라 같은 퍼즐에 남는다. 더 이상한 것은 **「다음 퍼즐」이 아예 없다**는 점 — `BoardPage.jsx:19` 주석이 스스로 *"목록은 서버가 저작 순서(board_order)로 내려준다 — **순차 진행**이라 순서가 곧…"*이라 적어 놓고 **다음 칸으로 가는 길을 안 만들었다.** 34개를 이어 풀려면 매번 목록→스크롤→탐색→클릭. **심사위원이 보드를 만지면 바로 겪는다 → 배점 ②(체험·참여형 25점) 직결.** 수리: 결과 블록을 3버튼으로 — 클리어 시 **「다음 퍼즐 →」이 주 버튼**, 미클리어 시 「다시 도전」이 주 버튼. 결과 블록이 스크롤 도착 지점 바로 아래라 **K7 자동 스크롤 문제도 함께 해소**된다 |
 | **K10** 🟡 | `hints[1]` 34문자열 미배선 · `time_limit_sec` **서버 미검증**(클라 명예 제도, 재도전 무제한이라 악용 이득은 없음) · 다목표 8건은 `goal_conditions[0]`만 힌트·포커스를 받음 · stacked 존 카드 4장이 `<div onClick>`(키보드 불가 — **접근성 유일 흠**) |
 
 > **채점 권위에는 구멍이 0이다**(전 경로 추적 확인). 요청 바디는 `board_state` 단일 필드,
@@ -605,3 +606,98 @@ IRT b 재보정 휴면(`MIN_TOTAL_RESPONSES=200` 가드, 8/18 예정) · BKT `fi
 > **RLS 예외 재판정**: `app_leaderboard_read`는 `FOR SELECT` 한정으로 **최소 범위 맞음**. `app_auth_users`는 `FOR ALL USING(true) WITH CHECK(true)`라 **UPDATE/DELETE까지 전 행 허용** — SELECT/INSERT는 닭-달걀로 불가피하지만 **UPDATE/DELETE는 아니다**(모든 users 쓰기가 자기 PK 기준). 실호출 노출은 0이나 **문서가 말한 "최소 범위"보다 넓다**.
 >
 > **정상 확인**: 시크릿 위생 fail-fast(비-dev + `changeme`면 기동 거부) · **요청 로그에 토큰·비밀번호·쿼리스트링 미기록** · `db echo=False` · region 화이트리스트 3자 패리티 가드.
+
+
+---
+
+## Q. 데이터 파이프라인·인프라 (검수 6, 2026-08-07) — 라이브 DB 실측
+
+### 🔴 Q-1. celery 4태스크 중 3개가 RLS 롤 전환으로 조용히 죽는다 — **오늘 최대 건**
+
+`celery/app/config.py:5`는 `DATABASE_URL` **하나만** 읽는다. `MIGRATION_DATABASE_URL` 개념이
+celery에 없고, celery는 `app.current_user_id` GUC를 **한 번도 설정하지 않는다**(생 SQL 직행).
+
+**라이브 DB 실측**:
+```
+app 롤(GUC 미설정):  quiz_logs 0 | duels 0 | user_badges 0
+소유자 롤:            quiz_logs 119
+```
+
+| 태스크 | 결과 |
+|---|---|
+| `retrain_weatherbrain` | `SELECT FROM quiz_logs` 0행 → **영구히 "표본 부족 스킵"**. **8/11~18에 로그를 아무리 쌓아도 8/18 IRT b 재보정이 실행되지 않는다** — 실운영 계획의 목적 자체가 무효 |
+| `settle_daily_duel` | `duels`에 앱 롤 예외 **없음** → 0행 → "정산 대상 없음" + `settled:0`으로 **성공 반환** |
+| `settle_weekly_league` | SELECT는 `app_leaderboard_read`로 보이는데 **`UPDATE league_results`는 SELECT 전용 예외 밖** → `user_isolation`으로 떨어져 **0행 갱신**. 그런데 코드는 `len(scored)`로 **"정산 완료: N명" 성공 로그를 남긴다** |
+
+> 검수 8이 독립적으로 같은 결론에 도달하며 **더 나쁜 디테일**을 추가했다 —
+> `INSERT INTO user_badges`는 0행이 아니라 **`user_isolation` 위반으로 예외를 던져
+> `engine.begin()` 전체를 롤백**한다. 첫 정산은 항상 승급 판정이라 **사실상 매번**이다.
+> 즉 **예보 대결은 전건 영구 미정산, 리그는 전건 롤백**이고 로그·반환값 어디에도 실패가 안 남는다.
+
+`database/init.sql:24`가 *"celery 배치는 소유자 롤 유지"*라 적었지만 **그렇게 만들 수단이
+코드에 없다.** 그리고 이것은 **CO-J-2(런북대로 하면 RLS가 안 켜진다)의 정반대 방향**이다 —
+**변수가 하나뿐이라 둘 다 만족시키는 설정이 존재하지 않는다. J-2를 고치면 Q-1이 발현한다.**
+CO-J-11(celery 테스트 디렉토리 부재)이 이걸 못 잡는 이유이기도 하다. **8/9 배포 전 판정 필수.**
+
+### Q-2 ~ Q-9
+
+| # | 항목 |
+|---|---|
+| **Q-2** 🔴 | **`alembic downgrade -1`이 시드된 DB에서 이미 실패한다** — `0012` downgrade가 `ck_content_items_level_group`을 3종으로 되돌리는데 **시드에 `expert` 31건**. CHECK 위반. **CO-J-4가 "가역성의 유일 커버리지"라 지목한 `smoke_r10.sh`의 downgrade 단계가 지금 실패 상태다.** `0003`도 동종. `0005`는 부분→전체 unique 복원이라 같은 날 `mode='unit'` 2건이면 실패 |
+| **Q-3** 🔴 | **N-3d 정정 — 키가 성공 시에도 매 콜 로그에 남는다** | 대장은 "실패 시"라 적었으나 실측 로그상 `httpx` 로거가 **모든 요청의 전체 URL을 INFO로** 남긴다(`GET ...?serviceKey=<키>...`). **"실패 시 공유 금지"로는 부족** — 로거 레벨 상향 또는 URL 마스킹 필요 |
+| **Q-4** 🔴 | **복원한 DB는 앱 롤이 쓸 수 없다** — `db_restore.sh:103`이 `pg_restore --no-owner --no-privileges`라 GRANT가 전부 스킵되고, `pg_dump`(≠`pg_dumpall`)는 **롤 자체를 덤프하지 않는다**. 새 서버 복원 시 `weathermind_app` 부재 + 권한 0. **리허설 모드(행 수 대조)는 통과하는데 실복원 산출물은 접속조차 안 된다.** 스크립트도 `DEPLOY.md`도 "복원 후 `rls_app_role.sql` 재실행"을 안 적는다. **재해복구 경로** |
+| **Q-5** 🟠 | **`db_restore.sh`가 두 번째 고아**(J-4의 `smoke_r10.sh`와 동종) — `DEPLOY.md`·`RUNBOOK.md`에 "백업/복원" 문자열 **0건**. 배포 절차를 따르는 운영자는 백업이 돈다는 사실도 복원 방법도 모른다. (백업 자체는 정상 동작 실측 확인) |
+| **Q-6** 🟠 | **`getMidLandFcst`가 리그 진입마다 KMA 2콜인데 화면 산출물 0** — `LeaguePage.jsx:31` 주석이 *"mid_forecast 대신 briefing 재사용"*이라 **의도적 교체를 기록**해 뒀는데 **서버 호출을 안 걷어냈다**. 게다가 **세 KMA 경로 중 유일하게 캐시·실패마커가 없다**. 리그 라우터 전체에 레이트리밋 0(duel은 있음). 순수 쿼터 소모 |
+| **Q-7** 🟠 | **ASOS 발표 지연 창에서 그날치 정산이 영구 손실** — 04:00 KST가 어제 일자료 조회, NODATA면 05:00·06:00까지만 재시도, 그 후 **백필 경로 없음**(다음 날은 다른 날짜를 본다). ⚠️ KMA 일자료 공개 시각은 **미확인** — 구조상 "한 번 놓치면 끝"인 것만 확실. 덤: **재시도에 백오프가 없고 4xx도 재시도**한다(403 요청 1건이 로그 2줄). `collect_daily_weather`는 `max_retries=2`를 선언하고 **`self.retry()`를 안 부르는 죽은 선언** |
+| **Q-8** 🟠 | **Redis가 인증의 SPOF인데 방어가 없다** — 실측 설정 `appendonly no · maxmemory 0 · noeviction` + prod `mem_limit 192m` + `restart:` 부재(J-16) → 초과 시 evict가 아니라 **OOM kill → 컨테이너 사망 유지 → 전 유저 401 + Celery 브로커 동시 소실**. 정상 재기동이라도 최대 1시간치 세션이 RDB 창에서 증발. **브로커·캐시·세션이 전부 한 DB**(`redis://redis:6379/0`) |
+| **Q-9** 🟡 | **`.env.example:60`의 `SESSION_RECIPE`가 합 5** — J-13은 "미기재"라 적었으나 **기재됐고 틀렸다**(더 나쁜 형태). **8/17 이후 "env만 만진다" 계획이 이 값을 복사하면 세션이 5문항이 된다** · `db-backup`만 prod `mem_limit` 없음(3.75GB 합산에서 누락된 유일 서비스) · Caddy `/api/*`와 nginx `/api/v1/` **프록시 중복 정의** · `.env`에 죽은 키 3종 잔존(`CHROMA_*`·`EMBEDDING_*` — 8/20 시크릿 스캔 대상만 늘린다) |
+
+### Q-10. ASOS 월별 아카이브 — 계획서 약속 미실재
+
+`MENTORING_ALIGNMENT.md:56`이 계획 원문을 *"과거관측 API 월별 수집 → 이상기후 사례 아카이브"*로
+인용하는데 **수집 태스크 0 · 저장 테이블 0**이다. ASOS는 브리핑 8일치 즉석 조회와 정산
+조회에만 쓰인다. **CO-N-2(계획서 대비 미구현)의 5번째 항목.** 덤: 같은 문단의 *"weather_daily는
+매일 02:00 celery→ai-worker 갱신 트리거"*는 **R13 3일차에 삭제됐다** — 발표 근거 문서가 없는
+기능을 가동 중이라 말한다.
+
+> **정상 확인(재조사 불필요)**: `base_date/base_time` 경계 **전건 정확**(7개 시각 실행 — 발표+40분,
+> 자정 넘으면 전날 2300) · **celery beat 타임존 정확**(컨테이너 UTC인데 KST로 정확히 발화, 실측
+> 2:22:00 후 02:00 KST) · 정산 태스크 **멱등**(`actual IS NULL` 필터) · `/internal/weatherbrain/calibrate`
+> **실재**(라이브 200) — retrain의 끊긴 곳은 HTTP가 아니라 **DB 홉** · 백업 실동작(dump 2건·회전·
+> `.part`→mv) · **RLS 18테이블 전건 점검, 누락 0**(11 RLS / 6 카탈로그 / 1 메타, GRANT 18/18).
+
+## R. 리그·예보 대결 (검수 8, 2026-08-07)
+
+| # | 항목 |
+|---|---|
+| **R-1** 🔴 | **리더보드가 구조적으로 영원히 미정산 주만 보여준다** — 기본 주 = `_current_week_start()`(**이번 주**) ↔ 정산 대상 = `_last_week_start()`(**지난주**). **겹치는 시점이 없다.** `?week=`를 넘기는 호출자는 저장소 전체 **0건**. 결과: 전원 `accuracy=null·elo=null·tier=null` → 정렬이 `nulls_last` 3단이라 **실제 순위가 UUID 사전순**. 🥇🥈🥉가 UUID 작은 셋에게 가고 `deriveStanding`이 그걸 "N위"로 띄운다. **화면에 보이는 순위 전체가 무의미하다.** ⚠️ **목은 10명 전원 정산 완료로 뜬다** — 개발 내내 "리그가 잘 돈다"고 보였던 이유 |
+| **R-2** 🔴 | **티어 5단계 중 실질 1개** — ELO가 **리그 평균을 기대값**으로 쓰는 제로섬(Σdelta=0, 주당 최대 ±32). 실측: **참가자 1명이면 score 0/50/100 전부 ELO 1200**(고정점 — **심사 데모가 정확히 이 경우**). 1200 시작이라 **stratus 도달 불가**, 평균 +15를 매주 유지해도 nimbostratus 10주·typhoon_eye ~70주. 그리고 `is_tier_promoted(None,'cumulus')=True`라 **`tier_promoted` 배지가 0점을 받아도 전원 무조건 지급**. 파생: `caster_noise_scale`도 **영구히 0.85 한 값** → 적응형 캐스터 5계단이 실질 1계단 |
+| **R-3** 🔴 | **리그에 제출 마감이 없다** — `week_start`만 계산하고 **제출 시각을 안 본다.** 일요일 23:59 제출이 유효하고 다음날 03:30 정산 → **그 시점 유저는 그 주 최고기온을 이미 안다**(오차 0.5℃면 95점). ELO가 제로섬이라 **그대로 남의 점수를 뺏는다.** 월요일에 성실히 낸 사람은 구조적으로 진다 |
+| **R-4** 🔴 | **`league_results`에 `UNIQUE(user_id, week_start)`가 없다** — duel은 `UniqueConstraint`+`IntegrityError`→409로 제대로 막는데 리그는 **SELECT-then-INSERT**라 동시 요청 둘이 다 통과. 중복 행이 생기면 리더보드에 같은 사람이 두 줄, `get_current_rating`(`ORDER BY week_start DESC LIMIT 1`, 타이브레이크 없음)이 **비결정적으로** 하나를 고른다. **레이트리밋조차 없어 트리거하기 쉽다** |
+| **R-5** 🟠 | **정산 재시도가 사실상 없다** — `KMAApiError`가 `raise self.retry(...)` 줄에 **도달하기 전에** 태스크 밖으로 나가 `max_retries=2`가 적용 안 됨. `self.retry`가 실제로 도는 건 KMA가 정상 응답하며 NODATA인 좁은 경우뿐. **백필 경로 없음** → 하루 놓치면 영구 미정산. **부분 실패가 전체를 되돌린다**(리그는 `engine.begin()` 하나로 전 참가자 — 한 명의 배지 INSERT 실패가 그 주 전원 롤백). 반면 형식 오류는 `score=0.0`으로 **조용히 삼킨다** |
+| **R-6** 🟠 | **정산 XP를 페이지 방문마다 다시 더한다** — `seenSettled`가 컴포넌트 state라 마운트마다 초기화 → /duel을 N번 열면 `addXp(15)`가 N번. 서버 재조회 전까지 표시가 틀린다 |
+| **R-7** 🟠 | **강수 이진화 vs 확률 입력** — `_duel_actual_for_day`가 `rain_prob`를 100/0으로 이진화 → **50%를 내면 무조건 50점**이고 **0 또는 100이 항상 우월**. 확률 입력창이 **찍기를 최적 전략**으로 만든다(CO-H10⑴의 실측 보강). 덤: `temp_score = max(0, 100-err*10)`이라 **10℃ 오차와 100℃ 오차가 동점**이고, 리그는 `temp_max`에 **서버 범위 검증이 아예 없다**(duel은 -60~60 검증 — 같은 값에 다른 규칙) |
+| **R-8** 🟠 | **프론트에 감시 없는 캐스터 계약 3번째 사본** — `briefingDisplay.js:58-67`이 `CASTER_NOISE_SCALE` 5종 + `CASTER_BASE_NOISE` 2종 = **수치 6개**를 미러. `test_xp_contract.test_프론트에_XP_상수_사본이_없다`가 금지한 바로 그 부류인데 감시가 없다. `CasterJudgmentCard`가 이 값으로 "AI가 왜 이렇게 판단했나"를 설명하므로 **드리프트하면 서버가 실제로 쓴 값과 다른 해설을 심사위원에게 보여준다.** 그리고 **`accuracy_score`·`update_elo` 백엔드↔celery 복제본에도 계약 테스트가 없다**(tier·XP는 있는데 **실제 점수를 만드는 두 함수**가 빠졌다) |
+| **R-9** 🟠 | **화면 문구 3건이 틀렸다** — `gate.duel.p1` "**오늘의** 기온"(실제 내일) · `gate.duel.p3` "**다음 날** 채점"(실제 **D+2**) · `duel.submittedNote` "**내일** 실측으로 정산"(실제 D+2). **같은 앱의 `ClosingForecastStep`은 D+2로 올바르게 안내한다** — 두 화면이 같은 사실을 다르게 말한다. 심사위원이 보는 자리 |
+| **R-10** 🟡 | 데드 홉 — `league_service.update_elo`·`is_tier_promoted`·`ELO_K`·`division_index_of` · `duel_service.settle_scores` **backend 호출자 0**(전부 celery 복제본만 실행) · `PredictRequest.temp_min`은 저장되고 프론트가 `min>max` 검증까지 하는데 **`accuracy_score`가 안 보고 표시도 안 한다** |
+| **R-11** 🟡 | 목↔서버 — 목은 점수를 **숫자** `92.1`, 서버는 `Decimal`→**JSON 문자열 `"92.10"`**(표시가 달라지고 앞으로 산술하면 목만 통과) · 목 `/duel/history`에 **`xp_earned` 없음**(목에선 +15 배지가 안 보이고 실서버에선 보인다 — **반대 방향 검증**) · 목 `POST /duel/today`가 **NaN만** 검사(`temp_max=999`가 목에선 200) · `/league/predict` 목 검증 0 |
+
+### 🔴 R-12. 리더보드 RLS 예외 재판정 — **최소 범위가 아니다**(검수 4 판정 정정)
+
+검수 4는 *"`FOR SELECT` 한정이라 최소 범위 맞다"*고 했으나 검수 8이 더 깊이 봤다.
+`app_leaderboard_read`는 `FOR SELECT USING (true)`로 **테이블 전체·전 컬럼**을 열고,
+**permissive-OR라 `get_db_with_rls` 세션에도 함께 적용**된다. 즉 `GET /league/me/results`가
+남의 행을 안 주는 근거는 **`.where(user_id == user.id)` 앱 필터 하나뿐**이다.
+
+> **CLAUDE.md가 말하는 "앱 필터 + DB 정책 2층"이 `league_results` 읽기에서는 1층이다.**
+
+덤: API로 실제 노출되는 것은 그 주 참가자 전원의 닉네임·정확도·ELO·티어이며 **페이지네이션·
+상한이 없고**, `users`에 닉네임 UNIQUE가 없어 `isMe`의 닉네임 폴백이 **동명이인을 전부 "나"로
+표시**한다.
+
+> **좋은 소식 — 캐스터는 건전하다(20,000회 시뮬 실측)**: 결정적(`sha256(user_id:date)` 시드) 재현
+> 확인. 유저가 기준예보를 그대로 베끼면 승률 **stratus 60.2% → typhoon_eye 52.1%**로 **티어별 단조
+> 감소**. 설계가 정확히 의도대로다 — **발표 소재로 쓸 수 있다.** 다만 R-2에 따라 실제로는 적운
+> 한 칸만 쓰인다. ⚠️ 무키/KMA 실패 시엔 `_FALLBACK_BASE={20.0℃, 30%}`라 **8월이면 유저 자동 승리,
+> 겨울이면 캐스터 자동 승리**이고, 유저에게는 `base_forecast: null`로 내려가 **판단 재료 없이 찍는데
+> 캐스터만 20℃ 앵커를 갖는다.**
