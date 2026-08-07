@@ -1,0 +1,580 @@
+[
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "한랭전선이 지나갈 때 나타나는 날씨로 가장 알맞은 것은?",
+      "correct_answer": "짧은 시간에 좁은 구역으로 강한 비가 쏟아진다",
+      "options": [
+        "짧은 시간에 좁은 구역으로 강한 비가 쏟아진다",
+        "넓은 구역에 약한 비가 오래 이어진다",
+        "한곳에 오래 머물며 여러 날 비가 계속된다",
+        "찬 공기가 따뜻한 공기를 완전히 들어 올려 비 구역이 넓게 남는다"
+      ]
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: front_passage_weather (r13_item_templates.json)",
+        "params[0]: {\"front\": \"한랭전선\", \"weather\": \"짧은 시간에 좁은 구역으로 강한 비가 쏟아진다\"}",
+        "정답 도출: answer.kind=field → params[0].weather · 오답=siblings(weather), 정답 위치 0",
+        "knowledge_level=4 · 근거: R1 한랭·온난·정체·폐색전선 introduced_at 4 ([9과17-04]) / R2 +0 (전선 종류 → 날씨 단일 인과)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "온난전선이 지나갈 때 나타나는 날씨로 가장 알맞은 것은?",
+      "correct_answer": "넓은 구역에 약한 비가 오래 이어진다",
+      "options": [
+        "한곳에 오래 머물며 여러 날 비가 계속된다",
+        "넓은 구역에 약한 비가 오래 이어진다",
+        "찬 공기가 따뜻한 공기를 완전히 들어 올려 비 구역이 넓게 남는다",
+        "짧은 시간에 좁은 구역으로 강한 비가 쏟아진다"
+      ]
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: front_passage_weather (r13_item_templates.json)",
+        "params[1]: {\"front\": \"온난전선\", \"weather\": \"넓은 구역에 약한 비가 오래 이어진다\"}",
+        "정답 도출: answer.kind=field → params[1].weather · 오답=siblings(weather), 정답 위치 1",
+        "knowledge_level=4 · 근거: R1 한랭·온난·정체·폐색전선 introduced_at 4 ([9과17-04]) / R2 +0 (전선 종류 → 날씨 단일 인과)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "정체전선이 지나갈 때 나타나는 날씨로 가장 알맞은 것은?",
+      "correct_answer": "한곳에 오래 머물며 여러 날 비가 계속된다",
+      "options": [
+        "찬 공기가 따뜻한 공기를 완전히 들어 올려 비 구역이 넓게 남는다",
+        "짧은 시간에 좁은 구역으로 강한 비가 쏟아진다",
+        "한곳에 오래 머물며 여러 날 비가 계속된다",
+        "넓은 구역에 약한 비가 오래 이어진다"
+      ]
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: front_passage_weather (r13_item_templates.json)",
+        "params[2]: {\"front\": \"정체전선\", \"weather\": \"한곳에 오래 머물며 여러 날 비가 계속된다\"}",
+        "정답 도출: answer.kind=field → params[2].weather · 오답=siblings(weather), 정답 위치 2",
+        "knowledge_level=4 · 근거: R1 한랭·온난·정체·폐색전선 introduced_at 4 ([9과17-04]) / R2 +0 (전선 종류 → 날씨 단일 인과)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "폐색전선이 지나갈 때 나타나는 날씨로 가장 알맞은 것은?",
+      "correct_answer": "찬 공기가 따뜻한 공기를 완전히 들어 올려 비 구역이 넓게 남는다",
+      "options": [
+        "짧은 시간에 좁은 구역으로 강한 비가 쏟아진다",
+        "넓은 구역에 약한 비가 오래 이어진다",
+        "한곳에 오래 머물며 여러 날 비가 계속된다",
+        "찬 공기가 따뜻한 공기를 완전히 들어 올려 비 구역이 넓게 남는다"
+      ]
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: front_passage_weather (r13_item_templates.json)",
+        "params[3]: {\"front\": \"폐색전선\", \"weather\": \"찬 공기가 따뜻한 공기를 완전히 들어 올려 비 구역이 넓게 남는다\"}",
+        "정답 도출: answer.kind=field → params[3].weather · 오답=siblings(weather), 정답 위치 3",
+        "knowledge_level=4 · 근거: R1 한랭·온난·정체·폐색전선 introduced_at 4 ([9과17-04]) / R2 +0 (전선 종류 → 날씨 단일 인과)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "시베리아 기단이 우리나라에 영향을 줄 때의 날씨로 가장 알맞은 것은?",
+      "correct_answer": "춥고 건조한 날씨가 이어진다",
+      "options": [
+        "춥고 건조한 날씨가 이어진다",
+        "덥고 습한 날씨가 이어진다",
+        "동해안으로 서늘하고 습한 바람이 분다",
+        "따뜻하고 건조하며 맑은 날이 이어진다"
+      ]
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: air_mass_character (r13_item_templates.json)",
+        "params[0]: {\"mass\": \"시베리아 기단\", \"weather\": \"춥고 건조한 날씨가 이어진다\"}",
+        "정답 도출: answer.kind=field → params[0].weather · 오답=siblings(weather), 정답 위치 0",
+        "knowledge_level=4 · 근거: R1 기단 introduced_at 4 ([9과17-04] — 2022에서 초등 [6과06-04]가 삭제됐다, docs/specs/12 §3.3-①) / R2 +0"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "북태평양 기단이 우리나라에 영향을 줄 때의 날씨로 가장 알맞은 것은?",
+      "correct_answer": "덥고 습한 날씨가 이어진다",
+      "options": [
+        "동해안으로 서늘하고 습한 바람이 분다",
+        "덥고 습한 날씨가 이어진다",
+        "따뜻하고 건조하며 맑은 날이 이어진다",
+        "춥고 건조한 날씨가 이어진다"
+      ]
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: air_mass_character (r13_item_templates.json)",
+        "params[1]: {\"mass\": \"북태평양 기단\", \"weather\": \"덥고 습한 날씨가 이어진다\"}",
+        "정답 도출: answer.kind=field → params[1].weather · 오답=siblings(weather), 정답 위치 1",
+        "knowledge_level=4 · 근거: R1 기단 introduced_at 4 ([9과17-04] — 2022에서 초등 [6과06-04]가 삭제됐다, docs/specs/12 §3.3-①) / R2 +0"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "오호츠크해 기단이 우리나라에 영향을 줄 때의 날씨로 가장 알맞은 것은?",
+      "correct_answer": "동해안으로 서늘하고 습한 바람이 분다",
+      "options": [
+        "따뜻하고 건조하며 맑은 날이 이어진다",
+        "춥고 건조한 날씨가 이어진다",
+        "동해안으로 서늘하고 습한 바람이 분다",
+        "덥고 습한 날씨가 이어진다"
+      ]
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: air_mass_character (r13_item_templates.json)",
+        "params[2]: {\"mass\": \"오호츠크해 기단\", \"weather\": \"동해안으로 서늘하고 습한 바람이 분다\"}",
+        "정답 도출: answer.kind=field → params[2].weather · 오답=siblings(weather), 정답 위치 2",
+        "knowledge_level=4 · 근거: R1 기단 introduced_at 4 ([9과17-04] — 2022에서 초등 [6과06-04]가 삭제됐다, docs/specs/12 §3.3-①) / R2 +0"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "양쯔강 기단이 우리나라에 영향을 줄 때의 날씨로 가장 알맞은 것은?",
+      "correct_answer": "따뜻하고 건조하며 맑은 날이 이어진다",
+      "options": [
+        "춥고 건조한 날씨가 이어진다",
+        "덥고 습한 날씨가 이어진다",
+        "동해안으로 서늘하고 습한 바람이 분다",
+        "따뜻하고 건조하며 맑은 날이 이어진다"
+      ]
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: air_mass_character (r13_item_templates.json)",
+        "params[3]: {\"mass\": \"양쯔강 기단\", \"weather\": \"따뜻하고 건조하며 맑은 날이 이어진다\"}",
+        "정답 도출: answer.kind=field → params[3].weather · 오답=siblings(weather), 정답 위치 3",
+        "knowledge_level=4 · 근거: R1 기단 introduced_at 4 ([9과17-04] — 2022에서 초등 [6과06-04]가 삭제됐다, docs/specs/12 §3.3-①) / R2 +0"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "물의 비열은 1cal/(g·℃)이다. 물 10g의 온도를 2℃ 올리는 데 필요한 열량은 몇 cal인가? (단위: cal)",
+      "correct_answer": "20",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "cal"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: water_heat_quantity (r13_item_templates.json)",
+        "params[0]: {\"delta\": 2, \"mass\": 10}",
+        "정답 도출: answer.kind=formula → mass * delta = 20",
+        "knowledge_level=3 · 근거: R1 비열 introduced_at 3 ([9과03-03]) / R3 미해당 — 물의 비열 1cal/(g·℃)는 교과 수치다(docs/specs/12 §4 R3 '상향 안 함' 예시 그대로)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "물의 비열은 1cal/(g·℃)이다. 물 15g의 온도를 2℃ 올리는 데 필요한 열량은 몇 cal인가? (단위: cal)",
+      "correct_answer": "30",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "cal"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: water_heat_quantity (r13_item_templates.json)",
+        "params[1]: {\"delta\": 2, \"mass\": 15}",
+        "정답 도출: answer.kind=formula → mass * delta = 30",
+        "knowledge_level=3 · 근거: R1 비열 introduced_at 3 ([9과03-03]) / R3 미해당 — 물의 비열 1cal/(g·℃)는 교과 수치다(docs/specs/12 §4 R3 '상향 안 함' 예시 그대로)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "물의 비열은 1cal/(g·℃)이다. 물 20g의 온도를 3℃ 올리는 데 필요한 열량은 몇 cal인가? (단위: cal)",
+      "correct_answer": "60",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "cal"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: water_heat_quantity (r13_item_templates.json)",
+        "params[2]: {\"delta\": 3, \"mass\": 20}",
+        "정답 도출: answer.kind=formula → mass * delta = 60",
+        "knowledge_level=3 · 근거: R1 비열 introduced_at 3 ([9과03-03]) / R3 미해당 — 물의 비열 1cal/(g·℃)는 교과 수치다(docs/specs/12 §4 R3 '상향 안 함' 예시 그대로)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "물의 비열은 1cal/(g·℃)이다. 물 40g의 온도를 2℃ 올리는 데 필요한 열량은 몇 cal인가? (단위: cal)",
+      "correct_answer": "80",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "cal"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: water_heat_quantity (r13_item_templates.json)",
+        "params[3]: {\"delta\": 2, \"mass\": 40}",
+        "정답 도출: answer.kind=formula → mass * delta = 80",
+        "knowledge_level=3 · 근거: R1 비열 introduced_at 3 ([9과03-03]) / R3 미해당 — 물의 비열 1cal/(g·℃)는 교과 수치다(docs/specs/12 §4 R3 '상향 안 함' 예시 그대로)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "물의 비열은 1cal/(g·℃)이다. 물 25g의 온도를 4℃ 올리는 데 필요한 열량은 몇 cal인가? (단위: cal)",
+      "correct_answer": "100",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "cal"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: water_heat_quantity (r13_item_templates.json)",
+        "params[4]: {\"delta\": 4, \"mass\": 25}",
+        "정답 도출: answer.kind=formula → mass * delta = 100",
+        "knowledge_level=3 · 근거: R1 비열 introduced_at 3 ([9과03-03]) / R3 미해당 — 물의 비열 1cal/(g·℃)는 교과 수치다(docs/specs/12 §4 R3 '상향 안 함' 예시 그대로)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "수도권(존 1)에 짧고 강한 소나기가 나타나게 만들어 보라.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:cold",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "shower"
+        }
+      ],
+      "hints": [
+        "전선 계열 요소 하나와 넉넉한 습기가 함께 필요해요. 어떤 전선이 공기를 가장 급하게 밀어 올릴지 떠올려 보세요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: front_board_puzzle (r13_item_templates.json)",
+        "params[0]: {\"goal_ko\": \"짧고 강한 소나기\", \"rule_id\": \"cold_front_shower\", \"zone\": 1, \"zone_name\": \"수도권\"}",
+        "정답 도출: answer.kind=board_rule → board_rules.json[cold_front_shower] (서버가 같은 파일로 판정을 재계산 — 템플릿은 정답을 갖지 않는다)",
+        "knowledge_level=4 · 근거: R5 보드 특례 — palette가 전선 계열을 요구하므로 결정 용어는 전선([9과17-04]) 4단계. mode는 단계를 바꾸지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "서해(존 0)에 넓게 오래 내리는 비가 나타나게 만들어 보라.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:warm",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "rain"
+        }
+      ],
+      "hints": [
+        "전선 계열 요소 하나와 어느 정도의 습기가 필요해요. 공기가 완만하게 타고 오르는 전선을 골라 보세요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: front_board_puzzle (r13_item_templates.json)",
+        "params[1]: {\"goal_ko\": \"넓게 오래 내리는 비\", \"rule_id\": \"warm_front_steady_rain\", \"zone\": 0, \"zone_name\": \"서해\"}",
+        "정답 도출: answer.kind=board_rule → board_rules.json[warm_front_steady_rain] (서버가 같은 파일로 판정을 재계산 — 템플릿은 정답을 갖지 않는다)",
+        "knowledge_level=4 · 근거: R5 보드 특례 — palette가 전선 계열을 요구하므로 결정 용어는 전선([9과17-04]) 4단계. mode는 단계를 바꾸지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "태백산맥(존 2)에 여러 날 이어지는 비가 나타나게 만들어 보라.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:stationary",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "persistent_rain"
+        }
+      ],
+      "hints": [
+        "전선 계열 요소 하나와 아주 많은 습기가 필요해요. 한곳에 오래 머무는 전선이 어떤 것일지 생각해 보세요."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: front_board_puzzle (r13_item_templates.json)",
+        "params[2]: {\"goal_ko\": \"여러 날 이어지는 비\", \"rule_id\": \"stationary_front_monsoon\", \"zone\": 2, \"zone_name\": \"태백산맥\"}",
+        "정답 도출: answer.kind=board_rule → board_rules.json[stationary_front_monsoon] (서버가 같은 파일로 판정을 재계산 — 템플릿은 정답을 갖지 않는다)",
+        "knowledge_level=4 · 근거: R5 보드 특례 — palette가 전선 계열을 요구하므로 결정 용어는 전선([9과17-04]) 4단계. mode는 단계를 바꾸지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "물질이 고체에서 액체로 변하는 상태 변화를 ___(이)라고 한다.",
+      "correct_answer": "융해"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: phase_change_naming (r13_item_templates.json)",
+        "params[0]: {\"change\": \"고체에서 액체로\", \"term\": \"융해\"}",
+        "정답 도출: answer.kind=field → params[0].term",
+        "knowledge_level=3 · 근거: R1 [9과04-02] 해설 '융해, 응고, 기화, 액화, 승화를 구분' / R2 +0 (단일 사실 회상)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "물질이 액체에서 고체로 변하는 상태 변화를 ___(이)라고 한다.",
+      "correct_answer": "응고"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: phase_change_naming (r13_item_templates.json)",
+        "params[1]: {\"change\": \"액체에서 고체로\", \"term\": \"응고\"}",
+        "정답 도출: answer.kind=field → params[1].term",
+        "knowledge_level=3 · 근거: R1 [9과04-02] 해설 '융해, 응고, 기화, 액화, 승화를 구분' / R2 +0 (단일 사실 회상)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "물질이 액체에서 기체로 변하는 상태 변화를 ___(이)라고 한다.",
+      "correct_answer": "기화"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: phase_change_naming (r13_item_templates.json)",
+        "params[2]: {\"change\": \"액체에서 기체로\", \"term\": \"기화\"}",
+        "정답 도출: answer.kind=field → params[2].term",
+        "knowledge_level=3 · 근거: R1 [9과04-02] 해설 '융해, 응고, 기화, 액화, 승화를 구분' / R2 +0 (단일 사실 회상)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "물질이 기체에서 액체로 변하는 상태 변화를 ___(이)라고 한다.",
+      "correct_answer": "액화"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: phase_change_naming (r13_item_templates.json)",
+        "params[3]: {\"change\": \"기체에서 액체로\", \"term\": \"액화\"}",
+        "정답 도출: answer.kind=field → params[3].term",
+        "knowledge_level=3 · 근거: R1 [9과04-02] 해설 '융해, 응고, 기화, 액화, 승화를 구분' / R2 +0 (단일 사실 회상)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "물질이 고체에서 기체로 곧바로 변하는 상태 변화를 ___(이)라고 한다.",
+      "correct_answer": "승화"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: phase_change_naming (r13_item_templates.json)",
+        "params[4]: {\"change\": \"고체에서 기체로 곧바로\", \"term\": \"승화\"}",
+        "정답 도출: answer.kind=field → params[4].term",
+        "knowledge_level=3 · 근거: R1 [9과04-02] 해설 '융해, 응고, 기화, 액화, 승화를 구분' / R2 +0 (단일 사실 회상)"
+      ]
+    },
+    "status": "active"
+  }
+]

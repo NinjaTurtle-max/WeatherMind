@@ -106,6 +106,43 @@ class TestPromptSpecParity:
                 "생성 slider가 계약 G에 전건 탈락한다"
             )
 
+    def test_출력_스키마가_knowledge_level을_요구한다(self, constants):
+        """R13 3일차 개정의 본체 — 신고가 없으면 G1 배치가 lint에서 전건 탈락한다.
+
+        전환기 폴백이 만료된 뒤(R13 2일차) `knowledge_level` 없는 문항은 그 자체로
+        탈락이고, `level_group`에서의 기계 복원은 `docs/specs/12` §5.3이 금지한다.
+        프롬프트가 이 필드를 요구하지 않으면 남는 길이 없다.
+        """
+        prompt = constants["SYSTEM_PROMPT"]
+        assert '"knowledge_level"' in prompt, "출력 스키마가 knowledge_level을 요구하지 않는다"
+        assert "반드시 신고" in prompt, "신고가 선택처럼 읽히면 모델이 빠뜨린다"
+
+    def test_학령_3종_열거가_난이도로_남아_있지_않다(self, constants):
+        """개정 전 규칙 2(`adult = 기상청 전문 용어 일부 허용`)가 되살아나는 것을 막는다.
+
+        `docs/specs/12` §8.2가 실측한 사고가 그 문장의 결과다 — 본시드 6단계 9건은
+        저작된 것이 아니라 `adult` 밴드가 무검사여서 실무 수치가 흘러든 것이고,
+        의도적으로 설계된 전문가 문항은 0건이었다. 같은 문장을 1,360건에 각인시키면
+        같은 사고가 1,360배가 된다.
+        """
+        prompt = constants["SYSTEM_PROMPT"]
+        assert "기상청 전문 용어 일부 허용" not in prompt
+        assert "표현 톤" in prompt, "level_group이 톤이라는 것이 명시돼야 한다"
+
+    def test_톤은_한_벌만_요구한다(self, constants):
+        """`docs/specs/12` §6.4 클라이언트 결정(2026-08-06) — 3벌 저작은 G1 비용 3배."""
+        prompt = constants["SYSTEM_PROMPT"]
+        assert "teen" in prompt and "한 벌만" in prompt, (
+            "프롬프트가 톤 1벌을 못박지 않는다 — 3벌 저작 기각 결정이 실효를 잃는다"
+        )
+
+    def test_few_shot이_단계로_라벨링된다(self, constants):
+        """예시 라벨이 학령이면 모델이 그 축을 난이도로 모방한다."""
+        examples = constants["FEW_SHOT_EXAMPLES"]
+        assert examples.count('"knowledge_level"') == 3, "예시 3건 전부가 단계를 신고해야 한다"
+        for label in ("elementary,", "middle_high,", "adult,"):
+            assert f"[예시 1 - {label}" not in examples
+
     def test_slider_예시가_범위를_필드로_준다(self, constants):
         """예시가 범위를 질문 텍스트에만 적으면 모델이 그 형태를 모방한다.
 
