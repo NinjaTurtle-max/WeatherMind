@@ -2,7 +2,7 @@
  * CrossSectionPanel — 판정 시 단면 모식도 애니메이션 패널 (R9-08 §B, 기준 이미지 중.png).
  *
  * 교과서 3D 블록 다이어그램 문법: 투명한 공기 상자 + 바닥 지면 평면(지도 시점)
- * + 전면 수직 단면. 규칙 8종(board_rules.json)마다 explain을 실제 메커니즘 순서로
+ * + 전면 수직 단면. 규칙 13종(board_rules.json)마다 explain을 실제 메커니즘 순서로
  * 분해한 스토리보드(3~4단계, 단계당 1.4s 순차 재생 + 캡션)를 자체 저작했다.
  * 과학적 정확성 최우선 — 각 단계가 실제 기상 메커니즘 순서와 일치한다.
  *
@@ -301,7 +301,7 @@ function BlockFrame({ night = false, sea = null, children }) {
   );
 }
 
-// ── 장면 8종 (규칙별 스토리보드 — 실제 메커니즘 순서) ───────────────────────
+// ── 장면 v1 8종 (규칙별 스토리보드 — 실제 메커니즘 순서) ────────────────────
 /** cold_front_shower: 찬 공기 쐐기 → 급상승 → 적란운 수직 발달 → 소나기·번개 */
 function ColdFrontScene({ step, animate }) {
   const wedge = [fp(0, 0), fp(0.6, 0), fp(0.15, 0.75), fp(0, 0.82)];
@@ -553,7 +553,194 @@ function SiberianClearScene({ step, animate }) {
   );
 }
 
-// ── 스토리보드 레지스트리 (board_rules.json 8종 — explain을 메커니즘 순서로 분해) ──
+// ── 장면 5종 추가 (R13 확장 규칙 — board_rules.json 8 → 13종) ───────────────
+// 어휘 규약: `database/seed/level_vocabulary.json` v3 기준으로 **화면 문자열**을
+// 5단계 이하로 묶는다. 십운형 명칭(난층운·권층운 등 introduced_at 6)과 단열 감률·
+// 실무 수치는 캡션·라벨에 쓰지 않는다. `okhotsk_foehn_clear`의 id에 있는 "푄"도
+// introduced_at 6이라 노출 문자열에서는 **높새바람**(5) 또는 평이한 서술을 쓴다.
+// (lint_seed_items는 template_json만 보므로 이 파일의 문자열은 자동 검사 밖이다.)
+
+/** 오호츠크해 기단 + 습기 높음: 찬 기단 남하 → 찬 바다 위 하층 냉각 → 응결 → 해안 안개 */
+function OkhotskSeaFogScene({ step, animate }) {
+  return (
+    <BlockFrame sea={{ from: 0.5, to: 1 }}>
+      <Appear at={0} step={step} animate={animate} enter="animate-board-front">
+        <ellipse cx={gp(0.86, 0.6)[0]} cy={gp(0.86, 0.6)[1] - 28} rx="44" ry="30" fill="url(#cs-bloom-cold)" />
+        <BroadArrow x1={224} y1={62} x2={162} y2={74} color={COLD} bend={-0.1} />
+        <CSText x={186} y={48} color={COLD}>오호츠크해 기단</CSText>
+        <CSText x={186} y={56} color="#3b82f6" size={5.5}>차고 습함</CSText>
+      </Appear>
+      <Appear at={1} step={step} animate={animate}>
+        <CSText x={188} y={106} color="#0369a1" size={6}>찬 바다</CSText>
+        <CSText x={104} y={70} color="#1d4ed8" size={6}>아래에서부터 식어요</CSText>
+      </Appear>
+      {/* 하강 냉각 — 상승 화살표를 180° 돌려 아래로 향하게 한다 */}
+      <RisingArrows at={1} step={step} animate={animate} cx={150} cy={92} rotate={180} color="#3b82f6" count={3} gap={16} />
+      <Appear at={2} step={step} animate={animate} enter="animate-board-grow">
+        <g filter="url(#cs-soft)">
+          <ellipse cx={162} cy={110} rx="58" ry="7" fill="#f8fafc" opacity="0.9" />
+          <ellipse cx={132} cy={104} rx="50" ry="6" fill="#f1f5f9" opacity="0.8" />
+        </g>
+        <CSText x={132} y={92} color="#0f172a" size={6}>수증기 응결 → 바다 안개</CSText>
+      </Appear>
+      <Appear at={3} step={step} animate={animate}>
+        <g className={anim(animate, 'animate-cloud-drift-slow')}>
+          <LayerCloud x={92} y={76} w={78} dark={false} animate={animate} grow={step === 3} />
+        </g>
+        <g filter="url(#cs-soft)">
+          <ellipse cx={78} cy={108} rx="52" ry="6" fill="#ffffff" opacity="0.7" />
+        </g>
+        <CSText x={78} y={62} size={6} color="#334155">해안까지 덮은 안개와 낮은 구름</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+/** 오호츠크해 기단 + 습기 낮음: 산을 오르며 비 → 물기 상실 → 하강하며 데워짐 → 서쪽 맑음 */
+function OkhotskFoehnScene({ step, animate }) {
+  const peak = fp(0.56, 0.62);
+  const west = fp(0.3, 0);
+  const east = fp(0.82, 0);
+  const back = ([x, y]) => [x + BF.DX * 0.75, y - BF.DY * 0.75];
+  return (
+    <BlockFrame>
+      {/* 산맥은 전 단계 공통 배경 — 단계마다 다시 등장하면 지형이 깜빡인다 */}
+      <polygon points={P([peak, back(peak), back(east), east])} fill="#7d8794" stroke="#6b7280" strokeWidth="0.6" />
+      <polygon points={P([west, peak, east])} fill="#9ca3af" stroke="#6b7280" strokeWidth="0.8" />
+      <CSText x={116} y={112} size={5.5} color="#475569">산맥</CSText>
+
+      <Appear at={0} step={step} animate={animate} enter="animate-board-front">
+        <BroadArrow x1={222} y1={104} x2={168} y2={78} color={COLD} bend={-0.14} />
+        <CSText x={214} y={72} color={COLD} size={6}>차고 습한 공기</CSText>
+      </Appear>
+      <RisingArrows at={0} step={step} animate={animate} cx={176} cy={86} rotate={-38} color={COLD} count={2} gap={11} />
+
+      <Appear at={1} step={step} animate={animate}>
+        <LayerCloud x={166} y={54} w={62} dark animate={animate} grow={step === 1} />
+        <CSRain x={162} y0={62} y1={96} count={4} gap={6} slant={6} slow animate={animate} />
+        <CSText x={186} y={40} size={6}>오르며 비 — 물기를 잃어요</CSText>
+      </Appear>
+
+      <Appear at={2} step={step} animate={animate}>
+        <BroadArrow x1={128} y1={62} x2={62} y2={104} color="#ea580c" bend={0.16} />
+        <ellipse cx={64} cy={114} rx="40" ry="9" fill="url(#cs-heat)" />
+        <CSText x={72} y={78} color="#c2410c" size={6}>내려오며 눌려 데워져요</CSText>
+      </Appear>
+
+      <Appear at={3} step={step} animate={animate}>
+        <g className={anim(animate, 'animate-board-sun-pulse')}>
+          <SunShape x={44} y={28} scale={1.3} />
+        </g>
+        <CSText x={62} y={54} color="#b45309" size={6}>메마르고 따뜻한 바람</CSText>
+        <CSText x={62} y={64} color="#1d4ed8" size={6.5}>높새바람 — 맑음</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+/** 양쯔강 기단 + 습기 중간 이하: 온난 건조 기단 이동 → 수증기 부족 → 구름 실패 → 맑고 포근 */
+function YangtzeMildClearScene({ step, animate }) {
+  return (
+    <BlockFrame>
+      <Appear at={0} step={step} animate={animate} enter="animate-board-front">
+        <ellipse cx={104} cy={112} rx="96" ry="60" fill="url(#cs-bloom-warm)" />
+        <BroadArrow x1={36} y1={64} x2={98} y2={72} color="#ea580c" bend={0.1} />
+        <CSText x={100} y={48} color="#c2410c">양쯔강 기단</CSText>
+        <CSText x={100} y={56} color="#ea580c" size={5.5}>따뜻하고 건조</CSText>
+      </Appear>
+      <Appear at={1} step={step} animate={animate}>
+        <BroadArrow x1={132} y1={96} x2={200} y2={96} color="#f59e0b" bend={0.05} w0={7} w1={3} />
+        <CSText x={172} y={88} color="#b45309" size={6}>바다를 거치지 않아 수증기가 적어요</CSText>
+      </Appear>
+      <Appear at={2} step={step} animate={animate} until={2}>
+        <PuffCloud x={148} y={68} scale={1.1} fill="none" stroke="#94a3b8" opacity={0.55} dashed />
+        <line x1="134" y1="56" x2="162" y2="78" stroke="#94a3b8" strokeWidth="1.4" opacity="0.6" />
+        <CSText x={148} y={44} size={6} color="#64748b">구름이 자라지 못해요</CSText>
+      </Appear>
+      <Appear at={3} step={step} animate={animate}>
+        <g className={anim(animate, 'animate-board-sun-pulse')}>
+          <SunShape x={186} y={30} scale={1.4} />
+        </g>
+        <CSText x={116} y={72} color="#b45309" size={6.5}>포근하고 맑은 봄가을 하늘</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+/** 양쯔강 기단 + 일사 약 + 습기 높음: 맑은 밤 → 지표 냉각 → 물가 응결 → 새벽 안개·일출 소산 */
+function YangtzeMorningFogScene({ step, animate }) {
+  return (
+    <BlockFrame night sea={{ from: 0.26, to: 0.44 }}>
+      <Appear at={0} step={step} animate={animate}>
+        {[[52, 20], [92, 34], [148, 18], [196, 30]].map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r="1" fill="#e2e8f0" />
+        ))}
+        <CSText x={122} y={50} color="#fcd34d" size={6}>맑고 바람 약한 밤</CSText>
+        <CSText x={122} y={60} color="#cbd5e1" size={5.5}>따뜻하고 건조한 공기 덩어리</CSText>
+      </Appear>
+      {[0, 1, 2].map((i) => (
+        <Loop key={i} at={1} step={step} animate={animate} cls="">
+          <g transform={`translate(${66 + i * 46} 94)`}>
+            <g className={anim(animate, 'animate-board-updraft')} style={animate ? { animationDelay: `${(i * 0.45).toFixed(2)}s` } : undefined}>
+              <WaveLine y={0} width={12} color="#f59e0b" strokeWidth={1.4} />
+              <WaveLine y={4} width={12} color="#f59e0b" strokeWidth={1.2} opacity={0.6} />
+            </g>
+          </g>
+        </Loop>
+      ))}
+      <Appear at={1} step={step} animate={animate}>
+        <polygon points={P([fp(0, 0), fp(1, 0), fp(1, 0.2), fp(0, 0.2)])} fill="rgba(96,165,250,0.28)" />
+        <CSText x={124} y={104} color="#bfdbfe" size={6}>땅이 열을 내보내며 식어요</CSText>
+      </Appear>
+      <Appear at={2} step={step} animate={animate} enter="animate-board-grow">
+        <g filter="url(#cs-soft)">
+          <ellipse cx={92} cy={110} rx="54" ry="7" fill="#f8fafc" opacity="0.85" />
+          <ellipse cx={118} cy={104} rx="44" ry="5.5" fill="#ffffff" opacity="0.6" />
+        </g>
+        <CSText x={64} y={80} color="#e2e8f0" size={6}>물가에서 수증기가 응결해요</CSText>
+      </Appear>
+      <Appear at={3} step={step} animate={animate}>
+        <g className={anim(animate, 'animate-board-sun-pulse')}>
+          <SunShape x={222} y={40} scale={1} fill="#fcd34d" />
+        </g>
+        <circle cx="222" cy="40" r="13" fill="#fde68a" opacity="0.35" />
+        <CSText x={172} y={68} color="#f8fafc" size={6}>해가 뜨면 곧 걷혀요</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+/** 일사 강 + 습기 낮음: 지면 가열 → 공기 상승 → 응결할 수증기 없음 → 구름 없는 맑음 */
+function DryConvectionClearScene({ step, animate }) {
+  return (
+    <BlockFrame>
+      <Appear at={0} step={step} animate={animate}>
+        <g className={anim(animate, 'animate-board-sun-pulse')}>
+          <SunShape x={50} y={26} scale={1.5} fill="#f59e0b" />
+        </g>
+        {[0, 1, 2].map((i) => (
+          <line key={i} x1={62 + i * 6} y1={36 + i * 2} x2={94 + i * 10} y2={94} stroke="#fbbf24" strokeWidth="1.2" strokeDasharray="4 3" opacity="0.8" />
+        ))}
+        <ellipse cx={128} cy={116} rx="54" ry="10" fill="url(#cs-heat)" />
+        <CSText x={128} y={106} color="#c2410c" size={6}>지면 가열</CSText>
+      </Appear>
+      <RisingArrows at={1} step={step} animate={animate} cx={134} cy={86} rotate={0} color="#ea580c" />
+      <Appear at={1} step={step} animate={animate}>
+        <CSText x={176} y={82} color="#c2410c" size={6}>데워진 공기가 올라가요</CSText>
+      </Appear>
+      <Appear at={2} step={step} animate={animate} until={2}>
+        <PuffCloud x={134} y={54} scale={1.15} fill="none" stroke="#94a3b8" opacity={0.55} dashed />
+        <line x1="120" y1="42" x2="148" y2="64" stroke="#94a3b8" strokeWidth="1.4" opacity="0.6" />
+        <CSText x={134} y={34} size={6} color="#64748b">응결할 수증기가 없어요</CSText>
+      </Appear>
+      <Appear at={3} step={step} animate={animate}>
+        <CSText x={132} y={66} color="#1d4ed8" size={6.5}>오르내려도 하늘은 맑아요</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+// ── 스토리보드 레지스트리 (board_rules.json 13종 — explain을 메커니즘 순서로 분해) ──
 // ⚠️ i18n 외부화 제외(R11-01 §6.3 판정): boardVisual.render.test가 이 모듈 데이터
 // (steps·title)를 렌더 HTML과 **문자열 대조**하고, crossSectionWebgl.contract가
 // steps.length를 SCENES 단계와 정합 검사한다. 장면 내 CSText 라벨·scenes.js 라벨
@@ -637,6 +824,56 @@ export const STORYBOARDS = {
       '차고 건조한 시베리아 기단(cP)이 자리 잡아요.',
       '공기가 건조해 수증기가 부족하니 구름이 잘 만들어지지 않아요.',
       '구름 없는 하늘 — 춥지만 맑은 겨울 날씨가 돼요.',
+    ],
+  },
+  okhotsk_sea_fog: {
+    title: '오호츠크해 기단 — 찬 바다가 만드는 안개',
+    Scene: OkhotskSeaFogScene,
+    steps: [
+      '차고 습한 오호츠크해 기단이 동해 쪽으로 밀려와요.',
+      '습한 공기가 찬 바다 위를 지나며 아래층부터 먼저 식어요.',
+      '식은 아래층에서 수증기가 응결해 바다 위에 안개가 깔려요.',
+      '안개와 낮은 구름이 해안까지 덮어 초여름 동해안이 서늘하고 흐려져요.',
+    ],
+  },
+  okhotsk_foehn_clear: {
+    title: '높새바람 — 산을 넘어와 맑아진 하늘',
+    Scene: OkhotskFoehnScene,
+    steps: [
+      '동쪽에서 온 차고 습한 공기가 산맥에 부딪혀 비탈을 타고 올라요.',
+      '올라가며 식은 공기가 산 동쪽에 비를 뿌리고 물기를 거의 다 잃어요.',
+      '물기를 잃은 공기가 산을 넘어 내려오면서 눌려 데워져요.',
+      '산맥 서쪽에는 메마르고 따뜻한 바람이 불어 구름 없이 맑아요 — 높새바람.',
+    ],
+  },
+  yangtze_mild_clear: {
+    title: '양쯔강 기단 — 포근하고 맑은 봄가을',
+    Scene: YangtzeMildClearScene,
+    steps: [
+      '따뜻하고 건조한 양쯔강 기단이 봄가을에 우리나라 쪽으로 이동해요.',
+      '바다를 길게 거치지 않아 공기에 수증기가 넉넉히 실리지 않아요.',
+      '응결할 수증기가 부족해 구름이 자라지 못해요.',
+      '포근하고 맑은 봄가을 날씨가 이어져요.',
+    ],
+  },
+  yangtze_morning_fog: {
+    title: '양쯔강 기단 — 강가의 새벽 안개',
+    Scene: YangtzeMorningFogScene,
+    steps: [
+      '따뜻하고 건조한 공기 덩어리가 덮인 밤은 하늘이 맑고 바람도 약해요.',
+      '하늘을 가릴 구름이 없어 땅이 열을 그대로 내보내며 빠르게 식어요.',
+      '강가나 분지처럼 물기가 모인 곳에서 식은 공기 속 수증기가 응결해요.',
+      '이른 아침 낮은 안개가 깔렸다가, 해가 뜨고 데워지면 곧 걷혀요.',
+    ],
+  },
+  dry_convection_clear: {
+    title: '마른 대류 — 구름 없는 맑은 하늘',
+    Scene: DryConvectionClearScene,
+    steps: [
+      '강한 햇볕이 지면을 데우고, 데워진 공기가 가벼워져 위로 올라가요.',
+      '올라간 공기는 부풀며 식지만 그 안에 수증기가 거의 없어요.',
+      '물방울로 맺힐 수증기가 없으니 구름이 만들어지지 않아요.',
+      '공기가 활발히 오르내려도 하늘은 맑게 남아요.',
     ],
   },
 };

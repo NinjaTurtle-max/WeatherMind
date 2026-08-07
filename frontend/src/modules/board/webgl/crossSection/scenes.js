@@ -1,5 +1,5 @@
 /**
- * scenes — 규칙 8종 단면 장면 기술(記述) (R10-C / S2).
+ * scenes — 규칙 13종 단면 장면 기술(記述) (R10-C / S2 · R13 확장 5종).
  *
  * **서버 계약·rule_id 매핑 불변**: 입력은 기존과 동일한 로컬 엔진 산출
  * {현상·구름·rule_id·explain}이고, 여기서는 rule_id → 3D 장면만 매핑한다.
@@ -137,7 +137,7 @@ export function groundLayer({ night = false, sea = null }) {
   return items;
 }
 
-// ── 장면 8종 (board_rules.json rule_id ↔ STORYBOARDS 단계 인덱스와 1:1) ────
+// ── 장면 v1 8종 (board_rules.json rule_id ↔ STORYBOARDS 단계 인덱스와 1:1) ──
 
 /** cold_front_shower: 찬 공기 쐐기 → 급상승 → 적란운 수직 발달 → 소나기·번개 */
 const coldFrontShower = () => [
@@ -291,6 +291,107 @@ const siberianClear = () => [
   label({ x: 0.44, y: H(0.5), text: '춥고 맑은 겨울 하늘', color: '#1d4ed8', at: 2, size: 11 }),
 ];
 
+// ── 장면 5종 추가 (R13 확장 규칙 — board_rules.json 8 → 13종) ───────────────
+// 라벨 문자열은 SVG 스토리보드의 CSText와 한 묶음이다(같은 어휘 규약: 십운형
+// 명칭·"푄"·단열 감률 금지 — level_vocabulary v3에서 introduced_at 6).
+
+/** okhotsk_sea_fog: 찬 기단 남하 → 찬 바다 위 하층 냉각 → 응결 → 해안 안개 */
+const okhotskSeaFog = () => [
+  wedge({ x0: 0.48, x1: 1, tx0: 0.8, tx1: 1.0, y1: H(0.72), color: rgba('#93c5fd', 0.3), at: 0 }),
+  bb({ x: 0.84, y: H(0.6), w: 0.6, h: 0.4, color: rgba('#3b82f6', 0.38), kind: 0, at: 0 }),
+  ...flow({ from: [0.98, H(0.82), ZC + 0.08], dir: [-0.94, -0.24, -0.26], travel: 0.34, count: 3, color: rgba('#2563eb', 0.9), at: 0, speed: 0.36 }),
+  label({ x: 0.78, y: H(1.0), text: '오호츠크해 기단', color: COLD_TXT, at: 0 }),
+  label({ x: 0.78, y: H(0.86), text: '차고 습함', color: '#3b82f6', at: 0, size: 9.5 }),
+
+  label({ x: 0.82, y: H(0.1), text: '찬 바다', color: '#0369a1', at: 1, size: 10 }),
+  // 하강 냉각 — 상승 대류와 반대 방향 벡터장이 "아래에서부터 식는다"를 만든다
+  ...flow({ from: [0.6, H(0.5), ZC], dir: [-0.12, -1, 0], travel: 0.26, count: 3, color: rgba('#3b82f6', 0.9), at: 1, speed: 0.42, spreadZ: 0.15 }),
+  label({ x: 0.42, y: H(0.62), text: '아래에서부터 식어요', color: COLD_TXT, at: 1, size: 10 }),
+
+  bb({ x: 0.66, y: 0.012, w: 0.66, h: 0.3, color: rgba('#f8fafc', 0.82), kind: 3, at: 2 }),
+  bb({ x: 0.46, y: 0.03, w: 0.54, h: 0.24, color: rgba('#f1f5f9', 0.7), kind: 3, at: 2 }),
+  label({ x: 0.5, y: H(0.4), text: '수증기 응결 → 바다 안개', color: '#0f172a', at: 2, size: 10 }),
+
+  ...layerBand({ x0: 0.06, x1: 0.5, y: H(0.44), at: 3, dark: false, n: 3 }),
+  bb({ x: 0.22, y: 0.02, w: 0.5, h: 0.24, color: rgba('#ffffff', 0.6), kind: 3, at: 3 }),
+  label({ x: 0.24, y: H(0.72), text: '해안까지 덮은 안개와 낮은 구름', at: 3, size: 10 }),
+];
+
+/** okhotsk_foehn_clear: 산을 오르며 비 → 물기 상실 → 하강하며 데워짐 → 서쪽 맑음 */
+const okhotskFoehnClear = () => [
+  // 산맥 — 단계 무관 배경(at 0). taper로 위가 좁아지는 삼각 단면을 만든다.
+  wedge({ x0: 0.3, x1: 0.82, tx0: 0.54, tx1: 0.58, y1: H(0.62), color: rgba('#9ca3af', 0.96), at: 0, z0: 0.04, z1: Z - 0.04 }),
+  label({ x: 0.44, y: H(0.08), text: '산맥', color: '#475569', at: 0, size: 9.5 }),
+
+  ...flow({ from: [0.96, H(0.1), ZC], dir: [-0.86, 0.5, 0], travel: 0.3, count: 3, color: rgba('#2563eb', 0.9), at: 0, speed: 0.42 }),
+  label({ x: 0.9, y: H(0.52), text: '차고 습한 공기', color: COLD_TXT, at: 0, size: 10 }),
+
+  ...layerBand({ x0: 0.6, x1: 0.94, y: H(0.82), at: 1, n: 2 }),
+  precip({ x0: 0.62, x1: 0.86, y1: H(0.78), slant: 0.08, speed: 0.85, count: 20, at: 1 }),
+  label({ x: 0.78, y: H(1.02), text: '오르며 비 — 물기를 잃어요', at: 1, size: 10 }),
+
+  ...flow({ from: [0.5, H(0.6), ZC], dir: [-0.82, -0.58, 0], travel: 0.3, count: 3, color: rgba('#ea580c', 0.92), at: 2, speed: 0.46 }),
+  bb({ x: 0.16, y: 0.006, w: 0.42, h: 0.24, color: rgba('#fb923c', 0.45), kind: 3, at: 2 }),
+  label({ x: 0.22, y: H(0.48), text: '내려오며 눌려 데워져요', color: '#c2410c', at: 2, size: 10 }),
+
+  bb({ x: 0.1, y: H(1.0), z: 0.06, w: 0.18, h: 0.18, color: rgba('#fcd34d', 0.92), kind: 2, at: 3 }),
+  label({ x: 0.2, y: H(0.78), text: '메마르고 따뜻한 바람', color: '#b45309', at: 3, size: 10 }),
+  label({ x: 0.2, y: H(0.64), text: '높새바람 — 맑음', color: '#1d4ed8', at: 3, size: 11 }),
+];
+
+/** yangtze_mild_clear: 온난 건조 기단 이동 → 수증기 부족 → 구름 실패 → 맑고 포근 */
+const yangtzeMildClear = () => [
+  vol({ x0: 0, x1: 1, y1: H(0.54), color: rgba('#fdba74', 0.26), taper: [0.92, 1], at: 0 }),
+  bb({ x: 0.38, y: H(0.1), w: 1.06, h: 0.48, color: rgba('#ea580c', 0.3), kind: 0, at: 0 }),
+  ...flow({ from: [0.02, H(0.8), ZC + 0.08], dir: [0.94, -0.2, -0.22], travel: 0.32, count: 3, color: rgba('#ea580c', 0.88), at: 0, speed: 0.36 }),
+  label({ x: 0.34, y: H(1.0), text: '양쯔강 기단', color: '#c2410c', at: 0 }),
+  label({ x: 0.34, y: H(0.86), text: '따뜻하고 건조', color: '#ea580c', at: 0, size: 9.5 }),
+
+  ...flow({ from: [0.44, H(0.16), ZC], dir: [1, 0.04, 0], travel: 0.28, count: 2, color: rgba('#f59e0b', 0.85), at: 1, speed: 0.34 }),
+  label({ x: 0.72, y: H(0.32), text: '바다를 거치지 않아 수증기가 적어요', color: '#b45309', at: 1, size: 10 }),
+
+  puff({ x: 0.6, y: H(0.66), s: 1.1, color: rgba('#94a3b8', 0.28), at: 2, until: 2 }),
+  label({ x: 0.6, y: H(0.9), text: '구름이 자라지 못해요', color: '#64748b', at: 2, until: 2, size: 10 }),
+
+  bb({ x: 0.8, y: H(0.98), z: 0.06, w: 0.19, h: 0.19, color: rgba('#fcd34d', 0.92), kind: 2, at: 3 }),
+  label({ x: 0.42, y: H(0.56), text: '포근하고 맑은 봄가을 하늘', color: '#b45309', at: 3, size: 11 }),
+];
+
+/** yangtze_morning_fog: 맑은 밤 → 지표 냉각 → 물가 응결 → 새벽 안개·일출 소산 */
+const yangtzeMorningFog = () => [
+  bb({ x: 0.2, y: H(1.04), z: 0.06, w: 0.08, h: 0.08, color: rgba('#e2e8f0', 0.75), kind: 0, at: 0 }),
+  bb({ x: 0.62, y: H(1.1), z: 0.06, w: 0.07, h: 0.07, color: rgba('#e2e8f0', 0.7), kind: 0, at: 0 }),
+  label({ x: 0.5, y: H(0.94), text: '맑고 바람 약한 밤', color: '#fcd34d', at: 0, size: 10 }),
+  label({ x: 0.5, y: H(0.8), text: '따뜻하고 건조한 공기 덩어리', color: '#cbd5e1', at: 0, size: 9.5 }),
+
+  ...flow({ from: [0.2, H(0.06), ZC - 0.1], dir: [0, 1, 0], travel: 0.26, count: 2, scale: 0.042, color: rgba('#f59e0b', 0.8), at: 1, speed: 0.3, spreadZ: 0.1 }),
+  ...flow({ from: [0.56, H(0.06), ZC], dir: [0, 1, 0], travel: 0.26, count: 2, scale: 0.042, color: rgba('#f59e0b', 0.8), at: 1, speed: 0.26, spreadZ: 0.1 }),
+  vol({ x0: 0, x1: 1, y1: H(0.2), color: rgba('#60a5fa', 0.3), at: 1 }),
+  label({ x: 0.52, y: H(0.28), text: '땅이 열을 내보내며 식어요', color: '#bfdbfe', at: 1, size: 10 }),
+
+  bb({ x: 0.34, y: 0.012, w: 0.62, h: 0.3, color: rgba('#f8fafc', 0.82), kind: 3, at: 2 }),
+  bb({ x: 0.52, y: 0.03, w: 0.46, h: 0.22, color: rgba('#ffffff', 0.6), kind: 3, at: 2 }),
+  label({ x: 0.2, y: H(0.56), text: '물가에서 수증기가 응결해요', color: '#e2e8f0', at: 2, size: 10 }),
+
+  bb({ x: 0.9, y: H(0.46), z: 0.06, w: 0.15, h: 0.15, color: rgba('#fcd34d', 0.92), kind: 2, at: 3 }),
+  label({ x: 0.7, y: H(0.74), text: '해가 뜨면 곧 걷혀요', color: '#f8fafc', at: 3, size: 10 }),
+];
+
+/** dry_convection_clear: 지면 가열 → 공기 상승 → 응결할 수증기 없음 → 맑음 */
+const dryConvectionClear = () => [
+  bb({ x: 0.14, y: H(1.0), z: 0.06, w: 0.19, h: 0.19, color: rgba('#f59e0b', 0.95), kind: 2, at: 0 }),
+  bb({ x: 0.52, y: 0.004, w: 0.58, h: 0.36, color: rgba('#fb923c', 0.48), kind: 3, at: 0 }),
+  label({ x: 0.52, y: H(0.16), text: '지면 가열', color: '#c2410c', at: 0, size: 10 }),
+
+  ...flow({ from: [0.52, H(0.06), ZC], dir: [0.04, 1, 0], travel: 0.32, count: 3, color: rgba('#ea580c', 0.92), at: 1, speed: 0.52, spreadZ: 0.14 }),
+  label({ x: 0.74, y: H(0.5), text: '데워진 공기가 올라가요', color: '#c2410c', at: 1, size: 10 }),
+
+  puff({ x: 0.52, y: H(0.86), s: 1.15, color: rgba('#94a3b8', 0.26), at: 2, until: 2 }),
+  label({ x: 0.52, y: H(1.06), text: '응결할 수증기가 없어요', color: '#64748b', at: 2, until: 2, size: 10 }),
+
+  label({ x: 0.5, y: H(0.72), text: '오르내려도 하늘은 맑아요', color: '#1d4ed8', at: 3, size: 11 }),
+];
+
 // ── 레지스트리 ──────────────────────────────────────────────────────────────
 /**
  * rule_id → 장면. `STORYBOARDS`(캡션·단계 수의 단일 진실원)와 키가 일치해야 하며
@@ -306,6 +407,11 @@ export const SCENES = {
   radiation_fog: { build: radiationFog, night: true },
   north_pacific_heatwave: { build: northPacificHeatwave },
   siberian_clear: { build: siberianClear },
+  okhotsk_sea_fog: { build: okhotskSeaFog, sea: { from: 0.5, to: 1 } },
+  okhotsk_foehn_clear: { build: okhotskFoehnClear },
+  yangtze_mild_clear: { build: yangtzeMildClear },
+  yangtze_morning_fog: { build: yangtzeMorningFog, night: true, sea: { from: 0.26, to: 0.44 } },
+  dry_convection_clear: { build: dryConvectionClear },
 };
 
 /** 장면 전체(지표 레이어 + 단계 아이템) 조립 — 단계 필터는 renderer가 수행 */

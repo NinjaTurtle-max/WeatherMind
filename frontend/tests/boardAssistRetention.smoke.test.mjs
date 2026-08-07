@@ -19,7 +19,8 @@
  *   1. 언두가 배치를 되돌리고 **서버 요청 0 · 구름 잔량 불변**(스택 상한 20 포함)
  *   2. 점진적 힌트 2단이 **정답 배치를 노출하지 않는다**
  *      (1단=존 지목만, 2단=요소 종류까지. 문항 저작 hints의 정답 문구 미사용)
- *   3. board_rules.json `hint_needs` 8/8 저작 + 정답 요소명·임계 수치 미포함(데이터 계약)
+ *   3. board_rules.json 구조 계약(v1 8규칙 잔존 · 확장 priority < v1 최저 · 기단 4종
+ *      전부 사용) + `hint_needs` 전종 저작 + 정답 요소명·임계 수치 미포함(데이터 계약)
  *   4. 보드 제출 성공(판정 확정) 후 "판정 중..." 잔존 없음(§3.5 마감 2)
  *   5. match 짝 성립 시 목록 순서·자리 불변 + 해제 안내(§3.5 마감 1)
  *   6. 콤보 4단 칭찬 전이(정답이에요→좋아요→훌륭해요→완벽해요, 상한 유지)
@@ -331,9 +332,54 @@ try {
     assert(!text().includes('습기를 60 이상'), '문항 저작 hints의 임계 수치가 렌더됐다');
   });
 
-  // ── 3. hint_needs 데이터 계약 (8종 전부 · 정답 요소·수치 미포함) ────────────
-  await scenario('board_rules.json: hint_needs 8/8 저작 + 정답 요소·임계 수치 미포함', async () => {
-    assert(RULES.length === 8, `규칙 8종이 아니다: ${RULES.length}`);
+  // ── 3. hint_needs 데이터 계약 (전종 · 정답 요소·수치 미포함) ────────────────
+  // R13(2026-08-07): 규칙이 8 → 13종으로 늘었다. `RULES.length === 8` 리터럴 핀은
+  // **확장을 막을 뿐 지켜야 할 실질을 지키지 않았다** — 규칙이 조용히 사라지거나
+  // v1 판정이 덮여도 수만 맞으면 통과한다. 백엔드 test_seed_contract.py가 같은
+  // 성격의 핀을 구조적 계약으로 바꾼 것과 방향을 맞춘다(거기가 정본, 여기는 프론트가
+  // 실제로 읽는 같은 파일에 대한 프론트 측 사본 계약):
+  //   ① v1 8규칙 잔존 + id 유일  ② 확장 규칙 priority < v1 최저(30) — 엔진은 존별
+  //   최고 priority 1개만 적용하므로 이것이 v1 판정 불변의 구조적 보증이다
+  //   ③ 기단 4종 전부가 어떤 규칙엔가 쓰인다(사문 요소 재발 방지 — 놓아도 판정 불변)
+  //   ④ 스토리보드/GL 씬은 rule_id 키로 붙으므로 전종이 hint_needs를 저작해야 한다
+  const V1_RULE_IDS = [
+    'cold_front_shower', 'stationary_front_monsoon', 'warm_front_steady_rain',
+    'siberian_snow', 'convective_shower', 'radiation_fog',
+    'north_pacific_heatwave', 'siberian_clear',
+  ];
+  const V1_MIN_PRIORITY = 30;
+  const AIR_MASS_SUBTYPES = Object.keys(AIR_MASS_META);
+
+  await scenario('board_rules.json: v1 8규칙 잔존 + 확장 priority < v1 최저 + 기단 4종 전부 사용', async () => {
+    const ids = RULES.map((r) => r.id);
+    const missing = V1_RULE_IDS.filter((id) => !ids.includes(id));
+    assert(missing.length === 0, `v1 규칙 소실: ${missing.join(', ')}`);
+    assert(new Set(ids).size === ids.length, `규칙 id 중복: ${ids.join(', ')}`);
+    assert(new Set(RULES.map((r) => r.priority)).size === RULES.length,
+      `priority 중복 — 판정 순서가 비결정적이 된다: ${RULES.map((r) => r.priority).join(', ')}`);
+
+    for (const rule of RULES) {
+      if (V1_RULE_IDS.includes(rule.id)) {
+        assert(rule.priority >= V1_MIN_PRIORITY,
+          `v1 규칙 ${rule.id}의 priority ${rule.priority} < ${V1_MIN_PRIORITY}`);
+      } else {
+        assert(rule.priority < V1_MIN_PRIORITY,
+          `확장 규칙 ${rule.id}의 priority ${rule.priority}가 v1 최저 ${V1_MIN_PRIORITY} 이상 — v1 판정을 덮을 수 있다`);
+      }
+    }
+
+    // 기단 4종(subtype enum 전부)이 실제로 어떤 규칙엔가 쓰인다 — 안 쓰이는 기단은
+    // 보드에 놓아도 판정이 바뀌지 않는 사문 요소다(R13 발견).
+    const conditions = new Set(RULES.flatMap((r) => r.when));
+    for (const subtype of AIR_MASS_SUBTYPES) {
+      assert(conditions.has(`air_mass:${subtype}`),
+        `기단 ${subtype}을(를) 참조하는 규칙이 없다 — 배치해도 판정이 바뀌지 않는다`);
+    }
+  });
+
+  await scenario('board_rules.json: hint_needs 전종 저작 + 정답 요소·임계 수치 미포함', async () => {
+    assert(RULES.length >= V1_RULE_IDS.length,
+      `규칙이 v1(${V1_RULE_IDS.length}종)보다 줄었다: ${RULES.length}`);
     for (const rule of RULES) {
       const needs = rule.hint_needs;
       assert(typeof needs === 'string' && needs.trim().length > 0,
