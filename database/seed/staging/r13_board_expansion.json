@@ -52,8 +52,8 @@
       },
       "palette": ["sun", "moisture"],
       "goal_conditions": [
-        {"zone": 0, "phenomenon": "shower"},
-        {"zone": 2, "phenomenon": "clear"}
+        {"zone": 2, "phenomenon": "clear"},
+        {"zone": 0, "phenomenon": "shower"}
       ],
       "hints": [
         "두 존 모두 일사를 아주 높게 올린다. 데워진 공기는 밀도가 작아져 위로 올라간다.",
@@ -69,6 +69,7 @@
         "board_rules.json: dry_convection_clear(신규) + convective_shower(기존, 판정 불변)",
         "판정: R5 — 결정 개념 = 수증기의 응결(액화) [9과04-03]과 밀도 [9과03-03]. 소나기는 생활 상용어라 단계를 올리지 않는다 → 3단계",
         "R2 보정 없음: 지배 요인(습기)이 힌트에 명시돼 있어 '여러 요인 중 선택'이 아니다. 애매 시 낮은 쪽(R6)",
+        "goal_conditions 순서 의도: select_feedback은 첫 목표 존의 성립 규칙 explain을 정답 피드백으로 쓴다. 맑음(존 2)을 앞에 두어 3단계 언어로 쓰인 dry_convection_clear의 explain이 나오게 했다 — convective_shower의 explain에는 적란운(도입 4)이 있다",
         "금칙 확인: 기단·전선·구름 종류 명칭 미사용"
       ]
     },
@@ -123,8 +124,8 @@
       },
       "palette": ["sun", "moisture"],
       "goal_conditions": [
-        {"zone": 0, "phenomenon": "shower"},
         {"zone": 1, "phenomenon": "clear"},
+        {"zone": 0, "phenomenon": "shower"},
         {"zone": 3, "phenomenon": "fog"}
       ],
       "hints": [
@@ -140,7 +141,8 @@
         "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board 마무리 문항. 열×수증기 2×2 중 세 칸을 한 판에 배치",
         "board_rules.json: convective_shower + dry_convection_clear(신규) + radiation_fog",
         "판정: R5 — 결정 개념 = 밀도 [9과03-03]·상태 변화 [9과04-03] → 3단계. R2 '여러 요인 중 지배 요인 선택' 후보이나 두 요인(열·물기)이 문두에 명시돼 판정이 아니라 적용이므로 +0, 애매하면 낮은 쪽(R6)",
-        "빈 보드 반례 방어: 세 목표 모두 기본 판정(cloudy/cumulus)과 다르므로 무배치로 통과할 수 없다"
+        "빈 보드 반례 방어: 세 목표 모두 기본 판정(cloudy/cumulus)과 다르므로 무배치로 통과할 수 없다",
+        "goal_conditions 순서 의도: 정답 피드백(select_feedback)이 첫 목표 존의 규칙 explain이므로 맑음(존 1)을 앞에 두어 3단계 언어의 dry_convection_clear가 나오게 했다"
       ]
     },
     "status": "active"
