@@ -11,6 +11,7 @@ import QuestionCard from '../quiz/QuestionCard';
 import ResultBanner from '../quiz/ResultBanner';
 import SessionProgressBar from './SessionProgressBar';
 import SessionSummary from './SessionSummary';
+import ClosingForecastStep from '../duel/ClosingForecastStep';
 import { translate, useT } from '../../i18n';
 
 /**
@@ -61,6 +62,23 @@ export function comboPraise(combo) {
   if (!Number.isFinite(n) || n < 1) return null;
   return COMBO_PRAISE[Math.min(Math.floor(n), COMBO_PRAISE.length) - 1];
 }
+
+/**
+ * 만회 큐 상한 (R13-01 §2.11) — **서버는 상한을 강제하지 않는다**(문항별 만회
+ * 가능 여부만 판정한다). 상한은 프론트 몫이다: 15문항 + 만회 무제한이면 최악
+ * 30문항이 되어 좋은 장치가 피로 유발로 뒤집힌다. 최대 20문항에서 멈춘다.
+ */
+export const RETRY_QUEUE_LIMIT = 5;
+
+/**
+ * 오답 quiz_id 목록 → 실제 만회 대상 (계약용 순수 함수).
+ * 상한을 넘으면 **마지막 N개**만 남긴다 — 방금 놓친 것이 기억에 가깝고,
+ * "오늘 놓친 것 몇 개를 마무리한다"는 의미가 선명해진다(§2.11).
+ */
+export function retryQueueOf(wrongIds, limit = RETRY_QUEUE_LIMIT) {
+  if (!Array.isArray(wrongIds)) return [];
+  return wrongIds.slice(-Math.max(0, limit));
+}
 export default function SessionRunner({
   queryKey,
   loadSession,
@@ -102,6 +120,17 @@ export default function SessionRunner({
   // 연속 정답 콤보(§3.5) — 정답이면 +1, 오답·제출 실패면 0으로 초기화
   const [combo, setCombo] = useState(0);
 
+  // ── 만회 라운드(R13-01 §2.1) · 상한 5(§2.11) ──────────────────────────────
+  // wrongIds: 이번 자리에서 틀린 문항 quiz_id(출제 순서 보존).
+  //   ⚠️ 서버 /session/today는 문항별 정오를 돌려주지 않는다 — 중간 이탈 후 재진입한
+  //   세션의 과거 오답은 프론트가 알 방법이 없어 만회 대상에서 자연 제외된다.
+  // retryQueue: 마지막 문항 뒤에 확정되는 실제 만회 대상(= retryQueueOf(wrongIds)).
+  //   길이가 0보다 크면 만회 라운드 진행 중이라는 뜻이다(retryPhase).
+  const [wrongIds, setWrongIds] = useState([]);
+  const [retryQueue, setRetryQueue] = useState([]);
+  const [retryIndex, setRetryIndex] = useState(0);
+  const retryPhase = retryQueue.length > 0;
+
   // bulkMode(R7-02 S1): 로컬 수집 답안·일괄 제출 상태
   const bulkAnswersRef = useRef([]);
   const bulkFinalizingRef = useRef(false);
@@ -115,6 +144,9 @@ export default function SessionRunner({
     bulkFinalizingRef.current = false;
     setBulkError(null);
     setCombo(0);
+    setWrongIds([]);
+    setRetryQueue([]);
+    setRetryIndex(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyString]);
 
@@ -138,10 +170,19 @@ export default function SessionRunner({
     mutationFn: ({ quizId, answer, elapsedSec, boardState }) =>
       sessionApi.submitSessionAnswer(sessionId, { quizId, answer, elapsedSec, boardState }),
     onMutate: () => startSubmitting(),
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       showFeedback(result);
-      setCombo((c) => (result.is_correct ? c + 1 : 0)); // 콤보(§3.5)
-      if (result.xp_earned > 0) addXp(result.xp_earned);
+      // 만회 응답(§2.1)은 최초 시도가 아니다 — 콤보·XP·오답 큐 어디에도 닿지 않는다.
+      // 서버가 xp_earned=0·clouds_spent=0으로 보내므로 배너도 저절로 조용하다.
+      if (!result.is_retry) {
+        setCombo((c) => (result.is_correct ? c + 1 : 0)); // 콤보(§3.5)
+        if (result.xp_earned > 0) addXp(result.xp_earned);
+        if (result.is_correct === false && variables?.quizId) {
+          setWrongIds((prev) =>
+            prev.includes(variables.quizId) ? prev : [...prev, variables.quizId],
+          );
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
       queryClient.invalidateQueries({ queryKey: ['progress', 'quests'] });
       queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] }); // 구름 1 소모 반영(§3.3)
@@ -150,13 +191,20 @@ export default function SessionRunner({
       setCombo(0); // 제출 실패도 연속 정답 흐름은 끊긴다(§3.5)
       // 구름 소진(§3.3): 소모 전 429 — 채점 실패가 아니라 에너지 부족(재시도 가능)
       const outOfClouds = err.code === 'OUT_OF_CLOUDS';
+      // 만회 대상이 아닌 재제출은 **409 ALREADY_ANSWERED**다(§2.1 BE-1 실측 정정 —
+      // 계약 문서 초안의 "409 아님"은 오류였다). 이건 채점 실패가 아니라 "이미
+      // 해결된 문항"이라는 뜻이므로 재시도 버튼을 띄우면 안 된다 — 다음으로 넘긴다.
+      const alreadyAnswered = err.code === 'ALREADY_ANSWERED';
       if (outOfClouds) queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
       showFeedback({
         is_correct: false,
         correct_answer: null,
-        feedback: err.detail ?? t('session.submitFailed'),
+        feedback: alreadyAnswered ? t('session.retry.alreadyResolved') : (err.detail ?? t('session.submitFailed')),
         xp_earned: 0,
-        _submitFailed: true,
+        // 409는 진행 수를 움직이면 안 된다 — 서버 진행값을 못 받았으므로 현재 값을 고정한다
+        ...(alreadyAnswered ? { session_progress: { answered, total } } : {}),
+        _submitFailed: !alreadyAnswered,
+        _alreadyAnswered: alreadyAnswered,
         _outOfClouds: outOfClouds,
       });
     },
@@ -194,6 +242,7 @@ export default function SessionRunner({
   useEffect(() => {
     if (
       !bulkMode && // bulkMode는 finalizeBulk(일괄 채점→완료)가 대신 처리
+      !retryPhase && // 만회 라운드 중에는 answered==total이어도 아직 끝이 아니다(§2.1)
       status === SESSION_STATUS.IN_PROGRESS &&
       total > 0 &&
       answered >= total &&
@@ -204,7 +253,7 @@ export default function SessionRunner({
       completeMutation.mutate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, answered, total, sessionId, summary]);
+  }, [status, answered, total, sessionId, summary, retryPhase]);
 
   // bulkMode(R7-02 S1): 전 문항 응답 → 전환 화면 뒤에서 finalizeBulk(submit-all→complete)
   useEffect(() => {
@@ -247,8 +296,18 @@ export default function SessionRunner({
     navigate(to, { replace: true });
   }, [leaveIntent, navigate, setLeaveIntent]);
 
-  const currentItem = items[currentIndex] ?? null;
+  // 만회 라운드 중에는 큐가 출제 순서를 소유한다(§2.1) — store의 currentIndex는
+  // 15문항 본문 진행에만 쓰이고 그대로 마지막 문항에 머문다.
+  const retryTarget = retryPhase
+    ? (items.find((it) => it.quiz_id === retryQueue[retryIndex]) ?? null)
+    : null;
+  const currentItem = retryPhase ? retryTarget : (items[currentIndex] ?? null);
   const isLastItem = currentIndex + 1 >= items.length;
+  const isLastRetry = retryIndex + 1 >= retryQueue.length;
+  // 마지막 문항 피드백 화면에서 확정되는 만회 대상 수 — 버튼 문구를 "세션 마치기"가
+  // 아니라 "놓친 N문항 만회하기"로 바꾸는 근거(만회가 있다는 걸 미리 알린다).
+  const pendingRetryCount =
+    !retryPhase && isLastItem ? retryQueueOf(wrongIds, RETRY_QUEUE_LIMIT).length : 0;
 
   const handleSubmit = (answer, options = {}) => {
     if (!currentItem || status !== SESSION_STATUS.IN_PROGRESS || isSubmitting) return;
@@ -278,8 +337,30 @@ export default function SessionRunner({
       retryItem();
       return;
     }
-    if (isLastItem) completeMutation.mutate();
-    else nextItem();
+    // ── 만회 라운드 진행 중(§2.1): 큐를 한 칸씩 소모하고 끝나면 완료 ──
+    // 성공·실패 모두 한 번씩만 준다 — 서버는 만회 실패 문항을 계속 만회 가능으로
+    // 두지만(is_retry_eligible), 무한 재시도는 §2.11의 피로 상한 취지에 어긋난다.
+    if (retryPhase) {
+      if (isLastRetry) completeMutation.mutate();
+      else {
+        setRetryIndex((i) => i + 1);
+        retryItem(); // answerState 비우고 IN_PROGRESS 복귀(전이는 기존 액션 재사용)
+      }
+      return;
+    }
+    if (isLastItem) {
+      // 마지막 문항 뒤 = 만회 라운드 진입 지점. 상한 5는 여기서 걸린다(§2.11).
+      const queue = retryQueueOf(wrongIds, RETRY_QUEUE_LIMIT);
+      if (queue.length > 0) {
+        setRetryQueue(queue);
+        setRetryIndex(0);
+        retryItem();
+        return;
+      }
+      completeMutation.mutate();
+      return;
+    }
+    nextItem();
   };
 
   // ── 렌더 ──
@@ -312,7 +393,13 @@ export default function SessionRunner({
             {crownToast}
           </div>
         )}
-        {renderSummary ? renderSummary(summary) : <SessionSummary summary={summary} />}
+        {renderSummary ? renderSummary(summary) : <SessionSummary summary={summary} items={items} />}
+        {/* 예보 마감 단계 (R13 A-1) — **완료 응답의 closing_step이 정본**이다.
+            /session/today의 값이 아니라 여기서 다시 계산된 값을 쓴다: 세션 도중
+            다른 화면에서 예보를 냈으면 여기서 null이 되고, 그러면 409로 끝날
+            단계를 그리지 않는다. null = 단계 없음이고 세션은 이미 완료됐다
+            (KMA 부재 degraded도 이 경로 — 완주를 막지 않는다). */}
+        {summary?.closing_step && <ClosingForecastStep step={summary.closing_step} />}
       </>
     );
   }
@@ -347,14 +434,38 @@ export default function SessionRunner({
       <div className="mb-3 flex items-center justify-between">
         <h1 className="text-lg font-extrabold text-slate-900">{title ?? t('session.title')}</h1>
         <span className="text-sm font-medium text-slate-500">
-          {t('session.itemCount', {
-            current: Math.min(currentIndex + 1, items.length),
-            total: items.length,
-          })}
+          {retryPhase
+            ? t('session.retry.itemCount', {
+                current: Math.min(retryIndex + 1, retryQueue.length),
+                total: retryQueue.length,
+              })
+            : t('session.itemCount', {
+                current: Math.min(currentIndex + 1, items.length),
+                total: items.length,
+              })}
         </span>
       </div>
 
       {subheader}
+
+      {/* 만회 라운드 배너(§2.1) — 벌이 아니라는 것을 화면이 먼저 말한다.
+          구름 무소모·XP 무가산은 서버 계약이고, 여기서 오해를 만들면 안 된다. */}
+      {retryPhase && (
+        <div
+          data-retry-round={retryQueue.length}
+          className="mb-2 rounded-xl bg-indigo-50 px-3 py-2 ring-1 ring-indigo-200"
+        >
+          <p className="text-xs font-extrabold text-indigo-700">
+            {t('session.retry.banner', { total: retryQueue.length })}
+          </p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-indigo-500">
+            {t('session.retry.note')}
+            {wrongIds.length > RETRY_QUEUE_LIMIT
+              ? ` ${t('session.retry.capNote', { limit: RETRY_QUEUE_LIMIT })}`
+              : ''}
+          </p>
+        </div>
+      )}
 
       {/* 콤보·칭찬 에스컬레이션(§3.5) — 진행바 위 */}
       {combo > 0 && (
@@ -369,7 +480,15 @@ export default function SessionRunner({
         </p>
       )}
 
-      <SessionProgressBar answered={answered} total={total} currentIndex={currentIndex} />
+      {retryPhase ? (
+        <SessionProgressBar
+          answered={retryIndex}
+          total={retryQueue.length}
+          currentIndex={retryIndex}
+        />
+      ) : (
+        <SessionProgressBar answered={answered} total={total} currentIndex={currentIndex} />
+      )}
 
       {currentItem?.slot_filled && (
         <p className="mb-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
@@ -407,13 +526,37 @@ export default function SessionRunner({
                 <p className="mt-1.5 text-[11px] text-rose-500">{answerState.feedback}</p>
               )}
             </div>
+          ) : answerState._alreadyAnswered ? (
+            // 409 ALREADY_ANSWERED(§2.1 정정) — 오답이 아니라 "이미 해결됨"이다.
+            // 정오 배너를 그리면 틀렸다고 읽힌다.
+            <p className="mt-4 rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600">
+              {answerState.feedback}
+            </p>
           ) : (
-            <ResultBanner result={answerState} />
+            <>
+              {/* 만회 결과(§2.1) — 서버 is_retry/retry_correct 실측만 읽는다.
+                  "첫 시도 정답"과 "만회 성공"은 다른 사건이라 구분해 말한다. */}
+              {answerState.is_retry && (
+                <p
+                  data-retry-result={answerState.retry_correct ? 'success' : 'fail'}
+                  className={`mt-4 rounded-xl px-3 py-2 text-xs font-extrabold ${
+                    answerState.retry_correct
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {answerState.retry_correct ? t('session.retry.success') : t('session.retry.fail')}
+                </p>
+              )}
+              <ResultBanner result={answerState} />
+            </>
           )}
           <button
             type="button"
             onClick={handleNext}
             disabled={isSubmitting}
+            // 스모크가 문구가 아니라 역할로 이 버튼을 집는다(문구는 단계마다 바뀐다)
+            data-session-next={retryPhase ? 'retry' : 'main'}
             className="mt-4 w-full rounded-xl bg-slate-900 py-3 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting
@@ -422,11 +565,19 @@ export default function SessionRunner({
                 ? outOfClouds
                   ? t('session.retryAfterRegen')
                   : t('common.retry')
-                : isLastItem
-                  ? t('session.finish')
-                  : t('session.next')}
+                : retryPhase
+                  ? isLastRetry
+                    ? t('session.finish')
+                    : t('session.retry.next')
+                  : pendingRetryCount > 0
+                    ? t('session.retry.start', { count: pendingRetryCount })
+                    : isLastItem
+                      ? t('session.finish')
+                      : t('session.next')}
           </button>
-          {!outOfClouds && <FeedbackPanel message={answerState.feedback} isCorrect={answerState.is_correct} />}
+          {!outOfClouds && !answerState._alreadyAnswered && (
+            <FeedbackPanel message={answerState.feedback} isCorrect={answerState.is_correct} />
+          )}
           <div className="h-40" />
         </>
       )}

@@ -23,6 +23,7 @@ import {
 } from './boardDisplay';
 import { FALLBACK_REGIONS } from './boardLayout';
 import { SymbolIcon } from './boardSymbols';
+import BoardHintPanel from './BoardHintPanel';
 import CrossSectionPanel from './CrossSectionPanel';
 import PeninsulaMap from './PeninsulaMap';
 import useBoardDrag from './useBoardDrag';
@@ -753,41 +754,17 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     </p>
   );
 
+  // 힌트 표시는 BoardHintPanel이 소유한다(R13-01 §2.6 — 교사 캐릭터 말풍선).
+  // 문구·순서·칩은 그대로 옮겼다. 여기서는 "무엇을 말할지"만 정하고 "누가 어떻게
+  // 말하는지"는 패널이 정한다.
   const hintBlock = hintSteps.length > 0 && !result && (
-    <div>
-      {hintSteps.slice(0, hintLevel).map((h, i) => (
-        <div key={i} className="mb-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          <p>
-            {t('board.atmosphere.hintPrefix', { n: i + 1 })} {h}
-          </p>
-          {/* 2단에서만 "필요한 요소 종류"를 칩으로 — subtype(정답 요소)은 없다 */}
-          {i === 1 && hintKinds.length > 0 && (
-            <p className="mt-1 flex flex-wrap items-center gap-1">
-              <span className="font-bold">{t('board.atmosphere.hintNeedsLabel')}</span>
-              {hintKinds.map((kind) => (
-                <span key={kind} className="rounded-full bg-amber-200 px-2 py-0.5 font-bold text-amber-900">
-                  {HINT_KIND_LABEL[kind] ? t(HINT_KIND_LABEL[kind]) : kind}
-                </span>
-              ))}
-            </p>
-          )}
-        </div>
-      ))}
-      {hintLevel < hintSteps.length && interactive && (
-        <button
-          type="button"
-          onClick={() => setHintLevel((l) => Math.min(l + 1, hintSteps.length))}
-          className="text-xs font-bold text-amber-600 hover:text-amber-700"
-        >
-          {t('board.atmosphere.hintCta', { n: hintLevel, total: hintSteps.length })}
-        </button>
-      )}
-      {hintLevel >= hintSteps.length && (
-        <p className="text-[11px] text-amber-700">
-          {t('board.atmosphere.hintNoAnswer')}
-        </p>
-      )}
-    </div>
+    <BoardHintPanel
+      steps={hintSteps}
+      level={hintLevel}
+      kindLabels={hintKinds.map((kind) => (HINT_KIND_LABEL[kind] ? t(HINT_KIND_LABEL[kind]) : kind))}
+      interactive={interactive}
+      onReveal={() => setHintLevel((l) => Math.min(l + 1, hintSteps.length))}
+    />
   );
 
   const verdictBlock = (

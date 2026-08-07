@@ -918,11 +918,20 @@ function closingStepPayload(mode) {
   };
 }
 
+/** GET/POST /duel/today 응답 (schemas/duel.DuelToday).
+ *
+ * ⚠️ 서버 정합 2건(R13 3일차 FE-1 — 목이 어긋나 있던 드리프트):
+ *   1. duel_date는 **예보 대상일 = 내일(KST)**이다(라우터 _duel_target_date →
+ *      duel_service.duel_target_date). 오늘로 두면 마감 단계의 duel_date와
+ *      대결 화면의 duel_date가 하루 어긋난다.
+ *   2. 스키마 필드는 `submitted: bool`이다 — `status: 'open'|'submitted'` 문자열은
+ *      서버에 존재하지 않는다(프론트가 목에서만 도는 분기를 갖게 된다).
+ */
 function duelTodayPayload() {
   const submitted = state.duel.submitted;
   return {
-    duel_date: todayISO(),
-    status: submitted ? 'submitted' : 'open',
+    duel_date: isoDaysFromToday(1),
+    submitted,
     base_forecast: BRIEFING_DEGRADED ? null : DUEL_BASE_FORECAST,
     caster_grade: state.tier, // R9-01 §3.2 — 유저 티어 기준 적응형 캐스터 등급(additive)
     user_pred: state.duel.userPred,
@@ -1531,8 +1540,15 @@ const routes = {
     if (!item) {
       return [404, { detail: '세션에 없는 문항입니다', code: 'QUIZ_NOT_FOUND' }];
     }
-    // 멱등 가드: 이미 응답한 문항 재제출 금지 (재제출은 구름 미소모 — §3.3)
-    if (s.answers[item.quiz_id]) {
+    // 멱등 가드 + 만회 라운드(R13-01 §2.1) — 멱등 의미론의 **유일한 예외**.
+    // 서버(answer_service.is_retry_eligible)와 같은 조건: 최초 오답이고 아직 만회로
+    // 해결되지 않은 문항만 재채점한다. 그 밖의 재제출은 현행 그대로 409
+    // ALREADY_ANSWERED다(계약 문서 초안의 "409 아님"은 오류였다).
+    // 배치고사는 진단이라 제외 — 만회는 학습 루프의 장치다.
+    const prior = s.answers[item.quiz_id];
+    const retryEligible =
+      prior != null && s.mode !== 'placement' && prior.is_correct === false && prior.retry_correct !== true;
+    if (prior && !retryEligible) {
       return [409, { detail: '이미 답한 문항이에요', code: 'ALREADY_ANSWERED' }];
     }
 
@@ -1559,6 +1575,32 @@ const routes = {
       phenomena = judged.phenomena;
     } else {
       isCorrect = gradeSessionItem(item, body?.answer);
+    }
+
+    // 만회 재제출(§2.1): retry_correct에만 기록하고 여기서 끝낸다 — 최초 기록
+    // (is_correct)은 **불변 보존**이고, 구름 소모·XP·퀘스트·복습 큐 어디에도 닿지
+    // 않는다(만회는 벌도 파밍도 아니다). clouds는 잔량만 실측해 돌려준다.
+    if (retryEligible) {
+      prior.retry_correct = isCorrect;
+      const remaining = cloudSpendResult(false);
+      return [
+        200,
+        {
+          is_correct: isCorrect,
+          correct_answer: item._mock.correct ?? null,
+          feedback: isCorrect ? item._mock.feedbackCorrect : item._mock.feedbackWrong,
+          xp_earned: 0,
+          xp_base: 0,
+          xp_weak_bonus: 0,
+          concept_tag: item.concept_tag,
+          session_progress: sessionProgress(s),
+          clouds_spent: 0,
+          clouds: remaining.clouds,
+          is_retry: true,
+          retry_correct: isCorrect,
+          ...(phenomena ? { phenomena } : {}),
+        },
+      ];
     }
 
     // 배치고사(R7-01 S3 계약 확정): 진단 전용 — XP·스트릭·퀘스트 미부여
@@ -1616,6 +1658,11 @@ const routes = {
     s.completed = true;
     const results = Object.values(s.answers);
     const correctCount = results.filter((r) => r.is_correct).length;
+    // 만회 라운드(R13-01 §2.1): 왕관 판정값이 all_correct → all_resolved로 바뀌었다.
+    // correct_count는 **최초 정답 수** 그대로다(회귀 방지) — 만회분을 더하지 않는다.
+    const isResolved = (r) => Boolean(r.is_correct) || r.retry_correct === true;
+    const allResolved = progress.total > 0 && results.every(isResolved);
+    const retryResolvedCount = results.filter((r) => !r.is_correct && r.retry_correct === true).length;
 
     // 유닛 세션(§3.2 + R8-01 §3.1): 전 문항 정답 시 왕관 +1, cleared 전환 시 +20 XP(1회).
     // unit_result는 백엔드 grant_unit_crown 반환 dict와 동일한 5필드 고정 형태
@@ -1627,7 +1674,7 @@ const routes = {
       const crownTarget = unit?.crown_target ?? 1;
       const allCorrect = progress.total > 0 && correctCount === progress.total;
       let unitXp = 0;
-      if (allCorrect && prog.crowns < crownTarget) {
+      if (allResolved && prog.crowns < crownTarget) {
         prog.crowns += 1;
         if (prog.crowns >= crownTarget && !prog.cleared_at) {
           prog.cleared_at = new Date().toISOString();
@@ -1636,11 +1683,14 @@ const routes = {
         }
       }
       unitResult = {
+        // all_correct는 **최초 시도 만점**이라는 원래 뜻을 유지한다(§2.1) —
+        // 두 값이 갈리는 세션 = 만회로 클리어한 세션.
         all_correct: allCorrect,
         crowns: prog.crowns,
         crown_target: crownTarget,
         cleared: prog.crowns >= crownTarget,
         unit_xp: unitXp,
+        all_resolved: allResolved,
       };
     }
     // 데일리 왕관 유입로 (R8-01 §3.4): daily 세션 전 문항 정답이면 세션 문항 최다
@@ -1649,7 +1699,7 @@ const routes = {
     // 태그 사전순(결정적). 대상 없으면 무동작(null).
     // placement는 제외. daily는 하루 1세션 멱등이라 파밍 자연 상한.
     let crownAward = null;
-    if (s.mode === 'daily' && progress.total > 0 && correctCount === progress.total) {
+    if (s.mode === 'daily' && allResolved) {
       const tagCounts = new Map();
       for (const item of s.items) {
         tagCounts.set(item.concept_tag, (tagCounts.get(item.concept_tag) ?? 0) + 1);
@@ -1726,6 +1776,8 @@ const routes = {
         streak_count: state.streak,
         unit_result: unitResult, // R8-01 §3.1 — 유닛 세션이 아니면 null(additive)
         crown_award: crownAward, // R8-01 §3.4 — daily 만점 왕관 유입, 없으면 null(additive)
+        all_resolved: allResolved, // R13-01 §2.1 — 만회 포함 전건 해결(왕관 판정값)
+        retry_resolved_count: retryResolvedCount, // R13-01 §2.1 — "만회 완료 N문항"
         closing_step: closingStepPayload(s.mode), // R13 A-1 — 15문항 뒤 예보 단계(additive)
         ...(placementResult ?? {}),
       },

@@ -152,7 +152,10 @@ ok(NAV_ITEMS[0].to === '/' && NAV_ITEMS[1].to === '/learn', '첫 항목이 홈, 
   const hrefs = (els) => els.map((a) => a.getAttribute('href')).join(',');
   ok(hrefs(tabs) === hrefs(sides), `두 내비의 목적지가 같다 — ${hrefs(tabs)}`);
 
-  // 학습 세션 카드 → /learn, 부제는 현재 유닛
+  // 학습 세션 카드 → /learn, 제목은 현재 유닛.
+  // R13-01 §2.5로 진입 카드가 1개가 되면서 카드 **자체**가 커리큘럼 트리에
+  // 의존한다(예전에는 카드는 정적이고 부제만 트리를 썼다) — 트리 도착을 기다린다.
+  await waitFor(() => text().includes('기단의 성질'), 6000, '진입 카드 현재 유닛');
   const learnCard = $$('a[href="/learn"]').find((a) => a.textContent.includes('학습 세션'));
   ok(Boolean(learnCard), '학습 세션 카드가 /learn을 가리킨다');
   ok(/기단의 성질|첫 유닛/.test(learnCard?.textContent ?? ''), `카드 부제가 현재 유닛 — "${learnCard?.textContent?.slice(0, 40)}"`);

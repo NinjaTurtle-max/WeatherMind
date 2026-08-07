@@ -73,6 +73,45 @@ class BKTParams:
 DEFAULT_INIT = BKTParams(p_init=0.3, p_learn=0.2, p_guess=0.25, p_slip=0.15)
 
 
+# ── 서빙 배선 (R13-01 §5-1) ────────────────────────────────────────────────
+# **파라미터 출처**: 실운영 로그(8/11~18)가 쌓이기 전까지 서빙은 아래 사전값을 쓴다.
+# DEFAULT_INIT과 같은 값이지만 이름을 나눈다 — 하나는 EM 초기값(적합 입력)이고
+# 다른 하나는 서빙 사전값(추론 파라미터)이라 재적합 후 갈라진다. 재적합이 붙는
+# 자리는 mastery_snapshot(params=...) 인자와 /internal/weatherbrain/mastery의
+# `params` 필드다: fit_bkt로 개념별 파라미터를 얻으면 호출측이 그대로 주입하면
+# 되고, 이 모듈도 엔드포인트도 고칠 필요가 없다.
+SERVING_PRIOR = DEFAULT_INIT
+
+# **콜드스타트 경계**: 관측이 이 미만이면 P(숙련)은 사실상 사전값의 재진술이다
+# (1회 관측의 사후는 guess/slip 한 번에 좌우된다). 값을 숨기지는 않되 "데이터
+# 부족"으로 표시해 측정값과 구분한다 — num_responses=0을 옅은 막대로 구분하는
+# θ 패널의 관례와 같은 취지.
+MASTERY_MIN_RESPONSES = 3
+
+
+def mastery_snapshot(
+    corrects: Sequence[bool], params: BKTParams | None = None
+) -> dict:
+    """서빙용 현재 숙련 스냅샷 — 궤적이 아니라 "지금"만 필요한 소비자용.
+
+    Args:
+        corrects: 시간 오름차순 정오답 시퀀스(한 개념). 빈 시퀀스면 사전값.
+        params: 개념별 적합 파라미터. None이면 SERVING_PRIOR.
+
+    Returns:
+        {p_mastery, p_next_correct, n, cold_start} — cold_start는 관측 수가
+        MASTERY_MIN_RESPONSES 미만임을 뜻한다(값이 없다는 뜻이 아니다).
+    """
+    p = params or SERVING_PRIOR
+    p_mastery = trace_mastery(corrects, p)[-1]
+    return {
+        "p_mastery": p_mastery,
+        "p_next_correct": predict_p_correct(p_mastery, p),
+        "n": len(corrects),
+        "cold_start": len(corrects) < MASTERY_MIN_RESPONSES,
+    }
+
+
 def predict_p_correct(p_mastery: float, params: BKTParams) -> float:
     """현재 P(숙련)에서 다음 응답이 정답일 확률.
 

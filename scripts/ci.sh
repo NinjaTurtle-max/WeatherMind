@@ -177,9 +177,13 @@ step_config() {
 #   home        홈 대시보드: / ↔ /learn 분리·내비 단일 소유·출석 소유자·요일 채움
 #   mascot      마스코트 정렬: PNG 투명 여백 0 · object-contain · 호출부 가로세로
 #   duel        예보 대결 배치: 2열·격자 항목 최소폭·오른쪽 열 sticky·태풍이 튜터
+#   home-entry  홈 진입 통합(R13 §2.5): 진입 카드 1개·우선순위 3분기·보조 강등
+#   hint-character 보드 힌트 교사 캐릭터(R13 §2.6): 단계별 표정 전환·문구 불변
+#   session-retry 만회 라운드(R13 §2.1)·만회 상한 5(§2.11)·완료 화면 블록 구분
+#                 표기(§2.10)·예보 마감 단계(A-1 노출/미노출)
 # board_engine 공유 벡터(test:board)는 node_modules 없이 도는 전용 `board` 단계가
 # 소유하므로 여기서 중복 실행하지 않는다.
-FRONT_TESTS=(explore session placement visual gating board-entry assist webgl overlay i18n course-select guest-convert review-queue region learn-path home mascot duel)
+FRONT_TESTS=(explore session placement visual gating board-entry assist webgl overlay i18n course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry)
 
 step_frontend() {
   banner "frontend: build + 스모크 ${#FRONT_TESTS[@]}종 (선택)"

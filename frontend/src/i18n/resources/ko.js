@@ -284,6 +284,18 @@ export default {
     basisPrior: '초기 배정',
     basisMeasured: '응답 {count}회 기반',
     empty: '아직 능력 데이터가 없어요. 세션을 풀면 개념별 이해도가 분석돼요.',
+    // BKT 숙련도(R13-01 §5-1) — θ와 다른 축임을 화면에서 읽히게 하는 문구.
+    mastery: {
+      title: '개념 숙련도',
+      subtitle: '위 막대가 「지금 실력」이라면, 아래는 「이 개념을 익혔을 확률」이에요.',
+      empty: '문제를 풀면 개념을 익혔는지 추적하기 시작해요.',
+      insufficient: '데이터 부족',
+      beginning: '아직 익히는 중',
+      learning: '거의 익힘',
+      mastered: '숙련',
+      rowTitle: '익혔을 확률 {percent}% · 다음 문제 정답 확률 {next}% · 응답 {count}회',
+      nextHint: '다음 문제 정답 확률 {next}%',
+    },
   },
   // ── 홈 대시보드 (시안 Soft Cloud 홈) ─────────────────────────────────────
   // 실제 API에 있는 값만 쓴다 — 「최근 활동」은 조회 엔드포인트가 없어 뺐다.
@@ -298,6 +310,13 @@ export default {
       learnEmpty: '첫 유닛부터 시작해요',
       learnGo: '이어서 풀기 →',
       go: '바로 가기 →',
+      // R13-01 §2.5 진입 통합 — 홈의 학습 진입 카드 1개가 쓰는 문구
+      unitBody: '진행 중인 유닛이에요. 여기서 이어 가면 돼요.',
+      todayLabel: '오늘의 학습',
+      doneTitle: '오늘 몫은 다 했어요',
+      doneBody: '오늘 할 학습을 모두 마쳤어요. 더 하고 싶다면 아래에서 골라 보세요.',
+      doneCta: '지난 유닛 다시 보기 →',
+      more: '더 해보기',
       board: '대기 보드',
       boardDesc: '기단·전선을 놓아 날씨를 만들어요',
       duel: '예보 대결',
@@ -455,6 +474,19 @@ export default {
       stay: '계속 풀기',
       quit: '그만두기',
     },
+    // 만회 라운드 (R13-01 §2.1 · 상한 5 §2.11) — 세션 마지막 문항 뒤 오답 재투입.
+    // 만회는 벌도 파밍도 아니다: 구름 무소모·XP 무가산이라 화면도 그렇게 읽혀야 한다.
+    retry: {
+      banner: '☂️ 만회 라운드 — 아까 놓친 {total}문항',
+      note: '만회는 벌이 아니에요 — 구름도 XP도 움직이지 않아요.',
+      itemCount: '만회 {current} / {total}',
+      start: '놓친 {count}문항 만회하기 →',
+      next: '다음 만회 문항 →',
+      success: '☀️ 만회 성공! 이 문항은 해결했어요',
+      fail: '🌧️ 이번엔 못 맞혔어요 — 내일 복습 문항으로 다시 만나요',
+      alreadyResolved: '이미 해결한 문항이에요 — 다음으로 넘어갈게요.',
+      capNote: '만회는 마지막 {limit}문항까지만 이어져요.',
+    },
     summary: {
       title: '오늘의 세션 완료!',
       allCorrect: '전부 정답이에요. 완벽한 하루!',
@@ -465,6 +497,37 @@ export default {
       tomorrow: '내일 또 새로운 {total}문항 세션이 준비돼요.',
       tomorrowNoCount: '내일 또 새로운 세션이 준비돼요.',
       boardCta: '대기 보드 풀어보기 →',
+      // 만회 결산 (§2.1) — 서버 retry_resolved_count·all_resolved 실측만 쓴다
+      retryResolved: '☂️ 만회 완료 {count}문항',
+      allResolved: '만회까지 마쳐서 오늘 문항을 전부 해결했어요!',
+      // 블록 구분 표기 (§2.10) — SessionItem.kind 4종
+      blocksTitle: '오늘 푼 문항',
+      blocks: {
+        new: '오늘의 발견',
+        review: '복습',
+        live: '실황',
+        unit: '진도',
+      },
+      blockCount: '{count}문항',
+      unitBlockNote: '진도 문항은 지금 배우는 유닛의 다음 5문항이에요.',
+    },
+    // 예보 마감 단계 (R13 A-1) — 15문항 뒤에 붙는 **단계**(문항 아님).
+    closing: {
+      title: '마지막 단계 — 내일 예보 내기',
+      subtitle: '{date}의 최고기온과 강수확률을 예보해 주세요.',
+      noJudge: '예보는 지금 채점하지 않아요 — 정답은 내일의 관측이 정해요.',
+      base: '기준 예보 {temp}℃ · 강수확률 {prob}%',
+      tempLabel: '최고기온(℃)',
+      rainLabel: '강수확률(%)',
+      submit: '예보 제출하기',
+      briefingCta: '판단 재료 자세히 보기 →',
+      submittedTitle: '예보를 냈어요',
+      settleNote: '{date}의 실제 날씨가 관측된 뒤 {settleDate}에 결과가 정산돼요.',
+      alreadySubmitted: '오늘은 이미 예보를 냈어요.',
+      failed: '예보 제출에 실패했어요. 잠시 후 다시 시도해주세요.',
+      lastResultTitle: '지난 예보 결과',
+      lastResult: '{date} 예보 — {result}',
+      skip: '오늘은 건너뛰기',
     },
   },
   quiz: {

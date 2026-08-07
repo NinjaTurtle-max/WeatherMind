@@ -8,6 +8,7 @@ ai-worker 장애 시에는 저장된 θ(또는 빈 결과)로 폴백하므로 �
 흐름:
   가입      → seed_placement: level_group 사전으로 개념별 초기 θ 배정(행 생성).
   세션 발급 → refresh_abilities: 누적 응답으로 θ 재추정·upsert 후 Router에 공급.
+  숙련 조회 → load_mastery: quiz_logs 시퀀스로 BKT P(숙련) 파생(저장 없음, R13 §5-1).
 """
 
 from __future__ import annotations
@@ -414,6 +415,86 @@ async def refresh_abilities(db: AsyncDBSession, user: User) -> list[dict]:
     abilities = result.get("abilities", [])
     await _upsert_abilities(db, user, abilities)
     return abilities
+
+
+# ── BKT 숙련도 (R13-01 §5-1) — θ와 다른 축 ──────────────────────────────────
+# θ는 "지금 이 개념의 실력"(로짓, 응답을 순서 없는 집합으로 봄)이고, 숙련도는
+# "이 개념을 익혔을 확률"(0..1, 응답을 **시간 순서**로 봄)이다. 두 축은 서로를
+# 읽지 않는다 — θ 경로(user_concept_ability)는 여기서 한 번도 건드리지 않고,
+# 숙련도는 quiz_logs만 읽는 **파생 뷰**라 저장 테이블이 없다.
+#
+# **갱신 시점**: 답안 제출마다 계산하지 않는다. quiz_logs가 SSOT이므로 조회
+# 시점에 조립해 ai-worker에 1콜 한다 — review-queue가 quiz_logs read-model인
+# 것과 같은 관례이고, 답안 경로에 왕복을 추가하지 않는다(§5 불변 원칙).
+# 순수 계산 엔드포인트라 LLM 과금이 없다.
+
+# 표시용 숙련 밴드 경계 — theta_level_label과 같은 "서버가 라벨을 준다" 관례.
+# 값은 확률이므로 학령에 상대적이지 않다(θ 임계와 달리 절대 기준).
+MASTERY_MASTERED_MIN: float = 0.8
+MASTERY_LEARNING_MIN: float = 0.5
+
+
+def mastery_label(p_mastery: float, cold_start: bool) -> str:
+    """숙련 확률 → 표시 라벨. 콜드스타트는 값보다 "데이터 부족"이 먼저다."""
+    if cold_start:
+        return "insufficient"
+    if p_mastery >= MASTERY_MASTERED_MIN:
+        return "mastered"
+    if p_mastery >= MASTERY_LEARNING_MIN:
+        return "learning"
+    return "beginning"
+
+
+async def _assemble_mastery_sequences(
+    db: AsyncDBSession, user: User
+) -> dict[str, list[bool]]:
+    """채점된 quiz_logs를 개념별 **시간 오름차순** 정오답 시퀀스로 조립한다.
+
+    is_correct(최초 응답)만 읽는다 — 만회 결과(retry_correct)는 넣지 않는다.
+    BKT의 관측은 "그 시점에 스스로 맞혔는가"이고, 오답 직후의 재시도를 정답으로
+    세면 숙련 전이가 위로 편향된다(is_correct를 θ 근거로 불변 보존하는 R13 §2.1의
+    같은 이유).
+    """
+    rows = (
+        await db.execute(
+            select(QuizLog.concept_tag, QuizLog.is_correct)
+            .where(QuizLog.user_id == user.id, QuizLog.is_correct.is_not(None))
+            .order_by(QuizLog.answered_at.asc())
+        )
+    ).all()
+    by_concept: dict[str, list[bool]] = defaultdict(list)
+    for concept_tag, is_correct in rows:
+        by_concept[concept_tag].append(bool(is_correct))
+    return dict(by_concept)
+
+
+async def load_mastery(db: AsyncDBSession, user: User) -> list[dict]:
+    """개념별 BKT 숙련 확률 (숙련 낮은 순). 응답 없는 개념은 행이 없다.
+
+    **콜드스타트 계약**: 관측 0건 개념은 목록에 넣지 않는다(추적할 이력이
+    없으므로 사전값을 측정처럼 보여주지 않는다 — θ가 가입 시 사전 배정으로
+    전 개념 행을 갖는 것과 의도적으로 다르다). 1~2건 개념은 행은 있되
+    cold_start=true로 "데이터 부족"을 표시한다(경계는 ai-worker 소유).
+
+    ai-worker 실패 시 빈 목록 — 숙련 패널만 비고 나머지 화면은 그대로 산다
+    (refresh_abilities가 저장 θ로 폴백하는 것과 같은 복원력 원칙).
+    """
+    by_concept = await _assemble_mastery_sequences(db, user)
+    if not by_concept:
+        return []
+
+    concepts_payload = [
+        {"concept_tag": tag, "corrects": corrects}
+        for tag, corrects in sorted(by_concept.items())
+    ]
+    try:
+        result = await ai_client.weatherbrain_mastery(concepts=concepts_payload)
+    except AIWorkerError:
+        logger.warning("weatherbrain mastery 실패 — 빈 목록 폴백 (user=%s)", user.id)
+        return []
+
+    masteries = result.get("masteries", [])
+    return sorted(masteries, key=lambda m: float(m["p_mastery"]))
 
 
 async def seed_placement(db: AsyncDBSession, user: User) -> list[dict]:

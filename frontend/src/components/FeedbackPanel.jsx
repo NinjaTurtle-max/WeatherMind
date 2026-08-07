@@ -4,26 +4,46 @@ import Mascot from './Mascot';
 /**
  * FeedbackPanel (04번 스펙) — RAG 피드백 표시용 슬라이드업 패널.
  * 세션 경로 공용 — props로 message, isCorrect를 받는다.
- * 채점 순간에 퀴즈 담당 캐릭터(번개)가 함께 선다.
  * message 본문은 서버(RAG) 파생 — 외부화 대상 아님(§6.3 시드/서버 데이터 제외).
+ *
+ * R13-01 §2.6(교사 캐릭터): 화자를 정오답에 따라 갈랐다. 예전에는 캐릭터가
+ * 한 종(번개)뿐이라 "포즈가 1종이니 그림을 바꾸지 않는다"고 적어 뒀지만, 지금은
+ * 마스코트 6종이 **표정 6종**으로 쓰인다 — 맞혔을 때와 틀렸을 때 같은 얼굴이
+ * 같은 자리에서 다른 말을 하면 피드백이 사무적으로 읽힌다.
+ *   정답 → 태양이(칭찬·개념 굳히기)  오답 → 구름이(메인 튜터가 다시 설명)
+ * **문구는 서버 것 그대로**다 — 캐릭터는 말투를 바꾸지 않는다(§2.6 문구 불변).
  */
+const SPEAKER = { correct: 'sun', wrong: 'cloud' };
+
 export default function FeedbackPanel({ message, isCorrect }) {
   const t = useT();
   if (!message) return null;
 
+  const speaker = isCorrect ? SPEAKER.correct : SPEAKER.wrong;
   const tone = isCorrect
-    ? { bar: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700' }
-    : { bar: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700' };
+    ? { bar: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700', tail: 'border-emerald-100' }
+    : { bar: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700', tail: 'border-orange-100' };
 
   return (
     <div className="fixed inset-x-0 bottom-14 z-40 mx-auto max-w-xl px-3 pb-3">
       <div className="animate-slide-up overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
         <div className={`h-1.5 w-full ${tone.bar}`} />
         <div className="flex gap-3 p-4">
-          {/* 정오답은 배지·문구가 전달하므로 캐릭터는 장식 — 스크린리더 중복 방지.
-              포즈가 1종뿐이라 정오답으로 그림을 바꾸지 않는다. */}
-          <Mascot name="bolt" className="h-14 w-14 shrink-0 self-start" />
-          <div className="min-w-0 flex-1">
+          {/* 정오답은 배지·문구가 전달하므로 캐릭터는 장식 — 스크린리더 중복 방지. */}
+          <span
+            data-testid="feedback-mascot"
+            data-mascot={speaker}
+            className="grid h-14 w-14 shrink-0 place-items-center self-start rounded-full bg-slate-50"
+          >
+            <Mascot name={speaker} className="h-12 w-12" />
+          </span>
+          {/* 말풍선 — 꼬리가 캐릭터를 가리켜 "이 캐릭터가 말한다"가 된다.
+              보드 힌트(BoardHintPanel)와 같은 관례다. */}
+          <div className="relative min-w-0 flex-1 rounded-2xl bg-slate-50 px-3 py-2.5">
+            <span
+              aria-hidden="true"
+              className={`absolute -left-[5px] top-5 h-2.5 w-2.5 rotate-45 border-b border-l bg-slate-50 ${tone.tail}`}
+            />
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${tone.badge}`}>
               {t('feedback.ai')}
             </span>

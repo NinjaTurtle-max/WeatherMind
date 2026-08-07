@@ -83,6 +83,23 @@ async def weatherbrain_estimate(
     )
 
 
+async def weatherbrain_mastery(
+    concepts: list[dict[str, Any]], params: dict[str, dict] | None = None
+) -> dict:
+    """WeatherBrain BKT 개념별 숙련 확률 (R13-01 §5-1).
+
+    concepts: [{concept_tag, corrects: [bool, ...]}] — corrects는 **시간 오름차순**.
+    params: 재적합 파라미터 주입구({concept_tag: {p_init,p_learn,p_guess,p_slip}}).
+    반환: {masteries: [{concept_tag, p_mastery, p_next_correct, n, cold_start,
+    params_source}], min_responses}. 실패 시 AIWorkerError 전파(호출측
+    load_mastery가 빈 목록으로 폴백 — 숙련 패널만 비고 다른 화면은 산다).
+    """
+    payload: dict = {"concepts": concepts}
+    if params:
+        payload["params"] = params
+    return await _post("/internal/weatherbrain/mastery", payload, timeout=15.0)
+
+
 async def weatherbrain_placement(
     level_group: str,
     concept_tags: list[str],

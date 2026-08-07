@@ -33,6 +33,51 @@ import { conceptLabel, useT } from '../../i18n';
 
 const TIER_KEYS = ['stratus', 'cumulus', 'nimbostratus', 'cumulonimbus', 'typhoon_eye'];
 
+/** 유닛 status는 서버 파생(R7-02 S4). 옛 응답(status 없음)만 cleared/locked로 되짚는다. */
+const unitStatus = (u) => u.status ?? (u.cleared ? 'cleared' : u.locked ? 'locked' : 'current');
+
+/**
+ * 홈의 학습 진입 **1개**를 고른다 (R13-01 §2.5).
+ *
+ * 왜 하나인가: 「바로 시작하기」에 학습·보드·대결·리그 네 칸이 같은 격으로 서 있어서
+ * 처음 온 사람은 무엇부터 눌러야 하는지 알 수 없었다(사전 교육 Mo2의 "진입 실패"
+ * 신호 그대로 — 뭘 눌러야 할지 모른 채 스크롤). 첫 화면에는 **눌러야 할 것 하나**만
+ * 둔다. 나머지 셋은 보조 링크로 내린다.
+ *
+ * 우선순위 — 위에서부터 처음 맞는 것 하나:
+ *   1. unit  진행 중 유닛이 있다  → 이어서 푼다
+ *   2. daily 오늘 일일 세션을 아직 안 했다 → 오늘 몫을 시작한다
+ *   3. done  둘 다 없다 → 완료 축하
+ *
+ * "진행 중 유닛"의 판정 근거는 **서버가 준 유닛 status**다. 백엔드
+ * `build_curriculum`이 트리 전체에서 잠기지 않은 첫 미클리어 유닛 정확히 1개를
+ * `current`로 승격해 내려준다 — 프론트가 진도를 다시 계산하지 않는다(계산하면
+ * 선행 잠금·배치 θ 선해제 규칙 사본을 프론트가 갖게 된다). `current`가 없고
+ * `unlocked`만 있는 응답(구 서버·부분 트리)도 진행 중으로 본다.
+ *
+ * "오늘 일일 세션 미발급"의 근거는 `/progress/me`의 `today_answered_count`다.
+ * 서버가 answered_at 날짜로 매번 재계산하고 **배치고사는 이미 빼고** 준다.
+ * 목표(daily_goal_items)가 설정돼 있으면 목표 도달을, 아니면 "오늘 한 문항이라도
+ * 풀었는가"를 완료로 본다. 세션 발급 여부를 직접 알려주는 엔드포인트는 없다 —
+ * 있으면 그걸 쓰는 게 맞다(이월 참조).
+ */
+export function pickHomeEntry({ units = [], todayAnswered = 0, dailyGoal = null } = {}) {
+  const current =
+    units.find((u) => unitStatus(u) === 'current') ??
+    units.find((u) => unitStatus(u) === 'unlocked') ??
+    null;
+  if (current) return { kind: 'unit', unit: current, to: '/learn' };
+
+  const goal = Number(dailyGoal) > 0 ? Number(dailyGoal) : 0;
+  const dailyDone = goal > 0 ? todayAnswered >= goal : todayAnswered > 0;
+  if (!dailyDone) return { kind: 'daily', unit: null, to: '/daily' };
+
+  return { kind: 'done', unit: null, to: '/learn' };
+}
+
+/** 진입 카드의 화자 — 학습은 태양이, 오늘 몫은 번개, 완료는 메인 튜터 구름이. */
+const ENTRY_MASCOT = { unit: 'sun', daily: 'bolt', done: 'cloud' };
+
 /** θ(로짓)를 레이더 반지름 0~1로. 대략 -3..+3 범위를 쓴다(schemas/progress.py). */
 function thetaToRatio(theta) {
   return Math.min(1, Math.max(0.12, (theta + 3) / 6));
@@ -120,12 +165,7 @@ export default function HomePage() {
     staleTime: 60_000,
   });
 
-  // 현재 유닛 — 학습 세션 카드의 부제. status는 서버 파생(R7-02 S4).
   const units = (tree?.sections ?? []).flatMap((s) => s.units);
-  const current =
-    units.find((u) => (u.status ?? (u.cleared ? 'cleared' : u.locked ? 'locked' : 'current')) === 'current') ??
-    units.find((u) => u.status === 'unlocked') ??
-    null;
 
   const goalTotal = me?.daily_goal_items ?? null;
   const goalDone = me?.today_answered_count ?? 0;
@@ -138,6 +178,44 @@ export default function HomePage() {
 
   const tierIdx = Math.max(0, TIER_KEYS.indexOf(me?.tier ?? 'stratus'));
 
+  // 학습 진입은 **하나**다 — 무엇을 보여줄지는 pickHomeEntry가 정한다(§2.5).
+  // 트리가 아직 안 왔을 때(첫 렌더)는 "진행 중 유닛 없음"으로 단정하지 않는다.
+  // 단정하면 대다수 사용자에게 '오늘의 세션'이 한 프레임 떴다가 '이어서 학습'으로
+  // 바뀌는 깜빡임이 생긴다 — 목적지가 바뀌는 깜빡임은 오클릭을 만든다.
+  const entry =
+    tree === undefined
+      ? { kind: 'unit', unit: null, to: '/learn' }
+      : pickHomeEntry({ units, todayAnswered: goalDone, dailyGoal: goalTotal });
+  const ENTRY_COPY = {
+    unit: {
+      eyebrow: t('home.entry.learn'),
+      title: entry.unit?.title ?? t('home.entry.learnEmpty'),
+      body: t('home.entry.unitBody'),
+      cta: t('home.entry.learnGo'),
+    },
+    daily: {
+      eyebrow: t('home.entry.todayLabel'),
+      title: t('curriculum.daily.title'),
+      body: t('curriculum.daily.body'),
+      cta: t('curriculum.daily.cta'),
+    },
+    done: {
+      eyebrow: t('home.entry.todayLabel'),
+      title: t('home.entry.doneTitle'),
+      body: t('home.entry.doneBody'),
+      cta: t('home.entry.doneCta'),
+    },
+  };
+  const copy = ENTRY_COPY[entry.kind];
+
+  // 보조 진입 — 학습 카드와 **같은 격이 아니다**(카드가 아니라 링크).
+  // 자유 일일 세션은 지역 설정과 함께 화면 맨 아래 보조 줄이 소유한다.
+  const secondary = [
+    { to: '/board', label: t('home.entry.board') },
+    { to: '/duel', label: t('home.entry.duel') },
+    { to: '/league', label: t('home.entry.leagueDesc', { tier: t(`tier.name.${TIER_KEYS[tierIdx]}`) }) },
+  ];
+
   return (
     <div className="pt-2">
       <GuestSaveBanner />
@@ -149,34 +227,39 @@ export default function HomePage() {
         <p className="mt-0.5 text-[12.5px] text-slate-500">{t('home.greetSub')}</p>
       </div>
 
-      {/* 바로 시작하기 */}
+      {/* 바로 시작하기 — 진입 카드 **1개**(R13-01 §2.5).
+          2026-08-06까지는 여기 네 칸(학습·보드·대결·리그)이 같은 격으로 서 있었다.
+          "같은 격"은 고르는 사람에게는 "무엇이 먼저인지 아무도 모른다"와 같다.
+          이제 서버 상태가 하나를 고르고(pickHomeEntry), 나머지는 아래 보조 줄로
+          내려간다. 탭 구조(내비)는 손대지 않는다 — 진입은 본문의 문제였다. */}
       <p className="text-xs font-extrabold tracking-wider text-slate-400">{t('home.quickStart')}</p>
-      {/* 네 칸은 **같은 격**이다 — 마우스를 올린 칸만 파랗게 든다.
-          학습 세션만 늘 진한 파랑이던 것을 걷어냈다(2026-08-05): 고정 강조는
-          "지금 여기가 선택돼 있다"로 읽혀서, 다른 칸에 올려도 반응이 없는 것처럼
-          보였다. 강조는 상태가 아니라 **가리킴**이어야 한다. */}
-      <div className="mt-2.5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          { to: '/learn', icon: '🎓', k: 'learn', desc: current ? current.title : t('home.entry.learnEmpty'), cta: t('home.entry.learnGo') },
-          { to: '/board', icon: '🧩', k: 'board' },
-          { to: '/duel', icon: '🌡️', k: 'duel' },
-          { to: '/league', icon: '🏆', k: 'league', desc: t('home.entry.leagueDesc', { tier: t(`tier.name.${TIER_KEYS[tierIdx]}`) }) },
-        ].map((e) => (
+      <Link
+        to={entry.to}
+        data-testid="home-entry"
+        data-entry-kind={entry.kind}
+        className="group mt-2.5 flex items-center gap-4 rounded-2xl border border-sky-200 bg-white p-4 transition-colors hover:border-sky-600 hover:bg-sky-50 focus-visible:border-sky-600 focus-visible:bg-sky-50"
+      >
+        <Mascot name={ENTRY_MASCOT[entry.kind]} className="h-16 w-16 flex-none" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[11.5px] font-extrabold tracking-wider text-sky-700">{copy.eyebrow}</p>
+          <p className="mt-0.5 truncate text-[17px] font-extrabold text-slate-900">{copy.title}</p>
+          <p className="mt-0.5 text-[12px] leading-snug text-slate-500">{copy.body}</p>
+        </div>
+        <span className="flex-none rounded-xl bg-sky-600 px-4 py-2.5 text-[13px] font-extrabold text-white transition group-hover:bg-sky-700">
+          {copy.cta}
+        </span>
+      </Link>
+
+      {/* 보조 진입 — 주 카드보다 약하게. 링크지 카드가 아니다. */}
+      <div data-testid="home-secondary" className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        <span className="text-[11.5px] text-slate-400">{t('home.entry.more')}</span>
+        {secondary.map((s) => (
           <Link
-            key={e.to}
-            to={e.to}
-            className="group flex min-h-[118px] flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-sky-600 hover:bg-sky-600 focus-visible:border-sky-600 focus-visible:bg-sky-600"
+            key={s.to}
+            to={s.to}
+            className="text-[12px] font-bold text-slate-500 underline-offset-4 hover:text-sky-700 hover:underline"
           >
-            <span className="text-[22px]" aria-hidden="true">{e.icon}</span>
-            <span className="text-[13.5px] font-extrabold text-slate-900 group-hover:text-white group-focus-visible:text-white">
-              {t(`home.entry.${e.k}`)}
-            </span>
-            <span className="text-[11.5px] leading-snug text-slate-500 group-hover:text-sky-100 group-focus-visible:text-sky-100">
-              {e.desc ?? t(`home.entry.${e.k}Desc`)}
-            </span>
-            <span className="mt-auto text-[11.5px] font-extrabold text-sky-700 group-hover:text-white group-focus-visible:text-white">
-              {e.cta ?? t('home.entry.go')}
-            </span>
+            {s.label}
           </Link>
         ))}
       </div>
@@ -276,19 +359,22 @@ export default function HomePage() {
         </Card>
       </div>
 
-      {/* 자유 일일 세션 */}
-      <div className="mt-3.5 rounded-2xl border border-slate-200 bg-white p-4">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-bold text-slate-800">{t('curriculum.daily.title')}</p>
-          <RegionPicker />
-        </div>
-        <p className="mt-0.5 text-xs text-slate-500">{t('curriculum.daily.body')}</p>
+      {/* 자유 일일 세션 — **보조 링크로 강등**(§2.5). 예전에는 검은 채움 버튼이라
+          위의 학습 진입과 무게가 비슷했다. 학습 지역 설정과 한 줄에 둔다. */}
+      <div
+        data-testid="home-free-daily"
+        className="mt-3.5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-slate-200 bg-white px-4 py-3"
+      >
+        <p className="text-[12.5px] text-slate-500">{t('curriculum.daily.body')}</p>
         <Link
           to="/daily"
-          className="mt-3 inline-block rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700"
+          className="text-[12.5px] font-bold text-slate-600 underline underline-offset-4 hover:text-sky-700"
         >
           {t('curriculum.daily.cta')}
         </Link>
+        <div className="ml-auto">
+          <RegionPicker />
+        </div>
       </div>
     </div>
   );

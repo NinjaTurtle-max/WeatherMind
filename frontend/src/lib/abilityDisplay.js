@@ -32,8 +32,16 @@ export const CONCEPT_KO = localizedDict('ability.concept', [
   'anomaly',
   'co2_climate',
   'heat_island',
+  'density_buoyancy',
+  'energy_transfer',
+  'flood_response',
+  'phase_change',
+  'pressure_basics',
   'pressure_front',
+  'radiation_budget',
+  'temperature_heat',
   'typhoon',
+  'wildfire_weather',
 ]);
 
 // level_label → 표시명 + 배지 색(항상 텍스트와 함께 표기 — 색 단독 의미 아님)

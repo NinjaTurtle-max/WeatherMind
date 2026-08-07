@@ -3,6 +3,7 @@
 | GET  | /me         | XP·레벨·스트릭·티어·스파인 → {xp, level, streak_count, streak_freeze_count, next_level_xp, tier, ..., spine, tone} |
 | GET  | /weak-tags  | θ 파생 약점 개념 (학령 상대 임계, θ 오름차순 — R8-01 §3.5) → WeakConceptOut[] |
 | GET  | /review-queue | 간격반복 복습 큐 (시간 축 — R11-01 C2) → ReviewQueueItem[] |
+| GET  | /mastery    | BKT 개념별 숙련 확률 (θ와 별개 축 — R13-01 §5-1) → ConceptMasteryOut[] |
 | POST | /attendance | 출석 체크 (하루 1회) → {streak_count, is_new_record} |
 | GET  | /quests     | 오늘의 일일 퀘스트 진행/완료 (R4-01 §3.1) |
 | GET  | /badges     | 배지 정의 + 획득 시각 (R4-01 §3.3) |
@@ -25,6 +26,7 @@ from app.schemas.progress import (
     AttendanceResult,
     BadgeOut,
     ConceptAbilityOut,
+    ConceptMasteryOut,
     DailyGoalOut,
     DailyGoalUpdate,
     EnergyState,
@@ -286,6 +288,35 @@ async def get_abilities(
             updated_at=r.updated_at,
         )
         for r in rows
+    ]
+
+
+@router.get("/mastery", response_model=list[ConceptMasteryOut])
+async def get_mastery(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_with_rls),
+) -> list[ConceptMasteryOut]:
+    """WeatherBrain BKT 개념별 숙련 확률 (숙련 낮은 순). R13-01 §5-1.
+
+    /abilities(θ = 지금 실력)와 **다른 축**이다: 여기 값은 "이 개념을 익혔을
+    확률"이고 응답을 시간 순서로 본다. θ 저장소(user_concept_ability)를 읽지도
+    쓰지도 않으며, quiz_logs에서 매 조회 시 파생한다(저장 테이블 없음 —
+    마이그레이션 불필요). 아직 응답이 없는 개념은 목록에 나타나지 않는다.
+    """
+    rows = await weatherbrain_service.load_mastery(db, user)
+    return [
+        ConceptMasteryOut(
+            concept_tag=row["concept_tag"],
+            p_mastery=row["p_mastery"],
+            p_next_correct=row["p_next_correct"],
+            num_responses=row["n"],
+            cold_start=bool(row["cold_start"]),
+            level_label=weatherbrain_service.mastery_label(
+                float(row["p_mastery"]), bool(row["cold_start"])
+            ),
+            params_source=row.get("params_source", "prior"),
+        )
+        for row in rows
     ]
 
 

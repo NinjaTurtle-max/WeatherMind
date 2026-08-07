@@ -10,6 +10,7 @@
     "test:board": "node tests/boardEngine.vectors.test.mjs",
     "test:explore": "node tests/exploreSims.test.mjs && node tests/exploreSims.render.test.mjs",
     "test:session": "node tests/sessionRunner.render.test.mjs",
+    "test:session-retry": "node tests/sessionRetry.smoke.test.mjs",
     "test:placement": "node tests/placementEntry.smoke.test.mjs",
     "test:gating": "node tests/onboardingGating.smoke.test.mjs",
     "test:board-entry": "node tests/boardEntryGate.smoke.test.mjs",
@@ -24,6 +25,8 @@
     "test:region": "node tests/region.smoke.test.mjs",
     "test:learn-path": "node tests/learnPath.smoke.test.mjs",
     "test:home": "node tests/home.smoke.test.mjs",
+    "test:home-entry": "node tests/homeEntry.smoke.test.mjs",
+    "test:hint-character": "node tests/boardHintCharacter.smoke.test.mjs",
     "test:mascot": "node tests/mascotAssets.contract.test.mjs",
     "test:duel": "node tests/duelLayout.smoke.test.mjs"
   },

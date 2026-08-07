@@ -103,7 +103,9 @@ export default function DuelPage() {
     );
   }
 
-  const submitted = Boolean(today?.user_pred) || submitMutation.isSuccess || today?.status === 'submitted' || today?.status === 'settled';
+  // 서버 스키마는 `submitted: bool`이다(DuelToday) — status 문자열은 목에만 있던
+  // 드리프트라 제거했다. user_pred 폴백은 그대로 둔다(제출 직후 응답·구 캐시 대비).
+  const submitted = Boolean(today?.submitted) || Boolean(today?.user_pred) || submitMutation.isSuccess;
   const history = Array.isArray(historyQ.data) ? historyQ.data : [];
 
   const toggleEvidence = (code) =>
