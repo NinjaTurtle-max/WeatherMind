@@ -1,7 +1,10 @@
 """일일 학습 세션(sessions) — 스프린트 R2-01 §3.1·§3.7.
 
 하루 1세션: UNIQUE(user_id, session_date, mode)로 멱등 발급을 보장한다.
-recipe_json에는 배합 결과(§3.2)와 발급 문항 메타({quiz_id, source, slot_filled})를,
+recipe_json에는 배합 결과(§3.2)와 발급 문항 메타({quiz_id, source, slot_filled, kind})를
+저장한다. `kind`는 문항이 어느 블록에서 왔는지(new·review·live·unit)이고, 진도 블록이
+있는 세션은 `unit_block` 메타가 함께 붙는다 — 왕관 판정을 세션 전체가 아니라 진도
+5문항으로 좁히는 근거다(R13 §2.10). 메타가 없는 개정 전 세션은 전체 판정으로 폴백한다.
 route_decision에는 router-decide 응답을 저장한다 (1라운드 부채 "route 미로깅" 상환).
 xp_total은 answer 시마다 누적되어 complete 응답의 합산값이 된다.
 RLS user_isolation은 0002 마이그레이션에서 0001 패턴 그대로 복제 적용.
