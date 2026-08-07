@@ -77,14 +77,18 @@ class TestBoardDifficultySeedDistribution:
         assert set(dist) == {1, 2, 3}, f"난이도 결손: {dict(dist)}"
 
     def test_현_시드_분포_고정(self):
-        """현 12건 기준 1×3(guided)·2×5(goal_only)·3×4(time_limit 2+adult 2) —
-        가중 조정이나 시드 증보로 분포가 바뀌면 여기서 드러난다(의도 확인 후 갱신)."""
+        """가중 조정이나 시드 증보로 분포가 바뀌면 여기서 드러난다(의도 확인 후 갱신)."""
         boards = self._seed_boards()
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
-        # R12 §9: bs 대류 퍼즐이 guided(난이도 1)로 합류 — 1이 3→4
-        assert dist == {1: 4, 2: 5, 3: 4}
+        # R12 §9: bs 대류 퍼즐이 guided(난이도 1)로 합류 — 1이 3→4.
+        # R13 2일차: 전수 재분류로 board 13건 중 12건이 4단계(→middle_high)로 모이면서
+        # adult 가중을 받던 2건이 내려왔다 — 3이 4→2, 2가 5→7. 의도한 이동이다:
+        # 그 2건은 "실화 재현" 퍼즐이라 성인 신고값을 달고 있었을 뿐 요구 지식은
+        # 전선·기단(§2.5 4단계)이었다. 다만 이 이동은 board 난이도가 사실상 한 칸에
+        # 몰려 있다는 뜻이기도 하다(docs/specs/12 재분류 보고 — board 12/13이 4단계).
+        assert dist == {1: 4, 2: 7, 3: 2}
 
 
 def _puzzle(name: str, level_group: str):

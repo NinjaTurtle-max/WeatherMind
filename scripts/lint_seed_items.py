@@ -160,9 +160,6 @@ def load_vocabulary(path: Path = VOCABULARY_PATH) -> dict:
             raise ValueError(
                 f"어휘 '{term}'의 name_ok_from이 1~introduced_at({introduced}) 밖: {name_ok!r}"
             )
-        legacy = entry.get("legacy_banned_levels")
-        if legacy is not None and not legacy:
-            raise ValueError(f"어휘 '{term}'의 legacy_banned_levels가 빈 배열이다(생략할 것)")
     return data
 
 
@@ -219,40 +216,6 @@ def _drop_contained(hits: list[dict]) -> list[dict]:
     ]
 
 
-def _legacy_vocabulary_errors(item: dict, entries: list[dict], blob: str) -> list[str]:
-    """⚠️ 전환기 폴백 — knowledge_level이 없는(미분류) 문항용 v1 규칙.
-
-    v1(R13 1일차)의 학령 금칙 판정을 **한 글자도 바꾸지 않고** 재현한다:
-    level_group이 elementary·middle_high인 문항만 검사하고 adult·expert는 면제,
-    금칙 여부는 각 항목의 legacy_banned_levels가 소유한다.
-
-    **왜 필요한가**: 본시드 141건의 knowledge_level 부여(전수 재분류)가 별건으로
-    진행 중이라, 미분류 문항에 새 판정식을 걸면 재분류가 착지하기 전에 ci.sh의
-    seed 단계가 붉어진다. 실제로 기단(초등 3건)·엘니뇨·라니냐·푄·높새바람이 새
-    판정식에서 탈락하고, 그 해소는 재분류·재저작의 몫이다(docs/specs/12 §3.3).
-
-    **만료 조건**: 본시드 전건에 knowledge_level이 부여되면 이 함수와 모든
-    legacy_banned_levels 필드, level_vocabulary.json의 transitional 블록을 **함께**
-    제거한다. 그때부터 미분류 문항은 존재하지 않아야 한다.
-    """
-    level_group = str(item.get("level_group") or "")
-    hits = [
-        {"entry": entry}
-        for entry in entries
-        if level_group in (entry.get("legacy_banned_levels") or ())
-        and entry["term"] in blob
-    ]
-    return [
-        f"'{h['entry']['term']}' — {level_group} 금칙 어휘. 근거: {h['entry']['basis']}"
-        + (
-            f" / 대안 표현: {h['entry']['suggest']}"
-            if h["entry"].get("suggest")
-            else ""
-        )
-        for h in _drop_contained(hits)
-    ]
-
-
 def vocabulary_errors(item: dict, vocabulary: dict) -> list[str]:
     """문항 단계보다 늦게 도입되는 용어가 template_json 어디든 있으면 사유를 만든다.
 
@@ -271,7 +234,14 @@ def vocabulary_errors(item: dict, vocabulary: dict) -> list[str]:
 
     level = item.get("knowledge_level")
     if level is None:
-        return _legacy_vocabulary_errors(item, entries, blob)
+        # 전환기 폴백(v1 학령 규칙 재현)은 **만료됐다** — 본시드 141건 전수 재분류가
+        # 착지해 미분류 문항이 0이 된 시점(R13 2일차)에 함께 걷었다. 이제 단계 없는
+        # 문항은 판정할 수 없는 것이 아니라 **저작이 덜 된 것**이다: 어느 단계에
+        # 놓을지가 곧 문항의 절반이고, 그것 없이 적재하면 6단계 체계 밖에서 서빙된다.
+        return [
+            "knowledge_level 미부여 — 단계를 판정할 수 없다"
+            " (docs/specs/12 §4의 R0~R7로 부여할 것)"
+        ]
     level = int(level)
 
     answer_blob = " ".join(

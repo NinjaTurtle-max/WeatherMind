@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "owner": "CT-1 (SPRINT_R13_01 §2.3 — R13 2일차에 docs/specs/12 §7로 전면 개정)",
+  "version": 3,
+  "owner": "PM (R13 2일차 — 전환기 폴백 만료)",
   "purpose": "용어별 **도입 단계**(1~6) 표. scripts/lint_seed_items.py 검사 ⑤가 이 파일만 읽는다(코드에 어휘를 박지 않는다). v1의 학령 2분법(banned_levels·reviewed_allowed)을 버렸다 — '금칙이다/아니다'는 이제 파생값이고, 판정은 `문항.knowledge_level < 임계 → 탈락` 한 줄이다. 임계는 그 용어가 정답·메커니즘 질문에 쓰이면 introduced_at, 배경 어휘로만 쓰이면 name_ok_from이다(docs/specs/12 §7.4).",
   "schema": {
     "term": "검사 대상 문자열. 부분 문자열로 대조한다(변형 표기는 별도 항목으로 등재).",
@@ -9,8 +9,7 @@
     "standard": "근거 성취기준 코드. 교육과정 밖이면 null — **비어 있는 것 자체가 신호다**(docs/specs/12 §7.2).",
     "basis": "교육과정 근거(필수). 근거가 데이터와 같은 곳에 있어야 개정된다.",
     "suggest": "한 단계 아래에서 쓸 대안 표현.",
-    "unconfirmed": "docs/specs/12 §9의 미확정 항목. 값은 참고용이고 확정 전까지 상향 판정에 쓰지 않는다.",
-    "legacy_banned_levels": "⚠️ 전환기 전용 — 아래 transitional 참조."
+    "unconfirmed": "docs/specs/12 §9의 미확정 항목. 값은 참고용이고 확정 전까지 상향 판정에 쓰지 않는다."
   },
   "anchor": {
     "1": "초등 3~4학년군 과학. 현상에 **이름**을 붙이고 사례를 안다 — 까닭은 묻지 않는다. `[4과10]`·`[4과16]`·`[4과06-01]`·`[4과15-02]`.",
@@ -31,12 +30,6 @@
     "어떻게"
   ],
   "mechanism_markers_note": "질문 본문에 이 표지가 있고 그 본문에 용어가 등장하면 '메커니즘 질문에 쓰였다'로 보고 name_ok_from 대신 introduced_at을 임계로 쓴다. 정답 텍스트(correct_answer·items·pairs·goal_conditions)에 등장하는 경우도 같다. 기계 1차 패스는 **보수적으로 상향**한다(docs/specs/12 §8.1) — 사람이 내리는 편이 올리는 것보다 안전하기 때문이다.",
-  "transitional": {
-    "what": "legacy_banned_levels는 v1(R13 1일차)의 학령 금칙 판정을 그대로 보존한 필드다.",
-    "why": "본시드 141건의 knowledge_level 부여(전수 재분류)는 별건으로 진행 중이라, 미분류(knowledge_level 없음) 문항에는 새 판정식을 걸 수 없다. 걸면 재분류가 착지하기 전에 ci.sh seed 단계가 붉어진다 — 실제로 기단(초등 3건)·엘니뇨·라니냐·푄·높새바람이 새 판정식에서 탈락한다(그것이 정상이고, 해소는 재분류·재저작의 몫이다).",
-    "expires_when": "본시드 전건에 knowledge_level이 부여되면 이 블록과 모든 legacy_banned_levels 필드, 그리고 lint_seed_items.vocabulary_errors의 폴백 분기를 **함께** 제거한다.",
-    "invariant": "legacy_banned_levels는 v1의 값과 **한 글자도 다르지 않아야** 한다. 전환기 동안 검사 결과가 v1과 동일함을 backend/tests/test_level_vocabulary.py가 감시한다."
-  },
   "terms": [
     {
       "term": "권운",
@@ -44,8 +37,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "십운형(Cirrus) 라틴계 정식 분류명. 중학교 과학 `[9과17-03]`은 구름을 적운형·층운형 두 갈래로만 다루고 십운형 세분류를 수록하지 않는다(§2.5 '아직 쓰면 안 되는 용어'에 명시). 십운형 전 명칭은 docs/specs/12 §2.7의 **실무** 항목이다 — 성취기준 근거가 없어 standard는 null.",
-      "suggest": "높은 하늘에 새털처럼 얇게 뜬 구름",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "높은 하늘에 새털처럼 얇게 뜬 구름"
     },
     {
       "term": "권층운",
@@ -53,8 +45,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "십운형(Cirrostratus). 근거는 권운과 동일. 본시드 [86] 온난전선 ordering 문항이 middle_high 정답 항목에 이 용어를 쓰고 있었던 것이 v1 규칙의 발단(SPRINT_R13_01 §0 뿌리 A). 어휘를 낮춰도 그 문항의 **단계는 4 그대로**다(§6.3) — 이 파일은 어휘만 본다.",
-      "suggest": "하늘 전체를 얇게 덮어 햇무리가 보이는 구름",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "하늘 전체를 얇게 덮어 햇무리가 보이는 구름"
     },
     {
       "term": "권적운",
@@ -62,8 +53,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "십운형(Cirrocumulus). '비늘구름'이라는 우리말 별칭이 교과서 사진 설명에 붙는 경우가 있으나 분류명 자체는 학습 대상이 아니다.",
-      "suggest": "높은 하늘에 잔물결처럼 흩어진 작은 구름",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "높은 하늘에 잔물결처럼 흩어진 작은 구름"
     },
     {
       "term": "고층운",
@@ -71,8 +61,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "십운형(Altostratus). 중층운/상층운이라는 고도 구분 자체가 초·중·고 교육과정에 없다.",
-      "suggest": "하늘을 뿌옇게 흐리는 중간 높이의 구름",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "하늘을 뿌옇게 흐리는 중간 높이의 구름"
     },
     {
       "term": "고적운",
@@ -80,8 +69,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "십운형(Altocumulus). 근거는 고층운과 동일.",
-      "suggest": "양떼처럼 뭉쳐 늘어선 중간 높이의 구름",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "양떼처럼 뭉쳐 늘어선 중간 높이의 구름"
     },
     {
       "term": "난층운",
@@ -89,8 +77,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "십운형(Nimbostratus). 온난전선의 넓고 약한 비를 설명할 때 전공 문헌에서 쓰는 명칭이다.",
-      "suggest": "하늘을 두껍게 덮고 약한 비를 오래 뿌리는 구름",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "하늘을 두껍게 덮고 약한 비를 오래 뿌리는 구름"
     },
     {
       "term": "층적운",
@@ -98,8 +85,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "십운형(Stratocumulus). 근거는 권운과 동일.",
-      "suggest": "낮게 깔려 덩어리로 이어진 구름",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "낮게 깔려 덩어리로 이어진 구름"
     },
     {
       "term": "십운형",
@@ -107,8 +93,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "WMO 국제운형분류 체계 자체를 가리키는 전공 용어. 초·중·고 교육과정 전 범위 미수록 — docs/specs/12 §2.7 실무 항목.",
-      "suggest": "구름의 모양과 높이에 따른 이름",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "구름의 모양과 높이에 따른 이름"
     },
     {
       "term": "적란운",
@@ -116,8 +101,7 @@
       "introduced_at": 4,
       "standard": "[9과17-03]",
       "basis": "중학교 과학 '날씨와 기후변화'에서 적운형 구름이 강하게 발달해 소나기·뇌우를 만드는 구름으로 제시된다(본시드 board [26]·[29]·[45] 힌트의 용례가 교육과정 안이라는 판단 근거). 초등 `[6과06-02]`는 이슬·안개·구름을 현상으로만 관찰하고 구름 종류 명칭이 없다.",
-      "suggest": "위로 크게 솟은 소나기 구름",
-      "legacy_banned_levels": ["elementary"]
+      "suggest": "위로 크게 솟은 소나기 구름"
     },
     {
       "term": "적운",
@@ -125,8 +109,7 @@
       "introduced_at": 4,
       "standard": "[9과17-03]",
       "basis": "적운형은 중학교 과학의 구름 2분류 중 하나로 수록. 초등은 '뭉게구름'까지가 도입 범위다.",
-      "suggest": "뭉게구름",
-      "legacy_banned_levels": ["elementary"]
+      "suggest": "뭉게구름"
     },
     {
       "term": "층운",
@@ -134,8 +117,7 @@
       "introduced_at": 4,
       "standard": "[9과17-03]",
       "basis": "층운형은 중학교 과학의 구름 2분류 중 하나로 수록. 초등 미도입.",
-      "suggest": "낮게 깔린 안개 같은 구름",
-      "legacy_banned_levels": ["elementary"]
+      "suggest": "낮게 깔린 안개 같은 구름"
     },
     {
       "term": "건조단열감률",
@@ -143,8 +125,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-03]",
       "basis": "포화되지 않은 공기의 고도별 기온 감소율(약 10℃/km). 진로선택 '지구시스템과학' `[12지시03-03]` 해설의 '단열변화와 **단열 감률**을 고려한 대기의 안정도'가 근거다. 중학교 `[9과17-03]`은 단열 팽창으로 구름이 생긴다는 정성적 설명까지만 다룬다. **v1의 '고등 지구과학Ⅰ' 근거는 2015 과목명이라 폐기**(§3.3-④).",
-      "suggest": "습하지 않은 공기가 올라갈 때 식는 정도",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "습하지 않은 공기가 올라갈 때 식는 정도"
     },
     {
       "term": "습윤단열감률",
@@ -152,8 +133,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-03]",
       "basis": "응결이 시작된 뒤의 감률(약 5℃/km). 잠열 방출과 묶여 있고 근거는 건조단열감률과 동일.",
-      "suggest": "구름이 생긴 뒤 공기가 더 천천히 식는 것",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "구름이 생긴 뒤 공기가 더 천천히 식는 것"
     },
     {
       "term": "건조단열",
@@ -161,8 +141,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-03]",
       "basis": "건조단열선·건조단열과정 등 파생 표현까지 함께 막는다. SPRINT_R13_01 §2.3이 명시한 금칙 예시.",
-      "suggest": "습하지 않은 공기가 올라가며 식는 과정",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "습하지 않은 공기가 올라가며 식는 과정"
     },
     {
       "term": "습윤단열",
@@ -170,8 +149,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-03]",
       "basis": "습윤단열선·습윤단열과정 파생 표현 포함. 근거는 건조단열과 동일.",
-      "suggest": "구름이 만들어지는 중인 공기가 올라가며 식는 과정",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "구름이 만들어지는 중인 공기가 올라가며 식는 과정"
     },
     {
       "term": "단열감률",
@@ -179,8 +157,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-03]",
       "basis": "감률(lapse rate) 자체가 중학교 과학에 도입되지 않는다. `[12지시03-03]` 해설에서 처음 등장한다.",
-      "suggest": "높이 올라갈수록 기온이 내려가는 정도",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "높이 올라갈수록 기온이 내려가는 정도"
     },
     {
       "term": "기온감률",
@@ -188,8 +165,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-03]",
       "basis": "기온의 연직 분포와 대기 안정도를 다루는 `[12지시03-03]` 범위. v1의 '고등 지구과학Ⅰ 대기의 안정도' 근거는 2015 과목명이라 정정.",
-      "suggest": "높이 올라갈수록 기온이 내려가는 정도",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "높이 올라갈수록 기온이 내려가는 정도"
     },
     {
       "term": "환경감률",
@@ -197,8 +173,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-03]",
       "basis": "주변 대기의 감률 — 단열 감률과 비교해 대기 안정도를 판정하는 개념. docs/specs/12 §2.7 '열역학·진단량'에 명시.",
-      "suggest": "주변 공기가 높이에 따라 식는 정도",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "주변 공기가 높이에 따라 식는 정도"
     },
     {
       "term": "단열 감률",
@@ -262,8 +237,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-05]",
       "basis": "**정정(§7.3)** — 결론은 v1과 같지만 근거 과목이 다르다. `[12지시03-05]` '지균풍, 경도풍, 지상풍의 발생 원리와 관련된 **힘의 작용**을 설명'이 정확한 근거이고, v1이 든 '고등 지구과학Ⅱ'는 2022 개정에 없는 과목이다(§3.3-④). 전향력이 4·5단계에서 명시 제외되므로 정의 자체가 성립하지 않는다.",
-      "suggest": "높은 하늘에서 등압선과 나란히 부는 바람",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "높은 하늘에서 등압선과 나란히 부는 바람"
     },
     {
       "term": "경도풍",
@@ -271,8 +245,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-05]",
       "basis": "**정정(§7.3)** — 곡률을 가진 등압선에서의 균형풍. 근거는 지균풍과 동일(`[12지시03-05]`). v1의 '고등 지구과학Ⅱ'는 없는 과목이다.",
-      "suggest": "고기압·저기압 둘레를 휘돌아 부는 바람",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "고기압·저기압 둘레를 휘돌아 부는 바람"
     },
     {
       "term": "지상풍",
@@ -288,8 +261,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "두 고도의 지균풍 차이로 정의되는 전공 개념. 별책 9·별책 20 전문에 없다(docs/specs/12 §2.7 '교육과정 전무') — 학부 대기과학 범위.",
-      "suggest": "위아래에서 바람이 달라지는 현상",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "위아래에서 바람이 달라지는 현상"
     },
     {
       "term": "지균 평형",
@@ -297,8 +269,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-05]",
       "basis": "지균풍과 같은 근거. 띄어쓴 표기까지 막는다.",
-      "suggest": "두 힘이 맞버티는 상태",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "두 힘이 맞버티는 상태"
     },
     {
       "term": "로스비파",
@@ -306,8 +277,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-06]",
       "basis": "행성파(Rossby wave)의 음차 표기. `[12지시03-06]` '**행성파**의 발달 과정 … **편서풍 파동**의 역할'이 근거다. 같은 성취기준의 유의사항이 '회전 원통 실험은 로스비파인 편서풍 파동에 대한 **오개념을 유발**할 수 있다'고 경고하므로 보드·시뮬 저작에도 걸린다(§3.4).",
-      "suggest": "상층 바람이 크게 굽이치는 흐름",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "상층 바람이 크게 굽이치는 흐름"
     },
     {
       "term": "로스비 파",
@@ -315,8 +285,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-06]",
       "basis": "로스비파의 띄어쓴 표기.",
-      "suggest": "상층 바람이 크게 굽이치는 흐름",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "상층 바람이 크게 굽이치는 흐름"
     },
     {
       "term": "편서풍 파동",
@@ -324,8 +293,7 @@
       "introduced_at": 6,
       "standard": "[12지시03-06]",
       "basis": "`[12지시03-06]` 원문 용어. **'편서풍' 단독과 단계가 다르다**(편서풍 4 잠정 / 편서풍 파동 6) — 한 성취기준 안에서도 경계가 지나가므로 판정이 용어 단위여야 하는 사례다(§3.3-②).",
-      "suggest": "서쪽에서 부는 바람이 남북으로 굽이치는 것",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "서쪽에서 부는 바람이 남북으로 굽이치는 것"
     },
     {
       "term": "행성파",
@@ -357,8 +325,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "경압 불안정(baroclinic instability)의 음차 표기. 별책 9·20 전문 미수록 — 학부 전공. SPRINT_R13_01 §2.3 명시 예시.",
-      "suggest": "찬 공기와 더운 공기의 온도 차가 만드는 소용돌이",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "찬 공기와 더운 공기의 온도 차가 만드는 소용돌이"
     },
     {
       "term": "경압",
@@ -366,8 +333,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "바로클리닉의 한자 표기(경압 대기·경압 불안정). docs/specs/12 §2.7 '교육과정 전무' 목록.",
-      "suggest": "온도 차가 큰 대기 상태",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "온도 차가 큰 대기 상태"
     },
     {
       "term": "순압",
@@ -375,8 +341,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "barotropic. 경압과 짝을 이루는 학부 전공 용어 — 별책 9·20 전문 미수록.",
-      "suggest": "온도 차가 작은 대기 상태",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "온도 차가 작은 대기 상태"
     },
     {
       "term": "절대와도",
@@ -384,8 +349,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "와도(vorticity)는 초·중·고 교육과정 미수록. '와도' 단독은 조사 '~와도'와 충돌하므로 복합어만 등재한다.",
-      "suggest": "공기가 돌아가는 세기",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "공기가 돌아가는 세기"
     },
     {
       "term": "상대와도",
@@ -393,8 +357,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "절대와도와 동일 — 학부 전공.",
-      "suggest": "공기가 돌아가는 세기",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "공기가 돌아가는 세기"
     },
     {
       "term": "전향력",
@@ -402,8 +365,7 @@
       "introduced_at": 6,
       "standard": "[12고지02-03]",
       "basis": "지구 자전에 의한 겉보기 힘. **4단계에서 명시적으로 제외된다** — `[9과17-02]` 해설: '대기 대순환 설명 시 **전향력이나 지구가 자전하지 않을 경우는 다루지 않는다**.' 5단계 일반선택 '지구과학'도 '역학적 원리에 대한 설명은 배제'가 적용 시 고려 사항이다. 힘으로 다루는 곳은 `[12고지02-03]`('압력 경도력, 전향력, 원심력, 마찰력' — 해설: 힘의 크기를 **수식으로 유도**)와 `[12지시03-05]`. **v1의 '고등 통합과학·지구과학Ⅰ에서 도입' 근거는 2015 기준이라 폐기**. 본시드 태풍 문항들은 전향력 없이 성립하게 저작되어 있어 실제 손실이 없다.",
-      "suggest": "지구가 도는 탓에 방향이 휘는 것",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "지구가 도는 탓에 방향이 휘는 것"
     },
     {
       "term": "코리올리",
@@ -411,8 +373,7 @@
       "introduced_at": 6,
       "standard": "[12고지02-03]",
       "basis": "전향력의 인명 표기(코리올리 힘/코리올리 효과). 근거 동일.",
-      "suggest": "지구가 도는 탓에 방향이 휘는 것",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "지구가 도는 탓에 방향이 휘는 것"
     },
     {
       "term": "정역학",
@@ -492,8 +453,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "**정정(§7.3)** — v1은 '고등 지구과학Ⅰ에서 도입'이라 판정했으나, 별책 9 + 별책 20 **전문 검색에서 '알베도'·'albedo'·'반사율'이 0건**이다. 국내 고교 과학 교육과정 어디에도 없다(§3.3-④) → 5가 아니라 **6**, standard는 null. 다만 `[9과17-01]` 복사 평형 맥락의 **'반사'**는 4단계로 살아 있으므로 대체 표현은 유효하다. 본시드 [113] 슬라이더 해설이 이 용어를 쓰고 있었다(1일차에 해소).",
-      "suggest": "반사(율)",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "반사(율)"
     },
     {
       "term": "온위",
@@ -501,8 +461,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "1000hPa로 단열 이동시킨 기온. 별책 9·20 전문 미수록(§2.7 '교육과정 전무'). v1의 '고등 지구과학Ⅱ' 근거는 없는 과목이라 폐기.",
-      "suggest": "공기 덩어리가 가진 따뜻함의 정도",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "공기 덩어리가 가진 따뜻함의 정도"
     },
     {
       "term": "상당온위",
@@ -510,8 +469,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "온위와 동일 계열 — 학부 전공.",
-      "suggest": "수증기까지 더한 공기의 따뜻함",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "수증기까지 더한 공기의 따뜻함"
     },
     {
       "term": "가강수량",
@@ -519,8 +477,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "연직 기둥의 수증기 총량(precipitable water). 기상청 실무·전공 지표로 교육과정 미수록.",
-      "suggest": "공기 기둥에 든 수증기의 양",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "공기 기둥에 든 수증기의 양"
     },
     {
       "term": "대류가용잠재에너지",
@@ -528,8 +485,7 @@
       "introduced_at": 6,
       "standard": null,
       "basis": "CAPE. 별책 9·20 전문 미수록 — 학부·실무 지표(§2.7).",
-      "suggest": "소나기 구름이 자랄 수 있는 힘",
-      "legacy_banned_levels": ["elementary", "middle_high"]
+      "suggest": "소나기 구름이 자랄 수 있는 힘"
     },
     {
       "term": "실효습도",
@@ -685,8 +641,7 @@
       "introduced_at": 3,
       "standard": "[9과03-03]",
       "basis": "`[9과03-03]` '물질에 따라 **비열과 열팽창** 정도가 다름을 알고'. 초등 `[6과07]`은 '천천히 데워지고 천천히 식는다'는 현상 서술까지만 다룬다. 물의 비열 1cal/(g·℃)는 이 성취기준 범위의 교과 수치라 R3(정량 정밀도 상향) 대상이 아니다(§4 R3).",
-      "suggest": "천천히 데워지고 천천히 식는 성질",
-      "legacy_banned_levels": ["elementary"]
+      "suggest": "천천히 데워지고 천천히 식는 성질"
     },
     {
       "term": "이슬점",
@@ -694,8 +649,7 @@
       "introduced_at": 4,
       "standard": "[9과17-03]",
       "basis": "`[9과17-03]` 해설 '대기 중의 수증기량과 **이슬점, 포화 수증기압, 상대습도** 등의 관계'. 초등 `[6과06-02]`는 '이슬'이라는 현상만 관찰하고 온도 개념이 없다.",
-      "suggest": "물방울이 맺히기 시작하는 온도",
-      "legacy_banned_levels": ["elementary"]
+      "suggest": "물방울이 맺히기 시작하는 온도"
     },
     {
       "term": "상대습도",
@@ -703,8 +657,7 @@
       "introduced_at": 4,
       "standard": "[9과17-03]",
       "basis": "`[9과17-03]` 해설에 명시. 초등 `[6과06-01]`은 기상 요소로 '습도'까지만 도입한다('습도' 단독은 등재하지 않는다).",
-      "suggest": "습도",
-      "legacy_banned_levels": ["elementary"]
+      "suggest": "습도"
     },
     {
       "term": "포화수증기량",
@@ -712,8 +665,7 @@
       "introduced_at": 4,
       "standard": "[9과17-03]",
       "basis": "`[9과17-03]` 해설의 '포화 수증기압'과 같은 학습 요소(교과서 표기 차이). 초등 미도입.",
-      "suggest": "공기가 품을 수 있는 수증기의 최대량",
-      "legacy_banned_levels": ["elementary"]
+      "suggest": "공기가 품을 수 있는 수증기의 최대량"
     }
   ]
 }

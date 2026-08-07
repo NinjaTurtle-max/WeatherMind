@@ -144,14 +144,26 @@ class TestFlatToNest:
         assert item["status"] == "active"
 
     def test_시드_slider_항목과_같은_형태를_만든다(self):
-        """database/seed/content_items.json의 slider 항목이 산출 형태의 근거다."""
+        """database/seed/content_items.json의 slider 항목이 산출 형태의 근거다.
+
+        **동일 집합이 아니라 부분집합을 본다**(R13 2일차 정정): 시드에 전수 재분류로
+        `knowledge_level`이 붙었는데 생성 산출물은 그 값을 못 낸다 — 단계 판정은
+        docs/specs/12 §4의 R0~R7이고, 그중 R2~R6은 사람 몫이라 생성 체인이 흉내낼 수
+        없다. `level_group`에서 기계로 복원하는 것도 §5.3이 금지한다(파생은 단방향).
+
+        따라서 생성 문항은 **미분류로 나오고, 그 상태로는 lint를 통과하지 못한다**
+        (전환기 폴백 만료 후 미분류는 탈락이다). G1 배치 전에 생성 프롬프트가 단계를
+        직접 신고하도록 스펙 03을 개정해야 한다 — R13-0 §3.1-5의 미완 항목이고,
+        이 테스트가 그 부채를 가리키는 자리다.
+        """
         seed_slider = next(
             item
             for item in json.loads(SEED_PATH.read_text(encoding="utf-8"))
             if item["question_type"] == "slider"
         )
         item = author_items.to_bank_item(_slider(), "middle_high")
-        assert set(item) == set(seed_slider)
+        assert set(item) <= set(seed_slider)
+        assert set(seed_slider) - set(item) == {"knowledge_level"}
         assert set(item["template_json"]) <= set(seed_slider["template_json"])
         assert set(item["source"]) == set(seed_slider["source"])
 

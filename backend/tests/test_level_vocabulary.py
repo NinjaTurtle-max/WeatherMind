@@ -31,6 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 VOCAB_PATH = REPO_ROOT / "database" / "seed" / "level_vocabulary.json"
 SEED_PATH = REPO_ROOT / "database" / "seed" / "content_items.json"
 STAGING_DIR = REPO_ROOT / "database" / "seed" / "staging"
+LINT_SOURCE = (REPO_ROOT / "scripts" / "lint_seed_items.py").read_text(encoding="utf-8")
 
 
 def _load_lint():
@@ -289,79 +290,55 @@ def test_판정_대상_범위가_R0과_같다(vocabulary):
         assert lint.vocabulary_errors(item, vocabulary), field
 
 
-# ── 4. 전환기 폴백 (만료 예정) ────────────────────────────────────────────────
-def test_미분류_문항은_v1_학령_규칙으로_검사된다(vocabulary):
-    """knowledge_level이 없으면 v1 그대로 — elementary·middle_high만 보고
+# ── 4. 전환기 폴백 만료 후의 계약 (R13 2일차) ────────────────────────────────
+# 폴백(v1 학령 규칙 재현)은 본시드 141건 전수 재분류가 착지한 시점에 걷었다.
+# 여기 있는 것은 "걷힌 상태가 유지되는가"를 지키는 계약이다 — 폴백이 되살아나면
+# adult·expert 면제가 함께 돌아와 [58] 건조 단열 감률 같은 6단계 용어가 다시 샌다.
 
-    adult·expert는 면제한다. 본시드 재분류가 착지하기 전에 ci.sh를 붉히지 않기 위한
-    **전환기 장치**다.
+
+def test_미분류_문항은_탈락한다(vocabulary):
+    """단계 없는 문항은 "판정 불가"가 아니라 **저작이 덜 된 것**이다.
+
+    폴백 시절에는 미분류가 v1 규칙으로 흘러갔다. 지금은 어느 단계에 놓을지가 곧
+    문항의 절반이라, 그것 없이 적재하면 6단계 체계 밖에서 서빙된다.
     """
-    # v1에서 기단은 전 학령 허용이었다 → 미분류 초등 문항은 아직 통과한다.
-    assert lint.vocabulary_errors(_item("기단", level_group="elementary"), vocabulary) == []
-    # v1에서 권층운은 elementary·middle_high 금칙이었다 → 그대로 탈락한다.
-    assert lint.vocabulary_errors(_item("권층운", level_group="middle_high"), vocabulary)
-    # v1에서 adult는 면제였다 → 그대로 통과한다.
-    assert lint.vocabulary_errors(_item("권층운", level_group="adult"), vocabulary) == []
+    errors = lint.vocabulary_errors(_item("기단", level_group="elementary"), vocabulary)
+    assert errors and "knowledge_level" in errors[0]
 
 
-def test_폴백은_knowledge_level이_붙는_순간_꺼진다(vocabulary):
-    """같은 문항에 단계를 붙이면 새 판정식이 적용된다 — 폴백은 미분류 전용이다."""
-    text = "기단이 우리나라에 온다"
-    assert lint.vocabulary_errors(_item(text, level_group="elementary"), vocabulary) == []
-    assert lint.vocabulary_errors(
-        _item(text, level=1, level_group="elementary"), vocabulary
-    )
+def test_폴백_흔적이_남아_있지_않다(vocabulary):
+    """어휘표·코드 양쪽에서 함께 걷혔는가 — 한쪽만 남으면 조용히 되살아난다."""
+    assert "transitional" not in vocabulary
+    assert "legacy_banned_levels" not in vocabulary["schema"]
+    assert not [t for t in vocabulary["terms"] if "legacy_banned_levels" in t]
+    assert "_legacy_vocabulary_errors" not in LINT_SOURCE
 
 
-def test_legacy_banned_levels가_v1_값과_같다(vocabulary):
-    """전환기 폴백의 불변식 — v1 판정을 **한 글자도** 바꾸지 않는다.
+def test_본시드는_전건_분류됐고_전건_통과한다(vocabulary):
+    """만료 조건 그 자체 — 미분류 0건이고, 새 판정식에서 탈락도 0건이다.
 
-    v1 값은 git 히스토리에만 있으므로 여기서는 그 값이 만족해야 할 성질을 본다:
-    학령 어휘여야 하고, v1이 검사하지 않던 adult·expert가 들어 있으면 안 된다
-    (들어 있으면 폴백이 v1보다 엄격해져 재분류 전에 ci.sh가 붉어진다).
-    """
-    for entry in vocabulary["terms"]:
-        legacy = entry.get("legacy_banned_levels")
-        if legacy is None:
-            continue
-        assert legacy, entry["term"]
-        assert set(legacy) <= {"elementary", "middle_high"}, entry["term"]
-        assert set(legacy) <= set(LEVEL_GROUPS_V1)
-
-
-def test_본시드_전건이_폴백으로_통과한다(vocabulary):
-    """실증 — 재분류가 착지하기 전까지 ci.sh seed 단계는 붉어지지 않는다.
-
-    이 테스트가 깨지는 방식은 둘이고 대응이 정반대다:
-    ⓐ 어휘표를 고쳐 폴백이 v1보다 엄격해졌다 → legacy_banned_levels를 되돌린다.
-    ⓑ 본시드에 knowledge_level이 붙었다(재분류 착지) → 이 절과 폴백 분기를 지운다.
+    후자가 앞의 것보다 세다: 재분류가 단계만 붙이고 §7.4를 통과 못 하면 ci.sh의
+    seed 단계가 붉어진다. 여기가 초록이라는 것은 141건의 단계 판정과 어휘표의
+    도입 단계가 **서로 정합**하다는 뜻이다.
     """
     seed = json.loads(SEED_PATH.read_text(encoding="utf-8"))
     assert seed, "본시드가 비었다"
-    classified = [i for i, it in enumerate(seed) if it.get("knowledge_level") is not None]
-    assert not classified, (
-        f"본시드 {len(classified)}건에 knowledge_level이 붙었다 — 전환기 폴백을 걷을 때다"
-    )
+    unclassified = [i for i, it in enumerate(seed) if it.get("knowledge_level") is None]
+    assert not unclassified, f"미분류 {len(unclassified)}건: {unclassified[:10]}"
     for i, item in enumerate(seed):
         assert lint.vocabulary_errors(item, vocabulary) == [], f"[{i}]"
 
 
-def test_새_판정식은_본시드에서_탈락을_만든다(vocabulary):
+def test_새_판정식은_여전히_문다(vocabulary):
     """§7.4: '0건이 유지되면 규칙이 느슨하게 옮겨진 것이니 변환을 의심하라.'
 
-    재분류가 아직 없으므로 §5.3 파생표를 역방향으로 가정해(밴드의 **최고** 단계 —
-    가장 관대한 시나리오) 시험 적용한다. 관대하게 잡아도 탈락이 남아야 규칙이
-    실제로 옮겨진 것이다. 여기서 걸리는 것들이 재분류·재저작의 작업 큐다.
+    본시드가 전건 통과하게 된 지금, 규칙이 살아 있는지는 **단계를 한 칸 내려 보면**
+    드러난다. 재분류 결과를 한 칸씩 낮춘 가상 시드에서는 탈락이 나와야 한다 —
+    안 나오면 판정식이 아니라 통과 스탬프다.
     """
-    generous = {"elementary": 2, "middle_high": 4, "adult": 5, "expert": 6}
     seed = json.loads(SEED_PATH.read_text(encoding="utf-8"))
-    failed = [
-        i
-        for i, item in enumerate(seed)
-        if lint.vocabulary_errors(
-            dict(item, knowledge_level=generous[item["level_group"]]), vocabulary
-        )
+    lowered = [
+        dict(it, knowledge_level=max(1, int(it["knowledge_level"]) - 1)) for it in seed
     ]
-    assert failed, "새 규칙이 아무것도 잡지 못한다 — 변환이 느슨하다"
-    # §3.3-①(기단, 초등 3건) · §3.4(열평형 [103]) · §7.4([58]·[98])가 예고한 지점.
-    assert {10, 49, 95, 58, 98, 103} <= set(failed), failed
+    failed = [i for i, it in enumerate(lowered) if lint.vocabulary_errors(it, vocabulary)]
+    assert failed, "단계를 낮춰도 아무것도 안 걸린다 — 판정식이 죽어 있다"

@@ -63,11 +63,14 @@ class TestSeedSchema:
     def test_S8_AC_24건_이상(self):
         assert len(SEED_ITEMS) >= 24
 
-    def test_R3_R7_시드_증보_53건(self):
+    def test_시드_증보_누적(self):
         """R3~R5 증보 47건 + R7-01 배치 커버리지 보강 2건(§5)
         + R7-02 배치 취약 셀 보강 4건(docs/data/PLACEMENT_COVERAGE_R7.md §6.3) = 53건."""
         # R12 §9: 53(R3~R7 증보) + 47(기상 확장) + 40(기초과학) + 1(bs 보드) = 141
-        assert len(SEED_ITEMS) == 141
+        # R13 2일차: +13 배치고사 격자 구멍 메우기 = 154. 전수 재분류로 셀이 다시
+        # 갈리면서 네 셀이 0이 됐다 — 셀에 1건뿐이면 두 신고 그룹이 같은 문항을 집어
+        # 서로소가 깨진다(test_placement의 TestDisjointPicksRealSeed가 잡은 지점).
+        assert len(SEED_ITEMS) == 154
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
