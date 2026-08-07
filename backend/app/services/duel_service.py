@@ -17,7 +17,7 @@ AI 캐스터 예측은 LLM 없이 결정적으로 생성한다: user_id+date 해
 """
 import hashlib
 import random
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from app.services import weather_api
 from app.services.league_service import DEFAULT_TIER, accuracy_score, tier_from_elo
@@ -81,6 +81,16 @@ CASTER_NOISE_SCALES: dict[str, float] = {
 # ═══════════════════════════════════════════════════════════════
 # 순수 함수 — DB 의존 없음 (단위 테스트 대상)
 # ═══════════════════════════════════════════════════════════════
+
+
+def duel_target_date(today: date | None = None) -> date:
+    """대결 대상일 = 내일(KST). 유저는 오늘 내일 예보를 제출한다 (§3.4).
+
+    **단일 소유자**다: routers/duel.py(제출·조회)와 session_service(마감 단계
+    판정)가 같은 날짜를 봐야 "오늘 이미 제출했다"가 두 경로에서 같은 뜻이 된다.
+    사본을 두면 KST 경계에서 한쪽만 하루 밀린다.
+    """
+    return (today or datetime.now(weather_api.KST).date()) + timedelta(days=1)
 
 
 def _seed(user_id: str, duel_date: date) -> int:

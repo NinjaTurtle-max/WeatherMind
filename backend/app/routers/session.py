@@ -26,6 +26,7 @@ from app.models.session import Session
 from app.models.user import User
 from app.schemas.curriculum import CrownAward
 from app.schemas.session import (
+    ForecastClosingStep,
     SessionAnswerRequest,
     SessionAnswerResult,
     SessionCompleteResult,
@@ -179,6 +180,21 @@ def _crown_scope_logs(session: Session, logs: list[QuizLog]) -> list[QuizLog]:
     return [log for log in logs if kinds.get(log.quiz_id) == "unit"] or logs
 
 
+async def _closing_step(
+    db: AsyncSession, session: Session, user: User
+) -> ForecastClosingStep | None:
+    """예보 마감 단계 (R13 A-1) — daily 세션에서만, 필요할 때만 non-null.
+
+    유닛·배치 세션은 마감 단계가 없다(진도 연습·진단이라 하루 1회 예보와 무관).
+    판정 전체는 session_service.forecast_closing_step이 소유한다 — 여기서는
+    mode 게이트와 스키마 변환만 한다.
+    """
+    if session.mode != session_service.MODE_DAILY:
+        return None
+    step = await session_service.forecast_closing_step(db, user)
+    return ForecastClosingStep(**step) if step is not None else None
+
+
 async def session_today_response(
     db: AsyncSession, session: Session, user: User
 ) -> SessionToday:
@@ -212,6 +228,7 @@ async def session_today_response(
         mode=session.mode,
         items=items,
         progress=_progress_of(logs),
+        closing_step=await _closing_step(db, session, user),
     )
 
 
@@ -506,4 +523,7 @@ async def complete_session(
         crown_award=crown_award,
         all_resolved=all_resolved,
         retry_resolved_count=retry_resolved_count,
+        # 15문항 결산 뒤에 붙는 마감 단계 (R13 A-1) — 없으면 null이고 세션은 여기서
+        # 끝난다. XP·스트릭·구름은 위에서 이미 확정됐고 이 값이 바꾸지 않는다.
+        closing_step=await _closing_step(db, session, user),
     )

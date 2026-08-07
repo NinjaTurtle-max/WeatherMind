@@ -349,6 +349,11 @@ UNIT_PAYLOAD = {
 }
 
 
+async def _no_closing_step(db, user, today=None):
+    """예보 마감 단계 대역 — "단계 없음"(R13 A-1)."""
+    return None
+
+
 def run_complete(monkeypatch, session, logs, *, award=AWARD, unit_payload=None):
     calls = {}
 
@@ -372,6 +377,11 @@ def run_complete(monkeypatch, session, logs, *, award=AWARD, unit_payload=None):
     async def fake_quests(db, user, day):
         pass
 
+    # 예보 마감 단계(R13 A-1)는 이 하네스의 관심사가 아니다 — 단계 없음으로 고정
+    # (판정은 tests/test_forecast_closing_step.py 소유).
+    monkeypatch.setattr(
+        session_router.session_service, "forecast_closing_step", _no_closing_step
+    )
     monkeypatch.setattr(session_router, "_load_session_or_404", fake_load)
     monkeypatch.setattr(session_router, "_session_logs", fake_logs)
     monkeypatch.setattr(cs, "award_crown_for_activity", fake_award)

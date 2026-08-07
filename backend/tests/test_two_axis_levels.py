@@ -281,15 +281,54 @@ class TestExistingConsumersUnchanged:
             0,
         ) == []
 
-    def test_아직_아무도_새_축을_읽지_않는다(self):
-        """소스 계약 — 값이 없어 검증 불가이므로 출제 경로 배선은 이번 범위 밖.
+    def test_출제_선정은_아직_새_축을_읽지_않는다(self):
+        """소스 계약 — 값이 없어 검증 불가이므로 **출제 판정** 배선은 범위 밖.
 
         여기가 무는 순간은 "CU-1 표가 확정되기 전에 knowledge_level이 출제에 새어
         들어갔다"는 뜻이다(무근거 난이도 판정이 조용히 서빙된다).
+
+        **R13 A-1/D 개정**: 범위를 "모듈 전체 부재"에서 "출제 판정 함수 부재"로
+        좁혔다. session_service가 생성 문항 영속화(persist_generated_items)에서
+        컬럼에 **쓰기** 시작했기 때문이다 — 신고값이 오면 그대로 저장되는 통로이고,
+        지금은 아무도 신고하지 않아 항상 NULL(미분류)이다. 쓰기는 판정이 아니다.
+        읽어서 **고르는** 쪽(풀 쿼리·난이도 정렬·배합)이 계속 금지 구역이다.
         """
-        for module in (session_service, ps):
-            src = Path(module.__file__).read_text(encoding="utf-8")
-            assert "knowledge_level" not in src, module.__name__
+        import inspect
+
+        for fn in (
+            session_service.build_pool_query,
+            session_service.pool_level_groups,
+            session_service.plan_bank_picks,
+            session_service._fetch_pools,
+            session_service._fetch_unit_pool,
+        ):
+            assert "knowledge_level" not in inspect.getsource(fn), fn.__name__
+        assert "knowledge_level" not in Path(ps.__file__).read_text(encoding="utf-8")
+
+    def test_생성_문항_적재는_신고값을_그대로_흘려보낸다(self):
+        """쓰기 자리는 **열려 있다** — 신고가 오면 저장되고, 없으면 NULL이다.
+
+        단계 판정(specs/12 §4 R2~R6)은 사람 몫이고 level_group에서 기계 복원하는
+        것은 §5.3이 금지한다. 그래서 이 자리는 "복원"하지 않고 **비워 둔다**.
+        """
+        base = {
+            "concept_tag": "typhoon",
+            "question_type": "short_answer",
+            "question_text": "q",
+            "correct_answer": "a",
+        }
+        assert (
+            session_service.generated_item_entry(base, level_group="adult")[
+                "knowledge_level"
+            ]
+            is None
+        )
+        reported = session_service.generated_item_entry(
+            {**base, "knowledge_level": 3}, level_group="adult"
+        )
+        assert reported["knowledge_level"] == 3
+        # 컬럼으로 가는 키는 문항 본문(template_json)에 섞이지 않는다
+        assert "knowledge_level" not in reported["template_json"]
 
     def test_θ_경로_상수는_불변(self):
         """1일차(BE-2) 산출물을 그대로 재사용했는지 — 골격 작업이 밴드를 안 건드렸다."""

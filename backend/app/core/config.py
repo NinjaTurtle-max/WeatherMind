@@ -61,6 +61,16 @@ class Settings(BaseSettings):
     SESSION_RECIPE: dict[str, int] = {"new": 5, "review": 4, "live": 1, "unit": 5}
     UNIT_SESSION_SIZE: int = 5           # 커리큘럼 유닛 세션 문항 수
 
+    # 생성 문항 영속화 상태 (R13 A-1/D 선행 — session_service.persist_generated_items).
+    # quiz-generate 폴백 산출물을 content_items에 적재할 때 부여하는 status다.
+    #   'active' — 다음 세션부터 **뱅크로 재사용**된다. 생성 1회 비용이 영구 자산이
+    #              되는 유일한 값이고, 그것이 이 기능의 목적이다(기본값).
+    #   'draft'  — 저장만 하고 재출제하지 않는다(사람 검수 후 승격 전제).
+    #              θ·복습 큐·간격반복 배선(quiz_logs.content_item_id)은 status와
+    #              무관하게 살아 있으므로 draft로 내려도 절반은 남는다.
+    # 값 판단 근거·되돌리는 법은 persist_generated_items 독스트링에 있다.
+    GENERATED_ITEM_STATUS: str = "active"
+
     # 구름 에너지 경제(§3.3): 기본값 = 계약 수치(만렙 5·20분당 1 회복·시도당 1 소모).
     CLOUD_MAX: int = 5
     CLOUD_REGEN_MINUTES: int = 20
@@ -92,6 +102,16 @@ class Settings(BaseSettings):
             raise ValueError("SESSION_RECIPE 개수는 음수일 수 없습니다")
         if sum(value.values()) < 1:
             raise ValueError("SESSION_RECIPE 총합은 1 이상이어야 합니다")
+        return value
+
+    @field_validator("GENERATED_ITEM_STATUS")
+    @classmethod
+    def _validate_generated_status(cls, value: str) -> str:
+        # 'retired'는 뜻이 없다(적재 직후 은퇴). DB CHECK 3종 중 2종만 허용한다.
+        if value not in ("draft", "active"):
+            raise ValueError(
+                f"GENERATED_ITEM_STATUS는 'draft'|'active'만 허용: {value!r}"
+            )
         return value
 
 

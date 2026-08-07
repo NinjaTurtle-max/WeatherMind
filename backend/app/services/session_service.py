@@ -38,12 +38,13 @@ from sqlalchemy.ext.asyncio import AsyncSession as AsyncDBSession
 
 from app.core.config import settings
 from app.models.content_item import ContentItem
+from app.models.duel import Duel
 from app.models.item_param import ItemParam
 from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.user import User
 from app.models.weak_tag import WeakTag
-from app.services import ai_client, weather_api, weatherbrain_service
+from app.services import ai_client, duel_service, weather_api, weatherbrain_service
 from app.services.ai_client import AIWorkerError
 from app.services.weather_api import KST, SKY_TEXT, get_today_weather, user_region
 
@@ -61,6 +62,37 @@ NEW_POOL_LIMIT = (
     + DEFAULT_RECIPE.get("unit", 0)
 )
 MODE_DAILY = "daily"
+
+# ── 예보 마감 단계 (R13 A-1) ────────────────────────────────────────────────
+# 예보 대결을 일일 세션의 **마감 단계**로 붙인다. 문항이 아니라 단계인 이유:
+# 예보의 정답은 **내일의 관측**이 정하므로 즉시 채점이 불가능하다. 15문항과 같은
+# 파이프라인(채점기·XP·구름 에너지·만회 큐)에 넣으면 계약이 전부 깨진다.
+# 그래서 SESSION_RECIPE에 넣지 않는다 — 배합은 15문항 그대로다.
+# 제출·정산·보상은 기존 예보 대결 경로가 이미 소유한다(새 엔드포인트 없음):
+#   제출  POST /api/v1/duel/today   (1일 1회, 재제출 409 ALREADY_SUBMITTED)
+#   재료  GET  /api/v1/duel/briefing
+#   회수  GET  /api/v1/duel/history (정산은 celery 일일 태스크)
+DUEL_SUBMIT_PATH = "/api/v1/duel/today"
+
+# ── 생성 문항 영속화 (R13 D 선행) ──────────────────────────────────────────
+# content_items 컬럼으로 가는 키 — 적재 시 template_json 본문에서 뺀다.
+# quiz_id는 발급 채번값이라 뱅크 문항의 속성이 아니다(컬럼도 없다).
+GENERATED_COLUMN_KEYS = (
+    "concept_tag",
+    "question_type",
+    "level_group",
+    "knowledge_level",
+    "quiz_id",
+)
+# source.origin 마커 — 생성분만 골라 은퇴·검수·통계 낼 수 있게 남긴다.
+GENERATED_ITEM_ORIGIN = "session_generate"
+# 적재 허용 유형 — ai-worker 생성 경로가 낼 수 있는 유형과 같다(payload_contract의
+# QuizQuestion Literal 3종). 교차 빌드 컨텍스트라 import로 묶을 수 없어 값을 여기
+# 적는다. **넓히지 말 것**: board·match·ordering은 채점에 template_json 밖의 구조
+# (goal_conditions·pairs·items)가 필요한데 시드 게이트(validate_entry)는 그 존재를
+# 검사하지 않는다 — 사람 저작은 저작 규약이 막지만 생성분에는 막을 것이 없다.
+# 뱅크에 "못 푸는 문항"을 넣지 않기 위한 하한이다.
+GENERATED_ITEM_TYPES = ("multiple_choice", "short_answer", "slider")
 
 # ── 실황 슬롯 (§3.3 허용 5종) ──
 ALLOWED_SLOTS = (
@@ -493,6 +525,204 @@ async def allocate_quiz_ids(
     return [f"{today_str}-{existing + 1 + offset:03d}" for offset in range(count)]
 
 
+async def forecast_closing_step(
+    db: AsyncDBSession, user: User, today: date | None = None
+) -> dict[str, Any] | None:
+    """일일 세션의 예보 마감 단계 — 필요하면 dict, 아니면 None (R13 A-1).
+
+    None(= 마감 단계 없음)이 되는 경우는 둘뿐이다:
+    1. **오늘 이미 제출했다** — 대상일(내일) duels 행이 있으면 미노출. 재노출하면
+       프론트가 409 ALREADY_SUBMITTED로 끝나는 단계를 그리게 된다.
+    2. **KMA 대상일 예보를 못 구했다**(키 부재·장애·NODATA) — 단계를 **건너뛰고**
+       15문항으로 세션이 정상 완료된다. "키 없이도 전 기능 동작"이 프로젝트 계약이라
+       예보 단계가 세션 완주를 막아서는 안 된다. 제출 자체는 키 없이도 가능하지만
+       (캐스터가 _FALLBACK_BASE로 동작), 판단 재료 없이 예보를 요구하는 것은
+       학습이 아니라 찍기다 — 그래서 노출하지 않는다.
+
+    **서울 고정**이다(R11-01 §8 계약 — 정산이 서울 실측). 세션 실황 슬롯이 유저
+    지역을 쓰는 것과 다르며, get_today_weather()의 기본 지역과 대결 경로
+    (routers/duel._base_forecast_for)의 지역이 같아야 같은 배너를 보게 된다.
+    Redis 1h 캐시 뒤라 GET마다 KMA를 재호출하지는 않는다.
+
+    구름 에너지·XP·스트릭에는 닿지 않는다 — 예보 보상은 리그·정산 경로 소유다.
+    """
+    duel_date = duel_service.duel_target_date(today)
+    submitted = (
+        await db.execute(
+            select(Duel.id).where(
+                Duel.user_id == user.id, Duel.duel_date == duel_date
+            )
+        )
+    ).scalar_one_or_none()
+    if submitted is not None:
+        return None
+
+    base_forecast = duel_service.extract_forecast_for_date(
+        await get_today_weather(), duel_date
+    )
+    if base_forecast is None:
+        logger.info(
+            "KMA 대상일 예보 부재 — 예보 마감 단계 생략 (user=%s, date=%s)",
+            user.id,
+            duel_date,
+        )
+        return None
+
+    return {
+        "duel_date": duel_date,
+        "submit_path": DUEL_SUBMIT_PATH,
+        "base_forecast": base_forecast,
+    }
+
+
+def generated_item_entry(
+    question: dict[str, Any], *, level_group: str
+) -> dict[str, Any]:
+    """생성 문항 → 시드 로더와 **같은 형식**의 적재 엔트리 (순수 함수).
+
+    형식을 맞추는 이유: 품질 게이트(seed_content.validate_entry)와 멱등 키를
+    사람 저작 시드와 공유하기 위해서다. 생성 경로 전용 규칙을 새로 쓰면 두 경로가
+    갈라지고, 갈라진 쪽이 반드시 느슨해진다.
+
+    knowledge_level은 **생성 문항이 신고하면 그대로 흘려보내는 자리**다(R13-0 §1).
+    지금은 어떤 생성 경로도 신고하지 않으므로 None = 미분류로 적재된다 —
+    단계 판정(docs/specs/12 §4 R2~R6)은 사람 몫이고 level_group에서 기계 복원하는
+    것은 §5.3이 금지한다. 신고 필드가 생기면 이 줄이 자동으로 값을 받는다.
+    """
+    return {
+        "concept_tag": question.get("concept_tag"),
+        "level_group": question.get("level_group") or level_group,
+        "knowledge_level": question.get("knowledge_level"),
+        "question_type": question.get("question_type"),
+        "template_json": {
+            key: value
+            for key, value in question.items()
+            if key not in GENERATED_COLUMN_KEYS
+        },
+    }
+
+
+async def persist_generated_items(
+    db: AsyncDBSession,
+    questions: Sequence[dict[str, Any]],
+    *,
+    level_group: str,
+    route: str = "general",
+    region: str | None = None,
+    today: date | None = None,
+) -> list[Any | None]:
+    """quiz-generate 산출물을 content_items에 적재하고 행(또는 None)을 돌려준다.
+
+    반환은 questions와 **같은 길이·같은 순서**다 — 적재되지 않은 자리는 None이고,
+    호출측은 그 문항을 지금까지처럼 content_item_id 없이 일회용으로 서빙한다
+    (버리지 않는다: 버리면 배합 총합 15가 깨진다).
+
+    **왜 필요한가**: 지금까지 생성 문항은 `content_item_id=None`으로 버려졌다.
+    그래서 θ·복습 큐·간격반복·문항 통계가 그 문항을 영원히 못 보고, 같은 문항이
+    세션마다·유저마다 다시 생성됐다 — G1 배치(~1,360건) 이후에는 이것이 영구
+    자산이 아니라 상시 트래픽 과금이 된다.
+
+    **품질 게이트를 우회하지 않는다**: 사람 저작 시드가 통과하는 것과 **같은**
+    결정적 휴리스틱(`seed_content.validate_entry` — concept_tag·level_group·
+    question_type 화이트리스트, 객관식 보기 4개·중복·정답 포함, slider 범위,
+    question_text 존재)을 통과한 것만 적재한다. LLM 2단 게이트는 부르지 않는다
+    (문항당 유료 1콜 — 상시 과금 지점을 새로 여는 셈이다. 승격 검수에서 본다).
+    탈락분은 **일회용 서빙**이고 사유를 warning으로 남긴다.
+
+    **status 판단**(settings.GENERATED_ITEM_STATUS, 기본 'active'):
+    'active'라야 다음 세션에서 뱅크로 재사용되고, 재사용돼야 생성 1회 비용이
+    자산이 된다. 'draft'로 내리면 θ·복습 큐 배선은 남지만 재생성 누수는 그대로다.
+    한 줄(env)로 되돌릴 수 있게 설정으로 뺐다 — 검수 정책이 서면 여기서 바꾼다.
+
+    **멱등**: 시드 로더와 같은 키 `(concept_tag, template_json->>'question_text')`.
+    조회는 세션당 **SELECT 1회**다(문항마다가 아니라 배치 1회) — 이 표현식에는
+    인덱스가 없어 content_items 순차 스캔이고, 문항마다 돌리면 그 스캔이 최대
+    15회가 된다. 생성 폴백이 안 나면(뱅크가 배합을 채우면) 조회 자체가 없다.
+    """
+    if not questions:
+        return []
+    # 시드 스키마 검증의 단일 소유자 — 사본을 만들지 않는다. 지연 import는
+    # curriculum_service 선례(모듈 최상단이면 import 그래프가 스크립트를 끈다).
+    from app.scripts.seed_content import validate_entry
+
+    entries: list[dict[str, Any] | None] = []
+    for index, question in enumerate(questions):
+        entry = generated_item_entry(question, level_group=level_group)
+        errors = validate_entry(entry, index)
+        if entry["question_type"] not in GENERATED_ITEM_TYPES:
+            errors.append(
+                f"[{index}] 생성 적재 불허 유형: {entry['question_type']!r} "
+                f"(허용 {list(GENERATED_ITEM_TYPES)})"
+            )
+        if SLOT_RE.search(str(entry["template_json"])):
+            # uses_live_slots=False로 적재되면 new/review 풀에 들어가고, 그 풀은
+            # 치환을 하지 않는다 — 유저에게 "{today.temp_max}" 원문이 보인다.
+            errors.append(f"[{index}] 미치환 {{today.*}} 슬롯 포함 — 뱅크 적재 금지")
+        if errors:
+            logger.warning(
+                "생성 문항 품질 게이트 탈락 — 영속화 생략, 일회용 서빙: %s",
+                "; ".join(errors),
+            )
+            entries.append(None)
+        else:
+            entries.append(entry)
+
+    texts = [
+        e["template_json"]["question_text"] for e in entries if e is not None
+    ]
+    known: dict[tuple[str, str], Any] = {}
+    if texts:
+        rows = (
+            (
+                await db.execute(
+                    select(ContentItem).where(
+                        ContentItem.template_json["question_text"].astext.in_(texts)
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        known = {
+            (row.concept_tag, (row.template_json or {}).get("question_text")): row
+            for row in rows
+        }
+
+    source = {
+        "origin": GENERATED_ITEM_ORIGIN,
+        "route": route,
+        # 생성 프롬프트가 "제공된 실제 기상 데이터의 수치를 반영"을 강제하므로
+        # 문항 본문에 **그날의** 날씨가 박힌다. 언제·어느 지역의 날씨로 만든
+        # 문항인지 남겨야 나중에 은퇴·재검수 대상을 골라낼 수 있다.
+        "generated_on": (today or datetime.now(KST).date()).isoformat(),
+        "region": region,
+    }
+    result: list[Any | None] = []
+    for entry in entries:
+        if entry is None:
+            result.append(None)
+            continue
+        key = (entry["concept_tag"], entry["template_json"]["question_text"])
+        item = known.get(key)
+        if item is None:
+            item = ContentItem(
+                id=uuid.uuid4(),  # 채번을 앱이 해야 flush 없이 quiz_logs에 엮인다
+                concept_tag=entry["concept_tag"],
+                level_group=entry["level_group"],
+                knowledge_level=entry["knowledge_level"],
+                question_type=entry["question_type"],
+                template_json=entry["template_json"],
+                # 생성 문항에는 {today.*} 슬롯이 없다 — 값이 이미 본문에 박혀 있다.
+                uses_live_slots=False,
+                source=source,
+                status=settings.GENERATED_ITEM_STATUS,
+            )
+            db.add(item)
+            known[key] = item  # 같은 배치 안의 중복도 한 번만 적재
+        result.append(item)
+    return result
+
+
 async def create_daily_session(
     db: AsyncDBSession, user: User, today: date | None = None
 ) -> tuple[Session, list[dict[str, Any]]]:
@@ -596,13 +826,26 @@ async def create_daily_session(
             raise AIWorkerError(
                 f"quiz-generate 폴백 전부 실패 ({generate_count}건)"
             )
-        for question in generated:
+        # 생성 문항 영속화 (R13 D 선행) — 품질 게이트 통과분만 content_items에
+        # 적재하고 그 id로 세션에 편성한다. 탈락분은 item=None이라 지금까지처럼
+        # content_item_id 없이 일회용으로 서빙된다(배합 총합은 그대로 15).
+        persisted = await persist_generated_items(
+            db,
+            generated,
+            level_group=generate_level_group,
+            route=route_decision.get("route", "general"),
+            region=weather.get("region"),
+            today=today,
+        )
+        for question, item in zip(generated, persisted):
             entries.append(
                 {
                     "question": question,
                     "source": "generated",
                     "slot_filled": False,
-                    "content_item_id": None,
+                    # id가 붙어야 θ·복습 큐·간격반복·문항 통계가 이 문항을 본다.
+                    # None이면(게이트 탈락) 종전과 같은 일회용 문항이다.
+                    "content_item_id": getattr(item, "id", None),
                     # 생성 폴백은 어느 블록의 부족분인지 구분이 없다 — "오늘의 발견"
                     # (new)으로 표기한다. 진도(unit)로 새면 왕관 판정 대상이 뱅크
                     # 유닛 문항이 아닌 것까지 포함되므로 절대 unit을 붙이지 않는다.
@@ -654,6 +897,13 @@ async def create_daily_session(
     session.recipe_json = {
         "recipe": DEFAULT_RECIPE,
         "generated_count": sum(1 for e in entries if e["source"] == "generated"),
+        # 생성분 중 뱅크에 적재된 수 (R13 D 선행) — generated_count와 벌어진 만큼이
+        # 품질 게이트 탈락분(일회용)이다. 게이트가 통째로 막히면 여기서 보인다.
+        "persisted_count": sum(
+            1
+            for e in entries
+            if e["source"] == "generated" and e["content_item_id"] is not None
+        ),
         # 진도 블록 유닛 — 왕관 대상 선정(kind)에 쓴다. 열린 유닛이 없으면 None.
         "unit_block": (
             {

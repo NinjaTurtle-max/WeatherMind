@@ -58,8 +58,12 @@ def _validate_prediction(temp_max: float, rain_prob: int) -> None:
 
 
 def _duel_target_date():
-    """대결 대상일 = 내일(KST). 유저는 오늘 내일 예보를 제출한다."""
-    return datetime.now(KST).date() + timedelta(days=1)
+    """대결 대상일 = 내일(KST) — 정의는 duel_service가 단독 소유한다.
+
+    세션 마감 단계(session_service.forecast_closing_step)가 같은 함수를 봐야
+    "오늘 이미 제출했다" 판정이 두 경로에서 같은 날짜를 가리킨다.
+    """
+    return duel_service.duel_target_date()
 
 
 def _validate_evidence(evidence: list[str] | None) -> list[str] | None:

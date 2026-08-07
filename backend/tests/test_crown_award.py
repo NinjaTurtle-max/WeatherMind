@@ -362,6 +362,11 @@ def make_log(concept_tag, correct=True, retry_correct=None):
     )
 
 
+async def _no_closing_step(db, user, today=None):
+    """예보 마감 단계 대역 — "단계 없음"(R13 A-1). 배선 하네스 공용."""
+    return None
+
+
 def run_complete(monkeypatch, session, logs, *, award=None, unit_payload=None):
     """complete_session을 배선 검증용으로 실행 — 호출 인자를 수집해 돌려준다."""
     calls = {}
@@ -386,6 +391,12 @@ def run_complete(monkeypatch, session, logs, *, award=None, unit_payload=None):
     async def fake_quests(db, user, day):
         calls["quests"] = day
 
+    # 예보 마감 단계(R13 A-1)는 duels 조회 + KMA 캐시를 타므로 이 배선 하네스의
+    # 관심사가 아니다 — 단계 없음으로 고정한다. 판정 자체는
+    # tests/test_forecast_closing_step.py가 단독으로 문다.
+    monkeypatch.setattr(
+        session_router.session_service, "forecast_closing_step", _no_closing_step
+    )
     monkeypatch.setattr(session_router, "_load_session_or_404", fake_load)
     monkeypatch.setattr(session_router, "_session_logs", fake_logs)
     monkeypatch.setattr(cs, "award_crown_for_activity", fake_award)

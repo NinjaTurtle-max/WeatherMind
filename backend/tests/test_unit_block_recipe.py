@@ -27,7 +27,13 @@ from app.core.config import settings
 from app.routers import session as session_router
 from app.services import curriculum_service as cs
 from app.services import session_service as ss
-from test_crown_award import AWARD, make_log, make_session, run_complete
+from test_crown_award import (
+    AWARD,
+    _no_closing_step,
+    make_log,
+    make_session,
+    run_complete,
+)
 
 RECIPE = ss.DEFAULT_RECIPE
 UNIT_COUNT = RECIPE["unit"]
@@ -483,6 +489,12 @@ class TestSessionItemKind:
             return logs
 
         monkeypatch.setattr(session_router, "_session_logs", fake_logs)
+        # 예보 마감 단계(R13 A-1)는 db=None인 이 하네스의 관심사가 아니다.
+        monkeypatch.setattr(
+            session_router.session_service,
+            "forecast_closing_step",
+            _no_closing_step,
+        )
         user = SimpleNamespace(id=uuid.uuid4(), level_group="middle_high")
         return asyncio.run(session_router.session_today_response(None, session, user))
 

@@ -895,6 +895,29 @@ function duelBriefingPayload() {
   };
 }
 
+// 세션 마감 단계 제출 경로 (R13 A-1) — **새 엔드포인트가 아니라** 기존 예보 대결
+// 제출이다. 서버 상수 session_service.DUEL_SUBMIT_PATH와 같은 값이어야 한다.
+const DUEL_SUBMIT_PATH = '/api/v1/duel/today';
+
+/** 일일 세션의 예보 마감 단계 (R13 A-1) — 필요 없으면 null.
+ *
+ * 문항이 아니라 **단계**다: 예보의 정답은 내일의 관측이 정하므로 즉시 채점이
+ * 불가능하고, 그래서 MOCK_SESSION_RECIPE(15문항)에 들어가지 않는다.
+ * null이 되는 조건 2가지는 서버(forecast_closing_step)와 같다:
+ *   1) 오늘 이미 제출했다  2) KMA 판단 재료가 없다(degraded)
+ */
+function closingStepPayload(mode) {
+  if (mode !== 'daily') return null; // 유닛·배치 세션은 마감 단계가 없다
+  if (state.duel.submitted) return null;
+  if (BRIEFING_DEGRADED) return null; // 키 부재·KMA 장애 → 단계 생략, 15문항으로 완료
+  return {
+    kind: 'forecast_duel',
+    duel_date: isoDaysFromToday(1), // 예보 대상일 = 내일(KST)
+    submit_path: DUEL_SUBMIT_PATH,
+    base_forecast: DUEL_BASE_FORECAST,
+  };
+}
+
 function duelTodayPayload() {
   const submitted = state.duel.submitted;
   return {
@@ -1451,6 +1474,7 @@ const routes = {
         mode: s.mode,
         items: s.items.map(stripMock),
         progress: sessionProgress(s),
+        closing_step: closingStepPayload(s.mode), // R13 A-1 additive
       },
     ];
   },
@@ -1678,6 +1702,7 @@ const routes = {
         streak_count: state.streak,
         unit_result: unitResult, // R8-01 §3.1 — 유닛 세션이 아니면 null(additive)
         crown_award: crownAward, // R8-01 §3.4 — daily 만점 왕관 유입, 없으면 null(additive)
+        closing_step: closingStepPayload(s.mode), // R13 A-1 — 15문항 뒤 예보 단계(additive)
         ...(placementResult ?? {}),
       },
     ];

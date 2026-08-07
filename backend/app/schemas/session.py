@@ -9,7 +9,35 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 from app.schemas.curriculum import CrownAward
+from app.schemas.duel import DuelPrediction
 from app.schemas.quiz import AnswerResult, QuizQuestion
+
+
+class ForecastClosingStep(BaseModel):
+    """일일 세션의 **마감 단계** — 예보 대결 (R13 A-1, additive).
+
+    문항이 아니라 단계다: 예보의 정답은 **내일의 관측**이 정하므로 즉시 채점이
+    불가능하고, 그래서 SESSION_RECIPE(15문항)에 들어가지 않는다. XP·구름 에너지·
+    스트릭·만회 큐 어디에도 닿지 않는다 — 보상은 기존 리그·정산 경로가 소유한다.
+
+    필드가 있으면 = 오늘 예보를 아직 안 냈고 판단 재료도 있다 → 프론트가 15문항
+    뒤에 예보 입력 단계를 붙인다. **null이면 단계 없음**이고 세션은 15문항으로
+    끝난다(오늘 이미 제출했거나, KMA 예보 부재 = degraded).
+
+    프론트가 읽는 것:
+    - `duel_date`  예보 대상일(=내일, KST). 화면 문구 "내일(8/8) 예보"
+    - `submit_path` 제출 경로. **새 엔드포인트가 아니라 기존 예보 대결 제출**이다
+      (`POST /api/v1/duel/today`, body는 DuelSubmitRequest). 재제출은 409
+      ALREADY_SUBMITTED — 그때는 이 필드가 애초에 null이어야 정상이다.
+    - `base_forecast` 대상일 KMA 기준 예보(참고 배너). 판단 재료 상세는 기존
+      `GET /api/v1/duel/briefing`, **어제 낸 예보의 결과**는 기존
+      `GET /api/v1/duel/history`(정산된 최신 항목)에서 읽는다 — 둘 다 이미 있다.
+    """
+
+    kind: Literal["forecast_duel"] = "forecast_duel"
+    duel_date: date
+    submit_path: str
+    base_forecast: DuelPrediction | None = None
 
 
 class SessionItem(QuizQuestion):
@@ -48,6 +76,9 @@ class SessionToday(BaseModel):
     mode: str = "daily"
     items: list[SessionItem]
     progress: SessionProgress
+    # 마감 단계 (R13 A-1, additive) — daily 세션에서만, 필요할 때만 non-null.
+    # unit·placement 세션은 항상 null이다.
+    closing_step: ForecastClosingStep | None = None
 
 
 class SessionAnswerRequest(BaseModel):
@@ -144,3 +175,8 @@ class SessionCompleteResult(BaseModel):
     # retry_resolved_count: 만회로 해결한 문항 수 → 완료 화면 "만회 완료 N문항".
     all_resolved: bool = False
     retry_resolved_count: int = 0
+    # ── 예보 마감 단계 (R13 A-1, additive) ──
+    # 완료 화면이 15문항 결산 뒤에 붙일 단계. /session/today와 **같은 판정**이지만
+    # 완료 시점에 다시 계산한다 — 세션 시작 후 다른 화면에서 예보를 냈으면 여기서
+    # null이 되어야 프론트가 409로 끝나는 단계를 그리지 않는다.
+    closing_step: ForecastClosingStep | None = None
