@@ -4373,5 +4373,2659 @@
       ]
     },
     "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "폭염과 한파, 가뭄과 홍수처럼 예전과 달라진 날씨가 여러 해 동안 이어지면서 지구 곳곳에 나타나고 있는 변화를 무엇이라고 하는가?",
+      "correct_answer": "기후변화",
+      "explanation_hint": "여러 해에 걸쳐 지구 곳곳의 날씨가 달라지는 흐름을 기후변화라고 한다. 폭염, 한파, 가뭄, 홍수, 폭설이 예전보다 자주 나타나는 것이 그 사례다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 기후변화(1단계 도입) / R2 +0 (현상의 이름 회상)",
+        "성취기준 [4과16-01]",
+        "까닭(과학적 원인) 미질문 — §2.2 범위 제한 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기후변화에 대응하기 위해 생활에서 실천할 수 있는 행동으로 가장 알맞은 것은?",
+      "options": [
+        "먹을 만큼만 덜어 먹고 음식을 남기지 않는다",
+        "빈 교실의 전등과 냉난방기를 켜 둔다",
+        "한 번 쓰고 버리는 물건을 자주 사서 쓴다",
+        "아주 가까운 거리도 자동차를 타고 이동한다"
+      ],
+      "correct_answer": "먹을 만큼만 덜어 먹고 음식을 남기지 않는다",
+      "explanation_hint": "기후변화 대응은 큰일이 아니라 생활에서 낭비를 줄이는 실천에서 시작한다. 남긴 음식을 버리는 데에도 많은 자원이 쓰이므로, 먹을 만큼만 덜어 먹는 것도 대응 행동이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 기후변화 대응 행동(1단계 도입) / R2 +0 (단일 사실 회상)",
+        "성취기준 [4과16-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "기후변화에 대응하는 실천 행동과, 그 행동으로 아낄 수 있는 것을 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "텀블러 들고 다니기",
+          "right": "일회용 컵"
+        },
+        {
+          "left": "이면지에 연습 문제 풀기",
+          "right": "종이"
+        },
+        {
+          "left": "빈 교실 전등 끄기",
+          "right": "전기"
+        },
+        {
+          "left": "장바구니 들고 장보기",
+          "right": "비닐봉지"
+        }
+      ],
+      "correct_answer": "텀블러 들고 다니기:일회용 컵|이면지에 연습 문제 풀기:종이|빈 교실 전등 끄기:전기|장바구니 들고 장보기:비닐봉지",
+      "explanation_hint": "기후변화 대응 행동은 대부분 무엇인가를 덜 쓰고 덜 버리는 일이다. 각 행동이 무엇을 아끼는지 짝지어 보면 실천할 거리를 스스로 찾을 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 기후변화 대응 행동(1단계 도입) / R2 +0 (사례 대응)",
+        "성취기준 [4과16-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "학교에서 기후변화 대응 행동을 정해 실천하는 과정을 순서대로 배열하세요.",
+      "items": [
+        "우리 학교에서 무엇이 낭비되고 있는지 조사한다",
+        "조사한 내용을 바탕으로 함께 실천할 행동을 하나 정한다",
+        "정한 행동을 한 달 동안 실천하고 그 결과를 친구들에게 알린다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2",
+      "explanation_hint": "대응 방법은 조사에서 시작해 실천으로 이어진다. 무엇이 문제인지 먼저 살펴보고, 할 수 있는 행동을 정한 뒤, 실천한 결과를 나누는 것이 한 묶음이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 기후변화 대응 행동(1단계 도입) / R2 +0 (절차 순서 — 인과 사슬 아님)",
+        "성취기준 [4과16-03]",
+        "본시드 ordering|co2_climate 정답키 0123·01234 회피 위해 3항목 저작"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "여러 번 다시 쓸 수 있는 물건을 골라 쓰면 한 번 쓰고 버리는 ___을 줄일 수 있다.",
+      "correct_answer": "일회용품",
+      "explanation_hint": "한 번 쓰고 버리는 물건을 일회용품이라고 한다. 여러 번 쓰는 물건으로 바꾸는 것이 가장 쉬운 기후변화 대응 행동이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 기후변화 대응 행동(1단계 도입) / R2 +0",
+        "성취기준 [4과16-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "비가 오랫동안 내리지 않아 땅이 마르고 쓸 물이 부족해지는 현상을 무엇이라고 하는가?",
+      "options": [
+        "가뭄",
+        "홍수",
+        "폭설",
+        "한파"
+      ],
+      "correct_answer": "가뭄",
+      "explanation_hint": "비가 오래 내리지 않아 물이 부족해지는 현상을 가뭄이라고 한다. 반대로 짧은 시간에 비가 너무 많이 내려 물에 잠기는 일은 홍수다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 가뭄(1단계 도입) / R2 +0 (현상의 이름 회상)",
+        "성취기준 [4과16-01]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "기후변화와 함께 자주 나타나는 날씨 현상과, 그때 필요한 대비 행동을 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "폭염",
+          "right": "물을 자주 마시고 한낮 바깥 활동을 줄인다"
+        },
+        {
+          "left": "한파",
+          "right": "옷을 여러 겹 껴입고 수도관을 감싼다"
+        },
+        {
+          "left": "폭설",
+          "right": "쌓인 눈을 치우고 미끄러운 길을 천천히 걷는다"
+        },
+        {
+          "left": "가뭄",
+          "right": "물을 아껴 쓰고 받아 둔 물을 다시 쓴다"
+        }
+      ],
+      "correct_answer": "폭염:물을 자주 마시고 한낮 바깥 활동을 줄인다|한파:옷을 여러 겹 껴입고 수도관을 감싼다|폭설:쌓인 눈을 치우고 미끄러운 길을 천천히 걷는다|가뭄:물을 아껴 쓰고 받아 둔 물을 다시 쓴다",
+      "explanation_hint": "폭염, 한파, 폭설, 가뭄은 각각 위험한 점이 다르므로 대비 행동도 다르다. 예보를 미리 확인하고 그에 맞는 준비를 해 두는 것이 핵심이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 폭염·한파·폭설·가뭄(1단계 도입) / R2 +0 (사례 대응)",
+        "성취기준 [4과16-02]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "짧은 시간에 아주 많은 비가 쏟아져 하천이 넘치고 마을이 물에 잠기는 일을 ___(이)라고 한다.",
+      "correct_answer": "홍수",
+      "explanation_hint": "많은 비가 한꺼번에 내려 물이 넘치는 일을 홍수라고 한다. 홍수가 예보되면 하천 근처와 지하 공간에 가지 않는 것이 안전하다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 홍수(1단계 도입) / R2 +0",
+        "성취기준 [4과16-01]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "올해 여름이 유난히 더웠는지 살펴볼 때, 여러 해 동안의 날씨를 평균해 견주어 보는 값을 무엇이라고 하는가?",
+      "correct_answer": "평년값",
+      "explanation_hint": "여러 해 동안의 날씨를 평균한 값을 평년값이라고 한다. 올해가 유난했는지 아닌지는 평년값과 견주어 보아야 알 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 평년값(1단계 도입 — [4과16-01] 해설 '평년값에 비해 현저히 높거나 낮은 사례') / R2 +0",
+        "성취기준 [4과16-01]",
+        "R3 미해당 — 평년 산출 기간(30년) 등 수치를 묻지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "물이 증발하는 예로 알맞은 것은 무엇인가?",
+      "options": [
+        "널어 둔 젖은 빨래가 마른다",
+        "그릇에 담아 둔 물이 얼어 얼음이 된다",
+        "냉동실에서 꺼낸 얼음이 녹아 물이 된다",
+        "차가운 컵 겉면에 물방울이 맺힌다"
+      ],
+      "correct_answer": "널어 둔 젖은 빨래가 마른다",
+      "explanation_hint": "물이 수증기가 되어 공기 중으로 흩어지는 것이 증발이다. 젖은 빨래가 마르는 것이 우리 주변에서 가장 쉽게 찾을 수 있는 증발의 예다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 증발(1단계 도입) / R2 +0 (사례 판별 — 까닭 미질문)",
+        "성취기준 [4과10-01]",
+        "§2.2 범위 제한 준수: 상태가 변하는 까닭을 묻지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "젖은 빨래 속의 물이 수증기가 되어 공기 중으로 흩어지는 것을 ___(이)라고 한다.",
+      "correct_answer": "증발",
+      "explanation_hint": "물이 수증기로 변해 공기 중으로 흩어지는 것을 증발이라고 한다. 빨래가 마르고 물웅덩이가 사라지는 것이 모두 증발이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 증발·수증기(1단계 도입) / R2 +0",
+        "성취기준 [4과10-02]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "물은 얼음, 물, 수증기처럼 모습을 바꾼다. 물이 가질 수 있는 상태는 모두 몇 가지인가? (단위: 가지)",
+      "correct_answer": "3",
+      "explanation_hint": "물은 얼음, 물, 수증기의 세 가지 상태로 모습을 바꾼다. 셋은 모두 같은 물이며 모습만 달라진 것이다.",
+      "min": 0,
+      "max": 6,
+      "step": 1,
+      "unit": "가지"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 물의 세 가지 상태(1단계 도입) / R2 +0",
+        "성취기준 [4과10-01]",
+        "R3 미해당 — '세 가지 상태'는 성취기준 문면의 수치다(실무 기준 아님)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "물이 든 컵을 냉동실에 넣었다가 다시 꺼내 두었을 때 관찰되는 변화를 순서대로 배열하세요.",
+      "items": [
+        "컵에 담긴 물이 얼어 얼음이 된다",
+        "냉동실에서 꺼낸 얼음이 녹아 다시 물이 된다",
+        "컵을 오래 그대로 두면 물이 줄어들며 수증기가 되어 날아간다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2",
+      "explanation_hint": "같은 물이 얼음이 되었다가 다시 물이 되고, 마지막에는 수증기가 되어 날아간다. 물이 모습을 바꾸는 과정을 순서대로 관찰한 것이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 얼음·물·수증기(1단계 도입) / R2 +0 (관찰 순서 — 인과 사슬 아님)",
+        "성취기준 [4과10-02]",
+        "본시드 ordering|phase_change 정답키 0123 회피 위해 3항목 저작"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "주전자의 물을 계속 끓이면 물이 점점 줄어든다. 이때 물이 변해서 된, 눈에 보이지 않는 기체를 무엇이라고 하는가?",
+      "correct_answer": "수증기",
+      "explanation_hint": "물이 끓거나 마를 때 물은 눈에 보이지 않는 수증기가 되어 공기 중으로 흩어진다. 주전자 입구에 보이는 하얀 김은 수증기가 다시 작은 물방울로 변한 것이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 끓음·수증기(1단계 도입) / R2 +0",
+        "성취기준 [4과10-02]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "태풍이 온다는 예보를 들었을 때 집에서 미리 해 둘 일로 가장 알맞은 것은?",
+      "options": [
+        "창문이 흔들리지 않도록 단단히 고정한다",
+        "베란다 난간 위에 화분을 올려 둔다",
+        "바닷가에 나가 높은 파도를 구경한다",
+        "물이 불어난 하천의 다리 위에서 사진을 찍는다"
+      ],
+      "correct_answer": "창문이 흔들리지 않도록 단단히 고정한다",
+      "explanation_hint": "태풍이 오기 전에는 바람에 날아가거나 깨질 만한 것을 먼저 정리한다. 바닷가와 하천은 태풍이 지나갈 때 가장 위험한 곳이므로 가까이 가지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 태풍 — 생활 상용어 예외(name_ok_from 1) 적용. 발생 메커니즘을 묻지 않고 정답 문자열에도 없다 / R2 +0",
+        "성취기준 [4과16-03]",
+        "§4 R1 예외 근거: 태풍의 발생·이동은 [12지구01-04](5단계)이나 이름과 대처 행동은 1단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "태풍이나 큰비로 위험할 때 사람들이 안전하게 몸을 피하도록 미리 정해 둔 장소를 무엇이라고 하는가?",
+      "correct_answer": "대피소",
+      "explanation_hint": "위험할 때 몸을 피하는 곳을 대피소라고 한다. 우리 동네의 대피소가 어디인지 미리 알아 두는 것도 대응 행동의 하나다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 태풍 — 생활 상용어 예외(name_ok_from 1) 적용. 메커니즘 미질문·정답은 '대피소' / R2 +0",
+        "성취기준 [4과16-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "지구를 둘러싸고 있는 공기 전체를 ___(이)라고 한다.",
+      "correct_answer": "대기",
+      "explanation_hint": "지구는 공기로 둘러싸여 있고, 그 공기 전체를 대기라고 한다. 눈에 보이지 않지만 지구를 감싸고 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 대기(1단계 도입) / R2 +0",
+        "성취기준 [4과06-01]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "공기가 든 주사기의 입구를 막고 피스톤을 세게 누르면 주사기 속 공기는 어떻게 되는가?",
+      "options": [
+        "부피가 줄어든다",
+        "부피가 늘어난다",
+        "무게가 사라진다",
+        "물로 변한다"
+      ],
+      "correct_answer": "부피가 줄어든다",
+      "explanation_hint": "주사기 속 공기를 누르면 공기가 차지하는 부피가 줄어든다. 누르던 힘을 놓으면 부피는 다시 늘어난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-2",
+        "판정: R1 기체의 부피 변화(1단계 도입) / R2 +0 (관찰 결과 회상)",
+        "성취기준 [4과15-02]",
+        "§2.2 범위 제한 준수: 압력의 정의를 쓰지 않고 관찰 현상만 다룬다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "철로의 이음매나 다리의 연결 부분에 일부러 좁은 틈을 두는 까닭으로 옳은 것은?",
+      "options": [
+        "온도가 올라가면 금속이 늘어나 부피가 커지기 때문이다",
+        "온도가 올라가면 금속의 질량이 늘어나기 때문이다",
+        "온도가 올라가면 금속의 비열이 점점 작아지기 때문이다",
+        "온도가 올라가면 금속이 열을 흡수하지 못하게 되기 때문이다"
+      ],
+      "correct_answer": "온도가 올라가면 금속이 늘어나 부피가 커지기 때문이다",
+      "explanation_hint": "물질은 온도가 올라가면 부피가 커진다. 이것을 열팽창이라고 한다. 틈을 두지 않으면 더운 날 늘어난 금속끼리 서로 밀어 휘어질 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 열팽창·비열(3단계 도입) / R2 +0 (두 개념의 인과 1회 연결)",
+        "성취기준 [9과03-03]",
+        "경계: 4단계 용어(기권·전선·기단) 미사용 — 물질의 성질만 다룬다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "섭씨 온도는 1기압에서 물이 어는 온도와 물이 끓는 온도 사이를 똑같은 간격으로 나누어 한 칸을 1℃로 정한 눈금이다. 두 온도 사이를 몇 등분한 것인가? (단위: 등분)",
+      "correct_answer": "100",
+      "explanation_hint": "섭씨 온도는 물이 어는 온도를 0℃, 끓는 온도를 100℃로 두고 그 사이를 100등분해 한 칸을 1℃로 정한 눈금이다. 온도는 물체가 차갑고 뜨거운 정도를 나타내는 값이다.",
+      "min": 0,
+      "max": 100,
+      "step": 10,
+      "unit": "등분"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 온도·온도계(3단계 재사용) / R2 +0 (단일 사실 회상)",
+        "성취기준 [9과03-01]",
+        "R3 미해당 — 섭씨 눈금 100등분은 교과 정의이지 실무 기준 수치가 아니다",
+        "slider 관용오차 ±10 대응: 오답 후보(10·50)와 50 이상 벌어진다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "같은 열량을 받아도 물질마다 온도가 오르는 정도가 다른 것은, 물질마다 ___이(가) 다르기 때문이다.",
+      "correct_answer": "비열",
+      "explanation_hint": "어떤 물질 1g의 온도를 1℃ 올리는 데 필요한 열량을 비열이라고 한다. 비열이 큰 물질은 같은 열을 받아도 온도가 천천히 오르고 천천히 식는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 비열(3단계 도입, 정답 사용) / R2 +0 (정의 회상)",
+        "성취기준 [9과03-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "적외선 온도계는 물체에 직접 닿지 않고도 물체의 온도를 잴 수 있다. 그 원리로 옳은 것은?",
+      "options": [
+        "모든 물체가 자기 온도에 따라 내보내는 복사 에너지를 재기 때문이다",
+        "물체와 온도계 사이의 공기가 열을 전도해 옮겨 주기 때문이다",
+        "물체 주위의 공기가 대류해 온도계까지 열을 실어 오기 때문이다",
+        "물체가 내보내는 소리의 높낮이를 재어 온도로 바꾸기 때문이다"
+      ],
+      "correct_answer": "모든 물체가 자기 온도에 따라 내보내는 복사 에너지를 재기 때문이다",
+      "explanation_hint": "모든 물체는 온도에 따라 복사의 형태로 에너지를 내보낸다. 복사는 물질의 도움 없이 열이 직접 이동하는 방법이므로, 닿지 않고도 온도를 알아낼 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 복사·전도·대류(2단계 도입) → 열전달 3형식의 구분 요구로 3단계 정박 / R2 +0",
+        "성취기준 [9과03-02]",
+        "경계: 복사 평형·온실효과(4단계 [9과17-01])를 쓰지 않고 열전달 방법으로만 다룬다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "태양의 열이 공기가 거의 없는 우주 공간을 건너 지구까지 오는 것처럼, 중간에 물질이 없어도 열이 직접 이동하는 방법을 무엇이라고 하는가?",
+      "correct_answer": "복사",
+      "explanation_hint": "열이 이동하는 방법에는 전도, 대류, 복사가 있다. 그중 복사는 중간에 물질이 없어도 열이 직접 전달되는 방법이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 복사(2단계 도입) → 3형식 구분·명칭 요구로 3단계 정박 / R2 +0",
+        "성취기준 [9과03-02]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "한여름에 밝은 색 옷이 어두운 색 옷보다 덜 뜨거운 것은, 밝은 색 표면이 햇빛을 더 많이 ___하기 때문이다.",
+      "correct_answer": "반사",
+      "explanation_hint": "표면에 닿은 햇빛 가운데 일부는 흡수되고 나머지는 반사된다. 밝은 색 표면은 반사하는 양이 많아 흡수하는 양이 적으므로 덜 뜨거워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 복사·흡수·반사(3단계 이하) / R2 +0 (단일 인과)",
+        "성취기준 [9과03-02]",
+        "경계: '반사'는 쓰되 '알베도'(6단계, 교육과정 전 범위 미수록)는 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "밀폐된 그릇에 담긴 기체가 그릇의 안쪽 벽을 미는 압력이 생기는 까닭으로 옳은 것은?",
+      "options": [
+        "기체 입자가 쉬지 않고 움직이며 그릇 벽에 부딪히기 때문이다",
+        "기체 입자가 서로 달라붙어 그릇 벽을 밀어내기 때문이다",
+        "기체 입자가 그릇 바닥으로 가라앉아 차곡차곡 쌓이기 때문이다",
+        "기체 입자가 그릇 벽을 바깥쪽에서 잡아당기기 때문이다"
+      ],
+      "correct_answer": "기체 입자가 쉬지 않고 움직이며 그릇 벽에 부딪히기 때문이다",
+      "explanation_hint": "기체 입자는 모든 방향으로 쉬지 않고 움직이며 그릇 벽에 부딪힌다. 이 충돌이 벽을 미는 힘으로 나타난 것이 기체의 압력이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 압력·입자 운동(3단계 도입) / R2 +0 (단일 인과)",
+        "성취기준 [9과06-01]",
+        "경계: 기압의 정의·일기도(4단계 [9과17-04])가 아니라 기체 압력의 입자 모형이다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "찌그러진 탁구공을 뜨거운 물에 담그면 다시 둥글게 펴진다. 그 까닭으로 옳은 것은?",
+      "options": [
+        "온도가 높아져 공 속 기체 입자의 운동이 활발해지고 부피가 커지기 때문이다",
+        "온도가 높아져 공 속 기체 입자의 수가 늘어나기 때문이다",
+        "뜨거운 물이 공의 벽을 통과해 공 안으로 들어가기 때문이다",
+        "온도가 높아져 공 속 기체 입자 하나하나의 크기가 커지기 때문이다"
+      ],
+      "correct_answer": "온도가 높아져 공 속 기체 입자의 운동이 활발해지고 부피가 커지기 때문이다",
+      "explanation_hint": "온도가 높아지면 기체 입자의 운동이 활발해져 같은 압력에서 부피가 커진다. 입자의 수나 입자 하나의 크기가 달라지는 것은 아니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 기체의 온도–부피 관계(3단계 도입) / R2 +0 (단일 인과)",
+        "성취기준 [9과06-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "온도가 일정할 때 밀폐된 기체의 부피를 줄이면 같은 넓이의 벽에 부딪히는 입자 수가 늘어나므로, 기체의 ___이(가) 커진다.",
+      "correct_answer": "압력",
+      "explanation_hint": "온도가 일정할 때 기체의 부피가 줄어들면 벽에 부딪히는 횟수가 늘어나 압력이 커진다. 반대로 부피가 커지면 압력은 작아진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 압력·기체의 압력–부피 관계(3단계 도입, 정답 사용) / R2 +0",
+        "성취기준 [9과06-02]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "1기압에서 얼음에 열을 계속 가하면 얼음이 다 녹을 때까지 온도가 오르지 않고 일정하게 유지된다. 이때 유지되는 온도는 몇 ℃인가? (단위: ℃)",
+      "correct_answer": "0",
+      "explanation_hint": "1기압에서 얼음이 녹는 동안 온도는 0℃로 일정하다. 가한 열이 온도를 올리는 데 쓰이지 않고 상태를 바꾸는 데 쓰이기 때문이다.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "℃"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 융해·상태 변화와 열에너지 출입(3단계 도입) / R2 +0 (단일 사실 회상)",
+        "성취기준 [9과04-04]",
+        "R3 미해당 — 1기압 녹는점 0℃는 교과 수치다",
+        "slider 관용오차 ±10 대응: 최유력 오답 후보(끓는점 100)와 100 벌어진다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "차가운 얼음 조각을 그릇에 담아 약한 불로 계속 가열할 때 관찰되는 변화를 순서대로 배열하세요.",
+      "items": [
+        "얼음의 온도가 0℃까지 올라간다",
+        "0℃를 유지한 채 얼음이 녹아 물이 된다",
+        "다 녹은 물의 온도가 100℃까지 올라간다",
+        "100℃를 유지한 채 물이 끓어 수증기가 된다",
+        "그릇 속의 물이 모두 수증기로 변해 사라진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "상태가 변하는 동안에는 가한 열이 온도를 올리는 데 쓰이지 않고 상태를 바꾸는 데 쓰이므로 온도가 일정하게 유지된다. 상태 변화가 끝나면 다시 온도가 올라간다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 융해·기화·상태 변화와 열에너지 출입(3단계 도입) / R2 +0 (관찰 순서 — 인과 사슬 아님)",
+        "성취기준 [9과04-03]",
+        "중복 회피: 본시드·staging의 ordering|phase_change 정답키 012·0123을 피해 5항목(01234)으로 저작"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "물질의 상태 변화와 그 이름을 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "고체가 액체로 변한다",
+          "right": "융해"
+        },
+        {
+          "left": "액체가 고체로 변한다",
+          "right": "응고"
+        },
+        {
+          "left": "액체가 기체로 변한다",
+          "right": "기화"
+        },
+        {
+          "left": "기체가 액체로 변한다",
+          "right": "액화"
+        }
+      ],
+      "correct_answer": "고체가 액체로 변한다:융해|액체가 고체로 변한다:응고|액체가 기체로 변한다:기화|기체가 액체로 변한다:액화",
+      "explanation_hint": "상태 변화는 융해, 응고, 기화, 액화, 승화로 구분한다. 융해와 기화는 주위에서 열을 흡수하고, 응고와 액화는 주위로 열을 내놓는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 융해·응고·기화·액화(3단계 도입, 정답 사용) / R2 +0 (명칭 대응)",
+        "성취기준 [9과04-02]",
+        "해설 근거: [9과04] 해설 '융해, 응고, 기화, 액화, 승화를 구분'"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "어떤 물질의 질량을 그 물질의 부피로 나눈 값으로, 물질마다 고유하게 정해져 있는 이 값을 무엇이라고 하는가?",
+      "correct_answer": "밀도",
+      "explanation_hint": "질량을 부피로 나눈 값을 밀도라고 한다. 같은 부피라면 질량이 클수록 밀도가 크고, 같은 질량이라면 부피가 작을수록 밀도가 크다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 밀도(3단계 잠정 배치) / R2 +0 (정의 회상)",
+        "성취기준 [9과04-02] 인접 — 밀도의 성취기준 코드는 미확정(docs/specs/12 §9-③, 3단계 잠정)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "질량이 같은 두 물체 A와 B가 있다. A의 부피가 B의 부피보다 작을 때, 두 물체에 대한 설명으로 옳은 것은?",
+      "options": [
+        "A의 밀도가 B의 밀도보다 크다",
+        "B의 밀도가 A의 밀도보다 크다",
+        "질량이 같으므로 두 물체의 밀도도 서로 같다",
+        "부피가 작은 A는 밀도도 함께 작아진다"
+      ],
+      "correct_answer": "A의 밀도가 B의 밀도보다 크다",
+      "explanation_hint": "밀도는 질량을 부피로 나눈 값이다. 질량이 같다면 부피가 작을수록 나눈 값이 커지므로 밀도가 크다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 밀도(3단계 잠정 배치) / R2 +0 (한 관계의 방향 판단 — 수치 계산 없음)",
+        "성취기준 [9과04-02] 인접 — 밀도 코드 미확정(docs/specs/12 §9-③)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "물이 얼어 얼음이 되면 질량은 그대로인데 부피는 늘어난다. 이 사실로 설명할 수 있는 현상으로 옳은 것은?",
+      "options": [
+        "얼음이 물 위에 뜬다",
+        "얼음이 물보다 무거워져 물속으로 가라앉는다",
+        "얼음이 녹으면 물의 질량이 늘어난다",
+        "얼음의 온도가 물의 온도보다 높아진다"
+      ],
+      "correct_answer": "얼음이 물 위에 뜬다",
+      "explanation_hint": "같은 질량의 물이 얼면서 부피가 늘어나므로 얼음의 밀도는 물보다 작다. 밀도가 작은 얼음은 물 위에 뜬다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 상태 변화·밀도(3단계) / R2 +0 (두 개념의 인과 1회 연결)",
+        "성취기준 [9과04-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "열이 이동하는 세 가지 방법과 그 예를 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "전도",
+          "right": "프라이팬을 불에 올려 두면 손잡이까지 뜨거워진다"
+        },
+        {
+          "left": "대류",
+          "right": "에어컨을 높은 곳에 달면 방 전체가 골고루 시원해진다"
+        },
+        {
+          "left": "복사",
+          "right": "햇빛이 닿은 자동차 겉면이 손대기 어려울 만큼 뜨거워진다"
+        }
+      ],
+      "correct_answer": "전도:프라이팬을 불에 올려 두면 손잡이까지 뜨거워진다|대류:에어컨을 높은 곳에 달면 방 전체가 골고루 시원해진다|복사:햇빛이 닿은 자동차 겉면이 손대기 어려울 만큼 뜨거워진다",
+      "explanation_hint": "전도는 물질을 따라 이웃 입자로, 대류는 물질이 직접 움직이며, 복사는 물질 없이 열이 이동한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 전도·대류·복사(2단계 도입) → 3형식 구분 요구로 3단계 정박 / R2 +0 (사례 대응)",
+        "성취기준 [9과03-02]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "쇠막대의 한쪽 끝을 촛불로 가열하는 실험을 한다. 막대 위에 2cm 간격으로 붙여 둔 촛농 네 개가 떨어지는 순서를 배열하세요.",
+      "items": [
+        "불에서 2cm 떨어진 촛농이 떨어진다",
+        "불에서 4cm 떨어진 촛농이 떨어진다",
+        "불에서 6cm 떨어진 촛농이 떨어진다",
+        "불에서 8cm 떨어진 촛농이 떨어진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "고체에서는 열이 입자에서 이웃 입자로 차례차례 전달된다. 이것이 전도이며, 그래서 불에 가까운 쪽부터 차례로 뜨거워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 전도(2단계 도입) → 입자 수준의 열전달 설명 요구로 3단계 정박 / R2 +0 (관찰 순서)",
+        "성취기준 [9과03-02]",
+        "중복 회피: ordering|energy_transfer 정답키는 본시드·staging에 없다(4항목 0123)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "보온병이 안에 담긴 물의 온도를 오래 유지하는 원리로 옳은 것은?",
+      "options": [
+        "두 겹 벽 사이를 진공으로 만들어 전도와 대류로 열이 이동하는 것을 막는다",
+        "두 겹 벽 사이를 공기로 채워 복사로 열이 빠져나가는 것을 늘린다",
+        "담긴 물의 비열을 크게 바꾸어 물의 온도가 변하지 않게 만든다",
+        "담긴 물의 질량을 줄여 열이 빠져나갈 길을 아예 없앤다"
+      ],
+      "correct_answer": "두 겹 벽 사이를 진공으로 만들어 전도와 대류로 열이 이동하는 것을 막는다",
+      "explanation_hint": "보온병은 두 겹 벽 사이를 진공으로 만들어 전도와 대류를 막고, 벽 안쪽을 거울처럼 만들어 복사도 줄인다. 그래서 열의 이동이 느려진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-5",
+        "판정: R1 전도·대류·복사·비열(3단계 이하) / R2 +0 (열전달 3형식의 차단 여부 판단)",
+        "성취기준 [9과03-02]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "높은 하늘에서는 기압이 높은 쪽에서 낮은 쪽으로 공기를 미는 힘(기압 경도력)과, 지구 자전 탓에 움직이는 공기의 진로를 북반구에서 오른쪽으로 휘게 하는 힘(전향력)이 서로 맞버틴다. 두 힘의 크기가 같고 방향이 정반대가 되었을 때 바람은 어떻게 부는가?",
+      "options": [
+        "등압선과 나란히 분다",
+        "등압선을 가로질러 고기압에서 저기압으로 곧장 분다",
+        "등압선을 가로질러 저기압에서 고기압으로 거슬러 분다",
+        "두 힘이 상쇄되어 바람이 완전히 멈춘다"
+      ],
+      "correct_answer": "등압선과 나란히 분다",
+      "explanation_hint": "두 힘이 맞버티면 공기에 남는 알짜힘이 없어 진로가 더는 휘지 않는다. 그래서 바람은 등압선과 나란히 흐르고, 이 바람을 지균풍이라고 한다. 북반구에서 바람을 등지고 서면 왼쪽이 저기압이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 지균풍·전향력(introduced_at 6) / R3 미해당(정답이 수치가 아님) / R2 +0",
+        "성취기준 [12지시03-05]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "등압선이 휘어 있으면 그 곡선을 따라 도는 공기에 바깥쪽으로 원심력이 더 붙는다. 북반구에서 저기압성으로 휜 등압선을 따라 부는 바람(경도풍)이 같은 기압 차의 지균풍보다 느린 까닭으로 옳은 것은?",
+      "options": [
+        "원심력이 전향력과 같은 바깥쪽으로 작용해, 더 작은 전향력만으로 기압 경도력과 맞버틸 수 있기 때문",
+        "원심력이 기압 경도력과 같은 안쪽으로 작용해 안쪽으로 미는 힘이 두 배가 되기 때문",
+        "저기압성으로 휜 구간에서는 전향력이 0이 되어 바람을 휘게 하지 못하기 때문",
+        "곡선 구간에서만 지표 마찰력이 새로 생겨나 바람을 붙잡기 때문"
+      ],
+      "correct_answer": "원심력이 전향력과 같은 바깥쪽으로 작용해, 더 작은 전향력만으로 기압 경도력과 맞버틸 수 있기 때문",
+      "explanation_hint": "저기압성 곡률에서는 기압 경도력이 안쪽, 전향력과 원심력이 바깥쪽이다. 바깥쪽 몫을 원심력이 나눠 지므로 전향력이 지균풍일 때보다 작아도 균형이 잡힌다. 전향력은 풍속에 비례하므로 경도풍은 지균풍보다 느리다. 반대로 고기압성 곡률에서는 지균풍보다 빨라진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 경도풍·원심력(introduced_at 6) / R3 미해당 / R2 +0(R1 상한을 넘지 못함)",
+        "성취기준 [12지시03-05] · [12고지02-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "대기의 바람을 만드는 네 가지 힘과, 그 힘이 하는 일을 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "기압 경도력",
+          "right": "기압이 높은 쪽에서 낮은 쪽으로 공기를 밀어낸다"
+        },
+        {
+          "left": "전향력",
+          "right": "지구 자전 탓에 움직이는 공기의 진로를 북반구에서 오른쪽으로 휘게 한다"
+        },
+        {
+          "left": "원심력",
+          "right": "휘어진 경로를 도는 공기를 곡률 중심의 바깥쪽으로 밀어낸다"
+        },
+        {
+          "left": "마찰력",
+          "right": "지표 가까이에서 풍속을 줄여 바람이 등압선을 비스듬히 가로지르게 한다"
+        }
+      ],
+      "correct_answer": "기압 경도력:기압이 높은 쪽에서 낮은 쪽으로 공기를 밀어낸다|전향력:지구 자전 탓에 움직이는 공기의 진로를 북반구에서 오른쪽으로 휘게 한다|원심력:휘어진 경로를 도는 공기를 곡률 중심의 바깥쪽으로 밀어낸다|마찰력:지표 가까이에서 풍속을 줄여 바람이 등압선을 비스듬히 가로지르게 한다",
+      "explanation_hint": "바람은 이 네 힘의 합으로 정해진다. 상층에서는 마찰이 거의 없어 기압 경도력과 전향력만으로 지균풍이 되고, 등압선이 휘면 원심력이 더해져 경도풍이 되며, 지표 부근에서는 마찰력까지 붙어 지상풍이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 전향력·원심력(introduced_at 6) / R3 미해당 / R5 미해당(board 아님)",
+        "성취기준 [12고지02-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "조건부 불안정한 대기에서 공기 덩어리가 억지로 밀려 올라가 큰 소나기 구름으로 자라기까지의 과정을 순서대로 배열하세요.",
+      "items": [
+        "지표 가열이나 산비탈 때문에 공기 덩어리가 억지로 밀려 올라간다",
+        "팽창하며 식던 공기가 상승 응결 고도에 닿아 수증기가 응결하고 구름 밑면이 생긴다",
+        "응결로 나온 잠열이 공기를 데워, 자유 대류 고도부터는 공기 덩어리가 주변보다 따뜻해진다",
+        "밀어 주는 힘이 없어도 부력만으로 스스로 솟구쳐 구름이 위로 크게 자란다",
+        "주변과 기온이 같아지는 평형 고도에 이르러 꼭대기가 옆으로 퍼진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "조건부 불안정이란 구름이 없을 때는 안정하고 구름이 생긴 뒤에는 불안정한 상태다. 그래서 처음에는 밀어 주는 힘이 필요하고, 상승 응결 고도에서 구름이 생긴 뒤 자유 대류 고도를 넘어서야 스스로 솟구친다. 평형 고도에서 부력이 사라지며 꼭대기가 퍼진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 상승 응결 고도·자유 대류 고도·평형 고도(LCL·LFC·EL, introduced_at 6) / R2 +1 (3단계 이상 인과 사슬, R1 상한 유지)",
+        "성취기준 [12고지02-02] · [12지시03-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "정지한 대기에서 공기층을 위로 밀어 올리는 기압 차이의 힘과 아래로 잡아당기는 중력이 거의 같은 크기로 맞버티는 상태를 ___ 균형이라고 한다.",
+      "correct_answer": "정역학",
+      "explanation_hint": "정역학 균형은 대기가 연직으로 거의 움직이지 않는 이유를 설명한다. 이 균형이 깨지는 만큼만 공기가 위아래로 움직이므로, 연직 운동의 크기는 수평 바람에 비하면 아주 작다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 정역학 균형(introduced_at 6, 신설 항목) / R4 적용 불가(정답 문자열이 그 용어)",
+        "성취기준 [12지시03-04]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "정역학 균형에서 공기층 위아래의 기압 차는 '공기 밀도 × 중력가속도 × 층의 두께'로 구한다. 밀도가 1.2kg/m³인 공기층에서 두께 100m 구간의 위아래 기압 차는 몇 hPa인가? (중력가속도 10m/s², 1hPa=100Pa, 단위: hPa)",
+      "correct_answer": "12",
+      "explanation_hint": "1.2 × 10 × 100 = 1200Pa이고 1hPa이 100Pa이므로 12hPa이다. 지표 부근에서 100m 올라갈 때 기압이 약 12hPa 낮아진다는 경험칙이 이 계산에서 나온다. 위로 갈수록 공기 밀도가 작아지므로 같은 두께라도 기압 차는 점점 줄어든다.",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "hPa"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 정역학 균형(introduced_at 6) / R2 +1(두 변수의 정량 계산) / R3 미해당 — 정답이 암기 수치가 아니라 계산 결과다",
+        "성취기준 [12지시03-04]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "지균풍의 속력은 기압 경도(거리 1m당 기압 차)를 '공기 밀도 × 전향력 인자'로 나눈 값이다. 200km 사이에 기압이 5hPa 낮아지고 공기 밀도가 1.25kg/m³, 전향력 인자가 0.0001/s라면 지균풍은 몇 m/s인가? (1hPa=100Pa, 단위: m/s)",
+      "correct_answer": "20",
+      "explanation_hint": "기압 경도는 500Pa ÷ 200000m = 0.0025Pa/m이고, 분모는 1.25 × 0.0001 = 0.000125다. 0.0025 ÷ 0.000125 = 20m/s가 된다. 같은 기압 차라도 등압선 간격이 좁을수록 기압 경도가 커져 바람이 강해진다는 것이 이 식의 뜻이다.",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "m/s"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 지균풍·전향력 인자(introduced_at 6) / R2 +1(정량 계산) / R3 미해당 — 정답이 계산 결과다",
+        "성취기준 [12고지02-03] 해설 '힘의 크기를 수식으로 유도'"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "어느 맑은 날 지표 기온이 20℃, 높이 1km 지점의 기온이 12℃로 관측됐다. 주변 공기가 높이 1km마다 식는 정도인 환경 감률은 몇 ℃/km인가? (단위: ℃/km)",
+      "correct_answer": "8",
+      "explanation_hint": "20℃에서 12℃로 8℃ 떨어졌으므로 환경 감률은 8℃/km다. 구름이 없는 공기 덩어리가 스스로 식는 정도는 약 10℃/km이므로, 올라간 공기는 주변보다 차가워지고 무거워져 제자리로 되돌아온다. 구름이 없는 한 이 대기는 안정하다.",
+      "min": 0,
+      "max": 15,
+      "step": 0.5,
+      "unit": "℃/km"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 환경 감률·단열 감률(introduced_at 6) / R2 +1(계산 뒤 안정도 판정) / R3 미해당 — 관측값에서 구하는 계산 결과다",
+        "성취기준 [12지시03-03] 해설 '단열변화와 단열 감률을 고려한 대기의 안정도'"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "구름이 없는 공기 덩어리는 1km 올라갈 때 약 10℃, 구름이 생긴 뒤에는 약 5℃ 식는다. 주변 공기의 환경 감률과 그때의 대기 안정도를 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "환경 감률 12℃/km",
+          "right": "구름이 있든 없든 올라간 공기가 주변보다 따뜻하다 — 절대 불안정"
+        },
+        {
+          "left": "환경 감률 8℃/km",
+          "right": "구름이 없으면 안정하고 구름이 생기면 불안정하다 — 조건부 불안정"
+        },
+        {
+          "left": "환경 감률 3℃/km",
+          "right": "구름이 있든 없든 올라간 공기가 주변보다 차갑다 — 절대 안정"
+        }
+      ],
+      "correct_answer": "환경 감률 12℃/km:구름이 있든 없든 올라간 공기가 주변보다 따뜻하다 — 절대 불안정|환경 감률 8℃/km:구름이 없으면 안정하고 구름이 생기면 불안정하다 — 조건부 불안정|환경 감률 3℃/km:구름이 있든 없든 올라간 공기가 주변보다 차갑다 — 절대 안정",
+      "explanation_hint": "환경 감률을 두 기준선(약 10℃/km, 약 5℃/km)과 견주면 된다. 두 기준선보다 크면 절대 불안정, 둘 사이면 조건부 불안정, 두 기준선보다 작으면 절대 안정이다. 안정도는 절대적인 기온이 아니라 '주변이 얼마나 빨리 식는가'로 정해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 환경 감률·건조/습윤 단열 감률·대기 안정도(introduced_at 6) / R2 +1(세 상황의 반례 판정)",
+        "성취기준 [12지시03-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "맑고 바람 없는 겨울 새벽에는 지표 가까이에서 위로 갈수록 기온이 오히려 높아지는 층(기온 역전층)이 생긴다. 이 층에서 상승 기류가 억제되는 까닭으로 가장 알맞은 것은?",
+      "options": [
+        "올라간 공기 덩어리는 팽창하며 식는데 주변은 더 따뜻해서, 주변보다 차고 무거워진 공기가 곧 제자리로 되돌아오기 때문",
+        "역전층 안에서는 중력이 사라져 공기가 위아래로 움직이지 못하기 때문",
+        "역전층에서는 기압 경도력이 위쪽으로만 작용해 공기를 붙잡기 때문",
+        "역전층의 공기는 수증기를 전혀 품지 못해 가벼워지지 못하기 때문"
+      ],
+      "correct_answer": "올라간 공기 덩어리는 팽창하며 식는데 주변은 더 따뜻해서, 주변보다 차고 무거워진 공기가 곧 제자리로 되돌아오기 때문",
+      "explanation_hint": "안정도는 올라간 공기와 주변 공기의 기온을 견주어 정해진다. 역전층은 환경 감률이 음수라 어떤 단열 감률보다도 작으므로 절대 안정이다. 연직 운동이 막히는 탓에 오염 물질이 지표 가까이에 갇혀 겨울 새벽 대기질이 나빠진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 기온 역전층·환경 감률·대기 안정도(introduced_at 6) / R2 +0(단일 인과) / R3 미해당",
+        "성취기준 [12지시03-03] '기온의 연직 분포와 대기의 안정도'"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "상승하던 공기 덩어리 안에서 수증기가 응결하기 시작하면 응결하며 나오는 ___이 공기를 데워 식는 속도를 늦춘다. 그래서 습윤 단열 감률은 건조 단열 감률보다 작다.",
+      "correct_answer": "잠열",
+      "explanation_hint": "건조한 공기는 1km 올라갈 때 약 10℃ 식지만, 구름이 생긴 뒤에는 응결 잠열이 공기를 데우기 때문에 약 5℃만 식는다. 두 감률의 차이가 조건부 불안정이라는 상태를 만든다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 습윤/건조 단열 감률(introduced_at 6) — 정답 용어 '잠열' 자체는 3단계([9과04-04])이나 R1은 최댓값을 쓴다",
+        "성취기준 [12지시03-03] · [12지시03-02] 해설"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "여름 오후 하늘에 여러 개의 뭉게구름이 솟아 있을 때, 구름들의 밑면 높이가 거의 한 높이로 가지런히 정렬되어 보인다. 그 까닭으로 가장 알맞은 것은?",
+      "options": [
+        "같은 성질로 출발한 공기 덩어리가 올라가다 처음으로 포화에 이르는 높이, 곧 상승 응결 고도가 서로 같기 때문",
+        "구름은 언제 어디서나 지표에서 1km 높이에서만 만들어지기 때문",
+        "구름 밑면이 상층에서 부는 강한 바람에 깎여 평평해지기 때문",
+        "구름 속 물방울이 무거워 그 높이 아래로는 내려가지 못하기 때문"
+      ],
+      "correct_answer": "같은 성질로 출발한 공기 덩어리가 올라가다 처음으로 포화에 이르는 높이, 곧 상승 응결 고도가 서로 같기 때문",
+      "explanation_hint": "공기 덩어리는 상승하며 팽창해 식고, 기온이 이슬점에 닿는 높이에서 응결이 시작된다. 이 높이가 상승 응결 고도이고 구름 밑면이 된다. 같은 지역의 지표 공기는 기온과 이슬점이 비슷하므로 이 높이도 비슷해, 구름 밑면이 한 줄로 정렬된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 상승 응결 고도(LCL, introduced_at 6) / R2 +0 / R4 적용 안 함 — 정답 문자열에 그 용어가 들어 있다",
+        "성취기준 [12고지02-02] · [12지시03-03]"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "지표나 구름에 닿은 태양 빛 가운데 흡수되지 않고 그대로 되돌아 나가는 비율을 반사율이라고 한다. 대기과학에서 이 반사율을 가리켜 함께 쓰는 다른 이름은 무엇인가?",
+      "correct_answer": "알베도",
+      "explanation_hint": "알베도는 반사율과 같은 말이다. 갓 내린 눈은 0.8을 넘고 짙은 바다는 0.1 안팎이라, 해빙이 녹아 바다가 드러나면 알베도가 낮아지고 흡수하는 태양 에너지가 늘어난다. 국내 고등학교 과학과 교육과정에는 실리지 않은 용어라 이 단계에서만 쓴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 알베도(introduced_at 6 — 별책 9·20 전문 검색 0건, §7.3 정정) / R4 적용 불가(정답이 그 용어)",
+        "교육과정 밖 (standard: null)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "상층의 지균풍과 달리 지표 가까이에서는 마찰력이 함께 작용해, 바람이 등압선을 비스듬히 가로질러 저기압 쪽으로 불어 든다. 이렇게 마찰력까지 작용하는 지표 부근의 바람을 무엇이라고 하는가?",
+      "correct_answer": "지상풍",
+      "explanation_hint": "마찰이 풍속을 줄이면 풍속에 비례하는 전향력도 약해진다. 약해진 전향력이 기압 경도력을 다 막지 못하므로 바람은 등압선을 비스듬히 가로질러 저기압 중심으로 불어 들고, 모인 공기가 위로 올라가 구름이 만들어진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 지상풍·지균풍·마찰력(introduced_at 6) / R3 미해당 / R6 미적용(단계가 갈리지 않음)",
+        "성취기준 [12지시03-05] '지균풍, 경도풍, 지상풍의 발생 원리와 관련된 힘의 작용'"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "중위도 상공의 편서풍은 남북으로 크게 굽이치며 흐른다(편서풍 파동). 이 파동에서 기압골 동쪽 상공은 공기가 옆으로 퍼져 나가는 발산 구역이 되는데, 그 아래 지상 저기압은 어떻게 되는가?",
+      "options": [
+        "상공에서 빠져나간 만큼 지상에서 공기가 모여들며 저기압이 더 발달한다",
+        "상공에서 공기가 빠져나간 만큼 지상 기압이 높아져 저기압이 사라진다",
+        "상공의 발산은 지상 기압에 아무 영향도 주지 않는다",
+        "지상 저기압이 상공 파동을 거슬러 서쪽으로 물러난다"
+      ],
+      "correct_answer": "상공에서 빠져나간 만큼 지상에서 공기가 모여들며 저기압이 더 발달한다",
+      "explanation_hint": "상층에서 공기가 빠져나가면 그 아래 공기 기둥이 가벼워져 지상 기압이 낮아지고, 부족분을 메우려 주변 공기가 모여들며 상승 기류가 강해진다. 편서풍 파동의 골 동쪽에서 지상 저기압이 발달하는 이유이고, 골 서쪽 수렴 구역 아래에서는 반대로 저기압이 약해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "R13 2일차 CT-4",
+        "판정: R1 편서풍 파동·상층 발산(introduced_at 6 — '편서풍'만이면 4단계이나 '편서풍 파동'은 별개 항목) / R2 +1(3단계 인과 사슬)",
+        "성취기준 [12지시03-06] '행성파의 발달 과정 … 편서풍 파동의 역할'"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "며칠째 비가 오지 않는 겨울이다. 태백산맥(존 2)에 차고 건조한 공기를 들여 산불이 번지기 쉬운 맑고 메마른 날씨를 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "태백산맥(존 2)에 시베리아 기단을 놓는다.",
+        "같은 존의 습기를 40 이하로 내린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "차고 메마른 공기 덩어리가 자리 잡으면 수증기가 부족해 구름이 잘 만들어지지 않는다.",
+        "습기를 낮춰야 한다. 맑고 건조한 날이 이어지면 낙엽과 잔가지의 수분이 빠져 불이 쉽게 붙는다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — 재난 연쇄 1(산불)의 '위험 기상 생성 보드'",
+        "board_rules.json: siberian_clear (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5(보드 특례) — palette·goal이 요구하는 최고 개념은 '기단'. 결정 용어=기단, [9과17-04] → 4단계 (specs/12 §7.3 정정: 2015 [6과06-04] 삭제로 초등 근거 소멸)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "산불 대피 안내를 받았다. 집을 나서기 전부터 다시 집으로 돌아올 때까지 해야 할 일을 시간 순서대로 배열하라.",
+      "items": [
+        "대피 안내를 받으면 집 안의 창문을 닫고 가스 밸브를 잠근다",
+        "불길의 반대쪽 큰길을 따라 정해진 대피 장소로 이동한다",
+        "대피 장소에 도착해 인원 확인을 받고 안내에 따른다",
+        "산불이 꺼졌다는 공식 안내가 나온 뒤에 집으로 돌아간다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "네 가지 일은 집 안 → 이동 중 → 대피 장소 → 귀가로 있는 곳과 시각이 모두 다르다. 그래서 순서를 바꿔 놓을 수 없다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — 재난 연쇄 1(산불)의 '행동 요령 ordering'. 앞 보드(태백산맥 건조·맑음)와 짝",
+        "행정안전부 국민행동요령(산불) — 대피 전·대피 중·대피 후 단계 구분",
+        "순서 유일성 근거(R12 §9 준용): 네 항목이 집 안 → 이동 중 → 대피 장소 → 귀가로 장소·시각이 분리되어 교환이 불가능하다. 같은 시점의 행동을 우선순위로 다투게 하지 않았다",
+        "판정: R1 생활 상용어 예외(name_ok_from) — 산불의 발생·확산 메커니즘을 묻지 않고 대처 행동만 묻는다. [4과16-03] 기후변화 대응 방법의 실천 → 1단계 (specs/12 §7.1)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "건조경보는 실효습도가 25% 이하로 이틀 넘게 이어질 것으로 보일 때 발표된다. 태백산맥과 동해안(존 2·3) 두 곳을 동시에 맑고 메마르게 만들어 이 상태를 재현해 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "clear"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "실효습도는 그날의 습도만이 아니라 며칠 전까지의 습도를 함께 반영한 실무 지표다. 하루만 건조한 것보다 여러 날 낮게 이어지는 것이 위험하다.",
+        "두 존 모두에 차고 건조한 기단을 놓고 습기를 낮춰야 한다. 한 존만 맞으면 목표는 달성되지 않는다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — 재난 축 보드(다존 목표)",
+        "board_rules.json: siberian_clear를 두 존에 동시 적용 (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "기상청 기상특보 발표 기준 — 건조경보: 실효습도 25% 이하가 2일 이상 계속될 것으로 예상될 때",
+        "판정: R5 + R3 — 문두·힌트의 '실효습도 25% 건조경보 기준'은 교육과정에 실리지 않는 실무 발표 기준이다. 결정 용어=실효습도, specs/12 §2.7 '실무: 실효습도' → 6단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "산불이 크게 번지기 쉬운 날씨는 어느 것인가?",
+      "options": [
+        "여러 날 비가 오지 않아 메마르고 바람이 강한 날",
+        "전날 비가 많이 내려 땅과 낙엽이 젖어 있는 날",
+        "눈이 쌓여 있고 바람이 거의 불지 않는 날",
+        "비가 내리는 동안 바람만 강하게 부는 날"
+      ],
+      "correct_answer": "여러 날 비가 오지 않아 메마르고 바람이 강한 날",
+      "explanation_hint": "불은 마른 것에 잘 붙고, 바람은 불씨를 멀리 옮긴다. 그래서 메마른 날씨와 강한 바람이 겹칠 때 산불이 크게 번진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — wildfire_weather(건조·강풍)",
+        "판정: R1 무적발(null) → 사람 판정. 선지에 도입 단계를 가진 용어가 없다(비·눈·바람·마름은 생활어). 까닭을 묻지 않고 사례를 고르게 하므로 1단계 (specs/12 §2.2 '1단계는 까닭을 묻지 않는 문항')",
+        "선지에서 '안개'·'습도'를 의도적으로 뺐다 — 둘 다 [6과06-01~02]로 2단계라 R1이 문항 전체를 2로 올린다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "산불이 났을 때 불씨를 멀리 옮겨 불길을 빠르게 키우는 기상 요소는 무엇인가?",
+      "correct_answer": "바람",
+      "explanation_hint": "바람은 불씨와 뜨거운 공기를 앞쪽으로 실어 나른다. 바람이 강할수록 산불은 바람이 부는 쪽으로 빠르게 번진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — wildfire_weather(강풍)",
+        "판정: R1 — 결정 용어=기상 요소·바람, [6과06-01] '기상 요소는 기온, 바람, 습도, 구름의 양, 강수량을 중심으로 다룬다' → 2단계. 단일 사실 회상이라 R2 +0"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "기상청은 실효습도가 몇 % 이하로 이틀 넘게 이어질 것으로 보일 때 건조주의보를 발표하는가? (단위: %)",
+      "correct_answer": "35",
+      "explanation_hint": "건조주의보는 실효습도 35% 이하가 2일 이상 계속될 것으로 예상될 때, 건조경보는 25% 이하일 때 발표된다. 실효습도는 며칠 전까지의 습도를 함께 반영한 지표라, 하루치 습도보다 산불 위험을 잘 나타낸다.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — wildfire_weather(실효습도)",
+        "기상청 기상특보 발표 기준 — 건조주의보: 실효습도 35% 이하 2일 이상 예상 / 건조경보: 25% 이하",
+        "판정: R3(정량 정밀도 하한 강제 상향) — 정답이 실무 발표 기준 수치이고 성취기준·해설 어디에서도 읽히지 않는다. 결정 용어=실효습도(specs/12 §2.7 실무 목록) → 6단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "비가 오랫동안 내리지 않아 땅과 나무가 바싹 마르는 것을 ___(이)라고 한다.",
+      "correct_answer": "가뭄",
+      "explanation_hint": "가뭄이 이어지면 숲의 나무와 낙엽이 마른다. 마른 숲은 작은 불씨에도 쉽게 불이 붙어 산불 위험이 커진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — wildfire_weather(건조)",
+        "판정: R1 — 결정 용어=가뭄. specs/12 §2.2가 '폭염·한파·가뭄·홍수·폭설'을 1단계 도입 용어로 명시([4과16-01] 기후변화 현상의 예) → 1단계. 까닭(왜 마르는가)을 묻지 않고 현상에 이름을 붙이는 문항"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "산불 위험을 높이는 기상 조건과, 그 조건이 하는 일을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "메마른 공기",
+          "right": "낙엽과 잔가지의 수분을 빼앗아 불이 잘 붙게 한다"
+        },
+        {
+          "left": "강한 바람",
+          "right": "불씨를 멀리 실어 날라 불길을 넓게 퍼뜨린다"
+        },
+        {
+          "left": "높은 기온",
+          "right": "숲이 머금은 물이 증발하는 속도를 빠르게 한다"
+        }
+      ],
+      "correct_answer": "메마른 공기:낙엽과 잔가지의 수분을 빼앗아 불이 잘 붙게 한다|강한 바람:불씨를 멀리 실어 날라 불길을 넓게 퍼뜨린다|높은 기온:숲이 머금은 물이 증발하는 속도를 빠르게 한다",
+      "explanation_hint": "산불의 세기는 불씨 하나가 아니라 그날의 기온·바람·습기가 함께 정한다. 세 조건이 겹칠수록 위험이 커진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — wildfire_weather(건조·강풍)",
+        "판정: R1 — 결정 용어=기상 요소(기온·바람·습기) [6과06-01], 증발 [4과10-01]. 최댓값 2 → 2단계. 두 개념의 인과를 한 번씩 연결하는 수준이라 R2 +0"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "장마철이다. 동해안(존 3)에 여러 날 이어지는 큰비를 만들어 땅이 물을 더 받아들이지 못하는 상황을 재현해 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "동해안(존 3)에 정체전선을 놓는다.",
+        "같은 존의 습기를 70 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:stationary",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "persistent_rain"
+        }
+      ],
+      "hints": [
+        "세력이 비슷한 두 공기 덩어리가 맞서면 그 경계가 한곳에 오래 머문다.",
+        "습한 공기가 계속 밀려들어야 비가 여러 날 이어진다. 습기를 아주 높게 올려야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — 재난 연쇄 2(홍수)의 '위험 기상 생성 보드'",
+        "board_rules.json: stationary_front_monsoon (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — palette·goal이 요구하는 최고 개념은 '정체전선'. 결정 용어=전선, [9과17-04] → 4단계. mode=guided는 비계일 뿐 단계를 바꾸지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "여러 날 큰비가 예보되었다. 비가 오기 전부터 물이 빠진 뒤까지 해야 할 일을 시간 순서대로 배열하라.",
+      "items": [
+        "비가 오기 전날, 집 주변 하수구와 배수구를 막고 있는 낙엽을 치운다",
+        "비가 내리는 동안에는 하천 산책로와 지하 공간에 들어가지 않는다",
+        "물이 빠진 뒤 집에 돌아가기 전에 건물이 기울거나 갈라진 곳이 없는지 확인한다",
+        "물에 잠겼던 전기 기구는 충분히 마르고 점검을 받은 뒤에 다시 쓴다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "항목마다 '비가 오기 전날', '비가 내리는 동안', '물이 빠진 뒤', '그 뒤'라는 시각이 붙어 있다. 그래서 순서가 하나로 정해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — 재난 연쇄 2(홍수)의 '행동 요령 ordering'. 앞 보드(동해안 여러 날 큰비)와 짝",
+        "행정안전부 국민행동요령(호우) — 사전 대비·호우 중·호우 후 단계 구분",
+        "순서 유일성 근거(R12 §9 준용): 항목 문면 자체에 시각 표지(전날 / 내리는 동안 / 물이 빠진 뒤 / 그 뒤)가 박혀 있어 교환이 불가능하다",
+        "판정: R1 생활 상용어 예외(name_ok_from) — 호우의 생성 메커니즘을 묻지 않고 대처 행동만 묻는다. [4과16-03] → 1단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "짧은 시간에 좁은 지역으로 퍼붓는 집중호우는 대표적인 악기상이다. 서해(존 0)에 강한 소나기를 쏟아부어 이 상황을 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:cold",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "shower"
+        }
+      ],
+      "hints": [
+        "찬 공기가 따뜻하고 습한 공기를 급하게 파고들면 공기가 세차게 밀려 올라간다.",
+        "세찬 상승이 위로 크게 솟은 소나기 구름을 만든다. 습기가 넉넉해야 좁은 지역에 강한 비가 쏟아진다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — 재난 축 보드(집중호우)",
+        "board_rules.json: cold_front_shower (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 판정 대상 텍스트(문두+힌트)의 최고 개념은 '집중호우·악기상'. 결정 용어=집중호우, [12지구01-04] '뇌우, 집중호우, 폭설, 강풍, 황사 등 주요 악기상' → 5단계 (전선 4보다 높은 쪽이 지배)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "호우경보가 내린 저녁, 대피 안내를 받았다. 집에서 대피소에 자리를 잡을 때까지 해야 할 일을 시간 순서대로 배열하라.",
+      "items": [
+        "재난문자와 뉴스로 우리 동네에 내려진 호우 특보를 확인한다",
+        "집을 나서기 직전에 가스 밸브를 잠그고 전기 차단기를 내린다",
+        "물이 흐르는 지하 차도와 하천 옆길을 피해 높은 길로 이동한다",
+        "대피소에 도착해 가족이 모두 왔는지 인원을 확인한다",
+        "대피소 안내에 따라 자리를 잡고 다음 안내를 기다린다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "다섯 가지 일은 집 안에서 확인 → 나서기 직전 → 이동 중 → 대피소 도착 → 도착한 뒤로 있는 곳과 시각이 모두 다르다. 그래서 순서를 바꿔 놓을 수 없다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — 재난 연쇄 2의 행동 요령(대피 경로판)",
+        "행정안전부 국민행동요령(호우) — 대피 명령 시 행동 단계",
+        "순서 유일성 근거(R12 §9 준용): 다섯 항목이 집 안 → 나서기 직전 → 이동 중 → 대피소 도착 → 도착 후로 장소·시각이 분리된다. 같은 시점의 두 행동을 우선순위로 다투게 하지 않았다",
+        "판정: R1 생활 상용어 예외(name_ok_from) — '호우경보'는 이름만 배경으로 쓰이고 발표 기준·메커니즘을 묻지 않는다. 정답도 행동 순서다 → 1단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "호우 특보가 내린 날, 해서는 안 되는 행동은 어느 것인가?",
+      "options": [
+        "물이 흐르고 있는 지하 차도를 그대로 지나간다",
+        "하천 근처에 세워 둔 차를 미리 높은 곳으로 옮긴다",
+        "재난문자를 확인하고 대피 안내에 따른다",
+        "집을 나서기 전에 전기 차단기를 내린다"
+      ],
+      "correct_answer": "물이 흐르고 있는 지하 차도를 그대로 지나간다",
+      "explanation_hint": "물이 흐르는 곳은 깊이를 눈으로 알 수 없고, 무릎 높이의 물살에도 사람이 넘어진다. 지하 차도는 물이 빠르게 차오르는 곳이라 되돌아 나오는 것이 원칙이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — flood_response(행동 요령)",
+        "행정안전부 국민행동요령(호우) — 침수된 도로·지하 공간 진입 금지",
+        "판정: R1 생활 상용어 예외 — '호우 특보'는 배경 어휘이고 정답은 행동이다. 나머지 선지에 도입 단계를 가진 용어가 없다 → 1단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "기상청은 3시간 동안 내린 비의 양이 몇 mm 이상일 것으로 보일 때 호우주의보를 발표하는가? (단위: mm)",
+      "correct_answer": "60",
+      "explanation_hint": "호우주의보는 3시간 강우량 60mm 이상 또는 12시간 강우량 110mm 이상이 예상될 때 발표된다. 호우경보는 3시간 90mm 이상 또는 12시간 180mm 이상이다.",
+      "min": 0,
+      "max": 120,
+      "step": 10,
+      "unit": "mm"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — flood_response(호우 강도)",
+        "기상청 기상특보 발표 기준 — 호우주의보: 3시간 강우량 60mm 이상 또는 12시간 강우량 110mm 이상 예상",
+        "판정: R3(강제 상향) — 정답이 실무 발표 기준 수치다. specs/12 §4 R3의 상향 예시에 '호우주의보 60mm'가 그대로 적혀 있다 → 6단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "짧은 시간 동안 좁은 지역에 매우 강하게 쏟아지는 비를 ___라고 한다.",
+      "correct_answer": "집중호우",
+      "explanation_hint": "집중호우는 뇌우·폭설·강풍·황사와 함께 주요 악기상으로 다룬다. 같은 양의 비라도 짧은 시간에 좁은 곳에 몰리면 물이 빠져나갈 틈이 없어 침수 피해가 커진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — flood_response(호우 강도)",
+        "판정: R1 — 결정 용어=집중호우, [12지구01-04] 주요 악기상 → 5단계. R4(문항 내 정의) 적용 불가 — 그 용어가 정답 문자열이다(specs/12 §4 R4 남용 방지 조건 2)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "바람이 잔잔한 가을 새벽이다. 태백산맥(존 2) 골짜기에 땅을 덮는 안개를 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "fog"
+        }
+      ],
+      "hints": [
+        "햇볕이 약한 밤과 새벽에는 땅이 빠르게 식는다. 땅에 닿아 있던 축축한 공기도 함께 차가워진다.",
+        "놓을 요소는 없다. 일사는 아주 낮게, 습기는 아주 높게 — 두 조절값을 반대 방향으로 움직여야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건 — 저단계 진입로",
+        "board_rules.json: radiation_fog (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — palette가 일사·습기뿐이고 goal이 안개다. 결정 용어=안개 [6과06-02] '이슬, 안개, 구름을 관찰하고 공통점과 차이점을 찾을 수 있다', 기상 요소 [6과06-01] → 2단계",
+        "본시드 [30]과 다른 존(3→2)이고, 기존 13건에 존 2 안개 목표는 없다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "중위도 저기압이 서해상으로 다가오고 있다. 저기압 앞쪽에서 나타나는 날씨, 곧 넓은 지역에 오래 내리는 약한 비를 서해(존 0)에 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:warm",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "rain"
+        }
+      ],
+      "hints": [
+        "중위도 저기압의 앞쪽에는 따뜻한 공기가 찬 공기 위로 완만하게 타고 오르는 경계가 놓인다.",
+        "완만한 상승은 넓고 두꺼운 비구름을 만들어 약한 비를 오래 내리게 한다. 습기는 50 이상이 필요하다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건",
+        "board_rules.json: warm_front_steady_rain (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 판정 대상 텍스트의 최고 개념은 '중위도 저기압 통과 시 날씨'. 결정 용어=중위도 저기압, [12지구01-03] → 5단계 (전선 4보다 높은 쪽이 지배)",
+        "표기: [12지구01-03] 해설이 '온대 저기압이란 용어는 중위도 저기압으로 표현한다'고 지정 — 정본 표기를 따랐다",
+        "기존 13건에 존 0 rain 목표는 없다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "차고 건조한 시베리아 기단이 남쪽으로 내려오는 겨울이다. 수도권(존 1)에 눈을 내려 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "수도권(존 1)에 시베리아 기단을 놓는다.",
+        "같은 존의 습기를 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "snow"
+        }
+      ],
+      "hints": [
+        "차고 메마른 공기 덩어리도 따뜻한 바다를 건너면 열과 수증기를 받아 성질이 달라진다.",
+        "성질이 바뀐 공기 속에서는 눈구름이 자란다. 습기를 충분히 올려야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건",
+        "board_rules.json: siberian_snow (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 결정 용어=기단, [9과17-04] → 4단계 (specs/12 §7.3 정정). mode=guided는 단계를 바꾸지 않는다",
+        "기존 13건의 눈 목표는 존 0 두 건뿐 — 존 1 snow는 신규"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "같은 겨울 기단이 놓여도 서해안과 영동 지방의 날씨는 갈린다. 서해(존 0)에는 눈을 내리고 동해안(존 3)은 맑게 두어, 한 기단이 만드는 두 날씨를 동시에 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "snow"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "같은 기단이라도 따뜻한 바다를 건너며 수증기를 받은 쪽과 그렇지 않은 쪽은 결과가 달라진다.",
+        "두 존 모두에 기단을 놓되, 습기는 한쪽만 높이고 다른 쪽은 낮게 두어야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건 — 다존 목표(기존 13건은 전부 단일 존)",
+        "board_rules.json: siberian_snow + siberian_clear를 서로 다른 존에 동시 적용 (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 결정 용어=기단, [9과17-04] → 4단계. 두 존의 결과를 대비시키므로 R2 '여러 요인 중 지배 요인 선택' 후보이나, 지배 요인이 습기 하나로 명시돼 있어 +0"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "찬 공기가 밀려와 동해안(존 3)에 짧고 강한 소나기를 쏟아지게 해 보자. 위로 크게 솟은 적란운까지 만들어야 목표가 달성된다.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:cold",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "shower",
+          "cloud": "cumulonimbus"
+        }
+      ],
+      "hints": [
+        "찬 공기가 따뜻하고 습한 공기를 급하게 파고들면 공기가 세차게 밀려 올라간다.",
+        "세찬 상승이 위로 크게 솟은 적란운을 만든다. 습기가 60 이상이어야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건 — 구름까지 지정하는 목표(check_goals의 'cloud' 비교 경로. 기존 13건은 전부 phenomenon만 지정)",
+        "board_rules.json: cold_front_shower (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 결정 용어=전선 [9과17-04], 적란운(level_vocabulary: middle_high 허용, 초등만 금칙) → 4단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "온난화가 이어지면서 폭염은 더 자주, 더 강하게 나타나는 극한 기상이 되었다. 덥고 습한 여름 기단과 강한 햇볕을 놓아 동해안(존 3)에 폭염을 불러와 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:north_pacific",
+        "sun"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "heatwave"
+        }
+      ],
+      "hints": [
+        "여름에 우리나라를 덮는 덥고 습한 공기 덩어리는 남쪽 바다에서 올라온다.",
+        "그 위로 강한 햇볕이 더해지면 기온이 크게 오른다. 일사를 70 이상으로 올려야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건",
+        "board_rules.json: north_pacific_heatwave (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 판정 대상 텍스트의 최고 개념은 '극한 기상'. 결정 용어=극한 기상, [12기환02-03] '극한 기상 현상의 종류와 원인' → 5단계 (기단 4보다 높은 쪽이 지배)",
+        "기존 13건의 폭염 목표는 존 0·1 — 존 3 heatwave는 신규"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "대설경보는 24시간 동안 새로 쌓인 눈이 20cm(산지는 30cm) 이상일 것으로 보일 때 발표된다. 태백산맥(존 2)에 그만큼 눈을 뿌릴 겨울 날씨를 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "snow"
+        }
+      ],
+      "hints": [
+        "대설 특보의 기준은 눈이 내리는 세기가 아니라 24시간 동안 새로 쌓인 눈의 깊이다. 산지 기준을 따로 두는 것은 같은 적설도 지형에 따라 피해가 다르기 때문이다.",
+        "차고 건조한 기단이 따뜻한 바다를 건너 수증기를 받으면 눈구름이 만들어진다. 습기를 60 이상으로 올려야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건 — 최상위 단계 보강(specs/12 §8.2 '6단계는 실질적으로 빈 단계')",
+        "board_rules.json: siberian_snow (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "기상청 기상특보 발표 기준 — 대설경보: 24시간 신적설 20cm 이상, 산지 30cm 이상 (대설주의보는 5cm 이상)",
+        "판정: R5 + R3 — 문두·힌트의 대설경보 기준 수치는 교육과정에 실리지 않는 실무 발표 기준이다. specs/12 §4 R3의 상향 예시에 '대설경보'가 포함돼 있다 → 6단계",
+        "기존 13건에 존 2 snow 목표는 없다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "한낮의 햇볕이 뜨거운데도 하늘에 구름 한 점 없는 날이 있다. 태백산맥(존 2)에 그런 맑은 하늘을 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "태백산맥(존 2)의 일사를 80 이상으로 올린다.",
+        "같은 존의 습기를 30 이하로 낮춘다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "데워진 공기는 부피가 늘어 밀도가 작아진다. 둘레의 공기보다 밀도가 작아지면 위로 떠오른다.",
+        "그러나 올라가는 공기 속에 물기가 거의 없으면 물방울로 바뀔 것이 없다. 공기가 오르내려도 하늘은 맑게 남는다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — specs/11 §2 bs-convection-board 유닛 공백 메우기",
+        "board_rules.json: dry_convection_clear (신규 규칙 — 전선·기단을 쓰지 않는 순수 대류)",
+        "판정: R5 — palette는 일사·습기뿐이고 goal은 맑음이다. 결정 개념 = 온도→부피→밀도 [9과03-03 비열과 열팽창]와 수증기의 응결(액화) [9과04-03] → 3단계",
+        "3단계 성립 근거: 기존 8규칙 중 6종이 전선·기단([9과17-04] 4단계)을 끌어와 4단계로 고정되고 convective_shower·radiation_fog는 2 또는 4단계였다. 신규 규칙이 밀도·상태 변화만으로 성립해 3단계 칸이 처음 열린다",
+        "금칙 확인: 기단·전선·적운·적란운·층운·이슬점·상대습도·단열 팽창·복사냉각 미사용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "같은 세기의 햇볕을 받아도 물기가 있는 곳과 없는 곳의 하늘은 갈린다. 서해(존 0)에는 소나기를, 태백산맥(존 2)에는 맑은 하늘을 동시에 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "clear"
+        },
+        {
+          "zone": 0,
+          "phenomenon": "shower"
+        }
+      ],
+      "hints": [
+        "두 존 모두 일사를 아주 높게 올린다. 데워진 공기는 밀도가 작아져 위로 올라간다.",
+        "갈리는 것은 습기다. 올라간 공기 속 수증기가 물방울로 바뀌어야 구름이 자라고 비가 내린다. 한쪽은 습기를 60 이상으로, 다른 쪽은 30 이하로 둔다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board, 다존 목표",
+        "board_rules.json: dry_convection_clear(신규) + convective_shower(기존, 판정 불변)",
+        "판정: R5 — 결정 개념 = 수증기의 응결(액화) [9과04-03]과 밀도 [9과03-03]. 소나기는 생활 상용어라 단계를 올리지 않는다 → 3단계",
+        "R2 보정 없음: 지배 요인(습기)이 힌트에 명시돼 있어 '여러 요인 중 선택'이 아니다. 애매 시 낮은 쪽(R6)",
+        "goal_conditions 순서 의도: select_feedback은 첫 목표 존의 성립 규칙 explain을 정답 피드백으로 쓴다. 맑음(존 2)을 앞에 두어 3단계 언어로 쓰인 dry_convection_clear의 explain이 나오게 했다 — convective_shower의 explain에는 적란운(도입 4)이 있다",
+        "금칙 확인: 기단·전선·구름 종류 명칭 미사용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "공기 속 물기가 같아도 열을 받은 곳과 식은 곳은 다른 날씨가 된다. 수도권(존 1)에는 소나기를, 동해안(존 3)에는 안개를 만들어 보자. 두 존의 습기는 똑같이 높게 두어야 한다.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "shower"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        }
+      ],
+      "hints": [
+        "두 존의 습기를 똑같이 80 이상으로 올린다. 갈리는 것은 일사다.",
+        "열을 받은 공기는 밀도가 작아져 높이 올라가면서 물방울이 되고, 열을 잃고 식은 공기는 그 자리에서 물방울이 된다. 위에서 생기면 구름이고 땅에 붙어 생기면 안개다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board, 일사 축 대비(습기 고정)",
+        "board_rules.json: convective_shower + radiation_fog (둘 다 기존 규칙 — 판정 불변)",
+        "판정: R5 — 결정 개념 = 열의 이동과 상태 변화(액화) [9과04-03·9과03-02] → 3단계. 안개·구름은 [6과06-02] 2단계 관찰 대상이라 상향 요인이 아니다",
+        "금칙 확인: 복사냉각([9과17-01] 4단계)을 쓰지 않고 '열을 잃고 식은'으로 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "구름이 생기려면 공기를 밀어 올릴 열과 물방울이 될 수증기가 함께 있어야 한다. 서해(존 0)에는 소나기, 수도권(존 1)에는 맑음, 동해안(존 3)에는 안개 — 세 가지 하늘을 한 판에 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "clear"
+        },
+        {
+          "zone": 0,
+          "phenomenon": "shower"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        }
+      ],
+      "hints": [
+        "열과 물기를 둘 다 갖춘 존에서는 공기가 높이 올라가 소나기가 쏟아진다.",
+        "열은 있으나 물기가 없으면 맑고, 물기는 있으나 열이 없으면 식은 자리에서 물방울이 생겨 안개가 낀다. 존마다 일사와 습기를 따로 정해야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board 마무리 문항. 열×수증기 2×2 중 세 칸을 한 판에 배치",
+        "board_rules.json: convective_shower + dry_convection_clear(신규) + radiation_fog",
+        "판정: R5 — 결정 개념 = 밀도 [9과03-03]·상태 변화 [9과04-03] → 3단계. R2 '여러 요인 중 지배 요인 선택' 후보이나 두 요인(열·물기)이 문두에 명시돼 판정이 아니라 적용이므로 +0, 애매하면 낮은 쪽(R6)",
+        "빈 보드 반례 방어: 세 목표 모두 기본 판정(cloudy/cumulus)과 다르므로 무배치로 통과할 수 없다",
+        "goal_conditions 순서 의도: 정답 피드백(select_feedback)이 첫 목표 존의 규칙 explain이므로 맑음(존 1)을 앞에 두어 3단계 언어의 dry_convection_clear가 나오게 했다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "습한 공기가 올라가다 수증기가 물방울로 바뀌면 잠열이 나와 둘레 공기를 데운다. 그 열이 상승을 더 세게 만든다. 동해안(존 3)에 소나기가 쏟아지게 해 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "동해안(존 3)의 일사를 80 이상으로 올린다.",
+        "같은 존의 습기를 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "shower"
+        }
+      ],
+      "hints": [
+        "햇볕에 데워진 공기는 밀도가 작아져 위로 올라간다. 일사부터 올려야 한다.",
+        "올라간 공기 속 수증기가 물방울로 바뀔 때 잠열을 내놓는다. 그 열이 공기를 더 데워 상승이 세지고, 짧고 굵은 소나기가 내린다. 습기를 60 이상으로."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board. 상태 변화의 열에너지 출입을 보드로 체득",
+        "board_rules.json: convective_shower (기존 규칙 — 판정 불변)",
+        "판정: R5 + R1 — 결정 용어 = 잠열, level_vocabulary introduced_at=3 [9과04-04 상태 변화와 열에너지 출입] → 3단계. mode=guided는 단계를 바꾸지 않는다",
+        "본시드 [12](density_buoyancy·존 1·knowledge_level 2)와 존·mode·결정 용어가 모두 다르다 — 그쪽은 잠열 없이 대류만 다룬다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "봄이 되면 대륙에서 따뜻하고 건조한 양쯔강 기단이 우리나라로 이동해 온다. 기단은 넓은 지역을 한꺼번에 덮는다. 서해(존 0)와 수도권(존 1)을 함께 맑게 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "서해(존 0)에 양쯔강 기단을 놓는다.",
+        "수도권(존 1)에도 같은 기단을 놓는다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:yangtze",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "clear"
+        },
+        {
+          "zone": 1,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "양쯔강 기단은 따뜻하고 건조하다. 수증기가 적으면 구름이 잘 생기지 않는다.",
+        "기단은 한 존이 아니라 넓은 지역을 덮는다. 두 존 모두에 기단을 놓고, 습기는 50 이하로 두어야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — 사문 기단 살리기. yangtze는 subtype enum에만 있고 어떤 규칙도 참조하지 않아 보드에서 늘 cloudy였다",
+        "board_rules.json: yangtze_mild_clear (신규 규칙)",
+        "기상학 근거: 양쯔강(揚子江) 기단은 봄·가을 이동성 고기압으로 우리나라를 통과하는 온난 건조 기단이다. 수증기가 적어 맑고 포근한 날씨를 만든다",
+        "판정: R5 + R1 — 결정 용어 = 기단, introduced_at=4 [9과17-04] → 4단계. mode=guided는 단계 불변",
+        "다존 목표로 '기단은 넓은 지역에 걸쳐 성질이 고른 공기 덩어리'라는 정의 자체를 배치로 체득시킨다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "봄가을에는 이동성 고기압이 서에서 동으로 사나흘 간격으로 지나가며 날씨를 바꾼다. 고기압에 덮인 새벽, 아직 해가 들지 않은 수도권(존 1)에는 안개가 끼고 먼저 해가 뜬 동해안(존 3)은 맑다. 이 두 하늘을 함께 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:yangtze",
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "fog"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "두 존은 같은 공기 덩어리에 덮여 있다. 갈리는 것은 햇볕과 물기다.",
+        "해가 들지 않은 존은 일사를 30 이하로 낮추고 습기를 60 이상으로 올린다. 해가 든 존은 습기를 50 이하로 두면 맑아진다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — 사문 기단 살리기(yangtze 두 번째 얼굴)",
+        "board_rules.json: yangtze_morning_fog(신규) + yangtze_mild_clear(신규)",
+        "기상학 근거: 이동성 고기압 권역에서는 밤에 하늘이 맑아 지표가 빠르게 식고, 바람이 약해 새벽 안개가 잦다. 해가 뜨면 걷힌다 — 봄가을 아침 안개의 전형",
+        "판정: R5 — 결정 개념 = 중위도 고기압이 통과할 때의 날씨 변화 [12지구01-03] → 5단계(기단 4보다 높은 쪽이 지배)",
+        "금칙 확인: 5단계 문항이므로 단열 감률·전향력 등 6단계 용어 미사용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "초여름이면 북동쪽 바다에서 차고 습한 오호츠크해 기단이 밀려와 동해안이 서늘해진다. 동해안(존 3)을 안개로 덮어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "동해안(존 3)에 오호츠크해 기단을 놓는다.",
+        "같은 존의 습기를 70 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:okhotsk",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        }
+      ],
+      "hints": [
+        "오호츠크해 기단은 차고 습하다. 찬 바다 위를 지나온 습한 공기는 아래에서부터 식는다.",
+        "식은 공기 속 수증기가 응결하면 바다와 해안을 뒤덮는 안개가 된다. 습기를 70 이상으로 올려야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — 사문 기단 살리기. okhotsk도 enum에만 있고 규칙 참조가 0이라 보드에서 늘 cloudy였다",
+        "board_rules.json: okhotsk_sea_fog (신규 규칙)",
+        "기상학 근거: 오호츠크해 기단은 한랭 다습한 해양성 기단이다. 초여름 이 기단이 확장하면 동해상에 해무와 낮은 구름이 끼고 영동 지방이 저온·흐림이 된다",
+        "판정: R5 + R1 — 결정 용어 = 기단, introduced_at=4 [9과17-04] → 4단계. mode=guided는 단계 불변",
+        "기존 board 20건(본시드 13 + 2일차 7)에 동해안 안개 목표는 존 3 radiation_fog 1건뿐이고 그것은 기단을 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "오호츠크해 기단이 밀려오면 태백산맥을 사이에 두고 동쪽과 서쪽 날씨가 갈린다. 동해안(존 3)은 안개에 잠기고, 산을 넘어간 공기가 닿는 수도권(존 1)에는 높새바람이 불어 맑고 건조해진다. 두 하늘을 함께 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:okhotsk",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        },
+        {
+          "zone": 1,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "같은 기단이 산을 넘기 전과 넘은 뒤에 전혀 다른 날씨를 만든다. 두 존 모두에 같은 기단을 놓아야 한다.",
+        "산을 오르며 비를 뿌린 공기는 물기를 잃는다. 동쪽 존은 습기를 70 이상으로, 서쪽 존은 30 이하로 두어야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — okhotsk 다존 대비. 같은 기단이 지형을 사이에 두고 두 날씨를 만든다",
+        "board_rules.json: okhotsk_sea_fog(신규) + okhotsk_foehn_clear(신규)",
+        "기상학 근거: 오호츠크해 기단의 습윤한 공기가 태백산맥을 넘으며 강수로 수증기를 잃고, 산을 내려오며 승온해 영서 지방에 고온 건조한 높새바람이 분다",
+        "판정: R5 + R1 — 결정 용어 = 높새바람, level_vocabulary introduced_at=5(교육과정 근거 없음·5단계 정성 구간) → 5단계. 6단계 표기인 '푄'은 쓰지 않았다",
+        "금칙 확인: 단열 감률·상대습도 정량 미사용(그것은 아래 6단계 문항이 담당)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "산을 오르는 공기는 습윤단열감률 약 5℃/km로 식으며 비를 뿌리고, 물기를 잃은 채 산을 내려오는 공기는 건조단열감률 약 10℃/km로 데워진다. 그래서 산을 넘은 공기는 오르기 전보다 뜨겁고 메마르다. 수도권(존 1)에 이 푄 현상이 만든 맑고 건조한 하늘을 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:okhotsk",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "강수로 수증기를 잃은 공기가 하강하면 건조단열감률을 따라 데워진다. 기온은 오르고 상대습도는 급격히 떨어져 구름이 사라진다.",
+        "산 너머로 내려온 그 공기 덩어리를 수도권에 놓고, 습기를 30 이하로 낮춰야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — 최상위 단계 보강(specs/12 §8.2 '6단계는 실질적으로 빈 단계')",
+        "board_rules.json: okhotsk_foehn_clear (신규 규칙)",
+        "판정: R5 + R3 — 결정 용어 = 푄·건조단열감률·습윤단열감률. level_vocabulary introduced_at=6(푄은 교육과정 전문 검색 0건, 단열 감률은 [12지시03-03]) → 6단계. 5℃/km·10℃/km는 specs/12 §4 R3의 상향 예시('건조공기 1km당 −10℃')와 같은 성격의 정량 수치다",
+        "기상학 근거: 푄 현상 — 포화 상태로 산을 오른 공기는 습윤단열감률(약 5℃/km)로 냉각되며 응결·강수로 수증기를 잃고, 하강 시에는 건조단열감률(약 10℃/km)로 승온해 풍하측이 고온 건조해진다",
+        "같은 규칙을 쓰는 5단계 문항(높새바람)과 짝이다 — 같은 배치가 단계에 따라 다른 언어로 설명된다는 것이 2축 분리의 실증이다"
+      ]
+    },
+    "status": "active"
   }
 ]

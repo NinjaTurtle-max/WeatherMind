@@ -68,9 +68,10 @@ class TestBoardDifficultySeedDistribution:
         entries = json.loads(SEED_PATH.read_text(encoding="utf-8"))
         return [e for e in entries if e["question_type"] == "board"]
 
-    def test_12건_분포_1_2_3_모두_존재(self):
+    def test_분포_1_2_3_모두_존재(self):
         boards = self._seed_boards()
-        assert len(boards) == 13  # R12 §9 — bs 대류 퍼즐(guided·elementary) 추가
+        # R12 §9 13건 → R13 2일차 통합에서 +21(2일차 저작 7 + 규칙 확장 10 + 재난 4)
+        assert len(boards) == 34
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
@@ -84,11 +85,11 @@ class TestBoardDifficultySeedDistribution:
         )
         # R12 §9: bs 대류 퍼즐이 guided(난이도 1)로 합류 — 1이 3→4.
         # R13 2일차: 전수 재분류로 board 13건 중 12건이 4단계(→middle_high)로 모이면서
-        # adult 가중을 받던 2건이 내려왔다 — 3이 4→2, 2가 5→7. 의도한 이동이다:
-        # 그 2건은 "실화 재현" 퍼즐이라 성인 신고값을 달고 있었을 뿐 요구 지식은
-        # 전선·기단(§2.5 4단계)이었다. 다만 이 이동은 board 난이도가 사실상 한 칸에
-        # 몰려 있다는 뜻이기도 하다(docs/specs/12 재분류 보고 — board 12/13이 4단계).
-        assert dist == {1: 4, 2: 7, 3: 2}
+        # adult 가중을 받던 2건이 내려왔다 — 3이 4→2, 2가 5→7.
+        # 같은 날 통합 병합으로 13→34건. 재분류 시점에 "한 칸에 몰려 있다"고 적었던
+        # 상태가 실제로 풀렸다 — 3단계 보드가 개통되고(전선·기단을 안 쓰는 대류 규칙)
+        # 양쯔강·오호츠크 기단 퍼즐이 5·6단계로 붙으면서 1·2·3이 11·13·10으로 고르다.
+        assert dist == {1: 11, 2: 13, 3: 10}
 
 
 def _puzzle(name: str, level_group: str):

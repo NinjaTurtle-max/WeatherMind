@@ -70,7 +70,9 @@ class TestSeedSchema:
         # R13 2일차: +13 배치고사 격자 구멍 메우기 = 154. 전수 재분류로 셀이 다시
         # 갈리면서 네 셀이 0이 됐다 — 셀에 1건뿐이면 두 신고 그룹이 같은 문항을 집어
         # 서로소가 깨진다(test_placement의 TestDisjointPicksRealSeed가 잡은 지점).
-        assert len(SEED_ITEMS) == 154
+        # R13 2일차 통합 병합: +83 = 237(1단계 18 · 3단계 18 · 6단계 15 · 재난 15 ·
+        # 보드 7 · 보드 규칙 확장 10). 실질 0건이던 6단계가 31건이 됐다.
+        assert len(SEED_ITEMS) == 237
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
@@ -95,14 +97,21 @@ class TestSeedSchema:
 class TestSeedCoverage:
     """S8 AC: 6태그 × 2학령 커버, 슬롯 문항 ≥ 6건."""
 
-    def test_12태그_전부_존재(self):
-        """기상 6종(R3~) + 기초과학 6종(R12 §9 — specs/11 §1)."""
+    def test_14태그_전부_존재(self):
+        """기상 6종(R3~) + 기초과학 6종(R12 §9 — specs/11 §1) + 재난 2종(R13 §2.4).
+
+        재난 축은 R13 1일차에 `ALLOWED_CONCEPT_TAGS`로 열렸지만 문항이 0건이라
+        **빈 태그**였다(약점 태그·복습 큐의 빈 축이 되지 않도록 개방과 저작을 함께
+        한다는 R12 AU-2 관례를 어긴 상태). 2일차 통합 병합으로 15건이 들어와
+        실체가 생겼다. 지진은 범위 밖 확정(지질학) — 여기 늘어나면 안 된다.
+        """
         tags = {item["concept_tag"] for item in SEED_ITEMS}
         assert tags == {
             "pressure_front", "typhoon", "air_mass",
             "heat_island", "co2_climate", "anomaly",
             "temperature_heat", "radiation_budget", "pressure_basics",
             "phase_change", "density_buoyancy", "energy_transfer",
+            "wildfire_weather", "flood_response",
         }
 
     def test_태그마다_2개_이상_학령_커버(self):
