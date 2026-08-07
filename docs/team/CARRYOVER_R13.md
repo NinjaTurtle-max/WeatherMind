@@ -515,3 +515,93 @@ IRT b 재보정 휴면(`MIN_TOTAL_RESPONSES=200` 가드, 8/18 예정) · BKT `fi
 그 밖: **일일 세션 하루 1회 멱등**(3세션 하려면 유닛 세션을 3번) · **복습 큐는 1일차에 카드 자체가 사라진다**(R11 핵심 산출물이 심사에 존재하지 않음) · **예보 대결 정산 익일 · 리그 정산 주간**(두 기능 다 **결과 화면을 심사에서 볼 수 없다**) · 리그 디비전 30명이라 참가자 1명이면 빈 리더보드 · 왕관 진도 데모 내내 0/N · 스트릭 7칸 중 6칸 회색 · 배치 선해금은 θ≥0.5 **그리고** n>0이라 게스트는 사실상 항상 0 · **`weak_tags`는 UI에서 죽어 있음**(CO-I-3).
 
 **즉시 쓸 수 있는 완화 레버(코드 변경 없음)**: `ENERGY_ENABLED=false`(문서상 데모용 레버) · `DEV_MODE=true`(⚙️ 패널로 unlock_all·theta·clouds 조작 — 시크릿 기동 가드가 완화되므로 **시연 직전에만**).
+
+---
+
+## O. AI 게이트·생성 파이프라인 (검수 7, 2026-08-07) — **G1(8/10) 앞의 필수 선행**
+
+### 🔴 O-1 ~ O-4. G1을 지금 상태로 돌리면 안 되는 이유
+
+| # | 항목 | 근거 |
+|---|---|---|
+| **O-1** | **체크포인트가 없다 — 전부 아니면 전무** | `run_batch`가 1,360건을 **메모리에 다 모은 뒤** 루프 종료 후 `append_items`를 한 번 부른다(`author_items.py:660-779`→`:965`). **`--resume`도 부분 flush도 없다.** 1,300번째에서 Ctrl-C·OOM·네트워크 끊김 → **지불한 1,300콜 전액 소실.** 직렬 실행이 45분~1.5시간이라 노출 시간도 길다. **1회성 유료 배치의 최대 리스크** |
+| **O-2** | **레이트 리밋 대응이 0** | `sleep`·`backoff`·`max_retries`·429 처리가 **저장소 전체 0건**(grep). 1,360건 연속 발사는 확실히 한도를 친다. 429가 `except Exception`에 잡혀 → temp 0.1 즉시 재시도(또 429) → **조용히 폴백 뱅크** |
+| **O-3** | **폴백이 Gemini로 서명돼 시드에 들어간다** | `model_label`은 로드 시점 `llm_configured()`로 한 번 정해지고 `source.refs[0]`은 **항상** `generated: ... (model=…)`. 키가 있는데 API가 죽으면 **폴백 문항이 `model=gemini-…`로 서명**된다. "키 있는데 langchain 없음"만 크게 실패시키고 **훨씬 흔한 "키 있는데 API 실패"는 무경보** |
+| **O-4** | **프롬프트 입력 다양성 축이 42개뿐** | 플랜이 `(개념 × 밴드)`만 순환하고 `weather`는 **배치 전체가 상수 1개**. 1,360건이면 **같은 프롬프트를 평균 32회**. 변주는 temperature뿐. **실측 60건 → 추가 7 · 중복 53** |
+
+### O-5 ~ O-9. 저작 도구·계약
+
+| # | 항목 |
+|---|---|
+| **O-5** 🔴 | **`knowledge_level`과 `level_group`이 모순된 채 뱅크에 들어간다** — `level_group`은 **CLI 플랜**에서, `knowledge_level`은 **모델 신고**에서 오는데 **둘을 대조하는 코드가 저장소에 없다**. **실측: 60건 dry-run 첫 항목이 `lg=elementary / kl=4`**(밴드상 `middle_high`). L-F2(정확 일치·강등 없음)와 겹치면 **중2 유체지구 문항이 초등 풀에 서빙**. 같은 파일의 `expand_template`은 `level_group_of(kl)`로 **올바르게 파생** — 두 저작 경로가 서로 반대 |
+| **O-6** 🔴 | **`--level-group` 선택지에 `expert`가 없다**(`placement_service.LEVEL_GROUPS` 3종을 씀 ↔ `seed_content`는 4종). **B7이 계획한 "G1 6단계 ~30건 = Gemini" 슬라이스를 이 도구로 낼 수 없고**, `--knowledge-level 6`을 줘도 O-5가 확정 발생 |
+| **O-7** 🔴 | **slider 0~100 하드코딩이 `validate_entry`에 살아 있다** — `validate_chain.slider_range`는 "문항 자신의 min/max"로 고쳐졌고 주석이 "기압 900~1100·정답 1008을 오탈락시킨다(실측)"라 이유까지 적었는데 **같은 하드코딩이 `seed_content.py:137`에 남았다**. 실측: gate1 PASS · payload PASS · `validate_entry` **FAIL**. **런타임 영속화도 같은 함수를 쓴다** → 8/11~18에 넓은 범위 slider는 영원히 일회용 |
+| **O-8** 🟠 | **`route`·`target_concept_tag`가 프롬프트에 없다** — input JSON에 싣지만 `SYSTEM_PROMPT`에 사용 지시가 0. `router-decide`→`quiz-generate` 홉이 **모델 쪽에서 끊긴다**. 게다가 `run_batch`가 **모델이 돌려준 태그를 그대로 수용**하고 요청 태그와 대조하지 않아 **배치 플랜의 개념 분포가 강제되지 않는다** |
+| **O-9** 🟠 | **E-4의 수리 지점이 2곳** — `ai_client.quiz_generate`뿐 아니라 **ai-worker HTTP 스키마 자체에 `knowledge_level`이 없다**(`main.py:105`). ai_client만 고치면 **ai-worker 입구에서 조용히 버려진다**. 덤: **`question_type`도 생성 입력에 없어** 모델이 마음대로 고른다 |
+
+### 🔴 O-10. B7의 전제가 틀렸다 — "물리 오류"는 6단계 고유가 아니다
+
+2단 LLM 게이트의 판정 3항목(`answer_uniqueness`·`option_clarity`·`concept_match`) 중
+**어느 것도 "이 진술이 참인가"를 묻지 않는다.** `concept_match`는 주제 일치이지 사실 검증이 아니다.
+
+> *"태풍이 에너지를 얻는 주된 원천은? → 차가운 극지방 해류"* 는 태그도 맞고 정답도 유일하고
+> 보기도 선명해서 **1단·2단 전부 통과**한다.
+
+**B7의 "6단계 30건만 Gemini" 라우팅은 이 구멍을 6단계에만 막는 셈이고, 구멍은 1~5단계
+1,330건에도 그대로 있다.** 라우팅 근거를 재판정해야 한다.
+
+### O-11. 게이트 16종 실효 — 문항당 실제로 걸리는 건 3~6개
+
+12개는 유형별 "해당 없음" 자동 통과다. **못 거르는 것**:
+- **board**: 판정 규칙(`board_rules.json`)을 게이트가 안 읽어 **도달 불가능한 퍼즐이 전건 통과**. 팔레트에 목표 달성용 요소가 있는지도 안 봄
+- **ordering**: 정답이 `items` 순서인데 **순서가 옳은지 아무도 검증 안 함**
+- **match**: 짝이 실제로 대응하는지 안 봄 · **options_unique는 문자열 중복만** 봐서 의미 중복("비가 온다"/"강수가 있다")이면 정답 2개인 4지선다가 통과
+- **어휘표 미등재 6종**(태풍·온실효과·장마·황사·무역풍·기압경도력 — CO-C3)은 검사 ⑯이 전건 무적발
+
+### O-12. G1 비용이 새는 지점
+
+| 지점 | 손실 |
+|---|---|
+| 문항당 최대 **4콜**(생성 2 + 검증 2, 상한 고정 — 무한 루프 없음) | 1,360건 최악 **5,440콜** |
+| 🔴 **중복 검사가 2차 게이트 *뒤*에 있다** | 버릴 문항에 이미 검증 LLM 비용을 냈다. **앞으로 옮기면 O-4 낭비분 전액 절약** |
+| 🔴 **`대기순환`에 유효 슬러그가 없다** | 프롬프트 출력 스키마 8종 중 하나인데 `ALLOWED_CONCEPT_TAGS`에 대응이 없다 → 모델이 고르면 **확정 폐기**. 8분의 1 무조건 낭비 |
+| 🔴 **토큰 계측이 전혀 없다** | `usage_metadata`·`total_tokens` grep **0건**. **G1 예산 소진을 코드로 알 수 없고 Google 콘솔로만 안다.** 리포트도 "몇 건"만 세고 "몇 콜·몇 토큰"을 안 센다 |
+| 🟠 O-7 넓은 slider | 게이트 2개 통과 후 폐기 |
+
+### 🔴 O-13. G1으로는 유형 3종만 나온다
+
+`payload_contract.QuizQuestion.question_type`이 **`multiple_choice`·`short_answer`·`slider` 3종 Literal**이고
+`GENERATED_PAYLOAD_FIELDS`도 3키다. **board뿐 아니라 match·ordering·cloze도 생성 대상 밖**이며
+"넓히지 말 것"이 주석에 **의도로 명시**돼 있다. `session_service.GENERATED_ITEM_TYPES`도 같은 3종이라
+계약은 일관되지만 — **뱅크 유형 다양성은 G1으로 안 늘어난다.** 늘리려면 템플릿 확장이나 손 저작뿐.
+
+### O-14. `test_prompt_spec_parity`가 안 보는 것
+
+① **역방향을 안 본다** — 프롬프트의 각 줄이 스펙에 있는지만 보고 **스펙에만 있고 프롬프트에 없는 규칙은 안 본다**(O-8의 `route` 계약이 정확히 이 틈으로 샜다) ② `ln not in spec_text` **부분문자열 대조**라 순서·인접성을 안 봐서 프롬프트 줄이 스펙의 **개정 노트**에 있어도 통과 ③ `ast.Constant`만 수집 — f-string으로 바꾸면 **감시 대상이 조용히 사라진다**.
+
+> **정상 확인**: `rag_chain`의 개념 직접 조회는 정확하다(태그 부재 시 `SYSTEM_PROMPT_NO_CONTEXT`로 전환해 자기모순 회피). 재시도 상한은 생성 2·검증 2로 **고정 — 무한 루프 없음**. `rag-feedback`도 1회 실패 → 즉시 기본 문구라 폭주 위험 없음. ⚠️ 단 **`rag_chain`만 langchain을 최상단 import**하고 `main.py`가 무조건 부르므로 **langchain 없는 환경에서는 ai-worker 앱 전체가 안 뜬다**(무키 폴백 계약과 어긋남 — 현재 실해는 없음).
+
+## P. 인증·온보딩·게스트 (검수 4, 2026-08-07)
+
+| # | 항목 | 근거 |
+|---|---|---|
+| **P-1** 🔴 | **bcrypt 핀이 테스트로 지켜지지 않는다 — 지금 이 머신에서 `/auth/guest`가 500** | `requirements.txt:9`가 `bcrypt==4.0.*`를 핀하고 주석이 비호환 이유까지 적었는데, **인증 테스트가 `hash_password`/`verify_password`를 전부 monkeypatch**해 **실 bcrypt 호출 테스트가 리포에 0건**. **실측**: bcrypt 5.0.0 환경에서 인증 테스트 **28 passed**, 같은 클라이언트로 스텁 없이 `/auth/guest` → **500**. 핀이 올라가거나 이미지가 핀 없이 재빌드되면 **register·login·guest·convert 4경로 전부 500 + CI는 초록**. J절 "소비자를 안 묻는다"의 의존성판 |
+| **P-2** 🔴 | **심사장 NAT — 같은 와이파이 6번째부터 게스트 시작 429** | `LIMIT_AUTH="5/minute"` IP 기준. **실측 `[201×5, 429×3]`**. 화면엔 detail 문구만 뜨고 카운트다운·자동 재시도 없음. **`ENERGY_ENABLED`·`DEV_MODE` 어느 레버도 못 연다 → 배포 전 상향 필수** |
+| **P-3** 🔴 | **Redis 세션 TTL이 refresh로 갱신되지 않는다 — 7일 하드 컷** | TTL은 login·register·guest·convert에서만 세팅, `refresh`는 **읽기만**. 매일 써도 생성 +7일에 만료 → 401 → 로그아웃. **8/11~18 실운영이 정확히 7~8일**이고 URL은 9월 셋째 주까지 살아야 한다 |
+| **P-4** 🔴 | **게스트 로그아웃 = 진도 영구 소실, 확인창 0** | 게스트 비밀번호가 무작위 시크릿이라 **재진입 경로가 존재하지 않는다.** 그런데 로그아웃 버튼이 **게스트에게도 헤더 오른쪽 끝에 항상** 있고 확인 없이 즉시 실행. XP·θ·스트릭이 DB에 고아로 남는다. **시연 중 누르면 끝** |
+| **P-5** 🔴 | **게스트는 평생 `middle_high`** | 학령 신고 writer가 **`POST /auth/register`의 필드 하나뿐**. 게스트는 하드코딩, `ConvertRequest`는 **명시 거부**, 배치고사 완료도 θ만 쓰고 `level_group` 미변경(`user.level_group =` 프로덕션 grep **0건**), `/progress/me`에 필드도 PUT도 없음. **R10-J가 주 동선으로 만든 경로를 탄 사람은 초등학생이든 성인이든 평생 middle_high**이고 배치고사로도 못 바꾼다 |
+| **P-6** 🔴 | **refresh 토큰이 7일짜리 만능 Bearer** | `refresh` 경로는 `type`을 검사하는데 **`get_current_user`는 `type`을 안 본다** — `sub` + Redis 키 존재만. **실측 재현: refresh 토큰을 Bearer로 넣으면 통과**. 30분 access 만료의 봉쇄 효과 0. `specs/08:104`가 *"access=메모리 / refresh=httpOnly 쿠키"*라 적었는데 **실제는 둘 다 localStorage**라 곱해진다 |
+| **P-7** 🔴 | **rate limit이 XFF 첫 홉을 무조건 신뢰** | 주석은 *"nginx가 전달하는"*이라 하는데 **prod 경로에 nginx가 없다**(Caddy `handle /api/*` 직결, `trusted_proxies` 미설정). **실측: XFF를 바꾸면 8/8 전부 201**(한도 무력) ↔ 동일 IP는 `[201×5,429×3]` |
+| **P-8** 🟠 | 정식 가입이 rate limit 버킷을 **2칸** 쓴다 | `RegisterResponse`에 refresh_token이 없어 프론트가 곧바로 `/auth/login`을 한 번 더 친다. **서버는 그 토큰을 이미 만들어 Redis에 넣고 응답에서 버린다** — 필드 하나면 왕복도 버킷도 절반. 덤: **`/auth/refresh`에 rate limit이 없다** |
+| **P-9** 🟠 | **로케일 홉이 서버에 없다** | 백엔드 `locale\|Accept-Language` grep **0건**. 에러 `detail`이 전부 한국어 하드코딩인데 프론트가 `err.detail ?? t('...')` 형태라 **en 리소스가 도달 불가 죽은 코드**. en 사용자는 429·500·실패에서 한국어를 본다. 생성 문항·AI 피드백도 로케일 무관 |
+| **P-10** 🟠 | **서버가 "너는 누구인가"를 안 알려준다** | `/auth/me` 없음, `/progress/me`에 email·nickname·is_guest·level_group 없음 → 게스트 판별이 **100% 클라 상태 의존**. `user` 필드만 유실되면 배너가 안 뜨고 `/account/convert` 직접 진입 시 **"이미 정식 계정입니다"라는 거짓 화면**. 덤: `syncFromProgress`의 계정 전환 감지가 `user_id`를 싣는 곳이 RegisterPage 하나뿐이라 **도달 불가 코드** · 401→refresh 실패가 `resetGate()`를 안 불러 **해금 상태가 다음 게스트에 상속** |
+| **P-11** 🟠 | **Redis 유실 = 전 게스트 영구 로그아웃** | 세션 단일 소유자가 Redis인데 `appendonly`·`maxmemory-policy` 없음 + prod `mem_limit: 192m` + `restart:` 부재(J-16). 컨테이너가 한 번 죽으면 진행 중 게스트 전원이 P-4 상태 (⚠️ 구성 기반 추론 — OOM 실재현 미실시) |
+| **P-12** 🟡 | CORS `allow_origins`가 localhost 5종 하드코딩(env 노브 없음) — Caddy 동일 오리진에선 무해하나 `VITE_API_BASE_URL`을 절대 URL로 굽는 순간(J-16 build-args 부재와 맞물림) **인증 전건이 CORS로 죽는다** |
+| **P-13** 🟡 | `specs/02` Auth 표에 **`/auth/guest`·`/auth/guest/convert` 미등재** — 규정 「로그인 없이 열려야」를 만족시키는 주 동선 2개가 API SSOT에 없다 |
+| **P-14** 🟡 | 목↔서버: 목에 `tone` 없음 / 서버에 없는 `max_clouds`를 목이 방출 / **게스트 닉네임이 서버 `게스트-{hex6}` ↔ 프론트 저장 "게스트"** → 리더보드 이름과 내 프로필 이름이 다르다 / **목 `mockAuth.isGuest`가 단일 불린**이라 "두 번째 게스트"가 존재하지 않는다 → **P-4·P-10은 목 위 스모크로 원리적으로 못 잡는다** |
+
+> **CLAUDE.md 오기 7번째**: *"계정 전환 유도(R10-J 본체)는 미구현"* → **거짓.** 서버·프론트·라우트·목·스모크(`test:guest-convert`)까지 **전 홉 완성**이다.
+>
+> **RLS 예외 재판정**: `app_leaderboard_read`는 `FOR SELECT` 한정으로 **최소 범위 맞음**. `app_auth_users`는 `FOR ALL USING(true) WITH CHECK(true)`라 **UPDATE/DELETE까지 전 행 허용** — SELECT/INSERT는 닭-달걀로 불가피하지만 **UPDATE/DELETE는 아니다**(모든 users 쓰기가 자기 PK 기준). 실호출 노출은 0이나 **문서가 말한 "최소 범위"보다 넓다**.
+>
+> **정상 확인**: 시크릿 위생 fail-fast(비-dev + `changeme`면 기동 거부) · **요청 로그에 토큰·비밀번호·쿼리스트링 미기록** · `db echo=False` · region 화이트리스트 3자 패리티 가드.
