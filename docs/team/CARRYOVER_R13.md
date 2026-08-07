@@ -318,3 +318,64 @@ F절이 "설계했는데 잊힌 것"이라면 H절은 **한 겹 더 나쁜 두 �
 IRT b 재보정 휴면(`MIN_TOTAL_RESPONSES=200` 가드, 8/18 예정) · BKT `fit_bkt` 주입구
 (`params_source`가 프로덕션에서 영원히 `"prior"`인 것은 **의도된 상태**) ·
 `status='retired'` 미사용 · `synth.py` 존치(검증 자산).
+
+---
+
+## J. 초록불이 안 덮는 영역 (감사 G, 2026-08-07)
+
+**진단 한 줄**: 이 저장소의 테스트는 거의 전부 **"생산자가 자기 명세대로 내놓는가"**를
+묻는다. **"소비자가 존재하는가"를 묻는 테스트는 리포 전체에 0건**이다.
+**87건 중 최소 20건이 이 한 가지 비대칭에서 나왔다.**
+
+> **최악의 형태**: `explanation_hint`(CO-I-1, 158건)는 안 잡힌 게 아니라
+> **테스트 3개가 그 부재를 적극적으로 강제**한다 —
+> `test_r10_question_payload_contract.py:63` · `test_r10_mock_parity_contract.py:39,331`의
+> `SECRET_FIELDS`. **안전망이 결함을 영구화했다.** 그러므로 I-1을 고칠 때는
+> 이 세 테스트를 함께 고쳐야 하고, 그 사실 자체가 계약 변경이다.
+
+실측 배경: backend 1844/8skip(양성)/1xfail · ai-worker 257/**0 skip**(로컬에 의존 설치됨).
+**조용한 skip은 오늘의 원인이 아니다 — 원인은 애초에 없는 검사다.**
+
+### 🔴 J-1 ~ J-7. 8/9~10 배포를 직접 위협하는 것
+
+| # | 항목 | 근거 |
+|---|---|---|
+| **J-1** | **`ci.sh seed` 단계가 `ci.yml`에 잡이 없다** — GitHub에서 안 돈다 | `ci.sh all` = `lint test board config frontend **seed** authoring` ↔ ci.yml 잡 6개(seed 없음). `step_seed` 주석이 "저작 산출물이 CI에서 상시 검증되게 한다"고 적는데 **그 문장이 거짓**. `test_ci_workflow_contract`는 `test` 잡의 의존 설치만 보고 이건 안 본다 — **그 테스트가 태어난 이유와 같은 결함이 다시 났다** |
+| **J-2** | **RLS가 실질 무력화될 수 있고 감지되지 않는다** | `.env.example:9`가 **소유자 롤**을 싣고 `weathermind_app` 줄은 `:14`에 주석. `DEPLOY.md:96-105`는 `MIGRATION_DATABASE_URL`만 요구하고 **`DATABASE_URL`을 앱 롤로 바꾸라는 말이 없다** → 런북대로 하면 런타임이 `rolbypassrls`로 붙는다. `smoke.sh` 6단계가 검사하는 건 자기가 만든 임시 롤 `weathermind_smoke_rls`이지 **실제 앱 롤이 아니다**. 덤: 예외 정책 2건(`app_auth_users`·`app_leaderboard_read`) 미적용 시 **로그인·게스트·리더보드가 0행** |
+| **J-3** | **「로그인 없이 열려야 함」이 스모크에 0건** — 대회 규정 위반 직결 | `grep guest scripts/*.sh` → **0**. 두 스크립트 다 `/auth/register`만 쓴다. 사람 지시문(`DEPLOY.md:139`)에만 있다 |
+| **J-4** | **`smoke_r10.sh`가 고아** — 어떤 스크립트도 호출하지 않는다 | 그런데 **마이그레이션 가역성(`downgrade -1`→`upgrade`) · 구름 경제 전건(429·`next_regen_sec`·보드 차단) · `PUT /daily-goal` 422 · 실제 정답 채점 · placement 제외 SQL의 유일 커버리지**다. `smoke.sh`는 항상 `"smoke"` 문자열만 제출해 **정답 경로를 한 번도 안 밟는다** |
+| **J-5** | **GHCR 이미지 부팅 검증 0 · arm64 실행 이력 0** | release.yml은 build+push가 전부. `DEPLOY.md:154`가 `exec format error`를 "예상 현장 실패"로 적어 둔 상태 |
+| **J-6** | **prod 오버레이가 CI에서 파스도 안 된다** | `ci.sh:155 step_config`는 dev 파일만. `!reset` 문법은 compose ≥2.24 필요. **오늘 실측으로 파스 통과 확인 — 추가 비용 0** |
+| **J-7** | **prod에서 실행 불가능한 스모크** | ai-worker가 prod에선 호스트 미노출(`ports: !reset []`)인데 smoke 1·8단계가 `localhost:8001/health`에 의존. 덤: **`seed_courses`가 `DEPLOY.md:117-120`에서 누락** — `smoke.sh:248`이 "courses → units 순서"를 계약으로 못박았는데 **런북대로 하면 그 계약을 깬다** |
+
+### J-8 ~ J-16. 게이트 구조
+
+| # | 항목 |
+|---|---|
+| **J-8** | **스테이징이 모든 게이트 밖** — `lint_seed_items.py`에 glob 없음(단일 상수), `test_seed_contract`는 본시드만 읽고 `== 237` 정확 단정. **두 board 계약이 서로를 모른다**: lint의 필수 필드 표에 `board_order·title·summary`가 **없고**, 그 3키를 요구하는 `test_board_progression`은 **본시드만 읽는다** → staging board 24건이 lint를 전건 통과하며 병합 순간 FAIL(실증됨) |
+| **J-9** | **목 패리티가 4도메인 중 1개**(배합만) — 에너지 상수 3종은 목이 **하드코딩 리터럴**로 복사하고 대조 0 · **왕관은 이미 행위가 갈라졌다**(서버 `session.py:507` 유닛세션 `grant_crown=False` ↔ 목 `apiMockPlugin.js:1677`은 준다) · 유닛 트리 검사 0(`UnitOut.id`가 서버는 **slug**, 목은 **UUID** — "목에선 되는데 실서버 404"의 유력 후보) |
+| **J-10** | 목 검사 5건이 **JS 소스 regex**라 브리틀 — `test_목의_하루_경계가_KST다`는 접두 일치로 **운 좋게** 통과 중이고 금지 관용구가 정확히 하나뿐(`substring(0,10)`·`getDate()`는 전부 통과). 목 주석은 아직 "SESSION_RECIPE(합 10)" |
+| **J-11** | **`celery`에 테스트 디렉토리 자체가 없다** — pyflakes만. `embed-weather` 404를 매일 삼킨 원인이고, **지금도** `retrain.py:69`가 부르는 `/internal/weatherbrain/calibrate`의 존재를 단정하는 테스트가 없다 |
+| **J-12** | **프론트 정적 분석 0** — devDeps에 eslint/tsc 없음, `vite build`만. i18n 스모크는 **ko↔en 패리티만** 보므로 양쪽에서 같이 지우면 통과하고, `translate()`가 미지 키를 그대로 반환해 **화면에 키 문자열이 뜬다**(현재 결손 0이지만 감시자 없음) |
+| **J-13** | **문서↔코드 계약 감시가 2곳뿐**(`test_prompt_spec_parity`·`test_ci_workflow_contract`). 미적용: specs/02 라우트 · DEPLOY.md 절차 · **`.env.example`에 조정 노브 9개 미기재**(`SESSION_RECIPE`·`CLOUD_MAX/REGEN_MINUTES/COST`·`PLACEMENT_SIZE`·`LEAGUE_DIVISION_SIZE`·`LEAGUE_NEIGHBOR_SPAN`·`UNIT_SESSION_SIZE`·`GENERATED_ITEM_STATUS`) + prod 참조 3개. **8/17 이후 "env만 만진다"는 계획이 노브 목록 없이 서 있다** |
+| **J-14** | **smoke의 자기 SKIP 5경로가 실패로 안 쳐진다** — `step_r8_crown`은 시드에 특정 퍼즐이 없으면 SKIP인데 **그게 스모크 유일의 왕관 수여 검사**. `smoke_r10.sh:302`는 `DEV_MODE != true`면 구름 경제 전체 SKIP — **prod 형상일수록 덜 검사한다** |
+| **J-15** | **빈 볼륨 → head 경로 미검증** — 두 스모크 다 기존 dev 볼륨 위에서 돈다(볼륨 파괴 금지가 명문화돼 구조적으로 못 밟음). 즉 `database/init.sql`(pgcrypto·`weathermind_app` 롤·`ALTER DEFAULT PRIVILEGES`)은 **한 번도 실행 검증된 적이 없다** |
+| **J-16** | `restart:` 정책이 **양쪽 compose 전 서비스에 없다**(grep 0) · `depends_on: service_healthy` 0 → 죽은 컨테이너는 죽은 채 남고 Caddy가 미기동 backend를 프론트할 수 있다. `mem_limit` 합 실측 **3.75GB** ↔ `DEPLOY.md:17` 4.12GB · `VITE_API_BASE_URL`이 빌드 시점에 굽히는데 release.yml에 `build-args` **없음** · 프론트 스모크 21종은 **전부 목 상대**라 실경로 HTTP 검증 0 · `DEV_MODE=false`에서 `/dev/*` 7라우트가 닫히는지 검사 0 · `rls_app_role.sql` V1~V8 검증은 **주석**(사람 체크리스트) |
+
+### 안전망 5개 — 비용 대비 차단력 순
+
+| # | 안전망 | 비용 | 막는 것 |
+|---|---|---|---|
+| **N5** | **`ci.sh` 단계 ↔ `ci.yml` 잡 패리티** 20줄 + prod 오버레이 파스 1줄 + `.env.example` 대조 30줄 | **30분** | **J-1 즉시 실적발** · J-6(실측 통과 확인, 비용 0) · J-13 12건 |
+| **N1** | **도달성 매니페스트** — 허용목록 방식 4종: ⒜ 시드 태그 ⊆ units.json ⒝ api export → 소비자 ≥1 ⒞ 라우트 → api 래퍼 ≥1 ⒟ `*Out` 필드 → 프론트 참조 ≥1. 핵심은 검사가 아니라 **"의도적 미배선"을 사유와 함께 적게 강제**하는 것 | 반나절 | **87건 중 10건 이상** — A1·I-1·I-3·I-4·I-5·I-10·I-11·E-2·I-8·D6. 프로토타입 실행으로 실적발 확인 |
+| **N3** | **목 정책 패리티 확장** — 목이 이미 노출하는 `__mockFixtures()` 옆에 `__mockPolicy()`를 붙여 실값 dict 비교 | 2~3시간 | J-9 전건 · A6 · 에너지 상수 · H11. 부수로 J-10 브리틀함 해소 |
+| **N2** | **스테이징을 게이트 안으로** — lint에 glob + board 3키를 lint 필수 필드로 편입 | 1시간 | I-2(24건) · au2 40건 · C2. ⚠️ **켜는 즉시 대량 FAIL** → 배포 전엔 별도 단계로 두고 신규/변경분만 강제 |
+| **N4** | **내부 HTTP 경로 존재 계약** — `"/internal/…"` 리터럴 전수 ↔ ai-worker 라우트 집합 | 1시간 | embed-weather 계열 전부 · I-9. **`celery/tests/`가 생긴다는 것 자체가 값** |
+
+### 배포 전 최소 게이트 (8/9~10)
+
+1. `ci.sh config`에 prod 오버레이 파스 1줄 — **오늘 실측 통과, 무료**
+2. `smoke.sh`에 `POST /auth/guest` 1스텝 — **규정 직결**, 10줄
+3. `scripts/ci.sh smoke-r10` 단계 신설 — **가역성·구름 경제·정답 채점의 유일 커버리지를 고아로 두고 배포하지 말 것**
+4. release.yml 끝에 이미지 부팅 1줄
+5. **별도 빈 볼륨으로 `init.sql → upgrade head → seed 4종(courses 먼저) → /auth/guest 200` 1회 리허설** — 수동 30분, **8/9 전 반드시**
