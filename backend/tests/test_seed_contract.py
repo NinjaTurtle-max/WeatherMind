@@ -233,11 +233,69 @@ class TestBadgesSeedContract:
             assert b.get("code") and b.get("title") and b.get("description"), b
 
 
-class TestBoardRulesSeedContract:
-    """§3.2-R3: board_rules.json v1 필수 8종 + priority 전역 유일 + 스키마 통과."""
+V1_RULE_IDS = frozenset({
+    "cold_front_shower", "stationary_front_monsoon", "warm_front_steady_rain",
+    "siberian_snow", "convective_shower", "radiation_fog",
+    "north_pacific_heatwave", "siberian_clear",
+})
+# v1 8규칙의 최저 priority. 확장 규칙은 전부 이 아래여야 한다 — 아래 테스트가 근거.
+V1_MIN_PRIORITY = 30
 
-    def test_8종(self):
-        assert len(BOARD_RULES) == 8
+
+class TestBoardRulesSeedContract:
+    """§3.2-R3: board_rules.json v1 필수 8종 + priority 전역 유일 + 스키마 통과.
+
+    R13 확장(BE-B, 2026-08-07): 사문 기단 2종(yangtze·okhotsk)을 살리고 전선·기단을
+    쓰지 않는 순수 대류 규칙을 추가해 8 → 13종이 됐다. "8종"을 수로 고정하던 계약은
+    **확장을 막을 뿐 기존 판정을 지켜주지 않으므로**, 지켜야 할 실질(=v1 8규칙의
+    판정 불변)을 직접 고정하는 계약으로 바꾼다 — 아래 두 테스트가 그것이다.
+    """
+
+    def test_v1_8규칙이_전부_남아있다(self):
+        ids = {r["id"] for r in BOARD_RULES}
+        assert V1_RULE_IDS <= ids, f"v1 규칙 소실: {V1_RULE_IDS - ids}"
+        assert len(BOARD_RULES) == len(ids), "규칙 id 중복"
+
+    def test_확장_규칙은_v1보다_낮은_priority다(self):
+        """v1 판정 불변의 **구조적 보증**: 확장 규칙 priority < v1 최저(30)이면,
+        v1 규칙이 성립하는 어떤 존 상태에서도 확장 규칙이 이길 수 없다
+        (엔진은 존별 최고 priority 1개만 적용 — board_engine.evaluate).
+        수로 세는 계약(len == 8)이 막지 못하던 것이 정확히 이 회귀다."""
+        for rule in BOARD_RULES:
+            if rule["id"] in V1_RULE_IDS:
+                assert rule["priority"] >= V1_MIN_PRIORITY, rule["id"]
+            else:
+                assert rule["priority"] < V1_MIN_PRIORITY, (
+                    f"확장 규칙 {rule['id']}의 priority {rule['priority']}가 "
+                    f"v1 최저 {V1_MIN_PRIORITY} 이상 — v1 판정을 덮을 수 있다"
+                )
+
+    def test_확장_규칙은_미배치_존_기본상태에서_성립하지_않는다(self):
+        """미배치 존은 moisture=40·sun=50이고 판정이 cloudy/cumulus여야 한다(§3.2).
+        기단·전선을 요구하지 않는 수치 전용 규칙이 이 기본값에서 성립하면 **보드의
+        모든 빈 존이 한꺼번에 뒤집힌다** — 공유 벡터 전건이 무배치 존 3칸을 단정한다."""
+        empty = {"zones": list(board_engine.ZONES), "elements": []}
+        for outcome in board_engine.evaluate(empty, BOARD_RULES):
+            assert outcome["rule_id"] is None, outcome
+            assert (outcome["phenomenon"], outcome["cloud"]) == ("cloudy", "cumulus")
+
+    def test_기단_4종이_전부_규칙에_쓰인다(self):
+        """R13 발견: subtype enum에는 4종이 있는데 yangtze·okhotsk를 **어떤 규칙도
+        참조하지 않아** 보드에 놓아도 항상 cloudy였다(사문 요소). 재발 방지."""
+        conditions = {c for r in BOARD_RULES for c in r["when"]}
+        for subtype in sorted(board_engine.AIR_MASS_SUBTYPES):
+            assert any(c == f"air_mass:{subtype}" for c in conditions), (
+                f"기단 {subtype}을(를) 참조하는 규칙이 없다 — 배치해도 판정이 바뀌지 않는다"
+            )
+
+    def test_전선_기단_없이_성립하는_규칙이_있다(self):
+        """specs/11 §2 bs-convection-board(기초과학 3단계)는 전선·기단
+        ([9과17-04] 4단계) 없이 성립하는 규칙이 있어야 저작 가능하다."""
+        pure = [
+            r for r in BOARD_RULES
+            if all(not c.startswith(("front:", "air_mass:")) for c in r["when"])
+        ]
+        assert len(pure) >= 3, f"순수 조절값 규칙 부족: {[r['id'] for r in pure]}"
 
     def test_엔진_스키마_통과(self):
         """적재 없이 규칙 엔진 검증기를 그대로 통과(단일 진실원)."""

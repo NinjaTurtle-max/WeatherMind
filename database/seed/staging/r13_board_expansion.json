@@ -1,0 +1,372 @@
+[
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "한낮의 햇볕이 뜨거운데도 하늘에 구름 한 점 없는 날이 있다. 태백산맥(존 2)에 그런 맑은 하늘을 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "태백산맥(존 2)의 일사를 80 이상으로 올린다.",
+        "같은 존의 습기를 30 이하로 낮춘다."
+      ],
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["sun", "moisture"],
+      "goal_conditions": [
+        {"zone": 2, "phenomenon": "clear"}
+      ],
+      "hints": [
+        "데워진 공기는 부피가 늘어 밀도가 작아진다. 둘레의 공기보다 밀도가 작아지면 위로 떠오른다.",
+        "그러나 올라가는 공기 속에 물기가 거의 없으면 물방울로 바뀔 것이 없다. 공기가 오르내려도 하늘은 맑게 남는다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — specs/11 §2 bs-convection-board 유닛 공백 메우기",
+        "board_rules.json: dry_convection_clear (신규 규칙 — 전선·기단을 쓰지 않는 순수 대류)",
+        "판정: R5 — palette는 일사·습기뿐이고 goal은 맑음이다. 결정 개념 = 온도→부피→밀도 [9과03-03 비열과 열팽창]와 수증기의 응결(액화) [9과04-03] → 3단계",
+        "3단계 성립 근거: 기존 8규칙 중 6종이 전선·기단([9과17-04] 4단계)을 끌어와 4단계로 고정되고 convective_shower·radiation_fog는 2 또는 4단계였다. 신규 규칙이 밀도·상태 변화만으로 성립해 3단계 칸이 처음 열린다",
+        "금칙 확인: 기단·전선·적운·적란운·층운·이슬점·상대습도·단열 팽창·복사냉각 미사용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "같은 세기의 햇볕을 받아도 물기가 있는 곳과 없는 곳의 하늘은 갈린다. 서해(존 0)에는 소나기를, 태백산맥(존 2)에는 맑은 하늘을 동시에 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["sun", "moisture"],
+      "goal_conditions": [
+        {"zone": 0, "phenomenon": "shower"},
+        {"zone": 2, "phenomenon": "clear"}
+      ],
+      "hints": [
+        "두 존 모두 일사를 아주 높게 올린다. 데워진 공기는 밀도가 작아져 위로 올라간다.",
+        "갈리는 것은 습기다. 올라간 공기 속 수증기가 물방울로 바뀌어야 구름이 자라고 비가 내린다. 한쪽은 습기를 60 이상으로, 다른 쪽은 30 이하로 둔다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board, 다존 목표",
+        "board_rules.json: dry_convection_clear(신규) + convective_shower(기존, 판정 불변)",
+        "판정: R5 — 결정 개념 = 수증기의 응결(액화) [9과04-03]과 밀도 [9과03-03]. 소나기는 생활 상용어라 단계를 올리지 않는다 → 3단계",
+        "R2 보정 없음: 지배 요인(습기)이 힌트에 명시돼 있어 '여러 요인 중 선택'이 아니다. 애매 시 낮은 쪽(R6)",
+        "금칙 확인: 기단·전선·구름 종류 명칭 미사용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "공기 속 물기가 같아도 열을 받은 곳과 식은 곳은 다른 날씨가 된다. 수도권(존 1)에는 소나기를, 동해안(존 3)에는 안개를 만들어 보자. 두 존의 습기는 똑같이 높게 두어야 한다.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["sun", "moisture"],
+      "goal_conditions": [
+        {"zone": 1, "phenomenon": "shower"},
+        {"zone": 3, "phenomenon": "fog"}
+      ],
+      "hints": [
+        "두 존의 습기를 똑같이 80 이상으로 올린다. 갈리는 것은 일사다.",
+        "열을 받은 공기는 밀도가 작아져 높이 올라가면서 물방울이 되고, 열을 잃고 식은 공기는 그 자리에서 물방울이 된다. 위에서 생기면 구름이고 땅에 붙어 생기면 안개다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board, 일사 축 대비(습기 고정)",
+        "board_rules.json: convective_shower + radiation_fog (둘 다 기존 규칙 — 판정 불변)",
+        "판정: R5 — 결정 개념 = 열의 이동과 상태 변화(액화) [9과04-03·9과03-02] → 3단계. 안개·구름은 [6과06-02] 2단계 관찰 대상이라 상향 요인이 아니다",
+        "금칙 확인: 복사냉각([9과17-01] 4단계)을 쓰지 않고 '열을 잃고 식은'으로 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "구름이 생기려면 공기를 밀어 올릴 열과 물방울이 될 수증기가 함께 있어야 한다. 서해(존 0)에는 소나기, 수도권(존 1)에는 맑음, 동해안(존 3)에는 안개 — 세 가지 하늘을 한 판에 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["sun", "moisture"],
+      "goal_conditions": [
+        {"zone": 0, "phenomenon": "shower"},
+        {"zone": 1, "phenomenon": "clear"},
+        {"zone": 3, "phenomenon": "fog"}
+      ],
+      "hints": [
+        "열과 물기를 둘 다 갖춘 존에서는 공기가 높이 올라가 소나기가 쏟아진다.",
+        "열은 있으나 물기가 없으면 맑고, 물기는 있으나 열이 없으면 식은 자리에서 물방울이 생겨 안개가 낀다. 존마다 일사와 습기를 따로 정해야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board 마무리 문항. 열×수증기 2×2 중 세 칸을 한 판에 배치",
+        "board_rules.json: convective_shower + dry_convection_clear(신규) + radiation_fog",
+        "판정: R5 — 결정 개념 = 밀도 [9과03-03]·상태 변화 [9과04-03] → 3단계. R2 '여러 요인 중 지배 요인 선택' 후보이나 두 요인(열·물기)이 문두에 명시돼 판정이 아니라 적용이므로 +0, 애매하면 낮은 쪽(R6)",
+        "빈 보드 반례 방어: 세 목표 모두 기본 판정(cloudy/cumulus)과 다르므로 무배치로 통과할 수 없다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "습한 공기가 올라가다 수증기가 물방울로 바뀌면 잠열이 나와 둘레 공기를 데운다. 그 열이 상승을 더 세게 만든다. 동해안(존 3)에 소나기가 쏟아지게 해 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "동해안(존 3)의 일사를 80 이상으로 올린다.",
+        "같은 존의 습기를 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["sun", "moisture"],
+      "goal_conditions": [
+        {"zone": 3, "phenomenon": "shower"}
+      ],
+      "hints": [
+        "햇볕에 데워진 공기는 밀도가 작아져 위로 올라간다. 일사부터 올려야 한다.",
+        "올라간 공기 속 수증기가 물방울로 바뀔 때 잠열을 내놓는다. 그 열이 공기를 더 데워 상승이 세지고, 짧고 굵은 소나기가 내린다. 습기를 60 이상으로."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board. 상태 변화의 열에너지 출입을 보드로 체득",
+        "board_rules.json: convective_shower (기존 규칙 — 판정 불변)",
+        "판정: R5 + R1 — 결정 용어 = 잠열, level_vocabulary introduced_at=3 [9과04-04 상태 변화와 열에너지 출입] → 3단계. mode=guided는 단계를 바꾸지 않는다",
+        "본시드 [12](density_buoyancy·존 1·knowledge_level 2)와 존·mode·결정 용어가 모두 다르다 — 그쪽은 잠열 없이 대류만 다룬다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "봄이 되면 대륙에서 따뜻하고 건조한 양쯔강 기단이 우리나라로 이동해 온다. 기단은 넓은 지역을 한꺼번에 덮는다. 서해(존 0)와 수도권(존 1)을 함께 맑게 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "서해(존 0)에 양쯔강 기단을 놓는다.",
+        "수도권(존 1)에도 같은 기단을 놓는다."
+      ],
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["air_mass:yangtze", "moisture"],
+      "goal_conditions": [
+        {"zone": 0, "phenomenon": "clear"},
+        {"zone": 1, "phenomenon": "clear"}
+      ],
+      "hints": [
+        "양쯔강 기단은 따뜻하고 건조하다. 수증기가 적으면 구름이 잘 생기지 않는다.",
+        "기단은 한 존이 아니라 넓은 지역을 덮는다. 두 존 모두에 기단을 놓고, 습기는 50 이하로 두어야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — 사문 기단 살리기. yangtze는 subtype enum에만 있고 어떤 규칙도 참조하지 않아 보드에서 늘 cloudy였다",
+        "board_rules.json: yangtze_mild_clear (신규 규칙)",
+        "기상학 근거: 양쯔강(揚子江) 기단은 봄·가을 이동성 고기압으로 우리나라를 통과하는 온난 건조 기단이다. 수증기가 적어 맑고 포근한 날씨를 만든다",
+        "판정: R5 + R1 — 결정 용어 = 기단, introduced_at=4 [9과17-04] → 4단계. mode=guided는 단계 불변",
+        "다존 목표로 '기단은 넓은 지역에 걸쳐 성질이 고른 공기 덩어리'라는 정의 자체를 배치로 체득시킨다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "봄가을에는 이동성 고기압이 서에서 동으로 사나흘 간격으로 지나가며 날씨를 바꾼다. 고기압에 덮인 새벽, 아직 해가 들지 않은 수도권(존 1)에는 안개가 끼고 먼저 해가 뜬 동해안(존 3)은 맑다. 이 두 하늘을 함께 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["air_mass:yangtze", "sun", "moisture"],
+      "goal_conditions": [
+        {"zone": 1, "phenomenon": "fog"},
+        {"zone": 3, "phenomenon": "clear"}
+      ],
+      "hints": [
+        "두 존은 같은 공기 덩어리에 덮여 있다. 갈리는 것은 햇볕과 물기다.",
+        "해가 들지 않은 존은 일사를 30 이하로 낮추고 습기를 60 이상으로 올린다. 해가 든 존은 습기를 50 이하로 두면 맑아진다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — 사문 기단 살리기(yangtze 두 번째 얼굴)",
+        "board_rules.json: yangtze_morning_fog(신규) + yangtze_mild_clear(신규)",
+        "기상학 근거: 이동성 고기압 권역에서는 밤에 하늘이 맑아 지표가 빠르게 식고, 바람이 약해 새벽 안개가 잦다. 해가 뜨면 걷힌다 — 봄가을 아침 안개의 전형",
+        "판정: R5 — 결정 개념 = 중위도 고기압이 통과할 때의 날씨 변화 [12지구01-03] → 5단계(기단 4보다 높은 쪽이 지배)",
+        "금칙 확인: 5단계 문항이므로 단열 감률·전향력 등 6단계 용어 미사용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "초여름이면 북동쪽 바다에서 차고 습한 오호츠크해 기단이 밀려와 동해안이 서늘해진다. 동해안(존 3)을 안개로 덮어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "동해안(존 3)에 오호츠크해 기단을 놓는다.",
+        "같은 존의 습기를 70 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["air_mass:okhotsk", "moisture"],
+      "goal_conditions": [
+        {"zone": 3, "phenomenon": "fog"}
+      ],
+      "hints": [
+        "오호츠크해 기단은 차고 습하다. 찬 바다 위를 지나온 습한 공기는 아래에서부터 식는다.",
+        "식은 공기 속 수증기가 응결하면 바다와 해안을 뒤덮는 안개가 된다. 습기를 70 이상으로 올려야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — 사문 기단 살리기. okhotsk도 enum에만 있고 규칙 참조가 0이라 보드에서 늘 cloudy였다",
+        "board_rules.json: okhotsk_sea_fog (신규 규칙)",
+        "기상학 근거: 오호츠크해 기단은 한랭 다습한 해양성 기단이다. 초여름 이 기단이 확장하면 동해상에 해무와 낮은 구름이 끼고 영동 지방이 저온·흐림이 된다",
+        "판정: R5 + R1 — 결정 용어 = 기단, introduced_at=4 [9과17-04] → 4단계. mode=guided는 단계 불변",
+        "기존 board 20건(본시드 13 + 2일차 7)에 동해안 안개 목표는 존 3 radiation_fog 1건뿐이고 그것은 기단을 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "오호츠크해 기단이 밀려오면 태백산맥을 사이에 두고 동쪽과 서쪽 날씨가 갈린다. 동해안(존 3)은 안개에 잠기고, 산을 넘어간 공기가 닿는 수도권(존 1)에는 높새바람이 불어 맑고 건조해진다. 두 하늘을 함께 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["air_mass:okhotsk", "moisture"],
+      "goal_conditions": [
+        {"zone": 3, "phenomenon": "fog"},
+        {"zone": 1, "phenomenon": "clear"}
+      ],
+      "hints": [
+        "같은 기단이 산을 넘기 전과 넘은 뒤에 전혀 다른 날씨를 만든다. 두 존 모두에 같은 기단을 놓아야 한다.",
+        "산을 오르며 비를 뿌린 공기는 물기를 잃는다. 동쪽 존은 습기를 70 이상으로, 서쪽 존은 30 이하로 두어야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — okhotsk 다존 대비. 같은 기단이 지형을 사이에 두고 두 날씨를 만든다",
+        "board_rules.json: okhotsk_sea_fog(신규) + okhotsk_foehn_clear(신규)",
+        "기상학 근거: 오호츠크해 기단의 습윤한 공기가 태백산맥을 넘으며 강수로 수증기를 잃고, 산을 내려오며 승온해 영서 지방에 고온 건조한 높새바람이 분다",
+        "판정: R5 + R1 — 결정 용어 = 높새바람, level_vocabulary introduced_at=5(교육과정 근거 없음·5단계 정성 구간) → 5단계. 6단계 표기인 '푄'은 쓰지 않았다",
+        "금칙 확인: 단열 감률·상대습도 정량 미사용(그것은 아래 6단계 문항이 담당)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "산을 오르는 공기는 습윤단열감률 약 5℃/km로 식으며 비를 뿌리고, 물기를 잃은 채 산을 내려오는 공기는 건조단열감률 약 10℃/km로 데워진다. 그래서 산을 넘은 공기는 오르기 전보다 뜨겁고 메마르다. 수도권(존 1)에 이 푄 현상이 만든 맑고 건조한 하늘을 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "elements": []
+      },
+      "palette": ["air_mass:okhotsk", "moisture"],
+      "goal_conditions": [
+        {"zone": 1, "phenomenon": "clear"}
+      ],
+      "hints": [
+        "강수로 수증기를 잃은 공기가 하강하면 건조단열감률을 따라 데워진다. 기온은 오르고 상대습도는 급격히 떨어져 구름이 사라진다.",
+        "산 너머로 내려온 그 공기 덩어리를 수도권에 놓고, 습기를 30 이하로 낮춰야 한다."
+      ],
+      "correct_answer": ""
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — 최상위 단계 보강(specs/12 §8.2 '6단계는 실질적으로 빈 단계')",
+        "board_rules.json: okhotsk_foehn_clear (신규 규칙)",
+        "판정: R5 + R3 — 결정 용어 = 푄·건조단열감률·습윤단열감률. level_vocabulary introduced_at=6(푄은 교육과정 전문 검색 0건, 단열 감률은 [12지시03-03]) → 6단계. 5℃/km·10℃/km는 specs/12 §4 R3의 상향 예시('건조공기 1km당 −10℃')와 같은 성격의 정량 수치다",
+        "기상학 근거: 푄 현상 — 포화 상태로 산을 오른 공기는 습윤단열감률(약 5℃/km)로 냉각되며 응결·강수로 수증기를 잃고, 하강 시에는 건조단열감률(약 10℃/km)로 승온해 풍하측이 고온 건조해진다",
+        "같은 규칙을 쓰는 5단계 문항(높새바람)과 짝이다 — 같은 배치가 단계에 따라 다른 언어로 설명된다는 것이 2축 분리의 실증이다"
+      ]
+    },
+    "status": "active"
+  }
+]
