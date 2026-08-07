@@ -240,3 +240,81 @@ F절이 "설계했는데 잊힌 것"이라면 H절은 **한 겹 더 나쁜 두 �
 
 > **회수로 세면 안 되는 2건**: duel 지역(H10)과 유닛 세션 멱등은 고쳐서 닫힌 게 아니라
 > **"의도된 동작"으로 재선언해서** 닫혔다. 상환과 구별해야 한다.
+
+---
+
+## I. 만들어 두고 안 쓰는 것 — 전수 (감사 E, 2026-08-07)
+
+축 8개를 모수와 방법을 기록하며 훑었다(DB 컬럼 131 · 라우트 46 · 스키마 필드 184 ·
+프론트 파일 109 · i18n 751키 · 시드 본 237+staging 206 · Settings 35 · celery 태스크 4).
+**PM이 부분 조사로 찾은 6건은 제외한 신규분**이다.
+
+### 🔴 I-1. `explanation_hint` 158건이 화면에 구조적으로 못 뜬다 — 최대 건
+
+본시드 237 중 **158건 저작 완료**(board 34는 별도 `hints`), staging까지 +126.
+`routers/session.py:76`이 이 필드를 **secret field로 분류해 전 유형 페이로드에서 제외**한다.
+채점 후 `answer_service.build_feedback()`은 board가 아니면 곧장 `ai_client.rag_feedback`
+(LLM)만 부르고 이 필드를 쳐다보지 않는다. **유일한 소비자가 개발용 목**
+(`apiMockPlugin.js:218`)이다.
+
+> **부수 효과가 본체보다 크다.** CLAUDE.md가 "상시 과금 지점"으로 지목한 것이 정확히
+> 그 매 답안 1콜인데, **해설이 있는 158문항은 폴백으로 대체하면 호출이 사라진다.**
+> 무료 모델·유료 충전을 논의하는 동안, **호출 자체를 없애는 길이 이미 저작돼 있었다.**
+
+**비용**: 정답 공개 후 노출 화이트리스트 1줄 + 피드백 폴백 분기.
+
+### 🔴 I-2. staging board 24건 — 3키만 채우면 보드가 34 → 58건(+70%)
+
+`r13_board_expansion`(10)·`r13_board_puzzles`(7)·`r13_disaster_items`(4)·
+`r13_template_proof`(3) 전부 **`board_order`·`title`·`summary` 3키 결손**.
+`test_board_progression.py:61,64`가 "전 board 문항 3키 존재 + `board_order` 1..N 유일"을
+단정하므로 **지금 병합하면 즉시 FAIL**한다. `BoardPage.jsx:453`도 title/summary로 카드를
+그린다. **클라이언트가 "보드가 적고 드래그뿐"이라 지적한 그 문제의 즉효약**이며,
+저작은 무키로 가능하다.
+
+### 나머지 미배선 자산
+
+| # | 항목 | 실측 | 붙이면 |
+|---|---|---|---|
+| **I-3** | `GET /progress/weak-tags` 호출부 0 | 백엔드(`progress.py:218`)·프론트 래퍼(`api/progress.js:27`) 둘 다 완성. `HomePage.jsx:23` 주석은 "review-queue + weak-tags"라 적었는데 실제론 전자만. **스키마가 자백** — `schemas/progress.py:130` "프론트 소비 0 확인" | θ 파생 약점 개념이 뜬다. `WeatherBrainPanel`이 이미 레이더를 그리고 라벨 14키가 다 있어 표시 문구만 신규 |
+| **I-4** | `section_meta.json` 4/7 섹션 | units.json은 7섹션(basic-science 3 추가)인데 메타는 4. `PcCurriculumPath.jsx:219`의 subtitle·est_minutes·topics 칩이 3섹션에서 빈 상태 | JSON 3블록(무키) |
+| **I-5** | `climate_concepts.json` 12/14 태그 | `wildfire_weather`·`flood_response` 문항의 RAG 피드백이 **근거 문서 0건**으로 돈다 | 재난 축이 근거를 얻는다. **4일차 ⓑ의 직접 종속** |
+| **I-6** | **celery 날씨 캐시가 매일 12콜을 버린다** | 02:00 12지역 수집(`tasks/weather.py`) ↔ `WEATHER_CACHE_TTL_SEC=3600` → **03:00 전량 만료**. 소비자는 실사용 시간대에 항상 miss라 backend가 재수집. `celery_app.py:38` 주석 "리그 정산이 읽는다"도 거짓(정산은 ASOS 직접) | **상수 1개**(26h). KMA 콜 절감 + 브리핑 지연 감소. 이 모듈이 죽으면 `redis_client.py` 전체가 유일 소비자라 함께 죽는다 |
+| **I-7** | 리그·듀얼 정산 전원 서울 채점 | `users.region` 12도시를 받는데 정산은 `DEFAULT_REGION="서울"` 고정, `KMA_STATION`은 3도시뿐. `duel.py:220`이 자인 | 지역 선택이 실제 점수에 반영(현재 UI만). **H10⑵와 동일 건** |
+| **I-8** | `stat_total`/`stat_correct` 쓰기전용 | 매 답안 증분, reader 0 | 문항별 실측 정답률 = 품질 리뷰 근거 + IRT b 사전값. **8/11~18에 이미 쌓이는 유일한 문항 단위 텔레메트리**. **H4와 동일 건** |
+| **I-9** | ai-worker `/internal/quiz-validate`·`/curriculum-validate` HTTP 호출자 0 | RUNBOOK 수동 curl뿐. **단 로직은 산다** — `author_items.py:212`·`lint_seed_items.py:17`이 in-process import. **껍데기만 미배선** | |
+| **I-10** | 프론트가 안 읽는 응답 필드 4 | `LeagueResultOut.predicted_value`·`actual_value`(**내 예보 이력에 예측값·관측값이 안 보이고 점수만**) · `ForecastClosingStep.submit_path`(서버가 내려주는데 프론트 하드코딩 → 경로 변경 시 조용히 깨짐) · `ReviewQueueItem.last_answered_at` · `UnitOut.prereq_unit_id`(잠금 사유 미표시) | |
+| **I-11** | `GET /courses/{slug}` 호출자 0 | 46 라우트 중 미호출은 `/league/division`(PM 발견)과 이것 둘뿐. 코스 상세 화면이 없어서 | |
+| **I-12** | `climate_concepts.grade_level` 필터 미적용 | 35항목에 등급이 있는데 `lookup_concept_documents`는 태그로만 조회해 전건 반환 → **초등 학습자 피드백에 adult 문서가 들어간다** | 필터 1줄 |
+
+### 죽은 코드
+
+| 항목 | 근거 |
+|---|---|
+| **staging 9파일 183항목 100% 중복** | `question_text` 정규화 대조 결과 본시드 237에 전건 존재. 멱등 키가 `(concept_tag, question_text)`라 **재로드해도 신규 0건**. 7파일은 코드·문서·테스트 참조 0 |
+| `xp_service.get_weak_tag()` | 참조 1건(정의 자신), 테스트 0 |
+| board `initial_state` 58/58 | `elements`가 전건 `[]`, `zones`는 `boardEngine.js:198`이 하드코딩으로 덮음 → **매 board 문항마다 전송되는 정보량 0** |
+| 프론트 데드 export 7 · i18n 미사용 13/751 | `league.*` 7(구 리더보드 헤더) · `home.*` 4(진입 통합 잔재) 등. **ko/en 패리티는 751/751 완전** |
+| `level_vocabulary.terms[].category` 79건 + 자기설명 키 다수 | grep 0 |
+| `uuid-ossp` 확장 | `uuid_generate_v4()` 0 — 전 모델 `gen_random_uuid()` |
+
+### ⚠️ CLAUDE.md가 낡아 감사 자체에 오탐을 유발했다 (6건)
+
+| 기술 | 실제 |
+|---|---|
+| **"BKT는 임포트하는 곳이 한 곳도 없다"** | **거짓** — `main.py:395` → `ai_client.py:100` → `weatherbrain_service.py:491` → `GET /progress/mastery` → `WeatherBrainPanel.jsx:56`까지 **화면에 닿는다**. `SPRINT_R13_01:296`이 §5-1로 닫았다 |
+| 세션 10문항 | **15**(`{new:5,review:4,live:1,unit:5}`) |
+| basic-science 빈 트리 | **8유닛 시드 완료** |
+| FRONT_TESTS 9종 | **21종**(22개 중 board만 별도 단계) |
+| `session.py:97` slider min·max·step 부재 | **29/29 전건 저작** |
+| `seed_content.py:99` 141건 재분류 미완 | **237/237 완료** |
+
+> **이 6건은 CO-D5(문서 낡음)를 넘어선다.** PM이 이 기술을 근거로 판단해 왔고,
+> **"BKT 미배선"은 에이전트 메모리에까지 들어가 있었다.** 낡은 요약이 SSOT처럼 작동하면
+> 감사가 감사를 오염시킨다.
+
+### 의도적 보류 (근거 있음 — 정상)
+
+IRT b 재보정 휴면(`MIN_TOTAL_RESPONSES=200` 가드, 8/18 예정) · BKT `fit_bkt` 주입구
+(`params_source`가 프로덕션에서 영원히 `"prior"`인 것은 **의도된 상태**) ·
+`status='retired'` 미사용 · `synth.py` 존치(검증 자산).
