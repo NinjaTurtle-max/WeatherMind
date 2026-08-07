@@ -26,13 +26,13 @@
 #            시드 파일(board_rules·board_test_vectors) 부재 시 테스트가 스스로
 #            SKIP(exit 0)하므로, node 존재 + 비0 = 실제 판정 불일치(FAIL).
 #   config   docker compose config -q 로 compose 정합 검증.
-#   frontend frontend/node_modules 있으면 npm run build + 프론트 스모크 9종
+#   frontend frontend/node_modules 있으면 npm run build + 프론트 스모크 전 종목
 #            (explore·session·placement·visual·gating·board-entry·assist·
 #             webgl·overlay — FRONT_TESTS 배열이 목록), 없으면 SKIP.
 #            새 test:* 스크립트를 만들면 FRONT_TESTS에 등록해야 CI가 지킨다.
 #   authoring scripts/author_items.py --dry-run 무키 완주. DB·키·네트워크 불필요.
 #            G1(ROADMAP §5.3.1)에서 실키로 돌릴 스크립트라 무키 완주가 회귀 대상이다.
-#   smoke    (opt-in — `all`에 미포함) scripts/smoke.sh 전 단계(1~9) 위임 실행.
+#   smoke    (opt-in — `all`에 미포함) scripts/smoke.sh 전 단계(1~12) 위임 실행.
 #            compose 기동 상태를 전제로 하지 않는다(스스로 up -d --build).
 #
 # 종료 코드: 모든 단계 OK/SKIP → 0, 하나라도 FAIL → 1.
@@ -244,14 +244,14 @@ step_authoring() {
 # docker compose 기동·이미지 빌드까지 수행해 수 분이 걸리므로, 통합 브랜치나
 # 릴리스 전 `scripts/ci.sh smoke`로 단독 실행한다 (docs/team/RUNBOOK.md).
 step_smoke() {
-  banner "smoke: scripts/smoke.sh (DB 왕복 1~9)"
+  banner "smoke: scripts/smoke.sh (DB 왕복 1~12)"
   if ! docker compose version >/dev/null 2>&1; then
     echo "docker compose(v2) 미설치 — 스모크를 건너뜁니다."
     record "smoke" "SKIP" "docker compose v2 미설치"
     return 0
   fi
   if bash "$ROOT/scripts/smoke.sh"; then
-    record "smoke" "OK" "스모크 1~9 전 단계 통과"
+    record "smoke" "OK" "스모크 1~12 전 단계 통과"
   else
     record "smoke" "FAIL" "스모크 실패 (위 요약 참조)"
   fi

@@ -15,7 +15,7 @@
 # 단계 (§3.4 계약 — 9 placement는 R7-01, 10 unit과 9의 submit-all 전환은 R7-02):
 #   1 up        docker compose up -d --build postgres redis backend ai-worker
 #               → /health 폴링 (8000·8001, 첫 빌드는 오래 걸리므로 타임아웃 넉넉히)
-#   2 migrate   alembic upgrade head → current == 0007_placement (head)
+#   2 migrate   alembic upgrade head → current == head (alembic heads와 일치)
 #   3 seed      seed_content → seed_courses → seed_units → seed_badges (전부 멱등 upsert)
 #              순서 계약(R11-01 F): seed_units가 units.json의 course slug를 DB courses
 #              행으로 해석하므로 seed_courses가 먼저다.
@@ -26,7 +26,7 @@
 #               (a) 타 유저 컨텍스트 SELECT 0행 (자기 컨텍스트 6행)
 #               (b) app.current_user_id 미설정 INSERT → WITH CHECK 위반(42501)
 #               (c) item_params 는 컨텍스트 무관 SELECT 통과 (전역 자산, RLS 없음)
-#   7 roundtrip GET /session/today (5문항) → 비board 3문항 answer → 재차 /today
+#   7 roundtrip GET /session/today (배합 합계만큼) → 비board 3문항 answer → 재차 /today
 #               (refresh_abilities 트리거) → psql: num_responses>0 전이
 #   8 fallback  compose stop ai-worker → register 201 + θ 0행(placement 폴백이
 #               조용히 통과, 가입 커밋 유지) → compose start ai-worker
@@ -364,7 +364,7 @@ step_roundtrip() {
   banner "7 roundtrip: session/today → answer x3 → 재발급 → θ 전이"
   ensure_user || { record "7 roundtrip" "FAIL" "스모크 유저 가입 실패"; return 0; }
 
-  # 1차 발급 — 5문항
+  # 1차 발급 — 배합 합계(SESSION_RECIPE)만큼
   local out http body
   out="$(http_get "$API/api/v1/session/today" "$SMOKE_TOKEN")"
   http="$(tail -n1 <<<"$out")"
@@ -377,8 +377,19 @@ step_roundtrip() {
   session_id="$(json_field "$body" session_id)"
   n_items="$("$PYTHON" -c 'import json,sys; print(len(json.load(sys.stdin)["items"]))' <<<"$body")"
   echo "  session_id=$session_id items=$n_items"
-  if [ "$n_items" != "5" ]; then
-    record "7 roundtrip" "FAIL" "5문항 기대, 실제 $n_items"
+  # 기대 문항 수는 **배합에서 파생**한다 — 숫자를 박으면 배합이 바뀔 때마다 배포
+  # 게이트가 조용히 막힌다. 실제로 R13 §2.10이 10→15로 넓혔을 때 이 자리가
+  # "5문항 기대"로 남아 5일차 게이트를 확정 실패시키고 있었다(감사 2026-08-07).
+  local expected
+  expected="$(compose exec -T backend python -c \
+    'from app.core.config import settings; print(sum(settings.SESSION_RECIPE.values()))' \
+    2>/dev/null | tr -d '\r\n')"
+  if [ -z "$expected" ]; then
+    record "7 roundtrip" "FAIL" "SESSION_RECIPE 조회 실패 — backend 컨테이너 확인"
+    return 0
+  fi
+  if [ "$n_items" != "$expected" ]; then
+    record "7 roundtrip" "FAIL" "배합 합계 ${expected}문항 기대, 실제 $n_items"
     return 0
   fi
 
@@ -393,7 +404,7 @@ picks = [i["quiz_id"] for i in items if i.get("question_type") != "board"][:3]
 print("\n".join(picks))
 ' <<<"$body")"
   if [ -z "$quiz_ids" ]; then
-    record "7 roundtrip" "FAIL" "비board 문항 0건 (5문항 전부 board — 배합 확인 필요)"
+    record "7 roundtrip" "FAIL" "비board 문항 0건 (전부 board — 배합 확인 필요)"
     return 0
   fi
 
