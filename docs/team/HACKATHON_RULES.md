@@ -255,7 +255,7 @@ D-1에서 함께 판단한다(벤치마킹 관찰 문서가 심사자에게 노�
 
 | ID | 항목 | 소유 | 기한 |
 |---|---|---|---|
-| D-1 | 포함/제외 목록 확정 — 제외: `node_modules`·`dist`·`.venv`·`__pycache__`·`.env`·`docs/Observation_Report_*` / **포함: `.env.example`·마이그레이션·시드·스크립트** | PM | 8/20 |
+| D-1 | 포함/제외 목록 확정 — 제외: `node_modules`·`dist`·`.venv`·`__pycache__`·`.env`·`docs/Observation_Report_*`·**`ai_OT자료/`**(주최측 배포 자료 — 저작권이 우리 것이 아니다. 2026-08-07 감사에서 커밋 혼입 발견, `git rm --cached` + `.gitignore` 처리 완료) / **포함: `.env.example`·마이그레이션·시드·스크립트** | PM | 8/20 |
 | D-2 | zip 생성 스크립트 + **압축 해제 후 무키 기동 실증**("누락 시 탈락" 대비) | DevOps | 8/20 |
 | D-3 | zip 전수 **비밀값 스캔** | PM | 8/20 |
 
