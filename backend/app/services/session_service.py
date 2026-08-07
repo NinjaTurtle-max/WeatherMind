@@ -5,16 +5,25 @@ recipe {"new": 5, "review": 4, "live": 1, "unit": 5} 합계 15문항.
 - new: 뱅크 active 문항 중 해당 유저 미출제분 (level_group 일치, 슬롯 문항 제외)
 - review: θ 파생 약점 개념(weatherbrain_service.weak_concepts — 학령 상대 임계,
   R8-01 §3.5) 태그의 뱅크 문항 우선, 없으면 new로 대체
-- live: uses_live_slots=true 문항 + {today.*} 슬롯을 Redis weather 캐시 값으로 치환,
-  치환 불가(문항 없음·날씨 값 부재) 시 기존 quiz-generate 폴백
+- live: uses_live_slots=true 문항 + {today.*} 슬롯을 Redis weather 캐시 값으로 치환.
+  **치환 불가분은 배합 단계에서 미리 걸러낸다**(CO-M1) — 남은 자리는 new가 메우고
+  생성으로 새지 않는다.
 - unit(진도 블록, R13-01 §2.10): **현재 진행 유닛의 다음 진도** 5문항을 세션
   마지막에 덧붙인다(기존 3종을 대체하지 않는다). 풀은 curriculum_service의
   `progress_block_pool`(= `_unit_content_pool` 재사용) — 유닛 잔여가 5 미만이면
   다음 열린 유닛으로 이어지고, 그래도 모자라면 부족분을 new로 메워 총합 15를 지킨다.
-- 뱅크 부족분은 ai-worker quiz-generate 폴백 (현행 /quiz/today 경로와 동일).
-  폴백은 asyncio.gather 병렬 실행 — 개별 실패는 수집·로깅하고 성공분으로 세션을
-  구성하며, 전부 실패 시에만 AIWorkerError(→503)를 낸다 (웨이브 1 리뷰 3번.
-  부분 세션(배합 총합 미만) 허용 여부는 R3 검토 — §5 기술 부채)
+
+부족분 폴백 3단 (CO-H9 — Obs02:128 "뱅크 미스 → 온라인 생성 → 그것도 실패 시 공용
+캐시 문항". 3단이 없어 지금까지 **503으로 끝났다**):
+  1단 뱅크 — 위 4블록.
+  2단 **재출제 풀**(`_fetch_reserve_pool`) — 미출제 제약만 푼 같은 뱅크. 이미 푼
+      문항을 다시 내는 것이라 kind는 'review'다(거짓 '신규' 라벨 금지). 무료·무지연·
+      결정적이라 **생성보다 먼저** 온다: 3단 폴백의 "공용 캐시 문항"이 곧 이것이고,
+      덤으로 상시 과금 지점과 new 풀 고갈(대장 M8)을 함께 눌러 준다.
+  3단 ai-worker quiz-generate — asyncio.gather 병렬. 개별 실패는 수집·로깅하고
+      성공분으로 세션을 구성한다(웨이브 1 리뷰 3번).
+  전부 실패해도 1·2단 산출물이 MIN_QUESTIONS 이상이면 **부분 세션으로 발급**한다
+  (CO-H12 판정 — 상수 주석 참조). 그 아래일 때만 AIWorkerError(→503).
 - 같은 question_type 3연속 금지 (enforce_type_variety)
 - recipe와 router-decide 결과는 sessions 행 JSONB에 저장 (route 미로깅 부채 상환)
 
@@ -53,15 +62,23 @@ logger = logging.getLogger(__name__)
 # ── 배합 계약 (§3.2) ── 기본값은 settings(env 튜닝, R5.5). SESSION_SIZE는 합에서 파생.
 DEFAULT_RECIPE = settings.SESSION_RECIPE
 SESSION_SIZE = sum(DEFAULT_RECIPE.values())
-# new 풀 조회 한도 — new는 review·unit 부족분의 대체 공급원이라(§3.2·R13-01 §2.10)
-# 최악의 수요가 세 블록의 합이다. 이보다 작으면 뱅크에 문항이 있어도 부족분이
-# quiz-generate 폴백으로 새어 비용이 된다.
-NEW_POOL_LIMIT = (
-    DEFAULT_RECIPE.get("new", 0)
-    + DEFAULT_RECIPE.get("review", 0)
-    + DEFAULT_RECIPE.get("unit", 0)
-)
+# new 풀 조회 한도 — new는 **다른 전 블록의 대체 공급원**이라(§3.2·R13-01 §2.10 ·
+# CO-M1로 live까지 편입) 최악의 수요가 배합 전체다. 이보다 작으면 뱅크에 문항이
+# 있어도 부족분이 quiz-generate 폴백으로 새어 비용이 된다.
+NEW_POOL_LIMIT = SESSION_SIZE
 MODE_DAILY = "daily"
+
+# 발급 하한 (CO-H12) — 이 아래로 떨어지면 세션을 발급하지 않고 실패시킨다.
+# 배경: `plan_bank_picks`가 부분 배합을 낼 수 있다는 사실이 R2 이래 "부분 세션 허용
+# 여부는 R3 검토"라는 **미결 마커**로만 남아 있었고(R3에 검토 흔적 없음), 그 사이
+# 배합이 5→10→15로 세 번 커져 미결의 크기가 3배가 됐다. 여기서 닫는다:
+#   **부분 세션은 허용한다** — 15문항을 못 채웠다고 학습 자체를 막는 것은 과하고,
+#   뱅크 고갈·생성 실패는 유저 잘못이 아니다. 대신 두 가지를 계약으로 세운다.
+#   ① **0문항 세션은 절대 발급하지 않는다.** 프론트 자동완료 이펙트에 `total > 0`
+#      가드가 있어 0문항 세션은 화면에서 탈출구가 없다(대장 S-3).
+#   ② 실제 발급 수를 세션 행에 남긴다(`recipe_json.issued_count`) — 부분 발급이
+#      "조용히"가 아니라 **관측 가능하게** 일어나야 한다(대장 M11).
+MIN_QUESTIONS = 1
 
 # ── 예보 마감 단계 (R13 A-1) ────────────────────────────────────────────────
 # 예보 대결을 일일 세션의 **마감 단계**로 붙인다. 문항이 아니라 단계인 이유:
@@ -203,6 +220,12 @@ def plan_bank_picks(
     - review 부족분은 new 풀에서 대체 (§3.2 "없으면 new로 대체")
     - unit(진도 블록, R13-01 §2.10) 부족분도 같은 선례로 new 풀에서 대체 —
       열린 유닛이 없거나(신규 유저) 유닛 잔여가 5 미만이어도 총합은 배합 합계다.
+    - **live 부족분도 new로 대체한다 (CO-M1)**. 예전에는 live만 대체 대상에서
+      빠져 있어서, KMA 키가 없거나 장애면(→ 슬롯 치환 불가 → live 풀이 빈다)
+      new 풀이 남아돌아도 그 한 자리가 **매 세션 quiz-generate 1콜**로 샜다.
+      8/11~18 무키 실운영에서 상시 경로라 상시 과금이 된다. 실황 문항이 없는 날은
+      "오늘의 발견"이 하나 더 나오는 것이 유료 생성보다 낫다 — 세 블록이 이미
+      같은 판단을 하고 있었고 live만 예외였다.
     - 같은 문항 중복 선택 금지 (id 기준 — new/review/unit 풀이 겹칠 수 있음).
       **블록 간 중복 차단은 picked_ids 하나가 전담**한다: 신규 5와 유닛 5가 같은
       뱅크에서 뽑혀도 같은 문항이 두 번 나오지 않는다.
@@ -228,7 +251,9 @@ def plan_bank_picks(
     review_picks = take(review_pool, recipe["review"], "review")
     review_picks += take(new_pool, recipe["review"] - len(review_picks), "new")
     picks += review_picks
-    picks += take(live_pool, recipe["live"], "live")
+    live_picks = take(live_pool, recipe["live"], "live")
+    live_picks += take(new_pool, recipe["live"] - len(live_picks), "new")
+    picks += live_picks
 
     unit_count = recipe.get("unit", 0)
     if unit_count:
@@ -530,14 +555,21 @@ async def forecast_closing_step(
 ) -> dict[str, Any] | None:
     """일일 세션의 예보 마감 단계 — 필요하면 dict, 아니면 None (R13 A-1).
 
-    None(= 마감 단계 없음)이 되는 경우는 둘뿐이다:
+    None(= 마감 단계 없음)이 되는 경우는 **하나뿐이다**:
     1. **오늘 이미 제출했다** — 대상일(내일) duels 행이 있으면 미노출. 재노출하면
        프론트가 409 ALREADY_SUBMITTED로 끝나는 단계를 그리게 된다.
-    2. **KMA 대상일 예보를 못 구했다**(키 부재·장애·NODATA) — 단계를 **건너뛰고**
-       15문항으로 세션이 정상 완료된다. "키 없이도 전 기능 동작"이 프로젝트 계약이라
-       예보 단계가 세션 완주를 막아서는 안 된다. 제출 자체는 키 없이도 가능하지만
-       (캐스터가 _FALLBACK_BASE로 동작), 판단 재료 없이 예보를 요구하는 것은
-       학습이 아니라 찍기다 — 그래서 노출하지 않는다.
+
+    **KMA 대상일 예보를 못 구해도 단계는 뜬다** (CO-M2 판정 — 개정 전에는 이것이
+    2번째 None 사유였다). 개정 이유: `get_today_weather()`가 키 부재·장애면 빈 dict를
+    돌려주므로 `base_forecast`는 **무키 환경에서 항상 None**이었고, 그래서 3일차에
+    만든 R13 A-1이 8/11~18 실운영과 무키 데모에서 **영원히 도달 불가**였다. "판단
+    재료 없이 예보를 요구하면 찍기"라는 원래 논거는 맞지만, 그 대가가 **기능 전체의
+    소멸**이면 비용이 크게 어긋난다.
+    타협은 **숫자를 지어내지 않는 것**이다: `base_forecast=None`을 그대로 내려보내고
+    (스키마가 이미 Optional), 프론트는 기준 예보 배너만 숨긴 채 단계를 그린다 —
+    `routers/duel._to_today_response`가 쓰는 것과 **같은 관례**다. 판단 재료가 더
+    필요하면 기존 `GET /api/v1/duel/briefing`이 그 자리에 있다. 제출 자체는 키 없이도
+    성립한다(캐스터가 _FALLBACK_BASE로 동작).
 
     **서울 고정**이다(R11-01 §8 계약 — 정산이 서울 실측). 세션 실황 슬롯이 유저
     지역을 쓰는 것과 다르며, get_today_weather()의 기본 지역과 대결 경로

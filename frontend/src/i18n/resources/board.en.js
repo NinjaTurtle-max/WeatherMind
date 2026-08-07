@@ -32,6 +32,8 @@ export default {
       loadErrorBody: 'Please try again in a moment.',
       retry: 'Try again',
       retryChallenge: 'Challenge again',
+      nextPuzzle: 'Next puzzle →',
+      lastPuzzleDone: '🎉 You finished the last puzzle!',
       title: '🧩 Atmosphere Board',
       subtitle: 'Place weather elements across 4 regions of the Korean Peninsula to create the target weather.',
       depletedBody1: 'Clouds only shrink by',

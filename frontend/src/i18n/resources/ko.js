@@ -37,6 +37,7 @@ export default {
     board: '보드',
     duel: '예보 대결',
     league: '리그',
+    explore: '탐구',
     me: '내 정보',
     tutor: {
       // 화면 담당 마스코트(Mascot 배정표) — 보드는 태양이
@@ -78,9 +79,9 @@ export default {
     },
     duel: {
       title: '예보 대결이란 무엇인가요?',
-      p1: '오늘의 기온·강수확률을 직접 예측해요',
+      p1: '내일의 기온·강수확률을 직접 예측해요',
       p2: 'AI 캐스터의 예보와 정확도를 겨뤄요',
-      p3: '실제 관측값으로 다음 날 채점돼요',
+      p3: '이틀 뒤 실제 관측값으로 채점돼요',
     },
     league: {
       title: '리그란 무엇인가요?',
@@ -183,6 +184,9 @@ export default {
       beginner: '초급',
       intermediate: '중급',
       advanced: '고급',
+      // CO-S-4: 서버 THETA_BAND_LABELS는 4밴드(θ>1.5=expert)인데 여기가 3개라
+      // 화면에 `ability.level.expert` 키 문자열이 그대로 떴다.
+      expert: '최상급',
     },
   },
   // lib/onboardingGate.js DAILY_GOAL_CHOICES 라벨 + DailyGoal.jsx(피커·미터)
@@ -251,6 +255,8 @@ export default {
     spineCurrentLabel: '지금 배울 유닛',
     spineContinue: '이어서 학습 →',
     spineAllCleared: '🌈 열린 유닛을 모두 클리어했어요!',
+    spineNoneOpen: '아직 열린 유닛이 없어요 — 학습 경로에서 첫 유닛을 열어 보세요.',
+    spineStart: '학습 경로 열기 →',
   },
   // 배지 컬렉션(modules/progress/BadgeCollection.jsx)
   badges: {
@@ -348,6 +354,12 @@ export default {
       title: 'WeatherBrain 분석',
       cap: '개념별 실력(θ) — 문제를 풀수록 정밀해져요.',
       aria: '개념별 실력 레이더 차트: {list}',
+      empty: '아직 분석할 기록이 부족해요 — 문항을 조금 더 풀면 개념별 실력이 그려져요.',
+    },
+    // CO-S-2: 전 API 실패에도 홈이 "복습할 개념이 없어요"라고 말하던 자리
+    error: {
+      title: '지금 정보를 불러오지 못했어요',
+      body: '연결을 확인한 뒤 다시 시도해 주세요.',
     },
   },
   curriculum: {
@@ -385,7 +397,7 @@ export default {
     },
     daily: {
       title: '자유 일일 세션',
-      body: '정해진 경로 대신 오늘의 10문항을 바로 풀고 싶다면.',
+      body: '정해진 경로 대신 오늘의 세션을 바로 풀고 싶다면.',
       cta: '오늘의 세션 풀기 →',
       resume: '풀던 세션 이어서 풀기 →',
       regen: '☁️ 구름 회복까지 약 {min}분',
@@ -434,6 +446,18 @@ export default {
     loading: '세션을 준비하고 있어요...',
     title: '오늘의 기상 세션',
     loadFailed: '세션을 불러오지 못했어요',
+    // CO-S-3: 0문항 세션은 자동완료 가드(total>0)에 걸려 탈출구가 없었다
+    empty: {
+      title: '지금 낼 수 있는 문항이 없어요',
+      body: '오늘 몫을 이미 마쳤거나, 아직 이 단계에 맞는 문항이 준비되지 않았어요.',
+      cta: '학습 경로로 돌아가기 →',
+    },
+    // CO-M4: 실제 429는 answer가 아니라 세션 로드 경로에서 난다
+    outOfClouds: {
+      title: '☁️ 구름이 모두 흩어졌어요',
+      body: '구름은 틀린 문항에만 1개 줄어들어요. 약 {min}분 후 1개가 회복되면 새 세션을 열 수 있어요.',
+      cta: '학습 경로로 돌아가기 →',
+    },
     progressTitle: '오늘의 세션',
     progressCount: '{answered} / {total} 문항 완료',
     itemCount: '문항 {current} / {total}',
@@ -575,7 +599,7 @@ export default {
       rainProb: '강수확률(%)',
       submit: '예보 제출 (1일 1회)',
     },
-    submittedNote: '예보 제출 완료! 내일 실측으로 정산돼요. 🌙',
+    submittedNote: '예보 제출 완료! 이틀 뒤 실측으로 정산돼요. 🌙',
     myPred: '🙋 내 예보',
     aiPred: '🤖 AI 캐스터',
     actual: '실측',

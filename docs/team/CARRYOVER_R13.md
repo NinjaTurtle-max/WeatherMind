@@ -319,6 +319,8 @@ IRT를 "미구현"이라 적음. 특히 **`MENTORING_ALIGNMENT` §0의 30초 구
 | **CO-P-8** | 🟠 | 정식 가입이 rate limit 버킷을 2칸 쓴다 |
 | **CO-P-11** | 🟠 | Redis 유실 = 전 게스트 영구 로그아웃 |
 | **CO-P-12** | 🟡 | CORS allow_origins가 localhost 5종 하드코딩(env 노브 없음) — Caddy 동 |
+| **CO-Q-11** | 🔴 | 앱 롤 비밀번호가 prod에서 dev 값으로 남는다(실배선 0) |
+| **CO-Q-12** | 🔴 | rls_app_role.sql이 조건부→필수 · 초기화 순서가 계약이 된다 |
 | **CO-Q-2** | — | ~ Q-9 |
 | **CO-Q-4** | 🔴 | 복원한 DB는 앱 롤이 쓸 수 없다 — db_restore.sh:103이 pg_restore --no-o |
 | **CO-Q-5** | 🟠 | db_restore.sh가 두 번째 고아(J-4의 smoke_r10.sh와 동종) — DEPLOY.md· |
@@ -992,6 +994,28 @@ CO-J-11(celery 테스트 디렉토리 부재)이 이걸 못 잡는 이유이기�
 | **Q-7** 🟠 | **ASOS 발표 지연 창에서 그날치 정산이 영구 손실** — 04:00 KST가 어제 일자료 조회, NODATA면 05:00·06:00까지만 재시도, 그 후 **백필 경로 없음**(다음 날은 다른 날짜를 본다). ⚠️ KMA 일자료 공개 시각은 **미확인** — 구조상 "한 번 놓치면 끝"인 것만 확실. 덤: **재시도에 백오프가 없고 4xx도 재시도**한다(403 요청 1건이 로그 2줄). `collect_daily_weather`는 `max_retries=2`를 선언하고 **`self.retry()`를 안 부르는 죽은 선언** |
 | **Q-8** 🟠 | **Redis가 인증의 SPOF인데 방어가 없다** — 실측 설정 `appendonly no · maxmemory 0 · noeviction` + prod `mem_limit 192m` + `restart:` 부재(J-16) → 초과 시 evict가 아니라 **OOM kill → 컨테이너 사망 유지 → 전 유저 401 + Celery 브로커 동시 소실**. 정상 재기동이라도 최대 1시간치 세션이 RDB 창에서 증발. **브로커·캐시·세션이 전부 한 DB**(`redis://redis:6379/0`) |
 | **Q-9** 🟡 | **`.env.example:60`의 `SESSION_RECIPE`가 합 5** — J-13은 "미기재"라 적었으나 **기재됐고 틀렸다**(더 나쁜 형태). **8/17 이후 "env만 만진다" 계획이 이 값을 복사하면 세션이 5문항이 된다** · `db-backup`만 prod `mem_limit` 없음(3.75GB 합산에서 누락된 유일 서비스) · Caddy `/api/*`와 nginx `/api/v1/` **프록시 중복 정의** · `.env`에 죽은 키 3종 잔존(`CHROMA_*`·`EMBEDDING_*` — 8/20 시크릿 스캔 대상만 늘린다) |
+
+### 🔴 Q-11. `weathermind_app` 비밀번호가 prod에서 **dev 값으로 남는다** (리드3 발견, 2026-08-08)
+
+`database/init.sql`과 `backend/app/scripts/rls_app_role.sql`이 `weathermind_app_dev`를
+**하드코딩**하고, `.env.example`·`DEPLOY.md`·compose 어디에도 교체 절차가 없다.
+`POSTGRES_APP_PASSWORD`는 **주석에만 존재하고 실배선이 0**이다.
+
+postgres가 호스트 포트를 안 여니 즉시 위험은 아니나, **RLS 2층 격리의 비특권 롤 비밀번호가
+공개 저장소에 평문으로 있고 prod가 그 값을 그대로 쓴다.** 런북에 `ALTER ROLE` 한 줄이 필요하다.
+**배정: 5일차**(배포 절차와 함께).
+
+### 🔴 Q-12. `rls_app_role.sql` 실행이 「조건부」에서 **「필수」로 바뀐다** (Q-1 수리의 귀결)
+
+`DEPLOY.md:117`의 현재 문구는 *"기존 볼륨에 RLS 앱 롤이 없다면"*이다. 그런데 런타임이
+앱 롤로 붙는 순간 **예외 정책 2건(`app_auth_users`·`app_leaderboard_read`)이 없으면
+로그인·게스트·리더보드가 전면 0행**이 된다. `init.sql`은 롤·GRANT만 만들고 정책은 못 만든다
+(테이블이 아직 없어서 — init.sql 자신의 주석이 그렇게 적고 있다).
+
+**신규 볼륨도 무조건 실행이고, 순서가 계약이 된다**:
+`up -d` → `alembic upgrade head`(소유자 롤) → **`rls_app_role.sql`** → 시드(courses 먼저).
+이 사이 backend는 정상적으로 실패 상태다. **CO-J-15(빈 볼륨 미검증)·CO-J-7(`seed_courses`
+누락)과 같은 절에서 함께 정리해야 한다.** **배정: 5일차**.
 
 ### Q-10. ASOS 월별 아카이브 — 계획서 약속 미실재
 

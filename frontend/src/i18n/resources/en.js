@@ -29,6 +29,7 @@ export default {
     board: 'Board',
     duel: 'Forecast Duel',
     league: 'League',
+    explore: 'Explore',
     me: 'Profile',
     tutor: {
       board: { name: 'Sunny', line: 'What weather shall we build?' },
@@ -67,9 +68,9 @@ export default {
     },
     duel: {
       title: 'What is the Forecast Duel?',
-      p1: "Predict today's temperature and rain probability yourself",
+      p1: "Predict tomorrow's temperature and rain probability yourself",
       p2: "Compete with the AI caster's forecast on accuracy",
-      p3: 'Graded the next day against real observations',
+      p3: 'Graded two days later against real observations',
     },
     league: {
       title: 'What is the League?',
@@ -166,6 +167,7 @@ export default {
       beginner: 'Beginner',
       intermediate: 'Intermediate',
       advanced: 'Advanced',
+      expert: 'Expert',
     },
   },
   dailyGoal: {
@@ -228,6 +230,8 @@ export default {
     spineCurrentLabel: 'Up next',
     spineContinue: 'Continue →',
     spineAllCleared: "🌈 You've cleared every open unit!",
+    spineNoneOpen: 'No units are open yet — start the first one from your learning path.',
+    spineStart: 'Open learning path →',
   },
   badges: {
     loading: 'Loading badges...',
@@ -319,6 +323,11 @@ export default {
       title: 'WeatherBrain',
       cap: 'Ability per concept (θ) — sharper the more you answer.',
       aria: 'Radar chart of ability by concept: {list}',
+      empty: 'Not enough answers yet — solve a few more and your ability per concept will appear here.',
+    },
+    error: {
+      title: "Couldn't load your data",
+      body: 'Check your connection and try again.',
     },
   },
   curriculum: {
@@ -356,7 +365,7 @@ export default {
     },
     daily: {
       title: 'Free daily session',
-      body: "Want today's 10 questions right away instead of the set path?",
+      body: "Want today's session right away instead of the set path?",
       cta: "Start today's session →",
       resume: 'Resume your session →',
       regen: '☁️ About {min} min until a cloud returns',
@@ -404,6 +413,16 @@ export default {
     loading: 'Preparing your session...',
     title: "Today's Weather Session",
     loadFailed: "Couldn't load the session",
+    empty: {
+      title: 'No questions available right now',
+      body: "You may have finished today's set, or questions for this level aren't ready yet.",
+      cta: 'Back to learning path →',
+    },
+    outOfClouds: {
+      title: '☁️ Your clouds have scattered',
+      body: 'Clouds are spent only on wrong answers. One returns in about {min} min, and then you can start a new session.',
+      cta: 'Back to learning path →',
+    },
     progressTitle: "Today's session",
     progressCount: '{answered} / {total} answered',
     itemCount: 'Question {current} / {total}',
@@ -538,7 +557,7 @@ export default {
       rainProb: 'Rain probability (%)',
       submit: 'Submit forecast (1/day)',
     },
-    submittedNote: "Forecast submitted! Settled against tomorrow's observations. 🌙",
+    submittedNote: 'Forecast submitted! Settled against observations two days from now. 🌙',
     myPred: '🙋 My forecast',
     aiPred: '🤖 AI caster',
     actual: 'Observed',

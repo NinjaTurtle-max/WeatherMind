@@ -2,19 +2,23 @@
 
 | POST | /register | {email, password, nickname, level_group} → {user_id, access_token} |
 | POST | /login    | {email, password} → {access_token, refresh_token} |
-| POST | /guest    | - → {access_token, refresh_token} (R11-01 J — 실 유저 생성) |
+| POST | /guest    | {level_group?} (바디 선택) → {access_token, refresh_token} (R11-01 J — 실 유저 생성) |
 | POST | /guest/convert | Bearer + {email, password, nickname?} → {access_token, refresh_token} (같은 user_id 유지) |
 | POST | /refresh  | {refresh_token} → {access_token} |
+| GET  | /me       | Bearer → {user_id, email, nickname, is_guest, level_group} (R13 P-4) |
 | POST | /logout   | - → {"success": true} (Redis 세션 삭제) |
 
 refresh token은 Redis session:{user_id}에 7일 TTL로 저장 (08번 스펙).
+**refresh 성공 시 TTL을 다시 민다(슬라이딩 만료 — R13 P-3).**
 로그아웃 시 세션 삭제 → 이후 모든 access token 무효화.
-레이트리밋 (R2-01 §3.6): login·register·guest·guest/convert 5회/분/IP.
+레이트리밋 (R2-01 §3.6 → R13 P-2): login·register·guest·guest/convert는
+Settings.LIMIT_AUTH(기본 30회/분/IP — NAT 뒤 다중 사용자 전제).
 """
 import uuid
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +38,7 @@ from app.models.user import User
 from app.services import weatherbrain_service
 from app.schemas.auth import (
     ConvertRequest,
+    LevelGroup,
     LoginRequest,
     LoginResponse,
     LogoutResponse,
@@ -52,6 +57,24 @@ async def _store_session(user_id: uuid.UUID, refresh_token: str) -> None:
     """Redis session:{user_id} — refresh token 저장, TTL 7일."""
     redis = get_redis()
     await redis.setex(f"session:{user_id}", SESSION_TTL, refresh_token)
+
+
+async def _touch_session(user_id: str) -> None:
+    """세션 TTL을 다시 SESSION_TTL로 민다 — 슬라이딩 만료 (R13 P-3).
+
+    TTL을 세팅하는 곳이 login·register·guest·convert뿐이라, refresh만 반복하는
+    사용자는 **세션 생성 시각 +7일에 하드 컷**으로 401을 맞고 로그아웃됐다.
+    게스트는 재진입 경로가 없으므로(P-4) 그 시점에 진도가 통째로 사라진다.
+    8/11~18 실운영이 정확히 그 길이이고 URL은 9월 셋째 주까지 살아야 한다.
+
+    refresh token 자체는 회전하지 않는다 — RefreshResponse가 access_token만
+    돌려주는 계약이라 회전하려면 스키마를 바꿔야 하고, 슬라이딩 만료의 목적은
+    TTL 연장 하나뿐이다.
+    """
+    redis = get_redis()
+    expire = getattr(redis, "expire", None)
+    if expire is not None:  # 테스트 대역(get만 구현한 FakeRedis) 관용
+        await expire(f"session:{user_id}", SESSION_TTL)
 
 
 @router.post(
@@ -133,20 +156,70 @@ GUEST_EMAIL_DOMAIN = "guest.weathermind.invalid"
 GUEST_LEVEL_GROUP = "middle_high"
 
 
+def is_guest_user(user: User) -> bool:
+    """게스트 계정인가 — 이메일 도메인 규약(J)이 유일한 판정 근거.
+
+    convert_guest와 /me가 같은 판정을 써야 "전환 대상이 아닌데 전환 화면"·
+    "게스트인데 로그아웃 경고 없음" 같은 어긋남이 안 생긴다(R13 P-4/P-10).
+    """
+    return user.email.endswith(f"@{GUEST_EMAIL_DOMAIN}")
+
+
+class GuestStartRequest(BaseModel):
+    """게스트 시작 옵션 — **바디 전체가 선택**이다 (R13 P-5).
+
+    학령 신고 writer가 `POST /auth/register`의 필드 하나뿐이라, R10-J가 주 동선으로
+    만든 게스트 진입을 탄 사람은 초등학생이든 성인이든 평생 middle_high였다.
+    여기를 열면 온보딩에서 학령을 고른 뒤 게스트로 시작하는 경로가 성립한다.
+
+    바디를 생략하면 기존과 완전히 동일하게 동작한다(기본값 middle_high) —
+    무바디로 호출하는 기존 프론트·목·스모크가 그대로 통과해야 한다.
+    허용값은 RegisterRequest와 같은 `LevelGroup` Literal을 **재사용**한다
+    (문자열 사본을 만들면 두 경로가 조용히 갈라진다).
+    """
+
+    level_group: LevelGroup = Field(default=GUEST_LEVEL_GROUP)
+
+
+class MeResponse(BaseModel):
+    """현재 사용자 정체 (R13 P-4/P-10).
+
+    지금까지 서버는 "너는 게스트다"를 어디서도 알려주지 않아서, 프론트의 게스트
+    판별이 100% 클라이언트 상태 의존이었다 — 그 상태가 유실되면 전환 배너가 안 뜨고
+    `/account/convert` 직접 진입 시 "이미 정식 계정입니다"라는 거짓 화면이 나온다.
+    게스트 로그아웃은 재진입 경로가 없어 진도 영구 소실이므로, 확인창을 띄울지
+    판단할 근거를 서버가 제공해야 한다(확인창 자체는 프론트 몫).
+
+    응답 모델을 라우터에 두는 이유: schemas/auth.py는 R13 4일차에 다른 담당이
+    소유 중이라 이번 웨이브에서 건드리지 않는다. 안정화되면 그쪽으로 옮긴다.
+    """
+
+    user_id: uuid.UUID
+    email: str
+    nickname: str
+    is_guest: bool
+    level_group: str
+
+
 @router.post(
     "/guest", response_model=LoginResponse, status_code=status.HTTP_201_CREATED
 )
 @limiter.limit(LIMIT_AUTH)
 async def guest_login(
-    request: Request, db: AsyncSession = Depends(get_db)
+    request: Request,
+    body: GuestStartRequest | None = None,
+    db: AsyncSession = Depends(get_db),
 ) -> LoginResponse:
-    """게스트 시작 — 실 유저 생성 + 실 JWT (응답 형태는 login과 동일 스키마)."""
+    """게스트 시작 — 실 유저 생성 + 실 JWT (응답 형태는 login과 동일 스키마).
+
+    바디는 선택이다 — 없으면 level_group=middle_high (기존 동작·하위 호환).
+    """
     guest_id = uuid.uuid4()
     user = User(
         email=f"guest-{guest_id}@{GUEST_EMAIL_DOMAIN}",
         password_hash=hash_password(uuid.uuid4().hex),  # 로그인 불가 무작위 시크릿
         nickname=f"게스트-{guest_id.hex[:6]}",
-        level_group=GUEST_LEVEL_GROUP,
+        level_group=body.level_group if body else GUEST_LEVEL_GROUP,
     )
     db.add(user)
     await db.commit()
@@ -189,7 +262,7 @@ async def convert_guest(
     db: AsyncSession = Depends(get_db),
 ) -> LoginResponse:
     """게스트 계정을 정식 계정으로 전환 — 같은 user_id 유지(진도 보존)."""
-    if not user.email.endswith(f"@{GUEST_EMAIL_DOMAIN}"):
+    if not is_guest_user(user):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"detail": "게스트 계정이 아닙니다.", "code": "NOT_GUEST"},
@@ -255,8 +328,23 @@ async def refresh(
     if user is None:
         raise invalid
 
+    # 슬라이딩 만료 — 계속 쓰는 세션은 만료시키지 않는다 (R13 P-3)
+    await _touch_session(user_id)
+
     return RefreshResponse(
         access_token=create_access_token(str(user.id), user.level_group)
+    )
+
+
+@router.get("/me", response_model=MeResponse)
+async def me(user: User = Depends(get_current_user)) -> MeResponse:
+    """현재 사용자 정체 — 게스트 여부 포함 (R13 P-4/P-10)."""
+    return MeResponse(
+        user_id=user.id,
+        email=user.email,
+        nickname=user.nickname,
+        is_guest=is_guest_user(user),
+        level_group=user.level_group,
     )
 
 

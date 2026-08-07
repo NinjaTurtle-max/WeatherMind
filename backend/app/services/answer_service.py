@@ -203,14 +203,39 @@ async def build_feedback(
 ) -> str:
     """채점 결과 → 피드백 문자열 — 최초 제출·만회 재제출 공용 (R13-01 §2.1).
 
-    board는 규칙 explain/hints로 구성하고(RAG 미호출 — §3.4), 그 외 유형은 RAG
-    Chain(실패 시 ai_client 내부 정적 문구 fallback). board 판정 여부는 phenomena
-    유무가 아니라 question_type으로 본다 — 판정이 비어도 board는 board다.
+    우선순위 3단 (CO-I-1에서 ②가 신설됐다):
+      ① board  → 규칙 explain/hints (RAG 미호출 — §3.4). board 판정 여부는
+         phenomena 유무가 아니라 question_type으로 본다(판정이 비어도 board다).
+      ② **사람이 저작한 해설**(`template_json.explanation_hint`) → 그대로 반환.
+      ③ 그 외 → RAG Chain(실패 시 ai_client 내부 정적 문구 fallback).
+
+    ②를 넣은 이유(CO-I-1 — 대장 I절 "최대 건"):
+    본시드 237건 중 **158건에 해설이 저작돼 있는데 소비자가 개발용 목 하나뿐**이었다.
+    답안마다 ③이 무조건 나가서, 이미 저작된 해설이 있는 문항에도 **매 답안 유료 1콜**을
+    지불했다(CLAUDE.md가 "상시 과금 지점"으로 지목한 바로 그 자리).
+
+    왜 ②가 ③보다 **앞**인가 — 셋 다 근거가 같은 방향을 가리킨다:
+    - **비용**: 비board 203건 중 158건(78%)에서 상시 과금 지점이 사라진다. 남는 호출은
+      해설이 없는 45건과 생성 문항뿐이다.
+    - **무키 실운영(8/11~18)**: ③은 키가 없으면 문항과 무관한 정적 일반 문구
+      ("아쉽지만 괜찮아요…")로 떨어진다. 문항별 해설은 그보다 **엄격히 낫다**.
+    - **정확성**: 2단 LLM 게이트는 "이 진술이 참인가"를 묻지 않는다(대장 O-10).
+      사람이 저작한 해설은 그 검증을 이미 통과한 텍스트다.
+    맞바꾼 것은 오답 피드백의 개인화(유저 답안·오늘 날씨 인용)다. 되돌리려면 이
+    분기에 `if not is_correct` 한 줄을 더하면 정답에만 해설이 나간다.
+
+    정답 공개 시점 계약은 바뀌지 않는다: 해설은 **채점 이후 피드백에만** 실린다.
+    문항 발급 페이로드(`routers/session.QUESTION_PAYLOAD_FIELDS`)에서 여전히 제외되며
+    (풀기 전에 보이면 정답 유도다), 그 미노출은
+    tests/test_r10_question_payload_contract.py가 계속 강제한다.
     """
     if question.get("question_type") == "board":
         return board_engine.select_feedback(
             question, phenomena or [], is_correct, board_rules or []
         )
+    hint = str(question.get("explanation_hint") or "").strip()
+    if hint:
+        return hint
     # RAG 피드백의 오늘 날씨도 유저 지역 기준 (R11-01 §8.2 — NULL=서울)
     today_weather = await get_today_weather(user_region(user))
     return await ai_client.rag_feedback(

@@ -1,10 +1,14 @@
 name: CI
 
 # WeatherMind CI — scripts/ci.sh를 단계별 잡으로 호출한다.
-# 이 워크플로는 lint/test/board/config/frontend 명령을 절대 재구현하지 않는다 —
-# 전부 `bash scripts/ci.sh <단계>` 호출이며, 실제 검사 로직은 scripts/ci.sh(다른
-# 담당 소유)가 단일 진실 소스다. ci.sh 인자: lint | test | board | config |
-# frontend | smoke | all (인자 없으면 all — smoke는 opt-in이라 all에 미포함).
+# 이 워크플로는 검사 명령을 절대 재구현하지 않는다 — 전부 `bash scripts/ci.sh <단계>`
+# 호출이며, 실제 검사 로직은 scripts/ci.sh(다른 담당 소유)가 단일 진실 소스다.
+# ci.sh 인자: lint | test | board | config | frontend | seed | authoring | smoke | all
+# (인자 없으면 all — smoke는 opt-in이라 all에 미포함).
+#
+# ⚠️ 잡 목록은 `ci.sh all`의 단계 목록과 **같아야 한다**. 갈라지면 로컬만 초록인
+# 게이트가 생긴다(실제로 seed가 그랬다 — CO-J-1). 이 패리티는 backend
+# `tests/test_ci_workflow_contract.py::TestCiStepJobParity`가 감시한다.
 #
 # 근거: docs/team/TEAM_PROCESS.md §1.7 (CI는 lint → test → build 파이프라인)
 
@@ -61,9 +65,9 @@ jobs:
             exit 1
           fi
 
-  # ── test: pytest (backend, ai-worker) — 실DB·docker 불필요(FakeDB/mock 단위 테스트) ──
+  # ── test: pytest (backend, ai-worker, celery) — 실DB·docker 불필요(FakeDB/mock 단위 테스트) ──
   test:
-    name: test (pytest backend + ai-worker)
+    name: test (pytest backend + ai-worker + celery)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -140,9 +144,9 @@ jobs:
       - name: scripts/ci.sh config
         run: bash scripts/ci.sh config
 
-  # ── frontend: vite build + 스모크 9종 (FRONT_TESTS 배열은 ci.sh가 소유) ─────
+  # ── frontend: vite build + 프론트 스모크 전 종목 (FRONT_TESTS 배열은 ci.sh가 소유) ─
   frontend:
-    name: frontend (build + 스모크 9종)
+    name: frontend (build + 프론트 스모크)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -158,9 +162,9 @@ jobs:
         working-directory: frontend
         run: npm ci --no-audit --no-fund
 
-      # node_modules가 설치돼 있으므로 ci.sh의 frontend 단계는 build 후
-      # FRONT_TESTS(9종: explore·session·placement·visual·gating·board-entry·
-      # assist·webgl·overlay)를 그대로 순회한다 — 여기서 종목을 재나열하지 않는다.
+      # node_modules가 설치돼 있으므로 ci.sh의 frontend 단계는 build 후 FRONT_TESTS를
+      # 그대로 순회한다 — **여기서 종목을 재나열하지 않는다**(나열하면 드리프트한다.
+      # 실제로 이 주석이 9종에 머물러 있는 동안 배열은 20종을 넘었다).
       - name: scripts/ci.sh frontend
         run: |
           set -o pipefail
@@ -173,6 +177,44 @@ jobs:
             echo "::error::frontend 단계가 SKIP으로 종료됨(node_modules 미검출로 판단) — npm ci 단계를 점검하세요."
             exit 1
           fi
+
+  # ── seed: 시드 문항 lint (스키마·게이트·payload·중복·단계 금칙 어휘) ────────
+  # CO-J-1: `ci.sh all`은 이 단계를 돌지만 워크플로에 잡이 없어 **GitHub에서 한 번도
+  # 돈 적이 없었다** — `step_seed` 주석의 "CI에서 상시 검증"이 거짓이었다.
+  # 드리프트 재발은 backend `test_ci_workflow_contract`의 단계↔잡 패리티가 잡는다.
+  #
+  # 의존: pytest + backend/requirements.txt **만**. lint_seed_items → author_items가
+  # backend(`app.routers.session`·`app.scripts.seed_content`)와 ai-worker
+  # (`app.chains.validate_chain`·`payload_contract`·`app.config`)를 실임포트하지만,
+  # ai-worker 세 모듈은 langchain을 **지연 임포트**하는 것이 계약(P-3)이라 실제로
+  # 필요한 건 pydantic뿐이고 그건 backend requirements에 있다(실측: 빈 venv에
+  # pytest + backend/requirements.txt만 넣고 237문항 전건 통과).
+  # pytest는 필수다 — 필수 필드 표의 단일 소유자가 backend/tests의 계약 테스트 모듈이라
+  # 그 모듈을 실임포트한다. ai-worker requirements(langchain-google-genai)는 잡 시간만
+  # 늘리므로 넣지 않는다. 만약 ai-worker가 최상단 langchain 임포트로 되돌아가면 이
+  # 잡이 ImportError로 크게 실패한다(조용한 통과 아님) — 그때 requirements를 추가할 것.
+  seed:
+    name: seed (lint_seed_items 본시드 전건)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: 의존성 설치 (pytest + backend)
+        run: |
+          pip install pytest
+          pip install -r backend/requirements.txt
+
+      # step_seed에는 SKIP 분기가 없다(스크립트 부재도 FAIL) — 다른 잡의 SKIP 방어
+      # grep을 여기에 복사하지 않는다. 방어할 대상이 없는 grep은 소음일 뿐이다.
+      - name: scripts/ci.sh seed
+        run: bash scripts/ci.sh seed
 
   # ── authoring: 저작 배치 무키 완주 (dry-run) — DB·키·네트워크 불필요 ────────
   # G1(ROADMAP §5.3.1)에서 실키로 돌릴 유일한 스크립트라, 무키 완주가 회귀 대상이다.

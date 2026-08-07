@@ -8,6 +8,7 @@ docs/specs/06_kma_api_parsing_spec.md 파싱 규칙 준수:
 - 타임아웃 10초, 실패 시 1회 재시도
 """
 import logging
+import re
 from urllib.parse import urlencode
 
 import httpx
@@ -15,6 +16,22 @@ import httpx
 from app import config
 
 logger = logging.getLogger(__name__)
+
+# ── serviceKey 로그 유출 차단 (CO-Q-3 / CO-N-3d) ────────────────────────────
+# backend/app/services/weather_api.py와 **같은 규칙**이다(교차 빌드 컨텍스트라
+# import로 묶을 수 없어 값을 양쪽에 둔다 — 드리프트는 backend
+# tests/test_kma_key_masking.py가 두 파일을 함께 읽어 감시한다).
+# ① httpx 자체 로거가 모든 요청의 전체 URL을 INFO로 남긴다 → 레벨 상향
+# ② httpx 예외 문자열에 요청 URL이 들어간다 → mask_service_key
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+_SERVICE_KEY_RE = re.compile(r"(serviceKey=)[^&\s'\"]+", re.IGNORECASE)
+SERVICE_KEY_MASK = "***"
+
+
+def mask_service_key(text: object) -> str:
+    """문자열에서 `serviceKey=...` 값을 마스킹한다 (순수 함수)."""
+    return _SERVICE_KEY_RE.sub(rf"\1{SERVICE_KEY_MASK}", str(text))
 
 # ── 주요 지역 격자 좌표 (단기예보 nx, ny) ──
 KMA_GRID = {
@@ -75,9 +92,13 @@ def _request_items(base_url: str, params: dict) -> list[dict]:
             break
         except (httpx.HTTPError, ValueError) as exc:
             last_exc = exc
-            logger.warning("KMA 요청 실패 (attempt %d): %s", attempt + 1, exc)
+            logger.warning(
+                "KMA 요청 실패 (attempt %d): %s", attempt + 1, mask_service_key(exc)
+            )
     if data is None:
-        raise KMAApiError(f"KMA request failed after retry: {last_exc}")
+        raise KMAApiError(
+            f"KMA request failed after retry: {mask_service_key(last_exc)}"
+        )
 
     header = data.get("response", {}).get("header", {})
     result_code = header.get("resultCode")

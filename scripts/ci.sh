@@ -4,7 +4,7 @@
 #
 # 사용법:
 #   scripts/ci.sh              # 전체 단계 순차 실행
-#   scripts/ci.sh lint         # 특정 단계만 실행: lint | test | board | config | frontend
+#   scripts/ci.sh lint         # 특정 단계만 실행: lint | test | board | config | frontend | seed | authoring
 #   scripts/ci.sh smoke        # (opt-in) DB 왕복 스모크 — 기본 실행엔 미포함.
 #                              # docker compose 기동·빌드가 필요해 오래 걸리므로
 #                              # 통합·릴리스 전 단독 실행한다. docker 없으면 SKIP.

@@ -19,7 +19,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.dependencies import get_db
+from app.core.dependencies import get_current_user, get_db
+from app.core.rate_limit import LIMIT_AUTH
 from app.core.security import decode_token
 from app.main import app
 from app.models.user import User
@@ -81,17 +82,33 @@ class FakeDB:
 
 
 class FakeRedis:
+    """인메모리 대역 — 값과 **TTL을 함께** 기록한다(R13 P-3 슬라이딩 만료 검증)."""
+
     def __init__(self):
         self.store: dict[str, str] = {}
+        self.ttl: dict[str, object] = {}
+        self.expire_calls: list[tuple[str, object]] = []
 
     async def setex(self, key, ttl, value):
         self.store[key] = value
+        self.ttl[key] = ttl
 
     async def get(self, key):
         return self.store.get(key)
 
     async def delete(self, key):
         self.store.pop(key, None)
+        self.ttl.pop(key, None)
+
+    async def expire(self, key, ttl):
+        self.expire_calls.append((key, ttl))
+        if key not in self.store:
+            return False
+        self.ttl[key] = ttl
+        return True
+
+    async def exists(self, key):
+        return 1 if key in self.store else 0
 
 
 @pytest.fixture()
