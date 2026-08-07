@@ -8,7 +8,7 @@
 의존성 정책(기존 suite 관례):
 - validate_chain은 지연 임포트 설계이므로 langchain 부재 환경에서도 sys.modules
   스텁으로 캐시 계약을 항상 검증한다 (키 없는 CI에서도 실행).
-- rag/quiz_gen/chroma 테스트는 해당 의존성이 설치된 환경에서만 실행
+- rag/quiz_gen 테스트는 langchain이 설치된 환경에서만 실행
   (test_weatherbrain_endpoints.py와 동일하게 importorskip).
 """
 
@@ -36,10 +36,6 @@ def _clear_caches():
             module = sys.modules.get(module_name)
             if module is not None:
                 getattr(module, attr).cache_clear()
-        chroma = sys.modules.get("app.embeddings.chroma_client")
-        if chroma is not None:
-            chroma._collections.clear()
-
     clear()
     yield
     clear()
@@ -96,8 +92,6 @@ def test_validate_llm_rebuilds_when_settings_change(monkeypatch):
 # ── rag_chain (langchain 설치 환경에서만) ──────────────────────────────────
 def _import_rag_chain():
     pytest.importorskip("langchain_google_genai")
-    pytest.importorskip("chromadb")  # rag_chain → chroma_client 경유 의존
-    pytest.importorskip("langchain_openai")
     from app.chains import rag_chain
 
     return rag_chain
@@ -173,26 +167,20 @@ def test_quiz_gen_chain_caches_per_temperature(monkeypatch):
     assert [c["temperature"] for c in created] == [0.7, 0.1]
 
 
-# ── chroma_client 컬렉션 핸들 (chromadb 설치 환경에서만) ───────────────────
-def test_chroma_collection_handle_cached(monkeypatch):
-    pytest.importorskip("chromadb")
-    pytest.importorskip("langchain_openai")
-    from app.embeddings import chroma_client
+# ── 프롬프트 변형별 체인 캐시 (R13 3일차) ─────────────────────────────────
+def test_rag_chain_caches_per_prompt_variant(monkeypatch):
+    """개념 문서 유무로 프롬프트가 갈리므로 캐시 키에 그 축이 들어가야 한다.
 
-    chroma_client._collections.clear()
-    calls: list = []
+    들어가지 않으면 먼저 호출된 변형의 체인이 재사용돼, 개념 문서가 없는 문항에
+    `{concept_documents}` 자리를 가진 프롬프트가 그대로 나가 KeyError로 폴백한다.
+    """
+    rag_chain = _import_rag_chain()
+    rag_chain._cached_chain.cache_clear()
+    created: list = []
+    monkeypatch.setattr(rag_chain, "ChatGoogleGenerativeAI", _fake_runnable_factory(created))
 
-    class FakeClient:
-        def get_or_create_collection(self, name, metadata):
-            calls.append((name, metadata))
-            return object()
+    with_ctx = rag_chain._build_chain(True)
+    without_ctx = rag_chain._build_chain(False)
 
-    monkeypatch.setattr(chroma_client, "get_chroma_client", lambda: FakeClient())
-
-    first = chroma_client.get_collection(chroma_client.COLLECTION_CLIMATE_CONCEPTS)
-    second = chroma_client.get_collection(chroma_client.COLLECTION_CLIMATE_CONCEPTS)
-    other = chroma_client.get_collection(chroma_client.COLLECTION_WEATHER_DAILY)
-
-    assert first is second, "같은 컬렉션 재조회 시 캐시된 핸들이어야 한다"
-    assert first is not other
-    assert len(calls) == 2, "get_or_create_collection HTTP 왕복은 컬렉션당 1회여야 한다"
+    assert with_ctx is not without_ctx, "프롬프트 변형이 다르면 별도 체인이어야 한다"
+    assert with_ctx is rag_chain._build_chain(True), "같은 변형은 캐시 재사용"

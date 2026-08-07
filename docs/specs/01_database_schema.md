@@ -75,17 +75,22 @@ UNIQUE(user_id, attend_date)
 
 ---
 
-## Chroma DB 컬렉션 3종
+## 벡터 저장소 — 없다 (R13 3일차, 2026-08-07 철거)
 
-| 컬렉션명 | 갱신주기 | 메타데이터 필드 |
-|---|---|---|
-| weather_daily | 매일 (Celery Beat 새벽 2시) | date, region, source_api |
-| climate_concepts | 최초 1회 | concept_tag, grade_level, subject |
-| anomaly_cases | 월별 | event_name, event_date, region |
+여기엔 Chroma 컬렉션 3종(`weather_daily`·`climate_concepts`·`anomaly_cases`)과
+임베딩 모델(`text-embedding-3-small`, 1536차원)·검색 파라미터(top_k=3, threshold 0.7)가
+적혀 있었다. **셋 다 지웠고, 되살릴 이유가 아직 없다.**
 
-임베딩 모델: `text-embedding-3-small` (1536차원)
-청크 크기: 500 토큰, overlap 50 토큰
-검색: cosine similarity, top_k=3, relevance threshold 0.7
+- `climate_concepts`의 소비처(피드백 체인)는 이제 `concept_tag`로
+  `database/seed/climate_concepts.json`을 **직접 조회**한다. 코퍼스가 8KB(35항목·
+  12태그)라 색인이 푸는 문제가 없다. 근거는 `docs/specs/03_ai_chains_spec.md` §3.1.
+- `weather_daily`가 실어 나르던 오늘 날씨는 같은 프롬프트에 `today_weather_json`으로
+  **이미 직접** 들어간다 — 같은 정보의 두 번째 경로였다. Celery 수집 태스크는 그대로
+  살아 있고(Redis 캐시), 사라진 것은 벡터 갱신 트리거뿐이다.
+- `anomaly_cases`는 **선언만 되고 어디서도 읽히지 않았다**(3컬렉션 중 실사용 1종).
+
+되살리려면 먼저 "태그가 불확정인 검색 질의"나 "수 MB 코퍼스"가 생겼는지 보라.
+그 전에는 벡터 저장소가 답인 질문이 이 서비스에 없다.
 
 ---
 

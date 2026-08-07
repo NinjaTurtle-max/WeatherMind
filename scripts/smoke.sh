@@ -201,7 +201,7 @@ step_up() {
     record "1 up" "FAIL" ".env에 POSTGRES_USER/POSTGRES_DB 없음"
     return 0
   fi
-  # frontend·celery 제외 — §3.4-1. ai-worker의 depends_on(chroma)은 함께 뜬다.
+  # frontend·celery 제외 — §3.4-1.
   if ! compose up -d --build postgres redis backend ai-worker; then
     record "1 up" "FAIL" "docker compose up 실패 (위 출력 참조)"
     return 0

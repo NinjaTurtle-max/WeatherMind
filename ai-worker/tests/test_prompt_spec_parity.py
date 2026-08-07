@@ -31,6 +31,7 @@ import pytest
 AI_WORKER_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = AI_WORKER_DIR.parent
 GEN_CHAIN = AI_WORKER_DIR / "app" / "chains" / "quiz_gen_chain.py"
+RAG_CHAIN = AI_WORKER_DIR / "app" / "chains" / "rag_chain.py"
 SPEC = REPO_ROOT / "docs" / "specs" / "03_ai_chains_spec.md"
 
 # 스펙에서 원문 그대로 가져다 쓰는 상수 — 독스트링이 선언한 대상 그 자체.
@@ -156,3 +157,40 @@ class TestPromptSpecParity:
                 f"slider 예시가 {field}를 필드로 주지 않는다 — 모델이 범위를 "
                 "질문 텍스트에만 적는 형태를 모방한다"
             )
+
+
+# ── 피드백 체인 (스펙 03 §3) — R13 3일차에 감시 대상에 추가 ─────────────────
+@pytest.fixture(scope="module")
+def rag_constants() -> dict[str, str]:
+    return _module_str_constants(RAG_CHAIN)
+
+
+class TestRagPromptSpecParity:
+    """피드백 프롬프트 2종이 스펙 03 §3 원문과 갈라지지 않아야 한다.
+
+    quiz_gen만 감시하던 것을 넓힌 이유: R13 3일차가 이 체인의 프롬프트를 **두 벌로**
+    쪼갰다(개념 문서 유무). 변형이 생긴 순간 "한쪽만 고친다"의 경우의 수가 늘어난다.
+    """
+
+    @pytest.mark.parametrize("name", ["SYSTEM_PROMPT", "SYSTEM_PROMPT_NO_CONTEXT"])
+    def test_스펙_원문에_그대로_들어_있다(self, name, rag_constants, spec_text):
+        assert name in rag_constants, (
+            f"{RAG_CHAIN.name}에 {name}이 없다 — 이름이 바뀌었으면 이 테스트도 함께 고쳐야 한다"
+        )
+        lines = [ln for ln in _normalize(rag_constants[name]).splitlines() if ln.strip()]
+        absent = [ln for ln in lines if ln not in spec_text]
+        assert not absent, (
+            f"{name}의 다음 줄이 스펙 03에 없다 — 한쪽만 고쳤다:\n"
+            + "\n".join(f"  · {ln}" for ln in absent[:5])
+        )
+
+    def test_무컨텍스트_변형이_참고지식을_요구하지_않는다(self, rag_constants):
+        """자기모순 재발 방지 — 원칙 줄과 입력 줄이 **함께** 빠져야 한다.
+
+        한쪽만 빼면 "제공된 사실만 써라"가 남은 채 사실이 안 들어가거나(원칙만 남음),
+        `{concept_documents}` 자리가 남아 KeyError로 폴백한다(입력만 남음).
+        """
+        no_ctx = rag_constants["SYSTEM_PROMPT_NO_CONTEXT"]
+        assert "{concept_documents}" not in no_ctx
+        assert "참고 지식(context)에 있는 사실만 사용" not in no_ctx
+        assert "{concept_documents}" in rag_constants["SYSTEM_PROMPT"]

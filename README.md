@@ -11,18 +11,17 @@ R3~R5: 지도 기반 대기 보드 · 단계별 커리큘럼(유닛 트리·왕�
 |---|---|---|
 | frontend | 80 | React 18 + Vite + Tailwind, nginx가 `/api/v1` → backend 프록시 |
 | backend | 8000 | FastAPI + SQLAlchemy 2.0(async) + Alembic, JWT 인증, RLS |
-| ai-worker | 8001 | LangChain 3체인(Router/QuizGen/RAG), Gemini + Chroma, 내부 API(`X-Internal-API-Key`) |
+| ai-worker | 8001 | LangChain 3체인(Router/QuizGen/피드백), Gemini, 내부 API(`X-Internal-API-Key`) |
 | celery-worker / celery-beat | - | 일일 퀴즈 생성, 주간 리그 정산, 날씨 수집 |
 | postgres | 5432(내부) | 스키마·RLS는 Alembic 마이그레이션이 소유 (init.sql은 EXTENSION만) |
 | redis | 6379(내부) | 캐시 `weather:{date}:{region}`(1h) / `quiz:{date}:{level_group}`(24h) / `session:{user_id}`(7d) |
-| chroma | 8002→8000 | 기후 개념 시드 18청크 벡터 저장소 |
 
 ## 로컬 실행 순서
 
 ```bash
 # 1. 환경변수 준비
 cp .env.example .env
-# .env 열어서 KMA_API_KEY, GEMINI_API_KEY, EMBEDDING_API_KEY, JWT_SECRET_KEY,
+# .env 열어서 KMA_API_KEY, GEMINI_API_KEY, JWT_SECRET_KEY,
 # AI_WORKER_INTERNAL_API_KEY 채우기
 openssl rand -hex 32   # JWT_SECRET_KEY / AI_WORKER_INTERNAL_API_KEY 생성용
 
@@ -32,22 +31,22 @@ docker compose up -d --build
 # 3. DB 마이그레이션 (backend 컨테이너 안에서)
 docker compose exec backend alembic upgrade head
 
-# 4. Chroma 시드 적재 (멱등 — 재실행해도 중복 없음)
-docker compose exec ai-worker python -m app.embeddings.seed_concepts
+# (벡터 시드 적재 단계는 R13 3일차에 사라졌다 — ai-worker의 개념 문서는
+#  ./database/seed 마운트로 직접 읽힌다. 근거: docs/specs/03 §3.1)
 
-# 5. 시드 적재 (전부 멱등 upsert — 권장 순서: content → units → badges)
+# 4. 시드 적재 (전부 멱등 upsert — 권장 순서: content → units → badges)
 docker compose exec backend python -m app.scripts.seed_content   # 문항 뱅크(세션 배합 1차 소스)
 docker compose exec backend python -m app.scripts.seed_units     # 커리큘럼 유닛 트리
 docker compose exec backend python -m app.scripts.seed_badges    # 뱃지 정의
 
-# 6. 상태 확인
+# 5. 상태 확인
 curl http://localhost:8000/health
 curl http://localhost:8001/health
 
-# 7. 프론트 접속
+# 6. 프론트 접속
 # http://localhost (nginx가 80포트 서빙)
 
-# 8. (선택) DB 왕복 스모크 — 기동~배치고사 왕복까지 9단계 자동 검증 (멱등)
+# 7. (선택) DB 왕복 스모크 — 기동~배치고사 왕복까지 9단계 자동 검증 (멱등)
 bash scripts/smoke.sh          # 또는: scripts/ci.sh smoke
 ```
 
@@ -84,7 +83,6 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 |---|---|---|
 | CORS 에러 | 프론트 origin 미허용 | backend main.py CORSMiddleware에 origin 추가 |
 | KMA "SERVICE_KEY_IS_NOT_REGISTERED" | 키 인코딩 이중 처리 | serviceKey 재인코딩 하지 말 것 |
-| Chroma 연결 실패 | 컨테이너 기동 순서 | depends_on + healthcheck 대기 |
 | RLS로 데이터 안 보임 | SET app.current_user_id 누락 | get_db_with_rls 의존성 사용 확인 |
 | Gemini 응답 JSON 파싱 실패 | 모델이 설명 텍스트 추가 | OutputFixingParser + 프롬프트에 "JSON만" 강조 |
 | ai-worker 시드 파일 없음 | 볼륨 마운트 누락 | compose의 `./database/seed:/app/database/seed:ro` 확인 또는 `CLIMATE_CONCEPTS_PATH` 지정 |

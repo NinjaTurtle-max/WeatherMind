@@ -29,13 +29,12 @@ uvicorn[standard]==0.32.*
 langchain==0.3.*
 langchain-google-genai==2.*
 langchain-openai==0.2.*
-chromadb==0.5.*
 httpx==0.28.*
 pydantic==2.10.*
 ```
 
 > 주의: Gemini 3.1 Flash-Lite 지원 버전 확인 필요. langchain-google-genai 최신 버전 사용.
-> 임베딩(text-embedding-3-small)은 langchain-openai 경유.
+> 임베딩·벡터스토어 의존(langchain-openai·chromadb)은 R13 3일차에 제거 — docs/specs/03 §3.1.
 
 ## celery/requirements.txt
 
@@ -86,8 +85,7 @@ docker compose up -d --build
 # 3. DB 마이그레이션 (backend 컨테이너 안에서)
 docker compose exec backend alembic upgrade head
 
-# 4. Chroma 시드 적재
-docker compose exec ai-worker python -m app.embeddings.seed_concepts
+# (4. 벡터 시드 적재 단계 없음 — 개념 문서는 ./database/seed 마운트로 직접 읽힌다)
 
 # 5. 상태 확인
 curl http://localhost:8000/health
@@ -113,7 +111,6 @@ cd frontend && npm run dev   # vite dev server, 보통 5173포트
 |---|---|---|
 | CORS 에러 | 프론트 origin 미허용 | backend main.py CORSMiddleware에 origin 추가 |
 | KMA "SERVICE_KEY_IS_NOT_REGISTERED" | 키 인코딩 이중 처리 | serviceKey 재인코딩 하지 말 것 |
-| Chroma 연결 실패 | 컨테이너 기동 순서 | depends_on + healthcheck 대기 |
 | RLS로 데이터 안 보임 | SET app.current_user_id 누락 | get_db_with_rls 의존성 사용 확인 |
 | Gemini 응답 JSON 파싱 실패 | 모델이 설명 텍스트 추가 | OutputFixingParser + 프롬프트에 "JSON만" 강조 |
 

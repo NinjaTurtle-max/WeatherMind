@@ -153,7 +153,7 @@ ROADMAP §5.5는 8/10 배포~8/22 심사까지만 상정하고 있다. 실제로
 
 *"Vercel, GitHub Pages, Netlify 등 어떤 배포 방식이든 인정됩니다."* → Docker+Caddy
 계획은 유효하다. **다만 그 셋에는 우리가 올라가지 않는다**는 것을 정확히 알아 둘 것:
-셋 다 **정적 파일 호스팅**이라 상시 구동 서버·Postgres·Chroma·Celery beat를 얹을
+셋 다 **정적 파일 호스팅**이라 상시 구동 서버·Postgres·Redis·Celery beat를 얹을
 자리가 없다. 프론트만 올리면 화면은 뜨지만 `POST /auth/guest`부터 전부 404다.
 (GitHub Pages는 추가로 **우리 저장소가 private이라 무료 플랜에서 불가**.)
 

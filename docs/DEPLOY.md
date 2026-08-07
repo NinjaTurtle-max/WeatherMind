@@ -101,7 +101,7 @@ nano .env
 | `AI_WORKER_INTERNAL_API_KEY` | 강한 임의값 |
 | `MIGRATION_DATABASE_URL` | 소유자 롤 — RLS 전제(`docs/specs/08`) |
 | `KMA_API_KEY` | **팀 자체 발급 키**(대회 제공 키는 8/22 만료 — `HACKATHON_RULES.md` §3) |
-| `GEMINI_API_KEY`·`EMBEDDING_API_KEY` | 키 게이트에서 투입. **없어도 폴백으로 전 기능 동작** |
+| `GEMINI_API_KEY` | 키 게이트에서 투입. **없어도 폴백으로 전 기능 동작**. 임베딩 키는 없다(R13 3일차 철거) |
 | `IMAGE_TAG` | 배포할 커밋 sha 권장(미설정 시 `latest`) |
 
 ```bash
@@ -118,7 +118,8 @@ $C exec backend alembic upgrade head          # 마이그레이션
 $C exec backend python -m app.scripts.seed_content    # 문항
 $C exec backend python -m app.scripts.seed_units      # 유닛 트리
 $C exec backend python -m app.scripts.seed_badges     # 배지
-$C exec ai-worker python -m app.embeddings.seed_concepts  # 벡터 시드(임베딩 키 필요)
+# (ai-worker 벡터 시드 적재 단계는 R13 3일차에 사라졌다 — 개념 문서는
+#  ./database/seed 마운트로 직접 읽힌다. docs/specs/03 §3.1)
 
 # 기존 볼륨에 RLS 앱 롤이 없다면 (신규 볼륨은 init.sql이 처리)
 $C exec -T postgres psql -U weathermind -d weathermind \

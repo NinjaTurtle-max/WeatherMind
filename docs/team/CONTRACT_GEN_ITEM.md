@@ -70,7 +70,7 @@
 `GENERATED_PAYLOAD_FIELDS: dict[str, tuple[str, ...]]`.
 
 **위치: `ai-worker/app/chains/payload_contract.py`(신규).** `import`는 stdlib과
-pydantic까지만 — langchain·chromadb 계열을 끌어오면 안 된다.
+pydantic까지만 — langchain 계열을 끌어오면 안 된다.
 
 > **보정 근거(실측).** 처음 계약은 `quiz_gen_chain.py`에 상수를 두게 했으나, 그
 > 모듈은 19행에서 `langchain_core`를 최상단 import하고 이 환경에는 langchain이

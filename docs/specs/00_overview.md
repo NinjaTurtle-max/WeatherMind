@@ -8,7 +8,7 @@
 
 | 파일 | 내용 |
 |---|---|
-| 01_database_schema.md | PostgreSQL 5테이블 + Chroma 3컬렉션 + Redis 키 규칙 |
+| 01_database_schema.md | PostgreSQL 5테이블 + Redis 키 규칙 (벡터 저장소는 R13에 철거) |
 | 02_api_spec.md | FastAPI 4개 라우터 엔드포인트 전체 |
 | 03_ai_chains_spec.md | LangChain 3체인 실제 프롬프트 텍스트 |
 | 04_frontend_modules_spec.md | React 4개 모듈 상태머신·컴포넌트 구조 |
@@ -16,7 +16,7 @@
 | 06_kma_api_parsing_spec.md | **기상청 API 응답 구조·격자좌표·카테고리 코드 파싱** |
 | 07_gamification_spec.md | **XP·레벨·스트릭·ELO 실제 계산 공식** |
 | 08_auth_rls_spec.md | **JWT → PostgreSQL RLS 주입 실제 코드 흐름** |
-| 09_seed_data_spec.md | **Chroma 초기 적재용 교과 개념 시드 데이터** |
+| 09_seed_data_spec.md | **피드백 체인이 직접 읽는 교과 개념 시드 데이터** |
 | 10_versions_run_guide.md | **패키지 버전 고정 + 로컬 실행 순서 + 트러블슈팅** |
 
 ---
@@ -38,7 +38,7 @@
 1. Auth API + JWT (02번 문서 섹션 1)
 2. Quiz API + Quiz Gen Chain (02, 03번 문서) — 실제 Gemini 연동
 3. 오늘의 퀴즈 프론트 화면 (04번 문서 섹션 1)
-4. RAG Chain 최소 버전 (Chroma에 climate_concepts만 우선 적재)
+4. 피드백 Chain 최소 버전 (climate_concepts 직접 조회 — 벡터 검색 없음)
 
 → 이 시점 목표: "퀴즈 풀고 AI 피드백 받기"가 실제로 URL에서 작동
 ```

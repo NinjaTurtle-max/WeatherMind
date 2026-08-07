@@ -21,14 +21,9 @@ class Settings:
     GEMINI_MODEL: str = field(
         default_factory=lambda: _env("GEMINI_MODEL", "gemini-3.1-flash-lite")
     )
-    EMBEDDING_MODEL: str = field(
-        default_factory=lambda: _env("EMBEDDING_MODEL", "text-embedding-3-small")
-    )
-    EMBEDDING_API_KEY: str = field(default_factory=lambda: _env("EMBEDDING_API_KEY"))
-
-    # ── Chroma ──
-    CHROMA_HOST: str = field(default_factory=lambda: _env("CHROMA_HOST", "chroma"))
-    CHROMA_PORT: int = field(default_factory=lambda: int(_env("CHROMA_PORT", "8000")))
+    # 임베딩·벡터스토어 설정은 R13 3일차에 사라졌다 — 피드백 체인이 검색 대신
+    # concept_tag 직접 조회로 바뀌면서 세 번째 제공자(OpenAI) 키가 불필요해졌다.
+    # 근거: docs/specs/03_ai_chains_spec.md §3.
 
     # ── 내부 서비스 간 통신 ──
     AI_WORKER_INTERNAL_API_KEY: str = field(

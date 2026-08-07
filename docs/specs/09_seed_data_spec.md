@@ -1,7 +1,12 @@
-# 시드 데이터 스펙 (Chroma climate_concepts 초기 적재)
+# 시드 데이터 스펙 (climate_concepts 개념 문서)
 
-> RAG가 작동하려면 Chroma에 지식이 있어야 한다. MVP용 최소 교과 개념 시드를 정의한다.
-> 실제로는 이 내용을 database/seed/climate_concepts.json으로 만들어 초기 임베딩한다.
+> 피드백 체인이 학습자에게 "사실"을 말하려면 그 개념의 정본이 있어야 한다.
+> 그 정본이 `database/seed/climate_concepts.json`이다.
+>
+> **적재 단계는 없다(R13 3일차, 2026-08-07).** 이 파일은 원래 Chroma에 임베딩해
+> 넣는 원본이었고, 이 문서도 "초기 적재 스펙"이었다. 지금은 ai-worker가 컨테이너에
+> 마운트된 이 json을 그대로 읽는다 — 별도 적재 명령·벡터 저장소·임베딩 키가 없다.
+> 왜 검색을 걷어냈는지는 `docs/specs/03_ai_chains_spec.md` §3.1.
 
 ## 개념 태그 목록 (concept_tag 표준)
 
@@ -44,14 +49,24 @@
 > 위는 예시. MVP에선 6개 concept_tag × 각 3~5청크 = 약 20~30개 청크면 충분.
 > 콘텐츠는 기상청·교과서 공개 자료 기반으로 팀이 직접 작성 (저작권·정확성 확보).
 
-## 적재 스크립트 (ai-worker/app/embeddings/seed_concepts.py)
+## 소비 경로 (적재 스크립트 없음)
 
 ```
-1. database/seed/climate_concepts.json 로드
-2. 각 text를 text-embedding-3-small로 임베딩
-3. Chroma climate_concepts 컬렉션에 upsert (metadata: concept_tag, grade_level)
-4. 최초 1회 실행 (docker compose 최초 기동 후 수동 or init 스크립트)
+1. docker-compose가 ./database/seed 를 ai-worker의 /app/database/seed 에 :ro 마운트
+2. ai-worker/app/chains/rag_chain.py 가 concept_tag → 문서 리스트로 색인 (프로세스 캐시)
+3. 피드백 생성 시 그 태그의 문서 전부를 프롬프트 참고 지식 블록에 주입
 ```
+
+경로 해석 관례(env `CLIMATE_CONCEPTS_PATH` → `/app` 마운트 → 상위 탐색)는
+`ai-worker/app/chains/seed_paths.py`가 단일 소유한다 — `level_vocabulary.json`도
+같은 함수를 쓴다. **마운트가 없으면 개념 문서가 통째로 비고**, 그 경우 피드백은
+참고 지식 줄이 빠진 변형 프롬프트로 나간다(조용히 거짓을 말하지는 않는다).
+
+### 개념 문서가 없는 태그
+
+본시드 실측(2026-08-07): 문항 237건 중 15건(`flood_response`·`wildfire_weather`)이
+개념 문서가 없는 태그다. 이 둘의 문서를 쓰면 그만큼 피드백 품질이 올라간다 —
+저작 대상이지 결함은 아니다.
 
 ---
 
@@ -60,7 +75,5 @@
 ```
 database/seed/climate_concepts.json 파일을 위 6개 concept_tag 각각에 대해
 3개씩 총 18개 청크로 만들어줘 (내용은 중학교 과학 교과 수준의 정확한 기상 지식으로).
-그리고 ai-worker/app/embeddings/seed_concepts.py에 이 json을 읽어서
-text-embedding-3-small로 임베딩 후 Chroma climate_concepts 컬렉션에 적재하는
-스크립트를 작성해줘. 멱등성 보장(재실행해도 중복 안 되게 id는 concept_tag+index).
+(적재 스크립트 지시는 R13 3일차에 삭제됐다 — 임베딩·벡터 저장소가 없다.)
 ```

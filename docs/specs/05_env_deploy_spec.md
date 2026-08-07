@@ -12,10 +12,6 @@ DATABASE_URL=postgresql+asyncpg://weathermind:changeme@postgres:5432/weathermind
 # ── Redis ──
 REDIS_URL=redis://redis:6379/0
 
-# ── Chroma ──
-CHROMA_HOST=chroma
-CHROMA_PORT=8000
-
 # ── JWT ──
 JWT_SECRET_KEY=changeme-use-openssl-rand-hex-32
 JWT_ALGORITHM=HS256
@@ -31,8 +27,7 @@ KMA_ASOS_DALY_URL=https://apis.data.go.kr/1360000/AsosDalyInfoService/getAsosDal
 # ── AI 모델 ──
 GEMINI_API_KEY=발급받은_키
 GEMINI_MODEL=gemini-3.1-flash-lite
-EMBEDDING_MODEL=text-embedding-3-small
-EMBEDDING_API_KEY=발급받은_키
+# (임베딩 키 없음 — R13 3일차에 벡터 검색 철거. docs/specs/03 §3.1)
 
 # ── 내부 서비스 간 통신 ──
 AI_WORKER_INTERNAL_URL=http://ai-worker:8001
@@ -66,7 +61,7 @@ services:
     build: ./ai-worker
     ports: ["8001:8001"]
     env_file: .env
-    depends_on: [chroma, redis]
+    depends_on: [redis]
 
   celery-worker:
     build: ./celery
@@ -89,15 +84,11 @@ services:
     image: redis:7-alpine
     volumes: ["redisdata:/data"]
 
-  chroma:
-    image: chromadb/chroma:latest
-    volumes: ["chromadata:/chroma/chroma"]
     ports: ["8002:8000"]
 
 volumes:
   pgdata:
   redisdata:
-  chromadata:
 ```
 
 ---

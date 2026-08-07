@@ -19,8 +19,8 @@ docker compose exec backend alembic upgrade head
 #          → 0006_weatherbrain → 0007_placement → 0008_daily_goal
 #    확인: alembic current → 0008_daily_goal (head)
 
-# 3. Chroma 기후 개념 시드 (멱등)
-docker compose exec ai-worker python -m app.embeddings.seed_concepts
+# (3. 벡터 시드 적재 단계는 R13 3일차에 사라졌다 — 개념 문서는
+#  ./database/seed 마운트로 ai-worker가 직접 읽는다. docs/specs/03 §3.1)
 
 # 4. 시드 적재 — 모두 멱등 upsert(재실행 안전). 권장 순서: content → units → badges.
 #    (units↔content는 concept_tag로 연결되는 논리 관계이며 FK가 아니라 순서를

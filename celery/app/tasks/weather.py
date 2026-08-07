@@ -1,8 +1,19 @@
-"""(a) 매일 새벽 2시 — 날씨 수집 + Chroma weather_daily 갱신 트리거.
+"""(a) 매일 새벽 2시 — KMA 단기예보 수집.
 
-1. KMA 단기예보를 지역별로 수집해 Redis weather:{date}:{region}에 캐시(1h TTL).
-2. 수집 결과를 ai-worker에 전달해 Chroma weather_daily 컬렉션 갱신을 트리거.
-   (임베딩 생성은 ai-worker 소유 — Celery는 트리거만 담당)
+KMA 단기예보를 지역별로 수집해 Redis weather:{date}:{region}에 캐시(1h TTL).
+
+## 왜 ai-worker 트리거가 사라졌는가 (R13 3일차, 2026-08-07)
+
+여기엔 수집 직후 `POST /internal/embed-weather`로 Chroma `weather_daily` 컬렉션
+갱신을 트리거하는 블록이 있었다. 셋 다 문제였다:
+
+1. **그 엔드포인트는 ai-worker에 존재한 적이 없다.** `main.py`가 선언한 내부 API에
+   `embed-weather`는 없다 — 이 호출은 매일 404를 받고 except로 삼켜졌다.
+2. **같은 정보가 이미 다른 경로로 들어간다.** 오늘 날씨는 피드백 프롬프트에
+   `today_weather_json`으로 직접 주입된다. 벡터로 한 번 더 넣을 이유가 없었다.
+3. **소비처가 사라졌다.** 피드백 체인이 벡터 검색을 쓰지 않는다(docs/specs/03 §3).
+
+수집·캐시(이 태스크의 본체)는 그대로다 — 브리핑·리그 정산이 Redis 캐시를 읽는다.
 """
 import json
 import logging
@@ -11,7 +22,6 @@ from datetime import datetime, timedelta, timezone
 from celery import shared_task
 
 from app import config
-from app.internal_api import ai_worker_post
 from app.kma_client import KMA_GRID, KMAApiError, get_short_forecast
 from app.redis_client import get_redis, weather_key
 
@@ -49,17 +59,5 @@ def collect_daily_weather(self):
             logger.error("[weather] %s 수집 실패: %s", region, exc)
 
     logger.info("[weather] %d/%d개 지역 수집 완료 (%s)", len(collected), len(KMA_GRID), today)
-
-    # Chroma weather_daily 갱신 트리거 (ai-worker가 임베딩·업서트 수행)
-    if collected:
-        try:
-            ai_worker_post(
-                "/internal/embed-weather",
-                {"date": today, "weather_by_region": collected},
-                timeout=120.0,
-            )
-            logger.info("[weather] Chroma weather_daily 갱신 트리거 완료")
-        except Exception as exc:  # 트리거 실패가 수집 자체를 무효화하진 않음
-            logger.error("[weather] Chroma 갱신 트리거 실패 (수집 캐시는 유효): %s", exc)
 
     return {"date": today, "regions_collected": sorted(collected)}

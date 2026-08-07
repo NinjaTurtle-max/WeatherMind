@@ -66,14 +66,14 @@ class TestKeylessChainSkip:
         assert result["concept_tag"] == "typhoon"
         assert result["question_text"]
 
-    def test_generate_feedback은_검색과_LLM을_생략(self, monkeypatch):
+    def test_generate_feedback은_개념조회와_LLM을_생략(self, monkeypatch):
         pytest.importorskip("langchain_google_genai")
         from app.chains import rag_chain
 
         _with_key(monkeypatch, "")
         monkeypatch.setattr(
-            rag_chain, "_retrieve_chunks",
-            lambda *_: pytest.fail("키 미설정인데 Chroma 검색을 호출했다"),
+            rag_chain, "lookup_concept_documents",
+            lambda *_: pytest.fail("키 미설정인데 개념 문서를 조회했다"),
         )
         fb_ok = rag_chain.generate_feedback("q", "a", True, "typhoon")
         fb_no = rag_chain.generate_feedback("q", "a", False, "typhoon")
