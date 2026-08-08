@@ -132,8 +132,16 @@ export default function CurriculumHome() {
       {/* 코스 탭(§6.2) — 코스가 2개 이상일 때만 뜬다. 선택은 잠금이 아니라 조회 스코프. */}
       <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} />
 
-      <h1 className="mb-1 text-lg font-extrabold text-slate-900 md:hidden">{t('curriculum.title')}</h1>
-      <p className="mb-4 text-sm text-slate-500 md:hidden">{t('curriculum.subtitle')}</p>
+      {/* 페이지 머리말 — **md↑에서도 보여야 한다**(2026-08-08). 한때 `md:hidden`이라
+          PC에서 학습만 머리말이 없었다. 다른 화면(보드·리그·예보 대결·내 정보)은
+          제목이 셸 왼쪽 끝(실측 x=264, 헤더 첫 항목과 같은 선)에서 시작하는데,
+          학습은 그 자리가 비어 본문의 첫 글자가 카드 안쪽 패딩만큼(실측 328)
+          더 들어간 데서 시작했다 — "학습만 오른쪽으로 밀렸다"로 보였다.
+          마크업은 다른 화면과 같은 형태로 맞춘다(제목 + mt-0.5 부제 + mb-4). */}
+      <div className="mb-4">
+        <h1 className="text-lg font-extrabold text-slate-900">{t('curriculum.title')}</h1>
+        <p className="mt-0.5 text-sm text-slate-500">{t('curriculum.subtitle')}</p>
+      </div>
 
       {/* 구름 소진 안내 (§3.1) — 새 세션은 열 수 없지만 이유·회복 시점을 먼저 알린다 */}
       {energyBlocked && (
