@@ -78,6 +78,19 @@ export function pickHomeEntry({ units = [], todayAnswered = 0, dailyGoal = null 
 /** 진입 카드의 화자 — 학습은 태양이, 오늘 몫은 번개, 완료는 메인 튜터 구름이. */
 const ENTRY_MASCOT = { unit: 'sun', daily: 'bolt', done: 'cloud' };
 
+/**
+ * KST 기준 요일(월=0 … 일=6) — CO-T-8.
+ *
+ * `new Date().getDay()`는 **브라우저 로컬 타임존** 요일이라 심사 PC가 KST가 아니면
+ * 스트릭 달력이 하루 어긋난다(서버 하루는 KST다). 목(`mock/apiMockPlugin.js`)이
+ * 하루 경계에 쓰는 것과 **같은 계산**이지만, 목을 import하지는 않는다 —
+ * 목은 개발 전용 산출물이고 제품 번들이 의존하면 안 된다.
+ */
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+export function kstWeekdayIndex(nowMs = Date.now()) {
+  return (new Date(nowMs + KST_OFFSET_MS).getUTCDay() + 6) % 7;
+}
+
 /** θ(로짓)를 레이더 반지름 0~1로. 대략 -3..+3 범위를 쓴다(schemas/progress.py). */
 function thetaToRatio(theta) {
   return Math.min(1, Math.max(0.12, (theta + 3) / 6));
@@ -144,26 +157,44 @@ export default function HomePage() {
   const t = useT();
   useAttendance(true);
 
-  const { data: me } = useQuery({
+  const { data: me, isError: meError, refetch: refetchMe } = useQuery({
     queryKey: ['progress', 'me'],
     queryFn: progressApi.fetchMyProgress,
     staleTime: 30_000,
   });
-  const { data: tree } = useQuery({
+  const { data: tree, isError: treeError, refetch: refetchTree } = useQuery({
     queryKey: ['curriculum'],
     queryFn: () => curriculumApi.fetchCurriculum(),
     staleTime: 30_000,
   });
-  const { data: abilities } = useQuery({
+  const { data: abilities, isError: abilitiesError, refetch: refetchAbilities } = useQuery({
     queryKey: ['progress', 'abilities'],
     queryFn: progressApi.fetchAbilities,
     staleTime: 60_000,
   });
-  const { data: reviewQueue } = useQuery({
+  const { data: reviewQueue, isError: reviewError, refetch: refetchReview } = useQuery({
     queryKey: ['progress', 'review-queue'],
     queryFn: async () => (await client.get('/progress/review-queue')).data,
     staleTime: 60_000,
   });
+
+  // CO-S-2 — 홈은 장애를 **말해야 한다**.
+  //
+  // 2026-08-07까지 이 화면의 쿼리 넷은 `data`만 구조분해했다. 전 API가 500이어도
+  // 화면은 "첫 유닛부터 시작해요" + "지금 복습할 개념이 없어요. 잘하고 있어요!"를
+  // 그렸다 — **정상인데 할 게 없음**이라는 거짓말이다. `/learn`·`/league`·`/duel`·
+  // `/me`는 전부 에러 카드가 있는데 첫 화면만 없었다.
+  //
+  // 알림은 **한 곳에 모은다**(카드마다 흩뿌리면 같은 문장이 네 벌 뜬다). 대신
+  // 실패한 쿼리의 카드는 **렌더하지 않는다** — 빈 상태 문구가 곧 거짓말이라서다.
+  // 재시도는 실패한 쿼리만 다시 부른다(성공한 것까지 흔들 이유가 없다).
+  const hasError = meError || treeError || abilitiesError || reviewError;
+  const retryFailed = () => {
+    if (meError) refetchMe();
+    if (treeError) refetchTree();
+    if (abilitiesError) refetchAbilities();
+    if (reviewError) refetchReview();
+  };
 
   const units = (tree?.sections ?? []).flatMap((s) => s.units);
 
@@ -227,28 +258,55 @@ export default function HomePage() {
         <p className="mt-0.5 text-[12.5px] text-slate-500">{t('home.greetSub')}</p>
       </div>
 
+      {/* 장애 안내(CO-S-2) — role="alert"로 **소리내어** 알린다(S-A2 계열).
+          여기 하나뿐이고, 실패한 카드는 아래에서 통째로 빠진다. */}
+      {hasError && (
+        <div
+          role="alert"
+          data-testid="home-error"
+          className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 p-4"
+        >
+          <p className="text-[13.5px] font-extrabold text-rose-700">{t('home.error.title')}</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-rose-600">{t('home.error.body')}</p>
+          <button
+            type="button"
+            onClick={retryFailed}
+            className="mt-3 rounded-xl bg-rose-600 px-4 py-2 text-[12.5px] font-extrabold text-white transition hover:bg-rose-700"
+          >
+            {t('common.retry')}
+          </button>
+        </div>
+      )}
+
       {/* 바로 시작하기 — 진입 카드 **1개**(R13-01 §2.5).
           2026-08-06까지는 여기 네 칸(학습·보드·대결·리그)이 같은 격으로 서 있었다.
           "같은 격"은 고르는 사람에게는 "무엇이 먼저인지 아무도 모른다"와 같다.
           이제 서버 상태가 하나를 고르고(pickHomeEntry), 나머지는 아래 보조 줄로
           내려간다. 탭 구조(내비)는 손대지 않는다 — 진입은 본문의 문제였다. */}
-      <p className="text-xs font-extrabold tracking-wider text-slate-400">{t('home.quickStart')}</p>
-      <Link
-        to={entry.to}
-        data-testid="home-entry"
-        data-entry-kind={entry.kind}
-        className="group mt-2.5 flex items-center gap-4 rounded-2xl border border-sky-200 bg-white p-4 transition-colors hover:border-sky-600 hover:bg-sky-50 focus-visible:border-sky-600 focus-visible:bg-sky-50"
-      >
-        <Mascot name={ENTRY_MASCOT[entry.kind]} className="h-16 w-16 flex-none" />
-        <div className="min-w-0 flex-1">
-          <p className="text-[11.5px] font-extrabold tracking-wider text-sky-700">{copy.eyebrow}</p>
-          <p className="mt-0.5 truncate text-[17px] font-extrabold text-slate-900">{copy.title}</p>
-          <p className="mt-0.5 text-[12px] leading-snug text-slate-500">{copy.body}</p>
-        </div>
-        <span className="flex-none rounded-xl bg-sky-600 px-4 py-2.5 text-[13px] font-extrabold text-white transition group-hover:bg-sky-700">
-          {copy.cta}
-        </span>
-      </Link>
+      {/* 트리 조회가 실패하면 진입 카드를 내린다(CO-S-2) — 실패했을 때의 기본값이
+          "첫 유닛부터 시작해요 / 이어서 풀기 →"라서, 같이 죽은 `/learn`으로
+          보내는 **틀린 CTA**가 된다. 이때 눌러야 할 것은 위의 재시도다. */}
+      {!treeError && (
+        <>
+          <p className="text-xs font-extrabold tracking-wider text-slate-400">{t('home.quickStart')}</p>
+          <Link
+            to={entry.to}
+            data-testid="home-entry"
+            data-entry-kind={entry.kind}
+            className="group mt-2.5 flex items-center gap-4 rounded-2xl border border-sky-200 bg-white p-4 transition-colors hover:border-sky-600 hover:bg-sky-50 focus-visible:border-sky-600 focus-visible:bg-sky-50"
+          >
+            <Mascot name={ENTRY_MASCOT[entry.kind]} className="h-16 w-16 flex-none" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11.5px] font-extrabold tracking-wider text-sky-700">{copy.eyebrow}</p>
+              <p className="mt-0.5 truncate text-[17px] font-extrabold text-slate-900">{copy.title}</p>
+              <p className="mt-0.5 text-[12px] leading-snug text-slate-500">{copy.body}</p>
+            </div>
+            <span className="flex-none rounded-xl bg-sky-600 px-4 py-2.5 text-[13px] font-extrabold text-white transition group-hover:bg-sky-700">
+              {copy.cta}
+            </span>
+          </Link>
+        </>
+      )}
 
       {/* 보조 진입 — 주 카드보다 약하게. 링크지 카드가 아니다. */}
       <div data-testid="home-secondary" className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
@@ -265,7 +323,10 @@ export default function HomePage() {
       </div>
 
       {/* 오늘의 목표 · 연속 출석 */}
+      {/* 둘 다 `/progress/me` 하나에서 온다 — 그 조회가 실패하면 "아직 목표를 정하지
+          않았어요"·빈 주간 달력이 **정상 상태처럼** 보이므로 카드째 내린다(CO-S-2). */}
       <div className="mt-4 grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+        {!meError && (
         <Card title={t('home.goal.title')} cap={t('home.goal.cap')}>
           {goalTotal ? (
             <>
@@ -284,10 +345,17 @@ export default function HomePage() {
             <p className="mt-3 text-[12.5px] text-slate-500">{t('home.goal.unset')}</p>
           )}
         </Card>
+        )}
 
+        {!meError && (
         <Card
           title={t('home.streak.title')}
-          cap={t('home.streak.cap', { n: me?.streak_freeze_count ?? 0 })}
+          /* CO-T-6 — 프리즈 0개일 때 이 캡션은 **거짓말**이다("하루 빠져도 스트릭이
+             지켜져요"). 획득 경로가 "스트릭 7일 +1" 하나뿐이라 신규·심사 계정은
+             항상 0개다. n≥1일 때만 참이므로 그때만 렌더한다(문구는 그대로). */
+          cap={(me?.streak_freeze_count ?? 0) > 0
+            ? t('home.streak.cap', { n: me.streak_freeze_count })
+            : null}
         >
           <div className="mt-3 flex gap-1.5">
             {t('home.streak.days').split(',').map((label, i) => {
@@ -295,7 +363,9 @@ export default function HomePage() {
               // 그래서 이번 주 월~일 칸을 오늘부터 거꾸로 streak만큼 칠한다.
               // 미래 요일은 절대 칠하지 않는다(diff < 0) — 오늘이 수요일인데 금·토·일이
               // 체크돼 보이던 버그가 여기서 났다. 요일별 실이력이 필요하면 API가 먼저다.
-              const todayIdx = (new Date().getDay() + 6) % 7; // 월=0 … 일=6
+              // 요일은 **KST 기준**이다(CO-T-8) — `new Date().getDay()`는 브라우저
+              // 로컬 타임존이라 심사 PC가 KST가 아니면 서버 하루와 어긋난다.
+              const todayIdx = kstWeekdayIndex(); // 월=0 … 일=6
               const diff = todayIdx - i;
               const done = diff >= 0 && diff < (me?.streak_count ?? 0);
               return (
@@ -313,10 +383,14 @@ export default function HomePage() {
             })}
           </div>
         </Card>
+        )}
       </div>
 
       {/* 다시 볼 개념 · WeatherBrain */}
       <div className="mt-3.5 grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+        {/* 조회 실패 시 "지금 복습할 개념이 없어요. 잘하고 있어요!"가 뜨는 자리다
+            — 서버가 죽은 것을 **칭찬**으로 바꿔 말하던 문장이라 카드째 내린다. */}
+        {!reviewError && (
         <Card title={t('home.review.title')} cap={t('home.review.cap')}>
           {due.length === 0 ? (
             <p className="mt-3 text-[12.5px] text-slate-500">{t('home.review.empty')}</p>
@@ -340,10 +414,20 @@ export default function HomePage() {
             ))
           )}
         </Card>
+        )}
 
+        {!abilitiesError && (
         <Card title={t('home.brain.title')} cap={t('home.brain.cap')}>
           <div className="mt-3 flex flex-col items-center gap-4 sm:flex-row">
-            <Radar abilities={abilities ?? []} t={t} />
+            {/* CO-S-9 — 홈 카드 중 유일하게 빈 문구 분기가 없던 자리.
+                개념 3종 미만이면 Radar가 null이라(다각형이 안 그려진다) 기록이
+                0건일 때 제목+설명 뒤가 통째로 비었다. 레이더 자리에 사유를
+                적는다 — 1~2건이라도 있으면 오른쪽 목록은 그대로 보여준다. */}
+            {(abilities ?? []).length < 3 ? (
+              <p className="flex-1 text-[12.5px] leading-relaxed text-slate-500">{t('home.brain.empty')}</p>
+            ) : (
+              <Radar abilities={abilities ?? []} t={t} />
+            )}
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               {(abilities ?? []).map((a) => (
                 <div key={a.concept_tag} className="flex items-center gap-2 text-xs">
@@ -357,21 +441,32 @@ export default function HomePage() {
             </div>
           </div>
         </Card>
+        )}
       </div>
 
       {/* 자유 일일 세션 — **보조 링크로 강등**(§2.5). 예전에는 검은 채움 버튼이라
-          위의 학습 진입과 무게가 비슷했다. 학습 지역 설정과 한 줄에 둔다. */}
+          위의 학습 진입과 무게가 비슷했다. 학습 지역 설정과 한 줄에 둔다.
+
+          CO-S-9 — 진입 카드가 이미 일일 세션일 때는(kind='daily') 위아래가
+          `curriculum.daily.body`·`curriculum.daily.cta`를 **글자 그대로 두 번**
+          그렸다. 같은 문장·같은 목적지가 한 화면에 두 벌이면 §2.5가 없앤
+          "무엇을 누를지 모름"이 그대로 돌아온다 — 주 카드를 남기고 이 줄의
+          중복분만 내린다(지역 픽커는 여기 말고 자리가 없으므로 남는다). */}
       <div
         data-testid="home-free-daily"
         className="mt-3.5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-slate-200 bg-white px-4 py-3"
       >
-        <p className="text-[12.5px] text-slate-500">{t('curriculum.daily.body')}</p>
-        <Link
-          to="/daily"
-          className="text-[12.5px] font-bold text-slate-600 underline underline-offset-4 hover:text-sky-700"
-        >
-          {t('curriculum.daily.cta')}
-        </Link>
+        {entry.kind !== 'daily' && (
+          <>
+            <p className="text-[12.5px] text-slate-500">{t('curriculum.daily.body')}</p>
+            <Link
+              to="/daily"
+              className="text-[12.5px] font-bold text-slate-600 underline underline-offset-4 hover:text-sky-700"
+            >
+              {t('curriculum.daily.cta')}
+            </Link>
+          </>
+        )}
         <div className="ml-auto">
           <RegionPicker />
         </div>

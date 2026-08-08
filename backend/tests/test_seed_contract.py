@@ -186,19 +186,25 @@ class TestUnitsSeedContract:
     코스 구분은 course 필드로 시드에서 파생한다(하드코딩 대신 시드 파생).
     """
 
-    def test_20유닛_기상12_기초과학8(self):
+    def test_24유닛_기상16_기초과학8(self):
         by_course: dict[str, int] = {}
         for u in UNITS:
             by_course[u.get("course")] = by_course.get(u.get("course"), 0) + 1
-        assert len(UNITS) == 20
-        assert by_course == {"weather": 12, "basic-science": 8}
+        assert len(UNITS) == 24
+        assert by_course == {"weather": 16, "basic-science": 8}
 
-    def test_섹션은_기상4_기초과학3(self):
-        """기상 코스는 관측보고서 4섹션(불변), 기초과학은 specs/11 §2의 3섹션."""
+    def test_섹션은_기상5_기초과학3(self):
+        """기상 코스는 관측보고서 4섹션 + **재난 1섹션**(R13 CO-A1), 기초과학은 specs/11 §2의 3섹션.
+
+        「위험한 하늘」은 R13에서 개통했다 — 재난 문항 15건이 시드에 있는데
+        `units.json`에 유닛이 0건이라 **학습 경로에서 도달 불가**였다.
+        """
         weather_sections = list(
             dict.fromkeys(u["section"] for u in UNITS if u.get("course") == "weather")
         )
-        assert weather_sections == ["하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후"]
+        assert weather_sections == [
+            "하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후", "위험한 하늘",
+        ]
         bs_sections = list(
             dict.fromkeys(
                 u["section"] for u in UNITS if u.get("course") == "basic-science"

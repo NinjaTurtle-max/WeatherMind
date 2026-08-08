@@ -16,7 +16,9 @@
 #            주의: pyflakes는 noqa 주석을 인식하지 못하므로, 소스 줄에
 #            "noqa"가 명시된 undefined-name 지적(SQLAlchemy 문자열
 #            전방참조 등)은 여기서 걸러낸다.
-#   test     backend/, ai-worker/ 각 디렉토리에서 python -m pytest tests -q.
+#   test     backend/, ai-worker/, celery/ 각 디렉토리에서 python -m pytest tests -q.
+#            (세 서비스가 최상위 패키지명 `app`을 공유하므로 반드시 서브셸 분리 —
+#             run_pytest_in의 (cd && pytest) 구조를 바꾸지 말 것.)
 #            pytest·서비스 의존성 미설치 시 안내 메시지와 함께 FAIL.
 #            설치: pip install pytest -r backend/requirements.txt
 #                  (ai-worker 테스트는 pydantic만 있으면 LLM 키 없이 동작)
@@ -25,7 +27,8 @@
 #            node_modules 불필요(순수 stdlib + 로컬 src). node 미설치 시 SKIP.
 #            시드 파일(board_rules·board_test_vectors) 부재 시 테스트가 스스로
 #            SKIP(exit 0)하므로, node 존재 + 비0 = 실제 판정 불일치(FAIL).
-#   config   docker compose config -q 로 compose 정합 검증.
+#   config   docker compose config -q 로 compose 정합 검증 — dev 단독 + prod 오버레이
+#            (docker-compose.prod.yml) 양쪽. 파스만 하므로 컨테이너를 띄우지 않는다.
 #   frontend frontend/node_modules 있으면 npm run build + 프론트 스모크 전 종목
 #            (explore·session·placement·visual·gating·board-entry·assist·
 #             webgl·overlay — FRONT_TESTS 배열이 목록), 없으면 SKIP.
@@ -37,6 +40,10 @@
 #
 # 종료 코드: 모든 단계 OK/SKIP → 0, 하나라도 FAIL → 1.
 # 근거: docs/team/TEAM_PROCESS.md §1.7 (CI는 lint → test → build 파이프라인)
+#
+# ⚠️ **여기 단계를 추가하면 .github/workflows/ci.yml에 잡도 추가해야 한다.** 빠뜨리면
+# 로컬에서만 도는 게이트가 된다(seed가 실제로 그랬다 — CO-J-1). 단계↔잡 패리티와
+# 위 사용법 문안의 정합은 backend `tests/test_ci_workflow_contract.py`가 감시한다.
 # =============================================================================
 set -u
 
@@ -125,6 +132,9 @@ step_test() {
   banner "test: pytest"
   run_pytest_in "backend" "$ROOT/backend"
   run_pytest_in "ai-worker" "$ROOT/ai-worker"
+  # celery(CO-J-11): 테스트 디렉토리가 없어 pyflakes 외 게이트가 0이었다. 실DB·브로커
+  # 없이 도는 단위 테스트만 두는 것이 전제(다른 두 서비스와 같은 관례).
+  run_pytest_in "celery" "$ROOT/celery"
 }
 
 # ── 3. board: 프론트 board_engine 공유 벡터 검증 ─────────────────────────────
@@ -144,19 +154,34 @@ step_board() {
   fi
 }
 
-# ── 4. config: docker compose config -q ─────────────────────────────────────
+# ── 4. config: docker compose config -q (dev + prod 오버레이) ────────────────
+# prod 오버레이(docker-compose.prod.yml)는 실배포에서 쓰는 형상인데 어떤 게이트도
+# 파스조차 하지 않았다(CO-J-6). `!reset` 문법은 compose ≥2.24가 필요하므로 버전이
+# 낮으면 여기서 잡힌다 — 배포 당일 서버에서 처음 발견하는 것보다 낫다.
+# `config -q`는 **파스만** 한다(컨테이너 기동 없음). 실행 시간 1초 미만.
 step_config() {
-  banner "config: docker compose config -q"
+  banner "config: docker compose config -q (dev + prod 오버레이)"
   if ! docker compose version >/dev/null 2>&1; then
     echo "docker compose(v2) 미설치 — compose 정합을 검증할 수 없습니다."
     record "config" "FAIL" "docker compose v2 미설치"
     return 0
   fi
+  local bad=()
   if (cd "$ROOT" && docker compose config -q); then
     echo "docker-compose.yml 정합 OK"
-    record "config" "OK" "compose 스키마·env 참조 정합"
   else
-    record "config" "FAIL" "docker compose config 오류 (위 출력 참조)"
+    bad+=("dev")
+  fi
+  # prod는 dev 위에 얹는 오버레이라 두 파일을 함께 준다(단독으로는 서비스 정의 불완전).
+  if (cd "$ROOT" && docker compose -f docker-compose.yml -f docker-compose.prod.yml config -q); then
+    echo "docker-compose.prod.yml 오버레이 정합 OK"
+  else
+    bad+=("prod")
+  fi
+  if [ "${#bad[@]}" -ne 0 ]; then
+    record "config" "FAIL" "docker compose config 오류: ${bad[*]} (위 출력 참조)"
+  else
+    record "config" "OK" "dev + prod 오버레이 스키마·env 참조 정합"
   fi
 }
 

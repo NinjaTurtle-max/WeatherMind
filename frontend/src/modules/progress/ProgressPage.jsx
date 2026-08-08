@@ -303,10 +303,25 @@ function SpineCard({ spine }) {
             {t('profile.spineContinue')}
           </Link>
         </div>
-      ) : (
+      ) : total > 0 && cleared >= total ? (
         <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-center text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
           {t('profile.spineAllCleared')}
         </p>
+      ) : (
+        // CO-S-7 — `current_unit=null`의 원인은 **둘**이다. 서버 독스트링
+        // (`curriculum_service.build_spine`)이 *"전부 클리어 **또는** 전부 잠금이면
+        // None"*이라고 명시하는데, 프론트는 한 갈래로 접어 `0/20 · 0%`인 화면에도
+        // "🌈 열린 유닛을 모두 클리어했어요!"를 띄웠다. 유닛 미시드·전건 잠금에서
+        // 발현한다. cleared가 total에 못 미치면 완주가 아니라 **열린 게 없는** 것이다.
+        <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 text-center ring-1 ring-slate-200">
+          <p className="text-xs font-bold text-slate-600">{t('profile.spineNoneOpen')}</p>
+          <Link
+            to="/learn"
+            className="mt-1.5 inline-block text-xs font-bold text-sky-700 underline underline-offset-4 hover:text-sky-900"
+          >
+            {t('profile.spineStart')}
+          </Link>
+        </div>
       )}
     </div>
   );

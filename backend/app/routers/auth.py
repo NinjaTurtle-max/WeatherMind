@@ -72,9 +72,7 @@ async def _touch_session(user_id: str) -> None:
     TTL 연장 하나뿐이다.
     """
     redis = get_redis()
-    expire = getattr(redis, "expire", None)
-    if expire is not None:  # 테스트 대역(get만 구현한 FakeRedis) 관용
-        await expire(f"session:{user_id}", SESSION_TTL)
+    await redis.expire(f"session:{user_id}", SESSION_TTL)
 
 
 @router.post(

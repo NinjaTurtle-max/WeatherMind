@@ -514,6 +514,48 @@ async def _fetch_pools(
     return list(new_pool), list(review_pool), list(live_pool)
 
 
+async def _fetch_reserve_pool(
+    db: AsyncDBSession,
+    user: User,
+    theta: float | None,
+    exclude_ids: set,
+    count: int,
+) -> list[ContentItem]:
+    """폴백 2단 — **미출제 제약만 푼** 재출제 풀 (CO-H9 "공용 캐시 문항").
+
+    1단(new/review/live/unit)이 배합을 못 채웠을 때, 유료 생성으로 가기 **전에**
+    같은 뱅크에서 이미 본 적 있는 문항을 다시 꺼낸다. new 풀과 다른 점은 전기간
+    served 제외가 없다는 것 하나이며, level_group·status=active·비슬롯 조건은 같다.
+
+    왜 생성보다 먼저인가:
+    - Obs02:128의 3단 폴백이 정확히 이것("그것도 실패 시 공용 캐시 문항")인데,
+      백엔드에는 2단 + 503만 있었다. ai-worker 내부 폴백 7건은 **LLM 실패 전용**이라
+      ai-worker HTTP 자체가 죽으면 도달하지 못한다 — 무키 실운영의 상시 경로다.
+    - 무료·무지연·결정적이다. 이미 푼 문항의 재출제는 열화이지 오류가 아니다.
+    - 덤으로 new 풀 고갈(대장 M8 — 발급만 해도 영구히 '신규 아님')의 완충이 된다.
+
+    `exclude_ids`로 이번 세션이 이미 고른 문항을 뺀다(같은 세션 안 중복 금지).
+    한도를 넉넉히 잡는 이유는 제외분 때문에 실효 개수가 줄어들기 때문이다.
+    """
+    if count <= 0:
+        return []
+    rows = (
+        (
+            await db.execute(
+                build_pool_query(
+                    level_groups=pool_level_groups(user.level_group, theta),
+                    theta=theta,
+                    live=False,
+                    limit=count + len(exclude_ids),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [row for row in rows if row.id not in exclude_ids][:count]
+
+
 async def _fetch_unit_pool(
     db: AsyncDBSession, user: User, abilities: list, count: int
 ) -> tuple[list[ContentItem], Any | None]:
@@ -594,11 +636,10 @@ async def forecast_closing_step(
     )
     if base_forecast is None:
         logger.info(
-            "KMA 대상일 예보 부재 — 예보 마감 단계 생략 (user=%s, date=%s)",
+            "KMA 대상일 예보 부재 — 기준 예보 없이 마감 단계 노출 (user=%s, date=%s)",
             user.id,
             duel_date,
         )
-        return None
 
     return {
         "duel_date": duel_date,
@@ -796,14 +837,54 @@ async def create_daily_session(
     new_pool, review_pool, live_pool = await _fetch_pools(
         db, user, weak_concepts, theta=theta
     )
+    # 실황 풀에서 **치환 불가 문항을 배합 전에 걸러낸다** (CO-M1). 예전에는 배합
+    # 뒤에 치환을 시도하고 실패하면 `generate_count += 1`로 넘겼는데, 그 자리는
+    # 대체 대상이 아니라 **곧장 유료 생성**이었다. 여기서 미리 빼면 부족분이 배합
+    # 단계에 보이고 plan_bank_picks가 new로 메운다 — KMA가 없는 날에도 생성 0.
+    # 비용은 live 후보(최대 5건)의 사전 렌더 한 번이다.
+    renderable_live = [
+        item
+        for item in live_pool
+        if fill_live_slots(dict(item.template_json or {}), slot_values)[1]
+    ]
+    if len(renderable_live) < len(live_pool):
+        logger.info(
+            "live 슬롯 치환 불가 %d/%d건 제외 — 부족분은 new가 대체 (user=%s)",
+            len(live_pool) - len(renderable_live),
+            len(live_pool),
+            user.id,
+        )
     # 진도 블록(R13-01 §2.10) — 현재 진행 유닛의 다음 문항. 열린 유닛이 없으면
     # 빈 풀이고 부족분은 plan_bank_picks가 new로 메운다(총합 불변).
     unit_pool, block_unit = await _fetch_unit_pool(
         db, user, abilities, DEFAULT_RECIPE.get("unit", 0)
     )
     picks, generate_count = plan_bank_picks(
-        new_pool, review_pool, live_pool, unit_pool=unit_pool
+        new_pool, review_pool, renderable_live, unit_pool=unit_pool
     )
+
+    # 폴백 2단 (CO-H9) — 유료 생성 **전에** 재출제 풀로 메운다.
+    if generate_count:
+        reserve = await _fetch_reserve_pool(
+            db,
+            user,
+            theta,
+            {_item_id(p["item"]) for p in picks},
+            generate_count,
+        )
+        if reserve:
+            logger.info(
+                "뱅크 부족분 %d건 중 %d건을 재출제 풀로 충당 (user=%s)",
+                generate_count,
+                len(reserve),
+                user.id,
+            )
+            # 진도 블록은 항상 마지막(§2.10)이라 재출제분을 그 앞에 끼운다.
+            unit_at = len(picks) - sum(1 for p in picks if p["kind"] == "unit")
+            picks[unit_at:unit_at] = [
+                {"kind": "review", "item": item} for item in reserve
+            ]
+            generate_count -= len(reserve)
 
     entries: list[dict[str, Any]] = []
     for pick in picks:
@@ -811,13 +892,11 @@ async def create_daily_session(
         template = dict(item.template_json or {})
         slot_filled = False
         if pick["kind"] == "live":
+            # 위에서 렌더 가능분만 남겼으므로 ok=False는 구조적으로 나오지 않는다.
+            # 방어는 남기되 생성으로 보내지 않는다 — 그 자리가 CO-M1의 누수였다.
             rendered, ok = fill_live_slots(template, slot_values)
             if not ok:
-                # 날씨 값 부재 → 미치환 원문 노출 방지, 생성 폴백 (§3.2 live)
-                logger.warning(
-                    "live 슬롯 치환 실패 (item=%s) — quiz-generate 폴백", item.id
-                )
-                generate_count += 1
+                logger.warning("live 슬롯 치환 실패 (item=%s) — 문항 제외", item.id)
                 continue
             template, slot_filled = rendered, True
         question = {
@@ -859,10 +938,23 @@ async def create_daily_session(
         for exc in (r for r in results if isinstance(r, BaseException)):
             logger.warning("quiz-generate 폴백 실패 (수집): %s", exc)
         if not generated:
-            # 전부 실패 — 기존과 동일한 실패 의미론 (라우터에서 503 변환)
-            raise AIWorkerError(
-                f"quiz-generate 폴백 전부 실패 ({generate_count}건)"
+            # 3단까지 전부 실패 (CO-H9·CO-H12): 1·2단이 모은 것이 하한 이상이면
+            # **부분 세션으로 발급한다** — ai-worker HTTP가 죽었다고 뱅크에 있는
+            # 문항까지 못 풀게 하는 것이 지금까지의 503이었다. 하한 미만일 때만
+            # 기존 실패 의미론을 유지한다(라우터에서 503 변환).
+            if len(entries) < MIN_QUESTIONS:
+                raise AIWorkerError(
+                    f"quiz-generate 폴백 전부 실패 ({generate_count}건) — "
+                    f"뱅크 산출물 {len(entries)}건이 하한 {MIN_QUESTIONS} 미만"
+                )
+            logger.warning(
+                "quiz-generate 폴백 전부 실패 (%d건) — 뱅크 %d문항으로 부분 세션 발급"
+                " (user=%s)",
+                generate_count,
+                len(entries),
+                user.id,
             )
+            generated = []
         # 생성 문항 영속화 (R13 D 선행) — 품질 게이트 통과분만 content_items에
         # 적재하고 그 id로 세션에 편성한다. 탈락분은 item=None이라 지금까지처럼
         # content_item_id 없이 일회용으로 서빙된다(배합 총합은 그대로 15).
@@ -903,6 +995,14 @@ async def create_daily_session(
         [e for e in entries if e["kind"] == "unit"]
     )
 
+    # 0문항 세션 금지 (CO-H12 ①) — 여기까지 오는 경로가 위 폴백 3단 말고도 생길 수
+    # 있으므로(유닛 세션 전례) 발급 직전에 한 번 더 막는다. 프론트 자동완료 이펙트가
+    # `total > 0` 가드라 0문항 세션은 화면에서 빠져나갈 수 없다(대장 S-3).
+    if len(entries) < MIN_QUESTIONS:
+        raise AIWorkerError(
+            f"발급 가능 문항 {len(entries)}건 — 하한 {MIN_QUESTIONS} 미만이라 세션 미발급"
+        )
+
     session = Session(
         user_id=user.id,
         session_date=today,
@@ -933,6 +1033,10 @@ async def create_daily_session(
     # 멱등 재조회·complete 시점에도 블록 구분이 복원된다.
     session.recipe_json = {
         "recipe": DEFAULT_RECIPE,
+        # **의도한 배합(recipe)과 실제 발급 수는 다를 수 있다** (CO-H12 ② · 대장 M11).
+        # 부분 세션을 명시 계약으로 승격한 이상 그 흔적이 행에 남아야 한다 — 없으면
+        # 13문항이 나가도 세션 행만으로는 알 수 없고, 전부 실패했을 때만(503) 보인다.
+        "issued_count": len(entries),
         "generated_count": sum(1 for e in entries if e["source"] == "generated"),
         # 생성분 중 뱅크에 적재된 수 (R13 D 선행) — generated_count와 벌어진 만큼이
         # 품질 게이트 탈락분(일회용)이다. 게이트가 통째로 막히면 여기서 보인다.
@@ -941,12 +1045,20 @@ async def create_daily_session(
             for e in entries
             if e["source"] == "generated" and e["content_item_id"] is not None
         ),
-        # 진도 블록 유닛 — 왕관 대상 선정(kind)에 쓴다. 열린 유닛이 없으면 None.
+        # 진도 블록 유닛 — 왕관 대상 선정의 근거 (CO-M6 / 대장 L3).
+        # **concept_tag를 함께 적는 것이 수리의 핵심**이다. 예전에는 kind만 남기고
+        # 개념은 complete 시점에 `majority_concept(블록 문항들의 태그)`로 되짚었는데,
+        # 블록이 두 유닛에 걸치면 kind(블록 유닛)와 concept(최다 개념)이 **서로 다른
+        # 유닛**을 가리켜 `pick_crown_unit`의 concept AND kind 요구가 깨졌다 —
+        # 전건 정답에도 왕관이 증발했다(초등 하늘읽기3 board 시드 1건 경로가 실례).
+        # 두 값을 **같은 유닛 하나에서** 뽑아 적으면 불일치가 구조적으로 사라진다.
+        # 이 값이 없는 세션(개정 전 발급분)은 라우터가 종전 majority_concept로 폴백.
         "unit_block": (
             {
                 "unit_id": str(block_unit.id),
                 "unit_slug": block_unit.slug,
                 "kind": block_unit.kind,
+                "concept_tag": block_unit.concept_tag,
             }
             if block_unit is not None
             and any(e["kind"] == "unit" for e in entries)

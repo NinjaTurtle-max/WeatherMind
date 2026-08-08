@@ -311,7 +311,16 @@ def curriculum_validate(body: CurriculumValidateRequest) -> ValidateResponse:
     dependencies=[Depends(verify_internal_api_key)],
 )
 def weatherbrain_estimate(body: EstimateRequest) -> EstimateResponse:
-    """개념별 θ를 EAP로 추정한다. level_group이 사전분포를 정한다."""
+    """개념별 θ를 EAP로 추정한다. level_group이 사전분포를 정한다.
+
+    `r.b`(문항 난이도)가 None일 때의 `prior_b` 대체는 **방어적 기본값**이다 —
+    backend(weatherbrain_service.assemble_responses)는 R13 CO-U-1 이후 항상
+    **문항의** 사전 b를 채워 보낸다. 여기서 채우는 값은 **유저의** level_group
+    사전 b라서, 실제로 이 분기를 타면 θ 추정에 문항 난이도가 들어가지 않고
+    θ̂ = 사전평균 + f(정답수, 응답수)로 축소된다(약점 판정의 학령 상대성이
+    항등 상쇄되는 CO-U-2의 원인이었다). 스키마 호환을 위해 남겨둘 뿐
+    정상 경로에서는 도달하지 않는다.
+    """
     mean, sd = level_group_prior(body.level_group)
     prior_b = prior_item_b(body.level_group)
     out: list[Ability] = []

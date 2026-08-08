@@ -29,10 +29,14 @@ Q-1의 피해가 컸던 이유는 롤이 틀렸다는 사실이 아니라 **틀�
 바꾸지 않고 모든 접속을 덮는다. 엔진 생성 자체는 여전히 I/O가 없어서
 DB 없는 단위 테스트가 `get_engine()`을 부를 수 있다.
 """
+import logging
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 
 from app import config
+
+logger = logging.getLogger(__name__)
 
 _engine: Engine | None = None
 
@@ -54,12 +58,30 @@ class BatchRoleError(RuntimeError):
 #   · 나중에 FORCE RLS를 켜면 이 검사는 통과하는데 배치는 0행이 된다.
 #     FORCE를 켜는 변경은 이 상수도 함께 고쳐야 한다.
 _ROLE_CHECK_SQL = (
-    "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user"
+    "SELECT current_user, rolsuper OR rolbypassrls "
+    "FROM pg_roles WHERE rolname = current_user"
 )
 
 
 def _assert_batch_role(dbapi_connection, _connection_record) -> None:
-    """새 DBAPI 커넥션마다 롤 특권을 확인한다 (SQLAlchemy `connect` 이벤트)."""
+    """새 DBAPI 커넥션마다 롤 특권을 확인한다 (SQLAlchemy `connect` 이벤트).
+
+    실패 모드 판정 (R13 4일차 PM 조건 ⓐ): 경고 후 계속이 아니라 **예외**다.
+    앱 롤로 붙은 배치에는 "덜 정확하지만 쓸모 있는" 중간 상태가 없다 — 전건 0행
+    아니면 롤백이다. 여기서 경고만 하고 계속하면 그건 정확히 Q-1이 하던 짓
+    (틀렸는데 성공 로그)의 재현이다.
+
+    ⚠️ 배포 당일 위험은 이 검사가 **가리키는 범위**로 이미 제한된다:
+      · 엔진 생성엔 I/O가 없고 접속은 태스크 실행 시점에만 일어난다 →
+        `celery worker`/`beat` 컨테이너는 정상 기동한다(죽지 않는다).
+      · `collect_daily_weather`(브리핑·리그 정산의 입력)는 DB를 안 쓴다 —
+        Redis + KMA만 탄다. **사용자 대면 경로는 무영향.**
+      · 실제로 실패하는 것은 앱 롤에서 어차피 조용히 실패하던 그 3태스크
+        (retrain 03:00 · league 월 03:30 · duel 04:00 KST)뿐이고,
+        이제는 Celery FAILURE + 스택트레이스로 남는다.
+    성공 경로에도 한 줄 로그를 남긴다(아래) — "어느 롤로 붙었나"를 사람이
+    기동 로그에서 바로 볼 수 있어야 오설정이 조용해지지 않는다.
+    """
     cursor = dbapi_connection.cursor()
     try:
         cursor.execute(_ROLE_CHECK_SQL)
@@ -67,15 +89,23 @@ def _assert_batch_role(dbapi_connection, _connection_record) -> None:
     finally:
         cursor.close()
 
-    if row and row[0]:
+    if row and row[1]:
+        # URL은 비밀번호를 포함하므로 **절대 로그에 넣지 않는다** — 변수 이름과
+        # 롤 이름만 남긴다(CO-Q-3: httpx가 serviceKey를 URL째 남기던 것과 같은 계열).
+        logger.info(
+            "celery 배치 DB 접속: 롤=%s (출처=%s, RLS 우회 가능)",
+            row[0],
+            config.CELERY_DATABASE_URL_SOURCE,
+        )
         return
 
     raise BatchRoleError(
-        "celery 배치가 RLS 적용 대상 롤로 접속했습니다 — 전 유저 횡단 집계가 "
-        "예외 없이 0행이 되어 재보정·정산이 조용히 실패합니다. "
-        "CELERY_DATABASE_URL(없으면 MIGRATION_DATABASE_URL)을 소유자 롤로 "
-        "지정하세요. 근거: docs/team/CARRYOVER_R13.md §Q-1, database/init.sql "
-        "'celery 배치는 소유자 롤 유지'."
+        f"celery 배치가 RLS 적용 대상 롤({row[0] if row else '?'})로 접속했습니다 "
+        f"— 전 유저 횡단 집계가 예외 없이 0행이 되어 재보정·정산이 조용히 "
+        f"실패합니다. 현재 출처={config.CELERY_DATABASE_URL_SOURCE}. "
+        f"CELERY_DATABASE_URL(없으면 MIGRATION_DATABASE_URL)을 소유자 롤로 "
+        f"지정하세요. 근거: docs/team/CARRYOVER_R13.md §Q-1, database/init.sql "
+        f"'celery 배치는 소유자 롤 유지'."
     )
 
 

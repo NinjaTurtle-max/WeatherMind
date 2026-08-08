@@ -389,18 +389,20 @@ class TestDuelAndLeagueStaySeoul:
     """이번 정정이 되돌아가지 않게: 부산 유저의 브리핑·base_forecast·정산이
     전부 서울 축임을 고정한다(리그 포함)."""
 
-    def test_부산_유저여도_리그는_서울(self, monkeypatch):
-        """/league/current — 유저 region과 무관하게 중기예보·응답 region이 서울."""
-        called = []
+    def test_부산_유저여도_리그는_서울(self):
+        """/league/current — 유저 region과 무관하게 응답 region이 서울(정산 축과 일치).
 
-        async def fake_mid(region, tm_fc=None):
-            called.append(region)
-            return {}
-
-        monkeypatch.setattr(league_router, "get_mid_forecast", fake_mid)
+        ⚠️ R13 CO-Q-6 이후 이 엔드포인트는 **KMA를 아예 부르지 않는다** —
+        `mid_forecast`가 빈 dict 고정이라 예전의 "중기예보를 서울로 부른다"
+        단정은 성립하지 않는다. 대신 **부르지 않는다는 사실 자체**를 고정한다:
+        되돌아가면 리그 진입마다 KMA 2콜이 화면 산출물 0으로 다시 새어 나간다.
+        """
+        assert not hasattr(league_router, "get_mid_forecast"), (
+            "CO-Q-6 회귀: /league/current가 중기예보를 다시 부르고 있다"
+        )
         res = asyncio.run(league_router.get_current(user=make_user(region="부산")))
-        assert called == ["서울"]
         assert res.region == "서울"
+        assert res.mid_forecast == {}
 
     def test_부산_유저여도_브리핑은_서울(self, monkeypatch):
         """/duel/briefing — 실황·과거관측·응답 region 전부 서울 축(정산과 일치)."""

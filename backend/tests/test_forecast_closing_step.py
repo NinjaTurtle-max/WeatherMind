@@ -138,11 +138,31 @@ class TestDegradedWithoutKma:
             {"region": "서울", "forecasts": [{"datetime": f"{TODAY:%Y%m%d}1500", "TMX": 30.0}]},
         ],
     )
-    def test_계약3_KMA_없으면_단계_생략(self, monkeypatch, weather):
-        assert run_step(monkeypatch, weather=weather) is None
+    def test_계약3_KMA_없어도_단계는_뜨고_기준예보만_빈다(self, monkeypatch, weather):
+        """CO-M2 — 개정 전 이 계약은 "KMA 없음 → 단계 생략"이었다. 뒤집는다.
+
+        뒤집는 이유는 이 계약이 **무키에서 기능 전체를 소멸시켰기** 때문이다:
+        `get_today_weather()`가 키 부재·장애면 빈 dict를 돌려주므로 `base_forecast`는
+        무키 환경에서 **항상** None이었고, 그래서 3일차에 만든 R13 A-1이 8/11~18
+        실운영과 무키 데모에서 영원히 도달 불가였다. 원래 논거("판단 재료 없이 예보를
+        요구하면 찍기")는 맞지만 그 대가가 기능 소멸이면 비용이 어긋난다.
+
+        새 계약은 **숫자를 지어내지 않는 것**으로 원래 논거를 지킨다: 단계는 뜨되
+        `base_forecast`는 None으로 남고(스키마가 이미 Optional), 프론트는 기준 예보
+        배너만 숨긴다 — `routers/duel._to_today_response`와 같은 관례다. 판단 재료가
+        더 필요한 유저는 기존 `GET /api/v1/duel/briefing`으로 간다.
+        """
+        step = run_step(monkeypatch, weather=weather)
+        assert step is not None, "KMA가 없다고 마감 단계 자체가 사라지면 안 된다"
+        assert step["duel_date"] == TOMORROW
+        assert step["submit_path"] == ss.DUEL_SUBMIT_PATH
+        assert step["base_forecast"] is None, (
+            "기준 예보가 없으면 None이어야 한다 — 없는 값을 지어내면 "
+            "유저가 서버가 만든 숫자를 근거로 예보를 낸다"
+        )
 
     def test_계약3_KMA_없어도_15문항_세션이_정상_완료된다(self, monkeypatch):
-        """단계 생략이 세션 완주를 막지 않는다 — 프로젝트 계약("키 없이 전 기능").
+        """마감 단계가 세션 완주를 막지 않는다 — 프로젝트 계약("키 없이 전 기능").
 
         complete 경로 전체를 돌려 15문항 결산이 그대로 나오는지 본다.
         """
@@ -183,7 +203,9 @@ class TestDegradedWithoutKma:
         )
         assert result.total == ss.SESSION_SIZE == 15
         assert result.correct_count == ss.SESSION_SIZE
-        assert result.closing_step is None, "KMA 없으면 마감 단계도 없다"
+        # CO-M2 — 결산 뒤 마감 단계는 KMA 없이도 붙는다(기준 예보만 빈다)
+        assert result.closing_step is not None
+        assert result.closing_step.base_forecast is None
 
 
 # ═══════════════════════════════════════════════════════════════

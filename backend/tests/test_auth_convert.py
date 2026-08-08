@@ -30,6 +30,8 @@ import uuid
 from pathlib import Path
 
 import pytest
+
+from app.core.config import settings
 from fastapi.testclient import TestClient
 from sqlalchemy import Select
 
@@ -109,6 +111,7 @@ class FakeDB:
 class FakeRedis:
     def __init__(self):
         self.store: dict[str, str] = {}
+        self.ttl: dict[str, object] = {}
 
     async def setex(self, key, ttl, value):
         self.store[key] = value
@@ -118,6 +121,13 @@ class FakeRedis:
 
     async def delete(self, key):
         self.store.pop(key, None)
+
+    async def expire(self, key, ttl):
+        """R13 P-3 — refresh가 세션 TTL을 슬라이딩 연장한다."""
+        if key not in self.store:
+            return False
+        self.ttl[key] = ttl
+        return True
 
 
 @pytest.fixture()
@@ -385,16 +395,25 @@ class TestRefreshRotation:
 
 
 class TestRateLimit:
-    def test_6번째_요청은_429(self, client, fake_db, bearer):
+    def test_한도_초과_요청은_429(self, client, fake_db, bearer):
+        """R13 P-2로 LIMIT_AUTH가 5→30/분이 됐다.
+
+        심사장 NAT 뒤에서는 같은 IP를 여러 사람이 공유하므로 5회는 6번째
+        사람부터 게스트 시작을 막았다(실측 [201×5, 429×3]). 이 테스트는
+        **한도 값이 아니라 한도가 걸려 있다는 사실**을 단정한다 — 값을
+        박으면 조정할 때마다 테스트가 따라 깨진다.
+        """
         make_guest(client, fake_db, bearer)
         ip = _unique_ip()
+        limit = int(settings.LIMIT_AUTH.split("/")[0])
         statuses = [
-            post_convert(client, VALID, ip=ip).status_code for _ in range(6)
+            post_convert(client, VALID, ip=ip).status_code
+            for _ in range(limit + 1)
         ]
-        # 1회차 200(전환 성공), 2~5회차 409(이미 정식 — NOT_GUEST), 6회차 429
+        # 1회차 200(전환 성공), 이후 409(이미 정식 — NOT_GUEST), 한도 초과분 429
         assert statuses[0] == 200
-        assert statuses[1:5] == [409] * 4
-        assert statuses[5] == 429
+        assert set(statuses[1:limit]) == {409}
+        assert statuses[limit] == 429
 
     def test_소스에_LIMIT_AUTH가_걸려_있다(self):
         assert re.search(

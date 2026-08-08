@@ -6,8 +6,18 @@ clear 왕관/XP 처리(DB 결합부)를 담당한다. 유닛 세션은 기존 �
 결정한다 — unit_id를 content_items에 추가하지 않는다(기존 시드 하위 호환, §3.2).
 
 잠금 규칙(§3.2): prereq_unit_id가 있으면 그 유닛 crowns>=1 이어야 열림. 첫 유닛 무잠금.
-진도: 유닛 세션 5/5(전 문항 정답) 또는 board 클리어 시 crowns +1(crown_target까지),
-cleared 전환 시 +20 XP 1회.
+
+왕관 유입로는 **3개**다 (CO-L5 정정 — 이 자리에 "유닛 세션 5/5" 하나라고 적혀
+있었으나 거짓이었다. `routers/session.py`의 유닛 세션 완료는 `grant_crown=False`
+고정이라 **유닛 직접 진입은 왕관을 주지 않는다** — 연습 전용):
+  ⑴ 일일 세션의 진도 블록 · ⑵ 보드 탭 최초 클리어 · ⑶ `/dev` 개발 경로.
+셋 다 `grant_unit_crown`으로 수렴한다. 판정 조건은 각 유입로가 소유하므로 여기
+적지 않는다 — 문서가 코드보다 앞서 나가면 다시 거짓이 된다.
+
+**코스 경계(CO-L1)**: 진도·왕관·잠금·스파인은 **한 코스 안에서** 닫힌다.
+`active_course_units`·`course_groups`가 유일 판정 지점이며, 이 경계가 없으면
+다른 코스의 무잠금 유닛(basic-science 3유닛은 prereq=null)이 1일차부터 진도
+블록에 섞여 왕관을 가져가고 기본 코스 트리가 영원히 열리지 않는다.
 """
 import json
 import logging
@@ -37,6 +47,8 @@ UNIT_SESSION_SIZE = settings.UNIT_SESSION_SIZE   # 기본 5 — env 튜닝(R5.5)
 # 미등재 섹션은 뒤로(알파벳). unit_order는 섹션 내 유일(§3.6).
 SECTION_ORDER = (
     "하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후",
+    # 재난 축 1차 개통 (R13 §2.4 · CO-A1) — "위험 기상 생성 보드 → 행동 요령" 연쇄.
+    "위험한 하늘",
     # 기초과학 코스 3섹션 (R12 §9 — specs/11 §2 순서: 열·복사 → 압력·밀도 → 상태변화).
     # 코스가 갈려도 정렬 키는 전역 하나로 충분하다 — 섹션명이 코스 간 유일.
     "열과 빛", "공기의 무게", "물과 에너지",
@@ -332,6 +344,71 @@ def open_units_in_order(
     return result
 
 
+def course_key(unit: Any) -> Any:
+    """유닛의 코스 식별 키 (CO-L1, 순수) — 속성 부재·NULL은 하나의 기본 코스로 묶인다.
+
+    `scope_units_to_course`가 GET 트리에서 쓰는 규칙(NULL=기본 코스)의 등가물인데,
+    **DB 조회 없이** 성립해야 한다: `progress_block_pool`은 db 인자가 대역(None)인
+    경로에서도 돌기 때문이다. seed_units는 파일 한 벌을 한 번에 적재하므로
+    course_id는 전 유닛이 채워지거나 전 유닛이 NULL이다 — 섞이지 않는다.
+    """
+    return getattr(unit, "course_id", None)
+
+
+def course_groups(units: Iterable[Any]) -> list[list[Any]]:
+    """코스별 유닛 묶음 (CO-L1, 순수) — 전체 순서(ordered_units)상 **등장 순**.
+
+    진도·왕관·잠금·스파인이 "전 코스 20유닛"이 아니라 한 코스만 보게 하는 분할
+    지점이다. 묶음 내부는 ordered_units 순서를 그대로 보존하므로, 각 묶음을
+    그대로 placement_unlock_floor·open_units_in_order에 넘기면 그 코스 안에서의
+    전체 순서 인덱스가 된다(코스 밖 유닛이 인덱스를 밀지 않는다 — CO-L4의 원인).
+    """
+    groups: dict[Any, list[Any]] = {}
+    for unit in ordered_units(units):
+        groups.setdefault(course_key(unit), []).append(unit)
+    return list(groups.values())
+
+
+def scope_units_to_unit_course(units: Iterable[Any], unit: Any) -> list[Any]:
+    """`unit`이 속한 코스의 유닛만 (CO-L4, 순수) — 403 게이트의 잠금 맥락.
+
+    트리 GET은 코스로 스코프된 집합 위에서 잠금을 평가하는데 403 게이트가 전 코스
+    집합을 쓰면 **unlocked로 보이는 노드가 403**이 된다. 같은 분할 규칙(course_key)을
+    쓰는 것이 그 어긋남을 구조적으로 막는 유일한 방법이다.
+    """
+    key = course_key(unit)
+    return [u for u in units if course_key(u) == key]
+
+
+def active_course_units(
+    units: Iterable[Any],
+    progress_by_unit: dict[Any, Any],
+    abilities: list,
+) -> tuple[list[Any], int]:
+    """진도·스파인이 보는 **활성 코스**의 유닛과 그 unlock_floor (CO-L1, 순수).
+
+    반환: (그 코스의 유닛 목록, placement_unlock_floor).
+
+    활성 코스 = 전체 순서상 **열린 미클리어 유닛을 가진 첫 코스**. 유저별 코스
+    선택 컬럼이 없으므로(스키마 무변경 — 4일차 범위) 진도 자체에서 파생한다:
+    - 기본 코스(weather)는 SECTION_ORDER 선두라 신규 유저에게 항상 먼저 잡힌다
+      → basic-science의 prereq=null 3유닛이 1일차부터 왕관을 가져가지 않는다.
+    - 한 코스를 전부 클리어하면 다음 코스가 자동으로 활성이 된다.
+    - 전 코스 클리어(열린 유닛 0)면 **마지막 코스**를 돌려준다 — 스파인이 0/0으로
+      무너지지 않고 "다 끝냈다"를 그대로 표시한다.
+    - 유닛이 없으면 ([], 0).
+    """
+    groups = course_groups(units)
+    if not groups:
+        return [], 0
+    for group in groups:
+        floor = placement_unlock_floor(abilities, group)
+        if open_units_in_order(group, progress_by_unit, floor):
+            return group, floor
+    last = groups[-1]
+    return last, placement_unlock_floor(abilities, last)
+
+
 def build_curriculum(
     units: Iterable[Any],
     progress_by_unit: dict[Any, Any],
@@ -508,13 +585,17 @@ async def get_spine(db: AsyncSession, user: User) -> dict[str, Any]:
 
     트리 노출(get_curriculum)과 동일한 잠금 규칙(배치 선해제 포함)으로
     build_spine을 평가한다. θ 읽기는 load_abilities(read-only) — ai-worker 미호출.
+
+    **활성 코스 한 벌만 집계한다 (CO-L1·CO-L7)**: 전 코스를 합산하면 날씨 코스만
+    하는 유저가 12유닛을 전부 클리어해도 헤더가 12/20에서 멈춘다. 활성 코스 판정은
+    진도 블록(progress_block_pool)과 **같은 함수**를 쓰므로 "헤더가 가리키는 유닛"과
+    "오늘 진도로 나오는 유닛"이 어긋날 수 없다.
     """
     units = await load_units(db)
     progress = await load_progress_by_unit(db, user)
     abilities = await weatherbrain_service.load_abilities(db, user)
-    return build_spine(
-        units, progress, unlock_floor=placement_unlock_floor(abilities, units)
-    )
+    scoped, unlock_floor = active_course_units(units, progress, abilities)
+    return build_spine(scoped, progress, unlock_floor=unlock_floor)
 
 
 async def is_unit_locked(
@@ -526,9 +607,15 @@ async def is_unit_locked(
     abilities 미전달 시 load_abilities(read-only, ai-worker 미호출) — 트리 GET과
     동일. 유닛 세션 발급 경로는 라우터가 refresh_abilities 1회 결과를 넘겨
     잠금 판정이 신선한 θ를 쓴다 (R8-01 §3.2 — session_service:295 전례).
+
+    **"동일 규칙"은 잠금 함수만이 아니라 잠금이 평가되는 집합까지 같아야 성립한다
+    (CO-L4)**: 트리 GET은 `?course=`로 스코프된 집합에서, 이 게이트는 전 코스
+    20유닛에서 order_index·unlock_floor를 계산해 왔다 — 그래서 트리에 unlocked로
+    그려진 노드가 POST에서 403 UNIT_LOCKED로 튕겼다. 이제 **그 유닛이 속한 코스**로
+    스코프한다(scope_units_to_unit_course — 단일 코스 DB에서는 전 집합과 동일).
     """
     progress = await load_progress_by_unit(db, user)
-    units = await load_units(db)
+    units = scope_units_to_unit_course(await load_units(db), unit)
     if abilities is None:
         abilities = await weatherbrain_service.load_abilities(db, user)
     index_of = {u.id: i for i, u in enumerate(ordered_units(units))}
@@ -611,8 +698,17 @@ async def progress_block_pool(
     이어붙인다(§2.10 "유닛 소진 시 다음 열린 유닛으로 자동 진행"). 그래도 모자란
     부족분은 호출측(plan_bank_picks)이 new 블록에서 메운다 — 총합 15는 불변.
 
-    반환 unit은 **블록 첫 문항이 나온 유닛** = 왕관 대상이다. 열린 유닛이 없거나
-    (신규 유저·전 유닛 클리어) 풀이 비면 (빈 목록, None) — 진도 블록 0으로 발급된다.
+    반환 unit은 **블록 첫 문항이 나온 유닛** = 왕관 대상 식별자다(호출측이
+    `recipe_json.unit_block`에 기록해 왕관 대상을 정한다 — 첫 문항으로 역추론하지
+    않는다). 열린 유닛이 없거나 (신규 유저·전 유닛 클리어) 풀이 비면
+    (빈 목록, None) — 진도 블록 0으로 발급된다.
+
+    **블록은 한 코스를 벗어나지 않는다 (CO-L1)**: `active_course_units`가 활성
+    코스를 고르고 그 안에서만 다음 열린 유닛으로 이어붙인다. 이 경계가 없으면
+    basic-science의 prereq=null 3유닛이 1일차부터 열려 있어, 기본 코스 유닛의
+    풀이 5에 못 미치는 순간 블록의 다수 개념이 타 코스로 넘어가고 **왕관이 그쪽에
+    붙는다** — 배합은 매일 같으므로 기본 코스 트리가 영원히 열리지 않는다.
+
     잠금 맥락(진도·배치 선해제)은 트리 노출과 같은 규칙을 한 번만 로드해 쓴다.
     스캔 유닛 수를 count개로 제한하는 이유는 쿼리 비용 상한이다(유닛당 최대 2회) —
     풀이 전부 빈 DB에서 20유닛을 훑으면 발급 경로가 40쿼리가 된다.
@@ -625,12 +721,12 @@ async def progress_block_pool(
     progress = await load_progress_by_unit(db, user)
     if abilities is None:
         abilities = await weatherbrain_service.load_abilities(db, user)
-    unlock_floor = placement_unlock_floor(abilities, units)
+    scoped, unlock_floor = active_course_units(units, progress, abilities)
 
     items: list[ContentItem] = []
     seen: set = set()
     block_unit: Unit | None = None
-    for unit in open_units_in_order(units, progress, unlock_floor)[:count]:
+    for unit in open_units_in_order(scoped, progress, unlock_floor)[:count]:
         for item in await _unit_content_pool(db, user, unit, abilities):
             if item.id in seen:
                 continue
@@ -772,18 +868,27 @@ async def find_crown_unit(
 
     is_unit_locked와 동일한 잠금 맥락(진도·배치 선해제 unlock_floor)을 한 번만
     로드해 후보 전체를 순수 함수로 스캔한다. θ 읽기는 load_abilities(read-only).
+
+    스캔은 **코스별로** 돈다 (CO-L1·CO-L4): unlock_floor·order_index가 코스 안에서
+    계산돼야 트리 노출과 같은 잠금 판정이 된다. 코스 간 순서는 course_groups의
+    등장 순(=전체 순서상 첫 유닛 순)이고, 먼저 맞는 유닛이 나오면 거기서 멈춘다.
+    개념 태그는 코스를 가로질러 유일하므로 실제로 두 코스가 경합하지 않는다.
     """
     units = await load_units(db)
     progress = await load_progress_by_unit(db, user)
     abilities = await weatherbrain_service.load_abilities(db, user)
-    return pick_crown_unit(
-        units,
-        progress,
-        concept_tag=concept_tag,
-        kind=kind,
-        unlock_floor=placement_unlock_floor(abilities, units),
-        uncleared_only=uncleared_only,
-    )
+    for group in course_groups(units):
+        found = pick_crown_unit(
+            group,
+            progress,
+            concept_tag=concept_tag,
+            kind=kind,
+            unlock_floor=placement_unlock_floor(abilities, group),
+            uncleared_only=uncleared_only,
+        )
+        if found is not None:
+            return found
+    return None
 
 
 async def award_crown_for_activity(

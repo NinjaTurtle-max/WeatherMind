@@ -17,11 +17,14 @@ import logging
 import math
 import uuid
 from collections import defaultdict
+from collections.abc import Sequence
+from typing import Any
 
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession as AsyncDBSession
 
+from app.models.content_item import ContentItem
 from app.models.item_param import ItemParam
 from app.models.quiz_log import QuizLog
 from app.models.user import User
@@ -197,6 +200,63 @@ def knowledge_level_of_level_group(level_group: str) -> int:
     return (KNOWLEDGE_LEVEL_MIN + KNOWLEDGE_LEVEL_MAX) // 2
 
 
+# ── θ → 지식 수준(N단계) — R13 E-1 ─────────────────────────────────────────
+# `THETA_BAND_BOUNDS`(4밴드)는 **건드리지 않는다**: 그 값을 단정하는 계약 테스트가
+# 여러 파일에 있고, 4밴드는 라벨·라우터·출제 풀이 공유하는 기존 축이다. 대신 같은
+# 축을 더 잘게 나눈 경계를 **파생**한다 — N단계를 4밴드로 접으면 기존 경계가 그대로
+# 나와야 한다(정합 조건, test_weatherbrain_contract가 감시).
+#
+# 파생 규칙: 한 밴드가 k개 단계를 담으면 그 밴드의 **명목 구간**을 k등분한다.
+# 명목 구간은 내부 경계가 THETA_BAND_BOUNDS 그대로이고 바깥 끝(−∞·+∞)만 밴드 폭
+# 만큼 닫은 것이다(밴드 폭 = 경계 간격 = 인접 사전평균 차 1.0). 현재 표에서는
+#   elementary [−1.5, −0.5] ÷2 → −1.0 · middle_high [−0.5, 0.5] ÷2 → 0.0
+#   adult [0.5, 1.5] ÷1 · expert [1.5, 2.5] ÷1 → 내부 분할 없음
+#   ⇒ (−1.0, −0.5, 0.0, 0.5, 1.5)  (경계 5 = 단계 6 − 1)
+# 2단계 밴드의 분할점이 그 밴드의 θ 사전평균과 같아지는 것은 우연이 아니다 —
+# 명목 구간이 사전평균 중심 ±반칸이기 때문이다(LEVEL_GROUP_ITEM_B와 정합).
+#
+# 단계 수 N을 여기 박지 않는다 — 전부 KNOWLEDGE_LEVEL_BANDS 길이에서 나온다
+# (이 파일 상단의 "N은 오직 튜플 길이에서 나온다" 원칙).
+def _derive_knowledge_level_bounds() -> tuple[float, ...]:
+    """KNOWLEDGE_LEVEL_BANDS × THETA_BAND_BOUNDS → 단계 경계 (모듈 로드 시 1회)."""
+    span = (
+        THETA_BAND_BOUNDS[1] - THETA_BAND_BOUNDS[0]
+        if len(THETA_BAND_BOUNDS) >= 2
+        else 1.0
+    )
+    bounds: list[float] = []
+    for index, band in enumerate(LEVEL_GROUP_BANDS):
+        lo = THETA_BAND_BOUNDS[index - 1] if index > 0 else THETA_BAND_BOUNDS[0] - span
+        hi = (
+            THETA_BAND_BOUNDS[index]
+            if index < len(THETA_BAND_BOUNDS)
+            else THETA_BAND_BOUNDS[-1] + span
+        )
+        steps = KNOWLEDGE_LEVEL_BANDS.count(band)
+        bounds.extend(lo + (hi - lo) * step / steps for step in range(1, steps))
+        if index < len(LEVEL_GROUP_BANDS) - 1:
+            bounds.append(hi)
+    return tuple(bounds)
+
+
+THETA_KNOWLEDGE_LEVEL_BOUNDS: tuple[float, ...] = _derive_knowledge_level_bounds()
+
+
+def theta_to_knowledge_level(theta: float) -> int:
+    """추정 θ → 지식 수준(KNOWLEDGE_LEVEL_MIN..MAX) — 출제 난이도의 N단계 해상도.
+
+    theta_to_level_group과 **같은 축의 더 잘게 나눈 뷰**다. 모든 θ에서
+    `level_group_of_knowledge_level(theta_to_knowledge_level(θ))
+     == theta_to_level_group(θ)`가 성립한다(계약 테스트가 감시) — 즉 이 함수를
+    쓰는 소비자와 기존 4밴드 소비자가 서로 다른 난이도를 보지 않는다.
+    경계는 하위 단계 제외·상위 단계 포함(< 비교 — _theta_bucket과 같은 관례).
+    """
+    for index, bound in enumerate(THETA_KNOWLEDGE_LEVEL_BOUNDS):
+        if theta < bound:
+            return KNOWLEDGE_LEVEL_MIN + index
+    return KNOWLEDGE_LEVEL_MAX
+
+
 def effective_knowledge_level(item) -> int:
     """문항의 지식 수준 — NULL(미분류)이면 level_group에서 파생 (0012 폴백 계약).
 
@@ -239,6 +299,12 @@ def effective_tone(user) -> str:
 # 약점 판정 기대확률 계약 (R8-01 §3.5) — "학령 표준 문항(사전 b)을 맞힐 기대확률
 # P = σ(θ − b)가 이 값 미만"이면 약점. 구 weak_tags의 정답률 60% 임계와 수치는
 # 같지만 등가가 아니다 — P는 학령 사전 b에 상대적이므로 임계 θ가 학령별로 다르다.
+#
+# ⚠️ R13 CO-U-2까지 이 문장은 **함수 경계에서만 참**이었다: 조립기가 미보정 문항의 b를
+# 유저 사전 b로 채우는 바람에 θ̂ = 사전평균 + f(k,n)이 되어 임계의 사전 b가 양변에서
+# 소거됐고, 세 학령 판정이 완전히 동일(= 정답률 60% 등가)했다. CO-U-1이 문항 b를
+# 넣도록 고쳐 문장이 사실이 됐다 — 합성 수준의 증명은
+# test_weatherbrain_theta_pipeline.TestWeakVerdictIsLevelRelativeEndToEnd가 갖는다.
 WEAK_EXPECTED_P: float = 0.6
 
 
@@ -320,13 +386,73 @@ async def _load_calibrated_b(
     return {cid: b for cid, b in rows}
 
 
+async def _load_item_level_groups(
+    db: AsyncDBSession, content_item_ids: set[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """문항의 **실효** 학령 밴드 조회 — 사전 b 폴백의 근거 (R13 CO-U-1).
+
+    저장된 level_group이 아니라 effective_level_group(2축 파생 뷰)을 돌려준다:
+    knowledge_level이 채워진 문항은 새 축에서 파생하고, 미분류(NULL)면 저장값
+    그대로다. 시드 237건은 두 축이 정합하므로 오늘의 값은 한 건도 달라지지 않는다.
+    """
+    if not content_item_ids:
+        return {}
+    rows = (
+        await db.execute(
+            select(
+                ContentItem.id, ContentItem.level_group, ContentItem.knowledge_level
+            ).where(ContentItem.id.in_(content_item_ids))
+        )
+    ).all()
+    return {row.id: effective_level_group(row) for row in rows}
+
+
+def assemble_responses(
+    logs: Sequence[Any],
+    calibrated_b: dict[Any, float],
+    item_level_groups: dict[Any, str],
+    default_level_group: str,
+) -> dict[str, list[dict[str, Any]]]:
+    """채점된 quiz_logs → 개념별 IRT 응답 조립 (순수 함수, R13 CO-U-1).
+
+    **placement_service.assemble_placement_responses와 같은 규칙이어야 한다** —
+    두 경로가 같은 응답 집합에 다른 b를 쓰면 배치가 만든 θ를 첫 세션 발급이
+    덮어쓴다(CO-U-4의 실증: 배치 −0.718 → refresh −1.000). 동일성은
+    test_weatherbrain_assemble_parity가 감시한다.
+
+    난이도 b 규칙: 보정값(item_params)이 있으면 그 값, 없으면 **그 문항**
+    level_group의 사전 b. 문항을 모를 때(content_item_id NULL — 생성 문항 등)만
+    신고 그룹으로 폴백한다. 변별도 a는 1.0 고정(2PL 콜드스타트 관례).
+
+    이전 구현은 미보정 문항에 b=None을 보내 ai-worker가 **유저의** 사전 b로
+    채우게 했다. 그러면 θ 추정에 문항 난이도가 한 번도 들어가지 않고
+    (θ̂ = 사전평균 + f(정답수, 응답수)), 약점 임계의 학령 상대성이 항등적으로
+    상쇄된다(CO-U-2). b를 여기서 확정해 보내므로 그 두 결함이 함께 닫힌다.
+
+    반환: {concept_tag: [{"b": float, "a": 1.0, "correct": bool}]}.
+    """
+    by_concept: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for log in logs:
+        is_correct = getattr(log, "is_correct", None)
+        if is_correct is None:
+            continue  # 미채점 로그는 표본이 아님
+        item_id = getattr(log, "content_item_id", None)
+        b = calibrated_b.get(item_id) if item_id is not None else None
+        if b is None:
+            group = item_level_groups.get(item_id, default_level_group)
+            b = LEVEL_GROUP_ITEM_B.get(group, DEFAULT_ITEM_B)
+        by_concept[getattr(log, "concept_tag", None)].append(
+            {"b": float(b), "a": 1.0, "correct": bool(is_correct)}
+        )
+    return dict(by_concept)
+
+
 async def _assemble_responses(
     db: AsyncDBSession, user: User
 ) -> dict[str, list[dict]]:
-    """채점된 quiz_logs를 개념별 IRT 응답으로 조립한다.
+    """채점된 quiz_logs를 개념별 IRT 응답으로 조립한다(DB 결합부).
 
-    각 응답의 난이도 b는 보정값(item_params)이 있으면 그 값, 없으면 None을 보낸다
-    (ai-worker가 level_group 사전 난이도로 대체 — 사전값 단일 소유 유지).
+    b 규칙은 assemble_responses(순수) 독스트링 참조 — placement 경로와 동일하다.
     """
     rows = (
         await db.execute(
@@ -340,14 +466,8 @@ async def _assemble_responses(
 
     item_ids = {cid for _, cid, _ in rows if cid is not None}
     calibrated = await _load_calibrated_b(db, item_ids)
-
-    by_concept: dict[str, list[dict]] = defaultdict(list)
-    for concept_tag, content_item_id, is_correct in rows:
-        b = calibrated.get(content_item_id) if content_item_id is not None else None
-        by_concept[concept_tag].append(
-            {"b": b, "a": 1.0, "correct": bool(is_correct)}
-        )
-    return dict(by_concept)
+    item_level_groups = await _load_item_level_groups(db, item_ids)
+    return assemble_responses(rows, calibrated, item_level_groups, user.level_group)
 
 
 async def _upsert_abilities(

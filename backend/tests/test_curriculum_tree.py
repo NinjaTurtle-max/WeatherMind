@@ -378,15 +378,15 @@ def _real_roots() -> set[str]:
 
 
 class TestRealUnitsJson:
-    """실제 units.json(기상 12 + 기초과학 8 = 20유닛, slug 방식) 적재 정합·잠금 체인 생존 검증."""
+    """실제 units.json(기상 16 = 12 + 재난 4 · 기초과학 8 = **24유닛**, slug 방식) 적재 정합·잠금 체인 생존 검증."""
 
-    def test_파일_로드_및_20유닛(self):
+    def test_파일_로드_및_24유닛(self):
         units = _load_real_units()
-        assert isinstance(units, list) and len(units) == 20
+        assert isinstance(units, list) and len(units) == 24
         by_course: dict[str, int] = {}
         for u in units:
             by_course[u.get("course")] = by_course.get(u.get("course"), 0) + 1
-        assert by_course == {"weather": 12, "basic-science": 8}
+        assert by_course == {"weather": 16, "basic-science": 8}
 
     def test_로더_스키마_전부_통과(self):
         units = _load_real_units()
@@ -413,7 +413,7 @@ class TestRealUnitsJson:
         units = _units_from_json(_load_real_units())
         tree = cs.build_curriculum(units, {})
         flat = {u["id"]: u for s in tree for u in s["units"]}
-        assert len(flat) == 20
+        assert len(flat) == 24
         unlocked = {uid for uid, v in flat.items() if not v["locked"]}
         roots = {u.slug for u in units if u.prereq_unit_id is None}
         assert unlocked == roots
@@ -468,7 +468,7 @@ class TestRealUnitsJson:
         assert flat["air-power-masses"]["status"] == "locked"
 
     def test_순차_클리어로_전_체인_해제(self):
-        """의존 순서대로 각 유닛을 clear하면 다음이 열려 결국 20유닛 전부 해제된다."""
+        """의존 순서대로 각 유닛을 clear하면 다음이 열려 결국 24유닛 전부 해제된다."""
         entries = _load_real_units()
         units = _units_from_json(entries)
         # prereq_unit_id로 위상 순서(루트→말단) 구성 (선형·분기 무관)
@@ -493,7 +493,7 @@ class TestRealUnitsJson:
         tree = cs.build_curriculum(units, progress)
         locked = [u["id"] for s in tree for u in s["units"] if u["locked"]]
         assert locked == []
-        assert len(cleared_order) == 20
+        assert len(cleared_order) == 24
         # 첫 배치는 정확히 루트 집합(진도 0에서 열려 있는 유닛들 — 순서는
         # 집합 순회라 비결정이므로 집합으로 판정)
         roots = _real_roots()

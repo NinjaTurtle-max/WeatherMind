@@ -33,16 +33,29 @@
 `ci.yml`의 잡 키를 서로 대조한다. 의도적 예외는 `OPT_IN_STEPS`에 **사유와 함께** 적는다 —
 검사를 끄는 게 아니라 끈 이유를 코드에 남기는 것이 이 계약의 본체다.
 
+## 세 번째 계약 — `.env.example` ↔ `Settings` (CO-Q-9 / J-13, 2026-08-08)
+
+같은 종류의 비대칭이 설정에도 있었다. `.env.example:60`의 `SESSION_RECIPE`는
+**기재됐고 틀렸다** — 합 5(구버전)인데 실제 계약은 합 15다. 미기재보다 나쁜 형태다:
+8/17 이후 "코드는 동결하고 env만 조정"하는 계획이 이 파일을 출발점으로 삼는데,
+그대로 복사하면 세션이 15문항이 아니라 5문항이 된다. 조정 노브 3종
+(`LEAGUE_DIVISION_SIZE`·`LEAGUE_NEIGHBOR_SPAN`·`GENERATED_ITEM_STATUS`)은 아예
+없었다. 어느 쪽도 잡는 검사가 없었다 — 문서↔코드 계약 감시가 리포 전체에 2건뿐이다.
+
 DB·네트워크 불필요. 실행: backend에서 `python -m pytest tests -q`.
 """
+import json
 import re
 from pathlib import Path
 
 import pytest
 
+from app.core.config import Settings
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 CI_SH = REPO_ROOT / "scripts" / "ci.sh"
+ENV_EXAMPLE = REPO_ROOT / ".env.example"
 
 # 파이썬 의존을 갖는 빌드 컨텍스트 — 새 컨텍스트가 생기면 여기 목록이 아니라
 # 디렉토리 탐색이 알아서 잡는다(목록을 손으로 관리하면 그것부터 드리프트한다).
@@ -220,3 +233,121 @@ class TestCiStepJobParity:
         assert not missing, (
             f"머리 주석 사용법에 {missing} 단계가 빠졌다 (적힌 목록: {listed})"
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# `.env.example` ↔ `Settings` 대조 (CO-Q-9 / J-13)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 값이 일부러 placeholder인 시크릿 — **이름 존재만** 본다. `.env.example`에 실값을
+# 적는 순간 그것이 사고다(HACKATHON_RULES: API 키 노출 = 실격).
+SECRET_FIELDS = frozenset(
+    {"DATABASE_URL", "JWT_SECRET_KEY", "AI_WORKER_INTERNAL_API_KEY", "KMA_API_KEY"}
+)
+
+# J-13이 지목한 "조정 노브" — 8/17 이후 코드 동결 상태에서 env로만 만질 대상이다.
+# 이름만 언급하고 값을 안 적으면 운영자가 계약값을 알 길이 없으므로, 이 목록만은
+# **값까지 기재**돼 있어야 한다(SECRET_FIELDS의 이름-존재-만 규칙과 대비).
+TUNING_KNOBS = (
+    "SESSION_RECIPE",
+    "UNIT_SESSION_SIZE",
+    "CLOUD_MAX",
+    "CLOUD_REGEN_MINUTES",
+    "CLOUD_COST",
+    "PLACEMENT_SIZE",
+    "LEAGUE_DIVISION_SIZE",
+    "LEAGUE_NEIGHBOR_SPAN",
+    "GENERATED_ITEM_STATUS",
+)
+
+SETTINGS_FIELDS = sorted(Settings.model_fields)
+_ENV_TEXT = ENV_EXAMPLE.read_text(encoding="utf-8") if ENV_EXAMPLE.exists() else ""
+
+
+def _env_example_values() -> dict[str, str]:
+    """`.env.example`의 `KEY=value` 표 — 주석 처리된 `# KEY=value`도 읽는다.
+
+    조정 노브는 대부분 "주석 해제해 override" 관례라 주석 상태로 기재된다. 주석을
+    건너뛰면 이 대조가 전부 무의미해진다.
+
+    같은 키가 두 번 나오면(예: DATABASE_URL은 소유자 롤 줄 + 앱 롤 주석 줄) **주석
+    아닌 줄을 우선**한다 — 실제로 적용되는 값이 그것이기 때문이다.
+    """
+    active: dict[str, str] = {}
+    commented: dict[str, str] = {}
+    for line in _ENV_TEXT.splitlines():
+        m = re.match(r"^(#\s*)?([A-Z][A-Z0-9_]*)=(.*)$", line)
+        if not m:
+            continue
+        target = commented if m.group(1) else active
+        target.setdefault(m.group(2), m.group(3).strip())
+    return {**commented, **active}
+
+
+ENV_VALUES = _env_example_values()
+
+
+def _coerce(name: str, raw: str):
+    """`.env.example`의 문자열을 해당 필드 타입으로 — pydantic의 env 해석과 같은 규약."""
+    ann = Settings.model_fields[name].annotation
+    if ann is bool:
+        return raw.strip().lower() in ("1", "true", "yes", "on")
+    if ann is int:
+        return int(raw)
+    if ann is str:
+        return raw
+    # dict/list 계열은 env에서 JSON 문자열이다. 새로운 타입이 생기면 여기서 크게
+    # 실패해야 한다 — 조용히 통과하면 대조가 무의미해진다.
+    return json.loads(raw)
+
+
+class TestEnvExampleContract:
+    """`.env.example`을 그대로 복사한 운영자가 계약 수치를 얻는가."""
+
+    def test_파싱이_비어있지_않다(self):
+        assert ENV_EXAMPLE.exists(), f"{ENV_EXAMPLE}가 없다"
+        assert len(ENV_VALUES) >= 15, f"`KEY=value` 파싱 결과가 {sorted(ENV_VALUES)} — 서식이 바뀌었다"
+        assert len(SETTINGS_FIELDS) >= 15, "Settings 필드 탐색이 비었다"
+
+    @pytest.mark.parametrize("name", SETTINGS_FIELDS)
+    def test_모든_Settings_필드가_언급된다(self, name):
+        """전 필드를 강제한다(J-13의 의도) — 노브 목록 없는 env 조정 계획을 막는다.
+
+        `.env.example`에 값을 못 적는 필드(확정 전 · 계약값이 코드 소유)는 **이름만**
+        주석으로 언급해도 통과한다. 그래야 다른 담당이 Settings에 필드를 추가할 때
+        값 기재까지 강요당하지 않으면서도 "문서화 안 하고 지나가기"는 막힌다.
+        """
+        assert re.search(rf"\b{re.escape(name)}\b", _ENV_TEXT), (
+            f"Settings.{name}이 .env.example에 한 번도 언급되지 않는다 — 8/17 이후 "
+            "env만 조정하는 계획에서 이 노브는 존재하지 않는 것과 같다"
+        )
+
+    @pytest.mark.parametrize("name", [f for f in SETTINGS_FIELDS if f not in SECRET_FIELDS])
+    def test_기재된_값이_Settings_기본값과_같다(self, name):
+        """기재는 됐는데 틀린 것이 미기재보다 나쁘다 — SESSION_RECIPE 합 5가 그랬다."""
+        if name not in ENV_VALUES:
+            pytest.skip(f"{name}은 이름만 언급 — 값 대조 대상 아님")
+        expected = Settings.model_fields[name].default
+        assert _coerce(name, ENV_VALUES[name]) == expected, (
+            f".env.example의 {name}={ENV_VALUES[name]!r} ≠ Settings 기본값 "
+            f"{expected!r} — 이 파일을 복사한 운영자가 계약과 다른 값을 얻는다"
+        )
+
+    @pytest.mark.parametrize("name", TUNING_KNOBS)
+    def test_조정_노브는_값까지_기재한다(self, name):
+        assert name in Settings.model_fields, f"{name}은 Settings 필드가 아니다 — 목록을 고칠 것"
+        assert name in ENV_VALUES, (
+            f"조정 노브 {name}이 `.env.example`에 `KEY=value` 형태로 없다 — 이름만 "
+            "언급해서는 운영자가 계약 기본값을 알 수 없다"
+        )
+
+    def test_시크릿은_실값이_아니다(self):
+        """`.env.example`에 실키가 들어오면 그 자체가 사고다(제출 규정: 노출 = 실격)."""
+        from app.core.config import SECRET_PLACEHOLDER_MARKERS
+
+        for name in SECRET_FIELDS:
+            value = ENV_VALUES.get(name, "")
+            assert any(m in value for m in SECRET_PLACEHOLDER_MARKERS), (
+                f".env.example의 {name} 값이 placeholder 마커"
+                f"({SECRET_PLACEHOLDER_MARKERS})를 포함하지 않는다 — 실값이 커밋됐는지 확인"
+            )
