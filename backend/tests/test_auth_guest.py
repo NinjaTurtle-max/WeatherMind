@@ -347,16 +347,23 @@ class TestMockParity:
         멀쩡히 있는데도 "경로가 없다"로 죽었다. 계약의 관심사는 형태가 아니라
         (경로 존재 · 201 · 응답 키 집합) 세 가지이므로, 핸들러 블록을 다음 라우트
         키(또는 파일 끝)까지 잘라 그 안에서 관심사만 본다.
+
+        **2026-08-08 (R13 CO-P-5) 2차 완화**: "블록 안의 **첫** 반환이 성공 반환"이라는
+        남은 가정이 같은 방식으로 또 깨졌다 — 게스트 시작이 `level_group`을 받게 되면서
+        핸들러 맨 앞에 검증 실패 분기(422)가 생겼기 때문이다. 그 순서는 **서버와
+        같다**(pydantic이 Literal 위반을 422로 막고 나서야 유저를 만든다). 어긋난 것은
+        목이 아니라 파서였다. 이제 성공 반환을 **상태코드로 지목**해 찾으므로 분기가
+        더 늘어도 계약의 관심사 셋은 그대로 지켜진다.
         """
         src = MOCK_PATH.read_text(encoding="utf-8")
         start = src.find("'POST /auth/guest':")
         assert start != -1, "mock에 POST /auth/guest 경로가 없다 (R11-01 J)"
-        nxt = re.search(r"'(?:GET|POST|PUT|DELETE) /", src[start + 1 :])
+        nxt = re.search(r"'(?:GET|POST|PUT|PATCH|DELETE) /", src[start + 1 :])
         block = src[start : start + 1 + (nxt.start() if nxt else len(src))]
-        m = re.search(r"\[\s*(\d+)\s*,\s*\{([^}]*)\}", block)
-        assert m, "guest 핸들러에서 [상태코드, {본문}] 반환을 찾지 못했다"
-        assert int(m.group(1)) == 201  # 서버 status_code=HTTP_201_CREATED와 동일
-        mock_keys = set(re.findall(r"(\w+):", m.group(2)))
+        # 서버 status_code=HTTP_201_CREATED와 동일한 **성공** 반환을 지목해 찾는다
+        m = re.search(r"\[\s*201\s*,\s*\{([^}]*)\}", block)
+        assert m, "guest 핸들러에서 [201, {본문}] 성공 반환을 찾지 못했다"
+        mock_keys = set(re.findall(r"(\w+):", m.group(1)))
         assert mock_keys == set(LoginResponse.model_fields), (
             f"mock guest 응답 키 {mock_keys} != 서버 LoginResponse "
             f"{set(LoginResponse.model_fields)}"
@@ -533,6 +540,53 @@ class TestMe:
             assert TestClient(app).get("/api/v1/auth/me").status_code == 401
         finally:
             app.dependency_overrides.pop(get_db, None)
+
+    # ── PATCH /auth/me — 학령 변경 통로 (R13 P-5) ────────────────────────────
+    # 학령 신고 writer가 `POST /auth/register`의 필드 하나뿐이라, 게스트로 들어온
+    # 사람은 초등학생이든 성인이든 **평생 middle_high**였고 배치고사로도 못 바꿨다.
+
+    def test_학령을_바꾸면_같은_행이_갱신된다(self, me_client, fake_db):
+        client, bearer = me_client
+        post_guest(client)  # 기본값 middle_high로 시작
+        guest = next(o for o in fake_db.added if isinstance(o, User))
+        bearer["user"] = guest
+        assert guest.level_group == "middle_high"
+
+        res = client.patch("/api/v1/auth/me", json={"level_group": "elementary"})
+        assert res.status_code == 200
+        assert res.json()["level_group"] == "elementary"
+        # **같은 행 갱신**이어야 θ·XP·진도가 보존된다(새 유저 생성 금지)
+        assert guest.level_group == "elementary"
+        assert sum(isinstance(o, User) for o in fake_db.added) == 1
+
+    def test_게스트도_바꿀_수_있다_평생_middle_high가_아니다(self, me_client, fake_db):
+        """P-5의 본문. 게스트 진입은 register를 안 타므로 이 경로가 유일한 통로다."""
+        client, bearer = me_client
+        post_guest(client)
+        guest = next(o for o in fake_db.added if isinstance(o, User))
+        bearer["user"] = guest
+        body = client.patch("/api/v1/auth/me", json={"level_group": "adult"}).json()
+        assert body["is_guest"] is True and body["level_group"] == "adult"
+
+    @pytest.mark.parametrize("bad", ["", "middle", "MIDDLE_HIGH", "kindergarten", None])
+    def test_허용값_밖은_422(self, me_client, fake_db, bad):
+        client, bearer = me_client
+        post_guest(client)
+        bearer["user"] = next(o for o in fake_db.added if isinstance(o, User))
+        assert client.patch("/api/v1/auth/me", json={"level_group": bad}).status_code == 422
+
+    def test_허용값이_register와_같은_Literal이다(self):
+        """문자열 사본을 만들면 두 writer가 조용히 갈라진다."""
+        assert (
+            auth.UpdateMeRequest.model_fields["level_group"].annotation
+            is RegisterRequest.model_fields["level_group"].annotation
+        )
+
+    def test_목이_같은_경로를_같은_형태로_서빙한다(self):
+        """목에 PATCH /auth/me가 없으면 프론트 학령 설정이 목 위에서 죽는다."""
+        src = MOCK_PATH.read_text(encoding="utf-8")
+        assert "'PATCH /auth/me'" in src, "목에 PATCH /auth/me 경로가 없다 (R13 P-5)"
+        assert "'GET /auth/me'" in src, "목에 GET /auth/me 경로가 없다 (R13 P-4)"
 
     def test_판정은_convert와_같은_헬퍼를_쓴다(self):
         """게스트 판정이 두 벌이 되면 "전환 화면인데 NOT_GUEST" 같은 어긋남이 난다."""

@@ -424,8 +424,16 @@ async def decide_route(
     # 실패해도 refresh_abilities가 저장된 θ(또는 빈 리스트)로 폴백 → 세션 발급 계속.
     if abilities is None:
         abilities = await weatherbrain_service.refresh_abilities(db, user)
+    # R13 CO-V-1(=CO-U-3-A): θ "focused" 임계는 **학령 상대**다. 학령을 안 넘기면
+    # ai-worker가 절대 임계(middle_high 값)로 폴백해 elementary는 맞혀도 항상
+    # focused, adult는 8연속 오답까지 general이 된다(weatherbrain_service.
+    # focus_theta_threshold 독스트링의 실측). 가입 학령을 그대로 넘긴다.
     return await ai_client.router_decide(
-        str(user.id), weak_tags, recent_results, abilities
+        str(user.id),
+        weak_tags,
+        recent_results,
+        abilities,
+        level_group=user.level_group,
     )
 
 

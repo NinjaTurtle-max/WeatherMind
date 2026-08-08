@@ -46,11 +46,15 @@ async def router_decide(
     weak_tags: list[dict[str, Any]],
     recent_results: list[bool],
     abilities: list[dict[str, Any]] | None = None,
+    level_group: str | None = None,
 ) -> dict:
     """Router Chain 분기. 반환: {route, target_concept_tag}.
 
     recent_results는 시간순(과거 → 최근) bool 리스트.
     abilities는 WeatherBrain IRT θ 추정치 — 있으면 θ가 1순위 분기 신호(폴백: weak_tags).
+    level_group은 θ "focused" 임계의 기준점(R13 CO-U-3-A). None이면 ai-worker가
+    종전 절대 임계(= middle_high 값)로 폴백하므로 동작이 변하지 않는다 —
+    레거시 호출부(routers/quiz.py 계열) 하위 호환.
     실패 시 general로 fallback (콜드스타트와 동일 동작 — 서비스는 항상 진행).
     """
     try:
@@ -61,6 +65,7 @@ async def router_decide(
                 "weak_tags": weak_tags,
                 "recent_results": recent_results,
                 "abilities": abilities or [],
+                "level_group": level_group,
             },
             timeout=15.0,
         )

@@ -204,6 +204,18 @@ export default {
     spineAllCleared: "🌈 You've cleared every open unit!",
     spineNoneOpen: 'No units are open yet — start the first one from your learning path.',
     spineStart: 'Open learning path →',
+    levelGroupTitle: '🎚️ Learning level',
+    levelGroupBody: 'Question difficulty follows this setting. Changes apply from your next session.',
+    levelGroupSaved: 'Learning level updated.',
+    levelGroupFailed: "Couldn't update your learning level.",
+    levelGroupSaving: 'Updating...',
+  },
+  logoutGuest: {
+    title: 'Leaving now erases your progress',
+    body: "You're learning as a guest, so there's no way back in. Your XP, streak, and skill estimate will all be gone.",
+    stay: 'Keep learning',
+    save: 'Save it — sign up in 30 seconds',
+    quit: 'Log out anyway',
   },
   badges: {
     loading: 'Loading badges...',

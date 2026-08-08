@@ -17,16 +17,24 @@
 
 from __future__ import annotations
 
+import ast
+import asyncio
 import importlib
 import sys
+import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from app.services import ai_client
+from app.services import curriculum_service as cs
+from app.services import session_service
 from app.services import weatherbrain_service as wb
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AI_WORKER_DIR = REPO_ROOT / "ai-worker"
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _import_ai_worker(dotted: str):
@@ -236,3 +244,220 @@ class TestRouterChainParity:
 
         fixed = router_chain.route([], [], abilities, level_group="elementary")
         assert fixed["route"] == "general"
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# ⑤ 배선 — CO-V-1·V-2 (2026-08-08)
+#
+# ①~④는 **함수 경계**의 성질이다. CO-U-3이 남긴 진짜 결함은 그 함수를 아무도
+# 부르지 않는 것이었고(CO-I "만들어 두고 안 쓰는 것"), CLAUDE.md가 적은 교훈이
+# 정확히 이 자리다 — *"함수 경계에서 참인 성질이 합성에서 거짓"*. 그래서 아래는
+# 값이 아니라 **호출부가 값을 넘기는지**를 단정한다.
+# ══════════════════════════════════════════════════════════════════════════
+
+
+class _EmptyResult:
+    def scalars(self):
+        return self
+
+    def all(self):
+        return []
+
+
+class _EmptyDB:
+    """decide_route가 최근 정오답만 조회하는 최소 대역 DB (weak_tag_rows·abilities 주입)."""
+
+    async def execute(self, *_args, **_kwargs):
+        return _EmptyResult()
+
+
+class TestRouterWiring:
+    """CO-V-1 — session_service → ai_client → ai-worker 3홉이 학령을 실제로 나른다."""
+
+    def test_홉1_decide_route가_유저_학령을_넘긴다(self, monkeypatch):
+        captured: dict = {}
+
+        async def fake_router_decide(
+            user_id, weak_tags, recent_results, abilities, level_group=None
+        ):
+            captured["level_group"] = level_group
+            return {"route": "general", "target_concept_tag": None}
+
+        monkeypatch.setattr(ai_client, "router_decide", fake_router_decide)
+        user = SimpleNamespace(id=uuid.uuid4(), level_group="elementary")
+        asyncio.run(
+            session_service.decide_route(_EmptyDB(), user, [], abilities=[])
+        )
+        assert captured["level_group"] == "elementary"
+
+    def test_홉2_ai_client_payload에_실린다(self, monkeypatch):
+        captured: dict = {}
+
+        async def fake_post(path, payload, timeout=60.0):
+            captured["payload"] = payload
+            return {"route": "general", "target_concept_tag": None}
+
+        monkeypatch.setattr(ai_client, "_post", fake_post)
+        asyncio.run(ai_client.router_decide("u1", [], [], [], level_group="adult"))
+        assert captured["payload"]["level_group"] == "adult"
+
+    def test_홉2_미전달은_None으로_나가_종전_동작(self, monkeypatch):
+        """레거시 호출부(routers/quiz.py 계열) 하위 호환 — None이면 절대 임계 폴백."""
+        captured: dict = {}
+
+        async def fake_post(path, payload, timeout=60.0):
+            captured["payload"] = payload
+            return {"route": "general", "target_concept_tag": None}
+
+        monkeypatch.setattr(ai_client, "_post", fake_post)
+        asyncio.run(ai_client.router_decide("u1", [], [], []))
+        assert captured["payload"]["level_group"] is None
+
+    def test_홉3_ai_worker가_받아서_route에_넘긴다(self):
+        """ai-worker/main.py를 **소스로** 대조한다.
+
+        임포트하면 langchain 설치 여부에 판정이 갈린다(CLAUDE.md: 미설치 시 조용히
+        skip). 파이썬 밖·프로세스 밖 파일을 파싱해 대조하는 계약 테스트는
+        test_ci_workflow_contract·test_prompt_spec_parity의 선례다.
+        """
+        tree = ast.parse((AI_WORKER_DIR / "app" / "main.py").read_text("utf-8"))
+
+        request_model = next(
+            n
+            for n in ast.walk(tree)
+            if isinstance(n, ast.ClassDef) and n.name == "RouterDecideRequest"
+        )
+        fields = {
+            n.target.id
+            for n in request_model.body
+            if isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name)
+        }
+        assert "level_group" in fields, "RouterDecideRequest가 학령을 받지 않는다"
+
+        endpoint = next(
+            n
+            for n in ast.walk(tree)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and n.name == "router_decide"
+        )
+        route_call = next(
+            n
+            for n in ast.walk(endpoint)
+            if isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and n.func.attr == "route"
+        )
+        passed = {
+            kw.arg: ast.unparse(kw.value)
+            for kw in route_call.keywords
+            if kw.arg is not None
+        }
+        assert passed.get("level_group") == "body.level_group", (
+            "엔드포인트가 router_chain.route에 학령을 넘기지 않는다"
+        )
+
+
+class TestUnlockWiring:
+    """CO-V-2 — 선해금 임계가 학령을 받고, 호출부 전건이 유저 학령을 넘긴다."""
+
+    def test_임계함수를_본다_절대상수가_아니라(self):
+        """placement_unlock_floor가 학령에 따라 실제로 다른 답을 낸다."""
+        units = [
+            SimpleNamespace(
+                section="하늘 읽기", unit_order=1, concept_tag="typhoon"
+            )
+        ]
+        abilities = [{"concept_tag": "typhoon", "theta": 0.9, "se": 0.4, "n": 2}]
+        assert cs.placement_unlock_floor(abilities, units, "middle_high") == 1
+        # adult 밴드 임계는 1.5 — 같은 θ 0.9로는 열리지 않는다
+        assert cs.placement_unlock_floor(abilities, units, "adult") == 0
+
+    @pytest.mark.parametrize("level_group", BANDS)
+    def test_실추정_θ로_2연속정답이면_세_학령_모두_열린다(self, level_group):
+        """②의 성질이 **선해금 함수를 통과해서도** 참인지 — 합성 검증."""
+        units = [
+            SimpleNamespace(
+                section="하늘 읽기", unit_order=1, concept_tag="typhoon"
+            )
+        ]
+
+        def _floor(correct):
+            theta = _theta_after(level_group, correct)
+            abilities = [
+                {
+                    "concept_tag": "typhoon",
+                    "theta": theta,
+                    "se": 0.9,
+                    "n": len(correct),
+                }
+            ]
+            return cs.placement_unlock_floor(abilities, units, level_group)
+
+        assert _floor([True]) == 0, f"{level_group}: 1문항으로 유닛이 열린다"
+        assert _floor([True, True]) == 1, f"{level_group}: 2연속 정답인데 안 열린다"
+
+    def test_호출부_전건이_유저_학령을_넘긴다(self):
+        """소스 대조 — 한 곳이라도 상수·누락이면 CO-L4형 어긋남이 되살아난다.
+
+        필수 위치인자라 런타임 TypeError로도 잡히지만, 그건 그 경로가 **실행될 때**
+        뿐이다. 여기서는 넘기는 **값이 유저 학령인지**까지 본다(고정 문자열을
+        박아 넣어 조용히 종전 동작으로 되돌리는 것이 CO-U-3의 발생 경로였다).
+        """
+        expected = {
+            "placement_unlock_floor": 3,  # (abilities, units, level_group)
+            "active_course_units": 4,  # (units, progress, abilities, level_group)
+        }
+        allowed = {"user.level_group", "level_group"}
+        seen = 0
+        for rel in (
+            "app/services/curriculum_service.py",
+            "app/routers/dev.py",
+        ):
+            src = (BACKEND_ROOT / rel).read_text("utf-8")
+            tree = ast.parse(src)
+            defs = {
+                n.name
+                for n in ast.walk(tree)
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+            }
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                name = (
+                    node.func.id
+                    if isinstance(node.func, ast.Name)
+                    else node.func.attr
+                    if isinstance(node.func, ast.Attribute)
+                    else None
+                )
+                if name not in expected:
+                    continue
+                arity = expected[name]
+                assert len(node.args) == arity, (
+                    f"{rel}:{node.lineno} {name} 호출이 학령을 안 넘긴다"
+                )
+                actual = ast.unparse(node.args[arity - 1])
+                assert actual in allowed, (
+                    f"{rel}:{node.lineno} {name}의 학령 인자가 {actual!r}"
+                )
+                seen += 1
+            # 정의부가 있는 파일이면 그 시그니처도 확인
+            for name, arity in expected.items():
+                if name in defs:
+                    fn = next(
+                        n
+                        for n in ast.walk(tree)
+                        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                        and n.name == name
+                    )
+                    assert len(fn.args.args) == arity
+                    assert fn.args.args[arity - 1].arg == "level_group"
+                    assert not fn.args.defaults, (
+                        f"{name}에 기본값이 생기면 호출부 누락이 조용해진다"
+                    )
+        # placement_unlock_floor 6곳(active_course_units 내부 2 · get_curriculum ·
+        # is_unit_locked · find_crown_unit · dev.build_state) + active_course_units
+        # 2곳(get_spine · progress_block_pool). ⚠️ 인계 문서는 "호출 4곳"이라
+        # 적었는데 CO-L1·CO-L4 수리가 그 뒤에 2곳을 더 만들었다 — 그 둘을 절대
+        # 임계로 남기면 "트리엔 열렸는데 POST는 403"이 되살아난다.
+        assert seen == 8, f"호출부 8곳을 기대했는데 {seen}곳을 봤다 (드리프트)"

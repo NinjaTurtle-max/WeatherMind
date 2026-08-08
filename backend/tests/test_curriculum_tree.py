@@ -105,7 +105,12 @@ class TestIsLocked:
 
 
 class TestPlacementUnlockFloor:
-    """§3.4 시작점 산출 — 선두 연속 "θ≥0.5 AND n>0"만 인정 (순수)."""
+    """§3.4 시작점 산출 — 선두 연속 "θ≥임계 AND n>0"만 인정 (순수).
+
+    임계는 **학령 상대**다(R13 CO-V-2 = CO-U-3-B) — middle_high가 0.5라 아래
+    기존 수치는 그대로 유지되고, 학령별 이동은 TestUnlockFloorIsLevelRelative가
+    별도로 고정한다.
+    """
 
     def _units(self):
         # 전체 순서: 하늘 읽기(pressure_front×2) → 공기의 힘(air_mass) → 큰 바람(typhoon)
@@ -117,19 +122,19 @@ class TestPlacementUnlockFloor:
         ]
 
     def test_빈_abilities는_0(self):
-        assert cs.placement_unlock_floor([], self._units()) == 0
+        assert cs.placement_unlock_floor([], self._units(), "middle_high") == 0
 
     def test_n_0_사전_θ는_불인정(self):
         abilities = [ability("pressure_front", 2.0, n=0)]
-        assert cs.placement_unlock_floor(abilities, self._units()) == 0
+        assert cs.placement_unlock_floor(abilities, self._units(), "middle_high") == 0
 
     def test_경계_0_5는_포함_미만은_제외(self):
         units = self._units()
         assert cs.placement_unlock_floor(
-            [ability("pressure_front", 0.5)], units
+            [ability("pressure_front", 0.5)], units, "middle_high"
         ) == 2  # 선두 pressure_front 2개
         assert cs.placement_unlock_floor(
-            [ability("pressure_front", 0.49)], units
+            [ability("pressure_front", 0.49)], units, "middle_high"
         ) == 0
 
     def test_연속_끊기면_중단_중간_점프_없음(self):
@@ -139,7 +144,7 @@ class TestPlacementUnlockFloor:
             ability("air_mass", 0.0),
             ability("typhoon", 2.0),
         ]
-        assert cs.placement_unlock_floor(abilities, self._units()) == 2
+        assert cs.placement_unlock_floor(abilities, self._units(), "middle_high") == 2
 
     def test_전부_통과면_전체_개수(self):
         abilities = [
@@ -147,13 +152,13 @@ class TestPlacementUnlockFloor:
             ability("air_mass", 0.7),
             ability("typhoon", 0.5),
         ]
-        assert cs.placement_unlock_floor(abilities, self._units()) == 4
+        assert cs.placement_unlock_floor(abilities, self._units(), "middle_high") == 4
 
     def test_전체_순서는_SECTION_ORDER_기준(self):
         # 입력 순서를 섞어도 ordered_units(섹션 교육 순서)가 선두를 결정한다
         units = list(reversed(self._units()))
         assert cs.placement_unlock_floor(
-            [ability("pressure_front", 1.0)], units
+            [ability("pressure_front", 1.0)], units, "middle_high"
         ) == 2
 
 
@@ -452,7 +457,7 @@ class TestRealUnitsJson:
         """
         units = _units_from_json(_load_real_units())
         abilities = [ability("pressure_front", 0.8, n=5)]
-        floor = cs.placement_unlock_floor(abilities, units)
+        floor = cs.placement_unlock_floor(abilities, units, "middle_high")
         assert floor == 3  # 하늘 읽기 pressure_front 3유닛(선두 연속)
         tree = cs.build_curriculum(units, {}, unlock_floor=floor)
         flat = {u["id"]: u for s in tree for u in s["units"]}

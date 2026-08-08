@@ -190,6 +190,9 @@ async function harvestAnswerKey() {
     ANSWER_KEY.set(item.quiz_id, {
       type: item.question_type,
       options: item.options ?? [],
+      // match(pairs)·ordering(items) 위젯 조작에 필요한 원본 페이로드.
+      // 정답성 필드는 여기 없다 — 정답은 채점 응답(correct_answer)에서만 온다.
+      payload: item.template_json ?? {},
       correct: data.correct_answer,
     });
   }
@@ -234,7 +237,79 @@ async function answerOnScreen(quizId, wantCorrect) {
     click(btn);
     return;
   }
+  if (k.type === 'match') {
+    // 제출 형식 "left:right|left:right" (§3.6). 좌 버튼 → 우 버튼 순으로 짝짓는다.
+    const pairs = String(k.correct).split('|').map((seg) => {
+      const i = seg.indexOf(':');
+      return [seg.slice(0, i).trim(), seg.slice(i + 1).trim()];
+    });
+    assert(pairs.length >= 2 || wantCorrect, 'match 오답을 만들려면 짝이 2개 이상이어야 한다');
+    const pick = (attr, value) =>
+      [...window.document.querySelectorAll(`[${attr}]`)].find(
+        (el) => el.getAttribute(attr) === value,
+      );
+    for (let i = 0; i < pairs.length; i += 1) {
+      // 오답은 **한 칸 회전**한 짝 — 어떤 짝도 맞지 않는다(부분 정답 없음).
+      const right = wantCorrect ? pairs[i][1] : pairs[(i + 1) % pairs.length][1];
+      const leftBtn = pick('data-match-left', pairs[i][0]);
+      assert(leftBtn, `match 좌항 버튼 없음: ${pairs[i][0]}`);
+      click(leftBtn);
+      await sleep(20);
+      const rightBtn = pick('data-match-right', right);
+      assert(rightBtn, `match 우항 버튼 없음: ${right}`);
+      click(rightBtn);
+      await sleep(20);
+    }
+    click(await waitFor(() => submitButton(), 'match 제출 버튼(전건 연결 후 활성)'));
+    return;
+  }
+  if (k.type === 'ordering') {
+    // 제출 형식 "0,2,1,3" = **원본 인덱스 순열**(§3.6). 화면에는 텍스트만 있으므로
+    // template_json.items(원본 순서)로 텍스트 → 원본 인덱스를 되짚고, ▲ 버튼으로
+    // 목표 자리까지 한 칸씩 올린다(앞에서부터 확정하므로 확정분은 흐트러지지 않는다).
+    const src = k.payload?.items ?? [];
+    assert(src.length > 0, 'ordering 원본 items가 정답 키에 없다');
+    const target = String(k.correct).split(',').map((n) => Number(n.trim()));
+    for (let pos = 0; pos < target.length; pos += 1) {
+      for (let guard = 0; ; guard += 1) {
+        const rows = orderingRows();
+        const cur = rows.map((r) => src.indexOf(r.text));
+        const j = cur.indexOf(target[pos]);
+        assert(j >= 0, `ordering 항목을 화면에서 못 찾음(원본 ${target[pos]})`);
+        if (j === pos) break;
+        assert(guard < 40, 'ordering 정렬이 수렴하지 않는다');
+        click(rows[j].up);
+        await sleep(15);
+      }
+    }
+    if (!wantCorrect) {
+      // 정답 배열을 만든 뒤 맨 앞 두 개를 뒤집는다 — 완전 일치 요구라 확실한 오답.
+      const rows = orderingRows();
+      assert(rows.length >= 2, 'ordering 오답을 만들려면 항목이 2개 이상이어야 한다');
+      click(rows[1].up);
+      await sleep(15);
+    }
+    click(await waitFor(() => submitButton(), 'ordering 제출 버튼'));
+    return;
+  }
   throw new Error(`스모크가 다루지 않는 유형: ${k.type} (${quizId}) — 목 배합이 바뀌었다`);
+}
+
+/** 활성화된 공용 제출 버튼(match·ordering이 공유하는 t('quiz.submit') = "제출") */
+function submitButton() {
+  return [...window.document.querySelectorAll('button')].find(
+    (b) => b.textContent.trim() === '제출' && !b.disabled,
+  );
+}
+
+/** ordering 행 목록 — [{text, up}] (▲ 버튼에서 행을 거슬러 올라간다) */
+function orderingRows() {
+  return [...window.document.querySelectorAll('button')]
+    .filter((b) => b.textContent.trim() === '▲')
+    .map((up) => {
+      const row = up.parentElement?.parentElement;
+      return { text: row?.children?.[1]?.textContent?.trim() ?? '', up };
+    });
 }
 
 /** 문항 1건 진행: 등장 대기 → 답안 → 피드백 → 다음 버튼 반환(클릭은 호출자 몫) */
@@ -300,10 +375,12 @@ try {
     assert(done.retry_resolved_count === 3, `retry_resolved_count 3 기대 — ${done.retry_resolved_count}`);
   });
 
-  // ── 1b. 왕관 판정값이 all_correct → all_resolved로 바뀌었다는 것 자체 ──────
-  // 유닛 세션은 왕관 경로가 짧아(grant_unit_crown) 개정 효과가 그대로 드러난다:
-  // **전건 최초 오답 + 전건 만회 성공** → all_correct=false인데 왕관이 나와야 한다.
-  await scenario('만회 성공 → 왕관 (all_correct=false인데 클리어 — §2.1 판정값 개정)', async () => {
+  // ── 1b. 유닛 세션은 **연습 전용**이다 — 왕관을 주지 않는다 (CO-A6 / §2.10) ──
+  // 2026-08-08 이전 이 시나리오는 "유닛 세션 만회 → 왕관"을 단정했다. 그건 서버가
+  // §2.10에서 `grant_crown=False`로 바꾸기 전의 계약이고, **목만 옛 계약에 남아**
+  // 목 위에서는 클리어되는데 실서버에서는 안 되는 갈림을 만들고 있었다.
+  // 판정값 개정(all_correct → all_resolved) 자체는 표기 필드로 계속 단정한다.
+  await scenario('유닛 세션: 만회 전건 해결이어도 왕관 0 (§2.10 소유권 이전)', async () => {
     await resetMe();
     // reset-me는 유닛 진도까지 지워 선행 잠금이 되살아난다 — 전체 해제로 되돌린다
     await api('POST', '/dev/curriculum', { action: 'unlock_all' });
@@ -329,10 +406,52 @@ try {
     assert(done.unit_result.all_correct === false,
       'all_correct는 **최초 시도 만점**이라는 뜻을 유지해야 한다(만회로 뒤집으면 안 된다)');
     assert(done.unit_result.all_resolved === true, 'all_resolved가 false다');
-    assert(done.unit_result.crowns === 1 && done.unit_result.cleared === true,
-      `만회로 전건 해결했는데 왕관이 없다 — ${JSON.stringify(done.unit_result)}`);
+    assert(done.unit_result.crowns === 0 && done.unit_result.cleared === false,
+      `유닛 직접 진입은 연습 전용이라 왕관이 없어야 한다 — ${JSON.stringify(done.unit_result)}`);
+    assert(done.unit_result.unit_xp === 0, '연습 세션에 클리어 XP가 붙었다');
+    assert(done.crown_award == null, '유닛 세션에서 daily 왕관 페이로드가 나왔다');
     assert(done.correct_count === 0, 'correct_count는 최초 정답 수(0) 그대로여야 한다');
     assert(done.retry_resolved_count === key.length, '만회 해결 수가 어긋난다');
+  });
+
+  // ── 1c. 데일리 왕관의 판정 범위는 **진도 블록 5문항**이다 (CO-A6 / §2.10) ───
+  // 목이 15문항 전건 해결을 요구하고 있었다 — 그러면 왕관이 사실상 닫힌다.
+  // 서버 `_crown_scope_logs`는 kind==='unit' 블록만 보고, 대상 쌍은 발급 시점에
+  // 적어 둔 진도 블록 유닛에서 나온다(`_crown_target` — CO-M6).
+  await scenario('데일리 왕관: 진도 블록만 해결하면 나오고, 진도 블록이 남으면 안 나온다', async () => {
+    // (i) 다양성 블록(신규·복습·실황)은 전건 오답으로 남기고 진도 블록만 정답
+    await resetMe();
+    const { data: s1 } = await api('GET', '/session/today');
+    const unitItems = s1.items.filter((it) => it.kind === 'unit');
+    assert(unitItems.length === 5, `진도 블록은 5문항이어야 한다 — ${unitItems.length}`);
+    for (const item of s1.items) {
+      const correct = item.kind === 'unit';
+      await api('POST', `/session/${s1.session_id}/answer`, {
+        quiz_id: item.quiz_id,
+        answer: correct ? String(ANSWER_KEY.get(item.quiz_id).correct) : '__의도적_오답__',
+      });
+    }
+    const { data: d1 } = await api('POST', `/session/${s1.session_id}/complete`);
+    assert(d1.all_resolved === false, '다양성 블록 10건이 오답인데 all_resolved가 참이다');
+    assert(d1.crown_award, `진도 블록 전건 해결인데 왕관이 없다 — all_resolved=${d1.all_resolved}`);
+    // 대상은 **블록 유닛 자신**이다 — 문항 태그 최다가 아니라 발급 시 기록한 쌍.
+    assert(d1.crown_award.unit_slug === 'pressure-front-intro',
+      `왕관이 진도 블록 유닛에 붙어야 한다 — ${d1.crown_award.unit_slug}`);
+
+    // (ii) 진도 블록에 미해결 1건이 남으면 나머지 14건이 정답이어도 왕관 0
+    await resetMe();
+    const { data: s2 } = await api('GET', '/session/today');
+    const lastUnit = s2.items.filter((it) => it.kind === 'unit').at(-1);
+    for (const item of s2.items) {
+      const correct = item.quiz_id !== lastUnit.quiz_id;
+      await api('POST', `/session/${s2.session_id}/answer`, {
+        quiz_id: item.quiz_id,
+        answer: correct ? String(ANSWER_KEY.get(item.quiz_id).correct) : '__의도적_오답__',
+      });
+    }
+    const { data: d2 } = await api('POST', `/session/${s2.session_id}/complete`);
+    assert(d2.correct_count === 14, `14문항 정답이어야 한다 — ${d2.correct_count}`);
+    assert(d2.crown_award == null, '진도 블록에 미해결이 남았는데 왕관이 나왔다');
   });
 
   // ── 2. 서버는 상한을 강제하지 않는다 = 상한 5는 프론트 몫이라는 근거 ────────
@@ -427,6 +546,88 @@ try {
     // 이 단계는 문항이 아니다 — 정오 배너를 그리면 즉시 채점 계약이 깨진다
     assert(!/정답|오답/.test(stepText), `마감 단계에 정오 표기가 새어 들어갔다 — "${stepText.slice(0, 80)}"`);
     mountedRoot?.unmount();
+  });
+
+  // ── 4b. 재진입 만회 복원 (CO-A5 / CO-M10) ─────────────────────────────────
+  // 세션은 하루 동안 멱등이라 새로고침·중간 이탈 후 재진입이 **정상 경로**다.
+  // 종전에는 프론트가 이번 자리의 제출 응답으로만 오답을 쌓아서, 만회 도중
+  // 새로고침하면 `wrongIds=[]`인데 `answered>=total`이라 자동완료가 곧바로 발화했다 —
+  // 만회 화면이 뜨지도 않고 세션이 끝났고 그 순간의 all_resolved로 왕관이 확정됐다.
+  await scenario('만회 중 새로고침: 서버 정오로 큐를 복원하고 자동완료를 막는다 (CO-A5/M10)', async () => {
+    await resetMe();
+    const { data: s } = await api('GET', '/session/today');
+    // 화면 조작 없이 API로 15문항을 응답하고 2건만 오답으로 남긴다(= 이탈 상태 재현)
+    const wrongIds = s.items
+      .filter((it) => it.question_type === 'multiple_choice')
+      .slice(0, 2)
+      .map((it) => it.quiz_id);
+    assert(wrongIds.length === 2, '다지선다 2건을 못 골랐다 — 목 배합이 바뀌었다');
+    for (const item of s.items) {
+      await api('POST', `/session/${s.session_id}/answer`, {
+        quiz_id: item.quiz_id,
+        answer: wrongIds.includes(item.quiz_id)
+          ? '__의도적_오답__'
+          : String(ANSWER_KEY.get(item.quiz_id).correct),
+      });
+    }
+
+    // 서버(그리고 목)가 문항별 정오를 실어 준다 — 복원의 유일한 근거(CO-A5)
+    const { data: reread } = await api('GET', '/session/today');
+    const unresolved = reread.items
+      .filter((it) => it.is_correct === false && it.retry_correct == null)
+      .map((it) => it.quiz_id);
+    assert(unresolved.length === 2 && wrongIds.every((id) => unresolved.includes(id)),
+      `재조회 응답에 미해결 오답 2건이 실려야 한다 — ${JSON.stringify(unresolved)}`);
+    assert(reread.items.every((it) => !('correct_answer' in it)),
+      '재진입 복원 필드를 실으면서 정답까지 새어 나갔다');
+
+    // 새 마운트 = 새로고침. 자동완료가 아니라 **만회 라운드**가 떠야 한다.
+    const markMount = xhrLog.length;
+    const root = mount(createElement(SessionPage));
+    await waitFor(() => text().includes('만회 라운드 — 아까 놓친 2문항'), '복원된 만회 라운드');
+    assert(window.document.querySelector('[data-retry-round="2"]'), '만회 큐 2건이 복원되지 않았다');
+    assert(since(markMount).every((l) => !/\/complete$/.test(l)),
+      '복원 전에 자동완료가 발화했다(CO-M10) — 그 순간의 all_resolved로 왕관이 확정된다');
+
+    // 복원된 큐를 마치면 그때 완료된다. 화면이 내보내는 제출은 **복원된 2건뿐**이다
+    // (앞의 15건은 이 테스트가 fetch로 보냈으므로 xhrLog에 없다) — 복원이 과하게
+    // 잡아 이미 해결된 문항까지 다시 제출하면 이 수가 커진다.
+    for (const quizId of wrongIds) {
+      const next = await playItem(quizId, true);
+      assert(text().includes('만회 성공'), `${quizId}: 만회 성공 표기가 없다`);
+      click(next);
+      await sleep(20);
+    }
+    await waitFor(() => text().includes('오늘의 세션 완료!'), '만회 완료 후 완료 화면');
+    assert(text().includes('만회 완료 2문항'), '완료 화면에 만회 결산이 없다');
+    assert(answerCalls(markMount) === 2,
+      `복원 후 화면이 낸 제출은 만회 2건뿐이어야 한다 — ${answerCalls(markMount)}`);
+    root.unmount();
+  });
+
+  // ── 4c. 만회는 성공·실패 모두 **한 번씩만**이고, 새로고침이 그 상한을 못 푼다 ──
+  // 서버 is_retry_eligible은 `retry_correct is not True`라 실패한 만회도 재제출을
+  // 받아 준다. 프론트가 그 조건으로 복원하면 새로고침할 때마다 실패한 만회가
+  // 되살아나 §2.11의 상한이 무너지고 왕관 판정이 재시도 횟수에 좌우된다.
+  await scenario('만회 실패 후 새로고침: 같은 문항이 다시 열리지 않는다 (§2.11)', async () => {
+    await resetMe();
+    const { data: s } = await api('GET', '/session/today');
+    const wrongId = s.items.find((it) => it.question_type === 'multiple_choice').quiz_id;
+    for (const item of s.items) {
+      await api('POST', `/session/${s.session_id}/answer`, {
+        quiz_id: item.quiz_id,
+        answer: item.quiz_id === wrongId ? '__의도적_오답__' : String(ANSWER_KEY.get(item.quiz_id).correct),
+      });
+    }
+    const { data: failed } = await api('POST', `/session/${s.session_id}/answer`, {
+      quiz_id: wrongId, answer: '__또_오답__',
+    });
+    assert(failed.is_retry === true && failed.retry_correct === false, '만회 실패가 기록되지 않았다');
+
+    const root = mount(createElement(SessionPage));
+    await waitFor(() => text().includes('오늘의 세션 완료!'), '만회 기회를 다 쓴 세션은 완료된다');
+    assert(!text().includes('만회 라운드'), '실패한 만회가 새로고침으로 되살아났다');
+    root.unmount();
   });
 
   // ── 5. closing_step: null → 마감 단계 없이 15문항으로 정상 완료 ────────────

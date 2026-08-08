@@ -21,7 +21,7 @@ export default {
           '60%': { transform: 'scale(1.15)', opacity: '1' },
           '100%': { transform: 'scale(1)', opacity: '1' },
         },
-        // 학습 홈 현재 유닛 노드 강조 (듀오링고식 맥동 링)
+        // 학습 홈 현재 유닛 노드 강조 (단계형 유닛 경로의 맥동 링)
         'pulse-ring': {
           '0%, 100%': { boxShadow: '0 0 0 0 rgba(14,165,233,0.5)' },
           '50%': { boxShadow: '0 0 0 6px rgba(14,165,233,0)' },

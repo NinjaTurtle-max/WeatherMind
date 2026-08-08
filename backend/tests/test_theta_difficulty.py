@@ -219,7 +219,9 @@ class TestSessionWiring:
             calls["refresh"] += 1
             return abilities
 
-        async def fake_router(user_id, weak_tags, recent, abs_):
+        async def fake_router(user_id, weak_tags, recent, abs_, level_group=None):
+        # level_group은 R13 CO-V-1(U-3 학령 상대 임계) 배선으로 추가된 kwarg다.
+        # 기본값이 있어 이 목은 값을 무시해도 되지만, 받지 않으면 TypeError로 죽는다.
             calls["router"] += 1
             return {"route": "general", "target_concept_tag": None}
 

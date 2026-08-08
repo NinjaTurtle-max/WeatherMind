@@ -121,7 +121,11 @@ class TestSeedTypeCoverage:
         #    heat_island adult 0). 저작이 아니라 **구멍 메우기**라 본시드 직행이었다.
         # R13 2일차 통합 병합: +83 = 237. 1단계 18 · 3단계 18 · 6단계 15 · 재난 15 ·
         #   보드 7 · 보드 규칙 확장 10. 단계 분포 36/43/37/62/28/31.
-        assert len(_seed_items()) == 237
+        # R13 잔여 웨이브 CO-L-F1: **+35 = 272.** adult 밴드(kl 5)에 basic-science 6태그와
+        #   wildfire_weather가 **전건 0**이라 성인 유저가 그 유닛에서 0문항 세션을 받았다.
+        #   7태그 × 5건 저작. 코드 폴백(CO-L2)은 굶주림을 막을 뿐이고 `docs/specs/11` §97의
+        #   "level_group 3종 전부 저작"은 데이터로만 닫힌다 — 안전망 ≠ 스펙 준수.
+        assert len(_seed_items()) == 272
 
 
 class TestEverySeedItemIsPlayable:

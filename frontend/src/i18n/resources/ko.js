@@ -230,6 +230,20 @@ export default {
     spineAllCleared: '🌈 열린 유닛을 모두 클리어했어요!',
     spineNoneOpen: '아직 열린 유닛이 없어요 — 학습 경로에서 첫 유닛을 열어 보세요.',
     spineStart: '학습 경로 열기 →',
+    // 학습 수준 설정 (R13 P-5) — 게스트가 평생 middle_high에 갇히지 않게 하는 통로
+    levelGroupTitle: '🎚️ 학습 수준',
+    levelGroupBody: '문항 난이도가 이 설정을 따라가요. 바꾸면 다음 세션부터 반영돼요.',
+    levelGroupSaved: '학습 수준을 바꿨어요.',
+    levelGroupFailed: '학습 수준을 바꾸지 못했어요.',
+    levelGroupSaving: '바꾸는 중...',
+  },
+  // 게스트 로그아웃 확인 (R13 P-4) — 게스트는 재진입 경로가 없어 진도가 영구 소실된다
+  logoutGuest: {
+    title: '지금 나가면 진도가 사라져요',
+    body: '게스트로 학습 중이라 다시 들어올 방법이 없어요. 지금까지 쌓은 XP·스트릭·실력 진단이 모두 사라집니다.',
+    stay: '계속 학습하기',
+    save: '30초 가입으로 저장하기',
+    quit: '그래도 로그아웃',
   },
   // 배지 컬렉션(modules/progress/BadgeCollection.jsx)
   badges: {

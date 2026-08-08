@@ -536,8 +536,13 @@ async def complete_session(
     # 유닛 세션 unit_result (R8-01 §3.1 계약 복구) — grant_unit_crown 반환을
     # 버리지 않고 노출한다(프론트 UnitSummary가 읽는 필드).
     # **R13-01 §2.10 왕관 소유권 이전**: 유닛 직접 진입(/learn 유닛 세션)은 이제
-    # **연습 전용**이라 grant_crown=False 고정이다 — 왕관은 일일 세션의 진도 블록이
-    # 유일한 유입로다(같은 진도에 두 번 주면 하루 1왕관 상한이 무너진다).
+    # **연습 전용**이라 grant_crown=False 고정이다(같은 진도에 두 번 주면 하루
+    # 1왕관 상한이 무너진다).
+    # ⚠️ 왕관 유입로는 **3개**다 (CO-L5 정정 — 여기 "진도 블록이 유일한 유입로"라
+    # 적혀 있었으나 거짓이었다): ⑴ 일일 세션의 진도 블록 · ⑵ 보드 퍼즐 최초
+    # 클리어(routers/board.py) · ⑶ /dev 개발 경로(UserUnitProgress 직접 upsert —
+    # grant_unit_crown 미경유). 목록의 단일 소유자는 curriculum_service 모듈
+    # 독스트링이다.
     # 진도 스냅샷(crowns·cleared)과 all_correct·all_resolved 표기는 그대로 나간다.
     unit_result: UnitResult | None = None
     if session.unit_id is not None:

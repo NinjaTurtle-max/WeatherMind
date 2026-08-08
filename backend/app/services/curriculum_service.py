@@ -11,8 +11,10 @@ clear 왕관/XP 처리(DB 결합부)를 담당한다. 유닛 세션은 기존 �
 있었으나 거짓이었다. `routers/session.py`의 유닛 세션 완료는 `grant_crown=False`
 고정이라 **유닛 직접 진입은 왕관을 주지 않는다** — 연습 전용):
   ⑴ 일일 세션의 진도 블록 · ⑵ 보드 탭 최초 클리어 · ⑶ `/dev` 개발 경로.
-셋 다 `grant_unit_crown`으로 수렴한다. 판정 조건은 각 유입로가 소유하므로 여기
-적지 않는다 — 문서가 코드보다 앞서 나가면 다시 거짓이 된다.
+⑴·⑵만 `grant_unit_crown`으로 수렴한다 — ⑶은 `UserUnitProgress`를 직접 upsert해
+그 함수를 거치지 않는다(2026-08-08 재확인. "셋 다 수렴"이 이 자리에 적혀 있었다).
+판정 조건은 각 유입로가 소유하므로 여기 적지 않는다 — 문서가 코드보다 앞서 나가면
+다시 거짓이 된다.
 
 **코스 경계(CO-L1)**: 진도·왕관·잠금·스파인은 **한 코스 안에서** 닫힌다.
 `active_course_units`·`course_groups`가 유일 판정 지점이며, 이 경계가 없으면
@@ -195,27 +197,40 @@ def ordered_units(units: Iterable[Any]) -> list[Any]:
     return sorted(units, key=lambda u: (_section_key(u.section), u.unit_order))
 
 
-def placement_unlock_floor(abilities: list, units: Iterable[Any]) -> int:
+def placement_unlock_floor(
+    abilities: list, units: Iterable[Any], level_group: str | None
+) -> int:
     """배치 기반 커리큘럼 시작점 (R7-02 §3.4, 순수) — 선두 연속 선해제 유닛 수.
 
-    전체 순서(ordered_units) 선두부터 "그 유닛 concept_tag의 θ ≥ 0.5
-    (_THETA_INTERMEDIATE_MAX 재사용 — 상급 경계) AND num_responses>0"가 연속으로
-    성립하는 유닛 개수. 조건이 끊기면 즉시 중단(선두 연속만 — 중간 점프 없음).
+    전체 순서(ordered_units) 선두부터 "그 유닛 concept_tag의
+    θ ≥ weatherbrain_service.unlock_theta_threshold(level_group) — 자기 학령 밴드의
+    **상단 경계** AND num_responses>0"가 연속으로 성립하는 유닛 개수. 조건이 끊기면
+    즉시 중단(선두 연속만 — 중간 점프 없음).
     n=0(placement 사전 θ)은 실응답 근거가 없으므로 불인정 — 배치고사 실응답 후
     refresh_abilities가 n을 채워야 선해제된다. 빈 abilities → 0(현행 동작).
     선해제는 잠금만 풀며 왕관·XP는 0 그대로(소급 보상 없음).
 
+    **임계는 학령 상대다 (R13 CO-V-2 = CO-U-3-B).** 종전엔 절대 0.5
+    (`_THETA_INTERMEDIATE_MAX`)를 전 학령에 적용해 판정이 뒤집혀 있었다 —
+    성인은 학령 표준문항을 **틀려도** θ 0.586 ≥ 0.5로 선해제되고, 중고생·초등은
+    **맞혀도** θ 0.413 < 0.5라 영영 열리지 않았다(게스트는 영구 middle_high라
+    구조적으로 0 — CO-N-4). 지금은 세 학령 모두 **학령 표준문항 2연속 정답**이면
+    열리고 1문항으로는 어느 학령도 열리지 않는다(test_weatherbrain_relative_
+    thresholds가 고정).
+
+    level_group은 **기본값이 없다** — 호출부가 유저를 손에 들고 있으면서 학령을
+    빠뜨리면 조용히 종전 절대 임계로 돌아가는 것이 CO-U-3의 발생 경로였다.
+    미지 값·None은 `band_prior_theta`의 중립 폴백(DEFAULT_ITEM_B=0)을 타서
+    임계 0.5 = 종전 값이 된다.
+
     abilities 원소는 load_abilities 반환 형식({"concept_tag","theta","se","n"}).
     """
+    floor_theta = weatherbrain_service.unlock_theta_threshold(level_group)
     by_tag = {ab["concept_tag"]: ab for ab in abilities}
     floor = 0
     for unit in ordered_units(units):
         ab = by_tag.get(unit.concept_tag)
-        if (
-            ab is None
-            or int(ab["n"]) <= 0
-            or float(ab["theta"]) < weatherbrain_service._THETA_INTERMEDIATE_MAX
-        ):
+        if ab is None or int(ab["n"]) <= 0 or float(ab["theta"]) < floor_theta:
             break
         floor += 1
     return floor
@@ -391,10 +406,14 @@ def active_course_units(
     units: Iterable[Any],
     progress_by_unit: dict[Any, Any],
     abilities: list,
+    level_group: str | None,
 ) -> tuple[list[Any], int]:
     """진도·스파인이 보는 **활성 코스**의 유닛과 그 unlock_floor (CO-L1, 순수).
 
     반환: (그 코스의 유닛 목록, placement_unlock_floor).
+
+    level_group은 placement_unlock_floor에 그대로 통과시킨다 — 선해제 임계가
+    학령 상대이기 때문(CO-V-2). 기본값 없음(사유는 placement_unlock_floor).
 
     활성 코스 = 전체 순서상 **열린 미클리어 유닛을 가진 첫 코스**. 유저별 코스
     선택 컬럼이 없으므로(스키마 무변경 — 4일차 범위) 진도 자체에서 파생한다:
@@ -409,11 +428,11 @@ def active_course_units(
     if not groups:
         return [], 0
     for group in groups:
-        floor = placement_unlock_floor(abilities, group)
+        floor = placement_unlock_floor(abilities, group, level_group)
         if open_units_in_order(group, progress_by_unit, floor):
             return group, floor
     last = groups[-1]
-    return last, placement_unlock_floor(abilities, last)
+    return last, placement_unlock_floor(abilities, last, level_group)
 
 
 def build_curriculum(
@@ -583,7 +602,9 @@ async def get_curriculum(
     progress = await load_progress_by_unit(db, user)
     abilities = await weatherbrain_service.load_abilities(db, user)  # read-only
     return build_curriculum(
-        units, progress, unlock_floor=placement_unlock_floor(abilities, units)
+        units,
+        progress,
+        unlock_floor=placement_unlock_floor(abilities, units, user.level_group),
     )
 
 
@@ -601,7 +622,9 @@ async def get_spine(db: AsyncSession, user: User) -> dict[str, Any]:
     units = await load_units(db)
     progress = await load_progress_by_unit(db, user)
     abilities = await weatherbrain_service.load_abilities(db, user)
-    scoped, unlock_floor = active_course_units(units, progress, abilities)
+    scoped, unlock_floor = active_course_units(
+        units, progress, abilities, user.level_group
+    )
     return build_spine(scoped, progress, unlock_floor=unlock_floor)
 
 
@@ -629,7 +652,7 @@ async def is_unit_locked(
     return is_locked(
         unit,
         progress,
-        unlock_floor=placement_unlock_floor(abilities, units),
+        unlock_floor=placement_unlock_floor(abilities, units, user.level_group),
         order_index=index_of.get(unit.id),
     )
 
@@ -820,7 +843,9 @@ async def progress_block_pool(
     progress = await load_progress_by_unit(db, user)
     if abilities is None:
         abilities = await weatherbrain_service.load_abilities(db, user)
-    scoped, unlock_floor = active_course_units(units, progress, abilities)
+    scoped, unlock_floor = active_course_units(
+        units, progress, abilities, user.level_group
+    )
 
     items: list[ContentItem] = []
     seen: set = set()
@@ -917,9 +942,21 @@ async def grant_unit_crown(
 ) -> dict[str, Any]:
     """유닛 clear 처리 (§3.2): crowns +1(crown_target까지), cleared 전환 시 +20 XP 1회.
 
-    호출측(세션 complete)이 "5/5 또는 board 클리어" 조건과 세션 최초 완료(멱등)를
-    이미 판정한 뒤 호출한다 — 여기서는 왕관 가산과 cleared 전환만 담당한다.
+    호출측이 부여 조건과 멱등(같은 세션·같은 퍼즐 재완료 불인정)을 이미 판정한 뒤
+    호출한다 — 여기서는 왕관 가산과 cleared 전환만 담당한다.
     반환: {"crowns", "cleared", "newly_cleared", "xp_earned"}.
+
+    **호출측은 3개다** (CO-L5 정정 — 여기 "호출측(세션 complete)"이라 단수로 적혀
+    있었으나 거짓이었다. 유닛 세션 완료는 `grant_crown=False` 고정이라 왕관을 주지
+    않는다 — 연습 전용):
+      ⑴ 일일 세션의 진도 블록 (`routers/session.py` — 블록 전문 정답)
+      ⑵ 보드 퍼즐 **최초** 클리어 (`routers/board.py` → award_crown_for_activity)
+    ⑶ `/dev` 개발 경로(`routers/dev.py` action='crown'·'unlock_all')는 왕관
+    유입로이지만 **이 함수를 거치지 않는다** — `UserUnitProgress`를 직접 upsert
+    한다. 그래서 XP·crown_target 상한 로직을 우회한다(개발 전용이므로 의도된
+    것이나, "셋 다 여기로 수렴한다"는 서술은 거짓이다).
+    판정 조건은 각 유입로가 소유하므로 여기 적지 않는다 — 문서가 코드보다 앞서
+    나가면 다시 거짓이 된다.
     """
     unit = await db.get(Unit, unit_id)
     if unit is None:
@@ -982,7 +1019,7 @@ async def find_crown_unit(
             progress,
             concept_tag=concept_tag,
             kind=kind,
-            unlock_floor=placement_unlock_floor(abilities, group),
+            unlock_floor=placement_unlock_floor(abilities, group, user.level_group),
             uncleared_only=uncleared_only,
         )
         if found is not None:

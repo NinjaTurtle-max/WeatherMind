@@ -123,15 +123,18 @@ export default function SessionRunner({
   const [combo, setCombo] = useState(0);
 
   // ── 만회 라운드(R13-01 §2.1) · 상한 5(§2.11) ──────────────────────────────
-  // wrongIds: 이번 자리에서 틀린 문항 quiz_id(출제 순서 보존).
-  //   ⚠️ 서버 /session/today는 문항별 정오를 돌려주지 않는다 — 중간 이탈 후 재진입한
-  //   세션의 과거 오답은 프론트가 알 방법이 없어 만회 대상에서 자연 제외된다.
+  // wrongIds: 틀린 문항 quiz_id(출제 순서 보존). 이번 자리에서 틀린 것 **+ 재진입
+  //   복원분**(CO-A5 — 서버 SessionItem.is_correct).
   // retryQueue: 마지막 문항 뒤에 확정되는 실제 만회 대상(= retryQueueOf(wrongIds)).
   //   길이가 0보다 크면 만회 라운드 진행 중이라는 뜻이다(retryPhase).
   const [wrongIds, setWrongIds] = useState([]);
   const [retryQueue, setRetryQueue] = useState([]);
   const [retryIndex, setRetryIndex] = useState(0);
   const retryPhase = retryQueue.length > 0;
+  // 이 세션의 복원이 끝났는가(= 복원 대상 sessionId). **상태**여야 한다(ref 아님):
+  // 복원이 자동완료보다 먼저 반영됐다는 사실을 렌더 사이클로 전달해야 자동완료
+  // 이펙트가 같은 커밋에서 앞질러 발화하지 않는다(CO-M10의 발화 지점).
+  const [restoredFor, setRestoredFor] = useState(null);
 
   // bulkMode(R7-02 S1): 로컬 수집 답안·일괄 제출 상태
   const bulkAnswersRef = useRef([]);
@@ -149,6 +152,7 @@ export default function SessionRunner({
     setWrongIds([]);
     setRetryQueue([]);
     setRetryIndex(0);
+    setRestoredFor(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyString]);
 
@@ -254,9 +258,55 @@ export default function SessionRunner({
     },
   });
 
+  /**
+   * 재진입 만회 복원 (CO-A5 / CO-M10) — **자동완료보다 반드시 먼저 선언한다.**
+   *
+   * 세션은 하루 동안 멱등이라 새로고침·중간 이탈 후 재진입이 정상 경로다. 그런데
+   * 프론트는 `wrongIds`를 이번 자리의 제출 응답으로만 쌓아서, 재진입하면 오답을
+   * 전부 잊었다. 만회 도중에 새로고침하면 `wrongIds=[]`인데 `answered >= total`이라
+   * **자동완료가 곧바로 발화**해 만회 화면이 뜨지도 않고 세션이 끝났고, 그 순간의
+   * `all_resolved`로 왕관이 확정됐다(대장 CO-M10).
+   *
+   * 복원 조건은 **`is_correct === false && retry_correct == null`**이다.
+   * 서버 `is_retry_eligible`은 `retry_correct is not True`라 만회에 **실패한** 문항도
+   * 여전히 재제출을 받아 주지만, 그 조건으로 복원하면 새로고침할 때마다 실패한
+   * 만회가 되살아난다 — §2.11의 "성공·실패 모두 한 번씩만"이 새로고침으로 무너지고
+   * 왕관 판정(all_resolved)이 재시도 횟수에 좌우된다. 서버 조건의 **진부분집합**이라
+   * 이 큐가 409를 맞는 일은 없다(반대 방향의 어긋남만 위험하다).
+   *
+   * ⚠️ 복원 근거는 **로드 응답(`session`)**이지 스토어가 아니다. 스토어는 모듈
+   * 싱글턴이라 진입 첫 패스에서 **직전 세션의 값**을 들고 있고(초기화 이펙트가 같은
+   * 패스에서 방금 `reset()`을 불렀어도 이 이펙트가 보는 것은 그 이전 렌더의
+   * 스냅샷이다), 일일 세션은 id가 매일 같아서 그 낡은 값으로 `restoredFor`가
+   * 찍히면 **정작 진짜 데이터가 왔을 때 복원이 통째로 건너뛰어진다**(실측으로
+   * 이 경로를 밟았다). `sessionId === session.session_id` 확인은 스토어가 이
+   * 응답을 이미 반영했다는 뜻이며, 그래야 아래 자동완료를 열어 줄 수 있다.
+   */
+  useEffect(() => {
+    const loadedId = session?.session_id;
+    if (!loadedId || restoredFor === loadedId) return;
+    if (sessionId !== loadedId) return; // 스토어가 아직 이 응답을 반영하지 않았다
+    const restored = (session.items ?? [])
+      .filter((it) => it.is_correct === false && it.retry_correct == null)
+      .map((it) => it.quiz_id);
+    if (restored.length > 0) {
+      // 이번 자리에서 이미 쌓인 것이 있으면 그쪽이 최신이다(복원은 최초 1회뿐).
+      setWrongIds((prev) => (prev.length > 0 ? prev : restored));
+      // 본문 15문항이 이미 끝나 있었다 = 만회 라운드에서 이탈했다는 뜻이다.
+      // 큐를 세워 두면 아래 자동완료가 `retryPhase`로 막힌다.
+      const loaded = session.progress ?? {};
+      if ((loaded.total ?? 0) > 0 && (loaded.answered ?? 0) >= loaded.total) {
+        setRetryQueue(retryQueueOf(restored, RETRY_QUEUE_LIMIT));
+        setRetryIndex(0);
+      }
+    }
+    setRestoredFor(loadedId);
+  }, [session, sessionId, restoredFor]);
+
   useEffect(() => {
     if (
       !bulkMode && // bulkMode는 finalizeBulk(일괄 채점→완료)가 대신 처리
+      restoredFor === sessionId && // 복원 전에는 판단하지 않는다(CO-M10)
       !retryPhase && // 만회 라운드 중에는 answered==total이어도 아직 끝이 아니다(§2.1)
       status === SESSION_STATUS.IN_PROGRESS &&
       total > 0 &&
@@ -268,7 +318,7 @@ export default function SessionRunner({
       completeMutation.mutate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, answered, total, sessionId, summary, retryPhase]);
+  }, [status, answered, total, sessionId, summary, retryPhase, restoredFor]);
 
   // bulkMode(R7-02 S1): 전 문항 응답 → 전환 화면 뒤에서 finalizeBulk(submit-all→complete)
   useEffect(() => {

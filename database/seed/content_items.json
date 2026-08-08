@@ -7129,5 +7129,1003 @@
       ]
     },
     "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "극지방 바다에서 표층의 바닷물이 깊은 곳까지 가라앉아 느린 심층 흐름을 만드는 까닭으로 가장 알맞은 것은?",
+      "options": [
+        "바닷물이 얼 때 빠져나온 염분이 남은 물에 더해지고 수온도 낮아져 밀도가 커지기 때문",
+        "저위도에서 흘러온 따뜻한 바닷물이 가벼워져 스스로 가라앉기 때문",
+        "극지방은 기압이 낮아 바닷물을 아래로 빨아들이기 때문",
+        "빙하가 녹은 민물이 많이 흘러들어 표층의 염분이 낮아지기 때문"
+      ],
+      "correct_answer": "바닷물이 얼 때 빠져나온 염분이 남은 물에 더해지고 수온도 낮아져 밀도가 커지기 때문",
+      "explanation_hint": "바닷물의 밀도는 수온이 낮을수록, 염분이 높을수록 커집니다. 극지방에서 바닷물이 얼면 얼음에는 염분이 거의 들어가지 않으므로 남은 물의 염분이 높아지고, 여기에 낮은 수온까지 겹쳐 주변보다 무거워진 물이 가라앉습니다. 이것이 바다 깊은 곳을 도는 느린 흐름의 출발점입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: density_buoyancy-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 지구 규모 순환을 정성으로 종합(식·힘 없음) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 밀도·염분 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "극지방에서 바닷물이 얼 때 얼음에는 거의 들어가지 않고 남은 물에 더해져, 그 물을 무겁게 만들어 가라앉게 하는 성분은 무엇인가?",
+      "correct_answer": "염분",
+      "explanation_hint": "바닷물의 밀도는 수온이 낮을수록, 염분이 높을수록 커집니다. 바닷물이 얼면 얼음에는 염분이 거의 들어가지 않으므로 남은 물의 염분이 높아지고, 낮은 수온까지 겹쳐 무거워진 물이 가라앉아 바다 깊은 곳의 느린 흐름을 만듭니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: density_buoyancy-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 정답이 밀도를 정하는 두 요인 중 하나 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 심층 순환 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "주변 공기보다 밀도가 작아진 공기 덩어리를 위로 밀어 올리는 힘을 ___(이)라고 하며, 이 힘이 잘 작용할수록 대기는 불안정해진다.",
+      "correct_answer": "부력",
+      "explanation_hint": "밀도가 작아진 공기는 주변 공기에 밀려 떠오릅니다. 지표가 강하게 데워질수록 이 힘이 커져 공기가 잘 솟아오르고, 그 결과 여름 오후처럼 소나기 구름이 잘 만들어지는 불안정한 대기가 됩니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: density_buoyancy-0",
+        "climate_concepts: density_buoyancy-1",
+        "knowledge_level=5 · 적용 규칙: R4 불가(조건 2 — 정답 문자열이 그 용어) → 사람 판정 5 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 부력·대기 안정도 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "바닷물과 공기의 밀도를 바꾸는 조건과 그 결과를 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "극지방에서 표층 바닷물이 얼 때",
+          "right": "남은 물의 염분이 높아져 밀도가 커지고 가라앉는다"
+        },
+        {
+          "left": "저위도 바다가 강한 햇빛을 받을 때",
+          "right": "수온이 올라가 표층 바닷물의 밀도가 작아지고 떠 있는다"
+        },
+        {
+          "left": "한낮에 지표가 강하게 데워질 때",
+          "right": "공기가 팽창해 밀도가 작아지고 위로 떠오른다"
+        },
+        {
+          "left": "맑은 밤 지표에서 복사냉각이 일어날 때",
+          "right": "지표 가까운 공기가 식어 밀도가 커지고 바닥에 깔린다"
+        }
+      ],
+      "correct_answer": "극지방에서 표층 바닷물이 얼 때:남은 물의 염분이 높아져 밀도가 커지고 가라앉는다|저위도 바다가 강한 햇빛을 받을 때:수온이 올라가 표층 바닷물의 밀도가 작아지고 떠 있는다|한낮에 지표가 강하게 데워질 때:공기가 팽창해 밀도가 작아지고 위로 떠오른다|맑은 밤 지표에서 복사냉각이 일어날 때:지표 가까운 공기가 식어 밀도가 커지고 바닥에 깔린다",
+      "explanation_hint": "바다와 대기는 서로 다른 유체지만 밀도 규칙은 같습니다 — 차갑고 (바다라면) 짤수록 무거워 가라앉고, 따뜻할수록 가벼워 떠오릅니다. 이 하나의 규칙이 심층 순환과 대류를 함께 설명합니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: density_buoyancy-0",
+        "climate_concepts: density_buoyancy-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5(pairs가 해양·대기를 한 규칙으로 묶는다) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 밀도·복사냉각 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "극지방에서 시작되는 바다의 심층 순환이 만들어지는 과정을 일어나는 순서대로 배열하세요.",
+      "items": [
+        "겨울철 극지방의 표층 바닷물이 차가워지고, 바닷물이 얼면서 남은 물에 염분이 더해진다",
+        "수온이 낮고 염분이 높아진 표층 바닷물의 밀도가 주변보다 커진다",
+        "무거워진 바닷물이 깊은 바다로 가라앉는다",
+        "가라앉은 물이 깊은 바다를 따라 저위도 쪽으로 아주 느리게 퍼져 나간다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "순서의 뼈대는 '식는다 → 무거워진다 → 가라앉는다 → 퍼진다'입니다. 밀도가 커지는 것이 원인이고 가라앉는 것이 결과이므로 둘의 앞뒤가 바뀌면 안 됩니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: density_buoyancy-1",
+        "knowledge_level=5 · 적용 규칙: 사람 판정 5 · R2 상향은 6에 쓰지 않는다(6은 힘·정량 구간) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 심층 순환의 형성 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "저위도는 태양에서 받는 에너지가 남고 고위도는 모자란데도 각 위도의 평균기온이 해마다 크게 달라지지 않는다. 그 까닭으로 가장 알맞은 것은?",
+      "options": [
+        "대기와 해수의 순환이 남는 에너지를 저위도에서 고위도로 끊임없이 실어 나르기 때문",
+        "고위도에서는 지구 내부의 열이 더 많이 올라와 모자란 몫을 채우기 때문",
+        "저위도에서 남는 에너지가 곧바로 우주로 빠져나가 버리기 때문",
+        "고위도의 눈과 얼음이 태양 에너지를 저위도보다 더 많이 흡수하기 때문"
+      ],
+      "correct_answer": "대기와 해수의 순환이 남는 에너지를 저위도에서 고위도로 끊임없이 실어 나르기 때문",
+      "explanation_hint": "위도별로 받는 에너지와 내보내는 에너지가 어긋나는데도 기온이 안정한 것은, 대기와 바다가 그 차이를 메우도록 열을 옮기기 때문입니다. 이 수송이 없다면 저위도는 계속 뜨거워지고 고위도는 계속 차가워질 것입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: energy_transfer-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 지구 규모 에너지 수지를 정성으로 종합 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 위도별 에너지 불균형 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "저위도에서 남는 열을 고위도로 실어 나르는 두 운반자 가운데, 물의 큰 비열 덕분에 많은 열을 품고 느리게 이동하는 바닷물의 흐름을 무엇이라고 하는가?",
+      "correct_answer": "해류",
+      "explanation_hint": "대기는 빠르지만 한 번에 나르는 열이 적고, 해류는 느리지만 물의 큰 비열 덕분에 많은 열을 품습니다. 둘이 나누어 맡기 때문에 위도 사이의 기온 차가 지금 수준에서 유지됩니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: energy_transfer-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 정답이 지구 규모 열 수송 담당자의 명칭 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 해류·비열 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "저위도는 태양 에너지가 남고 고위도는 모자란데, 이 차이를 메우려고 대기와 해수가 열을 옮기는 것을 에너지 ___(이)라고 한다.",
+      "correct_answer": "수송",
+      "explanation_hint": "에너지 수송은 지구가 한쪽만 계속 뜨거워지지 않게 하는 조절 장치입니다. 태풍과 저기압처럼 날씨를 만드는 현상들도 결국 이 수송이 일어나는 방식 가운데 하나입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: energy_transfer-1",
+        "knowledge_level=5 · 적용 규칙: R4 불가(조건 2 — 정답 문자열이 그 용어) → 사람 판정 5 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 에너지 수송 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "지구에서 열을 옮기거나 내보내는 방식과 그 설명을 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "해류",
+          "right": "따뜻한 바닷물이 고위도로 흘러가며 많은 열을 나른다"
+        },
+        {
+          "left": "대기의 순환",
+          "right": "공기의 큰 흐름이 남는 열을 고위도 쪽으로 옮긴다"
+        },
+        {
+          "left": "잠열",
+          "right": "저위도에서 증발한 수증기가 다른 곳에서 응결하며 열을 내놓는다"
+        },
+        {
+          "left": "지구 복사",
+          "right": "흡수한 열을 적외선으로 우주에 되돌려 보낸다"
+        }
+      ],
+      "correct_answer": "해류:따뜻한 바닷물이 고위도로 흘러가며 많은 열을 나른다|대기의 순환:공기의 큰 흐름이 남는 열을 고위도 쪽으로 옮긴다|잠열:저위도에서 증발한 수증기가 다른 곳에서 응결하며 열을 내놓는다|지구 복사:흡수한 열을 적외선으로 우주에 되돌려 보낸다",
+      "explanation_hint": "앞의 셋은 지구 안에서 열의 위치를 바꾸는 방식이고, 지구 복사만 열을 지구 밖으로 내보냅니다. '옮기는 것'과 '버리는 것'을 갈라 보면 헷갈리지 않습니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: energy_transfer-0",
+        "climate_concepts: energy_transfer-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5(pairs가 수송과 방출을 함께 묶는다) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 잠열·지구 복사 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "저위도 바다에서 증발한 물이 고위도 대기에 열을 내려놓기까지의 과정을 순서대로 배열하세요.",
+      "items": [
+        "저위도의 따뜻한 바다에서 물이 증발하며 주변의 열을 흡수한다",
+        "수증기를 품은 공기가 대기의 큰 흐름을 타고 고위도 쪽으로 이동한다",
+        "공기가 식으면서 품고 있던 수증기가 물방울로 응결한다",
+        "응결할 때 잠열이 나와 고위도의 대기를 데운다",
+        "저위도의 남는 에너지가 고위도로 옮겨져 위도 사이의 기온 차가 줄어든다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "물은 증발할 때 열을 가져가고 응결할 때 그 열을 내려놓습니다. 그래서 수증기는 열을 담아 옮기는 '짐'이 되고, 응결이 일어나는 곳이 열이 배달되는 곳이 됩니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: energy_transfer-0",
+        "climate_concepts: energy_transfer-1",
+        "knowledge_level=5 · 적용 규칙: 사람 판정 5 · 잠열 수송을 정성 서술(정량 없음) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 잠열 수송 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "지구의 물의 순환에서 증발과 응결이 기후에 하는 가장 중요한 역할로 알맞은 것은?",
+      "options": [
+        "증발이 일어난 곳의 열을 가져가 응결이 일어난 곳에 내려놓아 열을 옮긴다",
+        "지구가 가진 물의 총량을 해마다 조금씩 늘려 준다",
+        "바닷물에 녹아 있는 염분을 위도별로 골고루 섞어 준다",
+        "대기 중의 이산화탄소를 물에 녹여 완전히 없애 준다"
+      ],
+      "correct_answer": "증발이 일어난 곳의 열을 가져가 응결이 일어난 곳에 내려놓아 열을 옮긴다",
+      "explanation_hint": "물이 상태를 바꿀 때 드나드는 잠열은 온도계에 보이지 않지만 양이 매우 큽니다. 증발한 곳은 식고 응결한 곳은 데워지므로, 물의 순환은 그 자체로 지구 규모의 열 배달 체계입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: phase_change-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 상태 변화를 지구 규모 기후로 종합 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 잠열·물의 순환 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "물이 상태를 바꿀 때 온도를 바꾸지 않고 흡수하거나 방출하는 열로, 저위도의 열을 고위도로 옮기는 데 큰 몫을 하는 이 열을 무엇이라고 하는가?",
+      "correct_answer": "잠열",
+      "explanation_hint": "잠열은 '숨은 열'이라는 뜻입니다. 물이 끓는 동안 온도가 100℃에서 더 오르지 않는 것처럼, 이 열은 온도를 올리는 대신 상태를 바꾸는 데 쓰이므로 온도계로는 보이지 않습니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: phase_change-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 정답 용어(잠열)는 3단계 도입이나 지구 규모 수송 맥락 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 잠열 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "바다와 육지에서 증발한 물이 구름이 되었다가 비와 눈으로 내리고 다시 바다로 돌아가는 되풀이를 물의 ___(이)라고 한다.",
+      "correct_answer": "순환",
+      "explanation_hint": "지구의 물은 새로 만들어지거나 사라지지 않고 상태와 위치만 바꾸며 돕니다. 그 과정에서 열까지 함께 옮겨지기 때문에 물의 순환은 물의 이동인 동시에 에너지의 이동입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: phase_change-0",
+        "climate_concepts: phase_change-1",
+        "knowledge_level=5 · 적용 규칙: R4 불가(조건 2 — 정답 문자열이 그 용어) → 사람 판정 5 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 물의 순환 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "물의 상태 변화와, 그 변화가 자연에서 나타나는 모습을 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "증발",
+          "right": "바다에서 물이 수증기로 바뀌며 주변의 열을 가져간다"
+        },
+        {
+          "left": "응결",
+          "right": "상승한 공기 속 수증기가 구름방울이 되며 열을 내놓는다"
+        },
+        {
+          "left": "융해",
+          "right": "봄철 쌓인 눈이 녹으며 열을 흡수해 기온이 오르는 것을 늦춘다"
+        },
+        {
+          "left": "승화",
+          "right": "맑고 추운 밤 수증기가 곧바로 얼음 알갱이가 되어 서리로 맺힌다"
+        }
+      ],
+      "correct_answer": "증발:바다에서 물이 수증기로 바뀌며 주변의 열을 가져간다|응결:상승한 공기 속 수증기가 구름방울이 되며 열을 내놓는다|융해:봄철 쌓인 눈이 녹으며 열을 흡수해 기온이 오르는 것을 늦춘다|승화:맑고 추운 밤 수증기가 곧바로 얼음 알갱이가 되어 서리로 맺힌다",
+      "explanation_hint": "덩어리가 흩어지는 쪽(증발·융해·기체가 되는 승화)은 열을 흡수하고, 모이는 쪽(응결·응고·서리가 되는 승화)은 열을 내놓습니다. 방향만 기억하면 네 가지를 따로 외울 필요가 없습니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: phase_change-0",
+        "climate_concepts: phase_change-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5(pairs가 상태 변화와 기상 현상을 잇는다) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 상태 변화와 열 출입 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "지구 표면에서 일어나는 증발의 대부분은 바다에서 일어난다. 지구 전체 증발량 가운데 바다가 차지하는 비율은 약 몇 %인가?",
+      "correct_answer": "85",
+      "explanation_hint": "지구 표면의 약 70%가 바다인 데다 물이 늘 노출돼 있어, 전체 증발량의 대략 85% 안팎이 바다에서 일어납니다. 물의 순환의 출발점이 사실상 바다라는 뜻입니다.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: phase_change-1",
+        "knowledge_level=5 · 적용 규칙: R2 +0(단일 값 회상, 정량 계산 아님) → 사람 판정 5 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 물의 순환의 규모 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "적도 부근에 일 년 내내 기압이 낮은 띠가, 위도 30도 부근에 기압이 높은 띠가 자리 잡는 까닭으로 가장 알맞은 것은?",
+      "options": [
+        "적도에서 강하게 데워진 공기가 올라가고, 그 공기가 식어 위도 30도 부근에서 내려오기 때문",
+        "적도의 바닷물이 무거워 그 위의 공기를 눌러 내리기 때문",
+        "위도 30도 부근에 산맥이 많아 공기의 흐름이 막히기 때문",
+        "적도에서는 지구 내부의 열이 다른 곳보다 많이 올라오기 때문"
+      ],
+      "correct_answer": "적도에서 강하게 데워진 공기가 올라가고, 그 공기가 식어 위도 30도 부근에서 내려오기 때문",
+      "explanation_hint": "공기가 올라가는 곳은 기압이 낮아지고 구름과 비가 잘 생기며, 내려오는 곳은 기압이 높아지고 날씨가 맑고 건조해집니다. 적도의 열대우림과 위도 30도 부근의 큰 사막이 나란히 놓인 것이 그 결과입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: pressure_basics-0",
+        "climate_concepts: pressure_basics-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 지구 규모 기압대를 정성으로 종합(힘 서술 없음) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 기압대·상승·하강 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "적도 부근처럼 공기가 강하게 올라가 기압이 낮고 구름과 비가 많이 생기는 위도대를 통틀어 무엇이라고 하는가?",
+      "correct_answer": "저압대",
+      "explanation_hint": "지구에는 적도와 위도 60도 부근에 저압대가, 위도 30도 부근과 극지방에 고압대가 띠처럼 번갈아 놓입니다. 저압대에서는 공기가 올라가 비가 많고, 고압대에서는 내려와 건조합니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: pressure_basics-0",
+        "climate_concepts: pressure_basics-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 정답이 지구 규모 기압 분포의 명칭 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 저압대 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "위도 30도 부근에서는 높은 곳의 공기가 가라앉아 기압이 높고 비가 적기 때문에, 이 위도대를 따라 큰 ___이(가) 띠처럼 분포한다.",
+      "correct_answer": "사막",
+      "explanation_hint": "사하라·아라비아·호주 중앙부처럼 세계의 큰 사막은 대부분 위도 30도 부근에 몰려 있습니다. 비가 적은 것이 그 지역이 특별해서가 아니라 지구 규모의 공기 흐름이 정한 결과입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: pressure_basics-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 기압대와 기후대의 대응을 묻는다 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 고압대와 사막의 분포 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "지구 규모의 위도대와 그곳에서 나타나는 기압·날씨의 특징을 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "적도 부근",
+          "right": "공기가 올라가 기압이 낮고 비가 매우 많다"
+        },
+        {
+          "left": "위도 30도 부근",
+          "right": "공기가 내려와 기압이 높고 매우 건조하다"
+        },
+        {
+          "left": "위도 60도 부근",
+          "right": "성질이 다른 공기가 만나 기압이 낮고 날씨가 자주 궂다"
+        },
+        {
+          "left": "극 부근",
+          "right": "차고 무거운 공기가 쌓여 기압이 높고 강수가 적다"
+        }
+      ],
+      "correct_answer": "적도 부근:공기가 올라가 기압이 낮고 비가 매우 많다|위도 30도 부근:공기가 내려와 기압이 높고 매우 건조하다|위도 60도 부근:성질이 다른 공기가 만나 기압이 낮고 날씨가 자주 궂다|극 부근:차고 무거운 공기가 쌓여 기압이 높고 강수가 적다",
+      "explanation_hint": "적도에서 극까지 저압-고압-저압-고압이 번갈아 놓입니다. 저압대는 공기가 올라가는 곳이라 비가 많고, 고압대는 내려오는 곳이라 건조하다는 하나의 규칙으로 네 칸이 모두 풀립니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: pressure_basics-0",
+        "climate_concepts: pressure_basics-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5(pairs가 위도대별 기압 분포를 묶는다) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 기압대의 남북 배열 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "적도에서 데워진 공기가 위도 30도 부근에 기압이 높은 띠를 만들기까지의 과정을 순서대로 배열하세요.",
+      "items": [
+        "적도 부근이 태양 에너지를 강하게 받아 지표 가까운 공기가 데워진다",
+        "가벼워진 공기가 높은 곳까지 올라가며 두꺼운 구름과 많은 비를 만든다",
+        "높은 곳에서 고위도 쪽으로 흘러간 공기가 열을 잃고 식는다",
+        "위도 30도 부근에서 식은 공기가 가라앉아 건조하고 기압이 높은 띠를 만든다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "'데워짐 → 상승 → 이동하며 식음 → 하강'의 한 바퀴입니다. 적도에서 비를 다 뿌리고 마른 채 내려오기 때문에 위도 30도 부근이 건조해진다는 점이 핵심입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: pressure_basics-0",
+        "climate_concepts: pressure_basics-1",
+        "knowledge_level=5 · 적용 규칙: 사람 판정 5 · R2 상향은 6에 쓰지 않는다(6은 힘·정량 구간) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 대기 순환 한 세포의 흐름 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "위도에 따라 같은 넓이의 지표가 받는 태양 복사 에너지의 양이 크게 달라지는 가장 큰 까닭으로 알맞은 것은?",
+      "options": [
+        "지구가 둥글어 위도가 높을수록 햇빛이 더 비스듬히 들어오기 때문",
+        "고위도가 저위도보다 태양에서 훨씬 멀리 떨어져 있기 때문",
+        "태양이 저위도 쪽으로만 빛을 더 세게 내보내기 때문",
+        "고위도에서는 밤과 낮의 길이가 늘 같기 때문"
+      ],
+      "correct_answer": "지구가 둥글어 위도가 높을수록 햇빛이 더 비스듬히 들어오기 때문",
+      "explanation_hint": "같은 굵기의 햇빛 다발이라도 비스듬히 닿으면 더 넓은 면에 퍼져 단위 넓이가 받는 양이 줄어듭니다. 이 하나의 기하학적 사실이 위도별 기후 차이의 출발점입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: radiation_budget-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 위도별 복사 분포를 정성으로 종합 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 태양 복사의 위도 분포 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "대기 중의 수증기와 이산화탄소 같은 기체가 우주로 나가려는 지구 복사를 흡수했다가 다시 내보내 지표를 따뜻하게 하는 작용을 무엇이라고 하는가?",
+      "correct_answer": "온실효과",
+      "explanation_hint": "온실효과가 없다면 지구의 평균 지표 기온은 약 -18℃까지 떨어집니다. 온실효과 자체는 생물이 살 수 있게 해 주는 자연 현상이고, 문제는 사람의 활동으로 그것이 지나치게 강해지는 것입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: radiation_budget-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 정답이 복사 수지 조절 작용의 명칭 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 온실효과 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "북극 바다의 얼음이 녹으면 햇빛을 잘 되돌려 보내던 흰 표면이 어두운 바다로 바뀌어 더 많은 에너지를 흡수하고, 그 결과 얼음이 더 빨리 녹는다. 이렇게 결과가 원인을 더 키우는 관계를 양의 ___(이)라고 한다.",
+      "correct_answer": "되먹임",
+      "explanation_hint": "양의 되먹임은 변화를 스스로 키우는 고리라 작은 변화가 크게 번집니다. 반대로 음의 되먹임은 변화를 줄여 균형을 되찾게 하며, 기후 예측이 어려운 이유는 두 고리가 뒤섞여 있기 때문입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: radiation_budget-1",
+        "knowledge_level=5 · 적용 규칙: R4 불가(조건 2 — 정답 문자열이 그 용어) → 사람 판정 5 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 기후 되먹임 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "대기의 온실효과가 전혀 없다면 지구의 평균 지표 기온은 약 -18℃까지 떨어진다. 온실효과가 있는 실제 지구의 평균 지표 기온은 약 몇 ℃인가?",
+      "correct_answer": "15",
+      "explanation_hint": "온실효과 덕분에 지구는 약 33℃만큼 더 따뜻합니다. 온실효과 자체는 생물이 살 수 있게 해 주는 자연 현상이고, 문제는 그것이 사람의 활동으로 지나치게 강해지는 것입니다.",
+      "min": -30,
+      "max": 40,
+      "step": 1,
+      "unit": "℃"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: radiation_budget-1",
+        "knowledge_level=5 · 적용 규칙: R2 +0(단일 값 회상) → 사람 판정 5 · 온실효과의 크기를 정성으로 붙잡는 값 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 온실효과와 평균기온 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "지구의 복사 수지를 이루는 요소와 그 설명을 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "태양 복사",
+          "right": "짧은 파장의 빛으로 들어와 지표와 대기에 흡수된다"
+        },
+        {
+          "left": "지구 복사",
+          "right": "눈에 보이지 않는 적외선으로 우주를 향해 나간다"
+        },
+        {
+          "left": "온실기체",
+          "right": "나가려는 지구 복사를 흡수했다가 다시 내보내 지표를 데운다"
+        },
+        {
+          "left": "구름과 눈",
+          "right": "들어온 햇빛의 상당 부분을 되돌려 보내 흡수량을 줄인다"
+        }
+      ],
+      "correct_answer": "태양 복사:짧은 파장의 빛으로 들어와 지표와 대기에 흡수된다|지구 복사:눈에 보이지 않는 적외선으로 우주를 향해 나간다|온실기체:나가려는 지구 복사를 흡수했다가 다시 내보내 지표를 데운다|구름과 눈:들어온 햇빛의 상당 부분을 되돌려 보내 흡수량을 줄인다",
+      "explanation_hint": "들어오는 것(태양 복사)과 나가는 것(지구 복사)을 먼저 가르고, 나머지 둘은 각각 나가는 쪽을 막는 것과 들어오는 쪽을 줄이는 것으로 보면 정리됩니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: radiation_budget-0",
+        "climate_concepts: radiation_budget-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5(pairs가 복사 수지 4요소를 묶는다) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 복사 수지 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "지구가 더 흡수하게 된 열의 대부분이 바다에 쌓여, 기후 변화가 곧바로 드러나지 않고 천천히 나타나는 까닭으로 가장 알맞은 것은?",
+      "options": [
+        "물은 비열이 매우 커서 같은 열을 받아도 온도가 조금밖에 오르지 않기 때문",
+        "바닷물은 햇빛을 거의 흡수하지 못하고 모두 되돌려 보내기 때문",
+        "바다는 육지보다 태양에서 훨씬 멀리 떨어져 있기 때문",
+        "바닷물이 흡수한 열은 곧바로 우주로 빠져나가기 때문"
+      ],
+      "correct_answer": "물은 비열이 매우 커서 같은 열을 받아도 온도가 조금밖에 오르지 않기 때문",
+      "explanation_hint": "바다는 지구에서 가장 큰 열 저장소입니다. 그래서 온실기체를 지금 줄여도 이미 바다에 쌓인 열 때문에 기온 상승이 한동안 이어집니다 — 대응이 늦을수록 되돌리기 어려운 이유입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: temperature_heat-2",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 비열을 지구 규모 기후 반응으로 종합 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 비열·해양 열 저장 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "어떤 물질 1g의 온도를 1℃ 올리는 데 필요한 열량으로, 물이 육지보다 훨씬 커서 바다가 기후를 완만하게 만드는 원인이 되는 값을 무엇이라고 하는가?",
+      "correct_answer": "비열",
+      "explanation_hint": "물의 비열은 흙이나 모래보다 몇 배 큽니다. 그래서 바다는 여름에 늦게 더워지고 겨울에 늦게 식으며, 그 성질이 해안 지방의 기온 변화를 대륙 내부보다 완만하게 만듭니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: temperature_heat-2",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 정답 용어는 3단계 도입이나 기후 완충 맥락으로 종합 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 비열 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "물의 비열이 육지보다 훨씬 커서 온도가 잘 변하지 않기 때문에, 지구가 더 흡수한 열의 대부분을 받아 내는 가장 큰 열 저장소는 ___이다.",
+      "correct_answer": "바다",
+      "explanation_hint": "바다가 열을 품어 주는 덕분에 대기의 기온 변화가 완만해집니다. 다만 저장소는 언젠가 채워지고, 데워진 물은 부피가 늘어 해수면을 밀어 올린다는 대가가 따릅니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: temperature_heat-2",
+        "knowledge_level=5 · 적용 규칙: R4 불가(빈칸 정답이 고유 대상) → 사람 판정 5 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 해양의 열 저장 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "산업화 이후 지구의 기후 시스템에 더 쌓인 열은 대부분 바다가 흡수했다. 바다가 흡수한 몫은 전체의 약 몇 %인가?",
+      "correct_answer": "90",
+      "explanation_hint": "쌓인 열의 대략 90% 이상을 바다가 받아 냈습니다. 우리가 느끼는 기온 상승은 남은 몇 %가 만든 것이므로, 바다가 없었다면 지금의 변화는 훨씬 크고 빨랐을 것입니다.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%"
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: temperature_heat-2",
+        "knowledge_level=5 · 적용 규칙: R2 +0(단일 값 회상) → 사람 판정 5 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 해양 열 흡수 비율 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "열과 관련된 개념과, 그것이 기후에서 만들어 내는 결과를 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "물의 큰 비열",
+          "right": "바다가 기온의 하루·계절 변화를 완만하게 만든다"
+        },
+        {
+          "left": "육지의 작은 비열",
+          "right": "대륙 안쪽에서 기온의 연교차가 크게 나타난다"
+        },
+        {
+          "left": "열평형",
+          "right": "맞닿은 두 물체의 온도가 같아지면 열의 이동이 멈춘다"
+        },
+        {
+          "left": "잠열",
+          "right": "물이 상태를 바꿀 때 온도를 바꾸지 않고 열이 드나든다"
+        }
+      ],
+      "correct_answer": "물의 큰 비열:바다가 기온의 하루·계절 변화를 완만하게 만든다|육지의 작은 비열:대륙 안쪽에서 기온의 연교차가 크게 나타난다|열평형:맞닿은 두 물체의 온도가 같아지면 열의 이동이 멈춘다|잠열:물이 상태를 바꿀 때 온도를 바꾸지 않고 열이 드나든다",
+      "explanation_hint": "앞의 두 칸은 '얼마나 잘 데워지는가'(비열), 뒤의 두 칸은 '열이 어디까지 이동하는가·어디로 숨는가'(열평형·잠열)를 다룹니다. 두 묶음으로 갈라 보면 헷갈리지 않습니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: temperature_heat-1",
+        "climate_concepts: temperature_heat-2",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5(pairs가 비열·열평형·잠열을 기후 결과와 잇는다) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 비열·열평형·잠열 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "우리나라에서 봄철에 대형 산불이 유난히 자주 일어나는 까닭으로 가장 알맞은 것은?",
+      "options": [
+        "겨울 동안 쌓인 마른 낙엽이 많은 데다 비가 적어 건조하고 바람까지 강하기 때문",
+        "봄에는 기온이 높아 마른 낙엽이 저절로 불붙기 때문",
+        "봄에는 공기가 습해 작은 불씨가 더 오래 살아남기 때문",
+        "봄에는 밤이 길어져 산을 감시할 수 있는 시간이 줄기 때문"
+      ],
+      "correct_answer": "겨울 동안 쌓인 마른 낙엽이 많은 데다 비가 적어 건조하고 바람까지 강하기 때문",
+      "explanation_hint": "산불이 커지려면 탈 것(마른 낙엽), 건조한 공기, 강한 바람 세 가지가 겹쳐야 합니다. 우리나라의 봄은 이 셋이 동시에 갖춰지는 계절이라 같은 불씨라도 훨씬 크게 번집니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: wildfire_weather-1",
+        "climate_concepts: wildfire_weather-2",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 계절 기후와 재난을 함께 종합 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 봄철 건조·강풍 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "기상청이 대기가 매우 건조해 불이 나기 쉬운 상태가 이어질 것으로 보일 때 발표하는 기상 특보 가운데, 경보보다 한 단계 낮은 것의 이름은 무엇인가?",
+      "correct_answer": "건조주의보",
+      "explanation_hint": "건조 특보는 주의보와 경보 두 단계로 나뉩니다. 주의보가 나온 날은 이미 낙엽과 잔가지가 바싹 마른 상태라, 산에서 불씨를 다루는 행동 자체를 피해야 합니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: wildfire_weather-1",
+        "climate_concepts: wildfire_weather-2",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 정답이 특보 체계의 단계 명칭 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 건조 특보 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "산불이 번지려면 마른 연료와 불씨와 산소가 있어야 하는데, 여기에 강한 ___이(가) 더해지면 불씨가 멀리 날아가 떨어진 곳에 새 불이 붙는다.",
+      "correct_answer": "바람",
+      "explanation_hint": "강한 바람은 불길을 미는 데 그치지 않고 불씨를 수백 미터 밖까지 날려 보냅니다. 그래서 앞쪽에 방화선을 만들어도 그 너머에서 새 불이 시작돼 진화가 크게 어려워집니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: wildfire_weather-0",
+        "climate_concepts: wildfire_weather-1",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5 · 연소 3요소에 기상 요소를 더해 종합 (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 강풍과 비화 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "산불 위험을 높이는 기상·환경 조건과 그 조건이 만드는 결과를 알맞게 연결하세요.",
+      "pairs": [
+        {
+          "left": "여러 날 이어진 가뭄",
+          "right": "낙엽과 잔가지의 물기가 빠져 불이 아주 쉽게 붙는다"
+        },
+        {
+          "left": "산을 넘어 내려오는 건조한 강풍",
+          "right": "불씨를 멀리 날려 떨어진 곳에 새 불을 붙인다"
+        },
+        {
+          "left": "가파른 산비탈",
+          "right": "불길이 위쪽으로 빠르게 번져 진화가 어려워진다"
+        },
+        {
+          "left": "기후변화로 길어진 건조한 기간",
+          "right": "산불이 나기 쉬운 기간 자체가 해마다 늘어난다"
+        }
+      ],
+      "correct_answer": "여러 날 이어진 가뭄:낙엽과 잔가지의 물기가 빠져 불이 아주 쉽게 붙는다|산을 넘어 내려오는 건조한 강풍:불씨를 멀리 날려 떨어진 곳에 새 불을 붙인다|가파른 산비탈:불길이 위쪽으로 빠르게 번져 진화가 어려워진다|기후변화로 길어진 건조한 기간:산불이 나기 쉬운 기간 자체가 해마다 늘어난다",
+      "explanation_hint": "앞의 세 칸은 그날의 조건이고, 마지막 칸만 여러 해에 걸친 기후의 변화입니다. 같은 재난을 날씨의 눈과 기후의 눈으로 함께 보는 것이 이 문항의 요점입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: wildfire_weather-1",
+        "climate_concepts: wildfire_weather-2",
+        "knowledge_level=5 · 적용 규칙: R1 무적발 → 사람 판정 5(pairs가 날씨 축과 기후 축을 함께 묶는다) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 산불 기상 조건 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "봄철에 대형 산불이 만들어지는 기상 조건의 흐름을 일어나는 순서대로 배열하세요.",
+      "items": [
+        "겨울부터 봄까지 비가 거의 내리지 않아 땅과 낙엽이 바싹 마른다",
+        "대기가 매우 건조해져 기상청이 건조 특보를 발표한다",
+        "산을 넘어 내려온 공기가 데워지고 더 메마른 채 강한 바람으로 분다",
+        "작은 불씨가 마른 낙엽에 옮겨붙어 빠르게 불길로 자란다",
+        "강한 바람이 불씨를 멀리 날려 여러 곳에서 동시에 불이 시작된다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "'마름 → 특보 → 강풍 → 발화 → 비화'의 차례입니다. 앞의 세 단계는 불이 나기 전에 이미 진행되므로, 특보가 나온 시점에 행동을 바꾸는 것이 가장 값싼 대응입니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "climate_concepts: wildfire_weather-0",
+        "climate_concepts: wildfire_weather-1",
+        "climate_concepts: wildfire_weather-2",
+        "knowledge_level=5 · 적용 규칙: 사람 판정 5 · 재난 전개를 정성 서술(정량 기준값 없음) (docs/specs/12 §4)",
+        "knowledge_level=5 · 결정 용어: 산불 발생 조건의 전개 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
+        "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
   }
 ]

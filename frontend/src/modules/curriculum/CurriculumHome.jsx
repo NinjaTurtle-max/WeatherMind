@@ -14,7 +14,7 @@ import { conceptLabel, useT } from '../../i18n';
 
 /**
  * CurriculumHome (R5-01 §3.2·S4) — 학습 홈(기본 진입 /).
- * GET /curriculum 트리를 듀오링고식 유닛 경로(길)로 렌더한다:
+ * GET /curriculum 트리를 단계형 유닛 경로(길)로 렌더한다:
  *   섹션별로 유닛 노드를 세로 지그재그 경로에 배치하고, 완료(👑)·현재·잠금(🔒)을 표시.
  * 유닛 탭 → /learn/units/{id}에서 POST 세션 발급 후 플레이한다.
  * 완료 시 다음 유닛이 즉시 열리도록(체류 유도) 유닛 세션 완료 후 ['curriculum']를 무효화한다.

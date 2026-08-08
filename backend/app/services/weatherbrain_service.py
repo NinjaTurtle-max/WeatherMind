@@ -402,19 +402,10 @@ def focus_theta_threshold(level_group: str) -> float:
     ai-worker router_chain.focus_theta_threshold와 같은 값이어야 하고 드리프트는
     test_weatherbrain_relative_thresholds가 감시한다(교차 서비스 상수 이원화 관례).
 
-    ⚠️ **미배선 (R13 4일차 웨이브 2 인계 — CO-U-3-A)**. ai-worker 쪽 함수는 있고
-    router_chain.route(..., level_group=)로 받을 준비도 됐지만, 호출측 3홉이
-    학령을 아직 안 넘겨서 실제로는 종전 절대 임계(middle_high 값)로 돈다.
-    남은 배선(전부 다른 담당 소유 — 파라미터 추가뿐, 기본값 None이라 무해):
-
-      ① backend/app/services/session_service.py:427
-         ai_client.router_decide(str(user.id), weak_tags, recent_results, abilities)
-         → ... , abilities, level_group=effective_level_group_of_user(user)
-           (지금은 user.level_group 그대로면 충분)
-      ② backend/app/services/ai_client.py:44 router_decide(...)
-         시그니처에 level_group: str | None = None 추가 후 payload에 실어 보낸다
-      ③ ai-worker/app/main.py:223 RouterDecideRequest에 level_group 필드 추가 →
-         :243 router_chain.route(..., level_group=body.level_group)
+    **배선 완료** (R13 잔여 웨이브 CO-V-1). 호출측 3홉이 학령을 넘긴다 —
+    `session_service` → `ai_client.router_decide(..., level_group=)` →
+    `ai-worker/main.py RouterDecideRequest.level_group` → `router_chain.route()`.
+    전부 기본값 None이라 값을 안 넘기면 종전 절대 임계로 되돌아간다(하위 호환).
 
     배선되면 test_weatherbrain_relative_thresholds.TestRouterChainParity의
     test_route가_학령을_받으면_판정이_뒤집힌다가 실경로에서도 참이 된다.
@@ -425,21 +416,11 @@ def focus_theta_threshold(level_group: str) -> float:
 def unlock_theta_threshold(level_group: str) -> float:
     """배치 선해제 임계 — 학령 상대. θ가 이 값 **이상**이고 n>0이면 선해제 후보.
 
-    ⚠️ **미배선 (R13 4일차 웨이브 2 인계 — CO-U-3-B)**. curriculum_service.
-    placement_unlock_floor가 아직 이 함수가 아니라 _THETA_INTERMEDIATE_MAX
-    (절대 0.5)를 본다. 그래서 오늘도 **성인은 틀려도 선해제되고 중고생·초등은
-    맞혀도 영영 안 된다**(실측 근거는 위 THETA_FOCUS_DELTA 주석).
-
-    남은 배선(curriculum 담당 소유 — 한 줄이 아니라 시그니처 변경이다):
-
-      ① curriculum_service.placement_unlock_floor(abilities, units)에
-         level_group: str 인자를 추가하고, 비교를 아래로 바꾼다:
-             weatherbrain_service._THETA_INTERMEDIATE_MAX
-           → weatherbrain_service.unlock_theta_threshold(level_group)
-         독스트링의 "θ ≥ 0.5(_THETA_INTERMEDIATE_MAX 재사용 — 상급 경계)"도 같이.
-      ② 호출 4곳에 학령을 넘긴다 — curriculum_service.active_course_units:405·409
-         (이 함수도 level_group을 받아 통과시켜야 한다) · get_curriculum:579 ·
-         routers/dev.py:144. 전부 User를 손에 들고 있으므로 user.level_group이면 된다.
+    **배선 완료** (R13 잔여 웨이브 CO-V-2). `curriculum_service.placement_unlock_floor`가
+    `_THETA_INTERMEDIATE_MAX`(절대 0.5)가 아니라 이 함수를 본다. 배선 전에는
+    **성인은 틀려도 선해제되고 중고생·초등은 맞혀도 영영 안 됐다** — 절대 임계가
+    학령별 사전평균과 어긋나서다. 지금은 학령 표준문항 2연속 정답이면 세 학령 모두
+    선해제되고, 1문항으로는 아무도 안 된다.
 
     배선 후 기대 동작(test_weatherbrain_relative_thresholds가 이미 고정한 값):
     학령 표준문항 **2연속 정답**이면 세 학령 모두 선해제, **1문항**으로는 어느

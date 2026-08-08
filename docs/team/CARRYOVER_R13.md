@@ -319,6 +319,13 @@ IRT를 "미구현"이라 적음. 특히 **`MENTORING_ALIGNMENT` §0의 30초 구
 | **CO-P-8** | 🟠 | 정식 가입이 rate limit 버킷을 2칸 쓴다 |
 | **CO-P-11** | 🟠 | Redis 유실 = 전 게스트 영구 로그아웃 |
 | **CO-P-12** | 🟡 | CORS allow_origins가 localhost 5종 하드코딩(env 노브 없음) — Caddy 동 |
+| **CO-W-5** | 🟡 | GuestStartRequest.level_group에 보내는 클라이언트 0 — 의도적 미배선 |
+| **CO-W-6** | 🟡 | 목 선해금 미러는 V-2 착지 후로(지금 하면 막으려던 드리프트를 만든다) |
+| **CO-W-7** | 🟡 | specs/02 API 표에 PATCH /auth/me 행 없음 — P-13과 같은 성격 |
+| **CO-W-1** | 🟠 | 신규 저작 사실값 3건 표본 검수 — lint는 물리 사실을 안 본다 |
+| **CO-W-3** | 🟡 | ordering 구조적 상한 — 태그당 항목 수 패턴만큼만. G1 배분 입력 |
+| **CO-W-2** | 🟡 | _grade_text가 내부 공백 미정규화 — `되먹임`↔`피드백` 경합 |
+| **CO-W-4** | 🟡 | 목 선해금이 meanTheta 근사 — V-2 이후 서버와 벌어짐 |
 | **CO-V-4** | 🟠 | onboardingGate 단계 기계가 죽은 절반 — 게이트 해제 후 UI 소비자 0 |
 | **CO-V-5** | 🟡 | 빈 세션 카드가 bulkMode(배치고사) 제외 — 도달 가능성 미검증 |
 | **CO-V-6** | 🟡 | 「다음 퍼즐」 클리어 경로 실렌더 미검증(소스 계약으로 대체) |
@@ -1260,7 +1267,13 @@ CO-U-3을 「학령 상대 임계」로 풀었다(`weatherbrain_service`에 `ban
 | id | 배선 | 수신자 |
 |---|---|---|
 | **V-1** | `session_service.py:427`에 `level_group=user.level_group` → `ai_client.py:44` 시그니처·payload → `ai-worker/main.py:223` `RouterDecideRequest` 필드 + `:243` 전달. **전부 기본값 None이라 무해한 파라미터 추가** | 세션 엔진 담당 |
-| **V-2** | `curriculum_service.placement_unlock_floor(abilities, units, level_group)`로 시그니처 변경, 비교를 `_THETA_INTERMEDIATE_MAX` → `unlock_theta_threshold(level_group)`. 호출 4곳(`active_course_units`·`get_curriculum`·`routers/dev.py`)에 전달. ⚠️ **줄 번호는 그 파일이 동시 편집 중이라 드리프트한다 — 함수명이 안정 참조** | 커리큘럼 담당 |
+| **V-2** | `curriculum_service.placement_unlock_floor(abilities, units, level_group)`로 시그니처 변경, 비교를 `_THETA_INTERMEDIATE_MAX` → `unlock_theta_threshold(level_group)`. 호출 **8곳**에 전달. ⚠️ **인계 문서가 "4곳"이라 적었으나 실제는 8곳이다**(2026-08-08 실측) —
+CO-L1·CO-L4 수리가 그 문서 작성 뒤에 2곳을 더 만들었다: `placement_unlock_floor` 6곳
+(`active_course_units` 내부 2 · `get_curriculum` · **`is_unit_locked`** · **`find_crown_unit`** ·
+`routers/dev.py`) + `active_course_units` 2곳(`get_spine` · `progress_block_pool`).
+**`is_unit_locked`·`find_crown_unit`을 절대 임계로 남겼으면 CO-L4가 그대로 부활한다**
+(트리엔 unlocked인데 POST는 403). 시그니처에 **기본값을 두지 않는다** — 누락이 조용해지는
+것이 CO-U-3의 발생 경로였다. ⚠️ **줄 번호는 그 파일이 동시 편집 중이라 드리프트한다 — 함수명이 안정 참조** | 커리큘럼 담당 |
 
 **배선 후 기대 동작**(테스트가 이미 고정): 학령 표준문항 **2연속 정답이면 세 학령 모두
 선해금**, **1문항으로는 아무도 안 됨**. **게스트(영구 `middle_high`)도 이때 처음으로
@@ -1308,3 +1321,74 @@ CO-U-3을 「학령 상대 임계」로 풀었다(`weatherbrain_service`에 `ban
 > 되살리는 대신 **사용자가 실제로 보는 표면(`duel.submittedNote`)만 계약으로 남기고**
 > `gate.*` 부활 금지 단정을 추가했다. **게이트 화면을 되살릴 계획이 생기면 이 판단을
 > 뒤집어야 한다.**
+
+
+---
+
+## W. 잔여 웨이브 결과 (2026-08-08) — **backend 2253 passed · 0 failed**
+
+### 닫힘
+
+| id | 결과 |
+|---|---|
+| **CO-V-1** ✅ | router 학령 배선 3홉. `TestRouterWiring` 4건 — 홉3은 **ai-worker `main.py`를 AST로 파싱**해 대조한다(임포트하면 langchain 설치 여부로 판정이 갈려서) |
+| **CO-V-2** ✅ | 선해금 배선. ⚠️ **인계 문서가 "호출 4곳"이라 적었으나 실제 8곳**이었다 — CO-L1·CO-L4 수리가 그 문서 뒤에 2곳을 더 만들었고, **`is_unit_locked`·`find_crown_unit`을 절대 임계로 남겼으면 CO-L4가 부활**했다. 시그니처에 **기본값을 두지 않았다**(누락이 조용해지는 것이 CO-U-3의 발생 경로였다). `TestUnlockWiring` 6건이 **호출부 8곳 전건을 AST로** 대조 |
+| **CO-L5** ✅ | 왕관 독스트링 정정. 🔎 **신규 오류 1건 발견** — 이미 "정정됐다"던 모듈 독스트링의 *"셋 다 `grant_unit_crown`으로 수렴한다"*도 거짓이었다. `/dev`는 `UserUnitProgress`를 **직접 upsert**해 그 함수를 안 거치고 **XP·`crown_target` 상한을 우회**한다 |
+| **CO-H12** ✅ | **하한을 걸지 않는 것**으로 판정. θ 경로에서 0문항은 구조적 도달 불가(24유닛 중 0건, 최소 2건)이고, 콜드스타트 잔여는 **저작 결함이 아니라 ai-worker 장애의 그림자**다. 결정적 근거: **0문항 세션은 프론트가 소비하는 표면**(CO-S-3 탈출 카드)이라 발급을 4xx로 바꾸면 그 화면이 도달 불가가 된다 |
+| **CO-L-F1** ✅ | 시드 **237 → 272**(7태그 × 5건). `explanation_hint` **35/35 전건**(전체 158 → 193). lint 272건 전건 통과. `kl 5`·adult 밴드 각 28 → 63 |
+| **CO-V-3** ✅ | 금칙 **14건 → 0건**(허용처·대장 제외). 잔존 3줄은 **규정 본문 2 + 집행 grep 1**로 의도적 존치 — **금칙어를 지운 규정은 grep으로 감시할 수 없다**. 대체는 고유명사만 바꾸고 **벤치마킹 근거 참조는 살렸다** |
+| **CO-H2-a** ✅ | `docs/ROADMAP.md` **§6 「R14 이월 수신」 8행 신설**. **47건 전건 · id 축약 없이 완전 표기** — 처음 `CO-F1·F2·F3` 꼴로 적었다가 기계 대조가 `CO-F2`를 못 찾는 것을 보고 펼쳤다. **대장 R14 ↔ §6 대조 누락 0 확인**(PM 검증) |
+
+### 두 팀이 **서로의 계산을 반증**했다 — 이번 웨이브의 값
+
+시드 팀이 `test_0문항_칸이_실제로_다수다`의 하한을 **`>= 12`**로 권했는데, 배선 팀이 다시 세어 **틀렸음을 밝혔다**. 공백 16칸 중 **10칸이 board 유닛 칸**이고 CO-I-2(staging board 24건)가 정확히 그 10칸을 정조준하므로, 착지하면 6칸이 되어 `>= 12`가 다시 깨진다. *"두 번 고칠 일 없다"가 되려면 하한이 **저작이 표적하지 않는 칸 수**여야 한다*는 판단으로 **`>= 5`** + 산수를 독스트링에 남겼다.
+
+⚠️ **시드 팀도 독립적으로 같은 결론에 도달해 자기 권고를 스스로 정정 보고했다.** 남는 6칸(`bs-temp-vs-heat`·`bs-specific-heat`·`bs-energy-transfer`·`city-greenhouse` × expert · `risk-wildfire`·`risk-flood` × middle_high)은 어떤 배치도 표적하지 않는다.
+
+그리고 배선 팀이 `BS_UNITS`를 **줄이지 않았다** — 시드 팀은 1개로 줄이라 했으나 그러면 **CO-L-F3(진도 블록 5문항)이 보던 7유닛 커버리지가 조용히 사라진다.** 별도 상수를 뒀다.
+
+### 🔴 W-1 ~ W-4 — 새로 옮겨 적는 것
+
+| # | 항목 | 배정 |
+|---|---|---|
+| **W-1** | **6일차 표본 검수 — 사실값 3건.** lint는 형식만 보고 물리 사실은 안 본다: `phase_change` "증발량 중 바다 85%" · `temperature_heat` "축적열 중 바다 90%" · `radiation_budget` "온실효과 있는 평균 지표 기온 15℃" | **6일차** |
+| **W-2** | **채점 취약 1건.** `answer_service._grade_text`가 **외곽 공백 strip + casefold만** 하고 내부 공백을 정규화하지 않는다. 저작자가 복합어 정답 3건을 단일 토큰으로 **선제 재저작**했고 남은 것은 `radiation_budget` cloze의 **`되먹임`**(`피드백`과 동의어 경합 — 교육과정 표기는 되먹임) | **QA** |
+| **W-3** | **`ordering`은 태그당 항목 수 패턴만큼만 만들 수 있다.** 중복 키가 (유형·태그·정규화 정답)인데 ordering 정답은 `"0,1,2,3"` 꼴뿐이라 구조적 상한이다(`phase_change`는 3·4·5항목 전부 포화라 slider로 대체). **CO-C5와 같은 계열 — G1 배분 설계 입력** | **6일차** |
+| **W-4** | 목의 선해금이 **`meanTheta` 결정적 근사**라 CO-V-2 이후 adult·elementary에서 서버와 더 벌어진다(저위험) | **QA** |
+
+> **`bs-convection-board` × adult가 유일한 잔여 adult 공백**이고 **board 유닛이라 CO-I-2 소관**이다 — staging board 24건에 `board_order`·`title`·`summary` 3키를 채우면 함께 닫힌다.
+
+
+### 팀 B — 인증·프론트 반쪽 5건 (2026-08-08)
+
+| id | 결과 |
+|---|---|
+| **CO-A5 / CO-M10** ✅ | 재진입 만회 복원. 🔎 **디버깅 중 실제 결함 1건 발견** — 스토어가 모듈 싱글턴이라 진입 첫 패스에서 **직전 세션 값**이 보이고, **일일 세션은 id가 매일 같아** 그 낡은 값으로 복원이 통째로 건너뛰어졌다. 복원 근거를 스토어가 아니라 **로드 응답**으로 옮겨 해소 |
+| **CO-A6 / CO-J-9** ✅ | 목 왕관을 **진도 블록 범위**로. `unit_block` 4필드를 서버와 같게 기록해 **종전 목에서 구조적으로 0이던 daily 왕관이 나온다**. `__mockPolicy()` + `test_r13_mock_policy_parity.py` 13건이 **node로 실값을 읽어** 대조 — **기대값 사본 없음** |
+| **CO-P-4** ✅ | `ConfirmDialog.jsx` 신설(`LeaveIntentDialog`의 접근성 4종 그대로, `confirm()` 미사용). **서버 `/auth/me` 판정 1순위**, 실패 시 클라 폴백 |
+| **CO-P-5** ✅ | `PATCH /auth/me {level_group}` + `ProgressPage` 카드. `convert_guest`와 **같은 "같은 행 갱신" 패턴**이라 θ·XP·진도 보존 |
+| **red 1건** ✅ | `test_mock_guest_경로가_서버와_형태_동일` — 원인이 목이 아니라 **파서**였다. "블록 안 첫 반환 = 성공 반환" 가정이 남아 있었는데 **목의 422 분기 순서는 서버(pydantic Literal)와 같다** |
+
+**판단 — CO-P-5는 ⓑ(설정 통로).** ⓐ(게스트 시작 화면 학령 선택)가 놓일 자리는 `LoginPage`뿐인데
+**자동 게스트 발급(CO-N-1) 이후 심사 5분 동선에 그 화면이 등장하지 않는다.** 결정적으로
+`guest-convert.smoke`가 **"게스트 CTA가 로그인 폼보다 앞"**을 DOM 순서로 단정해서, CTA 위에
+선택지를 놓으면 **R10-J 계약이 깨지고** 아래에 놓으면 장식으로 읽힌다.
+
+**복원 조건을 서버보다 좁혔다** — 서버 `is_retry_eligible`은 `retry_correct is not True`라
+**실패한 만회도** 재제출을 받는데, 그 조건으로 복원하면 새로고침마다 실패한 만회가 되살아나
+§2.11의 "한 번씩만"이 무너지고 **왕관 판정이 재시도 횟수에 좌우된다.** 서버 조건의
+**진부분집합**이라 409는 불가능하다.
+
+### W-5 ~ W-7
+
+| # | 항목 | 배정 |
+|---|---|---|
+| **W-5** | `GuestStartRequest.level_group`에 **보내는 클라이언트 0**(목은 받는다). ⓑ 판단의 귀결이라 **의도적 미배선이지 누락이 아니다** — 유지할지 파라미터를 뺄지 판단 필요 | QA |
+| **W-6** | 목 선해금 ↔ 서버 임계 미러. **CO-V-2가 임계 의미를 절대 0.5 → 학령 상대로 바꾸는 중이라, 지금 미러하면 막으려던 드리프트를 만든다** | QA(V-2 착지 후) |
+| **W-7** | `docs/specs/02` API 표에 **`PATCH /auth/me` 행 없음** — CO-P-13과 같은 성격(주 동선이 API SSOT에 부재) | QA |
+
+> **CO-SN3(5일차)의 `__mockPolicy()` 설계가 오늘 선반영됐다** — 내일 이중 배정하지 말 것.
+>
+> ⚠️ **파일 소유 경계가 한 번 샜다.** 팀 B의 배타 소유인 `CurriculumHome.jsx`·`tailwind.config.js`를
+> 팀 C가 금칙 처리로 수정했다(주석 1줄씩, 내가 그렇게 배정했다). 기능 영향은 없으나
+> **같은 파일을 두 브리핑에 넣은 것은 내 배정 실수**다.

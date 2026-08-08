@@ -381,6 +381,86 @@ try {
     assert(byName('email') == null, '정식 계정에 전환 폼이 렌더됐다');
     r.unmount();
   });
+  // ── 6. 게스트 로그아웃 = 진도 영구 소실 → 확인 1단 (R13 CO-P-4) ───────────
+  // 게스트 비밀번호는 무작위 시크릿이라 **재진입 경로가 없다.** 그런데 로그아웃
+  // 버튼은 게스트에게도 헤더에 항상 있고 확인 없이 즉시 실행됐다 — 시연 중 한 번
+  // 누르면 끝이다. `confirm()` 브라우저 모달이 아니라 세션 이탈 확인(§3.5)과 같은
+  // 관례(role=dialog·포커스 관리 4종·대안 제시)를 쓴다.
+  const headerLogout = () =>
+    [...window.document.querySelectorAll('button')].find((b) => b.textContent.trim() === '로그아웃');
+  const guestDialog = () => window.document.querySelector('[data-confirm-dialog="guest-logout"]');
+
+  await scenario('CO-P-4: 게스트 로그아웃은 확인 1단을 거친다(즉시 실행 금지)', async () => {
+    const g = await api('POST', '/auth/guest');
+    authenticateGuest(g.body.access_token);
+    const r = mount(createElement(App), '/');
+    await waitFor(() => headerLogout(), 6000, '헤더 로그아웃 버튼');
+
+    click(headerLogout());
+    await waitFor(() => guestDialog(), 4000, '게스트 로그아웃 확인 모달');
+    assert(useAuthStore.getState().accessToken, '확인 없이 즉시 로그아웃됐다 — 진도 영구 소실 경로');
+    assert(text().includes('지금 나가면 진도가 사라져요'), '무엇을 잃는지 말하지 않는다');
+    assert(text().includes('30초 가입으로 저장하기'), '대안(계정 전환)이 제시되지 않는다');
+    const dlg = guestDialog();
+    assert(dlg.getAttribute('role') === 'dialog' && dlg.getAttribute('aria-modal') === 'true',
+      'role=dialog·aria-modal이 없다 — LeaveIntentDialog 관례 위반');
+    assert(dlg.getAttribute('aria-labelledby') && dlg.getAttribute('aria-describedby'),
+      '제목·본문이 모달에 연결되지 않았다');
+
+    // Esc = 머무르기(안전한 쪽) — 이탈 확인과 같은 규칙
+    window.document.dispatchEvent(
+      new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+    await waitFor(() => !guestDialog(), 3000, 'Esc로 모달 닫힘');
+    assert(useAuthStore.getState().accessToken, 'Esc가 로그아웃을 실행했다');
+
+    // 확정은 작은 링크 쪽 — 그때 비로소 세션이 정리된다
+    click(headerLogout());
+    await waitFor(() => guestDialog(), 4000, '확인 모달 재진입');
+    click(window.document.querySelector('[data-confirm-accept="guest-logout"]'));
+    await waitFor(() => !useAuthStore.getState().accessToken, 4000, '확정 후 로그아웃');
+    r.unmount();
+  });
+
+  await scenario('CO-P-4: 정식 계정은 종전대로 즉시 로그아웃(확인은 게스트 전용)', async () => {
+    await api('POST', '/auth/login', { email: 'user@test.dev', password: 'password-123' });
+    useAuthStore.getState().setTokens({ accessToken: 'mock-access', refreshToken: 'mock-refresh' });
+    useAuthStore.getState().setUser({ user_id: 'u-1', email: 'user@test.dev', nickname: '정회원' });
+    const r = mount(createElement(App), '/');
+    await waitFor(() => headerLogout(), 6000, '헤더 로그아웃 버튼');
+    click(headerLogout());
+    await waitFor(() => !useAuthStore.getState().accessToken, 4000, '정식 계정 즉시 로그아웃');
+    assert(!guestDialog(), '정식 계정에 게스트 확인 모달이 떴다 — 되돌릴 수 있는 행동이다');
+    r.unmount();
+  });
+
+  // ── 7. 학습 수준 변경 통로 (R13 CO-P-5) ───────────────────────────────────
+  // 학령 신고 writer가 `POST /auth/register`의 필드 하나뿐이라, 게스트로 들어온
+  // 사람은 초등학생이든 성인이든 **평생 middle_high**였고 배치고사로도 못 바꿨다.
+  await scenario('CO-P-5: 게스트도 내 정보에서 학습 수준을 바꾼다(서버에 반영)', async () => {
+    const g = await api('POST', '/auth/guest');
+    authenticateGuest(g.body.access_token);
+    const before = await api('GET', '/auth/me');
+    assert(before.body.level_group === 'middle_high', '게스트 시작 기본값이 middle_high가 아니다');
+
+    const r = mount(createElement(App), '/me');
+    await waitFor(() => window.document.querySelector('[data-level-group]'), 6000, '학습 수준 카드');
+    const card = () => window.document.querySelector('[data-level-group]');
+    assert(card().getAttribute('data-level-group') === 'middle_high',
+      '카드가 서버의 현재 학령을 반영하지 않는다');
+
+    const pick = (label) =>
+      [...card().querySelectorAll('button')].find((b) => b.textContent.trim() === label);
+    assert(pick('중·고등학생').getAttribute('aria-pressed') === 'true', '현재 선택이 표시되지 않는다');
+    click(pick('초등학생'));
+    await waitFor(() => card()?.getAttribute('data-level-group') === 'elementary', 4000, '학령 변경 반영');
+
+    const after = await api('GET', '/auth/me');
+    assert(after.body.level_group === 'elementary',
+      `서버에 반영되지 않았다 — ${after.body.level_group}`);
+    assert(text().includes('학습 수준을 바꿨어요'), '변경 결과를 사용자에게 알리지 않는다');
+    r.unmount();
+  });
 } finally {
   await vite.close();
   httpServer.close();

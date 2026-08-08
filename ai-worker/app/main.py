@@ -83,6 +83,9 @@ class RouterDecideRequest(BaseModel):
     recent_results: list[bool] = Field(default_factory=list)
     # R6 WeatherBrain: 있으면 θ가 1순위 분기 신호, weak_tags는 폴백.
     abilities: list[Ability] = Field(default_factory=list)
+    # R13 CO-U-3-A: θ "focused" 임계의 기준점(학령 상대). 미전달(None)이면
+    # router_chain이 종전 절대 임계(= middle_high 값)로 폴백한다.
+    level_group: Optional[str] = None
 
 
 class RouterDecideResponse(BaseModel):
@@ -244,6 +247,7 @@ def router_decide(body: RouterDecideRequest) -> RouterDecideResponse:
         weak_tags=[t.model_dump() for t in body.weak_tags],
         recent_results=body.recent_results,
         abilities=[a.model_dump() for a in body.abilities],
+        level_group=body.level_group,
     )
     return RouterDecideResponse(**result)
 

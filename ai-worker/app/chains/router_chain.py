@@ -54,7 +54,12 @@ def focus_theta_threshold(level_group: str | None) -> float:
     """"focused" θ 임계 — 학령 상대. 자기 밴드의 **하단 경계**.
 
     level_group이 None/미지면 THETA_FOCUS_THRESHOLD(= middle_high 값)로 폴백한다.
-    호출측이 학령을 아직 안 넘기는 동안 종전 동작이 그대로 유지된다.
+
+    ⚠️ **None의 의미가 R13 CO-V-1 배선 이후 바뀌었다** — 이제 세션 발급 경로는
+    학령을 실제로 넘긴다(session_service.decide_route → ai_client.router_decide →
+    RouterDecideRequest.level_group). None은 "아직 배선 전"이 아니라 **레거시·
+    저하 호출부**(routers/quiz.py 계열, 학령 미상)를 뜻하고, 그 경우에만 종전
+    절대 임계로 돈다.
     """
     if level_group is None:
         return THETA_FOCUS_THRESHOLD

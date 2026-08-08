@@ -6,6 +6,7 @@
 | POST | /guest/convert | Bearer + {email, password, nickname?} → {access_token, refresh_token} (같은 user_id 유지) |
 | POST | /refresh  | {refresh_token} → {access_token} |
 | GET  | /me       | Bearer → {user_id, email, nickname, is_guest, level_group} (R13 P-4) |
+| PATCH| /me       | Bearer + {level_group} → MeResponse (R13 P-5 — 학령 변경 통로) |
 | POST | /logout   | - → {"success": true} (Redis 세션 삭제) |
 
 refresh token은 Redis session:{user_id}에 7일 TTL로 저장 (08번 스펙).
@@ -179,6 +180,27 @@ class GuestStartRequest(BaseModel):
     level_group: LevelGroup = Field(default=GUEST_LEVEL_GROUP)
 
 
+class UpdateMeRequest(BaseModel):
+    """학령 변경 (R13 P-5) — `PATCH /auth/me`.
+
+    학령 신고 writer가 **`POST /auth/register`의 필드 하나뿐**이었다. R10-J가 주
+    동선으로 만든 게스트 진입은 register를 아예 타지 않고, 전환(`ConvertRequest`)은
+    level_group을 **명시적으로 받지 않으며**, 배치고사 완료도 θ만 건드린다
+    (`user.level_group =` 프로덕션 grep 0건). 그래서 게스트로 들어온 사람은
+    초등학생이든 성인이든 **평생 middle_high**였고 배치고사로도 못 바꿨다.
+
+    같은 행을 갱신하므로 θ·XP·스트릭·진도는 전부 보존된다(convert와 같은 원리).
+    이미 발급된 오늘 세션은 그대로다 — 배합은 발급 시점에 확정되므로 학령 변경은
+    **다음 세션부터** 반영된다.
+
+    access token의 `level_group` 클레임은 재발급하지 않는다: `get_current_user`가
+    토큰의 클레임이 아니라 **DB 행을 다시 읽어** 유저를 만들기 때문에 다음 요청부터
+    새 값이 곧바로 쓰인다(토큰 클레임을 읽는 프로덕션 코드는 0건).
+    """
+
+    level_group: LevelGroup
+
+
 class MeResponse(BaseModel):
     """현재 사용자 정체 (R13 P-4/P-10).
 
@@ -343,6 +365,34 @@ async def me(user: User = Depends(get_current_user)) -> MeResponse:
         nickname=user.nickname,
         is_guest=is_guest_user(user),
         level_group=user.level_group,
+    )
+
+
+@router.patch("/me", response_model=MeResponse)
+async def update_me(
+    body: UpdateMeRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MeResponse:
+    """학령 변경 — 게스트가 평생 middle_high에 갇히지 않게 하는 유일한 통로 (R13 P-5).
+
+    convert_guest와 같은 패턴이다: `get_current_user`는 별도 세션으로 유저를 읽으므로
+    갱신은 이 요청의 db 세션에서 같은 PK 행을 다시 얻어 수행한다(새 행 생성 없음).
+    """
+    db_user = await db.get(User, user.id)
+    if db_user is None:  # 세션 검증~갱신 사이 행 소멸 — 사실상 도달 불가 방어선
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"detail": "유효하지 않은 사용자입니다.", "code": "INVALID_CREDENTIALS"},
+        )
+    db_user.level_group = body.level_group
+    await db.commit()
+    return MeResponse(
+        user_id=db_user.id,
+        email=db_user.email,
+        nickname=db_user.nickname,
+        is_guest=is_guest_user(db_user),
+        level_group=db_user.level_group,
     )
 
 

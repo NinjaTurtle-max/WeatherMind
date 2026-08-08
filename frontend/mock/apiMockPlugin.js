@@ -422,10 +422,38 @@ function reviewQueuePayload(nowMs = Date.now()) {
 // POST /auth/guest → true · register/login/convert 성공 → false.
 // registeredEmails는 서버 users.email 유니크 제약의 대응물 — 중복 검증용으로
 // 기존 가입 이메일 1건을 시드한다(스모크·디자인에서 409 경로 재현).
+// level_group은 서버 users.level_group의 목 대응물이다 (R13 CO-P-5). 종전에는
+// 목에 학령 자체가 없어서 "게스트는 평생 middle_high"라는 결함을 목 위 스모크로는
+// 원리적으로 볼 수 없었다 — 이제 GET/PATCH /auth/me가 서버와 같은 형태로 읽고 쓴다.
 const mockAuth = {
   isGuest: false,
+  levelGroup: 'middle_high', // 서버 GUEST_LEVEL_GROUP과 같은 무정보 기본값
   registeredEmails: new Set(['taken@weathermind.dev']),
 };
+
+// 서버 schemas/auth.LevelGroup Literal과 같은 3값 — 목이 사본을 갖는 대신
+// __mockPolicy()로 노출해 backend 계약 테스트가 실값으로 대조한다(CO-J-9).
+const LEVEL_GROUPS = ['elementary', 'middle_high', 'adult'];
+
+// 서버 routers/auth.GUEST_EMAIL_DOMAIN — 프론트 isGuestUser의 두 번째 판별 신호가
+// 이 도메인이라, 목 응답도 같은 규약을 따라야 "게스트인데 게스트가 아니라고 읽힘"이
+// 생기지 않는다(RFC 2606 예약 TLD).
+const GUEST_EMAIL_DOMAIN = 'guest.weathermind.invalid';
+const MOCK_USER_ID = '2b1c8b1e-0000-4000-8000-000000000001';
+
+/** GET/PATCH /auth/me 응답 (서버 MeResponse 5필드 — R13 CO-P-4/P-5/P-10).
+ *  서버가 "너는 누구인가"를 알려주는 유일한 경로다. 게스트 판별이 클라 상태에만
+ *  의존하면 그 상태가 유실될 때 로그아웃 경고가 사라지고(진도 영구 소실),
+ *  학령 설정 화면이 자기 현재값을 모른다. */
+const meResponse = () => ({
+  user_id: MOCK_USER_ID,
+  email: mockAuth.isGuest
+    ? `guest-${MOCK_USER_ID}@${GUEST_EMAIL_DOMAIN}`
+    : 'demo@weathermind.dev',
+  nickname: mockAuth.isGuest ? '게스트-2b1c8b' : '날씨러버',
+  is_guest: mockAuth.isGuest,
+  level_group: mockAuth.levelGroup,
+});
 
 // ── 개발자 모드 (R7-03) ─────────────────────────────────────────────────────
 // 실서버는 Settings.DEV_MODE가 꺼져 있으면 /dev/* 전 경로 404 — 목은
@@ -704,6 +732,19 @@ function curriculumPayload() {
 /** 스파인 집계 (R8-01 §3.3) — GET /progress/me의 additive spine 필드.
  *  서버 계산과 동일 정의: cleared=crown_target 도달, crowns_total=Σcrown_target,
  *  current=트리 노출 순서에서 잠기지 않은 첫 미클리어 유닛(없으면 null). */
+/**
+ * 진도 블록 유닛 = "잠기지 않은 첫 미클리어 유닛" (R13-01 §2.10).
+ * 서버 `curriculum_service.open_units_in_order`의 첫 원소(= build_curriculum이
+ * 'current'로 승격하는 유닛)와 같은 정의다. 일일 세션의 진도 블록이 이 유닛에서
+ * 나오고, **왕관도 이 유닛에 붙는다**(CO-M6: 블록 유닛 자신의 쌍을 기록한다).
+ */
+function currentProgressUnit() {
+  return (
+    UNITS.find((u) => (unitProgress.get(u.id)?.crowns ?? 0) < u.crown_target && !isUnitLocked(u))
+    ?? null
+  );
+}
+
 function spinePayload() {
   let unitsCleared = 0;
   let crownsEarned = 0;
@@ -714,8 +755,7 @@ function spinePayload() {
     crownsEarned += Math.min(crowns, u.crown_target);
     if (crowns >= u.crown_target) unitsCleared += 1;
   }
-  const current =
-    UNITS.find((u) => (unitProgress.get(u.id)?.crowns ?? 0) < u.crown_target && !isUnitLocked(u)) ?? null;
+  const current = currentProgressUnit();
   return {
     units_total: UNITS.length,
     units_cleared: unitsCleared,
@@ -723,6 +763,34 @@ function spinePayload() {
     crowns_total: crownsTotal,
     current_unit: current ? { slug: current.slug, title: current.title } : null,
   };
+}
+
+/**
+ * 왕관 대상 (concept_tag, kind) — **한 유닛에서 나온 쌍** (CO-M6 · 서버
+ * routers/session.py `_crown_target`과 같은 규칙).
+ *
+ * 발급 시점에 적어 둔 `unit_block`의 쌍을 그대로 쓴다. 두 값이 같은 유닛에서
+ * 나오므로 "concept AND kind 일치" 요구가 구조적으로 만족된다 — 예전처럼 kind는
+ * 블록 유닛에서, concept은 블록 문항 최다 태그에서 뽑으면 블록이 두 유닛에 걸칠 때
+ * 둘이 서로 다른 유닛을 가리켜 왕관이 증발한다.
+ * 쌍이 없는 세션(unit_block 미기록 = 개정 전 발급분)만 종전 방식으로 폴백한다:
+ * 블록 최다 개념(동률은 route target 우선 → 사전순) + kind 기본 'quiz'.
+ */
+function crownTargetOf(s, crownItems) {
+  const block = s.unit_block;
+  if (block?.concept_tag && block?.kind) return [block.concept_tag, block.kind];
+  const tagCounts = new Map();
+  for (const item of crownItems) {
+    tagCounts.set(item.concept_tag, (tagCounts.get(item.concept_tag) ?? 0) + 1);
+  }
+  if (tagCounts.size === 0) return [null, 'quiz'];
+  const topCount = Math.max(...tagCounts.values());
+  const tied = [...tagCounts.entries()]
+    .filter(([, count]) => count === topCount)
+    .map(([tag]) => tag)
+    .sort();
+  const routeTarget = s.route_target_concept_tag ?? null;
+  return [tied.includes(routeTarget) ? routeTarget : tied[0], 'quiz'];
 }
 
 /** 왕관 유입로 (R8-01 §3.4) — 유닛에 왕관 +1(crown_target 초과 불가).
@@ -1262,6 +1330,12 @@ function ensureSession() {
   const today = todayISO();
   const existing = sessions.get(DAILY_SESSION_ID);
   if (!existing || existing.session_date !== today) {
+    // 진도 블록 유닛을 **발급 시점에** 못 박는다 — 서버 sessions.recipe_json.unit_block
+    // (session_service.py)과 같은 4필드. 왕관 대상은 complete 시점에 문항 태그로
+    // 되짚는 것이 아니라 여기 적힌 쌍이 정한다(CO-M6: kind와 concept이 서로 다른
+    // 유닛을 가리켜 왕관이 증발하던 결함의 수리). 배합에 진도 슬롯이 있고 열린
+    // 미클리어 유닛이 있을 때만 기록한다 — 서버의 `any(kind=='unit')` 조건과 동일.
+    const blockUnit = (MOCK_SESSION_RECIPE.unit ?? 0) > 0 ? currentProgressUnit() : null;
     sessions.set(DAILY_SESSION_ID, {
       session_id: DAILY_SESSION_ID,
       session_date: today,
@@ -1270,6 +1344,14 @@ function ensureSession() {
       items: SESSION_ITEMS,
       answers: {},
       completed: false,
+      unit_block: blockUnit
+        ? {
+            unit_id: blockUnit.id,
+            unit_slug: blockUnit.slug,
+            kind: blockUnit.kind,
+            concept_tag: blockUnit.concept_tag,
+          }
+        : null,
       // Router 라우팅 결정 흉내 (backend sessions.route_decision.target_concept_tag)
       // — 데일리 만점 왕관 동률 시 이 개념 우선(R8-01 §3.4 majority_concept 정렬).
       // 목 Router는 약점 θ 최하 개념을 겨냥한다고 가정: typhoon(WEAK_TAGS 최약).
@@ -1370,13 +1452,34 @@ function startUnitSession(unitIdOrSlug) {
       mode: s.mode,
       unit_id: s.unit_id,
       unit: { id: unit.id, title: unit.title, kind: unit.kind, concept_tag: unit.concept_tag },
-      items: s.items.map(stripMock),
+      items: sessionItemsOf(s),
       progress: sessionProgress(s),
     },
   ];
 }
 
 const stripMock = ({ _mock, ...item }) => item;
+
+/**
+ * 세션 items 응답 변환 — stripMock + **재진입 복원 필드** (R13 CO-A5).
+ *
+ * `GET /session/today`는 하루 동안 멱등이라 중간 이탈 후 다시 들어오는 것이 정상
+ * 경로인데, 목이 문항별 정오를 안 실어서 프론트가 만회 큐를 복원할 수 없었다 —
+ * 그 결과 **만회 중 새로고침 = 즉시 완료**(CO-M10)를 목 위 스모크로는 원리적으로
+ * 볼 수 없었다. 서버 schemas/session.SessionItem과 같은 두 필드를 싣는다:
+ *   is_correct    최초 채점 결과. **null = 아직 안 푼 문항**.
+ *   retry_correct 만회 결과. null = 만회 시도 없음.
+ * 정답 자체(correct_answer)는 여전히 안 나간다 — 나가는 건 "맞았나/틀렸나"뿐이다.
+ */
+const sessionItemsOf = (s) =>
+  s.items.map((item) => {
+    const a = s.answers[item.quiz_id];
+    return {
+      ...stripMock(item),
+      is_correct: a ? Boolean(a.is_correct) : null,
+      retry_correct: a && a.retry_correct != null ? Boolean(a.retry_correct) : null,
+    };
+  });
 
 function gradeSessionItem(item, rawAnswer) {
   const answer = String(rawAnswer ?? '').trim();
@@ -1421,8 +1524,14 @@ const routes = {
   },
   // R11-01 J: 게스트 인증 — 서버 POST /auth/guest와 형태 동일(201 + LoginResponse
   // {access_token, refresh_token}). 드리프트는 test_auth_guest 계약이 감시한다.
-  'POST /auth/guest': () => {
+  // 바디는 **선택**이다(서버 GuestStartRequest) — 없으면 기본 middle_high.
+  // 보내면 그 학령으로 시작한다(R13 CO-P-5). 허용값 밖은 서버 pydantic이 422다.
+  'POST /auth/guest': (body) => {
+    if (body?.level_group != null && !LEVEL_GROUPS.includes(body.level_group)) {
+      return [422, { detail: '알 수 없는 학습 수준입니다.', code: 'VALIDATION_ERROR' }];
+    }
     mockAuth.isGuest = true;
+    mockAuth.levelGroup = body?.level_group ?? 'middle_high';
     return [201, { access_token: 'mock-guest-access', refresh_token: 'mock-guest-refresh' }];
   },
   // R11-01 §6.2: 게스트→정식 계정 전환 — BE-1 서버 계약 그대로.
@@ -1449,6 +1558,19 @@ const routes = {
   },
   'POST /auth/refresh': () => [200, { access_token: 'mock-access-2' }],
   'POST /auth/logout': () => [200, { success: true }],
+
+  // ── 현재 사용자 정체 (R13 CO-P-4/P-5/P-10 — 서버 routers/auth.me) ──────────
+  'GET /auth/me': () => [200, meResponse()],
+  // PATCH /auth/me {level_group} — 학령 변경. 서버가 register 하나에만 두었던
+  // writer를 **가입 이후에도** 여는 경로다: 게스트는 register를 안 타므로 이것이
+  // 없으면 평생 middle_high였다(CO-P-5). 같은 행 갱신이라 θ·XP·진도는 보존된다.
+  'PATCH /auth/me': (body) => {
+    if (!LEVEL_GROUPS.includes(body?.level_group)) {
+      return [422, { detail: '알 수 없는 학습 수준입니다.', code: 'VALIDATION_ERROR' }];
+    }
+    mockAuth.levelGroup = body.level_group;
+    return [200, meResponse()];
+  },
 
   'GET /quiz/today': () => [200, QUIZ],
   'POST /quiz/:id/answer': (body) => {
@@ -1505,7 +1627,7 @@ const routes = {
         session_id: s.session_id,
         session_date: s.session_date,
         mode: s.mode,
-        items: s.items.map(stripMock),
+        items: sessionItemsOf(s),
         progress: sessionProgress(s),
         closing_step: closingStepPayload(s.mode), // R13 A-1 additive
       },
@@ -1522,7 +1644,7 @@ const routes = {
         session_date: s.session_date,
         mode: s.mode,
         unit_id: s.unit_id ?? null,
-        items: s.items.map(stripMock),
+        items: sessionItemsOf(s),
         progress: sessionProgress(s),
       },
     ];
@@ -1667,58 +1789,58 @@ const routes = {
     // 유닛 세션(§3.2 + R8-01 §3.1): 전 문항 정답 시 왕관 +1, cleared 전환 시 +20 XP(1회).
     // unit_result는 백엔드 grant_unit_crown 반환 dict와 동일한 5필드 고정 형태
     // {all_correct, crowns, crown_target, cleared, unit_xp} — 유닛 세션이 아니면 null.
+    // **R13-01 §2.10 왕관 소유권 이전** (CO-A6/CO-J-9, 2026-08-08): 유닛 직접 진입
+    // (/learn 유닛 세션)은 이제 **연습 전용**이라 왕관을 주지 않는다 — 서버
+    // routers/session.py가 `grant_crown=False` 고정이고, 왕관 유입로는 일일 세션의
+    // 진도 블록 하나뿐이다(같은 진도에 두 번 주면 하루 1왕관 상한이 무너진다).
+    // 종전 목은 여기서 왕관을 줬고, 그래서 "목에선 클리어되는데 실서버는 안 되는"
+    // 갈림이 스모크 초록 뒤에 숨어 있었다. 진도 스냅샷(crowns·cleared)과
+    // all_correct·all_resolved 표기는 그대로 나간다(unit_xp는 서버와 같이 0).
     let unitResult = null;
     if (s.unit_id) {
       const unit = getUnit(s.unit_id);
       const prog = getUnitProgress(s.unit_id);
       const crownTarget = unit?.crown_target ?? 1;
       const allCorrect = progress.total > 0 && correctCount === progress.total;
-      let unitXp = 0;
-      if (allResolved && prog.crowns < crownTarget) {
-        prog.crowns += 1;
-        if (prog.crowns >= crownTarget && !prog.cleared_at) {
-          prog.cleared_at = new Date().toISOString();
-          unitXp = 20;
-          state.xp += 20;
-        }
-      }
       unitResult = {
         // all_correct는 **최초 시도 만점**이라는 원래 뜻을 유지한다(§2.1) —
         // 두 값이 갈리는 세션 = 만회로 클리어한 세션.
         all_correct: allCorrect,
         crowns: prog.crowns,
         crown_target: crownTarget,
-        cleared: prog.crowns >= crownTarget,
-        unit_xp: unitXp,
+        cleared: prog.cleared_at != null,
+        unit_xp: 0,
         all_resolved: allResolved,
       };
     }
-    // 데일리 왕관 유입로 (R8-01 §3.4): daily 세션 전 문항 정답이면 세션 문항 최다
-    // 개념의 "열려 있는 첫 미클리어 quiz 유닛"에 왕관 +1. 동률 규칙은 백엔드
-    // majority_concept과 동일 — route target_concept_tag 우선, 그래도 동률이면
-    // 태그 사전순(결정적). 대상 없으면 무동작(null).
+    // 데일리 왕관 유입로 (R8-01 §3.4 → R13-01 §2.10 소유권 이전).
+    //
+    // ⚠️ **판정 범위는 15문항 전건이 아니라 진도 블록(kind==='unit') 5문항이다**
+    // (CO-A6 — 서버 routers/session.py `_crown_scope_logs`). "오늘의 발견·복습·
+    // 실황"은 다양성 블록이라 유닛 진도의 근거가 아니고, 15문항 전건 해결을
+    // 요구하면 왕관이 사실상 닫힌다. 종전 목은 `allResolved`(전건)를 봤다.
+    //
+    // **진도 블록 0이면 왕관도 0**이다 — 세션 전체로 폴백하지 않는다(CO-M7:
+    // 폴백하면 기준이 5문항에서 15문항으로 조용히 올라간다).
     // placement는 제외. daily는 하루 1세션 멱등이라 파밍 자연 상한.
     let crownAward = null;
-    if (s.mode === 'daily' && allResolved) {
-      const tagCounts = new Map();
-      for (const item of s.items) {
-        tagCounts.set(item.concept_tag, (tagCounts.get(item.concept_tag) ?? 0) + 1);
+    if (s.mode === 'daily') {
+      const crownItems = s.items.filter((it) => it.kind === 'unit');
+      const crownResolved =
+        crownItems.length > 0 && crownItems.every((it) => isResolved(s.answers[it.quiz_id] ?? {}));
+      if (crownResolved) {
+        const [concept, kind] = crownTargetOf(s, crownItems);
+        const target = concept
+          ? UNITS.find(
+              (u) =>
+                u.kind === kind &&
+                u.concept_tag === concept &&
+                !isUnitLocked(u) &&
+                (unitProgress.get(u.id)?.crowns ?? 0) < u.crown_target,
+            )
+          : null;
+        crownAward = grantUnitCrown(target ?? null);
       }
-      const topCount = Math.max(0, ...tagCounts.values());
-      const tied = [...tagCounts.entries()]
-        .filter(([, count]) => count === topCount)
-        .map(([tag]) => tag)
-        .sort();
-      const routeTarget = s.route_target_concept_tag ?? null;
-      const topTag = tied.includes(routeTarget) ? routeTarget : tied[0];
-      const target = UNITS.find(
-        (u) =>
-          u.kind === 'quiz' &&
-          u.concept_tag === topTag &&
-          !isUnitLocked(u) &&
-          (unitProgress.get(u.id)?.crowns ?? 0) < u.crown_target,
-      );
-      crownAward = grantUnitCrown(target ?? null);
     }
     // 배치고사 세션(R7-01 S3): 응답 이력으로 개념별 초기 능력(θ) 배정 흉내.
     // 실서버는 IRT EAP 추정 — 목은 개념별 정답률의 결정적 선형 근사를 쓴다.
@@ -1796,7 +1918,7 @@ const routes = {
         session_id: s.session_id,
         session_date: s.session_date,
         mode: s.mode,
-        items: s.items.map(stripMock),
+        items: sessionItemsOf(s),
         progress: sessionProgress(s),
       },
     ];
@@ -2278,6 +2400,43 @@ export const __mockFixtures = () => ({
     items: buildUnitItems(u).map(stripMock),
   })),
   board_regions: BOARD_REGIONS,
+});
+
+/**
+ * 목이 **정책으로 삼는 실값** (CO-J-9 / 대장 CO-SN3 설계 선반영, 2026-08-08).
+ *
+ * `__mockFixtures()`가 "목이 내보내는 페이로드"를 노출한다면 이쪽은 "목이 그
+ * 페이로드를 만들 때 쓰는 상수·정책"을 노출한다. 목 패리티가 4도메인 중 배합
+ * 하나만 대조하고 있었고, 에너지 상수 3종은 목이 **하드코딩 리터럴로 복사**한
+ * 채 대조가 0이었다 — 서버 `Settings.CLOUD_*`가 바뀌어도 목은 조용히 옛 값으로
+ * 남는다. 왕관은 이미 행위가 갈라져 있었다(§2.10 이전).
+ *
+ * backend `tests/test_r13_mock_policy_parity.py`가 node로 이 값을 읽어 서버
+ * 실값과 대조한다. **여기 적힌 값을 테스트에 사본으로 옮기지 말 것** — 사본을
+ * 만드는 순간 이 계약은 자기 자신을 대조하게 된다.
+ */
+export const __mockPolicy = () => ({
+  // 구름 에너지 (server Settings.CLOUD_MAX·CLOUD_REGEN_MINUTES·CLOUD_COST)
+  cloud_max: CLOUD_MAX,
+  cloud_regen_minutes: CLOUD_REGEN_MS / 60000,
+  cloud_cost: CLOUD_COST,
+  // 세션 배합 (server Settings.SESSION_RECIPE)
+  session_recipe: MOCK_SESSION_RECIPE,
+  // 학령 (server schemas/auth.LevelGroup)
+  level_groups: LEVEL_GROUPS,
+  guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
+  guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN
+  // 왕관 정책 (server routers/session.py — §2.10 소유권 이전)
+  crown: {
+    // 일일 세션의 왕관 판정 범위: 15문항 전건이 아니라 진도 블록 kind
+    daily_scope_kind: 'unit',
+    // 진도 블록 0인 세션은 세션 전체로 폴백하지 않는다 (CO-M7)
+    daily_scope_fallback_to_session: false,
+    // 유닛 직접 진입은 연습 전용 — 왕관을 주지 않는다 (grant_crown=False)
+    unit_session_grants_crown: false,
+    // 왕관 대상 쌍의 출처: 발급 시점에 기록한 진도 블록 유닛 (CO-M6)
+    target_source: 'unit_block',
+  },
 });
 
 export default function apiMockPlugin() {
