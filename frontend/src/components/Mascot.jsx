@@ -8,6 +8,13 @@
  *   bolt    번개   오늘의 퀴즈 — 출제·즉각 피드백
  *   typhoon 태풍   기상 리그 — 경쟁·랭킹·시즌
  *   snow    눈결정 예보 대결
+ *   rainbow 무지개 화면 담당 없음 — 개념 전용(밀도와 부력). 2026-08-08 합류
+ *   moon    달님   화면 담당 없음 — 개념 전용(열의 이동). 2026-08-08 합류
+ *
+ * 뒤의 둘은 **화면이 아니라 개념에 붙는다**. 기초과학 코스가 들어오면서 개념
+ * 태그가 6종 늘었는데 그림은 6장뿐이라 전부 구름으로 떨어졌다(conceptCharacter의
+ * 폴백) — 홈의 복습·최근 활동 줄이 전부 같은 얼굴이었다. 배정표는
+ * `conceptCharacter.js`가 소유한다.
  *
  * 이전 마스코트(노란 고양이 「썬더」)는 폐기됐다. 호출부가 public 경로를 직접
  * 참조하면 캐릭터가 바뀔 때마다 화면 곳곳을 고쳐야 하므로 여기 한 곳으로 모은다.
@@ -28,6 +35,8 @@ const SRC = {
   bolt: '/bolt.png',
   typhoon: '/typhoon.png',
   snow: '/snow.png',
+  rainbow: '/rainbow.png',
+  moon: '/moon.png',
 };
 
 const LABEL = {
@@ -37,6 +46,8 @@ const LABEL = {
   bolt: '번개',
   typhoon: '태풍이',
   snow: '눈결정',
+  rainbow: '무지개',
+  moon: '달님',
 };
 
 export const MASCOT_NAMES = LABEL;

@@ -29,13 +29,24 @@ import { conceptLabel, useT } from '../../i18n';
  */
 
 // 표시명은 concept.* 리소스(i18n) — 여기는 아이콘만 남긴다.
+// 기초과학 6종은 2026-08-08 추가. 그 전에는 표에 없어 전부 폴백('📘')이라
+// 기초과학 코스의 유닛 노드가 죄다 같은 책 아이콘이었다.
+// 캐릭터 배정(conceptCharacter.js)과 짝을 맞춘다 — 밀도와 부력 🌈 · 열의 이동 🌙.
 const CONCEPT_ICON = {
+  // 날씨 코스(weather)
   pressure_front: '🌀',
   typhoon: '🌪️',
   air_mass: '🧊',
   heat_island: '🏙️',
   co2_climate: '🌡️',
   anomaly: '⚡',
+  // 기초과학 코스(basic-science)
+  temperature_heat: '🌡️',
+  radiation_budget: '☀️',
+  pressure_basics: '🎈',
+  density_buoyancy: '🌈',
+  phase_change: '💧',
+  energy_transfer: '🌙',
 };
 
 // 세로 경로의 좌우 지그재그 오프셋(%) — 섹션 내 유닛 순서로 순환
