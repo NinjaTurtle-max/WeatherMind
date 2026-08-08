@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sessionApi } from '../../api';
 import { SESSION_STATUS, useSessionStore } from '../../store/sessionStore';
@@ -111,6 +111,8 @@ export default function SessionRunner({
     retryItem,
     advanceBulk,
     showSummary,
+    setError,
+    startLoading,
     reset,
   } = useSessionStore();
   const addXp = useProgressStore((s) => s.addXp);
@@ -160,6 +162,19 @@ export default function SessionRunner({
   useEffect(() => {
     if (session && status === SESSION_STATUS.LOADING) setSession(session);
   }, [session, status, setSession]);
+
+  /**
+   * 로드 실패를 상태머신에 배선한다 (CO-S-1 / CO-M4, 2026-08-08).
+   *
+   * `sessionStore.setError`의 호출자가 **0건**이라 `SESSION_STATUS.ERROR`가 도달
+   * 불가였고, store가 초기값 LOADING에 머무는 동안 아래 렌더 가드가 `isLoading`을
+   * 먼저 보는 바람에 **429·403 UNIT_LOCKED·500·503이 전부 무한 스피너 한 종류로
+   * 수렴**했다(7초 실측). react-query v5의 useQuery에는 onError가 없으므로 이
+   * 이펙트가 유일한 배선 지점이다.
+   */
+  useEffect(() => {
+    if (isError && status === SESSION_STATUS.LOADING) setError(error ?? null);
+  }, [isError, error, status, setError]);
 
   const shownAtRef = useRef(Date.now());
   useEffect(() => {
@@ -364,23 +379,110 @@ export default function SessionRunner({
   };
 
   // ── 렌더 ──
-  if (isLoading || status === SESSION_STATUS.LOADING) {
-    return <LoadingSpinner label={t('session.loading')} />;
-  }
-
+  // ⚠️ **에러가 로딩보다 먼저다**(CO-S-1). 종전에는 `isLoading || status===LOADING`이
+  // 위에 있어서, 로드가 실패해도 store가 LOADING에 남아 있는 한 스피너가 이겼다.
+  // 실패는 실패로 보여야 한다 — 이 순서를 되돌리면 무한 스피너가 되살아난다.
   if (isError || status === SESSION_STATUS.ERROR) {
+    // 실패의 **종류**를 가른다(CO-M4): 429 구름 소진 · 403 선행 잠금 · 그 밖.
+    // 종전에는 OUT_OF_CLOUDS 전용 처리가 answer 뮤테이션에만 있었는데 현행 정책상
+    // answer는 429를 못 낸다(소모가 예외를 안 던진다) — 그 분기는 죽어 있었고
+    // 실제 429는 여기, **로드 경로**에서 난다.
+    const code = error?.code;
+    if (code === 'OUT_OF_CLOUDS') {
+      // 회복 ETA는 429 본문의 next_regen_sec(ApiError.body) — CurriculumHome의
+      // regenMin과 같은 산식. 재시도 버튼을 두지 않는다: 눌러도 다시 429다.
+      const min = Math.max(1, Math.ceil((error?.body?.next_regen_sec ?? 0) / 60));
+      const clouds = error?.body?.clouds;
+      const max = error?.body?.max;
+      return (
+        <div
+          data-session-error="OUT_OF_CLOUDS"
+          className="mt-16 rounded-2xl bg-rose-50 p-6 text-center ring-1 ring-rose-200"
+        >
+          <p className="text-3xl">☁️</p>
+          <p className="mt-2 font-extrabold text-rose-700">{t('session.outOfClouds.title')}</p>
+          {typeof clouds === 'number' && typeof max === 'number' && (
+            <p className="mt-1 text-sm font-bold text-rose-600">{`${clouds} / ${max}`}</p>
+          )}
+          <p className="mt-1 text-sm leading-relaxed text-rose-600">
+            {t('session.outOfClouds.body', { min })}
+          </p>
+          <Link
+            to="/learn"
+            className="mt-4 inline-block rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-rose-700"
+          >
+            {t('session.outOfClouds.cta')}
+          </Link>
+        </div>
+      );
+    }
+    if (code === 'UNIT_LOCKED') {
+      return (
+        <div
+          data-session-error="UNIT_LOCKED"
+          className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200"
+        >
+          <p className="text-3xl">🔒</p>
+          <p className="mt-2 font-extrabold text-slate-800">{t('session.unitLocked.title')}</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {error?.detail ?? t('session.unitLocked.body')}
+          </p>
+          <Link
+            to="/learn"
+            className="mt-4 inline-block rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
+          >
+            {t('session.unitLocked.cta')}
+          </Link>
+        </div>
+      );
+    }
     return (
-      <div className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
+      <div
+        data-session-error="GENERIC"
+        className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200"
+      >
         <p className="text-3xl">🌧️</p>
         <p className="mt-2 font-bold text-slate-800">{t('session.loadFailed')}</p>
         <p className="mt-1 text-sm text-slate-500">{error?.detail ?? t('common.retryLater')}</p>
         <button
           type="button"
-          onClick={() => refetch()}
+          onClick={() => {
+            startLoading(); // ERROR → LOADING으로 되돌려야 setSession 이펙트가 다시 문다
+            refetch();
+          }}
           className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
         >
           {t('common.retry')}
         </button>
+      </div>
+    );
+  }
+
+  if (isLoading || status === SESSION_STATUS.LOADING) {
+    return <LoadingSpinner label={t('session.loading')} />;
+  }
+
+  /**
+   * 0문항 세션 (CO-S-3) — 서버는 **200으로** 빈 세션을 돌려줄 수 있다(성인×기초과학
+   * 8유닛 = CO-L2, 밴드 강등 폴백 부재). 자동완료 이펙트에 `total > 0` 가드가 있어
+   * complete가 영원히 안 나가고 QuestionCard도 null이라, 본문이 문자 그대로
+   * "문항 0 / 0"인 화면에 갇혔다. 성공 응답이므로 위 에러 분기로는 안 잡힌다.
+   */
+  if (!bulkMode && status === SESSION_STATUS.IN_PROGRESS && items.length === 0 && !summary) {
+    return (
+      <div
+        data-session-error="EMPTY"
+        className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200"
+      >
+        <p className="text-3xl">🌤️</p>
+        <p className="mt-2 font-extrabold text-slate-800">{t('session.empty.title')}</p>
+        <p className="mt-1 text-sm text-slate-500">{t('session.empty.body')}</p>
+        <Link
+          to="/learn"
+          className="mt-4 inline-block rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
+        >
+          {t('session.empty.cta')}
+        </Link>
       </div>
     );
   }
@@ -576,7 +678,11 @@ export default function SessionRunner({
                       : t('session.next')}
           </button>
           {!outOfClouds && !answerState._alreadyAnswered && (
-            <FeedbackPanel message={answerState.feedback} isCorrect={answerState.is_correct} />
+            <FeedbackPanel
+              message={answerState.feedback}
+              isCorrect={answerState.is_correct}
+              source={answerState.feedback_source}
+            />
           )}
           <div className="h-40" />
         </>

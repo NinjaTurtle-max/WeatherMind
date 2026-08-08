@@ -57,7 +57,12 @@ const brainSrc = readFileSync(
 );
 
 function parsePyTuple(name) {
-  const m = brainSrc.match(new RegExp(`${name}[^=]*=\\s*\\(([^)]*)\\)`));
+  // ⚠️ **정의행에만** 걸어야 한다(줄 시작 앵커 + 타입 주석 허용).
+  // 앵커가 없으면 같은 이름을 언급하는 **주석**(weatherbrain_service.py:80·207)에
+  // 먼저 걸려 값이 NaN이 된다 — 2026-08-08 감사가 잡은 이 파일 자신의 버그다.
+  const m = brainSrc.match(
+    new RegExp(`^${name}\\s*(?::[^=]*)?=\\s*\\(([^)]*)\\)`, 'm'),
+  );
   assert(m, `${name}을 backend weatherbrain_service.py에서 찾지 못했다 — 상수 이름이 바뀌었나?`);
   return m[1]
     .split(',')

@@ -96,7 +96,11 @@ export default {
     viewPath: '학습 경로 보기',
   },
   feedback: {
+    // 배지는 해설의 **출처**다(AnswerResult.feedback_source) — CO-I-1 후속.
+    // 사람이 저작한 158건을 "AI 피드백"으로 찍으면 배점 ⑤ 표기가 틀어진다.
     ai: 'AI 피드백',
+    authored: '개념 해설',
+    board: '판정 근거',
   },
   forecast: {
     numeric: '모든 값을 숫자로 입력해주세요.',
@@ -456,6 +460,12 @@ export default {
     outOfClouds: {
       title: '☁️ 구름이 모두 흩어졌어요',
       body: '구름은 틀린 문항에만 1개 줄어들어요. 약 {min}분 후 1개가 회복되면 새 세션을 열 수 있어요.',
+      cta: '학습 경로로 돌아가기 →',
+    },
+    // CO-S-1: 403 UNIT_LOCKED도 무한 스피너로 수렴했다 — 잠금은 잠금으로 보여야 한다
+    unitLocked: {
+      title: '🔒 아직 열리지 않은 유닛이에요',
+      body: '선행 유닛을 먼저 완료하면 이 유닛이 열려요.',
       cta: '학습 경로로 돌아가기 →',
     },
     progressTitle: '오늘의 세션',

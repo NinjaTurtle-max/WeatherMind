@@ -247,6 +247,20 @@ async def build_feedback(
     )
 
 
+def feedback_source(question: dict) -> str:
+    """`build_feedback`이 어느 갈래를 탈지 **미리** 말한다 (순수 함수).
+
+    같은 우선순위를 두 번 적으면 갈라진다 — 그래서 분기 조건만 여기 모으고
+    `build_feedback`은 텍스트를, 이 함수는 라벨을 낸다. 둘이 어긋나면
+    `tests/test_feedback_source.py`가 잡는다.
+    """
+    if question.get("question_type") == "board":
+        return "board"
+    if str(question.get("explanation_hint") or "").strip():
+        return "authored"
+    return "ai"
+
+
 async def submit_retry_for_log(
     db: AsyncSession, user: User, log: QuizLog, answer: str
 ) -> AnswerResult:
@@ -292,6 +306,7 @@ async def submit_retry_for_log(
         is_correct=is_correct,
         correct_answer=str(question.get("correct_answer", "")),
         feedback=feedback,
+        feedback_source=feedback_source(question),
         xp_earned=0,
         xp_base=0,
         xp_weak_bonus=0,
@@ -406,6 +421,7 @@ async def submit_answer_for_log(
         is_correct=is_correct,
         correct_answer=str(question.get("correct_answer", "")),
         feedback=feedback,
+        feedback_source=feedback_source(question),
         xp_earned=xp_earned,
         xp_base=xp_base,
         xp_weak_bonus=xp_weak_bonus,

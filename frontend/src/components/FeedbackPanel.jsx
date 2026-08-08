@@ -4,7 +4,14 @@ import Mascot from './Mascot';
 /**
  * FeedbackPanel (04번 스펙) — RAG 피드백 표시용 슬라이드업 패널.
  * 세션 경로 공용 — props로 message, isCorrect를 받는다.
- * message 본문은 서버(RAG) 파생 — 외부화 대상 아님(§6.3 시드/서버 데이터 제외).
+ * message 본문은 서버 파생 — 외부화 대상 아님(§6.3 시드/서버 데이터 제외).
+ *
+ * ⚠️ **배지는 출처를 말한다**(CO-I-1 후속, 2026-08-08). 종전에는 무조건
+ * `feedback.ai`("AI 피드백")를 찍었는데, `explanation_hint` 158건이 배선된 뒤로는
+ * **사람이 저작한 해설**과 **board 판정 근거**가 같은 배지 아래로 나갔다 — 심사
+ * 배점 ⑤(생성형 AI 활용)에 직결되는 표기 오류다. 서버가 `AnswerResult.feedback_source`
+ * ("board"|"authored"|"ai")로 출처를 알려주므로 그것으로 라벨을 고른다.
+ * 필드가 없는 구 응답은 종전대로 'ai'로 떨어진다(하위 호환).
  *
  * R13-01 §2.6(교사 캐릭터): 화자를 정오답에 따라 갈랐다. 예전에는 캐릭터가
  * 한 종(번개)뿐이라 "포즈가 1종이니 그림을 바꾸지 않는다"고 적어 뒀지만, 지금은
@@ -15,7 +22,14 @@ import Mascot from './Mascot';
  */
 const SPEAKER = { correct: 'sun', wrong: 'cloud' };
 
-export default function FeedbackPanel({ message, isCorrect }) {
+/** feedback_source → 배지 리소스 키. 미지 값·부재는 'ai'(구 응답 하위 호환). */
+const SOURCE_LABEL_KEY = {
+  ai: 'feedback.ai',
+  authored: 'feedback.authored',
+  board: 'feedback.board',
+};
+
+export default function FeedbackPanel({ message, isCorrect, source }) {
   const t = useT();
   if (!message) return null;
 
@@ -44,8 +58,11 @@ export default function FeedbackPanel({ message, isCorrect }) {
               aria-hidden="true"
               className={`absolute -left-[5px] top-5 h-2.5 w-2.5 rotate-45 border-b border-l bg-slate-50 ${tone.tail}`}
             />
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${tone.badge}`}>
-              {t('feedback.ai')}
+            <span
+              data-feedback-source={source ?? 'ai'}
+              className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${tone.badge}`}
+            >
+              {t(SOURCE_LABEL_KEY[source] ?? SOURCE_LABEL_KEY.ai)}
             </span>
             <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-700">
               {message}

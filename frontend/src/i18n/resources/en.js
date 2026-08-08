@@ -86,6 +86,8 @@ export default {
   },
   feedback: {
     ai: 'AI Feedback',
+    authored: 'Concept Note',
+    board: 'Verdict',
   },
   forecast: {
     numeric: 'Please enter numbers for all fields.',
@@ -421,6 +423,11 @@ export default {
     outOfClouds: {
       title: '☁️ Your clouds have scattered',
       body: 'Clouds are spent only on wrong answers. One returns in about {min} min, and then you can start a new session.',
+      cta: 'Back to learning path →',
+    },
+    unitLocked: {
+      title: "🔒 This unit isn't open yet",
+      body: 'Finish the prerequisite unit and this one unlocks.',
       cta: 'Back to learning path →',
     },
     progressTitle: "Today's session",

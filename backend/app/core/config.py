@@ -150,7 +150,17 @@ settings = get_settings()
 # ai-worker `llm_configured()` 선례: 값에 아래 마커가 포함되면 미설정 기본값으로
 # 간주한다(.env.example의 "changeme" 계열). 판정만 여기서 하고, 경고(dev)/기동
 # 거부(비-dev) 분기는 main.py lifespan이 담당한다 — 교차 계약 ③.
-SECRET_PLACEHOLDER_MARKERS = ("changeme", "발급받은", "your-", "placeholder")
+# `weathermind_app_dev`는 init.sql이 만드는 **앱 롤의 dev 비밀번호**다. 공개 저장소에
+# 평문으로 있으므로(CO-Q-11) placeholder로 취급한다 — 그러면 비-dev 기동 시
+# `insecure_secret_defaults`가 걸어 **운영 배포 전 `ALTER ROLE`을 강제**한다.
+# CO-J-2 수리로 `.env.example`의 DATABASE_URL이 앱 롤이 되면서 이 자리가 생겼다.
+SECRET_PLACEHOLDER_MARKERS = (
+    "changeme",
+    "발급받은",
+    "your-",
+    "placeholder",
+    "weathermind_app_dev",
+)
 
 # 유출·오설정 시 피해가 큰 시크릿성 설정만 감시한다 (기본값이 changeme 계열인 3개).
 GUARDED_SECRET_NAMES = ("DATABASE_URL", "JWT_SECRET_KEY", "AI_WORKER_INTERNAL_API_KEY")

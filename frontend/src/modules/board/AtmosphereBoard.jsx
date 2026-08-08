@@ -301,7 +301,11 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   // 같은 국면으로 두 번 스크롤하지 않는다(리렌더마다 화면이 튄다). 미리보기 성공과
   // 서버 확정은 **다른 장면**이라 각각 한 번씩 안내한다.
   const scrolledFor = useRef(null);
-  const scrollPhase = confirmedPhenomena ? 'confirmed' : goals.passed ? 'preview' : null;
+  // CO-K7: 목표가 **없는** 판(자유 실험 SANDBOX_PUZZLE.goal_conditions=[])에서는
+  // JS `checkGoals`가 빈 목표를 `passed:true`로 돌려주므로, 아무것도 안 했는데
+  // 마운트 즉시 단면 패널로 화면이 튀었다. 달성할 목표가 있어야 "달성"이다.
+  const hasGoals = (puzzle?.goal_conditions?.length ?? 0) > 0;
+  const scrollPhase = confirmedPhenomena ? 'confirmed' : hasGoals && goals.passed ? 'preview' : null;
   useEffect(() => {
     scrolledFor.current = null; // 재도전·다른 퍼즐이면 다시 안내한다
   }, [attemptKey, puzzle]);

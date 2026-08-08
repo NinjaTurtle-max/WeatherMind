@@ -87,8 +87,28 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 | Gemini 응답 JSON 파싱 실패 | 모델이 설명 텍스트 추가 | OutputFixingParser + 프롬프트에 "JSON만" 강조 |
 | ai-worker 시드 파일 없음 | 볼륨 마운트 누락 | compose의 `./database/seed:/app/database/seed:ro` 확인 또는 `CLIMATE_CONCEPTS_PATH` 지정 |
 
+## 적응 학습 엔진(WeatherBrain) — 검증된 범위
+
+숫자를 인용할 때 **그 숫자가 무엇의 지표인지**까지 함께 적는다. 발표·대외 문안의
+정본은 `docs/MENTORING_ALIGNMENT.md`이고, 아래는 그 요약이다.
+
+| 구성 | 무엇인가 | 검증된 것 |
+|---|---|---|
+| **능력 추정 θ** (`ai-worker/app/weatherbrain/irt.py`) | **변별도를 고정한 2PL** 문항반응이론(a=1.0 고정이므로 실질 라쉬 모형 — 희소 데이터에서 a 동시추정이 불안정해 v1에서 분리). 격자 EAP, 순수 파이썬 | 알려진 θ·b로 응답을 합성해 표준오차 이내 복원(`tests/test_weatherbrain_irt.py`) |
+| **지식추적 BKT** (`knowledge_tracing.py`) | 개념별 P(숙련) 추정. `/progress/mastery` → WeatherBrain 패널까지 배선됨 | 합성 학습자 200명으로 4모수를 절대오차 **0.017**로 복원, **잠재 숙련 상태 판별** AUC **0.93**. 적합 시드와 평가 시드 분리 |
+
+**이 검증이 말하지 않는 것** — 먼저 적는다:
+
+- 실학습자가 BKT를 따르는지는 증명하지 않았다(합성 데이터는 BKT 생성과정으로 만들었다).
+  실학습자 교차검증은 **8/11~18 실운영 로그**로 예정돼 있다.
+- **다음 응답 예측** AUC는 별도 지표로 **0.697~0.816**이다. 위 0.93은 예측 정확도가
+  아니다.
+- 프로덕션은 아직 적합 모수가 아니라 중립 사전값으로 돈다
+  (`/progress/mastery`의 `params_source == "prior"`). 재적합은 8/18.
+
 ## 이번 라운드 범위 밖 (로드맵)
 
 - detective 모듈 (Phase 3) — 프론트 디렉토리만 유지, 라우트 미등록
-- WeatherBrain IRT (로드맵 2단계) — 콜드스타트는 weak_tags 정답률 기반 Router로 동작
+- AI 캐스터 롤플레이 — `ROADMAP` §2 마일스톤 4의 장기 정의에 있으나 **미구현**
+  (완료 판정 범위 밖 — `docs/ROADMAP.md` §1)
 - 실기동 통합 테스트 — 실제 KMA/Gemini API 키 발급 후 진행

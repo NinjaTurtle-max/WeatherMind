@@ -47,7 +47,9 @@ export default function Layout() {
   const isWide =
     pathname === '/'
     || pathname === '/learn'
-    || pathname === '/explore'
+    // CO-S-10: `/explore`만 있어서 `/explore/typhoon`·`/explore/climate`는 목록에
+    // 없었다 — 카드를 누르는 순간 본문이 1152 → 576px로 접혔다. 하위 경로까지 본다.
+    || pathname.startsWith('/explore')
     || pathname === '/duel'
     || pathname === '/league'
     || pathname === '/me'
@@ -62,8 +64,6 @@ export default function Layout() {
   const syncGate = useOnboardingGate((s) => s.syncFromProgress);
   const recordSessionComplete = useOnboardingGate((s) => s.recordSessionComplete);
   const resetGate = useOnboardingGate((s) => s.reset);
-  const unlockToast = useOnboardingGate((s) => s.toast);
-  const clearUnlockToast = useOnboardingGate((s) => s.clearToast);
 
   const sessionStatus = useSessionStore((s) => s.status);
   const sessionSummary = useSessionStore((s) => s.summary);
@@ -91,11 +91,6 @@ export default function Layout() {
     recordSessionComplete(sessionId);
   }, [sessionStatus, sessionSummary, sessionId, recordSessionComplete]);
 
-  useEffect(() => {
-    if (!unlockToast) return undefined;
-    const t = setTimeout(clearUnlockToast, 3200);
-    return () => clearTimeout(t);
-  }, [unlockToast, clearUnlockToast]);
 
   const handleLogout = async () => {
     try {
@@ -151,15 +146,11 @@ export default function Layout() {
         </div>
       </header>
 
-      {/* 잠금 해제 축하 토스트 (§3.4) — 1회성, 3.2초 후 자동 소멸 */}
-      {unlockToast && (
-        <div
-          role="status"
-          className="fixed left-1/2 top-16 z-50 -translate-x-1/2 animate-xp-pop rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-lg"
-        >
-          {unlockToast}
-        </div>
-      )}
+      {/* 잠금 해제 축하 토스트(§3.4)는 **걷어냈다** (CO-N-1 ③, 2026-08-08).
+          FeatureUnlockGate가 사라져 보드·예보 대결·리그가 처음부터 열려 있으므로
+          "🧩 대기 보드가 열렸어요!"는 일어나지 않은 일을 알리는 문구가 된다.
+          토스트를 만드는 쪽(onboardingGate.recordSessionComplete)은 그대로 두고
+          렌더만 끊는다 — 그 모듈은 일일 목표 선택지도 함께 소유한다. */}
 
         {/* 헤더/탭바 높이만큼 여백 확보 — 탭바는 md↑에서 숨으므로 하단 여백을 줄인다 */}
         <main className="flex-1 px-4 pb-20 pt-16 md:pb-8">

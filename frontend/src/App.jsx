@@ -1,8 +1,10 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
+import client from './api/client';
+import { translate, getCurrentLocale } from './i18n/core.js';
+import LoadingSpinner from './components/LoadingSpinner';
 import Layout from './components/Layout';
-import FeatureUnlockGate from './components/FeatureUnlockGate';
 import SessionPage from './modules/session/SessionPage';
 import HomePage from './modules/home/HomePage';
 import CurriculumHome from './modules/curriculum/CurriculumHome';
@@ -32,16 +34,81 @@ const DevPanel = lazy(() => import('./modules/dev/DevPanel'));
  * R7-01 S3: 온보딩 배치고사(/onboarding/placement)는 인증 필요하되 Layout(탭바) 밖
  * 전체 화면 — 가입 직후 진입, 건너뛰기 가능.
  *
- * R10-01 §3.4 (S4 — R10-F): 점진적 잠금 해제는 라우트를 없애지 않는다. 보드·예보
- * 대결·리그는 FeatureUnlockGate로 감싸 세션 완료 횟수가 모자라면 페이지 대신
- * **동기 부여 화면**(기능 설명 + 가치 + 해제 조건 + 세션 시작 CTA)을 보여준다.
- * 조건을 넘으면 원래 페이지가 그대로 렌더된다(자물쇠·차단 없음, 표시 계층 전용).
- * 하위 경로(/explore/*)는 게이트 밖 — 보드 진입 카드에서만 도달하므로 이중 안내
- * 불필요.
+ * ~~R10-01 §3.4 (S4 — R10-F)~~ **해제됨 (CO-N-1 ③, 2026-08-08)**: 보드·예보 대결·
+ * 리그를 `FeatureUnlockGate`(세션 1·2·3회)로 감싸 동기 부여 화면을 먼저 보여 주던
+ * 것을 걷어냈다. 근거는 심사 배점이다 — 배점 ②(체험·참여형 25점)의 문면이
+ * "단순 퀴즈·정답 맞히기를 **넘어**"인데, 콜드 오픈 3클릭으로 닿는 것이 객관식
+ * 퀴즈뿐이었다. 게이트는 `lib/onboardingGate.js:15-22`가 스스로 밝히듯 **순수 표시
+ * 계층**(서버 권한 아님·라우트 미차단)이라 제거해도 로직이 깨지지 않는다.
+ * 게이트 모듈 자체는 남는다 — 일일 목표 선택지(DAILY_GOAL_CHOICES)를 소유한다.
  */
+/**
+ * 자동 게스트 발급 (CO-N-1 ①, 2026-08-08) — **「로그인 없이 열려야」 규정 대응**.
+ *
+ * 종전에는 토큰이 없으면 곧장 `/login`으로 튕겼다. 대회 규정은 심사위원이 계정
+ * 없이 URL만으로 서비스를 열 수 있어야 한다고 요구하고, 우리는 이미 서버에
+ * `POST /auth/guest`(실 유저 + 실 JWT)를 갖고 있다 — 첫 진입에서 그것을 대신
+ * 눌러 준다. 딥링크가 보존되므로 `/explore`로 바로 들어온 심사위원은 `/explore`에
+ * 도착한다(LoginPage의 명시적 게스트 CTA만 배치고사로 보낸다 — 그 동선은 불변).
+ *
+ * 중복 발급 방지가 이 모듈 스코프 두 변수의 전부다:
+ *   - `guestAttempted`: **한 번 시도했으면 다시 시도하지 않는다.** 실패 시 무한
+ *     재시도를 막고, 더 중요하게는 **로그아웃**을 막는다 — 보호 라우트에서
+ *     토큰이 지워졌을 때 이 플래그가 없으면 조용히 새 게스트를 발급해 로그아웃이
+ *     동작하지 않는다.
+ *   - `guestPromise`: StrictMode 이중 마운트·동시 렌더가 한 요청을 공유한다.
+ */
+let guestAttempted = false; // 이 페이지 로드에서 이미 시도했는가(또는 토큰을 본 적 있는가)
+let guestSettled = false; // 그 시도가 끝났는가(성공이면 토큰이, 실패면 /login이 다음 화면)
+let guestPromise = null; // StrictMode 이중 실행·동시 렌더가 공유하는 단일 요청
+
+/** 테스트 전용 — 다음 진입에서 자동 발급을 다시 시도할 수 있게 되돌린다. */
+export function resetGuestAutoIssue() {
+  guestAttempted = false;
+  guestSettled = false;
+  guestPromise = null;
+}
+
+function issueGuestOnce() {
+  if (!guestPromise) {
+    guestPromise = client
+      .post('/auth/guest')
+      .then(({ data }) => {
+        const store = useAuthStore.getState();
+        store.setTokens({ accessToken: data.access_token, refreshToken: data.refresh_token });
+        store.setUser({ nickname: translate(getCurrentLocale(), 'auth.login.guestNickname'), is_guest: true });
+        return true;
+      })
+      .catch(() => false);
+  }
+  return guestPromise;
+}
+
 function RequireAuth() {
   const accessToken = useAuthStore((s) => s.accessToken);
-  if (!accessToken) return <Navigate to="/login" replace />;
+  const [, bump] = useState(0); // 모듈 스코프 플래그가 바뀐 뒤 한 번 다시 그린다
+
+  useEffect(() => {
+    // 토큰을 한 번이라도 본 순간 "시도 완료"로 못박는다 — 이후 **로그아웃으로
+    // 토큰이 지워져도 새 게스트를 발급하지 않는다**(로그아웃이 안 되는 회귀 방지).
+    if (accessToken) {
+      guestAttempted = true;
+      guestSettled = true;
+      return;
+    }
+    if (guestAttempted) return;
+    guestAttempted = true;
+    issueGuestOnce().then(() => {
+      guestSettled = true;
+      bump((n) => n + 1);
+    });
+  }, [accessToken]);
+
+  if (!accessToken) {
+    // 시도가 끝났는데도 토큰이 없다 = 발급 실패(또는 로그아웃) → 종전 폴백 유지.
+    if (guestSettled) return <Navigate to="/login" replace />;
+    return <LoadingSpinner label={translate(getCurrentLocale(), 'auth.login.guestStarting')} />;
+  }
   return (
     <>
       <Outlet />
@@ -100,34 +167,14 @@ export default function App() {
           <Route path="/learn" element={<CurriculumHome />} />
           <Route path="/learn/units/:unitId" element={<UnitSessionPage />} />
           <Route path="/daily" element={<SessionPage />} />
-          <Route
-            path="/board"
-            element={
-              <FeatureUnlockGate to="/board">
-                <BoardPage />
-              </FeatureUnlockGate>
-            }
-          />
-          {/* R9-01 §3.5: 탐구 시뮬 v1 — 순수 클라이언트 모듈(진입은 BoardPage 카드) */}
+          <Route path="/board" element={<BoardPage />} />
+          {/* R9-01 §3.5: 탐구 시뮬 v1 — 순수 클라이언트 모듈. 진입은 BoardPage 카드
+              **와 내비 「탐구」 탭**(CO-N-1 ②, 2026-08-08). */}
           <Route path="/explore" element={<ExploreHome />} />
           <Route path="/explore/typhoon" element={<TyphoonSimPage />} />
           <Route path="/explore/climate" element={<ClimateSimPage />} />
-          <Route
-            path="/duel"
-            element={
-              <FeatureUnlockGate to="/duel">
-                <DuelPage />
-              </FeatureUnlockGate>
-            }
-          />
-          <Route
-            path="/league"
-            element={
-              <FeatureUnlockGate to="/league">
-                <LeaguePage />
-              </FeatureUnlockGate>
-            }
-          />
+          <Route path="/duel" element={<DuelPage />} />
+          <Route path="/league" element={<LeaguePage />} />
           <Route path="/me" element={<ProgressPage />} />
         </Route>
       </Route>

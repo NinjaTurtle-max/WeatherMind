@@ -43,6 +43,13 @@ from app.services.weather_api import KST
 MODE_UNIT = "unit"
 UNIT_SESSION_SIZE = settings.UNIT_SESSION_SIZE   # 기본 5 — env 튜닝(R5.5)
 
+# 유닛 풀 선취 배수 (CO-L-F2) — θ 경로에서 SQL LIMIT을 UNIT_SESSION_SIZE의 이 배로
+# 잡는다. SQL은 밴드 해상도(|b−θ|)로만 자를 수 있어, 5건에서 끊으면
+# `rank_by_knowledge_level`이 지식 수준으로 다시 세울 후보가 남지 않기 때문이다.
+# **계약 수치가 아니라 조회 여유분**이라 env 노브를 두지 않는다(최대 20행 — 유닛당
+# 조회 횟수는 2회 그대로이므로 왕복 비용은 불변).
+UNIT_POOL_PREFETCH = 4
+
 # §0 제품 결정의 4섹션 교육적 순서 (섹션 정렬 키 — DB 컬럼 없이 표현).
 # 미등재 섹션은 뒤로(알파벳). unit_order는 섹션 내 유일(§3.6).
 SECTION_ORDER = (
@@ -627,6 +634,84 @@ async def is_unit_locked(
     )
 
 
+def unit_pool_level_groups(user_level_group: str, theta: float | None) -> list[str]:
+    """유닛 풀의 밴드 필터 집합 — **밴드 공백에 대한 폴백** (CO-L2·CO-L-F2·CO-L-F3).
+
+    `session_service.pool_level_groups`(가입 그룹 ∪ θ 매핑 그룹, 최대 2밴드)를
+    유닛 풀에서만 넓힌다. 넓히는 이유는 실측이다 — 유닛 24개 × 4밴드 96칸 중
+    **24칸이 0문항**(신고 가능한 3밴드로만 세도 17칸)이고, 밴드 정확 일치 필터에는
+    강등 폴백이 없어 그 칸에 떨어진 유저는 **0문항 세션**을 받는다:
+      · adult(=지식 수준 5 단독 28건)에 basic-science 6태그가 **전건 0** →
+        성인 유저는 bs 8유닛 전부 0문항(`docs/specs/11:97` "level_group 3종 전부
+        저작" 직접 위반). `wildfire_weather`도 adult 0건.
+      · elementary에 `air_mass`·`anomaly`·`wildfire_weather`·`flood_response`
+        board가 0건 → 초등 유저는 그 board 유닛에서 영구 정체.
+    유닛 세션에는 daily의 quiz-generate 폴백이 **없다**(`create_unit_session`
+    독스트링) — 0문항은 복구되지 않는다.
+
+    **θ가 있을 때만 넓힌다.** θ 경로에서는 `build_pool_query`가 `|b − θ|`
+    오름차순으로 정렬하므로, 밴드를 전부 열어도 **자기 난이도에 가장 가까운
+    밴드가 먼저 나오고** 먼 밴드는 앞이 마를 때만 닿는다. 즉 넓힘이 풀을 흐리지
+    않고 **빈 칸에만 작용**한다. 반대로 콜드스타트(θ None)는 정렬이 random이라
+    넓히면 학령 표적이 통째로 무너지므로 **오늘 그대로 둔다**(가입 그룹 단일).
+    실사용에서 θ None은 `seed_placement`가 실패한 유저뿐이다 — 가입·게스트 발급이
+    개념별 θ 행을 만들고 `overall_theta`는 abilities가 빌 때만 None이다.
+
+    **강등/승격 방향은 이 함수가 정하지 않는다.** 넓힘은 대칭이고(전 밴드), 어느
+    쪽을 먼저 줄지는 거리 정렬이 판단한다 — 1차로 SQL의 `|b − θ|`, 2차로
+    `rank_by_knowledge_level`의 `|kl − 단계|`. 방향을 여기 상수로 박으면 θ가 자기
+    학령을 넘어선 유저에게 계속 쉬운 문항이 가거나(사다리 = 쉬운 쪽 고정) 그
+    반대로 학습자를 막는다. 거리가 완전히 같을 때만 **쉬운 쪽 우선**이고, 그
+    타이브레이크는 `rank_by_knowledge_level`이 단독 소유한다(사유는 그 독스트링).
+
+    **지식 수준(knowledge_level) ±1로 좁게 넓히지 않은 이유 — 실측**: PM 지시로
+    kl 창을 재 봤고, 반경 1은 **0문항 칸을 11개 남긴다**(성인 × `bs-convection-
+    board`·`bs-energy-transfer` 포함 — L2가 고치려던 바로 그 칸). 반경 2도 2칸이
+    남는다. 시드가 태그마다 특정 단계에 통째로 비어 있어(예 `kl 3`이 기상 6태그 중
+    4태그에서 0건) **고정 반경은 밴드 공백을 단계 공백으로 옮길 뿐**이다. 그래서
+    **필터는 전 밴드로 열고, 정보 손실은 필터가 아니라 정렬로 줄인다** —
+    `rank_by_knowledge_level`이 |kl − θ의 단계| 오름차순으로 다시 세워 성인에게
+    kl 4를 kl 3보다, kl 3을 kl 2보다 먼저 준다(굶기지 않으면서 한 단계씩만 강등).
+    """
+    if theta is None:
+        return session_service.pool_level_groups(user_level_group, theta)
+    return sorted(
+        set(weatherbrain_service.LEVEL_GROUP_BANDS)
+        | set(session_service.pool_level_groups(user_level_group, theta))
+    )
+
+
+def rank_by_knowledge_level(items: list, target_level: int | None) -> list:
+    """지식 수준 거리 |kl − target| 오름차순 재정렬 — 넓힌 풀의 정보 손실 상쇄.
+
+    `unit_pool_level_groups`가 전 밴드를 열어 **굶주림을 없앤 뒤**, 여기서 6단계
+    해상도로 다시 세워 **강등 폭을 한 단계로 줄인다**. 밴드 필터만으로는 성인
+    (kl 5)이 middle_high 밴드를 받을 때 kl 3과 4가 구분되지 않는다 — 사전 b가
+    밴드 단위라(CO-L-F4) SQL의 |b−θ| 정렬이 그 안에서 random으로 흩어지기
+    때문이다. 이 함수가 그 한 겹을 메운다.
+
+    **거리가 같으면 쉬운 쪽이 이긴다**(2차 키). 이것이 CO-L2의 "강등 방향" 판단
+    이다: 한 단계 위 문항은 못 풀어서 **막고**, 한 단계 아래 문항은 쉬워도 여전히
+    가르친다. 같은 취지가 `knowledge_level_of_level_group` 독스트링에 이미 있다
+    ("과대평가는 학습자를 막는다"). 1차 키가 거리이므로 이 편향은 **동률에서만**
+    작동한다 — 자기 단계에 문항이 있으면 아래로 새지 않는다.
+
+    `target_level`이 None(콜드스타트)이면 **입력 순서를 그대로 돌려준다** — θ가
+    없으면 단계 표적도 없고, 그 경로는 오늘 동작 불변이 계약이다.
+    안정 정렬이라 남은 동률은 SQL이 정한 순서(|b−θ| → random, 백필은 신선도 우선)를
+    유지한다. `effective_knowledge_level`은 미분류(NULL) 문항과 컬럼 없는 대역
+    객체도 폴백 경로로 받는다 — 그 경우 전건 동률이라 순서가 보존된다.
+    """
+    if target_level is None:
+        return list(items)
+
+    def _key(item):
+        level = weatherbrain_service.effective_knowledge_level(item)
+        return abs(level - target_level), 0 if level <= target_level else 1
+
+    return sorted(items, key=_key)
+
+
 async def _unit_content_pool(
     db: AsyncSession, user: User, unit: Unit, abilities: list | None = None
 ) -> list[ContentItem]:
@@ -638,9 +723,14 @@ async def _unit_content_pool(
       load_abilities — 저장된 θ만 읽는 read-only 경로(refresh_abilities·
       ai-worker 호출 없음). 발급 경로는 라우터의 refresh_abilities 1회 결과를
       받아 풀 정렬이 신선한 θ를 쓴다 (R8-01 §3.2).
-    - θ가 있으면 level_group이 가입 그룹 ∪ θ 매핑 그룹으로 확장되고
-      |b−θ| 오름차순 정렬 — 초등 board 0건 같은 학령 풀 공백이 θ로 해소된다.
-    - 콜드스타트(θ None)는 현행과 동일: 가입 그룹 단일 + random 정렬.
+    - θ가 있으면 level_group 필터가 `unit_pool_level_groups`로 **전 밴드까지**
+      확장되고(학령 풀 공백 96칸 중 0문항 24칸이 여기서 해소 — CO-L2),
+      SQL이 |b−θ|로 좁힌 선취분을 `rank_by_knowledge_level`이 6단계 해상도로
+      다시 세운다. 즉 **굶기지 않으면서 강등 폭은 한 단계**다(CO-L-F2).
+      선취 배수(UNIT_POOL_PREFETCH)만큼 더 읽는 이유는 SQL LIMIT이 밴드 해상도로
+      먼저 자르면 재정렬이 볼 후보가 남지 않기 때문이다 — 조회 **횟수**는 그대로다.
+    - 콜드스타트(θ None)는 현행과 완전 동일: 가입 그룹 단일 + random 정렬 +
+      선취 없음 + 재정렬 없음(단계 표적이 없으므로).
     - 슬롯 미치환 노출 방지의 live 슬롯 제외(live=False)는 board에도 적용된다
       (유닛 세션은 슬롯 치환이 없고, 시드상 board는 전부 uses_live_slots=false).
 
@@ -653,15 +743,21 @@ async def _unit_content_pool(
     if abilities is None:
         abilities = await weatherbrain_service.load_abilities(db, user)
     theta = weatherbrain_service.overall_theta(abilities, unit.concept_tag)
+    target_level = (
+        None
+        if theta is None
+        else weatherbrain_service.theta_to_knowledge_level(theta)
+    )
+    fetch_limit = UNIT_SESSION_SIZE * (1 if theta is None else UNIT_POOL_PREFETCH)
 
     def _pool_stmt(served_subq):
         stmt = session_service.build_pool_query(
-            level_groups=session_service.pool_level_groups(user.level_group, theta),
+            level_groups=unit_pool_level_groups(user.level_group, theta),
             theta=theta,
             live=False,
             served_subq=served_subq,
             weak_concepts=[unit.concept_tag],
-            limit=UNIT_SESSION_SIZE,
+            limit=fetch_limit,
         )
         if unit.kind == "board":
             return stmt.where(ContentItem.question_type == "board")
@@ -670,12 +766,15 @@ async def _unit_content_pool(
     today_subq = session_service.answered_today_subq(
         user.id, session_service.kst_day_start_utc(datetime.now(KST).date())
     )
-    items = list((await db.execute(_pool_stmt(today_subq))).scalars().all())
+    fresh = list((await db.execute(_pool_stmt(today_subq))).scalars().all())
+    items = rank_by_knowledge_level(fresh, target_level)[:UNIT_SESSION_SIZE]
     if len(items) >= UNIT_SESSION_SIZE:
         return items
 
     seen = {item.id for item in items}
-    backfill = (await db.execute(_pool_stmt(None))).scalars().all()
+    backfill = rank_by_knowledge_level(
+        list((await db.execute(_pool_stmt(None))).scalars().all()), target_level
+    )
     for item in backfill:
         if len(items) >= UNIT_SESSION_SIZE:
             break

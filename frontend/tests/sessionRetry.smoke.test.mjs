@@ -101,6 +101,8 @@ const SessionPage = (await vite.ssrLoadModule('/src/modules/session/SessionPage.
 const SessionSummary = (await vite.ssrLoadModule('/src/modules/session/SessionSummary.jsx')).default;
 const ClosingForecastStep = (await vite.ssrLoadModule('/src/modules/duel/ClosingForecastStep.jsx'));
 const { retryQueueOf, RETRY_QUEUE_LIMIT } = await vite.ssrLoadModule('/src/modules/session/SessionRunner.jsx');
+const SessionRunnerMod = await vite.ssrLoadModule('/src/modules/session/SessionRunner.jsx');
+const SessionRunner = SessionRunnerMod.default;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -478,6 +480,93 @@ try {
       'kind가 없는데 블록 표기를 추정해 그렸다');
     r.unmount();
   });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // CO-S-1 / CO-M4 — 실패가 무한 스피너로 수렴하지 않는다
+  //
+  // `sessionStore.setError`의 호출자가 0건이라 SESSION_STATUS.ERROR가 도달 불가였고,
+  // 렌더 가드가 `isLoading`을 먼저 보는 바람에 429·403 UNIT_LOCKED·500이 **전부
+  // "세션을 준비하고 있어요..." 한 종류로** 수렴했다(7초 실측). 8/11~18 무키 실운영
+  // 상시 경로라 여기서 "에러가 **실제로 화면에 뜬다**"를 단정한다.
+  //
+  // 로드 함수를 직접 주입해 SessionRunner를 마운트한다 — 목 서버에 429/403을
+  // 만들어 넣는 것보다 분기 자체를 정확히 겨눈다.
+  // ══════════════════════════════════════════════════════════════════════════
+  const apiError = ({ detail, code, status, body = null }) =>
+    Object.assign(new Error(detail), { name: 'ApiError', detail, code, status, body });
+
+  const mountRunner = (props) =>
+    mount(createElement(SessionRunner, { queryKey: ['smoke', String(Math.random())], ...props }));
+
+  await scenario('CO-S-1: 로드 500이 무한 스피너가 아니라 에러 카드 + 재시도로 뜬다', async () => {
+    const r = mountRunner({
+      loadSession: () => Promise.reject(apiError({ detail: '서버 오류', code: 'INTERNAL_ERROR', status: 500 })),
+    });
+    const card = await waitFor(
+      () => window.document.querySelector('[data-session-error="GENERIC"]'),
+      '제네릭 에러 카드',
+    );
+    assert(card, '에러 카드가 없다');
+    assert(!text().includes('세션을 준비하고 있어요'), '스피너가 에러를 가리고 있다(가드 순서 회귀)');
+    assert(text().includes('세션을 불러오지 못했어요'), '실패 문구가 없다');
+    assert(
+      [...window.document.querySelectorAll('button')].some((b) => b.textContent.includes('다시 시도')),
+      '재시도 버튼이 없다',
+    );
+    r.unmount();
+  });
+
+  await scenario('CO-M4: 로드 429 OUT_OF_CLOUDS는 전용 화면(잔량·회복 ETA·재시도 없음)', async () => {
+    const r = mountRunner({
+      loadSession: () =>
+        Promise.reject(
+          apiError({
+            detail: '구름이 모두 흩어졌어요',
+            code: 'OUT_OF_CLOUDS',
+            status: 429,
+            body: { code: 'OUT_OF_CLOUDS', next_regen_sec: 540, clouds: 0, max: 5 },
+          }),
+        ),
+    });
+    await waitFor(() => window.document.querySelector('[data-session-error="OUT_OF_CLOUDS"]'), '구름 소진 전용 화면');
+    assert(text().includes('구름이 모두 흩어졌어요'), '전용 제목이 없다');
+    assert(text().includes('0 / 5'), `잔량 표기(0 / 5)가 없다 — 실제: ${text().slice(0, 200)}`);
+    assert(text().includes('9분'), `회복 ETA(540초→9분)가 없다 — 실제: ${text().slice(0, 200)}`);
+    // 눌러도 다시 429다 — 재시도 버튼을 두면 "계속 실패하는 버튼"이 된다(CO-M4 원문)
+    assert(
+      ![...window.document.querySelectorAll('button')].some((b) => b.textContent.includes('다시 시도')),
+      '구름 소진 화면에 재시도 버튼이 있다(눌러도 계속 429다)',
+    );
+    assert(!window.document.querySelector('[data-session-error="GENERIC"]'), '제네릭 화면으로 샜다');
+    r.unmount();
+  });
+
+  await scenario('CO-S-1: 로드 403 UNIT_LOCKED는 잠금 안내로 갈린다', async () => {
+    const r = mountRunner({
+      loadSession: () =>
+        Promise.reject(apiError({ detail: '선행 유닛을 먼저 완료해야 열려요', code: 'UNIT_LOCKED', status: 403 })),
+    });
+    await waitFor(() => window.document.querySelector('[data-session-error="UNIT_LOCKED"]'), '잠금 안내 화면');
+    assert(text().includes('아직 열리지 않은 유닛'), '잠금 제목이 없다');
+    assert(text().includes('선행 유닛을 먼저 완료해야 열려요'), '서버 detail이 안 보인다');
+    assert(!window.document.querySelector('[data-session-error="GENERIC"]'), '제네릭 화면으로 샜다');
+    r.unmount();
+  });
+
+  await scenario('CO-S-3: 0문항 세션(200)은 "0 / 0"에 갇히지 않고 탈출구를 준다', async () => {
+    const r = mountRunner({
+      loadSession: () =>
+        Promise.resolve({ session_id: 'empty-1', items: [], progress: { answered: 0, total: 0 } }),
+    });
+    await waitFor(() => window.document.querySelector('[data-session-error="EMPTY"]'), '빈 세션 안내');
+    assert(text().includes('지금 낼 수 있는 문항이 없어요'), '빈 세션 안내 문구가 없다');
+    assert(
+      [...window.document.querySelectorAll('a')].some((a) => a.getAttribute('href') === '/learn'),
+      '학습 경로로 나가는 링크가 없다',
+    );
+    r.unmount();
+  });
+
 } finally {
   await vite.close();
   httpServer.close();

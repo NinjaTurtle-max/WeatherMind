@@ -11,17 +11,28 @@
  * vite middlewareMode + mock/apiMockPlugin(실 XHR) + jsdom 실마운트(createRoot,
  * useEffect 실행). 목 상태 조작은 기존 dev 경로(/dev/reset-me, /dev/clouds)만 쓴다.
  *
+ * ⚠️ **2026-08-08 (CO-N-1) 계약 갱신 — 해제 사다리가 걷혔다.**
+ * `FeatureUnlockGate`(board 1·duel 2·league 3 세션)를 제거했으므로 시나리오 2·3의
+ * 단정이 뒤집혔다: 이제 **신규 사용자에게도 세 화면이 바로 실제 페이지로 뜬다**를
+ * 고정한다. 근거는 심사 배점 ②(체험·참여형 25점)의 문면 — "단순 퀴즈·정답 맞히기를
+ * **넘어**"인데 콜드 오픈 3클릭으로 닿는 것이 객관식 퀴즈뿐이었다. 게이트는
+ * `lib/onboardingGate.js:15-22`가 스스로 밝히듯 순수 표시 계층이라 제거해도 로직이
+ * 깨지지 않는다. 단계 계산 자체는 남아 있으나 **읽는 화면이 없다**(시나리오 3이
+ * 그것을 가드한다 — 게이트가 되살아나면 거기서 깨진다).
+ *
  * 시나리오
  *   1. 기존 사용자(목 기본 시드 xp=1180) → /league·/board 진입 시 실제 페이지가
- *      뜬다(동기 부여 화면 없음) = 회귀 0.
+ *      뜬다 = 회귀 0. 내비 항목은 **7개**(홈·학습·보드·**탐구**·대결·리그·내 정보).
  *   2. 신규 사용자(POST /dev/reset-me → xp=0, 게이트 로컬 기록 없음) → /board·
- *      /duel·/league 모두 동기 부여 화면(해제 조건 + 세션 시작 CTA). 탭은 5개 모두
- *      활성(자물쇠 차단 없음 — 2026-08-01 판정).
- *   3. 세션 완료를 1·2·3회 기록하면 보드 → 예보 대결 → 리그가 순서대로 열린다.
+ *      /duel·/league가 **처음부터 실제 페이지**. 탭 차단은 종전대로 없다.
+ *   3. 세션 완료 3회를 기록해도 같은 화면 — 단계가 화면을 바꾸지 않는다.
  *   4. 일일 목표 왕복: PUT /progress/daily-goal(3) → GET /progress/me의
  *      daily_goal_items=3 · 허용값 밖(4)은 422 VALIDATION_ERROR ·
  *      세션 완료 화면(SessionSummary)에 "오늘 목표 N/M" 표기.
  *   5. 배치고사 결과 화면(PlacementSummary)에서 "5문항" 선택 → PUT 발생 + 저장 확인.
+ *  10·11. **자동 게스트 발급**(CO-N-1 ① — 대회 규정 「로그인 없이 열려야」):
+ *      토큰 없이 진입하면 POST /auth/guest가 **정확히 1회** 나가고 보호 라우트가
+ *      그대로 렌더된다(딥링크 보존). 로그아웃 뒤에는 재발급하지 않는다.
  */
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -93,7 +104,9 @@ const { createRoot } = await import('react-dom/client');
 const { MemoryRouter } = await import('react-router-dom');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 
-const App = (await vite.ssrLoadModule('/src/App.jsx')).default;
+const AppMod = await vite.ssrLoadModule('/src/App.jsx');
+const App = AppMod.default;
+const { resetGuestAutoIssue } = AppMod; // CO-N-1 ①: 자동 게스트 1회성 플래그 되돌리기
 const SessionSummary = (await vite.ssrLoadModule('/src/modules/session/SessionSummary.jsx')).default;
 const PlacementSummary = (await vite.ssrLoadModule('/src/modules/onboarding/PlacementSummary.jsx')).default;
 const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
@@ -191,8 +204,13 @@ try {
     await waitFor(() => text().includes('리그') && !text().includes('리그란 무엇인가요'), 4000, '리그 페이지 렌더');
     assert(!text().includes('세션을 3개 완료하면'), '기존 사용자에게 잠금 안내가 떴다(회귀)');
     assert(lockedTabCount() === 0, '탭바에 비활성 탭이 있다');
-    assert(tabCount() === 6, `탭 6개(홈 포함)가 모두 있어야 함 — 실제 ${tabCount()}`);
-    assert(sideNavCount() === 6, `PC 사이드바도 같은 6항목 — 실제 ${sideNavCount()}`);
+    // CO-N-1 ②: 「탐구」가 6탭 어디에도 없어서 /explore는 URL을 손으로 쳐야 갔다.
+    assert(tabCount() === 7, `탭 7개(홈·탐구 포함)가 모두 있어야 함 — 실제 ${tabCount()}`);
+    assert(sideNavCount() === 7, `PC 사이드바도 같은 7항목 — 실제 ${sideNavCount()}`);
+    assert(
+      [...(tabbar()?.querySelectorAll('a') ?? [])].some((a) => a.getAttribute('href') === '/explore'),
+      '탭바에 /explore 진입점이 없다(CO-N-1 ②)',
+    );
     r.unmount();
 
     r = mount(createElement(App), '/board');
@@ -200,8 +218,17 @@ try {
     r.unmount();
   });
 
-  // ── 2. 신규 사용자 → 동기 부여 화면(차단 아님) ───────────────────────────
-  await scenario('신규 사용자(dev/reset-me): 보드·예보 대결·리그가 동기 부여 화면', async () => {
+  // ── 2. 신규 사용자도 보드·예보 대결·리그가 **바로 열린다** (CO-N-1 ③) ─────
+  //
+  // ⚠️ **계약이 뒤집혔다**(2026-08-08). 종전 이 시나리오는 신규 사용자에게
+  // "세션을 N개 완료하면" 동기 부여 화면이 뜨는 것을 단정했다. 그 해제 사다리
+  // (FeatureUnlockGate — board 1·duel 2·league 3)를 걷어냈으므로 이제 반대를
+  // 단정한다. 근거는 심사 배점 ②(체험·참여형 25점)의 문면이다: "단순 퀴즈·정답
+  // 맞히기를 **넘어** 변수를 바꿔보며 학습 탐구가 가능하고" — 콜드 오픈 3클릭으로
+  // 닿는 것이 객관식 퀴즈뿐이면 그 25점이 화면에 올라오지 않는다.
+  // 게이트는 `lib/onboardingGate.js:15-22`가 스스로 밝히듯 **순수 표시 계층**이라
+  // (서버 권한 아님·라우트 미차단) 제거해도 로직이 깨지지 않는다.
+  await scenario('신규 사용자(dev/reset-me): 보드·예보 대결·리그가 처음부터 실제 페이지', async () => {
     const reset = await api('POST', '/dev/reset-me', { reset: true });
     assert(reset.status === 200, `/dev/reset-me 실패 (${reset.status})`);
     const me = await api('GET', '/progress/me');
@@ -211,52 +238,46 @@ try {
     useOnboardingGate.getState().reset();
     authenticate('fresh-user');
 
-    for (const [path, needText] of [
-      ['/board', '세션을 1개 완료하면'],
-      ['/duel', '세션을 2개 완료하면'],
-      ['/league', '세션을 3개 완료하면'],
+    for (const [path, gone, want] of [
+      ['/board', '대기 보드란 무엇인가요', '대기 보드'],
+      ['/duel', '예보 대결이란 무엇인가요', '예보 대결'],
+      ['/league', '리그란 무엇인가요', '리그'],
     ]) {
       const r = mount(createElement(App), path);
-      await waitFor(() => text().includes(needText), 4000, `${path} 잠금 안내(${needText})`);
-      assert(text().includes('오늘의 세션 시작하기'), `${path}에 해제 CTA가 없다`);
-      assert(lockedTabCount() === 0, '잠금은 탭 차단이 아니라 화면 안내여야 한다');
-      assert(tabCount() === 6, '탭 6개는 항상 활성');
+      // ⚠️ 게이트 부트스트랩(=Layout의 /progress/me 도착)을 먼저 기다린다. 실제
+      // 페이지는 로딩 스피너 문구부터 뜨므로 텍스트만 보면 me가 오기 전에 언마운트돼
+      // 아래 stage 단정이 fail-open(=MAX)을 읽는다.
+      await waitFor(() => useOnboardingGate.getState().bootstrapped, 6000, `${path} 게이트 부트스트랩`);
+      await waitFor(() => text().includes(want) && !text().includes(gone), 5000, `${path} 실제 페이지`);
+      assert(!/세션을 \d개 완료하면/.test(text()), `${path}에 해제 사다리 안내가 남아 있다`);
+      assert(lockedTabCount() === 0, '탭 차단은 종전대로 없다');
+      assert(tabCount() === 7, '탭 7개는 항상 활성');
       r.unmount();
     }
     const stage = selectUnlockStage(useOnboardingGate.getState());
-    assert(stage === 0, `신규 사용자 단계는 0이어야 함 — 실제 ${stage}`);
+    assert(stage === 0, `단계 계산 자체는 남아 있다(신규=0) — 실제 ${stage}`);
   });
 
-  // ── 3. 세션 완료 1·2·3회 → 순서대로 해제 ─────────────────────────────────
-  await scenario('세션 완료 1·2·3회 → 보드 → 예보 대결 → 리그 순서 해제', async () => {
+  // ── 3. 단계가 올라가도 화면은 달라지지 않는다 (CO-N-1 ③ 회귀 가드) ────────
+  // 단계 계산(onboardingGate)은 남겼지만 **소비하는 화면이 없다.** 세션 완료 수와
+  // 무관하게 세 화면이 같은 실제 페이지여야 한다 — 게이트가 되살아나면 여기서 깨진다.
+  await scenario('세션 완료 0회·3회 어느 쪽이든 보드·예보 대결·리그가 같은 실제 페이지', async () => {
     const gate = useOnboardingGate.getState();
-    const steps = [
-      { id: 'sess-1', path: '/board', gone: '대기 보드란 무엇인가요', stillLocked: '세션을 2개 완료하면' },
-      { id: 'sess-2', path: '/duel', gone: '예보 대결이란 무엇인가요', stillLocked: '세션을 3개 완료하면' },
-      { id: 'sess-3', path: '/league', gone: '리그란 무엇인가요', stillLocked: null },
-    ];
-    for (const [i, step] of steps.entries()) {
-      gate.recordSessionComplete(step.id);
-      // 멱등: 같은 세션 id를 두 번 세지 않는다
-      gate.recordSessionComplete(step.id);
-      const stage = selectUnlockStage(useOnboardingGate.getState());
-      assert(stage === i + 1, `세션 ${i + 1}회 후 단계 ${i + 1} 기대 — 실제 ${stage}`);
-      assert(
-        useOnboardingGate.getState().toast != null,
-        `해제 순간 축하 토스트가 예약돼야 함 (${step.path})`,
-      );
-      useOnboardingGate.getState().clearToast();
+    ['sess-1', 'sess-2', 'sess-3'].forEach((id) => {
+      gate.recordSessionComplete(id);
+      gate.recordSessionComplete(id); // 멱등: 같은 세션 id를 두 번 세지 않는다
+    });
+    const stage = selectUnlockStage(useOnboardingGate.getState());
+    assert(stage === 3, `세션 3회 후 단계 3 기대 — 실제 ${stage}`);
 
-      const r = mount(createElement(App), step.path);
-      await waitFor(() => !text().includes(step.gone), 4000, `${step.path} 해제 후 실제 페이지`);
+    for (const [path, gone] of [
+      ['/board', '대기 보드란 무엇인가요'],
+      ['/duel', '예보 대결이란 무엇인가요'],
+      ['/league', '리그란 무엇인가요'],
+    ]) {
+      const r = mount(createElement(App), path);
+      await waitFor(() => !text().includes(gone), 5000, `${path} 실제 페이지`);
       r.unmount();
-
-      if (step.stillLocked) {
-        const nextPath = steps[i + 1].path;
-        const r2 = mount(createElement(App), nextPath);
-        await waitFor(() => text().includes(step.stillLocked), 4000, `${nextPath}는 아직 잠금`);
-        r2.unmount();
-      }
     }
   });
 
@@ -334,7 +355,7 @@ try {
       '배치고사가 세션 완료로 집계됐다(진단은 세션이 아니다)',
     );
 
-    // 데일리 세션 완료 → 1회로 집계 + 보드 해제 토스트
+    // 데일리 세션 완료 → 1회로 집계
     useSessionStore.getState().reset();
     useSessionStore.setState({ sessionId: 'daily-session-1' });
     useSessionStore.getState().showSummary({ xp_total: 30, correct_count: 5, total: 5, streak_count: 1 });
@@ -343,7 +364,10 @@ try {
       3000,
       'Layout이 세션 완료를 집계',
     );
-    await waitFor(() => text().includes('대기 보드가 열렸어요'), 3000, '해제 축하 토스트 렌더');
+    // CO-N-1 ③: 해제 축하 토스트는 **렌더하지 않는다**. 해제 사다리가 없어졌으니
+    // "🧩 대기 보드가 열렸어요!"는 일어나지 않은 일을 알리는 문구다.
+    await sleep(200);
+    assert(!text().includes('대기 보드가 열렸어요'), '없어진 해제 토스트가 되살아났다');
     r.unmount();
     useSessionStore.getState().reset();
   });
@@ -503,6 +527,53 @@ try {
     await sleep(150);
     assert(!text().includes('구름 −'), 'clouds_spent 부재 응답에 구름 표기가 떴다');
     r.unmount();
+  });
+
+  // ── 10. 자동 게스트 발급 (CO-N-1 ① — 대회 규정 「로그인 없이 열려야」) ─────
+  //
+  // 종전 `App.jsx`의 RequireAuth는 토큰이 없으면 곧장 `/login`으로 튕겼다. 규정은
+  // 심사위원이 계정 없이 URL만으로 서비스를 열 수 있을 것을 요구한다. 서버에는
+  // 이미 POST /auth/guest(실 유저 + 실 JWT)가 있으므로 첫 진입에서 대신 누른다.
+  await scenario('토큰 없이 진입: POST /auth/guest가 1번만 나가고 홈이 렌더된다', async () => {
+    resetGuestAutoIssue();
+    useAuthStore.getState().logout();
+    useOnboardingGate.getState().reset();
+    useSessionStore.getState().reset();
+    const mark = xhrLog.length;
+
+    const r = mount(createElement(App), '/');
+    await waitFor(
+      () => Boolean(useAuthStore.getState().accessToken),
+      6000,
+      '자동 게스트 토큰 발급',
+    );
+    const calls = xhrLog.slice(mark).filter((l) => l === 'POST /api/v1/auth/guest');
+    assert(calls.length === 1, `게스트 발급은 정확히 1회여야 함(중복 방지) — 실제 ${calls.length}`);
+    assert(useAuthStore.getState().user?.is_guest === true, '게스트 표식(is_guest)이 없다');
+    // 로그인 화면이 아니라 실제 서비스 화면이 떠야 한다
+    await waitFor(() => !text().includes('계정 없이 바로 시작하기'), 5000, '로그인 화면이 아님');
+    await waitFor(() => tabCount() === 7, 5000, '보호 라우트가 실제로 렌더됐다(탭바 존재)');
+    r.unmount();
+  });
+
+  // ── 11. 딥링크 보존 + 로그아웃이 새 게스트를 낳지 않는다 ───────────────────
+  await scenario('토큰 없이 /explore 딥링크 → /explore가 그대로 뜬다 · 로그아웃은 재발급 없음', async () => {
+    resetGuestAutoIssue();
+    useAuthStore.getState().logout();
+    const r = mount(createElement(App), '/explore');
+    await waitFor(() => Boolean(useAuthStore.getState().accessToken), 6000, '자동 게스트 토큰');
+    await waitFor(() => text().includes('탐구'), 5000, '/explore 화면 렌더(딥링크 보존)');
+    r.unmount();
+
+    // 이제 토큰이 지워져도 다시 발급하지 않는다 — 그러지 않으면 로그아웃이 동작하지
+    // 않는다(보호 라우트가 조용히 새 게스트를 만든다).
+    const mark = xhrLog.length;
+    useAuthStore.getState().logout();
+    const r2 = mount(createElement(App), '/');
+    await sleep(400);
+    const calls = xhrLog.slice(mark).filter((l) => l === 'POST /api/v1/auth/guest');
+    assert(calls.length === 0, `로그아웃 후 게스트 재발급이 나갔다 — ${calls.length}회`);
+    r2.unmount();
   });
 } finally {
   await vite.close();

@@ -78,8 +78,11 @@ CONCEPT_TAGS: tuple[str, ...] = (
 # 이 규칙(중점)은 R7부터의 기존 경계 −0.5·0.5를 그대로 재생산하므로, expert 추가가
 # 기존 3밴드의 판정을 한 건도 바꾸지 않는다(순수 확장). ai-worker
 # priors.LEVEL_GROUP_BANDS·THETA_BAND_BOUNDS와 값이 같아야 하고 드리프트는
-# test_weatherbrain_contract가 감시한다. 하단 경계 −0.5는 router_chain.
-# THETA_FOCUS_THRESHOLD와도 같은 값이어야 한다(교차 서비스 의미론).
+# test_weatherbrain_contract가 감시한다.
+#
+# ⚠️ R13 CO-U-3: 하단 경계 −0.5가 router_chain.THETA_FOCUS_THRESHOLD와 "같은 값"인
+# 것은 **middle_high 학습자에 한해서만** 옳다. 그 등식을 전 학령에 적용하면 판정이
+# 의도와 반대로 뒤집힌다 — 아래 THETA_FOCUS_DELTA 주석 참조.
 #
 # 주의: placement_service.LEVEL_GROUPS(3종)와 다른 상수다 — 배치고사 진단 도메인은
 # 6문항·서로소 계약 때문에 3밴드로 고정한다(R12의 PLACEMENT_QUIZ_TAGS 분리와 동일 취지).
@@ -305,6 +308,14 @@ def effective_tone(user) -> str:
 # 소거됐고, 세 학령 판정이 완전히 동일(= 정답률 60% 등가)했다. CO-U-1이 문항 b를
 # 넣도록 고쳐 문장이 사실이 됐다 — 합성 수준의 증명은
 # test_weatherbrain_theta_pipeline.TestWeakVerdictIsLevelRelativeEndToEnd가 갖는다.
+#
+# ⚠️ 그 문장은 **교차밴드 응답에서만** 참이다(2026-08-08 웨이브 2 재측). 출제가 학령
+# 정합이면(오늘의 기본 경로 — 풀 필터가 level_group이고 정렬이 |b−θ|, 게다가
+# item_params가 비어 있어 밴드 내 b가 상수다) 문항 b가 다시 유저 사전 b와 같아져
+# m이 양변에서 소거되고, 판정은 여전히 "정답률 60%"와 등가다. 실측 — 학령 표준문항
+# 응답의 상대 θ가 네 밴드에서 소수 셋째 자리까지 같다:
+#   k/n = 1/1 → +0.336~+0.414 · 0/1 → −0.407~−0.423 · 1/2 → −0.018~+0.001
+# 완전히 풀리려면 b 보정 가동(8/18, CO-U-13)이나 교차밴드 출제가 필요하다.
 WEAK_EXPECTED_P: float = 0.6
 
 
@@ -333,6 +344,108 @@ def weak_concepts(abilities: list, level_group: str) -> list[str]:
         for ab in abilities
         if int(ab["n"]) > 0 and float(ab["theta"]) < threshold
     ]
+
+
+# ── θ 임계의 기준점 — 절대가 아니라 **학령 상대** (R13 CO-U-3) ────────────────
+# θ는 절대 스케일이지만 응답이 적을 때는 사전분포로 수축한다. 그리고 그 사전평균은
+# 가입 시 **신고한** level_group에서 온다 — 측정값이 아니라 신고값이다. 그래서 θ에
+# 절대 임계를 걸면 "무엇을 맞혔나"가 아니라 "가입할 때 무엇이라고 적었나"를 재게 된다.
+#
+# 실측(2026-08-08 재현, CO-U-1 수리 **후**에도 동일 — 출제가 학령 정합이라 문항 b가
+# 다시 유저 사전 b와 같아지기 때문이다. 즉 U-1은 U-3을 닫지 않았다):
+#
+#   학령 표준문항 1문항, 절대 임계 기준
+#     elementary  정답 → θ −0.5865  → focused(−0.5 미만) …맞혀도 항상 보강 대상
+#     adult       오답 → θ +0.5865  → 선해금(0.5 이상)   …틀려도 유닛이 열린다
+#     middle_high 정답 → θ +0.4131  → 선해금 안 됨       …맞혀도 영원히 0
+#
+# 고침: 임계를 **자기 밴드의 경계**로 둔다. 밴드 폭이 1.0(인접 사전평균 간격)이므로
+# 자기 밴드 경계 = 사전평균 ± 0.5이고, 아래 두 델타는 그 반폭을 경계 튜플에서 파생한
+# 것이다(새 매직넘버 0개). 의미론이 한 문장으로 말해진다 —
+#   **focused = 자기 밴드 아래로 벗어났다 · 선해금 = 자기 밴드 위로 벗어났다.**
+#
+# 성질 셋(전부 test_weatherbrain_relative_thresholds가 고정한다):
+#  ① middle_high에서는 값이 현행 절대 임계와 **정확히 같다**(−0.5·+0.5) — 순수 확장.
+#  ② 판정이 학령에 균일하다: 학령 표준문항 전건정답 n=2부터 선해금(rel +0.599~+0.704),
+#     n=1은 어느 학령도 아니다(+0.336~+0.414). 전건오답 n=2부터 focused(−0.695~−0.706),
+#     n=1은 아니다(−0.407~−0.423). 최악 마진 0.077로 격자 해상도(0.1)와 같은 자릿수다.
+#  ③ 사다리가 단조다: focus(−0.5) < weak(logit 0.6 ≈ +0.406) < unlock(+0.5).
+#     "약점이 아니다"보다 "선해금"이 항상 엄격하다 — 두 판정이 모순될 수 없다.
+#
+# 왜 선해금 델타를 weak과 같은 logit(0.6)으로 두지 않았나: 학령 표준문항 1정답의
+# 상대 θ가 +0.336~+0.414로 logit(0.6)=+0.4055에 **걸쳐 있다**(adult 마진 +0.0013,
+# expert는 **−0.069로 음수**). 즉 그 값은 칼날이고 expert에서 이미 깨진다.
+THETA_BAND_HALF_WIDTH: float = (
+    (THETA_BAND_BOUNDS[1] - THETA_BAND_BOUNDS[0]) / 2.0
+    if len(THETA_BAND_BOUNDS) >= 2
+    else 0.5
+)
+# Router "focused"(보강 집중) — 자기 밴드 하단 경계 미만.
+THETA_FOCUS_DELTA: float = -THETA_BAND_HALF_WIDTH
+# 커리큘럼 배치 선해제(§3.4) — 자기 밴드 상단 경계 이상.
+THETA_UNLOCK_DELTA: float = THETA_BAND_HALF_WIDTH
+
+
+def band_prior_theta(level_group: str) -> float:
+    """학령 밴드의 θ 사전평균 — 상대 임계의 기준점.
+
+    ai-worker priors.LEVEL_GROUP_PRIORS[lg][0]과 같은 값이다(로짓 정합 설계상
+    문항 사전 b와도 같다 — 밴드 내 기대 정답확률 0.5). backend는 ai-worker를
+    임포트하지 않으므로 LEVEL_GROUP_ITEM_B를 그 단일 공급원으로 재사용한다.
+    """
+    return LEVEL_GROUP_ITEM_B.get(level_group, DEFAULT_ITEM_B)
+
+
+def focus_theta_threshold(level_group: str) -> float:
+    """Router "focused" 임계 — 학령 상대. θ가 이 값 **미만**이면 보강 집중.
+
+    ai-worker router_chain.focus_theta_threshold와 같은 값이어야 하고 드리프트는
+    test_weatherbrain_relative_thresholds가 감시한다(교차 서비스 상수 이원화 관례).
+
+    ⚠️ **미배선 (R13 4일차 웨이브 2 인계 — CO-U-3-A)**. ai-worker 쪽 함수는 있고
+    router_chain.route(..., level_group=)로 받을 준비도 됐지만, 호출측 3홉이
+    학령을 아직 안 넘겨서 실제로는 종전 절대 임계(middle_high 값)로 돈다.
+    남은 배선(전부 다른 담당 소유 — 파라미터 추가뿐, 기본값 None이라 무해):
+
+      ① backend/app/services/session_service.py:427
+         ai_client.router_decide(str(user.id), weak_tags, recent_results, abilities)
+         → ... , abilities, level_group=effective_level_group_of_user(user)
+           (지금은 user.level_group 그대로면 충분)
+      ② backend/app/services/ai_client.py:44 router_decide(...)
+         시그니처에 level_group: str | None = None 추가 후 payload에 실어 보낸다
+      ③ ai-worker/app/main.py:223 RouterDecideRequest에 level_group 필드 추가 →
+         :243 router_chain.route(..., level_group=body.level_group)
+
+    배선되면 test_weatherbrain_relative_thresholds.TestRouterChainParity의
+    test_route가_학령을_받으면_판정이_뒤집힌다가 실경로에서도 참이 된다.
+    """
+    return band_prior_theta(level_group) + THETA_FOCUS_DELTA
+
+
+def unlock_theta_threshold(level_group: str) -> float:
+    """배치 선해제 임계 — 학령 상대. θ가 이 값 **이상**이고 n>0이면 선해제 후보.
+
+    ⚠️ **미배선 (R13 4일차 웨이브 2 인계 — CO-U-3-B)**. curriculum_service.
+    placement_unlock_floor가 아직 이 함수가 아니라 _THETA_INTERMEDIATE_MAX
+    (절대 0.5)를 본다. 그래서 오늘도 **성인은 틀려도 선해제되고 중고생·초등은
+    맞혀도 영영 안 된다**(실측 근거는 위 THETA_FOCUS_DELTA 주석).
+
+    남은 배선(curriculum 담당 소유 — 한 줄이 아니라 시그니처 변경이다):
+
+      ① curriculum_service.placement_unlock_floor(abilities, units)에
+         level_group: str 인자를 추가하고, 비교를 아래로 바꾼다:
+             weatherbrain_service._THETA_INTERMEDIATE_MAX
+           → weatherbrain_service.unlock_theta_threshold(level_group)
+         독스트링의 "θ ≥ 0.5(_THETA_INTERMEDIATE_MAX 재사용 — 상급 경계)"도 같이.
+      ② 호출 4곳에 학령을 넘긴다 — curriculum_service.active_course_units:405·409
+         (이 함수도 level_group을 받아 통과시켜야 한다) · get_curriculum:579 ·
+         routers/dev.py:144. 전부 User를 손에 들고 있으므로 user.level_group이면 된다.
+
+    배선 후 기대 동작(test_weatherbrain_relative_thresholds가 이미 고정한 값):
+    학령 표준문항 **2연속 정답**이면 세 학령 모두 선해제, **1문항**으로는 어느
+    학령도 선해제되지 않는다. 게스트(영구 middle_high)도 이때 처음으로 열린다.
+    """
+    return band_prior_theta(level_group) + THETA_UNLOCK_DELTA
 
 
 def theta_to_level_group(theta: float) -> str:
