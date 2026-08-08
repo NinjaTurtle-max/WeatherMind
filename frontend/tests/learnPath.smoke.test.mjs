@@ -18,6 +18,10 @@
  *      최대값이라야 가장 긴 섹션도 넘치지 않는다 — 더 작은 값은 넘침이다.
  *   ⑥ 접기도 **아이콘 크기를 바꾸지 않는다** — ⑤와 같은 이유(출렁임 방지)이고,
  *      축은 다르다: ⑤는 단계 간, ⑥은 같은 단계의 펼침/접힘 간.
+ *   ⑦ 학습 화면의 페이지 머리말이 **PC에서 숨지 않는다**(2026-08-08). `md:hidden`이
+ *      붙어 있어 PC에서 학습만 제목이 없었고, 다른 화면은 제목이 셸 왼쪽 끝에서
+ *      시작하는데 학습만 카드 안쪽 패딩부터 시작해 "학습만 오른쪽으로 밀렸다"로
+ *      보였다(실측 x=264 대 328).
  *
  * 레이아웃 자체(스크롤 스냅·한 화면 한 단계·연결선 좌표)는 jsdom에 레이아웃
  * 엔진이 없어 여기서 재지 않는다 — 실브라우저 실측으로 확인한다.
@@ -315,6 +319,30 @@ await render({});
   root2.render(createElement(PcCurriculumPath, { sections: [], onOpenUnit: () => {} }));
   await sleep(60);
   ok(container.querySelector('.wm-stage') === null, '빈 트리: 아무것도 렌더하지 않는다');
+}
+
+// ── ⑦ 페이지 머리말이 PC에서 숨지 않는다 (화면 간 왼쪽 정렬) ────────────────
+// 소스 검사로 본다: 머리말은 CurriculumHome(페이지)에 있고 여기서 마운트하는
+// PcCurriculumPath(경로 뷰)의 밖이다. jsdom은 CSS 엔진이 없어 `md:hidden`이
+// 실제로 숨는지 재지 못하므로, 재는 대신 **클래스가 붙어 있지 않음**을 단정한다.
+{
+  const home = readFileSync(resolve(root, 'src/modules/curriculum/CurriculumHome.jsx'), 'utf8');
+  const titleLine = home.split('\n').find((l) => l.includes("t('curriculum.title')"));
+  ok(titleLine != null, '학습 화면이 curriculum.title로 페이지 제목을 렌더한다');
+  ok(
+    titleLine != null && !titleLine.includes('md:hidden'),
+    `페이지 제목에 md:hidden이 없다(PC에서도 보인다) — 실제 「${(titleLine ?? '').trim()}」`,
+  );
+  const subLine = home.split('\n').find((l) => l.includes("t('curriculum.subtitle')"));
+  ok(
+    subLine != null && !subLine.includes('md:hidden'),
+    `페이지 부제에 md:hidden이 없다 — 실제 「${(subLine ?? '').trim()}」`,
+  );
+  // 다른 화면과 같은 자리·같은 크기에서 시작해야 왼쪽 끝이 맞는다.
+  ok(
+    titleLine.includes('text-lg font-extrabold text-slate-900'),
+    '제목이 다른 화면(보드·리그·예보 대결·내 정보)과 같은 h1 클래스를 쓴다',
+  );
 }
 
 await vite.close();
