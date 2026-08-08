@@ -44,6 +44,13 @@ export default {
     heat_island: 'Heat Islands',
     co2_climate: 'CO₂ & Climate',
     anomaly: 'Climate Anomalies',
+    // basic-science course — 2026-08-08
+    temperature_heat: 'Temperature & heat',
+    radiation_budget: 'Radiation budget',
+    pressure_basics: 'Pressure basics',
+    density_buoyancy: 'Density & buoyancy',
+    phase_change: 'Phase change',
+    energy_transfer: 'Energy transfer',
   },
   energy: {
     full: 'Cloud energy is full — clouds only shrink by 1 on wrong answers',

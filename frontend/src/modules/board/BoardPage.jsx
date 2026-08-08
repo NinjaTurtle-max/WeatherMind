@@ -244,7 +244,7 @@ export default function BoardPage() {
     return (
       <div className="pt-2">
         {toast && (
-          <div className="fixed left-1/2 top-16 z-50 -translate-x-1/2 animate-xp-pop rounded-full bg-emerald-500 px-4 py-2 text-sm font-bold text-white shadow-lg">
+          <div className="fixed left-[calc(50%_+_var(--wm-shell-left)/2)] top-16 z-50 -translate-x-1/2 animate-toast-pop rounded-full bg-emerald-500 px-4 py-2 text-sm font-bold text-white shadow-lg">
             {toast}
           </div>
         )}
@@ -286,7 +286,7 @@ export default function BoardPage() {
   return (
     <div className="pt-2">
       {toast && (
-        <div className="fixed left-1/2 top-16 z-50 -translate-x-1/2 animate-xp-pop rounded-full bg-emerald-500 px-4 py-2 text-sm font-bold text-white shadow-lg">
+        <div className="fixed left-[calc(50%_+_var(--wm-shell-left)/2)] top-16 z-50 -translate-x-1/2 animate-toast-pop rounded-full bg-emerald-500 px-4 py-2 text-sm font-bold text-white shadow-lg">
           {toast}
         </div>
       )}
@@ -547,8 +547,12 @@ function LabCard({ icon, title, desc, cta, onClick, to }) {
       >
         {icon}
       </span>
-      <p className="mt-2.5 text-[17px] font-extrabold text-slate-900">{label}</p>
-      <p className="mt-1.5 text-[12.5px] leading-snug text-slate-500">{desc}</p>
+      <p className="mt-3.5 text-[17px] font-extrabold text-slate-900">{label}</p>
+      {/* break-keep — 한국어 줄바꿈을 **어절 단위**로 묶는다. 기본값(break-word)은
+          어절 한가운데를 끊어서 "…원리를 탐 / 구해요" · "…관찰해 / 요"처럼 낱말이
+          두 줄에 걸쳤다(2026-08-08 실측). 여기 글줄이 짧아 어절이 줄폭을 넘지
+          않으므로 넘침 위험 없이 쓸 수 있다. */}
+      <p className="mt-2 break-keep text-[12.5px] leading-relaxed text-slate-500">{desc}</p>
       {/* mt-auto — 카드를 키운 만큼 남는 높이를 여기서 먹어 CTA를 바닥에 붙인다.
           두 카드의 버튼 높이가 맞아야 레일이 정돈돼 보인다. */}
       <span className="mt-auto inline-block self-start rounded-lg bg-slate-900 px-3.5 py-2 text-[13px] font-bold text-white">
@@ -559,8 +563,10 @@ function LabCard({ icon, title, desc, cta, onClick, to }) {
   // 퍼즐 칸과 **한 눈에 갈리게** 살짝 다른 바탕을 준다(2026-08-05). 미션 칸은
   // 흰색·초록·회색 셋을 쓰므로 여기만 옅은 남색 계열로 둔다 — 어느 쪽도 아니고
   // 본선 진도와 무관한 상시 입구라는 뜻이다. 색은 **하나만** 더 쓴다.
+  // min-h를 210 -> 232로 올린다(2026-08-08) — 글줄 간격을 늘린 만큼 CTA(mt-auto)가
+  // 설명 바로 밑에 붙어 답답해졌다. 남는 높이가 있어야 mt-auto가 여백을 만든다.
   const cls =
-    'flex min-h-[210px] flex-col rounded-2xl bg-indigo-50 p-5 text-left shadow-sm ring-1 ring-indigo-200 transition hover:ring-indigo-400';
+    'flex min-h-[232px] flex-col rounded-2xl bg-indigo-50 p-5 text-left shadow-sm ring-1 ring-indigo-200 transition hover:ring-indigo-400';
   return to ? (
     <Link to={to} className={cls}>
       {inner}

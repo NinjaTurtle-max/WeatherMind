@@ -22,7 +22,13 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, sep } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const NAMES = ['bolt', 'cloud', 'drop', 'snow', 'sun', 'typhoon'];
+// 캐릭터 목록을 손으로 적지 않는다(2026-08-08) — 적어 두면 **새로 합류한 그림이
+// ① 검사를 조용히 비켜간다**. 실제로 무지개·달님을 넣을 때 이 배열이 6종에
+// 멈춰 있었다. Mascot.jsx의 SRC 표가 유일한 소유자이므로 거기서 읽는다.
+const MASCOT_JSX = readFileSync(join(ROOT, 'src/components/Mascot.jsx'), 'utf8');
+const NAMES = [
+  ...(MASCOT_JSX.match(/const SRC = \{[^}]*\}/s)?.[0].matchAll(/(\w+):\s*'\/([\w-]+)\.png'/g) ?? []),
+].map((m) => m[2]);
 // 알파 8(3%) 미만은 눈에 보이지 않는 안티에일리어싱 잔털이라 내용으로 세지 않는다.
 // drop 원본은 이 잔털이 오른쪽으로 107px 뻗어 있었다.
 const ALPHA_THRESHOLD = 8;
@@ -124,6 +130,8 @@ function contentBBox({ width, height, alpha }) {
 }
 
 console.log('마스코트 정렬 계약');
+
+ok(NAMES.length >= 6, `Mascot.jsx SRC에서 캐릭터 목록을 읽었다 — ${NAMES.length}종 (${NAMES.join(', ')})`);
 
 console.log('① PNG 투명 여백 0 — 내용 경계가 곧 이미지 경계');
 for (const name of NAMES) {

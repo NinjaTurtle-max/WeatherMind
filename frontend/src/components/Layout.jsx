@@ -113,10 +113,10 @@ export default function Layout() {
   };
 
   return (
-    <div className="md:pl-[208px]">
+    <div className="wm-shell pl-[var(--wm-shell-left)]">
       <SideNav />
       <div className={`mx-auto flex min-h-screen max-w-xl flex-col ${shellWidth}`}>
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200 bg-white md:left-[208px]">
+      <header className="fixed right-0 top-0 z-50 border-b border-slate-200 bg-white left-[var(--wm-shell-left)]">
         {/* md↑에서 헤더를 사이드바 오른쪽부터 시작시킨다 — inset-x-0 그대로 두면
             헤더는 화면 전체 기준으로, 본문은 사이드바를 뺀 폭 기준으로 가운데
             정렬돼 좌우가 어긋난다. 브랜드는 사이드바 상단이 갖는다. */}
@@ -155,11 +155,22 @@ export default function Layout() {
         </div>
       </header>
 
-      {/* 잠금 해제 축하 토스트 (§3.4) — 1회성, 3.2초 후 자동 소멸 */}
+      {/* 잠금 해제 축하 토스트 (§3.4) — 1회성, 3.2초 후 자동 소멸.
+
+          `left-[calc(50%_+_var(--wm-shell-left)/2)]`는 **사이드바 몫**이다
+          (2026-08-08). 화면 곳곳의 토스트 5개가 전부 `left-1/2`(=화면 폭의 절반)로
+          서 있었는데, 본문은 사이드바를 뺀 나머지의 가운데라 토스트만 왼쪽으로
+          밀렸다.
+            본문 중심 = S + (W - S)/2 = W/2 + S/2      (S = 사이드바 폭)
+          그래서 더할 값은 화면 폭과 무관하게 **항상 S/2**다. S를 상수로 박지 않고
+          변수로 받는 이유는 styles/index.css의 `--wm-shell-left` 주석 참고 —
+          사이드바 없는 라우트에서 반대로 틀리기 때문이다.
+          가드: sessionRunner 스모크가 「src의 가운데 고정 오버레이가 전부 이 식을
+          쓴다」로 잡는다. */}
       {unlockToast && (
         <div
           role="status"
-          className="fixed left-1/2 top-16 z-50 -translate-x-1/2 animate-xp-pop rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-lg"
+          className="fixed left-[calc(50%_+_var(--wm-shell-left)/2)] top-16 z-50 -translate-x-1/2 animate-toast-pop rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-lg"
         >
           {unlockToast}
         </div>
