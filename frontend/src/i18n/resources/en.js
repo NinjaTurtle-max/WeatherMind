@@ -59,31 +59,6 @@ export default {
     empty: 'Your clouds are all gone — about {min} min until one returns. New sessions need at least 1 cloud (a session in progress can still be finished)',
     regen: 'Cloud energy — 1 spent only on wrong answers · next recovery in {countdown}',
   },
-  gate: {
-    board: {
-      title: 'What is the Atmosphere Board?',
-      p1: 'Place air masses, fronts, moisture, and sunlight yourself',
-      p2: 'Your arrangement creates real atmospheric phenomena',
-      p3: 'Learn the principles hands-on, without memorizing',
-    },
-    duel: {
-      title: 'What is the Forecast Duel?',
-      p1: "Predict tomorrow's temperature and rain probability yourself",
-      p2: "Compete with the AI caster's forecast on accuracy",
-      p3: 'Graded two days later against real observations',
-    },
-    league: {
-      title: 'What is the League?',
-      p1: 'Climb cloud tiers (Stratus → Typhoon Eye)',
-      p2: 'Rankings are decided by forecast accuracy',
-      p3: 'Tiers move up or down at the weekly settlement',
-    },
-    fallbackTitle: 'This feature is not open yet',
-    cta: "Start today's session →",
-    need: 'Complete {need} sessions to get started',
-    progress: '{stage}/{need} done so far — just {remain} more!',
-    viewPath: 'View learning path',
-  },
   feedback: {
     ai: 'AI Feedback',
     authored: 'Concept Note',
@@ -187,11 +162,6 @@ export default {
     meterTitle: "🎯 Today's goal {done}/{goal}",
     reached: 'Done!',
     remaining: '{count} to go',
-  },
-  unlock: {
-    board: '🧩 The Atmosphere Board is now open!',
-    duel: '🌡️ Forecast Duel is now open!',
-    league: '🏆 The League is now open!',
   },
   apiError: {
     generic: 'Something went wrong while processing your request.',

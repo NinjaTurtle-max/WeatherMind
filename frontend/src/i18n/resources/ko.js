@@ -70,31 +70,6 @@ export default {
     empty: '구름이 모두 흩어졌어요 — 약 {min}분 후 회복돼요. 새 세션은 구름이 1개 이상 있어야 열려요(풀던 세션은 끝까지 마칠 수 있어요)',
     regen: '구름 에너지 — 틀린 문항에만 1개 소모 · 다음 회복까지 {countdown}',
   },
-  gate: {
-    board: {
-      title: '대기 보드란 무엇인가요?',
-      p1: '기단·전선·습기·일사를 직접 배치해요',
-      p2: '배치한 대로 실제 대기 현상이 만들어져요',
-      p3: '외우지 않고 원리를 손으로 익혀요',
-    },
-    duel: {
-      title: '예보 대결이란 무엇인가요?',
-      p1: '내일의 기온·강수확률을 직접 예측해요',
-      p2: 'AI 캐스터의 예보와 정확도를 겨뤄요',
-      p3: '이틀 뒤 실제 관측값으로 채점돼요',
-    },
-    league: {
-      title: '리그란 무엇인가요?',
-      p1: '구름 티어(층운 → 태풍의 눈)로 승급해요',
-      p2: '예보 정확도로 순위가 정해져요',
-      p3: '주간 정산으로 티어가 오르내려요',
-    },
-    fallbackTitle: '아직 열리지 않은 기능이에요',
-    cta: '오늘의 세션 시작하기 →',
-    need: '세션을 {need}개 완료하면 시작할 수 있어요',
-    progress: '지금까지 {stage}/{need} 완료 — {remain}개만 더!',
-    viewPath: '학습 경로 보기',
-  },
   feedback: {
     // 배지는 해설의 **출처**다(AnswerResult.feedback_source) — CO-I-1 후속.
     // 사람이 저작한 158건을 "AI 피드백"으로 찍으면 배점 ⑤ 표기가 틀어진다.
@@ -209,12 +184,6 @@ export default {
     meterTitle: '🎯 오늘 목표 {done}/{goal}',
     reached: '달성!',
     remaining: '{count}문항 남음',
-  },
-  // lib/onboardingGate.js 해제 축하 토스트 (§3.4)
-  unlock: {
-    board: '🧩 대기 보드가 열렸어요!',
-    duel: '🌡️ 예보 대결이 열렸어요!',
-    league: '🏆 리그가 열렸어요!',
   },
   // api/client.js 에러 정규화 폴백 2건
   apiError: {

@@ -69,17 +69,9 @@ export const UNLOCK_STAGE_BY_TAB = {
 /** 전부 해제되는 단계 */
 export const MAX_UNLOCK_STAGE = Math.max(...Object.values(UNLOCK_STAGE_BY_TAB));
 
-/**
- * 해제 순간 1회성 축하 토스트 리소스 키 (§3.4) — 문구는 `unlock.*` 리소스 소유.
- * 토스트는 기록(recordSessionComplete) 시점의 로케일로 번역해 문자열로 담는다
- * (소비처 Layout은 문자열 그대로 렌더 — 계약 불변. 3.2초짜리 순간 표시라
- * 표시 중 로케일 전환까지 따라가지는 않는다).
- */
-const UNLOCK_TOAST_KEY = {
-  '/board': 'unlock.board',
-  '/duel': 'unlock.duel',
-  '/league': 'unlock.league',
-};
+// 해제 축하 토스트(§3.4 `unlock.*`)는 **삭제됐다**(CO-N-1 ③, 2026-08-08) —
+// 해제 사다리가 없어져 "🧩 대기 보드가 열렸어요!"가 일어나지 않은 일을 알리는
+// 문구가 됐다. 리소스 키도 함께 지웠다(고아 키를 남기지 않는다 — CO-D6).
 
 const STORAGE_KEY = 'weathermind-onboarding-gate';
 const MAX_TRACKED_SESSIONS = 8; // 멱등용 id 캡 — 단계는 MAX_UNLOCK_STAGE에서 포화
@@ -171,7 +163,6 @@ export function isUnlocked(stage, to) {
 export const useOnboardingGate = create((set, get) => ({
   ...EMPTY,
   ...(loadPersisted() ?? {}),
-  toast: null,
 
   /**
    * /progress/me 도착 시 1회 부트스트랩. 계정이 바뀌면 기록을 버리고 다시 판정한다.
@@ -194,32 +185,17 @@ export const useOnboardingGate = create((set, get) => ({
     persist(next);
   },
 
-  /** 세션 완료 1건 기록(멱등). 새로 열린 탭이 있으면 축하 토스트를 예약한다. */
+  /** 세션 완료 1건 기록(멱등). 단계 계산에만 쓰인다(소비 화면 없음 — 위 ⚠️ 참고). */
   recordSessionComplete: (sessionId) => {
     const state = get();
     if (!sessionId) return;
     const id = String(sessionId);
     if (state.experienced || state.sessionIds.includes(id)) return;
-    const before = selectUnlockStage(state);
     const sessionIds = [...state.sessionIds, id].slice(-MAX_TRACKED_SESSIONS);
     const next = { ...state, sessionIds };
-    const after = selectUnlockStage(next);
-    const opened = Object.entries(UNLOCK_STAGE_BY_TAB)
-      .filter(([, need]) => need > before && need <= after)
-      .map(([to]) => to);
-    set({
-      sessionIds,
-      toast:
-        opened.length > 0
-          ? (UNLOCK_TOAST_KEY[opened[opened.length - 1]]
-              ? tNow(UNLOCK_TOAST_KEY[opened[opened.length - 1]])
-              : null)
-          : state.toast,
-    });
+    set({ sessionIds });
     persist(next);
   },
-
-  clearToast: () => set({ toast: null }),
 
   /** 로그아웃·테스트용 초기화 */
   reset: () => {
@@ -229,6 +205,6 @@ export const useOnboardingGate = create((set, get) => ({
     } catch {
       // 무시 — 메모리 상태만 되돌린다
     }
-    set({ ...EMPTY, toast: null });
+    set({ ...EMPTY });
   },
 }));
