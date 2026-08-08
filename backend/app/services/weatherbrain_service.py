@@ -487,7 +487,9 @@ async def _load_item_level_groups(
 
     저장된 level_group이 아니라 effective_level_group(2축 파생 뷰)을 돌려준다:
     knowledge_level이 채워진 문항은 새 축에서 파생하고, 미분류(NULL)면 저장값
-    그대로다. 시드 237건은 두 축이 정합하므로 오늘의 값은 한 건도 달라지지 않는다.
+    그대로다. 시드 272건은 두 축이 정합하므로(2026-08-09 전건 재확인 — `level_group`
+    과 `KNOWLEDGE_LEVEL_BANDS[knowledge_level-1]`이 어긋나는 문항 0건) 오늘의 값은
+    한 건도 달라지지 않는다. 종전 표기 "237건"은 저작 배치 전 총량이었다.
     """
     if not content_item_ids:
         return {}
@@ -512,7 +514,7 @@ def assemble_responses(
     **placement_service.assemble_placement_responses와 같은 규칙이어야 한다** —
     두 경로가 같은 응답 집합에 다른 b를 쓰면 배치가 만든 θ를 첫 세션 발급이
     덮어쓴다(CO-U-4의 실증: 배치 −0.718 → refresh −1.000). 동일성은
-    test_weatherbrain_assemble_parity가 감시한다.
+    test_weatherbrain_theta_pipeline.py::TestAssembleParityWithPlacement가 감시한다.
 
     난이도 b 규칙: 보정값(item_params)이 있으면 그 값, 없으면 **그 문항**
     level_group의 사전 b. 문항을 모를 때(content_item_id NULL — 생성 문항 등)만

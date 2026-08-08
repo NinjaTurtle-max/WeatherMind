@@ -158,7 +158,7 @@
 | **문항 유형 7종**(선다·단답·슬라이더·보드·짝맞추기·순서·빈칸) | `answer_service.GRADERS` 레지스트리 |
 | **LLM 키 없이도 전 기능이 돈다** — 폴백 문항 뱅크 + 결정적 휴리스틱 게이트 | 무키 상태로 CI 전건 통과·스모크 완주. **심사장 PC에서 URL만으로 완주해야 한다는 규정과 정확히 맞물린다** |
 | **DB 유저 격리 2층** — 앱 필터 + PostgreSQL RLS, 런타임은 비특권 롤 | `docs/specs/08` · `backend/app/scripts/rls_app_role.sql` |
-| **문항 237건 · 개념 14종 · 지식 수준 6단계 전건 분류** | `database/seed/content_items.json` |
+| **문항 272건 · 개념 14종 · 지식 수준 6단계 전건 분류**(2026-08-09 실측) | `database/seed/content_items.json` · 총량 고정은 `backend/tests/test_seed_contract.py::test_시드_증보_누적` |
 | **IRT 추정기의 수치 안정성** | 전건 정답/오답·`b=±1e6`·`a=0`·`n=0` 전부 유한값(경계 실측) |
 
 ---

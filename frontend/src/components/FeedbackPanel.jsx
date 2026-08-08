@@ -7,7 +7,8 @@ import Mascot from './Mascot';
  * message 본문은 서버 파생 — 외부화 대상 아님(§6.3 시드/서버 데이터 제외).
  *
  * ⚠️ **배지는 출처를 말한다**(CO-I-1 후속, 2026-08-08). 종전에는 무조건
- * `feedback.ai`("AI 피드백")를 찍었는데, `explanation_hint` 158건이 배선된 뒤로는
+ * `feedback.ai`("AI 피드백")를 찍었는데, `explanation_hint`(배선 당시 158건 ·
+ * 2026-08-09 실측 193건)가 배선된 뒤로는
  * **사람이 저작한 해설**과 **board 판정 근거**가 같은 배지 아래로 나갔다 — 심사
  * 배점 ⑤(생성형 AI 활용)에 직결되는 표기 오류다. 서버가 `AnswerResult.feedback_source`
  * ("board"|"authored"|"ai")로 출처를 알려주므로 그것으로 라벨을 고른다.

@@ -72,7 +72,7 @@ export default {
   },
   feedback: {
     // 배지는 해설의 **출처**다(AnswerResult.feedback_source) — CO-I-1 후속.
-    // 사람이 저작한 158건을 "AI 피드백"으로 찍으면 배점 ⑤ 표기가 틀어진다.
+    // 사람이 저작한 193건(2026-08-09 실측)을 "AI 피드백"으로 찍으면 배점 ⑤ 표기가 틀어진다.
     ai: 'AI 피드백',
     authored: '개념 해설',
     board: '판정 근거',

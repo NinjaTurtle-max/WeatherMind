@@ -13,11 +13,20 @@ function tNow(key, params) {
  * ⚠️ **2026-08-08 (CO-N-1 ③): 잠금 해제 단계는 UI 소비자가 없다.**
  * `components/FeatureUnlockGate`는 삭제됐고 Layout의 축하 토스트 렌더도 끊겼다 —
  * 심사 배점 ②(체험·참여형)가 요구하는 "콜드 오픈에서 바로 만져 볼 수 있음"과
- * 세션 1·2·3회 해제 사다리가 정면으로 충돌했기 때문이다. 남은 소비자는
- * **`DAILY_GOAL_CHOICES`(일일 목표 선택지)뿐**이고, 아래 단계 계산
- * (`UNLOCK_STAGE_BY_TAB`·`selectUnlockStage`·`isUnlocked`·`requiredStage`·
- * 토스트 예약)은 지금 아무 화면도 읽지 않는다. **재게이팅을 하지 않을 것이
- * 확정되면 이 절반은 지워야 한다** — 이월 대장에 남기려고 여기 적어 둔다.
+ * 세션 1·2·3회 해제 사다리가 정면으로 충돌했기 때문이다.
+ *
+ * ⚠️ **2026-08-09 정정 — "아무 화면도 읽지 않는다"는 거짓이었다.** 이 자리에
+ * `UNLOCK_STAGE_BY_TAB`·`selectUnlockStage`·`isUnlocked`·`requiredStage`가 **전부**
+ * 소비자 0이라 적혀 있었으나, `selectUnlockStage`는 `modules/progress/
+ * ProgressPage.jsx:38`이 `useOnboardingGate(selectUnlockStage)`로 읽는다
+ * (해제 단계 표시). 통째로 지웠다면 화면이 깨졌을 것이다.
+ * 실측 소비자 현황(src/ 전수 grep):
+ *   · `DAILY_GOAL_CHOICES`  — 일일 목표 선택지. 사용 중.
+ *   · `selectUnlockStage`   — ProgressPage.jsx:38. **사용 중.**
+ *   · `UNLOCK_STAGE_BY_TAB`·`isUnlocked`·`requiredStage`·토스트 예약
+ *     — src/ 소비자 0(스모크 `onboardingGating`만 참조).
+ * **재게이팅을 하지 않을 것이 확정되면 마지막 줄만 지운다** — 이월 대장에 남기려고
+ * 여기 적어 둔다. 삭제 전 반드시 소비자를 다시 grep할 것.
  *
  * 두 가지를 한 모듈에 모은다:
  *   1) 일일 목표 선택지(3·5·9) — 서버 계약(PUT /progress/daily-goal, D4)의 허용값.

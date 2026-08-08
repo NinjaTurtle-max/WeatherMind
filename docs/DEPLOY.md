@@ -99,32 +99,72 @@ nano .env
 | `POSTGRES_PASSWORD` | 강한 임의값 |
 | `JWT_SECRET_KEY` | 강한 임의값 (`openssl rand -hex 32`) |
 | `AI_WORKER_INTERNAL_API_KEY` | 강한 임의값 |
-| `MIGRATION_DATABASE_URL` | 소유자 롤 — RLS 전제(`docs/specs/08`) |
+| `DATABASE_URL` | **런타임 = 앱 롤 `weathermind_app`.** ⚠️ **비밀번호를 반드시 바꿔야 한다** — `.env.example`의 `weathermind_app_dev`는 공개 저장소에 평문으로 있어 **placeholder로 취급되고, 그대로 두면 backend가 기동을 거부한다**(CO-Q-11). 아래 §5.1 참조 |
+| `MIGRATION_DATABASE_URL` | 소유자 롤 — alembic 전용. RLS 전제(`docs/specs/08`) |
+| `CELERY_DATABASE_URL` | 배치 롤. **미설정 시 `MIGRATION_DATABASE_URL`로 자동 폴백**하므로 보통 비워 둔다(CO-Q-1) |
 | `KMA_API_KEY` | **팀 자체 발급 키**(대회 제공 키는 8/22 만료 — `HACKATHON_RULES.md` §3) |
 | `GEMINI_API_KEY` | 키 게이트에서 투입. **없어도 폴백으로 전 기능 동작**. 임베딩 키는 없다(R13 3일차 철거) |
 | `IMAGE_TAG` | 배포할 커밋 sha 권장(미설정 시 `latest`) |
 
+### 5.1 앱 롤 비밀번호 교체 — **DB와 `.env`를 함께 바꾼다**
+
+⚠️ **한쪽만 바꾸면 양쪽 다 죽는다.** `.env`만 바꾸면 postgres 인증 실패, DB만 바꾸면
+`.env`의 dev 비번이 placeholder로 걸려 backend 기동 거부다.
+
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+NEWPW=$(openssl rand -hex 24)
+
+# ① .env의 DATABASE_URL 비번 교체
+sed -i.bak "s|weathermind_app:weathermind_app_dev@|weathermind_app:${NEWPW}@|" .env
+
+# ② DB 롤 비번 교체 (컨테이너가 이미 떠 있어야 한다 — 아래 up -d 뒤에 실행)
+$C exec -T postgres psql -U weathermind -d weathermind \
+  -c "ALTER ROLE weathermind_app PASSWORD '${NEWPW}';"
+
+# ③ backend 재기동 (①을 읽게)
+$C up -d --force-recreate backend celery-worker celery-beat
 ```
 
+```bash
+C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+$C pull
+$C up -d
+```
+
+⚠️ **첫 `up -d` 직후 backend는 정상적으로 실패 상태다** — 테이블도 정책도 아직 없다.
+§6을 끝내고 §5.1 ③으로 재기동하면 뜬다.
+
 ## 6. 초기화 (최초 1회)
+
+⚠️ **순서가 계약이다.** 어기면 조용히 깨진다 — 아래 각 단계에 이유를 적었다.
 
 ```bash
 C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
 
-$C exec backend alembic upgrade head          # 마이그레이션
-$C exec backend python -m app.scripts.seed_content    # 문항
-$C exec backend python -m app.scripts.seed_units      # 유닛 트리
-$C exec backend python -m app.scripts.seed_badges     # 배지
-# (ai-worker 벡터 시드 적재 단계는 R13 3일차에 사라졌다 — 개념 문서는
-#  ./database/seed 마운트로 직접 읽힌다. docs/specs/03 §3.1)
+# ① 마이그레이션 — 소유자 롤(MIGRATION_DATABASE_URL)로 돈다
+$C exec backend alembic upgrade head
 
-# 기존 볼륨에 RLS 앱 롤이 없다면 (신규 볼륨은 init.sql이 처리)
+# ② RLS 예외 정책 — **신규 볼륨에도 필수다** (CO-Q-12)
+#    init.sql은 롤·GRANT만 만든다. 그 시점엔 테이블이 없어 정책을 만들 수 없다.
+#    이걸 건너뛰면 users에 user_isolation만 걸려 **로그인·게스트 시작이 전면 0행**이고,
+#    리더보드도 빈다. "기존 볼륨에만"이 아니다.
 $C exec -T postgres psql -U weathermind -d weathermind \
   < backend/app/scripts/rls_app_role.sql
+
+# ③ 시드 — **courses가 units보다 먼저** (CO-J-7)
+#    seed_units가 course 슬러그를 못 찾으면 course_id를 NULL로 두고 넘어간다.
+#    그러면 전 유닛이 단일 코스로 뭉치고 GET /courses가 비어 학습 화면이 백지가 된다.
+#    scripts/smoke.sh가 이 순서를 계약으로 검사한다.
+$C exec backend python -m app.scripts.seed_courses    # ← 빠뜨리기 쉽다
+$C exec backend python -m app.scripts.seed_content    # 문항 272
+$C exec backend python -m app.scripts.seed_units      # 유닛 24 (courses 필요)
+$C exec backend python -m app.scripts.seed_badges     # 배지
+
+# ④ 앱 롤 비번 교체 + 재기동 — §5.1 ②③
 ```
+
+**검증**: `$C exec backend python -c "from app.core.config import insecure_secret_defaults as f; print(f() or 'OK')"`
+→ `OK`가 아니면 그 키가 placeholder다. 기동 거부의 원인이 그대로 출력된다.
 
 ## 7. 확인
 

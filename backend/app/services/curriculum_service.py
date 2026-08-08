@@ -52,7 +52,10 @@ UNIT_SESSION_SIZE = settings.UNIT_SESSION_SIZE   # 기본 5 — env 튜닝(R5.5)
 # 조회 횟수는 2회 그대로이므로 왕복 비용은 불변).
 UNIT_POOL_PREFETCH = 4
 
-# §0 제품 결정의 4섹션 교육적 순서 (섹션 정렬 키 — DB 컬럼 없이 표현).
+# §0 제품 결정의 교육적 섹션 순서 (섹션 정렬 키 — DB 컬럼 없이 표현).
+# 개수를 여기 적지 않는다: 이 자리에 "4섹션"이라 적혀 있었는데 바로 아래 튜플이
+# 8섹션으로 자란 뒤에도 그대로였다(2026-08-09 정정). **섹션 수의 단일 소유자는
+# 아래 튜플 자신**이고, 코스별 분포는 `database/seed/units.json`이 소유한다.
 # 미등재 섹션은 뒤로(알파벳). unit_order는 섹션 내 유일(§3.6).
 SECTION_ORDER = (
     "하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후",
@@ -380,7 +383,7 @@ def course_key(unit: Any) -> Any:
 def course_groups(units: Iterable[Any]) -> list[list[Any]]:
     """코스별 유닛 묶음 (CO-L1, 순수) — 전체 순서(ordered_units)상 **등장 순**.
 
-    진도·왕관·잠금·스파인이 "전 코스 20유닛"이 아니라 한 코스만 보게 하는 분할
+    진도·왕관·잠금·스파인이 "전 코스 전 유닛"이 아니라 한 코스만 보게 하는 분할
     지점이다. 묶음 내부는 ordered_units 순서를 그대로 보존하므로, 각 묶음을
     그대로 placement_unlock_floor·open_units_in_order에 넘기면 그 코스 안에서의
     전체 순서 인덱스가 된다(코스 밖 유닛이 인덱스를 밀지 않는다 — CO-L4의 원인).
@@ -615,7 +618,11 @@ async def get_spine(db: AsyncSession, user: User) -> dict[str, Any]:
     build_spine을 평가한다. θ 읽기는 load_abilities(read-only) — ai-worker 미호출.
 
     **활성 코스 한 벌만 집계한다 (CO-L1·CO-L7)**: 전 코스를 합산하면 날씨 코스만
-    하는 유저가 12유닛을 전부 클리어해도 헤더가 12/20에서 멈춘다. 활성 코스 판정은
+    하는 유저가 그 코스를 전부 클리어해도 헤더가 **(활성 코스 유닛 수)/(전 코스
+    유닛 수)**에서 멈춰 100%에 영원히 닿지 못한다. 분모를 숫자로 적지 않는 이유는
+    실제로 드리프트했기 때문이다 — 여기 "12/20"이라 박혀 있었고 시드가
+    16/24가 된 뒤에도 그대로였다(2026-08-09 정정). 유닛 수의 소유자는
+    `database/seed/units.json`이다. 활성 코스 판정은
     진도 블록(progress_block_pool)과 **같은 함수**를 쓰므로 "헤더가 가리키는 유닛"과
     "오늘 진도로 나오는 유닛"이 어긋날 수 없다.
     """
@@ -640,7 +647,8 @@ async def is_unit_locked(
 
     **"동일 규칙"은 잠금 함수만이 아니라 잠금이 평가되는 집합까지 같아야 성립한다
     (CO-L4)**: 트리 GET은 `?course=`로 스코프된 집합에서, 이 게이트는 전 코스
-    20유닛에서 order_index·unlock_floor를 계산해 왔다 — 그래서 트리에 unlocked로
+    전체(당시 20유닛, 2026-08-09 현재 24)에서 order_index·unlock_floor를 계산해
+    왔다 — 그래서 트리에 unlocked로
     그려진 노드가 POST에서 403 UNIT_LOCKED로 튕겼다. 이제 **그 유닛이 속한 코스**로
     스코프한다(scope_units_to_unit_course — 단일 코스 DB에서는 전 집합과 동일).
     """
@@ -662,15 +670,26 @@ def unit_pool_level_groups(user_level_group: str, theta: float | None) -> list[s
 
     `session_service.pool_level_groups`(가입 그룹 ∪ θ 매핑 그룹, 최대 2밴드)를
     유닛 풀에서만 넓힌다. 넓히는 이유는 실측이다 — 유닛 24개 × 4밴드 96칸 중
-    **24칸이 0문항**(신고 가능한 3밴드로만 세도 17칸)이고, 밴드 정확 일치 필터에는
-    강등 폴백이 없어 그 칸에 떨어진 유저는 **0문항 세션**을 받는다:
-      · adult(=지식 수준 5 단독 28건)에 basic-science 6태그가 **전건 0** →
-        성인 유저는 bs 8유닛 전부 0문항(`docs/specs/11:97` "level_group 3종 전부
-        저작" 직접 위반). `wildfire_weather`도 adult 0건.
-      · elementary에 `air_mass`·`anomaly`·`wildfire_weather`·`flood_response`
-        board가 0건 → 초등 유저는 그 board 유닛에서 영구 정체.
-    유닛 세션에는 daily의 quiz-generate 폴백이 **없다**(`create_unit_session`
-    독스트링) — 0문항은 복구되지 않는다.
+    **16칸이 0문항**(신고 가능한 3밴드로만 세도 9칸)이고, 밴드 정확 일치 필터에는
+    강등 폴백이 없어 그 칸에 떨어진 유저는 **0문항 세션**을 받는다. 유닛 세션에는
+    daily의 quiz-generate 폴백이 **없다**(`create_unit_session` 독스트링) —
+    0문항은 복구되지 않는다.
+
+    ⚠️ **칸 수를 여기 적는 것이 실제로 사고를 냈다**(2026-08-09 정정). 이 자리에
+    "24칸(3밴드 17)"이 있었고, adult × basic-science 6태그가 **전건 0**이라
+    "성인은 bs 8유닛 전부 0문항"이라고 단정했으며 `wildfire_weather` adult도 0이라
+    적었다. 셋 다 지금은 거짓이다 — **같은 저작 배치(237→272건)가 그 칸들을 채우고
+    이 독스트링만 안 고쳤다**. 실측 2026-08-09: adult × bs 공백은
+    `bs-convection-board` **한 칸뿐**(board라 저작 대상이 아니었다),
+    `wildfire_weather` adult는 **5건**. elementary board 공백은 남아 있다
+    (`air-power-board`·`city-anomaly-board`·`risk-wildfire-board`·
+    `risk-flood-board`) — 폴백이 필요한 이유 자체는 그대로다.
+
+    **칸 인구의 소유자는 이 독스트링이 아니라 테스트다**:
+    `backend/tests/test_curriculum_band_fallback.py`가 실 시드에서 칸을 세고
+    (`TestBandHolesExistInRealSeed` = 공백이 실재함 · `TestWidenedPoolNeverStarves`
+    = 넓힌 집합에는 굶주림이 없음), 저작이 진행되면 **그쪽이 먼저 빨개진다**.
+    수치가 필요하면 여기가 아니라 그 파일을 읽을 것.
 
     **θ가 있을 때만 넓힌다.** θ 경로에서는 `build_pool_query`가 `|b − θ|`
     오름차순으로 정렬하므로, 밴드를 전부 열어도 **자기 난이도에 가장 가까운
@@ -687,14 +706,21 @@ def unit_pool_level_groups(user_level_group: str, theta: float | None) -> list[s
     반대로 학습자를 막는다. 거리가 완전히 같을 때만 **쉬운 쪽 우선**이고, 그
     타이브레이크는 `rank_by_knowledge_level`이 단독 소유한다(사유는 그 독스트링).
 
-    **지식 수준(knowledge_level) ±1로 좁게 넓히지 않은 이유 — 실측**: PM 지시로
-    kl 창을 재 봤고, 반경 1은 **0문항 칸을 11개 남긴다**(성인 × `bs-convection-
-    board`·`bs-energy-transfer` 포함 — L2가 고치려던 바로 그 칸). 반경 2도 2칸이
-    남는다. 시드가 태그마다 특정 단계에 통째로 비어 있어(예 `kl 3`이 기상 6태그 중
-    4태그에서 0건) **고정 반경은 밴드 공백을 단계 공백으로 옮길 뿐**이다. 그래서
+    **지식 수준(knowledge_level) ±1로 좁게 넓히지 않은 이유 — 실측**: kl 창을
+    재 봤고, 고정 반경은 **0문항 칸을 남긴다**(2026-08-09 실측으로 반경 1은 6칸,
+    반경 2도 1칸 — 성인 × `bs-convection-board`가 그중 하나로, L2가 고치려던 바로
+    그 칸이다). 시드가 태그마다 특정 단계에 통째로 비어 있어 **고정 반경은 밴드
+    공백을 단계 공백으로 옮길 뿐**이다. 그래서
     **필터는 전 밴드로 열고, 정보 손실은 필터가 아니라 정렬로 줄인다** —
     `rank_by_knowledge_level`이 |kl − θ의 단계| 오름차순으로 다시 세워 성인에게
     kl 4를 kl 3보다, kl 3을 kl 2보다 먼저 준다(굶기지 않으면서 한 단계씩만 강등).
+
+    **반경별 굶주림 실측의 소유자는 테스트다** —
+    `test_curriculum_band_fallback.py::test_지식수준_고정반경으로는_굶주림이_안_풀린다`.
+    위 6칸/1칸도 그 테스트와 **같은 표적 산출**(`theta_to_knowledge_level(
+    LEVEL_GROUP_ITEM_B[band])`)로 센 값이라 두 자리가 갈리지 않는다. 다른 방법으로
+    세면 다른 수가 나오므로(밴드 최하 단계를 표적으로 쓰면 7칸/5칸) 수치를 인용할
+    때는 산출 방법을 함께 적을 것 — 종전 값 "11칸/2칸"은 저작 배치 전 실측이었다.
     """
     if theta is None:
         return session_service.pool_level_groups(user_level_group, theta)
@@ -747,7 +773,8 @@ async def _unit_content_pool(
       ai-worker 호출 없음). 발급 경로는 라우터의 refresh_abilities 1회 결과를
       받아 풀 정렬이 신선한 θ를 쓴다 (R8-01 §3.2).
     - θ가 있으면 level_group 필터가 `unit_pool_level_groups`로 **전 밴드까지**
-      확장되고(학령 풀 공백 96칸 중 0문항 24칸이 여기서 해소 — CO-L2),
+      확장되고(학령 풀 공백 96칸 중 0문항 16칸이 여기서 해소 — CO-L2.
+      칸 인구는 test_curriculum_band_fallback.py가 소유한다),
       SQL이 |b−θ|로 좁힌 선취분을 `rank_by_knowledge_level`이 6단계 해상도로
       다시 세운다. 즉 **굶기지 않으면서 강등 폭은 한 단계**다(CO-L-F2).
       선취 배수(UNIT_POOL_PREFETCH)만큼 더 읽는 이유는 SQL LIMIT이 밴드 해상도로
@@ -832,8 +859,11 @@ async def progress_block_pool(
     붙는다** — 배합은 매일 같으므로 기본 코스 트리가 영원히 열리지 않는다.
 
     잠금 맥락(진도·배치 선해제)은 트리 노출과 같은 규칙을 한 번만 로드해 쓴다.
-    스캔 유닛 수를 count개로 제한하는 이유는 쿼리 비용 상한이다(유닛당 최대 2회) —
-    풀이 전부 빈 DB에서 20유닛을 훑으면 발급 경로가 40쿼리가 된다.
+    스캔 유닛 수를 count개로 제한하는 이유는 쿼리 비용 상한이다 — **유닛당 최대
+    2쿼리**(신선도 1차 + 백필 2차)라, 풀이 전부 빈 DB에서 제한 없이 훑으면 발급
+    경로의 쿼리 수가 유닛 수에 비례해 늘어난다(2026-08-09 기준 24유닛 = 48쿼리.
+    이 자리에 "20유닛 = 40쿼리"가 박혀 있어 시드가 자란 뒤 거짓이 됐다 —
+    유닛 수는 `database/seed/units.json`이 소유하므로 곱셈만 남긴다).
     """
     if count <= 0:
         return [], None

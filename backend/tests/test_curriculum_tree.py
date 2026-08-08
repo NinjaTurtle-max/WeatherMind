@@ -108,7 +108,7 @@ class TestPlacementUnlockFloor:
     """§3.4 시작점 산출 — 선두 연속 "θ≥임계 AND n>0"만 인정 (순수).
 
     임계는 **학령 상대**다(R13 CO-V-2 = CO-U-3-B) — middle_high가 0.5라 아래
-    기존 수치는 그대로 유지되고, 학령별 이동은 TestUnlockFloorIsLevelRelative가
+    기존 수치는 그대로 유지되고, 학령별 이동은 test_weatherbrain_relative_thresholds.py::TestUnlockWiring가
     별도로 고정한다.
     """
 
