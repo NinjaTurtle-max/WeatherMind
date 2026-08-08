@@ -29,6 +29,7 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import http from 'node:http';
+import { readFile } from 'node:fs/promises';
 
 process.env.NODE_ENV = 'production';
 
@@ -329,6 +330,17 @@ try {
     // 「목록으로」가 실제로 목록으로 되돌린다(같은 퍼즐에 남지 않는다)
     click(back);
     await waitFor(() => !text().includes('제출하기'), 5000, '목록 복귀');
+
+    // 클리어 상태를 목에서 만들기 어려우므로(정답 배치가 필요) 「다음 퍼즐」의
+    // **경로**는 소스 계약으로 고정한다: 반드시 openPuzzle(=상세 엔드포인트)을
+    // 탄다. 목록 payload로 직행하면 보드측 유일한 구름 진입 게이트(D1·CO-K5)를
+    // 우회해 잔량 0에서 보드가 무제한이 된다 — 이 파일이 존재하는 이유 그 자체다.
+    const src = await readFile(resolve(root, 'src/modules/board/BoardPage.jsx'), 'utf8');
+    assert(/data-board-next/.test(src), 'BoardPage에 data-board-next가 없다');
+    assert(
+      /data-board-next[\s\S]{0,240}openPuzzle\(nextPuzzle\)/.test(src),
+      '「다음 퍼즐 →」이 openPuzzle(상세 진입 게이트)을 타지 않는다(CO-K5 우회)',
+    );
   });
 
   // ── 6. CO-K7: 자유 실험은 마운트 즉시 자동 스크롤하지 않는다 ──────────────

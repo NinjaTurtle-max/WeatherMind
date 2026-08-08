@@ -32,8 +32,10 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const TARGETS = [
   { path: '/src/modules/explore/ExploreHome.jsx', name: 'ExploreHome', expects: ['탐구', '교육용 단순화 모델'] },
-  { path: '/src/modules/explore/TyphoonSimPage.jsx', name: 'TyphoonSimPage', expects: ['태풍', '왜 그럴까'] },
-  { path: '/src/modules/explore/ClimateSimPage.jsx', name: 'ClimateSimPage', expects: ['기후변화', '폭염일수'] },
+  // CO-S-10(2026-08-08): 두 시뮬의 θ 루프 CTA는 라벨이 "학습 경로에서 이어가기"인데
+  // 목적지가 `/`(홈)였다 — 학습 경로는 `/learn`이다. href를 계약으로 고정한다.
+  { path: '/src/modules/explore/TyphoonSimPage.jsx', name: 'TyphoonSimPage', expects: ['태풍', '왜 그럴까', 'href="/learn"'] },
+  { path: '/src/modules/explore/ClimateSimPage.jsx', name: 'ClimateSimPage', expects: ['기후변화', '폭염일수', 'href="/learn"'] },
 ];
 
 const server = await createServer({
@@ -68,6 +70,20 @@ try {
       continue;
     }
     console.log(`PASS ${name} (${html.length} chars)`);
+  }
+
+  // CO-S-10 덤: `/explore/typhoon`·`/explore/climate`가 Layout의 isWide 목록에
+  // 없어서 **카드를 누르는 순간 본문이 1152 → 576px로 접혔다.** 하위 경로까지
+  // 넓은 셸을 받는지 소스 계약으로 고정한다(뷰포트 폭은 jsdom이 재현 못 한다).
+  {
+    const { readFile } = await import('node:fs/promises');
+    const layout = await readFile(resolve(root, 'src/components/Layout.jsx'), 'utf8');
+    if (/pathname\.startsWith\('\/explore'\)/.test(layout)) {
+      console.log('PASS Layout.isWide가 /explore 하위 경로까지 본다');
+    } else {
+      console.error("FAIL Layout.isWide: pathname.startsWith('/explore')가 없다 — 시뮬 화면이 576px로 접힌다");
+      failed += 1;
+    }
   }
 } finally {
   await server.close();

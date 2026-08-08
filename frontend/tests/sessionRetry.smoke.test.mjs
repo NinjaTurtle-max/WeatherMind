@@ -103,6 +103,7 @@ const ClosingForecastStep = (await vite.ssrLoadModule('/src/modules/duel/Closing
 const { retryQueueOf, RETRY_QUEUE_LIMIT } = await vite.ssrLoadModule('/src/modules/session/SessionRunner.jsx');
 const SessionRunnerMod = await vite.ssrLoadModule('/src/modules/session/SessionRunner.jsx');
 const SessionRunner = SessionRunnerMod.default;
+const FeedbackPanel = (await vite.ssrLoadModule('/src/components/FeedbackPanel.jsx')).default;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -565,6 +566,30 @@ try {
       '학습 경로로 나가는 링크가 없다',
     );
     r.unmount();
+  });
+
+
+  // ── CO-I-1 후속: 해설 배지가 **출처**를 말한다 ────────────────────────────
+  // `explanation_hint` 158건을 배선한 뒤로 사람이 저작한 해설과 board 판정 근거가
+  // 무조건 "AI 피드백" 배지 아래로 나갔다 — 심사 배점 ⑤(생성형 AI 활용) 표기 오류.
+  // 서버 AnswerResult.feedback_source("board"|"authored"|"ai")로 라벨을 고른다.
+  await scenario('FeedbackPanel: feedback_source가 배지를 고른다(부재는 ai 폴백)', async () => {
+    for (const [source, label] of [
+      ['ai', 'AI 피드백'],
+      ['authored', '개념 해설'],
+      ['board', '판정 근거'],
+      [undefined, 'AI 피드백'], // 구 응답 하위 호환
+      ['__unknown__', 'AI 피드백'], // 미지 값도 안전하게 떨어진다
+    ]) {
+      const r = mount(createElement(FeedbackPanel, { message: '설명입니다', isCorrect: true, source }));
+      await waitFor(() => window.document.querySelector('[data-feedback-source]'), `배지(${source})`);
+      assert(
+        text().includes(label),
+        `source=${source}는 "${label}" 배지여야 함 — 실제: ${text().slice(0, 80)}`,
+      );
+      r.unmount();
+      await sleep(20);
+    }
   });
 
 } finally {
