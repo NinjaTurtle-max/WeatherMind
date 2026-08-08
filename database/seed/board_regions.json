@@ -2,25 +2,49 @@
   {
     "zone": 0,
     "name": "서해상",
-    "svg_point": [14.0, 45.8],
-    "label_anchor": [14.0, 56.8]
+    "svg_point": [
+      14.0,
+      45.8
+    ],
+    "label_anchor": [
+      14.0,
+      58.6
+    ]
   },
   {
     "zone": 1,
     "name": "수도권",
-    "svg_point": [36.0, 32.4],
-    "label_anchor": [36.0, 21.4]
+    "svg_point": [
+      36.0,
+      32.4
+    ],
+    "label_anchor": [
+      36.0,
+      21.4
+    ]
   },
   {
     "zone": 2,
     "name": "영서·태백",
-    "svg_point": [58.0, 47.0],
-    "label_anchor": [58.0, 58.0]
+    "svg_point": [
+      58.0,
+      47.0
+    ],
+    "label_anchor": [
+      58.0,
+      59.8
+    ]
   },
   {
     "zone": 3,
     "name": "영동·동해",
-    "svg_point": [74.0, 39.1],
-    "label_anchor": [80.0, 28.1]
+    "svg_point": [
+      74.0,
+      39.1
+    ],
+    "label_anchor": [
+      80.0,
+      28.1
+    ]
   }
 ]
