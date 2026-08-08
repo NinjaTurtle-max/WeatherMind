@@ -153,3 +153,38 @@ class TestBoardPuzzleSchema:
             difficulty=1,
         )
         assert puzzle.difficulty == 1
+
+
+class TestMockParity:
+    """목(frontend/mock)의 boardDifficulty가 서버와 같은 규칙인지 소스로 대조한다.
+
+    왜 소스 대조인가: 목은 JS라 파이썬 테스트가 실행할 수 없다. 그래서 "같은 값이
+    나오는가"가 아니라 "같은 **규칙**을 쓰는가"를 본다.
+
+    실제로 갈렸다(2026-08-07). R13에서 밴드가 4종(expert 추가)이 되면서 서버는
+    `level_group == "adult"` 문자열 비교를 버리고 사전 b 임계로 바꿨는데 목은 그대로
+    남아, expert 문항이 서버에선 어려움(3)인데 목에선 보통(2)으로 떴다. 화면상
+    난이도가 되돌아가는 것처럼 보였고, 목으로 도는 프론트 스모크는 이를 못 잡았다.
+    """
+
+    MOCK_PATH = (
+        Path(__file__).resolve().parents[2] / "frontend" / "mock" / "apiMockPlugin.js"
+    )
+
+    def test_목이_문자열_비교로_되돌아가지_않았다(self):
+        src = self.MOCK_PATH.read_text(encoding="utf-8")
+        assert "levelGroup === 'adult'" not in src, (
+            "목이 밴드를 문자열로 비교한다 — expert 등 상위 밴드가 추가되면 서버와 "
+            "난이도가 갈린다. 서버처럼 사전 b 임계로 판정할 것"
+        )
+
+    def test_목의_사전_b_표가_서버와_같다(self):
+        src = self.MOCK_PATH.read_text(encoding="utf-8")
+        for band, b in wb.LEVEL_GROUP_ITEM_B.items():
+            assert f"{band}: {b}" in src, (
+                f"목의 LEVEL_GROUP_ITEM_B에 {band}: {b} 가 없다 — 서버 표와 어긋나면 "
+                "같은 문항이 화면마다 다른 난이도로 보인다"
+            )
+        assert "priorB >= LEVEL_GROUP_ITEM_B.adult" in src, (
+            "목이 서버와 같은 임계(adult 이상)를 쓰지 않는다"
+        )

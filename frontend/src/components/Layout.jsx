@@ -36,7 +36,10 @@ export default function Layout() {
   // 폭만큼(100vw > clientWidth) 가로 스크롤이 생기므로, 폭은 레이아웃이 소유한다.
   const pathname = useLocation().pathname;
   // /board는 플레이가 3열(팔레트·지도·미션)이라 576px로는 가운데 열이 0으로 눌린다.
-  // 게다가 6xl(1152)에서도 지도가 시안보다 작아서 보드만 한 단계 더 넓게 쓴다.
+  // 한때 보드만 7xl로 한 단계 더 넓게 썼다(지도를 크게 쓰려고). 되돌렸다
+  // (2026-08-07) — 헤더는 전 화면 고정 폭인데 본문만 넓어서, 보드에서만 제목·판이
+  // 헤더 항목보다 40px 왼쪽에서 시작했다. 화면을 오갈 때 눈에 띄게 어긋난다.
+  // 지도 열은 704 → 624px로 줄지만, 줄 맞는 쪽을 택했다(사용자 결정).
   const isBoard = pathname === '/board';
   // /explore는 시뮬 2종을 정사각으로 나란히 놓는다 — 576px 셸에서는 한 칸이
   // 264px까지 작아진다.
@@ -52,7 +55,7 @@ export default function Layout() {
     || pathname === '/league'
     || pathname === '/me'
     || isBoard;
-  const shellWidth = isBoard ? 'md:max-w-7xl' : isWide ? 'md:max-w-6xl' : '';
+  const shellWidth = isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);
   const userKey = useAuthStore((s) => s.user?.user_id ?? null);
   const logoutLocal = useAuthStore((s) => s.logout);
@@ -125,8 +128,9 @@ export default function Layout() {
             대결 1152px, 보드 1232px, 리그·내 정보 768px로 셋이었고, 탭을 옮길
             때마다 XP 바와 로그아웃이 40~184px씩 이동했다. 헤더는 화면이 바뀌어도
             제자리에 있어야 하는 붙박이라, 홈 기준(6xl)으로 못 박는다.
-            본문은 종전대로 화면별 폭을 쓴다 — 보드(7xl)에서만 본문이 헤더보다
-            좌우로 40px 넓다. 헤더가 흔들리는 쪽보다 이게 낫다는 판단이다. */}
+            2026-08-07: 본문도 6xl로 맞췄다(보드만 7xl이던 예외 제거) — 이제
+            헤더와 본문이 전 화면에서 같은 선에서 시작한다. 폭을 바꿀 일이 생기면
+            **둘을 같이** 바꿀 것. 한쪽만 바꾸면 그 화면만 어긋난다. */}
         <div className="mx-auto flex max-w-xl items-center gap-2 px-3 py-2.5 sm:px-4 md:max-w-6xl md:gap-3">
           {/* 브랜드는 헤더에 두지 않는다 — PC는 사이드바가, 모바일은 탭바 「홈」이
               같은 자리를 이미 갖고 있다. 워드마크를 넣었더니 390px에서 로그아웃까지
