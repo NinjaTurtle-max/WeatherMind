@@ -133,22 +133,18 @@ check('CO-S-6: 자유 일일 세션 진입 문구가 문항 수를 상수로 단
 
 // ── 4. 예보 대결이 D+1 예측 · D+2 채점을 말한다 ─────────────────────────────
 check('CO-R-9: 예보 대결 문구가 "내일 예측 · 이틀 뒤 채점"을 말한다', () => {
+  // ⚠️ 2026-08-08(CO-N-1 ③): `gate.duel.*`는 **삭제됐다.** 웨이브 1이 고친 두 문구는
+  // FeatureUnlockGate(해제 사다리 동기 부여 화면)의 것이었고, 그 화면 자체를
+  // 걷어내면서 고아 키가 되어 리소스에서 함께 지웠다(고아 키 금지 — CO-D6).
+  // CO-R-9의 실질(=사용자가 실제로 보는 문구)은 `duel.submittedNote`에 남아 있고
+  // 아래가 그것을 계속 고정한다. 게이트 화면이 부활하면 그때 다시 등재할 것.
+  assert(!('gate' in RESOURCES.ko), 'gate.* 가 되살아났다 — 소비 화면 없이 키만 두지 않는다');
   const ko = RESOURCES.ko;
-  assert(
-    ko.gate.duel.p1.includes('내일') && !ko.gate.duel.p1.includes('오늘'),
-    `gate.duel.p1이 아직 오늘을 말한다: "${ko.gate.duel.p1}"`,
-  );
-  assert(
-    ko.gate.duel.p3.includes('이틀 뒤') && !ko.gate.duel.p3.includes('다음 날'),
-    `gate.duel.p3이 아직 D+1을 말한다: "${ko.gate.duel.p3}"`,
-  );
   assert(
     ko.duel.submittedNote.includes('이틀 뒤') && !ko.duel.submittedNote.includes('내일'),
     `duel.submittedNote가 아직 내일 정산이라 말한다: "${ko.duel.submittedNote}"`,
   );
   const en = RESOURCES.en;
-  assert(/tomorrow/i.test(en.gate.duel.p1), `en gate.duel.p1: "${en.gate.duel.p1}"`);
-  assert(/two days/i.test(en.gate.duel.p3), `en gate.duel.p3: "${en.gate.duel.p3}"`);
   assert(
     /two days/i.test(en.duel.submittedNote) && !/tomorrow/i.test(en.duel.submittedNote),
     `en duel.submittedNote: "${en.duel.submittedNote}"`,

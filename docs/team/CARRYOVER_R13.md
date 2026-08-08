@@ -319,6 +319,9 @@ IRT를 "미구현"이라 적음. 특히 **`MENTORING_ALIGNMENT` §0의 30초 구
 | **CO-P-8** | 🟠 | 정식 가입이 rate limit 버킷을 2칸 쓴다 |
 | **CO-P-11** | 🟠 | Redis 유실 = 전 게스트 영구 로그아웃 |
 | **CO-P-12** | 🟡 | CORS allow_origins가 localhost 5종 하드코딩(env 노브 없음) — Caddy 동 |
+| **CO-V-4** | 🟠 | onboardingGate 단계 기계가 죽은 절반 — 게이트 해제 후 UI 소비자 0 |
+| **CO-V-5** | 🟡 | 빈 세션 카드가 bulkMode(배치고사) 제외 — 도달 가능성 미검증 |
+| **CO-V-6** | 🟡 | 「다음 퍼즐」 클리어 경로 실렌더 미검증(소스 계약으로 대체) |
 | **CO-U-3-A** | 🔴 | U-3 router 학령 배선 3홉 — 함수는 있고 호출부가 없다(만들어 두고 안 씀) |
 | **CO-U-3-B** | 🔴 | U-3 선해금 배선 — placement_unlock_floor에 level_group 전달, 호출 4곳 |
 | **CO-H2-a** | 🟠 | AI 캐스터 롤플레이 — ROADMAP이 "수신 행 필요"로 명시 대기 중 |
@@ -1286,3 +1289,22 @@ CO-U-3을 「학령 상대 임계」로 풀었다(`weatherbrain_service`에 `ban
 
 **배정: QA(8/19~20) — 제출물 동결 전.** ⚠️ 다만 8/10 중간점검에서 소스를 공유하면
 그때 이미 보인다. **수신자: 제출물 담당.**
+
+
+### V-4 ~ V-6 — 프론트 웨이브 2 잔여 (2026-08-08)
+
+| # | 항목 | 근거 |
+|---|---|---|
+| **V-4** 🟠 | **`onboardingGate` 단계 기계가 죽은 절반** — CO-N-1 ③(게이트 해제) 이후 `UNLOCK_STAGE_BY_TAB`·`selectUnlockStage`·`isUnlocked`·`requiredStage` + `Layout`의 `recordSessionComplete` 배선이 **UI 소비자 0**이다. 담당자가 남긴 이유는 "테스트가 아직 물고 있고 재게이팅 여지"다. ⚠️ 담당자가 **`onboardingGate.js:13-20` 주석에만 적었다고 스스로 신고**했다 — CLAUDE.md가 *"코드 주석에만 있는 이월은 대장이 못 본다"*(회수율 0%)고 명시한 자리라 여기 옮긴다. **배정: R14 — 재게이팅 포기 확정 시 삭제** | `frontend/src/lib/onboardingGate.js` |
+| **V-5** 🟡 | 빈 세션 탈출 카드(CO-S-3)가 **`bulkMode`를 제외**한다 — 0문항 배치고사는 여전히 bulk-finalize 가드에 갇힌다. 배치고사는 6문항 고정 시드라 도달 불가로 보이나 **검증하지 않았다**(담당자 자기 신고). **배정: QA** | `SessionRunner.jsx` |
+| **V-6** 🟡 | CO-K11의 **클리어 상태 「다음 퍼즐 →」이 실렌더로 검증되지 않았다** — 목에서 정답 배치를 만들기 어려워 미클리어만 실마운트했고 클리어 경로는 **소스 계약**(`openPuzzle` 경유)으로 대체했다. **배정: QA** | `boardEntryGate.smoke.test.mjs` |
+| **V-7** 🟡 | `FeatureUnlockGate` 언급이 남은 주석 3곳(`TabBar.jsx:18`·`navItems.js:9`·`boardEntryGate` 헤더) — 기능 무영향, 낡은 서술. **배정: QA** | — |
+
+> **판정 정정 — CO-S-3은 웨이브 1에서 닫히지 않았다.** 리소스 키만 있고 `total > 0` 가드는
+> 그대로였다(감사도 ❌로 판정, 담당자도 독립 확인). 웨이브 2에서 배선 완료.
+>
+> **⚠️ 계약 충돌 1건 — 판단이 필요하면 뒤집을 것.** `gate.*` 키 삭제가 **웨이브 1의
+> CO-R-9 수리를 깼다**(`uiCopy`가 `gate.duel.p1/p3`를 단정했다). 담당자가 고아 키를
+> 되살리는 대신 **사용자가 실제로 보는 표면(`duel.submittedNote`)만 계약으로 남기고**
+> `gate.*` 부활 금지 단정을 추가했다. **게이트 화면을 되살릴 계획이 생기면 이 판단을
+> 뒤집어야 한다.**
