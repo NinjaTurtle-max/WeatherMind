@@ -16,7 +16,11 @@ export default function FeedbackPanel({ message, isCorrect }) {
     : { bar: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700' };
 
   return (
-    <div className="fixed inset-x-0 bottom-14 z-40 mx-auto max-w-xl px-3 pb-3">
+    // md↑에서 사이드바(208px) 오른쪽부터 시작시킨다 — Layout의 헤더와 같은 처리다.
+    // inset-x-0 그대로 두면 이 패널만 **화면 전체** 기준으로 가운데 정렬되는데,
+    // 본문(문항 카드·결과 배너)은 사이드바를 뺀 폭 기준으로 가운데 정렬된다.
+    // 그래서 피드백 카드만 104px(=208/2) 왼쪽으로 밀려, 결과 배너와 어긋났다.
+    <div className="fixed inset-x-0 bottom-14 z-40 mx-auto max-w-xl px-3 pb-3 md:left-[208px]">
       <div className="animate-slide-up overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
         <div className={`h-1.5 w-full ${tone.bar}`} />
         <div className="flex gap-3 p-4">

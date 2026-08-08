@@ -105,6 +105,21 @@ try {
     }
     console.log(`PASS ${name} (${html.length} chars)`);
   }
+  // ── 고정 오버레이가 사이드바 폭을 반영한다 (2026-08-08) ────────────────────
+  // Layout은 md↑에서 사이드바(208px) 오른쪽부터 본문을 잡는데, `fixed inset-x-0`
+  // 오버레이는 **화면 전체** 기준으로 가운데 정렬된다. 그래서 피드백 카드만
+  // 104px(=208/2) 왼쪽으로 밀려 결과 배너와 어긋났다(1440 실측: 중심 720 대 824).
+  // 헤더와 같은 처리(`md:left-[208px]`)가 붙어 있는지 소스로 단정한다 — jsdom·SSR
+  // 모두 레이아웃 엔진이 없어 좌표로는 잴 수 없다.
+  const { readFileSync } = await import('node:fs');
+  const panel = readFileSync(resolve(root, 'src/components/FeedbackPanel.jsx'), 'utf8');
+  const fixedLine = panel.split('\n').find((l) => l.includes('fixed inset-x-0'));
+  if (fixedLine && fixedLine.includes('md:left-[208px]')) {
+    console.log('PASS FeedbackPanel 고정 컨테이너가 사이드바 폭(md:left-[208px])을 반영한다');
+  } else {
+    console.error(`FAIL FeedbackPanel에 md:left-[208px]이 없다 — 실제 「${(fixedLine ?? '없음').trim()}」`);
+    failed += 1;
+  }
 } finally {
   await server.close();
 }
