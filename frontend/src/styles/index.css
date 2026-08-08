@@ -128,6 +128,17 @@ input[type='range'] {
   pointer-events: none;
 }
 
+/* 보드 지도 존의 포커스 링 (PeninsulaMap) — 브라우저 기본 outline은 요소의 사각
+   경계 상자를 따라서 동그란 노드에 회색 네모가 씌워진다. outline을 끄고 노드보다
+   살짝 큰 **원**을 대신 보여준다. 지우지 않고 바꾸기만 하는 이유: 키보드로 지도를
+   넘길 때 지금 어느 지역에 있는지 알 수 있어야 한다. */
+.wm-zone-focus {
+  opacity: 0;
+}
+.wm-zone:focus .wm-zone-focus {
+  opacity: 1;
+}
+
 /* 접근성(R9-01 §3.3 ④·R9-08): 시스템 '동작 줄이기' 설정 시 모든 애니메이션·전환을
    일괄 정지한다 — 기존 무한 애니메이션(pulse-ring·cloud-drift·gauge-sweep·
    scan-x·animate-pulse 등) 포함. 지도 오버레이·단면 모식도 패널은 컴포넌트

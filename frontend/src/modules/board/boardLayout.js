@@ -33,8 +33,8 @@ export function toUser(point, dflt = [50, 50]) {
 // 존을 프레임 가장자리로 밀지 말 것: 기단 유동 화살표가 오버레이 블리드 범위
 // [-20,120]를 넘어 test:overlay가 깨진다(x=8.7로 밀었다가 실제로 깨뜨렸다).
 export const FALLBACK_REGIONS = [
-  { name: '서해상', svg_point: [14.0, 45.8], label_anchor: [14.0, 56.8] },
+  { name: '서해상', svg_point: [14.0, 45.8], label_anchor: [14.0, 58.6] },
   { name: '수도권', svg_point: [36.0, 32.4], label_anchor: [36.0, 21.4] },
-  { name: '영서·태백', svg_point: [58.0, 47.0], label_anchor: [58.0, 58.0] },
+  { name: '영서·태백', svg_point: [58.0, 47.0], label_anchor: [58.0, 59.8] },
   { name: '영동·동해', svg_point: [74.0, 39.1], label_anchor: [80.0, 28.1] },
 ];
