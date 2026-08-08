@@ -39,7 +39,7 @@ export default function SideNav() {
   return (
     <aside
       data-testid="sidenav"
-      className="fixed inset-y-0 left-0 z-50 hidden w-[208px] flex-col gap-5 overflow-y-auto border-r border-slate-200 bg-sky-50 px-3.5 pb-4 pt-4 md:flex"
+      className="fixed inset-y-0 left-0 z-50 hidden w-[var(--wm-shell-left)] flex-col gap-5 overflow-y-auto border-r border-slate-200 bg-sky-50 px-3.5 pb-4 pt-4 md:flex"
     >
       <Link
         to="/"

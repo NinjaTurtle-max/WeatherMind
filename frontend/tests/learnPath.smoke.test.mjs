@@ -340,7 +340,7 @@ await render({});
   );
   // 다른 화면과 같은 자리·같은 크기에서 시작해야 왼쪽 끝이 맞는다.
   ok(
-    titleLine.includes('text-lg font-extrabold text-slate-900'),
+    titleLine != null && titleLine.includes('text-lg font-extrabold text-slate-900'),
     '제목이 다른 화면(보드·리그·예보 대결·내 정보)과 같은 h1 클래스를 쓴다',
   );
 }
