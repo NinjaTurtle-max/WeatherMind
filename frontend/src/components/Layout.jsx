@@ -155,11 +155,19 @@ export default function Layout() {
         </div>
       </header>
 
-      {/* 잠금 해제 축하 토스트 (§3.4) — 1회성, 3.2초 후 자동 소멸 */}
+      {/* 잠금 해제 축하 토스트 (§3.4) — 1회성, 3.2초 후 자동 소멸.
+
+          `md:left-[calc(50%_+_104px)]`은 **사이드바 몫**이다(2026-08-08). 화면 곳곳의
+          토스트 5개가 전부 `left-1/2`(=화면 폭의 절반)로 서 있었는데, 본문은
+          사이드바(208px)를 뺀 나머지의 가운데라 토스트만 왼쪽으로 밀렸다.
+            본문 중심 = 208 + (W - 208)/2 = W/2 + 104
+          그래서 더할 값은 화면 폭과 무관하게 **항상 104px**(=208/2)이다. 사이드바
+          폭을 바꾸면 여기 104도 같이 바꿔야 한다 — 다섯 군데 전부(가드는
+          sessionRunner 스모크가 「src에 md 보정 없는 left-1/2 고정물이 없다」로 잡는다). */}
       {unlockToast && (
         <div
           role="status"
-          className="fixed left-1/2 top-16 z-50 -translate-x-1/2 animate-xp-pop rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-lg"
+          className="fixed left-1/2 top-16 z-50 -translate-x-1/2 md:left-[calc(50%_+_104px)] animate-toast-pop rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-lg"
         >
           {unlockToast}
         </div>

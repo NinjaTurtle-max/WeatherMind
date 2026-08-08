@@ -156,20 +156,30 @@ export default function LeaguePage() {
         )}
       </div>
 
-      {/* 아래 2칸 — 순위 / 등급 사다리 */}
-      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">
-        <RankCard ranks={ranks} loading={leaderboardQ.isLoading} />
-        <TierLadderCard standing={standing} weekStart={current.week_start} />
-      </div>
-
-      {/* 참고 자료 — 예측의 근거다. 시안엔 없지만 지우면 감으로 찍게 된다. */}
-      <div className="mt-4">
-        <BriefingRoom
-          compact
-          briefing={briefingQ.data}
-          loading={briefingQ.isLoading}
-          error={briefingQ.isError}
-        />
+      {/* 아래 2열 — 자료(왼쪽) ↔ 순위·등급(오른쪽).
+          예보 대결과 **같은 배치**다(2026-08-08 지시). 브리핑은 예측의 근거인데
+          전폭 카드로 맨 아래에 두니 위 예측 폼과 멀어, 값을 채우려면 스크롤을
+          오르내려야 했다. 왼쪽 열로 크게 빼면 위쪽 폼과 한 화면에 들어온다.
+          `compact`도 뗀다 — 좁은 전폭 카드라 접어 뒀던 습도·풍속 보조 차트를
+          한 열을 통째로 쓰는 지금은 다 보여 준다("크게").
+          grid-cols-[minmax(0,1fr)]는 장식이 아니다(DuelPage와 같은 이유) —
+          브리핑 안의 하늘 타임라인이 자체 가로 스크롤을 갖는데, 격자 항목 기본
+          min-width:auto면 그 내용 폭이 카드를 밀어 페이지에 가로 스크롤이 생긴다. */}
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+        {/* 감싸 둔다 — 격자 항목 기본이 stretch라, KMA 키 없는 degraded에서
+            「실황 자료 수신 대기」 한 장이 오른쪽 열 높이까지 늘어난다.
+            감싸면 늘어나는 건 이 div이고 카드는 제 높이를 지킨다(DuelPage와 동일). */}
+        <div>
+          <BriefingRoom
+            briefing={briefingQ.data}
+            loading={briefingQ.isLoading}
+            error={briefingQ.isError}
+          />
+        </div>
+        <div className="flex flex-col gap-4">
+          <RankCard ranks={ranks} loading={leaderboardQ.isLoading} />
+          <TierLadderCard standing={standing} weekStart={current.week_start} />
+        </div>
       </div>
 
       {myResults.length > 0 && (

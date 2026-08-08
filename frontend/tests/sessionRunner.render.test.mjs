@@ -111,13 +111,46 @@ try {
   // 104px(=208/2) 왼쪽으로 밀려 결과 배너와 어긋났다(1440 실측: 중심 720 대 824).
   // 헤더와 같은 처리(`md:left-[208px]`)가 붙어 있는지 소스로 단정한다 — jsdom·SSR
   // 모두 레이아웃 엔진이 없어 좌표로는 잴 수 없다.
-  const { readFileSync } = await import('node:fs');
+  const { readFileSync, readdirSync, statSync } = await import('node:fs');
   const panel = readFileSync(resolve(root, 'src/components/FeedbackPanel.jsx'), 'utf8');
   const fixedLine = panel.split('\n').find((l) => l.includes('fixed inset-x-0'));
   if (fixedLine && fixedLine.includes('md:left-[208px]')) {
     console.log('PASS FeedbackPanel 고정 컨테이너가 사이드바 폭(md:left-[208px])을 반영한다');
   } else {
     console.error(`FAIL FeedbackPanel에 md:left-[208px]이 없다 — 실제 「${(fixedLine ?? '없음').trim()}」`);
+    failed += 1;
+  }
+
+  // 같은 함정이 상단 토스트 5개에도 있었다(2026-08-08). 파일 목록을 손으로 적지
+  // 않는다 — 적어 두면 **새로 생긴 토스트가 검사를 비켜간다**. src 전체를 훑어
+  // `fixed … left-1/2`인 줄에 md 보정이 붙어 있는지 본다. TabBar처럼 md에서 아예
+  // 숨는 것(md:hidden)은 사이드바와 공존하지 않으므로 제외한다.
+  const jsxFiles = (dir) =>
+    readdirSync(dir).flatMap((name) => {
+      const p = resolve(dir, name);
+      return statSync(p).isDirectory() ? jsxFiles(p) : (/\.jsx$/.test(name) ? [p] : []);
+    });
+  const offenders = [];
+  let scanned = 0;
+  for (const file of jsxFiles(resolve(root, 'src'))) {
+    const lines = readFileSync(file, 'utf8').split('\n');
+    for (const line of lines) {
+      if (!/\bfixed\b/.test(line) || !/\bleft-1\/2\b/.test(line)) continue;
+      if (/md:hidden/.test(line)) continue;
+      scanned += 1;
+      if (!/md:left-\[calc\(50%_\+_104px\)\]/.test(line)) {
+        offenders.push(`${file.slice(root.length + 1)}: ${line.trim().slice(0, 90)}`);
+      }
+    }
+  }
+  if (scanned > 0 && offenders.length === 0) {
+    console.log(`PASS 가운데 고정 오버레이 ${scanned}건 전부 사이드바 보정(md:left-[calc(50%_+_104px)])을 갖는다`);
+  } else {
+    console.error(
+      scanned === 0
+        ? 'FAIL left-1/2 고정 오버레이를 하나도 못 찾았다 — 스캔이 죽었다'
+        : `FAIL 사이드바 보정 없는 고정 오버레이 ${offenders.length}건\n    ${offenders.join('\n    ')}`,
+    );
     failed += 1;
   }
 } finally {
