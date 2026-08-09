@@ -66,6 +66,14 @@ SESSION_SIZE = sum(DEFAULT_RECIPE.values())
 # CO-M1로 live까지 편입) 최악의 수요가 배합 전체다. 이보다 작으면 뱅크에 문항이
 # 있어도 부족분이 quiz-generate 폴백으로 새어 비용이 된다.
 NEW_POOL_LIMIT = SESSION_SIZE
+
+# daily 풀 선취 배수 (CO-E-1) — θ 경로에서 SQL LIMIT을 배합 요구량의 이 배로 잡는다.
+# 유닛 풀의 `UNIT_POOL_PREFETCH`와 **같은 이유·같은 값**이다: SQL은 밴드 해상도
+# (|b−θ|)로만 자를 수 있어, 요구량에서 끊으면 `rank_by_knowledge_level`이 지식
+# 수준으로 다시 세울 후보가 남지 않는다. 두 경로가 다른 값을 쓰면 "유닛에선 6단계,
+# daily에선 4칸"이라는 지금의 결함이 형태만 바꿔 남으므로 값을 맞춘다.
+# **계약 수치가 아니라 조회 여유분**이라 env 노브를 두지 않는다 — 조회 횟수는 불변.
+DAILY_POOL_PREFETCH = 4
 MODE_DAILY = "daily"
 
 # 발급 하한 (CO-H12) — 이 아래로 떨어지면 세션을 발급하지 않고 실패시킨다.
@@ -469,6 +477,38 @@ async def _fetch_pools(
     )
     groups = pool_level_groups(user.level_group, theta)
 
+    # ── 6단계 해상도 재정렬 (CO-E-1) ────────────────────────────────────────
+    # SQL이 자를 수 있는 최소 단위는 밴드(|b−θ|의 사전 b가 밴드당 한 값)다. 유닛
+    # 세션은 그 위에 `rank_by_knowledge_level`로 한 겹을 더 세우는데(CO-L-F2)
+    # **daily만 밴드에 멈춰 있었다** — 1·2단계가 한 칸, 3·4단계가 한 칸으로 뭉쳐
+    # 나가는 것이 E-1이 "6단계는 데이터·lint·프롬프트에만 있고 서빙 해상도는
+    # 여전히 4칸"이라 적은 상태다. 세션 15문항 중 10문항이 이 경로로 나가므로
+    # 학습자가 실제로 겪는 해상도는 유닛이 아니라 여기서 정해진다.
+    #
+    # 유닛 경로와 **같은 함수·같은 배수**를 쓴다. 두 경로가 갈리면 "유닛에선
+    # 6단계, daily에선 4칸"이라는 지금의 결함이 형태만 바꿔 남는다.
+    #
+    # 순환 import 회피: curriculum_service가 이 모듈을 import하므로 함수 안에서
+    # 지연 import한다(`_fetch_unit_pool`이 같은 이유로 같은 일을 한다).
+    from app.services import curriculum_service
+
+    target_level = (
+        None
+        if theta is None
+        else weatherbrain_service.theta_to_knowledge_level(theta)
+    )
+    prefetch = 1 if theta is None else DAILY_POOL_PREFETCH
+
+    def _ranked(rows, limit: int) -> list[ContentItem]:
+        """선취분을 지식 수준으로 다시 세우고 원래 요구량으로 자른다.
+
+        `target_level`이 None(콜드스타트)이면 `rank_by_knowledge_level`이 입력
+        순서를 그대로 돌려주고 prefetch도 1이라 **조회·결과 모두 종전과 동일**하다.
+        """
+        return curriculum_service.rank_by_knowledge_level(
+            list(rows), target_level
+        )[:limit]
+
     new_pool = (
         (
             await db.execute(
@@ -477,7 +517,7 @@ async def _fetch_pools(
                     theta=theta,
                     live=False,
                     served_subq=served_subq,
-                    limit=NEW_POOL_LIMIT,
+                    limit=NEW_POOL_LIMIT * prefetch,
                 )
             )
         )
@@ -496,7 +536,7 @@ async def _fetch_pools(
                         live=False,
                         served_subq=today_subq,
                         weak_concepts=weak_concepts,
-                        limit=10,
+                        limit=10 * prefetch,
                     )
                 )
             )
@@ -504,6 +544,9 @@ async def _fetch_pools(
             .all()
         )
 
+    # live 풀은 선취하지 않는다 — 실황 자산 자체가 소수(CO-M9: middle_high 1 ·
+    # adult 1 · expert 0)라 선취해도 재정렬할 후보가 늘지 않고, 슬롯 치환이
+    # 걸린 문항이라 난이도보다 **치환 가능 여부**가 먼저다.
     live_pool = (
         (
             await db.execute(
@@ -519,7 +562,11 @@ async def _fetch_pools(
         .scalars()
         .all()
     )
-    return list(new_pool), list(review_pool), list(live_pool)
+    return (
+        _ranked(new_pool, NEW_POOL_LIMIT),
+        _ranked(review_pool, 10),
+        list(live_pool),
+    )
 
 
 async def _fetch_reserve_pool(
