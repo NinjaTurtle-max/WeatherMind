@@ -87,3 +87,40 @@ jobs:
             ${{ steps.image.outputs.name }}:latest
           cache-from: type=gha,scope=release-${{ matrix.service }}
           cache-to: type=gha,scope=release-${{ matrix.service }},mode=max
+
+      # ── arm64 실행 검증 (CO-J-5) ────────────────────────────────────────
+      # 이 워크플로는 지금까지 build+push가 전부였다. 즉 **발행된 이미지가 arm64에서
+      # 실행되는지는 한 번도 확인된 적이 없다** — `DEPLOY.md:154`가 `exec format
+      # error`를 "예상 현장 실패"로 적어 둔 것이 그 상태의 자백이었다. 배포 대상이
+      # ARM이므로 여기서 안 걸리는 것은 현장에서 걸린다.
+      #
+      # **기동까지 몰지 않는 이유**: backend·celery는 DB·Redis가 있어야 뜬다.
+      # 그건 이 잡의 범위가 아니고(§7.0 프로덕션 인프라 부재), 붙이면 게이트가
+      # 인프라 사정으로 붉어져 무시되기 시작한다. 여기서 묻는 것은 하나다 —
+      # **"arm64 바이너리와 arm64 휠이 이 이미지 안에서 실제로 적재되는가."**
+      # 그건 인터프리터 1콜 + 무거운 의존 import로 갈린다(langchain·sqlalchemy가
+      # 네이티브 휠을 끌고 오는 지점이다).
+      #
+      # QEMU는 위 setup-qemu-action이 이미 깔았다 — 러너는 amd64뿐이라 이 단계는
+      # 에뮬레이션으로 돈다. 느리지만 몇 초짜리 명령이라 빌드 시간에 묻힌다.
+      - name: arm64 실행 검증
+        run: |
+          set -euo pipefail
+          image="${{ steps.image.outputs.name }}:${{ github.sha }}"
+          run_arm64() { docker run --rm --platform linux/arm64 "$image" "$@"; }
+          case "${{ matrix.service }}" in
+            frontend)
+              run_arm64 nginx -v
+              # 빌드 산출물이 실제로 이미지에 들어갔는지 — 빈 nginx도 `nginx -v`는 통과한다
+              run_arm64 test -f /usr/share/nginx/html/index.html
+              ;;
+            backend)
+              run_arm64 python -c "import fastapi, uvicorn, sqlalchemy; print('backend deps ok')"
+              ;;
+            ai-worker)
+              run_arm64 python -c "import langchain, pydantic; print('ai-worker deps ok')"
+              ;;
+            celery)
+              run_arm64 python -c "import celery; print('celery', celery.__version__)"
+              ;;
+          esac
