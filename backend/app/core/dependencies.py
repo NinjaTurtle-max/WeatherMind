@@ -30,11 +30,27 @@ async def get_db() -> AsyncGenerator:
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
-    """토큰 검증 → user_id 추출 → Redis session:{user_id} 존재 확인 → User 로드."""
+    """토큰 검증 → **종류 확인** → user_id 추출 → Redis 세션 확인 → User 로드.
+
+    **`type == "access"`를 요구한다 (CO-P-6).** `security.create_*_token`이 발급
+    시점에 `type`을 넣어 왔는데 **소비자가 아무도 읽지 않았다.** 그래서 refresh
+    토큰을 `Authorization: Bearer`에 그대로 넣으면 전 API가 열렸다 — Redis
+    `session:{user_id}`는 refresh 토큰을 담는 자리라 존재 검사도 통과한다.
+
+    실질 피해는 수명이다. access는 분 단위(`JWT_ACCESS_EXPIRE_MINUTES`)인데
+    refresh는 **7일**이라, 짧게 살라고 만든 자격증명이 7일짜리 만능 키로 바뀐다.
+    refresh 토큰은 프론트가 localStorage에 오래 두는 값이라 유출면도 더 넓다.
+
+    구버전 토큰 호환은 필요 없다 — `type`은 발급 경로 양쪽에 처음부터 있었고,
+    없는 토큰은 우리가 발급한 적이 없다. 그러므로 **엄격 비교**가 맞다.
+    """
     try:
         payload = decode_token(token)
     except JWTError:
         raise _unauthorized("Invalid token")
+
+    if payload.get("type") != "access":
+        raise _unauthorized("Invalid token type")
 
     user_id = payload.get("sub")
     if user_id is None:
