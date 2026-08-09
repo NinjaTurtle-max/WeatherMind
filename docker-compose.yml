@@ -1,14 +1,36 @@
+# =============================================================================
+# WeatherMind dev 스택 (prod는 docker-compose.prod.yml 오버레이와 함께 쓴다)
+#
+# ── restart 정책 (CO-J-16) ───────────────────────────────────────────────────
+# dev = `on-failure:5`. **횟수 상한이 있는 것이 요점이다** — 재기동으로 넘길 수 있는
+# 일시 실패(의존이 아직 안 뜸)는 넘기고, 코드·설정이 틀려서 나는 반복 실패는 5회
+# 뒤에 멈춰 로그가 남는다. dev에서 `always`를 쓰면 깨진 컨테이너가 영원히 재기동하며
+# 로그를 밀어내 디버깅을 방해한다.
+# prod는 오버레이가 전 서비스를 `unless-stopped`로 덮는다 — 이유는 그쪽 주석 참조
+# (요약: on-failure는 호스트 재부팅 후 컨테이너를 되살리지 않는다).
+#
+# ── depends_on 표기 ──────────────────────────────────────────────────────────
+# **전 서비스가 롱폼(맵) 표기다.** 리스트와 맵을 섞으면 오버레이 병합에서 한쪽이
+# 통째로 무시될 수 있어 파일 단위로 통일한다. healthcheck가 있는 서비스는 backend
+# 하나뿐이므로 `service_healthy`는 backend를 가리키는 간선에만 붙는다 —
+# healthcheck 없는 서비스에 걸면 그 의존은 **영원히 만족되지 않는다**.
+# =============================================================================
 services:
   frontend:
     build: ./frontend
+    restart: "on-failure:5"
     ports:
       - "80:80"
     env_file: .env
     depends_on:
-      - backend
+      # backend가 **healthy**가 될 때까지 정적 SPA를 띄우지 않는다. 종전에는
+      # service_started라 API가 죽은 채로 화면만 떠서 "빈 앱"이 배포될 수 있었다.
+      backend:
+        condition: service_healthy
 
   backend:
     build: ./backend
+    restart: "on-failure:5"
     ports:
       - "8000:8000"
     env_file: .env
@@ -27,16 +49,27 @@ services:
       # 기본 경로가 /database/seed/content_items.json 이다 (RUNBOOK 참조)
       - ./database/seed:/database/seed:ro
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+    # ⚠️ 이 healthcheck는 이제 **소비자가 있다** — frontend(dev)와 caddy(prod)가
+    # service_healthy로 여기에 물려 있다. 그래서 주기를 촘촘하게 바꿨다:
+    # 종전 interval 30s면 첫 판정이 30초 뒤라 의존 서비스가 그만큼 늦게 뜬다.
+    # start_period 동안의 실패는 retries에 계상되지 않으므로(기동 중 = starting)
+    # 기동이 느린 날에도 unhealthy로 오판하지 않는다.
+    # /health는 DB SELECT 1 + Redis PING을 본다(마이그레이션 여부가 아니다) —
+    # 즉 **DB에 닿기만 하면 healthy**이므로 초기화 전에도 정상적으로 초록이 된다.
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
+      interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 30s
 
   ai-worker:
     build: ./ai-worker
+    restart: "on-failure:5"
     ports:
       - "8001:8001"
     env_file: .env
@@ -46,26 +79,34 @@ services:
     volumes:
       - ./database/seed:/app/database/seed:ro
     depends_on:
-      - redis
+      redis:
+        condition: service_started
 
   celery-worker:
     build: ./celery
+    restart: "on-failure:5"
     command: celery -A app.celery_app worker --loglevel=info
     env_file: .env
     depends_on:
-      - redis
-      - postgres
-      - ai-worker
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_started
+      ai-worker:
+        condition: service_started
 
   celery-beat:
     build: ./celery
+    restart: "on-failure:5"
     command: celery -A app.celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
     env_file: .env
     depends_on:
-      - redis
+      redis:
+        condition: service_started
 
   postgres:
     image: postgres:16-alpine
+    restart: "on-failure:5"
     env_file: .env
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -79,6 +120,7 @@ services:
   # (기본값 = 임시 DB 리허설 — 실DB를 덮는 경로 없음). 오프사이트 저장은 범위 밖(§7.0).
   db-backup:
     image: postgres:16-alpine
+    restart: "on-failure:5"
     env_file: .env
     entrypoint: ["bash", "/usr/local/bin/db_backup.sh", "loop"]
     environment:
@@ -89,7 +131,8 @@ services:
       - db_backups:/backups
       - ./scripts/db_backup.sh:/usr/local/bin/db_backup.sh:ro
     depends_on:
-      - postgres
+      postgres:
+        condition: service_started
 
   redis:
     # 7.2 고정 — 7.4부터 라이선스가 RSALv2/SSPL(OSI 미승인)로 바뀌었다. 대회 규정이
@@ -97,9 +140,19 @@ services:
     # 7.2는 BSD-3이고 우리는 브로커·캐시로만 쓰므로 기능 손실이 없다.
     # 근거: docs/team/HACKATHON_RULES.md §4-C
     image: redis:7.2-alpine
+    restart: "on-failure:5"
     env_file: .env
+    # ── 설정 파일 기동 (CO-P-11 / CO-Q-8) ─────────────────────────────────────
+    # 종전에는 인자 없이 `redis-server`가 떠서 **영속성도 메모리 상한도 기본값**
+    # 이었다(2026-08-09 라이브 실측: appendonly no · maxmemory 0). Redis에 세션이
+    # 사는 구조라 그건 "유실 = 전 게스트 영구 로그아웃"을 그대로 안고 가는 것이다.
+    # 정책 판단과 근거는 infra/redis.conf 안에 적혀 있다(여기서 반복하지 않는다).
+    # dev·prod 공통으로 같은 설정을 쓴다 — 내구성 동작이 환경마다 다르면
+    # dev에서 재현되지 않는 유실이 prod에서만 난다.
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
     volumes:
       - redisdata:/data
+      - ./infra/redis.conf:/usr/local/etc/redis/redis.conf:ro
 
 volumes:
   pgdata:
