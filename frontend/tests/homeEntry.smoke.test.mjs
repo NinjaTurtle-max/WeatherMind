@@ -255,10 +255,13 @@ const ok = (cond, label) => {
   await waitFor(() => text().includes('Learning session'), 6000, 'en 렌더');
   const enCard = $('[data-testid="learn-entry"]');
   ok(enCard?.textContent.includes('Learning session'), 'en: 카드 머리말이 영어');
-  ok(enCard?.textContent.includes('A unit is in progress'), 'en: 카드 본문이 영어');
-  ok(!/진행 중인 유닛|더 해보기/.test(text()), 'en에서 한국어 원문이 남지 않는다');
+  // 2026-08-09: 카드 본문(「진행 중인 유닛이에요…」)은 삭제됐다 — 바로 위 튜터
+  // 말풍선과 겹쳐서 뺐고, 고아가 된 `home.entry.unitBody`도 ko/en에서 지웠다.
+  // 로케일 왕복은 **아직 화면에 있는 문구**로 확인해야 하므로 말풍선을 본다.
+  ok(enCard?.textContent.includes('Clear units in order'), 'en: 튜터 말풍선이 영어');
+  ok(!/유닛을 순서대로|더 해보기/.test(text()), 'en에서 한국어 원문이 남지 않는다');
   useLocaleStore.getState().setLocale('ko');
-  await waitFor(() => text().includes('진행 중인 유닛'), 6000, 'ko 복귀');
+  await waitFor(() => text().includes('유닛을 순서대로'), 6000, 'ko 복귀');
   ok(true, 'ko 복귀 렌더');
 
   reactRoot.unmount();

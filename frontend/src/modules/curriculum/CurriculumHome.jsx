@@ -132,19 +132,16 @@ export default function CurriculumHome() {
     unit: {
       eyebrow: t('home.entry.learn'),
       title: entry.unit?.title ?? t('home.entry.learnEmpty'),
-      body: t('home.entry.unitBody'),
       cta: t('home.entry.learnGo'),
     },
     daily: {
       eyebrow: t('home.entry.todayLabel'),
       title: t('curriculum.daily.title'),
-      body: t('curriculum.daily.body'),
       cta: t('curriculum.daily.cta'),
     },
     done: {
       eyebrow: t('home.entry.todayLabel'),
       title: t('home.entry.doneTitle'),
-      body: t('home.entry.doneBody'),
       cta: t('home.entry.doneCta'),
     },
   };

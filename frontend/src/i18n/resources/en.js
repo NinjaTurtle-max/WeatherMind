@@ -271,10 +271,8 @@ export default {
       learnGo: 'Continue →',
       go: 'Open →',
       // R13-01 §2.5 single learning entry on the home dashboard
-      unitBody: 'A unit is in progress. Pick up right where you left off.',
       todayLabel: "Today's learning",
       doneTitle: "You're done for today",
-      doneBody: 'You finished everything for today. Want more? Pick one below.',
       doneCta: 'Revisit a past unit →',
       more: 'More to try',
       board: 'Atmosphere board',
@@ -352,7 +350,6 @@ export default {
     },
     daily: {
       title: 'Free daily session',
-      body: "Want today's session right away instead of the set path?",
       cta: "Start today's session →",
       resume: 'Resume your session →',
       regen: '☁️ About {min} min until a cloud returns',

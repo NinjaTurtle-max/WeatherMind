@@ -23,12 +23,19 @@ import { useT } from '../../i18n';
  * 그래서 페이지 머리말(🎓 학습 + 설명)은 없앴다 — 같은 문장이 화면에 두 벌이면
  * 튜터가 읽어 주는 의미가 사라진다. 문구는 `curriculum.subtitle` 그대로다.
  *
- * 읽는 순서: **제목(학습 세션 / 유닛 이름) → 마스코트 → 말풍선 → 안내 → CTA**.
+ * 읽는 순서: **제목(학습 세션 / 유닛 이름) → 마스코트 → 말풍선 → CTA**.
  * 마스코트가 맨 위였는데 사용자 지시로 제목을 그 앞으로 올렸다 — 그림이 먼저
  * 오면 코스를 바꿨을 때 무엇이 달라졌는지 늦게 보인다.
  *
- * 톤: 흰색~sky-50에 헤어라인 테두리. 파란색은 **CTA가 독점**하고 나머지는 무채색
- * 위계다(제목 slate-900 · 본문 slate-500).
+ * 톤: **sky-100 → blue-200 세로 그라데이션 + sky-300 테두리**(2026-08-09 사용자
+ * 지시 "연한 하늘색~파란색 깔아서 색 구분되게"). 왼쪽 경로 카드가 흰색이고 페이지
+ * 바닥이 slate-100이라, 이 카드만 하늘색을 깔면 "경로"와 "지금 할 일"이 색으로
+ * 갈린다. 처음엔 sky-50에서 시작했는데 흰색과 구분이 안 돼 한 단계 올렸다 —
+ * **위쪽 끝 색이 구분을 결정한다**(아래로 갈수록 진해지는 그라데이션이라 위가
+ * 흰색에 가까우면 카드 전체가 흰 카드로 읽힌다).
+ * 파란 바탕 위에서 무채색 회색은 묻히므로 안쪽 구분선은 sky-300, 목표 진행 바
+ * 트랙과 복습 칩은 흰색 계열이다. 완전한 흰색으로 남는 것은 **말풍선 하나뿐**이라
+ * 튜터의 말이 카드에서 가장 먼저 눈에 든다.
  *
  * 남는 세로 여백은 **한 곳에 몰지 않고 이음매마다 나눈다**(사용자 지시 "여백 없이
  * 꽉 차게"). 바닥에 `mt-auto` 하나만 두면 그 슬랙이 전부 목표 위에 고여 실측
@@ -60,12 +67,12 @@ export default function LearnHeroCard({
     <div
       data-testid="learn-entry"
       data-entry-kind={entry.kind}
-      className="flex flex-1 flex-col items-center rounded-[20px] bg-gradient-to-b from-white to-sky-50 px-4 pb-4 pt-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80"
+      className="flex flex-1 flex-col items-center rounded-[20px] bg-gradient-to-b from-sky-100 via-sky-100 to-blue-200 px-4 pb-4 pt-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-sky-300/80"
     >
       {/* 무엇을 하는 카드인지가 **마스코트보다 먼저** 온다(사용자 지시). 마스코트를
           맨 위에 두면 카드를 위에서 아래로 읽을 때 제목이 그림 뒤로 밀려, 코스를
           바꿔도 무엇이 달라졌는지 눈에 늦게 들어온다. */}
-      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-sky-700/80">
         {copy.eyebrow}
       </p>
       <p className="mt-1 break-keep text-center text-[19px] font-extrabold leading-snug tracking-[-0.02em] text-slate-900">
@@ -88,23 +95,23 @@ export default function LearnHeroCard({
           갈라지지 않아야 한다. */}
       <p
         data-testid="learn-tutor-line"
-        className="relative mt-2.5 whitespace-pre-line break-keep rounded-2xl bg-white px-3 py-2.5 text-center text-[13.5px] font-medium leading-relaxed text-slate-600 ring-1 ring-slate-200/80"
+        className="relative mt-2.5 whitespace-pre-line break-keep rounded-2xl bg-white px-3 py-2.5 text-center text-[13.5px] font-medium leading-relaxed text-slate-600 ring-1 ring-sky-300/60"
       >
         <span
           aria-hidden="true"
-          className="absolute -top-[5px] left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-l border-t border-slate-200/80 bg-white"
+          className="absolute -top-[5px] left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-l border-t border-sky-300/60 bg-white"
         />
         {t('curriculum.subtitle')}
       </p>
 
-      <p className="mt-2.5 break-keep text-center text-[12px] leading-relaxed text-slate-500">
-        {copy.body}
-      </p>
-
+      {/* 안내 문장(「진행 중인 유닛이에요…」)은 뺐다(2026-08-09 사용자 지시) —
+          바로 위 말풍선이 같은 역할을 하는데 두 문단이 겹쳐 있으면 어느 쪽이
+          튜터의 말인지 흐려진다. `copy.body`는 읽는 곳이 없어져 CurriculumHome의
+          ENTRY_COPY에서도 지웠다(고아 필드 금지). */}
       <Link
         to={entry.to}
         data-testid="learn-entry-cta"
-        className="mt-3.5 w-full rounded-full bg-sky-600 px-4 py-2.5 text-center text-[14px] font-bold tracking-[-0.01em] text-white transition hover:bg-sky-700"
+        className="mt-3.5 w-full rounded-full bg-sky-600 px-4 py-2.5 text-center text-[14px] font-bold tracking-[-0.01em] text-white shadow-[0_2px_8px_rgba(2,132,199,0.28)] transition hover:bg-sky-700"
       >
         {copy.cta}
       </Link>
@@ -129,7 +136,7 @@ export default function LearnHeroCard({
             그 외          평소. */}
       <div
         data-testid="learn-secondary"
-        className="mt-auto w-full border-t border-slate-200/80 pt-3 text-[11.5px] text-slate-400"
+        className="mt-auto w-full border-t border-sky-300/70 pt-3 text-[11.5px] text-slate-500"
       >
         <div className="flex items-center gap-2">
           <span className="font-medium">{t('curriculum.daily.title')}</span>
@@ -172,17 +179,17 @@ export default function LearnHeroCard({
           대신 내 정보(설정 통로)로 보낸다. */}
       {goalTotal ? (
         <div
-          className="mt-auto w-full border-t border-slate-200/80 pt-3"
+          className="mt-auto w-full border-t border-sky-300/70 pt-3"
           data-testid="learn-goal"
           data-goal-state="set"
         >
           <div className="flex items-baseline gap-2">
-            <span className="text-[12px] font-bold text-slate-500">{t('home.goal.title')}</span>
-            <span className="ml-auto text-[12px] font-bold tabular-nums text-slate-500">
+            <span className="text-[12px] font-bold text-slate-600">{t('home.goal.title')}</span>
+            <span className="ml-auto text-[12px] font-bold tabular-nums text-slate-600">
               {goalDone} / {goalTotal} {t('home.goal.items')}
             </span>
           </div>
-          <div className="mt-1.5 h-[7px] overflow-hidden rounded-full bg-slate-200/80">
+          <div className="mt-1.5 h-[7px] overflow-hidden rounded-full bg-white/80">
             <i className="block h-full rounded-full bg-sky-500" style={{ width: `${pct}%` }} />
           </div>
         </div>
@@ -191,7 +198,7 @@ export default function LearnHeroCard({
           to="/me"
           data-testid="learn-goal"
           data-goal-state="unset"
-          className="mt-auto flex w-full items-center gap-2 border-t border-slate-200/80 pt-3 text-[12px] font-bold text-slate-500"
+          className="mt-auto flex w-full items-center gap-2 border-t border-sky-300/70 pt-3 text-[12px] font-bold text-slate-600"
         >
           {t('home.goal.title')}
           <span className="ml-auto text-sky-600">{t('curriculum.goalUnset')}</span>

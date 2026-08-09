@@ -48,12 +48,12 @@ export default function ReviewQueueCard({ variant = 'card' }) {
     return (
       <div
         data-testid="review-queue-hero"
-        className="mt-4 w-full border-t border-slate-200/80 pt-3.5 text-left"
+        className="mt-4 w-full border-t border-sky-300/70 pt-3.5 text-left"
       >
         <div className="flex items-center gap-1.5">
           <span aria-hidden="true" className="text-[13px]">🔁</span>
           <p className="text-[12.5px] font-bold text-slate-700">{t('reviewQueue.title')}</p>
-          <span className="ml-auto text-[11px] font-medium tabular-nums text-slate-400">
+          <span className="ml-auto text-[11px] font-medium tabular-nums text-slate-500">
             {t('reviewQueue.count', { count: due.length })}
           </span>
         </div>
@@ -66,7 +66,7 @@ export default function ReviewQueueCard({ variant = 'card' }) {
           {top.map((item) => (
             <li
               key={item.concept_tag}
-              className="rounded-full bg-slate-100 px-2.5 py-1 text-[11.5px] font-medium text-slate-600"
+              className="rounded-full bg-white/80 px-2.5 py-1 text-[11.5px] font-medium text-slate-600"
             >
               {CONCEPT_KO[item.concept_tag] ?? item.concept_tag}
             </li>
