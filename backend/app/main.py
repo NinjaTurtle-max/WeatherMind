@@ -86,10 +86,18 @@ def _enforce_secret_hygiene() -> None:
 # — 그러면 유저 격리 2층 중 DB 층이 통째로 사라지는데 **화면은 멀쩡해 보인다**
 # (앱 계층 user_id 필터가 남아 있어서). 지금까지 이걸 알려 주는 것이 없었다.
 #
-# 판정 불가(None = DB 미도달)는 거부하지 않는다. compose에 depends_on:
-# service_healthy가 없어 backend가 postgres보다 먼저 뜨는 것이 정상 경로이고
-# (CO-J-16), 여기서 죽이면 restart 정책도 없는 컨테이너가 그대로 사망한다.
-# 대신 "확인하지 못했다"를 경고로 남긴다 — 침묵은 만들지 않는다.
+# 판정 불가(None = DB 미도달)는 거부하지 않는다. **backend는 여전히 postgres보다
+# 먼저 뜰 수 있다** — CO-J-16 수리로 compose에 `restart`와 `service_healthy`가
+# 생겼지만, postgres에는 healthcheck가 없어서 backend→postgres는 계속
+# `service_started`다(healthcheck 없는 서비스에 service_healthy를 걸면 기동이
+# 영영 안 된다). 그러니 판정은 그대로 유효하다.
+#
+# ⚠️ **근거 한 줄은 낡았다**(2026-08-09 정정): 종전 이 자리에 "restart 정책도 없는
+# 컨테이너가 그대로 사망한다"고 적혀 있었는데 이제 `on-failure:5`(dev)·
+# `unless-stopped`(prod)가 있다. 그래도 결론을 바꾸지 않는 이유는 **재기동이
+# 해결이 아니기 때문**이다 — DB가 늦게 뜨는 동안 죽고 살아나기를 반복하는 것보다
+# 뜬 채로 경고를 남기는 쪽이 관측 가능하다. 근거를 고쳐 적는 이유는 이 저장소에서
+# 낡은 주석이 감사 판단을 오염시킨 전례가 있어서다.
 _RLS_ROLE_GUIDE = (
     "조치: .env의 DATABASE_URL을 비특권 앱 롤로 바꾸세요 "
     "(postgresql+asyncpg://weathermind_app:<암호>@postgres:5432/weathermind). "

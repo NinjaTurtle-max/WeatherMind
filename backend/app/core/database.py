@@ -54,8 +54,10 @@ _ROLE_CHECK_SQL = (
     "FROM pg_roles WHERE rolname = current_user"
 )
 
-# DB 미기동 중 기동해도 backend는 떠야 한다(compose에 depends_on: service_healthy가
-# 없어 postgres보다 먼저 뜨는 것이 정상 경로다 — CO-J-16). 그래서 짧게 끊는다.
+# DB 미기동 중 기동해도 backend는 떠야 한다. CO-J-16 수리 뒤에도 그대로다 —
+# **postgres에 healthcheck가 없어** backend→postgres는 계속 `service_started`이고
+# (healthcheck 없는 서비스에 service_healthy를 걸면 기동이 영영 안 된다), 그래서
+# backend가 postgres보다 먼저 뜨는 것이 여전히 정상 경로다. 그래서 짧게 끊는다.
 ROLE_CHECK_TIMEOUT_SEC = 3.0
 
 
