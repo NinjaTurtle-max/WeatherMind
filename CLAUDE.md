@@ -1,18 +1,23 @@
 # WeatherMind — Claude 작업 지침
 
-날씨 데이터 기반 기후 학습 서비스. "듀오링고식" 게이미피케이션 + 실제 기상 개념을
+날씨 데이터 기반 기후 학습 서비스. **단계형 학습 게이미피케이션** + 실제 기상 개념을
 시뮬레이션 없이 **보드 퍼즐**로 체득시킨다. 서비스: `backend`(FastAPI)·`frontend`
 (Vite)·`ai-worker`(LangChain/Gemini, 문항 생성·품질 게이트)·`celery`(KMA 수집 배치).
 
 ## 핵심 기능 (실제 코드 기준 — API·도메인 모델)
-- **세션 엔진**(`session.py`): `GET /session/today`가 배합(신규5·복습4·실황1=**10문항** — R12,
-  `Settings.SESSION_RECIPE`로 env 조정 가능)으로 하루 세션 발급. `today.*` 슬롯은
+- **세션 엔진**(`session.py`): `GET /session/today`가 배합(신규5·복습4·실황1·진도5=**15문항** —
+  `Settings.SESSION_RECIPE`로 env 조정. **진도 블록은 항상 마지막**)으로 하루 세션 발급. `today.*` 슬롯은
   KMA 실황값으로 문항에 실시간 주입.
-- **커리큘럼**(`curriculum.py`): 4섹션(하늘 읽기·공기의 힘·큰 바람·도시와 기후) 유닛
-  트리, `unit_order`·`prereq` 선행 잠금, 유닛 완료 시 세션 발급(`POST /units/{slug}/session`).
+- **커리큘럼**(`curriculum.py`): 유닛 트리(섹션→유닛), `unit_order`·`prereq` 선행 잠금,
+  유닛 완료 시 세션 발급(`POST /units/{slug}/session`).
   **다과정**(R11): `courses` 테이블 + `GET /courses`·`?course=` — `units.course_id`
-  NULL은 기본 코스(weather) 취급이라 완전 하위 호환. basic-science는 빈 트리
-  (`docs/specs/11` 트리 기준 G1 이후 저작). θ는 코스를 가로질러 개념 태그 단위.
+  NULL은 기본 코스(weather) 취급이라 완전 하위 호환. **basic-science는 3섹션 8유닛 시드 완료**(R13 — "빈 트리"는
+  낡은 기술이다). θ는 코스를 가로질러 개념 태그 단위.
+  ✅ **`section_meta.json` 공백은 해소됐다**(2026-08-09 실측 8섹션 전건 — CO-I-4 닫힘).
+  이 줄에는 "4섹션(하늘 읽기·공기의 힘·큰 바람·도시와 기후)"과 "section_meta는 아직
+  4/7섹션"이 적혀 있었으나 둘 다 거짓이 됐다: 「위험한 하늘」 4유닛이 붙어 기상 코스는
+  **5섹션 16유닛**이고 전체는 **8섹션 24유닛**이다. **섹션·유닛 목록을 여기 나열하지
+  않는다** — 소유자는 `database/seed/units.json`과 `curriculum_service.SECTION_ORDER`다.
 - **대기 보드 퍼즐**(`board.py`): 기단·전선·습기·일사 배치로 실제 대기현상을 만드는
   퍼즐. 서버가 `board_rules.json`(프론트와 공유하는 단일 규칙 파일)로 판정을 재계산
   — 클라이언트가 결과를 주입할 통로 없음(채점 권위 서버 소유).
@@ -30,32 +35,60 @@
   (`weak_tags`, 정답률 임계 이하 자동 분류) 기반 복습 추천. **간격반복**(R11):
   `GET /progress/review-queue` — quiz_logs read-model, 간격 사다리 1·3·7·14·30일,
   weak_tags(능력 축)와 축 분리. **BKT 지식 추적**(`weatherbrain/knowledge_tracing.py`,
-  순수 파이썬)은 합성 복원 검증까지 완료 — 실학습자 검증은 데이터 축적 후.
+  순수 파이썬)은 **배선 완료 — 화면까지 닿는다**: `ai-worker/main.py` → `ai_client` →
+  `weatherbrain_service` → `GET /progress/mastery` → `WeatherBrainPanel.jsx`. 합성 200명
+  복원 검증(숙련 AUC 0.929) 완료, 실학습자 검증은 데이터 축적 후. ⚠️ **"BKT는 임포트하는
+  곳이 없다"는 과거 기술은 거짓이었고, 그 오류가 감사 판단을 오염시켰다**(2026-08-07 정정).
 - **예보 대결**(`duel.py`): 오늘/과거 대결 이력.
 - **인증**(`auth.py`): JWT access/refresh. **게스트는 `POST /auth/guest`가 실 유저 +
   실 JWT를 발급**(R11에서 실체화 — 그 전에는 프론트가 가짜 토큰을 조작했고 실서버에서
-  깨졌다). 계정 전환 유도(R10-J 본체)는 미구현.
+  깨졌다). **계정 전환 유도(R10-J 본체)는 구현 완료** — 서버·프론트·라우트·목·스모크(`test:guest-convert`)
+  전 홉. "미구현"은 낡은 기술이었다(2026-08-07 정정).
+  ✅ **"게스트는 평생 `middle_high`"(CO-P-5)도 해소됐다**(2026-08-09 실측):
+  `PATCH /auth/me`(`routers/auth.py:371` `update_me`)가 학령 변경 통로다 — 독스트링이
+  "게스트가 평생 middle_high에 갇히지 않게 하는 유일한 통로(R13 P-5)"라고 스스로
+  밝힌다. 종전 기술의 근거였던 **"학령 신고 writer가 `POST /auth/register` 하나뿐"이
+  더 이상 참이 아니다**(writer 2개). 경위를 남기는 이유는 이 항목이 게스트 전환
+  설계 판단의 전제로 여러 번 인용됐기 때문이다.
 - **AI 게이트**(ai-worker): Gemini로 문항 생성 → 결정적 휴리스틱(LLM 무관) 1차 게이트
   → LLM 2차 게이트. LLM 키 없어도 폴백 문항 뱅크로 전 기능 동작.
 
 ## 프로젝트 현황
 - **로드맵 마일스톤 1·2 완료**(6개 중 2개) — 다음은 마일스톤 3(콘텐츠·난이도 다양화).
   상태·의존 규칙·주차 일정은 `docs/ROADMAP.md`가 SSOT.
-- **R2~R11 완료**(R11 = 무키 웨이브 1·2 — **마일스톤 4 완료 판정** + 6의 무키분:
-  다과정 UI·온보딩 재배치(R10-J 본체)·외부화 572키·스위처). 계약·결정은
+- **R2~R12 완료 · R13 진행 중**(R11 = 무키 웨이브 1·2 — ⚠️ **마일스톤 4 "완료 판정"은
+  재검토 필요**: `ROADMAP:55`가 4의 정의에 "AI 캐스터 롤플레이"를 넣었는데 `:161`
+  달성범위 표가 완료 기준에서 그것을 뺐고 코드는 0건이다 — CO-H2. **대외 발표에서
+  "마일스톤 4 완료"를 단정하지 말 것.** ⚠️ `SPRINT_R6_01.md`·R12 자체 문서가 **존재하지
+  않는다** — R6·R12가 무엇을 남겼는지 추적 불가) + 6의 무키분:
+  다과정 UI·온보딩 재배치(R10-J 본체)·i18n 전면 외부화·스위처. **R11이 무엇을
+  착지시켰는지의 서술이라 키 수를 적지 않는다** — 종전 "외부화 572키"가 그대로
+  남아 아래 「다국어」 줄과 어긋났다(2026-08-09 정정). 계약·결정은
   `docs/team/SPRINT_R11_01.md`(§6 웨이브 2), 이전 이월은 `SPRINT_R10_01.md` §4.1 ·
   `RETROSPECTIVE.md` §R10.7~8. 판정 대기 R10-I·K·L·M·P·Q 잔존(J·O 해소).
-- **다국어(R11)**: `frontend/src/i18n/` 경량 자체 구현(의존 0), 572키 ko/en 전면
-  외부화 + 헤더 스위처. **ko 리소스 값은 원문 바이트 동일** 원칙 — 스모크가 한국어
+- **다국어(R11)**: `frontend/src/i18n/` 경량 자체 구현(의존 0), ko/en 전면
+  외부화 + 헤더 스위처(2026-08-09 실측 **761키**, 패리티 완전). 키 수는 저작으로
+  계속 자라므로 인용할 때 날짜를 붙일 것 — 이 줄에 572, 아래 구조 표에 751이
+  동시에 적혀 있었고 **둘 다 틀렸다**(2026-08-09 정정). 패리티 감시는
+  `frontend/tests/i18n.smoke.test.mjs`가 소유한다.
+  **ko 리소스 값은 원문 바이트 동일** 원칙 — 스모크가 한국어
   문구를 단정하며 하네스는 로케일 ko 고정(jsdom 7 + SSR 3, en-US 러너 대비).
   lib에서 i18n import는 `'../i18n/index.js'` 명시 경로(node ESM 디렉토리 import 불가).
-- 테스트 실측 **backend 1321** · **ai-worker 193**(의존 전체 설치 시) · 프론트 `test:*` **15종 전부 CI 편입**
-  — `ci.sh`의 `FRONT_TESTS` 9종(`explore`·`session`·`placement`·`visual`·`gating`·
-  `board-entry`·`assist`·`webgl`·`overlay`) + `board`(board_engine 공유 벡터)는 **별도
-  단계**다. 실DB 왕복 스모크는 `scripts/smoke_r10.sh`(7단계, 전원 OK).
+- 테스트 실측(**2026-08-09**) **backend 2275 passed·8 skipped·1 xfailed** ·
+  **ai-worker 257**(의존 전체 설치 시) · **celery 16** · 프론트 `package.json` `test:*`
+  **23종** = `ci.sh`의 `FRONT_TESTS` **22종** + `board`(board_engine 공유 벡터)
+  **별도 단계** 1종. 전 종목 CI 편입.
+  ⚠️ **이 줄은 "여기 나열하면 드리프트한다"고 적어 놓고 스스로 드리프트했다**
+  (2026-08-09 정정: 22/21/25파일 → 실측 23/22/26파일). 그래서 이제 **개수와 단일
+  소유자만** 적는다 — 종목 이름도, 파일 목록도 쓰지 않는다. 소유자는
+  `scripts/ci.sh`의 `FRONT_TESTS` 배열 하나뿐이고, 개수가 궁금하면 그 배열을 센다.
+  실DB 왕복 스모크는 `scripts/smoke_r10.sh`(7단계, 전원 OK).
 - **CI 상주화 완료(2026-08-03)**: `.github/workflows/ci.yml`이 PR·push에서 `ci.sh`
-  5단계를 잡으로 돌린다. 워크플로는 검사 명령을 **재구현하지 않고 ci.sh를 호출**한다
-  — 종목 목록은 `FRONT_TESTS` 단일 소유(여기 나열하면 드리프트한다).
+  단계를 잡으로 돌린다 — **`ci.sh all`의 단계 수와 워크플로 잡 수가 같아야 하고
+  2026-08-09 실측 양쪽 7이다**(lint·test·board·config·frontend·seed·authoring.
+  종전 표기 "5단계"는 seed·authoring 편입 전 값이었다). 이 패리티는 사람이 아니라
+  `backend/tests/test_ci_workflow_contract.py`가 감시하므로, 숫자가 의심되면 그
+  테스트를 돌린다. 워크플로는 검사 명령을 **재구현하지 않고 ci.sh를 호출**한다.
 - **실DB 검증 완료(2026-08-03)**: `0008` 마이그레이션(downgrade 포함) ·
   `consume_if_available` 0행 분기가 재조회 SELECT로 감 · `_count_answered_today`의
   배치고사 제외가 SQL 레벨 성립 · 에너지 진입 경계 ⓐ~ⓕ 전건. 미검증 잔여는
@@ -77,20 +110,111 @@
   "미발급"이 아니다 — **큰 시퀀스마다 3게이트로만 투입**한다(ROADMAP §5.3):
   G0 도달 스모크(~5콜) / **G1 저작 배치(W2 초입, 1회)** / G2 데모 가동.
   KMA 키는 별개(브리핑·리그 정산 전제, 없으면 degraded).
-- ⚠️ **G1 전에 생성 문항 영속화가 선행되어야 한다.** `session_service.py`가 생성
-  문항을 `content_item_id=None`으로 버려서 **세션마다·유저마다 재생성**한다 —
-  지금 키를 넣으면 비용이 영구 자산이 아니라 트래픽으로 증발한다. `rag-feedback`도
-  board 외 전 유형에서 **매 답안 1콜**(정오 무관)이라 상시 과금 지점이다.
+- ✅ **G1 앞의 선행 2건은 착지했다**(2026-08-09 확인 — 종전 "⚠️ 선행되어야 한다"는
+  낡은 기술). 경위를 남긴다: 이 항목은 **"지금 키를 넣으면 비용이 트래픽으로
+  증발한다"는 판단의 근거**였으므로 상태가 바뀐 것 자체가 결정 사항이다.
+  · **생성 문항 영속화** — `session_service.persist_generated_items`
+    (`session_service.py:691`, 발급 경로 `:969`에서 호출)가 품질 게이트 통과분을
+    `content_items`에 적재하고 그 id로 세션에 편성한다. 재사용 여부는
+    `Settings.GENERATED_ITEM_STATUS`(기본 `active` = 뱅크 재사용) 노브가 소유한다.
+  · **`rag-feedback` 상시 과금** — CO-I-1 배선으로 **사람 저작 해설 193건이 LLM보다
+    앞**에 온다(위 콘텐츠 실측). "board 외 전 유형에서 매 답안 1콜"은 더 이상 참이
+    아니고, 남는 호출은 해설 없는 45건 + 생성 문항이다.
 - **무키로 가능한 범위**: 마일스톤 4(합성 데이터) · 5(인프라) · 6 다국어 골격·UI en ·
   6 다과정 구조. **무키로 불가**: 문항 텍스트 대량 생산 3건(마일스톤 3 뱅크 · 문항 en
   번역 · 기초과학 파일럿 문항).
 - GitHub `NinjaTurtle-max/WeatherMind`(private).
 - **대외 문서에 Duolingo 언급 금지.** 메커니즘만 차용하고 표현(캐릭터·문항 텍스트)은
   자체 제작한다. 벤치마킹 관찰은 `docs/Observation_Report_02·03`에만 둔다.
+  ⚠️ **이 줄과 `docs/team/HACKATHON_RULES.md` §L의 인용 1줄은 규정 본문이라 존치한다** —
+  금칙어를 지운 규정은 검색으로 감시할 수 없다. 그 둘과 허용처 2곳(Obs02·03) ·
+  이월 대장을 제외한 전 파일은 **0건이어야 하고 2026-08-08 실측 0건**이다(CO-V-3 해소).
+  대체 원칙: **고유명사만** 바꾸고 메커니즘 서술과 벤치마킹 근거 참조(`Observation_Report_02 §4.3`
+  같은 것)는 **남긴다** — 근거가 끊기면 왜 그렇게 설계했는지 추적이 끊긴다.
+  채택 대체어: "단계형 유닛 트리" · "소모성 자원(하트형 에너지)" · "선행 학습 앱".
+
+## 저장소 구조 — 어디에 무엇이 있나
+
+```
+backend/            FastAPI. 채점 권위·세션 발급·에너지·리그·진도 전부 여기가 소유
+  app/routers/      45 데코레이터 + curriculum 서브라우터 4 = 실질 49 라우트(08-09)
+  app/services/     도메인 로직. session_service·answer_service·energy_service·
+                    league_service·placement_service·curriculum_service·weatherbrain_service
+  app/models/       SQLAlchemy 131 컬럼(relationship 제외)
+  app/scripts/      seed_content.py(멱등 키 = concept_tag + question_text) · rls_app_role.sql
+  alembic/versions/ 마이그레이션 12개. 소유자 롤(MIGRATION_DATABASE_URL)로만 실행
+  tests/            2275건(08-09). test_ci_workflow_contract·test_prompt_spec_parity 처럼
+                    **파이썬 밖 파일을 파싱해 대조하는 계약 테스트**가 선례로 있다
+frontend/           Vite + React
+  src/modules/      화면 단위. session·board·curriculum·league·home·profile·explore
+  src/lib/          boardEngine.js(서버 board_rules.json과 공유 규칙) · abilityDisplay.js
+  src/i18n/         의존 0 자체 구현. ko/en 패리티 완전(08-09 실측 761키). ko 값은 원문 바이트 동일
+  mock/             apiMockPlugin.js — 하루 경계 **KST**(KST_OFFSET_MS). UTC 복귀 금지
+  tests/            종목 수의 소유자는 ci.sh FRONT_TESTS 하나 — 여기 적지 않는다
+ai-worker/          LangChain·Gemini. 문항 생성 → 결정적 게이트 → LLM 2차 게이트
+  app/chains/       quiz_gen_chain(휴리스틱 16종·어휘 대조) · rag_chain(개념 직접 조회
+                    — **벡터 DB는 R13에서 철거**) · validate_chain
+  app/weatherbrain/ irt.py · knowledge_tracing.py(BKT) · synth.py(합성 검증 자산)
+celery/             KMA 수집 배치. 태스크 4개 전부 beat 등록됨
+database/seed/      본시드 json 10개 + staging/. **content_items.json의 문항 본문은
+                    최상위가 아니라 `template_json` 안에 있다**(question_text·
+                    correct_answer·explanation_hint·options·pairs·items…)
+scripts/            ci.sh(all = 7단계) · smoke.sh · smoke_r10.sh · lint_seed_items.py ·
+                    author_items.py — 뒤 둘은 ai-worker validate_chain을 in-process import
+docs/               ROADMAP(전략 SSOT) · specs/(00~12) · team/(프로세스·스프린트·회고·
+                    **CARRYOVER_R13.md = 이월 대장**) · Observation_Report_01~03(벤치마킹)
+```
+
+## 콘텐츠 실측 (**2026-08-09 재실측** — 추정치를 쓰지 말고 이 숫자를 쓸 것)
+
+⚠️ 이 절의 직전 판(2026-08-07)은 **전 행이 틀려 있었다**. 저작 배치가 237→272건으로
+올린 뒤 아무도 이 표를 안 고쳤고, 그 값이 코드 독스트링 여러 곳에 복제된 채
+감사 판단의 근거로 쓰였다. 인용할 때 **날짜를 함께** 적을 것.
+
+- **문항 272건** · 유형 7종 `mc 84 · cloze 35 · board 34 · short_answer 32 · slider 32 ·
+  match 28 · ordering 27` · 개념 태그 **14종**(개념 문서 태그 집합과 완전 일치)
+- **`knowledge_level` 272/272 전건 분류 완료** — `1:36 2:43 3:37 4:62 5:63 6:31`
+  (kl5가 28→63. 2축 정합 위반 0건)
+- **학령 밴드** `elementary 79 · middle_high 99 · adult 63 · expert 31`
+- **`explanation_hint` 193건 저작 완료**(비board 238건 중 **81%**)
+  ✅ **화면에 닿는다 — CO-I-1 해소**(2026-08-09 확인). 종전에 "화면에 안 뜬다 ·
+  상시 과금 지점"이라 적혀 있었으나, `answer_service`가 board → **사람 저작 해설** →
+  RAG 3단 우선순위로 배선을 마쳤고 `AnswerResult.feedback_source`가 출처까지
+  내려보낸다. 남는 LLM 호출은 **해설 없는 45건 + 생성 문항**뿐.
+- **커리큘럼 2코스 · 8섹션 · 24유닛**(기상 5섹션 16유닛 + basic-science 3섹션 8유닛)
+  ✅ `section_meta.json` **8섹션 전건** — CO-I-4 해소(종전 "4섹션뿐"은 낡은 기술).
+- **유닛 × 밴드 커버리지**: 96칸 중 **0문항 16칸**(신고 가능한 3밴드로만 세면 9칸),
+  그중 **10칸이 board 유닛**. 칸 인구의 소유자는
+  `backend/tests/test_curriculum_band_fallback.py` — 저작이 진행되면 그쪽이 먼저 운다.
+- staging 206항목 중 **183건이 본시드와 중복**. ⚠️ **"board 24건이 살아 있다 → 3키만
+  채우면 보드 34 → 58건"은 이제 거짓이다**(2026-08-09 정정): staging board 24건 중
+  **21건이 이미 본시드에 들어가 있고**(현재 board 34건이 그 결과다) `board_order`·
+  `title`·`summary` 3키도 본시드 board 34/34 전건에 채워져 있다. **미투입 잔여는
+  3건**(전부 `pressure_front` · `r13_board_puzzles`가 아니라
+  `staging/r13_template_proof.json`). CO-I-2의 기대 이득은 +24가 아니라 **+3**이다.
+
+## ⚠️ 이월은 대장에만 존재한다 — `docs/team/CARRYOVER_R13.md`
+
+2026-08-07 전수 감사에서 **미이행·미배선 87건**이 나왔다(A~I절). 성격이 갈수록 나빴다.
+
+| 절 | 성격 |
+|---|---|
+| A~E 37 | 최근에 정하고 못 한 것 |
+| F 8 | **설계했는데 잊힌 것** — Obs02 §4.3 플레이 유형 10종 중 Tier 2 3종이 이월 기록조차 없이 증발 |
+| G 6 | 결정이 대화 → 메모리에서 멈추고 저장소에 안 내려온 것 |
+| H 16 | **이월했다고 믿었는데 수신자가 없던 것** |
+| I 20 | **만들어 두고 안 쓰는 것** |
+
+**가장 중요한 교훈**: 라운드별 「범위 밖」 회수율이 47건 중 21건(45%)인데 갈리는 지점이
+명확하다 — **다음 라운드가 자기 §계약에 행으로 받은 이월만 회수됐고, "로드맵 유지"·
+"마일스톤 3으로"처럼 수신자 이름이 없는 이월은 회수율 0%**다(R4·R5·R9). **이월할 때는
+받는 문서에 행을 만들고 그 사실을 확인할 것.** 이월 문장을 쓰는 것과 이월이 되는 것은
+다르다. 코드 주석에만 있는 이월(`routers/duel.py:172`)도 대장이 못 본다.
 
 ## SSOT — 기능 상세는 여기서 확인(위 요약은 진입점이지 전체가 아님)
 **`docs/ROADMAP.md`(전략 — 마일스톤 1~6·의존 규칙·현재 위치·용어 규약)** ·
-`docs/specs/`(제품 스펙, 00~10번) · `docs/DEVELOPMENT_PLAN.md`(표준 결정) ·
+`docs/specs/`(제품 스펙, **00~12번** — 종전 "00~10번"은 11·12 추가 전 값이라 같은
+파일 안의 구조 표와 어긋나 있었다. 2026-08-09 정정) · `docs/DEVELOPMENT_PLAN.md`(표준 결정) ·
 `docs/team/TEAM_PROCESS.md`(팀 운영·§2.4 Git·§2.6~2.7 동적 편성) ·
 `docs/team/RETROSPECTIVE.md`. 충돌 시 위 문서 우선.
 - **`docs/team/HACKATHON_RULES.md`(대회 규정·제출 요건)는 ROADMAP보다도 우선한다** —
@@ -115,7 +239,9 @@
   여부·테스트 실행 순서에 따라 갈린다. 확인할 것이 "이 import가 무엇을 추가로 적재하나"
   라면 **전후 차집합**을 봐야 한다.
 - 테스트: `cd backend && python -m pytest tests -q` / `cd ai-worker && python -m pytest tests -q`
-- 전체 CI: `scripts/ci.sh` (lint→test→board→config→frontend)
+- 전체 CI: `scripts/ci.sh` (인자 없이 = `all`. 단계 목록은 ci.sh 자신이 소유하고,
+  여기 나열하면 드리프트한다 — 실제로 이 줄이 5단계만 적어 seed·authoring이 빠져
+  있었다. 2026-08-09 실측 7단계)
 - lint: `python -m pyflakes backend/app ai-worker/app celery/app`
 
 ## 팀 편성 — 오케스트레이트 개발 (상시 적용, 2026-08-01 사용자 지시)

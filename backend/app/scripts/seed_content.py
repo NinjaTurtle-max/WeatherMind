@@ -73,6 +73,35 @@ ALLOWED_QUESTION_TYPES = {
 CORRECT_ANSWER_TYPES = {"multiple_choice", "short_answer", "slider", "cloze"}
 ALLOWED_STATUSES = {"draft", "active", "retired"}
 
+# slider 척도 기본값 — **min/max가 저작되지 않은 구형 문항 전용**이다 (CO-O-7).
+# 0~100은 슬라이더가 암묵적으로 백분율이던 최초 설계(03번 스펙)의 흔적인데 제품은
+# 항목별 범위로 옮겨갔다(`QUESTION_PAYLOAD_FIELDS["slider"]` = min·max·step·unit).
+SLIDER_DEFAULT_MIN = 0.0
+SLIDER_DEFAULT_MAX = 100.0
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def slider_bounds(template: dict[str, Any]) -> tuple[float, float]:
+    """slider 채점 범위 = **문항 자신의 min/max** (CO-O-7, 순수 함수).
+
+    ai-worker 1차 게이트(`validate_chain.slider_range`)와 **같은 규칙**이다 — 거기서만
+    고치고 여기 하드코딩 0~100을 남겨 둔 탓에, 게이트 2개를 통과한 넓은 범위 문항
+    (기압 900~1100 hPa · 정답 1008)이 4단계인 적재에서 죽었다. `session_service.
+    persist_generated_items`가 **런타임에도 같은 함수를 부르므로**, 그 상태로 8/11~18을
+    돌면 넓은 범위 slider는 영원히 일회용 문항이 된다.
+
+    min/max가 없거나 숫자가 아니거나 역전(min>=max)이면 기본 0~100으로 되돌린다 —
+    저작 실수가 범위 검사 자체를 무력화하지 않게 하기 위한 하한이다.
+    """
+    low = template.get("min", SLIDER_DEFAULT_MIN)
+    high = template.get("max", SLIDER_DEFAULT_MAX)
+    if not (_is_number(low) and _is_number(high)) or float(low) >= float(high):
+        return SLIDER_DEFAULT_MIN, SLIDER_DEFAULT_MAX
+    return float(low), float(high)
+
 
 def validate_entry(entry: dict[str, Any], index: int) -> list[str]:
     """§3.3 스키마 검증 (순수 함수). 반환: 위반 사유 목록 (비면 통과)."""
@@ -133,10 +162,14 @@ def validate_entry(entry: dict[str, Any], index: int) -> list[str]:
     if question_type == "slider" and correct is not None:
         try:
             value = float(str(correct))
-            if not 0 <= value <= 100:
-                errors.append(f"{prefix} slider 정답은 0~100 범위여야 함: {correct!r}")
         except ValueError:
             errors.append(f"{prefix} slider 정답이 숫자가 아님: {correct!r}")
+        else:
+            low, high = slider_bounds(template)
+            if not low <= value <= high:
+                errors.append(
+                    f"{prefix} slider 정답은 {low:g}~{high:g} 범위여야 함: {correct!r}"
+                )
 
     return errors
 

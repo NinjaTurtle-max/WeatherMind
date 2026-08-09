@@ -109,12 +109,17 @@ def _to_session_item(
     source: str,
     slot_filled: bool,
     kind: str = "new",
+    is_correct: bool | None = None,
+    retry_correct: bool | None = None,
 ) -> SessionItem:
     """question_json → SessionItem (correct_answer 미노출 — 기존 /quiz 관례).
 
     유형별 플레이 페이로드(board의 팔레트·초기배치, match의 pairs, ordering의
     items·shuffled, slider의 min·max·step·unit)는 template_json으로 함께 노출한다
     (R3-01 §3.3 → R10-07 §2.1로 전 유형 확장). 페이로드가 없는 유형은 None.
+
+    is_correct·retry_correct는 재진입 복원용 채점 결과다 (CO-A5) — 기본 None이라
+    미응답 문항과 개정 전 호출부는 동작이 같다.
     """
     return SessionItem(
         quiz_id=quiz_id,
@@ -127,6 +132,8 @@ def _to_session_item(
         slot_filled=slot_filled,
         kind=kind,
         template_json=_question_payload(question),
+        is_correct=is_correct,
+        retry_correct=retry_correct,
     )
 
 
@@ -167,17 +174,55 @@ def _crown_scope_logs(session: Session, logs: list[QuizLog]) -> list[QuizLog]:
     발견·복습·실황"은 다양성 블록이라 유닛 진도의 근거가 아니고, 15문항 전건
     해결을 요구하면 왕관이 사실상 닫힌다(§2.10 "왕관 소유권 이전").
 
-    kind 메타가 없는 세션(개정 전 발급분)은 세션 전체로 폴백해 기존 동작을 그대로
-    유지한다. 진도 블록이 0으로 발급된 세션(열린 유닛 없음)도 같은 폴백인데, 그런
-    유저에겐 award_crown_for_activity가 줄 유닛 자체가 없어 무동작이다.
+    kind 메타가 **아예 없는** 세션(개정 전 발급분)만 세션 전체로 폴백한다.
+
+    **진도 블록 0인 세션은 폴백하지 않고 빈 목록을 돌려준다** (CO-M7). 예전에는
+    `... or logs`로 함께 폴백했는데, 그러면 왕관 기준이 조용히 **5문항에서 15문항으로
+    올라간다** — §2.10이 없애려던 바로 그 조건으로 되돌아가는 것이다. 독스트링은
+    "줄 유닛이 없어 무동작"이라 적었지만 블록 0은 "열린 유닛 없음"만이 아니라
+    **"열린 첫 유닛들의 풀이 전부 빔"**에서도 나므로(대장 L-F2) 전제가 틀렸고,
+    거기에 `kind` 기본값 'quiz'가 겹쳐 **board 유닛은 이 경로로 영원히 왕관을 못
+    받았다**. 진도가 없으면 진도 왕관도 없다 — 그것이 §2.10의 뜻이다.
     """
-    kinds = {
-        m.get("quiz_id"): m.get("kind")
-        for m in (getattr(session, "recipe_json", None) or {}).get("items", [])
-    }
-    if not kinds:
+    meta = (getattr(session, "recipe_json", None) or {}).get("items", [])
+    if not meta:
         return logs
-    return [log for log in logs if kinds.get(log.quiz_id) == "unit"] or logs
+    kinds = {m.get("quiz_id"): m.get("kind") for m in meta}
+    return [log for log in logs if kinds.get(log.quiz_id) == "unit"]
+
+
+def _crown_target(
+    session: Session, crown_logs: list[QuizLog]
+) -> tuple[str | None, str]:
+    """왕관 대상 (concept_tag, kind) — **한 유닛에서 나온 쌍** (CO-M6 / 대장 L3).
+
+    `curriculum_service.pick_crown_unit`은 concept_tag **AND** kind가 모두 일치하는
+    유닛을 찾는다. 예전에는 그 두 값을 서로 다른 출처에서 뽑았다 —
+    kind는 `recipe_json.unit_block`(블록 **첫 문항**의 유닛), concept은
+    `majority_concept`(블록 **최다** 개념). 블록이 두 유닛에 걸치면 둘이 다른 유닛을
+    가리켜 매칭이 실패하고, **전건 정답(만회 포함)에도 왕관이 0**이 됐다.
+    재현 경로: 초등이 하늘읽기3(board·crown 2)에 도달 → elementary `pressure_front`
+    board 시드가 1건뿐 → 블록 = board 1 + 공기의힘1 quiz 4 →
+    `pick_crown_unit(air_mass, board)` = 선행 잠금 → None. 약한 형태로는 왕관이
+    현재 유닛을 건너뛰고 뒤 유닛에 붙는 **진도 역전**이었다.
+
+    수리는 발급 시점에 기록해 둔 **블록 유닛 자신의 쌍**을 쓰는 것이다. 두 값이 같은
+    유닛에서 나오므로 AND 요구가 구조적으로 만족되고, `pick_crown_unit`의 엄격함은
+    그대로 둘 수 있다(느슨하게 풀면 "엉뚱한 유닛에 왕관"이라는 새 결함이 생긴다).
+
+    쌍이 없는 세션(concept_tag를 안 적던 개정 전 발급분)만 종전 방식으로 폴백한다.
+    """
+    block = _unit_block_meta(session)
+    concept, kind = block.get("concept_tag"), block.get("kind")
+    if concept and kind:
+        return concept, kind
+    return (
+        curriculum_service.majority_concept(
+            (log.concept_tag for log in crown_logs),
+            (session.route_decision or {}).get("target_concept_tag"),
+        ),
+        kind or "quiz",
+    )
 
 
 async def _closing_step(
@@ -219,6 +264,9 @@ async def session_today_response(
             source=meta.get(log.quiz_id, {}).get("source", "bank"),
             slot_filled=meta.get(log.quiz_id, {}).get("slot_filled", False),
             kind=meta.get(log.quiz_id, {}).get("kind", default_kind),
+            # 재진입 복원 (CO-A5) — 중간 이탈 후 다시 들어와도 만회 큐를 세울 수 있다
+            is_correct=log.is_correct,
+            retry_correct=log.retry_correct,
         )
         for log in logs
     ]
@@ -477,16 +525,10 @@ async def complete_session(
             _is_resolved(log) for log in crown_logs
         )
         if session.mode == session_service.MODE_DAILY and crown_resolved:
-            concept = curriculum_service.majority_concept(
-                (log.concept_tag for log in crown_logs),
-                (session.route_decision or {}).get("target_concept_tag"),
-            )
+            concept, kind = _crown_target(session, crown_logs)
             if concept is not None:
                 award = await curriculum_service.award_crown_for_activity(
-                    db,
-                    user,
-                    concept_tag=concept,
-                    kind=_unit_block_meta(session).get("kind", "quiz"),
+                    db, user, concept_tag=concept, kind=kind
                 )
                 if award is not None:
                     crown_award = CrownAward(**award)
@@ -494,8 +536,13 @@ async def complete_session(
     # 유닛 세션 unit_result (R8-01 §3.1 계약 복구) — grant_unit_crown 반환을
     # 버리지 않고 노출한다(프론트 UnitSummary가 읽는 필드).
     # **R13-01 §2.10 왕관 소유권 이전**: 유닛 직접 진입(/learn 유닛 세션)은 이제
-    # **연습 전용**이라 grant_crown=False 고정이다 — 왕관은 일일 세션의 진도 블록이
-    # 유일한 유입로다(같은 진도에 두 번 주면 하루 1왕관 상한이 무너진다).
+    # **연습 전용**이라 grant_crown=False 고정이다(같은 진도에 두 번 주면 하루
+    # 1왕관 상한이 무너진다).
+    # ⚠️ 왕관 유입로는 **3개**다 (CO-L5 정정 — 여기 "진도 블록이 유일한 유입로"라
+    # 적혀 있었으나 거짓이었다): ⑴ 일일 세션의 진도 블록 · ⑵ 보드 퍼즐 최초
+    # 클리어(routers/board.py) · ⑶ /dev 개발 경로(UserUnitProgress 직접 upsert —
+    # grant_unit_crown 미경유). 목록의 단일 소유자는 curriculum_service 모듈
+    # 독스트링이다.
     # 진도 스냅샷(crowns·cleared)과 all_correct·all_resolved 표기는 그대로 나간다.
     unit_result: UnitResult | None = None
     if session.unit_id is not None:

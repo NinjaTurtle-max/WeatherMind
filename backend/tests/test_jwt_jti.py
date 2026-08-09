@@ -110,11 +110,25 @@ class FakeDB:
 
 
 class FakeRedis:
+    """이 테스트는 **회전(슬롯 덮어쓰기) 후 이전 토큰이 죽는가**만 본다.
+
+    그래서 슬롯을 직접 심고 `get`만 흉내 낸다 — 세션 **저장**(setex)·**삭제**
+    (delete) 경로는 여기서 검증되지 않는다(test_auth_guest·test_auth_convert 담당).
+    `expire`는 R13 P-3(refresh 슬라이딩 만료)이 refresh 경로에서 부르므로 필요하다.
+    """
+
     def __init__(self):
         self.store: dict[str, str] = {}
+        self.ttl: dict[str, object] = {}
 
     async def get(self, key):
         return self.store.get(key)
+
+    async def expire(self, key, ttl):
+        if key not in self.store:
+            return False
+        self.ttl[key] = ttl
+        return True
 
 
 class TestRotationEffective:

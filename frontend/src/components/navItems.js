@@ -12,6 +12,11 @@ export const NAV_ITEMS = [
   { to: '/', labelKey: 'nav.home', icon: '🏠', end: true },
   { to: '/learn', labelKey: 'nav.learn', icon: '🎓' },
   { to: '/board', labelKey: 'nav.board', icon: '🧩' },
+  // CO-N-1 ② (2026-08-08): `/explore`(태풍 슬라이더·기후 시뮬)는 6개 탭 어디에도
+  // 없어서 **잠긴 /board 우측 레일에서만** 갈 수 있었다 — URL을 손으로 치지 않으면
+  // 영영 도달 못 하는 화면이었다. 심사 배점 ②의 "변수를 바꿔보며 학습 탐구"에
+  // 가장 정확히 대응하는 화면이라 보드 바로 옆에 세운다.
+  { to: '/explore', labelKey: 'nav.explore', icon: '🔬' },
   { to: '/duel', labelKey: 'nav.duel', icon: '🌡️' },
   { to: '/league', labelKey: 'nav.league', icon: '🏆' },
   { to: '/me', labelKey: 'nav.me', icon: '🏅' },

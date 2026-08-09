@@ -10,8 +10,11 @@
 #
 # **GHCR 이미지 전환 완료(2026-08-06).** 실서버가 생겼으므로 위 주석이 예고한
 # "image: 키로 교체"를 수행했다. 배포 대상이 1 OCPU급 소형 VM이라 소스 빌드는
-# 현실적이지 않다 — ai-worker 이미지만 791MB이고 langchain·chromadb 컴파일이
+# 현실적이지 않다 — ai-worker 이미지가 791MB였고(2026-08-06 실측) langchain 컴파일이
 # 들어간다. release.yml이 GHCR에 발행한 이미지를 pull만 한다.
+#
+# **791MB는 chromadb·langchain-openai를 포함한 수치다.** R13 3일차에 둘을 철거했으므로
+# 다음 release 빌드에서 줄어든다 — 갱신은 그 빌드의 실측으로 한다(추정치를 적지 않는다).
 #
 # 태그는 IMAGE_TAG로 주입한다(.env 또는 환경변수):
 #   IMAGE_TAG=<커밋 sha>  ← 권장. 불변 참조라 "무엇이 떠 있는지"가 확정된다
@@ -42,11 +45,13 @@ services:
   #
   # mem_limit: 소형 VM(6GB)에서 한 컨테이너의 폭주가 전체를 끌어내리지 않게 하는
   # 상한이다. 실측 기준선(2026-08-06, 로컬 idle): frontend 10MB · backend 115MB ·
-  # ai-worker 188MB · celery-worker 323MB · postgres 70MB · redis 20MB · chroma 34MB
-  # (합 ~0.8GB). 상한은 실측의 4~8배로 잡되 **합계가 물리 메모리를 넘지 않게** 한다
+  # ai-worker 188MB · celery-worker 323MB · postgres 70MB · redis 20MB
+  # (합 ~0.75GB). 상한은 실측의 4~8배로 잡되 **합계가 물리 메모리를 넘지 않게** 한다
   # — 상한의 합이 RAM을 초과하면 상한이 OOM을 막는 게 아니라 앞당긴다.
-  # 합계 4.1GB / 6GB → OS·페이지캐시에 1.9GB 남는다.
-  # ai-worker만 유독 큰 것은 키 투입 후 langchain·chromadb 적재 때문이다.
+  # 합계 3.75GB / 6GB → OS·페이지캐시에 2.25GB 남는다.
+  # (R13 3일차에 chroma 서비스가 사라져 상한 384m이 빠졌다 — 4.1GB → 3.75GB.)
+  # ai-worker만 유독 큰 것은 키 투입 후 langchain 적재 때문이다. 개념 문서는
+  # 8KB json을 프로세스 캐시에 올릴 뿐이라 메모리에 유의미한 기여를 하지 않는다.
   frontend:
     ports: !reset []
     build: !reset null
@@ -60,7 +65,7 @@ services:
     mem_limit: 768m # 실측 115MB
 
   # 내부 전용 서비스도 prod에서는 호스트에 열지 않는다(하드닝) —
-  # ai-worker는 AI_WORKER_INTERNAL_URL(컨테이너 네트워크), chroma는 ai-worker만 접근.
+  # ai-worker는 AI_WORKER_INTERNAL_URL(컨테이너 네트워크)로만 도달한다.
   ai-worker:
     ports: !reset []
     build: !reset null
@@ -76,10 +81,6 @@ services:
     build: !reset null
     image: ghcr.io/ninjaturtle-max/weathermind-celery:${IMAGE_TAG:-latest}
     mem_limit: 192m # 실측 50MB (스케줄러만)
-
-  chroma:
-    ports: !reset []
-    mem_limit: 384m # 실측 34MB — 시드 적재 후 증가분 대비
 
   postgres:
     mem_limit: 512m # 실측 70MB — shared_buffers·연결당 work_mem 여유

@@ -25,6 +25,7 @@ from app.chains.json_output import extract_json_object
 # 생성 문항 payload 계약(계약 G)은 langchain 없이도 읽혀야 하므로 별도 모듈이 소유한다
 # (payload_contract 모듈 독스트링 참조). 여기서는 재노출만 한다 — 계약을 이 파일에
 # 다시 적으면 두 곳이 드리프트한다.
+from app.chains.knowledge_level import load_vocabulary, vocabulary_violations
 from app.chains.payload_contract import GENERATED_PAYLOAD_FIELDS, QuizQuestion
 
 from app.config import llm_configured, settings
@@ -252,6 +253,35 @@ def _fallback_question(
     return QuizQuestion(**random.choice(pool))
 
 
+def _reject_if_level_overstated(question: QuizQuestion) -> None:
+    """신고 단계보다 늦게 도입되는 용어가 있으면 예외 — 재시도·폴백으로 보낸다.
+
+    **왜 생성 시점에 보는가.** 검증 로직(§7.4 판정식)은 1차 게이트가 이미 갖고
+    있지만, 게이트는 `/internal/quiz-validate`를 부르는 경로에만 걸린다. 저작 배치
+    (`author_items.run_batch`)는 그것을 부르지만 **런타임 세션 생성은 부르지 않는다**
+    — backend가 `/internal/quiz-generate` 응답을 그대로 쓴다.
+
+    R13 D 선행으로 생성 문항이 `content_items`에 **status=active로 영속화**되면서
+    그 공백이 실제 결함이 됐다: 신고를 안 믿겠다고 게이트를 만들어 놓고, 정작
+    영구 적재되는 경로가 게이트를 지나지 않는다. 그러면 "6단계 용어를 쓴 2단계
+    문항"이 뱅크에 남아 초등 학습자에게 서빙된다 — docs/specs/12 §8.2가 실측한
+    사고([58] 건조 단열 감률이 `adult` 면제로 통과한 것)의 생성판 재현이다.
+    적재 시점 검사가 아니라 **생성 시점 검사**로 둔 이유는 어휘표와 판정식이 여기
+    있기 때문이다(backend가 보려면 판정식 사본이 세 번째로 생긴다).
+
+    어휘표를 못 읽어도 통과시키지 않는다 — 검증할 수 없는 문항은 반려하고 폴백
+    뱅크(사람이 단계를 붙인 문항)로 내려간다. 게이트가 조용히 꺼지는 것보다 낫다.
+    """
+    violations = vocabulary_violations(
+        question.model_dump(), int(question.knowledge_level), load_vocabulary()
+    )
+    if violations:
+        raise ValueError(
+            f"신고 단계 {question.knowledge_level}보다 늦게 도입되는 용어: "
+            + " / ".join(violations)
+        )
+
+
 def generate_quiz(
     weather_data: dict,
     level_group: str,
@@ -286,9 +316,11 @@ def generate_quiz(
             try:
                 raw = _build_chain(temperature).invoke(inputs)
                 question = _parse_output(raw)
+                _reject_if_level_overstated(question)
                 break
             except Exception as exc:  # LLM 장애, JSON 파싱, Pydantic 검증 실패 모두 포함
                 logger.warning("quiz generation attempt %d failed: %s", attempt, exc)
+                question = None
 
     if question is None:
         logger.warning("falling back to predefined quiz set")

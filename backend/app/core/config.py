@@ -85,6 +85,29 @@ class Settings(BaseSettings):
     LEAGUE_DIVISION_SIZE: int = 30
     LEAGUE_NEIGHBOR_SPAN: int = 3
 
+    # ── 레이트리밋 (R2-01 §3.6 → R13 P-2) ─────────────────────────────────
+    # 인증 계열(login·register·guest·guest/convert) IP 기준 한도. slowapi 문법.
+    #
+    # 기본값을 5/minute → 30/minute으로 올린다. 근거(CARRYOVER_R13 §P-2 실측
+    # `[201×5, 429×3]`): 심사장·교실은 **NAT 뒤 단일 공인 IP**라 같은 와이파이의
+    # 6번째 사람부터 게스트 시작이 429로 막힌다. 화면엔 카운트다운도 자동 재시도도
+    # 없어서 "서비스가 죽었다"로 보인다. 게스트 시작은 부작용이 사실상 멱등(행 1개
+    # 생성)이고 비밀번호 추측 공격의 표적도 아니라 5라는 값이 지키는 것이 없다.
+    # 30이면 한 교실(≈30인)이 1분 안에 전원 진입할 수 있으면서, 로그인 무차별
+    # 대입은 여전히 분당 30회로 묶인다(bcrypt cost 12가 실질 상한을 더 낮춘다).
+    # env로 더 올리거나(대규모 시연) 내릴 수 있고, 기본값 드리프트는
+    # test_rate_limit_contract가 감시한다(PLACEMENT_SIZE 전례).
+    LIMIT_AUTH: str = "30/minute"
+
+    # X-Forwarded-For 첫 홉을 클라이언트 원 IP로 신뢰할지 여부.
+    # true(기본 — 현행 동작 유지): 리버스 프록시(Caddy) 뒤 배포 전제. 프록시가
+    #   없으면 헤더 위조로 한도를 무력화할 수 있다(P-7 실측: XFF 변조 시 8/8 전부 201).
+    # false: XFF를 무시하고 소켓 IP만 쓴다. **프록시 뒤에서 false로 두면 전 유저가
+    #   한 버킷에 묶인다** — 백엔드를 인터넷에 직접 노출할 때만 끈다.
+    # 기본값을 바꾸지 않는 이유: prod는 Caddy가 앞에 있고, 여기서 뒤집으면 심사장
+    # 전원이 한 버킷이 되어 P-2보다 나쁜 상태가 된다.
+    TRUST_PROXY_HEADERS: bool = True
+
     # ── 개발자 모드 (R7-03) ──
     # true면 /api/v1/dev 라우터(자기 계정 상태 진단·조작)가 등록된다. 개발 전용 —
     # 운영 금지. 기본 false 고정은 계약 테스트가 감시한다(test_dev_mode —
@@ -127,7 +150,17 @@ settings = get_settings()
 # ai-worker `llm_configured()` 선례: 값에 아래 마커가 포함되면 미설정 기본값으로
 # 간주한다(.env.example의 "changeme" 계열). 판정만 여기서 하고, 경고(dev)/기동
 # 거부(비-dev) 분기는 main.py lifespan이 담당한다 — 교차 계약 ③.
-SECRET_PLACEHOLDER_MARKERS = ("changeme", "발급받은", "your-", "placeholder")
+# `weathermind_app_dev`는 init.sql이 만드는 **앱 롤의 dev 비밀번호**다. 공개 저장소에
+# 평문으로 있으므로(CO-Q-11) placeholder로 취급한다 — 그러면 비-dev 기동 시
+# `insecure_secret_defaults`가 걸어 **운영 배포 전 `ALTER ROLE`을 강제**한다.
+# CO-J-2 수리로 `.env.example`의 DATABASE_URL이 앱 롤이 되면서 이 자리가 생겼다.
+SECRET_PLACEHOLDER_MARKERS = (
+    "changeme",
+    "발급받은",
+    "your-",
+    "placeholder",
+    "weathermind_app_dev",
+)
 
 # 유출·오설정 시 피해가 큰 시크릿성 설정만 감시한다 (기본값이 changeme 계열인 3개).
 GUARDED_SECRET_NAMES = ("DATABASE_URL", "JWT_SECRET_KEY", "AI_WORKER_INTERNAL_API_KEY")

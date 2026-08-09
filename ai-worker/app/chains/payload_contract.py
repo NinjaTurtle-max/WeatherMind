@@ -7,8 +7,8 @@
 BE-1의 저작 배치)이 `quiz_gen_chain`을 실임포트하면 최상단 langchain import 때문에
 langchain 미설치 환경에서 ERROR가 나고, `importorskip`으로 우회하면 계약 검사가
 조용히 skip된다(게이트가 있는 척하고 안 도는 상태 — 이 스프린트에서 막은 패턴).
-그래서 **이 모듈의 import는 stdlib + pydantic까지로 못박는다.** langchain·chromadb
-계열을 여기서 import하면 분리한 의미가 사라진다.
+그래서 **이 모듈의 import는 stdlib + pydantic까지로 못박는다.** langchain 계열을
+여기서 import하면 분리한 의미가 사라진다.
 
 **왜 이 계약이 필요한가**: backend `_question_payload`(`backend/app/routers/session.py`)는
 "저작된 키만" 담는 계약이라 `min`/`max`/`step`/`unit`이 없는 slider 문항은 payload=None으로

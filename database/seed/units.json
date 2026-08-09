@@ -218,5 +218,49 @@
     "kind": "quiz",
     "crown_target": 1,
     "course": "basic-science"
+  },
+  {
+    "id": "risk-wildfire",
+    "section": "위험한 하늘",
+    "unit_order": 1,
+    "title": "산불이 잘 나는 날씨",
+    "concept_tag": "wildfire_weather",
+    "prereq_unit_id": "city-anomaly-board",
+    "kind": "quiz",
+    "crown_target": 1,
+    "course": "weather"
+  },
+  {
+    "id": "risk-wildfire-board",
+    "section": "위험한 하늘",
+    "unit_order": 2,
+    "title": "산불 확산 조건 배치",
+    "concept_tag": "wildfire_weather",
+    "prereq_unit_id": "risk-wildfire",
+    "kind": "board",
+    "crown_target": 2,
+    "course": "weather"
+  },
+  {
+    "id": "risk-flood",
+    "section": "위험한 하늘",
+    "unit_order": 3,
+    "title": "호우와 침수 대응",
+    "concept_tag": "flood_response",
+    "prereq_unit_id": "risk-wildfire-board",
+    "kind": "quiz",
+    "crown_target": 1,
+    "course": "weather"
+  },
+  {
+    "id": "risk-flood-board",
+    "section": "위험한 하늘",
+    "unit_order": 4,
+    "title": "집중호우 지형 배치",
+    "concept_tag": "flood_response",
+    "prereq_unit_id": "risk-flood",
+    "kind": "board",
+    "crown_target": 2,
+    "course": "weather"
   }
 ]

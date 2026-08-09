@@ -225,10 +225,12 @@ def route(weak_tags: list[dict]) -> str:
 **트리거**: Quiz API `/answer` 제출 직후
 
 **단계**
-1. `concept_tag` + `user_answer`(오답 시)로 Chroma 쿼리 문자열 구성: `f"{concept_tag} {question_text}"`
-2. Chroma `climate_concepts` + `weather_daily` 컬렉션에서 `top_k=3, threshold=0.7`로 검색
-3. 검색 결과 없으면 (threshold 미달) → `climate_concepts`만 재검색 (fallback)
-4. 아래 프롬프트로 Gemini 호출
+1. `concept_tag`로 `database/seed/climate_concepts.json`에서 그 개념의 문서를 **직접 조회**
+   (경로 관례는 `ai-worker/app/chains/seed_paths.py` — env `CLIMATE_CONCEPTS_PATH` →
+   `/app/database/seed` 마운트 → 상위 탐색)
+2. 문서가 있으면 §4 포맷으로 컨텍스트를 만들어 아래 프롬프트로 Gemini 호출
+3. 문서가 없으면(그 태그의 개념 문서가 아직 없다) **참고 지식 두 줄이 빠진 변형
+   프롬프트**로 호출한다 — 아래 "개념 문서가 없을 때"
 
 **System Prompt**
 ```
@@ -244,24 +246,70 @@ def route(weak_tags: list[dict]) -> str:
 - 문제: {question_text}
 - 학습자 답: {user_answer}
 - 정답 여부: {is_correct}
-- 참고 지식(context): {retrieved_chunks}
+- 참고 지식(context): {concept_documents}
+- 오늘 실제 기상 데이터: {today_weather_json}
+```
+
+**개념 문서가 없을 때 (System Prompt 변형)**
+
+빈 컨텍스트를 넣지 않는다. `"(검색된 참고 지식 없음)"`을 넣으면 원칙 2가 가리킬
+대상이 없는 자기모순이 된다 — "제공된 사실만 써라, 그런데 사실은 없다".
+참고 지식에 관한 **두 줄(원칙 2 · 입력의 참고 지식 항목)을 통째로 뺀다**.
+
+```
+당신은 기상교육 전문 AI입니다. 학습자가 방금 푼 문제에 대해 피드백을 작성하세요.
+
+원칙:
+- 정답 여부와 무관하게 격려하는 톤 유지
+- 이 개념은 참고 지식이 준비되지 않았다. 문제와 학습자 답에서 읽히는 것만 말하고, 확실하지 않은 사실은 쓰지 말 것
+- 3~4문장, 초등학생도 이해할 수 있는 문장 길이
+- 마지막 문장은 오늘 실제 날씨와 연결지어 설명
+
+입력:
+- 문제: {question_text}
+- 학습자 답: {user_answer}
+- 정답 여부: {is_correct}
 - 오늘 실제 기상 데이터: {today_weather_json}
 ```
 
 **출력**: 순수 텍스트(피드백 문자열). JSON 아님.
 
+### 3.1 왜 벡터 검색(Chroma·RAG)을 걷어냈는가 — R13 3일차(2026-08-07)
+
+> 되살리려는 사람을 위해 남긴다. 이 체인은 원래 Chroma에
+> `f"{concept_tag} {question_text}"`를 던져 `climate_concepts`·`weather_daily` 두
+> 컬렉션을 `top_k=3, threshold=0.7`로 검색했다. 걷어낸 이유는 성능 튜닝이 아니라
+> **검색이라는 문제 설정 자체가 성립하지 않았다는 실측**이다. ⓐ 쿼리에 들어가는
+> `concept_tag`는 호출부(`/answer`)가 문항에서 그대로 넘겨준 **이미 확정된 값**이라,
+> 어느 문서를 넣을지 아는 상태에서 유사도로 그 문서를 다시 찾고 있었다. ⓑ 코퍼스가
+> 8KB다(35항목·12태그) — 태그당 2~6항목이라 그 태그 전부를 넣어도 top_k=3보다 크지
+> 않고, 색인·근사이웃탐색이 푸는 문제(후보 과다)가 없다. ⓒ 임베딩만 **세 번째
+> 제공자**였다(생성은 Gemini, 검색은 OpenAI `text-embedding-3-small` +
+> `EMBEDDING_API_KEY`) — 발급 계획에 없는 키다. ⓓ 그래서 무키 기본 상태에서 이미
+> 죽어 있었고, 죽는 방식이 위 자기모순이었다. ⓔ 선언된 컬렉션 3종 중
+> `anomaly_cases`는 어디서도 쓰이지 않았고, `weather_daily`가 실어 나르던 오늘 날씨는
+> 같은 프롬프트에 `today_weather_json`으로 이미 직접 들어간다(같은 정보를 두 경로로
+> 넣고 비싼 쪽이 임계에 걸려 탈락). 교체 후 **검색 실패라는 실패 양식이 소멸하고
+> 항상 정확히 그 개념의 정본이 들어간다** — 품질은 내려가지 않는다. 되살리고 싶다면
+> 먼저 ⓐ와 ⓑ가 바뀌었는지(태그가 불확정이 되었는지, 코퍼스가 수 MB가 되었는지)를
+> 보라. 그 둘이 그대로면 되살릴 이유가 없다.
+
 ---
 
 ## 4. Context Injection 상세 (모든 체인 공통)
 
-Chroma 검색 결과를 프롬프트에 삽입할 때 포맷:
+개념 문서를 프롬프트에 삽입할 때 포맷:
 ```
-[참고 지식 1] (출처: climate_concepts, 관련도 0.84)
-저기압은 주변보다 기압이 낮은 곳으로, 상승기류가 발달해...
+[참고 지식 1] (개념: pressure_front, 수준: middle_high)
+저기압은 주변보다 기압이 낮은 지역으로, 공기가 모여 상승기류가 발달한다...
 
-[참고 지식 2] (출처: weather_daily, 관련도 0.79)
-2026-07-05 서울 지역 기압은 1005hPa로...
+[참고 지식 2] (개념: pressure_front, 수준: elementary)
+고기압은 주변보다 기압이 높은 곳이다...
 ```
+
+관련도 점수는 포맷에서 뺐다 — 유사도 검색이 없으므로 그 수치가 가리킬 대상이 없다.
+출처 자리에는 컬렉션명 대신 개념 태그와 수준(`grade_level`)을 적는다(모델이 문장
+난이도를 맞추는 데 쓴다).
 
 ---
 
@@ -401,7 +449,6 @@ board 3건은 **실제 판정 엔진으로 풀리는지 확인했다** — palet
 ai-worker/app/chains/ 아래 router_chain.py, quiz_gen_chain.py, rag_chain.py를
 위 스펙의 프롬프트 문구를 그대로 사용해서 LangChain LCEL 스타일로 구현해줘.
 Gemini 3.1 Flash-Lite는 langchain-google-genai 패키지의 ChatGoogleGenerativeAI로 연결해줘.
-Chroma 클라이언트는 ai-worker/app/embeddings/chroma_client.py에 싱글턴으로 만들어줘.
 Quiz Gen Chain의 출력은 반드시 Pydantic 모델로 검증 후 실패하면 재시도하는
 OutputFixingParser 패턴을 적용해줘.
 ```

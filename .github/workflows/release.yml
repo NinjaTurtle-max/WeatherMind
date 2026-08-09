@@ -37,7 +37,7 @@ jobs:
     name: build-push (${{ matrix.service }})
     runs-on: ubuntu-latest
     # arm64는 QEMU 에뮬레이션이라 amd64보다 몇 배 느리다 — 특히 ai-worker
-    # (langchain·chromadb 컴파일). 30분이면 첫 빌드에서 잘린다.
+    # (langchain 컴파일). 30분이면 첫 빌드에서 잘린다.
     timeout-minutes: 90
     strategy:
       # 한 서비스 빌드 실패가 나머지 발행을 막지 않는다 — 서비스별 독립 발행.

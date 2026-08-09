@@ -32,20 +32,33 @@ export const CONCEPT_KO = localizedDict('ability.concept', [
   'anomaly',
   'co2_climate',
   'heat_island',
+  'density_buoyancy',
+  'energy_transfer',
+  'flood_response',
+  'phase_change',
+  'pressure_basics',
   'pressure_front',
+  'radiation_budget',
+  'temperature_heat',
   'typhoon',
+  'wildfire_weather',
 ]);
 
 // level_label → 표시명 + 배지 색(항상 텍스트와 함께 표기 — 색 단독 의미 아님)
+// CO-S-4 / CO-L-F6: 서버 THETA_BAND_LABELS는 **4밴드**인데 여기가 3개라
+// θ>1.5 유저에게 사전이 undefined를 주고, 소비처의 `?? tag` 폴백이 한국어 화면에
+// 영문 `expert`를 그대로 띄웠다(칩은 색 폴백). 밴드 수를 서버와 맞춘다.
 export const LEVEL_KO = localizedDict('ability.level', [
   'beginner',
   'intermediate',
   'advanced',
+  'expert',
 ]);
 export const LEVEL_CHIP = {
   beginner: 'bg-slate-100 text-slate-600',
   intermediate: 'bg-sky-100 text-sky-700',
   advanced: 'bg-indigo-100 text-indigo-700',
+  expert: 'bg-amber-100 text-amber-700',
 };
 
 // 단일 시리즈(사용자 1인의 능력) — 한 가지 색조(sky)만 사용.
@@ -59,13 +72,21 @@ export function thetaToScore(theta) {
 }
 
 /**
- * θ → 레벨 라벨(초급/중급/고급) 클라이언트 파생 — 서버 level_label 부재 시 폴백 전용.
- * 경계(-0.5, 0.5)는 backend weatherbrain_service.theta_level_label과 동일해야 한다.
+ * θ → 레벨 라벨(초급/중급/고급/최상급) 클라이언트 파생 — 서버 level_label 부재 시
+ * 폴백 전용. 경계는 backend `weatherbrain_service.THETA_BAND_BOUNDS`(-0.5, 0.5, 1.5)와
+ * 동일해야 한다.
  * (R7-01 S3 계약 확정: 배치 complete abilities도 level_label을 포함 — 서버값 우선 사용)
+ *
+ * CO-L-F7: 경계가 3밴드(-0.5·0.5)뿐이라 독스트링이 "backend와 동일"이라 단정하면서도
+ * **θ≥1.5에서 서버 `expert` ↔ 클라 `advanced`**로 갈렸다. 네 번째 경계를 세운다.
  */
+export const THETA_BAND_BOUNDS = [-0.5, 0.5, 1.5];
+export const THETA_BAND_LABELS = ['beginner', 'intermediate', 'advanced', 'expert'];
+
 export function levelFromTheta(theta) {
   const t = typeof theta === 'number' ? theta : 0;
-  if (t < -0.5) return 'beginner';
-  if (t < 0.5) return 'intermediate';
-  return 'advanced';
+  for (let i = 0; i < THETA_BAND_BOUNDS.length; i += 1) {
+    if (t < THETA_BAND_BOUNDS[i]) return THETA_BAND_LABELS[i];
+  }
+  return THETA_BAND_LABELS[THETA_BAND_LABELS.length - 1];
 }

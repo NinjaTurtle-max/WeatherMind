@@ -10,6 +10,7 @@ docs/specs/06_kma_api_parsing_spec.md 파싱 규칙 준수:
 """
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
@@ -19,6 +20,30 @@ from app.core.config import settings
 from app.core.redis import get_redis
 
 logger = logging.getLogger(__name__)
+
+# ── serviceKey 로그 유출 차단 (CO-Q-3 / CO-N-3d) ────────────────────────────
+# 발급키는 URL 쿼리에 붙는다(재인코딩 금지 계약). 그래서 **URL이 찍히는 모든 자리가
+# 곧 키 유출 지점**이다. 실측된 두 경로를 여기서 함께 막는다:
+#   ① httpx 자체 로거가 성공·실패 무관하게 `HTTP Request: GET <전체 URL>`을 INFO로
+#      남긴다 — "실패 시 공유 금지" 운영 수칙으로는 절대 못 막는 상시 유출이다.
+#   ② httpx 예외의 str()에 `for url '...'`가 들어가 우리 warning 라인에 실린다.
+# ①은 로거 레벨 상향(요청 라인은 우리 관측 자산이 아니다 — 실패는 ②가 남긴다),
+# ②는 mask_service_key로 마스킹한다. 대회 규정상 **키 노출 = 실격**이다.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+_SERVICE_KEY_RE = re.compile(r"(serviceKey=)[^&\s'\"]+", re.IGNORECASE)
+SERVICE_KEY_MASK = "***"
+
+
+def mask_service_key(text: object) -> str:
+    """문자열에서 `serviceKey=...` 값을 마스킹한다 (순수 함수).
+
+    celery/app/kma_client.py에 같은 함수가 있다 — 교차 빌드 컨텍스트라 import로
+    묶을 수 없어 값을 양쪽에 둔다(CLAUDE.md "단일 소유자 + 계약 테스트" 관례).
+    드리프트는 tests/test_kma_key_masking.py가 양방향으로 감시한다.
+    """
+    return _SERVICE_KEY_RE.sub(rf"\1{SERVICE_KEY_MASK}", str(text))
+
 
 KST = timezone(timedelta(hours=9))
 
@@ -182,9 +207,17 @@ async def _request_items(base_url: str, params: dict) -> list[dict]:
                 break
             except (httpx.HTTPError, ValueError) as exc:
                 last_exc = exc
-                logger.warning("KMA 요청 실패 (attempt %d): %s", attempt + 1, exc)
+                # httpx 예외 문자열에 요청 URL(=serviceKey 포함)이 들어간다 — 마스킹
+                logger.warning(
+                    "KMA 요청 실패 (attempt %d): %s",
+                    attempt + 1,
+                    mask_service_key(exc),
+                )
     if data is None:
-        raise KMAApiError(f"KMA request failed after retry: {last_exc}")
+        # 예외 메시지도 상위에서 로깅·응답에 실릴 수 있으므로 같은 마스킹을 건다
+        raise KMAApiError(
+            f"KMA request failed after retry: {mask_service_key(last_exc)}"
+        )
 
     header = data.get("response", {}).get("header", {})
     result_code = header.get("resultCode")

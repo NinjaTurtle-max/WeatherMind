@@ -22,7 +22,6 @@
 | quiz_logs 문제 저장 | question TEXT + correct_answer | **question_json JSONB + question_type + user_answer/is_correct NULL 허용** (01번) |
 | league_results | predicted_temp 단일값 | **predicted_value / actual_value JSONB + accuracy_score + elo_rating_after + week_start** (01번) |
 | attendance 스냅샷 | streak_at_time | **streak_count_snapshot** (01번) |
-| Chroma 포트 | 8200 | 컨테이너 내부 8000, 호스트 노출 **8002:8000** (05번) |
 | Celery 컨테이너 | worker+beat 한 컨테이너 | **celery-worker / celery-beat 분리** (05번) |
 | 스키마 소유권 | init.sql이 전체 DDL | **Alembic 마이그레이션이 스키마+RLS 소유** (01번). init.sql은 EXTENSION 생성만 |
 
@@ -59,7 +58,7 @@
 |---|---|---|
 | **A. Infra + Celery** | 루트(docker-compose.yml, .env.example, README.md), database/init.sql, celery/ | 표준 결정 반영한 compose·env, celery worker/beat 분리, 일일 퀴즈 생성·주간 리그 정산 태스크, celery Dockerfile |
 | **B. Backend** | backend/ 전체 | SQLAlchemy 2.0 모델 5종, Alembic 초기 마이그레이션(RLS 포함), core(security/dependencies/config), 라우터 4종, services(weather_api, xp_service, league_service, ai_client), main.py, Dockerfile, requirements.txt |
-| **C. AI Worker** | ai-worker/ 전체, database/seed/climate_concepts.json | FastAPI 내부 API 앱, 3체인(router/quiz_gen/rag), gemini_client, chroma_client 싱글턴, 시드 데이터 18청크 + seed_concepts.py, Dockerfile, requirements.txt |
+| **C. AI Worker** | ai-worker/ 전체, database/seed/climate_concepts.json | FastAPI 내부 API 앱, 3체인(router/quiz_gen/rag), gemini_client, 개념 시드 데이터(직접 조회 — R13 3일차에 chroma_client·seed_concepts.py 철거), Dockerfile, requirements.txt |
 | **D. Frontend** | frontend/ 전체 | Vite+React+Tailwind 셋업, Zustand 스토어 3종, 공통 컴포넌트 4종, quiz 모듈(완성도 최우선), simulator·league(축소판), 로그인, 라우팅+탭바, Dockerfile(nginx) |
 
 **우선순위 (00번 문서)**: MVP는 "오늘의 퀴즈" 완성도 최우선. detective 모듈은 이번 라운드 제외(Phase 3 후순위).

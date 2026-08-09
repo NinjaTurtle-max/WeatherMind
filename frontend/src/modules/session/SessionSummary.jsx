@@ -8,20 +8,62 @@ import { useT } from '../../i18n';
  *
  * R10-01 §3.4 (S4 — R10-D): 완료 화면에 "오늘 목표 N/M"을 표기한다
  * (N=/progress/me의 today_answered_count, M=daily_goal_items — 미설정이면 미렌더).
+ *
+ * R13-01 §2.1 (만회 결산): `retry_resolved_count`·`all_resolved`는 **서버 실측만**
+ * 쓴다. correct_count는 최초 정답 수 그대로라 만회분이 섞이지 않는다 — 두 값을
+ * 프론트에서 합산하면 "만회로도 XP가 붙는다"는 오해를 만든다(만회는 XP 0).
+ *
+ * R13-01 §2.10 (블록 구분 표기): 15문항이 각각 무엇이었는지 `SessionItem.kind`
+ * (new|review|live|unit)로 나눠 보인다. items를 받지 못하면(구 호출부·유닛 세션)
+ * 이 블록은 통째로 렌더되지 않는다 — 추정하지 않는다.
  */
-export default function SessionSummary({ summary }) {
+
+// 표기 순서 = 세션 배합 순서. 진도(unit)는 항상 마지막 블록이다(§2.10).
+const BLOCK_ORDER = ['new', 'review', 'live', 'unit'];
+
+/** kind별 문항 수. items가 없거나 kind가 하나도 없으면 빈 배열(미렌더). */
+export function blockCounts(items) {
+  if (!Array.isArray(items) || items.length === 0) return [];
+  const counts = new Map();
+  for (const item of items) {
+    const kind = item?.kind;
+    if (!BLOCK_ORDER.includes(kind)) continue;
+    counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  }
+  return BLOCK_ORDER.filter((k) => counts.get(k) > 0).map((k) => ({ kind: k, count: counts.get(k) }));
+}
+
+export default function SessionSummary({ summary, items }) {
   const t = useT();
   if (!summary) return null;
   const { xp_total, correct_count, total, streak_count } = summary;
   const allCorrect = correct_count === total;
+  const retryResolved = Number(summary.retry_resolved_count) || 0;
+  const allResolved = Boolean(summary.all_resolved);
+  const blocks = blockCounts(items);
 
   return (
     <div className="mt-10 rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-200">
-      <p className="text-4xl">{allCorrect ? '🌈' : '⛅'}</p>
+      <p className="text-4xl">{allCorrect || allResolved ? '🌈' : '⛅'}</p>
       <h2 className="mt-3 text-xl font-extrabold text-slate-900">{t('session.summary.title')}</h2>
       <p className="mt-1 text-sm text-slate-500">
-        {allCorrect ? t('session.summary.allCorrect') : t('session.summary.someWrong')}
+        {allCorrect
+          ? t('session.summary.allCorrect')
+          : allResolved
+            ? t('session.summary.allResolved')
+            : t('session.summary.someWrong')}
       </p>
+
+      {/* 만회 결산 (§2.1) — 서버 실측 retry_resolved_count. XP·구름과 무관한 줄이라
+          정답 수 타일과 섞지 않고 별도 배지로 둔다. */}
+      {retryResolved > 0 && (
+        <p
+          data-retry-resolved={retryResolved}
+          className="mt-3 inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-xs font-extrabold text-indigo-700"
+        >
+          {t('session.summary.retryResolved', { count: retryResolved })}
+        </p>
+      )}
 
       <div className="mt-6 grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-emerald-50 p-3">
@@ -40,6 +82,37 @@ export default function SessionSummary({ summary }) {
           <p className="mt-0.5 text-xs font-medium text-slate-500">{t('session.summary.streak')}</p>
         </div>
       </div>
+
+      {/* 블록 구분 표기 (§2.10) — 이 표기가 없으면 15문항이 그냥 길기만 하다.
+          진도(unit) 블록은 항상 마지막 5문항이고, 왕관 판정도 이 블록이 소유한다. */}
+      {blocks.length > 0 && (
+        <div data-session-blocks={blocks.length} className="mt-5 text-left">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+            {t('session.summary.blocksTitle')}
+          </p>
+          <ul className="mt-1.5 flex flex-wrap gap-1.5">
+            {blocks.map(({ kind, count }) => (
+              <li
+                key={kind}
+                data-block-kind={kind}
+                className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${
+                  kind === 'unit'
+                    ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                    : 'bg-slate-50 text-slate-600 ring-slate-200'
+                }`}
+              >
+                {t(`session.summary.blocks.${kind}`)}{' '}
+                <span className="font-extrabold">{t('session.summary.blockCount', { count })}</span>
+              </li>
+            ))}
+          </ul>
+          {blocks.some((b) => b.kind === 'unit') && (
+            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+              {t('session.summary.unitBlockNote')}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* 오늘 목표 진행 (R10-01 §3.4) — 목표 미설정이면 렌더되지 않는다 */}
       <DailyGoalMeter className="mt-4" />

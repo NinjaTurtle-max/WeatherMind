@@ -5,16 +5,25 @@ recipe {"new": 5, "review": 4, "live": 1, "unit": 5} 합계 15문항.
 - new: 뱅크 active 문항 중 해당 유저 미출제분 (level_group 일치, 슬롯 문항 제외)
 - review: θ 파생 약점 개념(weatherbrain_service.weak_concepts — 학령 상대 임계,
   R8-01 §3.5) 태그의 뱅크 문항 우선, 없으면 new로 대체
-- live: uses_live_slots=true 문항 + {today.*} 슬롯을 Redis weather 캐시 값으로 치환,
-  치환 불가(문항 없음·날씨 값 부재) 시 기존 quiz-generate 폴백
+- live: uses_live_slots=true 문항 + {today.*} 슬롯을 Redis weather 캐시 값으로 치환.
+  **치환 불가분은 배합 단계에서 미리 걸러낸다**(CO-M1) — 남은 자리는 new가 메우고
+  생성으로 새지 않는다.
 - unit(진도 블록, R13-01 §2.10): **현재 진행 유닛의 다음 진도** 5문항을 세션
   마지막에 덧붙인다(기존 3종을 대체하지 않는다). 풀은 curriculum_service의
   `progress_block_pool`(= `_unit_content_pool` 재사용) — 유닛 잔여가 5 미만이면
   다음 열린 유닛으로 이어지고, 그래도 모자라면 부족분을 new로 메워 총합 15를 지킨다.
-- 뱅크 부족분은 ai-worker quiz-generate 폴백 (현행 /quiz/today 경로와 동일).
-  폴백은 asyncio.gather 병렬 실행 — 개별 실패는 수집·로깅하고 성공분으로 세션을
-  구성하며, 전부 실패 시에만 AIWorkerError(→503)를 낸다 (웨이브 1 리뷰 3번.
-  부분 세션(배합 총합 미만) 허용 여부는 R3 검토 — §5 기술 부채)
+
+부족분 폴백 3단 (CO-H9 — Obs02:128 "뱅크 미스 → 온라인 생성 → 그것도 실패 시 공용
+캐시 문항". 3단이 없어 지금까지 **503으로 끝났다**):
+  1단 뱅크 — 위 4블록.
+  2단 **재출제 풀**(`_fetch_reserve_pool`) — 미출제 제약만 푼 같은 뱅크. 이미 푼
+      문항을 다시 내는 것이라 kind는 'review'다(거짓 '신규' 라벨 금지). 무료·무지연·
+      결정적이라 **생성보다 먼저** 온다: 3단 폴백의 "공용 캐시 문항"이 곧 이것이고,
+      덤으로 상시 과금 지점과 new 풀 고갈(대장 M8)을 함께 눌러 준다.
+  3단 ai-worker quiz-generate — asyncio.gather 병렬. 개별 실패는 수집·로깅하고
+      성공분으로 세션을 구성한다(웨이브 1 리뷰 3번).
+  전부 실패해도 1·2단 산출물이 MIN_QUESTIONS 이상이면 **부분 세션으로 발급**한다
+  (CO-H12 판정 — 상수 주석 참조). 그 아래일 때만 AIWorkerError(→503).
 - 같은 question_type 3연속 금지 (enforce_type_variety)
 - recipe와 router-decide 결과는 sessions 행 JSONB에 저장 (route 미로깅 부채 상환)
 
@@ -53,15 +62,23 @@ logger = logging.getLogger(__name__)
 # ── 배합 계약 (§3.2) ── 기본값은 settings(env 튜닝, R5.5). SESSION_SIZE는 합에서 파생.
 DEFAULT_RECIPE = settings.SESSION_RECIPE
 SESSION_SIZE = sum(DEFAULT_RECIPE.values())
-# new 풀 조회 한도 — new는 review·unit 부족분의 대체 공급원이라(§3.2·R13-01 §2.10)
-# 최악의 수요가 세 블록의 합이다. 이보다 작으면 뱅크에 문항이 있어도 부족분이
-# quiz-generate 폴백으로 새어 비용이 된다.
-NEW_POOL_LIMIT = (
-    DEFAULT_RECIPE.get("new", 0)
-    + DEFAULT_RECIPE.get("review", 0)
-    + DEFAULT_RECIPE.get("unit", 0)
-)
+# new 풀 조회 한도 — new는 **다른 전 블록의 대체 공급원**이라(§3.2·R13-01 §2.10 ·
+# CO-M1로 live까지 편입) 최악의 수요가 배합 전체다. 이보다 작으면 뱅크에 문항이
+# 있어도 부족분이 quiz-generate 폴백으로 새어 비용이 된다.
+NEW_POOL_LIMIT = SESSION_SIZE
 MODE_DAILY = "daily"
+
+# 발급 하한 (CO-H12) — 이 아래로 떨어지면 세션을 발급하지 않고 실패시킨다.
+# 배경: `plan_bank_picks`가 부분 배합을 낼 수 있다는 사실이 R2 이래 "부분 세션 허용
+# 여부는 R3 검토"라는 **미결 마커**로만 남아 있었고(R3에 검토 흔적 없음), 그 사이
+# 배합이 5→10→15로 세 번 커져 미결의 크기가 3배가 됐다. 여기서 닫는다:
+#   **부분 세션은 허용한다** — 15문항을 못 채웠다고 학습 자체를 막는 것은 과하고,
+#   뱅크 고갈·생성 실패는 유저 잘못이 아니다. 대신 두 가지를 계약으로 세운다.
+#   ① **0문항 세션은 절대 발급하지 않는다.** 프론트 자동완료 이펙트에 `total > 0`
+#      가드가 있어 0문항 세션은 화면에서 탈출구가 없다(대장 S-3).
+#   ② 실제 발급 수를 세션 행에 남긴다(`recipe_json.issued_count`) — 부분 발급이
+#      "조용히"가 아니라 **관측 가능하게** 일어나야 한다(대장 M11).
+MIN_QUESTIONS = 1
 
 # ── 예보 마감 단계 (R13 A-1) ────────────────────────────────────────────────
 # 예보 대결을 일일 세션의 **마감 단계**로 붙인다. 문항이 아니라 단계인 이유:
@@ -203,6 +220,12 @@ def plan_bank_picks(
     - review 부족분은 new 풀에서 대체 (§3.2 "없으면 new로 대체")
     - unit(진도 블록, R13-01 §2.10) 부족분도 같은 선례로 new 풀에서 대체 —
       열린 유닛이 없거나(신규 유저) 유닛 잔여가 5 미만이어도 총합은 배합 합계다.
+    - **live 부족분도 new로 대체한다 (CO-M1)**. 예전에는 live만 대체 대상에서
+      빠져 있어서, KMA 키가 없거나 장애면(→ 슬롯 치환 불가 → live 풀이 빈다)
+      new 풀이 남아돌아도 그 한 자리가 **매 세션 quiz-generate 1콜**로 샜다.
+      8/11~18 무키 실운영에서 상시 경로라 상시 과금이 된다. 실황 문항이 없는 날은
+      "오늘의 발견"이 하나 더 나오는 것이 유료 생성보다 낫다 — 세 블록이 이미
+      같은 판단을 하고 있었고 live만 예외였다.
     - 같은 문항 중복 선택 금지 (id 기준 — new/review/unit 풀이 겹칠 수 있음).
       **블록 간 중복 차단은 picked_ids 하나가 전담**한다: 신규 5와 유닛 5가 같은
       뱅크에서 뽑혀도 같은 문항이 두 번 나오지 않는다.
@@ -228,7 +251,9 @@ def plan_bank_picks(
     review_picks = take(review_pool, recipe["review"], "review")
     review_picks += take(new_pool, recipe["review"] - len(review_picks), "new")
     picks += review_picks
-    picks += take(live_pool, recipe["live"], "live")
+    live_picks = take(live_pool, recipe["live"], "live")
+    live_picks += take(new_pool, recipe["live"] - len(live_picks), "new")
+    picks += live_picks
 
     unit_count = recipe.get("unit", 0)
     if unit_count:
@@ -399,8 +424,16 @@ async def decide_route(
     # 실패해도 refresh_abilities가 저장된 θ(또는 빈 리스트)로 폴백 → 세션 발급 계속.
     if abilities is None:
         abilities = await weatherbrain_service.refresh_abilities(db, user)
+    # R13 CO-V-1(=CO-U-3-A): θ "focused" 임계는 **학령 상대**다. 학령을 안 넘기면
+    # ai-worker가 절대 임계(middle_high 값)로 폴백해 elementary는 맞혀도 항상
+    # focused, adult는 8연속 오답까지 general이 된다(weatherbrain_service.
+    # focus_theta_threshold 독스트링의 실측). 가입 학령을 그대로 넘긴다.
     return await ai_client.router_decide(
-        str(user.id), weak_tags, recent_results, abilities
+        str(user.id),
+        weak_tags,
+        recent_results,
+        abilities,
+        level_group=user.level_group,
     )
 
 
@@ -489,6 +522,48 @@ async def _fetch_pools(
     return list(new_pool), list(review_pool), list(live_pool)
 
 
+async def _fetch_reserve_pool(
+    db: AsyncDBSession,
+    user: User,
+    theta: float | None,
+    exclude_ids: set,
+    count: int,
+) -> list[ContentItem]:
+    """폴백 2단 — **미출제 제약만 푼** 재출제 풀 (CO-H9 "공용 캐시 문항").
+
+    1단(new/review/live/unit)이 배합을 못 채웠을 때, 유료 생성으로 가기 **전에**
+    같은 뱅크에서 이미 본 적 있는 문항을 다시 꺼낸다. new 풀과 다른 점은 전기간
+    served 제외가 없다는 것 하나이며, level_group·status=active·비슬롯 조건은 같다.
+
+    왜 생성보다 먼저인가:
+    - Obs02:128의 3단 폴백이 정확히 이것("그것도 실패 시 공용 캐시 문항")인데,
+      백엔드에는 2단 + 503만 있었다. ai-worker 내부 폴백 7건은 **LLM 실패 전용**이라
+      ai-worker HTTP 자체가 죽으면 도달하지 못한다 — 무키 실운영의 상시 경로다.
+    - 무료·무지연·결정적이다. 이미 푼 문항의 재출제는 열화이지 오류가 아니다.
+    - 덤으로 new 풀 고갈(대장 M8 — 발급만 해도 영구히 '신규 아님')의 완충이 된다.
+
+    `exclude_ids`로 이번 세션이 이미 고른 문항을 뺀다(같은 세션 안 중복 금지).
+    한도를 넉넉히 잡는 이유는 제외분 때문에 실효 개수가 줄어들기 때문이다.
+    """
+    if count <= 0:
+        return []
+    rows = (
+        (
+            await db.execute(
+                build_pool_query(
+                    level_groups=pool_level_groups(user.level_group, theta),
+                    theta=theta,
+                    live=False,
+                    limit=count + len(exclude_ids),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [row for row in rows if row.id not in exclude_ids][:count]
+
+
 async def _fetch_unit_pool(
     db: AsyncDBSession, user: User, abilities: list, count: int
 ) -> tuple[list[ContentItem], Any | None]:
@@ -530,14 +605,21 @@ async def forecast_closing_step(
 ) -> dict[str, Any] | None:
     """일일 세션의 예보 마감 단계 — 필요하면 dict, 아니면 None (R13 A-1).
 
-    None(= 마감 단계 없음)이 되는 경우는 둘뿐이다:
+    None(= 마감 단계 없음)이 되는 경우는 **하나뿐이다**:
     1. **오늘 이미 제출했다** — 대상일(내일) duels 행이 있으면 미노출. 재노출하면
        프론트가 409 ALREADY_SUBMITTED로 끝나는 단계를 그리게 된다.
-    2. **KMA 대상일 예보를 못 구했다**(키 부재·장애·NODATA) — 단계를 **건너뛰고**
-       15문항으로 세션이 정상 완료된다. "키 없이도 전 기능 동작"이 프로젝트 계약이라
-       예보 단계가 세션 완주를 막아서는 안 된다. 제출 자체는 키 없이도 가능하지만
-       (캐스터가 _FALLBACK_BASE로 동작), 판단 재료 없이 예보를 요구하는 것은
-       학습이 아니라 찍기다 — 그래서 노출하지 않는다.
+
+    **KMA 대상일 예보를 못 구해도 단계는 뜬다** (CO-M2 판정 — 개정 전에는 이것이
+    2번째 None 사유였다). 개정 이유: `get_today_weather()`가 키 부재·장애면 빈 dict를
+    돌려주므로 `base_forecast`는 **무키 환경에서 항상 None**이었고, 그래서 3일차에
+    만든 R13 A-1이 8/11~18 실운영과 무키 데모에서 **영원히 도달 불가**였다. "판단
+    재료 없이 예보를 요구하면 찍기"라는 원래 논거는 맞지만, 그 대가가 **기능 전체의
+    소멸**이면 비용이 크게 어긋난다.
+    타협은 **숫자를 지어내지 않는 것**이다: `base_forecast=None`을 그대로 내려보내고
+    (스키마가 이미 Optional), 프론트는 기준 예보 배너만 숨긴 채 단계를 그린다 —
+    `routers/duel._to_today_response`가 쓰는 것과 **같은 관례**다. 판단 재료가 더
+    필요하면 기존 `GET /api/v1/duel/briefing`이 그 자리에 있다. 제출 자체는 키 없이도
+    성립한다(캐스터가 _FALLBACK_BASE로 동작).
 
     **서울 고정**이다(R11-01 §8 계약 — 정산이 서울 실측). 세션 실황 슬롯이 유저
     지역을 쓰는 것과 다르며, get_today_weather()의 기본 지역과 대결 경로
@@ -562,11 +644,10 @@ async def forecast_closing_step(
     )
     if base_forecast is None:
         logger.info(
-            "KMA 대상일 예보 부재 — 예보 마감 단계 생략 (user=%s, date=%s)",
+            "KMA 대상일 예보 부재 — 기준 예보 없이 마감 단계 노출 (user=%s, date=%s)",
             user.id,
             duel_date,
         )
-        return None
 
     return {
         "duel_date": duel_date,
@@ -584,10 +665,15 @@ def generated_item_entry(
     사람 저작 시드와 공유하기 위해서다. 생성 경로 전용 규칙을 새로 쓰면 두 경로가
     갈라지고, 갈라진 쪽이 반드시 느슨해진다.
 
-    knowledge_level은 **생성 문항이 신고하면 그대로 흘려보내는 자리**다(R13-0 §1).
-    지금은 어떤 생성 경로도 신고하지 않으므로 None = 미분류로 적재된다 —
+    knowledge_level은 **생성 문항의 신고값을 그대로 흘려보내는 자리**다(R13-0 §1).
+    생성 경로가 신고를 시작했으므로(스펙 03 §2 규칙 3 — `QuizQuestion`이 필수로
+    요구) 실제로 값이 들어온다. 신고를 그대로 믿는 것은 아니다: 어휘 대조는
+    ai-worker의 생성 시점 검사(`_reject_if_level_overstated`)가 하고, 통과 못 한
+    문항은 애초에 여기까지 오지 않는다(재시도 → 폴백 뱅크).
+
+    신고가 없으면 None = 미분류로 적재된다 — 조용히 채우지 않는 것이 요점이다.
     단계 판정(docs/specs/12 §4 R2~R6)은 사람 몫이고 level_group에서 기계 복원하는
-    것은 §5.3이 금지한다. 신고 필드가 생기면 이 줄이 자동으로 값을 받는다.
+    것은 §5.3이 금지한다. 미분류는 lint가 잡아야 할 상태이지 정상값이 아니다.
     """
     return {
         "concept_tag": question.get("concept_tag"),
@@ -759,14 +845,54 @@ async def create_daily_session(
     new_pool, review_pool, live_pool = await _fetch_pools(
         db, user, weak_concepts, theta=theta
     )
+    # 실황 풀에서 **치환 불가 문항을 배합 전에 걸러낸다** (CO-M1). 예전에는 배합
+    # 뒤에 치환을 시도하고 실패하면 `generate_count += 1`로 넘겼는데, 그 자리는
+    # 대체 대상이 아니라 **곧장 유료 생성**이었다. 여기서 미리 빼면 부족분이 배합
+    # 단계에 보이고 plan_bank_picks가 new로 메운다 — KMA가 없는 날에도 생성 0.
+    # 비용은 live 후보(최대 5건)의 사전 렌더 한 번이다.
+    renderable_live = [
+        item
+        for item in live_pool
+        if fill_live_slots(dict(item.template_json or {}), slot_values)[1]
+    ]
+    if len(renderable_live) < len(live_pool):
+        logger.info(
+            "live 슬롯 치환 불가 %d/%d건 제외 — 부족분은 new가 대체 (user=%s)",
+            len(live_pool) - len(renderable_live),
+            len(live_pool),
+            user.id,
+        )
     # 진도 블록(R13-01 §2.10) — 현재 진행 유닛의 다음 문항. 열린 유닛이 없으면
     # 빈 풀이고 부족분은 plan_bank_picks가 new로 메운다(총합 불변).
     unit_pool, block_unit = await _fetch_unit_pool(
         db, user, abilities, DEFAULT_RECIPE.get("unit", 0)
     )
     picks, generate_count = plan_bank_picks(
-        new_pool, review_pool, live_pool, unit_pool=unit_pool
+        new_pool, review_pool, renderable_live, unit_pool=unit_pool
     )
+
+    # 폴백 2단 (CO-H9) — 유료 생성 **전에** 재출제 풀로 메운다.
+    if generate_count:
+        reserve = await _fetch_reserve_pool(
+            db,
+            user,
+            theta,
+            {_item_id(p["item"]) for p in picks},
+            generate_count,
+        )
+        if reserve:
+            logger.info(
+                "뱅크 부족분 %d건 중 %d건을 재출제 풀로 충당 (user=%s)",
+                generate_count,
+                len(reserve),
+                user.id,
+            )
+            # 진도 블록은 항상 마지막(§2.10)이라 재출제분을 그 앞에 끼운다.
+            unit_at = len(picks) - sum(1 for p in picks if p["kind"] == "unit")
+            picks[unit_at:unit_at] = [
+                {"kind": "review", "item": item} for item in reserve
+            ]
+            generate_count -= len(reserve)
 
     entries: list[dict[str, Any]] = []
     for pick in picks:
@@ -774,13 +900,11 @@ async def create_daily_session(
         template = dict(item.template_json or {})
         slot_filled = False
         if pick["kind"] == "live":
+            # 위에서 렌더 가능분만 남겼으므로 ok=False는 구조적으로 나오지 않는다.
+            # 방어는 남기되 생성으로 보내지 않는다 — 그 자리가 CO-M1의 누수였다.
             rendered, ok = fill_live_slots(template, slot_values)
             if not ok:
-                # 날씨 값 부재 → 미치환 원문 노출 방지, 생성 폴백 (§3.2 live)
-                logger.warning(
-                    "live 슬롯 치환 실패 (item=%s) — quiz-generate 폴백", item.id
-                )
-                generate_count += 1
+                logger.warning("live 슬롯 치환 실패 (item=%s) — 문항 제외", item.id)
                 continue
             template, slot_filled = rendered, True
         question = {
@@ -822,10 +946,23 @@ async def create_daily_session(
         for exc in (r for r in results if isinstance(r, BaseException)):
             logger.warning("quiz-generate 폴백 실패 (수집): %s", exc)
         if not generated:
-            # 전부 실패 — 기존과 동일한 실패 의미론 (라우터에서 503 변환)
-            raise AIWorkerError(
-                f"quiz-generate 폴백 전부 실패 ({generate_count}건)"
+            # 3단까지 전부 실패 (CO-H9·CO-H12): 1·2단이 모은 것이 하한 이상이면
+            # **부분 세션으로 발급한다** — ai-worker HTTP가 죽었다고 뱅크에 있는
+            # 문항까지 못 풀게 하는 것이 지금까지의 503이었다. 하한 미만일 때만
+            # 기존 실패 의미론을 유지한다(라우터에서 503 변환).
+            if len(entries) < MIN_QUESTIONS:
+                raise AIWorkerError(
+                    f"quiz-generate 폴백 전부 실패 ({generate_count}건) — "
+                    f"뱅크 산출물 {len(entries)}건이 하한 {MIN_QUESTIONS} 미만"
+                )
+            logger.warning(
+                "quiz-generate 폴백 전부 실패 (%d건) — 뱅크 %d문항으로 부분 세션 발급"
+                " (user=%s)",
+                generate_count,
+                len(entries),
+                user.id,
             )
+            generated = []
         # 생성 문항 영속화 (R13 D 선행) — 품질 게이트 통과분만 content_items에
         # 적재하고 그 id로 세션에 편성한다. 탈락분은 item=None이라 지금까지처럼
         # content_item_id 없이 일회용으로 서빙된다(배합 총합은 그대로 15).
@@ -866,6 +1003,14 @@ async def create_daily_session(
         [e for e in entries if e["kind"] == "unit"]
     )
 
+    # 0문항 세션 금지 (CO-H12 ①) — 여기까지 오는 경로가 위 폴백 3단 말고도 생길 수
+    # 있으므로(유닛 세션 전례) 발급 직전에 한 번 더 막는다. 프론트 자동완료 이펙트가
+    # `total > 0` 가드라 0문항 세션은 화면에서 빠져나갈 수 없다(대장 S-3).
+    if len(entries) < MIN_QUESTIONS:
+        raise AIWorkerError(
+            f"발급 가능 문항 {len(entries)}건 — 하한 {MIN_QUESTIONS} 미만이라 세션 미발급"
+        )
+
     session = Session(
         user_id=user.id,
         session_date=today,
@@ -896,6 +1041,10 @@ async def create_daily_session(
     # 멱등 재조회·complete 시점에도 블록 구분이 복원된다.
     session.recipe_json = {
         "recipe": DEFAULT_RECIPE,
+        # **의도한 배합(recipe)과 실제 발급 수는 다를 수 있다** (CO-H12 ② · 대장 M11).
+        # 부분 세션을 명시 계약으로 승격한 이상 그 흔적이 행에 남아야 한다 — 없으면
+        # 13문항이 나가도 세션 행만으로는 알 수 없고, 전부 실패했을 때만(503) 보인다.
+        "issued_count": len(entries),
         "generated_count": sum(1 for e in entries if e["source"] == "generated"),
         # 생성분 중 뱅크에 적재된 수 (R13 D 선행) — generated_count와 벌어진 만큼이
         # 품질 게이트 탈락분(일회용)이다. 게이트가 통째로 막히면 여기서 보인다.
@@ -904,12 +1053,20 @@ async def create_daily_session(
             for e in entries
             if e["source"] == "generated" and e["content_item_id"] is not None
         ),
-        # 진도 블록 유닛 — 왕관 대상 선정(kind)에 쓴다. 열린 유닛이 없으면 None.
+        # 진도 블록 유닛 — 왕관 대상 선정의 근거 (CO-M6 / 대장 L3).
+        # **concept_tag를 함께 적는 것이 수리의 핵심**이다. 예전에는 kind만 남기고
+        # 개념은 complete 시점에 `majority_concept(블록 문항들의 태그)`로 되짚었는데,
+        # 블록이 두 유닛에 걸치면 kind(블록 유닛)와 concept(최다 개념)이 **서로 다른
+        # 유닛**을 가리켜 `pick_crown_unit`의 concept AND kind 요구가 깨졌다 —
+        # 전건 정답에도 왕관이 증발했다(초등 하늘읽기3 board 시드 1건 경로가 실례).
+        # 두 값을 **같은 유닛 하나에서** 뽑아 적으면 불일치가 구조적으로 사라진다.
+        # 이 값이 없는 세션(개정 전 발급분)은 라우터가 종전 majority_concept로 폴백.
         "unit_block": (
             {
                 "unit_id": str(block_unit.id),
                 "unit_slug": block_unit.slug,
                 "kind": block_unit.kind,
+                "concept_tag": block_unit.concept_tag,
             }
             if block_unit is not None
             and any(e["kind"] == "unit" for e in entries)

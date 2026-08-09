@@ -29,6 +29,7 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import http from 'node:http';
+import { readFile } from 'node:fs/promises';
 
 process.env.NODE_ENV = 'production';
 
@@ -294,6 +295,80 @@ try {
     r.unmount();
     await api('POST', '/dev/clouds', { clouds: 5 });
   });
+
+  // ── 5. CO-K11: 클리어 후 나가는 문 + 「다음 퍼즐 →」 ───────────────────────
+  //
+  // 클라이언트 직접 관찰(2026-08-07): 성공하는 순간 AtmosphereBoard의
+  // scrollIntoView({block:'center'})가 단면 패널을 화면 가운데로 끌어와 **유일한
+  // 출구인 상단 「목록으로」 링크를 화면 밖으로 밀었다.** 그 자리에서 보이는 유일한
+  // 버튼이 「다시 도전」이라 같은 퍼즐에 남는 것이 유일한 선택지였고, BoardPage
+  // 머리말이 스스로 "순차 진행"이라 적어 놓고 **「다음 퍼즐」이 아예 없었다.**
+  // 결과 블록(=자동 스크롤 도착 지점)에 3버튼이 있는지를 고정한다.
+  await scenario('CO-K11: 결과 블록에 「목록으로」와 「다음 퍼즐 →」이 함께 있다', async () => {
+    await api('POST', '/dev/clouds', { clouds: 5 });
+    const { card } = await mountListAndFindCard();
+    click(card);
+    await waitFor(() => text().includes('제출하기'), 5000, '플레이 화면 진입');
+    const submit = findButton('제출하기');
+    click(submit);
+    await waitFor(
+      () => window.document.querySelector('[data-board-back]'),
+      5000,
+      '결과 블록의 「목록으로」 버튼',
+    );
+    const back = window.document.querySelector('[data-board-back]');
+    assert(
+      (back.textContent ?? '').includes('목록으로'),
+      `「목록으로」 버튼 문구가 다르다 — "${back.textContent}"`,
+    );
+    // 미클리어(빈 배치)에서는 「다시 도전」이 주 버튼이고 「다음 퍼즐」은 없다
+    assert(findButton('다시 시도') || findButton('한 번 더 도전'), '재도전 버튼이 사라졌다');
+    assert(
+      !window.document.querySelector('[data-board-next]'),
+      '미클리어인데 「다음 퍼즐 →」이 떴다(순서를 건너뛰게 된다)',
+    );
+    // 「목록으로」가 실제로 목록으로 되돌린다(같은 퍼즐에 남지 않는다)
+    click(back);
+    await waitFor(() => !text().includes('제출하기'), 5000, '목록 복귀');
+
+    // 클리어 상태를 목에서 만들기 어려우므로(정답 배치가 필요) 「다음 퍼즐」의
+    // **경로**는 소스 계약으로 고정한다: 반드시 openPuzzle(=상세 엔드포인트)을
+    // 탄다. 목록 payload로 직행하면 보드측 유일한 구름 진입 게이트(D1·CO-K5)를
+    // 우회해 잔량 0에서 보드가 무제한이 된다 — 이 파일이 존재하는 이유 그 자체다.
+    const src = await readFile(resolve(root, 'src/modules/board/BoardPage.jsx'), 'utf8');
+    assert(/data-board-next/.test(src), 'BoardPage에 data-board-next가 없다');
+    assert(
+      /data-board-next[\s\S]{0,240}openPuzzle\(nextPuzzle\)/.test(src),
+      '「다음 퍼즐 →」이 openPuzzle(상세 진입 게이트)을 타지 않는다(CO-K5 우회)',
+    );
+  });
+
+  // ── 6. CO-K7: 자유 실험은 마운트 즉시 자동 스크롤하지 않는다 ──────────────
+  //
+  // SANDBOX_PUZZLE.goal_conditions=[] → JS checkGoals가 `passed:true` →
+  // scrollPhase='preview' → 아무것도 안 했는데 단면 패널로 화면이 튀었다(CO-K3의
+  // 발현). 목표가 없으면 "달성"도 없다 — scrollIntoView 호출 0을 실측으로 고정한다.
+  await scenario('CO-K7: 자유 실험 진입에서 scrollIntoView가 호출되지 않는다', async () => {
+    const calls = [];
+    const orig = window.Element.prototype.scrollIntoView;
+    window.Element.prototype.scrollIntoView = function (...args) {
+      calls.push(args);
+    };
+    try {
+      mount(createElement(BoardPage));
+      await waitFor(() => Boolean(findButton('자유 실험')), 5000, '자유 실험 버튼');
+      click(findButton('자유 실험'));
+      await waitFor(() => text().includes('채점하지 않아요'), 5000, '자유 실험 화면');
+      await sleep(300); // 스크롤 이펙트가 늦게 붙을 여지를 준다
+      assert(
+        calls.length === 0,
+        `자유 실험 진입에서 자동 스크롤이 ${calls.length}회 났다(CO-K7 회귀)`,
+      );
+    } finally {
+      window.Element.prototype.scrollIntoView = orig;
+    }
+  });
+
 } finally {
   await vite.close();
   httpServer.close();

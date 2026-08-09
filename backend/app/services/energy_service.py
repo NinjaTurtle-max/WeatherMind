@@ -178,14 +178,12 @@ async def get_state(
     # 나가는 write amplification 방지. 만렙 상태의 updated_at은 소모·진입 시점에
     # _persist_regen이 다시 now로 확립하므로 정합성 손실 없음. 기준시각 부재(None)만
     # 예외적으로 확립.
+    #
+    # 쓸 일이 있으면 **_persist_regen에 위임**한다 (CO-M3) — 여기에도 절대값
+    # UPDATE 사본이 있었고, 조회 경로라 오히려 더 자주 실행돼 lost update의 주
+    # 발생원이었다. 위임하면 상대값 쓰기·RETURNING 실측 반환이 한 곳에서만 산다.
     if new_clouds != user.clouds or user.clouds_updated_at is None:
-        await db.execute(
-            update(User)
-            .where(User.id == user.id)
-            .values(clouds=new_clouds, clouds_updated_at=new_updated)
-        )
-        user.clouds = new_clouds
-        user.clouds_updated_at = new_updated
+        new_clouds, new_updated = await _persist_regen(db, user, now)
     return {
         "clouds": new_clouds,
         "max": CLOUD_MAX,
@@ -202,16 +200,54 @@ async def _persist_regen(
     회복 반영은 잉여 carry를 확정하는 것이므로 소모·차단 판정보다 **먼저** 일어나야
     한다(20분 지나 회복된 구름으로 진입이 가능해야 한다). 감소는 여기서 절대 쓰지
     않는다 — 소모는 consume_if_available의 가드 UPDATE 소유다.
+
+    **쓰기는 상대값이다 (CO-M3)**. 예전에는 회복분을 `clouds=<계산된 절대값>`으로
+    썼는데, 감소(consume_if_available)는 `clouds = clouds - COST` 상대값이었다 —
+    한쪽만 절대값이면 lost update가 성립한다. 재현: 오답 소모(5→4)와 같은 순간 다른
+    탭의 보드 상세 진입이 **캐시된 5**를 근거로 `clouds=5`를 써 **소모가 되돌아간다**.
+    두 탭·더블클릭으로 닿는 경로이고, 모듈 독스트링이 "lost update 방지 — R4 교훈"
+    이라 단언하는 자리였다.
+
+    그래서 UPDATE를 둘로 가른다:
+    - 회복량 0(시각만 확립): `clouds_updated_at`만 쓴다 — clouds 컬럼을 아예 건드리지
+      않으므로 동시 소모를 덮을 수 없다.
+    - 회복량 n>0: `clouds = clouds + n`에 `clouds + n <= CLOUD_MAX` 가드를 건다.
+      상대값이라 동시 소모와 교환법칙이 성립하고, 가드는 동시 회복이 겹쳤을 때 만렙을
+      넘기지 않게 한다(가드 미충족이면 그 유저는 이미 만렙 부근이라 무동작이 옳다).
+    반환 잔량은 **RETURNING 실측값**이다 — 계산한 절대값을 돌려주면 상대 UPDATE로
+    바꾼 의미가 반환 경로에서 다시 사라진다.
     """
     new_clouds, new_updated = apply_regen(user.clouds, user.clouds_updated_at, now)
-    if new_clouds != user.clouds or new_updated != user.clouds_updated_at:
-        await db.execute(
+    amount = new_clouds - user.clouds  # apply_regen은 증가만 낸다 — 항상 >= 0
+    if amount == 0 and new_updated == user.clouds_updated_at:
+        return new_clouds, new_updated
+
+    if amount == 0:
+        stmt = (
             update(User)
             .where(User.id == user.id)
-            .values(clouds=new_clouds, clouds_updated_at=new_updated)
+            .values(clouds_updated_at=new_updated)
+            .returning(User.clouds)
         )
-        user.clouds = new_clouds
-        user.clouds_updated_at = new_updated
+    else:
+        stmt = (
+            update(User)
+            .where(User.id == user.id, User.clouds + amount <= CLOUD_MAX)
+            .values(clouds=User.clouds + amount, clouds_updated_at=new_updated)
+            .returning(User.clouds)
+        )
+    persisted = (await db.execute(stmt)).scalar_one_or_none()
+    if persisted is not None:
+        new_clouds = persisted
+    elif amount:
+        # 가드 미충족(동시 회복 경합) — 회복은 생략됐다. 실측 잔량을 다시 읽는다.
+        actual = (
+            await db.execute(select(User.clouds).where(User.id == user.id))
+        ).scalar_one_or_none()
+        if actual is not None:
+            new_clouds = actual
+    user.clouds = new_clouds
+    user.clouds_updated_at = new_updated
     return new_clouds, new_updated
 
 

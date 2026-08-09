@@ -10,16 +10,32 @@ function tNow(key, params) {
 /**
  * 온보딩 게이트 (R10-01 §3.4 — S4 / R10-D·R10-F)
  *
+ * ⚠️ **2026-08-08 (CO-N-1 ③): 잠금 해제 단계는 UI 소비자가 없다.**
+ * `components/FeatureUnlockGate`는 삭제됐고 Layout의 축하 토스트 렌더도 끊겼다 —
+ * 심사 배점 ②(체험·참여형)가 요구하는 "콜드 오픈에서 바로 만져 볼 수 있음"과
+ * 세션 1·2·3회 해제 사다리가 정면으로 충돌했기 때문이다.
+ *
+ * ⚠️ **2026-08-09 정정 — "아무 화면도 읽지 않는다"는 거짓이었다.** 이 자리에
+ * `UNLOCK_STAGE_BY_TAB`·`selectUnlockStage`·`isUnlocked`·`requiredStage`가 **전부**
+ * 소비자 0이라 적혀 있었으나, `selectUnlockStage`는 `modules/progress/
+ * ProgressPage.jsx:38`이 `useOnboardingGate(selectUnlockStage)`로 읽는다
+ * (해제 단계 표시). 통째로 지웠다면 화면이 깨졌을 것이다.
+ * 실측 소비자 현황(src/ 전수 grep):
+ *   · `DAILY_GOAL_CHOICES`  — 일일 목표 선택지. 사용 중.
+ *   · `selectUnlockStage`   — ProgressPage.jsx:38. **사용 중.**
+ *   · `UNLOCK_STAGE_BY_TAB`·`isUnlocked`·`requiredStage`·토스트 예약
+ *     — src/ 소비자 0(스모크 `onboardingGating`만 참조).
+ * **재게이팅을 하지 않을 것이 확정되면 마지막 줄만 지운다** — 이월 대장에 남기려고
+ * 여기 적어 둔다. 삭제 전 반드시 소비자를 다시 grep할 것.
+ *
  * 두 가지를 한 모듈에 모은다:
  *   1) 일일 목표 선택지(3·5·9) — 서버 계약(PUT /progress/daily-goal, D4)의 허용값.
  *   2) 첫 화면 점진적 잠금 해제 단계 — **프론트 표시 계층 전용**이다.
  *      서버 권한이 아니다(§3.4 명시): 라우트는 그대로 열려 있고 딥링크도 막지
  *      않는다. 서버에 "세션 완료 횟수" 카운터가 없으므로(/progress/me·/dev/state
  *      어디에도 없음) 세션 완료를 로컬에 기록해 단계를 센다.
- *      **차단이 아니라 동기 부여**(클라이언트 판정 정정 2026-08-01): 탭바는 5탭을
- *      항상 활성으로 두고, 아직 해제 전인 기능은 그 화면에서 기능 설명·가치·해제
- *      조건·세션 시작 CTA를 보여준다(components/FeatureUnlockGate). 자물쇠로
- *      접근을 막는 UI는 쓰지 않는다.
+ *      ~~**차단이 아니라 동기 부여**~~ — 그 동기 부여 화면(FeatureUnlockGate)은
+ *      2026-08-08에 삭제됐다. 탭바가 전 탭 활성이라는 것만 그대로다.
  *
  * 해제 조건(§3.4 표):
  *   학습(/)·내 정보(/me) = 처음부터 · 보드 = 세션 1회 · 예보 대결 = 2회 · 리그 = 3회.
@@ -60,17 +76,9 @@ export const UNLOCK_STAGE_BY_TAB = {
 /** 전부 해제되는 단계 */
 export const MAX_UNLOCK_STAGE = Math.max(...Object.values(UNLOCK_STAGE_BY_TAB));
 
-/**
- * 해제 순간 1회성 축하 토스트 리소스 키 (§3.4) — 문구는 `unlock.*` 리소스 소유.
- * 토스트는 기록(recordSessionComplete) 시점의 로케일로 번역해 문자열로 담는다
- * (소비처 Layout은 문자열 그대로 렌더 — 계약 불변. 3.2초짜리 순간 표시라
- * 표시 중 로케일 전환까지 따라가지는 않는다).
- */
-const UNLOCK_TOAST_KEY = {
-  '/board': 'unlock.board',
-  '/duel': 'unlock.duel',
-  '/league': 'unlock.league',
-};
+// 해제 축하 토스트(§3.4 `unlock.*`)는 **삭제됐다**(CO-N-1 ③, 2026-08-08) —
+// 해제 사다리가 없어져 "🧩 대기 보드가 열렸어요!"가 일어나지 않은 일을 알리는
+// 문구가 됐다. 리소스 키도 함께 지웠다(고아 키를 남기지 않는다 — CO-D6).
 
 const STORAGE_KEY = 'weathermind-onboarding-gate';
 const MAX_TRACKED_SESSIONS = 8; // 멱등용 id 캡 — 단계는 MAX_UNLOCK_STAGE에서 포화
@@ -162,7 +170,6 @@ export function isUnlocked(stage, to) {
 export const useOnboardingGate = create((set, get) => ({
   ...EMPTY,
   ...(loadPersisted() ?? {}),
-  toast: null,
 
   /**
    * /progress/me 도착 시 1회 부트스트랩. 계정이 바뀌면 기록을 버리고 다시 판정한다.
@@ -185,32 +192,17 @@ export const useOnboardingGate = create((set, get) => ({
     persist(next);
   },
 
-  /** 세션 완료 1건 기록(멱등). 새로 열린 탭이 있으면 축하 토스트를 예약한다. */
+  /** 세션 완료 1건 기록(멱등). 단계 계산에만 쓰인다(소비 화면 없음 — 위 ⚠️ 참고). */
   recordSessionComplete: (sessionId) => {
     const state = get();
     if (!sessionId) return;
     const id = String(sessionId);
     if (state.experienced || state.sessionIds.includes(id)) return;
-    const before = selectUnlockStage(state);
     const sessionIds = [...state.sessionIds, id].slice(-MAX_TRACKED_SESSIONS);
     const next = { ...state, sessionIds };
-    const after = selectUnlockStage(next);
-    const opened = Object.entries(UNLOCK_STAGE_BY_TAB)
-      .filter(([, need]) => need > before && need <= after)
-      .map(([to]) => to);
-    set({
-      sessionIds,
-      toast:
-        opened.length > 0
-          ? (UNLOCK_TOAST_KEY[opened[opened.length - 1]]
-              ? tNow(UNLOCK_TOAST_KEY[opened[opened.length - 1]])
-              : null)
-          : state.toast,
-    });
+    set({ sessionIds });
     persist(next);
   },
-
-  clearToast: () => set({ toast: null }),
 
   /** 로그아웃·테스트용 초기화 */
   reset: () => {
@@ -220,6 +212,6 @@ export const useOnboardingGate = create((set, get) => ({
     } catch {
       // 무시 — 메모리 상태만 되돌린다
     }
-    set({ ...EMPTY, toast: null });
+    set({ ...EMPTY });
   },
 }));

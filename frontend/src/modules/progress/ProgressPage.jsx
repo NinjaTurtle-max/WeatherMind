@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { progressApi } from '../../api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { authApi, progressApi } from '../../api';
 import { useAuthStore } from '../../store/authStore';
 import Mascot from '../../components/Mascot';
 import TierBadge from '../../components/TierBadge';
@@ -137,6 +138,100 @@ export default function ProgressPage() {
           <RegionPicker />
         </div>
       </div>
+
+      {/* 설정 — 학습 수준 (R13 CO-P-5) */}
+      <LevelGroupCard />
+    </div>
+  );
+}
+
+/** 학령 3값 — 서버 schemas/auth.LevelGroup Literal과 같은 순서·값 */
+const LEVEL_GROUPS = [
+  { value: 'elementary', labelKey: 'auth.register.elementary' },
+  { value: 'middle_high', labelKey: 'auth.register.middleHigh' },
+  { value: 'adult', labelKey: 'auth.register.adult' },
+];
+
+/**
+ * LevelGroupCard — 학습 수준 설정 (R13 CO-P-5).
+ *
+ * 학령 신고 writer가 `POST /auth/register`의 필드 하나뿐이었다. R10-J 이후 주 동선은
+ * **게스트 시작**이고 그 경로는 register를 아예 타지 않는다 — 전환도 학령을 안 받고,
+ * 배치고사도 θ만 건드린다. 그래서 게스트로 들어온 사람은 초등학생이든 성인이든
+ * **평생 middle_high**였고 배치고사로도 못 바꿨다.
+ *
+ * 통로를 **여기(내 정보)**에 둔 이유: 자동 게스트 발급(CO-N-1 ①) 이후 첫 화면이
+ * 로그인이 아니다 — URL만 열면 곧장 홈이라, 시작 화면의 학령 선택지는 심사 5분
+ * 동선에 아예 등장하지 않는다. 나중에 바꿀 수 있는 자리가 있어야 잠금이 풀린다.
+ * 학습 지역 설정(RegionPicker)이 바로 위에 있어 "설정은 여기"라는 위계도 이미 섰다.
+ */
+function LevelGroupCard() {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const [notice, setNotice] = useState(null);
+
+  const { data: me } = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: authApi.me,
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  const mutation = useMutation({
+    mutationFn: authApi.updateLevelGroup,
+    onSuccess: (updated) => {
+      // 헤더(Layout)도 같은 키를 보고 게스트 여부를 판정한다 — 한 번에 갱신한다.
+      queryClient.setQueryData(['auth', 'me'], updated);
+      // 배합은 세션 발급 시점에 확정되므로 오늘 세션은 그대로다. 다음 발급이
+      // 새 학령을 쓰도록 캐시만 비운다.
+      queryClient.invalidateQueries({ queryKey: ['session'] });
+      setNotice({ ok: true, text: t('profile.levelGroupSaved') });
+    },
+    onError: (err) => setNotice({ ok: false, text: err?.detail ?? t('profile.levelGroupFailed') }),
+  });
+
+  // 서버가 현재 값을 알려주지 않으면 고를 수도 없다 — 조회 실패 시엔 렌더하지 않는다
+  // (틀린 현재값을 보여 주고 바꾸게 하는 것보다 없는 편이 낫다).
+  if (!me?.level_group) return null;
+
+  return (
+    <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <p className="text-sm font-extrabold text-slate-900">{t('profile.levelGroupTitle')}</p>
+      <p className="mt-0.5 text-xs text-slate-500">{t('profile.levelGroupBody')}</p>
+      <div className="mt-3 grid grid-cols-3 gap-2" data-level-group={me.level_group}>
+        {LEVEL_GROUPS.map((g) => (
+          <button
+            key={g.value}
+            type="button"
+            disabled={mutation.isPending}
+            aria-pressed={me.level_group === g.value}
+            onClick={() => {
+              if (me.level_group === g.value) return;
+              setNotice(null);
+              mutation.mutate(g.value);
+            }}
+            className={`rounded-xl border px-2 py-2.5 text-sm font-medium transition disabled:opacity-50 ${
+              me.level_group === g.value
+                ? 'border-sky-600 bg-sky-50 text-sky-700'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+            }`}
+          >
+            {t(g.labelKey)}
+          </button>
+        ))}
+      </div>
+      {mutation.isPending && (
+        <p className="mt-2 text-xs text-slate-500">{t('profile.levelGroupSaving')}</p>
+      )}
+      {notice && !mutation.isPending && (
+        <p
+          className={`mt-2 rounded-lg px-3 py-2 text-xs font-bold ${
+            notice.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'
+          }`}
+        >
+          {notice.text}
+        </p>
+      )}
     </div>
   );
 }
@@ -327,10 +422,25 @@ function SpineCard({ spine }) {
             {t('profile.spineContinue')}
           </Link>
         </div>
-      ) : (
+      ) : total > 0 && cleared >= total ? (
         <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-center text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
           {t('profile.spineAllCleared')}
         </p>
+      ) : (
+        // CO-S-7 — `current_unit=null`의 원인은 **둘**이다. 서버 독스트링
+        // (`curriculum_service.build_spine`)이 *"전부 클리어 **또는** 전부 잠금이면
+        // None"*이라고 명시하는데, 프론트는 한 갈래로 접어 `0/20 · 0%`인 화면에도
+        // "🌈 열린 유닛을 모두 클리어했어요!"를 띄웠다. 유닛 미시드·전건 잠금에서
+        // 발현한다. cleared가 total에 못 미치면 완주가 아니라 **열린 게 없는** 것이다.
+        <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 text-center ring-1 ring-slate-200">
+          <p className="text-xs font-bold text-slate-600">{t('profile.spineNoneOpen')}</p>
+          <Link
+            to="/learn"
+            className="mt-1.5 inline-block text-xs font-bold text-sky-700 underline underline-offset-4 hover:text-sky-900"
+          >
+            {t('profile.spineStart')}
+          </Link>
+        </div>
       )}
     </div>
   );

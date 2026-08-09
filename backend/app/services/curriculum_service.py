@@ -6,8 +6,20 @@ clear 왕관/XP 처리(DB 결합부)를 담당한다. 유닛 세션은 기존 �
 결정한다 — unit_id를 content_items에 추가하지 않는다(기존 시드 하위 호환, §3.2).
 
 잠금 규칙(§3.2): prereq_unit_id가 있으면 그 유닛 crowns>=1 이어야 열림. 첫 유닛 무잠금.
-진도: 유닛 세션 5/5(전 문항 정답) 또는 board 클리어 시 crowns +1(crown_target까지),
-cleared 전환 시 +20 XP 1회.
+
+왕관 유입로는 **3개**다 (CO-L5 정정 — 이 자리에 "유닛 세션 5/5" 하나라고 적혀
+있었으나 거짓이었다. `routers/session.py`의 유닛 세션 완료는 `grant_crown=False`
+고정이라 **유닛 직접 진입은 왕관을 주지 않는다** — 연습 전용):
+  ⑴ 일일 세션의 진도 블록 · ⑵ 보드 탭 최초 클리어 · ⑶ `/dev` 개발 경로.
+⑴·⑵만 `grant_unit_crown`으로 수렴한다 — ⑶은 `UserUnitProgress`를 직접 upsert해
+그 함수를 거치지 않는다(2026-08-08 재확인. "셋 다 수렴"이 이 자리에 적혀 있었다).
+판정 조건은 각 유입로가 소유하므로 여기 적지 않는다 — 문서가 코드보다 앞서 나가면
+다시 거짓이 된다.
+
+**코스 경계(CO-L1)**: 진도·왕관·잠금·스파인은 **한 코스 안에서** 닫힌다.
+`active_course_units`·`course_groups`가 유일 판정 지점이며, 이 경계가 없으면
+다른 코스의 무잠금 유닛(basic-science 3유닛은 prereq=null)이 1일차부터 진도
+블록에 섞여 왕관을 가져가고 기본 코스 트리가 영원히 열리지 않는다.
 """
 import json
 import logging
@@ -33,10 +45,22 @@ from app.services.weather_api import KST
 MODE_UNIT = "unit"
 UNIT_SESSION_SIZE = settings.UNIT_SESSION_SIZE   # 기본 5 — env 튜닝(R5.5)
 
-# §0 제품 결정의 4섹션 교육적 순서 (섹션 정렬 키 — DB 컬럼 없이 표현).
+# 유닛 풀 선취 배수 (CO-L-F2) — θ 경로에서 SQL LIMIT을 UNIT_SESSION_SIZE의 이 배로
+# 잡는다. SQL은 밴드 해상도(|b−θ|)로만 자를 수 있어, 5건에서 끊으면
+# `rank_by_knowledge_level`이 지식 수준으로 다시 세울 후보가 남지 않기 때문이다.
+# **계약 수치가 아니라 조회 여유분**이라 env 노브를 두지 않는다(최대 20행 — 유닛당
+# 조회 횟수는 2회 그대로이므로 왕복 비용은 불변).
+UNIT_POOL_PREFETCH = 4
+
+# §0 제품 결정의 교육적 섹션 순서 (섹션 정렬 키 — DB 컬럼 없이 표현).
+# 개수를 여기 적지 않는다: 이 자리에 "4섹션"이라 적혀 있었는데 바로 아래 튜플이
+# 8섹션으로 자란 뒤에도 그대로였다(2026-08-09 정정). **섹션 수의 단일 소유자는
+# 아래 튜플 자신**이고, 코스별 분포는 `database/seed/units.json`이 소유한다.
 # 미등재 섹션은 뒤로(알파벳). unit_order는 섹션 내 유일(§3.6).
 SECTION_ORDER = (
     "하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후",
+    # 재난 축 1차 개통 (R13 §2.4 · CO-A1) — "위험 기상 생성 보드 → 행동 요령" 연쇄.
+    "위험한 하늘",
     # 기초과학 코스 3섹션 (R12 §9 — specs/11 §2 순서: 열·복사 → 압력·밀도 → 상태변화).
     # 코스가 갈려도 정렬 키는 전역 하나로 충분하다 — 섹션명이 코스 간 유일.
     "열과 빛", "공기의 무게", "물과 에너지",
@@ -176,27 +200,40 @@ def ordered_units(units: Iterable[Any]) -> list[Any]:
     return sorted(units, key=lambda u: (_section_key(u.section), u.unit_order))
 
 
-def placement_unlock_floor(abilities: list, units: Iterable[Any]) -> int:
+def placement_unlock_floor(
+    abilities: list, units: Iterable[Any], level_group: str | None
+) -> int:
     """배치 기반 커리큘럼 시작점 (R7-02 §3.4, 순수) — 선두 연속 선해제 유닛 수.
 
-    전체 순서(ordered_units) 선두부터 "그 유닛 concept_tag의 θ ≥ 0.5
-    (_THETA_INTERMEDIATE_MAX 재사용 — 상급 경계) AND num_responses>0"가 연속으로
-    성립하는 유닛 개수. 조건이 끊기면 즉시 중단(선두 연속만 — 중간 점프 없음).
+    전체 순서(ordered_units) 선두부터 "그 유닛 concept_tag의
+    θ ≥ weatherbrain_service.unlock_theta_threshold(level_group) — 자기 학령 밴드의
+    **상단 경계** AND num_responses>0"가 연속으로 성립하는 유닛 개수. 조건이 끊기면
+    즉시 중단(선두 연속만 — 중간 점프 없음).
     n=0(placement 사전 θ)은 실응답 근거가 없으므로 불인정 — 배치고사 실응답 후
     refresh_abilities가 n을 채워야 선해제된다. 빈 abilities → 0(현행 동작).
     선해제는 잠금만 풀며 왕관·XP는 0 그대로(소급 보상 없음).
 
+    **임계는 학령 상대다 (R13 CO-V-2 = CO-U-3-B).** 종전엔 절대 0.5
+    (`_THETA_INTERMEDIATE_MAX`)를 전 학령에 적용해 판정이 뒤집혀 있었다 —
+    성인은 학령 표준문항을 **틀려도** θ 0.586 ≥ 0.5로 선해제되고, 중고생·초등은
+    **맞혀도** θ 0.413 < 0.5라 영영 열리지 않았다(게스트는 영구 middle_high라
+    구조적으로 0 — CO-N-4). 지금은 세 학령 모두 **학령 표준문항 2연속 정답**이면
+    열리고 1문항으로는 어느 학령도 열리지 않는다(test_weatherbrain_relative_
+    thresholds가 고정).
+
+    level_group은 **기본값이 없다** — 호출부가 유저를 손에 들고 있으면서 학령을
+    빠뜨리면 조용히 종전 절대 임계로 돌아가는 것이 CO-U-3의 발생 경로였다.
+    미지 값·None은 `band_prior_theta`의 중립 폴백(DEFAULT_ITEM_B=0)을 타서
+    임계 0.5 = 종전 값이 된다.
+
     abilities 원소는 load_abilities 반환 형식({"concept_tag","theta","se","n"}).
     """
+    floor_theta = weatherbrain_service.unlock_theta_threshold(level_group)
     by_tag = {ab["concept_tag"]: ab for ab in abilities}
     floor = 0
     for unit in ordered_units(units):
         ab = by_tag.get(unit.concept_tag)
-        if (
-            ab is None
-            or int(ab["n"]) <= 0
-            or float(ab["theta"]) < weatherbrain_service._THETA_INTERMEDIATE_MAX
-        ):
+        if ab is None or int(ab["n"]) <= 0 or float(ab["theta"]) < floor_theta:
             break
         floor += 1
     return floor
@@ -330,6 +367,75 @@ def open_units_in_order(
             continue
         result.append(unit)
     return result
+
+
+def course_key(unit: Any) -> Any:
+    """유닛의 코스 식별 키 (CO-L1, 순수) — 속성 부재·NULL은 하나의 기본 코스로 묶인다.
+
+    `scope_units_to_course`가 GET 트리에서 쓰는 규칙(NULL=기본 코스)의 등가물인데,
+    **DB 조회 없이** 성립해야 한다: `progress_block_pool`은 db 인자가 대역(None)인
+    경로에서도 돌기 때문이다. seed_units는 파일 한 벌을 한 번에 적재하므로
+    course_id는 전 유닛이 채워지거나 전 유닛이 NULL이다 — 섞이지 않는다.
+    """
+    return getattr(unit, "course_id", None)
+
+
+def course_groups(units: Iterable[Any]) -> list[list[Any]]:
+    """코스별 유닛 묶음 (CO-L1, 순수) — 전체 순서(ordered_units)상 **등장 순**.
+
+    진도·왕관·잠금·스파인이 "전 코스 전 유닛"이 아니라 한 코스만 보게 하는 분할
+    지점이다. 묶음 내부는 ordered_units 순서를 그대로 보존하므로, 각 묶음을
+    그대로 placement_unlock_floor·open_units_in_order에 넘기면 그 코스 안에서의
+    전체 순서 인덱스가 된다(코스 밖 유닛이 인덱스를 밀지 않는다 — CO-L4의 원인).
+    """
+    groups: dict[Any, list[Any]] = {}
+    for unit in ordered_units(units):
+        groups.setdefault(course_key(unit), []).append(unit)
+    return list(groups.values())
+
+
+def scope_units_to_unit_course(units: Iterable[Any], unit: Any) -> list[Any]:
+    """`unit`이 속한 코스의 유닛만 (CO-L4, 순수) — 403 게이트의 잠금 맥락.
+
+    트리 GET은 코스로 스코프된 집합 위에서 잠금을 평가하는데 403 게이트가 전 코스
+    집합을 쓰면 **unlocked로 보이는 노드가 403**이 된다. 같은 분할 규칙(course_key)을
+    쓰는 것이 그 어긋남을 구조적으로 막는 유일한 방법이다.
+    """
+    key = course_key(unit)
+    return [u for u in units if course_key(u) == key]
+
+
+def active_course_units(
+    units: Iterable[Any],
+    progress_by_unit: dict[Any, Any],
+    abilities: list,
+    level_group: str | None,
+) -> tuple[list[Any], int]:
+    """진도·스파인이 보는 **활성 코스**의 유닛과 그 unlock_floor (CO-L1, 순수).
+
+    반환: (그 코스의 유닛 목록, placement_unlock_floor).
+
+    level_group은 placement_unlock_floor에 그대로 통과시킨다 — 선해제 임계가
+    학령 상대이기 때문(CO-V-2). 기본값 없음(사유는 placement_unlock_floor).
+
+    활성 코스 = 전체 순서상 **열린 미클리어 유닛을 가진 첫 코스**. 유저별 코스
+    선택 컬럼이 없으므로(스키마 무변경 — 4일차 범위) 진도 자체에서 파생한다:
+    - 기본 코스(weather)는 SECTION_ORDER 선두라 신규 유저에게 항상 먼저 잡힌다
+      → basic-science의 prereq=null 3유닛이 1일차부터 왕관을 가져가지 않는다.
+    - 한 코스를 전부 클리어하면 다음 코스가 자동으로 활성이 된다.
+    - 전 코스 클리어(열린 유닛 0)면 **마지막 코스**를 돌려준다 — 스파인이 0/0으로
+      무너지지 않고 "다 끝냈다"를 그대로 표시한다.
+    - 유닛이 없으면 ([], 0).
+    """
+    groups = course_groups(units)
+    if not groups:
+        return [], 0
+    for group in groups:
+        floor = placement_unlock_floor(abilities, group, level_group)
+        if open_units_in_order(group, progress_by_unit, floor):
+            return group, floor
+    last = groups[-1]
+    return last, placement_unlock_floor(abilities, last, level_group)
 
 
 def build_curriculum(
@@ -499,7 +605,9 @@ async def get_curriculum(
     progress = await load_progress_by_unit(db, user)
     abilities = await weatherbrain_service.load_abilities(db, user)  # read-only
     return build_curriculum(
-        units, progress, unlock_floor=placement_unlock_floor(abilities, units)
+        units,
+        progress,
+        unlock_floor=placement_unlock_floor(abilities, units, user.level_group),
     )
 
 
@@ -508,13 +616,23 @@ async def get_spine(db: AsyncSession, user: User) -> dict[str, Any]:
 
     트리 노출(get_curriculum)과 동일한 잠금 규칙(배치 선해제 포함)으로
     build_spine을 평가한다. θ 읽기는 load_abilities(read-only) — ai-worker 미호출.
+
+    **활성 코스 한 벌만 집계한다 (CO-L1·CO-L7)**: 전 코스를 합산하면 날씨 코스만
+    하는 유저가 그 코스를 전부 클리어해도 헤더가 **(활성 코스 유닛 수)/(전 코스
+    유닛 수)**에서 멈춰 100%에 영원히 닿지 못한다. 분모를 숫자로 적지 않는 이유는
+    실제로 드리프트했기 때문이다 — 여기 "12/20"이라 박혀 있었고 시드가
+    16/24가 된 뒤에도 그대로였다(2026-08-09 정정). 유닛 수의 소유자는
+    `database/seed/units.json`이다. 활성 코스 판정은
+    진도 블록(progress_block_pool)과 **같은 함수**를 쓰므로 "헤더가 가리키는 유닛"과
+    "오늘 진도로 나오는 유닛"이 어긋날 수 없다.
     """
     units = await load_units(db)
     progress = await load_progress_by_unit(db, user)
     abilities = await weatherbrain_service.load_abilities(db, user)
-    return build_spine(
-        units, progress, unlock_floor=placement_unlock_floor(abilities, units)
+    scoped, unlock_floor = active_course_units(
+        units, progress, abilities, user.level_group
     )
+    return build_spine(scoped, progress, unlock_floor=unlock_floor)
 
 
 async def is_unit_locked(
@@ -526,18 +644,121 @@ async def is_unit_locked(
     abilities 미전달 시 load_abilities(read-only, ai-worker 미호출) — 트리 GET과
     동일. 유닛 세션 발급 경로는 라우터가 refresh_abilities 1회 결과를 넘겨
     잠금 판정이 신선한 θ를 쓴다 (R8-01 §3.2 — session_service:295 전례).
+
+    **"동일 규칙"은 잠금 함수만이 아니라 잠금이 평가되는 집합까지 같아야 성립한다
+    (CO-L4)**: 트리 GET은 `?course=`로 스코프된 집합에서, 이 게이트는 전 코스
+    전체(당시 20유닛, 2026-08-09 현재 24)에서 order_index·unlock_floor를 계산해
+    왔다 — 그래서 트리에 unlocked로
+    그려진 노드가 POST에서 403 UNIT_LOCKED로 튕겼다. 이제 **그 유닛이 속한 코스**로
+    스코프한다(scope_units_to_unit_course — 단일 코스 DB에서는 전 집합과 동일).
     """
     progress = await load_progress_by_unit(db, user)
-    units = await load_units(db)
+    units = scope_units_to_unit_course(await load_units(db), unit)
     if abilities is None:
         abilities = await weatherbrain_service.load_abilities(db, user)
     index_of = {u.id: i for i, u in enumerate(ordered_units(units))}
     return is_locked(
         unit,
         progress,
-        unlock_floor=placement_unlock_floor(abilities, units),
+        unlock_floor=placement_unlock_floor(abilities, units, user.level_group),
         order_index=index_of.get(unit.id),
     )
+
+
+def unit_pool_level_groups(user_level_group: str, theta: float | None) -> list[str]:
+    """유닛 풀의 밴드 필터 집합 — **밴드 공백에 대한 폴백** (CO-L2·CO-L-F2·CO-L-F3).
+
+    `session_service.pool_level_groups`(가입 그룹 ∪ θ 매핑 그룹, 최대 2밴드)를
+    유닛 풀에서만 넓힌다. 넓히는 이유는 실측이다 — 유닛 24개 × 4밴드 96칸 중
+    **16칸이 0문항**(신고 가능한 3밴드로만 세도 9칸)이고, 밴드 정확 일치 필터에는
+    강등 폴백이 없어 그 칸에 떨어진 유저는 **0문항 세션**을 받는다. 유닛 세션에는
+    daily의 quiz-generate 폴백이 **없다**(`create_unit_session` 독스트링) —
+    0문항은 복구되지 않는다.
+
+    ⚠️ **칸 수를 여기 적는 것이 실제로 사고를 냈다**(2026-08-09 정정). 이 자리에
+    "24칸(3밴드 17)"이 있었고, adult × basic-science 6태그가 **전건 0**이라
+    "성인은 bs 8유닛 전부 0문항"이라고 단정했으며 `wildfire_weather` adult도 0이라
+    적었다. 셋 다 지금은 거짓이다 — **같은 저작 배치(237→272건)가 그 칸들을 채우고
+    이 독스트링만 안 고쳤다**. 실측 2026-08-09: adult × bs 공백은
+    `bs-convection-board` **한 칸뿐**(board라 저작 대상이 아니었다),
+    `wildfire_weather` adult는 **5건**. elementary board 공백은 남아 있다
+    (`air-power-board`·`city-anomaly-board`·`risk-wildfire-board`·
+    `risk-flood-board`) — 폴백이 필요한 이유 자체는 그대로다.
+
+    **칸 인구의 소유자는 이 독스트링이 아니라 테스트다**:
+    `backend/tests/test_curriculum_band_fallback.py`가 실 시드에서 칸을 세고
+    (`TestBandHolesExistInRealSeed` = 공백이 실재함 · `TestWidenedPoolNeverStarves`
+    = 넓힌 집합에는 굶주림이 없음), 저작이 진행되면 **그쪽이 먼저 빨개진다**.
+    수치가 필요하면 여기가 아니라 그 파일을 읽을 것.
+
+    **θ가 있을 때만 넓힌다.** θ 경로에서는 `build_pool_query`가 `|b − θ|`
+    오름차순으로 정렬하므로, 밴드를 전부 열어도 **자기 난이도에 가장 가까운
+    밴드가 먼저 나오고** 먼 밴드는 앞이 마를 때만 닿는다. 즉 넓힘이 풀을 흐리지
+    않고 **빈 칸에만 작용**한다. 반대로 콜드스타트(θ None)는 정렬이 random이라
+    넓히면 학령 표적이 통째로 무너지므로 **오늘 그대로 둔다**(가입 그룹 단일).
+    실사용에서 θ None은 `seed_placement`가 실패한 유저뿐이다 — 가입·게스트 발급이
+    개념별 θ 행을 만들고 `overall_theta`는 abilities가 빌 때만 None이다.
+
+    **강등/승격 방향은 이 함수가 정하지 않는다.** 넓힘은 대칭이고(전 밴드), 어느
+    쪽을 먼저 줄지는 거리 정렬이 판단한다 — 1차로 SQL의 `|b − θ|`, 2차로
+    `rank_by_knowledge_level`의 `|kl − 단계|`. 방향을 여기 상수로 박으면 θ가 자기
+    학령을 넘어선 유저에게 계속 쉬운 문항이 가거나(사다리 = 쉬운 쪽 고정) 그
+    반대로 학습자를 막는다. 거리가 완전히 같을 때만 **쉬운 쪽 우선**이고, 그
+    타이브레이크는 `rank_by_knowledge_level`이 단독 소유한다(사유는 그 독스트링).
+
+    **지식 수준(knowledge_level) ±1로 좁게 넓히지 않은 이유 — 실측**: kl 창을
+    재 봤고, 고정 반경은 **0문항 칸을 남긴다**(2026-08-09 실측으로 반경 1은 6칸,
+    반경 2도 1칸 — 성인 × `bs-convection-board`가 그중 하나로, L2가 고치려던 바로
+    그 칸이다). 시드가 태그마다 특정 단계에 통째로 비어 있어 **고정 반경은 밴드
+    공백을 단계 공백으로 옮길 뿐**이다. 그래서
+    **필터는 전 밴드로 열고, 정보 손실은 필터가 아니라 정렬로 줄인다** —
+    `rank_by_knowledge_level`이 |kl − θ의 단계| 오름차순으로 다시 세워 성인에게
+    kl 4를 kl 3보다, kl 3을 kl 2보다 먼저 준다(굶기지 않으면서 한 단계씩만 강등).
+
+    **반경별 굶주림 실측의 소유자는 테스트다** —
+    `test_curriculum_band_fallback.py::test_지식수준_고정반경으로는_굶주림이_안_풀린다`.
+    위 6칸/1칸도 그 테스트와 **같은 표적 산출**(`theta_to_knowledge_level(
+    LEVEL_GROUP_ITEM_B[band])`)로 센 값이라 두 자리가 갈리지 않는다. 다른 방법으로
+    세면 다른 수가 나오므로(밴드 최하 단계를 표적으로 쓰면 7칸/5칸) 수치를 인용할
+    때는 산출 방법을 함께 적을 것 — 종전 값 "11칸/2칸"은 저작 배치 전 실측이었다.
+    """
+    if theta is None:
+        return session_service.pool_level_groups(user_level_group, theta)
+    return sorted(
+        set(weatherbrain_service.LEVEL_GROUP_BANDS)
+        | set(session_service.pool_level_groups(user_level_group, theta))
+    )
+
+
+def rank_by_knowledge_level(items: list, target_level: int | None) -> list:
+    """지식 수준 거리 |kl − target| 오름차순 재정렬 — 넓힌 풀의 정보 손실 상쇄.
+
+    `unit_pool_level_groups`가 전 밴드를 열어 **굶주림을 없앤 뒤**, 여기서 6단계
+    해상도로 다시 세워 **강등 폭을 한 단계로 줄인다**. 밴드 필터만으로는 성인
+    (kl 5)이 middle_high 밴드를 받을 때 kl 3과 4가 구분되지 않는다 — 사전 b가
+    밴드 단위라(CO-L-F4) SQL의 |b−θ| 정렬이 그 안에서 random으로 흩어지기
+    때문이다. 이 함수가 그 한 겹을 메운다.
+
+    **거리가 같으면 쉬운 쪽이 이긴다**(2차 키). 이것이 CO-L2의 "강등 방향" 판단
+    이다: 한 단계 위 문항은 못 풀어서 **막고**, 한 단계 아래 문항은 쉬워도 여전히
+    가르친다. 같은 취지가 `knowledge_level_of_level_group` 독스트링에 이미 있다
+    ("과대평가는 학습자를 막는다"). 1차 키가 거리이므로 이 편향은 **동률에서만**
+    작동한다 — 자기 단계에 문항이 있으면 아래로 새지 않는다.
+
+    `target_level`이 None(콜드스타트)이면 **입력 순서를 그대로 돌려준다** — θ가
+    없으면 단계 표적도 없고, 그 경로는 오늘 동작 불변이 계약이다.
+    안정 정렬이라 남은 동률은 SQL이 정한 순서(|b−θ| → random, 백필은 신선도 우선)를
+    유지한다. `effective_knowledge_level`은 미분류(NULL) 문항과 컬럼 없는 대역
+    객체도 폴백 경로로 받는다 — 그 경우 전건 동률이라 순서가 보존된다.
+    """
+    if target_level is None:
+        return list(items)
+
+    def _key(item):
+        level = weatherbrain_service.effective_knowledge_level(item)
+        return abs(level - target_level), 0 if level <= target_level else 1
+
+    return sorted(items, key=_key)
 
 
 async def _unit_content_pool(
@@ -551,9 +772,15 @@ async def _unit_content_pool(
       load_abilities — 저장된 θ만 읽는 read-only 경로(refresh_abilities·
       ai-worker 호출 없음). 발급 경로는 라우터의 refresh_abilities 1회 결과를
       받아 풀 정렬이 신선한 θ를 쓴다 (R8-01 §3.2).
-    - θ가 있으면 level_group이 가입 그룹 ∪ θ 매핑 그룹으로 확장되고
-      |b−θ| 오름차순 정렬 — 초등 board 0건 같은 학령 풀 공백이 θ로 해소된다.
-    - 콜드스타트(θ None)는 현행과 동일: 가입 그룹 단일 + random 정렬.
+    - θ가 있으면 level_group 필터가 `unit_pool_level_groups`로 **전 밴드까지**
+      확장되고(학령 풀 공백 96칸 중 0문항 16칸이 여기서 해소 — CO-L2.
+      칸 인구는 test_curriculum_band_fallback.py가 소유한다),
+      SQL이 |b−θ|로 좁힌 선취분을 `rank_by_knowledge_level`이 6단계 해상도로
+      다시 세운다. 즉 **굶기지 않으면서 강등 폭은 한 단계**다(CO-L-F2).
+      선취 배수(UNIT_POOL_PREFETCH)만큼 더 읽는 이유는 SQL LIMIT이 밴드 해상도로
+      먼저 자르면 재정렬이 볼 후보가 남지 않기 때문이다 — 조회 **횟수**는 그대로다.
+    - 콜드스타트(θ None)는 현행과 완전 동일: 가입 그룹 단일 + random 정렬 +
+      선취 없음 + 재정렬 없음(단계 표적이 없으므로).
     - 슬롯 미치환 노출 방지의 live 슬롯 제외(live=False)는 board에도 적용된다
       (유닛 세션은 슬롯 치환이 없고, 시드상 board는 전부 uses_live_slots=false).
 
@@ -566,15 +793,21 @@ async def _unit_content_pool(
     if abilities is None:
         abilities = await weatherbrain_service.load_abilities(db, user)
     theta = weatherbrain_service.overall_theta(abilities, unit.concept_tag)
+    target_level = (
+        None
+        if theta is None
+        else weatherbrain_service.theta_to_knowledge_level(theta)
+    )
+    fetch_limit = UNIT_SESSION_SIZE * (1 if theta is None else UNIT_POOL_PREFETCH)
 
     def _pool_stmt(served_subq):
         stmt = session_service.build_pool_query(
-            level_groups=session_service.pool_level_groups(user.level_group, theta),
+            level_groups=unit_pool_level_groups(user.level_group, theta),
             theta=theta,
             live=False,
             served_subq=served_subq,
             weak_concepts=[unit.concept_tag],
-            limit=UNIT_SESSION_SIZE,
+            limit=fetch_limit,
         )
         if unit.kind == "board":
             return stmt.where(ContentItem.question_type == "board")
@@ -583,12 +816,15 @@ async def _unit_content_pool(
     today_subq = session_service.answered_today_subq(
         user.id, session_service.kst_day_start_utc(datetime.now(KST).date())
     )
-    items = list((await db.execute(_pool_stmt(today_subq))).scalars().all())
+    fresh = list((await db.execute(_pool_stmt(today_subq))).scalars().all())
+    items = rank_by_knowledge_level(fresh, target_level)[:UNIT_SESSION_SIZE]
     if len(items) >= UNIT_SESSION_SIZE:
         return items
 
     seen = {item.id for item in items}
-    backfill = (await db.execute(_pool_stmt(None))).scalars().all()
+    backfill = rank_by_knowledge_level(
+        list((await db.execute(_pool_stmt(None))).scalars().all()), target_level
+    )
     for item in backfill:
         if len(items) >= UNIT_SESSION_SIZE:
             break
@@ -611,11 +847,23 @@ async def progress_block_pool(
     이어붙인다(§2.10 "유닛 소진 시 다음 열린 유닛으로 자동 진행"). 그래도 모자란
     부족분은 호출측(plan_bank_picks)이 new 블록에서 메운다 — 총합 15는 불변.
 
-    반환 unit은 **블록 첫 문항이 나온 유닛** = 왕관 대상이다. 열린 유닛이 없거나
-    (신규 유저·전 유닛 클리어) 풀이 비면 (빈 목록, None) — 진도 블록 0으로 발급된다.
+    반환 unit은 **블록 첫 문항이 나온 유닛** = 왕관 대상 식별자다(호출측이
+    `recipe_json.unit_block`에 기록해 왕관 대상을 정한다 — 첫 문항으로 역추론하지
+    않는다). 열린 유닛이 없거나 (신규 유저·전 유닛 클리어) 풀이 비면
+    (빈 목록, None) — 진도 블록 0으로 발급된다.
+
+    **블록은 한 코스를 벗어나지 않는다 (CO-L1)**: `active_course_units`가 활성
+    코스를 고르고 그 안에서만 다음 열린 유닛으로 이어붙인다. 이 경계가 없으면
+    basic-science의 prereq=null 3유닛이 1일차부터 열려 있어, 기본 코스 유닛의
+    풀이 5에 못 미치는 순간 블록의 다수 개념이 타 코스로 넘어가고 **왕관이 그쪽에
+    붙는다** — 배합은 매일 같으므로 기본 코스 트리가 영원히 열리지 않는다.
+
     잠금 맥락(진도·배치 선해제)은 트리 노출과 같은 규칙을 한 번만 로드해 쓴다.
-    스캔 유닛 수를 count개로 제한하는 이유는 쿼리 비용 상한이다(유닛당 최대 2회) —
-    풀이 전부 빈 DB에서 20유닛을 훑으면 발급 경로가 40쿼리가 된다.
+    스캔 유닛 수를 count개로 제한하는 이유는 쿼리 비용 상한이다 — **유닛당 최대
+    2쿼리**(신선도 1차 + 백필 2차)라, 풀이 전부 빈 DB에서 제한 없이 훑으면 발급
+    경로의 쿼리 수가 유닛 수에 비례해 늘어난다(2026-08-09 기준 24유닛 = 48쿼리.
+    이 자리에 "20유닛 = 40쿼리"가 박혀 있어 시드가 자란 뒤 거짓이 됐다 —
+    유닛 수는 `database/seed/units.json`이 소유하므로 곱셈만 남긴다).
     """
     if count <= 0:
         return [], None
@@ -625,12 +873,14 @@ async def progress_block_pool(
     progress = await load_progress_by_unit(db, user)
     if abilities is None:
         abilities = await weatherbrain_service.load_abilities(db, user)
-    unlock_floor = placement_unlock_floor(abilities, units)
+    scoped, unlock_floor = active_course_units(
+        units, progress, abilities, user.level_group
+    )
 
     items: list[ContentItem] = []
     seen: set = set()
     block_unit: Unit | None = None
-    for unit in open_units_in_order(units, progress, unlock_floor)[:count]:
+    for unit in open_units_in_order(scoped, progress, unlock_floor)[:count]:
         for item in await _unit_content_pool(db, user, unit, abilities):
             if item.id in seen:
                 continue
@@ -722,9 +972,21 @@ async def grant_unit_crown(
 ) -> dict[str, Any]:
     """유닛 clear 처리 (§3.2): crowns +1(crown_target까지), cleared 전환 시 +20 XP 1회.
 
-    호출측(세션 complete)이 "5/5 또는 board 클리어" 조건과 세션 최초 완료(멱등)를
-    이미 판정한 뒤 호출한다 — 여기서는 왕관 가산과 cleared 전환만 담당한다.
+    호출측이 부여 조건과 멱등(같은 세션·같은 퍼즐 재완료 불인정)을 이미 판정한 뒤
+    호출한다 — 여기서는 왕관 가산과 cleared 전환만 담당한다.
     반환: {"crowns", "cleared", "newly_cleared", "xp_earned"}.
+
+    **호출측은 3개다** (CO-L5 정정 — 여기 "호출측(세션 complete)"이라 단수로 적혀
+    있었으나 거짓이었다. 유닛 세션 완료는 `grant_crown=False` 고정이라 왕관을 주지
+    않는다 — 연습 전용):
+      ⑴ 일일 세션의 진도 블록 (`routers/session.py` — 블록 전문 정답)
+      ⑵ 보드 퍼즐 **최초** 클리어 (`routers/board.py` → award_crown_for_activity)
+    ⑶ `/dev` 개발 경로(`routers/dev.py` action='crown'·'unlock_all')는 왕관
+    유입로이지만 **이 함수를 거치지 않는다** — `UserUnitProgress`를 직접 upsert
+    한다. 그래서 XP·crown_target 상한 로직을 우회한다(개발 전용이므로 의도된
+    것이나, "셋 다 여기로 수렴한다"는 서술은 거짓이다).
+    판정 조건은 각 유입로가 소유하므로 여기 적지 않는다 — 문서가 코드보다 앞서
+    나가면 다시 거짓이 된다.
     """
     unit = await db.get(Unit, unit_id)
     if unit is None:
@@ -772,18 +1034,27 @@ async def find_crown_unit(
 
     is_unit_locked와 동일한 잠금 맥락(진도·배치 선해제 unlock_floor)을 한 번만
     로드해 후보 전체를 순수 함수로 스캔한다. θ 읽기는 load_abilities(read-only).
+
+    스캔은 **코스별로** 돈다 (CO-L1·CO-L4): unlock_floor·order_index가 코스 안에서
+    계산돼야 트리 노출과 같은 잠금 판정이 된다. 코스 간 순서는 course_groups의
+    등장 순(=전체 순서상 첫 유닛 순)이고, 먼저 맞는 유닛이 나오면 거기서 멈춘다.
+    개념 태그는 코스를 가로질러 유일하므로 실제로 두 코스가 경합하지 않는다.
     """
     units = await load_units(db)
     progress = await load_progress_by_unit(db, user)
     abilities = await weatherbrain_service.load_abilities(db, user)
-    return pick_crown_unit(
-        units,
-        progress,
-        concept_tag=concept_tag,
-        kind=kind,
-        unlock_floor=placement_unlock_floor(abilities, units),
-        uncleared_only=uncleared_only,
-    )
+    for group in course_groups(units):
+        found = pick_crown_unit(
+            group,
+            progress,
+            concept_tag=concept_tag,
+            kind=kind,
+            unlock_floor=placement_unlock_floor(abilities, group, user.level_group),
+            uncleared_only=uncleared_only,
+        )
+        if found is not None:
+            return found
+    return None
 
 
 async def award_crown_for_activity(

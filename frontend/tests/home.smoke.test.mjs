@@ -132,7 +132,10 @@ const ok = (cond, label) => {
 };
 
 // ── ② 내비 단일 소유 (렌더 없이도 확인 가능) ────────────────────────────────
-ok(NAV_ITEMS.length === 6, `내비 항목 6개 — 실제 ${NAV_ITEMS.length}`);
+// CO-N-1 ②(2026-08-08): 「탐구」(/explore)가 6탭 어디에도 없어 URL을 손으로 쳐야
+// 도달했다 — 심사 배점 ②가 가리키는 화면이라 내비에 세웠다. 6 → 7.
+ok(NAV_ITEMS.length === 7, `내비 항목 7개 — 실제 ${NAV_ITEMS.length}`);
+ok(NAV_ITEMS.some((i) => i.to === '/explore'), '내비에 /explore가 없다(CO-N-1 ②)');
 ok(NAV_ITEMS[0].to === '/' && NAV_ITEMS[1].to === '/learn', '첫 항목이 홈, 둘째가 학습');
 
 // ── ① `/`는 홈 대시보드 ─────────────────────────────────────────────────────
@@ -148,11 +151,14 @@ ok(NAV_ITEMS[0].to === '/' && NAV_ITEMS[1].to === '/learn', '첫 항목이 홈, 
   // 탭바·사이드바가 같은 목록을 쓴다(둘 다 DOM에 있다 — CSS로만 갈린다)
   const tabs = $$('[data-testid="tabbar"] a');
   const sides = $$('[data-testid="sidenav"] nav a');
-  ok(tabs.length === 6 && sides.length === 6, `탭바 6 · 사이드바 6 — 실제 ${tabs.length}/${sides.length}`);
+  ok(tabs.length === 7 && sides.length === 7, `탭바 7 · 사이드바 7 — 실제 ${tabs.length}/${sides.length}`);
   const hrefs = (els) => els.map((a) => a.getAttribute('href')).join(',');
   ok(hrefs(tabs) === hrefs(sides), `두 내비의 목적지가 같다 — ${hrefs(tabs)}`);
 
-  // 학습 세션 카드 → /learn, 부제는 현재 유닛
+  // 학습 세션 카드 → /learn, 제목은 현재 유닛.
+  // R13-01 §2.5로 진입 카드가 1개가 되면서 카드 **자체**가 커리큘럼 트리에
+  // 의존한다(예전에는 카드는 정적이고 부제만 트리를 썼다) — 트리 도착을 기다린다.
+  await waitFor(() => text().includes('기단의 성질'), 6000, '진입 카드 현재 유닛');
   const learnCard = $$('a[href="/learn"]').find((a) => a.textContent.includes('학습 세션'));
   ok(Boolean(learnCard), '학습 세션 카드가 /learn을 가리킨다');
   ok(/기단의 성질|첫 유닛/.test(learnCard?.textContent ?? ''), `카드 부제가 현재 유닛 — "${learnCard?.textContent?.slice(0, 40)}"`);

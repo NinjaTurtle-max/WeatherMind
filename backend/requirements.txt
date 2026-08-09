@@ -6,9 +6,17 @@ alembic==1.14.*
 pydantic==2.10.*
 pydantic-settings==2.7.*
 python-jose[cryptography]==3.3.*
-passlib[bcrypt]==1.7.*
-# passlib 1.7.4는 bcrypt>=4.1의 72바이트 검사와 비호환(회원가입 500) — 4.0에 고정
-bcrypt==4.0.*
+# [사고 기록 — 지우지 말 것] 원래 여기엔 `passlib[bcrypt]==1.7.*` + `bcrypt==4.0.*`가
+# 있었다. passlib 1.7.4가 bcrypt>=4.1의 72바이트 검사와 비호환이라 **회원가입 500**이
+# 났고, 그래서 bcrypt를 4.0에 핀해 막았다.
+# R13 P-1에서 핀 대신 **결합 자체를 제거**했다: 핀을 지키는 테스트가 없어서
+# (인증 테스트가 hash/verify를 전부 monkeypatch) 로컬에 bcrypt 5.0.0이 깔린 순간
+# register·login·guest·convert 4경로가 전부 500인데 CI는 초록이었다. passlib은
+# 2020년 이후 릴리스가 없어 상류 수정 전망도 없다.
+# 지금은 app/core/security.py가 bcrypt 모듈을 직접 호출하고(72바이트 절단을 직접
+# 처리) bcrypt 4.x/5.x 양쪽에서 동작한다. 실호출 테스트는 tests/test_auth_bcrypt.py.
+# ⚠️ passlib을 되살리려면 bcrypt<4.1 핀이 **다시 필수**다.
+bcrypt>=4.0
 httpx==0.28.*
 redis==5.2.*
 slowapi==0.1.*

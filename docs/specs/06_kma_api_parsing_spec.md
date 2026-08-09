@@ -99,7 +99,7 @@ async def get_short_forecast(region: str, base_date: str, base_time: str) -> dic
 | stnIds | 지점번호 (서울=108, 부산=159, 강릉=105) |
 
 **응답**: 일별 관측값 (평균기온 avgTa, 최고 maxTa, 일강수량 sumRn 등)
-→ 이상기후 사례 큐레이션 및 Chroma anomaly_cases 임베딩 원본.
+→ 이상기후 사례 큐레이션 원본. (`anomaly_cases` 벡터 컬렉션은 선언만 되고 쓰인 적이 없어 R13 3일차에 철거됐다 — `docs/specs/01`.)
 
 ---
 

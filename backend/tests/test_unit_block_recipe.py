@@ -161,8 +161,11 @@ class TestFifteenItemSession:
             Settings(SESSION_RECIPE={"new": 1, "bogus": 2})
 
     def test_new_풀_한도가_대체_수요를_덮는다(self):
-        """new는 review·unit 부족분의 대체 공급원 — 한도가 세 블록 합 미만이면
+        """new는 **다른 전 블록의** 대체 공급원 — 한도가 배합 총합 미만이면
         뱅크에 문항이 있어도 부족분이 quiz-generate(유료)로 샌다.
+
+        CO-M1에서 live까지 대체 대상이 되면서 최악의 수요가 new+review+unit(14)에서
+        배합 전체(15)로 올라갔다 — 한도도 함께 올린다.
 
         조회 SELECT의 실제 LIMIT을 본다(상수 재선언이 아니라 배선 검증).
         """
@@ -182,7 +185,7 @@ class TestFifteenItemSession:
             if "uses_live_slots IS false" in str(stmt)
             and "concept_tag IN" not in str(stmt)
         ]
-        assert new_limits == [RECIPE["new"] + RECIPE["review"] + RECIPE["unit"]]
+        assert new_limits == [sum(RECIPE.values())]
         assert limits, "live 풀 조회가 사라졌다 — 분류 조건을 확인할 것"
 
     def test_계약1_15문항_5_4_1_5를_실발급(self, monkeypatch):
@@ -498,7 +501,7 @@ class TestSessionItemKind:
         user = SimpleNamespace(id=uuid.uuid4(), level_group="middle_high")
         return asyncio.run(session_router.session_today_response(None, session, user))
 
-    def _log(self, quiz_id):
+    def _log(self, quiz_id, is_correct=None, retry_correct=None):
         return SimpleNamespace(
             quiz_id=quiz_id,
             question_json={
@@ -506,7 +509,9 @@ class TestSessionItemKind:
                 "question_text": "q",
                 "concept_tag": "air_mass",
             },
-            is_correct=None,
+            is_correct=is_correct,
+            # CO-A5 — 재진입 복원용 만회 결과. 응답에 그대로 실린다.
+            retry_correct=retry_correct,
         )
 
     def test_kind가_문항마다_응답에_실린다(self, monkeypatch):

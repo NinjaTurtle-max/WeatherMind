@@ -46,11 +46,15 @@ async def router_decide(
     weak_tags: list[dict[str, Any]],
     recent_results: list[bool],
     abilities: list[dict[str, Any]] | None = None,
+    level_group: str | None = None,
 ) -> dict:
     """Router Chain 분기. 반환: {route, target_concept_tag}.
 
     recent_results는 시간순(과거 → 최근) bool 리스트.
     abilities는 WeatherBrain IRT θ 추정치 — 있으면 θ가 1순위 분기 신호(폴백: weak_tags).
+    level_group은 θ "focused" 임계의 기준점(R13 CO-U-3-A). None이면 ai-worker가
+    종전 절대 임계(= middle_high 값)로 폴백하므로 동작이 변하지 않는다 —
+    레거시 호출부(routers/quiz.py 계열) 하위 호환.
     실패 시 general로 fallback (콜드스타트와 동일 동작 — 서비스는 항상 진행).
     """
     try:
@@ -61,6 +65,7 @@ async def router_decide(
                 "weak_tags": weak_tags,
                 "recent_results": recent_results,
                 "abilities": abilities or [],
+                "level_group": level_group,
             },
             timeout=15.0,
         )
@@ -81,6 +86,23 @@ async def weatherbrain_estimate(
         {"level_group": level_group, "concepts": concepts},
         timeout=15.0,
     )
+
+
+async def weatherbrain_mastery(
+    concepts: list[dict[str, Any]], params: dict[str, dict] | None = None
+) -> dict:
+    """WeatherBrain BKT 개념별 숙련 확률 (R13-01 §5-1).
+
+    concepts: [{concept_tag, corrects: [bool, ...]}] — corrects는 **시간 오름차순**.
+    params: 재적합 파라미터 주입구({concept_tag: {p_init,p_learn,p_guess,p_slip}}).
+    반환: {masteries: [{concept_tag, p_mastery, p_next_correct, n, cold_start,
+    params_source}], min_responses}. 실패 시 AIWorkerError 전파(호출측
+    load_mastery가 빈 목록으로 폴백 — 숙련 패널만 비고 다른 화면은 산다).
+    """
+    payload: dict = {"concepts": concepts}
+    if params:
+        payload["params"] = params
+    return await _post("/internal/weatherbrain/mastery", payload, timeout=15.0)
 
 
 async def weatherbrain_placement(

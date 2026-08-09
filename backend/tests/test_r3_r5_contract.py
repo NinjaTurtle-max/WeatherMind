@@ -185,9 +185,9 @@ class TestCurriculumThreeWaySchema:
     """
 
     def test_units_json_로드(self):
-        # R12 AU-2: 기상 12 + 기초과학 8(specs/11 §2) = 20
+        # R12 AU-2: 기상 16(12+재난 4) + 기초과학 8(specs/11 §2) = 20
         units = json.loads(UNITS_JSON.read_text(encoding="utf-8"))
-        assert isinstance(units, list) and len(units) == 20
+        assert isinstance(units, list) and len(units) == 24
 
     def test_백엔드_로더_수용(self):
         from app.scripts.seed_units import validate_entry
@@ -211,7 +211,7 @@ class TestCurriculumThreeWaySchema:
         validate_chain = _import_ai_worker_validate_chain()
         units = json.loads(UNITS_JSON.read_text(encoding="utf-8"))
         weather_units = [u for u in units if u.get("course") == "weather"]
-        assert len(weather_units) == 12  # 원계약(R5) 범위 불변 가드
+        assert len(weather_units) == 16  # 원계약(R5) 범위 불변 가드
         content = json.loads(CONTENT_JSON.read_text(encoding="utf-8"))
         result = validate_chain.validate_curriculum(weather_units, content)
         failed = [c for c in result["checks"] if not c["passed"]]

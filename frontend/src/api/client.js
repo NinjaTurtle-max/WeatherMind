@@ -34,12 +34,20 @@ client.interceptors.request.use((config) => {
 
 // ── 에러 정규화: {"detail","code"} → ApiError ──
 export class ApiError extends Error {
-  constructor({ detail, code, status }) {
+  /**
+   * body (CO-M4, 2026-08-08): 정규화가 detail·code·status만 남기고 **나머지 본문을
+   * 버렸다**. 429 OUT_OF_CLOUDS 본문에는 `next_regen_sec`·`clouds`·`max`가 실려
+   * 오는데(mock apiMockPlugin `outOfCloudsError`·서버 동일) 그 값이 화면에 도달할
+   * 통로가 없어서 "몇 분 뒤에 열리는지"를 에러 화면이 말할 수 없었다.
+   * 원문 본문을 그대로 달아 둔다 — 기존 3필드는 불변이라 소비처 회귀 0.
+   */
+  constructor({ detail, code, status, body = null }) {
     super(detail);
     this.name = 'ApiError';
     this.detail = detail;
     this.code = code;
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -50,7 +58,12 @@ function normalizeError(error) {
     const detail = Array.isArray(data.detail)
       ? data.detail.map((d) => d.msg ?? JSON.stringify(d)).join(', ')
       : (data.detail ?? tNow('apiError.generic'));
-    return new ApiError({ detail, code: data.code ?? 'UNKNOWN_ERROR', status: error.response.status });
+    return new ApiError({
+      detail,
+      code: data.code ?? 'UNKNOWN_ERROR',
+      status: error.response.status,
+      body: data,
+    });
   }
   return new ApiError({
     detail: tNow('apiError.network'),

@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import XPBar from './XPBar';
 import SpineBadge from './SpineBadge';
 import StreakBadge from './StreakBadge';
@@ -8,8 +8,10 @@ import CloudEnergyBadge from './CloudEnergyBadge';
 import LocaleSwitcher from './LocaleSwitcher';
 import TabBar from './TabBar';
 import SideNav from './SideNav';
+import ConfirmDialog from './ConfirmDialog';
 import { useT } from '../i18n';
 import { authApi, progressApi } from '../api';
+import { isGuestUser } from '../modules/auth/guest';
 import { useAuthStore } from '../store/authStore';
 import { useProgressStore } from '../store/progressStore';
 import { SESSION_STATUS, useSessionStore } from '../store/sessionStore';
@@ -50,7 +52,9 @@ export default function Layout() {
   const isWide =
     pathname === '/'
     || pathname === '/learn'
-    || pathname === '/explore'
+    // CO-S-10: `/explore`만 있어서 `/explore/typhoon`·`/explore/climate`는 목록에
+    // 없었다 — 카드를 누르는 순간 본문이 1152 → 576px로 접혔다. 하위 경로까지 본다.
+    || pathname.startsWith('/explore')
     || pathname === '/duel'
     || pathname === '/league'
     || pathname === '/me'
@@ -65,8 +69,6 @@ export default function Layout() {
   const syncGate = useOnboardingGate((s) => s.syncFromProgress);
   const recordSessionComplete = useOnboardingGate((s) => s.recordSessionComplete);
   const resetGate = useOnboardingGate((s) => s.reset);
-  const unlockToast = useOnboardingGate((s) => s.toast);
-  const clearUnlockToast = useOnboardingGate((s) => s.clearToast);
 
   const sessionStatus = useSessionStore((s) => s.status);
   const sessionSummary = useSessionStore((s) => s.summary);
@@ -94,13 +96,32 @@ export default function Layout() {
     recordSessionComplete(sessionId);
   }, [sessionStatus, sessionSummary, sessionId, recordSessionComplete]);
 
-  useEffect(() => {
-    if (!unlockToast) return undefined;
-    const t = setTimeout(clearUnlockToast, 3200);
-    return () => clearTimeout(t);
-  }, [unlockToast, clearUnlockToast]);
 
-  const handleLogout = async () => {
+  /**
+   * 게스트 로그아웃 = 진도 영구 소실 (R13 CO-P-4).
+   *
+   * 게스트 비밀번호는 무작위 시크릿이라 **재진입 경로가 존재하지 않는다.** 그런데
+   * 로그아웃 버튼은 게스트에게도 헤더 오른쪽 끝에 항상 있고 확인 없이 즉시 실행됐다 —
+   * 시연 중 한 번 누르면 XP·θ·스트릭이 DB에 고아로 남고 끝이다.
+   *
+   * 게스트 판별의 **1순위는 서버**(`GET /auth/me`)다: 종전에는 100% 클라이언트 상태
+   * 의존이라 그 상태가 유실되면 경고 자체가 사라졌다(P-10). 조회가 실패하거나 아직
+   * 도착하지 않았으면 종전 신호(`user.is_guest` ∨ 이메일 도메인)로 떨어진다 —
+   * **경고를 못 띄우는 쪽보다 한 번 더 묻는 쪽이 안전하다.**
+   */
+  const { data: me } = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: authApi.me,
+    enabled: Boolean(accessToken),
+    staleTime: 60_000,
+    retry: false,
+  });
+  const storeUser = useAuthStore((s) => s.user);
+  const isGuest = me ? me.is_guest === true : isGuestUser(storeUser);
+  const [logoutIntent, setLogoutIntent] = useState(false);
+
+  const doLogout = async () => {
+    setLogoutIntent(false);
     try {
       await authApi.logout();
     } catch {
@@ -110,6 +131,15 @@ export default function Layout() {
     resetProgress();
     resetGate(); // 다음 로그인 계정에서 다시 판정 — 계정 간 게이트 누출 방지
     navigate('/login', { replace: true });
+  };
+
+  // 정식 계정은 종전 그대로 즉시 로그아웃한다(되돌릴 수 있으므로 확인이 마찰일 뿐).
+  const handleLogout = () => {
+    if (isGuest) {
+      setLogoutIntent(true);
+      return;
+    }
+    doLogout();
   };
 
   return (
@@ -155,26 +185,19 @@ export default function Layout() {
         </div>
       </header>
 
-      {/* 잠금 해제 축하 토스트 (§3.4) — 1회성, 3.2초 후 자동 소멸.
+{/* 잠금 해제 축하 토스트(§3.4)는 **걷어냈다** (CO-N-1 ③, 2026-08-08).
+          FeatureUnlockGate가 사라져 보드·예보 대결·리그가 처음부터 열려 있으므로
+          "🧩 대기 보드가 열렸어요!"는 일어나지 않은 일을 알리는 문구가 된다.
+          토스트를 만드는 쪽(onboardingGate.recordSessionComplete)은 그대로 두고
+          렌더만 끊는다 — 그 모듈은 일일 목표 선택지도 함께 소유한다.
 
-          `left-[calc(50%_+_var(--wm-shell-left)/2)]`는 **사이드바 몫**이다
-          (2026-08-08). 화면 곳곳의 토스트 5개가 전부 `left-1/2`(=화면 폭의 절반)로
-          서 있었는데, 본문은 사이드바를 뺀 나머지의 가운데라 토스트만 왼쪽으로
-          밀렸다.
-            본문 중심 = S + (W - S)/2 = W/2 + S/2      (S = 사이드바 폭)
-          그래서 더할 값은 화면 폭과 무관하게 **항상 S/2**다. S를 상수로 박지 않고
-          변수로 받는 이유는 styles/index.css의 `--wm-shell-left` 주석 참고 —
-          사이드바 없는 라우트에서 반대로 틀리기 때문이다.
-          가드: sessionRunner 스모크가 「src의 가운데 고정 오버레이가 전부 이 식을
-          쓴다」로 잡는다. */}
-      {unlockToast && (
-        <div
-          role="status"
-          className="fixed left-[calc(50%_+_var(--wm-shell-left)/2)] top-16 z-50 -translate-x-1/2 animate-toast-pop rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-lg"
-        >
-          {unlockToast}
-        </div>
-      )}
+          ⚠️ **되살릴 때는 `left-[calc(50%_+_var(--wm-shell-left)/2)]`를 쓸 것.**
+          `left-1/2`는 화면 폭의 절반이고 본문은 사이드바를 뺀 나머지의 가운데라
+          토스트만 왼쪽으로 밀린다(main #44에서 토스트 5개가 같은 이유로 고쳐졌다):
+            본문 중심 = S + (W - S)/2 = W/2 + S/2   (S = 사이드바 폭)
+          더할 값은 화면 폭과 무관하게 **항상 S/2**다. S를 상수로 박지 않는 이유는
+          styles/index.css의 `--wm-shell-left` 주석 참고 — 사이드바 없는 라우트에서
+          반대로 틀린다. */}
 
         {/* 헤더/탭바 높이만큼 여백 확보 — 탭바는 md↑에서 숨으므로 하단 여백을 줄인다 */}
         <main className="flex-1 px-4 pb-20 pt-16 md:pb-8">
@@ -183,6 +206,26 @@ export default function Layout() {
 
         <TabBar />
       </div>
+
+      {/* 게스트 로그아웃 확인 1단(CO-P-4) — 세션 이탈 확인(§3.5)과 같은 위계다:
+          큰 CTA가 사고를 막고, 작은 링크가 의도를 확인한다. 가운데에 "가입해서
+          저장하기"를 둔다 — 여기가 계정 전환을 가장 절실하게 설명하는 자리다. */}
+      {logoutIntent && (
+        <ConfirmDialog
+          testId="guest-logout"
+          title={t('logoutGuest.title')}
+          body={t('logoutGuest.body')}
+          stayLabel={t('logoutGuest.stay')}
+          onStay={() => setLogoutIntent(false)}
+          altLabel={t('logoutGuest.save')}
+          onAlt={() => {
+            setLogoutIntent(false);
+            navigate('/account/convert');
+          }}
+          confirmLabel={t('logoutGuest.quit')}
+          onConfirm={doLogout}
+        />
+      )}
     </div>
   );
 }

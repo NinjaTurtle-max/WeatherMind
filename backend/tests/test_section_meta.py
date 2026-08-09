@@ -35,13 +35,32 @@ def test_시드_섹션은_메타_3종을_싣는다():
 
 
 def test_시드_파일의_모든_섹션이_units_json의_섹션명과_일치한다():
-    """섹션명이 어긋나면 메타가 조용히 안 붙는다 — 화면에서만 티가 난다."""
+    """섹션명이 어긋나면 메타가 조용히 안 붙는다 — 화면에서만 티가 난다.
+
+    양방향 검증(고아 메타 0 AND 메타 없는 섹션 0). 코스 필터를 두면 기초과학
+    섹션의 메타 결손이 구조적으로 안 걸린다 — 그래서 4/7(당시 3섹션 무메타)
+    결손이 감사 전까지 안 잡혔다. 전 코스를 본다."""
     root = curriculum_service.SECTION_META_PATH.parents[0]
     units = json.loads((root / "units.json").read_text(encoding="utf-8"))
-    unit_sections = {u["section"] for u in units if u.get("course", "weather") == "weather"}
+    unit_sections = {u["section"] for u in units}
     meta_sections = set(curriculum_service.load_section_meta())
-    orphan = meta_sections - unit_sections
-    assert not orphan, f"units.json에 없는 섹션에 메타가 달려 있다: {sorted(orphan)}"
+    orphan_meta = meta_sections - unit_sections
+    missing_meta = unit_sections - meta_sections
+    assert not orphan_meta, f"units.json에 없는 섹션에 메타가 달려 있다: {sorted(orphan_meta)}"
+    assert not missing_meta, f"메타가 없는 섹션이 units.json에 있다: {sorted(missing_meta)}"
+
+
+def test_시드의_모든_섹션이_필수값을_갖는다():
+    """'공기의 힘' 하나만 보던 기존 계약을 시드 전건으로 넓힌다 — 신규 행이
+    subtitle 누락·est_minutes<=0·topics 부족으로 조용히 반쪽만 저작되는 것을 잡는다."""
+    meta = curriculum_service.load_section_meta()
+    assert len(meta) >= 8, f"섹션이 너무 적다: {sorted(meta)}"
+    for section, row in meta.items():
+        assert row["subtitle"], f"[{section}] 부제가 비어 있다"
+        assert isinstance(row["est_minutes"], int) and row["est_minutes"] > 0, (
+            f"[{section}] est_minutes 이상: {row['est_minutes']}"
+        )
+        assert len(row["topics"]) >= 2, f"[{section}] 세부 주제가 너무 적다: {row['topics']}"
 
 
 def test_메타가_없는_섹션은_빈_값이지_예외가_아니다():

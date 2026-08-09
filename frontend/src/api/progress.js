@@ -64,3 +64,14 @@ export async function fetchAbilities() {
   const res = await client.get('/progress/abilities');
   return res.data;
 }
+
+// GET /progress/mastery (R13-01 §5-1 BKT) — 개념별 **숙련 확률** (숙련 낮은 순)
+//   → [{concept_tag, p_mastery, p_next_correct, num_responses, cold_start,
+//      level_label, params_source}]
+//   abilities(θ = 지금 실력)와 다른 축이다: p_mastery는 0..1 확률로 "이 개념을
+//   익혔을 확률"이고 응답을 시간 순서로 본다. 아직 응답이 없는 개념은 목록에
+//   아예 없고(콜드스타트), 1~2건이면 cold_start=true("데이터 부족" 표기).
+export async function fetchMastery() {
+  const res = await client.get('/progress/mastery');
+  return res.data;
+}

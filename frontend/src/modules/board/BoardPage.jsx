@@ -209,6 +209,14 @@ export default function BoardPage() {
     queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
   };
 
+  // 목록은 **PLAY 분기보다 먼저** 확정한다(CO-K11) — 결과 블록의 「다음 퍼즐 →」이
+  // 서버가 내려준 저작 순서(board_order)에서 다음 칸을 찾아야 하기 때문이다.
+  const list = puzzles ?? [];
+  const selectedIndex = selected
+    ? list.findIndex((p) => p.content_item_id === selected.content_item_id)
+    : -1;
+  const nextPuzzle = selectedIndex >= 0 ? (list[selectedIndex + 1] ?? null) : null;
+
   // 자유 실험 화면(R9-01 §3.3 ⑥) — 퍼즐 목록보다 먼저 분기(로딩과 무관하게 진입 가능)
   if (sandbox) {
     return (
@@ -259,15 +267,63 @@ export default function BoardPage() {
           layout="wide"
           onSubmit={(boardState) => attemptMutation.mutate({ id: selected.content_item_id, boardState })}
         />
+        {/* 결과 블록 = 자동 스크롤이 도착하는 자리(CO-K11).
+            종전에는 여기 버튼이 **「다시 도전」 하나**뿐이었고, 유일한 출구인
+            상단 「목록으로」 링크는 그 스크롤에 밀려 화면 밖으로 나갔다. 게다가
+            이 파일 머리말이 스스로 "순차 진행"이라 적어 놓고 **「다음 퍼즐」이
+            없었다** — 34칸을 이어 풀려면 매번 목록→스크롤→탐색→클릭이었다.
+            3버튼으로 바꾼다: 클리어면 「다음 퍼즐 →」이 주 버튼, 미클리어면
+            「다시 도전」이 주 버튼, 「목록으로」는 항상 있다.
+            ⚠️ 다음 퍼즐도 **반드시 openPuzzle(=GET /board/puzzles/{id})을 탄다** —
+            그 상세 엔드포인트가 보드측 유일한 구름 진입 게이트라(D1·CO-K5)
+            여기서 우회하면 잔량 0에서 보드가 무제한이 된다. */}
         {result && (
           <div className="mt-3 space-y-2">
             <PhenomenaSummary phenomena={result.phenomena} />
+            {entryError && (
+              <p className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
+                {entryError}
+              </p>
+            )}
+            {result.passed &&
+              (nextPuzzle ? (
+                <button
+                  type="button"
+                  data-board-next
+                  disabled={entryMutation.isPending}
+                  onClick={() => openPuzzle(nextPuzzle)}
+                  className="w-full rounded-xl bg-sky-600 py-2.5 text-sm font-extrabold text-white hover:bg-sky-700 disabled:opacity-50"
+                >
+                  {t('board.page.nextPuzzle')}
+                </button>
+              ) : (
+                // 마지막 칸 — 다음이 없으면 「목록으로」가 주 버튼이 된다
+                <p className="text-center text-sm font-extrabold text-emerald-600">
+                  {t('board.page.lastPuzzleDone')}
+                </p>
+              ))}
             <button
               type="button"
               onClick={() => setResult(null)}
-              className="w-full rounded-xl border border-slate-300 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              className={
+                result.passed
+                  ? 'w-full rounded-xl border border-slate-300 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50'
+                  : 'w-full rounded-xl bg-sky-600 py-2.5 text-sm font-extrabold text-white hover:bg-sky-700'
+              }
             >
               {result.passed ? t('board.page.retryChallenge') : t('board.page.retry')}
+            </button>
+            <button
+              type="button"
+              data-board-back
+              onClick={backToList}
+              className={
+                result.passed && !nextPuzzle
+                  ? 'w-full rounded-xl bg-sky-600 py-2.5 text-sm font-extrabold text-white hover:bg-sky-700'
+                  : 'w-full rounded-xl border border-slate-300 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50'
+              }
+            >
+              {t('board.page.backToList')}
             </button>
           </div>
         )}
@@ -276,7 +332,6 @@ export default function BoardPage() {
   }
 
   // LIST 화면
-  const list = puzzles ?? [];
   const clearedCount = list.filter((p) => p.cleared).length;
   // 격자를 **꽉 채운다** — 남는 자리는 「???」(아직 저작되지 않은 칸)로 메운다.
   // 빈 자리를 그냥 두면 한 판짜리 퍼즐의 아래쪽이 뜯겨 나간 것처럼 보인다.

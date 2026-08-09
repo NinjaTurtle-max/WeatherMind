@@ -176,6 +176,28 @@ class ConceptAbilityOut(BaseModel):
     updated_at: datetime | None = None
 
 
+class ConceptMasteryOut(BaseModel):
+    """WeatherBrain BKT 개념별 숙련 확률 (R13-01 §5-1) — θ와 **다른 축**.
+
+    θ(ConceptAbilityOut)가 "지금 이 개념의 실력"이라면 이것은 "이 개념을 익혔을
+    확률"이다. 로짓이 아니라 0..1 확률이고, 응답을 시간 순서로 본다.
+
+    p_mastery: 현재 P(숙련). p_next_correct: 그 상태에서 다음 문항을 맞힐 확률.
+    num_responses: 반영된 채점 응답 수(0인 개념은 애초에 목록에 없다).
+    cold_start: 관측이 부족해 값이 사전값에 가까움(표시는 "데이터 부족").
+    level_label: insufficient|beginning|learning|mastered.
+    params_source: prior(사전값) | fitted(실로그 재적합 파라미터).
+    """
+
+    concept_tag: str
+    p_mastery: float
+    p_next_correct: float
+    num_responses: int
+    cold_start: bool
+    level_label: str
+    params_source: str
+
+
 class AttendanceResult(BaseModel):
     streak_count: int
     is_new_record: bool

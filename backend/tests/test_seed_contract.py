@@ -72,7 +72,17 @@ class TestSeedSchema:
         # 서로소가 깨진다(test_placement의 TestDisjointPicksRealSeed가 잡은 지점).
         # R13 2일차 통합 병합: +83 = 237(1단계 18 · 3단계 18 · 6단계 15 · 재난 15 ·
         # 보드 7 · 보드 규칙 확장 10). 실질 0건이던 6단계가 31건이 됐다.
-        assert len(SEED_ITEMS) == 237
+        # R13 잔여 웨이브(CO-L-F1): +35 = 272. `docs/specs/11:97`이 요구한
+        # "level_group 3종 전부 저작"이 **데이터 레벨에서 위반**이었다 — kl5(adult)
+        # 밴드에 basic-science 6태그(density_buoyancy·energy_transfer·phase_change·
+        # pressure_basics·radiation_budget·temperature_heat)와 wildfire_weather가
+        # **전건 0건**이었고, CO-L2의 전 밴드 필터는 안전망일 뿐 스펙 준수가 아니다.
+        # 7태그 × 5건, 유형 혼합(mc·short_answer·cloze·match 각 7 · ordering 4 ·
+        # slider 3, board 0), explanation_hint 35/35 저작(CO-I-1로 화면 노출 = LLM
+        # 호출 대체). ordering이 4건인 것은 정규화 정답이 "0,1,2,3(,4)" 뿐이라
+        # **태그당 패턴 수만큼만 가능**하기 때문이다 — phase_change는 세 패턴이
+        # 이미 포화라 slider로 대체했다(CO-C5의 ordering 상한과 같은 계열).
+        assert len(SEED_ITEMS) == 272
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
@@ -186,19 +196,25 @@ class TestUnitsSeedContract:
     코스 구분은 course 필드로 시드에서 파생한다(하드코딩 대신 시드 파생).
     """
 
-    def test_20유닛_기상12_기초과학8(self):
+    def test_24유닛_기상16_기초과학8(self):
         by_course: dict[str, int] = {}
         for u in UNITS:
             by_course[u.get("course")] = by_course.get(u.get("course"), 0) + 1
-        assert len(UNITS) == 20
-        assert by_course == {"weather": 12, "basic-science": 8}
+        assert len(UNITS) == 24
+        assert by_course == {"weather": 16, "basic-science": 8}
 
-    def test_섹션은_기상4_기초과학3(self):
-        """기상 코스는 관측보고서 4섹션(불변), 기초과학은 specs/11 §2의 3섹션."""
+    def test_섹션은_기상5_기초과학3(self):
+        """기상 코스는 관측보고서 4섹션 + **재난 1섹션**(R13 CO-A1), 기초과학은 specs/11 §2의 3섹션.
+
+        「위험한 하늘」은 R13에서 개통했다 — 재난 문항 15건이 시드에 있는데
+        `units.json`에 유닛이 0건이라 **학습 경로에서 도달 불가**였다.
+        """
         weather_sections = list(
             dict.fromkeys(u["section"] for u in UNITS if u.get("course") == "weather")
         )
-        assert weather_sections == ["하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후"]
+        assert weather_sections == [
+            "하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후", "위험한 하늘",
+        ]
         bs_sections = list(
             dict.fromkeys(
                 u["section"] for u in UNITS if u.get("course") == "basic-science"

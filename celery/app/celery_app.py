@@ -2,7 +2,7 @@
 
 - 브로커/결과 백엔드: Redis (REDIS_URL)
 - 스케줄 (Asia/Seoul 기준):
-  (a) 매일 02:00  날씨 수집 + Chroma weather_daily 갱신 트리거
+  (a) 매일 02:00  KMA 날씨 수집 → Redis 캐시
   (c) 매주 월 03:30  지난주 리그 정산 (KMA 실측 반영 → accuracy_score·ELO)
   (d) 매일 03:00  WeatherBrain 재학습 트리거 (로드맵 2단계 placeholder)
 """
@@ -35,7 +35,7 @@ celery_app.conf.update(
 )
 
 celery_app.conf.beat_schedule = {
-    # (a) 매일 새벽 2시 — 기상청 날씨 수집 + Chroma weather_daily 갱신 트리거
+    # (a) 매일 새벽 2시 — 기상청 날씨 수집 → Redis 캐시(브리핑·리그 정산이 읽는다)
     "collect-daily-weather": {
         "task": "app.tasks.weather.collect_daily_weather",
         "schedule": crontab(hour=2, minute=0),

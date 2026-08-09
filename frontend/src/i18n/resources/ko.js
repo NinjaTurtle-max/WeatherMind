@@ -37,6 +37,7 @@ export default {
     board: '보드',
     duel: '예보 대결',
     league: '리그',
+    explore: '탐구',
     me: '내 정보',
     tutor: {
       // 화면 담당 마스코트(Mascot 배정표) — 보드는 태양이
@@ -54,6 +55,14 @@ export default {
     air_mass: '기단',
     heat_island: '열섬 현상',
     co2_climate: 'CO₂와 기후',
+    temperature_heat: '온도와 열',
+    radiation_budget: '복사와 에너지 수지',
+    pressure_basics: '압력의 기초',
+    phase_change: '물의 상태변화',
+    density_buoyancy: '밀도와 부력',
+    energy_transfer: '에너지의 이동',
+    wildfire_weather: '산불 기상',
+    flood_response: '홍수 대응',
     anomaly: '이상 기후',
     // 기초과학 코스(basic-science) — 2026-08-08. 없으면 conceptLabel이 태그
     // 원문(density_buoyancy 같은 스네이크케이스)을 그대로 화면에 내보낸다.
@@ -69,33 +78,12 @@ export default {
     empty: '구름이 모두 흩어졌어요 — 약 {min}분 후 회복돼요. 새 세션은 구름이 1개 이상 있어야 열려요(풀던 세션은 끝까지 마칠 수 있어요)',
     regen: '구름 에너지 — 틀린 문항에만 1개 소모 · 다음 회복까지 {countdown}',
   },
-  gate: {
-    board: {
-      title: '대기 보드란 무엇인가요?',
-      p1: '기단·전선·습기·일사를 직접 배치해요',
-      p2: '배치한 대로 실제 대기 현상이 만들어져요',
-      p3: '외우지 않고 원리를 손으로 익혀요',
-    },
-    duel: {
-      title: '예보 대결이란 무엇인가요?',
-      p1: '오늘의 기온·강수확률을 직접 예측해요',
-      p2: 'AI 캐스터의 예보와 정확도를 겨뤄요',
-      p3: '실제 관측값으로 다음 날 채점돼요',
-    },
-    league: {
-      title: '리그란 무엇인가요?',
-      p1: '구름 티어(층운 → 태풍의 눈)로 승급해요',
-      p2: '예보 정확도로 순위가 정해져요',
-      p3: '주간 정산으로 티어가 오르내려요',
-    },
-    fallbackTitle: '아직 열리지 않은 기능이에요',
-    cta: '오늘의 세션 시작하기 →',
-    need: '세션을 {need}개 완료하면 시작할 수 있어요',
-    progress: '지금까지 {stage}/{need} 완료 — {remain}개만 더!',
-    viewPath: '학습 경로 보기',
-  },
   feedback: {
+    // 배지는 해설의 **출처**다(AnswerResult.feedback_source) — CO-I-1 후속.
+    // 사람이 저작한 193건(2026-08-09 실측)을 "AI 피드백"으로 찍으면 배점 ⑤ 표기가 틀어진다.
     ai: 'AI 피드백',
+    authored: '개념 해설',
+    board: '판정 근거',
   },
   forecast: {
     numeric: '모든 값을 숫자로 입력해주세요.',
@@ -169,12 +157,23 @@ export default {
       co2_climate: 'CO₂·기후변화',
       heat_island: '열섬효과',
       pressure_front: '기압·전선',
+      temperature_heat: '온도와 열',
+      radiation_budget: '복사와 에너지 수지',
+      pressure_basics: '압력의 기초',
+      phase_change: '물의 상태변화',
+      density_buoyancy: '밀도와 부력',
+      energy_transfer: '에너지의 이동',
+      wildfire_weather: '산불 기상',
+      flood_response: '홍수 대응',
       typhoon: '태풍',
     },
     level: {
       beginner: '초급',
       intermediate: '중급',
       advanced: '고급',
+      // CO-S-4: 서버 THETA_BAND_LABELS는 4밴드(θ>1.5=expert)인데 여기가 3개라
+      // 화면에 `ability.level.expert` 키 문자열이 그대로 떴다.
+      expert: '최상급',
     },
   },
   // lib/onboardingGate.js DAILY_GOAL_CHOICES 라벨 + DailyGoal.jsx(피커·미터)
@@ -193,12 +192,6 @@ export default {
     meterTitle: '🎯 오늘 목표 {done}/{goal}',
     reached: '달성!',
     remaining: '{count}문항 남음',
-  },
-  // lib/onboardingGate.js 해제 축하 토스트 (§3.4)
-  unlock: {
-    board: '🧩 대기 보드가 열렸어요!',
-    duel: '🌡️ 예보 대결이 열렸어요!',
-    league: '🏆 리그가 열렸어요!',
   },
   // api/client.js 에러 정규화 폴백 2건
   apiError: {
@@ -243,6 +236,22 @@ export default {
     spineCurrentLabel: '지금 배울 유닛',
     spineContinue: '이어서 학습 →',
     spineAllCleared: '🌈 열린 유닛을 모두 클리어했어요!',
+    spineNoneOpen: '아직 열린 유닛이 없어요 — 학습 경로에서 첫 유닛을 열어 보세요.',
+    spineStart: '학습 경로 열기 →',
+    // 학습 수준 설정 (R13 P-5) — 게스트가 평생 middle_high에 갇히지 않게 하는 통로
+    levelGroupTitle: '🎚️ 학습 수준',
+    levelGroupBody: '문항 난이도가 이 설정을 따라가요. 바꾸면 다음 세션부터 반영돼요.',
+    levelGroupSaved: '학습 수준을 바꿨어요.',
+    levelGroupFailed: '학습 수준을 바꾸지 못했어요.',
+    levelGroupSaving: '바꾸는 중...',
+  },
+  // 게스트 로그아웃 확인 (R13 P-4) — 게스트는 재진입 경로가 없어 진도가 영구 소실된다
+  logoutGuest: {
+    title: '지금 나가면 진도가 사라져요',
+    body: '게스트로 학습 중이라 다시 들어올 방법이 없어요. 지금까지 쌓은 XP·스트릭·실력 진단이 모두 사라집니다.',
+    stay: '계속 학습하기',
+    save: '30초 가입으로 저장하기',
+    quit: '그래도 로그아웃',
   },
   // 배지 컬렉션(modules/progress/BadgeCollection.jsx)
   badges: {
@@ -276,6 +285,18 @@ export default {
     basisPrior: '초기 배정',
     basisMeasured: '응답 {count}회 기반',
     empty: '아직 능력 데이터가 없어요. 세션을 풀면 개념별 이해도가 분석돼요.',
+    // BKT 숙련도(R13-01 §5-1) — θ와 다른 축임을 화면에서 읽히게 하는 문구.
+    mastery: {
+      title: '개념 숙련도',
+      subtitle: '위 막대가 「지금 실력」이라면, 아래는 「이 개념을 익혔을 확률」이에요.',
+      empty: '문제를 풀면 개념을 익혔는지 추적하기 시작해요.',
+      insufficient: '데이터 부족',
+      beginning: '아직 익히는 중',
+      learning: '거의 익힘',
+      mastered: '숙련',
+      rowTitle: '익혔을 확률 {percent}% · 다음 문제 정답 확률 {next}% · 응답 {count}회',
+      nextHint: '다음 문제 정답 확률 {next}%',
+    },
   },
   // ── 홈 대시보드 (시안 Soft Cloud 홈) ─────────────────────────────────────
   // 실제 API에 있는 값만 쓴다 — 「최근 활동」은 조회 엔드포인트가 없어 뺐다.
@@ -290,6 +311,13 @@ export default {
       learnEmpty: '첫 유닛부터 시작해요',
       learnGo: '이어서 풀기 →',
       go: '바로 가기 →',
+      // R13-01 §2.5 진입 통합 — 홈의 학습 진입 카드 1개가 쓰는 문구
+      unitBody: '진행 중인 유닛이에요. 여기서 이어 가면 돼요.',
+      todayLabel: '오늘의 학습',
+      doneTitle: '오늘 몫은 다 했어요',
+      doneBody: '오늘 할 학습을 모두 마쳤어요. 더 하고 싶다면 아래에서 골라 보세요.',
+      doneCta: '지난 유닛 다시 보기 →',
+      more: '더 해보기',
       board: '대기 보드',
       boardDesc: '기단·전선을 놓아 날씨를 만들어요',
       duel: '예보 대결',
@@ -321,6 +349,12 @@ export default {
       title: 'WeatherBrain 분석',
       cap: '개념별 실력(θ) — 문제를 풀수록 정밀해져요.',
       aria: '개념별 실력 레이더 차트: {list}',
+      empty: '아직 분석할 기록이 부족해요 — 문항을 조금 더 풀면 개념별 실력이 그려져요.',
+    },
+    // CO-S-2: 전 API 실패에도 홈이 "복습할 개념이 없어요"라고 말하던 자리
+    error: {
+      title: '지금 정보를 불러오지 못했어요',
+      body: '연결을 확인한 뒤 다시 시도해 주세요.',
     },
   },
   curriculum: {
@@ -358,7 +392,7 @@ export default {
     },
     daily: {
       title: '자유 일일 세션',
-      body: '정해진 경로 대신 오늘의 10문항을 바로 풀고 싶다면.',
+      body: '정해진 경로 대신 오늘의 세션을 바로 풀고 싶다면.',
       cta: '오늘의 세션 풀기 →',
       resume: '풀던 세션 이어서 풀기 →',
       regen: '☁️ 구름 회복까지 약 {min}분',
@@ -407,6 +441,24 @@ export default {
     loading: '세션을 준비하고 있어요...',
     title: '오늘의 기상 세션',
     loadFailed: '세션을 불러오지 못했어요',
+    // CO-S-3: 0문항 세션은 자동완료 가드(total>0)에 걸려 탈출구가 없었다
+    empty: {
+      title: '지금 낼 수 있는 문항이 없어요',
+      body: '오늘 몫을 이미 마쳤거나, 아직 이 단계에 맞는 문항이 준비되지 않았어요.',
+      cta: '학습 경로로 돌아가기 →',
+    },
+    // CO-M4: 실제 429는 answer가 아니라 세션 로드 경로에서 난다
+    outOfClouds: {
+      title: '☁️ 구름이 모두 흩어졌어요',
+      body: '구름은 틀린 문항에만 1개 줄어들어요. 약 {min}분 후 1개가 회복되면 새 세션을 열 수 있어요.',
+      cta: '학습 경로로 돌아가기 →',
+    },
+    // CO-S-1: 403 UNIT_LOCKED도 무한 스피너로 수렴했다 — 잠금은 잠금으로 보여야 한다
+    unitLocked: {
+      title: '🔒 아직 열리지 않은 유닛이에요',
+      body: '선행 유닛을 먼저 완료하면 이 유닛이 열려요.',
+      cta: '학습 경로로 돌아가기 →',
+    },
     progressTitle: '오늘의 세션',
     progressCount: '{answered} / {total} 문항 완료',
     itemCount: '문항 {current} / {total}',
@@ -447,6 +499,19 @@ export default {
       stay: '계속 풀기',
       quit: '그만두기',
     },
+    // 만회 라운드 (R13-01 §2.1 · 상한 5 §2.11) — 세션 마지막 문항 뒤 오답 재투입.
+    // 만회는 벌도 파밍도 아니다: 구름 무소모·XP 무가산이라 화면도 그렇게 읽혀야 한다.
+    retry: {
+      banner: '☂️ 만회 라운드 — 아까 놓친 {total}문항',
+      note: '만회는 벌이 아니에요 — 구름도 XP도 움직이지 않아요.',
+      itemCount: '만회 {current} / {total}',
+      start: '놓친 {count}문항 만회하기 →',
+      next: '다음 만회 문항 →',
+      success: '☀️ 만회 성공! 이 문항은 해결했어요',
+      fail: '🌧️ 이번엔 못 맞혔어요 — 내일 복습 문항으로 다시 만나요',
+      alreadyResolved: '이미 해결한 문항이에요 — 다음으로 넘어갈게요.',
+      capNote: '만회는 마지막 {limit}문항까지만 이어져요.',
+    },
     summary: {
       title: '오늘의 세션 완료!',
       allCorrect: '전부 정답이에요. 완벽한 하루!',
@@ -457,6 +522,37 @@ export default {
       tomorrow: '내일 또 새로운 {total}문항 세션이 준비돼요.',
       tomorrowNoCount: '내일 또 새로운 세션이 준비돼요.',
       boardCta: '대기 보드 풀어보기 →',
+      // 만회 결산 (§2.1) — 서버 retry_resolved_count·all_resolved 실측만 쓴다
+      retryResolved: '☂️ 만회 완료 {count}문항',
+      allResolved: '만회까지 마쳐서 오늘 문항을 전부 해결했어요!',
+      // 블록 구분 표기 (§2.10) — SessionItem.kind 4종
+      blocksTitle: '오늘 푼 문항',
+      blocks: {
+        new: '오늘의 발견',
+        review: '복습',
+        live: '실황',
+        unit: '진도',
+      },
+      blockCount: '{count}문항',
+      unitBlockNote: '진도 문항은 지금 배우는 유닛의 다음 5문항이에요.',
+    },
+    // 예보 마감 단계 (R13 A-1) — 15문항 뒤에 붙는 **단계**(문항 아님).
+    closing: {
+      title: '마지막 단계 — 내일 예보 내기',
+      subtitle: '{date}의 최고기온과 강수확률을 예보해 주세요.',
+      noJudge: '예보는 지금 채점하지 않아요 — 정답은 내일의 관측이 정해요.',
+      base: '기준 예보 {temp}℃ · 강수확률 {prob}%',
+      tempLabel: '최고기온(℃)',
+      rainLabel: '강수확률(%)',
+      submit: '예보 제출하기',
+      briefingCta: '판단 재료 자세히 보기 →',
+      submittedTitle: '예보를 냈어요',
+      settleNote: '{date}의 실제 날씨가 관측된 뒤 {settleDate}에 결과가 정산돼요.',
+      alreadySubmitted: '오늘은 이미 예보를 냈어요.',
+      failed: '예보 제출에 실패했어요. 잠시 후 다시 시도해주세요.',
+      lastResultTitle: '지난 예보 결과',
+      lastResult: '{date} 예보 — {result}',
+      skip: '오늘은 건너뛰기',
     },
   },
   quiz: {
@@ -504,7 +600,7 @@ export default {
       rainProb: '강수확률(%)',
       submit: '예보 제출 (1일 1회)',
     },
-    submittedNote: '예보 제출 완료! 내일 실측으로 정산돼요. 🌙',
+    submittedNote: '예보 제출 완료! 이틀 뒤 실측으로 정산돼요. 🌙',
     myPred: '🙋 내 예보',
     aiPred: '🤖 AI 캐스터',
     actual: '실측',

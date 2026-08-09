@@ -30,6 +30,9 @@ export default {
       loadErrorBody: '잠시 후 다시 시도해주세요.',
       retry: '다시 시도',
       retryChallenge: '한 번 더 도전',
+      // CO-K11: 클리어 후 유일한 출구가 화면 밖으로 밀려 「다시 도전」만 보였다.
+      nextPuzzle: '다음 퍼즐 →',
+      lastPuzzleDone: '🎉 마지막 퍼즐까지 마쳤어요!',
       title: '🧩 대기 보드',
       subtitle: '기상요소를 한반도 4개 지역에 배치해 목표 날씨를 만들어 보세요.',
       depletedBody1: '구름은',

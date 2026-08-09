@@ -49,10 +49,11 @@ langchain 뒤에 두지 않는다).
 from __future__ import annotations
 
 import json
-import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+from app.chains.seed_paths import resolve_seed_path
 
 # 단계 하한. 상한은 코드가 아니라 어휘표 `anchor`가 정한다(N이 6→7로 늘어도
 # 이 파일을 열지 않는다 — 마이그레이션 0012가 상한 CHECK를 걸지 않은 것과 같은 이유).
@@ -81,32 +82,13 @@ NON_TEMPLATE_KEYS: frozenset[str] = frozenset(
 
 
 def resolve_vocabulary_path() -> Path:
-    """어휘표 경로를 결정한다 (`embeddings.seed_concepts.resolve_seed_path`와 같은 관례).
+    """어휘표 경로를 결정한다 (관례 본체는 `chains.seed_paths.resolve_seed_path`).
 
-    1. 환경변수 `LEVEL_VOCABULARY_PATH`
-    2. `/app/database/seed/level_vocabulary.json` (컨테이너 마운트 — docker-compose가
-       `./database/seed:/app/database/seed:ro`로 얹는다)
-    3. 이 모듈에서 상위로 올라가며 `database/seed/level_vocabulary.json` 탐색 (로컬)
+    R13 3일차에 `rag_chain`이 `climate_concepts.json`의 두 번째 소비자가 되면서
+    이 함수가 갖고 있던 탐색 순서를 `seed_paths`로 옮겼다 — 컨테이너 마운트 규약이
+    바뀌면 고칠 곳이 하나여야 한다. 이름·예외 형태는 그대로다.
     """
-    env_path = os.environ.get(VOCABULARY_PATH_ENV)
-    if env_path:
-        path = Path(env_path)
-        if path.is_file():
-            return path
-        raise FileNotFoundError(f"{VOCABULARY_PATH_ENV} not found: {path}")
-
-    candidates: list[Path] = [Path("/app") / VOCABULARY_RELATIVE_PATH]
-    for parent in Path(__file__).resolve().parents:
-        candidates.append(parent / VOCABULARY_RELATIVE_PATH)
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
-
-    raise FileNotFoundError(
-        f"{VOCABULARY_FILENAME}을 찾을 수 없다. {VOCABULARY_PATH_ENV}를 지정하거나 "
-        f"{VOCABULARY_RELATIVE_PATH}를 준비할 것 "
-        "(컨테이너는 database/seed 마운트가 필요하다)"
-    )
+    return resolve_seed_path(VOCABULARY_FILENAME, VOCABULARY_PATH_ENV)
 
 
 def load_vocabulary(path: Path | None = None) -> dict:

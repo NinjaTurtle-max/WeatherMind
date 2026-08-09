@@ -6,8 +6,15 @@
 | GET  | /courses/{slug}                | 코스 상세 (read-only) — 미존재 404 COURSE_NOT_FOUND |
 
 유닛 세션은 mode='unit'·sessions.unit_id로 발급되며, 이후 답안 제출/완료는 기존
-/session/{id}/answer·/complete 경로를 재사용한다(구름 소모·유닛 clear 왕관 포함).
+/session/{id}/answer·/complete 경로를 재사용한다(구름 소모 포함).
 잠금 유닛 403 UNIT_LOCKED, 미존재 404 UNIT_NOT_FOUND (§3.5).
+
+⚠️ **이 경로는 왕관을 주지 않는다** (CO-L5 정정 — 여기 "유닛 clear 왕관 포함"이라
+적혀 있었으나 거짓이다). R13-01 §2.10 왕관 소유권 이전 이후 유닛 직접 진입은
+**연습 전용**이고 `routers/session.py`가 `grant_crown=False`로 고정한다. 실제
+왕관 유입로는 **3개**다: ⑴ 일일 세션의 진도 블록 · ⑵ 보드 퍼즐 최초 클리어
+(`routers/board.py`) · ⑶ `/dev` 개발 경로. 목록의 단일 소유자는
+`curriculum_service` 모듈 독스트링이다.
 
 발급 경로는 refresh_abilities 1회로 θ를 재추정한다(R8-01 §3.2 — 데일리 전례).
 트리 GET은 read-only(load_abilities) 유지 — ai-worker 미호출.

@@ -3,16 +3,17 @@
 | GET  | /me         | XP·레벨·스트릭·티어·스파인 → {xp, level, streak_count, streak_freeze_count, next_level_xp, tier, ..., spine, tone} |
 | GET  | /weak-tags  | θ 파생 약점 개념 (학령 상대 임계, θ 오름차순 — R8-01 §3.5) → WeakConceptOut[] |
 | GET  | /review-queue | 간격반복 복습 큐 (시간 축 — R11-01 C2) → ReviewQueueItem[] |
+| GET  | /mastery    | BKT 개념별 숙련 확률 (θ와 별개 축 — R13-01 §5-1) → ConceptMasteryOut[] |
 | POST | /attendance | 출석 체크 (하루 1회) → {streak_count, is_new_record} |
 | GET  | /quests     | 오늘의 일일 퀘스트 진행/완료 (R4-01 §3.1) |
 | GET  | /badges     | 배지 정의 + 획득 시각 (R4-01 §3.3) |
 | PUT  | /daily-goal | 일일 목표 문항 수 설정 (R10-01 §3.4) → {daily_goal_items} |
 | PUT  | /region     | 사용자 지역 설정 (R11-01 §8.2, KMA_GRID 12도시) → {region} |
 """
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db_with_rls
@@ -25,6 +26,7 @@ from app.schemas.progress import (
     AttendanceResult,
     BadgeOut,
     ConceptAbilityOut,
+    ConceptMasteryOut,
     DailyGoalOut,
     DailyGoalUpdate,
     EnergyState,
@@ -45,7 +47,6 @@ from app.services import (
     placement_service,
     quest_service,
     review_schedule_service,
-    session_service,
     xp_service,
 )
 from app.services.weather_api import KMA_GRID, KST
@@ -67,16 +68,17 @@ async def _count_answered_today(
     다만 그 함수를 고치면 퀘스트 3종(daily_xp·weak_correct·live_answered)의
     의미가 함께 바뀌므로, 목표 표시용 카운트만 별도로 센다.
 
-    "오늘" 판정은 _today_facts 관례를 그대로 따른다 — 세션 로그는 소속 세션의
-    session_date로, 세션 밖 로그(보드 등)는 answered_at이 KST 당일 구간에
-    드는지로 판정한다(경계는 session_service.kst_day_start_utc).
+    "오늘" 판정은 `_today_facts` 관례를 그대로 따른다 — 세션 소속 여부와 무관하게
+    `answered_at`이 KST 당일 구간 [00:00, 익일 00:00) KST에 드는지 **하나로만**
+    판정한다(경계는 `quest_service.kst_day_window` → `session_service.
+    kst_day_start_utc`). 세션 로그를 `session_date`로 세던 이전 구현은 자정을 넘겨
+    푼 문항을 오늘 카운트에서 누락시켰다 — "진행도 0/30인데 XP는 올랐다"의 절반
+    (CO-T-2·T-3). 배치고사 제외만 세션 join으로 남는다.
     """
-    day_start = session_service.kst_day_start_utc(today)
-    day_end = session_service.kst_day_start_utc(today + timedelta(days=1))
-    today_sessions = select(Session.id).where(
+    day_start, day_end = quest_service.kst_day_window(today)
+    placement_sessions = select(Session.id).where(
         Session.user_id == user.id,
-        Session.session_date == today,
-        Session.mode != placement_service.MODE_PLACEMENT,
+        Session.mode == placement_service.MODE_PLACEMENT,
     )
     count = (
         await db.execute(
@@ -85,13 +87,13 @@ async def _count_answered_today(
             .where(
                 QuizLog.user_id == user.id,
                 QuizLog.is_correct.is_not(None),  # 응답 완료분만
+                QuizLog.answered_at >= day_start,
+                QuizLog.answered_at < day_end,
+                # 배치고사 로그 제외 — NULL session_id는 not_in이 NULL을 내므로
+                # 명시적으로 통과시킨다(보드 등 세션 밖 로그).
                 or_(
-                    QuizLog.session_id.in_(today_sessions),
-                    and_(
-                        QuizLog.session_id.is_(None),
-                        QuizLog.answered_at >= day_start,
-                        QuizLog.answered_at < day_end,
-                    ),
+                    QuizLog.session_id.is_(None),
+                    QuizLog.session_id.not_in(placement_sessions),
                 ),
             )
         )
@@ -286,6 +288,35 @@ async def get_abilities(
             updated_at=r.updated_at,
         )
         for r in rows
+    ]
+
+
+@router.get("/mastery", response_model=list[ConceptMasteryOut])
+async def get_mastery(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_with_rls),
+) -> list[ConceptMasteryOut]:
+    """WeatherBrain BKT 개념별 숙련 확률 (숙련 낮은 순). R13-01 §5-1.
+
+    /abilities(θ = 지금 실력)와 **다른 축**이다: 여기 값은 "이 개념을 익혔을
+    확률"이고 응답을 시간 순서로 본다. θ 저장소(user_concept_ability)를 읽지도
+    쓰지도 않으며, quiz_logs에서 매 조회 시 파생한다(저장 테이블 없음 —
+    마이그레이션 불필요). 아직 응답이 없는 개념은 목록에 나타나지 않는다.
+    """
+    rows = await weatherbrain_service.load_mastery(db, user)
+    return [
+        ConceptMasteryOut(
+            concept_tag=row["concept_tag"],
+            p_mastery=row["p_mastery"],
+            p_next_correct=row["p_next_correct"],
+            num_responses=row["n"],
+            cold_start=bool(row["cold_start"]),
+            level_label=weatherbrain_service.mastery_label(
+                float(row["p_mastery"]), bool(row["cold_start"])
+            ),
+            params_source=row.get("params_source", "prior"),
+        )
+        for row in rows
     ]
 
 

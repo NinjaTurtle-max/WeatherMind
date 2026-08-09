@@ -228,9 +228,11 @@ export default function ClimateSimPage() {
       </div>
 
       {/* θ 루프 연결 CTA */}
+      {/* CO-S-10: 라벨은 "학습 경로에서 이어가기"인데 목적지가 `/`(홈)였다 —
+          학습 경로는 `/learn`이다. 동봉하던 state={{focusConcept}}는 소비자가
+          0건이라(대장 「죽은 분기」 등재) 함께 걷어낸다. */}
       <Link
-        to="/"
-        state={{ focusConcept: 'co2_climate' }}
+        to="/learn"
         className="block rounded-2xl bg-sky-600 py-3 text-center text-sm font-bold text-white shadow-sm hover:bg-sky-700"
       >
         {t('explore.climate.cta')}

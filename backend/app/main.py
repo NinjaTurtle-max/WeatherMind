@@ -20,7 +20,7 @@ from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import insecure_secret_defaults, settings
-from app.core.database import engine
+from app.core.database import engine, runtime_role_privilege
 from app.core.logging import RequestLogMiddleware, setup_logging
 from app.core.rate_limit import limiter
 from app.core.redis import close_redis, get_redis
@@ -78,6 +78,57 @@ def _enforce_secret_hygiene() -> None:
         "(로컬 개발 한정으로 DEV_MODE=true 설정 시 경고로 완화됩니다.)"
     )
 
+
+# ── 런타임 접속 롤 fail-fast (R13 4일차 — CO-J-2) ────────────────────────────
+# `_enforce_secret_hygiene`와 **같은 형태**다: 판정은 core(database.py), dev 경고 /
+# 비-dev 기동 거부 분기는 여기. 막는 것은 "런타임이 RLS를 우회하는 롤로 붙는 것"이다
+# — 그러면 유저 격리 2층 중 DB 층이 통째로 사라지는데 **화면은 멀쩡해 보인다**
+# (앱 계층 user_id 필터가 남아 있어서). 지금까지 이걸 알려 주는 것이 없었다.
+#
+# 판정 불가(None = DB 미도달)는 거부하지 않는다. compose에 depends_on:
+# service_healthy가 없어 backend가 postgres보다 먼저 뜨는 것이 정상 경로이고
+# (CO-J-16), 여기서 죽이면 restart 정책도 없는 컨테이너가 그대로 사망한다.
+# 대신 "확인하지 못했다"를 경고로 남긴다 — 침묵은 만들지 않는다.
+_RLS_ROLE_GUIDE = (
+    "조치: .env의 DATABASE_URL을 비특권 앱 롤로 바꾸세요 "
+    "(postgresql+asyncpg://weathermind_app:<암호>@postgres:5432/weathermind). "
+    "소유자 롤은 MIGRATION_DATABASE_URL(alembic)과 CELERY_DATABASE_URL(배치)이 "
+    "따로 씁니다. 앱 롤 전환 전에 backend/app/scripts/rls_app_role.sql을 1회 "
+    "실행해야 예외 정책 2건(users 인증·리더보드 SELECT)이 생깁니다 — 없으면 "
+    "로그인·게스트·리더보드가 전면 0행이 됩니다. 근거: docs/specs/08, "
+    "docs/team/CARRYOVER_R13.md §J-2."
+)
+
+
+async def _enforce_runtime_rls_role() -> None:
+    verdict = await runtime_role_privilege()
+    if verdict is None:
+        logger.warning(
+            "[RLS 경고] 기동 시점에 DB에 닿지 못해 런타임 접속 롤을 확인하지 "
+            "못했습니다. RLS 강제 여부가 미검증 상태입니다."
+        )
+        return
+    role, bypasses_rls = verdict
+    if not bypasses_rls:
+        logger.info("런타임 DB 접속 롤=%s (RLS 강제됨)", role)
+        return
+    if settings.DEV_MODE:
+        logger.warning(
+            "[RLS 경고] 런타임이 특권 롤(%s)로 접속했습니다 — RLS(user_isolation)가 "
+            "무력화된 상태이고 유저 격리가 앱 계층 필터 하나에만 의존합니다. "
+            "DEV_MODE=true라 기동은 계속하지만 운영에서는 거부됩니다. %s",
+            role,
+            _RLS_ROLE_GUIDE,
+        )
+        return
+    raise RuntimeError(
+        f"[기동 거부] 런타임이 RLS를 우회하는 특권 롤({role})로 접속했습니다. "
+        f"유저 격리 2층 중 DB 층이 사라지며, 화면상으로는 정상으로 보이기 때문에 "
+        f"운영에서 이 상태로 기동할 수 없습니다. {_RLS_ROLE_GUIDE} "
+        "(로컬 개발 한정으로 DEV_MODE=true 설정 시 경고로 완화됩니다.)"
+    )
+
+
 # 상태코드 → 기본 에러 코드
 _DEFAULT_CODES = {
     status.HTTP_400_BAD_REQUEST: "BAD_REQUEST",
@@ -93,6 +144,7 @@ _DEFAULT_CODES = {
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _enforce_secret_hygiene()  # 비-dev + changeme 기본값 → 기동 거부 (RuntimeError)
+    await _enforce_runtime_rls_role()  # 비-dev + 특권 롤 → 기동 거부 (CO-J-2)
     yield
     await close_redis()
     await engine.dispose()

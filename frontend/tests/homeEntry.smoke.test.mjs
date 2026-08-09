@@ -1,0 +1,237 @@
+/**
+ * 홈 진입 통합 스모크 (R13-01 §2.5) —
+ *   node tests/homeEntry.smoke.test.mjs
+ *
+ * 무엇을 지키는가
+ *   1. **진입 카드는 하나다.** 2026-08-06까지 「바로 시작하기」에는 학습 세션·대기
+ *      보드·예보 대결·리그 네 칸이 *같은 격*으로 서 있었고, 처음 온 사람은 무엇부터
+ *      눌러야 하는지 알 수 없었다(사전 교육 Mo2 "진입 실패" 신호). 카드 수가 다시
+ *      늘면 여기서 잡는다.
+ *   2. **우선순위**: 진행 중 유닛 → 오늘 미발급 일일 세션 → 완료 축하.
+ *      순수 함수 pickHomeEntry로 상태를 직접 먹여 전 분기를 고정한다(실 API로는
+ *      "모든 유닛 클리어" 상태를 만들 수 없다).
+ *   3. **자유 일일 세션은 보조 링크다** — 채움 버튼(주 CTA와 같은 무게)로 되돌아가면
+ *      실패. 지역 픽커는 이 보조 줄이 계속 소유한다(홈에서 사라지면 안 된다).
+ *   4. **내비 탭 구조 불변** — 진입 통합은 본문의 문제였다. 탭이 7개가 아니면 실패
+ *      (2026-08-08 CO-N-1 ②로 「탐구」가 들어와 6 → 7).
+ *   5. ko/en 양 로케일 렌더 — 카드 문구가 리소스에서 온다(하드코딩 회귀 가드).
+ *
+ * 관례는 home.smoke.test.mjs와 동일: 테스트 러너 의존 없음, vite middlewareMode +
+ * mock/apiMockPlugin(실 XHR) + jsdom 실마운트.
+ */
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import http from 'node:http';
+
+process.env.NODE_ENV = 'production';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const { createServer } = await import('vite');
+const { default: apiMockPlugin } = await import('../mock/apiMockPlugin.js');
+
+const vite = await createServer({
+  root,
+  logLevel: 'error',
+  plugins: [apiMockPlugin()],
+  server: { middlewareMode: true, hmr: false },
+  appType: 'custom',
+  optimizeDeps: { noDiscovery: true, include: [] },
+});
+
+const httpServer = http.createServer((req, res) => {
+  vite.middlewares(req, res, () => {
+    res.statusCode = 404;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ detail: 'not found', code: 'NOT_FOUND' }));
+  });
+});
+await new Promise((r) => httpServer.listen(0, '127.0.0.1', r));
+const origin = `http://127.0.0.1:${httpServer.address().port}`;
+
+const { JSDOM } = await import('jsdom');
+const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
+  url: `${origin}/`,
+  pretendToBeVisual: true,
+});
+const { window } = dom;
+globalThis.window = window;
+globalThis.document = window.document;
+Object.defineProperty(globalThis, 'navigator', { value: window.navigator, configurable: true });
+globalThis.localStorage = window.localStorage;
+globalThis.sessionStorage = window.sessionStorage;
+// 한국어 문구를 단정하므로 로케일을 제품 기본값(ko)으로 고정한다.
+window.localStorage.setItem('weathermind.locale', 'ko');
+for (const k of ['HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'Event', 'CustomEvent', 'MouseEvent', 'MutationObserver', 'getComputedStyle']) {
+  globalThis[k] = window[k];
+}
+globalThis.requestAnimationFrame = window.requestAnimationFrame?.bind(window) ?? ((cb) => setTimeout(cb, 16));
+globalThis.cancelAnimationFrame = window.cancelAnimationFrame?.bind(window) ?? clearTimeout;
+globalThis.XMLHttpRequest = window.XMLHttpRequest;
+if (!window.matchMedia) {
+  window.matchMedia = () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {} });
+}
+globalThis.matchMedia = window.matchMedia;
+class NoopResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+window.ResizeObserver = NoopResizeObserver;
+globalThis.ResizeObserver = NoopResizeObserver;
+
+const { createElement } = await import('react');
+const { createRoot } = await import('react-dom/client');
+const { MemoryRouter } = await import('react-router-dom');
+const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+
+const App = (await vite.ssrLoadModule('/src/App.jsx')).default;
+const { pickHomeEntry } = await vite.ssrLoadModule('/src/modules/home/HomePage.jsx');
+const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
+const { useLocaleStore } = await vite.ssrLoadModule('/src/i18n/index.js');
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function waitFor(pred, timeoutMs = 8000, label = '') {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    if (pred()) return true;
+    await sleep(40);
+  }
+  throw new Error(`시간 초과(${timeoutMs}ms): ${label}`);
+}
+
+useAuthStore.getState().setTokens({ accessToken: 't-entry', refreshToken: 'r-entry' });
+useAuthStore.getState().setUser({ user_id: 'entry-smoke', email: 'entry@test.dev', nickname: '스모크' });
+
+const $ = (sel) => window.document.querySelector(sel);
+const $$ = (sel) => [...window.document.querySelectorAll(sel)];
+const text = () => window.document.body.textContent ?? '';
+
+let failed = 0;
+const ok = (cond, label) => {
+  console.log(`${cond ? 'PASS' : 'FAIL'} ${label}`);
+  if (!cond) failed += 1;
+};
+
+// ── 2. 우선순위 — 순수 함수로 전 분기 고정 ──────────────────────────────────
+{
+  const CURRENT = [
+    { slug: 'a', title: '기단의 성질', status: 'cleared' },
+    { slug: 'b', title: '전선의 종류', status: 'current' },
+    { slug: 'c', title: '태풍', status: 'locked' },
+  ];
+  const ALL_CLEARED = [
+    { slug: 'a', title: '기단의 성질', status: 'cleared' },
+    { slug: 'b', title: '전선의 종류', status: 'cleared' },
+  ];
+
+  // ① 진행 중 유닛이 최우선 — 오늘 일일 세션을 아직 안 했어도 유닛이 이긴다
+  let e = pickHomeEntry({ units: CURRENT, todayAnswered: 0, dailyGoal: 10 });
+  ok(e.kind === 'unit' && e.to === '/learn' && e.unit?.title === '전선의 종류',
+     `① 진행 중 유닛 우선 — ${e.kind}/${e.to}/${e.unit?.title}`);
+
+  // ①-b 오늘 목표를 이미 채웠어도 진행 중 유닛이 있으면 유닛이다
+  e = pickHomeEntry({ units: CURRENT, todayAnswered: 10, dailyGoal: 10 });
+  ok(e.kind === 'unit', `①-b 목표 달성 후에도 유닛 — ${e.kind}`);
+
+  // ①-c status가 current 없이 unlocked만 오는 응답(구 서버·부분 트리)도 진행 중
+  e = pickHomeEntry({ units: [{ slug: 'x', title: '열린 유닛', status: 'unlocked' }], todayAnswered: 0 });
+  ok(e.kind === 'unit' && e.unit?.title === '열린 유닛', `①-c unlocked도 진행 중 — ${e.kind}`);
+
+  // ② 진행 중 유닛이 없고 오늘 몫이 남았으면 일일 세션
+  e = pickHomeEntry({ units: ALL_CLEARED, todayAnswered: 0, dailyGoal: 10 });
+  ok(e.kind === 'daily' && e.to === '/daily', `② 유닛 없음+오늘 미발급 → 일일 — ${e.kind}/${e.to}`);
+
+  // ②-b 목표 미달(진행 중)도 아직 오늘 몫이 남은 것으로 본다
+  e = pickHomeEntry({ units: ALL_CLEARED, todayAnswered: 3, dailyGoal: 10 });
+  ok(e.kind === 'daily', `②-b 목표 미달은 일일 — ${e.kind}`);
+
+  // ②-c 목표 미설정(null)이면 "오늘 한 문항이라도 풀었는가"로 가른다
+  e = pickHomeEntry({ units: ALL_CLEARED, todayAnswered: 0, dailyGoal: null });
+  ok(e.kind === 'daily', `②-c 목표 미설정+오늘 0문항 → 일일 — ${e.kind}`);
+
+  // ②-d 트리가 비어 있어도(코스에 유닛 0) 일일로 떨어진다 — 빈 화면 금지
+  e = pickHomeEntry({ units: [], todayAnswered: 0, dailyGoal: null });
+  ok(e.kind === 'daily', `②-d 빈 트리 → 일일 — ${e.kind}`);
+
+  // ③ 둘 다 없으면 완료 축하
+  e = pickHomeEntry({ units: ALL_CLEARED, todayAnswered: 10, dailyGoal: 10 });
+  ok(e.kind === 'done', `③ 전 유닛 클리어+목표 달성 → 완료 축하 — ${e.kind}`);
+  e = pickHomeEntry({ units: ALL_CLEARED, todayAnswered: 1, dailyGoal: null });
+  ok(e.kind === 'done', `③-b 목표 미설정+오늘 풀었음 → 완료 축하 — ${e.kind}`);
+
+  // 인자 없이 불러도 터지지 않는다(첫 렌더 방어)
+  ok(pickHomeEntry().kind === 'daily', '인자 없음도 판정된다');
+}
+
+// ── 1·3·4·5 실마운트 ────────────────────────────────────────────────────────
+{
+  const container = window.document.getElementById('root');
+  const reactRoot = createRoot(container);
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, gcTime: 0, staleTime: 0 } },
+  });
+  reactRoot.render(
+    createElement(QueryClientProvider, { client: qc },
+      createElement(MemoryRouter, { initialEntries: ['/'] }, createElement(App))),
+  );
+
+  await waitFor(() => $('[data-testid="home-entry"]') !== null, 8000, '진입 카드 렌더');
+  // 목의 시드는 첫 유닛만 클리어 → 두 번째 유닛이 current다
+  await waitFor(() => text().includes('기단의 성질'), 8000, '커리큘럼 트리 도착');
+
+  // 1. 진입 카드는 정확히 하나
+  const cards = $$('[data-testid="home-entry"]');
+  ok(cards.length === 1, `진입 카드 1개 — 실제 ${cards.length}`);
+  const card = cards[0];
+  ok(card.getAttribute('data-entry-kind') === 'unit',
+     `진행 중 유닛이므로 kind=unit — 실제 ${card.getAttribute('data-entry-kind')}`);
+  ok(card.getAttribute('href') === '/learn', `카드가 /learn을 가리킨다 — ${card.getAttribute('href')}`);
+  ok(card.textContent.includes('기단의 성질'), '카드가 진행 중 유닛 제목을 말한다');
+
+  // 1-b. 예전 4칸(보드·대결·리그)이 카드로 되돌아오지 않았다 — 링크로만 존재
+  const secondary = $('[data-testid="home-secondary"]');
+  ok(Boolean(secondary), '보조 진입 줄이 있다');
+  const secHrefs = [...(secondary?.querySelectorAll('a') ?? [])].map((a) => a.getAttribute('href'));
+  ok(secHrefs.join(',') === '/board,/duel,/league', `보조 링크 3종 — ${secHrefs.join(',')}`);
+  for (const a of secondary?.querySelectorAll('a') ?? []) {
+    const cls = a.getAttribute('class') ?? '';
+    ok(!/\bbg-(sky|slate|emerald)-\d/.test(cls), `보조 링크는 채움 버튼이 아니다 — "${cls}"`);
+  }
+
+  // 3. 자유 일일 세션 = 보조 링크(채움 버튼 금지) + 지역 픽커 동거
+  const free = $('[data-testid="home-free-daily"]');
+  ok(Boolean(free), '자유 일일 세션 줄이 있다');
+  const freeLink = free?.querySelector('a[href="/daily"]');
+  ok(Boolean(freeLink), '자유 일일 세션이 /daily 링크를 준다');
+  ok(!/\bbg-(slate|sky)-\d/.test(freeLink?.getAttribute('class') ?? ''),
+     `자유 일일 세션이 채움 버튼으로 되돌아가지 않았다 — "${freeLink?.getAttribute('class')}"`);
+  ok((free?.textContent ?? '').includes('서울') || Boolean(free?.querySelector('button')),
+     '지역 픽커가 이 줄에 남아 있다');
+
+  // 4. 내비 탭 구조 불변
+  const tabs = $$('[data-testid="tabbar"] a');
+  // CO-N-1 ②: 「탐구」 추가로 6 → 7. 진입 통합은 본문의 문제였고 탭 구조는 그대로다.
+  ok(tabs.length === 7, `탭 7개 유지 — 실제 ${tabs.length}`);
+
+  // 5. en 로케일 — 카드 문구가 리소스에서 온다
+  useLocaleStore.getState().setLocale('en');
+  await waitFor(() => text().includes('Learning session'), 6000, 'en 렌더');
+  const enCard = $('[data-testid="home-entry"]');
+  ok(enCard?.textContent.includes('Learning session'), 'en: 카드 머리말이 영어');
+  ok(enCard?.textContent.includes('A unit is in progress'), 'en: 카드 본문이 영어');
+  ok(!/진행 중인 유닛|더 해보기/.test(text()), 'en에서 한국어 원문이 남지 않는다');
+  useLocaleStore.getState().setLocale('ko');
+  await waitFor(() => text().includes('진행 중인 유닛'), 6000, 'ko 복귀');
+  ok(true, 'ko 복귀 렌더');
+
+  reactRoot.unmount();
+}
+
+await vite.close();
+await new Promise((r) => httpServer.close(r));
+if (failed) {
+  console.error(`\n실패 ${failed}건`);
+  process.exit(1);
+}
+console.log('\nOK: 홈 진입 통합(카드 1개·우선순위 3분기·보조 강등·탭 불변·ko/en) 스모크 통과');
+process.exit(0);

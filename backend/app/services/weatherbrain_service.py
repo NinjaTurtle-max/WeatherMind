@@ -8,6 +8,7 @@ ai-worker 장애 시에는 저장된 θ(또는 빈 결과)로 폴백하므로 �
 흐름:
   가입      → seed_placement: level_group 사전으로 개념별 초기 θ 배정(행 생성).
   세션 발급 → refresh_abilities: 누적 응답으로 θ 재추정·upsert 후 Router에 공급.
+  숙련 조회 → load_mastery: quiz_logs 시퀀스로 BKT P(숙련) 파생(저장 없음, R13 §5-1).
 """
 
 from __future__ import annotations
@@ -16,11 +17,14 @@ import logging
 import math
 import uuid
 from collections import defaultdict
+from collections.abc import Sequence
+from typing import Any
 
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession as AsyncDBSession
 
+from app.models.content_item import ContentItem
 from app.models.item_param import ItemParam
 from app.models.quiz_log import QuizLog
 from app.models.user import User
@@ -74,8 +78,11 @@ CONCEPT_TAGS: tuple[str, ...] = (
 # 이 규칙(중점)은 R7부터의 기존 경계 −0.5·0.5를 그대로 재생산하므로, expert 추가가
 # 기존 3밴드의 판정을 한 건도 바꾸지 않는다(순수 확장). ai-worker
 # priors.LEVEL_GROUP_BANDS·THETA_BAND_BOUNDS와 값이 같아야 하고 드리프트는
-# test_weatherbrain_contract가 감시한다. 하단 경계 −0.5는 router_chain.
-# THETA_FOCUS_THRESHOLD와도 같은 값이어야 한다(교차 서비스 의미론).
+# test_weatherbrain_contract가 감시한다.
+#
+# ⚠️ R13 CO-U-3: 하단 경계 −0.5가 router_chain.THETA_FOCUS_THRESHOLD와 "같은 값"인
+# 것은 **middle_high 학습자에 한해서만** 옳다. 그 등식을 전 학령에 적용하면 판정이
+# 의도와 반대로 뒤집힌다 — 아래 THETA_FOCUS_DELTA 주석 참조.
 #
 # 주의: placement_service.LEVEL_GROUPS(3종)와 다른 상수다 — 배치고사 진단 도메인은
 # 6문항·서로소 계약 때문에 3밴드로 고정한다(R12의 PLACEMENT_QUIZ_TAGS 분리와 동일 취지).
@@ -196,6 +203,63 @@ def knowledge_level_of_level_group(level_group: str) -> int:
     return (KNOWLEDGE_LEVEL_MIN + KNOWLEDGE_LEVEL_MAX) // 2
 
 
+# ── θ → 지식 수준(N단계) — R13 E-1 ─────────────────────────────────────────
+# `THETA_BAND_BOUNDS`(4밴드)는 **건드리지 않는다**: 그 값을 단정하는 계약 테스트가
+# 여러 파일에 있고, 4밴드는 라벨·라우터·출제 풀이 공유하는 기존 축이다. 대신 같은
+# 축을 더 잘게 나눈 경계를 **파생**한다 — N단계를 4밴드로 접으면 기존 경계가 그대로
+# 나와야 한다(정합 조건, test_weatherbrain_contract가 감시).
+#
+# 파생 규칙: 한 밴드가 k개 단계를 담으면 그 밴드의 **명목 구간**을 k등분한다.
+# 명목 구간은 내부 경계가 THETA_BAND_BOUNDS 그대로이고 바깥 끝(−∞·+∞)만 밴드 폭
+# 만큼 닫은 것이다(밴드 폭 = 경계 간격 = 인접 사전평균 차 1.0). 현재 표에서는
+#   elementary [−1.5, −0.5] ÷2 → −1.0 · middle_high [−0.5, 0.5] ÷2 → 0.0
+#   adult [0.5, 1.5] ÷1 · expert [1.5, 2.5] ÷1 → 내부 분할 없음
+#   ⇒ (−1.0, −0.5, 0.0, 0.5, 1.5)  (경계 5 = 단계 6 − 1)
+# 2단계 밴드의 분할점이 그 밴드의 θ 사전평균과 같아지는 것은 우연이 아니다 —
+# 명목 구간이 사전평균 중심 ±반칸이기 때문이다(LEVEL_GROUP_ITEM_B와 정합).
+#
+# 단계 수 N을 여기 박지 않는다 — 전부 KNOWLEDGE_LEVEL_BANDS 길이에서 나온다
+# (이 파일 상단의 "N은 오직 튜플 길이에서 나온다" 원칙).
+def _derive_knowledge_level_bounds() -> tuple[float, ...]:
+    """KNOWLEDGE_LEVEL_BANDS × THETA_BAND_BOUNDS → 단계 경계 (모듈 로드 시 1회)."""
+    span = (
+        THETA_BAND_BOUNDS[1] - THETA_BAND_BOUNDS[0]
+        if len(THETA_BAND_BOUNDS) >= 2
+        else 1.0
+    )
+    bounds: list[float] = []
+    for index, band in enumerate(LEVEL_GROUP_BANDS):
+        lo = THETA_BAND_BOUNDS[index - 1] if index > 0 else THETA_BAND_BOUNDS[0] - span
+        hi = (
+            THETA_BAND_BOUNDS[index]
+            if index < len(THETA_BAND_BOUNDS)
+            else THETA_BAND_BOUNDS[-1] + span
+        )
+        steps = KNOWLEDGE_LEVEL_BANDS.count(band)
+        bounds.extend(lo + (hi - lo) * step / steps for step in range(1, steps))
+        if index < len(LEVEL_GROUP_BANDS) - 1:
+            bounds.append(hi)
+    return tuple(bounds)
+
+
+THETA_KNOWLEDGE_LEVEL_BOUNDS: tuple[float, ...] = _derive_knowledge_level_bounds()
+
+
+def theta_to_knowledge_level(theta: float) -> int:
+    """추정 θ → 지식 수준(KNOWLEDGE_LEVEL_MIN..MAX) — 출제 난이도의 N단계 해상도.
+
+    theta_to_level_group과 **같은 축의 더 잘게 나눈 뷰**다. 모든 θ에서
+    `level_group_of_knowledge_level(theta_to_knowledge_level(θ))
+     == theta_to_level_group(θ)`가 성립한다(계약 테스트가 감시) — 즉 이 함수를
+    쓰는 소비자와 기존 4밴드 소비자가 서로 다른 난이도를 보지 않는다.
+    경계는 하위 단계 제외·상위 단계 포함(< 비교 — _theta_bucket과 같은 관례).
+    """
+    for index, bound in enumerate(THETA_KNOWLEDGE_LEVEL_BOUNDS):
+        if theta < bound:
+            return KNOWLEDGE_LEVEL_MIN + index
+    return KNOWLEDGE_LEVEL_MAX
+
+
 def effective_knowledge_level(item) -> int:
     """문항의 지식 수준 — NULL(미분류)이면 level_group에서 파생 (0012 폴백 계약).
 
@@ -238,6 +302,20 @@ def effective_tone(user) -> str:
 # 약점 판정 기대확률 계약 (R8-01 §3.5) — "학령 표준 문항(사전 b)을 맞힐 기대확률
 # P = σ(θ − b)가 이 값 미만"이면 약점. 구 weak_tags의 정답률 60% 임계와 수치는
 # 같지만 등가가 아니다 — P는 학령 사전 b에 상대적이므로 임계 θ가 학령별로 다르다.
+#
+# ⚠️ R13 CO-U-2까지 이 문장은 **함수 경계에서만 참**이었다: 조립기가 미보정 문항의 b를
+# 유저 사전 b로 채우는 바람에 θ̂ = 사전평균 + f(k,n)이 되어 임계의 사전 b가 양변에서
+# 소거됐고, 세 학령 판정이 완전히 동일(= 정답률 60% 등가)했다. CO-U-1이 문항 b를
+# 넣도록 고쳐 문장이 사실이 됐다 — 합성 수준의 증명은
+# test_weatherbrain_theta_pipeline.TestWeakVerdictIsLevelRelativeEndToEnd가 갖는다.
+#
+# ⚠️ 그 문장은 **교차밴드 응답에서만** 참이다(2026-08-08 웨이브 2 재측). 출제가 학령
+# 정합이면(오늘의 기본 경로 — 풀 필터가 level_group이고 정렬이 |b−θ|, 게다가
+# item_params가 비어 있어 밴드 내 b가 상수다) 문항 b가 다시 유저 사전 b와 같아져
+# m이 양변에서 소거되고, 판정은 여전히 "정답률 60%"와 등가다. 실측 — 학령 표준문항
+# 응답의 상대 θ가 네 밴드에서 소수 셋째 자리까지 같다:
+#   k/n = 1/1 → +0.336~+0.414 · 0/1 → −0.407~−0.423 · 1/2 → −0.018~+0.001
+# 완전히 풀리려면 b 보정 가동(8/18, CO-U-13)이나 교차밴드 출제가 필요하다.
 WEAK_EXPECTED_P: float = 0.6
 
 
@@ -266,6 +344,89 @@ def weak_concepts(abilities: list, level_group: str) -> list[str]:
         for ab in abilities
         if int(ab["n"]) > 0 and float(ab["theta"]) < threshold
     ]
+
+
+# ── θ 임계의 기준점 — 절대가 아니라 **학령 상대** (R13 CO-U-3) ────────────────
+# θ는 절대 스케일이지만 응답이 적을 때는 사전분포로 수축한다. 그리고 그 사전평균은
+# 가입 시 **신고한** level_group에서 온다 — 측정값이 아니라 신고값이다. 그래서 θ에
+# 절대 임계를 걸면 "무엇을 맞혔나"가 아니라 "가입할 때 무엇이라고 적었나"를 재게 된다.
+#
+# 실측(2026-08-08 재현, CO-U-1 수리 **후**에도 동일 — 출제가 학령 정합이라 문항 b가
+# 다시 유저 사전 b와 같아지기 때문이다. 즉 U-1은 U-3을 닫지 않았다):
+#
+#   학령 표준문항 1문항, 절대 임계 기준
+#     elementary  정답 → θ −0.5865  → focused(−0.5 미만) …맞혀도 항상 보강 대상
+#     adult       오답 → θ +0.5865  → 선해금(0.5 이상)   …틀려도 유닛이 열린다
+#     middle_high 정답 → θ +0.4131  → 선해금 안 됨       …맞혀도 영원히 0
+#
+# 고침: 임계를 **자기 밴드의 경계**로 둔다. 밴드 폭이 1.0(인접 사전평균 간격)이므로
+# 자기 밴드 경계 = 사전평균 ± 0.5이고, 아래 두 델타는 그 반폭을 경계 튜플에서 파생한
+# 것이다(새 매직넘버 0개). 의미론이 한 문장으로 말해진다 —
+#   **focused = 자기 밴드 아래로 벗어났다 · 선해금 = 자기 밴드 위로 벗어났다.**
+#
+# 성질 셋(전부 test_weatherbrain_relative_thresholds가 고정한다):
+#  ① middle_high에서는 값이 현행 절대 임계와 **정확히 같다**(−0.5·+0.5) — 순수 확장.
+#  ② 판정이 학령에 균일하다: 학령 표준문항 전건정답 n=2부터 선해금(rel +0.599~+0.704),
+#     n=1은 어느 학령도 아니다(+0.336~+0.414). 전건오답 n=2부터 focused(−0.695~−0.706),
+#     n=1은 아니다(−0.407~−0.423). 최악 마진 0.077로 격자 해상도(0.1)와 같은 자릿수다.
+#  ③ 사다리가 단조다: focus(−0.5) < weak(logit 0.6 ≈ +0.406) < unlock(+0.5).
+#     "약점이 아니다"보다 "선해금"이 항상 엄격하다 — 두 판정이 모순될 수 없다.
+#
+# 왜 선해금 델타를 weak과 같은 logit(0.6)으로 두지 않았나: 학령 표준문항 1정답의
+# 상대 θ가 +0.336~+0.414로 logit(0.6)=+0.4055에 **걸쳐 있다**(adult 마진 +0.0013,
+# expert는 **−0.069로 음수**). 즉 그 값은 칼날이고 expert에서 이미 깨진다.
+THETA_BAND_HALF_WIDTH: float = (
+    (THETA_BAND_BOUNDS[1] - THETA_BAND_BOUNDS[0]) / 2.0
+    if len(THETA_BAND_BOUNDS) >= 2
+    else 0.5
+)
+# Router "focused"(보강 집중) — 자기 밴드 하단 경계 미만.
+THETA_FOCUS_DELTA: float = -THETA_BAND_HALF_WIDTH
+# 커리큘럼 배치 선해제(§3.4) — 자기 밴드 상단 경계 이상.
+THETA_UNLOCK_DELTA: float = THETA_BAND_HALF_WIDTH
+
+
+def band_prior_theta(level_group: str) -> float:
+    """학령 밴드의 θ 사전평균 — 상대 임계의 기준점.
+
+    ai-worker priors.LEVEL_GROUP_PRIORS[lg][0]과 같은 값이다(로짓 정합 설계상
+    문항 사전 b와도 같다 — 밴드 내 기대 정답확률 0.5). backend는 ai-worker를
+    임포트하지 않으므로 LEVEL_GROUP_ITEM_B를 그 단일 공급원으로 재사용한다.
+    """
+    return LEVEL_GROUP_ITEM_B.get(level_group, DEFAULT_ITEM_B)
+
+
+def focus_theta_threshold(level_group: str) -> float:
+    """Router "focused" 임계 — 학령 상대. θ가 이 값 **미만**이면 보강 집중.
+
+    ai-worker router_chain.focus_theta_threshold와 같은 값이어야 하고 드리프트는
+    test_weatherbrain_relative_thresholds가 감시한다(교차 서비스 상수 이원화 관례).
+
+    **배선 완료** (R13 잔여 웨이브 CO-V-1). 호출측 3홉이 학령을 넘긴다 —
+    `session_service` → `ai_client.router_decide(..., level_group=)` →
+    `ai-worker/main.py RouterDecideRequest.level_group` → `router_chain.route()`.
+    전부 기본값 None이라 값을 안 넘기면 종전 절대 임계로 되돌아간다(하위 호환).
+
+    배선되면 test_weatherbrain_relative_thresholds.TestRouterChainParity의
+    test_route가_학령을_받으면_판정이_뒤집힌다가 실경로에서도 참이 된다.
+    """
+    return band_prior_theta(level_group) + THETA_FOCUS_DELTA
+
+
+def unlock_theta_threshold(level_group: str) -> float:
+    """배치 선해제 임계 — 학령 상대. θ가 이 값 **이상**이고 n>0이면 선해제 후보.
+
+    **배선 완료** (R13 잔여 웨이브 CO-V-2). `curriculum_service.placement_unlock_floor`가
+    `_THETA_INTERMEDIATE_MAX`(절대 0.5)가 아니라 이 함수를 본다. 배선 전에는
+    **성인은 틀려도 선해제되고 중고생·초등은 맞혀도 영영 안 됐다** — 절대 임계가
+    학령별 사전평균과 어긋나서다. 지금은 학령 표준문항 2연속 정답이면 세 학령 모두
+    선해제되고, 1문항으로는 아무도 안 된다.
+
+    배선 후 기대 동작(test_weatherbrain_relative_thresholds가 이미 고정한 값):
+    학령 표준문항 **2연속 정답**이면 세 학령 모두 선해제, **1문항**으로는 어느
+    학령도 선해제되지 않는다. 게스트(영구 middle_high)도 이때 처음으로 열린다.
+    """
+    return band_prior_theta(level_group) + THETA_UNLOCK_DELTA
 
 
 def theta_to_level_group(theta: float) -> str:
@@ -319,13 +480,75 @@ async def _load_calibrated_b(
     return {cid: b for cid, b in rows}
 
 
+async def _load_item_level_groups(
+    db: AsyncDBSession, content_item_ids: set[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """문항의 **실효** 학령 밴드 조회 — 사전 b 폴백의 근거 (R13 CO-U-1).
+
+    저장된 level_group이 아니라 effective_level_group(2축 파생 뷰)을 돌려준다:
+    knowledge_level이 채워진 문항은 새 축에서 파생하고, 미분류(NULL)면 저장값
+    그대로다. 시드 272건은 두 축이 정합하므로(2026-08-09 전건 재확인 — `level_group`
+    과 `KNOWLEDGE_LEVEL_BANDS[knowledge_level-1]`이 어긋나는 문항 0건) 오늘의 값은
+    한 건도 달라지지 않는다. 종전 표기 "237건"은 저작 배치 전 총량이었다.
+    """
+    if not content_item_ids:
+        return {}
+    rows = (
+        await db.execute(
+            select(
+                ContentItem.id, ContentItem.level_group, ContentItem.knowledge_level
+            ).where(ContentItem.id.in_(content_item_ids))
+        )
+    ).all()
+    return {row.id: effective_level_group(row) for row in rows}
+
+
+def assemble_responses(
+    logs: Sequence[Any],
+    calibrated_b: dict[Any, float],
+    item_level_groups: dict[Any, str],
+    default_level_group: str,
+) -> dict[str, list[dict[str, Any]]]:
+    """채점된 quiz_logs → 개념별 IRT 응답 조립 (순수 함수, R13 CO-U-1).
+
+    **placement_service.assemble_placement_responses와 같은 규칙이어야 한다** —
+    두 경로가 같은 응답 집합에 다른 b를 쓰면 배치가 만든 θ를 첫 세션 발급이
+    덮어쓴다(CO-U-4의 실증: 배치 −0.718 → refresh −1.000). 동일성은
+    test_weatherbrain_theta_pipeline.py::TestAssembleParityWithPlacement가 감시한다.
+
+    난이도 b 규칙: 보정값(item_params)이 있으면 그 값, 없으면 **그 문항**
+    level_group의 사전 b. 문항을 모를 때(content_item_id NULL — 생성 문항 등)만
+    신고 그룹으로 폴백한다. 변별도 a는 1.0 고정(2PL 콜드스타트 관례).
+
+    이전 구현은 미보정 문항에 b=None을 보내 ai-worker가 **유저의** 사전 b로
+    채우게 했다. 그러면 θ 추정에 문항 난이도가 한 번도 들어가지 않고
+    (θ̂ = 사전평균 + f(정답수, 응답수)), 약점 임계의 학령 상대성이 항등적으로
+    상쇄된다(CO-U-2). b를 여기서 확정해 보내므로 그 두 결함이 함께 닫힌다.
+
+    반환: {concept_tag: [{"b": float, "a": 1.0, "correct": bool}]}.
+    """
+    by_concept: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for log in logs:
+        is_correct = getattr(log, "is_correct", None)
+        if is_correct is None:
+            continue  # 미채점 로그는 표본이 아님
+        item_id = getattr(log, "content_item_id", None)
+        b = calibrated_b.get(item_id) if item_id is not None else None
+        if b is None:
+            group = item_level_groups.get(item_id, default_level_group)
+            b = LEVEL_GROUP_ITEM_B.get(group, DEFAULT_ITEM_B)
+        by_concept[getattr(log, "concept_tag", None)].append(
+            {"b": float(b), "a": 1.0, "correct": bool(is_correct)}
+        )
+    return dict(by_concept)
+
+
 async def _assemble_responses(
     db: AsyncDBSession, user: User
 ) -> dict[str, list[dict]]:
-    """채점된 quiz_logs를 개념별 IRT 응답으로 조립한다.
+    """채점된 quiz_logs를 개념별 IRT 응답으로 조립한다(DB 결합부).
 
-    각 응답의 난이도 b는 보정값(item_params)이 있으면 그 값, 없으면 None을 보낸다
-    (ai-worker가 level_group 사전 난이도로 대체 — 사전값 단일 소유 유지).
+    b 규칙은 assemble_responses(순수) 독스트링 참조 — placement 경로와 동일하다.
     """
     rows = (
         await db.execute(
@@ -339,14 +562,8 @@ async def _assemble_responses(
 
     item_ids = {cid for _, cid, _ in rows if cid is not None}
     calibrated = await _load_calibrated_b(db, item_ids)
-
-    by_concept: dict[str, list[dict]] = defaultdict(list)
-    for concept_tag, content_item_id, is_correct in rows:
-        b = calibrated.get(content_item_id) if content_item_id is not None else None
-        by_concept[concept_tag].append(
-            {"b": b, "a": 1.0, "correct": bool(is_correct)}
-        )
-    return dict(by_concept)
+    item_level_groups = await _load_item_level_groups(db, item_ids)
+    return assemble_responses(rows, calibrated, item_level_groups, user.level_group)
 
 
 async def _upsert_abilities(
@@ -414,6 +631,86 @@ async def refresh_abilities(db: AsyncDBSession, user: User) -> list[dict]:
     abilities = result.get("abilities", [])
     await _upsert_abilities(db, user, abilities)
     return abilities
+
+
+# ── BKT 숙련도 (R13-01 §5-1) — θ와 다른 축 ──────────────────────────────────
+# θ는 "지금 이 개념의 실력"(로짓, 응답을 순서 없는 집합으로 봄)이고, 숙련도는
+# "이 개념을 익혔을 확률"(0..1, 응답을 **시간 순서**로 봄)이다. 두 축은 서로를
+# 읽지 않는다 — θ 경로(user_concept_ability)는 여기서 한 번도 건드리지 않고,
+# 숙련도는 quiz_logs만 읽는 **파생 뷰**라 저장 테이블이 없다.
+#
+# **갱신 시점**: 답안 제출마다 계산하지 않는다. quiz_logs가 SSOT이므로 조회
+# 시점에 조립해 ai-worker에 1콜 한다 — review-queue가 quiz_logs read-model인
+# 것과 같은 관례이고, 답안 경로에 왕복을 추가하지 않는다(§5 불변 원칙).
+# 순수 계산 엔드포인트라 LLM 과금이 없다.
+
+# 표시용 숙련 밴드 경계 — theta_level_label과 같은 "서버가 라벨을 준다" 관례.
+# 값은 확률이므로 학령에 상대적이지 않다(θ 임계와 달리 절대 기준).
+MASTERY_MASTERED_MIN: float = 0.8
+MASTERY_LEARNING_MIN: float = 0.5
+
+
+def mastery_label(p_mastery: float, cold_start: bool) -> str:
+    """숙련 확률 → 표시 라벨. 콜드스타트는 값보다 "데이터 부족"이 먼저다."""
+    if cold_start:
+        return "insufficient"
+    if p_mastery >= MASTERY_MASTERED_MIN:
+        return "mastered"
+    if p_mastery >= MASTERY_LEARNING_MIN:
+        return "learning"
+    return "beginning"
+
+
+async def _assemble_mastery_sequences(
+    db: AsyncDBSession, user: User
+) -> dict[str, list[bool]]:
+    """채점된 quiz_logs를 개념별 **시간 오름차순** 정오답 시퀀스로 조립한다.
+
+    is_correct(최초 응답)만 읽는다 — 만회 결과(retry_correct)는 넣지 않는다.
+    BKT의 관측은 "그 시점에 스스로 맞혔는가"이고, 오답 직후의 재시도를 정답으로
+    세면 숙련 전이가 위로 편향된다(is_correct를 θ 근거로 불변 보존하는 R13 §2.1의
+    같은 이유).
+    """
+    rows = (
+        await db.execute(
+            select(QuizLog.concept_tag, QuizLog.is_correct)
+            .where(QuizLog.user_id == user.id, QuizLog.is_correct.is_not(None))
+            .order_by(QuizLog.answered_at.asc())
+        )
+    ).all()
+    by_concept: dict[str, list[bool]] = defaultdict(list)
+    for concept_tag, is_correct in rows:
+        by_concept[concept_tag].append(bool(is_correct))
+    return dict(by_concept)
+
+
+async def load_mastery(db: AsyncDBSession, user: User) -> list[dict]:
+    """개념별 BKT 숙련 확률 (숙련 낮은 순). 응답 없는 개념은 행이 없다.
+
+    **콜드스타트 계약**: 관측 0건 개념은 목록에 넣지 않는다(추적할 이력이
+    없으므로 사전값을 측정처럼 보여주지 않는다 — θ가 가입 시 사전 배정으로
+    전 개념 행을 갖는 것과 의도적으로 다르다). 1~2건 개념은 행은 있되
+    cold_start=true로 "데이터 부족"을 표시한다(경계는 ai-worker 소유).
+
+    ai-worker 실패 시 빈 목록 — 숙련 패널만 비고 나머지 화면은 그대로 산다
+    (refresh_abilities가 저장 θ로 폴백하는 것과 같은 복원력 원칙).
+    """
+    by_concept = await _assemble_mastery_sequences(db, user)
+    if not by_concept:
+        return []
+
+    concepts_payload = [
+        {"concept_tag": tag, "corrects": corrects}
+        for tag, corrects in sorted(by_concept.items())
+    ]
+    try:
+        result = await ai_client.weatherbrain_mastery(concepts=concepts_payload)
+    except AIWorkerError:
+        logger.warning("weatherbrain mastery 실패 — 빈 목록 폴백 (user=%s)", user.id)
+        return []
+
+    masteries = result.get("masteries", [])
+    return sorted(masteries, key=lambda m: float(m["p_mastery"]))
 
 
 async def seed_placement(db: AsyncDBSession, user: User) -> list[dict]:

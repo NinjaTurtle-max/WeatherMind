@@ -12,6 +12,11 @@ DEVELOPMENT_PLAN.md 2.1 backend → ai-worker 내부 API 계약:
 스프린트 R5-01 §3.6 커리큘럼 무결성 게이트:
   POST /internal/curriculum-validate  {units, content_items} → {passed, checks}
 
+스프린트 R13-01 §5-1 BKT 지식 추적(θ와 별개 축):
+  POST /internal/weatherbrain/mastery {concepts:[{concept_tag, corrects}], params}
+    → {masteries:[{concept_tag, p_mastery, p_next_correct, n, cold_start,
+       params_source}], min_responses}
+
 모든 /internal/* 엔드포인트는 X-Internal-API-Key 헤더를
 AI_WORKER_INTERNAL_API_KEY와 비교해 검증한다 (불일치 시 401).
 """
@@ -28,6 +33,11 @@ from pydantic import BaseModel, Field
 from app.chains import quiz_gen_chain, rag_chain, router_chain, validate_chain
 from app.config import settings
 from app.weatherbrain.irt import calibrate_items, estimate_ability
+from app.weatherbrain.knowledge_tracing import (
+    MASTERY_MIN_RESPONSES,
+    BKTParams,
+    mastery_snapshot,
+)
 from app.weatherbrain.placement import initial_abilities
 from app.weatherbrain.priors import level_group_prior, prior_item_b
 
@@ -73,6 +83,9 @@ class RouterDecideRequest(BaseModel):
     recent_results: list[bool] = Field(default_factory=list)
     # R6 WeatherBrain: 있으면 θ가 1순위 분기 신호, weak_tags는 폴백.
     abilities: list[Ability] = Field(default_factory=list)
+    # R13 CO-U-3-A: θ "focused" 임계의 기준점(학령 상대). 미전달(None)이면
+    # router_chain이 종전 절대 임계(= middle_high 값)로 폴백한다.
+    level_group: Optional[str] = None
 
 
 class RouterDecideResponse(BaseModel):
@@ -179,6 +192,45 @@ class CalibrateResponse(BaseModel):
     n_responses: int
 
 
+# ── BKT 지식 추적 (R13-01 §5-1) ────────────────────────────────────────────
+class BKTParamsIn(BaseModel):
+    """개념별 BKT 파라미터 주입 — 실운영 로그 재적합(fit_bkt) 결과의 투입구."""
+
+    p_init: float
+    p_learn: float
+    p_guess: float
+    p_slip: float
+
+
+class MasteryConcept(BaseModel):
+    """한 개념의 정오답 시퀀스 — **시간 오름차순**(순서가 곧 모델 입력이다)."""
+
+    concept_tag: str
+    corrects: list[bool] = Field(default_factory=list)
+
+
+class MasteryRequest(BaseModel):
+    """개념별 P(숙련) 스냅샷 요청 — 순수 계산(LLM·네트워크·DB 없음)."""
+
+    concepts: list[MasteryConcept] = Field(default_factory=list)
+    # 개념별 파라미터 덮어쓰기. 비어 있으면 SERVING_PRIOR(사전값).
+    params: dict[str, BKTParamsIn] = Field(default_factory=dict)
+
+
+class Mastery(BaseModel):
+    concept_tag: str
+    p_mastery: float
+    p_next_correct: float
+    n: int
+    cold_start: bool
+    params_source: str  # "prior" | "fitted"
+
+
+class MasteryResponse(BaseModel):
+    masteries: list[Mastery]
+    min_responses: int
+
+
 # ── 엔드포인트 ─────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
@@ -195,6 +247,7 @@ def router_decide(body: RouterDecideRequest) -> RouterDecideResponse:
         weak_tags=[t.model_dump() for t in body.weak_tags],
         recent_results=body.recent_results,
         abilities=[a.model_dump() for a in body.abilities],
+        level_group=body.level_group,
     )
     return RouterDecideResponse(**result)
 
@@ -262,7 +315,16 @@ def curriculum_validate(body: CurriculumValidateRequest) -> ValidateResponse:
     dependencies=[Depends(verify_internal_api_key)],
 )
 def weatherbrain_estimate(body: EstimateRequest) -> EstimateResponse:
-    """개념별 θ를 EAP로 추정한다. level_group이 사전분포를 정한다."""
+    """개념별 θ를 EAP로 추정한다. level_group이 사전분포를 정한다.
+
+    `r.b`(문항 난이도)가 None일 때의 `prior_b` 대체는 **방어적 기본값**이다 —
+    backend(weatherbrain_service.assemble_responses)는 R13 CO-U-1 이후 항상
+    **문항의** 사전 b를 채워 보낸다. 여기서 채우는 값은 **유저의** level_group
+    사전 b라서, 실제로 이 분기를 타면 θ 추정에 문항 난이도가 들어가지 않고
+    θ̂ = 사전평균 + f(정답수, 응답수)로 축소된다(약점 판정의 학령 상대성이
+    항등 상쇄되는 CO-U-2의 원인이었다). 스키마 호환을 위해 남겨둘 뿐
+    정상 경로에서는 도달하지 않는다.
+    """
     mean, sd = level_group_prior(body.level_group)
     prior_b = prior_item_b(body.level_group)
     out: list[Ability] = []
@@ -322,3 +384,36 @@ def weatherbrain_calibrate(body: CalibrateRequest) -> CalibrateResponse:
         n_items=len(item_b),
         n_responses=len(responses),
     )
+
+
+@app.post(
+    "/internal/weatherbrain/mastery",
+    response_model=MasteryResponse,
+    dependencies=[Depends(verify_internal_api_key)],
+)
+def weatherbrain_mastery(body: MasteryRequest) -> MasteryResponse:
+    """개념별 P(숙련)을 BKT로 필터링한다 — θ와 **다른 축**(R13-01 §5-1).
+
+    θ(estimate)는 응답을 순서 없는 집합으로 보고 "지금 실력"을 재는데, BKT는
+    같은 응답을 **시간 순서**로 보고 "이 개념을 익혔을 확률"의 전이를 추적한다.
+    두 엔드포인트는 서로를 읽지 않으므로 한쪽 변경이 다른 쪽을 흔들지 않는다.
+
+    LLM도 DB도 쓰지 않는 순수 계산이라 estimate와 같은 무상태 계약이다 —
+    backend가 quiz_logs에서 시퀀스를 조립해 보내고 결과만 받는다.
+    """
+    out: list[Mastery] = []
+    for concept in body.concepts:
+        override = body.params.get(concept.concept_tag)
+        params = BKTParams(**override.model_dump()) if override else None
+        snap = mastery_snapshot(concept.corrects, params)
+        out.append(
+            Mastery(
+                concept_tag=concept.concept_tag,
+                p_mastery=snap["p_mastery"],
+                p_next_correct=snap["p_next_correct"],
+                n=snap["n"],
+                cold_start=snap["cold_start"],
+                params_source="fitted" if override else "prior",
+            )
+        )
+    return MasteryResponse(masteries=out, min_responses=MASTERY_MIN_RESPONSES)

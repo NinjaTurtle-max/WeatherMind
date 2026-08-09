@@ -14,17 +14,25 @@ docker compose up -d --build
 
 # 2. DB 마이그레이션 (0001 초기 → 0008 일일 목표까지 순차 head)
 docker compose exec backend alembic upgrade head
-#    체인: 0001_initial → 0002_session_bank → 0003_question_type_7
-#          → 0004_rewards_loop → 0005_curriculum_energy
-#          → 0006_weatherbrain → 0007_placement → 0008_daily_goal
-#    확인: alembic current → 0008_daily_goal (head)
+#    체인: 마이그레이션 **13개**. 개별 이름을 여기 나열하면 드리프트한다 —
+#          (실제로 드리프트했다: 이 줄이 0008까지만 적어 5개가 빠져 있었다)
+#    확인: alembic current 가 alembic heads 와 같은지 본다.
 
-# 3. Chroma 기후 개념 시드 (멱등)
-docker compose exec ai-worker python -m app.embeddings.seed_concepts
+# (3. 벡터 시드 적재 단계는 R13 3일차에 사라졌다 — 개념 문서는
+#  ./database/seed 마운트로 ai-worker가 직접 읽는다. docs/specs/03 §3.1)
 
-# 4. 시드 적재 — 모두 멱등 upsert(재실행 안전). 권장 순서: content → units → badges.
-#    (units↔content는 concept_tag로 연결되는 논리 관계이며 FK가 아니라 순서를
-#     바꿔도 크래시는 없다. badges는 독립. 다만 units 무결성 확인이 쉬우려면 content 먼저.)
+# 3.5 RLS 예외 정책 — **신규 볼륨에도 필수** (CO-Q-12)
+#     init.sql은 롤·GRANT만 만든다(그 시점엔 테이블이 없어 정책을 못 만든다).
+#     건너뛰면 users에 user_isolation만 걸려 **로그인·게스트 시작이 전면 0행**이다.
+docker compose exec -T postgres psql -U weathermind -d weathermind \
+  < backend/app/scripts/rls_app_role.sql
+
+# 4. 시드 적재 — 모두 멱등 upsert(재실행 안전).
+#    ⚠️ **courses가 units보다 먼저다 — 순서가 계약이다**(CO-J-7).
+#    seed_units가 course 슬러그를 못 찾으면 course_id를 NULL로 두고 넘어가서,
+#    전 유닛이 단일 코스로 뭉치고 GET /courses가 비어 학습 화면이 백지가 된다.
+#    scripts/smoke.sh가 이 순서를 계약으로 검사한다.
+docker compose exec backend python -m app.scripts.seed_courses   # ← 빠뜨리기 쉽다
 docker compose exec backend python -m app.scripts.seed_content   # 문항 뱅크(세션 배합 1차 소스)
 docker compose exec backend python -m app.scripts.seed_units     # 커리큘럼 유닛 트리(slug upsert, prereq 2-pass)
 docker compose exec backend python -m app.scripts.seed_badges    # 뱃지 정의

@@ -24,8 +24,8 @@ docker compose ps
 curl -s http://localhost:8000/health
 curl -s http://localhost:8001/health
 ```
-- [ ] 기대: 8개 서비스(frontend·backend·ai-worker·celery-worker·celery-beat·postgres·redis·chroma) Up, 두 /health 모두 200.
-- 포트: frontend :80 / backend :8000 / ai-worker :8001 / chroma :8002.
+- [ ] 기대: 7개 서비스(frontend·backend·ai-worker·celery-worker·celery-beat·postgres·redis) Up, 두 /health 모두 200. (chroma는 R13 3일차에 철거)
+- 포트: frontend :80 / backend :8000 / ai-worker :8001.
 
 ## 1. 마이그레이션 0002 적용
 

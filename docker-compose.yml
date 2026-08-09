@@ -40,10 +40,12 @@ services:
     ports:
       - "8001:8001"
     env_file: .env
+    # 이 마운트는 선택이 아니다 — 피드백 체인의 개념 문서(climate_concepts.json)와
+    # 결정적 어휘 게이트(level_vocabulary.json)가 여기서 읽힌다. 경로 관례는
+    # ai-worker/app/chains/seed_paths.py 단일 소유.
     volumes:
       - ./database/seed:/app/database/seed:ro
     depends_on:
-      - chroma
       - redis
 
   celery-worker:
@@ -99,16 +101,7 @@ services:
     volumes:
       - redisdata:/data
 
-  chroma:
-    image: chromadb/chroma:latest
-    env_file: .env
-    ports:
-      - "8002:8000"
-    volumes:
-      - chromadata:/chroma/chroma
-
 volumes:
   pgdata:
   redisdata:
-  chromadata:
   db_backups:

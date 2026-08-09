@@ -229,7 +229,7 @@
 
 ## 11. 커리큘럼 저작 (`units.json`) — SPRINT_R5_01.md §3.2
 
-듀오링고식 단계별 학습의 유닛 트리. 유닛은 **문항을 담지 않고** `kind`+`concept_tag`로 기존 `content_items` 문항 풀을 가리킨다(content_items에 unit_id를 넣지 않음 → R2~R4 시드 하위 호환). 진도는 왕관(crowns), 잠금은 선행 유닛으로 표현한다.
+단계형 유닛 학습의 유닛 트리. 유닛은 **문항을 담지 않고** `kind`+`concept_tag`로 기존 `content_items` 문항 풀을 가리킨다(content_items에 unit_id를 넣지 않음 → R2~R4 시드 하위 호환). 진도는 왕관(crowns), 잠금은 선행 유닛으로 표현한다.
 
 ### 11.1 스키마 (필드 추가·개명 금지)
 

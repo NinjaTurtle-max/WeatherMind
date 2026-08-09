@@ -14,7 +14,7 @@ import { conceptLabel, useT } from '../../i18n';
 
 /**
  * CurriculumHome (R5-01 §3.2·S4) — 학습 홈(기본 진입 /).
- * GET /curriculum 트리를 듀오링고식 유닛 경로(길)로 렌더한다:
+ * GET /curriculum 트리를 단계형 유닛 경로(길)로 렌더한다:
  *   섹션별로 유닛 노드를 세로 지그재그 경로에 배치하고, 완료(👑)·현재·잠금(🔒)을 표시.
  * 유닛 탭 → /learn/units/{id}에서 POST 세션 발급 후 플레이한다.
  * 완료 시 다음 유닛이 즉시 열리도록(체류 유도) 유닛 세션 완료 후 ['curriculum']를 무효화한다.
@@ -127,12 +127,19 @@ export default function CurriculumHome() {
   }
 
   const sections = data?.sections ?? [];
-  // 비기본 코스인데 유닛이 아직 없다 = 트리 설계만 착지한 상태(basic-science 초기).
-  // 기본 코스의 빈 트리는 현행 렌더(빈 경로) 그대로 둔다 — 무회귀.
-  const emptyCourseTree = treeCourse != null && sections.length === 0;
+  // 유닛이 하나도 없다 = 트리 설계만 착지했거나(basic-science 초기) **시드가 실패한**
+  // 상태다. CO-S-8: 이 안내가 `treeCourse != null`(비기본 코스)에만 걸려 있어서
+  // 기본 코스(weather)에서는 영원히 false였다 — 유닛 0건이면 제목·부제와 자유세션
+  // 카드만 남아 **백지로 보이고, 시드 실패인지 정상인지 구분이 안 됐다.**
+  // CO-J-7(`seed_courses` 누락)·J-15(빈 볼륨)가 나면 플래그십 화면이 그 꼴이 된다.
+  // 코스 종류와 무관하게 "유닛이 0건이면 알린다"가 맞다(섹션 예고는 여전히
+  // basic-science에만 있다 — COURSE_SECTION_PREVIEW).
   // PC 경로 뷰가 실제로 그려지는가 — PcCurriculumPath의 렌더 조건과 같은 식이다
   // (유닛이 하나도 없으면 null). 우측 레일이 그 안에 있어 여기 분기가 필요하다.
   const hasPath = sections.some((s) => s.units.length > 0);
+  // 섹션이 있어도 그 안에 유닛이 0건이면 화면은 똑같이 비어 있다 — 경로가 안
+  // 그려지는 조건(hasPath)과 안내가 뜨는 조건을 **같은 식**으로 묶는다.
+  const emptyCourseTree = !hasPath;
   const sectionPreview = COURSE_SECTION_PREVIEW[selectedCourse] ?? null;
 
   return (

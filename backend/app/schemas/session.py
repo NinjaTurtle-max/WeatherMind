@@ -60,7 +60,21 @@ class SessionItem(QuizQuestion):
     # multiple_choice·short_answer·cloze는 추가 페이로드가 필요 없어 None이며,
     # 저작된 키가 하나도 없는 경우에도 None이다(빈 값 주입 금지).
     # 비밀 정답(correct_answer)·해설(explanation_hint)은 어떤 유형에서도 제외한다.
+    # (해설은 **채점 이후** AnswerResult.feedback으로만 나간다 — CO-I-1)
     template_json: dict[str, Any] | None = None
+    # ── 재진입 복원 (CO-A5, additive) ──────────────────────────────────────
+    # 문항별 채점 결과. `GET /session/today`는 하루 동안 멱등이라 중간 이탈 후 다시
+    # 들어오는 것이 정상 경로인데, 그때 **어떤 문항을 틀렸는지 서버가 말해 주지
+    # 않아** 프론트가 만회 큐를 복원하지 못했다(만회 라운드는 R13-01 §2.1의 핵심
+    # 장치인데 새로고침 한 번에 사라졌다). 정답 자체는 여전히 안 나간다 — 나가는
+    # 것은 "맞았나/틀렸나"뿐이라 정답 유출 경로가 아니다.
+    #   is_correct    : 최초 채점 결과. **None = 아직 안 푼 문항**.
+    #   retry_correct : 만회 라운드 결과. None = 만회 시도 없음.
+    # 만회 대상 = `is_correct is False and retry_correct is not True`
+    # (서버 판정 `answer_service.is_retry_eligible`과 **같은 식**이다 — 프론트가
+    # 다른 규칙으로 큐를 만들면 제출이 409로 튕긴다).
+    is_correct: bool | None = None
+    retry_correct: bool | None = None
 
 
 class SessionProgress(BaseModel):

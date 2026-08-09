@@ -171,7 +171,27 @@ def order_puzzles_for_theta(items: list, theta: float | None) -> list:
 
 
 async def _cleared_item_ids(db: AsyncSession, user: User) -> set[UUID]:
-    """유저가 클리어한(board 로그 is_correct=true) content_item_id 집합."""
+    """**보드 탭에서** 클리어한 content_item_id 집합 (R13 CO-K1).
+
+    ⚠️ 조건이 두 개인 이유 — 여기가 좁혀지지 않으면 보드 탭 보상이 통째로 증발한다:
+
+    `session_id IS NULL`
+        보드 탭 attempt는 `session_id=None`으로 로그를 남기는 **유일한 경로**다
+        (세션·유닛·배치고사 세 경로는 전부 `session_id=session.id`를 채운다 —
+        session_service·curriculum_service·placement_service). daily 세션 풀은
+        board 문항을 **제외하지 않으므로**(`build_pool_query`에 유형 조건 없음)
+        이 조건이 없으면 **세션에서 맞힌 board가 보드 탭 칸을 미리 ✅로 만들고**,
+        그 칸을 실제로 풀어도 `already_cleared`라 **XP 0·왕관 0이 영구 확정**된다.
+        "안 눌러 본 퍼즐이 이미 깨져 있고 다시 풀어도 아무것도 안 준다."
+
+    `question_type == 'board'`
+        R2-01 이전 레거시 행도 `session_id`가 NULL이다(quiz_log 모델 주석 참조).
+        유형까지 봐야 보드 탭 로그만 남는다.
+
+    board 문항을 daily 풀에서 제외하는 **뿌리 수리는 session_service 소유**다.
+    여기서는 보상 판정만 보드 탭 경로로 좁힌다 — 뿌리가 고쳐져도 이 조건은
+    옳은 상태로 남는다(세션 board가 사라지면 걸러낼 것이 없어질 뿐).
+    """
     rows = (
         (
             await db.execute(
@@ -179,6 +199,8 @@ async def _cleared_item_ids(db: AsyncSession, user: User) -> set[UUID]:
                     QuizLog.user_id == user.id,
                     QuizLog.content_item_id.is_not(None),
                     QuizLog.is_correct.is_(True),
+                    QuizLog.session_id.is_(None),
+                    QuizLog.question_type == "board",
                 )
             )
         )

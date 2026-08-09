@@ -142,7 +142,7 @@ def build_state(
             else user.level_group
         ),
         unlock_floor=curriculum_service.placement_unlock_floor(
-            list(abilities), units
+            list(abilities), units, user.level_group
         ),
         clouds=clouds,
         max_clouds=max_clouds,
