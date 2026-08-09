@@ -85,6 +85,15 @@ class TestSessionRecipe:
     def test_배합이_같다(self, policy):
         assert policy["session_recipe"] == settings.SESSION_RECIPE
 
+    def test_board_상한이_같다(self, policy):
+        """CO-H5 — 목 뱅크에 board가 늘어도 서버와 같은 상한을 쓴다.
+
+        지금 목 뱅크는 board가 소수라 상한에 닿지 않는다. 그래서 더 중요하다 —
+        **발현하지 않는 정책은 갈려도 아무도 모른다.** 에너지 상수를 목이 리터럴로
+        복사한 채 대조가 0이던 CO-J-9가 정확히 그렇게 생겼다.
+        """
+        assert policy["daily_board_cap"] == settings.DAILY_BOARD_CAP
+
 
 @needs_node
 class TestLevelGroups:

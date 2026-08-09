@@ -66,6 +66,14 @@ SESSION_SIZE = sum(DEFAULT_RECIPE.values())
 # CO-M1로 live까지 편입) 최악의 수요가 배합 전체다. 이보다 작으면 뱅크에 문항이
 # 있어도 부족분이 quiz-generate 폴백으로 새어 비용이 된다.
 NEW_POOL_LIMIT = SESSION_SIZE
+
+# daily 풀 선취 배수 (CO-E-1) — θ 경로에서 SQL LIMIT을 배합 요구량의 이 배로 잡는다.
+# 유닛 풀의 `UNIT_POOL_PREFETCH`와 **같은 이유·같은 값**이다: SQL은 밴드 해상도
+# (|b−θ|)로만 자를 수 있어, 요구량에서 끊으면 `rank_by_knowledge_level`이 지식
+# 수준으로 다시 세울 후보가 남지 않는다. 두 경로가 다른 값을 쓰면 "유닛에선 6단계,
+# daily에선 4칸"이라는 지금의 결함이 형태만 바꿔 남으므로 값을 맞춘다.
+# **계약 수치가 아니라 조회 여유분**이라 env 노브를 두지 않는다 — 조회 횟수는 불변.
+DAILY_POOL_PREFETCH = 4
 MODE_DAILY = "daily"
 
 # 발급 하한 (CO-H12) — 이 아래로 떨어지면 세션을 발급하지 않고 실패시킨다.
@@ -226,6 +234,12 @@ def plan_bank_picks(
       8/11~18 무키 실운영에서 상시 경로라 상시 과금이 된다. 실황 문항이 없는 날은
       "오늘의 발견"이 하나 더 나오는 것이 유료 생성보다 낫다 — 세 블록이 이미
       같은 판단을 하고 있었고 live만 예외였다.
+    - **board 출제 상한 (CO-H5)**: 비진도 블록(new·review·live)에 들어가는 board는
+      `DAILY_BOARD_CAP`까지다. R10.7이 daily 130문항을 실측해 "시드 22.6% → 실출제
+      30.8%(1.36×)"를 남겼는데, 원인은 `build_pool_query`에 유형 조건이 없고
+      `enforce_type_variety`는 **3연속만** 보고 비율을 안 보기 때문이다. 상한을
+      넘는 board는 버리지 않고 뒤로 미뤄 대체 후보가 없을 때만 채운다.
+      진도 블록은 면제다(board 유닛의 진도는 board가 정상).
     - 같은 문항 중복 선택 금지 (id 기준 — new/review/unit 풀이 겹칠 수 있음).
       **블록 간 중복 차단은 picked_ids 하나가 전담**한다: 신규 5와 유닛 5가 같은
       뱅크에서 뽑혀도 같은 문항이 두 번 나오지 않는다.
@@ -234,16 +248,45 @@ def plan_bank_picks(
     """
     recipe = recipe or DEFAULT_RECIPE
     picked_ids: set[Any] = set()
+    board_taken = 0
 
-    def take(pool: Sequence[Any], count: int, kind: str) -> list[dict[str, Any]]:
+    def _is_board(item: Any) -> bool:
+        qt = item.get("question_type") if isinstance(item, dict) else getattr(
+            item, "question_type", None
+        )
+        return qt == "board"
+
+    def take(
+        pool: Sequence[Any], count: int, kind: str, cap_board: bool = True
+    ) -> list[dict[str, Any]]:
+        """풀에서 count개를 뽑는다 — board는 상한까지만, 그리고 **뒤로 미룬다**.
+
+        1차 통과에서 board 상한을 넘는 board는 건너뛰고, 그러고도 count를 못 채우면
+        2차 통과에서 건너뛴 것들을 그대로 쓴다. **버리지 않는 이유**는 배합이 덜
+        차면 그 자리가 quiz-generate로 새기 때문이다(CO-M1이 live에서 이미 겪은 것과
+        같은 누수). 즉 이 상한은 "대체 후보가 있을 때만" 작동한다.
+        """
+        nonlocal board_taken
         taken: list[dict[str, Any]] = []
+        deferred: list[Any] = []
         for item in pool:
             if len(taken) >= count:
                 break
             item_id = _item_id(item)
             if item_id in picked_ids:
                 continue
+            if cap_board and _is_board(item) and board_taken >= settings.DAILY_BOARD_CAP:
+                deferred.append(item)
+                continue
             picked_ids.add(item_id)
+            if _is_board(item):
+                board_taken += 1
+            taken.append({"kind": kind, "item": item})
+        for item in deferred:
+            if len(taken) >= count:
+                break
+            picked_ids.add(_item_id(item))
+            board_taken += 1
             taken.append({"kind": kind, "item": item})
         return taken
 
@@ -257,7 +300,10 @@ def plan_bank_picks(
 
     unit_count = recipe.get("unit", 0)
     if unit_count:
-        unit_picks = take(unit_pool or (), unit_count, "unit")
+        # 진도 블록은 board 상한 **면제** — board 유닛의 진도가 board인 것은 편향이
+        # 아니라 그 유닛의 정의다. 다만 유닛 부족분을 new 풀로 메우는 아래 줄은
+        # 면제가 아니다(그 자리는 유닛 콘텐츠가 아니다).
+        unit_picks = take(unit_pool or (), unit_count, "unit", cap_board=False)
         unit_picks += take(new_pool, unit_count - len(unit_picks), "new")
         picks += unit_picks
 
@@ -469,6 +515,38 @@ async def _fetch_pools(
     )
     groups = pool_level_groups(user.level_group, theta)
 
+    # ── 6단계 해상도 재정렬 (CO-E-1) ────────────────────────────────────────
+    # SQL이 자를 수 있는 최소 단위는 밴드(|b−θ|의 사전 b가 밴드당 한 값)다. 유닛
+    # 세션은 그 위에 `rank_by_knowledge_level`로 한 겹을 더 세우는데(CO-L-F2)
+    # **daily만 밴드에 멈춰 있었다** — 1·2단계가 한 칸, 3·4단계가 한 칸으로 뭉쳐
+    # 나가는 것이 E-1이 "6단계는 데이터·lint·프롬프트에만 있고 서빙 해상도는
+    # 여전히 4칸"이라 적은 상태다. 세션 15문항 중 10문항이 이 경로로 나가므로
+    # 학습자가 실제로 겪는 해상도는 유닛이 아니라 여기서 정해진다.
+    #
+    # 유닛 경로와 **같은 함수·같은 배수**를 쓴다. 두 경로가 갈리면 "유닛에선
+    # 6단계, daily에선 4칸"이라는 지금의 결함이 형태만 바꿔 남는다.
+    #
+    # 순환 import 회피: curriculum_service가 이 모듈을 import하므로 함수 안에서
+    # 지연 import한다(`_fetch_unit_pool`이 같은 이유로 같은 일을 한다).
+    from app.services import curriculum_service
+
+    target_level = (
+        None
+        if theta is None
+        else weatherbrain_service.theta_to_knowledge_level(theta)
+    )
+    prefetch = 1 if theta is None else DAILY_POOL_PREFETCH
+
+    def _ranked(rows, limit: int) -> list[ContentItem]:
+        """선취분을 지식 수준으로 다시 세우고 원래 요구량으로 자른다.
+
+        `target_level`이 None(콜드스타트)이면 `rank_by_knowledge_level`이 입력
+        순서를 그대로 돌려주고 prefetch도 1이라 **조회·결과 모두 종전과 동일**하다.
+        """
+        return curriculum_service.rank_by_knowledge_level(
+            list(rows), target_level
+        )[:limit]
+
     new_pool = (
         (
             await db.execute(
@@ -477,7 +555,7 @@ async def _fetch_pools(
                     theta=theta,
                     live=False,
                     served_subq=served_subq,
-                    limit=NEW_POOL_LIMIT,
+                    limit=NEW_POOL_LIMIT * prefetch,
                 )
             )
         )
@@ -496,7 +574,7 @@ async def _fetch_pools(
                         live=False,
                         served_subq=today_subq,
                         weak_concepts=weak_concepts,
-                        limit=10,
+                        limit=10 * prefetch,
                     )
                 )
             )
@@ -504,6 +582,9 @@ async def _fetch_pools(
             .all()
         )
 
+    # live 풀은 선취하지 않는다 — 실황 자산 자체가 소수(CO-M9: middle_high 1 ·
+    # adult 1 · expert 0)라 선취해도 재정렬할 후보가 늘지 않고, 슬롯 치환이
+    # 걸린 문항이라 난이도보다 **치환 가능 여부**가 먼저다.
     live_pool = (
         (
             await db.execute(
@@ -519,7 +600,11 @@ async def _fetch_pools(
         .scalars()
         .all()
     )
-    return list(new_pool), list(review_pool), list(live_pool)
+    return (
+        _ranked(new_pool, NEW_POOL_LIMIT),
+        _ranked(review_pool, 10),
+        list(live_pool),
+    )
 
 
 async def _fetch_reserve_pool(
