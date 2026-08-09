@@ -56,6 +56,25 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone, tutorL
           카드 높이가 통째로 달라진다(가로형 cloud ↔ 세로형 bolt). */}
       <Mascot name={ENTRY_MASCOT[entry.kind] ?? 'drop'} className="h-[104px] w-[104px]" />
 
+      {/* 튜터 한마디 — **마스코트 바로 밑**이다(2026-08-09 사용자 지시).
+          한때 카드 아래쪽 남는 공간에 뒀는데, 말풍선이 말하는 이에게서 멀어지면
+          누가 하는 말인지 흐려진다. 꼬리가 위(마스코트)를 향하는 것도 여기라야
+          맞는다 — 아래쪽에 있을 때는 꼬리가 허공을 가리켰다.
+          수치는 지어내지 않는다 — 문구는 CurriculumHome이 트리에서 센 값으로
+          만들어 넘긴다(sectionProgressOf). 셀 진도가 없으면 null이라 자리째 빠진다. */}
+      {tutorLine ? (
+        <p
+          data-testid="learn-tutor-line"
+          className="relative mt-3 break-keep rounded-2xl bg-white/75 px-3.5 py-2 text-center text-[12px] font-bold leading-relaxed text-sky-900 ring-1 ring-sky-300/60"
+        >
+          <span
+            aria-hidden="true"
+            className="absolute -top-[5px] left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-l border-t border-sky-300/60 bg-white/75"
+          />
+          {tutorLine}
+        </p>
+      ) : null}
+
       <p className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.1em] text-sky-700">
         {copy.eyebrow}
       </p>
@@ -80,36 +99,12 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone, tutorL
           올렸다. due 0건이면 컴포넌트가 스스로 null이라 자리째 빠진다. */}
       <ReviewQueueCard variant="hero" />
 
-      {/* 튜터 한마디 — 남는 세로를 채운다(2026-08-09 지시).
-          카드가 트랙 높이(655px)까지 늘어나면 복습과 오늘의 목표 사이가 110px쯤
-          비었다. 그 자리를 **말풍선**이 먹는다: flex-1이 남는 높이를 통째로 받고
-          items-center가 말풍선을 그 안에서 세로 가운데에 둔다 — 여백이 얼마든
-          말풍선은 늘 가운데다.
-          꼬리는 **위**를 향한다(카드 맨 위 마스코트 쪽). 아래를 향하면 오늘의
-          목표가 말하는 것처럼 읽힌다.
-          수치는 지어내지 않는다 — 문구는 CurriculumHome이 트리에서 센 값으로
-          만들어 넘긴다(sectionProgressOf). 셀 진도가 없으면 null이라 자리째 빠진다. */}
-      <div className="flex w-full flex-1 items-center justify-center py-3">
-        {tutorLine ? (
-          <p
-            data-testid="learn-tutor-line"
-            className="relative break-keep rounded-2xl bg-white/75 px-3.5 py-2.5 text-center text-[12px] font-bold leading-relaxed text-sky-900 ring-1 ring-sky-300/60"
-          >
-            <span
-              aria-hidden="true"
-              className="absolute -top-[5px] left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-l border-t border-sky-300/60 bg-white/75"
-            />
-            {tutorLine}
-          </p>
-        ) : null}
-      </div>
-
       {/* 오늘의 목표 — 미설정(goalTotal 없음)이면 줄째 생략한다. 0/0 바를 그리면
           "목표를 못 채웠다"로 읽혀, 아직 정하지 않은 상태를 실패처럼 보이게 한다.
-          바닥에 붙이는 일은 위 튜터 칸의 flex-1이 한다 — 여기 mt-auto를 또 주면
-          둘이 같은 여백을 두고 다투어 말풍선이 위로 붙는다. */}
+          mt-auto — 튜터 한마디가 위로 올라가면서 남는 높이를 먹는 칸이 없어졌다.
+          목표가 그 높이를 받아 카드 **바닥**에 붙는다. */}
       {goalTotal ? (
-        <div className="w-full border-t border-sky-300/70 pt-4" data-testid="learn-goal">
+        <div className="mt-auto w-full border-t border-sky-300/70 pt-4" data-testid="learn-goal">
           <div className="flex items-baseline gap-2">
             <p className="text-[12.5px] font-extrabold text-sky-900">🎯 {t('home.goal.title')}</p>
             <span className="ml-auto text-[12px] font-extrabold tabular-nums text-sky-700">{pct}%</span>
@@ -127,7 +122,10 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone, tutorL
             {remaining > 0 ? t('home.goal.remaining', { n: remaining }) : t('home.goal.done')}
           </p>
         </div>
-      ) : null}
+      ) : (
+        // 목표 미설정 — 늘어난 높이를 먹어 위 내용이 카드 위쪽에 모이게 한다.
+        <span className="mt-auto" aria-hidden="true" />
+      )}
     </div>
   );
 }
