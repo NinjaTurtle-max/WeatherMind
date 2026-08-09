@@ -359,17 +359,21 @@ await render({});
   // 만들지 않는다(세션 러너는 세션에 들어가야 돈다). 스트릭이 영영 안 오른다.
   ok(home.includes('useAttendance(true)'), '학습 화면이 출석 POST를 소유한다(useAttendance)');
 
-  // 진입 카드는 **한 곳**에서만 마운트한다(2026-08-09). 가로 배너가 스스로
-  // 세로로 접히므로 뷰포트별 두 벌이 필요 없다. 두 벌이면 DOM에 같은 카드가
-  // 둘 있다는 뜻이고, 실제로 스모크가 "진입 카드 2개"를 세고 있었다.
+  // 진입 카드는 **레일과 모바일 양쪽**에 있어야 한다(2026-08-09 세로 레일 복귀).
+  // PC 경로 뷰는 hidden md:block이라 모바일에서는 레일이 통째로 안 뜬다 —
+  // 한쪽만 두면 그 뷰포트에서 진입로가 사라진다.
   const heroMounts = (home.match(/<LearnHeroCard/g) ?? []).length;
-  ok(heroMounts === 1, `진입 카드 마운트 1곳(가로 배너) — 실제 ${heroMounts}`);
-  // 배너는 경로 **위**다 — 레일로 넘기면 트랙이 296px 좁아진다.
+  ok(heroMounts === 2, `진입 카드 마운트 2곳(레일·모바일) — 실제 ${heroMounts}`);
+  ok(/rail=\{/.test(home), '경로 오른쪽 레일로 넘긴다');
+
+  // 페이지 머리말은 없다 — 같은 설명을 튜터 말풍선이 말한다. 두 벌이면 튜터가
+  // 읽어 주는 의미가 사라지고 세로 66px을 경로에서 빼앗는다.
+  ok(!home.includes("t('curriculum.title')"), '페이지 머리말이 되살아나지 않았다');
+  const hero2 = readFileSync(resolve(root, 'src/modules/curriculum/LearnHeroCard.jsx'), 'utf8');
   ok(
-    home.indexOf('<LearnHeroCard') < home.indexOf('<PcCurriculumPath'),
-    '진입 배너가 학습 경로보다 위에 있다',
+    hero2.includes("t('curriculum.subtitle')") && hero2.includes('learn-tutor-line'),
+    '학습 설명을 튜터 말풍선이 말한다(curriculum.subtitle)',
   );
-  ok(!/rail=\{/.test(home), '경로에 레일을 넘기지 않는다(트랙이 폭 전체를 쓴다)');
 
   // 흰 카드를 늘리지 않는다 — 복습은 별도 카드가 아니라 **진입 카드 안**이다
   // (2026-08-09 지시로 하단 strip에서 여기로 올라왔다).

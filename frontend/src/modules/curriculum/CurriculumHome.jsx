@@ -188,19 +188,10 @@ export default function CurriculumHome() {
       {/* 코스 탭(§6.2) — 코스가 2개 이상일 때만 뜬다. 선택은 잠금이 아니라 조회 스코프. */}
       <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} />
 
-      {/* 페이지 머리말은 **md↑에서 접는다**(2026-08-09 시안). 홈을 흡수하면서 이
-          화면이 앱의 첫 화면이 됐고, 오른쪽 진입 카드가 "무엇을 하는 곳인가"를
-          제목보다 강하게 말한다 — 그 위에 제목까지 얹으면 세로 66px를 쓰면서
-          학습 경로(이 화면의 본체)만 눌린다. 모바일은 1열이라 진입 카드가 경로
-          아래로 내려가므로 머리말이 남는다.
-          ⚠️ `md:hidden`은 한때 이 화면만 PC에서 제목이 없게 만든 **결함**이었다
-          (2026-08-08 수정). 지금은 결함이 아니라 결정이다 — 그때는 화면 첫 글자가
-          카드 안쪽 패딩부터 시작해 "학습만 오른쪽으로 밀렸다"로 보였고, 지금은
-          진입 카드·경로 카드가 둘 다 셸 왼쪽 끝에서 시작해 그 증상이 없다. */}
-      <div className="mb-4 md:hidden">
-        <h1 className="text-lg font-extrabold text-slate-900">{t('curriculum.title')}</h1>
-        <p className="mt-0.5 text-sm text-slate-500">{t('curriculum.subtitle')}</p>
-      </div>
+      {/* 페이지 머리말(🎓 학습 + 설명)은 **없앴다**(2026-08-09 사용자 지시).
+          같은 설명을 진입 카드의 튜터가 말풍선으로 말한다 — 두 벌이면 튜터가
+          읽어 주는 의미가 사라지고, 세로 66px을 학습 경로에서 빼앗는다.
+          문구의 소유자는 여전히 `curriculum.subtitle`이다(LearnHeroCard가 읽는다). */}
 
       {/* 구름 소진 안내 (§3.1) — 새 세션은 열 수 없지만 이유·회복 시점을 먼저 알린다 */}
       {energyBlocked && (
@@ -247,12 +238,11 @@ export default function CurriculumHome() {
         </div>
       )}
 
-      {/* 진입 배너 — 경로 **위**, 폭 전체(사용자 시안 1c).
-          한때 PC는 오른쪽 레일, 모바일은 경로 위로 **두 벌**을 마운트했다.
-          가로 배너는 lg 미만에서 스스로 세로로 접히므로 한 벌이면 된다 —
-          두 벌은 DOM에 같은 카드가 둘 있다는 뜻이고, 실제로 스모크가
-          "진입 카드 2개"를 세고 있었다. */}
-      <div className="mb-3.5">
+      {/* 모바일(md 미만) — PC 경로 뷰(hidden md:block)가 안 뜨므로 레일도 없다.
+          진입 카드를 **경로 위**에 둔다: 아래에 두면 유닛 3~5개짜리 경로를 다
+          스크롤해야 「이어서 풀기」가 나온다(실측 390px에서 카드 상단이 1,020px).
+          경로 자체가 없으면(빈 트리 코스) PC에도 레일이 안 뜨므로 여기서 보여준다. */}
+      <div className={hasPath ? 'mb-4 md:hidden' : 'mb-4 max-w-sm'}>
         <LearnHeroCard
           entry={entry}
           copy={ENTRY_COPY[entry.kind]}
@@ -307,6 +297,17 @@ export default function CurriculumHome() {
         energyBlocked={energyBlocked}
         regenMin={regenMin}
         onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
+        rail={
+          <LearnHeroCard
+            entry={entry}
+            copy={ENTRY_COPY[entry.kind]}
+            goalTotal={goalTotal}
+            goalDone={goalDone}
+            dailyBlocked={dailyBlocked}
+            energyBlocked={energyBlocked}
+            regenMin={regenMin}
+          />
+        }
       />
     </div>
   );
