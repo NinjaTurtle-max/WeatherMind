@@ -89,6 +89,14 @@ class TestBoardDifficultySeedDistribution:
         # 같은 날 통합 병합으로 13→34건. 재분류 시점에 "한 칸에 몰려 있다"고 적었던
         # 상태가 실제로 풀렸다 — 3단계 보드가 개통되고(전선·기단을 안 쓰는 대류 규칙)
         # 양쯔강·오호츠크 기단 퍼즐이 5·6단계로 붙으면서 1·2·3이 11·13·10으로 고르다.
+        # R13 재난 축(CO-A3·CO-K4, 2026-08-09): 재난 board 4건을 wind 문법으로 재저작했지만
+        # **분포는 그대로다** — 팔레트를 4건 모두 2개(습기·바람)로 유지했기 때문이다.
+        # 이것은 우연이 아니라 제약이다: 산불 규칙에 일사를 세 번째 조건으로 넣으면
+        # 팔레트가 3이 되고, palette≥3 가산이 「산불 나기 쉬운 날」(board_order 9)을
+        # guided 1 → 2로 올려 바로 뒤 board_order 10·11(난이도 1)보다 앞서 어려워진다
+        # → test_board_progression의 단조 증가 계약이 깨진다. board_order는 순서 계약상
+        # 고정이고 board_difficulty는 순수 함수라 낮출 길이 없다.
+        # 사유 전문은 board_rules.json wildfire_risk_dry_gale의 note_authoring.
         assert dist == {1: 11, 2: 13, 3: 10}
 
 

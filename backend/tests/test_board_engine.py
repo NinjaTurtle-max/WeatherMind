@@ -155,7 +155,8 @@ class TestParseCondition:
         [
             "moisture>60",     # op는 >=·<= 만
             "moisture==60",
-            "temp>=60",        # field는 moisture|sun 만
+            "temp>=60",        # field는 moisture|sun|wind 만
+            "wind:north",      # wind는 방향(subtype)이 아니라 세기(level)다
             "cloud:cumulus",   # 존재 검사 type은 air_mass|front 만
             "front:typhoon",   # subtype enum 밖
             "front cold",
@@ -165,6 +166,81 @@ class TestParseCondition:
     def test_문법_외_거부(self, bad):
         with pytest.raises(BoardRulesError):
             be.parse_condition(bad)
+
+
+# ═══════════════════ R13 wind — 배치 요소 5번째 (CO-A3) ═══════════════════
+
+
+class TestWindElement:
+    """`wind`는 **세기(level) 요소**다 — 방향(subtype)이 아니다.
+
+    근거는 board_engine 모듈 도크스트링에 있다: 조건은 전부 같은 존에서 AND이고
+    존↔존 전파가 없어 방향이 판정에 기여할 수 없다. 그 결정이 코드에서 실제로
+    지켜지는지를 여기서 고정한다 — subtype 문법이 살아나면 이 클래스가 먼저 깨진다.
+    """
+
+    WIND_RULE = [
+        {
+            "id": "gale",
+            "priority": 5,
+            "when": ["wind>=60", "moisture<=30"],
+            "then": {"phenomenon": "wildfire_risk", "cloud": "none"},
+            "explain": "메마른 공기에 센 바람이 더해지면 불이 크게 번진다.",
+        }
+    ]
+
+    def test_배치_가능_요소다(self):
+        assert "wind" in be.PLACEABLE_TYPES
+        assert "wind" in be.LEVEL_TYPES
+
+    def test_level_요소로_검증된다(self):
+        be.validate_board(_board([{"type": "wind", "level": 70, "zone": 1}]))
+
+    def test_subtype으로는_배치할_수_없다(self):
+        """방향을 subtype으로 흘려 넣으면 level 누락으로 거부된다."""
+        with pytest.raises(BoardValidationError):
+            be.validate_board(_board([{"type": "wind", "subtype": "north", "zone": 1}]))
+
+    def test_범위_밖_level_거부(self):
+        with pytest.raises(BoardValidationError):
+            be.validate_board(_board([{"type": "wind", "level": 140, "zone": 1}]))
+
+    def test_존당_1개(self):
+        with pytest.raises(BoardValidationError):
+            be.validate_board(
+                _board(
+                    [
+                        {"type": "wind", "level": 70, "zone": 1},
+                        {"type": "wind", "level": 20, "zone": 1},
+                    ]
+                )
+            )
+
+    def test_미배치_존_기본값은_20이다(self):
+        """기본값이 높으면 wind>= 규칙이 **빈 존 전부**를 재난으로 뒤집는다."""
+        assert be.DEFAULT_WIND == 20
+        for state in be.zone_states(_board([])):
+            assert state["wind"] == 20
+
+    def test_조건_문법(self):
+        assert be.parse_condition("wind>=60") == ("numeric", "wind", ">=", 60.0)
+        assert be.parse_condition("wind<=15") == ("numeric", "wind", "<=", 15.0)
+
+    def test_판정에_실제로_반영된다(self):
+        board = _board(
+            [
+                {"type": "wind", "level": 80, "zone": 2},
+                {"type": "moisture", "level": 15, "zone": 2},
+            ]
+        )
+        results = be.evaluate(board, self.WIND_RULE)
+        assert results[2]["phenomenon"] == "wildfire_risk"
+        assert results[2]["rule_id"] == "gale"
+        # 바람을 놓지 않은 존은 기본 20이라 성립하지 않는다
+        assert [r["rule_id"] for r in results] == [None, None, "gale", None]
+
+    def test_재난_현상이_enum에_있다(self):
+        assert {"wildfire_risk", "flood_risk"} <= be.PHENOMENA
 
 
 # ═══════════════════ §3.2 판정(evaluate) ═══════════════════
@@ -444,3 +520,46 @@ class TestSharedVectors:
                 assert (
                     be.check_goals(phenomena, case["goal_conditions"]) == case["passed"]
                 ), f"goal 판정 불일치: {case.get('name')}"
+            # R13(CO-K3): `goals` 블록 — 한 보드에 여러 목표 세트를 걸어 목표 판정
+            # 자체를 프론트 러너와 같은 데이터로 대조한다. 그 전까지 공유 벡터는
+            # 현상 판정만 물었고, 그 구간에서 JS와 Python이 실제로 정반대였다
+            # (빈 목표에 JS passed=true ↔ Python False).
+            for goal_case in case.get("goals", []):
+                label = goal_case.get("note") or goal_case["conditions"]
+                assert (
+                    be.check_goals(phenomena, goal_case["conditions"])
+                    is goal_case["passed"]
+                ), f"goal 판정 불일치: {case.get('name')} — {label}"
+
+
+class TestAuthoringNotesStayServerSide:
+    """저작 메모는 `GET /board/rules` 응답에 실리지 않는다.
+
+    `board_rules.json`에는 규칙을 왜 그렇게 썼는지 적은 `note_authoring` 같은 키가 있다
+    (예: `wildfire_risk_dry_gale`에 `sun>=70`을 못 넣은 이유 — board_order 9의 난이도가
+    올라 단조 증가 계약이 깨지기 때문). 다음 저작자에게 필요한 글이지 **화면이 쓰는
+    값이 아니다.** 원문을 그대로 내보내면 브라우저 개발자 도구에 내부 메모가 뜬다.
+
+    판정에 안 쓰이므로 벗겨도 프론트 로컬 미리보기는 서버와 같은 답을 낸다 —
+    그 동등성은 `board_test_vectors.json`이 따로 검증한다.
+    """
+
+    def test_규칙_파일에는_저작_메모가_있다(self):
+        """전제 확인 — 메모가 아예 없으면 이 테스트가 무의미해진다."""
+        rules = be.load_rules()
+        assert any(
+            any(k.startswith("note_") for k in r) for r in rules
+        ), "저작 메모가 하나도 없다 — 이 계약이 지킬 대상이 사라졌는지 확인할 것"
+
+    def test_응답에서는_note_키가_벗겨진다(self):
+        served = [
+            {k: v for k, v in rule.items() if not k.startswith("note_")}
+            for rule in be.load_rules()
+        ]
+        assert served, "규칙이 비었다"
+        leaked = [k for rule in served for k in rule if k.startswith("note_")]
+        assert not leaked, f"저작 메모가 응답에 남았다: {leaked}"
+        # 판정에 쓰이는 키는 그대로 살아 있어야 한다
+        for rule in served:
+            assert {"id", "priority", "when", "then"} <= set(rule), rule.get("id")
+        

@@ -5,6 +5,7 @@ import {
   ZONES,
   DEFAULT_MOISTURE,
   DEFAULT_SUN,
+  DEFAULT_WIND,
   createBoard,
   evaluateBoard,
   checkGoals,
@@ -43,6 +44,32 @@ export const HINT_KIND_LABEL = Object.freeze({
   air_mass: 'board.atmosphere.kind.airMass',
   moisture: 'board.atmosphere.kind.moisture',
   sun: 'board.atmosphere.kind.sun',
+  wind: 'board.atmosphere.kind.wind',
+});
+
+/** 조절값(level) 요소의 미배치 기본값 — 엔진 상수와 같은 값이어야 한다 (§3.1) */
+const LEVEL_DEFAULTS = Object.freeze({
+  moisture: DEFAULT_MOISTURE,
+  sun: DEFAULT_SUN,
+  wind: DEFAULT_WIND,
+});
+
+/**
+ * 재난 판정(R13 CO-A3·CO-K4) — 다른 현상과 **다르게 보여야 하는** 판정 결과.
+ * 재난 보드가 목표를 'clear'(맑음)로 잡던 시절에는 산불을 만들어도 화면이
+ * "☀️ 맑음"이라고 말했다. 이제 판정 자체가 재난이고, 그 순간 이 배너가 뜬다.
+ */
+export const DISASTER_META = Object.freeze({
+  wildfire_risk: {
+    titleKey: 'board.atmosphere.disasterWildfireTitle',
+    bodyKey: 'board.atmosphere.disasterWildfireBody',
+    tone: 'bg-orange-50 text-orange-800 ring-orange-200',
+  },
+  flood_risk: {
+    titleKey: 'board.atmosphere.disasterFloodTitle',
+    bodyKey: 'board.atmosphere.disasterFloodBody',
+    tone: 'bg-sky-100 text-sky-900 ring-sky-300',
+  },
 });
 
 /** 두 보드의 배치가 실질적으로 같은지 (히스토리에 빈 칸을 쌓지 않기 위한 비교) */
@@ -54,7 +81,7 @@ function sameElements(a, b) {
 export function ruleHintKinds(rule) {
   const kinds = [];
   for (const cond of rule?.when ?? []) {
-    const m = /^(air_mass|front|moisture|sun)/.exec(String(cond).trim());
+    const m = /^(air_mass|front|moisture|sun|wind)/.exec(String(cond).trim());
     if (m && !kinds.includes(m[1])) kinds.push(m[1]);
   }
   return kinds;
@@ -74,11 +101,11 @@ export function conditionReachable(condition, palette, zoneState) {
     if ((palette ?? []).includes(`${type}:${subtype}`)) return true;
     return zoneState?.[type === 'air_mass' ? 'airMass' : 'front'] === subtype;
   }
-  const numeric = /^(moisture|sun)(>=|<=)(\d+(?:\.\d+)?)$/.exec(cond);
+  const numeric = /^(moisture|sun|wind)(>=|<=)(\d+(?:\.\d+)?)$/.exec(cond);
   if (numeric) {
     const [, field, op, raw] = numeric;
     if ((palette ?? []).includes(field)) return true; // 슬라이더로 도달 가능
-    const actual = zoneState?.[field] ?? (field === 'moisture' ? DEFAULT_MOISTURE : DEFAULT_SUN);
+    const actual = zoneState?.[field] ?? LEVEL_DEFAULTS[field];
     return op === '>=' ? actual >= Number(raw) : actual <= Number(raw);
   }
   return false;
@@ -213,8 +240,18 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
 
   const palette = puzzle?.palette ?? [];
   const paletteItems = useMemo(() => palette.map((t) => ({ token: t, ...parsePaletteToken(t) })), [palette]);
-  const allowMoisture = palette.includes('moisture');
-  const allowSun = palette.includes('sun');
+  // 조절값 슬라이더 — 팔레트가 허용한 것만, **항상 같은 순서**로 그린다.
+  // 종류를 배열로 두는 것이 wind 추가의 전부다(전에는 moisture·sun 두 벌을 손으로
+  // 복제해 두 배치에 각각 박아 두었고, 그래서 요소 하나 늘리는 데 네 곳을 고쳐야 했다).
+  const levelKnobs = useMemo(
+    () =>
+      [
+        { type: 'moisture', labelKey: 'board.atmosphere.moisture' },
+        { type: 'sun', labelKey: 'board.atmosphere.sun' },
+        { type: 'wind', labelKey: 'board.atmosphere.wind' },
+      ].filter((knob) => palette.includes(knob.type)),
+    [palette],
+  );
   const placeItems = paletteItems.filter((it) => it.type === 'air_mass' || it.type === 'front');
 
   // 로컬 미리보기 판정 (규칙 로드 전에는 빈 배열 → 기본값 흐림)
@@ -398,6 +435,23 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   // 배치(stacked/wide)마다 순서가 달라서, 렌더 트리를 먼저 조각으로 만들고 아래에서
   // 조립한다. 조각 안에서 배치를 분기하지 않는다 — 분기는 조립부 한 곳에만 둔다.
 
+  // 지금 보고 있는 존이 재난이면 배너를 띄운다 — 로컬 미리보기든 서버 확정이든
+  // 같게 뜬다(stageResult가 둘을 이미 하나로 합쳐 준다).
+  const disasterKey = DISASTER_META[stageResult?.phenomenon] ? stageResult.phenomenon : null;
+  const disasterBanner = disasterKey && (
+    <div
+      data-board-disaster={disasterKey}
+      className={`mt-2 flex items-start gap-2 rounded-lg px-2.5 py-2 ring-1 ${DISASTER_META[disasterKey].tone}`}
+      role="status"
+    >
+      <SymbolIcon kind="phenomenon" value={disasterKey} className="mt-0.5 h-5 w-5 flex-none" />
+      <div className="min-w-0">
+        <p className="text-xs font-extrabold">{t(DISASTER_META[disasterKey].titleKey)}</p>
+        <p className="mt-0.5 text-[11px] leading-snug opacity-90">{t(DISASTER_META[disasterKey].bodyKey)}</p>
+      </div>
+    </div>
+  );
+
   const missionBlock = (
     <div className="rounded-xl bg-sky-50 px-4 py-3 ring-1 ring-sky-100">
       <div className="flex items-start justify-between gap-2">
@@ -458,6 +512,8 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
           </span>
         </div>
       )}
+
+      {disasterBanner}
     </div>
   );
 
@@ -575,30 +631,19 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
           <span className="text-[11px] text-slate-400">{t('board.atmosphere.focusEmpty')}</span>
         )}
       </div>
-      {allowMoisture && (
+      {levelKnobs.map((knob) => (
         <ZoneSlider
-          label={t('board.atmosphere.moisture')}
-          value={zoneLevel(focusZone, 'moisture', 40)}
-          locked={isLocked(board, focusZone, 'moisture')}
+          key={knob.type}
+          label={t(knob.labelKey)}
+          value={zoneLevel(focusZone, knob.type, LEVEL_DEFAULTS[knob.type])}
+          locked={isLocked(board, focusZone, knob.type)}
           disabled={!interactive}
           onChange={(v) => {
-            applyBoard(`level:${focusZone}:moisture`, (b) => setLevel(b, focusZone, 'moisture', v));
+            applyBoard(`level:${focusZone}:${knob.type}`, (b) => setLevel(b, focusZone, knob.type, v));
             setActiveZone(focusZone);
           }}
         />
-      )}
-      {allowSun && (
-        <ZoneSlider
-          label={t('board.atmosphere.sun')}
-          value={zoneLevel(focusZone, 'sun', 50)}
-          locked={isLocked(board, focusZone, 'sun')}
-          disabled={!interactive}
-          onChange={(v) => {
-            applyBoard(`level:${focusZone}:sun`, (b) => setLevel(b, focusZone, 'sun', v));
-            setActiveZone(focusZone);
-          }}
-        />
-      )}
+      ))}
     </div>
   );
 
@@ -721,31 +766,20 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
               )}
             </div>
 
-            {/* moisture/sun 슬라이더 (팔레트 허용 시) */}
-            {allowMoisture && (
+            {/* moisture/sun/wind 슬라이더 (팔레트 허용 시) */}
+            {levelKnobs.map((knob) => (
               <ZoneSlider
-                label={t('board.atmosphere.moisture')}
-                value={zoneLevel(zone, 'moisture', 40)}
-                locked={isLocked(board, zone, 'moisture')}
+                key={knob.type}
+                label={t(knob.labelKey)}
+                value={zoneLevel(zone, knob.type, LEVEL_DEFAULTS[knob.type])}
+                locked={isLocked(board, zone, knob.type)}
                 disabled={!interactive}
                 onChange={(v) => {
-                  applyBoard(`level:${zone}:moisture`, (b) => setLevel(b, zone, 'moisture', v));
+                  applyBoard(`level:${zone}:${knob.type}`, (b) => setLevel(b, zone, knob.type, v));
                   setActiveZone(zone);
                 }}
               />
-            )}
-            {allowSun && (
-              <ZoneSlider
-                label={t('board.atmosphere.sun')}
-                value={zoneLevel(zone, 'sun', 50)}
-                locked={isLocked(board, zone, 'sun')}
-                disabled={!interactive}
-                onChange={(v) => {
-                  applyBoard(`level:${zone}:sun`, (b) => setLevel(b, zone, 'sun', v));
-                  setActiveZone(zone);
-                }}
-              />
-            )}
+            ))}
           </div>
         );
       })}

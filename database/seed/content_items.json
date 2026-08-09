@@ -5773,8 +5773,8 @@
       "question_text": "며칠째 비가 오지 않는 겨울이다. 태백산맥(존 2)에 차고 건조한 공기를 들여 산불이 번지기 쉬운 맑고 메마른 날씨를 만들어 보자.",
       "mode": "guided",
       "guide_steps": [
-        "태백산맥(존 2)에 시베리아 기단을 놓는다.",
-        "같은 존의 습기를 40 이하로 내린다."
+        "태백산맥(존 2)의 습기를 30 이하로 내린다.",
+        "같은 존의 바람을 60 이상으로 올린다."
       ],
       "initial_state": {
         "zones": [
@@ -5786,31 +5786,33 @@
         "elements": []
       },
       "palette": [
-        "air_mass:siberian",
-        "moisture"
+        "moisture",
+        "wind"
       ],
       "goal_conditions": [
         {
           "zone": 2,
-          "phenomenon": "clear"
+          "phenomenon": "wildfire_risk"
         }
       ],
       "hints": [
-        "차고 메마른 공기 덩어리가 자리 잡으면 수증기가 부족해 구름이 잘 만들어지지 않는다.",
-        "습기를 낮춰야 한다. 맑고 건조한 날이 이어지면 낙엽과 잔가지의 수분이 빠져 불이 쉽게 붙는다."
+        "공기가 메마르면 낙엽과 잔가지에서 물기가 빠져나가 불이 아주 쉽게 붙는다.",
+        "센 바람은 불씨를 멀리 실어 나르고 산소를 계속 대 준다. 습기를 낮추는 것만으로는 부족하고 바람을 함께 올려야 한다."
       ],
       "correct_answer": "",
       "board_order": 9,
       "title": "산불 나기 쉬운 날",
-      "summary": "시베리아 기단과 낮은 습기로 메마른 겨울날을 만들어요."
+      "summary": "메마른 공기와 센 바람으로 산불이 번지기 쉬운 날을 만들어요."
     },
     "uses_live_slots": false,
     "source": {
       "kind": "claude-authored",
       "refs": [
-        "SPRINT_R13_01 §2.4 — 재난 연쇄 1(산불)의 '위험 기상 생성 보드'",
-        "board_rules.json: siberian_clear (기존 규칙 재사용 — 신규 규칙 저작 없음)",
-        "판정: R5(보드 특례) — palette·goal이 요구하는 최고 개념은 '기단'. 결정 용어=기단, [9과17-04] → 4단계 (specs/12 §7.3 정정: 2015 [6과06-04] 삭제로 초등 근거 소멸)"
+        "SPRINT_R13_01 §2.4 — 재난 연쇄 1(산불)의 「위험 기상 생성 보드」",
+        "board_rules.json: wildfire_risk_dry_gale (R13 재난 축 신규 규칙 — 판정 결과가 clear가 아니라 wildfire_risk다)",
+        "기상청 산불 기상 위험: 실효습도가 낮고 풍속이 클수록 위험이 커진다 — 우리나라 대형 산불이 봄·겨울에 몰리는 것은 고온이 아니라 건조·강풍 때문이다. 일사(고온)를 세 번째 조건으로 넣지 못한 구조적 사유는 board_rules.json wildfire_risk_dry_gale의 note_authoring에 적었다",
+        "판정: R5(보드 특례) — palette·goal이 요구하는 최고 개념은 「습도·바람」(조절값)이고 기단·전선을 쓰지 않는다. 결정 용어=상대습도, [9과17-03] → 4단계 (기존 판정값 유지)",
+        "⚠️ question_text는 멱등 키(concept_tag+question_text)라 바꾸지 않았다 — 문두의 \"차고 건조한 공기를 들여\"가 기단 배치를 암시하지만 팔레트에 기단이 없다(PM 보고 완료, 재저작은 배포 절차와 함께)"
       ]
     },
     "status": "active"
@@ -5862,36 +5864,36 @@
         "elements": []
       },
       "palette": [
-        "air_mass:siberian",
-        "moisture"
+        "moisture",
+        "wind"
       ],
       "goal_conditions": [
         {
           "zone": 2,
-          "phenomenon": "clear"
+          "phenomenon": "wildfire_risk"
         },
         {
           "zone": 3,
-          "phenomenon": "clear"
+          "phenomenon": "wildfire_risk"
         }
       ],
       "hints": [
         "실효습도는 그날의 습도만이 아니라 며칠 전까지의 습도를 함께 반영한 실무 지표다. 하루만 건조한 것보다 여러 날 낮게 이어지는 것이 위험하다.",
-        "두 존 모두에 차고 건조한 기단을 놓고 습기를 낮춰야 한다. 한 존만 맞으면 목표는 달성되지 않는다."
+        "건조경보만으로는 큰 산불이 되지 않는다. 두 존 모두에서 습기를 바닥까지 내리고 바람까지 세게 올려야 산불 위험 상태가 된다. 한 존만 맞으면 목표는 달성되지 않는다."
       ],
       "correct_answer": "",
       "board_order": 33,
       "title": "건조경보 두 칸",
-      "summary": "실효습도를 끌어내려 두 지역을 동시에 메마르게 해요."
+      "summary": "건조와 강풍을 두 지역에 동시에 만들어 산불 위험을 재현해요."
     },
     "uses_live_slots": false,
     "source": {
       "kind": "claude-authored",
       "refs": [
         "SPRINT_R13_01 §2.4 — 재난 축 보드(다존 목표)",
-        "board_rules.json: siberian_clear를 두 존에 동시 적용 (기존 규칙 재사용 — 신규 규칙 저작 없음)",
-        "기상청 기상특보 발표 기준 — 건조경보: 실효습도 25% 이하가 2일 이상 계속될 것으로 예상될 때",
-        "판정: R5 + R3 — 문두·힌트의 '실효습도 25% 건조경보 기준'은 교육과정에 실리지 않는 실무 발표 기준이다. 결정 용어=실효습도, specs/12 §2.7 '실무: 실효습도' → 6단계"
+        "board_rules.json: wildfire_risk_dry_gale를 두 존에 동시 적용 (R13 재난 축 신규 규칙)",
+        "기상청 기상특보 발표 기준 — 건조경보: 실효습도 25% 이하가 2일 이상 계속될 것으로 예상될 때. 강풍주의보(육상 풍속 14m/s 이상)가 겹치면 산불 위험이 급격히 커진다",
+        "판정: R5 + R3 — 문두·힌트의 「실효습도 25% 건조경보 기준」은 교육과정에 실리지 않는 실무 발표 기준이다. 결정 용어=실효습도, specs/12 §2.7 「실무: 실효습도」 → 6단계"
       ]
     },
     "status": "active"
@@ -6031,8 +6033,8 @@
       "question_text": "장마철이다. 동해안(존 3)에 여러 날 이어지는 큰비를 만들어 땅이 물을 더 받아들이지 못하는 상황을 재현해 보자.",
       "mode": "guided",
       "guide_steps": [
-        "동해안(존 3)에 정체전선을 놓는다.",
-        "같은 존의 습기를 70 이상으로 올린다."
+        "동해안(존 3)의 습기를 85 이상으로 올린다.",
+        "같은 존의 바람을 60 이상으로 올린다."
       ],
       "initial_state": {
         "zones": [
@@ -6044,31 +6046,32 @@
         "elements": []
       },
       "palette": [
-        "front:stationary",
-        "moisture"
+        "moisture",
+        "wind"
       ],
       "goal_conditions": [
         {
           "zone": 3,
-          "phenomenon": "persistent_rain"
+          "phenomenon": "flood_risk"
         }
       ],
       "hints": [
-        "세력이 비슷한 두 공기 덩어리가 맞서면 그 경계가 한곳에 오래 머문다.",
-        "습한 공기가 계속 밀려들어야 비가 여러 날 이어진다. 습기를 아주 높게 올려야 한다."
+        "비가 여러 날 이어지려면 공기가 물기로 거의 가득 차 있어야 한다. 먼저 습기를 아주 높게 올려야 한다.",
+        "비구름은 한 번 비를 뿌리면 물기를 잃는다. 바닷바람이 세게 불어 수증기를 쉬지 않고 실어 날라야 다음 비구름이 채워지고, 그래야 비가 그치지 않아 땅이 물에 잠긴다."
       ],
       "correct_answer": "",
       "board_order": 7,
       "title": "며칠째 이어진 비",
-      "summary": "정체전선과 높은 습기로 동해안에 큰비를 이어가요."
+      "summary": "높은 습기에 센 바람을 더해 비가 그치지 않는 침수 위험을 만들어요."
     },
     "uses_live_slots": false,
     "source": {
       "kind": "claude-authored",
       "refs": [
-        "SPRINT_R13_01 §2.4 — 재난 연쇄 2(홍수)의 '위험 기상 생성 보드'",
-        "board_rules.json: stationary_front_monsoon (기존 규칙 재사용 — 신규 규칙 저작 없음)",
-        "판정: R5 — palette·goal이 요구하는 최고 개념은 '정체전선'. 결정 용어=전선, [9과17-04] → 4단계. mode=guided는 비계일 뿐 단계를 바꾸지 않는다"
+        "SPRINT_R13_01 §2.4 — 재난 연쇄 2(홍수)의 「위험 기상 생성 보드」",
+        "board_rules.json: flood_risk_saturated_inflow (R13 재난 축 신규 규칙 — 판정 결과가 persistent_rain이 아니라 flood_risk다)",
+        "엔진에 시간 축이 없어 「며칠간 지속」을 직접 조건으로 쓸 수 없다. 대신 지속 강수를 만드는 물리 조건(포화에 가까운 습기 + 수증기를 계속 실어 나르는 강한 기류)을 조건으로 삼았고, 그 논리를 explain·hint_needs에 명시했다",
+        "판정: R5(보드 특례) — palette·goal이 기단·전선을 쓰지 않는다. 결정 용어=상대습도, [9과17-03] → 4단계 (기존 판정값 유지)"
       ]
     },
     "status": "active"
@@ -6120,31 +6123,33 @@
         "elements": []
       },
       "palette": [
-        "front:cold",
-        "moisture"
+        "moisture",
+        "wind"
       ],
       "goal_conditions": [
         {
           "zone": 0,
-          "phenomenon": "shower"
+          "phenomenon": "flood_risk"
         }
       ],
       "hints": [
-        "찬 공기가 따뜻하고 습한 공기를 급하게 파고들면 공기가 세차게 밀려 올라간다.",
-        "세찬 상승이 위로 크게 솟은 소나기 구름을 만든다. 습기가 넉넉해야 좁은 지역에 강한 비가 쏟아진다."
+        "집중호우가 무서운 것은 한 번의 비가 아니라 물기가 계속 보충되어 비가 끊기지 않기 때문이다.",
+        "공기를 거의 포화 상태까지 채우고, 그 물기를 실어 나를 바람도 함께 세게 올려야 한다. 둘 중 하나만으로는 땅이 물에 잠기지 않는다."
       ],
       "correct_answer": "",
       "board_order": 27,
       "title": "좁고 굵은 집중호우",
-      "summary": "한랭전선과 짙은 습기로 서해에 집중호우를 쏟아부어요."
+      "summary": "포화에 가까운 공기와 강한 기류로 서해에 침수 위험을 만들어요."
     },
     "uses_live_slots": false,
     "source": {
       "kind": "claude-authored",
       "refs": [
         "SPRINT_R13_01 §2.4 — 재난 축 보드(집중호우)",
-        "board_rules.json: cold_front_shower (기존 규칙 재사용 — 신규 규칙 저작 없음)",
-        "판정: R5 — 판정 대상 텍스트(문두+힌트)의 최고 개념은 '집중호우·악기상'. 결정 용어=집중호우, [12지구01-04] '뇌우, 집중호우, 폭설, 강풍, 황사 등 주요 악기상' → 5단계 (전선 4보다 높은 쪽이 지배)"
+        "board_rules.json: flood_risk_saturated_inflow (R13 재난 축 신규 규칙)",
+        "집중호우의 핵심은 하층의 강한 기류가 수증기를 지속 공급하는 것이다 — 한 번 내린 비로 끝나지 않는 이유가 여기 있다",
+        "판정: R5 + R3 — 판정 대상 텍스트(문두+힌트)의 최고 개념은 「집중호우·악기상」. 결정 용어=집중호우, [12지구01-04] 「뇌우, 집중호우, 폭설, 강풍, 황사 등 주요 악기상」 → 5단계 (기존 판정값 유지)",
+        "⚠️ question_text는 멱등 키라 바꾸지 않았다 — 문두의 \"강한 소나기를 쏟아부어\"가 shower를 암시하지만 목표는 flood_risk다(PM 보고 완료)"
       ]
     },
     "status": "active"

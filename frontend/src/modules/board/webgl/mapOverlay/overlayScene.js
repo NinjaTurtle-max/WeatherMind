@@ -33,6 +33,10 @@ export const PRECIP_META = {
   persistent_rain: { kind: 'rain', weight: 2, slant: 0.7 },
   rain: { kind: 'rain', weight: 1, slant: 0.9 },
   snow: { kind: 'snow', weight: 1 },
+  // R13 재난 축(CO-A3·CO-K4): 침수는 「비가 그치지 않는 상태」다 — 지도에 비층운만
+  // 뜨고 비가 안 내리면 그 존만 그림이 멈춰 보인다. persistent_rain보다 촘촘하게.
+  // (산불은 cloud=none이라 강수·구름이 없고 노드 아이콘 🔥만 뜨는 것이 옳다)
+  flood_risk: { kind: 'rain', weight: 3, slant: 0.6 },
 };
 
 /** 강수 에미터 박스(userSpace) — 존 중심 기준 14×12 박스. SVG 경로와 동일 수치. */

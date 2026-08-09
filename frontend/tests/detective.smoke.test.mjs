@@ -1,0 +1,314 @@
+/**
+ * 기후 탐정 스모크 (R13, 대장 CO-N-2) —
+ *   node tests/detective.smoke.test.mjs
+ *
+ * 관례는 다른 스모크와 동일: 테스트 러너 의존 없음, vite middlewareMode +
+ * mock/apiMockPlugin(실 XHR) + jsdom 실마운트. 로케일은 ko 고정(한국어 단정).
+ *
+ * 여기서 지키는 것
+ *   ① **진입이 있다** — /explore 카드에서 /detective로 갈 수 있다. 라우트만
+ *      만들고 진입을 안 붙이면 URL을 손으로 쳐야 닿는 화면이 된다(CO-N-1 ②가
+ *      /explore에서 실제로 그랬다).
+ *   ② **조사가 먼저다** — 단서를 min_clues 미만으로 연 상태에서는 제출 버튼이
+ *      잠긴다. 이게 없으면 「기후 탐정」은 객관식 한 문제로 붕괴한다(배점 ②
+ *      "단순 퀴즈·정답 맞히기를 넘어").
+ *   ③ **정답이 화면에 미리 와 있지 않다** — 상세 응답 시점의 DOM 어디에도
+ *      해설·피드백 문구가 없다. 서버 계약(test_detective_router)의 프론트측 짝.
+ *   ④ **정오 판정이 announce된다**(CO-S-A1) — 판정 문구가
+ *      role=status·aria-live 영역 **안에** 들어간다. 화면에 보이기만 하고
+ *      라이브 영역 밖에 있으면 스크린리더 사용자에게는 아무 일도 안 일어난다.
+ *   ⑤ 오답은 다시 추리할 수 있고, 그때 해설은 나오지 않는다.
+ *   ⑥ 케이스 0건이면 빈 상태 안내와 나갈 문이 보인다(CO-S-3 부류 방지).
+ *
+ * jsdom에는 레이아웃 엔진이 없어 recharts ResponsiveContainer는 크기 0으로
+ * 접힌다 — 차트는 SVG 내부가 아니라 **figure/aria-label이 계열 단위만큼
+ * 그려졌는가**까지만 본다(단위가 다른 계열을 한 차트에 겹치지 않는다는 계약).
+ */
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import http from 'node:http';
+
+process.env.NODE_ENV = 'production';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const CASES = JSON.parse(
+  readFileSync(resolve(root, '../database/seed/detective_cases.json'), 'utf-8'),
+).filter((c) => (c.status ?? 'active') === 'active');
+
+const { createServer } = await import('vite');
+const { default: apiMockPlugin } = await import('../mock/apiMockPlugin.js');
+
+const vite = await createServer({
+  root,
+  logLevel: 'error',
+  plugins: [apiMockPlugin()],
+  server: { middlewareMode: true },
+  appType: 'custom',
+  optimizeDeps: { noDiscovery: true, include: [] },
+});
+
+const httpServer = http.createServer((req, res) => {
+  vite.middlewares(req, res, () => {
+    res.statusCode = 404;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ detail: 'not found', code: 'NOT_FOUND' }));
+  });
+});
+await new Promise((r) => httpServer.listen(0, '127.0.0.1', r));
+const origin = `http://127.0.0.1:${httpServer.address().port}`;
+
+const { JSDOM } = await import('jsdom');
+const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
+  url: `${origin}/`,
+  pretendToBeVisual: true,
+});
+const { window } = dom;
+globalThis.window = window;
+globalThis.document = window.document;
+Object.defineProperty(globalThis, 'navigator', { value: window.navigator, configurable: true });
+globalThis.localStorage = window.localStorage;
+globalThis.sessionStorage = window.sessionStorage;
+window.localStorage.setItem('weathermind.locale', 'ko');
+for (const k of ['HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'Event', 'CustomEvent', 'MutationObserver', 'getComputedStyle', 'SVGElement']) {
+  globalThis[k] = window[k];
+}
+globalThis.requestAnimationFrame = window.requestAnimationFrame?.bind(window) ?? ((cb) => setTimeout(cb, 16));
+globalThis.cancelAnimationFrame = window.cancelAnimationFrame?.bind(window) ?? clearTimeout;
+globalThis.XMLHttpRequest = window.XMLHttpRequest;
+if (!window.matchMedia) {
+  window.matchMedia = () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {} });
+}
+globalThis.matchMedia = window.matchMedia;
+class NoopResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+window.ResizeObserver = NoopResizeObserver;
+globalThis.ResizeObserver = NoopResizeObserver;
+
+const { createElement } = await import('react');
+const { createRoot } = await import('react-dom/client');
+const { MemoryRouter } = await import('react-router-dom');
+const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+
+const App = (await vite.ssrLoadModule('/src/App.jsx')).default;
+const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function waitFor(pred, timeoutMs = 10000, label = '') {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    if (pred()) return true;
+    await sleep(40);
+  }
+  throw new Error(`시간 초과(${timeoutMs}ms): ${label}`);
+}
+
+useAuthStore.getState().setTokens({ accessToken: 't-det', refreshToken: 'r-det' });
+useAuthStore.getState().setUser({ user_id: 'det-smoke', email: 'det@test.dev', nickname: '스모크' });
+
+const $ = (sel) => window.document.querySelector(sel);
+const $$ = (sel) => [...window.document.querySelectorAll(sel)];
+const text = () => window.document.body.textContent ?? '';
+// act()는 production 빌드에서 못 쓴다(다른 스모크와 같은 관례) — 이벤트를 쏘고
+// 마이크로태스크·리렌더가 끝날 만큼만 기다린다.
+const click = async (el) => {
+  el.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+  await sleep(30);
+};
+
+let failed = 0;
+const ok = (cond, label) => {
+  console.log(`${cond ? 'PASS' : 'FAIL'} ${label}`);
+  if (!cond) failed += 1;
+};
+
+const CASE = CASES[0];
+const ANSWER = CASE.solution.answer_hypothesis_id;
+const WRONG = CASE.hypotheses.find((h) => h.verdict === 'incorrect');
+
+function mount(entry) {
+  const container = window.document.getElementById('root');
+  const reactRoot = createRoot(container);
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, gcTime: 0, staleTime: 0 } },
+  });
+  reactRoot.render(
+    createElement(QueryClientProvider, { client: qc },
+      createElement(MemoryRouter, { initialEntries: [entry] }, createElement(App))),
+  );
+  return reactRoot;
+}
+
+// ═══ ① 탐구 홈에 진입 카드가 있다 ══════════════════════════════════════════
+let reactRoot = mount('/explore');
+await waitFor(() => text().includes('기후 탐정'), 10000, '탐구 홈 탐정 카드');
+const entryLink = $$('a').find((a) => a.getAttribute('href') === '/detective');
+ok(Boolean(entryLink), '탐구 홈(/explore)에 /detective 진입 카드가 있다');
+ok(
+  entryLink?.textContent.includes('가상 관측 자료'),
+  `탐정 카드는 시뮬 배지가 아니라 가상 자료 고지를 단다 — "${entryLink?.textContent.slice(-30) ?? ''}"`,
+);
+reactRoot.unmount();
+
+// ═══ 사건 목록 ═════════════════════════════════════════════════════════════
+reactRoot = mount('/detective');
+await waitFor(() => text().includes(CASE.title), 10000, '사건 목록 렌더');
+ok(text().includes(CASE.intro.headline), '목록 카드에 사건 헤드라인이 보인다');
+ok(
+  $$('a').some((a) => a.getAttribute('href') === `/detective/${CASE.case_id}`),
+  '목록에서 사건 상세로 가는 링크가 있다',
+);
+ok(!text().includes(CASE.solution.explanation.slice(0, 30)), '목록에 해설이 새지 않는다');
+reactRoot.unmount();
+
+// ═══ 사건 플레이 ═══════════════════════════════════════════════════════════
+reactRoot = mount(`/detective/${CASE.case_id}`);
+await waitFor(() => text().includes(CASE.intro.headline), 10000, '사건 상세 렌더');
+
+// ③ 정답이 미리 와 있지 않다 — 해설·피드백 문구가 DOM에 없다
+const bodyBefore = text();
+ok(!bodyBefore.includes(CASE.solution.explanation.slice(0, 30)), '제출 전 DOM에 해설이 없다');
+ok(
+  CASE.hypotheses.every((h) => !bodyBefore.includes(h.feedback.slice(0, 30))),
+  '제출 전 DOM에 가설 피드백이 없다',
+);
+ok(bodyBefore.includes(CASE.intro.data_note.slice(0, 20)), '가상 자료 고지가 화면에 있다');
+
+// 차트: 단위 묶음 수만큼 figure가 있다(이중 축 금지 — 단위가 다르면 차트를 가른다)
+const unitCount = new Set(CASE.series.map((s) => s.unit)).size;
+ok(
+  $$('figure').length === unitCount,
+  `차트가 단위 묶음 수(${unitCount})만큼 그려졌다 — 실제 ${$$('figure').length}`,
+);
+ok($$('[role="img"][aria-label]').length === unitCount, '차트마다 aria-label이 붙는다');
+
+// ② 조사가 먼저 — 단서를 덜 열면 제출 버튼이 잠긴다
+const submit = $('[data-testid="detective-submit"]');
+ok(Boolean(submit) && submit.disabled, '단서 0개 · 가설 미선택 상태에서 제출 잠김');
+
+// 가설만 골라도 여전히 잠겨 있다 (**여기가 이 모듈의 핵심 계약**)
+await click($(`[data-testid="detective-hypothesis-${ANSWER}"]`));
+ok(
+  $('[data-testid="detective-submit"]').disabled,
+  '가설을 골라도 단서를 안 열었으면 제출 잠김 — 객관식으로 붕괴하지 않는다',
+);
+
+// 단서를 min_clues - 1개까지 열어도 여전히 잠김
+const clueIds = CASE.clues.map((c) => c.clue_id);
+for (const id of clueIds.slice(0, CASE.min_clues - 1)) {
+  await click($(`[data-testid="detective-clue-${id}"]`));
+}
+ok(
+  $('[data-testid="detective-submit"]').disabled,
+  `단서 ${CASE.min_clues - 1}개(하한 미만)에서 제출 잠김`,
+);
+ok(
+  text().includes(CASE.clues[0].text.slice(0, 20)),
+  '연 단서는 본문이 펼쳐진다(조사 = 정보 획득)',
+);
+ok(
+  $(`[data-testid="detective-clue-${clueIds[0]}"]`).getAttribute('aria-expanded') === 'true',
+  '연 단서 카드에 aria-expanded=true',
+);
+
+// 하한을 채우면 열린다
+await click($(`[data-testid="detective-clue-${clueIds[CASE.min_clues - 1]}"]`));
+ok(!$('[data-testid="detective-submit"]').disabled, `단서 ${CASE.min_clues}개에서 제출 열림`);
+
+// ④ 오답 제출 → 판정이 aria-live 영역 안에서 announce
+await click($('[data-testid="detective-hypothesis-' + WRONG.hypothesis_id + '"]'));
+await click($('[data-testid="detective-submit"]'));
+await waitFor(() => text().includes('자료와 맞지 않아요'), 10000, '오답 판정 렌더');
+
+const live = $('[data-testid="detective-verdict-live"]');
+ok(Boolean(live), '판정 라이브 영역이 DOM에 상주한다');
+ok(live?.getAttribute('aria-live') === 'polite', 'aria-live=polite');
+ok(live?.getAttribute('role') === 'status', 'role=status');
+ok(live?.textContent.includes('자료와 맞지 않아요'), '오답 판정 문구가 라이브 영역 **안**에 있다');
+ok(live?.textContent.includes(WRONG.feedback.slice(0, 20)), '오답이어도 저작된 피드백은 보여 준다');
+ok(!text().includes(CASE.solution.explanation.slice(0, 30)), '⑤ 오답에는 해설이 나오지 않는다');
+
+// 단서 진행도도 라이브로 알린다
+const progress = $('[data-testid="detective-clue-progress"]');
+ok(progress?.getAttribute('aria-live') === 'polite', '단서 진행도가 aria-live로 알려진다');
+
+// ⑤ 다시 추리 → 정답 제출 → 해설까지
+await click($('[data-testid="detective-retry"]'));
+ok(!text().includes(WRONG.feedback.slice(0, 20)), '다시 추리하면 이전 판정이 지워진다');
+await click($(`[data-testid="detective-hypothesis-${ANSWER}"]`));
+await click($('[data-testid="detective-submit"]'));
+await waitFor(() => text().includes('사건 해결'), 10000, '정답 판정 렌더');
+
+const live2 = $('[data-testid="detective-verdict-live"]');
+ok(live2?.textContent.includes('사건 해결'), '정답 판정이 라이브 영역 안에서 announce된다');
+ok(
+  live2?.textContent.includes(CASE.solution.explanation.slice(0, 30)),
+  '정답일 때만 해설(explanation)이 온다',
+);
+ok(
+  live2?.textContent.includes(CASE.solution.takeaway.slice(0, 20)),
+  '해설에 「기억할 것」(takeaway)이 함께 온다',
+);
+reactRoot.unmount();
+
+// ═══ ⑦ 단위가 둘인 케이스는 차트가 갈린다(이중 축 금지) ═════════════════════
+// 케이스 2는 ℃ 2계열 + cm 2계열이다. 한 차트에 담으면 이중 축이 되고, 그러면
+// "바닷물은 그대로인데 상공만 떨어졌다"는 이 사건의 핵심 대비가 스케일에 묻힌다.
+// 케이스 1은 단위가 하나라 이 분기를 밟지 않는다 — 그래서 여기서 따로 본다.
+const CASE2 = CASES.find((c) => new Set(c.series.map((s) => s.unit)).size > 1);
+if (CASE2) {
+  reactRoot = mount(`/detective/${CASE2.case_id}`);
+  await waitFor(() => text().includes(CASE2.intro.headline), 10000, '케이스2 상세 렌더');
+  const units = new Set(CASE2.series.map((s) => s.unit)).size;
+  ok(
+    $$('figure').length === units,
+    `단위 ${units}종 → 차트 ${units}개로 갈림 — 실제 ${$$('figure').length}`,
+  );
+  ok(
+    $$('[role="img"][aria-label]').length === units,
+    '갈린 차트마다 각각 aria-label이 붙는다',
+  );
+  reactRoot.unmount();
+} else {
+  ok(false, '단위가 2종 이상인 케이스가 시드에 없다 — 차트 분리 분기가 미검증이다');
+}
+
+// ═══ ⑥ 케이스 0건 빈 상태 ══════════════════════════════════════════════════
+// 목을 건드리지 않고 XHR을 한 겹 감싸 목록만 빈 배열로 바꾼다 — 목의 라우트
+// 테이블을 테스트가 고쳐 쓰면 다른 스모크에 새는 상태가 된다.
+const RealXHR = window.XMLHttpRequest;
+class EmptyCasesXHR extends RealXHR {
+  open(method, url, ...rest) {
+    this.__isCaseList = String(url).endsWith('/detective/cases');
+    return super.open(method, url, ...rest);
+  }
+  get responseText() {
+    return this.__isCaseList ? '[]' : super.responseText;
+  }
+  get response() {
+    return this.__isCaseList ? '[]' : super.response;
+  }
+}
+window.XMLHttpRequest = EmptyCasesXHR;
+globalThis.XMLHttpRequest = EmptyCasesXHR;
+
+reactRoot = mount('/detective');
+await waitFor(() => text().includes('아직 열린 사건이 없어요'), 10000, '빈 상태 렌더');
+ok(text().includes('아직 열린 사건이 없어요'), '케이스 0건이면 빈 상태 안내가 뜬다');
+ok(
+  $$('a').some((a) => a.getAttribute('href') === '/explore'),
+  '빈 상태에도 나갈 문이 있다(탐구로 돌아가기) — 갇히지 않는다',
+);
+reactRoot.unmount();
+window.XMLHttpRequest = RealXHR;
+
+await vite.close();
+await new Promise((r) => httpServer.close(r));
+if (failed) {
+  console.error(`\n실패 ${failed}건`);
+  process.exit(1);
+}
+console.log('\nOK: 기후 탐정(진입·단서 게이트·정답 비노출·판정 announce·빈 상태) 스모크 통과');

@@ -13,6 +13,7 @@ import BoardPage from './modules/board/BoardPage';
 import ExploreHome from './modules/explore/ExploreHome';
 import TyphoonSimPage from './modules/explore/TyphoonSimPage';
 import ClimateSimPage from './modules/explore/ClimateSimPage';
+import DetectiveRoutes from './modules/detective/DetectiveRoutes';
 import LeaguePage from './modules/league/LeaguePage';
 import DuelPage from './modules/duel/DuelPage';
 import ProgressPage from './modules/progress/ProgressPage';
@@ -173,6 +174,8 @@ export default function App() {
           <Route path="/explore" element={<ExploreHome />} />
           <Route path="/explore/typhoon" element={<TyphoonSimPage />} />
           <Route path="/explore/climate" element={<ClimateSimPage />} />
+          {/* R13 기후 탐정(CO-N-2) — 하위 경로는 모듈이 소유한다(DetectiveRoutes). */}
+          <Route path="/detective/*" element={<DetectiveRoutes />} />
           <Route path="/duel" element={<DuelPage />} />
           <Route path="/league" element={<LeaguePage />} />
           <Route path="/me" element={<ProgressPage />} />

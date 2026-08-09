@@ -740,7 +740,85 @@ function DryConvectionClearScene({ step, animate }) {
   );
 }
 
-// ── 스토리보드 레지스트리 (board_rules.json 13종 — explain을 메커니즘 순서로 분해) ──
+/**
+ * ── R13 재난 축 2종 (CO-A3·CO-K4) ─────────────────────────────────────────
+ * 기존 11종은 「전선·기단이 구름을 어떻게 만드는가」를 그리고, 그 정교함(전선면
+ * 폴리곤·표준 전선 기호·활승 화살표)은 그 문법을 그대로 물려받은 결과다. 재난 2종은
+ * **다른 것을 말한다** — 만들어진 대기 상태가 지상에서 무엇이 되는가(불이 번진다·
+ * 물이 찬다). 그래서 전선면 문법을 흉내 내지 않고 지면에서 벌어지는 일만 그린다.
+ * 판단(2026-08-09, PM 「정직하게 최소로」 지시): 읽히는 것이 목적이고 과시가 아니다.
+ */
+/** wildfire_risk_dry_gale: 메마른 지면 → 센 바람 → 불씨 확산 → 구름 없는 위험한 하늘 */
+function WildfireRiskScene({ step, animate }) {
+  return (
+    <BlockFrame>
+      <Appear at={0} step={step} animate={animate}>
+        <SunShape x={210} y={30} scale={1.1} fill="#f59e0b" />
+        <polygon points={P([gp(0, 0), gp(1, 0), gp(1, 1), gp(0, 1)])} fill="#fde68a" opacity="0.55" />
+        {[0.18, 0.42, 0.66, 0.88].map((fx) => {
+          const [lx, ly] = gp(fx, 0.45);
+          return <path key={fx} d={`M${lx} ${ly} l4 -3 l4 3 l-4 2 Z`} fill="#a16207" opacity="0.85" />;
+        })}
+        <CSText x={128} y={104} color="#92400e" size={6}>물기가 빠진 낙엽과 잔가지</CSText>
+      </Appear>
+      <Appear at={1} step={step} animate={animate}>
+        <BroadArrow x1={30} y1={72} x2={126} y2={70} color="#0e7490" bend={0.04} w0={9} w1={4} />
+        <BroadArrow x1={30} y1={88} x2={112} y2={86} color="#0e7490" bend={0.03} w0={7} w1={3} />
+        <CSText x={74} y={60} color="#0e7490" size={6}>센 바람</CSText>
+      </Appear>
+      <Appear at={2} step={step} animate={animate}>
+        <g className={anim(animate, 'animate-board-sun-pulse')}>
+          <path d="M138 112 q6 -22 14 -26 q-3 12 4 16 q6 -8 5 -18 q10 14 6 28 Z" fill="#ea580c" />
+          <path d="M144 112 q4 -13 8 -16 q-1 8 3 10 q3 -5 3 -11 q6 9 3 17 Z" fill="#fbbf24" />
+        </g>
+        {[0, 1, 2].map((i) => (
+          <circle
+            key={i}
+            cx={172 + i * 16}
+            cy={86 - i * 6}
+            r={1.8 - i * 0.3}
+            fill="#f97316"
+            className={anim(animate, 'animate-board-rain')}
+            style={animate ? { animationDelay: `${(i * 0.22).toFixed(2)}s` } : undefined}
+          />
+        ))}
+        <CSText x={198} y={70} color="#c2410c" size={6}>불씨가 바람을 타요</CSText>
+      </Appear>
+      <Appear at={3} step={step} animate={animate}>
+        <CSText x={128} y={46} color="#b45309" size={6.5}>구름 없는 하늘 · 산불 위험</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+/** flood_risk_saturated_inflow: 수증기 유입 → 비구름 보충 → 그치지 않는 비 → 지면 포화 */
+function FloodRiskScene({ step, animate }) {
+  return (
+    <BlockFrame sea={{ to: 0.2 }}>
+      <Appear at={0} step={step} animate={animate}>
+        <BroadArrow x1={34} y1={82} x2={116} y2={74} color="#0d9488" bend={0.1} w0={9} w1={4} />
+        <BroadArrow x1={34} y1={98} x2={104} y2={92} color="#0d9488" bend={0.08} w0={7} w1={3} />
+        <CSText x={70} y={64} color="#0f766e" size={6}>수증기가 계속 실려 와요</CSText>
+      </Appear>
+      <Appear at={1} step={step} animate={animate}>
+        <LayerCloud x={118} y={62} w={92} dark animate={animate} grow={step === 1} />
+        <LayerCloud x={182} y={58} w={72} dark animate={animate} grow={step === 1} />
+        <CSText x={140} y={42} size={6}>비구름이 자꾸 다시 채워져요</CSText>
+      </Appear>
+      <Appear at={2} step={step} animate={animate}>
+        <CSRain x={104} y0={72} y1={110} count={5} gap={7} slant={5} slow animate={animate} />
+        <CSRain x={150} y0={72} y1={110} count={5} gap={7} slant={5} slow animate={animate} />
+        <CSRain x={192} y0={70} y1={110} count={4} gap={7} slant={5} slow animate={animate} />
+      </Appear>
+      <Appear at={3} step={step} animate={animate}>
+        <polygon points={P([gp(0, 0), gp(1, 0), gp(1, 1), gp(0, 1)])} fill="#38bdf8" opacity="0.5" />
+        <CSText x={128} y={108} color="#0c4a6e" size={6}>땅이 물을 더 받아들이지 못해요</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+// ── 스토리보드 레지스트리 (board_rules.json 15종 — explain을 메커니즘 순서로 분해) ──
 // ⚠️ i18n 외부화 제외(R11-01 §6.3 판정): boardVisual.render.test가 이 모듈 데이터
 // (steps·title)를 렌더 HTML과 **문자열 대조**하고, crossSectionWebgl.contract가
 // steps.length를 SCENES 단계와 정합 검사한다. 장면 내 CSText 라벨·scenes.js 라벨
@@ -874,6 +952,26 @@ export const STORYBOARDS = {
       '올라간 공기는 부풀며 식지만 그 안에 수증기가 거의 없어요.',
       '물방울로 맺힐 수증기가 없으니 구름이 만들어지지 않아요.',
       '공기가 활발히 오르내려도 하늘은 맑게 남아요.',
+    ],
+  },
+  wildfire_risk_dry_gale: {
+    title: '건조 + 강풍 — 산불이 번지기 쉬운 날',
+    Scene: WildfireRiskScene,
+    steps: [
+      '공기가 메마르면 낙엽과 잔가지에서 물기가 빠져나가요.',
+      '마른 땅 위로 센 바람이 지나가요.',
+      '바람은 불씨를 멀리 실어 나르고 산소도 계속 대 줘요.',
+      '구름 한 점 없이 맑지만, 불이 붙으면 가장 크게 번지는 날씨예요.',
+    ],
+  },
+  flood_risk_saturated_inflow: {
+    title: '포화 + 수증기 유입 — 물에 잠기는 날',
+    Scene: FloodRiskScene,
+    steps: [
+      '센 바람이 바다에서 수증기를 쉬지 않고 실어 와요.',
+      '비를 뿌리고 흩어진 자리를 다음 비구름이 곧 채워요.',
+      '그래서 비가 그치지 않고 같은 곳에 계속 내려요.',
+      '땅이 스며들 수 있는 양을 넘겨 물이 고이기 시작해요.',
     ],
   },
 };

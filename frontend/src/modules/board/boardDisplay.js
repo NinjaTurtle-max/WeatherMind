@@ -33,6 +33,10 @@ export const PHENOMENON_META = {
   heatwave: { label: '폭염', icon: '🔥' },
   clear: { label: '맑음', icon: '☀️' },
   cloudy: { label: '흐림', icon: '☁️' },
+  // R13 재난 축(CO-A3·CO-K4) — 재난 보드가 목표로 삼던 'clear'를 대체한다.
+  // 이 두 줄이 없으면 phenomenonMeta 폴백이 지도·단면 패널에 enum 원문 + ❔를 그린다.
+  wildfire_risk: { label: '산불 위험', icon: '🔥' },
+  flood_risk: { label: '침수 위험', icon: '🌊' },
 };
 
 export const CLOUD_META = {
@@ -47,6 +51,8 @@ export const CLOUD_META = {
 export function parsePaletteToken(token) {
   if (token === 'moisture') return { type: 'moisture', label: '습기', icon: '💧' };
   if (token === 'sun') return { type: 'sun', label: '일사', icon: '☀️' };
+  // wind는 세기(level) 요소다 — 방향(subtype)이 아니다. 근거는 board_engine.py 도크스트링.
+  if (token === 'wind') return { type: 'wind', label: '바람', icon: '🌬️' };
   const [type, subtype] = token.split(':');
   if (type === 'air_mass') {
     const meta = AIR_MASS_META[subtype] ?? { label: subtype, icon: '🌀' };

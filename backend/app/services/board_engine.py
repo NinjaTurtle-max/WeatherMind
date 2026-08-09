@@ -3,12 +3,21 @@
 순수 함수 모듈: DB·네트워크 의존 없음. 프론트 JS 인터프리터와 동일 입력→동일
 판정을 보장해야 하므로(§ R3-S1 AC), 판정 의미론을 여기 명문화한다:
 
-- 보드(§3.1): 존 0~3 고정. 배치 요소는 air_mass·front·moisture·sun 4종뿐이고
-  존당 기단·전선 각 최대 1, moisture/sun 존당 각 최대 1(0~100). 미배치 존의
-  moisture/sun은 기본값 40/50.
+- 보드(§3.1): 존 0~3 고정. 배치 요소는 air_mass·front·moisture·sun·**wind** 5종이고
+  존당 기단·전선 각 최대 1, moisture/sun/wind 존당 각 최대 1(0~100). 미배치 존의
+  moisture/sun/wind는 기본값 40/50/**20**.
 - 조건(§3.2)은 정확히 2형만 허용: "<type>:<subtype>"(존재 검사, type은
-  air_mass|front) / "<field><op><숫자>"(field는 moisture|sun, op는 >=·<= 만).
+  air_mass|front) / "<field><op><숫자>"(field는 moisture|sun|wind, op는 >=·<= 만).
   그 외 문법은 규칙 스키마 검증에서 거부한다(인터프리터 단순성 유지 — 계약 고정).
+
+- **wind는 왜 subtype(방향)이 아니라 level(세기)인가** (R13 재난 보드 확장):
+  판정은 "조건이 전부 **같은 존**에서 AND로 성립"이고 엔진에 존↔존 전파가 없다.
+  방향(북서풍·남서풍)이 의미를 갖는 것은 "어디에서 어디로 옮겨 가느냐"인데,
+  그 축이 엔진에 없으므로 방향을 subtype으로 넣어도 **판정에 기여할 수 없는
+  사문 요소**가 된다(기단 yangtze·okhotsk가 규칙에 안 쓰여 사문이던 R13 발견과
+  같은 성격). 반면 세기(강풍)는 산불 위험·수증기 유입 강도를 직접 좌우하고
+  기존 부등호 문법이 그대로 표현한다 — **새 조건 문법을 0개 늘리고** 파이썬·JS
+  이중 구현의 대조면을 넓히지 않는다. 방향은 판정이 아니라 표시의 문제로 남긴다.
 - 판정: 존별로 when 조건이 전부 그 존에서 성립(AND)하는 규칙 중 priority 최고
   1개를 적용. priority 동률이면 규칙 파일 순서상 앞선 규칙(결정적 판정 —
   같은 조건에 같은 priority는 §3.2가 금지하며 스키마 검증이 거부한다).
@@ -29,14 +38,24 @@ ZONE_COUNT = len(ZONES)
 AIR_MASS_SUBTYPES = frozenset({"siberian", "north_pacific", "yangtze", "okhotsk"})
 FRONT_SUBTYPES = frozenset({"cold", "warm", "stationary"})
 ELEMENT_SUBTYPES = {"air_mass": AIR_MASS_SUBTYPES, "front": FRONT_SUBTYPES}
-LEVEL_TYPES = ("moisture", "sun")            # 존당 1개, level 0~100
-PLACEABLE_TYPES = frozenset({"air_mass", "front", "moisture", "sun"})
+LEVEL_TYPES = ("moisture", "sun", "wind")    # 존당 1개, level 0~100
+PLACEABLE_TYPES = frozenset({"air_mass", "front", "moisture", "sun", "wind"})
 DEFAULT_MOISTURE = 40                        # 미배치 존 기본값 (§3.1)
 DEFAULT_SUN = 50
+# 평상시 약한 바람. 낮게 잡는 것이 계약이다 — 재난 규칙이 wind>= 로 발화하므로
+# 기본값이 높으면 **미배치 존 전부가 재난으로 뒤집힌다**
+# (test_seed_contract.test_확장_규칙은_미배치_존_기본상태에서_성립하지_않는다).
+DEFAULT_WIND = 20
+LEVEL_DEFAULTS = {"moisture": DEFAULT_MOISTURE, "sun": DEFAULT_SUN, "wind": DEFAULT_WIND}
 
 # ── 판정 출력 계약 (§3.2) ──
+# wildfire_risk·flood_risk는 R13 재난 축 확장(CO-A3·CO-K4) — "재난 보드가 clear를
+# 목표로 삼는" 상태를 끝내려면 재난이 **판정 결과**로 존재해야 한다.
 PHENOMENA = frozenset(
-    {"shower", "rain", "persistent_rain", "snow", "fog", "heatwave", "clear", "cloudy"}
+    {
+        "shower", "rain", "persistent_rain", "snow", "fog", "heatwave", "clear",
+        "cloudy", "wildfire_risk", "flood_risk",
+    }
 )
 CLOUDS = frozenset({"cumulonimbus", "nimbostratus", "stratus", "cumulus", "none"})
 DEFAULT_OUTCOME = {"phenomenon": "cloudy", "cloud": "cumulus"}  # 무성립 기본값
@@ -54,7 +73,7 @@ _rules_cache: dict[str, list[dict[str, Any]]] = {}
 
 # 조건 문법 2형 (§3.2) — 이 두 정규식 외의 문법은 전부 거부
 _PRESENCE_RE = re.compile(r"^(air_mass|front):([a-z_]+)$")
-_NUMERIC_RE = re.compile(r"^(moisture|sun)(>=|<=)(\d+(?:\.\d+)?)$")
+_NUMERIC_RE = re.compile(r"^(moisture|sun|wind)(>=|<=)(\d+(?:\.\d+)?)$")
 
 
 class BoardValidationError(Exception):
@@ -111,7 +130,7 @@ def validate_board(board: Any) -> None:
                     f"{prefix}: {etype} subtype {subtype!r} 불허 "
                     f"(허용: {sorted(ELEMENT_SUBTYPES[etype])})"
                 )
-        else:  # moisture | sun
+        else:  # moisture | sun | wind
             level = element.get("level")
             if not _is_number(level) or not 0 <= level <= 100:
                 raise BoardValidationError(f"{prefix}: {etype} level은 0~100이어야 합니다")
@@ -128,10 +147,10 @@ def zone_states(board: dict[str, Any]) -> list[dict[str, Any]]:
     """검증된 보드를 존별 판정 상태 4개로 정규화한다 (미배치 기본값 적용).
 
     반환 각 항목: {"air_mass": subtype|None, "front": subtype|None,
-                  "moisture": 0~100, "sun": 0~100}
+                  "moisture": 0~100, "sun": 0~100, "wind": 0~100}
     """
     states = [
-        {"air_mass": None, "front": None, "moisture": DEFAULT_MOISTURE, "sun": DEFAULT_SUN}
+        {"air_mass": None, "front": None, **LEVEL_DEFAULTS}
         for _ in range(ZONE_COUNT)
     ]
     for element in board.get("elements", []):
@@ -152,7 +171,7 @@ def zone_states(board: dict[str, Any]) -> list[dict[str, Any]]:
 def parse_condition(condition: Any) -> tuple:
     """조건 문자열 → ("presence", type, subtype) | ("numeric", field, op, value).
 
-    §3.2 문법 2형 외에는 BoardRulesError (op는 >=·<= 만, field는 moisture|sun).
+    §3.2 문법 2형 외에는 BoardRulesError (op는 >=·<= 만, field는 moisture|sun|wind).
     """
     if not isinstance(condition, str):
         raise BoardRulesError(f"조건은 문자열이어야 합니다: {condition!r}")

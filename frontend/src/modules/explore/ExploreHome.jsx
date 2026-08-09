@@ -25,6 +25,17 @@ const SIMS = [
     descriptionKey: 'explore.home.climateDesc',
     inputsKey: 'explore.home.climateInputs',
   },
+  // R13 기후 탐정(대장 CO-N-2) — 계획서 [그림1] 4모듈 중 화면이 0이던 하나.
+  // 내비 탭을 8개로 늘리는 대신 탐구 홈에 세운다(좁은 화면 탭바 넘침 방지).
+  // 시뮬이 아니라 사건 조사라 배지 문구가 다르다(가상 관측 자료 고지).
+  {
+    to: '/detective',
+    icon: '🕵️',
+    titleKey: 'detective.entry.title',
+    descriptionKey: 'detective.entry.desc',
+    inputsKey: 'detective.entry.inputs',
+    badgeKey: 'detective.entry.badge',
+  },
 ];
 
 export default function ExploreHome() {
@@ -58,7 +69,7 @@ export default function ExploreHome() {
             {/* 「교육용 단순화 모델」 고지는 카드마다 유지한다(R9-01 §3.5) —
                 실제 예보·기후 전망으로 읽히면 안 된다. */}
             <p className="mt-auto inline-block self-start rounded-full bg-slate-100 px-2.5 py-1 text-[10.5px] font-medium text-slate-500">
-              {t('explore.common.modelBadge')}
+              {t(sim.badgeKey ?? 'explore.common.modelBadge')}
             </p>
           </Link>
         ))}

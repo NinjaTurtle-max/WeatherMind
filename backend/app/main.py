@@ -24,6 +24,7 @@ from app.core.database import engine, runtime_role_privilege
 from app.core.logging import RequestLogMiddleware, setup_logging
 from app.core.rate_limit import limiter
 from app.core.redis import close_redis, get_redis
+from app.routers import detective  # noqa: F401  (R13 기후 탐정 — 한 줄 추가 규약)
 from app.routers import (
     auth,
     board,
@@ -339,6 +340,7 @@ app.include_router(league.router)
 app.include_router(duel.router)
 app.include_router(curriculum.router)
 app.include_router(onboarding.router)
+app.include_router(detective.router)  # R13 기후 탐정 (CO-N-2)
 
 # 개발자 모드(R7-03) — DEV_MODE=true일 때만 등록. 꺼져 있으면(기본 false,
 # test_dev_mode 계약이 감시) /api/v1/dev 경로 자체가 존재하지 않아 404.

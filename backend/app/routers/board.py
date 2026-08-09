@@ -93,11 +93,19 @@ def board_clear_xp(passed: bool, already_cleared: bool) -> int:
 async def get_rules(
     user: User = Depends(get_current_user),
 ) -> list[dict]:
-    """board_rules.json 원문 반환 (서버 파일 캐시 — 프론트 로컬 미리보기 단일 진실원).
+    """board_rules.json 반환 (서버 파일 캐시 — 프론트 로컬 미리보기 단일 진실원).
+
+    ⚠️ **`note_*` 키는 벗겨서 내보낸다.** 저작 메모(`note_authoring` 등)는 규칙을 왜
+    그렇게 썼는지 다음 저작자에게 남기는 글이지 화면이 쓰는 값이 아니다. 원문을 그대로
+    내보내면 내부 메모가 브라우저 개발자 도구에 그대로 뜬다 — 판정에 안 쓰이므로
+    벗겨도 프론트 미리보기는 서버와 같은 답을 낸다(공유 벡터가 그걸 검증한다).
 
     규칙 부재·스키마 오류(BoardRulesError) → 503은 main.py 전역 핸들러 담당.
     """
-    return board_engine.load_rules()
+    return [
+        {k: v for k, v in rule.items() if not k.startswith("note_")}
+        for rule in board_engine.load_rules()
+    ]
 
 
 def board_difficulty(template_json: dict, level_group: str) -> int:

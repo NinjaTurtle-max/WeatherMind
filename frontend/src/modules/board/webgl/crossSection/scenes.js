@@ -392,6 +392,48 @@ const dryConvectionClear = () => [
   label({ x: 0.5, y: H(0.72), text: '오르내려도 하늘은 맑아요', color: '#1d4ed8', at: 3, size: 11 }),
 ];
 
+/**
+ * ── R13 재난 축 2종 (CO-A3·CO-K4) ─────────────────────────────────────────
+ * ⚠️ **의도적으로 최소 기술이다**(2026-08-09, PM 「정직하게 최소로」 지시).
+ * 기존 13종은 전선면 슬랩·쐐기·적란운 타워처럼 대기 **구조**를 3D로 세우는데,
+ * 재난 2종이 말하는 것은 구조가 아니라 지면에서 벌어지는 결과(불이 번진다·물이
+ * 찬다)라 세울 구조가 없다. 그래서 볼륨·쐐기를 흉내 내지 않고 흐름·빌보드·라벨만
+ * 쓴다. 여기가 빈약해도 화면이 거짓말하지는 않는다 — SVG 스토리보드가 같은 4단계를
+ * 그대로 그리고, WebGL2가 없으면 애초에 그쪽이 뜬다(CrossSectionPanel 폴백 3경로).
+ * 3D를 제대로 세우고 싶다면 지형(산·계곡)과 지면 상태라는 축이 먼저 필요하다.
+ */
+/** wildfire_risk_dry_gale: 마른 지면 → 강풍 → 불씨 확산 → 맑지만 위험한 하늘 */
+const wildfireRiskDryGale = () => [
+  bb({ x: 0.86, y: H(1.0), z: 0.06, w: 0.17, h: 0.17, color: rgba('#f59e0b', 0.95), kind: 2, at: 0 }),
+  bb({ x: 0.5, y: 0.004, w: 0.86, h: 0.1, color: rgba('#ca8a04', 0.42), kind: 3, at: 0 }),
+  label({ x: 0.5, y: H(0.16), text: '물기가 빠진 낙엽과 잔가지', color: '#92400e', at: 0, size: 10 }),
+
+  ...flow({ from: [0.1, H(0.34), ZC], dir: [1, 0.04, 0], travel: 0.42, count: 3, color: rgba('#0e7490', 0.9), at: 1, speed: 0.72, spreadY: 0.02 }),
+  label({ x: 0.28, y: H(0.62), text: '센 바람', color: '#0e7490', at: 1, size: 11 }),
+
+  bb({ x: 0.52, y: H(0.12), w: 0.13, h: 0.22, color: rgba('#ea580c', 0.9), kind: 2, at: 2 }),
+  bb({ x: 0.52, y: H(0.08), w: 0.07, h: 0.13, color: rgba('#fbbf24', 0.95), kind: 2, at: 2 }),
+  ...flow({ from: [0.58, H(0.3), ZC], dir: [1, 0.5, 0], travel: 0.3, count: 3, scale: 0.03, color: rgba('#f97316', 0.95), at: 2, speed: 0.9, spreadZ: 0.1 }),
+  label({ x: 0.8, y: H(0.66), text: '불씨가 바람을 타요', color: '#c2410c', at: 2, size: 10 }),
+
+  label({ x: 0.5, y: H(1.06), text: '구름 없는 하늘 · 산불 위험', color: '#b45309', at: 3, size: 11 }),
+];
+
+/** flood_risk_saturated_inflow: 수증기 유입 → 비구름 보충 → 지속 강수 → 지면 포화 */
+const floodRiskSaturatedInflow = () => [
+  ...flow({ from: [0.08, H(0.4), ZC], dir: [1, 0.14, 0], travel: 0.4, count: 3, color: rgba('#0d9488', 0.92), at: 0, speed: 0.6, spreadZ: 0.14 }),
+  label({ x: 0.26, y: H(0.72), text: '수증기가 계속 실려 와요', color: '#0f766e', at: 0, size: 10 }),
+
+  puff({ x: 0.42, y: H(0.86), s: 1.5, color: rgba('#94a3b8', 0.9), at: 1 }),
+  puff({ x: 0.66, y: H(0.9), s: 1.3, color: rgba('#cbd5e1', 0.9), at: 1 }),
+  label({ x: 0.54, y: H(1.12), text: '비구름이 자꾸 다시 채워져요', color: '#475569', at: 1, size: 10 }),
+
+  precip({ x0: 0.3, x1: 0.8, y1: H(0.82), kind: 'rain', slant: 0.16, speed: 1.3, count: 30, at: 2 }),
+
+  bb({ x: 0.5, y: 0.004, w: 0.92, h: 0.12, color: rgba('#38bdf8', 0.55), kind: 3, at: 3 }),
+  label({ x: 0.5, y: H(0.2), text: '땅이 물을 더 받아들이지 못해요', color: '#0c4a6e', at: 3, size: 10 }),
+];
+
 // ── 레지스트리 ──────────────────────────────────────────────────────────────
 /**
  * rule_id → 장면. `STORYBOARDS`(캡션·단계 수의 단일 진실원)와 키가 일치해야 하며
@@ -412,6 +454,8 @@ export const SCENES = {
   yangtze_mild_clear: { build: yangtzeMildClear },
   yangtze_morning_fog: { build: yangtzeMorningFog, night: true, sea: { from: 0.26, to: 0.44 } },
   dry_convection_clear: { build: dryConvectionClear },
+  wildfire_risk_dry_gale: { build: wildfireRiskDryGale },
+  flood_risk_saturated_inflow: { build: floodRiskSaturatedInflow, sea: { from: 0, to: 0.2 } },
 };
 
 /** 장면 전체(지표 레이어 + 단계 아이템) 조립 — 단계 필터는 renderer가 수행 */

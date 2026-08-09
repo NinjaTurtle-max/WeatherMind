@@ -92,3 +92,89 @@ class TestSeedAuthoring:
         assert len(set(titles)) == len(titles), f"제목 중복: {titles}"
         long = [t for t in titles if len(t) > 14]
         assert not long, f"제목이 너무 길다(14자 초과): {long}"
+
+
+class TestDisasterBoards:
+    """재난 board 4건이 **실제로 재난을 판정 결과로 낸다** (R13 CO-A3·CO-K4).
+
+    왜 이 테스트가 필요한가 — 이 4건은 원래 「산불 나기 쉬운 날」이라는 제목과
+    「산불이 번지기 쉬운」이라는 문두를 달고서 목표가 `clear`(맑음)였다. 제목과
+    요약에만 재난이 있고 화면에는 없었다는 뜻이다. 엔진에 재난 현상이 생긴 지금,
+    그 상태로 되돌아가는 것을 데이터 쪽에서 막는다:
+
+      ① 재난 개념 태그의 board는 목표 현상이 재난 enum 안이어야 한다
+      ② 그 목표가 현행 규칙으로 **실제 도달 가능**해야 한다(팔레트만으로)
+      ③ 도달에 쓰는 조절값이 전부 팔레트에 있어야 한다 — 없으면 기본값에 갇혀
+        아무리 만져도 목표에 닿지 않는 「풀 수 없는 퍼즐」이 된다
+    """
+
+    DISASTER_TAGS = ("wildfire_weather", "flood_response")
+    DISASTER_PHENOMENA = frozenset({"wildfire_risk", "flood_risk"})
+
+    def _disaster_items(self) -> list[dict]:
+        return [i for i in _board_items() if i["concept_tag"] in self.DISASTER_TAGS]
+
+    def test_재난_board가_4건이다(self):
+        assert len(self._disaster_items()) == 4
+
+    def test_목표가_재난_현상이다(self):
+        for item in self._disaster_items():
+            template = item["template_json"]
+            goals = template["goal_conditions"]
+            assert goals, template["title"]
+            for goal in goals:
+                assert goal["phenomenon"] in self.DISASTER_PHENOMENA, (
+                    f"{template['title']}: 목표가 {goal['phenomenon']} — 재난 문항의 "
+                    "목표가 재난이 아니면 제목만 재난이고 화면은 다른 말을 한다"
+                )
+
+    def test_현행_규칙으로_실제_도달_가능하다(self):
+        """팔레트가 허용하는 조절값만으로 목표 현상을 만들어 낼 수 있는가."""
+        from app.services import board_engine
+
+        rules = board_engine.load_rules()
+        for item in self._disaster_items():
+            template = item["template_json"]
+            palette = template["palette"]
+            goals = template["goal_conditions"]
+
+            # 목표 현상을 내는 규칙을 찾아 그 조건을 팔레트 조절값으로 만족시킨다
+            for goal in goals:
+                matching = [
+                    r for r in rules if r["then"]["phenomenon"] == goal["phenomenon"]
+                ]
+                assert matching, f"{goal['phenomenon']}을(를) 내는 규칙이 없다"
+                rule = matching[0]
+                for condition in rule["when"]:
+                    kind, *rest = board_engine.parse_condition(condition)
+                    assert kind == "numeric", (
+                        f"{template['title']}: 재난 규칙이 배치 요소를 요구하는데 "
+                        "팔레트 도달 가능성을 여기서 보장할 수 없다"
+                    )
+                    field = rest[0]
+                    assert field in palette, (
+                        f"{template['title']}: 규칙이 {field}를 요구하는데 팔레트에 "
+                        f"없다({palette}) — 기본값에 갇혀 풀 수 없는 퍼즐이 된다"
+                    )
+
+            # 실제로 판정을 돌려 목표가 성립하는지 확인 (권위 엔진 그대로)
+            elements = []
+            for goal in goals:
+                rule = next(
+                    r for r in rules if r["then"]["phenomenon"] == goal["phenomenon"]
+                )
+                for condition in rule["when"]:
+                    _, field, op, value = board_engine.parse_condition(condition)
+                    elements.append(
+                        {
+                            "type": field,
+                            "level": min(100, value + 5) if op == ">=" else max(0, value - 5),
+                            "zone": goal["zone"],
+                        }
+                    )
+            board = {"zones": list(board_engine.ZONES), "elements": elements}
+            phenomena = board_engine.evaluate(board, rules)
+            assert board_engine.check_goals(phenomena, goals), (
+                f"{template['title']}: 팔레트대로 조절해도 목표에 닿지 않는다 — "
+                f"{[p['phenomenon'] for p in phenomena]}"
+            )

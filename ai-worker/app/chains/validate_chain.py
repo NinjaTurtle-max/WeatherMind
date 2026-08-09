@@ -97,6 +97,11 @@ PHENOMENON_ENUM = (
     "heatwave",
     "clear",
     "cloudy",
+    # R13 재난 축 (CO-A3·CO-K4) — board_engine.PHENOMENA와 같은 집합이어야 한다.
+    # 이 두 값이 없으면 재난 board 문항의 goal_conditions가 lint_seed_items ⑧에서
+    # 전건 탈락한다(재난 보드가 clear를 목표로 삼던 상태를 끝낸 것이 그 확장이다).
+    "wildfire_risk",
+    "flood_risk",
 )
 BOARD_MODES = ("guided", "goal_only")
 

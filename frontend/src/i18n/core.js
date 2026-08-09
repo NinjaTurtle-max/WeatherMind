@@ -13,8 +13,14 @@ import en from './resources/en.js';
 // board·explore 네임스페이스는 파일 소유를 갈랐다(§6.3 — D1이 board.*, D2가 나머지).
 import boardKo from './resources/board.ko.js';
 import boardEn from './resources/board.en.js';
+// 기후 탐정(R13 CO-N-2)도 같은 이유로 파일을 갈랐다 — 최상위 키는 detective.* 하나뿐.
+import detectiveKo from './resources/detective.ko.js';
+import detectiveEn from './resources/detective.en.js';
 
-export const RESOURCES = { ko: { ...ko, ...boardKo }, en: { ...en, ...boardEn } };
+export const RESOURCES = {
+  ko: { ...ko, ...boardKo, ...detectiveKo },
+  en: { ...en, ...boardEn, ...detectiveEn },
+};
 export const SUPPORTED_LOCALES = Object.keys(RESOURCES);
 export const DEFAULT_LOCALE = 'ko';
 /** localStorage 키 — 로케일 영속(브라우저 재방문 시 유지) */

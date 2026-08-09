@@ -3,16 +3,20 @@
  *
  * 백엔드(Python) 인터프리터와 **동일 의미론**을 보증해야 하는 모듈이다 (R3-S1).
  *  - 보드 모델(§3.1): 한반도 단면 4존(서해·수도권·태백산맥·동해안), 배치 요소는
- *    air_mass / front / moisture / sun 4종. 존당 기단 최대 1·전선 최대 1·
- *    moisture/sun 각 1. 구름·현상은 판정 **출력**이며 배치할 수 없다.
+ *    air_mass / front / moisture / sun / **wind** 5종. 존당 기단 최대 1·전선 최대 1·
+ *    moisture/sun/wind 각 1. 구름·현상은 판정 **출력**이며 배치할 수 없다.
  *  - 규칙 문법(§3.2): 조건은 정확히 2형만 허용 —
  *      ① "<type>:<subtype>"          존재 검사 (예: "front:cold")
- *      ② "<field><op><숫자>"          수치 비교, op ∈ {>=, <=}, field ∈ {moisture, sun}
+ *      ② "<field><op><숫자>"          수치 비교, op ∈ {>=, <=}, field ∈ {moisture, sun, wind}
  *    조건은 전부 **같은 존**에서 AND로 성립해야 한다.
  *  - 판정: 존별로 성립한 규칙 중 priority 최고 1개 적용(동률이면 규칙 배열의
  *    앞선 것 — 계약상 같은 조건·같은 priority 모순은 데이터 저작 단계에서 금지).
  *    성립 규칙이 없으면 기본값 {phenomenon: "cloudy", cloud: "cumulus"}.
- *  - 미배치 존 기본값: moisture 40, sun 50.
+ *  - 미배치 존 기본값: moisture 40, sun 50, wind 20.
+ *
+ * wind가 방향(subtype)이 아니라 세기(level)인 근거는 board_engine.py 모듈
+ * 도크스트링에 있다(단일 서술 — 여기서 복제하지 않는다). 요지: 조건은 전부 같은
+ * 존에서 AND이고 존↔존 전파가 없어 방향이 판정에 기여할 수 없다.
  *
  * 규칙 JSON은 GET /api/v1/board/rules 로 로드한다(단일 진실원 —
  * database/seed/board_rules.json). **이 파일에 규칙을 하드코딩하지 않는다.**
@@ -23,16 +27,22 @@
 
 // ── §3.1 상수 ──────────────────────────────────────────────────────────────
 export const ZONES = Object.freeze(['서해', '수도권', '태백산맥', '동해안']); // index 0~3 고정
-export const ELEMENT_TYPES = Object.freeze(['air_mass', 'front', 'moisture', 'sun']);
+export const ELEMENT_TYPES = Object.freeze(['air_mass', 'front', 'moisture', 'sun', 'wind']);
+export const LEVEL_TYPES = Object.freeze(['moisture', 'sun', 'wind']); // 0~100 조절값
 export const AIR_MASS_SUBTYPES = Object.freeze(['siberian', 'north_pacific', 'yangtze', 'okhotsk']);
 export const FRONT_SUBTYPES = Object.freeze(['cold', 'warm', 'stationary']);
 export const PHENOMENON_ENUM = Object.freeze([
   'shower', 'rain', 'persistent_rain', 'snow', 'fog', 'heatwave', 'clear', 'cloudy',
+  // R13 재난 축(CO-A3·CO-K4) — 재난 보드가 'clear'를 목표로 삼던 상태를 끝낸다
+  'wildfire_risk', 'flood_risk',
 ]);
 export const CLOUD_ENUM = Object.freeze(['cumulonimbus', 'nimbostratus', 'stratus', 'cumulus', 'none']);
 
 export const DEFAULT_MOISTURE = 40; // 미배치 존 기본값 (§3.1)
 export const DEFAULT_SUN = 50;
+// 평상시 약한 바람. 낮게 잡는 것이 계약 — 재난 규칙이 wind>=로 발화하므로 기본값이
+// 높으면 미배치 존 전부가 재난으로 뒤집힌다(백엔드 DEFAULT_WIND와 같은 값이어야 한다).
+export const DEFAULT_WIND = 20;
 export const DEFAULT_RESULT = Object.freeze({ phenomenon: 'cloudy', cloud: 'cumulus' }); // §3.2 기본 판정
 
 // ── §3.1 보드 상태 검증 ────────────────────────────────────────────────────
@@ -79,7 +89,7 @@ export function validateBoardState(board) {
     if (el.type === 'front' && !FRONT_SUBTYPES.includes(el.subtype)) {
       errors.push(`${at}: front subtype은 ${FRONT_SUBTYPES.join('|')} 중 하나여야 합니다`);
     }
-    if (el.type === 'moisture' || el.type === 'sun') {
+    if (LEVEL_TYPES.includes(el.type)) {
       const level = el.level;
       if (typeof level !== 'number' || Number.isNaN(level) || level < 0 || level > 100) {
         errors.push(`${at}: ${el.type} level은 0~100 숫자여야 합니다`);
@@ -99,28 +109,28 @@ export function validateBoardState(board) {
 }
 
 // ── 판정 (§3.2) ────────────────────────────────────────────────────────────
-/** 보드 elements를 존별 상태 {airMass, front, moisture, sun}로 정규화 (기본값 적용) */
+/** 보드 elements를 존별 상태 {airMass, front, moisture, sun, wind}로 정규화 (기본값 적용) */
 export function zoneStates(board) {
   const zones = Array.from({ length: ZONES.length }, () => ({
     airMass: null,
     front: null,
     moisture: DEFAULT_MOISTURE,
     sun: DEFAULT_SUN,
+    wind: DEFAULT_WIND,
   }));
   for (const el of board?.elements ?? []) {
     const zs = zones[el?.zone];
     if (!zs) continue;
     if (el.type === 'air_mass') zs.airMass = el.subtype;
     else if (el.type === 'front') zs.front = el.subtype;
-    else if (el.type === 'moisture') zs.moisture = Number(el.level);
-    else if (el.type === 'sun') zs.sun = Number(el.level);
+    else if (LEVEL_TYPES.includes(el.type)) zs[el.type] = Number(el.level);
   }
   return zones;
 }
 
 // 조건 문법 2형 (§3.2 — 이 문법 외 금지)
 const COND_EXISTS = /^(air_mass|front)\s*:\s*([a-z_]+)$/; // "<type>:<subtype>"
-const COND_NUMBER = /^(moisture|sun)\s*(>=|<=)\s*(\d+(?:\.\d+)?)$/; // "<field><op><숫자>"
+const COND_NUMBER = /^(moisture|sun|wind)\s*(>=|<=)\s*(\d+(?:\.\d+)?)$/; // "<field><op><숫자>"
 
 /**
  * 단일 조건이 존 상태(zoneStates 항목)에서 성립하는지 판정.
@@ -140,7 +150,7 @@ export function conditionHolds(condition, zs) {
   const num = cond.match(COND_NUMBER);
   if (num) {
     const [, field, op, raw] = num;
-    const actual = field === 'moisture' ? zs.moisture : zs.sun;
+    const actual = zs[field];
     const target = Number(raw);
     return op === '>=' ? actual >= target : actual <= target;
   }
@@ -180,16 +190,28 @@ export function evaluateBoard(board, rules) {
 /**
  * goal_conditions(§3.3, AND) 충족 검사.
  * @returns {passed: bool, unmet: [{zone, phenomenon}]} — unmet은 미충족 목표 목록
+ *
+ * ⚠️ **빈 목표는 `passed:false`** — 서버(board_engine.check_goals)와 같은 판정이다.
+ * CO-K3: 공유 벡터가 현상 판정만 물고 목표 판정은 0건이라 이 구간이 무방비였고,
+ * 실제로 JS는 `true`·Python은 `False`로 **정반대**였다(자유 실험판이 마운트 즉시
+ * "달성"이 되어 화면이 튀던 CO-K7이 그 발현). 목표 없는 문항이 자동 정답이 되는 것을
+ * 막는 쪽(서버)이 옳고, 서버가 채점 권위이므로 JS를 서버에 맞춘다.
+ * board_test_vectors.json의 `goals` 블록이 이 판정을 양측에서 함께 고정한다.
  */
 export function checkGoals(zoneResults, goalConditions) {
-  const unmet = (goalConditions ?? []).filter((goal) => {
-    const result = zoneResults[goal.zone];
+  const goals = goalConditions ?? [];
+  const unmet = goals.filter((goal) => {
+    if (!goal || typeof goal !== 'object') return true;
+    if (!Number.isInteger(goal.zone) || goal.zone < 0 || goal.zone >= ZONES.length) return true;
+    const result = zoneResults?.[goal.zone];
     if (!result) return true;
-    if (goal.phenomenon != null && result.phenomenon !== goal.phenomenon) return true;
-    if (goal.cloud != null && result.cloud !== goal.cloud) return true;
+    // phenomenon은 **항상** 비교한다(누락이면 미충족) — 서버는 goal.get() 결과가
+    // None이라 자동으로 불일치가 된다. cloud는 키가 있을 때만 비교(서버 `"cloud" in goal`).
+    if (result.phenomenon !== goal.phenomenon) return true;
+    if ('cloud' in goal && result.cloud !== goal.cloud) return true;
     return false;
   });
-  return { passed: unmet.length === 0, unmet };
+  return { passed: goals.length > 0 && unmet.length === 0, unmet };
 }
 
 // ── UI용 보드 상태 조작 헬퍼 (불변 갱신) ───────────────────────────────────

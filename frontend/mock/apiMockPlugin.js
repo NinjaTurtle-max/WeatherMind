@@ -47,6 +47,23 @@ const FALLBACK_BOARD_RULES = [
 
 const BOARD_RULES = loadBoardRules();
 
+// ── 기후 탐정 케이스 (R13, 대장 CO-N-2) ─────────────────────────────────────
+// board_rules와 같은 관례로 **database/seed/detective_cases.json을 읽는다**
+// (사본 금지 — 사본은 시드가 바뀌면 조용히 갈라진다). 파일이 없으면 빈 배열이고,
+// 그때 목은 서버와 같은 "0건 200" 빈 상태를 낸다(프론트 빈 화면 계약 검증용).
+function loadDetectiveCases() {
+  try {
+    const raw = JSON.parse(
+      readFileSync(resolve(here, '../../database/seed/detective_cases.json'), 'utf-8'),
+    );
+    return Array.isArray(raw) ? raw.filter((c) => (c?.status ?? 'active') === 'active') : [];
+  } catch {
+    return [];
+  }
+}
+
+const DETECTIVE_CASES = loadDetectiveCases();
+
 // ── 문항 시드 (R10-07 §2.3) ─────────────────────────────────────────────────
 // board_rules.json 선례를 확장해 **database/seed/content_items.json을 단일 진실원**
 // 으로 읽는다. 손으로 베낀 픽스처는 시드가 바뀌면 조용히 갈라지고(보드 퍼즐 4 vs
@@ -2301,6 +2318,90 @@ const routes = {
         ]
       : [],
   ],
+
+  // ── 기후 탐정 (R13 — backend routers/detective.py와 같은 형태·같은 판정) ──
+  // ⚠️ 상세 응답에 verdict·feedback·supporting_clues·solution을 **넣지 않는다**.
+  //    목이 정답을 흘리면 프론트가 목에서만 되는 로컬 판정을 짤 수 있게 된다.
+  'GET /detective/cases': () => [
+    200,
+    DETECTIVE_CASES.map((c) => ({
+      case_id: c.case_id,
+      title: c.title,
+      concept_tag: c.concept_tag,
+      knowledge_level: c.knowledge_level ?? null,
+      level_group: c.level_group ?? null,
+      xp_reward: c.xp_reward ?? 0,
+      min_clues: c.min_clues ?? 0,
+      headline: c.intro?.headline ?? '',
+      clue_count: (c.clues ?? []).length,
+      hypothesis_count: (c.hypotheses ?? []).length,
+    })),
+  ],
+  'GET /detective/cases/:caseId': (_body, params) => {
+    const c = DETECTIVE_CASES.find((x) => x.case_id === params.caseId);
+    if (!c) return [404, { detail: '케이스를 찾을 수 없습니다', code: 'CASE_NOT_FOUND' }];
+    return [
+      200,
+      {
+        case_id: c.case_id,
+        title: c.title,
+        concept_tag: c.concept_tag,
+        knowledge_level: c.knowledge_level ?? null,
+        level_group: c.level_group ?? null,
+        xp_reward: c.xp_reward ?? 0,
+        min_clues: c.min_clues ?? 0,
+        intro: c.intro ?? {},
+        series: c.series ?? [],
+        clues: c.clues ?? [],
+        hypotheses: (c.hypotheses ?? []).map((h) => ({
+          hypothesis_id: h.hypothesis_id,
+          text: h.text,
+        })),
+      },
+    ];
+  },
+  'POST /detective/cases/:caseId/solve': (body, params) => {
+    const c = DETECTIVE_CASES.find((x) => x.case_id === params.caseId);
+    if (!c) return [404, { detail: '케이스를 찾을 수 없습니다', code: 'CASE_NOT_FOUND' }];
+    const minClues = c.min_clues ?? 0;
+    const validIds = new Set((c.clues ?? []).map((cl) => cl.clue_id));
+    const opened = new Set((body?.opened_clue_ids ?? []).filter((id) => validIds.has(id)));
+    if (opened.size < minClues) {
+      return [
+        422,
+        {
+          detail: `단서를 ${minClues}개 이상 조사한 뒤에 추리할 수 있어요`,
+          code: 'NOT_ENOUGH_CLUES',
+          min_clues: minClues,
+          opened_clue_count: opened.size,
+        },
+      ];
+    }
+    const h = (c.hypotheses ?? []).find((x) => x.hypothesis_id === body?.hypothesis_id);
+    if (!h) return [422, { detail: '알 수 없는 가설이에요', code: 'UNKNOWN_HYPOTHESIS' }];
+    const correct = h.verdict === 'correct';
+    const sol = c.solution ?? {};
+    return [
+      200,
+      {
+        verdict: h.verdict,
+        correct,
+        feedback: h.feedback ?? '',
+        supporting_clues: h.supporting_clues ?? [],
+        solution: correct
+          ? {
+              title: sol.title ?? '',
+              explanation: sol.explanation ?? '',
+              takeaway: sol.takeaway ?? '',
+              next_step_hint: sol.next_step_hint ?? '',
+            }
+          : null,
+        xp_earned: 0, // 서버와 동일 — 영속이 없어 적립하지 않는다
+        opened_clue_count: opened.size,
+        min_clues: minClues,
+      },
+    ];
+  },
 
   // ── 예보 대결 (R4-01 §3.4 /duel + R9-01 §3.1 브리핑·근거) ──
   'GET /duel/today': () => [200, duelTodayPayload()],
