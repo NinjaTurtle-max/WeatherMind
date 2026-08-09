@@ -23,6 +23,10 @@ import { useT } from '../../i18n';
  * 그래서 페이지 머리말(🎓 학습 + 설명)은 없앴다 — 같은 문장이 화면에 두 벌이면
  * 튜터가 읽어 주는 의미가 사라진다. 문구는 `curriculum.subtitle` 그대로다.
  *
+ * 읽는 순서: **제목(학습 세션 / 유닛 이름) → 마스코트 → 말풍선 → 안내 → CTA**.
+ * 마스코트가 맨 위였는데 사용자 지시로 제목을 그 앞으로 올렸다 — 그림이 먼저
+ * 오면 코스를 바꿨을 때 무엇이 달라졌는지 늦게 보인다.
+ *
  * 톤: 흰색~sky-50에 헤어라인 테두리. 파란색은 **CTA가 독점**하고 나머지는 무채색
  * 위계다(제목 slate-900 · 본문 slate-500).
  *
@@ -58,13 +62,26 @@ export default function LearnHeroCard({
       data-entry-kind={entry.kind}
       className="flex flex-1 flex-col items-center rounded-[20px] bg-gradient-to-b from-white to-sky-50 px-4 pb-4 pt-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80"
     >
+      {/* 무엇을 하는 카드인지가 **마스코트보다 먼저** 온다(사용자 지시). 마스코트를
+          맨 위에 두면 카드를 위에서 아래로 읽을 때 제목이 그림 뒤로 밀려, 코스를
+          바꿔도 무엇이 달라졌는지 눈에 늦게 들어온다. */}
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+        {copy.eyebrow}
+      </p>
+      <p className="mt-1 break-keep text-center text-[19px] font-extrabold leading-snug tracking-[-0.02em] text-slate-900">
+        {copy.title}
+      </p>
+
       {/* 정사각 박스 — 폭만 주면 세로가 원본 비율을 따라가고, 캐릭터를 바꾸면
           카드 높이가 통째로 달라진다(가로형 cloud ↔ 세로형 bolt). */}
-      <Mascot name={ENTRY_MASCOT[entry.kind] ?? 'drop'} className="h-[112px] w-[112px]" />
+      <Mascot
+        name={ENTRY_MASCOT[entry.kind] ?? 'drop'}
+        className="mt-2 h-[112px] w-[112px]"
+      />
 
       {/* 튜터 말풍선 — 페이지 머리말에 있던 학습 설명을 여기로 옮겼다(사용자 지시).
-          꼬리는 **위**(마스코트)를 향한다. 아래로 두면 밑의 유닛 제목이 말하는
-          것처럼 읽힌다.
+          꼬리는 **위**(마스코트)를 향한다 — 말하는 사람이 누구인지가 꼬리로만
+          정해진다.
           줄바꿈 위치는 리소스 값이 소유한다(`whitespace-pre-line`) — 자동 줄바꿈은
           카드 폭이 조금만 달라져도 어색한 데서 끊긴다. `break-keep`은 그래도 남긴다:
           en처럼 개행이 없는 값은 여전히 자동으로 접히고, 그때 한국어 단어 중간이
@@ -80,13 +97,7 @@ export default function LearnHeroCard({
         {t('curriculum.subtitle')}
       </p>
 
-      <p className="mt-3.5 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
-        {copy.eyebrow}
-      </p>
-      <p className="mt-1 break-keep text-center text-[19px] font-extrabold leading-snug tracking-[-0.02em] text-slate-900">
-        {copy.title}
-      </p>
-      <p className="mt-1.5 break-keep text-center text-[12px] leading-relaxed text-slate-500">
+      <p className="mt-2.5 break-keep text-center text-[12px] leading-relaxed text-slate-500">
         {copy.body}
       </p>
 
