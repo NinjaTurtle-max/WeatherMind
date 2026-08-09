@@ -671,394 +671,6 @@
     "status": "active"
   },
   {
-    "concept_tag": "pressure_front",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "수도권에 소나기를 내려 보세요.",
-      "mode": "guided",
-      "guide_steps": [
-        "수도권(존 1)에 한랭전선을 놓아 보세요.",
-        "같은 존의 습기를 60 이상으로 올려 보세요."
-      ],
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "front:cold",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 1,
-          "phenomenon": "shower"
-        }
-      ],
-      "hints": [
-        "비가 내리려면 공기 중에 수증기(습기)가 충분해야 해요.",
-        "차가운 공기가 따뜻하고 습한 공기를 파고들면 적란운이 발달해 소나기가 쏟아져요."
-      ],
-      "correct_answer": "",
-      "board_order": 4,
-      "title": "수도권에 소나기",
-      "summary": "한랭전선과 습기로 짧고 강한 비를 내려요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "seed",
-      "refs": [
-        "climate_concepts: pressure_front-1",
-        "knowledge_level=4 · 적용 규칙: R5 palette front:cold+moisture → 4 · mode(guided)는 단계 불변 (docs/specs/12 §4)",
-        "knowledge_level=4 · 결정 용어: 한랭전선([9과17-04])·적란운([9과17-03])"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "pressure_front",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "수도권에 넓게 퍼지는 약한 비를 오래 내려 보세요.",
-      "mode": "guided",
-      "guide_steps": [
-        "수도권(존 1)에 온난전선을 놓아 보세요.",
-        "같은 존의 습기를 50 이상으로 올려 보세요."
-      ],
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "front:warm",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 1,
-          "phenomenon": "rain"
-        }
-      ],
-      "hints": [
-        "온난전선은 따뜻한 공기가 찬 공기 위로 완만히 타고 올라요.",
-        "넓은 지역에 약한 비가 오래 내리는 것이 온난전선 비의 특징이에요."
-      ],
-      "correct_answer": "",
-      "board_order": 5,
-      "title": "약한 비 오래 내리기",
-      "summary": "온난전선으로 넓게 퍼지는 비를 오래 내려요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "seed",
-      "refs": [
-        "climate_concepts: pressure_front-1",
-        "knowledge_level=4 · 적용 규칙: R5 palette front:warm+moisture → 4 (docs/specs/12 §4)",
-        "knowledge_level=4 · 결정 용어: 온난전선([9과17-04])"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "pressure_front",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "서해에 여러 날 이어지는 장마 비를 만들어 보세요.",
-      "mode": "guided",
-      "guide_steps": [
-        "서해(존 0)에 정체전선을 놓아 보세요.",
-        "같은 존의 습기를 70 이상으로 올려 보세요."
-      ],
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "front:stationary",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 0,
-          "phenomenon": "persistent_rain"
-        }
-      ],
-      "hints": [
-        "세력이 비슷한 두 기단이 만나면 전선이 한곳에 오래 머물러요.",
-        "습한 공기가 계속 공급되면 장마처럼 비가 여러 날 이어져요."
-      ],
-      "correct_answer": "",
-      "board_order": 6,
-      "title": "장마 비 만들기",
-      "summary": "정체전선으로 서해에 여러 날 이어지는 비를 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "seed",
-      "refs": [
-        "climate_concepts: pressure_front-3",
-        "knowledge_level=4 · 적용 규칙: R5 palette front:stationary+moisture → 4 (docs/specs/12 §4)",
-        "knowledge_level=4 · 결정 용어: 정체전선·기단([9과17-04])"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "pressure_front",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "전선을 쓰지 않고, 한여름 오후의 소나기를 태백산맥에 내려 보세요.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "sun",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 2,
-          "phenomenon": "shower"
-        }
-      ],
-      "hints": [
-        "강한 햇볕이 지면을 데우면 공기가 활발히 상승해요.",
-        "전선이 없어도 강한 일사와 충분한 습기가 함께 있으면 적란운이 생겨 소나기가 내려요."
-      ],
-      "correct_answer": "",
-      "board_order": 16,
-      "title": "전선 없이 소나기",
-      "summary": "일사와 습기만으로 태백산맥에 소나기를 불러요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "seed",
-      "refs": [
-        "climate_concepts: pressure_front-4",
-        "knowledge_level=4 · 적용 규칙: R5 palette sun+moisture이나 힌트가 적란운 → 4 (docs/specs/12 §4)",
-        "knowledge_level=4 · 결정 용어: 적란운([9과17-03])"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "pressure_front",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "동해안에 지표를 덮는 안개를 만들어 보세요.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "sun",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 3,
-          "phenomenon": "fog"
-        }
-      ],
-      "hints": [
-        "안개는 햇볕이 약하고 공기가 매우 습할 때 잘 생겨요.",
-        "지표가 복사냉각으로 식으면 습한 공기 속 수증기가 물방울로 응결해 안개가 껴요."
-      ],
-      "correct_answer": "",
-      "board_order": 17,
-      "title": "안개 끼게 하기",
-      "summary": "일사는 낮추고 습기는 높여 동해안에 안개를 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "seed",
-      "refs": [
-        "climate_concepts: pressure_front-5",
-        "knowledge_level=4 · 적용 규칙: R5 palette sun+moisture · 힌트의 복사냉각 → 4 (docs/specs/12 §4)",
-        "knowledge_level=4 · 결정 용어: 복사냉각([9과17-01])"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "air_mass",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "서해에 한여름 폭염을 불러와 보세요.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:north_pacific",
-        "sun"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 0,
-          "phenomenon": "heatwave"
-        }
-      ],
-      "hints": [
-        "여름 무더위를 부르는, 덥고 습한 기단을 떠올려 보세요.",
-        "강한 일사가 더해지면 기온이 크게 올라 폭염이 나타나요."
-      ],
-      "correct_answer": "",
-      "board_order": 19,
-      "title": "한여름 폭염 부르기",
-      "summary": "북태평양 기단과 강한 일사로 서해에 더위를 불러요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "seed",
-      "refs": [
-        "climate_concepts: air_mass-1",
-        "knowledge_level=4 · 적용 규칙: R5 palette air_mass:north_pacific+sun → 4 (docs/specs/12 §4)",
-        "knowledge_level=4 · 결정 용어: 기단([9과17-04])"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "air_mass",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "겨울, 서해안에 눈을 내려 보세요.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:siberian",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 0,
-          "phenomenon": "snow"
-        }
-      ],
-      "hints": [
-        "차고 건조한 시베리아 기단도 따뜻한 서해를 건너며 수증기를 얻어요.",
-        "기단이 변질되어 눈구름이 생기면 서해안에 많은 눈이 내려요."
-      ],
-      "correct_answer": "",
-      "board_order": 20,
-      "title": "서해안에 눈 내리기",
-      "summary": "시베리아 기단이 바다를 건너며 눈구름이 되게 해요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "seed",
-      "refs": [
-        "climate_concepts: air_mass-3",
-        "knowledge_level=4 · 적용 규칙: R5 palette air_mass:siberian+moisture → 4 (docs/specs/12 §4)",
-        "knowledge_level=4 · 결정 용어: 기단의 변질([9과17-04])"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "air_mass",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "동해안에 춥고 맑은 겨울 날씨를 만들어 보세요.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:siberian",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 3,
-          "phenomenon": "clear"
-        }
-      ],
-      "hints": [
-        "시베리아 기단은 원래 매우 건조해요.",
-        "공기 중 수증기가 적으면 구름이 잘 생기지 않아 하늘이 맑아요."
-      ],
-      "correct_answer": "",
-      "board_order": 21,
-      "title": "춥고 맑은 겨울",
-      "summary": "기단은 두되 습기를 낮춰 맑고 추운 날을 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "seed",
-      "refs": [
-        "climate_concepts: air_mass-3",
-        "knowledge_level=4 · 적용 규칙: R5 palette air_mass:siberian+moisture → 4 (docs/specs/12 §4)",
-        "knowledge_level=4 · 결정 용어: 기단([9과17-04])"
-      ]
-    },
-    "status": "active"
-  },
-  {
     "concept_tag": "air_mass",
     "level_group": "middle_high",
     "knowledge_level": 4,
@@ -1344,208 +956,6 @@
         "climate_concepts: air_mass-2",
         "knowledge_level=4 · 적용 규칙: R1 정답 → 4 · R6(§9-② 미확정) (docs/specs/12 §4)",
         "knowledge_level=4 · 결정 용어: 편서풍·대기 대순환([9과17-02])"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "pressure_front",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "제한 시간 안에! 전선 없이 강한 일사와 습기만으로 수도권에 소나기를 내려 보세요.",
-      "mode": "goal_only",
-      "time_limit_sec": 60,
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "sun",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 1,
-          "phenomenon": "shower"
-        }
-      ],
-      "hints": [
-        "여름 오후, 뜨겁게 달궈진 지면 위 습한 공기가 어떻게 움직일지 떠올려 보세요.",
-        "수도권(존 1)의 일사를 80 이상, 습기를 60 이상으로 함께 올리면 대류가 일어나 적란운이 발달해요."
-      ],
-      "correct_answer": "",
-      "board_order": 25,
-      "title": "제한 시간: 소나기",
-      "summary": "60초 안에, 전선 없이 일사와 습기만으로 소나기를 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "seed",
-      "refs": [
-        "climate_concepts: pressure_front-4",
-        "knowledge_level=4 · 적용 규칙: R5 palette sun+moisture이나 힌트가 적란운 → 4 (docs/specs/12 §4)",
-        "knowledge_level=4 · 결정 용어: 적란운([9과17-03])"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "air_mass",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "제한 시간 안에! 차고 건조한 시베리아 기단을 서해에서 변질시켜 눈을 내려 보세요.",
-      "mode": "goal_only",
-      "time_limit_sec": 90,
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:siberian",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 0,
-          "phenomenon": "snow"
-        }
-      ],
-      "hints": [
-        "메마른 시베리아 기단도 따뜻한 바다를 건너면 성질이 달라져요.",
-        "서해(존 0)에 시베리아 기단을 놓고 습기를 60 이상으로 올리면 기단이 변질해 눈구름이 만들어져요."
-      ],
-      "correct_answer": "",
-      "board_order": 26,
-      "title": "제한 시간: 눈",
-      "summary": "90초 안에, 시베리아 기단을 서해에서 변질시켜 눈을 내려요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "seed",
-      "refs": [
-        "climate_concepts: air_mass-3",
-        "knowledge_level=4 · 적용 규칙: R5 palette air_mass:siberian+moisture → 4 (docs/specs/12 §4)",
-        "knowledge_level=4 · 결정 용어: 기단의 변질([9과17-04])"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "anomaly",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "실화 재현: 2018년 여름, 강한 북태평양 고기압이 한반도를 덮으며 서울이 39.6℃까지 오른 기록적 폭염이 있었어요. 수도권에 그 폭염을 재현해 보세요.",
-      "mode": "goal_only",
-      "based_on": {
-        "event_name": "2018년 기록적 폭염",
-        "event_date": "2018-08-01",
-        "region": "서울·수도권"
-      },
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:north_pacific",
-        "sun"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 1,
-          "phenomenon": "heatwave"
-        }
-      ],
-      "hints": [
-        "이상기후로 꼽히는 폭염은 평년을 크게 벗어난 고온이에요. 어떤 공기 덩어리가 여름 무더위를 몰고 오는지 떠올려 보세요.",
-        "수도권(존 1)에 북태평양 기단을 놓고 일사를 70 이상으로 올리면 기온이 크게 올라 폭염이 나타나요."
-      ],
-      "correct_answer": "",
-      "board_order": 23,
-      "title": "2018년 서울 폭염",
-      "summary": "서울이 39.6℃까지 올랐던 그날의 대기를 재현해요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "seed",
-      "refs": [
-        "climate_concepts: anomaly-0",
-        "climate_concepts: air_mass-1",
-        "knowledge_level=4 · 적용 규칙: R5 palette air_mass:north_pacific+sun → 4 (docs/specs/12 §4)",
-        "knowledge_level=4 · 결정 용어: 기단([9과17-04])"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "anomaly",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "실화 재현: 2020년 중부지방은 6월 24일부터 8월 16일까지 54일간 이어진 역대 최장 장마를 겪었어요. 정체전선을 세워 수도권에 그 긴 장마를 재현해 보세요.",
-      "mode": "goal_only",
-      "based_on": {
-        "event_name": "2020년 중부지방 역대 최장 장마",
-        "event_date": "2020-08-16",
-        "region": "중부지방"
-      },
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "front:stationary",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 1,
-          "phenomenon": "persistent_rain"
-        }
-      ],
-      "hints": [
-        "온난화로 대기가 더 많은 수증기를 머금으면 집중호우가 잦아져요. 한곳에 오래 머무는 전선이 장마를 만듭니다.",
-        "수도권(존 1)에 정체전선을 놓고 습기를 70 이상으로 올리면 여러 날 이어지는 장마 같은 비가 내려요."
-      ],
-      "correct_answer": "",
-      "board_order": 24,
-      "title": "2020년 최장 장마",
-      "summary": "54일간 이어진 중부지방 장마를 정체전선으로 재현해요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "seed",
-      "refs": [
-        "climate_concepts: anomaly-0",
-        "climate_concepts: pressure_front-3",
-        "knowledge_level=4 · 적용 규칙: R5 palette front:stationary+moisture → 4 (docs/specs/12 §4)",
-        "knowledge_level=4 · 결정 용어: 정체전선([9과17-04])"
       ]
     },
     "status": "active"
@@ -4008,59 +3418,6 @@
     "status": "active"
   },
   {
-    "concept_tag": "density_buoyancy",
-    "level_group": "elementary",
-    "knowledge_level": 2,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "뜨거워진 공기는 위로 올라가요! 일사와 습기를 조절해 수도권 위에 대류 구름(소나기)을 만들어 보세요.",
-      "mode": "guided",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "sun",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 1,
-          "phenomenon": "shower"
-        }
-      ],
-      "guide_steps": [
-        "먼저 수도권(존 1)에 일사를 올려 지면을 데워 보세요.",
-        "데워진 공기가 올라가려면 수증기가 필요해요 — 습기를 함께 올려 보세요."
-      ],
-      "hints": [
-        "차가운 공기보다 뜨거운 공기가 가벼워서 위로 떠올라요 — 이것이 대류예요.",
-        "수도권(존 1)의 일사를 80 이상, 습기를 60 이상으로 올리면 대류가 일어나 구름이 자라요."
-      ],
-      "correct_answer": "",
-      "board_order": 1,
-      "title": "구름 피워 올리기",
-      "summary": "일사와 습기를 올려 수도권 하늘에 소나기구름을 세워요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "R12 §9 PM 게이트",
-        "specs/11 §2 bs-convection-board — 기존 대류 판정 구조 재사용(재태깅 대신 변형 복제: 원 퍼즐의 θ 축 보존)",
-        "climate_concepts: density_buoyancy",
-        "knowledge_level=2 · 적용 규칙: R5 palette sun+moisture · 힌트가 대류만 요구 → 2 · R6 (docs/specs/12 §4)",
-        "knowledge_level=2 · 결정 용어: 대류([6과07-03])"
-      ]
-    },
-    "status": "active"
-  },
-  {
     "concept_tag": "pressure_front",
     "level_group": "elementary",
     "knowledge_level": 2,
@@ -5766,59 +5123,6 @@
   },
   {
     "concept_tag": "wildfire_weather",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "며칠째 비가 오지 않는 겨울이다. 태백산맥(존 2)에 차고 건조한 공기를 들여 산불이 번지기 쉬운 맑고 메마른 날씨를 만들어 보자.",
-      "mode": "guided",
-      "guide_steps": [
-        "태백산맥(존 2)의 습기를 30 이하로 내린다.",
-        "같은 존의 바람을 60 이상으로 올린다."
-      ],
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "moisture",
-        "wind"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 2,
-          "phenomenon": "wildfire_risk"
-        }
-      ],
-      "hints": [
-        "공기가 메마르면 낙엽과 잔가지에서 물기가 빠져나가 불이 아주 쉽게 붙는다.",
-        "센 바람은 불씨를 멀리 실어 나르고 산소를 계속 대 준다. 습기를 낮추는 것만으로는 부족하고 바람을 함께 올려야 한다."
-      ],
-      "correct_answer": "",
-      "board_order": 9,
-      "title": "산불 나기 쉬운 날",
-      "summary": "메마른 공기와 센 바람으로 산불이 번지기 쉬운 날을 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13_01 §2.4 — 재난 연쇄 1(산불)의 「위험 기상 생성 보드」",
-        "board_rules.json: wildfire_risk_dry_gale (R13 재난 축 신규 규칙 — 판정 결과가 clear가 아니라 wildfire_risk다)",
-        "기상청 산불 기상 위험: 실효습도가 낮고 풍속이 클수록 위험이 커진다 — 우리나라 대형 산불이 봄·겨울에 몰리는 것은 고온이 아니라 건조·강풍 때문이다. 일사(고온)를 세 번째 조건으로 넣지 못한 구조적 사유는 board_rules.json wildfire_risk_dry_gale의 note_authoring에 적었다",
-        "판정: R5(보드 특례) — palette·goal이 요구하는 최고 개념은 「습도·바람」(조절값)이고 기단·전선을 쓰지 않는다. 결정 용어=상대습도, [9과17-03] → 4단계 (기존 판정값 유지)",
-        "⚠️ question_text는 멱등 키(concept_tag+question_text)라 바꾸지 않았다 — 문두의 \"차고 건조한 공기를 들여\"가 기단 배치를 암시하지만 팔레트에 기단이 없다(PM 보고 완료, 재저작은 배포 절차와 함께)"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "wildfire_weather",
     "level_group": "elementary",
     "knowledge_level": 1,
     "question_type": "ordering",
@@ -5842,58 +5146,6 @@
         "행정안전부 국민행동요령(산불) — 대피 전·대피 중·대피 후 단계 구분",
         "순서 유일성 근거(R12 §9 준용): 네 항목이 집 안 → 이동 중 → 대피 장소 → 귀가로 장소·시각이 분리되어 교환이 불가능하다. 같은 시점의 행동을 우선순위로 다투게 하지 않았다",
         "판정: R1 생활 상용어 예외(name_ok_from) — 산불의 발생·확산 메커니즘을 묻지 않고 대처 행동만 묻는다. [4과16-03] 기후변화 대응 방법의 실천 → 1단계 (specs/12 §7.1)"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "wildfire_weather",
-    "level_group": "expert",
-    "knowledge_level": 6,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "건조경보는 실효습도가 25% 이하로 이틀 넘게 이어질 것으로 보일 때 발표된다. 태백산맥과 동해안(존 2·3) 두 곳을 동시에 맑고 메마르게 만들어 이 상태를 재현해 보자.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "moisture",
-        "wind"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 2,
-          "phenomenon": "wildfire_risk"
-        },
-        {
-          "zone": 3,
-          "phenomenon": "wildfire_risk"
-        }
-      ],
-      "hints": [
-        "실효습도는 그날의 습도만이 아니라 며칠 전까지의 습도를 함께 반영한 실무 지표다. 하루만 건조한 것보다 여러 날 낮게 이어지는 것이 위험하다.",
-        "건조경보만으로는 큰 산불이 되지 않는다. 두 존 모두에서 습기를 바닥까지 내리고 바람까지 세게 올려야 산불 위험 상태가 된다. 한 존만 맞으면 목표는 달성되지 않는다."
-      ],
-      "correct_answer": "",
-      "board_order": 33,
-      "title": "건조경보 두 칸",
-      "summary": "건조와 강풍을 두 지역에 동시에 만들어 산불 위험을 재현해요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13_01 §2.4 — 재난 축 보드(다존 목표)",
-        "board_rules.json: wildfire_risk_dry_gale를 두 존에 동시 적용 (R13 재난 축 신규 규칙)",
-        "기상청 기상특보 발표 기준 — 건조경보: 실효습도 25% 이하가 2일 이상 계속될 것으로 예상될 때. 강풍주의보(육상 풍속 14m/s 이상)가 겹치면 산불 위험이 급격히 커진다",
-        "판정: R5 + R3 — 문두·힌트의 「실효습도 25% 건조경보 기준」은 교육과정에 실리지 않는 실무 발표 기준이다. 결정 용어=실효습도, specs/12 §2.7 「실무: 실효습도」 → 6단계"
       ]
     },
     "status": "active"
@@ -6026,58 +5278,6 @@
   },
   {
     "concept_tag": "flood_response",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "장마철이다. 동해안(존 3)에 여러 날 이어지는 큰비를 만들어 땅이 물을 더 받아들이지 못하는 상황을 재현해 보자.",
-      "mode": "guided",
-      "guide_steps": [
-        "동해안(존 3)의 습기를 85 이상으로 올린다.",
-        "같은 존의 바람을 60 이상으로 올린다."
-      ],
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "moisture",
-        "wind"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 3,
-          "phenomenon": "flood_risk"
-        }
-      ],
-      "hints": [
-        "비가 여러 날 이어지려면 공기가 물기로 거의 가득 차 있어야 한다. 먼저 습기를 아주 높게 올려야 한다.",
-        "비구름은 한 번 비를 뿌리면 물기를 잃는다. 바닷바람이 세게 불어 수증기를 쉬지 않고 실어 날라야 다음 비구름이 채워지고, 그래야 비가 그치지 않아 땅이 물에 잠긴다."
-      ],
-      "correct_answer": "",
-      "board_order": 7,
-      "title": "며칠째 이어진 비",
-      "summary": "높은 습기에 센 바람을 더해 비가 그치지 않는 침수 위험을 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13_01 §2.4 — 재난 연쇄 2(홍수)의 「위험 기상 생성 보드」",
-        "board_rules.json: flood_risk_saturated_inflow (R13 재난 축 신규 규칙 — 판정 결과가 persistent_rain이 아니라 flood_risk다)",
-        "엔진에 시간 축이 없어 「며칠간 지속」을 직접 조건으로 쓸 수 없다. 대신 지속 강수를 만드는 물리 조건(포화에 가까운 습기 + 수증기를 계속 실어 나르는 강한 기류)을 조건으로 삼았고, 그 논리를 explain·hint_needs에 명시했다",
-        "판정: R5(보드 특례) — palette·goal이 기단·전선을 쓰지 않는다. 결정 용어=상대습도, [9과17-03] → 4단계 (기존 판정값 유지)"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "flood_response",
     "level_group": "elementary",
     "knowledge_level": 1,
     "question_type": "ordering",
@@ -6101,55 +5301,6 @@
         "행정안전부 국민행동요령(호우) — 사전 대비·호우 중·호우 후 단계 구분",
         "순서 유일성 근거(R12 §9 준용): 항목 문면 자체에 시각 표지(전날 / 내리는 동안 / 물이 빠진 뒤 / 그 뒤)가 박혀 있어 교환이 불가능하다",
         "판정: R1 생활 상용어 예외(name_ok_from) — 호우의 생성 메커니즘을 묻지 않고 대처 행동만 묻는다. [4과16-03] → 1단계"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "flood_response",
-    "level_group": "adult",
-    "knowledge_level": 5,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "짧은 시간에 좁은 지역으로 퍼붓는 집중호우는 대표적인 악기상이다. 서해(존 0)에 강한 소나기를 쏟아부어 이 상황을 만들어 보자.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "moisture",
-        "wind"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 0,
-          "phenomenon": "flood_risk"
-        }
-      ],
-      "hints": [
-        "집중호우가 무서운 것은 한 번의 비가 아니라 물기가 계속 보충되어 비가 끊기지 않기 때문이다.",
-        "공기를 거의 포화 상태까지 채우고, 그 물기를 실어 나를 바람도 함께 세게 올려야 한다. 둘 중 하나만으로는 땅이 물에 잠기지 않는다."
-      ],
-      "correct_answer": "",
-      "board_order": 27,
-      "title": "좁고 굵은 집중호우",
-      "summary": "포화에 가까운 공기와 강한 기류로 서해에 침수 위험을 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13_01 §2.4 — 재난 축 보드(집중호우)",
-        "board_rules.json: flood_risk_saturated_inflow (R13 재난 축 신규 규칙)",
-        "집중호우의 핵심은 하층의 강한 기류가 수증기를 지속 공급하는 것이다 — 한 번 내린 비로 끝나지 않는 이유가 여기 있다",
-        "판정: R5 + R3 — 판정 대상 텍스트(문두+힌트)의 최고 개념은 「집중호우·악기상」. 결정 용어=집중호우, [12지구01-04] 「뇌우, 집중호우, 폭설, 강풍, 황사 등 주요 악기상」 → 5단계 (기존 판정값 유지)",
-        "⚠️ question_text는 멱등 키라 바꾸지 않았다 — 문두의 \"강한 소나기를 쏟아부어\"가 shower를 암시하지만 목표는 flood_risk다(PM 보고 완료)"
       ]
     },
     "status": "active"
@@ -6252,885 +5403,6 @@
       "refs": [
         "SPRINT_R13_01 §2.4 — flood_response(호우 강도)",
         "판정: R1 — 결정 용어=집중호우, [12지구01-04] 주요 악기상 → 5단계. R4(문항 내 정의) 적용 불가 — 그 용어가 정답 문자열이다(specs/12 §4 R4 남용 방지 조건 2)"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "pressure_front",
-    "level_group": "elementary",
-    "knowledge_level": 2,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "바람이 잔잔한 가을 새벽이다. 태백산맥(존 2) 골짜기에 땅을 덮는 안개를 만들어 보자.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "sun",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 2,
-          "phenomenon": "fog"
-        }
-      ],
-      "hints": [
-        "햇볕이 약한 밤과 새벽에는 땅이 빠르게 식는다. 땅에 닿아 있던 축축한 공기도 함께 차가워진다.",
-        "놓을 요소는 없다. 일사는 아주 낮게, 습기는 아주 높게 — 두 조절값을 반대 방향으로 움직여야 한다."
-      ],
-      "correct_answer": "",
-      "board_order": 12,
-      "title": "새벽 골짜기 안개",
-      "summary": "햇볕을 낮추고 물기를 높여 골짜기에 안개를 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13_01 2일차 보드 7건 — 저단계 진입로",
-        "board_rules.json: radiation_fog (기존 규칙 재사용 — 신규 규칙 저작 없음)",
-        "판정: R5 — palette가 일사·습기뿐이고 goal이 안개다. 결정 용어=안개 [6과06-02] '이슬, 안개, 구름을 관찰하고 공통점과 차이점을 찾을 수 있다', 기상 요소 [6과06-01] → 2단계",
-        "본시드 [30]과 다른 존(3→2)이고, 기존 13건에 존 2 안개 목표는 없다"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "pressure_front",
-    "level_group": "adult",
-    "knowledge_level": 5,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "중위도 저기압이 서해상으로 다가오고 있다. 저기압 앞쪽에서 나타나는 날씨, 곧 넓은 지역에 오래 내리는 약한 비를 서해(존 0)에 만들어 보자.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "front:warm",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 0,
-          "phenomenon": "rain"
-        }
-      ],
-      "hints": [
-        "중위도 저기압의 앞쪽에는 따뜻한 공기가 찬 공기 위로 완만하게 타고 오르는 경계가 놓인다.",
-        "완만한 상승은 넓고 두꺼운 비구름을 만들어 약한 비를 오래 내리게 한다. 습기는 50 이상이 필요하다."
-      ],
-      "correct_answer": "",
-      "board_order": 28,
-      "title": "저기압 앞쪽 비",
-      "summary": "온난전선으로 서해에 넓고 약한 비를 오래 내려요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13_01 2일차 보드 7건",
-        "board_rules.json: warm_front_steady_rain (기존 규칙 재사용 — 신규 규칙 저작 없음)",
-        "판정: R5 — 판정 대상 텍스트의 최고 개념은 '중위도 저기압 통과 시 날씨'. 결정 용어=중위도 저기압, [12지구01-03] → 5단계 (전선 4보다 높은 쪽이 지배)",
-        "표기: [12지구01-03] 해설이 '온대 저기압이란 용어는 중위도 저기압으로 표현한다'고 지정 — 정본 표기를 따랐다",
-        "기존 13건에 존 0 rain 목표는 없다"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "air_mass",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "차고 건조한 시베리아 기단이 남쪽으로 내려오는 겨울이다. 수도권(존 1)에 눈을 내려 보자.",
-      "mode": "guided",
-      "guide_steps": [
-        "수도권(존 1)에 시베리아 기단을 놓는다.",
-        "같은 존의 습기를 60 이상으로 올린다."
-      ],
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:siberian",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 1,
-          "phenomenon": "snow"
-        }
-      ],
-      "hints": [
-        "차고 메마른 공기 덩어리도 따뜻한 바다를 건너면 열과 수증기를 받아 성질이 달라진다.",
-        "성질이 바뀐 공기 속에서는 눈구름이 자란다. 습기를 충분히 올려야 한다."
-      ],
-      "correct_answer": "",
-      "board_order": 10,
-      "title": "수도권에 첫눈",
-      "summary": "시베리아 기단에 습기를 더해 수도권에 눈을 내려요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13_01 2일차 보드 7건",
-        "board_rules.json: siberian_snow (기존 규칙 재사용 — 신규 규칙 저작 없음)",
-        "판정: R5 — 결정 용어=기단, [9과17-04] → 4단계 (specs/12 §7.3 정정). mode=guided는 단계를 바꾸지 않는다",
-        "기존 13건의 눈 목표는 존 0 두 건뿐 — 존 1 snow는 신규"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "air_mass",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "같은 겨울 기단이 놓여도 서해안과 영동 지방의 날씨는 갈린다. 서해(존 0)에는 눈을 내리고 동해안(존 3)은 맑게 두어, 한 기단이 만드는 두 날씨를 동시에 만들어 보자.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:siberian",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 0,
-          "phenomenon": "snow"
-        },
-        {
-          "zone": 3,
-          "phenomenon": "clear"
-        }
-      ],
-      "hints": [
-        "같은 기단이라도 따뜻한 바다를 건너며 수증기를 받은 쪽과 그렇지 않은 쪽은 결과가 달라진다.",
-        "두 존 모두에 기단을 놓되, 습기는 한쪽만 높이고 다른 쪽은 낮게 두어야 한다."
-      ],
-      "correct_answer": "",
-      "board_order": 22,
-      "title": "한 기단 두 날씨",
-      "summary": "같은 겨울 기단으로 서해엔 눈, 동해안엔 맑음을 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13_01 2일차 보드 7건 — 다존 목표(기존 13건은 전부 단일 존)",
-        "board_rules.json: siberian_snow + siberian_clear를 서로 다른 존에 동시 적용 (기존 규칙 재사용 — 신규 규칙 저작 없음)",
-        "판정: R5 — 결정 용어=기단, [9과17-04] → 4단계. 두 존의 결과를 대비시키므로 R2 '여러 요인 중 지배 요인 선택' 후보이나, 지배 요인이 습기 하나로 명시돼 있어 +0"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "pressure_front",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "찬 공기가 밀려와 동해안(존 3)에 짧고 강한 소나기를 쏟아지게 해 보자. 위로 크게 솟은 적란운까지 만들어야 목표가 달성된다.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "front:cold",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 3,
-          "phenomenon": "shower",
-          "cloud": "cumulonimbus"
-        }
-      ],
-      "hints": [
-        "찬 공기가 따뜻하고 습한 공기를 급하게 파고들면 공기가 세차게 밀려 올라간다.",
-        "세찬 상승이 위로 크게 솟은 적란운을 만든다. 습기가 60 이상이어야 한다."
-      ],
-      "correct_answer": "",
-      "board_order": 18,
-      "title": "적란운 세우기",
-      "summary": "한랭전선과 습기로 동해안에 적란운과 소나기를 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13_01 2일차 보드 7건 — 구름까지 지정하는 목표(check_goals의 'cloud' 비교 경로. 기존 13건은 전부 phenomenon만 지정)",
-        "board_rules.json: cold_front_shower (기존 규칙 재사용 — 신규 규칙 저작 없음)",
-        "판정: R5 — 결정 용어=전선 [9과17-04], 적란운(level_vocabulary: middle_high 허용, 초등만 금칙) → 4단계"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "co2_climate",
-    "level_group": "adult",
-    "knowledge_level": 5,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "온난화가 이어지면서 폭염은 더 자주, 더 강하게 나타나는 극한 기상이 되었다. 덥고 습한 여름 기단과 강한 햇볕을 놓아 동해안(존 3)에 폭염을 불러와 보자.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:north_pacific",
-        "sun"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 3,
-          "phenomenon": "heatwave"
-        }
-      ],
-      "hints": [
-        "여름에 우리나라를 덮는 덥고 습한 공기 덩어리는 남쪽 바다에서 올라온다.",
-        "그 위로 강한 햇볕이 더해지면 기온이 크게 오른다. 일사를 70 이상으로 올려야 한다."
-      ],
-      "correct_answer": "",
-      "board_order": 29,
-      "title": "더 잦아진 폭염",
-      "summary": "북태평양 기단과 센 햇볕으로 동해안에 폭염을 불러요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13_01 2일차 보드 7건",
-        "board_rules.json: north_pacific_heatwave (기존 규칙 재사용 — 신규 규칙 저작 없음)",
-        "판정: R5 — 판정 대상 텍스트의 최고 개념은 '극한 기상'. 결정 용어=극한 기상, [12기환02-03] '극한 기상 현상의 종류와 원인' → 5단계 (기단 4보다 높은 쪽이 지배)",
-        "기존 13건의 폭염 목표는 존 0·1 — 존 3 heatwave는 신규"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "anomaly",
-    "level_group": "expert",
-    "knowledge_level": 6,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "대설경보는 24시간 동안 새로 쌓인 눈이 20cm(산지는 30cm) 이상일 것으로 보일 때 발표된다. 태백산맥(존 2)에 그만큼 눈을 뿌릴 겨울 날씨를 만들어 보자.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:siberian",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 2,
-          "phenomenon": "snow"
-        }
-      ],
-      "hints": [
-        "대설 특보의 기준은 눈이 내리는 세기가 아니라 24시간 동안 새로 쌓인 눈의 깊이다. 산지 기준을 따로 두는 것은 같은 적설도 지형에 따라 피해가 다르기 때문이다.",
-        "차고 건조한 기단이 따뜻한 바다를 건너 수증기를 받으면 눈구름이 만들어진다. 습기를 60 이상으로 올려야 한다."
-      ],
-      "correct_answer": "",
-      "board_order": 32,
-      "title": "대설경보 재현",
-      "summary": "시베리아 기단과 습기로 태백산맥에 대설을 퍼부어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13_01 2일차 보드 7건 — 최상위 단계 보강(specs/12 §8.2 '6단계는 실질적으로 빈 단계')",
-        "board_rules.json: siberian_snow (기존 규칙 재사용 — 신규 규칙 저작 없음)",
-        "기상청 기상특보 발표 기준 — 대설경보: 24시간 신적설 20cm 이상, 산지 30cm 이상 (대설주의보는 5cm 이상)",
-        "판정: R5 + R3 — 문두·힌트의 대설경보 기준 수치는 교육과정에 실리지 않는 실무 발표 기준이다. specs/12 §4 R3의 상향 예시에 '대설경보'가 포함돼 있다 → 6단계",
-        "기존 13건에 존 2 snow 목표는 없다"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "density_buoyancy",
-    "level_group": "middle_high",
-    "knowledge_level": 3,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "한낮의 햇볕이 뜨거운데도 하늘에 구름 한 점 없는 날이 있다. 태백산맥(존 2)에 그런 맑은 하늘을 만들어 보자.",
-      "mode": "guided",
-      "guide_steps": [
-        "태백산맥(존 2)의 일사를 80 이상으로 올린다.",
-        "같은 존의 습기를 30 이하로 낮춘다."
-      ],
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "sun",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 2,
-          "phenomenon": "clear"
-        }
-      ],
-      "hints": [
-        "데워진 공기는 부피가 늘어 밀도가 작아진다. 둘레의 공기보다 밀도가 작아지면 위로 떠오른다.",
-        "그러나 올라가는 공기 속에 물기가 거의 없으면 물방울로 바뀔 것이 없다. 공기가 오르내려도 하늘은 맑게 남는다."
-      ],
-      "correct_answer": "",
-      "board_order": 2,
-      "title": "물기 없는 맑음",
-      "summary": "일사는 올리고 습기는 낮춰 태백산맥을 맑게 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13 3일차 보드 확장(BE-B) — specs/11 §2 bs-convection-board 유닛 공백 메우기",
-        "board_rules.json: dry_convection_clear (신규 규칙 — 전선·기단을 쓰지 않는 순수 대류)",
-        "판정: R5 — palette는 일사·습기뿐이고 goal은 맑음이다. 결정 개념 = 온도→부피→밀도 [9과03-03 비열과 열팽창]와 수증기의 응결(액화) [9과04-03] → 3단계",
-        "3단계 성립 근거: 기존 8규칙 중 6종이 전선·기단([9과17-04] 4단계)을 끌어와 4단계로 고정되고 convective_shower·radiation_fog는 2 또는 4단계였다. 신규 규칙이 밀도·상태 변화만으로 성립해 3단계 칸이 처음 열린다",
-        "금칙 확인: 기단·전선·적운·적란운·층운·이슬점·상대습도·단열 팽창·복사냉각 미사용"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "density_buoyancy",
-    "level_group": "middle_high",
-    "knowledge_level": 3,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "같은 세기의 햇볕을 받아도 물기가 있는 곳과 없는 곳의 하늘은 갈린다. 서해(존 0)에는 소나기를, 태백산맥(존 2)에는 맑은 하늘을 동시에 만들어 보자.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "sun",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 2,
-          "phenomenon": "clear"
-        },
-        {
-          "zone": 0,
-          "phenomenon": "shower"
-        }
-      ],
-      "hints": [
-        "두 존 모두 일사를 아주 높게 올린다. 데워진 공기는 밀도가 작아져 위로 올라간다.",
-        "갈리는 것은 습기다. 올라간 공기 속 수증기가 물방울로 바뀌어야 구름이 자라고 비가 내린다. 한쪽은 습기를 60 이상으로, 다른 쪽은 30 이하로 둔다."
-      ],
-      "correct_answer": "",
-      "board_order": 13,
-      "title": "습기가 가른 하늘",
-      "summary": "같은 햇볕에도 서해는 소나기, 태백산맥은 맑게 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board, 다존 목표",
-        "board_rules.json: dry_convection_clear(신규) + convective_shower(기존, 판정 불변)",
-        "판정: R5 — 결정 개념 = 수증기의 응결(액화) [9과04-03]과 밀도 [9과03-03]. 소나기는 생활 상용어라 단계를 올리지 않는다 → 3단계",
-        "R2 보정 없음: 지배 요인(습기)이 힌트에 명시돼 있어 '여러 요인 중 선택'이 아니다. 애매 시 낮은 쪽(R6)",
-        "goal_conditions 순서 의도: select_feedback은 첫 목표 존의 성립 규칙 explain을 정답 피드백으로 쓴다. 맑음(존 2)을 앞에 두어 3단계 언어로 쓰인 dry_convection_clear의 explain이 나오게 했다 — convective_shower의 explain에는 적란운(도입 4)이 있다",
-        "금칙 확인: 기단·전선·구름 종류 명칭 미사용"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "density_buoyancy",
-    "level_group": "middle_high",
-    "knowledge_level": 3,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "공기 속 물기가 같아도 열을 받은 곳과 식은 곳은 다른 날씨가 된다. 수도권(존 1)에는 소나기를, 동해안(존 3)에는 안개를 만들어 보자. 두 존의 습기는 똑같이 높게 두어야 한다.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "sun",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 1,
-          "phenomenon": "shower"
-        },
-        {
-          "zone": 3,
-          "phenomenon": "fog"
-        }
-      ],
-      "hints": [
-        "두 존의 습기를 똑같이 80 이상으로 올린다. 갈리는 것은 일사다.",
-        "열을 받은 공기는 밀도가 작아져 높이 올라가면서 물방울이 되고, 열을 잃고 식은 공기는 그 자리에서 물방울이 된다. 위에서 생기면 구름이고 땅에 붙어 생기면 안개다."
-      ],
-      "correct_answer": "",
-      "board_order": 14,
-      "title": "일사가 가른 하늘",
-      "summary": "습기는 같게 두고 일사만 갈라 소나기와 안개를 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board, 일사 축 대비(습기 고정)",
-        "board_rules.json: convective_shower + radiation_fog (둘 다 기존 규칙 — 판정 불변)",
-        "판정: R5 — 결정 개념 = 열의 이동과 상태 변화(액화) [9과04-03·9과03-02] → 3단계. 안개·구름은 [6과06-02] 2단계 관찰 대상이라 상향 요인이 아니다",
-        "금칙 확인: 복사냉각([9과17-01] 4단계)을 쓰지 않고 '열을 잃고 식은'으로 서술"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "density_buoyancy",
-    "level_group": "middle_high",
-    "knowledge_level": 3,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "구름이 생기려면 공기를 밀어 올릴 열과 물방울이 될 수증기가 함께 있어야 한다. 서해(존 0)에는 소나기, 수도권(존 1)에는 맑음, 동해안(존 3)에는 안개 — 세 가지 하늘을 한 판에 만들어 보자.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "sun",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 1,
-          "phenomenon": "clear"
-        },
-        {
-          "zone": 0,
-          "phenomenon": "shower"
-        },
-        {
-          "zone": 3,
-          "phenomenon": "fog"
-        }
-      ],
-      "hints": [
-        "열과 물기를 둘 다 갖춘 존에서는 공기가 높이 올라가 소나기가 쏟아진다.",
-        "열은 있으나 물기가 없으면 맑고, 물기는 있으나 열이 없으면 식은 자리에서 물방울이 생겨 안개가 낀다. 존마다 일사와 습기를 따로 정해야 한다."
-      ],
-      "correct_answer": "",
-      "board_order": 15,
-      "title": "한 판에 세 하늘",
-      "summary": "일사와 습기를 존마다 달리해 세 가지 하늘을 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board 마무리 문항. 열×수증기 2×2 중 세 칸을 한 판에 배치",
-        "board_rules.json: convective_shower + dry_convection_clear(신규) + radiation_fog",
-        "판정: R5 — 결정 개념 = 밀도 [9과03-03]·상태 변화 [9과04-03] → 3단계. R2 '여러 요인 중 지배 요인 선택' 후보이나 두 요인(열·물기)이 문두에 명시돼 판정이 아니라 적용이므로 +0, 애매하면 낮은 쪽(R6)",
-        "빈 보드 반례 방어: 세 목표 모두 기본 판정(cloudy/cumulus)과 다르므로 무배치로 통과할 수 없다",
-        "goal_conditions 순서 의도: 정답 피드백(select_feedback)이 첫 목표 존의 규칙 explain이므로 맑음(존 1)을 앞에 두어 3단계 언어의 dry_convection_clear가 나오게 했다"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "density_buoyancy",
-    "level_group": "middle_high",
-    "knowledge_level": 3,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "습한 공기가 올라가다 수증기가 물방울로 바뀌면 잠열이 나와 둘레 공기를 데운다. 그 열이 상승을 더 세게 만든다. 동해안(존 3)에 소나기가 쏟아지게 해 보자.",
-      "mode": "guided",
-      "guide_steps": [
-        "동해안(존 3)의 일사를 80 이상으로 올린다.",
-        "같은 존의 습기를 60 이상으로 올린다."
-      ],
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "sun",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 3,
-          "phenomenon": "shower"
-        }
-      ],
-      "hints": [
-        "햇볕에 데워진 공기는 밀도가 작아져 위로 올라간다. 일사부터 올려야 한다.",
-        "올라간 공기 속 수증기가 물방울로 바뀔 때 잠열을 내놓는다. 그 열이 공기를 더 데워 상승이 세지고, 짧고 굵은 소나기가 내린다. 습기를 60 이상으로."
-      ],
-      "correct_answer": "",
-      "board_order": 3,
-      "title": "잠열이 키운 소나기",
-      "summary": "일사와 습기를 함께 올려 동해안에 소나기를 쏟아요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board. 상태 변화의 열에너지 출입을 보드로 체득",
-        "board_rules.json: convective_shower (기존 규칙 — 판정 불변)",
-        "판정: R5 + R1 — 결정 용어 = 잠열, level_vocabulary introduced_at=3 [9과04-04 상태 변화와 열에너지 출입] → 3단계. mode=guided는 단계를 바꾸지 않는다",
-        "본시드 [12](density_buoyancy·존 1·knowledge_level 2)와 존·mode·결정 용어가 모두 다르다 — 그쪽은 잠열 없이 대류만 다룬다"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "air_mass",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "봄이 되면 대륙에서 따뜻하고 건조한 양쯔강 기단이 우리나라로 이동해 온다. 기단은 넓은 지역을 한꺼번에 덮는다. 서해(존 0)와 수도권(존 1)을 함께 맑게 만들어 보자.",
-      "mode": "guided",
-      "guide_steps": [
-        "서해(존 0)에 양쯔강 기단을 놓는다.",
-        "수도권(존 1)에도 같은 기단을 놓는다."
-      ],
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:yangtze",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 0,
-          "phenomenon": "clear"
-        },
-        {
-          "zone": 1,
-          "phenomenon": "clear"
-        }
-      ],
-      "hints": [
-        "양쯔강 기단은 따뜻하고 건조하다. 수증기가 적으면 구름이 잘 생기지 않는다.",
-        "기단은 한 존이 아니라 넓은 지역을 덮는다. 두 존 모두에 기단을 놓고, 습기는 50 이하로 두어야 한다."
-      ],
-      "correct_answer": "",
-      "board_order": 8,
-      "title": "봄 기단 두 칸 덮기",
-      "summary": "양쯔강 기단으로 서해와 수도권을 한꺼번에 맑게 해요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13 3일차 보드 확장(BE-B) — 사문 기단 살리기. yangtze는 subtype enum에만 있고 어떤 규칙도 참조하지 않아 보드에서 늘 cloudy였다",
-        "board_rules.json: yangtze_mild_clear (신규 규칙)",
-        "기상학 근거: 양쯔강(揚子江) 기단은 봄·가을 이동성 고기압으로 우리나라를 통과하는 온난 건조 기단이다. 수증기가 적어 맑고 포근한 날씨를 만든다",
-        "판정: R5 + R1 — 결정 용어 = 기단, introduced_at=4 [9과17-04] → 4단계. mode=guided는 단계 불변",
-        "다존 목표로 '기단은 넓은 지역에 걸쳐 성질이 고른 공기 덩어리'라는 정의 자체를 배치로 체득시킨다"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "air_mass",
-    "level_group": "adult",
-    "knowledge_level": 5,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "봄가을에는 이동성 고기압이 서에서 동으로 사나흘 간격으로 지나가며 날씨를 바꾼다. 고기압에 덮인 새벽, 아직 해가 들지 않은 수도권(존 1)에는 안개가 끼고 먼저 해가 뜬 동해안(존 3)은 맑다. 이 두 하늘을 함께 만들어 보자.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:yangtze",
-        "sun",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 1,
-          "phenomenon": "fog"
-        },
-        {
-          "zone": 3,
-          "phenomenon": "clear"
-        }
-      ],
-      "hints": [
-        "두 존은 같은 공기 덩어리에 덮여 있다. 갈리는 것은 햇볕과 물기다.",
-        "해가 들지 않은 존은 일사를 30 이하로 낮추고 습기를 60 이상으로 올린다. 해가 든 존은 습기를 50 이하로 두면 맑아진다."
-      ],
-      "correct_answer": "",
-      "board_order": 30,
-      "title": "고기압 아래 새벽",
-      "summary": "이동성 고기압 아래 수도권엔 안개, 동해안엔 맑음을 놓아요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13 3일차 보드 확장(BE-B) — 사문 기단 살리기(yangtze 두 번째 얼굴)",
-        "board_rules.json: yangtze_morning_fog(신규) + yangtze_mild_clear(신규)",
-        "기상학 근거: 이동성 고기압 권역에서는 밤에 하늘이 맑아 지표가 빠르게 식고, 바람이 약해 새벽 안개가 잦다. 해가 뜨면 걷힌다 — 봄가을 아침 안개의 전형",
-        "판정: R5 — 결정 개념 = 중위도 고기압이 통과할 때의 날씨 변화 [12지구01-03] → 5단계(기단 4보다 높은 쪽이 지배)",
-        "금칙 확인: 5단계 문항이므로 단열 감률·전향력 등 6단계 용어 미사용"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "air_mass",
-    "level_group": "middle_high",
-    "knowledge_level": 4,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "초여름이면 북동쪽 바다에서 차고 습한 오호츠크해 기단이 밀려와 동해안이 서늘해진다. 동해안(존 3)을 안개로 덮어 보자.",
-      "mode": "guided",
-      "guide_steps": [
-        "동해안(존 3)에 오호츠크해 기단을 놓는다.",
-        "같은 존의 습기를 70 이상으로 올린다."
-      ],
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:okhotsk",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 3,
-          "phenomenon": "fog"
-        }
-      ],
-      "hints": [
-        "오호츠크해 기단은 차고 습하다. 찬 바다 위를 지나온 습한 공기는 아래에서부터 식는다.",
-        "식은 공기 속 수증기가 응결하면 바다와 해안을 뒤덮는 안개가 된다. 습기를 70 이상으로 올려야 한다."
-      ],
-      "correct_answer": "",
-      "board_order": 11,
-      "title": "동해안 바다 안개",
-      "summary": "오호츠크해 기단과 높은 습기로 동해안을 안개로 덮어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13 3일차 보드 확장(BE-B) — 사문 기단 살리기. okhotsk도 enum에만 있고 규칙 참조가 0이라 보드에서 늘 cloudy였다",
-        "board_rules.json: okhotsk_sea_fog (신규 규칙)",
-        "기상학 근거: 오호츠크해 기단은 한랭 다습한 해양성 기단이다. 초여름 이 기단이 확장하면 동해상에 해무와 낮은 구름이 끼고 영동 지방이 저온·흐림이 된다",
-        "판정: R5 + R1 — 결정 용어 = 기단, introduced_at=4 [9과17-04] → 4단계. mode=guided는 단계 불변",
-        "기존 board 20건(본시드 13 + 2일차 7)에 동해안 안개 목표는 존 3 radiation_fog 1건뿐이고 그것은 기단을 쓰지 않는다"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "air_mass",
-    "level_group": "adult",
-    "knowledge_level": 5,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "오호츠크해 기단이 밀려오면 태백산맥을 사이에 두고 동쪽과 서쪽 날씨가 갈린다. 동해안(존 3)은 안개에 잠기고, 산을 넘어간 공기가 닿는 수도권(존 1)에는 높새바람이 불어 맑고 건조해진다. 두 하늘을 함께 만들어 보자.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:okhotsk",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 3,
-          "phenomenon": "fog"
-        },
-        {
-          "zone": 1,
-          "phenomenon": "clear"
-        }
-      ],
-      "hints": [
-        "같은 기단이 산을 넘기 전과 넘은 뒤에 전혀 다른 날씨를 만든다. 두 존 모두에 같은 기단을 놓아야 한다.",
-        "산을 오르며 비를 뿌린 공기는 물기를 잃는다. 동쪽 존은 습기를 70 이상으로, 서쪽 존은 30 이하로 두어야 한다."
-      ],
-      "correct_answer": "",
-      "board_order": 31,
-      "title": "높새바람 넘기",
-      "summary": "산을 넘은 공기로 동해안엔 안개, 수도권엔 높새바람을 불러요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13 3일차 보드 확장(BE-B) — okhotsk 다존 대비. 같은 기단이 지형을 사이에 두고 두 날씨를 만든다",
-        "board_rules.json: okhotsk_sea_fog(신규) + okhotsk_foehn_clear(신규)",
-        "기상학 근거: 오호츠크해 기단의 습윤한 공기가 태백산맥을 넘으며 강수로 수증기를 잃고, 산을 내려오며 승온해 영서 지방에 고온 건조한 높새바람이 분다",
-        "판정: R5 + R1 — 결정 용어 = 높새바람, level_vocabulary introduced_at=5(교육과정 근거 없음·5단계 정성 구간) → 5단계. 6단계 표기인 '푄'은 쓰지 않았다",
-        "금칙 확인: 단열 감률·상대습도 정량 미사용(그것은 아래 6단계 문항이 담당)"
-      ]
-    },
-    "status": "active"
-  },
-  {
-    "concept_tag": "air_mass",
-    "level_group": "expert",
-    "knowledge_level": 6,
-    "question_type": "board",
-    "template_json": {
-      "question_text": "산을 오르는 공기는 습윤단열감률 약 5℃/km로 식으며 비를 뿌리고, 물기를 잃은 채 산을 내려오는 공기는 건조단열감률 약 10℃/km로 데워진다. 그래서 산을 넘은 공기는 오르기 전보다 뜨겁고 메마르다. 수도권(존 1)에 이 푄 현상이 만든 맑고 건조한 하늘을 만들어 보자.",
-      "mode": "goal_only",
-      "initial_state": {
-        "zones": [
-          "서해",
-          "수도권",
-          "태백산맥",
-          "동해안"
-        ],
-        "elements": []
-      },
-      "palette": [
-        "air_mass:okhotsk",
-        "moisture"
-      ],
-      "goal_conditions": [
-        {
-          "zone": 1,
-          "phenomenon": "clear"
-        }
-      ],
-      "hints": [
-        "강수로 수증기를 잃은 공기가 하강하면 건조단열감률을 따라 데워진다. 기온은 오르고 상대습도는 급격히 떨어져 구름이 사라진다.",
-        "산 너머로 내려온 그 공기 덩어리를 수도권에 놓고, 습기를 30 이하로 낮춰야 한다."
-      ],
-      "correct_answer": "",
-      "board_order": 34,
-      "title": "산 넘어 마른 바람",
-      "summary": "물기를 잃고 산을 내려온 공기로 수도권을 맑게 만들어요."
-    },
-    "uses_live_slots": false,
-    "source": {
-      "kind": "claude-authored",
-      "refs": [
-        "SPRINT_R13 3일차 보드 확장(BE-B) — 최상위 단계 보강(specs/12 §8.2 '6단계는 실질적으로 빈 단계')",
-        "board_rules.json: okhotsk_foehn_clear (신규 규칙)",
-        "판정: R5 + R3 — 결정 용어 = 푄·건조단열감률·습윤단열감률. level_vocabulary introduced_at=6(푄은 교육과정 전문 검색 0건, 단열 감률은 [12지시03-03]) → 6단계. 5℃/km·10℃/km는 specs/12 §4 R3의 상향 예시('건조공기 1km당 −10℃')와 같은 성격의 정량 수치다",
-        "기상학 근거: 푄 현상 — 포화 상태로 산을 오른 공기는 습윤단열감률(약 5℃/km)로 냉각되며 응결·강수로 수증기를 잃고, 하강 시에는 건조단열감률(약 10℃/km)로 승온해 풍하측이 고온 건조해진다",
-        "같은 규칙을 쓰는 5단계 문항(높새바람)과 짝이다 — 같은 배치가 단계에 따라 다른 언어로 설명된다는 것이 2축 분리의 실증이다"
       ]
     },
     "status": "active"
@@ -8129,6 +6401,2370 @@
         "knowledge_level=5 · 적용 규칙: 사람 판정 5 · 재난 전개를 정성 서술(정량 기준값 없음) (docs/specs/12 §4)",
         "knowledge_level=5 · 결정 용어: 산불 발생 조건의 전개 · 5단계 = 고교 정성 구간(level_vocabulary.anchor.5 — 역학적 원리 설명 배제)",
         "CO-L-F1 (R13 잔여 웨이브) — docs/specs/11 §97 level_group 3종 저작 준수"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "뜨거워진 공기는 위로 올라가요! 일사와 습기를 조절해 수도권 위에 대류 구름(소나기)을 만들어 보세요.",
+      "mode": "guided",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "shower"
+        }
+      ],
+      "guide_steps": [
+        "먼저 수도권(존 1)에 일사를 올려 지면을 데워 보세요.",
+        "데워진 공기가 올라가려면 수증기가 필요해요 — 습기를 함께 올려 보세요."
+      ],
+      "hints": [
+        "차가운 공기보다 뜨거운 공기가 가벼워서 위로 떠올라요 — 이것이 대류예요.",
+        "수도권(존 1)의 일사를 80 이상, 습기를 60 이상으로 올리면 대류가 일어나 구름이 자라요."
+      ],
+      "correct_answer": "",
+      "board_order": 1,
+      "title": "구름 피워 올리기",
+      "summary": "일사와 습기를 올려 수도권 하늘에 소나기구름을 세워요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9 PM 게이트",
+        "specs/11 §2 bs-convection-board — 기존 대류 판정 구조 재사용(재태깅 대신 변형 복제: 원 퍼즐의 θ 축 보존)",
+        "climate_concepts: density_buoyancy",
+        "knowledge_level=2 · 적용 규칙: R5 palette sun+moisture · 힌트가 대류만 요구 → 2 · R6 (docs/specs/12 §4)",
+        "knowledge_level=2 · 결정 용어: 대류([6과07-03])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "한낮의 햇볕이 뜨거운데도 하늘에 구름 한 점 없는 날이 있다. 태백산맥(존 2)에 그런 맑은 하늘을 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "태백산맥(존 2)의 일사를 80 이상으로 올린다.",
+        "같은 존의 습기를 30 이하로 낮춘다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "데워진 공기는 부피가 늘어 밀도가 작아진다. 둘레의 공기보다 밀도가 작아지면 위로 떠오른다.",
+        "그러나 올라가는 공기 속에 물기가 거의 없으면 물방울로 바뀔 것이 없다. 공기가 오르내려도 하늘은 맑게 남는다."
+      ],
+      "correct_answer": "",
+      "board_order": 2,
+      "title": "물기 없는 맑음",
+      "summary": "일사는 올리고 습기는 낮춰 태백산맥을 맑게 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — specs/11 §2 bs-convection-board 유닛 공백 메우기",
+        "board_rules.json: dry_convection_clear (신규 규칙 — 전선·기단을 쓰지 않는 순수 대류)",
+        "판정: R5 — palette는 일사·습기뿐이고 goal은 맑음이다. 결정 개념 = 온도→부피→밀도 [9과03-03 비열과 열팽창]와 수증기의 응결(액화) [9과04-03] → 3단계",
+        "3단계 성립 근거: 기존 8규칙 중 6종이 전선·기단([9과17-04] 4단계)을 끌어와 4단계로 고정되고 convective_shower·radiation_fog는 2 또는 4단계였다. 신규 규칙이 밀도·상태 변화만으로 성립해 3단계 칸이 처음 열린다",
+        "금칙 확인: 기단·전선·적운·적란운·층운·이슬점·상대습도·단열 팽창·복사냉각 미사용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "습한 공기가 올라가다 수증기가 물방울로 바뀌면 잠열이 나와 둘레 공기를 데운다. 그 열이 상승을 더 세게 만든다. 동해안(존 3)에 소나기가 쏟아지게 해 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "동해안(존 3)의 일사를 80 이상으로 올린다.",
+        "같은 존의 습기를 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "shower"
+        }
+      ],
+      "hints": [
+        "햇볕에 데워진 공기는 밀도가 작아져 위로 올라간다. 일사부터 올려야 한다.",
+        "올라간 공기 속 수증기가 물방울로 바뀔 때 잠열을 내놓는다. 그 열이 공기를 더 데워 상승이 세지고, 짧고 굵은 소나기가 내린다. 습기를 60 이상으로."
+      ],
+      "correct_answer": "",
+      "board_order": 3,
+      "title": "잠열이 키운 소나기",
+      "summary": "일사와 습기를 함께 올려 동해안에 소나기를 쏟아요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board. 상태 변화의 열에너지 출입을 보드로 체득",
+        "board_rules.json: convective_shower (기존 규칙 — 판정 불변)",
+        "판정: R5 + R1 — 결정 용어 = 잠열, level_vocabulary introduced_at=3 [9과04-04 상태 변화와 열에너지 출입] → 3단계. mode=guided는 단계를 바꾸지 않는다",
+        "본시드 [12](density_buoyancy·존 1·knowledge_level 2)와 존·mode·결정 용어가 모두 다르다 — 그쪽은 잠열 없이 대류만 다룬다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "수도권에 소나기를 내려 보세요.",
+      "mode": "guided",
+      "guide_steps": [
+        "수도권(존 1)에 한랭전선을 놓아 보세요.",
+        "같은 존의 습기를 60 이상으로 올려 보세요."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:cold",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "shower"
+        }
+      ],
+      "hints": [
+        "비가 내리려면 공기 중에 수증기(습기)가 충분해야 해요.",
+        "차가운 공기가 따뜻하고 습한 공기를 파고들면 적란운이 발달해 소나기가 쏟아져요."
+      ],
+      "correct_answer": "",
+      "board_order": 4,
+      "title": "수도권에 소나기",
+      "summary": "한랭전선과 습기로 짧고 강한 비를 내려요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: pressure_front-1",
+        "knowledge_level=4 · 적용 규칙: R5 palette front:cold+moisture → 4 · mode(guided)는 단계 불변 (docs/specs/12 §4)",
+        "knowledge_level=4 · 결정 용어: 한랭전선([9과17-04])·적란운([9과17-03])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "수도권에 넓게 퍼지는 약한 비를 오래 내려 보세요.",
+      "mode": "guided",
+      "guide_steps": [
+        "수도권(존 1)에 온난전선을 놓아 보세요.",
+        "같은 존의 습기를 50 이상으로 올려 보세요."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:warm",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "rain"
+        }
+      ],
+      "hints": [
+        "온난전선은 따뜻한 공기가 찬 공기 위로 완만히 타고 올라요.",
+        "넓은 지역에 약한 비가 오래 내리는 것이 온난전선 비의 특징이에요."
+      ],
+      "correct_answer": "",
+      "board_order": 5,
+      "title": "약한 비 오래 내리기",
+      "summary": "온난전선으로 넓게 퍼지는 비를 오래 내려요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: pressure_front-1",
+        "knowledge_level=4 · 적용 규칙: R5 palette front:warm+moisture → 4 (docs/specs/12 §4)",
+        "knowledge_level=4 · 결정 용어: 온난전선([9과17-04])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "서해에 여러 날 이어지는 장마 비를 만들어 보세요.",
+      "mode": "guided",
+      "guide_steps": [
+        "서해(존 0)에 정체전선을 놓아 보세요.",
+        "같은 존의 습기를 70 이상으로 올려 보세요."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:stationary",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "persistent_rain"
+        }
+      ],
+      "hints": [
+        "세력이 비슷한 두 기단이 만나면 전선이 한곳에 오래 머물러요.",
+        "습한 공기가 계속 공급되면 장마처럼 비가 여러 날 이어져요."
+      ],
+      "correct_answer": "",
+      "board_order": 6,
+      "title": "장마 비 만들기",
+      "summary": "정체전선으로 서해에 여러 날 이어지는 비를 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: pressure_front-3",
+        "knowledge_level=4 · 적용 규칙: R5 palette front:stationary+moisture → 4 (docs/specs/12 §4)",
+        "knowledge_level=4 · 결정 용어: 정체전선·기단([9과17-04])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "장마철이다. 동해안(존 3)에 여러 날 이어지는 큰비를 만들어 땅이 물을 더 받아들이지 못하는 상황을 재현해 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "동해안(존 3)의 습기를 85 이상으로 올린다.",
+        "같은 존의 바람을 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "moisture",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "flood_risk"
+        }
+      ],
+      "hints": [
+        "비가 여러 날 이어지려면 공기가 물기로 거의 가득 차 있어야 한다. 먼저 습기를 아주 높게 올려야 한다.",
+        "비구름은 한 번 비를 뿌리면 물기를 잃는다. 바닷바람이 세게 불어 수증기를 쉬지 않고 실어 날라야 다음 비구름이 채워지고, 그래야 비가 그치지 않아 땅이 물에 잠긴다."
+      ],
+      "correct_answer": "",
+      "board_order": 7,
+      "title": "며칠째 이어진 비",
+      "summary": "높은 습기에 센 바람을 더해 비가 그치지 않는 침수 위험을 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — 재난 연쇄 2(홍수)의 「위험 기상 생성 보드」",
+        "board_rules.json: flood_risk_saturated_inflow (R13 재난 축 신규 규칙 — 판정 결과가 persistent_rain이 아니라 flood_risk다)",
+        "엔진에 시간 축이 없어 「며칠간 지속」을 직접 조건으로 쓸 수 없다. 대신 지속 강수를 만드는 물리 조건(포화에 가까운 습기 + 수증기를 계속 실어 나르는 강한 기류)을 조건으로 삼았고, 그 논리를 explain·hint_needs에 명시했다",
+        "판정: R5(보드 특례) — palette·goal이 기단·전선을 쓰지 않는다. 결정 용어=상대습도, [9과17-03] → 4단계 (기존 판정값 유지)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "봄이 되면 대륙에서 따뜻하고 건조한 양쯔강 기단이 우리나라로 이동해 온다. 기단은 넓은 지역을 한꺼번에 덮는다. 서해(존 0)와 수도권(존 1)을 함께 맑게 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "서해(존 0)에 양쯔강 기단을 놓는다.",
+        "수도권(존 1)에도 같은 기단을 놓는다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:yangtze",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "clear"
+        },
+        {
+          "zone": 1,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "양쯔강 기단은 따뜻하고 건조하다. 수증기가 적으면 구름이 잘 생기지 않는다.",
+        "기단은 한 존이 아니라 넓은 지역을 덮는다. 두 존 모두에 기단을 놓고, 습기는 50 이하로 두어야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 8,
+      "title": "봄 기단 두 칸 덮기",
+      "summary": "양쯔강 기단으로 서해와 수도권을 한꺼번에 맑게 해요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — 사문 기단 살리기. yangtze는 subtype enum에만 있고 어떤 규칙도 참조하지 않아 보드에서 늘 cloudy였다",
+        "board_rules.json: yangtze_mild_clear (신규 규칙)",
+        "기상학 근거: 양쯔강(揚子江) 기단은 봄·가을 이동성 고기압으로 우리나라를 통과하는 온난 건조 기단이다. 수증기가 적어 맑고 포근한 날씨를 만든다",
+        "판정: R5 + R1 — 결정 용어 = 기단, introduced_at=4 [9과17-04] → 4단계. mode=guided는 단계 불변",
+        "다존 목표로 '기단은 넓은 지역에 걸쳐 성질이 고른 공기 덩어리'라는 정의 자체를 배치로 체득시킨다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "며칠째 비가 오지 않는 겨울이다. 태백산맥(존 2)에 차고 건조한 공기를 들여 산불이 번지기 쉬운 맑고 메마른 날씨를 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "태백산맥(존 2)의 습기를 30 이하로 내린다.",
+        "같은 존의 바람을 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "moisture",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "wildfire_risk"
+        }
+      ],
+      "hints": [
+        "공기가 메마르면 낙엽과 잔가지에서 물기가 빠져나가 불이 아주 쉽게 붙는다.",
+        "센 바람은 불씨를 멀리 실어 나르고 산소를 계속 대 준다. 습기를 낮추는 것만으로는 부족하고 바람을 함께 올려야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 9,
+      "title": "산불 나기 쉬운 날",
+      "summary": "메마른 공기와 센 바람으로 산불이 번지기 쉬운 날을 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — 재난 연쇄 1(산불)의 「위험 기상 생성 보드」",
+        "board_rules.json: wildfire_risk_dry_gale (R13 재난 축 신규 규칙 — 판정 결과가 clear가 아니라 wildfire_risk다)",
+        "기상청 산불 기상 위험: 실효습도가 낮고 풍속이 클수록 위험이 커진다 — 우리나라 대형 산불이 봄·겨울에 몰리는 것은 고온이 아니라 건조·강풍 때문이다. 일사(고온)를 세 번째 조건으로 넣지 못한 구조적 사유는 board_rules.json wildfire_risk_dry_gale의 note_authoring에 적었다",
+        "판정: R5(보드 특례) — palette·goal이 요구하는 최고 개념은 「습도·바람」(조절값)이고 기단·전선을 쓰지 않는다. 결정 용어=상대습도, [9과17-03] → 4단계 (기존 판정값 유지)",
+        "⚠️ question_text는 멱등 키(concept_tag+question_text)라 바꾸지 않았다 — 문두의 \"차고 건조한 공기를 들여\"가 기단 배치를 암시하지만 팔레트에 기단이 없다(PM 보고 완료, 재저작은 배포 절차와 함께)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "차고 건조한 시베리아 기단이 남쪽으로 내려오는 겨울이다. 수도권(존 1)에 눈을 내려 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "수도권(존 1)에 시베리아 기단을 놓는다.",
+        "같은 존의 습기를 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "snow"
+        }
+      ],
+      "hints": [
+        "차고 메마른 공기 덩어리도 따뜻한 바다를 건너면 열과 수증기를 받아 성질이 달라진다.",
+        "성질이 바뀐 공기 속에서는 눈구름이 자란다. 습기를 충분히 올려야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 10,
+      "title": "수도권에 첫눈",
+      "summary": "시베리아 기단에 습기를 더해 수도권에 눈을 내려요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건",
+        "board_rules.json: siberian_snow (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 결정 용어=기단, [9과17-04] → 4단계 (specs/12 §7.3 정정). mode=guided는 단계를 바꾸지 않는다",
+        "기존 13건의 눈 목표는 존 0 두 건뿐 — 존 1 snow는 신규"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "초여름이면 북동쪽 바다에서 차고 습한 오호츠크해 기단이 밀려와 동해안이 서늘해진다. 동해안(존 3)을 안개로 덮어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "동해안(존 3)에 오호츠크해 기단을 놓는다.",
+        "같은 존의 습기를 70 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:okhotsk",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        }
+      ],
+      "hints": [
+        "오호츠크해 기단은 차고 습하다. 찬 바다 위를 지나온 습한 공기는 아래에서부터 식는다.",
+        "식은 공기 속 수증기가 응결하면 바다와 해안을 뒤덮는 안개가 된다. 습기를 70 이상으로 올려야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 11,
+      "title": "동해안 바다 안개",
+      "summary": "오호츠크해 기단과 높은 습기로 동해안을 안개로 덮어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — 사문 기단 살리기. okhotsk도 enum에만 있고 규칙 참조가 0이라 보드에서 늘 cloudy였다",
+        "board_rules.json: okhotsk_sea_fog (신규 규칙)",
+        "기상학 근거: 오호츠크해 기단은 한랭 다습한 해양성 기단이다. 초여름 이 기단이 확장하면 동해상에 해무와 낮은 구름이 끼고 영동 지방이 저온·흐림이 된다",
+        "판정: R5 + R1 — 결정 용어 = 기단, introduced_at=4 [9과17-04] → 4단계. mode=guided는 단계 불변",
+        "기존 board 20건(본시드 13 + 2일차 7)에 동해안 안개 목표는 존 3 radiation_fog 1건뿐이고 그것은 기단을 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "knowledge_level": 2,
+    "level_group": "elementary",
+    "question_type": "board",
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R13 잔여 웨이브 CO-A2/CO-K4 — 보드 저작 확장(2026-08-09)",
+        "climate_concepts: wildfire_weather — 건조·강풍이 함께일 때 위험이 커진다",
+        "knowledge_level=2 · 적용 규칙: mode=guided · palette 2 · docs/specs/12 §4"
+      ]
+    },
+    "status": "active",
+    "template_json": {
+      "question_text": "비가 오래 안 오면 산과 들이 바싹 마른다. 거기에 바람까지 세게 불면 작은 불씨도 크게 번진다. 수도권(존 1)을 산불이 나기 쉬운 상태로 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "수도권(존 1)의 습기를 30 이하로 내린다.",
+        "같은 존의 바람을 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "moisture",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "wildfire_risk"
+        }
+      ],
+      "hints": [
+        "마른 땅과 마른 공기가 먼저다. 습기를 낮춰 보자.",
+        "불씨를 옮기고 키우는 것은 바람이다. 바람을 60 이상으로."
+      ],
+      "correct_answer": "",
+      "board_order": 12,
+      "title": "메마른 날의 강풍",
+      "summary": "습기를 낮추고 바람을 올려 산불 위험을 만들어요.",
+      "explanation_hint": "산불 위험은 「마름」과 「바람」이 함께 있을 때 커진다. 습기가 낮으면 나뭇잎·풀이 잘 타고, 바람은 불씨를 멀리 옮기면서 산소를 계속 공급해 불길을 키운다. 둘 중 하나만으로는 큰 불이 되기 어렵다."
+    },
+    "uses_live_slots": false
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "knowledge_level": 3,
+    "level_group": "middle_high",
+    "question_type": "board",
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R13 잔여 웨이브 CO-A2/CO-K4 — 보드 저작 확장(2026-08-09)",
+        "climate_concepts: wildfire_weather — 건조·강풍이 함께일 때 위험이 커진다",
+        "knowledge_level=3 · 적용 규칙: mode=guided · palette 2 · docs/specs/12 §4"
+      ]
+    },
+    "status": "active",
+    "template_json": {
+      "question_text": "태백산맥(존 2)은 산등성이를 넘어온 공기가 내려오면서 더 마르고 빨라진다. 그 골짜기를 산불 위험 상태로 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "태백산맥(존 2)의 습기를 30 이하로 내린다.",
+        "같은 존의 바람을 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "moisture",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "wildfire_risk"
+        }
+      ],
+      "hints": [
+        "산을 넘은 공기는 수증기를 산 너머에 두고 와 건조하다.",
+        "골짜기를 따라 내리부는 바람은 더 빨라진다. 바람을 60 이상으로."
+      ],
+      "correct_answer": "",
+      "board_order": 13,
+      "title": "산등성이 마른 바람",
+      "summary": "산을 넘어온 건조한 강풍으로 산불 위험을 만들어요.",
+      "explanation_hint": "산을 넘은 공기는 비를 뿌리고 오느라 수증기를 잃고, 내려오면서 압축돼 기온이 오른다. 건조하고 따뜻하고 빠른 이 바람이 봄철 대형 산불의 조건이다. 실제로 강원 영동 산불 다수가 이런 날 났다."
+    },
+    "uses_live_slots": false
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "knowledge_level": 4,
+    "level_group": "middle_high",
+    "question_type": "board",
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R13 잔여 웨이브 CO-A2/CO-K4 — 보드 저작 확장(2026-08-09)",
+        "climate_concepts: wildfire_weather — 건조·강풍이 함께일 때 위험이 커진다",
+        "knowledge_level=4 · 적용 규칙: mode=guided · palette 2 · docs/specs/12 §4"
+      ]
+    },
+    "status": "active",
+    "template_json": {
+      "question_text": "산불 위험은 한 곳만의 일이 아니다. 서해(존 0)와 수도권(존 1) 두 칸을 동시에 산불 위험 상태로 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "서해(존 0)의 습기를 30 이하, 바람을 60 이상으로.",
+        "수도권(존 1)도 같게 맞춘다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "moisture",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "wildfire_risk"
+        },
+        {
+          "zone": 1,
+          "phenomenon": "wildfire_risk"
+        }
+      ],
+      "hints": [
+        "두 칸을 따로따로 맞춰야 한다. 한 칸씩 습기부터 낮추자.",
+        "각 칸의 바람을 60 이상으로 올리면 두 칸 모두 위험 상태가 된다."
+      ],
+      "correct_answer": "",
+      "board_order": 14,
+      "title": "넓게 퍼진 건조경보",
+      "summary": "두 칸을 동시에 건조·강풍으로 만들어요.",
+      "explanation_hint": "건조특보는 한 지점이 아니라 넓은 지역에 함께 내려질 때 더 위험하다. 마른 공기와 강풍이 넓게 덮이면 한 곳에서 난 불이 옆 지역으로 옮겨붙기 쉽고, 소방 인력도 분산된다."
+    },
+    "uses_live_slots": false
+  },
+  {
+    "concept_tag": "flood_response",
+    "knowledge_level": 2,
+    "level_group": "elementary",
+    "question_type": "board",
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R13 잔여 웨이브 CO-A2/CO-K4 — 보드 저작 확장(2026-08-09)",
+        "climate_concepts: flood_response — 포화 + 수증기 유입이 지속 강수를 만든다",
+        "knowledge_level=2 · 적용 규칙: mode=guided · palette 2 · docs/specs/12 §4"
+      ]
+    },
+    "status": "active",
+    "template_json": {
+      "question_text": "공기가 물기를 잔뜩 머금고, 바람이 그 물기를 계속 실어 나르면 비가 오래 이어진다. 동해안(존 3)을 침수 위험 상태로 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "동해안(존 3)의 습기를 85 이상으로 올린다.",
+        "같은 존의 바람을 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "moisture",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "flood_risk"
+        }
+      ],
+      "hints": [
+        "공기가 물기로 가득 차야 한다. 습기를 85 이상으로.",
+        "바람이 물기를 계속 실어 와야 비가 그치지 않는다. 바람을 60 이상으로."
+      ],
+      "correct_answer": "",
+      "board_order": 15,
+      "title": "물기를 실어 오는 바람",
+      "summary": "습기와 바람을 함께 올려 침수 위험을 만들어요.",
+      "explanation_hint": "비가 오래 내리려면 공기가 젖어 있는 것만으로는 부족하다. 이미 내린 만큼 새 수증기가 계속 들어와야 한다. 그 배달을 하는 것이 바람이다. 바람이 약하면 한 번 쏟고 그친다."
+    },
+    "uses_live_slots": false
+  },
+  {
+    "concept_tag": "flood_response",
+    "knowledge_level": 3,
+    "level_group": "middle_high",
+    "question_type": "board",
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R13 잔여 웨이브 CO-A2/CO-K4 — 보드 저작 확장(2026-08-09)",
+        "climate_concepts: flood_response — 포화 + 수증기 유입이 지속 강수를 만든다",
+        "knowledge_level=3 · 적용 규칙: mode=guided · palette 2 · docs/specs/12 §4"
+      ]
+    },
+    "status": "active",
+    "template_json": {
+      "question_text": "같은 비라도 산이 막아서면 한쪽에 몰린다. 태백산맥(존 2)에 물기를 실은 바람이 부딪히게 해 침수 위험을 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "태백산맥(존 2)의 습기를 85 이상으로 올린다.",
+        "같은 존의 바람을 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "moisture",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "flood_risk"
+        }
+      ],
+      "hints": [
+        "산에 부딪힌 공기는 갈 곳이 위밖에 없다. 먼저 습기를 채우자.",
+        "바람이 세야 공기가 계속 밀려와 산을 타고 오른다. 바람을 60 이상으로."
+      ],
+      "correct_answer": "",
+      "board_order": 16,
+      "title": "산에 부딪힌 물기",
+      "summary": "산으로 밀려드는 습한 강풍으로 침수 위험을 만들어요.",
+      "explanation_hint": "습한 공기가 산을 타고 오르면 식으면서 물방울이 되어 비가 된다. 바람이 계속 밀어 주면 같은 자리에 비가 오래 쏟아진다. 산비탈 마을에서 좁은 지역 침수가 잦은 이유다."
+    },
+    "uses_live_slots": false
+  },
+  {
+    "concept_tag": "flood_response",
+    "knowledge_level": 4,
+    "level_group": "middle_high",
+    "question_type": "board",
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R13 잔여 웨이브 CO-A2/CO-K4 — 보드 저작 확장(2026-08-09)",
+        "climate_concepts: flood_response — 포화 + 수증기 유입이 지속 강수를 만든다",
+        "knowledge_level=4 · 적용 규칙: mode=guided · palette 2 · docs/specs/12 §4"
+      ]
+    },
+    "status": "active",
+    "template_json": {
+      "question_text": "물기를 실은 바람이 넓게 밀려들면 여러 지역이 함께 잠긴다. 수도권(존 1)과 동해안(존 3)을 동시에 침수 위험 상태로 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "수도권(존 1)의 습기를 85 이상, 바람을 60 이상으로.",
+        "동해안(존 3)도 같게 맞춘다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "moisture",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "flood_risk"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "flood_risk"
+        }
+      ],
+      "hints": [
+        "두 칸을 각각 맞춰야 한다. 습기부터 채우자.",
+        "각 칸의 바람을 60 이상으로 올리면 두 칸 모두 위험 상태가 된다."
+      ],
+      "correct_answer": "",
+      "board_order": 17,
+      "title": "동시에 잠기는 두 칸",
+      "summary": "떨어진 두 지역을 동시에 침수 위험으로 만들어요.",
+      "explanation_hint": "넓은 지역이 함께 잠기면 대피와 복구가 어려워진다. 물길이 서로 이어져 하류가 더 위험해지고, 도로가 끊겨 구조가 늦어진다. 호우 특보가 광역으로 내려질 때 특히 주의해야 하는 이유다."
+    },
+    "uses_live_slots": false
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "knowledge_level": 1,
+    "level_group": "elementary",
+    "question_type": "board",
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R13 잔여 웨이브 CO-A2/CO-K4 — 보드 저작 확장(2026-08-09)",
+        "climate_concepts: density_buoyancy — 가열 상승과 응결",
+        "knowledge_level=1 · 적용 규칙: mode=guided · palette 2 · docs/specs/12 §4"
+      ]
+    },
+    "status": "active",
+    "template_json": {
+      "question_text": "햇볕이 세게 내리쬐면 땅이 데워지고, 그 위 공기도 가벼워져 위로 올라간다. 서해(존 0)의 일사를 올려 구름 없는 맑은 하늘을 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "서해(존 0)의 일사를 80 이상으로 올린다.",
+        "같은 존의 습기를 30 이하로 낮춘다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "햇볕이 세야 공기가 데워진다. 일사를 올려 보자.",
+        "물기가 적어야 구름이 안 생긴다. 습기를 30 이하로."
+      ],
+      "correct_answer": "",
+      "board_order": 18,
+      "title": "쨍한 여름 하늘",
+      "summary": "일사를 올리고 습기를 낮춰 맑은 하늘을 만들어요.",
+      "explanation_hint": "구름은 공기 속 수증기가 물방울로 바뀌어 생긴다. 물기가 적으면 아무리 공기가 올라가도 뭉칠 물방울이 없어 하늘이 맑다. 여름 소나기 뒤 하늘이 유난히 파란 것도 비가 물기를 씻어 내려서다."
+    },
+    "uses_live_slots": false
+  },
+  {
+    "concept_tag": "pressure_front",
+    "knowledge_level": 1,
+    "level_group": "elementary",
+    "question_type": "board",
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R13 잔여 웨이브 CO-A2/CO-K4 — 보드 저작 확장(2026-08-09)",
+        "climate_concepts: pressure_front — 경계면 상승 방식이 강수 성격을 가른다",
+        "knowledge_level=1 · 적용 규칙: mode=guided · palette 2 · docs/specs/12 §4"
+      ]
+    },
+    "status": "active",
+    "template_json": {
+      "question_text": "따뜻한 공기가 찬 공기 위로 천천히 미끄러져 오르면 넓은 지역에 약한 비가 오래 내린다. 수도권(존 1)에 그런 비를 내려 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "수도권(존 1)에 「따뜻한 공기가 타고 오르는 경계」를 놓는다.",
+        "같은 존의 습기를 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:warm",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "rain"
+        }
+      ],
+      "hints": [
+        "경계를 먼저 놓아야 공기가 오를 길이 생긴다.",
+        "비가 되려면 물기가 있어야 한다. 습기를 60 이상으로."
+      ],
+      "correct_answer": "",
+      "board_order": 19,
+      "title": "천천히 오르는 비",
+      "summary": "따뜻한 공기가 타고 오르게 해 잔잔한 비를 만들어요.",
+      "explanation_hint": "따뜻한 공기가 찬 공기 위를 완만하게 타고 오르면 천천히 식으면서 물방울이 된다. 천천히 오르니 비도 약하고 대신 넓은 지역에 오래 내린다. 찬 공기가 급하게 파고들 때의 짧고 굵은 소나기와 정반대다."
+    },
+    "uses_live_slots": false
+  },
+  {
+    "concept_tag": "air_mass",
+    "knowledge_level": 1,
+    "level_group": "elementary",
+    "question_type": "board",
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R13 잔여 웨이브 CO-A2/CO-K4 — 보드 저작 확장(2026-08-09)",
+        "climate_concepts: air_mass — 발원지 성질이 날씨를 정한다",
+        "knowledge_level=1 · 적용 규칙: mode=guided · palette 2 · docs/specs/12 §4"
+      ]
+    },
+    "status": "active",
+    "template_json": {
+      "question_text": "차고 건조한 공기 덩어리가 내려오면 하늘이 맑고 공기가 쌀쌀해진다. 서해(존 0)를 겨울 공기로 덮어 맑게 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "서해(존 0)에 「시베리아에서 내려온 큰 공기 덩어리」를 놓는다.",
+        "같은 존의 습기를 30 이하로 낮춘다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "겨울 공기 덩어리는 시베리아에서 내려온다. 먼저 놓아 보자.",
+        "차고 마른 공기라 습기가 낮아야 어울린다. 30 이하로."
+      ],
+      "correct_answer": "",
+      "board_order": 20,
+      "title": "겨울 아침 맑은 하늘",
+      "summary": "시베리아 겨울 공기와 낮은 습기로 맑은 하늘을 만들어요.",
+      "explanation_hint": "시베리아에서 내려오는 공기 덩어리는 대륙에서 만들어져 차고 건조하다. 바다를 건너지 않고 곧장 내려오면 물기를 얻지 못해 하늘이 맑고 몹시 춥다. 겨울철 「삼한사온」의 추운 쪽이 이 공기가 덮은 날이다."
+    },
+    "uses_live_slots": false
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "knowledge_level": 1,
+    "level_group": "elementary",
+    "question_type": "board",
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R13 잔여 웨이브 CO-A2/CO-K4 — 보드 저작 확장(2026-08-09)",
+        "climate_concepts: density_buoyancy — 가열 상승과 응결",
+        "knowledge_level=1 · 적용 규칙: mode=guided · palette 2 · docs/specs/12 §4"
+      ]
+    },
+    "status": "active",
+    "template_json": {
+      "question_text": "물기가 많은 공기가 데워져 올라가면 구름이 피어오르고 소나기가 쏟아진다. 수도권(존 1)에 소나기를 내려 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "수도권(존 1)의 일사를 80 이상으로 올린다.",
+        "같은 존의 습기를 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "shower"
+        }
+      ],
+      "hints": [
+        "햇볕으로 공기를 데워 올려 보자. 일사를 80 이상으로.",
+        "올라간 공기에 물기가 많아야 구름이 된다. 습기를 60 이상으로."
+      ],
+      "correct_answer": "",
+      "board_order": 21,
+      "title": "여름 오후 소나기",
+      "summary": "일사와 습기를 함께 올려 소나기를 내려요.",
+      "explanation_hint": "여름 오후에 소나기가 잦은 이유가 이것이다. 한낮에 데워진 땅이 공기를 밀어 올리고, 습한 공기가 높이 올라가 식으면서 물방울이 뭉쳐 짧고 굵게 쏟아진다. 해가 기울면 상승이 약해져 금세 그친다."
+    },
+    "uses_live_slots": false
+  },
+  {
+    "concept_tag": "anomaly",
+    "knowledge_level": 4,
+    "level_group": "middle_high",
+    "question_type": "board",
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R13 잔여 웨이브 CO-A2/CO-K4 — 보드 저작 확장(2026-08-09)",
+        "climate_concepts: anomaly — 이상기상의 지속·광역 특성",
+        "knowledge_level=4 · 적용 규칙: mode=guided · palette 2 · docs/specs/12 §4"
+      ]
+    },
+    "status": "active",
+    "template_json": {
+      "question_text": "폭염은 뜨거운 공기가 오래 머물 때 심해진다. 수도권(존 1)과 태백산맥(존 2) 두 칸을 폭염 상태로 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "수도권(존 1)에 북태평양 기단을 놓고 일사를 80 이상으로.",
+        "태백산맥(존 2)도 같게 맞춘다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:north_pacific",
+        "sun"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "heatwave"
+        },
+        {
+          "zone": 2,
+          "phenomenon": "heatwave"
+        }
+      ],
+      "hints": [
+        "여름 더위를 만드는 것은 북태평양 기단이다. 두 칸에 놓자.",
+        "강한 햇볕이 더해져야 폭염이 된다. 각 칸의 일사를 80 이상으로."
+      ],
+      "correct_answer": "",
+      "board_order": 22,
+      "title": "물러나지 않는 더위",
+      "summary": "두 칸을 동시에 폭염으로 만들어요.",
+      "explanation_hint": "폭염이 위험한 것은 온도 자체보다 「이어짐」 때문이다. 밤에도 기온이 안 떨어지면 몸이 회복할 틈이 없다. 덥고 습한 기단이 넓게 자리 잡아 며칠씩 물러나지 않을 때 온열질환이 급증한다."
+    },
+    "uses_live_slots": false
+  },
+  {
+    "concept_tag": "anomaly",
+    "knowledge_level": 4,
+    "level_group": "middle_high",
+    "question_type": "board",
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R13 잔여 웨이브 CO-A2/CO-K4 — 보드 저작 확장(2026-08-09)",
+        "climate_concepts: anomaly — 이상기상의 지속·광역 특성",
+        "knowledge_level=4 · 적용 규칙: mode=guided · palette 2 · docs/specs/12 §4"
+      ]
+    },
+    "status": "active",
+    "template_json": {
+      "question_text": "따뜻한 바다 위를 지나온 공기는 물기를 잔뜩 얻는다. 그 공기가 찬 육지를 만나면 눈이 된다. 서해(존 0)에 폭설을 만들어 보자.",
+      "mode": "guided",
+      "guide_steps": [
+        "서해(존 0)에 시베리아 기단을 놓는다.",
+        "같은 존의 습기를 60 이상으로 올린다."
+      ],
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "snow"
+        }
+      ],
+      "hints": [
+        "찬 공기가 먼저다. 시베리아 기단을 놓자.",
+        "바다를 건너며 얻은 물기가 눈이 된다. 습기를 60 이상으로."
+      ],
+      "correct_answer": "",
+      "board_order": 23,
+      "title": "바다를 건너온 눈",
+      "summary": "찬 기단이 바다에서 물기를 얻어 눈이 돼요.",
+      "explanation_hint": "시베리아 기단은 원래 건조하지만 서해를 건너며 따뜻한 바닷물에서 수증기를 얻는다. 그 공기가 차가운 서해안에 닿으면 구름이 발달해 폭설이 내린다. 호남 서해안 대설이 이렇게 만들어진다."
+    },
+    "uses_live_slots": false
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "바람이 잔잔한 가을 새벽이다. 태백산맥(존 2) 골짜기에 땅을 덮는 안개를 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "fog"
+        }
+      ],
+      "hints": [
+        "햇볕이 약한 밤과 새벽에는 땅이 빠르게 식는다. 땅에 닿아 있던 축축한 공기도 함께 차가워진다.",
+        "놓을 요소는 없다. 일사는 아주 낮게, 습기는 아주 높게 — 두 조절값을 반대 방향으로 움직여야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 24,
+      "title": "새벽 골짜기 안개",
+      "summary": "햇볕을 낮추고 물기를 높여 골짜기에 안개를 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건 — 저단계 진입로",
+        "board_rules.json: radiation_fog (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — palette가 일사·습기뿐이고 goal이 안개다. 결정 용어=안개 [6과06-02] '이슬, 안개, 구름을 관찰하고 공통점과 차이점을 찾을 수 있다', 기상 요소 [6과06-01] → 2단계",
+        "본시드 [30]과 다른 존(3→2)이고, 기존 13건에 존 2 안개 목표는 없다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "같은 세기의 햇볕을 받아도 물기가 있는 곳과 없는 곳의 하늘은 갈린다. 서해(존 0)에는 소나기를, 태백산맥(존 2)에는 맑은 하늘을 동시에 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "clear"
+        },
+        {
+          "zone": 0,
+          "phenomenon": "shower"
+        }
+      ],
+      "hints": [
+        "두 존 모두 일사를 아주 높게 올린다. 데워진 공기는 밀도가 작아져 위로 올라간다.",
+        "갈리는 것은 습기다. 올라간 공기 속 수증기가 물방울로 바뀌어야 구름이 자라고 비가 내린다. 한쪽은 습기를 60 이상으로, 다른 쪽은 30 이하로 둔다."
+      ],
+      "correct_answer": "",
+      "board_order": 25,
+      "title": "습기가 가른 하늘",
+      "summary": "같은 햇볕에도 서해는 소나기, 태백산맥은 맑게 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board, 다존 목표",
+        "board_rules.json: dry_convection_clear(신규) + convective_shower(기존, 판정 불변)",
+        "판정: R5 — 결정 개념 = 수증기의 응결(액화) [9과04-03]과 밀도 [9과03-03]. 소나기는 생활 상용어라 단계를 올리지 않는다 → 3단계",
+        "R2 보정 없음: 지배 요인(습기)이 힌트에 명시돼 있어 '여러 요인 중 선택'이 아니다. 애매 시 낮은 쪽(R6)",
+        "goal_conditions 순서 의도: select_feedback은 첫 목표 존의 성립 규칙 explain을 정답 피드백으로 쓴다. 맑음(존 2)을 앞에 두어 3단계 언어로 쓰인 dry_convection_clear의 explain이 나오게 했다 — convective_shower의 explain에는 적란운(도입 4)이 있다",
+        "금칙 확인: 기단·전선·구름 종류 명칭 미사용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "공기 속 물기가 같아도 열을 받은 곳과 식은 곳은 다른 날씨가 된다. 수도권(존 1)에는 소나기를, 동해안(존 3)에는 안개를 만들어 보자. 두 존의 습기는 똑같이 높게 두어야 한다.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "shower"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        }
+      ],
+      "hints": [
+        "두 존의 습기를 똑같이 80 이상으로 올린다. 갈리는 것은 일사다.",
+        "열을 받은 공기는 밀도가 작아져 높이 올라가면서 물방울이 되고, 열을 잃고 식은 공기는 그 자리에서 물방울이 된다. 위에서 생기면 구름이고 땅에 붙어 생기면 안개다."
+      ],
+      "correct_answer": "",
+      "board_order": 26,
+      "title": "일사가 가른 하늘",
+      "summary": "습기는 같게 두고 일사만 갈라 소나기와 안개를 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board, 일사 축 대비(습기 고정)",
+        "board_rules.json: convective_shower + radiation_fog (둘 다 기존 규칙 — 판정 불변)",
+        "판정: R5 — 결정 개념 = 열의 이동과 상태 변화(액화) [9과04-03·9과03-02] → 3단계. 안개·구름은 [6과06-02] 2단계 관찰 대상이라 상향 요인이 아니다",
+        "금칙 확인: 복사냉각([9과17-01] 4단계)을 쓰지 않고 '열을 잃고 식은'으로 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "구름이 생기려면 공기를 밀어 올릴 열과 물방울이 될 수증기가 함께 있어야 한다. 서해(존 0)에는 소나기, 수도권(존 1)에는 맑음, 동해안(존 3)에는 안개 — 세 가지 하늘을 한 판에 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "clear"
+        },
+        {
+          "zone": 0,
+          "phenomenon": "shower"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        }
+      ],
+      "hints": [
+        "열과 물기를 둘 다 갖춘 존에서는 공기가 높이 올라가 소나기가 쏟아진다.",
+        "열은 있으나 물기가 없으면 맑고, 물기는 있으나 열이 없으면 식은 자리에서 물방울이 생겨 안개가 낀다. 존마다 일사와 습기를 따로 정해야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 27,
+      "title": "한 판에 세 하늘",
+      "summary": "일사와 습기를 존마다 달리해 세 가지 하늘을 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — bs-convection-board 마무리 문항. 열×수증기 2×2 중 세 칸을 한 판에 배치",
+        "board_rules.json: convective_shower + dry_convection_clear(신규) + radiation_fog",
+        "판정: R5 — 결정 개념 = 밀도 [9과03-03]·상태 변화 [9과04-03] → 3단계. R2 '여러 요인 중 지배 요인 선택' 후보이나 두 요인(열·물기)이 문두에 명시돼 판정이 아니라 적용이므로 +0, 애매하면 낮은 쪽(R6)",
+        "빈 보드 반례 방어: 세 목표 모두 기본 판정(cloudy/cumulus)과 다르므로 무배치로 통과할 수 없다",
+        "goal_conditions 순서 의도: 정답 피드백(select_feedback)이 첫 목표 존의 규칙 explain이므로 맑음(존 1)을 앞에 두어 3단계 언어의 dry_convection_clear가 나오게 했다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "전선을 쓰지 않고, 한여름 오후의 소나기를 태백산맥에 내려 보세요.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "shower"
+        }
+      ],
+      "hints": [
+        "강한 햇볕이 지면을 데우면 공기가 활발히 상승해요.",
+        "전선이 없어도 강한 일사와 충분한 습기가 함께 있으면 적란운이 생겨 소나기가 내려요."
+      ],
+      "correct_answer": "",
+      "board_order": 28,
+      "title": "전선 없이 소나기",
+      "summary": "일사와 습기만으로 태백산맥에 소나기를 불러요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: pressure_front-4",
+        "knowledge_level=4 · 적용 규칙: R5 palette sun+moisture이나 힌트가 적란운 → 4 (docs/specs/12 §4)",
+        "knowledge_level=4 · 결정 용어: 적란운([9과17-03])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "동해안에 지표를 덮는 안개를 만들어 보세요.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        }
+      ],
+      "hints": [
+        "안개는 햇볕이 약하고 공기가 매우 습할 때 잘 생겨요.",
+        "지표가 복사냉각으로 식으면 습한 공기 속 수증기가 물방울로 응결해 안개가 껴요."
+      ],
+      "correct_answer": "",
+      "board_order": 29,
+      "title": "안개 끼게 하기",
+      "summary": "일사는 낮추고 습기는 높여 동해안에 안개를 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: pressure_front-5",
+        "knowledge_level=4 · 적용 규칙: R5 palette sun+moisture · 힌트의 복사냉각 → 4 (docs/specs/12 §4)",
+        "knowledge_level=4 · 결정 용어: 복사냉각([9과17-01])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "찬 공기가 밀려와 동해안(존 3)에 짧고 강한 소나기를 쏟아지게 해 보자. 위로 크게 솟은 적란운까지 만들어야 목표가 달성된다.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:cold",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "shower",
+          "cloud": "cumulonimbus"
+        }
+      ],
+      "hints": [
+        "찬 공기가 따뜻하고 습한 공기를 급하게 파고들면 공기가 세차게 밀려 올라간다.",
+        "세찬 상승이 위로 크게 솟은 적란운을 만든다. 습기가 60 이상이어야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 30,
+      "title": "적란운 세우기",
+      "summary": "한랭전선과 습기로 동해안에 적란운과 소나기를 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건 — 구름까지 지정하는 목표(check_goals의 'cloud' 비교 경로. 기존 13건은 전부 phenomenon만 지정)",
+        "board_rules.json: cold_front_shower (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 결정 용어=전선 [9과17-04], 적란운(level_vocabulary: middle_high 허용, 초등만 금칙) → 4단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "서해에 한여름 폭염을 불러와 보세요.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:north_pacific",
+        "sun"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "heatwave"
+        }
+      ],
+      "hints": [
+        "여름 무더위를 부르는, 덥고 습한 기단을 떠올려 보세요.",
+        "강한 일사가 더해지면 기온이 크게 올라 폭염이 나타나요."
+      ],
+      "correct_answer": "",
+      "board_order": 31,
+      "title": "한여름 폭염 부르기",
+      "summary": "북태평양 기단과 강한 일사로 서해에 더위를 불러요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: air_mass-1",
+        "knowledge_level=4 · 적용 규칙: R5 palette air_mass:north_pacific+sun → 4 (docs/specs/12 §4)",
+        "knowledge_level=4 · 결정 용어: 기단([9과17-04])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "겨울, 서해안에 눈을 내려 보세요.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "snow"
+        }
+      ],
+      "hints": [
+        "차고 건조한 시베리아 기단도 따뜻한 서해를 건너며 수증기를 얻어요.",
+        "기단이 변질되어 눈구름이 생기면 서해안에 많은 눈이 내려요."
+      ],
+      "correct_answer": "",
+      "board_order": 32,
+      "title": "서해안에 눈 내리기",
+      "summary": "시베리아 기단이 바다를 건너며 눈구름이 되게 해요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: air_mass-3",
+        "knowledge_level=4 · 적용 규칙: R5 palette air_mass:siberian+moisture → 4 (docs/specs/12 §4)",
+        "knowledge_level=4 · 결정 용어: 기단의 변질([9과17-04])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "동해안에 춥고 맑은 겨울 날씨를 만들어 보세요.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "시베리아 기단은 원래 매우 건조해요.",
+        "공기 중 수증기가 적으면 구름이 잘 생기지 않아 하늘이 맑아요."
+      ],
+      "correct_answer": "",
+      "board_order": 33,
+      "title": "춥고 맑은 겨울",
+      "summary": "기단은 두되 습기를 낮춰 맑고 추운 날을 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: air_mass-3",
+        "knowledge_level=4 · 적용 규칙: R5 palette air_mass:siberian+moisture → 4 (docs/specs/12 §4)",
+        "knowledge_level=4 · 결정 용어: 기단([9과17-04])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "같은 겨울 기단이 놓여도 서해안과 영동 지방의 날씨는 갈린다. 서해(존 0)에는 눈을 내리고 동해안(존 3)은 맑게 두어, 한 기단이 만드는 두 날씨를 동시에 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "snow"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "같은 기단이라도 따뜻한 바다를 건너며 수증기를 받은 쪽과 그렇지 않은 쪽은 결과가 달라진다.",
+        "두 존 모두에 기단을 놓되, 습기는 한쪽만 높이고 다른 쪽은 낮게 두어야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 34,
+      "title": "한 기단 두 날씨",
+      "summary": "같은 겨울 기단으로 서해엔 눈, 동해안엔 맑음을 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건 — 다존 목표(기존 13건은 전부 단일 존)",
+        "board_rules.json: siberian_snow + siberian_clear를 서로 다른 존에 동시 적용 (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 결정 용어=기단, [9과17-04] → 4단계. 두 존의 결과를 대비시키므로 R2 '여러 요인 중 지배 요인 선택' 후보이나, 지배 요인이 습기 하나로 명시돼 있어 +0"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "실화 재현: 2018년 여름, 강한 북태평양 고기압이 한반도를 덮으며 서울이 39.6℃까지 오른 기록적 폭염이 있었어요. 수도권에 그 폭염을 재현해 보세요.",
+      "mode": "goal_only",
+      "based_on": {
+        "event_name": "2018년 기록적 폭염",
+        "event_date": "2018-08-01",
+        "region": "서울·수도권"
+      },
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:north_pacific",
+        "sun"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "heatwave"
+        }
+      ],
+      "hints": [
+        "이상기후로 꼽히는 폭염은 평년을 크게 벗어난 고온이에요. 어떤 공기 덩어리가 여름 무더위를 몰고 오는지 떠올려 보세요.",
+        "수도권(존 1)에 북태평양 기단을 놓고 일사를 70 이상으로 올리면 기온이 크게 올라 폭염이 나타나요."
+      ],
+      "correct_answer": "",
+      "board_order": 35,
+      "title": "2018년 서울 폭염",
+      "summary": "서울이 39.6℃까지 올랐던 그날의 대기를 재현해요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: anomaly-0",
+        "climate_concepts: air_mass-1",
+        "knowledge_level=4 · 적용 규칙: R5 palette air_mass:north_pacific+sun → 4 (docs/specs/12 §4)",
+        "knowledge_level=4 · 결정 용어: 기단([9과17-04])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "실화 재현: 2020년 중부지방은 6월 24일부터 8월 16일까지 54일간 이어진 역대 최장 장마를 겪었어요. 정체전선을 세워 수도권에 그 긴 장마를 재현해 보세요.",
+      "mode": "goal_only",
+      "based_on": {
+        "event_name": "2020년 중부지방 역대 최장 장마",
+        "event_date": "2020-08-16",
+        "region": "중부지방"
+      },
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:stationary",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "persistent_rain"
+        }
+      ],
+      "hints": [
+        "온난화로 대기가 더 많은 수증기를 머금으면 집중호우가 잦아져요. 한곳에 오래 머무는 전선이 장마를 만듭니다.",
+        "수도권(존 1)에 정체전선을 놓고 습기를 70 이상으로 올리면 여러 날 이어지는 장마 같은 비가 내려요."
+      ],
+      "correct_answer": "",
+      "board_order": 36,
+      "title": "2020년 최장 장마",
+      "summary": "54일간 이어진 중부지방 장마를 정체전선으로 재현해요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: anomaly-0",
+        "climate_concepts: pressure_front-3",
+        "knowledge_level=4 · 적용 규칙: R5 palette front:stationary+moisture → 4 (docs/specs/12 §4)",
+        "knowledge_level=4 · 결정 용어: 정체전선([9과17-04])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "제한 시간 안에! 전선 없이 강한 일사와 습기만으로 수도권에 소나기를 내려 보세요.",
+      "mode": "goal_only",
+      "time_limit_sec": 60,
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "shower"
+        }
+      ],
+      "hints": [
+        "여름 오후, 뜨겁게 달궈진 지면 위 습한 공기가 어떻게 움직일지 떠올려 보세요.",
+        "수도권(존 1)의 일사를 80 이상, 습기를 60 이상으로 함께 올리면 대류가 일어나 적란운이 발달해요."
+      ],
+      "correct_answer": "",
+      "board_order": 37,
+      "title": "제한 시간: 소나기",
+      "summary": "60초 안에, 전선 없이 일사와 습기만으로 소나기를 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: pressure_front-4",
+        "knowledge_level=4 · 적용 규칙: R5 palette sun+moisture이나 힌트가 적란운 → 4 (docs/specs/12 §4)",
+        "knowledge_level=4 · 결정 용어: 적란운([9과17-03])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "제한 시간 안에! 차고 건조한 시베리아 기단을 서해에서 변질시켜 눈을 내려 보세요.",
+      "mode": "goal_only",
+      "time_limit_sec": 90,
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "snow"
+        }
+      ],
+      "hints": [
+        "메마른 시베리아 기단도 따뜻한 바다를 건너면 성질이 달라져요.",
+        "서해(존 0)에 시베리아 기단을 놓고 습기를 60 이상으로 올리면 기단이 변질해 눈구름이 만들어져요."
+      ],
+      "correct_answer": "",
+      "board_order": 38,
+      "title": "제한 시간: 눈",
+      "summary": "90초 안에, 시베리아 기단을 서해에서 변질시켜 눈을 내려요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: air_mass-3",
+        "knowledge_level=4 · 적용 규칙: R5 palette air_mass:siberian+moisture → 4 (docs/specs/12 §4)",
+        "knowledge_level=4 · 결정 용어: 기단의 변질([9과17-04])"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "짧은 시간에 좁은 지역으로 퍼붓는 집중호우는 대표적인 악기상이다. 서해(존 0)에 강한 소나기를 쏟아부어 이 상황을 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "moisture",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "flood_risk"
+        }
+      ],
+      "hints": [
+        "집중호우가 무서운 것은 한 번의 비가 아니라 물기가 계속 보충되어 비가 끊기지 않기 때문이다.",
+        "공기를 거의 포화 상태까지 채우고, 그 물기를 실어 나를 바람도 함께 세게 올려야 한다. 둘 중 하나만으로는 땅이 물에 잠기지 않는다."
+      ],
+      "correct_answer": "",
+      "board_order": 39,
+      "title": "좁고 굵은 집중호우",
+      "summary": "포화에 가까운 공기와 강한 기류로 서해에 침수 위험을 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — 재난 축 보드(집중호우)",
+        "board_rules.json: flood_risk_saturated_inflow (R13 재난 축 신규 규칙)",
+        "집중호우의 핵심은 하층의 강한 기류가 수증기를 지속 공급하는 것이다 — 한 번 내린 비로 끝나지 않는 이유가 여기 있다",
+        "판정: R5 + R3 — 판정 대상 텍스트(문두+힌트)의 최고 개념은 「집중호우·악기상」. 결정 용어=집중호우, [12지구01-04] 「뇌우, 집중호우, 폭설, 강풍, 황사 등 주요 악기상」 → 5단계 (기존 판정값 유지)",
+        "⚠️ question_text는 멱등 키라 바꾸지 않았다 — 문두의 \"강한 소나기를 쏟아부어\"가 shower를 암시하지만 목표는 flood_risk다(PM 보고 완료)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "중위도 저기압이 서해상으로 다가오고 있다. 저기압 앞쪽에서 나타나는 날씨, 곧 넓은 지역에 오래 내리는 약한 비를 서해(존 0)에 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:warm",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "rain"
+        }
+      ],
+      "hints": [
+        "중위도 저기압의 앞쪽에는 따뜻한 공기가 찬 공기 위로 완만하게 타고 오르는 경계가 놓인다.",
+        "완만한 상승은 넓고 두꺼운 비구름을 만들어 약한 비를 오래 내리게 한다. 습기는 50 이상이 필요하다."
+      ],
+      "correct_answer": "",
+      "board_order": 40,
+      "title": "저기압 앞쪽 비",
+      "summary": "온난전선으로 서해에 넓고 약한 비를 오래 내려요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건",
+        "board_rules.json: warm_front_steady_rain (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 판정 대상 텍스트의 최고 개념은 '중위도 저기압 통과 시 날씨'. 결정 용어=중위도 저기압, [12지구01-03] → 5단계 (전선 4보다 높은 쪽이 지배)",
+        "표기: [12지구01-03] 해설이 '온대 저기압이란 용어는 중위도 저기압으로 표현한다'고 지정 — 정본 표기를 따랐다",
+        "기존 13건에 존 0 rain 목표는 없다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "온난화가 이어지면서 폭염은 더 자주, 더 강하게 나타나는 극한 기상이 되었다. 덥고 습한 여름 기단과 강한 햇볕을 놓아 동해안(존 3)에 폭염을 불러와 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:north_pacific",
+        "sun"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "heatwave"
+        }
+      ],
+      "hints": [
+        "여름에 우리나라를 덮는 덥고 습한 공기 덩어리는 남쪽 바다에서 올라온다.",
+        "그 위로 강한 햇볕이 더해지면 기온이 크게 오른다. 일사를 70 이상으로 올려야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 41,
+      "title": "더 잦아진 폭염",
+      "summary": "북태평양 기단과 센 햇볕으로 동해안에 폭염을 불러요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건",
+        "board_rules.json: north_pacific_heatwave (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "판정: R5 — 판정 대상 텍스트의 최고 개념은 '극한 기상'. 결정 용어=극한 기상, [12기환02-03] '극한 기상 현상의 종류와 원인' → 5단계 (기단 4보다 높은 쪽이 지배)",
+        "기존 13건의 폭염 목표는 존 0·1 — 존 3 heatwave는 신규"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "봄가을에는 이동성 고기압이 서에서 동으로 사나흘 간격으로 지나가며 날씨를 바꾼다. 고기압에 덮인 새벽, 아직 해가 들지 않은 수도권(존 1)에는 안개가 끼고 먼저 해가 뜬 동해안(존 3)은 맑다. 이 두 하늘을 함께 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:yangtze",
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "fog"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "두 존은 같은 공기 덩어리에 덮여 있다. 갈리는 것은 햇볕과 물기다.",
+        "해가 들지 않은 존은 일사를 30 이하로 낮추고 습기를 60 이상으로 올린다. 해가 든 존은 습기를 50 이하로 두면 맑아진다."
+      ],
+      "correct_answer": "",
+      "board_order": 42,
+      "title": "고기압 아래 새벽",
+      "summary": "이동성 고기압 아래 수도권엔 안개, 동해안엔 맑음을 놓아요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — 사문 기단 살리기(yangtze 두 번째 얼굴)",
+        "board_rules.json: yangtze_morning_fog(신규) + yangtze_mild_clear(신규)",
+        "기상학 근거: 이동성 고기압 권역에서는 밤에 하늘이 맑아 지표가 빠르게 식고, 바람이 약해 새벽 안개가 잦다. 해가 뜨면 걷힌다 — 봄가을 아침 안개의 전형",
+        "판정: R5 — 결정 개념 = 중위도 고기압이 통과할 때의 날씨 변화 [12지구01-03] → 5단계(기단 4보다 높은 쪽이 지배)",
+        "금칙 확인: 5단계 문항이므로 단열 감률·전향력 등 6단계 용어 미사용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "오호츠크해 기단이 밀려오면 태백산맥을 사이에 두고 동쪽과 서쪽 날씨가 갈린다. 동해안(존 3)은 안개에 잠기고, 산을 넘어간 공기가 닿는 수도권(존 1)에는 높새바람이 불어 맑고 건조해진다. 두 하늘을 함께 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:okhotsk",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        },
+        {
+          "zone": 1,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "같은 기단이 산을 넘기 전과 넘은 뒤에 전혀 다른 날씨를 만든다. 두 존 모두에 같은 기단을 놓아야 한다.",
+        "산을 오르며 비를 뿌린 공기는 물기를 잃는다. 동쪽 존은 습기를 70 이상으로, 서쪽 존은 30 이하로 두어야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 43,
+      "title": "높새바람 넘기",
+      "summary": "산을 넘은 공기로 동해안엔 안개, 수도권엔 높새바람을 불러요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — okhotsk 다존 대비. 같은 기단이 지형을 사이에 두고 두 날씨를 만든다",
+        "board_rules.json: okhotsk_sea_fog(신규) + okhotsk_foehn_clear(신규)",
+        "기상학 근거: 오호츠크해 기단의 습윤한 공기가 태백산맥을 넘으며 강수로 수증기를 잃고, 산을 내려오며 승온해 영서 지방에 고온 건조한 높새바람이 분다",
+        "판정: R5 + R1 — 결정 용어 = 높새바람, level_vocabulary introduced_at=5(교육과정 근거 없음·5단계 정성 구간) → 5단계. 6단계 표기인 '푄'은 쓰지 않았다",
+        "금칙 확인: 단열 감률·상대습도 정량 미사용(그것은 아래 6단계 문항이 담당)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "대설경보는 24시간 동안 새로 쌓인 눈이 20cm(산지는 30cm) 이상일 것으로 보일 때 발표된다. 태백산맥(존 2)에 그만큼 눈을 뿌릴 겨울 날씨를 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "snow"
+        }
+      ],
+      "hints": [
+        "대설 특보의 기준은 눈이 내리는 세기가 아니라 24시간 동안 새로 쌓인 눈의 깊이다. 산지 기준을 따로 두는 것은 같은 적설도 지형에 따라 피해가 다르기 때문이다.",
+        "차고 건조한 기단이 따뜻한 바다를 건너 수증기를 받으면 눈구름이 만들어진다. 습기를 60 이상으로 올려야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 44,
+      "title": "대설경보 재현",
+      "summary": "시베리아 기단과 습기로 태백산맥에 대설을 퍼부어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 2일차 보드 7건 — 최상위 단계 보강(specs/12 §8.2 '6단계는 실질적으로 빈 단계')",
+        "board_rules.json: siberian_snow (기존 규칙 재사용 — 신규 규칙 저작 없음)",
+        "기상청 기상특보 발표 기준 — 대설경보: 24시간 신적설 20cm 이상, 산지 30cm 이상 (대설주의보는 5cm 이상)",
+        "판정: R5 + R3 — 문두·힌트의 대설경보 기준 수치는 교육과정에 실리지 않는 실무 발표 기준이다. specs/12 §4 R3의 상향 예시에 '대설경보'가 포함돼 있다 → 6단계",
+        "기존 13건에 존 2 snow 목표는 없다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "건조경보는 실효습도가 25% 이하로 이틀 넘게 이어질 것으로 보일 때 발표된다. 태백산맥과 동해안(존 2·3) 두 곳을 동시에 맑고 메마르게 만들어 이 상태를 재현해 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "moisture",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "wildfire_risk"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "wildfire_risk"
+        }
+      ],
+      "hints": [
+        "실효습도는 그날의 습도만이 아니라 며칠 전까지의 습도를 함께 반영한 실무 지표다. 하루만 건조한 것보다 여러 날 낮게 이어지는 것이 위험하다.",
+        "건조경보만으로는 큰 산불이 되지 않는다. 두 존 모두에서 습기를 바닥까지 내리고 바람까지 세게 올려야 산불 위험 상태가 된다. 한 존만 맞으면 목표는 달성되지 않는다."
+      ],
+      "correct_answer": "",
+      "board_order": 45,
+      "title": "건조경보 두 칸",
+      "summary": "건조와 강풍을 두 지역에 동시에 만들어 산불 위험을 재현해요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13_01 §2.4 — 재난 축 보드(다존 목표)",
+        "board_rules.json: wildfire_risk_dry_gale를 두 존에 동시 적용 (R13 재난 축 신규 규칙)",
+        "기상청 기상특보 발표 기준 — 건조경보: 실효습도 25% 이하가 2일 이상 계속될 것으로 예상될 때. 강풍주의보(육상 풍속 14m/s 이상)가 겹치면 산불 위험이 급격히 커진다",
+        "판정: R5 + R3 — 문두·힌트의 「실효습도 25% 건조경보 기준」은 교육과정에 실리지 않는 실무 발표 기준이다. 결정 용어=실효습도, specs/12 §2.7 「실무: 실효습도」 → 6단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 6,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "산을 오르는 공기는 습윤단열감률 약 5℃/km로 식으며 비를 뿌리고, 물기를 잃은 채 산을 내려오는 공기는 건조단열감률 약 10℃/km로 데워진다. 그래서 산을 넘은 공기는 오르기 전보다 뜨겁고 메마르다. 수도권(존 1)에 이 푄 현상이 만든 맑고 건조한 하늘을 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:okhotsk",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "clear"
+        }
+      ],
+      "hints": [
+        "강수로 수증기를 잃은 공기가 하강하면 건조단열감률을 따라 데워진다. 기온은 오르고 상대습도는 급격히 떨어져 구름이 사라진다.",
+        "산 너머로 내려온 그 공기 덩어리를 수도권에 놓고, 습기를 30 이하로 낮춰야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 46,
+      "title": "산 넘어 마른 바람",
+      "summary": "물기를 잃고 산을 내려온 공기로 수도권을 맑게 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "SPRINT_R13 3일차 보드 확장(BE-B) — 최상위 단계 보강(specs/12 §8.2 '6단계는 실질적으로 빈 단계')",
+        "board_rules.json: okhotsk_foehn_clear (신규 규칙)",
+        "판정: R5 + R3 — 결정 용어 = 푄·건조단열감률·습윤단열감률. level_vocabulary introduced_at=6(푄은 교육과정 전문 검색 0건, 단열 감률은 [12지시03-03]) → 6단계. 5℃/km·10℃/km는 specs/12 §4 R3의 상향 예시('건조공기 1km당 −10℃')와 같은 성격의 정량 수치다",
+        "기상학 근거: 푄 현상 — 포화 상태로 산을 오른 공기는 습윤단열감률(약 5℃/km)로 냉각되며 응결·강수로 수증기를 잃고, 하강 시에는 건조단열감률(약 10℃/km)로 승온해 풍하측이 고온 건조해진다",
+        "같은 규칙을 쓰는 5단계 문항(높새바람)과 짝이다 — 같은 배치가 단계에 따라 다른 언어로 설명된다는 것이 2축 분리의 실증이다"
       ]
     },
     "status": "active"

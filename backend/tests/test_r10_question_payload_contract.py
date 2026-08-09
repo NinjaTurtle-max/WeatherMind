@@ -125,7 +125,11 @@ class TestSeedTypeCoverage:
         #   wildfire_weather가 **전건 0**이라 성인 유저가 그 유닛에서 0문항 세션을 받았다.
         #   7태그 × 5건 저작. 코드 폴백(CO-L2)은 굶주림을 막을 뿐이고 `docs/specs/11` §97의
         #   "level_group 3종 전부 저작"은 데이터로만 닫힌다 — 안전망 ≠ 스펙 준수.
-        assert len(_seed_items()) == 272
+        # R13 잔여 웨이브 CO-A2 저작(2026-08-09): board 34 → 46 · 시드 272 → 284.
+        #   재난 축(wildfire 2→5 · flood 2→5)과 초등 공백(2→6)을 메웠다. 신규 12건은
+        #   전부 guided + 팔레트 2 + 하위 밴드라 난이도 1이고, d1 블록 끝에 끼워
+        #   기존 34건의 board_order를 뒤로 밀었다(단조 계약 유지).
+        assert len(_seed_items()) == 284
 
 
 class TestEverySeedItemIsPlayable:

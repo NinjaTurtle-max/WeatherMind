@@ -71,7 +71,7 @@ class TestBoardDifficultySeedDistribution:
     def test_분포_1_2_3_모두_존재(self):
         boards = self._seed_boards()
         # R12 §9 13건 → R13 2일차 통합에서 +21(2일차 저작 7 + 규칙 확장 10 + 재난 4)
-        assert len(boards) == 34
+        assert len(boards) == 46
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
@@ -97,7 +97,7 @@ class TestBoardDifficultySeedDistribution:
         # → test_board_progression의 단조 증가 계약이 깨진다. board_order는 순서 계약상
         # 고정이고 board_difficulty는 순수 함수라 낮출 길이 없다.
         # 사유 전문은 board_rules.json wildfire_risk_dry_gale의 note_authoring.
-        assert dist == {1: 11, 2: 13, 3: 10}
+        assert dist == {1: 23, 2: 13, 3: 10}
 
 
 def _puzzle(name: str, level_group: str):

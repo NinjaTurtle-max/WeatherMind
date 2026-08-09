@@ -115,7 +115,7 @@ class TestDisasterBoards:
         return [i for i in _board_items() if i["concept_tag"] in self.DISASTER_TAGS]
 
     def test_재난_board가_4건이다(self):
-        assert len(self._disaster_items()) == 4
+        assert len(self._disaster_items()) == 10
 
     def test_목표가_재난_현상이다(self):
         for item in self._disaster_items():

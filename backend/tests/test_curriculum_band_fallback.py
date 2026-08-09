@@ -143,10 +143,13 @@ class TestBandHolesExistInRealSeed:
         empty = [uid for uid in filled if cell_counts()[(uid, "adult")] == 0]
         assert empty == [], f"adult 저작이 사라진 bs 유닛: {empty}"
 
-    @pytest.mark.parametrize(
-        "unit_id", ["air-power-board", "city-anomaly-board", "risk-wildfire-board"]
-    )
+    @pytest.mark.parametrize("unit_id", ["city-anomaly-board"])
     def test_elementary_밴드에_board가_0건(self, unit_id):
+        """⚠️ 2026-08-09 축소 — CO-A2 저작으로 `air-power-board`·`risk-wildfire-board`가
+        채워져 목록에서 빠졌다. 남은 것은 `city-anomaly-board` 하나뿐이다.
+        (이 클래스가 빨개지는 것은 저작이 진행됐다는 뜻이라 좋은 신호다 — 그때는
+        기대값을 줄이고 사유를 남기면 된다. `TestBandHolesExistInRealSeed` 도크스트링 참조.)
+        """
         assert cell_counts()[(unit_id, "elementary")] == 0
 
     def test_0문항_칸이_실제로_다수다(self):
@@ -363,14 +366,22 @@ class TestWideningDoesNotBlurHealthyCells:
         assert [it.knowledge_level for it in top] == [5, 6, 1, 1, 1]
 
     def test_초등_board_공백은_승격으로_해소된다(self):
-        """초등(kl 2) × `air-power-board` — 자기 단계 0건이라 위로 올라간다.
+        """초등(kl 2) × `city-anomaly-board` — 자기 단계 0건이라 위로 올라간다.
 
         방향을 상수로 박지 않았기 때문에 **같은 함수가 강등도 승격도 한다**.
+
+        ⚠️ 2026-08-09 사례 교체 — 원래 `air-power-board`를 썼는데 CO-A2 저작으로
+        그 유닛에 초등 board가 생겨 **승격 사례가 아니게 됐다**(자기 밴드가 있으면
+        올라갈 이유가 없다). 초등 board가 아직 0건인 유닛으로 옮겼다.
+        여기도 채워지면 같은 방식으로 옮기거나, 강등 축만 남기고 사유를 적을 것.
         """
-        top = self._top("air-power-board", "elementary")
+        top = self._top("city-anomaly-board", "elementary")
         assert all(it.question_type == "board" for it in top)
-        assert {it.level_group for it in top} == {"middle_high"}
-        assert max(it.knowledge_level for it in top) == 4
+        # 자기 밴드(elementary)가 0건이라 **한 칸도 안 남는다** — 전부 위로 올라간다.
+        assert "elementary" not in {it.level_group for it in top}
+        # 가까운 단계부터 채운다: kl 4(middle_high)가 kl 6(expert)보다 앞선다.
+        assert min(it.knowledge_level for it in top) >= 4
+        assert top[0].level_group == "middle_high"
 
 
 class _FakeResult:

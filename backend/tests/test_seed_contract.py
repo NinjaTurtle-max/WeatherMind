@@ -82,7 +82,7 @@ class TestSeedSchema:
         # 호출 대체). ordering이 4건인 것은 정규화 정답이 "0,1,2,3(,4)" 뿐이라
         # **태그당 패턴 수만큼만 가능**하기 때문이다 — phase_change는 세 패턴이
         # 이미 포화라 slider로 대체했다(CO-C5의 ordering 상한과 같은 계열).
-        assert len(SEED_ITEMS) == 272
+        assert len(SEED_ITEMS) == 284
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
