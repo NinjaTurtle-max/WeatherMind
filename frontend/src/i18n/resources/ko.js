@@ -353,10 +353,9 @@ export default {
     loading: '학습 경로를 불러오고 있어요...',
     loadFailed: '학습 경로를 불러오지 못했어요',
     title: '🎓 학습',
-    // 줄바꿈이 값 안에 있다. 이 키의 유일한 독자는 LearnHeroCard의 튜터 말풍선이고
-    // (머리말이 사라지면서 그렇게 됐다), 말풍선은 `whitespace-pre-line`으로 그린다.
-    // 자동 줄바꿈에 맡기면 폭에 따라 "쌓아" / "요." 같은 데서 갈린다.
-    subtitle: '유닛을 순서대로 클리어하며\n날씨 개념을 쌓아요.',
+    // 배너 한 줄 부제. 2026-08-09 잠깐 값 안에 개행이 있었다(튜터 말풍선 두 줄
+    // 고정) — 배너로 바뀌며 한 줄이 되어 원문 바이트 동일로 되돌렸다.
+    subtitle: '유닛을 순서대로 클리어하며 날씨 개념을 쌓아요.',
     sectionDone: '{cleared}/{total} 완료',
     energyEmpty: {
       title: '☁️ 구름이 모두 흩어졌어요',
@@ -378,6 +377,11 @@ export default {
       waterEnergy: { title: '물과 에너지', subtitle: '상태변화·이동' },
     },
     unit: {
+      // 노드 옆 상태 라벨(2026-08-09 시안). 잠금은 lockedTitle을 그대로 쓴다 —
+      // 같은 뜻을 두 문장으로 두면 하나만 고쳐진다.
+      labelCleared: '완료 · 왕관 {crowns}',
+      labelCurrent: '지금 여기',
+      labelOpen: '열림',
       lockedSuffix: ' (잠김)',
       energySuffix: ' (구름 부족)',
       lockedTitle: '선행 유닛을 완료하면 열려요',
@@ -385,8 +389,16 @@ export default {
       boardChip: '보드 퍼즐 유닛',
       placementOpened: '🧭 진단으로 열림',
     },
+    // 학습 화면 하단 3카드의 리그 칸(2026-08-09 시안). 티어 표시명은 tier.name.*이
+    // 소유하고 여기는 틀만 갖는다 — 두 벌로 두면 리그 화면과 이름이 갈린다.
+    leagueCard: {
+      title: '{tier} 리그',
+      people: '/ {total}명',
+      cta: '순위표 보기 →',
+    },
     daily: {
       title: '자유 일일 세션',
+      body: '정해진 경로 대신 오늘의 세션을 바로 풀고 싶다면.',
       cta: '오늘의 세션 풀기 →',
       resume: '풀던 세션 이어서 풀기 →',
       regen: '☁️ 구름 회복까지 약 {min}분',
@@ -394,6 +406,7 @@ export default {
     },
     // 세로 경로(PcCurriculumPath) — 노드 밑 라벨을 뺀 대신 진도 바가 "지금 어디"를 말한다.
     path: {
+      sectionEyebrow: '섹션 {n} · {title}',
       introTitle: '이 단계에서 배우는 것',
       start: '시작',
       estMinutes: '예상 {min}분',

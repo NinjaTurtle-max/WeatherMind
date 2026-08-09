@@ -26,9 +26,10 @@ import { useT } from '../i18n';
  *           아니라 **껍데기만** 벗기는 이유는 due 0건 렌더 생략·상위 3개 자르기
  *           같은 계약이 두 모양에서 같아야 하기 때문이다 — 두 컴포넌트로 갈라
  *           두면 한쪽만 고쳐진다.
- *   'hero'  파란 진입 카드(LearnHeroCard) 안 — 「이어서 풀기」 밑(2026-08-09).
- *           대비 기준이 **파란 바탕**이라 칩·글자 색이 다르다(흰 바탕용 slate
- *           계열은 여기서 묻힌다). 모양만 다르고 계약은 위 둘과 같다.
+ *   'tile'  학습 화면 **경로 아래 3카드**의 첫 칸(2026-08-09 시안). 스스로
+ *           흰 카드까지 그린다 — 격자 칸에 그대로 떨어뜨리려고 그렇다.
+ *           본문 없이 제목·키워드 칩·링크뿐이라 세로가 얕다(하단 줄은 세로
+ *           예산이 빠듯하다 — 트랙 높이를 그만큼 뺏는다). 계약은 위 둘과 같다.
  */
 export default function ReviewQueueCard({ variant = 'card' }) {
   const t = useT();
@@ -44,16 +45,15 @@ export default function ReviewQueueCard({ variant = 'card' }) {
   const top = due.slice(0, 3);
   const rest = due.length - top.length;
 
-  if (variant === 'hero') {
+  if (variant === 'tile') {
     return (
       <div
-        data-testid="review-queue-hero"
-        className="mt-4 w-full border-t border-sky-300/70 pt-3.5 text-left"
+        data-testid="review-queue-tile"
+        className="flex flex-col rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200"
       >
         <div className="flex items-center gap-1.5">
-          <span aria-hidden="true" className="text-[13px]">🔁</span>
-          <p className="text-[12.5px] font-bold text-slate-700">{t('reviewQueue.title')}</p>
-          <span className="ml-auto text-[11px] font-medium tabular-nums text-slate-500">
+          <p className="text-[13.5px] font-extrabold text-slate-800">{t('reviewQueue.title')}</p>
+          <span className="ml-auto text-[11px] font-medium tabular-nums text-slate-400">
             {t('reviewQueue.count', { count: due.length })}
           </span>
         </div>
@@ -62,11 +62,11 @@ export default function ReviewQueueCard({ variant = 'card' }) {
             같은 얼굴을 쓰고(기압과 전선·기압의 기초 → 둘 다 구름이), 그러면 무엇을
             복습하는지가 그림만으로는 갈리지 않는다. 여기서 답해야 하는 질문은
             "무엇을"이므로 이름이 맞다. */}
-        <ul className="mt-2 flex flex-wrap gap-1.5">
+        <ul className="mt-2.5 flex flex-wrap gap-1.5">
           {top.map((item) => (
             <li
               key={item.concept_tag}
-              className="rounded-full bg-white/80 px-2.5 py-1 text-[11.5px] font-medium text-slate-600"
+              className="rounded-full bg-slate-100 px-2.5 py-1 text-[11.5px] font-medium text-slate-600"
             >
               {CONCEPT_KO[item.concept_tag] ?? item.concept_tag}
             </li>
@@ -75,7 +75,7 @@ export default function ReviewQueueCard({ variant = 'card' }) {
         </ul>
         <Link
           to="/daily"
-          className="mt-2.5 inline-block text-[12px] font-bold text-sky-600 hover:text-sky-700"
+          className="mt-auto pt-2.5 text-[12px] font-bold text-sky-600 hover:text-sky-700"
         >
           {t('reviewQueue.cta')}
         </Link>

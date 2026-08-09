@@ -193,22 +193,22 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
     ok(!text().includes(gone), `홈 카드가 되살아나지 않았다 — ${gone} 없음`);
   }
   ok(!text().includes('안녕하세요'), '홈 인사말이 되살아나지 않았다');
-  ok($('[data-testid="review-queue-card"]') === null, '복습이 별도 흰 카드가 아니다');
+  ok($('[data-testid="review-queue-card"]') === null, '복습이 236px짜리 큰 카드가 아니다');
   // 복습은 자기 쿼리(GET /progress/review-queue)가 도착해야 그려진다 — 즉시 보면
   // 아직 null이다(due 0건과 구분되지 않는다).
-  await waitFor(() => $('[data-testid="review-queue-hero"]') !== null, 6000, '복습 줄(진입 카드 안)');
+  // 2026-08-09 시안: 자리가 진입 배너 안 → **경로 아래 3카드**로 옮겼다.
+  await waitFor(() => $('[data-testid="review-queue-tile"]') !== null, 6000, '복습 칸(하단 3카드)');
+  const tile = $('[data-testid="review-queue-tile"]');
+  ok(
+    tile?.closest('[data-testid="learn-footer"]') !== null,
+    '복습 칸이 하단 3카드 줄 안에 있다',
+  );
+  for (const id of ['learn-secondary', 'learn-league']) {
+    ok($(`[data-testid="${id}"]`) !== null, `하단 3카드에 ${id} 칸이 있다`);
+  }
   // 복습은 **개념명 키워드**다(2026-08-09 결정). 한때 담당 캐릭터 그림으로 바꿨다가
   // 되돌렸다 — 캐릭터 8장에 개념 14종이라 둘 이상이 같은 얼굴을 쓴다.
-  ok(
-    $('[data-testid="review-queue-hero"]').querySelector('img') === null,
-    '복습은 그림이 아니라 개념명 키워드다',
-  );
-  const heroReview = $('[data-testid="review-queue-hero"]');
-  ok(
-    heroReview.closest('[data-testid="learn-entry"]') !== null,
-    '복습이 진입 카드 **안**에 있다(「이어서 풀기」 밑)',
-  );
-
+  ok(tile.querySelector('img') === null, '복습은 그림이 아니라 개념명 키워드다');
 
   // ⑤ 출석 체크는 이 화면이 만든다 — 비동기라 도착을 기다린다
   const attendance = () => xhrLog.filter((l) => l.includes('/attendance')).length;

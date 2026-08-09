@@ -341,6 +341,9 @@ export default {
       waterEnergy: { title: 'Water & Energy', subtitle: 'Phase change · Transfer' },
     },
     unit: {
+      labelCleared: 'Done · {crowns} crowns',
+      labelCurrent: "You're here",
+      labelOpen: 'Open',
       lockedSuffix: ' (locked)',
       energySuffix: ' (out of clouds)',
       lockedTitle: 'Complete the previous unit to unlock',
@@ -348,14 +351,21 @@ export default {
       boardChip: 'Board puzzle unit',
       placementOpened: '🧭 Opened by placement',
     },
+    leagueCard: {
+      title: '{tier} league',
+      people: '/ {total} players',
+      cta: 'View standings →',
+    },
     daily: {
       title: 'Free daily session',
+      body: "Want today's session right away instead of the set path?",
       cta: "Start today's session →",
       resume: 'Resume your session →',
       regen: '☁️ About {min} min until a cloud returns',
       regenResume: '☁️ About {min} min until a cloud returns — a session you started today can still be finished.',
     },
     path: {
+      sectionEyebrow: 'Section {n} · {title}',
       introTitle: 'What this stage covers',
       start: 'Start',
       estMinutes: 'about {min} min',

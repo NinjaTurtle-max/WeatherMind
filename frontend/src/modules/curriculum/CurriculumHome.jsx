@@ -6,10 +6,11 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import PcCurriculumPath from './PcCurriculumPath';
 import CourseSwitcher, { useCourses } from './CourseSwitcher';
 import LearnHeroCard from './LearnHeroCard';
+import LearnFooterCards from './LearnFooterCards';
 import { pickLearnEntry } from './learnEntry';
 import { useAttendance } from '../../hooks/useAttendance';
 // R11-01 §6.2 마운트 통합 — props 없는 자급 계약(조건 미충족 시 자가 null).
-// 복습 큐(ReviewQueueCard)는 2026-08-09부터 LearnHeroCard가 마운트한다.
+// 복습 큐(ReviewQueueCard)는 2026-08-09부터 LearnFooterCards가 마운트한다.
 import GuestSaveBanner from '../../components/GuestSaveBanner';
 // R12 선행 §8 — 지역 칩(자급 컴포넌트, 제작 FE-R): 세션 실황 슬롯이 이 지역을 탄다.
 import RegionPicker from '../../components/RegionPicker';
@@ -128,9 +129,20 @@ export default function CurriculumHome() {
     data === undefined
       ? { kind: 'unit', unit: null, to: '/learn' }
       : pickLearnEntry({ units: flatUnits, todayAnswered: goalDone, dailyGoal: goalTotal });
+  // 배너 머리글 — 시안대로 **어느 섹션의 몇 번째인지**를 말한다("섹션 1 · 하늘 읽기").
+  // 섹션을 모르면(트리 도착 전·유닛 없음) 종전 문구('학습 세션')로 떨어진다.
+  const entrySectionIdx = entry.unit
+    ? (data?.sections ?? []).findIndex((s) => s.units.some((u) => u.id === entry.unit.id))
+    : -1;
+  const entrySection = entrySectionIdx >= 0 ? data.sections[entrySectionIdx] : null;
   const ENTRY_COPY = {
     unit: {
-      eyebrow: t('home.entry.learn'),
+      eyebrow: entrySection
+        ? t('curriculum.path.sectionEyebrow', {
+            n: entrySectionIdx + 1,
+            title: entrySection.section,
+          })
+        : t('home.entry.learn'),
       title: entry.unit?.title ?? t('home.entry.learnEmpty'),
       cta: t('home.entry.learnGo'),
     },
@@ -186,9 +198,22 @@ export default function CurriculumHome() {
       <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} />
 
       {/* 페이지 머리말(🎓 학습 + 설명)은 **없앴다**(2026-08-09 사용자 지시).
-          같은 설명을 진입 카드의 튜터가 말풍선으로 말한다 — 두 벌이면 튜터가
-          읽어 주는 의미가 사라지고, 세로 66px을 학습 경로에서 빼앗는다.
-          문구의 소유자는 여전히 `curriculum.subtitle`이다(LearnHeroCard가 읽는다). */}
+          같은 설명을 진입 배너가 부제로 말한다 — 두 벌이면 세로만 66px 먹는다.
+          문구의 소유자는 `curriculum.subtitle`이다(LearnHeroCard가 읽는다). */}
+
+      {/* 진입 배너 — 화면 맨 위 한 줄(2026-08-09 시안). PC·모바일 **공통 1회
+          마운트**다. 세로 레일이던 시절에는 PC 레일과 모바일 위쪽에 각각 하나씩
+          두 번 마운트했는데, 가로 배너는 두 폭에서 같은 자리라 나눌 이유가 없다.
+          `hasPath`와 무관하게 뜬다 — 빈 트리 코스에서도 「오늘의 세션」으로 갈
+          통로가 필요하다. */}
+      <div className="mb-3.5">
+        <LearnHeroCard
+          entry={entry}
+          copy={ENTRY_COPY[entry.kind]}
+          goalTotal={goalTotal}
+          goalDone={goalDone}
+        />
+      </div>
 
       {/* 구름 소진 안내 (§3.1) — 새 세션은 열 수 없지만 이유·회복 시점을 먼저 알린다 */}
       {energyBlocked && (
@@ -235,21 +260,6 @@ export default function CurriculumHome() {
         </div>
       )}
 
-      {/* 모바일(md 미만) — PC 경로 뷰(hidden md:block)가 안 뜨므로 레일도 없다.
-          진입 카드를 **경로 위**에 둔다: 아래에 두면 유닛 3~5개짜리 경로를 다
-          스크롤해야 「이어서 풀기」가 나온다(실측 390px에서 카드 상단이 1,020px).
-          경로 자체가 없으면(빈 트리 코스) PC에도 레일이 안 뜨므로 여기서 보여준다. */}
-      <div className={hasPath ? 'mb-4 md:hidden' : 'mb-4 max-w-sm'}>
-        <LearnHeroCard
-          entry={entry}
-          copy={ENTRY_COPY[entry.kind]}
-          goalTotal={goalTotal}
-          goalDone={goalDone}
-          dailyBlocked={dailyBlocked}
-          energyBlocked={energyBlocked}
-          regenMin={regenMin}
-        />
-      </div>
 
       {/* 모바일: 세로 지그재그 경로(기존 유지) */}
       <div className="md:hidden">
@@ -294,17 +304,14 @@ export default function CurriculumHome() {
         energyBlocked={energyBlocked}
         regenMin={regenMin}
         onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
-        rail={
-          <LearnHeroCard
-            entry={entry}
-            copy={ENTRY_COPY[entry.kind]}
-            goalTotal={goalTotal}
-            goalDone={goalDone}
-            dailyBlocked={dailyBlocked}
-            energyBlocked={energyBlocked}
-            regenMin={regenMin}
-          />
-        }
+      />
+
+      {/* 경로 아래 3카드(복습·자유 세션·리그). 이 줄의 높이는 그대로 트랙에서
+          빠지므로 PcCurriculumPath가 **재서** `--wm-track-tail`에 넣는다. */}
+      <LearnFooterCards
+        dailyBlocked={dailyBlocked}
+        energyBlocked={energyBlocked}
+        regenMin={regenMin}
       />
     </div>
   );

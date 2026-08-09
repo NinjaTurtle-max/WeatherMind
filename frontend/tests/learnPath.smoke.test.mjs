@@ -202,12 +202,16 @@ await render({});
   const nodes = [...container.querySelectorAll('.wm-dot')];
   ok(nodes.length === TOTAL, `노드 ${TOTAL}개 — 실제 ${nodes.length}`);
 
-  // ② 라벨을 뺀 대신 aria-label이 유닛명을 나른다
+  // ② 노드 옆 라벨 + aria-label. 2026-08-09 시안으로 **라벨이 돌아왔다** — 그
+  // 전에는 유닛명을 알 길이 aria-label·title(마우스를 올려야 뜬다)뿐이었다.
   const labelled = nodes.filter((b) => (b.getAttribute('aria-label') ?? '').includes('유닛 '));
   ok(labelled.length === TOTAL, `노드 aria-label 전부에 유닛명 — 실제 ${labelled.length}`);
+  ok(container.textContent.includes('유닛 5'), '노드 옆에 유닛명 라벨이 보인다');
+  // 라벨은 **보조기술에 감춘다** — 안 감추면 버튼 aria-label과 겹쳐 두 번 읽힌다.
+  const visibleLabels = [...container.querySelectorAll('.wm-node > span[aria-hidden="true"]')];
   ok(
-    !container.textContent.includes('유닛 5'),
-    '노드 밑에 유닛명 텍스트를 두지 않는다(진도 바의 현재 유닛명은 예외)',
+    visibleLabels.length === TOTAL && visibleLabels.every((el) => el.textContent.trim().length > 0),
+    `노드 라벨 ${TOTAL}개가 전부 aria-hidden — 실제 ${visibleLabels.length}`,
   );
 
   // 연결선이 경로 컨테이너를 실제로 잡았는가 — **프로덕션에서만 터진 버그의 가드**.
@@ -276,7 +280,7 @@ await render({});
   const chipsBefore = container.querySelectorAll('.wm-stage .rounded-full.bg-sky-100').length;
   ok(chipsBefore > 0, `펼침 상태에서 개념 칩이 보인다 — ${chipsBefore}개`);
   const chromeOpen = container.querySelector('.wm-vpath').style.getPropertyValue('--chrome');
-  ok(chromeOpen === '210px', `펼침 상태 --chrome=210px — 실제 ${chromeOpen}`);
+  ok(chromeOpen === '135px', `펼침 상태 --chrome=135px — 실제 ${chromeOpen}`);
   const toggle = container.querySelector('.wm-stage button[aria-expanded]');
   await click(toggle);
   const expandedAll = [...container.querySelectorAll('button[aria-expanded]')].map((b) =>
@@ -290,7 +294,7 @@ await render({});
   // 접어도 **아이콘 크기는 그대로**다(2026-08-05 결정). 노드 지름은 --chrome에서
   // 역산하므로, 접기와 연동하면 접을 때마다 아이콘이 커졌다 작아져 화면이 출렁인다.
   const chromeFolded = container.querySelector('.wm-vpath').style.getPropertyValue('--chrome');
-  ok(chromeFolded === '210px', `접어도 --chrome 불변(210px) — 실제 ${chromeFolded}`);
+  ok(chromeFolded === '135px', `접어도 --chrome 불변(135px) — 실제 ${chromeFolded}`);
   await click(toggle); // 원복
 }
 
@@ -359,28 +363,35 @@ await render({});
   // 만들지 않는다(세션 러너는 세션에 들어가야 돈다). 스트릭이 영영 안 오른다.
   ok(home.includes('useAttendance(true)'), '학습 화면이 출석 POST를 소유한다(useAttendance)');
 
-  // 진입 카드는 **레일과 모바일 양쪽**에 있어야 한다(2026-08-09 세로 레일 복귀).
-  // PC 경로 뷰는 hidden md:block이라 모바일에서는 레일이 통째로 안 뜬다 —
-  // 한쪽만 두면 그 뷰포트에서 진입로가 사라진다.
+  // 진입 배너는 **한 번만** 마운트한다(2026-08-09 시안 = 얇은 가로 배너).
+  // 세로 레일이던 시절에는 레일·모바일에 하나씩 두 번 걸었는데, 가로 배너는
+  // 두 폭에서 같은 자리라 두 벌이면 화면에 배너가 둘 뜬다.
   const heroMounts = (home.match(/<LearnHeroCard/g) ?? []).length;
-  ok(heroMounts === 2, `진입 카드 마운트 2곳(레일·모바일) — 실제 ${heroMounts}`);
-  ok(/rail=\{/.test(home), '경로 오른쪽 레일로 넘긴다');
+  ok(heroMounts === 1, `진입 배너 마운트 1곳 — 실제 ${heroMounts}`);
+  ok(!/rail=\{/.test(home), '경로에 레일을 넘기지 않는다(트랙이 폭 전체를 쓴다)');
+  const path = readFileSync(resolve(root, 'src/modules/curriculum/PcCurriculumPath.jsx'), 'utf8');
+  ok(!path.includes('rail'), '경로 뷰에 레일 잔재가 없다');
 
-  // 페이지 머리말은 없다 — 같은 설명을 튜터 말풍선이 말한다. 두 벌이면 튜터가
-  // 읽어 주는 의미가 사라지고 세로 66px을 경로에서 빼앗는다.
+  // 페이지 머리말은 없다 — 같은 설명을 배너 부제가 말한다. 두 벌이면 세로만 먹는다.
   ok(!home.includes("t('curriculum.title')"), '페이지 머리말이 되살아나지 않았다');
-  const hero2 = readFileSync(resolve(root, 'src/modules/curriculum/LearnHeroCard.jsx'), 'utf8');
+  const hero = readFileSync(resolve(root, 'src/modules/curriculum/LearnHeroCard.jsx'), 'utf8');
+  ok(hero.includes("t('curriculum.subtitle')"), '학습 설명을 배너가 부제로 말한다');
+
+  // 복습·자유 세션·리그는 **경로 아래 3카드**가 소유한다(시안). 배너가 얇아지면서
+  // 배너 안에 넣을 자리가 없어졌다 — 배너로 되돌리면 배너가 다시 두꺼워진다.
+  ok(home.includes('<LearnFooterCards'), '경로 아래 3카드를 마운트한다');
+  const footer = readFileSync(resolve(root, 'src/modules/curriculum/LearnFooterCards.jsx'), 'utf8');
+  ok(footer.includes('variant="tile"'), '복습 큐를 하단 카드가 마운트한다');
   ok(
-    hero2.includes("t('curriculum.subtitle')") && hero2.includes('learn-tutor-line'),
-    '학습 설명을 튜터 말풍선이 말한다(curriculum.subtitle)',
+    !hero.includes('<ReviewQueueCard') && !hero.includes('RegionPicker'),
+    '배너는 얇게 유지한다 — 복습·지역을 다시 안으로 들이지 않는다',
   );
 
-  // 흰 카드를 늘리지 않는다 — 복습은 별도 카드가 아니라 **진입 카드 안**이다
-  // (2026-08-09 지시로 하단 strip에서 여기로 올라왔다).
-  const hero = readFileSync(resolve(root, 'src/modules/curriculum/LearnHeroCard.jsx'), 'utf8');
+  // 하단 줄의 높이는 그대로 트랙에서 빠진다. 상수로 빼면 복습 칸이 사라지거나
+  // 카드가 2열로 접힐 때(실측 150 ↔ 300px) 페이지가 넘친다.
   ok(
-    hero.includes('variant="hero"') && !home.includes('<ReviewQueueCard'),
-    '복습 큐를 진입 카드가 마운트한다(별도 카드로 되돌리면 흰 카드가 늘어난다)',
+    path.includes('--wm-track-tail') && path.includes('learn-footer'),
+    '하단 3카드의 높이를 재서 --wm-track-tail에 넣는다(상수 금지)',
   );
   // 카드 바깥이 <Link>로 되돌아가면 안 된다 — 복습 링크가 안에 있어 `<a>` 중첩이 된다.
   ok(

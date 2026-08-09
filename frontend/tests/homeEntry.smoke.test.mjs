@@ -187,13 +187,11 @@ const ok = (cond, label) => {
   // 목의 시드는 첫 유닛만 클리어 → 두 번째 유닛이 current다
   await waitFor(() => text().includes('기단의 성질'), 8000, '커리큘럼 트리 도착');
 
-  // 1. 진입 **선택지**는 하나다.
-  // DOM 노드는 2개다(PC 레일용·모바일용) — PC 경로 뷰가 `hidden md:block`이라
-  // 뷰포트마다 하나만 보인다. jsdom에는 CSS 엔진이 없어 "보이는 것"을 셀 수
-  // 없으므로, 지켜야 할 것을 **목적지가 하나인가**로 바꿔 단정한다. 예전 4칸
-  // 회귀는 목적지가 갈리는 형태였으므로 이 단정이 그대로 잡는다.
+  // 1. 진입 **선택지**는 하나다. 2026-08-09 시안(얇은 가로 배너)부터 DOM 노드도
+  // 하나다 — 세로 레일이던 시절에는 PC 레일용·모바일용으로 둘을 걸고 CSS로
+  // 하나씩 감췄는데, 가로 배너는 두 폭에서 같은 자리라 나눌 이유가 없다.
   const cards = $$('[data-testid="learn-entry"]');
-  ok(cards.length === 2, `진입 카드 마운트 2곳(레일·모바일) — 실제 ${cards.length}`);
+  ok(cards.length === 1, `진입 배너 마운트 1곳 — 실제 ${cards.length}`);
   // 2026-08-09: 카드 바깥이 <div>가 됐다 — 복습 링크가 안으로 들어오면서 `<a>`
   // 안의 `<a>`가 되기 때문이다(HTML 불가). 목적지는 CTA가 갖는다.
   const hrefOf = (c) => c.querySelector('[data-testid="learn-entry-cta"]')?.getAttribute('href');
@@ -218,12 +216,12 @@ const ok = (cond, label) => {
   // 2026-08-09: 보드·대결·리그 링크는 걷었다 — 내비(6탭)가 이미 갖고 있어
   // 같은 목적지가 한 화면에 두 벌이었다. 이 줄은 자유 일일 세션만 갖는다.
   ok(secHrefs.join(',') === '/daily', `자유 일일 세션 링크만 남는다 — ${secHrefs.join(',')}`);
-  // 복습은 이 줄이 아니라 파란 진입 카드 안에 있다(2026-08-09 지시).
+  // 복습은 이 줄이 아니라 **하단 3카드의 첫 칸**이다(2026-08-09 시안).
   // 자기 쿼리가 도착해야 그려지므로 기다린다 — 즉시 보면 due 0건과 구분되지 않는다.
-  await waitFor(() => $$('[data-testid="review-queue-hero"]').length > 0, 6000, '복습 줄');
+  await waitFor(() => $$('[data-testid="review-queue-tile"]').length > 0, 6000, '복습 칸');
   ok(
-    $('[data-testid="review-queue-hero"]').closest('[data-testid="learn-entry"]') !== null,
-    '복습 줄이 진입 카드 안에 있다',
+    $('[data-testid="review-queue-tile"]').closest('[data-testid="learn-footer"]') !== null,
+    '복습 칸이 하단 3카드 줄 안에 있다',
   );
   ok(
     $('[data-testid="review-queue-strip"]') === null && $('[data-testid="review-queue-card"]') === null,
@@ -252,13 +250,15 @@ const ok = (cond, label) => {
 
   // 5. en 로케일 — 카드 문구가 리소스에서 온다
   useLocaleStore.getState().setLocale('en');
-  await waitFor(() => text().includes('Learning session'), 6000, 'en 렌더');
+  await waitFor(() => text().includes('Clear units in order'), 6000, 'en 렌더');
   const enCard = $('[data-testid="learn-entry"]');
-  ok(enCard?.textContent.includes('Learning session'), 'en: 카드 머리말이 영어');
-  // 2026-08-09: 카드 본문(「진행 중인 유닛이에요…」)은 삭제됐다 — 바로 위 튜터
-  // 말풍선과 겹쳐서 뺐고, 고아가 된 `home.entry.unitBody`도 ko/en에서 지웠다.
-  // 로케일 왕복은 **아직 화면에 있는 문구**로 확인해야 하므로 말풍선을 본다.
-  ok(enCard?.textContent.includes('Clear units in order'), 'en: 튜터 말풍선이 영어');
+  // 머리글은 2026-08-09 시안부터 **섹션 이름**이다("Section 1 · 하늘 읽기").
+  // 섹션명 자체는 서버 데이터라 번역되지 않는다 — 틀(Section {n} · {title})만 본다.
+  ok(enCard?.textContent.includes('Section 1 ·'), 'en: 배너 머리글 틀이 영어');
+  // 카드 본문(「진행 중인 유닛이에요…」)은 삭제됐다 — 배너 부제와 겹쳐서 뺐고,
+  // 고아가 된 `home.entry.unitBody`도 ko/en에서 지웠다. 로케일 왕복은 **아직
+  // 화면에 있는 문구**로 확인해야 하므로 부제를 본다.
+  ok(enCard?.textContent.includes('Clear units in order'), 'en: 배너 부제가 영어');
   ok(!/유닛을 순서대로|더 해보기/.test(text()), 'en에서 한국어 원문이 남지 않는다');
   useLocaleStore.getState().setLocale('ko');
   await waitFor(() => text().includes('유닛을 순서대로'), 6000, 'ko 복귀');

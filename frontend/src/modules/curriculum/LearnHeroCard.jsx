@@ -1,65 +1,34 @@
 import { Link } from 'react-router-dom';
 import Mascot from '../../components/Mascot';
-import RegionPicker from '../../components/RegionPicker';
-import ReviewQueueCard from '../../components/ReviewQueueCard';
 import { ENTRY_MASCOT } from './learnEntry';
 import { useT } from '../../i18n';
 
 /**
- * LearnHeroCard — 학습 화면 오른쪽 **세로 레일**.
+ * LearnHeroCard — 학습 화면 맨 위 **가로 진입 배너**(짙은 남색 밴드).
  *
- * 홈 화면을 지우고 학습 하나로 합치면서, 홈에 흩어져 있던 진입 카드·오늘의 목표·
- * 복습 큐·자유 일일 세션·학습 지역을 이 한 장이 흡수했다. 흰 카드가 8장이라
- * 화면이 지저분하다는 지적에서 나온 통합이다.
+ * 홈 화면을 지우고 학습 하나로 합치면서, 홈에 흩어져 있던 진입 카드·오늘의 목표를
+ * 이 배너가 흡수했다. 복습 큐·자유 일일 세션·리그는 경로 **아래 3카드**가 받는다
+ * (LearnFooterCards).
  *
- * 배치가 세 번 바뀌었다(2026-08-09, 전부 사용자 지시):
- *   ① 오른쪽 세로 레일 → ② 위쪽 가로 배너(시안 1c) → ③ **다시 세로 레일**.
- * ②는 트랙 폭을 810 → 1120px로 넓혔지만 세로를 182px 가져가 노드 지름이
- * 86 → 60px로 줄었다(지름은 트랙 **높이**만 본다). ③으로 돌아오면서 그 반대다 —
- * 폭은 810px로 좁아지고 노드가 다시 커진다.
+ * 배치가 네 번 바뀌었다(2026-08-09, 전부 사용자 지시):
+ *   ① 오른쪽 세로 레일 → ② 위쪽 가로 배너 → ③ 다시 세로 레일 → ④ **얇은 가로 배너**.
+ * ②에서 배너가 세로 182px을 먹어 노드 지름이 86 → 60px로 줄었던 것이 ③으로
+ * 되돌린 이유였다. ④는 시안(사용자 첨부)을 받되 **배너를 2단에서 1단으로 눌러**
+ * 그 비용을 줄인 절충이다 — 시안 그대로면 배너+하단 3카드가 세로 364px을 가져가
+ * 5유닛 섹션이 아예 들어가지 않는다(사용자가 선택한 안).
  *
- * 카드가 세로로 길어지면 남는 여백이 생기는데(②로 가기 전 110px), 이번에는
- * **학습 설명을 튜터가 말하는 말풍선**이 그 자리를 채운다(사용자 지시).
- * 그래서 페이지 머리말(🎓 학습 + 설명)은 없앴다 — 같은 문장이 화면에 두 벌이면
- * 튜터가 읽어 주는 의미가 사라진다. 문구는 `curriculum.subtitle` 그대로다.
+ * 그래서 이 파일의 제1 계약은 **한 줄로 끝난다**는 것이다. 여기에 무엇을 더 넣기
+ * 전에 경로 트랙의 노드 지름이 얼마나 줄어드는지 재 볼 것 — 지름은 트랙 **높이**만
+ * 본다(index.css `--dot`).
  *
- * 읽는 순서: **제목(학습 세션 / 유닛 이름) → 마스코트 → 말풍선 → CTA**.
- * 마스코트가 맨 위였는데 사용자 지시로 제목을 그 앞으로 올렸다 — 그림이 먼저
- * 오면 코스를 바꿨을 때 무엇이 달라졌는지 늦게 보인다.
- *
- * 톤: **sky-100 → blue-200 세로 그라데이션 + sky-300 테두리**(2026-08-09 사용자
- * 지시 "연한 하늘색~파란색 깔아서 색 구분되게"). 왼쪽 경로 카드가 흰색이고 페이지
- * 바닥이 slate-100이라, 이 카드만 하늘색을 깔면 "경로"와 "지금 할 일"이 색으로
- * 갈린다. 처음엔 sky-50에서 시작했는데 흰색과 구분이 안 돼 한 단계 올렸다 —
- * **위쪽 끝 색이 구분을 결정한다**(아래로 갈수록 진해지는 그라데이션이라 위가
- * 흰색에 가까우면 카드 전체가 흰 카드로 읽힌다).
- * 파란 바탕 위에서 무채색 회색은 묻히므로 안쪽 구분선은 sky-300, 목표 진행 바
- * 트랙과 복습 칩은 흰색 계열이다. 완전한 흰색으로 남는 것은 **말풍선 하나뿐**이라
- * 튜터의 말이 카드에서 가장 먼저 눈에 든다.
- *
- * 남는 세로 여백은 **한 곳에 몰지 않고 이음매마다 나눈다**(사용자 지시 "여백 없이
- * 꽉 차게"). 바닥에 `mt-auto` 하나만 두면 그 슬랙이 전부 목표 위에 고여 실측
- * 170px 구멍이 났다. 플렉스는 **auto 마진이 여러 개면 남는 공간을 똑같이 나눠
- * 갖는다** — 복습·자유 세션·목표 세 이음매에 걸어 3등분한다. 공간이 없거나
- * 모자라면 auto 마진은 0으로 접히므로 좁은 화면에서 넘치지 않는다
- * (`justify-between`은 이 경우 넘친다 — 그래서 안 쓴다).
- *
- * ⚠️ 바깥을 `<Link>`로 감싸지 않는다. 안에 복습·자유 세션 링크와 지역 픽커
- * (버튼)가 있어 `<a>` 중첩·버튼 중첩이 된다 — 브라우저가 태그를 쪼개 React
- * 마크업과 실제 DOM이 갈린다. 누를 수 있는 것은 CTA·복습·세션·지역뿐이다.
+ * ⚠️ 바깥을 `<Link>`로 감싸지 않는다. 목표 미설정 상태가 `/me`로 가는 링크라
+ * `<a>` 중첩이 된다 — 브라우저가 태그를 쪼개 React 마크업과 실제 DOM이 갈린다.
+ * 누를 수 있는 것은 CTA와 (미설정일 때) 목표 링크뿐이다.
  *
  * 마스코트는 **물방울이**(learnEntry.ENTRY_MASCOT). 사이드바 튜터가 /learn에서
  * 같은 캐릭터를 그리므로 그 화면에서는 SideNav가 튜터를 접는다.
  */
-export default function LearnHeroCard({
-  entry,
-  copy,
-  goalTotal,
-  goalDone,
-  dailyBlocked = false,
-  energyBlocked = false,
-  regenMin = 1,
-}) {
+export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
   const t = useT();
   const pct = goalTotal ? Math.min(100, Math.round((goalDone / goalTotal) * 100)) : 0;
 
@@ -67,143 +36,67 @@ export default function LearnHeroCard({
     <div
       data-testid="learn-entry"
       data-entry-kind={entry.kind}
-      className="flex flex-1 flex-col items-center rounded-[20px] bg-gradient-to-b from-sky-100 via-sky-100 to-blue-200 px-4 pb-4 pt-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-sky-300/80"
+      className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[20px] bg-gradient-to-r from-[#1F3A5F] to-[#16293F] px-5 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
     >
-      {/* 무엇을 하는 카드인지가 **마스코트보다 먼저** 온다(사용자 지시). 마스코트를
-          맨 위에 두면 카드를 위에서 아래로 읽을 때 제목이 그림 뒤로 밀려, 코스를
-          바꿔도 무엇이 달라졌는지 눈에 늦게 들어온다. */}
-      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-sky-700/80">
-        {copy.eyebrow}
-      </p>
-      <p className="mt-1 break-keep text-center text-[19px] font-extrabold leading-snug tracking-[-0.02em] text-slate-900">
-        {copy.title}
-      </p>
+      {/* 제목 열 — 폭이 남으면 여기가 늘어난다(min-w-0으로 긴 유닛명이 줄임표). */}
+      <div className="min-w-0 flex-1 basis-[220px]">
+        <p className="truncate text-[11.5px] font-bold tracking-[0.02em] text-sky-300">
+          {copy.eyebrow}
+        </p>
+        <p className="mt-0.5 truncate text-[21px] font-extrabold leading-tight tracking-[-0.02em] text-white">
+          {copy.title}
+        </p>
+      </div>
 
-      {/* 정사각 박스 — 폭만 주면 세로가 원본 비율을 따라가고, 캐릭터를 바꾸면
-          카드 높이가 통째로 달라진다(가로형 cloud ↔ 세로형 bolt). */}
-      <Mascot
-        name={ENTRY_MASCOT[entry.kind] ?? 'drop'}
-        className="mt-2 h-[112px] w-[112px]"
-      />
+      {/* 진도 열 — 시안의 2단(설명 + 진도 바 + 오늘의 목표)을 한 덩이로 눌렀다.
+          좁아지면 통째로 접힌다(hidden lg:block): 배너가 두 줄이 되는 순간
+          "얇게 간다"는 이 배치의 전제가 깨지기 때문이다. 여기 있는 값은 전부
+          아래 경로 카드의 진도 바에도 있어 접혀도 잃는 정보가 없다. */}
+      <div className="hidden min-w-0 basis-[300px] lg:block">
+        <p className="truncate text-[11.5px] leading-relaxed text-slate-300">
+          {t('curriculum.subtitle')}
+        </p>
+        <div className="mt-1.5 flex items-center gap-2.5">
+          <span className="h-[6px] min-w-0 flex-1 overflow-hidden rounded-full bg-white/15">
+            <i className="block h-full rounded-full bg-sky-400" style={{ width: `${pct}%` }} />
+          </span>
+          {/* 오늘의 목표 — 미설정이어도 **자리를 숨기지 않는다**. 홈이 사라진 뒤로
+              목표를 정하는 통로가 이 화면에 없어서, 숨기면 기능째 사라진다
+              (2026-08-09 사용자 제보). 대신 내 정보(설정 통로)로 보낸다. */}
+          {goalTotal ? (
+            <span
+              data-testid="learn-goal"
+              data-goal-state="set"
+              className="flex-none text-[11.5px] font-bold tabular-nums text-slate-300"
+            >
+              {t('home.goal.title')} {goalDone}/{goalTotal} {t('home.goal.items')}
+            </span>
+          ) : (
+            <Link
+              to="/me"
+              data-testid="learn-goal"
+              data-goal-state="unset"
+              className="flex-none text-[11.5px] font-bold text-sky-300 hover:text-sky-200"
+            >
+              {t('curriculum.goalUnset')}
+            </Link>
+          )}
+        </div>
+      </div>
 
-      {/* 튜터 말풍선 — 페이지 머리말에 있던 학습 설명을 여기로 옮겼다(사용자 지시).
-          꼬리는 **위**(마스코트)를 향한다 — 말하는 사람이 누구인지가 꼬리로만
-          정해진다.
-          줄바꿈 위치는 리소스 값이 소유한다(`whitespace-pre-line`) — 자동 줄바꿈은
-          카드 폭이 조금만 달라져도 어색한 데서 끊긴다. `break-keep`은 그래도 남긴다:
-          en처럼 개행이 없는 값은 여전히 자동으로 접히고, 그때 한국어 단어 중간이
-          갈라지지 않아야 한다. */}
-      <p
-        data-testid="learn-tutor-line"
-        className="relative mt-2.5 whitespace-pre-line break-keep rounded-2xl bg-white px-3 py-2.5 text-center text-[13.5px] font-medium leading-relaxed text-slate-600 ring-1 ring-sky-300/60"
-      >
-        <span
-          aria-hidden="true"
-          className="absolute -top-[5px] left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-l border-t border-sky-300/60 bg-white"
-        />
-        {t('curriculum.subtitle')}
-      </p>
+      {/* 마스코트 — 시안대로 CTA 왼쪽에 붙는다. 원형 배경을 깔아 남색 위에서
+          캐릭터 실루엣이 뜨게 한다(투명 PNG라 배경 없이 두면 어둡게 묻힌다). */}
+      <span className="hidden h-[62px] w-[62px] flex-none place-items-center rounded-full bg-white/10 sm:grid">
+        <Mascot name={ENTRY_MASCOT[entry.kind] ?? 'drop'} className="h-[50px] w-[50px]" />
+      </span>
 
-      {/* 안내 문장(「진행 중인 유닛이에요…」)은 뺐다(2026-08-09 사용자 지시) —
-          바로 위 말풍선이 같은 역할을 하는데 두 문단이 겹쳐 있으면 어느 쪽이
-          튜터의 말인지 흐려진다. `copy.body`는 읽는 곳이 없어져 CurriculumHome의
-          ENTRY_COPY에서도 지웠다(고아 필드 금지). */}
       <Link
         to={entry.to}
         data-testid="learn-entry-cta"
-        className="mt-3.5 w-full rounded-full bg-sky-600 px-4 py-2.5 text-center text-[14px] font-bold tracking-[-0.01em] text-white shadow-[0_2px_8px_rgba(2,132,199,0.28)] transition hover:bg-sky-700"
+        className="flex-none rounded-[14px] bg-sky-500 px-5 py-3 text-center text-[14px] font-extrabold tracking-[-0.01em] text-white shadow-[0_3px_0_#0369A1] transition hover:bg-sky-400"
       >
         {copy.cta}
       </Link>
-
-      {/* 복습 — due 0건이면 컴포넌트가 스스로 null이라 자리째 빠진다.
-          그래서 감싼 div가 **빈 요소**가 되고, 그때는 `empty:mt-0`으로 자기 몫의
-          여백까지 반납한다(비어 있는데 간격만 남으면 위아래가 벌어진다). */}
-      <div className="mt-auto w-full empty:mt-0">
-        <ReviewQueueCard variant="hero" />
-      </div>
-
-      {/* 자유 일일 세션 — 카드가 아니라 한 줄이다. 카드로 두면 위 CTA와 무게가
-          비슷해져 "무엇을 누를지 모름"이 돌아온다(§2.5).
-
-          상태가 **셋**이다(둘로 줄이면 안 된다 — 실제로 줄였다가 스모크가 잡았다):
-            dailyBlocked  잔량 0 + 오늘 세션 없음 → 발급이 429로 막힌다.
-                          **진짜 disabled 버튼**이어야 한다: 회색 링크는 눌리고,
-                          누르면 서버가 막는다(R10이 폐지한 흐름).
-            energyBlocked 잔량 0인데 **오늘 세션이 살아 있다** → 재조회는 200이다
-                          ("풀던 것을 뺏기지 않는다" 불변식). 링크로 남기고
-                          문구를 「풀던 세션 이어서 풀기」로 바꾼다.
-            그 외          평소. */}
-      <div
-        data-testid="learn-secondary"
-        className="mt-auto w-full border-t border-sky-300/70 pt-3 text-[11.5px] text-slate-500"
-      >
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{t('curriculum.daily.title')}</span>
-          <span className="ml-auto">
-            <RegionPicker />
-          </span>
-        </div>
-        {dailyBlocked ? (
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-            <button
-              type="button"
-              disabled
-              aria-disabled="true"
-              className="cursor-not-allowed font-bold text-slate-300"
-            >
-              {t('curriculum.daily.cta')}
-            </button>
-            <span className="text-[11px] font-bold text-rose-500">
-              {t('curriculum.daily.regen', { min: regenMin })}
-            </span>
-          </div>
-        ) : (
-          <div className="mt-1.5">
-            <Link to="/daily" className="font-bold text-sky-600 hover:text-sky-700">
-              {energyBlocked ? t('curriculum.daily.resume') : t('curriculum.daily.cta')}
-            </Link>
-            {energyBlocked && (
-              <span className="ml-2 text-[11px] font-bold text-rose-500">
-                {t('curriculum.daily.regenResume', { min: regenMin })}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* 오늘의 목표 — 카드 **바닥**에 붙인다(mt-auto). 남는 높이가 있으면 위
-          내용과 목표 사이로 가고, 없으면 그냥 이어 붙는다.
-          ⚠️ 미설정이어도 **자리를 숨기지 않는다** — 홈이 사라진 뒤로 목표를 정하는
-          통로가 이 화면에 없어서, 숨기면 기능째 사라진다(2026-08-09 사용자 제보).
-          대신 내 정보(설정 통로)로 보낸다. */}
-      {goalTotal ? (
-        <div
-          className="mt-auto w-full border-t border-sky-300/70 pt-3"
-          data-testid="learn-goal"
-          data-goal-state="set"
-        >
-          <div className="flex items-baseline gap-2">
-            <span className="text-[12px] font-bold text-slate-600">{t('home.goal.title')}</span>
-            <span className="ml-auto text-[12px] font-bold tabular-nums text-slate-600">
-              {goalDone} / {goalTotal} {t('home.goal.items')}
-            </span>
-          </div>
-          <div className="mt-1.5 h-[7px] overflow-hidden rounded-full bg-white/80">
-            <i className="block h-full rounded-full bg-sky-500" style={{ width: `${pct}%` }} />
-          </div>
-        </div>
-      ) : (
-        <Link
-          to="/me"
-          data-testid="learn-goal"
-          data-goal-state="unset"
-          className="mt-auto flex w-full items-center gap-2 border-t border-sky-300/70 pt-3 text-[12px] font-bold text-slate-600"
-        >
-          {t('home.goal.title')}
-          <span className="ml-auto text-sky-600">{t('curriculum.goalUnset')}</span>
-        </Link>
-      )}
     </div>
   );
 }
