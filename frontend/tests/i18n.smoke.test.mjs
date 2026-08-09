@@ -138,6 +138,45 @@ try {
   // 그대로 찍혔다(2026-08-06 리뷰에서 발견). 소스의 t('literal') 호출을 긁어
   // 리소스와 대조한다. 동적 키(t(변수)·템플릿 리터럴)는 정적으로 알 수 없어
   // 빠지므로, 이 검사는 "리터럴 키는 전부 있다"까지만 보장한다.
+  // 1-c: **소스에 같은 키가 두 번 적혀 있지 않다** (2026-08-09).
+  // 위 패리티 검사는 RESOURCES(이미 평가된 객체)를 보므로 중복을 못 본다 —
+  // JS 객체 리터럴은 같은 키를 두 번 써도 에러가 아니고 **뒤엣것이 조용히 이긴다**.
+  // 실제로 그렇게 됐다: 같은 결함(기초과학 개념 라벨 누락)을 두 갈래가 각각 고쳤고,
+  // 파일의 서로 다른 위치라 git이 충돌 없이 둘 다 병합해 ko.js의 concept 블록에
+  // 키 6개가 중복됐다. 화면에는 나중 것이 떴고 앞의 수정은 흔적 없이 죽어 있었다.
+  await scenario('리소스 소스에 중복 키가 없다(병합이 조용히 덮어쓰는 것 차단)', async () => {
+    const { readFileSync } = await import('node:fs');
+    for (const locale of SUPPORTED_LOCALES) {
+      const src = readFileSync(resolve(root, `src/i18n/resources/${locale}.js`), 'utf8');
+      // 문자열·주석을 먼저 지운다 — 값 안의 '{count}일' 같은 중괄호가 깊이 계산을
+      // 망가뜨리고, 주석 속 `key:` 표기가 키로 잡힌다.
+      const stack = [{ path: '(root)', keys: new Map() }];
+      const dups = [];
+      src.split('\n').forEach((raw, i) => {
+        const line = raw
+          .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+          .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+          .replace(/`(?:[^`\\]|\\.)*`/g, '``')
+          .replace(/\/\/.*$/, '')
+          .replace(/\/\*.*?\*\//g, '');
+        const m = line.match(/^\s*([A-Za-z_$][\w$]*)\s*:/);
+        if (m) {
+          const top = stack[stack.length - 1];
+          if (top.keys.has(m[1])) {
+            dups.push(`${locale}.js ${top.path}.${m[1]} — ${top.keys.get(m[1])}행과 ${i + 1}행`);
+          } else {
+            top.keys.set(m[1], i + 1);
+          }
+        }
+        for (const ch of line) {
+          if (ch === '{') stack.push({ path: m ? `${stack[stack.length - 1].path}.${m[1]}` : '?', keys: new Map() });
+          else if (ch === '}' && stack.length > 1) stack.pop();
+        }
+      });
+      assert(dups.length === 0, `${locale}.js 중복 키 ${dups.length}건 — ${dups.join(' · ')}`);
+    }
+  });
+
   await scenario('t() 리터럴 키가 전부 리소스에 있다(ko·en 동시 누락 차단)', async () => {
     const { readdirSync, readFileSync, statSync } = await import('node:fs');
     const { join } = await import('node:path');
