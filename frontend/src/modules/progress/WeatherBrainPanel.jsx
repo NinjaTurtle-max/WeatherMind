@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import AbilityRadar from './AbilityRadar';
 import { progressApi } from '../../api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {
@@ -192,8 +193,21 @@ export default function WeatherBrainPanel() {
         {t('weatherBrain.introSeg2')}
       </p>
 
-      {/* 개념별 막대(PlacementSummary와 동일 div 관용구) + 레벨 칩 + 초기 배정 안내 */}
-      <ul className="flex flex-col gap-2.5">
+      {/* 레이더 + 막대 (2026-08-09) — 홈이 사라지면서 레이더가 이리로 왔다.
+          막대는 개념을 **하나씩** 읽게 하고 레이더는 **치우침**을 한 번에 보여준다.
+          둘은 같은 데이터의 다른 질문이라 겹치는 게 아니다.
+          개념 3종 미만이면 AbilityRadar가 스스로 null이라 자리째 빠진다 —
+          다각형이 안 그려지는데 빈 칸을 남기면 "고장"으로 읽힌다. */}
+      <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
+        <AbilityRadar
+          abilities={(Array.isArray(data) ? data : []).map((a) => ({
+            concept_tag: a.concept_tag,
+            theta: a.theta,
+            level_label: a.level_label,
+          }))}
+          className="h-[150px] w-[150px]"
+        />
+      <ul className="flex min-w-0 flex-1 flex-col gap-2.5">
         {rows.map((row) => (
           <li
             key={row.name}
@@ -234,6 +248,7 @@ export default function WeatherBrainPanel() {
           </li>
         ))}
       </ul>
+      </div>
 
       <MasterySection />
     </Card>

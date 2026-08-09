@@ -25,6 +25,10 @@
  *      화면이 앱에서 사라져 스트릭이 영영 안 오른다.
  *   ⑥ 흰 카드를 늘리지 않는다. 복습·자유 세션·지역은 **카드가 아니라 링크**로
  *      화면 맨 아래 줄에 있다(§2.5가 없앤 "무엇을 누를지 모름"의 재발 방지).
+ *   ⑦ 홈에서 뺀 것이 **사라지지 않고 내 정보에 도착했다.** 연속 출석 주간 스트립과
+ *      능력 레이더는 학습 화면에서 걷어냈지만 기능째 버린 것이 아니다 —
+ *      "옮겼다"고 말하려면 도착지도 같이 단정해야 한다. 여기가 그 유일한 지점이다
+ *      (내 정보를 마운트하는 스모크가 따로 없다).
  */
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -207,6 +211,35 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
     goal.closest('[data-testid="learn-entry"]') !== null,
     '오늘의 목표는 진입 카드 **안**에 있다(별도 카드가 아니다)',
   );
+  r.unmount();
+}
+
+// ── ⑦ 홈에서 뺀 것이 내 정보에 도착했다 ────────────────────────────────────
+{
+  const r = mount('/me');
+  await waitFor(() => text().includes('내 정보'), 6000, '내 정보 렌더');
+
+  // 연속 출석 — 주간 스트립(요일 7칸). 프로필 카드의 🔥 숫자와는 다른 것이다:
+  // 숫자는 "6일"만 말하고, 어느 요일을 빠뜨렸는지는 이 줄만 보여준다.
+  await waitFor(() => $('[data-testid="streak-week"]') !== null, 6000, '주간 출석 스트립');
+  const cells = $$('[data-testid="streak-week"] div div').filter((d) => ['✓', '·'].includes(d.textContent.trim()));
+  ok(cells.length === 7, `출석 칸 7개 — 실제 ${cells.length}`);
+  // **미래 요일을 칠하지 않는다** — 서버는 요일별 이력을 주지 않고 streak_count만
+  // 준다. 오늘이 수요일인데 금·토·일이 체크돼 보이던 버그가 여기서 났다.
+  // 요일은 KST 기준이다(CO-T-8) — 러너 타임존에 좌우되면 안 된다.
+  const KST = 9 * 60 * 60 * 1000;
+  const todayIdx = (new Date(Date.now() + KST).getUTCDay() + 6) % 7;
+  const futureFilled = cells.filter((d, i) => i > todayIdx && d.textContent.trim() === '✓').length;
+  ok(futureFilled === 0, `오늘(KST ${todayIdx}) 이후 요일은 비어 있다 — 채워진 미래 칸 ${futureFilled}`);
+
+  // 능력 레이더 — 홈의 「WeatherBrain 분석」이 갖고 있던 그림.
+  // 가로 막대(기존)는 그대로 두고 **옆에** 선다(막대는 개념 하나씩, 레이더는 치우침).
+  await waitFor(() => $('[data-testid="ability-radar"]') !== null, 6000, '능력 레이더');
+  const radar = $('[data-testid="ability-radar"]');
+  ok(Boolean(radar), '능력 레이더가 내 정보에 있다');
+  ok((radar.getAttribute('aria-label') ?? '').length > 0, '레이더가 읽을 수 있는 요약(aria-label)을 준다');
+  ok($$('ul li').length > 0, '기존 가로 막대 목록이 그대로 남아 있다');
+
   r.unmount();
 }
 
