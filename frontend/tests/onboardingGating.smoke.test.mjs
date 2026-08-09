@@ -205,8 +205,9 @@ try {
     assert(!text().includes('세션을 3개 완료하면'), '기존 사용자에게 잠금 안내가 떴다(회귀)');
     assert(lockedTabCount() === 0, '탭바에 비활성 탭이 있다');
     // CO-N-1 ②: 「탐구」가 6탭 어디에도 없어서 /explore는 URL을 손으로 쳐야 갔다.
-    assert(tabCount() === 7, `탭 7개(홈·탐구 포함)가 모두 있어야 함 — 실제 ${tabCount()}`);
-    assert(sideNavCount() === 7, `PC 사이드바도 같은 7항목 — 실제 ${sideNavCount()}`);
+    // 2026-08-09: 홈 화면을 학습에 합치면서 「홈」 탭이 빠져 7 → 6개다.
+    assert(tabCount() === 6, `탭 6개(탐구 포함·홈 삭제)가 모두 있어야 함 — 실제 ${tabCount()}`);
+    assert(sideNavCount() === 6, `PC 사이드바도 같은 6항목 — 실제 ${sideNavCount()}`);
     assert(
       [...(tabbar()?.querySelectorAll('a') ?? [])].some((a) => a.getAttribute('href') === '/explore'),
       '탭바에 /explore 진입점이 없다(CO-N-1 ②)',
@@ -251,7 +252,7 @@ try {
       await waitFor(() => text().includes(want) && !text().includes(gone), 5000, `${path} 실제 페이지`);
       assert(!/세션을 \d개 완료하면/.test(text()), `${path}에 해제 사다리 안내가 남아 있다`);
       assert(lockedTabCount() === 0, '탭 차단은 종전대로 없다');
-      assert(tabCount() === 7, '탭 7개는 항상 활성');
+      assert(tabCount() === 6, '탭 6개는 항상 활성');
       r.unmount();
     }
     const stage = selectUnlockStage(useOnboardingGate.getState());
@@ -534,7 +535,10 @@ try {
   // 종전 `App.jsx`의 RequireAuth는 토큰이 없으면 곧장 `/login`으로 튕겼다. 규정은
   // 심사위원이 계정 없이 URL만으로 서비스를 열 수 있을 것을 요구한다. 서버에는
   // 이미 POST /auth/guest(실 유저 + 실 JWT)가 있으므로 첫 진입에서 대신 누른다.
-  await scenario('토큰 없이 진입: POST /auth/guest가 1번만 나가고 홈이 렌더된다', async () => {
+  // `/`는 2026-08-09부터 `/learn` 리다이렉트다(홈 화면 삭제) — 이 시나리오가 보는
+  // 것은 "보호 라우트가 로그인 화면으로 튕기지 않고 그대로 렌더되는가"라 목적지
+  // 이름만 바뀌고 계약은 같다.
+  await scenario('토큰 없이 진입: POST /auth/guest가 1번만 나가고 학습 화면이 렌더된다', async () => {
     resetGuestAutoIssue();
     useAuthStore.getState().logout();
     useOnboardingGate.getState().reset();
@@ -552,7 +556,7 @@ try {
     assert(useAuthStore.getState().user?.is_guest === true, '게스트 표식(is_guest)이 없다');
     // 로그인 화면이 아니라 실제 서비스 화면이 떠야 한다
     await waitFor(() => !text().includes('계정 없이 바로 시작하기'), 5000, '로그인 화면이 아님');
-    await waitFor(() => tabCount() === 7, 5000, '보호 라우트가 실제로 렌더됐다(탭바 존재)');
+    await waitFor(() => tabCount() === 6, 5000, '보호 라우트가 실제로 렌더됐다(탭바 존재)');
     r.unmount();
   });
 

@@ -82,9 +82,13 @@ input[type='range'] {
      상황마다 다르다 — 게스트 저장 배너 · 코스 탭 · 구름 소진 경고가 각각 붙었다
      떨어진다. 상수로 두면 그중 하나만 떠도 페이지에 세로 스크롤이 생긴다
      (실측: 코스 탭 하나에 1440×900이 37px 넘쳤다).
-     `--wm-track-top`은 PcCurriculumPath가 자기 위치를 재서 넣는다. 32px는 앱 셸
-     본문의 아래 여백(Layout `main`의 pb-8)이고, 이건 셸이 소유하는 값이라 안정적이다. */
-  height: clamp(480px, calc(100vh - var(--wm-track-top, 190px) - 32px), 800px);
+     `--wm-track-top`은 PcCurriculumPath가 자기 위치를 재서 넣는다.
+     아래쪽도 같은 이유로 상수를 못 쓴다(2026-08-09): 트랙 **밑**에 보조 줄
+     (복습 스트립·더 해보기 링크)이 붙으면서 그 높이만큼 페이지가 넘쳤다
+     (실측 1440×900에서 91px). `--wm-track-tail`은 CurriculumHome이 그 줄을 재서
+     넣고, 기본값 32px는 앱 셸 본문의 아래 여백(Layout `main`의 pb-8)이다 —
+     보조 줄이 없는 화면은 종전과 같은 값을 쓴다. */
+  height: clamp(480px, calc(100vh - var(--wm-track-top, 190px) - var(--wm-track-tail, 32px)), 800px);
   overflow: hidden;
 }
 .wm-scroller {

@@ -18,8 +18,16 @@ import { useT } from '../i18n';
  *
  * 숨긴 것: consecutive_correct·interval_days·타임스탬프 원값 — 스케줄 내부값이라
  * 학습자에게 소음이다. 보여주는 것은 "무엇을(개념명) 지금 복습할 때"뿐.
+ *
+ * variant (2026-08-09):
+ *   'card'  기본 — 흰 카드. 다른 화면이 레일에 세울 때 쓴다.
+ *   'strip' 카드 껍데기 없이 **한 줄**. 학습 화면이 흰 카드를 3장으로 줄이면서
+ *           복습을 화면 맨 아래 줄로 내렸다(사용자 지시). 카드를 지우는 것이
+ *           아니라 **껍데기만** 벗기는 이유는 due 0건 렌더 생략·상위 3개 자르기
+ *           같은 계약이 두 모양에서 같아야 하기 때문이다 — 두 컴포넌트로 갈라
+ *           두면 한쪽만 고쳐진다.
  */
-export default function ReviewQueueCard() {
+export default function ReviewQueueCard({ variant = 'card' }) {
   const t = useT();
   const { data } = useQuery({
     queryKey: ['progress', 'review-queue'],
@@ -32,6 +40,35 @@ export default function ReviewQueueCard() {
 
   const top = due.slice(0, 3);
   const rest = due.length - top.length;
+
+  if (variant === 'strip') {
+    return (
+      <div
+        data-testid="review-queue-strip"
+        className="flex flex-wrap items-center gap-x-3 gap-y-2 px-0.5 text-[12px] text-slate-400"
+      >
+        <span aria-hidden="true">🔁</span>
+        <span className="font-extrabold text-slate-500">{t('reviewQueue.title')}</span>
+        <ul className="flex flex-wrap gap-1.5">
+          {top.map((item) => (
+            <li
+              key={item.concept_tag}
+              className="rounded-full bg-white px-2.5 py-1 text-[12px] font-bold text-slate-700 ring-1 ring-slate-200"
+            >
+              {CONCEPT_KO[item.concept_tag] ?? item.concept_tag}
+            </li>
+          ))}
+          {rest > 0 && <li className="px-1 py-1 text-[11px] font-bold text-slate-400">+{rest}</li>}
+        </ul>
+        <Link
+          to="/daily"
+          className="font-bold text-slate-500 underline-offset-4 hover:text-sky-700 hover:underline"
+        >
+          {t('reviewQueue.cta')}
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div

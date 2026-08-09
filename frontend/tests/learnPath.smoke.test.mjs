@@ -18,10 +18,13 @@
  *      최대값이라야 가장 긴 섹션도 넘치지 않는다 — 더 작은 값은 넘침이다.
  *   ⑥ 접기도 **아이콘 크기를 바꾸지 않는다** — ⑤와 같은 이유(출렁임 방지)이고,
  *      축은 다르다: ⑤는 단계 간, ⑥은 같은 단계의 펼침/접힘 간.
- *   ⑦ 학습 화면의 페이지 머리말이 **PC에서 숨지 않는다**(2026-08-08). `md:hidden`이
- *      붙어 있어 PC에서 학습만 제목이 없었고, 다른 화면은 제목이 셸 왼쪽 끝에서
- *      시작하는데 학습만 카드 안쪽 패딩부터 시작해 "학습만 오른쪽으로 밀렸다"로
- *      보였다(실측 x=264 대 328).
+ *   ⑦ 학습 화면이 **홈을 흡수했다**(2026-08-09). 진입 카드(LearnHeroCard)와
+ *      출석 POST 소유권이 넘어왔고, 흰 카드를 늘리지 않기로 했다. 여기서는 그중
+ *      **소스로만 확인 가능한 것**을 잡는다 — 진입 카드가 실제로 마운트되는지는
+ *      home.smoke가 실 XHR로 본다.
+ *      (2026-08-08의 ⑦ "PC에서 머리말이 숨지 않는다"는 폐기됐다. 그때는 머리말이
+ *      없어 화면 첫 글자가 카드 안쪽 패딩부터 시작하는 것이 문제였고, 지금은
+ *      진입 카드·경로 카드가 둘 다 셸 왼쪽 끝에서 시작해 그 증상이 없다.)
  *
  * 레이아웃 자체(스크롤 스냅·한 화면 한 단계·연결선 좌표)는 jsdom에 레이아웃
  * 엔진이 없어 여기서 재지 않는다 — 실브라우저 실측으로 확인한다.
@@ -321,28 +324,36 @@ await render({});
   ok(container.querySelector('.wm-stage') === null, '빈 트리: 아무것도 렌더하지 않는다');
 }
 
-// ── ⑦ 페이지 머리말이 PC에서 숨지 않는다 (화면 간 왼쪽 정렬) ────────────────
-// 소스 검사로 본다: 머리말은 CurriculumHome(페이지)에 있고 여기서 마운트하는
-// PcCurriculumPath(경로 뷰)의 밖이다. jsdom은 CSS 엔진이 없어 `md:hidden`이
-// 실제로 숨는지 재지 못하므로, 재는 대신 **클래스가 붙어 있지 않음**을 단정한다.
+// ── ⑦ 학습 화면이 홈을 흡수했다 (소스 계약) ────────────────────────────────
 {
   const home = readFileSync(resolve(root, 'src/modules/curriculum/CurriculumHome.jsx'), 'utf8');
-  const titleLine = home.split('\n').find((l) => l.includes("t('curriculum.title')"));
-  ok(titleLine != null, '학습 화면이 curriculum.title로 페이지 제목을 렌더한다');
+
+  // 출석 POST의 소유자 — 홈이 사라졌으므로 이 화면이 만들지 않으면 앱 어디서도
+  // 만들지 않는다(세션 러너는 세션에 들어가야 돈다). 스트릭이 영영 안 오른다.
+  ok(home.includes('useAttendance(true)'), '학습 화면이 출석 POST를 소유한다(useAttendance)');
+
+  // 진입 카드는 **레일과 모바일 양쪽**에 있어야 한다 — PC 경로 뷰는 hidden md:block
+  // 이라 모바일에서는 레일이 통째로 안 뜬다. 한쪽만 두면 그 뷰포트에서 진입로가
+  // 사라진다(예전 자유 세션 카드가 같은 이유로 두 곳에 있었다).
+  const heroMounts = (home.match(/<LearnHeroCard/g) ?? []).length;
+  ok(heroMounts === 2, `진입 카드 마운트 2곳(레일·모바일) — 실제 ${heroMounts}`);
+
+  // 흰 카드를 늘리지 않는다 — 복습은 카드가 아니라 아래 줄이다.
   ok(
-    titleLine != null && !titleLine.includes('md:hidden'),
-    `페이지 제목에 md:hidden이 없다(PC에서도 보인다) — 실제 「${(titleLine ?? '').trim()}」`,
+    home.includes('variant="strip"'),
+    '복습 큐를 strip으로 쓴다(카드로 되돌리면 흰 카드가 늘어난다)',
   );
-  const subLine = home.split('\n').find((l) => l.includes("t('curriculum.subtitle')"));
+
+  // 사이드바 튜터와 진입 카드가 같은 화면에서 겹치지 않는다.
+  const side = readFileSync(resolve(root, 'src/components/SideNav.jsx'), 'utf8');
   ok(
-    subLine != null && !subLine.includes('md:hidden'),
-    `페이지 부제에 md:hidden이 없다 — 실제 「${(subLine ?? '').trim()}」`,
+    /hideTutor\s*=\s*pathname === '\/learn'/.test(side),
+    '학습 홈에서 사이드바 튜터를 접는다(같은 캐릭터 중복 방지)',
   );
-  // 다른 화면과 같은 자리·같은 크기에서 시작해야 왼쪽 끝이 맞는다.
-  ok(
-    titleLine != null && titleLine.includes('text-lg font-extrabold text-slate-900'),
-    '제목이 다른 화면(보드·리그·예보 대결·내 정보)과 같은 h1 클래스를 쓴다',
-  );
+
+  // 화자는 물방울이 — 사이드바 TUTOR_BY_PATH(/learn → drop)와 같은 값이어야 한다.
+  const entry = readFileSync(resolve(root, 'src/modules/curriculum/learnEntry.js'), 'utf8');
+  ok(/unit:\s*'drop'/.test(entry), '진입 카드 화자가 물방울이(drop)다');
 }
 
 await vite.close();

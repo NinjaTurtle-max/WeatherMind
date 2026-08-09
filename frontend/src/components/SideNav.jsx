@@ -22,9 +22,15 @@ import { useT } from '../i18n';
  * 학습 화면 우측 레일에도 물방울이 카드가 있었는데 걷어냈다(2026-08-05) —
  * 같은 캐릭터가 한 화면에 둘 뜨면 어느 쪽이 말하는 건지 알 수 없다.
  */
+// 학습 화면(/learn)은 **튜터를 접는다**(2026-08-09). 홈을 흡수하면서 오른쪽
+// 진입 카드가 물방울이를 104px로 그리는데, 사이드바가 같은 캐릭터를 74px로 한 번
+// 더 그리면 한 화면에 같은 그림이 둘이라 어느 쪽이 말하는 건지 알 수 없다
+// (이 파일 머리말이 2026-08-05에 반대 방향으로 같은 판단을 했다 — 그때는 레일
+// 카드를 걷었고, 이번에는 레일이 이겼다).
+// 유닛 플레이(/learn/units/…)는 진입 카드가 없는 화면이라 튜터가 남는다.
 const TUTOR_BY_PATH = [
   { match: (p) => p === '/board' || p.startsWith('/board/'), name: 'sun', key: 'board' },
-  { match: (p) => p === '/learn' || p.startsWith('/learn/'), name: 'drop', key: 'learn' },
+  { match: (p) => p.startsWith('/learn/'), name: 'drop', key: 'learn' },
   { match: (p) => p === '/duel' || p.startsWith('/duel/'), name: 'typhoon', key: 'duel' },
   { match: (p) => p === '/league' || p.startsWith('/league/'), name: 'bolt', key: 'league' },
 ];
@@ -33,6 +39,8 @@ export default function SideNav() {
   const t = useT();
   const pathname = useLocation().pathname;
   const tutor = TUTOR_BY_PATH.find((r) => r.match(pathname));
+  // 학습 홈에서는 튜터 카드를 통째로 내린다(위 주석).
+  const hideTutor = pathname === '/learn';
   const mascot = tutor?.name ?? 'cloud';
   const nameKey = tutor ? `nav.tutor.${tutor.key}.name` : 'home.tutor.name';
   const lineKey = tutor ? `nav.tutor.${tutor.key}.line` : 'home.tutor.line';
@@ -42,7 +50,7 @@ export default function SideNav() {
       className="fixed inset-y-0 left-0 z-50 hidden w-[var(--wm-shell-left)] flex-col gap-5 overflow-y-auto border-r border-slate-200 bg-sky-50 px-3.5 pb-4 pt-4 md:flex"
     >
       <Link
-        to="/"
+        to="/learn"
         className="flex items-center gap-2 rounded-lg px-2 py-0.5 text-[15px] font-extrabold text-sky-900"
       >
         <span aria-hidden="true">⛅</span>WeatherMind
@@ -70,6 +78,7 @@ export default function SideNav() {
         ))}
       </nav>
 
+      {!hideTutor && (
       <div className="mt-auto rounded-2xl border border-slate-200 bg-white p-3 text-center">
         {/* 정사각 박스 — 폭만 주면 세로가 원본 비율을 따라가 캐릭터마다 카드
             높이가 달라지고(가로형 cloud 43px ↔ 세로형 bolt 123px) 화면을 옮길
@@ -78,6 +87,7 @@ export default function SideNav() {
         <p className="mt-1.5 text-[12.5px] font-extrabold text-slate-800">{t(nameKey)}</p>
         <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t(lineKey)}</p>
       </div>
+      )}
     </aside>
   );
 }

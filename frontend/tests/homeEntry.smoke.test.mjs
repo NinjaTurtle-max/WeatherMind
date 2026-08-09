@@ -85,7 +85,10 @@ const { MemoryRouter } = await import('react-router-dom');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 
 const App = (await vite.ssrLoadModule('/src/App.jsx')).default;
-const { pickHomeEntry } = await vite.ssrLoadModule('/src/modules/home/HomePage.jsx');
+// 2026-08-09: 홈 화면을 학습에 합치면서 순수 로직이 learnEntry.js로 옮겨졌다
+// (pickHomeEntry → pickLearnEntry). 화면은 사라져도 "무엇을 눌러야 하는가"의
+// 규칙은 남아야 하므로 이 스모크도 남는다.
+const { pickLearnEntry: pickHomeEntry } = await vite.ssrLoadModule('/src/modules/curriculum/learnEntry.js');
 const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
 const { useLocaleStore } = await vite.ssrLoadModule('/src/i18n/index.js');
 
@@ -115,9 +118,9 @@ const ok = (cond, label) => {
 // ── 2. 우선순위 — 순수 함수로 전 분기 고정 ──────────────────────────────────
 {
   const CURRENT = [
-    { slug: 'a', title: '기단의 성질', status: 'cleared' },
-    { slug: 'b', title: '전선의 종류', status: 'current' },
-    { slug: 'c', title: '태풍', status: 'locked' },
+    { id: 'a', slug: 'a', title: '기단의 성질', status: 'cleared' },
+    { id: 'b', slug: 'b', title: '전선의 종류', status: 'current' },
+    { id: 'c', slug: 'c', title: '태풍', status: 'locked' },
   ];
   const ALL_CLEARED = [
     { slug: 'a', title: '기단의 성질', status: 'cleared' },
@@ -126,7 +129,9 @@ const ok = (cond, label) => {
 
   // ① 진행 중 유닛이 최우선 — 오늘 일일 세션을 아직 안 했어도 유닛이 이긴다
   let e = pickHomeEntry({ units: CURRENT, todayAnswered: 0, dailyGoal: 10 });
-  ok(e.kind === 'unit' && e.to === '/learn' && e.unit?.title === '전선의 종류',
+  // 목적지가 `/learn`(제자리)이 아니라 **유닛 플레이**여야 한다 — 카드가 학습
+  // 화면 위에 있으므로 `/learn`이면 눌러도 아무 일이 없다.
+  ok(e.kind === 'unit' && e.to === '/learn/units/b' && e.unit?.title === '전선의 종류',
      `① 진행 중 유닛 우선 — ${e.kind}/${e.to}/${e.unit?.title}`);
 
   // ①-b 오늘 목표를 이미 채웠어도 진행 중 유닛이 있으면 유닛이다
@@ -136,6 +141,9 @@ const ok = (cond, label) => {
   // ①-c status가 current 없이 unlocked만 오는 응답(구 서버·부분 트리)도 진행 중
   e = pickHomeEntry({ units: [{ slug: 'x', title: '열린 유닛', status: 'unlocked' }], todayAnswered: 0 });
   ok(e.kind === 'unit' && e.unit?.title === '열린 유닛', `①-c unlocked도 진행 중 — ${e.kind}`);
+  // ①-d id가 없는 응답(구 서버·부분 트리)은 학습 화면으로 떨어진다 —
+  // `/learn/units/undefined`로 보내면 404 화면이 뜬다.
+  ok(e.to === '/learn', `①-d id 없으면 /learn 폴백 — ${e.to}`);
 
   // ② 진행 중 유닛이 없고 오늘 몫이 남았으면 일일 세션
   e = pickHomeEntry({ units: ALL_CLEARED, todayAnswered: 0, dailyGoal: 10 });
@@ -175,31 +183,41 @@ const ok = (cond, label) => {
       createElement(MemoryRouter, { initialEntries: ['/'] }, createElement(App))),
   );
 
-  await waitFor(() => $('[data-testid="home-entry"]') !== null, 8000, '진입 카드 렌더');
+  await waitFor(() => $('[data-testid="learn-entry"]') !== null, 8000, '진입 카드 렌더');
   // 목의 시드는 첫 유닛만 클리어 → 두 번째 유닛이 current다
   await waitFor(() => text().includes('기단의 성질'), 8000, '커리큘럼 트리 도착');
 
-  // 1. 진입 카드는 정확히 하나
-  const cards = $$('[data-testid="home-entry"]');
-  ok(cards.length === 1, `진입 카드 1개 — 실제 ${cards.length}`);
+  // 1. 진입 **선택지**는 하나다.
+  // DOM 노드는 2개다(레일용·모바일용) — PC 경로 뷰가 `hidden md:block`이라 뷰포트마다
+  // 하나만 보인다. jsdom에는 CSS 엔진이 없어 "보이는 것"을 셀 수 없으므로,
+  // 지켜야 할 것을 **목적지가 하나인가**로 바꿔 단정한다. 예전 4칸 회귀는
+  // 목적지가 갈리는 형태였으므로 이 단정이 그대로 잡는다.
+  const cards = $$('[data-testid="learn-entry"]');
+  ok(cards.length === 2, `진입 카드 마운트 2곳(레일·모바일) — 실제 ${cards.length}`);
+  const dests = new Set(cards.map((c) => c.getAttribute('href')));
+  const kinds = new Set(cards.map((c) => c.getAttribute('data-entry-kind')));
+  ok(dests.size === 1 && kinds.size === 1, `두 마운트가 같은 선택지 — ${[...dests]} / ${[...kinds]}`);
   const card = cards[0];
   ok(card.getAttribute('data-entry-kind') === 'unit',
      `진행 중 유닛이므로 kind=unit — 실제 ${card.getAttribute('data-entry-kind')}`);
-  ok(card.getAttribute('href') === '/learn', `카드가 /learn을 가리킨다 — ${card.getAttribute('href')}`);
+  ok(/^\/learn\/units\//.test(card.getAttribute('href') ?? ''),
+     `카드가 유닛 플레이를 가리킨다(제자리 /learn 아님) — ${card.getAttribute('href')}`);
   ok(card.textContent.includes('기단의 성질'), '카드가 진행 중 유닛 제목을 말한다');
 
   // 1-b. 예전 4칸(보드·대결·리그)이 카드로 되돌아오지 않았다 — 링크로만 존재
-  const secondary = $('[data-testid="home-secondary"]');
+  const secondary = $('[data-testid="learn-secondary"]');
   ok(Boolean(secondary), '보조 진입 줄이 있다');
   const secHrefs = [...(secondary?.querySelectorAll('a') ?? [])].map((a) => a.getAttribute('href'));
-  ok(secHrefs.join(',') === '/board,/duel,/league', `보조 링크 3종 — ${secHrefs.join(',')}`);
+  // 2026-08-09: 자유 일일 세션(/daily)이 같은 줄로 내려왔다 — 예전에는 별도 흰
+  // 카드였고, 카드로 두면 위의 진입 카드와 무게가 비슷해진다.
+  ok(secHrefs.join(',') === '/daily,/board,/duel,/league', `보조 링크 4종 — ${secHrefs.join(',')}`);
   for (const a of secondary?.querySelectorAll('a') ?? []) {
     const cls = a.getAttribute('class') ?? '';
     ok(!/\bbg-(sky|slate|emerald)-\d/.test(cls), `보조 링크는 채움 버튼이 아니다 — "${cls}"`);
   }
 
   // 3. 자유 일일 세션 = 보조 링크(채움 버튼 금지) + 지역 픽커 동거
-  const free = $('[data-testid="home-free-daily"]');
+  const free = secondary;
   ok(Boolean(free), '자유 일일 세션 줄이 있다');
   const freeLink = free?.querySelector('a[href="/daily"]');
   ok(Boolean(freeLink), '자유 일일 세션이 /daily 링크를 준다');
@@ -211,12 +229,13 @@ const ok = (cond, label) => {
   // 4. 내비 탭 구조 불변
   const tabs = $$('[data-testid="tabbar"] a');
   // CO-N-1 ②: 「탐구」 추가로 6 → 7. 진입 통합은 본문의 문제였고 탭 구조는 그대로다.
-  ok(tabs.length === 7, `탭 7개 유지 — 실제 ${tabs.length}`);
+  // 2026-08-09: 홈 화면 삭제로 「홈」 탭이 빠져 7 → 6.
+  ok(tabs.length === 6, `탭 6개 유지 — 실제 ${tabs.length}`);
 
   // 5. en 로케일 — 카드 문구가 리소스에서 온다
   useLocaleStore.getState().setLocale('en');
   await waitFor(() => text().includes('Learning session'), 6000, 'en 렌더');
-  const enCard = $('[data-testid="home-entry"]');
+  const enCard = $('[data-testid="learn-entry"]');
   ok(enCard?.textContent.includes('Learning session'), 'en: 카드 머리말이 영어');
   ok(enCard?.textContent.includes('A unit is in progress'), 'en: 카드 본문이 영어');
   ok(!/진행 중인 유닛|더 해보기/.test(text()), 'en에서 한국어 원문이 남지 않는다');

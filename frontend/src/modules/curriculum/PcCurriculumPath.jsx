@@ -444,7 +444,16 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
   // 쌓이면서 그만큼 페이지에 세로 스크롤이 생겼다(실측 28px).
   return (
     <div ref={wrapRef} className="hidden md:block">
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      {/* 레일 320 → 296px · 간격 20 → 14px (2026-08-09) — "학습 경로를 최대한 크게"
+          라는 요구에 쓸 수 있는 가로 지렛대는 이 둘뿐이다. 경로 열은 1fr이라
+          이미 남는 폭을 다 먹고 있고, 늘리려면 옆이 줄어야 한다. 1440 실측
+          780 → 810px. 296px은 진입 카드의 104px 마스코트와 CTA 한 줄이 눌리지
+          않는 하한이다(280에서 「이어서 풀기 →」가 두 줄로 접혔다). */}
+      {/* items-stretch — 오른쪽 진입 카드를 트랙 높이까지 늘린다(2026-08-09).
+          items-start면 카드가 제 내용 높이(449px)에서 멈춰 트랙(619px) 옆이
+          170px 비어 보였다. 트랙은 `.wm-track`이 height를 명시하므로 늘어나지
+          않는다 — 명시 높이가 stretch를 이긴다. */}
+      <div className="grid grid-cols-1 items-stretch gap-3.5 lg:grid-cols-[minmax(0,1fr)_296px]">
         <div className="wm-track min-w-0 rounded-[20px] bg-white ring-1 ring-slate-200">
           <div ref={scrollerRef} className="wm-scroller" onScroll={onScroll}>
             {withUnits.map((section, i) => (
@@ -512,7 +521,7 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
         {/* 우측 레일 — 튜터 카드는 뺐다(2026-08-05). 같은 물방울이가 좌측
             사이드바에도 있어 한 화면에 둘이 떴다. 복습 큐·자유 세션이 그만큼
             위로 올라온다. 내용은 호출부(CurriculumHome)가 넘긴다. */}
-        <div className="flex flex-col gap-3.5">{rail}</div>
+        <div className="flex min-h-0 flex-col gap-3.5">{rail}</div>
       </div>
     </div>
   );
