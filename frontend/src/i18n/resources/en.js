@@ -317,6 +317,8 @@ export default {
   },
   curriculum: {
     // tutor progress line (2026-08-09) — numbers come from the real tree
+    // 하루 목표 미설정 — 진입 카드에서 내 정보(설정 통로)로 보낸다
+    goalUnset: 'Set your daily goal!',
     tutorProgress: {
       first: 'First step of "{section}". Let\'s start here!',
       mid: '{cleared} of {total} steps done in "{section}".',

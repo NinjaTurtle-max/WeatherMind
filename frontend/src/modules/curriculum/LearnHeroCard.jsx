@@ -99,12 +99,19 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone, tutorL
           올렸다. due 0건이면 컴포넌트가 스스로 null이라 자리째 빠진다. */}
       <ReviewQueueCard variant="hero" />
 
-      {/* 오늘의 목표 — 미설정(goalTotal 없음)이면 줄째 생략한다. 0/0 바를 그리면
-          "목표를 못 채웠다"로 읽혀, 아직 정하지 않은 상태를 실패처럼 보이게 한다.
+      {/* 오늘의 목표.
+          ⚠️ **미설정일 때 줄째 숨기지 않는다**(2026-08-09 수정). 한때 숨겼는데
+          ("0/0 진행 바는 목표를 못 채운 것처럼 읽힌다"), 홈이 사라진 뒤로는 목표를
+          정하는 통로가 이 화면 어디에도 없어서 **목표를 안 정한 사람에게는 자리째
+          사라졌다**(사용자 제보 "오늘의 목표가 사라졌어"). 0/0 바를 피하려던 것이
+          기능을 감춘 셈이다.
+          그래서 자리를 남기고 **설정 통로(내 정보)로 보낸다**. 여기에 3버튼 피커를
+          박지 않는 이유(2026-08-09 사용자 결정): 카드가 296px로 좁아 버튼이 눌리고,
+          설정은 이 화면의 일이 아니다 — 내 정보가 이미 그 통로를 갖고 있다.
           mt-auto — 튜터 한마디가 위로 올라가면서 남는 높이를 먹는 칸이 없어졌다.
           목표가 그 높이를 받아 카드 **바닥**에 붙는다. */}
       {goalTotal ? (
-        <div className="mt-auto w-full border-t border-sky-300/70 pt-4" data-testid="learn-goal">
+        <div className="mt-auto w-full border-t border-sky-300/70 pt-4" data-testid="learn-goal" data-goal-state="set">
           <div className="flex items-baseline gap-2">
             <p className="text-[12.5px] font-extrabold text-sky-900">🎯 {t('home.goal.title')}</p>
             <span className="ml-auto text-[12px] font-extrabold tabular-nums text-sky-700">{pct}%</span>
@@ -123,8 +130,17 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone, tutorL
           </p>
         </div>
       ) : (
-        // 목표 미설정 — 늘어난 높이를 먹어 위 내용이 카드 위쪽에 모이게 한다.
-        <span className="mt-auto" aria-hidden="true" />
+        <Link
+          to="/me"
+          className="mt-auto flex w-full items-center gap-2 border-t border-sky-300/70 pt-4 text-left"
+          data-testid="learn-goal"
+          data-goal-state="unset"
+        >
+          <span className="text-[12.5px] font-extrabold text-sky-900">🎯 {t('home.goal.title')}</span>
+          <span className="ml-auto text-[12px] font-extrabold text-sky-700 underline underline-offset-4">
+            {t('curriculum.goalUnset')}
+          </span>
+        </Link>
       )}
     </div>
   );

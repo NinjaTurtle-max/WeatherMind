@@ -175,8 +175,17 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   const mascotSrc = entries[0].querySelector('img')?.getAttribute('src');
   ok(mascotSrc === '/drop.png', `진입 카드 화자는 물방울이 — 실제 ${mascotSrc}`);
 
-  // ④ 오늘의 목표 — 목 기본값은 미설정(null)이라 줄이 **없어야** 한다
-  ok($('[data-testid="learn-goal"]') === null, '목표 미설정이면 오늘의 목표 줄을 그리지 않는다');
+  // ④ 오늘의 목표 — 목 기본값은 미설정(null)이다. 그래도 **자리는 남아야 한다**:
+  // 한때 숨겼는데, 홈이 사라진 뒤로 목표를 정하는 통로가 이 화면에 없어서
+  // 목표를 안 정한 사람에게는 기능째 사라졌다(2026-08-09 사용자 제보).
+  const unsetGoal = $('[data-testid="learn-goal"]');
+  ok(Boolean(unsetGoal), '목표 미설정이어도 오늘의 목표 자리가 남는다');
+  ok(unsetGoal?.getAttribute('data-goal-state') === 'unset', '미설정 상태로 표시된다');
+  // 설정 통로는 내 정보다 — 카드가 좁아 3버튼 피커를 박지 않는다(2026-08-09 결정).
+  ok(
+    unsetGoal?.getAttribute('href') === '/me',
+    `미설정 자리가 내 정보로 보낸다 — 실제 ${unsetGoal?.getAttribute('href')}`,
+  );
 
   // ⑥ 홈이 갖고 있던 카드들이 카드로 돌아오지 않았다
   for (const gone of ['연속 출석', 'WeatherBrain']) {
@@ -227,8 +236,13 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   });
   ok(res.ok, `목표 설정 API 200 — 실제 ${res.status}`);
   const r = mount('/learn');
-  await waitFor(() => $('[data-testid="learn-goal"]') !== null, 6000, '오늘의 목표 줄');
+  await waitFor(
+    () => $('[data-testid="learn-goal"]')?.getAttribute('data-goal-state') === 'set',
+    6000,
+    '오늘의 목표 진행 표시',
+  );
   const goal = $('[data-testid="learn-goal"]');
+  ok(goal.getAttribute('data-goal-state') === 'set', '설정 후에는 진행 표시로 바뀐다');
   ok(goal.textContent.includes('5'), `목표 문항 수가 보인다 — "${goal.textContent.replace(/\s+/g, ' ').slice(0, 40)}"`);
   ok(
     goal.closest('[data-testid="learn-entry"]') !== null,
