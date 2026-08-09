@@ -6,7 +6,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import PcCurriculumPath from './PcCurriculumPath';
 import CourseSwitcher, { useCourses } from './CourseSwitcher';
 import LearnHeroCard from './LearnHeroCard';
-import { pickLearnEntry } from './learnEntry';
+import { pickLearnEntry, sectionProgressOf } from './learnEntry';
 import { useAttendance } from '../../hooks/useAttendance';
 // R11-01 §6.2 마운트 통합 — props 없는 자급 계약(조건 미충족 시 자가 null).
 // 복습 큐(ReviewQueueCard)는 2026-08-09부터 LearnHeroCard가 마운트한다.
@@ -168,6 +168,19 @@ export default function CurriculumHome() {
     data === undefined
       ? { kind: 'unit', unit: null, to: '/learn' }
       : pickLearnEntry({ units: flatUnits, todayAnswered: goalDone, dailyGoal: goalTotal });
+  // 튜터 한마디 — 진입 종류에 따라 갈린다. 유닛일 때만 섹션 진도를 말한다
+  // (오늘 몫·완료는 셀 진도가 없다).
+  const sectionProgress = sectionProgressOf(data?.sections ?? [], entry.unit);
+  const tutorLine = (() => {
+    if (entry.kind === 'daily') return t('curriculum.tutorProgress.daily');
+    if (entry.kind === 'done') return t('curriculum.tutorProgress.done');
+    if (!sectionProgress) return null;
+    const { section, total, cleared } = sectionProgress;
+    if (cleared === 0) return t('curriculum.tutorProgress.first', { section });
+    if (cleared >= total - 1) return t('curriculum.tutorProgress.last', { section });
+    return t('curriculum.tutorProgress.mid', { section, total, cleared });
+  })();
+
   const ENTRY_COPY = {
     unit: {
       eyebrow: t('home.entry.learn'),
@@ -295,7 +308,13 @@ export default function CurriculumHome() {
           — PcCurriculumPath가 통째로 null을 돌려주기 때문이다. 그때는 여기서
           PC에도 보여준다(진입로가 사라지면 안 된다). */}
       <div className={hasPath ? 'mb-4 md:hidden' : 'mb-4 max-w-sm'}>
-        <LearnHeroCard entry={entry} copy={ENTRY_COPY[entry.kind]} goalTotal={goalTotal} goalDone={goalDone} />
+        <LearnHeroCard
+          entry={entry}
+          copy={ENTRY_COPY[entry.kind]}
+          goalTotal={goalTotal}
+          goalDone={goalDone}
+          tutorLine={tutorLine}
+        />
       </div>
 
       {/* 모바일: 세로 지그재그 경로(기존 유지) */}
@@ -342,7 +361,13 @@ export default function CurriculumHome() {
         regenMin={regenMin}
         onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
         rail={
-          <LearnHeroCard entry={entry} copy={ENTRY_COPY[entry.kind]} goalTotal={goalTotal} goalDone={goalDone} />
+          <LearnHeroCard
+            entry={entry}
+            copy={ENTRY_COPY[entry.kind]}
+            goalTotal={goalTotal}
+            goalDone={goalDone}
+            tutorLine={tutorLine}
+          />
         }
       />
 

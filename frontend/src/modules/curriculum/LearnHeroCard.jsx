@@ -41,7 +41,7 @@ import { useT } from '../../i18n';
  * 같은 캐릭터를 그리므로, 이 카드가 뜨는 화면에서는 SideNav가 튜터를 접는다 —
  * 같은 그림이 한 화면에 둘 뜨면 어느 쪽이 말하는 건지 알 수 없다.
  */
-export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
+export default function LearnHeroCard({ entry, copy, goalTotal, goalDone, tutorLine = null }) {
   const t = useT();
   const pct = goalTotal ? Math.min(100, Math.round((goalDone / goalTotal) * 100)) : 0;
   const remaining = goalTotal ? Math.max(0, goalTotal - goalDone) : 0;
@@ -80,12 +80,36 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
           올렸다. due 0건이면 컴포넌트가 스스로 null이라 자리째 빠진다. */}
       <ReviewQueueCard variant="hero" />
 
+      {/* 튜터 한마디 — 남는 세로를 채운다(2026-08-09 지시).
+          카드가 트랙 높이(655px)까지 늘어나면 복습과 오늘의 목표 사이가 110px쯤
+          비었다. 그 자리를 **말풍선**이 먹는다: flex-1이 남는 높이를 통째로 받고
+          items-center가 말풍선을 그 안에서 세로 가운데에 둔다 — 여백이 얼마든
+          말풍선은 늘 가운데다.
+          꼬리는 **위**를 향한다(카드 맨 위 마스코트 쪽). 아래를 향하면 오늘의
+          목표가 말하는 것처럼 읽힌다.
+          수치는 지어내지 않는다 — 문구는 CurriculumHome이 트리에서 센 값으로
+          만들어 넘긴다(sectionProgressOf). 셀 진도가 없으면 null이라 자리째 빠진다. */}
+      <div className="flex w-full flex-1 items-center justify-center py-3">
+        {tutorLine ? (
+          <p
+            data-testid="learn-tutor-line"
+            className="relative break-keep rounded-2xl bg-white/75 px-3.5 py-2.5 text-center text-[12px] font-bold leading-relaxed text-sky-900 ring-1 ring-sky-300/60"
+          >
+            <span
+              aria-hidden="true"
+              className="absolute -top-[5px] left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-l border-t border-sky-300/60 bg-white/75"
+            />
+            {tutorLine}
+          </p>
+        ) : null}
+      </div>
+
       {/* 오늘의 목표 — 미설정(goalTotal 없음)이면 줄째 생략한다. 0/0 바를 그리면
           "목표를 못 채웠다"로 읽혀, 아직 정하지 않은 상태를 실패처럼 보이게 한다.
-          mt-auto — 레일이 트랙 높이만큼 늘어나면 남는 높이가 목표 **위**로 가서
-          목표가 카드 바닥에 붙는다. */}
+          바닥에 붙이는 일은 위 튜터 칸의 flex-1이 한다 — 여기 mt-auto를 또 주면
+          둘이 같은 여백을 두고 다투어 말풍선이 위로 붙는다. */}
       {goalTotal ? (
-        <div className="mt-auto w-full border-t border-sky-300/70 pt-4" data-testid="learn-goal">
+        <div className="w-full border-t border-sky-300/70 pt-4" data-testid="learn-goal">
           <div className="flex items-baseline gap-2">
             <p className="text-[12.5px] font-extrabold text-sky-900">🎯 {t('home.goal.title')}</p>
             <span className="ml-auto text-[12px] font-extrabold tabular-nums text-sky-700">{pct}%</span>
@@ -103,10 +127,7 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
             {remaining > 0 ? t('home.goal.remaining', { n: remaining }) : t('home.goal.done')}
           </p>
         </div>
-      ) : (
-        // 목표 미설정 — 늘어난 높이를 먹어 위 내용이 카드 가운데에 남게 한다.
-        <span className="mt-auto" aria-hidden="true" />
-      )}
+      ) : null}
     </div>
   );
 }

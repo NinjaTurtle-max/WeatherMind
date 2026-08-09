@@ -2,8 +2,6 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import client from '../api/client';
 import { CONCEPT_KO } from '../lib/abilityDisplay';
-import Mascot from './Mascot';
-import { conceptCharacter } from './conceptCharacter';
 import { useT } from '../i18n';
 
 /**
@@ -59,36 +57,21 @@ export default function ReviewQueueCard({ variant = 'card' }) {
             {t('reviewQueue.count', { count: due.length })}
           </span>
         </div>
-        {/* **글자가 아니라 얼굴로** 보여준다(2026-08-09 지시). 개념마다 담당 캐릭터가
-            이미 있고(conceptCharacter), 칩에 개념명을 적는 것보다 그림이 먼저 읽힌다.
-            ⚠️ 캐릭터는 8장인데 개념은 14종이라 **둘 이상이 같은 얼굴을 쓸 수 있다**
-            (기압과 전선·기압의 기초 → 둘 다 구름이). 그래서 개념명을 지우는 게
-            아니라 title·aria-label로 옮긴다 — 눈으로는 그림, 읽어 주는 쪽에는 이름. */}
-        <ul className="mt-2.5 flex flex-wrap gap-2">
-          {top.map((item) => {
-            const label = CONCEPT_KO[item.concept_tag] ?? item.concept_tag;
-            return (
-              <li key={item.concept_tag}>
-                <span
-                  title={label}
-                  aria-label={label}
-                  role="img"
-                  className="grid h-12 w-12 place-items-center rounded-full bg-white/70 shadow-sm ring-1 ring-sky-300/60"
-                >
-                  <Mascot name={conceptCharacter(item.concept_tag)} className="h-9 w-9" />
-                </span>
-              </li>
-            );
-          })}
-          {rest > 0 && (
-            <li>
-              <span
-                className="grid h-12 w-12 place-items-center rounded-full bg-white/40 text-[12px] font-extrabold text-sky-700 ring-1 ring-sky-300/60"
-              >
-                +{rest}
-              </span>
+        {/* **개념명 키워드**로 보여준다(2026-08-09 사용자 결정). 한때 담당 캐릭터
+            그림으로 바꿨는데 되돌렸다 — 캐릭터는 8장인데 개념은 14종이라 둘 이상이
+            같은 얼굴을 쓰고(기압과 전선·기압의 기초 → 둘 다 구름이), 그러면 무엇을
+            복습하는지가 그림만으로는 갈리지 않는다. 여기서 답해야 하는 질문은
+            "무엇을"이므로 이름이 맞다. */}
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {top.map((item) => (
+            <li
+              key={item.concept_tag}
+              className="rounded-full bg-white/75 px-2.5 py-1 text-[11.5px] font-bold text-sky-900 ring-1 ring-sky-300/60"
+            >
+              {CONCEPT_KO[item.concept_tag] ?? item.concept_tag}
             </li>
-          )}
+          ))}
+          {rest > 0 && <li className="px-1 py-1 text-[11px] font-bold text-sky-700">+{rest}</li>}
         </ul>
         <Link
           to="/daily"

@@ -316,6 +316,14 @@ export default {
     },
   },
   curriculum: {
+    // tutor progress line (2026-08-09) — numbers come from the real tree
+    tutorProgress: {
+      first: 'First step of "{section}". Let\'s start here!',
+      mid: '{cleared} of {total} steps done in "{section}".',
+      last: 'Last step of "{section}". Just one more!',
+      daily: "Shall we start with today's set?",
+      done: "You've finished today's learning. Nicely done!",
+    },
     loading: 'Loading your learning path...',
     loadFailed: "Couldn't load the learning path",
     title: '🎓 Learn',

@@ -63,3 +63,28 @@ export function pickLearnEntry({ units = [], todayAnswered = 0, dailyGoal = null
  * 한다 — 두 곳이 갈리면 같은 화면에서 캐릭터가 둘이 된다.
  */
 export const ENTRY_MASCOT = { unit: 'drop', daily: 'bolt', done: 'cloud' };
+
+/**
+ * 튜터 한마디에 쓸 **섹션 진도**를 낸다 (2026-08-09).
+ *
+ * 진입 카드의 남는 세로를 "격려 한 줄"로 채우는데, 수치를 지어내지 않으려면
+ * 근거가 필요하다. 근거는 **트리 그 자체**다 — 진행 중 유닛이 속한 섹션에서
+ * 몇 칸을 지났는지는 서버가 준 status로 셀 수 있다(cleared 개수).
+ *
+ * 코스 전체(spine.units_cleared/units_total)가 아니라 **섹션** 단위인 이유:
+ * 24유닛 중 1개는 아무 느낌도 주지 않지만, 3칸 중 1칸은 손에 잡힌다.
+ *
+ * 진행 중 유닛이 없거나(오늘 몫·완료) 섹션을 못 찾으면 null — 호출부가 그때는
+ * 진도가 아닌 다른 문구를 쓴다.
+ */
+export function sectionProgressOf(sections = [], unit = null) {
+  if (!unit) return null;
+  const section = sections.find((s) => (s.units ?? []).some((u) => u.id === unit.id));
+  if (!section) return null;
+  const units = section.units ?? [];
+  return {
+    section: section.section,
+    total: units.length,
+    cleared: units.filter((u) => unitStatus(u) === 'cleared').length,
+  };
+}

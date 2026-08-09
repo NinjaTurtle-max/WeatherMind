@@ -187,11 +187,26 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   // 복습은 자기 쿼리(GET /progress/review-queue)가 도착해야 그려진다 — 즉시 보면
   // 아직 null이다(due 0건과 구분되지 않는다).
   await waitFor(() => $('[data-testid="review-queue-hero"]') !== null, 6000, '복습 줄(진입 카드 안)');
+  // 복습은 **개념명 키워드**다(2026-08-09 결정). 한때 담당 캐릭터 그림으로 바꿨다가
+  // 되돌렸다 — 캐릭터 8장에 개념 14종이라 둘 이상이 같은 얼굴을 쓴다.
+  ok(
+    $('[data-testid="review-queue-hero"]').querySelector('img') === null,
+    '복습은 그림이 아니라 개념명 키워드다',
+  );
   const heroReview = $('[data-testid="review-queue-hero"]');
   ok(
     heroReview.closest('[data-testid="learn-entry"]') !== null,
     '복습이 진입 카드 **안**에 있다(「이어서 풀기」 밑)',
   );
+
+  // 튜터 한마디 — **수치가 실데이터여야 한다.** 목 시드는 첫 유닛만 클리어한
+  // 상태이므로 진행 중 유닛이 속한 섹션(「하늘 읽기」 3칸)에서 1칸을 마쳤다.
+  // 문구를 하드코딩하면(예: "거의 다 왔어요") 이 단정이 통과해도 화면은 거짓말이 된다.
+  const tutor = $('[data-testid="learn-tutor-line"]');
+  ok(Boolean(tutor), '튜터 한마디가 진입 카드 안에 있다');
+  const line = tutor?.textContent ?? '';
+  ok(/하늘 읽기/.test(line), `현재 섹션 이름을 말한다 — "${line}"`);
+  ok(/3칸 중 1칸/.test(line), `섹션 진도를 실수치로 말한다(3칸 중 1칸) — "${line}"`);
 
   // ⑤ 출석 체크는 이 화면이 만든다 — 비동기라 도착을 기다린다
   const attendance = () => xhrLog.filter((l) => l.includes('/attendance')).length;
