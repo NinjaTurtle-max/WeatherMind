@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import client from '../api/client';
 import { CONCEPT_KO } from '../lib/abilityDisplay';
+import Mascot from './Mascot';
+import { conceptCharacter } from './conceptCharacter';
 import { useT } from '../i18n';
 
 /**
@@ -48,29 +50,49 @@ export default function ReviewQueueCard({ variant = 'card' }) {
     return (
       <div
         data-testid="review-queue-hero"
-        className="mt-4 w-full border-t border-white/25 pt-4 text-left"
+        className="mt-4 w-full border-t border-sky-300/70 pt-3.5 text-left"
       >
         <div className="flex items-center gap-1.5">
           <span aria-hidden="true" className="text-[13px]">🔁</span>
-          <p className="text-[12.5px] font-extrabold text-white/90">{t('reviewQueue.title')}</p>
-          <span className="ml-auto text-[11px] font-bold tabular-nums text-white/70">
+          <p className="text-[12.5px] font-extrabold text-sky-900">{t('reviewQueue.title')}</p>
+          <span className="ml-auto text-[11px] font-bold tabular-nums text-sky-700">
             {t('reviewQueue.count', { count: due.length })}
           </span>
         </div>
-        <ul className="mt-2 flex flex-wrap gap-1.5">
-          {top.map((item) => (
-            <li
-              key={item.concept_tag}
-              className="rounded-full bg-white/20 px-2.5 py-1 text-[11.5px] font-bold text-white"
-            >
-              {CONCEPT_KO[item.concept_tag] ?? item.concept_tag}
+        {/* **글자가 아니라 얼굴로** 보여준다(2026-08-09 지시). 개념마다 담당 캐릭터가
+            이미 있고(conceptCharacter), 칩에 개념명을 적는 것보다 그림이 먼저 읽힌다.
+            ⚠️ 캐릭터는 8장인데 개념은 14종이라 **둘 이상이 같은 얼굴을 쓸 수 있다**
+            (기압과 전선·기압의 기초 → 둘 다 구름이). 그래서 개념명을 지우는 게
+            아니라 title·aria-label로 옮긴다 — 눈으로는 그림, 읽어 주는 쪽에는 이름. */}
+        <ul className="mt-2.5 flex flex-wrap gap-2">
+          {top.map((item) => {
+            const label = CONCEPT_KO[item.concept_tag] ?? item.concept_tag;
+            return (
+              <li key={item.concept_tag}>
+                <span
+                  title={label}
+                  aria-label={label}
+                  role="img"
+                  className="grid h-12 w-12 place-items-center rounded-full bg-white/70 shadow-sm ring-1 ring-sky-300/60"
+                >
+                  <Mascot name={conceptCharacter(item.concept_tag)} className="h-9 w-9" />
+                </span>
+              </li>
+            );
+          })}
+          {rest > 0 && (
+            <li>
+              <span
+                className="grid h-12 w-12 place-items-center rounded-full bg-white/40 text-[12px] font-extrabold text-sky-700 ring-1 ring-sky-300/60"
+              >
+                +{rest}
+              </span>
             </li>
-          ))}
-          {rest > 0 && <li className="px-1 py-1 text-[11px] font-bold text-white/70">+{rest}</li>}
+          )}
         </ul>
         <Link
           to="/daily"
-          className="mt-2.5 inline-block text-[12px] font-extrabold text-white/90 underline underline-offset-4 hover:text-white"
+          className="mt-2.5 inline-block text-[12px] font-extrabold text-sky-800 underline underline-offset-4 hover:text-sky-950"
         >
           {t('reviewQueue.cta')}
         </Link>

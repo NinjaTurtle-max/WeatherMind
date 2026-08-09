@@ -22,9 +22,14 @@ import { useT } from '../../i18n';
  * 올라왔다.
  *
  * 왜 **파란 배경**인가: 나머지가 전부 흰 카드라, 진입만 색을 달리해 "여기를
- * 누르면 된다"를 한눈에 갈라내려는 것이다(사용자 지시). 그래서 이 카드 안의
- * 대비는 흰 바탕 기준이 아니라 파란 바탕 기준으로 잡혀 있다 — 본문 글자는
- * white/80, CTA는 흰 채움에 sky-700 글자다.
+ * 누르면 된다"를 한눈에 갈라내려는 것이다(사용자 지시).
+ *
+ * 2026-08-09 **연한 톤으로 교체**(사용자 지시). 종전은 sky-400→800 짙은 그라데이션에
+ * 흰 글자였다. 색을 연하게 하면 **대비 방향이 뒤집히므로** 카드 안이 전부 따라
+ * 바뀐다 — 글자는 흰색에서 sky-900 계열로, CTA는 「흰 채움 + 파란 글자」에서
+ * 「파란 채움 + 흰 글자」로. 색만 바꾸고 글자를 두면 흰 글자가 연한 하늘색 위에서
+ * 읽히지 않는다. CTA가 이제 카드에서 **가장 진한 요소**인데, 그게 맞다:
+ * 눌러야 할 것 하나가 가장 강해야 한다.
  *
  * ⚠️ **카드 전체를 `<Link>`로 감싸지 않는다**(2026-08-09 구조 변경). 복습 줄이
  * 안으로 들어오면서 카드 안에 링크가 생겼는데, `<a>` 안의 `<a>`는 HTML이 허용하지
@@ -45,28 +50,28 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
     <div
       data-testid="learn-entry"
       data-entry-kind={entry.kind}
-      className="group flex flex-1 flex-col items-center rounded-[18px] bg-gradient-to-b from-sky-400 via-sky-600 to-sky-800 px-5 pb-5 pt-6 text-white shadow-lg shadow-sky-600/25"
+      className="group flex flex-1 flex-col items-center rounded-[18px] bg-gradient-to-b from-sky-50 via-sky-100 to-sky-200 px-5 pb-5 pt-6 shadow-md shadow-sky-500/15 ring-1 ring-sky-300/70"
     >
       {/* 정사각 박스 — 폭만 주면 세로가 원본 비율을 따라가고, 캐릭터를 바꾸면
           카드 높이가 통째로 달라진다(가로형 cloud ↔ 세로형 bolt). */}
       <Mascot name={ENTRY_MASCOT[entry.kind] ?? 'drop'} className="h-[104px] w-[104px]" />
 
-      <p className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.1em] text-white/70">
+      <p className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.1em] text-sky-700">
         {copy.eyebrow}
       </p>
-      <p className="mt-1.5 text-center text-[20px] font-extrabold leading-snug tracking-tight">
+      <p className="mt-1.5 text-center text-[20px] font-extrabold leading-snug tracking-tight text-sky-950">
         {copy.title}
       </p>
       {/* break-keep — 카드가 좁아(296px) 기본 줄바꿈이 어절 한가운데를 끊는다.
           보드 실험 카드와 같은 처리다. */}
-      <p className="mt-2 break-keep text-center text-[12.5px] leading-relaxed text-white/80">
+      <p className="mt-2 break-keep text-center text-[12.5px] leading-relaxed text-sky-800/85">
         {copy.body}
       </p>
 
       <Link
         to={entry.to}
         data-testid="learn-entry-cta"
-        className="mt-4 w-full rounded-[14px] bg-white px-4 py-3 text-center text-[14.5px] font-extrabold text-sky-700 shadow-md shadow-sky-900/20 transition hover:bg-sky-50"
+        className="mt-4 w-full rounded-[14px] bg-sky-600 px-4 py-3 text-center text-[14.5px] font-extrabold text-white shadow-md shadow-sky-600/30 transition hover:bg-sky-700"
       >
         {copy.cta}
       </Link>
@@ -80,21 +85,21 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
           mt-auto — 레일이 트랙 높이만큼 늘어나면 남는 높이가 목표 **위**로 가서
           목표가 카드 바닥에 붙는다. */}
       {goalTotal ? (
-        <div className="mt-auto w-full border-t border-white/25 pt-4" data-testid="learn-goal">
+        <div className="mt-auto w-full border-t border-sky-300/70 pt-4" data-testid="learn-goal">
           <div className="flex items-baseline gap-2">
-            <p className="text-[12.5px] font-extrabold text-white/90">🎯 {t('home.goal.title')}</p>
-            <span className="ml-auto text-[12px] font-extrabold tabular-nums text-white/75">{pct}%</span>
+            <p className="text-[12.5px] font-extrabold text-sky-900">🎯 {t('home.goal.title')}</p>
+            <span className="ml-auto text-[12px] font-extrabold tabular-nums text-sky-700">{pct}%</span>
           </div>
           <div className="mt-1.5 flex items-baseline gap-1.5">
-            <span className="text-[30px] font-extrabold tabular-nums tracking-tight">{goalDone}</span>
-            <span className="text-[13px] font-bold tabular-nums text-white/75">
+            <span className="text-[30px] font-extrabold tabular-nums tracking-tight text-sky-900">{goalDone}</span>
+            <span className="text-[13px] font-bold tabular-nums text-sky-700">
               / {goalTotal} {t('home.goal.items')}
             </span>
           </div>
-          <div className="mt-1.5 h-[9px] overflow-hidden rounded-full bg-white/30">
-            <i className="block h-full rounded-full bg-white" style={{ width: `${pct}%` }} />
+          <div className="mt-1.5 h-[9px] overflow-hidden rounded-full bg-white/80">
+            <i className="block h-full rounded-full bg-sky-600" style={{ width: `${pct}%` }} />
           </div>
-          <p className="mt-2 text-[11.5px] leading-relaxed text-white/80">
+          <p className="mt-2 text-[11.5px] leading-relaxed text-sky-800/85">
             {remaining > 0 ? t('home.goal.remaining', { n: remaining }) : t('home.goal.done')}
           </p>
         </div>
