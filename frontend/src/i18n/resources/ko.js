@@ -355,7 +355,10 @@ export default {
     loading: '학습 경로를 불러오고 있어요...',
     loadFailed: '학습 경로를 불러오지 못했어요',
     title: '🎓 학습',
-    subtitle: '유닛을 순서대로 클리어하며 날씨 개념을 쌓아요.',
+    // 줄바꿈이 값 안에 있다. 이 키의 유일한 독자는 LearnHeroCard의 튜터 말풍선이고
+    // (머리말이 사라지면서 그렇게 됐다), 말풍선은 `whitespace-pre-line`으로 그린다.
+    // 자동 줄바꿈에 맡기면 폭에 따라 "쌓아" / "요." 같은 데서 갈린다.
+    subtitle: '유닛을 순서대로 클리어하며\n날씨 개념을 쌓아요.',
     sectionDone: '{cleared}/{total} 완료',
     energyEmpty: {
       title: '☁️ 구름이 모두 흩어졌어요',

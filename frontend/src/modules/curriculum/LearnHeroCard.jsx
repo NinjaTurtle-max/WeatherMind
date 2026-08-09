@@ -64,10 +64,14 @@ export default function LearnHeroCard({
 
       {/* 튜터 말풍선 — 페이지 머리말에 있던 학습 설명을 여기로 옮겼다(사용자 지시).
           꼬리는 **위**(마스코트)를 향한다. 아래로 두면 밑의 유닛 제목이 말하는
-          것처럼 읽힌다. */}
+          것처럼 읽힌다.
+          줄바꿈 위치는 리소스 값이 소유한다(`whitespace-pre-line`) — 자동 줄바꿈은
+          카드 폭이 조금만 달라져도 어색한 데서 끊긴다. `break-keep`은 그래도 남긴다:
+          en처럼 개행이 없는 값은 여전히 자동으로 접히고, 그때 한국어 단어 중간이
+          갈라지지 않아야 한다. */}
       <p
         data-testid="learn-tutor-line"
-        className="relative mt-2.5 break-keep rounded-2xl bg-white px-3 py-2 text-center text-[11.5px] font-medium leading-relaxed text-slate-600 ring-1 ring-slate-200/80"
+        className="relative mt-2.5 whitespace-pre-line break-keep rounded-2xl bg-white px-3 py-2.5 text-center text-[13.5px] font-medium leading-relaxed text-slate-600 ring-1 ring-slate-200/80"
       >
         <span
           aria-hidden="true"
