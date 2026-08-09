@@ -8,8 +8,8 @@ import CourseSwitcher, { useCourses } from './CourseSwitcher';
 import LearnHeroCard from './LearnHeroCard';
 import { pickLearnEntry } from './learnEntry';
 import { useAttendance } from '../../hooks/useAttendance';
-// R11-01 §6.2 마운트 통합 — 둘 다 props 없는 자급 계약(조건 미충족 시 자가 null).
-import ReviewQueueCard from '../../components/ReviewQueueCard';
+// R11-01 §6.2 마운트 통합 — props 없는 자급 계약(조건 미충족 시 자가 null).
+// 복습 큐(ReviewQueueCard)는 2026-08-09부터 LearnHeroCard가 마운트한다.
 import GuestSaveBanner from '../../components/GuestSaveBanner';
 // R12 선행 §8 — 지역 칩(자급 컴포넌트, 제작 FE-R): 세션 실황 슬롯이 이 지역을 탄다.
 import RegionPicker from '../../components/RegionPicker';
@@ -350,10 +350,9 @@ export default function CurriculumHome() {
           여기 있던 것들은 원래 흰 카드였다: 복습 큐 카드 · 자유 일일 세션 카드 ·
           학습 지역 카드. 카드로 두면 위의 진입 카드와 무게가 비슷해져 "무엇을
           눌러야 하는가"가 다시 흐려진다(§2.5가 없앤 바로 그 증상).
-          복습은 껍데기만 벗긴 같은 컴포넌트다(variant='strip') — due 0건 렌더
-          생략 같은 계약을 한 곳이 갖는다. */}
-      <div ref={tailRef} className="mt-4 flex flex-col gap-2.5 border-t border-slate-200 pt-3.5">
-        <ReviewQueueCard variant="strip" />
+          2026-08-09: 복습은 여기 있다가 **파란 진입 카드 안**(「이어서 풀기」 밑)으로
+          올라갔다(사용자 지시). 이 줄에는 더 해보기 링크와 지역만 남는다. */}
+      <div ref={tailRef} className="mt-4 border-t border-slate-200 pt-3.5">
         <div
           data-testid="learn-secondary"
           className="flex flex-wrap items-center gap-x-4 gap-y-2 px-0.5 text-[12px] text-slate-400"

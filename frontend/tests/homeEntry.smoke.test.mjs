@@ -194,14 +194,19 @@ const ok = (cond, label) => {
   // 목적지가 갈리는 형태였으므로 이 단정이 그대로 잡는다.
   const cards = $$('[data-testid="learn-entry"]');
   ok(cards.length === 2, `진입 카드 마운트 2곳(레일·모바일) — 실제 ${cards.length}`);
-  const dests = new Set(cards.map((c) => c.getAttribute('href')));
+  // 2026-08-09: 카드 바깥이 <div>가 됐다 — 복습 링크가 안으로 들어오면서 `<a>`
+  // 안의 `<a>`가 되기 때문이다(HTML 불가). 목적지는 CTA가 갖는다.
+  const hrefOf = (c) => c.querySelector('[data-testid="learn-entry-cta"]')?.getAttribute('href');
+  const dests = new Set(cards.map(hrefOf));
   const kinds = new Set(cards.map((c) => c.getAttribute('data-entry-kind')));
   ok(dests.size === 1 && kinds.size === 1, `두 마운트가 같은 선택지 — ${[...dests]} / ${[...kinds]}`);
   const card = cards[0];
   ok(card.getAttribute('data-entry-kind') === 'unit',
      `진행 중 유닛이므로 kind=unit — 실제 ${card.getAttribute('data-entry-kind')}`);
-  ok(/^\/learn\/units\//.test(card.getAttribute('href') ?? ''),
-     `카드가 유닛 플레이를 가리킨다(제자리 /learn 아님) — ${card.getAttribute('href')}`);
+  ok(/^\/learn\/units\//.test(hrefOf(card) ?? ''),
+     `카드가 유닛 플레이를 가리킨다(제자리 /learn 아님) — ${hrefOf(card)}`);
+  // 카드 전체가 링크로 되돌아가면 안 된다 — 복습 링크가 안에 있어 `<a>` 중첩이 된다.
+  ok(card.tagName !== 'A', `카드 바깥은 링크가 아니다 — 실제 <${card.tagName.toLowerCase()}>`);
   ok(card.textContent.includes('기단의 성질'), '카드가 진행 중 유닛 제목을 말한다');
 
   // 1-b. 예전 4칸(보드·대결·리그)이 카드로 되돌아오지 않았다 — 링크로만 존재
@@ -211,6 +216,17 @@ const ok = (cond, label) => {
   // 2026-08-09: 자유 일일 세션(/daily)이 같은 줄로 내려왔다 — 예전에는 별도 흰
   // 카드였고, 카드로 두면 위의 진입 카드와 무게가 비슷해진다.
   ok(secHrefs.join(',') === '/daily,/board,/duel,/league', `보조 링크 4종 — ${secHrefs.join(',')}`);
+  // 복습은 이 줄이 아니라 파란 진입 카드 안에 있다(2026-08-09 지시).
+  // 자기 쿼리가 도착해야 그려지므로 기다린다 — 즉시 보면 due 0건과 구분되지 않는다.
+  await waitFor(() => $$('[data-testid="review-queue-hero"]').length > 0, 6000, '복습 줄');
+  ok(
+    $('[data-testid="review-queue-hero"]').closest('[data-testid="learn-entry"]') !== null,
+    '복습 줄이 진입 카드 안에 있다',
+  );
+  ok(
+    $('[data-testid="review-queue-strip"]') === null && $('[data-testid="review-queue-card"]') === null,
+    '복습이 하단 줄·별도 카드로 되돌아가지 않았다',
+  );
   for (const a of secondary?.querySelectorAll('a') ?? []) {
     const cls = a.getAttribute('class') ?? '';
     ok(!/\bbg-(sky|slate|emerald)-\d/.test(cls), `보조 링크는 채움 버튼이 아니다 — "${cls}"`);

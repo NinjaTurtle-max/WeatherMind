@@ -183,7 +183,15 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
     ok(!text().includes(gone), `홈 카드가 되살아나지 않았다 — ${gone} 없음`);
   }
   ok(!text().includes('안녕하세요'), '홈 인사말이 되살아나지 않았다');
-  ok($('[data-testid="review-queue-card"]') === null, '복습은 카드가 아니라 아래 줄(strip)이다');
+  ok($('[data-testid="review-queue-card"]') === null, '복습이 별도 흰 카드가 아니다');
+  // 복습은 자기 쿼리(GET /progress/review-queue)가 도착해야 그려진다 — 즉시 보면
+  // 아직 null이다(due 0건과 구분되지 않는다).
+  await waitFor(() => $('[data-testid="review-queue-hero"]') !== null, 6000, '복습 줄(진입 카드 안)');
+  const heroReview = $('[data-testid="review-queue-hero"]');
+  ok(
+    heroReview.closest('[data-testid="learn-entry"]') !== null,
+    '복습이 진입 카드 **안**에 있다(「이어서 풀기」 밑)',
+  );
 
   // ⑤ 출석 체크는 이 화면이 만든다 — 비동기라 도착을 기다린다
   const attendance = () => xhrLog.filter((l) => l.includes('/attendance')).length;

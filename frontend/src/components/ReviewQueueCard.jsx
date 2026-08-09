@@ -26,6 +26,9 @@ import { useT } from '../i18n';
  *           아니라 **껍데기만** 벗기는 이유는 due 0건 렌더 생략·상위 3개 자르기
  *           같은 계약이 두 모양에서 같아야 하기 때문이다 — 두 컴포넌트로 갈라
  *           두면 한쪽만 고쳐진다.
+ *   'hero'  파란 진입 카드(LearnHeroCard) 안 — 「이어서 풀기」 밑(2026-08-09).
+ *           대비 기준이 **파란 바탕**이라 칩·글자 색이 다르다(흰 바탕용 slate
+ *           계열은 여기서 묻힌다). 모양만 다르고 계약은 위 둘과 같다.
  */
 export default function ReviewQueueCard({ variant = 'card' }) {
   const t = useT();
@@ -40,6 +43,40 @@ export default function ReviewQueueCard({ variant = 'card' }) {
 
   const top = due.slice(0, 3);
   const rest = due.length - top.length;
+
+  if (variant === 'hero') {
+    return (
+      <div
+        data-testid="review-queue-hero"
+        className="mt-4 w-full border-t border-white/25 pt-4 text-left"
+      >
+        <div className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="text-[13px]">🔁</span>
+          <p className="text-[12.5px] font-extrabold text-white/90">{t('reviewQueue.title')}</p>
+          <span className="ml-auto text-[11px] font-bold tabular-nums text-white/70">
+            {t('reviewQueue.count', { count: due.length })}
+          </span>
+        </div>
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {top.map((item) => (
+            <li
+              key={item.concept_tag}
+              className="rounded-full bg-white/20 px-2.5 py-1 text-[11.5px] font-bold text-white"
+            >
+              {CONCEPT_KO[item.concept_tag] ?? item.concept_tag}
+            </li>
+          ))}
+          {rest > 0 && <li className="px-1 py-1 text-[11px] font-bold text-white/70">+{rest}</li>}
+        </ul>
+        <Link
+          to="/daily"
+          className="mt-2.5 inline-block text-[12px] font-extrabold text-white/90 underline underline-offset-4 hover:text-white"
+        >
+          {t('reviewQueue.cta')}
+        </Link>
+      </div>
+    );
+  }
 
   if (variant === 'strip') {
     return (

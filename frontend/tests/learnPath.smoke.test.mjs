@@ -338,10 +338,17 @@ await render({});
   const heroMounts = (home.match(/<LearnHeroCard/g) ?? []).length;
   ok(heroMounts === 2, `진입 카드 마운트 2곳(레일·모바일) — 실제 ${heroMounts}`);
 
-  // 흰 카드를 늘리지 않는다 — 복습은 카드가 아니라 아래 줄이다.
+  // 흰 카드를 늘리지 않는다 — 복습은 별도 카드가 아니라 **진입 카드 안**이다
+  // (2026-08-09 지시로 하단 strip에서 여기로 올라왔다).
+  const hero = readFileSync(resolve(root, 'src/modules/curriculum/LearnHeroCard.jsx'), 'utf8');
   ok(
-    home.includes('variant="strip"'),
-    '복습 큐를 strip으로 쓴다(카드로 되돌리면 흰 카드가 늘어난다)',
+    hero.includes('variant="hero"') && !home.includes('<ReviewQueueCard'),
+    '복습 큐를 진입 카드가 마운트한다(별도 카드로 되돌리면 흰 카드가 늘어난다)',
+  );
+  // 카드 바깥이 <Link>로 되돌아가면 안 된다 — 복습 링크가 안에 있어 `<a>` 중첩이 된다.
+  ok(
+    !/<Link\s+[^>]*data-testid="learn-entry"/.test(hero),
+    '진입 카드 바깥은 Link가 아니다(a 중첩 방지)',
   );
 
   // 사이드바 튜터와 진입 카드가 같은 화면에서 겹치지 않는다.

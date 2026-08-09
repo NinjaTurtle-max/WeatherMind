@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import Mascot from '../../components/Mascot';
+import ReviewQueueCard from '../../components/ReviewQueueCard';
 import { ENTRY_MASCOT } from './learnEntry';
 import { useT } from '../../i18n';
 
@@ -7,8 +8,8 @@ import { useT } from '../../i18n';
  * LearnHeroCard — 학습 화면 오른쪽 열의 진입 카드 (2026-08-09 사용자 시안).
  *
  * 홈 화면을 지우고 학습 하나로 합치면서, 홈에 흩어져 있던 **진입 카드 + 오늘의
- * 목표**를 한 장으로 합쳤다. 흰 카드가 8장이라 화면이 지저분하다는 지적에서
- * 나온 통합이다.
+ * 목표 + 복습 큐**를 한 장으로 합쳤다. 흰 카드가 8장이라 화면이 지저분하다는
+ * 지적에서 나온 통합이다.
  *
  * 왜 오른쪽 열의 **세로** 카드인가: 마스코트가 맨 위에 오고 카드가 세로로 길어야
  * 한다는 요구였는데, 전폭 띠로 두면 그 높이가 화면 위쪽을 통째로 먹어 학습
@@ -25,6 +26,12 @@ import { useT } from '../../i18n';
  * 대비는 흰 바탕 기준이 아니라 파란 바탕 기준으로 잡혀 있다 — 본문 글자는
  * white/80, CTA는 흰 채움에 sky-700 글자다.
  *
+ * ⚠️ **카드 전체를 `<Link>`로 감싸지 않는다**(2026-08-09 구조 변경). 복습 줄이
+ * 안으로 들어오면서 카드 안에 링크가 생겼는데, `<a>` 안의 `<a>`는 HTML이 허용하지
+ * 않고 브라우저가 태그를 쪼개 버린다(React 마크업과 실제 DOM이 갈린다).
+ * 바깥은 div이고 **누를 수 있는 것은 CTA와 복습 링크뿐**이다 — 목표 진행 바처럼
+ * 읽기만 하는 자리를 눌러도 아무 일이 없어야 맞기도 하다.
+ *
  * 마스코트는 **물방울이**다(learnEntry.ENTRY_MASCOT). 사이드바 튜터가 /learn에서
  * 같은 캐릭터를 그리므로, 이 카드가 뜨는 화면에서는 SideNav가 튜터를 접는다 —
  * 같은 그림이 한 화면에 둘 뜨면 어느 쪽이 말하는 건지 알 수 없다.
@@ -35,14 +42,10 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
   const remaining = goalTotal ? Math.max(0, goalTotal - goalDone) : 0;
 
   return (
-    <Link
-      to={entry.to}
+    <div
       data-testid="learn-entry"
       data-entry-kind={entry.kind}
-      // flex-1 + mt-auto(아래 목표 블록) — 레일이 트랙 높이만큼 늘어나면 카드도
-      // 같이 늘고, 남는 높이는 마스코트와 목표 **사이**로 간다. 목표를 위로
-      // 끌어올리면 카드 아래가 비어 "덜 채운 카드"로 보인다.
-      className="group flex flex-1 flex-col items-center rounded-[18px] bg-gradient-to-b from-sky-400 via-sky-600 to-sky-800 px-5 pb-5 pt-6 text-white shadow-lg shadow-sky-600/25 transition hover:shadow-xl hover:shadow-sky-600/35"
+      className="group flex flex-1 flex-col items-center rounded-[18px] bg-gradient-to-b from-sky-400 via-sky-600 to-sky-800 px-5 pb-5 pt-6 text-white shadow-lg shadow-sky-600/25"
     >
       {/* 정사각 박스 — 폭만 주면 세로가 원본 비율을 따라가고, 캐릭터를 바꾸면
           카드 높이가 통째로 달라진다(가로형 cloud ↔ 세로형 bolt). */}
@@ -54,18 +57,28 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
       <p className="mt-1.5 text-center text-[20px] font-extrabold leading-snug tracking-tight">
         {copy.title}
       </p>
-      {/* break-keep — 카드가 좁아(316px) 기본 줄바꿈이 어절 한가운데를 끊는다.
+      {/* break-keep — 카드가 좁아(296px) 기본 줄바꿈이 어절 한가운데를 끊는다.
           보드 실험 카드와 같은 처리다. */}
       <p className="mt-2 break-keep text-center text-[12.5px] leading-relaxed text-white/80">
         {copy.body}
       </p>
 
-      <span className="mt-4 w-full rounded-[14px] bg-white px-4 py-3 text-center text-[14.5px] font-extrabold text-sky-700 shadow-md shadow-sky-900/20 transition group-hover:bg-sky-50">
+      <Link
+        to={entry.to}
+        data-testid="learn-entry-cta"
+        className="mt-4 w-full rounded-[14px] bg-white px-4 py-3 text-center text-[14.5px] font-extrabold text-sky-700 shadow-md shadow-sky-900/20 transition hover:bg-sky-50"
+      >
         {copy.cta}
-      </span>
+      </Link>
+
+      {/* 복습 — 「이어서 풀기」 바로 밑(2026-08-09 지시). 화면 맨 아래 줄에 있던 것을
+          올렸다. due 0건이면 컴포넌트가 스스로 null이라 자리째 빠진다. */}
+      <ReviewQueueCard variant="hero" />
 
       {/* 오늘의 목표 — 미설정(goalTotal 없음)이면 줄째 생략한다. 0/0 바를 그리면
-          "목표를 못 채웠다"로 읽혀, 아직 정하지 않은 상태를 실패처럼 보이게 한다. */}
+          "목표를 못 채웠다"로 읽혀, 아직 정하지 않은 상태를 실패처럼 보이게 한다.
+          mt-auto — 레일이 트랙 높이만큼 늘어나면 남는 높이가 목표 **위**로 가서
+          목표가 카드 바닥에 붙는다. */}
       {goalTotal ? (
         <div className="mt-auto w-full border-t border-white/25 pt-4" data-testid="learn-goal">
           <div className="flex items-baseline gap-2">
@@ -86,9 +99,9 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
           </p>
         </div>
       ) : (
-        // 목표 미설정 — 늘어난 높이를 먹어 CTA가 카드 가운데에 남게 한다.
+        // 목표 미설정 — 늘어난 높이를 먹어 위 내용이 카드 가운데에 남게 한다.
         <span className="mt-auto" aria-hidden="true" />
       )}
-    </Link>
+    </div>
   );
 }
