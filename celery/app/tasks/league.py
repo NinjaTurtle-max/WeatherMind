@@ -260,17 +260,79 @@ def _duel_actual_for_day(target: date) -> dict | None:
     return {"temp_max": max_ta, "rain_prob": 100.0 if rained else 0.0}
 
 
+# 정산 백필 창 (CO-Q-7) — 오늘 기준 이 일수 안의 **미정산 대상일 전부**를 훑는다.
+# 종전에는 `today - 1` 하루만 봤고, 재시도 2회(1시간 간격)가 다 실패하면 그날치는
+# **영구 손실**이었다. KMA 지연·배치 실패·컨테이너 사망 중 어느 것이든 하루를 놓치면
+# 그 대결들은 `actual IS NULL`로 영원히 남아 사용자에게 "정산 안 됨"으로 보인다.
+# 7일인 이유: 8/11~18 실운영이 8일이고, 그 기간 안에서 하루를 놓쳐도 다음 실행이
+# 스스로 메우게 하려면 창이 그 기간을 덮어야 한다.
+DUEL_BACKFILL_DAYS = 7
+
+
 @shared_task(name="app.tasks.league.settle_daily_duel", bind=True, max_retries=2)
 def settle_daily_duel(self):
     today = datetime.now(KST).date()
     target = today - timedelta(days=1)  # 어제가 대상일이던 대결
 
+    engine = get_engine()
+
+    # 미정산 대상일을 **오래된 순**으로 훑는다. 어제만 보던 종전 동작은 이 목록의
+    # 마지막 한 건만 처리한 것과 같다.
+    with engine.begin() as conn:
+        pending = [
+            row[0]
+            for row in conn.execute(
+                text("""
+                    SELECT DISTINCT duel_date FROM duels
+                    WHERE actual IS NULL
+                      AND duel_date <= :yesterday
+                      AND duel_date >= :floor
+                    ORDER BY duel_date
+                """),
+                {"yesterday": target, "floor": today - timedelta(days=DUEL_BACKFILL_DAYS)},
+            ).fetchall()
+        ]
+
+    if not pending:
+        logger.info("[duel] %s 정산 대상 없음", target)
+        return {"duel_date": str(target), "settled": 0}
+
+    total_settled = total_wins = 0
+    results: list[dict] = []
+    for day in pending:
+        outcome = _settle_one_day(engine, day)
+        if outcome is None:
+            # 실측값을 못 얻었다. **어제분만** 재시도한다 — 그날의 KMA 자료가 아직
+            # 안 올라온 것이 정상 경로이기 때문이다. 더 오래된 날짜가 계속 비어 있는
+            # 것은 지연이 아니라 결손이므로, 재시도로 해결되지 않고 그 사이 어제분
+            # 정산까지 막는다. 로그로 남기고 넘어간다.
+            if day == target:
+                logger.error("[duel] %s 실측값 조회 실패 — 1시간 후 재시도", day)
+                raise self.retry(countdown=3600)
+            logger.warning("[duel] %s 실측값 없음 — 백필 건너뜀(결손 가능)", day)
+            continue
+        total_settled += outcome["settled"]
+        total_wins += outcome["wins"]
+        results.append(outcome)
+
+    return {
+        "duel_date": str(target),
+        "settled": total_settled,
+        "wins": total_wins,
+        "days": results,
+    }
+
+
+def _settle_one_day(engine, target) -> dict | None:
+    """하루치 정산 — 실측값을 못 얻으면 None(호출측이 재시도/건너뜀을 판단).
+
+    본문은 종전 `settle_daily_duel`의 하루 처리 그대로다. 백필이 같은 코드를 다시
+    쓰게 하려고 분리했을 뿐, 채점·XP 규칙은 한 줄도 바뀌지 않았다.
+    """
     actual = _duel_actual_for_day(target)
     if actual is None:
-        logger.error("[duel] %s 실측값 조회 실패 — 1시간 후 재시도", target)
-        raise self.retry(countdown=3600)
+        return None
 
-    engine = get_engine()
     settled = wins = 0
     with engine.begin() as conn:
         rows = conn.execute(
@@ -283,7 +345,7 @@ def settle_daily_duel(self):
 
         if not rows:
             logger.info("[duel] %s 정산 대상 없음", target)
-            return {"duel_date": str(target), "settled": 0}
+            return {"duel_date": str(target), "settled": 0, "wins": 0}
 
         for row_id, user_id, user_pred, ai_pred in rows:
             if isinstance(user_pred, str):
@@ -321,4 +383,9 @@ def settle_daily_duel(self):
             settled += 1
 
     logger.info("[duel] %s 정산 완료: %d건 (승리 %d, actual=%s)", target, settled, wins, actual)
-    return {"duel_date": str(target), "settled": settled, "wins": wins, "actual_value": actual}
+    return {
+        "duel_date": str(target),
+        "settled": settled,
+        "wins": wins,
+        "actual_value": actual,
+    }

@@ -11,6 +11,23 @@
 #   나머지 경로는 frontend nginx(정적 SPA + SPA fallback)로.
 # =============================================================================
 
+# ── X-Forwarded-For 신뢰 (CO-P-7 — 2026-08-09 실측으로 전제가 뒤집힘) ──────────
+# 이월 대장은 *"bare reverse_proxy라 Caddy가 클라이언트 XFF에 덧붙일 뿐 덮어쓰지
+# 않는다 → 헤더 한 줄로 레이트리밋 우회"*라 적었다. **실측하니 거짓이다.**
+#
+# 격리 환경(caddy:2-alpine = v2.11.4, prod와 같은 태그)에서 에코 서버로 확인:
+#   curl -H 'X-Forwarded-For: 1.2.3.4' → 업스트림이 받은 XFF = **실제 소켓 IP**
+# Caddy 2는 `trusted_proxies`가 설정되지 않으면 들어온 XFF를 신뢰하지 않고 교체한다.
+# (그래서 `header_up X-Forwarded-For {remote_host}`를 넣으면 Caddy 자신이
+#  "Unnecessary header_up"이라 경고한다 — 넣었다가 실측 후 도로 뺐다.)
+#
+# 두 번째 우회로인 **backend 직접 접속**도 막혀 있다: `docker-compose.prod.yml`이
+# backend·ai-worker의 `ports`를 `!reset []`로 지워 외부에 열린 것은 Caddy뿐이다.
+#
+# ⚠️ 그러므로 이 안전성은 두 조건에 얹혀 있다 — **`trusted_proxies`를 넓게 설정하지
+# 말 것**, 그리고 **prod에서 backend 포트를 다시 열지 말 것.** 둘 중 하나가 깨지면
+# `client_ip_key`(rate_limit.py)의 첫 홉 신뢰가 그 즉시 위조 가능해진다.
+
 {$DOMAIN:localhost} {
 	encode gzip
 

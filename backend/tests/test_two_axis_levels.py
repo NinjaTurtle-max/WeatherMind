@@ -281,17 +281,30 @@ class TestExistingConsumersUnchanged:
             0,
         ) == []
 
-    def test_출제_선정은_아직_새_축을_읽지_않는다(self):
-        """소스 계약 — 값이 없어 검증 불가이므로 **출제 판정** 배선은 범위 밖.
+    def test_출제_필터와_배합은_새_축을_읽지_않는다(self):
+        """소스 계약 — kl은 **정렬**에만 쓰이고 **필터·배합**에는 못 들어온다.
 
-        여기가 무는 순간은 "CU-1 표가 확정되기 전에 knowledge_level이 출제에 새어
-        들어갔다"는 뜻이다(무근거 난이도 판정이 조용히 서빙된다).
+        ⚠️ **2026-08-09 개정(CO-E-1).** 이 테스트는 직전까지
+        `test_출제_선정은_아직_새_축을_읽지_않는다`라는 이름으로 `_fetch_pools`·
+        `_fetch_unit_pool`까지 금지해 **6단계 해상도가 서빙에 닿는 것을 막고
+        있었다.** 그런데 그 사이 두 전제가 무너졌다:
 
-        **R13 A-1/D 개정**: 범위를 "모듈 전체 부재"에서 "출제 판정 함수 부재"로
-        좁혔다. session_service가 생성 문항 영속화(persist_generated_items)에서
-        컬럼에 **쓰기** 시작했기 때문이다 — 신고값이 오면 그대로 저장되는 통로이고,
-        지금은 아무도 신고하지 않아 항상 NULL(미분류)이다. 쓰기는 판정이 아니다.
-        읽어서 **고르는** 쪽(풀 쿼리·난이도 정렬·배합)이 계속 금지 구역이다.
+        - **"아무도 신고하지 않아 항상 NULL"이 거짓이 됐다** — 시드 문항이 전건
+          `knowledge_level` 분류를 마쳤다(2026-08-09 실측 284/284).
+        - **유닛 경로는 이미 이 선을 넘었다** — `curriculum_service`의
+          `rank_by_knowledge_level`(CO-L-F2)이 프로덕션에서 kl로 재정렬한다.
+          즉 금지는 daily에만 걸려 있었고, 결과는 "유닛은 6단계·daily는 4칸"이라는
+          **비대칭**이었다. 안전망이 결함을 한쪽에만 영구화한 형태다.
+
+        그래서 금지를 없애는 대신 **경계를 옮겨 적는다.** 남는 위험은 원래
+        독스트링이 지목한 것 하나다 — 미분류(NULL) 문항이 **풀에서 탈락**하는 것.
+        정렬은 미분류를 뒤로 보낼 뿐이지만 필터는 굶긴다. 그러므로:
+
+        - 금지: `build_pool_query`(SQL WHERE) · `pool_level_groups`(밴드 선택) ·
+          `plan_bank_picks`(배합) — 여기에 kl이 들어오면 굶기거나 계약을 흔든다.
+        - 허용: 조회 조립부(`_fetch_pools`·`_fetch_unit_pool`) — **정렬 위임만**.
+        - `placement_service`는 파일 전체 금지 유지(배치고사 3밴드 고정은 CO-D1
+          별건이고, 그 판정 전에 kl이 새면 안 된다).
         """
         import inspect
 
@@ -299,11 +312,23 @@ class TestExistingConsumersUnchanged:
             session_service.build_pool_query,
             session_service.pool_level_groups,
             session_service.plan_bank_picks,
-            session_service._fetch_pools,
-            session_service._fetch_unit_pool,
         ):
             assert "knowledge_level" not in inspect.getsource(fn), fn.__name__
         assert "knowledge_level" not in Path(ps.__file__).read_text(encoding="utf-8")
+
+    def test_daily_풀_재정렬은_유닛과_같은_함수를_쓴다(self):
+        """CO-E-1 — 두 경로가 갈리면 결함이 형태만 바꿔 남는다.
+
+        `_fetch_pools`가 자체 정렬 로직을 새로 쓰지 않고
+        `rank_by_knowledge_level`에 위임하는지를 소스로 고정한다. 이 함수가
+        정렬의 **단일 소유자**여야 강등 방향(같은 거리면 쉬운 쪽)이 한 곳에서만
+        정의된다.
+        """
+        import inspect
+
+        src = inspect.getsource(session_service._fetch_pools)
+        assert "rank_by_knowledge_level" in src
+        assert "theta_to_knowledge_level" in src
 
     def test_생성_문항_적재는_신고값을_그대로_흘려보낸다(self):
         """쓰기 자리는 **열려 있다** — 신고가 오면 저장되고, 없으면 NULL이다.
@@ -547,7 +572,7 @@ class TestMigration0012:
             )
             revisions[found["revision"]] = found.get("down_revision")
         referenced = {down for down in revisions.values() if down}
-        assert set(revisions) - referenced == {"0012_two_axis_levels"}
+        assert set(revisions) - referenced == {"0013_league_result_unique"}
 
     def test_모델_컬럼_계약(self):
         """둘 다 nullable·서버 기본값 없음 — NULL 폴백이 코드 소유라는 뜻(region 선례)."""

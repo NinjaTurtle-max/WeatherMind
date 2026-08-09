@@ -22,22 +22,43 @@
 #
 # build: !reset null 은 base의 build 키를 무효화한다(compose v2.24+). 이게 없으면
 # image와 build가 공존해 로컬 빌드를 시도한다 — ports의 !reset과 같은 관용구다.
+#
+# ── restart: 왜 prod가 base를 덮는가 (CO-J-16) ────────────────────────────────
+# base는 `on-failure:5`다(디버깅 중 무한 재기동 방지). prod는 **전 서비스**를
+# `unless-stopped`로 덮는다. 이유 둘:
+#   ① `on-failure`는 **호스트 재부팅 뒤 컨테이너를 되살리지 않는다**. URL을
+#      시상식(9월 셋째 주)까지 유지해야 하는데 VM 유지보수 재부팅 한 번이면
+#      배점 ⑤("안정적으로 구동")가 0이 된다. `unless-stopped`는 데몬 기동 시
+#      복구하되, 운영자가 명시적으로 stop한 컨테이너는 그대로 둔다.
+#   ② 횟수 상한이 있으면 일시적 의존 장애(DB 재기동 등)가 5회를 소진한 뒤
+#      영구 사망으로 굳는다 — 무인 운영에서는 이쪽이 더 나쁘다.
+# 오버레이 스칼라는 **적힌 서비스만** 덮으므로 한 서비스도 빠뜨리면 안 된다.
 # =============================================================================
 services:
   caddy:
     image: caddy:2-alpine
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     # DOMAIN을 .env에서 읽는다(없으면 Caddyfile 기본값 localhost → internal TLS)
     env_file: .env
+    mem_limit: 128m # TLS 종단 + 정적 프록시. 실측 기준선 없음(미배포) — 여유 상한
     volumes:
       - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data # 인증서·로컬 CA 영속 (재기동 시 재발급 방지)
       - caddy_config:/config
     depends_on:
-      - backend
-      - frontend
+      # ⚠️ 이 한 줄이 CO-J-16의 본체다. 종전 리스트 표기(= service_started)에서는
+      # **backend 프로세스가 뜨기만 하면** Caddy가 트래픽을 보냈다 — DB·Redis에
+      # 아직 못 닿은 backend를 프론트해 첫 방문자가 502/5xx를 본다.
+      # backend healthcheck(/health = DB SELECT 1 + Redis PING)가 초록이어야 뜬다.
+      backend:
+        condition: service_healthy
+      # frontend는 healthcheck가 없다 — 없는 서비스에 service_healthy를 걸면
+      # 그 의존은 영원히 만족되지 않아 스택이 아예 안 뜬다.
+      frontend:
+        condition: service_started
 
   # ── 프록시 뒤로: 호스트 포트 직노출 제거 ──────────────────────────────────
   # compose 오버레이 병합에서 ports는 union이라 빈 배열로는 못 지운다 —
@@ -48,19 +69,29 @@ services:
   # ai-worker 188MB · celery-worker 323MB · postgres 70MB · redis 20MB
   # (합 ~0.75GB). 상한은 실측의 4~8배로 잡되 **합계가 물리 메모리를 넘지 않게** 한다
   # — 상한의 합이 RAM을 초과하면 상한이 OOM을 막는 게 아니라 앞당긴다.
-  # 합계 3.75GB / 6GB → OS·페이지캐시에 2.25GB 남는다.
-  # (R13 3일차에 chroma 서비스가 사라져 상한 384m이 빠졌다 — 4.1GB → 3.75GB.)
+  #
+  # **합계 4096m = 4.0GB / 6GB → OS·페이지캐시에 2.0GB 남는다**(2026-08-09 재계산).
+  # 종전 3.75GB에서 오른 것은 상한이 없던 두 서비스(caddy·db-backup)에 128m씩을
+  # 새로 넣었기 때문이다 — 상한 없는 컨테이너가 하나라도 있으면 "한 컨테이너의
+  # 폭주가 전체를 끌어내리지 않는다"는 이 문단의 전제 자체가 성립하지 않는다.
+  # (이력: chroma 철거로 384m이 빠져 4.1GB → 3.75GB, 이번에 +256m → 4.0GB.)
+  # ⚠️ 값을 고치면 **docs/DEPLOY.md §0의 합계도 같이** 고칠 것 — 그 표가 4.12GB로
+  # 굳어 있던 것이 이번 수리에서 발견됐다. 합은 손으로 추정하지 말고 세라:
+  #   grep -o 'mem_limit: [0-9]*m' docker-compose.prod.yml | grep -o '[0-9]*' \
+  #     | paste -sd+ - | bc
   # ai-worker만 유독 큰 것은 키 투입 후 langchain 적재 때문이다. 개념 문서는
   # 8KB json을 프로세스 캐시에 올릴 뿐이라 메모리에 유의미한 기여를 하지 않는다.
   frontend:
     ports: !reset []
     build: !reset null
+    restart: unless-stopped
     image: ghcr.io/ninjaturtle-max/weathermind-frontend:${IMAGE_TAG:-latest}
     mem_limit: 128m # 실측 10MB (nginx 정적 서빙)
 
   backend:
     ports: !reset []
     build: !reset null
+    restart: unless-stopped
     image: ghcr.io/ninjaturtle-max/weathermind-backend:${IMAGE_TAG:-latest}
     mem_limit: 768m # 실측 115MB
 
@@ -69,24 +100,40 @@ services:
   ai-worker:
     ports: !reset []
     build: !reset null
+    restart: unless-stopped
     image: ghcr.io/ninjaturtle-max/weathermind-ai-worker:${IMAGE_TAG:-latest}
     mem_limit: 1536m # 실측 188MB — 키 투입 후 langchain 적재분을 크게 잡는다
 
   celery-worker:
     build: !reset null
+    restart: unless-stopped
     image: ghcr.io/ninjaturtle-max/weathermind-celery:${IMAGE_TAG:-latest}
     mem_limit: 512m # 실측 323MB — 배치 수집 중 피크 대비
 
   celery-beat:
     build: !reset null
+    restart: unless-stopped
     image: ghcr.io/ninjaturtle-max/weathermind-celery:${IMAGE_TAG:-latest}
     mem_limit: 192m # 실측 50MB (스케줄러만)
 
   postgres:
+    restart: unless-stopped
     mem_limit: 512m # 실측 70MB — shared_buffers·연결당 work_mem 여유
 
+  # db-backup은 base에만 있어 prod 상한이 통째로 비어 있었다(CO-J-16에서 발견).
+  # pg_dump는 custom format 압축 버퍼만 쓰므로 128m로 충분하고, 상한이 있어야
+  # 백업 중 폭주가 학습 트래픽을 밀어내지 않는다.
+  db-backup:
+    restart: unless-stopped
+    mem_limit: 128m
+
   redis:
-    mem_limit: 192m # 실측 20MB (브로커·캐시)
+    restart: unless-stopped
+    # ⚠️ 이 값과 infra/redis.conf의 `maxmemory`는 **짝이다**. maxmemory(128mb)가
+    # 여기보다 낮아야 Redis가 자기 한도에서 먼저 반응하고, 커널 OOM killer가
+    # 프로세스를 죽여 AOF에 안 내려간 세션까지 잃는 순서로 가지 않는다.
+    # 이 값을 내릴 때는 redis.conf의 maxmemory를 먼저 내릴 것.
+    mem_limit: 192m # 실측 20MB (브로커·캐시·세션)
 
 volumes:
   caddy_data:

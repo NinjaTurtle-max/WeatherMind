@@ -139,7 +139,32 @@ else
 fi
 
 if [ "$MODE" = "target" ]; then
-  log "OK: '$DEST' 복원 완료 (테이블 $rest_tbl개) — DB는 남겨 둠, 전환은 운영자 몫"
+  # ── 앱 롤 재적용 (CO-Q-4) ──────────────────────────────────────────────────
+  # `pg_restore --no-owner --no-privileges`는 **의도적으로** 소유자·권한을 버린다
+  # (그래야 다른 클러스터·다른 롤 이름에서도 복원이 성립한다). 그 대가로 복원된 DB에는
+  # `weathermind_app` GRANT도, RLS 예외 정책 2건도 없다.
+  #
+  # 즉 **복원은 성공했는데 런타임이 그 DB를 못 쓴다.** 재해복구에서 가장 나쁜 형태다 —
+  # 스크립트가 "OK"를 찍고 끝나서, 전환한 뒤에야 앱이 전건 권한 오류로 죽는다.
+  # rls_app_role.sql은 멱등이므로 여기서 무조건 한 번 돌린다.
+  #
+  # rehearsal 모드에는 걸지 않는다: 임시 DB는 곧 DROP되고, 리허설의 질문은
+  # "덤프가 온전한가"이지 "런타임이 붙을 수 있는가"가 아니다.
+  log "앱 롤·RLS 정책 재적용: rls_app_role.sql → $DEST"
+  if compose exec -T postgres psql -U "$PGUSER" -d "$DEST" -v ON_ERROR_STOP=1 \
+      < "$ROOT/backend/app/scripts/rls_app_role.sql" >/dev/null; then
+    log "앱 롤 적용 완료 — 런타임(weathermind_app)이 이 DB를 쓸 수 있다"
+  else
+    log "FAIL: 앱 롤 적용 실패 — 복원본은 남아 있으나 **런타임은 못 붙는다**"
+    log "      수동 조치: docker compose exec -T postgres psql -U $PGUSER -d $DEST \\"
+    log "                   -v ON_ERROR_STOP=1 < backend/app/scripts/rls_app_role.sql"
+    exit 1
+  fi
+  # `${}`로 감싼다 — `$rest_tbl개`는 한글이 변수명에 붙어 `set -u`에서 죽는다.
+  # 이 줄이 target 모드의 **마지막 줄**이라, 복원이 다 끝난 뒤에 실패했다.
+  # rehearsal 쪽은 처음부터 `${rest_tbl}`이었다 — 즉 target 모드는 한 번도 끝까지
+  # 돈 적이 없다(CO-Q-4를 실행으로 확인하다가 드러났다).
+  log "OK: '$DEST' 복원 완료 (테이블 ${rest_tbl}개) — DB는 남겨 둠, 전환은 운영자 몫"
 else
   log "OK: 복원 리허설 통과 (테이블 ${rest_tbl}개 일치) — 임시 DB는 곧 DROP"
 fi

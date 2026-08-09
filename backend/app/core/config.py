@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     # 완주 보장"(R10 에너지 계약)이 이미 흡수한다 — daily-goal(3·5·9)·CLOUD_*는 불변.
     SESSION_RECIPE: dict[str, int] = {"new": 5, "review": 4, "live": 1, "unit": 5}
     UNIT_SESSION_SIZE: int = 5           # 커리큘럼 유닛 세션 문항 수
+    # daily 세션의 **비진도 블록**(new·review·live 10문항)에 들어갈 board 상한.
+    # 시드 board 비중(2026-08-09 실측 46/284 = 16%)을 10문항에 적용하면 1.6이라 2로
+    # 잡는다. 진도 블록은 제외 — board 유닛의 진도는 board가 나오는 것이 정상이다.
+    # 상한을 넘으면 **버리는 게 아니라 뒤로 미룬다**(대체 후보가 없으면 그대로 채운다):
+    # 버리면 배합이 덜 차고 그 자리가 유료 생성으로 새기 때문이다(CO-H5·CO-M1).
+    DAILY_BOARD_CAP: int = 2
 
     # 생성 문항 영속화 상태 (R13 A-1/D 선행 — session_service.persist_generated_items).
     # quiz-generate 폴백 산출물을 content_items에 적재할 때 부여하는 status다.

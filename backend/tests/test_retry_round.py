@@ -533,7 +533,7 @@ class TestMigration0011:
             )
             revisions[found["revision"]] = found.get("down_revision")
         referenced = {down for down in revisions.values() if down}
-        assert set(revisions) - referenced == {"0012_two_axis_levels"}
+        assert set(revisions) - referenced == {"0013_league_result_unique"}
 
     def test_모델_컬럼_계약(self):
         """quiz_logs.retry_correct — nullable Boolean, 서버 기본값 없음(NULL=미시도)."""
