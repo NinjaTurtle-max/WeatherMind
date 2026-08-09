@@ -88,6 +88,35 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # ── expert 행 선검사 (CO-Q-2) ────────────────────────────────────────────
+    # 아래 `_reset_level_group_check(..., _LEVEL_GROUPS_3)`가 CHECK를 3종으로
+    # 되돌리는데, 시드에 **expert 31건**이 들어와 있으면 그 시점에 42501로 죽는다.
+    # 이 파일 독스트링이 "expert 행 정리가 선행되어야 한다"고 이미 적어 뒀지만,
+    # **문서로만 적힌 전제는 실행 앞에서 아무것도 막지 못한다** — 실제로
+    # `downgrade -1`이 시드된 DB에서 실패하는 것이 실측으로 확인됐다.
+    #
+    # 그래서 여기서 **먼저·명확하게** 세운다. 늦게 죽으면 컬럼 드롭이 이미 절반
+    # 진행된 뒤라 상태가 애매해지고, 오류 문구도 "check constraint violation"이라
+    # 무엇을 해야 하는지 알려 주지 않는다.
+    #
+    # 행을 자동으로 지우거나 다른 밴드로 옮기지 않는다 — 어느 쪽이든 **저작
+    # 산출물을 마이그레이션이 임의로 손대는 것**이고, 되돌릴 수 없다.
+    bind = op.get_bind()
+    blockers = []
+    for table, _constraint in _LEVEL_GROUP_TARGETS:
+        count = bind.exec_driver_sql(
+            f"SELECT count(*) FROM {table} WHERE level_group = 'expert'"  # noqa: S608
+        ).scalar()
+        if count:
+            blockers.append(f"{table}={count}행")
+    if blockers:
+        raise RuntimeError(
+            "0012 downgrade 중단: level_group='expert' 행이 남아 있어 3종 CHECK를 "
+            f"복원할 수 없습니다 ({' · '.join(blockers)}). "
+            "이 행들을 먼저 정리하거나 다른 밴드로 재분류한 뒤 다시 실행하세요 "
+            "— 마이그레이션이 저작 산출물을 임의로 지우지 않습니다."
+        )
+
     op.drop_constraint("ck_users_tone", "users", type_="check")
     op.drop_constraint(
         "ck_content_items_knowledge_level", "content_items", type_="check"
