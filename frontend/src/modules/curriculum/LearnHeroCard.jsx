@@ -26,6 +26,13 @@ import { useT } from '../../i18n';
  * 톤: 흰색~sky-50에 헤어라인 테두리. 파란색은 **CTA가 독점**하고 나머지는 무채색
  * 위계다(제목 slate-900 · 본문 slate-500).
  *
+ * 남는 세로 여백은 **한 곳에 몰지 않고 이음매마다 나눈다**(사용자 지시 "여백 없이
+ * 꽉 차게"). 바닥에 `mt-auto` 하나만 두면 그 슬랙이 전부 목표 위에 고여 실측
+ * 170px 구멍이 났다. 플렉스는 **auto 마진이 여러 개면 남는 공간을 똑같이 나눠
+ * 갖는다** — 복습·자유 세션·목표 세 이음매에 걸어 3등분한다. 공간이 없거나
+ * 모자라면 auto 마진은 0으로 접히므로 좁은 화면에서 넘치지 않는다
+ * (`justify-between`은 이 경우 넘친다 — 그래서 안 쓴다).
+ *
  * ⚠️ 바깥을 `<Link>`로 감싸지 않는다. 안에 복습·자유 세션 링크와 지역 픽커
  * (버튼)가 있어 `<a>` 중첩·버튼 중첩이 된다 — 브라우저가 태그를 쪼개 React
  * 마크업과 실제 DOM이 갈린다. 누를 수 있는 것은 CTA·복습·세션·지역뿐이다.
@@ -53,7 +60,7 @@ export default function LearnHeroCard({
     >
       {/* 정사각 박스 — 폭만 주면 세로가 원본 비율을 따라가고, 캐릭터를 바꾸면
           카드 높이가 통째로 달라진다(가로형 cloud ↔ 세로형 bolt). */}
-      <Mascot name={ENTRY_MASCOT[entry.kind] ?? 'drop'} className="h-[96px] w-[96px]" />
+      <Mascot name={ENTRY_MASCOT[entry.kind] ?? 'drop'} className="h-[112px] w-[112px]" />
 
       {/* 튜터 말풍선 — 페이지 머리말에 있던 학습 설명을 여기로 옮겼다(사용자 지시).
           꼬리는 **위**(마스코트)를 향한다. 아래로 두면 밑의 유닛 제목이 말하는
@@ -87,8 +94,12 @@ export default function LearnHeroCard({
         {copy.cta}
       </Link>
 
-      {/* 복습 — due 0건이면 컴포넌트가 스스로 null이라 자리째 빠진다. */}
-      <ReviewQueueCard variant="hero" />
+      {/* 복습 — due 0건이면 컴포넌트가 스스로 null이라 자리째 빠진다.
+          그래서 감싼 div가 **빈 요소**가 되고, 그때는 `empty:mt-0`으로 자기 몫의
+          여백까지 반납한다(비어 있는데 간격만 남으면 위아래가 벌어진다). */}
+      <div className="mt-auto w-full empty:mt-0">
+        <ReviewQueueCard variant="hero" />
+      </div>
 
       {/* 자유 일일 세션 — 카드가 아니라 한 줄이다. 카드로 두면 위 CTA와 무게가
           비슷해져 "무엇을 누를지 모름"이 돌아온다(§2.5).
@@ -103,7 +114,7 @@ export default function LearnHeroCard({
             그 외          평소. */}
       <div
         data-testid="learn-secondary"
-        className="mt-3.5 w-full border-t border-slate-200/80 pt-3 text-[11.5px] text-slate-400"
+        className="mt-auto w-full border-t border-slate-200/80 pt-3 text-[11.5px] text-slate-400"
       >
         <div className="flex items-center gap-2">
           <span className="font-medium">{t('curriculum.daily.title')}</span>
