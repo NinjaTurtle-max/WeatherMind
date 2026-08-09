@@ -206,7 +206,6 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
                   flash={v.phenomenon === 'shower' && v.cloud === 'cumulonimbus'}
                 />
               )}
-              {v.rule_id && <ZoneAnnotation x={ux} y={uy} ruleId={v.rule_id} animate={animate} />}
             </g>
           );
         })}
@@ -214,10 +213,6 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
         {/* 지역 노드 — 지도와 같은 userSpace(<g transform>) */}
         {regions.map((region, zone) => {
           const [ux, uy] = toUser(region.svg_point);
-          const [lx, ly] = toUser(region.label_anchor, [
-            region.svg_point?.[0] ?? 50,
-            (region.svg_point?.[1] ?? 50) + 11,
-          ]);
           const pv = preview?.[zone];
           const ph = phenomenonMeta(pv?.phenomenon);
           const airEl = board?.elements?.find((el) => el.zone === zone && el.type === 'air_mass');
@@ -228,22 +223,10 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
           const isGoalZone = (goalConditions ?? []).some((g) => g.zone === zone);
           return (
             <g key={zone}>
-              {/* 지역 라벨 — 시드 label_anchor 위치 (R9-01 §3.3) */}
-              <text
-                x={lx}
-                y={ly}
-                textAnchor="middle"
-                fontSize="3.6"
-                fontWeight="700"
-                fill="#334155"
-                stroke="#f0f9ff"
-                strokeWidth="0.8"
-                paintOrder="stroke"
-                style={{ pointerEvents: 'none' }}
-              >
-                {region.name}
-              </text>
-
+              {/* 지역 라벨은 여기서 그리지 않는다 — 맨 아래 ⑤ 레이어가 그린다.
+                  주석 상자(④-b)를 노드 위로 올린 뒤 상자가 라벨을 덮었기 때문이다.
+                  쌓는 순서: 노드 원 → 주석 상자 → **라벨**. 지역 이름은 어느 것에도
+                  가려지면 안 되는 최상위 정보다. */}
               <g
                 transform={`translate(${ux} ${uy})`}
                 data-board-zone={zone}
@@ -262,10 +245,26 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
                 // 검은 사각형**이 지도 위에 뜬다(Chrome이 tabindex 붙은 SVG <g>에
                 // 그리는 기본값). 지워 버리면 키보드 사용자가 지금 어디에 있는지
                 // 알 수 없으므로, 없애지 않고 회색·절반 두께로 낮춘다(2026-08-06).
-                className={`${interactive ? 'cursor-pointer' : ''} outline-none focus:outline focus:outline-[1.5px] focus:outline-offset-2 focus:outline-slate-400`}
+                // 포커스 표시는 CSS outline이 아니라 아래 SVG 원(.wm-zone-focus)이
+                // 그린다 — outline은 요소의 **사각 경계 상자**를 따라서, 동그란 노드에
+                // 회색 네모가 씌워졌다(2026-08-07). 원으로 바꾸면서 더 얇고 짙게 했다.
+                // outline-none만 두고 지우지는 않는다: 키보드 사용자가 자기 위치를
+                // 잃으면 안 되므로 대체 표시(원)를 반드시 함께 둔다.
+                className={`wm-zone outline-none ${interactive ? 'cursor-pointer' : ''}`}
               >
                 {/* 터치 히트 영역 — 지도폭 320px 기준 지름 ≥44px (r 8.5 = 17unit ≈ 54px) */}
                 <circle r="8.5" fill="transparent" />
+
+                {/* 포커스 링 — 노드 본체(r 6)보다 살짝 큰 원. 평소엔 숨고
+                    :focus에서만 보인다(styles/index.css .wm-zone:focus). */}
+                <circle
+                  className="wm-zone-focus"
+                  r="6.9"
+                  fill="none"
+                  stroke="#1f2937"
+                  strokeWidth="0.28"
+                  style={{ pointerEvents: 'none' }}
+                />
 
                 {/* 목표/충족 링 */}
                 {isGoalZone && !goalMet && (
@@ -307,6 +306,46 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
                 )}
               </g>
             </g>
+          );
+        })}
+
+        {/* ④-b 현상 주석 라벨 — **지역 노드 뒤에** 그린다(맨 위 레이어).
+            노드와 같은 그룹(④)에 있었더니 노드 원이 설명 상자를 덮어 문장이
+            반쯤 가려졌다(2026-08-07 실측: 수도권 원이 「한랭…맑고 추운」을 가림).
+            읽히려고 있는 라벨이니 위로 올린다. pointerEvents:none이라 위에
+            있어도 존 탭·드래그를 가로채지 않는다. */}
+        {regions.map((region, zone) => {
+          const v = zoneVisuals?.[zone];
+          if (!v?.rule_id) return null;
+          const [ux, uy] = toUser(region.svg_point);
+          return (
+            <ZoneAnnotation key={`annot-${zone}`} x={ux} y={uy} ruleId={v.rule_id} animate={animate} />
+          );
+        })}
+
+        {/* ⑤ 지역 라벨 — 최상위. 시드 label_anchor 위치 (R9-01 §3.3).
+            노드·주석보다 뒤에 그려 어느 것에도 가리지 않게 한다. */}
+        {regions.map((region, zone) => {
+          const [lx, ly] = toUser(region.label_anchor, [
+            region.svg_point?.[0] ?? 50,
+            (region.svg_point?.[1] ?? 50) + 11,
+          ]);
+          return (
+            <text
+              key={`label-${zone}`}
+              x={lx}
+              y={ly}
+              textAnchor="middle"
+              fontSize="3.6"
+              fontWeight="700"
+              fill="#334155"
+              stroke="#f0f9ff"
+              strokeWidth="0.8"
+              paintOrder="stroke"
+              style={{ pointerEvents: 'none' }}
+            >
+              {region.name}
+            </text>
           );
         })}
       </svg>

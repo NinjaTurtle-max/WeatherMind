@@ -21,6 +21,17 @@ export default {
           '60%': { transform: 'scale(1.15)', opacity: '1' },
           '100%': { transform: 'scale(1)', opacity: '1' },
         },
+
+        // 화면 위쪽 가운데 토스트 전용 팝(2026-08-08). xp-pop을 그대로 쓰면 안 된다:
+        // 키프레임의 transform이 `-translate-x-1/2`를 **덮어써서**, 0.5초 동안
+        // 토스트가 제 폭의 절반(실측 69px)만큼 오른쪽에 떴다가 끝나는 순간 제자리로
+        // 튄다. 가운데 정렬을 키프레임 안에 함께 넣어 튐을 없앤다.
+        // (xp-pop은 결과 배너의 +XP처럼 **가운데 정렬이 아닌** 곳이 계속 쓴다.)
+        'toast-pop': {
+          '0%': { transform: 'translateX(-50%) scale(0.5)', opacity: '0' },
+          '60%': { transform: 'translateX(-50%) scale(1.15)', opacity: '1' },
+          '100%': { transform: 'translateX(-50%) scale(1)', opacity: '1' },
+        },
         // 학습 홈 현재 유닛 노드 강조 (단계형 유닛 경로의 맥동 링)
         'pulse-ring': {
           '0%, 100%': { boxShadow: '0 0 0 0 rgba(14,165,233,0.5)' },
@@ -126,6 +137,7 @@ export default {
       animation: {
         'slide-up': 'slide-up 0.3s ease-out',
         'xp-pop': 'xp-pop 0.5s ease-out',
+        'toast-pop': 'toast-pop 0.5s ease-out',
         'pulse-ring': 'pulse-ring 1.8s ease-out infinite',
         'cloud-drift': 'cloud-drift 2.4s ease-in-out infinite',
         'cloud-drift-slow': 'cloud-drift 3.6s ease-in-out infinite',

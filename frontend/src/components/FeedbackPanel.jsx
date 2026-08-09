@@ -40,7 +40,15 @@ export default function FeedbackPanel({ message, isCorrect, source }) {
     : { bar: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700', tail: 'border-orange-100' };
 
   return (
-    <div className="fixed inset-x-0 bottom-14 z-40 mx-auto max-w-xl px-3 pb-3">
+    // 사이드바 오른쪽부터 시작시킨다 — Layout의 헤더와 같은 처리다. `inset-x-0`
+    // 그대로 두면 이 패널만 **화면 전체** 기준으로 가운데 정렬되는데, 본문(문항
+    // 카드·결과 배너)은 사이드바를 뺀 폭 기준이라 카드만 104px 왼쪽으로 밀려
+    // 결과 배너와 어긋났다.
+    // 폭은 `--wm-shell-left`(styles/index.css)가 갖는다. 208px을 여기 박으면 안
+    // 된다 — 이 패널은 **사이드바가 없는 배치고사 화면**(/onboarding/placement,
+    // Layout 밖인데 같은 SessionRunner를 쓴다)에서도 그려져, 거기서는 반대로
+    // 104px 오른쪽으로 틀어진다. 변수는 Layout 안이면 208 · 밖이면 0이 온다.
+    <div className="fixed bottom-14 right-0 z-40 mx-auto max-w-xl px-3 pb-3 left-[var(--wm-shell-left)]">
       <div className="animate-slide-up overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
         <div className={`h-1.5 w-full ${tone.bar}`} />
         <div className="flex gap-3 p-4">

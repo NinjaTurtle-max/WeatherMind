@@ -1241,11 +1241,20 @@ function ensurePlacementSession() {
 // 인접 정렬 — 목은 정렬하지 않음). 시드 순서가 마침 난이도 오름차순이라, "클라이언트가
 // 재정렬하지 않는다"는 성질은 이 목록만으로는 더 이상 눈으로 구분되지 않는다.
 // content_item_id는 시드 순서로 결정적 합성(실서버는 DB UUID).
+// 사전 b — backend weatherbrain_service.LEVEL_GROUP_ITEM_B의 사본.
+// R13에서 밴드가 4종(expert 추가)이 되면서 서버가 "adult" **문자열 비교**를 버리고
+// b 임계로 바꿨는데, 목이 문자열 비교로 남아 있었다. 그래서 expert 문항이 서버에선
+// 어려움(3)인데 목에선 보통(2)으로 떠, 화면상 난이도가 되돌아가는 것처럼 보였다
+// (실측: board_order 32~34가 목에서만 보통. 서버 시드 34건은 단조 증가가 맞다).
+const LEVEL_GROUP_ITEM_B = { elementary: -1.0, middle_high: 0.0, adult: 1.0, expert: 2.0 };
+const DEFAULT_ITEM_B = 0.0;
+
 function boardDifficulty(template, levelGroup) {
   let score = template.mode === 'guided' ? 1 : 2;
   if (template.time_limit_sec) score += 1;
   if (Array.isArray(template.palette) && template.palette.length >= 3) score += 1;
-  if (levelGroup === 'adult') score += 1;
+  const priorB = LEVEL_GROUP_ITEM_B[levelGroup] ?? DEFAULT_ITEM_B;
+  if (priorB >= LEVEL_GROUP_ITEM_B.adult) score += 1;
   return Math.max(1, Math.min(3, score));
 }
 

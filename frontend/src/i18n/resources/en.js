@@ -45,6 +45,7 @@ export default {
     heat_island: 'Heat Islands',
     co2_climate: 'CO₂ & Climate',
     anomaly: 'Climate Anomalies',
+    // basic-science course — 2026-08-08 · 재난 2종은 R13 4일차 CO-A1
     temperature_heat: 'Temperature & Heat',
     radiation_budget: 'Radiation & Energy Budget',
     pressure_basics: 'Pressure Basics',

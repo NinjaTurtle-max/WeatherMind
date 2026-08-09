@@ -541,7 +541,7 @@ export default function SessionRunner({
     return (
       <>
         {crownToast && (
-          <div className="fixed left-1/2 top-16 z-50 -translate-x-1/2 animate-xp-pop rounded-full bg-amber-500 px-4 py-2 text-sm font-bold text-white shadow-lg">
+          <div className="fixed left-[calc(50%_+_var(--wm-shell-left)/2)] top-16 z-50 -translate-x-1/2 animate-toast-pop rounded-full bg-amber-500 px-4 py-2 text-sm font-bold text-white shadow-lg">
             {crownToast}
           </div>
         )}

@@ -83,23 +83,47 @@ export default function ProgressPage() {
         </div>
       )}
 
-      {/* 시안 배치: 2열 3줄. 왼쪽은 "나"(프로필·능력·배지), 오른쪽은 "할 일"
-          (오늘 목표·진도·퀘스트·다음 목표). lg 미만은 1열로 쌓인다. */}
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">
-        <ProfileCard me={me} user={user} badges={badges} />
+      {/* 시안 배치: 2열. 왼쪽은 "나"(프로필·능력·배지), 오른쪽은 "할 일"
+          (오늘 목표·진도·퀘스트·다음 목표). lg 미만은 1열로 쌓인다.
 
-        <div className="flex flex-col gap-4">
-          {/* 오늘 목표 (R10-01 §3.4) — 설정됐으면 N/M 진행, 미설정이면 선택 1스텝 */}
-          {me?.daily_goal_items ? <DailyGoalMeter /> : <DailyGoalPicker />}
-          {/* 스파인 카드 (R8-01 §3.7④) — spine 부재(구 백엔드) 시 미렌더 */}
-          {me?.spine && <SpineCard spine={me.spine} />}
+          ⚠️ 카드 6개를 격자에 **평평하게** 늘어놓으면 안 된다(2026-08-08 수정).
+          CSS 격자는 같은 줄에 놓인 칸의 높이를 가장 큰 칸에 맞추므로, 오른쪽
+          첫 줄(오늘 목표+진도)이 왼쪽 프로필 카드보다 길면 그 차이가 **왼쪽
+          둘째 칸 위의 빈 공간**으로 남는다. 실제로 능력 분석 위 115px · 다음 목표
+          위 200px이 비어 있었다. `items-start`로는 안 된다 — 그건 칸을 줄에
+          맞춰 늘이지 않을 뿐, 줄 자체의 높이는 그대로다.
+          그래서 **열을 각각 독립된 세로 스택**으로 묶는다. lg 미만에서는
+          `display:contents`로 껍데기를 지우고 order로 시안의 교차 순서
+          (프로필→오늘목표→능력→퀘스트→배지→다음목표)를 그대로 유지한다. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">
+        {/* 왼쪽 열 — "나" */}
+        <div className="contents lg:flex lg:flex-col lg:gap-4">
+          <div className="order-1 lg:order-none">
+            <ProfileCard me={me} user={user} badges={badges} />
+          </div>
+          <div className="order-3 lg:order-none">
+            <WeatherBrainPanel />
+          </div>
+          <div className="order-5 lg:order-none">
+            <BadgeCollection collapsed={collapsed} />
+          </div>
         </div>
 
-        <WeatherBrainPanel />
-        <QuestList collapsed={collapsed} />
-
-        <BadgeCollection collapsed={collapsed} />
-        <NextGoalsCard me={me} />
+        {/* 오른쪽 열 — "할 일" */}
+        <div className="contents lg:flex lg:flex-col lg:gap-4">
+          <div className="order-2 flex flex-col gap-4 lg:order-none">
+            {/* 오늘 목표 (R10-01 §3.4) — 설정됐으면 N/M 진행, 미설정이면 선택 1스텝 */}
+            {me?.daily_goal_items ? <DailyGoalMeter /> : <DailyGoalPicker />}
+            {/* 스파인 카드 (R8-01 §3.7④) — spine 부재(구 백엔드) 시 미렌더 */}
+            {me?.spine && <SpineCard spine={me.spine} />}
+          </div>
+          <div className="order-4 lg:order-none">
+            <QuestList collapsed={collapsed} />
+          </div>
+          <div className="order-6 lg:order-none">
+            <NextGoalsCard me={me} />
+          </div>
+        </div>
       </div>
 
       {/* 설정 — 학습 지역 (R12 선행 §8): 퀴즈 실황·피드백 날씨의 기준 지역.

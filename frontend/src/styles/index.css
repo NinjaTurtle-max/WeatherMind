@@ -5,6 +5,30 @@
 /* OS 다크/라이트 설정과 무관하게 항상 동일한 팔레트를 강제한다. */
 :root {
   color-scheme: only light;
+  /* 앱 셸의 왼쪽 오프셋 = 사이드바 몫. **기본은 0**이다 — 사이드바가 없는
+     전체 화면 라우트(/login · /onboarding/placement · /account/convert)가
+     이 값을 상속한다. */
+  --wm-shell-left: 0px;
+}
+
+/* 사이드바가 있는 화면(Layout 안)만 208px로 올린다. 값을 컴포넌트마다 박지 말고
+   **여기 한 곳**에서만 갖는다(2026-08-08).
+
+   왜 CSS 변수인가: `position:fixed` 오버레이(헤더·피드백 카드·상단 토스트 5개)는
+   화면 전체를 기준으로 자리를 잡는데, 본문은 사이드바를 뺀 나머지의 가운데다.
+   그래서 오버레이마다 보정이 필요한데, 보정값을 `md:left-[208px]`처럼 박아 두면
+   **사이드바가 없는 라우트에서 반대로 틀린다** — 배치고사(/onboarding/placement)는
+   Layout 밖인데 같은 SessionRunner를 쓴다(피드백 카드·왕관 토스트가 거기서도
+   그려진다). 변수는 DOM을 타고 내려오므로, Layout 안이면 208 · 밖이면 0을
+   저절로 받는다. 미디어쿼리 768px은 SideNav의 `md:flex`와 같은 기준이고,
+   208px은 SideNav의 `w-[208px]`와 같은 값이다 — 셋을 같이 바꿀 것. */
+.wm-shell {
+  --wm-shell-left: 0px;
+}
+@media (min-width: 768px) {
+  .wm-shell {
+    --wm-shell-left: 208px;
+  }
 }
 
 html,
@@ -126,6 +150,17 @@ input[type='range'] {
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+/* 보드 지도 존의 포커스 링 (PeninsulaMap) — 브라우저 기본 outline은 요소의 사각
+   경계 상자를 따라서 동그란 노드에 회색 네모가 씌워진다. outline을 끄고 노드보다
+   살짝 큰 **원**을 대신 보여준다. 지우지 않고 바꾸기만 하는 이유: 키보드로 지도를
+   넘길 때 지금 어느 지역에 있는지 알 수 있어야 한다. */
+.wm-zone-focus {
+  opacity: 0;
+}
+.wm-zone:focus .wm-zone-focus {
+  opacity: 1;
 }
 
 /* 접근성(R9-01 §3.3 ④·R9-08): 시스템 '동작 줄이기' 설정 시 모든 애니메이션·전환을
