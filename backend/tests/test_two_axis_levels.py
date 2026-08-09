@@ -547,7 +547,7 @@ class TestMigration0012:
             )
             revisions[found["revision"]] = found.get("down_revision")
         referenced = {down for down in revisions.values() if down}
-        assert set(revisions) - referenced == {"0012_two_axis_levels"}
+        assert set(revisions) - referenced == {"0013_league_result_unique"}
 
     def test_모델_컬럼_계약(self):
         """둘 다 nullable·서버 기본값 없음 — NULL 폴백이 코드 소유라는 뜻(region 선례)."""

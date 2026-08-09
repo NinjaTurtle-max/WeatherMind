@@ -18,6 +18,7 @@ from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db, get_db_with_rls
@@ -132,7 +133,19 @@ async def submit_prediction(
             },
         )
     )
-    await db.flush()
+    # 위 SELECT는 **경합을 막지 못한다** — 같은 유저의 두 요청이 겹치면 둘 다
+    # "없음"을 보고 둘 다 INSERT한다. 그래서 DB에 UNIQUE(user_id, week_start)를
+    # 걸었고(0013), 여기서는 그 제약이 말하는 것을 **SELECT와 같은 답**으로 옮긴다.
+    # 경합에서 진 쪽이 500을 받으면 사용자는 "제출됐는지 아닌지"를 알 수 없다 —
+    # 이미 자기 예측이 들어가 있는데도 그렇다.
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"detail": "이번 주 예측을 이미 제출했습니다.", "code": "ALREADY_SUBMITTED"},
+        )
     return PredictResponse(submitted=True)
 
 
