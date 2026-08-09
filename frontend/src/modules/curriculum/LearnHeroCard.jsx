@@ -24,12 +24,16 @@ import { useT } from '../../i18n';
  * 왜 **파란 배경**인가: 나머지가 전부 흰 카드라, 진입만 색을 달리해 "여기를
  * 누르면 된다"를 한눈에 갈라내려는 것이다(사용자 지시).
  *
- * 2026-08-09 **연한 톤으로 교체**(사용자 지시). 종전은 sky-400→800 짙은 그라데이션에
- * 흰 글자였다. 색을 연하게 하면 **대비 방향이 뒤집히므로** 카드 안이 전부 따라
- * 바뀐다 — 글자는 흰색에서 sky-900 계열로, CTA는 「흰 채움 + 파란 글자」에서
- * 「파란 채움 + 흰 글자」로. 색만 바꾸고 글자를 두면 흰 글자가 연한 하늘색 위에서
- * 읽히지 않는다. CTA가 이제 카드에서 **가장 진한 요소**인데, 그게 맞다:
- * 눌러야 할 것 하나가 가장 강해야 한다.
+ * 톤 (2026-08-09, 세 번 고쳐 여기까지 왔다: 짙은 파랑 → 연한 하늘 → **거의 흰색**).
+ * 지금은 흰색에 아주 옅은 하늘빛만 얹고, 구분은 **색이 아니라 테두리·여백**이 한다
+ * (사용자가 「애플 느낌」이라 부른 방향).
+ *   · 면은 조용하게 — 흰색~sky-50, 그림자는 거의 없고 헤어라인 테두리로 경계를 준다.
+ *   · 색은 **한 곳에만** — 파란색은 CTA가 독점한다. 나머지는 무채색 위계다
+ *     (제목 slate-900 · 본문 slate-500). 색이 여러 곳에 흩어지면 어디를 눌러야
+ *     하는지가 다시 흐려진다.
+ *   · 라운드를 키우고(20px) 자간을 좁혀(-0.02em) 제목을 큼직하게.
+ * ⚠️ 대비 방향이 처음(짙은 파랑·흰 글자)과 **반대**다. 색만 되돌리면 흰 글자가
+ * 흰 바탕에 얹혀 사라진다 — 톤을 바꿀 때는 글자·CTA·구분선을 같이 뒤집을 것.
  *
  * ⚠️ **카드 전체를 `<Link>`로 감싸지 않는다**(2026-08-09 구조 변경). 복습 줄이
  * 안으로 들어오면서 카드 안에 링크가 생겼는데, `<a>` 안의 `<a>`는 HTML이 허용하지
@@ -41,7 +45,7 @@ import { useT } from '../../i18n';
  * 같은 캐릭터를 그리므로, 이 카드가 뜨는 화면에서는 SideNav가 튜터를 접는다 —
  * 같은 그림이 한 화면에 둘 뜨면 어느 쪽이 말하는 건지 알 수 없다.
  */
-export default function LearnHeroCard({ entry, copy, goalTotal, goalDone, tutorLine = null }) {
+export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
   const t = useT();
   const pct = goalTotal ? Math.min(100, Math.round((goalDone / goalTotal) * 100)) : 0;
   const remaining = goalTotal ? Math.max(0, goalTotal - goalDone) : 0;
@@ -50,47 +54,28 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone, tutorL
     <div
       data-testid="learn-entry"
       data-entry-kind={entry.kind}
-      className="group flex flex-1 flex-col items-center rounded-[18px] bg-gradient-to-b from-sky-50 via-sky-100 to-sky-200 px-5 pb-5 pt-6 shadow-md shadow-sky-500/15 ring-1 ring-sky-300/70"
+      className="group flex flex-1 flex-col items-center rounded-[20px] bg-gradient-to-b from-white to-sky-50 px-5 pb-5 pt-7 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80"
     >
       {/* 정사각 박스 — 폭만 주면 세로가 원본 비율을 따라가고, 캐릭터를 바꾸면
           카드 높이가 통째로 달라진다(가로형 cloud ↔ 세로형 bolt). */}
       <Mascot name={ENTRY_MASCOT[entry.kind] ?? 'drop'} className="h-[104px] w-[104px]" />
 
-      {/* 튜터 한마디 — **마스코트 바로 밑**이다(2026-08-09 사용자 지시).
-          한때 카드 아래쪽 남는 공간에 뒀는데, 말풍선이 말하는 이에게서 멀어지면
-          누가 하는 말인지 흐려진다. 꼬리가 위(마스코트)를 향하는 것도 여기라야
-          맞는다 — 아래쪽에 있을 때는 꼬리가 허공을 가리켰다.
-          수치는 지어내지 않는다 — 문구는 CurriculumHome이 트리에서 센 값으로
-          만들어 넘긴다(sectionProgressOf). 셀 진도가 없으면 null이라 자리째 빠진다. */}
-      {tutorLine ? (
-        <p
-          data-testid="learn-tutor-line"
-          className="relative mt-3 break-keep rounded-2xl bg-white/75 px-3.5 py-2 text-center text-[12px] font-bold leading-relaxed text-sky-900 ring-1 ring-sky-300/60"
-        >
-          <span
-            aria-hidden="true"
-            className="absolute -top-[5px] left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-l border-t border-sky-300/60 bg-white/75"
-          />
-          {tutorLine}
-        </p>
-      ) : null}
-
-      <p className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.1em] text-sky-700">
+      <p className="mt-3.5 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
         {copy.eyebrow}
       </p>
-      <p className="mt-1.5 text-center text-[20px] font-extrabold leading-snug tracking-tight text-sky-950">
+      <p className="mt-1.5 text-center text-[21px] font-extrabold leading-snug tracking-[-0.02em] text-slate-900">
         {copy.title}
       </p>
       {/* break-keep — 카드가 좁아(296px) 기본 줄바꿈이 어절 한가운데를 끊는다.
           보드 실험 카드와 같은 처리다. */}
-      <p className="mt-2 break-keep text-center text-[12.5px] leading-relaxed text-sky-800/85">
+      <p className="mt-2 break-keep text-center text-[12.5px] leading-relaxed text-slate-500">
         {copy.body}
       </p>
 
       <Link
         to={entry.to}
         data-testid="learn-entry-cta"
-        className="mt-4 w-full rounded-[14px] bg-sky-600 px-4 py-3 text-center text-[14.5px] font-extrabold text-white shadow-md shadow-sky-600/30 transition hover:bg-sky-700"
+        className="mt-5 w-full rounded-full bg-sky-600 px-4 py-3 text-center text-[14.5px] font-bold tracking-[-0.01em] text-white transition hover:bg-sky-700"
       >
         {copy.cta}
       </Link>
@@ -111,33 +96,33 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone, tutorL
           mt-auto — 튜터 한마디가 위로 올라가면서 남는 높이를 먹는 칸이 없어졌다.
           목표가 그 높이를 받아 카드 **바닥**에 붙는다. */}
       {goalTotal ? (
-        <div className="mt-auto w-full border-t border-sky-300/70 pt-4" data-testid="learn-goal" data-goal-state="set">
+        <div className="mt-auto w-full border-t border-slate-200/80 pt-4" data-testid="learn-goal" data-goal-state="set">
           <div className="flex items-baseline gap-2">
-            <p className="text-[12.5px] font-extrabold text-sky-900">🎯 {t('home.goal.title')}</p>
-            <span className="ml-auto text-[12px] font-extrabold tabular-nums text-sky-700">{pct}%</span>
+            <p className="text-[12.5px] font-bold text-slate-700">🎯 {t('home.goal.title')}</p>
+            <span className="ml-auto text-[12px] font-bold tabular-nums text-slate-400">{pct}%</span>
           </div>
           <div className="mt-1.5 flex items-baseline gap-1.5">
-            <span className="text-[30px] font-extrabold tabular-nums tracking-tight text-sky-900">{goalDone}</span>
-            <span className="text-[13px] font-bold tabular-nums text-sky-700">
+            <span className="text-[30px] font-extrabold tabular-nums tracking-[-0.03em] text-slate-900">{goalDone}</span>
+            <span className="text-[13px] font-medium tabular-nums text-slate-400">
               / {goalTotal} {t('home.goal.items')}
             </span>
           </div>
-          <div className="mt-1.5 h-[9px] overflow-hidden rounded-full bg-white/80">
+          <div className="mt-1.5 h-[7px] overflow-hidden rounded-full bg-slate-200/80">
             <i className="block h-full rounded-full bg-sky-600" style={{ width: `${pct}%` }} />
           </div>
-          <p className="mt-2 text-[11.5px] leading-relaxed text-sky-800/85">
+          <p className="mt-2 text-[11.5px] leading-relaxed text-slate-500">
             {remaining > 0 ? t('home.goal.remaining', { n: remaining }) : t('home.goal.done')}
           </p>
         </div>
       ) : (
         <Link
           to="/me"
-          className="mt-auto flex w-full items-center gap-2 border-t border-sky-300/70 pt-4 text-left"
+          className="mt-auto flex w-full items-center gap-2 border-t border-slate-200/80 pt-4 text-left"
           data-testid="learn-goal"
           data-goal-state="unset"
         >
-          <span className="text-[12.5px] font-extrabold text-sky-900">🎯 {t('home.goal.title')}</span>
-          <span className="ml-auto text-[12px] font-extrabold text-sky-700 underline underline-offset-4">
+          <span className="text-[12.5px] font-bold text-slate-700">🎯 {t('home.goal.title')}</span>
+          <span className="ml-auto text-[12px] font-bold text-sky-600">
             {t('curriculum.goalUnset')}
           </span>
         </Link>

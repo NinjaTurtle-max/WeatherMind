@@ -48,12 +48,12 @@ export default function ReviewQueueCard({ variant = 'card' }) {
     return (
       <div
         data-testid="review-queue-hero"
-        className="mt-4 w-full border-t border-sky-300/70 pt-3.5 text-left"
+        className="mt-4 w-full border-t border-slate-200/80 pt-3.5 text-left"
       >
         <div className="flex items-center gap-1.5">
           <span aria-hidden="true" className="text-[13px]">🔁</span>
-          <p className="text-[12.5px] font-extrabold text-sky-900">{t('reviewQueue.title')}</p>
-          <span className="ml-auto text-[11px] font-bold tabular-nums text-sky-700">
+          <p className="text-[12.5px] font-bold text-slate-700">{t('reviewQueue.title')}</p>
+          <span className="ml-auto text-[11px] font-medium tabular-nums text-slate-400">
             {t('reviewQueue.count', { count: due.length })}
           </span>
         </div>
@@ -66,16 +66,16 @@ export default function ReviewQueueCard({ variant = 'card' }) {
           {top.map((item) => (
             <li
               key={item.concept_tag}
-              className="rounded-full bg-white/75 px-2.5 py-1 text-[11.5px] font-bold text-sky-900 ring-1 ring-sky-300/60"
+              className="rounded-full bg-slate-100 px-2.5 py-1 text-[11.5px] font-medium text-slate-600"
             >
               {CONCEPT_KO[item.concept_tag] ?? item.concept_tag}
             </li>
           ))}
-          {rest > 0 && <li className="px-1 py-1 text-[11px] font-bold text-sky-700">+{rest}</li>}
+          {rest > 0 && <li className="px-1 py-1 text-[11px] font-medium text-slate-400">+{rest}</li>}
         </ul>
         <Link
           to="/daily"
-          className="mt-2.5 inline-block text-[12px] font-extrabold text-sky-800 underline underline-offset-4 hover:text-sky-950"
+          className="mt-2.5 inline-block text-[12px] font-bold text-sky-600 hover:text-sky-700"
         >
           {t('reviewQueue.cta')}
         </Link>

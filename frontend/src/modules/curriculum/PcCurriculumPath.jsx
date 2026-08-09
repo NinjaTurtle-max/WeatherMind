@@ -36,6 +36,23 @@ const STATUS_ICON = { cleared: '👑', current: '⭐', unlocked: '🌀', locked:
 // 늘어난다(2026-08-05 결정).
 const CHROME = 210;
 
+/**
+ * 노드 지름 계산(`--n`)의 **바닥값** — 코스가 달라도 동그라미 크기가 같게 한다.
+ *
+ * `--n`은 "이 코스에서 가장 긴 섹션의 칸 수"다(sizingN). 그런데 코스마다 그 값이
+ * 다르다 — 날씨와 기후는 4, 기초 과학은 3이다. 화면이 넉넉하면 둘 다 상한(86px)에
+ * 걸려 같아 보이지만, 트랙이 짧아지면 갈린다(1440×720 실측: 70px 대 86px).
+ * 탭을 옮길 때마다 동그라미가 커졌다 작아지는 것이 그 증상이다.
+ *
+ * 그래서 **전 코스 통틀어 가장 긴 섹션**을 바닥으로 깐다. 반대 방향(작은 쪽에
+ * 맞추기 = 날씨를 3으로)은 불가능하다 — 4칸 섹션이 트랙을 넘쳐 마지막 노드가
+ * 잘린다(needed = dot*(1.18n-0.18)+chrome = 600 > 561).
+ *
+ * ⚠️ 값의 근거는 `database/seed/units.json`이고, 저작이 5칸 섹션을 만들면 여기가
+ * 낡는다 — `learnPath` 스모크가 시드를 세어 대조한다(사람이 아니라 테스트가 감시).
+ */
+export const PATH_SIZING_FLOOR = 4;
+
 // 단계 경계 너머로 뻗는 길의 꼬리 길이(px).
 const TAIL = 90;
 
@@ -366,7 +383,7 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
   // 노드 크기의 기준 칸 수 — **전 단계 중 최대**. 단계마다 자기 칸 수로 크기를
   // 정하면 아이콘이 단계를 넘길 때마다 커졌다 작아진다. 가장 긴 섹션에 맞춰
   // 통일하면 어느 단계도 넘치지 않는다. 섹션이 없을 때의 1은 0 나눗셈 방지.
-  const sizingN = Math.max(1, ...withUnits.map((s) => s.units.length));
+  const sizingN = Math.max(PATH_SIZING_FLOOR, ...withUnits.map((s) => s.units.length));
 
   // 섹션별 시작 인덱스(전역) — 완료 구간을 경계 너머로 잇기 위해 필요하다.
   const offsets = [];

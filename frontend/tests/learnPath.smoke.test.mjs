@@ -88,7 +88,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const mod = await vite.ssrLoadModule('/src/modules/curriculum/PcCurriculumPath.jsx');
 const PcCurriculumPath = mod.default;
-const { blueEndIndex, stageDoneCount, joinK } = mod;
+const { blueEndIndex, stageDoneCount, joinK, PATH_SIZING_FLOOR } = mod;
 
 let failures = 0;
 const ok = (cond, label) => {
@@ -322,6 +322,33 @@ await render({});
   root2.render(createElement(PcCurriculumPath, { sections: [], onOpenUnit: () => {} }));
   await sleep(60);
   ok(container.querySelector('.wm-stage') === null, '빈 트리: 아무것도 렌더하지 않는다');
+}
+
+// ── ⑧ 코스가 달라도 동그라미 크기가 같다 (--n 바닥값이 시드와 맞는가) ──────
+// `--n`은 "이 코스에서 가장 긴 섹션의 칸 수"라 코스마다 달랐고(날씨 4·기초과학 3),
+// 트랙이 짧아지면 지름이 갈렸다(1440×720 실측 70px 대 86px). 전 코스 통틀어 가장
+// 긴 섹션을 바닥으로 깔아 없앴는데, **그 숫자가 시드와 어긋나면 다시 갈린다** —
+// 저작이 5칸 섹션을 만드는 순간이다. 사람이 아니라 여기가 감시한다.
+{
+  const seed = JSON.parse(readFileSync(resolve(root, '../database/seed/units.json'), 'utf8'));
+  const perSection = new Map();
+  for (const u of seed) {
+    const key = `${u.course ?? 'weather'}\u0000${u.section}`;
+    perSection.set(key, (perSection.get(key) ?? 0) + 1);
+  }
+  const longest = Math.max(...perSection.values());
+  ok(
+    PATH_SIZING_FLOOR === longest,
+    `--n 바닥값이 시드의 최장 섹션과 같다 — 상수 ${PATH_SIZING_FLOOR} · 시드 ${longest}`,
+  );
+  // 바닥값이 실제로 걸리는가: 3칸짜리 코스도 4로 계산돼야 한다.
+  root2.render(createElement(PcCurriculumPath, {
+    sections: [{ section: '열과 빛', units: [{ id: 'b1', title: 'a', status: 'current' }, { id: 'b2', title: 'b', status: 'locked' }, { id: 'b3', title: 'c', status: 'locked' }] }],
+    onOpenUnit: () => {},
+  }));
+  await sleep(60);
+  const n = container.querySelector('.wm-vpath')?.style.getPropertyValue('--n');
+  ok(String(n) === String(longest), `3칸 코스도 --n=${longest}을 받는다(코스 간 크기 통일) — 실제 ${n}`);
 }
 
 // ── ⑦ 학습 화면이 홈을 흡수했다 (소스 계약) ────────────────────────────────
