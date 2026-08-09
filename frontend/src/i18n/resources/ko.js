@@ -64,14 +64,6 @@ export default {
     wildfire_weather: '산불 기상',
     flood_response: '홍수 대응',
     anomaly: '이상 기후',
-    // 기초과학 코스(basic-science) — 2026-08-08. 없으면 conceptLabel이 태그
-    // 원문(density_buoyancy 같은 스네이크케이스)을 그대로 화면에 내보낸다.
-    temperature_heat: '온도와 열',
-    radiation_budget: '복사 균형',
-    pressure_basics: '기압의 기초',
-    density_buoyancy: '밀도와 부력',
-    phase_change: '상태 변화',
-    energy_transfer: '열의 이동',
   },
   energy: {
     full: '구름 에너지가 가득 찼어요 — 구름은 틀린 문항에만 1개 줄어들어요',
