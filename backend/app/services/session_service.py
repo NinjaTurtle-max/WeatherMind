@@ -234,6 +234,12 @@ def plan_bank_picks(
       8/11~18 무키 실운영에서 상시 경로라 상시 과금이 된다. 실황 문항이 없는 날은
       "오늘의 발견"이 하나 더 나오는 것이 유료 생성보다 낫다 — 세 블록이 이미
       같은 판단을 하고 있었고 live만 예외였다.
+    - **board 출제 상한 (CO-H5)**: 비진도 블록(new·review·live)에 들어가는 board는
+      `DAILY_BOARD_CAP`까지다. R10.7이 daily 130문항을 실측해 "시드 22.6% → 실출제
+      30.8%(1.36×)"를 남겼는데, 원인은 `build_pool_query`에 유형 조건이 없고
+      `enforce_type_variety`는 **3연속만** 보고 비율을 안 보기 때문이다. 상한을
+      넘는 board는 버리지 않고 뒤로 미뤄 대체 후보가 없을 때만 채운다.
+      진도 블록은 면제다(board 유닛의 진도는 board가 정상).
     - 같은 문항 중복 선택 금지 (id 기준 — new/review/unit 풀이 겹칠 수 있음).
       **블록 간 중복 차단은 picked_ids 하나가 전담**한다: 신규 5와 유닛 5가 같은
       뱅크에서 뽑혀도 같은 문항이 두 번 나오지 않는다.
@@ -242,16 +248,45 @@ def plan_bank_picks(
     """
     recipe = recipe or DEFAULT_RECIPE
     picked_ids: set[Any] = set()
+    board_taken = 0
 
-    def take(pool: Sequence[Any], count: int, kind: str) -> list[dict[str, Any]]:
+    def _is_board(item: Any) -> bool:
+        qt = item.get("question_type") if isinstance(item, dict) else getattr(
+            item, "question_type", None
+        )
+        return qt == "board"
+
+    def take(
+        pool: Sequence[Any], count: int, kind: str, cap_board: bool = True
+    ) -> list[dict[str, Any]]:
+        """풀에서 count개를 뽑는다 — board는 상한까지만, 그리고 **뒤로 미룬다**.
+
+        1차 통과에서 board 상한을 넘는 board는 건너뛰고, 그러고도 count를 못 채우면
+        2차 통과에서 건너뛴 것들을 그대로 쓴다. **버리지 않는 이유**는 배합이 덜
+        차면 그 자리가 quiz-generate로 새기 때문이다(CO-M1이 live에서 이미 겪은 것과
+        같은 누수). 즉 이 상한은 "대체 후보가 있을 때만" 작동한다.
+        """
+        nonlocal board_taken
         taken: list[dict[str, Any]] = []
+        deferred: list[Any] = []
         for item in pool:
             if len(taken) >= count:
                 break
             item_id = _item_id(item)
             if item_id in picked_ids:
                 continue
+            if cap_board and _is_board(item) and board_taken >= settings.DAILY_BOARD_CAP:
+                deferred.append(item)
+                continue
             picked_ids.add(item_id)
+            if _is_board(item):
+                board_taken += 1
+            taken.append({"kind": kind, "item": item})
+        for item in deferred:
+            if len(taken) >= count:
+                break
+            picked_ids.add(_item_id(item))
+            board_taken += 1
             taken.append({"kind": kind, "item": item})
         return taken
 
@@ -265,7 +300,10 @@ def plan_bank_picks(
 
     unit_count = recipe.get("unit", 0)
     if unit_count:
-        unit_picks = take(unit_pool or (), unit_count, "unit")
+        # 진도 블록은 board 상한 **면제** — board 유닛의 진도가 board인 것은 편향이
+        # 아니라 그 유닛의 정의다. 다만 유닛 부족분을 new 풀로 메우는 아래 줄은
+        # 면제가 아니다(그 자리는 유닛 콘텐츠가 아니다).
+        unit_picks = take(unit_pool or (), unit_count, "unit", cap_board=False)
         unit_picks += take(new_pool, unit_count - len(unit_picks), "new")
         picks += unit_picks
 

@@ -537,3 +537,50 @@ class TestSessionItemKind:
         session.recipe_json = {"items": []}
         payload = self._respond(monkeypatch, session, [self._log("q0")])
         assert [i.kind for i in payload.items] == ["new"]
+
+
+# ═══════════════════════════════════════════════════════════════
+# CO-H5 — board 출제 상한 (비진도 블록)
+# ═══════════════════════════════════════════════════════════════
+class TestBoardCap:
+    """`DAILY_BOARD_CAP` 계약 — 편향은 막되 배합은 덜 차지 않는다.
+
+    R10.7 실측이 "시드 22.6% → 실출제 30.8%(1.36×)"를 남겼는데, 원인은
+    `build_pool_query`에 유형 조건이 없고 `enforce_type_variety`가 **3연속만**
+    보기 때문이다. 상한을 걸되 **버리지 않는다** — 버리면 그 자리가
+    quiz-generate로 새고(CO-M1이 live에서 겪은 누수), 편향을 고치려다 과금이 는다.
+    """
+
+    def test_board뿐인_풀이어도_배합은_덜_차지_않는다(self):
+        """상한의 대가가 '덜 발급'이면 안 된다 — 대체 후보가 없으면 그대로 채운다."""
+        pool = [make_item("new", i, question_type="board") for i in range(20)]
+        picks, generate_count = ss.plan_bank_picks(pool, [], [], RECIPE, [])
+        assert len(picks) == sum(RECIPE.values())
+        assert generate_count == 0
+
+    def test_대체_후보가_있으면_상한을_지킨다(self):
+        """board가 앞줄을 다 차지해도 비진도 블록에는 상한까지만 들어간다."""
+        pool = [make_item("b", i, question_type="board") for i in range(10)]
+        pool += [make_item("m", i) for i in range(20)]
+        picks, _ = ss.plan_bank_picks(pool, [], [], RECIPE, [])
+        non_unit = [p for p in picks if p["kind"] != "unit"]
+        boards = [p for p in non_unit if p["item"].question_type == "board"]
+        assert len(boards) == settings.DAILY_BOARD_CAP
+
+    def test_진도_블록은_상한_면제(self):
+        """board 유닛의 진도가 board인 것은 편향이 아니라 그 유닛의 정의다."""
+        unit_pool = [make_item("unit", i, question_type="board") for i in range(10)]
+        new_pool = [make_item("m", i) for i in range(20)]
+        picks, _ = ss.plan_bank_picks(new_pool, [], [], RECIPE, unit_pool)
+        unit_picks = [p for p in picks if p["kind"] == "unit"]
+        assert len(unit_picks) == RECIPE["unit"]
+        assert all(p["item"].question_type == "board" for p in unit_picks)
+
+    def test_상한_0이면_대체_가능할_때_board가_사라진다(self, monkeypatch):
+        """env로 완전히 끌 수 있다 — 보드 탭·진도 블록은 영향받지 않는다."""
+        monkeypatch.setattr(settings, "DAILY_BOARD_CAP", 0)
+        pool = [make_item("b", i, question_type="board") for i in range(10)]
+        pool += [make_item("m", i) for i in range(20)]
+        picks, _ = ss.plan_bank_picks(pool, [], [], RECIPE, [])
+        non_unit = [p for p in picks if p["kind"] != "unit"]
+        assert not any(p["item"].question_type == "board" for p in non_unit)

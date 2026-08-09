@@ -1067,6 +1067,12 @@ const QUIZ = {
 // 진도(unit) 블록은 서버에서 "현재 진행 유닛의 다음 문항"이며 항상 **마지막**에 온다.
 const MOCK_SESSION_RECIPE = { new: 5, review: 4, live: 1, unit: 5 };
 
+// 서버 Settings.DAILY_BOARD_CAP — daily 비진도 블록의 board 상한(CO-H5).
+// 목 뱅크는 board가 소수라 지금은 상한에 닿지 않지만, **정책을 선언하지 않으면
+// 저작이 늘었을 때 조용히 갈린다**(에너지 상수를 리터럴로 복사했다가 대조가 0이던
+// CO-J-9와 같은 자리). __mockPolicy()로 노출해 backend 계약 테스트가 실값을 문다.
+const MOCK_DAILY_BOARD_CAP = 2;
+
 // 신규(new) 슬롯 픽스처 — 스모크 시나리오 7이 1·2번 문항으로 고정
 const PINNED_NEW_ITEMS = [
   {
@@ -1198,12 +1204,31 @@ const SESSION_SLOT_POOLS = {
 function buildSessionItems(recipe) {
   const picked = [];
   const seen = new Set();
+  let boardTaken = 0;
   for (const kind of ['new', 'review', 'live', 'unit']) {
     let taken = 0;
+    // 진도 블록은 board 상한 면제 — 서버 plan_bank_picks와 같은 규칙(CO-H5).
+    const capBoard = kind !== 'unit';
+    const deferred = [];
     for (const item of SESSION_SLOT_POOLS[kind]) {
       if (taken >= (recipe[kind] ?? 0)) break;
       if (seen.has(item.question_text)) continue;
+      if (capBoard && item.question_type === 'board' && boardTaken >= MOCK_DAILY_BOARD_CAP) {
+        deferred.push(item);
+        continue;
+      }
       seen.add(item.question_text);
+      if (item.question_type === 'board') boardTaken += 1;
+      picked.push({ ...item, kind });
+      taken += 1;
+    }
+    // 상한 초과분은 버리지 않고 뒤로 미룬다 — 서버와 같은 이유(배합이 덜 차면
+    // 그 자리가 유료 생성으로 샌다). 목은 생성이 없으므로 여기서는 "문항 수가
+    // 줄어 15문항 계약이 깨지는 것"을 막는 역할이다.
+    for (const item of deferred) {
+      if (taken >= (recipe[kind] ?? 0)) break;
+      seen.add(item.question_text);
+      boardTaken += 1;
       picked.push({ ...item, kind });
       taken += 1;
     }
@@ -2532,6 +2557,8 @@ export const __mockPolicy = () => ({
   cloud_cost: CLOUD_COST,
   // 세션 배합 (server Settings.SESSION_RECIPE)
   session_recipe: MOCK_SESSION_RECIPE,
+  // daily 비진도 블록 board 상한 (server Settings.DAILY_BOARD_CAP — CO-H5)
+  daily_board_cap: MOCK_DAILY_BOARD_CAP,
   // 학령 (server schemas/auth.LevelGroup)
   level_groups: LEVEL_GROUPS,
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
