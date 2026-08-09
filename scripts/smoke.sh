@@ -20,6 +20,8 @@
 #              순서 계약(R11-01 F): seed_units가 units.json의 course slug를 DB courses
 #              행으로 해석하므로 seed_courses가 먼저다.
 #   4 register  POST /auth/register (고유 이메일, middle_high) → 201 + access_token
+#   4b guest    POST /auth/guest → 201 + 그 토큰으로 /session/today 200 (CO-J-3)
+#               — 제출 요건 ①「로그인 없이 열려야 함」의 유일한 기계 검증이다.
 #   5 theta     psql: user_concept_ability 6행 · num_responses=0 · θ≈사전값(0.0)
 #               (postgres 슈퍼유저 접속은 RLS를 우회하므로 여기서는 행 검증만)
 #   6 rls       비특권 롤(smoke 전용, 멱등 생성) + SET ROLE 로 3종 검증:
@@ -272,6 +274,47 @@ step_register() {
   else
     record "4 register" "FAIL" "http=$REG_HTTP (5회/분 레이트리밋이면 잠시 후 재실행)"
   fi
+}
+
+# ── 4b. guest: 가입 없이 학습까지 (대회 규정 직결 — CO-J-3) ─────────────────
+# **왜 이 단계가 필요한가**: 제출 요건 ①이 *"로그인·결제 없이 열려야 함"*이고, 심사는
+# 8/22 현장에서 **주최측 PC의 크롬**으로 URL만 열어 진행한다. 그런데 두 스모크가
+# `/auth/register`만 써서 **게스트 경로를 한 번도 안 밟았다**(`grep guest scripts/*.sh`
+# → 0). 규정 위반이 사람 지시문(`DEPLOY.md`)에만 걸려 있었다는 뜻이다.
+#
+# 가입 성공만으로는 부족하다 — 게스트가 **실제로 학습에 도달**해야 "열린다"가 참이다.
+# 그래서 토큰 발급에서 멈추지 않고 그 토큰으로 세션까지 받아 본다.
+step_guest() {
+  banner "4b guest: POST /auth/guest → 세션 도달 (가입 없이)"
+  local out http body token items
+  out="$(http_post "$API/api/v1/auth/guest" '{}')"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "201" ]; then
+    record "4b guest" "FAIL" "게스트 발급 http=$http — 로그인 없이 열리지 않는다(규정 ①)"
+    return
+  fi
+  token="$(json_field "$body" access_token)"
+  if [ -z "$token" ]; then
+    record "4b guest" "FAIL" "201인데 access_token이 없다"
+    return
+  fi
+  echo "  201 Created (게스트 토큰 발급)"
+
+  out="$(http_get "$API/api/v1/session/today" "$token")"
+  http="$(tail -n1 <<<"$out")"
+  body="$(sed '$d' <<<"$out")"
+  if [ "$http" != "200" ]; then
+    record "4b guest" "FAIL" "게스트 세션 http=$http — 토큰은 나오는데 학습에 못 닿는다"
+    return
+  fi
+  items="$("$PYTHON" -c 'import json,sys; print(len(json.load(sys.stdin).get("items") or []))' <<<"$body")"
+  if [ "$items" -lt 1 ]; then
+    record "4b guest" "FAIL" "게스트 세션 0문항 — 화면에 탈출구가 없다(대장 S-3)"
+    return
+  fi
+  echo "  세션 ${items}문항"
+  record "4b guest" "OK" "201 + 세션 ${items}문항 (가입·로그인 0회)"
 }
 
 # ── 5. theta: θ 시드 검증 (행 수·num_responses·사전값) ──────────────────────
@@ -1113,6 +1156,7 @@ case "$STEP" in
   migrate)   step_migrate ;;
   seed)      step_seed ;;
   register)  step_register ;;
+  guest)     step_guest ;;
   theta)     step_theta ;;
   rls)       step_rls ;;
   roundtrip) step_roundtrip ;;
@@ -1130,6 +1174,7 @@ case "$STEP" in
       step_migrate
       step_seed
       step_register
+      step_guest
       step_theta
       step_rls
       step_roundtrip
@@ -1141,7 +1186,7 @@ case "$STEP" in
     fi
     ;;
   *)
-    echo "사용법: scripts/smoke.sh [up|migrate|seed|register|theta|rls|roundtrip|fallback|placement|unit|r8|r9]" >&2
+    echo "사용법: scripts/smoke.sh [up|migrate|seed|register|guest|theta|rls|roundtrip|fallback|placement|unit|r8|r9]" >&2
     exit 2
     ;;
 esac
