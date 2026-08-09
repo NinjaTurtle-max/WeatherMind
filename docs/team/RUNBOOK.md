@@ -25,7 +25,7 @@ docker compose exec backend alembic upgrade head
 #     init.sql은 롤·GRANT만 만든다(그 시점엔 테이블이 없어 정책을 못 만든다).
 #     건너뛰면 users에 user_isolation만 걸려 **로그인·게스트 시작이 전면 0행**이다.
 docker compose exec -T postgres psql -U weathermind -d weathermind \
-  < backend/app/scripts/rls_app_role.sql
+  < backend/app/scripts/rls_app_role.sql   # psql에 -v ON_ERROR_STOP=1 필수
 
 # 4. 시드 적재 — 모두 멱등 upsert(재실행 안전).
 #    ⚠️ **courses가 units보다 먼저다 — 순서가 계약이다**(CO-J-7).
@@ -52,7 +52,10 @@ docker compose exec backend python -m app.scripts.seed_badges    # 뱃지 정의
 ```bash
 curl -s http://localhost:8000/health        # backend
 curl -s http://localhost:8001/health        # ai-worker
-docker compose exec backend alembic current # → 0008_daily_goal (head)
+docker compose exec backend alembic current # → 0013_league_result_unique (head)
+# ⚠️ head 이름을 여기 적으면 마이그레이션이 늘 때마다 낡는다(실제로 0008에 멈춰
+#    있었다 — 2026-08-09 정정). **확인할 것은 이름이 아니라 `current == heads`**이고,
+#    그 대조 전에 이미지가 최신 versions/를 담았는지 먼저 본다(DEPLOY.md §6 ①-a).
 docker compose exec postgres psql -U weathermind -d weathermind \
   -c "SELECT status, count(*) FROM content_items GROUP BY 1;"  # 뱅크 적재 확인
 docker compose exec postgres psql -U weathermind -d weathermind \

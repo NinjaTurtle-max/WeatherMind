@@ -114,7 +114,7 @@ nano .env
 | `CELERY_DATABASE_URL` | 배치 롤. **미설정 시 `MIGRATION_DATABASE_URL`로 자동 폴백**하므로 보통 비워 둔다(CO-Q-1) |
 | `KMA_API_KEY` | **팀 자체 발급 키**(대회 제공 키는 8/22 만료 — `HACKATHON_RULES.md` §3) |
 | `GEMINI_API_KEY` | 키 게이트에서 투입. **없어도 폴백으로 전 기능 동작**. 임베딩 키는 없다(R13 3일차 철거) |
-| `IMAGE_TAG` | 배포할 커밋 sha 권장(미설정 시 `latest`) |
+| `IMAGE_TAG` | 🔴 **배포할 커밋 sha를 반드시 지정한다**(미설정 시 `latest`). `latest`는 **이동 태그**라 어느 커밋을 가리키는지 절차 안에서 알 수 없다 — 그 위험이 실측으로 확인됐다: §6 ①-a 참조 |
 
 ### 5.1 앱 롤 비밀번호 교체 — **DB와 `.env`를 함께 바꾼다**
 
@@ -161,6 +161,16 @@ backend를 Caddy가 프론트해 첫 방문자가 502를 보는 것을 막는 �
 ```bash
 C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
 
+# ①-a 🔴 이미지가 최신 마이그레이션을 담고 있는지 **먼저** 확인한다 (CO-J-15)
+#     빈 볼륨 리허설(2026-08-09)에서 잡힌 것: 낡은 이미지로 upgrade하면 도중까지만
+#     적용되는데 **에러가 0건**이고, `alembic current`도 `heads`도 **이미지 안의**
+#     versions/를 읽으므로 `current == heads`가 되어 아래 검증을 통과한다.
+#     즉 마이그레이션이 빠진 채 "정상"으로 신고된다. 그때 CO-R-4의 UNIQUE 제약 같은
+#     것이 영영 안 걸리고, 절차 안에 그것을 알아낼 방법이 없다.
+IMG=$($C exec -T backend sh -c 'ls alembic/versions/*.py | wc -l')
+REPO=$(ls backend/alembic/versions/*.py | wc -l)
+echo "이미지 $IMG개 / 저장소 $REPO개"   # ← 다르면 멈추고 IMAGE_TAG를 다시 잡는다
+
 # ① 마이그레이션 — 소유자 롤(MIGRATION_DATABASE_URL)로 돈다
 $C exec backend alembic upgrade head
 
@@ -168,7 +178,9 @@ $C exec backend alembic upgrade head
 #    init.sql은 롤·GRANT만 만든다. 그 시점엔 테이블이 없어 정책을 만들 수 없다.
 #    이걸 건너뛰면 users에 user_isolation만 걸려 **로그인·게스트 시작이 전면 0행**이고,
 #    리더보드도 빈다. "기존 볼륨에만"이 아니다.
-$C exec -T postgres psql -U weathermind -d weathermind \
+#    `-v ON_ERROR_STOP=1`을 빠뜨리지 말 것 — 없으면 중간 구문이 실패해도 psql이
+#    끝까지 스크롤하고 종료코드 0을 내서, 운영자는 정책이 안 걸린 채 다음 단계로 간다.
+$C exec -T postgres psql -U weathermind -d weathermind -v ON_ERROR_STOP=1 \
   < backend/app/scripts/rls_app_role.sql
 
 # ③ 시드 — **courses가 units보다 먼저** (CO-J-7)
@@ -176,7 +188,7 @@ $C exec -T postgres psql -U weathermind -d weathermind \
 #    그러면 전 유닛이 단일 코스로 뭉치고 GET /courses가 비어 학습 화면이 백지가 된다.
 #    scripts/smoke.sh가 이 순서를 계약으로 검사한다.
 $C exec backend python -m app.scripts.seed_courses    # ← 빠뜨리기 쉽다
-$C exec backend python -m app.scripts.seed_content    # 문항 272
+$C exec backend python -m app.scripts.seed_content    # 문항 284 (2026-08-09 실측)
 $C exec backend python -m app.scripts.seed_units      # 유닛 24 (courses 필요)
 $C exec backend python -m app.scripts.seed_badges     # 배지
 
@@ -222,6 +234,52 @@ docker stats --no-stream       # 메모리가 mem_limit 안에 있는지
 | 재기동할 때마다 전원 로그아웃 / 게스트 진도 소실 | Redis 영속성이 꺼졌다. `$C exec redis redis-cli CONFIG GET appendonly` → `yes`여야 한다. `no`면 `infra/redis.conf` 마운트나 `command:`가 빠진 것 |
 | Redis `OOM command not allowed when used memory > 'maxmemory'` | maxmemory(128mb) 도달 = 정상 운영이 아니라 폭주다. **`noeviction`이 의도적으로 쓰기를 거절한 것이고 기존 세션·큐는 살아 있다.** `redis-cli INFO memory`·`--bigkeys`로 원인을 찾고, 정말 부족하면 `infra/redis.conf`의 `maxmemory`와 prod `mem_limit`(192m)를 **함께** 올린다 |
 | dev에서 컨테이너가 5회 재시작 후 죽은 채로 남음 | dev의 `on-failure:5`가 의도한 동작이다(무한 재기동이 로그를 밀어내지 않게). prod 오버레이는 `unless-stopped`라 계속 복구한다 |
+
+## 8.5 백업과 복원 (CO-Q-5)
+
+⚠️ **이 절이 없었다.** `db_backup.sh`·`db_restore.sh`가 8/05부터 있었고 `db-backup`
+컨테이너가 매일 돌고 있었는데, **배포 문서에도 런북에도 언급이 0건**이었다. 즉 사고가
+난 순간 복원 절차를 아는 사람이 코드를 읽어야 했다.
+
+### 백업 — 자동 + 수동
+
+`db-backup` 서비스가 `BACKUP_INTERVAL_SEC`(기본 86400 = 하루)마다 `pg_dump`(custom
+format)를 `/backups` 볼륨에 남기고 최신 `BACKUP_KEEP`(기본 7)개만 유지한다. 배포
+직후·시드 직후처럼 **되돌아갈 지점**이 필요하면 수동으로 한 번 찍는다:
+
+```bash
+scripts/db_backup.sh            # 호스트에서 1회 → ./backups/weathermind_<날짜>.dump
+docker compose exec db-backup ls -la /backups   # 컨테이너 볼륨 쪽 확인
+```
+
+### 복원 — 두 모드, **실DB는 구조적으로 못 덮는다**
+
+```bash
+# ⓐ 리허설(기본): 임시 DB로 복원해 실DB와 테이블·행 수를 대조하고 끝나면 DROP
+scripts/db_restore.sh backups/weathermind_20260809_120000.dump
+
+# ⓑ 실복원: 새 DB로 복원한다. **전환은 운영자 몫**이다(스크립트가 실DB를 갈아끼우지 않는다)
+scripts/db_restore.sh backups/weathermind_20260809_120000.dump --target weathermind_restored
+```
+
+`--target`이 실DB명과 같으면 스크립트가 즉시 실패한다 — 이 가드가 "복원하려다 덮었다"를
+구조적으로 막는다.
+
+### 🔴 복원 후 전환 절차 — 여기서 대부분 막힌다
+
+`pg_restore --no-owner --no-privileges`는 **의도적으로** 소유자·권한을 버린다(다른
+클러스터·다른 롤 이름에서도 복원이 성립해야 하므로). 그래서 복원본에는 앱 롤 GRANT도
+RLS 예외 정책도 없다 — **복원은 성공했는데 런타임이 그 DB를 못 쓴다.**
+
+`--target` 모드는 이제 스크립트가 `rls_app_role.sql`을 자동으로 재적용한다(CO-Q-4).
+전환은 그 다음이다:
+
+1. `.env`의 `DATABASE_URL`·`MIGRATION_DATABASE_URL`의 **DB명만** 복원본으로 바꾼다
+2. `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d backend celery-worker celery-beat`
+3. `/health`가 `db: ok`인지, `POST /api/v1/auth/guest`가 201인지 확인(§7)
+
+> **복원본에서도 마이그레이션 상태를 확인할 것** — 덤프 시점이 현재 코드보다 오래됐으면
+> `alembic upgrade head`가 필요하고, 그때 §6 ①-a의 이미지 대조가 다시 적용된다.
 
 ## 9. 운영 중 갱신
 
