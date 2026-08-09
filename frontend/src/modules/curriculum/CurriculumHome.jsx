@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { curriculumApi, progressApi } from '../../api';
@@ -117,46 +117,6 @@ export default function CurriculumHome() {
   const dailyBlocked = energyBlocked && (me?.today_answered_count ?? 0) === 0;
   const regenMin = Math.max(1, Math.ceil((energy?.next_regen_sec ?? 0) / 60));
 
-  /**
-   * 트랙 **아래**에 붙는 보조 줄의 높이를 트랙에 알린다(`--wm-track-tail`).
-   *
-   * `.wm-track`의 높이는 "화면 - 트랙 위 - 트랙 아래"다. 위쪽은 PcCurriculumPath가
-   * 스스로 재는데, 아래쪽은 이 화면이 나중에 붙인 것이라 그쪽이 알 수 없다 —
-   * 안 알리면 그 높이만큼 페이지에 세로 스크롤이 생긴다(실측 1440×900에서 91px).
-   * 32px는 앱 셸 본문 아래 여백(Layout main의 pb-8)이고 CSS 기본값과 같다.
-   *
-   * 되먹임 없음: 재는 것은 **보조 줄**의 높이이고, 트랙 높이가 바뀌어도 보조 줄의
-   * 높이는 변하지 않는다(내용이 정하는 값이다).
-   */
-  const tailRef = useRef(null);
-  const rootRef = useRef(null);
-  const syncTail = useCallback(() => {
-    const tail = tailRef.current;
-    const root = rootRef.current;
-    if (!root) return;
-    // 바깥 여백(mt-4)까지 세야 한다 — getBoundingClientRect().height는 border-box라
-    // 마진을 빼고 준다. 빼먹으면 딱 그 마진만큼(16px) 페이지가 넘친다(실측).
-    const h = tail
-      ? Math.round(tail.getBoundingClientRect().height)
-        + Math.round(parseFloat(getComputedStyle(tail).marginTop) || 0)
-      : 0;
-    root.style.setProperty('--wm-track-tail', `${h + 32}px`);
-  }, []);
-  useEffect(() => {
-    syncTail();
-    if (typeof ResizeObserver === 'undefined' || !tailRef.current) {
-      window.addEventListener('resize', syncTail);
-      return () => window.removeEventListener('resize', syncTail);
-    }
-    const ro = new ResizeObserver(syncTail);
-    ro.observe(tailRef.current);
-    window.addEventListener('resize', syncTail);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', syncTail);
-    };
-  });
-
   // 진입 카드(§2.5) — 홈에서 넘어왔다. 트리가 아직 안 왔을 때(undefined) 곧바로
   // pickLearnEntry를 태우면 units=[]라 "오늘 몫" 또는 "완료"로 튀었다가 도착 후
   // 유닛으로 바뀐다 — 첫 페인트에서 CTA 문구가 번쩍인다. 도착 전에는 유닛 자리를
@@ -221,7 +181,7 @@ export default function CurriculumHome() {
   const sectionPreview = COURSE_SECTION_PREVIEW[selectedCourse] ?? null;
 
   return (
-    <div ref={rootRef} className="pt-2">
+    <div className="pt-2">
       {/* 게스트 진도 저장 배너(§6.2 FE-B) — 게스트+진도 있음에만 자가 렌더 */}
       <GuestSaveBanner />
 
@@ -287,19 +247,20 @@ export default function CurriculumHome() {
         </div>
       )}
 
-      {/* 모바일(md 미만) — 사이드 레일이 없으므로 진입 카드를 **경로 위**에 둔다.
-          아래에 두면 유닛 3~5개짜리 경로를 다 스크롤해야 「이어서 풀기」가 나온다
-          (실측 390px에서 카드 상단이 1,020px 지점 — 화면 한 번 반을 내려야 했다).
-          PC 경로 뷰는 hidden md:block이라 레일과 이 카드는 둘 중 하나만 보인다.
-          단 **경로 자체가 없으면**(빈 트리 코스) PC에도 레일이 안 뜬다
-          — PcCurriculumPath가 통째로 null을 돌려주기 때문이다. 그때는 여기서
-          PC에도 보여준다(진입로가 사라지면 안 된다). */}
-      <div className={hasPath ? 'mb-4 md:hidden' : 'mb-4 max-w-sm'}>
+      {/* 진입 배너 — 경로 **위**, 폭 전체(사용자 시안 1c).
+          한때 PC는 오른쪽 레일, 모바일은 경로 위로 **두 벌**을 마운트했다.
+          가로 배너는 lg 미만에서 스스로 세로로 접히므로 한 벌이면 된다 —
+          두 벌은 DOM에 같은 카드가 둘 있다는 뜻이고, 실제로 스모크가
+          "진입 카드 2개"를 세고 있었다. */}
+      <div className="mb-3.5">
         <LearnHeroCard
           entry={entry}
           copy={ENTRY_COPY[entry.kind]}
           goalTotal={goalTotal}
           goalDone={goalDone}
+          dailyBlocked={dailyBlocked}
+          energyBlocked={energyBlocked}
+          regenMin={regenMin}
         />
       </div>
 
@@ -346,62 +307,7 @@ export default function CurriculumHome() {
         energyBlocked={energyBlocked}
         regenMin={regenMin}
         onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
-        rail={
-          <LearnHeroCard
-            entry={entry}
-            copy={ENTRY_COPY[entry.kind]}
-            goalTotal={goalTotal}
-            goalDone={goalDone}
-          />
-        }
       />
-
-      {/* 화면 맨 아래 보조 줄 (2026-08-09 시안) — **카드가 아니라 링크**다.
-          여기 있던 것들은 원래 흰 카드였다: 복습 큐 카드 · 자유 일일 세션 카드 ·
-          학습 지역 카드. 카드로 두면 위의 진입 카드와 무게가 비슷해져 "무엇을
-          눌러야 하는가"가 다시 흐려진다(§2.5가 없앤 바로 그 증상).
-          2026-08-09: 복습은 여기 있다가 **파란 진입 카드 안**(「이어서 풀기」 밑)으로
-          올라갔다(사용자 지시). 이 줄에는 더 해보기 링크와 지역만 남는다. */}
-      <div ref={tailRef} className="mt-4 border-t border-slate-200 pt-3.5">
-        <div
-          data-testid="learn-secondary"
-          className="flex flex-wrap items-center gap-x-4 gap-y-2 px-0.5 text-[12px] text-slate-400"
-        >
-          <span>{t('home.entry.more')}</span>
-          {/* 잔량 0 — **진짜 disabled 버튼**이어야 한다(§3.1 "누르기 전에 알린다").
-              링크를 회색으로만 칠하면 눌리고, 눌리면 서버가 429로 막는다 —
-              막힌 것을 누른 뒤에 알리는 흐름은 R10에서 폐지했다. */}
-          {dailyBlocked ? (
-            <>
-              <button type="button" disabled aria-disabled="true" className="cursor-not-allowed font-bold text-slate-300">
-                {t('curriculum.daily.cta')}
-              </button>
-              <span className="text-[11.5px] font-bold text-rose-500">
-                {t('curriculum.daily.regen', { min: regenMin })}
-              </span>
-            </>
-          ) : (
-            <Link to="/daily" className="font-bold text-slate-500 underline-offset-4 hover:text-sky-700 hover:underline">
-              {energyBlocked ? t('curriculum.daily.resume') : t('curriculum.daily.cta')}
-            </Link>
-          )}
-          <Link to="/board" className="font-bold text-slate-500 underline-offset-4 hover:text-sky-700 hover:underline">
-            {t('home.entry.board')}
-          </Link>
-          <Link to="/duel" className="font-bold text-slate-500 underline-offset-4 hover:text-sky-700 hover:underline">
-            {t('home.entry.duel')}
-          </Link>
-          <Link to="/league" className="font-bold text-slate-500 underline-offset-4 hover:text-sky-700 hover:underline">
-            {t('home.entry.league')}
-          </Link>
-          {/* 지역 칩(R12 선행 §8) — 실황 문항이 어느 지역 날씨인지 알린다. */}
-          <span className="ml-auto flex items-center gap-1.5">
-            <span className="text-[11.5px]">{t('region.settingTitle')}</span>
-            <RegionPicker />
-          </span>
-        </div>
-      </div>
-
     </div>
   );
 }

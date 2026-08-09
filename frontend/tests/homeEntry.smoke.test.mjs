@@ -187,13 +187,11 @@ const ok = (cond, label) => {
   // 목의 시드는 첫 유닛만 클리어 → 두 번째 유닛이 current다
   await waitFor(() => text().includes('기단의 성질'), 8000, '커리큘럼 트리 도착');
 
-  // 1. 진입 **선택지**는 하나다.
-  // DOM 노드는 2개다(레일용·모바일용) — PC 경로 뷰가 `hidden md:block`이라 뷰포트마다
-  // 하나만 보인다. jsdom에는 CSS 엔진이 없어 "보이는 것"을 셀 수 없으므로,
-  // 지켜야 할 것을 **목적지가 하나인가**로 바꿔 단정한다. 예전 4칸 회귀는
-  // 목적지가 갈리는 형태였으므로 이 단정이 그대로 잡는다.
+  // 1. 진입 **선택지**는 하나다 — 그리고 DOM 노드도 하나다(2026-08-09).
+  // 한때 2개였다: PC 레일용·모바일용을 따로 마운트했다. 가로 배너로 바꾸면서
+  // 배너가 스스로 세로로 접히므로 한 벌이면 된다.
   const cards = $$('[data-testid="learn-entry"]');
-  ok(cards.length === 2, `진입 카드 마운트 2곳(레일·모바일) — 실제 ${cards.length}`);
+  ok(cards.length === 1, `진입 카드는 DOM에도 하나 — 실제 ${cards.length}`);
   // 2026-08-09: 카드 바깥이 <div>가 됐다 — 복습 링크가 안으로 들어오면서 `<a>`
   // 안의 `<a>`가 되기 때문이다(HTML 불가). 목적지는 CTA가 갖는다.
   const hrefOf = (c) => c.querySelector('[data-testid="learn-entry-cta"]')?.getAttribute('href');
@@ -215,7 +213,9 @@ const ok = (cond, label) => {
   const secHrefs = [...(secondary?.querySelectorAll('a') ?? [])].map((a) => a.getAttribute('href'));
   // 2026-08-09: 자유 일일 세션(/daily)이 같은 줄로 내려왔다 — 예전에는 별도 흰
   // 카드였고, 카드로 두면 위의 진입 카드와 무게가 비슷해진다.
-  ok(secHrefs.join(',') === '/daily,/board,/duel,/league', `보조 링크 4종 — ${secHrefs.join(',')}`);
+  // 2026-08-09: 보드·대결·리그 링크는 걷었다 — 내비(6탭)가 이미 갖고 있어
+  // 같은 목적지가 한 화면에 두 벌이었다. 이 줄은 자유 일일 세션만 갖는다.
+  ok(secHrefs.join(',') === '/daily', `자유 일일 세션 링크만 남는다 — ${secHrefs.join(',')}`);
   // 복습은 이 줄이 아니라 파란 진입 카드 안에 있다(2026-08-09 지시).
   // 자기 쿼리가 도착해야 그려지므로 기다린다 — 즉시 보면 due 0건과 구분되지 않는다.
   await waitFor(() => $$('[data-testid="review-queue-hero"]').length > 0, 6000, '복습 줄');
