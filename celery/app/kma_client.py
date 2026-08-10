@@ -1,8 +1,12 @@
-"""기상청(KMA) 공공데이터 API 동기 클라이언트.
+"""기상청(KMA) API허브 동기 클라이언트.
+
+출처는 **기상청 API허브**(`apihub.kma.go.kr/api/typ02/openApi/...`)다 — R13에서
+공공데이터포털에서 옮겼다. 갈린 것은 인증 파라미터 이름(`serviceKey`→`authKey`)과
+ASOS 일자료 서비스·필드명뿐이고, 응답 봉투와 파싱 규칙은 그대로다.
 
 docs/specs/06_kma_api_parsing_spec.md 파싱 규칙 준수:
 - response.header.resultCode == "00" 성공, "03"(NODATA)은 빈 결과 처리, 그 외 KMAApiError
-- serviceKey는 이미 인코딩된 키일 수 있으므로 재인코딩 금지 (URL 문자열에 직접 부착)
+- authKey는 이미 인코딩된 키일 수 있으므로 재인코딩 금지 (URL 문자열에 직접 부착)
 - PCP/PTY 값이 "강수없음" 등 문자열로 올 수 있음 → 숫자 변환 전 체크
 - 응답 item이 flat하게 섞여 있음 → (fcstDate, fcstTime) 기준 grouping 후 category별 재구성
 - 타임아웃 10초, 실패 시 1회 재시도
@@ -17,7 +21,7 @@ from app import config
 
 logger = logging.getLogger(__name__)
 
-# ── serviceKey 로그 유출 차단 (CO-Q-3 / CO-N-3d) ────────────────────────────
+# ── 인증키(authKey/serviceKey) 로그 유출 차단 (CO-Q-3 / CO-N-3d) ────────────
 # backend/app/services/weather_api.py와 **같은 규칙**이다(교차 빌드 컨텍스트라
 # import로 묶을 수 없어 값을 양쪽에 둔다 — 드리프트는 backend
 # tests/test_kma_key_masking.py가 두 파일을 함께 읽어 감시한다).
@@ -25,12 +29,16 @@ logger = logging.getLogger(__name__)
 # ② httpx 예외 문자열에 요청 URL이 들어간다 → mask_service_key
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-_SERVICE_KEY_RE = re.compile(r"(serviceKey=)[^&\s'\"]+", re.IGNORECASE)
+_SERVICE_KEY_RE = re.compile(r"((?:serviceKey|authKey)=)[^&\s'\"]+", re.IGNORECASE)
 SERVICE_KEY_MASK = "***"
 
 
 def mask_service_key(text: object) -> str:
-    """문자열에서 `serviceKey=...` 값을 마스킹한다 (순수 함수)."""
+    """문자열에서 `serviceKey=...` / `authKey=...` 값을 마스킹한다 (순수 함수).
+
+    두 이름을 모두 잡는다 — R13 API허브 전환(`serviceKey`→`authKey`) 후에도 방어가
+    유지돼야 한다. backend weather_api.py와 바이트 동일(계약 테스트가 대조).
+    """
     return _SERVICE_KEY_RE.sub(rf"\1{SERVICE_KEY_MASK}", str(text))
 
 # ── 주요 지역 격자 좌표 (단기예보 nx, ny) ──
@@ -77,10 +85,10 @@ def parse_kma_value(raw):
 
 def _request_items(base_url: str, params: dict) -> list[dict]:
     """공통 요청 헬퍼. resultCode 체크 포함. NODATA(03)는 빈 리스트."""
-    # serviceKey 재인코딩 금지 — 발급키를 URL에 직접 부착하고
+    # authKey 재인코딩 금지 — 발급키를 URL에 직접 부착하고
     # 나머지 파라미터만 urlencode 한다.
     query = urlencode(params)
-    url = f"{base_url}?serviceKey={config.KMA_API_KEY}&{query}"
+    url = f"{base_url}?authKey={config.KMA_API_KEY}&{query}"
 
     data = None
     last_exc = None
