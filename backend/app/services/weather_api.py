@@ -366,6 +366,70 @@ async def get_mid_forecast(region: str = DEFAULT_REGION, tm_fc: str | None = Non
     return items[0] if items else {}
 
 
+# ── ASOS 일자료 어댑터 (API허브 SfcMtlyInfoService/getDailyWthrData) ─────────
+# 공공데이터포털 `AsosDalyInfoService`는 **기간**(startDt~endDt) 조회에 필드가
+# avgTa/maxTa/minTa/sumRn였다. API허브에는 그 서비스가 없고, 일자료는
+# `SfcMtlyInfoService/getDailyWthrData`가 **월**(year+month) 단위로 ta/ta_max/
+# ta_min/rn_day를 준다. 두 차이를 여기서 흡수해 **공개 시그니처와 반환 형태를
+# 종전 그대로 유지**한다 — duel_service·league.py는 무변경이다.
+#
+# ⚠️ `SfcMtlyInfoService`는 이름 그대로 **월보(月報) 계열**이다. 당월 자료가 월
+# 마감 후에야 채워질 가능성이 있고, 그러면 매일 새벽 4시 "어제" 정산이 당월 내내
+# 빈손이 된다. 배포 전 **어제 날짜 1콜로 행이 오는지** 반드시 확인할 것.
+# 안 오면 폴백은 typ01 `kma_sfcdd3.php`(tm1~tm2 기간 조회 — 시그니처가 정확히
+# 일치하고 고정폭 텍스트 파서만 새로 필요)다. 교체 지점은 `_fetch_daily_obs` 하나.
+
+# 우리 출력 필드 → API허브 응답 필드 (키 순서 = 종전 출력 순서)
+ASOS_FIELD_MAP = {"avgTa": "ta", "maxTa": "ta_max", "minTa": "ta_min", "sumRn": "rn_day"}
+
+
+def asos_months(start_dt: str, end_dt: str) -> list[tuple[str, str]]:
+    """'YYYYMMDD' 기간을 (year, month) 목록으로 편다 — 월 경계를 걸치면 2개 이상.
+
+    주간 리그 정산이 월말~월초에 걸리는 경우가 실제로 있다(월요일 정산 × 지난주).
+    """
+    start = datetime.strptime(start_dt, "%Y%m%d").date()
+    end = datetime.strptime(end_dt, "%Y%m%d").date()
+    if end < start:
+        return []
+    out: list[tuple[str, str]] = []
+    year, month = start.year, start.month
+    while (year, month) <= (end.year, end.month):
+        out.append((f"{year:04d}", f"{month:02d}"))
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return out
+
+
+def normalize_asos_tm(raw: object) -> str | None:
+    """관측일자를 'YYYY-MM-DD'로 통일. 'YYYYMMDD'·'YYYY-MM-DD' 둘 다 받는다.
+
+    종전 출력이 'YYYY-MM-DD'였고 duel_service가 그 형태로 오늘/과거를 가른다 —
+    API허브 표기가 무엇이든 이 자리에서 흡수해야 정산이 조용히 어긋나지 않는다.
+    """
+    digits = re.sub(r"\D", "", str(raw or ""))
+    if len(digits) < 8:
+        return None
+    return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
+
+
+def asos_row(item: dict) -> dict:
+    """API허브 일자료 1행 → 종전 출력 형태(tm·avgTa·maxTa·minTa·sumRn)."""
+    row = {"tm": normalize_asos_tm(item.get("tm"))}
+    for ours, theirs in ASOS_FIELD_MAP.items():
+        row[ours] = parse_kma_value(item.get(theirs))
+    return row
+
+
+def asos_in_range(rows: list[dict], start_dt: str, end_dt: str) -> list[dict]:
+    """월 단위로 받아온 행에서 [start_dt, end_dt]만 남기고 날짜순 정렬."""
+    lo, hi = re.sub(r"\D", "", start_dt), re.sub(r"\D", "", end_dt)
+    kept = [
+        r for r in rows
+        if r.get("tm") and lo <= re.sub(r"\D", "", r["tm"]) <= hi
+    ]
+    return sorted(kept, key=lambda r: r["tm"])
+
+
 def asos_cache_key(start_dt: str, end_dt: str, region: str) -> str:
     return f"asos:{start_dt}:{end_dt}:{region}"
 
@@ -374,8 +438,26 @@ def asos_fail_key(start_dt: str, end_dt: str, region: str) -> str:
     return f"asos:fail:{start_dt}:{end_dt}:{region}"
 
 
+async def _fetch_daily_obs(start_dt: str, end_dt: str, stn_id: str) -> list[dict]:
+    """일자료 원본 행을 긁어온다 — **출처 교체 지점**(위 어댑터 주석의 ⚠️ 참조).
+
+    월 단위 API라 기간이 월 경계를 걸치면 그만큼 호출이 나뉜다(주간 정산 최대 2콜).
+    """
+    items: list[dict] = []
+    for year, month in asos_months(start_dt, end_dt):
+        items += await _request_items(settings.KMA_ASOS_DALY_URL, {
+            "pageNo": 1,
+            "numOfRows": 31,
+            "dataType": "JSON",
+            "year": year,
+            "month": month,
+            "station": stn_id,
+        })
+    return items
+
+
 async def get_past_observation(start_dt: str, end_dt: str, region: str = DEFAULT_REGION) -> list[dict]:
-    """과거관측(getAsosDalyInfoList). 일별 관측값 리스트.
+    """과거관측 일자료(API허브 getDailyWthrData). 일별 관측값 리스트.
 
     각 항목: {'tm': 'YYYY-MM-DD', 'avgTa': float, 'maxTa': float, 'minTa': float, 'sumRn': float}
 
@@ -397,30 +479,13 @@ async def get_past_observation(start_dt: str, end_dt: str, region: str = DEFAULT
         raise KMAApiError("ASOS 최근 실패 마커 활성 — 재호출 대기 중")
 
     try:
-        items = await _request_items(settings.KMA_ASOS_DALY_URL, {
-            "pageNo": 1,
-            "numOfRows": 31,
-            "dataType": "JSON",
-            "dataCd": "ASOS",
-            "dateCd": "DAY",
-            "startDt": start_dt,
-            "endDt": end_dt,
-            "stnIds": stn_id,
-        })
+        items = await _fetch_daily_obs(start_dt, end_dt, stn_id)
     except KMAApiError:
         await redis.setex(asos_fail_key(start_dt, end_dt, region), WEATHER_FAIL_TTL_SEC, "1")
         raise
 
-    result = [
-        {
-            "tm": item.get("tm"),
-            "avgTa": parse_kma_value(item.get("avgTa")),
-            "maxTa": parse_kma_value(item.get("maxTa")),
-            "minTa": parse_kma_value(item.get("minTa")),
-            "sumRn": parse_kma_value(item.get("sumRn")),
-        }
-        for item in items
-    ]
+    # 월 단위로 받아왔으므로 요청 구간 밖 행이 섞여 있다 — 잘라내고 날짜순 정렬.
+    result = asos_in_range([asos_row(item) for item in items], start_dt, end_dt)
     await redis.setex(
         asos_cache_key(start_dt, end_dt, region),
         WEATHER_CACHE_TTL_SEC,

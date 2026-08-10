@@ -13,6 +13,7 @@ docs/specs/06_kma_api_parsing_spec.md 파싱 규칙 준수:
 """
 import logging
 import re
+from datetime import datetime
 from urllib.parse import urlencode
 
 import httpx
@@ -154,28 +155,76 @@ def get_short_forecast(region: str, base_date: str, base_time: str) -> dict:
     return {"region": region, "forecasts": forecasts}
 
 
+# ── ASOS 일자료 어댑터 (API허브 SfcMtlyInfoService/getDailyWthrData) ─────────
+# backend/app/services/weather_api.py의 같은 이름 함수들과 **동작이 같아야 한다**
+# (교차 빌드 컨텍스트 — import로 묶을 수 없다). 드리프트는 backend
+# tests/test_kma_asos_adapter.py가 두 구현을 함께 실행해 감시한다.
+# 배경·폴백 경로(typ01 kma_sfcdd3.php)는 backend 쪽 주석이 소유한다.
+
+# 우리 출력 필드 → API허브 응답 필드 (키 순서 = 종전 출력 순서)
+ASOS_FIELD_MAP = {"avgTa": "ta", "maxTa": "ta_max", "minTa": "ta_min", "sumRn": "rn_day"}
+
+
+def asos_months(start_dt: str, end_dt: str) -> list[tuple[str, str]]:
+    """'YYYYMMDD' 기간을 (year, month) 목록으로 편다 — 월 경계를 걸치면 2개 이상."""
+    start = datetime.strptime(start_dt, "%Y%m%d").date()
+    end = datetime.strptime(end_dt, "%Y%m%d").date()
+    if end < start:
+        return []
+    out: list[tuple[str, str]] = []
+    year, month = start.year, start.month
+    while (year, month) <= (end.year, end.month):
+        out.append((f"{year:04d}", f"{month:02d}"))
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return out
+
+
+def normalize_asos_tm(raw: object) -> str | None:
+    """관측일자를 'YYYY-MM-DD'로 통일. 'YYYYMMDD'·'YYYY-MM-DD' 둘 다 받는다."""
+    digits = re.sub(r"\D", "", str(raw or ""))
+    if len(digits) < 8:
+        return None
+    return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
+
+
+def asos_row(item: dict) -> dict:
+    """API허브 일자료 1행 → 종전 출력 형태(tm·avgTa·maxTa·minTa·sumRn)."""
+    row = {"tm": normalize_asos_tm(item.get("tm"))}
+    for ours, theirs in ASOS_FIELD_MAP.items():
+        row[ours] = parse_kma_value(item.get(theirs))
+    return row
+
+
+def asos_in_range(rows: list[dict], start_dt: str, end_dt: str) -> list[dict]:
+    """월 단위로 받아온 행에서 [start_dt, end_dt]만 남기고 날짜순 정렬."""
+    lo, hi = re.sub(r"\D", "", start_dt), re.sub(r"\D", "", end_dt)
+    kept = [
+        r for r in rows
+        if r.get("tm") and lo <= re.sub(r"\D", "", r["tm"]) <= hi
+    ]
+    return sorted(kept, key=lambda r: r["tm"])
+
+
+def _fetch_daily_obs(start_dt: str, end_dt: str, stn_id: str) -> list[dict]:
+    """일자료 원본 행을 긁어온다 — **출처 교체 지점**(backend 주석 참조)."""
+    items: list[dict] = []
+    for year, month in asos_months(start_dt, end_dt):
+        items += _request_items(config.KMA_ASOS_DALY_URL, {
+            "pageNo": 1,
+            "numOfRows": 31,
+            "dataType": "JSON",
+            "year": year,
+            "month": month,
+            "station": stn_id,
+        })
+    return items
+
+
 def get_past_observation(start_dt: str, end_dt: str, stn_id: str) -> list[dict]:
-    """과거관측(getAsosDalyInfoList). 일별 관측값 리스트.
+    """과거관측 일자료(API허브 getDailyWthrData). 일별 관측값 리스트.
 
     각 항목: {'tm': 'YYYY-MM-DD', 'avgTa': float, 'maxTa': float, 'sumRn': float, ...}
+    월 단위 API를 기간 조회처럼 보이게 감싼다 — 리그 정산(league.py)은 무변경.
     """
-    items = _request_items(config.KMA_ASOS_DALY_URL, {
-        "pageNo": 1,
-        "numOfRows": 31,
-        "dataType": "JSON",
-        "dataCd": "ASOS",
-        "dateCd": "DAY",
-        "startDt": start_dt,
-        "endDt": end_dt,
-        "stnIds": stn_id,
-    })
-    observations = []
-    for item in items:
-        observations.append({
-            "tm": item.get("tm"),
-            "avgTa": parse_kma_value(item.get("avgTa")),
-            "maxTa": parse_kma_value(item.get("maxTa")),
-            "minTa": parse_kma_value(item.get("minTa")),
-            "sumRn": parse_kma_value(item.get("sumRn")),
-        })
-    return observations
+    items = _fetch_daily_obs(start_dt, end_dt, stn_id)
+    return asos_in_range([asos_row(item) for item in items], start_dt, end_dt)
