@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { boardApi, progressApi } from '../../api';
 import { useProgressStore } from '../../store/progressStore';
@@ -68,6 +67,10 @@ function DifficultyBadge({ difficulty }) {
 /**
  * 판의 크기 — **가로 6 × 세로 8**(2026-08-10 사용자 지시. 종전 4열).
  * 48칸이고, 저작된 퍼즐이 그보다 적으면 나머지는 「???」로 채운다.
+ *
+ * ⚠️ 6열은 **xl(1280px)부터**다(계단은 useGridCols가 소유). sm(640)에 걸면 셸이
+ * 아직 `max-w-xl`(576px)이라 칸이 96px로 내려가 제목이 대여섯 줄로 접힌다
+ * (2026-08-10 리뷰). 칸 187px은 1440에서 나오는 값이고 1280에서 약 173px이다.
  */
 const GRID_COLS = 6;
 const GRID_ROWS = 8;
@@ -77,15 +80,37 @@ const GRID_ROWS = 8;
  * 판정하려면 열 수를 알아야 한다. Tailwind `sm:`(640px)과 같은 기준을 본다.
  * 하드코딩하면 모바일 2열에서 선이 엉뚱한 칸에 붙고 돌기가 판 밖으로 잘린다.
  */
+/**
+ * 열 수의 **단일 소유자** — 아래 `grid-cols-*` 클래스와 **반드시 같은 계단**이어야
+ * 한다. 어긋나면 경계선·돌기가 엉뚱한 칸에 붙는다(그 판정이 이 값을 쓴다).
+ *   기본 2 · md(768) 4 · xl(1280) 6
+ * 6열을 sm(640)에 걸면 셸이 아직 `max-w-xl`(576px)이라 칸이 96px로 내려간다.
+ * 반대로 xl에서만 갈라 두면 1024px에서 2열이 되어 칸이 392px로 불어난다
+ * (둘 다 2026-08-10에 실측하고 이 계단으로 정착했다).
+ */
+const COL_STEPS = [
+  { mq: '(min-width: 1280px)', cols: GRID_COLS }, // xl
+  { mq: '(min-width: 768px)', cols: 4 }, // md
+];
+const NARROW_COLS = 2;
+
+function resolveCols() {
+  if (typeof window === 'undefined' || !window.matchMedia) return NARROW_COLS;
+  return COL_STEPS.find((s) => window.matchMedia(s.mq).matches)?.cols ?? NARROW_COLS;
+}
+
 function useGridCols() {
-  const [cols, setCols] = useState(GRID_COLS);
+  // ⚠️ 초깃값을 **동기로** 읽는다. 상수로 두면 모바일 첫 페인트가 2열 격자에
+  // 48칸을 쏟아 내고(유령 「???」 14개) 경계선·돌기 계산도 6열 기준으로 돌다가
+  // effect 뒤에 고쳐진다 — 종전 초깃값이 4라 눈에 안 띄던 결함이다(2026-08-10 리뷰).
+  const [cols, setCols] = useState(resolveCols);
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return undefined;
-    const mq = window.matchMedia('(min-width: 640px)'); // Tailwind sm
-    const apply = () => setCols(mq.matches ? GRID_COLS : 2);
+    const apply = () => setCols(resolveCols());
     apply();
-    mq.addEventListener('change', apply);
-    return () => mq.removeEventListener('change', apply);
+    const mqs = COL_STEPS.map((s) => window.matchMedia(s.mq));
+    mqs.forEach((mq) => mq.addEventListener('change', apply));
+    return () => mqs.forEach((mq) => mq.removeEventListener('change', apply));
   }, []);
   return cols;
 }
@@ -362,7 +387,7 @@ export default function BoardPage() {
                 옮겨 가 묶어 둘 이유가 없어졌다. 열 너비가 곧 칸 크기라(aspect
                 고정) 6열에서 폭까지 묶으면 칸이 143px로 내려가 제목이 안 들어간다.
                 종전의 max-w-[860px]·lg:ml-auto는 레일과 짝이던 값이라 함께 걷었다. */}
-            <div className="grid grid-cols-2 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 sm:grid-cols-6">
+            <div className="grid grid-cols-2 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 md:grid-cols-4 xl:grid-cols-6">
               {cells.map((p, i) =>
                 p ? (
                   <PuzzlePiece
@@ -488,7 +513,7 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
   );
 }
 
-/** 아직 저작되지 않은 자리 — 한 판을 4열로 꽉 채우기 위한 칸. */
+/** 아직 저작되지 않은 자리 — 판(xl에서 6×8=48칸)을 꽉 채우기 위한 칸. */
 function EmptyPiece({ index, cols, total }) {
   const t = useT();
   return (

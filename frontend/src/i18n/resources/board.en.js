@@ -40,7 +40,7 @@ export default {
       depletedBodyBold: '1 per wrong attempt',
       depletedBody2: '— they are spent on mistakes, not on effort. In about',
       depletedMinutes: '{min} min',
-      depletedBody3: 'one cloud will recover and you can open a new puzzle. The ungraded sandbox is still open right now.',
+      depletedBody3: 'one cloud will recover and you can open a new puzzle. The ungraded free experiment is still open in Explore.',
       empty: 'No puzzles registered yet.',
       modeGuided: 'Guided mode',
       modeGoal: 'Goal mode',

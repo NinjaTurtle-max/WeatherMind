@@ -274,14 +274,13 @@ try {
     const sandboxMark = xhrLog.length;
     const sandboxRoot = mount(createElement(SandboxPage));
     await waitFor(() => text().includes('채점하지 않아요'), 5000, '탐구의 자유 실험 화면');
+    // ⚠️ 여기서 바로 xhrLog를 읽으면 **아무것도 안 잡힌다**. 위 문구는 첫 커밋에
+    // 이미 들어 있어 waitFor가 0ms에 통과하고, 그 시점엔 어떤 요청도 아직
+    // 나가지 않았다 — 게이트를 되살려도 초록이 된다(2026-08-10 리뷰).
+    await sleep(300);
     const gated = xhrLog.slice(sandboxMark).filter((u) => /\/board\/puzzles\/[^/]+$/.test(u));
-    assert(
-      gated.length === 0,
-      `자유 실험이 구름 게이트를 탔다: ${gated.join(' , ')}`,
-    );
+    assert(gated.length === 0, `자유 실험이 구름 게이트를 탔다: ${gated.join(' , ')}`);
     sandboxRoot.unmount();
-    return;
-    r.unmount();
   });
 
   // ── 4. 진행 중 퍼즐은 잔량 0이 되어도 제출까지 가능 ───────────────────────
