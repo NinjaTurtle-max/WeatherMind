@@ -60,38 +60,29 @@ function DifficultyBadge({ difficulty }) {
   );
 }
 
-// 자유 실험(R9-01 §3.3 ⑥) — 목표·채점·타이머 없는 전 요소 팔레트 샌드박스.
-// 순수 클라이언트: 서버 호출 0 → 구름 미소모·시도 로그 없음(로컬 엔진만).
-// question_text는 로케일 의존이라 렌더 시 useMemo로 주입한다(아래) — 참조 안정성
-// 유지(AtmosphereBoard가 puzzle identity 변화에 보드를 리셋하므로).
-const SANDBOX_PUZZLE = {
-  mode: 'sandbox',
-  initial_state: { zones: [...ZONES], elements: [] },
-  palette: [
-    'air_mass:siberian',
-    'air_mass:north_pacific',
-    'air_mass:yangtze',
-    'air_mass:okhotsk',
-    'front:cold',
-    'front:warm',
-    'front:stationary',
-    'moisture',
-    'sun',
-  ],
-  goal_conditions: [],
-  hints: [],
-};
+// 자유 실험(SANDBOX_PUZZLE)은 2026-08-10에 **탐구로 이사했다**(사용자 지시) —
+// `modules/explore/SandboxPage.jsx`. 보드는 목표가 있는 미션판이고 자유 실험은
+// 목표가 없는 관찰이라, 한 화면에 두면 "채점되는 것"과 "채점 안 되는 것"이 섞였다.
+// 그래서 여기에는 사이드바 카드도, 샌드박스 분기도 없다.
+
+/**
+ * 판의 크기 — **가로 6 × 세로 8**(2026-08-10 사용자 지시. 종전 4열).
+ * 48칸이고, 저작된 퍼즐이 그보다 적으면 나머지는 「???」로 채운다.
+ */
+const GRID_COLS = 6;
+const GRID_ROWS = 8;
+
 /**
  * 지금 격자가 **몇 열인가** — 경계선·돌기를 "마지막 열/행에는 긋지 않는다"로
  * 판정하려면 열 수를 알아야 한다. Tailwind `sm:`(640px)과 같은 기준을 본다.
- * 하드코딩(4)하면 모바일 2열에서 선이 엉뚱한 칸에 붙고 돌기가 판 밖으로 잘린다.
+ * 하드코딩하면 모바일 2열에서 선이 엉뚱한 칸에 붙고 돌기가 판 밖으로 잘린다.
  */
 function useGridCols() {
-  const [cols, setCols] = useState(4);
+  const [cols, setCols] = useState(GRID_COLS);
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return undefined;
     const mq = window.matchMedia('(min-width: 640px)'); // Tailwind sm
-    const apply = () => setCols(mq.matches ? 4 : 2);
+    const apply = () => setCols(mq.matches ? GRID_COLS : 2);
     apply();
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
@@ -104,17 +95,9 @@ export default function BoardPage() {
   const cols = useGridCols();
   const queryClient = useQueryClient();
   const addXp = useProgressStore((s) => s.addXp);
-  // 번역된 문자열(로케일 변경 시에만 값이 바뀜)을 메모 키로 써서 puzzle 참조를
-  // 안정화한다 — t 함수 자체는 렌더마다 새 클로저라 의존성으로 부적합.
-  const sandboxQuestion = t('board.page.sandboxQuestion');
-  const sandboxPuzzle = useMemo(
-    () => ({ ...SANDBOX_PUZZLE, question_text: sandboxQuestion }),
-    [sandboxQuestion],
-  );
   const [selected, setSelected] = useState(null); // 플레이 중 퍼즐 {content_item_id, template_json}
   const [result, setResult] = useState(null); // 서버 판정 결과
   const [toast, setToast] = useState(null); // XP 토스트 메시지
-  const [sandbox, setSandbox] = useState(false); // 자유 실험 모드(R9-01 §3.3 ⑥)
   const [entryError, setEntryError] = useState(null); // 진입 실패 안내(429 등)
 
   const { data: puzzles, isLoading, isError, error, refetch } = useQuery({
@@ -203,7 +186,6 @@ export default function BoardPage() {
   const backToList = () => {
     setSelected(null);
     setResult(null);
-    setSandbox(false);
     setEntryError(null);
     // 진입 시 소모는 없지만 플레이 중 오답으로 잔량이 줄었을 수 있다 → 목록 복귀 시 최신값.
     queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
@@ -216,21 +198,6 @@ export default function BoardPage() {
     ? list.findIndex((p) => p.content_item_id === selected.content_item_id)
     : -1;
   const nextPuzzle = selectedIndex >= 0 ? (list[selectedIndex + 1] ?? null) : null;
-
-  // 자유 실험 화면(R9-01 §3.3 ⑥) — 퍼즐 목록보다 먼저 분기(로딩과 무관하게 진입 가능)
-  if (sandbox) {
-    return (
-      <div className="pt-2">
-        <button type="button" onClick={backToList} className="mb-2 text-sm font-medium text-slate-500 hover:text-slate-700">
-          {t('board.page.backToList')}
-        </button>
-        <AtmosphereBoard puzzle={sandboxPuzzle} sandbox layout="wide" />
-        <p className="mt-2 text-center text-xs text-slate-400">
-          {t('board.page.sandboxFooter')}
-        </p>
-      </div>
-    );
-  }
 
   if (isLoading) return <LoadingSpinner label={t('board.page.loading')} />;
 
@@ -335,9 +302,17 @@ export default function BoardPage() {
   const clearedCount = list.filter((p) => p.cleared).length;
   // 격자를 **꽉 채운다** — 남는 자리는 「???」(아직 저작되지 않은 칸)로 메운다.
   // 빈 자리를 그냥 두면 한 판짜리 퍼즐의 아래쪽이 뜯겨 나간 것처럼 보인다.
-  // 채우는 개수는 열 수를 따른다(4열 13개 → 3칸, 2열 13개 → 1칸).
+  //
+  // PC(6열)에서는 **6×8 = 48칸을 고정**한다(사용자 지시) — 저작이 늘어도 줄어도
+  // 판 모양이 그대로여서, 화면을 볼 때마다 판 크기가 달라지지 않는다.
+  // 저작이 48을 넘으면 자르지 않고 6의 배수로 늘린다(퍼즐을 감추면 안 된다).
+  // 모바일(2열)은 목록에 맞춰 최소로만 채운다 — 48칸이면 24행짜리 두루마리가 된다.
+  const target =
+    cols === GRID_COLS
+      ? Math.max(GRID_COLS * GRID_ROWS, Math.ceil(list.length / cols) * cols)
+      : Math.ceil(list.length / cols) * cols;
   const cells = [...list];
-  while (cells.length % cols !== 0) cells.push(null);
+  while (cells.length < target) cells.push(null);
   return (
     <div className="pt-2">
       {toast && (
@@ -378,19 +353,16 @@ export default function BoardPage() {
           {t('board.page.empty')}
         </div>
       ) : (
-        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div>
           {/* 왼쪽 — **하나의 큰 퍼즐**을 구역으로 나눈 미션 격자(2026-08-06 시안).
               칸을 따로 띄우지 않고 한 판 안에서 실선으로 가른다. 서버가 저작
               순서(board_order = 난이도 오름차순)로 내려주므로 재정렬하지 않는다. */}
           <div>
-            {/* 판 폭을 조금 묶는다 — 열 너비가 곧 칸 크기라(aspect 고정) 폭을 줄이면
-                판 전체가 같은 비율로 작아진다.
-                lg:ml-auto — 판이 max-w로 묶여 있어 자기 열 안에 남는 폭이 생기는데,
-                기본 정렬이 왼쪽이라 그 여백이 전부 **오른쪽**에 몰린다. 실측 1440에서
-                판 오른쪽 끝과 실험 카드 사이가 78px 벌어져 둘이 남남처럼 보였다.
-                오른쪽으로 붙이면 남는 폭이 왼쪽으로 가고 실험 레일과 한 덩어리로
-                읽힌다(2026-08-06 요청). */}
-            <div className="grid max-w-[860px] grid-cols-2 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 sm:grid-cols-4 lg:ml-auto">
+            {/* 판이 **폭 전체**를 쓴다(2026-08-10) — 오른쪽 실험 레일이 탐구로
+                옮겨 가 묶어 둘 이유가 없어졌다. 열 너비가 곧 칸 크기라(aspect
+                고정) 6열에서 폭까지 묶으면 칸이 143px로 내려가 제목이 안 들어간다.
+                종전의 max-w-[860px]·lg:ml-auto는 레일과 짝이던 값이라 함께 걷었다. */}
+            <div className="grid grid-cols-2 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 sm:grid-cols-6">
               {cells.map((p, i) =>
                 p ? (
                   <PuzzlePiece
@@ -412,10 +384,9 @@ export default function BoardPage() {
             </div>
 
             {/* 전체 진행도 — 순차 진행이라 "몇 칸 남았나"가 곧 코스 진도다.
-                lg:ml-auto는 위 판과 **짝**이다. 한쪽만 오른쪽으로 붙이면 판과
-                진행도 바의 좌우 끝이 20px 어긋난다(실측). 판 폭을 바꾸면 여기도
-                같이 바꿀 것. */}
-            <div className="mt-4 flex max-w-[860px] items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200 lg:ml-auto">
+                폭은 위 판과 **짝**이다. 한쪽만 묶으면 좌우 끝이 어긋난다(실측 20px).
+                판 폭을 바꾸면 여기도 같이 바꿀 것. */}
+            <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200">
               <span className="text-[11.5px] font-extrabold text-slate-500">
                 {t('board.page.progressLabel')}
               </span>
@@ -431,24 +402,6 @@ export default function BoardPage() {
             </div>
           </div>
 
-          {/* 오른쪽 — 채점도 구름 소모도 없는 상시 입구. 본선(미션)과 격이 달라
-              같은 줄에 두지 않는다. */}
-          <aside className="flex flex-col gap-3">
-            <LabCard
-              icon="🧪"
-              title={t('board.page.sandboxTitle')}
-              desc={t('board.page.sandboxDesc')}
-              cta={t('board.page.enter')}
-              onClick={() => setSandbox(true)}
-            />
-            <LabCard
-              icon="🔬"
-              title={t('board.page.exploreTitle')}
-              desc={t('board.page.exploreDesc')}
-              cta={t('board.page.enter')}
-              to="/explore"
-            />
-          </aside>
         </div>
       )}
     </div>
@@ -507,10 +460,14 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
         <p className="mt-1.5 text-[13.5px] font-extrabold text-slate-900">
           {tpl.title ?? tpl.question_text}
         </p>
+        {/* 3줄 → **2줄**(2026-08-10). 판이 4열에서 6열이 되며 칸이 215 → 187px로
+            좁아졌고, 제목이 두 줄로 접히는 퍼즐에서는 3줄 요약이 칸 높이를 넘어
+            **마지막 줄이 반쯤 잘려** 보였다(실측: 필요 150px > 내용 141px).
+            줄임표로 끊는 편이 반 잘린 글자보다 낫다. */}
         {tpl.summary && (
           <p
             className="mt-0.5 overflow-hidden text-[11.5px] leading-snug text-slate-500"
-            style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3 }}
+            style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}
           >
             {tpl.summary}
           </p>
@@ -582,54 +539,6 @@ function Bumps({ index, cols, total, color }) {
         />
       )}
     </>
-  );
-}
-
-/**
- * 실험 입구 카드 — 자유 실험·탐구 실험실이 같은 모양을 쓴다(격이 같다).
- *
- * 아이콘은 **prop으로 받는다.** 리소스 문자열이 이미 앞머리에 이모지를 달고 있어
- * (`🧪 자유 실험`) 그대로 두면 큰 아이콘과 나란히 두 번 뜬다 — 표시할 때 앞
- * 이모지를 떼고 이름만 쓴다. 리소스 값은 건드리지 않는다(다른 화면·번역 공유).
- */
-function LabCard({ icon, title, desc, cta, onClick, to }) {
-  const label = title.replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, '');
-  const inner = (
-    <>
-      <span
-        aria-hidden="true"
-        className="grid h-14 w-14 place-items-center rounded-xl bg-white text-[26px] ring-1 ring-indigo-100"
-      >
-        {icon}
-      </span>
-      <p className="mt-3.5 text-[17px] font-extrabold text-slate-900">{label}</p>
-      {/* break-keep — 한국어 줄바꿈을 **어절 단위**로 묶는다. 기본값(break-word)은
-          어절 한가운데를 끊어서 "…원리를 탐 / 구해요" · "…관찰해 / 요"처럼 낱말이
-          두 줄에 걸쳤다(2026-08-08 실측). 여기 글줄이 짧아 어절이 줄폭을 넘지
-          않으므로 넘침 위험 없이 쓸 수 있다. */}
-      <p className="mt-2 break-keep text-[12.5px] leading-relaxed text-slate-500">{desc}</p>
-      {/* mt-auto — 카드를 키운 만큼 남는 높이를 여기서 먹어 CTA를 바닥에 붙인다.
-          두 카드의 버튼 높이가 맞아야 레일이 정돈돼 보인다. */}
-      <span className="mt-auto inline-block self-start rounded-lg bg-slate-900 px-3.5 py-2 text-[13px] font-bold text-white">
-        {cta}
-      </span>
-    </>
-  );
-  // 퍼즐 칸과 **한 눈에 갈리게** 살짝 다른 바탕을 준다(2026-08-05). 미션 칸은
-  // 흰색·초록·회색 셋을 쓰므로 여기만 옅은 남색 계열로 둔다 — 어느 쪽도 아니고
-  // 본선 진도와 무관한 상시 입구라는 뜻이다. 색은 **하나만** 더 쓴다.
-  // min-h를 210 -> 232로 올린다(2026-08-08) — 글줄 간격을 늘린 만큼 CTA(mt-auto)가
-  // 설명 바로 밑에 붙어 답답해졌다. 남는 높이가 있어야 mt-auto가 여백을 만든다.
-  const cls =
-    'flex min-h-[232px] flex-col rounded-2xl bg-indigo-50 p-5 text-left shadow-sm ring-1 ring-indigo-200 transition hover:ring-indigo-400';
-  return to ? (
-    <Link to={to} className={cls}>
-      {inner}
-    </Link>
-  ) : (
-    <button type="button" onClick={onClick} className={`w-full ${cls}`}>
-      {inner}
-    </button>
   );
 }
 

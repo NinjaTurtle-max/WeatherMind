@@ -11,6 +11,17 @@ import { useT } from '../../i18n';
  */
 
 const SIMS = [
+  // 자유 실험 — 2026-08-10에 **보드에서 옮겨 왔다**(사용자 지시). 보드는 목표가
+  // 있는 미션판이고 여기는 목표가 없는 관찰이라, 같은 화면에 두면 "채점되는 것"과
+  // "채점 안 되는 것"이 한 줄에 섞였다. 문구가 `board.*` 네임스페이스에 있는 것은
+  // **판이 여전히 보드**이기 때문이다(옮긴 것은 입구이지 판이 아니다).
+  {
+    to: '/explore/sandbox',
+    icon: '🧪',
+    titleKey: 'explore.home.sandboxTitle',
+    descriptionKey: 'explore.home.sandboxDesc',
+    inputsKey: 'explore.home.sandboxInputs',
+  },
   {
     to: '/explore/typhoon',
     icon: '🌪️',
