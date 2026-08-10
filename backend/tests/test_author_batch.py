@@ -283,9 +283,30 @@ class TestPayloadContract:
         """손으로 베낀 사본이면 이 저장소가 계약 테스트로 막는 드리프트가 생긴다."""
         assert backend_contract.payload_fields == dict(QUESTION_PAYLOAD_FIELDS)
         assert backend_contract.level_groups == tuple(LEVEL_GROUPS)
-        assert set(ai.generated_fields) == {"multiple_choice", "short_answer", "slider"}
         source = SCRIPT_PATH.read_text(encoding="utf-8")
         assert '"min", "max", "step", "unit"' not in source, "필드 맵 사본이 생겼다"
+
+    def test_두_맵이_겹치는_유형은_필드가_같다(self, ai, backend_contract):
+        """**목록을 하드코딩하지 않는다.** 종전 이 자리가 3종을 박아 두는 바람에
+        생성 유형이 6종이 될 때(CO-O-13) 계약이 아니라 숫자가 먼저 깨졌다.
+
+        두 맵은 애초에 같은 집합이 아니다 — backend는 *추가 payload가 있는* 유형만,
+        ai-worker는 *생성 가능한* 유형 전부를 담는다. 지켜야 할 것은 집합의 일치가
+        아니라 **겹치는 유형의 필드 이름이 같다**는 것이다.
+        """
+        shared = set(ai.generated_fields) & set(QUESTION_PAYLOAD_FIELDS)
+        assert shared, "겹치는 유형이 하나도 없다 — 한쪽 맵이 비었거나 이름이 갈렸다"
+        for qtype in sorted(shared):
+            assert tuple(ai.generated_fields[qtype]) == tuple(
+                QUESTION_PAYLOAD_FIELDS[qtype]
+            ), f"{qtype} 필드 이름이 두 맵에서 다르다"
+
+    def test_board는_생성_대상이_아니다(self, ai):
+        """판정에 `board_rules.json`(문항 밖 자원)이 필요해 순수 함수로 못 막는다.
+        막지 못하는 것을 생성 대상에 넣으면 "적재는 됐는데 못 푸는 문항"이 된다.
+        6종으로 넓힐 때 실수로 딸려 들어오는 것을 여기서 잡는다."""
+        assert "board" in QUESTION_PAYLOAD_FIELDS, "backend에는 board가 있어야 정상"
+        assert "board" not in ai.generated_fields
 
 
 # ── P-2 5단계: 중복 배제 ──────────────────────────────────────────────────────

@@ -330,9 +330,12 @@ def lint_items(
         template = item.get("template_json") or {}
         return author_items.normalize_text(template.get("correct_answer")) != ""
 
-    # 생성 대상 유형에만 계약 G(check_payload)를 적용하는 어댑터 — board·match·
-    # ordering·cloze에 그대로 적용하면 "생성 대상이 아닌 question_type" ValueError가
-    # 전 저작 유형을 오탈락시킨다(계약 G-1은 생성 3유형만 규정한다).
+    # 생성 대상 유형에만 계약 G(check_payload)를 적용하는 어댑터 — 대상 밖 유형에
+    # 그대로 적용하면 "생성 대상이 아닌 question_type" ValueError가 전 저작 유형을
+    # 오탈락시킨다. 2026-08-10에 대상이 3종 → **board를 뺀 6종**으로 넓어졌으므로
+    # 이 어댑터가 통과시키는 범위도 함께 넓어졌다(match·ordering·cloze가 이제
+    # 값 정합까지 검사받는다 — 본시드 284건 실측 위반 0건). **유형 목록을 여기
+    # 적지 않는다** — 소유자는 ai-worker의 `GENERATED_PAYLOAD_FIELDS` 하나다.
     def check_payload_generated_only(flat: dict) -> None:
         if flat.get("question_type") in ai.generated_fields:
             ai.check_payload(flat)

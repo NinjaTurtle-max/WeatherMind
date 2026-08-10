@@ -112,12 +112,28 @@ GENERATED_COLUMN_KEYS = (
 # source.origin 마커 — 생성분만 골라 은퇴·검수·통계 낼 수 있게 남긴다.
 GENERATED_ITEM_ORIGIN = "session_generate"
 # 적재 허용 유형 — ai-worker 생성 경로가 낼 수 있는 유형과 같다(payload_contract의
-# QuizQuestion Literal 3종). 교차 빌드 컨텍스트라 import로 묶을 수 없어 값을 여기
-# 적는다. **넓히지 말 것**: board·match·ordering은 채점에 template_json 밖의 구조
-# (goal_conditions·pairs·items)가 필요한데 시드 게이트(validate_entry)는 그 존재를
-# 검사하지 않는다 — 사람 저작은 저작 규약이 막지만 생성분에는 막을 것이 없다.
-# 뱅크에 "못 푸는 문항"을 넣지 않기 위한 하한이다.
-GENERATED_ITEM_TYPES = ("multiple_choice", "short_answer", "slider")
+# QuizQuestion Literal). 교차 빌드 컨텍스트라 import로 묶을 수 없어 값을 여기 적는다.
+#
+# ⚠️ **2026-08-10: 3종 → 6종으로 넓혔다 (CO-O-13).** 종전 주석은 *"넓히지 말 것 —
+# match·ordering은 채점에 template_json 밖의 구조(pairs·items)가 필요한데
+# 시드 게이트(validate_entry)는 그 존재를 검사하지 않는다"*였다. **그 전제가
+# 뒤집혔다**: `validate_entry`가 이제 match의 pairs(2쌍 이상·left 중복 금지)·
+# ordering의 items와 항등 순열·`shuffled is True`·cloze의 빈칸 마커를 **채점기와
+# 같은 규칙으로** 검사한다. 막을 수 있게 됐으므로 막을 이유가 사라졌다.
+# 근거였던 문장을 지우지 않고 남기는 것은, 이 값을 다시 좁히려는 사람이 **무엇이
+# 바뀌어서 넓혔는지** 알아야 하기 때문이다.
+#
+# **board는 계속 제외한다** — 판정에 `board_rules.json`(문항 밖 자원)이 필요해
+# 순수 함수로 검사할 수 없다. 판정 못 하는 것은 막지도 못하므로 넣지 않는다.
+# 뱅크에 "못 푸는 문항"을 넣지 않기 위한 하한이라는 목적은 그대로다.
+GENERATED_ITEM_TYPES = (
+    "multiple_choice",
+    "short_answer",
+    "slider",
+    "cloze",
+    "match",
+    "ordering",
+)
 
 # ── 실황 슬롯 (§3.3 허용 5종) ──
 ALLOWED_SLOTS = (

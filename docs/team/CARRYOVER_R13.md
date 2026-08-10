@@ -326,7 +326,7 @@ IRT를 "미구현"이라 적음. 특히 **`MENTORING_ALIGNMENT` §0의 30초 구
 | **CO-O-10** | 🔴 | B7의 전제가 틀렸다 |
 | **CO-O-11** | — | 게이트 16종 실효 |
 | **CO-O-12** | — | G1 비용이 새는 지점 |
-| **CO-O-13** | 🔴 | G1으로는 유형 3종만 나온다 |
+| **CO-O-13** | ✅ | ~~G1으로는 유형 3종만 나온다~~ — **해소(08-10 T1)**. 생성 대상 board 제외 **6종**, 생성·노출·적재 3소유자를 계약 테스트가 `==`로 묶음 |
 | **CO-SN2** | — | 안전망: 스테이징을 게이트 안으로 |
 | **CO-G1** | — | 듀오링고 실측 + 섹션 순환식 노출 구조 — 섹션=엘로 밴드 · 같은 개념이 상위 밴드에 재등장 · 상위 |
 | **CO-G2** | — | 목표 총량의 근거 — 대회까지 1,360건(하루 신규 소요 11건 × 124일치) · 상용은 별도 곡선 |
@@ -1212,12 +1212,31 @@ IRT b 재보정 휴면(`MIN_TOTAL_RESPONSES=200` 가드, 8/18 예정) · BKT `fi
 | 🔴 **토큰 계측이 전혀 없다** | `usage_metadata`·`total_tokens` grep **0건**. **G1 예산 소진을 코드로 알 수 없고 Google 콘솔로만 안다.** 리포트도 "몇 건"만 세고 "몇 콜·몇 토큰"을 안 센다 |
 | 🟠 O-7 넓은 slider | 게이트 2개 통과 후 폐기 |
 
-### 🔴 O-13. G1으로는 유형 3종만 나온다
+### ✅ O-13. G1으로는 유형 3종만 나온다 — **해소(2026-08-10, T1)**
 
-`payload_contract.QuizQuestion.question_type`이 **`multiple_choice`·`short_answer`·`slider` 3종 Literal**이고
-`GENERATED_PAYLOAD_FIELDS`도 3키다. **board뿐 아니라 match·ordering·cloze도 생성 대상 밖**이며
-"넓히지 말 것"이 주석에 **의도로 명시**돼 있다. `session_service.GENERATED_ITEM_TYPES`도 같은 3종이라
-계약은 일관되지만 — **뱅크 유형 다양성은 G1으로 안 늘어난다.** 늘리려면 템플릿 확장이나 손 저작뿐.
+종전 기술: *"`QuizQuestion.question_type`이 3종 Literal이고 `GENERATED_PAYLOAD_FIELDS`도
+3키. board뿐 아니라 match·ordering·cloze도 생성 대상 밖이며 '넓히지 말 것'이 주석에 의도로
+명시돼 있다 — 뱅크 유형 다양성은 G1으로 안 늘어난다."* 진단은 정확했다. **막고 있던 것은
+구조가 아니라 근거가 낡은 주석 하나**였다.
+
+착지분(전 홉):
+- **생성** — `payload_contract.GENERATED_PAYLOAD_FIELDS` **6키**(board 제외), `Literal` 6종.
+  `check_payload`가 cloze `___`·match pairs 정합·ordering 항등 순열/`shuffled`/중복까지 본다
+- **프롬프트** — `quiz_gen_chain` few-shot을 유형당 1건씩(개수만 세면 같은 유형 6개도 통과하므로
+  **유형별 존재**를 테스트가 본다)
+- **노출** — `routers/session.py`
+- **적재** — `session_service.GENERATED_ITEM_TYPES` 6종. 종전 3종 유지의 근거였던 *"게이트가
+  pairs·items 존재를 검사하지 않는다"*가 뒤집혔다. 여기가 안 넓어졌다면 새 유형이 세션에
+  한 번 뜨고 뱅크에는 안 남아 **G1 비용이 자산이 아니라 트래픽으로 증발**했을 것이다
+- **저작 lint** — `seed_content.validate_entry`에 같은 구조 검사 추가. 본시드 284건 실측 **위반 0건**
+- **dedupe 상한 동시 해소** — ordering 「태그당 3종」은 정답 키가 `"0,1,2,3"`이라 항목 수만
+  보던 탓이었다. 정답 형식이 아니라 **키**를 고쳤다(`author_items.answer_signature`가 ordering에
+  항목 내용을, slider에 측정 축을 함께 넣는다). 정답 형식을 바꿨다면 채점기·프론트·기존 27건이 깨진다
+
+감시 소유자: `backend/tests/test_gen_payload_contract.py`가 생성·노출·**적재** 세 목록을
+**양방향(`==`)으로** 묶는다. 부분집합 단정이었다면 "cloze만 들어오고 match·ordering 누락"이
+통과했을 자리다. `docs/specs/03`·`CONTRACT_GEN_ITEM.md` G-1·`lint_seed_items.py`의 낡은 기술도
+같은 날 정정했다.
 
 ### O-14. `test_prompt_spec_parity`가 안 보는 것
 

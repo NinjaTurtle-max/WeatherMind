@@ -1,6 +1,8 @@
 """Quiz Gen Chain — 03_ai_chains_spec.md 섹션 2.
 
-System Prompt / Few-shot 3개는 스펙 원문 그대로 사용한다 (한 글자도 수정 금지).
+System Prompt / Few-shot 6개는 스펙 원문 그대로 사용한다 (한 글자도 수정 금지).
+생성 유형은 6종(multiple_choice·short_answer·slider·cloze·match·ordering)이고
+board는 제외다 — 판정 규칙을 함께 저작해야 성립하므로 사람이 만든다(CO-O-13).
 LCEL 스타일: build_messages | ChatGoogleGenerativeAI | StrOutputParser
 주의: LLM 관련 임포트(langchain*)는 실제로 LLM을 쓰는 함수 내부에서 지연 임포트한다
 (validate_chain과 같은 규약). 키가 없으면 generate_quiz는 LLM 경로에 들어가지도
@@ -62,19 +64,38 @@ SYSTEM_PROMPT = """당신은 대한민국 학습자를 위한 기상·기후 교
    정답은 min 이상 max 이하이고 min에서 step 간격 격자에 올라 있어야 한다
    (예: min=0, step=5면 정답은 0·5·10… 중 하나). 범위는 문항 내용에 맞게 좁게 잡을 것.
    채점 관용오차가 절대값 ±10이므로 범위가 20 미만이면 아무 값이나 정답이 된다.
+8. question_type이 "cloze"면 question_text에 빈칸을 밑줄 3개 `___`로 **한 곳만** 두고,
+   correct_answer에는 그 빈칸에 들어갈 말만 적을 것(문장 전체를 다시 적지 말 것).
+   options·pairs·items 같은 다른 유형의 필드를 함께 붙이지 말 것.
+9. question_type이 "match"면 pairs를 {"left": …, "right": …} 객체 배열로 3~4쌍 반환하고,
+   correct_answer는 pairs와 **같은 순서로** "left:right"를 "|"로 이은 한 줄이어야 한다
+   (pairs가 겨울-시베리아 기단, 여름-북태평양 기단이면 correct_answer는
+   "겨울:시베리아 기단|여름:북태평양 기단"). 표기가 한 글자라도 어긋나면 채점이
+   전건 오답이 되므로, pairs의 문자열을 그대로 복사해 이을 것.
+10. question_type이 "ordering"이면 items를 **정답 순서 그대로** 4~5개 저작하고,
+    shuffled를 true로, correct_answer를 items 길이만큼의 항등 순열
+    ("0,1,2,3")로 반환할 것. items를 미리 섞지 말고 correct_answer에 섞인 순서를
+    적지도 말 것 — 화면에 섞어 보여주는 일은 런타임이 한다.
+11. board는 생성하지 말 것. 보드 퍼즐은 판정 규칙(board_rules.json)을 함께 저작해야
+    성립하므로 사람이 만든다.
 
 출력 스키마:
 {
-  "concept_tag": "<기압|전선|태풍|기단|대기순환|열섬효과|CO2|이상기후 중 하나의 영문 슬러그>",
+  "concept_tag": "<air_mass|anomaly|co2_climate|density_buoyancy|energy_transfer|flood_response|heat_island|phase_change|pressure_basics|pressure_front|radiation_budget|temperature_heat|typhoon|wildfire_weather 중 하나>",
   "knowledge_level": <1~6 정수>,
-  "question_type": "multiple_choice" | "short_answer" | "slider",
+  "question_type": "multiple_choice" | "short_answer" | "slider" | "cloze" | "match" | "ordering",
   "question_text": "<질문>",
   "options": ["<선택지1>", ...] (multiple_choice일 때만),
+  "pairs": [{"left": "<왼쪽 항목>", "right": "<오른쪽 항목>"}, ...] (match일 때만),
+  "items": ["<첫 번째>", "<두 번째>", ...] (ordering일 때만 — 정답 순서로),
+  "shuffled": true (ordering일 때만),
   "correct_answer": "<정답>",
   "min": <최솟값>, "max": <최댓값>, "step": <간격>, "unit": "<단위>" (slider일 때만)
 }"""
 
-# ── Few-shot 예시 3개 (03번 스펙 원문 그대로, 프롬프트에 삽입) ─────────────
+# ── Few-shot 예시 6개 (03번 스펙 원문 그대로, 프롬프트에 삽입) ─────────────
+# 예시의 concept_tag는 6개가 전부 다르다 — 같은 태그를 반복하면 모델이 그 태그로
+# 쏠리고, 대량 저작에서 태그 편중은 그대로 유닛×밴드 격자의 구멍이 된다.
 FEW_SHOT_EXAMPLES = """[예시 1 - knowledge_level 2, multiple_choice]
 입력 데이터: {"region":"서울","temp_max":32,"humidity":75}
 출력: {"concept_tag":"heat_island","knowledge_level":2,"question_type":"multiple_choice",
@@ -92,7 +113,27 @@ FEW_SHOT_EXAMPLES = """[예시 1 - knowledge_level 2, multiple_choice]
 입력 데이터: {"region":"전국","co2_context":true}
 출력: {"concept_tag":"co2_climate","knowledge_level":5,"question_type":"slider",
 "question_text":"산업화 이전과 비교해 현재 대기 중 이산화탄소 농도가 몇 % 늘었는지 슬라이더로 표시하라",
-"correct_answer":"50","min":0,"max":100,"step":5,"unit":"%"}"""
+"correct_answer":"50","min":0,"max":100,"step":5,"unit":"%"}
+
+[예시 4 - knowledge_level 2, cloze]
+입력 데이터: {"region":"대구","temp_min":26,"temp_max":34}
+출력: {"concept_tag":"temperature_heat","knowledge_level":2,"question_type":"cloze",
+"question_text":"오늘 대구는 밤 최저기온이 26℃까지만 떨어진다. 밤 최저기온이 ___℃ 아래로 내려가지 않는 밤을 열대야라고 한다.",
+"correct_answer":"25"}
+
+[예시 5 - knowledge_level 4, match]
+입력 데이터: {"region":"전국","season":"여름","humidity":82}
+출력: {"concept_tag":"air_mass","knowledge_level":4,"question_type":"match",
+"question_text":"덥고 습한 오늘 날씨를 포함해, 계절과 그 계절 우리나라에 영향을 주는 기단을 짝지어라",
+"pairs":[{"left":"겨울","right":"시베리아 기단"},{"left":"초여름","right":"오호츠크해 기단"},{"left":"여름","right":"북태평양 기단"}],
+"correct_answer":"겨울:시베리아 기단|초여름:오호츠크해 기단|여름:북태평양 기단"}
+
+[예시 6 - knowledge_level 5, ordering]
+입력 데이터: {"region":"제주","sea_temp":29,"wind_speed":18}
+출력: {"concept_tag":"typhoon","knowledge_level":5,"question_type":"ordering",
+"question_text":"수온이 29℃까지 오른 남쪽 바다에서 태풍이 북상하는 오늘, 태풍의 일생을 일어나는 순서대로 배열하라",
+"items":["따뜻한 열대 바다에서 수증기가 증발해 열대 저기압이 생긴다","수증기가 응결하며 내놓는 열을 에너지로 삼아 태풍으로 발달한다","태풍이 육지에 상륙한다","수증기 공급이 줄어 세력이 급격히 약해진다"],
+"shuffled":true,"correct_answer":"0,1,2,3"}"""
 
 
 # ── quiz_id: 날짜 + 시퀀스 (예: 20260705-001) ─────────────────────────────
