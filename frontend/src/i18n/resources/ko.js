@@ -264,6 +264,13 @@ export default {
     empty: '오늘의 퀘스트가 없어요.',
     moreAfterFirstSession: '첫 세션을 마치면 퀘스트 {count}개가 더 열려요.',
   },
+  // 방금 받은 보상 칩(modules/progress/RewardChips.jsx — R13 CO-T-4).
+  // {title}은 **서버 원문**이 그대로 들어온다(QuestList·BadgeCollection과 동일) —
+  // 여기서 이름 사본을 만들면 같은 퀘스트가 화면마다 다른 이름으로 불린다.
+  rewards: {
+    questDone: '퀘스트 완료 · {title}',
+    badgeEarned: '배지 획득 · {title}',
+  },
   // WeatherBrain 능력 분석(modules/progress/WeatherBrainPanel.jsx)
   weatherBrain: {
     title: '🧠 WeatherBrain 능력 분석',

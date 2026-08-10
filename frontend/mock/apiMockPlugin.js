@@ -307,7 +307,10 @@ const state = {
   predicted: false,
   tier: 'nimbostratus', // 최근 정산 티어 (§3.2 /progress/me)
   // 일일 퀘스트 진행 (§3.1) — 당일 집계 흉내. 디자인 검토용 초기 진행값 시드.
-  quest: { xpToday: 20, weakCorrect: 0, liveAnswered: 0 },
+  // doneCodes = **이미 완료로 전환된** 코드들. 서버 UserQuestProgress.done(sticky)의
+  // 목 대응물이고, 이것이 있어야 "이번에 새로 완료됐다"(newly_done)를 말할 수 있다
+  // — 진행도만 들고 있으면 재계산할 때마다 완료가 새로 일어난 것처럼 보인다 (CO-T-4).
+  quest: { xpToday: 20, weakCorrect: 0, liveAnswered: 0, doneCodes: [] },
   // 예보 대결 (§3.4) — 오늘 제출 상태. evidence: 선택한 판단 근거 (R9-01 §3.1)
   duel: { submitted: false, userPred: null, aiPred: null, evidence: null },
   // 구름 에너지 (R5-01 §3.3) — 소모성 플레이 자원. 지연 회복 모델.
@@ -893,6 +896,27 @@ function questPayload() {
       xp_reward: 5,
     },
   ];
+}
+
+/**
+ * 세션 완료·보드 통과가 일으킨 **완료 전환**만 추린다 (CO-T-4 — 서버
+ * quest_service.reward_events 대응).
+ *
+ * 서버와 같은 규칙이어야 하는 지점이 둘이다:
+ * ⑴ 실리는 것은 done이 아니라 **newly_done** — 이미 완료된 퀘스트는 재계산해도
+ *    다시 실리지 않는다. 그래서 doneCodes에 기록하고 그 여집합만 낸다.
+ * ⑵ done은 **sticky** — 한번 전환되면 진행도가 내려가도 유지된다.
+ */
+function questTransitions() {
+  const done = new Set(state.quest.doneCodes);
+  const events = [];
+  for (const q of questPayload()) {
+    if (!q.done || done.has(q.code)) continue;
+    done.add(q.code);
+    events.push({ code: q.code, title: q.title, reward_xp: q.xp_reward });
+  }
+  state.quest.doneCodes = [...done];
+  return events;
 }
 
 // GET /progress/badges 응답 5종 (§3.3 저작 코드) — 일부 획득/미획득 혼합
@@ -1940,13 +1964,24 @@ const routes = {
         }
       }
     }
+    // 보상 전환 (CO-T-4) — 서버와 같이 **이번 완료로 새로 전환된 것만** 싣는다.
+    // 배지는 목이 perfect_session을 기획득 상태로 시드해 두어 신규 획득이 없다.
+    const questRewards = questTransitions();
+    const bonusXp = questRewards.reduce((sum, r) => sum + r.reward_xp, 0);
+    const itemXp = results.reduce((sum, r) => sum + r.xp_earned, 0);
     return [
       200,
       {
-        xp_total: results.reduce((sum, r) => sum + r.xp_earned, 0),
+        xp_total: itemXp,
         correct_count: correctCount,
         total: progress.total,
         streak_count: state.streak,
+        quest_rewards: questRewards, // CO-T-4 — 방금 완료된 퀘스트
+        badges_earned: [], // CO-T-4 — 목은 신규 배지 지급 경로가 없다
+        bonus_xp: bonusXp,
+        // 표기용 총합은 **서버가 더한다**(프론트 덧셈 금지) — 목도 같은 계약이어야
+        // 목 위 스모크가 실서버와 다른 숫자를 초록으로 통과시키지 않는다.
+        xp_awarded: itemXp + bonusXp,
         unit_result: unitResult, // R8-01 §3.1 — 유닛 세션이 아니면 null(additive)
         crown_award: crownAward, // R8-01 §3.4 — daily 만점 왕관 유입, 없으면 null(additive)
         all_resolved: allResolved, // R13-01 §2.1 — 만회 포함 전건 해결(왕관 판정값)
@@ -2063,6 +2098,9 @@ const routes = {
       );
       crownAward = grantUnitCrown(unit ?? null);
     }
+    // 퀘스트 전환 (CO-T-4) — 서버는 `if passed:` 안에서만 재계산한다. 미통과 시도가
+    // 보상을 말하면 "틀렸는데 뭔가 받았다"가 되므로 목도 같은 조건으로 가른다.
+    const questRewards = passed ? questTransitions() : [];
     return [
       200,
       {
@@ -2071,6 +2109,8 @@ const routes = {
         feedback,
         xp_earned: xpEarned,
         crown_award: crownAward,
+        quest_rewards: questRewards, // CO-T-4
+        bonus_xp: questRewards.reduce((sum, r) => sum + r.reward_xp, 0),
         // D10-1 (additive): 미통과 피드백 "구름 −1" 표기용 실측값
         clouds_spent: spend.clouds_spent,
         clouds: spend.clouds,

@@ -235,6 +235,12 @@ export default {
     empty: 'No quests today.',
     moreAfterFirstSession: 'Finish your first session to unlock {count} more quests.',
   },
+  // Reward chips (modules/progress/RewardChips.jsx — R13 CO-T-4).
+  // {title} arrives as the server's own Korean string, same as QuestList/BadgeCollection.
+  rewards: {
+    questDone: 'Quest complete · {title}',
+    badgeEarned: 'Badge earned · {title}',
+  },
   weatherBrain: {
     title: '🧠 WeatherBrain ability analysis',
     loading: 'Loading your ability analysis...',

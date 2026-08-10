@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { boardApi, progressApi } from '../../api';
 import { useProgressStore } from '../../store/progressStore';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import RewardChips from '../progress/RewardChips';
 import AtmosphereBoard from './AtmosphereBoard';
 import { phenomenonMeta } from './boardDisplay';
 import { SymbolIcon } from './boardSymbols';
@@ -143,6 +144,15 @@ export default function BoardPage() {
       // R10-01 §3.1: 소모는 **미통과 시에만** 1(정답 0). 실측은 응답 clouds_spent가
       // 갖고 있고 표기는 AtmosphereBoard가 하므로, 여기서는 헤더 잔량만 갱신한다.
       queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
+      // 퀘스트 보상(CO-T-4)은 퍼즐 XP와 별개 축이다 — 보드 통과가 `daily_xp_30`을
+      // 넘기면 서버가 +10을 실제로 지급하는데, 종전에는 그 사실이 응답에도 화면에도
+      // 없었다. 재도전(xp_earned=0)에서도 퀘스트는 완료될 수 있으므로 조건을 가른다.
+      const bonusXp = Number(res.bonus_xp) || 0;
+      if (bonusXp > 0) {
+        addXp(bonusXp);
+        queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
+        queryClient.invalidateQueries({ queryKey: ['progress', 'quests'] });
+      }
       if (res.passed && res.xp_earned > 0) {
         addXp(res.xp_earned);
         queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
@@ -280,6 +290,10 @@ export default function BoardPage() {
         {result && (
           <div className="mt-3 space-y-2">
             <PhenomenaSummary phenomena={result.phenomena} />
+            {/* 방금 완료된 일일 퀘스트 (CO-T-4). 토스트가 아니라 결과 패널에 두는 이유:
+                토스트 자리는 왕관/첫 클리어가 이미 단일 노출로 쓰고 있어(우선순위 고정)
+                여기에 끼면 둘 중 하나가 사라진다. 미통과 시도는 서버가 빈 목록을 준다. */}
+            <RewardChips quests={result.quest_rewards} />
             {entryError && (
               <p className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
                 {entryError}
