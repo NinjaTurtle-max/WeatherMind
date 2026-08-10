@@ -291,7 +291,14 @@ async def probe_key() -> dict:
         )
     except asyncio.TimeoutError:
         # 취소된 요청은 _request_items가 결과를 못 남긴다 — 여기서 직접 기록한다.
-        _record_key_result("degraded", None, f"프로브 타임아웃({_KEY_PROBE_TIMEOUT_SEC}s)")
+        #
+        # ⚠️ **degraded가 아니라 unknown이다.** 타임아웃은 키에 대해 아무것도 말해
+        # 주지 않는다("응답이 늦다" ≠ "키가 죽었다"). degraded로 적으면 멀쩡한 키에
+        # 헛경보가 나고, 그 상태가 캐시 히트만 이어지는 동안 정정되지도 않는다
+        # (2026-08-10 실측: 프로브만 타임아웃하고 실트래픽은 전부 정상이었다).
+        # 헛경보는 신호를 무시하게 만들어서, 정작 8/22에 주키가 죽을 때 아무도 안 본다.
+        # unknown은 "아직 확정 못 함"이라는 정직한 상태이고, 첫 실호출이 곧 정정한다.
+        _record_key_result("unknown", None, f"프로브 타임아웃({_KEY_PROBE_TIMEOUT_SEC}s) — 미확정")
     except Exception as exc:  # KMAApiError 포함 — 기동을 막지 않는다
         _record_key_result("degraded", None, exc)
     return key_status()

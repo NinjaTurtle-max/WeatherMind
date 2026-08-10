@@ -174,8 +174,13 @@ class TestProbe:
         assert out["state"] == "degraded"
 
     @pytest.mark.anyio
-    async def test_타임아웃도_degraded로_기록된다(self, monkeypatch):
-        """취소된 요청은 _request_items가 기록하지 못한다 — 프로브가 직접 남긴다."""
+    async def test_타임아웃은_degraded가_아니라_unknown이다(self, monkeypatch):
+        """타임아웃은 키에 대해 아무것도 말해주지 않는다 — "늦다" ≠ "죽었다".
+
+        degraded로 적으면 멀쩡한 키에 헛경보가 나고, 캐시 히트만 이어지는 동안
+        정정되지도 않는다(2026-08-10 실측: 프로브만 타임아웃하고 실트래픽은 정상).
+        헛경보는 신호를 무시하게 만들어 정작 8/22에 주키가 죽을 때 아무도 안 본다.
+        """
         _keys(monkeypatch, "P", "")
         monkeypatch.setattr(weather_api, "_KEY_PROBE_TIMEOUT_SEC", 0.02)
 
@@ -184,7 +189,17 @@ class TestProbe:
 
         monkeypatch.setattr(weather_api, "_request_items_with_key", hang)
         out = await weather_api.probe_key()
-        assert out["state"] == "degraded" and "타임아웃" in out["detail"]
+        assert out["state"] == "unknown", "타임아웃을 키 실패로 단정하면 안 된다"
+        assert "타임아웃" in out["detail"]
+
+    @pytest.mark.anyio
+    async def test_타임아웃_뒤_실호출이_상태를_정정한다(self, monkeypatch):
+        """unknown은 영구 상태가 아니다 — 첫 성공 호출이 ok로 덮는다."""
+        _keys(monkeypatch, "P", "")
+        weather_api._record_key_result("unknown", None, "프로브 타임아웃 — 미확정")
+        _stub(monkeypatch, lambda k: [])
+        await weather_api._request_items("u", {})
+        assert weather_api.key_status()["state"] == "ok"
 
 
 class TestDetailIsMasked:
