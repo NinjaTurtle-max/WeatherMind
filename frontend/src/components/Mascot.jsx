@@ -10,11 +10,17 @@
  *   snow    눈결정 예보 대결
  *   rainbow 무지개 화면 담당 없음 — 개념 전용(밀도와 부력). 2026-08-08 합류
  *   moon    달님   화면 담당 없음 — 개념 전용(열의 이동). 2026-08-08 합류
+ *   snowcloud   눈구름 개념 전용(물의 상태변화). 2026-08-10 합류
+ *   raincloud   비구름 개념 전용(홍수 대응). 2026-08-10 합류
+ *   fire        불     개념 전용(산불 기상). 2026-08-10 합류
+ *   thermometer 온도계 개념 전용(온도와 열). 2026-08-10 합류
  *
- * 뒤의 둘은 **화면이 아니라 개념에 붙는다**. 기초과학 코스가 들어오면서 개념
+ * 뒤의 여섯은 **화면이 아니라 개념에 붙는다**. 기초과학 코스가 들어오면서 개념
  * 태그가 6종 늘었는데 그림은 6장뿐이라 전부 구름으로 떨어졌다(conceptCharacter의
  * 폴백) — 홈의 복습·최근 활동 줄이 전부 같은 얼굴이었다. 배정표는
  * `conceptCharacter.js`가 소유한다.
+ * 2026-08-10에 넷이 더 합류해 12장이 됐다: 표에 아예 없던 산불 기상·홍수 대응이
+ * 자기 얼굴을 갖고, 두 뜻을 지고 있던 눈결정·물방울에서 겹침이 하나씩 풀렸다.
  *
  * 이전 마스코트(노란 고양이 「썬더」)는 폐기됐다. 호출부가 public 경로를 직접
  * 참조하면 캐릭터가 바뀔 때마다 화면 곳곳을 고쳐야 하므로 여기 한 곳으로 모은다.
@@ -37,6 +43,10 @@ const SRC = {
   snow: '/snow.png',
   rainbow: '/rainbow.png',
   moon: '/moon.png',
+  snowcloud: '/snowcloud.png',
+  raincloud: '/raincloud.png',
+  fire: '/fire.png',
+  thermometer: '/thermometer.png',
 };
 
 const LABEL = {
@@ -48,6 +58,10 @@ const LABEL = {
   snow: '눈결정',
   rainbow: '무지개',
   moon: '달님',
+  snowcloud: '눈구름',
+  raincloud: '비구름',
+  fire: '불꽃이',
+  thermometer: '온도계',
 };
 
 export const MASCOT_NAMES = LABEL;

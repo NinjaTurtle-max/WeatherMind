@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import AbilityRadar from './AbilityRadar';
+import Mascot from '../../components/Mascot';
+import { conceptCharacter } from '../../components/conceptCharacter';
 import { progressApi } from '../../api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {
@@ -27,6 +29,12 @@ import { useT } from '../../i18n';
  * R13-01 §5-1: 같은 카드 아래에 **BKT 숙련도** 섹션을 덧붙인다.
  * GET /progress/mastery → [{concept_tag, p_mastery, p_next_correct,
  *   num_responses, cold_start, level_label, params_source}].
+ * 개념마다 **담당 캐릭터**를 막대 앞에 세운다(2026-08-10 사용자 지시). 배정표는
+ * `conceptCharacter.js`가 소유한다 — 여기서 고르지 않는다. 그림 넷이 합류하면서
+ * 산불 기상·홍수 대응이 폴백(구름)을 벗어나, 이 목록에서 같은 얼굴이 반복되던
+ * 것이 풀렸다. 캐릭터는 장식이라 `Mascot`이 aria-hidden으로 그린다 — 개념 이름은
+ * 바로 옆 텍스트가 읽어 준다.
+ *
  * 두 축은 다른 것을 잰다 — θ 막대는 "지금 실력"(로짓, 순서 없는 집합),
  * 숙련도 막대는 "이 개념을 익혔을 확률"(0..1, 시간 순서). 색조도 나눈다
  * (θ=sky, 숙련=emerald). 숙련도는 부가 축이라 조회 실패 시 섹션만 사라지고
@@ -89,8 +97,14 @@ export default function WeatherBrainPanel() {
                   })}
                 >
                   <div className="flex items-center justify-between gap-2 text-xs">
-                    <span className="min-w-0 truncate font-semibold text-slate-700">
-                      {CONCEPT_KO[m.concept_tag] ?? m.concept_tag}
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Mascot
+                        name={conceptCharacter(m.concept_tag)}
+                        className="h-[22px] w-[22px] flex-none"
+                      />
+                      <span className="min-w-0 truncate font-semibold text-slate-700">
+                        {CONCEPT_KO[m.concept_tag] ?? m.concept_tag}
+                      </span>
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5">
                       <span className="text-[11px] font-bold tabular-nums text-slate-600">
@@ -163,6 +177,7 @@ export default function WeatherBrainPanel() {
   }
 
   const rows = (Array.isArray(data) ? data : []).map((a) => ({
+    tag: a.concept_tag,
     name: CONCEPT_KO[a.concept_tag] ?? a.concept_tag,
     score: thetaToScore(a.theta),
     theta: typeof a.theta === 'number' ? a.theta : 0,
@@ -219,7 +234,13 @@ export default function WeatherBrainPanel() {
             })}
           >
             <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="min-w-0 truncate font-semibold text-slate-700">{row.name}</span>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <Mascot
+                  name={conceptCharacter(row.tag)}
+                  className="h-[22px] w-[22px] flex-none"
+                />
+                <span className="min-w-0 truncate font-semibold text-slate-700">{row.name}</span>
+              </span>
               <span className="flex shrink-0 items-center gap-1.5">
                 {row.isPrior && (
                   <span className="text-[10px] font-medium text-slate-400">
