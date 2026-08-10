@@ -112,7 +112,7 @@ nano .env
 | `DATABASE_URL` | **런타임 = 앱 롤 `weathermind_app`.** ⚠️ **비밀번호를 반드시 바꿔야 한다** — `.env.example`의 `weathermind_app_dev`는 공개 저장소에 평문으로 있어 **placeholder로 취급되고, 그대로 두면 backend가 기동을 거부한다**(CO-Q-11). 아래 §5.1 참조 |
 | `MIGRATION_DATABASE_URL` | 소유자 롤 — alembic 전용. RLS 전제(`docs/specs/08`) |
 | `CELERY_DATABASE_URL` | 배치 롤. **미설정 시 `MIGRATION_DATABASE_URL`로 자동 폴백**하므로 보통 비워 둔다(CO-Q-1) |
-| `KMA_API_KEY` | **기상청 API허브**(apihub.kma.go.kr) 마이페이지 인증키 — 공공데이터포털 serviceKey가 **아니다**(R13 전환, `docs/specs/06`). ⚠️ **팀 자체 발급 키**를 쓸 것: 대회 제공 계정 키는 8/22 만료인데 규정상 URL은 9월 셋째 주까지 살아 있어야 한다(`HACKATHON_RULES.md` §3). API허브는 **API마다 활용신청**이 따로다 — 단기예보·중기예보·일자료 3종 승인 필요 |
+| `KMA_API_KEY` | **기상청 API허브**(apihub.kma.go.kr) 마이페이지 인증키 — 공공데이터포털 serviceKey가 **아니다**(R13 전환, `docs/specs/06`). ⚠️ 대회 제공 계정 키는 8/22 만료인데 규정상 URL은 9월 셋째 주까지 살아 있어야 하므로 **스페어를 함께 넣는다**(아래 행). API허브는 **API마다 활용신청**이 따로다 — `getVilageFcst`·`getMidLandFcst`·`getDailyWthrData` 3종 승인 필요. 동작 확인은 `GET /health`의 `kma.state`(아래 §5.2) |
 | `KMA_API_KEY_SPARE` | **스페어(2번) 호출키 = 개인 계정 키.** 주키 실패·한도 소진(20,000콜/일) 시 자동 폴백한다(`weather_api.auth_keys`). 대회 계정 주키가 8/22에 만료돼도 URL이 9월까지 살아야 하므로 **비워 두지 말 것**. ⚠️ 스페어 계정에도 **같은 3종 활용신청**이 승인돼 있어야 한다 — 키만 넣으면 만료 당일 둘 다 조용히 실패한다 |
 | `GEMINI_API_KEY` | 키 게이트에서 투입. **없어도 폴백으로 전 기능 동작**. 임베딩 키는 없다(R13 3일차 철거) |
 | `IMAGE_TAG` | 🔴 **배포할 커밋 sha를 반드시 지정한다**(미설정 시 `latest`). `latest`는 **이동 태그**라 어느 커밋을 가리키는지 절차 안에서 알 수 없다 — 그 위험이 실측으로 확인됐다: §6 ①-a 참조 |
@@ -154,6 +154,38 @@ $C up -d postgres redis backend db-backup celery-worker celery-beat ai-worker
 backend를 Caddy가 프론트해 첫 방문자가 502를 보는 것을 막는 장치다) backend가
 초록이 되기 전에는 생성되지 않고, `up`이 *"dependency failed to start"*로 종료한다.
 **초기화가 끝난 뒤 §6 ⑤에서 전체 `up -d`를 한 번 더 치면 그때 함께 올라온다.**
+
+### 5.2 KMA 키 게이트 — **"넣었다"와 "동작한다"는 다르다**
+
+기상청 키가 틀렸거나 활용신청이 안 됐거나 만료됐어도 **서비스는 200으로 멀쩡히
+뜬다**(KMA는 하드 의존이 아니라 날씨 칸만 비운다). 종전에는 이걸 알려 주는 것이
+하나도 없어서 잘못된 키로 며칠을 갈 수 있었다. 지금은 `/health`가 보고한다.
+
+```bash
+curl -s localhost:8000/health | python3 -m json.tool
+```
+
+`kma` 필드만 보면 된다.
+
+| `state` | 뜻 | 조치 |
+|---|---|---|
+| `ok` | 인증 성공 | 없음 |
+| `degraded` | 설정된 키가 **전부** 실패 | 키 오타 · 활용신청 미승인 · 만료 확인 |
+| `unconfigured` | 키가 하나도 없음 | `.env`에 넣고 **재생성**(아래) |
+| `unknown` | 아직 한 번도 호출 안 됨 | 기동 직후 잠깐 |
+
+🔴 **`active_key`가 `spare`면 주키가 죽은 것이다.** 서비스는 스페어로 계속 돌지만
+남은 키가 하나뿐이라는 뜻이므로 주키를 복구할 것. 8/22(대회 계정 만료) 전후로 이
+값이 바뀌는지 봐야 한다. `spare_configured: false`면 스페어가 아예 안 들어간 것이다.
+
+⚠️ **`.env`를 고친 뒤에는 `docker compose restart`가 아니라 `up -d`다.** `env_file`은
+컨테이너 **생성 시점**에 주입되므로 restart로는 새 키가 안 들어간다.
+
+⚠️ **`state: ok`가 일자료까지 보증하지는 않는다.** 프로브는 단기예보 1콜만 친다.
+리그·대결 정산이 쓰는 일자료(`getDailyWthrData`)는 **월보 계열**이라 당월 자료가
+늦게 채워질 수 있으므로, 배포 전에 어제 날짜로 1콜 쳐서 **행이 오는지 + 그 행의
+`ta_max`·`rn_day`가 비어 있지 않은지**까지 확인할 것. 비어 있으면 코드가 `0.0`으로
+흡수해 **틀린 승패를 낸다**(빈손보다 나쁘다). 폴백은 `docs/specs/06` §3 참조.
 
 ## 6. 초기화 (최초 1회)
 

@@ -14,6 +14,7 @@ docs/specs/06_kma_api_parsing_spec.md 파싱 규칙 준수:
 - 타임아웃 10초, 실패 시 1회 재시도 후 캐시 fallback
 - 캐시 우선: Redis weather:{date}:{region} (TTL 1시간) 먼저 확인, miss일 때만 API 호출
 """
+import asyncio
 import json
 import logging
 import re
@@ -211,6 +212,86 @@ def auth_keys() -> list[str]:
     return [k for k in (settings.KMA_API_KEY, settings.KMA_API_KEY_SPARE) if k.strip()]
 
 
+# ── 키 게이트 (R13) ──────────────────────────────────────────────────────────
+# 이 서비스의 실제 사고 형태는 "키가 틀렸다"가 아니라 **"틀린 걸 아무도 모른다"**였다:
+# 잘못된 키·미승인 API·만료 어느 쪽이든 KMAApiError로 떨어지고 상위가 degraded 200
+# 으로 흡수해 화면에 아무 티가 안 났다. `KMA_API_KEY`는 기동 거부 대상도 아니다
+# (무키 기동은 스모크의 전제라 그대로 둔다). 그래서 **거부하는 대신 관측 가능하게**
+# 만든다: 실트래픽 결과를 여기 기록하고 `/health`의 `kma` 필드가 읽는다.
+# 기동 시 `probe_key()`가 1콜로 시드하므로 트래픽 전에도 상태를 알 수 있다.
+#
+# `active_key == "spare"`가 이 게이트의 핵심 출력이다 — **주키가 죽었다는 뜻**이고,
+# 그 사실이 8/22(대회 계정 만료) 전후로 조용히 지나가면 안 된다.
+
+_KEY_PROBE_TIMEOUT_SEC = 12.0  # 최악 2키 × 2시도 × 10초를 상한한다(기동 지연 방지)
+
+_key_status: dict = {"state": "unknown", "active_key": None, "detail": None}
+
+
+def _key_label(key: str) -> str:
+    """어느 키가 응답을 냈나 — 인덱스가 아니라 **값**으로 판정한다.
+
+    스페어만 설정된 환경에서는 `auth_keys()[0]`이 스페어라, 인덱스로 라벨하면
+    "주키 정상"이라고 거짓 보고한다.
+    """
+    return "primary" if key and key == settings.KMA_API_KEY.strip() else "spare"
+
+
+def _record_key_result(state: str, active_key: str | None, detail: object = None) -> None:
+    """인증 상태 기록.
+
+    ⚠️ `detail`은 **반드시 마스킹**한다. 예외 문자열에는 요청 URL(=authKey)이 실리는데
+    이 값은 이제 `/health` 응답으로 **외부에 나간다** — 로그 유출보다 나쁘다.
+    """
+    _key_status.update({
+        "state": state,
+        "active_key": active_key,
+        "detail": mask_service_key(detail) if detail is not None else None,
+    })
+
+
+def key_status() -> dict:
+    """현재 KMA 인증 상태 스냅샷 (`/health`가 읽는 읽기 전용 사본)."""
+    return {
+        **_key_status,
+        "keys_configured": len(auth_keys()),
+        "spare_configured": bool(settings.KMA_API_KEY_SPARE.strip()),
+    }
+
+
+async def probe_key() -> dict:
+    """기동 시 1콜로 인증 상태를 확정한다 — 실패해도 예외를 올리지 않는다.
+
+    캐시·실패 마커를 쓰지 않는다: 부팅 시점엔 Redis가 아직 없을 수 있고, 프로브
+    실패가 실트래픽을 5분간(WEATHER_FAIL_TTL_SEC) 막아서도 안 된다.
+    """
+    if not auth_keys():
+        _record_key_result("unconfigured", None)
+        return key_status()
+
+    base_date, base_time = latest_base_datetime()
+    nx, ny = KMA_GRID[DEFAULT_REGION]
+    try:
+        await asyncio.wait_for(
+            _request_items(settings.KMA_VILAGE_FCST_URL, {
+                "pageNo": 1,
+                "numOfRows": 1,
+                "dataType": "JSON",
+                "base_date": base_date,
+                "base_time": base_time,
+                "nx": nx,
+                "ny": ny,
+            }),
+            _KEY_PROBE_TIMEOUT_SEC,
+        )
+    except asyncio.TimeoutError:
+        # 취소된 요청은 _request_items가 결과를 못 남긴다 — 여기서 직접 기록한다.
+        _record_key_result("degraded", None, f"프로브 타임아웃({_KEY_PROBE_TIMEOUT_SEC}s)")
+    except Exception as exc:  # KMAApiError 포함 — 기동을 막지 않는다
+        _record_key_result("degraded", None, exc)
+    return key_status()
+
+
 async def _request_items(base_url: str, params: dict) -> list[dict]:
     """공통 요청 헬퍼 — 키를 순서대로 시도한다(주키 실패 시 스페어).
 
@@ -218,18 +299,26 @@ async def _request_items(base_url: str, params: dict) -> list[dict]:
     resultCode로 주는지 실측하지 못했으므로, 코드를 좁게 특정하면 정작 만료 당일에
     안 넘어갈 위험이 있다. 넓게 잡는 대신 호출 낭비는 상위의 실패 마커
     (WEATHER_FAIL_TTL_SEC 5분)가 막는다 — 실패해도 5분에 한 번뿐이다.
+
+    성공·실패는 키 게이트에 기록된다(위 `_record_key_result`). NODATA(03)는 빈
+    리스트로 정상 반환되므로 **ok로 기록된다** — 인증 자체는 통과한 것이 맞다.
     """
-    keys = auth_keys() or [""]  # 미설정이면 종전과 같이 빈 키로 1회 시도한다
+    configured = auth_keys()
+    keys = configured or [""]  # 미설정이면 종전과 같이 빈 키로 1회 시도한다
     last_exc: KMAApiError | None = None
     for idx, key in enumerate(keys):
         try:
-            return await _request_items_with_key(base_url, params, key)
+            items = await _request_items_with_key(base_url, params, key)
         except KMAApiError as exc:
             last_exc = exc
             if idx + 1 < len(keys):
                 logger.warning(
                     "KMA %d번 키 실패 — 다음 키로 재시도: %s", idx + 1, mask_service_key(exc)
                 )
+            continue
+        _record_key_result("ok", _key_label(key) if configured else None)
+        return items
+    _record_key_result("degraded" if configured else "unconfigured", None, last_exc)
     raise last_exc
 
 
