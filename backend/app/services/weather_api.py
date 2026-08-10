@@ -360,7 +360,7 @@ async def _request_text_with_key(base_url: str, params: dict, auth_key: str) -> 
                 logger.warning(
                     "KMA(typ01) 요청 실패 (attempt %d): %s",
                     attempt + 1,
-                    mask_service_key(exc),
+                    mask_service_key(f"{type(exc).__name__}: {exc}"),
                 )
     raise KMAApiError(
         f"KMA typ01 request failed after retry: {mask_service_key(last_exc)}"
@@ -392,7 +392,7 @@ async def _request_items_with_key(base_url: str, params: dict, auth_key: str) ->
                 logger.warning(
                     "KMA 요청 실패 (attempt %d): %s",
                     attempt + 1,
-                    mask_service_key(exc),
+                    mask_service_key(f"{type(exc).__name__}: {exc}"),
                 )
     if data is None:
         # 예외 메시지도 상위에서 로깅·응답에 실릴 수 있으므로 같은 마스킹을 건다

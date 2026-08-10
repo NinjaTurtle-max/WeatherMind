@@ -133,7 +133,9 @@ def _request_text_with_key(base_url: str, params: dict, auth_key: str) -> str:
         except httpx.HTTPError as exc:
             last_exc = exc
             logger.warning(
-                "KMA(typ01) 요청 실패 (attempt %d): %s", attempt + 1, mask_service_key(exc)
+                "KMA(typ01) 요청 실패 (attempt %d): %s",
+                attempt + 1,
+                mask_service_key(f"{type(exc).__name__}: {exc}"),
             )
     raise KMAApiError(
         f"KMA typ01 request failed after retry: {mask_service_key(last_exc)}"
@@ -158,7 +160,9 @@ def _request_items_with_key(base_url: str, params: dict, auth_key: str) -> list[
         except (httpx.HTTPError, ValueError) as exc:
             last_exc = exc
             logger.warning(
-                "KMA 요청 실패 (attempt %d): %s", attempt + 1, mask_service_key(exc)
+                "KMA 요청 실패 (attempt %d): %s",
+                attempt + 1,
+                mask_service_key(f"{type(exc).__name__}: {exc}"),
             )
     if data is None:
         raise KMAApiError(
