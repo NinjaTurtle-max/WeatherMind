@@ -335,12 +335,19 @@ function MiniLineChart({ rows, dataKey, color, title, unit, domain }) {
       <div style={{ width: '100%', height: 96 }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: 4, right: 4, bottom: 0, left: -26 }}>
+            {/* ⚠️ `interval`을 고정하지 않는다. 종전 `interval={1}`은 "2칸마다 하나"라
+                데이터 길이와 무관하게 33건 중 17개를 밀어 넣었는데, 이 차트는 폭이
+                절반(grid-cols-2)이라 라벨이 서로 겹쳤다. 큰 차트가 멀쩡했던 이유가
+                바로 interval을 안 줘서 recharts가 폭에 맞춰 솎아냈기 때문이다.
+                `minTickGap`으로 **픽셀 간격**을 요구하면 폭·건수가 바뀌어도 따라온다.
+                (2026-08-10: 시각 라벨이 전부 "0시"로 찍히던 버그를 고치자 드러났다 —
+                같은 글자였을 때는 겹쳐도 눈에 안 띄었다.) */}
             <XAxis
               dataKey="hour"
               tick={{ fontSize: 9, fill: CHART_COLORS.tick }}
               tickLine={false}
               axisLine={{ stroke: CHART_COLORS.grid }}
-              interval={1}
+              minTickGap={18}
             />
             <YAxis domain={domain} tick={{ fontSize: 9, fill: CHART_COLORS.tick }} tickLine={false} axisLine={false} />
             <Tooltip content={<ChartTooltip lines={(r) => [`${title.split('(')[0]} ${r[dataKey]}${unit}`]} />} />
