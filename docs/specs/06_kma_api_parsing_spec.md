@@ -1,11 +1,31 @@
 # 기상청 API 연동 상세 스펙
 
-> KMA(기상청) 공공데이터 API는 응답 구조가 복잡하다. 이 문서 없이 AI가 파싱 코드를 짜면
+> KMA(기상청) API는 응답 구조가 복잡하다. 이 문서 없이 AI가 파싱 코드를 짜면
 > 거의 항상 틀린다. 실제 응답 구조와 파싱 규칙을 명시한다.
+
+## ⚠️ 출처 = 기상청 API허브 (R13 전환, 2026-08-10)
+
+종전 출처는 **공공데이터포털**(`apis.data.go.kr/1360000/...` + `serviceKey`)이었고
+이 문서도 그 전제로 쓰여 있었다. 지금 출처는 **기상청 API허브**
+(`apihub.kma.go.kr/api/typ02/openApi/...` + `authKey`)다. **둘은 별개 시스템이고
+키도 따로다** — 한쪽 키를 다른 쪽 URL에 넣으면 인증이 깨지는데, 실패가
+degraded 200으로 흡수돼 화면에는 티가 안 난다.
+
+응답 봉투(`resultCode`·`items.item[]`)와 아래 파싱 규칙은 **그대로 유효하다**.
+실제로 갈린 것은 세 가지뿐이다:
+
+| | 종전(공공데이터포털) | 현재(API허브) |
+|---|---|---|
+| 인증 파라미터 | `serviceKey` | **`authKey`** |
+| 단기·중기예보 | `VilageFcstInfoService_2.0` · `MidFcstInfoService` | 서비스명 동일 (호스트만 교체) |
+| 과거관측 일자료 | `AsosDalyInfoService` — 기간 조회 | **`SfcMtlyInfoService/getDailyWthrData` — 월 조회 · 필드명 다름** (§3) |
+
+API허브는 **API마다 활용신청이 따로**다(마이페이지 > 활용신청 현황). 위 3종이 전부
+승인돼 있어야 하고, ASOS가 빠지면 리그·대결 정산이 조용히 빈손으로 돈다.
 
 ## 공통 사항
 
-- 인증: 쿼리 파라미터 `serviceKey`에 발급키 삽입 (URL 인코딩 주의 — 이미 인코딩된 키면 재인코딩 금지)
+- 인증: 쿼리 파라미터 `authKey`에 발급키 삽입 (URL 인코딩 주의 — 이미 인코딩된 키면 재인코딩 금지)
 - 응답 포맷: `dataType=JSON` 파라미터 필수 (기본은 XML)
 - 모든 응답은 `response.body.items.item[]` 경로에 실제 데이터가 있음
 - `response.header.resultCode == "00"` 이 성공. 그 외는 에러 (03=데이터없음, 파싱 전 반드시 체크)
@@ -17,7 +37,7 @@
 **요청 파라미터**
 | 파라미터 | 값 | 설명 |
 |---|---|---|
-| serviceKey | {발급키} | |
+| authKey | {발급키} | API허브 마이페이지 인증키 |
 | pageNo | 1 | |
 | numOfRows | 1000 | 하루치 다 받으려면 크게 |
 | dataType | JSON | |
@@ -90,15 +110,39 @@ async def get_short_forecast(region: str, base_date: str, base_time: str) -> dic
 
 ---
 
-## 3. 과거관측 (getAsosDalyInfoList)
+## 3. 과거관측 일자료 (SfcMtlyInfoService/getDailyWthrData)
+
+⚠️ **API허브에는 `AsosDalyInfoService`가 없다.** 일자료는 이 서비스가 주고,
+**기간 조회가 아니라 월 조회**이며 **필드명도 다르다**. 종전 스펙(startDt/endDt +
+stnIds + avgTa/maxTa/sumRn)은 공공데이터포털 시절 것이라 더는 유효하지 않다.
 
 **요청 파라미터**
 | 파라미터 | 값 |
 |---|---|
-| startDt / endDt | YYYYMMDD |
-| stnIds | 지점번호 (서울=108, 부산=159, 강릉=105) |
+| year / month | YYYY / MM — **월 단위**. 기간이 월 경계를 걸치면 호출을 나눈다 |
+| station | 지점번호 (서울=108, 부산=159, 강릉=105 — 번호 체계는 종전과 같다) |
+| pageNo / numOfRows / dataType | 1 / 31 / JSON |
 
-**응답**: 일별 관측값 (평균기온 avgTa, 최고 maxTa, 일강수량 sumRn 등)
+**응답 필드 → 우리 출력 필드**
+| 우리 | API허브 | 의미 |
+|---|---|---|
+| `tm` | `tm` | 관측일자 |
+| `avgTa` | `ta` | 기온-평균 |
+| `maxTa` | `ta_max` | 기온-최고 |
+| `minTa` | `ta_min` | 기온-최저 |
+| `sumRn` | `rn_day` | 강수량 |
+
+**어댑터가 흡수한다** — `weather_api.py`(backend) / `kma_client.py`(celery)의
+`asos_months` · `normalize_asos_tm` · `asos_row` · `asos_in_range`가 월 조회를
+기간 조회처럼 보이게 감싸므로, **호출측 시그니처와 반환 형태는 종전 그대로**다
+(`get_past_observation(start_dt, end_dt, ...)` → `[{tm, avgTa, maxTa, minTa, sumRn}]`).
+계약은 `backend/tests/test_kma_asos_adapter.py`가 소유한다.
+
+⚠️ **미검증 전제**: `SfcMtlyInfoService`는 이름대로 **월보 계열**이라 당월 자료가
+월 마감 후에야 채워질 가능성이 있다. 그러면 매일 04:00 어제분 정산이 당월 내내
+빈손이다. **어제 날짜 1콜로 행이 오는지 배포 전 확인할 것.** 안 오면 폴백은
+typ01 `kma_sfcdd3.php`(tm1~tm2 기간 조회 — 시그니처가 정확히 일치하고 고정폭
+텍스트 파서만 새로 필요). 교체 지점은 `_fetch_daily_obs` 하나다.
 → 이상기후 사례 큐레이션 원본. (`anomaly_cases` 벡터 컬렉션은 선언만 되고 쓰인 적이 없어 R13 3일차에 철거됐다 — `docs/specs/01`.)
 
 ---

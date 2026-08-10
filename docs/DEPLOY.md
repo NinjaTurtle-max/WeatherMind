@@ -112,7 +112,7 @@ nano .env
 | `DATABASE_URL` | **런타임 = 앱 롤 `weathermind_app`.** ⚠️ **비밀번호를 반드시 바꿔야 한다** — `.env.example`의 `weathermind_app_dev`는 공개 저장소에 평문으로 있어 **placeholder로 취급되고, 그대로 두면 backend가 기동을 거부한다**(CO-Q-11). 아래 §5.1 참조 |
 | `MIGRATION_DATABASE_URL` | 소유자 롤 — alembic 전용. RLS 전제(`docs/specs/08`) |
 | `CELERY_DATABASE_URL` | 배치 롤. **미설정 시 `MIGRATION_DATABASE_URL`로 자동 폴백**하므로 보통 비워 둔다(CO-Q-1) |
-| `KMA_API_KEY` | **팀 자체 발급 키**(대회 제공 키는 8/22 만료 — `HACKATHON_RULES.md` §3) |
+| `KMA_API_KEY` | **기상청 API허브**(apihub.kma.go.kr) 마이페이지 인증키 — 공공데이터포털 serviceKey가 **아니다**(R13 전환, `docs/specs/06`). ⚠️ **팀 자체 발급 키**를 쓸 것: 대회 제공 계정 키는 8/22 만료인데 규정상 URL은 9월 셋째 주까지 살아 있어야 한다(`HACKATHON_RULES.md` §3). API허브는 **API마다 활용신청**이 따로다 — 단기예보·중기예보·일자료 3종 승인 필요 |
 | `GEMINI_API_KEY` | 키 게이트에서 투입. **없어도 폴백으로 전 기능 동작**. 임베딩 키는 없다(R13 3일차 철거) |
 | `IMAGE_TAG` | 🔴 **배포할 커밋 sha를 반드시 지정한다**(미설정 시 `latest`). `latest`는 **이동 태그**라 어느 커밋을 가리키는지 절차 안에서 알 수 없다 — 그 위험이 실측으로 확인됐다: §6 ①-a 참조 |
 
