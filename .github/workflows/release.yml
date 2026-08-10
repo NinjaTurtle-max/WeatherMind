@@ -118,7 +118,15 @@ jobs:
               run_arm64 python -c "import fastapi, uvicorn, sqlalchemy; print('backend deps ok')"
               ;;
             ai-worker)
-              run_arm64 python -c "import langchain, pydantic; print('ai-worker deps ok')"
+              # ⚠️ **`langchain`(umbrella)을 묻지 않는다 — 이 이미지에 없다.**
+              # requirements는 `langchain-google-genai`만 담고 그것은 `langchain-core`에
+              # 의존한다. 앱도 `langchain_google_genai`·`langchain_core`만 import한다
+              # (bare `langchain` 0건, 2026-08-10 실측). 종전 명령이 없는 패키지를
+              # 물어서 **이 게이트는 추가된 순간부터 계속 빨간불이었다** — 게이트가
+              # 상시 빨간 것은 게이트가 없는 것보다 나쁘다(무시하기 시작한다).
+              # 네이티브 휠 적재 확인이라는 목적은 그대로다: grpcio(google-genai)와
+              # pydantic-core가 arm64 휠을 끌고 오는 지점이다.
+              run_arm64 python -c "import langchain_google_genai, langchain_core, pydantic; print('ai-worker deps ok')"
               ;;
             celery)
               run_arm64 python -c "import celery; print('celery', celery.__version__)"
