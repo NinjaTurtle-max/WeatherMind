@@ -17,6 +17,7 @@
 """
 import json
 import logging
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
@@ -107,6 +108,40 @@ async def get_rules(
         for rule in board_engine.load_rules()
     ]
 
+
+def locked_difficulties(items: Iterable[tuple[int, bool]]) -> set[int]:
+    """난이도 묶음 잠금 — (난이도, 클리어여부) 목록 → **잠긴 난이도 집합**.
+
+    규칙(2026-08-10 사용자 지시): 쉬움을 **전부** 깨야 보통이 열리고, 보통까지
+    전부 깨야 어려움이 열린다. 난이도 **안에서는 순서가 없다** — 열린 묶음의
+    퍼즐은 아무거나 고른다.
+
+    ⚠️ 2026-08-06에 걷어낸 「순차 잠금」과 다른 것이다. 그때는 퍼즐 하나하나가
+    앞 퍼즐을 요구해서 고를 자유가 없었고, 그래서 걷어냈다. 여기서 강제하는 것은
+    **묶음 사이**뿐이라 그 결정과 어긋나지 않는다.
+
+    DB를 타지 않는 순수 함수다(board_difficulty·order_puzzles_for_progress 관례) —
+    잠금 규칙만 따로 고정할 수 있어야 회귀를 싸게 잡는다.
+
+    빈 난이도는 건너뛴다(저작이 아직 없는 묶음이 다음 묶음을 영원히 잠그면 안 된다).
+    """
+    total: dict[int, int] = {}
+    done: dict[int, int] = {}
+    for difficulty, cleared in items:
+        total[difficulty] = total.get(difficulty, 0) + 1
+        if cleared:
+            done[difficulty] = done.get(difficulty, 0) + 1
+
+    locked: set[int] = set()
+    blocked = False
+    for difficulty in sorted(total):
+        if blocked:
+            locked.add(difficulty)
+            continue
+        # 아직 다 못 깬 묶음은 **열려 있다**(지금 푸는 중이다). 그 뒤가 잠긴다.
+        if done.get(difficulty, 0) < total[difficulty]:
+            blocked = True
+    return locked
 
 def board_difficulty(template_json: dict, level_group: str) -> int:
     """보드 퍼즐 난이도 라벨 1(쉬움)~3(어려움) — R7-02 §3.5 (표시 전용, 잠금 없음).
@@ -228,8 +263,14 @@ async def list_puzzles(
     정렬: 시드가 저작한 진행 순서(template_json.board_order) — 난이도 오름차순으로
     저작돼 있다. θ 근접 정렬을 대체한다(2026-08-05).
 
-    **잠금 없다**(2026-08-06 제품 결정): 순차 잠금을 넣었다가 걷어냈다 — 학습자가
-    원하는 퍼즐을 골라 풀게 한다. 순서는 권유이지 강제가 아니다.
+    **난이도 묶음 잠금**(2026-08-10 사용자 지시): 쉬움을 전부 깨야 보통이, 보통까지
+    전부 깨야 어려움이 열린다. 규칙은 `locked_difficulties`가 소유한다.
+    묶음 **안에서는** 여전히 순서가 없다 — 2026-08-06에 걷어낸 퍼즐 단위 순차
+    잠금(고를 자유가 없어 되돌렸다)과 강제하는 범위가 다르다.
+
+    목록 자체는 **무차단**이다. 잠긴 퍼즐도 제목과 함께 내려보내고 `locked`만
+    참으로 준다 — 무엇이 기다리는지 보이지 않으면 잠금이 동기가 아니라 벽이 된다.
+    실제 차단은 진입(GET /puzzles/{id})이 한다.
     """
     items = list(
         (
@@ -247,14 +288,20 @@ async def list_puzzles(
     )
     items = order_puzzles_for_progress(items)
     cleared = await _cleared_item_ids(db, user)
+    graded = [
+        (item, board_difficulty(item.template_json, item.level_group), item.id in cleared)
+        for item in items
+    ]
+    locked = locked_difficulties((difficulty, done) for _, difficulty, done in graded)
     return [
         BoardPuzzle(
             content_item_id=item.id,
             template_json=item.template_json or {},
-            cleared=item.id in cleared,
-            difficulty=board_difficulty(item.template_json, item.level_group),
+            cleared=done,
+            difficulty=difficulty,
+            locked=difficulty in locked,
         )
-        for item in items
+        for item, difficulty, done in graded
     ]
 
 
@@ -277,6 +324,29 @@ async def _load_puzzle_or_404(db: AsyncSession, content_item_id: UUID) -> Conten
     return item
 
 
+async def _locked_difficulties_for(db: AsyncSession, user: User) -> set[int]:
+    """이 유저에게 잠긴 난이도 집합 — 목록과 **같은 규칙**을 진입에서도 쓴다.
+
+    두 곳이 규칙을 따로 구현하면 화면에는 열린 퍼즐이 진입에서 403이 나거나
+    그 반대가 된다. 계산은 `locked_difficulties`가 소유하고 여기는 재료만 모은다.
+    """
+    items = list(
+        (
+            await db.execute(
+                select(ContentItem).where(
+                    ContentItem.status == "active",
+                    ContentItem.question_type == "board",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    cleared = await _cleared_item_ids(db, user)
+    return locked_difficulties(
+        (board_difficulty(i.template_json, i.level_group), i.id in cleared) for i in items
+    )
+
 @router.get("/puzzles/{content_item_id}", response_model=BoardPuzzle)
 async def get_puzzle_detail(
     content_item_id: UUID,
@@ -292,6 +362,19 @@ async def get_puzzle_detail(
     """
     item = await _load_puzzle_or_404(db, content_item_id)
     cleared = await _cleared_item_ids(db, user)
+    difficulty = board_difficulty(item.template_json, item.level_group)
+
+    # 난이도 잠금 — **구름 검사보다 먼저**다. 잠긴 퍼즐은 잔량이 있어도 못 여는데,
+    # 순서를 바꾸면 잔량 0인 사람이 "구름이 없어서"라는 틀린 이유를 듣는다.
+    # 화면도 막지만 여기서 다시 막는다 — 주소창으로 들어오면 화면 판정은 없다.
+    if difficulty in await _locked_difficulties_for(db, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "detail": "앞 난이도를 모두 클리어하면 열려요.",
+                "code": "PUZZLE_LOCKED",
+            },
+        )
 
     # 진입 게이트 — 무소모 검사. 404 판정 이후에 둔다(없는 퍼즐은 차단 대상이 아니다).
     await energy_service.require_entry(db, user)
@@ -300,7 +383,8 @@ async def get_puzzle_detail(
         content_item_id=item.id,
         template_json=item.template_json or {},
         cleared=item.id in cleared,
-        difficulty=board_difficulty(item.template_json, item.level_group),
+        difficulty=difficulty,
+        locked=False,
     )
 
 

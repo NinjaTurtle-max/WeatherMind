@@ -1339,13 +1339,38 @@ const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board')
 // 최초 클리어 기록 (content_item_id 집합) — 재도전 0 XP (§3.5)
 const clearedBoardPuzzles = new Set();
 
+/**
+ * 잠긴 난이도 집합 — 서버 `routers/board.locked_difficulties`의 **사본**이다.
+ * 쉬움을 전부 깨야 보통이, 보통까지 전부 깨야 어려움이 열린다(2026-08-10).
+ * 규칙이 갈리면 목에서만 열리거나 목에서만 잠기므로, 서버 함수를 고치면 여기도
+ * 같이 고칠 것 — `test_r13_mock_policy_parity`가 감시하는 종류의 사본이다.
+ */
+function lockedBoardDifficulties() {
+  const total = new Map();
+  const done = new Map();
+  for (const p of BOARD_PUZZLES) {
+    const d = p.difficulty ?? 1;
+    total.set(d, (total.get(d) ?? 0) + 1);
+    if (clearedBoardPuzzles.has(p.content_item_id)) done.set(d, (done.get(d) ?? 0) + 1);
+  }
+  const locked = new Set();
+  let blocked = false;
+  for (const d of [...total.keys()].sort((a, b) => a - b)) {
+    if (blocked) { locked.add(d); continue; }
+    if ((done.get(d) ?? 0) < total.get(d)) blocked = true; // 푸는 중인 묶음은 열려 있다
+  }
+  return locked;
+}
+
 /** BoardPuzzle 1건 (서버 schemas/board.BoardPuzzle) — 목록·상세가 공유한다.
  *  R10-01 D1: 상세 엔드포인트는 단건 전용 스키마를 만들지 않고 이 형태를 그대로 쓴다. */
-const boardPuzzlePayload = (p) => ({
+const boardPuzzlePayload = (p, locked = null) => ({
   content_item_id: p.content_item_id,
   difficulty: p.difficulty ?? 1, // R7-02 S5: 난이도 1|2|3
   template_json: p.template_json,
   cleared: clearedBoardPuzzles.has(p.content_item_id),
+  // 상세는 잠긴 퍼즐이 그 앞에서 403이라 항상 false다(서버와 같다).
+  locked: locked === null ? false : locked.has(p.difficulty ?? 1),
 });
 
 /** 보드 재판정 + 목표 검사 → {passed, phenomena, feedback} (권위 채점 흉내) */
@@ -2010,7 +2035,10 @@ const routes = {
   // GET /board/regions (R5-01 §3.1) — 지도 지역 좌표(렌더 전용, 판정 미사용)
   'GET /board/regions': () => [200, BOARD_REGIONS],
   // 목록은 **무차단**(R10-01 D1) — 잔량 0이어도 퍼즐 화면·cleared 표시는 열린다.
-  'GET /board/puzzles': () => [200, BOARD_PUZZLES.map(boardPuzzlePayload)],
+  'GET /board/puzzles': () => {
+    const locked = lockedBoardDifficulties();
+    return [200, BOARD_PUZZLES.map((p) => boardPuzzlePayload(p, locked))];
+  },
   // GET /board/puzzles/{content_item_id} (R10-01 D1 신설) — 단건 BoardPuzzle.
   // 서버 스키마 재사용(목록 원소와 동일 필드, 단건 전용 스키마 없음).
   // §3.1 차단 지점 3: **퍼즐 상세 진입**에서 잔량 부족이면 429 OUT_OF_CLOUDS.
@@ -2019,6 +2047,11 @@ const routes = {
     const puzzle = BOARD_PUZZLES.find((p) => p.content_item_id === params?.id);
     if (!puzzle) {
       return [404, { detail: '퍼즐을 찾을 수 없습니다', code: 'PUZZLE_NOT_FOUND' }];
+    }
+    // 난이도 잠금은 **구름 검사보다 먼저**(서버와 같은 순서) — 순서를 바꾸면
+    // 잔량 0인 사람이 "구름이 없어서"라는 틀린 이유를 듣는다.
+    if (lockedBoardDifficulties().has(puzzle.difficulty ?? 1)) {
+      return [403, { detail: '앞 난이도를 모두 클리어하면 열려요.', code: 'PUZZLE_LOCKED' }];
     }
     const gate = requireCloudEntry();
     if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
@@ -2528,7 +2561,11 @@ export const __mockFixtures = () => ({
   session_recipe: MOCK_SESSION_RECIPE,
   session_items: SESSION_ITEMS.map(stripMock),
   placement_items: PLACEMENT_ITEMS.map(stripMock),
-  board_puzzles: BOARD_PUZZLES.map(boardPuzzlePayload),
+  // ⚠️ point-free(`.map(boardPuzzlePayload)`)로 쓰지 말 것 — map이 두 번째 인자로
+  // **인덱스**를 넘겨 그게 `locked`로 들어간다(2026-08-10: `0.has is not a
+  // function`으로 목 import 전체가 죽었다). 잠금 집합은 목록 응답에서만 실리므로
+  // 여기서는 인자 없이 부른다.
+  board_puzzles: BOARD_PUZZLES.map((p) => boardPuzzlePayload(p)),
   unit_items: UNITS.map((u) => ({
     slug: u.slug,
     kind: u.kind,

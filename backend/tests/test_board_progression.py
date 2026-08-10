@@ -178,3 +178,48 @@ class TestDisasterBoards:
                 f"{template['title']}: 팔레트대로 조절해도 목표에 닿지 않는다 — "
                 f"{[p['phenomenon'] for p in phenomena]}"
             )
+
+
+# ── 난이도 묶음 잠금 (2026-08-10 사용자 지시) ────────────────────────────────
+#
+# ⚠️ 이 파일 머리말이 「순차 잠금은 걷어냈다」고 적어 둔 것과 **어긋나지 않는다**.
+# 걷어낸 것은 퍼즐 하나하나가 앞 퍼즐을 요구하던 잠금이고(고를 자유가 없었다),
+# 여기서 강제하는 것은 **난이도 묶음 사이**뿐이다 — 열린 묶음 안에서는 여전히
+# 아무거나 고른다. 규칙은 DB를 안 타는 순수 함수라 여기서 전 분기를 고정한다.
+from app.routers.board import locked_difficulties
+
+
+def test_아무것도_못_깼으면_쉬움만_열린다():
+    assert locked_difficulties([(1, False), (1, False), (2, False), (3, False)]) == {2, 3}
+
+
+def test_쉬움을_하나라도_남기면_보통이_안_열린다():
+    # 24개 중 23개를 깨도 잠긴 채다 — "다 풀어야"가 지시의 문면이다.
+    items = [(1, True)] * 23 + [(1, False)] + [(2, False), (3, False)]
+    assert locked_difficulties(items) == {2, 3}
+
+
+def test_쉬움을_다_깨면_보통이_열리고_어려움은_잠긴다():
+    assert locked_difficulties([(1, True), (1, True), (2, False), (3, False)]) == {3}
+
+
+def test_보통까지_다_깨면_전부_열린다():
+    assert locked_difficulties([(1, True), (2, True), (3, False)]) == set()
+
+
+def test_지금_푸는_묶음은_열려_있다():
+    # 보통을 절반 깬 상태 — 보통 자체는 잠기면 안 된다(들어가 있는 사람을 내쫓는다).
+    assert 2 not in locked_difficulties([(1, True), (2, True), (2, False), (3, False)])
+
+
+def test_저작이_없는_묶음은_다음_묶음을_막지_않는다():
+    # 보통이 0건인데 그것 때문에 어려움이 영영 잠기면 저작 공백이 벽이 된다.
+    assert locked_difficulties([(1, True), (3, False)]) == set()
+
+
+def test_퍼즐이_없으면_잠긴_난이도도_없다():
+    assert locked_difficulties([]) == set()
+
+
+def test_전부_클리어여도_잠금은_없다():
+    assert locked_difficulties([(1, True), (2, True), (3, True)]) == set()
