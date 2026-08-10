@@ -25,16 +25,26 @@ class Settings(BaseSettings):
     JWT_ACCESS_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_EXPIRE_DAYS: int = 7
 
-    # ── 기상청 API ──
+    # ── 기상청 API (출처 = 기상청 API허브, R13) ──────────────────────────
+    # 종전 공공데이터포털(`apis.data.go.kr/1360000/...` + `serviceKey`)에서 옮겼다.
+    # 두 곳은 **별개 시스템이고 키도 따로**다 — API허브 키를 옛 URL에 넣으면 인증이
+    # 깨지는데, 실패가 degraded 200으로 흡수돼 화면상 아무 티가 안 난다.
+    # `KMA_API_KEY`에는 **API허브 마이페이지의 인증키**를 넣는다(`authKey`로 부착).
+    #
+    # ⚠️ `KMA_ASOS_DALY_URL`만 **서비스 이름이 다르다**. API허브에는
+    # `AsosDalyInfoService`가 없고 일자료는 `SfcMtlyInfoService/getDailyWthrData`가
+    # 준다 — 응답 봉투는 같지만 **조회 단위가 기간이 아니라 월(year+month)**이고
+    # 필드명도 다르다(weather_api.py ASOS 어댑터가 흡수). env 변수 이름을 그대로
+    # 두는 것은 기존 `.env` 호환을 깨지 않기 위해서다.
     KMA_API_KEY: str = ""
     KMA_VILAGE_FCST_URL: str = (
-        "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
+        "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getVilageFcst"
     )
     KMA_MID_LAND_FCST_URL: str = (
-        "https://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst"
+        "https://apihub.kma.go.kr/api/typ02/openApi/MidFcstInfoService/getMidLandFcst"
     )
     KMA_ASOS_DALY_URL: str = (
-        "https://apis.data.go.kr/1360000/AsosDalyInfoService/getAsosDalyInfoList"
+        "https://apihub.kma.go.kr/api/typ02/openApi/SfcMtlyInfoService/getDailyWthrData"
     )
 
     # ── 내부 서비스 간 통신 ──
