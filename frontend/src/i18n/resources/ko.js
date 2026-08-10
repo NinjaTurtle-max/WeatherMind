@@ -304,10 +304,8 @@ export default {
       learnGo: '이어서 풀기 →',
       go: '바로 가기 →',
       // R13-01 §2.5 진입 통합 — 홈의 학습 진입 카드 1개가 쓰는 문구
-      unitBody: '진행 중인 유닛이에요. 여기서 이어 가면 돼요.',
       todayLabel: '오늘의 학습',
       doneTitle: '오늘 몫은 다 했어요',
-      doneBody: '오늘 할 학습을 모두 마쳤어요. 더 하고 싶다면 아래에서 골라 보세요.',
       doneCta: '지난 유닛 다시 보기 →',
       more: '더 해보기',
       board: '대기 보드',
@@ -350,9 +348,13 @@ export default {
     },
   },
   curriculum: {
+    // 하루 목표 미설정 — 진입 카드에서 내 정보(설정 통로)로 보낸다
+    goalUnset: '목표를 설정하세요!',
     loading: '학습 경로를 불러오고 있어요...',
     loadFailed: '학습 경로를 불러오지 못했어요',
     title: '🎓 학습',
+    // 배너 한 줄 부제. 2026-08-09 잠깐 값 안에 개행이 있었다(튜터 말풍선 두 줄
+    // 고정) — 배너로 바뀌며 한 줄이 되어 원문 바이트 동일로 되돌렸다.
     subtitle: '유닛을 순서대로 클리어하며 날씨 개념을 쌓아요.',
     sectionDone: '{cleared}/{total} 완료',
     energyEmpty: {
@@ -375,12 +377,25 @@ export default {
       waterEnergy: { title: '물과 에너지', subtitle: '상태변화·이동' },
     },
     unit: {
+      // 노드 옆 상태 라벨(2026-08-09 시안). 잠금은 lockedTitle을 그대로 쓴다 —
+      // 같은 뜻을 두 문장으로 두면 하나만 고쳐진다.
+      labelCleared: '완료 · 왕관 {crowns}',
+      labelCurrent: '지금 여기',
+      labelOpen: '열림',
       lockedSuffix: ' (잠김)',
       energySuffix: ' (구름 부족)',
       lockedTitle: '선행 유닛을 완료하면 열려요',
       energyTitle: '구름이 회복되면 열 수 있어요 — 약 {min}분 후',
       boardChip: '보드 퍼즐 유닛',
       placementOpened: '🧭 진단으로 열림',
+    },
+    // 학습 화면 하단 3카드의 리그 칸(2026-08-09 시안). 티어 표시명은 tier.name.*이
+    // 소유하고 여기는 틀만 갖는다 — 두 벌로 두면 리그 화면과 이름이 갈린다.
+    leagueCard: {
+      titleUnranked: '리그',
+      title: '{tier} 리그',
+      people: '/ {total}명',
+      cta: '순위표 보기 →',
     },
     daily: {
       title: '자유 일일 세션',
@@ -392,6 +407,7 @@ export default {
     },
     // 세로 경로(PcCurriculumPath) — 노드 밑 라벨을 뺀 대신 진도 바가 "지금 어디"를 말한다.
     path: {
+      sectionEyebrow: '섹션 {n} · {title}',
       introTitle: '이 단계에서 배우는 것',
       start: '시작',
       estMinutes: '예상 {min}분',
@@ -400,7 +416,6 @@ export default {
       scrollHint: '↓ 스크롤해서 다음 단계',
       progressLabel: '현재 진도',
       unitCount: '{done} / {total} 유닛',
-      continue: '이어서 학습하기',
     },
     tutor: {
       chip: '💧 튜터',

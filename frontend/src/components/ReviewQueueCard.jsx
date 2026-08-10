@@ -18,8 +18,20 @@ import { useT } from '../i18n';
  *
  * 숨긴 것: consecutive_correct·interval_days·타임스탬프 원값 — 스케줄 내부값이라
  * 학습자에게 소음이다. 보여주는 것은 "무엇을(개념명) 지금 복습할 때"뿐.
+ *
+ * variant (2026-08-09):
+ *   'card'  기본 — 흰 카드. 다른 화면이 레일에 세울 때 쓴다.
+ *   'strip' 카드 껍데기 없이 **한 줄**. 학습 화면이 흰 카드를 3장으로 줄이면서
+ *           복습을 화면 맨 아래 줄로 내렸다(사용자 지시). 카드를 지우는 것이
+ *           아니라 **껍데기만** 벗기는 이유는 due 0건 렌더 생략·상위 3개 자르기
+ *           같은 계약이 두 모양에서 같아야 하기 때문이다 — 두 컴포넌트로 갈라
+ *           두면 한쪽만 고쳐진다.
+ *   'tile'  학습 화면 **경로 아래 3카드**의 첫 칸(2026-08-09 시안). 스스로
+ *           흰 카드까지 그린다 — 격자 칸에 그대로 떨어뜨리려고 그렇다.
+ *           본문 없이 제목·키워드 칩·링크뿐이라 세로가 얕다(하단 줄은 세로
+ *           예산이 빠듯하다 — 트랙 높이를 그만큼 뺏는다). 계약은 위 둘과 같다.
  */
-export default function ReviewQueueCard() {
+export default function ReviewQueueCard({ variant = 'card' }) {
   const t = useT();
   const { data } = useQuery({
     queryKey: ['progress', 'review-queue'],
@@ -32,6 +44,73 @@ export default function ReviewQueueCard() {
 
   const top = due.slice(0, 3);
   const rest = due.length - top.length;
+
+  if (variant === 'tile') {
+    return (
+      <div
+        data-testid="review-queue-tile"
+        className="flex flex-col rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200"
+      >
+        <div className="flex items-center gap-1.5">
+          <p className="text-[13.5px] font-extrabold text-slate-800">{t('reviewQueue.title')}</p>
+          <span className="ml-auto text-[11px] font-medium tabular-nums text-slate-400">
+            {t('reviewQueue.count', { count: due.length })}
+          </span>
+        </div>
+        {/* **개념명 키워드**로 보여준다(2026-08-09 사용자 결정). 한때 담당 캐릭터
+            그림으로 바꿨는데 되돌렸다 — 캐릭터는 8장인데 개념은 14종이라 둘 이상이
+            같은 얼굴을 쓰고(기압과 전선·기압의 기초 → 둘 다 구름이), 그러면 무엇을
+            복습하는지가 그림만으로는 갈리지 않는다. 여기서 답해야 하는 질문은
+            "무엇을"이므로 이름이 맞다. */}
+        <ul className="mt-2.5 flex flex-wrap gap-1.5">
+          {top.map((item) => (
+            <li
+              key={item.concept_tag}
+              className="rounded-full bg-slate-100 px-2.5 py-1 text-[11.5px] font-medium text-slate-600"
+            >
+              {CONCEPT_KO[item.concept_tag] ?? item.concept_tag}
+            </li>
+          ))}
+          {rest > 0 && <li className="px-1 py-1 text-[11px] font-medium text-slate-400">+{rest}</li>}
+        </ul>
+        <Link
+          to="/daily"
+          className="mt-auto pt-2.5 text-[12px] font-bold text-sky-600 hover:text-sky-700"
+        >
+          {t('reviewQueue.cta')}
+        </Link>
+      </div>
+    );
+  }
+
+  if (variant === 'strip') {
+    return (
+      <div
+        data-testid="review-queue-strip"
+        className="flex flex-wrap items-center gap-x-3 gap-y-2 px-0.5 text-[12px] text-slate-400"
+      >
+        <span aria-hidden="true">🔁</span>
+        <span className="font-extrabold text-slate-500">{t('reviewQueue.title')}</span>
+        <ul className="flex flex-wrap gap-1.5">
+          {top.map((item) => (
+            <li
+              key={item.concept_tag}
+              className="rounded-full bg-white px-2.5 py-1 text-[12px] font-bold text-slate-700 ring-1 ring-slate-200"
+            >
+              {CONCEPT_KO[item.concept_tag] ?? item.concept_tag}
+            </li>
+          ))}
+          {rest > 0 && <li className="px-1 py-1 text-[11px] font-bold text-slate-400">+{rest}</li>}
+        </ul>
+        <Link
+          to="/daily"
+          className="font-bold text-slate-500 underline-offset-4 hover:text-sky-700 hover:underline"
+        >
+          {t('reviewQueue.cta')}
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div

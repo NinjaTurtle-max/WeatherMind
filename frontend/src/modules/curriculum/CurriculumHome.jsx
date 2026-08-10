@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { curriculumApi, progressApi } from '../../api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import PcCurriculumPath from './PcCurriculumPath';
 import CourseSwitcher, { useCourses } from './CourseSwitcher';
-// R11-01 §6.2 마운트 통합 — 둘 다 props 없는 자급 계약(조건 미충족 시 자가 null).
-import ReviewQueueCard from '../../components/ReviewQueueCard';
+import LearnHeroCard from './LearnHeroCard';
+import LearnFooterCards from './LearnFooterCards';
+import { pickLearnEntry } from './learnEntry';
+import { useAttendance } from '../../hooks/useAttendance';
+// R11-01 §6.2 마운트 통합 — props 없는 자급 계약(조건 미충족 시 자가 null).
+// 복습 큐(ReviewQueueCard)는 2026-08-09부터 LearnFooterCards가 마운트한다.
 import GuestSaveBanner from '../../components/GuestSaveBanner';
-// R12 선행 §8 — 지역 칩(자급 컴포넌트, 제작 FE-R): 세션 실황 슬롯이 이 지역을 탄다.
-import RegionPicker from '../../components/RegionPicker';
 import { conceptLabel, useT } from '../../i18n';
 
 /**
@@ -66,9 +68,12 @@ const COURSE_SECTION_PREVIEW = {
 export default function CurriculumHome() {
   const navigate = useNavigate();
   const t = useT();
-  // 출석 체크(스트릭)는 기본 진입인 홈(HomePage)이 맡는다. useAttendance가
-  // sessionStorage로 하루 1회를 이미 보장하므로 두 곳에서 불러도 POST가 두 번
-  // 가지는 않지만, 호출 지점이 둘이면 "어느 화면이 출석을 만드나"가 흐려진다.
+  // 출석 체크(스트릭)의 **소유자는 이 화면**이다(2026-08-09). 종전 소유자는 홈
+  // (HomePage)이었는데 홈을 지우고 학습 하나로 합치면서 넘어왔다 — 넘기지 않으면
+  // 출석 POST를 만드는 화면이 앱에서 사라져 스트릭이 영영 안 오른다.
+  // useAttendance가 sessionStorage로 하루 1회를 보장하므로 세션 러너와 겹쳐도
+  // POST가 두 번 가지는 않지만, 소유자는 하나여야 추적이 된다.
+  useAttendance(true);
 
   // 코스 선택 (R11-01 §6.2) — 명시 선택 전에는 is_default 코스를 따른다.
   // 코스 목록이 없는 환경(구 백엔드·미시드 DB)에서는 courses=[] → treeCourse=null
@@ -111,6 +116,46 @@ export default function CurriculumHome() {
   const dailyBlocked = energyBlocked && (me?.today_answered_count ?? 0) === 0;
   const regenMin = Math.max(1, Math.ceil((energy?.next_regen_sec ?? 0) / 60));
 
+  // 진입 카드(§2.5) — 홈에서 넘어왔다. 트리가 아직 안 왔을 때(undefined) 곧바로
+  // pickLearnEntry를 태우면 units=[]라 "오늘 몫" 또는 "완료"로 튀었다가 도착 후
+  // 유닛으로 바뀐다 — 첫 페인트에서 CTA 문구가 번쩍인다. 도착 전에는 유닛 자리를
+  // 비워 둔 unit 종류로 고정한다(문구는 '첫 유닛부터 시작해요').
+  const flatUnits = (data?.sections ?? []).flatMap((s) => s.units);
+  const goalTotal = me?.daily_goal_items ?? null;
+  const goalDone = me?.today_answered_count ?? 0;
+  const entry =
+    data === undefined
+      ? { kind: 'unit', unit: null, to: '/learn' }
+      : pickLearnEntry({ units: flatUnits, todayAnswered: goalDone, dailyGoal: goalTotal });
+  // 배너 머리글 — 시안대로 **어느 섹션의 몇 번째인지**를 말한다("섹션 1 · 하늘 읽기").
+  // 섹션을 모르면(트리 도착 전·유닛 없음) 종전 문구('학습 세션')로 떨어진다.
+  const entrySectionIdx = entry.unit
+    ? (data?.sections ?? []).findIndex((s) => s.units.some((u) => u.id === entry.unit.id))
+    : -1;
+  const entrySection = entrySectionIdx >= 0 ? data.sections[entrySectionIdx] : null;
+  const ENTRY_COPY = {
+    unit: {
+      eyebrow: entrySection
+        ? t('curriculum.path.sectionEyebrow', {
+            n: entrySectionIdx + 1,
+            title: entrySection.section,
+          })
+        : t('home.entry.learn'),
+      title: entry.unit?.title ?? t('home.entry.learnEmpty'),
+      cta: t('home.entry.learnGo'),
+    },
+    daily: {
+      eyebrow: t('home.entry.todayLabel'),
+      title: t('curriculum.daily.title'),
+      cta: t('curriculum.daily.cta'),
+    },
+    done: {
+      eyebrow: t('home.entry.todayLabel'),
+      title: t('home.entry.doneTitle'),
+      cta: t('home.entry.doneCta'),
+    },
+  };
+
   if (isLoading) return <LoadingSpinner label={t('curriculum.loading')} />;
 
   if (isError) {
@@ -150,15 +195,25 @@ export default function CurriculumHome() {
       {/* 코스 탭(§6.2) — 코스가 2개 이상일 때만 뜬다. 선택은 잠금이 아니라 조회 스코프. */}
       <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} />
 
-      {/* 페이지 머리말 — **md↑에서도 보여야 한다**(2026-08-08). 한때 `md:hidden`이라
-          PC에서 학습만 머리말이 없었다. 다른 화면(보드·리그·예보 대결·내 정보)은
-          제목이 셸 왼쪽 끝(실측 x=264, 헤더 첫 항목과 같은 선)에서 시작하는데,
-          학습은 그 자리가 비어 본문의 첫 글자가 카드 안쪽 패딩만큼(실측 328)
-          더 들어간 데서 시작했다 — "학습만 오른쪽으로 밀렸다"로 보였다.
-          마크업은 다른 화면과 같은 형태로 맞춘다(제목 + mt-0.5 부제 + mb-4). */}
-      <div className="mb-4">
-        <h1 className="text-lg font-extrabold text-slate-900">{t('curriculum.title')}</h1>
-        <p className="mt-0.5 text-sm text-slate-500">{t('curriculum.subtitle')}</p>
+      {/* 페이지 머리말(🎓 학습 + 설명)은 **없앴다**(2026-08-09 사용자 지시).
+          같은 설명을 진입 배너가 부제로 말한다 — 두 벌이면 세로만 66px 먹는다.
+          문구의 소유자는 `curriculum.subtitle`이다(LearnHeroCard가 읽는다). */}
+
+      {/* 진입 배너 — 화면 맨 위 한 줄(2026-08-09 시안). PC·모바일 **공통 1회
+          마운트**다. 세로 레일이던 시절에는 PC 레일과 모바일 위쪽에 각각 하나씩
+          두 번 마운트했는데, 가로 배너는 두 폭에서 같은 자리라 나눌 이유가 없다.
+          `hasPath`와 무관하게 뜬다 — 빈 트리 코스에서도 「오늘의 세션」으로 갈
+          통로가 필요하다. */}
+      <div className="mb-3.5">
+        <LearnHeroCard
+          entry={entry}
+          copy={ENTRY_COPY[entry.kind]}
+          goalTotal={goalTotal}
+          goalDone={goalDone}
+          dailyBlocked={dailyBlocked}
+          energyBlocked={energyBlocked}
+          regenMin={regenMin}
+        />
       </div>
 
       {/* 구름 소진 안내 (§3.1) — 새 세션은 열 수 없지만 이유·회복 시점을 먼저 알린다 */}
@@ -206,6 +261,7 @@ export default function CurriculumHome() {
         </div>
       )}
 
+
       {/* 모바일: 세로 지그재그 경로(기존 유지) */}
       <div className="md:hidden">
         {sections.map((section) => (
@@ -249,80 +305,16 @@ export default function CurriculumHome() {
         energyBlocked={energyBlocked}
         regenMin={regenMin}
         onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
-        rail={
-          <>
-            <ReviewQueueCard />
-            <DailySessionCard
-              energyBlocked={energyBlocked}
-              dailyBlocked={dailyBlocked}
-              regenMin={regenMin}
-            />
-          </>
-        }
       />
 
-      {/* 모바일(md 미만) — 사이드 레일이 없으므로 경로 아래에 쌓는다.
-          PC 경로 뷰는 hidden md:block이라 둘 중 하나만 보인다(기존 관례).
-          단 **경로 자체가 없으면**(빈 트리 코스) PC에도 레일이 안 뜬다
-          — PcCurriculumPath가 통째로 null을 돌려주기 때문이다. 그때는 여기서
-          PC에도 보여준다(자유 세션 진입로가 사라지면 안 된다). */}
-      <div className={hasPath ? 'flex flex-col gap-3 md:hidden' : 'flex max-w-sm flex-col gap-3'}>
-        <ReviewQueueCard />
-        <DailySessionCard
-          energyBlocked={energyBlocked}
-          dailyBlocked={dailyBlocked}
-          regenMin={regenMin}
-        />
-      </div>
-
-    </div>
-  );
-}
-
-/**
- * 자유 일일 세션 카드 (§3.4 병존) — 정해진 경로 대신 오늘의 5문항.
- * PC는 우측 레일(튜터 아래), 모바일은 경로 아래에 놓인다. 두 자리가 같은 것을
- * 보여야 하므로 컴포넌트로 뽑아 한 곳에서 정의한다.
- */
-function DailySessionCard({ energyBlocked, dailyBlocked, regenMin }) {
-  const t = useT();
-  return (
-    <div className="flex min-h-[212px] flex-col rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[14px] font-extrabold text-slate-800">{t('curriculum.daily.title')}</p>
-        {/* 지역 칩(R12 선행 §8) — 실황 문항이 어느 지역 날씨인지 세션 진입 전에 보여준다 */}
-        <RegionPicker />
-      </div>
-      <p className="mt-1.5 text-[12px] leading-relaxed text-slate-500">{t('curriculum.daily.body')}</p>
-      {dailyBlocked ? (
-        <>
-          <button
-            type="button"
-            disabled
-            aria-disabled="true"
-            className="mt-auto inline-block cursor-not-allowed self-start rounded-xl bg-slate-200 px-4 py-2 text-[12.5px] font-bold text-slate-400"
-          >
-            {t('curriculum.daily.cta')}
-          </button>
-          <p className="mt-1 text-[11px] font-bold text-rose-600">
-            {t('curriculum.daily.regen', { min: regenMin })}
-          </p>
-        </>
-      ) : (
-        <>
-          <Link
-            to="/daily"
-            className="mt-auto inline-block self-start rounded-xl bg-slate-900 px-4 py-2 text-[12.5px] font-bold text-white transition hover:bg-slate-700"
-          >
-            {energyBlocked ? t('curriculum.daily.resume') : t('curriculum.daily.cta')}
-          </Link>
-          {energyBlocked && (
-            <p className="mt-1 text-[11px] font-bold text-rose-600">
-              {t('curriculum.daily.regenResume', { min: regenMin })}
-            </p>
-          )}
-        </>
-      )}
+      {/* 경로 아래 3카드(복습·자유 세션·리그). 이 줄의 높이는 그대로 트랙에서
+          빠지므로 PcCurriculumPath가 **재서** `--wm-track-tail`에 넣는다. */}
+      <LearnFooterCards
+        dailyBlocked={dailyBlocked}
+        energyBlocked={energyBlocked}
+        regenMin={regenMin}
+        dailyIsPrimary={entry.kind === 'daily'}
+      />
     </div>
   );
 }

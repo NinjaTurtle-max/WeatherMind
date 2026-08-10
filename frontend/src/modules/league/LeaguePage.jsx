@@ -8,6 +8,7 @@ import Mascot from '../../components/Mascot';
 import TierBadge from '../../components/TierBadge';
 import BriefingRoom from '../duel/BriefingRoom';
 import { TIER_ORDER, tierMeta, tierFromElo } from '../../lib/tierMeta';
+import { deriveStanding, isMe } from '../../lib/leagueStanding';
 import { useAuthStore } from '../../store/authStore';
 import { useT } from '../../i18n';
 
@@ -489,40 +490,12 @@ function TierLadderCard({ standing, weekStart }) {
 
 /* ── 순수 헬퍼 ───────────────────────────────────────────────────────────── */
 
-function isMe(row, user) {
-  return (
-    row.is_me === true ||
-    (user?.user_id && row.user_id === user.user_id) ||
-    (user?.nickname && row.nickname === user.nickname)
-  );
-}
-
 /** 티어 코드 → 다음 티어 메타. 최상위면 null. */
 function nextTierOf(code) {
   const nextCode = TIER_ORDER[TIER_ORDER.indexOf(code) + 1];
   return nextCode ? tierMeta(nextCode) : null;
 }
 
-/**
- * 내 리그 성적 한 벌 — {elo, rank}.
- *
- * ELO는 **가장 최근에 정산된 주**의 값이다. 서버가 week_start 내림차순으로
- * 주지만(routers/league.py) 그 순서에 기대지 않고 여기서 최댓값을 고른다 —
- * 정렬이 바뀌면 조용히 옛 등급을 보여주게 되고, 화면만 봐서는 알아챌 수 없다.
- *
- * 정산 이력이 없으면 리더보드 행으로 넘어간다. 그것도 없으면 null이다 —
- * 0으로 채우지 않는다(0은 "0점"이라는 실제 성적처럼 읽힌다).
- */
-function deriveStanding(ranks, myResults, user) {
-  const myRow = ranks.find((r) => isMe(r, user)) ?? null;
-  const settled = myResults
-    .filter((r) => r.elo_rating_after != null)
-    .sort((a, b) => String(b.week_start ?? '').localeCompare(String(a.week_start ?? '')))[0];
-  return {
-    elo: settled?.elo_rating_after ?? myRow?.elo_rating ?? null,
-    rank: myRow?.rank ?? null,
-  };
-}
 
 /** 'YYYY-MM-DD' → Date(로컬 자정). 파싱 실패는 null. */
 function parseDay(iso) {

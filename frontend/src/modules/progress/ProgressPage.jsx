@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { kstWeekdayIndex } from '../../lib/kstWeekday';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi, progressApi } from '../../api';
@@ -292,6 +293,54 @@ function ProfileCard({ me, user, badges }) {
           label={t('profile.unitStat')}
         />
         <ProfileStat icon="👑" value={me?.spine?.crowns_earned ?? '—'} label={t('profile.crownStat')} />
+      </div>
+
+      <StreakWeek streak={me?.streak_count ?? 0} />
+    </div>
+  );
+}
+
+/**
+ * 주간 출석 스트립 — 홈이 사라지면서(2026-08-09) 여기로 옮겨왔다.
+ * 위 4칸 지표의 🔥는 **숫자**만 말한다("6일"). 어느 요일을 빠뜨렸는지는 이 줄만
+ * 보여주고, 그게 내일 다시 오게 만드는 신호다.
+ *
+ * ⚠️ **서버는 요일별 출석 이력을 주지 않는다** — `streak_count`(연속 일수)뿐이다.
+ * 그래서 오늘부터 거꾸로 streak만큼 칠한다. **미래 요일은 절대 칠하지 않는다**
+ * (diff < 0) — 오늘이 수요일인데 금·토·일이 체크돼 보이던 버그가 여기서 났다.
+ * 요일별 실이력이 필요하면 API가 먼저다.
+ *
+ * 요일은 **KST 기준**이다(CO-T-8). `new Date().getDay()`는 브라우저 로컬 타임존이라
+ * 심사 PC가 KST가 아니면 서버 하루와 어긋난다.
+ *
+ * 색은 홈(흰 배경)과 다르다 — 여기는 짙은 남색 카드 위라 sky-100/sky-600 조합이
+ * 배경에 묻힌다. 채운 칸은 흰색, 빈 칸은 흰색 20%다.
+ */
+function StreakWeek({ streak }) {
+  const t = useT();
+  const todayIdx = kstWeekdayIndex(); // 월=0 … 일=6
+  return (
+    <div className="mt-4 border-t border-sky-800 pt-3.5" data-testid="streak-week">
+      <p className="text-[11.5px] font-extrabold text-sky-200">
+        🔥 {t('home.streak.title')}
+      </p>
+      <div className="mt-2 flex gap-1.5">
+        {t('home.streak.days').split(',').map((label, i) => {
+          const diff = todayIdx - i;
+          const done = diff >= 0 && diff < streak;
+          return (
+            <div key={label} className="flex-1 text-center">
+              <div
+                className={`grid h-[28px] place-items-center rounded-[9px] text-[11px] font-extrabold ${
+                  done ? 'bg-white text-sky-800' : 'bg-white/15 text-sky-300/70'
+                } ${i === todayIdx ? 'ring-2 ring-inset ring-amber-300' : ''}`}
+              >
+                {done ? '✓' : '·'}
+              </div>
+              <div className="mt-1 text-[10px] text-sky-300">{label}</div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
