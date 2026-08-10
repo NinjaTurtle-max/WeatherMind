@@ -25,17 +25,33 @@ class Settings(BaseSettings):
     JWT_ACCESS_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_EXPIRE_DAYS: int = 7
 
-    # ── 기상청 API ──
+    # ── 기상청 API (출처 = 기상청 API허브, R13) ──────────────────────────
+    # 종전 공공데이터포털(`apis.data.go.kr/1360000/...` + `serviceKey`)에서 옮겼다.
+    # 두 곳은 **별개 시스템이고 키도 따로**다 — API허브 키를 옛 URL에 넣으면 인증이
+    # 깨지는데, 실패가 degraded 200으로 흡수돼 화면상 아무 티가 안 난다.
+    # `KMA_API_KEY`에는 **API허브 마이페이지의 인증키**를 넣는다(`authKey`로 부착).
+    #
+    # ⚠️ `KMA_ASOS_DALY_URL`만 **계열이 다르다**(typ01). API허브에는
+    # `AsosDalyInfoService`가 없고, openApi 일자료(`SfcMtlyInfoService/
+    # getDailyWthrData`)는 **월보라 당월을 주지 않는다** — 어제 날짜로 부르면
+    # `resultCode=99 "발간되지 않은 기간입니다"`다(2026-08-10 실측). 정산·브리핑이
+    # 필요로 하는 건 전부 당월이라 typ01 `kma_sfcdd.php`로 **교체**했다. 응답이
+    # JSON이 아니라 텍스트라 파서가 다르다(weather_api.py ASOS 어댑터가 흡수).
+    # env 변수 이름을 그대로 두는 것은 기존 `.env` 호환을 깨지 않기 위해서다.
+    #
+    # `KMA_API_KEY_SPARE`는 **주키가 죽을 날짜가 이미 정해져 있어서** 있다: 대회
+    # 제공 계정 키는 8/22 만료인데 URL은 9월 셋째 주까지 살아 있어야 한다. 개인
+    # 계정 키를 스페어로 두면 그날 사람이 개입하지 않아도 날씨가 안 죽는다.
+    # 주키 실패 시 자동으로 넘어간다(weather_api.auth_keys). 비워 두면 종전 동작.
     KMA_API_KEY: str = ""
+    KMA_API_KEY_SPARE: str = ""
     KMA_VILAGE_FCST_URL: str = (
-        "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
+        "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getVilageFcst"
     )
     KMA_MID_LAND_FCST_URL: str = (
-        "https://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst"
+        "https://apihub.kma.go.kr/api/typ02/openApi/MidFcstInfoService/getMidLandFcst"
     )
-    KMA_ASOS_DALY_URL: str = (
-        "https://apis.data.go.kr/1360000/AsosDalyInfoService/getAsosDalyInfoList"
-    )
+    KMA_ASOS_DALY_URL: str = "https://apihub.kma.go.kr/api/typ01/url/kma_sfcdd.php"
 
     # ── 내부 서비스 간 통신 ──
     AI_WORKER_INTERNAL_URL: str = "http://ai-worker:8001"

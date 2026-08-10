@@ -44,15 +44,21 @@ def _resolve_batch_dsn() -> tuple[str, str]:
 
 CELERY_DATABASE_URL, CELERY_DATABASE_URL_SOURCE = _resolve_batch_dsn()
 
-# ── 기상청 API ──
+# ── 기상청 API (출처 = 기상청 API허브, R13) ──
+# backend/app/core/config.py와 같은 값이어야 한다 — 교차 빌드 컨텍스트라 import로
+# 묶을 수 없다. `KMA_ASOS_DALY_URL`은 이름만 ASOS고 실제로는 typ01
+# `kma_sfcdd.php`다(하루 단위 텍스트 — kma_client 어댑터가 기간 조회처럼 감싼다).
+# openApi 일자료(월보)는 당월을 안 줘서 못 쓴다 — 배경은 backend config 주석.
 KMA_API_KEY = os.getenv("KMA_API_KEY", "")
+# 스페어(개인 계정) — 주키 실패 시 자동 폴백. 배경은 backend config 주석 참조.
+KMA_API_KEY_SPARE = os.getenv("KMA_API_KEY_SPARE", "")
 KMA_VILAGE_FCST_URL = os.getenv(
     "KMA_VILAGE_FCST_URL",
-    "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst",
+    "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getVilageFcst",
 )
 KMA_ASOS_DALY_URL = os.getenv(
     "KMA_ASOS_DALY_URL",
-    "https://apis.data.go.kr/1360000/AsosDalyInfoService/getAsosDalyInfoList",
+    "https://apihub.kma.go.kr/api/typ01/url/kma_sfcdd.php",
 )
 
 # ── 내부 서비스 간 통신 ──
