@@ -18,6 +18,7 @@
 DB·네트워크 불필요. 실행: backend에서 `python -m pytest tests -q`.
 """
 import asyncio
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -250,3 +251,36 @@ class TestHealthExposure:
         """주키 사망을 운영자가 알 수 있는 유일한 통로다."""
         weather_api._record_key_result("ok", "spare")
         assert client.get("/health").json()["kma"]["active_key"] == "spare"
+
+
+class TestLifespanTestsStayOffline:
+    """lifespan을 구동하는 테스트는 **KMA 키를 비워야 한다**.
+
+    프로브가 lifespan에 달리면서 새 함정이 생겼다: `Settings`는 `env_file=".env"`를
+    읽으므로, 실키가 든 운영자 체크아웃에서 `with TestClient(app)` 테스트를 돌리면
+    **유닛테스트가 API허브로 실호출을 날린다**. 이 저장소는 테스트 파일마다
+    "DB·네트워크 불필요"를 명시하는 관례라 그 자체가 계약 위반이고, 조용해서
+    아무도 모른다(호출 한도만 축난다).
+
+    그래서 사람 규율이 아니라 여기서 막는다 — 나중에 lifespan 테스트를 추가하는
+    사람이 이 사실을 몰라도 CI가 알려준다.
+    """
+
+    def test_lifespan_구동_파일은_KMA키를_중화한다(self):
+        me = Path(__file__)
+        offenders, scanned = [], []
+        for path in sorted(me.parent.glob("test_*.py")):
+            if path.name == me.name:
+                continue  # 이 파일의 설명 문구가 자기 자신을 매칭한다(자기충족 방지)
+            src = path.read_text(encoding="utf-8")
+            if "with TestClient(app)" not in src:
+                continue
+            scanned.append(path.name)
+            if 'KMA_API_KEY", ""' not in src:
+                offenders.append(path.name)
+        assert scanned, "lifespan 구동 파일을 하나도 못 찾았다 — 탐지 문자열이 낡았다"
+        assert not offenders, (
+            f"{offenders}가 lifespan을 구동하면서 KMA 키를 비우지 않는다 — "
+            "운영자 체크아웃(.env에 실키)에서 유닛테스트가 실호출을 날린다. "
+            'monkeypatch.setattr(settings, "KMA_API_KEY", "") 를 추가할 것'
+        )
