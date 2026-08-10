@@ -38,6 +38,14 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
       data-entry-kind={entry.kind}
       className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[20px] bg-gradient-to-r from-[#1F3A5F] to-[#16293F] px-5 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
     >
+      {/* 마스코트 — 배너 **맨 왼쪽**(2026-08-09 사용자 지시. 시안은 CTA 왼쪽이었다).
+          말하는 사람이 먼저 오고 그 뒤에 말할 내용이 오는 순서다.
+          원형 배경을 깔아 남색 위에서 실루엣이 뜨게 한다 — 투명 PNG라 배경 없이
+          두면 어둡게 묻힌다. sm 미만에서는 접는다(배너가 두 줄이 된다). */}
+      <span className="hidden h-[62px] w-[62px] flex-none place-items-center rounded-full bg-white/10 sm:grid">
+        <Mascot name={ENTRY_MASCOT[entry.kind] ?? 'drop'} className="h-[50px] w-[50px]" />
+      </span>
+
       {/* 제목 열 — 폭이 남으면 여기가 늘어난다(min-w-0으로 긴 유닛명이 줄임표). */}
       <div className="min-w-0 flex-1 basis-[220px]">
         <p className="truncate text-[11.5px] font-bold tracking-[0.02em] text-sky-300">
@@ -83,12 +91,6 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
           )}
         </div>
       </div>
-
-      {/* 마스코트 — 시안대로 CTA 왼쪽에 붙는다. 원형 배경을 깔아 남색 위에서
-          캐릭터 실루엣이 뜨게 한다(투명 PNG라 배경 없이 두면 어둡게 묻힌다). */}
-      <span className="hidden h-[62px] w-[62px] flex-none place-items-center rounded-full bg-white/10 sm:grid">
-        <Mascot name={ENTRY_MASCOT[entry.kind] ?? 'drop'} className="h-[50px] w-[50px]" />
-      </span>
 
       <Link
         to={entry.to}
