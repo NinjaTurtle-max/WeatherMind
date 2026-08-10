@@ -913,6 +913,11 @@ function questTransitions() {
   for (const q of questPayload()) {
     if (!q.done || done.has(q.code)) continue;
     done.add(q.code);
+    // 보상은 **실제로 잔액에 넣는다** — 서버 recalculate_quests가 xp_service.add_xp를
+    // 부르는 자리다. 안 넣으면 응답은 "+10 받았다"인데 /progress/me는 모르고,
+    // 보드에서 addXp(bonus) 직후 ['progress','me'] 무효화가 돌아 헤더 XP가
+    // 올랐다가 도로 내려간다(BoardPage.jsx). 다른 목 XP 지급과 같은 관례.
+    state.xp += q.xp_reward;
     events.push({ code: q.code, title: q.title, reward_xp: q.xp_reward });
   }
   state.quest.doneCodes = [...done];
@@ -1966,7 +1971,14 @@ const routes = {
     }
     // 보상 전환 (CO-T-4) — 서버와 같이 **이번 완료로 새로 전환된 것만** 싣는다.
     // 배지는 목이 perfect_session을 기획득 상태로 시드해 두어 신규 획득이 없다.
-    const questRewards = questTransitions();
+    //
+    // ⚠️ **배치고사는 제외한다.** 서버는 placement를 XP·스트릭·퀘스트·배지·왕관
+    // 전부 스킵하고 조기 반환한다(routers/session.py §3.3). 여기서 빼지 않으면
+    // `questTransitions()`가 **부수효과로 doneCodes를 태워** 배치 완료가 조용히
+    // `daily_xp_30` 전환을 삼키고(배치 화면은 PlacementSummary라 칩이 안 보인다)
+    // 첫 데일리 세션에서 칩이 안 뜬다 — 이 PR이 고친 결함을 목 위에 되살린다.
+    const isPlacement = s.mode === 'placement';
+    const questRewards = isPlacement ? [] : questTransitions();
     const bonusXp = questRewards.reduce((sum, r) => sum + r.reward_xp, 0);
     const itemXp = results.reduce((sum, r) => sum + r.xp_earned, 0);
     return [

@@ -343,13 +343,15 @@ async def recalculate_quests(
 
     for transition in transitions:
         quest = quests.get(transition.code)
-        titled.append(
-            replace(transition, title=quest.title)
-            if quest is not None
-            else transition
-        )
         if quest is None:
+            # 시드에 없는 코드(부분 시드) — 아래 지급·저장이 통째로 스킵된다.
+            # **반환에도 싣지 않는다**: 실으면 화면이 "+10 받았다"고 말하는데
+            # add_xp도 UserQuestProgress 행 쓰기도 안 돌아 잔액은 그대로다.
+            # 게다가 행이 안 남으니 prior_done이 계속 False라 그 유령 칩이
+            # 이후 모든 세션 완료·보드 통과에서 되살아난다 — 이 PR이 고친 결함
+            # (표기 < 실지급)의 정확한 역상이다.
             continue
+        titled.append(replace(transition, title=quest.title))
         row = rows_by_code.get(transition.code)
         if row is None:
             row = UserQuestProgress(
