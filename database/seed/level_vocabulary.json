@@ -666,6 +666,72 @@
       "standard": "[9과17-03]",
       "basis": "`[9과17-03]` 해설의 '포화 수증기압'과 같은 학습 요소(교과서 표기 차이). 초등 미도입.",
       "suggest": "공기가 품을 수 있는 수증기의 최대량"
+    },
+    {
+      "term": "태풍",
+      "category": "school_upper",
+      "introduced_at": 1,
+      "standard": null,
+      "unconfirmed": true,
+      "basis": "**일상어라 이름 자체는 금칙 대상이 아니다.** anchor 1이 '현상에 이름을 붙이고 사례를 안다 — 까닭은 묻지 않는다'이고, 초등 문항의 용례가 전부 사례(비바람이 강해진다)와 대비 행동이었다(2026-08-10 실측: 첫 등재 때 introduced_at=4로 잡았다가 오탐 2건 확인 후 교정). 잡아야 하는 것은 발생·구조를 설명하는 **메커니즘 용어**이므로 '열대저기압'을 별도 등재한다 — CO-C3.",
+      "suggest": "아주 크고 강한 비바람"
+    },
+    {
+      "term": "온실효과",
+      "category": "school_upper",
+      "introduced_at": 4,
+      "name_ok_from": 1,
+      "standard": null,
+      "unconfirmed": true,
+      "basis": "중학교 과학 '기권과 날씨'의 복사 평형 맥락에서 다룬다(`[9과17]` 계열). 세부 코드 미확인 — CO-C3. 이름은 초등 기후 문항에서 배경 어휘로 쓰이므로 name_ok_from=1.",
+      "suggest": "지구를 이불처럼 덮어 따뜻하게 하는 작용"
+    },
+    {
+      "term": "장마",
+      "category": "school_upper",
+      "introduced_at": 4,
+      "name_ok_from": 1,
+      "standard": null,
+      "unconfirmed": true,
+      "basis": "정체전선으로 설명하는 순간 중학 유체지구(`[9과17]` 계열)다 — 전선 개념이 선행이라 introduced_at=4. 계절 현상의 이름으로는 초등에서 쓰므로 name_ok_from=1. 세부 코드 미확인 — CO-C3.",
+      "suggest": "여러 날 이어지는 비"
+    },
+    {
+      "term": "황사",
+      "category": "school_upper",
+      "introduced_at": 4,
+      "name_ok_from": 1,
+      "standard": null,
+      "unconfirmed": true,
+      "basis": "발원지·편서풍 수송으로 설명하려면 대기 대순환이 선행이라 중학 유체지구 이상이다. 이름·사례는 초등에서 쓰므로 name_ok_from=1. 세부 코드 미확인 — CO-C3.",
+      "suggest": "멀리 사막에서 바람에 실려 오는 모래 먼지"
+    },
+    {
+      "term": "무역풍",
+      "category": "dynamics",
+      "introduced_at": 5,
+      "standard": null,
+      "unconfirmed": true,
+      "basis": "대기 대순환 3세포 구조의 하층풍 — 고교 정성 구간(anchor 5)에서 지구 규모 순환을 종합할 때 도입된다. 중학 이하에는 순환 구조가 없어 이름만으로도 설명이 성립하지 않으므로 name_ok_from을 두지 않는다. 세부 코드 미확인 — CO-C3.",
+      "suggest": "적도 쪽으로 늘 부는 바람"
+    },
+    {
+      "term": "기압경도력",
+      "category": "dynamics",
+      "introduced_at": 6,
+      "standard": null,
+      "unconfirmed": true,
+      "basis": "대기에 **작용하는 힘**을 이름 붙여 다루는 순간 anchor 6(힘·정량 구간)이다 — 전향력·마찰력과 같은 계열. 기압 차를 '공기가 밀린다'로 설명하는 것은 4단계에서 가능하지만 그때는 이 용어를 쓰지 않는다. 세부 코드 미확인 — CO-C3.",
+      "suggest": "기압 차이가 공기를 미는 힘"
+    },
+    {
+      "term": "열대저기압",
+      "category": "school_upper",
+      "introduced_at": 4,
+      "standard": null,
+      "unconfirmed": true,
+      "basis": "태풍의 **발생·구조**를 저기압의 한 종류로 설명하는 용어 — 중학 유체지구에서 저기압 개념이 선행돼야 성립한다(`[9과17]` 계열, 세부 코드 미확인). '태풍'이라는 이름은 초등부터 쓰지만 이 용어는 메커니즘을 지목하므로 단계가 다르다 — CO-C3.",
+      "suggest": "따뜻한 바다에서 생기는 큰 저기압"
     }
   ]
 }
