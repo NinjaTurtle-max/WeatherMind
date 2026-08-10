@@ -303,10 +303,14 @@ await render({});
   await render({ energyBlocked: true });
   const nodes = [...container.querySelectorAll('.wm-dot')];
   ok(nodes.every((b) => b.disabled), '구름 0: 노드 전부 disabled(열린 유닛 포함)');
-  const cta = [...container.querySelectorAll('button')].find((b) =>
+  // 2026-08-09: 진도 바의 「이어서 학습하기」 버튼은 **없앴다**(사용자 지시).
+  // 그 자리는 스크롤 힌트가 쓴다. 되살리면 같은 목적지로 가는 문이 한 화면에
+  // 셋이 된다(배너 CTA · 현재 노드 · 이 버튼) — 구름 0 비활성 처리를 세 곳에
+  // 따로 걸어야 했던 것도 그래서였다.
+  const revived = [...container.querySelectorAll('button')].find((b) =>
     b.textContent.includes('이어서 학습하기'),
   );
-  ok(cta?.disabled === true, '구름 0: 「이어서 학습하기」도 비활성');
+  ok(!revived, '진도 바에 「이어서 학습하기」 버튼이 되살아나지 않았다');
   const energyLabelled = nodes.filter((b) =>
     (b.getAttribute('title') ?? '').includes('7'),
   ).length;

@@ -415,7 +415,6 @@ export default {
       scrollHint: '↓ 스크롤해서 다음 단계',
       progressLabel: '현재 진도',
       unitCount: '{done} / {total} 유닛',
-      continue: '이어서 학습하기',
     },
     tutor: {
       chip: '💧 튜터',

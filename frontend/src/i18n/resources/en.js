@@ -374,7 +374,6 @@ export default {
       scrollHint: '↓ Scroll for the next stage',
       progressLabel: 'Progress',
       unitCount: '{done} / {total} units',
-      continue: 'Continue learning',
     },
     tutor: {
       chip: '💧 Tutor',

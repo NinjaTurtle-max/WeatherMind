@@ -405,7 +405,11 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
   // 접기는 전 단계에 함께 적용한다 — 단계마다 따로 접게 하면 스크롤할 때마다
   // 다시 접어야 한다.
   const [introOpen, setIntroOpen] = useState(true);
-  const [atStart, setAtStart] = useState(true);
+  // 스크롤 힌트의 조건 — 「아래로 더 있는가」다(2026-08-09). 종전에는 「맨
+  // 위인가」였다: 힌트가 트랙 가운데 떠 있던 시절에는 처음 한 번만 알려 주면
+  // 됐지만, 진도 바 안으로 들어오면서 다음 단계가 남아 있는 내내 자리를
+  // 지키는 편이 맞다(그 자리가 비면 바 오른쪽 끝이 그냥 빈다).
+  const [hasMore, setHasMore] = useState(true);
 
   const withUnits = sections.filter((s) => s.units.length > 0);
 
@@ -431,7 +435,10 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
   const currentUnit = flat[currentIdx] ?? flat.find((_, i) => statuses[i] === 'unlocked') ?? null;
   const currentSection = withUnits.find((s) => s.units.some((u) => u.id === currentUnit?.id)) ?? null;
 
-  const onScroll = useCallback((e) => setAtStart(e.currentTarget.scrollTop < 24), []);
+  const onScroll = useCallback((e) => {
+    const el = e.currentTarget;
+    setHasMore(el.scrollTop + el.clientHeight < el.scrollHeight - 24);
+  }, []);
 
   /**
    * 트랙이 화면 어디서 시작하는지를 재서 CSS로 넘긴다(`--wm-track-top`).
@@ -494,7 +501,7 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
     el.style.scrollBehavior = 'auto'; // 초기 정렬은 애니메이션 없이
     el.scrollTop = stage.offsetTop;
     el.style.scrollBehavior = prev;
-    setAtStart(stage.offsetTop < 24);
+    setHasMore(el.scrollTop + el.clientHeight < el.scrollHeight - 24);
     // 트리가 바뀔 때만 다시 맞춘다(스크롤 중 재정렬 금지).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIdx, withUnits.length]);
@@ -530,14 +537,6 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
             ))}
           </div>
 
-          {/* 스크롤 힌트 — 오른쪽 위에 두면 단계 진도 칩(n/m)을 가린다.
-              진도 바 바로 위, 가운데에 둔다. */}
-          {atStart && withUnits.length > 1 && (
-            <div className="pointer-events-none absolute bottom-14 left-1/2 z-[4] -translate-x-1/2 rounded-full bg-slate-800/60 px-2.5 py-1 text-[10.5px] font-bold text-white">
-              {t('curriculum.path.scrollHint')}
-            </div>
-          )}
-
           {/* 트랙 하단 진도 바 — 노드 라벨을 뺀 만큼 "지금 어디"를 여기서 말한다 */}
           <div className="absolute inset-x-0 bottom-0 z-[3] flex items-center gap-2.5 border-t border-slate-200 bg-white/95 px-3.5 py-2 backdrop-blur">
             <span className="text-[11.5px] font-extrabold text-slate-500">
@@ -558,14 +557,19 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
             <span className="flex-none text-[11.5px] font-bold tabular-nums text-slate-500">
               {t('curriculum.path.unitCount', { done: clearedCount, total: flat.length })}
             </span>
-            <button
-              type="button"
-              onClick={() => currentUnit && !energyBlocked && onOpenUnit(currentUnit.id)}
-              disabled={!currentUnit || energyBlocked}
-              className="ml-auto flex-none rounded-[9px] bg-sky-600 px-3.5 py-1.5 text-[11.5px] font-extrabold text-white shadow-[0_3px_0_#0369A1] transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-[0_3px_0_#CBD5E1]"
-            >
-              {t('curriculum.path.continue')}
-            </button>
+            {/* 「이어서 학습하기」 버튼이 있던 자리 — 스크롤 힌트가 대신 선다
+                (2026-08-09 사용자 지시). 버튼을 빼도 잃는 통로가 없다: 같은 곳으로
+                가는 문이 위 배너 CTA(「이어서 풀기」)와 현재 노드 자체로 둘 더 있어
+                한 화면에 같은 목적지가 셋이었다. 힌트는 트랙 가운데에 떠 있었는데
+                거기서는 경로를 가렸다. */}
+            {hasMore && withUnits.length > 1 && (
+              <span
+                data-testid="path-scroll-hint"
+                className="ml-auto flex-none text-[11.5px] font-bold text-slate-400"
+              >
+                {t('curriculum.path.scrollHint')}
+              </span>
+            )}
           </div>
         </div>
 
