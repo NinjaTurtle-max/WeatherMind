@@ -202,16 +202,14 @@ await render({});
   const nodes = [...container.querySelectorAll('.wm-dot')];
   ok(nodes.length === TOTAL, `노드 ${TOTAL}개 — 실제 ${nodes.length}`);
 
-  // ② 노드 옆 라벨 + aria-label. 2026-08-09 시안으로 **라벨이 돌아왔다** — 그
-  // 전에는 유닛명을 알 길이 aria-label·title(마우스를 올려야 뜬다)뿐이었다.
+  // ② 라벨을 뺀 대신 aria-label이 유닛명을 나른다. 2026-08-09 시안으로 눈에
+  // 보이는 라벨이 잠깐 돌아왔다가 **2026-08-10 사용자 지시로 다시 뺐다** —
+  // 경로가 왼쪽 열로 좁아지면서 라벨이 노드를 밀어냈다.
   const labelled = nodes.filter((b) => (b.getAttribute('aria-label') ?? '').includes('유닛 '));
   ok(labelled.length === TOTAL, `노드 aria-label 전부에 유닛명 — 실제 ${labelled.length}`);
-  ok(container.textContent.includes('유닛 5'), '노드 옆에 유닛명 라벨이 보인다');
-  // 라벨은 **보조기술에 감춘다** — 안 감추면 버튼 aria-label과 겹쳐 두 번 읽힌다.
-  const visibleLabels = [...container.querySelectorAll('.wm-node > span[aria-hidden="true"]')];
   ok(
-    visibleLabels.length === TOTAL && visibleLabels.every((el) => el.textContent.trim().length > 0),
-    `노드 라벨 ${TOTAL}개가 전부 aria-hidden — 실제 ${visibleLabels.length}`,
+    !container.textContent.includes('유닛 5'),
+    '노드 옆에 유닛명 텍스트를 두지 않는다(진도 바의 현재 유닛명은 예외)',
   );
 
   // 연결선이 경로 컨테이너를 실제로 잡았는가 — **프로덕션에서만 터진 버그의 가드**.
@@ -400,6 +398,29 @@ await render({});
   ok(
     !/setProperty\(\s*'--wm-track-tail'/.test(path),
     '트랙 밑이 비었으므로 tail을 재지 않는다(옆 열 높이를 아래 여백으로 오해한다)',
+  );
+
+  // 배너가 **보고 있는 섹션**을 따라간다(2026-08-10 사용자 지시).
+  // ⚠️ 제목만 따라가면 "3섹션 제목 + 1섹션으로 가는 버튼"이 된다 — 목적지를 함께
+  // 내는 `pickSectionEntry`를 쓰는지, 잠긴 섹션에서 CTA를 막는지까지 본다.
+  ok(
+    path.includes('onViewSection') && home.includes('onViewSection={setViewedIdx}'),
+    '경로가 보고 있는 단계를 배너로 올린다',
+  );
+  ok(
+    home.includes('pickSectionEntry(viewedSection)') && home.includes('lockedNote='),
+    '배너가 그 섹션의 목적지까지 함께 받는다(제목만 바꾸지 않는다)',
+  );
+  const heroSrc = readFileSync(resolve(root, 'src/modules/curriculum/LearnHeroCard.jsx'), 'utf8');
+  ok(
+    /ctaBlocked\s*=\s*\n?\s*Boolean\(lockedNote\)/.test(heroSrc),
+    '잠긴 섹션을 보고 있으면 CTA가 막힌다(눌러도 서버가 403으로 막는다)',
+  );
+  // 'daily'·'done'은 §2.5 우선순위 메시지라 스크롤로 덮으면 안 된다 —
+  // 전 유닛을 깬 사람이 경로를 훑었다고 「오늘의 세션 풀기」가 사라지면 안 된다.
+  ok(
+    home.includes("entry.kind === 'unit' && viewedSection !== null"),
+    "따라가기는 진입 종류가 'unit'일 때만 — 오늘 몫·완료 축하는 덮지 않는다",
   );
   // 3열 배치 — 진입 카드(왼쪽) · 경로(가운데) · 카드 2장(오른쪽).
   ok(

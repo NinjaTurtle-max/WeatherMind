@@ -14,8 +14,9 @@ import { useT } from '../../i18n';
  * 리그 성적 파생(`lib/leagueStanding`)은 LeaguePage가 계속 쓰므로 남는다.
  *
  * ⚠️ 이 열의 **폭**이 경로 트랙에서 빠진다 — 옆으로 세운 뒤로 바뀐 계산이다
- * (아래에 있을 때는 높이가 빠졌고, 그건 노드 지름을 깎았다). 트랙이 좁아지면
- * 노드 옆 유닛명 라벨이 먼저 넘치므로, 폭을 넓히기 전에 그 라벨을 재 볼 것.
+ * (아래에 있을 때는 높이가 빠졌고, 그건 노드 지름을 깎았다). 폭을 넓히기 전에
+ * 트랙의 지그재그 진폭(`--amp`: 16cqw)을 재 볼 것 — 트랙이 좁아지면 노드가
+ * 가운데로 모여 길이 일직선처럼 보인다.
  */
 export default function LearnFooterCards({
   dailyBlocked = false,
@@ -26,7 +27,7 @@ export default function LearnFooterCards({
   const t = useT();
 
   return (
-    <div data-testid="learn-footer" className="flex flex-col gap-3.5">
+    <div data-testid="learn-footer" className="flex flex-col gap-3.5 md:h-full">
       {/* 자유 일일 세션이 **위**다(사용자 지시). 복습이 아래인 것은 맞기도 하다 —
           due 0건이면 통째로 사라지는데, 위에 두면 사라질 때마다 아래 카드가
           위로 튄다.
@@ -40,9 +41,14 @@ export default function LearnFooterCards({
                           ("풀던 것을 뺏기지 않는다" 불변식). 링크로 남기고
                           문구를 「풀던 세션 이어서 풀기」로 바꾼다.
             그 외          평소. */}
+      {/* 두 카드가 트랙 높이를 나눠 쓴다(2026-08-10 사용자 지시 "더 세로로").
+          `md:flex-1`이 남는 세로를 반씩 가져가고, 카드 안의 링크는 `mt-auto`라
+          늘어난 높이만큼 바닥으로 내려간다.
+          ⚠️ `max-h`가 필요하다 — 복습이 due 0건이면 자유 일일 세션 **혼자**
+          flex-1을 다 먹어 세 줄짜리 카드가 600px이 된다. */}
       <div
         data-testid="learn-secondary"
-        className="flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+        className="flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:max-h-[340px] md:flex-1"
       >
         <div className="flex items-center gap-2">
           <p className="text-[13.5px] font-extrabold text-slate-800">

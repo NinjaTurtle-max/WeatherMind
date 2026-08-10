@@ -344,7 +344,8 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
                 data-wm-unit
                 onClick={() => !blocked && onOpenUnit(unit.id)}
                 disabled={blocked}
-                // 옆 라벨은 aria-hidden이라, 보조기술에는 이 aria-label이 유일한 통로다.
+                // 노드 옆 라벨을 다시 뺐으므로(2026-08-10 사용자 지시) 유닛명은
+                // aria-label·title이 유일한 통로다.
                 aria-label={`${unit.title}${suffix}`}
                 title={
                   locked
@@ -369,28 +370,6 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
                 )}
               </button>
 
-              {/* 노드 옆 라벨(2026-08-09 시안). 종전에는 라벨이 아예 없어서
-                  유닛명을 알 길이 aria-label·title(마우스를 올려야 뜬다)뿐이었다.
-                  `aria-hidden`인 이유: 바로 위 버튼의 aria-label이 같은 내용을
-                  이미 읽어 준다 — 지우면 보조기술이 유닛명을 두 번 읽는다.
-                  `left-full`이라 노드의 좌우 흔들림(--k)을 그대로 따라간다. */}
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute left-[calc(100%+12px)] top-1/2 w-[168px] -translate-y-1/2"
-              >
-                <span className="block truncate text-[13px] font-extrabold text-slate-800">
-                  {unit.title}
-                </span>
-                <span className="block truncate text-[11px] font-medium text-slate-400">
-                  {locked
-                    ? t('curriculum.unit.lockedTitle')
-                    : status === 'cleared'
-                      ? t('curriculum.unit.labelCleared', { crowns: unit.crowns ?? 0 })
-                      : status === 'current'
-                        ? t('curriculum.unit.labelCurrent')
-                        : t('curriculum.unit.labelOpen')}
-                </span>
-              </span>
             </div>
           );
         })}
@@ -399,7 +378,13 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
   );
 }
 
-export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked = false, regenMin = 1 }) {
+export default function PcCurriculumPath({
+  sections,
+  onOpenUnit,
+  energyBlocked = false,
+  regenMin = 1,
+  onViewSection = null,
+}) {
   const t = useT();
   const scrollerRef = useRef(null);
   // 접기는 전 단계에 함께 적용한다 — 단계마다 따로 접게 하면 스크롤할 때마다
@@ -450,7 +435,24 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
     setHasMore(el.scrollTop + el.clientHeight < el.scrollHeight - 24);
   }, []);
 
-  const onScroll = useCallback(() => syncHasMore(), [syncHasMore]);
+  /**
+   * **지금 보고 있는 단계**를 위로 알린다 — 배너 제목이 이걸 따라간다.
+   *
+   * 스크롤 스냅이라 `scrollTop`은 항상 단계 높이의 배수 근처다. 그래서 나누기
+   * 반올림이면 충분하고, 각 단계의 offsetTop을 훑을 필요가 없다. 스냅이 끝나기
+   * 전 중간 프레임에서도 **가장 가까운 단계**가 나오므로 제목이 미리 바뀐다.
+   * (`clientHeight`가 0인 첫 프레임은 나누기가 터지므로 건너뛴다.)
+   */
+  const syncViewed = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el || !onViewSection || el.clientHeight === 0) return;
+    onViewSection(Math.round(el.scrollTop / el.clientHeight));
+  }, [onViewSection]);
+
+  const onScroll = useCallback(() => {
+    syncHasMore();
+    syncViewed();
+  }, [syncHasMore, syncViewed]);
 
   /**
    * 트랙이 화면 어디서 시작하는지를 재서 CSS로 넘긴다(`--wm-track-top`).
@@ -516,6 +518,9 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
       }
     }
     syncHasMore();
+    // 정렬 직후의 단계도 알린다 — 첫 화면이 1단계가 아니라 **현재 단계**라
+    // 여기서 안 알리면 배너만 1단계를 가리킨 채 남는다.
+    syncViewed();
     // 트리가 바뀔 때만 다시 맞춘다(스크롤 중 재정렬 금지).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIdx, withUnits.length]);
