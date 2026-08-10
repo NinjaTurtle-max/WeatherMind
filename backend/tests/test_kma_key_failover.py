@@ -93,6 +93,15 @@ class TestAuthKeyOrder:
         assert MODULES[ctx].auth_keys() == ["PRIMARY"]
 
     @BOTH
+    def test_앞뒤_공백은_제거해서_돌려준다(self, ctx, monkeypatch):
+        """code-review 지적 #4 — 필터만 strip하고 원본을 돌려주면 두 가지가 깨진다:
+        `_key_label`이 주키를 "spare"로 **거짓 보고**하고(이 게이트의 핵심 신호가
+        바로 그 자리에서 오염된다), 공백이 URL에도 그대로 실린다. 도커 시크릿의
+        끝 개행처럼 흔한 형태다."""
+        SETTERS[ctx](monkeypatch, " PRIMARY\n", "\tSPARE ")
+        assert MODULES[ctx].auth_keys() == ["PRIMARY", "SPARE"]
+
+    @BOTH
     def test_둘_다_비면_빈_목록(self, ctx, monkeypatch):
         SETTERS[ctx](monkeypatch, "", "")
         assert MODULES[ctx].auth_keys() == []

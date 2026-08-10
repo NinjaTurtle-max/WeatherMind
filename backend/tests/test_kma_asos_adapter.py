@@ -172,6 +172,57 @@ class TestParseAsosText:
         assert list(rows[0]) == ["tm", "avgTa", "maxTa", "minTa", "sumRn"]
 
 
+class TestEnvelopeGuard:
+    """200이어도 **데이터 응답인지**를 따로 본다 (code-review 지적 #1).
+
+    JSON 경로에는 `resultCode` 검사가 있는데 텍스트 경로에는 상태코드밖에 없었다.
+    200으로 오는 에러 본문이 생기면 파서가 전부 버려 빈 리스트가 되고, 그게
+    **성공으로 기록돼 스페어 폴백도 안 하고 1시간 캐시된다** — 정산이 조용히 빈손.
+
+    2026-08-10 실측: 잘못된 키는 401, 미승인 API는 403으로 오므로 그 둘은 HTTP가
+    잡는다. 그래도 마커를 요구하는 것은 **아직 못 본 실패 형태**를 위해서다.
+    """
+
+    @BOTH
+    def test_정상_응답은_통과(self, mod):
+        assert mod.is_typ01_body(REAL_TEXT) is True
+
+    @BOTH
+    def test_데이터_0행인_정상_응답도_통과(self, mod):
+        """미래 날짜 조회 — 마커는 붙고 행만 없다(실측). 이건 오류가 아니다."""
+        assert mod.is_typ01_body("#START7777\n#7777END\n") is True
+
+    @BOTH
+    @pytest.mark.parametrize(
+        "body",
+        ["", None, "error: unauthorized", "<html><body>502</body></html>", "# 다른 주석만"],
+    )
+    def test_데이터_응답이_아니면_거른다(self, mod, body):
+        assert mod.is_typ01_body(body) is False
+
+
+class TestMinColsGuard:
+    """읽는 인덱스(최대 38)만큼만 요구한다 (code-review 지적 #3).
+
+    실측 행은 57칸이지만(끝 콤마의 빈 칸 포함) 57을 요구하면 끝 콤마가 없는 응답이
+    오는 날 **전 행이 버려지고**, 그 0행이 성공으로 기록된다.
+    """
+
+    @BOTH
+    def test_39칸이면_읽는다(self, mod):
+        assert mod.ASOS_MIN_COLS == 39
+        assert len(mod.parse_asos_text(_row())) == 1
+
+    @BOTH
+    def test_끝_콤마가_없어도_읽는다(self, mod):
+        assert len(mod.parse_asos_text(REAL_ROW.rstrip(","))) == 1
+
+    @BOTH
+    def test_읽을_인덱스가_없으면_버린다(self, mod):
+        short = ",".join(["0"] * 38)  # 최대 인덱스 38에 못 미친다
+        assert mod.parse_asos_text(short) == []
+
+
 class TestNormalizeTm:
     @BOTH
     @pytest.mark.parametrize(

@@ -90,7 +90,9 @@ def auth_keys() -> list[str]:
     backend weather_api.auth_keys와 같은 순서·같은 필터여야 한다. 배경(주키 만료
     8/22 vs URL 유지 9월)은 backend 쪽 독스트링이 소유한다.
     """
-    return [k for k in (config.KMA_API_KEY, config.KMA_API_KEY_SPARE) if k.strip()]
+    # strip한 값을 돌려준다 — 원본을 돌려주면 공백 섞인 env에서 주키가 "spare"로
+    # 거짓 보고되고 그 값이 URL에도 그대로 들어간다(backend 주석 참조).
+    return [k.strip() for k in (config.KMA_API_KEY, config.KMA_API_KEY_SPARE) if k.strip()]
 
 
 def _try_keys(fetch):
@@ -120,7 +122,12 @@ def _request_text(base_url: str, params: dict) -> str:
 
 
 def _request_text_with_key(base_url: str, params: dict, auth_key: str) -> str:
-    """단일 키로 typ01 1회 요청. 권한 없는 API는 HTTP 403으로 온다(실측)."""
+    """단일 키로 typ01 1회 요청.
+
+    인증 실패는 HTTP로 온다(실측: 잘못된 키 401 · 미승인 API 403). 그래도 200 본문을
+    그대로 믿지 않고 **봉투 마커를 요구한다** — 200 에러 본문이 조용히 빈 결과로
+    성공 기록되는 것을 막는다(배경은 backend 주석).
+    """
     query = urlencode(params)
     url = f"{base_url}?authKey={auth_key}&{query}"
 
@@ -129,7 +136,7 @@ def _request_text_with_key(base_url: str, params: dict, auth_key: str) -> str:
         try:
             resp = httpx.get(url, timeout=10.0)
             resp.raise_for_status()
-            return resp.text
+            text = resp.text
         except httpx.HTTPError as exc:
             last_exc = exc
             logger.warning(
@@ -137,6 +144,16 @@ def _request_text_with_key(base_url: str, params: dict, auth_key: str) -> str:
                 attempt + 1,
                 mask_service_key(f"{type(exc).__name__}: {exc}"),
             )
+            continue
+        if not is_typ01_body(text):
+            last_exc = ValueError(f"typ01 봉투 마커({TYP01_ENVELOPE}) 없음")
+            logger.warning(
+                "KMA(typ01) 응답이 데이터 형식이 아니다 (attempt %d) — 앞 80자: %s",
+                attempt + 1,
+                mask_service_key(text[:80]),
+            )
+            continue
+        return text
     raise KMAApiError(
         f"KMA typ01 request failed after retry: {mask_service_key(last_exc)}"
     )
@@ -223,7 +240,15 @@ def get_short_forecast(region: str, base_date: str, base_time: str) -> dict:
 
 # typ01 kma_sfcdd.php 컬럼 인덱스 (0-based) — 2026-08-10 서울(108) 실측.
 ASOS_COL = {"tm": 0, "avgTa": 10, "maxTa": 11, "minTa": 13, "sumRn": 38}
-ASOS_MIN_COLS = 57
+# 실제로 읽는 최대 인덱스 + 1. 실측 57칸이지만 끝 콤마가 없는 날 전 행이 버려진다.
+ASOS_MIN_COLS = 39
+# typ01 응답 봉투 마커 — 200이어도 이게 없으면 데이터 응답이 아니다.
+TYP01_ENVELOPE = "#START7777"
+
+
+def is_typ01_body(text: object) -> bool:
+    """typ01 데이터 응답인가. 0행인 정상 응답에도 마커는 붙는다(실측)."""
+    return TYP01_ENVELOPE in str(text or "")
 # typ01 결측 표기(`-9`/`-9.0`/`-9.00`). 문자열로 판정한다 — 놓치면 -9℃·-9mm가 정산에 들어간다.
 ASOS_MISSING_RE = re.compile(r"^-9(\.0+)?$")
 

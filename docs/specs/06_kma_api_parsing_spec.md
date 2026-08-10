@@ -18,7 +18,7 @@ degraded 200으로 흡수돼 화면에는 티가 안 난다.
 |---|---|---|
 | 인증 파라미터 | `serviceKey` | **`authKey`** |
 | 단기·중기예보 | `VilageFcstInfoService_2.0` · `MidFcstInfoService` | 서비스명 동일 (호스트만 교체) |
-| 과거관측 일자료 | `AsosDalyInfoService` — 기간 조회 | **`SfcMtlyInfoService/getDailyWthrData` — 월 조회 · 필드명 다름** (§3) |
+| 과거관측 일자료 | `AsosDalyInfoService` — 기간 조회 · JSON | **typ01 `kma_sfcdd.php` — 하루 조회 · 텍스트** (§3). openApi 대체품은 **월보라 당월을 안 줘서 못 쓴다** |
 
 API허브는 **API마다 활용신청이 따로**다(마이페이지 > 활용신청 현황). 위 3종이 전부
 승인돼 있어야 하고, ASOS가 빠지면 리그·대결 정산이 조용히 빈손으로 돈다.

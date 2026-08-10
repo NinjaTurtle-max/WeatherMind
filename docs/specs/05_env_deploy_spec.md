@@ -18,11 +18,16 @@ JWT_ALGORITHM=HS256
 JWT_ACCESS_EXPIRE_MINUTES=30
 JWT_REFRESH_EXPIRE_DAYS=7
 
-# ── 기상청 API ──
-KMA_API_KEY=발급받은_서비스키
-KMA_VILAGE_FCST_URL=https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst
-KMA_MID_LAND_FCST_URL=https://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst
-KMA_ASOS_DALY_URL=https://apis.data.go.kr/1360000/AsosDalyInfoService/getAsosDalyInfoList
+# ── 기상청 API — 출처는 기상청 API허브(apihub.kma.go.kr). 상세는 docs/specs/06 ──
+# ⚠️ 공공데이터포털(data.go.kr)의 serviceKey가 **아니다**. 잘못 넣으면 인증이 깨지는데
+#    degraded 200으로 흡수돼 화면에 티가 안 난다 — 확인은 /health의 kma 필드로.
+# 값의 단일 소유자는 `.env.example`이다. 여기 표는 형태만 보여준다.
+KMA_API_KEY=발급받은_API허브_인증키
+KMA_API_KEY_SPARE=발급받은_개인계정_인증키
+KMA_VILAGE_FCST_URL=https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getVilageFcst
+KMA_MID_LAND_FCST_URL=https://apihub.kma.go.kr/api/typ02/openApi/MidFcstInfoService/getMidLandFcst
+# 일자료만 typ01(텍스트)이다 — openApi 쪽은 월보라 당월을 안 준다.
+KMA_ASOS_DALY_URL=https://apihub.kma.go.kr/api/typ01/url/kma_sfcdd.php
 
 # ── AI 모델 ──
 GEMINI_API_KEY=발급받은_키

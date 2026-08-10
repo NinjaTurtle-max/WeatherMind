@@ -210,7 +210,11 @@ def auth_keys() -> list[str]:
     ⚠️ 스페어 계정에도 **같은 3종 활용신청**(getVilageFcst·getMidLandFcst·
     getDailyWthrData)이 승인돼 있어야 한다 — 키만 넣으면 조용히 같이 실패한다.
     """
-    return [k for k in (settings.KMA_API_KEY, settings.KMA_API_KEY_SPARE) if k.strip()]
+    # **strip한 값을 돌려준다.** 필터만 strip하고 원본을 돌려주면, 공백이 섞인 env
+    # (도커 시크릿의 끝 개행 등)에서 `_key_label`이 주키를 "spare"로 **거짓 보고**한다
+    # — 이 게이트가 존재하는 이유인 「주키 사망」 신호가 바로 그 자리에서 오염된다.
+    # 그 값이 URL에도 그대로 들어간다.
+    return [k.strip() for k in (settings.KMA_API_KEY, settings.KMA_API_KEY_SPARE) if k.strip()]
 
 
 # ── 키 게이트 (R13) ──────────────────────────────────────────────────────────
@@ -341,9 +345,15 @@ async def _request_text(base_url: str, params: dict) -> str:
 async def _request_text_with_key(base_url: str, params: dict, auth_key: str) -> str:
     """단일 키로 typ01 1회 요청. 타임아웃 10초, 실패 시 1회 재시도.
 
-    권한 없는 API는 **HTTP 403**으로 온다(2026-08-10 실측: 미승인 kma_sfcdd3.php).
-    raise_for_status가 잡아 KMAApiError로 바뀌므로 스페어 키 폴백이 인증 실패에서도
-    동작한다.
+    인증 실패는 **HTTP로 온다**(2026-08-10 실측: 잘못된 키 → 401, 미승인 API → 403).
+    raise_for_status가 잡아 KMAApiError로 바뀌므로 스페어 폴백이 동작한다.
+
+    ⚠️ 그래도 **200 본문을 그대로 믿지 않는다.** JSON 경로에는 `resultCode` 검사가
+    있는데 텍스트 경로에는 상태코드밖에 없다 — 언젠가 200으로 오는 에러 본문이
+    생기면 `parse_asos_text`가 전부 버려 빈 리스트가 되고, 그게 **성공으로 기록돼
+    폴백도 안 하고 1시간 캐시된다**(정산이 조용히 빈손). 그래서 봉투 마커를 요구한다.
+    마커는 데이터가 0행인 정상 응답(미래 날짜)에도 붙는다 — 실측 확인했으므로
+    "정상적으로 비어 있음"과 "응답이 아님"을 이걸로 가른다.
     """
     query = urlencode(params)
     url = f"{base_url}?authKey={auth_key}&{query}"
@@ -354,7 +364,7 @@ async def _request_text_with_key(base_url: str, params: dict, auth_key: str) -> 
             try:
                 resp = await client.get(url)
                 resp.raise_for_status()
-                return resp.text
+                text = resp.text
             except httpx.HTTPError as exc:
                 last_exc = exc
                 logger.warning(
@@ -362,6 +372,16 @@ async def _request_text_with_key(base_url: str, params: dict, auth_key: str) -> 
                     attempt + 1,
                     mask_service_key(f"{type(exc).__name__}: {exc}"),
                 )
+                continue
+            if not is_typ01_body(text):
+                last_exc = ValueError(f"typ01 봉투 마커({TYP01_ENVELOPE}) 없음")
+                logger.warning(
+                    "KMA(typ01) 응답이 데이터 형식이 아니다 (attempt %d) — 앞 80자: %s",
+                    attempt + 1,
+                    mask_service_key(text[:80]),
+                )
+                continue
+            return text
     raise KMAApiError(
         f"KMA typ01 request failed after retry: {mask_service_key(last_exc)}"
     )
@@ -557,7 +577,23 @@ async def get_mid_forecast(region: str = DEFAULT_REGION, tm_fc: str | None = Non
 # 응답 헤더의 1-based 문서 번호 1·11·12·14·39에서 유도했고 2026-08-10 서울(108)
 # 실측으로 확인했다: `20260809,108,…,27.6,31.6,1354,24.5,…` → 평균27.6 최고31.6 최저24.5.
 ASOS_COL = {"tm": 0, "avgTa": 10, "maxTa": 11, "minTa": 13, "sumRn": 38}
-ASOS_MIN_COLS = 57  # 실측 컬럼 수. 미달 행은 버린다 — 어긋난 인덱스가 결측보다 나쁘다.
+# 우리가 **실제로 읽는 최대 인덱스 + 1**. 실측 행은 57칸(56값 + 끝 콤마의 빈 칸)이지만
+# 57을 요구하면 끝 콤마가 없는 응답이 오는 날 전 행이 버려진다 — 그 조용한 0행이
+# 성공으로 기록되는 것이 이 파일이 막으려는 실패다. 필요한 만큼만 요구한다.
+ASOS_MIN_COLS = 39
+
+# typ01 응답 봉투 마커. 200이어도 이게 없으면 데이터 응답이 아니다.
+TYP01_ENVELOPE = "#START7777"
+
+
+def is_typ01_body(text: object) -> bool:
+    """typ01 **데이터 응답**인가.
+
+    마커는 데이터가 0행인 정상 응답(미래 날짜 조회)에도 붙는다 — 2026-08-10 실측.
+    그래서 "정상적으로 비어 있음"과 "응답 자체가 아님"을 이 함수가 가른다. 후자를
+    성공으로 기록하면 폴백도 안 하고 빈 결과가 1시간 캐시된다.
+    """
+    return TYP01_ENVELOPE in str(text or "")
 
 # typ01 결측 표기. **문자열로 판정한다** — float 변환 후 비교는 표기 변형에 취약하다.
 # 실측: 무강수일의 `RN_DAY=-9.0`. 이걸 놓치면 강수 -9mm·기온 -9℃가 정산에 들어간다.
@@ -661,15 +697,22 @@ async def _fetch_daily_obs(start_dt: str, end_dt: str, stn_id: str) -> list[dict
     한 날짜라도 실패하면 전체가 KMAApiError로 올라간다(부분 결과로 정산하면 승패가
     조용히 틀린다). 주간 정산이 7콜이 되지만 계정 한도 20,000콜/일 대비 무시 가능하다.
     """
-    rows: list[dict] = []
-    for day in asos_days(start_dt, end_dt):
+    days = asos_days(start_dt, end_dt)
+    if not days:
+        return []
+
+    async def one(day: str) -> list[dict]:
         text = await _request_text(settings.KMA_ASOS_DALY_URL, {
             "tm": day,
             "stn": stn_id,
             "help": 0,  # 주석 블록 축소 — 파서는 '#' 줄을 어차피 버린다
         })
-        rows += parse_asos_text(text)
-    return rows
+        return parse_asos_text(text)
+
+    # **동시 조회.** 브리핑 GET이 8일치를 요청하는데(routers/duel.py) 순차로 돌면
+    # 캐시 미스 시 사용자가 왕복 8번을 기다리고, 실패 경로는 8 × (2키 × 2시도 × 10초)가
+    # 된다. 병렬이면 최악이 한 번 분량으로 눌린다. 한도는 20,000콜/일이라 무관하다.
+    return [row for rows in await asyncio.gather(*(one(d) for d in days)) for row in rows]
 
 
 async def get_past_observation(start_dt: str, end_dt: str, region: str = DEFAULT_REGION) -> list[dict]:

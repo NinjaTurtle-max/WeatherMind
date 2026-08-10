@@ -127,6 +127,15 @@ class TestActiveKeyLabel:
         assert st["state"] == "ok" and st["active_key"] == "spare"
 
     @pytest.mark.anyio
+    async def test_공백_섞인_주키를_spare로_오인하지_않는다(self, monkeypatch):
+        """code-review 지적 #4 — 도커 시크릿의 끝 개행 하나로 「주키 사망」 오경보가
+        난다. 이 게이트가 존재하는 이유가 바로 그 신호라 오염되면 안 된다."""
+        _keys(monkeypatch, "P\n", "S")
+        _stub(monkeypatch, lambda k: [])
+        await weather_api._request_items("u", {})
+        assert weather_api.key_status()["active_key"] == "primary"
+
+    @pytest.mark.anyio
     async def test_스페어만_설정된_환경도_spare로_본다(self, monkeypatch):
         """인덱스로 라벨하면 auth_keys()[0]이라 primary로 **거짓 보고**한다."""
         _keys(monkeypatch, "", "S")
