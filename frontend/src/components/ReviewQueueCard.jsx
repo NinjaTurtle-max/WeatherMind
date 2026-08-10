@@ -49,7 +49,10 @@ export default function ReviewQueueCard({ variant = 'card' }) {
     return (
       <div
         data-testid="review-queue-tile"
-        className="flex flex-col rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200"
+        // md:flex-1 — 학습 화면 오른쪽 열에서 자유 일일 세션과 트랙 높이를 나눠
+        // 쓴다(그 파일의 주석 참조). 다른 마운트처(모바일 스택)에서는 md 미만이라
+        // 영향이 없다.
+        className="flex flex-col rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 md:max-h-[340px] md:flex-1"
       >
         <div className="flex items-center gap-1.5">
           <p className="text-[13.5px] font-extrabold text-slate-800">{t('reviewQueue.title')}</p>

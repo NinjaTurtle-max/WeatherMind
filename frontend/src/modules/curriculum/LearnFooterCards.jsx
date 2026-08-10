@@ -26,7 +26,7 @@ export default function LearnFooterCards({
   const t = useT();
 
   return (
-    <div data-testid="learn-footer" className="flex flex-col gap-3.5">
+    <div data-testid="learn-footer" className="flex flex-col gap-3.5 md:h-full">
       {/* 자유 일일 세션이 **위**다(사용자 지시). 복습이 아래인 것은 맞기도 하다 —
           due 0건이면 통째로 사라지는데, 위에 두면 사라질 때마다 아래 카드가
           위로 튄다.
@@ -40,9 +40,14 @@ export default function LearnFooterCards({
                           ("풀던 것을 뺏기지 않는다" 불변식). 링크로 남기고
                           문구를 「풀던 세션 이어서 풀기」로 바꾼다.
             그 외          평소. */}
+      {/* 두 카드가 트랙 높이를 나눠 쓴다(2026-08-10 사용자 지시 "더 세로로").
+          `md:flex-1`이 남는 세로를 반씩 가져가고, 카드 안의 링크는 `mt-auto`라
+          늘어난 높이만큼 바닥으로 내려간다.
+          ⚠️ `max-h`가 필요하다 — 복습이 due 0건이면 자유 일일 세션 **혼자**
+          flex-1을 다 먹어 세 줄짜리 카드가 600px이 된다. */}
       <div
         data-testid="learn-secondary"
-        className="flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+        className="flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:max-h-[340px] md:flex-1"
       >
         <div className="flex items-center gap-2">
           <p className="text-[13.5px] font-extrabold text-slate-800">

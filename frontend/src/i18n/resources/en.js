@@ -341,9 +341,6 @@ export default {
       waterEnergy: { title: 'Water & Energy', subtitle: 'Phase change · Transfer' },
     },
     unit: {
-      labelCleared: 'Done · {crowns} crowns',
-      labelCurrent: "You're here",
-      labelOpen: 'Open',
       lockedSuffix: ' (locked)',
       energySuffix: ' (out of clouds)',
       lockedTitle: 'Complete the previous unit to unlock',

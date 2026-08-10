@@ -202,16 +202,14 @@ await render({});
   const nodes = [...container.querySelectorAll('.wm-dot')];
   ok(nodes.length === TOTAL, `노드 ${TOTAL}개 — 실제 ${nodes.length}`);
 
-  // ② 노드 옆 라벨 + aria-label. 2026-08-09 시안으로 **라벨이 돌아왔다** — 그
-  // 전에는 유닛명을 알 길이 aria-label·title(마우스를 올려야 뜬다)뿐이었다.
+  // ② 라벨을 뺀 대신 aria-label이 유닛명을 나른다. 2026-08-09 시안으로 눈에
+  // 보이는 라벨이 잠깐 돌아왔다가 **2026-08-10 사용자 지시로 다시 뺐다** —
+  // 경로가 왼쪽 열로 좁아지면서 라벨이 노드를 밀어냈다.
   const labelled = nodes.filter((b) => (b.getAttribute('aria-label') ?? '').includes('유닛 '));
   ok(labelled.length === TOTAL, `노드 aria-label 전부에 유닛명 — 실제 ${labelled.length}`);
-  ok(container.textContent.includes('유닛 5'), '노드 옆에 유닛명 라벨이 보인다');
-  // 라벨은 **보조기술에 감춘다** — 안 감추면 버튼 aria-label과 겹쳐 두 번 읽힌다.
-  const visibleLabels = [...container.querySelectorAll('.wm-node > span[aria-hidden="true"]')];
   ok(
-    visibleLabels.length === TOTAL && visibleLabels.every((el) => el.textContent.trim().length > 0),
-    `노드 라벨 ${TOTAL}개가 전부 aria-hidden — 실제 ${visibleLabels.length}`,
+    !container.textContent.includes('유닛 5'),
+    '노드 옆에 유닛명 텍스트를 두지 않는다(진도 바의 현재 유닛명은 예외)',
   );
 
   // 연결선이 경로 컨테이너를 실제로 잡았는가 — **프로덕션에서만 터진 버그의 가드**.

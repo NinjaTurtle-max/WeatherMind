@@ -377,11 +377,6 @@ export default {
       waterEnergy: { title: '물과 에너지', subtitle: '상태변화·이동' },
     },
     unit: {
-      // 노드 옆 상태 라벨(2026-08-09 시안). 잠금은 lockedTitle을 그대로 쓴다 —
-      // 같은 뜻을 두 문장으로 두면 하나만 고쳐진다.
-      labelCleared: '완료 · 왕관 {crowns}',
-      labelCurrent: '지금 여기',
-      labelOpen: '열림',
       lockedSuffix: ' (잠김)',
       energySuffix: ' (구름 부족)',
       lockedTitle: '선행 유닛을 완료하면 열려요',
