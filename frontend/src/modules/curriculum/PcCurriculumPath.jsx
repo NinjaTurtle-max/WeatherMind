@@ -435,10 +435,22 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
   const currentUnit = flat[currentIdx] ?? flat.find((_, i) => statuses[i] === 'unlocked') ?? null;
   const currentSection = withUnits.find((s) => s.units.some((u) => u.id === currentUnit?.id)) ?? null;
 
-  const onScroll = useCallback((e) => {
-    const el = e.currentTarget;
+  /**
+   * 「아래로 더 있는가」를 실제 트랙 치수로 다시 잰다 — **판정은 여기 한 곳뿐**.
+   *
+   * 종전에는 같은 식이 onScroll과 정렬 effect 두 곳에 복제돼 있었고, 정렬 effect가
+   * `currentIdx < 0`에서 early return하는 바람에 **전 유닛을 깬 학습자에게
+   * 「스크롤해서 다음 단계」 힌트가 영원히 남았다**(초깃값 true). 스크롤이 불가능한
+   * 높이에서는 onScroll도 안 뜨므로 스스로 고쳐지지도 않았다. 창을 줄여 경로가
+   * 다 들어오는 경우도 같았다 — 리사이즈는 이 값을 아예 안 봤다.
+   */
+  const syncHasMore = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
     setHasMore(el.scrollTop + el.clientHeight < el.scrollHeight - 24);
   }, []);
+
+  const onScroll = useCallback(() => syncHasMore(), [syncHasMore]);
 
   /**
    * 트랙이 화면 어디서 시작하는지를 재서 CSS로 넘긴다(`--wm-track-top`).
@@ -473,6 +485,10 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
         ? Math.round(footer.getBoundingClientRect().bottom - el.getBoundingClientRect().bottom) + 32
         : 32;
       el.style.setProperty('--wm-track-tail', `${tail}px`);
+      // 트랙 높이가 바뀌면 「아래로 더 있는가」도 바뀐다. 여기서 같이 다시 재지
+      // 않으면, 창을 줄여 경로가 다 들어오는 순간 힌트가 남은 채로 굳는다
+      // (스크롤이 불가능하니 onScroll이 고쳐 주지도 못한다).
+      syncHasMore();
     };
     apply();
     window.addEventListener('resize', apply);
@@ -487,21 +503,27 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
       window.removeEventListener('resize', apply);
       ro?.disconnect();
     };
-  }, []);
+    // syncHasMore는 useCallback([])이라 안정적이다 — 마운트 1회 실행 의도는 그대로다.
+  }, [syncHasMore]);
 
   // 현재 유닛이 있는 단계로 초깃값 정렬 — 매번 1단계부터 스크롤하게 두지 않는다.
   useEffect(() => {
     const el = scrollerRef.current;
-    if (!el || currentIdx < 0) return;
-    let si = 0;
-    for (let i = 0; i < offsets.length; i += 1) if (currentIdx >= offsets[i]) si = i;
-    const stage = el.children[si];
-    if (!stage) return;
-    const prev = el.style.scrollBehavior;
-    el.style.scrollBehavior = 'auto'; // 초기 정렬은 애니메이션 없이
-    el.scrollTop = stage.offsetTop;
-    el.style.scrollBehavior = prev;
-    setHasMore(el.scrollTop + el.clientHeight < el.scrollHeight - 24);
+    if (!el) return;
+    // 정렬은 현재 유닛이 있을 때만. **힌트 갱신은 그와 무관하게 항상** 한다 —
+    // 여기서 같이 early return하면 전 유닛을 깬 학습자에게 힌트가 영원히 남는다.
+    if (currentIdx >= 0) {
+      let si = 0;
+      for (let i = 0; i < offsets.length; i += 1) if (currentIdx >= offsets[i]) si = i;
+      const stage = el.children[si];
+      if (stage) {
+        const prev = el.style.scrollBehavior;
+        el.style.scrollBehavior = 'auto'; // 초기 정렬은 애니메이션 없이
+        el.scrollTop = stage.offsetTop;
+        el.style.scrollBehavior = prev;
+      }
+    }
+    syncHasMore();
     // 트리가 바뀔 때만 다시 맞춘다(스크롤 중 재정렬 금지).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIdx, withUnits.length]);
