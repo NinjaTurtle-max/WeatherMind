@@ -113,6 +113,7 @@ nano .env
 | `MIGRATION_DATABASE_URL` | 소유자 롤 — alembic 전용. RLS 전제(`docs/specs/08`) |
 | `CELERY_DATABASE_URL` | 배치 롤. **미설정 시 `MIGRATION_DATABASE_URL`로 자동 폴백**하므로 보통 비워 둔다(CO-Q-1) |
 | `KMA_API_KEY` | **기상청 API허브**(apihub.kma.go.kr) 마이페이지 인증키 — 공공데이터포털 serviceKey가 **아니다**(R13 전환, `docs/specs/06`). ⚠️ **팀 자체 발급 키**를 쓸 것: 대회 제공 계정 키는 8/22 만료인데 규정상 URL은 9월 셋째 주까지 살아 있어야 한다(`HACKATHON_RULES.md` §3). API허브는 **API마다 활용신청**이 따로다 — 단기예보·중기예보·일자료 3종 승인 필요 |
+| `KMA_API_KEY_SPARE` | **스페어(2번) 호출키 = 개인 계정 키.** 주키 실패·한도 소진(20,000콜/일) 시 자동 폴백한다(`weather_api.auth_keys`). 대회 계정 주키가 8/22에 만료돼도 URL이 9월까지 살아야 하므로 **비워 두지 말 것**. ⚠️ 스페어 계정에도 **같은 3종 활용신청**이 승인돼 있어야 한다 — 키만 넣으면 만료 당일 둘 다 조용히 실패한다 |
 | `GEMINI_API_KEY` | 키 게이트에서 투입. **없어도 폴백으로 전 기능 동작**. 임베딩 키는 없다(R13 3일차 철거) |
 | `IMAGE_TAG` | 🔴 **배포할 커밋 sha를 반드시 지정한다**(미설정 시 `latest`). `latest`는 **이동 태그**라 어느 커밋을 가리키는지 절차 안에서 알 수 없다 — 그 위험이 실측으로 확인됐다: §6 ①-a 참조 |
 

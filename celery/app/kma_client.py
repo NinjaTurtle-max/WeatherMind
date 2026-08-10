@@ -84,12 +84,37 @@ def parse_kma_value(raw):
         return raw  # 숫자가 아닌 유의미한 문자열은 원본 유지
 
 
+def auth_keys() -> list[str]:
+    """사용할 인증키를 우선순위대로 — 주키(대회 계정) → 스페어(개인 계정).
+
+    backend weather_api.auth_keys와 같은 순서·같은 필터여야 한다. 배경(주키 만료
+    8/22 vs URL 유지 9월)은 backend 쪽 독스트링이 소유한다.
+    """
+    return [k for k in (config.KMA_API_KEY, config.KMA_API_KEY_SPARE) if k.strip()]
+
+
 def _request_items(base_url: str, params: dict) -> list[dict]:
-    """공통 요청 헬퍼. resultCode 체크 포함. NODATA(03)는 빈 리스트."""
+    """공통 요청 헬퍼 — 키를 순서대로 시도한다(주키 실패 시 스페어)."""
+    keys = auth_keys() or [""]
+    last_exc = None
+    for idx, key in enumerate(keys):
+        try:
+            return _request_items_with_key(base_url, params, key)
+        except KMAApiError as exc:
+            last_exc = exc
+            if idx + 1 < len(keys):
+                logger.warning(
+                    "KMA %d번 키 실패 — 다음 키로 재시도: %s", idx + 1, mask_service_key(exc)
+                )
+    raise last_exc
+
+
+def _request_items_with_key(base_url: str, params: dict, auth_key: str) -> list[dict]:
+    """단일 키로 1회 요청. resultCode 체크 포함. NODATA(03)는 빈 리스트."""
     # authKey 재인코딩 금지 — 발급키를 URL에 직접 부착하고
     # 나머지 파라미터만 urlencode 한다.
     query = urlencode(params)
-    url = f"{base_url}?authKey={config.KMA_API_KEY}&{query}"
+    url = f"{base_url}?authKey={auth_key}&{query}"
 
     data = None
     last_exc = None

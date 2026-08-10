@@ -49,6 +49,8 @@ CELERY_DATABASE_URL, CELERY_DATABASE_URL_SOURCE = _resolve_batch_dsn()
 # 묶을 수 없다. `KMA_ASOS_DALY_URL`은 이름만 ASOS고 실제 서비스는
 # `SfcMtlyInfoService/getDailyWthrData`다(월 단위 조회 — kma_client 어댑터가 흡수).
 KMA_API_KEY = os.getenv("KMA_API_KEY", "")
+# 스페어(개인 계정) — 주키 실패 시 자동 폴백. 배경은 backend config 주석 참조.
+KMA_API_KEY_SPARE = os.getenv("KMA_API_KEY_SPARE", "")
 KMA_VILAGE_FCST_URL = os.getenv(
     "KMA_VILAGE_FCST_URL",
     "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getVilageFcst",

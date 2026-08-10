@@ -197,15 +197,51 @@ def latest_base_datetime(now: datetime | None = None) -> tuple[str, str]:
     return (now - timedelta(days=1)).strftime("%Y%m%d"), "2300"
 
 
+def auth_keys() -> list[str]:
+    """사용할 인증키를 우선순위대로 — 주키(대회 계정) → 스페어(개인 계정).
+
+    스페어를 두는 이유는 **주키가 죽는 날짜가 이미 정해져 있기 때문**이다:
+    대회 제공 계정 키는 8/22 만료인데 규정상 서비스 URL은 9월 셋째 주까지 살아
+    있어야 한다. 그날 사람이 개입하지 않으면 날씨가 통째로 degraded로 떨어진다.
+    한도(계정당 20,000콜/일) 소진도 같은 자리에서 흡수된다.
+
+    ⚠️ 스페어 계정에도 **같은 3종 활용신청**(getVilageFcst·getMidLandFcst·
+    getDailyWthrData)이 승인돼 있어야 한다 — 키만 넣으면 조용히 같이 실패한다.
+    """
+    return [k for k in (settings.KMA_API_KEY, settings.KMA_API_KEY_SPARE) if k.strip()]
+
+
 async def _request_items(base_url: str, params: dict) -> list[dict]:
-    """공통 요청 헬퍼. resultCode 체크 포함. NODATA(03)는 빈 리스트.
+    """공통 요청 헬퍼 — 키를 순서대로 시도한다(주키 실패 시 스페어).
+
+    **어떤 실패든 다음 키로 넘어간다.** API허브가 인증 실패·한도 초과를 어떤
+    resultCode로 주는지 실측하지 못했으므로, 코드를 좁게 특정하면 정작 만료 당일에
+    안 넘어갈 위험이 있다. 넓게 잡는 대신 호출 낭비는 상위의 실패 마커
+    (WEATHER_FAIL_TTL_SEC 5분)가 막는다 — 실패해도 5분에 한 번뿐이다.
+    """
+    keys = auth_keys() or [""]  # 미설정이면 종전과 같이 빈 키로 1회 시도한다
+    last_exc: KMAApiError | None = None
+    for idx, key in enumerate(keys):
+        try:
+            return await _request_items_with_key(base_url, params, key)
+        except KMAApiError as exc:
+            last_exc = exc
+            if idx + 1 < len(keys):
+                logger.warning(
+                    "KMA %d번 키 실패 — 다음 키로 재시도: %s", idx + 1, mask_service_key(exc)
+                )
+    raise last_exc
+
+
+async def _request_items_with_key(base_url: str, params: dict, auth_key: str) -> list[dict]:
+    """단일 키로 1회 요청. resultCode 체크 포함. NODATA(03)는 빈 리스트.
 
     타임아웃 10초, 실패 시 1회 재시도.
     """
     # authKey 재인코딩 금지 — 발급키를 URL에 직접 부착하고
     # 나머지 파라미터만 urlencode 한다.
     query = urlencode(params)
-    url = f"{base_url}?authKey={settings.KMA_API_KEY}&{query}"
+    url = f"{base_url}?authKey={auth_key}&{query}"
 
     data = None
     last_exc: Exception | None = None

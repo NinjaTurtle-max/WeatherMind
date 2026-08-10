@@ -242,7 +242,13 @@ class TestCiStepJobParity:
 # 값이 일부러 placeholder인 시크릿 — **이름 존재만** 본다. `.env.example`에 실값을
 # 적는 순간 그것이 사고다(HACKATHON_RULES: API 키 노출 = 실격).
 SECRET_FIELDS = frozenset(
-    {"DATABASE_URL", "JWT_SECRET_KEY", "AI_WORKER_INTERNAL_API_KEY", "KMA_API_KEY"}
+    {
+        "DATABASE_URL",
+        "JWT_SECRET_KEY",
+        "AI_WORKER_INTERNAL_API_KEY",
+        "KMA_API_KEY",
+        "KMA_API_KEY_SPARE",  # 스페어 호출키 — 주키와 같은 등급의 시크릿이다
+    }
 )
 
 # J-13이 지목한 "조정 노브" — 8/17 이후 코드 동결 상태에서 env로만 만질 대상이다.

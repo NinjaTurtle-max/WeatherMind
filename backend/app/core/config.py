@@ -36,7 +36,13 @@ class Settings(BaseSettings):
     # 준다 — 응답 봉투는 같지만 **조회 단위가 기간이 아니라 월(year+month)**이고
     # 필드명도 다르다(weather_api.py ASOS 어댑터가 흡수). env 변수 이름을 그대로
     # 두는 것은 기존 `.env` 호환을 깨지 않기 위해서다.
+    #
+    # `KMA_API_KEY_SPARE`는 **주키가 죽을 날짜가 이미 정해져 있어서** 있다: 대회
+    # 제공 계정 키는 8/22 만료인데 URL은 9월 셋째 주까지 살아 있어야 한다. 개인
+    # 계정 키를 스페어로 두면 그날 사람이 개입하지 않아도 날씨가 안 죽는다.
+    # 주키 실패 시 자동으로 넘어간다(weather_api.auth_keys). 비워 두면 종전 동작.
     KMA_API_KEY: str = ""
+    KMA_API_KEY_SPARE: str = ""
     KMA_VILAGE_FCST_URL: str = (
         "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getVilageFcst"
     )
