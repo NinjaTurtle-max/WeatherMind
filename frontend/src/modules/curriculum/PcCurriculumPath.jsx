@@ -471,20 +471,12 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
     const apply = () => {
       const top = el.getBoundingClientRect().top + window.scrollY;
       el.style.setProperty('--wm-track-top', `${Math.round(top)}px`);
-      // 트랙 **밑**에 붙은 것(2026-08-09부터 하단 3카드)의 높이도 빼야 한다.
-      // index.css가 `--wm-track-tail` 기본값 32px(main의 pb-8)만 갖고 있어서,
-      // 재지 않으면 카드 줄 높이만큼 페이지가 통째로 넘친다.
-      // **상수로 박지 않는 이유**는 --wm-track-top과 같다: 복습 칸은 due 0건이면
-      // 사라지고, 세 칸이 2열로 접히면 두 배가 된다(실측 1440에서 150 ↔ 300px).
-      // 형제 순회로 찾는다 — 이 컴포넌트가 하단 줄을 소유하지 않으므로 ref가 없다.
-      // 카드 높이만 재면 **트랙과 카드 사이 간격이 빠진다**(실측 14px = mt-3.5,
-      // 그만큼 페이지가 넘쳤다). 그래서 높이가 아니라 **내 아래쪽 끝에서 카드
-      // 아래쪽 끝까지의 거리**를 잰다 — 간격이 바뀌어도 저절로 따라온다.
-      const footer = el.parentElement?.querySelector('[data-testid="learn-footer"]');
-      const tail = footer
-        ? Math.round(footer.getBoundingClientRect().bottom - el.getBoundingClientRect().bottom) + 32
-        : 32;
-      el.style.setProperty('--wm-track-tail', `${tail}px`);
+      // 트랙 **밑**은 다시 비었다(2026-08-10) — 복습·자유 세션 카드가 아래 가로
+      // 줄에서 **오른쪽 세로 열**로 옮겨 갔다. 그래서 `--wm-track-tail`을 재지
+      // 않고 index.css의 기본값(32px = main의 pb-8)에 맡긴다. 잰 값을 남겨 두면
+      // 0을 쓰는 것이 아니라 **옆 열의 높이를 아래 여백으로 오해**해 트랙이 그만큼
+      // 짧아진다. 트랙 밑에 무언가 다시 붙으면 그때 재서 넣을 것(이 파일 히스토리에
+      // 그 코드가 있다).
       // 트랙 높이가 바뀌면 「아래로 더 있는가」도 바뀐다. 여기서 같이 다시 재지
       // 않으면, 창을 줄여 경로가 다 들어오는 순간 힌트가 남은 채로 굳는다
       // (스크롤이 불가능하니 onScroll이 고쳐 주지도 못한다).

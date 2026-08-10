@@ -72,7 +72,9 @@ export default function WeatherBrainPanel() {
   const MasterySection = () => {
     if (mastery.isLoading || mastery.isError) return null;
     return (
-      <div className="mt-4 border-t border-slate-100 pt-3">
+      // 구분선은 **바깥 격자가 준다**(좁으면 위 테두리, 넓으면 왼쪽 테두리) —
+      // 여기서 border-t를 박으면 2열일 때 오른쪽 칸 머리에 줄이 하나 더 생긴다.
+      <div>
         <h3 className="text-sm font-bold text-slate-800">
           {t('weatherBrain.mastery.title')}
         </h3>
@@ -208,6 +210,12 @@ export default function WeatherBrainPanel() {
         {t('weatherBrain.introSeg2')}
       </p>
 
+      {/* 폭 전체 한 판이 되면서(2026-08-10 사용자 지시) 카드 안이 2열로 갈린다 —
+          **왼쪽 θ(지금 실력) · 오른쪽 숙련도(익혔을 확률)**. 두 축을 세로로
+          이어 붙이던 시절에는 막대가 14+14줄이라 카드 하나가 화면 두 개 높이였다.
+          lg 미만에서는 1열로 쌓이고, 그때만 숙련도 위에 구분선이 생긴다. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start lg:gap-6">
+      <div>
       {/* 레이더 + 막대 (2026-08-09) — 홈이 사라지면서 레이더가 이리로 왔다.
           막대는 개념을 **하나씩** 읽게 하고 레이더는 **치우침**을 한 번에 보여준다.
           둘은 같은 데이터의 다른 질문이라 겹치는 게 아니다.
@@ -270,8 +278,12 @@ export default function WeatherBrainPanel() {
         ))}
       </ul>
       </div>
+      </div>
 
-      <MasterySection />
+      <div className="border-t border-slate-100 pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+        <MasterySection />
+      </div>
+      </div>
     </Card>
   );
 }

@@ -199,22 +199,6 @@ export default function CurriculumHome() {
           같은 설명을 진입 배너가 부제로 말한다 — 두 벌이면 세로만 66px 먹는다.
           문구의 소유자는 `curriculum.subtitle`이다(LearnHeroCard가 읽는다). */}
 
-      {/* 진입 배너 — 화면 맨 위 한 줄(2026-08-09 시안). PC·모바일 **공통 1회
-          마운트**다. 세로 레일이던 시절에는 PC 레일과 모바일 위쪽에 각각 하나씩
-          두 번 마운트했는데, 가로 배너는 두 폭에서 같은 자리라 나눌 이유가 없다.
-          `hasPath`와 무관하게 뜬다 — 빈 트리 코스에서도 「오늘의 세션」으로 갈
-          통로가 필요하다. */}
-      <div className="mb-3.5">
-        <LearnHeroCard
-          entry={entry}
-          copy={ENTRY_COPY[entry.kind]}
-          goalTotal={goalTotal}
-          goalDone={goalDone}
-          dailyBlocked={dailyBlocked}
-          energyBlocked={energyBlocked}
-          regenMin={regenMin}
-        />
-      </div>
 
       {/* 구름 소진 안내 (§3.1) — 새 세션은 열 수 없지만 이유·회복 시점을 먼저 알린다 */}
       {energyBlocked && (
@@ -262,6 +246,31 @@ export default function CurriculumHome() {
       )}
 
 
+      {/* 3열 배치(2026-08-10 사용자 지시) — 왼쪽 진입 카드 · 가운데 경로 ·
+          오른쪽 카드 2장. 세로 배너를 위에 두던 시절과 비교하면 **트랙 높이를
+          한 픽셀도 안 뺏는 대신 폭을 나눠 쓴다**. 노드 지름은 높이만 보므로
+          (index.css `--dot`) 이 교환은 노드에 유리하다.
+          모바일에서는 flex가 꺼져 DOM 순서대로 쌓인다 — 진입 카드 → 경로 →
+          오른쪽 카드들. PC 경로는 `hidden md:block`이라 모바일에서는 그 자리에
+          모바일 지그재그가 대신 선다.
+          `items-stretch`(flex 기본)로 두어 양옆 카드가 트랙 높이만큼 늘어난다. */}
+      <div className="md:flex md:gap-3.5">
+        {/* 왼쪽 — 진입 카드. `hasPath`와 무관하게 뜬다: 빈 트리 코스에서도
+            「오늘의 세션」으로 갈 통로가 필요하다. */}
+        <div className="mb-3.5 md:mb-0 md:w-[236px] md:flex-none lg:w-[252px]">
+          <LearnHeroCard
+            entry={entry}
+            copy={ENTRY_COPY[entry.kind]}
+            goalTotal={goalTotal}
+            goalDone={goalDone}
+            dailyBlocked={dailyBlocked}
+            energyBlocked={energyBlocked}
+            regenMin={regenMin}
+          />
+        </div>
+
+        {/* 가운데 — 경로. min-w-0이 없으면 트랙 안의 긴 유닛명이 열을 밀어낸다. */}
+        <div className="min-w-0 md:flex-1">
       {/* 모바일: 세로 지그재그 경로(기존 유지) */}
       <div className="md:hidden">
         {sections.map((section) => (
@@ -296,25 +305,26 @@ export default function CurriculumHome() {
         ))}
       </div>
 
-      {/* PC(md↑): 4열 스네이크 곡선 경로 + 튜터 카드 */}
-      {/* PC(md↑): 4열 스네이크 곡선 경로 + 튜터 카드.
-          `energyBlocked`를 반드시 넘긴다 — 넘기지 않으면 구름 0에서 모바일은 잠기고
-          PC는 열려, 문항 진입 전 차단(R10-01 S4)이 PC에서만 깨진다. */}
+      {/* PC(md↑) 경로. `energyBlocked`를 반드시 넘긴다 — 넘기지 않으면 구름 0에서
+          모바일은 잠기고 PC는 열려, 문항 진입 전 차단(R10-01 S4)이 PC에서만 깨진다. */}
       <PcCurriculumPath
         sections={sections}
         energyBlocked={energyBlocked}
         regenMin={regenMin}
         onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
       />
+        </div>
 
-      {/* 경로 아래 3카드(복습·자유 세션·리그). 이 줄의 높이는 그대로 트랙에서
-          빠지므로 PcCurriculumPath가 **재서** `--wm-track-tail`에 넣는다. */}
-      <LearnFooterCards
-        dailyBlocked={dailyBlocked}
-        energyBlocked={energyBlocked}
-        regenMin={regenMin}
-        dailyIsPrimary={entry.kind === 'daily'}
-      />
+        {/* 오른쪽 — 자유 일일 세션(위) · 복습(아래) */}
+        <div className="mt-3.5 md:mt-0 md:w-[248px] md:flex-none lg:w-[264px]">
+          <LearnFooterCards
+            dailyBlocked={dailyBlocked}
+            energyBlocked={energyBlocked}
+            regenMin={regenMin}
+            dailyIsPrimary={entry.kind === 'daily'}
+          />
+        </div>
+      </div>
     </div>
   );
 }

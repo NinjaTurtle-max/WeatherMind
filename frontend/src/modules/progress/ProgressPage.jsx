@@ -84,8 +84,13 @@ export default function ProgressPage() {
         </div>
       )}
 
-      {/* 시안 배치: 2열. 왼쪽은 "나"(프로필·능력·배지), 오른쪽은 "할 일"
+      {/* 시안 배치: 2열. 왼쪽은 "나"(프로필·배지), 오른쪽은 "할 일"
           (오늘 목표·진도·퀘스트·다음 목표). lg 미만은 1열로 쌓인다.
+
+          2026-08-10(사용자 지시): 배지 컬렉션을 **프로필 바로 밑**으로 올리고,
+          WeatherBrain 능력 분석은 이 격자에서 빼 **아래 가로 한 판**으로 내렸다.
+          능력 분석은 안에 막대 14줄 + 숙련도 14줄이 들어가 세로가 가장 긴 카드였고,
+          좁은 열에 있으면 왼쪽 열만 한없이 길어졌다.
 
           ⚠️ 카드 6개를 격자에 **평평하게** 늘어놓으면 안 된다(2026-08-08 수정).
           CSS 격자는 같은 줄에 놓인 칸의 높이를 가장 큰 칸에 맞추므로, 오른쪽
@@ -103,9 +108,6 @@ export default function ProgressPage() {
             <ProfileCard me={me} user={user} badges={badges} />
           </div>
           <div className="order-3 lg:order-none">
-            <WeatherBrainPanel />
-          </div>
-          <div className="order-5 lg:order-none">
             <BadgeCollection collapsed={collapsed} />
           </div>
         </div>
@@ -121,10 +123,18 @@ export default function ProgressPage() {
           <div className="order-4 lg:order-none">
             <QuestList collapsed={collapsed} />
           </div>
-          <div className="order-6 lg:order-none">
+          <div className="order-5 lg:order-none">
             <NextGoalsCard me={me} />
           </div>
         </div>
+      </div>
+
+      {/* 능력 분석 — **폭 전체 한 판**(2026-08-10 사용자 지시). 카드 안에서
+          왼쪽 θ 막대 · 오른쪽 개념 숙련도로 갈린다(WeatherBrainPanel이 소유).
+          설정 두 장보다 **위**에 둔다: 설정은 페이지 꼬리로 읽히는 자리라,
+          그 아래에 큰 분석 판을 두면 페이지가 끝난 줄 알고 스크롤을 멈춘다. */}
+      <div className="mt-4">
+        <WeatherBrainPanel />
       </div>
 
       {/* 설정 — 학습 지역 (R12 선행 §8): 퀴즈 실황·피드백 날씨의 기준 지역.
