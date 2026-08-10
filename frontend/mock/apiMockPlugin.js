@@ -940,7 +940,11 @@ function briefingHourly() {
     [21, 25.7, 40, 0, 80, 2.2, 3, 0],
   ];
   return rows.map(([h, tmp, pop, pcp, reh, wsd, sky, pty]) => ({
-    datetime: `${target}T${String(h).padStart(2, '0')}:00:00`,
+    // ⚠️ 실서버 형식은 **YYYYMMDDHHMM 압축형**이다(`weather_api.group_forecast_items`가
+    // fcstDate+fcstTime을 그대로 이어 붙인다). 종전에 목이 ISO를 주는 바람에
+    // `fmtHour`가 ISO 기준으로 쓰였고, 실서버에서는 전 슬롯이 「0시」로 찍혔다
+    // (2026-08-10 실기동에서 발견). **목이 실서버보다 친절하면 그 차이가 곧 버그다.**
+    datetime: `${target.replace(/-/g, '')}${String(h).padStart(2, '0')}00`,
     tmp,
     pop,
     pcp,

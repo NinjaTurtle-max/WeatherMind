@@ -179,6 +179,29 @@ ok(tutorImg?.getAttribute('src') === '/typhoon.png', `사이드바 튜터 이미
 const sidenavText = $('[data-testid="sidenav"]')?.textContent ?? '';
 ok(sidenavText.includes('태풍이'), `사이드바 튜터 이름이 태풍이 — "${sidenavText.slice(-40)}"`);
 
+// ── ⑤ 시각 라벨이 실서버 형식을 읽는가 (2026-08-10 실기동 회귀) ─────────────
+// 실서버는 `"202608101500"`(YYYYMMDDHHMM)을 주는데 종전 fmtHour가 ISO만 가정해
+// `slice(11,13)`으로 잘라, **전 슬롯이 「0시」로 찍혔다**. 키가 없던 동안 hourly가
+// 늘 비어 degraded 카드만 떠서 여태 아무도 못 본 자리다.
+// 목이 ISO를 주고 실서버가 압축형을 주던 **패리티 어긋남**이 근본 원인이라,
+// 여기서 두 형식을 다 못 박고 목도 실서버 형식으로 맞췄다.
+const { fmtHour } = await vite.ssrLoadModule('/src/modules/duel/briefingDisplay.js');
+const hourOf = (s) => fmtHour(s, (_k, v) => String(v.h));
+ok(hourOf('202608101500') === '15', `압축형 → 15시 (실제 ${hourOf('202608101500')})`);
+ok(hourOf('2026-08-10T15:00:00') === '15', `ISO → 15시 (실제 ${hourOf('2026-08-10T15:00:00')})`);
+ok(hourOf('202608100000') === '0', `자정은 0시로 (실제 ${hourOf('202608100000')})`);
+ok(hourOf('') === '-' && hourOf(null) === '-', '빈 값은 대시');
+
+// 목이 실서버와 같은 형식을 주는가 — 목이 더 친절하면 그 차이가 곧 버그다.
+const mockHourly = JSON.parse(await (await fetch(`${base}/api/v1/duel/briefing`, {
+  headers: { Authorization: 'Bearer test' },
+})).text()).hourly ?? [];
+ok(mockHourly.length > 0, `목 hourly 비어있지 않다 — ${mockHourly.length}건`);
+ok(
+  mockHourly.every((h) => /^\d{12}$/.test(String(h.datetime))),
+  `목 datetime이 실서버와 같은 YYYYMMDDHHMM — 실제 "${mockHourly[0]?.datetime}"`,
+);
+
 reactRoot.unmount();
 await vite.close();
 await new Promise((r) => httpServer.close(r));
@@ -186,4 +209,4 @@ if (failed) {
   console.error(`\n실패 ${failed}건`);
   process.exit(1);
 }
-console.log('\nOK: 예보 대결 배치(2열·항목 최소폭·sticky·태풍이 튜터) 스모크 통과');
+console.log('\nOK: 예보 대결 배치(2열·항목 최소폭·sticky·태풍이 튜터·시각 라벨) 스모크 통과');
