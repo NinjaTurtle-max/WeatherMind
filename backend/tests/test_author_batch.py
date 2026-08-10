@@ -297,6 +297,52 @@ class TestDedupe:
         b = author_items.normalize_text("  태풍이  에너지를 얻는 원천은 ??  ")
         assert a == b
 
+    # ── ordering 구조적 상한 해제 (CO-C5·W-3) ────────────────────────────
+    # 정답이 "0,1,2" 같은 **위치 나열**이라 어떤 항목을 늘어놓든 문자열이 같았다.
+    # 그래서 (유형·개념·정답) 키가 항목 수만큼만 갈라져 **태그당 3~4건이 상한**이
+    # 됐다(2026-08-10 실측: ordering 27건의 서로 다른 정답이 3종, 유일성 11%).
+    # 1,000건 저작에서 유형을 고르게 뽑으려면 이 상한이 먼저 풀려야 한다.
+
+    @staticmethod
+    def _ordering(tag: str, question: str, entries: list[str]) -> dict:
+        return {
+            "question_type": "ordering",
+            "concept_tag": tag,
+            "template_json": {
+                "question_text": question,
+                "items": entries,
+                "correct_answer": ",".join(str(i) for i in range(len(entries))),
+            },
+        }
+
+    def test_같은_태그_같은_항목수라도_내용이_다르면_다른_문항이다(self):
+        """상한의 정체 — 여기가 같으면 태그당 3건에서 저작이 멈춘다."""
+        a = self._ordering("typhoon", "태풍의 일생을 순서대로", ["발생", "발달", "소멸"])
+        b = self._ordering("typhoon", "구름 생성을 순서대로", ["상승", "냉각", "응결"])
+        assert author_items.dedupe_keys(a)[1] != author_items.dedupe_keys(b)[1]
+
+    def test_항목까지_같으면_표현만_바꿔도_중복이다(self):
+        """상한을 풀되 진짜 쌍둥이는 계속 잡아야 한다 — 이게 없으면 그냥 검사 해제다."""
+        a = self._ordering("typhoon", "태풍의 일생을 순서대로", ["발생", "발달", "소멸"])
+        b = self._ordering("typhoon", "태풍은 어떤 순서로 일어나나요", ["발생", "발달", "소멸"])
+        assert author_items.dedupe_keys(a)[1] == author_items.dedupe_keys(b)[1]
+
+    def test_slider는_같은_숫자라도_측정_축이_다르면_다른_문항이다(self):
+        """정답이 숫자라 '17 m/s'와 '17 ℃'가 같은 키였다 — 같은 계열의 상한."""
+        base = {"question_type": "slider", "concept_tag": "typhoon"}
+        a = {**base, "template_json": {"question_text": "최대풍속 기준은?",
+                                       "correct_answer": "17", "unit": "m/s", "min": 0, "max": 60}}
+        b = {**base, "template_json": {"question_text": "기온 기준은?",
+                                       "correct_answer": "17", "unit": "℃", "min": -20, "max": 40}}
+        assert author_items.dedupe_keys(a)[1] != author_items.dedupe_keys(b)[1]
+
+    def test_match는_보정하지_않는다(self):
+        """정답이 pairs 전문이라 이미 유일하다(실측 28/28) — 손대면 과탐만 는다."""
+        base = {"question_type": "match", "concept_tag": "air_mass"}
+        a = {**base, "template_json": {"question_text": "짝 맞추기", "correct_answer": "겨울:시베리아"}}
+        b = {**base, "template_json": {"question_text": "다르게 물어보기", "correct_answer": "겨울:시베리아"}}
+        assert author_items.dedupe_keys(a)[1] == author_items.dedupe_keys(b)[1]
+
     def test_기존_시드와_같은_문항은_탈락한다(self, ai, backend_contract):
         text = "태풍이 에너지를 얻는 주된 원천은 무엇일까요?"
         existing = [author_items.to_bank_item(_mc(text), "elementary")]

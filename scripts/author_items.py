@@ -230,15 +230,50 @@ def normalize_text(value: Any) -> str:
     return _NON_WORD_RE.sub("", str(value if value is not None else "")).lower()
 
 
+def answer_signature(item: dict) -> str:
+    """중복 판정에 쓸 **정답 지문** — 정답이 내용을 담지 못하는 유형을 보정한다.
+
+    ⚠️ **`ordering`의 구조적 상한(CO-C5·W-3)이 여기서 나왔다.** 정답이 `"0,1,2"`
+    같은 **위치 나열**이라 어떤 항목을 늘어놓든 문자열이 같다 — 그래서 (유형·개념·정답)
+    키가 **항목 수만큼만** 서로 다르고, 태그당 3~4건이 상한이 됐다(2026-08-10 실측:
+    ordering 27건의 서로 다른 정답이 **3종**, 유일성 11%).
+
+    결함은 데이터가 아니라 **키**다. `correct_answer` 형식을 바꾸는 쪽은
+    `answer_service._grade_ordering`(인덱스 순열 완전 일치)·프론트·기존 27건을
+    전부 건드려야 하는데, 여기서 **항목 내용을 함께 보면** 같은 목적이 달성된다.
+
+    `slider`도 같은 계열이다 — 정답이 숫자라 "17 m/s"와 "17 ℃"가 같은 키가 된다.
+    측정 축(단위·범위)을 함께 넣어 가른다.
+
+    `match`는 보정하지 않는다 — 정답이 pairs 전문이라 이미 유일하다(실측 28/28).
+    `board`는 정답이 비어 있어 호출측(`answer_key_active`)이 아예 제외한다.
+    """
+    template = item.get("template_json") or {}
+    answer = normalize_text(template.get("correct_answer"))
+    qtype = str(item.get("question_type") or "")
+
+    if qtype == "ordering":
+        contents = normalize_text(
+            " ".join(str(entry) for entry in (template.get("items") or []))
+        )
+        return f"{answer}#{contents}"
+    if qtype == "slider":
+        axis = normalize_text(
+            f"{template.get('unit') or ''} {template.get('min')} {template.get('max')}"
+        )
+        return f"{answer}#{axis}"
+    return answer
+
+
 def dedupe_keys(item: dict) -> tuple[str, str]:
-    """(정규화 question_text, 유형|개념|정규화 정답) — 어느 쪽이 겹치면 중복."""
+    """(정규화 question_text, 유형|개념|정답 지문) — 어느 쪽이 겹치면 중복."""
     template = item.get("template_json") or {}
     text_key = normalize_text(template.get("question_text"))
     answer_key = "|".join(
         (
             str(item.get("question_type") or ""),
             str(item.get("concept_tag") or ""),
-            normalize_text(template.get("correct_answer")),
+            answer_signature(item),
         )
     )
     return text_key, answer_key
