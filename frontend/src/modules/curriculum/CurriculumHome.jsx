@@ -246,30 +246,30 @@ export default function CurriculumHome() {
       )}
 
 
-      {/* 3열 배치(2026-08-10 사용자 지시) — 왼쪽 진입 카드 · 가운데 경로 ·
-          오른쪽 카드 2장. 세로 배너를 위에 두던 시절과 비교하면 **트랙 높이를
-          한 픽셀도 안 뺏는 대신 폭을 나눠 쓴다**. 노드 지름은 높이만 보므로
-          (index.css `--dot`) 이 교환은 노드에 유리하다.
-          모바일에서는 flex가 꺼져 DOM 순서대로 쌓인다 — 진입 카드 → 경로 →
-          오른쪽 카드들. PC 경로는 `hidden md:block`이라 모바일에서는 그 자리에
-          모바일 지그재그가 대신 선다.
-          `items-stretch`(flex 기본)로 두어 양옆 카드가 트랙 높이만큼 늘어난다. */}
-      <div className="md:flex md:gap-3.5">
-        {/* 왼쪽 — 진입 카드. `hasPath`와 무관하게 뜬다: 빈 트리 코스에서도
-            「오늘의 세션」으로 갈 통로가 필요하다. */}
-        <div className="mb-3.5 md:mb-0 md:w-[236px] md:flex-none lg:w-[252px]">
-          <LearnHeroCard
-            entry={entry}
-            copy={ENTRY_COPY[entry.kind]}
-            goalTotal={goalTotal}
-            goalDone={goalDone}
-            dailyBlocked={dailyBlocked}
-            energyBlocked={energyBlocked}
-            regenMin={regenMin}
-          />
-        </div>
+      {/* 진입 배너 — 맨 위 한 줄, 폭 전체. `hasPath`와 무관하게 뜬다:
+          빈 트리 코스에서도 「오늘의 세션」으로 갈 통로가 필요하다. */}
+      <div className="mb-3.5">
+        <LearnHeroCard
+          entry={entry}
+          copy={ENTRY_COPY[entry.kind]}
+          goalTotal={goalTotal}
+          goalDone={goalDone}
+          dailyBlocked={dailyBlocked}
+          energyBlocked={energyBlocked}
+          regenMin={regenMin}
+        />
+      </div>
 
-        {/* 가운데 — 경로. min-w-0이 없으면 트랙 안의 긴 유닛명이 열을 밀어낸다. */}
+      {/* 배너 아래 2열(2026-08-10 사용자 지시) — 왼쪽 경로 · 오른쪽 카드 2장.
+          카드가 경로 **아래**가 아니라 **옆**에 서므로 트랙 높이를 안 뺏는다.
+          노드 지름은 높이만 보므로(index.css `--dot`) 배너가 있는데도 상한
+          86px에 붙는다 — 카드가 아래 줄이던 직전 배치에서는 68px이었다.
+          대신 트랙 **폭**을 나눠 쓴다(1440에서 1120 → 858px).
+          모바일에서는 flex가 꺼져 DOM 순서대로 쌓인다: 배너 → 경로 → 카드들.
+          PC 경로는 `hidden md:block`이라 모바일에서는 그 자리에 모바일
+          지그재그가 대신 선다. */}
+      <div className="md:flex md:gap-3.5">
+        {/* 왼쪽 — 경로. min-w-0이 없으면 트랙 안의 긴 유닛명이 열을 밀어낸다. */}
         <div className="min-w-0 md:flex-1">
       {/* 모바일: 세로 지그재그 경로(기존 유지) */}
       <div className="md:hidden">
