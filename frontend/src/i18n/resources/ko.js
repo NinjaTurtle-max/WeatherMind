@@ -392,6 +392,7 @@ export default {
     // 학습 화면 하단 3카드의 리그 칸(2026-08-09 시안). 티어 표시명은 tier.name.*이
     // 소유하고 여기는 틀만 갖는다 — 두 벌로 두면 리그 화면과 이름이 갈린다.
     leagueCard: {
+      titleUnranked: '리그',
       title: '{tier} 리그',
       people: '/ {total}명',
       cta: '순위표 보기 →',

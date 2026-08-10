@@ -22,7 +22,12 @@ import { useT } from '../../i18n';
  * 리그 성적 규칙(`deriveStanding`)은 **LeaguePage와 공유한다**(lib/leagueStanding).
  * 복사하면 두 화면이 서로 다른 등급을 가리키는 사고가 난다.
  */
-export default function LearnFooterCards({ dailyBlocked = false, energyBlocked = false, regenMin = 1 }) {
+export default function LearnFooterCards({
+  dailyBlocked = false,
+  energyBlocked = false,
+  regenMin = 1,
+  dailyIsPrimary = false,
+}) {
   const t = useT();
 
   // 리그 3종 — LeaguePage와 **같은 쿼리 키**라 캐시를 공유한다(중복 요청 없음).
@@ -44,7 +49,11 @@ export default function LearnFooterCards({ dailyBlocked = false, energyBlocked =
 
   const ranks = Array.isArray(ranksData) ? ranksData : [];
   const standing = deriveStanding(ranks, Array.isArray(myResultsData) ? myResultsData : [], user);
-  const tier = tierMeta(standing.elo == null ? 'stratus' : tierFromElo(standing.elo));
+  // ELO가 없으면(정산 전 · 게스트 · 리더보드 조회 실패) **티어를 말하지 않는다**.
+  // 종전에는 stratus로 떨어뜨려 「층운 리그」라고 단정했는데, 리그는 KMA 키가 없으면
+  // degraded라 조회 실패가 흔하고 그때 적란운 사용자가 조용히 강등돼 보였다
+  // (LeaguePage는 같은 상황에서 "아직 정산 전"이라 말한다 — 2026-08-09 코드 리뷰).
+  const tier = standing.elo == null ? null : tierMeta(tierFromElo(standing.elo));
 
   return (
     <div
@@ -76,10 +85,17 @@ export default function LearnFooterCards({ dailyBlocked = false, energyBlocked =
             <RegionPicker />
           </span>
         </div>
+        {/* CO-S-9 — 위 배너가 이미 일일 세션일 때는(kind='daily') 본문·CTA를
+            **글자 그대로 두 번** 그렸다. 같은 문장·같은 목적지가 한 화면에 두 벌이면
+            §2.5가 없앤 "무엇을 누를지 모름"이 돌아온다. 주 진입(배너)을 남기고 이
+            칸의 중복분만 내린다 — 지역 픽커는 여기 말고 자리가 없으므로 남는다.
+            (홈 화면에 있던 가드인데 학습으로 옮기며 빠졌다. 2026-08-09 코드 리뷰) */}
+        {dailyIsPrimary ? null : (
         <p className="mt-1.5 text-[12px] leading-relaxed text-slate-500">
           {t('curriculum.daily.body')}
         </p>
-        {dailyBlocked ? (
+        )}
+        {dailyIsPrimary ? null : dailyBlocked ? (
           <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-2.5">
             <button
               type="button"
@@ -114,7 +130,9 @@ export default function LearnFooterCards({ dailyBlocked = false, energyBlocked =
         className="flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
       >
         <p className="text-[13.5px] font-extrabold text-slate-800">
-          {t('curriculum.leagueCard.title', { tier: tier.label })}
+          {tier
+            ? t('curriculum.leagueCard.title', { tier: tier.label })
+            : t('curriculum.leagueCard.titleUnranked')}
         </p>
         {standing.rank ? (
           <p className="mt-1.5 flex items-baseline gap-1.5">

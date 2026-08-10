@@ -352,6 +352,7 @@ export default {
       placementOpened: '🧭 Opened by placement',
     },
     leagueCard: {
+      titleUnranked: 'League',
       title: '{tier} league',
       people: '/ {total} players',
       cta: 'View standings →',

@@ -28,9 +28,25 @@ import { useT } from '../../i18n';
  * 마스코트는 **물방울이**(learnEntry.ENTRY_MASCOT). 사이드바 튜터가 /learn에서
  * 같은 캐릭터를 그리므로 그 화면에서는 SideNav가 튜터를 접는다.
  */
-export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
+export default function LearnHeroCard({
+  entry,
+  copy,
+  goalTotal,
+  goalDone,
+  dailyBlocked = false,
+  energyBlocked = false,
+  regenMin = 1,
+}) {
   const t = useT();
   const pct = goalTotal ? Math.min(100, Math.round((goalDone / goalTotal) * 100)) : 0;
+  // 구름 0 차단 — **문항 진입 전**에 알린다(R10-01 §3.1). 화면에서 가장 큰 버튼이
+  // 살아 있는 채로 429를 받게 두면 R10이 폐지한 "누른 뒤에 알리는" 흐름이 그대로
+  // 돌아온다(2026-08-09 코드 리뷰. 경로 노드와 하단 카드는 이미 막고 있었고 여기만
+  // 뚫려 있었다 — 홈 시절 카드에서 그대로 옮겨온 구멍이다).
+  //   unit·done  유닛 세션은 호출마다 **새 발급**이라 잔량 0이면 항상 429다.
+  //   daily      오늘 세션이 살아 있으면 재조회는 200이다("풀던 것을 뺏기지
+  //              않는다"). 그래서 energyBlocked가 아니라 dailyBlocked를 본다.
+  const ctaBlocked = entry.kind === 'daily' ? dailyBlocked : energyBlocked && entry.to !== '/learn';
 
   return (
     <div
@@ -92,13 +108,30 @@ export default function LearnHeroCard({ entry, copy, goalTotal, goalDone }) {
         </div>
       </div>
 
-      <Link
-        to={entry.to}
-        data-testid="learn-entry-cta"
-        className="flex-none rounded-[14px] bg-sky-500 px-5 py-3 text-center text-[14px] font-extrabold tracking-[-0.01em] text-white shadow-[0_3px_0_#0369A1] transition hover:bg-sky-400"
-      >
-        {copy.cta}
-      </Link>
+      {ctaBlocked ? (
+        <span className="flex-none text-right">
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            data-testid="learn-entry-cta"
+            className="block w-full cursor-not-allowed rounded-[14px] bg-white/15 px-5 py-3 text-center text-[14px] font-extrabold tracking-[-0.01em] text-white/50"
+          >
+            {copy.cta}
+          </button>
+          <span className="mt-1 block text-[11px] font-bold text-rose-300">
+            {t('curriculum.daily.regen', { min: regenMin })}
+          </span>
+        </span>
+      ) : (
+        <Link
+          to={entry.to}
+          data-testid="learn-entry-cta"
+          className="flex-none rounded-[14px] bg-sky-500 px-5 py-3 text-center text-[14px] font-extrabold tracking-[-0.01em] text-white shadow-[0_3px_0_#0369A1] transition hover:bg-sky-400"
+        >
+          {copy.cta}
+        </Link>
+      )}
     </div>
   );
 }

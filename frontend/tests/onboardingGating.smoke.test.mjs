@@ -392,6 +392,17 @@ try {
       b.textContent.includes('오늘의 세션 풀기'),
     );
     assert(cta && cta.disabled, '잔량 0에서 세션 진입 CTA가 비활성이어야 한다');
+    // ⚠️ 위 단정은 **하단 카드의 CTA만** 보고 통과할 수 있다(`button`을 훑어
+    // 첫 번째를 찾는다). 화면에서 가장 큰 버튼인 **진입 배너**가 뚫려 있어도
+    // 초록이었다 — 실제로 그랬다(2026-08-09 코드 리뷰). 배너를 따로 못 박는다:
+    // 잔량 0이면 `<a>`가 아니라 disabled 버튼이어야 한다.
+    const heroCta = window.document.querySelector('[data-testid="learn-entry-cta"]');
+    assert(heroCta, '진입 배너 CTA를 찾지 못했다');
+    assert(
+      heroCta.tagName === 'BUTTON' && heroCta.disabled,
+      `잔량 0에서 진입 배너 CTA가 살아 있다 — <${heroCta.tagName.toLowerCase()}> ` +
+        '(누르면 429 OUT_OF_CLOUDS. R10이 폐지한 "누른 뒤에 알리는" 흐름이다)',
+    );
     r.unmount();
 
     // 회복 후에는 원래대로 링크 CTA
@@ -403,6 +414,8 @@ try {
       '구름 회복 후 세션 CTA 링크 복귀',
     );
     assert(!text().includes('구름 회복까지 약'), '회복 후에도 차단 안내가 남아 있다');
+    const heroBack = window.document.querySelector('[data-testid="learn-entry-cta"]');
+    assert(heroBack?.tagName === 'A', `회복 후 진입 배너 CTA가 링크로 안 돌아왔다 — <${heroBack?.tagName}>`);
     r.unmount();
   });
 

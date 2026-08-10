@@ -40,7 +40,10 @@ export default function SideNav() {
   const pathname = useLocation().pathname;
   const tutor = TUTOR_BY_PATH.find((r) => r.match(pathname));
   // 학습 홈에서는 튜터 카드를 통째로 내린다(위 주석).
-  const hideTutor = pathname === '/learn';
+  // 끝의 슬래시를 떼고 본다 — `/learn/`도 라우터가 같은 화면을 그리는데
+  // 정확히 '/learn'만 보던 탓에 그 URL에서 사이드바 튜터와 배너 마스코트가
+  // 함께 떴다(이 분기가 막으려던 바로 그 중복. 2026-08-09 코드 리뷰).
+  const hideTutor = pathname.replace(/\/+$/, '') === '/learn';
   const mascot = tutor?.name ?? 'cloud';
   const nameKey = tutor ? `nav.tutor.${tutor.key}.name` : 'home.tutor.name';
   const lineKey = tutor ? `nav.tutor.${tutor.key}.line` : 'home.tutor.line';

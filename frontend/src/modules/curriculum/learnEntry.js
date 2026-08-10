@@ -51,7 +51,17 @@ export function pickLearnEntry({ units = [], todayAnswered = 0, dailyGoal = null
   const dailyDone = goal > 0 ? todayAnswered >= goal : todayAnswered > 0;
   if (!dailyDone) return { kind: 'daily', unit: null, to: '/daily' };
 
-  return { kind: 'done', unit: null, to: '/learn' };
+  // 완료 축하 — 「지난 유닛 다시 보기」다. `/learn`으로 두면 **제자리걸음**이라
+  // 눌러도 아무 일이 없었다(카드가 학습 화면 위로 올라온 뒤로 그렇다. 위 unit
+  // 분기가 같은 이유로 이미 고쳐졌는데 여기만 남아 있었다 — 2026-08-09 코드 리뷰).
+  // 전 유닛이 클리어된 상태이므로 **마지막으로 깬 유닛**을 다시 열어 주는 것이
+  // 문구와도 맞는다. id 없는 응답(구 서버)만 `/learn`으로 떨어진다.
+  const lastCleared = [...units].reverse().find((u) => unitStatus(u) === 'cleared') ?? null;
+  return {
+    kind: 'done',
+    unit: lastCleared,
+    to: lastCleared?.id ? `/learn/units/${lastCleared.id}` : '/learn',
+  };
 }
 
 /**

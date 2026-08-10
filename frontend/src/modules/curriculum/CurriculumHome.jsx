@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { curriculumApi, progressApi } from '../../api';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -12,8 +12,6 @@ import { useAttendance } from '../../hooks/useAttendance';
 // R11-01 §6.2 마운트 통합 — props 없는 자급 계약(조건 미충족 시 자가 null).
 // 복습 큐(ReviewQueueCard)는 2026-08-09부터 LearnFooterCards가 마운트한다.
 import GuestSaveBanner from '../../components/GuestSaveBanner';
-// R12 선행 §8 — 지역 칩(자급 컴포넌트, 제작 FE-R): 세션 실황 슬롯이 이 지역을 탄다.
-import RegionPicker from '../../components/RegionPicker';
 import { conceptLabel, useT } from '../../i18n';
 
 /**
@@ -212,6 +210,9 @@ export default function CurriculumHome() {
           copy={ENTRY_COPY[entry.kind]}
           goalTotal={goalTotal}
           goalDone={goalDone}
+          dailyBlocked={dailyBlocked}
+          energyBlocked={energyBlocked}
+          regenMin={regenMin}
         />
       </div>
 
@@ -312,6 +313,7 @@ export default function CurriculumHome() {
         dailyBlocked={dailyBlocked}
         energyBlocked={energyBlocked}
         regenMin={regenMin}
+        dailyIsPrimary={entry.kind === 'daily'}
       />
     </div>
   );

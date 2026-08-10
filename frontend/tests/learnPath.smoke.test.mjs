@@ -405,9 +405,12 @@ await render({});
 
   // 사이드바 튜터와 진입 카드가 같은 화면에서 겹치지 않는다.
   const side = readFileSync(resolve(root, 'src/components/SideNav.jsx'), 'utf8');
+  // 2026-08-09 코드 리뷰: 종전 식은 `pathname === '/learn'`이라 **`/learn/`에서
+  // 뚫렸다** — 라우터는 같은 화면을 그리는데 튜터와 배너 마스코트가 함께 떴다.
+  // 끝의 슬래시를 떼고 비교하는지를 본다(문자열 그대로가 아니라 정규화 여부).
   ok(
-    /hideTutor\s*=\s*pathname === '\/learn'/.test(side),
-    '학습 홈에서 사이드바 튜터를 접는다(같은 캐릭터 중복 방지)',
+    /hideTutor\s*=\s*pathname\.replace\([^)]*\)\s*===\s*'\/learn'/.test(side),
+    '학습 홈에서 사이드바 튜터를 접는다 — 끝 슬래시를 떼고 비교한다',
   );
 
   // 화자는 물방울이 — 사이드바 TUTOR_BY_PATH(/learn → drop)와 같은 값이어야 한다.
