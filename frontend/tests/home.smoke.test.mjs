@@ -187,6 +187,18 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
     unsetGoal?.getAttribute('href') === '/me',
     `미설정 자리가 내 정보로 보낸다 — 실제 ${unsetGoal?.getAttribute('href')}`,
   );
+  // ⚠️ **접히는 열 안으로 들어가지 않았는가.** 2026-08-10 코드 리뷰에서 잡혔다:
+  // 목표가 `hidden lg:block` 열 안에 있어 1024px 미만에서 표시와 설정 통로가
+  // 통째로 사라졌다 — 위 단정만으로는 못 잡는다(요소는 DOM에 있으니 통과한다).
+  // jsdom에는 CSS 엔진이 없지만 **클래스는 읽을 수 있다** — 조상에 `hidden`이
+  // 붙어 있는지로 대신 본다.
+  const hiddenAncestor = (() => {
+    for (let el = unsetGoal; el && el.dataset?.testid !== 'learn-entry'; el = el.parentElement) {
+      if (el.classList?.contains('hidden')) return el.className;
+    }
+    return null;
+  })();
+  ok(!hiddenAncestor, `목표가 접히는 열 안에 있지 않다 — 실제 조상 "${hiddenAncestor}"`);
 
   // ⑥ 홈이 갖고 있던 카드들이 카드로 돌아오지 않았다
   for (const gone of ['연속 출석', 'WeatherBrain']) {

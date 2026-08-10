@@ -84,41 +84,44 @@ export default function LearnHeroCard({
         </p>
       </div>
 
-      {/* 진도 열 — 시안의 2단(설명 + 진도 바 + 오늘의 목표)을 한 덩이로 눌렀다.
-          좁아지면 통째로 접힌다(hidden lg:block): 배너가 두 줄이 되는 순간
-          "얇게 간다"는 이 배치의 전제가 깨지기 때문이다. 여기 있는 값은 전부
-          경로 카드 하단의 진도 바에도 있어 접혀도 잃는 정보가 없다. */}
-      <div className="hidden min-w-0 basis-[300px] lg:block">
+      {/* 설명 + 진도 바 — 좁아지면 통째로 접힌다(hidden lg:block): 배너가 두 줄이
+          되는 순간 "얇게 간다"는 이 배치의 전제가 깨지기 때문이다. 접혀도 잃는
+          정보가 없다 — 설명은 안내문이고, 진도는 경로 카드 하단 바가 같은 값을
+          보여준다.
+          ⚠️ **오늘의 목표는 여기 넣지 말 것.** 아래로 따로 뺀 이유가 그것이다. */}
+      <div className="hidden min-w-0 basis-[260px] lg:block">
         <p className="truncate text-[11.5px] leading-relaxed text-slate-300">
           {t('curriculum.subtitle')}
         </p>
-        <div className="mt-1.5 flex items-center gap-2.5">
-          <span className="h-[6px] min-w-0 flex-1 overflow-hidden rounded-full bg-white/15">
-            <i className="block h-full rounded-full bg-sky-400" style={{ width: `${pct}%` }} />
-          </span>
-          {/* 오늘의 목표 — 미설정이어도 **자리를 숨기지 않는다**. 홈이 사라진 뒤로
-              목표를 정하는 통로가 이 화면에 없어서, 숨기면 기능째 사라진다
-              (2026-08-09 사용자 제보). 대신 내 정보(설정 통로)로 보낸다. */}
-          {goalTotal ? (
-            <span
-              data-testid="learn-goal"
-              data-goal-state="set"
-              className="flex-none text-[11.5px] font-bold tabular-nums text-slate-300"
-            >
-              {t('home.goal.title')} {goalDone}/{goalTotal} {t('home.goal.items')}
-            </span>
-          ) : (
-            <Link
-              to="/me"
-              data-testid="learn-goal"
-              data-goal-state="unset"
-              className="flex-none text-[11.5px] font-bold text-sky-300 hover:text-sky-200"
-            >
-              {t('curriculum.goalUnset')}
-            </Link>
-          )}
-        </div>
+        <span className="mt-2 block h-[6px] overflow-hidden rounded-full bg-white/15">
+          <i className="block h-full rounded-full bg-sky-400" style={{ width: `${pct}%` }} />
+        </span>
       </div>
+
+      {/* 오늘의 목표 — **항상 보인다**. 한때 위 진도 열 안에 있었는데, 그 열이
+          `hidden lg:block`이라 1024px 미만에서 목표 표시와 설정 통로(`/me` 링크)가
+          통째로 사라졌다(2026-08-10 코드 리뷰). 목표를 정하는 길이 이 화면에
+          이것뿐이라 숨기면 기능째 없어진다 — 2026-08-09에 사용자가 제보한 바로
+          그 증상이고, 접히는 열 안으로 들어가면서 조용히 되살아나 있었다.
+          미설정이어도 자리를 비우지 않고 내 정보로 보낸다. */}
+      {goalTotal ? (
+        <span
+          data-testid="learn-goal"
+          data-goal-state="set"
+          className="flex-none whitespace-nowrap text-[11.5px] font-bold tabular-nums text-slate-300"
+        >
+          {t('home.goal.title')} {goalDone}/{goalTotal} {t('home.goal.items')}
+        </span>
+      ) : (
+        <Link
+          to="/me"
+          data-testid="learn-goal"
+          data-goal-state="unset"
+          className="flex-none whitespace-nowrap text-[11.5px] font-bold text-sky-300 hover:text-sky-200"
+        >
+          {t('curriculum.goalUnset')}
+        </Link>
+      )}
 
       {ctaBlocked ? (
         <span className="flex-none text-right">

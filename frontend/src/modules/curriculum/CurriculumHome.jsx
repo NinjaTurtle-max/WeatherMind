@@ -139,9 +139,16 @@ export default function CurriculumHome() {
    * 깬 사람이 경로를 훑었다고 「오늘의 세션 풀기」가 사라지면 오늘 할 일이
    * 화면에서 없어진다.
    */
-  const [viewedIdx, setViewedIdx] = useState(0);
+  // ⚠️ 초깃값은 **null**이다(0이 아니다. 2026-08-10 코드 리뷰).
+   //  · 0으로 두면 트리가 도착한 첫 페인트에서 배너가 **1섹션**을 가리킨다 —
+   //    정렬 effect가 현재 단계를 알려 주기 전 한 프레임 동안 제목뿐 아니라
+   //    **CTA 목적지까지** 틀리다(이 파일이 119~122줄에서 막아 둔 그 깜빡임이다).
+   //  · 더 나쁜 것은 모바일이다: PC 경로가 `hidden md:block`이라 clientHeight가
+   //    0이고, 그래서 `syncViewed`가 **영영 안 뜬다**. 0으로 굳으면 3섹션을 풀고
+   //    있는 사람의 폰 화면이 계속 1섹션의 이미 깬 유닛을 가리킨다.
+  const [viewedIdx, setViewedIdx] = useState(null);
   const sectionsWithUnits = (data?.sections ?? []).filter((sec) => sec.units.length > 0);
-  const viewedSection = sectionsWithUnits[viewedIdx] ?? null;
+  const viewedSection = viewedIdx == null ? null : (sectionsWithUnits[viewedIdx] ?? null);
   const followSection = entry.kind === 'unit' && viewedSection !== null;
   const bannerEntry = followSection ? pickSectionEntry(viewedSection) : entry;
 
