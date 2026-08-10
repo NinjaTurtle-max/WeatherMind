@@ -74,3 +74,33 @@ export function pickLearnEntry({ units = [], todayAnswered = 0, dailyGoal = null
  */
 export const ENTRY_MASCOT = { unit: 'drop', daily: 'bolt', done: 'cloud' };
 
+/**
+ * **보고 있는 섹션**의 진입 지점 — 경로를 스크롤하면 배너가 이걸 따라간다
+ * (2026-08-10 사용자 지시).
+ *
+ * ⚠️ 제목만 따라가게 하면 안 된다. 배너 CTA가 그대로면 "3섹션 제목 + 1섹션으로
+ * 가는 버튼"이 되어, 누른 사람이 엉뚱한 데로 간다. 그래서 목적지도 같이 낸다.
+ *
+ * 고르는 순서는 pickLearnEntry와 같은 정신이다 — 지금 할 수 있는 것 우선:
+ *   진행 중(current) → 열림(unlocked) → 마지막 클리어(다시 보기) → 첫 유닛(잠김).
+ * 마지막 경우만 `locked`가 참이고, 그때 CTA는 눌리면 안 된다(눌러도 서버가
+ * 403 UNIT_LOCKED로 막는다 — 누르기 전에 알리는 것이 R10의 규칙이다).
+ */
+export function pickSectionEntry(section) {
+  const units = section?.units ?? [];
+  const open =
+    units.find((u) => unitStatus(u) === 'current')
+    ?? units.find((u) => unitStatus(u) === 'unlocked')
+    ?? [...units].reverse().find((u) => unitStatus(u) === 'cleared')
+    ?? null;
+  if (open) {
+    return {
+      kind: 'unit',
+      unit: open,
+      to: open.id ? `/learn/units/${open.id}` : '/learn',
+      locked: false,
+    };
+  }
+  const first = units[0] ?? null;
+  return { kind: 'unit', unit: first, to: '/learn', locked: Boolean(first) };
+}

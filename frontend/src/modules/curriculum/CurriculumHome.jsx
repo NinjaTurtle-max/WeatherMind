@@ -7,7 +7,7 @@ import PcCurriculumPath from './PcCurriculumPath';
 import CourseSwitcher, { useCourses } from './CourseSwitcher';
 import LearnHeroCard from './LearnHeroCard';
 import LearnFooterCards from './LearnFooterCards';
-import { pickLearnEntry } from './learnEntry';
+import { pickLearnEntry, pickSectionEntry } from './learnEntry';
 import { useAttendance } from '../../hooks/useAttendance';
 // R11-01 §6.2 마운트 통합 — props 없는 자급 계약(조건 미충족 시 자가 null).
 // 복습 큐(ReviewQueueCard)는 2026-08-09부터 LearnFooterCards가 마운트한다.
@@ -127,12 +127,33 @@ export default function CurriculumHome() {
     data === undefined
       ? { kind: 'unit', unit: null, to: '/learn' }
       : pickLearnEntry({ units: flatUnits, todayAnswered: goalDone, dailyGoal: goalTotal });
+  /**
+   * 배너가 **보고 있는 섹션**을 따라간다(2026-08-10 사용자 지시).
+   *
+   * 경로를 스크롤하면 PcCurriculumPath가 단계 번호를 올려 주고, 배너의 머리글·
+   * 제목·CTA가 통째로 그 섹션 것으로 바뀐다. 제목만 바꾸면 "3섹션 제목 + 1섹션으로
+   * 가는 버튼"이 되므로 **셋을 함께** 갈아야 한다(pickSectionEntry가 목적지까지 낸다).
+   *
+   * ⚠️ **진입 종류가 'unit'일 때만** 따라간다. 'daily'(오늘 몫이 남음)·'done'
+   * (다 끝냄)은 §2.5의 **우선순위 메시지**라 스크롤로 덮으면 안 된다 — 전 유닛을
+   * 깬 사람이 경로를 훑었다고 「오늘의 세션 풀기」가 사라지면 오늘 할 일이
+   * 화면에서 없어진다.
+   */
+  const [viewedIdx, setViewedIdx] = useState(0);
+  const sectionsWithUnits = (data?.sections ?? []).filter((sec) => sec.units.length > 0);
+  const viewedSection = sectionsWithUnits[viewedIdx] ?? null;
+  const followSection = entry.kind === 'unit' && viewedSection !== null;
+  const bannerEntry = followSection ? pickSectionEntry(viewedSection) : entry;
+
   // 배너 머리글 — 시안대로 **어느 섹션의 몇 번째인지**를 말한다("섹션 1 · 하늘 읽기").
+  // 따라가는 중이면 보고 있는 섹션, 아니면 진입 유닛이 속한 섹션이다.
   // 섹션을 모르면(트리 도착 전·유닛 없음) 종전 문구('학습 세션')로 떨어진다.
-  const entrySectionIdx = entry.unit
-    ? (data?.sections ?? []).findIndex((s) => s.units.some((u) => u.id === entry.unit.id))
-    : -1;
-  const entrySection = entrySectionIdx >= 0 ? data.sections[entrySectionIdx] : null;
+  const entrySectionIdx = followSection
+    ? viewedIdx
+    : bannerEntry.unit
+      ? sectionsWithUnits.findIndex((sec) => sec.units.some((u) => u.id === bannerEntry.unit.id))
+      : -1;
+  const entrySection = entrySectionIdx >= 0 ? sectionsWithUnits[entrySectionIdx] : null;
   const ENTRY_COPY = {
     unit: {
       eyebrow: entrySection
@@ -141,7 +162,7 @@ export default function CurriculumHome() {
             title: entrySection.section,
           })
         : t('home.entry.learn'),
-      title: entry.unit?.title ?? t('home.entry.learnEmpty'),
+      title: bannerEntry.unit?.title ?? t('home.entry.learnEmpty'),
       cta: t('home.entry.learnGo'),
     },
     daily: {
@@ -250,8 +271,9 @@ export default function CurriculumHome() {
           빈 트리 코스에서도 「오늘의 세션」으로 갈 통로가 필요하다. */}
       <div className="mb-3.5">
         <LearnHeroCard
-          entry={entry}
-          copy={ENTRY_COPY[entry.kind]}
+          entry={bannerEntry}
+          copy={ENTRY_COPY[bannerEntry.kind]}
+          lockedNote={bannerEntry.locked ? t('curriculum.unit.lockedTitle') : null}
           goalTotal={goalTotal}
           goalDone={goalDone}
           dailyBlocked={dailyBlocked}
@@ -312,6 +334,7 @@ export default function CurriculumHome() {
         energyBlocked={energyBlocked}
         regenMin={regenMin}
         onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
+        onViewSection={setViewedIdx}
       />
         </div>
 

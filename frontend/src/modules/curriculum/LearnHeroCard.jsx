@@ -40,6 +40,7 @@ export default function LearnHeroCard({
   dailyBlocked = false,
   energyBlocked = false,
   regenMin = 1,
+  lockedNote = null,
 }) {
   const t = useT();
   const pct = goalTotal ? Math.min(100, Math.round((goalDone / goalTotal) * 100)) : 0;
@@ -50,7 +51,14 @@ export default function LearnHeroCard({
   //   unit·done  유닛 세션은 호출마다 **새 발급**이라 잔량 0이면 항상 429다.
   //   daily      오늘 세션이 살아 있으면 재조회는 200이다("풀던 것을 뺏기지
   //              않는다"). 그래서 energyBlocked가 아니라 dailyBlocked를 본다.
-  const ctaBlocked = entry.kind === 'daily' ? dailyBlocked : energyBlocked && entry.to !== '/learn';
+  //   lockedNote  스크롤로 **선행 잠긴 섹션**을 보고 있을 때. 목적지가 아직
+  //              열리지 않았으니 눌리면 안 된다(서버도 403 UNIT_LOCKED로 막는다).
+  const ctaBlocked =
+    Boolean(lockedNote)
+    || (entry.kind === 'daily' ? dailyBlocked : energyBlocked && entry.to !== '/learn');
+  // 막힌 이유를 그대로 말한다 — 잠금인데 "구름 회복까지"라고 하면 기다리면 열리는
+  // 줄 안다(기다려도 안 열린다).
+  const blockedNote = lockedNote ?? t('curriculum.daily.regen', { min: regenMin });
 
   return (
     <div
@@ -123,9 +131,7 @@ export default function LearnHeroCard({
           >
             {copy.cta}
           </button>
-          <span className="mt-1 block text-[11px] font-bold text-rose-300">
-            {t('curriculum.daily.regen', { min: regenMin })}
-          </span>
+          <span className="mt-1 block text-[11px] font-bold text-rose-300">{blockedNote}</span>
         </span>
       ) : (
         <Link
