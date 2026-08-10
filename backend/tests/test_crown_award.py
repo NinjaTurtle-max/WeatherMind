@@ -387,9 +387,11 @@ def run_complete(monkeypatch, session, logs, *, award=None, unit_payload=None):
 
     async def fake_badge(db, user_id, badge):
         calls["badge"] = badge
+        return False  # 신규 지급 아님 — 라우터가 bool로 분기한다 (CO-T-4)
 
     async def fake_quests(db, user, day):
         calls["quests"] = day
+        return []  # 전환 목록(라우터가 소비) — CO-T-4
 
     # 예보 마감 단계(R13 A-1)는 duels 조회 + KMA 캐시를 타므로 이 배선 하네스의
     # 관심사가 아니다 — 단계 없음으로 고정한다. 판정 자체는
@@ -589,7 +591,7 @@ def run_attempt(
         return award
 
     async def fake_quests(db, user, day):
-        pass
+        return []  # 전환 목록(라우터가 소비) — CO-T-4
 
     monkeypatch.setattr(board_router.board_engine, "validate_board", fake_validate)
     monkeypatch.setattr(board_router.energy_service, "get_state", fake_state)

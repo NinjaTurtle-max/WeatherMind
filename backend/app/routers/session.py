@@ -25,6 +25,7 @@ from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.user import User
 from app.schemas.curriculum import CrownAward
+from app.schemas.reward import BadgeAward, QuestReward
 from app.schemas.session import (
     ForecastClosingStep,
     SessionAnswerRequest,
@@ -506,13 +507,25 @@ async def complete_session(
     )
     is_first_complete = session.completed_at is None
     crown_award: CrownAward | None = None
+    # 이번 완료로 **새로** 획득한 배지 (CO-T-4). 재-complete는 is_first_complete가
+    # False라 지급 자체가 안 돌고, 이미 보유 중이면 award_badge가 False다 —
+    # 두 경우 모두 빈 리스트로 나가야 화면이 "방금 받았다"를 두 번 말하지 않는다.
+    badges_earned: list[BadgeAward] = []
 
     if is_first_complete:
         session.completed_at = datetime.now(timezone.utc)
         await db.flush()
         # 무오답 세션 배지(perfect_session) — 전 문항 정답(total/total), 중복은 UNIQUE로 방어 (R4-01 §3.3)
         if badge_service.is_perfect_session(correct_count, progress.total):
-            await badge_service.award_badge(db, user.id, badge_service.BADGE_PERFECT_SESSION)
+            granted = await badge_service.award_badge(
+                db, user.id, badge_service.BADGE_PERFECT_SESSION
+            )
+            if granted:
+                detail = await badge_service.badge_detail(
+                    db, badge_service.BADGE_PERFECT_SESSION
+                )
+                if detail is not None:
+                    badges_earned.append(BadgeAward(**detail))
         # 데일리 → 왕관 유입 (R8-01 §3.4 → R13-01 §2.10 소유권 이전): 판정 대상은
         # **진도 블록 5문항**(_crown_scope_logs)이고, 그 블록이 전건 해결(만회 포함,
         # §2.1)이면 블록 최다 개념(동률: route target 우선→사전순)의 "열린 첫
@@ -557,12 +570,27 @@ async def complete_session(
             unit_result = UnitResult(**payload, all_resolved=all_resolved)
 
     # 일일 퀘스트 재계산 — 세션 complete 트리거(당일 집계 멱등 재계산) (R4-01 §3.1)
-    await quest_service.recalculate_quests(db, user, session.session_date)
+    # 반환(무엇이 완료됐고 몇 XP인지)을 **버리지 않는다** (CO-T-4): 버렸을 때
+    # 최대 +25 XP가 지급만 되고 화면 어디에도 안 떴고, 요약의 "+N XP"는 문항 XP만이라
+    # 표기가 실지급보다 그만큼 적었다.
+    transitions = await quest_service.recalculate_quests(
+        db, user, session.session_date
+    )
+    quest_rewards = [
+        QuestReward(**event) for event in quest_service.reward_events(transitions)
+    ]
+    bonus_xp = sum(reward.reward_xp for reward in quest_rewards)
 
     db_user = await db.get(User, user.id)
     streak_count = db_user.streak_count if db_user is not None else user.streak_count
     return SessionCompleteResult(
         xp_total=session.xp_total,
+        quest_rewards=quest_rewards,
+        badges_earned=badges_earned,
+        bonus_xp=bonus_xp,
+        # 화면 표기용 총합은 서버가 더한다 — 프론트에 덧셈을 맡기면 더하는 화면마다
+        # 빠뜨릴 수 있고, 그게 정확히 이 결함이 났던 방식이다.
+        xp_awarded=session.xp_total + bonus_xp,
         correct_count=correct_count,
         total=progress.total,
         streak_count=streak_count,

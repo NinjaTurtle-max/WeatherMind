@@ -10,6 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.schemas.curriculum import CrownAward
+from app.schemas.reward import QuestReward
 
 
 class BoardPuzzle(BaseModel):
@@ -49,3 +50,10 @@ class BoardAttemptResult(BaseModel):
     # clouds_spent = 실제 소모량(0 또는 CLOUD_COST) · clouds = 소모 후 잔량.
     clouds_spent: int = 0
     clouds: int = 0
+    # R13 CO-T-4 (additive): 이 attempt로 **새로 완료된** 일일 퀘스트와 그 보상 XP.
+    # 보드 통과는 `daily_xp_30`을 넘길 수 있고(+10) 실제로 지급까지 되는데, 종전에는
+    # `recalculate_quests` 반환을 버려 **보드 화면에서 그 사실이 보이지 않았다**.
+    # 미통과(passed=False)면 재계산 자체를 안 하므로 항상 빈 리스트다.
+    quest_rewards: list[QuestReward] = []
+    # sum(quest_rewards.reward_xp) — 퍼즐 XP(xp_earned)와 축이 다르므로 합치지 않는다.
+    bonus_xp: int = 0

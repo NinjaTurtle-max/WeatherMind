@@ -32,6 +32,7 @@ from app.models.quiz_log import QuizLog
 from app.models.user import User
 from app.schemas.board import BoardAttemptRequest, BoardAttemptResult, BoardPuzzle
 from app.schemas.curriculum import CrownAward
+from app.schemas.reward import QuestReward
 from app.services import (
     board_engine,
     curriculum_service,
@@ -397,10 +398,20 @@ async def attempt_puzzle(
     await db.flush()
 
     # 보드 attempt 성공 시 일일 퀘스트 재계산 (당일 집계 멱등 재계산) (R4-01 §3.1)
+    # 반환을 버리지 않는다 (CO-T-4) — 보드 통과가 `daily_xp_30`을 넘겨 +10을
+    # 지급하고도 보드 화면에는 그 사실이 한 글자도 안 떴다.
+    quest_rewards: list[QuestReward] = []
     if passed:
-        await quest_service.recalculate_quests(db, user, datetime.now(KST).date())
+        transitions = await quest_service.recalculate_quests(
+            db, user, datetime.now(KST).date()
+        )
+        quest_rewards = [
+            QuestReward(**event) for event in quest_service.reward_events(transitions)
+        ]
 
     return BoardAttemptResult(
+        quest_rewards=quest_rewards,
+        bonus_xp=sum(reward.reward_xp for reward in quest_rewards),
         passed=passed,
         phenomena=phenomena,
         feedback=feedback,

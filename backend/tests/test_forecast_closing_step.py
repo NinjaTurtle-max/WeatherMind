@@ -183,13 +183,20 @@ class TestDegradedWithoutKma:
         async def noop(*args, **kwargs):
             return None
 
+        # 퀘스트 재계산은 **전환 목록**을 반환한다 — 라우터가 그 반환을 소비하므로
+        # (CO-T-4) None을 돌려주면 순회에서 죽는다. 빈 목록 = "전환 없음".
+        async def no_transitions(*args, **kwargs):
+            return []
+
         monkeypatch.setattr(session_router, "_load_session_or_404", fake_load)
         monkeypatch.setattr(session_router, "_session_logs", fake_logs)
         monkeypatch.setattr(
             session_router.curriculum_service, "award_crown_for_activity", noop
         )
         monkeypatch.setattr(session_router.badge_service, "award_badge", noop)
-        monkeypatch.setattr(session_router.quest_service, "recalculate_quests", noop)
+        monkeypatch.setattr(
+            session_router.quest_service, "recalculate_quests", no_transitions
+        )
 
         db = DuelDB()
         db.get = FakeDB().get
