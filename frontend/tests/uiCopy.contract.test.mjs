@@ -122,12 +122,21 @@ check('CO-L-F7: levelFromTheta 경계가 서버 THETA_BAND_BOUNDS와 동일', ()
 
 // ── 3. 문항 수를 문구가 단정하지 않는다 ─────────────────────────────────────
 check('CO-S-6: 자유 일일 세션 진입 문구가 문항 수를 상수로 단정하지 않는다', () => {
+  // ⚠️ 2026-08-09: 이 가드가 보던 `curriculum.daily.body`는 **삭제됐다.** 진입
+  // 카드에서 안내 문단을 빼면서(사용자 지시 — 바로 위 튜터 말풍선과 겹쳤다)
+  // 읽는 곳이 없어져 ko/en에서 함께 지웠다(고아 키 금지 — CO-D6, CO-N-1 ③ 선례).
+  // 가드는 지우지 않고 **daily 블록 전체**로 넓힌다: CO-S-6의 실질은 "이 문구
+  // 하나"가 아니라 "자유 일일 세션 설명이 문항 수를 상수로 말하지 않는다"이고,
+  // 배합은 여전히 `Settings.SESSION_RECIPE`(env)가 소유한다. `regen`류는 {min}
+  // 보간이라 숫자가 없고, 새 문구를 이 블록에 추가하면 자동으로 감시된다.
   for (const locale of ['ko', 'en']) {
-    const body = RESOURCES[locale].curriculum.daily.body;
-    assert(
-      !/\d/.test(body),
-      `${locale}.curriculum.daily.body에 숫자가 남아 있다: "${body}" — 배합은 env로 바뀌고 실제 합은 15다`,
-    );
+    for (const [key, value] of Object.entries(RESOURCES[locale].curriculum.daily)) {
+      if (typeof value !== 'string') continue;
+      assert(
+        !/\d/.test(value),
+        `${locale}.curriculum.daily.${key}에 숫자가 남아 있다: "${value}" — 배합은 env로 바뀌고 실제 합은 15다`,
+      );
+    }
   }
 });
 

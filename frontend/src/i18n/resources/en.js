@@ -271,10 +271,8 @@ export default {
       learnGo: 'Continue →',
       go: 'Open →',
       // R13-01 §2.5 single learning entry on the home dashboard
-      unitBody: 'A unit is in progress. Pick up right where you left off.',
       todayLabel: "Today's learning",
       doneTitle: "You're done for today",
-      doneBody: 'You finished everything for today. Want more? Pick one below.',
       doneCta: 'Revisit a past unit →',
       more: 'More to try',
       board: 'Atmosphere board',
@@ -316,6 +314,8 @@ export default {
     },
   },
   curriculum: {
+    // 하루 목표 미설정 — 진입 카드에서 내 정보(설정 통로)로 보낸다
+    goalUnset: 'Set your daily goal!',
     loading: 'Loading your learning path...',
     loadFailed: "Couldn't load the learning path",
     title: '🎓 Learn',
@@ -341,12 +341,21 @@ export default {
       waterEnergy: { title: 'Water & Energy', subtitle: 'Phase change · Transfer' },
     },
     unit: {
+      labelCleared: 'Done · {crowns} crowns',
+      labelCurrent: "You're here",
+      labelOpen: 'Open',
       lockedSuffix: ' (locked)',
       energySuffix: ' (out of clouds)',
       lockedTitle: 'Complete the previous unit to unlock',
       energyTitle: 'Opens when a cloud returns — about {min} min',
       boardChip: 'Board puzzle unit',
       placementOpened: '🧭 Opened by placement',
+    },
+    leagueCard: {
+      titleUnranked: 'League',
+      title: '{tier} league',
+      people: '/ {total} players',
+      cta: 'View standings →',
     },
     daily: {
       title: 'Free daily session',
@@ -357,6 +366,7 @@ export default {
       regenResume: '☁️ About {min} min until a cloud returns — a session you started today can still be finished.',
     },
     path: {
+      sectionEyebrow: 'Section {n} · {title}',
       introTitle: 'What this stage covers',
       start: 'Start',
       estMinutes: 'about {min} min',
@@ -365,7 +375,6 @@ export default {
       scrollHint: '↓ Scroll for the next stage',
       progressLabel: 'Progress',
       unitCount: '{done} / {total} units',
-      continue: 'Continue learning',
     },
     tutor: {
       chip: '💧 Tutor',
