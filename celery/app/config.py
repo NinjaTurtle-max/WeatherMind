@@ -57,7 +57,7 @@ KMA_VILAGE_FCST_URL = os.getenv(
 )
 KMA_ASOS_DALY_URL = os.getenv(
     "KMA_ASOS_DALY_URL",
-    "https://apihub.kma.go.kr/api/typ02/openApi/SfcMtlyInfoService/getDailyWthrData",
+    "https://apihub.kma.go.kr/api/typ01/url/kma_sfcdd.php",
 )
 
 # ── 내부 서비스 간 통신 ──

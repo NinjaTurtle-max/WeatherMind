@@ -110,39 +110,52 @@ async def get_short_forecast(region: str, base_date: str, base_time: str) -> dic
 
 ---
 
-## 3. 과거관측 일자료 (SfcMtlyInfoService/getDailyWthrData)
+## 3. 과거관측 일자료 (typ01 `kma_sfcdd.php`) — **openApi 아님**
 
-⚠️ **API허브에는 `AsosDalyInfoService`가 없다.** 일자료는 이 서비스가 주고,
-**기간 조회가 아니라 월 조회**이며 **필드명도 다르다**. 종전 스펙(startDt/endDt +
-stnIds + avgTa/maxTa/sumRn)은 공공데이터포털 시절 것이라 더는 유효하지 않다.
+⚠️ **API허브에는 `AsosDalyInfoService`가 없다.** 그리고 openApi 대체품
+(`SfcMtlyInfoService/getDailyWthrData`)은 **월보(月報)라 당월을 주지 않는다** —
+어제 날짜로 부르면 `resultCode=99 "발간되지 않은 기간입니다"`다(2026-08-10 실측).
+우리가 필요한 건 전부 당월이므로(대결 정산=어제, 리그 정산=지난주, 브리핑=최근
+며칠) 월보는 **쓸 수 없다.** 폴백이 아니라 **교체**인 이유다.
 
-**요청 파라미터**
+종전 스펙(startDt/endDt + stnIds + avgTa/maxTa/sumRn)은 공공데이터포털 시절 것이라
+더는 유효하지 않다.
+
+**요청 파라미터** (`https://apihub.kma.go.kr/api/typ01/url/kma_sfcdd.php`)
 | 파라미터 | 값 |
 |---|---|
-| year / month | YYYY / MM — **월 단위**. 기간이 월 경계를 걸치면 호출을 나눈다 |
-| station | 지점번호 (서울=108, 부산=159, 강릉=105 — 번호 체계는 종전과 같다) |
-| pageNo / numOfRows / dataType | 1 / 31 / JSON |
+| tm | YYYYMMDD — **하루 단위**. 기간은 어댑터가 날짜로 펴서 하루 1콜씩 부른다 |
+| stn | 지점번호 (서울=108, 부산=159, 강릉=105 — 번호 체계는 종전과 같다) |
+| help | 0 (주석 블록 축소. 파서는 `#` 줄을 어차피 버린다) |
 
-**응답 필드 → 우리 출력 필드**
-| 우리 | API허브 | 의미 |
+**응답은 JSON이 아니다.** `#`로 시작하는 주석/헤더 + 콤마 구분 텍스트 1행/일.
+컬럼 인덱스(0-based)와 결측 표기는 2026-08-10 서울(108) 실측으로 확정했다.
+
+| 우리 출력 | typ01 컬럼(1-based 문서번호) | 인덱스 |
 |---|---|---|
-| `tm` | `tm` | 관측일자 |
-| `avgTa` | `ta` | 기온-평균 |
-| `maxTa` | `ta_max` | 기온-최고 |
-| `minTa` | `ta_min` | 기온-최저 |
-| `sumRn` | `rn_day` | 강수량 |
+| `tm` | 1 TM | 0 |
+| `avgTa` | 11 TA_AVG | 10 |
+| `maxTa` | 12 TA_MAX | 11 |
+| `minTa` | 14 TA_MIN | 13 |
+| `sumRn` | 39 RN_DAY | 38 |
+
+- 컬럼 수는 **57**. 미달 행은 버린다 — 어긋난 인덱스가 결측보다 나쁘다.
+- **결측은 `-9` / `-9.0` / `-9.00`**이다(실측: 무강수일의 `RN_DAY=-9.0`). 문자열로
+  판정해 기존 결측 표현(0.0)으로 흡수한다. 놓치면 **강수 -9mm·기온 -9℃가 정산에
+  들어간다** — 승패가 조용히 틀린다.
 
 **어댑터가 흡수한다** — `weather_api.py`(backend) / `kma_client.py`(celery)의
-`asos_months` · `normalize_asos_tm` · `asos_row` · `asos_in_range`가 월 조회를
-기간 조회처럼 보이게 감싸므로, **호출측 시그니처와 반환 형태는 종전 그대로**다
-(`get_past_observation(start_dt, end_dt, ...)` → `[{tm, avgTa, maxTa, minTa, sumRn}]`).
-계약은 `backend/tests/test_kma_asos_adapter.py`가 소유한다.
+`asos_days` · `parse_asos_text` · `asos_value` · `normalize_asos_tm` ·
+`asos_in_range`가 하루 단위 텍스트 API를 기간 조회처럼 감싸므로 **호출측 시그니처와
+반환 형태는 종전 그대로**다 (`get_past_observation(start_dt, end_dt, ...)` →
+`[{tm, avgTa, maxTa, minTa, sumRn}]`). 계약은
+`backend/tests/test_kma_asos_adapter.py`가 소유하고, 실측 응답 1행을 픽스처로 박아
+기상청이 컬럼을 바꾸면 CI가 울게 해 뒀다.
 
-⚠️ **미검증 전제**: `SfcMtlyInfoService`는 이름대로 **월보 계열**이라 당월 자료가
-월 마감 후에야 채워질 가능성이 있다. 그러면 매일 04:00 어제분 정산이 당월 내내
-빈손이다. **어제 날짜 1콜로 행이 오는지 배포 전 확인할 것.** 안 오면 폴백은
-typ01 `kma_sfcdd3.php`(tm1~tm2 기간 조회 — 시그니처가 정확히 일치하고 고정폭
-텍스트 파서만 새로 필요). 교체 지점은 `_fetch_daily_obs` 하나다.
+**활용신청은 「지상관측 > 종관기상관측(ASOS) > 1.3 일자료」**다 — 4.5(월보)가 아니다.
+1.4 `kma_sfcdd3.php`(tm1~tm2 기간 조회)는 1콜로 끝나 더 깔끔하지만 별도 승인이
+필요하다(미승인 시 **HTTP 403** — 실측). 주간 정산 7콜은 한도 20,000콜/일 대비
+무시할 수 있어 1.3으로 간다.
 → 이상기후 사례 큐레이션 원본. (`anomaly_cases` 벡터 컬렉션은 선언만 되고 쓰인 적이 없어 R13 3일차에 철거됐다 — `docs/specs/01`.)
 
 ---

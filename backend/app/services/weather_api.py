@@ -3,8 +3,9 @@
 출처는 **기상청 API허브**(`apihub.kma.go.kr/api/typ02/openApi/...`)다 — R13에서
 공공데이터포털(`apis.data.go.kr/1360000/...`)에서 옮겼다. 응답 봉투(resultCode·
 items)와 요청 인자는 그대로라 파싱 계층은 재사용하고, 실제로 갈린 것은 두 가지다:
-**인증 파라미터 이름**(`serviceKey` → `authKey`)과 **ASOS 일자료의 서비스·필드명**
-(`AsosDalyInfoService` → `SfcMtlyInfoService/getDailyWthrData`. 아래 ASOS 어댑터 참조).
+**인증 파라미터 이름**(`serviceKey` → `authKey`)과 **ASOS 일자료의 출처**
+(`AsosDalyInfoService` → typ01 `kma_sfcdd.php` — openApi 일자료는 월보라 당월을
+주지 않는다. 아래 ASOS 어댑터의 ⚠️ 참조).
 
 docs/specs/06_kma_api_parsing_spec.md 파싱 규칙 준수:
 - response.header.resultCode == "00" 성공, "03"(NODATA)은 캐시 fallback, 그 외 KMAApiError
@@ -303,12 +304,22 @@ async def _request_items(base_url: str, params: dict) -> list[dict]:
     성공·실패는 키 게이트에 기록된다(위 `_record_key_result`). NODATA(03)는 빈
     리스트로 정상 반환되므로 **ok로 기록된다** — 인증 자체는 통과한 것이 맞다.
     """
+    return await _try_keys(lambda k: _request_items_with_key(base_url, params, k))
+
+
+async def _try_keys(fetch):
+    """키를 순서대로 시도하고 결과를 **키 게이트에 기록**한다.
+
+    `fetch(auth_key)`는 실패 시 KMAApiError를 올린다. JSON(`_request_items`)과
+    텍스트(`_request_text`) 두 경로가 이 한 곳을 공유한다 — 폴백 순서와 상태 기록이
+    경로마다 갈리면 한쪽만 만료를 넘기고 다른 쪽은 조용히 죽는다.
+    """
     configured = auth_keys()
     keys = configured or [""]  # 미설정이면 종전과 같이 빈 키로 1회 시도한다
     last_exc: KMAApiError | None = None
     for idx, key in enumerate(keys):
         try:
-            items = await _request_items_with_key(base_url, params, key)
+            out = await fetch(key)
         except KMAApiError as exc:
             last_exc = exc
             if idx + 1 < len(keys):
@@ -317,9 +328,43 @@ async def _request_items(base_url: str, params: dict) -> list[dict]:
                 )
             continue
         _record_key_result("ok", _key_label(key) if configured else None)
-        return items
+        return out
     _record_key_result("degraded" if configured else "unconfigured", None, last_exc)
     raise last_exc
+
+
+async def _request_text(base_url: str, params: dict) -> str:
+    """typ01 텍스트 응답 요청 — JSON 봉투가 없는 경로(일자료 kma_sfcdd.php)."""
+    return await _try_keys(lambda k: _request_text_with_key(base_url, params, k))
+
+
+async def _request_text_with_key(base_url: str, params: dict, auth_key: str) -> str:
+    """단일 키로 typ01 1회 요청. 타임아웃 10초, 실패 시 1회 재시도.
+
+    권한 없는 API는 **HTTP 403**으로 온다(2026-08-10 실측: 미승인 kma_sfcdd3.php).
+    raise_for_status가 잡아 KMAApiError로 바뀌므로 스페어 키 폴백이 인증 실패에서도
+    동작한다.
+    """
+    query = urlencode(params)
+    url = f"{base_url}?authKey={auth_key}&{query}"
+
+    last_exc: Exception | None = None
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        for attempt in range(2):
+            try:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                return resp.text
+            except httpx.HTTPError as exc:
+                last_exc = exc
+                logger.warning(
+                    "KMA(typ01) 요청 실패 (attempt %d): %s",
+                    attempt + 1,
+                    mask_service_key(exc),
+                )
+    raise KMAApiError(
+        f"KMA typ01 request failed after retry: {mask_service_key(last_exc)}"
+    )
 
 
 async def _request_items_with_key(base_url: str, params: dict, auth_key: str) -> list[dict]:
@@ -491,45 +536,54 @@ async def get_mid_forecast(region: str = DEFAULT_REGION, tm_fc: str | None = Non
     return items[0] if items else {}
 
 
-# ── ASOS 일자료 어댑터 (API허브 SfcMtlyInfoService/getDailyWthrData) ─────────
+# ── ASOS 일자료 어댑터 (API허브 typ01 kma_sfcdd.php) ─────────────────────────
 # 공공데이터포털 `AsosDalyInfoService`는 **기간**(startDt~endDt) 조회에 필드가
-# avgTa/maxTa/minTa/sumRn였다. API허브에는 그 서비스가 없고, 일자료는
-# `SfcMtlyInfoService/getDailyWthrData`가 **월**(year+month) 단위로 ta/ta_max/
-# ta_min/rn_day를 준다. 두 차이를 여기서 흡수해 **공개 시그니처와 반환 형태를
-# 종전 그대로 유지**한다 — duel_service·league.py는 무변경이다.
+# avgTa/maxTa/minTa/sumRn였다. API허브에는 그 서비스가 없다. 여기서 그 차이를
+# 흡수해 **공개 시그니처와 반환 형태를 종전 그대로 유지**한다 — duel_service·
+# league.py는 무변경이다.
 #
-# ⚠️ `SfcMtlyInfoService`는 이름 그대로 **월보(月報) 계열**이다. 당월 자료가 월
-# 마감 후에야 채워질 가능성이 있고, 그러면 매일 새벽 4시 "어제" 정산이 당월 내내
-# 빈손이 된다. 배포 전 **어제 날짜 1콜로 행이 오는지** 반드시 확인할 것.
-# 안 오면 폴백은 typ01 `kma_sfcdd3.php`(tm1~tm2 기간 조회 — 시그니처가 정확히
-# 일치하고 고정폭 텍스트 파서만 새로 필요)다. 교체 지점은 `_fetch_daily_obs` 하나.
+# ⚠️ **왜 openApi가 아니라 typ01인가** (2026-08-10 실측으로 확정):
+# API허브의 openApi 일자료 `SfcMtlyInfoService/getDailyWthrData`는 이름 그대로
+# **월보(月報)**라 당월을 주지 않는다 — 어제 날짜로 부르면
+# `resultCode=99 "발간되지 않은 기간입니다"`로 거절한다. 그런데 우리가 필요한 건
+# 전부 당월이다(대결 정산=어제, 리그 정산=지난주, 브리핑=최근 며칠). 그래서 월보를
+# 1차로 두는 폴백 사슬은 **매 호출 실패를 먼저 지불하는** 구조가 된다. 폴백이 아니라
+# **교체**인 이유다. typ01 `kma_sfcdd.php`는 같은 날짜로 어제 행을 정상 반환한다.
+#
+# typ01은 JSON이 아니라 **`#` 주석 + 콤마 구분 텍스트**이고 결측을 `-9`로 준다.
+# 그래서 `_request_items`(JSON 봉투)가 아니라 `_request_text`를 쓴다.
 
-# 우리 출력 필드 → API허브 응답 필드 (키 순서 = 종전 출력 순서)
-ASOS_FIELD_MAP = {"avgTa": "ta", "maxTa": "ta_max", "minTa": "ta_min", "sumRn": "rn_day"}
+# typ01 kma_sfcdd.php 컬럼 인덱스 (0-based).
+# 응답 헤더의 1-based 문서 번호 1·11·12·14·39에서 유도했고 2026-08-10 서울(108)
+# 실측으로 확인했다: `20260809,108,…,27.6,31.6,1354,24.5,…` → 평균27.6 최고31.6 최저24.5.
+ASOS_COL = {"tm": 0, "avgTa": 10, "maxTa": 11, "minTa": 13, "sumRn": 38}
+ASOS_MIN_COLS = 57  # 실측 컬럼 수. 미달 행은 버린다 — 어긋난 인덱스가 결측보다 나쁘다.
+
+# typ01 결측 표기. **문자열로 판정한다** — float 변환 후 비교는 표기 변형에 취약하다.
+# 실측: 무강수일의 `RN_DAY=-9.0`. 이걸 놓치면 강수 -9mm·기온 -9℃가 정산에 들어간다.
+ASOS_MISSING_RE = re.compile(r"^-9(\.0+)?$")
 
 
-def asos_months(start_dt: str, end_dt: str) -> list[tuple[str, str]]:
-    """'YYYYMMDD' 기간을 (year, month) 목록으로 편다 — 월 경계를 걸치면 2개 이상.
+def asos_days(start_dt: str, end_dt: str) -> list[str]:
+    """'YYYYMMDD' 기간을 날짜 목록으로 편다 — typ01은 하루 단위 조회(`tm`)다.
 
-    주간 리그 정산이 월말~월초에 걸리는 경우가 실제로 있다(월요일 정산 × 지난주).
+    주간 리그 정산이 7콜이 되지만 계정 한도가 20,000콜/일이라 무시할 수 있다.
     """
     start = datetime.strptime(start_dt, "%Y%m%d").date()
     end = datetime.strptime(end_dt, "%Y%m%d").date()
     if end < start:
         return []
-    out: list[tuple[str, str]] = []
-    year, month = start.year, start.month
-    while (year, month) <= (end.year, end.month):
-        out.append((f"{year:04d}", f"{month:02d}"))
-        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
-    return out
+    return [
+        (start + timedelta(days=i)).strftime("%Y%m%d")
+        for i in range((end - start).days + 1)
+    ]
 
 
 def normalize_asos_tm(raw: object) -> str | None:
     """관측일자를 'YYYY-MM-DD'로 통일. 'YYYYMMDD'·'YYYY-MM-DD' 둘 다 받는다.
 
     종전 출력이 'YYYY-MM-DD'였고 duel_service가 그 형태로 오늘/과거를 가른다 —
-    API허브 표기가 무엇이든 이 자리에서 흡수해야 정산이 조용히 어긋나지 않는다.
+    표기가 무엇이든 이 자리에서 흡수해야 정산이 조용히 어긋나지 않는다.
     """
     digits = re.sub(r"\D", "", str(raw or ""))
     if len(digits) < 8:
@@ -537,21 +591,59 @@ def normalize_asos_tm(raw: object) -> str | None:
     return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
 
 
-def asos_row(item: dict) -> dict:
-    """API허브 일자료 1행 → 종전 출력 형태(tm·avgTa·maxTa·minTa·sumRn)."""
-    row = {"tm": normalize_asos_tm(item.get("tm"))}
-    for ours, theirs in ASOS_FIELD_MAP.items():
-        row[ours] = parse_kma_value(item.get(theirs))
-    return row
+def asos_value(raw: object) -> float:
+    """typ01 관측값 1개 → 숫자. `-9` 계열 결측은 기존 결측 표현(0.0)으로 흡수한다.
+
+    None을 새로 도입하지 않는 이유: duel_service가 이 값들로 산술을 한다. 종전에도
+    결측은 0.0이었으므로(parse_kma_value(None)) 동작을 바꾸지 않는 쪽을 고른다.
+    """
+    text = str(raw or "").strip()
+    if ASOS_MISSING_RE.match(text):
+        return 0.0
+    return parse_kma_value(text)
+
+
+def parse_asos_text(text: str) -> list[dict]:
+    """typ01 응답 텍스트 → 행 목록(tm·avgTa·maxTa·minTa·sumRn).
+
+    `#`로 시작하는 주석·헤더 줄은 버리고, 컬럼 수가 모자란 행도 버린다 —
+    조용히 어긋난 인덱스로 엉뚱한 값을 정산에 넣는 것이 최악이다.
+    """
+    rows: list[dict] = []
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        fields = [f.strip() for f in line.split(",")]
+        if len(fields) < ASOS_MIN_COLS:
+            logger.warning(
+                "ASOS 행 컬럼 부족 — 버림 (%d < %d)", len(fields), ASOS_MIN_COLS
+            )
+            continue
+        tm = normalize_asos_tm(fields[ASOS_COL["tm"]])
+        if not tm:
+            continue
+        rows.append({
+            "tm": tm,
+            "avgTa": asos_value(fields[ASOS_COL["avgTa"]]),
+            "maxTa": asos_value(fields[ASOS_COL["maxTa"]]),
+            "minTa": asos_value(fields[ASOS_COL["minTa"]]),
+            "sumRn": asos_value(fields[ASOS_COL["sumRn"]]),
+        })
+    return rows
 
 
 def asos_in_range(rows: list[dict], start_dt: str, end_dt: str) -> list[dict]:
-    """월 단위로 받아온 행에서 [start_dt, end_dt]만 남기고 날짜순 정렬."""
+    """[start_dt, end_dt]만 남기고 날짜순 정렬 (중복 날짜는 첫 행 유지)."""
     lo, hi = re.sub(r"\D", "", start_dt), re.sub(r"\D", "", end_dt)
-    kept = [
-        r for r in rows
-        if r.get("tm") and lo <= re.sub(r"\D", "", r["tm"]) <= hi
-    ]
+    seen: set[str] = set()
+    kept = []
+    for r in rows:
+        tm = r.get("tm")
+        if not tm or not (lo <= re.sub(r"\D", "", tm) <= hi) or tm in seen:
+            continue
+        seen.add(tm)
+        kept.append(r)
     return sorted(kept, key=lambda r: r["tm"])
 
 
@@ -564,25 +656,24 @@ def asos_fail_key(start_dt: str, end_dt: str, region: str) -> str:
 
 
 async def _fetch_daily_obs(start_dt: str, end_dt: str, stn_id: str) -> list[dict]:
-    """일자료 원본 행을 긁어온다 — **출처 교체 지점**(위 어댑터 주석의 ⚠️ 참조).
+    """일자료 행을 긁어온다 — typ01 `kma_sfcdd.php`, **하루 1콜**.
 
-    월 단위 API라 기간이 월 경계를 걸치면 그만큼 호출이 나뉜다(주간 정산 최대 2콜).
+    한 날짜라도 실패하면 전체가 KMAApiError로 올라간다(부분 결과로 정산하면 승패가
+    조용히 틀린다). 주간 정산이 7콜이 되지만 계정 한도 20,000콜/일 대비 무시 가능하다.
     """
-    items: list[dict] = []
-    for year, month in asos_months(start_dt, end_dt):
-        items += await _request_items(settings.KMA_ASOS_DALY_URL, {
-            "pageNo": 1,
-            "numOfRows": 31,
-            "dataType": "JSON",
-            "year": year,
-            "month": month,
-            "station": stn_id,
+    rows: list[dict] = []
+    for day in asos_days(start_dt, end_dt):
+        text = await _request_text(settings.KMA_ASOS_DALY_URL, {
+            "tm": day,
+            "stn": stn_id,
+            "help": 0,  # 주석 블록 축소 — 파서는 '#' 줄을 어차피 버린다
         })
-    return items
+        rows += parse_asos_text(text)
+    return rows
 
 
 async def get_past_observation(start_dt: str, end_dt: str, region: str = DEFAULT_REGION) -> list[dict]:
-    """과거관측 일자료(API허브 getDailyWthrData). 일별 관측값 리스트.
+    """과거관측 일자료(API허브 typ01 kma_sfcdd.php). 일별 관측값 리스트.
 
     각 항목: {'tm': 'YYYY-MM-DD', 'avgTa': float, 'maxTa': float, 'minTa': float, 'sumRn': float}
 
@@ -604,13 +695,12 @@ async def get_past_observation(start_dt: str, end_dt: str, region: str = DEFAULT
         raise KMAApiError("ASOS 최근 실패 마커 활성 — 재호출 대기 중")
 
     try:
-        items = await _fetch_daily_obs(start_dt, end_dt, stn_id)
+        rows = await _fetch_daily_obs(start_dt, end_dt, stn_id)
     except KMAApiError:
         await redis.setex(asos_fail_key(start_dt, end_dt, region), WEATHER_FAIL_TTL_SEC, "1")
         raise
 
-    # 월 단위로 받아왔으므로 요청 구간 밖 행이 섞여 있다 — 잘라내고 날짜순 정렬.
-    result = asos_in_range([asos_row(item) for item in items], start_dt, end_dt)
+    result = asos_in_range(rows, start_dt, end_dt)
     await redis.setex(
         asos_cache_key(start_dt, end_dt, region),
         WEATHER_CACHE_TTL_SEC,

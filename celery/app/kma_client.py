@@ -13,7 +13,7 @@ docs/specs/06_kma_api_parsing_spec.md 파싱 규칙 준수:
 """
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
 import httpx
@@ -93,13 +93,13 @@ def auth_keys() -> list[str]:
     return [k for k in (config.KMA_API_KEY, config.KMA_API_KEY_SPARE) if k.strip()]
 
 
-def _request_items(base_url: str, params: dict) -> list[dict]:
-    """공통 요청 헬퍼 — 키를 순서대로 시도한다(주키 실패 시 스페어)."""
+def _try_keys(fetch):
+    """키를 순서대로 시도한다(주키 실패 시 스페어). JSON·텍스트 경로가 공유한다."""
     keys = auth_keys() or [""]
     last_exc = None
     for idx, key in enumerate(keys):
         try:
-            return _request_items_with_key(base_url, params, key)
+            return fetch(key)
         except KMAApiError as exc:
             last_exc = exc
             if idx + 1 < len(keys):
@@ -107,6 +107,37 @@ def _request_items(base_url: str, params: dict) -> list[dict]:
                     "KMA %d번 키 실패 — 다음 키로 재시도: %s", idx + 1, mask_service_key(exc)
                 )
     raise last_exc
+
+
+def _request_items(base_url: str, params: dict) -> list[dict]:
+    """공통 요청 헬퍼(JSON 봉투) — 키를 순서대로 시도한다."""
+    return _try_keys(lambda k: _request_items_with_key(base_url, params, k))
+
+
+def _request_text(base_url: str, params: dict) -> str:
+    """typ01 텍스트 응답 요청 — JSON 봉투가 없는 경로(일자료 kma_sfcdd.php)."""
+    return _try_keys(lambda k: _request_text_with_key(base_url, params, k))
+
+
+def _request_text_with_key(base_url: str, params: dict, auth_key: str) -> str:
+    """단일 키로 typ01 1회 요청. 권한 없는 API는 HTTP 403으로 온다(실측)."""
+    query = urlencode(params)
+    url = f"{base_url}?authKey={auth_key}&{query}"
+
+    last_exc = None
+    for attempt in range(2):
+        try:
+            resp = httpx.get(url, timeout=10.0)
+            resp.raise_for_status()
+            return resp.text
+        except httpx.HTTPError as exc:
+            last_exc = exc
+            logger.warning(
+                "KMA(typ01) 요청 실패 (attempt %d): %s", attempt + 1, mask_service_key(exc)
+            )
+    raise KMAApiError(
+        f"KMA typ01 request failed after retry: {mask_service_key(last_exc)}"
+    )
 
 
 def _request_items_with_key(base_url: str, params: dict, auth_key: str) -> list[dict]:
@@ -180,28 +211,29 @@ def get_short_forecast(region: str, base_date: str, base_time: str) -> dict:
     return {"region": region, "forecasts": forecasts}
 
 
-# ── ASOS 일자료 어댑터 (API허브 SfcMtlyInfoService/getDailyWthrData) ─────────
+# ── ASOS 일자료 어댑터 (API허브 typ01 kma_sfcdd.php) ─────────────────────────
 # backend/app/services/weather_api.py의 같은 이름 함수들과 **동작이 같아야 한다**
 # (교차 빌드 컨텍스트 — import로 묶을 수 없다). 드리프트는 backend
 # tests/test_kma_asos_adapter.py가 두 구현을 함께 실행해 감시한다.
-# 배경·폴백 경로(typ01 kma_sfcdd3.php)는 backend 쪽 주석이 소유한다.
+# **왜 openApi가 아니라 typ01인가**(월보라 당월 미발간)는 backend 주석이 소유한다.
 
-# 우리 출력 필드 → API허브 응답 필드 (키 순서 = 종전 출력 순서)
-ASOS_FIELD_MAP = {"avgTa": "ta", "maxTa": "ta_max", "minTa": "ta_min", "sumRn": "rn_day"}
+# typ01 kma_sfcdd.php 컬럼 인덱스 (0-based) — 2026-08-10 서울(108) 실측.
+ASOS_COL = {"tm": 0, "avgTa": 10, "maxTa": 11, "minTa": 13, "sumRn": 38}
+ASOS_MIN_COLS = 57
+# typ01 결측 표기(`-9`/`-9.0`/`-9.00`). 문자열로 판정한다 — 놓치면 -9℃·-9mm가 정산에 들어간다.
+ASOS_MISSING_RE = re.compile(r"^-9(\.0+)?$")
 
 
-def asos_months(start_dt: str, end_dt: str) -> list[tuple[str, str]]:
-    """'YYYYMMDD' 기간을 (year, month) 목록으로 편다 — 월 경계를 걸치면 2개 이상."""
+def asos_days(start_dt: str, end_dt: str) -> list[str]:
+    """'YYYYMMDD' 기간을 날짜 목록으로 편다 — typ01은 하루 단위 조회(`tm`)다."""
     start = datetime.strptime(start_dt, "%Y%m%d").date()
     end = datetime.strptime(end_dt, "%Y%m%d").date()
     if end < start:
         return []
-    out: list[tuple[str, str]] = []
-    year, month = start.year, start.month
-    while (year, month) <= (end.year, end.month):
-        out.append((f"{year:04d}", f"{month:02d}"))
-        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
-    return out
+    return [
+        (start + timedelta(days=i)).strftime("%Y%m%d")
+        for i in range((end - start).days + 1)
+    ]
 
 
 def normalize_asos_tm(raw: object) -> str | None:
@@ -212,44 +244,71 @@ def normalize_asos_tm(raw: object) -> str | None:
     return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
 
 
-def asos_row(item: dict) -> dict:
-    """API허브 일자료 1행 → 종전 출력 형태(tm·avgTa·maxTa·minTa·sumRn)."""
-    row = {"tm": normalize_asos_tm(item.get("tm"))}
-    for ours, theirs in ASOS_FIELD_MAP.items():
-        row[ours] = parse_kma_value(item.get(theirs))
-    return row
+def asos_value(raw: object) -> float:
+    """typ01 관측값 1개 → 숫자. `-9` 계열 결측은 기존 결측 표현(0.0)으로 흡수."""
+    text = str(raw or "").strip()
+    if ASOS_MISSING_RE.match(text):
+        return 0.0
+    return parse_kma_value(text)
+
+
+def parse_asos_text(text: str) -> list[dict]:
+    """typ01 응답 텍스트 → 행 목록. '#' 주석과 컬럼 부족 행은 버린다."""
+    rows: list[dict] = []
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        fields = [f.strip() for f in line.split(",")]
+        if len(fields) < ASOS_MIN_COLS:
+            logger.warning(
+                "ASOS 행 컬럼 부족 — 버림 (%d < %d)", len(fields), ASOS_MIN_COLS
+            )
+            continue
+        tm = normalize_asos_tm(fields[ASOS_COL["tm"]])
+        if not tm:
+            continue
+        rows.append({
+            "tm": tm,
+            "avgTa": asos_value(fields[ASOS_COL["avgTa"]]),
+            "maxTa": asos_value(fields[ASOS_COL["maxTa"]]),
+            "minTa": asos_value(fields[ASOS_COL["minTa"]]),
+            "sumRn": asos_value(fields[ASOS_COL["sumRn"]]),
+        })
+    return rows
 
 
 def asos_in_range(rows: list[dict], start_dt: str, end_dt: str) -> list[dict]:
-    """월 단위로 받아온 행에서 [start_dt, end_dt]만 남기고 날짜순 정렬."""
+    """[start_dt, end_dt]만 남기고 날짜순 정렬 (중복 날짜는 첫 행 유지)."""
     lo, hi = re.sub(r"\D", "", start_dt), re.sub(r"\D", "", end_dt)
-    kept = [
-        r for r in rows
-        if r.get("tm") and lo <= re.sub(r"\D", "", r["tm"]) <= hi
-    ]
+    seen: set[str] = set()
+    kept = []
+    for r in rows:
+        tm = r.get("tm")
+        if not tm or not (lo <= re.sub(r"\D", "", tm) <= hi) or tm in seen:
+            continue
+        seen.add(tm)
+        kept.append(r)
     return sorted(kept, key=lambda r: r["tm"])
 
 
 def _fetch_daily_obs(start_dt: str, end_dt: str, stn_id: str) -> list[dict]:
-    """일자료 원본 행을 긁어온다 — **출처 교체 지점**(backend 주석 참조)."""
-    items: list[dict] = []
-    for year, month in asos_months(start_dt, end_dt):
-        items += _request_items(config.KMA_ASOS_DALY_URL, {
-            "pageNo": 1,
-            "numOfRows": 31,
-            "dataType": "JSON",
-            "year": year,
-            "month": month,
-            "station": stn_id,
+    """일자료 행을 긁어온다 — typ01 `kma_sfcdd.php`, 하루 1콜."""
+    rows: list[dict] = []
+    for day in asos_days(start_dt, end_dt):
+        text = _request_text(config.KMA_ASOS_DALY_URL, {
+            "tm": day,
+            "stn": stn_id,
+            "help": 0,
         })
-    return items
+        rows += parse_asos_text(text)
+    return rows
 
 
 def get_past_observation(start_dt: str, end_dt: str, stn_id: str) -> list[dict]:
-    """과거관측 일자료(API허브 getDailyWthrData). 일별 관측값 리스트.
+    """과거관측 일자료(API허브 typ01 kma_sfcdd.php). 일별 관측값 리스트.
 
     각 항목: {'tm': 'YYYY-MM-DD', 'avgTa': float, 'maxTa': float, 'sumRn': float, ...}
-    월 단위 API를 기간 조회처럼 보이게 감싼다 — 리그 정산(league.py)은 무변경.
+    하루 단위 API를 기간 조회처럼 감싼다 — 리그 정산(league.py)은 무변경.
     """
-    items = _fetch_daily_obs(start_dt, end_dt, stn_id)
-    return asos_in_range([asos_row(item) for item in items], start_dt, end_dt)
+    return asos_in_range(_fetch_daily_obs(start_dt, end_dt, stn_id), start_dt, end_dt)
