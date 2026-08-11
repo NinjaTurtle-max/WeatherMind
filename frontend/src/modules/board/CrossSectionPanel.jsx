@@ -31,6 +31,11 @@ import { anim, usePrefersReducedMotion } from './realisticEffects';
 import { frontCurveGeometry, taperedArrowPath, FrontTick } from './mapInfographic';
 import { supportsWebGL2 } from './webgl/crossSection/support';
 import { useT } from '../../i18n';
+// STORYBOARDS는 컴포넌트 밖 데이터라 훅(useT)을 못 쓴다 — core의 순수 함수를 쓴다.
+import { translate, translateList, getCurrentLocale } from '../../i18n/core.js';
+
+const tx = (key) => translate(getCurrentLocale(), key);
+const txList = (key) => translateList(getCurrentLocale(), key);
 
 const CrossSectionGL = lazy(() => import('./webgl/crossSection/CrossSectionGL'));
 
@@ -824,157 +829,45 @@ function FloodRiskScene({ step, animate }) {
 // steps.length를 SCENES 단계와 정합 검사한다. 장면 내 CSText 라벨·scenes.js 라벨
 // 스프라이트와 한 묶음(rule_id 파생 과학 콘텐츠 클러스터)이라 부분 번역 시 SVG↔GL
 // 표기가 어긋난다 — 로케일화는 테스트가 리소스를 읽도록 바뀌는 후속 웨이브에서.
-export const STORYBOARDS = {
-  cold_front_shower: {
-    title: '한랭전선 — 좁고 강한 소나기',
-    Scene: ColdFrontScene,
-    steps: [
-      '차가운 공기가 쐐기처럼 따뜻한 공기 밑을 빠르게 파고들어요.',
-      '밀려난 따뜻하고 습한 공기가 가파른 전선면을 따라 급하게 상승해요.',
-      '강한 상승기류 속에서 수증기가 응결해 적란운이 수직으로 발달해요.',
-      '전선 부근 좁은 지역에 강한 소나기가 짧게 쏟아지고 번개가 치기도 해요.',
-    ],
-  },
-  stationary_front_monsoon: {
-    title: '정체전선 — 여러 날 이어지는 장맛비',
-    Scene: MonsoonScene,
-    steps: [
-      '세력이 비슷한 찬 공기와 따뜻한 공기가 한자리에서 맞서요.',
-      '어느 쪽도 밀리지 않아 전선이 한곳에 오래 머물러요 — 정체전선.',
-      '남쪽에서 습한 공기가 계속 공급되어 두꺼운 비층운 띠가 만들어져요.',
-      '같은 지역에 장마처럼 여러 날 지속되는 비가 내려요.',
-    ],
-  },
-  warm_front_steady_rain: {
-    title: '온난전선 — 넓은 지역의 약한 비',
-    Scene: WarmFrontScene,
-    steps: [
-      '따뜻한 공기가 물러나는 찬 공기 쪽으로 다가와요.',
-      '따뜻한 공기가 찬 공기 위로 완만한 전선면을 따라 타고 올라요(활승).',
-      '천천히 식으며 넓은 지역에 층 모양의 난층운이 만들어져요.',
-      '넓은 지역에 약한 비가 오랫동안 잔잔하게 내려요.',
-    ],
-  },
-  siberian_snow: {
-    title: '시베리아 기단 변질 — 서해안 폭설',
-    Scene: SiberianSnowScene,
-    steps: [
-      '차고 건조한 시베리아 기단(cP)이 남쪽으로 이동해요.',
-      '따뜻한 서해를 건너는 동안 바다에서 열과 수증기를 공급받아요.',
-      '기단 아랫부분이 변질되어 눈구름이 줄지어 발달해요.',
-      '눈구름이 도착하는 서해안 지역에 많은 눈이 내려요.',
-    ],
-  },
-  convective_shower: {
-    title: '대류 — 한여름 오후 소나기',
-    Scene: ConvectiveScene,
-    steps: [
-      '한여름 강한 햇볕이 지면을 뜨겁게 데워요.',
-      '데워진 습한 공기가 가벼워져 활발히 상승해요 — 대류.',
-      '상승한 공기가 식으며 수증기가 응결해 적란운이 키 크게 발달해요.',
-      '전선이 없어도 오후 한때 좁은 지역에 소나기가 쏟아져요.',
-    ],
-  },
-  radiation_fog: {
-    title: '복사안개 — 맑은 새벽의 안개',
-    Scene: RadiationFogScene,
-    steps: [
-      '구름 없는 맑은 밤, 지표가 열을 내보내며 빠르게 식어요(복사냉각).',
-      '차가워진 지표에 닿은 공기가 아래층부터 함께 식어요.',
-      '식은 공기 속 수증기가 응결해 지표를 덮는 안개층이 만들어져요.',
-      '해가 뜨는 이른 아침까지 짙은 안개가 낮게 깔려 있어요.',
-    ],
-  },
-  north_pacific_heatwave: {
-    title: '북태평양 기단 — 한여름 폭염',
-    Scene: HeatwaveScene,
-    steps: [
-      '덥고 습한 북태평양 기단(mT)이 우리나라에 넓게 자리 잡아요.',
-      '맑은 하늘 위로 강한 햇볕이 더해져 지면이 계속 가열돼요.',
-      '더운 공기가 빠져나가지 못하고 쌓여 기온이 크게 올라요.',
-      '한여름 무더위 — 폭염이 이어져요.',
-    ],
-  },
-  siberian_clear: {
-    title: '시베리아 기단 — 춥고 맑은 겨울',
-    Scene: SiberianClearScene,
-    steps: [
-      '차고 건조한 시베리아 기단(cP)이 자리 잡아요.',
-      '공기가 건조해 수증기가 부족하니 구름이 잘 만들어지지 않아요.',
-      '구름 없는 하늘 — 춥지만 맑은 겨울 날씨가 돼요.',
-    ],
-  },
-  okhotsk_sea_fog: {
-    title: '오호츠크해 기단 — 찬 바다가 만드는 안개',
-    Scene: OkhotskSeaFogScene,
-    steps: [
-      '차고 습한 오호츠크해 기단이 동해 쪽으로 밀려와요.',
-      '습한 공기가 찬 바다 위를 지나며 아래층부터 먼저 식어요.',
-      '식은 아래층에서 수증기가 응결해 바다 위에 안개가 깔려요.',
-      '안개와 낮은 구름이 해안까지 덮어 초여름 동해안이 서늘하고 흐려져요.',
-    ],
-  },
-  okhotsk_foehn_clear: {
-    title: '높새바람 — 산을 넘어와 맑아진 하늘',
-    Scene: OkhotskFoehnScene,
-    steps: [
-      '동쪽에서 온 차고 습한 공기가 산맥에 부딪혀 비탈을 타고 올라요.',
-      '올라가며 식은 공기가 산 동쪽에 비를 뿌리고 물기를 거의 다 잃어요.',
-      '물기를 잃은 공기가 산을 넘어 내려오면서 눌려 데워져요.',
-      '산맥 서쪽에는 메마르고 따뜻한 바람이 불어 구름 없이 맑아요 — 높새바람.',
-    ],
-  },
-  yangtze_mild_clear: {
-    title: '양쯔강 기단 — 포근하고 맑은 봄가을',
-    Scene: YangtzeMildClearScene,
-    steps: [
-      '따뜻하고 건조한 양쯔강 기단이 봄가을에 우리나라 쪽으로 이동해요.',
-      '바다를 길게 거치지 않아 공기에 수증기가 넉넉히 실리지 않아요.',
-      '응결할 수증기가 부족해 구름이 자라지 못해요.',
-      '포근하고 맑은 봄가을 날씨가 이어져요.',
-    ],
-  },
-  yangtze_morning_fog: {
-    title: '양쯔강 기단 — 강가의 새벽 안개',
-    Scene: YangtzeMorningFogScene,
-    steps: [
-      '따뜻하고 건조한 공기 덩어리가 덮인 밤은 하늘이 맑고 바람도 약해요.',
-      '하늘을 가릴 구름이 없어 땅이 열을 그대로 내보내며 빠르게 식어요.',
-      '강가나 분지처럼 물기가 모인 곳에서 식은 공기 속 수증기가 응결해요.',
-      '이른 아침 낮은 안개가 깔렸다가, 해가 뜨고 데워지면 곧 걷혀요.',
-    ],
-  },
-  dry_convection_clear: {
-    title: '마른 대류 — 구름 없는 맑은 하늘',
-    Scene: DryConvectionClearScene,
-    steps: [
-      '강한 햇볕이 지면을 데우고, 데워진 공기가 가벼워져 위로 올라가요.',
-      '올라간 공기는 부풀며 식지만 그 안에 수증기가 거의 없어요.',
-      '물방울로 맺힐 수증기가 없으니 구름이 만들어지지 않아요.',
-      '공기가 활발히 오르내려도 하늘은 맑게 남아요.',
-    ],
-  },
-  wildfire_risk_dry_gale: {
-    title: '건조 + 강풍 — 산불이 번지기 쉬운 날',
-    Scene: WildfireRiskScene,
-    steps: [
-      '공기가 메마르면 낙엽과 잔가지에서 물기가 빠져나가요.',
-      '마른 땅 위로 센 바람이 지나가요.',
-      '바람은 불씨를 멀리 실어 나르고 산소도 계속 대 줘요.',
-      '구름 한 점 없이 맑지만, 불이 붙으면 가장 크게 번지는 날씨예요.',
-    ],
-  },
-  flood_risk_saturated_inflow: {
-    title: '포화 + 수증기 유입 — 물에 잠기는 날',
-    Scene: FloodRiskScene,
-    steps: [
-      '센 바람이 바다에서 수증기를 쉬지 않고 실어 와요.',
-      '비를 뿌리고 흩어진 자리를 다음 비구름이 곧 채워요.',
-      '그래서 비가 그치지 않고 같은 곳에 계속 내려요.',
-      '땅이 스며들 수 있는 양을 넘겨 물이 고이기 시작해요.',
-    ],
-  },
+export const SCENE_BY_RULE = {
+  cold_front_shower: ColdFrontScene,
+  stationary_front_monsoon: MonsoonScene,
+  warm_front_steady_rain: WarmFrontScene,
+  siberian_snow: SiberianSnowScene,
+  convective_shower: ConvectiveScene,
+  radiation_fog: RadiationFogScene,
+  north_pacific_heatwave: HeatwaveScene,
+  siberian_clear: SiberianClearScene,
+  okhotsk_sea_fog: OkhotskSeaFogScene,
+  okhotsk_foehn_clear: OkhotskFoehnScene,
+  yangtze_mild_clear: YangtzeMildClearScene,
+  yangtze_morning_fog: YangtzeMorningFogScene,
+  dry_convection_clear: DryConvectionClearScene,
+  wildfire_risk_dry_gale: WildfireRiskScene,
+  flood_risk_saturated_inflow: FloodRiskScene,
 };
+
+/**
+ * rule_id → {title, Scene, steps} — **title·steps는 리소스 파생**(MT-28).
+ *
+ * 인덱싱 형태(`STORYBOARDS[ruleId]?.steps`)와 미지 키 undefined 폴백을 그대로
+ * 유지한다. 접근 시점의 로케일로 풀리므로 로케일 전환이 즉시 반영되고, ko 값이
+ * 원문과 바이트 동일이라 한국어를 단정하는 스모크가 그대로 통과한다.
+ *
+ * `steps` 길이의 소유자는 **리소스**다 — 코드가 길이를 따로 알면 리소스와 어긋난
+ * 순간 조용히 잘린 스토리보드가 나온다(그래서 translateList를 썼다).
+ */
+export const STORYBOARDS = {};
+for (const [ruleId, Scene] of Object.entries(SCENE_BY_RULE)) {
+  Object.defineProperty(STORYBOARDS, ruleId, {
+    enumerable: true,
+    get: () => ({
+      title: tx(`board.panel.story.${ruleId}.title`),
+      Scene,
+      steps: txList(`board.panel.story.${ruleId}.steps`),
+    }),
+  });
+}
 
 // ── 패널 본체 ───────────────────────────────────────────────────────────────
 /**

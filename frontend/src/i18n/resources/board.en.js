@@ -147,6 +147,145 @@ export default {
       submit: 'Submit',
     },
     panel: {
+      // MT-28: cross-section storyboards (see CrossSectionPanel STORYBOARDS).
+      // Step counts must match ko — crossSectionWebgl.contract checks steps.length
+      // against the WebGL SCENES stage count.
+      story: {
+        cold_front_shower: {
+          title: 'Cold front — a narrow, intense shower',
+          steps: [
+            'Cold air drives in fast beneath the warm air like a wedge.',
+            'The displaced warm, humid air is forced steeply up the frontal surface.',
+            'Inside the strong updraft, vapour condenses and cumulonimbus towers upward.',
+            'A brief, heavy shower falls over a narrow band near the front, sometimes with lightning.',
+          ],
+        },
+        stationary_front_monsoon: {
+          title: 'Stationary front — days of monsoon rain',
+          steps: [
+            'Cold and warm air of similar strength meet and hold their ground.',
+            'Neither gives way, so the front lingers in one place — a stationary front.',
+            'Humid air keeps feeding in from the south, building a thick nimbostratus band.',
+            'Rain falls over the same region for days, as in the monsoon season.',
+          ],
+        },
+        warm_front_steady_rain: {
+          title: 'Warm front — light rain over a wide area',
+          steps: [
+            'Warm air advances toward the retreating cold air.',
+            'The warm air glides up over the cold air along a gentle frontal surface.',
+            'Cooling slowly, it forms a layered nimbostratus sheet across a wide area.',
+            'Light rain falls steadily over that wide area for a long time.',
+          ],
+        },
+        siberian_snow: {
+          title: 'Siberian air mass transformed — heavy west-coast snow',
+          steps: [
+            'The cold, dry Siberian air mass (cP) moves southward.',
+            'Crossing the warm Yellow Sea, it draws heat and vapour from the water.',
+            'Its lower layer is transformed and snow clouds develop in rows.',
+            'Heavy snow falls where those snow clouds reach the west coast.',
+          ],
+        },
+        convective_shower: {
+          title: 'Convection — a midsummer afternoon shower',
+          steps: [
+            'Strong midsummer sunlight heats the ground.',
+            'The warmed, humid air becomes lighter and rises vigorously — convection.',
+            'As it cools, vapour condenses and cumulonimbus grows tall.',
+            'Even with no front, a shower pours over a small area for part of the afternoon.',
+          ],
+        },
+        radiation_fog: {
+          title: 'Radiation fog — mist on a clear dawn',
+          steps: [
+            'On a clear, cloudless night the ground radiates heat away and cools quickly.',
+            'Air touching the chilled ground cools with it, from the bottom up.',
+            'Vapour in that cooled air condenses into a fog layer blanketing the surface.',
+            'Dense fog lies low until the early morning sunrise.',
+          ],
+        },
+        north_pacific_heatwave: {
+          title: 'North Pacific air mass — midsummer heat wave',
+          steps: [
+            'The hot, humid North Pacific air mass (mT) settles broadly over the country.',
+            'Strong sunlight through the clear sky keeps heating the surface.',
+            'Hot air cannot escape and builds up, so temperatures climb sharply.',
+            'Midsummer swelter — the heat wave persists.',
+          ],
+        },
+        siberian_clear: {
+          title: 'Siberian air mass — a cold, clear winter',
+          steps: [
+            'The cold, dry Siberian air mass (cP) settles in.',
+            'The air is dry and short of vapour, so clouds barely form.',
+            'A cloudless sky — cold but clear winter weather.',
+          ],
+        },
+        okhotsk_sea_fog: {
+          title: 'Okhotsk air mass — fog born of a cold sea',
+          steps: [
+            'The cold, humid Okhotsk air mass pushes toward the East Sea.',
+            'Passing over the cold water, the humid air cools from its lowest layer first.',
+            'Vapour condenses in that cooled layer and fog spreads over the sea.',
+            'Fog and low cloud reach the shore, leaving the early-summer east coast cool and overcast.',
+          ],
+        },
+        okhotsk_foehn_clear: {
+          title: 'Foehn wind — a sky cleared by crossing the mountains',
+          steps: [
+            'Cold, humid air from the east meets the range and climbs the slope.',
+            'Cooling as it rises, it drops rain on the eastern side and loses nearly all its moisture.',
+            'The dried air crosses the ridge and warms as it is compressed on the way down.',
+            'West of the range a dry, warm wind blows under a cloudless sky — the foehn.',
+          ],
+        },
+        yangtze_mild_clear: {
+          title: 'Yangtze air mass — mild, clear spring and autumn',
+          steps: [
+            'The warm, dry Yangtze air mass moves our way in spring and autumn.',
+            'It does not travel far over sea, so it carries little vapour.',
+            'With too little vapour to condense, clouds cannot grow.',
+            'Mild, clear spring and autumn weather continues.',
+          ],
+        },
+        yangtze_morning_fog: {
+          title: 'Yangtze air mass — dawn fog by the river',
+          steps: [
+            'Under a blanket of warm, dry air the night sky is clear and the wind light.',
+            'With no cloud to cover it, the ground radiates heat away and cools quickly.',
+            'Where moisture gathers — by rivers or in basins — vapour in the cooled air condenses.',
+            'Low fog settles at dawn, then lifts soon after the sun warms the ground.',
+          ],
+        },
+        dry_convection_clear: {
+          title: 'Dry convection — a cloudless clear sky',
+          steps: [
+            'Strong sunlight heats the ground, and the warmed air lightens and rises.',
+            'The rising air expands and cools, but holds almost no vapour.',
+            'With no vapour to condense into droplets, no cloud forms.',
+            'The air churns up and down, yet the sky stays clear.',
+          ],
+        },
+        wildfire_risk_dry_gale: {
+          title: 'Dry air + gale — a day wildfire spreads easily',
+          steps: [
+            'When the air is parched, moisture drains out of fallen leaves and twigs.',
+            'A strong wind sweeps across the dry ground.',
+            'The wind carries embers far and keeps feeding them oxygen.',
+            'Not a cloud in the sky — yet the weather in which fire spreads the fastest.',
+          ],
+        },
+        flood_risk_saturated_inflow: {
+          title: 'Saturation + vapour inflow — a day of flooding',
+          steps: [
+            'A strong wind carries vapour in from the sea without pause.',
+            'As soon as one rain band spends itself, the next fills its place.',
+            'So the rain never stops and keeps falling on the same spot.',
+            'It passes what the ground can absorb, and water begins to pool.',
+          ],
+        },
+      },
       badgeConfirmed: '✓ Server verdict',
       badgePreview: 'Preview',
       badgeStatic: 'Static view',
