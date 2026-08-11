@@ -82,7 +82,12 @@ class TestSeedSchema:
         # 호출 대체). ordering이 4건인 것은 정규화 정답이 "0,1,2,3(,4)" 뿐이라
         # **태그당 패턴 수만큼만 가능**하기 때문이다 — phase_change는 세 패턴이
         # 이미 포화라 slider로 대체했다(CO-C5의 ordering 상한과 같은 계열).
-        assert len(SEED_ITEMS) == 284
+        # R13-02 T2 저작 웨이브 1(2026-08-10): +56 = 340. 6 → 10단계 확장 직후
+        # 하단(kl 1~3) 분이고, 재분류가 드러낸 **빈 칸 10개**를 먼저 메웠다.
+        # ⚠️ CO-C5(ordering 상한)는 같은 날 해소됐다 — `answer_signature`가 ordering에
+        # 항목 내용을, slider에 측정 축을 함께 넣어 정답 키가 내용을 보게 됐다.
+        # 위 문단의 "패턴 수만큼만 가능"은 그 이전 기술이라 지금은 참이 아니다.
+        assert len(SEED_ITEMS) == 340
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS

@@ -27,6 +27,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.services import curriculum_service as cs
+from app.services import weatherbrain_service as wb
 from app.services import session_service, weatherbrain_service as wb
 
 SEED_DIR = Path(__file__).resolve().parents[2] / "database" / "seed"
@@ -357,19 +358,62 @@ class TestWideningDoesNotBlurHealthyCells:
     def test_강등은_필요한_만큼만_깊어진다(self):
         """거리 오름차순이 방향과 무관하게 작동한다 (`risk-flood` × middle_high).
 
-        자기 밴드 0건 + kl 분포가 [1,1,1,5,7](표적 4)이라 거리가 1 → 3으로 벌어진다:
-        kl 5(거리 1) → kl 1(거리 3, 아래) ×3 → kl 7(거리 3, 위).
-        가까운 것을 먼저 쓰고 **모자란 만큼만** 멀어진다 — 강등/승격을 가리지
-        않는다는 것까지 한 벡터로 보인다(kl 5·7은 위, kl 1은 아래).
+        자기 밴드 0건이라 **가까운 것부터 쓰고 모자란 만큼만** 멀어진다. 강등도
+        승격도 같은 함수가 하므로 표적보다 위·아래가 섞여 나오는 것이 정상이다.
 
-        ⚠️ 2026-08-10 벡터 교체 — 종전 기대는 `[5, 6, 1, 1, 1]`이었다. 6 → 10단계
-        확장에서 이 유닛의 kl 6 문항이 **7로 올라가** 거리가 2에서 3이 됐고, kl 1과
-        **동률**이 되면서 2차 키("거리가 같으면 쉬운 쪽이 이긴다")가 처음으로
-        발동했다. 규칙이 깨진 것이 아니라 **종전 벡터가 못 보던 규칙을 이제 본다**
-        — kl 1이 kl 7을 앞지르는 것이 CO-L2의 강등 방향 판단 그 자체다.
+        ⚠️ **골든 벡터를 쓰지 않는다**(2026-08-10 전환). 종전에는 기대 벡터를
+        `[5, 6, 1, 1, 1]`로 박아 뒀는데, 같은 날 **두 번 깨졌다**:
+          ⑴ 6 → 10단계 확장에서 이 유닛의 kl 6 문항이 7로 올라가 `[5, 1, 1, 1, 7]`
+          ⑵ 저작 배치가 이 유닛에 문항을 더하자 또 바뀜
+        이 유닛의 문항 구성은 **저작이 진행되는 내내 계속 바뀐다** — 1,000건 목표
+        중 700건 넘게 남았다. 벡터를 박으면 저작할 때마다 무관한 테스트가 빨개져
+        **진짜 회귀 신호를 덮는다.** 그래서 벡터가 아니라 `rank_by_knowledge_level`이
+        보장하는 **성질 두 개**를 직접 문다. 성질은 시드가 어떻게 바뀌어도 참이고,
+        깨지면 그때는 정말로 정렬이 회귀한 것이다.
         """
-        top = self._top("risk-flood", "middle_high")
-        assert [it.knowledge_level for it in top] == [5, 1, 1, 1, 7]
+        unit_id, reported, top = self._first_fallback_case()
+        assert len(top) == cs.UNIT_SESSION_SIZE
+
+        target = wb.knowledge_level_of_level_group(reported)
+        keys = [
+            (abs(it.knowledge_level - target), 0 if it.knowledge_level <= target else 1)
+            for it in top
+        ]
+        # ⑴ 거리 오름차순 — "가까운 것을 먼저 쓰고 모자란 만큼만 멀어진다"
+        assert [k[0] for k in keys] == sorted(k[0] for k in keys)
+        # ⑵ 거리가 같으면 쉬운 쪽이 먼저 — CO-L2의 강등 방향 판단
+        #    (한 단계 위는 못 풀어서 막지만, 한 단계 아래는 쉬워도 가르친다)
+        assert keys == sorted(keys)
+        # 강등이 실제로 일어나는 사례인지 — 표적보다 아래가 하나도 없으면
+        # 이 테스트는 강등 축을 검증하지 못한 것이다(승격 테스트가 따로 있다).
+        assert any(it.knowledge_level < target for it in top), (
+            f"{unit_id} × {reported}: 자기 밴드는 비었는데 강등이 안 일어났다"
+        )
+
+    def _first_fallback_case(self):
+        """자기 밴드가 **지금** 비어 있는 (유닛 × 신고밴드)를 하나 찾아 돌려준다.
+
+        사례를 파일에 박지 않는 이유: 저작이 칸을 채우면 그 사례는 강등 예시가
+        아니게 된다. 실제로 이 자리는 두 번 옮겨졌다 — `bs-radiation`·
+        `bs-temp-vs-heat`(2026-08-08 저작) → `risk-flood`(2026-08-10 저작).
+        1,000건 목표 중 700건 넘게 남았으므로 앞으로도 계속 옮겨진다.
+        **사례를 고르는 일을 사람이 아니라 테스트가 하게 한다.**
+
+        전건이 채워지면 `pytest.skip`한다 — 그건 실패가 아니라 **저작이 성공해서
+        폴백이 필요 없어졌다**는 뜻이다. 다만 조용히 지나가면 안 되므로 사유를 남긴다.
+        """
+        for unit in load_units():
+            unit_id = unit["id"]
+            for reported in wb.LEVEL_GROUP_BANDS:
+                top = self._top(unit_id, reported)
+                if len(top) != cs.UNIT_SESSION_SIZE:
+                    continue
+                if reported not in {it.level_group for it in top}:
+                    return unit_id, reported, top
+        pytest.skip(
+            "자기 밴드가 빈 (유닛 × 밴드)가 하나도 없다 — 저작이 전 칸을 채웠다는 뜻이다. "
+            "강등 축은 순수 함수 계약(TestKnowledgeLevelReranking)이 계속 지킨다."
+        )
 
     def test_초등_board_공백은_승격으로_해소된다(self):
         """초등(kl 2) × `city-anomaly-board` — 자기 단계 0건이라 위로 올라간다.

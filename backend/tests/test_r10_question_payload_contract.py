@@ -129,7 +129,13 @@ class TestSeedTypeCoverage:
         #   재난 축(wildfire 2→5 · flood 2→5)과 초등 공백(2→6)을 메웠다. 신규 12건은
         #   전부 guided + 팔레트 2 + 하위 밴드라 난이도 1이고, d1 블록 끝에 끼워
         #   기존 34건의 board_order를 뒤로 밀었다(단조 계약 유지).
-        assert len(_seed_items()) == 284
+        # R13-02 T2 저작 웨이브 1(2026-08-10): **+56 = 340.** 6 → 10단계 확장 직후
+        #   하단(kl 1~3) 저작분이다. 재분류가 드러낸 **빈 칸 10개**를 먼저 메웠다:
+        #   kl1 × (energy_transfer·heat_island·radiation_budget·temperature_heat) ·
+        #   kl2 × typhoon · kl3 × (air_mass·anomaly·co2_climate·pressure_front·typhoon).
+        #   유형은 board 0(판정 규칙 동반 저작이 필요해 생성·저작 대상 밖) 나머지 6종 혼합,
+        #   explanation_hint 56/56 저작 — 사람 해설이 있으면 런타임이 LLM을 안 부른다.
+        assert len(_seed_items()) == 340
 
 
 class TestEverySeedItemIsPlayable:

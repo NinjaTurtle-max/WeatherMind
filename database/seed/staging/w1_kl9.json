@@ -1,0 +1,138 @@
+[
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "500 hPa 일기도에서 한반도 서쪽에 골이 있고 골 앞쪽에 양의 와도 이류가 뚜렷하다. 같은 시각 850 hPa에서는 남서풍이 등온선을 비스듬히 가로지르며 온난이류를 만든다. 앞으로 12시간 동안 지상 저기압에 일어날 일로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "상층 발산이 하층 수렴을 불러 상승 운동이 강해지고, 지상 저기압이 깊어지며 온난이류가 강한 북동쪽으로 진행한다",
+        "골 뒤의 음의 와도 이류가 우세해져 하강 운동이 강해지고 지상 저기압이 빠르게 메워진다",
+        "와도 이류는 상층에서만 끝나므로 지상 기압은 바뀌지 않고 저기압이 제자리에 머문다",
+        "온난이류가 공기를 가라앉혀 지상에 고기압이 자리 잡고 하늘이 갠다"
+      ],
+      "correct_answer": "상층 발산이 하층 수렴을 불러 상승 운동이 강해지고, 지상 저기압이 깊어지며 온난이류가 강한 북동쪽으로 진행한다",
+      "explanation_hint": "골 앞의 양의 와도 이류는 상층 와도를 키우고, 그 몫을 상층 발산이 메운다. 발산은 질량 연속을 따라 하층 수렴과 상승 운동을 부르므로 지상 기압이 떨어진다. 여기에 850 hPa 온난이류가 겹치면 저기압은 더 깊어지고, 온난이류가 최대인 쪽으로 중심이 옮겨 간다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년 종관·수치 정량",
+        "겹쳐 읽기: 500 hPa 양의 와도 이류(상층 강제) × 850 hPa 온난이류(하층 승온·진행 방향)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "1000 hPa에서 기온 24℃·이슬점 14℃인 공기덩이를 강제로 올린다. 상승하는 동안 기온은 100 m마다 1℃, 이슬점은 100 m마다 0.2℃ 내려가고, 기압은 100 m마다 10 hPa 낮아진다. 이 공기덩이가 응결을 시작하는 곳은 몇 hPa 면인가?",
+      "correct_answer": "875",
+      "min": 700,
+      "max": 900,
+      "step": 5,
+      "unit": "hPa",
+      "explanation_hint": "기온과 이슬점 차는 100 m마다 0.8℃씩 좁혀지므로 10℃ 차를 메우는 데 1250 m가 든다. 100 m에 10 hPa씩 낮아지면 1250 m는 125 hPa이고, 응결 고도는 1000 − 125 = 875 hPa 면이다. 이 면이 구름 밑면이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년 종관·수치 정량",
+        "겹쳐 읽기: 기온·이슬점 감률 차로 구한 응결 고도 × 정역학 기압–고도 환산"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "500 hPa 골 앞에서 양의 와도 이류가 최대인 곳은 상층에서 질량이 빠져나가는 발산역이 된다. 빠져나간 질량을 아래에서 메우려면 하층이 수렴해야 하므로, 그 연직 기둥에서는 ___ 운동이 강해진다.",
+      "correct_answer": "상승",
+      "explanation_hint": "상층 발산과 하층 수렴은 질량 연속으로 묶여 있다. 두 층 사이를 잇는 것이 연직 운동이므로, 상층에서 질량이 빠져나가는 곳 아래에서는 공기가 올라온다. 이 상승이 구름과 강수를 만들고 지상 기압을 떨어뜨린다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년 종관·수치 정량",
+        "겹쳐 읽기: 상층 와도 이류 × 질량 연속(하층 수렴·연직 운동)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "상층 일기도에서 읽은 특징과, 같은 시각 지상에서 나타나는 반응을 짝지어라.",
+      "pairs": [
+        {
+          "left": "500 hPa 골 앞의 양의 와도 이류",
+          "right": "지상 저기압이 깊어지고 상승 운동이 강해진다"
+        },
+        {
+          "left": "500 hPa 마루 앞의 음의 와도 이류",
+          "right": "지상 기압이 오르고 하강 운동이 우세해진다"
+        },
+        {
+          "left": "상층 골과 지상 저기압 중심의 연직 정렬",
+          "right": "발달이 멈추고 저기압이 서서히 메워진다"
+        },
+        {
+          "left": "250 hPa 제트 스트릭 출구 왼쪽",
+          "right": "상층 질량 발산이 커져 하층 수렴을 부른다"
+        }
+      ],
+      "correct_answer": "500 hPa 골 앞의 양의 와도 이류:지상 저기압이 깊어지고 상승 운동이 강해진다|500 hPa 마루 앞의 음의 와도 이류:지상 기압이 오르고 하강 운동이 우세해진다|상층 골과 지상 저기압 중심의 연직 정렬:발달이 멈추고 저기압이 서서히 메워진다|250 hPa 제트 스트릭 출구 왼쪽:상층 질량 발산이 커져 하층 수렴을 부른다",
+      "explanation_hint": "지상 기압 경향은 상층 강제의 부호로 갈린다. 골 앞은 양의 와도 이류라 발산·상승, 마루 앞은 음의 와도 이류라 수렴·하강이다. 상층 골이 지상 중심 바로 위로 오면 기울기가 사라져 강제가 끊기고, 제트 스트릭 출구 왼쪽은 분류 구조 탓에 상층 발산이 커진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년 종관·수치 정량",
+        "겹쳐 읽기: 상층 와도장·제트 구조 × 지상 기압 경향·연직 운동"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "정체전선 위에서 시작한 온대저기압이 소멸할 때까지의 과정을 시간 순서대로 늘어놓아라.",
+      "items": [
+        "정체전선 위에 작은 파동이 생겨 그 자리 기압이 조금 낮아진다",
+        "파동이 한랭전선과 온난전선으로 갈라지고 그 사이에 온난역이 열린다",
+        "상층 골이 지상 중심 서쪽에 자리 잡아 양의 와도 이류가 중심을 깊게 판다",
+        "빠른 한랭전선이 온난전선을 따라잡아 폐색전선이 생기고 온난역이 지상에서 잘린다",
+        "상층 골과 지상 중심이 연직으로 겹쳐 강제가 사라지고 저기압이 메워진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "온대저기압의 일생은 지상 전선 구조와 상층 골의 위상 관계를 함께 봐야 읽힌다. 상층 골이 지상 중심보다 서쪽에 기울어 있는 동안만 양의 와도 이류가 중심에 걸려 발달하고, 폐색을 거쳐 두 중심이 연직으로 겹치면 기울기가 사라져 발달이 끝난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년 종관·수치 정량",
+        "겹쳐 읽기: 지상 전선 구조의 진화 × 상층 골–지상 중심 위상(기울기) 변화"
+      ]
+    },
+    "status": "active"
+  }
+]

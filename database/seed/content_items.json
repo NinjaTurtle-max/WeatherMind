@@ -8768,5 +8768,1404 @@
       ]
     },
     "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "하루 중 기온이 가장 높게 오르는 때는 언제인가?",
+      "options": [
+        "이른 오후",
+        "해가 뜨기 직전",
+        "한밤중",
+        "해가 진 직후"
+      ],
+      "correct_answer": "이른 오후",
+      "explanation_hint": "해는 정오에 가장 높이 뜨지만 땅이 데워지는 데 시간이 걸린다. 그래서 기온이 가장 높은 때는 정오보다 조금 늦은 이른 오후다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 현상에 이름을 붙이고 사례를 안다",
+        "기온의 하루 변화 관찰 — 까닭이 아니라 사실을 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기온을 재는 온도계는 어디에 두어야 하는가?",
+      "options": [
+        "햇빛이 바로 닿지 않는 그늘",
+        "햇빛이 잘 드는 창가",
+        "뜨거운 아스팔트 위",
+        "난로 옆"
+      ],
+      "correct_answer": "햇빛이 바로 닿지 않는 그늘",
+      "explanation_hint": "온도계에 햇빛이 바로 닿으면 공기가 아니라 온도계 자체가 데워진다. 그래서 기온은 그늘에서 잰다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 측정 도구의 올바른 사용",
+        "관측 규약 — 사례 수준"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "하루 중 가장 높은 기온을 ___기온이라고 한다.",
+      "correct_answer": "최고",
+      "explanation_hint": "하루 동안 잰 기온 가운데 가장 높은 값이 최고기온, 가장 낮은 값이 최저기온이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 현상에 이름을 붙인다",
+        "일기예보 용어 — 이름 익히기"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "계절과 그 계절의 기온 특징을 짝지어라.",
+      "pairs": [
+        {
+          "left": "여름",
+          "right": "기온이 가장 높다"
+        },
+        {
+          "left": "겨울",
+          "right": "기온이 가장 낮다"
+        },
+        {
+          "left": "봄과 가을",
+          "right": "기온이 그 중간이다"
+        }
+      ],
+      "correct_answer": "여름:기온이 가장 높다|겨울:기온이 가장 낮다|봄과 가을:기온이 그 중간이다",
+      "explanation_hint": "우리나라는 계절에 따라 기온이 크게 달라진다. 여름이 가장 덥고 겨울이 가장 춥다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 계절별 사례",
+        "규칙성 발견 이전의 사실 확인"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "겨울에 난로를 켜면 방 안 어느 쪽이 가장 먼저 따뜻해지는가?",
+      "options": [
+        "난로에서 가까운 곳",
+        "방문 바깥쪽",
+        "창문에 붙은 자리",
+        "방 구석 바닥"
+      ],
+      "correct_answer": "난로에서 가까운 곳",
+      "explanation_hint": "따뜻함은 열이 나오는 곳에서부터 퍼져 나간다. 그래서 난로 가까이가 먼저 따뜻해지고 시간이 지나면 방 전체가 데워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 사례로 확인하는 열의 이동",
+        "대류·전도라는 이름은 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "뜨거운 국이 담긴 그릇에 쇠숟가락을 오래 담가 두면 손잡이는 어떻게 되는가?",
+      "options": [
+        "손잡이까지 뜨거워진다",
+        "손잡이만 차가워진다",
+        "아무 변화도 없다",
+        "손잡이가 젖는다"
+      ],
+      "correct_answer": "손잡이까지 뜨거워진다",
+      "explanation_hint": "쇠는 열을 잘 옮긴다. 국에 닿은 쪽에서 손잡이 쪽으로 열이 타고 올라와 숟가락 전체가 뜨거워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 생활 속 사례",
+        "물질에 따라 열이 옮는 정도가 다름 — 이름 없이 사례로"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "차가운 물을 냄비에 붓고 불을 켰을 때 일어나는 일을 순서대로 배열하라.",
+      "items": [
+        "냄비 바닥이 먼저 뜨거워진다",
+        "바닥에 닿은 물이 데워진다",
+        "냄비 안의 물 전체가 따뜻해진다",
+        "물이 끓기 시작한다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "불에 가장 가까운 냄비 바닥이 먼저 뜨거워지고, 그 열이 물로 옮겨 가면서 물 전체가 데워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 관찰 순서",
+        "가열 과정의 사례 — 원리 설명은 하지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "여름 한낮에 맨발로 걸었을 때 가장 뜨거운 곳은 어디인가?",
+      "options": [
+        "검은 아스팔트 길",
+        "나무 그늘 밑 흙",
+        "잔디밭",
+        "물이 흐르는 개울가"
+      ],
+      "correct_answer": "검은 아스팔트 길",
+      "explanation_hint": "검고 단단한 아스팔트는 햇빛을 많이 받아들여 크게 뜨거워진다. 풀밭이나 그늘은 훨씬 덜 뜨겁다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 생활 사례",
+        "도시 표면의 가열 — 열섬이라는 이름은 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "같은 여름날, 도시 한복판과 시골 들판 중 밤에 더 더운 곳은 어디인가?",
+      "options": [
+        "도시 한복판",
+        "시골 들판",
+        "두 곳이 똑같다",
+        "해마다 뒤바뀐다"
+      ],
+      "correct_answer": "도시 한복판",
+      "explanation_hint": "도시의 건물과 도로는 낮에 받은 열을 밤까지 오래 붙잡고 있다. 그래서 밤에도 도시가 시골보다 덥다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 두 장소 비교",
+        "사실 확인 — 까닭은 2단계 이상"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "한여름 도시를 시원하게 만들려고 길가에 많이 심는 것은 무엇인가?",
+      "correct_answer": "나무",
+      "explanation_hint": "나무는 그늘을 만들고 잎에서 물을 내보내 둘레를 시원하게 한다. 그래서 도시의 더위를 줄이려고 가로수를 심는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 대응 사례",
+        "생활 속 관찰로 답할 수 있다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "낮에 땅과 공기를 데우는 것은 무엇인가?",
+      "options": [
+        "해",
+        "달",
+        "별",
+        "바람"
+      ],
+      "correct_answer": "해",
+      "explanation_hint": "낮 동안 땅과 공기를 데우는 것은 해다. 해가 지면 데울 것이 없어져 기온이 내려간다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 현상에 이름 붙이기",
+        "복사·에너지라는 말은 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "구름이 잔뜩 낀 날 낮에는 맑은 날보다 기온이 어떻게 되는가?",
+      "options": [
+        "덜 오른다",
+        "훨씬 더 오른다",
+        "똑같이 오른다",
+        "밤처럼 내려간다"
+      ],
+      "correct_answer": "덜 오른다",
+      "explanation_hint": "구름이 햇빛을 가리면 땅에 닿는 햇빛이 줄어든다. 그래서 흐린 날 낮은 맑은 날보다 덜 덥다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 날씨와 기온의 관계",
+        "사례 비교 — 정량 설명 없음"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "해가 지고 나면 땅이 식으면서 기온이 ___.",
+      "correct_answer": "내려간다",
+      "explanation_hint": "낮에 해가 데워 준 땅은 밤이 되면 열을 잃는다. 그래서 밤새 기온이 계속 내려가 해 뜨기 직전에 가장 낮아진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 하루 변화",
+        "복사냉각이라는 이름은 4단계 — 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "태풍이 다가올 때 관측되는 기압은 어떻게 변하는가?",
+      "options": [
+        "빠르게 낮아진다",
+        "빠르게 높아진다",
+        "변하지 않는다",
+        "하루에 한 번씩 오르내린다"
+      ],
+      "correct_answer": "빠르게 낮아진다",
+      "explanation_hint": "태풍의 한가운데는 둘레보다 기압이 훨씬 낮다. 태풍이 다가오면 기압계 눈금이 뚜렷하게 내려가는 것을 관측할 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 기상 요소를 측정하고 규칙성을 찾는다",
+        "태풍은 introduced_at=1 — 2단계에서 안전"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "태풍이 지나가는 동안 측정한 바람의 세기는 어떤 규칙을 보이는가?",
+      "options": [
+        "점점 세지다가 잠시 잦아든 뒤 다시 세진다",
+        "처음부터 끝까지 똑같다",
+        "계속 약해지기만 한다",
+        "밤에만 세진다"
+      ],
+      "correct_answer": "점점 세지다가 잠시 잦아든 뒤 다시 세진다",
+      "explanation_hint": "태풍의 한가운데에는 바람이 약한 자리가 있다. 그 자리가 지나갈 때 바람이 잠시 잦아들었다가, 반대쪽 가장자리가 오면 다시 세진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 시간에 따른 관측값의 규칙성",
+        "태풍의 눈 — 이름 없이 관측 사실로"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "태풍 예보를 듣고 대비하는 순서로 알맞게 배열하라.",
+      "items": [
+        "기상 특보와 예상 진로를 확인한다",
+        "창문과 간판 같은 날아갈 물건을 고정한다",
+        "하천과 바닷가에 나가지 않고 실내에 머문다",
+        "태풍이 지나간 뒤 피해가 없는지 살핀다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "먼저 정보를 확인하고, 미리 대비하고, 지나가는 동안 안전한 곳에 머문 뒤, 마지막에 피해를 살핀다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 대비 절차",
+        "안전 행동 — 규정 수치를 묻지 않으므로 10단계가 아니다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "우리나라에 태풍이 가장 많이 오는 달은 몇 월인지 슬라이더로 표시하라.",
+      "correct_answer": "8",
+      "min": 1,
+      "max": 12,
+      "step": 1,
+      "unit": "월",
+      "explanation_hint": "태풍은 바닷물이 가장 따뜻해지는 늦여름에 많이 만들어진다. 우리나라에는 8월 무렵 가장 자주 온다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 자료에서 규칙성 찾기",
+        "slider 범위 12 — 관용오차보다 좁으나 step=1 정수 눈금이라 의미가 있다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "넓은 바다 위에 오래 머문 공기 덩어리와 넓은 사막 위에 오래 머문 공기 덩어리의 가장 큰 차이는 무엇인가?",
+      "options": [
+        "품고 있는 수증기의 양",
+        "공기를 이루는 기체의 종류",
+        "공기가 받는 중력의 크기",
+        "공기의 색깔"
+      ],
+      "correct_answer": "품고 있는 수증기의 양",
+      "explanation_hint": "공기 덩어리는 오래 머문 바닥의 성질을 닮는다. 바다 위 공기는 물을 많이 얻어 축축해지고, 사막 위 공기는 마른 상태로 남는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 물리량으로 설명",
+        "'기단'이라는 이름은 introduced_at=4라 쓰지 않고 '공기 덩어리'로 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "차가운 공기와 따뜻한 공기가 만났을 때, 아래로 파고드는 쪽은 어느 쪽인가?",
+      "correct_answer": "차가운 공기",
+      "explanation_hint": "같은 부피일 때 차가운 공기가 따뜻한 공기보다 무겁다. 그래서 차가운 공기가 아래로 파고들고 따뜻한 공기는 그 위로 밀려 올라간다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 밀도 차로 설명",
+        "전선이라는 이름 없이 물리량만으로 답이 나온다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "차가운 공기는 따뜻한 공기보다 같은 부피에서 ___이 크다.",
+      "correct_answer": "밀도",
+      "explanation_hint": "공기는 데워지면 부풀어 같은 부피 안에 든 알갱이 수가 줄어든다. 그래서 차가운 공기 쪽이 밀도가 크고 무겁다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 밀도",
+        "정량 개념을 이름으로 요구하는 첫 단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "공기가 위로 올라가면 둘레의 기압이 낮아진다. 이때 올라가는 공기 덩어리의 부피와 온도는 어떻게 되는가?",
+      "options": [
+        "부피는 커지고 온도는 내려간다",
+        "부피는 작아지고 온도는 올라간다",
+        "부피와 온도 모두 커진다",
+        "부피와 온도 모두 변하지 않는다"
+      ],
+      "correct_answer": "부피는 커지고 온도는 내려간다",
+      "explanation_hint": "누르는 힘이 약해지면 공기는 부풀어 오른다. 부풀면서 일을 하느라 스스로 가진 열을 쓰기 때문에 온도가 내려간다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 압력과 부피·온도",
+        "'단열 팽창'은 introduced_at=4라 이름을 쓰지 않고 현상으로 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "바닷가 평지의 평균 기압은 약 몇 hPa인지 슬라이더로 표시하라.",
+      "correct_answer": "1013",
+      "min": 950,
+      "max": 1050,
+      "step": 1,
+      "unit": "hPa",
+      "explanation_hint": "바닷가 평지에서 공기가 누르는 힘은 평균 약 1013hPa이다. 일기도에서 이 값보다 높으면 고기압, 낮으면 저기압 쪽으로 본다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 압력의 정량값",
+        "slider 범위 100 — 관용오차 ±10보다 충분히 넓다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "공기의 움직임과 그 결과를 짝지어라.",
+      "pairs": [
+        {
+          "left": "공기가 위로 올라간다",
+          "right": "부피가 커지고 온도가 내려간다"
+        },
+        {
+          "left": "공기가 아래로 내려온다",
+          "right": "부피가 작아지고 온도가 올라간다"
+        },
+        {
+          "left": "차가운 공기가 아래로 깔린다",
+          "right": "따뜻한 공기를 위로 밀어 올린다"
+        }
+      ],
+      "correct_answer": "공기가 위로 올라간다:부피가 커지고 온도가 내려간다|공기가 아래로 내려온다:부피가 작아지고 온도가 올라간다|차가운 공기가 아래로 깔린다:따뜻한 공기를 위로 밀어 올린다",
+      "explanation_hint": "위로 갈수록 누르는 힘이 약해지고 아래로 갈수록 세진다. 부풀면 식고 눌리면 데워지는 것이 공기의 기본 성질이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 압력·부피·온도의 관계",
+        "세 짝 모두 물리량으로만 서술 — 4단계 용어 없음"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "유리로 둘러싼 온실 안이 바깥보다 따뜻하게 유지되는 까닭으로 알맞은 것은 무엇인가?",
+      "options": [
+        "유리가 안쪽의 열이 빠져나가는 것을 막는다",
+        "유리가 스스로 열을 만들어 낸다",
+        "유리가 바깥 공기를 끌어들인다",
+        "유리가 햇빛을 모두 막아 준다"
+      ],
+      "correct_answer": "유리가 안쪽의 열이 빠져나가는 것을 막는다",
+      "explanation_hint": "햇빛은 유리를 지나 안으로 들어와 흙과 공기를 데운다. 그런데 데워진 안쪽에서 나가려는 열은 유리에 막혀 잘 빠져나가지 못해 온실이 따뜻해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 열의 출입으로 설명",
+        "'온실효과'는 introduced_at=4·name_ok_from=1이나 메커니즘 질문이라 이름을 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "나무를 심어 이산화탄소를 줄일 수 있는 것은 나무가 무엇을 하는 과정에서 그 기체를 빨아들이기 때문인가?",
+      "correct_answer": "광합성",
+      "explanation_hint": "식물은 햇빛을 받아 광합성을 하면서 공기 중의 이산화탄소를 빨아들인다. 숲을 늘리면 대기로 나간 이산화탄소의 일부를 다시 거둬들일 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 물질의 순환",
+        "본시드 중복 회피로 교체(2026-08-10) — 배출이 아니라 흡수 축을 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "화석연료를 태운 뒤 기온이 오르기까지의 과정을 순서대로 배열하라.",
+      "items": [
+        "석탄과 석유를 태운다",
+        "이산화탄소가 공기 중으로 나온다",
+        "지구에서 나가려는 열이 붙잡힌다",
+        "평균 기온이 올라간다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "태우는 일이 먼저이고, 그 결과 나온 기체가 열을 붙잡아 두면서 기온이 오른다. 순서를 뒤집으면 원인과 결과가 바뀐다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 인과 사슬",
+        "각 단계가 물질·에너지 서술 — 지구 규모 순환은 5단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "어떤 해의 여름 평균기온이 예년보다 2℃ 높았다고 할 때, 이 '예년'이 뜻하는 것은 무엇인가?",
+      "options": [
+        "여러 해 동안 잰 값의 평균",
+        "바로 지난해의 값",
+        "가장 더웠던 해의 값",
+        "올해 봄에 잰 값"
+      ],
+      "correct_answer": "여러 해 동안 잰 값의 평균",
+      "explanation_hint": "한 해만 보면 그해가 특별한 것인지 알 수 없다. 여러 해 동안 잰 값의 평균과 견주어야 올해가 얼마나 벗어났는지 말할 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 측정값의 기준",
+        "편차 개념의 정량 기초"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "관측값이 여러 해 평균에서 얼마나 벗어났는지를 나타낸 값을 ___라고 한다.",
+      "correct_answer": "편차",
+      "explanation_hint": "편차는 '관측값 − 평균'이다. 값이 양수면 평균보다 높았다는 뜻이고 음수면 낮았다는 뜻이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 자료 처리 용어",
+        "수학·과학 공통 개념이라 어휘표 밖"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "어느 해 8월 평균기온이 27℃였고 30년 평균이 25℃였다. 이 해 8월의 편차는 몇 ℃인지 슬라이더로 표시하라.",
+      "correct_answer": "2",
+      "min": -30,
+      "max": 30,
+      "step": 1,
+      "unit": "℃",
+      "explanation_hint": "편차는 관측값에서 평균을 뺀 값이다. 27 − 25 = 2이므로 이 해 8월은 평균보다 2℃ 높았다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 편차 계산",
+        "slider 범위 60 — 관용오차 ±10보다 충분히 넓다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "젖은 빨래가 마를 때 빨래 둘레의 온도는 어떻게 되는가?",
+      "options": [
+        "조금 내려간다",
+        "크게 올라간다",
+        "변하지 않는다",
+        "밤에만 올라간다"
+      ],
+      "correct_answer": "조금 내려간다",
+      "explanation_hint": "물이 수증기로 바뀌려면 열이 필요하다. 그 열을 둘레에서 가져가기 때문에 빨래 가까이가 조금 시원해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 상태 변화와 열 출입",
+        "'잠열'은 introduced_at=3이나 이름을 쓰지 않고 현상으로 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "같은 햇빛을 같은 시간 받았을 때 모래가 물보다 훨씬 더 뜨거워지는 까닭은 무엇인가?",
+      "options": [
+        "모래가 물보다 비열이 작기 때문이다",
+        "모래가 물보다 무겁기 때문이다",
+        "물이 햇빛을 받지 않기 때문이다",
+        "모래가 스스로 열을 내기 때문이다"
+      ],
+      "correct_answer": "모래가 물보다 비열이 작기 때문이다",
+      "explanation_hint": "비열은 물질 1g의 온도를 1℃ 올리는 데 드는 열량이다. 물은 비열이 커서 같은 열을 받아도 온도가 조금밖에 안 오르고, 모래는 비열이 작아 크게 오른다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 [9과03-03] 비열",
+        "비열 introduced_at=3 — 메커니즘 질문이라 3단계 이상이어야 한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "온도가 다른 두 물체를 오래 맞대어 두면 마침내 두 물체의 온도는 어떻게 되는가?",
+      "correct_answer": "같아진다",
+      "explanation_hint": "열은 뜨거운 쪽에서 차가운 쪽으로만 옮겨 간다. 두 물체의 온도가 같아지면 옮겨 갈 방향이 없어져 더 이상 변하지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 열평형",
+        "'열평형' introduced_at=3 — 이름을 쓰지 않고 결과를 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "공기를 데우면 부피가 커져 같은 부피에 든 알갱이 수가 줄어들므로 밀도가 ___.",
+      "correct_answer": "작아진다",
+      "explanation_hint": "밀도는 질량을 부피로 나눈 값이다. 데워서 부피만 커지면 나누는 값이 커지므로 밀도는 작아지고, 그래서 더운 공기가 위로 뜬다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 밀도의 정의",
+        "정량 관계 — 부력의 근거"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "산불이 나기 쉬운 날의 공기 상태로 알맞은 것은 무엇인가?",
+      "options": [
+        "메마르고 바람이 센 날",
+        "축축하고 바람이 없는 날",
+        "비가 내리는 날",
+        "안개가 짙은 날"
+      ],
+      "correct_answer": "메마르고 바람이 센 날",
+      "explanation_hint": "공기가 메마르면 나무와 낙엽에서 물이 빠져나가 잘 타는 상태가 된다. 여기에 센 바람이 불면 불씨가 빠르게 옮겨 붙는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 물의 출입과 연소 조건",
+        "'실효습도'는 10단계 규정 지수라 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "같은 양의 비가 내려도 도시에서 물이 더 빨리 불어나는 까닭은 무엇인가?",
+      "options": [
+        "포장된 땅이 물을 스며들게 하지 못하기 때문이다",
+        "도시에 비가 두 배로 내리기 때문이다",
+        "도시의 빗물이 더 무겁기 때문이다",
+        "도시에서는 물이 얼기 때문이다"
+      ],
+      "correct_answer": "포장된 땅이 물을 스며들게 하지 못하기 때문이다",
+      "explanation_hint": "흙과 풀밭은 빗물을 땅속으로 스며들게 한다. 그런데 아스팔트와 콘크리트는 물을 통과시키지 못해 빗물이 그대로 흘러 모인다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 물의 이동",
+        "메커니즘 질문이지만 사용 용어가 전부 4단계 미만"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "높은 산에 오를수록 과자 봉지가 부푸는 것은 봉지 바깥의 무엇이 줄어들기 때문인가?",
+      "correct_answer": "기압",
+      "explanation_hint": "높이 올라갈수록 위에 쌓인 공기가 적어져 누르는 힘이 약해진다. 봉지 안의 공기는 그대로인데 밖에서 누르는 힘만 줄어드니 봉지가 부푼다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=3 · 중학 물질·에너지 — 압력",
+        "'기압경도력'은 8단계 — 여기서는 기압만 다룬다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "이른 아침 풀잎에 물방울이 맺혀 있는 것을 무엇이라고 부르는가?",
+      "options": [
+        "이슬",
+        "서리",
+        "우박",
+        "안개"
+      ],
+      "correct_answer": "이슬",
+      "explanation_hint": "밤사이 식은 풀잎에 공기 속 물기가 달라붙어 물방울이 된 것이 이슬이다. 얼어붙어 하얗게 되면 서리라고 부른다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 현상에 이름을 붙인다",
+        "이슬점이라는 이름은 4단계 — 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "하늘에서 떨어지는 것과 그 이름을 짝지어라.",
+      "pairs": [
+        {
+          "left": "물방울로 떨어진다",
+          "right": "비"
+        },
+        {
+          "left": "하얀 결정으로 떨어진다",
+          "right": "눈"
+        },
+        {
+          "left": "단단한 얼음덩이로 떨어진다",
+          "right": "우박"
+        }
+      ],
+      "correct_answer": "물방울로 떨어진다:비|하얀 결정으로 떨어진다:눈|단단한 얼음덩이로 떨어진다:우박",
+      "explanation_hint": "같은 물이라도 하늘에서 어떤 모습으로 굳느냐에 따라 비·눈·우박으로 이름이 달라진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 이름 익히기",
+        "분류가 아니라 이름 대응"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "바람은 무엇이 움직이는 것인가?",
+      "options": [
+        "공기",
+        "물",
+        "흙",
+        "빛"
+      ],
+      "correct_answer": "공기",
+      "explanation_hint": "바람은 눈에 보이지 않지만 공기가 옆으로 움직이는 것이다. 깃발이 흔들리는 것으로 바람이 부는 것을 알 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 현상의 정체",
+        "기압은 아직 다루지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "바람이 부는 방향과 세기를 알아보려고 마당에 매다는 물건은 무엇인가?",
+      "correct_answer": "바람개비",
+      "explanation_hint": "바람개비가 도는 빠르기로 바람의 세기를, 도는 방향으로 바람이 오는 쪽을 짐작할 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 관찰 도구",
+        "정성 관찰"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "비가 아주 많이 내릴 때 가지 말아야 할 곳은 어디인가?",
+      "options": [
+        "물이 불어난 개울가",
+        "집 안 거실",
+        "학교 교실",
+        "지붕이 있는 복도"
+      ],
+      "correct_answer": "물이 불어난 개울가",
+      "explanation_hint": "비가 많이 오면 개울물이 갑자기 불어나 사람을 휩쓸 수 있다. 물가에 가지 말고 안전한 실내에 머물러야 한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 안전 행동",
+        "규정이 아니라 상식 수준"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "산에서 불이 잘 나는 계절은 언제인가?",
+      "options": [
+        "메마른 봄",
+        "비가 잦은 여름",
+        "눈이 쌓인 한겨울",
+        "안개 낀 새벽"
+      ],
+      "correct_answer": "메마른 봄",
+      "explanation_hint": "봄에는 공기가 메마르고 마른 낙엽이 많이 쌓여 있다. 여기에 바람까지 불면 작은 불씨도 크게 번진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 계절과 재해",
+        "사례 수준"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "따뜻한 공기를 채운 풍선을 놓으면 어느 쪽으로 움직이는가?",
+      "options": [
+        "위로 뜬다",
+        "아래로 가라앉는다",
+        "옆으로만 간다",
+        "그 자리에 멈춘다"
+      ],
+      "correct_answer": "위로 뜬다",
+      "explanation_hint": "따뜻한 공기는 둘레의 찬 공기보다 가볍다. 그래서 따뜻한 공기를 채운 풍선은 위로 떠오른다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 관찰 사실",
+        "밀도라는 이름은 3단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "우리나라의 여름 날씨를 알맞게 말한 것은 무엇인가?",
+      "options": [
+        "덥고 축축하다",
+        "춥고 메마르다",
+        "일 년 내내 똑같다",
+        "늘 눈이 내린다"
+      ],
+      "correct_answer": "덥고 축축하다",
+      "explanation_hint": "우리나라 여름은 기온이 높고 공기 중에 물기가 많아 끈적하게 느껴진다. 겨울은 그 반대로 춥고 메마르다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 계절 사례",
+        "기단이라는 이름은 4단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "하늘에 먹구름이 잔뜩 몰려오면 곧 무엇이 올 것이라고 짐작할 수 있는가?",
+      "correct_answer": "비",
+      "explanation_hint": "먹구름은 물방울을 아주 많이 품고 있어 두껍고 어둡게 보인다. 그런 구름이 몰려오면 곧 비가 내릴 때가 많다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 하늘 관찰로 날씨 짐작",
+        "구름 이름은 4단계 — 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "밤에도 기온이 잘 내려가지 않아 잠들기 어려운 무더운 밤을 ___라고 한다.",
+      "correct_answer": "열대야",
+      "explanation_hint": "한여름에는 낮에 받은 열이 밤까지 남아 기온이 잘 내려가지 않는다. 이런 밤을 열대야라고 부른다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=1 · 초3~4 현상에 이름 붙이기",
+        "정의 수치를 묻지 않아 2단계가 아니다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "낮에 바닷가에서 바람이 바다에서 뭍으로 부는 규칙이 나타나는 까닭으로 알맞은 것은 무엇인가?",
+      "options": [
+        "뭍이 바다보다 빨리 데워지기 때문이다",
+        "바다가 뭍보다 빨리 데워지기 때문이다",
+        "바닷물이 밀려오기 때문이다",
+        "구름이 바람을 밀어 주기 때문이다"
+      ],
+      "correct_answer": "뭍이 바다보다 빨리 데워지기 때문이다",
+      "explanation_hint": "같은 햇빛을 받아도 뭍이 바다보다 빨리 데워진다. 데워진 뭍 위 공기가 떠오르면 그 자리를 메우러 바다 쪽 공기가 밀려와 바람이 분다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 관찰에서 규칙성 찾기",
+        "비열이라는 이름 없이 빠르기 비교로만 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "맑은 날 바닷가에서 낮 동안 일어나는 일을 순서대로 배열하라.",
+      "items": [
+        "햇빛이 뭍과 바다를 함께 비춘다",
+        "뭍이 바다보다 빨리 데워진다",
+        "뭍 위의 데워진 공기가 위로 떠오른다",
+        "빈자리를 메우러 바다에서 뭍으로 바람이 분다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "데워지는 빠르기 차이가 먼저 생기고, 그 차이 때문에 공기가 움직여 바람이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 과정의 순서",
+        "인과 사슬 — 정량 없음"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "여러 날 기온을 재어 그래프로 그렸을 때 하루 중 기온이 가장 낮은 때는 언제로 나타나는가?",
+      "options": [
+        "해 뜨기 직전",
+        "정오",
+        "이른 오후",
+        "해 진 직후"
+      ],
+      "correct_answer": "해 뜨기 직전",
+      "explanation_hint": "해가 지고 나면 땅이 밤새 계속 식는다. 그 식는 일이 가장 오래 이어진 해 뜨기 직전에 기온이 가장 낮다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 측정 자료에서 규칙성",
+        "kl1의 최고기온 문항과 짝을 이룬다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "어느 날 최고기온이 31℃, 최저기온이 21℃였다. 이날의 일교차는 몇 ℃인지 슬라이더로 표시하라.",
+      "correct_answer": "10",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "℃",
+      "explanation_hint": "일교차는 하루의 최고기온에서 최저기온을 뺀 값이다. 31 − 21 = 10이므로 이날 일교차는 10℃다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 측정값 계산",
+        "slider 범위 40 — 관용오차 ±10보다 넓다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "하루의 최고기온과 최저기온의 차이를 ___라고 한다.",
+      "correct_answer": "일교차",
+      "explanation_hint": "일교차가 크면 낮과 밤의 옷차림을 달리해야 한다. 맑고 바람 없는 날에 일교차가 크게 벌어진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 측정 용어",
+        "정의를 이름으로 요구"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "여러 해 동안 잰 지구의 평균기온 그래프에서 읽을 수 있는 흐름은 무엇인가?",
+      "options": [
+        "조금씩 오르고 있다",
+        "조금씩 내리고 있다",
+        "해마다 똑같다",
+        "10년마다 반씩 줄어든다"
+      ],
+      "correct_answer": "조금씩 오르고 있다",
+      "explanation_hint": "해마다 오르내림은 있지만 긴 기간을 이어 보면 지구의 평균기온은 조금씩 오르고 있다. 한 해만 보면 이 흐름이 보이지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 자료에서 경향 읽기",
+        "까닭이 아니라 관측 흐름을 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "산불이 번지기 쉬운 조건과 그 까닭을 짝지어라.",
+      "pairs": [
+        {
+          "left": "메마른 공기",
+          "right": "나무와 낙엽에서 물기가 빠진다"
+        },
+        {
+          "left": "센 바람",
+          "right": "불씨가 멀리 옮겨 붙는다"
+        },
+        {
+          "left": "가파른 산비탈",
+          "right": "불길이 위쪽으로 빠르게 오른다"
+        }
+      ],
+      "correct_answer": "메마른 공기:나무와 낙엽에서 물기가 빠진다|센 바람:불씨가 멀리 옮겨 붙는다|가파른 산비탈:불길이 위쪽으로 빠르게 오른다",
+      "explanation_hint": "탈 것이 잘 마르고, 불씨가 옮겨지고, 불길이 빠르게 퍼지는 세 조건이 겹칠 때 산불이 크게 번진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 조건과 결과 대응",
+        "실효습도 같은 규정 지수는 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "호우 예보를 들었을 때 하는 일을 순서대로 배열하라.",
+      "items": [
+        "예보와 특보를 확인한다",
+        "하수구와 배수구가 막히지 않았는지 살핀다",
+        "낮은 곳에 세워 둔 차를 높은 곳으로 옮긴다",
+        "비가 내리는 동안 실내에 머문다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "정보를 먼저 확인하고, 물이 빠질 길을 열어 두고, 잠길 수 있는 것을 옮긴 뒤, 마지막에 안전한 곳에 머문다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 대비 절차",
+        "규정 수치가 아니라 행동 순서"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "난방을 켠 방에서 천장 가까이와 바닥 가까이의 온도를 재어 보면 어떤 규칙이 나타나는가?",
+      "options": [
+        "천장 쪽이 더 따뜻하다",
+        "바닥 쪽이 더 따뜻하다",
+        "두 곳이 늘 같다",
+        "창문 쪽만 따뜻하다"
+      ],
+      "correct_answer": "천장 쪽이 더 따뜻하다",
+      "explanation_hint": "데워진 공기는 가벼워져 위로 올라간다. 그래서 같은 방 안에서도 천장 가까이가 바닥보다 따뜻하게 잰다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 측정으로 확인하는 규칙성",
+        "kl1의 풍선 문항을 측정으로 확장"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "같은 시각 도시 한복판이 28℃, 둘레 시골이 25℃였다. 두 곳의 기온 차는 몇 ℃인지 슬라이더로 표시하라.",
+      "correct_answer": "3",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "℃",
+      "explanation_hint": "28 − 25 = 3이다. 도시가 둘레보다 더운 정도는 이렇게 두 곳을 같은 시각에 재어 견주면 알 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=2 · 초5~6 두 지점 비교 측정",
+        "slider 범위 30 — 관용오차 ±10보다 넓다"
+      ]
+    },
+    "status": "active"
   }
 ]
