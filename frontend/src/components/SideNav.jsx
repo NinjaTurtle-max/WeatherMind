@@ -1,6 +1,6 @@
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Mascot from './Mascot';
-import { NAV_ITEMS } from './navItems';
+import { NAV_ITEMS, isNavActive } from './navItems';
 import { useT } from '../i18n';
 
 /**
@@ -61,23 +61,25 @@ export default function SideNav() {
 
       <nav aria-label={t('nav.primary')} className="flex flex-col gap-0.5">
         {NAV_ITEMS.map((item) => (
-          <NavLink
+          <Link
             key={item.to}
             to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              `flex items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-[13.5px] font-bold transition ${
-                isActive
-                  ? 'bg-white text-sky-700 shadow-[0_1px_2px_rgba(12,44,66,0.07)]'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`
-            }
+            // ⚠️ NavLink를 쓰지 않는다(2026-08-11 코드 리뷰). NavLink의
+            // `aria-current`는 **자기 판정**을 따르는데 색은 isNavActive가
+            // 칠하므로, /league에서 「예보 대결」이 켜져 보이는데 읽어 주는
+            // 현재 위치는 아무 데도 없는 어긋남이 난다. 판정을 하나로 둔다.
+            aria-current={isNavActive(item, pathname) ? 'page' : undefined}
+            className={`flex items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-[13.5px] font-bold transition ${
+              isNavActive(item, pathname)
+                ? 'bg-white text-sky-700 shadow-[0_1px_2px_rgba(12,44,66,0.07)]'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
           >
             <span className="w-[18px] text-center" aria-hidden="true">
               {item.icon}
             </span>
             {t(item.labelKey)}
-          </NavLink>
+          </Link>
         ))}
       </nav>
 

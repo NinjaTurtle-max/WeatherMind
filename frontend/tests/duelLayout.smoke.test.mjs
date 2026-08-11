@@ -173,6 +173,51 @@ ok(
   'items-start를 쓰지 않는다 — 칸이 늘어나야 sticky가 따라 내려온다',
 );
 
+// ── ③-2 리그로 가는 통로 (2026-08-11 합친 화면) ─────────────────────────────
+//
+// 리그는 내비에서 빠졌다 — 이 화면의 탭이 **앱에서 리그로 가는 유일한 길**이다.
+// navItems에 없다는 단정만으로는 부족하다: 없애 놓고 통로도 안 만들면 그 단정은
+// 통과하는데 화면은 도달 불가가 된다(CO-N-1 ②가 정확히 그 사고였다).
+const leagueTab = $('[data-compete-tab="/league"]');
+ok(Boolean(leagueTab), '탭바에 리그로 가는 링크가 없다 — 리그가 도달 불가 화면이 된다');
+ok(
+  leagueTab?.getAttribute('href') === '/league',
+  `리그 탭이 /league로 간다 — 실제 ${leagueTab?.getAttribute('href')}`,
+);
+const duelTab = $('[data-compete-tab="/duel"]');
+ok(
+  duelTab?.getAttribute('aria-current') === 'page' && !leagueTab?.getAttribute('aria-current'),
+  '지금 보고 있는 탭만 aria-current="page"',
+);
+// 내비도 이 화면을 **자기 것으로 표시해야 한다**. /league에서 어느 항목과도
+// 안 맞아 아무 데도 안 켜지던 것을 navItems.isNavActive(alsoMatch)로 고쳤다.
+const { NAV_ITEMS, isNavActive } = await vite.ssrLoadModule('/src/components/navItems.js');
+const owner = NAV_ITEMS.filter((i) => isNavActive(i, '/league'));
+ok(owner.length === 1 && owner[0].to === '/duel', `/league를 담당하는 내비 항목 1개 — ${owner.map((i) => i.to)}`);
+
+// ── ③-3 로딩·오류에서도 껍데기(=탭바)가 남는가 ──────────────────────────────
+//
+// 조회가 실패했다고 리그까지 못 가면 안 된다. 목을 실패시킬 수단이 없어
+// **소스 계약**으로 고정한다(BoardPage의 data-board-next 선례와 같은 방식) —
+// 두 분기가 껍데기 밖으로 일찍 return하면 잡힌다. 위 단정들은 성공 경로만
+// 지나므로, 이 검사가 없으면 early return을 되살려도 CI가 초록이다.
+const { readFile } = await import('node:fs/promises');
+for (const [rel, guard] of [
+  ['src/modules/duel/DuelPage.jsx', 'todayQ.isLoading'],
+  ['src/modules/league/LeaguePage.jsx', 'currentQ.isLoading'],
+]) {
+  const src = await readFile(resolve(root, rel), 'utf8');
+  // 로딩 분기 시작 ~ 성공 경로의 최상위 `return (`(들여쓰기 2칸) 사이가
+  // 「로딩 + 오류」 두 분기다. 그 안에 여는 태그가 정확히 둘이어야 한다.
+  const from = src.indexOf(`if (${guard})`);
+  const successReturn = src.indexOf('\n  return (', from);
+  const wraps =
+    from >= 0 && successReturn > from
+      ? (src.slice(from, successReturn).match(/<CompeteLayout/g) ?? []).length
+      : -1;
+  ok(wraps === 2, `${rel}: 로딩·오류 분기가 CompeteLayout 안에서 그려진다 — 실제 감싼 수 ${wraps}`);
+}
+
 // ── ④ 튜터는 태풍이 ─────────────────────────────────────────────────────────
 const tutorImg = $('[data-testid="sidenav"] img');
 ok(tutorImg?.getAttribute('src') === '/typhoon.png', `사이드바 튜터 이미지 — ${tutorImg?.getAttribute('src')}`);

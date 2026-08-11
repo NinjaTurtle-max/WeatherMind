@@ -123,6 +123,14 @@ export default {
       jeonju: '전주',
     },
   },
+  // 예보 대결 · 리그 공통 껍데기(modules/compete/CompeteLayout.jsx) — 2026-08-11에
+  // 두 화면을 탭 하나로 합쳤다. 탭 이름은 각 화면의 제목(duel.title·league.title)과
+  // **다른 키**다: 제목은 이모지·수식이 붙지만 탭은 짧아야 한다.
+  compete: {
+    tabsAria: '대결 화면 선택',
+    tabDuel: '예보 대결',
+    tabLeague: '리그',
+  },
   spine: {
     title: '유닛 {cleared}/{total} 클리어 · 왕관 {crowns}/{crownsTotal}',
     crown: '왕관',
@@ -262,13 +270,6 @@ export default {
     placementBannerTitle: '아직 실력 진단 전이에요',
     placementBannerBody: '6문항 진단을 받으면 WeatherBrain이 내 수준에 맞는 문제를 골라줘요.',
     placementBannerCta: '진단 받고 내 수준 찾기 →',
-    spineTitle: '🎓 학습 진도',
-    spineProgress: '{cleared}/{total} 유닛 · {ratio}%',
-    spineCurrentLabel: '지금 배울 유닛',
-    spineContinue: '이어서 학습 →',
-    spineAllCleared: '🌈 열린 유닛을 모두 클리어했어요!',
-    spineNoneOpen: '아직 열린 유닛이 없어요 — 학습 경로에서 첫 유닛을 열어 보세요.',
-    spineStart: '학습 경로 열기 →',
     // 학습 수준 설정 (R13 P-5) — 게스트가 평생 middle_high에 갇히지 않게 하는 통로
     levelGroupTitle: '🎚️ 학습 수준',
     levelGroupBody: '문항 난이도와 보드에서 열리는 난이도가 이 설정을 따라가요. 세션은 다음 발급부터 반영돼요.',

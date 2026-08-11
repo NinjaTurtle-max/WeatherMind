@@ -246,7 +246,7 @@ const ok = (cond, label) => {
   const tabs = $$('[data-testid="tabbar"] a');
   // CO-N-1 ②: 「탐구」 추가로 6 → 7. 진입 통합은 본문의 문제였고 탭 구조는 그대로다.
   // 2026-08-09: 홈 화면 삭제로 「홈」 탭이 빠져 7 → 6.
-  ok(tabs.length === 6, `탭 6개 유지 — 실제 ${tabs.length}`);
+  ok(tabs.length === 5, `탭 5개 유지 — 실제 ${tabs.length}`); // 2026-08-11 대결+리그 합침
 
   // 5. en 로케일 — 카드 문구가 리소스에서 온다
   useLocaleStore.getState().setLocale('en');

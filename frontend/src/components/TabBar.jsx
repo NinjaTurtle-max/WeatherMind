@@ -1,5 +1,5 @@
-import { NavLink } from 'react-router-dom';
-import { NAV_ITEMS } from './navItems';
+import { Link, useLocation } from 'react-router-dom';
+import { NAV_ITEMS, isNavActive } from './navItems';
 import { useT } from '../i18n';
 
 /**
@@ -20,6 +20,9 @@ import { useT } from '../i18n';
  */
 export default function TabBar() {
   const t = useT();
+  // 선택 표시는 navItems가 정한다 — 합친 화면의
+  // 둘째 탭(/league)에서 아무 항목도 안 켜지는 것을 막는다(2026-08-11).
+  const pathname = useLocation().pathname;
   return (
     <nav
       data-testid="tabbar"
@@ -28,21 +31,20 @@ export default function TabBar() {
     >
       <div className="mx-auto flex max-w-xl">
         {NAV_ITEMS.map((tab) => (
-          <NavLink
+          <Link
             key={tab.to}
             to={tab.to}
-            end={tab.end}
-            className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-0.5 py-2 text-xs font-medium transition-colors ${
-                isActive ? 'text-sky-600' : 'text-slate-400 hover:text-slate-600'
-              }`
-            }
+            // 색과 aria-current를 **같은 판정**으로 (SideNav와 같은 이유).
+            aria-current={isNavActive(tab, pathname) ? 'page' : undefined}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-xs font-medium transition-colors ${
+              isNavActive(tab, pathname) ? 'text-sky-600' : 'text-slate-400 hover:text-slate-600'
+            }`}
           >
             <span className="text-lg leading-none" aria-hidden="true">
               {tab.icon}
             </span>
             {t(tab.labelKey)}
-          </NavLink>
+          </Link>
         ))}
       </div>
     </nav>
