@@ -32,6 +32,7 @@ import { frontCurveGeometry, taperedArrowPath, FrontTick } from './mapInfographi
 import { supportsWebGL2 } from './webgl/crossSection/support';
 // 장면 내부 라벨 — SVG·WebGL 공유 단일 소유자(MT-28)
 import { V } from './crossSectionLabels.js';
+import { zoneLabel } from './PeninsulaMap';
 import { useT } from '../../i18n';
 // STORYBOARDS는 컴포넌트 밖 데이터라 훅(useT)을 못 쓴다 — core의 순수 함수를 쓴다.
 import { translate, translateList, getCurrentLocale } from '../../i18n/core.js';
@@ -924,7 +925,7 @@ export default function CrossSectionPanel({ zoneResult, confirmed = false, reduc
   const cl = cloudMeta(zoneResult.cloud);
   const header = (
     <p className="text-xs font-bold text-slate-800">
-      {zoneResult.zone_name ? `${zoneResult.zone_name} — ` : ''}
+      {zoneResult.zone_name ? `${zoneLabel({ name: zoneResult.zone_name }, zoneResult.zone, t)} — ` : ''}
       {ph.label}
       <span className="ml-1 font-medium text-slate-400">({cl.label})</span>
     </p>

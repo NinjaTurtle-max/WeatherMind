@@ -9,6 +9,8 @@ import AtmosphereBoard from './AtmosphereBoard';
 import { phenomenonMeta } from './boardDisplay';
 import { SymbolIcon } from './boardSymbols';
 import { ZONES } from '../../lib/boardEngine';
+// 존 표시명 — 서버 zone_name(한국어)을 로케일 리소스로 덮는다(MT-28)
+import { zoneLabel } from './PeninsulaMap';
 import { useT } from '../../i18n';
 
 /**
@@ -695,7 +697,7 @@ function PhenomenaSummary({ phenomena }) {
               <div className="flex justify-center">
                 <SymbolIcon kind="phenomenon" value={p.phenomenon} className="h-6 w-6" />
               </div>
-              <div className="text-[10px] text-slate-500">{p.zone_name ?? ZONES[p.zone] ?? ''}</div>
+              <div className="text-[10px] text-slate-500">{zoneLabel({ name: p.zone_name ?? ZONES[p.zone] }, p.zone, t)}</div>
               <div className="text-[11px] font-bold text-slate-700">{meta.label}</div>
             </div>
           );

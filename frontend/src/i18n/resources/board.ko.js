@@ -377,6 +377,10 @@ export default {
       jumpTo: '{n}단계로 이동',
     },
     map: {
+      // MT-28: 존 표시명 — 서버 원문(board_regions.json / GET /board/regions)을
+      // 덮는 표시 계층. 키는 존 인덱스(ZONES "index 0~3 고정" 계약).
+      // ko 값은 서버 원문과 바이트 동일 — 보드 스모크가 이 문구를 단정한다.
+      zone: { 0: '서해상', 1: '수도권', 2: '영서·태백', 3: '영동·동해' },
       // MT-28: 규칙 8종 주석(mapInfographic RULE_ANNOTATIONS). 줄바꿈(\n)이 리더선
       // 라벨의 2줄 배치를 만든다 — 지우면 한 줄로 붙어 지도 밖으로 넘친다.
       annotation: {

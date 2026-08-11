@@ -23,6 +23,8 @@ import {
   cloudMeta,
 } from './boardDisplay';
 import { FALLBACK_REGIONS } from './boardLayout';
+// 존 표시명 — 서버 원문(한국어)을 로케일 리소스로 덮는다(MT-28)
+import { zoneLabel } from './PeninsulaMap';
 import { SymbolIcon } from './boardSymbols';
 import BoardHintPanel from './BoardHintPanel';
 import CrossSectionPanel from './CrossSectionPanel';
@@ -715,7 +717,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
             }`}
           >
             <p className="mb-1 text-center text-xs font-bold text-slate-600">
-              {region.name}
+              {zoneLabel(region, zone, t)}
               {hintZoneActive && hintZone === zone && (
                 <span className="ml-1 rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-900">
                   {t('board.atmosphere.hintHere')}

@@ -369,6 +369,9 @@ export default {
       jumpTo: 'Go to step {n}',
     },
     map: {
+      // MT-28: zone display names overriding the server's Korean values.
+      // Keyed by zone index (ZONES is contractually fixed at 0..3).
+      zone: { 0: 'West Sea', 1: 'Metro Seoul', 2: 'Yeongseo · Taebaek', 3: 'Yeongdong · East Sea' },
       // MT-28: rule annotations (see mapInfographic RULE_ANNOTATIONS).
       // The \n keeps the leader-line label on two lines.
       annotation: {
