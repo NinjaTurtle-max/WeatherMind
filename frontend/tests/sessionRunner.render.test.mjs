@@ -113,6 +113,27 @@ try {
   // (/onboarding/placement)는 Layout 밖인데 같은 SessionRunner를 쓴다. 그래서
   // `--wm-shell-left`(Layout 안 208 · 밖 0)를 쓰는지 소스로 단정한다.
   // jsdom·SSR 모두 레이아웃 엔진이 없어 좌표로는 잴 수 없다.
+  // ── 피드백 화자는 **물방울이 하나** (2026-08-11 사용자 지시) ────────────────
+  // 학습 세션의 튜터가 물방울이다(SideNav `/learn` → drop). 정답일 때만 다른
+  // 캐릭터가 나오면 한 세션 안에서 말하는 사람이 문항마다 바뀐다.
+  // 종전 값(정답 sun · 오답 cloud)으로 되돌아가면 여기서 잡힌다 —
+  // **정오답 두 경우를 다 그려서** 본다(한쪽만 보면 반만 지킨다).
+  {
+    const FeedbackPanel = (await server.ssrLoadModule('/src/components/FeedbackPanel.jsx')).default;
+    for (const isCorrect of [true, false]) {
+      const html = renderToString(
+        createElement(FeedbackPanel, { message: '테스트 해설', isCorrect, source: 'authored' }),
+      );
+      const m = html.match(/data-mascot="([a-z]+)"/);
+      if (m?.[1] === 'drop') {
+        console.log(`PASS 피드백 화자가 물방울이 (isCorrect=${isCorrect})`);
+      } else {
+        console.error(`FAIL 피드백 화자가 물방울이가 아니다 (isCorrect=${isCorrect}) — 실제 ${m?.[1] ?? '(없음)'}`);
+        failed += 1;
+      }
+    }
+  }
+
   const { readFileSync, readdirSync, statSync } = await import('node:fs');
   const panel = readFileSync(resolve(root, 'src/components/FeedbackPanel.jsx'), 'utf8');
   const fixedLine = panel.split('\n').find((l) => /className="fixed /.test(l));

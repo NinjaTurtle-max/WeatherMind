@@ -14,14 +14,19 @@ import Mascot from './Mascot';
  * ("board"|"authored"|"ai")로 출처를 알려주므로 그것으로 라벨을 고른다.
  * 필드가 없는 구 응답은 종전대로 'ai'로 떨어진다(하위 호환).
  *
- * R13-01 §2.6(교사 캐릭터): 화자를 정오답에 따라 갈랐다. 예전에는 캐릭터가
- * 한 종(번개)뿐이라 "포즈가 1종이니 그림을 바꾸지 않는다"고 적어 뒀지만, 지금은
- * 마스코트 6종이 **표정 6종**으로 쓰인다 — 맞혔을 때와 틀렸을 때 같은 얼굴이
- * 같은 자리에서 다른 말을 하면 피드백이 사무적으로 읽힌다.
- *   정답 → 태양이(칭찬·개념 굳히기)  오답 → 구름이(메인 튜터가 다시 설명)
+ * 화자는 **물방울이 하나**다(2026-08-11 사용자 지시). 이 패널을 띄우는 화면은
+ * SessionRunner 하나뿐이고(학습 세션 · 유닛 세션 · 배치고사), 그 화면의 튜터가
+ * 물방울이다(SideNav TUTOR_BY_PATH `/learn` → drop). 정답일 때만 다른 캐릭터가
+ * 나오면 **한 세션 안에서 말하는 사람이 문항마다 바뀐다** — 튜터가 붙어 있다는
+ * 느낌이 깨진다.
+ *
+ * ⚠️ 종전에는 정답 → 태양이 · 오답 → 구름이로 갈랐다(R13-01 §2.6). 그때 근거는
+ * "같은 얼굴이 다른 말을 하면 사무적으로 읽힌다"였는데, 정오답은 **색 띠와
+ * 배지**가 이미 말한다(초록/주황) — 캐릭터까지 바꿀 필요가 없었다. 태양이는
+ * 보드 담당이라 학습 세션에 나오면 배정표와도 어긋났다.
  * **문구는 서버 것 그대로**다 — 캐릭터는 말투를 바꾸지 않는다(§2.6 문구 불변).
  */
-const SPEAKER = { correct: 'sun', wrong: 'cloud' };
+const SPEAKER = 'drop';
 
 /** feedback_source → 배지 리소스 키. 미지 값·부재는 'ai'(구 응답 하위 호환). */
 const SOURCE_LABEL_KEY = {
@@ -34,7 +39,7 @@ export default function FeedbackPanel({ message, isCorrect, source }) {
   const t = useT();
   if (!message) return null;
 
-  const speaker = isCorrect ? SPEAKER.correct : SPEAKER.wrong;
+  const speaker = SPEAKER;
   const tone = isCorrect
     ? { bar: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700', tail: 'border-emerald-100' }
     : { bar: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700', tail: 'border-orange-100' };

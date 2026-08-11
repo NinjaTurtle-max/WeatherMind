@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { boardApi, progressApi } from '../../api';
 import { useProgressStore } from '../../store/progressStore';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import Mascot from '../../components/Mascot';
 import AtmosphereBoard from './AtmosphereBoard';
 import { phenomenonMeta } from './boardDisplay';
 import { SymbolIcon } from './boardSymbols';
@@ -355,13 +356,45 @@ export default function BoardPage() {
           {toast}
         </div>
       )}
-      {/* 실험 둘은 **우측 레일**이 소유한다(2026-08-05 새 시안) — 머리말에도 두면
-          같은 입구가 화면에 두 번 뜬다. 머리말은 제목·부제만. */}
-      <div className="mb-3 flex flex-wrap items-end gap-x-3 gap-y-2">
-        <div className="min-w-0">
-          <h1 className="text-lg font-extrabold text-slate-900">{t('board.page.title')}</h1>
-          <p className="text-sm text-slate-500">{t('board.page.subtitle')}</p>
+      {/* 태양이 튜터 배너 — /learn의 물방울이 배너(LearnHeroCard)와 **같은 치수**로
+          맨 위에 선다(2026-08-11 사용자 지시). 보드 담당 마스코트가 태양이라
+          (Mascot 배정표 · SideNav TUTOR_BY_PATH `/board` → sun) 보드 설명을
+          태양이가 하는 것이 배정표와 맞는다.
+          ⚠️ 치수는 눈대중이 아니라 LearnHeroCard에서 그대로 옮긴 값이다 —
+          px-5 py-3.5 · 원 62px · 그림 50px · eyebrow 11.5 · 제목 21.
+          한쪽만 고치면 두 화면의 같은 자리 배너가 서로 다른 크기가 된다. */}
+      <div
+        data-testid="board-hero"
+        className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[20px] bg-gradient-to-r from-[#1F3A5F] to-[#16293F] px-5 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
+      >
+        <span className="hidden h-[62px] w-[62px] flex-none place-items-center rounded-full bg-white/10 sm:grid">
+          <Mascot name="sun" className="h-[50px] w-[50px]" />
+        </span>
+        <div className="min-w-0 flex-1 basis-[220px]">
+          <p className="truncate text-[11.5px] font-bold tracking-[0.02em] text-sky-300">
+            {t('board.page.title')}
+          </p>
+          <p className="mt-0.5 text-[21px] font-extrabold leading-tight tracking-[-0.02em] text-white">
+            {t('board.hero.title')}
+          </p>
         </div>
+        {/* 설명 + 진도 — LearnHeroCard와 같이 좁아지면 통째로 접힌다(hidden lg:block).
+            잃는 정보가 없다: 설명은 안내문이고 진도는 판 아래 진행도 바가 같은
+            값을 보여준다. */}
+        <div className="hidden min-w-0 basis-[260px] lg:block">
+          <p className="truncate text-[11.5px] leading-relaxed text-slate-300">
+            {t('board.page.subtitle')}
+          </p>
+          <span className="mt-2 block h-[6px] overflow-hidden rounded-full bg-white/15">
+            <i
+              className="block h-full rounded-full bg-sky-400"
+              style={{ width: `${list.length ? Math.round((clearedCount / list.length) * 100) : 0}%` }}
+            />
+          </span>
+        </div>
+        <span className="flex-none whitespace-nowrap text-[11.5px] font-bold tabular-nums text-slate-300">
+          {t('board.page.progressLabel')} {clearedCount}/{list.length}
+        </span>
       </div>
 
       {/* 구름 소진 안내 (§3.1) — 퍼즐은 열 수 없지만 목록·클리어 표시는 그대로 보인다(D1) */}

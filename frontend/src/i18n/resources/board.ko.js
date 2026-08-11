@@ -11,6 +11,12 @@ export default {
       // assist·board-entry 스모크가 '구름이 모두 흩어졌어요'를 단정
       outOfClouds: '☁️ 구름이 모두 흩어졌어요',
     },
+    // 태양이 튜터 배너(2026-08-11 사용자 지시) — /learn 물방울이 배너와 같은 자리·
+    // 같은 치수. eyebrow는 `page.title`, 설명은 `page.subtitle`을 그대로 재사용하고
+    // 여기 있는 것은 **태양이가 하는 한마디**뿐이다(문구를 두 벌로 만들지 않는다).
+    hero: {
+      title: '오늘은 어떤 날씨를 만들어 볼까요?',
+    },
     page: {
       difficulty1: '쉬움',
       difficulty2: '보통',

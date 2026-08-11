@@ -13,6 +13,9 @@ export default {
     common: {
       outOfClouds: '☁️ Your clouds have all drifted away',
     },
+    hero: {
+      title: 'What weather shall we build today?',
+    },
     page: {
       difficulty1: 'Easy',
       difficulty2: 'Normal',
