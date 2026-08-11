@@ -1339,13 +1339,38 @@ const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board')
 // 최초 클리어 기록 (content_item_id 집합) — 재도전 0 XP (§3.5)
 const clearedBoardPuzzles = new Set();
 
+// 학습 수준 → 열리는 최고 난이도. 서버 `routers/board.BAND_MAX_DIFFICULTY`의
+// **사본**이고, `__mockPolicy().board_band_max_difficulty`로 노출해
+// test_r13_mock_policy_parity가 서버 표와 실값 대조한다(CO-J-9 관례).
+const BOARD_BAND_MAX_DIFFICULTY = {
+  elementary: 1,
+  middle_high: 2,
+  adult: 3,
+  expert: 3,
+};
+const BOARD_DEFAULT_MAX_DIFFICULTY = 3; // 미상 밴드는 잠그지 않는다(서버와 같다)
+const BOARD_DIFFICULTIES = [1, 2, 3];
+
+/**
+ * 잠긴 난이도 집합 — 서버 `routers/board.locked_difficulties`의 **사본**이다.
+ * 초등은 쉬움만, 중·고등은 쉬움·보통, 성인은 전부(2026-08-10). 열쇠는 진도가
+ * 아니라 `users.level_group`이라, 목에서도 PATCH /auth/me로 수준을 바꾸면
+ * 그 자리에서 열린다 — 스모크가 그 왕복을 볼 수 있다.
+ */
+function lockedBoardDifficulties() {
+  const ceiling = BOARD_BAND_MAX_DIFFICULTY[mockAuth.levelGroup] ?? BOARD_DEFAULT_MAX_DIFFICULTY;
+  return new Set(BOARD_DIFFICULTIES.filter((d) => d > ceiling));
+}
+
 /** BoardPuzzle 1건 (서버 schemas/board.BoardPuzzle) — 목록·상세가 공유한다.
  *  R10-01 D1: 상세 엔드포인트는 단건 전용 스키마를 만들지 않고 이 형태를 그대로 쓴다. */
-const boardPuzzlePayload = (p) => ({
+const boardPuzzlePayload = (p, locked = null) => ({
   content_item_id: p.content_item_id,
   difficulty: p.difficulty ?? 1, // R7-02 S5: 난이도 1|2|3
   template_json: p.template_json,
   cleared: clearedBoardPuzzles.has(p.content_item_id),
+  // 상세는 잠긴 퍼즐이 그 앞에서 403이라 항상 false다(서버와 같다).
+  locked: locked === null ? false : locked.has(p.difficulty ?? 1),
 });
 
 /** 보드 재판정 + 목표 검사 → {passed, phenomena, feedback} (권위 채점 흉내) */
@@ -2010,7 +2035,10 @@ const routes = {
   // GET /board/regions (R5-01 §3.1) — 지도 지역 좌표(렌더 전용, 판정 미사용)
   'GET /board/regions': () => [200, BOARD_REGIONS],
   // 목록은 **무차단**(R10-01 D1) — 잔량 0이어도 퍼즐 화면·cleared 표시는 열린다.
-  'GET /board/puzzles': () => [200, BOARD_PUZZLES.map(boardPuzzlePayload)],
+  'GET /board/puzzles': () => {
+    const locked = lockedBoardDifficulties();
+    return [200, BOARD_PUZZLES.map((p) => boardPuzzlePayload(p, locked))];
+  },
   // GET /board/puzzles/{content_item_id} (R10-01 D1 신설) — 단건 BoardPuzzle.
   // 서버 스키마 재사용(목록 원소와 동일 필드, 단건 전용 스키마 없음).
   // §3.1 차단 지점 3: **퍼즐 상세 진입**에서 잔량 부족이면 429 OUT_OF_CLOUDS.
@@ -2020,14 +2048,25 @@ const routes = {
     if (!puzzle) {
       return [404, { detail: '퍼즐을 찾을 수 없습니다', code: 'PUZZLE_NOT_FOUND' }];
     }
+    // 난이도 잠금은 **구름 검사보다 먼저**(서버와 같은 순서) — 순서를 바꾸면
+    // 잔량 0인 사람이 "구름이 없어서"라는 틀린 이유를 듣는다.
+    if (lockedBoardDifficulties().has(puzzle.difficulty ?? 1)) {
+      return [403, { detail: '내 정보에서 학습 수준을 올리면 열려요.', code: 'PUZZLE_LOCKED' }];
+    }
     const gate = requireCloudEntry();
     if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
     return [200, boardPuzzlePayload(puzzle)];
   },
+  // 채점도 잠금을 본다(서버와 같다) — 진입만 막으면 attempt를 직접 POST해서
+  // 판정·XP·클리어를 다 받아간다. 목이 이걸 빠뜨리면 스모크가 그 구멍을 못 본다.
   'POST /board/puzzles/:id/attempt': (body, params) => {
     const puzzle = BOARD_PUZZLES.find((p) => p.content_item_id === params?.id);
     if (!puzzle) {
       return [404, { detail: '퍼즐을 찾을 수 없습니다', code: 'PUZZLE_NOT_FOUND' }];
+    }
+    // 잠금은 **판정보다 먼저**(서버와 같은 순서).
+    if (lockedBoardDifficulties().has(puzzle.difficulty ?? 1)) {
+      return [403, { detail: '내 정보에서 학습 수준을 올리면 열려요.', code: 'PUZZLE_LOCKED' }];
     }
     if (!body?.board_state) {
       return [422, { detail: '보드 상태(board_state)가 필요합니다', code: 'BOARD_STATE_REQUIRED' }];
@@ -2528,7 +2567,11 @@ export const __mockFixtures = () => ({
   session_recipe: MOCK_SESSION_RECIPE,
   session_items: SESSION_ITEMS.map(stripMock),
   placement_items: PLACEMENT_ITEMS.map(stripMock),
-  board_puzzles: BOARD_PUZZLES.map(boardPuzzlePayload),
+  // ⚠️ point-free(`.map(boardPuzzlePayload)`)로 쓰지 말 것 — map이 두 번째 인자로
+  // **인덱스**를 넘겨 그게 `locked`로 들어간다(2026-08-10: `0.has is not a
+  // function`으로 목 import 전체가 죽었다). 잠금 집합은 목록 응답에서만 실리므로
+  // 여기서는 인자 없이 부른다.
+  board_puzzles: BOARD_PUZZLES.map((p) => boardPuzzlePayload(p)),
   unit_items: UNITS.map((u) => ({
     slug: u.slug,
     kind: u.kind,
@@ -2561,6 +2604,8 @@ export const __mockPolicy = () => ({
   daily_board_cap: MOCK_DAILY_BOARD_CAP,
   // 학령 (server schemas/auth.LevelGroup)
   level_groups: LEVEL_GROUPS,
+  // 보드 난이도 잠금 (server routers/board.BAND_MAX_DIFFICULTY)
+  board_band_max_difficulty: BOARD_BAND_MAX_DIFFICULTY,
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
   guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN
   // 왕관 정책 (server routers/session.py — §2.10 소유권 이전)

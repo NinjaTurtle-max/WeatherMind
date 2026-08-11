@@ -550,8 +550,15 @@ class BoardFakeDB:
 
 
 def make_puzzle_item(concept_tag="humidity"):
+    # level_group·mode=guided → board_difficulty 1(쉬움). _FAKE_USER가 elementary라
+    # 난이도 2 이상이면 attempt가 403 PUZZLE_LOCKED로 끊겨 왕관 배선까지 못 간다
+    # (2026-08-10 학습 수준 잠금이 채점에도 걸리면서 드러난 공백 —
+    # 종전 페이크에는 level_group 자체가 없었다).
     return SimpleNamespace(
-        id=uuid.uuid4(), concept_tag=concept_tag, template_json={"mode": "guided"}
+        id=uuid.uuid4(),
+        concept_tag=concept_tag,
+        level_group="elementary",
+        template_json={"mode": "guided"},
     )
 
 

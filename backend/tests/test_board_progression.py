@@ -10,6 +10,7 @@
 실행: backend 디렉토리에서 `python -m pytest tests/test_board_progression.py -q`.
 """
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -178,3 +179,104 @@ class TestDisasterBoards:
                 f"{template['title']}: 팔레트대로 조절해도 목표에 닿지 않는다 — "
                 f"{[p['phenomenon'] for p in phenomena]}"
             )
+
+
+# ── 학습 수준 잠금 (2026-08-10 사용자 지시) ──────────────────────────────────
+#
+# 초등은 쉬움만, 중·고등은 쉬움·보통, 성인은 전부. 열쇠는 진도가 아니라
+# `users.level_group`이다.
+#
+# ⚠️ 이 파일 머리말이 「순차 잠금은 걷어냈다」고 적어 둔 것과 **어긋나지 않는다**.
+# 걷어낸 것은 퍼즐 하나하나가 앞 퍼즐을 요구하던 잠금이고(고를 자유가 없었다),
+# 여기는 난이도 묶음 자체를 수준으로 여닫을 뿐 묶음 **안에서는** 아무거나 고른다.
+#
+# ⚠️ 같은 날의 첫 판은 「쉬움 전건 클리어 → 보통 개방」이었고 그 테스트가 여기
+# 있었다. 뒤집힌 이유는 심사다 — 로그인 없이 여는 화면에서 쉬움 23칸을 깨야
+# 보통이 열리면 심사위원은 보통·어려움을 못 본다(HACKATHON_RULES).
+#
+# 규칙은 DB를 안 타는 순수 함수라 여기서 전 분기를 고정한다.
+import pytest
+
+from app.routers.board import BAND_MAX_DIFFICULTY, locked_difficulties
+
+
+def test_초등은_쉬움만_열린다():
+    assert locked_difficulties("elementary") == {2, 3}
+
+
+def test_중고등은_쉬움과_보통이_열린다():
+    assert locked_difficulties("middle_high") == {3}
+
+
+def test_성인은_전부_열린다():
+    assert locked_difficulties("adult") == set()
+
+
+def test_expert도_전부_열린다():
+    # board_difficulty가 3에서 클램프하므로 adult 위가 없다 — 같은 결과여야 한다.
+    assert locked_difficulties("expert") == locked_difficulties("adult") == set()
+
+
+@pytest.mark.parametrize("band", [None, "", "unknown_band"])
+def test_미상_밴드는_잠그지_않는다(band):
+    """표에 없는 밴드가 보드를 통째로 잃는 쪽이 열리는 쪽보다 나쁘다."""
+    assert locked_difficulties(band) == set()
+
+
+def test_진도는_잠금을_바꾸지_않는다():
+    """열쇠는 클리어 수가 아니라 수준이다 — 인자에 진도가 들어갈 자리가 없다."""
+    import inspect
+
+    params = list(inspect.signature(locked_difficulties).parameters)
+    assert params == ["level_group"], (
+        f"시그니처가 {params} — 진도 기반 사다리로 되돌아갔는지 확인할 것"
+    )
+
+
+ROUTER_SRC = (
+    Path(__file__).resolve().parents[1] / "app" / "routers" / "board.py"
+).read_text(encoding="utf-8")
+
+
+def _func_block(name: str) -> str:
+    """`async def <name>(`부터 다음 최상위 정의 직전까지 (test_r10_energy_contract 관례)."""
+    start = ROUTER_SRC.index(f"async def {name}(")
+    rest = ROUTER_SRC[start:]
+    end = re.search(r"\n(?:@router|async def |def )", rest[1:])
+    return rest[: end.start() + 1] if end else rest
+
+
+@pytest.mark.parametrize(
+    "func,must_precede",
+    [
+        # 진입: 구름 검사보다 **먼저** — 순서가 바뀌면 잔량 0인 사람이
+        # "구름이 없어서"라는 틀린 이유를 듣는다.
+        ("get_puzzle_detail", "require_entry"),
+        # 채점: 판정보다 **먼저**. 진입만 막으면 attempt를 직접 POST해서 판정·XP·
+        # 왕관·클리어 기록을 다 받아간다 — 잠금이 화면 장식이 된다
+        # (2026-08-10 코드 리뷰에서 실제로 뚫려 있던 구멍).
+        ("attempt_puzzle", "evaluate_board_answer"),
+    ],
+)
+def test_잠금은_진입과_채점_양쪽에_먼저_걸린다(func, must_precede):
+    block = _func_block(func)
+    assert "locked_difficulties(user.level_group)" in block, (
+        f"{func}에 학습 수준 잠금 검사가 없다"
+    )
+    assert block.index("locked_difficulties") < block.index(must_precede), (
+        f"{func}: 잠금 검사가 {must_precede}보다 뒤에 있다"
+    )
+
+
+def test_밴드_표가_users_level_group_CHECK와_같다():
+    """모델 CHECK 제약이 허용하는 밴드는 전부 표에 있어야 한다 — 빠지면 그 밴드
+    유저가 조용히 DEFAULT(전부 열림)로 떨어져 잠금이 무력해진다."""
+    from app.models.user import User
+
+    constraint = next(
+        c for c in User.__table_args__ if getattr(c, "name", "") == "ck_users_level_group"
+    )
+    bands = set(re.findall(r"'([a-z_]+)'", str(constraint.sqltext)))
+    assert bands == set(BAND_MAX_DIFFICULTY), (
+        f"CHECK 제약 {bands} ↔ BAND_MAX_DIFFICULTY {set(BAND_MAX_DIFFICULTY)}"
+    )

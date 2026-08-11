@@ -108,6 +108,51 @@ async def get_rules(
     ]
 
 
+# 학습 수준(users.level_group) → 열리는 **최고 난이도**. 2026-08-10 사용자 지시:
+# 초등 쉬움 · 중고등 쉬움+보통 · 성인 전부. expert는 adult와 같다 — board_difficulty가
+# 3에서 클램프하므로 그 위가 없다.
+#
+# ⚠️ **첫 판의 「전건 클리어 사다리」를 대체한 것이다**(같은 날 뒤집혔다). 그쪽은
+# 쉬움 23칸을 다 깨야 보통이 열려서, 심사위원이 로그인 없이 여는 데모에서 보통·
+# 어려움을 볼 방법이 없었다(HACKATHON_RULES). 지금은 열쇠가 **진도가 아니라 수준**
+# 이라 「내 정보 → 학습 수준」 한 번으로 바뀐다.
+#
+# 값 목록은 users.level_group CHECK 제약(모델)·schemas/auth.LevelGroup과 같아야
+# 한다. 목(apiMockPlugin `__mockPolicy().board_band_max_difficulty`)이 이 표의
+# 사본을 들고 있고 test_r13_mock_policy_parity가 실값으로 대조한다.
+BAND_MAX_DIFFICULTY: dict[str, int] = {
+    "elementary": 1,
+    "middle_high": 2,
+    "adult": 3,
+    "expert": 3,
+}
+
+# 미상 밴드는 **잠그지 않는다**. 밴드가 늘었는데 이 표를 안 고치면 그 밴드 유저가
+# 보드를 통째로 잃는데, 못 여는 것이 열리는 것보다 나쁘다(board_difficulty의
+# "상위 밴드가 늘어도 easy로 오분류되지 않는다"와 같은 방향).
+DEFAULT_MAX_DIFFICULTY = 3
+
+# board_difficulty가 내는 값의 전 범위(1~3 클램프). 잠금 집합의 정의역이다.
+BOARD_DIFFICULTIES: tuple[int, ...] = (1, 2, 3)
+
+
+def locked_difficulties(level_group: str | None) -> set[int]:
+    """학습 수준 → **잠긴 난이도 집합**.
+
+    초등학생은 쉬움만, 중·고등학생은 쉬움·보통, 성인은 전부 열린다
+    (2026-08-10 사용자 지시). 열쇠는 온보딩에서 정해진 `users.level_group`이고,
+    「내 정보 → 학습 수준」(PATCH /auth/me)이 그것을 바꾸는 통로다.
+
+    난이도 **안에서는 순서가 없다** — 열린 묶음의 퍼즐은 아무거나 고른다
+    (2026-08-06에 퍼즐 단위 순차 잠금을 걷어낸 결정 그대로다).
+
+    DB를 타지 않는 순수 함수다(board_difficulty·order_puzzles_for_progress 관례) —
+    잠금 규칙만 따로 고정할 수 있어야 회귀를 싸게 잡는다.
+    """
+    ceiling = BAND_MAX_DIFFICULTY.get(level_group or "", DEFAULT_MAX_DIFFICULTY)
+    return {d for d in BOARD_DIFFICULTIES if d > ceiling}
+
+
 def board_difficulty(template_json: dict, level_group: str) -> int:
     """보드 퍼즐 난이도 라벨 1(쉬움)~3(어려움) — R7-02 §3.5 (표시 전용, 잠금 없음).
 
@@ -228,8 +273,14 @@ async def list_puzzles(
     정렬: 시드가 저작한 진행 순서(template_json.board_order) — 난이도 오름차순으로
     저작돼 있다. θ 근접 정렬을 대체한다(2026-08-05).
 
-    **잠금 없다**(2026-08-06 제품 결정): 순차 잠금을 넣었다가 걷어냈다 — 학습자가
-    원하는 퍼즐을 골라 풀게 한다. 순서는 권유이지 강제가 아니다.
+    **학습 수준 잠금**(2026-08-10 사용자 지시): 초등은 쉬움만, 중·고등은 쉬움·보통,
+    성인은 전부 열린다. 규칙은 `locked_difficulties`가 소유한다. 난이도 **안에서는**
+    여전히 순서가 없다 — 2026-08-06에 걷어낸 퍼즐 단위 순차 잠금(고를 자유가 없어
+    되돌렸다)과 강제하는 범위가 다르다.
+
+    목록 자체는 **무차단**이다. 잠긴 퍼즐도 제목과 함께 내려보내고 `locked`만
+    참으로 준다 — 무엇이 기다리는지 보이지 않으면 잠금이 동기가 아니라 벽이 된다.
+    실제 차단은 진입(GET /puzzles/{id})이 한다.
     """
     items = list(
         (
@@ -247,14 +298,20 @@ async def list_puzzles(
     )
     items = order_puzzles_for_progress(items)
     cleared = await _cleared_item_ids(db, user)
+    graded = [
+        (item, board_difficulty(item.template_json, item.level_group), item.id in cleared)
+        for item in items
+    ]
+    locked = locked_difficulties(user.level_group)
     return [
         BoardPuzzle(
             content_item_id=item.id,
             template_json=item.template_json or {},
-            cleared=item.id in cleared,
-            difficulty=board_difficulty(item.template_json, item.level_group),
+            cleared=done,
+            difficulty=difficulty,
+            locked=difficulty in locked,
         )
-        for item in items
+        for item, difficulty, done in graded
     ]
 
 
@@ -292,6 +349,19 @@ async def get_puzzle_detail(
     """
     item = await _load_puzzle_or_404(db, content_item_id)
     cleared = await _cleared_item_ids(db, user)
+    difficulty = board_difficulty(item.template_json, item.level_group)
+
+    # 난이도 잠금 — **구름 검사보다 먼저**다. 잠긴 퍼즐은 잔량이 있어도 못 여는데,
+    # 순서를 바꾸면 잔량 0인 사람이 "구름이 없어서"라는 틀린 이유를 듣는다.
+    # 화면도 막지만 여기서 다시 막는다 — 주소창으로 들어오면 화면 판정은 없다.
+    if difficulty in locked_difficulties(user.level_group):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "detail": "내 정보에서 학습 수준을 올리면 열려요.",
+                "code": "PUZZLE_LOCKED",
+            },
+        )
 
     # 진입 게이트 — 무소모 검사. 404 판정 이후에 둔다(없는 퍼즐은 차단 대상이 아니다).
     await energy_service.require_entry(db, user)
@@ -300,7 +370,8 @@ async def get_puzzle_detail(
         content_item_id=item.id,
         template_json=item.template_json or {},
         cleared=item.id in cleared,
-        difficulty=board_difficulty(item.template_json, item.level_group),
+        difficulty=difficulty,
+        locked=False,
     )
 
 
@@ -329,6 +400,19 @@ async def attempt_puzzle(
     db: AsyncSession = Depends(get_db_with_rls),
 ) -> BoardAttemptResult:
     item = await _load_puzzle_or_404(db, content_item_id)
+
+    # 잠금은 **채점에도 걸린다**(2026-08-10 코드 리뷰). 진입(GET)만 막아 두면
+    # attempt를 직접 POST해서 판정·XP·왕관·클리어 기록을 다 받아갈 수 있다 —
+    # 진입 게이트가 지키려던 것이 통째로 새는 구멍이다. 판정 **전에** 막는다.
+    locked = locked_difficulties(user.level_group)
+    if board_difficulty(item.template_json, item.level_group) in locked:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "detail": "내 정보에서 학습 수준을 올리면 열려요.",
+                "code": "PUZZLE_LOCKED",
+            },
+        )
 
     cleared = await _cleared_item_ids(db, user)
     template = item.template_json or {}
@@ -359,8 +443,8 @@ async def attempt_puzzle(
             0, min(energy_service.CLOUD_COST, state["clouds"] - clouds_remaining)
         )
 
-    # 최초 클리어만 +5 XP (재도전 0). 클리어 여부는 기존 board 로그로 판별.
-    # 위 잠금 검사에서 이미 조회했다 — 같은 트랜잭션에서 두 번 돌 이유가 없다.
+    # 최초 클리어만 +5 XP (재도전 0). 클리어 여부는 기존 board 로그로 판별 —
+    # 위에서 `_cleared_item_ids`로 한 번 조회했으니 같은 트랜잭션에서 두 번 돌지 않는다.
     already_cleared = item.id in cleared
     xp_earned = board_clear_xp(passed, already_cleared)
     if xp_earned:

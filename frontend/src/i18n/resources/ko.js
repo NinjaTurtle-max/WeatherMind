@@ -232,7 +232,7 @@ export default {
     spineStart: '학습 경로 열기 →',
     // 학습 수준 설정 (R13 P-5) — 게스트가 평생 middle_high에 갇히지 않게 하는 통로
     levelGroupTitle: '🎚️ 학습 수준',
-    levelGroupBody: '문항 난이도가 이 설정을 따라가요. 바꾸면 다음 세션부터 반영돼요.',
+    levelGroupBody: '문항 난이도와 보드에서 열리는 난이도가 이 설정을 따라가요. 세션은 다음 발급부터 반영돼요.',
     levelGroupSaved: '학습 수준을 바꿨어요.',
     levelGroupFailed: '학습 수준을 바꾸지 못했어요.',
     levelGroupSaving: '바꾸는 중...',

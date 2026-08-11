@@ -196,6 +196,10 @@ function LevelGroupCard() {
       // 배합은 세션 발급 시점에 확정되므로 오늘 세션은 그대로다. 다음 발급이
       // 새 학령을 쓰도록 캐시만 비운다.
       queryClient.invalidateQueries({ queryKey: ['session'] });
+      // 보드 잠금은 **즉시** 따라온다(2026-08-10) — 열쇠가 이 값이기 때문이다.
+      // 목록 캐시는 staleTime 60초라, 비우지 않으면 수준을 올리고 보드로 가도
+      // 1분간 잠긴 채로 보인다. "바꿨는데 안 열린다"가 되면 통로가 없는 것과 같다.
+      queryClient.invalidateQueries({ queryKey: ['board', 'puzzles'] });
       setNotice({ ok: true, text: t('profile.levelGroupSaved') });
     },
     onError: (err) => setNotice({ ok: false, text: err?.detail ?? t('profile.levelGroupFailed') }),

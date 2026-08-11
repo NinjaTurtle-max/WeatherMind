@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { boardApi, progressApi } from '../../api';
 import { useProgressStore } from '../../store/progressStore';
@@ -44,7 +45,11 @@ const DIFFICULTY_META = {
   3: { labelKey: 'board.page.difficulty3', className: 'text-rose-600' },
 };
 
-function DifficultyBadge({ difficulty }) {
+// compact — 「난이도」 접두어를 떼고 등급만 쓴다. 잠긴 칸에서만 켠다: 같은 줄에
+// 잠금 사유가 따라붙어 접두어까지 놓을 폭이 없다(en 「Difficulty Normal」 +
+// 「Previous tier first」 = 187px 칸에서 줄임표. 2026-08-10 실측). **읽어 주는
+// 이름은 줄지 않는다** — aria-label은 두 경우 모두 전체 문구다.
+function DifficultyBadge({ difficulty, compact = false }) {
   const t = useT();
   const meta = DIFFICULTY_META[difficulty];
   if (!meta) return null; // 구 백엔드(difficulty 부재) 하위 호환 — 배지 미표시
@@ -54,7 +59,7 @@ function DifficultyBadge({ difficulty }) {
       aria-label={t('board.page.difficultyAria', { label })}
       className={`shrink-0 text-[11px] font-bold ${meta.className}`}
     >
-      {t('board.page.difficultyText', { label })}
+      {compact ? label : t('board.page.difficultyText', { label })}
     </span>
   );
 }
@@ -222,7 +227,12 @@ export default function BoardPage() {
   const selectedIndex = selected
     ? list.findIndex((p) => p.content_item_id === selected.content_item_id)
     : -1;
-  const nextPuzzle = selectedIndex >= 0 ? (list[selectedIndex + 1] ?? null) : null;
+  // 잠긴 칸은 **건너뛴다**(2026-08-10 코드 리뷰). 바로 다음 칸을 집으면 밴드
+  // 경계에 선 사람(초등의 23번, 중·고등의 36번)이 클리어한 순간 403이 나는
+  // 「다음 퍼즐 →」을 받는다 — 상 대신 빨간 에러가 뜬다. 뒤가 전부 잠겼으면
+  // null이고, 그때는 「마지막 퍼즐까지 마쳤어요」가 뜬다(lastPuzzleDone).
+  const nextPuzzle =
+    selectedIndex >= 0 ? (list.slice(selectedIndex + 1).find((p) => !p.locked) ?? null) : null;
 
   if (isLoading) return <LoadingSpinner label={t('board.page.loading')} />;
 
@@ -366,6 +376,26 @@ export default function BoardPage() {
         </div>
       )}
 
+      {/* 학습 수준 잠금 안내 — 잠긴 칸이 하나라도 있을 때만. 칸 안의 「수준 올리면
+          열림」은 **왜**만 말하고 **어디서**를 못 말한다(폭이 없다). 여는 통로가
+          화면에 없으면 잠금이 그냥 벽이 되므로 여기서 한 번, /me로 보낸다.
+          잠긴 칸이 없으면(성인) 통째로 사라진다 — 열려 있는 사람에게 잠금 이야기를
+          할 이유가 없다. */}
+      {list.some((p) => p.locked) && (
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-slate-50 p-3.5 ring-1 ring-slate-200">
+          <p className="text-sm font-extrabold text-slate-700">{t('board.page.lockedBannerTitle')}</p>
+          <p className="min-w-0 flex-1 text-xs leading-relaxed text-slate-500">
+            {t('board.page.lockedBannerBody')}
+          </p>
+          <Link
+            to="/me"
+            className="flex-none rounded-full bg-white px-3 py-1.5 text-xs font-extrabold text-sky-700 ring-1 ring-sky-200 transition hover:bg-sky-50"
+          >
+            {t('board.page.lockedBannerCta')}
+          </Link>
+        </div>
+      )}
+
       {/* 진입 실패(429 경합 등) — 카드 비활성으로 대부분 예방되지만 최후 안내 */}
       {entryError && (
         <div className="mb-3 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
@@ -441,40 +471,69 @@ export default function BoardPage() {
  * 오른쪽·아래 경계 가운데에 반원을 얹는다. 칸을 진짜 조각 실루엣으로 깎으려면
  * clip-path에 px 좌표를 박아야 해서 열 수가 바뀌면 깨진다.
  *
- * 상태는 둘 + 빈 칸: cleared(깬 칸, 초록) · 미클리어(회색) · 「???」(EmptyPiece).
- * **잠금은 없다**(2026-08-06) — 미클리어도 눌러서 바로 들어간다. 회색은 "아직 안
- * 풀었다"는 표시일 뿐 막는다는 뜻이 아니다.
+ * 상태는 셋 + 빈 칸: cleared(깬 칸, 초록) · 미클리어(회색) · **잠김**(자물쇠) ·
+ * 「???」(EmptyPiece).
+ *
+ * 잠김의 열쇠는 **학습 수준**이다(2026-08-10 사용자 지시) — 초등은 쉬움, 중·고등은
+ * 보통까지, 성인은 전부. 진도가 아니라 수준이라 「내 정보 → 학습 수준」 한 번으로
+ * 바뀐다. 열린 난이도 안에서는 미클리어도 눌러서 바로 들어간다(2026-08-06 결정).
+ *
+ * ⚠️ 같은 날의 첫 판은 「쉬움 23칸 전건 클리어 → 보통 개방」이었는데 뒤집혔다.
+ * 로그인 없이 여는 심사 화면에서 보통·어려움을 볼 방법이 없었기 때문이다.
+ *
+ * ⚠️ 잠긴 칸도 **제목을 보여준다**. 「???」로 덮으면 아직 저작되지 않은 칸
+ * (EmptyPiece)과 구분이 안 되고, 무엇이 기다리는지 안 보이면 잠금이 동기가
+ * 아니라 벽이 된다. 화면은 누르는 것만 막고, 진짜 차단은 서버가 한다
+ * (GET /puzzles/{id} → 403 PUZZLE_LOCKED) — 주소창으로 들어오면 화면 판정이 없다.
  */
 function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pending, busy, onOpen }) {
   const t = useT();
   const tpl = puzzle.template_json ?? {};
   const cleared = Boolean(puzzle.cleared);
+  const locked = Boolean(puzzle.locked);
   const goalPhenomenon = tpl.goal_conditions?.[0]?.phenomenon ?? null;
 
-  const skin = cleared ? 'bg-emerald-50 hover:bg-emerald-100/70' : 'bg-slate-50 hover:bg-white';
-  const bump = cleared ? 'bg-emerald-50' : 'bg-slate-50';
+  // 잠긴 칸은 **구름 안내를 하지 않는다** — 기다리면 열리는 줄 알게 된다.
+  // 두 사유가 겹치면 잠금이 이긴다(구름이 차도 안 열린다).
+  const blockedReason = locked ? 'locked' : energyBlocked ? 'energy' : null;
+  const skin = locked
+    ? 'bg-slate-100/70'
+    : cleared
+      ? 'bg-emerald-50 hover:bg-emerald-100/70'
+      : 'bg-slate-50 hover:bg-white';
+  const bump = locked ? 'bg-slate-100' : cleared ? 'bg-emerald-50' : 'bg-slate-50';
 
   return (
     <div className={`relative ${edgeClass(index, cols, total)}`}>
       <button
         type="button"
         onClick={onOpen}
-        disabled={energyBlocked || busy}
-        aria-disabled={energyBlocked ? 'true' : undefined}
+        disabled={Boolean(blockedReason) || busy}
+        aria-disabled={blockedReason ? 'true' : undefined}
         aria-label={`${index + 1}. ${tpl.title ?? tpl.question_text ?? t('board.page.puzzleFallback')}${
-          energyBlocked ? t('board.page.blockedSuffix') : ''
+          locked
+            ? t('board.page.lockedSuffix')
+            : energyBlocked
+              ? t('board.page.blockedSuffix')
+              : ''
         }`}
-        title={energyBlocked ? t('board.page.blockedTitle', { min: regenMin }) : (tpl.question_text ?? undefined)}
+        title={
+          locked
+            ? t('board.page.lockedTitle')
+            : energyBlocked
+              ? t('board.page.blockedTitle', { min: regenMin })
+              : (tpl.question_text ?? undefined)
+        }
         className={`flex h-full w-full flex-col p-3.5 text-left transition sm:aspect-[10/9] ${skin} ${
-          energyBlocked ? 'cursor-not-allowed opacity-60' : ''
-        }`}
+          blockedReason ? 'cursor-not-allowed' : ''
+        } ${locked ? 'opacity-70' : energyBlocked ? 'opacity-60' : ''}`}
       >
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-extrabold tabular-nums text-slate-400">
             {String(index + 1).padStart(2, '0')}
           </span>
           <span className="ml-auto text-[13px]" aria-hidden="true">
-            {cleared ? '✅' : '▶'}
+            {locked ? '🔒' : cleared ? '✅' : '▶'}
           </span>
         </div>
         {goalPhenomenon && (
@@ -497,15 +556,27 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
             {tpl.summary}
           </p>
         )}
+        {/* 배지 줄은 **한 줄로 끝나야 한다**(2026-08-10). 6열이 되며 칸이 187px로
+            좁아져 「난이도 보통」+ 사유 문구가 두 줄로 접혔고, 접힌 줄이 요약을
+            밀어 칸이 답답해졌다. 두 가지로 폭을 벌었다: 사유 문구에서 자물쇠
+            이모지를 뺐고(이미 칸 오른쪽 위에 있어 중복이었다), 잠긴 칸에서는
+            배지를 compact로 줄였다. 여기에 무엇을 더 붙이기 전에 **en으로**
+            xl(6열)에서 줄임표가 나는지 재 볼 것 — ko는 통과하고 en만 깨진다. */}
         <div className="mt-auto flex items-center gap-1.5 pt-2">
-          <DifficultyBadge difficulty={puzzle.difficulty} />
+          <DifficultyBadge difficulty={puzzle.difficulty} compact={locked} />
           {pending && <span className="text-[11px] font-bold text-sky-700">{t('board.page.opening')}</span>}
-          {/* 누르기 전에 알린다(§3.1) — 429를 받고 나서가 아니다 */}
-          {energyBlocked && (
-            <span className="text-[11px] font-bold text-rose-600">
+          {/* 누르기 전에 알린다(§3.1) — 429/403을 받고 나서가 아니다.
+              잠김이 이긴다: 구름이 차도 안 열리는데 "회복까지 N분"이라고 하면
+              기다리면 열리는 줄 안다. */}
+          {locked ? (
+            <span className="truncate text-[11px] font-bold text-slate-500">
+              {t('board.page.cardLocked')}
+            </span>
+          ) : energyBlocked ? (
+            <span className="truncate text-[11px] font-bold text-rose-600">
               {t('board.page.cardRecovery', { min: regenMin })}
             </span>
-          )}
+          ) : null}
         </div>
       </button>
       <Bumps index={index} cols={cols} total={total} color={bump} />

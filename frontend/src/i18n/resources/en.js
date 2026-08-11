@@ -206,7 +206,7 @@ export default {
     spineNoneOpen: 'No units are open yet — start the first one from your learning path.',
     spineStart: 'Open learning path →',
     levelGroupTitle: '🎚️ Learning level',
-    levelGroupBody: 'Question difficulty follows this setting. Changes apply from your next session.',
+    levelGroupBody: 'Question difficulty and which board tiers open follow this setting. Sessions apply it from the next one issued.',
     levelGroupSaved: 'Learning level updated.',
     levelGroupFailed: "Couldn't update your learning level.",
     levelGroupSaving: 'Updating...',
