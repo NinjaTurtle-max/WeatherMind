@@ -97,7 +97,8 @@ class TestSeedSchema:
         # 저작 웨이브 2-c(2026-08-10): +70 = 679. kl1 35 · kl2 35 — 초등 두 칸이
         # 목표(각 100)에 거의 닿았다(98·94).
         # 저작 웨이브 2-d(2026-08-10): +60 = 739. kl3 40 · kl4 20.
-        assert len(SEED_ITEMS) == 739
+        # 저작 웨이브 3-a(2026-08-10): +15 = 754. kl5 잔여 — kl5 100건 달성.
+        assert len(SEED_ITEMS) == 754
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS

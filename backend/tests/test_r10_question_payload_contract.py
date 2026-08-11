@@ -172,7 +172,9 @@ class TestSeedTypeCoverage:
         #   "풀이가 닫히는 데 필요한 것이 물질 하나의 성질인가(3), 대기라는 계의
         #   작동인가(4)"로 세우고, 문항마다 **정박한 물리량**을 `source.refs[1]`에
         #   적게 해 이름을 못 대면 폐기했다 — "쉬운 말로 쓴 어려운 추론"의 대응책이다.
-        assert len(_seed_items()) == 739
+        # 저작 웨이브 3-a(2026-08-10): +15 = 754. kl5 잔여 — **kl5가 정확히 100건**으로
+        #   목표에 닿은 첫 단계다. 하위 5칸(1~5)이 모두 94건 이상이 됐다.
+        assert len(_seed_items()) == 754
 
 
 class TestEverySeedItemIsPlayable:

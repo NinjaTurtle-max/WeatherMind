@@ -20294,5 +20294,429 @@
       ]
     },
     "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "산불 진화 수단과 그 수단이 노리는 지점을 짝지어라.",
+      "pairs": [
+        {
+          "left": "헬기로 물을 뿌린다",
+          "right": "타는 것을 식혀 불길의 기세를 꺾는다"
+        },
+        {
+          "left": "불이 갈 길의 나무를 미리 베어 낸다",
+          "right": "탈 것을 끊어 번지는 길을 막는다"
+        },
+        {
+          "left": "맞불을 놓아 미리 태운다",
+          "right": "본불이 닿기 전에 연료를 없애 둔다"
+        }
+      ],
+      "correct_answer": "헬기로 물을 뿌린다:타는 것을 식혀 불길의 기세를 꺾는다|불이 갈 길의 나무를 미리 베어 낸다:탈 것을 끊어 번지는 길을 막는다|맞불을 놓아 미리 태운다:본불이 닿기 전에 연료를 없애 둔다",
+      "explanation_hint": "불이 이어지려면 탈 것·온도·산소가 함께 있어야 한다. 세 수단은 각각 온도를 낮추거나 탈 것을 끊는 쪽으로 그 조건을 하나씩 무너뜨린다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 연소 조건의 적용",
+        "세 오른쪽이 전부 다른 기작"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "불이 이어지려면 탈 것과 산소, 그리고 불이 붙을 만큼의 ___가 함께 있어야 한다.",
+      "correct_answer": "온도",
+      "explanation_hint": "이 셋 가운데 하나만 없애도 불은 꺼진다. 물을 뿌리는 것은 온도를, 나무를 베는 것은 탈 것을 없애는 방법이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 연소의 세 조건",
+        "정성 개념 — 발화점 수치는 묻지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "기후 자료를 잘못 읽는 방식과 그 오류의 이름을 짝지어라.",
+      "pairs": [
+        {
+          "left": "올해가 작년보다 추우니 온난화가 아니라고 말한다",
+          "right": "짧은 변동을 긴 경향으로 오해한 것이다"
+        },
+        {
+          "left": "한 도시의 기록만 보고 지구 전체를 말한다",
+          "right": "한 지점을 전체로 확대한 것이다"
+        },
+        {
+          "left": "가장 더웠던 해만 골라 흐름을 그린다",
+          "right": "유리한 자료만 고른 것이다"
+        }
+      ],
+      "correct_answer": "올해가 작년보다 추우니 온난화가 아니라고 말한다:짧은 변동을 긴 경향으로 오해한 것이다|한 도시의 기록만 보고 지구 전체를 말한다:한 지점을 전체로 확대한 것이다|가장 더웠던 해만 골라 흐름을 그린다:유리한 자료만 고른 것이다",
+      "explanation_hint": "기후 자료는 기간·범위·표본 셋을 함께 봐야 한다. 어느 하나를 좁히면 원하는 결론을 만들어 낼 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 자료 해석의 오류 유형",
+        "세 오른쪽이 전부 다른 오류"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "탄소가 오래 머무는 곳과 그 특징을 짝지어라.",
+      "pairs": [
+        {
+          "left": "대기",
+          "right": "가장 빠르게 오가며 지금 문제가 되는 곳이다"
+        },
+        {
+          "left": "바다",
+          "right": "가장 많은 양을 담고 있고 천천히 주고받는다"
+        },
+        {
+          "left": "숲과 흙",
+          "right": "자라는 동안 거둬들이고 타거나 썩으면 되돌려 놓는다"
+        },
+        {
+          "left": "땅속 화석연료",
+          "right": "수억 년 갇혀 있다가 사람이 캐내며 풀려났다"
+        }
+      ],
+      "correct_answer": "대기:가장 빠르게 오가며 지금 문제가 되는 곳이다|바다:가장 많은 양을 담고 있고 천천히 주고받는다|숲과 흙:자라는 동안 거둬들이고 타거나 썩으면 되돌려 놓는다|땅속 화석연료:수억 년 갇혀 있다가 사람이 캐내며 풀려났다",
+      "explanation_hint": "탄소는 사라지지 않고 자리를 옮길 뿐이다. 문제는 총량이 아니라 **어디에 얼마나 빨리** 옮겨 갔는가다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 탄소 저장고와 체류 시간",
+        "네 오른쪽이 전부 다른 성질"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "구름 속에서 물방울이 빗방울로 자라는 방식과 그 설명을 짝지어라.",
+      "pairs": [
+        {
+          "left": "작은 물방울끼리 부딪쳐 합쳐진다",
+          "right": "따뜻한 구름에서 주로 일어난다"
+        },
+        {
+          "left": "얼음 알갱이가 둘레의 수증기를 빼앗아 자란다",
+          "right": "찬 구름에서 주로 일어난다"
+        },
+        {
+          "left": "자란 알갱이가 무거워져 떨어진다",
+          "right": "떨어지며 녹으면 비, 그대로면 눈이 된다"
+        }
+      ],
+      "correct_answer": "작은 물방울끼리 부딪쳐 합쳐진다:따뜻한 구름에서 주로 일어난다|얼음 알갱이가 둘레의 수증기를 빼앗아 자란다:찬 구름에서 주로 일어난다|자란 알갱이가 무거워져 떨어진다:떨어지며 녹으면 비, 그대로면 눈이 된다",
+      "explanation_hint": "구름 알갱이는 너무 작아 그대로는 떨어지지 못한다. 합쳐지거나 빼앗아 자란 뒤에야 무거워져 지표에 닿는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 강수 과정",
+        "세 오른쪽이 전부 다른 조건"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "태풍이 다가올 때 한 지점에서 관측되는 순서대로 배열하라.",
+      "items": [
+        "높은 하늘에 얇은 구름이 먼저 퍼진다",
+        "기압이 뚜렷하게 내려가기 시작한다",
+        "비바람이 거세지며 최성기에 이른다",
+        "지나간 뒤 기압이 회복되고 바람이 잦아든다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "태풍의 바깥 구름이 먼저 도착하고 중심이 다가오며 기압이 내려간다. 기압 곡선이 가장 낮을 때가 중심이 가장 가까운 때다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 태풍 접근의 관측 서열",
+        "구름 이름(십운형)을 쓰지 않고 '얇은 구름'으로 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "도시에 바람길을 내어 열섬을 줄이는 계획의 순서를 배열하라.",
+      "items": [
+        "여름철 주된 바람이 어느 쪽에서 오는지 관측 자료로 확인한다",
+        "그 방향으로 이어지는 하천과 큰길을 찾는다",
+        "그 축을 가로막는 건물 배치를 규제한다",
+        "찬 공기가 도심까지 흘러들어 밤 기온이 내려간다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "바람길은 새로 만드는 것이 아니라 이미 있는 통로를 막지 않는 일이다. 그래서 관측으로 방향을 확인하는 일이 가장 먼저다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 기상 자료의 도시계획 적용",
+        "관측이 계획의 입력이 되는 구조"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "지표의 종류와 햇빛을 되돌려 보내는 정도를 짝지어라.",
+      "pairs": [
+        {
+          "left": "갓 내린 눈",
+          "right": "대부분을 되돌려 보내 거의 데워지지 않는다"
+        },
+        {
+          "left": "사막의 모래",
+          "right": "절반 가까이 되돌려 보낸다"
+        },
+        {
+          "left": "짙은 숲",
+          "right": "대부분을 흡수해 잘 데워진다"
+        },
+        {
+          "left": "깊은 바다",
+          "right": "거의 전부 흡수해 열을 오래 담아 둔다"
+        }
+      ],
+      "correct_answer": "갓 내린 눈:대부분을 되돌려 보내 거의 데워지지 않는다|사막의 모래:절반 가까이 되돌려 보낸다|짙은 숲:대부분을 흡수해 잘 데워진다|깊은 바다:거의 전부 흡수해 열을 오래 담아 둔다",
+      "explanation_hint": "밝을수록 되돌려 보내고 어두울수록 흡수한다. 북극 얼음이 녹아 바다가 드러나면 첫 줄에서 마지막 줄로 바뀌는 셈이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 지표별 반사 차이",
+        "'알베도'(8단계)를 쓰지 않고 정성 서술 · 네 오른쪽 전부 다름"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "위도대와 그곳의 기후 특징을 짝지어라.",
+      "pairs": [
+        {
+          "left": "적도 부근",
+          "right": "공기가 올라가며 비가 많아 열대우림이 자란다"
+        },
+        {
+          "left": "위도 30도 부근",
+          "right": "공기가 내려와 메말라 큰 사막이 늘어선다"
+        },
+        {
+          "left": "중위도",
+          "right": "서쪽에서 오는 흐름을 타고 날씨가 자주 바뀐다"
+        },
+        {
+          "left": "극지방",
+          "right": "차고 무거운 공기가 내려앉아 메마르고 춥다"
+        }
+      ],
+      "correct_answer": "적도 부근:공기가 올라가며 비가 많아 열대우림이 자란다|위도 30도 부근:공기가 내려와 메말라 큰 사막이 늘어선다|중위도:서쪽에서 오는 흐름을 타고 날씨가 자주 바뀐다|극지방:차고 무거운 공기가 내려앉아 메마르고 춥다",
+      "explanation_hint": "공기가 올라가는 곳에는 비가, 내려오는 곳에는 사막이 생긴다. 지구의 기후대가 띠처럼 늘어선 것이 이 순환의 자국이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 대순환과 기후대",
+        "역학 명칭 없이 오르내림으로 서술 · 네 오른쪽 전부 다름"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "겨울 아침 도시에 미세먼지가 짙어지는 과정을 순서대로 배열하라.",
+      "items": [
+        "맑고 바람 없는 밤에 지면이 크게 식는다",
+        "지면 가까운 공기가 위쪽보다 차가워진다",
+        "차고 무거운 공기가 아래에 깔려 위아래 섞임이 막힌다",
+        "배출된 먼지가 낮은 층에 갇혀 농도가 오른다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "평소에는 아래가 따뜻해 공기가 위로 섞이며 오염물질이 흩어진다. 그 순서가 뒤집히면 뚜껑이 덮인 것처럼 갇힌다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 안정한 대기와 대기질",
+        "'기온 역전'은 어휘표 밖이라 현상으로 서술 · 감률(7단계) 없음"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "바다가 육지보다 천천히 데워지는 까닭을 이루는 요소를 영향이 큰 순서로 배열하라.",
+      "items": [
+        "물의 비열이 흙과 모래보다 크다",
+        "햇빛이 물속 깊이까지 들어가 여러 층으로 나뉘어 데워진다",
+        "파도와 해류가 데워진 물을 아래위로 섞는다",
+        "증발이 일어나며 표면의 열을 가져간다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "네 가지가 겹쳐 바다의 온도 변화를 완만하게 만든다. 육지는 표면만 데워지고 섞이지도 않아 같은 햇빛에 훨씬 빨리 뜨거워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 해양의 열 관성",
+        "비열(3단계)을 계 규모의 여러 요인으로 확장"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "고위도로 열을 실어 나르는 몫은 대기와 바다가 나누어 맡는데, 위도가 높아질수록 그 몫이 커지는 쪽은 ___다.",
+      "correct_answer": "대기",
+      "explanation_hint": "저위도에서는 바다가 상당한 몫을 나르지만, 고위도로 갈수록 해류가 닿는 범위가 줄어 대기의 몫이 커진다. 두 통로가 서로를 메우며 전체 수송을 이룬다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 대기와 해양의 수송 분담",
+        "종전 초안(정답 '수송')이 본시드와 키가 겹쳐 교체 — 분담 구조로 축을 바꿨다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "겨울에 시베리아 기단의 세력이 강해졌다 약해졌다를 되풀이하며 사흘은 춥고 나흘은 덜 추운 흐름을 ___ 현상이라고 한다.",
+      "correct_answer": "삼한사온",
+      "explanation_hint": "대륙의 찬 공기가 밀려오는 세기가 며칠 주기로 오르내리기 때문이다. 최근에는 이 주기가 뚜렷하지 않은 겨울이 늘고 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 우리나라 겨울 기후 특징",
+        "기단 introduced_at=4"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "성질이 다른 두 공기 덩어리가 만나 서로 섞이지 못하고 이루는 경계면이 지표와 만나는 선을 ___이라고 한다.",
+      "correct_answer": "전선",
+      "explanation_hint": "두 공기는 온도와 습도가 달라 밀도가 다르므로 곧바로 섞이지 않는다. 그 경계에서 따뜻한 쪽이 밀려 올라가며 구름과 비가 생긴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 전선의 정의",
+        "전선 계열 introduced_at=4"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "비가 그친 뒤에도 상류에서 내려온 물이 도착해 하류의 수위가 뒤늦게 가장 높아지는 데 걸리는 시간을 도달 ___이라고 한다.",
+      "correct_answer": "시간",
+      "explanation_hint": "하천은 비가 오는 그 자리에서 바로 불어나지 않는다. 상류에 내린 비가 흘러 내려오는 데 걸리는 시간만큼 늦게 최고 수위에 이르므로, 비가 그쳤다고 안심하면 안 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 하천 반응의 시간 지연",
+        "정성 개념 — 규정 수치가 아니다"
+      ]
+    },
+    "status": "active"
   }
 ]
