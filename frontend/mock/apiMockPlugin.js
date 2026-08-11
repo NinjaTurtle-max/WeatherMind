@@ -1375,7 +1375,39 @@ const boardPuzzlePayload = (p) => ({
   difficulty: p.difficulty ?? 1, // R7-02 S5: 난이도 1|2|3
   template_json: p.template_json,
   cleared: clearedBoardPuzzles.has(p.content_item_id),
+  unlocked: unlockedBoardIds().has(p.content_item_id), // MT-24
 });
+
+/** 앞으로 함께 열어 둘 칸 수 — 서버 `board.BOARD_UNLOCK_LOOKAHEAD`와 같아야 한다. */
+const MOCK_BOARD_UNLOCK_LOOKAHEAD = 2;
+
+/**
+ * 열린 퍼즐 id 집합 (MT-24) — 서버 `compute_unlocked_ids`와 **같은 규칙**이다.
+ * ⑴ 이미 깬 칸은 언제나 열림 ⑵ 미클리어는 진행 커서부터 LOOKAHEAD칸까지.
+ *
+ * 목이 이 규칙을 흉내 내지 않으면 목 위 스모크가 **잠금이 없던 시절의 화면**을
+ * 계속 초록으로 통과시킨다 — 목↔서버 정책이 갈라졌던 CO-J-9와 같은 형태다.
+ * `BOARD_PUZZLES`는 이미 board_order로 정렬돼 있다(선언부 참고).
+ */
+function unlockedBoardIds() {
+  const unlocked = new Set(
+    BOARD_PUZZLES.filter((p) => clearedBoardPuzzles.has(p.content_item_id)).map(
+      (p) => p.content_item_id,
+    ),
+  );
+  let cursor = BOARD_PUZZLES.findIndex((p) => !clearedBoardPuzzles.has(p.content_item_id));
+  if (cursor < 0) cursor = BOARD_PUZZLES.length;
+  for (const p of BOARD_PUZZLES.slice(cursor, cursor + MOCK_BOARD_UNLOCK_LOOKAHEAD + 1)) {
+    unlocked.add(p.content_item_id);
+  }
+  return unlocked;
+}
+
+/** 잠긴 퍼즐 진입·시도 거부 — 서버 403 BOARD_LOCKED와 같은 코드·같은 문구. */
+const boardLockedError = () => [
+  403,
+  { detail: '앞의 퍼즐을 먼저 풀면 열려요.', code: 'BOARD_LOCKED' },
+];
 
 /** 보드 재판정 + 목표 검사 → {passed, phenomena, feedback} (권위 채점 흉내) */
 function judgeBoard(boardState, goalConditions) {
@@ -2067,6 +2099,9 @@ const routes = {
     if (!puzzle) {
       return [404, { detail: '퍼즐을 찾을 수 없습니다', code: 'PUZZLE_NOT_FOUND' }];
     }
+    // MT-24: 잠금이 **에너지보다 먼저**다(서버와 같은 순서) — 뒤집으면 잠긴 칸이
+    // OUT_OF_CLOUDS로 나가서 "기다리면 열린다"는 거짓 안내가 된다.
+    if (!unlockedBoardIds().has(puzzle.content_item_id)) return boardLockedError();
     const gate = requireCloudEntry();
     if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
     return [200, boardPuzzlePayload(puzzle)];
@@ -2076,6 +2111,8 @@ const routes = {
     if (!puzzle) {
       return [404, { detail: '퍼즐을 찾을 수 없습니다', code: 'PUZZLE_NOT_FOUND' }];
     }
+    // MT-24: 진입(GET)만 막으면 POST로 우회된다 — 서버와 같이 판정 전에 막는다.
+    if (!unlockedBoardIds().has(puzzle.content_item_id)) return boardLockedError();
     if (!body?.board_state) {
       return [422, { detail: '보드 상태(board_state)가 필요합니다', code: 'BOARD_STATE_REQUIRED' }];
     }
@@ -2611,6 +2648,8 @@ export const __mockPolicy = () => ({
   session_recipe: MOCK_SESSION_RECIPE,
   // daily 비진도 블록 board 상한 (server Settings.DAILY_BOARD_CAP — CO-H5)
   daily_board_cap: MOCK_DAILY_BOARD_CAP,
+  // 보드 순차 잠금 앞보기 (server routers/board.BOARD_UNLOCK_LOOKAHEAD — MT-24)
+  board_unlock_lookahead: MOCK_BOARD_UNLOCK_LOOKAHEAD,
   // 학령 (server schemas/auth.LevelGroup)
   level_groups: LEVEL_GROUPS,
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP

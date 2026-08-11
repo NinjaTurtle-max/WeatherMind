@@ -202,6 +202,12 @@ export default function BoardPage() {
       if (err.code === 'OUT_OF_CLOUDS') {
         queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
       }
+      // MT-24: 잠긴 칸을 눌렀다 = 우리가 들고 있는 목록이 stale하다는 신호다
+      // (정상 흐름에서는 카드가 비활성이라 여기 오지 않는다). 목록을 다시 받아
+      // 자물쇠 표시를 서버 판정과 맞춘다 — 안 하면 계속 눌리는 칸으로 남는다.
+      if (err.code === 'BOARD_LOCKED') {
+        queryClient.invalidateQueries({ queryKey: ['board', 'puzzles'] });
+      }
       setEntryError(err.detail ?? t('board.page.entryFailed'));
     },
   });
@@ -225,7 +231,12 @@ export default function BoardPage() {
   const selectedIndex = selected
     ? list.findIndex((p) => p.content_item_id === selected.content_item_id)
     : -1;
-  const nextPuzzle = selectedIndex >= 0 ? (list[selectedIndex + 1] ?? null) : null;
+  // MT-24: 다음 칸이 **잠겨 있으면 CTA를 내지 않는다.** 정상 진행(커서 앞의 칸을
+  // 깬 경우)에서는 LOOKAHEAD≥1이라 다음이 항상 열려 있어 이 가드가 안 걸린다.
+  // 걸리는 것은 **뒤쪽 클리어 칸을 다시 푼 경우** — 그때 다음은 아직 잠긴 칸이고,
+  // 버튼을 그대로 두면 눌러서 403을 받는다(누르기 전에 알린다는 §3.1 관례 위반).
+  const nextCandidate = selectedIndex >= 0 ? (list[selectedIndex + 1] ?? null) : null;
+  const nextPuzzle = nextCandidate?.unlocked === false ? null : nextCandidate;
 
   // 자유 실험 화면(R9-01 §3.3 ⑥) — 퍼즐 목록보다 먼저 분기(로딩과 무관하게 진입 가능)
   if (sandbox) {
@@ -477,32 +488,49 @@ export default function BoardPage() {
  * 오른쪽·아래 경계 가운데에 반원을 얹는다. 칸을 진짜 조각 실루엣으로 깎으려면
  * clip-path에 px 좌표를 박아야 해서 열 수가 바뀌면 깨진다.
  *
- * 상태는 둘 + 빈 칸: cleared(깬 칸, 초록) · 미클리어(회색) · 「???」(EmptyPiece).
- * **잠금은 없다**(2026-08-06) — 미클리어도 눌러서 바로 들어간다. 회색은 "아직 안
- * 풀었다"는 표시일 뿐 막는다는 뜻이 아니다.
+ * 상태는 셋 + 빈 칸: cleared(깬 칸, 초록) · 열린 미클리어(회색) · **잠긴 칸(자물쇠)** ·
+ * 「???」(EmptyPiece).
+ *
+ * **잠금 부활**(MT-24 — 2026-08-11 멘토링 피드백). 종전 기술은 *"잠금은 없다
+ * (2026-08-06) — 회색은 막는다는 뜻이 아니다"*였고 **번복됐다**. 판정은 서버가
+ * 소유하고(`unlocked`) 여기는 그리기만 한다 — 프론트가 계산하면 목록과 진입이 갈린다.
+ * 잠긴 칸도 **목록에는 남는다**: 앞에 무엇이 있는지 보여야 진도감이 생긴다.
  */
 function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pending, busy, onOpen }) {
   const t = useT();
   const tpl = puzzle.template_json ?? {};
   const cleared = Boolean(puzzle.cleared);
+  // 구 응답(필드 부재)은 열린 것으로 본다 — 잠금이 조용히 생기지 않는다.
+  const locked = puzzle.unlocked === false;
   const goalPhenomenon = tpl.goal_conditions?.[0]?.phenomenon ?? null;
 
-  const skin = cleared ? 'bg-emerald-50 hover:bg-emerald-100/70' : 'bg-slate-50 hover:bg-white';
-  const bump = cleared ? 'bg-emerald-50' : 'bg-slate-50';
+  const skin = locked
+    ? 'bg-slate-100/80'
+    : cleared
+      ? 'bg-emerald-50 hover:bg-emerald-100/70'
+      : 'bg-slate-50 hover:bg-white';
+  const bump = locked ? 'bg-slate-100' : cleared ? 'bg-emerald-50' : 'bg-slate-50';
 
   return (
     <div className={`relative ${edgeClass(index, cols, total)}`}>
       <button
         type="button"
         onClick={onOpen}
-        disabled={energyBlocked || busy}
-        aria-disabled={energyBlocked ? 'true' : undefined}
+        disabled={locked || energyBlocked || busy}
+        data-board-locked={locked ? 'true' : undefined}
+        aria-disabled={locked || energyBlocked ? 'true' : undefined}
         aria-label={`${index + 1}. ${tpl.title ?? tpl.question_text ?? t('board.page.puzzleFallback')}${
-          energyBlocked ? t('board.page.blockedSuffix') : ''
+          locked ? t('board.page.lockedSuffix') : energyBlocked ? t('board.page.blockedSuffix') : ''
         }`}
-        title={energyBlocked ? t('board.page.blockedTitle', { min: regenMin }) : (tpl.question_text ?? undefined)}
+        title={
+          locked
+            ? t('board.page.lockedTitle')
+            : energyBlocked
+              ? t('board.page.blockedTitle', { min: regenMin })
+              : (tpl.question_text ?? undefined)
+        }
         className={`flex h-full w-full flex-col p-3.5 text-left transition sm:aspect-[10/9] ${skin} ${
-          energyBlocked ? 'cursor-not-allowed opacity-60' : ''
+          locked || energyBlocked ? 'cursor-not-allowed opacity-60' : ''
         }`}
       >
         <div className="flex items-center gap-2">
@@ -510,7 +538,7 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
             {String(index + 1).padStart(2, '0')}
           </span>
           <span className="ml-auto text-[13px]" aria-hidden="true">
-            {cleared ? '✅' : '▶'}
+            {locked ? '🔒' : cleared ? '✅' : '▶'}
           </span>
         </div>
         {goalPhenomenon && (
@@ -531,9 +559,14 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
         )}
         <div className="mt-auto flex items-center gap-1.5 pt-2">
           <DifficultyBadge difficulty={puzzle.difficulty} />
+          {/* 잠긴 칸은 "왜 못 누르나"를 그 자리에서 말한다 — 색·자물쇠만으로는
+              에너지 차단과 구분되지 않고, 둘은 해법이 완전히 다르다(기다리기 vs 풀기) */}
+          {locked && (
+            <span className="text-[11px] font-bold text-slate-500">{t('board.page.lockedHint')}</span>
+          )}
           {pending && <span className="text-[11px] font-bold text-sky-700">{t('board.page.opening')}</span>}
           {/* 누르기 전에 알린다(§3.1) — 429를 받고 나서가 아니다 */}
-          {energyBlocked && (
+          {!locked && energyBlocked && (
             <span className="text-[11px] font-bold text-rose-600">
               {t('board.page.cardRecovery', { min: regenMin })}
             </span>

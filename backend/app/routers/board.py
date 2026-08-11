@@ -159,6 +159,67 @@ def order_puzzles_for_progress(items: list) -> list:
     return sorted(items, key=order_of)
 
 
+# 진행 커서 앞으로 몇 칸을 함께 열어 둘 것인가 (MT-24).
+# 0이면 "직전 칸을 깨야 다음이 열린다"는 엄격 순차이고, 그러면 어려운 칸 하나가
+# **완전한 벽**이 된다 — 46퍼즐 중 하나에서 막히면 나머지 전부를 못 본다. 심사는
+# 처음 보는 브라우저로 5분을 도는 동선이라(주최측 PC·URL만) 벽 하나가 곧 시연 실패다.
+# 2면 "다음에 할 것"이 분명하면서도 막히지 않는다 — 순서는 보이고 벽은 없다.
+#
+# ⚠️ `Settings`가 아니라 여기 있는 이유: `core/config.py`가 지금 **다른 세션 소유**라
+# 건드리면 충돌한다(2026-08-11 병렬 배정). 계약 수치는 env로 여는 것이 이 저장소의
+# 관례이므로, 소유가 풀리면 `Settings.BOARD_UNLOCK_LOOKAHEAD`로 옮긴다.
+BOARD_UNLOCK_LOOKAHEAD = 2
+
+
+def compute_unlocked_ids(ordered_items: list, cleared: set) -> set:
+    """진행 순서 목록 → **열린 퍼즐 id 집합** (MT-24, 순수·서버 권위).
+
+    규칙 둘뿐이다:
+    ⑴ **이미 깬 칸은 언제나 열린다.** 잠금 도입 이전에 뒤쪽 칸을 깬 유저가 있고
+       (2026-08-06~08-11 내내 잠금이 없었다), 그 칸을 도로 잠그면 **자기가 푼 것을
+       다시 못 여는** 상태가 된다. 진행 커서만으로 판정하면 이 경우가 새므로 별도 조항이다.
+    ⑵ 미클리어 칸은 **진행 커서(첫 미클리어 위치)부터 LOOKAHEAD칸까지** 열린다.
+
+    입력은 `order_puzzles_for_progress`를 통과한 **정렬된** 목록이어야 한다 — 순서가
+    곧 코스이고, 잠금은 그 순서 위에서만 뜻이 있다. 정렬되지 않은 목록을 넣으면
+    커서가 엉뚱한 곳을 가리키지만 예외를 던지지는 않는다(표시가 흔들릴 뿐 차단은
+    여전히 서버 판정이다).
+    """
+    unlocked = {item.id for item in ordered_items if item.id in cleared}
+
+    cursor = next(
+        (i for i, item in enumerate(ordered_items) if item.id not in cleared),
+        len(ordered_items),
+    )
+    for item in ordered_items[cursor : cursor + BOARD_UNLOCK_LOOKAHEAD + 1]:
+        unlocked.add(item.id)
+    return unlocked
+
+
+async def _unlocked_ids_for(db: AsyncSession, user: User, cleared: set) -> set:
+    """유저의 열린 퍼즐 집합 — 단건 진입·attempt가 목록과 **같은 판정**을 쓰게 한다.
+
+    단건 경로가 목록을 다시 세우는 비용을 치르는 이유: 잠금 판정을 두 곳에서
+    따로 구현하면 반드시 갈라진다. 목록은 열렸다고 그리는데 진입은 막는(또는 그 반대)
+    상태가 이 저장소가 반복해서 겪은 실패다(목↔서버 패리티 계열).
+    """
+    items = list(
+        (
+            await db.execute(
+                select(ContentItem)
+                .where(
+                    ContentItem.status == "active",
+                    ContentItem.question_type == "board",
+                )
+                .order_by(ContentItem.created_at.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return compute_unlocked_ids(order_puzzles_for_progress(items), cleared)
+
+
 def order_puzzles_for_theta(items: list, theta: float | None) -> list:
     """퍼즐 목록을 |사전 b(level_group) − θ| 오름차순으로 정렬 (R7-02 §3.5).
 
@@ -229,8 +290,15 @@ async def list_puzzles(
     정렬: 시드가 저작한 진행 순서(template_json.board_order) — 난이도 오름차순으로
     저작돼 있다. θ 근접 정렬을 대체한다(2026-08-05).
 
-    **잠금 없다**(2026-08-06 제품 결정): 순차 잠금을 넣었다가 걷어냈다 — 학습자가
-    원하는 퍼즐을 골라 풀게 한다. 순서는 권유이지 강제가 아니다.
+    **순차 잠금 있다**(MT-24 — 2026-08-11 중간점검 멘토링 피드백). 종전 기술은
+    *"잠금 없다(2026-08-06 제품 결정) — 순서는 권유이지 강제가 아니다"*였고 그 판단은
+    **번복됐다.** 번복 사유를 지우지 않고 남긴다: 당시 걷어낸 이유는 *"학습자가
+    원하는 퍼즐을 골라 푼다"*였고, 그 우려는 `BOARD_UNLOCK_LOOKAHEAD`로 흡수한다
+    — 벽 하나에 막히지 않으면서 "다음에 할 것"은 분명해진다.
+
+    목록은 **차단하지 않는다** — 잠긴 칸도 내려보내고 `unlocked=False`로 표시만 한다.
+    잠긴 칸을 목록에서 빼면 학습자가 앞으로 무엇이 있는지 못 보고, 진도감 자체가
+    사라진다(에너지 게이트가 목록을 무차단으로 두는 것과 같은 이유).
     """
     items = list(
         (
@@ -248,12 +316,14 @@ async def list_puzzles(
     )
     items = order_puzzles_for_progress(items)
     cleared = await _cleared_item_ids(db, user)
+    unlocked = compute_unlocked_ids(items, cleared)
     return [
         BoardPuzzle(
             content_item_id=item.id,
             template_json=item.template_json or {},
             cleared=item.id in cleared,
             difficulty=board_difficulty(item.template_json, item.level_group),
+            unlocked=item.id in unlocked,
         )
         for item in items
     ]
@@ -294,6 +364,19 @@ async def get_puzzle_detail(
     item = await _load_puzzle_or_404(db, content_item_id)
     cleared = await _cleared_item_ids(db, user)
 
+    # 순차 잠금 (MT-24) — **에너지보다 먼저** 본다. 순서가 뒤집히면 잠긴 퍼즐을
+    # 딥링크로 열 때 429 OUT_OF_CLOUDS가 나가서, 학습자가 "구름이 없어서 못 한다"고
+    # 읽고 20분을 기다린 뒤 다시 막힌다. 잠긴 칸은 구름을 써도 안 열린다.
+    unlocked = await _unlocked_ids_for(db, user, cleared)
+    if item.id not in unlocked:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "detail": "앞의 퍼즐을 먼저 풀면 열려요.",
+                "code": "BOARD_LOCKED",
+            },
+        )
+
     # 진입 게이트 — 무소모 검사. 404 판정 이후에 둔다(없는 퍼즐은 차단 대상이 아니다).
     await energy_service.require_entry(db, user)
 
@@ -302,6 +385,7 @@ async def get_puzzle_detail(
         template_json=item.template_json or {},
         cleared=item.id in cleared,
         difficulty=board_difficulty(item.template_json, item.level_group),
+        unlocked=True,  # 여기 도달했다면 열린 것 — 위 가드가 아니면 못 지나간다
     )
 
 
@@ -332,6 +416,21 @@ async def attempt_puzzle(
     item = await _load_puzzle_or_404(db, content_item_id)
 
     cleared = await _cleared_item_ids(db, user)
+
+    # 순차 잠금 (MT-24) — 진입(GET)만 막으면 **POST로 우회된다.** 보드는 채점 권위가
+    # 서버에 있다는 것이 설계의 뿌리인데(클라이언트가 결과를 주입할 통로 없음),
+    # 잠금만 표시 계층에 두면 그 원칙이 잠금에서는 깨진다. 판정 전에 막는다 —
+    # 통과했다면 XP·왕관·퀘스트가 전부 따라 움직이기 때문이다.
+    unlocked = await _unlocked_ids_for(db, user, cleared)
+    if item.id not in unlocked:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "detail": "앞의 퍼즐을 먼저 풀면 열려요.",
+                "code": "BOARD_LOCKED",
+            },
+        )
+
     template = item.template_json or {}
     question = {**template, "question_type": "board", "concept_tag": item.concept_tag}
 

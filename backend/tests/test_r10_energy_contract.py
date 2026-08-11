@@ -814,6 +814,9 @@ class TestPuzzleDetailRoute:
             "template_json",
             "cleared",
             "difficulty",
+            # MT-24 순차 잠금 — 목록은 compute_unlocked_ids로, 상세는 403 가드를
+            # 통과했으므로 True로 **양쪽이 다 채운다**(이 테스트가 요구하는 조건).
+            "unlocked",
         }, (
             f"BoardPuzzle 필드가 변경됐다: {sorted(BoardPuzzle.model_fields)} — "
             "목록·상세가 같은 스키마를 공유한다는 계약이 깨진다"

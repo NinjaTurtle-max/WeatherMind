@@ -583,6 +583,11 @@ def run_attempt(
     async def fake_cleared(db, user):
         return {item.id} if already_cleared else set()
 
+    async def fake_unlocked(db, user, cleared):
+        # MT-24: 이 하네스의 관심사는 왕관 배선이지 잠금이 아니다 — 열린 것으로 고정.
+        # 잠금 판정 자체는 tests/test_board_progression.py가 단독으로 문다.
+        return {item.id}
+
     async def fake_quiz_id(db, user, content_item_id):
         return "board-테스트-001"
 
@@ -603,6 +608,7 @@ def run_attempt(
         board_router.board_engine, "select_feedback", fake_feedback
     )
     monkeypatch.setattr(board_router, "_cleared_item_ids", fake_cleared)
+    monkeypatch.setattr(board_router, "_unlocked_ids_for", fake_unlocked)
     monkeypatch.setattr(board_router, "_next_board_quiz_id", fake_quiz_id)
     monkeypatch.setattr(cs, "award_crown_for_activity", fake_award)
     monkeypatch.setattr(

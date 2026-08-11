@@ -29,6 +29,11 @@ class BoardPuzzle(BaseModel):
     template_json: dict[str, Any]
     cleared: bool
     difficulty: int
+    # MT-24 (2026-08-11, additive): 순차 잠금. **판정은 서버가 소유**하고 프론트는
+    # 이 값을 그리기만 한다 — 목록은 잠긴 칸도 내려보내(진도감) 표시만 다르게 하고,
+    # 진입(GET 단건)·attempt(POST)는 403 BOARD_LOCKED로 막는다.
+    # 기본 True: 구 클라이언트·구 응답에서 잠금이 조용히 생기지 않는다.
+    unlocked: bool = True
 
 
 class BoardAttemptRequest(BaseModel):

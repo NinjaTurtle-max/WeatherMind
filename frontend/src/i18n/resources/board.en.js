@@ -53,6 +53,11 @@ export default {
       puzzleFallback: 'Puzzle',
       blockedSuffix: ' (out of clouds)',
       blockedTitle: 'Opens when a cloud recovers — in about {min} min',
+      // MT-24 sequential lock. Deliberately worded apart from the energy block:
+      // waiting fixes one, solving fixes the other.
+      lockedHint: '🔒 Earlier puzzles first',
+      lockedSuffix: ' (locked)',
+      lockedTitle: 'Clear the puzzles before this one to open it',
       opening: 'Opening…',
       cleared: '✓ Cleared',
       challenge: 'Challenge',

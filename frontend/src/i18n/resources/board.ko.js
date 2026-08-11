@@ -52,6 +52,12 @@ export default {
       puzzleFallback: '퍼즐',
       blockedSuffix: ' (구름 부족)',
       blockedTitle: '구름이 회복되면 열 수 있어요 — 약 {min}분 후',
+      // MT-24 순차 잠금. 에너지 차단과 **다른 말**을 써야 한다 — 둘은 해법이
+      // 반대다(기다리면 열림 vs 앞을 풀어야 열림). 같은 문구를 쓰면 학습자가
+      // 잠긴 칸 앞에서 20분을 기다린다.
+      lockedHint: '🔒 앞 퍼즐부터',
+      lockedSuffix: ' (잠김)',
+      lockedTitle: '앞의 퍼즐을 먼저 풀면 열려요',
       opening: '여는 중…',
       cleared: '✓ 클리어',
       challenge: '도전',
