@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import AbilityRadar from './AbilityRadar';
+import AbilityRadar, { RADAR_MIN_CONCEPTS } from './AbilityRadar';
 import Mascot from '../../components/Mascot';
 import { conceptCharacter } from '../../components/conceptCharacter';
 import { progressApi } from '../../api';
@@ -237,9 +237,10 @@ export default function WeatherBrainPanel() {
       {/* ⚠️ 개념 3종 미만이면 **감싼 div까지 같이 빠져야 한다**(2026-08-11 코드
           리뷰). AbilityRadar는 스스로 null이지만 wrapper가 남으면 mt-3만큼의
           빈 줄이 막대 위에 생겨, "자리째 빠진다"던 위 설명이 거짓이 된다.
-          임계 3은 AbilityRadar가 소유한다(다각형이 안 그려지는 수) — 여기서
-          다시 정하지 않고 같은 수를 본다. */}
-      {rows.length >= 3 && (
+          임계는 AbilityRadar가 소유한다(RADAR_MIN_CONCEPTS) — 여기서 다시 정하지
+          않고 **같은 상수를 읽는다**. 숫자를 베끼면 그쪽이 바뀔 때 빈 줄이
+          조용히 되살아난다. */}
+      {rows.length >= RADAR_MIN_CONCEPTS && (
         <div className="mt-3 flex justify-center">
           <AbilityRadar
             abilities={(Array.isArray(data) ? data : []).map((a) => ({
