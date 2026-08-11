@@ -783,6 +783,39 @@ async def forecast_closing_step(
     }
 
 
+def _band_for_generated(question: dict[str, Any], requested: str) -> str:
+    """생성 문항의 적재 밴드 — **`knowledge_level`이 권위** (CO-O-5의 런타임 짝).
+
+    저작 CLI는 `scripts/author_items.resolve_level_group`이 같은 규칙을 이미 쓴다.
+    여기가 안 맞으면 **같은 결함이 런타임에만 남는다**: 종전 코드는
+    `question.get("level_group") or level_group`이었는데 **생성기는 그 키를 내지
+    않는다**(`QuizQuestion` 필드에 없다 — 2026-08-10 실측). 그래서 폴백이 항상
+    이겼고, 위 호출부 주석이 약속한 "신고하면 그쪽이 우선"이 구현된 적이 없다.
+
+    깨지는 경로: 콜드스타트 `elementary` 학습자는 θ가 없어 목표 단계를 안 보내므로
+    모델이 스스로 판정한다. 거기서 `knowledge_level=9`가 신고되면 문항이
+    `level_group="elementary"` · `status=active`로 뱅크에 적재되고, 이후
+    `pool_level_groups`의 밴드 필터가 그 전문가 문항을 **모든 초등 학습자에게**
+    다시 서빙한다. `validate_entry`는 두 축의 모순을 보지 않으므로 아무도 막지 않는다.
+
+    미신고·비정수·범위 밖은 **파생하지 않고 요청 밴드를 유지**한다 — 범위 밖을
+    파생시키면 `level_group_of_knowledge_level`의 클램프가 엉뚱한 밴드를 정상값처럼
+    만들어, lint가 잡아야 할 미분류를 위장한다(저작 쪽과 같은 판단).
+    """
+    raw = question.get("knowledge_level")
+    try:
+        level = int(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return requested
+    if not (
+        weatherbrain_service.KNOWLEDGE_LEVEL_MIN
+        <= level
+        <= weatherbrain_service.KNOWLEDGE_LEVEL_MAX
+    ):
+        return requested
+    return weatherbrain_service.level_group_of_knowledge_level(level)
+
+
 def generated_item_entry(
     question: dict[str, Any], *, level_group: str
 ) -> dict[str, Any]:
@@ -804,7 +837,7 @@ def generated_item_entry(
     """
     return {
         "concept_tag": question.get("concept_tag"),
-        "level_group": question.get("level_group") or level_group,
+        "level_group": _band_for_generated(question, level_group),
         "knowledge_level": question.get("knowledge_level"),
         "question_type": question.get("question_type"),
         "template_json": {
@@ -1107,6 +1140,10 @@ async def create_daily_session(
         # (`level_group_of_knowledge_level(theta_to_knowledge_level(θ))
         #   == theta_to_level_group(θ)`)에 따라 위에서 보낸 난이도와 같은 축이고,
         # 생성 문항이 knowledge_level을 신고하면 그쪽이 우선이라 이 값은 폴백이다.
+        # ⚠️ **그 우선순위는 2026-08-10까지 구현돼 있지 않았다** — `generated_item_entry`가
+        # `question.get("level_group")`을 읽었는데 생성기는 그 키를 내지 않아 폴백이 항상
+        # 이겼다(코드 리뷰 지적). 지금은 `_band_for_generated`가 신고값에서 파생하므로
+        # 이 주석이 참이고, 여기 값은 **미신고·범위 밖일 때만** 쓰인다.
         persist_level_group = (
             weatherbrain_service.theta_to_level_group(theta)
             if theta is not None
