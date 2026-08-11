@@ -149,6 +149,23 @@ try {
     const { default: koRes } = await server.ssrLoadModule('/src/i18n/resources/board.ko.js');
     const sat = koRes.explore.satellite;
     checkMt21('실사 아님 표기가 리소스에 있다', /도식/.test(sat.schematicBadge));
+    // ⑻ **색을 쓰지 않는다**(2026-08-12 결정). 강조 IR의 초록·노랑·빨강·자홍을
+    //    뺐다 — 학습자에게 그 색은 정보가 아니라 소음이고, 세기를 읽는 축이
+    //    크기·속도·색 셋으로 갈리면 무엇을 봐야 할지 모른다.
+    //    램프 전 구간이 **무채색(R≈G≈B)**인지 소스에서 직접 확인한다.
+    {
+      const { readFileSync } = await import('node:fs');
+      const { join } = await import('node:path');
+      const src = readFileSync(join(root, 'src/modules/explore/SatelliteView.jsx'), 'utf8');
+      const block = src.slice(src.indexOf('const IR_RAMP = ['), src.indexOf('];', src.indexOf('const IR_RAMP = [')));
+      const rgbs = [...block.matchAll(/\[\s*(\d+),\s*(\d+),\s*(\d+)\s*\]/g)]
+        .map((m) => [+m[1], +m[2], +m[3]]);
+      const chroma = rgbs.map(([r, g, b]) => Math.max(r, g, b) - Math.min(r, g, b));
+      checkMt21(
+        `색 램프가 무채색이다 (최대 채도차 ${Math.max(...chroma)} — 바다의 푸른기까지만 허용)`,
+        rgbs.length >= 4 && Math.max(...chroma) <= 46,
+      );
+    }
     checkMt21('산출물 라벨이 실제 기관·위성명을 사칭하지 않는다',
       !/천리안|GK2A|히마와리|Himawari|KMA|기상청|NOAA|GOES/i.test(sat.productLine));
   }
