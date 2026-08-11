@@ -113,6 +113,16 @@ try {
   // (/onboarding/placement)는 Layout 밖인데 같은 SessionRunner를 쓴다. 그래서
   // `--wm-shell-left`(Layout 안 208 · 밖 0)를 쓰는지 소스로 단정한다.
   // jsdom·SSR 모두 레이아웃 엔진이 없어 좌표로는 잴 수 없다.
+  const { readFileSync, readdirSync, statSync } = await import('node:fs');
+  const panel = readFileSync(resolve(root, 'src/components/FeedbackPanel.jsx'), 'utf8');
+  const fixedLine = panel.split('\n').find((l) => /className="fixed /.test(l));
+  if (fixedLine && fixedLine.includes('left-[var(--wm-shell-left)]')) {
+    console.log('PASS FeedbackPanel 고정 컨테이너가 셸 변수(--wm-shell-left)로 왼쪽을 잡는다');
+  } else {
+    console.error(`FAIL FeedbackPanel이 셸 변수를 안 쓴다 — 실제 「${(fixedLine ?? '없음').trim()}」`);
+    failed += 1;
+  }
+
   // ── 피드백 화자는 **물방울이 하나** (2026-08-11 사용자 지시) ────────────────
   // 학습 세션의 튜터가 물방울이다(SideNav `/learn` → drop). 정답일 때만 다른
   // 캐릭터가 나오면 한 세션 안에서 말하는 사람이 문항마다 바뀐다.
@@ -132,16 +142,6 @@ try {
         failed += 1;
       }
     }
-  }
-
-  const { readFileSync, readdirSync, statSync } = await import('node:fs');
-  const panel = readFileSync(resolve(root, 'src/components/FeedbackPanel.jsx'), 'utf8');
-  const fixedLine = panel.split('\n').find((l) => /className="fixed /.test(l));
-  if (fixedLine && fixedLine.includes('left-[var(--wm-shell-left)]')) {
-    console.log('PASS FeedbackPanel 고정 컨테이너가 셸 변수(--wm-shell-left)로 왼쪽을 잡는다');
-  } else {
-    console.error(`FAIL FeedbackPanel이 셸 변수를 안 쓴다 — 실제 「${(fixedLine ?? '없음').trim()}」`);
-    failed += 1;
   }
 
   // 같은 함정이 상단 토스트 5개에도 있었다(2026-08-08). 파일 목록을 손으로 적지
