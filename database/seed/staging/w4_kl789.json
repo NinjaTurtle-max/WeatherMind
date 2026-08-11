@@ -1,0 +1,19 @@
+[
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "이것은 lint 하네스 동작을 확인하기 위한 임시 문항이다. 정지한 대기에서 위로 향하는 기압 차의 힘과 아래로 향하는 중력이 거의 같은 크기로 맞버티는 관계를 무엇이라 하는가?",
+      "correct_answer": "스텁정답",
+      "explanation_hint": "스텁 해설이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["stub"]
+    },
+    "status": "active"
+  }
+]
