@@ -5,7 +5,7 @@
     "knowledge_level": 10,
     "question_type": "multiple_choice",
     "template_json": {
-      "question_text": "기상청 폭염특보는 2020년 개편 이후 기온이 아닌 다른 값을 기준으로 발표된다. 폭염주의보·폭염경보의 발표 기준이 되는 값은 무엇인가?",
+      "question_text": "기상청 폭염특보는 기온이 아닌 다른 값을 기준으로 발표된다. 폭염주의보·폭염경보의 발표 기준이 되는 값은 무엇인가?",
       "options": [
         "일 최고 체감온도",
         "일 최고 기온",
@@ -109,7 +109,7 @@
     "knowledge_level": 10,
     "question_type": "multiple_choice",
     "template_json": {
-      "question_text": "기상청이 육상에 강풍주의보를 발표하는 기준으로 옳은 것은 무엇인가?",
+      "question_text": "기상청이 산지를 제외한 육상에 강풍주의보를 발표하는 기준으로 옳은 것은 무엇인가?",
       "options": [
         "풍속 14m/s 이상 또는 순간풍속 20m/s 이상",
         "풍속 21m/s 이상 또는 순간풍속 26m/s 이상",
@@ -646,7 +646,7 @@
     "knowledge_level": 10,
     "question_type": "slider",
     "template_json": {
-      "question_text": "기상청이 육상에 강풍경보를 발표하는 평균 풍속 기준은 몇 m/s인가?",
+      "question_text": "기상청이 산지를 제외한 육상에 강풍경보를 발표하는 평균 풍속 기준은 몇 m/s인가?",
       "correct_answer": "21",
       "explanation_hint": "강풍경보의 평균 풍속 기준은 21m/s다. 주의보가 14m/s이고, 순간풍속으로는 주의보 20m/s·경보 26m/s가 따로 걸린다. 평균과 순간을 함께 보는 까닭은 구조물을 부수는 것이 대개 평균이 아니라 순간의 돌풍이기 때문이다.",
       "min": 0,
@@ -744,7 +744,7 @@
     "knowledge_level": 10,
     "question_type": "match",
     "template_json": {
-      "question_text": "바람과 파도에 관한 기상특보와 그 발표 기준을 짝지어라.",
+      "question_text": "바람과 파도에 관한 기상특보와 그 발표 기준을 짝지어라. 강풍 기준은 산지를 제외한 육상의 평균 풍속 값이다.",
       "pairs": [
         { "left": "강풍주의보", "right": "육상 풍속 14m/s 이상" },
         { "left": "강풍경보", "right": "육상 풍속 21m/s 이상" },

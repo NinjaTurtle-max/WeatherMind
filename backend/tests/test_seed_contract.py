@@ -88,7 +88,9 @@ class TestSeedSchema:
         # 항목 내용을, slider에 측정 축을 함께 넣어 정답 키가 내용을 보게 됐다.
         # 위 문단의 "패턴 수만큼만 가능"은 그 이전 기술이라 지금은 참이 아니다.
         # 저작 웨이브 1-b(2026-08-10): +58 = 398. kl4 보강 18 + kl8 신규 40.
-        assert len(SEED_ITEMS) == 398
+        # 저작 웨이브 1-c(2026-08-10): +144 = 542. kl6 64 · kl9 40 · kl10 40 —
+        # 10단계 확장으로 생긴 상위 칸을 4인 병렬로 채웠다. 10단계 전건 40건 이상.
+        assert len(SEED_ITEMS) == 542
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS

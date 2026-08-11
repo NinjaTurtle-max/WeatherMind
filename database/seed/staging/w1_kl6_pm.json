@@ -1,0 +1,522 @@
+[
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "엘니뇨가 발달한 해에 적도 태평양에서 나타나는 변화로 알맞은 것은 무엇인가?",
+      "options": [
+        "동태평양 해수면 온도가 평년보다 높아진다",
+        "동태평양 해수면 온도가 평년보다 낮아진다",
+        "서태평양에만 비가 집중된다",
+        "적도 해류가 완전히 멈춘다"
+      ],
+      "correct_answer": "동태평양 해수면 온도가 평년보다 높아진다",
+      "explanation_hint": "평상시에는 무역풍이 따뜻한 표층수를 서쪽으로 밀어 동태평양에 찬물이 올라온다. 엘니뇨 해에는 이 바람이 약해져 찬물이 덜 올라오고 동태평양이 평년보다 따뜻해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 지구 규모 해양·대기 상호작용", "무역풍 introduced_at=5 · 역학 없이 정성 서술"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "적도 태평양의 상태와 그때 나타나는 특징을 짝지어라.",
+      "pairs": [
+        { "left": "평상시", "right": "무역풍이 따뜻한 물을 서쪽으로 밀어 동태평양에 찬물이 올라온다" },
+        { "left": "엘니뇨", "right": "무역풍이 약해져 동태평양이 평년보다 따뜻해진다" },
+        { "left": "라니냐", "right": "무역풍이 강해져 동태평양이 평년보다 차가워진다" }
+      ],
+      "correct_answer": "평상시:무역풍이 따뜻한 물을 서쪽으로 밀어 동태평양에 찬물이 올라온다|엘니뇨:무역풍이 약해져 동태평양이 평년보다 따뜻해진다|라니냐:무역풍이 강해져 동태평양이 평년보다 차가워진다",
+      "explanation_hint": "세 상태의 차이는 무역풍의 세기 하나로 이어진다. 바람이 약해지면 엘니뇨, 강해지면 라니냐다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 한 축(무역풍 세기)으로 세 상태를 꿴다", "정성 대비 — 정량 지수는 쓰지 않는다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "어떤 지역의 기후를 말할 때 기준으로 삼는, 세계기상기구가 정한 평년값의 산출 기간은 몇 년인가?",
+      "correct_answer": "30년",
+      "explanation_hint": "한두 해의 변동을 걸러내고 그 지역의 기후를 대표하려면 충분히 긴 기간이 필요하다. 그래서 30년 평균을 평년값으로 쓴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 기후와 날씨의 구분", "정답이 국제 표준 기간 — 업무 규정이 아니라 학술 관례라 10단계가 아니다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "북극 해빙이 녹으면 온난화가 더 빨라지는 되먹임이 생기는 까닭은 무엇인가?",
+      "options": [
+        "밝은 얼음이 사라지고 어두운 바다가 드러나 햇빛을 더 많이 흡수하기 때문이다",
+        "얼음이 녹으면서 열을 내놓기 때문이다",
+        "바닷물이 줄어들기 때문이다",
+        "북극에 구름이 사라지기 때문이다"
+      ],
+      "correct_answer": "밝은 얼음이 사라지고 어두운 바다가 드러나 햇빛을 더 많이 흡수하기 때문이다",
+      "explanation_hint": "하얀 얼음은 햇빛을 되돌려 보내지만 어두운 바다는 흡수한다. 얼음이 줄면 더 데워지고, 더 데워지면 얼음이 또 줄어드는 되먹임이 돈다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 기후 되먹임", "'알베도'는 8단계 이름이라 쓰지 않고 밝기로 서술"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "북극 해빙 감소의 되먹임이 도는 순서대로 배열하라.",
+      "items": [
+        "기온이 올라 해빙이 녹는다",
+        "밝은 얼음 대신 어두운 바다가 드러난다",
+        "바다가 햇빛을 더 많이 흡수한다",
+        "북극이 더 따뜻해져 해빙이 더 녹는다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "마지막 단계가 첫 단계로 되돌아가기 때문에 되먹임이라고 한다. 이 고리 때문에 북극은 지구 평균보다 빠르게 더워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 양의 되먹임 구조", "고리가 닫히는 것을 순서로 보인다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "바다가 대기의 이산화탄소를 흡수하면서 바닷물의 pH가 낮아지는 현상을 해양 ___라고 한다.",
+      "correct_answer": "산성화",
+      "explanation_hint": "이산화탄소가 바닷물에 녹으면 산이 만들어져 pH가 내려간다. 이 때문에 조개와 산호처럼 껍데기를 만드는 생물이 살기 어려워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 기후변화와 환경생태 — 해양 산성화", "정성 인과 — 화학 평형 정량은 다루지 않는다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "적도와 극지방 사이에 대기와 해양의 순환이 끊임없이 일어나는 근본 원인은 무엇인가?",
+      "options": [
+        "위도에 따라 들어오는 태양 에너지의 양이 다르기 때문이다",
+        "지구가 자전하기 때문이다",
+        "바닷물의 염분이 다르기 때문이다",
+        "대륙의 모양이 불규칙하기 때문이다"
+      ],
+      "correct_answer": "위도에 따라 들어오는 태양 에너지의 양이 다르기 때문이다",
+      "explanation_hint": "적도는 햇빛을 거의 수직으로 받아 에너지가 남고, 극지방은 비스듬히 받아 모자란다. 이 불균형을 메우려는 흐름이 대기와 해양의 순환이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 지구 규모 에너지 불균형", "순환의 원인 — 역학(전향력)은 7단계라 묻지 않는다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "적도와 극지방의 연평균 기온 차는 대략 몇 ℃인지 슬라이더로 표시하라.",
+      "correct_answer": "50",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "℃",
+      "explanation_hint": "적도는 연평균 약 27℃, 극지방은 약 -23℃로 50℃ 가까이 벌어진다. 이 큰 차이를 메우려는 흐름이 대기와 해양의 순환이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 위도별 에너지 불균형의 크기", "종전 초안(반사율 30%)은 본시드 kl4 문항과 (slider·radiation_budget·30) 키가 겹쳐 탈락했다 — 같은 축을 기온 차로 바꿔 재저작"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "해수면 온도가 오르면 태풍의 세기에 나타날 것으로 예상되는 변화는 무엇인가?",
+      "options": [
+        "강한 태풍의 비율이 늘어난다",
+        "태풍이 아예 생기지 않는다",
+        "태풍의 세기가 일정하게 유지된다",
+        "태풍이 겨울에만 생긴다"
+      ],
+      "correct_answer": "강한 태풍의 비율이 늘어난다",
+      "explanation_hint": "태풍은 따뜻한 바다에서 올라오는 수증기를 에너지로 삼는다. 바다가 더 따뜻해지면 쓸 수 있는 에너지가 늘어 강한 태풍이 만들어지기 쉬워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 기후변화가 극한 현상에 주는 영향", "정성 예측 — 정량 진단량은 8단계 이상"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "태풍이 만들어지려면 해수면 온도가 대체로 몇 ℃ 이상이어야 하는가?",
+      "correct_answer": "26",
+      "explanation_hint": "태풍은 따뜻한 바다에서 올라오는 수증기를 에너지로 삼는다. 해수면 온도가 대체로 26~27℃ 아래로 내려가면 그 공급이 모자라 태풍이 만들어지지도, 세력을 유지하지도 못한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 태풍 발생 조건", "종전 초안은 정답이 '전향력'이었으나 게이트가 잡았다 — 전향력은 7단계이고 `[9과17-02]` 해설이 4단계에서 명시적으로 제외한다. 역학을 피해 열역학 조건으로 대체"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "우리나라의 사계절이 뚜렷한 근본 원인으로 알맞은 것은 무엇인가?",
+      "options": [
+        "계절에 따라 세력을 주고받는 공기 덩어리가 바뀌기 때문이다",
+        "지구와 태양 사이 거리가 계절마다 크게 달라지기 때문이다",
+        "우리나라의 위도가 계절마다 바뀌기 때문이다",
+        "바다가 계절마다 사라지기 때문이다"
+      ],
+      "correct_answer": "계절에 따라 세력을 주고받는 공기 덩어리가 바뀌기 때문이다",
+      "explanation_hint": "대륙과 해양 사이에 놓인 위치 탓에 계절마다 다른 성질의 기단이 우리나라를 덮는다. 그래서 같은 땅인데 계절별 날씨가 크게 달라진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 지역 기후의 성인", "4단계의 기단 지식을 지역 기후 규모로 확장"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "대륙 동안에 자리해 계절에 따라 바람의 방향이 크게 바뀌는 우리나라 기후의 특징을 ___ 기후라고 한다.",
+      "correct_answer": "계절풍",
+      "explanation_hint": "겨울에는 차가운 대륙에서 바다 쪽으로, 여름에는 따뜻한 바다에서 대륙 쪽으로 바람이 분다. 대륙과 바다가 데워지고 식는 빠르기가 달라 생기는 현상이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 지역 기후 유형", "비열 차(3단계)를 대륙 규모로 확장"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "도시 열섬을 지구 온난화와 구분해야 하는 까닭으로 알맞은 것은 무엇인가?",
+      "options": [
+        "열섬은 도시라는 좁은 지역에서 일어나는 국지 현상이기 때문이다",
+        "열섬은 기온을 낮추는 현상이기 때문이다",
+        "열섬은 겨울에만 일어나기 때문이다",
+        "열섬은 사람과 관계없는 현상이기 때문이다"
+      ],
+      "correct_answer": "열섬은 도시라는 좁은 지역에서 일어나는 국지 현상이기 때문이다",
+      "explanation_hint": "온난화는 지구 전체의 평균기온이 오르는 일이고, 열섬은 도시가 둘레보다 더운 국지 현상이다. 규모가 달라 원인과 대책도 다르다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 규모 구분", "국지·지구 규모를 가르는 것이 이 단계의 핵심 사고"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "기후 현상과 그 공간 규모를 짝지어라.",
+      "pairs": [
+        { "left": "도시 열섬", "right": "도시 하나 크기의 국지 규모" },
+        { "left": "계절풍", "right": "대륙과 대양이 맞닿은 지역 규모" },
+        { "left": "지구 온난화", "right": "행성 전체 규모" }
+      ],
+      "correct_answer": "도시 열섬:도시 하나 크기의 국지 규모|계절풍:대륙과 대양이 맞닿은 지역 규모|지구 온난화:행성 전체 규모",
+      "explanation_hint": "같은 '기온이 오른다'는 말도 규모에 따라 원인과 대책이 전혀 다르다. 규모를 가려 보는 것이 기후를 읽는 첫 걸음이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 규모 위계", "세 규모를 한 문항에 겹치되 각각은 정성 서술"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기후변화 대응을 완화와 적응으로 나눌 때, 도시에 빗물 저류 시설을 늘리는 일은 어느 쪽인가?",
+      "options": [
+        "적응 — 이미 나타난 변화의 피해를 줄인다",
+        "완화 — 온실기체 배출 자체를 줄인다",
+        "둘 다 아니다",
+        "완화이면서 배출을 늘린다"
+      ],
+      "correct_answer": "적응 — 이미 나타난 변화의 피해를 줄인다",
+      "explanation_hint": "완화는 원인인 온실기체를 줄이는 일이고, 적응은 이미 닥친 변화에 대비하는 일이다. 저류 시설은 늘어난 폭우 피해를 줄이는 적응이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 기후변화와 환경생태 — 완화와 적응의 구분", "정책 개념 — 규정 수치가 아니다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "기후변화 대응 활동과 그 갈래를 짝지어라.",
+      "pairs": [
+        { "left": "태양광 발전으로 화석연료를 대체한다", "right": "배출원 자체를 없애는 완화" },
+        { "left": "해안 제방을 높인다", "right": "해수면 상승 피해를 막는 적응" },
+        { "left": "폭염 대피소를 늘린다", "right": "고온 노출 피해를 줄이는 적응" },
+        { "left": "숲을 늘려 이산화탄소를 흡수한다", "right": "이미 배출된 기체를 거둬들이는 완화" }
+      ],
+      "correct_answer": "태양광 발전으로 화석연료를 대체한다:배출원 자체를 없애는 완화|해안 제방을 높인다:해수면 상승 피해를 막는 적응|폭염 대피소를 늘린다:고온 노출 피해를 줄이는 적응|숲을 늘려 이산화탄소를 흡수한다:이미 배출된 기체를 거둬들이는 완화",
+      "explanation_hint": "원인을 줄이면 완화, 결과에 대비하면 적응이다. 같은 완화라도 배출을 막는 쪽과 이미 나간 것을 거둬들이는 쪽이 다르고, 적응도 막는 쪽과 견디는 쪽이 다르다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 기후변화와 환경생태 — 대응 분류", "종전 초안은 right가 '완화'·'적응' 두 값뿐이라 게이트가 중복으로 탈락시켰다 — 짝짓기는 오른쪽이 겹치면 어느 쪽을 골라도 맞아 문항이 성립하지 않는다. 갈래 안의 차이까지 서술해 4쌍을 서로 다르게 만들었다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기후변화가 산불에 미치는 영향으로 예상되는 것은 무엇인가?",
+      "options": [
+        "메마른 기간이 길어져 산불 위험 기간이 늘어난다",
+        "산불이 완전히 사라진다",
+        "겨울에만 산불이 난다",
+        "산불과 기후는 아무 관계가 없다"
+      ],
+      "correct_answer": "메마른 기간이 길어져 산불 위험 기간이 늘어난다",
+      "explanation_hint": "기온이 오르면 땅과 식물에서 물이 더 빨리 빠진다. 비가 오지 않는 기간까지 길어지면 잘 타는 상태가 더 오래 이어진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 기후변화와 환경생태 — 재해 위험의 변화", "정성 예측"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기온이 오르면 대기 중 수증기가 늘어 온난화가 더 심해지는 되먹임이 생기는 까닭은 무엇인가?",
+      "options": [
+        "수증기 자체가 강한 온실기체이기 때문이다",
+        "수증기가 햇빛을 완전히 막기 때문이다",
+        "수증기가 이산화탄소를 만들어 내기 때문이다",
+        "수증기가 지표를 식히기 때문이다"
+      ],
+      "correct_answer": "수증기 자체가 강한 온실기체이기 때문이다",
+      "explanation_hint": "따뜻한 공기는 더 많은 수증기를 품는다. 그런데 수증기도 열을 붙잡는 온실기체라 기온이 더 오르고, 그러면 수증기가 또 늘어난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 수증기 되먹임", "포화수증기량(4단계)을 기후 되먹임으로 확장"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "북대서양에서 표층수가 가라앉아 심층 순환이 시작되는 까닭으로 알맞은 것은 무엇인가?",
+      "options": [
+        "차가워지고 염분이 높아져 무거워지기 때문이다",
+        "따뜻해지고 염분이 낮아져 가벼워지기 때문이다",
+        "바람이 물을 아래로 밀기 때문이다",
+        "해저 지형이 물을 빨아들이기 때문이다"
+      ],
+      "correct_answer": "차가워지고 염분이 높아져 무거워지기 때문이다",
+      "explanation_hint": "고위도에서 바닷물이 식고 얼음이 얼면서 남은 물의 염분이 높아진다. 차갑고 짠 물은 무거워 가라앉고, 그 가라앉음이 전 지구 심층 순환을 밀어 준다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 심층 순환의 구동", "밀도(3단계)를 지구 규모로 확장 · 역학 없음"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "북대서양에서 시작되는 심층 순환의 과정을 순서대로 배열하라.",
+      "items": [
+        "따뜻한 표층수가 고위도로 흘러간다",
+        "고위도에서 식고 얼음이 얼며 남은 물의 염분이 높아진다",
+        "차갑고 짠 물이 무거워져 깊은 바다로 가라앉는다",
+        "심층에서 천천히 퍼져 나가 오랜 시간에 걸쳐 다시 떠오른다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "표층에서 열을 나르고 고위도에서 가라앉아 심층으로 도는 이 흐름은 한 바퀴 도는 데 천 년 가까이 걸린다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 심층 순환의 시간 규모", "정성 과정 — 수송량 정량은 9단계"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "지구 평균기온이 조금 올랐을 뿐인데 폭염과 한파 같은 극한 현상이 눈에 띄게 늘어나는 까닭으로 알맞은 것은 무엇인가?",
+      "options": [
+        "분포 전체가 조금만 밀려도 양 끝의 극한 사례 빈도는 크게 바뀌기 때문이다",
+        "평균이 오르면 모든 날이 똑같이 더워지기 때문이다",
+        "극한 현상은 평균과 아무 관계가 없기 때문이다",
+        "관측 방법이 해마다 바뀌기 때문이다"
+      ],
+      "correct_answer": "분포 전체가 조금만 밀려도 양 끝의 극한 사례 빈도는 크게 바뀌기 때문이다",
+      "explanation_hint": "기온은 종 모양으로 흩어져 있다. 이 분포가 통째로 조금 오른쪽으로 밀리면 가운데 변화는 작아 보여도 오른쪽 끝(폭염) 사례 수는 크게 늘어난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 평균 이동과 극값 빈도", "분포 사고 — 통계 정량 계산은 요구하지 않는다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "따뜻한 표층수와 차가운 심층수 사이에서 수온이 급하게 떨어지는 층을 ___이라고 한다.",
+      "correct_answer": "수온약층",
+      "explanation_hint": "위는 햇빛과 바람으로 잘 섞여 따뜻하고 아래는 차갑다. 그 사이의 급한 수온 변화층이 위아래 물이 섞이는 것을 막는 뚜껑 노릇을 한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 해양 연직 구조", "밀도 성층의 정성 이해 — 부력진동수 같은 정량은 8단계 이상"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "적도에서 데워진 공기가 상승해 고위도로 흘러가다 위도 30도 부근에서 내려오는 순환에 대해, 그 아래 지역에 나타나는 특징은 무엇인가?",
+      "options": [
+        "하강기류가 이어져 큰 사막이 만들어지기 쉽다",
+        "비가 가장 많이 내린다",
+        "일 년 내내 눈이 쌓인다",
+        "바람이 전혀 불지 않는다"
+      ],
+      "correct_answer": "하강기류가 이어져 큰 사막이 만들어지기 쉽다",
+      "explanation_hint": "내려오는 공기는 눌리며 데워져 구름이 만들어지지 않는다. 그래서 위도 30도 부근에 사하라와 같은 큰 사막이 띠처럼 늘어서 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 대기 대순환과 기후대", "순환 세포의 결과를 지표 기후와 잇는다 · 역학 명칭은 쓰지 않는다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "중위도에서 날씨가 서쪽에서 동쪽으로 바뀌어 가는 것을 관측할 수 있는 까닭은 무엇인가?",
+      "options": [
+        "그 위도대의 상층에 서에서 동으로 부는 바람이 자리 잡고 있기 때문이다",
+        "저기압이 스스로 동쪽으로 헤엄치기 때문이다",
+        "동쪽이 서쪽보다 낮기 때문이다",
+        "지구가 동쪽에서 서쪽으로 돌기 때문이다"
+      ],
+      "correct_answer": "그 위도대의 상층에 서에서 동으로 부는 바람이 자리 잡고 있기 때문이다",
+      "explanation_hint": "중위도 상층에는 편서풍이 늘 불고 있다. 저기압과 전선이 그 흐름을 타고 옮겨 가기 때문에 우리나라 날씨도 서쪽부터 바뀐다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=6 · 고2~3 일반선택 — 편서풍과 일기 이동", "편서풍 introduced_at=4 · '편서풍 파동'(7단계)은 쓰지 않는다"]
+    },
+    "status": "active"
+  }
+]
