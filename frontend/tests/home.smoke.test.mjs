@@ -183,10 +183,25 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   ok(Boolean(unsetGoal), '목표 미설정이어도 오늘의 목표 자리가 남는다');
   ok(unsetGoal?.getAttribute('data-goal-state') === 'unset', '미설정 상태로 표시된다');
   // 설정 통로는 내 정보다 — 카드가 좁아 3버튼 피커를 박지 않는다(2026-08-09 결정).
+  // **해시까지 본다**(2026-08-11): 목표 카드가 내 정보 꼬리로 내려가면서 그냥
+  // `/me`로 보내면 능력 분석 판 두 화면 위에 떨어진다. 목표를 정하러 온 사람이
+  // 목표 카드를 못 보는 링크는 통로가 아니다. 앵커가 실재하는지는 ⑦에서 본다.
   ok(
-    unsetGoal?.getAttribute('href') === '/me',
-    `미설정 자리가 내 정보로 보낸다 — 실제 ${unsetGoal?.getAttribute('href')}`,
+    unsetGoal?.getAttribute('href') === '/me#daily-goal',
+    `미설정 자리가 목표 카드로 보낸다 — 실제 ${unsetGoal?.getAttribute('href')}`,
   );
+  // ⚠️ **접히는 열 안으로 들어가지 않았는가.** 2026-08-10 코드 리뷰에서 잡혔다:
+  // 목표가 `hidden lg:block` 열 안에 있어 1024px 미만에서 표시와 설정 통로가
+  // 통째로 사라졌다 — 위 단정만으로는 못 잡는다(요소는 DOM에 있으니 통과한다).
+  // jsdom에는 CSS 엔진이 없지만 **클래스는 읽을 수 있다** — 조상에 `hidden`이
+  // 붙어 있는지로 대신 본다.
+  const hiddenAncestor = (() => {
+    for (let el = unsetGoal; el && el.dataset?.testid !== 'learn-entry'; el = el.parentElement) {
+      if (el.classList?.contains('hidden')) return el.className;
+    }
+    return null;
+  })();
+  ok(!hiddenAncestor, `목표가 접히는 열 안에 있지 않다 — 실제 조상 "${hiddenAncestor}"`);
 
   // ⑥ 홈이 갖고 있던 카드들이 카드로 돌아오지 않았다
   for (const gone of ['연속 출석', 'WeatherBrain']) {
@@ -203,9 +218,18 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
     tile?.closest('[data-testid="learn-footer"]') !== null,
     '복습 칸이 하단 3카드 줄 안에 있다',
   );
-  for (const id of ['learn-secondary', 'learn-league']) {
-    ok($(`[data-testid="${id}"]`) !== null, `하단 3카드에 ${id} 칸이 있다`);
-  }
+  ok($('[data-testid="learn-secondary"]') !== null, '오른쪽 열에 자유 일일 세션 칸이 있다');
+  // 리그 칸은 뺐다(2026-08-10 사용자 지시) — 내비 탭이 이미 갖고 있어 같은
+  // 목적지가 한 화면에 두 벌이었고, 정산 전에는 한 줄짜리라 칸값을 못 했다.
+  ok($('[data-testid="learn-league"]') === null, '리그 칸이 되살아나지 않았다');
+  // 자유 일일 세션이 복습보다 **위**다(사용자 지시). DOM 순서로 못 박는다 —
+  // 복습은 due 0건이면 사라지므로 순서가 뒤집혀도 화면만 보면 티가 안 난다.
+  const col = $('[data-testid="learn-footer"]');
+  const order = [...(col?.children ?? [])].map((c) => c.getAttribute('data-testid'));
+  ok(
+    order.indexOf('learn-secondary') < order.indexOf('review-queue-tile'),
+    `자유 일일 세션이 복습보다 위 — 실제 ${order.join(' → ')}`,
+  );
   // 복습은 **개념명 키워드**다(2026-08-09 결정). 한때 담당 캐릭터 그림으로 바꿨다가
   // 되돌렸다 — 캐릭터 8장에 개념 14종이라 둘 이상이 같은 얼굴을 쓴다.
   ok(tile.querySelector('img') === null, '복습은 그림이 아니라 개념명 키워드다');
@@ -269,6 +293,42 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   ok(Boolean(radar), '능력 레이더가 내 정보에 있다');
   ok((radar.getAttribute('aria-label') ?? '').length > 0, '레이더가 읽을 수 있는 요약(aria-label)을 준다');
   ok($$('ul li').length > 0, '기존 가로 막대 목록이 그대로 남아 있다');
+
+  // 목표 설정 카드 — /learn 배너의 「목표 미설정」이 겨냥하는 **앵커가 실재하는가**.
+  // 위 ④는 href만 본다: 링크가 `#daily-goal`을 가리켜도 그런 id가 없으면
+  // 브라우저는 페이지 맨 위에 그냥 떨어뜨린다(끊긴 통로가 초록으로 통과한다).
+  // 기다림과 판정을 나눈다 — 맨 `await waitFor(...)`는 던지므로 이 블록의
+  // 나머지와 **서버 정리(vite.close·httpServer.close)까지 건너뛴다**.
+  // ⚠️ 이 파일에 그런 맨 waitFor가 아직 여럿 남아 있다(같은 블록에도 있다) —
+  // 여기만 고쳤다고 파일 전체가 그 규칙을 지키는 것은 아니다. 새로 쓸 때 이
+  // 꼴을 따르고, 기존 것은 손대는 김에 하나씩 옮긴다(2026-08-11 코드 리뷰).
+  const goalCard = await waitFor(() => $('#daily-goal') !== null, 6000, '')
+    .then(() => true)
+    .catch(() => false);
+  ok(goalCard, '내 정보에 목표 설정 카드(#daily-goal)가 없다');
+
+  // **저장해도 사라지지 않는다** + **확인 문구가 이번 저장에만 뜬다**.
+  //
+  // ⚠️ 이 검사는 한 번 **헛돌았다**(2026-08-11 코드 리뷰). 위 ④에서 이미 목표를
+  // 5로 저장해 목이 그 값을 들고 있어서, `waitFor(확인 문구)`가 클릭과 무관하게
+  // 0ms에 통과했다. 계측해 보니 클릭 **전에** 이미 확인 문구가 떠 있었다.
+  // 그래서 순서를 뒤집는다: 새로 연 /me에는 확인 문구가 **없어야** 하고(방금
+  // 저장한 게 아니다), **다른 값**을 눌러야 그 값으로 뜬다.
+  ok(
+    !text().includes('오늘부터 하루'),
+    '아무것도 안 눌렀는데 저장 확인 문구가 떠 있다(이미 정해 둔 사람에게 매번 뜬다)',
+  );
+  // ④가 5문항으로 저장해 뒀다 — 겹치지 않게 9문항(세 번째 버튼)을 누른다.
+  const goalBtns = $$('#daily-goal button');
+  ok(goalBtns.length === 3, `목표 선택 버튼 3개 — 실제 ${goalBtns.length}`);
+  if (goalBtns.length === 3) {
+    goalBtns[2].dispatchEvent(new window.Event('click', { bubbles: true }));
+    const saved = await waitFor(() => text().includes('하루 9문항'), 6000, '')
+      .then(() => true)
+      .catch(() => false);
+    ok(saved, '9문항을 눌렀는데 저장 확인 문구가 안 뜬다');
+    ok(Boolean($('#daily-goal')), '저장 직후 목표 카드가 사라졌다(확인 문구를 볼 수 없다)');
+  }
 
   r.unmount();
 }

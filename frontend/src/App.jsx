@@ -12,6 +12,7 @@ import BoardPage from './modules/board/BoardPage';
 import ExploreHome from './modules/explore/ExploreHome';
 import TyphoonSimPage from './modules/explore/TyphoonSimPage';
 import ClimateSimPage from './modules/explore/ClimateSimPage';
+import SandboxPage from './modules/explore/SandboxPage';
 import DetectiveRoutes from './modules/detective/DetectiveRoutes';
 import LeaguePage from './modules/league/LeaguePage';
 import DuelPage from './modules/duel/DuelPage';
@@ -179,6 +180,9 @@ export default function App() {
           <Route path="/explore" element={<ExploreHome />} />
           <Route path="/explore/typhoon" element={<TyphoonSimPage />} />
           <Route path="/explore/climate" element={<ClimateSimPage />} />
+          {/* 자유 실험 — 2026-08-10에 보드에서 옮겨 왔다(사용자 지시).
+              판은 여전히 AtmosphereBoard지만 입구는 탐구다. */}
+          <Route path="/explore/sandbox" element={<SandboxPage />} />
           {/* R13 기후 탐정(CO-N-2) — 하위 경로는 모듈이 소유한다(DetectiveRoutes). */}
           <Route path="/detective/*" element={<DetectiveRoutes />} />
           <Route path="/duel" element={<DuelPage />} />

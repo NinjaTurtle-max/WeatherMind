@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { kstWeekdayIndex } from '../../lib/kstWeekday';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi, progressApi } from '../../api';
 import { useAuthStore } from '../../store/authStore';
@@ -10,7 +10,7 @@ import QuestList from './QuestList';
 import BadgeCollection from './BadgeCollection';
 import WeatherBrainPanel from './WeatherBrainPanel';
 import KnowledgeLevelCard from './KnowledgeLevelCard';
-import { DailyGoalMeter, DailyGoalPicker } from './DailyGoal';
+import { DailyGoalPicker, GOAL_ANCHOR } from './DailyGoal';
 import { selectUnlockStage, useOnboardingGate } from '../../lib/onboardingGate';
 // R12 선행 §8 — 학습 지역 설정(자급 컴포넌트, 제작 FE-R)
 import RegionPicker from '../../components/RegionPicker';
@@ -30,7 +30,9 @@ import { useT } from '../../i18n';
  * 제품 결정(§1) "유닛 진척 1순위"에 따라 프로필 헤더 바로 아래 배치.
  *
  * R10-01 §3.4 (S4 — R10-D·R10-F):
- * - "오늘 목표 N/M"(설정 시)·목표 선택(미설정 시 — 배치고사를 건너뛴 사용자 보정).
+ * - 하루 목표 **선택**(배치고사를 건너뛴 사용자 보정) — 페이지 꼬리의 설정 자리.
+ *   진행도 "오늘 목표 N/M"(DailyGoalMeter)은 2026-08-11에 이 화면에서 걷었다:
+ *   /learn 배너와 세션 완료 화면이 같은 값을 이미 보여준다.
  * - **첫 세션 전에는 퀘스트·배지를 1개만 노출**해 인지 부하를 줄인다(collapsed).
  *   첫 세션을 마치면(게이트 단계 1) 원래대로 전체가 펼쳐진다 — 기존 사용자는
  *   부트스트랩에서 해제 상태로 계산되므로 회귀가 없다.
@@ -40,7 +42,12 @@ export default function ProgressPage() {
   const unlockStage = useOnboardingGate(selectUnlockStage);
   const t = useT();
 
-  const { data: me } = useQuery({
+  const {
+    data: me,
+    isError: meFailed,
+    isFetching: meFetching,
+    refetch: refetchMe,
+  } = useQuery({
     queryKey: ['progress', 'me'],
     queryFn: progressApi.fetchMyProgress,
     staleTime: 30_000,
@@ -54,6 +61,63 @@ export default function ProgressPage() {
 
   // 첫 세션 전(게이트 단계 0) — 퀘스트·배지를 접어 첫 화면 정보량을 줄인다(§3.4)
   const collapsed = unlockStage < 1;
+
+  // 해시 앵커로 스크롤 — `/me#daily-goal`(＝ /learn 배너의 「목표 미설정」)로 들어온
+  // 사람을 목표 카드까지 데려간다. 리액트 라우터는 해시를 **스크롤하지 않는다**
+  // (브라우저 기본 동작은 서버가 문서를 내려줄 때만 걸린다).
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!hash) return undefined;
+    // jsdom 하네스에는 scrollIntoView·ResizeObserver가 없다 — 없으면 그냥 넘어간다.
+    const align = () => document.getElementById(hash.slice(1))?.scrollIntoView?.({ block: 'start' });
+    align();
+    // ⚠️ **한 번만 맞추면 안 된다.** 목표 카드는 페이지 꼬리에 있고 그 위 능력
+    // 분석은 조회가 끝나야 키가 정해진다 — 먼저 맞춰 놓으면 뒤늦게 자란 만큼
+    // 카드가 아래로 밀린다(실측 2026-08-11: 화면 맨 밑단까지 내려갔다).
+    //
+    // 창은 **마지막으로 자란 때**부터 잰다(2026-08-11 코드 리뷰). 마운트부터
+    // 2초로 재면 느린 조회(/progress/mastery가 이 앵커 위에 있다)가 2초를 넘겨
+    // 도착했을 때 이미 관측을 끊은 뒤라, 막으려던 그 증상이 그대로 난다.
+    // 대신 총 10초 상한을 둔다 — 계속 움직이는 요소가 하나라도 있으면 관측이
+    // 영영 안 끝나고, 읽는 중에 화면이 튀는 쪽이 더 나쁘다.
+    //
+    // ⚠️ 그리고 **사용자가 스크롤을 잡으면 즉시 손을 뗀다**(2026-08-11 코드 리뷰).
+    // 창을 늘리는 것만으로도 재정렬이 돌아, 읽으려고 위로 올려 둔 사람을 다시
+    // 앵커로 끌어내린다. wheel·touchmove는 사람의 입력만 내는 신호다
+    // (프로그램 스크롤은 안 낸다).
+    // ⚠️ 키보드는 **화면을 움직이는 키만** 본다. keydown 전부를 신호로 삼으면
+    // 탭 이동·타이핑에도 관측이 끊겨, 키보드로 오는 사람만 원래 증상(늦게
+    // 도착한 숙련도 조회가 앵커를 밀어냄)을 그대로 겪는다.
+    if (typeof ResizeObserver !== 'function') return undefined;
+    const SCROLL_KEYS = new Set([
+      'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Spacebar',
+    ]);
+    let quiet;
+    let cap;
+    const onKey = (e) => {
+      if (SCROLL_KEYS.has(e.key)) release();
+    };
+    const release = () => {
+      clearTimeout(quiet);
+      clearTimeout(cap);
+      observer.disconnect();
+      window.removeEventListener('wheel', release);
+      window.removeEventListener('touchmove', release);
+      window.removeEventListener('keydown', onKey);
+    };
+    const observer = new ResizeObserver(() => {
+      align();
+      clearTimeout(quiet);
+      quiet = setTimeout(release, 2000);
+    });
+    observer.observe(document.body);
+    quiet = setTimeout(release, 2000);
+    cap = setTimeout(release, 10_000);
+    window.addEventListener('wheel', release, { passive: true });
+    window.addEventListener('touchmove', release, { passive: true });
+    window.addEventListener('keydown', onKey, { passive: true });
+    return release;
+  }, [hash]);
 
   return (
     <div className="pt-2">
@@ -85,47 +149,58 @@ export default function ProgressPage() {
         </div>
       )}
 
-      {/* 시안 배치: 2열. 왼쪽은 "나"(프로필·능력·배지), 오른쪽은 "할 일"
+      {/* 시안 배치: 2열. 왼쪽은 "나"(프로필·배지), 오른쪽은 "할 일"
           (오늘 목표·진도·퀘스트·다음 목표). lg 미만은 1열로 쌓인다.
+
+          2026-08-10(사용자 지시): 배지 컬렉션을 **프로필 바로 밑**으로 올리고,
+          WeatherBrain 능력 분석은 이 격자에서 빼 **아래 가로 한 판**으로 내렸다.
+          능력 분석은 안에 막대 14줄 + 숙련도 14줄이 들어가 세로가 가장 긴 카드였고,
+          좁은 열에 있으면 왼쪽 열만 한없이 길어졌다.
 
           ⚠️ 카드 6개를 격자에 **평평하게** 늘어놓으면 안 된다(2026-08-08 수정).
           CSS 격자는 같은 줄에 놓인 칸의 높이를 가장 큰 칸에 맞추므로, 오른쪽
-          첫 줄(오늘 목표+진도)이 왼쪽 프로필 카드보다 길면 그 차이가 **왼쪽
-          둘째 칸 위의 빈 공간**으로 남는다. 실제로 능력 분석 위 115px · 다음 목표
-          위 200px이 비어 있었다. `items-start`로는 안 된다 — 그건 칸을 줄에
-          맞춰 늘이지 않을 뿐, 줄 자체의 높이는 그대로다.
+          첫 줄이 왼쪽 프로필 카드보다 길면 그 차이가 **왼쪽 둘째 칸 위의 빈
+          공간**으로 남는다. 실제로 능력 분석 위 115px · 다음 목표 위 200px이
+          비어 있었다. `items-start`로는 안 된다 — 그건 칸을 줄에 맞춰 늘이지
+          않을 뿐, 줄 자체의 높이는 그대로다.
           그래서 **열을 각각 독립된 세로 스택**으로 묶는다. lg 미만에서는
-          `display:contents`로 껍데기를 지우고 order로 시안의 교차 순서
-          (프로필→오늘목표→능력→퀘스트→배지→다음목표)를 그대로 유지한다. */}
+          `display:contents`로 껍데기를 지우고 order로 교차 순서를 유지한다.
+
+          2026-08-11(사용자 지시): 오른쪽 맨 위의 오늘 목표 카드를 뺐고, 아래
+          전폭에 있던 **학습 지역을 왼쪽 배지 바로 밑**으로 올렸다. 배지 아래가
+          800px 가까이 비어 있었고(왼쪽 스택이 오른쪽보다 짧다) 학습 지역은
+          안이 한 줄뿐이라 전폭을 쓸 이유가 없던 카드다 — 폭은 열이 정한다. */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">
         {/* 왼쪽 열 — "나" */}
         <div className="contents lg:flex lg:flex-col lg:gap-4">
           <div className="order-1 lg:order-none">
             <ProfileCard me={me} user={user} badges={badges} />
           </div>
-          {/* 지식 단계 카드는 능력 분석 **바로 위**에 둔다 — 같은 "나의 실력" 묶음이고,
-              단계(난이도)를 먼저 읽고 개념별 θ(표현 톤 밴드 포함)를 읽는 순서가 맞다.
-              order 번호를 새로 쓰지 않으려고 기존 order-3 칸 안에서 세로로 쌓는다
-              (오른쪽 열의 order-2 칸과 같은 관용구). 서버 필드가 없으면 카드가
-              스스로 null이라 자리째 빠진다. */}
-          <div className="order-3 flex flex-col gap-4 lg:order-none">
-            <KnowledgeLevelCard />
-            <WeatherBrainPanel />
-          </div>
-          <div className="order-5 lg:order-none">
+          <div className="order-2 lg:order-none">
             <BadgeCollection collapsed={collapsed} />
+          </div>
+          {/* order-7 — lg에서는 왼쪽 열 3번째지만, 1열로 쌓이는 좁은 화면에서는
+              **이 격자의 맨 뒤**로 보낸다. 배지와 스파인 사이에 끼면 「나」와
+              「할 일」 사이에 설정이 하나 박힌 꼴이 된다(2026-08-11 코드 리뷰).
+              ⚠️ 그렇다고 학습 수준·하루 목표와 **붙지는 않는다** — 그 둘은 격자
+              바깥이고 사이에 능력 분석 판이 있다. 설정 셋을 한 덩어리로 모으려면
+              카드를 격자 밖으로 빼야 하는데, 그러면 lg에서 왼쪽 열의 빈자리를
+              메우지 못한다(이 이동의 목적이 그것이었다). 여기서 얻는 것은
+              「중간에 안 낀다」까지다. */}
+          <div className="order-7 lg:order-none">
+            <RegionCard />
           </div>
         </div>
 
         {/* 오른쪽 열 — "할 일" */}
         <div className="contents lg:flex lg:flex-col lg:gap-4">
-          <div className="order-2 flex flex-col gap-4 lg:order-none">
-            {/* 오늘 목표 (R10-01 §3.4) — 설정됐으면 N/M 진행, 미설정이면 선택 1스텝 */}
-            {me?.daily_goal_items ? <DailyGoalMeter /> : <DailyGoalPicker />}
-            {/* 스파인 카드 (R8-01 §3.7④) — spine 부재(구 백엔드) 시 미렌더 */}
-            {me?.spine && <SpineCard spine={me.spine} />}
-          </div>
-          <div className="order-4 lg:order-none">
+          {/* 스파인 카드 (R8-01 §3.7④) — spine 부재(구 백엔드) 시 미렌더 */}
+          {me?.spine && (
+            <div className="order-3 lg:order-none">
+              <SpineCard spine={me.spine} />
+            </div>
+          )}
+          <div className="order-5 lg:order-none">
             <QuestList collapsed={collapsed} />
           </div>
           <div className="order-6 lg:order-none">
@@ -134,21 +209,94 @@ export default function ProgressPage() {
         </div>
       </div>
 
-      {/* 설정 — 학습 지역 (R12 선행 §8): 퀴즈 실황·피드백 날씨의 기준 지역.
-          대결/브리핑·리그는 서울 고정(PM 정정 2026-08-05 — 지역 예보로 예측하고
-          서울 실측으로 채점되는 정합성 문제) — 대결 화면에는 칩을 달지 않는다. */}
-      <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-extrabold text-slate-900">{t('region.settingTitle')}</p>
-            <p className="mt-0.5 text-xs text-slate-500">{t('region.settingBody')}</p>
-          </div>
-          <RegionPicker />
-        </div>
+      {/* 능력 분석 — **폭 전체 한 판**(2026-08-10 사용자 지시). 카드 안에서
+          왼쪽 θ 막대 · 오른쪽 개념 숙련도로 갈린다(WeatherBrainPanel이 소유).
+          설정 두 장보다 **위**에 둔다: 설정은 페이지 꼬리로 읽히는 자리라,
+          그 아래에 큰 분석 판을 두면 페이지가 끝난 줄 알고 스크롤을 멈춘다.
+
+          지식 단계 카드가 그 **바로 위**에 붙는다 — 같은 "나의 실력" 묶음이고,
+          단계(난이도)를 먼저 읽고 개념별 θ(4밴드 칩 포함)를 읽는 순서가 맞다.
+          ⚠️ 병합 충돌 해소(2026-08-10): 내 브랜치는 이 카드를 왼쪽 열 order-3
+          칸에 넣었는데, main(PR #55)이 능력 분석을 **격자 밖 전체 폭**으로
+          옮겼다. 왼쪽 열에 그대로 두면 단계와 분석이 떨어져 의도가 깨지므로
+          여기로 따라왔다. 서버 필드가 없으면 카드가 스스로 null이라 자리째 빠진다. */}
+      <div className="mt-4 flex flex-col gap-4">
+        <KnowledgeLevelCard />
+        <WeatherBrainPanel />
       </div>
 
       {/* 설정 — 학습 수준 (R13 CO-P-5) */}
       <LevelGroupCard />
+
+      {/* 설정 — 하루 목표. 2026-08-11(사용자 지시)에 오른쪽 맨 위에서 **내려왔다**.
+          지우지 않고 옮긴 이유: 이 화면이 목표를 정하는 **유일한 통로**다.
+          배치고사를 건너뛴 사람(게스트 자동 발급이 주 동선이다)은 여기 말고
+          정할 데가 없고, /learn 배너의 「목표 미설정」 링크도 여기로 온다.
+
+          ⚠️ **미설정일 때만 띄우지 말 것**(2026-08-11 코드 리뷰). 저장에 성공하면
+          picker의 onSuccess가 같은 캐시를 갱신하므로 카드가 그 자리에서 사라져,
+          「N문항으로 정했어요」 확인 문구를 아무도 못 본다 — 누른 순간 화면에서
+          지워지는 버튼이 된다. 학습 수준 카드와 같이 **늘 떠 있는 설정**으로 둔다
+          (picker가 현재 선택을 강조하고 저장 문구도 스스로 띄운다).
+          진행도 표시(DailyGoalMeter)는 걷었다 — /learn 배너와 세션 완료 화면이
+          같은 값을 이미 보여준다.
+
+          ⚠️ `me`는 **기다린다**(LevelGroupCard와 같은 이유). 조회 전에 그리면
+          현재값을 모르는 채로 아무것도 강조되지 않아, 이미 9문항으로 정해 둔
+          사람이 「미설정」으로 읽고 모르게 덮어쓴다. 저장 뒤에는 `me`가 그대로
+          참이라 카드도 그대로 남는다 — 위 ⚠️와 충돌하지 않는다.
+
+          ⚠️ 조회가 **실패하면 자리를 비우지 않는다**(2026-08-11 코드 리뷰).
+          `me &&`만 두면 실패 시 카드가 조용히 사라져, 목표를 정하러 앵커를 타고
+          온 사람이 빈 화면 끝을 본다 — 통로가 끊긴 것과 같은데 이유도 안 보인다.
+          현재값을 모르니 선택지는 안 내주고, **왜 못 그리는지와 다시 시도**를
+          같은 자리(같은 앵커 id)에 놓는다. */}
+      {me ? (
+        <DailyGoalPicker id={GOAL_ANCHOR} className="mt-4 scroll-mt-4" />
+      ) : meFailed ? (
+        <div
+          id={GOAL_ANCHOR}
+          className="mt-4 scroll-mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+        >
+          <p className="text-sm font-extrabold text-slate-900">{t('dailyGoal.pickerTitle')}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{t('dailyGoal.loadFailed')}</p>
+          {/* 재시도 중에는 **눌린 티가 나야 한다**(2026-08-11 코드 리뷰).
+              react-query는 실패 상태를 유지한 채 다시 부르므로, 표시를 안 바꾸면
+              백엔드가 죽어 있는 사람에게는 눌러도 아무 일이 없는 버튼이 된다. */}
+          <button
+            type="button"
+            disabled={meFetching}
+            onClick={() => refetchMe()}
+            className="mt-3 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {meFetching ? t('common.loading') : t('common.retry')}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * 학습 지역 (R12 선행 §8) — 퀴즈 실황·피드백 날씨의 기준 지역.
+ * 대결/브리핑·리그는 서울 고정(PM 정정 2026-08-05 — 지역 예보로 예측하고 서울
+ * 실측으로 채점되는 정합성 문제) — 대결 화면에는 칩을 달지 않는다.
+ *
+ * 2026-08-11: 페이지 꼬리의 전폭 카드에서 **왼쪽 열**로 올라왔다. 열 폭이
+ * 절반(약 552px)이라 설명과 지역 칩이 한 줄에 안 들어갈 수 있어, 좁아지면
+ * 칩이 아랫줄로 내려가게 `flex-wrap`으로 둔다.
+ */
+function RegionCard() {
+  const t = useT();
+  return (
+    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0 flex-1 basis-[220px]">
+          <p className="text-sm font-extrabold text-slate-900">{t('region.settingTitle')}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{t('region.settingBody')}</p>
+        </div>
+        <RegionPicker />
+      </div>
     </div>
   );
 }
@@ -171,7 +319,11 @@ const LEVEL_GROUPS = [
  * 통로를 **여기(내 정보)**에 둔 이유: 자동 게스트 발급(CO-N-1 ①) 이후 첫 화면이
  * 로그인이 아니다 — URL만 열면 곧장 홈이라, 시작 화면의 학령 선택지는 심사 5분
  * 동선에 아예 등장하지 않는다. 나중에 바꿀 수 있는 자리가 있어야 잠금이 풀린다.
- * 학습 지역 설정(RegionPicker)이 바로 위에 있어 "설정은 여기"라는 위계도 이미 섰다.
+ *
+ * ⚠️ 종전 주석은 "학습 지역 설정이 **바로 위**에 있어 위계가 섰다"고 적었는데,
+ * 2026-08-11에 학습 지역이 왼쪽 열로 올라가면서 거짓이 됐다(코드 리뷰). 지금
+ * 이 카드와 붙어 있는 것은 **아래의 하루 목표**다 — 페이지 꼬리 = 설정이라는
+ * 위계 자체는 그대로다.
  */
 function LevelGroupCard() {
   const t = useT();
@@ -193,6 +345,10 @@ function LevelGroupCard() {
       // 배합은 세션 발급 시점에 확정되므로 오늘 세션은 그대로다. 다음 발급이
       // 새 학령을 쓰도록 캐시만 비운다.
       queryClient.invalidateQueries({ queryKey: ['session'] });
+      // 보드 잠금은 **즉시** 따라온다(2026-08-10) — 열쇠가 이 값이기 때문이다.
+      // 목록 캐시는 staleTime 60초라, 비우지 않으면 수준을 올리고 보드로 가도
+      // 1분간 잠긴 채로 보인다. "바꿨는데 안 열린다"가 되면 통로가 없는 것과 같다.
+      queryClient.invalidateQueries({ queryKey: ['board', 'puzzles'] });
       setNotice({ ok: true, text: t('profile.levelGroupSaved') });
     },
     onError: (err) => setNotice({ ok: false, text: err?.detail ?? t('profile.levelGroupFailed') }),

@@ -344,7 +344,8 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
                 data-wm-unit
                 onClick={() => !blocked && onOpenUnit(unit.id)}
                 disabled={blocked}
-                // 옆 라벨은 aria-hidden이라, 보조기술에는 이 aria-label이 유일한 통로다.
+                // 노드 옆 라벨을 다시 뺐으므로(2026-08-10 사용자 지시) 유닛명은
+                // aria-label·title이 유일한 통로다.
                 aria-label={`${unit.title}${suffix}`}
                 title={
                   locked
@@ -369,28 +370,6 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
                 )}
               </button>
 
-              {/* 노드 옆 라벨(2026-08-09 시안). 종전에는 라벨이 아예 없어서
-                  유닛명을 알 길이 aria-label·title(마우스를 올려야 뜬다)뿐이었다.
-                  `aria-hidden`인 이유: 바로 위 버튼의 aria-label이 같은 내용을
-                  이미 읽어 준다 — 지우면 보조기술이 유닛명을 두 번 읽는다.
-                  `left-full`이라 노드의 좌우 흔들림(--k)을 그대로 따라간다. */}
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute left-[calc(100%+12px)] top-1/2 w-[168px] -translate-y-1/2"
-              >
-                <span className="block truncate text-[13px] font-extrabold text-slate-800">
-                  {unit.title}
-                </span>
-                <span className="block truncate text-[11px] font-medium text-slate-400">
-                  {locked
-                    ? t('curriculum.unit.lockedTitle')
-                    : status === 'cleared'
-                      ? t('curriculum.unit.labelCleared', { crowns: unit.crowns ?? 0 })
-                      : status === 'current'
-                        ? t('curriculum.unit.labelCurrent')
-                        : t('curriculum.unit.labelOpen')}
-                </span>
-              </span>
             </div>
           );
         })}
@@ -399,7 +378,13 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
   );
 }
 
-export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked = false, regenMin = 1 }) {
+export default function PcCurriculumPath({
+  sections,
+  onOpenUnit,
+  energyBlocked = false,
+  regenMin = 1,
+  onViewSection = null,
+}) {
   const t = useT();
   const scrollerRef = useRef(null);
   // 접기는 전 단계에 함께 적용한다 — 단계마다 따로 접게 하면 스크롤할 때마다
@@ -450,7 +435,24 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
     setHasMore(el.scrollTop + el.clientHeight < el.scrollHeight - 24);
   }, []);
 
-  const onScroll = useCallback(() => syncHasMore(), [syncHasMore]);
+  /**
+   * **지금 보고 있는 단계**를 위로 알린다 — 배너 제목이 이걸 따라간다.
+   *
+   * 스크롤 스냅이라 `scrollTop`은 항상 단계 높이의 배수 근처다. 그래서 나누기
+   * 반올림이면 충분하고, 각 단계의 offsetTop을 훑을 필요가 없다. 스냅이 끝나기
+   * 전 중간 프레임에서도 **가장 가까운 단계**가 나오므로 제목이 미리 바뀐다.
+   * (`clientHeight`가 0인 첫 프레임은 나누기가 터지므로 건너뛴다.)
+   */
+  const syncViewed = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el || !onViewSection || el.clientHeight === 0) return;
+    onViewSection(Math.round(el.scrollTop / el.clientHeight));
+  }, [onViewSection]);
+
+  const onScroll = useCallback(() => {
+    syncHasMore();
+    syncViewed();
+  }, [syncHasMore, syncViewed]);
 
   /**
    * 트랙이 화면 어디서 시작하는지를 재서 CSS로 넘긴다(`--wm-track-top`).
@@ -471,20 +473,12 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
     const apply = () => {
       const top = el.getBoundingClientRect().top + window.scrollY;
       el.style.setProperty('--wm-track-top', `${Math.round(top)}px`);
-      // 트랙 **밑**에 붙은 것(2026-08-09부터 하단 3카드)의 높이도 빼야 한다.
-      // index.css가 `--wm-track-tail` 기본값 32px(main의 pb-8)만 갖고 있어서,
-      // 재지 않으면 카드 줄 높이만큼 페이지가 통째로 넘친다.
-      // **상수로 박지 않는 이유**는 --wm-track-top과 같다: 복습 칸은 due 0건이면
-      // 사라지고, 세 칸이 2열로 접히면 두 배가 된다(실측 1440에서 150 ↔ 300px).
-      // 형제 순회로 찾는다 — 이 컴포넌트가 하단 줄을 소유하지 않으므로 ref가 없다.
-      // 카드 높이만 재면 **트랙과 카드 사이 간격이 빠진다**(실측 14px = mt-3.5,
-      // 그만큼 페이지가 넘쳤다). 그래서 높이가 아니라 **내 아래쪽 끝에서 카드
-      // 아래쪽 끝까지의 거리**를 잰다 — 간격이 바뀌어도 저절로 따라온다.
-      const footer = el.parentElement?.querySelector('[data-testid="learn-footer"]');
-      const tail = footer
-        ? Math.round(footer.getBoundingClientRect().bottom - el.getBoundingClientRect().bottom) + 32
-        : 32;
-      el.style.setProperty('--wm-track-tail', `${tail}px`);
+      // 트랙 **밑**은 다시 비었다(2026-08-10) — 복습·자유 세션 카드가 아래 가로
+      // 줄에서 **오른쪽 세로 열**로 옮겨 갔다. 그래서 `--wm-track-tail`을 재지
+      // 않고 index.css의 기본값(32px = main의 pb-8)에 맡긴다. 잰 값을 남겨 두면
+      // 0을 쓰는 것이 아니라 **옆 열의 높이를 아래 여백으로 오해**해 트랙이 그만큼
+      // 짧아진다. 트랙 밑에 무언가 다시 붙으면 그때 재서 넣을 것(이 파일 히스토리에
+      // 그 코드가 있다).
       // 트랙 높이가 바뀌면 「아래로 더 있는가」도 바뀐다. 여기서 같이 다시 재지
       // 않으면, 창을 줄여 경로가 다 들어오는 순간 힌트가 남은 채로 굳는다
       // (스크롤이 불가능하니 onScroll이 고쳐 주지도 못한다).
@@ -524,6 +518,9 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
       }
     }
     syncHasMore();
+    // 정렬 직후의 단계도 알린다 — 첫 화면이 1단계가 아니라 **현재 단계**라
+    // 여기서 안 알리면 배너만 1단계를 가리킨 채 남는다.
+    syncViewed();
     // 트리가 바뀔 때만 다시 맞춘다(스크롤 중 재정렬 금지).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIdx, withUnits.length]);

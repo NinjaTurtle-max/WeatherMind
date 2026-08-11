@@ -18,8 +18,13 @@ class BoardPuzzle(BaseModel):
     difficulty: 1(쉬움)~3(어려움) — routers.board.board_difficulty가 template_json
     (mode·time_limit_sec·palette)과 level_group에서 산출(R7-02 §3.5).
 
-    잠금 필드는 없다 — 순차 잠금을 넣었다가 걷어냈다(2026-08-06 제품 결정).
-    학습자가 원하는 퍼즐을 골라 푼다. 순서(board_order)는 권유이지 강제가 아니다.
+    locked: **학습 수준** 잠금(2026-08-10) — 초등은 쉬움, 중·고등은 보통까지,
+    성인은 전부 열린다. 규칙은 routers.board.locked_difficulties가 소유하고
+    열쇠는 users.level_group이다(진도가 아니다 — 「내 정보 → 학습 수준」이 통로).
+    난이도 안에서는 순서가 없다(board_order는 배치의 근거일 뿐 강제가 아니다) —
+    2026-08-06에 걷어낸 **퍼즐 단위** 순차 잠금과 강제 범위가 다르다.
+    목록은 잠긴 퍼즐도 제목과 함께 내려보낸다(무엇이 기다리는지 보여야 동기가 된다).
+    실제 차단은 진입(GET /puzzles/{id})이 403 PUZZLE_LOCKED로 한다.
 
     제목·요약·진행 순서는 template_json 안에 있다(title·summary·board_order —
     시드 저작). template_json을 통째로 노출하므로 별도 필드를 두지 않는다."""
@@ -28,6 +33,7 @@ class BoardPuzzle(BaseModel):
     template_json: dict[str, Any]
     cleared: bool
     difficulty: int
+    locked: bool = False
 
 
 class BoardAttemptRequest(BaseModel):

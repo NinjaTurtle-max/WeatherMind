@@ -7,7 +7,7 @@ import PcCurriculumPath from './PcCurriculumPath';
 import CourseSwitcher, { useCourses } from './CourseSwitcher';
 import LearnHeroCard from './LearnHeroCard';
 import LearnFooterCards from './LearnFooterCards';
-import { pickLearnEntry } from './learnEntry';
+import { pickLearnEntry, pickSectionEntry } from './learnEntry';
 import { useAttendance } from '../../hooks/useAttendance';
 // R11-01 §6.2 마운트 통합 — props 없는 자급 계약(조건 미충족 시 자가 null).
 // 복습 큐(ReviewQueueCard)는 2026-08-09부터 LearnFooterCards가 마운트한다.
@@ -127,12 +127,40 @@ export default function CurriculumHome() {
     data === undefined
       ? { kind: 'unit', unit: null, to: '/learn' }
       : pickLearnEntry({ units: flatUnits, todayAnswered: goalDone, dailyGoal: goalTotal });
+  /**
+   * 배너가 **보고 있는 섹션**을 따라간다(2026-08-10 사용자 지시).
+   *
+   * 경로를 스크롤하면 PcCurriculumPath가 단계 번호를 올려 주고, 배너의 머리글·
+   * 제목·CTA가 통째로 그 섹션 것으로 바뀐다. 제목만 바꾸면 "3섹션 제목 + 1섹션으로
+   * 가는 버튼"이 되므로 **셋을 함께** 갈아야 한다(pickSectionEntry가 목적지까지 낸다).
+   *
+   * ⚠️ **진입 종류가 'unit'일 때만** 따라간다. 'daily'(오늘 몫이 남음)·'done'
+   * (다 끝냄)은 §2.5의 **우선순위 메시지**라 스크롤로 덮으면 안 된다 — 전 유닛을
+   * 깬 사람이 경로를 훑었다고 「오늘의 세션 풀기」가 사라지면 오늘 할 일이
+   * 화면에서 없어진다.
+   */
+  // ⚠️ 초깃값은 **null**이다(0이 아니다. 2026-08-10 코드 리뷰).
+   //  · 0으로 두면 트리가 도착한 첫 페인트에서 배너가 **1섹션**을 가리킨다 —
+   //    정렬 effect가 현재 단계를 알려 주기 전 한 프레임 동안 제목뿐 아니라
+   //    **CTA 목적지까지** 틀리다(이 파일이 119~122줄에서 막아 둔 그 깜빡임이다).
+   //  · 더 나쁜 것은 모바일이다: PC 경로가 `hidden md:block`이라 clientHeight가
+   //    0이고, 그래서 `syncViewed`가 **영영 안 뜬다**. 0으로 굳으면 3섹션을 풀고
+   //    있는 사람의 폰 화면이 계속 1섹션의 이미 깬 유닛을 가리킨다.
+  const [viewedIdx, setViewedIdx] = useState(null);
+  const sectionsWithUnits = (data?.sections ?? []).filter((sec) => sec.units.length > 0);
+  const viewedSection = viewedIdx == null ? null : (sectionsWithUnits[viewedIdx] ?? null);
+  const followSection = entry.kind === 'unit' && viewedSection !== null;
+  const bannerEntry = followSection ? pickSectionEntry(viewedSection) : entry;
+
   // 배너 머리글 — 시안대로 **어느 섹션의 몇 번째인지**를 말한다("섹션 1 · 하늘 읽기").
+  // 따라가는 중이면 보고 있는 섹션, 아니면 진입 유닛이 속한 섹션이다.
   // 섹션을 모르면(트리 도착 전·유닛 없음) 종전 문구('학습 세션')로 떨어진다.
-  const entrySectionIdx = entry.unit
-    ? (data?.sections ?? []).findIndex((s) => s.units.some((u) => u.id === entry.unit.id))
-    : -1;
-  const entrySection = entrySectionIdx >= 0 ? data.sections[entrySectionIdx] : null;
+  const entrySectionIdx = followSection
+    ? viewedIdx
+    : bannerEntry.unit
+      ? sectionsWithUnits.findIndex((sec) => sec.units.some((u) => u.id === bannerEntry.unit.id))
+      : -1;
+  const entrySection = entrySectionIdx >= 0 ? sectionsWithUnits[entrySectionIdx] : null;
   const ENTRY_COPY = {
     unit: {
       eyebrow: entrySection
@@ -141,7 +169,7 @@ export default function CurriculumHome() {
             title: entrySection.section,
           })
         : t('home.entry.learn'),
-      title: entry.unit?.title ?? t('home.entry.learnEmpty'),
+      title: bannerEntry.unit?.title ?? t('home.entry.learnEmpty'),
       cta: t('home.entry.learnGo'),
     },
     daily: {
@@ -199,22 +227,6 @@ export default function CurriculumHome() {
           같은 설명을 진입 배너가 부제로 말한다 — 두 벌이면 세로만 66px 먹는다.
           문구의 소유자는 `curriculum.subtitle`이다(LearnHeroCard가 읽는다). */}
 
-      {/* 진입 배너 — 화면 맨 위 한 줄(2026-08-09 시안). PC·모바일 **공통 1회
-          마운트**다. 세로 레일이던 시절에는 PC 레일과 모바일 위쪽에 각각 하나씩
-          두 번 마운트했는데, 가로 배너는 두 폭에서 같은 자리라 나눌 이유가 없다.
-          `hasPath`와 무관하게 뜬다 — 빈 트리 코스에서도 「오늘의 세션」으로 갈
-          통로가 필요하다. */}
-      <div className="mb-3.5">
-        <LearnHeroCard
-          entry={entry}
-          copy={ENTRY_COPY[entry.kind]}
-          goalTotal={goalTotal}
-          goalDone={goalDone}
-          dailyBlocked={dailyBlocked}
-          energyBlocked={energyBlocked}
-          regenMin={regenMin}
-        />
-      </div>
 
       {/* 구름 소진 안내 (§3.1) — 새 세션은 열 수 없지만 이유·회복 시점을 먼저 알린다 */}
       {energyBlocked && (
@@ -262,6 +274,32 @@ export default function CurriculumHome() {
       )}
 
 
+      {/* 진입 배너 — 맨 위 한 줄, 폭 전체. `hasPath`와 무관하게 뜬다:
+          빈 트리 코스에서도 「오늘의 세션」으로 갈 통로가 필요하다. */}
+      <div className="mb-3.5">
+        <LearnHeroCard
+          entry={bannerEntry}
+          copy={ENTRY_COPY[bannerEntry.kind]}
+          lockedNote={bannerEntry.locked ? t('curriculum.unit.lockedTitle') : null}
+          goalTotal={goalTotal}
+          goalDone={goalDone}
+          dailyBlocked={dailyBlocked}
+          energyBlocked={energyBlocked}
+          regenMin={regenMin}
+        />
+      </div>
+
+      {/* 배너 아래 2열(2026-08-10 사용자 지시) — 왼쪽 경로 · 오른쪽 카드 2장.
+          카드가 경로 **아래**가 아니라 **옆**에 서므로 트랙 높이를 안 뺏는다.
+          노드 지름은 높이만 보므로(index.css `--dot`) 배너가 있는데도 상한
+          86px에 붙는다 — 카드가 아래 줄이던 직전 배치에서는 68px이었다.
+          대신 트랙 **폭**을 나눠 쓴다(1440에서 1120 → 858px).
+          모바일에서는 flex가 꺼져 DOM 순서대로 쌓인다: 배너 → 경로 → 카드들.
+          PC 경로는 `hidden md:block`이라 모바일에서는 그 자리에 모바일
+          지그재그가 대신 선다. */}
+      <div className="md:flex md:gap-3.5">
+        {/* 왼쪽 — 경로. min-w-0이 없으면 트랙 안의 긴 유닛명이 열을 밀어낸다. */}
+        <div className="min-w-0 md:flex-1">
       {/* 모바일: 세로 지그재그 경로(기존 유지) */}
       <div className="md:hidden">
         {sections.map((section) => (
@@ -296,25 +334,27 @@ export default function CurriculumHome() {
         ))}
       </div>
 
-      {/* PC(md↑): 4열 스네이크 곡선 경로 + 튜터 카드 */}
-      {/* PC(md↑): 4열 스네이크 곡선 경로 + 튜터 카드.
-          `energyBlocked`를 반드시 넘긴다 — 넘기지 않으면 구름 0에서 모바일은 잠기고
-          PC는 열려, 문항 진입 전 차단(R10-01 S4)이 PC에서만 깨진다. */}
+      {/* PC(md↑) 경로. `energyBlocked`를 반드시 넘긴다 — 넘기지 않으면 구름 0에서
+          모바일은 잠기고 PC는 열려, 문항 진입 전 차단(R10-01 S4)이 PC에서만 깨진다. */}
       <PcCurriculumPath
         sections={sections}
         energyBlocked={energyBlocked}
         regenMin={regenMin}
         onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
+        onViewSection={setViewedIdx}
       />
+        </div>
 
-      {/* 경로 아래 3카드(복습·자유 세션·리그). 이 줄의 높이는 그대로 트랙에서
-          빠지므로 PcCurriculumPath가 **재서** `--wm-track-tail`에 넣는다. */}
-      <LearnFooterCards
-        dailyBlocked={dailyBlocked}
-        energyBlocked={energyBlocked}
-        regenMin={regenMin}
-        dailyIsPrimary={entry.kind === 'daily'}
-      />
+        {/* 오른쪽 — 자유 일일 세션(위) · 복습(아래) */}
+        <div className="mt-3.5 md:mt-0 md:w-[248px] md:flex-none lg:w-[264px]">
+          <LearnFooterCards
+            dailyBlocked={dailyBlocked}
+            energyBlocked={energyBlocked}
+            regenMin={regenMin}
+            dailyIsPrimary={entry.kind === 'daily'}
+          />
+        </div>
+      </div>
     </div>
   );
 }
