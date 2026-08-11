@@ -814,7 +814,7 @@ class TestPuzzleDetailRoute:
             "template_json",
             "cleared",
             "difficulty",
-            # 2026-08-10 추가(난이도 묶음 잠금). 이 독스트링의 절차대로 **양쪽이
+            # 2026-08-10 추가(학습 수준 잠금). 이 독스트링의 절차대로 **양쪽이
             # 다 채우는지** 확인하고 늘렸다 — 목록은 locked_difficulties로 계산해
             # 넣고, 상세는 잠긴 퍼즐이 그 앞에서 403이라 항상 False를 넣는다.
             "locked",

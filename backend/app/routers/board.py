@@ -17,7 +17,6 @@
 """
 import json
 import logging
-from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
@@ -109,39 +108,50 @@ async def get_rules(
     ]
 
 
-def locked_difficulties(items: Iterable[tuple[int, bool]]) -> set[int]:
-    """난이도 묶음 잠금 — (난이도, 클리어여부) 목록 → **잠긴 난이도 집합**.
+# 학습 수준(users.level_group) → 열리는 **최고 난이도**. 2026-08-10 사용자 지시:
+# 초등 쉬움 · 중고등 쉬움+보통 · 성인 전부. expert는 adult와 같다 — board_difficulty가
+# 3에서 클램프하므로 그 위가 없다.
+#
+# ⚠️ **첫 판의 「전건 클리어 사다리」를 대체한 것이다**(같은 날 뒤집혔다). 그쪽은
+# 쉬움 23칸을 다 깨야 보통이 열려서, 심사위원이 로그인 없이 여는 데모에서 보통·
+# 어려움을 볼 방법이 없었다(HACKATHON_RULES). 지금은 열쇠가 **진도가 아니라 수준**
+# 이라 「내 정보 → 학습 수준」 한 번으로 바뀐다.
+#
+# 값 목록은 users.level_group CHECK 제약(모델)·schemas/auth.LevelGroup과 같아야
+# 한다. 목(apiMockPlugin `__mockPolicy().board_band_max_difficulty`)이 이 표의
+# 사본을 들고 있고 test_r13_mock_policy_parity가 실값으로 대조한다.
+BAND_MAX_DIFFICULTY: dict[str, int] = {
+    "elementary": 1,
+    "middle_high": 2,
+    "adult": 3,
+    "expert": 3,
+}
 
-    규칙(2026-08-10 사용자 지시): 쉬움을 **전부** 깨야 보통이 열리고, 보통까지
-    전부 깨야 어려움이 열린다. 난이도 **안에서는 순서가 없다** — 열린 묶음의
-    퍼즐은 아무거나 고른다.
+# 미상 밴드는 **잠그지 않는다**. 밴드가 늘었는데 이 표를 안 고치면 그 밴드 유저가
+# 보드를 통째로 잃는데, 못 여는 것이 열리는 것보다 나쁘다(board_difficulty의
+# "상위 밴드가 늘어도 easy로 오분류되지 않는다"와 같은 방향).
+DEFAULT_MAX_DIFFICULTY = 3
 
-    ⚠️ 2026-08-06에 걷어낸 「순차 잠금」과 다른 것이다. 그때는 퍼즐 하나하나가
-    앞 퍼즐을 요구해서 고를 자유가 없었고, 그래서 걷어냈다. 여기서 강제하는 것은
-    **묶음 사이**뿐이라 그 결정과 어긋나지 않는다.
+# board_difficulty가 내는 값의 전 범위(1~3 클램프). 잠금 집합의 정의역이다.
+BOARD_DIFFICULTIES: tuple[int, ...] = (1, 2, 3)
+
+
+def locked_difficulties(level_group: str | None) -> set[int]:
+    """학습 수준 → **잠긴 난이도 집합**.
+
+    초등학생은 쉬움만, 중·고등학생은 쉬움·보통, 성인은 전부 열린다
+    (2026-08-10 사용자 지시). 열쇠는 온보딩에서 정해진 `users.level_group`이고,
+    「내 정보 → 학습 수준」(PATCH /auth/me)이 그것을 바꾸는 통로다.
+
+    난이도 **안에서는 순서가 없다** — 열린 묶음의 퍼즐은 아무거나 고른다
+    (2026-08-06에 퍼즐 단위 순차 잠금을 걷어낸 결정 그대로다).
 
     DB를 타지 않는 순수 함수다(board_difficulty·order_puzzles_for_progress 관례) —
     잠금 규칙만 따로 고정할 수 있어야 회귀를 싸게 잡는다.
-
-    빈 난이도는 건너뛴다(저작이 아직 없는 묶음이 다음 묶음을 영원히 잠그면 안 된다).
     """
-    total: dict[int, int] = {}
-    done: dict[int, int] = {}
-    for difficulty, cleared in items:
-        total[difficulty] = total.get(difficulty, 0) + 1
-        if cleared:
-            done[difficulty] = done.get(difficulty, 0) + 1
+    ceiling = BAND_MAX_DIFFICULTY.get(level_group or "", DEFAULT_MAX_DIFFICULTY)
+    return {d for d in BOARD_DIFFICULTIES if d > ceiling}
 
-    locked: set[int] = set()
-    blocked = False
-    for difficulty in sorted(total):
-        if blocked:
-            locked.add(difficulty)
-            continue
-        # 아직 다 못 깬 묶음은 **열려 있다**(지금 푸는 중이다). 그 뒤가 잠긴다.
-        if done.get(difficulty, 0) < total[difficulty]:
-            blocked = True
-    return locked
 
 def board_difficulty(template_json: dict, level_group: str) -> int:
     """보드 퍼즐 난이도 라벨 1(쉬움)~3(어려움) — R7-02 §3.5 (표시 전용, 잠금 없음).
@@ -263,10 +273,10 @@ async def list_puzzles(
     정렬: 시드가 저작한 진행 순서(template_json.board_order) — 난이도 오름차순으로
     저작돼 있다. θ 근접 정렬을 대체한다(2026-08-05).
 
-    **난이도 묶음 잠금**(2026-08-10 사용자 지시): 쉬움을 전부 깨야 보통이, 보통까지
-    전부 깨야 어려움이 열린다. 규칙은 `locked_difficulties`가 소유한다.
-    묶음 **안에서는** 여전히 순서가 없다 — 2026-08-06에 걷어낸 퍼즐 단위 순차
-    잠금(고를 자유가 없어 되돌렸다)과 강제하는 범위가 다르다.
+    **학습 수준 잠금**(2026-08-10 사용자 지시): 초등은 쉬움만, 중·고등은 쉬움·보통,
+    성인은 전부 열린다. 규칙은 `locked_difficulties`가 소유한다. 난이도 **안에서는**
+    여전히 순서가 없다 — 2026-08-06에 걷어낸 퍼즐 단위 순차 잠금(고를 자유가 없어
+    되돌렸다)과 강제하는 범위가 다르다.
 
     목록 자체는 **무차단**이다. 잠긴 퍼즐도 제목과 함께 내려보내고 `locked`만
     참으로 준다 — 무엇이 기다리는지 보이지 않으면 잠금이 동기가 아니라 벽이 된다.
@@ -292,7 +302,7 @@ async def list_puzzles(
         (item, board_difficulty(item.template_json, item.level_group), item.id in cleared)
         for item in items
     ]
-    locked = locked_difficulties((difficulty, done) for _, difficulty, done in graded)
+    locked = locked_difficulties(user.level_group)
     return [
         BoardPuzzle(
             content_item_id=item.id,
@@ -324,29 +334,6 @@ async def _load_puzzle_or_404(db: AsyncSession, content_item_id: UUID) -> Conten
     return item
 
 
-async def _locked_difficulties_for(db: AsyncSession, user: User) -> set[int]:
-    """이 유저에게 잠긴 난이도 집합 — 목록과 **같은 규칙**을 진입에서도 쓴다.
-
-    두 곳이 규칙을 따로 구현하면 화면에는 열린 퍼즐이 진입에서 403이 나거나
-    그 반대가 된다. 계산은 `locked_difficulties`가 소유하고 여기는 재료만 모은다.
-    """
-    items = list(
-        (
-            await db.execute(
-                select(ContentItem).where(
-                    ContentItem.status == "active",
-                    ContentItem.question_type == "board",
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    cleared = await _cleared_item_ids(db, user)
-    return locked_difficulties(
-        (board_difficulty(i.template_json, i.level_group), i.id in cleared) for i in items
-    )
-
 @router.get("/puzzles/{content_item_id}", response_model=BoardPuzzle)
 async def get_puzzle_detail(
     content_item_id: UUID,
@@ -367,11 +354,11 @@ async def get_puzzle_detail(
     # 난이도 잠금 — **구름 검사보다 먼저**다. 잠긴 퍼즐은 잔량이 있어도 못 여는데,
     # 순서를 바꾸면 잔량 0인 사람이 "구름이 없어서"라는 틀린 이유를 듣는다.
     # 화면도 막지만 여기서 다시 막는다 — 주소창으로 들어오면 화면 판정은 없다.
-    if difficulty in await _locked_difficulties_for(db, user):
+    if difficulty in locked_difficulties(user.level_group):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
-                "detail": "앞 난이도를 모두 클리어하면 열려요.",
+                "detail": "내 정보에서 학습 수준을 올리면 열려요.",
                 "code": "PUZZLE_LOCKED",
             },
         )

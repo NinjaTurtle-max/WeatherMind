@@ -18,9 +18,10 @@ class BoardPuzzle(BaseModel):
     difficulty: 1(쉬움)~3(어려움) — routers.board.board_difficulty가 template_json
     (mode·time_limit_sec·palette)과 level_group에서 산출(R7-02 §3.5).
 
-    locked: **난이도 묶음** 잠금(2026-08-10) — 쉬움을 전부 깨야 보통이, 보통까지
-    전부 깨야 어려움이 열린다. 규칙은 routers.board.locked_difficulties가 소유한다.
-    묶음 안에서는 순서가 없다(board_order는 배치의 근거일 뿐 강제가 아니다) —
+    locked: **학습 수준** 잠금(2026-08-10) — 초등은 쉬움, 중·고등은 보통까지,
+    성인은 전부 열린다. 규칙은 routers.board.locked_difficulties가 소유하고
+    열쇠는 users.level_group이다(진도가 아니다 — 「내 정보 → 학습 수준」이 통로).
+    난이도 안에서는 순서가 없다(board_order는 배치의 근거일 뿐 강제가 아니다) —
     2026-08-06에 걷어낸 **퍼즐 단위** 순차 잠금과 강제 범위가 다르다.
     목록은 잠긴 퍼즐도 제목과 함께 내려보낸다(무엇이 기다리는지 보여야 동기가 된다).
     실제 차단은 진입(GET /puzzles/{id})이 403 PUZZLE_LOCKED로 한다.

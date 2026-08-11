@@ -1339,27 +1339,27 @@ const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board')
 // 최초 클리어 기록 (content_item_id 집합) — 재도전 0 XP (§3.5)
 const clearedBoardPuzzles = new Set();
 
+// 학습 수준 → 열리는 최고 난이도. 서버 `routers/board.BAND_MAX_DIFFICULTY`의
+// **사본**이고, `__mockPolicy().board_band_max_difficulty`로 노출해
+// test_r13_mock_policy_parity가 서버 표와 실값 대조한다(CO-J-9 관례).
+const BOARD_BAND_MAX_DIFFICULTY = {
+  elementary: 1,
+  middle_high: 2,
+  adult: 3,
+  expert: 3,
+};
+const BOARD_DEFAULT_MAX_DIFFICULTY = 3; // 미상 밴드는 잠그지 않는다(서버와 같다)
+const BOARD_DIFFICULTIES = [1, 2, 3];
+
 /**
  * 잠긴 난이도 집합 — 서버 `routers/board.locked_difficulties`의 **사본**이다.
- * 쉬움을 전부 깨야 보통이, 보통까지 전부 깨야 어려움이 열린다(2026-08-10).
- * 규칙이 갈리면 목에서만 열리거나 목에서만 잠기므로, 서버 함수를 고치면 여기도
- * 같이 고칠 것 — `test_r13_mock_policy_parity`가 감시하는 종류의 사본이다.
+ * 초등은 쉬움만, 중·고등은 쉬움·보통, 성인은 전부(2026-08-10). 열쇠는 진도가
+ * 아니라 `users.level_group`이라, 목에서도 PATCH /auth/me로 수준을 바꾸면
+ * 그 자리에서 열린다 — 스모크가 그 왕복을 볼 수 있다.
  */
 function lockedBoardDifficulties() {
-  const total = new Map();
-  const done = new Map();
-  for (const p of BOARD_PUZZLES) {
-    const d = p.difficulty ?? 1;
-    total.set(d, (total.get(d) ?? 0) + 1);
-    if (clearedBoardPuzzles.has(p.content_item_id)) done.set(d, (done.get(d) ?? 0) + 1);
-  }
-  const locked = new Set();
-  let blocked = false;
-  for (const d of [...total.keys()].sort((a, b) => a - b)) {
-    if (blocked) { locked.add(d); continue; }
-    if ((done.get(d) ?? 0) < total.get(d)) blocked = true; // 푸는 중인 묶음은 열려 있다
-  }
-  return locked;
+  const ceiling = BOARD_BAND_MAX_DIFFICULTY[mockAuth.levelGroup] ?? BOARD_DEFAULT_MAX_DIFFICULTY;
+  return new Set(BOARD_DIFFICULTIES.filter((d) => d > ceiling));
 }
 
 /** BoardPuzzle 1건 (서버 schemas/board.BoardPuzzle) — 목록·상세가 공유한다.
@@ -2051,7 +2051,7 @@ const routes = {
     // 난이도 잠금은 **구름 검사보다 먼저**(서버와 같은 순서) — 순서를 바꾸면
     // 잔량 0인 사람이 "구름이 없어서"라는 틀린 이유를 듣는다.
     if (lockedBoardDifficulties().has(puzzle.difficulty ?? 1)) {
-      return [403, { detail: '앞 난이도를 모두 클리어하면 열려요.', code: 'PUZZLE_LOCKED' }];
+      return [403, { detail: '내 정보에서 학습 수준을 올리면 열려요.', code: 'PUZZLE_LOCKED' }];
     }
     const gate = requireCloudEntry();
     if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
@@ -2598,6 +2598,8 @@ export const __mockPolicy = () => ({
   daily_board_cap: MOCK_DAILY_BOARD_CAP,
   // 학령 (server schemas/auth.LevelGroup)
   level_groups: LEVEL_GROUPS,
+  // 보드 난이도 잠금 (server routers/board.BAND_MAX_DIFFICULTY)
+  board_band_max_difficulty: BOARD_BAND_MAX_DIFFICULTY,
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
   guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN
   // 왕관 정책 (server routers/session.py — §2.10 소유권 이전)

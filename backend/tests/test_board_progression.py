@@ -10,6 +10,7 @@
 실행: backend 디렉토리에서 `python -m pytest tests/test_board_progression.py -q`.
 """
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -180,46 +181,67 @@ class TestDisasterBoards:
             )
 
 
-# ── 난이도 묶음 잠금 (2026-08-10 사용자 지시) ────────────────────────────────
+# ── 학습 수준 잠금 (2026-08-10 사용자 지시) ──────────────────────────────────
+#
+# 초등은 쉬움만, 중·고등은 쉬움·보통, 성인은 전부. 열쇠는 진도가 아니라
+# `users.level_group`이다.
 #
 # ⚠️ 이 파일 머리말이 「순차 잠금은 걷어냈다」고 적어 둔 것과 **어긋나지 않는다**.
 # 걷어낸 것은 퍼즐 하나하나가 앞 퍼즐을 요구하던 잠금이고(고를 자유가 없었다),
-# 여기서 강제하는 것은 **난이도 묶음 사이**뿐이다 — 열린 묶음 안에서는 여전히
-# 아무거나 고른다. 규칙은 DB를 안 타는 순수 함수라 여기서 전 분기를 고정한다.
-from app.routers.board import locked_difficulties
+# 여기는 난이도 묶음 자체를 수준으로 여닫을 뿐 묶음 **안에서는** 아무거나 고른다.
+#
+# ⚠️ 같은 날의 첫 판은 「쉬움 전건 클리어 → 보통 개방」이었고 그 테스트가 여기
+# 있었다. 뒤집힌 이유는 심사다 — 로그인 없이 여는 화면에서 쉬움 23칸을 깨야
+# 보통이 열리면 심사위원은 보통·어려움을 못 본다(HACKATHON_RULES).
+#
+# 규칙은 DB를 안 타는 순수 함수라 여기서 전 분기를 고정한다.
+import pytest
+
+from app.routers.board import BAND_MAX_DIFFICULTY, locked_difficulties
 
 
-def test_아무것도_못_깼으면_쉬움만_열린다():
-    assert locked_difficulties([(1, False), (1, False), (2, False), (3, False)]) == {2, 3}
+def test_초등은_쉬움만_열린다():
+    assert locked_difficulties("elementary") == {2, 3}
 
 
-def test_쉬움을_하나라도_남기면_보통이_안_열린다():
-    # 24개 중 23개를 깨도 잠긴 채다 — "다 풀어야"가 지시의 문면이다.
-    items = [(1, True)] * 23 + [(1, False)] + [(2, False), (3, False)]
-    assert locked_difficulties(items) == {2, 3}
+def test_중고등은_쉬움과_보통이_열린다():
+    assert locked_difficulties("middle_high") == {3}
 
 
-def test_쉬움을_다_깨면_보통이_열리고_어려움은_잠긴다():
-    assert locked_difficulties([(1, True), (1, True), (2, False), (3, False)]) == {3}
+def test_성인은_전부_열린다():
+    assert locked_difficulties("adult") == set()
 
 
-def test_보통까지_다_깨면_전부_열린다():
-    assert locked_difficulties([(1, True), (2, True), (3, False)]) == set()
+def test_expert도_전부_열린다():
+    # board_difficulty가 3에서 클램프하므로 adult 위가 없다 — 같은 결과여야 한다.
+    assert locked_difficulties("expert") == locked_difficulties("adult") == set()
 
 
-def test_지금_푸는_묶음은_열려_있다():
-    # 보통을 절반 깬 상태 — 보통 자체는 잠기면 안 된다(들어가 있는 사람을 내쫓는다).
-    assert 2 not in locked_difficulties([(1, True), (2, True), (2, False), (3, False)])
+@pytest.mark.parametrize("band", [None, "", "unknown_band"])
+def test_미상_밴드는_잠그지_않는다(band):
+    """표에 없는 밴드가 보드를 통째로 잃는 쪽이 열리는 쪽보다 나쁘다."""
+    assert locked_difficulties(band) == set()
 
 
-def test_저작이_없는_묶음은_다음_묶음을_막지_않는다():
-    # 보통이 0건인데 그것 때문에 어려움이 영영 잠기면 저작 공백이 벽이 된다.
-    assert locked_difficulties([(1, True), (3, False)]) == set()
+def test_진도는_잠금을_바꾸지_않는다():
+    """열쇠는 클리어 수가 아니라 수준이다 — 인자에 진도가 들어갈 자리가 없다."""
+    import inspect
+
+    params = list(inspect.signature(locked_difficulties).parameters)
+    assert params == ["level_group"], (
+        f"시그니처가 {params} — 진도 기반 사다리로 되돌아갔는지 확인할 것"
+    )
 
 
-def test_퍼즐이_없으면_잠긴_난이도도_없다():
-    assert locked_difficulties([]) == set()
+def test_밴드_표가_users_level_group_CHECK와_같다():
+    """모델 CHECK 제약이 허용하는 밴드는 전부 표에 있어야 한다 — 빠지면 그 밴드
+    유저가 조용히 DEFAULT(전부 열림)로 떨어져 잠금이 무력해진다."""
+    from app.models.user import User
 
-
-def test_전부_클리어여도_잠금은_없다():
-    assert locked_difficulties([(1, True), (2, True), (3, True)]) == set()
+    constraint = next(
+        c for c in User.__table_args__ if getattr(c, "name", "") == "ck_users_level_group"
+    )
+    bands = set(re.findall(r"'([a-z_]+)'", str(constraint.sqltext)))
+    assert bands == set(BAND_MAX_DIFFICULTY), (
+        f"CHECK 제약 {bands} ↔ BAND_MAX_DIFFICULTY {set(BAND_MAX_DIFFICULTY)}"
+    )

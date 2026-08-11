@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { boardApi, progressApi } from '../../api';
 import { useProgressStore } from '../../store/progressStore';
@@ -370,6 +371,26 @@ export default function BoardPage() {
         </div>
       )}
 
+      {/* 학습 수준 잠금 안내 — 잠긴 칸이 하나라도 있을 때만. 칸 안의 「수준 올리면
+          열림」은 **왜**만 말하고 **어디서**를 못 말한다(폭이 없다). 여는 통로가
+          화면에 없으면 잠금이 그냥 벽이 되므로 여기서 한 번, /me로 보낸다.
+          잠긴 칸이 없으면(성인) 통째로 사라진다 — 열려 있는 사람에게 잠금 이야기를
+          할 이유가 없다. */}
+      {list.some((p) => p.locked) && (
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-slate-50 p-3.5 ring-1 ring-slate-200">
+          <p className="text-sm font-extrabold text-slate-700">{t('board.page.lockedBannerTitle')}</p>
+          <p className="min-w-0 flex-1 text-xs leading-relaxed text-slate-500">
+            {t('board.page.lockedBannerBody')}
+          </p>
+          <Link
+            to="/me"
+            className="flex-none rounded-full bg-white px-3 py-1.5 text-xs font-extrabold text-sky-700 ring-1 ring-sky-200 transition hover:bg-sky-50"
+          >
+            {t('board.page.lockedBannerCta')}
+          </Link>
+        </div>
+      )}
+
       {/* 진입 실패(429 경합 등) — 카드 비활성으로 대부분 예방되지만 최후 안내 */}
       {entryError && (
         <div className="mb-3 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
@@ -448,8 +469,12 @@ export default function BoardPage() {
  * 상태는 셋 + 빈 칸: cleared(깬 칸, 초록) · 미클리어(회색) · **잠김**(자물쇠) ·
  * 「???」(EmptyPiece).
  *
- * 잠김은 **난이도 묶음** 단위다(2026-08-10) — 쉬움을 전부 깨야 보통이 열린다.
- * 열린 묶음 안에서는 미클리어도 눌러서 바로 들어간다(2026-08-06 결정 그대로).
+ * 잠김의 열쇠는 **학습 수준**이다(2026-08-10 사용자 지시) — 초등은 쉬움, 중·고등은
+ * 보통까지, 성인은 전부. 진도가 아니라 수준이라 「내 정보 → 학습 수준」 한 번으로
+ * 바뀐다. 열린 난이도 안에서는 미클리어도 눌러서 바로 들어간다(2026-08-06 결정).
+ *
+ * ⚠️ 같은 날의 첫 판은 「쉬움 23칸 전건 클리어 → 보통 개방」이었는데 뒤집혔다.
+ * 로그인 없이 여는 심사 화면에서 보통·어려움을 볼 방법이 없었기 때문이다.
  *
  * ⚠️ 잠긴 칸도 **제목을 보여준다**. 「???」로 덮으면 아직 저작되지 않은 칸
  * (EmptyPiece)과 구분이 안 되고, 무엇이 기다리는지 안 보이면 잠금이 동기가

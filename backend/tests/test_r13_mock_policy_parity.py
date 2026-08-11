@@ -115,6 +115,17 @@ class TestLevelGroups:
 
         assert policy["guest_email_domain"] == GUEST_EMAIL_DOMAIN
 
+    def test_보드_난이도_잠금표가_같다(self, policy):
+        """학습 수준 → 열리는 최고 난이도 (2026-08-10).
+
+        목이 서버보다 **느슨하면** 목 위 스모크·디자인 확인에서는 열리는 퍼즐이
+        실서버에서 403이 되고, **빡빡하면** 그 반대다. 어느 쪽이든 목으로 본
+        화면이 거짓말이 된다 — CO-J-9가 정확히 그 모양이었다.
+        """
+        from app.routers.board import BAND_MAX_DIFFICULTY
+
+        assert policy["board_band_max_difficulty"] == BAND_MAX_DIFFICULTY
+
 
 @needs_node
 class TestCrownPolicy:
