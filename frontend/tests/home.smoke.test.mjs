@@ -183,9 +183,12 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   ok(Boolean(unsetGoal), '목표 미설정이어도 오늘의 목표 자리가 남는다');
   ok(unsetGoal?.getAttribute('data-goal-state') === 'unset', '미설정 상태로 표시된다');
   // 설정 통로는 내 정보다 — 카드가 좁아 3버튼 피커를 박지 않는다(2026-08-09 결정).
+  // **해시까지 본다**(2026-08-11): 목표 카드가 내 정보 꼬리로 내려가면서 그냥
+  // `/me`로 보내면 능력 분석 판 두 화면 위에 떨어진다. 목표를 정하러 온 사람이
+  // 목표 카드를 못 보는 링크는 통로가 아니다. 앵커가 실재하는지는 ⑦에서 본다.
   ok(
-    unsetGoal?.getAttribute('href') === '/me',
-    `미설정 자리가 내 정보로 보낸다 — 실제 ${unsetGoal?.getAttribute('href')}`,
+    unsetGoal?.getAttribute('href') === '/me#daily-goal',
+    `미설정 자리가 목표 카드로 보낸다 — 실제 ${unsetGoal?.getAttribute('href')}`,
   );
   // ⚠️ **접히는 열 안으로 들어가지 않았는가.** 2026-08-10 코드 리뷰에서 잡혔다:
   // 목표가 `hidden lg:block` 열 안에 있어 1024px 미만에서 표시와 설정 통로가
@@ -290,6 +293,18 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   ok(Boolean(radar), '능력 레이더가 내 정보에 있다');
   ok((radar.getAttribute('aria-label') ?? '').length > 0, '레이더가 읽을 수 있는 요약(aria-label)을 준다');
   ok($$('ul li').length > 0, '기존 가로 막대 목록이 그대로 남아 있다');
+
+  // 목표 설정 카드 — /learn 배너의 「목표 미설정」이 겨냥하는 **앵커가 실재하는가**.
+  // 위 ④는 href만 본다: 링크가 `#daily-goal`을 가리켜도 그런 id가 없으면
+  // 브라우저는 페이지 맨 위에 그냥 떨어뜨린다(끊긴 통로가 초록으로 통과한다).
+  ok(Boolean($('#daily-goal')), '내 정보에 목표 설정 카드(#daily-goal)가 없다');
+  // **저장해도 사라지지 않는다.** 미설정일 때만 띄우면 저장 성공 순간 카드가
+  // 언마운트돼 확인 문구를 아무도 못 본다(2026-08-11 코드 리뷰).
+  const goalBtn = $$('#daily-goal button')[1];
+  ok(Boolean(goalBtn), '목표 선택 버튼이 없다');
+  goalBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+  await waitFor(() => text().includes('오늘부터 하루'), 6000, '목표 저장 확인 문구');
+  ok(Boolean($('#daily-goal')), '저장 직후 목표 카드가 사라졌다(확인 문구를 볼 수 없다)');
 
   r.unmount();
 }

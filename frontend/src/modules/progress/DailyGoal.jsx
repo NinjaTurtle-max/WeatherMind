@@ -20,6 +20,16 @@ import { useT } from '../../i18n';
 
 const ME_KEY = ['progress', 'me'];
 
+/**
+ * 목표 설정 카드의 앵커 id — `/me#daily-goal`.
+ *
+ * 카드가 내 정보 **꼬리**(설정 자리)로 내려가면서, 그냥 `/me`로 보내는 링크는
+ * 능력 분석 판 두 화면 위에 떨어진다(2026-08-11 코드 리뷰). 목표를 정하러 온
+ * 사람이 목표 카드를 못 보는 링크는 통로가 아니다. 보내는 쪽(LearnHeroCard)과
+ * 받는 쪽(ProgressPage)이 같은 문자열을 쓰도록 여기서 소유한다.
+ */
+export const GOAL_ANCHOR = 'daily-goal';
+
 function useMe() {
   return useQuery({
     queryKey: ME_KEY,
@@ -29,7 +39,7 @@ function useMe() {
 }
 
 /** 하루 3·5·9문항 중 하나를 골라 서버에 커밋한다. onSaved(items)는 저장 성공 후 호출. */
-export function DailyGoalPicker({ onSaved, className = '' }) {
+export function DailyGoalPicker({ onSaved, className = '', id }) {
   const queryClient = useQueryClient();
   const t = useT();
   const { data: me } = useMe();
@@ -49,7 +59,7 @@ export function DailyGoalPicker({ onSaved, className = '' }) {
   const selected = mutation.data?.daily_goal_items ?? me?.daily_goal_items ?? null;
 
   return (
-    <div className={`rounded-2xl bg-sky-50 p-4 text-left ring-1 ring-sky-100 ${className}`}>
+    <div id={id} className={`rounded-2xl bg-sky-50 p-4 text-left ring-1 ring-sky-100 ${className}`}>
       <p className="text-sm font-extrabold text-sky-900">{t('dailyGoal.pickerTitle')}</p>
       <p className="mt-0.5 text-xs leading-relaxed text-sky-700">
         {t('dailyGoal.pickerBody')}

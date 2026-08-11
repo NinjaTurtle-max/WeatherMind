@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { kstWeekdayIndex } from '../../lib/kstWeekday';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi, progressApi } from '../../api';
 import { useAuthStore } from '../../store/authStore';
@@ -9,7 +9,7 @@ import TierBadge from '../../components/TierBadge';
 import QuestList from './QuestList';
 import BadgeCollection from './BadgeCollection';
 import WeatherBrainPanel from './WeatherBrainPanel';
-import { DailyGoalPicker } from './DailyGoal';
+import { DailyGoalPicker, GOAL_ANCHOR } from './DailyGoal';
 import { selectUnlockStage, useOnboardingGate } from '../../lib/onboardingGate';
 // R12 선행 §8 — 학습 지역 설정(자급 컴포넌트, 제작 FE-R)
 import RegionPicker from '../../components/RegionPicker';
@@ -29,7 +29,9 @@ import { useT } from '../../i18n';
  * 제품 결정(§1) "유닛 진척 1순위"에 따라 프로필 헤더 바로 아래 배치.
  *
  * R10-01 §3.4 (S4 — R10-D·R10-F):
- * - "오늘 목표 N/M"(설정 시)·목표 선택(미설정 시 — 배치고사를 건너뛴 사용자 보정).
+ * - 하루 목표 **선택**(배치고사를 건너뛴 사용자 보정) — 페이지 꼬리의 설정 자리.
+ *   진행도 "오늘 목표 N/M"(DailyGoalMeter)은 2026-08-11에 이 화면에서 걷었다:
+ *   /learn 배너와 세션 완료 화면이 같은 값을 이미 보여준다.
  * - **첫 세션 전에는 퀘스트·배지를 1개만 노출**해 인지 부하를 줄인다(collapsed).
  *   첫 세션을 마치면(게이트 단계 1) 원래대로 전체가 펼쳐진다 — 기존 사용자는
  *   부트스트랩에서 해제 상태로 계산되므로 회귀가 없다.
@@ -53,6 +55,30 @@ export default function ProgressPage() {
 
   // 첫 세션 전(게이트 단계 0) — 퀘스트·배지를 접어 첫 화면 정보량을 줄인다(§3.4)
   const collapsed = unlockStage < 1;
+
+  // 해시 앵커로 스크롤 — `/me#daily-goal`(＝ /learn 배너의 「목표 미설정」)로 들어온
+  // 사람을 목표 카드까지 데려간다. 리액트 라우터는 해시를 **스크롤하지 않는다**
+  // (브라우저 기본 동작은 서버가 문서를 내려줄 때만 걸린다).
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!hash) return undefined;
+    // jsdom 하네스에는 scrollIntoView·ResizeObserver가 없다 — 없으면 그냥 넘어간다.
+    const align = () => document.getElementById(hash.slice(1))?.scrollIntoView?.({ block: 'start' });
+    align();
+    // ⚠️ **한 번만 맞추면 안 된다.** 목표 카드는 페이지 꼬리에 있고 그 위 능력
+    // 분석은 조회가 끝나야 키가 정해진다 — 먼저 맞춰 놓으면 뒤늦게 자란 만큼
+    // 카드가 아래로 밀린다(실측 2026-08-11: 화면 맨 밑단까지 내려갔다).
+    // 문서가 자랄 때마다 다시 맞추되 2초 뒤에는 손을 뗀다 — 그 뒤의 스크롤은
+    // 사용자 것이고, 읽는 중에 화면이 튀면 그게 더 나쁘다.
+    if (typeof ResizeObserver !== 'function') return undefined;
+    const observer = new ResizeObserver(align);
+    observer.observe(document.body);
+    const stop = setTimeout(() => observer.disconnect(), 2000);
+    return () => {
+      clearTimeout(stop);
+      observer.disconnect();
+    };
+  }, [hash]);
 
   return (
     <div className="pt-2">
@@ -114,7 +140,11 @@ export default function ProgressPage() {
           <div className="order-2 lg:order-none">
             <BadgeCollection collapsed={collapsed} />
           </div>
-          <div className="order-4 lg:order-none">
+          {/* order-7 — lg에서는 왼쪽 열 3번째지만, 1열로 쌓이는 좁은 화면에서는
+              **맨 뒤**로 보낸다. 학습 지역은 설정이라 학습 수준·하루 목표와
+              붙어 있어야 하고, 배지와 스파인 사이에 끼면 「나」와 「할 일」
+              사이에 설정이 하나 박힌 꼴이 된다(2026-08-11 코드 리뷰). */}
+          <div className="order-7 lg:order-none">
             <RegionCard />
           </div>
         </div>
@@ -147,14 +177,19 @@ export default function ProgressPage() {
       {/* 설정 — 학습 수준 (R13 CO-P-5) */}
       <LevelGroupCard />
 
-      {/* 하루 목표 — 2026-08-11(사용자 지시)에 오른쪽 맨 위에서 **내려왔다**.
+      {/* 설정 — 하루 목표. 2026-08-11(사용자 지시)에 오른쪽 맨 위에서 **내려왔다**.
           지우지 않고 옮긴 이유: 이 화면이 목표를 정하는 **유일한 통로**다.
           배치고사를 건너뛴 사람(게스트 자동 발급이 주 동선이다)은 여기 말고
-          정할 데가 없고, /learn 배너의 「목표 미설정」 링크도 여기로 온다 —
-          지우면 그 링크가 아무 데도 안 닿는다.
-          이미 정한 사람에게는 안 뜬다(DailyGoalMeter를 여기서 걷었다 —
-          진행도는 /learn 배너와 세션 완료 화면이 이미 보여준다). */}
-      {me && !me.daily_goal_items && <DailyGoalPicker className="mt-4" />}
+          정할 데가 없고, /learn 배너의 「목표 미설정」 링크도 여기로 온다.
+
+          ⚠️ **미설정일 때만 띄우지 말 것**(2026-08-11 코드 리뷰). 저장에 성공하면
+          picker의 onSuccess가 같은 캐시를 갱신하므로 카드가 그 자리에서 사라져,
+          「N문항으로 정했어요」 확인 문구를 아무도 못 본다 — 누른 순간 화면에서
+          지워지는 버튼이 된다. 학습 수준 카드와 같이 **늘 떠 있는 설정**으로 둔다
+          (picker가 현재 선택을 강조하고 저장 문구도 스스로 띄운다).
+          진행도 표시(DailyGoalMeter)는 걷었다 — /learn 배너와 세션 완료 화면이
+          같은 값을 이미 보여준다. */}
+      <DailyGoalPicker id={GOAL_ANCHOR} className="mt-4 scroll-mt-4" />
     </div>
   );
 }
@@ -201,7 +236,11 @@ const LEVEL_GROUPS = [
  * 통로를 **여기(내 정보)**에 둔 이유: 자동 게스트 발급(CO-N-1 ①) 이후 첫 화면이
  * 로그인이 아니다 — URL만 열면 곧장 홈이라, 시작 화면의 학령 선택지는 심사 5분
  * 동선에 아예 등장하지 않는다. 나중에 바꿀 수 있는 자리가 있어야 잠금이 풀린다.
- * 학습 지역 설정(RegionPicker)이 바로 위에 있어 "설정은 여기"라는 위계도 이미 섰다.
+ *
+ * ⚠️ 종전 주석은 "학습 지역 설정이 **바로 위**에 있어 위계가 섰다"고 적었는데,
+ * 2026-08-11에 학습 지역이 왼쪽 열로 올라가면서 거짓이 됐다(코드 리뷰). 지금
+ * 이 카드와 붙어 있는 것은 **아래의 하루 목표**다 — 페이지 꼬리 = 설정이라는
+ * 위계 자체는 그대로다.
  */
 function LevelGroupCard() {
   const t = useT();
