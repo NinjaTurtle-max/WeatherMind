@@ -6,16 +6,21 @@
 느슨해진다(R13 1일차의 발단이 정확히 그것이었다: 검사 자체가 없어 권층운이
 middle_high 정답에 들어가 있었다).
 
-감시 대상 4가지
+감시 대상 5가지
 1. 스키마 — v1 잔재(banned_levels·reviewed_allowed) 부재 · 필수 필드 · 값 범위.
 2. §7.3 정정 5건 + 잠열 확정 — 조사로 뒤집힌 판정이 되돌아가지 않는지.
 3. §7.4 판정식 — 경계(같으면 통과·한 칸 아래면 탈락) · name_ok_from 분기 ·
    면제 부재(6단계에서만 전 용어 통과).
-4. 전환기 폴백 — 미분류 문항이 v1 규칙 그대로 검사되는지, 그리고 그 폴백이
-   본시드·staging 전건에서 v1과 **같은 결론**을 내는지(회귀 0의 실증).
+4. 전환기 폴백이 **걷힌 상태로 유지되는지** — 미분류 문항이 탈락하는지, v1의
+   adult·expert 통째 면제가 되살아나지 않았는지, 본시드가 전건 분류·전건 통과인지.
+5. **staging 커버리지**(CO-SN2) — `ci.sh seed`가 도는 staging 파일 목록이 실제
+   디렉터리와 일치하는지, 그리고 그 문항들이 어휘 게이트를 통과하는지.
 
-⚠️ 4번은 **만료 예정**이다. 본시드 전건에 knowledge_level이 부여되면 폴백 분기와
-함께 이 절의 테스트도 지운다(그때는 미분류 문항이 존재하지 않아야 한다).
+⚠️ 4번 머리에 종전 "**만료 예정** — 미분류 문항이 v1 규칙 그대로 검사되는지"라고
+적혀 있었으나 폴백은 R13 2일차에 이미 걷혔고, 본문 §4는 그때부터 "걷힌 상태의 계약"을
+검사하고 있었다. 독스트링만 만료 전 세계를 기술하고 있었다(2026-08-10 정정).
+같은 줄이 "본시드·**staging** 전건에서"라고 적어 STAGING_DIR 상수의 존재 이유처럼
+보였으나 그 상수는 어디서도 쓰이지 않는 고아였다 — §5가 그 약속을 실제로 이행한다.
 """
 
 from __future__ import annotations
@@ -342,3 +347,92 @@ def test_새_판정식은_여전히_문다(vocabulary):
     ]
     failed = [i for i, it in enumerate(lowered) if lint.vocabulary_errors(it, vocabulary)]
     assert failed, "단계를 낮춰도 아무것도 안 걸린다 — 판정식이 죽어 있다"
+
+
+# ── 5. staging 커버리지 (CO-SN2, R13 5일차) ──────────────────────────────────
+# `ci.sh seed`가 `lint_seed_items.py --staging`을 돌리고, 그 대상 목록의 소유자는
+# `lint.staging_targets()` 하나다. 여기서 지키는 것은 **목록이 현실과 어긋나지 않는
+# 것**이다 — 이 프로젝트의 반복된 실패 양식이 "예외가 이월 없이 영구화되는 것"이라
+# 사람의 기억이 아니라 테스트가 만료를 통지해야 한다.
+# 검사는 ⑤ 어휘 게이트로 한정한다. 5종 전 검사는 ci.sh가 소유하고, 여기서 되풀이하면
+# 같은 게이트를 두 곳이 소유하게 된다.
+
+
+def _staging_files() -> list[Path]:
+    return sorted(STAGING_DIR.glob("*.json"))
+
+
+def test_staging_파일이_전부_분류돼_있다():
+    """새 staging 파일은 lint 대상이거나 **사유가 적힌 예외**여야 한다.
+
+    빠지는 쪽으로 기울면 게이트가 조용히 좁아진다(CO-SN2의 발단 자체가 그것이다:
+    ci.sh가 인자 없이 lint를 불러 staging 206항목을 아무도 안 보고 있었다).
+    반대로 지워진 파일이 예외 목록에 남아 있어도 여기서 걸린다 — 유령 예외가
+    "왜 있는지 모르지만 무서워서 못 지우는 줄"로 굳는 것을 막는다.
+    """
+    actual = {p.name for p in _staging_files()}
+    classified = {p.name for p in lint.staging_targets()} | set(lint.STAGING_EXCLUDED)
+    assert classified == actual, (
+        f"미분류 {sorted(actual - classified)} · "
+        f"유령 예외 {sorted(classified - actual)} — "
+        "lint_seed_items.STAGING_TARGETS/EXCLUDED를 실제 디렉터리에 맞출 것"
+    )
+
+
+def test_예외에는_사유가_적혀_있다():
+    """ci.sh의 OPT_IN_STEPS 선례와 같은 규약(test_ci_workflow_contract).
+
+    사유 없는 예외는 다음 담당이 판단을 다시 못 판다 — 지워도 되는지, 남겨야 하는지.
+    """
+    assert lint.STAGING_EXCLUDED, "예외 목록이 비었다 — 상수 이름이 바뀌었는지 확인"
+    for name, reason in lint.STAGING_EXCLUDED.items():
+        assert reason.strip(), name
+
+
+def test_한시_예외는_kl이_부여되면_만료된다():
+    """**해제 조건을 사람이 아니라 테스트가 통지한다.**
+
+    au1·au2가 게이트 밖인 유일한 이유는 knowledge_level이 0건이라 ⑤에서 전건
+    탈락하기 때문이다(2026-08-10 실측: 두 파일 모두 탈락 사유가 ⑤ 하나뿐 — 단계만
+    붙으면 나머지 4종은 이미 통과한다). 그러니 단계가 하나라도 부여되는 순간
+    예외의 근거가 사라진다. 그때 이 테스트가 먼저 붉어져 목록을 가리킨다.
+
+    ⚠️ 여기가 붉으면 **staging 데이터를 되돌리지 말고** STAGING_PENDING_LEVEL에서
+    그 파일을 지워 `--staging` 게이트에 넣을 것.
+    """
+    for name in lint.STAGING_PENDING_LEVEL:
+        items = json.loads((STAGING_DIR / name).read_text(encoding="utf-8"))
+        classified = [i for i, it in enumerate(items) if it.get("knowledge_level")]
+        assert not classified, (
+            f"{name}에 knowledge_level이 {len(classified)}건 부여됐다 — 한시 예외의 "
+            "근거가 사라졌으니 STAGING_PENDING_LEVEL에서 지우고 게이트에 넣을 것"
+        )
+
+
+def test_문항_파일이_아닌_예외는_실제로_문항_파일이_아니다():
+    """영구 예외(파일 성격)가 "귀찮아서 뺀 문항 파일"로 변질되지 않게 한다.
+
+    판정 기준은 파일 이름이 아니라 내용이다: 문항 배열이라면 원소가
+    template_json을 가진다. r13_detective_cases.json은 배열이지만 원소가 사건
+    문서(case_id·series·clues)라 여기서 걸리지 않는다 — 확장자·형태만 보고
+    루프를 돌리면 깨지는 지점이 정확히 그것이었다.
+    """
+    for name in lint.STAGING_NOT_ITEMS:
+        data = json.loads((STAGING_DIR / name).read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            assert not any(it.get("template_json") for it in data), (
+                f"{name}이 문항 배열이다 — 영구 예외에서 빼고 게이트에 넣을 것"
+            )
+
+
+@pytest.mark.parametrize("path", lint.staging_targets(), ids=lambda p: p.name)
+def test_staging_lint_대상은_어휘_게이트를_통과한다(path, vocabulary):
+    """ci.sh seed의 ⑤가 초록이라는 것의 pytest 쪽 실증.
+
+    파일별로 파라미터화하는 이유: 어느 파일이 문 것인지가 실패 이름에 나와야
+    저작 담당에게 바로 넘길 수 있다.
+    """
+    items = json.loads(path.read_text(encoding="utf-8"))
+    assert items, f"{path.name}이 비었다"
+    for i, item in enumerate(items):
+        assert lint.vocabulary_errors(item, vocabulary) == [], f"{path.name}[{i}]"

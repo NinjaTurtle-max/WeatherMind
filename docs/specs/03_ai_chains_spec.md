@@ -51,7 +51,14 @@ def route(weak_tags: list[dict]) -> str:
 ## 2. Quiz Gen Chain (`ai-worker/app/chains/quiz_gen_chain.py`)
 
 **입력**: 오늘의 기상청 데이터(JSON) + `level_group`(표현 톤) + `knowledge_level`
-(목표 지식 수준, 선택) + Router Chain 출력(`route`, `target_concept_tag`)
+(목표 지식 수준, 선택) + `question_type`(목표 유형, 선택) + Router Chain 출력
+(`route`, `target_concept_tag`)
+
+> ⚠️ **`route`·`target_concept_tag`는 2026-08-10까지 프롬프트에 없었다**(CO-O-8).
+> `_build_messages`가 `input_data`에 싣기만 하고 System Prompt 규칙 1~11 어디에도
+> 그 두 문자열이 없어서, Router Chain이 고른 분기가 **모델 쪽에서 끊겼다** — 의미가
+> 지시되지 않은 필드는 모델에게 잡음이다. 규칙 12~13이 그 홉을 잇는다.
+> `question_type`은 CO-O-9로 함께 열린 목표 유형 노브다(규칙 14).
 
 **System Prompt (그대로 사용)**
 ```
@@ -98,6 +105,15 @@ def route(weak_tags: list[dict]) -> str:
     적지도 말 것 — 화면에 섞어 보여주는 일은 런타임이 한다.
 11. board는 생성하지 말 것. 보드 퍼즐은 판정 규칙(board_rules.json)을 함께 저작해야
     성립하므로 사람이 만든다.
+12. 입력의 target_concept_tag가 주어지면 **반드시 그 개념으로** 저작하고 같은 값을
+    concept_tag로 신고할 것 — 다른 개념으로 바꾸지 말 것. null이면 기상 데이터에
+    맞는 개념을 스스로 고른다.
+13. 입력의 route는 학습자의 현재 상태다 — focused는 target_concept_tag가 약점이라는
+    뜻이므로 그 개념의 기본을 다시 묻고, advanced는 최근 연속 정답이라는 뜻이므로
+    같은 단계 안에서 적용·해석을 묻고, general은 제약이 없다. **route는 난이도 축이
+    아니다** — 어느 route에서도 knowledge_level을 임의로 올리거나 내리지 말 것.
+14. 입력에 question_type이 주어지면 **반드시 그 유형으로** 저작하고 그 유형의 규칙
+    (7~10)을 함께 지킬 것. 주어지지 않으면 개념에 맞는 유형을 스스로 고른다.
 
 출력 스키마:
 {

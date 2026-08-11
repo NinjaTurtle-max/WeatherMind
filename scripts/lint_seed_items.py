@@ -10,6 +10,7 @@
 #
 # 사용법:
 #   python scripts/lint_seed_items.py                                  # 본시드 전건
+#   python scripts/lint_seed_items.py --staging                        # staging 전건(제외 목록 밖)
 #   python scripts/lint_seed_items.py database/seed/staging/au1_weather_items.json
 #   python scripts/lint_seed_items.py <파일> --base database/seed/content_items.json
 #
@@ -22,11 +23,20 @@
 #                board의 선택 필드(guide_steps·time_limit_sec·based_on)를 포함하고,
 #                필수 판정에 그대로 쓰면 선택 필드 미저작이 오탈락한다(2026-08-05
 #                본시드 실측에서 board 12건 과탐 — 이 하네스 최초 실행의 발견).
-#              ⓑ check_payload(ai-worker 계약 G) — 서버 전개형에. 생성 대상 유형
-#                (GENERATED_PAYLOAD_FIELDS 3종)에만 적용한다 — board·match·
-#                ordering·cloze는 계약 G 밖(저작 영역)이므로 건너뛴다.
+#                ⓑ check_payload(ai-worker 계약 G) — 서버 전개형에. **생성 대상
+#                유형에만** 적용하고 그 밖은 건너뛴다(계약 G 밖 = 저작 영역).
+#                ⚠️ **대상 유형을 여기 나열하지 않는다** — 소유자는 ai-worker의
+#                `GENERATED_PAYLOAD_FIELDS` 하나다. 종전 이 자리에 "3종 — board·
+#                match·ordering·cloze는 밖"이라고 적혀 있었으나 2026-08-10
+#                (커밋 01a81aa, CO-O-13)에 대상이 넓어져 거짓이 됐다. 목록을
+#                복사하면 다음 확장에서 또 어긋난다.
 #   ③ schema   seed_content.validate_entry — 시드 적재 스키마(중첩 형태).
-#   ④ dup      정규화 중복 배제 — 파일 내 + (staging이면) 본시드 대조 양쪽.
+#   ④ dup      정규화 중복 배제 — 파일 내 + (--base가 대상과 다르면) 본시드 대조.
+#              **--staging 모드에서 본시드 중복은 탈락이 아니라 「승격 현황」 정보로
+#              집계한다** — staging은 승격 후에도 원본이 남는 디렉터리라 중복이
+#              정상 상태다(2026-08-10 실측: board_puzzles 7/7이 이미 본시드에 있다).
+#              탈락으로 세면 첫날부터 구조적 red가 되고, 그 압력이 게이트를 약화시킨다.
+#              파일 내 중복은 --staging에서도 그대로 탈락이다.
 #              정규화 키 set 비교라 O(n) — ~1,500 규모(G1 배치)도 감당한다.
 #              (유형·개념·정답) 키는 정규화 정답이 **비어 있지 않을 때만** 본다 —
 #              board·match·ordering은 correct_answer 없이 채점(goal_conditions·
@@ -42,9 +52,11 @@
 #              걸린다. v1의 adult·expert 통째 면제가 실무 수치 유입 통로였다
 #              (docs/specs/12 §8.2: adult 36건 무검사 → [58] 건조 단열 감률 ·
 #              [98] 위험반원이 게이트 없이 통과).
-#              ⚠️ **전환기 폴백**: knowledge_level이 없는(미분류) 문항은 v1의 학령
-#              규칙(elementary·middle_high만 검사, adult·expert 면제)을 그대로 쓴다 —
-#              vocabulary_errors 아래 주석에 만료 조건이 있다.
+#              knowledge_level이 없는(미분류) 문항은 **무조건 탈락**이다 — 단계가
+#              곧 문항의 절반이라 없으면 판정 자체가 성립하지 않는다.
+#              ⚠️ 종전 이 자리에 "미분류는 v1 학령 규칙(adult·expert 면제)으로
+#              폴백한다"고 적혀 있었으나 **본문(vocabulary_errors)과 자기모순**이었다:
+#              폴백은 본시드 전수 재분류가 착지한 R13 2일차에 걷혔다(2026-08-10 정정).
 #              목록은 database/seed/level_vocabulary.json이 단독 소유한다 — 코드에
 #              어휘를 박지 않는다(교육과정 근거가 데이터와 같은 곳에 있어야 개정된다).
 #              발단: 본시드 [86] middle_high ordering의 정답 항목이 권운·권층운·
@@ -57,7 +69,10 @@
 # 리포트: 탈락 사유별 건수(0건 포함 전부 출력 — 조용한 절삭 금지) + 문항별 상세.
 # 종료 코드: 0 전건 통과 / 1 탈락 존재 또는 입력 오류 / 2 파이프라인 로드 실패
 #
-# ci.sh 편입은 PM 몫(§9.1) — 이 스크립트는 단독 실행만 책임진다.
+# ci.sh 편입 완료 — `ci.sh seed` 단계가 **본시드 전건 + `--staging` 전건** 두 번
+# 호출한다(CO-SN2, 2026-08-10). 종전 "편입은 PM 몫 — 단독 실행만 책임진다"는
+# 낡은 기술이다. **단계를 새로 만들지 않았다**: ci.sh 단계 수 ↔ ci.yml 잡 수 패리티를
+# backend/tests/test_ci_workflow_contract.py가 감시하므로 기존 seed 단계를 넓혔다.
 # =============================================================================
 """시드/저작 staging 파일 전 문항에 게이트·계약·스키마·중복 검사를 돌리는 lint."""
 
@@ -79,6 +94,93 @@ import author_items  # noqa: E402  (검사 로직 단일 소유자 — 사본 �
 
 DEFAULT_SEED_PATH = author_items.DEFAULT_SEED_PATH
 VOCABULARY_PATH = author_items.REPO_ROOT / "database" / "seed" / "level_vocabulary.json"
+STAGING_DIR = author_items.REPO_ROOT / "database" / "seed" / "staging"
+
+# ── --staging 루프의 제외 목록 (CO-SN2) ──────────────────────────────────────
+# 이 두 dict와 실제 디렉터리의 정합은 backend/tests/test_level_vocabulary.py §5가
+# 감시한다: 분류되지 않은 새 파일이 생겨도, 지워진 파일이 목록에 남아도 붉어진다.
+# 사유 문자열은 비어 있으면 안 된다 — ci.sh의 OPT_IN_STEPS 선례와 같은 규약
+# (test_ci_workflow_contract.OPT_IN_STEPS: "의도적 예외는 사유와 함께 적는다").
+
+# ⓐ 영구 제외 — **문항 파일이 아니다**(파일 성격이라 해제 조건이 없다).
+STAGING_NOT_ITEMS: dict[str, str] = {
+    "r13_item_templates.json": (
+        "문항 배열이 아니라 템플릿 명세 dict(version·owner·schema…) — "
+        "author_items.py:398이 이 파일을 정의 파일로 읽는다."
+    ),
+    "r13_detective_cases.json": (
+        "content_items가 아니라 탐정 사건 문서(case_id·intro·series·clues)라 "
+        "question_text·question_type이 애초에 없다. 본시드 승격 경로도 별개이고 "
+        "그쪽은 backend/tests/test_detective_router.py:73이 지킨다."
+    ),
+}
+
+# ⓑ **한시 제외** — 문항 파일은 맞는데 knowledge_level이 0건이라 ⑤에서 전건 탈락한다.
+#    지금 게이트에 넣으면 CI가 즉시 붉어지고, 그렇다고 여기서 단계를 임의로 채우면
+#    2축 정합(학령 밴드 × 지식 단계)이 깨진다 — 부여는 데이터 트랙(CO-C2·E-8) 소유다.
+#    ⚠️ **해제 조건: 해당 파일에 knowledge_level이 하나라도 부여되는 순간 이 항목을
+#    지우고 게이트에 넣는다.** 잊어도 되게 만들어 뒀다 — 위 §5 테스트가 "kl 0건"을
+#    단정하므로, 부여가 시작되면 그 테스트가 먼저 붉어지며 이 줄을 가리킨다.
+#    (2026-08-10 실측: 두 파일 모두 탈락 사유가 ⑤ 하나뿐 — 단계만 붙으면 바로 통과한다.)
+STAGING_PENDING_LEVEL: dict[str, str] = {
+    "au1_weather_items.json": "knowledge_level 0/47 — 부여 완료 시 해제(CO-C2·E-8).",
+    "au2_basic_science_items.json": "knowledge_level 0/40 — 부여 완료 시 해제(CO-C2·E-8).",
+}
+
+STAGING_EXCLUDED: dict[str, str] = {**STAGING_NOT_ITEMS, **STAGING_PENDING_LEVEL}
+
+
+def staging_targets(staging_dir: Path = STAGING_DIR) -> list[Path]:
+    """--staging 루프가 검사할 파일 — 제외 목록 밖의 staging JSON 전부.
+
+    **소유자는 이 함수 하나다.** ci.sh도 테스트도 여기서 목록을 받아 간다 —
+    bash 글롭과 파이썬 상수로 목록이 두 벌 생기면 한쪽만 갱신되는 날이 온다.
+    """
+    return sorted(
+        p for p in staging_dir.glob("*.json") if p.name not in STAGING_EXCLUDED
+    )
+
+
+def staging_item_files(staging_dir: Path = STAGING_DIR) -> list[Path]:
+    """문항 배열인 staging 파일 전부 — lint 대상 + 한시 제외분.
+
+    「승격 현황」 집계는 lint 통과 여부와 무관하므로 한시 제외분(au1·au2)도 센다.
+    저작 배치를 짜는 쪽이 알아야 하는 것은 "아직 본시드에 없는 잔여가 몇 건인가"이고,
+    그 숫자는 knowledge_level 부여 여부와 독립이다.
+    """
+    return sorted(
+        p for p in staging_dir.glob("*.json") if p.name not in STAGING_NOT_ITEMS
+    )
+
+
+def promoted_indexes(items: list[dict], base_items: list[dict]) -> list[int]:
+    """본시드에 이미 있는(=승격된) 문항의 인덱스.
+
+    키는 lint_items ④와 같은 author_items.dedupe_keys를 쓴다 — 판정이 두 벌이
+    되지 않게 키 생성기를 공유한다. 정답 키는 정규화 정답이 비어 있지 않을 때만
+    참여한다(모듈 머리 ④ 주석: board·match·ordering은 빈 정답이라 오탐이 난다).
+    """
+    base_text: set[str] = set()
+    base_answer: set[str] = set()
+    for it in base_items:
+        text_key, answer_key = author_items.dedupe_keys(it)
+        base_text.add(text_key)
+        if author_items.normalize_text(
+            (it.get("template_json") or {}).get("correct_answer")
+        ):
+            base_answer.add(answer_key)
+
+    hits = []
+    for i, item in enumerate(items):
+        text_key, answer_key = author_items.dedupe_keys(item)
+        has_answer = bool(
+            author_items.normalize_text(
+                (item.get("template_json") or {}).get("correct_answer")
+            )
+        )
+        if text_key in base_text or (has_answer and answer_key in base_answer):
+            hits.append(i)
+    return hits
 
 
 def load_render_required() -> dict[str, tuple[str, ...]]:
@@ -446,6 +548,65 @@ def format_report(
     return "\n".join(lines)
 
 
+def run_staging(*, pipeline: dict, staging_dir: Path = STAGING_DIR) -> int:
+    """staging 전건 lint (CO-SN2) — 제외 목록 밖 파일을 한 번의 파이프라인 로드로 돈다.
+
+    본시드 대조는 **탈락이 아니라 승격 현황**으로 집계한다(모듈 머리 ④ 주석).
+    """
+    targets = staging_targets(staging_dir)
+    if not targets:
+        print(f"[lint_seed_items] staging 대상 0건: {staging_dir}", file=sys.stderr)
+        return 1
+
+    base_items = author_items.load_seed(DEFAULT_SEED_PATH)
+
+    failed_files: list[str] = []
+    checked = 0
+    for path in targets:
+        items = author_items.load_seed(path)
+        checked += len(items)
+        result = lint_items(items, base_items=None, **pipeline)
+        print(format_report(result, target=path, base=None))
+        if result.findings:
+            failed_files.append(path.name)
+
+    print("")
+    print("── staging 승격 현황 (정보 — 탈락 사유 아님) ────────────────")
+    print(f"본시드: {DEFAULT_SEED_PATH.name} ({len(base_items)}문항)")
+    remaining_total = 0
+    for path in staging_item_files(staging_dir):
+        items = author_items.load_seed(path)
+        promoted = len(promoted_indexes(items, base_items))
+        remaining = len(items) - promoted
+        remaining_total += remaining
+        flag = " [lint 한시 제외]" if path.name in STAGING_PENDING_LEVEL else ""
+        print(
+            f"  {author_items._pad(path.name, 34)}: "
+            f"{len(items):3d}문항 중 승격 {promoted:3d} · 미승격 {remaining:3d}{flag}"
+        )
+    print(f"  → 미승격 잔여 합계: {remaining_total}문항")
+
+    print("")
+    for name, reason in STAGING_NOT_ITEMS.items():
+        print(f"[lint_seed_items] 제외(문항 파일 아님) {name} — {reason}")
+    for name, reason in STAGING_PENDING_LEVEL.items():
+        print(f"[lint_seed_items] 제외(한시) {name} — {reason}")
+
+    if failed_files:
+        print(
+            f"[lint_seed_items] FAIL — staging {len(failed_files)}파일 탈락: "
+            f"{', '.join(failed_files)}",
+            file=sys.stderr,
+        )
+        return 1
+    print(
+        f"[lint_seed_items] OK — staging {len(targets)}파일 {checked}문항 전건 통과 "
+        f"(제외 {len(STAGING_EXCLUDED)}파일: "
+        f"{', '.join(sorted(STAGING_EXCLUDED))})."
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="lint_seed_items.py",
@@ -464,6 +625,14 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_SEED_PATH,
         help="본시드 대조 파일 (기본: content_items.json — 대상과 같으면 대조 생략)",
     )
+    parser.add_argument(
+        "--staging",
+        action="store_true",
+        help=(
+            "database/seed/staging/ 전건 lint (제외 목록 밖). path·--base는 무시된다 —"
+            " 본시드 중복은 탈락이 아니라 승격 현황으로 집계한다"
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -475,6 +644,20 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[lint_seed_items] 파이프라인 로드 실패: {exc}", file=sys.stderr)
         return 2
 
+    pipeline = {
+        "backend": backend,
+        "ai": ai,
+        "render_required": render_required,
+        "vocabulary": vocabulary,
+    }
+
+    if args.staging:
+        try:
+            return run_staging(pipeline=pipeline)
+        except Exception as exc:
+            print(f"[lint_seed_items] staging 입력 오류: {exc}", file=sys.stderr)
+            return 1
+
     try:
         items = author_items.load_seed(args.path)
         if not args.path.exists():
@@ -485,14 +668,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[lint_seed_items] 입력 오류: {exc}", file=sys.stderr)
         return 1
 
-    result = lint_items(
-        items,
-        backend=backend,
-        ai=ai,
-        render_required=render_required,
-        vocabulary=vocabulary,
-        base_items=base_items,
-    )
+    result = lint_items(items, base_items=base_items, **pipeline)
     print(
         format_report(
             result, target=args.path, base=None if same_as_base else args.base

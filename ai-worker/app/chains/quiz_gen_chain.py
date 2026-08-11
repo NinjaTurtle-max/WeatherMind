@@ -78,6 +78,15 @@ SYSTEM_PROMPT = """당신은 대한민국 학습자를 위한 기상·기후 교
     적지도 말 것 — 화면에 섞어 보여주는 일은 런타임이 한다.
 11. board는 생성하지 말 것. 보드 퍼즐은 판정 규칙(board_rules.json)을 함께 저작해야
     성립하므로 사람이 만든다.
+12. 입력의 target_concept_tag가 주어지면 **반드시 그 개념으로** 저작하고 같은 값을
+    concept_tag로 신고할 것 — 다른 개념으로 바꾸지 말 것. null이면 기상 데이터에
+    맞는 개념을 스스로 고른다.
+13. 입력의 route는 학습자의 현재 상태다 — focused는 target_concept_tag가 약점이라는
+    뜻이므로 그 개념의 기본을 다시 묻고, advanced는 최근 연속 정답이라는 뜻이므로
+    같은 단계 안에서 적용·해석을 묻고, general은 제약이 없다. **route는 난이도 축이
+    아니다** — 어느 route에서도 knowledge_level을 임의로 올리거나 내리지 말 것.
+14. 입력에 question_type이 주어지면 **반드시 그 유형으로** 저작하고 그 유형의 규칙
+    (7~10)을 함께 지킬 것. 주어지지 않으면 개념에 맞는 유형을 스스로 고른다.
 
 출력 스키마:
 {
@@ -153,16 +162,29 @@ def next_quiz_id(today: date | None = None) -> str:
         return f"{date_str}-{_seq_counter:03d}"
 
 
-# ── Fallback 문제 세트 (concept_tag 6종 각 1문제 이상) ─────────────────────
+# ── Fallback 문제 세트 (concept_tag 14종 각 1문제 이상) ────────────────────
 # knowledge_level은 R13 3일차에 붙었다 — `QuizQuestion`이 신고를 필수로 요구하므로
 # 폴백 뱅크도 신고해야 한다(안 그러면 무키 환경의 전 세션이 pydantic에서 깨진다).
 # 값은 docs/specs/12 §4 R0~R7을 손으로 적용한 것이고, 1차 게이트의
 # `knowledge_level_vocabulary`가 어휘표와 대조해 통과함을 확인했다
 # (`test_knowledge_level_gate.py::test_폴백_뱅크가_어휘_게이트를_통과한다`).
 #
-# ⚠️ 본문 어미가 아직 `child`/`adult` 톤과 섞여 있다("~무엇일까요?"). 스펙 03 §2 규칙 5는
-# **생성 문항**에 거는 것이고, 이 폴백 뱅크는 R2부터 있던 저작 문자열이라 이번 범위 밖으로
-# 두었다 — 되톤은 데모에 보이는 문자열을 바꾸는 작업이라 별도 판단이 필요하다(이월).
+# ⚠️ **아래 앞 7건(기상 6태그)의 어미가 `child`/`adult` 톤과 섞여 있다**("~무엇일까요?").
+# 스펙 03 §2 규칙 5는 **생성 문항**에 거는 것이고, 그 7건은 R2부터 있던 저작 문자열이라
+# 이번 범위 밖으로 두었다 — 되톤은 데모에 보이는 문자열을 바꾸는 작업이라 별도 판단이
+# 필요하다(이월). **2026-08-10에 붙인 뒤 8건(기초과학 6·재난 2)은 teen(한다체)로 저작했다** —
+# 규칙 5가 저작 기준선으로 못박은 톤이고, child/adult는 런타임 어미 치환의 몫이다.
+# 즉 지금 이 뱅크는 톤이 섞여 있고, 그 경계가 여기다.
+#
+# ── 왜 8건을 붙였나 (CO-E-5 나머지 절반, 2026-08-10) ──────────────────────
+# 화이트리스트는 이미 14종으로 넓혔는데(위 출력 스키마 · 스펙 03) **뱅크는 기상 6태그
+# 7건뿐**이었다. `_fallback_question`은 "좁힌 결과가 비면 넓힌다"라서, 기초과학·재난
+# 유닛에서 폴백이 걸리면 태그 필터가 통째로 무시되고 **무관한 기상 문항이 그대로
+# 학습자에게 나갔다**. 무키가 이 저장소의 기본 상태이므로 그 경로가 예외가 아니라
+# 상시 경로다. 태그 목록의 소유자는 `backend/app/scripts/seed_content.ALLOWED_CONCEPT_TAGS`다
+# — 여기 개수를 적지 않는다(위 헤더의 14는 그 상수를 2026-08-10에 실측한 값이다).
+# 단계 값은 어휘표(`database/seed/level_vocabulary.json`)와 대조해 붙였고,
+# `test_knowledge_level_gate.py::test_폴백_뱅크가_어휘_게이트를_통과한다`가 감시한다.
 FALLBACK_QUESTIONS: list[dict] = [
     {
         "concept_tag": "pressure_front",
@@ -218,6 +240,101 @@ FALLBACK_QUESTIONS: list[dict] = [
         "options": ["폭염과 집중호우 같은 극한 날씨", "사계절이 없어지는 것", "달의 크기 변화", "지진의 감소"],
         "correct_answer": "폭염과 집중호우 같은 극한 날씨",
     },
+    # ── 기초과학 6태그 (2026-08-10 신규 · teen 톤) ─────────────────────────
+    {
+        "concept_tag": "temperature_heat",
+        "knowledge_level": 2,  # 측정·관찰로 규칙성을 찾는 구간. '비열'(3)은 쓰지 않는다
+        "question_type": "multiple_choice",
+        "question_text": "한낮 바닷가에서 모래는 뜨거운데 바닷물은 미지근하다. 같은 햇빛을 받은 두 곳의 온도 변화를 바르게 말한 것은 무엇인가?",
+        "options": [
+            "모래가 물보다 빨리 뜨거워진다",
+            "물이 모래보다 빨리 뜨거워진다",
+            "모래와 물이 똑같이 뜨거워진다",
+            "물만 뜨거워지고 모래는 식는다",
+        ],
+        "correct_answer": "모래가 물보다 빨리 뜨거워진다",
+    },
+    {
+        "concept_tag": "radiation_budget",
+        "knowledge_level": 4,  # 복사 평형 — 스펙 03 §2 규칙 4가 4단계로 못박는다
+        "question_type": "short_answer",
+        "question_text": "지구가 태양에서 흡수하는 에너지의 양과 우주로 내보내는 에너지의 양이 같아 평균 기온이 일정하게 유지되는 상태를 무엇이라고 하는가?",
+        "correct_answer": "복사 평형",
+    },
+    {
+        "concept_tag": "pressure_basics",
+        "knowledge_level": 3,  # 중학교 물질·에너지 영역의 압력 [9과03]
+        "question_type": "multiple_choice",
+        "question_text": "높은 산에 오를수록 과자 봉지가 점점 부풀어 오른다. 이때 봉지 바깥의 기압은 어떻게 변하는가?",
+        "options": [
+            "낮아진다",
+            "높아진다",
+            "변하지 않는다",
+            "봉지 안쪽 기압보다 높아진다",
+        ],
+        "correct_answer": "낮아진다",
+    },
+    {
+        "concept_tag": "phase_change",
+        "knowledge_level": 2,  # 증발·응결은 초등 5~6학년군. '이슬점'(4)은 쓰지 않는다
+        "question_type": "cloze",
+        "question_text": "이른 아침 풀잎에 물방울이 맺힌다. 공기 중의 수증기가 차가운 물체에 닿아 액체로 바뀌는 이 현상을 ___이라고 한다.",
+        "correct_answer": "응결",
+    },
+    {
+        "concept_tag": "density_buoyancy",
+        "knowledge_level": 3,  # 밀도·부력 — 물리량으로 설명하는 구간
+        "question_type": "multiple_choice",
+        "question_text": "뜨거운 공기를 채운 열기구가 위로 떠오른다. 같은 부피로 견줄 때 열기구 속 공기의 무게는 바깥 공기와 견주어 어떠한가?",
+        "options": [
+            "더 가볍다",
+            "더 무겁다",
+            "완전히 같다",
+            "부피와 관계없이 정해진다",
+        ],
+        "correct_answer": "더 가볍다",
+    },
+    {
+        "concept_tag": "energy_transfer",
+        "knowledge_level": 3,  # 열의 이동 — 물리량 구간. '단열'(6) 계열은 쓰지 않는다
+        "question_type": "ordering",
+        "question_text": "난로를 켠 방에서 공기가 돌며 방 전체가 데워지는 과정을 일어나는 순서대로 배열하라",
+        "items": [
+            "난로 곁의 공기가 열을 받아 데워진다",
+            "데워진 공기가 가벼워져 위로 올라간다",
+            "천장 쪽으로 퍼진 공기가 식어 무거워진다",
+            "식은 공기가 아래로 내려와 다시 데워진다",
+        ],
+        "shuffled": True,
+        "correct_answer": "0,1,2,3",
+    },
+    # ── 재난 2태그 (2026-08-10 신규 · teen 톤) ────────────────────────────
+    {
+        "concept_tag": "wildfire_weather",
+        "knowledge_level": 4,  # 정답에 '상대습도'(introduced_at 4)가 들어간다
+        "question_type": "multiple_choice",
+        "question_text": "산불이 크게 번지기 쉬운 날의 기상 조건으로 알맞은 것은 무엇인가?",
+        "options": [
+            "상대습도가 낮고 바람이 강하다",
+            "상대습도가 높고 바람이 약하다",
+            "기온이 낮고 눈이 쌓여 있다",
+            "안개가 짙고 비가 내린다",
+        ],
+        "correct_answer": "상대습도가 낮고 바람이 강하다",
+    },
+    {
+        "concept_tag": "flood_response",
+        "knowledge_level": 2,  # 재난 시 행동 요령 — 사례·규칙성 구간
+        "question_type": "multiple_choice",
+        "question_text": "많은 비로 지하 주차장에 물이 차오를 때 가장 먼저 해야 하는 행동은 무엇인가?",
+        "options": [
+            "차를 두고 즉시 밖으로 대피한다",
+            "차를 옮기러 지하로 내려간다",
+            "물이 빠질 때까지 차 안에서 기다린다",
+            "주차장 배수구를 손으로 막는다",
+        ],
+        "correct_answer": "차를 두고 즉시 밖으로 대피한다",
+    },
 ]
 
 
@@ -232,11 +349,13 @@ def _build_messages(inputs: dict) -> list:
         "route": inputs.get("route", "general"),
         "target_concept_tag": inputs.get("target_concept_tag"),
     }
-    # 목표 단계는 **주어졌을 때만** 싣는다. None을 실으면 모델이 "knowledge_level:
-    # null"을 그대로 흉내 내고, 스펙 03 §2 규칙 3의 "없으면 스스로 판정한다" 분기가
-    # 죽는다(= 신고가 사라진다).
+    # 목표 단계·목표 유형은 **주어졌을 때만** 싣는다. None을 실으면 모델이
+    # "knowledge_level: null"을 그대로 흉내 내고, 스펙 03 §2 규칙 3·14의 "없으면
+    # 스스로 판정/선택한다" 분기가 죽는다(= 신고가 사라지거나 유형이 null로 나온다).
     if inputs.get("knowledge_level") is not None:
         input_data["knowledge_level"] = inputs["knowledge_level"]
+    if inputs.get("question_type") is not None:
+        input_data["question_type"] = inputs["question_type"]
     human_text = (
         f"{FEW_SHOT_EXAMPLES}\n\n"
         f"입력 데이터: {json.dumps(input_data, ensure_ascii=False)}\n"
@@ -275,12 +394,18 @@ def _parse_output(raw: str) -> QuizQuestion:
 
 
 def _fallback_question(
-    target_concept_tag: str | None = None, knowledge_level: int | None = None
+    target_concept_tag: str | None = None,
+    knowledge_level: int | None = None,
+    question_type: str | None = None,
 ) -> QuizQuestion:
-    """폴백 뱅크에서 1건 추첨한다 — 개념·단계 순으로 좁히되 **비면 넓힌다**.
+    """폴백 뱅크에서 1건 추첨한다 — 개념·단계·유형 순으로 좁히되 **비면 넓힌다**.
 
     좁힌 결과가 비었는데도 그대로 두면 폴백이 실패하고, 폴백 실패는 무키 환경에서
     세션 자체가 끊긴다는 뜻이다. 필터는 선호이지 조건이 아니다.
+
+    `question_type`도 여기서 받는 이유: **이 저장소의 기본 상태가 무키**다(비용
+    게이트 — CLAUDE.md). 목표 유형을 프롬프트에만 실으면 실제로 가장 많이 도는
+    경로(= 폴백)에서 그 노브가 아무 일도 하지 않는다.
     """
     pool = FALLBACK_QUESTIONS
     if target_concept_tag:
@@ -291,6 +416,10 @@ def _fallback_question(
         leveled = [q for q in pool if q["knowledge_level"] == knowledge_level]
         if leveled:
             pool = leveled
+    if question_type:
+        typed = [q for q in pool if q["question_type"] == question_type]
+        if typed:
+            pool = typed
     return QuizQuestion(**random.choice(pool))
 
 
@@ -329,6 +458,7 @@ def generate_quiz(
     route: str = "general",
     target_concept_tag: str | None = None,
     knowledge_level: int | None = None,
+    question_type: str | None = None,
 ) -> dict:
     """퀴즈 1문항을 생성해 quiz_id가 포함된 dict를 반환한다.
 
@@ -339,6 +469,15 @@ def generate_quiz(
     지시하고, 없으면 모델이 스스로 판정해 신고한다(스펙 03 §2 규칙 3). 어느 쪽이든
     산출물은 `knowledge_level`을 갖는다 — `QuizQuestion`이 필수로 요구하기 때문이다.
     신고값의 검증은 1차 게이트(`validate_chain`의 `knowledge_level_vocabulary`)가 한다.
+
+    `question_type`은 **목표 유형**이다(생성 6종 중 하나. 스펙 03 §2 규칙 14). 없으면
+    모델이 개념에 맞는 유형을 고른다 — 종전 동작과 같다. 새 인자는 **시그니처 끝에**
+    붙였다: 기존 호출부가 `generate_quiz({}, "middle_high", "general", "typhoon")`처럼
+    위치 인자로 부른다.
+
+    `route`·`target_concept_tag`는 Router Chain 출력이다(`focused|general|advanced`).
+    2026-08-10까지 이 dict에 실리기만 하고 프롬프트에 규칙이 없어 모델 쪽에서 홉이
+    끊겨 있었다 — 규칙 12~13이 그것을 잇는다(CO-O-8).
     """
     inputs = {
         "weather_data": weather_data,
@@ -346,6 +485,7 @@ def generate_quiz(
         "route": route,
         "target_concept_tag": target_concept_tag,
         "knowledge_level": knowledge_level,
+        "question_type": question_type,
     }
 
     question: QuizQuestion | None = None
@@ -365,7 +505,7 @@ def generate_quiz(
 
     if question is None:
         logger.warning("falling back to predefined quiz set")
-        question = _fallback_question(target_concept_tag, knowledge_level)
+        question = _fallback_question(target_concept_tag, knowledge_level, question_type)
 
     # 유형에 해당 없는 선택 필드(None)는 실어 보내지 않는다 — backend
     # `_question_payload`가 "존재하는 키만" 담는 계약이므로 null을 보내면 유형에

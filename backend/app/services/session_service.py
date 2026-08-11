@@ -327,6 +327,32 @@ def plan_bank_picks(
     return picks, total - len(picks)
 
 
+def generation_tone(user_level_group: str | None) -> str:
+    """생성 요청의 `level_group` — **표현 톤**이지 난이도가 아니다 (R13 CO-E-4).
+
+    θ에서 파생하지 않는다. 스펙 03 §2 규칙 2와 `quiz_gen_chain`의 SYSTEM_PROMPT
+    원문이 이 필드를 "난이도가 아니라 표현 톤이며 어휘 단계를 한 칸도 움직이지
+    못한다"고 못박았으므로, θ를 여기 실으면 모델은 그것을 **말투**로 읽는다
+    (θ 낮은 성인 → 어린이 톤). 난이도는 `knowledge_level`이 단독으로 나른다.
+    유저가 신고한 학령을 그대로 쓰는 것이 스펙 12 §5.1("신고값은 처음부터
+    톤이었다")과의 정합이다.
+
+    두 가지만 접는다:
+    - `expert` → `adult`. 가입 신고 축에 없는 값이지만(`schemas/auth.LevelGroup`
+      3종) users 체크 제약은 허용한다. 스펙 12 §5.1 "폴백에서는 adult로 접는다".
+    - 미설정 → `NEUTRAL_LEVEL_GROUP`. **θ 파생으로 되돌리지 않는 것이 요점이다**
+      — 그것이 방금 고친 결함이고, 되돌리면 형태만 바꿔 같은 버그가 산다.
+      중립값은 게스트 기본값(`routers.auth.GUEST_LEVEL_GROUP`)과 같은 값이라
+      미지 유저가 게스트와 같은 자리로 떨어진다.
+
+    (users.level_group은 DDL상 NOT NULL이라 두 번째 분기는 방어다 — 스텁·미래
+    스키마 변경 대비. `weatherbrain_service.effective_*`가 같은 방어 관례를 쓴다.)
+    """
+    if user_level_group == "expert":
+        return "adult"
+    return user_level_group or weatherbrain_service.NEUTRAL_LEVEL_GROUP
+
+
 def pool_level_groups(user_level_group: str, theta: float | None) -> list[str]:
     """뱅크 풀 level_group 필터 집합 (R7 §3.2 — θ→출제 난이도 연결).
 
@@ -1025,19 +1051,26 @@ async def create_daily_session(
 
     # 뱅크 부족분 — 현행 quiz-generate 경로로 병렬 폴백 (S2, 리뷰 3번)
     if generate_count:
-        # 생성 난이도도 θ를 따른다 (R7 §3.2 — API 계약 무변경, 값만 θ 매핑)
-        generate_level_group = (
-            weatherbrain_service.theta_to_level_group(theta)
+        # 생성 난이도는 θ를 따르되 **난이도 축으로** 따른다 (R13 CO-E-4).
+        #
+        # 종전에는 θ 파생 밴드를 `level_group` 자리에 실어 보냈다. 그런데 스펙 03
+        # §2 규칙 2와 프롬프트 원문이 `level_group`을 "난이도가 아니라 **표현 톤**,
+        # 어휘 단계를 한 칸도 움직이지 못한다"고 못박고 있어서, 모델은 θ를 난이도가
+        # 아니라 **말투**로 읽었다 — θ가 낮은 성인이 어린이 말투 문항을 받는다.
+        # 이제 두 축을 갈라 보낸다: 난이도는 knowledge_level, 톤은 신고 학령.
+        generate_knowledge_level = (
+            weatherbrain_service.theta_to_knowledge_level(theta)
             if theta is not None
-            else user.level_group
+            else None  # 콜드스타트 — 모델이 스스로 판정해 신고한다(스펙 03 §2 규칙 3)
         )
         results = await asyncio.gather(
             *(
                 ai_client.quiz_generate(
                     weather_data=weather,
-                    level_group=generate_level_group,
+                    level_group=generation_tone(user.level_group),
                     route=route_decision.get("route", "general"),
                     target_concept_tag=route_decision.get("target_concept_tag"),
+                    knowledge_level=generate_knowledge_level,
                 )
                 for _ in range(generate_count)
             ),
@@ -1067,10 +1100,22 @@ async def create_daily_session(
         # 생성 문항 영속화 (R13 D 선행) — 품질 게이트 통과분만 content_items에
         # 적재하고 그 id로 세션에 편성한다. 탈락분은 item=None이라 지금까지처럼
         # content_item_id 없이 일회용으로 서빙된다(배합 총합은 그대로 15).
+        #
+        # 여기 level_group은 **문항 쪽 밴드**(적재 컬럼의 폴백)이지 톤이 아니다 —
+        # 위 tone_level_group과 다른 값이 들어가는 것이 맞다. θ 파생을 그대로 둔다:
+        # `theta_to_knowledge_level` 독스트링이 보증하는 계약
+        # (`level_group_of_knowledge_level(theta_to_knowledge_level(θ))
+        #   == theta_to_level_group(θ)`)에 따라 위에서 보낸 난이도와 같은 축이고,
+        # 생성 문항이 knowledge_level을 신고하면 그쪽이 우선이라 이 값은 폴백이다.
+        persist_level_group = (
+            weatherbrain_service.theta_to_level_group(theta)
+            if theta is not None
+            else user.level_group
+        )
         persisted = await persist_generated_items(
             db,
             generated,
-            level_group=generate_level_group,
+            level_group=persist_level_group,
             route=route_decision.get("route", "general"),
             region=weather.get("region"),
             today=today,
