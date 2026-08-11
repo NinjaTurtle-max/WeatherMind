@@ -30,7 +30,8 @@
     "test:hint-character": "node tests/boardHintCharacter.smoke.test.mjs",
     "test:mascot": "node tests/mascotAssets.contract.test.mjs",
     "test:duel": "node tests/duelLayout.smoke.test.mjs",
-    "test:detective": "node tests/detective.smoke.test.mjs"
+    "test:detective": "node tests/detective.smoke.test.mjs",
+    "test:knowledge-level": "node tests/knowledgeLevel.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",

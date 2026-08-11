@@ -9,6 +9,7 @@ import TierBadge from '../../components/TierBadge';
 import QuestList from './QuestList';
 import BadgeCollection from './BadgeCollection';
 import WeatherBrainPanel from './WeatherBrainPanel';
+import KnowledgeLevelCard from './KnowledgeLevelCard';
 import { DailyGoalMeter, DailyGoalPicker } from './DailyGoal';
 import { selectUnlockStage, useOnboardingGate } from '../../lib/onboardingGate';
 // R12 선행 §8 — 학습 지역 설정(자급 컴포넌트, 제작 FE-R)
@@ -102,7 +103,13 @@ export default function ProgressPage() {
           <div className="order-1 lg:order-none">
             <ProfileCard me={me} user={user} badges={badges} />
           </div>
-          <div className="order-3 lg:order-none">
+          {/* 지식 단계 카드는 능력 분석 **바로 위**에 둔다 — 같은 "나의 실력" 묶음이고,
+              단계(난이도)를 먼저 읽고 개념별 θ(표현 톤 밴드 포함)를 읽는 순서가 맞다.
+              order 번호를 새로 쓰지 않으려고 기존 order-3 칸 안에서 세로로 쌓는다
+              (오른쪽 열의 order-2 칸과 같은 관용구). 서버 필드가 없으면 카드가
+              스스로 null이라 자리째 빠진다. */}
+          <div className="order-3 flex flex-col gap-4 lg:order-none">
+            <KnowledgeLevelCard />
             <WeatherBrainPanel />
           </div>
           <div className="order-5 lg:order-none">

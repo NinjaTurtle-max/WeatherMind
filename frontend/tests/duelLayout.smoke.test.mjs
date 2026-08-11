@@ -193,7 +193,11 @@ ok(hourOf('202608100000') === '0', `자정은 0시로 (실제 ${hourOf('20260810
 ok(hourOf('') === '-' && hourOf(null) === '-', '빈 값은 대시');
 
 // 목이 실서버와 같은 형식을 주는가 — 목이 더 친절하면 그 차이가 곧 버그다.
-const mockHourly = JSON.parse(await (await fetch(`${base}/api/v1/duel/briefing`, {
+// `base`가 아니라 `origin`이다 — 이 파일이 서버를 띄우고 잡아 둔 이름(:51).
+// 종전에 정의되지 않은 `base`를 참조해 **ReferenceError로 죽었고**, 그 아래 단정
+// 3건(목이 실서버와 같은 hourly 형식을 주는가)이 한 번도 실행된 적이 없다.
+// ci.sh의 frontend 단계가 이 파일 때문에 상시 FAIL이었다(2026-08-10 발견·수정).
+const mockHourly = JSON.parse(await (await fetch(`${origin}/api/v1/duel/briefing`, {
   headers: { Authorization: 'Bearer test' },
 })).text()).hourly ?? [];
 ok(mockHourly.length > 0, `목 hourly 비어있지 않다 — ${mockHourly.length}건`);

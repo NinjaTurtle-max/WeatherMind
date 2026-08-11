@@ -1,5 +1,5 @@
 // core만 import — index.js(zustand)를 끌면 mock의 순수 node 경로가 죽는다(core.js 주석)
-import { translate, getCurrentLocale } from '../i18n/core.js';
+import { RESOURCES, DEFAULT_LOCALE, translate, getCurrentLocale } from '../i18n/core.js';
 
 /**
  * 능력(θ) 표시 공용 헬퍼 — WeatherBrainPanel(R6)에서 추출해
@@ -89,4 +89,54 @@ export function levelFromTheta(theta) {
     if (t < THETA_BAND_BOUNDS[i]) return THETA_BAND_LABELS[i];
   }
   return THETA_BAND_LABELS[THETA_BAND_LABELS.length - 1];
+}
+
+// ── 지식 단계(knowledge_level) 표시 — 위 4밴드와 **다른 축**이다 ─────────────
+// 두 축은 대체가 아니라 병기다(backend weatherbrain_service의 「2축 분리」):
+//   level_group(4밴드, 위 LEVEL_KO)  = 표현 톤
+//   knowledge_level(N단계, 아래)      = 난이도
+// 그래서 LEVEL_KO·THETA_BAND_BOUNDS는 한 글자도 건드리지 않았다.
+//
+// 단계 정의의 SSOT는 `database/seed/level_vocabulary.json`의 `anchor`(1~N)이고,
+// 여기 라벨은 그 서술을 화면용으로 다듬은 것이다(마크다운 강조·성취기준 코드 제거,
+// 뜻은 보존). 단계 수 N을 **여기에 박지 않는다** — 키 목록은 리소스에서 나오고,
+// 분모는 서버가 주는 knowledge_level_max에서만 나온다. N이 10→12가 되면
+// 리소스에 두 칸을 추가하는 것이 전부다(tests/knowledgeLevel.test.mjs가 감시).
+const KNOWLEDGE_LEVEL_KEYS = Object.keys(
+  RESOURCES[DEFAULT_LOCALE]?.ability?.knowledgeLevel?.name ?? {},
+);
+
+/** 단계 → 표시명(제도적 단계). 예: 7 → '고등학교 진로선택' */
+export const KNOWLEDGE_LEVEL_NAME = localizedDict(
+  'ability.knowledgeLevel.name',
+  KNOWLEDGE_LEVEL_KEYS,
+);
+/** 단계 → 부제(영역·과목). 예: 7 → '지구시스템과학 · 고급 지구과학' */
+export const KNOWLEDGE_LEVEL_SUB = localizedDict(
+  'ability.knowledgeLevel.sub',
+  KNOWLEDGE_LEVEL_KEYS,
+);
+
+/**
+ * 서버 응답 → `{level, max}` 또는 null(= 화면에서 감춘다).
+ *
+ * 서버 계약(R13-02 T3): `knowledge_level`·`knowledge_level_max`.
+ * **사용자 1인의 대표 단계는 `GET /progress/me`에만 있다.** /progress/mastery ·
+ * /progress/abilities의 같은 이름 필드는 **개념별** 값이라 뜻이 다르다 —
+ * 그것을 "현재 단계"로 접는 방법(평균? 최대?)은 제품 결정이라 여기서 정하지 않는다.
+ *
+ * 필드가 없거나(구 백엔드) null이면(콜드스타트 — θ 행 없음) null을 돌려 소비처가
+ * 카드째 감추게 하는 것이 이 함수의 본체다(깨지지 않는 쪽 우선).
+ *
+ * 배열도 받는다: 한 행짜리 응답을 그대로 넘겨도 동작하게 하는 편의일 뿐이고,
+ * 개념별 목록을 여기 넘기지 말 것(첫 행 = 가장 약한 개념이다).
+ *
+ * max는 선택이다: 없으면 진행 막대·다음 단계 줄만 빠지고 단계 자체는 뜬다.
+ */
+export function selectKnowledgeLevel(source) {
+  const row = Array.isArray(source) ? source[0] : source;
+  const level = row?.knowledge_level;
+  if (!Number.isInteger(level) || level < 1) return null;
+  const max = row?.knowledge_level_max;
+  return { level, max: Number.isInteger(max) && max >= level ? max : null };
 }

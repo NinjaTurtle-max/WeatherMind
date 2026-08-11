@@ -20,7 +20,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import case, func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession as AsyncDBSession
 
@@ -625,6 +625,40 @@ async def load_abilities(db: AsyncDBSession, user: User) -> list[dict]:
         {"concept_tag": c, "theta": float(t), "se": float(se), "n": int(n)}
         for c, t, se, n in rows
     ]
+
+
+async def overall_knowledge_level(db: AsyncDBSession, user: User) -> int | None:
+    """사용자 전체를 대표하는 지식 수준 1칸 — `GET /progress/me` 노출용.
+
+    **의미의 소유자는 `overall_theta`다**(target_concept_tag 없는 호출):
+    n 가중 평균, 전부 n=0이면 단순 평균, 행이 없으면 None. 여기서 같은 규칙을
+    SQL로 한 번 더 쓰는 이유는 순수 파이썬 재사용이 불가능해서가 아니라
+    **집계 1행으로 끝내기 위해서**다 — /me는 이미 여러 서비스를 부르는 헤더
+    엔드포인트라 개념 수만큼 행을 끌어올 이유가 없다. 두 구현의 드리프트는
+    test_knowledge_level_exposure가 같은 입력으로 대조해 감시한다.
+
+    None은 "θ 행이 아예 없다"는 뜻이다(가입 시 seed_placement가 실패한 경우 등).
+    행이 있으면 n=0(신고 학령에서 온 사전값)이어도 값을 준다 —
+    `/abilities`의 level_label이 n=0에서도 라벨을 주는 것과 같은 관례다.
+    """
+    total_n = func.sum(UserConceptAbility.num_responses)
+    weighted = func.sum(UserConceptAbility.theta * UserConceptAbility.num_responses)
+    theta = (
+        await db.execute(
+            select(
+                case(
+                    (
+                        func.coalesce(total_n, 0) > 0,
+                        weighted / func.nullif(total_n, 0),
+                    ),
+                    else_=func.avg(UserConceptAbility.theta),
+                )
+            ).where(UserConceptAbility.user_id == user.id)
+        )
+    ).scalar_one()
+    if theta is None:
+        return None
+    return theta_to_knowledge_level(float(theta))
 
 
 async def refresh_abilities(db: AsyncDBSession, user: User) -> list[dict]:

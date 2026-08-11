@@ -1,6 +1,6 @@
 """Progress API (/api/v1/progress) — 02번 스펙 + R4-01 §3.1·§3.2·§3.3.
 
-| GET  | /me         | XP·레벨·스트릭·티어·스파인 → {xp, level, streak_count, streak_freeze_count, next_level_xp, tier, ..., spine, tone} |
+| GET  | /me         | XP·레벨·스트릭·티어·스파인 → {xp, level, streak_count, streak_freeze_count, next_level_xp, tier, ..., spine, tone, knowledge_level(+_max)} |
 | GET  | /weak-tags  | θ 파생 약점 개념 (학령 상대 임계, θ 오름차순 — R8-01 §3.5) → WeakConceptOut[] |
 | GET  | /review-queue | 간격반복 복습 큐 (시간 축 — R11-01 C2) → ReviewQueueItem[] |
 | GET  | /mastery    | BKT 개념별 숙련 확률 (θ와 별개 축 — R13-01 §5-1) → ConceptMasteryOut[] |
@@ -114,6 +114,8 @@ async def get_me(
     spine = await curriculum_service.get_spine(db, user)
     # 일일 목표 진행 — R10-01 §3.4·D4 (배치고사 제외 카운트, D10-2)
     answered_today = await _count_answered_today(db, user, datetime.now(KST).date())
+    # 지식 수준 요약 — R13-02 T3. 집계 1행(개념 행을 끌어오지 않는다).
+    knowledge_level = await weatherbrain_service.overall_knowledge_level(db, user)
     return ProgressMe(
         xp=user.xp,
         level=level,
@@ -129,6 +131,8 @@ async def get_me(
         today_answered_count=answered_today,
         region=user.region,
         tone=weatherbrain_service.effective_tone(user),
+        knowledge_level=knowledge_level,
+        knowledge_level_max=weatherbrain_service.KNOWLEDGE_LEVEL_MAX,
     )
 
 
@@ -285,6 +289,9 @@ async def get_abilities(
             theta_se=r.theta_se,
             num_responses=r.num_responses,
             level_label=weatherbrain_service.theta_level_label(r.theta),
+            # 같은 θ의 더 잘게 나눈 뷰 — level_label을 대체하지 않는다(2축 공존).
+            knowledge_level=weatherbrain_service.theta_to_knowledge_level(r.theta),
+            knowledge_level_max=weatherbrain_service.KNOWLEDGE_LEVEL_MAX,
             updated_at=r.updated_at,
         )
         for r in rows
@@ -304,6 +311,15 @@ async def get_mastery(
     마이그레이션 불필요). 아직 응답이 없는 개념은 목록에 나타나지 않는다.
     """
     rows = await weatherbrain_service.load_mastery(db, user)
+    # 난이도 축(θ)을 한 번 더 읽어 숙련 축 옆에 실어 보낸다 — 두 축은 별개지만
+    # 화면은 한 카드에 함께 그린다(ConceptMasteryOut.knowledge_level 주석).
+    # θ 행이 없는 개념은 키가 없고, 그때 필드는 null이 된다.
+    levels = {
+        ability["concept_tag"]: weatherbrain_service.theta_to_knowledge_level(
+            ability["theta"]
+        )
+        for ability in await weatherbrain_service.load_abilities(db, user)
+    }
     return [
         ConceptMasteryOut(
             concept_tag=row["concept_tag"],
@@ -315,6 +331,8 @@ async def get_mastery(
                 float(row["p_mastery"]), bool(row["cold_start"])
             ),
             params_source=row.get("params_source", "prior"),
+            knowledge_level=levels.get(row["concept_tag"]),
+            knowledge_level_max=weatherbrain_service.KNOWLEDGE_LEVEL_MAX,
         )
         for row in rows
     ]
