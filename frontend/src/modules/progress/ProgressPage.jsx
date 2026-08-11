@@ -44,6 +44,7 @@ export default function ProgressPage() {
   const {
     data: me,
     isError: meFailed,
+    isFetching: meFetching,
     refetch: refetchMe,
   } = useQuery({
     queryKey: ['progress', 'me'],
@@ -81,17 +82,27 @@ export default function ProgressPage() {
     //
     // ⚠️ 그리고 **사용자가 스크롤을 잡으면 즉시 손을 뗀다**(2026-08-11 코드 리뷰).
     // 창을 늘리는 것만으로도 재정렬이 돌아, 읽으려고 위로 올려 둔 사람을 다시
-    // 앵커로 끌어내린다. wheel·touchmove·keydown은 **사람의 입력만** 내는
-    // 신호라(프로그램 스크롤은 안 낸다) 여기서 관측을 끊는 기준으로 삼는다.
+    // 앵커로 끌어내린다. wheel·touchmove는 사람의 입력만 내는 신호다
+    // (프로그램 스크롤은 안 낸다).
+    // ⚠️ 키보드는 **화면을 움직이는 키만** 본다. keydown 전부를 신호로 삼으면
+    // 탭 이동·타이핑에도 관측이 끊겨, 키보드로 오는 사람만 원래 증상(늦게
+    // 도착한 숙련도 조회가 앵커를 밀어냄)을 그대로 겪는다.
     if (typeof ResizeObserver !== 'function') return undefined;
-    const TAKEOVER = ['wheel', 'touchmove', 'keydown'];
+    const SCROLL_KEYS = new Set([
+      'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Spacebar',
+    ]);
     let quiet;
     let cap;
+    const onKey = (e) => {
+      if (SCROLL_KEYS.has(e.key)) release();
+    };
     const release = () => {
       clearTimeout(quiet);
       clearTimeout(cap);
       observer.disconnect();
-      TAKEOVER.forEach((evt) => window.removeEventListener(evt, release));
+      window.removeEventListener('wheel', release);
+      window.removeEventListener('touchmove', release);
+      window.removeEventListener('keydown', onKey);
     };
     const observer = new ResizeObserver(() => {
       align();
@@ -101,7 +112,9 @@ export default function ProgressPage() {
     observer.observe(document.body);
     quiet = setTimeout(release, 2000);
     cap = setTimeout(release, 10_000);
-    TAKEOVER.forEach((evt) => window.addEventListener(evt, release, { passive: true }));
+    window.addEventListener('wheel', release, { passive: true });
+    window.addEventListener('touchmove', release, { passive: true });
+    window.addEventListener('keydown', onKey, { passive: true });
     return release;
   }, [hash]);
 
@@ -238,12 +251,16 @@ export default function ProgressPage() {
         >
           <p className="text-sm font-extrabold text-slate-900">{t('dailyGoal.pickerTitle')}</p>
           <p className="mt-0.5 text-xs text-slate-500">{t('dailyGoal.loadFailed')}</p>
+          {/* 재시도 중에는 **눌린 티가 나야 한다**(2026-08-11 코드 리뷰).
+              react-query는 실패 상태를 유지한 채 다시 부르므로, 표시를 안 바꾸면
+              백엔드가 죽어 있는 사람에게는 눌러도 아무 일이 없는 버튼이 된다. */}
           <button
             type="button"
+            disabled={meFetching}
             onClick={() => refetchMe()}
-            className="mt-3 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200"
+            className="mt-3 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {t('common.retry')}
+            {meFetching ? t('common.loading') : t('common.retry')}
           </button>
         </div>
       ) : null}
