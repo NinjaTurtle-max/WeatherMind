@@ -179,7 +179,7 @@
   {
     "concept_tag": "typhoon",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "열대 저기압은 중심 부근 최대 풍속이 초속 몇 m 이상일 때 태풍으로 분류되는가? (단위: m/s)",
@@ -594,7 +594,7 @@
   {
     "concept_tag": "anomaly",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "기온이 1℃ 오를 때마다 공기가 머금을 수 있는 수증기의 양은 약 몇 % 늘어나는가?",
@@ -1097,7 +1097,7 @@
   {
     "concept_tag": "pressure_front",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "우리나라 지상 일기도에서 등압선은 기본적으로 몇 hPa 간격으로 그리는가? (단위: hPa)",
@@ -1149,7 +1149,7 @@
   {
     "concept_tag": "typhoon",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "우리나라 태풍 강도 분류에서 '매우 강'에 해당하려면 중심 부근 최대 풍속이 몇 m/s 이상이어야 하는가? (단위: m/s)",
@@ -1201,7 +1201,7 @@
   {
     "concept_tag": "air_mass",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "구름이 없는 건조한 공기 덩어리가 1km 상승하면 기온은 약 몇 ℃ 내려가는가? (단위: ℃)",
@@ -1253,7 +1253,7 @@
   {
     "concept_tag": "heat_island",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "폭염경보는 하루 최고 체감온도가 몇 ℃ 이상인 상태가 이틀 이상 이어질 것으로 예상될 때 발표되는가? (단위: ℃)",
@@ -1331,7 +1331,7 @@
   {
     "concept_tag": "anomaly",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "호우주의보는 3시간 동안 강우량이 몇 mm 이상 예상될 때 발표되는가? (단위: mm)",
@@ -1357,7 +1357,7 @@
   {
     "concept_tag": "anomaly",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "대설경보는 24시간 동안 새로 쌓이는 눈이 몇 cm 이상 예상될 때 발표되는가? (단위: cm)",
@@ -1730,7 +1730,7 @@
   {
     "concept_tag": "anomaly",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "match",
     "template_json": {
       "question_text": "기상특보와 그 발표 기준을 알맞게 연결하세요.",
@@ -2304,7 +2304,7 @@
   {
     "concept_tag": "typhoon",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 10,
     "question_type": "short_answer",
     "template_json": {
       "question_text": "북반구에서 태풍 진행 방향의 오른쪽 반원은 태풍 자체의 회전 바람과 이동 속도가 더해져 왼쪽보다 바람이 강하다. 이 오른쪽 반원을 무엇이라 하는가?",
@@ -2326,7 +2326,7 @@
   {
     "concept_tag": "air_mass",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 8,
     "question_type": "short_answer",
     "template_json": {
       "question_text": "늦봄에서 초여름, 오호츠크해 쪽에서 불어온 공기가 태백산맥을 넘으면서 영서 지방에 만드는 덥고 건조한 바람을 무엇이라고 하는가?",
@@ -4727,7 +4727,7 @@
   {
     "concept_tag": "pressure_front",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "multiple_choice",
     "template_json": {
       "question_text": "높은 하늘에서는 기압이 높은 쪽에서 낮은 쪽으로 공기를 미는 힘(기압 경도력)과, 지구 자전 탓에 움직이는 공기의 진로를 북반구에서 오른쪽으로 휘게 하는 힘(전향력)이 서로 맞버틴다. 두 힘의 크기가 같고 방향이 정반대가 되었을 때 바람은 어떻게 부는가?",
@@ -4754,7 +4754,7 @@
   {
     "concept_tag": "pressure_front",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "multiple_choice",
     "template_json": {
       "question_text": "등압선이 휘어 있으면 그 곡선을 따라 도는 공기에 바깥쪽으로 원심력이 더 붙는다. 북반구에서 저기압성으로 휜 등압선을 따라 부는 바람(경도풍)이 같은 기압 차의 지균풍보다 느린 까닭으로 옳은 것은?",
@@ -4781,7 +4781,7 @@
   {
     "concept_tag": "pressure_front",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "match",
     "template_json": {
       "question_text": "대기의 바람을 만드는 네 가지 힘과, 그 힘이 하는 일을 알맞게 연결하세요.",
@@ -4820,7 +4820,7 @@
   {
     "concept_tag": "density_buoyancy",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "ordering",
     "template_json": {
       "question_text": "조건부 불안정한 대기에서 공기 덩어리가 억지로 밀려 올라가 큰 소나기 구름으로 자라기까지의 과정을 순서대로 배열하세요.",
@@ -4849,7 +4849,7 @@
   {
     "concept_tag": "pressure_basics",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "cloze",
     "template_json": {
       "question_text": "정지한 대기에서 공기층을 위로 밀어 올리는 기압 차이의 힘과 아래로 잡아당기는 중력이 거의 같은 크기로 맞버티는 상태를 ___ 균형이라고 한다.",
@@ -4870,7 +4870,7 @@
   {
     "concept_tag": "pressure_basics",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "정역학 균형에서 공기층 위아래의 기압 차는 '공기 밀도 × 중력가속도 × 층의 두께'로 구한다. 밀도가 1.2kg/m³인 공기층에서 두께 100m 구간의 위아래 기압 차는 몇 hPa인가? (중력가속도 10m/s², 1hPa=100Pa, 단위: hPa)",
@@ -4895,7 +4895,7 @@
   {
     "concept_tag": "pressure_front",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "지균풍의 속력은 기압 경도(거리 1m당 기압 차)를 '공기 밀도 × 전향력 인자'로 나눈 값이다. 200km 사이에 기압이 5hPa 낮아지고 공기 밀도가 1.25kg/m³, 전향력 인자가 0.0001/s라면 지균풍은 몇 m/s인가? (1hPa=100Pa, 단위: m/s)",
@@ -4920,7 +4920,7 @@
   {
     "concept_tag": "density_buoyancy",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "어느 맑은 날 지표 기온이 20℃, 높이 1km 지점의 기온이 12℃로 관측됐다. 주변 공기가 높이 1km마다 식는 정도인 환경 감률은 몇 ℃/km인가? (단위: ℃/km)",
@@ -4945,7 +4945,7 @@
   {
     "concept_tag": "density_buoyancy",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "match",
     "template_json": {
       "question_text": "구름이 없는 공기 덩어리는 1km 올라갈 때 약 10℃, 구름이 생긴 뒤에는 약 5℃ 식는다. 주변 공기의 환경 감률과 그때의 대기 안정도를 알맞게 연결하세요.",
@@ -4980,7 +4980,7 @@
   {
     "concept_tag": "density_buoyancy",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "multiple_choice",
     "template_json": {
       "question_text": "맑고 바람 없는 겨울 새벽에는 지표 가까이에서 위로 갈수록 기온이 오히려 높아지는 층(기온 역전층)이 생긴다. 이 층에서 상승 기류가 억제되는 까닭으로 가장 알맞은 것은?",
@@ -5007,7 +5007,7 @@
   {
     "concept_tag": "phase_change",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "cloze",
     "template_json": {
       "question_text": "상승하던 공기 덩어리 안에서 수증기가 응결하기 시작하면 응결하며 나오는 ___이 공기를 데워 식는 속도를 늦춘다. 그래서 습윤 단열 감률은 건조 단열 감률보다 작다.",
@@ -5028,7 +5028,7 @@
   {
     "concept_tag": "phase_change",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "multiple_choice",
     "template_json": {
       "question_text": "여름 오후 하늘에 여러 개의 뭉게구름이 솟아 있을 때, 구름들의 밑면 높이가 거의 한 높이로 가지런히 정렬되어 보인다. 그 까닭으로 가장 알맞은 것은?",
@@ -5055,7 +5055,7 @@
   {
     "concept_tag": "radiation_budget",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 8,
     "question_type": "short_answer",
     "template_json": {
       "question_text": "지표나 구름에 닿은 태양 빛 가운데 흡수되지 않고 그대로 되돌아 나가는 비율을 반사율이라고 한다. 대기과학에서 이 반사율을 가리켜 함께 쓰는 다른 이름은 무엇인가?",
@@ -5076,7 +5076,7 @@
   {
     "concept_tag": "pressure_front",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "short_answer",
     "template_json": {
       "question_text": "상층의 지균풍과 달리 지표 가까이에서는 마찰력이 함께 작용해, 바람이 등압선을 비스듬히 가로질러 저기압 쪽으로 불어 든다. 이렇게 마찰력까지 작용하는 지표 부근의 바람을 무엇이라고 하는가?",
@@ -5097,7 +5097,7 @@
   {
     "concept_tag": "air_mass",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "multiple_choice",
     "template_json": {
       "question_text": "중위도 상공의 편서풍은 남북으로 크게 굽이치며 흐른다(편서풍 파동). 이 파동에서 기압골 동쪽 상공은 공기가 옆으로 퍼져 나가는 발산 구역이 되는데, 그 아래 지상 저기압은 어떻게 되는가?",
@@ -5200,7 +5200,7 @@
   {
     "concept_tag": "wildfire_weather",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 10,
     "question_type": "slider",
     "template_json": {
       "question_text": "기상청은 실효습도가 몇 % 이하로 이틀 넘게 이어질 것으로 보일 때 건조주의보를 발표하는가? (단위: %)",
@@ -5365,7 +5365,7 @@
   {
     "concept_tag": "flood_response",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "기상청은 3시간 동안 내린 비의 양이 몇 mm 이상일 것으로 보일 때 호우주의보를 발표하는가? (단위: mm)",
@@ -8622,7 +8622,7 @@
   {
     "concept_tag": "anomaly",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "board",
     "template_json": {
       "question_text": "대설경보는 24시간 동안 새로 쌓인 눈이 20cm(산지는 30cm) 이상일 것으로 보일 때 발표된다. 태백산맥(존 2)에 그만큼 눈을 뿌릴 겨울 날씨를 만들어 보자.",
@@ -8671,7 +8671,7 @@
   {
     "concept_tag": "wildfire_weather",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 10,
     "question_type": "board",
     "template_json": {
       "question_text": "건조경보는 실효습도가 25% 이하로 이틀 넘게 이어질 것으로 보일 때 발표된다. 태백산맥과 동해안(존 2·3) 두 곳을 동시에 맑고 메마르게 만들어 이 상태를 재현해 보자.",
@@ -8723,7 +8723,7 @@
   {
     "concept_tag": "air_mass",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 8,
     "question_type": "board",
     "template_json": {
       "question_text": "산을 오르는 공기는 습윤단열감률 약 5℃/km로 식으며 비를 뿌리고, 물기를 잃은 채 산을 내려오는 공기는 건조단열감률 약 10℃/km로 데워진다. 그래서 산을 넘은 공기는 오르기 전보다 뜨겁고 메마르다. 수도권(존 1)에 이 푄 현상이 만든 맑고 건조한 하늘을 만들어 보자.",

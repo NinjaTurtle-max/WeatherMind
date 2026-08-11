@@ -168,10 +168,18 @@ class TestKnowledgeLevelNullFallback:
         assert wb.effective_knowledge_level(item) == wb.KNOWLEDGE_LEVEL_MAX
         assert wb.effective_level_group(item) == wb.KNOWLEDGE_LEVEL_BANDS[-1]
 
-    def test_미지_밴드는_표_중앙(self):
+    def test_미지_밴드는_중립_밴드의_최하_단계(self):
+        """단계 수가 바뀌어도 중립 기본값이 **움직이지 않아야** 한다.
+
+        종전 단정은 `(MIN + MAX) // 2` 산술 중앙이었고 6단계에서 우연히 3(중학)이라
+        맞아 보였다. 10단계에서 그 식은 5(고교)를 낸다 — 학령 미상 학습자 전원이
+        갑자기 고교 문항을 받는데 **테스트는 초록**이다. 중립의 정의는 산술이
+        아니라 NEUTRAL_LEVEL_GROUP이므로 그쪽에 건다(2026-08-10 정정).
+        """
         level = wb.knowledge_level_of_level_group("ghost")
         assert wb.KNOWLEDGE_LEVEL_MIN <= level <= wb.KNOWLEDGE_LEVEL_MAX
-        assert level == (wb.KNOWLEDGE_LEVEL_MIN + wb.KNOWLEDGE_LEVEL_MAX) // 2
+        assert level == wb.knowledge_level_of_level_group(wb.NEUTRAL_LEVEL_GROUP)
+        assert wb.level_group_of_knowledge_level(level) == wb.NEUTRAL_LEVEL_GROUP
 
     def test_컬럼이_없는_대역도_폴백(self):
         """SimpleNamespace 스텁(기존 테스트 대역)이 깨지지 않는다 — getattr 방어."""
@@ -442,15 +450,28 @@ class TestDerivedViewMatchesSpec:
     분류 체계 안에서 재생산된다.
     """
 
+    # 2026-08-10 R13-02 T2 — 6 → 10단계. **하단 1~4는 한 칸도 안 움직였다**:
+    # 초·중등 매핑은 위 문단이 적은 조사 결과 그대로다. 늘어난 것은 상단이고,
+    # 이유도 같은 종류다 — 종전 5가 고교 전체(공통+선택)를, 6이 진로선택·학부·
+    # 실무를 통째로 담아 **위쪽에 같은 뭉침이 남아 있었다**. 대학 전공을 정박하려면
+    # 그 두 칸을 갈라야 한다.
     SPEC_5_3 = {1: "elementary", 2: "elementary", 3: "middle_high",
-                4: "middle_high", 5: "adult", 6: "expert"}
+                4: "middle_high", 5: "adult", 6: "adult",
+                7: "expert", 8: "expert", 9: "expert", 10: "expert"}
 
     @pytest.mark.parametrize("level,band", sorted(SPEC_5_3.items()))
     def test_단계별_파생_밴드(self, level, band):
         assert wb.level_group_of_knowledge_level(level) == band
 
-    def test_단계_수는_여섯(self):
-        assert (wb.KNOWLEDGE_LEVEL_MIN, wb.KNOWLEDGE_LEVEL_MAX) == (1, 6)
+    def test_파생표가_단계_전건을_덮는다(self):
+        """표에 빠진 단계가 있으면 위 parametrize가 **조용히 안 돈다**.
+
+        단계 수를 늘리면서 이 표를 안 늘리면 새 단계가 검사되지 않는데, 테스트
+        결과는 초록이라 늘린 사람이 알 방법이 없다 — 개수를 따로 못박는다.
+        """
+        assert sorted(self.SPEC_5_3) == list(
+            range(wb.KNOWLEDGE_LEVEL_MIN, wb.KNOWLEDGE_LEVEL_MAX + 1)
+        )
 
     def test_중학교가_두_단계를_갖는다(self):
         """§3.2 — 안 쪼개면 141문항의 45%가 한 칸에 몰려 중간 구멍이 재발한다."""

@@ -38,7 +38,16 @@ import pytest
 
 from app.scripts.seed_content import ALLOWED_LEVEL_GROUPS
 from app.services.placement_service import LEVEL_GROUPS as PLACEMENT_LEVEL_GROUPS
-from app.services.weatherbrain_service import LEVEL_GROUP_BANDS
+from app.services.weatherbrain_service import (
+    KNOWLEDGE_LEVEL_BANDS,
+    KNOWLEDGE_LEVEL_MIN,
+    LEVEL_GROUP_BANDS,
+)
+
+# expert 밴드의 **최하 단계**. 종전 이 파일은 `knowledge_level=6`을 박아 두고
+# expert를 기대했는데, 6 → 10단계 확장(2026-08-10)에서 6이 adult가 되면서
+# 3건이 빨개졌다. 단계 번호가 아니라 **밴드**를 물어야 확장에 견딘다.
+EXPERT_LEVEL = KNOWLEDGE_LEVEL_MIN + KNOWLEDGE_LEVEL_BANDS.index("expert")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "author_items.py"
@@ -144,9 +153,9 @@ class TestBankLevelGroups:
 # ── CO-O-5: knowledge_level이 밴드의 권위 ─────────────────────────────────────
 class TestLevelGroupDerivation:
     def test_신고_단계에서_밴드를_파생한다(self, backend_contract):
-        """`kl=6` → expert. 플랜이 elementary를 요청했어도 신고가 이긴다."""
+        """신고 단계가 expert 밴드면 → expert. 플랜이 elementary를 요청해도 신고가 이긴다."""
         band, derived, note = author_items.resolve_level_group(
-            _mc("태풍이 에너지를 얻는 주된 원천은 무엇일까요?", knowledge_level=6),
+            _mc("태풍이 에너지를 얻는 주된 원천은 무엇일까요?", knowledge_level=EXPERT_LEVEL),
             "elementary",
             level_group_of=backend_contract.level_group_of,
             knowledge_level_range=backend_contract.knowledge_level_range,
@@ -208,11 +217,11 @@ class TestLevelGroupDerivation:
         result = _run_batch(
             ai,
             backend_contract,
-            [_mc("태풍이 에너지를 얻는 주된 원천은 무엇일까요?", knowledge_level=6)],
+            [_mc("태풍이 에너지를 얻는 주된 원천은 무엇일까요?", knowledge_level=EXPERT_LEVEL)],
             plan=[("typhoon", "elementary")],
         )
         refs = "\n".join(result.items[0]["source"]["refs"])
-        assert "knowledge_level=6 파생 → expert" in refs
+        assert f"knowledge_level={EXPERT_LEVEL} 파생 → expert" in refs
         assert "요청 elementary" in refs
 
 
@@ -265,8 +274,8 @@ class TestDriftReport:
             ai,
             backend_contract,
             [
-                _mc("태풍이 에너지를 얻는 주된 원천은 무엇일까요?", knowledge_level=6),
-                _mc("태풍의 눈에서는 어떤 날씨가 나타날까요?", knowledge_level=6),
+                _mc("태풍이 에너지를 얻는 주된 원천은 무엇일까요?", knowledge_level=EXPERT_LEVEL),
+                _mc("태풍의 눈에서는 어떤 날씨가 나타날까요?", knowledge_level=EXPERT_LEVEL),
             ],
             plan=[("typhoon", "elementary"), ("typhoon", "elementary")],
         )
@@ -281,7 +290,7 @@ class TestDriftReport:
         result = _run_batch(
             ai,
             backend_contract,
-            [_mc("태풍이 에너지를 얻는 주된 원천은 무엇일까요?", knowledge_level=6)],
+            [_mc("태풍이 에너지를 얻는 주된 원천은 무엇일까요?", knowledge_level=EXPERT_LEVEL)],
             plan=[("typhoon", "elementary")],
         )
         rows = author_items._distribution_rows(

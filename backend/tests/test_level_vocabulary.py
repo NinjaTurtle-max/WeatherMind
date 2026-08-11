@@ -32,6 +32,8 @@ from pathlib import Path
 
 import pytest
 
+from app.services import weatherbrain_service as wb  # 단계 수 N의 단일 소유자
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VOCAB_PATH = REPO_ROOT / "database" / "seed" / "level_vocabulary.json"
 SEED_PATH = REPO_ROOT / "database" / "seed" / "content_items.json"
@@ -110,9 +112,15 @@ def test_introduced_at은_1부터_6까지다(vocabulary):
 
     코드가 아니라 파일의 anchor 블록이 N을 소유한다(load_vocabulary가 거기서 읽는다).
     """
-    assert sorted(int(k) for k in vocabulary["anchor"]) == [1, 2, 3, 4, 5, 6]
+    # 단계 수 N을 여기 박지 않는다 — 소유자는 weatherbrain_service의 밴드 튜플
+    # 하나다. 종전에는 [1..6]을 박아 놓아 10단계 확장에서 **어휘표가 옳게 늘어난
+    # 것을 결함으로 신고**했다(2026-08-10 정정).
+    levels = sorted(int(k) for k in vocabulary["anchor"])
+    assert levels == list(range(wb.KNOWLEDGE_LEVEL_MIN, wb.KNOWLEDGE_LEVEL_MAX + 1))
     for entry in vocabulary["terms"]:
-        assert 1 <= entry["introduced_at"] <= 6, entry["term"]
+        assert wb.KNOWLEDGE_LEVEL_MIN <= entry["introduced_at"] <= wb.KNOWLEDGE_LEVEL_MAX, (
+            entry["term"]
+        )
 
 
 def test_name_ok_from은_introduced_at을_넘지_않는다(vocabulary):
@@ -140,20 +148,29 @@ def test_교육과정_밖_항목은_standard가_null이다(by_term):
         # ① 2015 [6과06-04] 삭제로 초등 근거가 사라졌다 — 전 학령 허용 → 4단계.
         ("기단", 4, "[9과17-04]"),
         # ② 별책 9·20 전문 0건 — '고등 지구과학Ⅰ'은 없는 과목이다.
-        ("알베도", 6, None),
+        #    10단계에서 **8**(학부·교육과정 밖) — standard가 null인 것이 곧 근거다.
+        ("알베도", 8, None),
         # ③ 결론은 같고 근거 과목이 다르다 — 지구과학Ⅱ가 아니라 지구시스템과학.
-        ("지균풍", 6, "[12지시03-05]"),
-        ("경도풍", 6, "[12지시03-05]"),
+        #    고시 근거가 진로선택이므로 10단계에서 **7**(교육과정 안의 상한)이다.
+        ("지균풍", 7, "[12지시03-05]"),
+        ("경도풍", 7, "[12지시03-05]"),
         # ④ '우리나라 날씨' 단원이 2022에 없다 — 확인 필요, R6으로 낮은 쪽.
         ("편서풍", 4, "[9과17-02]"),
         # ⑤ 푄은 전문 0건 / 높새바람은 사회과 추정.
-        ("푄", 6, None),
+        ("푄", 8, None),
         ("높새바람", 5, None),
         # 추가로 근거가 생긴 것 — [9과04-04] + [12지시03-02] 해설.
         ("잠열", 3, "[9과04-04]"),
     ],
 )
 def test_정정_판정이_고정된다(by_term, term, introduced_at, standard):
+    """⚠️ 위 표의 **숫자는 2026-08-10에 6 → 10단계로 척도가 늘면서 옮겨졌다.**
+
+    판정이 뒤집힌 것이 아니다 — 종전 6단계가 '진로선택 + 학부 + 실무'를 한 칸에
+    담고 있었고, 그 칸을 7~10으로 펴면서 각 용어가 자기 근거에 맞는 칸으로 간
+    것뿐이다. 고시 근거가 있으면 7(교육과정 안), 근거가 null이면 8(밖).
+    **`standard` 열은 한 건도 안 바뀌었다** — 그것이 판정이 그대로라는 증거다.
+    """
     entry = by_term[term]
     assert entry["introduced_at"] == introduced_at
     assert entry["standard"] == standard
@@ -165,8 +182,16 @@ def test_확인_필요_항목이_표시된다(by_term):
         assert by_term[term].get("unconfirmed") is True, term
 
 
-def test_신설_항목이_전부_6단계다(by_term):
-    """§7.3 하단 신설 목록 — 힘·정량 구간(6)에 정박한다."""
+def test_신설_항목이_전부_힘_정량_구간이다(by_term):
+    """§7.3 하단 신설 목록 — **힘·정량 구간**에 정박한다.
+
+    종전 이름은 `test_신설_항목이_전부_6단계다`였고 `== 6`을 단정했다. 10단계
+    확장에서 이 12개가 7·8로 갈렸는데 **판정이 갈린 게 아니라 구간이 갈린 것**
+    이다(정역학·행성파는 진로선택 고시 근거가 있어 7, 단열선도·LCL·에크만처럼
+    근거가 없는 것은 8). 그래서 단정을 **구간 하한**으로 바꾼다 — 한 칸을 못박으면
+    다음 확장 때 또 같은 이유로 빨개진다.
+    """
+    floor = wb.KNOWLEDGE_LEVEL_BANDS.index("expert") + wb.KNOWLEDGE_LEVEL_MIN
     for term in (
         "온대저기압",
         "정역학",
@@ -181,7 +206,7 @@ def test_신설_항목이_전부_6단계다(by_term):
         "LFC",
         "평형고도",
     ):
-        assert by_term[term]["introduced_at"] == 6, term
+        assert by_term[term]["introduced_at"] >= floor, term
 
 
 def test_온대저기압은_정본_표기를_대안으로_제시한다(by_term):
@@ -245,10 +270,14 @@ def test_메커니즘_질문이면_배경_어휘_예외가_풀린다(vocabulary)
     assert lint.vocabulary_errors(item, vocabulary)
 
 
-def test_6단계_문항은_전_용어가_통과한다(vocabulary):
-    """§7.4 '면제를 없앤다'의 뒷면 — 통째 면제는 사라졌지만 최상위는 다 열린다."""
+def test_최상위_단계_문항은_전_용어가_통과한다(vocabulary):
+    """§7.4 '면제를 없앤다'의 뒷면 — 통째 면제는 사라졌지만 최상위는 다 열린다.
+
+    단계 수를 여기 박지 않는다(종전 `level=6` 하드코딩 → 10단계 확장에서 빨개졌다).
+    "최상위에서는 전부 통과"는 척도 길이와 무관한 성질이다.
+    """
     blob = " ".join(entry["term"] for entry in vocabulary["terms"])
-    item = _item(blob, level=6, correct=blob)
+    item = _item(blob, level=wb.KNOWLEDGE_LEVEL_MAX, correct=blob)
     assert lint.vocabulary_errors(item, vocabulary) == []
 
 

@@ -151,13 +151,26 @@ DEFAULT_ITEM_B: float = 0.0
 # 밴드는 난이도 오름차순이어야 하고(LEVEL_GROUP_BANDS 순서), 모든 밴드가 최소 한 번
 # 나와야 한다(그래야 level_group→knowledge_level→level_group 왕복이 항등이다).
 # 두 성질 모두 test_two_axis_levels가 감시한다.
+# ── 6 → 10단계 확장 (2026-08-10, R13-02 T2) ──────────────────────────────────
+# 위 문단이 "조사가 단계 수를 바꿔도 이 튜플 한 줄만 고치면 된다"고 적어 둔 그 일이
+# 실제로 일어났다. 확장 이유는 **상단이 뭉쳐 있었기 때문**이다 — 종전 6단계는
+# 고교 전체가 5 하나, 진로선택부터 학부·실무 전부가 6 하나였다. 대학 전공까지
+# 정박하려면 그 두 칸을 갈라야 한다.
+#
+# **하단 1~4는 한 칸도 건드리지 않았다.** 초·중등 성취기준 매핑은 이미 조사로
+# 확정된 것이고, 건드리면 문항 190건이 전부 재분류 대상이 된다. 실제 재분류는
+# 종전 5·6에 있던 **94건뿐**이다.
 KNOWLEDGE_LEVEL_BANDS: tuple[str, ...] = (
     "elementary",   # 1 — 초등 3~4학년군
     "elementary",   # 2 — 초등 5~6학년군
     "middle_high",  # 3 — 중학교 과학 물질·에너지 영역
     "middle_high",  # 4 — 중학교 과학 유체 지구 영역
-    "adult",        # 5 — 고교 정성 구간
-    "expert",       # 6 — 힘·정량 구간 + 교육과정 밖
+    "adult",        # 5 — 고1 통합과학 — 지구 규모 순환·기후를 정성적으로 종합
+    "adult",        # 6 — 고2~3 일반선택(지구과학·기후변화와 환경생태) 정성 심화
+    "expert",       # 7 — 고 진로선택 정량 입문 `[12지시…]` — 힘·감률이 처음 나온다
+    "expert",       # 8 — 학부 대기과학 역학 기초(지균·정역학 균형)
+    "expert",       # 9 — 학부 고학년 종관·수치예보 정량
+    "expert",       # 10 — 기상청 현업 실무·연구 — 교육과정 밖
 )
 KNOWLEDGE_LEVEL_MIN: int = 1
 KNOWLEDGE_LEVEL_MAX: int = KNOWLEDGE_LEVEL_MIN + len(KNOWLEDGE_LEVEL_BANDS) - 1
@@ -196,11 +209,18 @@ def knowledge_level_of_level_group(level_group: str) -> int:
     한 밴드가 여러 단계에 걸치므로 대표값이 필요하다. **밴드의 최하 단계**를 쓴다:
     미분류 문항을 실제보다 어렵게 보지 않는 쪽이 안전하고(과대평가는 학습자를
     막는다), 이 선택이 밴드→단계→밴드 왕복을 항등으로 만든다.
-    미지 밴드는 표 중앙(무정보 기본값 — DEFAULT_ITEM_B 중립 관례).
+    미지 밴드는 **NEUTRAL_LEVEL_GROUP의 최하 단계**다(무정보 기본값 —
+    DEFAULT_ITEM_B 중립 관례).
+
+    ⚠️ 종전에는 `(MIN + MAX) // 2` 산술 중앙이었고 6단계에서 우연히 3(=중학)이라
+    맞아 보였다. **10단계 확장에서 그 값이 5(=고교)로 조용히 올라간다** — 학령을
+    모르는 학습자 전원이 갑자기 고교 문항을 받는다는 뜻이고, 같은 파일이
+    `NEUTRAL_LEVEL_GROUP = "middle_high"`라고 못박은 것과도 어긋난다. 단계 수에
+    따라 중립값이 움직이는 것 자체가 결함이었다(2026-08-10 정정).
     """
     if level_group in KNOWLEDGE_LEVEL_BANDS:
         return KNOWLEDGE_LEVEL_MIN + KNOWLEDGE_LEVEL_BANDS.index(level_group)
-    return (KNOWLEDGE_LEVEL_MIN + KNOWLEDGE_LEVEL_MAX) // 2
+    return KNOWLEDGE_LEVEL_MIN + KNOWLEDGE_LEVEL_BANDS.index(NEUTRAL_LEVEL_GROUP)
 
 
 # ── θ → 지식 수준(N단계) — R13 E-1 ─────────────────────────────────────────
