@@ -100,7 +100,9 @@ class TestSeedSchema:
         # 저작 웨이브 3-a(2026-08-10): +15 = 754. kl5 잔여 — kl5 100건 달성.
         # 저작 웨이브 3-b(2026-08-10): +120 = 874. kl6·8·9·10 각 30. 전 단계 69건 이상.
         # 저작 웨이브 4-a(2026-08-10): +6 = 880. kl6 잔여 — kl5·kl6 각 100건.
-        assert len(SEED_ITEMS) == 880
+        # 저작 웨이브 4-b(2026-08-10): +120 = **1000. 대회 목표 달성.**
+        # kl7·8·9 각 100 · kl10 100 · kl2 100. 하루에 284 → 1000(+716).
+        assert len(SEED_ITEMS) == 1000
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
