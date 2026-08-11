@@ -9,7 +9,7 @@ import TierBadge from '../../components/TierBadge';
 import QuestList from './QuestList';
 import BadgeCollection from './BadgeCollection';
 import WeatherBrainPanel from './WeatherBrainPanel';
-import { DailyGoalMeter, DailyGoalPicker } from './DailyGoal';
+import { DailyGoalPicker } from './DailyGoal';
 import { selectUnlockStage, useOnboardingGate } from '../../lib/onboardingGate';
 // R12 선행 §8 — 학습 지역 설정(자급 컴포넌트, 제작 FE-R)
 import RegionPicker from '../../components/RegionPicker';
@@ -94,36 +94,43 @@ export default function ProgressPage() {
 
           ⚠️ 카드 6개를 격자에 **평평하게** 늘어놓으면 안 된다(2026-08-08 수정).
           CSS 격자는 같은 줄에 놓인 칸의 높이를 가장 큰 칸에 맞추므로, 오른쪽
-          첫 줄(오늘 목표+진도)이 왼쪽 프로필 카드보다 길면 그 차이가 **왼쪽
-          둘째 칸 위의 빈 공간**으로 남는다. 실제로 능력 분석 위 115px · 다음 목표
-          위 200px이 비어 있었다. `items-start`로는 안 된다 — 그건 칸을 줄에
-          맞춰 늘이지 않을 뿐, 줄 자체의 높이는 그대로다.
+          첫 줄이 왼쪽 프로필 카드보다 길면 그 차이가 **왼쪽 둘째 칸 위의 빈
+          공간**으로 남는다. 실제로 능력 분석 위 115px · 다음 목표 위 200px이
+          비어 있었다. `items-start`로는 안 된다 — 그건 칸을 줄에 맞춰 늘이지
+          않을 뿐, 줄 자체의 높이는 그대로다.
           그래서 **열을 각각 독립된 세로 스택**으로 묶는다. lg 미만에서는
-          `display:contents`로 껍데기를 지우고 order로 시안의 교차 순서
-          (프로필→오늘목표→능력→퀘스트→배지→다음목표)를 그대로 유지한다. */}
+          `display:contents`로 껍데기를 지우고 order로 교차 순서를 유지한다.
+
+          2026-08-11(사용자 지시): 오른쪽 맨 위의 오늘 목표 카드를 뺐고, 아래
+          전폭에 있던 **학습 지역을 왼쪽 배지 바로 밑**으로 올렸다. 배지 아래가
+          800px 가까이 비어 있었고(왼쪽 스택이 오른쪽보다 짧다) 학습 지역은
+          안이 한 줄뿐이라 전폭을 쓸 이유가 없던 카드다 — 폭은 열이 정한다. */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">
         {/* 왼쪽 열 — "나" */}
         <div className="contents lg:flex lg:flex-col lg:gap-4">
           <div className="order-1 lg:order-none">
             <ProfileCard me={me} user={user} badges={badges} />
           </div>
-          <div className="order-3 lg:order-none">
+          <div className="order-2 lg:order-none">
             <BadgeCollection collapsed={collapsed} />
+          </div>
+          <div className="order-4 lg:order-none">
+            <RegionCard />
           </div>
         </div>
 
         {/* 오른쪽 열 — "할 일" */}
         <div className="contents lg:flex lg:flex-col lg:gap-4">
-          <div className="order-2 flex flex-col gap-4 lg:order-none">
-            {/* 오늘 목표 (R10-01 §3.4) — 설정됐으면 N/M 진행, 미설정이면 선택 1스텝 */}
-            {me?.daily_goal_items ? <DailyGoalMeter /> : <DailyGoalPicker />}
-            {/* 스파인 카드 (R8-01 §3.7④) — spine 부재(구 백엔드) 시 미렌더 */}
-            {me?.spine && <SpineCard spine={me.spine} />}
-          </div>
-          <div className="order-4 lg:order-none">
+          {/* 스파인 카드 (R8-01 §3.7④) — spine 부재(구 백엔드) 시 미렌더 */}
+          {me?.spine && (
+            <div className="order-3 lg:order-none">
+              <SpineCard spine={me.spine} />
+            </div>
+          )}
+          <div className="order-5 lg:order-none">
             <QuestList collapsed={collapsed} />
           </div>
-          <div className="order-5 lg:order-none">
+          <div className="order-6 lg:order-none">
             <NextGoalsCard me={me} />
           </div>
         </div>
@@ -137,21 +144,41 @@ export default function ProgressPage() {
         <WeatherBrainPanel />
       </div>
 
-      {/* 설정 — 학습 지역 (R12 선행 §8): 퀴즈 실황·피드백 날씨의 기준 지역.
-          대결/브리핑·리그는 서울 고정(PM 정정 2026-08-05 — 지역 예보로 예측하고
-          서울 실측으로 채점되는 정합성 문제) — 대결 화면에는 칩을 달지 않는다. */}
-      <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-extrabold text-slate-900">{t('region.settingTitle')}</p>
-            <p className="mt-0.5 text-xs text-slate-500">{t('region.settingBody')}</p>
-          </div>
-          <RegionPicker />
-        </div>
-      </div>
-
       {/* 설정 — 학습 수준 (R13 CO-P-5) */}
       <LevelGroupCard />
+
+      {/* 하루 목표 — 2026-08-11(사용자 지시)에 오른쪽 맨 위에서 **내려왔다**.
+          지우지 않고 옮긴 이유: 이 화면이 목표를 정하는 **유일한 통로**다.
+          배치고사를 건너뛴 사람(게스트 자동 발급이 주 동선이다)은 여기 말고
+          정할 데가 없고, /learn 배너의 「목표 미설정」 링크도 여기로 온다 —
+          지우면 그 링크가 아무 데도 안 닿는다.
+          이미 정한 사람에게는 안 뜬다(DailyGoalMeter를 여기서 걷었다 —
+          진행도는 /learn 배너와 세션 완료 화면이 이미 보여준다). */}
+      {me && !me.daily_goal_items && <DailyGoalPicker className="mt-4" />}
+    </div>
+  );
+}
+
+/**
+ * 학습 지역 (R12 선행 §8) — 퀴즈 실황·피드백 날씨의 기준 지역.
+ * 대결/브리핑·리그는 서울 고정(PM 정정 2026-08-05 — 지역 예보로 예측하고 서울
+ * 실측으로 채점되는 정합성 문제) — 대결 화면에는 칩을 달지 않는다.
+ *
+ * 2026-08-11: 페이지 꼬리의 전폭 카드에서 **왼쪽 열**로 올라왔다. 열 폭이
+ * 절반(약 552px)이라 설명과 지역 칩이 한 줄에 안 들어갈 수 있어, 좁아지면
+ * 칩이 아랫줄로 내려가게 `flex-wrap`으로 둔다.
+ */
+function RegionCard() {
+  const t = useT();
+  return (
+    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0 flex-1 basis-[220px]">
+          <p className="text-sm font-extrabold text-slate-900">{t('region.settingTitle')}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{t('region.settingBody')}</p>
+        </div>
+        <RegionPicker />
+      </div>
     </div>
   );
 }

@@ -60,28 +60,38 @@ export default function ExploreHome() {
         </p>
       </div>
 
-      {/* 정사각에 가까운 두 칸을 **나란히**(2026-08-06). 가로로 긴 줄 두 개로
-          쌓아 두니 시뮬 하나하나가 목록 항목처럼 보였다 — 탐구는 둘 중 하나를
-          고르는 화면이라 나란히 놓고 크게 잡는다. 모바일은 1열(두 칸을 나란히
-          두면 한 칸이 170px라 설명이 안 들어간다). */}
-      <div className="grid max-w-[760px] grid-cols-1 gap-5 sm:grid-cols-2">
+      {/* 넷을 **한 줄에**(2026-08-11 사용자 지시). 2열 정사각 시절에는 2×2로
+          접혀 네 번째(기후 탐정)가 접힌 화면 밖으로 내려갔다 — 탐구는 넷 중
+          하나를 고르는 화면이라 넷이 한눈에 보여야 고른다.
+          그래서 셋을 줄였다: `max-w-[760px]` 해제(넷이 들어갈 폭이 필요하다) ·
+          `aspect-square` 해제(1/4 폭에서 정사각이면 카드가 270px 기둥이 된다 —
+          높이는 내용이 정하게 둔다) · 여백과 글자 한 단계 축소.
+          계단은 1 / sm 2 / xl 4다. lg(1024)에서 4열로 가면 한 칸이 226px라
+          제목이 두 줄로 접히면서 카드마다 높이가 달라진다. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {SIMS.map((sim) => (
           <Link
             key={sim.to}
             to={sim.to}
-            className="flex flex-col rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 transition hover:ring-sky-300 sm:aspect-square"
+            className="flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 transition hover:ring-sky-300"
           >
-            <span className="grid h-16 w-16 place-items-center rounded-2xl bg-slate-50 text-[32px] ring-1 ring-slate-200">
+            <span className="grid h-12 w-12 place-items-center rounded-xl bg-slate-50 text-[24px] ring-1 ring-slate-200">
               {sim.icon}
             </span>
-            <p className="mt-4 text-[16.5px] font-extrabold text-slate-800">{t(sim.titleKey)}</p>
-            <p className="mt-1.5 text-[12.5px] leading-relaxed text-slate-500">{t(sim.descriptionKey)}</p>
-            <p className="mt-2 text-[11px] font-bold text-sky-600">{t(sim.inputsKey)}</p>
+            <p className="mt-3 text-[15px] font-extrabold text-slate-800">{t(sim.titleKey)}</p>
+            <p className="mt-1 text-[12px] leading-relaxed text-slate-500">{t(sim.descriptionKey)}</p>
+            <p className="mt-1.5 text-[11px] font-bold text-sky-600">{t(sim.inputsKey)}</p>
             {/* 「교육용 단순화 모델」 고지는 카드마다 유지한다(R9-01 §3.5) —
                 실제 예보·기후 전망으로 읽히면 안 된다. */}
-            <p className="mt-auto inline-block self-start rounded-full bg-slate-100 px-2.5 py-1 text-[10.5px] font-medium text-slate-500">
-              {t(sim.badgeKey ?? 'explore.common.modelBadge')}
-            </p>
+            {/* mt-auto는 **감싼 div**가 갖는다 — 배지 자신에게 주면 그 위
+                여백이 0으로 붙을 수 있어 짧은 카드에서 설명과 맞닿는다.
+                설명 길이가 카드마다 달라도 격자가 칸 높이를 맞춰 주므로
+                이것만으로 넷의 배지가 한 선에 선다. */}
+            <div className="mt-auto pt-3">
+              <p className="inline-block rounded-full bg-slate-100 px-2.5 py-1 text-[10.5px] font-medium text-slate-500">
+                {t(sim.badgeKey ?? 'explore.common.modelBadge')}
+              </p>
+            </div>
           </Link>
         ))}
       </div>

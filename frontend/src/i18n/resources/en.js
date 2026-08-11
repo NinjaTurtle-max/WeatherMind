@@ -239,6 +239,7 @@ export default {
     title: '🧠 WeatherBrain ability analysis',
     loading: 'Loading your ability analysis...',
     loadFailed: "Couldn't load the ability analysis. {detail}",
+    ability: { title: 'Current level' },
     introSeg1: "WeatherMind's own adaptive model ",
     introStrong: 'WeatherBrain',
     introSeg2: ' estimates your understanding of each concept and matches question difficulty. Shorter bars mean concepts that need more practice.',
@@ -249,7 +250,7 @@ export default {
     empty: 'No ability data yet. Complete a session and your per-concept analysis will appear.',
     mastery: {
       title: 'Concept mastery',
-      subtitle: 'The bars above show your current level; below is the chance you have learned each concept.',
+      subtitle: '"Current level" is what you can solve today; this side is the chance you have learned each concept.',
       empty: 'Answer some questions and we will start tracking what you have learned.',
       insufficient: 'not enough data',
       beginning: 'still learning',
