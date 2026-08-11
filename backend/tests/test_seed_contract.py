@@ -92,7 +92,12 @@ class TestSeedSchema:
         # 10단계 확장으로 생긴 상위 칸을 4인 병렬로 채웠다. 10단계 전건 40건 이상.
         # 저작 웨이브 2-a(2026-08-10): +22 = 564. kl5 보강 — flood_response·
         # heat_island가 2건뿐이었고, 전체 유형에서 부족한 ordering·match 위주로 저작.
-        assert len(SEED_ITEMS) == 564
+        # 저작 웨이브 2-b(2026-08-10): +45 = 609. kl7(고 진로선택) — 24건으로
+        # 10단계 중 가장 얇았다. 이 배치가 어휘표 결함 2건을 드러냈다(아래 주석).
+        # 저작 웨이브 2-c(2026-08-10): +70 = 679. kl1 35 · kl2 35 — 초등 두 칸이
+        # 목표(각 100)에 거의 닿았다(98·94).
+        # 저작 웨이브 2-d(2026-08-10): +60 = 739. kl3 40 · kl4 20.
+        assert len(SEED_ITEMS) == 739
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
