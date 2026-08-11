@@ -135,7 +135,12 @@ class TestSeedTypeCoverage:
         #   kl2 × typhoon · kl3 × (air_mass·anomaly·co2_climate·pressure_front·typhoon).
         #   유형은 board 0(판정 규칙 동반 저작이 필요해 생성·저작 대상 밖) 나머지 6종 혼합,
         #   explanation_hint 56/56 저작 — 사람 해설이 있으면 런타임이 LLM을 안 부른다.
-        assert len(_seed_items()) == 340
+        # 저작 웨이브 1-b(2026-08-10): **+58 = 398.** kl4 빈 칸 2개(energy_transfer·
+        #   phase_change)와 1건짜리 5칸 보강 18건 + **kl8 신규 40건**(학부 대기과학).
+        #   kl8은 10단계 확장으로 생긴 칸이라 3건뿐이었다. 상위 칸은 어휘 게이트가
+        #   거의 무력하므로(8단계 문항은 8단계 이하 전 용어 통과) **표본 검수가 게이트를
+        #   대신한다** — CO-B4-c 참조.
+        assert len(_seed_items()) == 398
 
 
 class TestEverySeedItemIsPlayable:

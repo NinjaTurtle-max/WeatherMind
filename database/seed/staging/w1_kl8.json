@@ -1,0 +1,1006 @@
+[
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "맑은 날 낮 지표 부근 혼합층에서 잰 기온 감률이 건조 단열 감률과 거의 같았다. 이 층의 온위 연직 분포로 옳은 것은?",
+      "options": [
+        "고도가 달라져도 온위가 거의 일정하다",
+        "고도가 오를수록 온위가 뚜렷하게 커진다",
+        "고도가 오를수록 온위가 뚜렷하게 작아진다",
+        "온위가 고도에 따라 커지고 작아지기를 되풀이한다"
+      ],
+      "correct_answer": "고도가 달라져도 온위가 거의 일정하다",
+      "explanation_hint": "온위는 공기 덩어리를 1000hPa로 단열 이동시켰을 때의 기온이라 건조 단열 과정에서 보존된다. 실제 기온 감률이 건조 단열 감률과 같다는 것은 층 전체가 같은 단열 곡선 위에 놓였다는 뜻이므로 온위가 고도에 따라 일정하다. 온위가 고도에 따라 커지면 안정, 작아지면 불안정한 성층이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온위 보존을 관측된 감률에 적용해 성층을 판정한다 — 정의 암기가 아니다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "습한 공기가 산을 오르며 비를 뿌리고, 물기를 잃은 채 산을 넘어 내려왔다. 산을 넘기 전과 넘은 뒤를 견줄 때 이 공기 덩어리의 온위와 상당온위 변화로 옳은 것은?",
+      "options": [
+        "온위는 커지고 상당온위는 작아진다",
+        "온위는 작아지고 상당온위는 커진다",
+        "온위와 상당온위가 모두 그대로 보존된다",
+        "온위는 그대로이고 상당온위만 커진다"
+      ],
+      "correct_answer": "온위는 커지고 상당온위는 작아진다",
+      "explanation_hint": "응결로 나온 잠열이 공기를 데우므로 온위는 커진다. 상당온위는 수증기에 실린 잠열까지 더해 센 양이라 습윤 단열 과정에서는 보존되지만, 비로 물이 계 밖으로 빠져나가면 그만큼 줄어든다. 산을 넘은 공기가 덥고 메마른 까닭이 여기 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온위·상당온위의 보존 조건 차이를 강수 과정에 적용한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "서풍이 남북으로 뻗은 큰 산맥을 넘는다. 산마루 위에서 공기 기둥의 두께가 얇아졌다. 절대와도를 공기 기둥 두께로 나눈 값이 보존된다고 볼 때, 산마루 위 공기에 나타나는 변화로 옳은 것은?",
+      "options": [
+        "절대와도가 작아지면서 상대와도가 음이 되어 고기압성으로 휜다",
+        "절대와도가 커지면서 상대와도가 양이 되어 저기압성으로 휜다",
+        "절대와도만 커지고 상대와도는 그대로 유지된다",
+        "두께가 준 만큼 전향인자가 작아져 상대와도는 변하지 않는다"
+      ],
+      "correct_answer": "절대와도가 작아지면서 상대와도가 음이 되어 고기압성으로 휜다",
+      "explanation_hint": "두께가 줄면 분자인 절대와도도 함께 줄어야 비가 보존된다. 같은 위도라면 전향인자는 그대로이므로 줄어드는 몫은 상대와도가 지고, 상대와도가 음이 되면 북반구에서 시계 방향, 곧 고기압성으로 휜다. 산을 넘어 두께가 되살아나면 반대로 저기압성으로 휘어 풍하측에 파동이 남는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "절대와도·상대와도의 분해를 산맥 통과 사례에 적용한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "상대와도가 0인 공기 덩어리가 절대와도를 보존한 채 북쪽으로 밀려 올라갔다. 위도가 높아지면 전향인자는 커진다. 이 덩어리에 나타나는 변화로 옳은 것은?",
+      "options": [
+        "상대와도가 음이 되어 고기압성으로 휘며 다시 남쪽으로 되돌아온다",
+        "상대와도가 양이 되어 저기압성으로 휘며 더 북쪽으로 올라간다",
+        "절대와도가 함께 커져 회전이 점점 빨라진다",
+        "전향인자가 커진 만큼 상대와도도 같이 커진다"
+      ],
+      "correct_answer": "상대와도가 음이 되어 고기압성으로 휘며 다시 남쪽으로 되돌아온다",
+      "explanation_hint": "절대와도는 상대와도와 전향인자의 합이다. 합이 일정한데 전향인자가 커지면 상대와도는 그만큼 작아져 음이 되고, 북반구에서 음의 상대와도는 시계 방향 회전이라 흐름이 남쪽으로 되돌아간다. 이 되돌림이 편서풍 파동을 남북으로 흔드는 복원력이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "절대와도 보존을 위도 변화에 적용해 복원 운동을 끌어낸다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "어느 관측점에서 지균풍의 풍향이 고도가 오를수록 남풍에서 서풍으로 시계 방향으로 돌았다. 온도풍 관계로 읽을 때 이 층에서 일어나는 일은 무엇인가?",
+      "options": [
+        "따뜻한 공기가 밀려드는 온난이류가 일어난다",
+        "찬 공기가 밀려드는 한랭이류가 일어난다",
+        "층 전체가 등온이라 온도풍이 0이다",
+        "기온 변화 없이 기압만 고르게 낮아진다"
+      ],
+      "correct_answer": "따뜻한 공기가 밀려드는 온난이류가 일어난다",
+      "explanation_hint": "온도풍은 두 고도의 지균풍 차이로 정의되고, 층 평균 기온의 등온선과 나란하되 따뜻한 쪽을 오른쪽에 둔다. 북반구에서 바람이 고도에 따라 시계 방향으로 돌면 온난이류, 반시계 방향으로 돌면 한랭이류다. 연직 바람 분포만으로 기온 이류를 읽어 내는 것이 온도풍 관계의 쓸모다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온도풍 관계를 연직 풍향 변화에 적용해 이류 방향을 판정한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "상층 제트류의 중심 풍속은 여름보다 겨울에 뚜렷하게 강해진다. 그 까닭으로 옳은 것은?",
+      "options": [
+        "겨울에 남북 기온 차가 커져 고도마다 더해지는 온도풍이 커지기 때문",
+        "겨울에 지구 자전이 빨라져 전향력이 커지기 때문",
+        "겨울에 대기 밀도가 낮아져 공기가 받는 저항이 줄기 때문",
+        "겨울에 지표 마찰이 사라져 지상 바람이 그대로 상층까지 오르기 때문"
+      ],
+      "correct_answer": "겨울에 남북 기온 차가 커져 고도마다 더해지는 온도풍이 커지기 때문",
+      "explanation_hint": "제트류는 상층으로 갈수록 쌓인 온도풍의 결과다. 온도풍은 층 평균 기온의 남북 차에 비례하므로, 극과 중위도의 기온 차가 벌어지는 겨울에 제트류가 강해지고 위치도 남쪽으로 내려온다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "제트류 강도를 온도풍 관계로 설명한다 — 계절 변화를 원인에 잇는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "서쪽 하늘에 권운이 번지더니 몇 시간 뒤 권층운으로 두꺼워지며 해무리가 걸렸다. 이어 고층운이 하늘을 덮었다. 이 구름 차례가 알리는 것은 무엇인가?",
+      "options": [
+        "온난전선이 다가와 넓고 약한 비가 오래 이어질 채비가 되고 있다",
+        "한랭전선이 닥쳐 좁은 구역에 소나기가 짧게 쏟아진다",
+        "고기압이 자리 잡아 하늘이 점점 맑아진다",
+        "지표 가열이 강해져 오후에 적란운이 솟는다"
+      ],
+      "correct_answer": "온난전선이 다가와 넓고 약한 비가 오래 이어질 채비가 되고 있다",
+      "explanation_hint": "온난전선면은 기울기가 완만해 따뜻한 공기가 찬 공기 위를 천천히 타고 오른다. 그래서 전선 앞쪽부터 권운·권층운·고층운·난층운 차례로 구름이 낮고 두꺼워지고, 이윽고 층운형 구름에서 넓고 약한 비가 오래 내린다. 십운형 이름을 순서로 읽으면 전선이 얼마나 다가왔는지 가늠할 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "십운형 명칭 체계를 관측 순서에 적용해 전선 종류를 진단한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "갓 내린 눈의 알베도는 약 0.85, 짙은 바다의 알베도는 약 0.08이다. 북극 해빙이 녹아 같은 넓이가 바다로 바뀌었을 때 그 면이 흡수하는 태양 복사는 어떻게 달라지는가?",
+      "options": [
+        "흡수량이 여섯 배쯤으로 늘어난다",
+        "흡수량이 여섯 배쯤으로 줄어든다",
+        "흡수량이 두 배쯤으로 늘어난다",
+        "알베도만 달라질 뿐 흡수량은 거의 그대로다"
+      ],
+      "correct_answer": "흡수량이 여섯 배쯤으로 늘어난다",
+      "explanation_hint": "흡수율은 1에서 알베도를 뺀 값이다. 눈은 0.15, 바다는 0.92를 흡수하므로 비는 0.92를 0.15로 나눈 약 6이다. 흡수가 늘면 물이 더 데워져 얼음이 덜 얼고, 그러면 알베도가 더 낮아지는 되먹임이 걸린다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "알베도를 흡수율로 환산해 정량 비교한다 — 값이 규정이 아니라 물성이다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "북반구 어느 해안에서 해안선과 나란한 바람이 며칠째 이어지자 표층 해수가 바람 방향의 오른쪽 90도로 밀려 나갔다. 표층 물이 외해로 빠져나간 연안에서 나타나는 것은 무엇인가?",
+      "options": [
+        "아래층 찬물이 올라오는 용승이 일어나 표층 수온이 내려간다",
+        "표층에 물이 쌓여 침강이 일어나고 표층 수온이 올라간다",
+        "표층 염분만 낮아지고 수온은 그대로다",
+        "해류가 멎어 연안에 따뜻한 물이 고인다"
+      ],
+      "correct_answer": "아래층 찬물이 올라오는 용승이 일어나 표층 수온이 내려간다",
+      "explanation_hint": "에크만 수송은 마찰층 전체를 더한 흐름으로, 북반구에서 풍향의 오른쪽 90도를 향한다. 그 물이 연안에서 빠져나가면 빈자리를 아래층 물이 메우며 올라온다. 올라온 물은 차고 영양염이 많아 좋은 어장이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "에크만 수송의 방향 규칙을 연안 지형에 적용해 용승을 끌어낸다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "북태평양 아열대 순환에서 서쪽 경계의 쿠로시오는 좁고 빠른데, 동쪽 경계의 캘리포니아 해류는 넓고 느리다. 이 서안강화를 설명하는 것으로 옳은 것은?",
+      "options": [
+        "전향인자가 위도에 따라 달라져 순환이 서쪽 경계로 몰리기 때문",
+        "서쪽 바다가 동쪽보다 훨씬 깊어 물이 빠르게 흐르기 때문",
+        "서쪽 경계에 육지가 있어 바람이 더 강하게 불기 때문",
+        "서쪽 바다의 수온이 높아 밀도가 낮고 마찰이 작기 때문"
+      ],
+      "correct_answer": "전향인자가 위도에 따라 달라져 순환이 서쪽 경계로 몰리기 때문",
+      "explanation_hint": "회전하는 지구에서 전향인자는 북쪽으로 갈수록 커진다. 이 위도 변화 탓에 순환이 좌우 대칭이 되지 못하고 서쪽 경계에만 좁고 빠른 흐름이 생긴다. 쿠로시오와 멕시코 만류가 그 보기이고, 이 흐름이 저위도의 열을 중위도로 실어 나른다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "서안강화를 전향인자의 위도 변화로 설명한다 — 지형·수심 오개념과 가른다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "어느 층에서 등압면과 등온면이 서로 크게 기울어져 어긋나 있다. 이런 경압 상태의 대기에서 기대되는 것으로 옳은 것은?",
+      "options": [
+        "남북 기온 차에 갇혀 있던 위치 에너지가 풀리며 저기압이 발달한다",
+        "지균풍이 고도에 따라 변하지 않아 상층과 하층 바람이 같아진다",
+        "온도풍이 0이 되어 상층 바람이 사라진다",
+        "기온이 고르게 퍼져 있어 작은 파동이 자라지 못한다"
+      ],
+      "correct_answer": "남북 기온 차에 갇혀 있던 위치 에너지가 풀리며 저기압이 발달한다",
+      "explanation_hint": "등압면과 등온면이 나란한 대기가 순압, 어긋난 대기가 경압이다. 경압 대기에는 남북 기온 차의 형태로 위치 에너지가 쌓여 있고, 작은 파동이 그 에너지를 운동 에너지로 바꾸며 자란다. 중위도 온대저기압이 이렇게 태어난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "경압·순압 구분을 발달 가능성 판정에 적용한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "태풍 중심으로 다가가는 지상 공기는 거센 바람 탓에 해면에서 증발을 계속 받아들인다. 눈벽 쪽으로 갈수록 지상 공기의 상당온위가 높아지는 까닭으로 옳은 것은?",
+      "options": [
+        "수증기 형태로 실린 잠열이 늘어 온위에 더해지기 때문",
+        "중심 기압이 낮아 공기가 눌리면서 데워지기 때문",
+        "중심으로 갈수록 해수면 온도가 급격히 높아지기 때문",
+        "상층에서 내려오는 하강 기류가 공기를 데우기 때문"
+      ],
+      "correct_answer": "수증기 형태로 실린 잠열이 늘어 온위에 더해지기 때문",
+      "explanation_hint": "상당온위는 공기가 품은 수증기가 모두 응결해 잠열을 내놓았다고 볼 때의 온위다. 태풍은 해면에서 수증기를 빨아들여 지상 공기의 상당온위를 키우고, 그 잠열을 눈벽 상승류에서 풀어 중심 기압을 더 낮춘다. 태풍이 따뜻한 바다 위에서만 자라는 까닭이 이것이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "상당온위를 태풍의 에너지 공급 경로에 적용한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "고도가 다른 두 공기 덩어리는 기압이 달라 기온만으로는 어느 쪽이 더 따뜻한지 가릴 수 없다. 두 덩어리를 모두 1000hPa까지 건조 단열로 옮겼다고 보고 견주는 양은 무엇인가?",
+      "correct_answer": "온위",
+      "explanation_hint": "온위는 공기 덩어리를 1000hPa로 단열 이동시켰을 때 갖는 기온이다. 단열 과정에서 보존되므로 고도가 다른 공기의 따뜻함을 같은 잣대로 견줄 수 있고, 연직 분포만 보고도 성층의 안정도를 읽을 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "고도별 비교라는 필요에서 온위를 끌어낸다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "온난전선 앞쪽에서 하늘을 낮고 두껍게 덮은 채 약한 비를 넓게, 오래 뿌리는 잿빛 구름을 십운형 이름으로 무엇이라 하는가?",
+      "correct_answer": "난층운",
+      "explanation_hint": "난층운은 두껍고 어두운 층운형 구름으로, 온난전선 뒤쪽 완만한 전선면에서 넓게 발달해 약한 비를 오래 내린다. 좁은 구역에 짧고 세게 쏟아지는 소나기는 한랭전선의 적란운 몫이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "강수 특성으로 십운형 명칭을 특정한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "위아래 두 고도의 지균풍 벡터 차이로 정의되고, 그 크기가 두 고도 사이 층의 남북 기온 차에 비례하는 가상의 바람을 무엇이라 하는가?",
+      "correct_answer": "온도풍",
+      "explanation_hint": "온도풍은 실제로 부는 바람이 아니라 두 고도의 지균풍 차이를 가리키는 벡터다. 두 기압면 사이 층이 따뜻할수록 층이 두꺼워지고 상층 기압 경도가 커지므로, 층의 기온 차가 곧 바람의 연직 변화로 드러난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "정의를 기온 차와 연직 풍 변화의 이음새로 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "공기 덩어리가 품은 수증기가 모두 응결해 잠열을 내놓았다고 볼 때의 온위여서, 물이 계 밖으로 빠져나가지 않는 한 습윤 과정에서도 값이 보존되는 양은 무엇인가?",
+      "correct_answer": "상당온위",
+      "explanation_hint": "온위는 건조 단열 과정에서만 보존되지만, 상당온위는 수증기에 실린 잠열까지 더해 세므로 응결이 일어나도 보존된다. 그래서 구름 속 공기를 추적하거나 대류의 에너지를 견줄 때 상당온위를 쓴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "보존 조건의 차이로 상당온위를 특정한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "공기 자체의 회전인 상대와도에 지구 자전이 주는 회전인 전향인자를 더한 값으로, 공기 기둥의 두께로 나눈 비가 보존되는 회전량을 무엇이라 하는가?",
+      "correct_answer": "절대와도",
+      "explanation_hint": "절대와도는 지구와 함께 도는 좌표에서 본 회전이 아니라, 우주에 붙박인 눈으로 본 공기의 총 회전이다. 공기 기둥의 두께가 변하면 절대와도가 두께에 비례해 바뀌며 흐름을 휘게 만든다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "보존 관계를 단서로 삼아 절대와도를 특정한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "봄철 강원 영동에서는 산을 넘어 내려온 바람이 덥고 메말라 산불을 크게 키운다. 산을 오를 때와 내려올 때의 단열 감률이 달라 생기는 이 현상을 무엇이라 하는가?",
+      "correct_answer": "푄",
+      "explanation_hint": "습한 공기는 오르면서 습윤 단열 감률로 천천히 식고 비를 뿌려 물기를 잃는다. 내려올 때는 건조 단열 감률로 빠르게 데워지므로 산을 넘은 바람은 오르기 전보다 덥고 메마르다. 낮아진 습도와 강한 바람이 겹치면 산불이 걷잡을 수 없이 번진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "산불 확산 조건에서 푄을 끌어낸다 — 재난 축과 이은 적용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "대양 아열대 순환에서 동쪽 경계 해류는 넓고 느린데 서쪽 경계 해류만 좁고 깊고 빠르게 몰린다. 이 비대칭을 무엇이라 하는가?",
+      "correct_answer": "서안강화",
+      "explanation_hint": "서안강화는 전향인자가 위도에 따라 커지는 탓에 생긴다. 순환이 좌우 대칭을 이루지 못하고 서쪽 경계에 흐름이 몰리며, 쿠로시오와 멕시코 만류가 그 결과다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "관측된 비대칭에서 개념 이름을 특정한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "온위는 건조 단열 과정에서 보존된다. 900hPa에서 온위가 300K인 공기 덩어리를 건조 단열로 1000hPa까지 내리면 이 덩어리의 온위는 ___K가 된다.",
+      "correct_answer": "300",
+      "explanation_hint": "온위는 건조 단열로 오르내리는 동안 값이 변하지 않는다. 기온은 압축으로 올라가지만 온위는 그대로 300K다. 보존량이라는 말의 뜻이 이것이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온위 보존을 수치로 확인한다 — 기온과 온위를 가르는 지점"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "높은 하늘에 얼음 알갱이로 이뤄진 얇은 구름이 넓게 퍼져 해무리가 걸리면, 십운형 가운데 ___이 하늘을 덮은 것이다.",
+      "correct_answer": "권층운",
+      "explanation_hint": "권층운은 대류권 상부에 얇게 퍼진 층운형 구름이라 해와 달을 가리지 않고 무리만 만든다. 권운보다 짜임새가 고르고, 이 구름이 두꺼워지면 고층운으로 이어져 온난전선의 접근을 알린다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "무리 현상이라는 관측 단서로 십운형 명칭을 짚는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "북반구 바다에서 바람이 이어지면 마찰층 전체를 더한 에크만 수송은 풍향의 오른쪽 ___도 방향을 향한다.",
+      "correct_answer": "90",
+      "explanation_hint": "표층 바로 아래 물은 풍향의 오른쪽 45도로 흐르지만, 깊이마다 조금씩 더 오른쪽으로 돌아가는 에크만 나선을 전 층에 걸쳐 더하면 정확히 오른쪽 90도가 된다. 이 값이 연안 용승과 침강을 가르는 기준이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "에크만 나선의 층 적분값을 짚는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "알베도가 0.85인 눈밭은 내리쬔 태양 복사 가운데 ___%만 흡수한다.",
+      "correct_answer": "15",
+      "explanation_hint": "흡수율은 1에서 알베도를 뺀 값이다. 알베도 0.85면 흡수율은 0.15, 곧 15%다. 알베도 0.08인 바다가 92%를 흡수하는 것과 견주면 같은 햇빛이 얼마나 다르게 쌓이는지 드러난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "알베도를 흡수율로 환산한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "상승하는 공기에서 기온과 이슬점의 차이는 1km에 약 8℃씩 좁혀진다. 지상 기온이 30℃, 이슬점이 20℃라면 약 ___m 높이에서 두 값이 만나 상승 응결 고도가 된다.",
+      "correct_answer": "1250",
+      "explanation_hint": "기온은 건조 단열 감률 10℃/km로 내려가고 이슬점은 약 2℃/km로 내려가므로 둘의 차는 1km에 8℃씩 좁혀진다. 처음 차가 10℃면 10을 8로 나눈 1.25km, 곧 1250m에서 만나 구름 밑면이 생긴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "상승 응결 고도 어림셈을 적용한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "등압면과 등온면이 나란해 지균풍이 고도에 따라 변하지 않고 온도풍이 0인 대기를 ___ 대기라고 한다.",
+      "correct_answer": "순압",
+      "explanation_hint": "순압 대기에서는 밀도가 기압만으로 정해져 등압면과 등온면이 겹치므로 층마다 기압 경도가 같고 지균풍도 같다. 반대로 두 면이 어긋난 경압 대기에는 남북 기온 차의 위치 에너지가 쌓여 저기압이 자란다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온도풍이 0이라는 조건에서 순압을 특정한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "수압 경도력과 전향력이 균형을 이뤄 등압선과 나란히 흐르는 해류를 ___라고 한다.",
+      "correct_answer": "지형류",
+      "explanation_hint": "대기의 지균풍과 같은 균형이 바다에서 이뤄진 것이 지형류다. 해면 높이 분포만 알면 이 균형으로 표층 해류의 방향과 세기를 어림할 수 있어, 위성 고도계 자료가 해류도로 바뀌는 근거가 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "균형 조건으로 지형류를 특정한다 — 지균풍과 짝인 개념"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "고도 1.5km에 있는 기온 5℃인 공기 덩어리를 건조 단열 감률 10℃/km로 지상까지 내렸다고 보자. 이때 얻는 기온, 곧 이 덩어리의 온위를 섭씨로 짚어라.",
+      "correct_answer": "20",
+      "min": 0,
+      "max": 60,
+      "step": 5,
+      "unit": "℃",
+      "explanation_hint": "건조 단열로 1.5km를 내려오면 기온은 10℃/km에 1.5km를 곱한 15℃만큼 오른다. 5℃에 15℃를 더해 20℃이고, 이 값이 지상 기준으로 환산한 온위다. 온위를 쓰면 고도가 다른 공기의 따뜻함을 같은 잣대로 견줄 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온위를 실제로 계산시킨다 — 감률 적용 + 보존 개념"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "알베도가 0.3인 지구가 흡수한 태양 복사만큼을 그대로 우주로 내보낸다고 볼 때, 슈테판·볼츠만 법칙으로 얻는 지구의 복사 평형 온도를 켈빈으로 짚어라.",
+      "correct_answer": "255",
+      "min": 200,
+      "max": 300,
+      "step": 5,
+      "unit": "K",
+      "explanation_hint": "태양 상수의 4분의 1에 흡수율 0.7을 곱한 값을 슈테판·볼츠만 법칙에 넣으면 약 255K, 곧 영하 18℃가 나온다. 실제 지표 평균은 288K이므로 그 차이 33K가 온실효과의 몫이다. 알베도가 커지면 이 평형 온도는 더 내려간다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "알베도를 복사 평형 온도 계산에 넣는다 — 온실효과의 크기를 차로 끌어낸다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "상당온위는 근사식으로 온위에 혼합비의 2.5배를 더해 어림한다. 온위가 298K이고 혼합비가 20g/kg인 지상 공기의 상당온위를 짚어라.",
+      "correct_answer": "348",
+      "min": 300,
+      "max": 400,
+      "step": 2,
+      "unit": "K",
+      "explanation_hint": "298K에 20g/kg의 2.5배인 50K를 더해 348K다. 더해진 50K가 수증기에 잠열로 저장된 몫이며, 이 공기가 상승해 모두 응결하면 그만큼 데워질 잠재력을 지녔다는 뜻이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "상당온위 근사식을 직접 계산한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "북반구 바다에서 바람이 불 때 표층 바로 아래 해수는 에크만 나선에 따라 풍향에서 오른쪽으로 몇 도 틀어져 흐르는지 짚어라.",
+      "correct_answer": "45",
+      "min": 0,
+      "max": 90,
+      "step": 5,
+      "unit": "도",
+      "explanation_hint": "표층에서는 오른쪽 45도, 깊어질수록 더 오른쪽으로 돌아가며 흐름이 약해진다. 전 층을 더한 에크만 수송은 오른쪽 90도가 된다. 45도와 90도를 헷갈리면 용승이 일어날 해안을 반대로 짚게 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "에크만 나선의 표층 값과 층 적분값을 가른다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "기온 20℃인 습한 공기가 산을 2km 오르며 습윤 단열 감률 5℃/km로 식고, 정상에서 물기를 잃은 뒤 2km를 건조 단열 감률 10℃/km로 내려온다. 산을 다 내려온 지점의 기온을 짚어라.",
+      "correct_answer": "30",
+      "min": 0,
+      "max": 60,
+      "step": 5,
+      "unit": "℃",
+      "explanation_hint": "오를 때는 5℃/km에 2km를 곱한 10℃만큼 식어 10℃가 되고, 내려올 때는 10℃/km에 2km를 곱한 20℃만큼 데워져 30℃가 된다. 오르내린 높이가 같아도 감률이 달라 10℃가 남으며, 이것이 푄으로 풍하측이 더워지는 몫이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "푄의 승온을 두 감률의 차로 계산한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "십운형 구름 이름과 그 모습을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "권운",
+          "right": "대류권 상부에 얼음 알갱이로 새털처럼 뻗은 구름"
+        },
+        {
+          "left": "권층운",
+          "right": "하늘을 얇게 덮어 해무리와 달무리를 만드는 구름"
+        },
+        {
+          "left": "난층운",
+          "right": "하늘을 낮고 두껍게 덮어 약한 비를 오래 뿌리는 잿빛 구름"
+        },
+        {
+          "left": "층적운",
+          "right": "낮은 하늘에 덩어리들이 이불처럼 이어 붙은 구름"
+        }
+      ],
+      "correct_answer": "권운:대류권 상부에 얼음 알갱이로 새털처럼 뻗은 구름|권층운:하늘을 얇게 덮어 해무리와 달무리를 만드는 구름|난층운:하늘을 낮고 두껍게 덮어 약한 비를 오래 뿌리는 잿빛 구름|층적운:낮은 하늘에 덩어리들이 이불처럼 이어 붙은 구름",
+      "explanation_hint": "십운형은 고도와 모양으로 구름을 열 갈래로 나눈 국제 분류 체계다. 앞머리의 권은 상층, 고는 중층을 가리키고 층은 넓게 퍼진 모양, 적은 덩어리진 모양, 난은 비를 내리는 구름을 뜻한다. 이름만 뜯어봐도 높이와 성질이 읽힌다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "십운형 명명 규칙을 이름 해부로 적용한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "대기 역학에서 다루는 네 가지 바람과 그 정의를 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "지균풍",
+          "right": "기압 경도력과 전향력만 맞버텨 등압선과 나란히 부는 바람"
+        },
+        {
+          "left": "경도풍",
+          "right": "휜 등압선을 따라 원심력까지 더해 균형을 이룬 바람"
+        },
+        {
+          "left": "지상풍",
+          "right": "마찰력이 더해져 등압선을 비스듬히 가로지르는 바람"
+        },
+        {
+          "left": "온도풍",
+          "right": "두 고도의 지균풍 차이로 정의되어 층의 기온 차를 나타내는 바람"
+        }
+      ],
+      "correct_answer": "지균풍:기압 경도력과 전향력만 맞버텨 등압선과 나란히 부는 바람|경도풍:휜 등압선을 따라 원심력까지 더해 균형을 이룬 바람|지상풍:마찰력이 더해져 등압선을 비스듬히 가로지르는 바람|온도풍:두 고도의 지균풍 차이로 정의되어 층의 기온 차를 나타내는 바람",
+      "explanation_hint": "앞의 셋은 실제로 부는 바람을 힘의 균형으로 나눈 것이고, 온도풍만 성질이 다르다. 온도풍은 부는 바람이 아니라 두 고도의 지균풍 차이라서 기온 분포를 바람의 연직 변화로 번역해 주는 도구다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "균형풍 계열에서 온도풍만 성질이 다르다는 점을 가른다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "공기 덩어리를 따라갈 때 보존되는 양과 그 보존 조건을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "온위",
+          "right": "응결이 없는 건조 단열 과정에서 보존된다"
+        },
+        {
+          "left": "상당온위",
+          "right": "응결이 일어나는 습윤 단열 과정에서도 보존된다"
+        },
+        {
+          "left": "혼합비",
+          "right": "증발도 응결도 없는 동안 보존되는 수증기량의 척도다"
+        }
+      ],
+      "correct_answer": "온위:응결이 없는 건조 단열 과정에서 보존된다|상당온위:응결이 일어나는 습윤 단열 과정에서도 보존된다|혼합비:증발도 응결도 없는 동안 보존되는 수증기량의 척도다",
+      "explanation_hint": "보존량은 저마다 보존되는 조건이 다르고, 그 조건이 곧 쓰임새를 정한다. 구름 밑에서는 온위로, 구름 속에서는 상당온위로 공기를 추적한다. 비가 내려 물이 계 밖으로 빠지면 상당온위마저 줄어든다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "보존 조건이라는 축으로 세 양을 가른다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "바다의 흐름을 설명하는 개념과 그 뜻을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "에크만 수송",
+          "right": "마찰층 전체를 더한 흐름이 북반구에서 풍향의 오른쪽 90도를 향하는 것"
+        },
+        {
+          "left": "지형류",
+          "right": "수압 경도력과 전향력이 균형을 이뤄 등압선과 나란히 흐르는 해류"
+        },
+        {
+          "left": "서안강화",
+          "right": "전향인자의 위도 변화 탓에 대양 서쪽 경계 해류가 좁고 빨라지는 것"
+        },
+        {
+          "left": "용승",
+          "right": "표층 물이 밀려 나간 자리를 아래층 찬물이 메우며 올라오는 것"
+        }
+      ],
+      "correct_answer": "에크만 수송:마찰층 전체를 더한 흐름이 북반구에서 풍향의 오른쪽 90도를 향하는 것|지형류:수압 경도력과 전향력이 균형을 이뤄 등압선과 나란히 흐르는 해류|서안강화:전향인자의 위도 변화 탓에 대양 서쪽 경계 해류가 좁고 빨라지는 것|용승:표층 물이 밀려 나간 자리를 아래층 찬물이 메우며 올라오는 것",
+      "explanation_hint": "넷은 모두 전향력이 바다에 남긴 자국이다. 바람이 에크만 수송을 만들고, 그 수송이 해면을 기울여 지형류를 낳으며, 위도에 따른 전향인자 변화가 서안강화를 만든다. 연안에서 수송이 물을 걷어 내면 용승이 이어진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "해양 역학 개념 4종을 전향력이라는 한 줄기로 잇는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "온위의 연직 분포와 그때의 대기 안정도를 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "온위가 고도에 따라 커진다",
+          "right": "안정한 성층이라 밀려 올라간 공기가 제자리로 돌아온다"
+        },
+        {
+          "left": "온위가 고도에 따라 일정하다",
+          "right": "중립 성층이라 밀려 올라간 공기가 그 자리에 머문다"
+        },
+        {
+          "left": "온위가 고도에 따라 작아진다",
+          "right": "불안정한 성층이라 밀려 올라간 공기가 스스로 더 솟구친다"
+        }
+      ],
+      "correct_answer": "온위가 고도에 따라 커진다:안정한 성층이라 밀려 올라간 공기가 제자리로 돌아온다|온위가 고도에 따라 일정하다:중립 성층이라 밀려 올라간 공기가 그 자리에 머문다|온위가 고도에 따라 작아진다:불안정한 성층이라 밀려 올라간 공기가 스스로 더 솟구친다",
+      "explanation_hint": "온위는 건조 단열로 오르내려도 변하지 않으므로, 올라간 공기의 온위를 그 높이 주변 공기의 온위와 견주기만 하면 부력의 부호가 나온다. 주변보다 온위가 낮으면 무거워 내려오고, 높으면 가벼워 더 솟는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온위 연직 분포를 안정도 판정에 적용한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "온난전선이 다가올 때 하늘에 차례로 나타나는 십운형 구름을 순서대로 배열하라.",
+      "items": [
+        "서쪽 높은 하늘에 권운이 새털처럼 번진다",
+        "권층운이 하늘을 얇게 덮어 해무리가 걸린다",
+        "고층운이 하늘을 뿌옇게 가려 해가 흐려진다",
+        "난층운이 낮게 드리워 약한 비가 넓게 내리기 시작한다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "온난전선면은 기울기가 완만해 전선이 다가올수록 머리 위 구름이 낮고 두꺼워진다. 그래서 상층 얼음 구름인 권운에서 시작해 권층운·고층운을 거쳐 비를 내리는 난층운으로 이어진다. 이 차례가 뒤집히면 온난전선이 아니라 물러가는 전선을 보고 있는 것이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "십운형 순서를 전선면 기울기라는 원인에서 끌어낸다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "북반구 해안에서 연안 용승이 만들어지는 과정을 순서대로 배열하라.",
+      "items": [
+        "해안선과 나란한 바람이 며칠째 이어진다",
+        "에크만 수송으로 표층 해수가 풍향의 오른쪽 90도, 곧 외해 쪽으로 밀려 나간다",
+        "빠져나간 표층 물의 빈자리를 아래층 물이 메우며 올라온다",
+        "차고 영양염이 많은 물이 표층에 닿아 수온이 내려가고 좋은 어장이 만들어진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "바람이 곧바로 물을 끌어 올리는 것이 아니라, 전향력이 만든 옆 방향 수송이 표층을 걷어 낸 다음에야 아래층 물이 올라온다. 그래서 용승이 일어날 해안은 바람의 방향과 해안선의 배치로 정해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "에크만 수송을 원인 사슬의 중간 고리로 놓는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "푄이 일어나 산을 넘은 바람이 덥고 메말라지는 과정을 순서대로 배열하라.",
+      "items": [
+        "습한 공기가 산비탈을 타고 억지로 밀려 올라간다",
+        "상승 응결 고도에 닿아 구름이 생기고 바람받이 쪽에 비가 내린다",
+        "물기를 잃은 공기가 산마루를 넘는다",
+        "건조 단열 감률을 따라 내려오며 오를 때보다 빠르게 데워진다",
+        "산을 넘기 전보다 덥고 메마른 바람이 되어 풍하측에 닿는다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "오를 때는 응결로 잠열이 나와 습윤 단열 감률로 천천히 식지만, 물기를 잃은 뒤 내려올 때는 건조 단열 감률로 빠르게 데워진다. 같은 높이를 오르내려도 두 감률의 차이만큼 기온이 남고 상대습도는 크게 떨어진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "푄을 감률 차이라는 원인으로 사슬화한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "중위도 온대저기압이 경압 불안정으로 태어나 사그라들기까지를 순서대로 배열하라.",
+      "items": [
+        "남북 기온 차가 큰 경압 대기에 정체전선이 놓인다",
+        "작은 파동이 생겨 한랭전선과 온난전선이 갈라져 나온다",
+        "위치 에너지가 운동 에너지로 바뀌며 중심 기압이 낮아지고 저기압이 발달한다",
+        "빠른 한랭전선이 온난전선을 따라잡아 폐색전선이 만들어진다",
+        "따뜻한 공기가 모두 들려 올라가 에너지원이 끊기고 저기압이 사그라든다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "온대저기압의 에너지원은 태풍과 달리 잠열이 아니라 남북 기온 차에 갇힌 위치 에너지다. 그래서 찬 공기와 따뜻한 공기가 나란히 놓인 경압 대기에서만 태어나고, 폐색으로 두 공기가 뒤섞여 기온 차가 사라지면 힘을 잃는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "경압 불안정을 저기압 일생의 에너지원으로 적용한다"
+      ]
+    },
+    "status": "active"
+  }
+]
