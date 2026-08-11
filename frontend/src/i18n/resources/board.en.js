@@ -10,6 +10,40 @@
 // 스모크는 이제 "ko 화면 무회귀"를 검증하고, en 품질은 이 파일이 소유한다.
 export default {
   board: {
+    // MT-28: board display dictionary (see boardDisplay.js).
+    meta: {
+      airMass: {
+        siberian: { label: 'Siberian air mass', hint: 'cold & dry' },
+        north_pacific: { label: 'North Pacific air mass', hint: 'hot & humid' },
+        yangtze: { label: 'Yangtze air mass', hint: 'warm & dry' },
+        okhotsk: { label: 'Okhotsk air mass', hint: 'cold & humid' },
+      },
+      front: {
+        cold: { label: 'Cold front', hint: 'cold air wedges in' },
+        warm: { label: 'Warm front', hint: 'warm air rides over' },
+        stationary: { label: 'Stationary front', hint: 'two air masses stall (monsoon rains)' },
+      },
+      phenomenon: {
+        shower: { label: 'Shower' },
+        rain: { label: 'Rain' },
+        persistent_rain: { label: 'Persistent rain (monsoon)' },
+        snow: { label: 'Snow' },
+        fog: { label: 'Fog' },
+        heatwave: { label: 'Heat wave' },
+        clear: { label: 'Clear' },
+        cloudy: { label: 'Cloudy' },
+        wildfire_risk: { label: 'Wildfire risk' },
+        flood_risk: { label: 'Flood risk' },
+      },
+      cloud: {
+        cumulonimbus: { label: 'Cumulonimbus' },
+        nimbostratus: { label: 'Nimbostratus' },
+        stratus: { label: 'Stratus' },
+        cumulus: { label: 'Cumulus' },
+        none: { label: 'No cloud' },
+      },
+      element: { moisture: 'Moisture', sun: 'Sunlight', wind: 'Wind' },
+    },
     common: {
       outOfClouds: '☁️ Your clouds have all drifted away',
     },
@@ -130,6 +164,18 @@ export default {
       jumpTo: 'Go to step {n}',
     },
     map: {
+      // MT-28: rule annotations (see mapInfographic RULE_ANNOTATIONS).
+      // The \n keeps the leader-line label on two lines.
+      annotation: {
+        cold_front_shower: 'Cold front passes,\nshowers & lightning',
+        stationary_front_monsoon: 'Stationary front forms,\ntorrential rain',
+        warm_front_steady_rain: 'Warm front approaches,\nwide light rain',
+        siberian_snow: 'Air mass transforms,\nwest-coast snowfall',
+        convective_shower: 'Strong insolation,\nafternoon convective shower',
+        radiation_fog: 'Radiative cooling,\ndense dawn fog',
+        north_pacific_heatwave: 'Hot humid air,\npersistent heat wave',
+        siberian_clear: 'Cold dry air,\nclear and cold',
+      },
       mapAria: 'Korean Peninsula atmosphere board map — place elements on the 4 region nodes',
       zoneAria: '{name} zone{goal} — currently {phenomenon}',
       goalSuffix: ' (goal zone)',

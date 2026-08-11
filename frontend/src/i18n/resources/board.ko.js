@@ -7,6 +7,43 @@
 // (assist·board-entry·visual·webgl·overlay)가 이 문자열을 단정한다.
 export default {
   board: {
+    // MT-28: board 표시 사전 — `boardDisplay.js`가 getter로 참조한다.
+    // ko 값은 종전 리터럴과 **바이트 동일**이어야 한다: 한국어 문구를 단정하는
+    // 스모크(boardAssistRetention의 selectPalette('한랭전선') 등)가 로케일 ko로
+    // 고정돼 있어서, 한 글자만 달라도 그 스모크가 붉어진다.
+    meta: {
+      airMass: {
+        siberian: { label: '시베리아 기단', hint: '한랭 건조' },
+        north_pacific: { label: '북태평양 기단', hint: '고온 다습' },
+        yangtze: { label: '양쯔강 기단', hint: '온난 건조' },
+        okhotsk: { label: '오호츠크해 기단', hint: '한랭 다습' },
+      },
+      front: {
+        cold: { label: '한랭전선', hint: '찬 공기가 파고듦' },
+        warm: { label: '온난전선', hint: '따뜻한 공기가 타고 오름' },
+        stationary: { label: '정체전선', hint: '두 기단이 대치(장마)' },
+      },
+      phenomenon: {
+        shower: { label: '소나기' },
+        rain: { label: '비' },
+        persistent_rain: { label: '지속성 비(장마)' },
+        snow: { label: '눈' },
+        fog: { label: '안개' },
+        heatwave: { label: '폭염' },
+        clear: { label: '맑음' },
+        cloudy: { label: '흐림' },
+        wildfire_risk: { label: '산불 위험' },
+        flood_risk: { label: '침수 위험' },
+      },
+      cloud: {
+        cumulonimbus: { label: '적란운' },
+        nimbostratus: { label: '난층운' },
+        stratus: { label: '층운' },
+        cumulus: { label: '적운' },
+        none: { label: '구름 없음' },
+      },
+      element: { moisture: '습기', sun: '일사', wind: '바람' },
+    },
     common: {
       // assist·board-entry 스모크가 '구름이 모두 흩어졌어요'를 단정
       outOfClouds: '☁️ 구름이 모두 흩어졌어요',
@@ -130,6 +167,18 @@ export default {
       jumpTo: '{n}단계로 이동',
     },
     map: {
+      // MT-28: 규칙 8종 주석(mapInfographic RULE_ANNOTATIONS). 줄바꿈(\n)이 리더선
+      // 라벨의 2줄 배치를 만든다 — 지우면 한 줄로 붙어 지도 밖으로 넘친다.
+      annotation: {
+        cold_front_shower: '한랭전선 통과,\n소나기·번개',
+        stationary_front_monsoon: '정체전선 형성,\n집중호우 발생',
+        warm_front_steady_rain: '온난전선 접근,\n넓은 지역 약한 비',
+        siberian_snow: '기단 변질,\n서해안 폭설',
+        convective_shower: '강한 일사,\n오후 대류성 소나기',
+        radiation_fog: '복사냉각,\n새벽 짙은 안개',
+        north_pacific_heatwave: '고온 다습 공기,\n폭염 지속',
+        siberian_clear: '한랭 건조 공기,\n맑고 추움',
+      },
       mapAria: '한반도 대기 보드 지도 — 4개 지역 노드에 요소를 배치하세요',
       zoneAria: '{name} 존{goal} — 현재 {phenomenon}',
       goalSuffix: ' (목표 존)',

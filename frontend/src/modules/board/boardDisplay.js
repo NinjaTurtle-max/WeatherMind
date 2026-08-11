@@ -3,56 +3,92 @@
  * 판정 enum(§3.2)과 배치 요소 subtype에 사람이 읽을 라벨/아이콘을 매핑한다.
  * 계약 enum과 1:1 — 값 추가는 계약 변경 시에만.
  *
- * ⚠️ i18n 외부화 제외(R11-01 §6.3 판정): 서버 enum↔표시명 사전(어휘 데이터)이고,
- * boardAssistRetention 스모크가 이 라벨을 ANSWER_LABELS(정답 노출 검사)·팔레트
- * 상호작용 셀렉터(selectPalette('한랭전선')·[aria-label="한랭전선 제거"])로 물고
- * 있다. 로케일화는 스모크 로케일 고정 이후 웨이브에서 일괄.
+ * §6.3 외부화 (MT-28 — 2026-08-11). 종전에 *"i18n 외부화 제외 … 로케일화는 스모크
+ * 로케일 고정 이후 웨이브에서 일괄"*이라 적혀 있었고, **그 선행 조건은 이미
+ * 착지해 있었다** — `boardAssistRetention.smoke:73`이 `weathermind.locale='ko'`를
+ * 고정한다. 사유가 만료된 채 주석만 남아 있었고, 그 주석이 스스로 제외를 자백하면서도
+ * 이월 대장에는 행이 없어 감사에서 8/10까지 안 잡혔다(§0.8.1ⓐ).
+ *
+ * 방식은 `lib/abilityDisplay.js`의 선례와 같다: **이름·export 형태·인덱싱
+ * (`DICT[key]?.label ?? fallback`)을 보존한 채** 리소스 파생 getter로 바꾼다.
+ * 접근 시점의 로케일로 풀리므로 소유 밖 소비처가 그대로 동작하고, **ko 값은
+ * 리소스에 바이트 동일**이라 한국어 문구를 단정하는 스모크가 손대지 않고 통과한다.
+ * 미지 키는 종전처럼 undefined → 소비처의 `?? subtype` 폴백이 그대로 산다.
  */
+// core만 import — index.js(zustand)를 끌면 mock의 순수 node 경로가 죽는다(core.js 주석)
+import { translate, getCurrentLocale } from '../../i18n/core.js';
+
+const tx = (key) => translate(getCurrentLocale(), key);
+
+/**
+ * {key: {label, icon, hint?}} 사전을 리소스 파생 getter로 만든다.
+ * icon은 이모지라 로케일 무관 — 리소스로 빼지 않는다(번역 대상이 아닌 것을 리소스에
+ * 넣으면 ko/en 패리티 검사가 "번역되지 않은 값"을 계속 보고한다).
+ */
+function metaDict(prefix, entries) {
+  const dict = {};
+  for (const [key, icon, hasHint] of entries) {
+    const meta = { icon };
+    Object.defineProperty(meta, 'label', {
+      enumerable: true,
+      get: () => tx(`${prefix}.${key}.label`),
+    });
+    if (hasHint) {
+      Object.defineProperty(meta, 'hint', {
+        enumerable: true,
+        get: () => tx(`${prefix}.${key}.hint`),
+      });
+    }
+    dict[key] = meta;
+  }
+  return dict;
+}
 
 // 배치 요소 팔레트 항목 정의 (§3.3 palette 토큰 → UI)
 //   토큰 형식: "air_mass:siberian" / "front:cold" / "moisture" / "sun"
-export const AIR_MASS_META = {
-  siberian: { label: '시베리아 기단', icon: '❄️', hint: '한랭 건조' },
-  north_pacific: { label: '북태평양 기단', icon: '🥵', hint: '고온 다습' },
-  yangtze: { label: '양쯔강 기단', icon: '🌤️', hint: '온난 건조' },
-  okhotsk: { label: '오호츠크해 기단', icon: '🧊', hint: '한랭 다습' },
-};
+export const AIR_MASS_META = metaDict('board.meta.airMass', [
+  ['siberian', '❄️', true],
+  ['north_pacific', '🥵', true],
+  ['yangtze', '🌤️', true],
+  ['okhotsk', '🧊', true],
+]);
 
-export const FRONT_META = {
-  cold: { label: '한랭전선', icon: '🔵', hint: '찬 공기가 파고듦' },
-  warm: { label: '온난전선', icon: '🔴', hint: '따뜻한 공기가 타고 오름' },
-  stationary: { label: '정체전선', icon: '🟣', hint: '두 기단이 대치(장마)' },
-};
+export const FRONT_META = metaDict('board.meta.front', [
+  ['cold', '🔵', true],
+  ['warm', '🔴', true],
+  ['stationary', '🟣', true],
+]);
 
-export const PHENOMENON_META = {
-  shower: { label: '소나기', icon: '🌦️' },
-  rain: { label: '비', icon: '🌧️' },
-  persistent_rain: { label: '지속성 비(장마)', icon: '☔' },
-  snow: { label: '눈', icon: '❄️' },
-  fog: { label: '안개', icon: '🌫️' },
-  heatwave: { label: '폭염', icon: '🔥' },
-  clear: { label: '맑음', icon: '☀️' },
-  cloudy: { label: '흐림', icon: '☁️' },
+export const PHENOMENON_META = metaDict('board.meta.phenomenon', [
+  ['shower', '🌦️'],
+  ['rain', '🌧️'],
+  ['persistent_rain', '☔'],
+  ['snow', '❄️'],
+  ['fog', '🌫️'],
+  ['heatwave', '🔥'],
+  ['clear', '☀️'],
+  ['cloudy', '☁️'],
   // R13 재난 축(CO-A3·CO-K4) — 재난 보드가 목표로 삼던 'clear'를 대체한다.
   // 이 두 줄이 없으면 phenomenonMeta 폴백이 지도·단면 패널에 enum 원문 + ❔를 그린다.
-  wildfire_risk: { label: '산불 위험', icon: '🔥' },
-  flood_risk: { label: '침수 위험', icon: '🌊' },
-};
+  ['wildfire_risk', '🔥'],
+  ['flood_risk', '🌊'],
+]);
 
-export const CLOUD_META = {
-  cumulonimbus: { label: '적란운', icon: '⛈️' },
-  nimbostratus: { label: '난층운', icon: '🌧️' },
-  stratus: { label: '층운', icon: '🌁' },
-  cumulus: { label: '적운', icon: '⛅' },
-  none: { label: '구름 없음', icon: '🌈' },
-};
+export const CLOUD_META = metaDict('board.meta.cloud', [
+  ['cumulonimbus', '⛈️'],
+  ['nimbostratus', '🌧️'],
+  ['stratus', '🌁'],
+  ['cumulus', '⛅'],
+  ['none', '🌈'],
+]);
 
 /** 팔레트 토큰 → {type, subtype?, meta} 파싱 (§3.3 palette 항목) */
 export function parsePaletteToken(token) {
-  if (token === 'moisture') return { type: 'moisture', label: '습기', icon: '💧' };
-  if (token === 'sun') return { type: 'sun', label: '일사', icon: '☀️' };
+  if (token === 'moisture')
+    return { type: 'moisture', label: tx('board.meta.element.moisture'), icon: '💧' };
+  if (token === 'sun') return { type: 'sun', label: tx('board.meta.element.sun'), icon: '☀️' };
   // wind는 세기(level) 요소다 — 방향(subtype)이 아니다. 근거는 board_engine.py 도크스트링.
-  if (token === 'wind') return { type: 'wind', label: '바람', icon: '🌬️' };
+  if (token === 'wind') return { type: 'wind', label: tx('board.meta.element.wind'), icon: '🌬️' };
   const [type, subtype] = token.split(':');
   if (type === 'air_mass') {
     const meta = AIR_MASS_META[subtype] ?? { label: subtype, icon: '🌀' };
