@@ -206,6 +206,10 @@ export default {
   },
   // 내 정보 탭(modules/progress/ProgressPage.jsx — 헤더·진단 배너·스파인 카드)
   profile: {
+    // MT-28: ProgressPage 스트릭 칩 — 마지막 하드코딩 한국어였다
+    streak: {
+      dayCount: '{n}일',
+    },
     // 2026-08-06 시안 개편 — 2열 대시보드
     title: '내 정보',
     subtitle: '지금까지의 활동을 확인하고 더 높은 목표를 향해 나아가세요!',

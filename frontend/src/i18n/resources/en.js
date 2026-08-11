@@ -182,6 +182,10 @@ export default {
     start: 'Start learning →',
   },
   profile: {
+    // MT-28: ProgressPage 스트릭 칩 — 마지막 하드코딩 한국어였다
+    streak: {
+      dayCount: '{n} d',
+    },
     title: 'Profile',
     subtitle: 'Check what you have done and aim for the next goal!',
     badgeStat: 'Badges',

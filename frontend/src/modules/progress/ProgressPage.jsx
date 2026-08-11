@@ -341,7 +341,7 @@ function NextGoalsCard({ me }) {
           now={Math.min(streak, STREAK_TARGET)}
           target={STREAK_TARGET}
           unit=""
-          chip={`${streak}일`}
+          chip={t('profile.streak.dayCount', { n: streak })}
         />
       </div>
     </div>
