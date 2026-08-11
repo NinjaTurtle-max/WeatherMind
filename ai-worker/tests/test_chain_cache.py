@@ -5,6 +5,12 @@
   동일 인스턴스가 반환된다 (호출당 생성 비용 제거).
 - 캐시 키에 모델명·키가 포함되어 settings 변경 시에는 새 인스턴스가 생성된다.
 
+⚠️ **이음매가 옮겨졌다**(2026-08-11, CO-B7 프로바이더 통로):
+체인이 `ChatGoogleGenerativeAI`를 직접 만들지 않고 `llm_provider.build_chat_model`을
+쓴다. 그래서 이 파일의 대역도 **모듈 속성 패치 → env·config 패치**로 옮겼다.
+무는 성질은 그대로다 — "같은 설정은 재사용 · 설정이 바뀌면 새 인스턴스".
+대역을 옛 자리에 두면 테스트가 **아무것도 안 무는 채로 초록**이 된다.
+
 의존성 정책(기존 suite 관례):
 - validate_chain은 지연 임포트 설계이므로 langchain 부재 환경에서도 sys.modules
   스텁으로 캐시 계약을 항상 검증한다 (키 없는 CI에서도 실행).
@@ -14,7 +20,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 import sys
 import types
 
@@ -75,12 +80,9 @@ def test_validate_llm_rebuilds_when_settings_change(monkeypatch):
     _stub_genai_module(monkeypatch, created)
 
     first = validate_chain._cached_validate_llm(0.2)
-    # Settings는 frozen dataclass — 모듈이 참조하는 settings 객체 자체를 교체
-    monkeypatch.setattr(
-        validate_chain,
-        "settings",
-        dataclasses.replace(validate_chain.settings, GEMINI_MODEL="gemini-other-model"),
-    )
+    # 캐시 키는 이제 **해석된 스펙**이다(llm_provider.resolve_spec) — 모델 변경은
+    # env 오버라이드로 준다. 이것이 실서비스에서 모델을 갈아끼우는 실제 경로다.
+    monkeypatch.setenv("LLM_VALIDATE_MODEL", "gemini-other-model")
     second = validate_chain._cached_validate_llm(0.2)
     retry_temp = validate_chain._cached_validate_llm(0.0)
 
@@ -97,11 +99,33 @@ def _import_rag_chain():
     return rag_chain
 
 
+def _stub_provider(monkeypatch, created: list, module=None):
+    """LLM 생성부를 Runnable 대역으로 — 새 이음매.
+
+    ⚠️ **체인 모듈의 바인딩**을 패치해야 한다(`llm_provider` 쪽이 아니라).
+    체인이 `from app.llm_provider import build_chat_model`로 가져오므로 이름이
+    임포트 시점에 **고정**된다 — 원본 모듈을 패치하면 체인은 옛 함수를 계속 쓴다
+    (실측: 실제 Gemini 클라이언트가 만들어져 자격증명 오류가 났다).
+    """
+    from app import llm_provider
+    from app.chains import rag_chain as _rag
+
+    target = module or _rag
+    factory = _fake_runnable_factory(created)
+    monkeypatch.setattr(
+        target,
+        "build_chat_model",
+        lambda temperature, purpose=llm_provider.PURPOSE_RUNTIME: factory(
+            model=llm_provider.resolve_spec(purpose).model, temperature=temperature
+        ),
+    )
+
+
 def test_rag_chain_reuses_instance_for_same_settings(monkeypatch):
     rag_chain = _import_rag_chain()
     rag_chain._cached_chain.cache_clear()
     created: list = []
-    monkeypatch.setattr(rag_chain, "ChatGoogleGenerativeAI", _fake_runnable_factory(created))
+    _stub_provider(monkeypatch, created)
 
     first = rag_chain._build_chain()
     second = rag_chain._build_chain()
@@ -114,14 +138,10 @@ def test_rag_chain_rebuilds_when_model_changes(monkeypatch):
     rag_chain = _import_rag_chain()
     rag_chain._cached_chain.cache_clear()
     created: list = []
-    monkeypatch.setattr(rag_chain, "ChatGoogleGenerativeAI", _fake_runnable_factory(created))
+    _stub_provider(monkeypatch, created)
 
     first = rag_chain._build_chain()
-    monkeypatch.setattr(
-        rag_chain,
-        "settings",
-        dataclasses.replace(rag_chain.settings, GEMINI_MODEL="gemini-other-model"),
-    )
+    monkeypatch.setenv("LLM_RUNTIME_MODEL", "gemini-other-model")
     second = rag_chain._build_chain()
 
     assert first is not second, "모델명이 바뀌면 체인이 재생성되어야 한다"
@@ -177,7 +197,7 @@ def test_rag_chain_caches_per_prompt_variant(monkeypatch):
     rag_chain = _import_rag_chain()
     rag_chain._cached_chain.cache_clear()
     created: list = []
-    monkeypatch.setattr(rag_chain, "ChatGoogleGenerativeAI", _fake_runnable_factory(created))
+    _stub_provider(monkeypatch, created)
 
     with_ctx = rag_chain._build_chain(True)
     without_ctx = rag_chain._build_chain(False)

@@ -54,10 +54,24 @@ from pathlib import Path
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.chains.seed_paths import resolve_seed_path
-from app.config import llm_configured, settings
+# ⚠️ **최상위 import여야 한다.** author_items.py가 sys.modules 스왑으로 ai-worker를
+# 격리 임포트하는데(backend와 `app` 패키지명 공유), 함수 안에서 지연 import하면
+# **스왑이 끝난 뒤** 실행돼 backend의 `app`을 뒤져 ModuleNotFoundError가 난다.
+# llm_provider 자체는 langchain을 최상단에서 안 끌므로 여기 둬도 안전하다.
+from app.llm_provider import PURPOSE_RUNTIME, build_chat_model, resolve_spec, spec_is_usable
+
+
+def _llm_available() -> bool:
+    """이 용도의 LLM을 부를 수 있는가 (CO-B7).
+
+    ⚠️ **`llm_configured()`만 보면 안 된다.** 그건 `GEMINI_API_KEY`만 확인하므로,
+    이 용도를 gpt-oss(OpenAI 호환)로 라우팅해도 "키 없음"으로 판정돼 **LLM 경로가
+    영영 안 열린다** — 프로바이더 통로를 뚫어 놓고 문을 잠가 두는 셈이다.
+    Gemini로 해석되면 종전과 똑같이 `llm_configured()`가 답한다(하위호환).
+    """
+    return spec_is_usable(resolve_spec(PURPOSE_RUNTIME))
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +186,7 @@ def _format_context(documents: list[dict]) -> str:
 def _cached_chain(model: str, api_key: str, with_context: bool = True):
     """(model, api_key, 프롬프트 변형)별 LCEL 체인 캐시.
 
-    ChatGoogleGenerativeAI 인스턴스 생성 비용이 피드백 호출마다 반복되지 않도록
+    LLM 클라이언트 생성 비용이 피드백 호출마다 반복되지 않도록
     모듈 수명 동안 재사용한다(R7-02 S7 지연 완화). 지연 초기화이므로 LLM 키 부재
     환경에서도 임포트는 깨지지 않고, 생성 실패 예외는 lru_cache에 캐시되지 않아
     호출부의 기본 피드백 폴백 동작이 그대로 유지된다.
@@ -180,17 +194,16 @@ def _cached_chain(model: str, api_key: str, with_context: bool = True):
     prompt = ChatPromptTemplate.from_messages(
         [("system", SYSTEM_PROMPT if with_context else SYSTEM_PROMPT_NO_CONTEXT)]
     )
-    llm = ChatGoogleGenerativeAI(
-        model=model,
-        google_api_key=api_key,
-        temperature=0.5,
-    )
+    # 런타임은 CO-B7이 "전건 유료 Gemini"로 정한 구간이지만, 통로는 열어 둔다 —
+    # 결정이 바뀌어도 코드를 안 고치게 하는 것이 이 층의 목적이다.
+    llm = build_chat_model(0.5, purpose=PURPOSE_RUNTIME)
     return prompt | llm | StrOutputParser()
 
 
 def _build_chain(with_context: bool = True):
-    """LCEL: 프롬프트 → Gemini → 순수 텍스트 (settings 기준 캐시 조회)."""
-    return _cached_chain(settings.GEMINI_MODEL, settings.GEMINI_API_KEY, with_context)
+    """LCEL: 프롬프트 → LLM → 순수 텍스트 (해석된 스펙 기준 캐시 조회)."""
+    spec = resolve_spec(PURPOSE_RUNTIME)
+    return _cached_chain(spec.model, spec.api_key, with_context)
 
 
 def generate_feedback(
@@ -201,7 +214,7 @@ def generate_feedback(
     today_weather: dict | None = None,
 ) -> str:
     """문제 풀이 직후 학습자에게 줄 피드백(순수 텍스트)을 생성한다."""
-    if not llm_configured():
+    if not _llm_available():
         # 키 미설정 시 조회·LLM 시도 없이 즉시 기본 피드백 (실패 대기 방지).
         return DEFAULT_FEEDBACK_CORRECT if is_correct else DEFAULT_FEEDBACK_INCORRECT
 

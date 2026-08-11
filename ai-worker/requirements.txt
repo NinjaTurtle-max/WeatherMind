@@ -1,5 +1,8 @@
 fastapi==0.115.*
 uvicorn[standard]==0.32.*
 langchain-google-genai==2.*
+# OpenAI 호환 프로바이더(gpt-oss·OpenRouter·Groq·Ollama) — CO-B7 3파전 통로.
+# 이것이 없으면 Gemini 말고는 부를 방법이 없어 시험 배치가 시작조차 안 된다.
+langchain-openai==0.3.*
 httpx==0.28.*  # starlette TestClient 전용 (앱 코드 import 없음)
 pydantic==2.10.*
