@@ -148,7 +148,9 @@ class TestSeedTypeCoverage:
         #   개편으로 '중·강·매우 강·초강력' 등급 이름이 폐지되고 숫자 1~5가 됐다.
         #   풍속 경계(17·25·33·44·54)는 그대로라 문구 교체로 살렸고, 정답이 업무 규정
         #   수치이므로 kl 7 → **10**으로 재판정했다. 같은 문항이 staging au1에도 있어 함께 고쳤다.
-        assert len(_seed_items()) == 542
+        # 저작 웨이브 2-a(2026-08-10): +22 = 564. kl5 보강 — flood_response·
+        # heat_island가 2건뿐이었고, 전체 유형에서 부족한 ordering·match 위주로 저작.
+        assert len(_seed_items()) == 564
 
 
 class TestEverySeedItemIsPlayable:

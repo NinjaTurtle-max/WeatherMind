@@ -90,7 +90,9 @@ class TestSeedSchema:
         # 저작 웨이브 1-b(2026-08-10): +58 = 398. kl4 보강 18 + kl8 신규 40.
         # 저작 웨이브 1-c(2026-08-10): +144 = 542. kl6 64 · kl9 40 · kl10 40 —
         # 10단계 확장으로 생긴 상위 칸을 4인 병렬로 채웠다. 10단계 전건 40건 이상.
-        assert len(SEED_ITEMS) == 542
+        # 저작 웨이브 2-a(2026-08-10): +22 = 564. kl5 보강 — flood_response·
+        # heat_island가 2건뿐이었고, 전체 유형에서 부족한 ordering·match 위주로 저작.
+        assert len(SEED_ITEMS) == 564
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS

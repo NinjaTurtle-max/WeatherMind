@@ -15286,5 +15286,639 @@
       ]
     },
     "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "도시에 내린 빗물이 하천에 이르기까지의 경로를 순서대로 배열하라.",
+      "items": [
+        "포장된 지표에 빗물이 고인다",
+        "빗물받이를 지나 하수관으로 들어간다",
+        "하수관이 모여 큰 배수로로 흘러든다",
+        "배수로 끝에서 하천으로 빠져나간다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "도시 침수는 이 경로 어느 한 곳이 막히거나 용량을 넘길 때 일어난다. 특히 빗물받이가 낙엽이나 쓰레기로 막히면 앞 단계에서부터 물이 넘친다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 물의 순환을 인공 구조물까지 확장",
+        "정성 경로 — 유량 계산은 상위 단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "도시 침수를 줄이는 시설과 그 작동 방식을 짝지어라.",
+      "pairs": [
+        {
+          "left": "빗물 저류조",
+          "right": "한꺼번에 몰린 물을 잠시 가둬 두었다가 천천히 내보낸다"
+        },
+        {
+          "left": "투수성 포장",
+          "right": "빗물이 땅속으로 스며들게 해 흘러가는 양 자체를 줄인다"
+        },
+        {
+          "left": "옥상 녹화",
+          "right": "지붕에서 흘러내리는 물을 흙과 뿌리가 붙잡아 늦춘다"
+        },
+        {
+          "left": "하천 제방",
+          "right": "이미 모인 물이 둑을 넘지 못하게 높이로 막는다"
+        }
+      ],
+      "correct_answer": "빗물 저류조:한꺼번에 몰린 물을 잠시 가둬 두었다가 천천히 내보낸다|투수성 포장:빗물이 땅속으로 스며들게 해 흘러가는 양 자체를 줄인다|옥상 녹화:지붕에서 흘러내리는 물을 흙과 뿌리가 붙잡아 늦춘다|하천 제방:이미 모인 물이 둑을 넘지 못하게 높이로 막는다",
+      "explanation_hint": "네 시설이 손대는 지점이 서로 다르다 — 양을 줄이거나, 시간을 늦추거나, 넘침을 막는다. 하나로는 부족해 겹쳐 쓴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 대응 수단의 작동 원리 구분",
+        "네 오른쪽이 전부 다른 기작"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "짧은 시간에 좁은 지역으로 쏟아진 비가 산지의 계곡을 타고 갑자기 불어나 덮치는 현상을 ___ 홍수라고 한다.",
+      "correct_answer": "돌발",
+      "explanation_hint": "산지는 경사가 급해 빗물이 땅에 스며들 겨를 없이 계곡으로 모인다. 비가 그친 뒤에도 상류에서 내려온 물이 도착해 아래쪽에서는 갑자기 물이 불어난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 지형과 재해",
+        "현상 이름 — 규정 수치가 아니다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "도시가 시골보다 밤에 더 더워지는 과정을 순서대로 배열하라.",
+      "items": [
+        "낮 동안 아스팔트와 콘크리트가 햇빛을 받아 데워진다",
+        "열이 건물과 도로 깊숙이 저장된다",
+        "해가 진 뒤 저장된 열이 천천히 대기로 빠져나온다",
+        "밤새 도시의 기온이 시골만큼 내려가지 못한다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "핵심은 두 번째 단계다 — 도시 재료는 열을 담아 두는 양이 커서 낮의 열이 밤까지 남는다. 흙과 풀은 이 저장이 훨씬 적다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 도시 열수지",
+        "저장·방출의 시간차가 핵심"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "도시가 시골보다 더워지는 원인과 그 성격을 짝지어라.",
+      "pairs": [
+        {
+          "left": "포장 면적 증가",
+          "right": "낮의 열을 더 많이 저장한다"
+        },
+        {
+          "left": "녹지와 물가 감소",
+          "right": "증발로 열을 가져가는 몫이 줄어든다"
+        },
+        {
+          "left": "고층 건물 밀집",
+          "right": "빠져나가려는 열이 건물 사이에 갇힌다"
+        },
+        {
+          "left": "냉방기와 자동차",
+          "right": "사람이 쓰는 에너지가 열로 바뀌어 보태진다"
+        }
+      ],
+      "correct_answer": "포장 면적 증가:낮의 열을 더 많이 저장한다|녹지와 물가 감소:증발로 열을 가져가는 몫이 줄어든다|고층 건물 밀집:빠져나가려는 열이 건물 사이에 갇힌다|냉방기와 자동차:사람이 쓰는 에너지가 열로 바뀌어 보태진다",
+      "explanation_hint": "네 원인이 각각 열의 저장·냉각·방출·추가라는 다른 지점에 작용한다. 대책도 원인마다 달라야 한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 열수지의 항목별 분해",
+        "네 오른쪽이 전부 다른 기작"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "여름밤 대도시 한복판이 교외보다 기온이 높게 나타나는 정도는 대체로 몇 ℃ 안팎인지 슬라이더로 표시하라.",
+      "correct_answer": "4",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "℃",
+      "explanation_hint": "도시 규모와 날씨에 따라 다르지만 맑고 바람 약한 여름밤에 대도시는 교외보다 3~5℃가량 높게 나타난다. 이 차이는 낮보다 밤에 더 뚜렷하다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 열섬 강도의 크기 감각",
+        "관측 범위의 대표값 — 규정 수치가 아니다 · slider 범위 40"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "한랭전선이 다가와 지나갈 때 한 지점에서 관측되는 일을 순서대로 배열하라.",
+      "items": [
+        "전선이 다가오며 기압이 서서히 내려간다",
+        "전선이 지나는 짧은 동안 굵은 비가 쏟아진다",
+        "바람 방향이 갑자기 바뀐다",
+        "찬 공기가 들어와 기온이 뚝 떨어지고 하늘이 갠다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "한랭전선은 찬 공기가 따뜻한 공기를 밀어 올리며 지나간다. 밀어 올리는 폭이 좁아 비가 짧고 강하며, 지나간 뒤에는 찬 공기가 들어와 기온이 내려가고 맑아진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 전선 통과의 관측 순서",
+        "정성 서술 — 역학 없음"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "전선의 종류와 그때 나타나는 비의 특징을 짝지어라.",
+      "pairs": [
+        {
+          "left": "한랭전선",
+          "right": "좁은 폭에서 짧고 강하게 쏟아진다"
+        },
+        {
+          "left": "온난전선",
+          "right": "넓은 폭에서 오래 약하게 이어진다"
+        },
+        {
+          "left": "정체전선",
+          "right": "한자리에 머물며 여러 날 되풀이해 내린다"
+        }
+      ],
+      "correct_answer": "한랭전선:좁은 폭에서 짧고 강하게 쏟아진다|온난전선:넓은 폭에서 오래 약하게 이어진다|정체전선:한자리에 머물며 여러 날 되풀이해 내린다",
+      "explanation_hint": "따뜻한 공기가 밀려 올라가는 기울기가 다르기 때문이다. 가파르게 밀리면 좁고 강하게, 완만하게 타고 오르면 넓고 약하게 내린다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 전선별 강수 특성",
+        "세 오른쪽이 폭·세기·지속으로 전부 다르다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "중위도 저기압에서 따뜻한 공기가 찬 공기 위로 완만하게 타고 올라 넓은 폭에 오래 비를 뿌리는 쪽의 전선을 무엇이라고 하는가?",
+      "correct_answer": "온난전선",
+      "explanation_hint": "온난전선은 기울기가 완만해 따뜻한 공기가 넓게 퍼지며 올라간다. 그래서 비가 약하지만 넓은 지역에 오래 이어지고, 한랭전선의 짧고 강한 비와 대비된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 저기압의 두 전선 대비",
+        "종전 초안(정답 '폐색전선')이 본시드와 (short_answer·pressure_front·폐색전선) 키가 겹쳐 교체(2026-08-10)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "시베리아 기단이 서해를 건너 우리나라에 서해안 폭설을 뿌리기까지의 과정을 순서대로 배열하라.",
+      "items": [
+        "차고 메마른 공기가 대륙에서 밀려 나온다",
+        "따뜻한 서해 위를 지나며 아래에서 열과 물기를 얻는다",
+        "아래가 데워져 위아래가 잘 섞이며 구름이 자란다",
+        "서해안에 이르러 눈을 쏟는다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "같은 기단이라도 지나온 바닥에 따라 성질이 바뀐다. 메마른 대륙 공기가 따뜻한 바다를 건너면 물기를 얻어 눈구름이 되는 것이 그 예다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 기단 변질",
+        "기단 introduced_at=4 · 역학 없이 정성 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "기단이 지나는 바닥의 성질과 그때 기단에 일어나는 변화를 짝지어라.",
+      "pairs": [
+        {
+          "left": "찬 기단이 따뜻한 바다 위를 지난다",
+          "right": "아래가 데워지고 물기를 얻어 구름이 잘 자란다"
+        },
+        {
+          "left": "따뜻한 기단이 찬 바다 위를 지난다",
+          "right": "아래가 식어 안개가 끼고 위아래가 잘 섞이지 않는다"
+        },
+        {
+          "left": "기단이 넓은 사막 위에 오래 머문다",
+          "right": "물기를 잃고 메말라진다"
+        }
+      ],
+      "correct_answer": "찬 기단이 따뜻한 바다 위를 지난다:아래가 데워지고 물기를 얻어 구름이 잘 자란다|따뜻한 기단이 찬 바다 위를 지난다:아래가 식어 안개가 끼고 위아래가 잘 섞이지 않는다|기단이 넓은 사막 위에 오래 머문다:물기를 잃고 메말라진다",
+      "explanation_hint": "기단은 지나온 바닥을 닮아 간다. 아래가 데워지면 잘 섞이고, 아래가 식으면 뚜껑이 덮인 듯 잠잠해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 기단 변질의 방향성",
+        "세 오른쪽이 전부 다른 결과"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "어느 해가 이상기후였는지 판정하는 절차를 순서대로 배열하라.",
+      "items": [
+        "여러 해 동안 같은 방식으로 잰 관측 자료를 모은다",
+        "30년 평균을 내어 평년값을 정한다",
+        "올해 값에서 평년값을 빼 편차를 구한다",
+        "그 편차가 과거 분포에서 얼마나 드문 값인지 견준다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "마지막 단계가 없으면 '평년보다 높다'까지만 말할 수 있다. 얼마나 드문지를 견주어야 이상기후라고 판정할 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 이상기후 판정 절차",
+        "통계 절차의 정성 이해"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "한 해 한 해의 들쭉날쭉함을 걷어내고 여러 해에 걸친 흐름만 남긴 것을 장기 ___이라고 한다.",
+      "correct_answer": "경향",
+      "explanation_hint": "관측값에는 해마다의 변동과 긴 흐름이 섞여 있다. 짧은 변동만 보고 '작년보다 추우니 온난화가 아니다'라고 말하는 것이 흔한 오독이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 변동과 경향의 구분",
+        "자료 해석의 기본 개념"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "산불이 발생해 진화되기까지의 대응 과정을 순서대로 배열하라.",
+      "items": [
+        "발화가 감지되어 신고가 접수된다",
+        "풍향과 풍속으로 번질 방향을 예측한다",
+        "예측된 진행 방향 앞쪽 주민을 먼저 대피시킨다",
+        "헬기와 진화대가 불머리부터 잡는다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "불을 끄는 일보다 사람을 옮기는 일이 앞선다. 그리고 어디로 옮길지는 바람이 정하므로 기상 정보가 대피 계획의 입력이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 재해 대응에서 기상 정보의 역할",
+        "행동 순서 — 규정 수치가 아니다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "태풍이 약해지는 상황과 그 까닭을 짝지어라.",
+      "pairs": [
+        {
+          "left": "육지에 상륙한다",
+          "right": "수증기 공급이 끊기고 지면 마찰이 세력을 깎는다"
+        },
+        {
+          "left": "차가운 바다 위로 올라간다",
+          "right": "바다에서 얻던 에너지가 줄어든다"
+        },
+        {
+          "left": "높은 산맥을 지난다",
+          "right": "회전 구조가 지형에 흐트러진다"
+        }
+      ],
+      "correct_answer": "육지에 상륙한다:수증기 공급이 끊기고 지면 마찰이 세력을 깎는다|차가운 바다 위로 올라간다:바다에서 얻던 에너지가 줄어든다|높은 산맥을 지난다:회전 구조가 지형에 흐트러진다",
+      "explanation_hint": "태풍은 따뜻한 바다에서 올라오는 수증기를 계속 받아야 유지된다. 그 공급이 끊기거나 구조가 흐트러지면 빠르게 약해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 태풍의 소멸 조건",
+        "세 오른쪽이 전부 다른 기작"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "물이 지구를 한 바퀴 도는 순환 과정을 순서대로 배열하라.",
+      "items": [
+        "바다와 땅에서 물이 증발해 대기로 올라간다",
+        "위로 오른 수증기가 식어 구름이 된다",
+        "구름에서 비나 눈이 되어 지표로 내린다",
+        "지표수와 지하수가 되어 다시 바다로 흘러든다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "이 순환을 돌리는 힘은 태양 에너지다. 증발할 때 가져간 열이 응결할 때 대기로 나오므로, 물의 순환은 열도 함께 나르는 셈이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 물의 순환과 에너지 수송",
+        "고리가 닫히는 구조"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "대기의 상태와 그때 나타나는 현상을 짝지어라.",
+      "pairs": [
+        {
+          "left": "아래가 위보다 훨씬 따뜻하다",
+          "right": "위아래가 활발히 섞여 구름이 높이 자란다"
+        },
+        {
+          "left": "아래가 위보다 차갑다",
+          "right": "섞임이 막혀 안개와 오염물질이 갇힌다"
+        },
+        {
+          "left": "위아래 온도 차가 크지 않다",
+          "right": "뚜렷한 상승도 억눌림도 없이 잔잔하다"
+        }
+      ],
+      "correct_answer": "아래가 위보다 훨씬 따뜻하다:위아래가 활발히 섞여 구름이 높이 자란다|아래가 위보다 차갑다:섞임이 막혀 안개와 오염물질이 갇힌다|위아래 온도 차가 크지 않다:뚜렷한 상승도 억눌림도 없이 잔잔하다",
+      "explanation_hint": "아래가 가벼우면 뜨고, 아래가 무거우면 그대로 눌러앉는다. 겨울 아침 도시의 미세먼지가 심해지는 것이 두 번째 경우다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 대기 안정도의 정성 판정",
+        "감률·단열선도(7·8단계) 없이 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "탄소가 대기와 지구 사이를 도는 과정을 순서대로 배열하라.",
+      "items": [
+        "식물이 광합성으로 대기 중 이산화탄소를 거둬들인다",
+        "동물이 식물을 먹어 탄소가 생물 몸으로 옮겨 간다",
+        "생물이 호흡하고 죽어 분해되며 탄소가 되돌아간다",
+        "일부는 땅속에 오래 묻혀 화석연료가 된다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "이 순환은 원래 균형을 이루고 있었다. 사람이 땅속에 묻혀 있던 마지막 단계의 탄소를 캐내 태우면서 균형이 깨진 것이 지금의 문제다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 탄소 순환",
+        "순환 자체는 자연 과정 · 교란은 인위"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "지구가 열을 옮기는 방식과 그 예를 짝지어라.",
+      "pairs": [
+        {
+          "left": "대기 대순환",
+          "right": "적도의 남는 열을 공기가 고위도로 나른다"
+        },
+        {
+          "left": "해류",
+          "right": "따뜻한 바닷물이 흐르며 열을 고위도로 옮긴다"
+        },
+        {
+          "left": "물의 상태 변화",
+          "right": "증발할 때 가져간 열을 응결하는 곳에 내려놓는다"
+        }
+      ],
+      "correct_answer": "대기 대순환:적도의 남는 열을 공기가 고위도로 나른다|해류:따뜻한 바닷물이 흐르며 열을 고위도로 옮긴다|물의 상태 변화:증발할 때 가져간 열을 응결하는 곳에 내려놓는다",
+      "explanation_hint": "세 방식이 함께 작동해 적도와 극의 온도 차를 줄인다. 어느 하나가 약해지면 다른 쪽이 더 많은 몫을 떠맡는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 열 수송의 세 통로",
+        "세 오른쪽이 전부 다른 매개"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "태양 에너지가 지구에 들어와 다시 나가기까지를 순서대로 배열하라.",
+      "items": [
+        "태양 에너지가 대기 위쪽에 닿는다",
+        "일부는 구름과 밝은 지표에 부딪혀 곧바로 되돌아간다",
+        "나머지는 대기와 지표에 흡수되어 지구를 데운다",
+        "데워진 지구가 열을 내보내고 그 일부는 온실기체에 붙잡힌다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "들어온 양과 나간 양이 같아야 평균기온이 유지된다. 온실기체가 늘면 마지막 단계에서 나가는 몫이 줄어 균형점이 더 높은 기온으로 옮겨 간다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 복사 수지의 흐름",
+        "'알베도'(8단계)를 쓰지 않고 되돌아간다로 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "같은 위도인데 기후가 달라지는 까닭과 그 예를 짝지어라.",
+      "pairs": [
+        {
+          "left": "바다에서 가까운가 먼가",
+          "right": "내륙은 기온 변화가 크고 해안은 완만하다"
+        },
+        {
+          "left": "고도가 높은가 낮은가",
+          "right": "같은 지역이라도 산 위는 연중 서늘하다"
+        },
+        {
+          "left": "따뜻한 해류가 지나는가",
+          "right": "위도에 견주어 겨울이 덜 춥다"
+        }
+      ],
+      "correct_answer": "바다에서 가까운가 먼가:내륙은 기온 변화가 크고 해안은 완만하다|고도가 높은가 낮은가:같은 지역이라도 산 위는 연중 서늘하다|따뜻한 해류가 지나는가:위도에 견주어 겨울이 덜 춥다",
+      "explanation_hint": "위도는 기후를 정하는 첫 번째 축일 뿐이다. 바다·고도·해류가 겹쳐 같은 위도에서도 전혀 다른 기후가 나타난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 기후 인자",
+        "세 오른쪽이 전부 다른 결과"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "적도에서 데워진 공기가 순환을 이루는 과정을 순서대로 배열하라.",
+      "items": [
+        "적도에서 데워진 공기가 위로 오른다",
+        "오르면서 식어 비를 뿌린다",
+        "메마른 공기가 상층을 따라 고위도로 흘러간다",
+        "위도 30도 부근에서 내려와 건조한 지대를 만든다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "적도에 열대우림이, 위도 30도에 사막이 띠처럼 늘어선 것이 이 순환의 결과다. 올라간 곳에서 비를 다 뿌리고 내려오기 때문이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=5 · 고1 통합과학 — 순환과 기후대의 연결",
+        "역학 명칭 없이 과정으로 서술"
+      ]
+    },
+    "status": "active"
   }
 ]
