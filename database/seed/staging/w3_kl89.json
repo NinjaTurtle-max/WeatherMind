@@ -1,0 +1,1521 @@
+[
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "같은 기압 경도가 걸린 두 곳 가운데 A는 등압선이 곧고 B는 고기압성으로 크게 휘어 있다. 원심력까지 더해 균형을 이룬다고 볼 때 두 곳의 풍속 관계로 옳은 것은?",
+      "options": [
+        "B가 더 빠르다 — 바깥으로 향하는 원심력까지 전향력이 맞버텨야 해서 지균풍보다 커진다",
+        "A가 더 빠르다 — 곡률이 생기면 원심력이 기압 경도력을 갉아먹기 때문이다",
+        "두 곳이 같다 — 곡률은 풍향만 바꾸고 풍속은 기압 경도만으로 정해진다",
+        "B가 더 느리다 — 휜 흐름에서는 전향력이 작아져 바람이 늦춰지기 때문이다"
+      ],
+      "correct_answer": "B가 더 빠르다 — 바깥으로 향하는 원심력까지 전향력이 맞버텨야 해서 지균풍보다 커진다",
+      "explanation_hint": "고기압성 곡률에서는 기압 경도력과 원심력이 같은 쪽(바깥)으로 작용하고 전향력 홀로 안쪽에서 맞선다. 전향력은 풍속에 비례하므로 두 힘을 함께 감당하려면 풍속이 지균풍보다 커져야 한다(초지균). 저기압성 곡률은 반대로 아지균이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "경도풍 균형 — 곡률 부호에 따른 초지균·아지균 적용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "상층 일기도에서 흐름이 곧게 서에서 동으로 부는데, 남쪽으로 갈수록 서풍이 뚜렷하게 강해진다. 북반구인 이 흐름의 상대와도 판단으로 옳은 것은?",
+      "options": [
+        "곡률이 없어도 풍속의 남북 시어만으로 상대와도가 생기며 이 경우 저기압성(양)이다",
+        "흐름이 곧으므로 회전이 없어 상대와도는 0이다",
+        "시어가 있어도 흐름이 곧으면 상대와도는 고기압성(음)이 된다",
+        "상대와도는 전향인자로만 정해지므로 위도가 같으면 어디서나 같다"
+      ],
+      "correct_answer": "곡률이 없어도 풍속의 남북 시어만으로 상대와도가 생기며 이 경우 저기압성(양)이다",
+      "explanation_hint": "상대와도는 곡률 몫과 시어 몫의 합이다. 남쪽이 빠르고 북쪽이 느린 서풍에 막대를 가로로 놓으면 반시계로 돌아가므로 시어 몫이 양이다. 곡률만 보고 0이라 답하는 것이 가장 흔한 오독이고, 전향인자는 절대와도의 몫이지 상대와도가 아니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "상대와도의 곡률 몫과 시어 몫 분해"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "하늘 낮은 곳에 회색 덩어리 구름이 서로 붙어 이랑처럼 깔렸고 사이로 파란 하늘이 드문드문 보인다. 구름 밑면은 1km 아래이고 비는 내리지 않는다. 십운형 이름으로 옳은 것은?",
+      "options": [
+        "층적운",
+        "고적운",
+        "권적운",
+        "난층운"
+      ],
+      "correct_answer": "층적운",
+      "explanation_hint": "덩어리 구조(적)와 하층 높이(층)가 함께 있으면 층적운이다. 같은 덩어리라도 중층이면 고적운, 상층 얼음이면 권적운이고, 하늘을 빈틈없이 덮고 비를 뿌리면 난층운이다. 높이대와 모양 두 축을 함께 읽는 것이 십운형 명명 체계다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "WMO 십운형 — 높이대 × 형태 두 축 판별"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "어느 기층에서 상당온위가 고도가 오를수록 뚜렷하게 작아진다. 이 기층 전체가 강제로 들어 올려져 포화됐을 때 나타나는 일로 옳은 것은?",
+      "options": [
+        "아래가 위보다 상당온위가 커서 층 전체가 포화되면 부력이 생겨 불안정해진다",
+        "온위가 고도에 따라 커지고 있으므로 어떤 경우에도 안정하다",
+        "상당온위는 보존량이라 그 연직 분포는 안정도를 알려 주지 못한다",
+        "포화되면 위층에서 잠열이 더 많이 나와 층이 오히려 안정해진다"
+      ],
+      "correct_answer": "아래가 위보다 상당온위가 커서 층 전체가 포화되면 부력이 생겨 불안정해진다",
+      "explanation_hint": "상당온위가 고도에 따라 줄어드는 층은 아래에 더 따뜻하고 습한 공기가 깔린 상태다. 층이 통째로 들려 포화되면 아래 공기가 위보다 부력을 크게 얻어 뒤집힌다. 온위 분포만 보고 안정을 단정하면 이 잠재된 불안정을 놓친다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "상당온위 연직 분포로 읽는 대류 불안정"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "북반구 지상 저기압 둘레에서 마찰층 바람은 등압선을 가로질러 중심 쪽으로 분다. 마찰층 꼭대기에서 일어나는 일로 옳은 것은?",
+      "options": [
+        "마찰층에 모인 공기가 갈 곳이 없어 위로 밀려 올라가며 상승 기류가 만들어진다",
+        "모인 공기가 아래로 가라앉아 저기압 중심이 오히려 맑아진다",
+        "마찰층 수송이 바람의 왼쪽 90도로 향해 중심에서 발산이 일어난다",
+        "마찰은 풍향만 바꾸므로 연직 운동은 생기지 않는다"
+      ],
+      "correct_answer": "마찰층에 모인 공기가 갈 곳이 없어 위로 밀려 올라가며 상승 기류가 만들어진다",
+      "explanation_hint": "마찰이 바람을 등압선 안쪽으로 틀면 저기압에서는 수렴이, 고기압에서는 발산이 생긴다. 질량이 보존되려면 수렴한 공기는 위로 빠져나가야 하므로 마찰층 꼭대기에 상승류가 걸린다(에크만 펌핑). 북반구에서 마찰층 수송은 오른쪽으로 치우친다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "에크만 층 수렴과 마찰층 꼭대기 연직 운동"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "적도 태평양에서 무역풍이 약해지자 서쪽에 쌓여 있던 따뜻한 물이 동쪽으로 퍼지고 동태평양의 용승이 약해졌다. 적도 대기의 동서 순환에 나타나는 변화로 옳은 것은?",
+      "options": [
+        "서태평양에 있던 상승역이 중태평양 쪽으로 옮겨 가며 동서 순환이 약해진다",
+        "동태평양 수온이 올라도 상승역은 서태평양에 그대로 머문다",
+        "동서 순환이 오히려 강해져 무역풍이 곧 평년보다 세진다",
+        "해양 변화는 대기 순환과 무관해 상승역 위치는 바뀌지 않는다"
+      ],
+      "correct_answer": "서태평양에 있던 상승역이 중태평양 쪽으로 옮겨 가며 동서 순환이 약해진다",
+      "explanation_hint": "적도의 동서 순환은 따뜻한 해면 위 상승과 찬 해면 위 하강으로 지탱된다. 따뜻한 물이 동쪽으로 퍼지면 상승역도 함께 동쪽으로 끌려가고, 순환이 약해지면 무역풍이 더 약해져 되먹임이 이어진다. 엘니뇨에서 대기와 해양이 함께 움직이는 까닭이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "적도 동서 순환(워커 순환)과 해면 수온 분포의 결합"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "관측 A는 1000hPa에서 기온 20℃, 관측 B는 850hPa에서 기온 12℃다. 건조 단열로 내리면 100hPa마다 약 8℃ 데워진다고 볼 때 두 공기의 온위 비교로 옳은 것은?",
+      "options": [
+        "B를 1000hPa로 내리면 24℃가 되므로 B의 온위가 A보다 높다",
+        "기온이 높은 A의 온위가 언제나 더 높다",
+        "고도가 높은 B를 끌어내리면 식으므로 B의 온위가 더 낮다",
+        "기압이 다르면 두 공기의 온위는 견줄 수 없다"
+      ],
+      "correct_answer": "B를 1000hPa로 내리면 24℃가 되므로 B의 온위가 A보다 높다",
+      "explanation_hint": "온위는 공기를 1000hPa까지 건조 단열로 옮겼을 때의 기온이다. B는 150hPa을 내려오며 약 12℃ 데워져 24℃가 되고 A는 이미 1000hPa이라 20℃ 그대로다. 기압이 다른 공기를 같은 자에 올려 견주라고 만든 양이 온위인데, 기온만 보면 순서가 뒤집힌다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온위 — 기준 기압 환산으로 서로 다른 고도의 공기를 견준다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "태풍은 중심이 같은 고도의 둘레보다 따뜻한 온난핵 구조다. 온도풍 관계로 읽을 때 이 구조가 태풍 순환의 연직 분포에 남기는 것으로 옳은 것은?",
+      "options": [
+        "고도가 오를수록 저기압성 순환이 약해지고 상층에서는 고기압성 유출로 바뀐다",
+        "중심이 따뜻하므로 고도가 오를수록 저기압성 순환이 더 강해진다",
+        "온난핵은 기온만 바꾸므로 바람의 연직 분포와는 관계가 없다",
+        "상층까지 같은 세기의 저기압성 순환이 그대로 이어진다"
+      ],
+      "correct_answer": "고도가 오를수록 저기압성 순환이 약해지고 상층에서는 고기압성 유출로 바뀐다",
+      "explanation_hint": "온도풍은 층의 남북 기온 차가 만드는 바람의 연직 변화다. 중심이 따뜻하면 위로 갈수록 중심 쪽 기압이 상대적으로 높아져 저기압성 회전이 깎이고, 결국 상층에서는 밖으로 퍼지는 고기압성 흐름이 된다. 한랭핵 저기압이 위로 갈수록 깊어지는 것과 정반대다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온난핵 구조에 온도풍 관계를 적용한 연직 순환 진단"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "맑고 바람이 약한 낮, 도시와 교외에서 온위의 연직 분포를 재니 온위가 거의 일정한 층이 도시 쪽에서 더 두껍게 나타났다. 이 관측이 뜻하는 것으로 옳은 것은?",
+      "options": [
+        "도시가 지면에서 대기로 열을 더 많이 넘겨 잘 섞인 혼합층이 더 깊게 자랐다",
+        "도시 상공이 더 안정해 대류가 눌려 있다는 뜻이다",
+        "온위가 일정한 층은 역전층이므로 도시 쪽 역전이 더 두껍다",
+        "도시 지면이 교외보다 차가워 공기가 잘 섞였다는 뜻이다"
+      ],
+      "correct_answer": "도시가 지면에서 대기로 열을 더 많이 넘겨 잘 섞인 혼합층이 더 깊게 자랐다",
+      "explanation_hint": "온위가 고도에 따라 일정한 층은 잘 섞인 중립층, 곧 혼합층이다. 도시는 증발에 쓸 물이 적어 받은 태양 복사가 대부분 공기를 데우는 데 쓰이므로 혼합층이 더 깊게 자란다. 온위 일정을 역전이나 안정으로 읽는 것이 대표적인 오독이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온위 연직 분포로 읽는 도시 혼합층 깊이"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "북반구 지상 저기압 아래 마찰층에서 바람이 등압선을 가로질러 중심으로 모이고, 모인 공기가 마찰층 꼭대기에서 위로 밀려 나간다. 마찰층 수렴이 만드는 이 상승 운동을 무엇이라 하는가?",
+      "correct_answer": "에크만 펌핑",
+      "explanation_hint": "마찰층 안에서 생긴 수렴·발산이 그 위 자유 대기로 연직 운동을 밀어 올리거나 끌어내리는 것을 에크만 펌핑이라 한다. 저기압에서는 상승, 고기압에서는 하강이 걸리며 저기압이 마찰로 서서히 메워지는 통로이기도 하다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "에크만 층 수렴 → 마찰층 꼭대기 연직 운동"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "300hPa 일기도에서 등고도선이 좁게 몰린 띠를 따라 풍속이 60m/s를 넘고, 그 아래 남쪽으로 등온선이 촘촘히 늘어서 있다. 대류권 상부에 좁고 길게 놓인 이 강풍대를 무엇이라 하는가?",
+      "correct_answer": "제트류",
+      "explanation_hint": "남북 기온 차가 큰 곳에서는 온도풍이 쌓여 상층에 좁고 강한 서풍대가 생긴다. 이것이 제트류이고, 등고도선 간격이 좁은 띠와 그 아래 촘촘한 등온선이 함께 나타나는 것이 일기도에서 축을 찾는 실마리다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "상층 일기도 판독 — 등고도선 집중대와 제트 축"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "온실가스가 늘어난 뒤 대류권계면에서 순 복사 수지가 바뀐 양을 W/m² 단위로 나타내, 서로 다른 요인이 기후계를 데우거나 식히는 정도를 같은 자로 견주게 하는 양을 무엇이라 하는가?",
+      "correct_answer": "복사 강제력",
+      "explanation_hint": "복사 강제력은 기후계에 들어온 교란을 W/m²라는 하나의 단위로 환산해 놓은 양이다. 이산화탄소·메탄·에어로졸처럼 성질이 다른 요인을 같은 자에 올려 견줄 수 있게 하고, 양수면 데우는 쪽, 음수면 식히는 쪽으로 읽는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "복사 강제력 — 교육과정 밖 전공 개념(W/m² 환산)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "어느 기층의 환경 감률을 재니 건조 단열 감률보다는 작고 습윤 단열 감률보다는 컸다. 포화되지 않은 공기덩이에는 안정하지만 포화된 공기덩이에는 불안정한 이 상태를 무엇이라 하는가?",
+      "correct_answer": "조건부 불안정",
+      "explanation_hint": "환경 감률이 두 단열 감률 사이에 놓이면 안정도가 공기덩이의 포화 여부에 달린다. 포화 전에는 건조 단열로 식어 주위보다 차가워지지만, 포화된 뒤에는 잠열 덕에 천천히 식어 주위보다 따뜻해진다. 그래서 조건부라는 이름이 붙는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "환경 감률과 두 단열 감률의 대소로 내리는 안정도 판정"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "발달한 태풍의 중심 부근 대류권 중상층 기온을 재니 같은 고도의 둘레보다 뚜렷하게 높았다. 눈벽에서 나온 잠열이 좁은 중심에 모여 만들어 내는 태풍의 이 열 구조를 무엇이라 하는가?",
+      "correct_answer": "온난핵",
+      "explanation_hint": "눈벽 상승류에서 응결이 내놓은 잠열이 중심 상공에 갇히고 눈 안의 약한 하강이 그 공기를 다시 데우면서 중심이 둘레보다 따뜻해진다. 이 온난핵이 있어야 중심 기압이 깊게 내려가고 상층에서는 고기압성 유출이 나타난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온난핵 구조 — 태풍 강도와 연직 순환의 전제"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "잘 섞인 혼합층에서는 온위가 고도에 따라 거의 일정하다. 지상 기온이 28℃인 혼합층에서 건조 단열 감률 10℃/km를 적용하면 고도 1.2km의 기온은 약 ___℃가 된다.",
+      "correct_answer": "16",
+      "explanation_hint": "온위가 일정하다는 말은 기온이 건조 단열 감률만큼만 떨어진다는 뜻이다. 1.2km를 오르면 12℃가 내려가므로 28℃에서 16℃가 된다. 이 층에서는 어느 높이의 공기를 지상으로 내려도 다시 28℃가 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온위 일정층(혼합층)에서 고도별 기온 환산"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "상층 하늘에 아주 작은 흰 알갱이 구름이 잔물결처럼 촘촘히 늘어섰고 그림자가 거의 없다. 얼음 알갱이로 이뤄진 이 상층 구름은 십운형으로 ___이다.",
+      "correct_answer": "권적운",
+      "explanation_hint": "상층을 뜻하는 권과 덩어리를 뜻하는 적이 합쳐진 이름이다. 같은 덩어리라도 중층이면 고적운, 하층이면 층적운이며, 상층 구름은 얼음 알갱이로 이뤄져 그림자가 옅고 알갱이가 매우 작게 보인다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "WMO 십운형 — 상층 덩어리 구름의 명명"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "북반구 500hPa 골 축에서는 흐름이 반시계 방향으로 크게 휘어 돈다. 이 골 축의 상대와도 부호는 ___이고, 그래서 같은 위도의 곧은 흐름보다 절대와도가 크다.",
+      "correct_answer": "양",
+      "explanation_hint": "북반구에서 반시계(저기압성) 회전은 양의 상대와도다. 절대와도는 상대와도에 전향인자를 더한 값이므로, 같은 위도라면 곡률이 있는 골 축이 곧은 흐름보다 절대와도가 크다. 마루 축은 반대로 음의 상대와도를 갖는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "골·마루의 곡률 와도 부호와 절대와도 구성"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "어느 지면에 태양 복사가 800W/m² 내리쬐는데 그 가운데 200W/m²가 반사되어 되돌아 나간다. 이 지면의 알베도는 ___다.",
+      "correct_answer": "0.25",
+      "explanation_hint": "알베도는 들어온 태양 복사에 대한 반사된 양의 비다. 200을 800으로 나누면 0.25이므로 나머지 0.75, 곧 600W/m²가 지면에 흡수된다. 알베도는 비율이라 단위가 없고 지면 상태가 바뀌면 함께 바뀐다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "알베도의 정의를 관측값에서 산출"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "산 정상 2.4km에서 기온이 6℃인 마른 공기가 건조 단열 감률 10℃/km로 해안까지 가라앉는다. 산불을 키우는 이 바람이 해안에 닿을 때 기온은 약 ___℃가 된다.",
+      "correct_answer": "30",
+      "explanation_hint": "물기를 잃은 공기는 내려오는 내내 건조 단열 감률로 데워진다. 2.4km를 내려오면 24℃가 올라 6℃에서 30℃가 되고, 같은 수증기량으로 기온만 오르므로 상대습도는 크게 떨어진다. 연료가 마르는 까닭이 여기에 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "푄 하강 승온 — 건조 단열 감률 적용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "대기 위에서 340W/m²로 들어오는 태양 복사 가운데 알베도 0.3만큼이 반사되어 되돌아 나간다. 지구계가 흡수하는 태양 복사를 W/m² 단위로 짚어라.",
+      "correct_answer": "238",
+      "min": 140,
+      "max": 340,
+      "step": 2,
+      "unit": "W/m²",
+      "explanation_hint": "흡수량은 들어온 양에 1에서 알베도를 뺀 값을 곱한 것이다. 340의 0.7이 238W/m²이고, 나머지 102W/m²가 반사되어 되돌아 나간다. 반사분과 흡수분을 뒤바꾸는 것이 가장 흔한 실수다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "알베도로 계산하는 흡수 태양 복사"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "어느 기층의 아래쪽 지균풍은 서풍 10m/s이고 위쪽 지균풍은 서풍 45m/s다. 두 고도 사이 층의 온도풍 크기를 m/s 단위로 짚어라.",
+      "correct_answer": "35",
+      "min": 0,
+      "max": 80,
+      "step": 5,
+      "unit": "m/s",
+      "explanation_hint": "온도풍은 위와 아래 지균풍의 벡터 차이다. 같은 서풍이므로 45에서 10을 빼 35m/s이고, 두 바람을 더해 55라고 답하는 것이 대표적인 오독이다. 이 값이 클수록 그 층의 남북 기온 차가 크다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "온도풍 = 두 고도 지균풍의 벡터 차"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "태풍 중심에서 반지름 200km 되는 곳의 공기가 접선 방향으로 20m/s로 돌고 있다. 이 공기가 회전 각운동량을 지킨 채 반지름 50km까지 죄어들었다면 접선 풍속을 m/s 단위로 짚어라.",
+      "correct_answer": "80",
+      "min": 0,
+      "max": 160,
+      "step": 5,
+      "unit": "m/s",
+      "explanation_hint": "회전 각운동량은 반지름과 접선 풍속의 곱이므로 반지름이 4분의 1로 줄면 풍속은 4배가 된다. 20에 4를 곱해 80m/s이고, 반대로 4로 나눠 5라고 답하면 보존식을 거꾸로 쓴 것이다. 태풍 눈벽 부근에서 바람이 가장 강한 까닭이 여기에 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "회전 각운동량 보존을 수렴하는 태풍 순환에 적용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "등압선이 곧은 곳의 지균풍이 40m/s다. 같은 기압 경도인데 등압선이 저기압성으로 휘어 원심력 몫이 지균풍의 30%만큼 필요해졌다면 경도풍 풍속을 m/s 단위로 짚어라.",
+      "correct_answer": "28",
+      "min": 0,
+      "max": 80,
+      "step": 2,
+      "unit": "m/s",
+      "explanation_hint": "저기압성 곡률에서는 기압 경도력이 전향력과 원심력을 함께 감당해야 하므로 풍속이 지균풍보다 작아진다(아지균). 40의 30%인 12를 빼 28m/s이고, 더해서 52라고 답하면 고기압성 곡률과 맞바꾼 것이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "경도풍 균형 — 저기압성 곡률의 아지균 보정"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "지표가 바뀌는 상황과 그 지면의 알베도·흡수 변화를 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "북극 해빙이 녹아 짙은 바다가 드러난다",
+          "right": "알베도가 크게 떨어져 흡수가 늘고 데워짐이 빨라진다"
+        },
+        {
+          "left": "숲이 사라지고 밝은 모래땅이 드러난다",
+          "right": "알베도가 올라 흡수가 줄고 낮 지면이 덜 데워진다"
+        },
+        {
+          "left": "겨울 들판에 새 눈이 두껍게 쌓인다",
+          "right": "알베도가 가장 크게 올라 들어온 빛의 대부분을 되돌린다"
+        }
+      ],
+      "correct_answer": "북극 해빙이 녹아 짙은 바다가 드러난다:알베도가 크게 떨어져 흡수가 늘고 데워짐이 빨라진다|숲이 사라지고 밝은 모래땅이 드러난다:알베도가 올라 흡수가 줄고 낮 지면이 덜 데워진다|겨울 들판에 새 눈이 두껍게 쌓인다:알베도가 가장 크게 올라 들어온 빛의 대부분을 되돌린다",
+      "explanation_hint": "지면이 밝아지면 알베도가 오르고 흡수가 줄며, 어두워지면 그 반대다. 해빙이 녹는 쪽은 알베도가 떨어져 흡수가 늘고 그 열이 다시 얼음을 녹이는 되먹임이 되며, 사막화나 적설은 반대로 흡수를 줄인다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "지면 변화 → 알베도 → 흡수 태양 복사의 방향 판정"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "발달한 태풍의 각 부분과 그곳에서 나타나는 특징을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "눈",
+          "right": "약한 하강 기류가 있어 바람이 잦아들고 구름이 걷힌다"
+        },
+        {
+          "left": "눈벽",
+          "right": "가장 강한 상승과 최대 풍속이 좁은 띠에 몰린다"
+        },
+        {
+          "left": "나선 구름대",
+          "right": "중심 바깥으로 뻗으며 소나기와 돌풍이 오간다"
+        },
+        {
+          "left": "상층 유출층",
+          "right": "고기압성으로 퍼지며 모인 공기를 밖으로 내보낸다"
+        }
+      ],
+      "correct_answer": "눈:약한 하강 기류가 있어 바람이 잦아들고 구름이 걷힌다|눈벽:가장 강한 상승과 최대 풍속이 좁은 띠에 몰린다|나선 구름대:중심 바깥으로 뻗으며 소나기와 돌풍이 오간다|상층 유출층:고기압성으로 퍼지며 모인 공기를 밖으로 내보낸다",
+      "explanation_hint": "태풍은 하층 수렴, 눈벽 상승, 상층 유출이 한 기둥으로 이어진 기관이다. 눈의 약한 하강이 중심을 데워 온난핵을 만들고, 상층 유출이 막히면 기둥에 공기가 쌓여 중심 기압이 더 내려가지 못한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "태풍의 연직·수평 구조 부위별 역할"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "도시 지면의 특성과 그것이 도시의 열 수지에 남기는 변화를 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "아스팔트와 콘크리트가 넓게 깔려 있다",
+          "right": "열을 많이 담아 두었다가 밤에 천천히 내놓는다"
+        },
+        {
+          "left": "건물이 높고 촘촘해 하늘이 좁게 보인다",
+          "right": "밤에 내보내는 적외 복사가 벽에 갇혀 냉각이 더뎌진다"
+        },
+        {
+          "left": "빗물이 곧바로 하수로 빠져나간다",
+          "right": "증발에 쓸 물이 없어 받은 열이 대부분 공기를 데우는 데 쓰인다"
+        },
+        {
+          "left": "자동차와 냉방기의 배출열이 더해진다",
+          "right": "태양 복사 말고도 인공 열이 지면 열 수지에 보태진다"
+        }
+      ],
+      "correct_answer": "아스팔트와 콘크리트가 넓게 깔려 있다:열을 많이 담아 두었다가 밤에 천천히 내놓는다|건물이 높고 촘촘해 하늘이 좁게 보인다:밤에 내보내는 적외 복사가 벽에 갇혀 냉각이 더뎌진다|빗물이 곧바로 하수로 빠져나간다:증발에 쓸 물이 없어 받은 열이 대부분 공기를 데우는 데 쓰인다|자동차와 냉방기의 배출열이 더해진다:태양 복사 말고도 인공 열이 지면 열 수지에 보태진다",
+      "explanation_hint": "도시 열섬은 하나의 원인이 아니라 열 수지의 항이 통째로 바뀐 결과다. 저장열이 늘고, 하늘이 좁아 밤 복사 냉각이 막히고, 증발로 나갈 몫이 공기를 데우는 쪽으로 옮겨 가고, 인공 열까지 더해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "도시 지면 열 수지 — 저장열·천공률·증발 몫·인공 열"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "바다와 대기가 만나는 상황과 그때 해면에서 일어나는 열 교환을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "찬 대륙 공기가 따뜻한 해면 위로 불어 나간다",
+          "right": "해면에서 대기로 열과 수증기가 대량으로 빠져나간다"
+        },
+        {
+          "left": "따뜻하고 습한 공기가 찬 해면 위를 지난다",
+          "right": "하층이 식어 안정해지고 해무가 끼기 쉬워진다"
+        },
+        {
+          "left": "바람이 약하고 햇빛이 강한 여름 바다다",
+          "right": "표층만 데워져 얕은 수온 약층이 생긴다"
+        }
+      ],
+      "correct_answer": "찬 대륙 공기가 따뜻한 해면 위로 불어 나간다:해면에서 대기로 열과 수증기가 대량으로 빠져나간다|따뜻하고 습한 공기가 찬 해면 위를 지난다:하층이 식어 안정해지고 해무가 끼기 쉬워진다|바람이 약하고 햇빛이 강한 여름 바다다:표층만 데워져 얕은 수온 약층이 생긴다",
+      "explanation_hint": "해면과 공기의 기온 차와 바람이 열 교환의 방향과 크기를 정한다. 공기가 더 차면 바다가 대기를 데우고, 공기가 더 따뜻하면 하층이 식어 안정해진다. 바람이 약하면 섞임이 없어 열이 표층에만 갇힌다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "해면 열 교환의 방향 — 해기 온도차와 바람"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "북반구 지상 저기압에서 마찰층 수렴이 상승 기류로 이어지는 과정을 순서대로 배열하라.",
+      "items": [
+        "마찰이 마찰층 바람을 등압선 안쪽으로 틀어 놓는다",
+        "안쪽으로 튼 바람이 저기압 중심으로 공기를 모은다",
+        "모인 공기가 갈 곳이 없어 마찰층 꼭대기에서 위로 밀려 나간다",
+        "밀려 올라간 공기가 자유 대기의 상승 기류로 이어진다",
+        "올라간 공기가 식어 구름이 두꺼워지고 저기압 날씨가 궂어진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "마찰이 먼저 바람의 방향을 틀어야 수렴이 생기고, 수렴한 질량이 갈 곳을 찾아 위로 나가야 상승이 걸린다. 순서를 뒤집어 상승이 먼저라고 두면 질량 보존이 성립하지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "마찰층 수렴 → 에크만 펌핑 → 구름 발달의 인과 순서"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "맑은 날 아침부터 낮까지 혼합층이 자라 적운이 줄지어 서기까지의 과정을 순서대로 배열하라.",
+      "items": [
+        "해가 뜨며 지면이 데워져 지면에 닿은 공기가 부력을 얻는다",
+        "데워진 공기가 오르내리며 아래층이 섞여 온위가 일정한 층이 생긴다",
+        "그 층이 두꺼워지며 안에 갇힌 기온과 이슬점의 차이가 좁혀진다",
+        "층의 꼭대기가 상승 응결 고도에 닿아 수증기가 응결하기 시작한다",
+        "혼합층 꼭대기를 따라 흰 적운이 줄지어 늘어선다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "혼합층은 지면 가열이 만든 부력으로 자라며, 그 안에서는 온위가 거의 일정하다. 꼭대기가 상승 응결 고도에 닿는 순간부터 구름 밑면이 생기므로, 맑은 날 적운의 밑면 높이는 그 지역의 상승 응결 고도를 눈으로 보여 준다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "혼합층 성장과 상승 응결 고도 도달의 인과 순서"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "단열선도에서 지상 공기덩이의 상승 응결 고도를 찾는 절차를 순서대로 배열하라.",
+      "items": [
+        "지상 기온과 이슬점을 단열선도 위에 각각 찍는다",
+        "기온 점에서 건조 단열선을 따라 위로 선을 긋는다",
+        "이슬점 점에서 등포화혼합비선을 따라 위로 선을 긋는다",
+        "두 선이 만나는 높이를 상승 응결 고도로 읽는다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "올라가는 공기는 기온이 건조 단열로 떨어지고 혼합비는 그대로 보존된다. 그래서 두 선이 만나는 점이 곧 포화가 시작되는 높이다. 두 선을 맞바꿔 그으면 만나는 점이 생기지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=8 · 학부 대기과학(교육과정 밖)",
+        "단열선도 작도 절차 — 건조 단열선과 등포화혼합비선의 교점"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "500hPa 골이 지나간 뒤 한반도 상공에는 부의 와도 이류가 들어오고, 같은 시각 850hPa에서는 북서풍이 등온선을 가로질러 한기를 나른다. 지상에서 기대되는 변화로 옳은 것은?",
+      "options": [
+        "상층 수렴이 하강을 부르고 한기가 층후를 줄여 지상 기압이 오르며 저기압이 메워진다",
+        "상층 발산이 강해져 상승이 이어지고 지상 저기압이 더 깊어진다",
+        "한랭이류가 기층을 두껍게 만들어 지상 기압이 오히려 내려간다",
+        "부의 와도 이류는 연직 운동과 무관하므로 지상 기압은 그대로다"
+      ],
+      "correct_answer": "상층 수렴이 하강을 부르고 한기가 층후를 줄여 지상 기압이 오르며 저기압이 메워진다",
+      "explanation_hint": "골 뒤에서는 와도 이류가 음이라 상층에 수렴이 걸리고 그 아래는 하강한다. 여기에 한랭이류가 겹치면 기층이 얇아져 지상 기압이 오른다. 두 장을 겹쳐 읽지 않고 골 앞의 발산·온난이류와 맞바꾸면 정반대 판단이 나온다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 500hPa 부의 와도 이류 × 850hPa 한랭이류(층후 감소)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "태풍이 북태평양 고기압 서쪽 가장자리를 따라 북상하는데, 중국 내륙에서 500hPa 골이 동쪽으로 다가온다. 이 배치에서 태풍 진로에 대한 판단으로 가장 알맞은 것은?",
+      "options": [
+        "고기압 가장자리를 따라 북상하다 골 앞 남서류에 실려 북동으로 방향을 튼다",
+        "고기압이 서쪽으로 물러난 것이므로 태풍은 서진해 중국 내륙으로 든다",
+        "상층 골은 진로와 관계가 없으므로 태풍은 계속 북서로만 나아간다",
+        "골이 다가오면 지향류가 뒤집혀 태풍이 남서쪽으로 되돌아간다"
+      ],
+      "correct_answer": "고기압 가장자리를 따라 북상하다 골 앞 남서류에 실려 북동으로 방향을 튼다",
+      "explanation_hint": "태풍은 중층 지향류를 따라 움직인다. 고기압 가장자리에서는 그 흐름이 북향이고, 상층 골이 다가와 골 앞 남서류가 걸치면 지향류가 북동으로 돌아 전향이 일어난다. 두 장을 겹쳐 읽어야 전향 시점이 보인다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 아열대 고기압 가장자리의 지향류 × 상층 골 접근"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "1월 시베리아 고기압이 확장해 동해상에 북동류가 들어온다. 850hPa 기온은 -18℃, 동해 표면 수온은 10℃이고 바람은 태백산맥 동사면과 거의 직각으로 분다. 영동 지방에 기대되는 것으로 옳은 것은?",
+      "options": [
+        "바다에서 열과 수증기를 얻어 감률이 커진 기류가 사면에서 강제로 들려 대설이 이어진다",
+        "산맥을 넘은 뒤 가라앉아 데워지므로 영동은 맑고 건조해진다",
+        "바람이 사면과 직각이면 상승이 서로 상쇄되어 눈구름이 흩어진다",
+        "북동류는 기단을 변질시키지 못하므로 눈은 서해안에만 내린다"
+      ],
+      "correct_answer": "바다에서 열과 수증기를 얻어 감률이 커진 기류가 사면에서 강제로 들려 대설이 이어진다",
+      "explanation_hint": "해면과 850hPa의 기온 차가 28℃에 이르면 하층만 데워져 감률이 커지고 수증기가 실린다. 그 기류가 산 사면과 직각으로 들이치면 지형이 상승을 보태 눈구름이 한자리에 오래 머문다. 하강 승온은 바람이 산을 넘어간 반대쪽 이야기다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 해면과 850hPa의 기온 차(기단 변질) × 지형 강제 상승"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "오후 단열선도에서 500hPa 기온이 여섯 시간 새 -12℃에서 -18℃로 내려갔고, 같은 동안 지상 이슬점은 18℃에서 22℃로 올랐다. 이 기층의 대류 잠재력 변화로 옳은 것은?",
+      "options": [
+        "위는 식고 아래는 습해져 감률과 부력이 함께 커지므로 대류가 서기 쉬워진다",
+        "상층만 식은 것이므로 안정도는 사실상 그대로다",
+        "이슬점이 오르면 공기가 무거워져 상승이 오히려 억눌린다",
+        "상층 한기는 하강 운동을 부르므로 대류가 억제된다"
+      ],
+      "correct_answer": "위는 식고 아래는 습해져 감률과 부력이 함께 커지므로 대류가 서기 쉬워진다",
+      "explanation_hint": "상층 한기는 환경 감률을 키우고 하층 습윤화는 공기덩이가 포화된 뒤 얻는 부력을 키운다. 두 변화는 같은 방향으로 겹치므로 대류 잠재력은 두 배로 늘어난다. 한 장만 보면 변화가 작아 보인다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 상층 한기 이류(감률 증가) × 하층 습윤화(부력 증가)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "어느 유역에 이틀 전 80mm가 내려 흙이 이미 젖어 있다. 오늘 다시 시간당 30mm의 비가 세 시간 이어진다는 예보가 나왔다. 하천 반응에 대한 판단으로 가장 알맞은 것은?",
+      "options": [
+        "땅이 물을 더 받아들이지 못해 유출률이 커지고 첨두 유량이 더 빨리, 더 높게 나타난다",
+        "선행 강우가 물을 가둬 두었으므로 오늘 비는 대부분 땅속으로 스민다",
+        "총 강우량이 같으면 선행 조건과 관계없이 첨두 유량도 같다",
+        "젖은 흙은 물을 천천히 내보내므로 첨두 유량이 오히려 낮아진다"
+      ],
+      "correct_answer": "땅이 물을 더 받아들이지 못해 유출률이 커지고 첨두 유량이 더 빨리, 더 높게 나타난다",
+      "explanation_hint": "같은 강우라도 하천 반응은 유역이 이미 얼마나 젖었는지에 달린다. 선행 강우로 침투 여력이 줄면 같은 비의 더 큰 몫이 곧바로 흘러 유출률이 오르고 첨두가 앞당겨진다. 강우량만 보는 판단이 실제 홍수를 놓치는 지점이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 강우 강도·지속 시간 × 선행 강우로 결정되는 유역 침투 여력"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "종관 바람이 약한 여름 오후, 해안 도시로 해풍이 들어온다. 같은 시각 도시 상공에는 교외보다 강한 상승류가 관측된다. 해풍 앞자락이 도심에 닿을 때 나타나기 쉬운 것으로 옳은 것은?",
+      "options": [
+        "해풍 앞자락의 수렴에 도시 상승류가 겹쳐 도심 안쪽에서 소나기 구름이 부풀어 오른다",
+        "찬 해풍이 도시 열을 눌러 구름이 걷히고 오후 내내 맑아진다",
+        "도시 상승류가 해풍을 막아 해풍이 도심에 닿지 못한다",
+        "해풍은 하층만 바꾸므로 구름 발달과는 관계가 없다"
+      ],
+      "correct_answer": "해풍 앞자락의 수렴에 도시 상승류가 겹쳐 도심 안쪽에서 소나기 구름이 부풀어 오른다",
+      "explanation_hint": "해풍 앞자락은 그 자체로 수렴선이고, 도시는 지면 가열로 상승류를 만든다. 두 상승이 같은 자리에서 겹치면 부력이 한꺼번에 풀려 도심에 국지 소나기가 선다. 해풍의 냉각만 보면 정반대 결론이 나온다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 해풍 전선의 수렴 × 도시 열섬 상승류"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "엘니뇨가 발달한 겨울, 열대 태평양의 대류 중심이 중태평양으로 옮겨 가고 동아시아 상층 제트류의 축이 평년보다 남쪽으로 처지며 동쪽으로 길어졌다. 한반도 겨울 기온에 대한 판단으로 가장 알맞은 것은?",
+      "options": [
+        "대륙 고기압의 남하가 잦아들어 평년보다 따뜻한 날이 늘어나는 쪽으로 기운다",
+        "적도 해면 수온은 중위도와 무관하므로 겨울 기온은 평년과 다를 것이 없다",
+        "제트 축이 남쪽으로 처지면 한기가 더 자주 내려와 반드시 혹한이 된다",
+        "엘니뇨는 여름에만 작용하므로 겨울 기온 분포는 라니냐 때와 같다"
+      ],
+      "correct_answer": "대륙 고기압의 남하가 잦아들어 평년보다 따뜻한 날이 늘어나는 쪽으로 기운다",
+      "explanation_hint": "열대의 대류 중심이 옮겨 가면 상층 파동의 배치가 바뀌고, 그 결과가 중위도 제트 축의 위치로 나타난다. 축이 남쪽으로 처지면서 동쪽으로 늘어난 겨울에는 대륙 한기의 남하 통로가 좁아지는 경향이 있다. 해양 한 장, 상층 한 장을 겹쳐야 나오는 판단이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 열대 해면 수온 편차(엘니뇨) × 중위도 제트 축 위치"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "맑고 건조한 겨울밤, A 지점은 바람이 잔잔하고 B 지점은 약한 바람이 밤새 이어졌다. 두 곳의 순 복사 손실은 비슷하다. 새벽 기온과 연직 구조를 견준 것으로 옳은 것은?",
+      "options": [
+        "A는 지면 부근만 크게 식어 접지 역전이 강하고, B는 바람이 층을 섞어 최저 기온이 덜 떨어진다",
+        "B는 바람 때문에 열을 더 빼앗겨 최저 기온이 A보다 낮다",
+        "순 복사 손실이 같으므로 두 곳의 최저 기온도 같다",
+        "A는 역전이 강한 만큼 지면 기온이 오히려 더 높게 나온다"
+      ],
+      "correct_answer": "A는 지면 부근만 크게 식어 접지 역전이 강하고, B는 바람이 층을 섞어 최저 기온이 덜 떨어진다",
+      "explanation_hint": "복사로 식는 것은 지면이고, 그 냉기가 얼마나 얇은 층에 갇히는지는 난류 혼합이 정한다. 바람이 없으면 냉기가 지면에 몰려 역전이 깊어지고, 약한 바람은 위층의 따뜻한 공기를 끌어내려 최저 기온을 떠받친다. 사람이 느끼는 체감과 기온은 다른 축이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 야간 순 복사 손실 × 난류 혼합(풍속)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "늦가을, 표면 수온 24℃인 해상으로 기온 -2℃의 대륙 공기가 강한 북서풍에 실려 나간다. 위성 영상에는 해안에서 조금 떨어진 곳부터 구름 띠가 바람과 나란히 줄지어 섰다. 이 해역에서 일어나는 일로 옳은 것은?",
+      "options": [
+        "해면에서 열과 수증기가 대량으로 대기로 넘어가 하층이 불안정해지고 구름 띠가 늘어선다",
+        "찬 공기가 바다를 식혀 하층이 안정해지므로 구름은 곧 흩어진다",
+        "해면과 공기의 기온 차는 구름과 무관하고 바람의 세기만이 띠를 만든다",
+        "따뜻한 바다 위에서는 하층이 안정해져 해무만 끼고 대류는 서지 않는다"
+      ],
+      "correct_answer": "해면에서 열과 수증기가 대량으로 대기로 넘어가 하층이 불안정해지고 구름 띠가 늘어선다",
+      "explanation_hint": "공기가 해면보다 훨씬 차면 바다가 대기를 데우고 적시는 쪽으로 열이 흐른다. 하층만 데워지니 감률이 커지고, 바람 방향으로 늘어선 대류 세포가 줄무늬 구름이 된다. 따뜻한 공기가 찬 바다를 지날 때와 부호가 정반대다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 해면 열속(해양) × 하층 감률 변화(대기 안정도)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "500~700hPa 층 평균 바람이 남서류이고 북태평양 고기압 가장자리가 한반도 남쪽에 걸쳐 있다. 태풍의 진행 방향과 속도를 이 층 평균 바람으로 가늠할 때, 태풍을 싣고 가는 이 흐름을 무엇이라 하는가?",
+      "correct_answer": "지향류",
+      "explanation_hint": "태풍은 스스로 방향을 정하기보다 둘레 대기의 흐름에 실려 간다. 중층 층 평균 바람이 그 흐름을 가장 잘 대표하므로 지향류라 부르고, 지향류가 약해지면 태풍의 이동이 느려져 같은 지역에 비가 오래 쏟아진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 중층 층 평균 바람 × 아열대 고기압 가장자리 배치"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "1월 기단이 850hPa 기온 -20℃로 남하해 표면 수온 8℃인 서해를 건널 때 두 값의 차이가 28℃에 이르렀다. 대설 판단에서 이렇게 해면 수온과 상층 기온의 차이를 가리켜 무엇이라 하는가?",
+      "correct_answer": "해기차",
+      "explanation_hint": "해기차는 바다와 그 위 대기의 온도 차를 한마디로 나타낸 값이다. 이 값이 클수록 해면에서 대기로 넘어가는 열과 수증기가 많아 하층 감률이 커지고 눈구름이 두꺼워진다. 그래서 겨울 대설 판단에서 가장 먼저 보는 수치다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 850hPa 기온장 × 해면 수온장(기단 변질 진단)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "1000hPa과 500hPa 등압면 사이의 고도 차이는 그 기층의 평균 기온이 높을수록 커진다. 두 장의 등압면 고도를 빼서 한기와 난기의 분포를 한 장으로 읽으려고 쓰는 이 양을 무엇이라 하는가?",
+      "correct_answer": "층후",
+      "explanation_hint": "층후는 두 등압면 사이 기층의 두께이고 그 기층의 평균 기온에 비례한다. 그래서 층후 분포도는 사실상 기층 평균 기온 분포도이며, 층후가 줄어드는 쪽으로 한기가 들어오는지 곧바로 읽을 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 등압면 고도장 × 기층 평균 기온"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "산지 소하천 유역에 시간당 60mm의 비가 한 시간 남짓 쏟아졌다. 유역이 좁고 경사가 급해 빗물이 곧바로 모이면서 몇십 분 만에 수위가 치솟았다. 이렇게 짧은 시간에 닥치는 홍수를 무엇이라 하는가?",
+      "correct_answer": "돌발홍수",
+      "explanation_hint": "좁고 가파른 유역은 물이 모이는 시간이 짧아 강우가 거의 그대로 수위로 나타난다. 그래서 같은 강우라도 큰 하천보다 훨씬 빨리, 예고 없이 물이 불어난다. 대피 시간이 짧다는 것이 돌발홍수의 핵심 위험이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 강우 강도 × 유역 형상·경사가 정하는 도달 시간"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "봄철 산을 넘어 내려온 바람이 기온을 8℃ 올리고 상대습도를 20%까지 떨어뜨린 날, 강풍을 타고 불티가 불머리보다 앞으로 날아가 새 불을 놓았다. 산불 확산에서 이 현상을 무엇이라 하는가?",
+      "correct_answer": "비화",
+      "explanation_hint": "하강 승온으로 연료가 마르고 강풍이 불티를 멀리 실어 나르면 불이 방화선을 뛰어넘어 앞쪽에 새로 붙는다. 확산 속도가 불머리의 진행 속도보다 훨씬 빨라지므로, 진화 계획을 세울 때 반드시 함께 보는 조건이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 푄 하강 승온·건조 × 종관 강풍(불티 수송)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "250hPa 제트 스트릭에서 상층 발산이 나타나는 곳은 입구 오른쪽과 출구 ___쪽이고, 그 아래에서는 상승 운동이 강해져 지상 저기압이 깊어지기 쉽다.",
+      "correct_answer": "왼",
+      "explanation_hint": "제트 스트릭에 드나드는 공기의 가속과 감속이 네 상한에 두 쌍의 발산·수렴을 만든다. 발산은 입구 오른쪽과 출구 왼쪽에 놓이고, 그 아래에 하층 수렴과 상승이 짝지어 걸린다. 지상 저기압의 발달 위치를 상층에서 미리 짚는 근거다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 제트 스트릭 4상한 2차 순환 × 지상 저기압 발달 위치"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "상층 유출이 하층 수렴을 앞질러 기둥의 질량이 줄면서 태풍 중심 기압이 12시간 만에 980hPa에서 956hPa로 내려갔다. 이 동안 중심 기압은 시간당 ___hPa씩 내려간 셈이다.",
+      "correct_answer": "2",
+      "explanation_hint": "24hPa을 12시간으로 나누면 시간당 2hPa이다. 어느 지점의 기압은 그 위에 쌓인 공기의 무게이므로, 상층 유출이 하층 수렴을 앞지르는 동안에만 기둥의 질량이 줄어 중심 기압이 계속 내려간다. 상층 유출이 막히면 하층이 아무리 수렴해도 더 깊어지지 못한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 상층 발산(유출) × 하층 수렴의 질량 수지"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "1월 기단이 850hPa 기온 -19℃로 남하해 표면 수온 9℃인 서해를 건넌다. 대설 판단에 쓰는 해면 수온과 850hPa 기온의 차이는 ___℃다.",
+      "correct_answer": "28",
+      "explanation_hint": "9℃에서 -19℃를 빼면 28℃다. 이 차이가 클수록 해면에서 대기로 넘어가는 열과 수증기가 많아 하층 감률이 커지고 눈구름이 두꺼워진다. 두 값을 서로 다른 장에서 읽어 겹쳐야 나오는 수치다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 850hPa 기온장 × 해면 수온장"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "지상 기온 32℃·이슬점 24℃인 공기가 강제로 오른다. 두 값의 차이가 1km에 8℃씩 좁혀진다면 상승 응결 고도는 ___m이고, 이 높이는 850hPa 부근 안정층보다 낮아 구름이 그 아래에서 먼저 생긴다.",
+      "correct_answer": "1000",
+      "explanation_hint": "기온과 이슬점의 차이 8℃를 1km에 8℃씩 좁히므로 1km, 곧 1000m에서 두 값이 만난다. 이 높이가 안정층보다 낮으면 구름 밑면은 생기지만 대류가 그 층을 뚫지 못해 얕은 구름에 그친다. 두 높이를 함께 읽어야 오후 대류의 운명이 보인다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 상승 응결 고도 계산 × 850hPa 안정층 고도"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "기온이 1℃ 오를 때 대기가 품는 수증기가 약 7% 늘어난다. 상승 운동의 세기가 같다면 2℃ 따뜻해진 대기에서 시간당 강수량은 약 ___% 늘어난다고 어림한다.",
+      "correct_answer": "14",
+      "explanation_hint": "1℃마다 7%이므로 2℃면 약 14%다. 같은 상승 운동이라도 실려 오는 수증기가 늘면 응결량이 늘어 시간당 강수 강도가 세진다. 총 강수량보다 극한 강수의 강도가 먼저 반응하는 까닭이 여기에 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 기온-포화수증기량 관계 × 강수 강도 환산"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "500hPa 층에서 한반도 상공 서풍이 90노트다. 지상 저기압은 대체로 상층 지향류의 절반쯤 되는 속도로 움직인다고 볼 때 저기압의 이동 속도를 노트 단위로 짚어라.",
+      "correct_answer": "45",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "노트",
+      "explanation_hint": "지상 저기압의 이동은 상층 흐름에 실려 결정되고, 경험적으로 500hPa 풍속의 절반쯤이 이동 속도의 눈어림이 된다. 90의 절반인 45노트이며, 상층 풍속을 그대로 90이라 답하면 지상과 상층을 맞바꾼 것이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 500hPa 풍속장 × 지상 저기압 이동 예상"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "태풍 강수대의 폭이 200km이고 태풍이 시속 20km로 곧장 북상한다. 어느 지점이 강수대 안에 머무는 동안 시간당 15mm의 비가 고르게 내린다면 그 지점의 총 강수량을 mm 단위로 짚어라.",
+      "correct_answer": "150",
+      "min": 50,
+      "max": 250,
+      "step": 10,
+      "unit": "mm",
+      "explanation_hint": "강수대 폭을 이동 속도로 나누면 머무는 시간이 열 시간이고, 여기에 시간당 15mm를 곱해 150mm다. 이동이 느려질수록 같은 강수대라도 총량이 늘어나므로, 태풍 강수 예상에서 이동 속도가 강도만큼 중요하다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 태풍 이동 속도 × 강수 강도(체류 시간 환산)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "맑은 겨울날 지면에 태양 복사가 400W/m² 내리쬔다. 밤새 내린 새 눈이 덮여 지면 알베도가 0.2에서 0.6으로 올랐다면 지면이 흡수하는 태양 복사가 줄어든 양을 W/m² 단위로 짚어라.",
+      "correct_answer": "160",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "unit": "W/m²",
+      "explanation_hint": "흡수량은 알베도가 0.2일 때 320, 0.6일 때 160이므로 줄어든 양은 160W/m²다. 알베도 차이 0.4에 400을 곱해도 같다. 적설 뒤 낮에도 기온이 오르지 않는 까닭이 이 흡수 감소에 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 적설로 인한 알베도 변화 × 일사량(흡수 복사 환산)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "정체한 상층 고기압 아래에서 고도 3.2km의 기온 4℃인 공기가 지상까지 건조 단열 감률 10℃/km로 가라앉는다. 다른 열 출입이 없다면 지상에서 나타나는 기온을 ℃ 단위로 짚어라.",
+      "correct_answer": "36",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "℃",
+      "explanation_hint": "3.2km를 내려오며 32℃가 올라 4℃에서 36℃가 된다. 상층 고기압이 며칠씩 자리를 지키면 이 하강 승온이 날마다 되풀이되고 강한 일사까지 더해져 폭염이 길어진다. 습윤 감률을 잘못 쓰면 20℃ 안팎이 나온다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 상층 고기압 정체(하강 운동) × 건조 단열 승온 계산"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "겨울 저기압에서 읽은 연직 기온 구조와 그때 지상에 닿는 강수 형태를 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "지상부터 상층까지 줄곧 영하다",
+          "right": "얼음 결정이 녹지 않고 그대로 눈으로 내린다"
+        },
+        {
+          "left": "중층에 두꺼운 영상층이 있고 지상도 영상이다",
+          "right": "눈이 완전히 녹아 비로 내린다"
+        },
+        {
+          "left": "중층에 얇은 영상층이 있고 지상 부근만 영하다",
+          "right": "녹은 물방울이 지면에 닿는 순간 얼어붙는다"
+        },
+        {
+          "left": "중층 영상층을 지난 뒤 두꺼운 영하층을 다시 지난다",
+          "right": "떨어지며 다시 얼어 작은 얼음 알갱이가 된다"
+        }
+      ],
+      "correct_answer": "지상부터 상층까지 줄곧 영하다:얼음 결정이 녹지 않고 그대로 눈으로 내린다|중층에 두꺼운 영상층이 있고 지상도 영상이다:눈이 완전히 녹아 비로 내린다|중층에 얇은 영상층이 있고 지상 부근만 영하다:녹은 물방울이 지면에 닿는 순간 얼어붙는다|중층 영상층을 지난 뒤 두꺼운 영하층을 다시 지난다:떨어지며 다시 얼어 작은 얼음 알갱이가 된다",
+      "explanation_hint": "겨울 강수 형태는 지상 기온 하나가 아니라 떨어지는 동안 지나는 층의 순서와 두께가 정한다. 녹는 층이 얼마나 두꺼운지, 그 아래 영하층이 다시 얼릴 만큼 두꺼운지에 따라 비·어는비·얼음 알갱이·눈이 갈린다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 연직 기온 프로파일 × 낙하 중 상변화 이력"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "강우와 유역의 조건을 짝지어 놓은 상황과, 그때 하천에 나타나는 반응을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "좁고 가파른 산지 유역에 짧고 강한 비가 쏟아진다",
+          "right": "몇십 분 만에 수위가 치솟아 대피 시간이 거의 남지 않는다"
+        },
+        {
+          "left": "넓은 유역에 약한 비가 이틀 내내 이어진다",
+          "right": "첨두는 낮지만 본류 수위가 오래 높게 유지된다"
+        },
+        {
+          "left": "선행 강우로 흙이 이미 젖어 있다",
+          "right": "같은 비에도 스미는 양이 줄어 흘러가는 몫이 커진다"
+        },
+        {
+          "left": "빗물이 스밀 곳이 없는 도심에 비가 내린다",
+          "right": "빗물이 곧장 하수로 몰려 첨두가 훨씬 빨리 나타난다"
+        }
+      ],
+      "correct_answer": "좁고 가파른 산지 유역에 짧고 강한 비가 쏟아진다:몇십 분 만에 수위가 치솟아 대피 시간이 거의 남지 않는다|넓은 유역에 약한 비가 이틀 내내 이어진다:첨두는 낮지만 본류 수위가 오래 높게 유지된다|선행 강우로 흙이 이미 젖어 있다:같은 비에도 스미는 양이 줄어 흘러가는 몫이 커진다|빗물이 스밀 곳이 없는 도심에 비가 내린다:빗물이 곧장 하수로 몰려 첨두가 훨씬 빨리 나타난다",
+      "explanation_hint": "하천 반응은 강우 한 축이 아니라 유역이 물을 얼마나 붙잡아 두는가와 곱해져 나타난다. 같은 100mm라도 좁고 가파른 유역과 넓고 완만한 유역, 마른 땅과 젖은 땅에서 첨두의 크기와 시각이 전혀 달라진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 강우 특성(강도·지속) × 유역 특성(형상·선행 습윤·불투수)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "산불 현장에서 만나는 기상 조건과 그때 나타나는 확산 양상을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "산을 넘어온 하강 기류로 기온이 오르고 습도가 낮다",
+          "right": "연료가 빠르게 말라 불이 붙고 번지기 쉬워진다"
+        },
+        {
+          "left": "등압선 간격이 좁아 강한 서풍이 이어진다",
+          "right": "불티가 앞으로 날아가 불머리보다 앞쪽에 새 불이 붙는다"
+        },
+        {
+          "left": "낮 동안 골짜기를 따라 사면 상승류가 생긴다",
+          "right": "불이 사면을 타고 위로 빠르게 치고 오른다"
+        },
+        {
+          "left": "밤이 되어 바람이 잦아들고 습도가 오른다",
+          "right": "번지는 속도가 눈에 띄게 느려져 진화 여건이 생긴다"
+        }
+      ],
+      "correct_answer": "산을 넘어온 하강 기류로 기온이 오르고 습도가 낮다:연료가 빠르게 말라 불이 붙고 번지기 쉬워진다|등압선 간격이 좁아 강한 서풍이 이어진다:불티가 앞으로 날아가 불머리보다 앞쪽에 새 불이 붙는다|낮 동안 골짜기를 따라 사면 상승류가 생긴다:불이 사면을 타고 위로 빠르게 치고 오른다|밤이 되어 바람이 잦아들고 습도가 오른다:번지는 속도가 눈에 띄게 느려져 진화 여건이 생긴다",
+      "explanation_hint": "산불 확산은 연료를 말리는 조건, 불티를 옮기는 조건, 지형이 만드는 국지 바람이 겹쳐 정해진다. 종관 강풍이 앞쪽으로 불을 옮기고 사면 상승류가 위로 끌어올리며, 밤의 안정화가 유일한 진화 창이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 종관 기압 배치(강풍·건조) × 국지 지형 순환(사면류)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "온난화가 만든 변화와 그 변화가 실제 날씨·재해에서 나타나는 결과를 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "대기가 품는 수증기가 늘어난다",
+          "right": "같은 상승 운동에도 시간당 강수 강도가 세진다"
+        },
+        {
+          "left": "북극 해빙이 줄어 짙은 바다가 드러난다",
+          "right": "흡수하는 태양 복사가 늘어 극지 온난화가 빨라진다"
+        },
+        {
+          "left": "바닷물이 데워져 부피가 팽창한다",
+          "right": "해수면이 높아져 폭풍 해일의 침수 범위가 넓어진다"
+        }
+      ],
+      "correct_answer": "대기가 품는 수증기가 늘어난다:같은 상승 운동에도 시간당 강수 강도가 세진다|북극 해빙이 줄어 짙은 바다가 드러난다:흡수하는 태양 복사가 늘어 극지 온난화가 빨라진다|바닷물이 데워져 부피가 팽창한다:해수면이 높아져 폭풍 해일의 침수 범위가 넓어진다",
+      "explanation_hint": "온난화의 영향은 기온 상승 한 줄이 아니라 열역학·복사·해양이 각자 다른 통로로 나타난다. 수증기는 강수 강도로, 알베도 변화는 극지 증폭으로, 열팽창은 침수 범위로 이어지며 서로 되먹임을 주고받는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 열역학(수증기)·복사(알베도)·해양(열팽창) 세 통로의 결과 대응"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "1월 대륙 한기가 남하해 서해안에 대설이 내리기까지의 과정을 시간 순서대로 늘어놓아라.",
+      "items": [
+        "대륙 고기압이 확장해 매우 찬 공기가 서해 쪽으로 남하한다",
+        "찬 공기가 상대적으로 따뜻한 서해를 건너며 하층만 데워지고 수증기를 얻는다",
+        "감률이 커진 하층에 적운형 구름이 줄지어 발달한다",
+        "서해상 수렴대에서 구름 띠가 한 줄로 모여 두꺼워진다",
+        "구름 띠가 서해안에 상륙하며 지형에 들려 대설을 뿌린다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "기단이 먼저 남하해야 해면과의 기온 차가 생기고, 하층이 데워져야 감률이 커지며, 수렴대가 흩어진 구름을 한 줄로 모아야 한곳에 대설이 쏟아진다. 어느 한 단계라도 빠지면 눈은 오되 대설은 되지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 기단 변질(해기차) × 해상 수렴대·해안 지형 강제"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "아침에 눌려 있던 대류가 오후 뇌우로 터지기까지의 과정을 시간 순서대로 늘어놓아라.",
+      "items": [
+        "아침 단열선도에 850hPa 안정층이 뚜렷해 대류가 눌린다",
+        "햇빛이 지면을 데워 하층 기온과 이슬점이 함께 오른다",
+        "혼합층이 두꺼워지며 안정층 아래에 부력이 쌓인다",
+        "이른 오후 가열이 안정층을 뚫어 공기덩이가 자유롭게 오른다",
+        "쌓아 두었던 부력이 한꺼번에 풀리며 뇌우가 폭발적으로 발달한다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "안정층은 대류를 막기만 하는 것이 아니라 부력을 저장하는 뚜껑 노릇을 한다. 오전 내내 눌려 있다가 뚫리는 순간 저장된 부력이 한꺼번에 풀리기 때문에, 뚜껑이 없는 날보다 오히려 대류가 격렬해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 안정층(대류 억제) × 일변화 가열(부력 축적)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "태풍이 어느 지점의 서쪽을 스치며 북상할 때 그 지점에서 관측되는 변화를 시간 순서대로 늘어놓아라.",
+      "items": [
+        "기압이 서서히 내려가고 상층에 얇은 구름이 먼저 걸린다",
+        "동풍이 강해지며 비가 굵어지고 기압 하강이 빨라진다",
+        "중심이 서쪽을 지나는 동안 풍향이 남동에서 남서로 시계 방향으로 돈다",
+        "중심이 북쪽으로 멀어지며 기압이 다시 오르고 바람이 서풍으로 바뀐다",
+        "비가 그치고 기압이 평상값으로 돌아온다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "태풍 중심이 관측 지점의 서쪽을 지나면 그 지점은 진행 방향의 오른쪽에 놓이므로 풍향이 시계 방향으로 돈다. 기압의 하강과 상승, 풍향이 도는 방향을 함께 읽으면 중심이 어느 쪽으로 지나갔는지 사후에 되짚을 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=9 · 학부 고학년(종관·수치 정량)",
+        "겹쳐 읽기: 태풍 진로와 관측 지점의 상대 위치 × 기압·풍향 시계열"
+      ]
+    },
+    "status": "active"
+  }
+]
