@@ -234,16 +234,23 @@ export default function WeatherBrainPanel() {
           위로 올리면 레이더는 열 폭만큼 커지고 막대도 폭을 다 쓴다.
           간격(mt-3·gap-2.5)은 오른쪽 숙련도 목록과 같은 값이다 — 두 열의 줄이
           같은 리듬으로 내려가야 한 카드로 읽힌다. */}
-      <div className="mt-3 flex justify-center">
-        <AbilityRadar
-          abilities={(Array.isArray(data) ? data : []).map((a) => ({
-            concept_tag: a.concept_tag,
-            theta: a.theta,
-            level_label: a.level_label,
-          }))}
-          className="h-[224px] w-[224px]"
-        />
-      </div>
+      {/* ⚠️ 개념 3종 미만이면 **감싼 div까지 같이 빠져야 한다**(2026-08-11 코드
+          리뷰). AbilityRadar는 스스로 null이지만 wrapper가 남으면 mt-3만큼의
+          빈 줄이 막대 위에 생겨, "자리째 빠진다"던 위 설명이 거짓이 된다.
+          임계 3은 AbilityRadar가 소유한다(다각형이 안 그려지는 수) — 여기서
+          다시 정하지 않고 같은 수를 본다. */}
+      {rows.length >= 3 && (
+        <div className="mt-3 flex justify-center">
+          <AbilityRadar
+            abilities={(Array.isArray(data) ? data : []).map((a) => ({
+              concept_tag: a.concept_tag,
+              theta: a.theta,
+              level_label: a.level_label,
+            }))}
+            className="h-[224px] w-[224px]"
+          />
+        </div>
+      )}
       <ul className="mt-3 flex min-w-0 flex-col gap-2.5">
         {rows.map((row) => (
           <li

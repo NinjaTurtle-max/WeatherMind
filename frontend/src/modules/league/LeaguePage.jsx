@@ -83,22 +83,32 @@ export default function LeaguePage() {
     onError: (err) => setSubmitError(err.detail ?? t('league.submitFailed')),
   });
 
-  if (currentQ.isLoading) return <LoadingSpinner label={t('league.loading')} />;
+  // 로딩·오류도 **껍데기 안에서** 그린다(DuelPage와 같은 이유 — 탭바가 두 화면을
+  // 오가는 유일한 통로다. 밖으로 일찍 return하면 여기서 예보 대결로 못 돌아간다).
+  if (currentQ.isLoading) {
+    return (
+      <CompeteLayout tab="/league" title={`🏆 ${t('league.title')}`} subtitle={t('league.dash.subtitle')}>
+        <LoadingSpinner label={t('league.loading')} />
+      </CompeteLayout>
+    );
+  }
 
   if (currentQ.isError) {
     return (
-      <div className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
-        <p className="text-3xl">🌪️</p>
-        <p className="mt-2 font-bold text-slate-800">{t('league.loadFailed')}</p>
-        <p className="mt-1 text-sm text-slate-500">{currentQ.error?.detail}</p>
-        <button
-          type="button"
-          onClick={() => currentQ.refetch()}
-          className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
-        >
-          {t('common.retry')}
-        </button>
-      </div>
+      <CompeteLayout tab="/league" title={`🏆 ${t('league.title')}`} subtitle={t('league.dash.subtitle')}>
+        <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
+          <p className="text-3xl">🌪️</p>
+          <p className="mt-2 font-bold text-slate-800">{t('league.loadFailed')}</p>
+          <p className="mt-1 text-sm text-slate-500">{currentQ.error?.detail}</p>
+          <button
+            type="button"
+            onClick={() => currentQ.refetch()}
+            className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
+          >
+            {t('common.retry')}
+          </button>
+        </div>
+      </CompeteLayout>
     );
   }
 

@@ -87,22 +87,34 @@ export default function DuelPage() {
     setTimeout(() => setToast(null), 3000);
   }, [today, seenSettled, addXp]);
 
-  if (todayQ.isLoading) return <LoadingSpinner label={t('duel.loading')} />;
+  // ⚠️ 로딩·오류도 **껍데기 안에서** 그린다(2026-08-11 코드 리뷰). 껍데기 밖으로
+  // 일찍 return하면 탭바가 사라지는데, 내비에서 리그를 뺀 지금 그 탭바가 리그로
+  // 가는 **앱의 유일한 통로**다 — 오늘 대결 조회가 실패했다고 리그까지 못 가는
+  // 것은 말이 안 된다. 왼쪽 브리핑도 같이 뜨므로 조회 한 번이 늦춰지지도 않는다.
+  if (todayQ.isLoading) {
+    return (
+      <CompeteLayout tab="/duel" title={t('duel.title')} subtitle={t('duel.subtitle')}>
+        <LoadingSpinner label={t('duel.loading')} />
+      </CompeteLayout>
+    );
+  }
 
   if (todayQ.isError) {
     return (
-      <div className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
-        <p className="text-3xl">🌡️</p>
-        <p className="mt-2 font-bold text-slate-800">{t('duel.loadFailed')}</p>
-        <p className="mt-1 text-sm text-slate-500">{todayQ.error?.detail ?? t('common.retryLater')}</p>
-        <button
-          type="button"
-          onClick={() => todayQ.refetch()}
-          className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
-        >
-          {t('common.retry')}
-        </button>
-      </div>
+      <CompeteLayout tab="/duel" title={t('duel.title')} subtitle={t('duel.subtitle')}>
+        <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
+          <p className="text-3xl">🌡️</p>
+          <p className="mt-2 font-bold text-slate-800">{t('duel.loadFailed')}</p>
+          <p className="mt-1 text-sm text-slate-500">{todayQ.error?.detail ?? t('common.retryLater')}</p>
+          <button
+            type="button"
+            onClick={() => todayQ.refetch()}
+            className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
+          >
+            {t('common.retry')}
+          </button>
+        </div>
+      </CompeteLayout>
     );
   }
 

@@ -26,6 +26,22 @@ export const NAV_ITEMS = [
   // 항목은 `/duel` 하나만 둔다 — `/league`는 라우트로 살아 있고(딥링크·기존 링크
   // 무회귀) 탭바가 그리로 가는 유일한 통로다. 둘 다 내비에 두면 "합쳤다"는
   // 화면이 내비에서는 여전히 둘로 보인다.
-  { to: '/duel', labelKey: 'nav.duel', icon: '🌡️' },
+  { to: '/duel', labelKey: 'nav.duel', icon: '🌡️', alsoMatch: ['/league'] },
   { to: '/me', labelKey: 'nav.me', icon: '🏅' },
 ];
+
+/**
+ * 이 항목이 지금 경로를 담당하는가 — **탭바와 사이드바가 같은 규칙을 쓴다.**
+ *
+ * NavLink 기본 판정으로는 안 된다: 합친 화면의 두 번째 탭(`/league`)에 있으면
+ * 어느 항목과도 안 맞아 **아무 데도 선택 표시가 없다**(2026-08-11 코드 리뷰).
+ * 어디에 있는지 내비가 말하지 않는 화면이 생기는 셈이다.
+ *
+ * `alsoMatch`는 "같은 화면의 다른 경로"를 적는 자리다. 내비 항목을 늘리지 않고
+ * 담당 범위만 넓힌다 — 항목을 늘리면 합친 의미가 없어진다.
+ */
+export function isNavActive(item, pathname) {
+  return [item.to, ...(item.alsoMatch ?? [])].some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}

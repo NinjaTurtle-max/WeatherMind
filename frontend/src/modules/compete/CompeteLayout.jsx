@@ -44,16 +44,20 @@ export default function CompeteLayout({ tab, title, subtitle, headerRight, child
   return (
     <div className="pt-2">
       {/* 탭바 — 학습 화면의 코스 탭(CourseSwitcher)과 같은 알약 꼴. 같은 층위의
-          조작이 화면마다 다르게 생기면 "이게 탭인지" 매번 다시 배워야 한다. */}
-      <div role="tablist" aria-label={t('compete.tabsAria')} className="mb-3 flex flex-wrap gap-1.5">
+          조작이 화면마다 다르게 생기면 "이게 탭인지" 매번 다시 배워야 한다.
+          ⚠️ `role="tablist"`/`role="tab"`을 **쓰지 않는다**(2026-08-11 코드 리뷰).
+          이것은 진짜 탭 위젯이 아니라 **경로가 다른 링크 둘**이다 — tab 역할을
+          붙이면 tabpanel·aria-controls·roving tabindex가 따라와야 하는데 그중
+          아무것도 없어서, 스크린 리더에는 깨진 탭으로 들리고 링크라는 사실까지
+          잃는다. 링크로 두고 현재 위치는 `aria-current="page"`가 말한다. */}
+      <nav aria-label={t('compete.tabsAria')} className="mb-3 flex flex-wrap gap-1.5">
         {TABS.map((item) => {
           const active = item.to === tab;
           return (
             <Link
               key={item.to}
               to={item.to}
-              role="tab"
-              aria-selected={active}
+              aria-current={active ? 'page' : undefined}
               data-compete-tab={item.to}
               className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold transition ${
                 active
@@ -66,7 +70,7 @@ export default function CompeteLayout({ tab, title, subtitle, headerRight, child
             </Link>
           );
         })}
-      </div>
+      </nav>
 
       <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div className="min-w-0">

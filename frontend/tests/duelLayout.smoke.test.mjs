@@ -173,6 +173,28 @@ ok(
   'items-start를 쓰지 않는다 — 칸이 늘어나야 sticky가 따라 내려온다',
 );
 
+// ── ③-2 리그로 가는 통로 (2026-08-11 합친 화면) ─────────────────────────────
+//
+// 리그는 내비에서 빠졌다 — 이 화면의 탭이 **앱에서 리그로 가는 유일한 길**이다.
+// navItems에 없다는 단정만으로는 부족하다: 없애 놓고 통로도 안 만들면 그 단정은
+// 통과하는데 화면은 도달 불가가 된다(CO-N-1 ②가 정확히 그 사고였다).
+const leagueTab = $('[data-compete-tab="/league"]');
+ok(Boolean(leagueTab), '탭바에 리그로 가는 링크가 없다 — 리그가 도달 불가 화면이 된다');
+ok(
+  leagueTab?.getAttribute('href') === '/league',
+  `리그 탭이 /league로 간다 — 실제 ${leagueTab?.getAttribute('href')}`,
+);
+const duelTab = $('[data-compete-tab="/duel"]');
+ok(
+  duelTab?.getAttribute('aria-current') === 'page' && !leagueTab?.getAttribute('aria-current'),
+  '지금 보고 있는 탭만 aria-current="page"',
+);
+// 내비도 이 화면을 **자기 것으로 표시해야 한다**. /league에서 어느 항목과도
+// 안 맞아 아무 데도 안 켜지던 것을 navItems.isNavActive(alsoMatch)로 고쳤다.
+const { NAV_ITEMS, isNavActive } = await vite.ssrLoadModule('/src/components/navItems.js');
+const owner = NAV_ITEMS.filter((i) => isNavActive(i, '/league'));
+ok(owner.length === 1 && owner[0].to === '/duel', `/league를 담당하는 내비 항목 1개 — ${owner.map((i) => i.to)}`);
+
 // ── ④ 튜터는 태풍이 ─────────────────────────────────────────────────────────
 const tutorImg = $('[data-testid="sidenav"] img');
 ok(tutorImg?.getAttribute('src') === '/typhoon.png', `사이드바 튜터 이미지 — ${tutorImg?.getAttribute('src')}`);

@@ -344,5 +344,5 @@ if (failed) {
   console.error(`\n실패 ${failed}건`);
   process.exit(1);
 }
-console.log('\nOK: 학습 화면(홈 흡수 — / 리다이렉트·내비 6·진입 카드 1개·물방울이·목표 내장·출석 소유자) 스모크 통과');
+console.log('\nOK: 학습 화면(홈 흡수 — / 리다이렉트·내비 5·진입 카드 1개·물방울이·목표 내장·출석 소유자) 스모크 통과');
 process.exit(0);

@@ -1,6 +1,6 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import Mascot from './Mascot';
-import { NAV_ITEMS } from './navItems';
+import { NAV_ITEMS, isNavActive } from './navItems';
 import { useT } from '../i18n';
 
 /**
@@ -65,13 +65,11 @@ export default function SideNav() {
             key={item.to}
             to={item.to}
             end={item.end}
-            className={({ isActive }) =>
-              `flex items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-[13.5px] font-bold transition ${
-                isActive
-                  ? 'bg-white text-sky-700 shadow-[0_1px_2px_rgba(12,44,66,0.07)]'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`
-            }
+            className={`flex items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-[13.5px] font-bold transition ${
+              isNavActive(item, pathname)
+                ? 'bg-white text-sky-700 shadow-[0_1px_2px_rgba(12,44,66,0.07)]'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
           >
             <span className="w-[18px] text-center" aria-hidden="true">
               {item.icon}
