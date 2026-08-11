@@ -65,8 +65,29 @@ const SERVER_LEVEL_COUNT = bandsMatch[1]
   .map((line) => line.replace(/#.*$/, '').trim())
   .filter((line) => /^["'][a-z_]+["'],?$/.test(line)).length;
 
-const { RESOURCES } = await import('../src/i18n/core.js');
+const { RESOURCES, _syncLocale, getCurrentLocale } = await import('../src/i18n/core.js');
 const ability = await import('../src/lib/abilityDisplay.js');
+
+// ⚠️ **로케일을 ko로 고정한다.** 이 파일은 한국어 문구를 단정하는데, 아래
+// `ability.*` 사전은 리소스 파생 **getter**라 접근 시점의 현재 로케일로 풀린다
+// (`localizedDict` — `translate(getCurrentLocale(), …)`). 고정하지 않으면
+// `detectLocale()`이 `navigator.language`를 따라가고, node 22는 시스템 로케일에서
+// 그 값을 만든다: en-US 머신에서는 「최상급」 자리에 "Expert"가, 「고등학교
+// 진로선택」 자리에 "High School Career Electives"가 온다(2026-08-11 실측 —
+// GitHub 러너는 통과하는데 로컬 `scripts/ci.sh`만 빨간불이었다).
+//
+// 다른 스모크가 jsdom localStorage에 `weathermind.locale=ko`를 심는 것과 같은
+// 계약이다(CLAUDE.md 「하네스는 로케일 ko 고정 — en-US 러너 대비」). 여기는
+// jsdom을 안 쓰므로 스토어를 직접 맞춘다.
+//
+// ⚠️ `RESOURCES[locale]`을 직접 읽는 검사(2번)는 로케일과 무관하다 — 그래서
+// 이 파일이 **반은 통과하고 반만 실패**해서 원인이 한눈에 안 보였다.
+_syncLocale('ko');
+
+check('로케일이 ko로 고정됐다', () => {
+  // 이 단정이 먼저 터져야 아래 문구 불일치가 "번역이 틀렸다"로 오독되지 않는다.
+  eq(getCurrentLocale(), 'ko', '로케일 고정 실패 — 아래 한국어 단정이 전부 무의미해진다');
+});
 
 check('서버 단계 수를 읽었다', () => {
   assert(SERVER_LEVEL_COUNT >= 2, `파싱된 단계 수가 이상하다: ${SERVER_LEVEL_COUNT}`);
