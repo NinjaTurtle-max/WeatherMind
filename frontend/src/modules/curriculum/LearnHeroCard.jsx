@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import Mascot from '../../components/Mascot';
 import { ENTRY_MASCOT } from './learnEntry';
+import { GOAL_ANCHOR } from '../progress/DailyGoal';
 import { useT } from '../../i18n';
 
 /**
@@ -114,7 +115,10 @@ export default function LearnHeroCard({
         </span>
       ) : (
         <Link
-          to="/me"
+          // 목표 설정 카드는 내 정보 **꼬리**에 있다 — 해시 없이 `/me`로 보내면
+          // 능력 분석 판 두 화면 위에 떨어져 목표를 정하러 온 사람이 목표 카드를
+          // 못 본다(2026-08-11 코드 리뷰). 앵커 문자열은 DailyGoal이 소유한다.
+          to={`/me#${GOAL_ANCHOR}`}
           data-testid="learn-goal"
           data-goal-state="unset"
           className="flex-none whitespace-nowrap text-[11.5px] font-bold text-sky-300 hover:text-sky-200"
