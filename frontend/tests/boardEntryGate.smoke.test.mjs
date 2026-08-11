@@ -100,6 +100,9 @@ const { MemoryRouter } = await import('react-router-dom');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 
 const BoardPage = (await vite.ssrLoadModule('/src/modules/board/BoardPage.jsx')).default;
+// 자유 실험은 2026-08-10에 **탐구로 이사했다** — 보드 목록에는 더 이상 없다.
+// 「채점 없는 판은 구름과 무관하다」는 계약은 살아 있으므로, 화면만 바꿔 잡는다.
+const SandboxPage = (await vite.ssrLoadModule('/src/modules/explore/SandboxPage.jsx')).default;
 const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -255,10 +258,29 @@ try {
     assert(text().includes('✓ 클리어') || text().includes('난이도 '),
       '잔량 0에서 클리어/난이도 배지가 사라졌다(목록을 차단한 회귀)');
     assert(!text().includes('퍼즐을 불러오지 못했어요'), '잔량 0에서 목록이 에러 화면이 됐다');
-    // 채점 없는 자유 실험은 잔량 0에서도 열려 있어야 한다(서버 호출 0 = 구름 무관)
-    const sandboxBtn = findButton('자유 실험');
-    assert(sandboxBtn && !sandboxBtn.disabled, '자유 실험이 잔량 0에서 막혔다(구름 무소모 경로)');
+    // 자유 실험은 **보드에서 사라졌다**(2026-08-10 탐구로 이사) — 카드가 남아
+    // 있으면 "채점되는 것"과 "채점 안 되는 것"이 한 판에 다시 섞인다.
+    assert(!findButton('자유 실험'), '자유 실험 카드가 보드로 되돌아왔다');
+    assert(!text().includes('탐구 실험실'), '탐구 실험실 카드가 보드로 되돌아왔다');
     r.unmount();
+
+    // 그 계약(채점 없는 판은 잔량 0에서도 열린다)은 이사한 화면에서 지킨다.
+    // 잔량 0인 지금 그대로 마운트해 화면이 뜨는지 본다.
+    //
+    // ⚠️ "서버 호출 0"이 아니다. 판은 `/board/rules`·`/board/regions`(판정 규칙과
+    // 지도 — 유저와 무관한 **정적 자료**)를 부른다. 구름을 소모하는 것은 퍼즐
+    // **진입**(`/board/puzzles/{id}`) 하나뿐이고, 그게 429의 주인이다.
+    // 그래서 "아무것도 안 부른다"가 아니라 **그 하나를 안 부른다**를 단정한다.
+    const sandboxMark = xhrLog.length;
+    const sandboxRoot = mount(createElement(SandboxPage));
+    await waitFor(() => text().includes('채점하지 않아요'), 5000, '탐구의 자유 실험 화면');
+    // ⚠️ 여기서 바로 xhrLog를 읽으면 **아무것도 안 잡힌다**. 위 문구는 첫 커밋에
+    // 이미 들어 있어 waitFor가 0ms에 통과하고, 그 시점엔 어떤 요청도 아직
+    // 나가지 않았다 — 게이트를 되살려도 초록이 된다(2026-08-10 리뷰).
+    await sleep(300);
+    const gated = xhrLog.slice(sandboxMark).filter((u) => /\/board\/puzzles\/[^/]+$/.test(u));
+    assert(gated.length === 0, `자유 실험이 구름 게이트를 탔다: ${gated.join(' , ')}`);
+    sandboxRoot.unmount();
   });
 
   // ── 4. 진행 중 퍼즐은 잔량 0이 되어도 제출까지 가능 ───────────────────────
@@ -355,9 +377,9 @@ try {
       calls.push(args);
     };
     try {
-      mount(createElement(BoardPage));
-      await waitFor(() => Boolean(findButton('자유 실험')), 5000, '자유 실험 버튼');
-      click(findButton('자유 실험'));
+      // 2026-08-10: 보드에서 눌러 들어가던 화면이 탐구의 독립 라우트가 됐다.
+      // 지키는 것은 같다 — 목표가 없는 판은 마운트만으로 화면을 튕기지 않는다.
+      mount(createElement(SandboxPage));
       await waitFor(() => text().includes('채점하지 않아요'), 5000, '자유 실험 화면');
       await sleep(300); // 스크롤 이펙트가 늦게 붙을 여지를 준다
       assert(
