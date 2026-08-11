@@ -49,6 +49,16 @@ const server = await createServer({
 });
 
 let failed = 0;
+
+/** MT-21 위성 도식 검사용 — 위 루프의 expects 방식과 달리 컴포넌트를 직접 그린다. */
+const checkMt21 = (name, cond) => {
+  if (cond) {
+    console.log(`PASS ${name}`);
+  } else {
+    console.error(`FAIL ${name}`);
+    failed += 1;
+  }
+};
 try {
   for (const { path, name, expects } of TARGETS) {
     const mod = await server.ssrLoadModule(path);
@@ -84,6 +94,39 @@ try {
       console.error("FAIL Layout.isWide: pathname.startsWith('/explore')가 없다 — 시뮬 화면이 576px로 접힌다");
       failed += 1;
     }
+  }
+
+  // ── MT-21 위성 도식 — **정지 프레임에서 시어가 읽히는가** ──────────────────
+  //
+  // 이 패널의 존립 근거는 "TyphoonEye가 못 보여주는 것을 보인다"이고, 그 하나가
+  // **연직 시어의 흔적**(구름 방패 쏠림 · 눈 유무)이다. 신호를 회전 애니메이션에
+  // 실으면 SSR 한 프레임·reduced-motion 사용자에게는 존재하지 않는 것이 된다.
+  // 그래서 마크업 자체가 시어에 따라 달라져야 하고, 여기서 그것을 문다.
+  {
+    const { default: SatelliteView } = await server.ssrLoadModule(
+      '/src/modules/explore/SatelliteView.jsx',
+    );
+    const draw = (intensity, shear) =>
+      renderToString(createElement(SatelliteView, { intensity, shear }));
+    const EYE = /r="[\d.]+" fill="#0f172a"/; // 배경색으로 뚫은 눈
+
+    const weak = draw(80, 'weak');
+    const strong = draw(80, 'strong');
+
+    // ⑴ 같은 강도인데 시어만 다르면 그림이 달라야 한다(안 달라지면 시어가 표시에 없다)
+    checkMt21('시어 약/강이 서로 다른 도식을 그린다', weak !== strong);
+    // ⑵ 시어 약 + 충분한 강도 → 눈이 뚫린다 / 시어 강 → 눈 없이 중심 십자만
+    checkMt21('시어 약 + 강도 80 → 눈이 뚫린다', EYE.test(weak));
+    checkMt21('시어 강 → 눈 없이 중심이 드러난다', !EYE.test(strong) && strong.includes('#f87171'));
+    // ⑶ 미발생(강도 0)은 방패를 그리지 않는다
+    // 색이 아니라 **구조**로 묻는다 — `#ffffff`는 범례에도 쓰여서 색 대조는
+    // 거짓 양성이 난다(실제로 이 검사를 색으로 썼다가 헛failed가 났다).
+    const quiet = draw(0, 'weak');
+    checkMt21('강도 0 → 구름 방패 없음(정지 구름만)',
+      quiet.includes('data-sat-quiet') && !quiet.includes('data-sat-shield'));
+    // ⑷ **실사 아님 표기**는 이 컴포넌트의 계약이다 — 원 F3(KMA 실사 영상)를
+    //    도식으로 재범위한 것이 착수를 가능하게 만든 경계이기 때문이다.
+    checkMt21('실사 아님 표기가 항상 있다', weak.includes('교육용 도식'));
   }
 } finally {
   await server.close();
