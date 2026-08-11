@@ -35,7 +35,12 @@ export default {
     logout: '로그아웃',
     learn: '학습',
     board: '보드',
-    duel: '예보 대결',
+    // 내비 라벨은 **화면 제목과 다르다**(2026-08-11 사용자 지시). 제목은
+    // `duel.title`(「예보 대결」)이고 여기는 사이드바·탭바에 들어가는 짧은 이름이라
+    // 두 글자로 줄였다 — 리그와 한 화면으로 합치면서 이 항목이 두 탭을 함께
+    // 담당하게 됐고(navItems.alsoMatch), 「예보 대결」이라 적으면 리그를 보고
+    // 있을 때 내비가 틀린 이름을 켜 놓은 꼴이 된다.
+    duel: '예보',
     league: '리그',
     explore: '탐구',
     me: '내 정보',
@@ -122,6 +127,14 @@ export default {
       cheongju: '청주',
       jeonju: '전주',
     },
+  },
+  // 예보 대결 · 리그 공통 껍데기(modules/compete/CompeteLayout.jsx) — 2026-08-11에
+  // 두 화면을 탭 하나로 합쳤다. 탭 이름은 각 화면의 제목(duel.title·league.title)과
+  // **다른 키**다: 제목은 이모지·수식이 붙지만 탭은 짧아야 한다.
+  compete: {
+    tabsAria: '대결 화면 선택',
+    tabDuel: '예보 대결',
+    tabLeague: '리그',
   },
   spine: {
     title: '유닛 {cleared}/{total} 클리어 · 왕관 {crowns}/{crownsTotal}',
@@ -262,13 +275,6 @@ export default {
     placementBannerTitle: '아직 실력 진단 전이에요',
     placementBannerBody: '6문항 진단을 받으면 WeatherBrain이 내 수준에 맞는 문제를 골라줘요.',
     placementBannerCta: '진단 받고 내 수준 찾기 →',
-    spineTitle: '🎓 학습 진도',
-    spineProgress: '{cleared}/{total} 유닛 · {ratio}%',
-    spineCurrentLabel: '지금 배울 유닛',
-    spineContinue: '이어서 학습 →',
-    spineAllCleared: '🌈 열린 유닛을 모두 클리어했어요!',
-    spineNoneOpen: '아직 열린 유닛이 없어요 — 학습 경로에서 첫 유닛을 열어 보세요.',
-    spineStart: '학습 경로 열기 →',
     // 학습 수준 설정 (R13 P-5) — 게스트가 평생 middle_high에 갇히지 않게 하는 통로
     levelGroupTitle: '🎚️ 학습 수준',
     levelGroupBody: '문항 난이도와 보드에서 열리는 난이도가 이 설정을 따라가요. 세션은 다음 발급부터 반영돼요.',
@@ -657,6 +663,9 @@ export default {
     rainShort: '강수확률 {prob}%',
     myEvidence: '내가 고른 근거',
     evidenceNote: '정산 후 근거가 맞았는지 해설해 드려요.',
+    // 제출 버튼이 근거 카드보다 위에 있어서(2026-08-11 배치 변경) 못 보고 누르는
+    // 것을 막는 안내. 강제가 아니라 알림이다 — 근거는 선택 사항이다.
+    evidenceBelowHint: '↓ 아래에서 판단 근거를 고르면 정산 후 해설을 받아요 (선택).',
     reviewTitle: '근거 적중 해설',
     hit: '✓ 적중',
     miss: '✗ 빗나감',

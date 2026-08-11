@@ -6,7 +6,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import ForecastForm from '../../components/ForecastForm';
 import Mascot from '../../components/Mascot';
 import TierBadge from '../../components/TierBadge';
-import BriefingRoom from '../duel/BriefingRoom';
+import CompeteLayout from '../compete/CompeteLayout';
 import { TIER_ORDER, tierMeta, tierFromElo } from '../../lib/tierMeta';
 import { deriveStanding, isMe } from '../../lib/leagueStanding';
 import { useAuthStore } from '../../store/authStore';
@@ -31,6 +31,13 @@ import { useT } from '../../i18n';
  * 기능은 종전 그대로 보존한다 — 주간 예측 제출(POST /league/predict, 주 1회)과
  * 브리핑 참고 카드(R9-01 §3.1: mid_forecast raw JSON 대신 /duel/briefing 재사용).
  * 시안에 없다고 지우면 화면만 닮고 기능이 사라진다.
+ *
+ * 2026-08-11(사용자 지시): 예보 대결과 **한 화면으로 합쳤다**. 껍데기(탭바·왼쪽
+ * 실황 브리핑·2열 골격)는 `CompeteLayout`이 소유하고 이 파일은 **오른쪽 열과
+ * 하단**만 그린다. 카드는 하나도 잃지 않았고 자리만 바뀌었다:
+ *   오른쪽  내 티어 · 이번 주 전적 · 주간 예측(종전 위쪽 3칸 — 세로로 쌓았다)
+ *   하단    순위 · 등급 사다리 · 내 기록 · 안내
+ * 브리핑 쿼리도 껍데기로 옮겼다 — 여기서 다시 걸면 소유자가 둘이 된다.
  */
 export default function LeaguePage() {
   const queryClient = useQueryClient();
@@ -64,13 +71,8 @@ export default function LeaguePage() {
     retry: 1,
   });
 
-  // 브리핑 재사용 (R9-01 §3.1) — 듀얼과 같은 자료·같은 캐시 키를 공유한다
-  const briefingQ = useQuery({
-    queryKey: ['duel', 'briefing'],
-    queryFn: duelApi.fetchDuelBriefing,
-    retry: 1,
-    staleTime: 60_000,
-  });
+  // 브리핑(R9-01 §3.1)은 **CompeteLayout이 소유한다** — 예보 대결과 같은 자료라
+  // 합친 화면에서는 껍데기가 한 번만 부른다(2026-08-11).
 
   const predictMutation = useMutation({
     mutationFn: leagueApi.submitPrediction,
@@ -81,22 +83,32 @@ export default function LeaguePage() {
     onError: (err) => setSubmitError(err.detail ?? t('league.submitFailed')),
   });
 
-  if (currentQ.isLoading) return <LoadingSpinner label={t('league.loading')} />;
+  // 로딩·오류도 **껍데기 안에서** 그린다(DuelPage와 같은 이유 — 탭바가 두 화면을
+  // 오가는 유일한 통로다. 밖으로 일찍 return하면 여기서 예보 대결로 못 돌아간다).
+  if (currentQ.isLoading) {
+    return (
+      <CompeteLayout tab="/league" title={`🏆 ${t('league.title')}`} subtitle={t('league.dash.subtitle')}>
+        <LoadingSpinner label={t('league.loading')} />
+      </CompeteLayout>
+    );
+  }
 
   if (currentQ.isError) {
     return (
-      <div className="mt-16 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
-        <p className="text-3xl">🌪️</p>
-        <p className="mt-2 font-bold text-slate-800">{t('league.loadFailed')}</p>
-        <p className="mt-1 text-sm text-slate-500">{currentQ.error?.detail}</p>
-        <button
-          type="button"
-          onClick={() => currentQ.refetch()}
-          className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
-        >
-          {t('common.retry')}
-        </button>
-      </div>
+      <CompeteLayout tab="/league" title={`🏆 ${t('league.title')}`} subtitle={t('league.dash.subtitle')}>
+        <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
+          <p className="text-3xl">🌪️</p>
+          <p className="mt-2 font-bold text-slate-800">{t('league.loadFailed')}</p>
+          <p className="mt-1 text-sm text-slate-500">{currentQ.error?.detail}</p>
+          <button
+            type="button"
+            onClick={() => currentQ.refetch()}
+            className="mt-4 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
+          >
+            {t('common.retry')}
+          </button>
+        </div>
+      </CompeteLayout>
     );
   }
 
@@ -112,103 +124,89 @@ export default function LeaguePage() {
     (current.week_start && myResults.some((r) => r.week_start === current.week_start));
 
   return (
-    <div className="pt-2">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-lg font-extrabold text-slate-900">🏆 {t('league.title')}</h1>
-          <p className="mt-0.5 text-sm text-slate-500">{t('league.dash.subtitle')}</p>
-        </div>
+    <CompeteLayout
+      tab="/league"
+      title={`🏆 ${t('league.title')}`}
+      subtitle={t('league.dash.subtitle')}
+      headerRight={
         <span className="rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-slate-500 shadow-sm ring-1 ring-slate-200">
           {weekRangeLabel(current.week_start, t)}
         </span>
-      </div>
-
-      {/* 위 3칸 — 내 티어 / 이번 주 요약 / 주간 예측 */}
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3 lg:items-stretch">
-        <MyTierCard
-          standing={standing}
-          loading={leaderboardQ.isLoading || myResultsQ.isLoading}
-        />
-        <WeekSummaryCard
-          weekStart={current.week_start}
-          duels={Array.isArray(duelHistoryQ.data) ? duelHistoryQ.data : []}
-          loading={duelHistoryQ.isLoading}
-        />
-        {alreadySubmitted ? (
-          <SubmittedCard />
-        ) : (
-          <div className="flex flex-col gap-2">
-            <ForecastForm
-              title={t('league.formTitle')}
-              fields={[
-                { name: 'temp_max', label: t('league.tempMax'), step: '0.1' },
-                { name: 'temp_min', label: t('league.tempMin'), step: '0.1' },
-                { name: 'rain_prob', label: t('league.rainProb'), min: '0', max: '100' },
-              ]}
-              submitLabel={t('league.submit')}
-              validate={(v) => (v.temp_min > v.temp_max ? t('league.minOverMax') : null)}
-              onSubmit={(values) => predictMutation.mutate(values)}
-              submitting={predictMutation.isPending}
-            />
-            {submitError && (
-              <p className="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">{submitError}</p>
-            )}
+      }
+      below={
+        // 하단 — 순위·등급 사다리(2열) → 내 기록 → 안내.
+        // 위쪽 오른쪽 열은 **이번 주에 내가 할 일**(티어·전적·예측)이고 여기는
+        // **남과 비교하는 판**이다. 폭이 필요한 쪽이라 전폭으로 내렸다.
+        <>
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+            <RankCard ranks={ranks} loading={leaderboardQ.isLoading} />
+            <TierLadderCard standing={standing} weekStart={current.week_start} />
           </div>
-        )}
-      </div>
 
-      {/* 아래 2열 — 자료(왼쪽) ↔ 순위·등급(오른쪽).
-          예보 대결과 **같은 배치**다(2026-08-08 지시). 브리핑은 예측의 근거인데
-          전폭 카드로 맨 아래에 두니 위 예측 폼과 멀어, 값을 채우려면 스크롤을
-          오르내려야 했다. 왼쪽 열로 크게 빼면 위쪽 폼과 한 화면에 들어온다.
-          `compact`도 뗀다 — 좁은 전폭 카드라 접어 뒀던 습도·풍속 보조 차트를
-          한 열을 통째로 쓰는 지금은 다 보여 준다("크게").
-          grid-cols-[minmax(0,1fr)]는 장식이 아니다(DuelPage와 같은 이유) —
-          브리핑 안의 하늘 타임라인이 자체 가로 스크롤을 갖는데, 격자 항목 기본
-          min-width:auto면 그 내용 폭이 카드를 밀어 페이지에 가로 스크롤이 생긴다. */}
-      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
-        {/* 감싸 둔다 — 격자 항목 기본이 stretch라, KMA 키 없는 degraded에서
-            「실황 자료 수신 대기」 한 장이 오른쪽 열 높이까지 늘어난다.
-            감싸면 늘어나는 건 이 div이고 카드는 제 높이를 지킨다(DuelPage와 동일). */}
-        <div>
-          <BriefingRoom
-            briefing={briefingQ.data}
-            loading={briefingQ.isLoading}
-            error={briefingQ.isError}
+          {myResults.length > 0 && (
+            <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+              <h2 className="mb-2 text-sm font-extrabold text-slate-900">{t('league.myHistory')}</h2>
+              <ul className="flex flex-col gap-1.5">
+                {myResults.map((r, i) => (
+                  <li
+                    key={r.week_start ?? i}
+                    className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-xs ring-1 ring-slate-200"
+                  >
+                    <span className="font-bold text-slate-700">{r.week_start ?? '-'}</span>
+                    <span className="text-slate-500">
+                      {r.accuracy_score != null
+                        ? t('league.accuracy', { score: r.accuracy_score })
+                        : t('league.accuracyPending')}
+                    </span>
+                    <span className="font-extrabold text-sky-700">ELO {r.elo_rating_after ?? '-'}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <p className="mt-4 rounded-xl bg-slate-100 px-4 py-2.5 text-center text-[12px] text-slate-500">
+            ℹ️ {t('league.dash.resetNote')}
+          </p>
+        </>
+      }
+    >
+      {/* 오른쪽 열 — **주간 예측이 맨 위**, 내 티어·이번 주 전적은 그 아래
+          (2026-08-11 사용자 지시. 예보 대결 탭과 같은 순서다 — 탭을 오갈 때
+          같은 자리에 같은 종류의 것이 있어야 한다).
+          종전에는 이 셋이 위쪽 3칸 가로였다. 왼쪽이 브리핑 고정으로 바뀌면서
+          남는 폭이 절반이라 가로로 늘어놓으면 한 칸이 180px가 된다 — 세로로 쌓는다. */}
+      {alreadySubmitted ? (
+        <SubmittedCard />
+      ) : (
+        <div className="flex flex-col gap-2">
+          <ForecastForm
+            title={t('league.formTitle')}
+            fields={[
+              { name: 'temp_max', label: t('league.tempMax'), step: '0.1' },
+              { name: 'temp_min', label: t('league.tempMin'), step: '0.1' },
+              { name: 'rain_prob', label: t('league.rainProb'), min: '0', max: '100' },
+            ]}
+            submitLabel={t('league.submit')}
+            validate={(v) => (v.temp_min > v.temp_max ? t('league.minOverMax') : null)}
+            onSubmit={(values) => predictMutation.mutate(values)}
+            submitting={predictMutation.isPending}
           />
-        </div>
-        <div className="flex flex-col gap-4">
-          <RankCard ranks={ranks} loading={leaderboardQ.isLoading} />
-          <TierLadderCard standing={standing} weekStart={current.week_start} />
-        </div>
-      </div>
-
-      {myResults.length > 0 && (
-        <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <h2 className="mb-2 text-sm font-extrabold text-slate-900">{t('league.myHistory')}</h2>
-          <ul className="flex flex-col gap-1.5">
-            {myResults.map((r, i) => (
-              <li
-                key={r.week_start ?? i}
-                className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-xs ring-1 ring-slate-200"
-              >
-                <span className="font-bold text-slate-700">{r.week_start ?? '-'}</span>
-                <span className="text-slate-500">
-                  {r.accuracy_score != null
-                    ? t('league.accuracy', { score: r.accuracy_score })
-                    : t('league.accuracyPending')}
-                </span>
-                <span className="font-extrabold text-sky-700">ELO {r.elo_rating_after ?? '-'}</span>
-              </li>
-            ))}
-          </ul>
+          {submitError && (
+            <p className="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">{submitError}</p>
+          )}
         </div>
       )}
-
-      <p className="mt-4 rounded-xl bg-slate-100 px-4 py-2.5 text-center text-[12px] text-slate-500">
-        ℹ️ {t('league.dash.resetNote')}
-      </p>
-    </div>
+      <MyTierCard
+        standing={standing}
+        loading={leaderboardQ.isLoading || myResultsQ.isLoading}
+      />
+      <WeekSummaryCard
+        weekStart={current.week_start}
+        duels={Array.isArray(duelHistoryQ.data) ? duelHistoryQ.data : []}
+        loading={duelHistoryQ.isLoading}
+      />
+    </CompeteLayout>
   );
 }
 

@@ -20,10 +20,18 @@ export function thetaToRatio(theta) {
   return Math.min(1, Math.max(0.12, (theta + 3) / 6));
 }
 
+/**
+ * 다각형이 그려지는 최소 개념 수 — **이 파일이 소유한다.** 셋 미만이면 면이
+ * 생기지 않아 그림이 아니라 선이 된다. 소비처(WeatherBrainPanel)가 감싼 여백까지
+ * 같이 걷어야 하므로 밖에서도 읽을 수 있게 내보낸다(2026-08-11 코드 리뷰:
+ * 한쪽에 3을 박아 두면 이 수가 바뀔 때 빈 줄이 조용히 되살아난다).
+ */
+export const RADAR_MIN_CONCEPTS = 3;
+
 export default function AbilityRadar({ abilities = [], className = '' }) {
   const t = useT();
   const n = abilities.length;
-  if (n < 3) return null;
+  if (n < RADAR_MIN_CONCEPTS) return null;
   const cx = 100;
   const cy = 100;
   const R = 80;

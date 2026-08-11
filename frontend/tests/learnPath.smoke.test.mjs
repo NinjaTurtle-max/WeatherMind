@@ -400,6 +400,22 @@ await render({});
     '트랙 밑이 비었으므로 tail을 재지 않는다(옆 열 높이를 아래 여백으로 오해한다)',
   );
 
+  // 사슬은 트랙 **위에 붙는다**(2026-08-11 사용자 제보: "섹션을 넘길 때 배치가
+  // 일정하지 않다"). 가운데 정렬이면 블록이 칸 수만큼 커졌다 줄었다 하면서 첫
+  // 노드의 y가 섹션마다 달라진다 — 실제 코스에서 공기의 힘(3칸) → 큰 바람(2칸)에
+  // 51px, 다음 도시와 기후(4칸)에서 다시 102px 튄다.
+  // jsdom에는 레이아웃 엔진이 없어 픽셀로는 못 잡는다. 선언으로 고정한다.
+  const css = readFileSync(resolve(root, 'src/styles/index.css'), 'utf8');
+  const vpath = css.slice(css.indexOf('.wm-vpath {'), css.indexOf('.wm-node {'));
+  ok(
+    /justify-content:\s*flex-start/.test(vpath),
+    '.wm-vpath가 위로 붙지 않는다 — 섹션마다 첫 노드 y가 달라져 길이 튄다',
+  );
+  ok(
+    !/justify-content:\s*center/.test(vpath),
+    '.wm-vpath에 center가 되살아났다(같은 회귀)',
+  );
+
   // 배너가 **보고 있는 섹션**을 따라간다(2026-08-10 사용자 지시).
   // ⚠️ 제목만 따라가면 "3섹션 제목 + 1섹션으로 가는 버튼"이 된다 — 목적지를 함께
   // 내는 `pickSectionEntry`를 쓰는지, 잠긴 섹션에서 CTA를 막는지까지 본다.

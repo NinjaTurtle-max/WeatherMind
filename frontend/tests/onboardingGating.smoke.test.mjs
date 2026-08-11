@@ -206,8 +206,8 @@ try {
     assert(lockedTabCount() === 0, '탭바에 비활성 탭이 있다');
     // CO-N-1 ②: 「탐구」가 6탭 어디에도 없어서 /explore는 URL을 손으로 쳐야 갔다.
     // 2026-08-09: 홈 화면을 학습에 합치면서 「홈」 탭이 빠져 7 → 6개다.
-    assert(tabCount() === 6, `탭 6개(탐구 포함·홈 삭제)가 모두 있어야 함 — 실제 ${tabCount()}`);
-    assert(sideNavCount() === 6, `PC 사이드바도 같은 6항목 — 실제 ${sideNavCount()}`);
+    assert(tabCount() === 5, `탭 5개(탐구 포함·홈 삭제·대결+리그 합침)가 모두 있어야 함 — 실제 ${tabCount()}`);
+    assert(sideNavCount() === 5, `PC 사이드바도 같은 5항목 — 실제 ${sideNavCount()}`);
     assert(
       [...(tabbar()?.querySelectorAll('a') ?? [])].some((a) => a.getAttribute('href') === '/explore'),
       '탭바에 /explore 진입점이 없다(CO-N-1 ②)',
@@ -252,7 +252,7 @@ try {
       await waitFor(() => text().includes(want) && !text().includes(gone), 5000, `${path} 실제 페이지`);
       assert(!/세션을 \d개 완료하면/.test(text()), `${path}에 해제 사다리 안내가 남아 있다`);
       assert(lockedTabCount() === 0, '탭 차단은 종전대로 없다');
-      assert(tabCount() === 6, '탭 6개는 항상 활성');
+      assert(tabCount() === 5, '탭 5개는 항상 활성');
       r.unmount();
     }
     const stage = selectUnlockStage(useOnboardingGate.getState());
@@ -569,7 +569,7 @@ try {
     assert(useAuthStore.getState().user?.is_guest === true, '게스트 표식(is_guest)이 없다');
     // 로그인 화면이 아니라 실제 서비스 화면이 떠야 한다
     await waitFor(() => !text().includes('계정 없이 바로 시작하기'), 5000, '로그인 화면이 아님');
-    await waitFor(() => tabCount() === 6, 5000, '보호 라우트가 실제로 렌더됐다(탭바 존재)');
+    await waitFor(() => tabCount() === 5, 5000, '보호 라우트가 실제로 렌더됐다(탭바 존재)');
     r.unmount();
   });
 
