@@ -25,6 +25,10 @@ __pycache__/
 
 # Node
 node_modules/
+# Vite 사전 번들 캐시. 정상 위치는 frontend/node_modules/.vite(= node_modules/에
+# 이미 걸린다)지만, dev 서버를 **저장소 루트에서** 잘못 띄우면 여기 생긴다
+# (2026-08-11에 실제로 그렇게 커밋됐다). 브랜치마다 내용이 달라 충돌만 만든다.
+.vite/
 frontend/dist/
 
 # OS / 에디터

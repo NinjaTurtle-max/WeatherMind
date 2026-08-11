@@ -596,6 +596,7 @@ export default {
     rainShort: 'Rain {prob}%',
     myEvidence: 'My chosen evidence',
     evidenceNote: "After settlement we'll explain whether your evidence held up.",
+    evidenceBelowHint: '↓ Pick your reasoning below to get an explanation after settlement (optional).',
     reviewTitle: 'Evidence review',
     hit: '✓ Hit',
     miss: '✗ Miss',

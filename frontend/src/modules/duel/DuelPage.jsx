@@ -195,6 +195,16 @@ export default function DuelPage() {
           {submitError && (
             <p className="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">{submitError}</p>
           )}
+          {/* 근거를 아직 안 골랐으면 **폼 바로 아래에서** 알린다(2026-08-11 코드
+              리뷰). 폼이 위로 올라오면서 제출 버튼이 근거 카드보다 먼저 오는데,
+              하루 1회 제출이고 제출 뒤에는 근거 카드가 사라진다 — 못 보고 눌러
+              버리면 그날 정산 해설(evidence_review)을 되찾을 길이 없다.
+              막지는 않는다(근거는 선택 사항이다). 있다는 사실만 알린다. */}
+          {evidence.length === 0 && (
+            <p className="-mt-2 text-xs font-medium text-slate-500">
+              {t('duel.evidenceBelowHint')}
+            </p>
+          )}
           <EvidencePicker
             selected={evidence}
             onToggle={toggleEvidence}

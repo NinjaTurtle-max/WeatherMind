@@ -663,6 +663,9 @@ export default {
     rainShort: '강수확률 {prob}%',
     myEvidence: '내가 고른 근거',
     evidenceNote: '정산 후 근거가 맞았는지 해설해 드려요.',
+    // 제출 버튼이 근거 카드보다 위에 있어서(2026-08-11 배치 변경) 못 보고 누르는
+    // 것을 막는 안내. 강제가 아니라 알림이다 — 근거는 선택 사항이다.
+    evidenceBelowHint: '↓ 아래에서 판단 근거를 고르면 정산 후 해설을 받아요 (선택).',
     reviewTitle: '근거 적중 해설',
     hit: '✓ 적중',
     miss: '✗ 빗나감',
