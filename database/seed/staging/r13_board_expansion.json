@@ -12,12 +12,23 @@
         "같은 존의 습기를 30 이하로 낮춘다."
       ],
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["sun", "moisture"],
+      "palette": [
+        "sun",
+        "moisture"
+      ],
       "goal_conditions": [
-        {"zone": 2, "phenomenon": "clear"}
+        {
+          "zone": 2,
+          "phenomenon": "clear"
+        }
       ],
       "hints": [
         "데워진 공기는 부피가 늘어 밀도가 작아진다. 둘레의 공기보다 밀도가 작아지면 위로 떠오른다.",
@@ -47,13 +58,27 @@
       "question_text": "같은 세기의 햇볕을 받아도 물기가 있는 곳과 없는 곳의 하늘은 갈린다. 서해(존 0)에는 소나기를, 태백산맥(존 2)에는 맑은 하늘을 동시에 만들어 보자.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["sun", "moisture"],
+      "palette": [
+        "sun",
+        "moisture"
+      ],
       "goal_conditions": [
-        {"zone": 2, "phenomenon": "clear"},
-        {"zone": 0, "phenomenon": "shower"}
+        {
+          "zone": 2,
+          "phenomenon": "clear"
+        },
+        {
+          "zone": 0,
+          "phenomenon": "shower"
+        }
       ],
       "hints": [
         "두 존 모두 일사를 아주 높게 올린다. 데워진 공기는 밀도가 작아져 위로 올라간다.",
@@ -84,13 +109,27 @@
       "question_text": "공기 속 물기가 같아도 열을 받은 곳과 식은 곳은 다른 날씨가 된다. 수도권(존 1)에는 소나기를, 동해안(존 3)에는 안개를 만들어 보자. 두 존의 습기는 똑같이 높게 두어야 한다.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["sun", "moisture"],
+      "palette": [
+        "sun",
+        "moisture"
+      ],
       "goal_conditions": [
-        {"zone": 1, "phenomenon": "shower"},
-        {"zone": 3, "phenomenon": "fog"}
+        {
+          "zone": 1,
+          "phenomenon": "shower"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        }
       ],
       "hints": [
         "두 존의 습기를 똑같이 80 이상으로 올린다. 갈리는 것은 일사다.",
@@ -119,14 +158,31 @@
       "question_text": "구름이 생기려면 공기를 밀어 올릴 열과 물방울이 될 수증기가 함께 있어야 한다. 서해(존 0)에는 소나기, 수도권(존 1)에는 맑음, 동해안(존 3)에는 안개 — 세 가지 하늘을 한 판에 만들어 보자.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["sun", "moisture"],
+      "palette": [
+        "sun",
+        "moisture"
+      ],
       "goal_conditions": [
-        {"zone": 1, "phenomenon": "clear"},
-        {"zone": 0, "phenomenon": "shower"},
-        {"zone": 3, "phenomenon": "fog"}
+        {
+          "zone": 1,
+          "phenomenon": "clear"
+        },
+        {
+          "zone": 0,
+          "phenomenon": "shower"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        }
       ],
       "hints": [
         "열과 물기를 둘 다 갖춘 존에서는 공기가 높이 올라가 소나기가 쏟아진다.",
@@ -160,12 +216,23 @@
         "같은 존의 습기를 60 이상으로 올린다."
       ],
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["sun", "moisture"],
+      "palette": [
+        "sun",
+        "moisture"
+      ],
       "goal_conditions": [
-        {"zone": 3, "phenomenon": "shower"}
+        {
+          "zone": 3,
+          "phenomenon": "shower"
+        }
       ],
       "hints": [
         "햇볕에 데워진 공기는 밀도가 작아져 위로 올라간다. 일사부터 올려야 한다.",
@@ -198,13 +265,27 @@
         "수도권(존 1)에도 같은 기단을 놓는다."
       ],
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["air_mass:yangtze", "moisture"],
+      "palette": [
+        "air_mass:yangtze",
+        "moisture"
+      ],
       "goal_conditions": [
-        {"zone": 0, "phenomenon": "clear"},
-        {"zone": 1, "phenomenon": "clear"}
+        {
+          "zone": 0,
+          "phenomenon": "clear"
+        },
+        {
+          "zone": 1,
+          "phenomenon": "clear"
+        }
       ],
       "hints": [
         "양쯔강 기단은 따뜻하고 건조하다. 수증기가 적으면 구름이 잘 생기지 않는다.",
@@ -234,13 +315,28 @@
       "question_text": "봄가을에는 이동성 고기압이 서에서 동으로 사나흘 간격으로 지나가며 날씨를 바꾼다. 고기압에 덮인 새벽, 아직 해가 들지 않은 수도권(존 1)에는 안개가 끼고 먼저 해가 뜬 동해안(존 3)은 맑다. 이 두 하늘을 함께 만들어 보자.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["air_mass:yangtze", "sun", "moisture"],
+      "palette": [
+        "air_mass:yangtze",
+        "sun",
+        "moisture"
+      ],
       "goal_conditions": [
-        {"zone": 1, "phenomenon": "fog"},
-        {"zone": 3, "phenomenon": "clear"}
+        {
+          "zone": 1,
+          "phenomenon": "fog"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "clear"
+        }
       ],
       "hints": [
         "두 존은 같은 공기 덩어리에 덮여 있다. 갈리는 것은 햇볕과 물기다.",
@@ -274,12 +370,23 @@
         "같은 존의 습기를 70 이상으로 올린다."
       ],
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["air_mass:okhotsk", "moisture"],
+      "palette": [
+        "air_mass:okhotsk",
+        "moisture"
+      ],
       "goal_conditions": [
-        {"zone": 3, "phenomenon": "fog"}
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        }
       ],
       "hints": [
         "오호츠크해 기단은 차고 습하다. 찬 바다 위를 지나온 습한 공기는 아래에서부터 식는다.",
@@ -309,13 +416,27 @@
       "question_text": "오호츠크해 기단이 밀려오면 태백산맥을 사이에 두고 동쪽과 서쪽 날씨가 갈린다. 동해안(존 3)은 안개에 잠기고, 산을 넘어간 공기가 닿는 수도권(존 1)에는 높새바람이 불어 맑고 건조해진다. 두 하늘을 함께 만들어 보자.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["air_mass:okhotsk", "moisture"],
+      "palette": [
+        "air_mass:okhotsk",
+        "moisture"
+      ],
       "goal_conditions": [
-        {"zone": 3, "phenomenon": "fog"},
-        {"zone": 1, "phenomenon": "clear"}
+        {
+          "zone": 3,
+          "phenomenon": "fog"
+        },
+        {
+          "zone": 1,
+          "phenomenon": "clear"
+        }
       ],
       "hints": [
         "같은 기단이 산을 넘기 전과 넘은 뒤에 전혀 다른 날씨를 만든다. 두 존 모두에 같은 기단을 놓아야 한다.",
@@ -339,18 +460,29 @@
   {
     "concept_tag": "air_mass",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 8,
     "question_type": "board",
     "template_json": {
       "question_text": "산을 오르는 공기는 습윤단열감률 약 5℃/km로 식으며 비를 뿌리고, 물기를 잃은 채 산을 내려오는 공기는 건조단열감률 약 10℃/km로 데워진다. 그래서 산을 넘은 공기는 오르기 전보다 뜨겁고 메마르다. 수도권(존 1)에 이 푄 현상이 만든 맑고 건조한 하늘을 만들어 보자.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["air_mass:okhotsk", "moisture"],
+      "palette": [
+        "air_mass:okhotsk",
+        "moisture"
+      ],
       "goal_conditions": [
-        {"zone": 1, "phenomenon": "clear"}
+        {
+          "zone": 1,
+          "phenomenon": "clear"
+        }
       ],
       "hints": [
         "강수로 수증기를 잃은 공기가 하강하면 건조단열감률을 따라 데워진다. 기온은 오르고 상대습도는 급격히 떨어져 구름이 사라진다.",

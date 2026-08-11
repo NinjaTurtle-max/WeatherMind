@@ -1,0 +1,513 @@
+[
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "겨울철 체감온도를 산출할 때 기온과 함께 쓰는 요소는 무엇인가?",
+      "options": ["풍속", "습도", "기압", "일사량"],
+      "correct_answer": "풍속",
+      "explanation_hint": "겨울에는 바람이 피부 가까이의 따뜻한 공기층을 걷어내 실제 기온보다 춥게 느껴진다. 그래서 겨울 체감온도는 기온과 풍속으로, 여름 체감온도는 기온과 습도로 계산한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 체감온도 산출 요소", "구조를 묻는다 — 산출식 계수는 개정에 취약해 쓰지 않았다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "계절별 체감온도 지수와 그 산출에 쓰는 요소를 짝지어라.",
+      "pairs": [
+        { "left": "겨울철 체감온도", "right": "기온과 풍속으로 낸다" },
+        { "left": "여름철 체감온도", "right": "기온과 습도로 낸다" },
+        { "left": "자외선지수", "right": "태양 고도와 오존량 등으로 낸다" }
+      ],
+      "correct_answer": "겨울철 체감온도:기온과 풍속으로 낸다|여름철 체감온도:기온과 습도로 낸다|자외선지수:태양 고도와 오존량 등으로 낸다",
+      "explanation_hint": "같은 '지수'라도 사람이 무엇에 노출되는가에 따라 입력이 다르다. 겨울은 바람에, 여름은 습도에, 자외선은 태양 고도에 좌우된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 생활기상지수의 입력 구분", "세 오른쪽이 전부 다른 입력"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "자외선지수는 값이 커질수록 무엇이 커진다는 뜻인가?",
+      "options": [
+        "피부에 해로운 자외선의 세기",
+        "그날의 기온",
+        "구름의 양",
+        "대기 중 수증기량"
+      ],
+      "correct_answer": "피부에 해로운 자외선의 세기",
+      "explanation_hint": "자외선지수는 사람 피부에 미치는 영향을 기준으로 만든 지수다. 기온과는 별개라 서늘한 봄날에도 높게 나올 수 있어, 기온만 보고 방심하면 안 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 자외선지수의 정의", "지수의 의미를 묻는다 — 구간 경계값은 쓰지 않았다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "태양광 발전량 예측에 쓰이는, 단위 면적에 도달하는 태양 에너지의 양을 무엇이라고 하는가?",
+      "correct_answer": "일사량",
+      "explanation_hint": "일사량은 기상청이 관측해 공개하는 요소이고, 태양광 발전 사업자가 발전량을 예측하는 데 쓴다. 기상 정보가 에너지 산업의 입력이 되는 대표 사례다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 관측 요소의 산업 활용", "관측 용어 — 규정 수치가 아니라 정의"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "구름이 낀 날에도 자외선은 상당량이 지표에 닿으므로, 자외선 대비는 ___만 보고 판단하면 안 된다.",
+      "correct_answer": "하늘상태",
+      "explanation_hint": "구름은 가시광선을 많이 가리지만 자외선은 상당 부분 통과시킨다. 흐린 날 야외 활동에서 화상을 입는 일이 생기는 이유다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 예보 요소 간 오해 방지", "'하늘상태'는 예보 용어"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "전력 수요 예측에 기상 정보가 쓰이는 가장 직접적인 까닭은 무엇인가?",
+      "options": [
+        "기온에 따라 냉난방 사용량이 크게 달라지기 때문이다",
+        "발전소가 날씨에 따라 문을 닫기 때문이다",
+        "전선의 길이가 기온에 따라 달라지기 때문이다",
+        "전기 요금이 날씨로 정해지기 때문이다"
+      ],
+      "correct_answer": "기온에 따라 냉난방 사용량이 크게 달라지기 때문이다",
+      "explanation_hint": "여름 폭염과 겨울 한파 때 전력 수요가 급증한다. 그래서 전력 수급 계획은 기온 예보를 입력으로 쓰고, 예보가 빗나가면 수급 판단도 함께 빗나간다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 기상 정보의 수요 예측 활용", "실무 연계 구조 — 규정 수치 아님"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "산업 분야와 그 분야가 특히 민감하게 보는 기상 요소를 짝지어라.",
+      "pairs": [
+        { "left": "태양광 발전", "right": "일사량과 하늘상태" },
+        { "left": "풍력 발전", "right": "풍속과 풍향" },
+        { "left": "항공 운항", "right": "시정과 저층 바람 변화" },
+        { "left": "해상 운송", "right": "유의파고와 해상 풍랑" }
+      ],
+      "correct_answer": "태양광 발전:일사량과 하늘상태|풍력 발전:풍속과 풍향|항공 운항:시정과 저층 바람 변화|해상 운송:유의파고와 해상 풍랑",
+      "explanation_hint": "같은 예보라도 누가 쓰느냐에 따라 결정적인 요소가 다르다. 그래서 기상청은 일반 예보와 별도로 분야별 특화 정보를 낸다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 분야별 특화 기상 정보", "네 오른쪽이 전부 다른 요소"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "관측 자료를 초기값으로 넣어 대기의 미래 상태를 계산해 내는, 현업 예보의 바탕이 되는 모델을 무엇이라고 하는가?",
+      "correct_answer": "수치예보모델",
+      "explanation_hint": "예보관은 맨눈으로 일기도를 그리는 것이 아니라 수치예보모델의 산출물을 해석해 예보를 낸다. 초기값의 관측이 부실하면 아무리 좋은 모델도 빗나간다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 예보 생산 체계", "현업 용어의 정의"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "온실가스 배출량을 서로 견주기 위해 각 기체를 같은 단위로 환산할 때 기준이 되는 기체는 무엇인가?",
+      "options": ["이산화탄소", "메탄", "수증기", "산소"],
+      "correct_answer": "이산화탄소",
+      "explanation_hint": "메탄이나 아산화질소는 같은 양이라도 이산화탄소보다 훨씬 강하게 데운다. 그래서 각 기체를 '이산화탄소로 치면 얼마'로 환산해 한 단위로 더한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청·환경 실무 — 배출량 산정 규약", "환산 기준 — 계수 값은 개정되므로 쓰지 않았다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "배출한 온실가스를 흡수·제거하는 양과 맞춰 실질 배출량을 0으로 만드는 목표를 무엇이라고 하는가?",
+      "correct_answer": "탄소중립",
+      "explanation_hint": "배출을 완전히 없애는 것이 아니라, 남는 배출만큼을 숲·기술로 거둬들여 더한 값이 0이 되게 하는 개념이다. 그래서 감축과 흡수를 함께 계획한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기후 정책 실무 — 목표 개념의 정의", "목표 연도는 국가별로 달라 쓰지 않았다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "우리나라 기후변화감시소가 대기 중 온실기체 농도를 재는 데 쓰는 단위는 백만분율, 곧 ___이다.",
+      "correct_answer": "ppm",
+      "explanation_hint": "이산화탄소는 대기의 0.04% 남짓이라 백분율로는 변화를 읽기 어렵다. 그래서 백만분율(ppm)로 재고, 메탄처럼 더 적은 기체는 십억분율(ppb)을 쓴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 기후변화감시 실무 — 관측 단위 규약", "단위 정의 — 특정 관측값은 쓰지 않았다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "국가 온실가스 배출량 통계가 만들어지는 과정을 순서대로 배열하라.",
+      "items": [
+        "발전·산업·수송 등 분야별 활동 자료를 모은다",
+        "분야마다 정해진 계수를 곱해 배출량을 산정한다",
+        "기체별 배출량을 이산화탄소 상당량으로 환산해 더한다",
+        "검증을 거쳐 국가 통계로 공표한다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "배출량은 직접 재는 것이 아니라 활동 자료에 계수를 곱해 산정한다. 그래서 계수가 개정되면 과거 통계도 함께 다시 계산된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 배출량 산정 실무 절차", "절차 구조 — 구체 계수는 쓰지 않았다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기상 관측용 풍선(라디오존데)이 상승하면서 점점 부풀어 오르다 마침내 터지는 까닭은 무엇인가?",
+      "options": [
+        "고도가 오를수록 바깥 기압이 낮아지기 때문이다",
+        "고도가 오를수록 기온이 높아지기 때문이다",
+        "풍선 안의 기체가 늘어나기 때문이다",
+        "바람이 풍선을 잡아당기기 때문이다"
+      ],
+      "correct_answer": "고도가 오를수록 바깥 기압이 낮아지기 때문이다",
+      "explanation_hint": "안의 기체 양은 그대로인데 누르는 힘만 줄어드니 부피가 커진다. 성층권까지 오르면 지상의 수십 배로 부풀어 터지고, 관측 장비는 낙하산으로 내려온다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 고층 관측 실무 — 존데 운용", "관측 장비의 물리 — 규정 수치가 아니다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "풍선에 매달아 고도별 기온·습도·기압·바람을 재어 무선으로 보내는 관측 장비를 무엇이라고 하는가?",
+      "correct_answer": "라디오존데",
+      "explanation_hint": "지상 관측만으로는 대기의 연직 구조를 알 수 없다. 라디오존데가 보내온 자료가 단열선도와 수치예보모델의 초기값으로 들어간다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 고층 관측 실무 — 장비 명칭", "현업 장비 용어"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "고층 관측은 세계 공통으로 협정세계시 00시와 12시에 맞춰 하루 ___회 실시하는 것이 기본이다.",
+      "correct_answer": "2",
+      "explanation_hint": "전 세계가 같은 시각에 재야 자료를 한 장의 그림으로 합칠 수 있다. 각국이 제 시간에 재는 것이 지구 규모 예보의 전제다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 고층 관측 실무 — 국제 관측 규약", "국제 표준 관측 시각(00·12 UTC)"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "여러 지점에서 잰 기압을 일기도에 그리기 전에 해면기압으로 고쳐 적는 까닭은 무엇인가?",
+      "options": [
+        "관측소 높이가 서로 달라 그대로는 견줄 수 없기 때문이다",
+        "기압계마다 눈금이 다르기 때문이다",
+        "바다 위에서만 기압이 생기기 때문이다",
+        "해면기압이 항상 더 크기 때문이다"
+      ],
+      "correct_answer": "관측소 높이가 서로 달라 그대로는 견줄 수 없기 때문이다",
+      "explanation_hint": "산 위 관측소는 늘 기압이 낮게 나온다. 이를 그대로 그리면 산이 있는 곳마다 저기압이 생기므로, 모두 해면 높이 기준으로 고쳐 견준다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 관측 실무 — 해면기압 환산의 이유", "관측 규약 — 환산식은 쓰지 않았다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "관측망의 종류와 그 성격을 짝지어라.",
+      "pairs": [
+        { "left": "종관기상관측(ASOS)", "right": "사람이 관리하는 기준 관측소로 항목이 가장 많다" },
+        { "left": "방재기상관측(AWS)", "right": "무인으로 촘촘히 깔아 국지 현상을 잡는다" },
+        { "left": "고층기상관측", "right": "풍선을 띄워 대기의 연직 구조를 잰다" },
+        { "left": "기상레이더", "right": "전파를 쏘아 강수의 분포와 이동을 본다" }
+      ],
+      "correct_answer": "종관기상관측(ASOS):사람이 관리하는 기준 관측소로 항목이 가장 많다|방재기상관측(AWS):무인으로 촘촘히 깔아 국지 현상을 잡는다|고층기상관측:풍선을 띄워 대기의 연직 구조를 잰다|기상레이더:전파를 쏘아 강수의 분포와 이동을 본다",
+      "explanation_hint": "관측망은 목적이 달라 밀도와 항목이 다르다. 국지성 호우처럼 좁고 빠른 현상은 촘촘한 AWS와 레이더가 아니면 놓친다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 관측망 체계", "네 오른쪽이 전부 다른 성격"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "무인으로 촘촘히 설치해 국지적 기상 현상을 감시하는 자동기상관측장비를 줄여 무엇이라고 하는가?",
+      "correct_answer": "AWS",
+      "explanation_hint": "AWS는 사람이 상주하지 않아 전국에 촘촘히 깔 수 있다. 좁은 지역에 갑자기 쏟아지는 비를 잡아내는 것은 대개 이 관측망이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 관측망 — 장비 약칭", "현업 약어"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기상레이더가 강수를 탐지하는 원리로 알맞은 것은 무엇인가?",
+      "options": [
+        "쏜 전파가 빗방울에 부딪혀 되돌아오는 세기를 재는 것",
+        "빗방울이 내는 빛을 모으는 것",
+        "빗방울의 무게를 직접 재는 것",
+        "구름의 온도를 재는 것"
+      ],
+      "correct_answer": "쏜 전파가 빗방울에 부딪혀 되돌아오는 세기를 재는 것",
+      "explanation_hint": "되돌아온 신호가 셀수록 강수 입자가 크거나 많다는 뜻이다. 다만 우박·녹는 눈도 강하게 되돌리므로 세기만으로 비의 양을 곧바로 단정하지는 못한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 원격 관측 실무 — 레이더 원리", "관측 원리 — 반사도 수치는 쓰지 않았다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "위성이 구름 꼭대기에서 나오는 적외선을 재어 알아내는 값은 무엇인가?",
+      "correct_answer": "온도",
+      "explanation_hint": "구름 꼭대기가 차가울수록 높이 솟은 구름이다. 그래서 적외 영상에서 아주 차게 나오는 구역은 강한 상승기류가 있는 곳으로 읽는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 위성 관측 실무 — 적외 영상 해석", "관측 원리"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "기상 관측 자료가 예보로 이어지는 과정을 순서대로 배열하라.",
+      "items": [
+        "지상·고층·레이더·위성에서 관측 자료가 모인다",
+        "자료를 품질 검사해 모델의 초기값으로 넣는다",
+        "수치예보모델이 미래 대기 상태를 계산한다",
+        "예보관이 산출물을 해석해 예보와 특보를 낸다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "예보는 모델이 끝이 아니라 사람의 해석에서 끝난다. 모델끼리 결과가 갈릴 때 어느 쪽을 택할지 판단하는 것이 예보관의 몫이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 예보 생산 체계 전체 흐름", "절차 구조"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "레이더가 되돌아온 신호의 세기를 나타내는 값을 ___라고 하며 단위는 dBZ를 쓴다.",
+      "correct_answer": "반사도",
+      "explanation_hint": "반사도가 클수록 강한 비로 읽지만, 우박이나 녹고 있는 눈도 크게 나온다. 그래서 반사도만으로 강수 종류를 단정하지 않고 다른 자료와 겹쳐 본다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 레이더 실무 — 용어와 단위", "정의 — 임계값은 쓰지 않았다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "기상청이 기온을 관측할 때 직사광선을 막고 공기가 통하도록 온도계를 넣어 두는 흰 상자를 ___이라고 한다.",
+      "correct_answer": "백엽상",
+      "explanation_hint": "온도계에 햇빛이 바로 닿으면 공기가 아니라 온도계가 데워진다. 전 세계가 같은 조건에서 재도록 상자의 색·높이·통풍까지 규약으로 정해져 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 관측 실무 — 관측 규약의 표준화", "장비 명칭"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "강수확률 60%라는 예보를 바르게 읽은 것은 무엇인가?",
+      "options": [
+        "그런 조건이 여러 번 있으면 그중 60% 정도에서 비가 왔다는 뜻이다",
+        "예보 구역의 60% 넓이에 비가 온다는 뜻이다",
+        "하루의 60% 시간 동안 비가 온다는 뜻이다",
+        "예보관이 60%만 확신한다는 뜻이다"
+      ],
+      "correct_answer": "그런 조건이 여러 번 있으면 그중 60% 정도에서 비가 왔다는 뜻이다",
+      "explanation_hint": "강수확률은 넓이도 시간도 아닌 빈도다. 그래서 한 번의 예보가 맞았는지 틀렸는지로는 평가할 수 없고, 여러 날을 모아야 검증된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 예보 실무 — 확률 예보의 해석", "가장 흔한 오독 셋을 오답으로 배치했다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "같은 조건을 여러 번 예보했을 때 실제로 비가 온 비율이 예보한 확률과 얼마나 맞아떨어지는지를 보는 성질을 ___도라고 한다.",
+      "correct_answer": "신뢰",
+      "explanation_hint": "60%라고 한 날들을 모아 실제로 60% 가까이 비가 왔다면 그 예보는 신뢰도가 높다. 한 건의 적중 여부가 아니라 분포로 평가하는 것이 확률 예보의 검증법이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 예보 검증 실무 — 확률 예보 평가", "검증 개념 — 지표 수식은 쓰지 않았다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "초기 조건을 조금씩 다르게 준 여러 벌의 모델을 함께 돌려 예보의 불확실성을 가늠하는 방법을 무엇이라고 하는가?",
+      "correct_answer": "앙상블예보",
+      "explanation_hint": "대기는 초기값이 조금만 달라도 결과가 크게 갈린다. 여러 벌이 비슷한 답을 내면 확신할 수 있고, 크게 갈리면 그날 예보의 불확실성이 크다는 신호다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=10 · 기상청 수치예보 실무 — 불확실성 추정", "현업 기법 명칭"]
+    },
+    "status": "active"
+  }
+]

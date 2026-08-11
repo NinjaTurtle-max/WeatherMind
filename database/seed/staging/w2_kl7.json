@@ -1,0 +1,1118 @@
+[
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "북반구 어느 지역 지상 일기도에 저기압 중심이 놓여 있다. 지표 가까이에서는 상공과 달리 마찰력이 함께 작용한다. 이때 저기압 중심 둘레의 지상 바람은 어떻게 부는가?",
+      "options": [
+        "반시계 방향으로 돌면서 중심 쪽으로 비스듬히 불어 들어간다",
+        "시계 방향으로 돌면서 중심 쪽으로 비스듬히 불어 들어간다",
+        "등압선과 나란히 반시계 방향으로만 돌고 중심 쪽으로는 들어가지 않는다",
+        "등압선을 직각으로 가로질러 중심을 향해 곧장 불어 들어간다"
+      ],
+      "correct_answer": "반시계 방향으로 돌면서 중심 쪽으로 비스듬히 불어 들어간다",
+      "explanation_hint": "북반구에서 전향력은 운동 방향의 오른쪽으로 작용하므로 저기압 둘레의 바람은 반시계 방향으로 돈다. 여기에 마찰력이 더해지면 바람이 느려지고 전향력도 함께 줄어, 남은 기압 차이가 바람을 중심 쪽으로 끌어당긴다. 그래서 지상풍은 등압선을 비스듬히 가로지르며 안으로 수렴한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-05] 지균풍·경도풍·지상풍의 발생 원리 — 마찰력이 더해진 균형풍"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "적도 바로 위 바다는 수온이 29℃로 충분히 높은데도 위도 5도 안쪽에서는 태풍이 거의 발생하지 않는다. 이 구역에서 값이 0에 가까워 회전하는 소용돌이를 만들지 못하는 힘은 무엇인가?",
+      "correct_answer": "전향력",
+      "explanation_hint": "전향력은 지구 자전 때문에 생기는 겉보기 힘이고 그 크기는 위도의 사인값에 비례한다. 적도에서는 이 값이 0이라 모여든 공기가 회전을 얻지 못하고, 회전이 없으면 중심 저기압을 유지하는 소용돌이로 자라지 못한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12고지02-03] 전향력 — 4단계에서는 명시적으로 배제되는 개념"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "어느 맑은 날 지표 기온이 24℃, 높이 1.5km 지점의 기온이 15℃로 관측됐다. 이 대기의 환경 감률은 ___℃/km다.",
+      "correct_answer": "6",
+      "explanation_hint": "환경 감률은 주변 대기가 실제로 식는 비율이므로 기온 차를 높이 차로 나눈다. (24 - 15) ÷ 1.5 = 6이다. 이 값은 건조 단열 감률 10℃/km보다 작고 습윤 단열 감률 5℃/km보다 크므로 조건부 불안정에 해당한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 단열 감률과 환경 감률로 대기 안정도를 판정한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "지표 기온이 22℃이고 이 지역 환경 감률이 6.5℃/km로 일정하다. 높이 4km 지점의 기온은 몇 ℃인지 슬라이더로 표시하라.",
+      "correct_answer": "-4",
+      "min": -40,
+      "max": 40,
+      "step": 1,
+      "unit": "℃",
+      "explanation_hint": "환경 감률은 주변 대기의 실제 기온 감소율이므로 6.5 × 4 = 26℃가 내려간다. 22 - 26 = -4℃다. 여기에 건조 단열 감률 10℃/km를 쓰면 -18℃가 나오는데, 그것은 올라가는 공기 덩어리 자신의 기온이지 주변 대기의 기온이 아니다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 기온의 연직 분포 — 환경 감률 적용 계산"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "같은 일기도에서 관측된 아래 세 구간의 바람을 그 구간에 맞는 바람 이름과 짝지어라.",
+      "pairs": [
+        {
+          "left": "고도 5km 상공, 등압선이 거의 직선인 구간에서 등압선과 나란히 부는 바람",
+          "right": "지균풍"
+        },
+        {
+          "left": "고도 5km 상공, 등압선이 크게 휘어 원심력까지 더해진 구간의 바람",
+          "right": "경도풍"
+        },
+        {
+          "left": "지표 부근, 등압선을 비스듬히 가로지르며 부는 바람",
+          "right": "지상풍"
+        }
+      ],
+      "correct_answer": "고도 5km 상공, 등압선이 거의 직선인 구간에서 등압선과 나란히 부는 바람:지균풍|고도 5km 상공, 등압선이 크게 휘어 원심력까지 더해진 구간의 바람:경도풍|지표 부근, 등압선을 비스듬히 가로지르며 부는 바람:지상풍",
+      "explanation_hint": "세 바람은 작용하는 힘의 조합으로 갈린다. 기압 차이가 미는 힘과 전향력만 맞버티면 지균풍, 여기에 곡률에 따른 원심력이 더해지면 경도풍, 마찰력까지 더해지면 지상풍이다. 마찰이 있는 지표에서만 바람이 등압선을 가로지른다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-05] 지균풍·경도풍·지상풍을 한 성취기준으로 묶어 규정한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "맑고 바람이 없는 겨울 밤, 지표 가까이에 위로 갈수록 기온이 높아지는 층이 생기기까지의 과정을 순서대로 배열하라.",
+      "items": [
+        "해가 진 뒤 들어오는 태양 복사가 끊기고 지표면만 적외선을 계속 내보낸다",
+        "지표면이 대기보다 빠르게 식어 지표에 닿은 공기층이 먼저 차가워진다",
+        "지표 가까이에서만 기온이 낮아져 위로 갈수록 기온이 높아지는 층이 생긴다",
+        "이 층에서는 올라간 공기가 주변보다 차고 무거워져 연직으로 섞이지 못한다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "복사냉각은 대기가 아니라 지표면에서 먼저 일어난다. 식은 지표가 맞닿은 공기부터 냉각시키므로 아래쪽만 차가워지고, 그 결과 감률이 뒤집힌 층이 만들어진다. 이 층 안에서는 올라간 공기가 주변보다 무거워 되돌아 내려오므로 연직 섞임이 멎는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 기온의 연직 분포와 대기 안정도"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "중위도 상공의 편서풍은 남북으로 크게 굽이치며 흐르고, 이 굽이가 커지면 북쪽 찬 공기와 남쪽 따뜻한 공기가 서로 밀려 들어온다. 이렇게 남북으로 굽이치는 편서풍의 흐름을 무엇이라 하는가?",
+      "correct_answer": "편서풍 파동",
+      "explanation_hint": "중위도 상공의 편서풍은 곧게 흐르지 않고 남북으로 굽이치며, 이 굽이를 편서풍 파동이라 한다. 굽이가 깊어질수록 위도 사이의 열 교환이 커져 한파와 이상 고온이 함께 나타난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-06] 행성파의 발달 과정과 편서풍 파동의 역할"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "상공에서는 바람이 등압선과 나란히 불지만 지표 부근에서는 등압선을 비스듬히 가로지른다. 지표에서만 바람의 방향을 이렇게 틀어 놓는 힘은 ___이다.",
+      "correct_answer": "마찰력",
+      "explanation_hint": "지표면과 스치는 공기는 마찰력을 받아 느려진다. 바람이 느려지면 속력에 비례하는 전향력도 함께 줄어들어, 남은 기압 차이가 바람을 저기압 쪽으로 끌어당긴다. 마찰이 거의 없는 상공에서는 이 어긋남이 생기지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-05] 지상풍 — 마찰력이 더해진 균형풍"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "구름 밑면인 높이 2km 지점의 기온이 12℃다. 이 구름 속을 따라 올라간 공기 덩어리가 높이 5km에 이르렀을 때의 기온은 몇 ℃인지 슬라이더로 표시하라. 구름 속에서는 습윤 단열 감률 5℃/km를 적용한다.",
+      "correct_answer": "-3",
+      "min": -30,
+      "max": 30,
+      "step": 1,
+      "unit": "℃",
+      "explanation_hint": "구름 속에서는 응결하며 나오는 잠열이 공기를 데우므로 식는 속도가 느려진다. 5 × 3 = 15℃만 내려가 12 - 15 = -3℃가 된다. 구름 밖의 건조 단열 감률 10℃/km를 그대로 쓰면 -18℃로 지나치게 낮게 나온다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 습윤 단열 감률 — 응결 이후의 감률"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "어느 지역의 환경 감률이 7℃/km로 관측됐다. 건조 단열 감률은 10℃/km, 습윤 단열 감률은 5℃/km다. 이 대기의 안정도를 바르게 판정한 것은 무엇인가?",
+      "options": [
+        "구름이 없으면 안정하지만 일단 포화되어 구름이 생기면 불안정해진다",
+        "구름이 있든 없든 올라간 공기가 계속 떠올라 언제나 불안정하다",
+        "구름이 있든 없든 올라간 공기가 되돌아 내려와 언제나 안정하다",
+        "구름이 없을 때만 불안정하고 구름이 생기면 안정해진다"
+      ],
+      "correct_answer": "구름이 없으면 안정하지만 일단 포화되어 구름이 생기면 불안정해진다",
+      "explanation_hint": "환경 감률 7℃/km가 두 단열 감률 사이에 놓인 상태다. 구름이 없는 공기는 10℃/km로 식어 주변보다 차가워지므로 되돌아 내려오고, 포화된 공기는 5℃/km로 천천히 식어 주변보다 따뜻하게 남으므로 계속 떠오른다. 포화 여부에 따라 갈리므로 조건부 불안정이라 한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 단열 감률과 환경 감률 비교로 안정도를 판정한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "남쪽 바다에서 북서쪽으로 올라오던 태풍이 북위 30도 부근을 지나면서 진로를 북동쪽으로 크게 틀었다. 이 방향 전환을 가장 잘 설명한 것은 무엇인가?",
+      "options": [
+        "북위 30도 위쪽 상공의 편서풍대에 들어가 흐름을 타고 동쪽으로 밀려 나가기 때문이다",
+        "북쪽으로 갈수록 전향력이 0에 가까워져 회전이 풀리기 때문이다",
+        "바다 수온이 높아져 태풍이 스스로 따뜻한 쪽으로 방향을 잡기 때문이다",
+        "북반구에서는 마찰력이 언제나 바람을 오른쪽으로 90도 꺾기 때문이다"
+      ],
+      "correct_answer": "북위 30도 위쪽 상공의 편서풍대에 들어가 흐름을 타고 동쪽으로 밀려 나가기 때문이다",
+      "explanation_hint": "태풍은 스스로 길을 고르지 못하고 주변 흐름에 실려 간다. 저위도에서는 동풍 계열 흐름을 타고 북서쪽으로 오다가, 중위도 상공의 편서풍대에 들어가면 흐름이 뒤바뀌어 북동쪽으로 휘어 나간다. 전향력은 위도가 높을수록 커지므로 두 번째 선택지는 방향이 반대다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-06] 편서풍 파동의 역할 · [12고지02-03] 전향력의 위도 의존"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "겨울에 시베리아 기단이 남하해 수온 8℃인 서해를 건너면 서해안에 폭설이 내린다. 이 과정에서 기단의 연직 구조에 일어나는 변화로 옳은 것은 무엇인가?",
+      "options": [
+        "아래층만 데워져 환경 감률이 커지고 대기가 불안정해진다",
+        "위층만 데워져 환경 감률이 작아지고 대기가 안정해진다",
+        "기단 전체가 고르게 데워져 환경 감률은 그대로 유지된다",
+        "아래층이 더 차가워져 지표 가까이에 역전층이 두껍게 생긴다"
+      ],
+      "correct_answer": "아래층만 데워져 환경 감률이 커지고 대기가 불안정해진다",
+      "explanation_hint": "따뜻한 바다는 기단의 맨 아래층부터 데우고 수증기까지 공급한다. 위층 기온은 그대로인데 아래층만 올라가므로 높이에 따른 기온 차, 곧 환경 감률이 커진다. 감률이 단열 감률을 넘어서면 올라간 공기가 계속 떠올라 눈구름이 줄지어 발달한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 환경 감률 변화와 대기 안정도"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "1월 어느 날 상공 일기도에서 편서풍 파동의 굽이가 한반도 쪽으로 유난히 깊게 남쪽까지 파고들어 있다. 이때 한반도 지상에서 나타날 날씨로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "북쪽 찬 공기가 중위도까지 밀려 내려와 한파가 나타난다",
+        "남쪽 따뜻한 공기가 올라와 계절에 맞지 않는 고온이 나타난다",
+        "굽이가 깊어진 만큼 남북 공기 교환이 줄어 평년과 같은 기온이 이어진다",
+        "상공 흐름이 지상과 끊겨 지상 기온에는 아무 영향이 없다"
+      ],
+      "correct_answer": "북쪽 찬 공기가 중위도까지 밀려 내려와 한파가 나타난다",
+      "explanation_hint": "편서풍 파동에서 남쪽으로 파고든 부분은 기압골이고, 그 아래로는 북쪽의 찬 공기가 함께 끌려 내려온다. 반대로 북쪽으로 부풀어 오른 기압마루 아래에서는 남쪽 따뜻한 공기가 올라와 이상 고온이 나타난다. 굽이가 깊어질수록 남북 열 교환은 오히려 커진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-06] 행성파와 편서풍 파동의 역할"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "정역학 균형이 성립하는 대기에서 해발 0m부터 1km까지 올라갈 때 줄어드는 기압은, 해발 9km부터 10km까지 올라갈 때 줄어드는 기압보다 훨씬 크다. 그 까닭으로 옳은 것은 무엇인가?",
+      "options": [
+        "아래층일수록 공기 밀도가 커서 같은 두께라도 그 층의 무게가 무겁기 때문이다",
+        "아래층일수록 중력가속도가 훨씬 커서 같은 공기라도 더 무겁기 때문이다",
+        "상층에서는 기온이 낮아 기압이 높이와 관계없이 일정해지기 때문이다",
+        "아래층에서는 마찰력이 커서 기압이 빠르게 줄어들기 때문이다"
+      ],
+      "correct_answer": "아래층일수록 공기 밀도가 커서 같은 두께라도 그 층의 무게가 무겁기 때문이다",
+      "explanation_hint": "정역학 균형에서 어떤 층의 아래위 기압 차는 그 층 공기의 무게와 같고, 무게는 밀도와 두께에 비례한다. 밀도는 위로 갈수록 급격히 줄어들므로 같은 1km라도 아래층이 훨씬 큰 기압 차를 만든다. 중력가속도는 이 높이 범위에서 거의 변하지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-04] 기압의 연직 분포로 정역학적 균형을 이해한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "적도가 극보다 훨씬 많은 태양 에너지를 받는데도, 대기 대순환은 적도에서 극까지 곧장 이어지는 하나의 큰 순환으로 나타나지 않는다. 그 까닭으로 옳은 것은 무엇인가?",
+      "options": [
+        "북상하는 공기가 전향력에 오른쪽으로 휘어 극까지 곧장 가지 못하고 중간에서 가라앉기 때문이다",
+        "적도와 극 사이 기온 차가 너무 작아 순환을 만들 힘이 모자라기 때문이다",
+        "바다가 열을 모두 실어 날라 대기는 남북으로 움직일 필요가 없기 때문이다",
+        "지표 마찰력이 남북 방향 흐름만 골라 막아 세우기 때문이다"
+      ],
+      "correct_answer": "북상하는 공기가 전향력에 오른쪽으로 휘어 극까지 곧장 가지 못하고 중간에서 가라앉기 때문이다",
+      "explanation_hint": "자전하지 않는 지구라면 적도에서 극까지 하나의 순환이 생긴다. 그러나 북반구에서 북상하는 공기는 전향력에 오른쪽으로 휘어 위도 30도 부근에서 거의 서풍이 되고, 더 북상하지 못한 공기가 쌓여 가라앉는다. 그래서 순환이 세 개로 나뉘고 위도대마다 다른 탁월풍이 생긴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12고지02-03] 전향력 — 대기 대순환이 세 세포로 나뉘는 근거"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "어느 해 여름, 상공 편서풍 파동의 굽이가 크게 부풀어 오른 채 2주 넘게 거의 같은 자리에 머물렀다. 그 아래 지역에서 나타날 결과로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "같은 기압계가 오래 머물러 폭염이 여러 날 이어진다",
+        "기압계가 빠르게 지나가 맑음과 비가 이틀 간격으로 되풀이된다",
+        "굽이가 멈추면 남북 공기 교환이 끊겨 기온이 평년값에 붙는다",
+        "상공 흐름이 멈추면 지상 기압이 사라져 바람이 불지 않는다"
+      ],
+      "correct_answer": "같은 기압계가 오래 머물러 폭염이 여러 날 이어진다",
+      "explanation_hint": "지상 기압계는 상공 편서풍 파동에 실려 동쪽으로 옮겨 간다. 파동이 제자리에 멈추면 그 아래 기압계도 함께 멈추므로, 부풀어 오른 굽이 아래에서는 가라앉는 공기와 맑은 하늘이 이어져 폭염이 길어진다. 이상기후가 며칠이 아니라 몇 주 단위로 이어지는 사례는 대개 이 정체에서 나온다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-06] 편서풍 파동의 역할 — 정체 시 이상기후 지속"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "같은 도시에서 도심과 교외의 기온 차를 여러 날 재 보니, 어떤 밤에는 차이가 5℃까지 벌어지고 어떤 밤에는 1℃도 되지 않았다. 열섬 강도가 가장 크게 나타나는 밤의 조건은 무엇인가?",
+      "options": [
+        "하늘이 맑고 바람이 약해 교외 지표 가까이에 역전층이 발달한 밤",
+        "구름이 두껍고 바람이 강해 위아래 공기가 잘 섞이는 밤",
+        "비가 내려 도심과 교외 지표가 모두 젖어 있는 밤",
+        "찬 공기가 밀려와 도심과 교외 기온이 함께 크게 떨어지는 밤"
+      ],
+      "correct_answer": "하늘이 맑고 바람이 약해 교외 지표 가까이에 역전층이 발달한 밤",
+      "explanation_hint": "열섬 강도는 교외가 얼마나 잘 식느냐로 갈린다. 맑고 바람이 약한 밤에는 교외 지표가 복사냉각으로 빠르게 식어 얕은 역전층이 생기고, 그 안에서는 연직 섞임이 멎어 냉각이 더 강해진다. 바람이 강하거나 구름이 두꺼운 밤에는 이 층이 만들어지지 않아 차이가 줄어든다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 기온 역전층과 연직 혼합 — 열섬 강도의 조건"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "장마철 남서쪽에서 덥고 습한 공기가 들어오는 날, 산자락 한 곳에만 시간당 60mm의 비가 몇 시간째 쏟아졌다. 이 집중호우를 가장 잘 설명한 것은 무엇인가?",
+      "options": [
+        "산 사면이 습한 공기를 억지로 밀어 올렸고, 조건부 불안정한 대기에서 그 공기가 스스로 계속 치솟았기 때문이다",
+        "산이 바람을 막아 공기가 그 자리에 멈춰 서서 수증기가 저절로 응결했기 때문이다",
+        "산 위 기온이 낮아 공기가 무거워지고 가라앉으면서 비가 쏟아졌기 때문이다",
+        "산자락에서 마찰력이 커져 바람이 멎고 기압이 높아졌기 때문이다"
+      ],
+      "correct_answer": "산 사면이 습한 공기를 억지로 밀어 올렸고, 조건부 불안정한 대기에서 그 공기가 스스로 계속 치솟았기 때문이다",
+      "explanation_hint": "지형은 처음 밀어 올리는 몫만 담당한다. 억지로 올라간 공기가 포화되어 구름이 생기면 응결로 나온 잠열 덕분에 습윤 단열 감률로 천천히 식고, 주변보다 따뜻해진 공기는 힘을 주지 않아도 계속 떠오른다. 상승이 스스로 이어지므로 같은 자리에 비가 오래 쏟아진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 조건부 불안정과 강제 상승"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "어느 날 관측에서 지표 30℃, 높이 1km 25℃, 높이 2km 15℃로 기온이 나왔다. 두 층의 안정도를 비교한 설명으로 옳은 것은 무엇인가?",
+      "options": [
+        "1~2km 층의 환경 감률이 10℃/km라 0~1km 층보다 불안정하다",
+        "0~1km 층의 환경 감률이 10℃/km라 1~2km 층보다 불안정하다",
+        "두 층 모두 환경 감률이 같아 안정도에 차이가 없다",
+        "위로 갈수록 기온이 내려가므로 두 층 모두 역전층이다"
+      ],
+      "correct_answer": "1~2km 층의 환경 감률이 10℃/km라 0~1km 층보다 불안정하다",
+      "explanation_hint": "0~1km 층은 1km당 5℃, 1~2km 층은 1km당 10℃ 내려간다. 감률이 클수록 올라간 공기 덩어리가 주변보다 따뜻하게 남기 쉬우므로 대기는 더 불안정하다. 위층 감률이 건조 단열 감률과 같은 10℃/km이므로 그 층은 구름이 없어도 중립에 가깝다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 층별 환경 감률 비교로 안정도를 판정한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "온실기체가 늘어 열대 바다 위 지표 기온이 오르면, 그 위 대류권 상층은 지표보다 더 크게 데워질 것으로 예상된다. 이 결과를 감률로 설명한 것으로 옳은 것은 무엇인가?",
+      "options": [
+        "기온이 오르면 수증기가 늘어 응결로 나오는 잠열이 커지고, 습윤 단열 감률이 작아져 상층이 더 데워진다",
+        "기온이 오르면 건조 단열 감률이 커져 상층이 더 데워진다",
+        "기온이 오르면 상층부터 수증기가 얼어붙어 잠열이 사라지고 상층만 데워진다",
+        "기온이 올라도 감률은 변하지 않으므로 상층이 더 데워질 수는 없다"
+      ],
+      "correct_answer": "기온이 오르면 수증기가 늘어 응결로 나오는 잠열이 커지고, 습윤 단열 감률이 작아져 상층이 더 데워진다",
+      "explanation_hint": "따뜻한 공기일수록 포화 수증기량이 많아 같은 높이를 올라가는 동안 더 많이 응결하고, 그만큼 잠열이 더 나온다. 잠열이 클수록 상승하는 공기가 천천히 식으므로 습윤 단열 감률은 작아진다. 지표에서 시작한 온난화가 상층으로 갈수록 크게 나타나는 까닭이다. 건조 단열 감률은 기온과 관계없이 거의 일정하다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 습윤 단열 감률과 잠열 — 온난화의 연직 분포"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "같은 위도의 상공 일기도에서 어느 구간의 등압선 간격이 다른 구간의 절반으로 좁아져 있다. 마찰이 거의 없는 이 높이에서 두 구간의 풍속을 비교한 것으로 옳은 것은 무엇인가?",
+      "options": [
+        "간격이 절반인 구간의 풍속이 약 두 배로 빠르다",
+        "간격이 절반인 구간의 풍속이 약 절반으로 느리다",
+        "같은 위도라면 등압선 간격과 상관없이 풍속이 같다",
+        "간격이 절반인 구간의 풍속이 약 네 배로 빠르다"
+      ],
+      "correct_answer": "간격이 절반인 구간의 풍속이 약 두 배로 빠르다",
+      "explanation_hint": "등압선 간격이 절반이면 같은 거리를 갈 때 기압이 두 배로 떨어지므로 공기를 미는 힘이 두 배가 된다. 이 힘과 맞버티는 전향력은 풍속에 비례하므로, 균형을 이루려면 풍속도 두 배가 되어야 한다. 같은 위도라는 조건이 전향력 계수를 고정해 준다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-05] 지균풍 — 힘의 균형에서 풍속과 등압선 간격의 관계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "구름이 두껍게 낀 밤에는 지표 가까이에 기온 역전층이 잘 생기지 않는다. 그 까닭으로 옳은 것은 무엇인가?",
+      "options": [
+        "구름이 지표가 내보낸 적외선을 되돌려 보내 지표가 덜 식기 때문이다",
+        "구름이 밤에도 태양 복사를 통과시켜 지표를 계속 데우기 때문이다",
+        "구름 속 물방울이 얼면서 열을 빨아들여 상층만 차가워지기 때문이다",
+        "구름이 있으면 지표 마찰력이 커져 공기가 섞이지 않기 때문이다"
+      ],
+      "correct_answer": "구름이 지표가 내보낸 적외선을 되돌려 보내 지표가 덜 식기 때문이다",
+      "explanation_hint": "역전층은 지표만 빠르게 식을 때 만들어진다. 구름은 지표가 내보낸 적외선을 흡수했다가 다시 아래로 내보내므로 복사냉각이 크게 약해지고, 지표와 그 위 공기의 기온 차가 벌어지지 않는다. 밤에는 들어오는 태양 복사 자체가 없다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 복사냉각과 기온 역전층 형성 조건"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "해발 500m 관측소의 기압계는 언제나 해안 관측소보다 60hPa쯤 낮은 값을 가리킨다. 이 값을 그대로 일기도에 그리면 산간에 늘 저기압이 있는 것처럼 보이므로, 정역학 균형을 이용해 관측 기압을 해수면 높이 기준으로 환산한다. 이렇게 환산한 기압을 무엇이라 하는가?",
+      "correct_answer": "해면기압",
+      "explanation_hint": "관측소와 해수면 사이 공기 기둥의 무게만큼을 더해 주면 높이 차이 때문에 생긴 기압 차가 지워진다. 이 환산값이 해면기압이고, 일기도의 등압선은 모두 해면기압으로 그린다. 더해 주는 양은 그 공기 기둥의 밀도에 달려 있어 기온에 따라 조금씩 달라진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-04] 정역학적 균형의 적용 — 해면기압 환산"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "중위도 상공에서는 남북으로 굽이치는 큰 규모의 파동이 찬 공기와 따뜻한 공기를 서로 밀어 넣으며 위도 사이 열 수송을 떠맡는다. 이 파동은 편서풍 파동이라고도 부르는데, 지구 규모의 파동이라는 뜻을 담은 또 다른 표기는 무엇인가?",
+      "correct_answer": "행성파",
+      "explanation_hint": "지구 규모로 나타나는 이 파동을 행성파라 하고, 상공 편서풍이 굽이치는 모습으로 관측되므로 편서풍 파동이라고도 한다. 중위도에서는 단일 순환이 열을 나르지 못하므로 이 파동이 남북 열 수송의 주된 통로가 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-06] 행성파의 발달 과정 — 고시 원문 표기"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "상공 일기도에서 편서풍 파동이 남쪽으로 깊게 파고든 부분 아래에는 북쪽 찬 공기가 내려와 한파가 나타난다. 이렇게 주변보다 기압이 낮은 쪽으로 파고든 부분을 무엇이라 하는가?",
+      "correct_answer": "기압골",
+      "explanation_hint": "편서풍 파동에서 남쪽으로 파고든 부분이 기압골, 북쪽으로 부풀어 오른 부분이 기압마루다. 기압골 뒤쪽에서는 찬 공기가 남하해 한파가 나타나고, 기압마루 아래에서는 따뜻한 공기가 올라와 이상 고온이 나타난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-06] 편서풍 파동의 구조와 지상 날씨"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "이른 아침 산불 현장에서 연기가 위로 솟지 못하고 낮은 높이에서 옆으로 넓게 퍼졌다. 밤사이 지표가 식으면서 생긴, 위로 갈수록 기온이 높아져 연직 섞임을 막는 이 층을 무엇이라 하는가?",
+      "correct_answer": "역전층",
+      "explanation_hint": "밤사이 복사냉각으로 지표만 식으면 지표 가까이에 위로 갈수록 기온이 높아지는 역전층이 생긴다. 이 층 안에서 올라간 공기는 주변보다 차고 무거워 되돌아 내려오므로 연기가 뚫고 올라가지 못한다. 해가 떠 지표가 데워지면 이 층은 아래에서부터 무너진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 기온 역전층과 연직 혼합의 억제"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "습한 공기가 산 사면을 따라 억지로 밀려 올라가자 처음에는 힘을 받아야 올라갔지만, 구름이 생긴 뒤부터는 스스로 계속 치솟았다. 환경 감률이 두 단열 감률 사이에 놓인 이런 대기 상태를 무엇이라 하는가?",
+      "correct_answer": "조건부 불안정",
+      "explanation_hint": "환경 감률이 건조 단열 감률보다 작고 습윤 단열 감률보다 크면, 포화되기 전에는 안정하고 포화된 뒤에는 불안정하다. 포화라는 조건이 붙어야 불안정해지므로 조건부 불안정이라 한다. 강제 상승은 그 조건을 만들어 주는 방아쇠 노릇을 한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 단열 감률과 환경 감률 비교 — 조건부 불안정"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "맑고 바람 약한 밤, 교외 논밭 지표는 내보낸 적외선이 되돌아오지 않아 빠르게 식지만 도심은 건물과 도로가 낮에 저장한 열을 내놓아 덜 식는다. 교외 기온을 빠르게 떨어뜨리는 이 냉각 방식을 무엇이라 하는가?",
+      "correct_answer": "복사냉각",
+      "explanation_hint": "복사냉각은 지표가 적외선을 내보내며 스스로 식는 과정이고, 구름과 수증기가 적은 맑은 밤에 가장 강하다. 도심은 낮에 저장한 열과 인공 열이 이 냉각을 상쇄하므로 두 지점의 기온 차, 곧 열섬 강도가 새벽에 가장 크게 벌어진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 야간 복사냉각과 지표 부근 기온 분포"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "북반구 태풍의 지상 바람은 전향력에 오른쪽으로 휘고 마찰력에 안으로 끌려, 중심을 향해 ___ 방향으로 돌며 불어 들어간다.",
+      "correct_answer": "반시계",
+      "explanation_hint": "북반구에서 전향력은 운동 방향의 오른쪽으로 작용하므로 중심으로 모여드는 공기는 반시계 방향 회전을 얻는다. 마찰력이 있는 지표에서는 이 회전이 등압선을 비스듬히 가로지르며 안으로 수렴하는 흐름으로 나타난다. 남반구에서는 방향이 반대다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12고지02-03] 전향력 · [12지시03-05] 지상풍의 수렴"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "자전하지 않는 지구라면 적도에서 극까지 순환이 하나만 생긴다. 실제 대기 대순환이 세 개의 순환으로 나뉘는 것은 남북으로 움직이는 공기를 옆으로 휘게 하는 ___ 때문이다.",
+      "correct_answer": "전향력",
+      "explanation_hint": "북상하던 공기는 전향력에 오른쪽으로 휘어 위도 30도 부근에서 거의 서풍이 되고, 더 북상하지 못한 공기가 쌓이며 가라앉아 아열대 고압대를 만든다. 이 때문에 하나였을 순환이 세 개로 끊어지고 위도대마다 다른 탁월풍이 생긴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12고지02-03] 전향력 — 대기 대순환의 세 세포 구조"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "어느 층의 환경 감률이 12℃/km로 관측됐다. 이 값은 건조 단열 감률 10℃/km보다도 크므로, 구름이 있든 없든 올라간 공기가 주변보다 따뜻해 계속 떠오른다. 이런 층은 절대 ___하다고 판정한다.",
+      "correct_answer": "불안정",
+      "explanation_hint": "환경 감률이 건조 단열 감률보다 크면 포화 여부와 상관없이 올라간 공기가 주변보다 따뜻하게 남는다. 조건이 붙지 않으므로 절대 불안정이라 하고, 여름 한낮 지표 부근처럼 아래만 강하게 데워진 얕은 층에서 나타난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 환경 감률과 단열 감률 비교 — 절대 불안정"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "남서쪽에서 들어온 습한 공기가 산 사면에 부딪혀 억지로 밀려 올라가면서 산자락에만 큰비가 쏟아졌다. 이렇게 산이 공기를 밀어 올려 일어나는 상승을 ___성 상승이라 한다.",
+      "correct_answer": "지형",
+      "explanation_hint": "공기를 밀어 올리는 방아쇠에는 산 사면, 전선면, 지표 가열이 있다. 산이 맡는 경우가 지형성 상승이고, 올라간 공기가 조건부 불안정한 대기에서 포화되면 그다음부터는 부력으로 스스로 치솟아 비가 한곳에 오래 집중된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 강제 상승과 조건부 불안정"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "해발 0m 해안 마을 기온이 20℃이고 이 지역 환경 감률이 6℃/km로 일정하다면, 해발 1.5km 산 정상의 기온은 ___℃로 계산된다.",
+      "correct_answer": "11",
+      "explanation_hint": "환경 감률은 주변 대기의 높이에 따른 기온 감소율이므로 6 × 1.5 = 9℃가 내려간다. 20 - 9 = 11℃다. 건조 단열 감률 10℃/km는 올라가는 공기 덩어리 자신에게 적용하는 값이라 가만히 있는 산 정상 기온에는 쓰지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 환경 감률 적용 — 고도별 기온 계산"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "이산화탄소가 늘어 지표 부근이 데워지면 공기가 머금는 수증기도 함께 늘어난다. 그만큼 상승하는 공기 안에서 응결이 많아지고, 응결할 때 나오는 ___이 커져 대류권 상층이 지표보다 크게 데워진다.",
+      "correct_answer": "잠열",
+      "explanation_hint": "수증기가 물방울로 바뀔 때 내놓는 잠열은 상승하는 공기를 데워 습윤 단열 감률을 작게 만든다. 따뜻해진 대기일수록 응결량이 많아 이 효과가 커지므로, 같은 온난화라도 상층에서 기온 상승 폭이 더 크게 나타난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 잠열과 습윤 단열 감률 — 온난화의 연직 구조"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "정역학 균형에서 어떤 공기층의 아래위 기압 차는 '공기 밀도 × 중력가속도 × 층의 두께'와 같다. 밀도가 1.0kg/m³, 중력가속도가 10m/s², 두께가 800m인 층의 아래위 기압 차는 몇 hPa인지 슬라이더로 표시하라.",
+      "correct_answer": "80",
+      "min": 0,
+      "max": 200,
+      "step": 5,
+      "unit": "hPa",
+      "explanation_hint": "1.0 × 10 × 800 = 8000Pa이고, 1hPa은 100Pa이므로 80hPa이다. 단위를 고치지 않고 8000을 그대로 읽으면 실제보다 100배 큰 값이 된다. 밀도를 1.2로 잡으면 96hPa이 나오는데, 밀도가 클수록 같은 두께라도 층의 무게가 무겁다는 뜻이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-04] 기압의 연직 분포와 정역학적 균형"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "해발 2.5km 산마루의 기온이 4℃다. 이 공기가 산을 넘어 반대편 해발 0m 마을까지 구름 없이 내려온다면 마을에서의 기온은 몇 ℃가 되는지 슬라이더로 표시하라. 구름이 없으므로 건조 단열 감률 10℃/km를 적용한다.",
+      "correct_answer": "29",
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "unit": "℃",
+      "explanation_hint": "내려오는 공기는 주변 기압이 높아지며 눌려 데워진다. 2.5km를 내려오는 동안 10 × 2.5 = 25℃가 올라 4 + 25 = 29℃가 된다. 습윤 단열 감률 5℃/km를 잘못 쓰면 16.5℃로 크게 낮아지는데, 구름이 없는 하강 공기에는 잠열을 내놓을 응결이 없다. 이렇게 데워지고 메마른 바람이 산불을 키운다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 건조 단열 감률 — 하강 공기의 단열 압축 승온"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "맑은 밤 관측에서 지표 기온이 -2℃, 높이 300m 지점의 기온이 4℃로 나왔다. 이 층의 환경 감률은 몇 ℃/km인지 슬라이더로 표시하라. 기온이 높이에 따라 올라가면 감률은 음수로 적는다.",
+      "correct_answer": "-20",
+      "min": -40,
+      "max": 40,
+      "step": 1,
+      "unit": "℃/km",
+      "explanation_hint": "감률은 높이에 따른 기온 감소율이므로 (-2 - 4) ÷ 0.3km = -20℃/km다. 부호가 음수라는 것은 위로 갈수록 기온이 오른다는 뜻이고, 곧 역전층이다. 부호를 빼먹고 +20으로 적으면 정반대로 매우 불안정한 층이라는 뜻이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 환경 감률의 부호와 기온 역전층"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "아래 세 상황에 각각 적용해야 할 감률의 값과 성격을 짝지어라.",
+      "pairs": [
+        {
+          "left": "구름이 생기기 전, 포화되지 않은 공기 덩어리가 올라갈 때",
+          "right": "약 10℃/km로 식는다"
+        },
+        {
+          "left": "구름 속에서 응결하며 공기 덩어리가 올라갈 때",
+          "right": "잠열이 나와 약 5℃/km로 천천히 식는다"
+        },
+        {
+          "left": "제자리에 있는 주변 대기의 높이에 따른 기온 변화",
+          "right": "정해진 값이 없어 관측할 때마다 달라진다"
+        }
+      ],
+      "correct_answer": "구름이 생기기 전, 포화되지 않은 공기 덩어리가 올라갈 때:약 10℃/km로 식는다|구름 속에서 응결하며 공기 덩어리가 올라갈 때:잠열이 나와 약 5℃/km로 천천히 식는다|제자리에 있는 주변 대기의 높이에 따른 기온 변화:정해진 값이 없어 관측할 때마다 달라진다",
+      "explanation_hint": "앞의 둘은 올라가는 공기 덩어리 자신에게 적용하는 값이라 물리로 정해져 있고, 세 번째는 주변 대기를 실제로 재서 얻는 값이다. 안정도 판정은 관측으로 얻은 환경 감률을 두 단열 감률과 견주어 이뤄진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 건조·습윤 단열 감률과 환경 감률의 구분"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "전향력 때문에 위도대마다 지상 탁월풍이 달라진다. 아래 위도대와 그곳 지상에서 부는 바람을 짝지어라.",
+      "pairs": [
+        {
+          "left": "적도에서 위도 30도 사이 지상",
+          "right": "무역풍"
+        },
+        {
+          "left": "위도 30도에서 60도 사이 지상",
+          "right": "편서풍"
+        },
+        {
+          "left": "위도 60도에서 극 사이 지상",
+          "right": "극동풍"
+        }
+      ],
+      "correct_answer": "적도에서 위도 30도 사이 지상:무역풍|위도 30도에서 60도 사이 지상:편서풍|위도 60도에서 극 사이 지상:극동풍",
+      "explanation_hint": "세 순환의 지상 흐름이 전향력에 휘어 각각 다른 방향의 탁월풍이 된다. 적도로 되돌아가는 공기는 오른쪽으로 휘어 북동 무역풍이 되고, 북상하는 공기는 오른쪽으로 휘어 편서풍이 되며, 극에서 내려오는 공기는 극동풍이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12고지02-03] 전향력과 대기 대순환의 지상 탁월풍"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "상공 편서풍 파동의 모습과 그 아래 지상에서 나타나는 날씨를 짝지어라.",
+      "pairs": [
+        {
+          "left": "굽이가 남쪽으로 깊게 파고든 기압골 아래",
+          "right": "북쪽 찬 공기가 내려와 한파가 나타난다"
+        },
+        {
+          "left": "굽이가 북쪽으로 크게 부풀어 오른 기압마루 아래",
+          "right": "남쪽 따뜻한 공기가 올라와 계절에 맞지 않는 고온이 나타난다"
+        },
+        {
+          "left": "굽이가 커진 채 거의 움직이지 않는 정체 상태",
+          "right": "같은 기압계가 머물러 같은 날씨가 여러 날 이어진다"
+        }
+      ],
+      "correct_answer": "굽이가 남쪽으로 깊게 파고든 기압골 아래:북쪽 찬 공기가 내려와 한파가 나타난다|굽이가 북쪽으로 크게 부풀어 오른 기압마루 아래:남쪽 따뜻한 공기가 올라와 계절에 맞지 않는 고온이 나타난다|굽이가 커진 채 거의 움직이지 않는 정체 상태:같은 기압계가 머물러 같은 날씨가 여러 날 이어진다",
+      "explanation_hint": "지상 기압계는 상공 파동에 실려 옮겨 다니므로, 파동의 모양이 그대로 지상 날씨의 배치가 된다. 굽이의 깊이가 남북 열 교환의 크기를 정하고, 굽이가 움직이는 속도가 그 날씨가 며칠 이어질지를 정한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-06] 편서풍 파동의 구조와 이상기후"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "같은 도시에서 잰 도심과 교외의 기온 차는 날씨에 따라 크게 달라진다. 아래 조건과 그때 나타나는 결과를 짝지어라.",
+      "pairs": [
+        {
+          "left": "맑고 바람이 약한 밤",
+          "right": "교외에 역전층이 발달해 기온 차가 가장 크게 벌어진다"
+        },
+        {
+          "left": "구름이 두껍고 바람이 강한 밤",
+          "right": "위아래 공기가 섞이고 복사냉각도 약해 기온 차가 작아진다"
+        },
+        {
+          "left": "햇빛이 강한 한낮",
+          "right": "도심과 교외가 함께 데워져 밤보다 기온 차가 작다"
+        }
+      ],
+      "correct_answer": "맑고 바람이 약한 밤:교외에 역전층이 발달해 기온 차가 가장 크게 벌어진다|구름이 두껍고 바람이 강한 밤:위아래 공기가 섞이고 복사냉각도 약해 기온 차가 작아진다|햇빛이 강한 한낮:도심과 교외가 함께 데워져 밤보다 기온 차가 작다",
+      "explanation_hint": "열섬 강도는 도심이 얼마나 뜨거운가보다 교외가 얼마나 잘 식는가로 갈린다. 교외의 냉각을 키우는 조건은 맑은 하늘과 약한 바람이고, 이때 생긴 얕은 역전층이 냉각을 더 몰아준다. 바람과 구름은 그 층을 무너뜨려 차이를 줄인다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 복사냉각·역전층과 도시 기온 분포"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "큰비를 만드는 상승은 무엇이 공기를 밀어 올리느냐로 갈린다. 아래 상승 방식과 그 사례를 짝지어라.",
+      "pairs": [
+        {
+          "left": "산 사면이 공기를 억지로 밀어 올린다",
+          "right": "습한 남서풍이 산자락에 여러 시간 큰비를 쏟는다"
+        },
+        {
+          "left": "찬 공기가 파고들어 따뜻한 공기를 들어 올린다",
+          "right": "한랭전선을 따라 좁은 폭에 강한 비가 지나간다"
+        },
+        {
+          "left": "강하게 데워진 지표에서 공기가 스스로 떠오른다",
+          "right": "한여름 오후 내륙에 소나기가 갑자기 쏟아진다"
+        }
+      ],
+      "correct_answer": "산 사면이 공기를 억지로 밀어 올린다:습한 남서풍이 산자락에 여러 시간 큰비를 쏟는다|찬 공기가 파고들어 따뜻한 공기를 들어 올린다:한랭전선을 따라 좁은 폭에 강한 비가 지나간다|강하게 데워진 지표에서 공기가 스스로 떠오른다:한여름 오후 내륙에 소나기가 갑자기 쏟아진다",
+      "explanation_hint": "앞의 둘은 밖에서 힘을 주는 강제 상승이고 마지막은 부력에 의한 상승이다. 어느 쪽이든 포화된 뒤에는 조건부 불안정한 대기에서 스스로 이어지는 상승으로 바뀌므로, 방아쇠가 무엇이었는지가 비의 지속 시간과 범위를 가른다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 강제 상승과 부력 상승의 구분"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "마찰이 거의 없는 북반구 상공에서 정지해 있던 공기가 등압선과 나란히 부는 바람이 되기까지의 과정을 순서대로 배열하라.",
+      "items": [
+        "기압 차이가 정지한 공기를 고기압 쪽에서 저기압 쪽으로 밀어내기 시작한다",
+        "공기가 움직이기 시작하자 전향력이 진행 방향의 오른쪽으로 작용한다",
+        "속력이 빨라질수록 전향력도 함께 커져 진행 방향이 계속 오른쪽으로 휜다",
+        "두 힘이 크기가 같고 방향이 반대가 되어 바람이 등압선과 나란히 분다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "전향력은 움직이는 물체에만 작용하므로 반드시 기압 차이가 먼저 공기를 밀어야 한다. 전향력의 크기는 속력에 비례해 커지고, 두 힘이 맞버티는 순간 가속이 멎어 등압선과 나란한 지균풍이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-05] 지균풍의 발생 원리"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "밤사이 생긴 역전층이 아침 해가 뜬 뒤 무너지고 산불 연기가 높이 솟기까지의 과정을 순서대로 배열하라.",
+      "items": [
+        "해가 뜬 뒤 지표면이 태양 복사를 받아 빠르게 데워진다",
+        "지표에 닿은 공기부터 데워져 아래쪽 기온이 올라간다",
+        "밤사이 생긴 역전층이 아래에서부터 깎여 얇아진다",
+        "연직 섞임이 되살아나 연기가 높이 솟고 지상 바람도 강해진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "역전층은 위에서가 아니라 아래에서부터 무너진다. 데워진 지표가 맞닿은 공기부터 밀어 올리므로 역전층의 바닥이 먼저 깎이고, 그 두께가 0이 되면 연직 섞임이 되살아난다. 이때 상공의 빠른 바람이 지상까지 내려와 산불이 갑자기 거세지는 시간대가 만들어진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-03] 기온 역전층의 형성과 소멸, 연직 혼합"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "북반구 태풍에서 지표 부근 공기가 중심 쪽으로 들어가 눈이 만들어지기까지의 흐름을 순서대로 배열하라.",
+      "items": [
+        "지표 부근 공기가 마찰력 탓에 등압선을 가로질러 중심 쪽으로 불어 들어간다",
+        "중심에 가까워질수록 회전이 빨라져 바깥으로 향하는 원심력이 커진다",
+        "공기가 중심까지 닿지 못하고 눈을 둘러싼 벽에서 강하게 솟아오른다",
+        "솟아오른 공기 가운데 일부가 중심으로 내려앉아 눈 속은 맑게 갠다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "마찰력이 있는 지표에서만 공기가 등압선을 가로질러 안으로 들어간다. 중심에 가까울수록 회전 반지름이 작아 원심력이 급격히 커지므로 공기는 중심까지 닿지 못하고 눈벽에서 위로 밀려 올라간다. 중심에서는 대신 가라앉는 흐름이 생겨 구름이 걷힌다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=7 · 고 진로선택 힘·정량 입문",
+        "[12지시03-05] 경도풍 — 원심력이 더해진 균형과 태풍 중심 구조"
+      ]
+    },
+    "status": "active"
+  }
+]

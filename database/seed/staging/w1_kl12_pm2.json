@@ -1,0 +1,394 @@
+[
+  {
+    "concept_tag": "phase_change",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "이른 아침 풀잎에 물방울이 맺혀 있는 것을 무엇이라고 부르는가?",
+      "options": ["이슬", "서리", "우박", "안개"],
+      "correct_answer": "이슬",
+      "explanation_hint": "밤사이 식은 풀잎에 공기 속 물기가 달라붙어 물방울이 된 것이 이슬이다. 얼어붙어 하얗게 되면 서리라고 부른다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=1 · 초3~4 현상에 이름을 붙인다", "이슬점이라는 이름은 4단계 — 쓰지 않는다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "하늘에서 떨어지는 것과 그 이름을 짝지어라.",
+      "pairs": [
+        { "left": "물방울로 떨어진다", "right": "비" },
+        { "left": "하얀 결정으로 떨어진다", "right": "눈" },
+        { "left": "단단한 얼음덩이로 떨어진다", "right": "우박" }
+      ],
+      "correct_answer": "물방울로 떨어진다:비|하얀 결정으로 떨어진다:눈|단단한 얼음덩이로 떨어진다:우박",
+      "explanation_hint": "같은 물이라도 하늘에서 어떤 모습으로 굳느냐에 따라 비·눈·우박으로 이름이 달라진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=1 · 초3~4 이름 익히기", "분류가 아니라 이름 대응"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "바람은 무엇이 움직이는 것인가?",
+      "options": ["공기", "물", "흙", "빛"],
+      "correct_answer": "공기",
+      "explanation_hint": "바람은 눈에 보이지 않지만 공기가 옆으로 움직이는 것이다. 깃발이 흔들리는 것으로 바람이 부는 것을 알 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=1 · 초3~4 현상의 정체", "기압은 아직 다루지 않는다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "바람이 부는 방향과 세기를 알아보려고 마당에 매다는 물건은 무엇인가?",
+      "correct_answer": "바람개비",
+      "explanation_hint": "바람개비가 도는 빠르기로 바람의 세기를, 도는 방향으로 바람이 오는 쪽을 짐작할 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=1 · 초3~4 관찰 도구", "정성 관찰"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "비가 아주 많이 내릴 때 가지 말아야 할 곳은 어디인가?",
+      "options": ["물이 불어난 개울가", "집 안 거실", "학교 교실", "지붕이 있는 복도"],
+      "correct_answer": "물이 불어난 개울가",
+      "explanation_hint": "비가 많이 오면 개울물이 갑자기 불어나 사람을 휩쓸 수 있다. 물가에 가지 말고 안전한 실내에 머물러야 한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=1 · 초3~4 안전 행동", "규정이 아니라 상식 수준"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "산에서 불이 잘 나는 계절은 언제인가?",
+      "options": ["메마른 봄", "비가 잦은 여름", "눈이 쌓인 한겨울", "안개 낀 새벽"],
+      "correct_answer": "메마른 봄",
+      "explanation_hint": "봄에는 공기가 메마르고 마른 낙엽이 많이 쌓여 있다. 여기에 바람까지 불면 작은 불씨도 크게 번진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=1 · 초3~4 계절과 재해", "사례 수준"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "따뜻한 공기를 채운 풍선을 놓으면 어느 쪽으로 움직이는가?",
+      "options": ["위로 뜬다", "아래로 가라앉는다", "옆으로만 간다", "그 자리에 멈춘다"],
+      "correct_answer": "위로 뜬다",
+      "explanation_hint": "따뜻한 공기는 둘레의 찬 공기보다 가볍다. 그래서 따뜻한 공기를 채운 풍선은 위로 떠오른다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=1 · 초3~4 관찰 사실", "밀도라는 이름은 3단계"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "우리나라의 여름 날씨를 알맞게 말한 것은 무엇인가?",
+      "options": ["덥고 축축하다", "춥고 메마르다", "일 년 내내 똑같다", "늘 눈이 내린다"],
+      "correct_answer": "덥고 축축하다",
+      "explanation_hint": "우리나라 여름은 기온이 높고 공기 중에 물기가 많아 끈적하게 느껴진다. 겨울은 그 반대로 춥고 메마르다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=1 · 초3~4 계절 사례", "기단이라는 이름은 4단계"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "하늘에 먹구름이 잔뜩 몰려오면 곧 무엇이 올 것이라고 짐작할 수 있는가?",
+      "correct_answer": "비",
+      "explanation_hint": "먹구름은 물방울을 아주 많이 품고 있어 두껍고 어둡게 보인다. 그런 구름이 몰려오면 곧 비가 내릴 때가 많다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=1 · 초3~4 하늘 관찰로 날씨 짐작", "구름 이름은 4단계 — 쓰지 않는다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "밤에도 기온이 잘 내려가지 않아 잠들기 어려운 무더운 밤을 ___라고 한다.",
+      "correct_answer": "열대야",
+      "explanation_hint": "한여름에는 낮에 받은 열이 밤까지 남아 기온이 잘 내려가지 않는다. 이런 밤을 열대야라고 부른다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=1 · 초3~4 현상에 이름 붙이기", "정의 수치를 묻지 않아 2단계가 아니다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "낮에 바닷가에서 바람이 바다에서 뭍으로 부는 규칙이 나타나는 까닭으로 알맞은 것은 무엇인가?",
+      "options": [
+        "뭍이 바다보다 빨리 데워지기 때문이다",
+        "바다가 뭍보다 빨리 데워지기 때문이다",
+        "바닷물이 밀려오기 때문이다",
+        "구름이 바람을 밀어 주기 때문이다"
+      ],
+      "correct_answer": "뭍이 바다보다 빨리 데워지기 때문이다",
+      "explanation_hint": "같은 햇빛을 받아도 뭍이 바다보다 빨리 데워진다. 데워진 뭍 위 공기가 떠오르면 그 자리를 메우러 바다 쪽 공기가 밀려와 바람이 분다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 관찰에서 규칙성 찾기", "비열이라는 이름 없이 빠르기 비교로만 서술"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "맑은 날 바닷가에서 낮 동안 일어나는 일을 순서대로 배열하라.",
+      "items": [
+        "햇빛이 뭍과 바다를 함께 비춘다",
+        "뭍이 바다보다 빨리 데워진다",
+        "뭍 위의 데워진 공기가 위로 떠오른다",
+        "빈자리를 메우러 바다에서 뭍으로 바람이 분다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "데워지는 빠르기 차이가 먼저 생기고, 그 차이 때문에 공기가 움직여 바람이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 과정의 순서", "인과 사슬 — 정량 없음"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "여러 날 기온을 재어 그래프로 그렸을 때 하루 중 기온이 가장 낮은 때는 언제로 나타나는가?",
+      "options": ["해 뜨기 직전", "정오", "이른 오후", "해 진 직후"],
+      "correct_answer": "해 뜨기 직전",
+      "explanation_hint": "해가 지고 나면 땅이 밤새 계속 식는다. 그 식는 일이 가장 오래 이어진 해 뜨기 직전에 기온이 가장 낮다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 측정 자료에서 규칙성", "kl1의 최고기온 문항과 짝을 이룬다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "어느 날 최고기온이 31℃, 최저기온이 21℃였다. 이날의 일교차는 몇 ℃인지 슬라이더로 표시하라.",
+      "correct_answer": "10",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "℃",
+      "explanation_hint": "일교차는 하루의 최고기온에서 최저기온을 뺀 값이다. 31 − 21 = 10이므로 이날 일교차는 10℃다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 측정값 계산", "slider 범위 40 — 관용오차 ±10보다 넓다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "하루의 최고기온과 최저기온의 차이를 ___라고 한다.",
+      "correct_answer": "일교차",
+      "explanation_hint": "일교차가 크면 낮과 밤의 옷차림을 달리해야 한다. 맑고 바람 없는 날에 일교차가 크게 벌어진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 측정 용어", "정의를 이름으로 요구"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "여러 해 동안 잰 지구의 평균기온 그래프에서 읽을 수 있는 흐름은 무엇인가?",
+      "options": ["조금씩 오르고 있다", "조금씩 내리고 있다", "해마다 똑같다", "10년마다 반씩 줄어든다"],
+      "correct_answer": "조금씩 오르고 있다",
+      "explanation_hint": "해마다 오르내림은 있지만 긴 기간을 이어 보면 지구의 평균기온은 조금씩 오르고 있다. 한 해만 보면 이 흐름이 보이지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 자료에서 경향 읽기", "까닭이 아니라 관측 흐름을 묻는다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "산불이 번지기 쉬운 조건과 그 까닭을 짝지어라.",
+      "pairs": [
+        { "left": "메마른 공기", "right": "나무와 낙엽에서 물기가 빠진다" },
+        { "left": "센 바람", "right": "불씨가 멀리 옮겨 붙는다" },
+        { "left": "가파른 산비탈", "right": "불길이 위쪽으로 빠르게 오른다" }
+      ],
+      "correct_answer": "메마른 공기:나무와 낙엽에서 물기가 빠진다|센 바람:불씨가 멀리 옮겨 붙는다|가파른 산비탈:불길이 위쪽으로 빠르게 오른다",
+      "explanation_hint": "탈 것이 잘 마르고, 불씨가 옮겨지고, 불길이 빠르게 퍼지는 세 조건이 겹칠 때 산불이 크게 번진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 조건과 결과 대응", "실효습도 같은 규정 지수는 쓰지 않는다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "호우 예보를 들었을 때 하는 일을 순서대로 배열하라.",
+      "items": [
+        "예보와 특보를 확인한다",
+        "하수구와 배수구가 막히지 않았는지 살핀다",
+        "낮은 곳에 세워 둔 차를 높은 곳으로 옮긴다",
+        "비가 내리는 동안 실내에 머문다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "정보를 먼저 확인하고, 물이 빠질 길을 열어 두고, 잠길 수 있는 것을 옮긴 뒤, 마지막에 안전한 곳에 머문다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 대비 절차", "규정 수치가 아니라 행동 순서"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "난방을 켠 방에서 천장 가까이와 바닥 가까이의 온도를 재어 보면 어떤 규칙이 나타나는가?",
+      "options": [
+        "천장 쪽이 더 따뜻하다",
+        "바닥 쪽이 더 따뜻하다",
+        "두 곳이 늘 같다",
+        "창문 쪽만 따뜻하다"
+      ],
+      "correct_answer": "천장 쪽이 더 따뜻하다",
+      "explanation_hint": "데워진 공기는 가벼워져 위로 올라간다. 그래서 같은 방 안에서도 천장 가까이가 바닥보다 따뜻하게 잰다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 측정으로 확인하는 규칙성", "kl1의 풍선 문항을 측정으로 확장"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "같은 시각 도시 한복판이 28℃, 둘레 시골이 25℃였다. 두 곳의 기온 차는 몇 ℃인지 슬라이더로 표시하라.",
+      "correct_answer": "3",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "℃",
+      "explanation_hint": "28 − 25 = 3이다. 도시가 둘레보다 더운 정도는 이렇게 두 곳을 같은 시각에 재어 견주면 알 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 두 지점 비교 측정", "slider 범위 30 — 관용오차 ±10보다 넓다"]
+    },
+    "status": "active"
+  }
+]

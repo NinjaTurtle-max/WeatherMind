@@ -329,3 +329,79 @@ class TestCrossBuildParity:
 
     def test_실측_행_파싱이_같다(self):
         assert weather_api.parse_asos_text(REAL_TEXT) == celery_kma.parse_asos_text(REAL_TEXT)
+
+
+class TestConcurrentFetchDoesNotAmplifyFailure:
+    """실패 시 남은 요청을 방치하지 않는다 — 코드 리뷰 지적(2026-08-10).
+
+    `_fetch_daily_obs`가 그냥 `asyncio.gather`를 쓰면 **첫 실패가 즉시 올라가고
+    나머지는 취소되지 않은 채 남는다**. 브리핑 GET은 8일치를 요청하므로(duel.py),
+    KMA 장애 때 호출자는 `asos_fail_key` 마커를 찍고 돌아가는데 뒤에 남은 최대
+    7개가 각자 `2키 × 2시도 × 10초` 예산을 마저 태운다 — **마커가 아끼려던 바로
+    그 한도를 증폭해서 쓴다.** 덤으로 "Task exception was never retrieved" 경고가
+    로그를 덮는다.
+
+    "부분 결과로 정산하지 않는다"(함수 독스트링)는 그대로다: 전부 모은 뒤 첫
+    예외를 올린다.
+    """
+
+    def _run(self, monkeypatch, fail_on):
+        """실패가 **가장 먼저** 나고 나머지는 그보다 늦게 끝나도록 짠다.
+
+        ⚠️ 이 시간차가 이 테스트의 전부다. 처음에 `asyncio.sleep(0)` 한 번만 주고
+        짰더니 **옛 코드(gather 맨몸)에서도 전건 통과**했다 — 첫 실패가 올라올
+        시점에 나머지가 이미 완료돼 있어서 두 구현의 차이가 드러나지 않았다.
+        실패를 즉시(양보 1회) 내고 성공분은 여러 번 양보하게 해야, 맨몸 gather가
+        **미완료 태스크를 남긴 채 반환하는 것**이 finished 개수로 보인다.
+        """
+        import asyncio
+
+        started: list[str] = []
+        finished: list[str] = []
+
+        async def fake_request(url, params):
+            day = params["tm"]
+            started.append(day)
+            if day == fail_on:
+                await asyncio.sleep(0)  # 가장 먼저 깨어나 예외를 올린다
+                raise weather_api.KMAApiError("boom")
+            for _ in range(5):  # 실패보다 확실히 늦게 끝난다
+                await asyncio.sleep(0)
+            finished.append(day)
+            return REAL_TEXT
+
+        monkeypatch.setattr(weather_api, "_request_text", fake_request)
+        with pytest.raises(weather_api.KMAApiError):
+            asyncio.run(weather_api._fetch_daily_obs("20260803", "20260807", "108"))
+        return started, finished
+
+    def test_실패는_그대로_전파된다(self, monkeypatch):
+        """부분 결과로 정산하지 않는다 — 승패가 조용히 틀리는 것을 막는 계약."""
+        started, _ = self._run(monkeypatch, fail_on="20260805")
+        assert started, "요청이 하나도 안 나갔다면 이 테스트가 아무것도 안 본다"
+
+    def test_남은_요청이_고아로_남지_않는다(self, monkeypatch):
+        """성공분이 **끝까지 실행**된다 = 중간에 버려진 태스크가 없다.
+
+        `return_exceptions=True`가 없으면 gather가 첫 예외에서 바로 반환하므로,
+        아직 await 중이던 나머지가 완료 표시를 남기지 못한다. 5일 중 실패 1건을
+        뺀 4건이 전부 finished에 들어오는 것이 그 증거다.
+        """
+        started, finished = self._run(monkeypatch, fail_on="20260805")
+        assert len(started) == 5, f"5일치가 동시에 시작돼야 한다 — 실제 {started}"
+        assert len(finished) == 4, (
+            "실패 1건을 뺀 나머지가 전부 완료돼야 한다 — 미완료가 있으면 그것이 "
+            f"고아 태스크다. 실제 {finished}"
+        )
+
+    def test_전건_성공이면_평탄화해_돌려준다(self, monkeypatch):
+        """예외 처리를 넣으면서 정상 경로가 깨지지 않았는지 — 회귀 방어."""
+        import asyncio
+
+        async def ok(url, params):
+            return REAL_TEXT
+
+        monkeypatch.setattr(weather_api, "_request_text", ok)
+        rows = asyncio.run(weather_api._fetch_daily_obs("20260803", "20260805", "108"))
+        assert len(rows) == 3 * len(weather_api.parse_asos_text(REAL_TEXT))
+        assert all(isinstance(r, dict) for r in rows)

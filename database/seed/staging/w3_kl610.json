@@ -1,0 +1,1529 @@
+[
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "큰 대륙과 큰 바다가 맞닿은 곳에서는 계절에 따라 바람의 방향이 거의 반대로 바뀐다. 우리나라에서 이런 계절풍이 뚜렷하게 나타나는 까닭으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "땅과 바다가 데워지고 식는 빠르기가 달라 계절마다 기압이 높은 쪽과 낮은 쪽이 뒤바뀌기 때문이다",
+        "대륙과 바다가 서로 다른 빠르기로 돌아 그 차이만큼 공기가 끌려가기 때문이다",
+        "바닷물의 소금기가 그 위의 공기를 무겁게 만들어 늘 바다에서 육지로만 불기 때문이다",
+        "대륙과 바다의 높이 차가 커서 공기가 언제나 낮은 쪽으로 흘러내리기 때문이다"
+      ],
+      "correct_answer": "땅과 바다가 데워지고 식는 빠르기가 달라 계절마다 기압이 높은 쪽과 낮은 쪽이 뒤바뀌기 때문이다",
+      "explanation_hint": "계절풍의 뿌리는 땅과 물이 열을 품는 성질의 차이다. 여름에는 대륙이 먼저 데워져 기압이 낮아지므로 바다에서 육지로 바람이 들어오고, 겨울에는 대륙이 먼저 식어 기압이 높아지므로 육지에서 바다로 바람이 나간다. 대륙 동쪽 해안일수록 이 대비가 커진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "지구 규모 순환을 사례·규모로 넓힌 정성 설명 — 힘의 이름을 쓰지 않고 열 성질 차이로만 설명한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "라니냐가 발달한 해에 적도 태평양에서 나타나는 상태로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "무역풍이 평년보다 강해져 서태평양에 따뜻한 물이 더 두껍게 쌓이고 동태평양에서는 찬물이 더 활발히 올라온다",
+        "무역풍이 평년보다 약해져 따뜻한 물이 동쪽으로 퍼지고 동태평양의 수온이 평년보다 높아진다",
+        "적도 태평양 전체의 수온이 고르게 높아져 동쪽과 서쪽의 수온 차가 사라진다",
+        "적도 부근의 바람이 남북 방향으로만 불어 동서 방향의 물의 흐름이 멈춘다"
+      ],
+      "correct_answer": "무역풍이 평년보다 강해져 서태평양에 따뜻한 물이 더 두껍게 쌓이고 동태평양에서는 찬물이 더 활발히 올라온다",
+      "explanation_hint": "라니냐는 엘니뇨의 반대쪽 상태다. 적도를 따라 서쪽으로 부는 바람이 평년보다 강해지면 따뜻한 표층수가 더 많이 서쪽으로 밀려 쌓이고, 밀려난 자리인 동태평양에서는 아래의 찬물이 더 잘 올라온다. 두 번째 선지는 엘니뇨의 설명이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "엘니뇨·라니냐는 어휘표 introduced_at 5 — 6단계에서 사례·규모를 넓혀 다룬다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "지구 평균기온의 변화를 볼 때는 각 지점의 기온을 그대로 평균하지 않고, 지점마다 평년값과의 차이를 구해 그것을 모아 평균한다. 이렇게 하는 까닭으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "지점마다 기온의 절대값은 크게 다르지만 평년과의 차이는 넓은 지역에서 비슷하게 움직여 서로 견주고 합치기 쉽기 때문이다",
+        "평년값과의 차이는 계절에 따라 달라지지 않아 언제 재도 같은 값이 나오기 때문이다",
+        "기온의 절대값은 관측 장비마다 단위가 달라 서로 더할 수 없기 때문이다",
+        "평년값과의 차이를 쓰면 도시와 시골의 기온이 같은 값이 되기 때문이다"
+      ],
+      "correct_answer": "지점마다 기온의 절대값은 크게 다르지만 평년과의 차이는 넓은 지역에서 비슷하게 움직여 서로 견주고 합치기 쉽기 때문이다",
+      "explanation_hint": "산 위와 해안, 저위도와 고위도의 기온은 절대값이 크게 다르지만, '평소보다 얼마나 높은가'는 넓은 지역이 함께 움직인다. 그래서 관측소가 드문 곳까지 값을 이어 붙이기 쉽고, 관측소가 몇 곳 바뀌어도 전체 흐름이 크게 흔들리지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "기후 자료를 다루는 방법에 대한 정성 이해 — 수식·역학 없이 판단만 요구한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "성층권의 오존이 얇아지는 문제와 지구온난화는 원인도 대책도 다른 별개의 문제로 다룬다. 두 문제를 구분한 설명으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "오존 문제는 특정 화학물질이 오존을 파괴해 자외선이 더 들어오는 것이고, 온난화는 온실기체가 늘어 지구가 내보내는 열이 덜 빠져나가는 것이다",
+        "오존 문제는 대기의 아래쪽에서, 온난화는 대기의 위쪽에서만 일어나는 문제다",
+        "오존이 얇아지면 햇빛이 덜 들어와 지구가 식으므로 온난화는 저절로 멈춘다",
+        "두 문제 모두 이산화탄소가 늘어난 것이 유일한 원인이므로 대책도 하나다"
+      ],
+      "correct_answer": "오존 문제는 특정 화학물질이 오존을 파괴해 자외선이 더 들어오는 것이고, 온난화는 온실기체가 늘어 지구가 내보내는 열이 덜 빠져나가는 것이다",
+      "explanation_hint": "오존 문제는 '들어오는 자외선을 막아 주던 것이 사라지는' 문제이고, 온난화는 '나가는 열이 덜 나가는' 문제다. 그래서 대책도 갈린다 — 오존은 원인 물질의 생산·사용을 금지해 상당히 회복됐지만, 온난화는 배출을 줄여야 하는 훨씬 넓은 문제다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "기후변화와 환경생태 — 지구환경 문제를 서로 구분해 다루는 정성 판단"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "어떤 나라가 국내 공장을 줄이고 같은 물건을 다른 나라에서 사 오면 그 나라의 국내 배출량 통계는 줄어든다. 이 통계만으로 그 나라가 기후 대응을 잘했다고 보기 어려운 까닭으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "물건을 만들며 나온 배출이 다른 나라의 통계로 옮겨 갔을 뿐 대기로 들어간 온실기체의 총량은 줄지 않았기 때문이다",
+        "사 온 물건이 온실기체를 흡수하므로 그 나라의 배출량이 오히려 늘어나기 때문이다",
+        "국내 배출량 통계는 온실기체가 아니라 미세먼지만 세기 때문이다",
+        "온실기체는 국경을 넘지 못해 다른 나라의 배출은 우리 기후에 영향을 주지 않기 때문이다"
+      ],
+      "correct_answer": "물건을 만들며 나온 배출이 다른 나라의 통계로 옮겨 갔을 뿐 대기로 들어간 온실기체의 총량은 줄지 않았기 때문이다",
+      "explanation_hint": "온실기체는 대기 전체에 섞여 지구를 데운다. 어디에서 나왔는지는 통계의 문제일 뿐 기후에게는 총량만 문제가 된다. 그래서 생산한 나라의 배출로 세는 방식과 소비한 나라의 배출로 세는 방식을 함께 보아야 대응을 제대로 평가할 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "기후변화와 환경생태 — 배출 통계의 경계와 총량 개념을 사례에 적용한다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "우리나라와 위도가 비슷한데도 영국과 노르웨이 서쪽 해안은 겨울이 훨씬 덜 춥다. 그 까닭으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "저위도에서 올라온 따뜻한 해류가 그 바다를 지나며 겨울 내내 대기로 열을 내주기 때문이다",
+        "그 지역이 해수면보다 훨씬 높은 곳에 있어 찬 공기가 아래로 흘러내리기 때문이다",
+        "그 지역에는 겨울에도 햇빛이 우리나라보다 훨씬 오래 들기 때문이다",
+        "그 지역이 대륙의 동쪽 해안이라 대륙에서 나온 찬 공기가 바로 닿지 않기 때문이다"
+      ],
+      "correct_answer": "저위도에서 올라온 따뜻한 해류가 그 바다를 지나며 겨울 내내 대기로 열을 내주기 때문이다",
+      "explanation_hint": "바다는 저위도의 남는 열을 고위도로 실어 나르는 큰 통로다. 대륙 서쪽 해안은 그 따뜻한 바다를 지나온 공기를 받고, 우리나라처럼 대륙 동쪽 해안은 겨울에 대륙에서 식은 공기를 받는다. 같은 위도라도 겨울 기온이 갈리는 까닭이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "해양의 열 수송을 지역 기후 사례로 넓힌 정성 설명"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "바닷물의 밀도는 수온과 염분이 함께 정한다. 극지방 가까운 바다에서 겨울에 바닷물이 얼 때 그 아래 물의 밀도가 오히려 커지는 까닭으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "물만 얼음이 되고 소금기는 아래에 남아 그 물의 염분이 높아지기 때문이다",
+        "얼음의 무게가 아래의 물을 눌러 물이 촘촘해지기 때문이다",
+        "얼음이 소금기를 함께 품고 얼어 아래의 물이 맑아지기 때문이다",
+        "얼음이 햇빛을 가려 아래의 물의 수온이 도리어 올라가기 때문이다"
+      ],
+      "correct_answer": "물만 얼음이 되고 소금기는 아래에 남아 그 물의 염분이 높아지기 때문이다",
+      "explanation_hint": "바닷물이 얼 때 소금은 얼음 밖으로 밀려나 아래의 물에 남는다. 그 물은 차갑고 짜서 무거워지고, 결국 깊은 곳까지 가라앉는다. 극지방이 깊은 바다 흐름의 출발점이 되는 까닭이 여기에 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "수온·염분과 밀도의 관계를 극지 사례로 넓힌 정성 설명"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "산불이 잦아지는 조건을 날씨에서 찾을 때, 비가 얼마나 왔는지만 보아서는 위험을 가늠하기 어렵다. 함께 보아야 하는 조건으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "비가 그친 뒤 며칠 동안 이어진 건조와 그때 분 바람의 세기",
+        "비가 내린 날 하루의 시간당 최대 강수량",
+        "그해 여름의 평균 기온과 열대야가 나타난 날수",
+        "산에 쌓였던 눈이 모두 녹는 데 걸린 날수"
+      ],
+      "correct_answer": "비가 그친 뒤 며칠 동안 이어진 건조와 그때 분 바람의 세기",
+      "explanation_hint": "낙엽과 잔가지가 얼마나 말랐는지는 그날 하루의 습도가 아니라 며칠 동안 이어진 건조가 정한다. 여기에 바람이 더해지면 불씨가 능선을 넘어 옮겨 붙어 불이 여러 곳에서 동시에 커진다. 강수량 하나만으로는 이 둘을 잡아내지 못한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "며칠 누적 건조를 실무 지표 이름 없이 서술 — 그 지표명은 어휘표 introduced_at 10이라 6단계에서 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "높은 산맥을 넘어온 바람이 산을 오르기 전보다 오히려 건조하고 따뜻해지는 일이 있다. 이 변화를 설명한 것으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "산을 오르며 공기가 부풀어 식는 동안 물기가 구름과 비로 빠져나가고, 산을 내려오며 눌려 데워질 때는 내줄 물기가 남아 있지 않기 때문이다",
+        "산꼭대기의 찬 공기가 바람에 섞여 함께 내려오며 아래의 물기를 빨아들이기 때문이다",
+        "산을 넘는 동안 공기의 양 자체가 줄어들어 남은 공기가 더 뜨거워지기 때문이다",
+        "산 반대쪽은 햇빛이 잘 들어 내려온 공기가 땅에 닿자마자 데워지기 때문이다"
+      ],
+      "correct_answer": "산을 오르며 공기가 부풀어 식는 동안 물기가 구름과 비로 빠져나가고, 산을 내려오며 눌려 데워질 때는 내줄 물기가 남아 있지 않기 때문이다",
+      "explanation_hint": "올라갈 때는 물기를 비로 떨구며 식고, 내려올 때는 떨굴 물기가 없어 같은 높이에서 더 따뜻하고 건조해진다. 우리나라 동해안에서 봄철에 부는 높새바람이 그 예이고, 그때 영서 지방은 메마르고 더워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "국지 바람을 정성으로만 설명 — 감률 계열 용어는 어휘표 introduced_at 7이라 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "엘니뇨와 라니냐는 바다의 변화만 가리키는 것이 아니다. 그와 짝을 이루어 적도 태평양의 동쪽과 서쪽의 기압이 시소처럼 번갈아 오르내리는 대기 쪽 변동을 무엇이라 하는가?",
+      "correct_answer": "남방진동",
+      "explanation_hint": "바다의 수온 변화와 대기의 기압 시소는 서로를 부추기며 함께 움직인다. 그래서 두 이름을 붙여 하나의 현상으로 다루며, 이것이 한 해 단위로 세계 곳곳의 날씨를 흔드는 가장 큰 변동이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "엘니뇨(introduced_at 5)의 대기 짝을 이름으로 확장 — 역학 없이 정성 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "여름철 우리나라로 북상하는 태풍의 진로는 해마다 크게 달라진다. 태풍이 그 가장자리를 따라 돌아 나가게 만들어 진로를 좌우하는, 여름철 우리나라 남동쪽의 거대한 고기압을 무엇이라 하는가?",
+      "correct_answer": "북태평양 고기압",
+      "explanation_hint": "태풍은 스스로 길을 고르지 않고 둘레의 큰 흐름에 실려 간다. 여름철에 자리 잡은 이 고기압이 얼마나 서쪽까지 뻗어 있는지에 따라 태풍이 중국 쪽으로 갈지 우리나라를 지날지가 갈린다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "태풍 진로를 큰 기압계로 설명 — 힘의 이름을 쓰지 않는 정성 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "도시와 하천 주변에서 큰비가 올 때 흘러넘칠 물을 잠시 받아 두었다가 비가 그친 뒤 천천히 내보내려고, 평소에는 비워 두는 저지대 시설을 무엇이라 하는가?",
+      "correct_answer": "유수지",
+      "explanation_hint": "홍수 피해는 물의 총량보다 한꺼번에 몰리는 속도에서 온다. 물을 잠시 가두어 두는 자리를 만들면 하류로 밀려드는 물의 봉우리가 낮아지고 시간도 늦춰진다. 하수관을 넓히는 것만으로 해결되지 않는 까닭이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "기후변화 적응 — 도시 물관리 시설의 이름과 구실"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "도시의 아스팔트 도로와 콘크리트 건물 지붕처럼 빗물이 땅속으로 스미지 못하게 막고 낮 동안 열까지 저장하는 지표면을 통틀어 무엇이라 하는가?",
+      "correct_answer": "불투수면",
+      "explanation_hint": "이 면이 넓어질수록 두 가지가 함께 나빠진다. 비가 오면 물이 스미지 못해 한꺼번에 하수관으로 몰려 침수 위험이 커지고, 맑은 날에는 열을 품었다가 밤에 내놓아 도시가 잘 식지 않는다. 도시 열섬과 도시 침수가 같은 뿌리를 갖는 지점이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "도시 기후·물순환 변화를 한 용어로 묶는 정성 개념"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "적도에서 올라간 공기가 높은 하늘을 따라 흘러가다 위도 30도 부근에서 가라앉으며 만드는, 지구를 띠처럼 두르는 고기압 지대를 무엇이라 하는가?",
+      "correct_answer": "아열대 고압대",
+      "explanation_hint": "이 띠 아래에서는 공기가 내려오면서 구름이 잘 생기지 않아 세계의 큰 사막이 줄지어 자리 잡는다. 온난화가 이어지면 이 띠가 조금씩 극 쪽으로 넓어질 것으로 보며, 그 가장자리에 있는 지역은 건조가 심해질 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "대기 대순환의 지표 결과를 이름으로 정리 — 힘의 이름 없이 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "사람이 내보낸 온실가스의 양과 숲·바다·기술로 흡수하거나 제거한 양이 같아져 대기에 더해지는 순 배출이 0이 되는 상태를 ___이라고 한다.",
+      "correct_answer": "탄소중립",
+      "explanation_hint": "배출을 0으로 만드는 것이 아니라 남는 배출만큼 흡수·제거해 셈을 맞추는 것이다. 그래서 배출을 줄이는 일과 흡수원을 지키는 일이 함께 가야 하고, 어느 한쪽만으로는 달성되지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "기후변화와 환경생태 — 대응 목표 개념"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "큰 산불이 지나간 자리에는 먼저 풀과 볕을 좋아하는 나무가 들어서고, 시간이 흐르며 숲을 이루는 생물의 구성이 차례로 바뀌어 간다. 이렇게 생물 군집이 시간에 따라 바뀌어 가는 과정을 ___라고 한다.",
+      "correct_answer": "천이",
+      "explanation_hint": "불에 탄 숲이 저절로 되돌아오는 데는 수십 년이 걸리고, 그 사이 어떤 생물이 들어오는지에 따라 끝에 남는 숲의 모습이 달라진다. 산불이 잦아지면 이 과정이 끝나기 전에 다시 불이 나 원래의 숲으로 돌아가지 못하는 일이 생긴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "기후변화와 환경생태 — 교란 뒤 생태계 회복 개념"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "바다 표층이 먼저 데워져 위층과 아래층의 밀도 차가 커지면 위아래로 잘 섞이지 않는 층 구조가 뚜렷해진다. 이렇게 밀도에 따라 층이 나뉘는 것을 ___이라고 한다.",
+      "correct_answer": "성층",
+      "explanation_hint": "층이 뚜렷해질수록 깊은 곳의 영양염이 표층으로 올라오기 어려워지고 표층의 산소가 아래로 내려가기 어려워진다. 온난화가 바다 생태계에 미치는 영향 가운데 가장 넓게 퍼지는 통로다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "밀도 층 구조를 이름으로 정리 — 정량·역학 없이 정성 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "기단은 넓고 성질이 고른 지역에 공기가 오래 머무는 동안 그곳의 온도와 습도를 닮아 가며 만들어진다. 기단이 이렇게 자기 성질을 얻는 곳을 그 기단의 ___지라고 한다.",
+      "correct_answer": "발원",
+      "explanation_hint": "어떤 기단인지는 그 공기가 어디에 얼마나 오래 머물렀는지가 정한다. 대륙 위에 머문 공기는 건조하고, 바다 위에 머문 공기는 습하며, 고위도에 머문 공기는 차다. 그래서 이 지역이 어디인지만 알아도 기단의 성질을 짐작할 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "기단(introduced_at 4)의 형성 조건을 한 칸 넓힌 정성 심화"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "도시에 갇힌 더운 공기를 바깥으로 흘려보내려고 공기가 지나는 통로를 막지 않도록 건물의 높이와 배치, 녹지와 하천을 함께 계획하는 것을 ___이라고 한다.",
+      "correct_answer": "바람길",
+      "explanation_hint": "도시의 더위는 열을 덜 만드는 것만으로는 줄지 않는다. 산과 하천에서 만들어진 서늘한 공기가 도심까지 흘러들 통로가 있어야 밤에 열이 빠진다. 큰 건물이 그 통로를 가로막으면 같은 녹지를 두고도 효과가 크게 줄어든다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "도시 기후 적응 계획 개념 — 정성 설명"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "온실기체가 늘어 지구에 갇힌 여분의 열은 대기·바다·얼음·땅에 나뉘어 쌓인다. 이 가운데 바다가 흡수한 몫은 몇 %쯤인지 슬라이더로 표시하라.",
+      "correct_answer": "90",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "explanation_hint": "여분의 열은 대부분 바다로 간다 — 물의 비열이 크고 부피가 압도적이기 때문이다. 그래서 대기 기온은 실제로 쌓인 열에 견주면 아주 조금 오른 것이고, 배출을 멈춰도 바다에 쌓인 열이 오랫동안 되돌아 나오며 기온을 밀어 올린다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 — 기후 시스템의 열 저장 분배",
+        "교체(2026-08-10, PM): 종전 초안은 질소 78% slider였는데 **정답 자체는 kl3~4 사실**(공기 조성)이고 6단계다움이 정답이 아니라 해설에만 있었다 — 저작자가 스스로 유보로 표시해 왔고 그 판정이 옳았다. 이 교체본은 '열이 어디에 쌓이는가'가 곧 정답이라 6단계 사고가 답을 고르는 데 쓰인다."
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "산업화가 시작되기 전 대기 중 이산화탄소 농도는 몇 ppm쯤이었는지 슬라이더로 표시하라.",
+      "correct_answer": "280",
+      "min": 200,
+      "max": 400,
+      "step": 5,
+      "unit": "ppm",
+      "explanation_hint": "산업화 이전의 농도는 약 280ppm이었고, 그 값은 빙하 속에 갇힌 공기 방울에서 확인한다. 지금은 그보다 절반가량 늘어난 400ppm대이며, 이 늘어난 몫이 지구가 내보내는 열을 붙잡아 기온을 올리고 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "산업화 이전 280ppm은 빙하 코어 기반의 교과 수록 값(IPCC 공통 인용)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "지구 표면 전체에서 바다가 차지하는 넓이는 몇 %쯤인지 슬라이더로 표시하라.",
+      "correct_answer": "70",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "explanation_hint": "지구 표면의 약 70%가 바다다. 물은 같은 양의 흙이나 바위보다 훨씬 많은 열을 품을 수 있어, 이 넓이 하나만으로도 바다가 지구의 열을 저장하고 옮기는 가장 큰 그릇이 된다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "해양 면적 약 70%는 교과 수록 값"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "지구에 있는 물 전체 가운데 바닷물이 차지하는 비율은 몇 %쯤인지 슬라이더로 표시하라.",
+      "correct_answer": "97",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "explanation_hint": "지구의 물 가운데 약 97%가 짠 바닷물이고, 남는 담수 3% 가운데도 대부분이 빙하와 지하수로 묶여 있다. 사람이 곧바로 쓸 수 있는 물이 얼마나 적은지, 그리고 가뭄이 왜 그토록 빨리 문제가 되는지를 이 숫자가 보여 준다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "지구 수권 구성비(해수 약 97%)는 교과 수록 값"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "지구를 남북으로 도는 큰 공기의 순환은 위도대별로 세 덩어리로 나뉜다. 각 순환이 자리한 위도대와 그 지역 지표에서 관측되는 특징을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "적도에서 위도 30도 사이의 순환",
+          "right": "적도에서는 비가 많고 위도 30도 부근에서는 공기가 가라앉아 건조하다"
+        },
+        {
+          "left": "위도 30도에서 60도 사이의 순환",
+          "right": "지표 부근에 서쪽에서 동쪽으로 부는 바람이 자리 잡아 날씨가 서에서 동으로 옮겨 간다"
+        },
+        {
+          "left": "위도 60도에서 극 사이의 순환",
+          "right": "극지방의 차고 무거운 공기가 지표를 따라 저위도 쪽으로 흘러 내려온다"
+        }
+      ],
+      "correct_answer": "적도에서 위도 30도 사이의 순환:적도에서는 비가 많고 위도 30도 부근에서는 공기가 가라앉아 건조하다|위도 30도에서 60도 사이의 순환:지표 부근에 서쪽에서 동쪽으로 부는 바람이 자리 잡아 날씨가 서에서 동으로 옮겨 간다|위도 60도에서 극 사이의 순환:극지방의 차고 무거운 공기가 지표를 따라 저위도 쪽으로 흘러 내려온다",
+      "explanation_hint": "위도에 따라 들어오는 태양 에너지가 다르기 때문에 하나의 큰 순환으로 이어지지 못하고 세 덩어리로 나뉜다. 각 순환의 경계에서 무엇이 관측되는지를 기억하면 사막의 위치, 날씨가 옮겨 가는 방향, 한파의 통로를 함께 설명할 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "대기 대순환의 지표 결과만 묻는다 — 순환이 나뉘는 힘의 원인은 7단계 소관이라 다루지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "온실기체는 종류마다 주로 나오는 곳이 다르고, 그래서 줄이는 방법도 달라진다. 온실기체와 그 주된 배출원을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "이산화탄소",
+          "right": "화석연료를 태우는 발전과 수송"
+        },
+        {
+          "left": "메탄",
+          "right": "물을 댄 논과 되새김질하는 가축"
+        },
+        {
+          "left": "아산화질소",
+          "right": "밭에 뿌린 질소 비료"
+        },
+        {
+          "left": "수소불화탄소",
+          "right": "냉장고와 에어컨의 냉매"
+        }
+      ],
+      "correct_answer": "이산화탄소:화석연료를 태우는 발전과 수송|메탄:물을 댄 논과 되새김질하는 가축|아산화질소:밭에 뿌린 질소 비료|수소불화탄소:냉장고와 에어컨의 냉매",
+      "explanation_hint": "배출량으로는 이산화탄소가 가장 많지만, 같은 양이면 다른 기체들이 훨씬 강하게 데운다. 그래서 대응은 배출량만 보고 정하지 않는다 — 나오는 곳이 뚜렷한 기체는 그 자리에서 막는 편이 빠르고 값싸다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "기후변화와 환경생태 — 온실기체별 배출원과 감축 수단의 연결"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "우리나라 둘레 바다에는 성질이 다른 흐름이 함께 지나간다. 각 흐름과 그 흐름이 하는 몫을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "쿠로시오 해류",
+          "right": "저위도의 따뜻한 물을 북쪽으로 실어 나르는 큰 흐름이다"
+        },
+        {
+          "left": "동한난류",
+          "right": "동해안을 따라 북쪽으로 올라가며 겨울 기온을 누그러뜨린다"
+        },
+        {
+          "left": "북한한류",
+          "right": "고위도의 찬 물을 동해안을 따라 남쪽으로 내려보낸다"
+        },
+        {
+          "left": "조경 수역",
+          "right": "찬 물과 따뜻한 물이 만나 영양염이 풍부해져 좋은 어장이 된다"
+        }
+      ],
+      "correct_answer": "쿠로시오 해류:저위도의 따뜻한 물을 북쪽으로 실어 나르는 큰 흐름이다|동한난류:동해안을 따라 북쪽으로 올라가며 겨울 기온을 누그러뜨린다|북한한류:고위도의 찬 물을 동해안을 따라 남쪽으로 내려보낸다|조경 수역:찬 물과 따뜻한 물이 만나 영양염이 풍부해져 좋은 어장이 된다",
+      "explanation_hint": "해류는 열과 영양염을 함께 옮긴다. 그래서 어디에 어떤 흐름이 지나는지가 그 지역의 겨울 기온과 어장의 위치를 동시에 정한다. 온난화로 흐름의 세기와 만나는 자리가 달라지면 두 가지가 함께 움직인다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "우리나라 주변 해류를 지역 기후·수산 사례로 넓힌 정성 설명"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "물이 상태를 바꿀 때마다 열이 함께 오가기 때문에, 물의 상태 변화는 지구의 열을 옮기는 큰 통로가 된다. 상태 변화와 그것이 기후에서 하는 몫을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "증발",
+          "right": "바다에서 대기로 물과 열을 함께 올려보낸다"
+        },
+        {
+          "left": "응결",
+          "right": "구름을 만들며 품고 있던 열을 대기에 내놓는다"
+        },
+        {
+          "left": "융해",
+          "right": "빙하가 녹으며 둘레의 열을 흡수해 기온이 오르는 속도를 잠시 늦춘다"
+        },
+        {
+          "left": "승화",
+          "right": "쌓인 눈이 녹지 않고 곧바로 수증기가 되어 줄어든다"
+        }
+      ],
+      "correct_answer": "증발:바다에서 대기로 물과 열을 함께 올려보낸다|응결:구름을 만들며 품고 있던 열을 대기에 내놓는다|융해:빙하가 녹으며 둘레의 열을 흡수해 기온이 오르는 속도를 잠시 늦춘다|승화:쌓인 눈이 녹지 않고 곧바로 수증기가 되어 줄어든다",
+      "explanation_hint": "저위도 바다에서 증발로 실린 열은 대기를 타고 고위도로 옮겨 간 뒤 구름이 만들어질 때 그곳에 풀린다. 물의 상태 변화가 없다면 저위도와 고위도의 기온 차는 지금보다 훨씬 커졌을 것이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "상태 변화와 열의 출입(introduced_at 3~4)을 지구 규모 열 수송으로 넓힌 정성 심화"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "봄철 산불이 대형 산불로 커지는 과정을 일어나는 순서대로 배열하라.",
+      "items": [
+        "기온이 오르고 비가 오지 않는 날이 여러 날 이어진다",
+        "숲 바닥의 낙엽과 잔가지가 바싹 마른 상태가 된다",
+        "작은 불씨가 마른 낙엽에 옮겨붙어 불이 시작된다",
+        "강한 바람이 불씨를 능선 너머로 실어 날라 불이 여러 곳에서 번진다",
+        "불길이 골짜기를 따라 산 전체로 퍼져 대형 산불이 된다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "산불을 키우는 것은 불씨 하나가 아니라 그 앞뒤의 날씨다. 며칠 이어진 건조가 탈 것을 만들고 바람이 불씨를 옮긴다. 그래서 대응도 불이 난 뒤가 아니라 건조와 바람이 겹치는 시기를 미리 가려내는 데서 시작한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "산불 확산을 기상 조건의 연쇄로 설명 — 실무 지표명 없이 정성 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "큰 화산 폭발이 지구를 몇 해 동안 조금 식히는 과정을 일어나는 순서대로 배열하라.",
+      "items": [
+        "큰 화산이 폭발해 이산화황 기체가 높은 대기까지 솟아오른다",
+        "이산화황이 아주 작은 알갱이로 바뀌어 지구를 넓게 두른다",
+        "알갱이가 햇빛을 되돌려 보내 지표에 닿는 태양 에너지가 줄어든다",
+        "이어지는 한두 해 동안 지구 평균기온이 조금 내려간다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "화산이 뿜은 알갱이는 몇 해 안에 씻겨 내려가므로 이 냉각은 오래가지 않는다. 그래서 화산은 기후가 짧게 흔들리는 원인은 되어도, 수십 년에 걸쳐 이어지는 온난화의 설명은 되지 못한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "자연적 기후 강제와 인위적 강제를 구분하는 정성 사례"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "짧은 시간에 쏟아진 매우 강한 비가 도시 침수로 이어지는 과정을 일어나는 순서대로 배열하라.",
+      "items": [
+        "좁은 지역에 짧은 시간 동안 매우 강한 비가 쏟아진다",
+        "빗물이 스며들 땅이 적어 대부분 그대로 지표를 흘러간다",
+        "흘러간 물이 한꺼번에 몰려 그 지역 하수관이 받을 수 있는 양을 넘어선다",
+        "빠지지 못한 물이 저지대와 반지하 공간으로 밀려든다",
+        "도로와 지하 공간이 잠겨 통행과 대피가 함께 어려워진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "도시 침수는 비의 총량보다 짧은 시간에 몰리는 속도에서 온다. 그래서 대책도 하수관을 넓히는 쪽만이 아니라, 빗물이 스미고 잠시 머무를 자리를 되돌려 주어 몰리는 때를 늦추는 쪽으로 함께 간다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "기후변화 적응 — 도시 침수의 연쇄를 정성으로 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기상청은 태풍의 크기를 소형·중형·대형·초대형으로 나누어 알리던 방식을 없앴다. 그 대신 지금 태풍정보에 싣는 것으로 옳은 것은 무엇인가?",
+      "options": [
+        "강풍반경과 폭풍반경을 킬로미터로 함께 알린다",
+        "태풍의 지름 하나만을 킬로미터로 알린다",
+        "태풍이 덮은 넓이를 제곱킬로미터로 알린다",
+        "태풍의 크기를 1부터 5까지의 숫자로 알린다"
+      ],
+      "correct_answer": "강풍반경과 폭풍반경을 킬로미터로 함께 알린다",
+      "explanation_hint": "크기 표현이 위험을 낮잡아 보게 만든다는 지적에 따라 폐지됐다. 지금은 바람이 실제로 미치는 범위를 반경으로 알리며, 강풍반경은 풍속 15m/s 이상, 폭풍반경은 25m/s 이상이 부는 곳까지의 거리다. 1~5의 숫자는 크기가 아니라 강도 등급이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 날씨누리 「태풍의 분류」 https://www.weather.go.kr/w/hazard/typhoon/basic/info3.do (2026-08-11 조회) — 강풍반경 15m/s·폭풍반경 25m/s 정의",
+        "크기 분류 폐지(2020-05-15) 및 반경 정보 대체 — 위 페이지 및 기상청 안내 검색 확인(2026-08-11)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기상청 초단기예보에 대한 설명으로 옳은 것은 무엇인가?",
+      "options": [
+        "지금부터 6시간 뒤까지를 매시 30분에 새로 발표한다",
+        "오늘부터 글피까지를 하루 여덟 번 발표한다",
+        "나흘 뒤부터 열흘 뒤까지를 하루 두 번 발표한다",
+        "다음 달부터 석 달 동안을 한 달에 한 번 발표한다"
+      ],
+      "correct_answer": "지금부터 6시간 뒤까지를 매시 30분에 새로 발표한다",
+      "explanation_hint": "짧은 시간에 생겼다 사라지는 위험기상에 대응하려고 만든 예보라 발표 주기가 가장 짧다. 나머지 선지는 각각 단기예보, 중기예보, 3개월 전망의 설명이며, 예보마다 다루는 기간과 발표 주기가 함께 정해져 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 「기상예보」 업무 안내 https://www.kma.go.kr/kma/biz/forecast02.jsp (2026-08-11 조회)",
+        "기상자료개방포털 초단기예보 안내 — 읍·면·동 단위, 매시 30분 발표(2026-08-11 조회)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기상청 중기예보가 다루는 기간과 발표 횟수로 옳은 것은 무엇인가?",
+      "options": [
+        "앞으로 10일까지를 하루 두 번, 06시와 18시에 발표한다",
+        "앞으로 10일까지를 하루 여덟 번, 세 시간마다 발표한다",
+        "앞으로 3일까지를 하루 두 번, 06시와 18시에 발표한다",
+        "앞으로 30일까지를 매주 목요일에 한 번 발표한다"
+      ],
+      "correct_answer": "앞으로 10일까지를 하루 두 번, 06시와 18시에 발표한다",
+      "explanation_hint": "중기예보는 육상·해상 날씨와 최고·최저기온, 파고를 오전과 오후로 나누어 내며 뒤쪽 날짜는 하루 단위로 묶는다. 하루 여덟 번은 단기예보, 매주 목요일은 1개월 전망의 발표 주기다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 「기상예보」 업무 안내 https://www.kma.go.kr/kma/biz/forecast02.jsp (2026-08-11 조회) — 중기예보 향후 10일·일 2회(06·18시)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "2026년에 새로 만들어진 폭염중대경보의 발표 기준으로 옳은 것은 무엇인가?",
+      "options": [
+        "일 최고 체감온도 38℃ 또는 일 최고기온 39℃ 이상이 하루만 예상되어도 발표한다",
+        "일 최고 체감온도 35℃ 이상이 이틀 넘게 이어질 것으로 예상될 때 발표한다",
+        "일 최고 체감온도 33℃ 이상이 이틀 넘게 이어질 것으로 예상될 때 발표한다",
+        "밤 최저기온 25℃ 이상이 하루만 예상되어도 발표한다"
+      ],
+      "correct_answer": "일 최고 체감온도 38℃ 또는 일 최고기온 39℃ 이상이 하루만 예상되어도 발표한다",
+      "explanation_hint": "주의보·경보는 '이틀 넘게 이어질 것'을 조건으로 두지만, 중대경보는 하루만 예상되어도 발표한다는 점이 다르다. 온열질환자가 하루 만에 급증하는 극단적인 더위를 잡기 위해 만든 최상위 단계이기 때문이다. 두 번째와 세 번째는 각각 폭염경보와 폭염주의보, 네 번째는 열대야주의보의 기준이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 보도자료 「18년 만에 폭염특보 개편, 22년 만에 특보구역 세분화」 https://www.kma.go.kr/kma/news/press_01.jsp?mode=view&num=1194645 (2026-08-11 조회) — 폭염중대경보 체감온도 38℃/기온 39℃, 2026-06-01 시행"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기상청 예보에서 하늘상태를 '흐림'으로 표현하는 기준으로 옳은 것은 무엇인가?",
+      "options": [
+        "하늘을 열로 나누었을 때 구름이 덮은 정도가 9 이상일 때",
+        "하늘을 열로 나누었을 때 구름이 덮은 정도가 6 이상 8 이하일 때",
+        "하늘을 열로 나누었을 때 구름이 덮은 정도가 5 이하일 때",
+        "구름이 덮은 정도와 상관없이 비가 올 확률이 60% 이상일 때"
+      ],
+      "correct_answer": "하늘을 열로 나누었을 때 구름이 덮은 정도가 9 이상일 때",
+      "explanation_hint": "하늘상태는 구름의 두께나 비의 유무가 아니라 구름이 하늘을 덮은 넓이만으로 정한다. 0~5는 맑음, 6~8은 구름많음, 9~10은 흐림이다. 강수확률은 따로 발표하는 별개의 요소라 하늘상태를 정하는 데 쓰이지 않는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 「예보용어해설」 https://www.kma.go.kr/kma/biz/forecast05.jsp (2026-08-11 조회) — 맑음 0~5할·구름많음 6~8할·흐림 9~10할"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "2026년 여름부터 시행된 재난성호우 긴급재난문자에 대한 설명으로 옳은 것은 무엇인가?",
+      "options": [
+        "시간당 100mm 수준의 비가 실제로 관측되면 읍·면·동 단위로 발송한다",
+        "호우주의보가 발표되는 즉시 시·도 단위로 발송한다",
+        "12시간 누적 강우량이 180mm를 넘을 것으로 예상되면 전국에 발송한다",
+        "장마가 시작되는 날에 맞추어 한 차례 전국에 발송한다"
+      ],
+      "correct_answer": "시간당 100mm 수준의 비가 실제로 관측되면 읍·면·동 단위로 발송한다",
+      "explanation_hint": "특보가 '예상'을 근거로 넓은 구역에 나가는 것과 달리, 이 문자는 이미 관측된 값을 근거로 아주 좁은 구역에만 나간다. 대피할 시간이 몇 분밖에 없는 비를 겨냥한 수단이라 발송 단위를 읍·면·동까지 좁힌 것이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 보도자료 「2026년 여름철 방재기상업무 시작 선언식」 https://www.kma.go.kr/kma/news/press_01.jsp?bid=press&mode=view&num=1194649 (2026-08-11 조회) — 시간당 100mm 수준 재난성호우, 읍·면·동 단위 긴급재난문자"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기상청 영향예보는 위험기상이 실제로 어떤 피해를 줄지를 단계로 나누어 알린다. 그 단계 구성으로 옳은 것은 무엇인가?",
+      "options": [
+        "관심·주의·경고·위험의 4단계",
+        "주의보·경보의 2단계",
+        "주의보·경보·중대경보의 3단계",
+        "1부터 5까지의 숫자 5단계"
+      ],
+      "correct_answer": "관심·주의·경고·위험의 4단계",
+      "explanation_hint": "특보가 '기상 현상이 어느 세기에 이르렀는가'를 말한다면, 영향예보는 '그 현상이 이 지역에 어떤 피해를 줄 것인가'를 말한다. 그래서 같은 강수량이라도 지역과 시기에 따라 단계가 다르게 매겨질 수 있다. 나머지 선지는 특보와 태풍 강도의 단계 구성이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 「기상정보 및 특보」 업무 안내 https://www.kma.go.kr/kma/biz/forecast03.jsp (2026-08-11 조회) — 영향예보 관심·주의·경고·위험 4단계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "건조한 날씨가 이어져 산불 위험이 커진 상황에서 기상청과 산림청이 내는 정보는 서로 다르다. 두 기관의 역할을 옳게 짝지은 것은 무엇인가?",
+      "options": [
+        "기상청은 건조특보를 발표하고, 산림청은 산불재난 국가위기경보를 발령한다",
+        "기상청은 산불재난 국가위기경보를 발령하고, 산림청은 건조특보를 발표한다",
+        "두 기관 모두 건조특보를 발표하되 기상청은 육상을, 산림청은 산지를 맡는다",
+        "산불과 관련된 모든 경보는 소방청이 단독으로 발령한다"
+      ],
+      "correct_answer": "기상청은 건조특보를 발표하고, 산림청은 산불재난 국가위기경보를 발령한다",
+      "explanation_hint": "기상청이 내는 것은 '날씨가 어느 수준으로 건조한가'이고, 산림청이 내는 것은 '그 날씨에서 산불 재난에 어느 수준으로 대비할 것인가'다. 같은 상황을 두 기관이 다른 축으로 나누어 알리므로, 대응할 때는 둘을 함께 보아야 한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "건조특보 소관은 기상청(기상특보 11종) — 기상청 「기상정보 및 특보」 https://www.kma.go.kr/kma/biz/forecast03.jsp (2026-08-11 조회)",
+        "산불재난 국가위기경보 관심·주의·경계·심각 발령 주체는 산림청 — 산림청 발령 사례 검색 확인(2026-08-11)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "대설특보의 기준이 되는 '신적설'과 관측에서 함께 쓰는 '적설'의 차이를 옳게 설명한 것은 무엇인가?",
+      "options": [
+        "신적설은 정해진 기간 동안 새로 쌓인 눈의 깊이이고, 적설은 그 시각에 지면에 쌓여 있는 눈 전체의 깊이다",
+        "신적설은 지면에 쌓여 있는 눈 전체의 깊이이고, 적설은 그 가운데 새로 쌓인 몫이다",
+        "신적설은 산지에서 재는 값이고, 적설은 평지에서 재는 값이다",
+        "신적설은 쌓인 눈의 무게이고, 적설은 쌓인 눈의 깊이다"
+      ],
+      "correct_answer": "신적설은 정해진 기간 동안 새로 쌓인 눈의 깊이이고, 적설은 그 시각에 지면에 쌓여 있는 눈 전체의 깊이다",
+      "explanation_hint": "대설특보가 신적설을 쓰는 까닭은 피해가 '지금 얼마나 쌓여 있는가'보다 '짧은 기간에 얼마나 더 쌓였는가'에서 오기 때문이다. 이미 쌓인 눈이 많아도 새로 오는 눈이 적으면 특보 기준에 이르지 않을 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "대설특보 기준량이 24시간 신적설이라는 점은 기상청 특보 기준 — 본시드 kl10 대설 문항(검증분)과 같은 근거. 이 문항은 수치가 아니라 관측값 정의만 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "기상청 폭염특보는 기온만으로 발표하지 않고 체감온도를 기준으로 삼는다. 이 체감온도는 기온과 함께 무엇을 반영해 산출하는가?",
+      "correct_answer": "습도",
+      "explanation_hint": "같은 기온이라도 공기가 습하면 땀이 잘 마르지 않아 몸이 열을 내보내기 어렵다. 온열질환은 기온보다 이 조건에 더 잘 들어맞기 때문에, 특보 기준을 기온에서 체감온도로 옮긴 것이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "폭염특보 기준이 일 최고 체감온도라는 점 — 본시드 kl10 폭염 문항(검증분) 및 기상청 폭염특보 개편 보도자료(2026-08-11 조회)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "지상 기상관측에서 기온과 습도를 재는 계기는 관측 노장 한가운데, 지면에서 1.5m 높이의 흰색 통풍 상자 안에 둔다. 이 상자를 무엇이라 하는가?",
+      "correct_answer": "백엽상",
+      "explanation_hint": "기온은 어디에서 재느냐에 따라 크게 달라지므로, 값을 서로 견주려면 재는 조건부터 같아야 한다. 직사광선과 비를 막으면서 공기는 통하게 하고, 높이까지 정해 두는 까닭이 여기에 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 관측노장 안내 — 관측 노장 중앙, 지면 1.5m 높이 백엽상 내 온·습도계 설치(2026-08-11 조회)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "기구에 매달아 상공으로 띄워 올리면서 기압과 기온, 습도를 재고 그 이동으로 상층의 바람까지 산출하는 고층 기상관측 기기를 무엇이라 하는가?",
+      "correct_answer": "라디오존데",
+      "explanation_hint": "지상 관측만으로는 대기의 연직 구조를 알 수 없다. 정규 관측은 하루 두 번 정해진 시각에 세계 곳곳에서 동시에 이뤄지고, 태풍이나 호우가 예상되면 그 사이 시각에 특별 관측을 더한다. 같은 시각에 함께 띄워야 자료를 하나의 그림으로 이어 붙일 수 있기 때문이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 고층기상관측(레윈존데) 안내 — 정규 하루 2회, 태풍·호우 시 특별관측 추가(2026-08-11 조회). 관측 시각 수치는 문항에 쓰지 않았다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "기상청이 전국을 격자로 나누어 읍·면·동 단위까지 기온·강수확률·하늘상태 등을 한 시간 간격으로 내는 단기예보를 흔히 무엇이라 부르는가?",
+      "correct_answer": "동네예보",
+      "explanation_hint": "예보 구역을 행정구역이 아니라 격자로 나누면 산과 해안처럼 좁은 거리에서 날씨가 갈리는 곳까지 값을 줄 수 있다. 하루 여덟 번 발표하며 최장 글피까지를 다룬다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 「기상예보」 업무 안내 https://www.kma.go.kr/kma/biz/forecast02.jsp (2026-08-11 조회) — 단기예보(동네예보) 일 8회·1시간 단위·최장 글피"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "호우특보는 기상청이 발표하지만, 하천의 수위를 기준으로 하는 홍수주의보·홍수경보는 기상청이 아닌 다른 기관이 발표한다. 이 기관을 무엇이라 하는가?",
+      "correct_answer": "홍수통제소",
+      "explanation_hint": "기상청이 다루는 것은 하늘에서 내리는 비의 양이고, 홍수 예보가 다루는 것은 그 비가 하천에 모인 뒤의 수위다. 같은 강수라도 유역의 상태에 따라 수위가 달라지므로 판단하는 자료도 기관도 갈린다. 특보가 하나로 보이지 않는 까닭이 여기에 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "홍수특보 실무는 전국 4개 홍수통제소가 수행 — 홍수예보체계 안내 및 홍수통제소 홈페이지 검색 확인(2026-08-11). 소관 부처명은 개편 이력이 있어 문항에 쓰지 않고 기관명만 물었다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "2026년에 새로 만들어진 열대야주의보의 밤 최저기온 기준은 일반 지역 25℃, 인구 50만 이상 대도시와 해안·도서 지역 26℃이며, 제주도는 ___℃다.",
+      "correct_answer": "27",
+      "explanation_hint": "같은 밤 기온이라도 지역에 따라 견디는 정도가 다르기 때문에 기준을 한 값으로 두지 않았다. 이미 더운 밤이 잦은 지역일수록 기준을 높게 잡아, 특보가 너무 자주 나가 경고의 무게가 가벼워지는 일을 막는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 보도자료 「18년 만에 폭염특보 개편, 22년 만에 특보구역 세분화」 https://www.kma.go.kr/kma/news/press_01.jsp?mode=view&num=1194645 (2026-08-11 조회) — 열대야주의보 25℃/대도시·해안도서 26℃/제주도 27℃"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "기상청 예보에서 하늘상태는 구름이 하늘을 덮은 정도가 0~5이면 맑음, 6~8이면 ___, 9~10이면 흐림으로 표현한다.",
+      "correct_answer": "구름많음",
+      "explanation_hint": "하늘상태는 세 가지 표현만 쓰며, 구름의 종류나 두께는 판단에 넣지 않는다. 그래서 얇은 구름이 하늘 전체를 덮은 날도 흐림으로 표현될 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 「예보용어해설」 https://www.kma.go.kr/kma/biz/forecast05.jsp (2026-08-11 조회) — 맑음 0~5할·구름많음 6~8할·흐림 9~10할"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "기상청 예보용어에서 ___는 예보 구간 안에서 연이어 일시적으로 한 번 나타나는 경우를 가리키고, 가끔은 띄엄띄엄 여러 번 나타나는 경우를 가리킨다.",
+      "correct_answer": "한때",
+      "explanation_hint": "두 표현은 비가 얼마나 오는지가 아니라 언제 몇 번 나타나는지를 나눈다. 같은 강수량이라도 한 번에 몰아 오는지 여러 번 나누어 오는지에 따라 대비가 달라지기 때문에, 예보문에서 이 두 낱말을 엄밀하게 구분해 쓴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 「예보용어해설」 https://www.kma.go.kr/kma/biz/forecast05.jsp (2026-08-11 조회) — 한때·가끔의 정의 원문"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "2026년 6월부터 기상청은 지형과 기상 특성, 관측망 운영 현황과 지방정부의 요구를 고려해 전국 183개이던 특보구역을 ___개로 세분화했다.",
+      "correct_answer": "235",
+      "explanation_hint": "특보구역이 넓으면 실제로 위험한 곳과 그렇지 않은 곳이 한 구역에 묶여, 특보가 자주 나가는데도 정작 필요한 곳에 무게가 실리지 않는다. 구역을 잘게 나눌수록 발표가 정교해지지만 운영 부담도 함께 늘기 때문에 관측망이 뒷받침되는 만큼만 나눈다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 보도자료 「18년 만에 폭염특보 개편, 22년 만에 특보구역 세분화」 https://www.kma.go.kr/kma/news/press_01.jsp?mode=view&num=1194645 (2026-08-11 조회) — 183개 → 235개, 2026-06-01 시행"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "북서태평양 태풍의 이름은 태풍위원회 14개 회원국이 각각 10개씩 제출한 140개를 28개씩 ___개 조로 나누어 차례로 돌려 쓴다.",
+      "correct_answer": "5",
+      "explanation_hint": "1조부터 차례로 쓰고 140개를 다 쓰면 다시 1번으로 돌아온다. 큰 피해를 준 태풍의 이름은 회원국의 요청으로 목록에서 빼고 새 이름으로 바꾸므로, 같은 이름이 다시 오기까지의 기간은 태풍 발생 수에 따라 달라진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 날씨누리 태풍 이름 안내 https://www.weather.go.kr/w/hazard/typhoon/basic/info2.do (2026-08-11 조회) — 14개국 각 10개, 총 140개를 28개씩 5개 조로 구성해 순차 사용"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "태풍위원회 회원국이 제출해 북서태평양 태풍에 차례로 붙이는 이름은 모두 몇 개인지 슬라이더로 표시하라.",
+      "correct_answer": "140",
+      "min": 0,
+      "max": 200,
+      "step": 5,
+      "unit": "개",
+      "explanation_hint": "14개 회원국이 10개씩 냈으므로 140개다. 이 목록을 28개씩 다섯 조로 나누어 1조부터 차례로 쓰며, 다 쓰면 처음으로 돌아간다. 큰 피해를 준 이름은 목록에서 빠지고 새 이름으로 채워진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 날씨누리 태풍 이름 안내 https://www.weather.go.kr/w/hazard/typhoon/basic/info2.do (2026-08-11 조회) — 총 140개"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "기상청 예보용어에서 '매우 강한 비'로 표현하는 1시간 강수량의 하한은 몇 mm인지 슬라이더로 표시하라.",
+      "correct_answer": "30",
+      "min": 0,
+      "max": 60,
+      "step": 5,
+      "unit": "mm",
+      "explanation_hint": "1시간 강수량으로 약한 비는 1mm 이상 3mm 미만, 비는 3mm 이상 15mm 미만, 강한 비는 15mm 이상 30mm 미만이고, 그 위가 매우 강한 비다. 이 표현은 특보 발표 기준과는 별개로 예보문에서 비의 세기를 알리는 데 쓴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 「예보용어해설」 https://www.kma.go.kr/kma/biz/forecast05.jsp (2026-08-11 조회) — 비의 강도 표현 1·3·15·30mm 구간"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "2026년 여름 시행된 재난성호우 긴급재난문자는 1시간 누적 강수량이 몇 mm 수준으로 관측될 때 발송하는지 슬라이더로 표시하라.",
+      "correct_answer": "100",
+      "min": 0,
+      "max": 150,
+      "step": 10,
+      "unit": "mm",
+      "explanation_hint": "특보가 앞으로 올 비를 근거로 넓은 구역에 나가는 것과 달리, 이 문자는 이미 관측된 값을 근거로 읍·면·동 단위에만 나간다. 시간당 이 정도의 비는 하수와 하천이 받아낼 수 있는 범위를 곧바로 넘어서기 때문에 대피 시간이 매우 짧다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 보도자료 「2026년 여름철 방재기상업무 시작 선언식」 https://www.kma.go.kr/kma/news/press_01.jsp?bid=press&mode=view&num=1194649 (2026-08-11 조회) — '시간당 100㎜ 수준의 재난성호우'"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "황사경보는 미세먼지(PM-10) 시간 평균 농도가 몇 ㎍/㎥ 이상으로 2시간 넘게 이어질 것으로 예상될 때 발표하는지 슬라이더로 표시하라.",
+      "correct_answer": "800",
+      "min": 700,
+      "max": 900,
+      "step": 10,
+      "unit": "㎍/㎥",
+      "explanation_hint": "황사특보는 다른 기상특보와 달리 주의보 없이 경보만 운영한다. 기준을 매우 높게 잡은 까닭은 이 농도가 평상시 대기질 기준이 아니라 시야가 막히고 야외 활동이 어려워지는 재난 수준을 가리키기 때문이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "황사경보 PM-10 800㎍/㎥ 이상 2시간 지속 — 본시드 kl10 황사 cloze(검증분)와 같은 기준값을 다른 유형으로 물었다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "기상청의 예보는 다루는 기간에 따라 종류가 나뉘고, 종류마다 발표 주기도 함께 정해져 있다. 예보의 종류와 그 예보가 다루는 기간을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "초단기예보",
+          "right": "지금부터 6시간 뒤까지"
+        },
+        {
+          "left": "단기예보",
+          "right": "오늘부터 글피까지"
+        },
+        {
+          "left": "중기예보",
+          "right": "앞으로 10일까지"
+        },
+        {
+          "left": "3개월 전망",
+          "right": "다음 달부터 석 달 동안"
+        }
+      ],
+      "correct_answer": "초단기예보:지금부터 6시간 뒤까지|단기예보:오늘부터 글피까지|중기예보:앞으로 10일까지|3개월 전망:다음 달부터 석 달 동안",
+      "explanation_hint": "다루는 기간이 길어질수록 발표 주기도 길어지고, 알려 주는 요소도 시각별 값에서 평균 경향으로 바뀐다. 먼 미래일수록 하루 단위의 값을 맞힐 수 없기 때문이고, 그래서 장기 전망은 기온과 강수량이 평년보다 높을지 낮을지를 말한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 「기상예보」 업무 안내 https://www.kma.go.kr/kma/biz/forecast02.jsp (2026-08-11 조회) — 초단기 6시간·단기 최장 글피·중기 10일·3개월 전망"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "같은 호우 상황에서도 정보를 내는 기관은 무엇을 기준으로 삼느냐에 따라 갈린다. 위험 정보와 그것을 내는 기관을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "호우특보",
+          "right": "기상청"
+        },
+        {
+          "left": "홍수특보",
+          "right": "홍수통제소"
+        },
+        {
+          "left": "산불재난 국가위기경보",
+          "right": "산림청"
+        }
+      ],
+      "correct_answer": "호우특보:기상청|홍수특보:홍수통제소|산불재난 국가위기경보:산림청",
+      "explanation_hint": "기상청은 하늘에서 내리는 비의 양을, 홍수통제소는 그 비가 하천에 모인 뒤의 수위를, 산림청은 그 날씨에서 산불 재난에 어느 수준으로 대비할지를 각각 판단한다. 재난 대응에서 정보가 여러 곳에서 오는 까닭이 기준이 서로 다르기 때문이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상특보 11종 소관은 기상청 https://www.kma.go.kr/kma/biz/forecast03.jsp (2026-08-11 조회)",
+        "홍수특보 실무는 전국 4개 홍수통제소 / 산불재난 국가위기경보 발령은 산림청 — 각각 검색 확인(2026-08-11)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "기상청 예보문은 비의 세기를 네 가지 표현으로 나누어 쓴다. 각 표현과 그 표현이 가리키는 1시간 강수량 구간을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "약한 비",
+          "right": "1mm 이상 3mm 미만"
+        },
+        {
+          "left": "비",
+          "right": "3mm 이상 15mm 미만"
+        },
+        {
+          "left": "강한 비",
+          "right": "15mm 이상 30mm 미만"
+        },
+        {
+          "left": "매우 강한 비",
+          "right": "30mm 이상"
+        }
+      ],
+      "correct_answer": "약한 비:1mm 이상 3mm 미만|비:3mm 이상 15mm 미만|강한 비:15mm 이상 30mm 미만|매우 강한 비:30mm 이상",
+      "explanation_hint": "이 표현은 특보 기준과는 다른 축이다. 특보는 몇 시간 동안 쌓인 양으로 발표하고, 이 표현은 지금 얼마나 세게 내리는지를 알린다. 같은 총량이라도 짧은 시간에 몰리면 표현이 세지고 피해도 커진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 「예보용어해설」 https://www.kma.go.kr/kma/biz/forecast05.jsp (2026-08-11 조회) — 비의 강도 표현 구간 원문"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "기상청은 태풍의 강도를 중심 부근 최대풍속에 따라 숫자 등급으로 발표한다. 각 등급과 그 등급에 해당하는 최대풍속 구간을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "1등급",
+          "right": "17m/s 이상 25m/s 미만"
+        },
+        {
+          "left": "2등급",
+          "right": "25m/s 이상 33m/s 미만"
+        },
+        {
+          "left": "3등급",
+          "right": "33m/s 이상 44m/s 미만"
+        },
+        {
+          "left": "4등급",
+          "right": "44m/s 이상 54m/s 미만"
+        }
+      ],
+      "correct_answer": "1등급:17m/s 이상 25m/s 미만|2등급:25m/s 이상 33m/s 미만|3등급:33m/s 이상 44m/s 미만|4등급:44m/s 이상 54m/s 미만",
+      "explanation_hint": "17m/s는 열대저압부가 태풍으로 다뤄지기 시작하는 하한이고, 54m/s 이상이면 가장 높은 5등급이다. 등급을 이름 대신 숫자로 바꾼 까닭은 이름이 실제 위험보다 약하게 들려 대비를 늦추는 일을 막기 위해서다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 날씨누리 「태풍의 분류」 https://www.weather.go.kr/w/hazard/typhoon/basic/info3.do (2026-08-11 조회) — 강도 1~5 구간 17/25/33/44/54 m/s"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "많은 비가 예상되는 상황에서 기상청이 내보내는 정보를 실제로 나가는 순서대로 배열하라.",
+      "items": [
+        "앞으로 며칠 사이 많은 비가 올 가능성을 미리 알리는 기상정보",
+        "몇 시간 뒤 호우특보가 발표될 것을 미리 알리는 예비특보",
+        "기준에 이를 것으로 예상되어 발표하는 호우주의보",
+        "더 강한 기준에 이를 것으로 예상되어 발표하는 호우경보",
+        "시간당 100mm 수준의 비가 실제로 관측되어 읍·면·동에 나가는 재난성호우 긴급재난문자"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "앞쪽 정보일수록 예상에 기대고 구역이 넓으며 시간 여유가 길다. 뒤로 갈수록 근거가 관측으로 옮겨 가고 구역이 좁아지며 남은 시간이 짧아진다. 마지막 단계에서 처음 움직이면 이미 늦기 때문에, 대응 계획은 앞 단계에 걸어 두어야 한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상정보·예비특보·특보 순서 https://www.kma.go.kr/kma/biz/forecast03.jsp (2026-08-11 조회)",
+        "재난성호우 긴급재난문자(관측 기반, 읍·면·동) https://www.kma.go.kr/kma/news/press_01.jsp?bid=press&mode=view&num=1194649 (2026-08-11 조회)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "기상청이 내는 예보와 전망을 다루는 기간이 짧은 것부터 순서대로 배열하라.",
+      "items": [
+        "초단기예보",
+        "단기예보",
+        "중기예보",
+        "1개월 전망",
+        "3개월 전망"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "기간이 길어질수록 알려 주는 것이 시각별 값에서 주별·월별 경향으로 바뀐다. 앞쪽 셋은 정해진 시각의 기온과 강수를 말하고, 뒤쪽 둘은 그 기간의 기온과 강수량이 평년보다 높을지 낮을지를 말한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "기상청 「기상예보」 업무 안내 https://www.kma.go.kr/kma/biz/forecast02.jsp (2026-08-11 조회) — 초단기 6시간 / 단기 최장 글피 / 중기 10일 / 1개월 전망 / 3개월 전망"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "산림청이 발령하는 산불재난 국가위기경보의 단계를 낮은 것부터 순서대로 배열하라.",
+      "items": [
+        "산불 발생 위험이 낮아 평상시 감시 체계를 유지하는 관심 단계",
+        "건조가 이어져 산불 발생 위험이 뚜렷하게 높아진 주의 단계",
+        "여러 곳에서 동시에 산불이 나거나 대형 산불로 번질 위험이 커진 경계 단계",
+        "전국에 걸쳐 대형 산불 위험이 매우 커져 총력 대응이 필요한 심각 단계"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "이 네 단계는 산불에만 쓰는 이름이 아니라 여러 재난에 공통으로 쓰는 국가위기경보의 단계다. 기상청이 내는 건조특보가 '날씨가 얼마나 건조한가'를 말한다면, 이 경보는 '그 날씨에서 어느 수준으로 대비할 것인가'를 말한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 규정",
+        "산불재난 국가위기경보 관심·주의·경계·심각 4단계, 발령 주체 산림청 — 산림청 발령 사례 및 국가위기경보 체계 검색 확인(2026-08-11)"
+      ]
+    },
+    "status": "active"
+  }
+]

@@ -206,14 +206,30 @@ class _FakeUser:
     level_group = "elementary"
 
 
+SESSION_WIRING_THETA = 1.0
+
+
 class TestSessionWiring:
-    """refresh_abilities 정확히 1회 + θ가 quiz-generate 난이도로 주입 — 사슬 4번 고리."""
+    """refresh_abilities 정확히 1회 + θ가 quiz-generate 난이도로 주입 — 사슬 4번 고리.
+
+    **난이도 운반자가 바뀌었다** (R13 CO-E-4): 종전에는 θ 파생 밴드를 `level_group`
+    자리에 실었으나, 스펙 03 §2 규칙 2가 `level_group`을 "난이도가 아니라 표현 톤"으로
+    못박아 모델이 θ를 말투로 읽었다. 이제 난이도는 `knowledge_level`이 나르고
+    `level_group`은 유저 신고 학령(톤)이다 — 이 클래스가 단정하는 것은 그 두 축이
+    **각자 제 자리로** 간다는 것이지, 어느 한쪽이 사라졌다는 것이 아니다.
+    """
 
     @pytest.fixture
     def wired(self, monkeypatch):
-        calls = {"refresh": 0, "generate_level_groups": [], "router": 0}
-        # 고정 abilities: 가중 평균 θ = 1.0 → theta_to_level_group = "adult"
-        abilities = [{"concept_tag": "typhoon", "theta": 1.0, "se": 0.4, "n": 4}]
+        calls = {
+            "refresh": 0,
+            "generate_level_groups": [],
+            "generate_knowledge_levels": [],
+            "router": 0,
+        }
+        abilities = [
+            {"concept_tag": "typhoon", "theta": SESSION_WIRING_THETA, "se": 0.4, "n": 4}
+        ]
 
         async def fake_refresh(db, user):
             calls["refresh"] += 1
@@ -227,6 +243,9 @@ class TestSessionWiring:
 
         async def fake_generate(**kwargs):
             calls["generate_level_groups"].append(kwargs["level_group"])
+            # KeyError로 죽는 것이 의도다 — 키가 사라지면 "난이도가 안 간다"이고,
+            # .get(...)으로 받으면 그 회귀가 None으로 조용히 통과한다.
+            calls["generate_knowledge_levels"].append(kwargs["knowledge_level"])
             return {"question_type": "multiple_choice", "concept_tag": "typhoon"}
 
         async def fake_weather(*args, **kwargs):  # region 인자 수용 (R11-01 §8 지역화)
@@ -246,8 +265,20 @@ class TestSessionWiring:
         )
         assert wired["refresh"] == 1  # 이중 refresh 금지 (decide_route와 공유)
         assert wired["router"] == 1
-        # 뱅크 0건 → 전량 생성 폴백. θ=1.0 → adult (가입 그룹 elementary 아님)
-        assert wired["generate_level_groups"] == ["adult"] * session_service.SESSION_SIZE
+        # 뱅크 0건 → 전량 생성 폴백.
+        # 난이도 축: θ에서 파생된 지식 수준이 그대로 간다. 기대값을 상수로 박지
+        # 않는다 — θ 경계는 b 재보정(CO-U-13)에서 움직이는 값이고, 상수를 박으면
+        # 재보정 때 무관한 이 테스트가 빨개져 진짜 신호를 덮는다.
+        expected_kl = wb.theta_to_knowledge_level(SESSION_WIRING_THETA)
+        assert wired["generate_knowledge_levels"] == (
+            [expected_kl] * session_service.SESSION_SIZE
+        )
+        # 톤 축: θ가 아니라 **가입 신고 학령**이다(스펙 03 §2 규칙 2 · 스펙 12 §5.1).
+        # θ=1.0의 파생 밴드는 elementary가 아니므로, 이 단정이 두 축의 분리를 증명한다.
+        assert wb.theta_to_level_group(SESSION_WIRING_THETA) != _FakeUser.level_group
+        assert wired["generate_level_groups"] == (
+            [_FakeUser.level_group] * session_service.SESSION_SIZE
+        )
         assert len(entries) == session_service.SESSION_SIZE
 
     def test_레거시_decide_route_단독_호출은_내부_refresh(self, wired):
@@ -269,5 +300,12 @@ class TestSessionWiring:
         )
         assert wired["generate_level_groups"] == (
             ["elementary"] * session_service.SESSION_SIZE
+        )
+        # θ가 없으면 난이도를 **지어내지 않는다** — None을 보내면 모델이 스스로
+        # 판정해 신고한다(스펙 03 §2 규칙 3). 이 단정이 없으면 나중에 누가 "안전하게"
+        # 중간값 3을 채워 넣어도 CI가 초록이고, 그러면 신규 사용자 전원이 중간
+        # 난이도를 받는 실패가 조용히 지나간다.
+        assert wired["generate_knowledge_levels"] == (
+            [None] * session_service.SESSION_SIZE
         )
         assert len(entries) == session_service.SESSION_SIZE

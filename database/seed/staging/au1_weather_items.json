@@ -13,7 +13,13 @@
       "unit": "hPa"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "저기압과 기압 차"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "저기압과 기압 차"
+      ]
+    },
     "status": "active"
   },
   {
@@ -30,7 +36,13 @@
       "unit": "hPa"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "지상 일기도 등압선 간격"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "지상 일기도 등압선 간격"
+      ]
+    },
     "status": "active"
   },
   {
@@ -47,7 +59,13 @@
       "unit": "℃"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "태풍 발생 조건(해수면 온도)"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "태풍 발생 조건(해수면 온도)"
+      ]
+    },
     "status": "active"
   },
   {
@@ -55,16 +73,22 @@
     "level_group": "adult",
     "question_type": "slider",
     "template_json": {
-      "question_text": "우리나라 태풍 강도 분류에서 '매우 강'에 해당하려면 중심 부근 최대 풍속이 몇 m/s 이상이어야 하는가? (단위: m/s)",
+      "question_text": "기상청 태풍 강도 분류에서 4단계에 해당하려면 중심 부근 최대 풍속이 몇 m/s 이상이어야 하는가? (단위: m/s)",
       "correct_answer": "44",
-      "explanation_hint": "태풍 강도는 중심 부근 최대 풍속으로 나눕니다 — 중(25m/s 이상), 강(33m/s 이상), 매우 강(44m/s 이상), 초강력(54m/s 이상). '매우 강'이면 사람이나 커다란 돌이 날아갈 수 있는 수준입니다.",
+      "explanation_hint": "태풍 강도는 중심 부근 최대 풍속으로 나눈다 — 1단계 17m/s · 2단계 25m/s · 3단계 33m/s · 4단계 44m/s · 5단계 54m/s 이상. 2026년 개편으로 등급 이름이 폐지되고 숫자 체계가 됐다.",
       "min": 20,
       "max": 60,
       "step": 2,
       "unit": "m/s"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "기상청 태풍 강도 분류"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "기상청 태풍 강도 분류"
+      ]
+    },
     "status": "active"
   },
   {
@@ -81,7 +105,13 @@
       "unit": "도"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "중위도 편서풍대의 위도 범위"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "중위도 편서풍대의 위도 범위"
+      ]
+    },
     "status": "active"
   },
   {
@@ -98,7 +128,13 @@
       "unit": "℃"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "건조 단열 감률과 푄"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "건조 단열 감률과 푄"
+      ]
+    },
     "status": "active"
   },
   {
@@ -115,7 +151,13 @@
       "unit": "℃"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "도심-교외 기온 차(열섬 강도)"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "도심-교외 기온 차(열섬 강도)"
+      ]
+    },
     "status": "active"
   },
   {
@@ -132,7 +174,13 @@
       "unit": "℃"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "폭염특보 발표 기준(체감온도)"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "폭염특보 발표 기준(체감온도)"
+      ]
+    },
     "status": "active"
   },
   {
@@ -149,7 +197,13 @@
       "unit": "℃"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "온실효과와 지구 평균기온"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "온실효과와 지구 평균기온"
+      ]
+    },
     "status": "active"
   },
   {
@@ -166,7 +220,13 @@
       "unit": "℃"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "파리협정 기온 목표"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "파리협정 기온 목표"
+      ]
+    },
     "status": "active"
   },
   {
@@ -183,7 +243,13 @@
       "unit": "mm"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "호우특보 발표 기준"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "호우특보 발표 기준"
+      ]
+    },
     "status": "active"
   },
   {
@@ -200,7 +266,13 @@
       "unit": "cm"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "대설특보 발표 기준"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "대설특보 발표 기준"
+      ]
+    },
     "status": "active"
   },
   {
@@ -212,7 +284,13 @@
       "correct_answer": "한랭"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "한랭전선의 구조"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "한랭전선의 구조"
+      ]
+    },
     "status": "active"
   },
   {
@@ -224,7 +302,13 @@
       "correct_answer": "정체"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "정체전선과 장마"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "정체전선과 장마"
+      ]
+    },
     "status": "active"
   },
   {
@@ -236,7 +320,13 @@
       "correct_answer": "태풍"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "태풍의 정의"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "태풍의 정의"
+      ]
+    },
     "status": "active"
   },
   {
@@ -248,7 +338,13 @@
       "correct_answer": "기단"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "기단의 정의"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "기단의 정의"
+      ]
+    },
     "status": "active"
   },
   {
@@ -260,7 +356,13 @@
       "correct_answer": "이산화탄소"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "화석연료 연소와 CO₂ 증가"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "화석연료 연소와 CO₂ 증가"
+      ]
+    },
     "status": "active"
   },
   {
@@ -272,7 +374,13 @@
       "correct_answer": "온실"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "온실효과의 원리"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "온실효과의 원리"
+      ]
+    },
     "status": "active"
   },
   {
@@ -284,7 +392,13 @@
       "correct_answer": "열섬"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "도시 열섬의 정의"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "도시 열섬의 정의"
+      ]
+    },
     "status": "active"
   },
   {
@@ -296,7 +410,13 @@
       "correct_answer": "라니냐"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "라니냐의 정의"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "라니냐의 정의"
+      ]
+    },
     "status": "active"
   },
   {
@@ -306,14 +426,29 @@
     "template_json": {
       "question_text": "도시를 덥게 만드는 원인과 그 작용을 알맞게 연결하세요.",
       "pairs": [
-        {"left": "아스팔트·콘크리트", "right": "낮의 열을 저장했다가 밤에 내보낸다"},
-        {"left": "자동차·에어컨", "right": "인공 열을 도시에 내뿜는다"},
-        {"left": "빽빽한 건물", "right": "바람을 막아 열이 빠져나가기 어렵게 한다"}
+        {
+          "left": "아스팔트·콘크리트",
+          "right": "낮의 열을 저장했다가 밤에 내보낸다"
+        },
+        {
+          "left": "자동차·에어컨",
+          "right": "인공 열을 도시에 내뿜는다"
+        },
+        {
+          "left": "빽빽한 건물",
+          "right": "바람을 막아 열이 빠져나가기 어렵게 한다"
+        }
       ],
       "correct_answer": "아스팔트·콘크리트:낮의 열을 저장했다가 밤에 내보낸다|자동차·에어컨:인공 열을 도시에 내뿜는다|빽빽한 건물:바람을 막아 열이 빠져나가기 어렵게 한다"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "열섬의 세 가지 원인"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "열섬의 세 가지 원인"
+      ]
+    },
     "status": "active"
   },
   {
@@ -323,14 +458,29 @@
     "template_json": {
       "question_text": "장소와 그곳의 밤 기온 특징을 알맞게 연결해 보세요.",
       "pairs": [
-        {"left": "아스팔트가 많은 도심", "right": "밤에도 잘 식지 않아요"},
-        {"left": "나무와 흙이 많은 들판", "right": "밤에 기온이 잘 내려가요"},
-        {"left": "물이 흐르는 강가", "right": "주변보다 시원한 편이에요"}
+        {
+          "left": "아스팔트가 많은 도심",
+          "right": "밤에도 잘 식지 않아요"
+        },
+        {
+          "left": "나무와 흙이 많은 들판",
+          "right": "밤에 기온이 잘 내려가요"
+        },
+        {
+          "left": "물이 흐르는 강가",
+          "right": "주변보다 시원한 편이에요"
+        }
       ],
       "correct_answer": "아스팔트가 많은 도심:밤에도 잘 식지 않아요|나무와 흙이 많은 들판:밤에 기온이 잘 내려가요|물이 흐르는 강가:주변보다 시원한 편이에요"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "지표 피복과 야간 냉각 차이"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "지표 피복과 야간 냉각 차이"
+      ]
+    },
     "status": "active"
   },
   {
@@ -340,14 +490,29 @@
     "template_json": {
       "question_text": "온실가스와 그 주요 발생원을 알맞게 연결하세요.",
       "pairs": [
-        {"left": "이산화탄소", "right": "화석연료의 연소"},
-        {"left": "메테인", "right": "가축의 소화 과정과 논"},
-        {"left": "수증기", "right": "바다와 지표의 자연 증발"}
+        {
+          "left": "이산화탄소",
+          "right": "화석연료의 연소"
+        },
+        {
+          "left": "메테인",
+          "right": "가축의 소화 과정과 논"
+        },
+        {
+          "left": "수증기",
+          "right": "바다와 지표의 자연 증발"
+        }
       ],
       "correct_answer": "이산화탄소:화석연료의 연소|메테인:가축의 소화 과정과 논|수증기:바다와 지표의 자연 증발"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "온실가스 종류별 발생원"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "온실가스 종류별 발생원"
+      ]
+    },
     "status": "active"
   },
   {
@@ -357,14 +522,29 @@
     "template_json": {
       "question_text": "우리의 행동과 이산화탄소에 주는 영향을 알맞게 연결해 보세요.",
       "pairs": [
-        {"left": "나무 심기", "right": "이산화탄소를 빨아들여요"},
-        {"left": "가까운 거리 걸어가기", "right": "이산화탄소 배출을 줄여요"},
-        {"left": "석탄으로 전기 만들기", "right": "이산화탄소를 내보내요"}
+        {
+          "left": "나무 심기",
+          "right": "이산화탄소를 빨아들여요"
+        },
+        {
+          "left": "가까운 거리 걸어가기",
+          "right": "이산화탄소 배출을 줄여요"
+        },
+        {
+          "left": "석탄으로 전기 만들기",
+          "right": "이산화탄소를 내보내요"
+        }
       ],
       "correct_answer": "나무 심기:이산화탄소를 빨아들여요|가까운 거리 걸어가기:이산화탄소 배출을 줄여요|석탄으로 전기 만들기:이산화탄소를 내보내요"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "탄소 배출·흡수 활동"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "탄소 배출·흡수 활동"
+      ]
+    },
     "status": "active"
   },
   {
@@ -374,15 +554,33 @@
     "template_json": {
       "question_text": "극한 기상·기후 현상과 그 설명을 알맞게 연결하세요.",
       "pairs": [
-        {"left": "엘니뇨", "right": "적도 동태평양 수온이 평소보다 높아짐"},
-        {"left": "라니냐", "right": "적도 동태평양 수온이 평소보다 낮아짐"},
-        {"left": "폭염", "right": "평년 범위를 크게 벗어난 높은 기온"},
-        {"left": "한파", "right": "평년 범위를 크게 벗어난 낮은 기온"}
+        {
+          "left": "엘니뇨",
+          "right": "적도 동태평양 수온이 평소보다 높아짐"
+        },
+        {
+          "left": "라니냐",
+          "right": "적도 동태평양 수온이 평소보다 낮아짐"
+        },
+        {
+          "left": "폭염",
+          "right": "평년 범위를 크게 벗어난 높은 기온"
+        },
+        {
+          "left": "한파",
+          "right": "평년 범위를 크게 벗어난 낮은 기온"
+        }
       ],
       "correct_answer": "엘니뇨:적도 동태평양 수온이 평소보다 높아짐|라니냐:적도 동태평양 수온이 평소보다 낮아짐|폭염:평년 범위를 크게 벗어난 높은 기온|한파:평년 범위를 크게 벗어난 낮은 기온"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "엘니뇨·라니냐·극한 기온 현상"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "엘니뇨·라니냐·극한 기온 현상"
+      ]
+    },
     "status": "active"
   },
   {
@@ -392,14 +590,29 @@
     "template_json": {
       "question_text": "기상특보와 그 발표 기준을 알맞게 연결하세요.",
       "pairs": [
-        {"left": "호우주의보", "right": "3시간 강우량 60mm 이상 예상"},
-        {"left": "대설경보", "right": "24시간 신적설 20cm 이상 예상"},
-        {"left": "폭염주의보", "right": "일 최고 체감온도 33℃ 이상 지속 예상"}
+        {
+          "left": "호우주의보",
+          "right": "3시간 강우량 60mm 이상 예상"
+        },
+        {
+          "left": "대설경보",
+          "right": "24시간 신적설 20cm 이상 예상"
+        },
+        {
+          "left": "폭염주의보",
+          "right": "일 최고 체감온도 33℃ 이상 지속 예상"
+        }
       ],
       "correct_answer": "호우주의보:3시간 강우량 60mm 이상 예상|대설경보:24시간 신적설 20cm 이상 예상|폭염주의보:일 최고 체감온도 33℃ 이상 지속 예상"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "기상특보 발표 기준"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "기상특보 발표 기준"
+      ]
+    },
     "status": "active"
   },
   {
@@ -409,15 +622,33 @@
     "template_json": {
       "question_text": "우리나라에 영향을 주는 기단과 그 성질을 알맞게 연결하세요.",
       "pairs": [
-        {"left": "시베리아 기단", "right": "차고 건조하다"},
-        {"left": "북태평양 기단", "right": "덥고 습하다"},
-        {"left": "오호츠크해 기단", "right": "차고 습하다"},
-        {"left": "양쯔강 기단", "right": "따뜻하고 건조하다"}
+        {
+          "left": "시베리아 기단",
+          "right": "차고 건조하다"
+        },
+        {
+          "left": "북태평양 기단",
+          "right": "덥고 습하다"
+        },
+        {
+          "left": "오호츠크해 기단",
+          "right": "차고 습하다"
+        },
+        {
+          "left": "양쯔강 기단",
+          "right": "따뜻하고 건조하다"
+        }
       ],
       "correct_answer": "시베리아 기단:차고 건조하다|북태평양 기단:덥고 습하다|오호츠크해 기단:차고 습하다|양쯔강 기단:따뜻하고 건조하다"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "4대 기단의 성질"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "4대 기단의 성질"
+      ]
+    },
     "status": "active"
   },
   {
@@ -427,14 +658,29 @@
     "template_json": {
       "question_text": "태풍이 올 때의 위험과 안전 행동을 알맞게 연결해 보세요.",
       "pairs": [
-        {"left": "강한 바람", "right": "창문을 단단히 고정해요"},
-        {"left": "많은 비", "right": "하천이나 바닷가에 가지 않아요"},
-        {"left": "정전", "right": "손전등과 비상용품을 미리 준비해요"}
+        {
+          "left": "강한 바람",
+          "right": "창문을 단단히 고정해요"
+        },
+        {
+          "left": "많은 비",
+          "right": "하천이나 바닷가에 가지 않아요"
+        },
+        {
+          "left": "정전",
+          "right": "손전등과 비상용품을 미리 준비해요"
+        }
       ],
       "correct_answer": "강한 바람:창문을 단단히 고정해요|많은 비:하천이나 바닷가에 가지 않아요|정전:손전등과 비상용품을 미리 준비해요"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "태풍 대비 안전 수칙"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "태풍 대비 안전 수칙"
+      ]
+    },
     "status": "active"
   },
   {
@@ -453,7 +699,13 @@
       "correct_answer": "0,1,2,3"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "기단의 변질과 서해안 폭설"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "기단의 변질과 서해안 폭설"
+      ]
+    },
     "status": "active"
   },
   {
@@ -473,7 +725,13 @@
       "correct_answer": "0,1,2,3,4"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "푄 현상(높새바람)의 단계"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "푄 현상(높새바람)의 단계"
+      ]
+    },
     "status": "active"
   },
   {
@@ -492,7 +750,13 @@
       "correct_answer": "0,1,2,3"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "열 저장과 열대야의 연결"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "열 저장과 열대야의 연결"
+      ]
+    },
     "status": "active"
   },
   {
@@ -511,7 +775,13 @@
       "correct_answer": "0,1,2,3"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "엘니뇨 발생 메커니즘"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "엘니뇨 발생 메커니즘"
+      ]
+    },
     "status": "active"
   },
   {
@@ -529,7 +799,13 @@
       "correct_answer": "0,1,2"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "폭염 안전 행동 요령"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "폭염 안전 행동 요령"
+      ]
+    },
     "status": "active"
   },
   {
@@ -549,7 +825,13 @@
       "correct_answer": "0,1,2,3,4"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "온난전선 접근 시 구름의 순서"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "온난전선 접근 시 구름의 순서"
+      ]
+    },
     "status": "active"
   },
   {
@@ -567,7 +849,13 @@
       "correct_answer": "0,1,2"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "태풍 전·중·후 행동 요령"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "태풍 전·중·후 행동 요령"
+      ]
+    },
     "status": "active"
   },
   {
@@ -587,7 +875,13 @@
       "correct_answer": "0,1,2,3,4"
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "온난화-해수면 상승 연쇄"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "온난화-해수면 상승 연쇄"
+      ]
+    },
     "status": "active"
   },
   {
@@ -606,7 +900,13 @@
       "explanation_hint": "자동차 대신 걷거나 자전거를 타면 화석연료 사용이 줄어 이산화탄소 배출도 줄어요. 전기와 물건을 아껴 쓰는 것도 발전소에서 태우는 화석연료를 줄이는 길이에요."
     },
     "uses_live_slots": true,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "생활 속 탄소 감축"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "생활 속 탄소 감축"
+      ]
+    },
     "status": "active"
   },
   {
@@ -625,7 +925,13 @@
       "explanation_hint": "탄소중립은 배출을 최대한 줄이고, 그래도 남는 배출량은 숲의 흡수나 포집 기술로 상쇄해 순배출을 0으로 만드는 것입니다. 배출을 하루아침에 없애는 것이 아니라 '배출과 흡수의 균형'이 핵심입니다."
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "탄소중립(넷제로)의 정의"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "탄소중립(넷제로)의 정의"
+      ]
+    },
     "status": "active"
   },
   {
@@ -644,7 +950,13 @@
       "explanation_hint": "태풍이 지나는 동안에는 밖에 나가지 않는 것이 가장 안전해요. 특히 하천가·바닷가·공사장 근처는 물이 갑자기 불어나거나 물건이 날아올 수 있어 위험해요."
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "태풍 통과 중 안전 행동"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "태풍 통과 중 안전 행동"
+      ]
+    },
     "status": "active"
   },
   {
@@ -663,7 +975,13 @@
       "explanation_hint": "기온이 오르면 공기가 머금을 수 있는 수증기가 늘어나(1℃당 약 7%), 비가 올 때 한 번에 더 많은 비를 쏟아내는 집중호우가 잦아집니다."
     },
     "uses_live_slots": true,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "온난화와 집중호우 빈도"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "온난화와 집중호우 빈도"
+      ]
+    },
     "status": "active"
   },
   {
@@ -682,7 +1000,13 @@
       "explanation_hint": "한파는 겨울철 기온이 평소 범위를 크게 벗어나 뚝 떨어지는 현상이에요. 여름의 폭염처럼, 평년을 크게 벗어난 이상기후의 하나예요."
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "한파의 정의"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "한파의 정의"
+      ]
+    },
     "status": "active"
   },
   {
@@ -701,7 +1025,13 @@
       "explanation_hint": "등압선이 촘촘하다는 것은 좁은 거리에서 기압이 크게 변한다는 뜻입니다. 기압 차가 클수록 공기를 미는 힘(기압경도력)이 커져 바람이 강해집니다."
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "등압선 간격과 바람 세기"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "등압선 간격과 바람 세기"
+      ]
+    },
     "status": "active"
   },
   {
@@ -720,7 +1050,13 @@
       "explanation_hint": "봄·가을에는 중국 양쯔강 부근에서 온 따뜻하고 건조한 공기 덩어리(양쯔강 기단)가 이동성 고기압과 함께 지나가며 맑고 포근한 날씨를 만들어요."
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "양쯔강 기단의 계절"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "양쯔강 기단의 계절"
+      ]
+    },
     "status": "active"
   },
   {
@@ -733,7 +1069,13 @@
       "explanation_hint": "바람길은 교외의 시원한 공기가 도심으로 흘러들도록 강과 녹지를 따라 열어 두는 통로로, 옥상 녹화·차열성 포장과 함께 대표적인 열섬 완화 대책입니다."
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "열섬 완화 대책(바람길)"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "열섬 완화 대책(바람길)"
+      ]
+    },
     "status": "active"
   },
   {
@@ -746,7 +1088,13 @@
       "explanation_hint": "화석연료는 옛 생물이 저장했던 탄소를 품고 있어, 태우면 그 탄소가 이산화탄소가 되어 대기에 더해집니다. 산업화 이후 온실가스 증가의 가장 큰 원인입니다."
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "화석연료의 정의"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "화석연료의 정의"
+      ]
+    },
     "status": "active"
   },
   {
@@ -759,7 +1107,13 @@
       "explanation_hint": "북반구 태풍은 진행 방향 오른쪽 반원에서 태풍의 회전 바람과 이동 방향이 겹쳐 바람이 더 강합니다. 그래서 오른쪽을 위험반원, 왼쪽을 가항반원이라고 부릅니다."
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "위험반원과 가항반원"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "위험반원과 가항반원"
+      ]
+    },
     "status": "active"
   },
   {
@@ -772,7 +1126,13 @@
       "explanation_hint": "습한 공기가 산을 오르며 비를 뿌리고, 산을 넘어 내려오며 데워져 덥고 건조해지는 현상이 푄입니다. 우리나라에서는 이 바람을 높새바람이라 부르며, 영서 지방에 가뭄과 더위를 가져오기도 합니다."
     },
     "uses_live_slots": false,
-    "source": {"kind": "claude-authored", "refs": ["R12 §9", "높새바람(푄 현상)"]},
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "R12 §9",
+        "높새바람(푄 현상)"
+      ]
+    },
     "status": "active"
   }
 ]

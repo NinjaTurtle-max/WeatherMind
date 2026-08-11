@@ -71,6 +71,11 @@ ALLOWED_QUESTION_TYPES = {
 # correct_answer(정답 문자열)를 쓰는 유형 — board/match/ordering은 미사용(§3.3·§3.6):
 # board는 goal_conditions, match는 pairs, ordering은 items 순서로 채점한다.
 CORRECT_ANSWER_TYPES = {"multiple_choice", "short_answer", "slider", "cloze"}
+
+# cloze 빈칸 마커 — 본시드 35/35 전건이 밑줄 3개 단일 형태다(2026-08-10 실측).
+# ai-worker `payload_contract.CLOZE_BLANK`와 같은 값이어야 한다(교차 빌드 컨텍스트라
+# import로 못 묶는다 — 드리프트는 계약 테스트가 감시).
+CLOZE_BLANK = "___"
 ALLOWED_STATUSES = {"draft", "active", "retired"}
 
 # slider 척도 기본값 — **min/max가 저작되지 않은 구형 문항 전용**이다 (CO-O-7).
@@ -170,6 +175,56 @@ def validate_entry(entry: dict[str, Any], index: int) -> list[str]:
                 errors.append(
                     f"{prefix} slider 정답은 {low:g}~{high:g} 범위여야 함: {correct!r}"
                 )
+
+    # ── match·ordering·cloze 구조 검사 (2026-08-10 · CO-O-13) ──────────────
+    # **왜 이제 넣는가**: 이 셋은 채점이 `correct_answer`가 아니라 `pairs`·`items`
+    # 구조로 이뤄지는데(§3.6), 종전에는 그 구조를 아무도 검사하지 않았다. 사람
+    # 저작은 저작 규약이 막아 줬지만 **생성 경로에는 막을 것이 없어서**
+    # `session_service.GENERATED_ITEM_TYPES`가 3종으로 닫혀 있었다. 1,000건 저작을
+    # 위해 생성 유형을 6종으로 넓히려면 이 검사가 **선행**이다 — 검사 없이 넓히면
+    # "적재는 됐는데 영원히 못 푸는 문항"이 뱅크에 들어간다.
+    #
+    # 판정은 채점기(`answer_service`)와 **같은 규칙**이어야 한다. 다르면 계약을
+    # 통과한 문항이 채점에서 전건 오답이 되는 조용한 결함이 생긴다.
+    # 기존 시드 90건(match 28 · ordering 27 · cloze 35) 전건 통과를 먼저 실측했다.
+    if question_type == "match":
+        pairs = template.get("pairs")
+        if not isinstance(pairs, list) or len(pairs) < 2:
+            errors.append(f"{prefix} match pairs는 2쌍 이상이어야 함")
+        else:
+            lefts = [str((p or {}).get("left", "")).strip() for p in pairs]
+            rights = [str((p or {}).get("right", "")).strip() for p in pairs]
+            if not all(lefts) or not all(rights):
+                errors.append(f"{prefix} match pairs의 left·right가 비어 있음")
+            elif len(set(lefts)) != len(lefts):
+                # 채점기가 집합 비교라 못 잡는다 — 화면에서 연결이 모호해진다.
+                errors.append(f"{prefix} match pairs의 left 중복 금지")
+
+    if question_type == "ordering":
+        entries = template.get("items")
+        if not isinstance(entries, list) or len(entries) < 2:
+            errors.append(f"{prefix} ordering items는 2개 이상이어야 함")
+        elif not all(str(entry).strip() for entry in entries):
+            errors.append(f"{prefix} ordering items에 빈 항목 금지")
+        elif len({str(entry) for entry in entries}) != len(entries):
+            # 같은 항목이 둘이면 어느 자리에 놓아도 맞는데 인덱스 비교라 오답이 된다.
+            errors.append(f"{prefix} ordering items 중복 금지")
+        else:
+            identity = ",".join(str(i) for i in range(len(entries)))
+            if str(correct).strip() != identity:
+                # `_grade_ordering`이 항등 순열만 정답으로 본다 — 비항등은 영원한 오답.
+                errors.append(
+                    f"{prefix} ordering correct_answer는 항등 순열이어야 함"
+                    f" (기대 {identity!r}, 실제 {correct!r})"
+                )
+        if template.get("shuffled") is not True:
+            # false면 화면이 저작 순서(=정답 순서)를 그대로 내놓아 공짜 정답이 된다.
+            errors.append(f"{prefix} ordering shuffled는 true여야 함")
+
+    if question_type == "cloze" and CLOZE_BLANK not in str(
+        template.get("question_text", "")
+    ):
+        errors.append(f"{prefix} cloze는 빈칸 {CLOZE_BLANK!r}을 포함해야 함")
 
     return errors
 

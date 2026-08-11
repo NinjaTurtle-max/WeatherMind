@@ -9,6 +9,7 @@ import TierBadge from '../../components/TierBadge';
 import QuestList from './QuestList';
 import BadgeCollection from './BadgeCollection';
 import WeatherBrainPanel from './WeatherBrainPanel';
+import KnowledgeLevelCard from './KnowledgeLevelCard';
 import { DailyGoalPicker, GOAL_ANCHOR } from './DailyGoal';
 import { selectUnlockStage, useOnboardingGate } from '../../lib/onboardingGate';
 // R12 선행 §8 — 학습 지역 설정(자급 컴포넌트, 제작 FE-R)
@@ -211,8 +212,16 @@ export default function ProgressPage() {
       {/* 능력 분석 — **폭 전체 한 판**(2026-08-10 사용자 지시). 카드 안에서
           왼쪽 θ 막대 · 오른쪽 개념 숙련도로 갈린다(WeatherBrainPanel이 소유).
           설정 두 장보다 **위**에 둔다: 설정은 페이지 꼬리로 읽히는 자리라,
-          그 아래에 큰 분석 판을 두면 페이지가 끝난 줄 알고 스크롤을 멈춘다. */}
-      <div className="mt-4">
+          그 아래에 큰 분석 판을 두면 페이지가 끝난 줄 알고 스크롤을 멈춘다.
+
+          지식 단계 카드가 그 **바로 위**에 붙는다 — 같은 "나의 실력" 묶음이고,
+          단계(난이도)를 먼저 읽고 개념별 θ(4밴드 칩 포함)를 읽는 순서가 맞다.
+          ⚠️ 병합 충돌 해소(2026-08-10): 내 브랜치는 이 카드를 왼쪽 열 order-3
+          칸에 넣었는데, main(PR #55)이 능력 분석을 **격자 밖 전체 폭**으로
+          옮겼다. 왼쪽 열에 그대로 두면 단계와 분석이 떨어져 의도가 깨지므로
+          여기로 따라왔다. 서버 필드가 없으면 카드가 스스로 null이라 자리째 빠진다. */}
+      <div className="mt-4 flex flex-col gap-4">
+        <KnowledgeLevelCard />
         <WeatherBrainPanel />
       </div>
 

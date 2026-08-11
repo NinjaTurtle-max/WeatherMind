@@ -2,6 +2,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+# 스키마가 서비스를 임포트하는 유일한 자리다(관례 예외 — 의도적).
+# 이유: `knowledge_level_max`의 기본값은 단계 수 N에서 나와야 하고, N의 단독
+# 소유자는 weatherbrain_service.KNOWLEDGE_LEVEL_BANDS의 길이다. 여기에 리터럴을
+# 적으면 다음 확장(6→10이 실제로 일어났다)에서 분모만 조용히 낡는다 — 프론트가
+# 10을 하드코딩하는 것을 막으려고 분모를 내려보내면서 서버가 같은 실수를 할 수는
+# 없다. 순환 위험 없음: weatherbrain_service는 스키마를 임포트하지 않는다.
+from app.services.weatherbrain_service import KNOWLEDGE_LEVEL_MAX
+
 
 class SpineCurrentUnit(BaseModel):
     """스파인 current 유닛 참조 — slug는 트리 노출 id와 동일한 안정 참조."""
@@ -55,6 +63,17 @@ class ProgressMe(BaseModel):
     # 범위 밖(§3.2)이라 프론트가 구분할 일이 없고 필요한 건 "어떤 말투로 그릴까"
     # 하나뿐이다. 미신고 폴백은 weatherbrain_service.effective_tone이 소유한다.
     tone: str = "teen"
+    # 지식 수준 요약 — R13-02 T3 (additive). tone(말투)과 **다른 축**이다:
+    # tone은 표현, 이것은 난이도다(2축 분리, docs/specs/12 §5.3).
+    # 값은 개념별 θ의 대표값에서 파생한다(weatherbrain_service.overall_knowledge_level).
+    # **콜드스타트**: θ 행이 하나도 없으면 null이다 — 신고 학령에서 숫자를 지어내지
+    # 않는다. mastery의 level_label이 관측 부족에 "insufficient"를 주는 것과 같은
+    # 정직 원칙이고, region이 미설정에 null을 주는 선례와도 같은 모양이다.
+    # 반대로 θ 행이 있으면 n=0(가입 시 사전 배정값)이어도 값을 준다 —
+    # /abilities의 level_label이 n=0에서도 라벨을 주기 때문에, 여기서만 숨기면
+    # 같은 사용자가 두 화면에서 다른 이야기를 듣는다.
+    knowledge_level: int | None = None
+    knowledge_level_max: int = KNOWLEDGE_LEVEL_MAX
 
 
 class DailyGoalUpdate(BaseModel):
@@ -164,6 +183,12 @@ class ConceptAbilityOut(BaseModel):
     theta: 능력 추정치(높을수록 강함). theta_se: 불확실성(응답 적을수록 큼).
     num_responses: 반영된 실제 응답 수(0이면 가입 시 사전 배정값).
     level_label: θ를 초급/중급/고급으로 이산화한 사람이 읽는 난이도 라벨.
+    knowledge_level: 같은 θ의 **N단계 해상도**(R13-02 T3). level_label을 대체하지
+        않는다 — 두 축이 공존하고, 접으면(level_group_of_knowledge_level) 반드시
+        level_label과 같은 밴드가 나온다. null은 θ를 모른다는 뜻(placement 중간
+        산출물처럼 라벨만 있는 대역).
+    knowledge_level_max: 단계 축의 분모("7 / 10"의 10). 프론트가 하드코딩하지
+        않도록 서버가 내려보낸다.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -174,6 +199,10 @@ class ConceptAbilityOut(BaseModel):
     num_responses: int
     level_label: str
     updated_at: datetime | None = None
+    # 기본값을 두는 이유: placement_service.to_progress_abilities도 이 스키마를
+    # 만든다(다른 담당 소유 파일) — 필수 필드로 만들면 남의 파일이 깨진다.
+    knowledge_level: int | None = None
+    knowledge_level_max: int = KNOWLEDGE_LEVEL_MAX
 
 
 class ConceptMasteryOut(BaseModel):
@@ -187,6 +216,11 @@ class ConceptMasteryOut(BaseModel):
     cold_start: 관측이 부족해 값이 사전값에 가까움(표시는 "데이터 부족").
     level_label: insufficient|beginning|learning|mastered.
     params_source: prior(사전값) | fitted(실로그 재적합 파라미터).
+    knowledge_level: 그 개념의 **θ 파생 난이도 단계**(R13-02 T3). ⚠️ 여기 있는
+        다른 값들과 축이 다르다 — p_mastery·level_label은 BKT(익혔을 확률)이고
+        이것은 IRT θ(지금 실력)다. 두 축을 한 카드에 함께 그리려는 화면
+        (WeatherBrainPanel)이 요구해서 실어 보낸다. null = 그 개념의 θ 행 없음.
+    knowledge_level_max: 단계 축의 분모("7 / 10"의 10).
     """
 
     concept_tag: str
@@ -196,6 +230,8 @@ class ConceptMasteryOut(BaseModel):
     cold_start: bool
     level_label: str
     params_source: str
+    knowledge_level: int | None = None
+    knowledge_level_max: int = KNOWLEDGE_LEVEL_MAX
 
 
 class AttendanceResult(BaseModel):

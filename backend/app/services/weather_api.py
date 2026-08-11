@@ -291,7 +291,14 @@ async def probe_key() -> dict:
         )
     except asyncio.TimeoutError:
         # 취소된 요청은 _request_items가 결과를 못 남긴다 — 여기서 직접 기록한다.
-        _record_key_result("degraded", None, f"프로브 타임아웃({_KEY_PROBE_TIMEOUT_SEC}s)")
+        #
+        # ⚠️ **degraded가 아니라 unknown이다.** 타임아웃은 키에 대해 아무것도 말해
+        # 주지 않는다("응답이 늦다" ≠ "키가 죽었다"). degraded로 적으면 멀쩡한 키에
+        # 헛경보가 나고, 그 상태가 캐시 히트만 이어지는 동안 정정되지도 않는다
+        # (2026-08-10 실측: 프로브만 타임아웃하고 실트래픽은 전부 정상이었다).
+        # 헛경보는 신호를 무시하게 만들어서, 정작 8/22에 주키가 죽을 때 아무도 안 본다.
+        # unknown은 "아직 확정 못 함"이라는 정직한 상태이고, 첫 실호출이 곧 정정한다.
+        _record_key_result("unknown", None, f"프로브 타임아웃({_KEY_PROBE_TIMEOUT_SEC}s) — 미확정")
     except Exception as exc:  # KMAApiError 포함 — 기동을 막지 않는다
         _record_key_result("degraded", None, exc)
     return key_status()
@@ -712,7 +719,19 @@ async def _fetch_daily_obs(start_dt: str, end_dt: str, stn_id: str) -> list[dict
     # **동시 조회.** 브리핑 GET이 8일치를 요청하는데(routers/duel.py) 순차로 돌면
     # 캐시 미스 시 사용자가 왕복 8번을 기다리고, 실패 경로는 8 × (2키 × 2시도 × 10초)가
     # 된다. 병렬이면 최악이 한 번 분량으로 눌린다. 한도는 20,000콜/일이라 무관하다.
-    return [row for rows in await asyncio.gather(*(one(d) for d in days)) for row in rows]
+    #
+    # `return_exceptions=True`인 이유(코드 리뷰 지적): 그냥 gather하면 **첫 실패가
+    # 즉시 올라가고 나머지 요청은 취소되지 않은 채 남는다**. KMA 장애 때 호출자는
+    # `asos_fail_key` 마커를 찍고 돌아가는데, 뒤에 남은 최대 7개가 각자
+    # `2키 × 2시도 × 10초` 예산을 마저 태운다 — **마커가 아끼려던 바로 그 한도를
+    # 증폭해서 쓴다.** 게다가 그것들이 실패하면 "Task exception was never retrieved"
+    # 경고가 로그를 덮는다. 전부 모은 뒤 첫 예외를 올리므로 "부분 결과로 정산하지
+    # 않는다"는 위 계약은 그대로다.
+    results = await asyncio.gather(*(one(d) for d in days), return_exceptions=True)
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result
+    return [row for rows in results for row in rows]  # type: ignore[union-attr]
 
 
 async def get_past_observation(start_dt: str, end_dt: str, region: str = DEFAULT_REGION) -> list[dict]:

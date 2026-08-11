@@ -1,0 +1,1014 @@
+[
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기후변화 대응은 온실가스 배출 자체를 줄이는 완화와, 이미 달라진 기후에 피해를 줄이며 맞추어 사는 적응으로 나뉜다. 다음 가운데 성격이 적응에 해당하는 것은 무엇인가?",
+      "options": [
+        "해안 저지대의 방재 시설을 높이고 침수 위험 지도를 새로 만든다",
+        "석탄 화력 발전을 줄이고 태양광·풍력 발전을 늘린다",
+        "산업 공정에서 나오는 이산화탄소를 모아 땅속에 저장한다",
+        "전기차 보급을 늘려 수송 부문의 화석연료 사용을 줄인다"
+      ],
+      "correct_answer": "해안 저지대의 방재 시설을 높이고 침수 위험 지도를 새로 만든다",
+      "explanation_hint": "완화는 원인인 온실가스 배출을 줄이는 쪽이고, 적응은 이미 나타난 변화에서 피해를 줄이는 쪽이다. 발전원 전환·탄소 포집·수송 연료 전환은 모두 배출량을 건드리므로 완화다. 방재 시설과 위험 지도는 배출을 줄이지 못하고 피해만 줄이므로 적응이다. 둘은 서로 대체하는 관계가 아니라 함께 가야 한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "기후변화와 환경생태 — 완화·적응의 개념 구분. 힘·감률·정량 진단량 없음"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "저위도의 남는 열은 대기뿐 아니라 바다의 느린 순환을 통해서도 고위도로 옮겨진다. 그린란드 둘레에 빙하가 녹은 민물이 많이 흘러들 때 이 순환에 나타날 변화로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "표층 바닷물이 가벼워져 가라앉기 어려워지고 순환이 느려진다",
+        "표층 바닷물의 염분이 높아져 더 잘 가라앉고 순환이 빨라진다",
+        "바닷물의 밀도가 위아래로 고르게 되어 열이 더 빠르게 고위도로 전달된다",
+        "민물이 얼어붙으며 내놓는 열로 고위도 바다가 데워져 순환이 멈춘다"
+      ],
+      "correct_answer": "표층 바닷물이 가벼워져 가라앉기 어려워지고 순환이 느려진다",
+      "explanation_hint": "깊은 바다의 순환은 고위도에서 차갑고 짠 표층수가 무거워져 가라앉는 데서 시작한다. 빙하가 녹은 민물이 들어오면 염분이 낮아져 표층수가 가벼워지고, 가라앉는 몫이 줄면 순환 전체가 느려진다. 그러면 저위도에서 고위도로 실려 오던 열도 함께 줄어든다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "지구 규모 열 수송의 장기 변화 — 정성 서술이고 힘을 다루지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "온난화로 구름이 어떻게 달라질지가 기후 예측에서 가장 판단하기 어려운 부분으로 꼽힌다. 구름이 지구의 복사 수지에서 서로 반대로 작용하는 두 가지를 바르게 짝지은 것은 무엇인가?",
+      "options": [
+        "햇빛을 되돌려 보내 식히는 작용과, 지표가 내보내는 적외선을 붙잡아 데우는 작용",
+        "햇빛을 흡수해 데우는 작용과, 지표의 적외선을 우주로 흘려보내 식히는 작용",
+        "수증기를 없애 온실효과를 줄이는 작용과, 비를 내려 지표를 데우는 작용",
+        "낮에 지표를 데우는 작용과, 밤에 지표의 열을 우주로 곧장 내보내는 작용"
+      ],
+      "correct_answer": "햇빛을 되돌려 보내 식히는 작용과, 지표가 내보내는 적외선을 붙잡아 데우는 작용",
+      "explanation_hint": "구름의 흰 윗면은 들어오는 햇빛을 되돌려 보내 지표를 식힌다. 동시에 구름은 지표가 내보내는 적외선을 붙잡았다가 되돌려 주어 지표를 데운다. 어느 쪽이 큰지는 구름의 높이와 두께에 따라 갈리므로, 온난화로 구름이 늘지 줄지에 따라 기온 예측이 크게 달라진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "구름 되먹임의 두 방향 — 반사율 용어(8단계)를 쓰지 않고 정성으로만 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "엘니뇨가 나타난 해에는 적도 동태평양에서 아주 멀리 떨어진 지역에서도 평소와 다른 날씨가 함께 관측된다. 그 까닭으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "수온 분포가 달라지면 비구름이 솟는 자리가 옮겨 가고, 그 변화가 대기의 흐름을 타고 멀리까지 이어지기 때문",
+        "따뜻해진 바닷물이 해류를 타고 몇 달 만에 지구 전체 바다로 퍼져 나가기 때문",
+        "엘니뇨가 지구에 들어오는 태양 에너지의 총량을 늘려 모든 지역의 기온을 함께 올리기 때문",
+        "엘니뇨 시기에는 지구가 도는 빠르기가 달라져 전 지구의 바람 방향이 뒤바뀌기 때문"
+      ],
+      "correct_answer": "수온 분포가 달라지면 비구름이 솟는 자리가 옮겨 가고, 그 변화가 대기의 흐름을 타고 멀리까지 이어지기 때문",
+      "explanation_hint": "적도 태평양의 따뜻한 물이 동쪽으로 옮겨 가면 공기가 강하게 올라가며 비구름이 솟는 자리도 함께 옮겨 간다. 대기는 하나로 이어져 있어서 한곳의 오르내림이 바뀌면 멀리 떨어진 곳의 기압 배치와 바람도 따라 바뀐다. 그래서 페루 연안의 폭우와 인도네시아·호주의 가뭄이 같은 해에 짝을 이루어 나타난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "5단계가 다루는 엘니뇨 발생 과정을 넘어 원거리 동반 변화로 규모를 넓힌다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "같은 위도에 있어도 대륙 동쪽 해안과 서쪽 해안의 기후는 크게 다르다. 우리나라처럼 대륙 동쪽에 자리한 지역이 겨울에 유난히 춥고 여름에 무더운 까닭으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "성질이 크게 다른 대륙성 기단과 해양성 기단이 계절에 따라 번갈아 영향을 주기 때문",
+        "대륙 동쪽 해안은 서쪽 해안보다 위도가 높아 태양 에너지를 적게 받기 때문",
+        "대륙 동쪽 해안에는 일 년 내내 따뜻한 해류만 흘러 계절 차가 커지기 때문",
+        "대륙 동쪽 해안은 바다에서 멀어 수증기가 거의 공급되지 않기 때문"
+      ],
+      "correct_answer": "성질이 크게 다른 대륙성 기단과 해양성 기단이 계절에 따라 번갈아 영향을 주기 때문",
+      "explanation_hint": "대륙 서쪽 해안은 바다에서 불어오는 바람이 일 년 내내 기온을 누그러뜨려 계절 차가 작다. 대륙 동쪽 해안은 겨울에 차고 건조한 대륙성 기단, 여름에 덥고 습한 해양성 기단의 영향을 번갈아 받아 계절 차가 크게 벌어진다. 위도가 같아도 기후가 갈리는 대표적인 사례다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "지역 기후 대비(대륙 동안·서안) — 기단(4단계)을 배경으로 규모만 넓힌다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "기후변화를 판단할 때 오래된 도시 관측소의 기온 자료를 그대로 쓰기 어렵다. 그 까닭으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "관측소 둘레가 도시로 바뀌면서 지구 규모의 기온 상승에 도시 열섬에 따른 상승분이 겹쳐 들어가기 때문",
+        "도시에서는 온실기체가 많아 관측 기기가 실제보다 낮은 기온을 재기 때문",
+        "도시 관측소는 시골 관측소보다 관측 횟수가 적어 평균값을 낼 수 없기 때문",
+        "도시의 기온은 계절에 따른 변화가 없어 다른 지역과 견줄 수 없기 때문"
+      ],
+      "correct_answer": "관측소 둘레가 도시로 바뀌면서 지구 규모의 기온 상승에 도시 열섬에 따른 상승분이 겹쳐 들어가기 때문",
+      "explanation_hint": "도시 관측소의 기온 상승에는 두 가지가 섞여 있다. 하나는 지구 전체에 걸친 상승이고, 다른 하나는 관측소 둘레가 도시로 바뀌면서 생긴 열섬 상승분이다. 그래서 기후 자료를 다룰 때는 시골 관측소·해양 관측 자료와 견주어 도시화 몫을 걷어내는 보정을 거친다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "지역 규모 신호와 지구 규모 신호의 분리 — 자료 해석 심화, 정량 계산 없음"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "온난화가 이어질 때 태풍에 나타날 것으로 보는 장기 변화를 가장 알맞게 설명한 것은 무엇인가?",
+      "options": [
+        "발생 개수는 크게 늘지 않더라도 강한 태풍의 비율이 높아지고 함께 쏟아지는 비의 양이 많아진다",
+        "바닷물이 따뜻해진 만큼 태풍의 개수와 세기가 모두 나란히 늘어난다",
+        "수증기가 늘어난 만큼 태풍이 열을 쉽게 잃으므로 세기가 전반적으로 약해진다",
+        "태풍이 만들어질 수 있는 바다가 좁아져 우리나라로 오는 태풍은 사라진다"
+      ],
+      "correct_answer": "발생 개수는 크게 늘지 않더라도 강한 태풍의 비율이 높아지고 함께 쏟아지는 비의 양이 많아진다",
+      "explanation_hint": "태풍의 개수는 따뜻한 바다 말고도 여러 조건이 두루 갖춰져야 정해지므로 수온만으로 늘지 않는다. 그러나 일단 만들어진 태풍은 더 따뜻해진 바다에서 수증기를 넉넉히 공급받아 강하게 자랄 수 있고, 대기가 머금는 수증기도 늘어 비의 양이 많아진다. 그래서 개수보다 세기와 강수량 쪽의 변화가 뚜렷하게 나타난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "5단계의 태풍 발생 원리를 넘어 장기 기후 변동의 사례로 확장"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "온난화로 바다 표층이 먼저 데워지면 표층과 깊은 층 사이의 밀도 차가 커진다. 이때 바다 생태계에 나타날 변화로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "위아래로 섞이는 정도가 약해져 깊은 곳의 영양염이 표층으로 올라오기 어려워진다",
+        "밀도 차가 커진 만큼 위아래 물이 더 활발히 섞여 영양염 공급이 늘어난다",
+        "표층 물이 바닥까지 가라앉으면서 깊은 곳에 산소와 영양염이 함께 늘어난다",
+        "표층과 깊은 층의 수온이 같아져 계절에 따른 수온 변화가 사라진다"
+      ],
+      "correct_answer": "위아래로 섞이는 정도가 약해져 깊은 곳의 영양염이 표층으로 올라오기 어려워진다",
+      "explanation_hint": "가벼운 물이 위에, 무거운 물이 아래에 안정하게 놓이면 위아래 섞임이 억눌린다. 바다에서 광합성을 하는 식물플랑크톤은 햇빛이 닿는 표층에 있지만 영양염은 깊은 곳에 많아, 섞임이 약해지면 먹이사슬의 출발점이 얇아진다. 온난화가 수온만이 아니라 바다 생태계를 바꾸는 통로다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "밀도 차의 결과를 생태계 규모로 넓힌 정성 추론 — 부력의 크기를 계산하지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "온난화가 이어지면 지구의 물 순환이 전체적으로 빨라진다. 이때 지역별 강수에 나타날 것으로 보는 변화를 가장 알맞게 설명한 것은 무엇인가?",
+      "options": [
+        "본디 비가 많던 지역은 더 많아지고 본디 건조하던 지역은 더 건조해지는 쪽으로 치우친다",
+        "증발량이 늘어난 만큼 지구 어느 곳이나 강수량이 고르게 늘어난다",
+        "대기에 수증기가 늘어 비가 자주 내리므로 가뭄이 나타나는 지역은 사라진다",
+        "증발이 늘면 지표에 남는 물이 모자라져 전 세계 강수량이 함께 줄어든다"
+      ],
+      "correct_answer": "본디 비가 많던 지역은 더 많아지고 본디 건조하던 지역은 더 건조해지는 쪽으로 치우친다",
+      "explanation_hint": "기온이 오르면 증발이 활발해지고 대기가 머금는 수증기도 늘어난다. 그런데 비는 수증기가 모여 올라가는 곳에서 내리므로, 공기가 모이는 지역에서는 강수가 더 늘고 공기가 가라앉는 건조한 지역에서는 증발만 늘어 더 마른다. 홍수와 가뭄이 함께 심해지는 까닭이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "물의 상태 변화를 지구 규모 물 순환의 장기 변화로 확장 — 감률·정량 없음"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "큰 산불이 기후변화를 다시 부추기는 되먹임으로 이어질 수 있다고 보는 까닭으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "나무에 저장돼 있던 탄소가 한꺼번에 대기로 나오고, 탄소를 흡수하던 숲까지 함께 사라지기 때문",
+        "불이 내는 열이 대기를 직접 데워 지구 평균기온을 곧바로 끌어올리기 때문",
+        "산불로 생긴 연기가 오래 남아 지표로 들어오는 햇빛을 늘리기 때문",
+        "숲이 타고 나면 그 자리에 비가 더 많이 내려 지표가 데워지기 때문"
+      ],
+      "correct_answer": "나무에 저장돼 있던 탄소가 한꺼번에 대기로 나오고, 탄소를 흡수하던 숲까지 함께 사라지기 때문",
+      "explanation_hint": "숲은 오랜 시간에 걸쳐 대기의 이산화탄소를 붙잡아 몸에 쌓아 둔 탄소 저장고다. 산불은 그 탄소를 한꺼번에 대기로 돌려보내고, 동시에 앞으로 흡수했을 몫까지 없앤다. 더 덥고 건조해진 날씨가 산불을 키우고 산불이 다시 온난화를 부추기는 되먹임이 여기서 생긴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "재난을 탄소 순환 되먹임으로 연결 — 기후변화와 환경생태 영역"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "도시의 침수 대책은 하수관을 넓히는 것만으로 한계가 있어, 빗물이 땅에 스미고 잠시 머무를 자리를 되돌려 주는 방식이 함께 쓰인다. 이 방식이 하수관 확장과 견주어 갖는 이점으로 가장 알맞은 것은 무엇인가?",
+      "options": [
+        "빗물이 하수관으로 몰리는 때를 늦추고 양을 줄여, 하류로 밀려드는 물의 정점 자체를 낮춘다",
+        "하수관으로 들어가는 빗물의 온도를 낮춰 관이 넘치지 않게 한다",
+        "빗물을 모두 증발시켜 도시에 내리는 비의 양 자체를 줄인다",
+        "하수관을 지나는 물의 빠르기를 높여 빗물을 더 빨리 하류로 내보낸다"
+      ],
+      "correct_answer": "빗물이 하수관으로 몰리는 때를 늦추고 양을 줄여, 하류로 밀려드는 물의 정점 자체를 낮춘다",
+      "explanation_hint": "하수관을 넓히는 대책은 물을 더 빨리 하류로 보내므로 하류의 부담을 오히려 키울 수 있다. 빗물 정원·물이 스미는 포장·저류 시설은 물이 몰리는 때를 늦추고 양을 줄여, 하류에서 한꺼번에 밀려드는 정점을 낮춘다. 도시 하나가 아니라 물이 모이는 범위 전체를 보고 대책을 세우는 쪽으로 옮겨 가는 까닭이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "재난 대응을 유역 규모로 넓힌 정성 판단 — 설계 기준 수치를 묻지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "우리나라 여름 강수는 정체전선이 남북으로 오르내리며 만드는 장마가 큰 몫을 차지해 왔다. 최근 여름 강수에서 나타나는 변화를 가장 알맞게 설명한 것은 무엇인가?",
+      "options": [
+        "전선이 머무는 기간과 자리가 해마다 크게 달라지고, 좁은 지역에 짧고 세게 퍼붓는 비의 몫이 커지고 있다",
+        "정체전선이 사라지면서 여름철 강수량 자체가 해마다 꾸준히 줄고 있다",
+        "장마가 끝나는 때가 앞당겨지면서 8월 이후에는 비가 거의 내리지 않는다",
+        "전선이 한 자리에 머물러 전국에 고르게 같은 양의 비가 내리는 해가 늘고 있다"
+      ],
+      "correct_answer": "전선이 머무는 기간과 자리가 해마다 크게 달라지고, 좁은 지역에 짧고 세게 퍼붓는 비의 몫이 커지고 있다",
+      "explanation_hint": "여름 강수를 장마철이라는 한 덩어리로 묶기가 점점 어려워지고 있다. 전선이 머무는 기간과 자리가 해마다 크게 흔들리고, 전선이 물러난 뒤에도 좁은 지역에 짧고 세게 퍼붓는 비가 잦아졌다. 그래서 여름 강수를 전선만으로 설명하지 않고 여러 요인을 함께 보는 쪽으로 바뀌었다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "전선(4단계)을 배경 어휘로 두고 여러 해 규모의 강수 성격 변화를 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "바다 표층의 수온이 그 시기의 평년값보다 크게 높은 상태가 여러 날에서 몇 달까지 이어지면 산호가 하얗게 변하고 양식 어패류가 폐사한다. 육지의 폭염에 빗대어 이런 상태를 해양 ○○(이)라고 부르는데, ○○에 들어갈 말은 무엇인가?",
+      "correct_answer": "열파",
+      "explanation_hint": "바다에서도 평년보다 크게 높은 수온이 오래 이어지는 일이 잦아졌고, 이를 해양 열파라고 한다. 산호 백화와 양식장 폐사, 어장이 북쪽으로 옮겨 가는 일이 여기서 비롯한다. 바다가 흡수한 열이 쌓여 기준 수온 자체가 오르면서 해양 열파의 빈도와 지속 기간이 함께 늘고 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "해양 열 축적의 생태계 영향 — 열용량 계산이 아니라 사례 이름을 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "갯벌·염습지·잘피밭 같은 연안 생태계는 넓이에 견주어 많은 탄소를 흡수하고, 흡수한 탄소를 산소가 적은 퇴적물 속에 오래 가둔다. 이처럼 연안과 바다의 생태계가 붙잡아 저장한 탄소를 무엇이라고 하는가?",
+      "correct_answer": "블루카본",
+      "explanation_hint": "숲이 저장하는 탄소를 그린카본이라고 부르는 데 견주어, 연안과 바다의 생태계가 저장하는 탄소를 블루카본이라고 한다. 갯벌과 염습지는 산소가 적은 퇴적물 속에 탄소를 오래 가두므로 같은 넓이에서 숲보다 많은 탄소를 붙잡아 둘 수 있다. 그래서 연안 생태계 복원이 탄소중립 정책의 한 축으로 다뤄진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "기후변화와 환경생태 — 탄소 흡수원의 종류. 정성 개념 심화"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "화산 폭발이나 화석연료 연소로 대기에 떠도는 작은 알갱이는 햇빛을 되돌려 보내거나 구름 알갱이가 맺히는 씨앗이 되어 지표를 식히는 쪽으로도 작용한다. 대기에 떠 있는 이런 작은 알갱이를 통틀어 무엇이라고 하는가?",
+      "correct_answer": "에어로졸",
+      "explanation_hint": "에어로졸은 대기에 떠 있는 고체와 액체의 작은 알갱이다. 햇빛을 되돌려 보내고 구름이 잘 생기게 해 지표를 식히는 쪽으로 작용하므로, 온실기체가 데운 몫의 일부를 가려 왔다. 대기오염을 줄이면 이 가림막도 함께 얇아지므로 기온 상승이 한동안 더 뚜렷해질 수 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "복사 수지에서 온실기체 아닌 인자 — 반사율·알베도 용어를 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "적도 부근에서 데워져 올라간 공기가 상공에서 극 쪽으로 흘러가다 위도 30도 부근에서 가라앉고, 지표를 따라 다시 적도로 돌아오는 저위도의 큰 순환을 ○○ 순환이라고 한다. ○○에 들어갈 이름은 무엇인가?",
+      "correct_answer": "해들리",
+      "explanation_hint": "대기 대순환은 저위도의 해들리 순환, 중위도의 페렐 순환, 고위도의 극 순환 세 갈래로 나뉜다. 해들리 순환의 올라가는 구간에 열대 우림이, 가라앉는 구간인 위도 30도 부근에 큰 사막이 자리 잡는다. 온난화로 이 순환의 남북 폭이 넓어지면 건조한 지역도 함께 극 쪽으로 밀려난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "5단계가 이름 없이 다룬 순환에 명명 체계를 붙인다 — 전향력을 도입하지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "기온이 오르면 증발이 활발해져 대기의 수증기가 늘고, 수증기 자체가 강한 온실기체이므로 기온이 다시 더 오른다. 이처럼 변화의 결과가 처음 변화를 더 키우는 쪽으로 되돌아오는 것을 양의 ○○(이)라고 하는데, ○○에 들어갈 말은 무엇인가?",
+      "correct_answer": "되먹임",
+      "explanation_hint": "결과가 원인을 더 키우면 양의 되먹임, 원인을 눌러 주면 음의 되먹임이다. 수증기 되먹임은 대표적인 양의 되먹임으로, 이산화탄소가 처음 일으킨 기온 상승을 두 배 가까이 키우는 몫을 한다. 되먹임은 원인을 새로 만드는 것이 아니라 이미 시작된 변화의 크기를 바꾼다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "상태 변화(증발)를 기후 되먹임으로 연결 — 정성 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "바다에서는 수온과 염분의 차이가 물의 밀도를 갈라 놓고, 그 밀도 차가 깊은 곳까지 이어지는 느린 흐름을 만들어 저위도의 열을 고위도로 옮긴다. 이 순환을 ○○ 순환이라고 하는데, ○○에 들어갈 말은 무엇인가?",
+      "correct_answer": "열염",
+      "explanation_hint": "열염 순환의 열은 수온을, 염은 염분을 가리킨다. 고위도에서 차갑고 짠 표층수가 무거워져 가라앉으면 그 물이 깊은 바다를 따라 저위도로 퍼지고, 표층에서는 반대 방향의 흐름이 이어져 하나의 큰 고리를 이룬다. 한 바퀴를 도는 데 천 년 안팎이 걸릴 만큼 느리지만 옮기는 열의 양은 크다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "심층 순환의 구동 원리 명명 — 지형류·서안강화 같은 역학 용어를 쓰지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "산불이 지나간 비탈은 나무뿌리가 흙을 붙잡지 못하고 겉흙이 물을 잘 머금지 못하는 상태가 된다. 그래서 산불 뒤 첫 큰비에 흙과 돌이 한꺼번에 쓸려 내리는 2차 재해가 자주 일어나는데, 이 재해를 무엇이라고 하는가?",
+      "correct_answer": "산사태",
+      "explanation_hint": "산불의 피해는 불이 꺼진 날 끝나지 않는다. 뿌리가 죽어 흙을 붙잡지 못하고 타 버린 겉흙이 물을 밀어내는 성질을 띠면서, 산불 이후 몇 해 동안 같은 비에도 산사태가 훨씬 쉽게 일어난다. 그래서 산불 복구는 나무를 다시 심는 일과 비탈을 안정시키는 일을 함께 한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "재난의 연쇄를 다루는 정성 문항 — 특보 기준 수치를 묻지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "바다는 사람이 내보낸 이산화탄소의 상당한 몫을 흡수해 왔지만, 그만큼 바닷물이 산성 쪽으로 기울어 조개와 산호처럼 탄산칼슘 껍데기를 만드는 생물이 살기 어려워진다. 이 현상을 해양 ___(이)라고 한다.",
+      "correct_answer": "산성화",
+      "explanation_hint": "바다가 이산화탄소를 흡수하면 물에 녹아 산성을 띠는 물질이 만들어져 바닷물의 성질이 산성 쪽으로 기운다. 이를 해양 산성화라고 하며, 탄산칼슘으로 껍데기와 골격을 만드는 조개·산호·일부 플랑크톤이 먼저 타격을 받는다. 온난화와 함께 진행되지만 기온이 아니라 물의 성질이 바뀌는 문제라 대책도 따로 세워야 한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "탄소 순환의 바다 쪽 결과 — 기후변화와 환경생태 핵심 사례"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "같은 폭염이 닥쳐도 녹지와 멀고 낡은 주거가 밀집한 지역, 홀로 사는 노인이 많은 지역에서 피해가 크게 나타난다. 이처럼 같은 위험에 놓여도 피해를 더 크게 입는 정도를 기후 ___(이)라고 한다.",
+      "correct_answer": "취약성",
+      "explanation_hint": "기후 위험의 크기는 위험한 날씨가 얼마나 심한가만으로 정해지지 않는다. 그 위험에 얼마나 노출되는가, 그리고 같은 노출에서 얼마나 크게 다치는가가 함께 작용한다. 뒤쪽이 취약성이며, 도시 안에서도 지역과 사람에 따라 크게 달라지기 때문에 폭염 대책은 냉방 시설만이 아니라 취약한 곳을 찾아내는 일에서 시작한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "도시 열 문제를 사회·생태 규모로 넓힌 정성 개념"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "온실가스 배출을 오늘 멈추어도 이미 바다에 쌓인 열 때문에 기온과 해수면은 한동안 더 오른다. 이처럼 원인이 사라진 뒤에도 변화가 이어지는 기후 시스템의 성질을 기후 ___(이)라고 한다.",
+      "correct_answer": "관성",
+      "explanation_hint": "바다는 물의 큰 비열 덕분에 엄청난 양의 열을 품고 있고, 그 열이 대기와 균형을 이루기까지는 오랜 시간이 걸린다. 그래서 배출을 멈춰도 기온은 곧바로 멈추지 않고 해수면은 수백 년에 걸쳐 계속 오른다. 기후 관성은 대책이 늦어질수록 되돌리기 어려워지는 까닭이기도 하다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "비열(3단계)을 배경으로 두고 장기 기후 반응의 시간 규모를 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "폭염과 가뭄처럼 서로를 부추기는 극한 현상이 같은 시기 같은 지역에 겹쳐 나타나면 피해가 각각을 따로 겪을 때의 합보다 커진다. 이렇게 겹쳐 나타나는 극한을 ___ 극한이라고 한다.",
+      "correct_answer": "복합",
+      "explanation_hint": "가뭄으로 땅이 마르면 증발에 쓰이던 열이 기온을 올리는 쪽으로 돌아가 폭염이 더 심해지고, 폭염은 다시 땅을 말려 가뭄을 키운다. 이처럼 두 극한이 서로를 부추기며 겹치는 것을 복합 극한이라고 하며, 산불과 농작물 피해가 여기서 한꺼번에 터진다. 극한을 하나씩 따로 보아서는 위험의 크기를 짚을 수 없다는 것이 요점이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "극한 현상이 겹칠 때의 상호작용 — 사례 규모를 넓힌 정성 판단"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "온실기체가 늘면 지구가 우주로 내보내는 에너지가 흡수하는 에너지보다 적어져 열이 계속 쌓인다. 이렇게 들어오는 에너지와 나가는 에너지가 어긋난 상태를 지구 에너지 ___(이)라고 한다.",
+      "correct_answer": "불균형",
+      "explanation_hint": "지구가 흡수한 만큼 내보내면 기온이 일정하게 유지된다. 온실기체가 늘어 나가는 에너지가 줄면 남는 몫이 생기고, 그 남는 몫이 바다와 얼음과 땅에 열로 쌓인다. 지구 에너지 불균형은 기후변화가 지금 진행 중인지를 가장 직접 보여 주는 값이라 위성과 해양 관측으로 꾸준히 재고 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "복사 평형(4단계)이 깨진 상태를 기후변화 진단 개념으로 확장"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "위도 30도 부근에는 공기가 가라앉아 기압이 높고 비가 적은 띠가 자리 잡는데, 온난화가 이어지면 이 ___ 고압대가 극 쪽으로 넓어지면서 그 아래 건조한 지역도 함께 넓어진다.",
+      "correct_answer": "아열대",
+      "explanation_hint": "적도에서 올라간 공기가 가라앉는 위도 30도 부근에는 일 년 내내 기압이 높은 띠가 놓인다. 세계의 큰 사막이 이 위도대를 따라 늘어선 까닭이다. 온난화로 저위도 순환의 남북 폭이 넓어지면 이 띠가 극 쪽으로 밀려나면서 지중해 연안처럼 가장자리에 놓인 지역이 먼저 건조해진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "기압대 분포를 장기 기후 변동과 묶는다 — 힘의 균형은 다루지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "홍수 대책을 하천 구간별로 따로 세우면 상류에서 빠르게 흘려보낸 물이 하류에 몰려 피해를 키울 수 있다. 그래서 빗물이 모여 한 하천으로 흘러드는 범위 전체를 하나로 보고 대책을 세우는데, 이 범위를 ___(이)라고 한다.",
+      "correct_answer": "유역",
+      "explanation_hint": "빗물은 행정 구역이 아니라 땅의 높낮이를 따라 흐른다. 그래서 한 하천으로 물이 모여드는 범위, 곧 유역을 단위로 삼아야 상류의 대책이 하류에 어떤 영향을 주는지 함께 볼 수 있다. 상류의 숲과 습지를 지키는 일이 하류 도시의 침수 대책이 되는 까닭이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "재난 대응의 공간 단위 개념 — 사례 규모 확장"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "사람이 화석연료를 태워 내보낸 이산화탄소는 모두 대기에 남지 않고 바다와 육상 생태계가 나누어 흡수해 왔다. 이 가운데 바다가 흡수한 몫은 약 몇 %인가?",
+      "correct_answer": "25",
+      "min": 0,
+      "max": 60,
+      "step": 5,
+      "unit": "%",
+      "explanation_hint": "배출된 이산화탄소는 대략 바다가 4분의 1, 육상 생태계가 4분의 1을 조금 넘게 흡수하고 나머지가 대기에 남는다. 바다가 흡수한 몫 덕분에 기온 상승이 늦춰졌지만, 그 대가로 해양 산성화가 함께 진행됐다. 흡수원이 약해지면 같은 배출량에도 대기에 남는 몫이 늘어난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "탄소 순환의 배분 — 교육과정 안의 관측 사실이고 업무 규정 수치가 아니다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "바닷물은 데워지면 부피가 늘고, 여기에 육상 빙하가 녹은 물이 더해져 해수면이 오른다. 1900년 이후 전 지구 평균 해수면이 상승한 높이는 약 몇 cm인가?",
+      "correct_answer": "20",
+      "min": 0,
+      "max": 60,
+      "step": 5,
+      "unit": "cm",
+      "explanation_hint": "20세기 초 이후 전 지구 평균 해수면은 약 20cm 올랐고, 오르는 빠르기는 최근으로 올수록 커지고 있다. 상승분은 바닷물이 데워져 부피가 느는 몫과 육상의 빙하가 녹아 더해지는 몫으로 나뉜다. 앞쪽 몫 때문에 배출을 멈춰도 해수면은 오랫동안 계속 오른다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "해양 열 축적의 결과를 관측값으로 확인 — 특보 기준 같은 규정 수치가 아니다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "북극 바다얼음은 해마다 9월에 가장 작아진다. 위성 관측이 시작된 1979년과 견주어 최근의 9월 최소 면적은 약 몇 % 줄었는가?",
+      "correct_answer": "40",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "explanation_hint": "1979년 이후 북극의 9월 해빙 면적은 약 40% 줄었다. 햇빛을 잘 되돌려 보내던 흰 얼음이 어두운 바다로 바뀌면 흡수하는 몫이 늘고, 그 열이 다시 얼음을 녹인다. 북극이 지구 평균보다 두세 배 빠르게 더워지는 원인이 여기 있다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "얼음·바다 되먹임의 관측 근거 — 알베도 용어를 쓰지 않고 서술"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "저위도에서 남는 열은 대기와 해양이 나누어 고위도로 실어 나른다. 지구 전체로 볼 때 이 열 수송에서 대기가 담당하는 몫은 약 몇 %인가?",
+      "correct_answer": "60",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "explanation_hint": "저위도에서 고위도로 옮겨지는 열은 대기가 약 60%, 해양이 약 40%를 담당한다. 대기는 바람과 수증기가 품은 잠열로 빠르게 나르고, 해양은 비열이 큰 물이 해류를 타고 느리게 나른다. 어느 한쪽이 약해져도 다른 쪽이 곧바로 메워 주지 못하므로 위도별 기온 분포가 달라진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "지구 규모 열 수송의 배분 — 수송량을 계산시키지 않고 몫만 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "수증기가 응결해 만들어진 구름은 햇빛을 되돌려 보내기도 하고 지표의 적외선을 붙잡기도 해 기후를 좌우한다. 위성으로 본 지구 표면 가운데 구름에 덮여 있는 넓이는 평균 약 몇 %인가?",
+      "correct_answer": "65",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "explanation_hint": "위성으로 보면 지구 표면의 약 3분의 2가 늘 구름에 덮여 있다. 이만큼 넓게 깔려 있기 때문에 구름이 조금만 늘거나 줄어도 지구가 흡수하고 내보내는 에너지가 크게 달라진다. 온난화로 구름이 어떻게 달라질지가 기후 예측에서 가장 판단하기 어려운 부분으로 남아 있는 까닭이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "응결의 결과를 지구 규모 관측값으로 확인 — 구름 되먹임 맥락에서 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "엘니뇨가 나타난 해에 지역별로 관측되는 날씨의 경향을 알맞게 연결하라",
+      "pairs": [
+        {
+          "left": "페루 앞바다",
+          "right": "수온이 올라 어획량이 줄고 폭우가 잦아진다"
+        },
+        {
+          "left": "인도네시아와 호주",
+          "right": "비가 줄어 가뭄과 산불 위험이 커진다"
+        },
+        {
+          "left": "적도 중태평양",
+          "right": "공기가 올라가며 비구름이 솟는 자리가 동쪽으로 옮겨 온다"
+        },
+        {
+          "left": "북아메리카 남부",
+          "right": "겨울에 비가 늘고 평년보다 서늘해지는 해가 많다"
+        }
+      ],
+      "correct_answer": "페루 앞바다:수온이 올라 어획량이 줄고 폭우가 잦아진다|인도네시아와 호주:비가 줄어 가뭄과 산불 위험이 커진다|적도 중태평양:공기가 올라가며 비구름이 솟는 자리가 동쪽으로 옮겨 온다|북아메리카 남부:겨울에 비가 늘고 평년보다 서늘해지는 해가 많다",
+      "explanation_hint": "엘니뇨는 적도 태평양에서 시작하지만 그 영향은 대기의 흐름을 타고 멀리까지 이어진다. 따뜻한 물이 동쪽으로 옮겨 가면 비구름이 솟는 자리도 함께 옮겨 가고, 그러면 페루 연안에는 비가 늘고 인도네시아와 호주에는 비가 줄어든다. 한 해의 이상기후를 지구 규모의 짝으로 함께 읽는 것이 요점이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "엘니뇨(5단계 도입)를 배경으로 지역별 동반 변화까지 넓힌다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "관측 기록이 없던 시절의 기후를 알아내는 데 쓰는 자료와, 그 자료가 알려 주는 것을 알맞게 연결하라",
+      "pairs": [
+        {
+          "left": "빙하 속에 갇힌 공기 방울",
+          "right": "그 시절 대기의 이산화탄소 농도"
+        },
+        {
+          "left": "나무의 나이테 너비",
+          "right": "해마다의 기온과 강수 사정"
+        },
+        {
+          "left": "산호 골격의 성장선",
+          "right": "열대 바다의 지난 수온 변화"
+        },
+        {
+          "left": "퇴적층 속 꽃가루",
+          "right": "그 지역에 자라던 식물의 종류"
+        }
+      ],
+      "correct_answer": "빙하 속에 갇힌 공기 방울:그 시절 대기의 이산화탄소 농도|나무의 나이테 너비:해마다의 기온과 강수 사정|산호 골격의 성장선:열대 바다의 지난 수온 변화|퇴적층 속 꽃가루:그 지역에 자라던 식물의 종류",
+      "explanation_hint": "온도계 관측은 200년이 채 되지 않아 오래된 기후는 다른 기록으로 되살려야 한다. 빙하 속 공기 방울은 그 시절 공기를 그대로 가둬 둔 표본이고, 나이테·산호 성장선은 해마다 한 겹씩 쌓여 연 단위 기록이 된다. 꽃가루는 식물이 자라던 환경을 알려 주므로 기후대의 이동을 읽는 데 쓰인다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "고기후 복원 자료 — 지구과학 일반선택 범위, 정성 대응 관계"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "heat_island",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "도시의 더위를 누그러뜨리는 대책과 그 대책이 기대는 원리를 알맞게 연결하라",
+      "pairs": [
+        {
+          "left": "옥상과 벽면 녹화",
+          "right": "식물이 물을 내보내며 지표의 열을 함께 가져간다"
+        },
+        {
+          "left": "밝은 색 포장재",
+          "right": "햇빛을 더 많이 되돌려 보내 표면이 덜 데워진다"
+        },
+        {
+          "left": "하천과 녹지를 잇는 바람길",
+          "right": "도시 밖의 찬 공기를 끌어들여 갇힌 열을 흩어 놓는다"
+        },
+        {
+          "left": "물이 스미는 포장",
+          "right": "땅에 머문 빗물이 증발하며 지표를 식힌다"
+        }
+      ],
+      "correct_answer": "옥상과 벽면 녹화:식물이 물을 내보내며 지표의 열을 함께 가져간다|밝은 색 포장재:햇빛을 더 많이 되돌려 보내 표면이 덜 데워진다|하천과 녹지를 잇는 바람길:도시 밖의 찬 공기를 끌어들여 갇힌 열을 흩어 놓는다|물이 스미는 포장:땅에 머문 빗물이 증발하며 지표를 식힌다",
+      "explanation_hint": "도시를 식히는 길은 크게 세 갈래다. 들어오는 햇빛을 되돌려 보내거나, 물을 증발시켜 열을 가져가게 하거나, 갇힌 열을 바깥 공기로 흩어 놓는 것이다. 녹화와 물이 스미는 포장은 물을 쓰는 쪽, 밝은 색 포장재는 햇빛을 되돌리는 쪽, 바람길은 열을 내보내는 쪽이다. 대책을 고를 때는 그 도시가 어느 통로에서 막혀 있는지를 먼저 본다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "열섬 완화 정책과 원리의 대응 — 적응 대책 사례 심화"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "큰 산불이 지나간 뒤 나타나는 변화와 그 까닭을 알맞게 연결하라",
+      "pairs": [
+        {
+          "left": "대기 중 이산화탄소 증가",
+          "right": "나무에 저장돼 있던 탄소가 타면서 한꺼번에 나온다"
+        },
+        {
+          "left": "큰비 뒤의 산사태",
+          "right": "뿌리가 흙을 붙잡지 못하고 겉흙이 물을 밀어낸다"
+        },
+        {
+          "left": "하천의 흐림과 수질 악화",
+          "right": "재와 흙이 빗물에 쓸려 그대로 하천으로 들어간다"
+        },
+        {
+          "left": "숲의 탄소 흡수 능력 저하",
+          "right": "자라며 탄소를 붙잡던 나무가 사라져 회복에 오랜 시간이 걸린다"
+        }
+      ],
+      "correct_answer": "대기 중 이산화탄소 증가:나무에 저장돼 있던 탄소가 타면서 한꺼번에 나온다|큰비 뒤의 산사태:뿌리가 흙을 붙잡지 못하고 겉흙이 물을 밀어낸다|하천의 흐림과 수질 악화:재와 흙이 빗물에 쓸려 그대로 하천으로 들어간다|숲의 탄소 흡수 능력 저하:자라며 탄소를 붙잡던 나무가 사라져 회복에 오랜 시간이 걸린다",
+      "explanation_hint": "산불의 피해는 불이 꺼진 날 끝나지 않는다. 탄소는 곧바로 대기로 나가고 흡수원은 오래 비어 있으며, 벌거벗은 비탈은 몇 해 동안 같은 비에도 훨씬 쉽게 무너진다. 재와 흙이 하천으로 들어가면 물을 쓰는 아래쪽 지역까지 영향을 받는다. 재난 하나가 탄소 순환과 물 순환을 함께 흔드는 사례다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "산불의 2차 영향 — 생태계와 탄소 순환으로 규모를 넓힌 정성 문항"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "홍수와 침수에 대비하는 방법과 그 방법이 노리는 바를 알맞게 연결하라",
+      "pairs": [
+        {
+          "left": "하천 제방과 배수 펌프장",
+          "right": "물이 넘치거나 고이는 것을 시설로 직접 막는다"
+        },
+        {
+          "left": "침수 위험 지도와 대피 안내",
+          "right": "위험한 자리와 때를 미리 알려 사람이 피하게 한다"
+        },
+        {
+          "left": "물이 스미는 포장과 빗물 정원",
+          "right": "빗물이 땅에 스미게 해 한꺼번에 몰리는 양을 줄인다"
+        },
+        {
+          "left": "상류의 숲과 습지 보전",
+          "right": "물을 머금는 힘을 되살려 하류의 부담을 덜어 준다"
+        }
+      ],
+      "correct_answer": "하천 제방과 배수 펌프장:물이 넘치거나 고이는 것을 시설로 직접 막는다|침수 위험 지도와 대피 안내:위험한 자리와 때를 미리 알려 사람이 피하게 한다|물이 스미는 포장과 빗물 정원:빗물이 땅에 스미게 해 한꺼번에 몰리는 양을 줄인다|상류의 숲과 습지 보전:물을 머금는 힘을 되살려 하류의 부담을 덜어 준다",
+      "explanation_hint": "홍수 대책은 물을 막는 것, 사람을 피하게 하는 것, 물이 몰리는 양 자체를 줄이는 것으로 나뉜다. 시설로 막는 대책은 정해진 크기까지만 버티므로 그 이상이 오면 한꺼번에 무너진다. 그래서 위험을 알리는 대책과 유역이 물을 머금게 하는 대책을 함께 두어, 한 갈래가 무너져도 피해가 곧바로 커지지 않게 한다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "재난 대응 수단의 성격 분류 — 설계 기준 수치를 묻지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "온난화가 바다의 섞임을 약하게 만들어 생태계까지 바꾸는 과정을 순서대로 배열하라",
+      "items": [
+        "대기가 더워지면서 바다의 표층 수온이 먼저 올라간다",
+        "데워진 표층 바닷물의 밀도가 낮아져 깊은 층과의 밀도 차가 커진다",
+        "밀도 차가 커진 만큼 위아래 물이 서로 섞이기 어려워진다",
+        "깊은 곳의 영양염이 표층으로 올라오지 못해 식물플랑크톤이 줄어든다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "가벼운 물이 위에 놓일수록 위아래 섞임은 억눌린다. 햇빛이 닿는 표층에는 광합성을 하는 플랑크톤이 있지만 영양염은 깊은 곳에 많으므로, 섞임이 약해지면 먹이사슬의 출발점이 얇아진다. 수온이 오르는 것 자체보다 섞임이 막히는 것이 생태계에 먼저 닿는다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "밀도 차의 인과 사슬을 생태계까지 잇는다 — 부력의 크기를 다루지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "여름이 다가오며 우리나라에 장마가 시작되기까지의 과정을 순서대로 배열하라",
+      "items": [
+        "햇볕이 강해지면서 넓은 대륙이 바다보다 빠르게 데워진다",
+        "데워진 대륙 쪽의 기압이 낮아지고 상대적으로 바다 쪽 기압이 높아진다",
+        "바다에서 대륙을 향해 덥고 습한 공기가 밀려 들어온다",
+        "북쪽의 찬 공기와 만나는 자리에 정체전선이 만들어진다",
+        "전선이 한반도를 오르내리며 여러 날에 걸쳐 비를 뿌린다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "장마는 우리나라만의 사건이 아니라 대륙과 바다가 데워지는 빠르기가 달라 생기는 동아시아 규모의 계절 흐름이다. 육지가 먼저 데워져 기압이 낮아지면 바다에서 덥고 습한 공기가 들어오고, 그 공기가 북쪽 찬 공기와 만나는 자리에 전선이 놓인다. 전선이 남북으로 오르내리기 때문에 같은 해에도 지역마다 비가 크게 갈린다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "계절풍을 동아시아 규모의 사례로 확장 — 기단·전선(4단계)은 배경 어휘"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "온난화가 태풍이 해안에 남기는 피해를 키우는 과정을 순서대로 배열하라",
+      "items": [
+        "바다 표층의 수온이 올라 태풍에 공급되는 수증기가 늘어난다",
+        "수증기가 응결하며 내놓는 열이 많아져 태풍이 더 강하게 발달한다",
+        "강해진 바람이 해안으로 바닷물을 밀어 올리고 많은 비가 함께 쏟아진다",
+        "해수면 자체가 높아진 해안에서 물에 잠기는 범위가 예전보다 넓어진다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "태풍의 피해는 바람과 비만으로 정해지지 않는다. 따뜻해진 바다가 태풍을 강하게 키우고, 그 사이 해수면 자체도 올라 있기 때문에 같은 세기의 태풍이라도 예전보다 넓은 범위가 물에 잠긴다. 원인 하나가 아니라 여러 변화가 겹쳐 피해를 키우는 것이 요점이다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "태풍의 일생(5단계)이 아니라 장기 기후 변화와 겹친 피해 확대를 묻는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "북극이 빠르게 더워지는데도 중위도에 강한 한파가 찾아오는 과정을 순서대로 배열하라",
+      "items": [
+        "북극의 바다얼음이 줄고 어두워진 바다가 열을 더 흡수한다",
+        "북극이 지구 평균보다 빠르게 더워진다",
+        "북극과 중위도 사이의 기온 차가 줄어든다",
+        "중위도 상공을 도는 서풍이 약해져 남북으로 크게 굽이친다",
+        "굽이친 흐름을 따라 북극의 찬 공기가 중위도까지 곧장 내려온다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "지구가 더워지는데 한파가 심해지는 것은 모순이 아니다. 북극이 유난히 빠르게 더워지면 남북의 기온 차가 줄고, 그 차이를 동력으로 삼던 상공의 서풍이 약해져 남북으로 크게 굽이친다. 굽이가 깊어진 자리에서는 북극의 찬 공기가 중위도까지 통째로 내려오므로, 평균은 오르는데 한파는 더 매서워지는 해가 생긴다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "knowledge_level=6 · 고2~3 일반선택 정성 심화",
+        "지구 규모 온난화와 지역 한파의 연결 — 제트류·와도 없이 정성으로만 서술"
+      ]
+    },
+    "status": "active"
+  }
+]

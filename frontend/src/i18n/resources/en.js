@@ -147,6 +147,41 @@ export default {
       advanced: 'Advanced',
       expert: 'Expert',
     },
+    // Knowledge level (difficulty axis) — a *separate* axis from `level` above
+    // (4 bands = tone of voice). Both are shown; neither replaces the other.
+    // Source of the wording: database/seed/level_vocabulary.json `anchor`.
+    knowledgeLevel: {
+      cardTitle: 'Current knowledge level',
+      lv: 'Lv.{level}',
+      ofMax: 'Level {level} of {max}',
+      next: 'Next level: {name}',
+      top: "You're at the highest level",
+      aria: 'Current knowledge level — level {level} of {max}, {name}',
+      name: {
+        1: 'Elementary Grades 3-4',
+        2: 'Elementary Grades 5-6',
+        3: 'Middle School: Matter & Energy',
+        4: 'Middle School: Fluid Earth',
+        5: 'High School Core',
+        6: 'High School General Electives',
+        7: 'High School Career Electives',
+        8: 'Undergraduate Atmospheric Science',
+        9: 'Undergraduate Upper Division',
+        10: 'KMA Operational Practice',
+      },
+      sub: {
+        1: 'Naming what you observe',
+        2: 'Measuring weather elements, finding patterns',
+        3: 'Explaining with heat, specific heat, pressure',
+        4: 'Atmosphere and ocean as one system',
+        5: 'Integrated Science I · II',
+        6: 'Earth Science · Climate Change & Environment',
+        7: 'Earth System Science · Advanced Earth Science',
+        8: 'Dynamics basics · WMO cloud genera',
+        9: 'Synoptic analysis · numerical forecasting',
+        10: 'Warning criteria · operational indices',
+      },
+    },
   },
   dailyGoal: {
     choiceLabel: {

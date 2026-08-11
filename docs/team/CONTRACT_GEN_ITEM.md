@@ -44,10 +44,23 @@
 |---|---|---|
 | `multiple_choice` | `options` (2개 이상) | 기존 `_check_options` 유지·강화 |
 | `short_answer` | 없음 | |
-| `slider` | `min`·`max`·`step`·`unit` | **신규 — 이 계약의 핵심** |
+| `slider` | `min`·`max`·`step`·`unit` | 이 계약의 최초 확장분 |
+| `cloze` | `question_text`에 빈칸 마커 `___` | **6종 확장(2026-08-10)** |
+| `match` | `pairs` 2쌍 이상(`left`·`right` 비어있지 않음, `left` 중복 금지)·`correct_answer`가 pairs와 일치 | **6종 확장** |
+| `ordering` | `items` 2개 이상(중복 금지)·`shuffled: true`·`correct_answer`는 **항등 순열**(`"0,1,2,3"`) | **6종 확장** |
 
-`board`·`match`·`ordering`·`cloze`는 **생성 대상이 아니다**(현행 유지). `board`는
-`board_rules.json` 판정 구조가 필요하고 나머지는 저작 영역이다. `Literal`을 넓히지 마라.
+**생성 대상은 board를 뺀 6종이다.** 종전 이 자리에는 *"`board`·`match`·`ordering`·
+`cloze`는 생성 대상이 아니다 … `Literal`을 넓히지 마라"*가 적혀 있었고 **2026-08-10에
+폐기됐다**(CO-O-13). 폐기한 이유를 남긴다 — 이 문장은 "G1 예산을 3유형에만 쓴다"는
+계획의 근거로 인용됐다. 당시 근거는 "게이트가 `pairs`·`items` 존재를 검사하지 않는다"
+였는데, 지금은 `check_payload`가 위 표의 값 정합까지 본다. **`board`만은 계속 제외**다
+— `board_rules.json` 판정 구조가 필요하고 이건 생성기가 만들 수 있는 것이 아니다.
+
+이 표는 사람이 지키는 것이 아니라 `backend/tests/test_gen_payload_contract.py`가
+**양방향(`==`)으로** 감시한다. 생성(ai-worker `GENERATED_PAYLOAD_FIELDS`) · 노출
+(`routers/session.py`) · **적재**(`session_service.GENERATED_ITEM_TYPES`) 세 소유자가
+같아야 한다 — 적재만 좁으면 새 유형이 세션에 한 번 뜨고 뱅크에 안 남아 G1 비용이
+자산이 아니라 트래픽으로 증발한다.
 
 ### G-2. slider 값 정합 (형식만 갖추면 안 된다)
 

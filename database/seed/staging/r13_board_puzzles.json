@@ -8,11 +8,24 @@
       "question_text": "바람이 잔잔한 가을 새벽이다. 태백산맥(존 2) 골짜기에 땅을 덮는 안개를 만들어 보자.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["sun", "moisture"],
-      "goal_conditions": [{"zone": 2, "phenomenon": "fog"}],
+      "palette": [
+        "sun",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "fog"
+        }
+      ],
       "hints": [
         "햇볕이 약한 밤과 새벽에는 땅이 빠르게 식는다. 땅에 닿아 있던 축축한 공기도 함께 차가워진다.",
         "놓을 요소는 없다. 일사는 아주 낮게, 습기는 아주 높게 — 두 조절값을 반대 방향으로 움직여야 한다."
@@ -40,11 +53,24 @@
       "question_text": "중위도 저기압이 서해상으로 다가오고 있다. 저기압 앞쪽에서 나타나는 날씨, 곧 넓은 지역에 오래 내리는 약한 비를 서해(존 0)에 만들어 보자.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["front:warm", "moisture"],
-      "goal_conditions": [{"zone": 0, "phenomenon": "rain"}],
+      "palette": [
+        "front:warm",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "rain"
+        }
+      ],
       "hints": [
         "중위도 저기압의 앞쪽에는 따뜻한 공기가 찬 공기 위로 완만하게 타고 오르는 경계가 놓인다.",
         "완만한 상승은 넓고 두꺼운 비구름을 만들어 약한 비를 오래 내리게 한다. 습기는 50 이상이 필요하다."
@@ -77,11 +103,24 @@
         "같은 존의 습기를 60 이상으로 올린다."
       ],
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["air_mass:siberian", "moisture"],
-      "goal_conditions": [{"zone": 1, "phenomenon": "snow"}],
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "snow"
+        }
+      ],
       "hints": [
         "차고 메마른 공기 덩어리도 따뜻한 바다를 건너면 열과 수증기를 받아 성질이 달라진다.",
         "성질이 바뀐 공기 속에서는 눈구름이 자란다. 습기를 충분히 올려야 한다."
@@ -109,13 +148,27 @@
       "question_text": "같은 겨울 기단이 놓여도 서해안과 영동 지방의 날씨는 갈린다. 서해(존 0)에는 눈을 내리고 동해안(존 3)은 맑게 두어, 한 기단이 만드는 두 날씨를 동시에 만들어 보자.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["air_mass:siberian", "moisture"],
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
       "goal_conditions": [
-        {"zone": 0, "phenomenon": "snow"},
-        {"zone": 3, "phenomenon": "clear"}
+        {
+          "zone": 0,
+          "phenomenon": "snow"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "clear"
+        }
       ],
       "hints": [
         "같은 기단이라도 따뜻한 바다를 건너며 수증기를 받은 쪽과 그렇지 않은 쪽은 결과가 달라진다.",
@@ -143,11 +196,25 @@
       "question_text": "찬 공기가 밀려와 동해안(존 3)에 짧고 강한 소나기를 쏟아지게 해 보자. 위로 크게 솟은 적란운까지 만들어야 목표가 달성된다.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["front:cold", "moisture"],
-      "goal_conditions": [{"zone": 3, "phenomenon": "shower", "cloud": "cumulonimbus"}],
+      "palette": [
+        "front:cold",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "shower",
+          "cloud": "cumulonimbus"
+        }
+      ],
       "hints": [
         "찬 공기가 따뜻하고 습한 공기를 급하게 파고들면 공기가 세차게 밀려 올라간다.",
         "세찬 상승이 위로 크게 솟은 적란운을 만든다. 습기가 60 이상이어야 한다."
@@ -174,11 +241,24 @@
       "question_text": "온난화가 이어지면서 폭염은 더 자주, 더 강하게 나타나는 극한 기상이 되었다. 덥고 습한 여름 기단과 강한 햇볕을 놓아 동해안(존 3)에 폭염을 불러와 보자.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["air_mass:north_pacific", "sun"],
-      "goal_conditions": [{"zone": 3, "phenomenon": "heatwave"}],
+      "palette": [
+        "air_mass:north_pacific",
+        "sun"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "heatwave"
+        }
+      ],
       "hints": [
         "여름에 우리나라를 덮는 덥고 습한 공기 덩어리는 남쪽 바다에서 올라온다.",
         "그 위로 강한 햇볕이 더해지면 기온이 크게 오른다. 일사를 70 이상으로 올려야 한다."
@@ -200,17 +280,30 @@
   {
     "concept_tag": "anomaly",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "board",
     "template_json": {
       "question_text": "대설경보는 24시간 동안 새로 쌓인 눈이 20cm(산지는 30cm) 이상일 것으로 보일 때 발표된다. 태백산맥(존 2)에 그만큼 눈을 뿌릴 겨울 날씨를 만들어 보자.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["air_mass:siberian", "moisture"],
-      "goal_conditions": [{"zone": 2, "phenomenon": "snow"}],
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "snow"
+        }
+      ],
       "hints": [
         "대설 특보의 기준은 눈이 내리는 세기가 아니라 24시간 동안 새로 쌓인 눈의 깊이다. 산지 기준을 따로 두는 것은 같은 적설도 지형에 따라 피해가 다르기 때문이다.",
         "차고 건조한 기단이 따뜻한 바다를 건너 수증기를 받으면 눈구름이 만들어진다. 습기를 60 이상으로 올려야 한다."
