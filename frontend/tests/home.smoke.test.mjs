@@ -297,7 +297,13 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   // 목표 설정 카드 — /learn 배너의 「목표 미설정」이 겨냥하는 **앵커가 실재하는가**.
   // 위 ④는 href만 본다: 링크가 `#daily-goal`을 가리켜도 그런 id가 없으면
   // 브라우저는 페이지 맨 위에 그냥 떨어뜨린다(끊긴 통로가 초록으로 통과한다).
-  await waitFor(() => $('#daily-goal') !== null, 6000, '목표 설정 카드(#daily-goal)');
+  // ⚠️ 여기서 `await waitFor(...)`를 쓰면 안 된다 — 던지면 이 블록의 나머지와
+  // **서버 정리(vite.close·httpServer.close)까지 건너뛴다**. 이 파일의 계약은
+  // 「실패는 ok()로 센다」이므로 기다림과 판정을 나눈다(2026-08-11 코드 리뷰).
+  const goalCard = await waitFor(() => $('#daily-goal') !== null, 6000, '')
+    .then(() => true)
+    .catch(() => false);
+  ok(goalCard, '내 정보에 목표 설정 카드(#daily-goal)가 없다');
 
   // **저장해도 사라지지 않는다** + **확인 문구가 이번 저장에만 뜬다**.
   //
@@ -313,9 +319,14 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   // ④가 5문항으로 저장해 뒀다 — 겹치지 않게 9문항(세 번째 버튼)을 누른다.
   const goalBtns = $$('#daily-goal button');
   ok(goalBtns.length === 3, `목표 선택 버튼 3개 — 실제 ${goalBtns.length}`);
-  goalBtns[2].dispatchEvent(new window.Event('click', { bubbles: true }));
-  await waitFor(() => text().includes('하루 9문항'), 6000, '9문항 저장 확인 문구');
-  ok(Boolean($('#daily-goal')), '저장 직후 목표 카드가 사라졌다(확인 문구를 볼 수 없다)');
+  if (goalBtns.length === 3) {
+    goalBtns[2].dispatchEvent(new window.Event('click', { bubbles: true }));
+    const saved = await waitFor(() => text().includes('하루 9문항'), 6000, '')
+      .then(() => true)
+      .catch(() => false);
+    ok(saved, '9문항을 눌렀는데 저장 확인 문구가 안 뜬다');
+    ok(Boolean($('#daily-goal')), '저장 직후 목표 카드가 사라졌다(확인 문구를 볼 수 없다)');
+  }
 
   r.unmount();
 }

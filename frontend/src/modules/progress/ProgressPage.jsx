@@ -41,7 +41,11 @@ export default function ProgressPage() {
   const unlockStage = useOnboardingGate(selectUnlockStage);
   const t = useT();
 
-  const { data: me } = useQuery({
+  const {
+    data: me,
+    isError: meFailed,
+    refetch: refetchMe,
+  } = useQuery({
     queryKey: ['progress', 'me'],
     queryFn: progressApi.fetchMyProgress,
     staleTime: 30_000,
@@ -74,21 +78,31 @@ export default function ProgressPage() {
     // 도착했을 때 이미 관측을 끊은 뒤라, 막으려던 그 증상이 그대로 난다.
     // 대신 총 10초 상한을 둔다 — 계속 움직이는 요소가 하나라도 있으면 관측이
     // 영영 안 끝나고, 읽는 중에 화면이 튀는 쪽이 더 나쁘다.
+    //
+    // ⚠️ 그리고 **사용자가 스크롤을 잡으면 즉시 손을 뗀다**(2026-08-11 코드 리뷰).
+    // 창을 늘리는 것만으로도 재정렬이 돌아, 읽으려고 위로 올려 둔 사람을 다시
+    // 앵커로 끌어내린다. wheel·touchmove·keydown은 **사람의 입력만** 내는
+    // 신호라(프로그램 스크롤은 안 낸다) 여기서 관측을 끊는 기준으로 삼는다.
     if (typeof ResizeObserver !== 'function') return undefined;
+    const TAKEOVER = ['wheel', 'touchmove', 'keydown'];
     let quiet;
-    const observer = new ResizeObserver(() => {
-      align();
-      clearTimeout(quiet);
-      quiet = setTimeout(() => observer.disconnect(), 2000);
-    });
-    observer.observe(document.body);
-    quiet = setTimeout(() => observer.disconnect(), 2000);
-    const cap = setTimeout(() => observer.disconnect(), 10_000);
-    return () => {
+    let cap;
+    const release = () => {
       clearTimeout(quiet);
       clearTimeout(cap);
       observer.disconnect();
+      TAKEOVER.forEach((evt) => window.removeEventListener(evt, release));
     };
+    const observer = new ResizeObserver(() => {
+      align();
+      clearTimeout(quiet);
+      quiet = setTimeout(release, 2000);
+    });
+    observer.observe(document.body);
+    quiet = setTimeout(release, 2000);
+    cap = setTimeout(release, 10_000);
+    TAKEOVER.forEach((evt) => window.addEventListener(evt, release, { passive: true }));
+    return release;
   }, [hash]);
 
   return (
@@ -208,8 +222,31 @@ export default function ProgressPage() {
           ⚠️ `me`는 **기다린다**(LevelGroupCard와 같은 이유). 조회 전에 그리면
           현재값을 모르는 채로 아무것도 강조되지 않아, 이미 9문항으로 정해 둔
           사람이 「미설정」으로 읽고 모르게 덮어쓴다. 저장 뒤에는 `me`가 그대로
-          참이라 카드도 그대로 남는다 — 위 ⚠️와 충돌하지 않는다. */}
-      {me && <DailyGoalPicker id={GOAL_ANCHOR} className="mt-4 scroll-mt-4" />}
+          참이라 카드도 그대로 남는다 — 위 ⚠️와 충돌하지 않는다.
+
+          ⚠️ 조회가 **실패하면 자리를 비우지 않는다**(2026-08-11 코드 리뷰).
+          `me &&`만 두면 실패 시 카드가 조용히 사라져, 목표를 정하러 앵커를 타고
+          온 사람이 빈 화면 끝을 본다 — 통로가 끊긴 것과 같은데 이유도 안 보인다.
+          현재값을 모르니 선택지는 안 내주고, **왜 못 그리는지와 다시 시도**를
+          같은 자리(같은 앵커 id)에 놓는다. */}
+      {me ? (
+        <DailyGoalPicker id={GOAL_ANCHOR} className="mt-4 scroll-mt-4" />
+      ) : meFailed ? (
+        <div
+          id={GOAL_ANCHOR}
+          className="mt-4 scroll-mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+        >
+          <p className="text-sm font-extrabold text-slate-900">{t('dailyGoal.pickerTitle')}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{t('dailyGoal.loadFailed')}</p>
+          <button
+            type="button"
+            onClick={() => refetchMe()}
+            className="mt-3 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200"
+          >
+            {t('common.retry')}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

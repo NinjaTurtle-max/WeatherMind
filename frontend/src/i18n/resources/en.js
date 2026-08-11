@@ -159,6 +159,7 @@ export default {
     pickerTitle: '🎯 Set your daily goal',
     pickerBody: 'Starting small is fine — showing up daily matters more. You can change it anytime.',
     saved: 'Great — from today, your goal is {items} questions a day.',
+    loadFailed: "Couldn't load your setting right now. Please try again in a moment.",
     saveFailed: "Couldn't save your goal. {detail} Please tap again.",
     meterTitle: "🎯 Today's goal {done}/{goal}",
     reached: 'Done!',
