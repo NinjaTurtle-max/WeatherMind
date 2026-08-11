@@ -23,14 +23,25 @@ import { useT } from '../../i18n';
  */
 
 // 라벨은 i18n 키 — 렌더 시 t()로 해석한다(R11-01 §6.3 외부화).
+//
+// ⚠️ 종전에는 항목마다 `color`(등급별 6색)가 있어 태풍 그림·게이지·발달 곡선을
+// 전부 그 색으로 칠했다. **2026-08-11 사용자 지시로 제거**한다 — 태풍은 언제나
+// 흰색이고 세기는 **크기로만** 읽는다. `badge`(라벨 칩)는 남긴다: 그것은 세기가
+// 아니라 **등급 이름**을 가리키는 표식이고, 숫자·라벨과 함께 나오므로 색 단독으로
+// 정보를 나르지 않는다(같은 저장소의 LEVEL_CHIP 관례와 동일).
 const CATEGORY_META = {
-  none: { labelKey: 'explore.typhoon.catNone', badge: 'bg-slate-100 text-slate-600', color: '#94a3b8' },
-  TD: { labelKey: 'explore.typhoon.catTd', badge: 'bg-sky-100 text-sky-700', color: '#0284c7' },
-  TS: { labelKey: 'explore.typhoon.catTs', badge: 'bg-teal-100 text-teal-700', color: '#0d9488' },
-  STS: { labelKey: 'explore.typhoon.catSts', badge: 'bg-amber-100 text-amber-700', color: '#d97706' },
-  TY: { labelKey: 'explore.typhoon.catTy', badge: 'bg-orange-100 text-orange-700', color: '#ea580c' },
-  super: { labelKey: 'explore.typhoon.catSuper', badge: 'bg-rose-100 text-rose-700', color: '#e11d48' },
+  none: { labelKey: 'explore.typhoon.catNone', badge: 'bg-slate-100 text-slate-600' },
+  TD: { labelKey: 'explore.typhoon.catTd', badge: 'bg-sky-100 text-sky-700' },
+  TS: { labelKey: 'explore.typhoon.catTs', badge: 'bg-teal-100 text-teal-700' },
+  STS: { labelKey: 'explore.typhoon.catSts', badge: 'bg-amber-100 text-amber-700' },
+  TY: { labelKey: 'explore.typhoon.catTy', badge: 'bg-orange-100 text-orange-700' },
+  super: { labelKey: 'explore.typhoon.catSuper', badge: 'bg-rose-100 text-rose-700' },
 };
+
+// 게이지·곡선의 단일 색. **등급에 따라 바뀌지 않는다** — 바뀌면 색이 세기를
+// 다시 나르게 되어 "크기로만 구별"이 그 자리에서 깨진다. 값은 앱의 측정치 색
+// (abilityDisplay.COLOR_MEASURED)과 같은 sky-600이다.
+const CHART_ACCENT = '#0284c7';
 
 const SHEAR_OPTIONS = [
   { value: 'weak', labelKey: 'explore.typhoon.shearWeak' },
@@ -118,10 +129,18 @@ function DevelopmentCurve({ curve, color }) {
  * 태풍 눈 시각화 — 자체 제작 SVG 나선(강수 밴드 3개 + 눈).
  * 회전 속도는 강도에 비례(강할수록 빠름). prefers-reduced-motion이면 정지.
  */
-function TyphoonEye({ intensity, color }) {
+function TyphoonEye({ intensity }) {
   const t = useT();
   // 강도 0→정지, 100→2.2초/회전. 선형 보간(느림 12초 ~ 빠름 2.2초).
   const duration = intensity > 0 ? 12 - (intensity / 100) * 9.8 : 0;
+  // 강수 밴드 크기 — **강도를 나르는 유일한 채널**(2026-08-11 사용자 지시).
+  // 종전에는 등급별 6색 + 투명도(0.35~0.80)가 강도를 함께 표현했는데, 색으로
+  // 세기를 읽히면 (a) 색맹 사용자에게 정보가 사라지고 (b) 등급 경계가 실제보다
+  // 뚜렷해 보인다 — 이 시뮬레이터는 연속량을 다루는데 색은 계단으로 읽힌다.
+  // 이제 태풍은 언제나 흰색이고, 세기는 **밴드가 얼마나 크게 감기는가**로만 읽는다.
+  const bandScale = 0.55 + (intensity / 100) * 0.45; // 0.55 ~ 1.00
+  // 눈은 반대로 **강할수록 작다** — 실제 태풍도 발달할수록 눈이 조여든다.
+  const eyeR = Math.max(5, 14 - (intensity / 100) * 8);
   return (
     <div className="relative mx-auto h-36 w-36" aria-label={intensity > 0 ? t('explore.typhoon.eyeSpinning') : t('explore.typhoon.eyeCalm')}>
       <style>{`
@@ -134,8 +153,12 @@ function TyphoonEye({ intensity, color }) {
         }
       `}</style>
       <svg viewBox="0 0 120 120" className="h-full w-full">
-        {/* 바다 배경 */}
-        <circle cx="60" cy="60" r="58" fill="#e0f2fe" />
+        {/* 바다 배경 — **어두운 남색**이다(2026-08-12 정정).
+            흰 태풍으로 바꾼 첫 판에서 배경이 옅은 하늘색(#e0f2fe)이라 대비가
+            사라졌고, 약한 태풍(강도 38)에서는 **그림이 아예 안 보였다**.
+            실제 위성 영상이 어두운 바다 위 흰 구름인 것과 같은 이유로 뒤집는다 —
+            흰색을 쓰려면 바탕이 어두워야 한다. */}
+        <circle cx="60" cy="60" r="58" fill="#0c4a6e" />
         {intensity > 0 ? (
           <g
             className="explore-typhoon-rotor"
@@ -149,12 +172,15 @@ function TyphoonEye({ intensity, color }) {
               <path
                 key={rot}
                 d="M 60 60 C 78 52, 92 60, 96 78 C 88 70, 76 66, 60 60 Z"
-                fill={color}
-                opacity={0.35 + (intensity / 100) * 0.45}
-                transform={`rotate(${rot} 60 60)`}
+                fill="#ffffff"
+                // 윤곽선을 주지 않는다 — 어두운 바다 위 흰 구름은 그 자체로
+                // 경계가 선다. 밝은 배경이던 첫 판에서만 필요했던 보강이다.
+                transform={`rotate(${rot} 60 60) translate(60 60) scale(${bandScale.toFixed(3)}) translate(-60 -60)`}
               />
             ))}
-            <circle cx="60" cy="60" r={Math.max(5, 14 - (intensity / 100) * 8)} fill="#f8fafc" stroke={color} strokeWidth="2" />
+            {/* 눈 — **바다색으로 뚫는다.** 구름이 없는 자리라 위성에서도 어둡게
+                보인다. 강할수록 작아지므로 이 구멍의 크기가 두 번째 크기 단서다. */}
+            <circle cx="60" cy="60" r={eyeR} fill="#0c4a6e" />
           </g>
         ) : (
           <g>
@@ -195,8 +221,8 @@ export default function TyphoonSimPage() {
 
       {/* 시각화 카드 */}
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <TyphoonEye intensity={result.intensity} color={meta.color} />
-        <IntensityGauge intensity={result.intensity} color={meta.color} />
+        <TyphoonEye intensity={result.intensity} />
+        <IntensityGauge intensity={result.intensity} color={CHART_ACCENT} />
       </div>
 
       {/* 조건 입력 카드 */}
@@ -252,7 +278,7 @@ export default function TyphoonSimPage() {
         <p className="text-sm font-bold text-slate-700">{t('explore.typhoon.curveTitle')}</p>
         <p className="text-[11px] text-slate-400">{t('explore.typhoon.curveSub')}</p>
         <div className="mt-2">
-          <DevelopmentCurve curve={result.curve} color={meta.color} />
+          <DevelopmentCurve curve={result.curve} color={CHART_ACCENT} />
         </div>
         <p className="text-right text-[10px] text-slate-400">{t('explore.typhoon.timeAxis')}</p>
       </div>
