@@ -167,12 +167,13 @@ export default function DuelPage() {
           />
         </>
       ) : (
+        // 오른쪽 열 순서: **예측하기가 맨 위**, 판단 근거는 그 아래(2026-08-11
+        // 사용자 지시). 이 화면에서 해야 할 일이 「예보를 낸다」라서, 왼쪽 자료를
+        // 읽고 고개를 돌렸을 때 입력칸이 먼저 와야 한다.
+        // ⚠️ 근거는 **폼이 함께 보내는 값**이다(`{...values, evidence}`) — 아래에서
+        // 고른 것이 위 버튼으로 그대로 실린다. 근거 선택은 선택 사항이므로
+        // (복수 선택·0개 허용) 버튼이 위에 있어도 순서가 막히지 않는다.
         <>
-          <EvidencePicker
-            selected={evidence}
-            onToggle={toggleEvidence}
-            disabled={submitMutation.isPending}
-          />
           <ForecastForm
             title={t('duel.form.title')}
             description={t('duel.form.desc')}
@@ -194,6 +195,11 @@ export default function DuelPage() {
           {submitError && (
             <p className="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">{submitError}</p>
           )}
+          <EvidencePicker
+            selected={evidence}
+            onToggle={toggleEvidence}
+            disabled={submitMutation.isPending}
+          />
         </>
       )}
     </CompeteLayout>

@@ -27,7 +27,7 @@ export default {
     logout: 'Log out',
     learn: 'Learn',
     board: 'Board',
-    duel: 'Forecast Duel',
+    duel: 'Forecast',
     league: 'League',
     explore: 'Explore',
     me: 'Profile',

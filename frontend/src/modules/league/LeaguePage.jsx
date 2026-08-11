@@ -171,19 +171,11 @@ export default function LeaguePage() {
         </>
       }
     >
-      {/* 오른쪽 열 — 내 티어 / 이번 주 전적 / 주간 예측.
-          종전에는 이 셋이 위쪽 3칸이었다. 왼쪽이 브리핑 고정으로 바뀌면서 남는
-          폭이 절반이라 3칸을 가로로 늘어놓으면 한 칸이 180px가 된다 — 세로로
-          쌓는다. 순서는 「내가 어디에 있나 → 이번 주에 뭘 했나 → 이번 주 예측」. */}
-      <MyTierCard
-        standing={standing}
-        loading={leaderboardQ.isLoading || myResultsQ.isLoading}
-      />
-      <WeekSummaryCard
-        weekStart={current.week_start}
-        duels={Array.isArray(duelHistoryQ.data) ? duelHistoryQ.data : []}
-        loading={duelHistoryQ.isLoading}
-      />
+      {/* 오른쪽 열 — **주간 예측이 맨 위**, 내 티어·이번 주 전적은 그 아래
+          (2026-08-11 사용자 지시. 예보 대결 탭과 같은 순서다 — 탭을 오갈 때
+          같은 자리에 같은 종류의 것이 있어야 한다).
+          종전에는 이 셋이 위쪽 3칸 가로였다. 왼쪽이 브리핑 고정으로 바뀌면서
+          남는 폭이 절반이라 가로로 늘어놓으면 한 칸이 180px가 된다 — 세로로 쌓는다. */}
       {alreadySubmitted ? (
         <SubmittedCard />
       ) : (
@@ -205,6 +197,15 @@ export default function LeaguePage() {
           )}
         </div>
       )}
+      <MyTierCard
+        standing={standing}
+        loading={leaderboardQ.isLoading || myResultsQ.isLoading}
+      />
+      <WeekSummaryCard
+        weekStart={current.week_start}
+        duels={Array.isArray(duelHistoryQ.data) ? duelHistoryQ.data : []}
+        loading={duelHistoryQ.isLoading}
+      />
     </CompeteLayout>
   );
 }
