@@ -394,7 +394,14 @@ export default {
     // schematicBadge is a contract, not decoration — the panel must say it is not
     // real imagery (the re-scope from KMA photography is what made F3 feasible).
     satellite: {
+      warming: 'Preparing satellite imagery…',
+      play: 'Play',
+      pause: 'Pause',
+      timeAria: 'Typhoon life stage — from genesis to dissipation',
+      stage: 'Strength {pct}%',
       title: '🛰️ Satellite cloud schematic',
+      productLine: 'WEATHERMIND SIM · IR 10.5um · SIMULATED PRODUCT',
+      noSystem: 'No developed system — only scattered low cloud',
       schematicBadge: 'Not real imagery · educational schematic',
       rampLow: 'Low cloud',
       rampHigh: 'High, cold cloud',
@@ -403,8 +410,8 @@ export default {
       ariaSheared: 'Satellite schematic — the cloud shield is pushed to one side, exposing the centre',
       readNone: 'The sea is not warm enough for cloud to gather in one place. On satellite you would see only scattered low cloud.',
       readGrowing: 'A cloud shield is growing around the centre. A little stronger and the middle will open into an eye.',
-      readEye: 'Cloud wraps the centre evenly and the middle has opened — that is the **eye**. It means shear is weak and the column stands upright, so the satellite view alone tells you this is a well-developed typhoon.',
-      readSheared: 'The cloud shield is displaced to one side and the centre is exposed. Winds aloft and below are misaligned, tilting the column — in real satellite reading this shape is the first clue that **shear is strong**.',
+      readEye: 'Cloud wraps the centre evenly and the middle has opened — that is the eye. It means shear is weak and the column stands upright, so the satellite view alone tells you this is a well-developed typhoon.',
+      readSheared: 'The cloud shield is displaced to one side and the centre is exposed. Winds aloft and below are misaligned, tilting the column — in real satellite reading this shape is the first clue that shear is strong.',
     },
     common: {
       back: '← Discovery',
