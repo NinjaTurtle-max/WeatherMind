@@ -2057,10 +2057,16 @@ const routes = {
     if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
     return [200, boardPuzzlePayload(puzzle)];
   },
+  // 채점도 잠금을 본다(서버와 같다) — 진입만 막으면 attempt를 직접 POST해서
+  // 판정·XP·클리어를 다 받아간다. 목이 이걸 빠뜨리면 스모크가 그 구멍을 못 본다.
   'POST /board/puzzles/:id/attempt': (body, params) => {
     const puzzle = BOARD_PUZZLES.find((p) => p.content_item_id === params?.id);
     if (!puzzle) {
       return [404, { detail: '퍼즐을 찾을 수 없습니다', code: 'PUZZLE_NOT_FOUND' }];
+    }
+    // 잠금은 **판정보다 먼저**(서버와 같은 순서).
+    if (lockedBoardDifficulties().has(puzzle.difficulty ?? 1)) {
+      return [403, { detail: '내 정보에서 학습 수준을 올리면 열려요.', code: 'PUZZLE_LOCKED' }];
     }
     if (!body?.board_state) {
       return [422, { detail: '보드 상태(board_state)가 필요합니다', code: 'BOARD_STATE_REQUIRED' }];

@@ -363,6 +363,12 @@ try {
       /data-board-next[\s\S]{0,240}openPuzzle\(nextPuzzle\)/.test(src),
       '「다음 퍼즐 →」이 openPuzzle(상세 진입 게이트)을 타지 않는다(CO-K5 우회)',
     );
+    // 그리고 **잠긴 칸을 건너뛴다**(2026-08-10). 바로 다음 칸을 집으면 밴드
+    // 경계(초등 23번·중고등 36번)를 깬 사람이 상 대신 403 에러를 받는다.
+    assert(
+      /const nextPuzzle =[\s\S]{0,220}!p\.locked/.test(src),
+      '「다음 퍼즐 →」이 잠긴 칸을 건너뛰지 않는다',
+    );
   });
 
   // ── 6. CO-K7: 자유 실험은 마운트 즉시 자동 스크롤하지 않는다 ──────────────
@@ -399,6 +405,10 @@ try {
   //   ② 서버가 실제로 막는다(403 PUZZLE_LOCKED) — 화면만 막으면 주소창으로 뚫린다
   //   ③ **수준을 바꾸면 그 자리에서 열린다** — 여는 통로가 없으면 벽이다
   await scenario('학습 수준 잠금: 잠긴 칸은 상세를 안 부르고, 수준을 올리면 열린다', async () => {
+   // 목의 학령은 프로세스 전역이라 **실패해도** 원복해야 한다. 원복을 본문
+   // 끝에 두면 단정 하나가 터진 순간 목이 elementary/adult로 남고, 뒤에 붙는
+   // 시나리오가 엉뚱한 이유로 실패한다(2026-08-10 코드 리뷰).
+   try {
     await api('POST', '/dev/clouds', { clouds: 5 });
     const before = await api('PATCH', '/auth/me', { level_group: 'middle_high' });
     assert(before.status === 200, `학령 설정 실패 (${before.status})`);
@@ -414,6 +424,13 @@ try {
     const blocked = await api('GET', `/board/puzzles/${hard.content_item_id}`);
     assert(blocked.status === 403 && blocked.body?.code === 'PUZZLE_LOCKED',
       `잠긴 난이도 상세는 403 PUZZLE_LOCKED여야 함 — 실제 ${blocked.status} ${blocked.body?.code}`);
+    // 진입만 막으면 채점을 직접 불러 판정·XP·클리어를 다 받아간다(2026-08-10
+    // 코드 리뷰에서 실제로 뚫려 있었다) — attempt도 같은 403이어야 한다.
+    const graded = await api('POST', `/board/puzzles/${hard.content_item_id}/attempt`, {
+      board_state: { elements: [] },
+    });
+    assert(graded.status === 403 && graded.body?.code === 'PUZZLE_LOCKED',
+      `잠긴 퍼즐 채점도 403이어야 함 — 실제 ${graded.status} ${graded.body?.code}`);
 
     // ① 화면: 잠긴 칸은 비활성이고 눌러도 요청이 안 나간다
     const hardTitle = hard.template_json?.title ?? hard.template_json?.question_text ?? '';
@@ -447,10 +464,9 @@ try {
       '초등인데 보통이 열려 있다');
     assert(elem.body.filter((p) => p.difficulty === 1).every((p) => !p.locked),
       '초등인데 쉬움이 잠겼다');
-
-    // 목의 학령은 프로세스 전역이라 원복한다 — 뒤에 붙는 시나리오가 잠긴 판을
-    // 물려받으면 그쪽이 엉뚱한 이유로 터진다.
+   } finally {
     await api('PATCH', '/auth/me', { level_group: 'middle_high' });
+   }
   });
 
 } finally {

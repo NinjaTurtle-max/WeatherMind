@@ -233,6 +233,41 @@ def test_진도는_잠금을_바꾸지_않는다():
     )
 
 
+ROUTER_SRC = (
+    Path(__file__).resolve().parents[1] / "app" / "routers" / "board.py"
+).read_text(encoding="utf-8")
+
+
+def _func_block(name: str) -> str:
+    """`async def <name>(`부터 다음 최상위 정의 직전까지 (test_r10_energy_contract 관례)."""
+    start = ROUTER_SRC.index(f"async def {name}(")
+    rest = ROUTER_SRC[start:]
+    end = re.search(r"\n(?:@router|async def |def )", rest[1:])
+    return rest[: end.start() + 1] if end else rest
+
+
+@pytest.mark.parametrize(
+    "func,must_precede",
+    [
+        # 진입: 구름 검사보다 **먼저** — 순서가 바뀌면 잔량 0인 사람이
+        # "구름이 없어서"라는 틀린 이유를 듣는다.
+        ("get_puzzle_detail", "require_entry"),
+        # 채점: 판정보다 **먼저**. 진입만 막으면 attempt를 직접 POST해서 판정·XP·
+        # 왕관·클리어 기록을 다 받아간다 — 잠금이 화면 장식이 된다
+        # (2026-08-10 코드 리뷰에서 실제로 뚫려 있던 구멍).
+        ("attempt_puzzle", "evaluate_board_answer"),
+    ],
+)
+def test_잠금은_진입과_채점_양쪽에_먼저_걸린다(func, must_precede):
+    block = _func_block(func)
+    assert "locked_difficulties(user.level_group)" in block, (
+        f"{func}에 학습 수준 잠금 검사가 없다"
+    )
+    assert block.index("locked_difficulties") < block.index(must_precede), (
+        f"{func}: 잠금 검사가 {must_precede}보다 뒤에 있다"
+    )
+
+
 def test_밴드_표가_users_level_group_CHECK와_같다():
     """모델 CHECK 제약이 허용하는 밴드는 전부 표에 있어야 한다 — 빠지면 그 밴드
     유저가 조용히 DEFAULT(전부 열림)로 떨어져 잠금이 무력해진다."""

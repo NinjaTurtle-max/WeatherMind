@@ -401,6 +401,19 @@ async def attempt_puzzle(
 ) -> BoardAttemptResult:
     item = await _load_puzzle_or_404(db, content_item_id)
 
+    # 잠금은 **채점에도 걸린다**(2026-08-10 코드 리뷰). 진입(GET)만 막아 두면
+    # attempt를 직접 POST해서 판정·XP·왕관·클리어 기록을 다 받아갈 수 있다 —
+    # 진입 게이트가 지키려던 것이 통째로 새는 구멍이다. 판정 **전에** 막는다.
+    locked = locked_difficulties(user.level_group)
+    if board_difficulty(item.template_json, item.level_group) in locked:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "detail": "내 정보에서 학습 수준을 올리면 열려요.",
+                "code": "PUZZLE_LOCKED",
+            },
+        )
+
     cleared = await _cleared_item_ids(db, user)
     template = item.template_json or {}
     question = {**template, "question_type": "board", "concept_tag": item.concept_tag}
@@ -430,8 +443,8 @@ async def attempt_puzzle(
             0, min(energy_service.CLOUD_COST, state["clouds"] - clouds_remaining)
         )
 
-    # 최초 클리어만 +5 XP (재도전 0). 클리어 여부는 기존 board 로그로 판별.
-    # 위 잠금 검사에서 이미 조회했다 — 같은 트랜잭션에서 두 번 돌 이유가 없다.
+    # 최초 클리어만 +5 XP (재도전 0). 클리어 여부는 기존 board 로그로 판별 —
+    # 위에서 `_cleared_item_ids`로 한 번 조회했으니 같은 트랜잭션에서 두 번 돌지 않는다.
     already_cleared = item.id in cleared
     xp_earned = board_clear_xp(passed, already_cleared)
     if xp_earned:

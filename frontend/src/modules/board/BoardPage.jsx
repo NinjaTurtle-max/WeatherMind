@@ -227,7 +227,12 @@ export default function BoardPage() {
   const selectedIndex = selected
     ? list.findIndex((p) => p.content_item_id === selected.content_item_id)
     : -1;
-  const nextPuzzle = selectedIndex >= 0 ? (list[selectedIndex + 1] ?? null) : null;
+  // 잠긴 칸은 **건너뛴다**(2026-08-10 코드 리뷰). 바로 다음 칸을 집으면 밴드
+  // 경계에 선 사람(초등의 23번, 중·고등의 36번)이 클리어한 순간 403이 나는
+  // 「다음 퍼즐 →」을 받는다 — 상 대신 빨간 에러가 뜬다. 뒤가 전부 잠겼으면
+  // null이고, 그때는 「마지막 퍼즐까지 마쳤어요」가 뜬다(lastPuzzleDone).
+  const nextPuzzle =
+    selectedIndex >= 0 ? (list.slice(selectedIndex + 1).find((p) => !p.locked) ?? null) : null;
 
   if (isLoading) return <LoadingSpinner label={t('board.page.loading')} />;
 
