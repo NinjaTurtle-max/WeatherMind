@@ -68,14 +68,25 @@ export default function ProgressPage() {
     // ⚠️ **한 번만 맞추면 안 된다.** 목표 카드는 페이지 꼬리에 있고 그 위 능력
     // 분석은 조회가 끝나야 키가 정해진다 — 먼저 맞춰 놓으면 뒤늦게 자란 만큼
     // 카드가 아래로 밀린다(실측 2026-08-11: 화면 맨 밑단까지 내려갔다).
-    // 문서가 자랄 때마다 다시 맞추되 2초 뒤에는 손을 뗀다 — 그 뒤의 스크롤은
-    // 사용자 것이고, 읽는 중에 화면이 튀면 그게 더 나쁘다.
+    //
+    // 창은 **마지막으로 자란 때**부터 잰다(2026-08-11 코드 리뷰). 마운트부터
+    // 2초로 재면 느린 조회(/progress/mastery가 이 앵커 위에 있다)가 2초를 넘겨
+    // 도착했을 때 이미 관측을 끊은 뒤라, 막으려던 그 증상이 그대로 난다.
+    // 대신 총 10초 상한을 둔다 — 계속 움직이는 요소가 하나라도 있으면 관측이
+    // 영영 안 끝나고, 읽는 중에 화면이 튀는 쪽이 더 나쁘다.
     if (typeof ResizeObserver !== 'function') return undefined;
-    const observer = new ResizeObserver(align);
+    let quiet;
+    const observer = new ResizeObserver(() => {
+      align();
+      clearTimeout(quiet);
+      quiet = setTimeout(() => observer.disconnect(), 2000);
+    });
     observer.observe(document.body);
-    const stop = setTimeout(() => observer.disconnect(), 2000);
+    quiet = setTimeout(() => observer.disconnect(), 2000);
+    const cap = setTimeout(() => observer.disconnect(), 10_000);
     return () => {
-      clearTimeout(stop);
+      clearTimeout(quiet);
+      clearTimeout(cap);
       observer.disconnect();
     };
   }, [hash]);
@@ -141,9 +152,13 @@ export default function ProgressPage() {
             <BadgeCollection collapsed={collapsed} />
           </div>
           {/* order-7 — lg에서는 왼쪽 열 3번째지만, 1열로 쌓이는 좁은 화면에서는
-              **맨 뒤**로 보낸다. 학습 지역은 설정이라 학습 수준·하루 목표와
-              붙어 있어야 하고, 배지와 스파인 사이에 끼면 「나」와 「할 일」
-              사이에 설정이 하나 박힌 꼴이 된다(2026-08-11 코드 리뷰). */}
+              **이 격자의 맨 뒤**로 보낸다. 배지와 스파인 사이에 끼면 「나」와
+              「할 일」 사이에 설정이 하나 박힌 꼴이 된다(2026-08-11 코드 리뷰).
+              ⚠️ 그렇다고 학습 수준·하루 목표와 **붙지는 않는다** — 그 둘은 격자
+              바깥이고 사이에 능력 분석 판이 있다. 설정 셋을 한 덩어리로 모으려면
+              카드를 격자 밖으로 빼야 하는데, 그러면 lg에서 왼쪽 열의 빈자리를
+              메우지 못한다(이 이동의 목적이 그것이었다). 여기서 얻는 것은
+              「중간에 안 낀다」까지다. */}
           <div className="order-7 lg:order-none">
             <RegionCard />
           </div>
@@ -188,8 +203,13 @@ export default function ProgressPage() {
           지워지는 버튼이 된다. 학습 수준 카드와 같이 **늘 떠 있는 설정**으로 둔다
           (picker가 현재 선택을 강조하고 저장 문구도 스스로 띄운다).
           진행도 표시(DailyGoalMeter)는 걷었다 — /learn 배너와 세션 완료 화면이
-          같은 값을 이미 보여준다. */}
-      <DailyGoalPicker id={GOAL_ANCHOR} className="mt-4 scroll-mt-4" />
+          같은 값을 이미 보여준다.
+
+          ⚠️ `me`는 **기다린다**(LevelGroupCard와 같은 이유). 조회 전에 그리면
+          현재값을 모르는 채로 아무것도 강조되지 않아, 이미 9문항으로 정해 둔
+          사람이 「미설정」으로 읽고 모르게 덮어쓴다. 저장 뒤에는 `me`가 그대로
+          참이라 카드도 그대로 남는다 — 위 ⚠️와 충돌하지 않는다. */}
+      {me && <DailyGoalPicker id={GOAL_ANCHOR} className="mt-4 scroll-mt-4" />}
     </div>
   );
 }

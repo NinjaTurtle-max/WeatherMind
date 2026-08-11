@@ -297,13 +297,24 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   // 목표 설정 카드 — /learn 배너의 「목표 미설정」이 겨냥하는 **앵커가 실재하는가**.
   // 위 ④는 href만 본다: 링크가 `#daily-goal`을 가리켜도 그런 id가 없으면
   // 브라우저는 페이지 맨 위에 그냥 떨어뜨린다(끊긴 통로가 초록으로 통과한다).
-  ok(Boolean($('#daily-goal')), '내 정보에 목표 설정 카드(#daily-goal)가 없다');
-  // **저장해도 사라지지 않는다.** 미설정일 때만 띄우면 저장 성공 순간 카드가
-  // 언마운트돼 확인 문구를 아무도 못 본다(2026-08-11 코드 리뷰).
-  const goalBtn = $$('#daily-goal button')[1];
-  ok(Boolean(goalBtn), '목표 선택 버튼이 없다');
-  goalBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
-  await waitFor(() => text().includes('오늘부터 하루'), 6000, '목표 저장 확인 문구');
+  await waitFor(() => $('#daily-goal') !== null, 6000, '목표 설정 카드(#daily-goal)');
+
+  // **저장해도 사라지지 않는다** + **확인 문구가 이번 저장에만 뜬다**.
+  //
+  // ⚠️ 이 검사는 한 번 **헛돌았다**(2026-08-11 코드 리뷰). 위 ④에서 이미 목표를
+  // 5로 저장해 목이 그 값을 들고 있어서, `waitFor(확인 문구)`가 클릭과 무관하게
+  // 0ms에 통과했다. 계측해 보니 클릭 **전에** 이미 확인 문구가 떠 있었다.
+  // 그래서 순서를 뒤집는다: 새로 연 /me에는 확인 문구가 **없어야** 하고(방금
+  // 저장한 게 아니다), **다른 값**을 눌러야 그 값으로 뜬다.
+  ok(
+    !text().includes('오늘부터 하루'),
+    '아무것도 안 눌렀는데 저장 확인 문구가 떠 있다(이미 정해 둔 사람에게 매번 뜬다)',
+  );
+  // ④가 5문항으로 저장해 뒀다 — 겹치지 않게 9문항(세 번째 버튼)을 누른다.
+  const goalBtns = $$('#daily-goal button');
+  ok(goalBtns.length === 3, `목표 선택 버튼 3개 — 실제 ${goalBtns.length}`);
+  goalBtns[2].dispatchEvent(new window.Event('click', { bubbles: true }));
+  await waitFor(() => text().includes('하루 9문항'), 6000, '9문항 저장 확인 문구');
   ok(Boolean($('#daily-goal')), '저장 직후 목표 카드가 사라졌다(확인 문구를 볼 수 없다)');
 
   r.unmount();

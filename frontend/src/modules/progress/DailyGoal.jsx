@@ -91,7 +91,12 @@ export function DailyGoalPicker({ onSaved, className = '', id }) {
         })}
       </div>
 
-      {selected != null && !mutation.isError && (
+      {/* 확인 문구는 **이번에 저장했을 때만**(2026-08-11 코드 리뷰). 종전 조건은
+          「선택값이 있으면」이라 이미 목표를 정해 둔 사람이 내 정보를 열 때마다
+          「좋아요 — 오늘부터 하루 N문항이 목표예요」가 떴다. 아무것도 안 했는데
+          방금 저장한 것처럼 말하는 문구다. 배치고사 직후 화면에서는 그 자리에서
+          누르므로 동작이 같다(누르면 뜬다). 현재값은 버튼 강조가 말한다. */}
+      {mutation.isSuccess && selected != null && (
         <p className="mt-2 text-xs font-bold text-sky-700">
           {t('dailyGoal.saved', { items: selected })}
         </p>
