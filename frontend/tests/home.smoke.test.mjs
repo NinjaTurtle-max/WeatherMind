@@ -147,7 +147,12 @@ const ok = (cond, label) => {
 // CO-N-1 ②(2026-08-08): 「탐구」(/explore)가 6탭 어디에도 없어 URL을 손으로 쳐야
 // 도달했다 — 심사 배점 ②가 가리키는 화면이라 내비에 세웠다.
 // 2026-08-09: 「홈」이 빠져 7 → 6.
-ok(NAV_ITEMS.length === 6, `내비 항목 6개 — 실제 ${NAV_ITEMS.length}`);
+// 2026-08-11: 예보 대결 + 리그를 한 화면으로 합쳐 6 → 5.
+ok(NAV_ITEMS.length === 5, `내비 항목 5개 — 실제 ${NAV_ITEMS.length}`);
+// 리그는 내비에서 빠졌지만 **도달 가능해야 한다** — 탭바가 유일한 통로다.
+// CO-N-1 ②(탐구가 내비 어디에도 없어 URL을 손으로 쳐야 했다)와 같은 종류의
+// 사고를 여기서 되풀이하지 않기 위한 단정이다.
+ok(!NAV_ITEMS.some((i) => i.to === '/league'), '리그가 아직 내비에 남아 있다(합친 의미가 없다)');
 ok(NAV_ITEMS.some((i) => i.to === '/explore'), '내비에 /explore가 없다(CO-N-1 ②)');
 ok(NAV_ITEMS[0].to === '/learn', `첫 항목이 학습 — 실제 ${NAV_ITEMS[0].to}`);
 ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — 홈 화면은 삭제됐다');
@@ -162,7 +167,7 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   // 탭바·사이드바가 같은 목록을 쓴다(둘 다 DOM에 있다 — CSS로만 갈린다)
   const tabs = $$('[data-testid="tabbar"] a');
   const sides = $$('[data-testid="sidenav"] nav a');
-  ok(tabs.length === 6 && sides.length === 6, `탭바 6 · 사이드바 6 — 실제 ${tabs.length}/${sides.length}`);
+  ok(tabs.length === 5 && sides.length === 5, `탭바 5 · 사이드바 5 — 실제 ${tabs.length}/${sides.length}`); // 2026-08-11 대결+리그 합침
   const hrefs = (els) => els.map((a) => a.getAttribute('href')).join(',');
   ok(hrefs(tabs) === hrefs(sides), `두 내비의 목적지가 같다 — ${hrefs(tabs)}`);
 

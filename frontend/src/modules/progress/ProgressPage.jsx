@@ -24,9 +24,10 @@ import { useT } from '../../i18n';
  * 패널 상단에 배치고사 진입 배너를 띄운다(true 또는 부재 시 미렌더).
  * 이미 완료한 사용자가 진입해도 PlacementPage의 409 방어가 홈으로 돌려보낸다.
  *
- * R8-01 §3.7④ — 스파인 카드: /progress/me의 spine(§3.3)으로 유닛 진도율·왕관·
- * current_unit을 보여주고 "이어서 학습"으로 해당 유닛 세션에 바로 진입시킨다.
- * 제품 결정(§1) "유닛 진척 1순위"에 따라 프로필 헤더 바로 아래 배치.
+ * ⚠️ R8-01 §3.7④의 **스파인 카드(「학습 진도」)는 2026-08-11에 뺐다**(사용자 지시).
+ * 유닛 진도율·왕관·「이어서 학습」은 /learn이 경로 트랙과 진입 배너로 이미 전부
+ * 말한다 — 여기 있던 것은 같은 말의 두 번째 사본이었다. 요약(🎓 클리어 유닛 ·
+ * 👑 획득 왕관)은 프로필 4칸 지표가 계속 들고 있으므로 `me.spine`은 아직 쓴다.
  *
  * R10-01 §3.4 (S4 — R10-D·R10-F):
  * - 하루 목표 **선택**(배치고사를 건너뛴 사용자 보정) — 페이지 꼬리의 설정 자리.
@@ -191,14 +192,15 @@ export default function ProgressPage() {
           </div>
         </div>
 
-        {/* 오른쪽 열 — "할 일" */}
+        {/* 오른쪽 열 — "할 일".
+            2026-08-11(사용자 지시): 「학습 진도」(SpineCard)를 뺐다. 유닛 진도·
+            왕관·이어서 학습은 /learn 화면이 경로 트랙과 진입 배너로 전부 말하고
+            있어, 여기서는 같은 말을 한 번 더 하는 카드였다. 프로필 4칸 지표의
+            🎓 클리어 유닛·👑 획득 왕관이 요약은 계속 들고 있다.
+            빠진 만큼 두 열의 끝이 어긋난다 — 높이는 카드를 늘여 맞추지 않고
+            **학습 지역을 왼쪽으로 돌려** 맞췄다(위 order-7). 빈 카드를 늘이면
+            안에 든 것 없이 흰 여백만 커진다. */}
         <div className="contents lg:flex lg:flex-col lg:gap-4">
-          {/* 스파인 카드 (R8-01 §3.7④) — spine 부재(구 백엔드) 시 미렌더 */}
-          {me?.spine && (
-            <div className="order-3 lg:order-none">
-              <SpineCard spine={me.spine} />
-            </div>
-          )}
           <div className="order-5 lg:order-none">
             <QuestList collapsed={collapsed} />
           </div>
@@ -572,79 +574,6 @@ function GoalRow({ icon, title, now, target, unit, chip }) {
       <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
         {chip}
       </span>
-    </div>
-  );
-}
-
-/**
- * SpineCard — 스파인 집계(§3.3) 렌더: 유닛 진도율 바 + 왕관 + current_unit.
- * current_unit이 있으면 "이어서 학습" CTA로 /learn/units/{slug} 세션에 진입,
- * 전 유닛 클리어(current_unit=null)면 완주 상태를 보여준다.
- */
-function SpineCard({ spine }) {
-  const t = useT();
-  const total = spine.units_total ?? 0;
-  const cleared = spine.units_cleared ?? 0;
-  const ratio = total > 0 ? Math.round((cleared / total) * 100) : 0;
-  const current = spine.current_unit;
-
-  return (
-    // 바깥 여백은 배치하는 쪽(grid gap)이 갖는다 — mb-4를 여기 두면 gap과 겹쳐
-    // 이 카드 아래만 32px가 된다(2열 개편 전 세로 스택 시절의 잔재였다).
-    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-extrabold text-slate-900">{t('profile.spineTitle')}</p>
-        <p className="text-xs font-bold text-amber-500">
-          👑 {spine.crowns_earned ?? 0}
-          <span className="font-medium text-amber-400">/{spine.crowns_total ?? 0}</span>
-        </p>
-      </div>
-
-      <div className="mt-3 flex items-center gap-2">
-        <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-sky-400 to-sky-500 transition-all duration-500"
-            style={{ width: `${ratio}%` }}
-          />
-        </div>
-        <p className="shrink-0 text-xs font-bold text-slate-600 tabular-nums">
-          {t('profile.spineProgress', { cleared, total, ratio })}
-        </p>
-      </div>
-
-      {current ? (
-        <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-sky-50 px-3 py-2.5 ring-1 ring-sky-100">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-sky-500">{t('profile.spineCurrentLabel')}</p>
-            <p className="truncate text-sm font-bold text-sky-900">{current.title}</p>
-          </div>
-          <Link
-            to={`/learn/units/${current.slug}`}
-            className="shrink-0 rounded-xl bg-sky-600 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-sky-700"
-          >
-            {t('profile.spineContinue')}
-          </Link>
-        </div>
-      ) : total > 0 && cleared >= total ? (
-        <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-center text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
-          {t('profile.spineAllCleared')}
-        </p>
-      ) : (
-        // CO-S-7 — `current_unit=null`의 원인은 **둘**이다. 서버 독스트링
-        // (`curriculum_service.build_spine`)이 *"전부 클리어 **또는** 전부 잠금이면
-        // None"*이라고 명시하는데, 프론트는 한 갈래로 접어 `0/20 · 0%`인 화면에도
-        // "🌈 열린 유닛을 모두 클리어했어요!"를 띄웠다. 유닛 미시드·전건 잠금에서
-        // 발현한다. cleared가 total에 못 미치면 완주가 아니라 **열린 게 없는** 것이다.
-        <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 text-center ring-1 ring-slate-200">
-          <p className="text-xs font-bold text-slate-600">{t('profile.spineNoneOpen')}</p>
-          <Link
-            to="/learn"
-            className="mt-1.5 inline-block text-xs font-bold text-sky-700 underline underline-offset-4 hover:text-sky-900"
-          >
-            {t('profile.spineStart')}
-          </Link>
-        </div>
-      )}
     </div>
   );
 }

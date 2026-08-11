@@ -226,17 +226,25 @@ export default function WeatherBrainPanel() {
           막대는 개념을 **하나씩** 읽게 하고 레이더는 **치우침**을 한 번에 보여준다.
           둘은 같은 데이터의 다른 질문이라 겹치는 게 아니다.
           개념 3종 미만이면 AbilityRadar가 스스로 null이라 자리째 빠진다 —
-          다각형이 안 그려지는데 빈 칸을 남기면 "고장"으로 읽힌다. */}
-      <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
+          다각형이 안 그려지는데 빈 칸을 남기면 "고장"으로 읽힌다.
+
+          2026-08-11(사용자 지시): 나란히(레이더 | 막대)에서 **위아래**로 바꾸고
+          레이더를 키웠다(150 → 224px). 옆에 두면 레이더가 열 폭의 3분의 1을
+          먹어 막대가 짧아지는데, 정작 레이더는 작아서 치우침이 안 읽혔다.
+          위로 올리면 레이더는 열 폭만큼 커지고 막대도 폭을 다 쓴다.
+          간격(mt-3·gap-2.5)은 오른쪽 숙련도 목록과 같은 값이다 — 두 열의 줄이
+          같은 리듬으로 내려가야 한 카드로 읽힌다. */}
+      <div className="mt-3 flex justify-center">
         <AbilityRadar
           abilities={(Array.isArray(data) ? data : []).map((a) => ({
             concept_tag: a.concept_tag,
             theta: a.theta,
             level_label: a.level_label,
           }))}
-          className="h-[150px] w-[150px]"
+          className="h-[224px] w-[224px]"
         />
-      <ul className="flex min-w-0 flex-1 flex-col gap-2.5">
+      </div>
+      <ul className="mt-3 flex min-w-0 flex-col gap-2.5">
         {rows.map((row) => (
           <li
             key={row.name}
@@ -283,7 +291,6 @@ export default function WeatherBrainPanel() {
           </li>
         ))}
       </ul>
-      </div>
       </div>
 
       <div className="border-t border-slate-100 pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">

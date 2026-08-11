@@ -4,21 +4,29 @@ import { duelApi } from '../../api';
 import { useProgressStore } from '../../store/progressStore';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ForecastForm from '../../components/ForecastForm';
-import BriefingRoom from './BriefingRoom';
+import CompeteLayout from '../compete/CompeteLayout';
 import EvidencePicker from './EvidencePicker';
 import CasterJudgmentCard, { CasterGradeBadge } from './CasterJudgmentCard';
 import { evidenceMeta } from './briefingDisplay';
 import { useT } from '../../i18n';
 
 /**
- * DuelPage (R4-01 S4 → R9-01 S4 브리핑 룸 개편) — "예보 대결" 탭.
- * 미제출: 브리핑(차트 3종+보조) → 판단 근거 선택 → 예측 입력.
- * 제출됨: 내 예보 vs AI 예측 공개 + "AI 캐스터의 판단" 3단계 카드(§3.4 ④).
- * 정산 완료: 승패·점수·근거 적중 해설(evidence_review). 이력 행은 정산분에
- * 한해 근거 해설을 펼쳐볼 수 있다.
+ * DuelPage (R4-01 S4 → R9-01 S4 브리핑 룸 개편) — "예보 대결" **탭**.
+ * 미제출: 판단 근거 선택 → 예측 입력. 제출됨: 내 예보 vs AI 예측 공개 +
+ * "AI 캐스터의 판단" 3단계 카드(§3.4 ④). 정산 완료: 승패·점수·근거 적중
+ * 해설(evidence_review). 이력 행은 정산분에 한해 근거 해설을 펼쳐볼 수 있다.
+ *
+ * 2026-08-11(사용자 지시): 리그와 **한 화면으로 합쳤다**. 껍데기(탭바·왼쪽 실황
+ * 브리핑·2열 골격)는 `CompeteLayout`이 소유하고, 이 파일은 **오른쪽 열과 하단**만
+ * 그린다. 브리핑 쿼리도 그쪽으로 옮겼다 — 여기서 다시 걸면 소유자가 둘이 된다.
+ *
+ * ⚠️ 브리핑은 이제 **제출 후에도 왼쪽에 남는다.** 종전에는 제출하면 브리핑을
+ * 통째로 감추고 결과를 좁은 단을 만들어 가운데 놓았는데(`narrow`), 합친 화면에서는
+ * 왼쪽이 두 탭 공통 고정이라 그 분기가 성립하지 않는다. 결과를 보면서 근거였던
+ * 자료를 되짚을 수 있으니 잃는 것도 없다.
  *
  * degraded(§3.4): briefing이 비어도(KMA 키 부재) 예측 입력은 그대로 가능.
- * 화면 상태: LOADING → ERROR(재시도) → OPEN(브리핑+근거+폼) / SUBMITTED(공개) / SETTLED(결과).
+ * 화면 상태: LOADING → ERROR(재시도) → OPEN(근거+폼) / SUBMITTED(공개) / SETTLED(결과).
  */
 
 // 결과 라벨은 duel.result.* 리소스(i18n) — 여기는 아이콘·색만.
@@ -43,13 +51,8 @@ export default function DuelPage() {
     retry: 1,
   });
 
-  // 브리핑 자료(§3.1) — 실패해도 예측 플로우는 막지 않는다(degraded)
-  const briefingQ = useQuery({
-    queryKey: ['duel', 'briefing'],
-    queryFn: duelApi.fetchDuelBriefing,
-    retry: 1,
-    staleTime: 60_000,
-  });
+  // 브리핑 자료(§3.1)는 **CompeteLayout이 소유한다** — 두 탭이 같은 자료를
+  // 보므로 껍데기가 한 번만 부른다(2026-08-11).
 
   const historyQ = useQuery({
     queryKey: ['duel', 'history'],
@@ -111,116 +114,77 @@ export default function DuelPage() {
   const toggleEvidence = (code) =>
     setEvidence((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
 
-  // 넓은 셸(Layout의 md:max-w-6xl)은 **미제출 2열 브리핑을 위한 것**이다. 제출
-  // 후에는 결과도 이력도 1열이라 그 폭을 그대로 받으면 「내 예보 28℃」 한 칸이
-  // 535px가 된다(1440 실측). 셸은 경로로만 폭을 정해 제출 여부를 모르므로 여기서
-  // 되돌린다 — 결과 카드와 이력이 **같은 폭**이어야 아래위가 어긋나 보이지 않는다.
-  const narrow = submitted ? 'mx-auto w-full max-w-3xl' : '';
-
   return (
-    <div className="pt-2">
+    <CompeteLayout
+      tab="/duel"
+      title={t('duel.title')}
+      subtitle={`${today?.duel_date ? `${today.duel_date} · ` : ''}${t('duel.subtitle')}`}
+      headerRight={today?.caster_grade && <CasterGradeBadge grade={today.caster_grade} />}
+      below={
+        <>
+          <h2 className="mb-2 text-base font-extrabold text-slate-900">{t('duel.historyTitle')}</h2>
+          {historyQ.isLoading ? (
+            <LoadingSpinner label={t('duel.historyLoading')} />
+          ) : history.length === 0 ? (
+            <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
+              {t('duel.historyEmpty')}
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {history.map((d, i) => (
+                <DuelHistoryRow key={d.duel_date ?? i} duel={d} />
+              ))}
+            </ul>
+          )}
+        </>
+      }
+    >
       {toast && (
         <div className="fixed left-[calc(50%_+_var(--wm-shell-left)/2)] top-16 z-50 -translate-x-1/2 animate-toast-pop rounded-full bg-emerald-500 px-4 py-2 text-sm font-bold text-white shadow-lg">
           {toast}
         </div>
       )}
 
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <h1 className="text-lg font-extrabold text-slate-900">{t('duel.title')}</h1>
-        {today?.caster_grade && <CasterGradeBadge grade={today.caster_grade} />}
-      </div>
-      <p className="mb-4 text-sm text-slate-500">
-        {today?.duel_date ? `${today.duel_date} · ` : ''}
-        {t('duel.subtitle')}
-      </p>
-
       {submitted ? (
-        <div className={narrow}>
+        <>
           <DuelResultCard duel={today} />
           <CasterJudgmentCard
             baseForecast={today?.base_forecast}
             aiPred={today?.ai_pred}
             casterGrade={today?.caster_grade}
           />
-        </div>
+        </>
       ) : (
-        // 자료(왼쪽) ↔ 판단·제출(오른쪽) 2열 — 세로로 쌓으면 브리핑 차트 5종을 다
-        // 스크롤해 내려가야 입력칸이 나오고, 값을 채우는 동안에는 근거가 된 차트가
-        // 화면 밖이라 되짚어 올라가야 했다. 나란히 두면 보면서 채운다.
-        // lg 미만에서는 그대로 1열 — 브리핑 → 근거 → 폼이 읽는 순서다.
-        // grid-cols-[minmax(0,1fr)]는 장식이 아니다 — 격자 항목은 기본이
-        // min-width:auto라 브리핑 안의 하늘 타임라인(8칸 × 52px = 444px, 자체
-        // overflow-x-auto로 가로 스크롤하게 돼 있다)이 카드를 밀어 올린다.
-        // 390px에서 카드가 476px가 되어 페이지에 가로 스크롤이 생겼다(실측).
-        // lg:grid-cols-2는 Tailwind가 이미 minmax(0,1fr)로 깔아 준다.
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-2">
-          {/* 브리핑도 감싸 둔다 — 격자 항목은 기본이 stretch라 카드가 오른쪽 열
-              높이까지 늘어난다. 차트가 다 있을 땐 왼쪽이 더 길어 티가 안 나지만,
-              KMA 키가 없어 「실황 자료 수신 대기」 한 장만 뜨는 degraded에서는
-              빈 흰 상자가 570px 늘어난다(실측). 감싸면 늘어나는 건 이 div이고
-              카드는 제 높이를 지킨다. */}
-          <div>
-            <BriefingRoom
-              briefing={briefingQ.data}
-              loading={briefingQ.isLoading}
-              error={briefingQ.isError}
-            />
-          </div>
-          {/* 오른쪽 열은 sticky다. 브리핑이 두 배 넘게 길어(1440 실측 940px ↔
-              615px) 아래쪽 차트를 보러 내려가면 입력칸이 화면 밖으로 나간다 —
-              나란히 놓은 이유가 사라진다. 바깥 div가 왼쪽 높이만큼 늘어나 주고
-              (grid 기본 stretch — items-start를 주면 따라 내려올 여백이 없어져
-              sticky가 죽는다) 안쪽이 따라 내려온다. top은 고정 헤더(64px) 아래. */}
-          <div>
-            <div className="flex flex-col gap-3 lg:sticky lg:top-[72px]">
-              <EvidencePicker
-                selected={evidence}
-                onToggle={toggleEvidence}
-                disabled={submitMutation.isPending}
-              />
-              <ForecastForm
-                title={t('duel.form.title')}
-                description={t('duel.form.desc')}
-                notice={
-                  today?.base_forecast &&
-                  t('duel.form.notice', {
-                    max: today.base_forecast.temp_max,
-                    prob: today.base_forecast.rain_prob,
-                  })
-                }
-                fields={[
-                  { name: 'temp_max', label: t('duel.form.tempMax'), step: '0.1' },
-                  { name: 'rain_prob', label: t('duel.form.rainProb'), min: '0', max: '100' },
-                ]}
-                submitLabel={t('duel.form.submit')}
-                onSubmit={(values) => submitMutation.mutate({ ...values, evidence })}
-                submitting={submitMutation.isPending}
-              />
-              {submitError && (
-                <p className="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">{submitError}</p>
-              )}
-            </div>
-          </div>
-        </div>
+        <>
+          <EvidencePicker
+            selected={evidence}
+            onToggle={toggleEvidence}
+            disabled={submitMutation.isPending}
+          />
+          <ForecastForm
+            title={t('duel.form.title')}
+            description={t('duel.form.desc')}
+            notice={
+              today?.base_forecast &&
+              t('duel.form.notice', {
+                max: today.base_forecast.temp_max,
+                prob: today.base_forecast.rain_prob,
+              })
+            }
+            fields={[
+              { name: 'temp_max', label: t('duel.form.tempMax'), step: '0.1' },
+              { name: 'rain_prob', label: t('duel.form.rainProb'), min: '0', max: '100' },
+            ]}
+            submitLabel={t('duel.form.submit')}
+            onSubmit={(values) => submitMutation.mutate({ ...values, evidence })}
+            submitting={submitMutation.isPending}
+          />
+          {submitError && (
+            <p className="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">{submitError}</p>
+          )}
+        </>
       )}
-
-      <div className={narrow}>
-        <h2 className="mb-2 mt-6 text-base font-extrabold text-slate-900">{t('duel.historyTitle')}</h2>
-        {historyQ.isLoading ? (
-          <LoadingSpinner label={t('duel.historyLoading')} />
-        ) : history.length === 0 ? (
-          <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
-            {t('duel.historyEmpty')}
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {history.map((d, i) => (
-              <DuelHistoryRow key={d.duel_date ?? i} duel={d} />
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+    </CompeteLayout>
   );
 }
 

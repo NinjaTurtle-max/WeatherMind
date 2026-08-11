@@ -20,7 +20,12 @@ export const NAV_ITEMS = [
   // 영영 도달 못 하는 화면이었다. 심사 배점 ②의 "변수를 바꿔보며 학습 탐구"에
   // 가장 정확히 대응하는 화면이라 보드 바로 옆에 세운다.
   { to: '/explore', labelKey: 'nav.explore', icon: '🔬' },
+  // 2026-08-11(사용자 지시) — **「예보 대결」과 「리그」를 한 화면으로 합쳤다.**
+  // 두 화면이 같은 자료(오늘의 실황 브리핑)를 보므로 왼쪽 브리핑을 공유하고
+  // 상단 탭바로 오간다(CompeteLayout). 탭이 6 → 5개다.
+  // 항목은 `/duel` 하나만 둔다 — `/league`는 라우트로 살아 있고(딥링크·기존 링크
+  // 무회귀) 탭바가 그리로 가는 유일한 통로다. 둘 다 내비에 두면 "합쳤다"는
+  // 화면이 내비에서는 여전히 둘로 보인다.
   { to: '/duel', labelKey: 'nav.duel', icon: '🌡️' },
-  { to: '/league', labelKey: 'nav.league', icon: '🏆' },
   { to: '/me', labelKey: 'nav.me', icon: '🏅' },
 ];
