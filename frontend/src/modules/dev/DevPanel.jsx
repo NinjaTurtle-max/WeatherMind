@@ -18,7 +18,8 @@ import { CONCEPT_KO } from '../../lib/abilityDisplay';
  */
 
 // 구름 최대치 폴백 — 서버 /dev/state의 max_clouds가 1차 소스(env 튜닝값 추종).
-const CLOUD_MAX_FALLBACK = 10  // 서버 CLOUD_MAX와 같은 값 — /dev/state 응답 전 첫 페인트용;
+// 서버 CLOUD_MAX와 같은 값 — /dev/state 응답 전 첫 페인트용
+const CLOUD_MAX_FALLBACK = 10;
 
 // 조작별 invalidate 대상 (['dev']는 항상 포함 — 패널 인스펙터 갱신)
 const KEYS = {

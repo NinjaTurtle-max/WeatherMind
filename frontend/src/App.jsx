@@ -131,6 +131,10 @@ function GuestIssueRetry({ onRetry }) {
 function RequireAuth() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const [, bump] = useState(0); // 모듈 스코프 플래그가 바뀐 뒤 한 번 다시 그린다
+  // ⚠️ **재시도는 effect 의존성에 있어야 한다.** `bump`만 올리면 리렌더는 되지만
+  // `[accessToken]`이 그대로(null)라 발급 effect가 다시 안 돈다 — 재시도 화면이
+  // 영구 스피너로 바뀌고 사용자가 갇힌다. MT-29가 막으려던 결과 그 자체다.
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
     // 토큰을 한 번이라도 본 순간 "시도 완료"로 못박는다 — 이후 **로그아웃으로
@@ -147,7 +151,7 @@ function RequireAuth() {
       guestFailed = !ok;
       bump((n) => n + 1);
     });
-  }, [accessToken]);
+  }, [accessToken, retryTick]);
 
   if (!accessToken) {
     // 발급이 **실패**했다 → 재시도 화면. 로그인 폼이 아니다(MT-29).
@@ -156,7 +160,7 @@ function RequireAuth() {
         <GuestIssueRetry
           onRetry={() => {
             resetGuestAutoIssue();
-            bump((n) => n + 1);
+            setRetryTick((n) => n + 1); // effect 의존성 — 이것이 실제 재시도를 일으킨다
           }}
         />
       );

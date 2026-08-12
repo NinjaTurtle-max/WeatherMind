@@ -272,13 +272,76 @@ class TestShuffleToolInvariants:
         out = tool.remap_hint(hint, ["A", "B", "C"], ["C", "A", "B"])
         assert out == hint, f"모르는 자리를 임의로 바꿨다: {out}"
 
-    def test_자리가_문항에서_정해진다(self, tool):
-        """파일 순번으로 정하면 항목 하나 추가에 1,000건 중 207건이 재배치된다.
+    def _fixture(self, tmp_path, texts):
+        import json
 
-        같은 문항은 **어느 파일에 있든 어느 위치에 있든** 같은 순서를 받아야,
-        staging 승격이 본시드의 손질을 덮지 않는다.
+        items = [
+            {
+                "concept_tag": "air_mass",
+                "question_type": "multiple_choice",
+                "template_json": {
+                    "question_text": t,
+                    "options": [f"{t}-가", f"{t}-나", f"{t}-다", f"{t}-라"],
+                    "correct_answer": f"{t}-가",
+                },
+            }
+            for t in texts
+        ]
+        path = tmp_path / "items.json"
+        path.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+        return path
+
+    def _orders(self, path):
+        import json
+
+        return {
+            it["template_json"]["question_text"]: it["template_json"]["options"]
+            for it in json.loads(path.read_text(encoding="utf-8"))
+        }
+
+    def test_항목을_추가해도_다른_문항이_안_밀린다(self, tool, tmp_path):
+        """⚠️ **`process`를 실제로 돌려서** 본다.
+
+        종전 판은 `place_answer`에 `target_slot=1`을 직접 넘겨 두 번 부르고 같은
+        결과가 나오는지만 봤다 — 그건 순수 함수의 결정성이라 애초에 의심할 것이
+        없었고, **정작 회귀가 사는 곳(`process`의 자리 배정)은 검사되지 않았다**
+        (코드 리뷰 2026-08-12). 파일 순번으로 배정하면 항목 하나 추가에 1,000건 중
+        207건이 재배치되고, 그 diff 잡음 속에서 손으로 고친 해설이 조용히 되돌아간다.
         """
-        opts = ["가", "나", "다", "라"]
-        first = tool.place_answer(opts, "다", "같은 문항입니다", 1)
-        # 같은 입력이면 몇 번을 불러도 같다(자리는 내부에서 문항 해시로 정한다)
-        assert tool.place_answer(list(opts), "다", "같은 문항입니다", 1) == first
+        texts = [f"문항 {i}" for i in range(12)]
+        path = self._fixture(tmp_path, texts)
+        tool.process(path, write=True, remap_hints=True)
+        before = self._orders(path)
+
+        # **앞쪽에** 새 문항을 끼워 넣는다 — 순번 배정이었다면 뒤가 전부 밀린다
+        import json
+
+        items = json.loads(path.read_text(encoding="utf-8"))
+        items.insert(0, {
+            "concept_tag": "air_mass",
+            "question_type": "multiple_choice",
+            "template_json": {
+                "question_text": "새 문항",
+                "options": ["새-가", "새-나", "새-다", "새-라"],
+                "correct_answer": "새-가",
+            },
+        })
+        path.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+        tool.process(path, write=True, remap_hints=True)
+        after = self._orders(path)
+
+        moved = [t for t in texts if before[t] != after[t]]
+        assert not moved, (
+            f"항목 하나를 추가했는데 기존 {len(moved)}건의 순서가 바뀌었다: {moved[:5]}"
+        )
+
+    def test_같은_문항은_파일이_달라도_같은_순서를_받는다(self, tool, tmp_path):
+        """본시드와 staging에 중복된 문항이 갈리면 승격이 본시드의 손질을 덮는다."""
+        a = self._fixture(tmp_path, ["공통 문항", "A 전용"])
+        (tmp_path / "sub").mkdir()
+        # 파일 크기·구성이 **다르다** — 순번 배정이었다면 공통 문항이 서로 다른
+        # 자리를 받는다(실측 282건 중 214건이 그랬다).
+        b = self._fixture(tmp_path / "sub", ["공통 문항", "B 전용", "B 전용 2"])
+        tool.process(a, write=True, remap_hints=True)
+        tool.process(b, write=True, remap_hints=True)
+        assert self._orders(a)["공통 문항"] == self._orders(b)["공통 문항"]

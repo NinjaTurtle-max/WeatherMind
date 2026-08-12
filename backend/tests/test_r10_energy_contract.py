@@ -889,3 +889,27 @@ class TestSignupStartsFull:
             encoding="utf-8"
         )
         assert "settings.CLOUD_MAX" in dev_src, "리셋 경로가 리터럴을 쓰고 있다"
+
+    def test_마이그레이션도_같은_값을_말한다(self):
+        """모델은 `settings`에서 파생하는데 마이그레이션은 리터럴이라 갈릴 수 있다.
+
+        ⚠️ 위 두 검사는 **모델 ↔ settings**만 본다. `CLOUD_MAX=7`로 배포하면
+        모델 메타데이터는 7인데 마이그레이션이 만든 열은 10이고, 그 어긋남을
+        아무도 못 본다(코드 리뷰 2026-08-12). 파이썬 밖 파일을 파싱해 대조하는
+        것은 이 저장소의 선례다(`test_ci_workflow_contract`·`test_prompt_spec_parity`).
+        """
+        import re
+        from pathlib import Path
+
+        versions = Path(__file__).resolve().parents[1] / "alembic" / "versions"
+        migration = next(versions.glob("*clouds_default*.py"), None)
+        assert migration is not None, "clouds 기본값 마이그레이션을 못 찾았다"
+
+        src = migration.read_text(encoding="utf-8")
+        upgrade = src[src.index("def upgrade"):src.index("def downgrade")]
+        found = re.search(r'server_default="(\d+)"', upgrade)
+        assert found, f"upgrade에서 server_default를 못 읽었다:\n{upgrade}"
+        assert int(found.group(1)) == settings.CLOUD_MAX, (
+            f"마이그레이션은 {found.group(1)}, settings는 {settings.CLOUD_MAX} — "
+            "만렙을 바꾸면 마이그레이션도 함께 고쳐야 한다"
+        )

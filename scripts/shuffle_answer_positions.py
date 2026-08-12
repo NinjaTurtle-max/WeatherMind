@@ -46,11 +46,15 @@ GOLDEN = {"r13_template_proof.json"}
 # 앞 선지들을 가리키는 말 — 자리를 옮기면 뜻이 깨진다. 마지막에 고정한다.
 ANCHOR_LAST = ("둘 다", "모두 아니", "모두 옳", "위의 어느", "해당 없")
 
+# ⚠️ 변형에는 **명사를 넣지 않는다.** 「마지막 선지」처럼 명사를 품은 변형을 두면
+# 아래 `_OPTION_NOUNS` 접미와 겹쳐 「마지막 선지 선지」를 요구하게 되어 **영원히
+# 매칭되지 않는다**(코드 리뷰 2026-08-12). 「①번 선지」류도 변형에 「①」만 두면
+# 치환 결과가 「두 번째번 선지」로 깨지므로 번호형은 「1번」 형태까지 변형에 담는다.
 ORDINAL_VARIANTS = {
-    1: ("첫 번째", "첫번째", "1번", "①"),
-    2: ("두 번째", "두번째", "2번", "②"),
-    3: ("세 번째", "세번째", "3번", "③"),
-    4: ("네 번째", "네번째", "4번", "④", "마지막 선지", "마지막 보기"),
+    1: ("첫 번째", "첫번째", "①번", "1번", "①"),
+    2: ("두 번째", "두번째", "②번", "2번", "②"),
+    3: ("세 번째", "세번째", "③번", "3번", "③"),
+    4: ("네 번째", "네번째", "④번", "4번", "④", "마지막"),
 }
 _SLOT_OF = {v: k for k, vs in ORDINAL_VARIANTS.items() for v in vs}
 
@@ -89,11 +93,17 @@ def _rank(option, question_text: str) -> str:
 def place_answer(options: list, answer, question_text: str, target_slot: int) -> list:
     """정답이 `target_slot`(1-based)에 오도록 배치한다 — 나머지는 내용 해시 순서.
 
-    ⚠️ **왜 순수 해시 셔플로는 부족한가.** 문항마다 독립적으로 섞으면 큰 파일에서는
-    고르지만 **작은 파일에서 우연히 쏠린다** — 실측으로 26건짜리 파일이 한 자리에
-    14건(53.8%)까지 몰렸다. 그 파일만 승격되면 결함이 그대로 남는다. 자리를 파일
-    단위로 **배정**하면 표본이 작아도 균등이 보장되고, 배정 순서 자체를 문항
-    해시로 정하므로 결과는 여전히 결정적·멱등이다.
+    ⚠️ **자리는 문항 해시가 정한다**(`process`가 계산해 넘긴다). 파일 안 순번으로
+    배정하면 균등은 보장되지만 **항목 하나 추가에 뒤가 전부 밀려** 1,000건 중
+    207건이 재배치된다 — 매 배치마다 시드 전체에 diff가 나고 그 잡음 속에서 손으로
+    고친 해설이 조용히 되돌아간다. 그래서 diff 안정성을 택했다.
+
+    **대가를 정직하게 적는다**: 해시 배정은 통계적 균등이라 **작은 파일에서 쏠릴 수
+    있다**(실측 `au1_weather_items.json` 7건 중 57%, `w1_kl4_pm.json` 10건 중 60%).
+    분포 계약이 표본 20건 미만을 건너뛰므로 그 구간은 감시 밖이다. 본시드는 311건
+    이라 25.4%로 고르고, 작은 staging 파일은 승격되면 본시드 안에서 다시 섞인다 —
+    그래서 이 대가를 받아들였다. 균등이 꼭 필요해지면 파일 단위 배정으로 돌아가되
+    diff 폭증을 함께 감수해야 한다.
 
     앵커 선지(「둘 다 아니다」류)는 앞의 선지들을 가리키는 말이라 끝에 고정한다 —
     첫 자리로 가면 가리킬 대상이 없다.
@@ -166,7 +176,26 @@ def hint_contradicts(hint: str, options: list, answer) -> bool:
 
 
 def hint_uses_ordinals(hint: str) -> bool:
+    """해설이 선지를 자리로 가리키는가 — **옮길 수 있는** 형태만 본다."""
     return bool(hint) and bool(_ORDINAL_RE.search(hint))
+
+
+def hint_has_bare_ordinal(hint: str) -> bool:
+    """**옮길 수 없는** 서수가 있는가 — 「두 번째와 세 번째는 각각 …」처럼 명사가 없는 것.
+
+    ⚠️ 이 함수가 없으면 그런 해설이 **조용히 망가진다.** 명사 가드가 붙은
+    `_ORDINAL_RE`는 이런 문장을 못 잡으므로 `hint_uses_ordinals`가 False를 내고,
+    그러면 순서만 바뀌고 해설은 「두 번째」인 채로 남아 다른 선지를 가리킨다.
+    주석에는 "그런 문항은 안 바꾼다"고 적어 놓고 실제로 그렇게 하는 코드가
+    없었다(코드 리뷰 2026-08-12).
+
+    본문의 서수(「두 번째 몫」)와 구분할 방법이 없으므로 **순서를 아예 안 바꾼다** —
+    그러면 해설이 계속 맞는다. 위치가 고르게 퍼지는 이득보다 틀린 해설의 손해가 크다.
+    """
+    if not hint:
+        return False
+    stripped = _ORDINAL_RE.sub("", hint)  # 옮길 수 있는 것은 걷어내고
+    return bool(_BARE_ORDINAL_RE.search(stripped))  # 남은 서수가 있으면 못 옮긴다
 
 
 def process(path: Path, *, write: bool, remap_hints: bool) -> tuple[int, int]:
@@ -180,7 +209,7 @@ def process(path: Path, *, write: bool, remap_hints: bool) -> tuple[int, int]:
 
     # 대상을 먼저 모아 **자리를 균등 배정**한다. 배정 순서는 문항 해시라, 파일 안
     # 순서가 바뀌어도(저작 추가·재정렬) 같은 문항은 같은 자리를 받는다.
-    targets, skipped = [], 0
+    targets, skipped, skipped_bare = [], 0, 0
     for item in items:
         if not isinstance(item, dict) or item.get("question_type") != "multiple_choice":
             continue
@@ -188,7 +217,12 @@ def process(path: Path, *, write: bool, remap_hints: bool) -> tuple[int, int]:
         options, answer = template.get("options"), template.get("correct_answer")
         if not options or answer not in options:
             continue
-        if hint_uses_ordinals(str(template.get("explanation_hint") or "")) and not remap_hints:
+        hint = str(template.get("explanation_hint") or "")
+        # 옮길 수 없는 서수가 있으면 `--remap-hints`가 켜져 있어도 **건너뛴다**.
+        if hint_has_bare_ordinal(hint):
+            skipped_bare += 1
+            continue
+        if hint_uses_ordinals(hint) and not remap_hints:
             skipped += 1
             continue
         targets.append(template)
@@ -216,7 +250,7 @@ def process(path: Path, *, write: bool, remap_hints: bool) -> tuple[int, int]:
         # 위치가 고르게 퍼지는 이득보다 맞힌 학습자에게 틀렸다고 가르치는 손해가
         # 훨씬 크다. 실제로 그 상태로 커밋됐다가 리뷰가 잡았다(2026-08-12).
         if hint_contradicts(new_hint, new_options, answer):
-            skipped += 1
+            skipped_bare += 1  # 사유가 다르다 — 아래 안내 문구가 갈린다
             continue
         if new_hint != hint:
             template["explanation_hint"] = new_hint
@@ -225,7 +259,7 @@ def process(path: Path, *, write: bool, remap_hints: bool) -> tuple[int, int]:
 
     if moved and write:
         path.write_text(json.dumps(items, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return (moved, skipped)
+    return (moved, skipped + skipped_bare)
 
 
 def report(path: Path) -> str:
@@ -281,8 +315,13 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"\n순서 변경 {total_moved}건 · 건너뜀 {total_skipped}건")
     if total_skipped:
-        print("⚠️ 건너뛴 문항은 해설이 선지를 서수로 가리킨다 — --remap-hints로 함께 옮기거나 "
-              "해설을 내용 참조로 고쳐 저작할 것.")
+        # 사유가 둘이고 처방이 다르다 — 하나로 뭉뚱그리면 틀린 안내가 된다.
+        # `--remap-hints`를 이미 켠 사람에게 "그 옵션을 쓰라"고 말하던 문구였다.
+        print("⚠️ 건너뛴 문항은 해설이 선지를 자리로 가리킨다:")
+        print("   · 「세 번째 **선지**」처럼 명사가 붙은 것 → --remap-hints로 함께 옮긴다")
+        print("   · 「두 번째와 세 번째는 각각 …」처럼 명사가 없는 것 → **옮길 수 없다**. "
+              "본문의 서수와 구분이 안 되므로 순서를 바꾸지 않는다. "
+              "해설을 내용 참조로 고쳐 저작하면 다음 실행에서 풀린다.")
     print("⚠️ 골든(r13_template_proof.json)은 제외했다. 템플릿 소스를 고쳤다면 "
           "author_items.py --expand-templates 로 재생성할 것.")
     return 0
