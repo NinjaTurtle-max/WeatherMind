@@ -15,18 +15,21 @@ import { useT } from '../../i18n';
  * 이후 문자열에 숫자가 없을 것**을 단정한다. 이 패널에 무엇을 더 붙이든
  * 2단 힌트 뒤에는 숫자를 넣지 말 것(캐릭터 이름·설명도 마찬가지).
  *
- * 표정 전환: 여섯 마스코트는 "표정 6종"으로 쓰인다(자산 신규 제작 없음).
- * 단계가 오를수록 화자가 바뀌어 "한 걸음 더 들어갔다"가 그림으로도 보인다.
- *   0단(아직 안 봄) 구름이  — 메인 튜터가 권한다
- *   1단(지역 지목)  물방울이 — 보드 담당이 미션을 좁혀 준다
- *   2단(요소 종류)  태양이  — 개념 설명 담당이 마지막 한 걸음을 남긴다
+ * 화자는 **태양이 하나**다(2026-08-11 사용자 지시 — 힌트를 왼쪽 아래로 내리면서
+ * "태양이가 힌트를 말해 주는 것처럼"). 태양이가 보드 담당이다(SideNav
+ * TUTOR_BY_PATH `/board` → sun. 담당표 소유자는 거기다).
+ *
+ * ⚠️ 종전에는 단계마다 화자를 갈랐다(R13-01 §2.6 — 0단 구름이 · 1단 물방울이 ·
+ * 2단 태양이). "한 걸음 더 들어갔다"를 그림으로 보이려던 것인데, 그 대가로
+ * **한 화면에서 말하는 사람이 세 번 바뀌었고** 그중 둘은 다른 화면 담당이었다.
+ * 단계가 올랐다는 것은 「힌트 1:/2:」 번호와 칩이 이미 말한다. 같은 판단을
+ * 학습 세션 피드백(FeedbackPanel)에도 같은 날 적용했다 — 화면 하나에 화자 하나.
  */
-export const HINT_STAGE_MASCOT = Object.freeze(['cloud', 'drop', 'sun']);
+export const HINT_SPEAKER = 'sun';
 
-/** 공개한 힌트 수 → 화자. 범위를 벗어나면 양 끝으로 고정한다. */
-export function hintStageMascot(level) {
-  const i = Math.min(Math.max(Number(level) || 0, 0), HINT_STAGE_MASCOT.length - 1);
-  return HINT_STAGE_MASCOT[i];
+/** 화자 — 단계와 무관하게 보드 담당(태양이)이다. 단계 인자는 더 받지 않는다. */
+export function hintStageMascot() {
+  return HINT_SPEAKER;
 }
 
 export default function BoardHintPanel({
@@ -39,8 +42,10 @@ export default function BoardHintPanel({
   const t = useT();
   if (steps.length === 0) return null;
 
-  const stage = Math.min(Math.max(level, 0), HINT_STAGE_MASCOT.length - 1);
-  const speaker = hintStageMascot(level);
+  // stage는 **표시 단계**로만 남는다(화자를 고르지 않는다) — 스모크가
+  // data-hint-stage로 단계 진행을 확인한다.
+  const stage = Math.min(Math.max(level, 0), 2);
+  const speaker = HINT_SPEAKER;
 
   return (
     <div data-testid="board-hint" data-hint-level={level} className="flex items-start gap-2">

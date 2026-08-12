@@ -25,6 +25,7 @@ import {
 import { FALLBACK_REGIONS } from './boardLayout';
 import { SymbolIcon } from './boardSymbols';
 import BoardHintPanel from './BoardHintPanel';
+import Mascot from '../../components/Mascot';
 import CrossSectionPanel from './CrossSectionPanel';
 import PeninsulaMap from './PeninsulaMap';
 import useBoardDrag from './useBoardDrag';
@@ -452,6 +453,9 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     </div>
   );
 
+  // ⚠️ stacked(세션 안 보드) **전용**이다. wide(보드 플레이)는 2026-08-11부터
+  // 태양이 문제 배너가 이 역할을 한다 — 거기서 이 블록을 또 그리면 같은 미션이
+  // 한 화면에 두 번 뜬다.
   const missionBlock = (
     <div className="rounded-xl bg-sky-50 px-4 py-3 ring-1 ring-sky-100">
       <div className="flex items-start justify-between gap-2">
@@ -805,6 +809,9 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     />
   );
 
+  // 판정 영역이 **실제로 무언가를 그리는가** — wide 배치에서 순서용 래퍼를 씌울지
+  // 판단하는 데 쓴다. 아무것도 안 그리는데 래퍼를 씌우면 빈 격자칸이 gap만 벌린다.
+  const hasVerdict = Boolean(result) || timedOut;
   const verdictBlock = (
     <>
       {/* 구름 소진(§3.3) — 에너지 부족 안내(판정 실패와 구분) */}
@@ -877,41 +884,123 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   );
 
   // ── 조립 ──────────────────────────────────────────────────────────────────
+  //
+  // wide(보드 플레이)는 2026-08-11 사용자 지시로 **3열 → 문제 배너 + 2열**이 됐다.
+  //   위    문제 출제 카드 — 태양이가 미션을 읽어 준다(종전에는 오른쪽 252px 열
+  //         맨 위에 작게 있어 "잘 안 보였다"는 제보)
+  //   왼쪽  조작하는 것 — 팔레트·조절값(슬라이더)·지도·액션 바, 그리고 **맨 아래**
+  //         태양이 힌트
+  //   오른쪽 보는 것 — 단면 애니메이션·가이드·판정
+  // 「만지는 쪽」과 「보는 쪽」이 갈려야 배치를 바꿀 때마다 눈이 오가지 않는다.
   if (wide) {
     return (
-      <div className="grid items-start gap-4 lg:grid-cols-[212px_minmax(0,1fr)_252px]">
-        {/* 좌 — 쓸 수 있는 요소와, 지금 고른 존의 조절값 */}
-        <aside className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          {paletteBlock}
-          {focusPanel}
-          <p className="text-[11px] leading-relaxed text-slate-400">{t('board.atmosphere.paletteHowTo')}</p>
-        </aside>
-
-        {/* 중 — 지도가 주인공. 아래에 단면 패널과 액션 바. */}
-        <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          {mapBlock}
-          {dragGhost}
-          <div ref={stageRef}>
-            <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
+      <div className="flex flex-col gap-4">
+        {/* 문제 출제 카드 — 보드 목록의 태양이 배너와 같은 남색 밴드다. 같은 화면
+            계열에서 같은 꼴이 「지금 할 일」을 뜻하게 맞춘다(치수는 미션 내용이
+            길어 배너보다 자유롭게 두되 마스코트 원·그림 크기는 같은 값). */}
+        <div
+          data-testid="board-mission-hero"
+          className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[20px] bg-gradient-to-r from-[#1F3A5F] to-[#16293F] px-5 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
+        >
+          <span className="hidden h-[62px] w-[62px] flex-none place-items-center rounded-full bg-white/10 sm:grid">
+            <Mascot name="sun" className="h-[50px] w-[50px]" />
+          </span>
+          <div className="min-w-0 flex-1 basis-[260px]">
+            <p className="text-[11.5px] font-bold tracking-[0.02em] text-sky-300">
+              {sandbox ? t('board.atmosphere.missionSandbox') : t('board.atmosphere.missionEyebrow')}
+            </p>
+            <p className="mt-0.5 text-[19px] font-extrabold leading-snug tracking-[-0.02em] text-white">
+              {puzzle?.question_text}
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-            {undoButton}
-            <div className="ml-auto flex min-w-0 items-center gap-3">
-              {goalPreview}
-              {submitButton}
-            </div>
+          {/* 실화 배지·타이머·목표 진행은 미션에 딸린 것이라 같은 카드에 남는다 */}
+          <div className="flex flex-none flex-wrap items-center gap-2">
+            {puzzle?.based_on?.event_name && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-bold text-rose-200">
+                <span aria-hidden="true">📖</span>
+                {t('board.atmosphere.basedOn')} {puzzle.based_on.event_name}
+                {/* 날짜·지역까지 붙여야 "실화"가 실화가 된다 — stacked 배지와 같은 꼴 */}
+                {puzzle.based_on.event_date && (
+                  <span className="font-medium">
+                    ({puzzle.based_on.event_date}
+                    {puzzle.based_on.region ? `, ${puzzle.based_on.region}` : ''})
+                  </span>
+                )}
+              </span>
+            )}
+            {!sandbox && goalTotal > 0 && (
+              <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11.5px] font-bold tabular-nums text-slate-200">
+                {t('board.atmosphere.goalProgressLabel')} {goalMetCount}/{goalTotal}
+              </span>
+            )}
+            {hasTimer && (
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-extrabold tabular-nums ${
+                  timedOut
+                    ? 'bg-white/15 text-slate-300'
+                    : remaining <= 10
+                      ? 'animate-pulse bg-orange-400 text-white'
+                      : 'bg-sky-500 text-white'
+                }`}
+                title={t('board.atmosphere.timerTitle')}
+              >
+                ⏱ {formatClock(remaining)}
+              </span>
+            )}
           </div>
         </div>
+        {disasterBanner}
 
-        {/* 우 — 이번 미션 · 가이드 · 판정.
-            lg 미만에서는 3열이 한 줄로 접히는데, 그때 미션이 맨 아래로 가면
-            "무엇을 만들어야 하는지"를 다 내려간 뒤에야 읽게 된다 → 맨 위로 올린다. */}
-        <aside className="order-first flex flex-col gap-3 lg:order-none">
-          {missionBlock}
-          {guidePanel}
-          {hintBlock}
-          {verdictBlock}
-        </aside>
+        {/* ⚠️ **lg 미만에서는 두 열 래퍼가 사라진다**(`contents`) — 다섯 블록이
+            바깥 격자의 직계 칸이 되어 `order-*`로 다시 줄 세울 수 있다.
+            2열은 lg에서만 성립하는데, 래퍼를 그대로 두면 좁은 화면에서
+            「왼쪽 통째 → 오른쪽 통째」로 접혀 **가이드 단계와 판정이 지도 아래로
+            내려간다**. 종전 3열 배치가 오른쪽 열에 `order-first`를 준 이유가
+            그것이었고, 2열로 바꾸면서 그 장치가 사라졌다(2026-08-11 리뷰).
+            좁은 화면 순서: 가이드 → 조작(지도) → 판정 → 단면 → 힌트. */}
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          {/* 왼쪽 — **만지는 쪽**: 팔레트·조절값·지도·액션, 그리고 맨 아래 힌트 */}
+          <div className="contents lg:flex lg:flex-col lg:gap-3">
+            <div className="order-2 flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none">
+              <div className="grid gap-3 md:grid-cols-[212px_minmax(0,1fr)]">
+                <div className="flex flex-col gap-3">
+                  {paletteBlock}
+                  {focusPanel}
+                  <p className="text-[11px] leading-relaxed text-slate-400">
+                    {t('board.atmosphere.paletteHowTo')}
+                  </p>
+                </div>
+                <div className="min-w-0">{mapBlock}</div>
+              </div>
+              {dragGhost}
+              <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                {undoButton}
+                <div className="ml-auto flex min-w-0 items-center gap-3">
+                  {goalPreview}
+                  {submitButton}
+                </div>
+              </div>
+            </div>
+            {/* 힌트는 **왼쪽 맨 아래**(2026-08-11 사용자 지시) — 조작하다 막혔을 때
+                손이 있는 쪽에서 말이 나온다. 화자는 태양이(보드 담당). */}
+            {hintBlock && <div className="order-5 lg:contents">{hintBlock}</div>}
+          </div>
+
+          {/* 오른쪽 — **보는 쪽**: 단면 애니메이션이 주인공이고 가이드·판정이 따른다.
+              `aside`가 아니라 `div`인 이유: lg 미만에서 `display:contents`가 되는데
+              그때 랜드마크가 접근성 트리에서 사라진다 — 있다 없다 하는 랜드마크보다
+              없는 편이 낫다(이 묶음에 aria-label도 없었다). */}
+          <div className="contents lg:flex lg:flex-col lg:gap-3">
+            <div
+              ref={stageRef}
+              className="order-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none"
+            >
+              <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
+            </div>
+            {guidePanel && <div className="order-1 lg:contents">{guidePanel}</div>}
+            {hasVerdict && <div className="order-3 lg:contents">{verdictBlock}</div>}
+          </div>
+        </div>
       </div>
     );
   }

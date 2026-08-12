@@ -77,6 +77,9 @@ export default {
         sun: '일사',
         wind: '바람',
       },
+      // 태양이 문제 배너의 eyebrow(2026-08-11) — 미션 문장 위에 붙는 한 줄
+      missionEyebrow: '🎯 이번 미션',
+      missionSandbox: '🧪 자유 실험',
       timerTitle: '제한 시간',
       basedOn: '실화 ·',
       guidePrefix: '안내 {step}/{total}:',
