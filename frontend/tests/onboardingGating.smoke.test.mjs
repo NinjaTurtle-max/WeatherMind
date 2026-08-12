@@ -573,6 +573,53 @@ try {
     r.unmount();
   });
 
+  // ── 10-b. 발급 실패 → **재시도 화면**(로그인 폼이 아니다) — MT-29 ──────────
+  //
+  // ⚠️ 이 시나리오가 없어서 재시도 버튼이 **아무 일도 안 하는 채로** 커밋됐다
+  // (코드 리뷰 2026-08-12). 소스에 `GuestIssueRetry`가 있는지 grep하는 계약은
+  // 통과했지만, 버튼을 누르면 effect 의존성(`[accessToken]`)이 그대로라 발급이
+  // 다시 안 돌았다 — 화면이 영구 스피너가 되고 사용자가 갇힌다. MT-29가 막으려던
+  // 결과 그 자체다. **누르는 것까지** 봐야 계약이 성립한다.
+  await scenario('발급 실패: 로그인 폼이 아니라 재시도 화면 · 누르면 실제로 다시 발급된다', async () => {
+    resetGuestAutoIssue();
+    useAuthStore.getState().logout();
+
+    // ⚠️ `vite.ssrLoadModule`이어야 **App과 같은 모듈 인스턴스**를 잡는다.
+    // 평범한 import()는 Node ESM으로 따로 적재돼 스텁이 App에 안 닿는다.
+    const clientMod = await vite.ssrLoadModule('/src/api/client.js');
+    const realPost = clientMod.default.post.bind(clientMod.default);
+    let failing = true;
+    clientMod.default.post = (url, ...rest) =>
+      failing && url === '/auth/guest'
+        ? Promise.reject(new Error('network down'))
+        : realPost(url, ...rest);
+
+    try {
+      const r = mount(createElement(App), '/');
+      await waitFor(() => text().includes('다시 시도하기'), 6000, '재시도 화면');
+      // 규정: 로그인 없이 열려야 한다 — 실패했다고 로그인 폼을 들이밀지 않는다
+      assert(!text().includes('계정 없이 바로 시작하기'), '발급 실패에 로그인 화면이 떴다');
+
+      failing = false; // 연결이 돌아왔다
+      const retry = [...window.document.querySelectorAll('button')].find((b) =>
+        (b.textContent ?? '').includes('다시 시도하기'),
+      );
+      assert(retry, '재시도 버튼을 못 찾았다');
+      retry.click();
+
+      await waitFor(
+        () => Boolean(useAuthStore.getState().accessToken),
+        6000,
+        '재시도가 실제로 발급을 다시 일으킨다',
+      );
+      await waitFor(() => tabCount() === 5, 5000, '재시도 뒤 서비스 화면이 뜬다');
+      r.unmount();
+    } finally {
+      clientMod.default.post = realPost;
+      resetGuestAutoIssue();
+    }
+  });
+
   // ── 11. 딥링크 보존 + 로그아웃이 새 게스트를 낳지 않는다 ───────────────────
   await scenario('토큰 없이 /explore 딥링크 → /explore가 그대로 뜬다 · 로그아웃은 재발급 없음', async () => {
     resetGuestAutoIssue();

@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     # unit(진도 블록, R13-01 §2.10): 현재 진행 유닛의 다음 문항 5건을 **덧붙인다**
     # (기존 3종을 대체하지 않는다). 유닛 잔여가 모자라면 부족분은 new로 메운다 —
     # review 부족분을 new로 대체하는 기존 선례 준용이라 총합은 항상 15다.
-    # 에너지와의 관계: 오답 최대 15 > CLOUD_MAX 5이지만 "진행 중 세션은 잔량 0에도
+    # 에너지와의 관계: 오답 최대 15 > CLOUD_MAX 10이지만 "진행 중 세션은 잔량 0에도
     # 완주 보장"(R10 에너지 계약)이 이미 흡수한다 — daily-goal(3·5·9)·CLOUD_*는 불변.
     SESSION_RECIPE: dict[str, int] = {"new": 5, "review": 4, "live": 1, "unit": 5}
     UNIT_SESSION_SIZE: int = 5           # 커리큘럼 유닛 세션 문항 수
@@ -93,8 +93,10 @@ class Settings(BaseSettings):
     # 값 판단 근거·되돌리는 법은 persist_generated_items 독스트링에 있다.
     GENERATED_ITEM_STATUS: str = "active"
 
-    # 구름 에너지 경제(§3.3): 기본값 = 계약 수치(만렙 5·20분당 1 회복·시도당 1 소모).
-    CLOUD_MAX: int = 5
+    # 구름 에너지 경제(§3.3): 기본값 = 계약 수치(만렙 10·20분당 1 회복·시도당 1 소모).
+    # 만렙 10은 2026-08-11 멘토링 피드백(MT-7)이다 — 5는 한 세션(15문항)을
+    # 마치기 전에 바닥나서, 학습을 끊는 것이 아니라 **시작을 막는** 자원이었다.
+    CLOUD_MAX: int = 10
     CLOUD_REGEN_MINUTES: int = 20
     CLOUD_COST: int = 1
 

@@ -314,7 +314,7 @@ const state = {
   // 예보 대결 (§3.4) — 오늘 제출 상태. evidence: 선택한 판단 근거 (R9-01 §3.1)
   duel: { submitted: false, userPred: null, aiPred: null, evidence: null },
   // 구름 에너지 (R5-01 §3.3) — 소모성 플레이 자원. 지연 회복 모델.
-  clouds: 5,
+  clouds: 10,
   cloudsUpdatedAt: Date.now(),
   // 온보딩 배치고사 (R7-01 S3) — 1회 완료 여부. 완료 후 start는 409.
   placementDone: false,
@@ -534,7 +534,8 @@ function devStatePayload() {
 
 // ── 구름 에너지 상수 (R5-01 §3.3) ──
 const ENERGY_ENABLED = true; // §3.4 기능 플래그(기본 true). false면 무제한.
-const CLOUD_MAX = 5;
+// 서버 `Settings.CLOUD_MAX`와 같아야 한다 — 갈리면 스모크가 실화면을 안 본다.
+const CLOUD_MAX = 10;
 const CLOUD_REGEN_MS = 20 * 60 * 1000; // 20분당 1개 회복
 const CLOUD_COST = 1; // 소모 1회분 (R10-01 §3.1: 수치 불변, 트리거만 변경)
 

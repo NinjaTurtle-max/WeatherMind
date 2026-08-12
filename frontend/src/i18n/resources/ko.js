@@ -816,6 +816,11 @@ export default {
       tagline: '오늘의 날씨로 배우는 기상 · 기후 학습',
       guestCta: '⚡ 계정 없이 바로 시작하기',
       guestStarting: '오늘의 하늘을 여는 중...',
+      // MT-29 — 발급 실패는 **로그인 화면이 아니라** 재시도로 받는다.
+      guestFailedTitle: '지금 하늘을 열지 못했어요',
+      guestFailedBody: '잠시 연결이 어려웠어요. 다시 시도해 볼까요?',
+      guestFailedRetry: '다시 시도하기',
+      guestFailedHasAccount: '이미 계정이 있어요',
       guestNote: '가입 없이 실력 진단과 오늘의 세션을 바로 체험해요. 쌓인 진도는 나중에 30초 가입으로 저장할 수 있어요.',
       guestFailed: '시작에 실패했어요. 잠시 후 다시 시도해 주세요.',
       guestNickname: '게스트',

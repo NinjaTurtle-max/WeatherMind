@@ -7,7 +7,7 @@
 - 보드 채점 권위성(§3.4): 서버가 board_state를 엔진으로 재판정하며, 클라이언트가
   판정 결과(passed/phenomena)를 **주입할 통로 자체가 없다**(요청 스키마 구조 증명) +
   실제 채점 레지스트리(GRADERS["board"])가 goal_conditions로만 판정한다.
-- 구름 에너지 상수(§3.3): CLOUD_MAX=5·CLOUD_REGEN_MINUTES=20이 소스의 리터럴 상수와
+- 구름 에너지 상수(§3.3): CLOUD_MAX=10·CLOUD_REGEN_MINUTES=20이 소스의 리터럴 상수와
   일치(계약 수치 고정).
 - 커리큘럼 3자 스키마 정합(§3.2·§3.6): 동일한 units.json을 백엔드 로더(seed_units)와
   AI 게이트(validate_chain.validate_curriculum)가 **둘 다** 수용한다.
@@ -133,7 +133,8 @@ class TestCloudEnergyConstants:
     def test_상수_임포트값(self):
         from app.services import energy_service
 
-        assert energy_service.CLOUD_MAX == 5
+        # 만렙 10 — 2026-08-11 멘토링(MT-7)으로 5에서 올렸다.
+        assert energy_service.CLOUD_MAX == 10
         assert energy_service.CLOUD_REGEN_MINUTES == 20
 
     def test_Settings_기본값_계약수치(self):
@@ -141,7 +142,7 @@ class TestCloudEnergyConstants:
         from app.core.config import Settings
 
         fields = Settings.model_fields
-        assert fields["CLOUD_MAX"].default == 5
+        assert fields["CLOUD_MAX"].default == 10
         assert fields["CLOUD_REGEN_MINUTES"].default == 20
         assert fields["CLOUD_COST"].default == 1
 

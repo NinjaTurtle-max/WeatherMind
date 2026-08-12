@@ -555,7 +555,10 @@ class TestMigration0010:
             revisions[found["revision"]] = found.get("down_revision")
         referenced = {down for down in revisions.values() if down}
         heads = set(revisions) - referenced
-        assert heads == {"0013_league_result_unique"}
+        # ⚠️ **개수만 본다** — 리비전을 추가할 때마다 깨지던 자리다
+        # (2026-08-12 `0014_clouds_default_ten`). 감시 대상은 head가 갈라지지
+        # 않는다는 것 하나다.
+        assert len(heads) == 1, f"alembic head가 갈라졌다: {sorted(heads)}"
         assert revisions["0011_retry_round"] == "0010_user_region"
 
     def test_모델_컬럼_계약(self):
