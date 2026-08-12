@@ -3,7 +3,8 @@
 DEVELOPMENT_PLAN.md 2.1 backend → ai-worker 내부 API 계약:
   POST /internal/router-decide  {user_id, weak_tags, recent_results} → {route, target_concept_tag}
   POST /internal/rag-feedback   {question_text, user_answer, is_correct, concept_tag, today_weather} → {feedback}
-  POST /internal/quiz-generate  {weather_data, level_group, route, target_concept_tag} → QuizQuestion JSON
+  POST /internal/quiz-generate  {weather_data, level_group, route, target_concept_tag,
+                                 knowledge_level, question_type} → QuizQuestion JSON
   GET  /health                  → {status, service}
 
 스프린트 R2-01 §3.4 품질 게이트:
@@ -23,6 +24,7 @@ AI_WORKER_INTERNAL_API_KEY와 비교해 검증한다 (불일치 시 401).
 
 from __future__ import annotations
 
+import inspect
 import logging
 import secrets
 from typing import Optional
@@ -108,10 +110,20 @@ class RagFeedbackResponse(BaseModel):
 
 
 class QuizGenerateRequest(BaseModel):
+    """생성 입력 — 두 축이 갈라져 있다 (R13 CO-E-4 / CO-O-9).
+
+    `level_group`은 **표현 톤**(스펙 03 §2 규칙 2 — 난이도로 해석 금지),
+    `knowledge_level`은 **난이도 축**(1~N, 규칙 3. None이면 모델 자기 신고),
+    `question_type`은 생성 유형 지정(None이면 모델이 고른다).
+    뒤 둘이 없어서 backend가 보낸 값이 여기서 조용히 버려지던 것이 이 항목의 결함이다.
+    """
+
     weather_data: dict
     level_group: str
     route: str = "general"
     target_concept_tag: Optional[str] = None
+    knowledge_level: Optional[int] = None
+    question_type: Optional[str] = None
 
 
 class QuizValidateRequest(BaseModel):
@@ -288,12 +300,35 @@ def rag_feedback(body: RagFeedbackRequest) -> RagFeedbackResponse:
     dependencies=[Depends(verify_internal_api_key)],
 )
 def quiz_generate(body: QuizGenerateRequest) -> dict:
-    return quiz_gen_chain.generate_quiz(
-        weather_data=body.weather_data,
-        level_group=body.level_group,
-        route=body.route,
-        target_concept_tag=body.target_concept_tag,
-    )
+    kwargs = {
+        "weather_data": body.weather_data,
+        "level_group": body.level_group,
+        "route": body.route,
+        "target_concept_tag": body.target_concept_tag,
+        "knowledge_level": body.knowledge_level,
+        "question_type": body.question_type,
+    }
+    # **체인 시그니처가 받는 인자만** 넘기고, 버릴 때는 조용히 버리지 않는다 —
+    # 조용한 유실이 정확히 이 항목(CO-O-9)이 고치는 결함이다. 체인이 파라미터를
+    # 추가하는 순간 아래가 자동으로 전달한다(수정 불필요).
+    #
+    # ⚠️ 이 가드가 **평상시에 발동하면 안 된다.** 현재 체인은 위 5키를 전부 받고,
+    # 그 사실은 test_runtime_kl_plumbing의 `test_실체인_시그니처가_이미_받는다`가
+    # 못박는다. 즉 여기서 경고가 찍혔다면 그 계약 테스트가 이미 빨간 상태라는
+    # 뜻이다 — 로그를 무시하지 말 것. (도입 경위: 스키마와 프롬프트 규칙을 다른
+    # 담당이 동시에 옮기던 중 착지 순서가 갈릴 수 있어 넣었다. 그 위험은
+    # 2026-08-10에 사라졌지만, "체인이 새 인자를 받기 시작하면 자동 전달"이라는
+    # 성질 자체는 계속 유효해서 남긴다.)
+    accepted = inspect.signature(quiz_gen_chain.generate_quiz).parameters
+    if not any(
+        p.kind is inspect.Parameter.VAR_KEYWORD for p in accepted.values()
+    ):
+        for name in [k for k in kwargs if k not in accepted]:
+            if kwargs.pop(name) is not None:
+                logger.warning(
+                    "quiz-generate 입력 %s를 체인이 받지 않아 전달하지 못했다", name
+                )
+    return quiz_gen_chain.generate_quiz(**kwargs)
 
 
 @app.post(

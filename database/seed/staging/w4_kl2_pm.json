@@ -1,0 +1,133 @@
+[
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "여러 날 하늘을 관찰해 비가 올지 짐작하는 과정을 순서대로 배열하라.",
+      "items": [
+        "날마다 같은 시각에 하늘 사진을 찍어 둔다",
+        "구름의 두께와 색이 어떻게 달라졌는지 견준다",
+        "비가 내린 날의 하늘이 어땠는지 표시한다",
+        "비슷한 하늘이 보이면 비를 짐작한다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "한 번 본 것만으로는 규칙을 찾을 수 없다. 같은 조건으로 여러 날 모아 견주어야 '이런 하늘 다음에는 비가 오더라'는 규칙이 보인다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 관찰에서 규칙성 찾기", "관찰 절차 자체가 답 — 구름 이름은 쓰지 않는다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "air_mass",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "어느 여름날 낮 최고기온이 33℃, 그날 밤 최저기온이 26℃였다. 이날의 일교차는 몇 ℃인지 슬라이더로 표시하라.",
+      "correct_answer": "7",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "℃",
+      "explanation_hint": "33 − 26 = 7이다. 한여름에는 밤에도 기온이 잘 내려가지 않아 일교차가 작아지고, 맑은 봄가을에는 훨씬 크게 벌어진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 측정값 계산", "slider 범위 40 — 관용오차 ±10보다 넓다"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "산에 갔다가 불을 발견했을 때 해야 할 일을 순서대로 배열하라.",
+      "items": [
+        "불이 번지는 반대쪽으로 몸을 피한다",
+        "안전한 곳에 이르면 119에 신고한다",
+        "불이 난 위치와 번지는 방향을 알린다",
+        "구조대가 올 때까지 트인 곳에서 기다린다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "먼저 자기 안전을 확보한 뒤에 신고한다. 불길 가까이에서 전화를 걸다 대피가 늦어지는 일이 실제로 일어난다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 안전 행동 절차", "규정 수치가 아니라 행동 순서"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "생활 속 장치와 그것이 열을 다루는 방식을 짝지어라.",
+      "pairs": [
+        { "left": "보온병", "right": "안팎으로 열이 오가는 것을 막는다" },
+        { "left": "선풍기", "right": "공기를 움직여 몸의 열을 실어 간다" },
+        { "left": "냄비 손잡이의 플라스틱", "right": "열이 손으로 옮아오지 못하게 한다" }
+      ],
+      "correct_answer": "보온병:안팎으로 열이 오가는 것을 막는다|선풍기:공기를 움직여 몸의 열을 실어 간다|냄비 손잡이의 플라스틱:열이 손으로 옮아오지 못하게 한다",
+      "explanation_hint": "열을 막는 것과 실어 나르는 것은 반대 방향의 일이다. 어느 쪽이 필요한지에 따라 물건의 재료와 모양이 달라진다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 생활 속 열의 이동", "세 오른쪽이 전부 다른 방식"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "cloze",
+    "template_json": {
+      "question_text": "같은 방에서 천장 가까이가 바닥보다 따뜻한 것은 데워진 공기가 ___로 올라가기 때문이다.",
+      "correct_answer": "위",
+      "explanation_hint": "데워진 공기는 가벼워져 떠오르고 찬 공기는 아래로 내려앉는다. 그래서 난방기는 낮은 곳에, 냉방기는 높은 곳에 두는 편이 방을 고르게 만든다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 관찰된 규칙의 설명", "밀도라는 이름은 3단계 — 무게로 서술"]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "우리 지역의 기후가 어떤지 말하려면 며칠치 날씨를 봐야 하는가?",
+      "options": [
+        "여러 해 동안 모은 자료를 봐야 한다",
+        "오늘 하루만 보면 된다",
+        "이번 주만 보면 된다",
+        "지난달만 보면 된다"
+      ],
+      "correct_answer": "여러 해 동안 모은 자료를 봐야 한다",
+      "explanation_hint": "날씨는 하루하루 달라지지만 기후는 그 날씨가 여러 해에 걸쳐 어떠했는지를 말한다. 오늘 춥다고 해서 그 지역이 추운 기후라고 할 수는 없다."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "seed",
+      "refs": ["knowledge_level=2 · 초5~6 날씨와 기후의 구분", "관측 기간이라는 축을 처음 다룬다"]
+    },
+    "status": "active"
+  }
+]

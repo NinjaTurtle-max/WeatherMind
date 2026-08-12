@@ -173,11 +173,83 @@ ok(
   'items-start를 쓰지 않는다 — 칸이 늘어나야 sticky가 따라 내려온다',
 );
 
+// ── ③-2 리그로 가는 통로 (2026-08-11 합친 화면) ─────────────────────────────
+//
+// 리그는 내비에서 빠졌다 — 이 화면의 탭이 **앱에서 리그로 가는 유일한 길**이다.
+// navItems에 없다는 단정만으로는 부족하다: 없애 놓고 통로도 안 만들면 그 단정은
+// 통과하는데 화면은 도달 불가가 된다(CO-N-1 ②가 정확히 그 사고였다).
+const leagueTab = $('[data-compete-tab="/league"]');
+ok(Boolean(leagueTab), '탭바에 리그로 가는 링크가 없다 — 리그가 도달 불가 화면이 된다');
+ok(
+  leagueTab?.getAttribute('href') === '/league',
+  `리그 탭이 /league로 간다 — 실제 ${leagueTab?.getAttribute('href')}`,
+);
+const duelTab = $('[data-compete-tab="/duel"]');
+ok(
+  duelTab?.getAttribute('aria-current') === 'page' && !leagueTab?.getAttribute('aria-current'),
+  '지금 보고 있는 탭만 aria-current="page"',
+);
+// 내비도 이 화면을 **자기 것으로 표시해야 한다**. /league에서 어느 항목과도
+// 안 맞아 아무 데도 안 켜지던 것을 navItems.isNavActive(alsoMatch)로 고쳤다.
+const { NAV_ITEMS, isNavActive } = await vite.ssrLoadModule('/src/components/navItems.js');
+const owner = NAV_ITEMS.filter((i) => isNavActive(i, '/league'));
+ok(owner.length === 1 && owner[0].to === '/duel', `/league를 담당하는 내비 항목 1개 — ${owner.map((i) => i.to)}`);
+
+// ── ③-3 로딩·오류에서도 껍데기(=탭바)가 남는가 ──────────────────────────────
+//
+// 조회가 실패했다고 리그까지 못 가면 안 된다. 목을 실패시킬 수단이 없어
+// **소스 계약**으로 고정한다(BoardPage의 data-board-next 선례와 같은 방식) —
+// 두 분기가 껍데기 밖으로 일찍 return하면 잡힌다. 위 단정들은 성공 경로만
+// 지나므로, 이 검사가 없으면 early return을 되살려도 CI가 초록이다.
+const { readFile } = await import('node:fs/promises');
+for (const [rel, guard] of [
+  ['src/modules/duel/DuelPage.jsx', 'todayQ.isLoading'],
+  ['src/modules/league/LeaguePage.jsx', 'currentQ.isLoading'],
+]) {
+  const src = await readFile(resolve(root, rel), 'utf8');
+  // 로딩 분기 시작 ~ 성공 경로의 최상위 `return (`(들여쓰기 2칸) 사이가
+  // 「로딩 + 오류」 두 분기다. 그 안에 여는 태그가 정확히 둘이어야 한다.
+  const from = src.indexOf(`if (${guard})`);
+  const successReturn = src.indexOf('\n  return (', from);
+  const wraps =
+    from >= 0 && successReturn > from
+      ? (src.slice(from, successReturn).match(/<CompeteLayout/g) ?? []).length
+      : -1;
+  ok(wraps === 2, `${rel}: 로딩·오류 분기가 CompeteLayout 안에서 그려진다 — 실제 감싼 수 ${wraps}`);
+}
+
 // ── ④ 튜터는 태풍이 ─────────────────────────────────────────────────────────
 const tutorImg = $('[data-testid="sidenav"] img');
 ok(tutorImg?.getAttribute('src') === '/typhoon.png', `사이드바 튜터 이미지 — ${tutorImg?.getAttribute('src')}`);
 const sidenavText = $('[data-testid="sidenav"]')?.textContent ?? '';
 ok(sidenavText.includes('태풍이'), `사이드바 튜터 이름이 태풍이 — "${sidenavText.slice(-40)}"`);
+
+// ── ⑤ 시각 라벨이 실서버 형식을 읽는가 (2026-08-10 실기동 회귀) ─────────────
+// 실서버는 `"202608101500"`(YYYYMMDDHHMM)을 주는데 종전 fmtHour가 ISO만 가정해
+// `slice(11,13)`으로 잘라, **전 슬롯이 「0시」로 찍혔다**. 키가 없던 동안 hourly가
+// 늘 비어 degraded 카드만 떠서 여태 아무도 못 본 자리다.
+// 목이 ISO를 주고 실서버가 압축형을 주던 **패리티 어긋남**이 근본 원인이라,
+// 여기서 두 형식을 다 못 박고 목도 실서버 형식으로 맞췄다.
+const { fmtHour } = await vite.ssrLoadModule('/src/modules/duel/briefingDisplay.js');
+const hourOf = (s) => fmtHour(s, (_k, v) => String(v.h));
+ok(hourOf('202608101500') === '15', `압축형 → 15시 (실제 ${hourOf('202608101500')})`);
+ok(hourOf('2026-08-10T15:00:00') === '15', `ISO → 15시 (실제 ${hourOf('2026-08-10T15:00:00')})`);
+ok(hourOf('202608100000') === '0', `자정은 0시로 (실제 ${hourOf('202608100000')})`);
+ok(hourOf('') === '-' && hourOf(null) === '-', '빈 값은 대시');
+
+// 목이 실서버와 같은 형식을 주는가 — 목이 더 친절하면 그 차이가 곧 버그다.
+// `base`가 아니라 `origin`이다 — 이 파일이 서버를 띄우고 잡아 둔 이름(:51).
+// 종전에 정의되지 않은 `base`를 참조해 **ReferenceError로 죽었고**, 그 아래 단정
+// 3건(목이 실서버와 같은 hourly 형식을 주는가)이 한 번도 실행된 적이 없다.
+// ci.sh의 frontend 단계가 이 파일 때문에 상시 FAIL이었다(2026-08-10 발견·수정).
+const mockHourly = JSON.parse(await (await fetch(`${origin}/api/v1/duel/briefing`, {
+  headers: { Authorization: 'Bearer test' },
+})).text()).hourly ?? [];
+ok(mockHourly.length > 0, `목 hourly 비어있지 않다 — ${mockHourly.length}건`);
+ok(
+  mockHourly.every((h) => /^\d{12}$/.test(String(h.datetime))),
+  `목 datetime이 실서버와 같은 YYYYMMDDHHMM — 실제 "${mockHourly[0]?.datetime}"`,
+);
 
 reactRoot.unmount();
 await vite.close();
@@ -186,4 +258,4 @@ if (failed) {
   console.error(`\n실패 ${failed}건`);
   process.exit(1);
 }
-console.log('\nOK: 예보 대결 배치(2열·항목 최소폭·sticky·태풍이 튜터) 스모크 통과');
+console.log('\nOK: 예보 대결 배치(2열·항목 최소폭·sticky·태풍이 튜터·시각 라벨) 스모크 통과');

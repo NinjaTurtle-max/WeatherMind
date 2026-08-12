@@ -3,7 +3,8 @@
 계약: DEVELOPMENT_PLAN.md 2.1 (backend → ai-worker, 포트 8001)
   POST /internal/router-decide  {user_id, weak_tags, recent_results} → {route, target_concept_tag}
   POST /internal/rag-feedback   {question_text, user_answer, is_correct, concept_tag, today_weather} → {feedback}
-  POST /internal/quiz-generate  {weather_data, level_group, route, target_concept_tag} → QuizQuestion JSON
+  POST /internal/quiz-generate  {weather_data, level_group, route, target_concept_tag,
+                                 knowledge_level, question_type} → QuizQuestion JSON
 
 인증: X-Internal-API-Key 헤더 (AI_WORKER_INTERNAL_API_KEY).
 """
@@ -158,11 +159,27 @@ async def quiz_generate(
     level_group: str,
     route: str = "general",
     target_concept_tag: str | None = None,
+    knowledge_level: int | None = None,
+    question_type: str | None = None,
 ) -> dict:
     """Quiz Gen Chain 문제 생성. 반환: QuizQuestion JSON (03번 스키마).
 
     {concept_tag, question_type, question_text, options?, correct_answer}
     실패 시 AIWorkerError 전파 (호출부에서 503 처리).
+
+    **두 축을 갈라 보낸다** (R13 CO-E-4):
+    - `level_group`은 **표현 톤**이다. 스펙 03 §2 규칙 2와 프롬프트 원문이
+      "난이도가 아니라 표현 톤이며 어휘 단계를 한 칸도 움직이지 못한다"고
+      못박았다 — 여기에 난이도(θ 파생)를 실으면 모델은 그것을 말투로 읽는다.
+    - `knowledge_level`(1~N 정수)이 **난이도 축 단독 운반자**다. None이면 모델이
+      스스로 판정해 신고한다(스펙 03 §2 규칙 3 — 콜드스타트의 설계 동작).
+
+    `question_type`은 생성 유형 지정(CO-O-9). None이면 모델이 고른다.
+    ⚠️ 필드는 여기부터 ai-worker `QuizGenerateRequest`까지 열려 있지만, 모델에게
+    그 유형을 지키라고 지시하는 **프롬프트 규칙은 별건**이다(quiz_gen_chain 소유).
+
+    `router_decide`와 같은 관례로 **키는 항상 실어 보낸다**(None 포함) — 수신측
+    pydantic 기본값이 None이라 하위 호환이고, 키 유무가 갈리면 계약 대조가 어렵다.
     """
     return await _post(
         "/internal/quiz-generate",
@@ -171,5 +188,7 @@ async def quiz_generate(
             "level_group": level_group,
             "route": route,
             "target_concept_tag": target_concept_tag,
+            "knowledge_level": knowledge_level,
+            "question_type": question_type,
         },
     )

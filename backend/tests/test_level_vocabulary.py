@@ -6,16 +6,21 @@
 느슨해진다(R13 1일차의 발단이 정확히 그것이었다: 검사 자체가 없어 권층운이
 middle_high 정답에 들어가 있었다).
 
-감시 대상 4가지
+감시 대상 5가지
 1. 스키마 — v1 잔재(banned_levels·reviewed_allowed) 부재 · 필수 필드 · 값 범위.
 2. §7.3 정정 5건 + 잠열 확정 — 조사로 뒤집힌 판정이 되돌아가지 않는지.
 3. §7.4 판정식 — 경계(같으면 통과·한 칸 아래면 탈락) · name_ok_from 분기 ·
    면제 부재(6단계에서만 전 용어 통과).
-4. 전환기 폴백 — 미분류 문항이 v1 규칙 그대로 검사되는지, 그리고 그 폴백이
-   본시드·staging 전건에서 v1과 **같은 결론**을 내는지(회귀 0의 실증).
+4. 전환기 폴백이 **걷힌 상태로 유지되는지** — 미분류 문항이 탈락하는지, v1의
+   adult·expert 통째 면제가 되살아나지 않았는지, 본시드가 전건 분류·전건 통과인지.
+5. **staging 커버리지**(CO-SN2) — `ci.sh seed`가 도는 staging 파일 목록이 실제
+   디렉터리와 일치하는지, 그리고 그 문항들이 어휘 게이트를 통과하는지.
 
-⚠️ 4번은 **만료 예정**이다. 본시드 전건에 knowledge_level이 부여되면 폴백 분기와
-함께 이 절의 테스트도 지운다(그때는 미분류 문항이 존재하지 않아야 한다).
+⚠️ 4번 머리에 종전 "**만료 예정** — 미분류 문항이 v1 규칙 그대로 검사되는지"라고
+적혀 있었으나 폴백은 R13 2일차에 이미 걷혔고, 본문 §4는 그때부터 "걷힌 상태의 계약"을
+검사하고 있었다. 독스트링만 만료 전 세계를 기술하고 있었다(2026-08-10 정정).
+같은 줄이 "본시드·**staging** 전건에서"라고 적어 STAGING_DIR 상수의 존재 이유처럼
+보였으나 그 상수는 어디서도 쓰이지 않는 고아였다 — §5가 그 약속을 실제로 이행한다.
 """
 
 from __future__ import annotations
@@ -26,6 +31,8 @@ import sys
 from pathlib import Path
 
 import pytest
+
+from app.services import weatherbrain_service as wb  # 단계 수 N의 단일 소유자
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VOCAB_PATH = REPO_ROOT / "database" / "seed" / "level_vocabulary.json"
@@ -105,9 +112,15 @@ def test_introduced_at은_1부터_6까지다(vocabulary):
 
     코드가 아니라 파일의 anchor 블록이 N을 소유한다(load_vocabulary가 거기서 읽는다).
     """
-    assert sorted(int(k) for k in vocabulary["anchor"]) == [1, 2, 3, 4, 5, 6]
+    # 단계 수 N을 여기 박지 않는다 — 소유자는 weatherbrain_service의 밴드 튜플
+    # 하나다. 종전에는 [1..6]을 박아 놓아 10단계 확장에서 **어휘표가 옳게 늘어난
+    # 것을 결함으로 신고**했다(2026-08-10 정정).
+    levels = sorted(int(k) for k in vocabulary["anchor"])
+    assert levels == list(range(wb.KNOWLEDGE_LEVEL_MIN, wb.KNOWLEDGE_LEVEL_MAX + 1))
     for entry in vocabulary["terms"]:
-        assert 1 <= entry["introduced_at"] <= 6, entry["term"]
+        assert wb.KNOWLEDGE_LEVEL_MIN <= entry["introduced_at"] <= wb.KNOWLEDGE_LEVEL_MAX, (
+            entry["term"]
+        )
 
 
 def test_name_ok_from은_introduced_at을_넘지_않는다(vocabulary):
@@ -135,20 +148,29 @@ def test_교육과정_밖_항목은_standard가_null이다(by_term):
         # ① 2015 [6과06-04] 삭제로 초등 근거가 사라졌다 — 전 학령 허용 → 4단계.
         ("기단", 4, "[9과17-04]"),
         # ② 별책 9·20 전문 0건 — '고등 지구과학Ⅰ'은 없는 과목이다.
-        ("알베도", 6, None),
+        #    10단계에서 **8**(학부·교육과정 밖) — standard가 null인 것이 곧 근거다.
+        ("알베도", 8, None),
         # ③ 결론은 같고 근거 과목이 다르다 — 지구과학Ⅱ가 아니라 지구시스템과학.
-        ("지균풍", 6, "[12지시03-05]"),
-        ("경도풍", 6, "[12지시03-05]"),
+        #    고시 근거가 진로선택이므로 10단계에서 **7**(교육과정 안의 상한)이다.
+        ("지균풍", 7, "[12지시03-05]"),
+        ("경도풍", 7, "[12지시03-05]"),
         # ④ '우리나라 날씨' 단원이 2022에 없다 — 확인 필요, R6으로 낮은 쪽.
         ("편서풍", 4, "[9과17-02]"),
         # ⑤ 푄은 전문 0건 / 높새바람은 사회과 추정.
-        ("푄", 6, None),
+        ("푄", 8, None),
         ("높새바람", 5, None),
         # 추가로 근거가 생긴 것 — [9과04-04] + [12지시03-02] 해설.
         ("잠열", 3, "[9과04-04]"),
     ],
 )
 def test_정정_판정이_고정된다(by_term, term, introduced_at, standard):
+    """⚠️ 위 표의 **숫자는 2026-08-10에 6 → 10단계로 척도가 늘면서 옮겨졌다.**
+
+    판정이 뒤집힌 것이 아니다 — 종전 6단계가 '진로선택 + 학부 + 실무'를 한 칸에
+    담고 있었고, 그 칸을 7~10으로 펴면서 각 용어가 자기 근거에 맞는 칸으로 간
+    것뿐이다. 고시 근거가 있으면 7(교육과정 안), 근거가 null이면 8(밖).
+    **`standard` 열은 한 건도 안 바뀌었다** — 그것이 판정이 그대로라는 증거다.
+    """
     entry = by_term[term]
     assert entry["introduced_at"] == introduced_at
     assert entry["standard"] == standard
@@ -160,8 +182,16 @@ def test_확인_필요_항목이_표시된다(by_term):
         assert by_term[term].get("unconfirmed") is True, term
 
 
-def test_신설_항목이_전부_6단계다(by_term):
-    """§7.3 하단 신설 목록 — 힘·정량 구간(6)에 정박한다."""
+def test_신설_항목이_전부_힘_정량_구간이다(by_term):
+    """§7.3 하단 신설 목록 — **힘·정량 구간**에 정박한다.
+
+    종전 이름은 `test_신설_항목이_전부_6단계다`였고 `== 6`을 단정했다. 10단계
+    확장에서 이 12개가 7·8로 갈렸는데 **판정이 갈린 게 아니라 구간이 갈린 것**
+    이다(정역학·행성파는 진로선택 고시 근거가 있어 7, 단열선도·LCL·에크만처럼
+    근거가 없는 것은 8). 그래서 단정을 **구간 하한**으로 바꾼다 — 한 칸을 못박으면
+    다음 확장 때 또 같은 이유로 빨개진다.
+    """
+    floor = wb.KNOWLEDGE_LEVEL_BANDS.index("expert") + wb.KNOWLEDGE_LEVEL_MIN
     for term in (
         "온대저기압",
         "정역학",
@@ -176,7 +206,7 @@ def test_신설_항목이_전부_6단계다(by_term):
         "LFC",
         "평형고도",
     ):
-        assert by_term[term]["introduced_at"] == 6, term
+        assert by_term[term]["introduced_at"] >= floor, term
 
 
 def test_온대저기압은_정본_표기를_대안으로_제시한다(by_term):
@@ -240,10 +270,14 @@ def test_메커니즘_질문이면_배경_어휘_예외가_풀린다(vocabulary)
     assert lint.vocabulary_errors(item, vocabulary)
 
 
-def test_6단계_문항은_전_용어가_통과한다(vocabulary):
-    """§7.4 '면제를 없앤다'의 뒷면 — 통째 면제는 사라졌지만 최상위는 다 열린다."""
+def test_최상위_단계_문항은_전_용어가_통과한다(vocabulary):
+    """§7.4 '면제를 없앤다'의 뒷면 — 통째 면제는 사라졌지만 최상위는 다 열린다.
+
+    단계 수를 여기 박지 않는다(종전 `level=6` 하드코딩 → 10단계 확장에서 빨개졌다).
+    "최상위에서는 전부 통과"는 척도 길이와 무관한 성질이다.
+    """
     blob = " ".join(entry["term"] for entry in vocabulary["terms"])
-    item = _item(blob, level=6, correct=blob)
+    item = _item(blob, level=wb.KNOWLEDGE_LEVEL_MAX, correct=blob)
     assert lint.vocabulary_errors(item, vocabulary) == []
 
 
@@ -342,3 +376,92 @@ def test_새_판정식은_여전히_문다(vocabulary):
     ]
     failed = [i for i, it in enumerate(lowered) if lint.vocabulary_errors(it, vocabulary)]
     assert failed, "단계를 낮춰도 아무것도 안 걸린다 — 판정식이 죽어 있다"
+
+
+# ── 5. staging 커버리지 (CO-SN2, R13 5일차) ──────────────────────────────────
+# `ci.sh seed`가 `lint_seed_items.py --staging`을 돌리고, 그 대상 목록의 소유자는
+# `lint.staging_targets()` 하나다. 여기서 지키는 것은 **목록이 현실과 어긋나지 않는
+# 것**이다 — 이 프로젝트의 반복된 실패 양식이 "예외가 이월 없이 영구화되는 것"이라
+# 사람의 기억이 아니라 테스트가 만료를 통지해야 한다.
+# 검사는 ⑤ 어휘 게이트로 한정한다. 5종 전 검사는 ci.sh가 소유하고, 여기서 되풀이하면
+# 같은 게이트를 두 곳이 소유하게 된다.
+
+
+def _staging_files() -> list[Path]:
+    return sorted(STAGING_DIR.glob("*.json"))
+
+
+def test_staging_파일이_전부_분류돼_있다():
+    """새 staging 파일은 lint 대상이거나 **사유가 적힌 예외**여야 한다.
+
+    빠지는 쪽으로 기울면 게이트가 조용히 좁아진다(CO-SN2의 발단 자체가 그것이다:
+    ci.sh가 인자 없이 lint를 불러 staging 206항목을 아무도 안 보고 있었다).
+    반대로 지워진 파일이 예외 목록에 남아 있어도 여기서 걸린다 — 유령 예외가
+    "왜 있는지 모르지만 무서워서 못 지우는 줄"로 굳는 것을 막는다.
+    """
+    actual = {p.name for p in _staging_files()}
+    classified = {p.name for p in lint.staging_targets()} | set(lint.STAGING_EXCLUDED)
+    assert classified == actual, (
+        f"미분류 {sorted(actual - classified)} · "
+        f"유령 예외 {sorted(classified - actual)} — "
+        "lint_seed_items.STAGING_TARGETS/EXCLUDED를 실제 디렉터리에 맞출 것"
+    )
+
+
+def test_예외에는_사유가_적혀_있다():
+    """ci.sh의 OPT_IN_STEPS 선례와 같은 규약(test_ci_workflow_contract).
+
+    사유 없는 예외는 다음 담당이 판단을 다시 못 판다 — 지워도 되는지, 남겨야 하는지.
+    """
+    assert lint.STAGING_EXCLUDED, "예외 목록이 비었다 — 상수 이름이 바뀌었는지 확인"
+    for name, reason in lint.STAGING_EXCLUDED.items():
+        assert reason.strip(), name
+
+
+def test_한시_예외는_kl이_부여되면_만료된다():
+    """**해제 조건을 사람이 아니라 테스트가 통지한다.**
+
+    au1·au2가 게이트 밖인 유일한 이유는 knowledge_level이 0건이라 ⑤에서 전건
+    탈락하기 때문이다(2026-08-10 실측: 두 파일 모두 탈락 사유가 ⑤ 하나뿐 — 단계만
+    붙으면 나머지 4종은 이미 통과한다). 그러니 단계가 하나라도 부여되는 순간
+    예외의 근거가 사라진다. 그때 이 테스트가 먼저 붉어져 목록을 가리킨다.
+
+    ⚠️ 여기가 붉으면 **staging 데이터를 되돌리지 말고** STAGING_PENDING_LEVEL에서
+    그 파일을 지워 `--staging` 게이트에 넣을 것.
+    """
+    for name in lint.STAGING_PENDING_LEVEL:
+        items = json.loads((STAGING_DIR / name).read_text(encoding="utf-8"))
+        classified = [i for i, it in enumerate(items) if it.get("knowledge_level")]
+        assert not classified, (
+            f"{name}에 knowledge_level이 {len(classified)}건 부여됐다 — 한시 예외의 "
+            "근거가 사라졌으니 STAGING_PENDING_LEVEL에서 지우고 게이트에 넣을 것"
+        )
+
+
+def test_문항_파일이_아닌_예외는_실제로_문항_파일이_아니다():
+    """영구 예외(파일 성격)가 "귀찮아서 뺀 문항 파일"로 변질되지 않게 한다.
+
+    판정 기준은 파일 이름이 아니라 내용이다: 문항 배열이라면 원소가
+    template_json을 가진다. r13_detective_cases.json은 배열이지만 원소가 사건
+    문서(case_id·series·clues)라 여기서 걸리지 않는다 — 확장자·형태만 보고
+    루프를 돌리면 깨지는 지점이 정확히 그것이었다.
+    """
+    for name in lint.STAGING_NOT_ITEMS:
+        data = json.loads((STAGING_DIR / name).read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            assert not any(it.get("template_json") for it in data), (
+                f"{name}이 문항 배열이다 — 영구 예외에서 빼고 게이트에 넣을 것"
+            )
+
+
+@pytest.mark.parametrize("path", lint.staging_targets(), ids=lambda p: p.name)
+def test_staging_lint_대상은_어휘_게이트를_통과한다(path, vocabulary):
+    """ci.sh seed의 ⑤가 초록이라는 것의 pytest 쪽 실증.
+
+    파일별로 파라미터화하는 이유: 어느 파일이 문 것인지가 실패 이름에 나와야
+    저작 담당에게 바로 넘길 수 있다.
+    """
+    items = json.loads(path.read_text(encoding="utf-8"))
+    assert items, f"{path.name}이 비었다"
+    for i, item in enumerate(items):
+        assert lint.vocabulary_errors(item, vocabulary) == [], f"{path.name}[{i}]"

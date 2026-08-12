@@ -66,10 +66,23 @@ export const CASTER_NOISE_SCALE = {
 // 캐스터 기본 노이즈 진폭 (backend §1 탐색 확정: ±2℃ / ±15%p)
 export const CASTER_BASE_NOISE = { temp: 2, rain: 15 };
 
-/** ISO datetime → 시각 라벨(브리핑 hourly 축 — t는 호출부의 useT() 번역기) */
+/**
+ * 관측/예보 시각 → 시각 라벨 (브리핑 hourly 축 — t는 호출부의 useT() 번역기).
+ *
+ * ⚠️ **두 형식이 들어온다.** 실서버는 `"202608101500"`(YYYYMMDDHHMM 압축형 —
+ * `weather_api.group_forecast_items`가 fcstDate+fcstTime을 이어 붙인다)을 주고,
+ * 목은 ISO(`"2026-08-10T15:00:00"`)를 줬다. 종전 구현이 `slice(11,13)`으로 **ISO만**
+ * 가정해서, 실서버 응답에서는 마지막 한 글자를 집어 **전 슬롯이 「0시」로 찍혔다**
+ * (2026-08-10 실기동에서 발견). 키가 없던 동안 hourly가 늘 비어 있어 degraded
+ * 카드만 떴기 때문에 **여태 아무도 보지 못한 자리**다.
+ *
+ * 그래서 숫자만 뽑아 자릿수로 읽는다 — 두 형식 모두 8~9번째 숫자가 시(hh)다.
+ */
 export function fmtHour(datetime, t) {
-  const hh = String(datetime ?? '').slice(11, 13);
-  return hh ? t('briefing.hour', { h: Number(hh) }) : '-';
+  const digits = String(datetime ?? '').replace(/\D/g, '');
+  if (digits.length < 10) return '-';
+  const h = Number(digits.slice(8, 10));
+  return Number.isFinite(h) && h >= 0 && h <= 23 ? t('briefing.hour', { h }) : '-';
 }
 
 /** ISO date → "M/D" (최근 실측 축 라벨) */

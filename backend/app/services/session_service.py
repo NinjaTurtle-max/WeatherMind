@@ -112,12 +112,28 @@ GENERATED_COLUMN_KEYS = (
 # source.origin 마커 — 생성분만 골라 은퇴·검수·통계 낼 수 있게 남긴다.
 GENERATED_ITEM_ORIGIN = "session_generate"
 # 적재 허용 유형 — ai-worker 생성 경로가 낼 수 있는 유형과 같다(payload_contract의
-# QuizQuestion Literal 3종). 교차 빌드 컨텍스트라 import로 묶을 수 없어 값을 여기
-# 적는다. **넓히지 말 것**: board·match·ordering은 채점에 template_json 밖의 구조
-# (goal_conditions·pairs·items)가 필요한데 시드 게이트(validate_entry)는 그 존재를
-# 검사하지 않는다 — 사람 저작은 저작 규약이 막지만 생성분에는 막을 것이 없다.
-# 뱅크에 "못 푸는 문항"을 넣지 않기 위한 하한이다.
-GENERATED_ITEM_TYPES = ("multiple_choice", "short_answer", "slider")
+# QuizQuestion Literal). 교차 빌드 컨텍스트라 import로 묶을 수 없어 값을 여기 적는다.
+#
+# ⚠️ **2026-08-10: 3종 → 6종으로 넓혔다 (CO-O-13).** 종전 주석은 *"넓히지 말 것 —
+# match·ordering은 채점에 template_json 밖의 구조(pairs·items)가 필요한데
+# 시드 게이트(validate_entry)는 그 존재를 검사하지 않는다"*였다. **그 전제가
+# 뒤집혔다**: `validate_entry`가 이제 match의 pairs(2쌍 이상·left 중복 금지)·
+# ordering의 items와 항등 순열·`shuffled is True`·cloze의 빈칸 마커를 **채점기와
+# 같은 규칙으로** 검사한다. 막을 수 있게 됐으므로 막을 이유가 사라졌다.
+# 근거였던 문장을 지우지 않고 남기는 것은, 이 값을 다시 좁히려는 사람이 **무엇이
+# 바뀌어서 넓혔는지** 알아야 하기 때문이다.
+#
+# **board는 계속 제외한다** — 판정에 `board_rules.json`(문항 밖 자원)이 필요해
+# 순수 함수로 검사할 수 없다. 판정 못 하는 것은 막지도 못하므로 넣지 않는다.
+# 뱅크에 "못 푸는 문항"을 넣지 않기 위한 하한이라는 목적은 그대로다.
+GENERATED_ITEM_TYPES = (
+    "multiple_choice",
+    "short_answer",
+    "slider",
+    "cloze",
+    "match",
+    "ordering",
+)
 
 # ── 실황 슬롯 (§3.3 허용 5종) ──
 ALLOWED_SLOTS = (
@@ -309,6 +325,32 @@ def plan_bank_picks(
 
     total = sum(recipe.values())
     return picks, total - len(picks)
+
+
+def generation_tone(user_level_group: str | None) -> str:
+    """생성 요청의 `level_group` — **표현 톤**이지 난이도가 아니다 (R13 CO-E-4).
+
+    θ에서 파생하지 않는다. 스펙 03 §2 규칙 2와 `quiz_gen_chain`의 SYSTEM_PROMPT
+    원문이 이 필드를 "난이도가 아니라 표현 톤이며 어휘 단계를 한 칸도 움직이지
+    못한다"고 못박았으므로, θ를 여기 실으면 모델은 그것을 **말투**로 읽는다
+    (θ 낮은 성인 → 어린이 톤). 난이도는 `knowledge_level`이 단독으로 나른다.
+    유저가 신고한 학령을 그대로 쓰는 것이 스펙 12 §5.1("신고값은 처음부터
+    톤이었다")과의 정합이다.
+
+    두 가지만 접는다:
+    - `expert` → `adult`. 가입 신고 축에 없는 값이지만(`schemas/auth.LevelGroup`
+      3종) users 체크 제약은 허용한다. 스펙 12 §5.1 "폴백에서는 adult로 접는다".
+    - 미설정 → `NEUTRAL_LEVEL_GROUP`. **θ 파생으로 되돌리지 않는 것이 요점이다**
+      — 그것이 방금 고친 결함이고, 되돌리면 형태만 바꿔 같은 버그가 산다.
+      중립값은 게스트 기본값(`routers.auth.GUEST_LEVEL_GROUP`)과 같은 값이라
+      미지 유저가 게스트와 같은 자리로 떨어진다.
+
+    (users.level_group은 DDL상 NOT NULL이라 두 번째 분기는 방어다 — 스텁·미래
+    스키마 변경 대비. `weatherbrain_service.effective_*`가 같은 방어 관례를 쓴다.)
+    """
+    if user_level_group == "expert":
+        return "adult"
+    return user_level_group or weatherbrain_service.NEUTRAL_LEVEL_GROUP
 
 
 def pool_level_groups(user_level_group: str, theta: float | None) -> list[str]:
@@ -741,6 +783,39 @@ async def forecast_closing_step(
     }
 
 
+def _band_for_generated(question: dict[str, Any], requested: str) -> str:
+    """생성 문항의 적재 밴드 — **`knowledge_level`이 권위** (CO-O-5의 런타임 짝).
+
+    저작 CLI는 `scripts/author_items.resolve_level_group`이 같은 규칙을 이미 쓴다.
+    여기가 안 맞으면 **같은 결함이 런타임에만 남는다**: 종전 코드는
+    `question.get("level_group") or level_group`이었는데 **생성기는 그 키를 내지
+    않는다**(`QuizQuestion` 필드에 없다 — 2026-08-10 실측). 그래서 폴백이 항상
+    이겼고, 위 호출부 주석이 약속한 "신고하면 그쪽이 우선"이 구현된 적이 없다.
+
+    깨지는 경로: 콜드스타트 `elementary` 학습자는 θ가 없어 목표 단계를 안 보내므로
+    모델이 스스로 판정한다. 거기서 `knowledge_level=9`가 신고되면 문항이
+    `level_group="elementary"` · `status=active`로 뱅크에 적재되고, 이후
+    `pool_level_groups`의 밴드 필터가 그 전문가 문항을 **모든 초등 학습자에게**
+    다시 서빙한다. `validate_entry`는 두 축의 모순을 보지 않으므로 아무도 막지 않는다.
+
+    미신고·비정수·범위 밖은 **파생하지 않고 요청 밴드를 유지**한다 — 범위 밖을
+    파생시키면 `level_group_of_knowledge_level`의 클램프가 엉뚱한 밴드를 정상값처럼
+    만들어, lint가 잡아야 할 미분류를 위장한다(저작 쪽과 같은 판단).
+    """
+    raw = question.get("knowledge_level")
+    try:
+        level = int(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return requested
+    if not (
+        weatherbrain_service.KNOWLEDGE_LEVEL_MIN
+        <= level
+        <= weatherbrain_service.KNOWLEDGE_LEVEL_MAX
+    ):
+        return requested
+    return weatherbrain_service.level_group_of_knowledge_level(level)
+
+
 def generated_item_entry(
     question: dict[str, Any], *, level_group: str
 ) -> dict[str, Any]:
@@ -762,7 +837,7 @@ def generated_item_entry(
     """
     return {
         "concept_tag": question.get("concept_tag"),
-        "level_group": question.get("level_group") or level_group,
+        "level_group": _band_for_generated(question, level_group),
         "knowledge_level": question.get("knowledge_level"),
         "question_type": question.get("question_type"),
         "template_json": {
@@ -1009,19 +1084,26 @@ async def create_daily_session(
 
     # 뱅크 부족분 — 현행 quiz-generate 경로로 병렬 폴백 (S2, 리뷰 3번)
     if generate_count:
-        # 생성 난이도도 θ를 따른다 (R7 §3.2 — API 계약 무변경, 값만 θ 매핑)
-        generate_level_group = (
-            weatherbrain_service.theta_to_level_group(theta)
+        # 생성 난이도는 θ를 따르되 **난이도 축으로** 따른다 (R13 CO-E-4).
+        #
+        # 종전에는 θ 파생 밴드를 `level_group` 자리에 실어 보냈다. 그런데 스펙 03
+        # §2 규칙 2와 프롬프트 원문이 `level_group`을 "난이도가 아니라 **표현 톤**,
+        # 어휘 단계를 한 칸도 움직이지 못한다"고 못박고 있어서, 모델은 θ를 난이도가
+        # 아니라 **말투**로 읽었다 — θ가 낮은 성인이 어린이 말투 문항을 받는다.
+        # 이제 두 축을 갈라 보낸다: 난이도는 knowledge_level, 톤은 신고 학령.
+        generate_knowledge_level = (
+            weatherbrain_service.theta_to_knowledge_level(theta)
             if theta is not None
-            else user.level_group
+            else None  # 콜드스타트 — 모델이 스스로 판정해 신고한다(스펙 03 §2 규칙 3)
         )
         results = await asyncio.gather(
             *(
                 ai_client.quiz_generate(
                     weather_data=weather,
-                    level_group=generate_level_group,
+                    level_group=generation_tone(user.level_group),
                     route=route_decision.get("route", "general"),
                     target_concept_tag=route_decision.get("target_concept_tag"),
+                    knowledge_level=generate_knowledge_level,
                 )
                 for _ in range(generate_count)
             ),
@@ -1051,10 +1133,26 @@ async def create_daily_session(
         # 생성 문항 영속화 (R13 D 선행) — 품질 게이트 통과분만 content_items에
         # 적재하고 그 id로 세션에 편성한다. 탈락분은 item=None이라 지금까지처럼
         # content_item_id 없이 일회용으로 서빙된다(배합 총합은 그대로 15).
+        #
+        # 여기 level_group은 **문항 쪽 밴드**(적재 컬럼의 폴백)이지 톤이 아니다 —
+        # 위 tone_level_group과 다른 값이 들어가는 것이 맞다. θ 파생을 그대로 둔다:
+        # `theta_to_knowledge_level` 독스트링이 보증하는 계약
+        # (`level_group_of_knowledge_level(theta_to_knowledge_level(θ))
+        #   == theta_to_level_group(θ)`)에 따라 위에서 보낸 난이도와 같은 축이고,
+        # 생성 문항이 knowledge_level을 신고하면 그쪽이 우선이라 이 값은 폴백이다.
+        # ⚠️ **그 우선순위는 2026-08-10까지 구현돼 있지 않았다** — `generated_item_entry`가
+        # `question.get("level_group")`을 읽었는데 생성기는 그 키를 내지 않아 폴백이 항상
+        # 이겼다(코드 리뷰 지적). 지금은 `_band_for_generated`가 신고값에서 파생하므로
+        # 이 주석이 참이고, 여기 값은 **미신고·범위 밖일 때만** 쓰인다.
+        persist_level_group = (
+            weatherbrain_service.theta_to_level_group(theta)
+            if theta is not None
+            else user.level_group
+        )
         persisted = await persist_generated_items(
             db,
             generated,
-            level_group=generate_level_group,
+            level_group=persist_level_group,
             route=route_decision.get("route", "general"),
             region=weather.get("region"),
             today=today,

@@ -6,13 +6,13 @@ import { translate, getCurrentLocale } from './i18n/core.js';
 import LoadingSpinner from './components/LoadingSpinner';
 import Layout from './components/Layout';
 import SessionPage from './modules/session/SessionPage';
-import HomePage from './modules/home/HomePage';
 import CurriculumHome from './modules/curriculum/CurriculumHome';
 import UnitSessionPage from './modules/curriculum/UnitSessionPage';
 import BoardPage from './modules/board/BoardPage';
 import ExploreHome from './modules/explore/ExploreHome';
 import TyphoonSimPage from './modules/explore/TyphoonSimPage';
 import ClimateSimPage from './modules/explore/ClimateSimPage';
+import SandboxPage from './modules/explore/SandboxPage';
 import DetectiveRoutes from './modules/detective/DetectiveRoutes';
 import LeaguePage from './modules/league/LeaguePage';
 import DuelPage from './modules/duel/DuelPage';
@@ -28,8 +28,11 @@ const DevPanel = lazy(() => import('./modules/dev/DevPanel'));
 
 /**
  * 라우팅 (04번 스펙 + R2-01 S7 + R3-01 S4 + R5-01 S4 + R7-01 S3) — react-router-dom v6, 하단 탭바.
- * R5-01: 기본 진입(/)은 학습 홈이었다. 2026-08-05부터 /는 홈 대시보드(HomePage)이고
- * 학습 경로는 /learn(CurriculumHome)이다. 유닛 세션은 /learn/units/:unitId.
+ * R5-01: 기본 진입(/)은 학습 홈이었다. 2026-08-05에 /는 홈 대시보드, /learn은 학습
+ * 경로로 갈렸다가, **2026-08-09에 다시 하나로 합쳤다**(사용자 지시) — 홈 화면은
+ * 삭제되고 /는 /learn(CurriculumHome)으로 리다이렉트한다. 홈이 갖고 있던 진입
+ * 카드·오늘의 목표는 학습 화면 오른쪽 진입 카드(LearnHeroCard)가 흡수했고,
+ * 출석 POST 소유자도 CurriculumHome으로 넘어왔다. 유닛 세션은 /learn/units/:unitId.
  * 자유 일일 세션(SessionPage)은 /daily로 병존 유지(§3.4).
  * R3-01 §0 제품 결정: 기후 시뮬레이터(/simulator) 폐지 → 대기 보드 퍼즐(/board)로 대체.
  * R7-01 S3: 온보딩 배치고사(/onboarding/placement)는 인증 필요하되 Layout(탭바) 밖
@@ -163,8 +166,11 @@ export default function App() {
             전체 화면 관례(Layout 밖). 진입은 GuestSaveBanner(학습 홈)에서. */}
         <Route path="/account/convert" element={<ConvertAccountPage />} />
         <Route element={<Layout />}>
-          <Route path="/" element={<HomePage />} />
-          {/* 2026-08-05: `/`는 홈 대시보드, 학습 경로는 `/learn`으로 갈렸다. */}
+          {/* 2026-08-09: 홈 화면을 지우고 학습 하나로 합쳤다(사용자 지시).
+              `/`는 남기되 **리다이렉트**다 — 지우면 북마크·외부 링크·로그인 직후
+              기본 착지가 전부 죽는다(로그인 성공 경로가 `/`로 보낸다).
+              2026-08-05에 `/`(홈)와 `/learn`(경로)을 갈랐던 것을 되돌린 셈이다. */}
+          <Route path="/" element={<Navigate to="/learn" replace />} />
           <Route path="/learn" element={<CurriculumHome />} />
           <Route path="/learn/units/:unitId" element={<UnitSessionPage />} />
           <Route path="/daily" element={<SessionPage />} />
@@ -174,6 +180,9 @@ export default function App() {
           <Route path="/explore" element={<ExploreHome />} />
           <Route path="/explore/typhoon" element={<TyphoonSimPage />} />
           <Route path="/explore/climate" element={<ClimateSimPage />} />
+          {/* 자유 실험 — 2026-08-10에 보드에서 옮겨 왔다(사용자 지시).
+              판은 여전히 AtmosphereBoard지만 입구는 탐구다. */}
+          <Route path="/explore/sandbox" element={<SandboxPage />} />
           {/* R13 기후 탐정(CO-N-2) — 하위 경로는 모듈이 소유한다(DetectiveRoutes). */}
           <Route path="/detective/*" element={<DetectiveRoutes />} />
           <Route path="/duel" element={<DuelPage />} />

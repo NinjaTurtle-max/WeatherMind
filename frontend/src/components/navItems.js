@@ -4,12 +4,15 @@
  * 두 곳에 따로 적어 두면 한쪽에만 항목이 추가돼 뷰포트별로 갈 수 있는 화면이
  * 달라진다. 홈을 추가하면서 실제로 그럴 뻔했다.
  *
+ * 2026-08-09 — **「홈」 항목 삭제.** 홈 화면(`/`)을 학습 화면에 합쳤다(사용자 지시).
+ * 홈에 있던 진입 카드·오늘의 목표는 학습 화면 오른쪽 진입 카드가 흡수했고,
+ * `/`는 `/learn`으로 리다이렉트한다. 탭이 7 → 6개다.
+ *
  * **탭을 자물쇠로 막지 않는다**(R10-01 §3.4 판정, 2026-08-01): 아직 열리지 않은
  * 기능도 눌러 들어갈 수 있고, 목적지에서 무엇인지·언제 열리는지를 보여준다
  * (FeatureUnlockGate). 그래서 이 목록은 게이트 상태를 알지 않는다.
  */
 export const NAV_ITEMS = [
-  { to: '/', labelKey: 'nav.home', icon: '🏠', end: true },
   { to: '/learn', labelKey: 'nav.learn', icon: '🎓' },
   { to: '/board', labelKey: 'nav.board', icon: '🧩' },
   // CO-N-1 ② (2026-08-08): `/explore`(태풍 슬라이더·기후 시뮬)는 6개 탭 어디에도
@@ -17,7 +20,28 @@ export const NAV_ITEMS = [
   // 영영 도달 못 하는 화면이었다. 심사 배점 ②의 "변수를 바꿔보며 학습 탐구"에
   // 가장 정확히 대응하는 화면이라 보드 바로 옆에 세운다.
   { to: '/explore', labelKey: 'nav.explore', icon: '🔬' },
-  { to: '/duel', labelKey: 'nav.duel', icon: '🌡️' },
-  { to: '/league', labelKey: 'nav.league', icon: '🏆' },
+  // 2026-08-11(사용자 지시) — **「예보 대결」과 「리그」를 한 화면으로 합쳤다.**
+  // 두 화면이 같은 자료(오늘의 실황 브리핑)를 보므로 왼쪽 브리핑을 공유하고
+  // 상단 탭바로 오간다(CompeteLayout). 탭이 6 → 5개다.
+  // 항목은 `/duel` 하나만 둔다 — `/league`는 라우트로 살아 있고(딥링크·기존 링크
+  // 무회귀) 탭바가 그리로 가는 유일한 통로다. 둘 다 내비에 두면 "합쳤다"는
+  // 화면이 내비에서는 여전히 둘로 보인다.
+  { to: '/duel', labelKey: 'nav.duel', icon: '🌡️', alsoMatch: ['/league'] },
   { to: '/me', labelKey: 'nav.me', icon: '🏅' },
 ];
+
+/**
+ * 이 항목이 지금 경로를 담당하는가 — **탭바와 사이드바가 같은 규칙을 쓴다.**
+ *
+ * NavLink 기본 판정으로는 안 된다: 합친 화면의 두 번째 탭(`/league`)에 있으면
+ * 어느 항목과도 안 맞아 **아무 데도 선택 표시가 없다**(2026-08-11 코드 리뷰).
+ * 어디에 있는지 내비가 말하지 않는 화면이 생기는 셈이다.
+ *
+ * `alsoMatch`는 "같은 화면의 다른 경로"를 적는 자리다. 내비 항목을 늘리지 않고
+ * 담당 범위만 넓힌다 — 항목을 늘리면 합친 의미가 없어진다.
+ */
+export function isNavActive(item, pathname) {
+  return [item.to, ...(item.alsoMatch ?? [])].some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}

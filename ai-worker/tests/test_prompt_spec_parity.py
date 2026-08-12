@@ -28,6 +28,8 @@ from pathlib import Path
 
 import pytest
 
+from app.chains.payload_contract import GENERATED_PAYLOAD_FIELDS
+
 AI_WORKER_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = AI_WORKER_DIR.parent
 GEN_CHAIN = AI_WORKER_DIR / "app" / "chains" / "quiz_gen_chain.py"
@@ -36,6 +38,37 @@ SPEC = REPO_ROOT / "docs" / "specs" / "03_ai_chains_spec.md"
 
 # 스펙에서 원문 그대로 가져다 쓰는 상수 — 독스트링이 선언한 대상 그 자체.
 SPEC_SOURCED = ("SYSTEM_PROMPT", "FEW_SHOT_EXAMPLES")
+
+# ── few-shot 개수의 소유자는 「생성 대상 유형 목록」이다 (2026-08-10, CO-O-13) ──
+# 종전에는 `count(...) == 3`으로 **숫자를 손으로 적어** 뒀고, 생성 대상이 3종 → 6종으로
+# 넓어지자 그 줄이 곧바로 거짓이 됐다. 숫자를 6으로 고치면 다음 확장에서 같은 일이
+# 반복되므로, 계약 상수에서 파생시킨다 — 유형이 늘면 예시도 함께 늘어야 한다는 것이
+# 지켜야 할 규칙이고, 개수는 그 규칙의 결과일 뿐이다.
+#
+# `payload_contract`를 import해도 안전한 근거: 계약 G-3이 이 모듈의 의존을 stdlib+
+# pydantic으로 묶고 있고 `test_quiz_gen_payload.py`가 그것을 감시한다. `quiz_gen_chain`
+# 쪽은 여전히 import하지 않는다(모듈 독스트링 「왜 import하지 않고 소스를 읽는가」).
+GENERATABLE_TYPES = frozenset(GENERATED_PAYLOAD_FIELDS)
+
+# `[예시 4 - knowledge_level 2, cloze]` 형태의 라벨. 유형을 캡처해 **유형별 1건**을 센다.
+EXAMPLE_LABEL_RE = re.compile(
+    r"\[예시\s*(\d+)\s*-\s*knowledge_level\s*(\d+)\s*,\s*([a-z_]+)\s*\]"
+)
+
+
+def _example_block(examples: str, question_type: str) -> str:
+    """해당 유형 예시 **하나의 블록만** 잘라낸다 (다음 예시 라벨 앞까지).
+
+    종전 `examples.split("[예시 3")[-1]`은 예시가 3개뿐일 때만 "예시 3의 본문"과
+    같았다. 6개가 되면 그 뒤 3개까지 함께 잡혀 **다른 예시의 필드로 통과**할 수
+    있다 — 검사가 조용히 헐거워지는 자리라 라벨 사이로 정확히 자른다.
+    """
+    labels = list(EXAMPLE_LABEL_RE.finditer(examples))
+    for index, match in enumerate(labels):
+        if match.group(3) == question_type:
+            end = labels[index + 1].start() if index + 1 < len(labels) else len(examples)
+            return examples[match.end() : end]
+    return ""
 
 
 def _module_str_constants(path: Path) -> dict[str, str]:
@@ -107,6 +140,38 @@ class TestPromptSpecParity:
                 "생성 slider가 계약 G에 전건 탈락한다"
             )
 
+    @pytest.mark.parametrize("question_type", sorted(GENERATABLE_TYPES))
+    def test_출력_스키마가_생성_대상_6종을_전부_허용한다(self, constants, question_type):
+        """스키마가 유형을 열거하지 않으면 모델은 그 유형을 **낼 수 없다**.
+
+        `payload_contract`의 Literal을 넓혀도 프롬프트가 3종만 열거하면 산출은
+        3종 그대로다 — 계약만 넓히고 프롬프트를 안 넓히는 절반 착지가 정확히
+        여기서 조용히 성립한다. 두 소유자를 같은 목록에 건다.
+        """
+        assert f'"{question_type}"' in constants["SYSTEM_PROMPT"], (
+            f"출력 스키마가 {question_type}을 열거하지 않는다 — 계약이 허용해도 "
+            "모델이 그 유형을 낼 수 없다"
+        )
+
+    @pytest.mark.parametrize(
+        "question_type,field",
+        [
+            ("cloze", "___"),
+            ("match", '"pairs"'),
+            ("ordering", '"items"'),
+            ("ordering", '"shuffled"'),
+        ],
+    )
+    def test_출력_스키마가_신규_3종의_payload를_요구한다(self, constants, question_type, field):
+        """slider 4필드에 건 것과 같은 계약(위 `test_slider_4필드…`와 같은 처방).
+
+        요구하지 않으면 생성분이 계약 G-1에 전건 탈락하고, 폴백 뱅크에 이 3종이
+        없어 유형이 조용히 사라진다.
+        """
+        assert field in constants["SYSTEM_PROMPT"], (
+            f"출력 스키마가 {question_type}의 {field}를 요구하지 않는다"
+        )
+
     def test_출력_스키마가_knowledge_level을_요구한다(self, constants):
         """R13 3일차 개정의 본체 — 신고가 없으면 G1 배치가 lint에서 전건 탈락한다.
 
@@ -140,9 +205,37 @@ class TestPromptSpecParity:
     def test_few_shot이_단계로_라벨링된다(self, constants):
         """예시 라벨이 학령이면 모델이 그 축을 난이도로 모방한다."""
         examples = constants["FEW_SHOT_EXAMPLES"]
-        assert examples.count('"knowledge_level"') == 3, "예시 3건 전부가 단계를 신고해야 한다"
+        labels = EXAMPLE_LABEL_RE.findall(examples)
+        reported = examples.count('"knowledge_level"')
+        assert reported == len(labels), (
+            f"예시 {len(labels)}건 전부가 단계를 신고해야 한다 — 신고 {reported}건"
+        )
         for label in ("elementary,", "middle_high,", "adult,"):
             assert f"[예시 1 - {label}" not in examples
+
+    def test_생성_대상_유형마다_few_shot이_하나씩_있다(self, constants):
+        """**개수만 세면 같은 유형 6개도 통과한다** — 그게 이번에 막는 실패다.
+
+        few-shot은 모델이 형태를 통째로 모방하는 자리다. 유형이 6종인데 예시가
+        multiple_choice에 쏠려 있으면 모델은 계속 객관식을 낸다 — 출력 스키마가
+        6종을 허용해도 실제 산출은 편중되고, "3종만 나온다"(CARRYOVER O-13)가
+        **스키마는 6종인데 결과는 3종**이라는 더 알아채기 어려운 형태로 재발한다.
+
+        그래서 라벨에서 유형을 뽑아 **집합으로** 대조한다. 개수 하드코딩(종전
+        `== 3`)이 아니라 계약 상수 `GENERATED_PAYLOAD_FIELDS`에서 파생하므로,
+        다음에 유형이 늘어도 이 테스트는 스스로 맞는다.
+        """
+        labeled = [match[2] for match in EXAMPLE_LABEL_RE.findall(constants["FEW_SHOT_EXAMPLES"])]
+        assert set(labeled) == set(GENERATABLE_TYPES), (
+            f"few-shot 유형={sorted(set(labeled))} ≠ 생성 대상={sorted(GENERATABLE_TYPES)}. "
+            f"예시 없는 유형={sorted(GENERATABLE_TYPES - set(labeled))} · "
+            f"생성 대상 아닌 예시={sorted(set(labeled) - GENERATABLE_TYPES)}"
+        )
+        duplicated = sorted({t for t in labeled if labeled.count(t) > 1})
+        assert not duplicated, (
+            f"같은 유형의 예시가 둘 이상이다: {duplicated} — 유형당 1건이라야 "
+            "모델이 특정 유형으로 쏠리지 않는다"
+        )
 
     def test_slider_예시가_범위를_필드로_준다(self, constants):
         """예시가 범위를 질문 텍스트에만 적으면 모델이 그 형태를 모방한다.
@@ -150,13 +243,39 @@ class TestPromptSpecParity:
         개정 전 예시 3은 `question_text`에 "(0~100%)"를 적고 필드는 주지 않았다 —
         암묵적 0~100 척도 설계의 흔적이다(`validate_chain.SLIDER_MIN/MAX` 하드코딩).
         """
-        examples = constants["FEW_SHOT_EXAMPLES"]
-        slider_block = examples.split("[예시 3")[-1]
+        slider_block = _example_block(constants["FEW_SHOT_EXAMPLES"], "slider")
+        assert slider_block, "slider 예시가 없다"
         for field in ("min", "max", "step", "unit"):
             assert f'"{field}"' in slider_block, (
                 f"slider 예시가 {field}를 필드로 주지 않는다 — 모델이 범위를 "
                 "질문 텍스트에만 적는 형태를 모방한다"
             )
+
+    def test_신규_3종_예시가_payload를_형태로_보여준다(self, constants):
+        """slider 예시에 걸었던 것과 같은 처방을 cloze·match·ordering에도 건다.
+
+        모델은 규칙 문장보다 **예시의 형태**를 강하게 모방한다. 예시가 payload를
+        빠뜨리면 생성분이 계약 G-1에 전건 탈락 → 재시도 → 폴백으로 떨어지고,
+        폴백 뱅크에는 이 3종이 없다 — 유형이 조용히 사라진다(slider가 겪은 경로).
+
+        특히 **ordering의 `"shuffled"`**를 못박는 이유: 스펙 03이 "모델이 가장 자주
+        틀리는 자리는 ordering"이라 적었고, `shuffled`가 빠지거나 false면 화면이
+        정답 순서를 그대로 그린다 — 오작동이 아니라 **정답 유출**이다.
+        """
+        examples = constants["FEW_SHOT_EXAMPLES"]
+        required = {
+            "cloze": ("___",),
+            "match": ('"pairs"', '"left"', '"right"'),
+            "ordering": ('"items"', '"shuffled"'),
+        }
+        for question_type, tokens in required.items():
+            block = _example_block(examples, question_type)
+            assert block, f"{question_type} 예시가 없다"
+            for token in tokens:
+                assert token in block, (
+                    f"{question_type} 예시에 {token}이 없다 — 모델이 payload 없는 "
+                    "형태를 모방해 계약 G-1에 전건 탈락한다"
+                )
 
 
 # ── 피드백 체인 (스펙 03 §3) — R13 3일차에 감시 대상에 추가 ─────────────────

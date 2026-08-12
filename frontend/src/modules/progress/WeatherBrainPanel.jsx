@@ -1,4 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import AbilityRadar, { RADAR_MIN_CONCEPTS } from './AbilityRadar';
+import Mascot from '../../components/Mascot';
+import { conceptCharacter } from '../../components/conceptCharacter';
 import { progressApi } from '../../api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {
@@ -26,6 +29,12 @@ import { useT } from '../../i18n';
  * R13-01 §5-1: 같은 카드 아래에 **BKT 숙련도** 섹션을 덧붙인다.
  * GET /progress/mastery → [{concept_tag, p_mastery, p_next_correct,
  *   num_responses, cold_start, level_label, params_source}].
+ * 개념마다 **담당 캐릭터**를 막대 앞에 세운다(2026-08-10 사용자 지시). 배정표는
+ * `conceptCharacter.js`가 소유한다 — 여기서 고르지 않는다. 그림 넷이 합류하면서
+ * 산불 기상·홍수 대응이 폴백(구름)을 벗어나, 이 목록에서 같은 얼굴이 반복되던
+ * 것이 풀렸다. 캐릭터는 장식이라 `Mascot`이 aria-hidden으로 그린다 — 개념 이름은
+ * 바로 옆 텍스트가 읽어 준다.
+ *
  * 두 축은 다른 것을 잰다 — θ 막대는 "지금 실력"(로짓, 순서 없는 집합),
  * 숙련도 막대는 "이 개념을 익혔을 확률"(0..1, 시간 순서). 색조도 나눈다
  * (θ=sky, 숙련=emerald). 숙련도는 부가 축이라 조회 실패 시 섹션만 사라지고
@@ -63,7 +72,9 @@ export default function WeatherBrainPanel() {
   const MasterySection = () => {
     if (mastery.isLoading || mastery.isError) return null;
     return (
-      <div className="mt-4 border-t border-slate-100 pt-3">
+      // 구분선은 **바깥 격자가 준다**(좁으면 위 테두리, 넓으면 왼쪽 테두리) —
+      // 여기서 border-t를 박으면 2열일 때 오른쪽 칸 머리에 줄이 하나 더 생긴다.
+      <div>
         <h3 className="text-sm font-bold text-slate-800">
           {t('weatherBrain.mastery.title')}
         </h3>
@@ -88,8 +99,14 @@ export default function WeatherBrainPanel() {
                   })}
                 >
                   <div className="flex items-center justify-between gap-2 text-xs">
-                    <span className="min-w-0 truncate font-semibold text-slate-700">
-                      {CONCEPT_KO[m.concept_tag] ?? m.concept_tag}
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Mascot
+                        name={conceptCharacter(m.concept_tag)}
+                        className="h-[22px] w-[22px] flex-none"
+                      />
+                      <span className="min-w-0 truncate font-semibold text-slate-700">
+                        {CONCEPT_KO[m.concept_tag] ?? m.concept_tag}
+                      </span>
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5">
                       <span className="text-[11px] font-bold tabular-nums text-slate-600">
@@ -162,6 +179,7 @@ export default function WeatherBrainPanel() {
   }
 
   const rows = (Array.isArray(data) ? data : []).map((a) => ({
+    tag: a.concept_tag,
     name: CONCEPT_KO[a.concept_tag] ?? a.concept_tag,
     score: thetaToScore(a.theta),
     theta: typeof a.theta === 'number' ? a.theta : 0,
@@ -186,14 +204,55 @@ export default function WeatherBrainPanel() {
   return (
     <Card>
       <Header />
-      <p className="mb-3 text-xs leading-relaxed text-slate-500">
+      {/* 폭 전체 한 판이 되면서(2026-08-10 사용자 지시) 카드 안이 2열로 갈린다 —
+          **왼쪽 θ(지금 실력) · 오른쪽 숙련도(익혔을 확률)**. 두 축을 세로로
+          이어 붙이던 시절에는 막대가 14+14줄이라 카드 하나가 화면 두 개 높이였다.
+          lg 미만에서는 1열로 쌓이고, 그때만 숙련도 위에 구분선이 생긴다.
+
+          설명도 **열마다 따로** 붙는다(2026-08-11 사용자 지시). 종전에는 카드
+          맨 위에 전폭 한 문단이 있었는데, 그것은 θ만 설명하는 글이라 오른쪽
+          숙련도에는 자기 소개(h3 + 부제)가 있고 왼쪽에는 없는 짝짝이가 됐다.
+          두 열의 머리를 같은 꼴(h3 + 부제)로 맞추면 무엇과 무엇이 나란한
+          것인지가 읽힌다. */}
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start lg:gap-6">
+      <div>
+      <h3 className="text-sm font-bold text-slate-800">{t('weatherBrain.ability.title')}</h3>
+      <p className="mb-3 mt-0.5 text-xs leading-relaxed text-slate-500">
         {t('weatherBrain.introSeg1')}
         <span className="font-semibold text-sky-700">{t('weatherBrain.introStrong')}</span>
         {t('weatherBrain.introSeg2')}
       </p>
+      {/* 레이더 + 막대 (2026-08-09) — 홈이 사라지면서 레이더가 이리로 왔다.
+          막대는 개념을 **하나씩** 읽게 하고 레이더는 **치우침**을 한 번에 보여준다.
+          둘은 같은 데이터의 다른 질문이라 겹치는 게 아니다.
+          개념 3종 미만이면 AbilityRadar가 스스로 null이라 자리째 빠진다 —
+          다각형이 안 그려지는데 빈 칸을 남기면 "고장"으로 읽힌다.
 
-      {/* 개념별 막대(PlacementSummary와 동일 div 관용구) + 레벨 칩 + 초기 배정 안내 */}
-      <ul className="flex flex-col gap-2.5">
+          2026-08-11(사용자 지시): 나란히(레이더 | 막대)에서 **위아래**로 바꾸고
+          레이더를 키웠다(150 → 224px). 옆에 두면 레이더가 열 폭의 3분의 1을
+          먹어 막대가 짧아지는데, 정작 레이더는 작아서 치우침이 안 읽혔다.
+          위로 올리면 레이더는 열 폭만큼 커지고 막대도 폭을 다 쓴다.
+          간격(mt-3·gap-2.5)은 오른쪽 숙련도 목록과 같은 값이다 — 두 열의 줄이
+          같은 리듬으로 내려가야 한 카드로 읽힌다. */}
+      {/* ⚠️ 개념 3종 미만이면 **감싼 div까지 같이 빠져야 한다**(2026-08-11 코드
+          리뷰). AbilityRadar는 스스로 null이지만 wrapper가 남으면 mt-3만큼의
+          빈 줄이 막대 위에 생겨, "자리째 빠진다"던 위 설명이 거짓이 된다.
+          임계는 AbilityRadar가 소유한다(RADAR_MIN_CONCEPTS) — 여기서 다시 정하지
+          않고 **같은 상수를 읽는다**. 숫자를 베끼면 그쪽이 바뀔 때 빈 줄이
+          조용히 되살아난다. */}
+      {rows.length >= RADAR_MIN_CONCEPTS && (
+        <div className="mt-3 flex justify-center">
+          <AbilityRadar
+            abilities={(Array.isArray(data) ? data : []).map((a) => ({
+              concept_tag: a.concept_tag,
+              theta: a.theta,
+              level_label: a.level_label,
+            }))}
+            className="h-[224px] w-[224px]"
+          />
+        </div>
+      )}
+      <ul className="mt-3 flex min-w-0 flex-col gap-2.5">
         {rows.map((row) => (
           <li
             key={row.name}
@@ -205,7 +264,13 @@ export default function WeatherBrainPanel() {
             })}
           >
             <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="min-w-0 truncate font-semibold text-slate-700">{row.name}</span>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <Mascot
+                  name={conceptCharacter(row.tag)}
+                  className="h-[22px] w-[22px] flex-none"
+                />
+                <span className="min-w-0 truncate font-semibold text-slate-700">{row.name}</span>
+              </span>
               <span className="flex shrink-0 items-center gap-1.5">
                 {row.isPrior && (
                   <span className="text-[10px] font-medium text-slate-400">
@@ -234,8 +299,12 @@ export default function WeatherBrainPanel() {
           </li>
         ))}
       </ul>
+      </div>
 
-      <MasterySection />
+      <div className="border-t border-slate-100 pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+        <MasterySection />
+      </div>
+      </div>
     </Card>
   );
 }

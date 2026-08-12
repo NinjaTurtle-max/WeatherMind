@@ -37,6 +37,7 @@ from app.routers import (
     progress,
     session,
 )
+from app.services import weather_api
 from app.services.answer_service import AlreadyAnsweredError, BoardStateRequiredError
 from app.services.board_engine import BoardRulesError, BoardValidationError
 from app.services.energy_service import OutOfCloudsError
@@ -151,10 +152,37 @@ _DEFAULT_CODES = {
 }
 
 
+async def _probe_kma_key() -> None:
+    """KMA 키 게이트 시드 — 기동 시 1콜로 인증이 실제로 되는지 확정한다.
+
+    **기동을 막지 않는다.** KMA는 하드 의존이 아니고(키 없이도 degraded로 전 기능이
+    돈다) 무키 기동은 스모크의 전제다. 여기서 하는 일은 거부가 아니라 **관측**이다:
+    결과가 `/health`의 `kma` 필드로 나가서, 종전에 아무 신호도 없던
+    "키를 넣었다 ≠ 키가 동작한다" 구간을 사람이 볼 수 있게 만든다.
+    """
+    try:
+        status_ = await weather_api.probe_key()
+    except Exception as exc:  # 프로브 자체가 죽어도 기동은 계속
+        logger.warning("[KMA 키 게이트] 프로브 실패: %s", weather_api.mask_service_key(exc))
+        return
+    state, active = status_.get("state"), status_.get("active_key")
+    if state == "ok" and active == "spare":
+        logger.warning(
+            "[KMA 키 게이트] **주키 실패 — 스페어로 동작 중**. 주키(대회 계정)가 "
+            "만료·미승인·한도 소진 중 하나다. 스페어까지 죽으면 날씨가 통째로 "
+            "degraded가 되므로 주키를 복구할 것."
+        )
+    elif state == "ok":
+        logger.info("[KMA 키 게이트] 주키 정상 (spare_configured=%s)", status_.get("spare_configured"))
+    else:
+        logger.warning("[KMA 키 게이트] state=%s detail=%s", state, status_.get("detail"))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _enforce_secret_hygiene()  # 비-dev + changeme 기본값 → 기동 거부 (RuntimeError)
     await _enforce_runtime_rls_role()  # 비-dev + 특권 롤 → 기동 거부 (CO-J-2)
+    await _probe_kma_key()  # 키 게이트 시드 — 거부하지 않고 관측만 한다
     yield
     await close_redis()
     await engine.dispose()
@@ -333,11 +361,18 @@ async def health():
         "status": "ok" if healthy else "unavailable",
         "service": "weathermind-backend",
         "checks": checks,
+        # KMA 키 게이트는 **checks에 넣지 않는다** — 503 판정에 끼면 안 되기 때문이다.
+        # KMA는 하드 의존이 아니라서(키가 죽어도 학습·퀴즈·보드는 전부 돈다) 여기서
+        # 503을 내면 멀쩡한 인스턴스를 오케스트레이터가 죽인다. 그래서 별도 필드로
+        # **보고만** 한다. checks의 형태는 종전 그대로 유지된다(계약 테스트가 완전
+        # 일치로 단정한다).
+        "kma": weather_api.key_status(),
         # 실행 중인 코드가 워크트리와 같은가 — `python scripts/code_fingerprint.py
         # backend/app`의 값과 대조한다. 다르면 이미지가 낡았다(CO-Y-13:
         # `--no-cache`로도 안 뚫려 `docker builder prune -af`가 필요했다).
         # 지금까지 대조할 방법이 아예 없어서, 낡은 백엔드를 상대로 검증을 돌리고
         # 실재하지 않는 결함을 등재했다가 철회한 일이 있었다.
+        # 위 `kma`와 같은 이유로 checks 밖이다 — 진단이지 가동 판정이 아니다.
         "code_fingerprint": code_fingerprint(),
     }
     if healthy:

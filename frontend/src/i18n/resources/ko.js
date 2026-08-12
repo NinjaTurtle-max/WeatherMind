@@ -35,7 +35,12 @@ export default {
     logout: '로그아웃',
     learn: '학습',
     board: '보드',
-    duel: '예보 대결',
+    // 내비 라벨은 **화면 제목과 다르다**(2026-08-11 사용자 지시). 제목은
+    // `duel.title`(「예보 대결」)이고 여기는 사이드바·탭바에 들어가는 짧은 이름이라
+    // 두 글자로 줄였다 — 리그와 한 화면으로 합치면서 이 항목이 두 탭을 함께
+    // 담당하게 됐고(navItems.alsoMatch), 「예보 대결」이라 적으면 리그를 보고
+    // 있을 때 내비가 틀린 이름을 켜 놓은 꼴이 된다.
+    duel: '예보',
     league: '리그',
     explore: '탐구',
     me: '내 정보',
@@ -123,6 +128,14 @@ export default {
       jeonju: '전주',
     },
   },
+  // 예보 대결 · 리그 공통 껍데기(modules/compete/CompeteLayout.jsx) — 2026-08-11에
+  // 두 화면을 탭 하나로 합쳤다. 탭 이름은 각 화면의 제목(duel.title·league.title)과
+  // **다른 키**다: 제목은 이모지·수식이 붙지만 탭은 짧아야 한다.
+  compete: {
+    tabsAria: '대결 화면 선택',
+    tabDuel: '예보 대결',
+    tabLeague: '리그',
+  },
   spine: {
     title: '유닛 {cleared}/{total} 클리어 · 왕관 {crowns}/{crownsTotal}',
     crown: '왕관',
@@ -167,6 +180,42 @@ export default {
       // 화면에 `ability.level.expert` 키 문자열이 그대로 떴다.
       expert: '최상급',
     },
+    // 지식 단계(knowledge_level) — 위 level(4밴드=표현 톤)과 **다른 축**(난이도)이다.
+    // 두 축은 대체가 아니라 병기다. 라벨 원본은 database/seed/level_vocabulary.json의
+    // `anchor`이고, 마크다운 강조(**)와 성취기준 코드([12지시03])를 걷어내
+    // 「표시명 = 제도적 단계 / 부제 = 영역·과목」으로 다듬었다(뜻은 그대로).
+    knowledgeLevel: {
+      cardTitle: '현재 지식 단계',
+      lv: 'Lv.{level}',
+      ofMax: '{max}단계 중 {level}단계',
+      next: '다음 단계: {name}',
+      top: '가장 높은 단계예요',
+      aria: '현재 지식 단계 — {max}단계 중 {level}단계, {name}',
+      name: {
+        1: '초등 3~4학년',
+        2: '초등 5~6학년',
+        3: '중학교 물질·에너지',
+        4: '중학교 유체 지구',
+        5: '고등학교 공통',
+        6: '고등학교 일반선택',
+        7: '고등학교 진로선택',
+        8: '학부 대기과학',
+        9: '학부 고학년',
+        10: '기상청 현업',
+      },
+      sub: {
+        1: '현상에 이름 붙이기',
+        2: '기상 요소 측정과 규칙성',
+        3: '열 · 비열 · 압력으로 설명하기',
+        4: '대기와 해양을 하나의 계로 보기',
+        5: '통합과학1 · 통합과학2',
+        6: '지구과학 · 기후변화와 환경생태',
+        7: '지구시스템과학 · 고급 지구과학',
+        8: '역학 기초 · WMO 십운형',
+        9: '종관 분석 · 수치예보',
+        10: '특보 기준 · 현업 진단 지수',
+      },
+    },
   },
   // lib/onboardingGate.js DAILY_GOAL_CHOICES 라벨 + DailyGoal.jsx(피커·미터)
   dailyGoal: {
@@ -180,6 +229,9 @@ export default {
     pickerTitle: '🎯 하루 목표를 정해요',
     pickerBody: '작게 시작해도 매일이 더 중요해요. 언제든 바꿀 수 있어요.',
     saved: '좋아요 — 오늘부터 하루 {items}문항이 목표예요.',
+    // 내 정보 조회 실패 — 현재 목표를 모르니 선택지를 내주지 않고, 대신 자리를
+    // 비우지 않는다(목표를 정하러 앵커를 타고 온 사람이 빈 화면 끝을 본다).
+    loadFailed: '지금 설정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
     saveFailed: '목표를 저장하지 못했어요. {detail} 다시 눌러주세요.',
     meterTitle: '🎯 오늘 목표 {done}/{goal}',
     reached: '달성!',
@@ -227,16 +279,9 @@ export default {
     placementBannerTitle: '아직 실력 진단 전이에요',
     placementBannerBody: '6문항 진단을 받으면 WeatherBrain이 내 수준에 맞는 문제를 골라줘요.',
     placementBannerCta: '진단 받고 내 수준 찾기 →',
-    spineTitle: '🎓 학습 진도',
-    spineProgress: '{cleared}/{total} 유닛 · {ratio}%',
-    spineCurrentLabel: '지금 배울 유닛',
-    spineContinue: '이어서 학습 →',
-    spineAllCleared: '🌈 열린 유닛을 모두 클리어했어요!',
-    spineNoneOpen: '아직 열린 유닛이 없어요 — 학습 경로에서 첫 유닛을 열어 보세요.',
-    spineStart: '학습 경로 열기 →',
     // 학습 수준 설정 (R13 P-5) — 게스트가 평생 middle_high에 갇히지 않게 하는 통로
     levelGroupTitle: '🎚️ 학습 수준',
-    levelGroupBody: '문항 난이도가 이 설정을 따라가요. 바꾸면 다음 세션부터 반영돼요.',
+    levelGroupBody: '문항 난이도와 보드에서 열리는 난이도가 이 설정을 따라가요. 세션은 다음 발급부터 반영돼요.',
     levelGroupSaved: '학습 수준을 바꿨어요.',
     levelGroupFailed: '학습 수준을 바꾸지 못했어요.',
     levelGroupSaving: '바꾸는 중...',
@@ -280,6 +325,9 @@ export default {
     title: '🧠 WeatherBrain 능력 분석',
     loading: '능력 분석을 불러오는 중...',
     loadFailed: '능력 분석을 불러오지 못했어요. {detail}',
+    // 두 열의 머리 문구는 짝을 이룬다 — 왼쪽 ability(지금 실력) ↔ 오른쪽
+    // mastery(익혔을 확률). 한쪽만 고치면 카드가 짝짝이가 된다.
+    ability: { title: '지금 실력' },
     introSeg1: 'WeatherMind 자체 적응형 모델 ',
     introStrong: 'WeatherBrain',
     introSeg2: '이 개념별 이해도를 추정해 문제 난이도를 맞춰줘요. 막대가 짧을수록 더 연습이 필요한 개념이에요.',
@@ -291,7 +339,10 @@ export default {
     // BKT 숙련도(R13-01 §5-1) — θ와 다른 축임을 화면에서 읽히게 하는 문구.
     mastery: {
       title: '개념 숙련도',
-      subtitle: '위 막대가 「지금 실력」이라면, 아래는 「이 개념을 익혔을 확률」이에요.',
+      // ⚠️ 「위/아래」로 쓰지 말 것 — 2026-08-10에 두 축이 좌우로 갈렸는데 이
+      // 문구만 세로 시절 그대로였다. 좁은 화면에서는 다시 위아래로 쌓이므로
+      // **방향을 말하지 않고 이름으로 가리킨다**(어느 배치에서도 맞는다).
+      subtitle: '「지금 실력」이 오늘 풀 수 있는 정도라면, 이쪽은 「이 개념을 익혔을 확률」이에요.',
       empty: '문제를 풀면 개념을 익혔는지 추적하기 시작해요.',
       insufficient: '데이터 부족',
       beginning: '아직 익히는 중',
@@ -315,10 +366,8 @@ export default {
       learnGo: '이어서 풀기 →',
       go: '바로 가기 →',
       // R13-01 §2.5 진입 통합 — 홈의 학습 진입 카드 1개가 쓰는 문구
-      unitBody: '진행 중인 유닛이에요. 여기서 이어 가면 돼요.',
       todayLabel: '오늘의 학습',
       doneTitle: '오늘 몫은 다 했어요',
-      doneBody: '오늘 할 학습을 모두 마쳤어요. 더 하고 싶다면 아래에서 골라 보세요.',
       doneCta: '지난 유닛 다시 보기 →',
       more: '더 해보기',
       board: '대기 보드',
@@ -361,9 +410,13 @@ export default {
     },
   },
   curriculum: {
+    // 하루 목표 미설정 — 진입 카드에서 내 정보(설정 통로)로 보낸다
+    goalUnset: '목표를 설정하세요!',
     loading: '학습 경로를 불러오고 있어요...',
     loadFailed: '학습 경로를 불러오지 못했어요',
     title: '🎓 학습',
+    // 배너 한 줄 부제. 2026-08-09 잠깐 값 안에 개행이 있었다(튜터 말풍선 두 줄
+    // 고정) — 배너로 바뀌며 한 줄이 되어 원문 바이트 동일로 되돌렸다.
     subtitle: '유닛을 순서대로 클리어하며 날씨 개념을 쌓아요.',
     sectionDone: '{cleared}/{total} 완료',
     energyEmpty: {
@@ -393,6 +446,14 @@ export default {
       boardChip: '보드 퍼즐 유닛',
       placementOpened: '🧭 진단으로 열림',
     },
+    // 학습 화면 하단 3카드의 리그 칸(2026-08-09 시안). 티어 표시명은 tier.name.*이
+    // 소유하고 여기는 틀만 갖는다 — 두 벌로 두면 리그 화면과 이름이 갈린다.
+    leagueCard: {
+      titleUnranked: '리그',
+      title: '{tier} 리그',
+      people: '/ {total}명',
+      cta: '순위표 보기 →',
+    },
     daily: {
       title: '자유 일일 세션',
       body: '정해진 경로 대신 오늘의 세션을 바로 풀고 싶다면.',
@@ -403,6 +464,7 @@ export default {
     },
     // 세로 경로(PcCurriculumPath) — 노드 밑 라벨을 뺀 대신 진도 바가 "지금 어디"를 말한다.
     path: {
+      sectionEyebrow: '섹션 {n} · {title}',
       introTitle: '이 단계에서 배우는 것',
       start: '시작',
       estMinutes: '예상 {min}분',
@@ -411,7 +473,6 @@ export default {
       scrollHint: '↓ 스크롤해서 다음 단계',
       progressLabel: '현재 진도',
       unitCount: '{done} / {total} 유닛',
-      continue: '이어서 학습하기',
     },
     tutor: {
       chip: '💧 튜터',
@@ -613,6 +674,9 @@ export default {
     rainShort: '강수확률 {prob}%',
     myEvidence: '내가 고른 근거',
     evidenceNote: '정산 후 근거가 맞았는지 해설해 드려요.',
+    // 제출 버튼이 근거 카드보다 위에 있어서(2026-08-11 배치 변경) 못 보고 누르는
+    // 것을 막는 안내. 강제가 아니라 알림이다 — 근거는 선택 사항이다.
+    evidenceBelowHint: '↓ 아래에서 판단 근거를 고르면 정산 후 해설을 받아요 (선택).',
     reviewTitle: '근거 적중 해설',
     hit: '✓ 적중',
     miss: '✗ 빗나감',

@@ -76,25 +76,31 @@ export default {
       depletedBodyBold: '틀린 시도에만 1개',
       depletedBody2: '줄어들어요 — 열심히 푼 만큼이 아니라 실수에만 소모돼요. 약',
       depletedMinutes: '{min}분',
-      depletedBody3: '후 구름 1개가 회복되면 새 퍼즐을 열 수 있어요. 채점 없는 자유 실험은 지금도 열려 있어요.',
-      sandboxTitle: '🧪 자유 실험',
-      sandboxDesc: '목표 없이 마음껏 배치하고 즉시 반응을 관찰해요 (채점·구름 소모 없음)',
-      enter: '입장 →',
-      exploreTitle: '🌀 탐구 실험실',
-      exploreDesc: '태풍·기후변화 시뮬로 변수를 바꿔 보며 원리를 탐구해요',
+      // 자유 실험은 2026-08-10에 탐구로 옮겼다 — 「지금도 열려 있어요」만
+      // 남기면 보드에서 찾다가 못 찾는다. 어디 있는지 말해 준다.
+      depletedBody3: '후 구름 1개가 회복되면 새 퍼즐을 열 수 있어요. 채점 없는 자유 실험은 탐구에서 지금도 열려 있어요.',
       empty: '아직 등록된 퍼즐이 없어요.',
       modeGuided: '안내 모드',
       modeGoal: '목표 모드',
       cardRecovery: '☁️ 구름 회복까지 약 {min}분',
       puzzleFallback: '퍼즐',
+      lockedSuffix: ' (잠김)',
+      lockedTitle: '내 정보에서 학습 수준을 올리면 열려요',
+      cardLocked: '수준 올리면 열림',
+      lockedBannerTitle: '🔒 지금 학습 수준에서 열리는 난이도까지 보여요',
+      lockedBannerBody: '초등학생은 쉬움, 중·고등학생은 보통까지, 성인은 전부 열려요.',
+      lockedBannerCta: '학습 수준 바꾸기',
       blockedSuffix: ' (구름 부족)',
       blockedTitle: '구름이 회복되면 열 수 있어요 — 약 {min}분 후',
       // MT-24 순차 잠금. 에너지 차단과 **다른 말**을 써야 한다 — 둘은 해법이
       // 반대다(기다리면 열림 vs 앞을 풀어야 열림). 같은 문구를 쓰면 학습자가
       // 잠긴 칸 앞에서 20분을 기다린다.
+      // ⚠️ 학습 수준 잠금(위 lockedTitle)과도 **다른 키**여야 한다. 병합 직후
+      // 잠깐 같은 이름으로 두 번 정의돼 있었고, 객체 리터럴이라 뒤엣것이 앞엣것을
+      // 조용히 덮어 「수준 올리면 열림」 안내가 통째로 사라져 있었다(2026-08-12).
+      // 해법이 서로 다르므로(수준 올리기 vs 앞 퍼즐 풀기) 문구도 갈라야 한다.
       lockedHint: '🔒 앞 퍼즐부터',
-      lockedSuffix: ' (잠김)',
-      lockedTitle: '앞의 퍼즐을 먼저 풀면 열려요',
+      seqLockedTitle: '앞의 퍼즐을 먼저 풀면 열려요',
       opening: '여는 중…',
       cleared: '✓ 클리어',
       challenge: '도전',
@@ -428,6 +434,9 @@ export default {
       modelBadge: '교육용 단순화 모델 — 실제 예측이 아니에요',
     },
     home: {
+      sandboxTitle: '자유 실험',
+      sandboxDesc: '목표도 채점도 없어요. 기단·전선·습기·일사를 마음껏 놓아 보고 어떤 날씨가 만들어지는지 관찰해요.',
+      sandboxInputs: '요소 9종 · 채점 없음 · 구름 무소모',
       title: '🔭 탐구',
       subtitle: '조건을 직접 움직여 보며 날씨와 기후의 원리를 체험하는 공간이에요.',
       typhoonTitle: '태풍 만들기',

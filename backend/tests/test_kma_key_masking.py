@@ -34,24 +34,44 @@ REPO = Path(__file__).resolve().parents[2]
 CELERY_CLIENT = REPO / "celery" / "app" / "kma_client.py"
 BACKEND_CLIENT = REPO / "backend" / "app" / "services" / "weather_api.py"
 
+# 인증 파라미터 이름 2종. R13에서 출처를 공공데이터포털(`serviceKey`) → 기상청
+# API허브(`authKey`)로 옮겼다. **구 이름을 지우지 않는다** — 되돌림·혼용 배포에서도
+# 방어가 유지돼야 하고, 정규식이 실사용 이름 하나를 놓치면 전환 당일부터 키가
+# 로그로 그대로 샌다(규정상 노출 = 실격).
+KEY_PARAMS = ("serviceKey", "authKey")
+
 LEAKY = [
-    "https://apis.data.go.kr/x/y?serviceKey=REAL_SECRET_VALUE&numOfRows=10",
-    "GET https://a/b?pageNo=1&serviceKey=abc%2Fdef%3D%3D&dataType=JSON",
-    "error: request to ...&servicekey=lower_case_variant failed",
-    "\"serviceKey=quoted_value\" 뒤에 따옴표",
-    "serviceKey=trailing_at_end",
+    ("https://apis.data.go.kr/x/y?serviceKey=REAL_SECRET_VALUE&numOfRows=10", "serviceKey"),
+    ("GET https://a/b?pageNo=1&serviceKey=abc%2Fdef%3D%3D&dataType=JSON", "serviceKey"),
+    ("error: request to ...&servicekey=lower_case_variant failed", "serviceKey"),
+    ("\"serviceKey=quoted_value\" 뒤에 따옴표", "serviceKey"),
+    ("serviceKey=trailing_at_end", "serviceKey"),
+    ("https://apihub.kma.go.kr/api/typ02/openApi/X/y?authKey=REAL_SECRET_VALUE&nx=60", "authKey"),
+    ("GET https://apihub.kma.go.kr/a?pageNo=1&authKey=abc%2Fdef%3D%3D&dataType=JSON", "authKey"),
+    ("error: request to ...&authkey=lower_case_variant failed", "authKey"),
+    ("\"authKey=quoted_value\" 뒤에 따옴표", "authKey"),
+    ("authKey=trailing_at_end", "authKey"),
 ]
+
+LEAKY_TEXTS = [text for text, _ in LEAKY]
 
 
 class TestMaskingBehaviour:
-    @pytest.mark.parametrize("text", LEAKY)
-    def test_실키가_문자열에서_사라진다(self, text):
+    @pytest.mark.parametrize("text,param", LEAKY)
+    def test_실키가_문자열에서_사라진다(self, text, param):
         out = weather_api.mask_service_key(text)
-        assert "serviceKey=" in out.replace("servicekey=", "serviceKey=")
+        # 파라미터 이름 자체는 남는다 — 무엇이 지워졌는지 로그에서 알 수 있어야 한다
+        assert re.search(rf"(?i){param}=", out), f"{param} 이름까지 사라졌다: {out!r}"
         assert weather_api.SERVICE_KEY_MASK in out
         # 원문에서 키였던 자리의 값이 남아 있으면 안 된다
-        for secret in re.findall(r"(?i)serviceKey=([^&\s'\"]+)", text):
+        for secret in re.findall(rf"(?i){param}=([^&\s'\"]+)", text):
             assert secret not in out, f"마스킹 후에도 키가 남았다: {secret!r}"
+
+    @pytest.mark.parametrize("param", KEY_PARAMS)
+    def test_두_파라미터_이름을_모두_잡는다(self, param):
+        """한 이름만 잡는 정규식이 전환 사고의 형태다 — 둘 다 명시적으로 못 박는다."""
+        out = weather_api.mask_service_key(f"https://x/y?{param}=SECRET&keep=1")
+        assert "SECRET" not in out and "keep=1" in out
 
     def test_다른_쿼리_파라미터는_보존된다(self):
         out = weather_api.mask_service_key(
@@ -110,5 +130,27 @@ class TestCrossBuildParity:
         )
         assert body, "celery 쪽 mask_service_key를 못 찾았다"
         exec("import re\n" + body.group(0), ns)
-        for text in LEAKY:
+        for text in LEAKY_TEXTS:
             assert ns["mask_service_key"](text) == weather_api.mask_service_key(text)
+
+
+class TestAuthParamContract:
+    """URL을 만드는 자리와 마스킹이 **같은 파라미터 이름**을 봐야 한다.
+
+    이 둘이 갈리는 것이 유출의 실제 형태다: 출처를 API허브로 옮기면서 URL 조립만
+    `authKey`로 바꾸고 정규식을 `serviceKey`에 둔 채로 두면, 마스킹은 통과하는데
+    (구 이름 기준) 실제 로그에는 키가 남는다. 한쪽만 고치는 것을 CI가 막는다.
+    """
+
+    @pytest.mark.parametrize("path", [BACKEND_CLIENT, CELERY_CLIENT])
+    def test_두_클라이언트가_authKey로_인증한다(self, path):
+        src = path.read_text(encoding="utf-8")
+        assert "?authKey={" in src, f"{path.name}이 authKey로 인증하지 않는다"
+        assert "?serviceKey={" not in src, (
+            f"{path.name}에 구 serviceKey 부착이 남아 있다 — API허브는 authKey를 쓴다"
+        )
+
+    @pytest.mark.parametrize("param", KEY_PARAMS)
+    def test_정규식이_두_이름을_모두_포함한다(self, param):
+        """정규식 소스 자체를 본다 — 위 동작 테스트가 지워져도 이름 누락은 잡힌다."""
+        assert param.lower() in weather_api._SERVICE_KEY_RE.pattern.lower(), param

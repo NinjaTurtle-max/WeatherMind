@@ -72,6 +72,58 @@ def _mc(**overrides) -> dict:
     return question
 
 
+# ── 신규 3종 대역 (2026-08-10, CO-O-13) ────────────────────────────────────
+# slider가 시드 실측값을 쓰는 것과 같은 이유로, cloze·match·ordering도 본시드
+# 실항목을 그대로 쓴다 — "정상이 어떤 모양인가"를 테스트가 지어내지 않는다.
+def _cloze(**overrides) -> dict:
+    question = {
+        "concept_tag": "heat_island",
+        "knowledge_level": 2,  # 열대야 25℃ [6과06-01]
+        "question_type": "cloze",
+        "question_text": "밤 최저기온이 ___℃ 아래로 내려가지 않는 밤을 열대야라고 한다.",
+        "correct_answer": "25",
+    }
+    question.update(overrides)
+    return question
+
+
+def _match(pairs: list[dict] | None = None, **overrides) -> dict:
+    pairs = pairs if pairs is not None else [
+        {"left": "겨울", "right": "시베리아 기단"},
+        {"left": "여름", "right": "북태평양 기단"},
+        {"left": "초여름", "right": "오호츠크해 기단"},
+    ]
+    question = {
+        "concept_tag": "air_mass",
+        "knowledge_level": 4,  # 기단 [9과17-04]
+        "question_type": "match",
+        "question_text": "계절과 그 계절에 영향을 주는 대표 기단을 연결하세요.",
+        "pairs": pairs,
+        "correct_answer": "|".join(f"{p['left']}:{p['right']}" for p in pairs),
+    }
+    question.update(overrides)
+    return question
+
+
+def _ordering(**overrides) -> dict:
+    question = {
+        "concept_tag": "typhoon",
+        "knowledge_level": 5,  # 태풍의 발생·이동·소멸 [12지구01-04]
+        "question_type": "ordering",
+        "question_text": "태풍의 일생을 일어나는 순서대로 배열하세요.",
+        "items": [
+            "따뜻한 열대 바다에서 수증기가 증발해 열대 저기압이 생긴다",
+            "수증기가 응결하며 내놓는 열을 에너지로 삼아 태풍으로 발달한다",
+            "태풍이 육지에 상륙한다",
+            "수증기 공급이 줄어 세력이 급격히 약해진다",
+        ],
+        "shuffled": True,
+        "correct_answer": "0,1,2,3",
+    }
+    question.update(overrides)
+    return question
+
+
 _LANGCHAIN_STUBS = (
     "langchain_core",
     "langchain_core.messages",
@@ -130,17 +182,30 @@ class TestGeneratedPayloadFields:
     """`GENERATED_PAYLOAD_FIELDS`는 PM의 교차 계약 테스트가 읽는 이름이다."""
 
     def test_계약_G1_표와_값이_같다(self):
+        """2026-08-10(CO-O-13): 3종 → **6종**. 값까지 못박는 표다.
+
+        종전 판은 mc·short_answer·slider 3키였다. "G1으로는 유형 3종만 나온다 →
+        뱅크 유형 다양성이 키 투입으로 늘지 않는다"가 확장 근거다. 필드 값은
+        본시드 실측과 같다(cloze·short_answer는 추가 payload 없음).
+        """
         assert GENERATED_PAYLOAD_FIELDS == {
             "multiple_choice": ("options",),
             "short_answer": (),
             "slider": ("min", "max", "step", "unit"),
+            "cloze": (),
+            "match": ("pairs",),
+            "ordering": ("items", "shuffled"),
         }
 
     def test_생성_대상이_아닌_유형은_들어있지_않다(self):
-        # board·match·ordering·cloze는 저작 영역 — 여기 넣으면 생성이 시도된다.
-        assert not {"board", "match", "ordering", "cloze"} & set(
-            GENERATED_PAYLOAD_FIELDS
-        )
+        """이제 제외는 **board 하나뿐**이다.
+
+        board는 저작 영역이라서가 아니라 **판정이 불가능해서** 빠진다: 통과 여부를
+        `board_rules.json`으로 재계산해야 하는데 이 모듈은 계약 G-3에 따라
+        stdlib+pydantic만 쓴다. 판정 못 하는 것을 생성 대상에 넣으면 **도달 불가능한
+        퍼즐이 전건 통과**한다(CARRYOVER O-11이 실측한 그 상태).
+        """
+        assert "board" not in GENERATED_PAYLOAD_FIELDS
 
     def test_Literal_허용값과_키가_일치한다(self):
         allowed = QuizQuestion.model_fields["question_type"].annotation.__args__
@@ -343,6 +408,128 @@ class TestSeedSliderValues:
         # float 단일 선언이면 0 → 0.0이 되어 시드 항목과 형태가 어긋난다.
         question = QuizQuestion(**_slider())
         assert isinstance(question.min, int) and isinstance(question.step, int)
+
+
+# ── 신규 3종 값 정합 (2026-08-10, CO-O-13) ──────────────────────────────────
+class TestNewTypeRules:
+    """cloze·match·ordering도 **필드가 있다 ≠ 풀 수 있다**.
+
+    slider에 G-2를 건 것과 같은 이유다. 생성 산출물은 사람이 한 건씩 검수하지 않고
+    뱅크에 들어가므로(G1은 1,360건 규모), 값이 어긋난 문항은 **예외 없이 API에
+    도달해 조용히 오작동**한다 — 유저에게는 "못 푸는 문항"으로만 보이고 로그에는
+    난이도 이상값으로만 남는다.
+
+    검사는 `QuizQuestion` 생성 시점에 건다. 생성 경로가 `_parse_output` →
+    `QuizQuestion`이라 여기서 걸려야 재시도(temperature 0.1) → 폴백이라는 현행
+    실패 의미론을 탄다(계약 §1 마지막 문단).
+    """
+
+    @pytest.mark.parametrize("build", [_cloze, _match, _ordering], ids=["cloze", "match", "ordering"])
+    def test_본시드_형태는_통과한다(self, build):
+        """거부 테스트의 짝 — 전건 거부하는 구현이 초록이 되지 않게 한다.
+
+        저작된 문항이 생성 계약에 걸리면 그 계약은 품질 기준이 아니라 **저작 규약과
+        어긋난 별개 규약**이고, G1에서 멀쩡한 산출이 전건 폴백으로 새어 비용만 나간다.
+        """
+        assert QuizQuestion(**build()).question_type == build()["question_type"]
+
+    # ── cloze ────────────────────────────────────────────────────────────────
+    @pytest.mark.parametrize(
+        "question_text",
+        [
+            "열대야는 밤 최저기온이 25℃ 아래로 내려가지 않는 밤이다.",
+            "밤 최저기온이 __℃ 아래로 내려가지 않는 밤을 열대야라고 한다.",
+        ],
+        ids=["마커없음", "밑줄2개"],
+    )
+    def test_cloze는_빈칸_마커가_없으면_거부(self, question_text):
+        """cloze는 추가 payload가 없는 유형이라 **문장이 유일한 구조**다.
+
+        빈칸이 없으면 화면에 완성된 평서문만 뜨고 무엇을 묻는지 알 수 없다.
+        채점기는 `_grade_text`(cloze = short_answer 규칙 재사용)라 예외도 없다.
+        """
+        with pytest.raises(ValueError):
+            QuizQuestion(**_cloze(question_text=question_text))
+
+    # ── match ────────────────────────────────────────────────────────────────
+    def test_match는_정답이_pairs와_어긋나면_거부(self):
+        """정답의 소유자는 `pairs`다 — 갈라지면 **아무도 못 맞히는 문항**이 된다.
+
+        프론트는 `pairs`로 보기를 그리고 `_grade_match`는 `correct_answer`와 대조하므로,
+        유저가 화면에서 만들 수 있는 어떤 조합도 정답이 아니게 된다. 오답만 쌓이고
+        에너지까지 깎인다.
+        """
+        with pytest.raises(ValueError):
+            QuizQuestion(**_match(correct_answer="겨울:북태평양 기단|여름:시베리아 기단"))
+
+    @pytest.mark.parametrize(
+        "pairs",
+        [
+            [{"left": "겨울", "right": "시베리아 기단"}],
+            [
+                {"left": "겨울", "right": "시베리아 기단"},
+                {"left": "겨울", "right": "북태평양 기단"},
+            ],
+        ],
+        ids=["1쌍", "left중복"],
+    )
+    def test_match는_1쌍이거나_left가_중복이면_거부(self, pairs):
+        """짝짓기는 서로 다른 left가 둘 이상이어야 성립한다.
+
+        1쌍이면 고를 것이 없어 무조건 정답이고, left가 중복이면 화면에 같은 항목이
+        두 번 떠서 유저가 구분할 수 없다.
+        """
+        with pytest.raises(ValueError):
+            QuizQuestion(**_match(pairs))
+
+    # ── ordering ─────────────────────────────────────────────────────────────
+    @pytest.mark.parametrize(
+        "correct_answer", ["0,2,1,3", "3,2,1,0", "0,1,2", "0,1,1,3", "1,2,3,4"],
+        ids=["뒤섞임", "역순", "개수부족", "인덱스중복", "1부터시작"],
+    )
+    def test_ordering은_항등_순열이_아니면_거부(self, correct_answer):
+        """**items를 정답 순서로 저작한다** → 정답은 `"0,1,…,n-1"`뿐이다.
+
+        `shuffled`는 화면 표시 지시일 뿐 저장 순서를 바꾸지 않는다. 정답에 다른
+        순열이 들어오면 옳게 푼 유저가 틀린다 — 예외가 없어 **영원한 오답**이 되고
+        로그에도 안 남는다. CARRYOVER O-11의 "ordering: 순서가 옳은지 아무도 검증
+        안 함"에 해당하는 생성 경로 몫이다.
+        """
+        with pytest.raises(ValueError):
+            QuizQuestion(**_ordering(correct_answer=correct_answer))
+
+    def test_ordering은_shuffled가_False면_거부(self):
+        """**정답 유출 방지.** false면 서버가 그 값을 그대로 노출하고 프론트가
+        정답 순서대로 보기를 그린다 — 오작동이 아니라 답이 화면에 적힌 문항이다.
+        누락(필수 필드)과 달리 값이 있으므로 필드 검사로는 안 잡힌다.
+        """
+        with pytest.raises(ValueError):
+            QuizQuestion(**_ordering(shuffled=False))
+
+    @pytest.mark.parametrize(
+        "items",
+        [
+            ["따뜻한 열대 바다에서 수증기가 증발해 열대 저기압이 생긴다"],
+            [
+                "태풍이 육지에 상륙한다",
+                "태풍이 육지에 상륙한다",
+            ],
+        ],
+        ids=["1개", "중복항목"],
+    )
+    def test_ordering은_items가_2개_미만이거나_중복이면_거부(self, items):
+        """섞을 것이 없거나, 구분 불가능한 두 칸이 있으면 배열 문제가 아니다.
+
+        중복 항목은 두 배열이 똑같이 옳은데 채점기는 항등 순열 하나만 정답으로
+        보므로 유저가 절반의 확률로 틀린다.
+        """
+        with pytest.raises(ValueError):
+            QuizQuestion(
+                **_ordering(
+                    items=items,
+                    correct_answer=",".join(str(i) for i in range(len(items))),
+                )
+            )
 
 
 # ── quiz_gen_chain 연동: 실패 의미론 + 폴백 뱅크 ─────────────────────────────

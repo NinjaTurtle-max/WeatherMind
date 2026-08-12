@@ -109,6 +109,51 @@ async def get_rules(
     ]
 
 
+# 학습 수준(users.level_group) → 열리는 **최고 난이도**. 2026-08-10 사용자 지시:
+# 초등 쉬움 · 중고등 쉬움+보통 · 성인 전부. expert는 adult와 같다 — board_difficulty가
+# 3에서 클램프하므로 그 위가 없다.
+#
+# ⚠️ **첫 판의 「전건 클리어 사다리」를 대체한 것이다**(같은 날 뒤집혔다). 그쪽은
+# 쉬움 23칸을 다 깨야 보통이 열려서, 심사위원이 로그인 없이 여는 데모에서 보통·
+# 어려움을 볼 방법이 없었다(HACKATHON_RULES). 지금은 열쇠가 **진도가 아니라 수준**
+# 이라 「내 정보 → 학습 수준」 한 번으로 바뀐다.
+#
+# 값 목록은 users.level_group CHECK 제약(모델)·schemas/auth.LevelGroup과 같아야
+# 한다. 목(apiMockPlugin `__mockPolicy().board_band_max_difficulty`)이 이 표의
+# 사본을 들고 있고 test_r13_mock_policy_parity가 실값으로 대조한다.
+BAND_MAX_DIFFICULTY: dict[str, int] = {
+    "elementary": 1,
+    "middle_high": 2,
+    "adult": 3,
+    "expert": 3,
+}
+
+# 미상 밴드는 **잠그지 않는다**. 밴드가 늘었는데 이 표를 안 고치면 그 밴드 유저가
+# 보드를 통째로 잃는데, 못 여는 것이 열리는 것보다 나쁘다(board_difficulty의
+# "상위 밴드가 늘어도 easy로 오분류되지 않는다"와 같은 방향).
+DEFAULT_MAX_DIFFICULTY = 3
+
+# board_difficulty가 내는 값의 전 범위(1~3 클램프). 잠금 집합의 정의역이다.
+BOARD_DIFFICULTIES: tuple[int, ...] = (1, 2, 3)
+
+
+def locked_difficulties(level_group: str | None) -> set[int]:
+    """학습 수준 → **잠긴 난이도 집합**.
+
+    초등학생은 쉬움만, 중·고등학생은 쉬움·보통, 성인은 전부 열린다
+    (2026-08-10 사용자 지시). 열쇠는 온보딩에서 정해진 `users.level_group`이고,
+    「내 정보 → 학습 수준」(PATCH /auth/me)이 그것을 바꾸는 통로다.
+
+    난이도 **안에서는 순서가 없다** — 열린 묶음의 퍼즐은 아무거나 고른다
+    (2026-08-06에 퍼즐 단위 순차 잠금을 걷어낸 결정 그대로다).
+
+    DB를 타지 않는 순수 함수다(board_difficulty·order_puzzles_for_progress 관례) —
+    잠금 규칙만 따로 고정할 수 있어야 회귀를 싸게 잡는다.
+    """
+    ceiling = BAND_MAX_DIFFICULTY.get(level_group or "", DEFAULT_MAX_DIFFICULTY)
+    return {d for d in BOARD_DIFFICULTIES if d > ceiling}
+
+
 def board_difficulty(template_json: dict, level_group: str) -> int:
     """보드 퍼즐 난이도 라벨 1(쉬움)~3(어려움) — R7-02 §3.5 (표시 전용, 잠금 없음).
 
@@ -196,6 +241,25 @@ def compute_unlocked_ids(ordered_items: list, cleared: set) -> set:
     return unlocked
 
 
+def sequenceable(items: list, level_group: str | None) -> list:
+    """순차 잠금이 **셀 대상** — 난이도가 열린 퍼즐만 남긴 목록 (2026-08-12 병합 판정).
+
+    ⚠️ **이 필터가 없으면 초등 학습자의 사슬이 영구히 끊긴다.** 두 잠금이 축이 달라
+    합쳐 놓고 순서를 전체 목록 위에서 세면, 진행 커서 다음 칸이 「보통」인 순간
+    거기서 멈춘다 — 그 칸은 난이도로 막혀 있어 영원히 못 깨고, 커서는 깨야만
+    넘어간다. 난이도로 **먼저 거르고 그 안에서** 세면 사슬이 자기 수준 안에서
+    끝까지 이어진다.
+
+    학습 수준이 바뀌면(PATCH /auth/me) 대상 자체가 넓어지므로 재계산이 공짜로 따라온다.
+    """
+    locked = locked_difficulties(level_group)
+    return [
+        item
+        for item in items
+        if board_difficulty(item.template_json, item.level_group) not in locked
+    ]
+
+
 async def _unlocked_ids_for(db: AsyncSession, user: User, cleared: set) -> set:
     """유저의 열린 퍼즐 집합 — 단건 진입·attempt가 목록과 **같은 판정**을 쓰게 한다.
 
@@ -217,7 +281,9 @@ async def _unlocked_ids_for(db: AsyncSession, user: User, cleared: set) -> set:
         .scalars()
         .all()
     )
-    return compute_unlocked_ids(order_puzzles_for_progress(items), cleared)
+    return compute_unlocked_ids(
+        sequenceable(order_puzzles_for_progress(items), user.level_group), cleared
+    )
 
 
 def order_puzzles_for_theta(items: list, theta: float | None) -> list:
@@ -290,15 +356,26 @@ async def list_puzzles(
     정렬: 시드가 저작한 진행 순서(template_json.board_order) — 난이도 오름차순으로
     저작돼 있다. θ 근접 정렬을 대체한다(2026-08-05).
 
-    **순차 잠금 있다**(MT-24 — 2026-08-11 중간점검 멘토링 피드백). 종전 기술은
-    *"잠금 없다(2026-08-06 제품 결정) — 순서는 권유이지 강제가 아니다"*였고 그 판단은
-    **번복됐다.** 번복 사유를 지우지 않고 남긴다: 당시 걷어낸 이유는 *"학습자가
-    원하는 퍼즐을 골라 푼다"*였고, 그 우려는 `BOARD_UNLOCK_LOOKAHEAD`로 흡수한다
-    — 벽 하나에 막히지 않으면서 "다음에 할 것"은 분명해진다.
+    **잠금이 둘이고 축이 다르다**(2026-08-12 병합 판정 — 둘 다 사용자 지시라
+    어느 한쪽을 버리면 지시 하나를 되돌리게 된다):
 
-    목록은 **차단하지 않는다** — 잠긴 칸도 내려보내고 `unlocked=False`로 표시만 한다.
-    잠긴 칸을 목록에서 빼면 학습자가 앞으로 무엇이 있는지 못 보고, 진도감 자체가
-    사라진다(에너지 게이트가 목록을 무차단으로 두는 것과 같은 이유).
+    ⑴ **학습 수준 잠금**(`locked`, 2026-08-10 지시) — 초등은 쉬움만, 중·고등은
+       쉬움·보통, 성인은 전부. 규칙은 `locked_difficulties`가 소유하고 열쇠는
+       `users.level_group`이다.
+    ⑵ **순차 잠금**(`unlocked`, MT-24 · 2026-08-11 멘토링 피드백) — ⑴로 열린
+       난이도 **안에서** 어디까지 왔는가. 종전 기술 *"잠금 없다(2026-08-06 제품
+       결정)"*는 **번복됐다.** 번복 사유를 지우지 않고 남긴다: 당시 걷어낸 이유는
+       *"학습자가 원하는 퍼즐을 골라 푼다"*였고, 그 우려는
+       `BOARD_UNLOCK_LOOKAHEAD`로 흡수한다 — 벽 하나에 막히지 않으면서 "다음에
+       할 것"은 분명해진다.
+
+    ⚠️ 순서는 `sequenceable`로 **난이도를 거른 뒤에** 센다. 전체 위에서 세면
+    초등 학습자의 다음 칸이 「보통」인 순간 사슬이 영구히 끊긴다.
+
+    목록은 두 축 모두 **차단하지 않는다** — 잠긴 칸도 내려보내고 표시만 다르게
+    한다. 빼면 학습자가 앞으로 무엇이 있는지 못 보고 진도감 자체가 사라진다
+    (에너지 게이트가 목록을 무차단으로 두는 것과 같은 이유).
+    실제 차단은 진입(GET /puzzles/{id})이 한다.
     """
     items = list(
         (
@@ -316,16 +393,23 @@ async def list_puzzles(
     )
     items = order_puzzles_for_progress(items)
     cleared = await _cleared_item_ids(db, user)
-    unlocked = compute_unlocked_ids(items, cleared)
+    graded = [
+        (item, board_difficulty(item.template_json, item.level_group), item.id in cleared)
+        for item in items
+    ]
+    locked = locked_difficulties(user.level_group)
+    # 순서는 **난이도로 거른 뒤** 센다 — 이유는 `sequenceable` 참조.
+    unlocked = compute_unlocked_ids(sequenceable(items, user.level_group), cleared)
     return [
         BoardPuzzle(
             content_item_id=item.id,
             template_json=item.template_json or {},
-            cleared=item.id in cleared,
-            difficulty=board_difficulty(item.template_json, item.level_group),
+            cleared=done,
+            difficulty=difficulty,
+            locked=difficulty in locked,
             unlocked=item.id in unlocked,
         )
-        for item in items
+        for item, difficulty, done in graded
     ]
 
 
@@ -363,6 +447,19 @@ async def get_puzzle_detail(
     """
     item = await _load_puzzle_or_404(db, content_item_id)
     cleared = await _cleared_item_ids(db, user)
+    difficulty = board_difficulty(item.template_json, item.level_group)
+
+    # 난이도 잠금 — **구름 검사보다 먼저**다. 잠긴 퍼즐은 잔량이 있어도 못 여는데,
+    # 순서를 바꾸면 잔량 0인 사람이 "구름이 없어서"라는 틀린 이유를 듣는다.
+    # 화면도 막지만 여기서 다시 막는다 — 주소창으로 들어오면 화면 판정은 없다.
+    if difficulty in locked_difficulties(user.level_group):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "detail": "내 정보에서 학습 수준을 올리면 열려요.",
+                "code": "PUZZLE_LOCKED",
+            },
+        )
 
     # 순차 잠금 (MT-24) — **에너지보다 먼저** 본다. 순서가 뒤집히면 잠긴 퍼즐을
     # 딥링크로 열 때 429 OUT_OF_CLOUDS가 나가서, 학습자가 "구름이 없어서 못 한다"고
@@ -384,8 +481,10 @@ async def get_puzzle_detail(
         content_item_id=item.id,
         template_json=item.template_json or {},
         cleared=item.id in cleared,
-        difficulty=board_difficulty(item.template_json, item.level_group),
-        unlocked=True,  # 여기 도달했다면 열린 것 — 위 가드가 아니면 못 지나간다
+        difficulty=difficulty,
+        # 여기 도달했다면 두 축 모두 열린 것 — 위 가드 둘을 지나야 온다.
+        locked=False,
+        unlocked=True,
     )
 
 
@@ -414,6 +513,19 @@ async def attempt_puzzle(
     db: AsyncSession = Depends(get_db_with_rls),
 ) -> BoardAttemptResult:
     item = await _load_puzzle_or_404(db, content_item_id)
+
+    # 잠금은 **채점에도 걸린다**(2026-08-10 코드 리뷰). 진입(GET)만 막아 두면
+    # attempt를 직접 POST해서 판정·XP·왕관·클리어 기록을 다 받아갈 수 있다 —
+    # 진입 게이트가 지키려던 것이 통째로 새는 구멍이다. 판정 **전에** 막는다.
+    locked = locked_difficulties(user.level_group)
+    if board_difficulty(item.template_json, item.level_group) in locked:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "detail": "내 정보에서 학습 수준을 올리면 열려요.",
+                "code": "PUZZLE_LOCKED",
+            },
+        )
 
     cleared = await _cleared_item_ids(db, user)
 
@@ -459,8 +571,8 @@ async def attempt_puzzle(
             0, min(energy_service.CLOUD_COST, state["clouds"] - clouds_remaining)
         )
 
-    # 최초 클리어만 +5 XP (재도전 0). 클리어 여부는 기존 board 로그로 판별.
-    # 위 잠금 검사에서 이미 조회했다 — 같은 트랜잭션에서 두 번 돌 이유가 없다.
+    # 최초 클리어만 +5 XP (재도전 0). 클리어 여부는 기존 board 로그로 판별 —
+    # 위에서 `_cleared_item_ids`로 한 번 조회했으니 같은 트랜잭션에서 두 번 돌지 않는다.
     already_cleared = item.id in cleared
     xp_earned = board_clear_xp(passed, already_cleared)
     if xp_earned:

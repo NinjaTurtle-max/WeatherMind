@@ -40,6 +40,14 @@ def _apply(monkeypatch, values: dict, dev: bool) -> None:
     for name, value in values.items():
         monkeypatch.setattr(settings, name, value)
     monkeypatch.setattr(settings, "DEV_MODE", dev)
+    # ⚠️ 이 파일은 저장소에서 **유일하게 lifespan을 실제로 구동**하는 테스트다
+    # (`with TestClient(app)`). lifespan에는 KMA 키 게이트 프로브가 달려 있고,
+    # `Settings`는 `env_file=".env"`를 읽는다 — 즉 운영자 체크아웃(실키가 든 .env)
+    # 에서 돌리면 **유닛테스트가 API허브로 실호출을 날린다**. 키를 비워 프로브가
+    # 네트워크 이전에 반환하게 한다(weather_api.probe_key: auth_keys() 비면 즉시).
+    # 검증 대상은 시크릿 3분기이지 KMA가 아니다.
+    monkeypatch.setattr(settings, "KMA_API_KEY", "")
+    monkeypatch.setattr(settings, "KMA_API_KEY_SPARE", "")
 
 
 class _FakeEngine:

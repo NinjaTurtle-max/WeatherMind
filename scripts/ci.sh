@@ -33,6 +33,11 @@
 #            (explore·session·placement·visual·gating·board-entry·assist·
 #             webgl·overlay — FRONT_TESTS 배열이 목록), 없으면 SKIP.
 #            새 test:* 스크립트를 만들면 FRONT_TESTS에 등록해야 CI가 지킨다.
+#   seed     scripts/lint_seed_items.py를 **두 번** 호출한다 — 인자 없이(본시드
+#            content_items.json 전건) + `--staging`(database/seed/staging 전건).
+#            staging 쪽 제외 목록·해제 조건의 소유자는 그 스크립트의 STAGING_* 상수
+#            하나이고, 목록이 실제 디렉터리와 어긋나면 backend
+#            tests/test_level_vocabulary.py §5가 붉어진다(CO-SN2).
 #   authoring scripts/author_items.py --dry-run 무키 완주. DB·키·네트워크 불필요.
 #            G1(ROADMAP §5.3.1)에서 실키로 돌릴 스크립트라 무키 완주가 회귀 대상이다.
 #   smoke    (opt-in — `all`에 미포함) scripts/smoke.sh 전 단계(1~12) 위임 실행.
@@ -210,7 +215,7 @@ step_config() {
 #               상세 응답에 해설/피드백 미노출·판정의 aria-live announce·0건 빈 상태
 # board_engine 공유 벡터(test:board)는 node_modules 없이 도는 전용 `board` 단계가
 # 소유하므로 여기서 중복 실행하지 않는다.
-FRONT_TESTS=(explore session placement visual gating board-entry assist webgl overlay i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective)
+FRONT_TESTS=(explore session placement visual gating board-entry assist webgl overlay i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective knowledge-level)
 
 step_frontend() {
   banner "frontend: build + 스모크 ${#FRONT_TESTS[@]}종 (선택)"
@@ -240,12 +245,27 @@ step_frontend() {
 # ── 6. seed: 시드 문항 lint (스키마·게이트·payload·중복·학령 금칙 어휘) ────
 # 저작 산출물이 CI에서 상시 검증되게 한다 — R13 §2.3에서 학령 금칙 어휘 규칙이
 # 추가되며, 이 검사가 없으면 전공 용어가 저학령 문항에 다시 새어든다.
+#
+# **본시드 + staging 두 번 돈다**(CO-SN2, 2026-08-10). 종전에는 인자 없이 한 번만
+# 불러 `database/seed/staging/`을 **아무도 보지 않았다** — 저작이 staging에서 시작해
+# 본시드로 승격되는 구조라, 게이트가 승격 뒤에만 걸리면 잘못된 문항이 이미 본시드에
+# 들어온 다음에야 걸린다. 제외 목록(문항 파일이 아닌 2건 + knowledge_level 미부여로
+# 한시 제외 2건)과 그 해제 조건은 `scripts/lint_seed_items.py`의 STAGING_* 상수가
+# 단독 소유하고, 그 목록이 실제 디렉터리와 어긋나면
+# `backend/tests/test_level_vocabulary.py` §5가 붉어진다.
+#
+# ⚠️ **단계를 새로 만들지 않았다.** 단계 하나 = ci.yml 잡 하나이고 그 패리티를
+# `backend/tests/test_ci_workflow_contract.py`가 감시한다(CO-J-1: seed 단계가 잡 없이
+# 로컬에서만 돌던 사고). staging 검사는 seed 단계 **안**에서 두 번째 명령으로 돈다.
 step_seed() {
-  banner "seed: lint_seed_items (본시드 전건)"
-  if "$PYTHON" "$ROOT/scripts/lint_seed_items.py"; then
-    record "seed" "OK" "시드 문항 전건 통과 (스키마·게이트·payload·중복·금칙 어휘)"
+  banner "seed: lint_seed_items (본시드 전건 + staging 전건)"
+  local bad=()
+  "$PYTHON" "$ROOT/scripts/lint_seed_items.py" || bad+=("본시드")
+  "$PYTHON" "$ROOT/scripts/lint_seed_items.py" --staging || bad+=("staging")
+  if [ "${#bad[@]}" -ne 0 ]; then
+    record "seed" "FAIL" "시드 lint 위반: ${bad[*]} (위 출력 참조)"
   else
-    record "seed" "FAIL" "시드 lint 위반 (위 출력 참조)"
+    record "seed" "OK" "본시드·staging 전건 통과 (스키마·게이트·payload·중복·금칙 어휘)"
   fi
 }
 

@@ -100,6 +100,9 @@ const { MemoryRouter } = await import('react-router-dom');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 
 const BoardPage = (await vite.ssrLoadModule('/src/modules/board/BoardPage.jsx')).default;
+// 자유 실험은 2026-08-10에 **탐구로 이사했다** — 보드 목록에는 더 이상 없다.
+// 「채점 없는 판은 구름과 무관하다」는 계약은 살아 있으므로, 화면만 바꿔 잡는다.
+const SandboxPage = (await vite.ssrLoadModule('/src/modules/explore/SandboxPage.jsx')).default;
 const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -255,10 +258,29 @@ try {
     assert(text().includes('✓ 클리어') || text().includes('난이도 '),
       '잔량 0에서 클리어/난이도 배지가 사라졌다(목록을 차단한 회귀)');
     assert(!text().includes('퍼즐을 불러오지 못했어요'), '잔량 0에서 목록이 에러 화면이 됐다');
-    // 채점 없는 자유 실험은 잔량 0에서도 열려 있어야 한다(서버 호출 0 = 구름 무관)
-    const sandboxBtn = findButton('자유 실험');
-    assert(sandboxBtn && !sandboxBtn.disabled, '자유 실험이 잔량 0에서 막혔다(구름 무소모 경로)');
+    // 자유 실험은 **보드에서 사라졌다**(2026-08-10 탐구로 이사) — 카드가 남아
+    // 있으면 "채점되는 것"과 "채점 안 되는 것"이 한 판에 다시 섞인다.
+    assert(!findButton('자유 실험'), '자유 실험 카드가 보드로 되돌아왔다');
+    assert(!text().includes('탐구 실험실'), '탐구 실험실 카드가 보드로 되돌아왔다');
     r.unmount();
+
+    // 그 계약(채점 없는 판은 잔량 0에서도 열린다)은 이사한 화면에서 지킨다.
+    // 잔량 0인 지금 그대로 마운트해 화면이 뜨는지 본다.
+    //
+    // ⚠️ "서버 호출 0"이 아니다. 판은 `/board/rules`·`/board/regions`(판정 규칙과
+    // 지도 — 유저와 무관한 **정적 자료**)를 부른다. 구름을 소모하는 것은 퍼즐
+    // **진입**(`/board/puzzles/{id}`) 하나뿐이고, 그게 429의 주인이다.
+    // 그래서 "아무것도 안 부른다"가 아니라 **그 하나를 안 부른다**를 단정한다.
+    const sandboxMark = xhrLog.length;
+    const sandboxRoot = mount(createElement(SandboxPage));
+    await waitFor(() => text().includes('채점하지 않아요'), 5000, '탐구의 자유 실험 화면');
+    // ⚠️ 여기서 바로 xhrLog를 읽으면 **아무것도 안 잡힌다**. 위 문구는 첫 커밋에
+    // 이미 들어 있어 waitFor가 0ms에 통과하고, 그 시점엔 어떤 요청도 아직
+    // 나가지 않았다 — 게이트를 되살려도 초록이 된다(2026-08-10 리뷰).
+    await sleep(300);
+    const gated = xhrLog.slice(sandboxMark).filter((u) => /\/board\/puzzles\/[^/]+$/.test(u));
+    assert(gated.length === 0, `자유 실험이 구름 게이트를 탔다: ${gated.join(' , ')}`);
+    sandboxRoot.unmount();
   });
 
   // ── 4. 진행 중 퍼즐은 잔량 0이 되어도 제출까지 가능 ───────────────────────
@@ -341,6 +363,12 @@ try {
       /data-board-next[\s\S]{0,240}openPuzzle\(nextPuzzle\)/.test(src),
       '「다음 퍼즐 →」이 openPuzzle(상세 진입 게이트)을 타지 않는다(CO-K5 우회)',
     );
+    // 그리고 **잠긴 칸을 건너뛴다**(2026-08-10). 바로 다음 칸을 집으면 밴드
+    // 경계(초등 23번·중고등 36번)를 깬 사람이 상 대신 403 에러를 받는다.
+    assert(
+      /const nextPuzzle =[\s\S]{0,220}!p\.locked/.test(src),
+      '「다음 퍼즐 →」이 잠긴 칸을 건너뛰지 않는다',
+    );
   });
 
   // ── 6. CO-K7: 자유 실험은 마운트 즉시 자동 스크롤하지 않는다 ──────────────
@@ -355,9 +383,9 @@ try {
       calls.push(args);
     };
     try {
-      mount(createElement(BoardPage));
-      await waitFor(() => Boolean(findButton('자유 실험')), 5000, '자유 실험 버튼');
-      click(findButton('자유 실험'));
+      // 2026-08-10: 보드에서 눌러 들어가던 화면이 탐구의 독립 라우트가 됐다.
+      // 지키는 것은 같다 — 목표가 없는 판은 마운트만으로 화면을 튕기지 않는다.
+      mount(createElement(SandboxPage));
       await waitFor(() => text().includes('채점하지 않아요'), 5000, '자유 실험 화면');
       await sleep(300); // 스크롤 이펙트가 늦게 붙을 여지를 준다
       assert(
@@ -367,6 +395,78 @@ try {
     } finally {
       window.Element.prototype.scrollIntoView = orig;
     }
+  });
+
+  // ── 7. 학습 수준 잠금 (2026-08-10 사용자 지시) ────────────────────────────
+  //
+  // 열쇠는 진도가 아니라 `users.level_group`이다: 초등은 쉬움, 중·고등은 보통까지,
+  // 성인은 전부. 여기서 지키는 것은 셋이다 —
+  //   ① 잠긴 칸을 **눌러도 상세 요청이 안 나간다**(누르기 전에 알린다, §3.1)
+  //   ② 서버가 실제로 막는다(403 PUZZLE_LOCKED) — 화면만 막으면 주소창으로 뚫린다
+  //   ③ **수준을 바꾸면 그 자리에서 열린다** — 여는 통로가 없으면 벽이다
+  await scenario('학습 수준 잠금: 잠긴 칸은 상세를 안 부르고, 수준을 올리면 열린다', async () => {
+   // 목의 학령은 프로세스 전역이라 **실패해도** 원복해야 한다. 원복을 본문
+   // 끝에 두면 단정 하나가 터진 순간 목이 elementary/adult로 남고, 뒤에 붙는
+   // 시나리오가 엉뚱한 이유로 실패한다(2026-08-10 코드 리뷰).
+   try {
+    await api('POST', '/dev/clouds', { clouds: 5 });
+    const before = await api('PATCH', '/auth/me', { level_group: 'middle_high' });
+    assert(before.status === 200, `학령 설정 실패 (${before.status})`);
+
+    const list = await api('GET', '/board/puzzles');
+    const hard = list.body.find((p) => p.difficulty === 3);
+    const easy = list.body.find((p) => p.difficulty === 1);
+    assert(hard && easy, '목 뱅크에 난이도 1·3 퍼즐이 둘 다 있어야 이 계약을 볼 수 있다');
+    assert(hard.locked === true, '중·고등인데 어려움이 안 잠겼다');
+    assert(easy.locked === false, '중·고등인데 쉬움이 잠겼다');
+
+    // ② 서버가 막는다 — 화면을 거치지 않고 직접 부른다
+    const blocked = await api('GET', `/board/puzzles/${hard.content_item_id}`);
+    assert(blocked.status === 403 && blocked.body?.code === 'PUZZLE_LOCKED',
+      `잠긴 난이도 상세는 403 PUZZLE_LOCKED여야 함 — 실제 ${blocked.status} ${blocked.body?.code}`);
+    // 진입만 막으면 채점을 직접 불러 판정·XP·클리어를 다 받아간다(2026-08-10
+    // 코드 리뷰에서 실제로 뚫려 있었다) — attempt도 같은 403이어야 한다.
+    const graded = await api('POST', `/board/puzzles/${hard.content_item_id}/attempt`, {
+      board_state: { elements: [] },
+    });
+    assert(graded.status === 403 && graded.body?.code === 'PUZZLE_LOCKED',
+      `잠긴 퍼즐 채점도 403이어야 함 — 실제 ${graded.status} ${graded.body?.code}`);
+
+    // ① 화면: 잠긴 칸은 비활성이고 눌러도 요청이 안 나간다
+    const hardTitle = hard.template_json?.title ?? hard.template_json?.question_text ?? '';
+    const r = mount(createElement(BoardPage));
+    await waitFor(() => text().includes(hardTitle), 6000, '퍼즐 목록 렌더');
+    const hardCard = buttons().find((b) => (b.textContent ?? '').includes(hardTitle));
+    assert(hardCard?.disabled, '잠긴 퍼즐 카드가 비활성이 아니다');
+    assert(text().includes('수준 올리면 열림'), '잠긴 칸에 사유가 안 뜬다');
+    // 여는 통로가 화면에 있어야 한다 — 사유만 있고 방법이 없으면 벽이다
+    assert(window.document.querySelector('a[href="/me"]'), '잠금 안내에 학습 수준 통로가 없다');
+    const mark = xhrLog.length;
+    click(hardCard);
+    await sleep(300);
+    const hardDetail = `GET /api/v1/board/puzzles/${hard.content_item_id}`;
+    assert(!xhrLog.slice(mark).includes(hardDetail), '비활성인 잠긴 카드가 상세를 호출했다');
+    r.unmount();
+
+    // ③ 수준을 올리면 열린다
+    const up = await api('PATCH', '/auth/me', { level_group: 'adult' });
+    assert(up.status === 200 && up.body?.level_group === 'adult', '학령 상향 실패');
+    const opened = await api('GET', '/board/puzzles');
+    assert(opened.body.every((p) => p.locked === false),
+      `성인인데 잠긴 퍼즐이 남았다: ${opened.body.filter((p) => p.locked).length}건`);
+    const nowOk = await api('GET', `/board/puzzles/${hard.content_item_id}`);
+    assert(nowOk.status === 200, `성인이 어려움에 못 들어간다 — ${nowOk.status}`);
+
+    // 초등은 보통까지 잠긴다(세 밴드 중 마지막 하나)
+    await api('PATCH', '/auth/me', { level_group: 'elementary' });
+    const elem = await api('GET', '/board/puzzles');
+    assert(elem.body.filter((p) => p.difficulty === 2).every((p) => p.locked),
+      '초등인데 보통이 열려 있다');
+    assert(elem.body.filter((p) => p.difficulty === 1).every((p) => !p.locked),
+      '초등인데 쉬움이 잠겼다');
+   } finally {
+    await api('PATCH', '/auth/me', { level_group: 'middle_high' });
+   }
   });
 
 } finally {

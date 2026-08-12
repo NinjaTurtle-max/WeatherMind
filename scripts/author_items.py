@@ -98,8 +98,11 @@ DEFAULT_WEATHER: dict[str, Any] = {
 
 DEFAULT_COUNT = 12
 
-# 탈락 단계 — 리포트는 항상 이 5종을 0건 포함해 전부 출력한다 (P-2 7단계).
+# 탈락 단계 — 리포트는 항상 이 6종을 0건 포함해 전부 출력한다 (P-2 7단계).
+# `tag_invalid`는 R13 CO-O-8에서 들어왔다. 모델이 신고한 concept_tag가 허용 집합
+# 밖이면 그 문항은 어떤 밴드로도 재편입할 수 없다 — 유일한 무조건 탈락 사유다.
 STAGES: tuple[tuple[str, str], ...] = (
+    ("tag_invalid", "태그 탈락 (허용 집합 밖)"),
     ("gate1", "1차 게이트 탈락 (휴리스틱)"),
     ("gate2", "2차 게이트 탈락 (LLM)"),
     ("payload", "payload 계약 탈락"),
@@ -143,27 +146,64 @@ class BackendContract:
     """backend에서 실임포트한 계약값 (손으로 베낀 사본 없음)."""
 
     payload_fields: dict[str, tuple[str, ...]]
+    # 배치고사 **진단 도메인**의 3종(`placement_service.LEVEL_GROUPS`). 저작 선택지가
+    # 아니다 — 6문항·서로소 계약 때문에 3밴드로 고정된 상수이고, 여기 보관하는 이유는
+    # `backend/tests/test_author_batch.py:285`가 "손으로 베낀 사본이 아님"을 이 값으로
+    # 대조하기 때문이다. **CLI 선택지로 쓰지 말 것** — 그것이 CO-O-6의 결함이었다.
     level_groups: tuple[str, ...]
+    # 뱅크에 **적재 가능한** 밴드 4종. 저작 CLI(`--level-group`)·기본 플랜의 정본.
+    bank_level_groups: tuple[str, ...]
     concept_tags: tuple[str, ...]
     validate_entry: Callable[[dict, int], list[str]]
+    # knowledge_level → level_group 파생 (CO-O-5). 소유자는 weatherbrain_service.
+    level_group_of: Callable[[int], str]
+    knowledge_level_range: tuple[int, int]
 
 
 def load_backend_contract() -> BackendContract:
-    """QUESTION_PAYLOAD_FIELDS·LEVEL_GROUPS·validate_entry를 backend에서 가져온다."""
+    """payload 필드·밴드·개념 태그·validate_entry·밴드 파생을 backend에서 가져온다.
+
+    ⚠️ **밴드 집합의 소유자는 `placement_service.LEVEL_GROUPS`가 아니다** (CO-O-6).
+    그 상수는 배치고사 진단용 3종이라 `expert`가 없고, 그것을 `--level-group`
+    선택지로 쓰는 바람에 **expert 슬라이스를 이 도구로 아예 낼 수 없었다**.
+    저작이 봐야 하는 것은 "뱅크에 적재 가능한 밴드"이고 그 소유자는 둘로 갈려 있다:
+      · **집합**: `seed_content.ALLOWED_LEVEL_GROUPS` (4종. validate_entry가 실제로
+        이 집합으로 적재 가부를 판정한다 — 저작 산출물의 통과 기준과 같아야 한다)
+      · **순서**: `weatherbrain_service.LEVEL_GROUP_BANDS` (난이도 오름차순.
+        seed_content가 스스로 "밴드 순서의 정본은 LEVEL_GROUP_BANDS다"라고 적어 뒀다)
+    집합이 어긋나면 조용히 버리거나 덧붙이지 않고 **크게 실패한다** — 한쪽에만 있는
+    밴드는 "CLI로 낼 수 있는데 적재는 안 되는" 혹은 그 반대의 함정이 된다.
+    """
     mods = _import_isolated(
         BACKEND_DIR,
         (
             "app.routers.session",
             "app.services.placement_service",
+            "app.services.weatherbrain_service",
             "app.scripts.seed_content",
         ),
     )
     seed_content = mods["app.scripts.seed_content"]
+    weatherbrain = mods["app.services.weatherbrain_service"]
+    ordered_bands = tuple(weatherbrain.LEVEL_GROUP_BANDS)
+    loadable_bands = set(seed_content.ALLOWED_LEVEL_GROUPS)
+    if set(ordered_bands) != loadable_bands:
+        raise RuntimeError(
+            "밴드 집합이 갈렸다 — seed_content.ALLOWED_LEVEL_GROUPS="
+            f"{sorted(loadable_bands)} ≠ weatherbrain_service.LEVEL_GROUP_BANDS="
+            f"{list(ordered_bands)}. 어느 쪽을 선택지로 써도 함정이 되므로 중단한다."
+        )
     return BackendContract(
         payload_fields=dict(mods["app.routers.session"].QUESTION_PAYLOAD_FIELDS),
         level_groups=tuple(mods["app.services.placement_service"].LEVEL_GROUPS),
+        bank_level_groups=ordered_bands,
         concept_tags=tuple(sorted(seed_content.ALLOWED_CONCEPT_TAGS)),
         validate_entry=seed_content.validate_entry,
+        level_group_of=weatherbrain.level_group_of_knowledge_level,
+        knowledge_level_range=(
+            int(weatherbrain.KNOWLEDGE_LEVEL_MIN),
+            int(weatherbrain.KNOWLEDGE_LEVEL_MAX),
+        ),
     )
 
 
@@ -230,15 +270,50 @@ def normalize_text(value: Any) -> str:
     return _NON_WORD_RE.sub("", str(value if value is not None else "")).lower()
 
 
+def answer_signature(item: dict) -> str:
+    """중복 판정에 쓸 **정답 지문** — 정답이 내용을 담지 못하는 유형을 보정한다.
+
+    ⚠️ **`ordering`의 구조적 상한(CO-C5·W-3)이 여기서 나왔다.** 정답이 `"0,1,2"`
+    같은 **위치 나열**이라 어떤 항목을 늘어놓든 문자열이 같다 — 그래서 (유형·개념·정답)
+    키가 **항목 수만큼만** 서로 다르고, 태그당 3~4건이 상한이 됐다(2026-08-10 실측:
+    ordering 27건의 서로 다른 정답이 **3종**, 유일성 11%).
+
+    결함은 데이터가 아니라 **키**다. `correct_answer` 형식을 바꾸는 쪽은
+    `answer_service._grade_ordering`(인덱스 순열 완전 일치)·프론트·기존 27건을
+    전부 건드려야 하는데, 여기서 **항목 내용을 함께 보면** 같은 목적이 달성된다.
+
+    `slider`도 같은 계열이다 — 정답이 숫자라 "17 m/s"와 "17 ℃"가 같은 키가 된다.
+    측정 축(단위·범위)을 함께 넣어 가른다.
+
+    `match`는 보정하지 않는다 — 정답이 pairs 전문이라 이미 유일하다(실측 28/28).
+    `board`는 정답이 비어 있어 호출측(`answer_key_active`)이 아예 제외한다.
+    """
+    template = item.get("template_json") or {}
+    answer = normalize_text(template.get("correct_answer"))
+    qtype = str(item.get("question_type") or "")
+
+    if qtype == "ordering":
+        contents = normalize_text(
+            " ".join(str(entry) for entry in (template.get("items") or []))
+        )
+        return f"{answer}#{contents}"
+    if qtype == "slider":
+        axis = normalize_text(
+            f"{template.get('unit') or ''} {template.get('min')} {template.get('max')}"
+        )
+        return f"{answer}#{axis}"
+    return answer
+
+
 def dedupe_keys(item: dict) -> tuple[str, str]:
-    """(정규화 question_text, 유형|개념|정규화 정답) — 어느 쪽이 겹치면 중복."""
+    """(정규화 question_text, 유형|개념|정답 지문) — 어느 쪽이 겹치면 중복."""
     template = item.get("template_json") or {}
     text_key = normalize_text(template.get("question_text"))
     answer_key = "|".join(
         (
             str(item.get("question_type") or ""),
             str(item.get("concept_tag") or ""),
-            normalize_text(template.get("correct_answer")),
+            answer_signature(item),
         )
     )
     return text_key, answer_key
@@ -506,8 +581,18 @@ def expand_template(
 
     파라미터 표의 행 순서가 곧 인스턴스 순서다 — 무작위가 없으므로 같은 입력에서
     항상 같은 파일이 나온다(재현 가능한 저작 산출물).
+
+    빈 params는 **예외다**(CO-D3 검수 이관). 종전에는 for 루프가 그냥 안 돌아
+    0건을 예외 없이 냈다 — 확장기는 1,000건 대량 생산의 주 경로이므로 "돌렸는데
+    아무것도 안 나왔다"가 성공으로 보이면 안 된다. build_plan이 빈 concepts를
+    막는 것과 같은 계약이다.
     """
     rows: list[dict] = template["params"]
+    if not rows:
+        raise ValueError(
+            f"템플릿 params가 비었다 — 확장할 행이 없다 "
+            f"(question_type={template.get('question_type')!r})"
+        )
     answer_spec: dict = template["answer"]
     kind = answer_spec["kind"]
     knowledge_level = int(template["knowledge_level"])
@@ -594,10 +679,17 @@ def expand_template(
 def expand_template_file(
     path: Path, level_group_of: Callable[[int], str]
 ) -> list[dict]:
-    """템플릿 정의 파일 전체를 인스턴스 목록으로 확장한다."""
+    """템플릿 정의 파일 전체를 인스턴스 목록으로 확장한다.
+
+    빈 templates도 **예외다**(CO-D3 검수 이관). 종전에는 `[]`를 내고 CLI가 빈 JSON
+    배열을 쓴 뒤 exit 0으로 끝났다 — 저작 배치에서 가장 나쁜 실패 형태다. 종료
+    코드가 0이면 아무도 산출물을 다시 안 본다.
+    """
     doc = json.loads(path.read_text(encoding="utf-8"))
     if doc.get("version") != 1:
         raise ValueError(f"템플릿 정의 version이 1이 아니다: {doc.get('version')!r}")
+    if not doc.get("templates"):
+        raise ValueError(f"템플릿 정의에 templates가 없다: {path}")
     return [
         item
         for template in doc["templates"]
@@ -619,6 +711,60 @@ def build_plan(
     ]
 
 
+def resolve_level_group(
+    flat: dict,
+    requested: str,
+    *,
+    level_group_of: Callable[[int], str],
+    knowledge_level_range: tuple[int, int],
+) -> tuple[str, bool, str]:
+    """생성 결과의 밴드를 정한다 — **`knowledge_level`이 권위** (CO-O-5).
+
+    종전에는 플랜의 `level_group`을 그대로 적재해, 모델이 `knowledge_level=4`
+    (= middle_high)를 신고한 문항이 `level_group=elementary`로 뱅크에 들어갔다.
+    두 값이 같은 항목 안에서 서로를 부정하는 상태이고, 시드의 "2축 정합 위반 0건"이
+    저작 배치로 깨지는 경로였다. 같은 파일의 `expand_template`은 처음부터
+    `level_group_of(knowledge_level)`로 파생하고 있었으므로 **두 저작 경로가 서로
+    반대**이기도 했다 — 여기를 파생으로 맞춰 규칙을 하나로 만든다.
+
+    **대조 후 탈락이 아니라 파생인 이유**: 탈락은 이미 지불한 LLM 콜을 버린다.
+    파생하면 그 문항은 자기 밴드에서 유효한 산출로 살아남고(비용 게이트 G1),
+    2축 정합은 구조적으로 보장된다. 대신 **요청과 달라졌다는 사실을 리포트가 반드시
+    집계**해야 한다 — 부족한 밴드를 운영자가 추가 배치로 메울 수 있어야 하고,
+    그것이 없으면 이 파생이 곧 조용한 실패가 된다.
+
+    미신고·비정수·범위 밖은 **파생하지 않고 요청 밴드를 유지**한다. 범위 밖을
+    파생시키면 `level_group_of`의 클램프가 엉뚱한 밴드를 정상값처럼 만들어
+    `lint_seed_items`의 단계 검사가 잡아야 할 미신고를 위장한다.
+
+    Returns:
+        (밴드, 파생 성공 여부, source.refs에 남길 한 줄)
+    """
+    raw = flat.get("knowledge_level")
+    low, high = knowledge_level_range
+    try:
+        level = int(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return requested, False, (
+            f"level_group: 요청 {requested} 유지 — knowledge_level 미신고({raw!r}), "
+            "파생 불가 (미분류로 적재 — lint_seed_items 검사 ⑤가 잡는다)"
+        )
+    if not low <= level <= high:
+        return requested, False, (
+            f"level_group: 요청 {requested} 유지 — knowledge_level={level}이 "
+            f"허용 범위 {low}~{high} 밖이라 파생하지 않았다(클램프 위장 방지)"
+        )
+    derived = level_group_of(level)
+    if derived == requested:
+        return derived, True, (
+            f"level_group: knowledge_level={level} 파생 → {derived} (요청과 일치)"
+        )
+    return derived, True, (
+        f"level_group: knowledge_level={level} 파생 → {derived} "
+        f"(요청 {requested} — 신고 단계가 권위라 밴드 재편입. CO-O-5)"
+    )
+
+
 # ── 배치 실행 ────────────────────────────────────────────────────────────────
 @dataclass
 class Rejection:
@@ -638,6 +784,14 @@ class BatchResult:
     existing_count: int = 0
     model_label: str = ""
     llm_enabled: bool = False
+    # ── 드리프트 관측 (CO-O-5·CO-O-8) ────────────────────────────────────────
+    # 파생·재편입으로 콜을 살리는 대신, **요청과 무엇이 달라졌는지**를 전부 센다.
+    # 이 집계가 없으면 파생 자체가 조용한 실패다.
+    requested_bands: Counter = field(default_factory=Counter)
+    requested_tags: Counter = field(default_factory=Counter)
+    band_drift: Counter = field(default_factory=Counter)  # (요청, 산출) → 건수
+    tag_drift: Counter = field(default_factory=Counter)  # (요청, 실제) → 건수
+    band_underived: int = 0  # knowledge_level 미신고·범위 밖으로 요청 밴드 유지
 
     @property
     def stage_counts(self) -> Counter:
@@ -646,6 +800,15 @@ class BatchResult:
     @property
     def added(self) -> int:
         return len(self.items)
+
+    @property
+    def produced_bands(self) -> Counter:
+        """최종 추가분의 밴드 분포 — 요청 대비 실제 산출."""
+        return Counter(str(item.get("level_group")) for item in self.items)
+
+    @property
+    def produced_tags(self) -> Counter:
+        return Counter(str(item.get("concept_tag")) for item in self.items)
 
 
 def _failed_names(checks: Sequence[dict], prefix: str | None = None) -> list[str]:
@@ -676,6 +839,8 @@ def run_batch(
         existing_count=len(existing),
         model_label=ai.model_label,
         llm_enabled=ai.llm_enabled,
+        requested_bands=Counter(band for _, band in plan),
+        requested_tags=Counter(tag for tag, _ in plan),
     )
 
     seen_text = {dedupe_keys(item)[0] for item in existing}
@@ -683,7 +848,8 @@ def run_batch(
     batch_text: set[str] = set()
     batch_answer: set[str] = set()
 
-    for concept_tag, level_group in plan:
+    for concept_tag, requested_group in plan:
+        level_group = requested_group
         result.attempted += 1
         # ── 1단계: 생성 (키 없으면 폴백 뱅크 — 무키에서도 완주한다)
         try:
@@ -708,6 +874,40 @@ def run_batch(
 
         def reject(stage: str, reasons: list[str]) -> None:
             result.rejections.append(Rejection(stage, actual_tag, text, reasons))
+
+        # ── 1.5단계: 태그 대조 (CO-O-8) ──────────────────────────────────────
+        # 종전에는 모델이 신고한 태그를 **비교 없이** 수용했다. 이후 게이트가 전부
+        # 자기신고 태그 기준으로 돌아 `concept_match`가 자기충족적으로 통과했고,
+        # 결과적으로 **배치 플랜의 개념 분포가 강제되지 않았다**.
+        # 허용 집합 밖이면 어떤 태그로도 재편입할 수 없으므로 여기서 탈락시킨다.
+        # 허용 안이면 콜을 버리지 않고 **실제 태그로 재편입**하되 드리프트를 센다
+        # (근본 원인 = 모델이 target_concept_tag를 무시하는 것. 프롬프트 쪽 몫).
+        if backend.concept_tags and actual_tag not in backend.concept_tags:
+            reject(
+                "tag_invalid",
+                [
+                    f"모델 신고 concept_tag가 허용 집합 밖: {actual_tag!r} "
+                    f"(요청 {concept_tag}) — 재편입 불가"
+                ],
+            )
+            continue
+        if actual_tag != concept_tag:
+            result.tag_drift[(concept_tag, actual_tag)] += 1
+
+        # ── 1.6단계: 밴드 파생 (CO-O-5) ──────────────────────────────────────
+        # 신고 knowledge_level이 권위. 이후 2차 게이트·적재가 **파생 밴드**를 쓴다
+        # (문항은 자기가 살게 될 밴드로 검증받아야 한다). 생성 호출에 넘긴 밴드는
+        # 어디까지나 "요청"이고, 달라진 사실은 refs와 리포트 양쪽에 남는다.
+        level_group, derived_ok, band_note = resolve_level_group(
+            flat,
+            requested_group,
+            level_group_of=backend.level_group_of,
+            knowledge_level_range=backend.knowledge_level_range,
+        )
+        if not derived_ok:
+            result.band_underived += 1
+        elif level_group != requested_group:
+            result.band_drift[(requested_group, level_group)] += 1
 
         # ── 2단계: 1차 게이트 (결정적)
         failed = _failed_names(ai.gate1(flat, actual_tag))
@@ -741,6 +941,9 @@ def run_batch(
                 f"knowledge_level: {flat.get('knowledge_level')} 신고"
                 + (f" (목표 {knowledge_level} 지정)" if knowledge_level is not None else " (모델 자기 판정)")
                 + " · gate1 knowledge_level_vocabulary 통과 (docs/specs/12 §7.4)",
+                band_note,
+                f"concept_tag: {actual_tag} 신고 (요청 {concept_tag})"
+                + ("" if actual_tag == concept_tag else " — 요청과 다름, 실제 태그로 재편입"),
                 f"gate2: {gate2_note}",
                 "payload: QUESTION_PAYLOAD_FIELDS∪GENERATED_PAYLOAD_FIELDS 검사 통과",
             ],
@@ -811,6 +1014,60 @@ def _pad(text: str, width: int) -> str:
     return text + " " * max(0, width - display)
 
 
+def _distribution_rows(requested: Counter, produced: Counter) -> list[str]:
+    """요청/산출/차이 3열 표. **요청 0인 축도 산출이 있으면 나온다**(재편입 수신처)."""
+    rows = ["    " + _pad("축", 20) + _pad("요청", 8) + _pad("산출", 8) + "차이"]
+    for key in sorted(set(requested) | set(produced)):
+        want, got = requested.get(key, 0), produced.get(key, 0)
+        delta = got - want
+        rows.append(
+            "    "
+            + _pad(str(key), 20)
+            + _pad(str(want), 8)
+            + _pad(str(got), 8)
+            + (f"{delta:+d}" if delta else "0")
+        )
+    return rows
+
+
+def _drift_lines(result: BatchResult) -> list[str]:
+    """요청 대비 실제 산출 — **파생·재편입의 대가로 반드시 내야 하는 리포트**.
+
+    `run_batch`는 어긋난 밴드·태그를 탈락시키지 않고 실제 값으로 재편입한다
+    (CO-O-5·CO-O-8: 이미 지불한 LLM 콜을 버리지 않는다). 그 선택이 정당하려면
+    **무엇이 얼마나 어긋났는지**가 보여야 한다 — 운영자는 이 표의 음수 차이를 보고
+    부족한 밴드·개념에 추가 배치를 돌린다. 이 절이 없으면 파생은 조용한 실패다.
+    0건도 전부 출력한다(P-2 7단계의 "조용한 절삭 금지"와 같은 규칙).
+    """
+    lines = ["", "드리프트 (요청 대비 실제 산출 — 부족분은 추가 배치로 메운다):"]
+    lines.append("  · level_group (knowledge_level 신고가 권위 — CO-O-5)")
+    lines += _distribution_rows(result.requested_bands, result.produced_bands)
+    if result.band_drift:
+        moved = " · ".join(
+            f"{src}→{dst} {n}" for (src, dst), n in sorted(result.band_drift.items())
+        )
+        lines.append(f"    재편입: {moved}")
+    else:
+        lines.append("    재편입: 0건")
+    lines.append(
+        f"    파생 불가(미신고·범위 밖 → 요청 밴드 유지): {result.band_underived}건"
+    )
+
+    lines.append("  · concept_tag (모델 신고 태그 — CO-O-8)")
+    lines += _distribution_rows(result.requested_tags, result.produced_tags)
+    if result.tag_drift:
+        moved = " · ".join(
+            f"{src}→{dst} {n}" for (src, dst), n in sorted(result.tag_drift.items())
+        )
+        lines.append(f"    tag_drift: {sum(result.tag_drift.values())}건 — {moved}")
+    else:
+        lines.append("    tag_drift: 0건")
+    lines.append(
+        f"    허용 밖 태그 탈락: {result.stage_counts.get('tag_invalid', 0)}건"
+    )
+    return lines
+
+
 def format_report(result: BatchResult, *, seed_path: Path, write: bool) -> str:
     counts = result.stage_counts
     lines = [
@@ -831,6 +1088,8 @@ def format_report(result: BatchResult, *, seed_path: Path, write: bool) -> str:
         lines.append(f"  {_pad(label, 26)}: {counts.get(stage, 0)}")
     lines.append(f"  {_pad('2차 게이트 건너뜀', 26)}: {result.llm_skipped}")
     lines.append(f"  {_pad('최종 추가', 26)}: {result.added}")
+
+    lines += _drift_lines(result)
 
     lines += ["", "탈락 상세:"]
     if not result.rejections:
@@ -870,14 +1129,18 @@ def build_parser(concepts: Sequence[str], level_groups: Sequence[str]) -> argpar
         action="append",
         dest="concepts",
         choices=list(concepts),
-        help="대상 concept_tag (반복 지정 가능, 기본 6종 전부)",
+        help=f"대상 concept_tag (반복 지정 가능, 기본 {len(concepts)}종 전부)",
     )
     parser.add_argument(
         "--level-group",
         action="append",
         dest="level_groups",
         choices=list(level_groups),
-        help="대상 level_group (반복 지정 가능, 기본 3종 전부)",
+        # 선택지는 **뱅크 적재 가능 밴드**(seed_content.ALLOWED_LEVEL_GROUPS)다.
+        # 종전에 배치고사용 3종을 쓰는 바람에 expert 슬라이스를 낼 수 없었다(CO-O-6).
+        help=f"대상 level_group (반복 지정 가능, 기본 {len(level_groups)}종 전부). "
+        "산출 밴드는 모델이 신고한 knowledge_level에서 파생되므로 요청과 다를 수 "
+        "있다 — 차이는 리포트의 드리프트 절이 집계한다",
     )
     parser.add_argument(
         "--knowledge-level",
@@ -925,7 +1188,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"[author_items] 파이프라인 로드 실패: {exc}", file=sys.stderr)
         return 2
 
-    args = build_parser(backend.concept_tags, backend.level_groups).parse_args(argv)
+    args = build_parser(backend.concept_tags, backend.bank_level_groups).parse_args(argv)
     if args.random_seed is not None:
         random.seed(args.random_seed)
 
@@ -956,7 +1219,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         plan = build_plan(
             args.count,
             args.concepts or backend.concept_tags,
-            args.level_groups or backend.level_groups,
+            args.level_groups or backend.bank_level_groups,
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"[author_items] 입력 오류: {exc}", file=sys.stderr)

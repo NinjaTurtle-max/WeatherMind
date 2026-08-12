@@ -1,6 +1,21 @@
 # 환경변수 · 시크릿
 .env
+# `.env`만 적으면 **정확히 그 이름만** 무시된다 — `.env.bak-…`처럼 사람이 손으로
+# 뜨는 백업은 그대로 추적 대상이 되고, 그 안에 DB 암호·JWT 시크릿이 들어 있다
+# (규정상 키 노출 = 실격). `.env.example`은 이미 추적 중이라 영향받지 않는다.
+.env.bak*
+.env.local
 *.pem
+
+# 로컬 전용 compose 오버레이 — **커밋하지 않는다**.
+# `docker compose up`(인자 없이)이 자동으로 얹는 파일이라, 여기 DEV_MODE=true를
+# 두면 로컬에서만 개발자 라우터(/api/v1/dev/*)가 열린다. 배포는
+# `-f docker-compose.yml -f docker-compose.prod.yml`로 뜨고 **명시적 -f를 주면
+# override는 자동 로드되지 않으므로** 원칙적으로는 안전하다. 그런데 서버에서
+# `-f`를 빠뜨린 채 `docker compose up -d` 한 번이면 `/dev/theta`(θ 직접 주입)가
+# 공개 URL에 열린다 — 제출 요건이 "로그인 없이 열려야 함"이라 그 즉시 누구나
+# 남의 진도를 조작할 수 있다. git으로 서버에 갈 수 없게 원천 차단한다.
+docker-compose.override.yml
 
 # Python
 __pycache__/
@@ -10,6 +25,10 @@ __pycache__/
 
 # Node
 node_modules/
+# Vite 사전 번들 캐시. 정상 위치는 frontend/node_modules/.vite(= node_modules/에
+# 이미 걸린다)지만, dev 서버를 **저장소 루트에서** 잘못 띄우면 여기 생긴다
+# (2026-08-11에 실제로 그렇게 커밋됐다). 브랜치마다 내용이 달라 충돌만 만든다.
+.vite/
 frontend/dist/
 
 # OS / 에디터

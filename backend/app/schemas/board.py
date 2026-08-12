@@ -19,8 +19,24 @@ class BoardPuzzle(BaseModel):
     difficulty: 1(쉬움)~3(어려움) — routers.board.board_difficulty가 template_json
     (mode·time_limit_sec·palette)과 level_group에서 산출(R7-02 §3.5).
 
-    잠금 필드는 없다 — 순차 잠금을 넣었다가 걷어냈다(2026-08-06 제품 결정).
-    학습자가 원하는 퍼즐을 골라 푼다. 순서(board_order)는 권유이지 강제가 아니다.
+    **잠금은 두 축이고 둘 다 산다**(2026-08-12 병합 판정). 서로 다른 것을 막으므로
+    합쳐도 모순이 아니고, 어느 한쪽을 버리면 사용자 지시 하나를 되돌리게 된다:
+
+    locked: **학습 수준** 잠금(2026-08-10 지시) — *어느 난이도에 들어갈 수 있는가*.
+    초등은 쉬움, 중·고등은 보통까지, 성인은 전부. 규칙은
+    routers.board.locked_difficulties가 소유하고 열쇠는 users.level_group이다
+    (진도가 아니다 — 「내 정보 → 학습 수준」이 통로).
+
+    unlocked: **순차** 잠금(MT-24, 2026-08-11 멘토링 지시) — *열린 난이도 안에서
+    어디까지 왔는가*. 2026-08-06에 "고를 자유가 없다"고 걷어냈던 것을 되살린 것이고,
+    그때의 우려는 BOARD_UNLOCK_LOOKAHEAD가 흡수한다(벽 하나에 막히지 않는다).
+    ⚠️ 순서는 **난이도로 거른 뒤에** 센다 — 전체를 대상으로 세면 초등 학습자의
+    다음 칸이 「보통」인 순간 사슬이 영구히 끊긴다.
+
+    목록은 두 축 모두 **무차단**이다. 잠긴 퍼즐도 제목과 함께 내려보내고 표시만
+    다르게 한다 — 무엇이 기다리는지 보이지 않으면 잠금이 동기가 아니라 벽이 된다
+    (에너지 게이트가 목록을 무차단으로 두는 것과 같은 이유).
+    실제 차단은 진입(GET /puzzles/{id})·attempt(POST)가 403으로 한다.
 
     제목·요약·진행 순서는 template_json 안에 있다(title·summary·board_order —
     시드 저작). template_json을 통째로 노출하므로 별도 필드를 두지 않는다."""
@@ -29,10 +45,9 @@ class BoardPuzzle(BaseModel):
     template_json: dict[str, Any]
     cleared: bool
     difficulty: int
-    # MT-24 (2026-08-11, additive): 순차 잠금. **판정은 서버가 소유**하고 프론트는
-    # 이 값을 그리기만 한다 — 목록은 잠긴 칸도 내려보내(진도감) 표시만 다르게 하고,
-    # 진입(GET 단건)·attempt(POST)는 403 BOARD_LOCKED로 막는다.
-    # 기본 True: 구 클라이언트·구 응답에서 잠금이 조용히 생기지 않는다.
+    # 두 기본값의 방향이 반대인 것은 의도다 — **구 클라이언트·구 응답에서 잠금이
+    # 조용히 생기지 않아야** 한다. 각각 "안 잠김"이 기본이다.
+    locked: bool = False
     unlocked: bool = True
 
 

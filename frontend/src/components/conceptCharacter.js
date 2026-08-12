@@ -22,6 +22,15 @@
  * (햇빛이 지구를 데운다) · 기압의 기초→구름(공기의 무게) · **밀도와 부력→무지개**
  * (두 구름 사이에서 위로 솟은 아치 = 뜨거운 공기의 상승) · 상태 변화→눈결정
  * (물↔얼음↔수증기) · **열의 이동→달님**(밤의 복사냉각 — 낮에 받은 열이 빠져나간다).
+ *
+ * 2026-08-10 — 그림 넷(눈구름·비구름·불·온도계)이 더 합류해 12장이 됐다. 셋을 고쳤다:
+ *   ① **산불 기상·홍수 대응이 표에 아예 없었다.** 개념 태그는 14종인데 이 파일은
+ *      12종만 알고 있어서 둘은 폴백(구름)으로 떨어졌다 — 능력 분석에서 기압과
+ *      전선·기압의 기초와 **같은 얼굴**이었다. 불·비구름이 자기 자리를 가진다.
+ *   ② 온도와 열: 물방울 → **온도계**. 물방울이 CO₂·기후와 겹쳐 있던 것이 풀린다.
+ *   ③ 물의 상태변화: 눈결정 → **눈구름**. 눈결정이 기단과 겹쳐 있던 것이 풀린다.
+ * 남은 겹침은 둘뿐이다(태양 = 열섬·복사 균형, 구름 = 기압과 전선·기압의 기초).
+ * 개념 14 > 그림 12라 완전 1:1은 아직 안 된다 — 그림이 둘 더 생기면 여기만 고친다.
  */
 const BY_CONCEPT = {
   // 날씨 코스(weather)
@@ -31,12 +40,14 @@ const BY_CONCEPT = {
   heat_island: 'sun',
   co2_climate: 'drop',
   anomaly: 'bolt',
+  wildfire_weather: 'fire',
+  flood_response: 'raincloud',
   // 기초과학 코스(basic-science)
-  temperature_heat: 'drop',
+  temperature_heat: 'thermometer',
   radiation_budget: 'sun',
   pressure_basics: 'cloud',
   density_buoyancy: 'rainbow',
-  phase_change: 'snow',
+  phase_change: 'snowcloud',
   energy_transfer: 'moon',
 };
 

@@ -12,11 +12,24 @@
         "같은 존의 습기를 40 이하로 내린다."
       ],
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["air_mass:siberian", "moisture"],
-      "goal_conditions": [{"zone": 2, "phenomenon": "clear"}],
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "clear"
+        }
+      ],
       "hints": [
         "차고 메마른 공기 덩어리가 자리 잡으면 수증기가 부족해 구름이 잘 만들어지지 않는다.",
         "습기를 낮춰야 한다. 맑고 건조한 날이 이어지면 낙엽과 잔가지의 수분이 빠져 불이 쉽게 붙는다."
@@ -66,19 +79,33 @@
   {
     "concept_tag": "wildfire_weather",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 10,
     "question_type": "board",
     "template_json": {
       "question_text": "건조경보는 실효습도가 25% 이하로 이틀 넘게 이어질 것으로 보일 때 발표된다. 태백산맥과 동해안(존 2·3) 두 곳을 동시에 맑고 메마르게 만들어 이 상태를 재현해 보자.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["air_mass:siberian", "moisture"],
+      "palette": [
+        "air_mass:siberian",
+        "moisture"
+      ],
       "goal_conditions": [
-        {"zone": 2, "phenomenon": "clear"},
-        {"zone": 3, "phenomenon": "clear"}
+        {
+          "zone": 2,
+          "phenomenon": "clear"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "clear"
+        }
       ],
       "hints": [
         "실효습도는 그날의 습도만이 아니라 며칠 전까지의 습도를 함께 반영한 실무 지표다. 하루만 건조한 것보다 여러 날 낮게 이어지는 것이 위험하다.",
@@ -148,7 +175,7 @@
   {
     "concept_tag": "wildfire_weather",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 10,
     "question_type": "slider",
     "template_json": {
       "question_text": "기상청은 실효습도가 몇 % 이하로 이틀 넘게 이어질 것으로 보일 때 건조주의보를 발표하는가? (단위: %)",
@@ -198,9 +225,18 @@
     "template_json": {
       "question_text": "산불 위험을 높이는 기상 조건과, 그 조건이 하는 일을 알맞게 연결하라.",
       "pairs": [
-        {"left": "메마른 공기", "right": "낙엽과 잔가지의 수분을 빼앗아 불이 잘 붙게 한다"},
-        {"left": "강한 바람", "right": "불씨를 멀리 실어 날라 불길을 넓게 퍼뜨린다"},
-        {"left": "높은 기온", "right": "숲이 머금은 물이 증발하는 속도를 빠르게 한다"}
+        {
+          "left": "메마른 공기",
+          "right": "낙엽과 잔가지의 수분을 빼앗아 불이 잘 붙게 한다"
+        },
+        {
+          "left": "강한 바람",
+          "right": "불씨를 멀리 실어 날라 불길을 넓게 퍼뜨린다"
+        },
+        {
+          "left": "높은 기온",
+          "right": "숲이 머금은 물이 증발하는 속도를 빠르게 한다"
+        }
       ],
       "correct_answer": "메마른 공기:낙엽과 잔가지의 수분을 빼앗아 불이 잘 붙게 한다|강한 바람:불씨를 멀리 실어 날라 불길을 넓게 퍼뜨린다|높은 기온:숲이 머금은 물이 증발하는 속도를 빠르게 한다",
       "explanation_hint": "산불의 세기는 불씨 하나가 아니라 그날의 기온·바람·습기가 함께 정한다. 세 조건이 겹칠수록 위험이 커진다."
@@ -228,11 +264,24 @@
         "같은 존의 습기를 70 이상으로 올린다."
       ],
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["front:stationary", "moisture"],
-      "goal_conditions": [{"zone": 3, "phenomenon": "persistent_rain"}],
+      "palette": [
+        "front:stationary",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "persistent_rain"
+        }
+      ],
       "hints": [
         "세력이 비슷한 두 공기 덩어리가 맞서면 그 경계가 한곳에 오래 머문다.",
         "습한 공기가 계속 밀려들어야 비가 여러 날 이어진다. 습기를 아주 높게 올려야 한다."
@@ -288,11 +337,24 @@
       "question_text": "짧은 시간에 좁은 지역으로 퍼붓는 집중호우는 대표적인 악기상이다. 서해(존 0)에 강한 소나기를 쏟아부어 이 상황을 만들어 보자.",
       "mode": "goal_only",
       "initial_state": {
-        "zones": ["서해", "수도권", "태백산맥", "동해안"],
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
         "elements": []
       },
-      "palette": ["front:cold", "moisture"],
-      "goal_conditions": [{"zone": 0, "phenomenon": "shower"}],
+      "palette": [
+        "front:cold",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "shower"
+        }
+      ],
       "hints": [
         "찬 공기가 따뜻하고 습한 공기를 급하게 파고들면 공기가 세차게 밀려 올라간다.",
         "세찬 상승이 위로 크게 솟은 소나기 구름을 만든다. 습기가 넉넉해야 좁은 지역에 강한 비가 쏟아진다."
@@ -370,7 +432,7 @@
   {
     "concept_tag": "flood_response",
     "level_group": "expert",
-    "knowledge_level": 6,
+    "knowledge_level": 7,
     "question_type": "slider",
     "template_json": {
       "question_text": "기상청은 3시간 동안 내린 비의 양이 몇 mm 이상일 것으로 보일 때 호우주의보를 발표하는가? (단위: mm)",

@@ -30,11 +30,31 @@ import { conceptLabel, useT } from '../../i18n';
 
 const STATUS_ICON = { cleared: '👑', current: '⭐', unlocked: '🌀', locked: '🔒' };
 
-// 노드 지름 계산에서 빼는 고정 영역(머리말 + 소개 스트립 + 진도 바)의 높이.
+// 노드 지름 계산에서 빼는 고정 영역(머리말 + 개념 칩 줄 + 진도 바)의 높이.
+// 2026-08-09 210 → 135: 소개 스트립(슬레이트 박스)을 머리말 한 줄로 눌렀다.
+// 실측 근거 — 흐름에 있는 크롬(머리말+칩+패딩)이 81px, 여기에 절대배치라
+// 흐름에 안 잡히는 진도 바 37px을 더해 118px. 135는 그 위 17px 여유다.
 // **접기 상태와 연동하지 않는다** — 접을 때마다 아이콘이 커졌다 작아지면 화면이
 // 출렁인다. 스트립을 접으면 경로가 쓸 높이는 늘지만 아이콘은 그대로 두고 여백만
 // 늘어난다(2026-08-05 결정).
-const CHROME = 210;
+const CHROME = 135;
+
+/**
+ * 노드 지름 계산(`--n`)의 **바닥값** — 코스가 달라도 동그라미 크기가 같게 한다.
+ *
+ * `--n`은 "이 코스에서 가장 긴 섹션의 칸 수"다(sizingN). 그런데 코스마다 그 값이
+ * 다르다 — 날씨와 기후는 4, 기초 과학은 3이다. 화면이 넉넉하면 둘 다 상한(86px)에
+ * 걸려 같아 보이지만, 트랙이 짧아지면 갈린다(1440×720 실측: 70px 대 86px).
+ * 탭을 옮길 때마다 동그라미가 커졌다 작아지는 것이 그 증상이다.
+ *
+ * 그래서 **전 코스 통틀어 가장 긴 섹션**을 바닥으로 깐다. 반대 방향(작은 쪽에
+ * 맞추기 = 날씨를 3으로)은 불가능하다 — 4칸 섹션이 트랙을 넘쳐 마지막 노드가
+ * 잘린다(needed = dot*(1.18n-0.18)+chrome = 600 > 561).
+ *
+ * ⚠️ 값의 근거는 `database/seed/units.json`이고, 저작이 5칸 섹션을 만들면 여기가
+ * 낡는다 — `learnPath` 스모크가 시드를 세어 대조한다(사람이 아니라 테스트가 감시).
+ */
+export const PATH_SIZING_FLOOR = 4;
 
 // 단계 경계 너머로 뻗는 길의 꼬리 길이(px).
 const TAIL = 90;
@@ -228,50 +248,53 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
 
   return (
     <section className="wm-stage flex flex-col bg-white px-6 pb-4 pt-4">
+      {/* 머리말 한 줄 — 시안(2026-08-09). 종전에는 번호 배지가 붙은 머리말 아래에
+          「이 단계에서 배우는 것」 슬레이트 박스가 따로 있었는데, 배너+하단 3카드가
+          세로를 가져가면서 그 박스만큼(실측 56px) 노드가 작아졌다. 같은 정보를
+          한 줄에 눌러 담고 칩만 아래로 흘린다. */}
       <header className="relative z-[3] flex flex-none items-center gap-3">
-        <span className="grid h-7 w-7 flex-none place-items-center rounded-[9px] bg-sky-100 text-[13px] font-extrabold text-sky-700">
-          {index + 1}
+        <h3 className="flex-none text-[14px] font-extrabold text-slate-900">
+          {t('curriculum.path.sectionEyebrow', { n: index + 1, title: section.section })}
+        </h3>
+        {/* 부제는 서버 메타(section_meta.json) — 없으면 줄 자체를 그리지 않는다.
+            한 줄 머리말이라 제목 옆으로 붙였고, 좁아지면 여기부터 줄어든다
+            (min-w-0 + truncate). 숨기지 않는 이유: 화면이 안 읽으면 서버가 메타를
+            내려보낼 이유가 없어진다. */}
+        {section.subtitle && (
+          <p className="min-w-0 truncate text-[11.5px] text-slate-400">{section.subtitle}</p>
+        )}
+        <span className="flex-none text-[11.5px] font-bold tabular-nums text-slate-400">
+          {t('curriculum.sectionDone', { cleared, total: units.length })}
         </span>
-        <div className="min-w-0">
-          <h3 className="text-[15px] font-extrabold text-slate-900">{section.section}</h3>
-          {/* 부제는 서버 메타(section_meta.json) — 없으면 줄 자체를 그리지 않는다 */}
-          {section.subtitle && (
-            <p className="mt-0.5 truncate text-[11px] text-slate-400">{section.subtitle}</p>
-          )}
-        </div>
-        <span className="ml-auto flex-none rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-extrabold tabular-nums text-slate-500 ring-1 ring-slate-200">
-          {cleared} / {units.length}
-        </span>
-      </header>
-
-      <div className="relative z-[3] mt-2 flex-none rounded-2xl bg-slate-50 px-3.5 py-2.5 ring-1 ring-slate-200">
+        <div className="h-px min-w-[16px] flex-1 bg-slate-200" />
         <button
           type="button"
           onClick={onToggleIntro}
           aria-expanded={introOpen}
-          className="absolute right-2 top-1.5 inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[10.5px] font-extrabold text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+          className="flex-none rounded-lg px-1.5 py-0.5 text-[11px] font-extrabold text-slate-400 hover:bg-slate-100 hover:text-slate-700"
         >
           {introOpen ? t('curriculum.path.fold') : t('curriculum.path.unfold')}
-          <span className={`inline-block transition-transform ${introOpen ? '' : '-rotate-90'}`}>⌄</span>
+          <span className={`ml-1 inline-block transition-transform ${introOpen ? '' : '-rotate-90'}`}>⌄</span>
         </button>
-        <p className="text-[9.5px] font-extrabold tracking-[0.4px] text-sky-700">
-          {t('curriculum.path.introTitle')}
+      </header>
+
+      {introOpen && chips.length > 0 && (
+        <div className="relative z-[3] mt-1.5 flex flex-none flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-extrabold tracking-[0.4px] text-sky-700">
+            {t('curriculum.path.introTitle')}
+          </span>
+          {chips.map((c) => (
+            <span key={c.key} className="rounded-full bg-sky-100 px-2 py-[3px] text-[10.5px] font-bold text-sky-700">
+              {c.label}
+            </span>
+          ))}
           {section.est_minutes ? (
-            <span className="ml-1.5 font-bold text-slate-400">
+            <span className="text-[10.5px] font-bold text-slate-400">
               · {t('curriculum.path.estMinutes', { min: section.est_minutes })}
             </span>
           ) : null}
-        </p>
-        {introOpen && chips.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {chips.map((c) => (
-              <span key={c.key} className="rounded-full bg-sky-100 px-2 py-[3px] text-[10px] font-bold text-sky-700">
-                {c.label}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* --n은 **이 단계의 칸 수가 아니라 전 단계 중 최대 칸 수**다(sizingN).
           자기 칸 수를 넣으면 3칸 섹션이 5칸 섹션보다 큰 동그라미를 받아, 단계를
@@ -321,7 +344,8 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
                 data-wm-unit
                 onClick={() => !blocked && onOpenUnit(unit.id)}
                 disabled={blocked}
-                // 노드 밑 라벨을 뺐으므로 유닛명은 aria-label·title이 유일한 통로다.
+                // 노드 옆 라벨을 다시 뺐으므로(2026-08-10 사용자 지시) 유닛명은
+                // aria-label·title이 유일한 통로다.
                 aria-label={`${unit.title}${suffix}`}
                 title={
                   locked
@@ -345,6 +369,7 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
                   </span>
                 )}
               </button>
+
             </div>
           );
         })}
@@ -353,20 +378,30 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
   );
 }
 
-export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked = false, regenMin = 1, rail = null }) {
+export default function PcCurriculumPath({
+  sections,
+  onOpenUnit,
+  energyBlocked = false,
+  regenMin = 1,
+  onViewSection = null,
+}) {
   const t = useT();
   const scrollerRef = useRef(null);
   // 접기는 전 단계에 함께 적용한다 — 단계마다 따로 접게 하면 스크롤할 때마다
   // 다시 접어야 한다.
   const [introOpen, setIntroOpen] = useState(true);
-  const [atStart, setAtStart] = useState(true);
+  // 스크롤 힌트의 조건 — 「아래로 더 있는가」다(2026-08-09). 종전에는 「맨
+  // 위인가」였다: 힌트가 트랙 가운데 떠 있던 시절에는 처음 한 번만 알려 주면
+  // 됐지만, 진도 바 안으로 들어오면서 다음 단계가 남아 있는 내내 자리를
+  // 지키는 편이 맞다(그 자리가 비면 바 오른쪽 끝이 그냥 빈다).
+  const [hasMore, setHasMore] = useState(true);
 
   const withUnits = sections.filter((s) => s.units.length > 0);
 
   // 노드 크기의 기준 칸 수 — **전 단계 중 최대**. 단계마다 자기 칸 수로 크기를
   // 정하면 아이콘이 단계를 넘길 때마다 커졌다 작아진다. 가장 긴 섹션에 맞춰
   // 통일하면 어느 단계도 넘치지 않는다. 섹션이 없을 때의 1은 0 나눗셈 방지.
-  const sizingN = Math.max(1, ...withUnits.map((s) => s.units.length));
+  const sizingN = Math.max(PATH_SIZING_FLOOR, ...withUnits.map((s) => s.units.length));
 
   // 섹션별 시작 인덱스(전역) — 완료 구간을 경계 너머로 잇기 위해 필요하다.
   const offsets = [];
@@ -385,7 +420,39 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
   const currentUnit = flat[currentIdx] ?? flat.find((_, i) => statuses[i] === 'unlocked') ?? null;
   const currentSection = withUnits.find((s) => s.units.some((u) => u.id === currentUnit?.id)) ?? null;
 
-  const onScroll = useCallback((e) => setAtStart(e.currentTarget.scrollTop < 24), []);
+  /**
+   * 「아래로 더 있는가」를 실제 트랙 치수로 다시 잰다 — **판정은 여기 한 곳뿐**.
+   *
+   * 종전에는 같은 식이 onScroll과 정렬 effect 두 곳에 복제돼 있었고, 정렬 effect가
+   * `currentIdx < 0`에서 early return하는 바람에 **전 유닛을 깬 학습자에게
+   * 「스크롤해서 다음 단계」 힌트가 영원히 남았다**(초깃값 true). 스크롤이 불가능한
+   * 높이에서는 onScroll도 안 뜨므로 스스로 고쳐지지도 않았다. 창을 줄여 경로가
+   * 다 들어오는 경우도 같았다 — 리사이즈는 이 값을 아예 안 봤다.
+   */
+  const syncHasMore = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    setHasMore(el.scrollTop + el.clientHeight < el.scrollHeight - 24);
+  }, []);
+
+  /**
+   * **지금 보고 있는 단계**를 위로 알린다 — 배너 제목이 이걸 따라간다.
+   *
+   * 스크롤 스냅이라 `scrollTop`은 항상 단계 높이의 배수 근처다. 그래서 나누기
+   * 반올림이면 충분하고, 각 단계의 offsetTop을 훑을 필요가 없다. 스냅이 끝나기
+   * 전 중간 프레임에서도 **가장 가까운 단계**가 나오므로 제목이 미리 바뀐다.
+   * (`clientHeight`가 0인 첫 프레임은 나누기가 터지므로 건너뛴다.)
+   */
+  const syncViewed = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el || !onViewSection || el.clientHeight === 0) return;
+    onViewSection(Math.round(el.scrollTop / el.clientHeight));
+  }, [onViewSection]);
+
+  const onScroll = useCallback(() => {
+    syncHasMore();
+    syncViewed();
+  }, [syncHasMore, syncViewed]);
 
   /**
    * 트랙이 화면 어디서 시작하는지를 재서 CSS로 넘긴다(`--wm-track-top`).
@@ -406,12 +473,23 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
     const apply = () => {
       const top = el.getBoundingClientRect().top + window.scrollY;
       el.style.setProperty('--wm-track-top', `${Math.round(top)}px`);
+      // 트랙 **밑**은 다시 비었다(2026-08-10) — 복습·자유 세션 카드가 아래 가로
+      // 줄에서 **오른쪽 세로 열**로 옮겨 갔다. 그래서 `--wm-track-tail`을 재지
+      // 않고 index.css의 기본값(32px = main의 pb-8)에 맡긴다. 잰 값을 남겨 두면
+      // 0을 쓰는 것이 아니라 **옆 열의 높이를 아래 여백으로 오해**해 트랙이 그만큼
+      // 짧아진다. 트랙 밑에 무언가 다시 붙으면 그때 재서 넣을 것(이 파일 히스토리에
+      // 그 코드가 있다).
+      // 트랙 높이가 바뀌면 「아래로 더 있는가」도 바뀐다. 여기서 같이 다시 재지
+      // 않으면, 창을 줄여 경로가 다 들어오는 순간 힌트가 남은 채로 굳는다
+      // (스크롤이 불가능하니 onScroll이 고쳐 주지도 못한다).
+      syncHasMore();
     };
     apply();
     window.addEventListener('resize', apply);
     let ro;
     if (typeof ResizeObserver !== 'undefined' && el.parentElement) {
-      // 위쪽 형제(배너·코스 탭·경고)가 나타나거나 사라지면 부모 높이가 바뀐다.
+      // 위아래 형제(배너·코스 탭·경고·하단 3카드)가 나타나거나 사라지면
+      // 부모 높이가 바뀐다.
       ro = new ResizeObserver(apply);
       ro.observe(el.parentElement);
     }
@@ -419,21 +497,30 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
       window.removeEventListener('resize', apply);
       ro?.disconnect();
     };
-  }, []);
+    // syncHasMore는 useCallback([])이라 안정적이다 — 마운트 1회 실행 의도는 그대로다.
+  }, [syncHasMore]);
 
   // 현재 유닛이 있는 단계로 초깃값 정렬 — 매번 1단계부터 스크롤하게 두지 않는다.
   useEffect(() => {
     const el = scrollerRef.current;
-    if (!el || currentIdx < 0) return;
-    let si = 0;
-    for (let i = 0; i < offsets.length; i += 1) if (currentIdx >= offsets[i]) si = i;
-    const stage = el.children[si];
-    if (!stage) return;
-    const prev = el.style.scrollBehavior;
-    el.style.scrollBehavior = 'auto'; // 초기 정렬은 애니메이션 없이
-    el.scrollTop = stage.offsetTop;
-    el.style.scrollBehavior = prev;
-    setAtStart(stage.offsetTop < 24);
+    if (!el) return;
+    // 정렬은 현재 유닛이 있을 때만. **힌트 갱신은 그와 무관하게 항상** 한다 —
+    // 여기서 같이 early return하면 전 유닛을 깬 학습자에게 힌트가 영원히 남는다.
+    if (currentIdx >= 0) {
+      let si = 0;
+      for (let i = 0; i < offsets.length; i += 1) if (currentIdx >= offsets[i]) si = i;
+      const stage = el.children[si];
+      if (stage) {
+        const prev = el.style.scrollBehavior;
+        el.style.scrollBehavior = 'auto'; // 초기 정렬은 애니메이션 없이
+        el.scrollTop = stage.offsetTop;
+        el.style.scrollBehavior = prev;
+      }
+    }
+    syncHasMore();
+    // 정렬 직후의 단계도 알린다 — 첫 화면이 1단계가 아니라 **현재 단계**라
+    // 여기서 안 알리면 배너만 1단계를 가리킨 채 남는다.
+    syncViewed();
     // 트리가 바뀔 때만 다시 맞춘다(스크롤 중 재정렬 금지).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIdx, withUnits.length]);
@@ -444,7 +531,9 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
   // 쌓이면서 그만큼 페이지에 세로 스크롤이 생겼다(실측 28px).
   return (
     <div ref={wrapRef} className="hidden md:block">
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      {/* 트랙이 **폭 전체**를 쓴다. 진입 카드가 위쪽 가로 배너로 가면서 옆 열이
+          비었고(2026-08-09 시안), 빈 열을 남기면 트랙이 이유 없이 296px 좁아진다. */}
+      <div className="grid grid-cols-[minmax(0,1fr)]">
         <div className="wm-track min-w-0 rounded-[20px] bg-white ring-1 ring-slate-200">
           <div ref={scrollerRef} className="wm-scroller" onScroll={onScroll}>
             {withUnits.map((section, i) => (
@@ -467,14 +556,6 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
             ))}
           </div>
 
-          {/* 스크롤 힌트 — 오른쪽 위에 두면 단계 진도 칩(n/m)을 가린다.
-              진도 바 바로 위, 가운데에 둔다. */}
-          {atStart && withUnits.length > 1 && (
-            <div className="pointer-events-none absolute bottom-14 left-1/2 z-[4] -translate-x-1/2 rounded-full bg-slate-800/60 px-2.5 py-1 text-[10.5px] font-bold text-white">
-              {t('curriculum.path.scrollHint')}
-            </div>
-          )}
-
           {/* 트랙 하단 진도 바 — 노드 라벨을 뺀 만큼 "지금 어디"를 여기서 말한다 */}
           <div className="absolute inset-x-0 bottom-0 z-[3] flex items-center gap-2.5 border-t border-slate-200 bg-white/95 px-3.5 py-2 backdrop-blur">
             <span className="text-[11.5px] font-extrabold text-slate-500">
@@ -495,24 +576,22 @@ export default function PcCurriculumPath({ sections, onOpenUnit, energyBlocked =
             <span className="flex-none text-[11.5px] font-bold tabular-nums text-slate-500">
               {t('curriculum.path.unitCount', { done: clearedCount, total: flat.length })}
             </span>
-            <button
-              type="button"
-              onClick={() => currentUnit && !energyBlocked && onOpenUnit(currentUnit.id)}
-              disabled={!currentUnit || energyBlocked}
-              className="ml-auto flex-none rounded-[9px] bg-sky-600 px-3.5 py-1.5 text-[11.5px] font-extrabold text-white shadow-[0_3px_0_#0369A1] transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-[0_3px_0_#CBD5E1]"
-            >
-              {t('curriculum.path.continue')}
-            </button>
+            {/* 「이어서 학습하기」 버튼이 있던 자리 — 스크롤 힌트가 대신 선다
+                (2026-08-09 사용자 지시). 버튼을 빼도 잃는 통로가 없다: 같은 곳으로
+                가는 문이 위 배너 CTA(「이어서 풀기」)와 현재 노드 자체로 둘 더 있어
+                한 화면에 같은 목적지가 셋이었다. 힌트는 트랙 가운데에 떠 있었는데
+                거기서는 경로를 가렸다. */}
+            {hasMore && withUnits.length > 1 && (
+              <span
+                data-testid="path-scroll-hint"
+                className="ml-auto flex-none text-[11.5px] font-bold text-slate-400"
+              >
+                {t('curriculum.path.scrollHint')}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* 우측 레일 — 튜터 아래로 카드를 쌓는다. 트랙이 680px인데 튜터 카드만
-            두면 아래가 350px쯤 비고, 그 카드들을 트랙 밑에 가로로 길게 두면
-            화면이 아래로 늘어진다. 내용은 호출부(CurriculumHome)가 넘긴다. */}
-        {/* 우측 레일 — 튜터 카드는 뺐다(2026-08-05). 같은 물방울이가 좌측
-            사이드바에도 있어 한 화면에 둘이 떴다. 복습 큐·자유 세션이 그만큼
-            위로 올라온다. 내용은 호출부(CurriculumHome)가 넘긴다. */}
-        <div className="flex flex-col gap-3.5">{rail}</div>
       </div>
     </div>
   );
