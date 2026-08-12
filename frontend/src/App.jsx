@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { Link, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import client from './api/client';
 import { translate, getCurrentLocale } from './i18n/core.js';
@@ -65,12 +65,19 @@ const DevPanel = lazy(() => import('./modules/dev/DevPanel'));
 let guestAttempted = false; // 이 페이지 로드에서 이미 시도했는가(또는 토큰을 본 적 있는가)
 let guestSettled = false; // 그 시도가 끝났는가(성공이면 토큰이, 실패면 /login이 다음 화면)
 let guestPromise = null; // StrictMode 이중 실행·동시 렌더가 공유하는 단일 요청
+// **발급 실패와 로그아웃을 가른다**(MT-29, 2026-08-12). 둘 다 "토큰 없음"이지만
+// 사용자에게 보여야 할 것이 정반대다: 로그아웃은 본인이 한 일이라 로그인 화면이
+// 맞고, 발급 실패는 네트워크 사고라 **재시도**가 맞다. 종전에는 둘 다 /login으로
+// 보내서, 규정이 "로그인 없이 열려야 한다"고 요구하는 바로 그 화면을 연결이
+// 나쁜 심사위원에게 보여 줬다.
+let guestFailed = false;
 
 /** 테스트 전용 — 다음 진입에서 자동 발급을 다시 시도할 수 있게 되돌린다. */
 export function resetGuestAutoIssue() {
   guestAttempted = false;
   guestSettled = false;
   guestPromise = null;
+  guestFailed = false;
 }
 
 function issueGuestOnce() {
@@ -88,6 +95,39 @@ function issueGuestOnce() {
   return guestPromise;
 }
 
+/**
+ * 게스트 발급 실패 화면 — **로그인 폼을 보여주지 않는다**(MT-29).
+ *
+ * 대회 규정이 요구하는 것은 "로그인 없이 열린다"이고, 연결이 잠깐 나빴다는 이유로
+ * 그 보증이 깨지면 안 된다. 여기서 할 일은 다시 시도하는 것이지 계정을 만드는
+ * 것이 아니다. 계정이 이미 있는 사람(R10-J로 전환한 사용자)을 위한 통로는
+ * 아래에 작게 남긴다 — 주 동선이 아니라 예외 통로다.
+ */
+function GuestIssueRetry({ onRetry }) {
+  const locale = getCurrentLocale();
+  return (
+    <div className="mx-auto mt-24 max-w-sm px-6 text-center">
+      <p className="text-4xl" aria-hidden="true">☁️</p>
+      <h1 className="mt-3 text-lg font-extrabold text-slate-800">
+        {translate(locale, 'auth.login.guestFailedTitle')}
+      </h1>
+      <p className="mt-1.5 text-sm text-slate-500">
+        {translate(locale, 'auth.login.guestFailedBody')}
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-5 w-full rounded-xl bg-sky-600 py-2.5 text-sm font-extrabold text-white hover:bg-sky-700"
+      >
+        {translate(locale, 'auth.login.guestFailedRetry')}
+      </button>
+      <Link to="/login" className="mt-4 inline-block text-xs font-bold text-slate-400 hover:text-slate-600">
+        {translate(locale, 'auth.login.guestFailedHasAccount')}
+      </Link>
+    </div>
+  );
+}
+
 function RequireAuth() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const [, bump] = useState(0); // 모듈 스코프 플래그가 바뀐 뒤 한 번 다시 그린다
@@ -102,14 +142,26 @@ function RequireAuth() {
     }
     if (guestAttempted) return;
     guestAttempted = true;
-    issueGuestOnce().then(() => {
+    issueGuestOnce().then((ok) => {
       guestSettled = true;
+      guestFailed = !ok;
       bump((n) => n + 1);
     });
   }, [accessToken]);
 
   if (!accessToken) {
-    // 시도가 끝났는데도 토큰이 없다 = 발급 실패(또는 로그아웃) → 종전 폴백 유지.
+    // 발급이 **실패**했다 → 재시도 화면. 로그인 폼이 아니다(MT-29).
+    if (guestFailed) {
+      return (
+        <GuestIssueRetry
+          onRetry={() => {
+            resetGuestAutoIssue();
+            bump((n) => n + 1);
+          }}
+        />
+      );
+    }
+    // 시도가 끝났고 실패도 아니다 = **로그아웃**. 본인이 한 일이라 로그인 화면이 맞다.
     if (guestSettled) return <Navigate to="/login" replace />;
     return <LoadingSpinner label={translate(getCurrentLocale(), 'auth.login.guestStarting')} />;
   }

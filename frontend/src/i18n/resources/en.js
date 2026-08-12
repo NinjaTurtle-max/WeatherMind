@@ -744,6 +744,11 @@ export default {
       tagline: "Learn weather & climate through today's sky",
       guestCta: '⚡ Start now — no account needed',
       guestStarting: "Opening today's sky...",
+      // MT-29 — an issue failure shows a retry, never a login form.
+      guestFailedTitle: "Couldn't open the sky just now",
+      guestFailedBody: 'The connection hiccuped. Shall we try again?',
+      guestFailedRetry: 'Try again',
+      guestFailedHasAccount: 'I already have an account',
       guestNote: "Try the placement check and today's session without signing up. You can save your progress later with a 30-second sign-up.",
       guestFailed: "Couldn't start. Please try again in a moment.",
       guestNickname: 'Guest',

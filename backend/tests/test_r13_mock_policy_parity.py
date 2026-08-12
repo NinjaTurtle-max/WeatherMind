@@ -206,3 +206,50 @@ class TestMockExposesPolicy:
         assert "cloud_cost: CLOUD_COST" in body
         assert "CLOUD_REGEN_MS" in body
         assert "session_recipe: MOCK_SESSION_RECIPE" in body
+
+
+class TestNoLoginInMainFlow:
+    """로그인 화면이 **주 동선에 없다** — MT-29 (2026-08-11 멘토링 피드백).
+
+    ⚠️ 라우트 자체는 **의도적으로 존치**한다. `/login`을 지우면 R10-J로 정식
+    계정으로 전환한 사용자가 다시 들어올 통로가 사라지고, 더 나쁘게는 게스트
+    발급이 실패했을 때 갈 곳이 아예 없어진다 — 연결이 나쁜 심사위원이 빈 화면을
+    본다. 규정이 요구하는 "로그인 없이 열려야"는 **동선**의 요구이지 라우트
+    삭제의 요구가 아니다.
+
+    그래서 무는 것은 두 가지다: 일반 화면이 로그인으로 링크하지 않는 것,
+    그리고 발급 실패가 로그인 화면이 아니라 재시도로 받는 것.
+    """
+
+    FRONT = Path(__file__).resolve().parents[2] / "frontend" / "src"
+    # 로그인/가입 페이지끼리의 상호 링크는 정상이다 — 그 화면에 이미 온 사람용이다.
+    ALLOWED = {"App.jsx", "LoginPage.jsx", "RegisterPage.jsx"}
+
+    def test_일반_화면은_로그인으로_링크하지_않는다(self):
+        offenders = []
+        for path in self.FRONT.rglob("*.jsx"):
+            if path.name in self.ALLOWED:
+                continue
+            src = path.read_text(encoding="utf-8")
+            for marker in ('to="/login"', "to='/login'", 'navigate("/login")', "navigate('/login')"):
+                if marker in src:
+                    offenders.append(f"{path.name}: {marker}")
+        assert not offenders, (
+            "주 동선에 로그인 화면으로 가는 통로가 생겼다 — 심사위원이 계정 없이 "
+            "열 수 있어야 한다(HACKATHON_RULES): " + " · ".join(offenders)
+        )
+
+    def test_발급_실패는_재시도_화면으로_받는다(self):
+        """실패와 로그아웃이 갈려 있는가.
+
+        둘 다 "토큰 없음"이지만 보여야 할 것이 정반대다 — 로그아웃은 본인이 한
+        일이라 로그인 화면이 맞고, 발급 실패는 사고라 재시도가 맞다. 종전에는
+        둘 다 /login으로 보냈다.
+        """
+        src = (self.FRONT / "App.jsx").read_text(encoding="utf-8")
+        assert "guestFailed" in src, "발급 실패와 로그아웃을 구분하지 않는다"
+        assert "GuestIssueRetry" in src, "발급 실패에 재시도 화면이 없다"
+        # 실패 분기가 로그아웃 분기(=Navigate to /login)보다 **먼저** 와야 한다
+        assert src.index("guestFailed)") < src.index('Navigate to="/login"'), (
+            "발급 실패가 로그인 리다이렉트에 먼저 잡힌다"
+        )
