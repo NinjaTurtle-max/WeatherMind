@@ -12,7 +12,7 @@ R3~R5: 지도 기반 대기 보드 · 단계별 커리큘럼(유닛 트리·왕�
 | frontend | 80 | React 18 + Vite + Tailwind, nginx가 `/api/v1` → backend 프록시 |
 | backend | 8000 | FastAPI + SQLAlchemy 2.0(async) + Alembic, JWT 인증, RLS |
 | ai-worker | 8001 | LangChain 3체인(Router/QuizGen/피드백), Gemini, 내부 API(`X-Internal-API-Key`) |
-| celery-worker / celery-beat | - | 일일 퀴즈 생성, 주간 리그 정산, 날씨 수집 |
+| celery-worker / celery-beat | - | 날씨 수집, 주간 리그 정산, 일일 예보 대결 정산, WeatherBrain 재학습 |
 | postgres | 5432(내부) | 스키마·RLS는 Alembic 마이그레이션이 소유 (init.sql은 EXTENSION만) |
 | redis | 6379(내부) | 캐시 `weather:{date}:{region}`(1h) / `quiz:{date}:{level_group}`(24h) / `session:{user_id}`(7d) |
 
@@ -108,7 +108,6 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 
 ## 이번 라운드 범위 밖 (로드맵)
 
-- detective 모듈 (Phase 3) — 프론트 디렉토리만 유지, 라우트 미등록
 - AI 캐스터 롤플레이 — `ROADMAP` §2 마일스톤 4의 장기 정의에 있으나 **미구현**
   (완료 판정 범위 밖 — `docs/ROADMAP.md` §1)
 - 실기동 통합 테스트 — 실제 KMA/Gemini API 키 발급 후 진행

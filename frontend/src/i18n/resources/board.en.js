@@ -424,7 +424,7 @@ export default {
       readSheared: 'The cloud shield is displaced to one side and the centre is exposed. Winds aloft and below are misaligned, tilting the column — in real satellite reading this shape is the first clue that shear is strong.',
     },
     common: {
-      back: '← Discovery',
+      back: '← Explore',
       whyTitle: '🤔 Why does this happen?',
       modelBadge: 'Simplified educational model — not a real forecast',
     },
@@ -432,7 +432,7 @@ export default {
       sandboxTitle: 'Free experiment',
       sandboxDesc: 'No goal, no grading. Place air masses, fronts, moisture and sunlight freely and watch what weather appears.',
       sandboxInputs: '9 elements · no grading · no clouds spent',
-      title: '🔭 Discovery',
+      title: '🔭 Explore',
       subtitle: 'A space to explore the principles of weather and climate by moving the conditions yourself.',
       typhoonTitle: 'Build a Typhoon',
       typhoonDesc: 'Adjust sea temperature and wind shear to see when — and how strongly — a typhoon develops.',
