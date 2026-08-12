@@ -37,7 +37,8 @@ export default function Layout() {
   // 넓게 쓴다. 페이지 쪽에서 100vw 음수 마진으로 컨테이너를 탈출하면 스크롤바
   // 폭만큼(100vw > clientWidth) 가로 스크롤이 생기므로, 폭은 레이아웃이 소유한다.
   const pathname = useLocation().pathname;
-  // /board는 플레이가 3열(팔레트·지도·미션)이라 576px로는 가운데 열이 0으로 눌린다.
+  // /board는 플레이가 넓은 배치(문제 배너 + 조작 / 관찰 2열 — 2026-08-11 개편 전에는
+  // 팔레트·지도·미션 3열이었다)라 576px로는 지도 열이 0으로 눌린다.
   // 한때 보드만 7xl로 한 단계 더 넓게 썼다(지도를 크게 쓰려고). 되돌렸다
   // (2026-08-07) — 헤더는 전 화면 고정 폭인데 본문만 넓어서, 보드에서만 제목·판이
   // 헤더 항목보다 40px 왼쪽에서 시작했다. 화면을 오갈 때 눈에 띄게 어긋난다.
@@ -58,6 +59,11 @@ export default function Layout() {
     || pathname === '/duel'
     || pathname === '/league'
     || pathname === '/me'
+    // 세션도 2열이 됐다(2026-08-11 사용자 지시 — 왼쪽 문항 / 오른쪽 정답·해설).
+    // 576px에서는 한 열이 264px라 보기 4개짜리 문항이 다 접힌다.
+    // 유닛 세션(/learn/units/…)도 같은 SessionRunner라 함께 넓힌다.
+    || pathname === '/daily'
+    || pathname.startsWith('/learn/units/')
     || isBoard;
   const shellWidth = isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);

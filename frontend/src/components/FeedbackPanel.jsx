@@ -37,14 +37,64 @@ const SOURCE_LABEL_KEY = {
   board: 'feedback.board',
 };
 
-export default function FeedbackPanel({ message, isCorrect, source }) {
-  const t = useT();
-  if (!message) return null;
-
-  const speaker = SPEAKER;
-  const tone = isCorrect
+const TONE = (isCorrect) =>
+  isCorrect
     ? { bar: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700', tail: 'border-emerald-100' }
     : { bar: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700', tail: 'border-orange-100' };
+
+/**
+ * 말풍선 본문 — 고정 오버레이(좁은 화면)와 **오른쪽 열 인라인**(넓은 화면)이
+ * 같은 것을 그린다. 2026-08-11에 세션이 2열이 되면서 넓은 화면에서는 해설이
+ * 오른쪽 열에 그대로 들어간다 — 화면 아래를 덮는 오버레이가 필요 없다.
+ * 두 자리에 마크업을 따로 두면 한쪽만 고치는 사고가 난다.
+ */
+export function FeedbackBubble({ message, isCorrect, source }) {
+  const t = useT();
+  const tone = TONE(isCorrect);
+  const speaker = SPEAKER;
+  return (
+    <div className="flex gap-3 p-4">
+      {/* 정오답은 배지·문구가 전달하므로 캐릭터는 장식 — 스크린리더 중복 방지. */}
+      <span
+        data-testid="feedback-mascot"
+        data-mascot={speaker}
+        className="grid h-14 w-14 shrink-0 place-items-center self-start rounded-full bg-slate-50"
+      >
+        <Mascot name={speaker} className="h-12 w-12" />
+      </span>
+      {/* 말풍선 — 꼬리가 캐릭터를 가리켜 "이 캐릭터가 말한다"가 된다.
+          보드 힌트(BoardHintPanel)와 같은 관례다. */}
+      <div className="relative min-w-0 flex-1 rounded-2xl bg-slate-50 px-3 py-2.5">
+        <span
+          aria-hidden="true"
+          className={`absolute -left-[5px] top-5 h-2.5 w-2.5 rotate-45 border-b border-l bg-slate-50 ${tone.tail}`}
+        />
+        <span
+          data-feedback-source={source ?? 'ai'}
+          className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${tone.badge}`}
+        >
+          {t(SOURCE_LABEL_KEY[source] ?? SOURCE_LABEL_KEY.ai)}
+        </span>
+        <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-700">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+/** 넓은 화면의 오른쪽 열에 놓는 해설 카드 — 색 띠 + 말풍선(고정 오버레이와 같은 꼴). */
+export function FeedbackCard({ message, isCorrect, source }) {
+  if (!message) return null;
+  return (
+    <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+      <div className={`h-1.5 w-full ${TONE(isCorrect).bar}`} />
+      <FeedbackBubble message={message} isCorrect={isCorrect} source={source} />
+    </div>
+  );
+}
+
+export default function FeedbackPanel({ message, isCorrect, source }) {
+  if (!message) return null;
+  const tone = TONE(isCorrect);
 
   return (
     // 사이드바 오른쪽부터 시작시킨다 — Layout의 헤더와 같은 처리다. `inset-x-0`
@@ -58,33 +108,7 @@ export default function FeedbackPanel({ message, isCorrect, source }) {
     <div className="fixed bottom-14 right-0 z-40 mx-auto max-w-xl px-3 pb-3 left-[var(--wm-shell-left)]">
       <div className="animate-slide-up overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
         <div className={`h-1.5 w-full ${tone.bar}`} />
-        <div className="flex gap-3 p-4">
-          {/* 정오답은 배지·문구가 전달하므로 캐릭터는 장식 — 스크린리더 중복 방지. */}
-          <span
-            data-testid="feedback-mascot"
-            data-mascot={speaker}
-            className="grid h-14 w-14 shrink-0 place-items-center self-start rounded-full bg-slate-50"
-          >
-            <Mascot name={speaker} className="h-12 w-12" />
-          </span>
-          {/* 말풍선 — 꼬리가 캐릭터를 가리켜 "이 캐릭터가 말한다"가 된다.
-              보드 힌트(BoardHintPanel)와 같은 관례다. */}
-          <div className="relative min-w-0 flex-1 rounded-2xl bg-slate-50 px-3 py-2.5">
-            <span
-              aria-hidden="true"
-              className={`absolute -left-[5px] top-5 h-2.5 w-2.5 rotate-45 border-b border-l bg-slate-50 ${tone.tail}`}
-            />
-            <span
-              data-feedback-source={source ?? 'ai'}
-              className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${tone.badge}`}
-            >
-              {t(SOURCE_LABEL_KEY[source] ?? SOURCE_LABEL_KEY.ai)}
-            </span>
-            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-700">
-              {message}
-            </p>
-          </div>
-        </div>
+        <FeedbackBubble message={message} isCorrect={isCorrect} source={source} />
       </div>
     </div>
   );

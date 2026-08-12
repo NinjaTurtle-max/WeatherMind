@@ -491,6 +491,7 @@ export default {
     backToPath: '학습 경로로 돌아가기',
   },
   session: {
+    answerHere: '답을 고르면 여기에 정답과 해설이 나와요.',
     loading: '세션을 준비하고 있어요...',
     title: '오늘의 기상 세션',
     loadFailed: '세션을 불러오지 못했어요',

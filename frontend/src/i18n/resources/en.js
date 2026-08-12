@@ -436,6 +436,7 @@ export default {
     backToPath: 'Back to learning path',
   },
   session: {
+    answerHere: 'Pick an answer and the result and explanation appear here.',
     loading: 'Preparing your session...',
     title: "Today's Weather Session",
     loadFailed: "Couldn't load the session",
