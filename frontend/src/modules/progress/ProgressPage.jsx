@@ -171,7 +171,11 @@ export default function ProgressPage() {
           전폭에 있던 **학습 지역을 왼쪽 배지 바로 밑**으로 올렸다. 배지 아래가
           800px 가까이 비어 있었고(왼쪽 스택이 오른쪽보다 짧다) 학습 지역은
           안이 한 줄뿐이라 전폭을 쓸 이유가 없던 카드다 — 폭은 열이 정한다. */}
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">
+      {/* 2026-08-12(사용자 지시): `lg:items-start`를 뺐다 — 두 열이 **같은 높이**로
+          늘어나야 한다("세로 길이가 딱 맞게"). 짧은 쪽 열의 마지막 칸(왼쪽 =
+          학습 지역)에 `lg:flex-1`이 붙어 남는 높이를 흡수하므로, 두 열의 끝이
+          어긋나지 않는다. items-start를 되살리면 다시 왼쪽만 짧아진다. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
         {/* 왼쪽 열 — "나" */}
         <div className="contents lg:flex lg:flex-col lg:gap-4">
           <div className="order-1 lg:order-none">
@@ -180,15 +184,22 @@ export default function ProgressPage() {
           <div className="order-2 lg:order-none">
             <BadgeCollection collapsed={collapsed} />
           </div>
-          {/* order-7 — lg에서는 왼쪽 열 3번째지만, 1열로 쌓이는 좁은 화면에서는
-              **이 격자의 맨 뒤**로 보낸다. 배지와 스파인 사이에 끼면 「나」와
-              「할 일」 사이에 설정이 하나 박힌 꼴이 된다(2026-08-11 코드 리뷰).
-              ⚠️ 그렇다고 학습 수준·하루 목표와 **붙지는 않는다** — 그 둘은 격자
-              바깥이고 사이에 능력 분석 판이 있다. 설정 셋을 한 덩어리로 모으려면
-              카드를 격자 밖으로 빼야 하는데, 그러면 lg에서 왼쪽 열의 빈자리를
-              메우지 못한다(이 이동의 목적이 그것이었다). 여기서 얻는 것은
-              「중간에 안 낀다」까지다. */}
-          <div className="order-7 lg:order-none">
+          {/* order-7 — lg에서는 왼쪽 열 3번째다. 1열로 쌓이는 좁은 화면에서는
+              뒤쪽으로 보낸다: 배지와 할 일 사이에 끼면 「나」와 「할 일」 사이에
+              설정이 하나 박힌 꼴이 된다(2026-08-11 코드 리뷰).
+              ⚠️ **2026-08-12부터 「격자의 맨 뒤」는 아니다** — 지식 단계(order-8)가
+              뒤에 붙었다. 순서를 맞바꿔 이 카드를 맨 뒤로 돌리면 지식 단계가
+              능력 분석 판에서 떨어지는데, 「단계를 먼저 읽고 개념별 θ를 읽는다」는
+              그 카드의 존재 이유라 그쪽을 지켰다. 얻은 것은 여전히
+              「배지와 할 일 사이에 안 낀다」까지고, 잃은 것은 「맨 뒤」다.
+              ⚠️ 학습 수준·하루 목표와 **붙지는 않는다** — 그 둘은 격자 바깥이고
+              사이에 능력 분석 판이 있다. 설정 셋을 한 덩어리로 모으려면 카드를
+              격자 밖으로 빼야 하는데, 그러면 lg에서 왼쪽 열의 빈자리를 메우지
+              못한다(이 이동의 목적이 그것이었다).
+
+              lg:flex-1 — 오른쪽 열이 더 길 때 그 차이를 이 칸이 먹는다(위 격자
+              주석). RegionCard 자신이 h-full이라 카드가 칸을 꽉 채운다. */}
+          <div className="order-7 lg:order-none lg:flex-1">
             <RegionCard />
           </div>
         </div>
@@ -198,15 +209,34 @@ export default function ProgressPage() {
             왕관·이어서 학습은 /learn 화면이 경로 트랙과 진입 배너로 전부 말하고
             있어, 여기서는 같은 말을 한 번 더 하는 카드였다. 프로필 4칸 지표의
             🎓 클리어 유닛·👑 획득 왕관이 요약은 계속 들고 있다.
-            빠진 만큼 두 열의 끝이 어긋난다 — 높이는 카드를 늘여 맞추지 않고
-            **학습 지역을 왼쪽으로 돌려** 맞췄다(위 order-7). 빈 카드를 늘이면
-            안에 든 것 없이 흰 여백만 커진다. */}
+            빠진 만큼 두 열의 끝이 어긋나 **학습 지역을 왼쪽으로 돌려** 맞췄다.
+            ⚠️ 그때는 "빈 카드를 늘이면 흰 여백만 커진다"며 늘이기를 거부했는데,
+            2026-08-12(사용자 지시 — "세로 길이가 딱 맞게")에 **지식 단계가 이
+            열로 들어오면서 오른쪽이 더 길어져** 그 판단이 뒤집혔다. 이제는 왼쪽
+            학습 지역이 `lg:flex-1`로 늘어 두 열 끝을 맞춘다. 종전 우려는
+            남아 있다 — 오른쪽 열이 아주 길어지면(퀘스트가 늘거나 카드가 더
+            붙으면) 한 줄짜리 학습 지역이 그만큼 빈 카드가 된다. 실측(1440,
+            퀘스트 3 + 다음 목표 + 지식 단계)에서는 70 → 142px다. */}
         <div className="contents lg:flex lg:flex-col lg:gap-4">
           <div className="order-5 lg:order-none">
             <QuestList collapsed={collapsed} />
           </div>
           <div className="order-6 lg:order-none">
             <NextGoalsCard me={me} />
+          </div>
+          {/* 지식 단계 — 2026-08-12(사용자 지시)에 **전폭에서 오른쪽 열로** 왔다
+              ("가로로 줄여서 오른쪽에 배치"). 1120px 전폭에서는 Lv 칩 한 줄과
+              막대 하나가 가로로 늘어져 빈 카드처럼 보였다.
+              order-8 — 1열로 쌓이는 좁은 화면에서는 격자의 **맨 뒤**라, 바로
+              아래 능력 분석 판과 붙는다(단계를 먼저 읽고 개념별 θ를 읽는 순서).
+              ⚠️ `empty:hidden`이 필요하다. 이 카드는 서버 필드가 없거나
+              콜드스타트(θ 행 없음)면 **스스로 null**을 뱉는데, 그때 이 래퍼가
+              남으면 빈 칸 하나와 gap 16px가 그대로 붙는다. 종전에는 카드가
+              flex의 맨 자식이라 null이면 노드째 없었다 — 순서를 주려고 래퍼를
+              씌우면서 생긴 자리다(2026-08-12 코드 리뷰). 목(mock)의
+              `/progress/me`가 실제로 이 필드를 안 보내므로 **그 경로가 기본값**이다. */}
+          <div className="order-8 empty:hidden lg:order-none">
+            <KnowledgeLevelCard />
           </div>
         </div>
       </div>
@@ -216,14 +246,11 @@ export default function ProgressPage() {
           설정 두 장보다 **위**에 둔다: 설정은 페이지 꼬리로 읽히는 자리라,
           그 아래에 큰 분석 판을 두면 페이지가 끝난 줄 알고 스크롤을 멈춘다.
 
-          지식 단계 카드가 그 **바로 위**에 붙는다 — 같은 "나의 실력" 묶음이고,
-          단계(난이도)를 먼저 읽고 개념별 θ(4밴드 칩 포함)를 읽는 순서가 맞다.
-          ⚠️ 병합 충돌 해소(2026-08-10): 내 브랜치는 이 카드를 왼쪽 열 order-3
-          칸에 넣었는데, main(PR #55)이 능력 분석을 **격자 밖 전체 폭**으로
-          옮겼다. 왼쪽 열에 그대로 두면 단계와 분석이 떨어져 의도가 깨지므로
-          여기로 따라왔다. 서버 필드가 없으면 카드가 스스로 null이라 자리째 빠진다. */}
+          지식 단계 카드는 2026-08-12에 **위 격자의 오른쪽 열 맨 아래**로 갔다
+          (사용자 지시 — 전폭에서 반폭으로). 「단계를 먼저 읽고 개념별 θ를 읽는다」는
+          순서는 그대로다: 좁은 화면에서는 order-8이라 이 판 바로 위에 오고,
+          넓은 화면에서는 오른쪽 열 끝이라 이 판 바로 위 오른쪽에 있다. */}
       <div className="mt-4 flex flex-col gap-4">
-        <KnowledgeLevelCard />
         <WeatherBrainPanel />
       </div>
 
@@ -280,18 +307,26 @@ export default function ProgressPage() {
 }
 
 /**
- * 학습 지역 (R12 선행 §8) — 퀴즈 실황·피드백 날씨의 기준 지역.
+ * RegionCard — 학습 지역 (R12 선행 §8) — 퀴즈 실황·피드백 날씨의 기준 지역.
  * 대결/브리핑·리그는 서울 고정(PM 정정 2026-08-05 — 지역 예보로 예측하고 서울
  * 실측으로 채점되는 정합성 문제) — 대결 화면에는 칩을 달지 않는다.
  *
  * 2026-08-11: 페이지 꼬리의 전폭 카드에서 **왼쪽 열**로 올라왔다. 열 폭이
  * 절반(약 552px)이라 설명과 지역 칩이 한 줄에 안 들어갈 수 있어, 좁아지면
  * 칩이 아랫줄로 내려가게 `flex-wrap`으로 둔다.
+ *
+ * 2026-08-12(사용자 지시 — "세로로 조금 더 키우고 … 세로 길이가 딱 맞게"):
+ * `h-full` + 안쪽 세로 가운데 정렬. 이 카드는 왼쪽 열의 마지막 칸이고 슬롯에
+ * `lg:flex-1`이 붙어 있어, 오른쪽 열이 더 길면 그 차이만큼 늘어난다.
+ * 높이를 숫자로 박지 않는 이유: 두 열의 차이는 퀘스트 수·배지 수·지식 단계
+ * 카드 유무에 따라 매번 다르다 — 고정값을 쓰면 어느 조합에서는 남고 어느
+ * 조합에서는 모자란다. 안이 한 줄뿐이라 늘어난 만큼 위아래가 비므로
+ * `justify-center`로 가운데에 둔다.
  */
 function RegionCard() {
   const t = useT();
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+    <div className="flex h-full flex-col justify-center rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="min-w-0 flex-1 basis-[220px]">
           <p className="text-sm font-extrabold text-slate-900">{t('region.settingTitle')}</p>
