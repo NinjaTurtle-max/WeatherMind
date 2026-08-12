@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 
 from app import llm_budget
 from app.chains import quiz_gen_chain, rag_chain, router_chain, validate_chain
+from app.fingerprint import code_fingerprint
 from app.config import settings
 from app.weatherbrain.irt import calibrate_items, estimate_ability
 from app.weatherbrain.knowledge_tracing import (
@@ -245,6 +246,9 @@ async def health():
         "status": "ok",
         "service": "weathermind-ai-worker",
         "llm": llm_budget.health_snapshot(),
+        # `python scripts/code_fingerprint.py ai-worker/app`와 대조한다 —
+        # 다르면 이미지가 낡았다(CO-Y-13).
+        "code_fingerprint": code_fingerprint(),
     }
 
 
