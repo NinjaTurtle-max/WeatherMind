@@ -221,13 +221,36 @@ function assertNoAuthWords(where) {
  * 그래서 en 로케일을 켜는 대신 **리소스 값을 직접 읽는다**. 로케일 고정을
  * 풀면 다른 시나리오의 한국어 단정이 전부 무너지므로 그 길은 택하지 않았다.
  *
- * 범위를 **진도 저장 동선의 3블록으로 좁힌** 이유: `auth.login.*`·`auth.register.*`는
- * 화면이 삭제된 뒤 값만 남은 고아라(참조 0건) 여기 넣으면 「지우기 전까지 영구
- * 실패」가 된다. 고아 정리는 별건이고, 이 계약이 지켜야 하는 것은 **살아 있는
- * 화면**이다. 고아를 지우고 나면 범위를 리소스 전체로 넓힐 것.
+ * 범위는 **ko.js·en.js 리소스 전체**다(2026-08-13 확대). 처음 세울 때는
+ * `auth.convert`·`saveProgress`·`regionNotice` 3블록으로 좁혀 두었는데, 그것은
+ * `auth.login.*`·`auth.register.*`가 화면 삭제 뒤 값만 남은 고아라 넓히면 「지우기
+ * 전까지 영구 실패」가 되기 때문이었다. 같은 날 고아 70키를 지웠으므로 그때 적어
+ * 둔 약속대로 블록 필터를 없앤다 — **좁은 계약은 좁은 만큼만 잡는다**는 것이 위
+ * ⓐⓑ가 남긴 교훈이고, 실제로 `logoutGuest.save`("sign up in 30 seconds")는 3블록
+ * 밖이라 이 가드가 못 보던 값이었다.
+ *
+ * ⚠️ 범위는 `resources/ko.js`·`en.js`까지다 — `board.*`·`detective.*`는 파일 소유가
+ * 갈려 있어(i18n/core.js가 병합) 여기서 물지 않는다. 2026-08-13 실측으로 그 4파일에
+ * 금칙어는 0건이고, 넓히려면 그 파일 소유자와 함께 결정할 일이다.
  */
 const BANNED_ANY_LOCALE = ['로그인', '회원가입', 'log in', 'login', 'sign up', 'sign-up'];
-const GUARDED_BLOCKS = ['auth.convert', 'saveProgress', 'regionNotice'];
+
+/**
+ * 예외 — **근거 없이는 늘리지 않는다.**
+ *
+ * 예외는 한 번 적으면 영원히 남고, 목록이 길어질수록 계약은 이름만 남는다.
+ * 그래서 규칙을 여기 못박는다: **새 항목을 추가하려면 (ⅰ) 왜 화면 규정을 어기지
+ * 않는지와 (ⅱ) 그 값을 붙잡고 있는 것이 무엇인지(테스트 파일:단정)를 이 자리에
+ * 한 줄로 적어야 한다.** 둘 중 하나라도 못 쓰겠으면 그것은 예외가 아니라 고쳐야
+ * 할 문구다 — 문구를 고치는 쪽이 언제나 먼저다.
+ *
+ * · guestBanner — `GuestSaveBanner`는 학습 화면에서 마운트가 걷혔지만(계약 ①)
+ *   컴포넌트 파일은 남아 있고 `tests/guest-convert.smoke.test.mjs` 2-a/2-b/2-c가
+ *   **그것을 직접 마운트해 문구를 단정한다**(:265·:276·:288 "30초 가입"·"진도가
+ *   쌓였어요"). 즉 사용자에게 렌더되지 않으므로 규정(화면에 가입/로그인 문구
+ *   없음)을 어기지 않고, 값을 바꾸면 그쪽 스모크가 붉어진다.
+ */
+const EXEMPT_BLOCKS = ['guestBanner'];
 
 function flatten(obj, prefix = '', out = {}) {
   for (const [k, v] of Object.entries(obj ?? {})) {
@@ -240,16 +263,26 @@ function flatten(obj, prefix = '', out = {}) {
 
 function assertResourcesClean(localeName, resource) {
   const flat = flatten(resource);
+  // 전수 검사라 키마다 ok()를 부르면 출력이 1,400줄이 된다 — **위반만** 보고하고
+  // 마지막에 "전건 통과"를 한 줄로 단정한다(단정 수가 0이 되면 공허해지므로,
+  // 검사한 키 수도 함께 찍어 범위가 조용히 줄어드는 것을 눈에 보이게 한다).
+  const offenders = [];
+  let scanned = 0;
   for (const [key, value] of Object.entries(flat)) {
-    if (!GUARDED_BLOCKS.some((b) => key === b || key.startsWith(`${b}.`))) continue;
+    if (EXEMPT_BLOCKS.some((b) => key === b || key.startsWith(`${b}.`))) continue;
+    scanned += 1;
     const haystack = value.toLowerCase();
     for (const word of BANNED_ANY_LOCALE) {
-      ok(
-        !haystack.includes(word),
-        `${localeName} 리소스 ${key}: 금칙어 「${word}」가 값에 없다 (값: ${value})`,
-      );
+      if (haystack.includes(word)) offenders.push(`${key} 「${word}」 → "${value}"`);
     }
   }
+  ok(
+    offenders.length === 0,
+    `${localeName} 리소스 ${scanned}키 전건에 금칙어가 없다`
+      + (offenders.length ? `\n      위반 ${offenders.length}건:\n      - ${offenders.join('\n      - ')}` : ''),
+  );
+  // 범위 자체가 살아 있는지 — 예외가 늘어 검사 대상이 껍데기만 남는 것을 막는다.
+  ok(scanned > 400, `${localeName} 검사 범위가 리소스 전체다 — 실제 ${scanned}키`);
 }
 
 const DISMISS_KEY = 'weathermind.regionNotice.dismissed';
@@ -535,8 +568,8 @@ try {
     window.localStorage.removeItem(DISMISS_KEY);
   });
 
-  // ── ⑧ 규정: 진도 저장 동선의 리소스에 금칙어가 없다 (**양 로케일**) ────────
-  await scenario('⑧ ko·en 리소스 금칙어', async () => {
+  // ── ⑧ 규정: 리소스 **전체**에 금칙어가 없다 (**양 로케일**) ────────────────
+  await scenario('⑧ ko·en 리소스 전체 금칙어', async () => {
     assertResourcesClean('ko', koResource);
     assertResourcesClean('en', enResource);
   });
