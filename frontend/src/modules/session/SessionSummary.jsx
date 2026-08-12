@@ -52,6 +52,55 @@ export function blockCounts(items) {
   return BLOCK_ORDER.filter((k) => counts.get(k) > 0).map((k) => ({ kind: k, count: counts.get(k) }));
 }
 
+/**
+ * 블록 구분 표기 — **데일리와 유닛 완료 화면이 한 벌을 공유한다.**
+ *
+ * 왜 뽑아냈나: 2026-08-13에 「하루의 첫 유닛 세션 = 데일리 세션」이 착지하면서
+ * 유닛 세션도 `실황2·신규4·복습3·보드1` 배합을 받게 됐는데, `UnitSummary`는
+ * `session.summary.correct`·`.xp` 둘만 빌려 쓰고 있어서 **10문항이 무슨 구성인지
+ * 화면이 한 번도 말하지 않았다.** 클라이언트가 「2+4+3+1인데 2+2로 뜬다」고 읽은
+ * 것도 이 침묵 때문이다 — 문항 수가 맞는 것과 구성이 보이는 것은 다른 일이다.
+ *
+ * ⚠️ **두 벌로 만들지 말 것.** 이 파일의 `BLOCK_ORDER`가 표기의 화이트리스트이고,
+ * 배합에 kind가 늘면 거기만 고치면 양쪽이 함께 따라온다. 복제하면 한쪽만 고쳐져
+ * 조용히 갈린다 — board가 배합에 들어왔는데 이 배열에 없어 「오늘의 하늘」이 영영
+ * 안 뜨던 것이 바로 그 사고다.
+ */
+export function SessionBlocks({ items, className = 'mt-5' }) {
+  const t = useT();
+  const blocks = blockCounts(items);
+  if (blocks.length === 0) return null;
+
+  return (
+    <div data-session-blocks={blocks.length} className={`${className} text-left`}>
+      <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+        {t('session.summary.blocksTitle')}
+      </p>
+      <ul className="mt-1.5 flex flex-wrap gap-1.5">
+        {blocks.map(({ kind, count }) => (
+          <li
+            key={kind}
+            data-block-kind={kind}
+            className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${
+              kind === 'unit'
+                ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                : 'bg-slate-50 text-slate-600 ring-slate-200'
+            }`}
+          >
+            {t(`session.summary.blocks.${kind}`)}{' '}
+            <span className="font-extrabold">{t('session.summary.blockCount', { count })}</span>
+          </li>
+        ))}
+      </ul>
+      {blocks.some((b) => b.kind === 'unit') && (
+        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+          {t('session.summary.unitBlockNote')}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function SessionSummary({ summary, items }) {
   const t = useT();
   if (!summary) return null;
@@ -61,8 +110,6 @@ export default function SessionSummary({ summary, items }) {
   const allCorrect = correct_count === total;
   const retryResolved = Number(summary.retry_resolved_count) || 0;
   const allResolved = Boolean(summary.all_resolved);
-  const blocks = blockCounts(items);
-
   return (
     <div className="mt-10 rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-200">
       <p className="text-4xl">{allCorrect || allResolved ? '🌈' : '⛅'}</p>
@@ -111,36 +158,9 @@ export default function SessionSummary({ summary, items }) {
         badges={summary.badges_earned}
       />
 
-      {/* 블록 구분 표기 (§2.10) — 이 표기가 없으면 15문항이 그냥 길기만 하다.
-          진도(unit) 블록은 항상 마지막 5문항이고, 왕관 판정도 이 블록이 소유한다. */}
-      {blocks.length > 0 && (
-        <div data-session-blocks={blocks.length} className="mt-5 text-left">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-            {t('session.summary.blocksTitle')}
-          </p>
-          <ul className="mt-1.5 flex flex-wrap gap-1.5">
-            {blocks.map(({ kind, count }) => (
-              <li
-                key={kind}
-                data-block-kind={kind}
-                className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${
-                  kind === 'unit'
-                    ? 'bg-amber-50 text-amber-700 ring-amber-200'
-                    : 'bg-slate-50 text-slate-600 ring-slate-200'
-                }`}
-              >
-                {t(`session.summary.blocks.${kind}`)}{' '}
-                <span className="font-extrabold">{t('session.summary.blockCount', { count })}</span>
-              </li>
-            ))}
-          </ul>
-          {blocks.some((b) => b.kind === 'unit') && (
-            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
-              {t('session.summary.unitBlockNote')}
-            </p>
-          )}
-        </div>
-      )}
+      {/* 블록 구분 표기 (§2.10) — 이 표기가 없으면 10문항이 그냥 길기만 하다.
+          컴포넌트는 유닛 완료 화면과 공유한다(위 SessionBlocks 머리말 참조). */}
+      <SessionBlocks items={items} />
 
       {/* 오늘 목표 진행 (R10-01 §3.4) — 목표 미설정이면 렌더되지 않는다 */}
       <DailyGoalMeter className="mt-4" />

@@ -65,7 +65,11 @@ function ItemKnowledgeLevelBadge({ item }) {
  *   - title: 상단 제목
  *   - attendance: 진입 시 출석 체크 호출 여부(자유 세션·학습 홈에서만 true)
  *   - subheader: 제목 아래 보조 영역(유닛 배지 등)
- *   - renderSummary(summary): 완료 요약 렌더(기본 SessionSummary)
+ *   - renderSummary(summary, items): 완료 요약 렌더(기본 SessionSummary)
+ *     ⚠️ `items`를 두 번째 인자로 넘기는 이유 — 유닛 완료 화면이 **블록 구분**
+ *     (실황·신규·복습·오늘의 하늘)을 그리려면 kind가 붙은 문항 목록이 필요하다.
+ *     `summary`만 넘기던 종전에는 유닛 세션이 10문항 데일리 배합을 받아도
+ *     **무슨 구성인지 화면이 말할 방법이 없었다**.
  *   - onSessionComplete(summary): 완료 후 부수효과(예: 커리큘럼 무효화)
  *
  * bulkMode (R7-02 S1 — 배치고사 전용, daily/unit 경로 불변):
@@ -717,7 +721,7 @@ export default function SessionRunner({
             {crownToast}
           </div>
         )}
-        {renderSummary ? renderSummary(summary) : <SessionSummary summary={summary} items={items} />}
+        {renderSummary ? renderSummary(summary, items) : <SessionSummary summary={summary} items={items} />}
         {/* 예보 마감 단계 (R13 A-1) — **완료 응답의 closing_step이 정본**이다.
             /session/today의 값이 아니라 여기서 다시 계산된 값을 쓴다: 세션 도중
             다른 화면에서 예보를 냈으면 여기서 null이 되고, 그러면 409로 끝날
