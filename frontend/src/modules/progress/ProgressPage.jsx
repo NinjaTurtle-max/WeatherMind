@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { kstWeekdayIndex } from '../../lib/kstWeekday';
 import { Link, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,6 +14,9 @@ import { DailyGoalPicker, GOAL_ANCHOR } from './DailyGoal';
 import { selectUnlockStage, useOnboardingGate } from '../../lib/onboardingGate';
 // R12 선행 §8 — 학습 지역 설정(자급 컴포넌트, 제작 FE-R)
 import RegionPicker from '../../components/RegionPicker';
+// 2026-08-12 요구 ⑴ — 진도 저장 입력. 폼 본체는 ConvertAccountPage와 공유한다.
+import SaveProgressForm from '../../components/SaveProgressForm';
+import { isGuestUser } from '../auth/guest';
 import { useT } from '../../i18n';
 
 /**
@@ -227,6 +230,13 @@ export default function ProgressPage() {
         <WeatherBrainPanel />
       </div>
 
+      {/* 진도 저장 — 정보 입력 (2026-08-12 클라이언트 요구 ⑴).
+          설정 묶음의 **맨 앞**이다: 학습 수준·하루 목표는 취향이고, 이것은
+          "잃으면 끝인 것"을 지키는 행동이라 같은 무게가 아니다.
+          앵커 id는 학습 화면 오른쪽 저장 노드(`/me#save-progress`)의 목적지다 —
+          해시 스크롤은 이 파일 위쪽 useEffect가 이미 소유한다. */}
+      <SaveProgressCard />
+
       {/* 설정 — 학습 수준 (R13 CO-P-5) */}
       <LevelGroupCard />
 
@@ -299,6 +309,72 @@ function RegionCard() {
         </div>
         <RegionPicker />
       </div>
+    </div>
+  );
+}
+
+/**
+ * SaveProgressCard — 「내 정보에서 정보를 입력해 진도를 저장」(2026-08-12 요구 ⑴).
+ *
+ * 왜 여기인가: 오늘 로그인·회원가입 화면이 통째로 제거됐다(규정 — 심사위원이 계정
+ * 없이 URL만으로 열어야 한다). 그런데 **진도 저장은 남아야 한다** — 게스트 진도는
+ * 그 기기에만 있어서 잃으면 복구 경로가 없다(게스트 비밀번호는 무작위 시크릿이다).
+ * 그래서 같은 서버 API(`POST /auth/guest/convert`)를 **로그인 창이 아니라 내 정보
+ * 안의 입력란**으로 다시 세운다. 별도 페이지(`/account/convert`)도 남지만, 거기까지
+ * 가야만 되는 상태가 요구가 지적한 그 불편이었다.
+ *
+ * ⚠️ 문구에 「로그인」·「회원가입」을 쓰지 않는다. 규정이 금지하는 것은 그 **동선**
+ * 이지만, 문구가 그렇게 읽히면 심사에서 같은 지적을 받는다. 렌더된 텍스트를
+ * `tests/onboardingSave.contract.test.mjs`가 문다.
+ *
+ * ⚠️ 카드는 게스트에게만 뜬다. 정식 계정에게는 저장할 것이 이미 저장돼 있어
+ * 입력란이 하는 일이 없다(서버도 409 NOT_GUEST로 막는다). 다만 **자리를 비우지
+ * 않고** 한 줄로 사실을 알린다 — 진도가 어디에 있는지는 누구나 궁금하다.
+ * 조회 실패(`me` 없음)면 렌더하지 않는다: 게스트 여부를 모르는 채로 "저장하세요"를
+ * 띄우면 이미 정식 계정인 사람에게 실패할 폼을 내미는 꼴이다.
+ */
+function SaveProgressCard() {
+  const t = useT();
+  const storeUser = useAuthStore((s) => s.user);
+  // ⚠️ **한 번 세운 폼은 이 방문 동안 유지한다(래치).** 저장에 성공하면 이 사람은
+  // 게스트가 아니게 되고, 폼이 캐시의 is_guest를 즉시 내린다 — 게이트를 그대로
+  // 두면 그 순간 가지가 「이미 저장되고 있어요」로 갈아치워지고, **폼이 새
+  // 인스턴스로 다시 서면서 방금 띄운 성공 문구가 증발한다**(2026-08-12 실측:
+  // 저장은 됐는데 화면은 빈 폼으로 되돌아갔다. 하루 목표 카드가 두 번 적어 둔
+  // "누른 순간 화면에서 지워지는 버튼"과 같은 함정이다).
+  //
+  // 상태가 아니라 ref로 잠그는 이유: 성공 처리에서 캐시 갱신과 콜백이 **어느
+  // 순서로 렌더에 반영될지**에 기대면 안 된다. 실제로 순서를 바꿔 봐도 한
+  // 프레임이 새는 것을 실측했다. 렌더 중 래치는 멱등이라 안전하다.
+  const engagedRef = useRef(false);
+
+  const { data: me } = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: authApi.me,
+    staleTime: 60_000,
+    retry: false,
+  });
+  if (!me) return null;
+  if (me.is_guest === true || isGuestUser(storeUser)) engagedRef.current = true;
+  const guest = engagedRef.current;
+
+  return (
+    <div
+      id="save-progress"
+      data-testid="save-progress-card"
+      className="mt-4 scroll-mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+    >
+      <p className="text-sm font-extrabold text-slate-900">
+        <span aria-hidden="true">💾</span> {t('saveProgress.cardTitle')}
+      </p>
+      {guest ? (
+        <>
+          <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{t('saveProgress.cardBody')}</p>
+          <SaveProgressForm className="mt-3" />
+        </>
+      ) : (
+        <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{t('saveProgress.alreadySaved')}</p>
+      )}
     </div>
   );
 }

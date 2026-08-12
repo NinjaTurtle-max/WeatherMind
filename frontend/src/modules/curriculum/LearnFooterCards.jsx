@@ -1,103 +1,119 @@
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import ReviewQueueCard from '../../components/ReviewQueueCard';
 import RegionPicker from '../../components/RegionPicker';
+import GuestSaveNode from '../../components/GuestSaveNode';
+import { progressApi } from '../../api';
+import { useAuthStore } from '../../store/authStore';
 import { useT } from '../../i18n';
 
 /**
  * LearnFooterCards — 학습 화면 **오른쪽 세로 열**(2026-08-10 사용자 지시).
  *
- * 자유 일일 세션(위) · 복습(아래). 이름에 footer가 남아 있는 것은 하루 전까지
- * 경로 **아래** 가로 3카드였기 때문이다 — 옆으로 세우면서 자리가 바뀌었다.
+ * 이름에 footer가 남아 있는 것은 하루 전까지 경로 **아래** 가로 3카드였기
+ * 때문이다 — 옆으로 세우면서 자리가 바뀌었다.
  *
- * **리그 칸은 뺐다**(사용자 지시). 리그는 내비 탭이 이미 갖고 있어 같은 목적지가
- * 한 화면에 두 벌이었고, 정산 전에는 「순위 집계 전」 한 줄이라 칸값을 못 했다.
- * 리그 성적 파생(`lib/leagueStanding`)은 LeaguePage가 계속 쓰므로 남는다.
+ * **자유 일일 세션 카드는 제거됐다**(2026-08-12 클라이언트 지시 — `/daily` 라우트
+ * 폐지). 학습(유닛) 세션이 오늘 날씨를 직접 받게 되면서 「오늘 몫」을 따로 파는
+ * 입구가 필요 없어졌다. 카드가 갖고 있던 3상태(dailyBlocked·energyBlocked·평소)
+ * 분기도 함께 사라졌다 — 구름 잔량 게이트는 경로 노드와 진입 배너
+ * (`LearnHeroCard`의 `learn-entry-cta`)가 계속 소유한다.
+ *
+ * **리그 칸은 그 전에 뺐다**(사용자 지시). 리그는 내비 탭이 이미 갖고 있어 같은
+ * 목적지가 한 화면에 두 벌이었다. 리그 성적 파생(`lib/leagueStanding`)은
+ * LeaguePage가 계속 쓰므로 남는다.
+ *
+ * ⚠️ `RegionPicker`는 **남긴다.** 없어진 카드의 머리에 얹혀 있었지만 자유 세션에
+ * 딸린 것이 아니다 — 학습 지역은 실황 주입(`today.*` 슬롯)의 입력이고, 유닛
+ * 세션이 오늘 날씨를 받게 되는 지금 오히려 더 붙어 있어야 한다.
  *
  * ⚠️ 이 열의 **폭**이 경로 트랙에서 빠진다 — 옆으로 세운 뒤로 바뀐 계산이다
  * (아래에 있을 때는 높이가 빠졌고, 그건 노드 지름을 깎았다). 폭을 넓히기 전에
  * 트랙의 지그재그 진폭(`--amp`: 16cqw)을 재 볼 것 — 트랙이 좁아지면 노드가
  * 가운데로 모여 길이 일직선처럼 보인다.
+ *
+ * 호출자(`CurriculumHome`)는 아직 `dailyBlocked`·`energyBlocked`·`regenMin`·
+ * `dailyIsPrimary`를 넘긴다. 받지 않고 무시한다 — React가 조용히 버리므로
+ * 무해하고, 호출자 파일은 이 작업의 소유 밖이다.
  */
-export default function LearnFooterCards({
-  dailyBlocked = false,
-  energyBlocked = false,
-  regenMin = 1,
-  dailyIsPrimary = false,
-}) {
+export default function LearnFooterCards() {
   const t = useT();
+  const accessToken = useAuthStore((s) => s.accessToken);
+
+  /**
+   * 배치고사 진입 (2026-08-12 신설 — **진입 경로 0개 회귀 복구**).
+   *
+   * ⚠️ 경위를 남긴다. 로그인·회원가입 제거로 `LoginPage`가 삭제되면서, 신규
+   * 학습자를 `/onboarding/placement`로 보내던 **유일한 UI 동선이 사라졌다**
+   * (가입 직후 배치고사 진입이 그 통로였다). 라우트·시작 호출은 멀쩡히 살아
+   * 있는데 아무도 그 문을 열어 주지 않는 상태였다 — 규정상 심사위원은 계정
+   * 없이 열어 보므로, 온보딩 진단이 통째로 도달 불가였다.
+   *
+   * `/me`에 같은 배너가 있고(`ProgressPage` — `placement_done === false` 게이트)
+   * 그것도 살아 있다. 그런데도 여기에 하나 더 두는 이유: 콜드 오픈의 착지점은
+   * `/learn`이고, 진단은 **학습을 시작하기 전에** 받아야 값이 있다. 내 정보
+   * 탭까지 스스로 찾아 들어간 사람만 진단받는 구조는 온보딩이 아니다.
+   *
+   * 쿼리 키는 `Layout`과 **같은 `['progress','me']`**다 — React Query 캐시를
+   * 공유하므로 요청이 추가로 나가지 않는다(스토어에 담지 않는 이유는
+   * `progressStore`가 xp·level·streak·spine만 화이트리스트로 보관해서
+   * `placement_done`을 버리기 때문이다. 그 파일은 소유 밖이다).
+   *
+   * 이 진입점이 또 조용히 사라지지 않도록 계약으로 물린다 —
+   * `frontend/tests/placementEntry.smoke.test.mjs`의 「진입 경로 최소 1개」 시나리오.
+   */
+  const { data: me } = useQuery({
+    queryKey: ['progress', 'me'],
+    queryFn: progressApi.fetchMyProgress,
+    enabled: Boolean(accessToken),
+    staleTime: 30_000,
+  });
+  const needsPlacement = me?.placement_done === false;
 
   return (
     <div data-testid="learn-footer" className="flex flex-col gap-3.5 md:h-full">
-      {/* 자유 일일 세션이 **위**다(사용자 지시). 복습이 아래인 것은 맞기도 하다 —
-          due 0건이면 통째로 사라지는데, 위에 두면 사라질 때마다 아래 카드가
-          위로 튄다.
-
-          자유 일일 세션.
-          상태가 **셋**이다(둘로 줄이면 안 된다 — 실제로 줄였다가 스모크가 잡았다):
-            dailyBlocked  잔량 0 + 오늘 세션 없음 → 발급이 429로 막힌다.
-                          **진짜 disabled 버튼**이어야 한다: 회색 링크는 눌리고,
-                          누르면 서버가 막는다(R10이 폐지한 흐름).
-            energyBlocked 잔량 0인데 **오늘 세션이 살아 있다** → 재조회는 200이다
-                          ("풀던 것을 뺏기지 않는다" 불변식). 링크로 남기고
-                          문구를 「풀던 세션 이어서 풀기」로 바꾼다.
-            그 외          평소. */}
-      {/* 두 카드가 트랙 높이를 나눠 쓴다(2026-08-10 사용자 지시 "더 세로로").
-          `md:flex-1`이 남는 세로를 반씩 가져가고, 카드 안의 링크는 `mt-auto`라
-          늘어난 높이만큼 바닥으로 내려간다.
-          ⚠️ `max-h`가 필요하다 — 복습이 due 0건이면 자유 일일 세션 **혼자**
-          flex-1을 다 먹어 세 줄짜리 카드가 600px이 된다. */}
-      <div
-        data-testid="learn-secondary"
-        className="flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:max-h-[340px] md:flex-1"
-      >
-        <div className="flex items-center gap-2">
-          <p className="text-[13.5px] font-extrabold text-slate-800">
-            {t('curriculum.daily.title')}
+      {/* 진단 입구 — 아직 안 받은 사람에게만. 받고 나면 영구히 사라진다.
+          문구는 `/me` 배너와 **같은 키**를 쓴다(profile.placementBanner*) —
+          같은 행동을 두 화면에서 다른 말로 부르지 않기 위해서다. */}
+      {needsPlacement && (
+        <Link
+          to="/onboarding/placement"
+          data-testid="learn-placement-entry"
+          className="rounded-2xl bg-indigo-50 p-3.5 ring-1 ring-indigo-200 transition hover:bg-indigo-100"
+        >
+          <div className="flex items-center gap-2">
+            <span aria-hidden="true">🧭</span>
+            <p className="text-[13px] font-extrabold text-indigo-900">
+              {t('profile.placementBannerTitle')}
+            </p>
+          </div>
+          <p className="mt-1 text-[11.5px] font-bold text-indigo-700">
+            {t('profile.placementBannerCta')}
           </p>
-          <span className="ml-auto">
-            <RegionPicker />
-          </span>
-        </div>
-        {/* CO-S-9 — 위 배너가 이미 일일 세션일 때는(kind='daily') 본문·CTA를
-            **글자 그대로 두 번** 그렸다. 같은 문장·같은 목적지가 한 화면에 두 벌이면
-            §2.5가 없앤 "무엇을 누를지 모름"이 돌아온다. 주 진입(배너)을 남기고 이
-            칸의 중복분만 내린다 — 지역 픽커는 여기 말고 자리가 없으므로 남는다.
-            (홈 화면에 있던 가드인데 학습으로 옮기며 빠졌다. 2026-08-09 코드 리뷰) */}
-        {dailyIsPrimary ? null : (
-        <p className="mt-1.5 text-[12px] leading-relaxed text-slate-500">
-          {t('curriculum.daily.body')}
-        </p>
-        )}
-        {dailyIsPrimary ? null : dailyBlocked ? (
-          <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-2.5">
-            <button
-              type="button"
-              disabled
-              aria-disabled="true"
-              className="cursor-not-allowed text-[12px] font-bold text-slate-300"
-            >
-              {t('curriculum.daily.cta')}
-            </button>
-            <span className="text-[11px] font-bold text-rose-500">
-              {t('curriculum.daily.regen', { min: regenMin })}
-            </span>
-          </div>
-        ) : (
-          <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-2.5">
-            <Link to="/daily" className="text-[12px] font-bold text-sky-600 hover:text-sky-700">
-              {energyBlocked ? t('curriculum.daily.resume') : t('curriculum.daily.cta')}
-            </Link>
-            {energyBlocked && (
-              <span className="text-[11px] font-bold text-rose-500">
-                {t('curriculum.daily.regenResume', { min: regenMin })}
-              </span>
-            )}
-          </div>
-        )}
+        </Link>
+      )}
+
+      {/* 학습 지역 — 카드 한 장을 쓰기에는 작아서 한 줄로 얹는다. */}
+      <div
+        data-testid="learn-region"
+        className="flex items-center justify-end rounded-2xl bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200"
+      >
+        <RegionPicker />
       </div>
 
-      {/* 복습 — due 0건이면 컴포넌트가 스스로 null이라 카드째 빠진다. */}
+      {/* 복습 — due 0건이면 컴포넌트가 스스로 null이라 카드째 빠진다.
+          자유 일일 세션 카드가 없어져 이제 이 열의 세로를 혼자 쓴다.
+          종전의 `md:max-h-[340px]`는 두 카드가 트랙 높이를 나눠 쓰던 시절의
+          상한이었다 — 소유자가 하나가 됐으므로 카드 본연의 높이에 맡긴다. */}
       <ReviewQueueCard variant="tile" />
+
+      {/* 게스트 진도 저장(2026-08-12 요구 ⑵) — 화면 맨 위를 가로로 덮던 배너가
+          여기 여백으로 내려왔다. **맨 아래**에 둔다: 오늘 할 일(진단·지역·복습)이
+          먼저고, 이것은 하다가 눈에 들어오면 되는 안내다.
+          ⚠️ 열의 세로 순서를 무는 계약이 있다(`home.smoke` — 학습 지역이 복습보다
+          위). 사이에 끼우지 말 것. 게스트가 아니면 컴포넌트가 스스로 null이라
+          정식 계정에서는 칸이 아예 없다. */}
+      <GuestSaveNode />
     </div>
   );
 }
