@@ -32,7 +32,7 @@ from app.chains.payload_contract import GENERATED_PAYLOAD_FIELDS, QuizQuestion
 # 격리 임포트하는데(backend와 `app` 패키지명 공유), 함수 안에서 지연 import하면
 # **스왑이 끝난 뒤** 실행돼 backend의 `app`을 뒤져 ModuleNotFoundError가 난다.
 # llm_provider 자체는 langchain을 최상단에서 안 끌므로 여기 둬도 안전하다.
-from app.llm_provider import PURPOSE_AUTHOR, build_chat_model, resolve_spec, spec_is_usable
+from app.llm_provider import PURPOSE_AUTHOR, build_chat_model, effective_spec, resolve_spec, spec_is_usable
 
 
 def _llm_available() -> bool:
@@ -43,7 +43,10 @@ def _llm_available() -> bool:
     영영 안 열린다** — 프로바이더 통로를 뚫어 놓고 문을 잠가 두는 셈이다.
     Gemini로 해석되면 종전과 똑같이 `llm_configured()`가 답한다(하위호환).
     """
-    return spec_is_usable(resolve_spec(PURPOSE_AUTHOR))
+    # **effective_spec**을 본다 — 서빙 모드·예산 강등이 반영된 실제 스펙이다.
+    # resolve_spec(설정값)만 보면 예산이 소진돼도 "호출 가능"이라 답해서,
+    # 체인이 LLM을 부르러 갔다가 빈 스펙으로 실패하고 예외 경로로 떨어진다.
+    return spec_is_usable(effective_spec(PURPOSE_AUTHOR)[0])
 
 logger = logging.getLogger(__name__)
 

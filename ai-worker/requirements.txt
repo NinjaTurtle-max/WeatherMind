@@ -4,5 +4,9 @@ langchain-google-genai==2.*
 # OpenAI 호환 프로바이더(gpt-oss·OpenRouter·Groq·Ollama) — CO-B7 3파전 통로.
 # 이것이 없으면 Gemini 말고는 부를 방법이 없어 시험 배치가 시작조차 안 된다.
 langchain-openai==0.3.*
+# LLM 지출 상한 카운터(llm_budget). backend·celery와 **같은 핀**이어야 한다 —
+# 세 프로세스가 같은 Redis 키(wm:llm:spend:*)를 함께 센다.
+# ⚠️ 이것이 없으면 state()가 영구 fail-closed라 **live 모드가 영영 안 켜진다**.
+redis==5.2.*
 httpx==0.28.*  # starlette TestClient 전용 (앱 코드 import 없음)
 pydantic==2.10.*

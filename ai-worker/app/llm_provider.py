@@ -29,6 +29,7 @@ from functools import lru_cache
 # import하면 **스왑이 끝난 뒤** 실행돼 backend의 `app`을 뒤진다 —
 # backend에는 `app/config.py`가 없고 `app/core/config.py`라 ModuleNotFoundError가 난다.
 # 실제로 이 함정에 걸렸다(test_author_batch 5건).
+from app import llm_budget
 from app.config import _LLM_KEY_PLACEHOLDERS, _env, llm_configured, settings
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,47 @@ def resolve_spec(purpose: str = PURPOSE_RUNTIME) -> LlmSpec:
     return LlmSpec(provider=PROVIDER_OPENAI, model=model, api_key=key, base_url=base)
 
 
+def _fallback_spec(purpose: str) -> LlmSpec:
+    """강등 1단 — `LLM_<PURPOSE>_FALLBACK_*`. 없으면 사용 불가 스펙(→ 정적 문구)."""
+    return LlmSpec(
+        provider=PROVIDER_OPENAI,
+        model=_env(f"LLM_{purpose.upper()}_FALLBACK_MODEL", "") or _env("LLM_FALLBACK_MODEL", ""),
+        api_key=_env(f"LLM_{purpose.upper()}_FALLBACK_API_KEY", "") or _env("LLM_FALLBACK_API_KEY", ""),
+        base_url=(_env(f"LLM_{purpose.upper()}_FALLBACK_BASE_URL", "")
+                  or _env("LLM_FALLBACK_BASE_URL", "")) or None,
+    )
+
+
+def effective_spec(purpose: str = PURPOSE_RUNTIME) -> tuple[LlmSpec, str]:
+    """**실제로 쓸** 스펙과 그 사유 — 서빙 모드·예산 강등을 모두 반영한다.
+
+    사다리: `live`(설정 모델) → `fallback`(gpt-oss 등) → `dummy`(정적 문구).
+
+    ⚠️ **런타임만 서빙 모드의 지배를 받는다.** 저작·검증은 오프라인 배치라 사람이
+    직접 돌리는 작업이고, 거기까지 dummy로 막으면 G1 배치를 못 돌린다. 막아야 하는
+    것은 **배포된 서비스가 조용히 과금하는 것**이지 배치 작업이 아니다.
+    """
+    spec = resolve_spec(purpose)
+    if purpose != PURPOSE_RUNTIME:
+        return spec, "batch"
+
+    if llm_budget.serving_mode() != llm_budget.MODE_LIVE:
+        return LlmSpec(PROVIDER_OPENAI, "", "", None), "dummy(serving_mode)"
+
+    budget = llm_budget.state()
+    if budget.available:
+        return spec, "live"
+
+    fb = _fallback_spec(purpose)
+    if spec_is_usable(fb):
+        logger.warning("LLM 예산 강등 → 폴백 (%s, 누적 $%.4f/$%.2f)",
+                       budget.reason, budget.total_usd, budget.total_cap)
+        return fb, f"fallback({budget.reason})"
+    logger.warning("LLM 예산 소진 — 정적 문구로 강등 (%s, 누적 $%.4f/$%.2f)",
+                   budget.reason, budget.total_usd, budget.total_cap)
+    return LlmSpec(PROVIDER_OPENAI, "", "", None), f"dummy({budget.reason})"
+
+
 def spec_is_usable(spec: LlmSpec) -> bool:
     """호출 가능한 설정인가 — 무키 폴백 분기가 이 값을 본다.
 
@@ -107,7 +149,10 @@ def _cached_model(provider: str, model: str, api_key: str, base_url: str | None,
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         return ChatGoogleGenerativeAI(
-            model=model, google_api_key=api_key, temperature=temperature
+            model=model,
+            google_api_key=api_key,
+            temperature=temperature,
+            callbacks=[_budget_callback(model)],
         )
 
     # OpenAI 호환 — OpenRouter·Groq·Together·vLLM·Ollama가 모두 이 규약을 따른다.
@@ -119,10 +164,48 @@ def _cached_model(provider: str, model: str, api_key: str, base_url: str | None,
         api_key=api_key or "not-needed",  # 로컬 Ollama는 인증이 없다
         base_url=base_url,
         temperature=temperature,
+        callbacks=[_budget_callback(model)],
     )
 
 
+def _budget_callback(model: str):
+    """지출 기록용 콜백 핸들러 — LangChain의 정규 확장점.
+
+    **왜 래퍼가 아니라 콜백인가**: 처음에 모델을 감싸는 래퍼로 만들었더니 LCEL
+    파이프(`|`)가 "Expected a Runnable"로 죽었다. 래퍼는 진짜 Runnable이 아니고,
+    흉내 내려면 인터페이스 전부를 위임해야 한다 — 그건 프레임워크와 싸우는 일이다.
+    `on_llm_end`는 **모든 호출이 반드시 지나는 자리**이고 프레임워크가 보장한다.
+
+    **왜 프로바이더 층인가**: 체인마다 기록을 넣으면 한 곳을 빠뜨리는 순간 상한이
+    새고, 그걸 알아챌 방법이 없다.
+    """
+    from langchain_core.callbacks import BaseCallbackHandler
+
+    class _BudgetRecorder(BaseCallbackHandler):
+        def on_llm_end(self, response, **kwargs) -> None:
+            try:
+                usage = (getattr(response, "llm_output", None) or {}).get(
+                    "token_usage"
+                ) or {}
+                tin = int(usage.get("prompt_tokens", usage.get("input_tokens", 0)) or 0)
+                tout = int(
+                    usage.get("completion_tokens", usage.get("output_tokens", 0)) or 0
+                )
+                if not (tin or tout):
+                    # 공급자에 따라 generation 쪽에만 실린다
+                    gens = getattr(response, "generations", None) or []
+                    msg = gens[0][0].message if gens and gens[0] else None
+                    if msg is not None:
+                        tin, tout = llm_budget.usage_from_response(msg)
+                if tin or tout:
+                    llm_budget.record(model, tin, tout)
+            except Exception as exc:  # 회계 실패가 서비스를 멈추면 안 된다
+                logger.warning("LLM 지출 기록 건너뜀: %s", type(exc).__name__)
+
+    return _BudgetRecorder()
+
+
 def build_chat_model(temperature: float, purpose: str = PURPOSE_RUNTIME):
-    """체인이 부르는 유일한 진입점 — 무엇이 오는지는 env가 정한다."""
-    spec = resolve_spec(purpose)
+    """체인이 부르는 유일한 진입점 — 무엇이 오는지는 env·예산이 정한다."""
+    spec, _why = effective_spec(purpose)
     return _cached_model(spec.provider, spec.model, spec.api_key, spec.base_url, temperature)

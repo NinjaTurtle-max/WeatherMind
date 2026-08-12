@@ -30,6 +30,7 @@ from typing import Optional
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from app import llm_budget
 from app.chains import quiz_gen_chain, rag_chain, router_chain, validate_chain
 from app.config import settings
 from app.weatherbrain.irt import calibrate_items, estimate_ability
@@ -234,7 +235,17 @@ class MasteryResponse(BaseModel):
 # ── 엔드포인트 ─────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "weathermind-ai-worker"}
+    """가동 여부 + **LLM이 지금 무엇으로 서빙 중인가.**
+
+    후자를 여기 싣는 이유: 한도를 넘겨 정적 문구로 강등돼도 화면은 정상으로
+    보인다. 심사 기간 대부분이 무인이라, 조용한 강등을 사람이 알아챌 창구가
+    이것 말고 없다.
+    """
+    return {
+        "status": "ok",
+        "service": "weathermind-ai-worker",
+        "llm": llm_budget.health_snapshot(),
+    }
 
 
 @app.post(
