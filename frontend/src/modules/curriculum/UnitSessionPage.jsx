@@ -4,6 +4,7 @@ import { curriculumApi } from '../../api';
 import SessionRunner from '../session/SessionRunner';
 import { DailyGoalMeter } from '../progress/DailyGoal';
 import RewardChips from '../progress/RewardChips';
+import { SessionBlocks } from '../session/SessionSummary';
 import { useT } from '../../i18n';
 
 /**
@@ -39,8 +40,8 @@ export default function UnitSessionPage() {
           queryClient.invalidateQueries({ queryKey: ['curriculum'] });
           queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
         }}
-        renderSummary={(summary) => (
-          <UnitSummary summary={summary} onNext={() => navigate('/learn')} />
+        renderSummary={(summary, items) => (
+          <UnitSummary summary={summary} items={items} onNext={() => navigate('/learn')} />
         )}
       />
     </div>
@@ -53,7 +54,7 @@ export default function UnitSessionPage() {
  * crown_target 반영: 왕관은 n/target로 표시하고, 만점이어도 target 미달이면
  * "클리어"가 아니라 남은 왕관 안내를 보여준다(crown_target≥2 유닛 대비).
  */
-function UnitSummary({ summary, onNext }) {
+function UnitSummary({ summary, items, onNext }) {
   const t = useT();
   const ur = summary?.unit_result ?? {};
   const cleared = ur.cleared;
@@ -111,6 +112,11 @@ function UnitSummary({ summary, onNext }) {
         badges={summary?.badges_earned}
       />
 
+
+      {/* 블록 구분 표기 — 데일리와 **같은 컴포넌트**를 쓴다. 하루 첫 유닛 세션은
+          `실황2·신규4·복습3·보드1` 배합을 받으므로 여기서 그 구성이 보여야 한다.
+          두 번째 이후 세션은 전건 `unit`이라 칩 하나로 접힌다. */}
+      <SessionBlocks items={items} className="mt-5" />
 
       {/* 오늘 목표 N/M (R10-01 §3.4 — 웨이브 1 잔여: 데일리 SessionSummary와 같은 방식).
           목표 미설정이면 렌더되지 않는다. */}

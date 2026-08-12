@@ -514,7 +514,7 @@ export default {
         board: "Today's sky",
       },
       blockCount: '{count} question(s)',
-      unitBlockNote: 'Progress questions are the next 5 from the unit you are on.',
+      unitBlockNote: 'These questions come from the unit you are on.',
     },
     closing: {
       title: 'Final step — call tomorrow’s forecast',

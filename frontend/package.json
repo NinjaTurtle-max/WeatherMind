@@ -10,6 +10,7 @@
     "test:board": "node tests/boardEngine.vectors.test.mjs",
     "test:explore": "node tests/exploreSims.test.mjs && node tests/exploreSims.render.test.mjs",
     "test:explore-goals": "node tests/exploreGoals.test.mjs",
+    "test:session-blocks": "node tests/sessionBlocks.contract.test.mjs",
     "test:session": "node tests/sessionRunner.render.test.mjs",
     "test:session-retry": "node tests/sessionRetry.smoke.test.mjs",
     "test:placement": "node tests/placementEntry.smoke.test.mjs",

@@ -604,7 +604,7 @@ export default {
         board: '오늘의 하늘',
       },
       blockCount: '{count}문항',
-      unitBlockNote: '진도 문항은 지금 배우는 유닛의 다음 5문항이에요.',
+      unitBlockNote: '이 문항들은 지금 배우는 유닛에서 나왔어요.',
     },
     // 예보 마감 단계 (R13 A-1) — 15문항 뒤에 붙는 **단계**(문항 아님).
     closing: {
