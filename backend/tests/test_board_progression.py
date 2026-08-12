@@ -418,3 +418,93 @@ class TestListNotBlocked:
         assert re.search(r"unlocked=item\.id in unlocked", body), (
             "목록이 unlocked를 표시로 내려보내지 않는다"
         )
+
+
+# ── 두 잠금의 합성 (2026-08-12) ────────────────────────────────────────────────
+# 이 절이 무는 것은 **합성이 만든 새 실패 모드** 하나다. 두 잠금은 각각 정상인데
+# 순서를 잘못 세면 그 조합에서만 학습자가 갇힌다 — 어느 한쪽 테스트로도 안 잡힌다.
+
+
+def _graded_item(order, difficulty):
+    """난이도가 정해진 퍼즐 — board_difficulty가 그 값을 내도록 template를 짠다.
+
+    ⚠️ 난이도를 인자로 받는 대신 **실제 산출 규칙을 태운다.** 여기서 값을 꾸며
+    넣으면 규칙이 바뀌었을 때 이 테스트만 옛 세계에서 초록으로 남는다.
+    """
+    template = {"board_order": order}
+    if difficulty >= 2:
+        template["mode"] = "goal_only"
+    else:
+        template["mode"] = "guided"
+    if difficulty >= 3:
+        template["time_limit_sec"] = 120
+    return SimpleNamespace(
+        id=uuid.uuid4(),
+        template_json=template,
+        level_group="middle_high",
+        concept_tag="air_mass",
+    )
+
+
+class TestTwoLocksCompose:
+    def test_초등의_사슬이_보통_칸에서_끊기지_않는다(self):
+        """**이 파일에서 가장 중요한 한 건.**
+
+        난이도로 거르지 않고 전체 위에서 순서를 세면, 초등 학습자의 진행 커서
+        다음 칸이 「보통」인 순간 거기서 영구히 멈춘다 — 그 칸은 수준 잠금으로
+        못 깨고, 커서는 깨야만 넘어간다. 두 잠금이 각각은 옳은데 **조합에서만**
+        생기는 갇힘이라, 어느 한쪽 테스트도 이걸 못 본다.
+        """
+        # 쉬움·보통이 번갈아 나오는 코스 — 2번째가 벌써 보통이다.
+        course = [
+            _graded_item(0, 1), _graded_item(1, 2), _graded_item(2, 1),
+            _graded_item(3, 2), _graded_item(4, 1),
+        ]
+        pool = board_router.sequenceable(course, "elementary")
+        assert [i.template_json["board_order"] for i in pool] == [0, 2, 4], (
+            "초등에게 남아야 할 것은 쉬움 3칸이다"
+        )
+
+        # 첫 칸을 깨면 **다음 쉬움 칸**이 열려야 한다 — 보통 칸에서 막히면 안 된다.
+        unlocked = board_router.compute_unlocked_ids(pool, {pool[0].id})
+        assert pool[1].id in unlocked, "쉬움을 깼는데 다음 쉬움이 안 열렸다 — 사슬이 끊겼다"
+
+        # 끝까지 간다: 매번 하나씩 깨도 다음이 계속 열린다.
+        cleared = set()
+        for item in pool:
+            assert item.id in board_router.compute_unlocked_ids(pool, cleared), (
+                "초등 학습자가 자기 수준 안에서 끝까지 못 간다"
+            )
+            cleared.add(item.id)
+
+    def test_잠긴_난이도는_순서_계산에서_빠진다(self):
+        """성인은 전부 세고, 초등은 쉬움만 센다 — 세는 대상 자체가 다르다."""
+        course = [_graded_item(0, 1), _graded_item(1, 3), _graded_item(2, 1)]
+        assert len(board_router.sequenceable(course, "adult")) == 3
+        assert len(board_router.sequenceable(course, "elementary")) == 2
+
+    def test_수준을_올리면_셀_대상이_넓어진다(self):
+        """PATCH /auth/me로 수준이 바뀌면 재계산이 공짜로 따라온다는 것의 근거."""
+        course = [_graded_item(0, 1), _graded_item(1, 2)]
+        assert len(board_router.sequenceable(course, "elementary")) == 1
+        assert len(board_router.sequenceable(course, "middle_high")) == 2
+
+    def test_순서를_세는_모든_곳이_난이도로_먼저_거른다(self):
+        """위 계약이 **실제 경로에 연결돼 있는가** — 순수 함수 테스트의 사각이다.
+
+        `sequenceable`을 직접 부르는 테스트는 라우터가 그것을 **안 써도** 초록이다.
+        순서를 세는 곳이 둘(목록·단건)이라 한 곳만 고치면 목록은 열렸다고 그리는데
+        진입은 막는 상태가 되고, 그게 이 저장소가 반복해서 겪은 실패다.
+        그래서 `compute_unlocked_ids` 호출 전건이 걸러진 목록을 받는지 소스로 본다.
+        """
+        # `def ` 뒤는 정의라 뺀다 — 거기 오는 것은 인자 이름이지 호출 인자가 아니다.
+        for call in re.finditer(r"(?<!def )compute_unlocked_ids\(\s*([^,]+),", ROUTER_SRC):
+            arg = call.group(1).strip()
+            assert "sequenceable" in arg, (
+                f"난이도로 거르지 않은 목록으로 순서를 센다: compute_unlocked_ids({arg}…) "
+                "— 초등 학습자의 사슬이 보통 칸에서 영구히 끊긴다"
+            )
+        assert ROUTER_SRC.count("compute_unlocked_ids(") >= 3, (
+            "정의 1 + 호출 2(목록·단건)를 기대했다 — 호출 지점이 줄었다면 "
+            "어느 경로가 순차 잠금을 안 보게 된 것이다"
+        )

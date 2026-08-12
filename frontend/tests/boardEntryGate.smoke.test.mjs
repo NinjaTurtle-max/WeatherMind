@@ -454,8 +454,16 @@ try {
     const opened = await api('GET', '/board/puzzles');
     assert(opened.body.every((p) => p.locked === false),
       `성인인데 잠긴 퍼즐이 남았다: ${opened.body.filter((p) => p.locked).length}건`);
+    // ⚠️ 여기서 **200을 단정하지 않는다**(2026-08-12 합성). 수준 잠금이 풀려도
+    // 순차 잠금(MT-24)이 남아 있을 수 있다 — 어려움 퍼즐은 코스 뒤쪽이라 앞을
+    // 안 풀었으면 BOARD_LOCKED다. 그건 결함이 아니라 **다른 축의 정상 동작**이고,
+    // 여기서 200을 요구하면 두 지시 중 하나를 되돌리라는 뜻이 된다.
+    // 이 시나리오가 무는 것은 **수준 축**이므로 "수준 때문에 막히지는 않는다"까지다.
     const nowOk = await api('GET', `/board/puzzles/${hard.content_item_id}`);
-    assert(nowOk.status === 200, `성인이 어려움에 못 들어간다 — ${nowOk.status}`);
+    assert(nowOk.body?.code !== 'PUZZLE_LOCKED',
+      `성인인데 수준 잠금이 남았다 — ${nowOk.status} ${nowOk.body?.code}`);
+    assert(nowOk.status === 200 || nowOk.body?.code === 'BOARD_LOCKED',
+      `수준·순차 말고 다른 이유로 막혔다 — ${nowOk.status} ${nowOk.body?.code}`);
 
     // 초등은 보통까지 잠긴다(세 밴드 중 마지막 하나)
     await api('PATCH', '/auth/me', { level_group: 'elementary' });
