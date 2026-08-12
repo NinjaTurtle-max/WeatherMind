@@ -215,7 +215,7 @@ step_config() {
 #               상세 응답에 해설/피드백 미노출·판정의 aria-live announce·0건 빈 상태
 # board_engine 공유 벡터(test:board)는 node_modules 없이 도는 전용 `board` 단계가
 # 소유하므로 여기서 중복 실행하지 않는다.
-FRONT_TESTS=(explore session placement visual gating board-entry assist webgl overlay i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective knowledge-level onboarding-save)
+FRONT_TESTS=(explore explore-goals session placement visual gating board-entry assist webgl overlay i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective knowledge-level onboarding-save)
 
 step_frontend() {
   banner "frontend: build + 스모크 ${#FRONT_TESTS[@]}종 (선택)"
