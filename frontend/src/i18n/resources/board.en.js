@@ -84,7 +84,6 @@ export default {
       focusControls: '{zone} controls',
       focusEmpty: 'Nothing placed here yet',
       goalProgressLabel: 'Target phenomena',
-      guidePanelTitle: 'Guide',
       goalMet: '✓ All goal conditions met — try submitting!',
       goalPending: 'Preview: the goal has not been reached yet',
       hintStep1: 'Focus on {zone} first. The target phenomenon forms from the atmospheric state of this region.',

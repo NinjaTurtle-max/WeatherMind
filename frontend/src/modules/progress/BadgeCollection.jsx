@@ -40,7 +40,7 @@ export default function BadgeCollection({ collapsed = false }) {
   // 성공 경로만 채우면 로딩·에러·0건에서 늘어난 만큼이 **빈 띠**로 남는다.
   if (isLoading)
     return (
-      <div className="h-full">
+      <div className="flex h-full flex-col justify-center">
         <LoadingSpinner label={t('badges.loading')} />
       </div>
     );

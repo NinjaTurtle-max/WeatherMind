@@ -521,44 +521,14 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     </div>
   );
 
-  // wide 전용 「가이드」 — 시안처럼 스텝을 목록으로 남긴다. 지나간 스텝이 사라지면
-  // "방금 뭘 했더라"를 다시 볼 길이 없다(기존 한 줄 표기의 문제).
-  const guidePanel = wide && puzzle?.mode === 'guided' && (puzzle?.guide_steps?.length ?? 0) > 0 && (
-    <div className="rounded-xl border border-slate-200 bg-white p-3.5">
-      <p className="text-[11px] font-extrabold tracking-[0.4px] text-slate-500">
-        {t('board.atmosphere.guidePanelTitle')}
-      </p>
-      <ol className="mt-2 flex flex-col gap-1.5">
-        {puzzle.guide_steps.map((step, i) => {
-          const done = i < guideStep;
-          const now = i === guideStep;
-          return (
-            <li key={i} className="flex gap-2">
-              <span
-                className={`mt-0.5 grid h-4 w-4 flex-none place-items-center rounded-full text-[9px] font-extrabold ${
-                  done ? 'bg-emerald-100 text-emerald-600' : now ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-400'
-                }`}
-              >
-                {done ? '✓' : i + 1}
-              </span>
-              <span className={`text-[12px] leading-snug ${done ? 'text-slate-400 line-through' : now ? 'font-bold text-slate-800' : 'text-slate-500'}`}>
-                {step}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-      {guideStep + 1 < puzzle.guide_steps.length && (
-        <button
-          type="button"
-          onClick={() => setGuideStep((s) => Math.min(s + 1, puzzle.guide_steps.length - 1))}
-          className="mt-2.5 w-full rounded-lg bg-sky-600 px-2.5 py-1.5 text-[12px] font-bold text-white hover:bg-sky-700"
-        >
-          {t('board.atmosphere.guideNext')}
-        </button>
-      )}
-    </div>
-  );
+  // ⚠️ wide 전용 「가이드」 카드는 **없다**(2026-08-12 사용자 지시 — "오른쪽 하단
+  // 가이드는 없애고 애니메이션/해설이 더 집중될 수 있게"). 스텝 목록 카드가
+  // 오른쪽 열 세로를 먹고 있어 단면 그림이 그만큼 작았다.
+  // 되살릴 생각이면 **오른쪽 열이 아닌 자리**를 먼저 찾을 것 — 거기 두면 이번에
+  // 넓힌 폭·높이를 그대로 다시 가져간다. stacked(세션 안 보드)는 종전대로
+  // missionBlock의 한 줄 안내(`guidePrefix`)를 그대로 쓴다 — 그쪽은 안 건드렸다.
+  //
+  // 남은 안내 수단: 미션 문장(배너) · 목표 진행 칩 · 힌트 패널(태양이) 2단.
 
   const paletteBlock = placeItems.length > 0 && (
     <div>
@@ -806,6 +776,9 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
       kindLabels={hintKinds.map((kind) => (HINT_KIND_LABEL[kind] ? t(HINT_KIND_LABEL[kind]) : kind))}
       interactive={interactive}
       onReveal={() => setHintLevel((l) => Math.min(l + 1, hintSteps.length))}
+      // wide는 힌트를 168px 조절값 열 아래에 둔다 — 가로 배치로는 글자 폭이
+      // 92px밖에 안 남는다(BoardHintPanel의 `stack` 주석). stacked(세션)는 넓다.
+      stack={wide}
     />
   );
 
@@ -951,24 +924,40 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         </div>
         {disasterBanner}
 
-        {/* ⚠️ **lg 미만에서는 두 열 래퍼가 사라진다**(`contents`) — 다섯 블록이
+        {/* 2026-08-12(사용자 지시) — **오른쪽 애니메이션이 너무 작다**. 셸 폭은
+            그대로 두고(헤더와 어긋나므로 — Layout.jsx:42) 안에서 다시 나눴다:
+              · 오른쪽 열 320px 고정 → `1fr`(왼쪽 1.25fr) — 단면이 288 → 약 470px
+              · 조절값 열 212 → 168px, 지도는 그만큼 작아지고 왼쪽으로 붙는다
+              · 「가이드」 카드 제거(사용자 지시 "완전히 없애기")
+            두 열은 **같은 높이로 끝난다**(`items-stretch` = items-start 제거) —
+            오른쪽 단면 카드가 `flex-1`로 늘고 그림이 세로 가운데에 온다.
+
+            ⚠️ **lg 미만에서는 두 열 래퍼가 사라진다**(`contents`) — 네 블록이
             바깥 격자의 직계 칸이 되어 `order-*`로 다시 줄 세울 수 있다.
             2열은 lg에서만 성립하는데, 래퍼를 그대로 두면 좁은 화면에서
-            「왼쪽 통째 → 오른쪽 통째」로 접혀 **가이드 단계와 판정이 지도 아래로
-            내려간다**. 종전 3열 배치가 오른쪽 열에 `order-first`를 준 이유가
-            그것이었고, 2열로 바꾸면서 그 장치가 사라졌다(2026-08-11 리뷰).
-            좁은 화면 순서: 가이드 → 조작(지도) → 판정 → 단면 → 힌트. */}
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          {/* 왼쪽 — **만지는 쪽**: 팔레트·조절값·지도·액션, 그리고 맨 아래 힌트 */}
+            「왼쪽 통째 → 오른쪽 통째」로 접혀 **판정이 지도 아래로 내려간다**.
+            종전 3열 배치가 오른쪽 열에 `order-first`를 준 이유가 그것이었고,
+            2열로 바꾸면서 그 장치가 사라졌다(2026-08-11 리뷰).
+            좁은 화면 순서: 조작(지도) → 판정 → 단면 → 힌트. */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+          {/* 왼쪽 — **만지는 쪽**: 조절값·지도·액션. 힌트는 조절값 열 아래. */}
           <div className="contents lg:flex lg:flex-col lg:gap-3">
             <div className="order-2 flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none">
-              <div className="grid gap-3 md:grid-cols-[212px_minmax(0,1fr)]">
+              <div className="grid gap-3 md:grid-cols-[168px_minmax(0,1fr)]">
+                {/* 조절값 열 — 힌트가 **이 열 아래**에 붙어 폭이 같다
+                    (2026-08-12 사용자 지시 "튜터 힌트를 슬라이드 아래에 칸 맞춰서").
+                    ⚠️ **인스턴스는 하나다.** 좁은 화면용을 따로 그려 CSS로 감추면
+                    BoardHintPanel이 두 개 마운트돼 `data-testid="board-hint"`가
+                    중복된다(2026-08-12 코드 리뷰). 좁은 화면에서는 이 열이 지도
+                    위로 접히므로 힌트가 지도보다 앞에 오는데, 조작 도움말 바로
+                    뒤라 묶음으로는 맞는 자리다. */}
                 <div className="flex flex-col gap-3">
                   {paletteBlock}
                   {focusPanel}
                   <p className="text-[11px] leading-relaxed text-slate-400">
                     {t('board.atmosphere.paletteHowTo')}
                   </p>
+                  {hintBlock}
                 </div>
                 <div className="min-w-0">{mapBlock}</div>
               </div>
@@ -981,23 +970,19 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                 </div>
               </div>
             </div>
-            {/* 힌트는 **왼쪽 맨 아래**(2026-08-11 사용자 지시) — 조작하다 막혔을 때
-                손이 있는 쪽에서 말이 나온다. 화자는 태양이(보드 담당). */}
-            {hintBlock && <div className="order-5 lg:contents">{hintBlock}</div>}
           </div>
 
-          {/* 오른쪽 — **보는 쪽**: 단면 애니메이션이 주인공이고 가이드·판정이 따른다.
+          {/* 오른쪽 — **보는 쪽**: 단면 애니메이션과 해설이 통째로 갖는다.
               `aside`가 아니라 `div`인 이유: lg 미만에서 `display:contents`가 되는데
               그때 랜드마크가 접근성 트리에서 사라진다 — 있다 없다 하는 랜드마크보다
               없는 편이 낫다(이 묶음에 aria-label도 없었다). */}
           <div className="contents lg:flex lg:flex-col lg:gap-3">
             <div
               ref={stageRef}
-              className="order-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none"
+              className="order-4 flex flex-col justify-center rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none lg:flex-1"
             >
               <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
             </div>
-            {guidePanel && <div className="order-1 lg:contents">{guidePanel}</div>}
             {hasVerdict && <div className="order-3 lg:contents">{verdictBlock}</div>}
           </div>
         </div>

@@ -184,10 +184,20 @@ for (const file of jsxFiles(join(ROOT, 'src'))) {
   const rel = relative(ROOT, file);
   for (const call of src.match(/<Mascot[^>]*\/>/g) ?? []) {
     callCount += 1;
-    const cls = call.match(/className="([^"]*)"/)?.[1] ?? '';
+    // className은 리터럴(`className="h-9 w-9"`)일 수도, 조건식
+    // (`className={stack ? 'h-7 w-7' : 'h-9 w-9'}`)일 수도 있다. 조건식이면
+    // **모든 가지**가 가로·세로를 줘야 한다 — 종전에는 리터럴만 읽어서 조건식이
+    // 통째로 ""가 됐고, 크기를 분기시키는 순간 무조건 실패했다(2026-08-12).
+    // 느슨해진 것이 아니다: 문자열이 하나도 없는 표현식은 그대로 실패한다.
+    const literal = call.match(/className="([^"]*)"/)?.[1];
+    const expr = call.match(/className=\{([\s\S]*?)\}/)?.[1];
+    const branches = literal != null
+      ? [literal]
+      : [...(expr ?? '').matchAll(/'([^']*)'|"([^"]*)"|`([^`${]*)`/g)].map((m) => m[1] ?? m[2] ?? m[3]);
+    const sized = (cls) => /(^|\s)h-\S+/.test(cls) && /(^|\s)w-\S+/.test(cls);
     ok(
-      /(^|\s)h-\S+/.test(cls) && /(^|\s)w-\S+/.test(cls),
-      `${rel}: 가로·세로 지정 — "${cls}"`,
+      branches.length > 0 && branches.every(sized),
+      `${rel}: 가로·세로 지정 — ${branches.length ? branches.map((c) => `"${c}"`).join(' | ') : '(className 없음)'}`,
     );
   }
 }

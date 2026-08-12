@@ -159,26 +159,53 @@ try {
   // 6) wide 배치가 **좁은 화면에서 다시 줄을 선다** (2026-08-11)
   //
   // 보드 플레이는 lg에서만 2열이다. lg 미만에서는 두 열 래퍼를 `contents`로 지워
-  // 다섯 블록을 바깥 격자의 직계 칸으로 만들고 `order-*`로 다시 세운다 —
-  // 그러지 않으면 「왼쪽 통째 → 오른쪽 통째」로 접혀 **가이드 단계와 판정이 지도
-  // 아래**로 내려간다(guided 퍼즐은 지시가, 시간 초과는 유일한 재도전 버튼이
-  // 화면 밖으로 나간다). 3열 시절에는 오른쪽 열의 `order-first`가 이 일을 했는데
-  // 2열 개편에서 그 장치가 함께 사라졌다.
+  // 블록들을 바깥 격자의 직계 칸으로 만들고 `order-*`로 다시 세운다 —
+  // 그러지 않으면 「왼쪽 통째 → 오른쪽 통째」로 접혀 **판정이 지도 아래**로
+  // 내려간다(시간 초과의 유일한 재도전 버튼이 화면 밖으로 나간다). 3열 시절에는
+  // 오른쪽 열의 `order-first`가 이 일을 했는데 2열 개편에서 함께 사라졌다.
   // CSS 엔진이 없어 좌표로는 못 잰다 → 소스로 단정한다.
   {
     const src = readFileSync(resolve(root, 'src/modules/board/AtmosphereBoard.jsx'), 'utf-8');
-    // wide 분기만 본다 — 아래 stacked 배치에도 {verdictBlock}이 있고, 거기에는
-    // 순서 클래스가 없는 것이 정상이다.
-    const body = src.slice(src.indexOf('if (wide) {'));
+    // wide 분기 **안쪽만** 본다 — 뒤따르는 stacked 배치에도 {verdictBlock}·
+    // {hintBlock}이 있고 거기에는 순서·분기 클래스가 없는 것이 정상이다.
+    // 끝은 stacked의 최상위 `return (`(들여쓰기 2칸)다.
+    const wideStart = src.indexOf('if (wide) {');
+    const stackedStart = src.indexOf('\n  return (', wideStart);
+    check('wide 분기 경계를 찾았다', wideStart > 0 && stackedStart > wideStart);
+    const body = src.slice(wideStart, stackedStart);
     const columns = (body.match(/className="contents lg:flex/g) ?? []).length;
     check(`wide: 좁은 화면에서 두 열 래퍼가 사라진다(contents ${columns}/2)`, columns === 2);
-    for (const [what, marker] of [
-      ['가이드 블록', '{guidePanel}'],
-      ['판정 블록', '{verdictBlock}'],
-    ]) {
-      const line = body.split('\n').find((l) => l.includes(marker) && l.includes('order-'));
-      check(`wide: ${what}이 좁은 화면 순서를 갖는다(order-*)`, Boolean(line));
-    }
+    const verdictLine = body.split('\n').find((l) => l.includes('{verdictBlock}') && l.includes('order-'));
+    check('wide: 판정 블록이 좁은 화면 순서를 갖는다(order-*)', Boolean(verdictLine));
+
+    // 「가이드」 카드는 wide에서 **없어야 한다**(2026-08-12 사용자 지시 —
+    // "오른쪽 하단 가이드는 없애고 애니메이션/해설이 더 집중될 수 있게").
+    // 되살리면 오른쪽 열 세로를 다시 먹어 이번에 키운 단면이 도로 작아진다.
+    check('wide: 가이드 카드가 없다', !src.includes('guidePanel'));
+
+    // 힌트는 조절값 열 아래에 **한 번만** 그려진다. 좁은 화면용을 따로 두고
+    // CSS로 감추면 BoardHintPanel이 두 개 마운트돼 data-testid가 중복된다.
+    const hintLines = body.split('\n').filter((l) => l.includes('{hintBlock}'));
+    check(`wide: 힌트 인스턴스가 하나다(${hintLines.length}곳)`, hintLines.length === 1);
+  }
+
+  // 7) 좁은 칸에 놓인 힌트는 캐릭터를 **위로 쌓는다** (2026-08-12)
+  //
+  // wide의 힌트는 168px 조절값 열 아래에 붙는다. 가로 배치면 마스코트 44 +
+  // 간격 8 + 말풍선 안여백 24를 빼고 글자 폭이 92px만 남아 두 단짜리 힌트가
+  // 리본이 된다. 세션 안 보드(stacked)는 칸이 넓어 종전 가로 배치 그대로다.
+  {
+    const panel = await server.ssrLoadModule('/src/modules/board/BoardHintPanel.jsx');
+    const props = { steps: ['첫 단계 문구', '둘째 단계 문구'], level: 2, kindLabels: ['일사'] };
+    const stacked = render(h(panel.default, { ...props, stack: true }));
+    const inline = render(h(panel.default, props));
+    check('힌트: stack이면 세로로 쌓는다', /data-hint-stacked="1"/.test(stacked) && /flex-col/.test(stacked));
+    check('힌트: 기본은 가로 배치 그대로', /data-hint-stacked="0"/.test(inline) && !/flex-col/.test(inline));
+    check('힌트: 두 배치 모두 본문 문구는 같다', ['첫 단계 문구', '둘째 단계 문구', '일사']
+      .every((s) => stacked.includes(s) && inline.includes(s)));
+
+    const board = readFileSync(resolve(root, 'src/modules/board/AtmosphereBoard.jsx'), 'utf-8');
+    check('힌트: wide에서만 stack을 켠다', /stack=\{wide\}/.test(board));
   }
 } finally {
   await server.close();

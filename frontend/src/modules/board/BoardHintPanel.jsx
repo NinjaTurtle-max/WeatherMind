@@ -32,12 +32,22 @@ export function hintStageMascot() {
   return HINT_SPEAKER;
 }
 
+/**
+ * `stack` — 캐릭터를 말풍선 **위**로 올린다(가로가 좁은 칸 전용).
+ *
+ * 보드 플레이의 힌트는 2026-08-12부터 조절값 열(168px) 아래에 붙는다. 가로로
+ * 두면 마스코트 44 + 간격 8 + 말풍선 안여백 24를 빼고 **글자 폭이 92px**밖에
+ * 안 남아 두 단짜리 힌트가 15줄짜리 리본이 된다(코드 리뷰 실측). 세로로 쌓으면
+ * 같은 칸에서 글자 폭이 144px가 된다. 세션 안 보드(stacked)는 칸이 넓으므로
+ * 기본값 false 그대로 가로 배치다 — 한쪽 때문에 양쪽을 바꾸지 않는다.
+ */
 export default function BoardHintPanel({
   steps = [],
   level = 0,
   kindLabels = [],
   interactive = false,
   onReveal,
+  stack = false,
 }) {
   const t = useT();
   if (steps.length === 0) return null;
@@ -48,21 +58,33 @@ export default function BoardHintPanel({
   const speaker = HINT_SPEAKER;
 
   return (
-    <div data-testid="board-hint" data-hint-level={level} className="flex items-start gap-2">
+    <div
+      data-testid="board-hint"
+      data-hint-level={level}
+      data-hint-stacked={stack ? '1' : '0'}
+      className={`flex gap-2 ${stack ? 'flex-col items-start' : 'items-start'}`}
+    >
       <span
         data-testid="board-hint-mascot"
         data-hint-stage={stage}
         data-mascot={speaker}
-        className="grid h-11 w-11 flex-none place-items-center rounded-full bg-amber-100"
+        className={`grid flex-none place-items-center rounded-full bg-amber-100 ${
+          stack ? 'h-9 w-9' : 'h-11 w-11'
+        }`}
       >
-        <Mascot name={speaker} className="h-9 w-9" />
+        <Mascot name={speaker} className={stack ? 'h-7 w-7' : 'h-9 w-9'} />
       </span>
 
-      {/* 말풍선 — 꼬리가 캐릭터를 가리켜 "이 캐릭터가 말한다"를 만든다 */}
-      <div className="relative min-w-0 flex-1 rounded-2xl bg-amber-50 px-3 py-2 ring-1 ring-amber-200">
+      {/* 말풍선 — 꼬리가 캐릭터를 가리켜 "이 캐릭터가 말한다"를 만든다.
+          쌓은 배치에서는 캐릭터가 위에 있으므로 꼬리도 **위**를 가리킨다. */}
+      <div className={`relative rounded-2xl bg-amber-50 px-3 py-2 ring-1 ring-amber-200 ${
+        stack ? 'w-full' : 'min-w-0 flex-1'
+      }`}>
         <span
           aria-hidden="true"
-          className="absolute -left-[5px] top-4 h-2.5 w-2.5 rotate-45 border-b border-l border-amber-200 bg-amber-50"
+          className={`absolute h-2.5 w-2.5 rotate-45 border-amber-200 bg-amber-50 ${
+            stack ? '-top-[5px] left-3 border-l border-t' : '-left-[5px] top-4 border-b border-l'
+          }`}
         />
         {steps.slice(0, level).map((h, i) => (
           <div key={i} className="mb-1 text-xs text-amber-800 last:mb-0">

@@ -89,7 +89,6 @@ export default {
       focusControls: '{zone} 조절값',
       focusEmpty: '아직 놓인 요소가 없어요',
       goalProgressLabel: '목표 현상',
-      guidePanelTitle: '가이드',
       goalMet: '✓ 목표 조건을 모두 만족했어요 — 제출해 보세요!',
       goalPending: '미리보기: 아직 목표에 도달하지 않았어요',
       hintStep1: '먼저 {zone}만 집중해서 보세요. 목표 현상은 이 지역의 대기 상태에서 만들어져요.',
