@@ -6,7 +6,7 @@ import { SESSION_STATUS, useSessionStore } from '../../store/sessionStore';
 import { useProgressStore } from '../../store/progressStore';
 import { useAttendance } from '../../hooks/useAttendance';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import FeedbackPanel from '../../components/FeedbackPanel';
+import FeedbackPanel, { FeedbackCard } from '../../components/FeedbackPanel';
 import QuestionCard from '../quiz/QuestionCard';
 import ResultBanner from '../quiz/ResultBanner';
 import SessionProgressBar from './SessionProgressBar';
@@ -648,6 +648,21 @@ export default function SessionRunner({
         </p>
       )}
 
+      {/* 2열(2026-08-11 사용자 지시) — **왼쪽 문항 / 오른쪽 정답·해설**.
+          답을 고르기 전에도 두 열을 유지한다: 제출하는 순간 열이 생기면 문항
+          카드가 절반으로 줄며 화면이 통째로 흔들린다. 오른쪽은 그때까지
+          "고르면 여기에 나와요" 한 줄만 들고 있는다.
+          lg 미만은 종전 그대로 한 줄로 쌓인다(해설은 아래 고정 말풍선).
+
+          ⚠️ **배치고사(bulkMode)는 1열 그대로다.** 두 가지가 동시에 깨진다:
+          (a) 배치고사는 Layout 밖(`/onboarding/placement`)이라 컨테이너가
+              `max-w-xl`(576px)뿐이다 — 2열로 쪼개면 문항이 264px이 된다.
+              Layout.jsx:62가 셸을 넓힌 이유가 바로 이 폭 문제다.
+          (b) 배치고사는 문항별 채점이 없어(:380 handleSubmit 단락) status가
+              FEEDBACK에 **영원히 닿지 않는다** — 오른쪽 열은 "답을 고르면
+              여기에…"만 든 채 끝까지 비어 있게 된다. */}
+      <div className={bulkMode ? undefined : 'lg:grid lg:grid-cols-2 lg:items-start lg:gap-4'}>
+      <div className="min-w-0">
       <QuestionCard
         question={currentItem}
         disabled={status !== SESSION_STATUS.IN_PROGRESS || isSubmitting}
@@ -658,7 +673,15 @@ export default function SessionRunner({
       {isSubmitting && status === SESSION_STATUS.IN_PROGRESS && (
         <LoadingSpinner label={t('session.grading')} />
       )}
+      </div>
 
+      {/* 오른쪽 열 — 정답·해설. 답을 고르기 전에는 자리만 지킨다(lg 이상에서만). */}
+      <div className="min-w-0">
+      {!bulkMode && status !== SESSION_STATUS.FEEDBACK && (
+        <p className="hidden rounded-2xl bg-slate-50 px-4 py-6 text-center text-xs text-slate-400 ring-1 ring-slate-200 lg:block">
+          {t('session.answerHere')}
+        </p>
+      )}
       {status === SESSION_STATUS.FEEDBACK && answerState && (
         <>
           {outOfClouds ? (
@@ -728,15 +751,33 @@ export default function SessionRunner({
                       : t('session.next')}
           </button>
           {!outOfClouds && !answerState._alreadyAnswered && (
-            <FeedbackPanel
-              message={answerState.feedback}
-              isCorrect={answerState.is_correct}
-              source={answerState.feedback_source}
-            />
+            <>
+              {/* 넓은 화면: 해설이 **오른쪽 열 안에** 들어간다 — 화면 아래를 덮는
+                  오버레이가 필요 없다. 좁은 화면: 종전 그대로 고정 말풍선.
+                  둘은 같은 본문(FeedbackBubble)을 그린다. */}
+              <div className="mt-4 hidden lg:block">
+                <FeedbackCard
+                  message={answerState.feedback}
+                  isCorrect={answerState.is_correct}
+                  source={answerState.feedback_source}
+                />
+              </div>
+              <div className="lg:hidden">
+                <FeedbackPanel
+                  message={answerState.feedback}
+                  isCorrect={answerState.is_correct}
+                  source={answerState.feedback_source}
+                />
+                {/* 고정 말풍선이 가리는 만큼의 바닥 여백 — 오버레이가 없는
+                    넓은 화면에는 필요 없다. */}
+                <div className="h-40" />
+              </div>
+            </>
           )}
-          <div className="h-40" />
         </>
       )}
+      </div>
+      </div>
 
       {/* 이탈 인텐트 확인 1단(§3.5) */}
       {leaveIntent && <LeaveIntentDialog onStay={stay} onLeave={leave} remaining={Math.max(0, total - answered)} />}

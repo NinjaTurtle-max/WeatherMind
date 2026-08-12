@@ -13,6 +13,9 @@ export default {
     common: {
       outOfClouds: '☁️ Your clouds have all drifted away',
     },
+    hero: {
+      title: 'What weather shall we build today?',
+    },
     page: {
       difficulty1: 'Easy',
       difficulty2: 'Normal',
@@ -70,6 +73,8 @@ export default {
         sun: 'Insolation',
         wind: 'Wind',
       },
+      missionEyebrow: '🎯 This mission',
+      missionSandbox: '🧪 Free experiment',
       timerTitle: 'Time limit',
       basedOn: 'Based on a real event ·',
       guidePrefix: 'Guide {step}/{total}:',

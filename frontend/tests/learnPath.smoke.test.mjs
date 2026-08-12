@@ -454,9 +454,19 @@ await render({});
   // 2026-08-09 코드 리뷰: 종전 식은 `pathname === '/learn'`이라 **`/learn/`에서
   // 뚫렸다** — 라우터는 같은 화면을 그리는데 튜터와 배너 마스코트가 함께 떴다.
   // 끝의 슬래시를 떼고 비교하는지를 본다(문자열 그대로가 아니라 정규화 여부).
+  //
+  // 2026-08-11: 배너를 가진 화면이 둘이 되면서(보드에 태양이 배너가 생겼다)
+  // 식이 목록 검사로 바뀌었다. **표현식 원문을 통째로 단정하지 않는다** —
+  // 그러면 목록에 화면 하나 더 넣는 리팩터링마다 이 가드가 터진다. 지키려는
+  // 것은 ① 슬래시를 정규화하고 ② 배너 있는 화면이 목록에 들어 있다는 것뿐이다.
+  const heroPaths = side.match(/HERO_PATHS\s*=\s*\[([^\]]*)\]/)?.[1] ?? '';
   ok(
-    /hideTutor\s*=\s*pathname\.replace\([^)]*\)\s*===\s*'\/learn'/.test(side),
-    '학습 홈에서 사이드바 튜터를 접는다 — 끝 슬래시를 떼고 비교한다',
+    /hideTutor\s*=\s*HERO_PATHS\.includes\(pathname\.replace\(/.test(side),
+    '사이드바 튜터 접기가 끝 슬래시를 떼고 목록과 비교한다',
+  );
+  ok(
+    heroPaths.includes("'/learn'") && heroPaths.includes("'/board'"),
+    `배너가 있는 화면이 접기 목록에 다 있다 — 실제 [${heroPaths.trim()}]`,
   );
 
   // 화자는 물방울이 — 사이드바 TUTOR_BY_PATH(/learn → drop)와 같은 값이어야 한다.

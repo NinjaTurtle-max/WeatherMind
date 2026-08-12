@@ -31,6 +31,11 @@ import { useT } from '../i18n';
 const TUTOR_BY_PATH = [
   { match: (p) => p === '/board' || p.startsWith('/board/'), name: 'sun', key: 'board' },
   { match: (p) => p.startsWith('/learn/'), name: 'drop', key: 'learn' },
+  // 자유 일일 세션(/daily)도 **물방울이**다(2026-08-11 코드 리뷰). 표에 없어서
+  // 폴백(구름이)이 떴는데, 같은 화면의 정답/해설 말풍선은 물방울이라
+  // 한 화면에 말하는 사람이 둘이었다 — 이번 변경이 없애려던 바로 그 어긋남이다.
+  // key는 learn을 함께 쓴다(같은 학습 세션 튜터 — 문구를 두 벌로 만들지 않는다).
+  { match: (p) => p === '/daily' || p.startsWith('/daily/'), name: 'drop', key: 'learn' },
   { match: (p) => p === '/duel' || p.startsWith('/duel/'), name: 'typhoon', key: 'duel' },
   { match: (p) => p === '/league' || p.startsWith('/league/'), name: 'bolt', key: 'league' },
 ];
@@ -43,7 +48,16 @@ export default function SideNav() {
   // 끝의 슬래시를 떼고 본다 — `/learn/`도 라우터가 같은 화면을 그리는데
   // 정확히 '/learn'만 보던 탓에 그 URL에서 사이드바 튜터와 배너 마스코트가
   // 함께 떴다(이 분기가 막으려던 바로 그 중복. 2026-08-09 코드 리뷰).
-  const hideTutor = pathname.replace(/\/+$/, '') === '/learn';
+  // 화면 안에 **같은 캐릭터를 그리는 배너**가 있으면 사이드바 튜터를 접는다.
+  //   /learn  진입 배너가 물방울이를 그린다(2026-08-09)
+  //   /board  태양이 튜터 배너가 생겼다(2026-08-11) — 안 접으면 사이드바 74px
+  //           태양이와 배너 62px 태양이가 한 화면에 둘, 각자 다른 말을 한다.
+  // 끝의 슬래시를 떼고 본다 — `/learn/`도 라우터가 같은 화면을 그리는데 정확히
+  // '/learn'만 보던 탓에 그 URL에서 둘이 함께 떴다(2026-08-09 코드 리뷰).
+  // ⚠️ 하위 경로는 접지 않는다: /learn/units·/board/{id}는 배너가 없는 화면이라
+  // 튜터가 남아야 한다.
+  const HERO_PATHS = ['/learn', '/board'];
+  const hideTutor = HERO_PATHS.includes(pathname.replace(/\/+$/, ''));
   const mascot = tutor?.name ?? 'cloud';
   const nameKey = tutor ? `nav.tutor.${tutor.key}.name` : 'home.tutor.name';
   const lineKey = tutor ? `nav.tutor.${tutor.key}.line` : 'home.tutor.line';
