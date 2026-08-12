@@ -88,7 +88,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const mod = await vite.ssrLoadModule('/src/modules/curriculum/PcCurriculumPath.jsx');
 const PcCurriculumPath = mod.default;
-const { blueEndIndex, stageDoneCount, joinK, PATH_SIZING_FLOOR } = mod;
+const { blueEndIndex, stageDoneCount, joinK, PATH_SIZING_FLOOR, PATH_SIZING_CAP, estDaysOf } = mod;
 
 let failures = 0;
 const ok = (cond, label) => {
@@ -330,11 +330,22 @@ await render({});
   ok(container.querySelector('.wm-stage') === null, '빈 트리: 아무것도 렌더하지 않는다');
 }
 
-// ── ⑧ 코스가 달라도 동그라미 크기가 같다 (--n 바닥값이 시드와 맞는가) ──────
-// `--n`은 "이 코스에서 가장 긴 섹션의 칸 수"라 코스마다 달랐고(날씨 4·기초과학 3),
-// 트랙이 짧아지면 지름이 갈렸다(1440×720 실측 70px 대 86px). 전 코스 통틀어 가장
-// 긴 섹션을 바닥으로 깔아 없앴는데, **그 숫자가 시드와 어긋나면 다시 갈린다** —
-// 저작이 5칸 섹션을 만드는 순간이다. 사람이 아니라 여기가 감시한다.
+// ── ⑧ 동그라미 크기가 **코스마다 같다** + 상한을 넘는 섹션도 노드를 안 잃는다 ──
+//
+// ⚠️ **계약이 바뀌었다**(2026-08-12). 종전 단정은 「`PATH_SIZING_FLOOR` == 시드의
+// 최장 섹션」이었고, `--n`이 "전 코스 통틀어 최장 섹션 칸 수"라는 정의에 기대고
+// 있었다. 유닛이 93 → 237개가 되면서 최장 섹션이 4 → **35칸**이 됐고, n이 커질수록
+// 지름이 줄어드는 `--dot` 식이 하한(44px)에 걸려 **노드가 서로 겹쳤다**. 그래서
+// 크기 기준을 8칸에서 끊는 상한(`PATH_SIZING_CAP`)이 들어왔고, 그 순간 종전 단정은
+// **영원히 어긋나는 식**이 됐다(시드 35 ≠ 상한 8). 시드를 그대로 따라가는 것 자체가
+// 목적이었던 적은 없으므로, 원래 지키려던 두 가지로 고쳐 적는다:
+//   ㉠ **크기가 코스마다 같다** — 코스를 옮길 때 아이콘이 커졌다 작아지지 않는다.
+//      (바닥값과 상한이 둘 다 존재하는 이유가 이것이다.)
+//   ㉡ **상한을 넘는 섹션도 노드를 잃지 않는다** — 8칸 상한은 *크기* 기준일 뿐,
+//      35칸 섹션은 35개를 다 그린다.
+// ⚠️ jsdom에는 레이아웃이 없어 "실제로 스크롤되는가"(px)는 **여기서 못 잰다** —
+//    scrollHeight·clientHeight가 전부 0이다. 그래서 ㉡은 노드 수와 `--n`으로
+//    구조를 단정한다(넘침의 시각적 처리는 브라우저 확인 몫으로 남는다).
 {
   const seed = JSON.parse(readFileSync(resolve(root, '../database/seed/units.json'), 'utf8'));
   const perSection = new Map();
@@ -342,19 +353,95 @@ await render({});
     const key = `${u.course ?? 'weather'}\u0000${u.section}`;
     perSection.set(key, (perSection.get(key) ?? 0) + 1);
   }
-  const longest = Math.max(...perSection.values());
+  const longestOf = (course) =>
+    Math.max(...[...perSection].filter(([k]) => k.startsWith(`${course} `)).map(([, v]) => v));
+
+  // 바닥값·상한의 관계 — 상한이 바닥값보다 작아지면 두 상수가 서로를 무효화한다.
   ok(
-    PATH_SIZING_FLOOR === longest,
-    `--n 바닥값이 시드의 최장 섹션과 같다 — 상수 ${PATH_SIZING_FLOOR} · 시드 ${longest}`,
+    PATH_SIZING_FLOOR <= PATH_SIZING_CAP,
+    `바닥값 ≤ 상한 — 바닥 ${PATH_SIZING_FLOOR} · 상한 ${PATH_SIZING_CAP}`,
   );
-  // 바닥값이 실제로 걸리는가: 3칸짜리 코스도 4로 계산돼야 한다.
+
+  const mk = (name, count) => ({
+    section: name,
+    units: Array.from({ length: count }, (_, i) => ({
+      id: `${name}-${i}`, title: `u${i}`, status: i === 0 ? 'current' : 'locked',
+    })),
+  });
+  const nOf = async (count) => {
+    root2.render(createElement(PcCurriculumPath, { sections: [mk('S', count)], onOpenUnit: () => {} }));
+    await sleep(60);
+    return container.querySelector('.wm-vpath')?.style.getPropertyValue('--n');
+  };
+
+  // ㉠ 시드의 두 코스를 실제 칸 수로 세워 --n을 대조한다.
+  const nWeather = await nOf(longestOf('weather'));
+  const nBasic = await nOf(longestOf('basic-science'));
+  ok(
+    String(nWeather) === String(nBasic),
+    `코스가 달라도 --n이 같다 — weather ${nWeather}(최장 ${longestOf('weather')}칸) · ` +
+      `basic-science ${nBasic}(최장 ${longestOf('basic-science')}칸)`,
+  );
+  ok(
+    String(nWeather) === String(PATH_SIZING_CAP),
+    `시드 최장 섹션이 상한을 넘으므로 --n은 상한에서 끊긴다 — ${nWeather} / 상한 ${PATH_SIZING_CAP}`,
+  );
+
+  // 바닥값이 실제로 걸리는가: 상한보다 짧은 코스(3칸)도 바닥값을 받는다.
+  ok(String(await nOf(3)) === String(PATH_SIZING_FLOOR),
+    `3칸 코스도 --n=${PATH_SIZING_FLOOR}을 받는다(코스 간 크기 통일)`);
+
+  // ㉡ 상한을 넘는 섹션이 노드를 잃지 않는다 — 크기는 8칸 기준, 노드는 전건.
+  const longest = Math.max(...perSection.values());
+  root2.render(createElement(PcCurriculumPath, { sections: [mk('L', longest)], onOpenUnit: () => {} }));
+  await sleep(60);
+  const drawn = container.querySelectorAll('[data-wm-node]').length;
+  ok(drawn === longest, `최장 섹션(${longest}칸)의 노드를 전건 그린다 — 실제 ${drawn}`);
+  ok(
+    String(container.querySelector('.wm-vpath')?.style.getPropertyValue('--n')) ===
+      String(PATH_SIZING_CAP),
+    `${longest}칸이어도 크기 기준은 상한 ${PATH_SIZING_CAP}에서 멈춘다(겹침 방지)`,
+  );
+}
+
+// ── ⑧-2 예상 **일수**가 화면에 뜬다 (2026-08-12 클라이언트 요구 ⑴) ──────────
+// 「며칠」의 정의는 클라이언트 판정 대기라 **값이 아니라 배선**을 지킨다:
+// 기준 스위치(EST_DAYS_BASIS)를 갈아끼우면 화면 숫자가 그대로 따라간다는 것.
+// 문구가 아니라 data 속성을 본다 — 새 i18n 키가 아직 리소스에 없다(담당 J 소유).
+{
+  const s3 = {
+    section: '열과 빛',
+    est_minutes: 40,
+    // ⚠️ 소요 표기는 「이 단계에서 배우는 것」 줄 안에 있고, 그 줄은 **칩이 하나라도
+    // 있을 때만** 그려진다(기존 계약). 시드의 13섹션은 전건 topics를 갖고 있어
+    // 실데이터에서는 늘 그려지지만, 픽스처가 칩을 비우면 소요·일수가 통째로 사라진다.
+    topics: ['온도와 열'],
+    units: Array.from({ length: 3 }, (_, i) => ({
+      id: `d${i}`, title: `u${i}`, status: i === 0 ? 'current' : 'locked',
+    })),
+  };
+  root2.render(createElement(PcCurriculumPath, { sections: [s3], onOpenUnit: () => {} }));
+  await sleep(60);
+  const badge = container.querySelector('[data-est-days]');
+  ok(badge != null, '예상 일수 배지가 화면에 있다');
+  ok(
+    badge?.getAttribute('data-est-days') === String(estDaysOf(s3)),
+    `배지 값이 estDaysOf와 같다 — 화면 ${badge?.getAttribute('data-est-days')} · 함수 ${estDaysOf(s3)}`,
+  );
+  ok(/\d+일/.test(badge?.textContent ?? ''), `사람이 읽는 문구에도 일수가 있다 — "${badge?.textContent}"`);
+
+  // 기준 셋이 각각 무엇을 내는가 — 판정이 어디로 가든 산식이 살아 있는지 본다.
+  ok(estDaysOf(s3, 'unitsPerDay') === 3, `unitsPerDay = 유닛 수 — ${estDaysOf(s3, 'unitsPerDay')}`);
+  ok(estDaysOf(s3, 'minutesPerDay') === 4, `minutesPerDay = ceil(40/10) — ${estDaysOf(s3, 'minutesPerDay')}`);
+  ok(estDaysOf(s3, 'itemsPerDay') === 2, `itemsPerDay = ceil(3×4/10) — ${estDaysOf(s3, 'itemsPerDay')}`);
+
+  // 근거가 없으면 아무것도 그리지 않는다(est_minutes 관례와 같다)
+  ok(estDaysOf({ units: [] }) === null, '유닛 0이면 일수 없음(null)');
   root2.render(createElement(PcCurriculumPath, {
-    sections: [{ section: '열과 빛', units: [{ id: 'b1', title: 'a', status: 'current' }, { id: 'b2', title: 'b', status: 'locked' }, { id: 'b3', title: 'c', status: 'locked' }] }],
-    onOpenUnit: () => {},
+    sections: [{ section: '빈', units: [] }], onOpenUnit: () => {},
   }));
   await sleep(60);
-  const n = container.querySelector('.wm-vpath')?.style.getPropertyValue('--n');
-  ok(String(n) === String(longest), `3칸 코스도 --n=${longest}을 받는다(코스 간 크기 통일) — 실제 ${n}`);
+  ok(container.querySelector('[data-est-days]') === null, '근거가 없으면 일수 배지를 안 그린다');
 }
 
 // ── ⑦ 학습 화면이 홈을 흡수했다 (소스 계약) ────────────────────────────────
