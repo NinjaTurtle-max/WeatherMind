@@ -117,6 +117,9 @@ const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query
 const App = (await vite.ssrLoadModule('/src/App.jsx')).default;
 const RegionOnboardingNotice = (await vite.ssrLoadModule('/src/components/RegionOnboardingNotice.jsx')).default;
 const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
+// 리소스 층위 금칙어 계약용 — 렌더를 안 거치므로 로케일 고정과 무관하게 en도 본다.
+const koResource = (await vite.ssrLoadModule('/src/i18n/resources/ko.js')).default;
+const enResource = (await vite.ssrLoadModule('/src/i18n/resources/en.js')).default;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function waitFor(pred, timeoutMs = 8000, label = '') {
@@ -203,6 +206,49 @@ function assertNoAuthWords(where) {
   const body = text();
   for (const word of BANNED) {
     ok(!body.includes(word), `${where}: 화면에 「${word}」 문구가 없다`);
+  }
+}
+
+/**
+ * 같은 규정을 **리소스 층위**에서 한 번 더 잰다 — 위 렌더 단정만으로는 부족했다.
+ *
+ * ⚠️ 실제로 뚫렸다(2026-08-13 검수): ko는 2026-08-12에 세탁됐는데 **en만**
+ * `auth.convert.title: 'Save your progress with a 30-second sign-up'`으로 남아
+ * 있었다. 위 `assertNoAuthWords`가 못 잡은 이유는 두 겹이다 —
+ *   ⓐ 금칙 목록이 한국어 전용이라 "sign-up"을 아예 안 봤다
+ *   ⓑ 하네스가 `weathermind.locale`을 **ko로 고정**해서(위 :86) en 값은
+ *      한 번도 렌더되지 않는다
+ * 그래서 en 로케일을 켜는 대신 **리소스 값을 직접 읽는다**. 로케일 고정을
+ * 풀면 다른 시나리오의 한국어 단정이 전부 무너지므로 그 길은 택하지 않았다.
+ *
+ * 범위를 **진도 저장 동선의 3블록으로 좁힌** 이유: `auth.login.*`·`auth.register.*`는
+ * 화면이 삭제된 뒤 값만 남은 고아라(참조 0건) 여기 넣으면 「지우기 전까지 영구
+ * 실패」가 된다. 고아 정리는 별건이고, 이 계약이 지켜야 하는 것은 **살아 있는
+ * 화면**이다. 고아를 지우고 나면 범위를 리소스 전체로 넓힐 것.
+ */
+const BANNED_ANY_LOCALE = ['로그인', '회원가입', 'log in', 'login', 'sign up', 'sign-up'];
+const GUARDED_BLOCKS = ['auth.convert', 'saveProgress', 'regionNotice'];
+
+function flatten(obj, prefix = '', out = {}) {
+  for (const [k, v] of Object.entries(obj ?? {})) {
+    const path = prefix ? `${prefix}.${k}` : k;
+    if (v && typeof v === 'object') flatten(v, path, out);
+    else if (typeof v === 'string') out[path] = v;
+  }
+  return out;
+}
+
+function assertResourcesClean(localeName, resource) {
+  const flat = flatten(resource);
+  for (const [key, value] of Object.entries(flat)) {
+    if (!GUARDED_BLOCKS.some((b) => key === b || key.startsWith(`${b}.`))) continue;
+    const haystack = value.toLowerCase();
+    for (const word of BANNED_ANY_LOCALE) {
+      ok(
+        !haystack.includes(word),
+        `${localeName} 리소스 ${key}: 금칙어 「${word}」가 값에 없다 (값: ${value})`,
+      );
+    }
   }
 }
 
@@ -487,6 +533,12 @@ try {
     );
     r2.unmount();
     window.localStorage.removeItem(DISMISS_KEY);
+  });
+
+  // ── ⑧ 규정: 진도 저장 동선의 리소스에 금칙어가 없다 (**양 로케일**) ────────
+  await scenario('⑧ ko·en 리소스 금칙어', async () => {
+    assertResourcesClean('ko', koResource);
+    assertResourcesClean('en', enResource);
   });
 } finally {
   await vite.close();

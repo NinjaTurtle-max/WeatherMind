@@ -76,6 +76,27 @@ export default {
     body: 'Guest progress lives only on this device. Create an account and your XP and streak move with you.',
     cta: 'Save',
   },
+  // Save progress (2026-08-12 client request ①②) — an input form, not a login screen.
+  // ⚠️ Never the words "log in" / "sign up" here (contest rule — the rendered-text
+  // contract lives in tests/onboardingSave.contract.test.mjs).
+  saveProgress: {
+    nodeAria: 'Save your progress — fill in your details under My Info',
+    nodeTitle: 'Save your progress',
+    nodeBody: 'Fill in your details to save your progress',
+    nodeCta: 'Go fill in your details →',
+    cardTitle: 'Save your progress',
+    cardBody:
+      'Fill in your details to save your progress. Right now it lives only on this device — once saved, your XP, streak and placement stay with you on any device.',
+    submit: 'Save my progress',
+    done: 'Your progress is saved — you can pick up where you left off on any device.',
+    alreadySaved: 'Your progress is already saved to your details — pick up where you left off on any device.',
+  },
+  // Region notice (2026-08-12 request ③) — an inline banner, never a modal.
+  regionNotice: {
+    title: 'Which region should we learn with?',
+    body: "Today's live-weather questions use this region. You can change it later under My Info.",
+    dismiss: 'Later',
+  },
   reviewQueue: {
     title: 'Time to review',
     count: '{count}',
@@ -212,7 +233,7 @@ export default {
   placement: {
     skip: 'Skip →',
     title: 'Placement — find my level',
-    hint: "🧭 Just 6 questions — it's okay to get them wrong, it's only a check-in!",
+    hint: "🧭 Just 10 questions — it's okay to get them wrong, it's only a check-in!",
     finalizingTitle: 'Finding your level…',
     finalizingBody: 'WeatherBrain is analyzing your answers to find just the right level for you.',
     doneTitle: 'Placement complete!',
@@ -241,7 +262,7 @@ export default {
     streakStat: 'Day streak',
     levelStat: 'Current level',
     placementBannerTitle: "You haven't taken the placement yet",
-    placementBannerBody: 'Take the 6-question placement and WeatherBrain will pick questions at your level.',
+    placementBannerBody: 'Take the 10-question placement and WeatherBrain will pick questions at your level.',
     placementBannerCta: 'Take the placement →',
     levelGroupTitle: '🎚️ Learning level',
     levelGroupBody: 'Question difficulty and which board tiers open follow this setting. Sessions apply it from the next one issued.',
@@ -412,6 +433,7 @@ export default {
       introTitle: 'What this stage covers',
       start: 'Start',
       estMinutes: 'about {min} min',
+      estDays: 'about {days} days',
       fold: 'Collapse',
       unfold: 'Expand',
       scrollHint: '↓ Scroll for the next stage',
@@ -503,6 +525,7 @@ export default {
       title: "Leave now and today's progress is lost",
       remaining: "Just {remaining} more questions and today's progress and streak are saved. ",
       almost: "You're almost done. ",
+      retryRemaining: 'You still have {remaining} to recover. The session ends once you get them all. ',
       tail: 'If you stop here, only what you have answered so far counts.',
       stay: 'Keep going',
       quit: 'Quit',
@@ -514,9 +537,11 @@ export default {
       start: 'Recover the {count} you missed →',
       next: 'Next recovery question →',
       success: '☀️ Recovered! This one is resolved',
-      fail: "🌧️ Not this time — you'll meet it again as a review question tomorrow",
+      fail: '🌧️ Not yet — this one will come back in a moment.',
       alreadyResolved: 'This one is already resolved — moving on.',
-      capNote: 'Recovery covers the last {limit} you missed.',
+      untilAllCorrect: 'It keeps going until you get them all.',
+      mercy: 'Read the explanation and move on →',
+      mercyNote: 'If it will not budge after several tries, it is fine to read the explanation and move on — this one stays unresolved.',
     },
     summary: {
       title: "Today's session complete!",
@@ -786,17 +811,22 @@ export default {
       alreadyTitle: 'You already have a full account',
       alreadyBody: 'Your learning progress is saved to your account automatically.',
       goHome: 'Go to learning home',
-      title: 'Save your progress with a 30-second sign-up',
+      // 2026-08-13: ko는 2026-08-12에 세탁됐는데 en만 'sign-up'으로 남아 있었다
+      // (대회 규정 — 화면에 가입/로그인 문구 금지). 리소스 층위 감시는
+      // onboardingSave.contract의 BANNED_ANY_LOCALE × GUARDED_BLOCKS가 소유한다.
+      title: 'Save your progress in 30 seconds',
       bodySeg1: 'The XP, streak, and placement results you have built up become your account ',
       bodyStrong: 'as-is',
       bodySeg2: '.',
       bodyLine2: 'Continue learning from any device.',
       nicknameOptional: '(optional — leave blank to keep your current one)',
       errNotGuest: 'You already have a full account — your progress is safely saved to it.',
-      errEmailExists: 'That email is already registered. Enter a different email, or log in with that account. (If you log in, your current guest progress will not remain on this device)',
+      // 2026-08-12: the old copy pointed at a login screen that was removed the same
+      // day — a dead end, and it collided with the contest rule (no login wording).
+      errEmailExists: 'That email is already in use. Please save with a different email.',
       errGeneric: "Couldn't create the account. Please try again in a moment.",
       submitting: 'Moving your progress...',
-      submit: 'Sign up and save progress',
+      submit: 'Save my progress',
       later: 'Maybe later — keep learning',
     },
   },
