@@ -1041,6 +1041,53 @@ async def is_first_unit_session_today(
     ).scalar_one() == 0
 
 
+async def get_open_unit_session(
+    db: AsyncSession, user: User, unit: Unit, today: date
+) -> Session | None:
+    """오늘·이 유닛의 **미완료** 유닛 세션 — 있으면 재발급하지 않고 이어 푼다.
+
+    ══ D10-3(「유닛 세션은 재개 개념이 없다」)의 **대체** — 드리프트가 아니다 ══
+
+    D10-3은 유닛 세션이 **데일리와 별개**이던 시절의 판정이다. 그때 재발급의
+    비용은 「4문항을 다시 뽑는다」뿐이라 현행 수용이 합리적이었다. 2026-08-13에
+    「하루의 첫 유닛 세션이 곧 데일리 세션」이 확정되면서 그 전제가 무너졌다 —
+    지금 재발급의 비용은 **그날의 왕관**이다:
+
+      1번째 발급: 10문항 · `daily_first=True`
+      새로고침 한 번 → 2번째 발급: 4문항 · `daily_first=False`
+      → 그날 남은 시간 동안 **어떤 유닛도 왕관을 못 준다**(도장은 발급 시점에
+        찍히고 완료 경로는 읽기만 하므로 되돌릴 방법이 없다).
+
+    `UnitSessionPage`가 마운트마다 다시 POST하므로(`staleTime: 0`) 도달 조건은
+    「새로고침 한 번」이다. 2026-08-13 PM이 실서버로 재현했다.
+
+    ⚠️ **「오늘 유닛 세션을 완료했는가」로 도장을 찍는 대안은 채택하지 않았다.**
+    유닛 A를 열고 완료 전에 B를 열면 둘 다 첫 세션이 되어 **왕관이 2개** 나간다 —
+    경합이 아니라 평범한 탐색 동선이다.
+
+    **완료된 세션은 재사용하지 않는다** — 같은 유닛 재도전은 새 세션이고, 그것은
+    이미 오늘의 첫 세션이 아니므로 `UNIT_SESSION_SIZE`짜리 순수 학습이 된다.
+    목(`frontend/mock/apiMockPlugin.js:startUnitSession`)이 처음부터 이 규칙이었다.
+
+    **정렬은 생략하지 않는다**: 이 개정 이전에 발급된 하루치 세션이 같은 유닛에
+    여러 행 남아 있을 수 있다(PM의 재현이 정확히 그런 행을 만들었다). 순서가
+    비결정적이면 새로고침마다 다른 세션이 잡혀 재개가 다시 깨진다.
+    """
+    return (
+        await db.execute(
+            select(Session)
+            .where(
+                Session.user_id == user.id,
+                Session.unit_id == unit.id,
+                Session.session_date == today,
+                Session.mode == MODE_UNIT,
+                Session.completed_at.is_(None),
+            )
+            .order_by(Session.id)
+        )
+    ).scalars().first()
+
+
 async def create_unit_session(
     db: AsyncSession,
     user: User,
@@ -1081,6 +1128,13 @@ async def create_unit_session(
     때문이다 — 「오늘 날씨 2건이 앞, 오늘의 보드 1건이 끝」이라는 출제 순서까지
     같아야 "유닛 세션이 곧 데일리 세션"이 참이 된다.
 
+    ⚠️ **귀결 — 그날의 왕관 세션은 「처음 연 유닛」에 묶인다.** 발급된 미완료
+    세션은 `get_open_unit_session`이 재사용하므로(그 독스트링 — D10-3 대체),
+    유닛 A를 열어 놓고 완료하지 않은 채 B를 열면 **B는 4문항**이다. A로 돌아가면
+    10문항 세션이 진행 상태 그대로 남아 있다. 정합적이지만(시작한 곳에서 끝내라)
+    **말해 두지 않으면 결함으로 읽힌다** — 프론트가 이 사실을 화면에 어떻게
+    비칠지는 별건이다.
+
     **첫 세션에도 quiz-generate 유료 폴백은 없다.** daily 경로가 뱅크 부족분을
     생성으로 메우는 것과 달리 여기서는 부족하면 **그만큼 적게** 발급한다 — 유닛
     세션에 생성 폴백이 없다는 것이 기존 계약이고(0문항 세션도 허용 — CO-H12),
@@ -1094,9 +1148,19 @@ async def create_unit_session(
     entries: list[dict[str, Any]] | None = None
     if daily_first:
         try:
-            plan = await session_service.plan_daily_picks(
-                db, user, today, abilities=abilities
-            )
+            # ⚠️ **세이브포인트로 감싼다** (2026-08-13 코드 리뷰 결함 ③).
+            # `plan_daily_picks`는 **같은 AsyncSession으로 여러 문을 실행한다**
+            # (`_load_weak_tag_rows`·`refresh_abilities`·`_fetch_pools`·
+            # `_fetch_board_pool`). 그중 하나가 SQLAlchemy 오류를 내면 트랜잭션이
+            # 이미 죽어 있고, 아래 except 가지가 **같은 세션으로**
+            # `_unit_content_pool`을 부르는 순간 `PendingRollbackError` → 500이
+            # 난다 — 폴백이 막으려던 바로 그 일을 폴백이 일으킨다.
+            # 세이브포인트는 실패한 문만 되감아 세션을 다시 쓸 수 있게 만든다
+            # (`routers/session.py`의 daily 발급이 쓰는 것과 같은 장치).
+            async with db.begin_nested():
+                plan = await session_service.plan_daily_picks(
+                    db, user, today, abilities=abilities
+                )
         except Exception as exc:  # noqa: BLE001 — 사유는 아래
             # **학습 세션 발급은 실황·라우팅 장애로 막히지 않는다.** 이 방어는
             # 철거된 `unit_slot_values`가 갖고 있던 계약을 그대로 옮겨 온 것이다:
@@ -1108,6 +1172,11 @@ async def create_unit_session(
             # ⚠️ **`daily_first` 도장은 그대로 True로 남긴다** — 오늘의 첫 세션인
             # 것은 변함이 없고, 장애로 배합이 열화됐다고 왕관까지 뺏으면 학습자가
             # 서버 사정으로 진도를 잃는다.
+            #
+            # ⚠️ **넓은 catch를 예외 종류 열거로 좁히지 말 것** — 이 경로가 닿는
+            # 층(KMA HTTP·Redis·ai-worker·SQLAlchemy)의 예외 계보를 하나라도
+            # 빠뜨리면 그 하나가 그대로 500이 된다. 좁히는 대신 위 세이브포인트로
+            # **세션 상태를 복구 가능하게** 만드는 쪽을 택했다.
             logger.warning(
                 "첫 유닛 세션의 daily 배합 실패 — 순수 학습 문항으로 발급"
                 " (user=%s unit=%s): %s",
@@ -1128,7 +1197,16 @@ async def create_unit_session(
                     user.id,
                     getattr(unit, "slug", None),
                 )
-    if entries is None:
+    # ⚠️ **`is None`이 아니라 `not entries`다** (2026-08-13 코드 리뷰 결함 ②).
+    # 종전 가드는 `plan_daily_picks`가 **예외를 던질 때만** 폴백했다. 배합이
+    # 성공하고도 픽이 0건이면 `entries == []`가 되어 폴백을 타지 않고 **0문항
+    # 세션이 발급됐다** — 오래 쓴 학습자의 `served` 집합이 비실황 뱅크를 덮고 ·
+    # 약점 개념 없음 · 오늘 실황 이미 응답 · θ에 맞는 보드 풀 없음이 겹치면
+    # 실제로 도달한다. 프론트의 자동완료 이펙트는 `total > 0`으로 막혀 있어
+    # (CO-H12) 학습자가 빈 세션에서 **나갈 길이 없다**.
+    # 유닛 풀 자체가 비어 나오는 0문항 세션은 여전히 허용한다(CO-H12 판정 —
+    # `test_curriculum_band_fallback.TestUnitSessionHasNoMinimumFloor`가 소유).
+    if not entries:
         items = await _unit_content_pool(db, user, unit, abilities, today)
         entries = [
             {

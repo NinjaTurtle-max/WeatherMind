@@ -276,6 +276,34 @@ try {
     );
     rootEl.unmount();
   });
+
+  // ── 5. 배치고사 문항 수 = 서버 `Settings.PLACEMENT_SIZE`(10) ───────────────
+  //
+  // 이 브랜치가 서버를 6 → 10으로 올렸는데 목은 `CONCEPT_TAGS`(6종)에서 만들어져
+  // **6문항에 멈춰 있었다**(2026-08-13 코드 리뷰 결함 ④). 목 위에서 본 진단 화면이
+  // 실서버보다 4문항 짧았고, 화면 문구(`i18n placement.hint` 「딱 10문항」)와도
+  // 어긋났다. 서버와의 수치 대조는 backend `test_r13_mock_policy_parity`가
+  // `__mockPolicy().placement_size`로 소유하고, 여기서는 **실제 응답이 그만큼
+  // 나오는가**를 HTTP 왕복으로 본다 — 정책을 신고하면서 페이로드는 안 따라오는
+  // 갈림이 CO-J-9의 모양이었다.
+  await scenario('배치고사 응답이 10문항이고 문항이 겹치지 않는다', async () => {
+    const res = await fetch(`${origin}/api/v1/onboarding/placement/start`, {
+      method: 'POST',
+    });
+    const body = await res.json();
+    const items = body.items ?? [];
+    if (items.length !== 10) {
+      throw new Error(`배치고사가 ${items.length}문항이다 — 서버 PLACEMENT_SIZE는 10`);
+    }
+    const quizIds = new Set(items.map((it) => it.quiz_id));
+    if (quizIds.size !== items.length) {
+      throw new Error('quiz_id가 중복됐다 — 채점 맵이 문항을 덮어쓴다');
+    }
+    const texts = new Set(items.map((it) => it.question_text));
+    if (texts.size !== items.length) {
+      throw new Error('같은 문항이 두 번 나왔다 — 개념 순환에서 시드 중복 제거가 빠졌다');
+    }
+  });
 } finally {
   await vite.close();
   httpServer.close();

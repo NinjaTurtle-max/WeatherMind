@@ -97,7 +97,12 @@ async def create_unit_session(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_with_rls),
 ) -> SessionToday:
-    """유닛 세션 발급 (§3.2) — slug로 조회, 잠금 403 / 미존재 404."""
+    """유닛 세션 발급 (§3.2) — slug로 조회, 잠금 403 / 미존재 404.
+
+    **오늘·같은 유닛의 미완료 세션은 재사용한다**(2026-08-13 — D10-3 대체).
+    새로고침 한 번에 `daily_first` 도장이 False로 다시 찍혀 그날의 왕관이 영영
+    막히던 결함을 닫는다. 자세한 것은 `curriculum_service.get_open_unit_session`.
+    """
     unit = (
         await db.execute(select(Unit).where(Unit.slug == slug))
     ).scalar_one_or_none()
@@ -123,16 +128,37 @@ async def create_unit_session(
             },
         )
 
-    # 진입 게이트(R10-01 §3.1·D6): 잠금 403 판정 **이후**, 세션 생성 **직전**에
-    # 잔량을 검사한다 — 부족하면 429 OUT_OF_CLOUDS(전역 핸들러 변환). 무소모 검사이며,
-    # 유닛 세션은 호출마다 새로 발급되므로(재개 개념 없음 — D10-3) 차단이 진행 중
-    # 풀이를 빼앗지 않는다.
-    await energy_service.require_entry(db, user)
-
     today = datetime.now(KST).date()
-    session, _ = await curriculum_service.create_unit_session(
-        db, user, unit, today, abilities=abilities
-    )
+
+    # ── 멱등 재사용 (2026-08-13 코드 리뷰 결함 ①) ────────────────────────────
+    # 오늘·이 유닛의 **미완료** 세션이 있으면 재발급하지 않고 그것을 그대로
+    # 돌려준다. `session_today_response`가 quiz_logs에서 `is_correct`·
+    # `retry_correct`를 실어 주므로 진행 상태도 함께 복원된다(CO-A5).
+    #
+    # ⚠️ **D10-3(「유닛 세션은 호출마다 새로 발급 · 재개 개념 없음」)은 여기서
+    # 대체됐다 — 드리프트가 아니다.** 그 판정은 유닛 세션이 데일리와 별개이던
+    # 시절의 것이고, 그때 재발급 비용은 「4문항 다시 뽑기」였다. 2026-08-13에
+    # 「하루의 첫 유닛 세션이 곧 데일리 세션」이 확정되면서 재발급 비용이
+    # **그날의 왕관**이 됐다: 새로고침 한 번이면 2번째 발급이 `daily_first=False`
+    # 도장을 받고, 도장은 되돌릴 수 없다. 대체의 전말은
+    # `curriculum_service.get_open_unit_session` 독스트링이 소유한다.
+    # (D10-3 원문은 `docs/team/SPRINT_R10_01.md` §D10-3 — 이월 대장에 행을 남겼다.)
+    session = await curriculum_service.get_open_unit_session(db, user, unit, today)
+
+    if session is None:
+        # 진입 게이트(R10-01 §3.1·D6): 잠금 403 판정 **이후**, 세션 생성 **직전**에
+        # 잔량을 검사한다 — 부족하면 429 OUT_OF_CLOUDS(전역 핸들러 변환). 무소모 검사.
+        #
+        # ⚠️ **재사용 분기 안이 아니라 신규 발급 분기 안에서만** 검사한다
+        # (`GET /session/today`가 `if session is None:` 안에서만 거는 것과 같은
+        # 계약). 게이트가 앞에 있으면 구름 0인 학습자가 **이미 발급된 세션**에
+        # 재진입할 때 429로 쫓겨난다 — 「이미 발급된 세션은 잔량 0이어도 끝까지
+        # 보장」(R10)이 깨진다. 종전에는 재사용 자체가 없어 이 결함이 잠재해
+        # 있었고, 재사용이 생기는 이 편집에서 함께 닫힌다.
+        await energy_service.require_entry(db, user)
+        session, _ = await curriculum_service.create_unit_session(
+            db, user, unit, today, abilities=abilities
+        )
 
     return await session_today_response(db, session, user)
 

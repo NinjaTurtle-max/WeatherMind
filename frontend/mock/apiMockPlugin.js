@@ -1344,19 +1344,41 @@ function buildSessionItems(recipe) {
 
 const SESSION_ITEMS = buildSessionItems(MOCK_SESSION_RECIPE);
 
-// ── 온보딩 배치고사 (R7-01 S3) — 6문항 진단 세션. 6개 concept_tag 전 영역 1문항씩. ──
-// **시드 파생**(R10-07 §2.3): 개념 태그마다 board·실황을 뺀 첫 문항을 고르되,
-// 아직 쓰지 않은 question_type을 우선해 진단이 한 유형으로 편중되지 않게 한다(결정적).
+// ── 온보딩 배치고사 (R7-01 S3) — 진단 세션 ────────────────────────────────
+// 서버 `Settings.PLACEMENT_SIZE` — **6 → 10**(2026-08-12 PM 판정).
+// `placement_service.target_level_sequence`가 지식 단계 1~10을 한 번씩 겨냥하려면
+// 슬롯이 10칸이어야 한다. 진단 도메인은 여전히 기상 6종(`CONCEPT_TAGS`)이므로
+// **개념이 순환한다** — 서버의 `CONCEPT_TAGS[i % len(CONCEPT_TAGS)]` 배정과 같다.
+// 「개념당 1문항」은 더 이상 성립하지 않고, 그것이 사양이다.
+//
+// ⚠️ 목이 6문항에 멈춰 있었고 `__mockPolicy()`가 이 크기를 노출하지 않아
+// **패리티 테스트가 못 봤다**(2026-08-13 코드 리뷰 결함 ④ — 에너지 상수를
+// 리터럴로 복사한 채 대조가 0이던 CO-J-9와 같은 모양).
+//
+// **시드 파생**(R10-07 §2.3): 슬롯마다 board·실황을 뺀 문항을 고르되, 아직 쓰지
+// 않은 question_type을 우선해 진단이 한 유형으로 편중되지 않게 한다(결정적).
+// 같은 개념이 두 번 돌아오므로 **이미 쓴 시드도 제외**한다 — 안 그러면 같은 문항이
+// quiz_id만 바꿔 두 번 나온다.
 // 실황 슬롯 없음(진단 성격) · board 없음(일괄 채점 경로는 board_state를 받지 않는다).
+const MOCK_PLACEMENT_SIZE = 10;
+
 const PLACEMENT_ITEMS = (() => {
   const usedTypes = new Set();
-  return CONCEPT_TAGS.map((tag, i) => {
-    const candidates = SEED_QUIZ_POOL.filter((it) => it.concept_tag === tag);
-    const seed = candidates.find((it) => !usedTypes.has(it.question_type)) ?? candidates[0];
-    if (!seed) return null;
+  const usedSeeds = new Set();
+  const items = [];
+  for (let i = 0; i < MOCK_PLACEMENT_SIZE; i += 1) {
+    const tag = CONCEPT_TAGS[i % CONCEPT_TAGS.length];
+    const candidates = SEED_QUIZ_POOL.filter(
+      (it) => it.concept_tag === tag && !usedSeeds.has(it),
+    );
+    const seed =
+      candidates.find((it) => !usedTypes.has(it.question_type)) ?? candidates[0];
+    if (!seed) continue;
+    usedSeeds.add(seed);
     usedTypes.add(seed.question_type);
-    return seedToSessionItem(seed, { quizId: `${todayISO()}-p${i + 1}` });
-  }).filter(Boolean);
+    items.push(seedToSessionItem(seed, { quizId: `${todayISO()}-p${i + 1}` }));
+  }
+  return items;
 })();
 
 const PLACEMENT_SESSION_ID = '91ac8b1e-0000-4000-8000-0000000000bb';
@@ -1688,17 +1710,25 @@ function startUnitSession(unitIdOrSlug) {
   if (isUnitLocked(unit)) {
     return [403, { detail: '선행 유닛을 먼저 완료해야 열려요', code: 'UNIT_LOCKED' }];
   }
-  // 진입 게이트 (R10-01 §3.1·D6): 잠금 403 판정 **이후**, 세션 생성 직전.
-  // 서버 create_unit_session은 호출마다 새 세션을 만들므로(멱등 재사용 없음)
-  // 이 경로는 조건 없이 차단한다 — 목의 아래 멱등 재사용은 목 전용 편의다.
-  const gate = requireCloudEntry();
-  if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
   const unitId = unit.id; // 정규화 — slug 발급이어도 진도는 id 키로 기록
   const today = todayISO();
   const sessionId = `unit-${unitId}-${today}`;
   let s = sessions.get(sessionId);
   if (!s || s.completed || s.session_date !== today) {
-    // 미완료 당일 세션은 멱등 재사용, 완료됐으면 새 세션(재도전) 발급.
+    // 진입 게이트 (R10-01 §3.1·D6): 잠금 403 판정 **이후**, 세션 생성 직전.
+    //
+    // ⚠️ **재사용 판정 다음으로 옮겼다** (2026-08-13 코드 리뷰 결함 ①).
+    // 종전 주석은 "서버는 호출마다 새 세션을 만드므로 조건 없이 차단한다 —
+    // 목의 멱등 재사용은 목 전용 편의다"였는데, 그 전제가 뒤집혔다: 서버도
+    // 오늘·같은 유닛의 미완료 세션을 재사용한다(`curriculum_service.
+    // get_open_unit_session` — D10-3 대체). 게이트가 앞에 있으면 구름 0인
+    // 학습자가 **이미 발급된 세션**에 재진입할 때 429로 쫓겨나 「이미 발급된
+    // 세션은 잔량 0이어도 끝까지 보장」(R10)이 깨진다 — 서버와 목이 **같이**
+    // 갖고 있던 결함이라 양쪽을 함께 고쳤다.
+    const gate = requireCloudEntry();
+    if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
+    // 이 분기 자체가 재사용 규칙이다 — 미완료 당일 세션은 위에서 그대로 반환되고,
+    // 완료됐으면(재도전) 새 세션을 발급한다. 서버도 같은 규칙이다.
     //
     // 「오늘 첫 유닛 세션인가」 도장 (2026-08-13 확정) — 서버
     // `recipe_json["daily_first"]`에 대응한다. **발급 시점에 찍고 완료 시점은
@@ -2862,6 +2892,11 @@ export const __mockPolicy = () => ({
   daily_board_cap: MOCK_DAILY_BOARD_CAP,
   // 보드 순차 잠금 앞보기 (server routers/board.BOARD_UNLOCK_LOOKAHEAD — MT-24)
   board_unlock_lookahead: MOCK_BOARD_UNLOCK_LOOKAHEAD,
+  // 온보딩 배치고사 문항 수 (server Settings.PLACEMENT_SIZE — 2026-08-12 6 → 10).
+  // ⚠️ **선언 상수가 아니라 실제로 만들어진 배열의 길이를 내보낸다.** 상수를
+  // 내보내면 배열이 6건에 멈춰 있어도 패리티가 초록이라 결함이 그대로 산다 —
+  // 이 항목이 애초에 그렇게 생겼다(결함 ④).
+  placement_size: PLACEMENT_ITEMS.length,
   // 학령 (server schemas/auth.LevelGroup)
   level_groups: LEVEL_GROUPS,
   // 보드 난이도 잠금 (server routers/board.BAND_MAX_DIFFICULTY)

@@ -157,6 +157,22 @@ class TestSessionRecipe:
         """
         assert policy["unit_session_size"] == settings.UNIT_SESSION_SIZE
 
+    def test_배치고사_문항_수가_같다(self, policy):
+        """온보딩 배치고사 크기 — 서버 `Settings.PLACEMENT_SIZE`(2026-08-13 신설).
+
+        이 브랜치가 `PLACEMENT_SIZE`를 **6 → 10**으로 올렸다
+        (`target_level_sequence`가 지식 단계 1~10을 한 번씩 겨냥하려면 슬롯이
+        10칸이어야 한다). 목의 `PLACEMENT_ITEMS`는 `CONCEPT_TAGS`(6종)에서
+        만들어져 **6문항에 멈춰 있었고**, `__mockPolicy()`가 이 크기를 노출하지
+        않아 **패리티가 원리적으로 못 봤다** — 에너지 상수 3종이 리터럴 사본인
+        채 대조가 0이던 CO-J-9와 정확히 같은 모양이다.
+
+        ⚠️ 목이 내보내는 값은 선언 상수가 아니라 **실제로 만들어진 배열의
+        길이**여야 한다(`placement_size: PLACEMENT_ITEMS.length`). 상수를
+        내보내면 배열이 6건이어도 이 계약이 초록이 된다.
+        """
+        assert policy["placement_size"] == settings.PLACEMENT_SIZE
+
     def test_보드_잠금_앞보기가_같다(self, policy):
         """MT-24 — 목이 잠금 규칙을 흉내 내되 **앞보기 칸 수까지** 같아야 한다.
 
@@ -302,6 +318,36 @@ class TestMockExposesPolicy:
         assert "cloud_cost: CLOUD_COST" in body
         assert "CLOUD_REGEN_MS" in body
         assert "session_recipe: MOCK_SESSION_RECIPE" in body
+        # 배치고사 크기만은 **상수가 아니라 실제 배열 길이**를 내보내야 한다 —
+        # 상수를 내보내면 배열이 옛 크기(6)에 멈춰 있어도 패리티가 초록이다
+        # (2026-08-13 결함 ④가 그렇게 숨어 있었다).
+        assert "placement_size: PLACEMENT_ITEMS.length" in body
+
+    def test_목도_재사용_판정을_구름_게이트보다_먼저_한다(self):
+        """2026-08-13 결함 ① — **서버와 목이 같은 결함을 갖고 있었다.**
+
+        서버가 오늘·같은 유닛의 미완료 세션을 재사용하게 되면서(D10-3 대체),
+        구름 게이트는 **신규 발급 분기 안**으로 들어갔다. 목의
+        `startUnitSession`은 재사용을 처음부터 하고 있었는데 게이트는 그 앞에
+        있었다 — 구름 0인 학습자가 이미 발급된 세션에 재진입하면 목에서도 429가
+        났다는 뜻이고, 「이미 발급된 세션은 잔량 0이어도 끝까지 보장」(R10)이
+        목 위 스모크에서 원리적으로 확인 불가였다.
+
+        `__mockPolicy()`로는 잴 수 없는 **순서**라 소스로 문다(같은 파일의
+        `test_계약14_...`가 서버 쪽에 쓰는 것과 같은 방법).
+        """
+        src = MOCK_PATH.read_text(encoding="utf-8")
+        fn = re.search(
+            r"function startUnitSession\(.*?\n\}\n", src, re.S
+        )
+        assert fn, "목의 startUnitSession을 못 찾았다 — 이 계약을 갱신할 것"
+        block = fn.group(0)
+        reuse_at = block.index("sessions.get(sessionId)")
+        gate_at = block.index("requireCloudEntry()")
+        assert reuse_at < gate_at, (
+            "목이 재사용 조회보다 먼저 구름 게이트를 건다 — 이미 발급된 세션에 "
+            "재진입하는 학습자가 429로 쫓겨난다(서버는 신규 발급 분기 안에서만 건다)"
+        )
 
 
 class TestNoLoginInMainFlow:

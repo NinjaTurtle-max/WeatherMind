@@ -46,6 +46,12 @@ class _FakeResult:
     def all(self):
         return []
 
+    def first(self):
+        # 2026-08-13 결함 ① 수리 — 라우터가 `get_open_unit_session`(재사용 조회)을
+        # 먼저 던진다. 이 FakeDB는 질의를 해석하지 않으므로 "재사용할 세션 없음"을
+        # 답한다 = 종전과 같은 신규 발급 경로가 그대로 검증된다.
+        return None
+
 
 class FakeDB:
     """execute를 해석하지 않는 FakeDB — 첫 SELECT(유닛 조회)만 unit을 돌려준다."""

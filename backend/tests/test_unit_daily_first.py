@@ -101,6 +101,22 @@ class _DB:
     async def flush(self):
         return None
 
+    def begin_nested(self):
+        """세이브포인트 대역 (2026-08-13 결함 ③) — `plan_daily_picks`가 죽은
+        트랜잭션을 남기지 않게 감싸는 자리다. **예외를 삼키지 않는다**: 삼키면
+        폴백 분기가 안 돌아 아래 `TestDegradedFirstSessionStillGrantsCrown`이
+        조용히 헛돈다. 되감기 의미론까지 무는 계약은
+        `test_unit_session_daily_fallback.py`가 소유한다."""
+        return _Savepoint()
+
+
+class _Savepoint:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
 
 USER = SimpleNamespace(id=uuid.uuid4(), level_group="adult", region="서울")
 UNIT = SimpleNamespace(
@@ -203,6 +219,20 @@ class TestFirstUnitSessionIsDaily:
 
 
 class TestSecondUnitSessionIsPlainLearning:
+    """⚠️ **「두 번째 세션」의 뜻이 2026-08-13에 좁아졌다**(코드 리뷰 결함 ①).
+
+    종전에는 **같은 유닛에 다시 들어오는 것**(새로고침 포함)도 여기 들어왔다.
+    그것이 바로 결함이었다 — 새로고침 한 번에 `daily_first=False` 도장이 다시
+    찍혀 그날의 왕관이 막혔다. 이제 라우터가 오늘·같은 유닛의 **미완료** 세션을
+    재사용하므로, 이 클래스가 재는 「두 번째 이후」는 실사용에서 둘 중 하나다:
+      · **다른 유닛**을 같은 날 여는 것, 또는
+      · 같은 유닛을 **완료한 뒤** 다시 여는 것(재도전).
+
+    `create_unit_session`은 재사용 판정 **밖**의 함수라 여기서는 그대로
+    「오늘 유닛 세션이 이미 n건」을 주고 두 번째 이후 동작만 본다. 재사용 자체는
+    `test_unit_session_reuse.py`가 라우터 수준에서 소유한다.
+    """
+
     def test_두_번째부터는_UNIT_SESSION_SIZE다(self, monkeypatch):
         fake_plan(monkeypatch)  # 대역이 걸려 있어도 첫 세션이 아니면 안 쓴다
         _, entries = run(_DB(unit_sessions_today=1, rows=[item(i) for i in range(10)]))
