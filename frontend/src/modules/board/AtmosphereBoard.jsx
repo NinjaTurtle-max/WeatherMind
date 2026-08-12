@@ -183,6 +183,16 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   const [selected, setSelected] = useState(null); // 선택된 팔레트 토큰(탭 배치용)
   const [hintLevel, setHintLevel] = useState(0); // 공개한 힌트 수 (2단계 순차)
   const [guideStep, setGuideStep] = useState(0); // guided 안내 진행
+  const [guideOpen, setGuideOpen] = useState(false); // 배너 「가이드」 칩의 오버레이(wide)
+  const guideRef = useRef(null);
+  const guideToggleRef = useRef(null);
+  // 닫으면 **칩으로 포커스를 돌려준다**. 안 돌려주면 포커스가 사라진 노드와 함께
+  // <body>로 떨어져 키보드 사용자가 처음부터 Tab을 다시 밟아야 한다
+  // (ConfirmDialog가 쓰는 관례와 같다 — 2026-08-12 리뷰).
+  const closeGuide = () => {
+    setGuideOpen(false);
+    guideToggleRef.current?.focus();
+  };
   const [activeZone, setActiveZone] = useState(null); // 현상 스테이지 포커스 존(마지막 조작 존)
 
   // 미니 미션(§3.5): time_limit_sec 있으면 카운트다운, 초과 시 실패(재도전 무제한).
@@ -191,6 +201,39 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   const [attemptKey, setAttemptKey] = useState(0); // 재도전마다 보드·타이머 리셋
   const [remaining, setRemaining] = useState(hasTimer ? timeLimit : 0);
   const [timedOut, setTimedOut] = useState(false);
+
+  // 「가이드」 오버레이는 바깥을 누르거나 Esc로 닫힌다. 떠 있는 카드는 닫는
+  // 길이 명확해야 한다 — 칩을 다시 찾아 누르게 만들면 지도 위를 덮은 채 남는다.
+  // 리스너는 **열려 있을 때만** 붙인다(닫힌 동안 document 이벤트를 받지 않는다).
+  useEffect(() => {
+    if (!guideOpen) return undefined;
+    const onPointerDown = (e) => {
+      // 칩 자신은 제외 — 여기서 닫으면 칩의 onClick이 곧바로 다시 연다.
+      if (guideRef.current?.contains(e.target)) return;
+      if (e.target.closest?.('[data-testid="board-guide-toggle"]')) return;
+      // 포커스가 카드 안(예: 「다음 안내」)에 있었으면 그 노드가 지금 사라진다.
+      // 그렇다고 여기서 곧바로 칩에 focus()를 주면 **사용자가 방금 누른 요소에서
+      // 포커스를 빼앗는다**. 브라우저가 클릭 대상에 포커스를 옮길 기회를 준 뒤,
+      // 아무도 안 가져갔을 때(=<body>로 떨어졌을 때)만 칩으로 돌려준다.
+      const wasInside = guideRef.current?.contains(document.activeElement);
+      setGuideOpen(false);
+      if (!wasInside) return;
+      requestAnimationFrame(() => {
+        if (document.activeElement === document.body) guideToggleRef.current?.focus();
+      });
+    };
+    const onKeyDown = (e) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      closeGuide();
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [guideOpen]);
 
   // 문항이 바뀌거나 재도전하면 상태 초기화 (타이머 포함)
   useEffect(() => {
@@ -201,6 +244,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     setSelected(null);
     setHintLevel(0);
     setGuideStep(0);
+    setGuideOpen(false); // 다른 문항으로 넘어갔는데 앞 문항의 안내가 떠 있으면 안 된다
     setActiveZone(null);
     setTimedOut(false);
     setRemaining(hasTimer ? timeLimit : 0);
@@ -523,43 +567,101 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     </div>
   );
 
-  // wide 전용 「가이드」 — 시안처럼 스텝을 목록으로 남긴다. 지나간 스텝이 사라지면
-  // "방금 뭘 했더라"를 다시 볼 길이 없다(기존 한 줄 표기의 문제).
-  const guidePanel = wide && puzzle?.mode === 'guided' && (puzzle?.guide_steps?.length ?? 0) > 0 && (
-    <div className="rounded-xl border border-slate-200 bg-white p-3.5">
-      <p className="text-[11px] font-extrabold tracking-[0.4px] text-slate-500">
-        {t('board.atmosphere.guidePanelTitle')}
-      </p>
-      <ol className="mt-2 flex flex-col gap-1.5">
-        {puzzle.guide_steps.map((step, i) => {
-          const done = i < guideStep;
-          const now = i === guideStep;
-          return (
-            <li key={i} className="flex gap-2">
-              <span
-                className={`mt-0.5 grid h-4 w-4 flex-none place-items-center rounded-full text-[9px] font-extrabold ${
-                  done ? 'bg-emerald-100 text-emerald-600' : now ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-400'
-                }`}
-              >
-                {done ? '✓' : i + 1}
-              </span>
-              <span className={`text-[12px] leading-snug ${done ? 'text-slate-400 line-through' : now ? 'font-bold text-slate-800' : 'text-slate-500'}`}>
-                {step}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-      {guideStep + 1 < puzzle.guide_steps.length && (
-        <button
-          type="button"
-          onClick={() => setGuideStep((s) => Math.min(s + 1, puzzle.guide_steps.length - 1))}
-          className="mt-2.5 w-full rounded-lg bg-sky-600 px-2.5 py-1.5 text-[12px] font-bold text-white hover:bg-sky-700"
+  /**
+   * 「가이드」 — wide에서는 **배너의 칩 하나**이고, 누르면 회색 카드가 뜬다
+   * (2026-08-12 사용자 지시. 그 전에는 오른쪽 열 카드였다).
+   *
+   * 자리를 옮긴 이유는 폭이 아니라 **여백**이다. 두 열이 같은 높이로 끝나는
+   * 배치라, 어느 열에 카드를 넣든 반대쪽 열에 그만큼(실측 ~150px) 흰 자리가
+   * 생긴다. 세 배치를 실측했는데 단면 그림 크기(459×265)는 어디에 두든 같았다 —
+   * 그림은 열 **폭**에만 묶여 있기 때문이다. 그래서 「항상 펼쳐진 카드」를 버리고
+   * 「필요할 때 여는 오버레이」로 바꿨다: 여백 0, 단면 그대로.
+   *
+   * 칩은 **목표 진행 칩 자리**를 대신 쓴다(사용자 지시). 목표가 하나뿐이면
+   * 액션 바 미리보기가 같은 것을 말하므로 칩을 뺀다. 목표가 둘 이상이면
+   * 미리보기(이분값)로 대체가 안 돼 칩이 함께 남는다.
+   *
+   * ⚠️ **패널은 칩이 아니라 배너에 매단다.** 칩에 매달면 칩이 줄 어디에 있느냐에
+   * 따라 카드가 화면 밖으로 나간다 — 목표 칩·타이머가 함께 뜨면 칩이 줄 가운데로
+   * 밀리는데, 그때 `right-0`은 카드를 왼쪽 화면 밖으로(640~900px에서 -92px),
+   * `left-0`은 오른쪽 밖으로 보낸다(2026-08-12 리뷰 2차). 배너는 항상 화면
+   * 전체를 차지하므로 거기 매달면 어느 조합에서도 안 넘친다.
+   *
+   * stacked(세션 안 보드)는 안 건드렸다 — 종전대로 missionBlock의 한 줄 안내.
+   */
+  const guideSteps = wide && puzzle?.mode === 'guided' ? (puzzle?.guide_steps ?? []) : [];
+  const hasGuide = guideSteps.length > 0;
+
+  const guideChip = hasGuide && (
+    <button
+      type="button"
+      ref={guideToggleRef}
+      data-testid="board-guide-toggle"
+      aria-expanded={guideOpen}
+      // 닫혀 있으면 가리킬 대상이 없다 — 없는 id를 가리키는 aria-controls는
+      // 보조기기에 깨진 참조로 간다(2026-08-12 리뷰).
+      aria-controls={guideOpen ? 'board-guide-panel' : undefined}
+      onClick={() => setGuideOpen((o) => !o)}
+      className={`rounded-full px-2.5 py-1 text-[11.5px] font-bold tabular-nums transition ${
+        guideOpen ? 'bg-white text-slate-900' : 'bg-white/15 text-slate-200 hover:bg-white/25'
+      }`}
+    >
+      📋 {t('board.atmosphere.guidePanelTitle')} {guideStep + 1}/{guideSteps.length}
+    </button>
+  );
+
+  /** 「가이드」 카드 — **배너**(`relative`) 기준으로 떠 있다. 위 주석의 앵커 이유. */
+  const guidePanel = hasGuide && guideOpen && (
+        <div
+          id="board-guide-panel"
+          ref={guideRef}
+          // 배너 안에서 **떠 있는** 카드다 — 격자 높이에 영향을 주지 않는다.
+          // 폰은 배너 폭을 꽉 채우고(left-4 right-4), sm↑는 오른쪽에 320px.
+          className="absolute left-4 right-4 top-full z-30 mt-2 rounded-xl bg-slate-200 p-3.5 text-left shadow-lg ring-1 ring-slate-400/40 sm:left-auto sm:right-4 sm:w-[320px]"
         >
-          {t('board.atmosphere.guideNext')}
-        </button>
-      )}
-    </div>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-extrabold tracking-[0.4px] text-slate-500">
+              {t('board.atmosphere.guidePanelTitle')}
+            </p>
+            <button
+              type="button"
+              onClick={closeGuide}
+              aria-label={t('board.atmosphere.guideClose')}
+              className="text-xs font-bold text-slate-400 hover:text-slate-700"
+            >
+              ✕
+            </button>
+          </div>
+          <ol className="mt-2 flex flex-col gap-1.5">
+            {guideSteps.map((step, i) => {
+              const done = i < guideStep;
+              const now = i === guideStep;
+              return (
+                <li key={i} className="flex gap-2">
+                  <span
+                    className={`mt-0.5 grid h-4 w-4 flex-none place-items-center rounded-full text-[9px] font-extrabold ${
+                      done ? 'bg-emerald-100 text-emerald-600' : now ? 'bg-sky-600 text-white' : 'bg-white text-slate-400'
+                    }`}
+                  >
+                    {done ? '✓' : i + 1}
+                  </span>
+                  <span className={`text-[12px] leading-snug ${done ? 'text-slate-400 line-through' : now ? 'font-bold text-slate-800' : 'text-slate-500'}`}>
+                    {step}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+          {guideStep + 1 < guideSteps.length && (
+            <button
+              type="button"
+              onClick={() => setGuideStep((s) => Math.min(s + 1, guideSteps.length - 1))}
+              className="mt-2.5 w-full rounded-lg bg-sky-600 px-2.5 py-1.5 text-[12px] font-bold text-white hover:bg-sky-700"
+            >
+              {t('board.atmosphere.guideNext')}
+            </button>
+          )}
+        </div>
   );
 
   const paletteBlock = placeItems.length > 0 && (
@@ -808,6 +910,9 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
       kindLabels={hintKinds.map((kind) => (HINT_KIND_LABEL[kind] ? t(HINT_KIND_LABEL[kind]) : kind))}
       interactive={interactive}
       onReveal={() => setHintLevel((l) => Math.min(l + 1, hintSteps.length))}
+      // wide는 힌트를 168px 조절값 열 아래에 둔다 — 가로 배치로는 글자 폭이
+      // 92px밖에 안 남는다(BoardHintPanel의 `stack` 주석). stacked(세션)는 넓다.
+      stack={wide}
     />
   );
 
@@ -902,7 +1007,8 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
             길어 배너보다 자유롭게 두되 마스코트 원·그림 크기는 같은 값). */}
         <div
           data-testid="board-mission-hero"
-          className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[20px] bg-gradient-to-r from-[#1F3A5F] to-[#16293F] px-5 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
+          // relative — 「가이드」 카드가 **이 배너** 기준으로 뜬다(guidePanel 주석).
+          className="relative flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[20px] bg-gradient-to-r from-[#1F3A5F] to-[#16293F] px-5 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
         >
           <span className="hidden h-[62px] w-[62px] flex-none place-items-center rounded-full bg-white/10 sm:grid">
             <Mascot name="sun" className="h-[50px] w-[50px]" />
@@ -930,11 +1036,19 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                 )}
               </span>
             )}
-            {!sandbox && goalTotal > 0 && (
+            {/* 가이드가 있으면 **목표 진행 칩 자리**를 가이드가 쓴다(2026-08-12
+                사용자 지시).
+                ⚠️ 단, **목표가 2개 이상이면 칩을 같이 남긴다.** 대체할 수 있다고
+                본 근거는 액션 바의 미리보기 문구인데, 그것은 「다 됐다 / 아직」
+                **이분값**이라 1/2와 2/2를 구분하지 못하고 제출 뒤에는(`!result`)
+                아예 사라진다. 시드 board 46건 중 11건이 목표 복수이고 그중
+                guided가 4건이다 — 그 4건에서만 칩이 함께 뜬다(2026-08-12 리뷰). */}
+            {!sandbox && goalTotal > 0 && (!hasGuide || goalTotal > 1) && (
               <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11.5px] font-bold tabular-nums text-slate-200">
                 {t('board.atmosphere.goalProgressLabel')} {goalMetCount}/{goalTotal}
               </span>
             )}
+            {guideChip}
             {hasTimer && (
               <span
                 className={`rounded-full px-2.5 py-1 text-xs font-extrabold tabular-nums ${
@@ -950,27 +1064,46 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
               </span>
             )}
           </div>
+          {guidePanel}
         </div>
         {disasterBanner}
 
-        {/* ⚠️ **lg 미만에서는 두 열 래퍼가 사라진다**(`contents`) — 다섯 블록이
-            바깥 격자의 직계 칸이 되어 `order-*`로 다시 줄 세울 수 있다.
-            2열은 lg에서만 성립하는데, 래퍼를 그대로 두면 좁은 화면에서
-            「왼쪽 통째 → 오른쪽 통째」로 접혀 **가이드 단계와 판정이 지도 아래로
+        {/* 2026-08-12(사용자 지시) — **오른쪽 애니메이션이 너무 작다**. 셸 폭은
+            그대로 두고(헤더와 어긋나므로 — Layout.jsx:42) 안에서 다시 나눴다:
+              · 오른쪽 열 320px 고정 → `1fr`(왼쪽 1.25fr) — 단면이 288 → 약 470px
+              · 조절값 열 212 → 168px, 지도는 그만큼 작아지고 왼쪽으로 붙는다
+              · 「가이드」 카드 제거(사용자 지시 "완전히 없애기")
+            두 열은 **같은 높이로 끝난다**(`items-stretch` = items-start 제거) —
+            오른쪽 단면 카드가 `flex-1`로 늘고 그림이 세로 가운데에 온다.
+
+            ⚠️ **lg 미만에서는 두 열 래퍼가 사라진다**(`contents`) — 세 블록
+            (조작 카드·판정·단면)이 바깥 격자의 직계 칸이 되어 `order-*`로 다시
+            줄 세울 수 있다. 2열은 lg에서만 성립하는데, 래퍼를 그대로 두면 좁은
+            화면에서 「왼쪽 통째 → 오른쪽 통째」로 접혀 **판정이 지도 아래로
             내려간다**. 종전 3열 배치가 오른쪽 열에 `order-first`를 준 이유가
             그것이었고, 2열로 바꾸면서 그 장치가 사라졌다(2026-08-11 리뷰).
-            좁은 화면 순서: 가이드 → 조작(지도) → 판정 → 단면 → 힌트. */}
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          {/* 왼쪽 — **만지는 쪽**: 팔레트·조절값·지도·액션, 그리고 맨 아래 힌트 */}
+            좁은 화면 순서: 조작 카드(order-2) → 판정(order-3) → 단면(order-4).
+            **힌트는 이 순서에 없다** — 조작 카드 *안*의 조절값 열에 들어 있어
+            좁은 화면에서는 지도보다 위에 온다(아래 조절값 열 주석). */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+          {/* 왼쪽 — **만지는 쪽**: 조절값·지도·액션. 힌트는 조절값 열 아래. */}
           <div className="contents lg:flex lg:flex-col lg:gap-3">
             <div className="order-2 flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none">
-              <div className="grid gap-3 md:grid-cols-[212px_minmax(0,1fr)]">
+              <div className="grid gap-3 md:grid-cols-[168px_minmax(0,1fr)]">
+                {/* 조절값 열 — 힌트가 **이 열 아래**에 붙어 폭이 같다
+                    (2026-08-12 사용자 지시 "튜터 힌트를 슬라이드 아래에 칸 맞춰서").
+                    ⚠️ **인스턴스는 하나다.** 좁은 화면용을 따로 그려 CSS로 감추면
+                    BoardHintPanel이 두 개 마운트돼 `data-testid="board-hint"`가
+                    중복된다(2026-08-12 코드 리뷰). 좁은 화면에서는 이 열이 지도
+                    위로 접히므로 힌트가 지도보다 앞에 오는데, 조작 도움말 바로
+                    뒤라 묶음으로는 맞는 자리다. */}
                 <div className="flex flex-col gap-3">
                   {paletteBlock}
                   {focusPanel}
                   <p className="text-[11px] leading-relaxed text-slate-400">
                     {t('board.atmosphere.paletteHowTo')}
                   </p>
+                  {hintBlock}
                 </div>
                 <div className="min-w-0">{mapBlock}</div>
               </div>
@@ -983,23 +1116,19 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                 </div>
               </div>
             </div>
-            {/* 힌트는 **왼쪽 맨 아래**(2026-08-11 사용자 지시) — 조작하다 막혔을 때
-                손이 있는 쪽에서 말이 나온다. 화자는 태양이(보드 담당). */}
-            {hintBlock && <div className="order-5 lg:contents">{hintBlock}</div>}
           </div>
 
-          {/* 오른쪽 — **보는 쪽**: 단면 애니메이션이 주인공이고 가이드·판정이 따른다.
+          {/* 오른쪽 — **보는 쪽**: 단면 애니메이션과 해설이 통째로 갖는다.
               `aside`가 아니라 `div`인 이유: lg 미만에서 `display:contents`가 되는데
               그때 랜드마크가 접근성 트리에서 사라진다 — 있다 없다 하는 랜드마크보다
               없는 편이 낫다(이 묶음에 aria-label도 없었다). */}
           <div className="contents lg:flex lg:flex-col lg:gap-3">
             <div
               ref={stageRef}
-              className="order-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none"
+              className="order-4 flex flex-col justify-center rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none lg:flex-1"
             >
               <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
             </div>
-            {guidePanel && <div className="order-1 lg:contents">{guidePanel}</div>}
             {hasVerdict && <div className="order-3 lg:contents">{verdictBlock}</div>}
           </div>
         </div>

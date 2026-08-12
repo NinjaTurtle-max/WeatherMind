@@ -441,7 +441,17 @@ export default function BoardPage() {
         {/* 설명 + 진도 — LearnHeroCard와 같이 좁아지면 통째로 접힌다(hidden lg:block).
             잃는 정보가 없다: 설명은 안내문이고 진도는 판 아래 진행도 바가 같은
             값을 보여준다. */}
-        <div className="hidden min-w-0 basis-[260px] lg:block">
+        {/* 설명·진도 칸은 **xl(1280↑)에서만** 넓어진다(2026-08-12 사용자 지시 —
+            "가로로 더 길게"). 260px에서는 안내문이 "…목표 날씨를 " 에서 끊기고
+            진도 바도 그만큼 짧았다. 440px이면 문장이 끝까지 나온다(421px에서
+            이미 안 잘린다 — 여유분).
+            ⚠️ **lg(1024~1279)에서는 종전 260px 그대로 둔다.** 이 배너는 폭이
+            고정 배분이라 한쪽을 늘리면 반대쪽이 그만큼 준다: 1024에서 제목·설명이
+            쓸 수 있는 폭은 536px뿐이라, 440을 주면 두 칸이 아예 다음 줄로 접혀
+            배너가 90 → 119px로 높아진다(/learn 히어로와 "같은 치수"가 깨진다).
+            grow를 주지 않는 것도 같은 이유 — 남는 폭은 제목이 가져가야 제목이
+            안 잘린다(1280에서 제목 352px · 필요 336px). */}
+        <div className="hidden min-w-0 basis-[260px] lg:block xl:basis-[440px]">
           <p className="truncate text-[11.5px] leading-relaxed text-slate-300">
             {t('board.page.subtitle')}
           </p>
