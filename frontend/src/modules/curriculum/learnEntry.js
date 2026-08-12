@@ -12,9 +12,12 @@
  * 둔다. 나머지 셋은 보조 링크로 내린다.
  *
  * 우선순위 — 위에서부터 처음 맞는 것 하나:
- *   1. unit  진행 중 유닛이 있다  → 이어서 푼다
- *   2. daily 오늘 일일 세션을 아직 안 했다 → 오늘 몫을 시작한다
+ *   1. unit  진행 중 유닛이 있다 → 이어서 푼다
+ *   2. unit  진행 중 유닛은 없지만 오늘 몫이 남았다 → 마지막 유닛을 다시 연다
  *   3. done  둘 다 없다 → 완료 축하
+ *
+ * ⚠️ 2번은 2026-08-12까지 `kind:'daily'`(→ `/daily`)였다. 자유 일일 세션이
+ * 폐지되면서 kind째 `unit`으로 접혔다 — 아래 본문의 경위 주석 참조.
  *
  * "진행 중 유닛"의 판정 근거는 **서버가 준 유닛 status**다. 백엔드
  * `build_curriculum`이 트리 전체에서 잠기지 않은 첫 미클리어 유닛 정확히 1개를
@@ -49,19 +52,39 @@ export function pickLearnEntry({ units = [], todayAnswered = 0, dailyGoal = null
 
   const goal = Number(dailyGoal) > 0 ? Number(dailyGoal) : 0;
   const dailyDone = goal > 0 ? todayAnswered >= goal : todayAnswered > 0;
-  if (!dailyDone) return { kind: 'daily', unit: null, to: '/daily' };
 
-  // 완료 축하 — 「지난 유닛 다시 보기」다. `/learn`으로 두면 **제자리걸음**이라
+  // 여기까지 왔다 = **진행 중·열린 유닛이 없다**(전 유닛 클리어 또는 빈 트리).
+  // 마지막으로 깬 유닛을 다시 열어 준다. `/learn`으로 두면 **제자리걸음**이라
   // 눌러도 아무 일이 없었다(카드가 학습 화면 위로 올라온 뒤로 그렇다. 위 unit
   // 분기가 같은 이유로 이미 고쳐졌는데 여기만 남아 있었다 — 2026-08-09 코드 리뷰).
-  // 전 유닛이 클리어된 상태이므로 **마지막으로 깬 유닛**을 다시 열어 주는 것이
-  // 문구와도 맞는다. id 없는 응답(구 서버)만 `/learn`으로 떨어진다.
+  // id 없는 응답(구 서버·빈 트리)만 `/learn`으로 떨어진다.
   const lastCleared = [...units].reverse().find((u) => unitStatus(u) === 'cleared') ?? null;
-  return {
-    kind: 'done',
-    unit: lastCleared,
-    to: lastCleared?.id ? `/learn/units/${lastCleared.id}` : '/learn',
-  };
+  const to = lastCleared?.id ? `/learn/units/${lastCleared.id}` : '/learn';
+
+  // 오늘 몫을 아직 안 했으면 **초대**, 다 했으면 **완료 축하**로 갈린다.
+  //
+  // ⚠️ **`kind: 'daily'` 분기는 제거됐다**(2026-08-12 — 자유 일일 세션 폐지).
+  // 종전에는 여기서 `{ kind:'daily', to:'/daily' }`를 돌려줬고, 라우트가 사라진
+  // 뒤로는 화면에서 가장 큰 버튼이 **죽은 링크**였다(눌러도 `*` → `/learn`으로
+  // 조용히 되돌아왔다).
+  //
+  // 목적지를 바꾸는 것만으로는 부족해서 **kind까지 접었다**: `CurriculumHome`의
+  // `ENTRY_COPY.daily`가 제목으로 `curriculum.daily.title`(「자유 일일 세션」),
+  // CTA로 `curriculum.daily.cta`(「오늘의 세션 풀기」)를 쓴다 — 없어진 기능의
+  // 이름이다. `unit`으로 접으면 「학습 세션 / {유닛 제목} / 이어서 풀기」가 되어
+  // 목적지와 문구가 같은 것을 가리킨다. 자유 세션이 사라진 이유가 「학습 세션이
+  // 오늘 날씨를 받는다」이므로, 오늘 몫을 푸는 의도는 유닛 세션이 그대로 흡수한다.
+  //
+  // 실렌더 확인(2026-08-12): 전 유닛 클리어 + 오늘 몫 남음 상태에서 배너는
+  //   「학습 세션 / 전선의 종류 / 이어서 풀기 →」 · CTA `<a href="/learn/units/b">`
+  // 로 뜬다. 목적지와 문구가 같은 것을 가리킨다.
+  //
+  // ⚠️ 이 접기로 `CurriculumHome`의 **죽은 코드가 생겼다**(그 파일은 소유 밖이라
+  // 손대지 않는다): `ENTRY_COPY.daily`(아무도 안 고름) · `dailyIsPrimary`(상수
+  // false) · `LearnHeroCard`의 `entry.kind === 'daily'` 삼항(항상 else).
+  // 죽은 값이지 틀린 값은 아니라 동작에 영향은 없다 — 정리는 이월로 넘긴다.
+  if (!dailyDone) return { kind: 'unit', unit: lastCleared, to };
+  return { kind: 'done', unit: lastCleared, to };
 }
 
 /**
@@ -72,7 +95,11 @@ export function pickLearnEntry({ units = [], todayAnswered = 0, dailyGoal = null
  * 지적). 사이드바 튜터(SideNav TUTOR_BY_PATH: /learn → drop)와 같은 값이어야
  * 한다 — 두 곳이 갈리면 같은 화면에서 캐릭터가 둘이 된다.
  */
-export const ENTRY_MASCOT = { unit: 'drop', daily: 'bolt', done: 'cloud' };
+// `daily: 'bolt'` 항목은 제거됐다(2026-08-12) — `pickLearnEntry`가 더 이상
+// `kind:'daily'`를 돌려주지 않으므로 영원히 안 골리는 값이었다. 이 표는 이
+// 파일이 소유하므로 여기서 정리한다(소비자 `LearnHeroCard`는 `?? 'drop'`
+// 폴백이 있어 미지 kind가 와도 안전하다).
+export const ENTRY_MASCOT = { unit: 'drop', done: 'cloud' };
 
 /**
  * **보고 있는 섹션**의 진입 지점 — 경로를 스크롤하면 배너가 이걸 따라간다
