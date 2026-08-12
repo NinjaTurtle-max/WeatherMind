@@ -70,14 +70,26 @@ class TestMajorityConcept:
 
 class TestPickCrownUnit:
     def _fixtures(self):
-        """하늘 읽기: quiz(pf)→board(pf), 공기의 힘: quiz(am, prereq=board)."""
-        u_quiz = make_unit("하늘 읽기", 1, kind="quiz", concept_tag="pressure_front")
+        """섹션1: quiz(pf)→board(pf), 섹션2: quiz(am, prereq=board).
+
+        ⚠️ **2026-08-12: 섹션명을 `SECTION_ORDER`에서 뽑는다.** 종전엔
+        `"하늘 읽기"`·`"공기의 힘"`을 리터럴로 썼는데, CO-G1 순환식 재구조화로
+        그 둘이 `SECTION_ORDER` **미등재**가 되면서 `_section_key`의 폴백(알파벳
+        정렬)을 탔다. 한글 정렬에서 `공기의 힘 < 하늘 읽기`라 전체 순서가
+        **뒤집혔고**(`['공기의 힘/1', '하늘 읽기/1', '하늘 읽기/2']`),
+        `unlock_floor=2`가 선해제하는 선두 2개가 board를 포함하지 않게 되어
+        `test_unlock_floor_배치_선해제로_열린_유닛도_후보`가 실패했다.
+        **기능 결함이 아니라 픽스처 노후화**였다 — 등재 섹션명으로 바꾸면
+        의도한 순서(quiz → board → am)가 그대로 돌아온다.
+        """
+        sec1, sec2 = cs.SECTION_ORDER[0], cs.SECTION_ORDER[1]
+        u_quiz = make_unit(sec1, 1, kind="quiz", concept_tag="pressure_front")
         u_board = make_unit(
-            "하늘 읽기", 2, kind="board", concept_tag="pressure_front",
+            sec1, 2, kind="board", concept_tag="pressure_front",
             prereq=u_quiz.id, crown_target=2,
         )
         u_am = make_unit(
-            "공기의 힘", 1, kind="quiz", concept_tag="air_mass", prereq=u_board.id
+            sec2, 1, kind="quiz", concept_tag="air_mass", prereq=u_board.id
         )
         return u_quiz, u_board, u_am
 
@@ -462,12 +474,18 @@ class TestCompleteSessionUnitResult:
         "cleared": True, "unit_xp": 20,
     }
 
-    def test_유닛_세션_만점_최초_완료도_grant_crown_False(self, monkeypatch):
-        """R13-01 §2.10 왕관 소유권 이전 — 유닛 직접 진입은 **연습 전용**이다.
+    def test_유닛_세션_만점이면_왕관을_준다(self, monkeypatch):
+        """**왕관이 유닛 세션 완료로 돌아왔다**(2026-08-12 클라이언트 확정).
 
-        개정 전에는 (unit_id, True, True)로 왕관을 가산했다. 왕관 유입로가 일일
-        세션의 진도 블록으로 옮겨졌으므로 여기서 또 주면 하루 1왕관 상한이
-        무너진다(같은 진도에 이중 수여). 진도 스냅샷 노출은 그대로다.
+        경위: R13-01 §2.10이 왕관을 일일 세션의 **진도 블록**으로 옮기면서 여기를
+        `grant_crown=False`(연습 전용)로 고정했다. 그런데 배합이
+        `{live:2, new:4, review:3, board:1}`로 바뀌며 **`unit` kind가 사라졌다** —
+        진도 블록이 없어졌으므로 그 유입로도 죽는다. 되돌리지 않으면 왕관이
+        **도달 불가**가 된다.
+
+        ⚠️ 이 테스트와 배합은 **한 쌍**이다. 배합에 `unit`을 되살리면 여기도 함께
+        되돌려야 하루 1왕관 상한이 지켜진다. 이중 수여를 막는 것은 이 분기가
+        아니라 `grant_unit_crown`의 멱등 판정이다.
         """
         unit_id = uuid.uuid4()
         session = make_session(mode="unit", unit_id=unit_id)
@@ -475,7 +493,7 @@ class TestCompleteSessionUnitResult:
         result, calls = run_complete(
             monkeypatch, session, logs, unit_payload=self.UNIT_PAYLOAD
         )
-        assert calls["unit_result"] == (unit_id, True, False)
+        assert calls["unit_result"] == (unit_id, True, True)
         assert result.unit_result is not None
         assert result.unit_result.all_correct is True
         assert result.unit_result.crowns == 1
@@ -500,14 +518,20 @@ class TestCompleteSessionUnitResult:
         assert result.unit_result.all_correct is False
         assert result.unit_result.unit_xp == 0
 
-    def test_재완료_멱등도_스냅샷_grant_crown_False(self, monkeypatch):
+    def test_재완료도_같은_인자로_부른다(self, monkeypatch):
+        """**이중 수여를 막는 것은 이 분기가 아니다.**
+
+        라우터는 만점이면 언제나 `grant_crown=True`로 부르고, 이미 준 왕관을
+        다시 주지 않는 판정은 `grant_unit_crown`이 멱등으로 갖고 있다. 라우터가
+        "재완료인가"를 따로 세면 그 판정이 두 곳에 생겨 갈린다.
+        """
         unit_id = uuid.uuid4()
         session = make_session(mode="unit", unit_id=unit_id, completed=True)
         logs = [make_log("air_mass") for _ in range(5)]
         result, calls = run_complete(
             monkeypatch, session, logs, unit_payload=self.UNIT_PAYLOAD
         )
-        assert calls["unit_result"] == (unit_id, True, False)
+        assert calls["unit_result"] == (unit_id, True, True)
         assert result.unit_result is not None  # 재완료에도 계약 필드는 노출
 
     def test_데일리_세션은_unit_result_null(self, monkeypatch):

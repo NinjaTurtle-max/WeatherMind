@@ -1,17 +1,31 @@
 """일일 세션 발급 서비스 — 스프린트 R2-01 §3.1~§3.3 (S1·S2·S3).
 
-배합 규칙 (§3.2 → R11-01 §9.2 → R13-01 §2.10 개정):
-recipe {"new": 5, "review": 4, "live": 1, "unit": 5} 합계 15문항.
+배합 규칙 (§3.2 → R11-01 §9.2 → R13-01 §2.10 → **SPRINT_R13_02 §T3** 개정):
+recipe {"live": 2, "new": 4, "review": 3, "board": 1} 합계 10문항.
+값의 소유자는 `Settings.SESSION_RECIPE`이고 여기 적은 것은 그 시점의 기본값이다.
+
+**출제 순서는 live → new → review → board**이며 그 소유자는 `plan_bank_picks`의
+블록 호출 순서다 — **dict 키 순서가 아니다**. 하루를 오늘의 날씨로 열고 오늘의
+보드로 닫는 것이 클라이언트 사양(「오늘 날씨 2 · 신규 4 · 복습 3 · 오늘 날씨 반영
+보드 1」)의 서술 순서이고, 계약 테스트가 그 순서를 문다.
+
 - new: 뱅크 active 문항 중 해당 유저 미출제분 (level_group 일치, 슬롯 문항 제외)
 - review: θ 파생 약점 개념(weatherbrain_service.weak_concepts — 학령 상대 임계,
   R8-01 §3.5) 태그의 뱅크 문항 우선, 없으면 new로 대체
 - live: uses_live_slots=true 문항 + {today.*} 슬롯을 Redis weather 캐시 값으로 치환.
   **치환 불가분은 배합 단계에서 미리 걸러낸다**(CO-M1) — 남은 자리는 new가 메우고
   생성으로 새지 않는다.
-- unit(진도 블록, R13-01 §2.10): **현재 진행 유닛의 다음 진도** 5문항을 세션
-  마지막에 덧붙인다(기존 3종을 대체하지 않는다). 풀은 curriculum_service의
-  `progress_block_pool`(= `_unit_content_pool` 재사용) — 유닛 잔여가 5 미만이면
-  다음 열린 유닛으로 이어지고, 그래도 모자라면 부족분을 new로 메워 총합 15를 지킨다.
+- board(오늘 날씨 반영 보드, R13-02 §T3): **오늘 실황에서 판정한 현상**을 목표로
+  하는 board 퍼즐 1건. 판정·매칭은 `weather_phenomenon`(순수 함수)이 소유하고,
+  현상에 맞는 보드가 없거나 KMA가 없는 날은 `board_order` 순으로 폴백한다.
+  board는 `uses_live_slots=false`라 **슬롯 치환 대상이 아니다** — 오늘 현상은
+  문항을 *고르는* 데만 쓴다.
+- unit(진도 블록, R13-01 §2.10): **현재 진행 유닛의 다음 진도** 문항을 세션
+  마지막에 덧붙인다. ⚠️ **기본 배합에서 빠졌지만 kind는 살아 있다**(env로 복원
+  가능 · `recipe.get("unit", 0)`이 0이면 블록을 통째로 건너뛴다). 풀은
+  curriculum_service의 `progress_block_pool`(= `_unit_content_pool` 재사용) —
+  유닛 잔여가 모자라면 다음 열린 유닛으로 이어지고, 그래도 모자라면 부족분을
+  new로 메워 총합을 지킨다.
 
 부족분 폴백 3단 (CO-H9 — Obs02:128 "뱅크 미스 → 온라인 생성 → 그것도 실패 시 공용
 캐시 문항". 3단이 없어 지금까지 **503으로 끝났다**):
@@ -53,7 +67,13 @@ from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.user import User
 from app.models.weak_tag import WeakTag
-from app.services import ai_client, duel_service, weather_api, weatherbrain_service
+from app.services import (
+    ai_client,
+    duel_service,
+    weather_api,
+    weather_phenomenon,
+    weatherbrain_service,
+)
 from app.services.ai_client import AIWorkerError
 from app.services.weather_api import KST, SKY_TEXT, get_today_weather, user_region
 
@@ -75,6 +95,13 @@ NEW_POOL_LIMIT = SESSION_SIZE
 # **계약 수치가 아니라 조회 여유분**이라 env 노브를 두지 않는다 — 조회 횟수는 불변.
 DAILY_POOL_PREFETCH = 4
 MODE_DAILY = "daily"
+
+# board 블록(R13-02 §T3) 후보 조회 한도. 배합 요구는 1건인데 넉넉히 잡는 이유는
+# **정렬이 SQL이 아니라 파이썬에서 일어나기 때문**이다: 오늘 현상과 맞는 보드를
+# 고르려면 `template_json.goal_conditions`를 봐야 하는데 그건 JSONB 안이라
+# `build_pool_query`의 |b−θ| 정렬로는 못 자른다. 시드 board 46건(2026-08-12 실측)의
+# 밴드별 최대치(middle_high 30)를 덮는 값이라 사실상 전건을 보고 고른다.
+BOARD_POOL_LIMIT = 40
 
 # 발급 하한 (CO-H12) — 이 아래로 떨어지면 세션을 발급하지 않고 실패시킨다.
 # 배경: `plan_bank_picks`가 부분 배합을 낼 수 있다는 사실이 R2 이래 "부분 세션 허용
@@ -238,6 +265,7 @@ def plan_bank_picks(
     live_pool: Sequence[Any],
     recipe: dict[str, int] | None = None,
     unit_pool: Sequence[Any] | None = None,
+    board_pool: Sequence[Any] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """뱅크 후보 풀에서 §3.2 배합대로 선택한다 (순수 함수 — 풀은 랜덤 정렬 전제).
 
@@ -256,10 +284,14 @@ def plan_bank_picks(
       `enforce_type_variety`는 **3연속만** 보고 비율을 안 보기 때문이다. 상한을
       넘는 board는 버리지 않고 뒤로 미뤄 대체 후보가 없을 때만 채운다.
       진도 블록은 면제다(board 유닛의 진도는 board가 정상).
-    - 같은 문항 중복 선택 금지 (id 기준 — new/review/unit 풀이 겹칠 수 있음).
+    - **board 블록 (R13-02 §T3 「오늘 날씨 반영 보드」)**: `board_pool`은 호출측이
+      오늘 현상 우선으로 **이미 정렬해** 넘긴다(`weather_phenomenon.
+      order_boards_for_today`) — 여기서는 순서대로 집기만 한다. 이 블록도 부족분은
+      new로 대체해 총합을 지킨다(위 세 블록과 같은 선례).
+    - 같은 문항 중복 선택 금지 (id 기준 — new/review/unit/board 풀이 겹칠 수 있음).
       **블록 간 중복 차단은 picked_ids 하나가 전담**한다: 신규 5와 유닛 5가 같은
       뱅크에서 뽑혀도 같은 문항이 두 번 나오지 않는다.
-    반환: (picks: [{"kind": "new"|"review"|"live"|"unit", "item": ...}],
+    반환: (picks: [{"kind": "new"|"review"|"live"|"unit"|"board", "item": ...}],
            generate_count — 뱅크가 못 채운 폴백 생성 문항 수)
     """
     recipe = recipe or DEFAULT_RECIPE
@@ -306,13 +338,44 @@ def plan_bank_picks(
             taken.append({"kind": kind, "item": item})
         return taken
 
-    picks = take(new_pool, recipe["new"], "new")
+    # ── board 블록은 **선점**한다 (R13-02 §T3) ────────────────────────────────
+    # 자리는 맨 뒤지만 **선택은 맨 먼저** 한다. board 문항은 `uses_live_slots=false`
+    # 라 new 풀에도 들어 있어서, new 블록이 먼저 돌면 오늘 현상에 맞춰 고른 바로 그
+    # 보드를 new가 집어가고(picked_ids) board 블록은 차선을 받는다 — 「오늘 날씨
+    # 반영 보드」의 핵심이 정확히 그 1건이라 뒤집힌다. 선점해 두면 new는 자동으로
+    # 다음 후보로 넘어간다. **선택 순서와 출제 순서는 별개**라는 것이 요점이다.
+    board_count = recipe.get("board", 0)
+    board_picks = (
+        # cap_board=False: 배합이 **보장한** 자리라 DAILY_BOARD_CAP으로 막지 않는다
+        # (진도 블록이 같은 이유로 면제였던 선례). 다만 take는 면제여도 board_taken을
+        # 올리므로 이 1건은 상한 예산을 쓴다 — 상한 2면 「보장 1 + 우발 1」이다.
+        take(board_pool or (), board_count, "board", cap_board=False)
+        if board_count
+        else []
+    )
+
+    # ── 출제 순서: live → new → review → board (클라이언트 사양 R13-02 §T3) ────
+    # 「오늘 날씨 2 · 신규 4 · 복습 3 · 오늘 날씨 반영 보드 1」의 **서술 순서 그대로**다.
+    # ⚠️ **`SESSION_RECIPE`의 dict 키 순서는 출제 순서를 정하지 않는다** — 순서의
+    # 소유자는 여기, 이 블록 호출 순서다. 배합을 `{live:2, new:4, ...}`로 적어 놓고도
+    # 학습자가 신규부터 받던 것이 정확히 그 착각이었다(담당 F 발견, 2026-08-12).
+    # 하루를 **오늘의 날씨로 열고 오늘의 보드로 닫는** 것이 이 순서의 의도다.
+    live_picks = take(live_pool, recipe["live"], "live")
+    live_picks += take(new_pool, recipe["live"] - len(live_picks), "new")
+    picks = live_picks
+
+    picks += take(new_pool, recipe["new"], "new")
+
     review_picks = take(review_pool, recipe["review"], "review")
     review_picks += take(new_pool, recipe["review"] - len(review_picks), "new")
     picks += review_picks
-    live_picks = take(live_pool, recipe["live"], "live")
-    live_picks += take(new_pool, recipe["live"] - len(live_picks), "new")
-    picks += live_picks
+
+    if board_count:
+        # 부족분 대체는 **선점 뒤**에 한다 — board 풀이 비었을 때(보드 문항이 없는
+        # 밴드·전건 당일 소진) 그 자리가 유료 생성으로 새지 않게 new가 받는다.
+        # 이 한 줄이 「실황이 없어도 0문항 세션이 안 된다」의 board 몫이다.
+        board_picks += take(new_pool, board_count - len(board_picks), "new")
+        picks += board_picks
 
     unit_count = recipe.get("unit", 0)
     if unit_count:
@@ -354,16 +417,47 @@ def generation_tone(user_level_group: str | None) -> str:
 
 
 def pool_level_groups(user_level_group: str, theta: float | None) -> list[str]:
-    """뱅크 풀 level_group 필터 집합 (R7 §3.2 — θ→출제 난이도 연결).
+    """뱅크 풀 level_group 필터 집합 — θ가 있으면 **전 밴드**(2026-08-12 사양).
 
-    θ가 있으면 가입 그룹 ∪ θ 매핑 그룹(theta_to_level_group) — θ가 가입 학령을
-    넘어서면 더 어려운(또는 쉬운) 그룹의 문항이 풀에 들어온다. θ None(콜드스타트)
-    이면 기존과 동일하게 가입 그룹 하나만(동작 불변).
+    클라이언트 확정(2026-08-12): "무조건 배치고사에 따른 위치 배정이고, 말투만
+    선택 수준에 따른 변환이야". 즉 **문항 선택 축은 배치고사가 준 θ 하나**이고,
+    신고 학령은 문항을 고르는 데 쓰지 않는다. 신고 학령은 표현 톤 축으로 남으며
+    그 축의 소유자는 `generation_tone`(생성 요청)과
+    `weatherbrain_service.effective_tone`(표시)이다 — **여기가 아니다**.
+
+    ⚠️ **왜 밴드 필터를 kl 필터로 바꾸지 않고 "전 밴드로 여는" 형태인가.**
+    이 저장소는 고정 창(kl 반경) 필터가 굶주림을 옮길 뿐임을 실측으로 못 박아 뒀다
+    (`test_curriculum_band_fallback::test_지식수준_고정반경으로는_굶주림이_안_풀린다`).
+    그래서 관례는 **필터는 열고 정렬로 좁힌다**이고, 여기도 그것을 따른다:
+      ⑴ SQL이 `|coalesce(보정 b, 밴드 사전 b) − θ|` 오름차순으로 세우고
+         (build_pool_query — 밴드 해상도),
+      ⑵ 조회 조립부가 `rank_by_knowledge_level(…, theta_to_knowledge_level(θ))`로
+         다시 세운다(`_fetch_pools`·`_unit_content_pool` — 10단계 해상도).
+    두 정렬 모두 **문항의** 난이도와 **유저의** θ만 본다. 신고 학령이 어디에도
+    들어가지 않으므로, 같은 θ면 초등 신고자와 성인 신고자가 같은 문항을 받는다.
+
+    이 한 줄이 고치는 결함(2026-08-12 실측): 밴드×kl 격자가 완전한 1:1이라
+    (elementary=kl1~2 · middle_high=3~4 · adult=5~6 · expert=7~10) 종전의
+    "가입 그룹 ∪ θ 그룹"은 성인 신고자의 도달 범위를 kl 3~6으로 **잘랐다** —
+    「성인인데 지식이 초등 수준」인 학습자에게 줄 문항이 0건이었고, expert는
+    어느 학령으로 신고해도(가입 축에 없는 값이라) 400건이 통째로 닿지 않았다.
+
+    반환에 `user_level_group`을 함께 넣는 이유는 **미지 신고값 방어** 하나다
+    (`users.level_group`에 밴드 밖 값이 있어도 그 값이 사라지지 않게 —
+    `unit_pool_level_groups`의 같은 계약). 시드 문항의 밴드는 저작 검증기가 4종으로
+    강제하므로(`seed_content.ALLOWED_LEVEL_GROUPS`) 이 항은 실 문항 선택을 한 건도
+    바꾸지 않는다.
+
+    **θ None(콜드스타트)은 오늘 그대로 가입 그룹 하나**다. θ가 없으면 정렬이
+    random이라 필터를 열면 표적이 통째로 무너진다(넓힘이 정렬에 기대는 구조라
+    정렬이 없으면 성립하지 않는다 — `unit_pool_level_groups`가 같은 이유로 같은
+    분기를 갖는다). 실사용에서 θ None은 `seed_placement`가 실패한 유저뿐이며,
+    그 경로에서 신고 학령이 남는 것은 **잔존 밴드 사용처**로 보고 대상이다.
     """
     if theta is None:
         return [user_level_group]
     return sorted(
-        {user_level_group, weatherbrain_service.theta_to_level_group(theta)}
+        set(weatherbrain_service.LEVEL_GROUP_BANDS) | {user_level_group}
     )
 
 
@@ -402,9 +496,10 @@ def build_pool_query(
     live: bool,
     served_subq: Any | None = None,
     weak_concepts: Sequence[str] | None = None,
+    question_types: Sequence[str] | None = None,
     limit: int,
 ):
-    """new/review/live 풀 SELECT 구성 — 실행 없는 순수 구성이라 DB 없이 검증 가능.
+    """new/review/live/board 풀 SELECT 구성 — 실행 없는 순수 구성이라 DB 없이 검증 가능.
 
     θ가 있으면 item_params를 outerjoin해 `abs(coalesce(보정 b, 사전 b CASE) − θ)`
     오름차순(동률은 random)으로 정렬한다 — θ에 가장 알맞은 난이도의 문항부터.
@@ -425,6 +520,10 @@ def build_pool_query(
         stmt = stmt.where(ContentItem.id.not_in(served_subq))
     if weak_concepts is not None:
         stmt = stmt.where(ContentItem.concept_tag.in_(list(weak_concepts)))
+    # 유형 한정(R13-02 §T3) — board 블록이 board 문항만 보게 하는 통로다. None이면
+    # 조건 자체가 붙지 않아 new/review/live 3풀의 SQL은 **한 글자도 바뀌지 않는다**.
+    if question_types is not None:
+        stmt = stmt.where(ContentItem.question_type.in_(list(question_types)))
     if theta is None:
         return stmt.order_by(func.random()).limit(limit)
     prior_b = case(
@@ -689,6 +788,52 @@ async def _fetch_reserve_pool(
         .all()
     )
     return [row for row in rows if row.id not in exclude_ids][:count]
+
+
+async def _fetch_board_pool(
+    db: AsyncDBSession,
+    user: User,
+    theta: float | None,
+    today_subq: Any,
+    limit: int = BOARD_POOL_LIMIT,
+) -> list[ContentItem]:
+    """board 블록 후보 풀 (R13-02 §T3 ⑵) — 유형 board · 오늘 안 푼 것.
+
+    다른 풀과 다른 선택 둘, 근거를 남긴다:
+
+    - **전기간 served가 아니라 당일 제외**다(review·live와 같은 쪽). 보드는 답이
+      하나로 고정된 문항이 아니라 **다시 풀 수 있는 퍼즐**이고, 전기간 제외로
+      잡으면 밴드당 후보(초등 8건·전문가 3건)가 몇 주 만에 마르며 그때부터 board
+      자리는 매일 new 대체로 샌다.
+    - **level_group 필터는 다른 풀과 똑같이 건다** — 그리고 그 "똑같이"의 내용이
+      2026-08-12 사양으로 바뀌었다: `pool_level_groups`가 θ 경로에서 전 밴드를
+      열므로 board 후보도 **신고 학령이 아니라 θ로** 좁혀진다(|b−θ| 정렬).
+      종전 이 자리에는 "밴드를 넘겨 고르면 초등 유저에게 전문가 보드가 나간다"는
+      반대 논지가 적혀 있었는데, 그 문장의 전제(신고 학령 = 난이도)가 바로
+      클라이언트가 폐기한 것이다. 지금은 **θ가 낮으면 쉬운 보드, 높으면 어려운
+      보드**가 나가고 신고 학령은 관여하지 않는다.
+      부수 효과: 밴드별 현상 커버리지 차(2026-08-12 실측 middle_high 9종 전건 ·
+      elementary 6 · adult 5 · expert 3)가 **밴드가 아니라 θ 근처 난이도**의
+      커버리지 차로 바뀐다. 못 맞춘 현상은 종전대로 `order_boards_for_today`의
+      board_order 폴백이 흡수하므로 **어떤 θ에서도 보드는 나온다**.
+      ⚠️ 커버리지를 올리는 길은 저작(단계별 board 증보)이지 이 필터가 아니다.
+    """
+    return list(
+        (
+            await db.execute(
+                build_pool_query(
+                    level_groups=pool_level_groups(user.level_group, theta),
+                    theta=theta,
+                    live=False,
+                    served_subq=today_subq,
+                    question_types=("board",),
+                    limit=limit,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
 
 
 async def _fetch_unit_pool(
@@ -1027,8 +1172,51 @@ async def create_daily_session(
     unit_pool, block_unit = await _fetch_unit_pool(
         db, user, abilities, DEFAULT_RECIPE.get("unit", 0)
     )
+
+    # ── 오늘 날씨 반영 보드 (R13-02 §T3) ──────────────────────────────────────
+    # 판정은 **실황 캐시 하나에서** 나온다(위 `weather` — 슬롯 치환이 쓰는 것과
+    # 같은 값이라 화면의 「오늘 서울 28℃」와 보드가 같은 예보를 본다).
+    # KMA가 없거나 죽은 날은 `weather`가 {}이고 판정이 None이 되는데, 그때도
+    # 보드는 나간다 — None은 「board_order 순」이라는 뜻이지 「보드 없음」이 아니다.
+    # board 문항은 `uses_live_slots=false`라 **슬롯 치환 대상이 아니다**:
+    # 오늘 현상은 문항을 **고르는** 데만 쓰고 본문에 주입하지 않는다.
+    today_phenomenon = weather_phenomenon.classify_phenomenon(weather)
+    board_pool: list[ContentItem] = []
+    if DEFAULT_RECIPE.get("board", 0):
+        # 표적 지식 단계 — **출제 축이 knowledge_level 단독으로 단일화된 뒤로는
+        # 이 값이 보드의 유일한 난이도 방벽이다**(2026-08-12 담당 I 회귀). 밴드
+        # 필터가 하던 일을 여기서 받는다. daily 풀 재정렬(`_fetch_pools`)·생성
+        # 난이도와 **같은 함수**를 쓴다 — 세 경로가 다른 단계를 보면 "신규는 3단계,
+        # 보드는 5단계"가 된다. θ None(콜드스타트)이면 None이고 정렬은 개정 전과 같다.
+        target_level = (
+            weatherbrain_service.theta_to_knowledge_level(theta)
+            if theta is not None
+            else None
+        )
+        board_pool = weather_phenomenon.order_boards_for_today(
+            await _fetch_board_pool(
+                db,
+                user,
+                theta,
+                answered_today_subq(user.id, kst_day_start_utc(today)),
+            ),
+            today_phenomenon,
+            target_level,
+        )
+        logger.info(
+            "오늘 현상 판정 %s · 표적 단계 %s — board 후보 %d건 (user=%s)",
+            today_phenomenon or "판정없음(board_order 폴백)",
+            target_level if target_level is not None else "미정(콜드스타트)",
+            len(board_pool),
+            user.id,
+        )
+
     picks, generate_count = plan_bank_picks(
-        new_pool, review_pool, renderable_live, unit_pool=unit_pool
+        new_pool,
+        review_pool,
+        renderable_live,
+        unit_pool=unit_pool,
+        board_pool=board_pool,
     )
 
     # 폴백 2단 (CO-H9) — 유료 생성 **전에** 재출제 풀로 메운다.
@@ -1071,6 +1259,18 @@ async def create_daily_session(
             **template,
             "concept_tag": item.concept_tag,
             "question_type": item.question_type,
+            # 지식 단계(난이도 축) — 컬럼값을 question_json에 그대로 남긴다.
+            # 이것이 없으면 문항 1,000건에 채워진 knowledge_level이 발급 이후
+            # 어디에서도 보이지 않는다(SessionItem.knowledge_level의 유일한 출처).
+            # **파생하지 않는다** — 미분류 문항은 None이 그대로 흘러가고 화면은
+            # 배지를 그리지 않는다(level_group에서 역산하면 없는 값을 지어낸다).
+            #
+            # `getattr`인 이유: 이 루프의 `item`은 실행 시 ContentItem이지만 배합
+            # 계약 테스트들이 SimpleNamespace 대역을 넣는다(test_unit_block_recipe의
+            # make_item 등 — 그 파일들은 "create_daily_session이 읽는 필드만" 갖춘다).
+            # 컬럼 자체가 nullable이라 None은 어차피 정상값이므로, 대역 7건을 깨뜨려
+            # 배합 계약을 인질로 잡는 대신 없으면 None으로 읽는다.
+            "knowledge_level": getattr(item, "knowledge_level", None),
         }
         entries.append(
             {
@@ -1182,8 +1382,20 @@ async def create_daily_session(
             block, type_of=lambda e: e["question"].get("question_type")
         )
 
-    entries = _variety([e for e in entries if e["kind"] != "unit"]) + _variety(
-        [e for e in entries if e["kind"] == "unit"]
+    # 블록 경계를 보존하며 각 구간을 따로 정렬한다. **board도 unit과 같은 이유로
+    # 구간을 가른다**(R13-02 §T3): 클라이언트 사양이 「…오늘 날씨 반영 보드 1」로
+    # 세션을 닫으므로 그 자리가 계약인데, 한 리스트로 섞으면 3연속 해소 교환이
+    # board를 세션 중간으로 끌어간다 — board는 유형이 하나뿐이라 "다른 유형"을
+    # 찾는 교환의 **1순위 표적**이 되고, 실제로 그렇게 뒤집혔다(계약 테스트 발견).
+    # 한 문항짜리 구간을 정렬에서 빼도 3연속은 생기지 않는다(그 앞뒤가 이미 정렬됐고
+    # board 자신은 board 유형이라 이웃과 같아질 수 없다).
+    def _block(*kinds: str) -> list[dict[str, Any]]:
+        return [e for e in entries if e["kind"] in kinds]
+
+    entries = (
+        _variety(_block("new", "review", "live"))
+        + _block("board")
+        + _variety(_block("unit"))
     )
 
     # 0문항 세션 금지 (CO-H12 ①) — 여기까지 오는 경로가 위 폴백 3단 말고도 생길 수
@@ -1236,6 +1448,11 @@ async def create_daily_session(
             for e in entries
             if e["source"] == "generated" and e["content_item_id"] is not None
         ),
+        # 오늘의 현상 판정 (R13-02 §T3) — **관측 가능성이 목적**이다. 8/11~18
+        # 실운영에서 임계값을 재보정하려면 "그날 무엇으로 판정했고 보드가 맞았나"가
+        # 세션 행에 남아 있어야 한다. 판정 불가(KMA 부재·평범한 흐린 날)는 None이고,
+        # None이 계속 쌓이면 그 자체가 임계가 헐겁다는 신호다.
+        "phenomenon": today_phenomenon,
         # 진도 블록 유닛 — 왕관 대상 선정의 근거 (CO-M6 / 대장 L3).
         # **concept_tag를 함께 적는 것이 수리의 핵심**이다. 예전에는 kind만 남기고
         # 개념은 complete 시점에 `majority_concept(블록 문항들의 태그)`로 되짚었는데,

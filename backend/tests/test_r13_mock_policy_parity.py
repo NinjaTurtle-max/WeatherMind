@@ -209,47 +209,132 @@ class TestMockExposesPolicy:
 
 
 class TestNoLoginInMainFlow:
-    """로그인 화면이 **주 동선에 없다** — MT-29 (2026-08-11 멘토링 피드백).
+    """로그인 화면이 **없다** — MT-29 → 2026-08-12 클라이언트 지시로 강화.
 
-    ⚠️ 라우트 자체는 **의도적으로 존치**한다. `/login`을 지우면 R10-J로 정식
-    계정으로 전환한 사용자가 다시 들어올 통로가 사라지고, 더 나쁘게는 게스트
-    발급이 실패했을 때 갈 곳이 아예 없어진다 — 연결이 나쁜 심사위원이 빈 화면을
-    본다. 규정이 요구하는 "로그인 없이 열려야"는 **동선**의 요구이지 라우트
-    삭제의 요구가 아니다.
+    ⚠️ **계약이 뒤집혔다.** 이 클래스는 원래 "라우트 자체는 의도적으로 존치한다"고
+    적혀 있었다(로그인 화면이 정식 계정의 재진입 통로이자 게스트 발급 실패의
+    도착지라는 근거였다). 2026-08-12 클라이언트 지시로 로그인·회원가입 구조를
+    전면 제거하면서 그 전제가 둘 다 무너졌다:
 
-    그래서 무는 것은 두 가지다: 일반 화면이 로그인으로 링크하지 않는 것,
-    그리고 발급 실패가 로그인 화면이 아니라 재시도로 받는 것.
+      · 게스트 비밀번호는 무작위 시크릿이라 **애초에 재진입 경로가 없다.**
+        로그인 화면은 게스트에게 돌아올 문이 아니라 막다른 길이었다.
+      · 발급 실패의 도착지는 이미 `GuestIssueRetry`로 갈려 나갔다(MT-29 본체).
+        로그인 화면이 받던 몫이 남아 있지 않다.
+
+    진도를 지키는 통로는 로그인이 아니라 **계정 전환**(`/account/convert`)이고,
+    그쪽은 그대로 산다.
+
+    그래서 무는 것은 셋이다:
+      1. `frontend/src`에 `/login`·`/register` **라우트 참조가 0건**
+      2. `App.jsx` 라우트 표에 그 경로가 없다
+      3. 발급 실패를 `GuestIssueRetry`가 받고, **재시도가 effect 의존성에 있다**
+
+    ⚠️ 3번의 뒷단이 핵심이다 — 재시도 버튼이 리렌더만 일으키고 발급을 다시 안 걸면
+    화면이 영구 스피너가 되고 사용자가 갇힌다(실제로 그렇게 커밋된 적이 있다.
+    2026-08-12 코드 리뷰). 그래서 문자열 존재가 아니라 **의존성 배열**을 문다.
     """
 
     FRONT = Path(__file__).resolve().parents[2] / "frontend" / "src"
-    # 로그인/가입 페이지끼리의 상호 링크는 정상이다 — 그 화면에 이미 온 사람용이다.
-    ALLOWED = {"App.jsx", "LoginPage.jsx", "RegisterPage.jsx"}
 
-    def test_일반_화면은_로그인으로_링크하지_않는다(self):
+    # ⚠️ **부분 문자열로 세면 안 된다.** `/auth/login`·`/auth/register`는 계정 전환이
+    # 쓰는 정당한 **API 엔드포인트**라 `api/auth.js`에 그대로 남고, 산문 주석에도
+    # "종전에는 /login으로 튕겼다" 같은 경위 기술이 남는다. 무는 것은 화면으로
+    # 가는 **라우트 참조**이므로 라우트 모양의 마커만 센다.
+    ROUTE_MARKERS = tuple(
+        tmpl.format(path=path)
+        for path in ("/login", "/register")
+        for tmpl in (
+            'to="{path}"',
+            "to='{path}'",
+            'navigate("{path}")',
+            "navigate('{path}')",
+            'path="{path}"',
+            "path='{path}'",
+            'Navigate to="{path}"',
+            # ⚠️ **`.js` 헬퍼가 목적지를 데이터로 들고 있는 선례가 있다** —
+            # `modules/curriculum/learnEntry.js`의 `pickLearnEntry`가
+            # `{ kind: 'daily', to: '/daily' }`를 돌려주고 화면이 그걸 `<Link to>`에
+            # 그대로 꽂는다. JSX 속성만 보면 그런 경로는 감시를 빠져나간다.
+            "to: '{path}'",
+            'to: "{path}"',
+        )
+    )
+
+    def test_프론트에_로그인_가입_라우트_참조가_없다(self):
+        """계약 1 — `frontend/src` 전역 0건.
+
+        ALLOWED 예외가 없다. 종전에는 LoginPage·RegisterPage끼리의 상호 링크를
+        허용했는데 **두 파일이 삭제됐고**, App.jsx도 이제 깨끗해야 한다.
+
+        `.jsx`뿐 아니라 `.js`도 훑는다(위 ROUTE_MARKERS 주석의 learnEntry 선례).
+        `/auth/login`·`/auth/register`는 계정 전환이 쓰는 실 엔드포인트라 남지만,
+        마커가 전부 `to:`/`path=`/`navigate(` 접두를 요구하므로 걸리지 않는다.
+        """
         offenders = []
-        for path in self.FRONT.rglob("*.jsx"):
-            if path.name in self.ALLOWED:
-                continue
+        for path in sorted([*self.FRONT.rglob("*.jsx"), *self.FRONT.rglob("*.js")]):
             src = path.read_text(encoding="utf-8")
-            for marker in ('to="/login"', "to='/login'", 'navigate("/login")', "navigate('/login')"):
+            for marker in self.ROUTE_MARKERS:
                 if marker in src:
-                    offenders.append(f"{path.name}: {marker}")
+                    offenders.append(f"{path.relative_to(self.FRONT)}: {marker}")
         assert not offenders, (
-            "주 동선에 로그인 화면으로 가는 통로가 생겼다 — 심사위원이 계정 없이 "
-            "열 수 있어야 한다(HACKATHON_RULES): " + " · ".join(offenders)
+            "로그인·회원가입 화면으로 가는 라우트 참조가 되살아났다 — 그 화면은 "
+            "2026-08-12에 제거됐고 게스트는 재진입 경로가 없다(진도 영구 소실). "
+            "진도를 지키는 통로는 /account/convert다: " + " · ".join(offenders)
         )
 
-    def test_발급_실패는_재시도_화면으로_받는다(self):
-        """실패와 로그아웃이 갈려 있는가.
+    def test_App_라우트_표에_로그인_가입_경로가_없다(self):
+        """계약 2 — 라우트 정의 자체가 사라졌는가.
 
-        둘 다 "토큰 없음"이지만 보여야 할 것이 정반대다 — 로그아웃은 본인이 한
-        일이라 로그인 화면이 맞고, 발급 실패는 사고라 재시도가 맞다. 종전에는
-        둘 다 /login으로 보냈다.
+        위 1번은 `src` 전역을 훑으므로 App.jsx도 포함하지만, 이 계약은 **App.jsx가
+        라우트 표의 단일 소유자**라는 사실에 기대어 따로 못 박는다. 라우트가
+        되살아나는 회귀는 여기서 먼저 운다.
         """
         src = (self.FRONT / "App.jsx").read_text(encoding="utf-8")
-        assert "guestFailed" in src, "발급 실패와 로그아웃을 구분하지 않는다"
+        for path in ("/login", "/register"):
+            for marker in (f'path="{path}"', f"path='{path}'"):
+                assert marker not in src, (
+                    f"App.jsx 라우트 표에 {path}가 되살아났다 — 로그인·회원가입 "
+                    "구조는 2026-08-12에 제거됐다"
+                )
+        # 삭제된 페이지 모듈을 다시 임포트하지도 않는다(파일 자체가 git rm 됐다).
+        # ⚠️ **맨 이름으로 세지 않는다.** `LoginPage`는 "종전에 LoginPage가 …했다"
+        # 같은 경위 기술로 주석에 정당하게 남는다(CLAUDE.md: 메커니즘 서술과
+        # 근거 참조는 남기고 고유명사만 바꾼다). 무는 것은 **import 문**이다.
+        for gone in ("LoginPage", "RegisterPage"):
+            assert not re.search(rf"^import\s+.*\b{gone}\b.*$", src, re.M), (
+                f"App.jsx가 삭제된 {gone}을 임포트한다 — 파일은 git rm 됐다"
+            )
+
+    def test_발급_실패는_재시도_화면으로_받고_재시도가_실제로_돈다(self):
+        """계약 3 — 실패를 `GuestIssueRetry`가 받고 재시도가 effect를 다시 돌린다.
+
+        ⚠️ 앞단(문자열 존재)만 물면 **아무 일도 안 하는 재시도 버튼**이 통과한다 —
+        실제로 그렇게 커밋됐다. `bump`로 리렌더만 하면 발급 effect의 의존성
+        `[accessToken]`이 그대로(null)라 재발급이 안 걸리고, 재시도 화면이 영구
+        스피너로 바뀐다. MT-29가 막으려던 결과 그 자체다.
+
+        그래서 **재시도 신호가 effect 의존성 배열에 있는지**를 문다.
+        누르는 것까지 보는 실마운트 계약은
+        `frontend/tests/onboardingGating.smoke.test.mjs`(시나리오 10-b)가 소유한다.
+        """
+        src = (self.FRONT / "App.jsx").read_text(encoding="utf-8")
+        assert "guestFailed" in src, "발급 실패와 그 외(토큰 없음)를 구분하지 않는다"
         assert "GuestIssueRetry" in src, "발급 실패에 재시도 화면이 없다"
-        # 실패 분기가 로그아웃 분기(=Navigate to /login)보다 **먼저** 와야 한다
-        assert src.index("guestFailed)") < src.index('Navigate to="/login"'), (
-            "발급 실패가 로그인 리다이렉트에 먼저 잡힌다"
+
+        # 재시도 신호(retryTick)가 발급 effect의 의존성 배열에 있어야 한다.
+        deps = re.search(r"\}, \[accessToken([^\]]*)\]\);", src)
+        assert deps, (
+            "게스트 발급 effect의 의존성 배열(`[accessToken…]`)을 못 찾았다 — "
+            "이 계약을 갱신할 것"
+        )
+        assert "retryTick" in deps.group(1), (
+            "재시도가 effect 의존성에 없다 — 버튼이 리렌더만 일으키고 발급을 다시 "
+            "걸지 않는다. 재시도 화면이 영구 스피너가 되고 사용자가 갇힌다"
+        )
+        # 실패 분기가 "그 외" 분기보다 **먼저** 와야 한다. 종전에는 뒤 분기가
+        # `Navigate to="/login"`이었고 그 문자열로 순서를 쟀다 — 로그인 화면이
+        # 없어졌으므로 이제 두 분기 모두 GuestIssueRetry다. 순서는 실패 플래그가
+        # 정착 플래그보다 앞서는 것으로 잰다.
+        assert src.index("guestFailed)") < src.index("guestSettled)"), (
+            "발급 실패가 '그 외' 분기에 먼저 잡힌다 — 실패 전용 안내가 죽는다"
         )

@@ -26911,5 +26911,312 @@
       ]
     },
     "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "elementary",
+    "knowledge_level": 2,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도예요. 하루 중 기온이 가장 낮은 새벽에 온도계가 가리키는 값은 몇 도일까요? 숫자만 적어 보세요.",
+      "correct_answer": "{today.temp_min}",
+      "explanation_hint": "하루 기온은 새벽에 가장 낮고 오후에 가장 높아요. 그래서 예보에서 말하는 최저기온이 새벽에 나타나는 값이에요."
+    },
+    "uses_live_slots": true,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: temperature_heat",
+        "SPRINT_R13_02 §T3 실황 계산 — correct_answer가 {today.temp_min}이라 매일 정답이 바뀐다",
+        "knowledge_level=2 · 적용 규칙: R1 → 2(기온 측정·관찰, 까닭 아님) (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 강수 확률은 {today.rain_prob}%로 발표됐다. 강수 확률은 '오늘과 같은 대기 상태가 100번 되풀이될 때 0.1mm 이상 비가 내리는 횟수'로 정의된다. 이 정의대로라면 오늘과 같은 상태 100번 중 비가 내리는 경우는 몇 번인가? 숫자만 쓰시오.",
+      "correct_answer": "{today.rain_prob}",
+      "explanation_hint": "강수 확률의 %값이 곧 '같은 조건 100번 중 비가 오는 횟수'다. 하루의 몇 %가 젖는다는 뜻도, 비의 양이 얼마라는 뜻도 아니다."
+    },
+    "uses_live_slots": true,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: pressure_front",
+        "SPRINT_R13_02 §T3 실황 계산 — correct_answer가 {today.rain_prob}",
+        "knowledge_level=4 · 적용 규칙: R1 → 4(일기예보 산출물의 정의, 유체 지구 영역) (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도다. 지면이 데워지고 그 열이 대기로 옮겨가는 데 시간이 걸리므로 기온의 정점은 태양 고도가 가장 높은 정오가 아니라 두세 시간 뒤 오후에 나타난다. 오늘 그 정점에서 기록되는 기온은 몇 도인가? 숫자만 쓰시오.",
+      "correct_answer": "{today.temp_max}",
+      "explanation_hint": "일사량의 정점과 기온의 정점은 어긋난다. 지면이 흡수한 에너지가 대기로 전달되는 동안 기온은 계속 오르므로, 하루의 최고기온은 이른 오후에 나타난다."
+    },
+    "uses_live_slots": true,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: radiation_budget",
+        "SPRINT_R13_02 §T3 실황 계산 — correct_answer가 {today.temp_max}",
+        "knowledge_level=5 · 적용 규칙: R1 → 5(에너지 수지를 정성적으로 종합, 역학 배제) (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "anomaly",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "short_answer",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 강수 확률은 {today.rain_prob}%로 발표됐다. 확률예보 검증에서 신뢰도 다이어그램은 예보된 확률과 실제 발생 빈도를 대응시키고, 완전한 신뢰도를 가진 예보 체계는 두 값이 일치한다. 오늘과 같은 확률로 예보된 사례 전체에서 실제로 강수가 발생한 비율은 몇 %여야 하는가? 숫자만 쓰시오.",
+      "correct_answer": "{today.rain_prob}",
+      "explanation_hint": "신뢰도(reliability)는 '30%로 예보한 날들 가운데 실제로 30%에서 비가 왔는가'를 묻는다. 완전한 신뢰도에서는 예보 확률과 관측 빈도가 같으므로 오늘 발표된 확률값이 그대로 답이 된다. 이는 적중률(accuracy)과 다른 축의 지표다."
+    },
+    "uses_live_slots": true,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: anomaly",
+        "SPRINT_R13_02 §T3 실황 계산 — correct_answer가 {today.rain_prob}(개념 축은 pressure_front 문항과 분리)",
+        "knowledge_level=9 · 적용 규칙: R3 강제 상향 → 9(확률예보 검증은 학부 고학년 종관·수치 정량) (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "elementary",
+    "knowledge_level": 1,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 하늘은 '{today.sky}'예요. 하늘에 떠 있는 구름은 무엇으로 이루어져 있을까요?",
+      "options": [
+        "공기가 단단하게 뭉쳐 굳은 덩어리",
+        "눈에 보이지 않는 수증기만 모인 것",
+        "공장에서 나온 연기만 모인 것",
+        "아주 작은 물방울과 얼음 알갱이"
+      ],
+      "correct_answer": "아주 작은 물방울과 얼음 알갱이",
+      "explanation_hint": "구름이 하얗게 보이는 것은 아주 작은 물방울과 얼음 알갱이가 햇빛을 흩어 놓기 때문이에요. 수증기는 눈에 보이지 않아서, 보인다면 이미 물방울로 바뀐 것이에요."
+    },
+    "uses_live_slots": true,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: phase_change",
+        "SPRINT_R13_02 §T3 실황 현상 — 오늘 하늘 상태를 도입부로 쓴다",
+        "knowledge_level=1 · 적용 규칙: R1 → 1(현상에 이름을 붙이는 수준, 까닭 없음) (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 비 올 확률은 {today.rain_prob}%다. 구름이 만들어지려면 공기 덩어리가 어떤 과정을 거쳐야 하는가?",
+      "options": [
+        "온도가 전혀 변하지 않은 채 수증기만 늘어난다",
+        "높이가 그대로인 채 옆으로만 퍼져 수증기를 잃는다",
+        "아래로 내려가면서 부피가 줄고 온도가 올라가 이슬점에 이른다",
+        "위로 올라가면서 부피가 커지고 온도가 내려가 이슬점에 이른다"
+      ],
+      "correct_answer": "위로 올라가면서 부피가 커지고 온도가 내려가 이슬점에 이른다",
+      "explanation_hint": "주위 기압이 낮아지는 위쪽으로 공기 덩어리가 올라가면 부피가 커지면서 온도가 내려간다. 온도가 이슬점까지 떨어지면 수증기가 물방울로 맺혀 구름이 된다."
+    },
+    "uses_live_slots": true,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: density_buoyancy",
+        "SPRINT_R13_02 §T3 실황 현상 — 오늘 강수 확률을 도입부로 쓴다",
+        "knowledge_level=4 · 적용 규칙: R1 → 4(이슬점 introduced_at=4가 정답에 등장) (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "middle_high",
+    "knowledge_level": 3,
+    "question_type": "ordering",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도다. 낮 동안 기온이 올라가는 과정을 순서대로 배열하시오.",
+      "items": [
+        "태양 복사 에너지가 대기를 통과해 지면에 도달한다",
+        "지면이 그 에너지를 흡수해 데워진다",
+        "데워진 지면이 맞닿은 공기를 전도로 데운다",
+        "데워진 공기가 대류로 위쪽까지 섞이며 기온이 올라간다"
+      ],
+      "shuffled": true,
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "대기는 태양빛에 직접 데워지지 않는다. 지면이 먼저 데워지고, 그 열이 전도와 대류로 공기에 옮겨간다. 기온계가 지면에서 1.5m 높이에 놓이는 것도 이 순서 때문이다."
+    },
+    "uses_live_slots": true,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: energy_transfer",
+        "SPRINT_R13_02 §T3 실황 현상 — 오늘 최고기온을 도입부로 쓴다",
+        "knowledge_level=3 · 적용 규칙: R1 → 3(전도·대류로 에너지 이동을 설명, 물질·에너지 영역) (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "match",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 하늘 상태는 '{today.sky}'으로 발표됐다. 기상청은 하늘을 구름이 덮은 정도인 전운량을 10분위로 관측해 하늘 상태를 세 가지로 구분한다. 각 구분과 그 구분에 해당하는 전운량 구간을 알맞게 연결하라.",
+      "pairs": [
+        {
+          "left": "맑음",
+          "right": "전운량 0~5"
+        },
+        {
+          "left": "구름많음",
+          "right": "전운량 6~8"
+        },
+        {
+          "left": "흐림",
+          "right": "전운량 9~10"
+        }
+      ],
+      "correct_answer": "맑음:전운량 0~5|구름많음:전운량 6~8|흐림:전운량 9~10",
+      "explanation_hint": "전운량은 하늘 전체를 10으로 보았을 때 구름이 덮은 몫이다. 기상청 업무 규정이 0~5를 맑음, 6~8을 구름많음, 9~10을 흐림으로 정해 두었기 때문에 같은 구름 양이라도 구간이 바뀌면 발표되는 하늘 상태가 달라진다."
+    },
+    "uses_live_slots": true,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: radiation_budget",
+        "SPRINT_R13_02 §T3 실황 현상 — 오늘 발표된 하늘 상태({today.sky})가 어떤 관측값에서 나왔는지를 묻는다",
+        "knowledge_level=10 · 적용 규칙: R3 강제 상향 → 10(정답이 기상청 업무 규정 수치. anchor 10 '정답이 규정 수치인 문항은 전부 이 단계') (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "adult",
+    "knowledge_level": 5,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 하늘은 '{today.sky}'다. 구름이 많은 밤에 기온이 맑은 밤보다 덜 떨어지는 까닭으로 가장 알맞은 것은?",
+      "options": [
+        "구름이 바람을 막아 공기가 섞이지 않기 때문",
+        "구름 속 물방울이 밤새 얼면서 대기를 직접 데우기 때문",
+        "구름이 지표에서 나가는 적외선을 흡수해 다시 지표 쪽으로 되돌려 보내기 때문",
+        "구름이 낮에 받은 햇빛을 밤에 그대로 다시 내보내기 때문"
+      ],
+      "correct_answer": "구름이 지표에서 나가는 적외선을 흡수해 다시 지표 쪽으로 되돌려 보내기 때문",
+      "explanation_hint": "맑은 밤에는 지표가 내보낸 적외선이 우주로 그대로 빠져나가 기온이 크게 떨어진다. 구름이 있으면 그 적외선이 구름에 붙잡혔다가 일부가 지표로 되돌아와 식는 속도가 느려진다."
+    },
+    "uses_live_slots": true,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: radiation_budget",
+        "SPRINT_R13_02 §T3 실황 현상 — 오늘 하늘 상태를 도입부로 쓴다",
+        "knowledge_level=5 · 적용 규칙: R1 → 5(에너지 수지를 정성적으로 설명, 역학 배제) (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 하늘은 '{today.sky}'다. 대기 중 이산화탄소 농도가 늘어날 때 지구의 에너지 균형에 일어나는 변화로 가장 알맞은 것은?",
+      "options": [
+        "지표가 내보내는 적외선이 대기에 더 많이 붙잡혀 우주로 나가는 에너지가 줄고, 균형을 되찾을 때까지 기온이 올라간다",
+        "지표가 햇빛을 반사하는 비율이 늘어 들어오는 에너지가 줄어든다",
+        "대기가 햇빛을 직접 흡수하는 양이 줄어 지표만 데워진다",
+        "태양에서 지구로 들어오는 에너지의 양 자체가 늘어난다"
+      ],
+      "correct_answer": "지표가 내보내는 적외선이 대기에 더 많이 붙잡혀 우주로 나가는 에너지가 줄고, 균형을 되찾을 때까지 기온이 올라간다",
+      "explanation_hint": "온실기체는 들어오는 햇빛이 아니라 나가는 적외선을 붙잡는다. 나가는 양이 줄면 들어오는 양과 어긋나므로, 지구는 더 높은 온도에서 다시 균형을 이룬다."
+    },
+    "uses_live_slots": true,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: co2_climate",
+        "SPRINT_R13_02 §T3 실황 현상 — 오늘 하늘 상태를 도입부로 쓴다",
+        "knowledge_level=6 · 적용 규칙: R1 → 6(전 지구 에너지 균형 정성 심화) (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "density_buoyancy",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "multiple_choice",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 비 올 확률은 {today.rain_prob}%다. 관측된 환경 감률이 습윤 단열 감률보다는 크고 건조 단열 감률보다는 작을 때, 이 대기층의 정적 안정도는 어떻게 분류되는가?",
+      "options": [
+        "조건부 불안정",
+        "절대 불안정",
+        "절대 안정",
+        "중립"
+      ],
+      "correct_answer": "조건부 불안정",
+      "explanation_hint": "환경 감률이 두 단열 감률 사이에 놓이면, 포화되지 않은 공기덩이는 안정하지만 포화된 공기덩이는 불안정하다. 포화 여부라는 조건에 따라 안정도가 갈리므로 조건부 불안정이라 한다."
+    },
+    "uses_live_slots": true,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: density_buoyancy",
+        "SPRINT_R13_02 §T3 실황 현상 — 오늘 강수 확률을 도입부로 쓴다",
+        "knowledge_level=8 · 적용 규칙: R3 강제 상향 → 8(감률 3종 introduced_at=7, 안정도 분류는 학부 역학 기초) (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_basics",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "slider",
+    "template_json": {
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도다. 대류권 하층에서는 고도가 10m 높아질 때 기압이 약 1.2hPa 낮아진다. 해면기압이 1013hPa인 날, 해발 100m에 있는 관측소의 기압은 해면기압보다 몇 hPa 낮은가?",
+      "correct_answer": "12",
+      "explanation_hint": "10m마다 1.2hPa이므로 100m에서는 1.2 × 10 = 12hPa이 낮아진다. 관측소 기압을 해면기압으로 고칠 때 더해 주는 보정값이 이 값이다.",
+      "min": 0,
+      "max": 40,
+      "step": 1,
+      "unit": "hPa"
+    },
+    "uses_live_slots": true,
+    "source": {
+      "kind": "seed",
+      "refs": [
+        "climate_concepts: pressure_basics",
+        "SPRINT_R13_02 §T3 실황 현상 — 오늘 최고기온을 도입부로 쓴다",
+        "knowledge_level=7 · 적용 규칙: R3 강제 상향 → 7(고도-기압 관계의 정량 계산, 진로선택 정량 입문) (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
   }
 ]

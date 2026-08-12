@@ -89,11 +89,22 @@ class TestPoolLevelGroups:
         """기존 동작 불변 — 가입 level_group 하나만."""
         assert pool_level_groups("elementary", None) == ["elementary"]
 
-    def test_θ가_있으면_가입_그룹과_θ_그룹의_합집합(self):
-        assert pool_level_groups("elementary", 1.0) == ["adult", "elementary"]
+    def test_θ가_있으면_전_밴드가_열린다(self):
+        """⚠️ **2026-08-12 사양 전환** — 종전 기대값은 `["adult", "elementary"]`
+        (가입 그룹 ∪ θ 그룹)였다.
 
-    def test_θ_그룹이_가입_그룹과_같으면_단일(self):
-        assert pool_level_groups("middle_high", 0.0) == ["middle_high"]
+        클라이언트 확정으로 **문항 선택 축이 θ 하나**가 되면서 신고 학령이 필터에서
+        빠졌다. 합집합은 성인 신고자의 도달 범위를 kl 3~6으로 **잘라** 「성인인데
+        지식이 초등 수준」인 학습자에게 줄 문항을 0건으로 만들고 있었다.
+        좁히는 일은 이제 필터가 아니라 **정렬**이 한다(|b−θ| → kl 재정렬).
+        """
+        assert pool_level_groups("elementary", 1.0) == sorted(wb.LEVEL_GROUP_BANDS)
+
+    def test_신고_학령이_달라도_같은_집합(self):
+        """같은 θ면 신고값과 무관하게 같은 풀 — 선택 축이 하나라는 것의 정의."""
+        assert pool_level_groups("middle_high", 0.0) == pool_level_groups(
+            "elementary", 0.0
+        ) == sorted(wb.LEVEL_GROUP_BANDS)
 
 
 class TestDifficultyOrderSemantics:

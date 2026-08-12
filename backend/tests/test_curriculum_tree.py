@@ -39,6 +39,19 @@ def make_unit(
     )
 
 
+#: 픽스처용 섹션명 — **리터럴을 쓰지 않고 SECTION_ORDER에서 뽑는다**.
+#:
+#: ⚠️ 2026-08-12: 종전엔 "하늘 읽기"·"공기의 힘"·"큰 바람"을 그대로 적었다.
+#: CO-G1 순환식 재구조화로 그 이름들이 SECTION_ORDER에서 빠지면서, 섹션 **순서**를
+#: 단정하는 테스트들이 `_section_key`의 미등재 폴백(알파벳 정렬)을 타고 조용히
+#: 뒤집혔다 — 값이 틀린 게 아니라 검사 대상이 바뀌어 버린 형태다. 등재된 앞
+#: 3섹션을 뽑아 쓰면 섹션명이 또 바뀌어도 이 파일은 고칠 데가 없다.
+SEC1, SEC2, SEC3 = cs.SECTION_ORDER[:3]
+#: SECTION_ORDER **미등재** 섹션 — 정렬 폴백(뒤로 밀림)을 검증하는 케이스 전용.
+UNREGISTERED_SECTION = "특수 주제"
+assert UNREGISTERED_SECTION not in cs.SECTION_ORDER
+
+
 def prog(crowns=0, cleared=False):
     return SimpleNamespace(
         crowns=crowns,
@@ -51,7 +64,7 @@ def ability(tag, theta, n=1):
     return {"concept_tag": tag, "theta": theta, "se": 0.4, "n": n}
 
 
-def chain(n=3, section="하늘 읽기"):
+def chain(n=3, section=SEC1):
     """prereq로 이어진 선형 유닛 체인 n개."""
     units = [make_unit(section, 1)]
     for i in range(2, n + 1):
@@ -65,30 +78,30 @@ def flat_views(tree):
 
 class TestIsLocked:
     def test_선행_없는_첫_유닛은_무잠금(self):
-        u = make_unit("하늘 읽기", 1)
+        u = make_unit(SEC1, 1)
         assert cs.is_locked(u, {}) is False
 
     def test_선행_미완료면_잠금(self):
-        u1 = make_unit("하늘 읽기", 1)
-        u2 = make_unit("하늘 읽기", 2, prereq=u1.id)
+        u1 = make_unit(SEC1, 1)
+        u2 = make_unit(SEC1, 2, prereq=u1.id)
         assert cs.is_locked(u2, {}) is True
         assert cs.is_locked(u2, {u1.id: prog(crowns=0)}) is True
 
     def test_선행_crowns_1이상이면_열림(self):
-        u1 = make_unit("하늘 읽기", 1)
-        u2 = make_unit("하늘 읽기", 2, prereq=u1.id)
+        u1 = make_unit(SEC1, 1)
+        u2 = make_unit(SEC1, 2, prereq=u1.id)
         assert cs.is_locked(u2, {u1.id: prog(crowns=1)}) is False
 
     # ── 배치 선해제 (R7-02 §3.4) — unlock_floor·order_index ──
 
     def test_unlock_floor_안이면_prereq_무관_열림(self):
-        u1 = make_unit("하늘 읽기", 1)
-        u2 = make_unit("하늘 읽기", 2, prereq=u1.id)
+        u1 = make_unit(SEC1, 1)
+        u2 = make_unit(SEC1, 2, prereq=u1.id)
         assert cs.is_locked(u2, {}, unlock_floor=2, order_index=1) is False
 
     def test_unlock_floor_밖이면_기존_prereq_규칙(self):
-        u1 = make_unit("하늘 읽기", 1)
-        u2 = make_unit("하늘 읽기", 2, prereq=u1.id)
+        u1 = make_unit(SEC1, 1)
+        u2 = make_unit(SEC1, 2, prereq=u1.id)
         assert cs.is_locked(u2, {}, unlock_floor=1, order_index=1) is True
         assert (
             cs.is_locked(
@@ -98,8 +111,8 @@ class TestIsLocked:
         )
 
     def test_기본값_floor_0은_현행_동작(self):
-        u1 = make_unit("하늘 읽기", 1)
-        u2 = make_unit("하늘 읽기", 2, prereq=u1.id)
+        u1 = make_unit(SEC1, 1)
+        u2 = make_unit(SEC1, 2, prereq=u1.id)
         assert cs.is_locked(u2, {}, order_index=1) is True
         assert cs.is_locked(u2, {}, unlock_floor=0, order_index=1) is True
 
@@ -113,12 +126,12 @@ class TestPlacementUnlockFloor:
     """
 
     def _units(self):
-        # 전체 순서: 하늘 읽기(pressure_front×2) → 공기의 힘(air_mass) → 큰 바람(typhoon)
+        # 전체 순서: SEC1(pressure_front×2) → SEC2(air_mass) → SEC3(typhoon)
         return [
-            make_unit("하늘 읽기", 1, concept_tag="pressure_front"),
-            make_unit("하늘 읽기", 2, concept_tag="pressure_front"),
-            make_unit("공기의 힘", 1, concept_tag="air_mass"),
-            make_unit("큰 바람", 1, concept_tag="typhoon"),
+            make_unit(SEC1, 1, concept_tag="pressure_front"),
+            make_unit(SEC1, 2, concept_tag="pressure_front"),
+            make_unit(SEC2, 1, concept_tag="air_mass"),
+            make_unit(SEC3, 1, concept_tag="typhoon"),
         ]
 
     def test_빈_abilities는_0(self):
@@ -204,19 +217,19 @@ class TestStatus:
 class TestBuildCurriculum:
     def test_섹션은_교육적_순서_유닛은_order_오름차순(self):
         units = [
-            make_unit("큰 바람", 2),
-            make_unit("하늘 읽기", 2),
-            make_unit("하늘 읽기", 1),
-            make_unit("공기의 힘", 1),
+            make_unit(SEC3, 2),
+            make_unit(SEC1, 2),
+            make_unit(SEC1, 1),
+            make_unit(SEC2, 1),
         ]
         tree = cs.build_curriculum(units, {})
-        assert [s["section"] for s in tree] == ["하늘 읽기", "공기의 힘", "큰 바람"]
+        assert [s["section"] for s in tree] == [SEC1, SEC2, SEC3]
         sky = tree[0]["units"]
         assert [u["unit_order"] for u in sky] == [1, 2]
 
     def test_id와_prereq는_slug로_노출(self):
-        u1 = make_unit("하늘 읽기", 1, slug="read-1")
-        u2 = make_unit("하늘 읽기", 2, slug="read-2", prereq=u1.id)
+        u1 = make_unit(SEC1, 1, slug="read-1")
+        u2 = make_unit(SEC1, 2, slug="read-2", prereq=u1.id)
         tree = cs.build_curriculum([u1, u2], {})
         views = {v["unit_order"]: v for v in tree[0]["units"]}
         assert views[1]["id"] == "read-1"
@@ -225,8 +238,8 @@ class TestBuildCurriculum:
         assert views[2]["prereq_unit_id"] == "read-1"  # UUID FK → slug 변환 노출
 
     def test_진도_잠금_반영(self):
-        u1 = make_unit("하늘 읽기", 1)
-        u2 = make_unit("하늘 읽기", 2, prereq=u1.id)
+        u1 = make_unit(SEC1, 1)
+        u2 = make_unit(SEC1, 2, prereq=u1.id)
         progress = {u1.id: prog(crowns=1, cleared=True)}
         tree = cs.build_curriculum([u1, u2], progress)
         views = {v["unit_order"]: v for v in tree[0]["units"]}
@@ -236,10 +249,10 @@ class TestBuildCurriculum:
         assert views[2]["locked"] is False  # 선행 clear → 열림
 
     def test_미등재_섹션은_뒤로(self):
-        units = [make_unit("특수 주제", 1), make_unit("하늘 읽기", 1)]
+        units = [make_unit(UNREGISTERED_SECTION, 1), make_unit(SEC1, 1)]
         tree = cs.build_curriculum(units, {})
-        assert tree[0]["section"] == "하늘 읽기"
-        assert tree[-1]["section"] == "특수 주제"
+        assert tree[0]["section"] == SEC1
+        assert tree[-1]["section"] == UNREGISTERED_SECTION
 
 
 class TestPlanCrown:
@@ -269,7 +282,7 @@ class TestUnitSeedValidation:
     def test_정상_유닛_통과(self):
         entry = {
             "id": "read-sky-pressure",
-            "section": "하늘 읽기",
+            "section": SEC1,
             "unit_order": 1,
             "title": "구름 관찰",
             "concept_tag": "pressure_front",
@@ -281,7 +294,7 @@ class TestUnitSeedValidation:
     def test_prereq_slug_문자열_허용(self):
         entry = {
             "id": "read-sky-board",
-            "section": "하늘 읽기",
+            "section": SEC1,
             "unit_order": 3,
             "title": "지도 퍼즐",
             "concept_tag": "pressure_front",
@@ -383,15 +396,31 @@ def _real_roots() -> set[str]:
 
 
 class TestRealUnitsJson:
-    """실제 units.json(기상 16 = 12 + 재난 4 · 기초과학 8 = **24유닛**, slug 방식) 적재 정합·잠금 체인 생존 검증."""
+    """실제 units.json(기상 138 · 기초과학 99 = **237유닛 · 13섹션**) 적재 정합·잠금 체인 검증.
 
-    def test_파일_로드_및_24유닛(self):
+    ⚠️ **2026-08-12: 24 → 93 → 237.** 기상 코스 섹션을 주제 5종에서 **지식 단계 10종**으로
+    바꾼 순환식 재구조화다(CO-G1 · 설계 근거 `docs/design/cyclic_sections.md`).
+    기초과학은 **별도 코스로 유지**되어 자기 3섹션을 그대로 갖는다(10 + 3 = 13섹션).
+    기존 24유닛은 **하나도 지우지 않고** id를 보존한 채 재배치했으므로, 여기 리터럴이
+    바뀐 것은 유닛이 사라져서가 아니라 **선두가 바뀌어서**다 —
+    `read-sky-pressure`는 여전히 존재하고 「중학교 유체 지구」(kl4)에 앉아 있다.
+
+    237로의 2차 확대는 **문항 소진율**이 이유다(45% → 97.7%): 유닛이 93개면
+    `UNIT_SESSION_SIZE`를 곱해도 뱅크 1,012건의 절반이 학습 경로에서 도달 불가였다.
+    같은 산출에서 `UNIT_SESSION_SIZE`가 5 → 4로 내려갔다(config.py 주석의 부등식
+    `quiz 유닛 수 × UNIT_SESSION_SIZE ≤ 946`).
+
+    아래 수치는 전부 2026-08-12 시드 실측이다. 저작이 진행되면 여기가 먼저 운다 —
+    그것이 이 핀의 목적이다(유닛이 조용히 사라지는 것을 잡는 트립와이어).
+    """
+
+    def test_파일_로드_및_237유닛(self):
         units = _load_real_units()
-        assert isinstance(units, list) and len(units) == 24
+        assert isinstance(units, list) and len(units) == 237
         by_course: dict[str, int] = {}
         for u in units:
             by_course[u.get("course")] = by_course.get(u.get("course"), 0) + 1
-        assert by_course == {"weather": 16, "basic-science": 8}
+        assert by_course == {"weather": 138, "basic-science": 99}
 
     def test_로더_스키마_전부_통과(self):
         units = _load_real_units()
@@ -418,18 +447,28 @@ class TestRealUnitsJson:
         units = _units_from_json(_load_real_units())
         tree = cs.build_curriculum(units, {})
         flat = {u["id"]: u for s in tree for u in s["units"]}
-        assert len(flat) == 24
+        assert len(flat) == 237
         unlocked = {uid for uid, v in flat.items() if not v["locked"]}
         roots = {u.slug for u in units if u.prereq_unit_id is None}
         assert unlocked == roots
-        # 데이터 핀: 기상 단일 루트 + 기초과학 섹션 첫 유닛 3개(specs/11 §2)
+        # 데이터 핀: 기상 단일 루트(CO-G1 §4.1 규칙 6 — 섹션 안에서 이어지고 섹션
+        # 첫 유닛은 앞 섹션 마지막을 가리키는 단일 사슬) + 기초과학 섹션 첫 유닛
+        # 3개(specs/11 §2 "섹션 간 선행 없음").
+        # 기상 루트가 read-sky-pressure → **w01-pressure-front**로 옮겨간 것은
+        # 순환식 재구조화의 귀결이다: 선두 섹션이 「하늘 읽기」에서
+        # 「초등 3~4학년」(kl1)이 됐고, 그 섹션 첫 유닛이 새 루트다.
+        # ⚠️ 237유닛 재산출에서 기초과학 루트 하나가 `bs-pressure` →
+        # **`pressure-basics-kl01-mc`**로 바뀌었다(그 섹션 첫 유닛이 새 유닛이 됐다).
+        # `bs-pressure`는 사라진 게 아니라 **선두가 아니게** 된 것이다 —
+        # 기존 93 id는 전건 보존됐다(사라진 id 0건).
         assert roots == {
-            "read-sky-pressure", "bs-temp-vs-heat", "bs-pressure", "bs-phase-change",
+            "w01-pressure-front", "bs-temp-vs-heat",
+            "pressure-basics-kl01-mc", "bs-phase-change",
         }
         # prereq가 있는 유닛은 진도 0에서 전부 잠금 — 잠금 소실 회귀 가드
         assert sum(1 for v in flat.values() if v["locked"]) == len(flat) - len(roots)
-        # status 파생: 전체 순서상 첫 루트(하늘 읽기)가 유일한 current
-        assert flat["read-sky-pressure"]["status"] == "current"
+        # status 파생: 전체 순서상 첫 루트(초등 3~4학년 선두)가 유일한 current
+        assert flat["w01-pressure-front"]["status"] == "current"
         assert sum(1 for v in flat.values() if v["status"] == "current") == 1
         assert sum(1 for v in flat.values() if v["status"] == "locked") == len(
             flat
@@ -437,43 +476,58 @@ class TestRealUnitsJson:
 
     def test_선행_clear시_다음_유닛만_열림(self):
         units = _units_from_json(_load_real_units())
-        # 루트(read-sky-pressure) crowns=1 → 그 직후 유닛(read-sky-fronts)만 추가 해제
-        progress = {"read-sky-pressure": prog(crowns=1)}
+        # 루트(w01-pressure-front) crowns=1 → 그 직후 유닛(w01-air-mass)만 추가 해제.
+        # 선행 사슬이 섹션 안에서 **개념을 가로지른다**(pressure_front → air_mass →
+        # typhoon)는 것이 순환식 구조의 정의다 — 종전엔 같은 개념 3연속이었다
+        # (CO-G1 §4.1 규칙 5·6).
+        progress = {"w01-pressure-front": prog(crowns=1)}
         tree = cs.build_curriculum(units, progress)
         flat = {u["id"]: u for s in tree for u in s["units"]}
-        assert flat["read-sky-pressure"]["locked"] is False
-        assert flat["read-sky-fronts"]["locked"] is False  # 선행 clear → 열림
-        assert flat["read-sky-board"]["locked"] is True  # 그 다음은 여전히 잠금
-        # status: 미클리어 선두(pressure)가 current, fronts는 unlocked
-        assert flat["read-sky-pressure"]["status"] == "current"
-        assert flat["read-sky-fronts"]["status"] == "unlocked"
-        assert flat["read-sky-board"]["status"] == "locked"
+        assert flat["w01-pressure-front"]["locked"] is False
+        assert flat["w01-air-mass"]["locked"] is False  # 선행 clear → 열림
+        assert flat["w01-typhoon"]["locked"] is True  # 그 다음은 여전히 잠금
+        # status: 미클리어 선두(pressure)가 current, air-mass는 unlocked
+        assert flat["w01-pressure-front"]["status"] == "current"
+        assert flat["w01-air-mass"]["status"] == "unlocked"
+        assert flat["w01-typhoon"]["status"] == "locked"
 
     def test_배치_선해제_실데이터_시작점(self):
-        """§3.4 소급 적용: pressure_front θ≥0.5(실응답)면 하늘 읽기 3유닛 선해제.
+        """§3.4 소급 적용: pressure_front θ≥임계(실응답)면 선두 1유닛 선해제.
+
+        ⚠️ **2026-08-12: floor 3 → 1.** 결함이 아니라 순환식 구조의 귀결이다
+        (`docs/design/cyclic_sections.md` §5-④). 종전 「하늘 읽기」는 선두 3유닛이
+        전부 `pressure_front`라 θ 하나로 3유닛이 열렸다. 새 구조는 섹션 안에서
+        개념이 **교차**하므로(pressure_front → air_mass → typhoon …) 선두 연속
+        구간이 1유닛뿐이다. `placement_unlock_floor`는 "선두 연속"만 인정하고
+        중간 점프를 하지 않으므로, 개념이 바뀌는 두 번째 유닛에서 즉시 멈춘다.
+
+        선해제를 되살리려면 floor가 "선두 연속"이 아니라 "개념별 최고 도달 섹션"을
+        보게 바꿔야 한다 — 별도 판정 사항이고 이 테스트의 범위가 아니다.
 
         선해제 유닛은 왕관 0 그대로(잠금만 해제)이고, current는 첫 미클리어
-        유닛(read-sky-pressure — 클리어 강제 아님)에 남는다.
+        유닛(w01-pressure-front — 클리어 강제 아님)에 남는다.
         """
         units = _units_from_json(_load_real_units())
+        # 선두 유닛의 개념 = pressure_front (「초등 3~4학년」 첫 칸)
         abilities = [ability("pressure_front", 0.8, n=5)]
         floor = cs.placement_unlock_floor(abilities, units, "middle_high")
-        assert floor == 3  # 하늘 읽기 pressure_front 3유닛(선두 연속)
+        assert floor == 1  # 선두 1유닛에서 개념이 바뀌어 중단
         tree = cs.build_curriculum(units, {}, unlock_floor=floor)
         flat = {u["id"]: u for s in tree for u in s["units"]}
         opened = {uid for uid, v in flat.items() if not v["locked"]}
-        # 선해제 3유닛 + 진도 0에서도 열려 있는 루트 유닛(기초과학 섹션 첫 유닛 포함)
-        assert opened == {
-            "read-sky-pressure", "read-sky-fronts", "read-sky-board",
-        } | _real_roots()
+        # 선해제 1유닛 + 진도 0에서도 열려 있는 루트 유닛(기초과학 섹션 첫 유닛 포함).
+        # 선해제분이 마침 기상 루트와 같은 유닛이라 합집합이 루트 집합과 일치한다 —
+        # 그래도 왼쪽 항을 남긴다: floor가 2 이상으로 돌아오면 이 등식이 깨져야 한다.
+        assert opened == {"w01-pressure-front"} | _real_roots()
         # 잠금만 해제 — 왕관·클리어는 소급되지 않는다
         assert all(flat[uid]["crowns"] == 0 for uid in opened)
-        assert flat["read-sky-pressure"]["status"] == "current"
-        assert flat["read-sky-fronts"]["status"] == "unlocked"
-        assert flat["air-power-masses"]["status"] == "locked"
+        assert flat["w01-pressure-front"]["status"] == "current"
+        # floor가 1이라 두 번째 유닛부터 잠금 — 선해제가 개념 경계에서 멈춘 증거
+        assert flat["w01-air-mass"]["status"] == "locked"
+        assert flat["w01-typhoon"]["status"] == "locked"
 
     def test_순차_클리어로_전_체인_해제(self):
-        """의존 순서대로 각 유닛을 clear하면 다음이 열려 결국 24유닛 전부 해제된다."""
+        """의존 순서대로 각 유닛을 clear하면 다음이 열려 결국 237유닛 전부 해제된다."""
         entries = _load_real_units()
         units = _units_from_json(entries)
         # prereq_unit_id로 위상 순서(루트→말단) 구성 (선형·분기 무관)
@@ -498,7 +552,7 @@ class TestRealUnitsJson:
         tree = cs.build_curriculum(units, progress)
         locked = [u["id"] for s in tree for u in s["units"] if u["locked"]]
         assert locked == []
-        assert len(cleared_order) == 24
+        assert len(cleared_order) == 237
         # 첫 배치는 정확히 루트 집합(진도 0에서 열려 있는 유닛들 — 순서는
         # 집합 순회라 비결정이므로 집합으로 판정)
         roots = _real_roots()

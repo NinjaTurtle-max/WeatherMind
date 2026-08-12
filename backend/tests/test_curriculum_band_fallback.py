@@ -295,6 +295,13 @@ class TestWideningDoesNotBlurHealthyCells:
       ⑴ SQL — 사전 b(LEVEL_GROUP_ITEM_B) 기준 |b − θ| 오름차순, LIMIT 선취분
       ⑵ 파이썬 — `rank_by_knowledge_level`로 |kl − θ의 단계| 재정렬 후 5건
     item_params는 재보정(8/18) 전까지 비어 있으므로 ⑴의 b는 전건 사전값이다.
+
+    ⚠️ **여기서 재현하는 것은 이제 폴백 경로다**(2026-08-12 CO-G1 배선). 실제
+    `_unit_content_pool`의 표적은 `unit_target_level`이 정하고, 섹션이 단계를
+    말하는 유닛은 **섹션 kl**이 이긴다 — θ 파생 표적은 섹션이 없거나 미등재일
+    때만 산다. 이 클래스가 보는 것(넓힘이 건강한 칸을 흐리지 않는다)은 표적이
+    어디서 오든 같은 성질이라 그대로 유효하다. 섹션 표적 자체의 계약은
+    `test_cyclic_sections.py`가 소유한다.
     """
 
     def _top(self, unit_id: str, reported: str, size: int | None = None):

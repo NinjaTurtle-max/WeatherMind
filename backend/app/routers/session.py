@@ -129,6 +129,11 @@ def _to_session_item(
         question_text=question.get("question_text", ""),
         options=question.get("options"),
         level_group=level_group,
+        # 문항의 **지식 단계**(난이도 축) — `level_group`(표현 톤·학령)과 다른 축이다.
+        # 데이터에는 1,000건 전건 채워져 있는데 이 한 줄이 없어서 화면까지 오는
+        # 통로가 끊겨 있었다(2026-08-12 클라이언트 지적 「학습 수준 태깅이 안 보인다」).
+        # 없으면 None이고 프론트는 배지를 그리지 않는다(구 세션·구 데이터 하위 호환).
+        knowledge_level=question.get("knowledge_level"),
         source=source,
         slot_filled=slot_filled,
         kind=kind,
@@ -548,12 +553,17 @@ async def complete_session(
 
     # 유닛 세션 unit_result (R8-01 §3.1 계약 복구) — grant_unit_crown 반환을
     # 버리지 않고 노출한다(프론트 UnitSummary가 읽는 필드).
-    # **R13-01 §2.10 왕관 소유권 이전**: 유닛 직접 진입(/learn 유닛 세션)은 이제
-    # **연습 전용**이라 grant_crown=False 고정이다(같은 진도에 두 번 주면 하루
-    # 1왕관 상한이 무너진다).
-    # ⚠️ 왕관 유입로는 **3개**다 (CO-L5 정정 — 여기 "진도 블록이 유일한 유입로"라
-    # 적혀 있었으나 거짓이었다): ⑴ 일일 세션의 진도 블록 · ⑵ 보드 퍼즐 최초
-    # 클리어(routers/board.py) · ⑶ /dev 개발 경로(UserUnitProgress 직접 upsert —
+    # **왕관이 유닛 세션 완료로 돌아왔다**(2026-08-12 클라이언트 확정).
+    # 경위를 남긴다: R13-01 §2.10이 왕관을 일일 세션의 **진도 블록**으로 옮기면서
+    # 유닛 직접 진입을 «연습 전용»(grant_crown=False)으로 고정했다. 그런데 오늘
+    # 배합이 `{live:2, new:4, review:3, board:1}`로 바뀌며 **`unit` kind 자체가
+    # 사라졌다** — 진도 블록이 없어졌으므로 그 유입로도 함께 죽는다. 되돌리지
+    # 않으면 왕관이 **도달 불가**가 된다.
+    # ⚠️ 이 두 변경은 **한 쌍**이다. 배합에 `unit`을 되살리면 여기도 함께 되돌려야
+    # 하루 1왕관 상한이 지켜진다(같은 진도에 두 번 주지 않기).
+    # ⚠️ 왕관 유입로는 **3개**다 (CO-L5 정정): ⑴ **유닛 세션 완료**(여기 — 종전
+    # 「일일 세션의 진도 블록」을 대체) · ⑵ 보드 퍼즐 최초 클리어
+    # (routers/board.py) · ⑶ /dev 개발 경로(UserUnitProgress 직접 upsert —
     # grant_unit_crown 미경유). 목록의 단일 소유자는 curriculum_service 모듈
     # 독스트링이다.
     # 진도 스냅샷(crowns·cleared)과 all_correct·all_resolved 표기는 그대로 나간다.
@@ -564,7 +574,9 @@ async def complete_session(
             user,
             session.unit_id,
             all_correct=all_correct,
-            grant_crown=False,
+            # 세션 최초 완료 ∧ 전 문항 정답일 때만 — `grant_unit_crown`이 멱등
+            # 판정(이미 준 왕관은 다시 안 준다)을 갖고 있어 상한은 그쪽이 지킨다.
+            grant_crown=all_correct,
         )
         if payload is not None:
             unit_result = UnitResult(**payload, all_resolved=all_resolved)

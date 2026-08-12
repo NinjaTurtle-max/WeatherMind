@@ -281,10 +281,18 @@ class TestLevelAndStatus:
 # ═══════════════════════════════════════════════════════════════
 
 
-def issue_session(monkeypatch, db, *, bank_pool=(), live_pool=(), generated=()):
+def issue_session(monkeypatch, db, *, bank_pool=(), live_pool=(), board_pool=(),
+                  generated=()):
     """create_daily_session을 실제로 돌린다 — 풀 조회·채번만 대역.
 
     영속화·편성·메타 기록은 실코드가 수행한다.
+
+    ⚠️ **`_fetch_board_pool`도 반드시 대역해야 한다**(2026-08-12). R13-02 §T3의
+    board 블록이 실 SELECT를 내는데, 이 하네스의 `BankDB.execute`는 `content_items`가
+    걸린 쿼리를 **전부 `self.selects`에 기록**한다. 대역하지 않으면 board 풀 조회
+    1건이 섞여 들어와 `test_뱅크가_배합을_채우면_적재_조회조차_없다`의
+    `db.selects == []`가 깨진다 — **적재 멱등 조회가 아닌 것이 그 단정에 잡히는**
+    형태라, 그걸 「고치려고」 board 쿼리를 되돌리면 T3 계약이 죽는다.
     """
     calls = {"generate": 0}
 
@@ -293,6 +301,9 @@ def issue_session(monkeypatch, db, *, bank_pool=(), live_pool=(), generated=()):
 
     async def fake_unit_pool(_db, u, abilities, count):
         return [], None
+
+    async def fake_board_pool(_db, u, theta, today_subq, limit=None):
+        return list(board_pool)
 
     async def fake_quiz_generate(**kwargs):
         question = generated[calls["generate"] % len(generated)]
@@ -304,6 +315,7 @@ def issue_session(monkeypatch, db, *, bank_pool=(), live_pool=(), generated=()):
 
     monkeypatch.setattr(ss, "_fetch_pools", fake_pools)
     monkeypatch.setattr(ss, "_fetch_unit_pool", fake_unit_pool)
+    monkeypatch.setattr(ss, "_fetch_board_pool", fake_board_pool)
     monkeypatch.setattr(ss, "_load_weak_tag_rows", empty_async)
     monkeypatch.setattr(ss.weatherbrain_service, "refresh_abilities", empty_async)
     monkeypatch.setattr(ss, "decide_route", lambda *a, **k: _route())
@@ -353,7 +365,7 @@ class TestSessionWiring:
         session, entries, _ = issue_session(
             monkeypatch, db, generated=[gen_question(i) for i in range(ss.SESSION_SIZE)]
         )
-        assert len(entries) == ss.SESSION_SIZE == 15
+        assert len(entries) == ss.SESSION_SIZE
         generated_entries = [e for e in entries if e["source"] == "generated"]
         assert len(generated_entries) == ss.SESSION_SIZE
         assert all(e["content_item_id"] is not None for e in generated_entries), (
@@ -404,7 +416,18 @@ class TestSessionWiring:
         assert len(db.bank) == ss.SESSION_SIZE, "재사용은 새 행을 만들지 않는다"
 
     def test_뱅크가_배합을_채우면_적재_조회조차_없다(self, monkeypatch):
-        """생성 폴백이 0이면 멱등 조회 비용도 0이다."""
+        """생성 폴백이 0이면 멱등 조회 비용도 0이다.
+
+        ✅ **xfail 해제(2026-08-12)** — 여기 걸려 있던 표식의 사유는 "배합에 board가
+        생겼는데 `plan_bank_picks`에 board 분기가 없어 매 세션 quiz-generate 1콜이
+        샌다"였다. 담당 H가 board 블록을 배선해 **누수는 닫혔다**.
+
+        ⚠️ 표식을 **그냥 걷으면 안 됐다**: 누수와 별개로 H의 board 풀 SELECT 1건이
+        `db.selects`에 잡혀 이 테스트가 계속 붉었다. 그건 결함이 아니라 **하네스가
+        `_fetch_board_pool`을 대역하지 않은 것**이라, 위 `issue_session`에 대역을
+        추가해서 닫았다. 여기서 세는 `db.selects`는 **적재 멱등 조회**이지 풀 조회가
+        아니다.
+        """
         db = BankDB()
         _, entries, calls = issue_session(
             monkeypatch,

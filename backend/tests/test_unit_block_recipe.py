@@ -1,7 +1,18 @@
 """유닛 블록(진도 5문항) 계약 테스트 — 스프린트 R13-01 §2.10 (BE-1).
 
-배합을 `{new:5, review:4, live:1, unit:5}` = **15문항**으로 바꾸고, 마지막 5문항을
-**현재 진행 유닛의 다음 진도**로 채우는 개정의 기계 검증이다. 계약 6건:
+⚠️ **2026-08-12: 진도 블록은 더 이상 기본 배합에 없다.** SPRINT_R13_02 §T3 계약이
+배합을 `{live:2, new:4, review:3, board:1}` = **10문항**으로 바꾸면서 `unit` kind가
+기본값에서 빠졌다. 하지만 **코드는 그대로 살아 있다** — `plan_bank_picks`가
+`recipe.get("unit", 0)`으로 읽고, `SESSION_RECIPE`의 validator도 `unit`을 계속
+허용하므로 env 한 줄(`SESSION_RECIPE={"new":5,"review":4,"live":1,"unit":5}`)로
+되돌릴 수 있다. 그래서 이 파일을 지우지 않는다: **지우면 되돌릴 수 있는 경로가
+무검증 코드가 된다.**
+
+대신 아래 `LEGACY_UNIT_RECIPE`로 **명시 전환**해서 돌린다. 기본 배합이 무엇인지는
+`TestDefaultRecipeContract`가 따로 못 박으므로, 이 파일이 옛 기본값을 계약인 것처럼
+주장하는 일은 없다.
+
+원 개정(R13-01 §2.10)의 계약 6건:
 
 1. `create_daily_session`이 **15문항(5+4+1+5)을 실발급**한다 (배합 recorder)
 2. 진도 블록이 **현재 유닛(열린 첫 미클리어)**의 문항이고, 소진되면 다음 열린 유닛
@@ -12,7 +23,7 @@
 
 순수 함수·배선 검증이라 DB가 필요 없다. 왕관 경로는 test_crown_award의
 `run_complete` 하네스를 **재사용**한다(사본 금지 — 라우터 배선의 단일 대역).
-문항 수 단정은 전부 `SESSION_SIZE`/`DEFAULT_RECIPE` 파생이다: 숫자를 손으로
+문항 수 단정은 전부 `LEGACY_SESSION_SIZE`/`RECIPE` 파생이다: 숫자를 손으로
 박으면 env 튜닝(R5.5) 때 계약이 아니라 상수가 깨진다.
 
 실행: backend 디렉토리에서 `python -m pytest tests/test_unit_block_recipe.py -q`.
@@ -35,8 +46,25 @@ from test_crown_award import (
     run_complete,
 )
 
-RECIPE = ss.DEFAULT_RECIPE
+#: 진도 블록이 살아 있는 배합 — **옛 기본값이자, 지금은 env 전용 경로**다.
+#: `settings.SESSION_RECIPE`에서 읽지 않고 여기 적는 이유: 기본값이 바뀔 때마다
+#: 이 파일이 수집 단계에서 `KeyError: 'unit'`으로 죽는 것이 2026-08-12에 실제로
+#: 일어났다. 이 파일이 검증하는 것은 "기본 배합"이 아니라 **unit 블록 기계**다.
+LEGACY_UNIT_RECIPE = {"new": 5, "review": 4, "live": 1, "unit": 5}
+RECIPE = LEGACY_UNIT_RECIPE
+LEGACY_SESSION_SIZE = sum(RECIPE.values())
 UNIT_COUNT = RECIPE["unit"]
+
+
+@pytest.fixture(autouse=True)
+def _use_legacy_unit_recipe(monkeypatch):
+    """이 파일 전 테스트를 **진도 블록이 켜진 배합**으로 돌린다.
+
+    `create_daily_session`은 모듈 상수 `ss.DEFAULT_RECIPE`/`ss.SESSION_SIZE`를
+    읽으므로(인자로 안 받는다) 그 둘을 갈아끼운다. env로 되돌렸을 때와 같은 상태다.
+    """
+    monkeypatch.setattr(ss, "DEFAULT_RECIPE", LEGACY_UNIT_RECIPE)
+    monkeypatch.setattr(ss, "SESSION_SIZE", LEGACY_SESSION_SIZE)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -143,22 +171,42 @@ def kinds_of(entries):
 # ═══════════════════════════════════════════════════════════════
 
 
-class TestFifteenItemSession:
-    def test_배합_기본값이_15문항_계약값(self):
-        """env 기본값 = 계약값 (CLAUDE.md 드리프트 감시 관례)."""
-        assert settings.SESSION_RECIPE == {
-            "new": 5, "review": 4, "live": 1, "unit": 5
-        }
-        assert ss.SESSION_SIZE == 15
+class TestDefaultRecipeContract:
+    """**기본 배합**의 계약 — 위 LEGACY 전환과 독립이다(여기만 settings를 본다)."""
 
-    def test_unit_kind가_배합_validator_허용집합에_있다(self):
-        """allowed에 unit이 없으면 env 튜닝이 ValidationError로 죽는다."""
+    def test_배합_기본값이_10문항_계약값(self):
+        """env 기본값 = 계약값 (CLAUDE.md 드리프트 감시 관례).
+
+        SPRINT_R13_02 §T3 / MT-6: 오늘 날씨 2 · 신규 4 · 복습 3 · 보드 1 = 10.
+        화면 문구가 R11 이래 「오늘의 10문항」인데 실배합이 15였던 어긋남
+        (대장 CO-S-6)이 이 값으로 닫힌다.
+        """
+        assert settings.SESSION_RECIPE == {
+            "live": 2, "new": 4, "review": 3, "board": 1
+        }
+        assert sum(settings.SESSION_RECIPE.values()) == 10
+
+    def test_진도_블록은_기본_배합에_없다(self):
+        """`unit`이 빠진 것이 사고가 아니라 계약임을 못 박는다."""
+        assert "unit" not in settings.SESSION_RECIPE
+
+    def test_validator_허용집합이_unit과_board를_모두_받는다(self):
+        """`unit`이 빠져도 **허용집합에는 남는다** — env 롤백 통로다.
+
+        `board`는 2026-08-12에 추가됐다: T3 계약이 적어 둔 배합을 문자 그대로
+        넣으면 그때까지 ValueError로 기동이 죽었다(계약서가 코드에 도달 불가).
+        """
         from app.core.config import Settings
 
-        tuned = Settings(SESSION_RECIPE={"new": 1, "unit": 2})
-        assert tuned.SESSION_RECIPE == {"new": 1, "unit": 2}
+        rollback = Settings(SESSION_RECIPE=LEGACY_UNIT_RECIPE)
+        assert rollback.SESSION_RECIPE == LEGACY_UNIT_RECIPE
+        current = Settings(SESSION_RECIPE={"live": 2, "new": 4, "review": 3, "board": 1})
+        assert sum(current.SESSION_RECIPE.values()) == 10
         with pytest.raises(ValueError):
             Settings(SESSION_RECIPE={"new": 1, "bogus": 2})
+
+
+class TestFifteenItemSession:
 
     def test_new_풀_한도가_대체_수요를_덮는다(self):
         """new는 **다른 전 블록의** 대체 공급원 — 한도가 배합 총합 미만이면
@@ -185,12 +233,14 @@ class TestFifteenItemSession:
             if "uses_live_slots IS false" in str(stmt)
             and "concept_tag IN" not in str(stmt)
         ]
-        assert new_limits == [sum(RECIPE.values())]
+        # NEW_POOL_LIMIT은 import 시점의 **기본** 배합에서 파생된다
+        # (LEGACY 전환은 모듈 상수 재계산까지 되돌리지 않는다).
+        assert new_limits == [sum(settings.SESSION_RECIPE.values())]
         assert limits, "live 풀 조회가 사라졌다 — 분류 조건을 확인할 것"
 
     def test_계약1_15문항_5_4_1_5를_실발급(self, monkeypatch):
         session, entries = issue_session(monkeypatch)
-        assert len(entries) == ss.SESSION_SIZE == 15
+        assert len(entries) == ss.SESSION_SIZE == LEGACY_SESSION_SIZE
         counts = {k: kinds_of(entries).count(k) for k in RECIPE}
         assert counts == {"new": 5, "review": 4, "live": 1, "unit": 5}
         assert session.recipe_json["recipe"] == RECIPE
@@ -464,8 +514,21 @@ class TestCrownOwnership:
         )
         assert "award" not in calls and result.crown_award is None
 
-    def test_계약6_유닛_직접_진입은_왕관_없이_연습만(self, monkeypatch):
-        """중복 수여 방지 — grant_crown은 항상 False, 스냅샷만 노출한다."""
+    def test_계약6_유닛_직접_진입이_왕관_유입로다(self, monkeypatch):
+        """⚠️ **2026-08-12 계약 반전** — 원 계약 6은 "왕관 없이 연습만"이었다.
+
+        종전 논리는 "왕관은 daily 세션의 **진도 블록**이 소유하므로 유닛 직접
+        진입에서 또 주면 이중 수여"였다. 그 전제가 **배합에서 사라졌다** —
+        `unit` kind가 기본 배합에서 빠지면서 진도 블록이 발급되지 않고,
+        `routers/session.py:_crown_scope_logs`가 `kind == "unit"` 문항만 왕관 판정
+        대상으로 삼으므로 daily 왕관 유입로가 통째로 0이 됐다. 왕관이 도달 불가가
+        되므로 **유닛 세션 완료로 되돌린다**(클라이언트 확정).
+
+        이중 수여를 막는 것은 이제 이 분기가 아니라 `grant_unit_crown`의 멱등
+        판정이다(`crown_target` 상한 · `cleared` 전환 1회). 같은 계약을
+        `test_crown_award.py`가 라우터 쪽에서 소유하고, 여기서는 **진도 블록이
+        켜져 있어도(LEGACY 배합) 유닛 세션은 만점이면 왕관을 요청한다**를 본다.
+        """
         unit_id = uuid.uuid4()
         session = make_session(mode="unit", unit_id=unit_id)
         logs = [make_log("air_mass") for _ in range(UNIT_COUNT)]
@@ -476,7 +539,9 @@ class TestCrownOwnership:
         result, calls = run_complete(
             monkeypatch, session, logs, award=AWARD, unit_payload=payload
         )
-        assert calls["unit_result"] == (unit_id, True, False)
+        assert calls["unit_result"] == (unit_id, True, True)
+        # daily 전용 유입로(award_crown_for_activity)는 여전히 안 탄다 —
+        # 유닛 세션의 왕관은 grant_unit_crown 하나로만 간다(경로 이중화 금지).
         assert "award" not in calls and result.crown_award is None
         assert result.unit_result.all_correct is True
 

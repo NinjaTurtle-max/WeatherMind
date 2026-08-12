@@ -119,8 +119,12 @@ class TestBuildSpine:
         assert spine["current_unit"]["slug"] == u2.slug
 
     def test_섹션_교차_전체_순서로_집계(self):
-        a = make_unit("하늘 읽기", 1)
-        b = make_unit("공기의 힘", 1, prereq=a.id)
+        # 섹션명은 **SECTION_ORDER에 등재된 값**이어야 한다 — 미등재 섹션은
+        # `_section_key`의 폴백을 타고 알파벳순으로 정렬되므로, 옛 이름을 쓰면
+        # 이 테스트가 "섹션 순서"가 아니라 "가나다 순서"를 검증하게 된다
+        # (CO-G1 재구조화로 옛 4섹션이 통째로 미등재가 됐다).
+        a = make_unit(cs.SECTION_ORDER[0], 1)
+        b = make_unit(cs.SECTION_ORDER[1], 1, prereq=a.id)
         progress = {a.id: prog(crowns=1, cleared=True)}
         spine = cs.build_spine([b, a], progress)  # 입력 순서 무관
         assert spine["units_total"] == 2

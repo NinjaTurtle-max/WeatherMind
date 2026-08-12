@@ -108,9 +108,12 @@ class TestThetaExpansion:
         )
         assert "left outer join item_params" in sql
         assert "order by abs(coalesce(item_params.b, case" in sql
-        # pool_level_groups("elementary", 1.0) == ["adult", "elementary"] → IN 2개
+        # ⚠️ 2026-08-12: θ가 있으면 **전 밴드**가 열린다(선택 축 단일화).
+        # 종전 기대값 ["adult", "elementary"](가입 ∪ θ)는 성인·전문 문항을 잘라
+        # 「신고는 초등, 실력은 상위」인 학습자를 굶기고 있었다. 좁히는 일은
+        # 이제 필터가 아니라 위 ORDER BY(|b−θ|)와 kl 재정렬이 한다.
         params = cs.session_service.pool_level_groups("elementary", 1.0)
-        assert params == ["adult", "elementary"]
+        assert params == sorted(wb.LEVEL_GROUP_BANDS)
 
     def test_board_유닛_하드_블록_해소_경로(self, monkeypatch):
         """초등 board 0건이어도 θ 확장 그룹의 board 문항이 풀에 들어온다."""
@@ -122,11 +125,11 @@ class TestThetaExpansion:
         )
         assert "left outer join item_params" in sql  # θ 경로 활성
         assert "question_type =" in sql  # board 필터 유지
-        # θ=0.0 → middle_high — 시드상 board 10건이 있는 그룹이 풀에 합류
-        assert cs.session_service.pool_level_groups("elementary", 0.0) == [
-            "elementary",
-            "middle_high",
-        ]
+        # 전 밴드가 열리므로 board 문항이 있는 그룹이 밴드와 무관하게 풀에 합류한다 —
+        # 이 테스트가 잡던 「초등 board 0건 하드 블록」은 그래서 구조적으로 사라진다.
+        assert cs.session_service.pool_level_groups("elementary", 0.0) == sorted(
+            wb.LEVEL_GROUP_BANDS
+        )
 
     def test_다른_개념의_θ만_있으면_가중_평균으로_동작(self, monkeypatch):
         """unit.concept_tag θ가 없어도 overall_theta 폴백(가중 평균)으로 θ 경로."""

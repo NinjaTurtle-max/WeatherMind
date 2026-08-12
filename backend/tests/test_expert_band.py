@@ -115,17 +115,27 @@ class TestExpertSeedAllowlist:
 
 
 class TestPlacementDomainUnchanged:
-    """배치고사(진단) 도메인은 3밴드 고정 — R12의 PLACEMENT_QUIZ_TAGS 분리와 동일 취지.
+    """배치고사와 expert 밴드의 관계 — **2026-08-12 반전**.
 
-    6문항 서로소 배치 계약이 밴드 수에 묶여 있어 4밴드로 넓히면 깨진다. expert
-    문항은 placement 후보 버킷에 들어가더라도 목표 그룹으로 지명되지 않아
-    **결정적으로 선발되지 않는다**(폴백 목록도 LEVEL_GROUPS 3종에서만 만든다).
+    ⚠️ 종전 독스트링은 「배치 도메인은 3밴드 고정」이었고, 근거는 *"6문항 서로소
+    배치 계약이 밴드 수에 묶여 있어 4밴드로 넓히면 깨진다"*였다. **그 계약이
+    폐기됐다** — 배치고사의 선발 축이 밴드에서 **지식 단계(kl)**로 바뀌면서
+    (`placement_service.target_level_sequence`) 서로소 배치 자체가 사라졌다.
+
+    그래서 판정이 뒤집힌다: kl 7~10을 표적으로 삼는 슬롯은 **expert 문항을
+    선발해야 한다**. 밴드×kl가 1:1(expert=kl 7~10)이라, expert를 계속 막으면
+    배치고사가 상위 4단계를 영영 못 재고 「10단계를 변별한다」가 성립하지 않는다.
+
+    `LEVEL_GROUPS` 3종 유지는 **별개 계약**이라 그대로 남는다 — 그것은 가입
+    **신고** 축의 값 목록이고(사용자가 고를 수 있는 것), 선발 축이 아니다.
     """
 
     def test_placement_LEVEL_GROUPS는_3종_유지(self):
+        """신고 축은 여전히 3종 — 선발 축이 넓어진 것과 무관하다."""
         assert ps.LEVEL_GROUPS == ("elementary", "middle_high", "adult")
 
-    def test_expert_문항은_배치고사에서_선발되지_않는다(self):
+    def test_상위_단계_슬롯은_expert_문항을_선발한다(self):
+        """kl 7~10 표적 슬롯이 expert를 뽑아야 상위 구간이 측정된다."""
         candidates = [
             {
                 "id": f"item-{tag}-{group}",
@@ -140,7 +150,10 @@ class TestPlacementDomainUnchanged:
         for reported in ps.LEVEL_GROUPS:
             picks = ps.plan_placement_picks(candidates, reported)
             assert picks, "배치 픽이 비면 이 테스트가 무의미하다"
-            assert all(p["level_group"] != "expert" for p in picks)
+            assert any(p["level_group"] == "expert" for p in picks), (
+                f"신고 {reported}: expert 문항이 한 건도 안 뽑혔다 — 배치고사가 "
+                "kl 7~10을 못 재면 10단계 변별이 반쪽이 된다"
+            )
 
 
 class TestBoardDifficultyBand:

@@ -195,7 +195,13 @@ class TestSeedTypeCoverage:
         #   — 10칸이 모두 98건 이상이라 어느 단계로 배정돼도 세션이 굶지 않는다.
         #   14개념 태그 전건 사용 · explanation_hint 921/1000(92%)이라 그만큼 런타임
         #   LLM 호출이 사람 해설로 대체된다.
-        assert len(_seed_items()) == 1000
+        # R13-02 T3 실황(2026-08-12): **+12 = 1012.** 실황 문항 8 → 20건.
+        #   그중 4건은 `correct_answer` 자체가 `{today.*}` 슬롯이라 **정답이 날마다
+        #   바뀐다** — 종전 8건은 전부 MC·정답 고정이라 슬롯이 배경 장식이었다.
+        #   4건 전부 `short_answer`인 것은 선택이 아니라 제약이다: slider에 슬롯
+        #   정답을 넣으면 `validate_chain.slider_range`·계약 G `check_payload`·
+        #   `seed_content.validate_entry` 세 곳이 "정답이 숫자가 아님"으로 떨군다.
+        assert len(_seed_items()) == 1012
 
 
 class TestEverySeedItemIsPlayable:

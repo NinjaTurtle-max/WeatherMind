@@ -40,10 +40,29 @@ from app.models.session import Session
 from app.models.unit import Unit, UserUnitProgress
 from app.models.user import User
 from app.services import session_service, weatherbrain_service, xp_service
-from app.services.weather_api import KST
+from app.services.weather_api import KST, get_today_weather, user_region
 
 MODE_UNIT = "unit"
 UNIT_SESSION_SIZE = settings.UNIT_SESSION_SIZE   # 기본 5 — env 튜닝(R5.5)
+
+# 유닛 세션이 예약하는 실황 문항 수 —
+# **클라이언트 사양(2026-08-12): 세션당 2건 · 20종 · 10일 순환**.
+# 세 수치는 한 덩어리다: 20종을 2건씩 내보내면 정확히 10일에 한 바퀴다. 그래서
+# 이 상수만 바꾸면 순환 주기도 함께 바뀐다(주기 = 종수 ÷ 이 값).
+# **예약이 필요한 이유**: 실황 문항은 시드에서 소수이고(2026-08-12 실측 8건 —
+# 담당 F가 20종으로 저작 중) 한 개념 태그에 몇 건뿐이라, 풀에 섞어 |kl−표적|으로만
+# 세우면 5칸 안에 사실상 들어오지 못해 "반영한다"가 화면에서 관측되지 않는다.
+# **상한이기도 한 이유**: 예약분을 넘는 실황은 나머지 칸을 두고 경쟁하지 않는다
+# (daily가 new/review 풀에서 실황을 제외하는 것과 같은 취지).
+# env 노브를 두지 않는 것은 `Settings`가 이 담당의 소유 밖이기 때문이다 —
+# 계약 수치로 굳으면 `UNIT_SESSION_SIZE`와 같은 자리로 옮길 것.
+UNIT_LIVE_CAP = 2
+
+# 실황 후보 조회 상한 — **순환은 후보 전집합 위에서만 결정적이다.** SQL LIMIT이
+# 무작위(또는 |b−θ|) 정렬 뒤에 절단하면 날마다 후보 집합이 달라져 "같은 날 같은
+# 문항"도 "10일에 한 바퀴"도 성립하지 않는다. 실황은 전체 20종 목표라 개념 태그
+# 하나에 이 값만큼 쌓일 일이 없다 — 절단이 일어나지 않게 하는 것이 유일한 목적이다.
+UNIT_LIVE_POOL_LIMIT = 100
 
 # 유닛 풀 선취 배수 (CO-L-F2) — θ 경로에서 SQL LIMIT을 UNIT_SESSION_SIZE의 이 배로
 # 잡는다. SQL은 밴드 해상도(|b−θ|)로만 자를 수 있어, 5건에서 끊으면
@@ -58,13 +77,33 @@ UNIT_POOL_PREFETCH = 4
 # 아래 튜플 자신**이고, 코스별 분포는 `database/seed/units.json`이 소유한다.
 # 미등재 섹션은 뒤로(알파벳). unit_order는 섹션 내 유일(§3.6).
 SECTION_ORDER = (
-    "하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후",
-    # 재난 축 1차 개통 (R13 §2.4 · CO-A1) — "위험 기상 생성 보드 → 행동 요령" 연쇄.
-    "위험한 하늘",
-    # 기초과학 코스 3섹션 (R12 §9 — specs/11 §2 순서: 열·복사 → 압력·밀도 → 상태변화).
+    # 기상 코스 10섹션 = 지식 단계 1~10 (CO-G1 순환식 — docs/design/cyclic_sections.md).
+    # **섹션명은 여기가 원본이 아니다.** /me 화면이 렌더하는 10단계 표시명
+    # (frontend/src/i18n/resources/ko.js `ability.knowledgeLevel.name`)의 사본이고,
+    # 원본은 database/seed/units.json이 소유한다.
+    "초등 3~4학년", "초등 5~6학년", "중학교 물질·에너지", "중학교 유체 지구",
+    "고등학교 공통", "고등학교 일반선택", "고등학교 진로선택",
+    "학부 대기과학", "학부 고학년", "기상청 현업",
+    # 기초과학 3섹션 — **별도 코스로 존치**(2026-08-12 클라이언트 확인).
     # 코스가 갈려도 정렬 키는 전역 하나로 충분하다 — 섹션명이 코스 간 유일.
     "열과 빛", "공기의 무게", "물과 에너지",
 )
+# 종전 기상 5종("하늘 읽기"·"공기의 힘"·"큰 바람"·"도시와 기후"·"위험한 하늘")은
+# 2026-08-12 재구조화로 사라졌다. 미등재 섹션은 `_section_key`가 뒤로(알파벳)
+# 보내므로, 새 10종이 여기 없으면 **초등이 뒤쪽에서 렌더된다** — 교육과정이 거꾸로
+# 선다. 실제로 그 상태로 한 번 실측됐고(담당 D: 13개 중 10번째), 클라이언트가
+# "열과빛 → 공기의무게"로 시작하는 화면을 지적한 것이 바로 그 증상이다.
+
+# 섹션 → 지식 단계. 기상 코스 섹션은 **이름 자체가 단계**라 별도 컬럼을 두지 않는다
+# (units.json에 knowledge_level 필드를 넣으면 같은 사실이 두 곳에 적히고, 이 저장소
+# 에서 가장 잘 기록된 실패 유형이 "두 번째 사본"이다). 앞 10종이 기상 코스의 단계
+# 축이라는 것은 위 배열의 구조적 계약이고, 그 사실은 계약 테스트가 감시한다.
+# 기초과학 3섹션은 단계 축이 아니라 **코스**이므로 매핑에 넣지 않는다 — 넣으면
+# 그 유닛의 θ 파생 표적이 엉뚱한 단계로 덮인다.
+WEATHER_SECTION_COUNT = 10
+SECTION_KNOWLEDGE_LEVEL = {
+    name: i + 1 for i, name in enumerate(SECTION_ORDER[:WEATHER_SECTION_COUNT])
+}
 
 # 기본 코스 (R11-01 §3 F) — 기존 유저·course 파라미터 생략·코스 미시드 DB 전부
 # weather가 기본이다. 코스별 유저 선택 영속화는 웨이브 2(코스 선택 UX와 함께).
@@ -189,6 +228,28 @@ def _section_key(section: str) -> tuple[int, str]:
         return (SECTION_ORDER.index(section), "")
     except ValueError:
         return (len(SECTION_ORDER), section)
+
+
+def unit_target_level(unit: Any, fallback: int | None) -> int | None:
+    """유닛의 표적 지식 단계 — 섹션이 단계를 말하면 그것이 이기고, 아니면 θ 파생값.
+
+    CO-G1 순환식 배선의 본체다(`docs/design/cyclic_sections.md` §5-①). 배선 전에는
+    `_unit_content_pool`이 `concept_tag + kind`로만 풀을 골랐고 단계 표적은 **유저
+    θ에서만** 나왔다 — 그래서 `w01-pressure-front`(초등 3~4학년)와
+    `w09-pressure-front`(학부 고학년)가 **완전히 같은 5문항**을 냈고, 10섹션은
+    화면상의 장식이었다.
+
+    ⚠️ **정렬 표적이지 필터가 아니다.** `rank_by_knowledge_level`에만 넘기고
+    SQL의 `where`로 내리지 않는다 — `test_curriculum_band_fallback`의
+    `test_지식수준_고정반경으로는_굶주림이_안_풀린다`가 "고정 kl 창은 밴드 공백을
+    단계 공백으로 옮길 뿐"임을 실측으로 못 박아 두었다. 표적 단계에 문항이 없으면
+    **가장 가까운 단계로 내려앉고 굶지 않는다**.
+
+    기초과학 3섹션(단계 축이 아니라 코스다)과 섹션이 없거나 미등재인 유닛
+    (대역 객체·재구조화 전 유닛)은 매핑에 없으므로 `fallback`(θ 파생)이 그대로
+    산다 — 하위 호환이 이 한 줄에 들어 있다.
+    """
+    return SECTION_KNOWLEDGE_LEVEL.get(getattr(unit, "section", None), fallback)
 
 
 def ordered_units(units: Iterable[Any]) -> list[Any]:
@@ -668,7 +729,14 @@ async def is_unit_locked(
 def unit_pool_level_groups(user_level_group: str, theta: float | None) -> list[str]:
     """유닛 풀의 밴드 필터 집합 — **밴드 공백에 대한 폴백** (CO-L2·CO-L-F2·CO-L-F3).
 
-    `session_service.pool_level_groups`(가입 그룹 ∪ θ 매핑 그룹, 최대 2밴드)를
+    ⚠️ **2026-08-12부터 이 함수는 `session_service.pool_level_groups`와 같은 값을
+    돌려준다.** 클라이언트 확정("무조건 배치고사에 따른 위치 배정")으로 daily 풀도
+    θ 경로에서 전 밴드를 열었기 때문이다 — 즉 유닛 풀이 **먼저 옳았고** 나머지가
+    따라온 형태다. 두 함수를 합치지 않고 남기는 이유는 이 자리가 넓힘의 근거
+    (아래 실측·반경 검증)를 소유하고 있고, 유닛 풀만 다시 좁혀야 할 일이 생겨도
+    호출측을 안 건드리게 하기 위해서다.
+
+    `session_service.pool_level_groups`(종전: 가입 그룹 ∪ θ 매핑 그룹, 최대 2밴드)를
     유닛 풀에서만 넓힌다. 넓히는 이유는 실측이다 — 유닛 24개 × 4밴드 96칸 중
     **16칸이 0문항**(신고 가능한 3밴드로만 세도 9칸)이고, 밴드 정확 일치 필터에는
     강등 폴백이 없어 그 칸에 떨어진 유저는 **0문항 세션**을 받는다. 유닛 세션에는
@@ -761,8 +829,53 @@ def rank_by_knowledge_level(items: list, target_level: int | None) -> list:
     return sorted(items, key=_key)
 
 
+def live_rotation_window(
+    items: list[Any], day: date, cap: int = UNIT_LIVE_CAP
+) -> list[Any]:
+    """실황 문항의 **날짜 결정적 순환** 창 — 클라이언트 사양의 "10일 순환".
+
+    사양은 세 수치가 한 덩어리다(세션당 2건 · 20종 · 10일). 그것을 그대로 옮기면
+    "후보를 고정 순서로 세우고 하루에 `cap`칸씩 창을 민다"가 된다:
+
+        offset = (기준일 서수 × cap) mod 종수
+        창 = 후보[offset], 후보[offset+1], … (끝은 앞으로 감김)
+
+    이 정의에서 사양 3항이 **따로 구현하지 않아도** 따라 나온다.
+      · 같은 날 같은 후보 집합 → **항상 같은 문항**(유저·호출 횟수 무관).
+        랜덤이면 어제 본 것을 오늘 또 보게 되므로 순환 자체가 성립하지 않는다.
+      · 다음 날 → 창이 `cap`칸 밀리므로 **다른 문항**.
+      · 종수가 `cap`의 배수면 창이 겹치지 않고 종수÷cap일에 **정확히 한 바퀴**
+        — 20종·2건이면 10일이고, 그 10일 안에 같은 문항이 두 번 나오지 않는다.
+
+    **기준일은 KST다.** 호출측이 KST 기준일을 넘긴다(이 저장소의 하루 경계는
+    KST고, UTC로 세면 09:00에 하루가 넘어간다 — 목의 `KST_OFFSET_MS`가 같은
+    계약을 지킨다). `date.toordinal()`은 달·해 경계에서도 1씩 증가하므로 순환이
+    월말에 튀지 않는다.
+
+    **재료가 모자라도 우아하게**: 후보가 `cap`보다 적으면 있는 만큼만 돌려준다
+    (8건이면 4일, 3건이면 3일에 한 바퀴). 0건이면 빈 목록이고, 호출측은 그 칸을
+    비실황 문항으로 채우므로 **0문항 세션이 되지 않는다**.
+
+    정렬 키가 id인 이유: 저작 순서·DB 행 순서·SQL의 random 정렬 중 어느 것도
+    날짜 사이에 안정적이지 않다. id는 문항의 생애 동안 불변이라 순환의 기준선이
+    될 수 있는 유일한 값이다. 새 문항이 저작되면 그 문항이 끼어드는 자리부터
+    창이 밀리는데, 그것은 종수가 늘면 주기가 늘어난다는 사양의 귀결이다.
+    """
+    pool = sorted(items, key=lambda item: str(getattr(item, "id", "")))
+    if not pool or cap <= 0:
+        return []
+    size = min(cap, len(pool))
+    offset = (day.toordinal() * cap) % len(pool)
+    return [pool[(offset + i) % len(pool)] for i in range(size)]
+
+
 async def _unit_content_pool(
-    db: AsyncSession, user: User, unit: Unit, abilities: list | None = None
+    db: AsyncSession,
+    user: User,
+    unit: Unit,
+    abilities: list | None = None,
+    slot_values: dict[str, str] | None = None,
+    today: date | None = None,
 ) -> list[ContentItem]:
     """유닛의 concept_tag+kind 문항 풀 — θ→난이도 연결 (R7-02 §3.3).
 
@@ -781,8 +894,27 @@ async def _unit_content_pool(
       먼저 자르면 재정렬이 볼 후보가 남지 않기 때문이다 — 조회 **횟수**는 그대로다.
     - 콜드스타트(θ None)는 현행과 완전 동일: 가입 그룹 단일 + random 정렬 +
       선취 없음 + 재정렬 없음(단계 표적이 없으므로).
-    - 슬롯 미치환 노출 방지의 live 슬롯 제외(live=False)는 board에도 적용된다
-      (유닛 세션은 슬롯 치환이 없고, 시드상 board는 전부 uses_live_slots=false).
+
+    **실황 문항(클라이언트 사양 2026-08-12 — 세션당 2건 · 20종 · 10일 순환)** —
+    `slot_values`를 넘기면 `UNIT_LIVE_CAP`건까지 실황 문항(`uses_live_slots=true`)을
+    **앞자리에 예약**하고 나머지 칸을 기존 비실황 경로가 채운다. 예약분을 고르는
+    순서는 두 겹이다:
+      ⑴ 치환 가능분만 남긴다(`fill_live_slots(...)[1]` — daily의 CO-M1과 같은
+         겹). **미치환 원문은 풀 단계에서 이미 없다.**
+      ⑵ 남은 후보 위에서 `live_rotation_window`가 **기준일로 결정적으로** 고른다.
+         난이도 재정렬(`rank_by_knowledge_level`)을 여기 걸지 **않는다** — θ는
+         날마다 움직이므로 순환의 기준선이 될 수 없고, 실황 2건은 난이도 표적이
+         아니라 "오늘의 날씨"를 나르는 자리다.
+    `slot_values`가 비면(무키·KMA 장애·호출측 미전달) 실황 조회 자체를 하지 않아
+    조회 수·결과가 종전과 완전히 같다 — 실황이 0건이어도, 사양의 2건을 못 채워도
+    세션은 비실황 문항으로 `UNIT_SESSION_SIZE`를 채운다(0문항 세션 금지).
+
+    ⚠️ **기본값은 실황 제외(slot_values=None)이고, 그것이 옳다.** 이 함수의 다른
+    호출측인 `progress_block_pool`은 **daily 세션의 진도 블록**을 만드는데,
+    `session_service`의 발급 루프는 `pick["kind"] == "live"`인 문항에만 슬롯을
+    치환한다(진도 블록의 kind는 "unit"). 여기서 실황을 기본으로 넣으면 daily
+    화면에 「{today.temp_max}」 원문이 그대로 나간다. 즉 실황 편입은 **슬롯을
+    치환할 책임이 있는 호출측만** 옵트인한다(현재 `create_unit_session` 하나).
 
     당일 중복 방지는 **best-effort**다 (R10-01 D2·D8-5): 1차 조회는 오늘 응답분을
     제외하고(신선도 우선), 그 결과가 UNIT_SESSION_SIZE보다 적으면 제외를 뗀
@@ -793,45 +925,77 @@ async def _unit_content_pool(
     if abilities is None:
         abilities = await weatherbrain_service.load_abilities(db, user)
     theta = weatherbrain_service.overall_theta(abilities, unit.concept_tag)
-    target_level = (
-        None
-        if theta is None
-        else weatherbrain_service.theta_to_knowledge_level(theta)
+    # 표적 단계는 **유닛이 먼저**다 (CO-G1 — unit_target_level 독스트링).
+    # 같은 개념이 10섹션을 가로질러 재등장하므로, 섹션이 곧 그 유닛이 겨냥하는
+    # 단계다. 섹션이 단계를 말하지 않는 유닛(기초과학·대역)만 θ 파생값으로 간다.
+    target_level = unit_target_level(
+        unit,
+        None if theta is None else weatherbrain_service.theta_to_knowledge_level(theta),
     )
     fetch_limit = UNIT_SESSION_SIZE * (1 if theta is None else UNIT_POOL_PREFETCH)
 
-    def _pool_stmt(served_subq):
+    def _pool_stmt(served_subq, *, live: bool = False):
         stmt = session_service.build_pool_query(
             level_groups=unit_pool_level_groups(user.level_group, theta),
             theta=theta,
-            live=False,
+            live=live,
             served_subq=served_subq,
             weak_concepts=[unit.concept_tag],
-            limit=fetch_limit,
+            limit=UNIT_LIVE_POOL_LIMIT if live else fetch_limit,
         )
         if unit.kind == "board":
             return stmt.where(ContentItem.question_type == "board")
         return stmt.where(ContentItem.question_type != "board")
 
+    # 기준일 — **KST**. 실황 순환과 당일 중복 제외가 같은 하루 경계를 쓴다
+    # (UTC로 세면 09:00 KST에 하루가 넘어가고 순환이 낮에 튄다).
+    day = today or datetime.now(KST).date()
     today_subq = session_service.answered_today_subq(
-        user.id, session_service.kst_day_start_utc(datetime.now(KST).date())
+        user.id, session_service.kst_day_start_utc(day)
     )
+
+    # 실황 예약분 — 조회는 slot_values가 있을 때만(무키·장애면 왕복 자체가 없다).
+    # **오늘 응답분 제외(today_subq)를 걸지 않는다**: 순환은 "같은 날 같은 문항"이
+    # 계약이라, 하루에 두 번 들어온 유저에게 다른 실황을 주면 그 계약이 깨진다.
+    # 날마다 다른 문항이 나오는 것은 제외가 아니라 순환이 보장한다.
+    live_items: list[ContentItem] = []
+    if slot_values:
+        live_rows = list(
+            (await db.execute(_pool_stmt(None, live=True))).scalars().all()
+        )
+        renderable = [
+            item
+            for item in live_rows
+            if session_service.fill_live_slots(
+                dict(getattr(item, "template_json", None) or {}), slot_values
+            )[1]
+        ]
+        if len(renderable) < len(live_rows):
+            logger.info(
+                "유닛 실황 슬롯 치환 불가 %d/%d건 제외 (unit=%s)",
+                len(live_rows) - len(renderable),
+                len(live_rows),
+                getattr(unit, "slug", None),
+            )
+        live_items = live_rotation_window(renderable, day)
+
+    quota = UNIT_SESSION_SIZE - len(live_items)
     fresh = list((await db.execute(_pool_stmt(today_subq))).scalars().all())
-    items = rank_by_knowledge_level(fresh, target_level)[:UNIT_SESSION_SIZE]
-    if len(items) >= UNIT_SESSION_SIZE:
-        return items
+    items = rank_by_knowledge_level(fresh, target_level)[:quota]
+    if len(items) >= quota:
+        return live_items + items
 
     seen = {item.id for item in items}
     backfill = rank_by_knowledge_level(
         list((await db.execute(_pool_stmt(None))).scalars().all()), target_level
     )
     for item in backfill:
-        if len(items) >= UNIT_SESSION_SIZE:
+        if len(items) >= quota:
             break
         if item.id not in seen:
             seen.add(item.id)
             items.append(item)
-    return items
+    return live_items + items
 
 
 async def progress_block_pool(
@@ -881,6 +1045,10 @@ async def progress_block_pool(
     seen: set = set()
     block_unit: Unit | None = None
     for unit in open_units_in_order(scoped, progress, unlock_floor)[:count]:
+        # slot_values를 넘기지 **않는다** — 이 블록은 daily 세션이 소비하고,
+        # daily의 발급 루프는 kind="live"인 문항에만 슬롯을 치환한다(진도 블록의
+        # kind는 "unit"). 실황을 넣으면 미치환 원문이 그대로 화면에 나간다.
+        # daily의 실황 1문항은 배합의 live 블록이 이미 소유한다.
         for item in await _unit_content_pool(db, user, unit, abilities):
             if item.id in seen:
                 continue
@@ -891,6 +1059,25 @@ async def progress_block_pool(
             if len(items) >= count:
                 return items, block_unit
     return items, block_unit
+
+
+async def unit_slot_values(user: User) -> dict[str, str]:
+    """유닛 세션용 오늘 실황 슬롯 값 — 실패는 **빈 dict로 흡수**한다.
+
+    유닛 세션에는 daily의 quiz-generate 폴백이 없다(create_unit_session 독스트링).
+    실황은 학습 세션에 얹는 덤이므로 KMA 키 부재·장애·Redis 장애가 **세션 발급
+    자체를 막아서는 안 된다** — 빈 dict면 `_unit_content_pool`이 실황 조회를
+    건너뛰고 세션은 비실황 문항만으로 그대로 성립한다.
+    `get_today_weather`가 이미 KMAApiError·ValueError를 빈 dict로 흡수하므로
+    여기서 더 잡는 것은 캐시 계층(Redis) 장애 같은 그 밖의 예외다.
+    """
+    try:
+        return session_service.extract_slot_values(
+            await get_today_weather(user_region(user))
+        )
+    except Exception as exc:  # noqa: BLE001 — 위 사유(실황은 발급의 전제가 아니다)
+        logger.warning("유닛 세션 실황 조회 실패 — 실황 없이 발급: %s", exc)
+        return {}
 
 
 async def create_unit_session(
@@ -906,25 +1093,50 @@ async def create_unit_session(
     "content_item_id"}]). 잠금·미존재 판정은 라우터가 담당한다.
     abilities는 라우터의 refresh_abilities 1회 결과(R8-01 §3.2) — 풀 정렬에 전달.
     문항 풀이 비면 0문항 세션이 발급된다(데이터 저작 대기 — 클리어 불가).
+
+    **오늘 날씨를 반영한다 (클라이언트 사양 2026-08-12 — 세션당 2건 · 20종 ·
+    10일 순환)**: 풀에 실황 문항(`uses_live_slots=true`)을 `UNIT_LIVE_CAP`건까지
+    **기준일 결정적으로**(`live_rotation_window`) 예약하고, `{today.*}` 슬롯을
+    daily와 **같은 순수 함수**(`extract_slot_values`·`fill_live_slots`)로 치환한
+    뒤 `QuizLog.question_json`에 적재한다 — 라우터는 entries를 버리고 로그에서
+    응답을 다시 조립하므로(`session_today_response`) 치환은 **적재 전**이어야 한다.
+    치환에 실패한 문항은 **조용히 버린다**: 유닛 세션에는 daily의 quiz-generate
+    폴백이 없고, 「{today.temp_max}」 원문 노출이 문항 1건 부족보다 나쁘다.
+    (풀 단계에서 이미 치환 가능분만 남으므로 여기 방어는 이중 안전장치다.)
     """
     now = datetime.now(KST)
     today = today or now.date()
     today_str = now.strftime("%Y%m%d")
 
-    items = await _unit_content_pool(db, user, unit, abilities)
+    slot_values = await unit_slot_values(user)
+    items = await _unit_content_pool(db, user, unit, abilities, slot_values, today)
     entries: list[dict[str, Any]] = []
     for item in items:
         template = dict(item.template_json or {})
+        slot_filled = False
+        if getattr(item, "uses_live_slots", False):
+            rendered, ok = session_service.fill_live_slots(template, slot_values)
+            if not ok:
+                logger.warning(
+                    "유닛 세션 실황 슬롯 치환 실패 (item=%s) — 문항 제외", item.id
+                )
+                continue
+            template, slot_filled = rendered, True
         question = {
             **template,
             "concept_tag": item.concept_tag,
             "question_type": item.question_type,
+            # 학습 단계 배지의 통로 (2026-08-12 담당 E 이월) — 라우터의
+            # `_to_session_item`이 `question_json`에서 읽으므로, 여기서 싣지 않으면
+            # 유닛 세션에서만 배지가 사라진다. nullable이라 None이면 None 그대로
+            # 내려가고 프론트가 배지를 그리지 않는다(하위 호환).
+            "knowledge_level": getattr(item, "knowledge_level", None),
         }
         entries.append(
             {
                 "question": question,
                 "source": "bank",
-                "slot_filled": False,
+                "slot_filled": slot_filled,
                 "content_item_id": item.id,
             }
         )
@@ -959,7 +1171,14 @@ async def create_unit_session(
         "kind": "unit",
         "unit_id": str(unit.id),
         "items": [
-            {"quiz_id": e["quiz_id"], "source": e["source"], "slot_filled": False}
+            {
+                "quiz_id": e["quiz_id"],
+                "source": e["source"],
+                # 실제 치환 여부를 그대로 싣는다 — `session_today_response`가 이
+                # 메타에서 slot_filled를 읽으므로, False 고정이면 치환이 화면
+                # 계약에서 사라진다(재진입·재조회 응답까지).
+                "slot_filled": e["slot_filled"],
+            }
             for e in entries
         ],
     }
