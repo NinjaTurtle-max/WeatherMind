@@ -223,18 +223,29 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
     tile?.closest('[data-testid="learn-footer"]') !== null,
     '복습 칸이 하단 3카드 줄 안에 있다',
   );
-  ok($('[data-testid="learn-secondary"]') !== null, '오른쪽 열에 자유 일일 세션 칸이 있다');
-  // 리그 칸은 뺐다(2026-08-10 사용자 지시) — 내비 탭이 이미 갖고 있어 같은
+  // ⚠️ **「자유 일일 세션 칸이 있다」 단정은 폐기됐다**(2026-08-12).
+  // 그 칸(`learn-secondary`)은 `/daily` 라우트와 함께 카드째 제거됐다 —
+  // 클라이언트 지시로 자유 일일 세션이 없어지고 학습(유닛) 세션이 오늘 날씨를
+  // 받는 쪽으로 옮겨졌다. 없어진 요소를 요구할 수 없다.
+  //
+  // 리그 칸은 그 전에 뺐다(2026-08-10 사용자 지시) — 내비 탭이 이미 갖고 있어 같은
   // 목적지가 한 화면에 두 벌이었고, 정산 전에는 한 줄짜리라 칸값을 못 했다.
   ok($('[data-testid="learn-league"]') === null, '리그 칸이 되살아나지 않았다');
-  // 자유 일일 세션이 복습보다 **위**다(사용자 지시). DOM 순서로 못 박는다 —
-  // 복습은 due 0건이면 사라지므로 순서가 뒤집혀도 화면만 보면 티가 안 난다.
+
+  // 오른쪽 열의 세로 순서를 DOM으로 못 박는다 — 복습은 due 0건이면 사라지므로
+  // 순서가 뒤집혀도 화면만 보면 티가 안 난다.
+  //
+  // ⚠️ 종전 이 검사는 `order.indexOf('learn-secondary') < order.indexOf(...)`였는데,
+  // 카드가 사라진 뒤 `indexOf`가 **-1**을 돌려주는 바람에 `-1 < 2`로 **공허하게
+  // 통과**했다(오늘 실측). 없어진 요소를 무는 순서 검사는 조용히 무력화된다 —
+  // 그래서 양쪽이 실제로 존재하는지 먼저 확인한 뒤 순서를 본다.
   const col = $('[data-testid="learn-footer"]');
   const order = [...(col?.children ?? [])].map((c) => c.getAttribute('data-testid'));
-  ok(
-    order.indexOf('learn-secondary') < order.indexOf('review-queue-tile'),
-    `자유 일일 세션이 복습보다 위 — 실제 ${order.join(' → ')}`,
-  );
+  const iRegion = order.indexOf('learn-region');
+  const iReview = order.indexOf('review-queue-tile');
+  ok(iRegion !== -1, `학습 지역 줄이 오른쪽 열에 있다 — 실제 ${order.join(' → ')}`);
+  ok(iReview !== -1, `복습 칸이 오른쪽 열에 있다 — 실제 ${order.join(' → ')}`);
+  ok(iRegion < iReview, `학습 지역이 복습보다 위 — 실제 ${order.join(' → ')}`);
   // 복습은 **개념명 키워드**다(2026-08-09 결정). 한때 담당 캐릭터 그림으로 바꿨다가
   // 되돌렸다 — 캐릭터 8장에 개념 14종이라 둘 이상이 같은 얼굴을 쓴다.
   ok(tile.querySelector('img') === null, '복습은 그림이 아니라 개념명 키워드다');

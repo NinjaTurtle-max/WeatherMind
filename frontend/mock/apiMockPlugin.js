@@ -268,6 +268,11 @@ function seedToSessionItem(seed, { quizId, source = 'bank' }) {
     question_text: template.question_text ?? '',
     options: template.options ?? null,
     level_group: seed.level_group ?? 'middle_high',
+    // 지식 단계(난이도 축) — 서버 SessionItem.knowledge_level과 같은 필드.
+    // 시드 행의 컬럼값을 **파생 없이** 그대로 흘린다(서버 session_service와 동일).
+    // 없으면 null이고 화면은 배지를 그리지 않는다 — 목이 값을 지어내면 "구 데이터엔
+    // 배지가 안 뜬다"는 계약을 목에서 검증할 수 없게 된다.
+    knowledge_level: seed.knowledge_level ?? null,
     source,
     slot_filled: Boolean(seed.uses_live_slots),
     template_json: questionPayload(template, type),
@@ -1096,16 +1101,26 @@ const QUIZ = {
 //   heat_island '도시 상공의 오존층이 두꺼워져서'). 이 문구들은 시드 53문항에
 //   존재하지 않아(전수 grep 확인) 시드 파생으로 대체하면 스모크가 깨진다.
 //   스모크를 함께 손댈 수 있을 때 이 4건도 시드 파생으로 넘긴다(R10-07 보고 사항).
-// R13-01 §2.10: 세션 디폴트 15문항(신규5·복습4·실황1·**진도5**) — backend
+// R13-02 §T3: 세션 디폴트 **10문항**(실황2·신규4·복습3·**보드1**) — backend
 // Settings.SESSION_RECIPE와 parity 계약(test_r10_mock_parity_contract)이 대조한다.
-// 진도(unit) 블록은 서버에서 "현재 진행 유닛의 다음 문항"이며 항상 **마지막**에 온다.
-const MOCK_SESSION_RECIPE = { new: 5, review: 4, live: 1, unit: 5 };
+//
+// ⚠️ **2026-08-12 개정**(종전 15문항 신규5·복습4·실황1·진도5).
+//   ⑴ **`unit`(진도) 블록이 빠졌다.** 왕관 판정을 유닛 세션 완료로 되돌리기로
+//      클라이언트가 확정했다 — 데일리가 진도를 겸하지 않는다.
+//   ⑵ **`board` 1문항이 명시 블록으로 들어왔다.** 「오늘 날씨 반영 보드」다:
+//      KMA 실황 → 현상 판정 → 그 현상에 맞는 보드 선택(`order_boards_for_today`).
+const MOCK_SESSION_RECIPE = { live: 2, new: 4, review: 3, board: 1 };
 
 // 서버 Settings.DAILY_BOARD_CAP — daily 비진도 블록의 board 상한(CO-H5).
 // 목 뱅크는 board가 소수라 지금은 상한에 닿지 않지만, **정책을 선언하지 않으면
 // 저작이 늘었을 때 조용히 갈린다**(에너지 상수를 리터럴로 복사했다가 대조가 0이던
 // CO-J-9와 같은 자리). __mockPolicy()로 노출해 backend 계약 테스트가 실값을 문다.
-const MOCK_DAILY_BOARD_CAP = 2;
+//
+// **2 → 1** (2026-08-12 클라이언트 확정, 서버가 먼저 바뀜).
+// 배합이 `board: 1`을 **보장 자리**로 갖게 되면서 상한 2는 「보장 1 + 우발 1」을
+// 뜻했다. 상한 1이면 배합이 보장한 그 1건이 예산을 전부 쓰고, new·review 슬롯에
+// board가 우발적으로 끼어드는 경로가 닫힌다 — 하루에 보드는 「오늘의 하늘」 하나.
+const MOCK_DAILY_BOARD_CAP = 1;
 
 // 신규(new) 슬롯 픽스처 — 스모크 시나리오 7이 1·2번 문항으로 고정
 const PINNED_NEW_ITEMS = [
@@ -1116,6 +1131,7 @@ const PINNED_NEW_ITEMS = [
     question_text: '전선을 경계로 성질이 다른 두 공기가 만납니다. 찬 공기가 따뜻한 공기를 밀어 올리며 이동할 때 만들어지는 전선은?',
     options: ['한랭 전선', '온난 전선', '정체 전선', '폐색 전선'],
     level_group: 'middle_high',
+    knowledge_level: 4,
     source: 'bank',
     slot_filled: false,
     template_json: null, // 서버: 추가 페이로드가 필요 없는 유형은 None
@@ -1134,6 +1150,7 @@ const PINNED_NEW_ITEMS = [
     question_text: '여름철 우리나라에 덥고 습한 날씨를 가져오는, 남동쪽 해양에서 발달하는 기단의 이름은? (○○○○ 기단)',
     options: null,
     level_group: 'middle_high',
+    knowledge_level: 3,
     source: 'bank',
     slot_filled: false,
     template_json: null,
@@ -1150,6 +1167,10 @@ const PINNED_NEW_ITEMS = [
 
 // 복습(review) 슬롯 픽스처 — 스모크 시나리오 10이 개념·정답으로 고정
 // (typhoon = 목 WEAK_TAGS 최약 개념 → 약점 보너스 XP 분해 검증, heat_island = 비약점)
+// ⚠️ 이 두 건에는 `knowledge_level`을 **일부러 안 넣는다**(2026-08-12). 단계 미분류
+// 문항(구 데이터·생성 문항)에서 학습 수준 배지가 그려지지 않는 것을 개발 화면에서
+// 매번 눈으로 확인할 수 있게 하는 자리다 — 빈 배지·"?"가 뜨면 여기서 먼저 보인다.
+// 값을 채우고 싶어지면 그 계약이 어디서 검증되는지부터 확인할 것.
 const PINNED_REVIEW_ITEMS = [
   {
     quiz_id: `${todayISO()}-s3-review`,
@@ -1223,29 +1244,34 @@ const SESSION_SLOT_POOLS = {
   live: SEED_LIVE_POOL.map((seed, i) =>
     seedToSessionItem(seed, { quizId: `${todayISO()}-live${i + 1}-generated`, source: 'generated' }),
   ),
-  // 진도(unit) 슬롯 — R13-01 §2.10. 서버는 "현재 진행 유닛의 다음 문항"을 뽑지만
-  // 목에는 유저 진도 상태가 없어 시드 중간부터 결정적으로 집는다(신규·복습 슬롯이
-  // 앞/뒤 끝에서 집으므로 겹침이 가장 적은 구간). 총합·블록 표기 검증이 목적이다.
-  unit: [...SEED_QUIZ_POOL]
-    .slice(Math.floor(SEED_QUIZ_POOL.length / 2))
-    .map((seed, i) =>
-      seedToSessionItem(seed, { quizId: `${todayISO()}-unit${i + 1}-bank` }),
-    ),
+  // board 슬롯 (R13-02 §T3) — 「오늘 날씨 반영 보드」 1문항.
+  // 서버는 KMA 실황으로 오늘 현상을 판정해 `order_boards_for_today`로 정렬하지만,
+  // 목에는 실황 판정기가 없으므로 board 유형 시드를 **결정적 순서**로 집는다.
+  // 여기서 검증하는 것은 "board 블록이 배합만큼 실려 오고 kind가 board로 표시되는가"다.
+  // ⚠️ **`SEED_ITEMS`에서 고른다 — `SEED_QUIZ_POOL`이 아니다.** 그 풀은 정의부터
+  // `question_type !== 'board'`라 board를 걸러낸다(위 1215행). 거기서 board를 찾으면
+  // 항상 빈 배열이고, 그러면 board 블록이 조용히 new로 대체되어 **화면에 「오늘의
+  // 하늘」 블록이 영영 안 뜬다** — 실제로 그렇게 한 번 짰다(2026-08-12).
+  board: SEED_ITEMS.filter(
+    (seed) => seed.question_type === 'board' && !seed.uses_live_slots,
+  ).map((seed, i) => seedToSessionItem(seed, { quizId: `${todayISO()}-board${i + 1}-bank` })),
 };
 
 /** 배합대로 슬롯을 채운다 — 총 문항 수는 항상 배합 총합. 같은 문항은 한 번만.
  *  블록 구분(kind)은 서버 SessionItem.kind와 같은 값으로 실어 보낸다(§2.10). */
 function buildSessionItems(recipe) {
-  const picked = [];
   const seen = new Set();
   let boardTaken = 0;
-  for (const kind of ['new', 'review', 'live', 'unit']) {
+
+  /** 한 블록을 `count`만큼 집는다 — 서버 `plan_bank_picks`의 `take()`와 같은 역할.
+   *  `kind`는 **표시 라벨**이라 풀과 다를 수 있다(부족분을 new 풀에서 메울 때
+   *  서버가 그 문항을 "new"로 라벨하는 것과 동일). */
+  function take(poolName, count, kind, capBoard = true) {
+    const picked = [];
     let taken = 0;
-    // 진도 블록은 board 상한 면제 — 서버 plan_bank_picks와 같은 규칙(CO-H5).
-    const capBoard = kind !== 'unit';
     const deferred = [];
-    for (const item of SESSION_SLOT_POOLS[kind]) {
-      if (taken >= (recipe[kind] ?? 0)) break;
+    for (const item of SESSION_SLOT_POOLS[poolName] ?? []) {
+      if (taken >= (count ?? 0)) break;
       if (seen.has(item.question_text)) continue;
       if (capBoard && item.question_type === 'board' && boardTaken >= MOCK_DAILY_BOARD_CAP) {
         deferred.push(item);
@@ -1258,16 +1284,47 @@ function buildSessionItems(recipe) {
     }
     // 상한 초과분은 버리지 않고 뒤로 미룬다 — 서버와 같은 이유(배합이 덜 차면
     // 그 자리가 유료 생성으로 샌다). 목은 생성이 없으므로 여기서는 "문항 수가
-    // 줄어 15문항 계약이 깨지는 것"을 막는 역할이다.
+    // 줄어 배합 총합 계약이 깨지는 것"을 막는 역할이다.
     for (const item of deferred) {
-      if (taken >= (recipe[kind] ?? 0)) break;
+      if (taken >= (count ?? 0)) break;
       seen.add(item.question_text);
       boardTaken += 1;
       picked.push({ ...item, kind });
       taken += 1;
     }
+    return picked;
   }
-  return picked;
+
+  // ── board 블록은 **선점**한다 (서버 plan_bank_picks와 같은 순서 — R13-02 §T3) ──
+  // 자리는 live 뒤지만 **선택은 맨 먼저** 한다. board 문항은 new 풀에도 들어 있어서
+  // new 블록이 먼저 돌면 오늘 현상에 맞춰 고른 바로 그 보드를 new가 집어가고,
+  // board 블록은 차선을 받는다 — 「오늘 날씨 반영 보드」의 핵심이 정확히 그 1건이라
+  // 뒤집힌다. 선점해 두면 new는 자동으로 다음 후보로 넘어간다(`seen`이 막는다).
+  // cap_board=false: 배합이 **보장한** 자리라 DAILY_BOARD_CAP으로 막지 않는다.
+  const boardCount = recipe.board ?? 0;
+  let boardPicks = boardCount ? take('board', boardCount, 'board', false) : [];
+
+  // ⚠️ **부족분은 new 풀이 메운다** — 서버와 같은 규칙이고, 없으면 배합 총합이
+  // 깨진다(실제로 깨졌다: live 풀이 2건에 못 미쳐 10문항이 9문항이 됐다.
+  // 2026-08-12). 서버에서 이 폴백의 뜻은 "그 자리가 유료 생성으로 새지 않게
+  // 한다"이고, 목에서는 "총합 계약을 지킨다"이다. 메운 문항의 **라벨은 new**다
+  // — 서버가 그렇게 라벨하므로 블록 표기도 같이 맞춘다.
+  const picks = take('new', recipe.new, 'new');
+
+  let reviewPicks = take('review', recipe.review, 'review');
+  reviewPicks = [...reviewPicks, ...take('new', recipe.review - reviewPicks.length, 'new')];
+  picks.push(...reviewPicks);
+
+  let livePicks = take('live', recipe.live, 'live');
+  livePicks = [...livePicks, ...take('new', recipe.live - livePicks.length, 'new')];
+  picks.push(...livePicks);
+
+  if (boardCount) {
+    // 부족분 대체는 **선점 뒤**에 한다 — board 풀이 비었을 때 그 자리를 new가 받는다.
+    boardPicks = [...boardPicks, ...take('new', boardCount - boardPicks.length, 'new')];
+    picks.push(...boardPicks);
+  }
+  return picks;
 }
 
 const SESSION_ITEMS = buildSessionItems(MOCK_SESSION_RECIPE);
@@ -1938,27 +1995,46 @@ const routes = {
     // 유닛 세션(§3.2 + R8-01 §3.1): 전 문항 정답 시 왕관 +1, cleared 전환 시 +20 XP(1회).
     // unit_result는 백엔드 grant_unit_crown 반환 dict와 동일한 5필드 고정 형태
     // {all_correct, crowns, crown_target, cleared, unit_xp} — 유닛 세션이 아니면 null.
-    // **R13-01 §2.10 왕관 소유권 이전** (CO-A6/CO-J-9, 2026-08-08): 유닛 직접 진입
-    // (/learn 유닛 세션)은 이제 **연습 전용**이라 왕관을 주지 않는다 — 서버
-    // routers/session.py가 `grant_crown=False` 고정이고, 왕관 유입로는 일일 세션의
-    // 진도 블록 하나뿐이다(같은 진도에 두 번 주면 하루 1왕관 상한이 무너진다).
-    // 종전 목은 여기서 왕관을 줬고, 그래서 "목에선 클리어되는데 실서버는 안 되는"
-    // 갈림이 스모크 초록 뒤에 숨어 있었다. 진도 스냅샷(crowns·cleared)과
-    // all_correct·all_resolved 표기는 그대로 나간다(unit_xp는 서버와 같이 0).
+    //
+    // ⚠️ **왕관이 유닛 세션 완료로 돌아왔다**(2026-08-12 클라이언트 확정 —
+    // 서버 `routers/session.py`가 `grant_crown=all_correct`로 배선됨).
+    //
+    // 경위를 남긴다(같은 자리가 두 번 뒤집혔다):
+    //   · R13-01 §2.10(2026-08-08)이 왕관을 일일 세션의 **진도 블록**으로 옮기면서
+    //     유닛 직접 진입을 «연습 전용»(`grant_crown=False`)으로 고정했다.
+    //   · 2026-08-12 배합이 `{live:2,new:4,review:3,board:1}`로 바뀌며 **`unit`
+    //     kind 자체가 사라졌다** — 진도 블록이 없으니 그 유입로도 함께 죽는다.
+    //     되돌리지 않으면 왕관이 **도달 불가**가 된다.
+    // ⚠️ 배합과 이 분기는 **한 쌍**이다. 배합에 `unit`을 되살리면 여기도 함께
+    // 되돌려야 하루 1왕관 상한이 지켜진다(같은 진도에 두 번 주지 않기).
+    //
+    // 멱등은 `grantUnitCrown`이 지킨다(이미 만관이면 null·무동작) — 서버가
+    // "`grant_unit_crown`이 멱등 판정을 갖고 있어 상한은 그쪽이 지킨다"고 적은 것과
+    // 같은 구조다. 재완료로 왕관이 두 번 붙지 않는다.
     let unitResult = null;
     if (s.unit_id) {
       const unit = getUnit(s.unit_id);
-      const prog = getUnitProgress(s.unit_id);
       const crownTarget = unit?.crown_target ?? 1;
       const allCorrect = progress.total > 0 && correctCount === progress.total;
+
+      // cleared 전환 여부를 **부여 전에** 기록한다 — `unit_xp`는 서버
+      // `grant_unit_crown`의 `xp_earned`와 같은 뜻이라 "이번에 처음 클리어됐을 때만
+      // 20"이다. grantUnitCrown의 반환 4필드 계약(crown_award 페이로드)은 건드리지
+      // 않으려고 전/후 스냅샷으로 판정한다.
+      const wasCleared = getUnitProgress(s.unit_id).cleared_at != null;
+      if (allCorrect) grantUnitCrown(unit ?? null);
+      const prog = getUnitProgress(s.unit_id);
+      const newlyCleared = !wasCleared && prog.cleared_at != null;
+
       unitResult = {
         // all_correct는 **최초 시도 만점**이라는 원래 뜻을 유지한다(§2.1) —
-        // 두 값이 갈리는 세션 = 만회로 클리어한 세션.
+        // 두 값이 갈리는 세션 = 만회로 클리어한 세션. 왕관은 이 값을 따른다
+        // (만회 클리어에는 왕관이 없다 — 서버 grant_crown=all_correct와 동일).
         all_correct: allCorrect,
         crowns: prog.crowns,
         crown_target: crownTarget,
         cleared: prog.cleared_at != null,
-        unit_xp: 0,
+        unit_xp: newlyCleared ? 20 : 0, // backend xp_service.XP_UNIT_CLEAR
         all_resolved: allResolved,
       };
     }
