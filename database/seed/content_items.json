@@ -413,17 +413,11 @@
     "concept_tag": "heat_island",
     "level_group": "elementary",
     "knowledge_level": 2,
-    "question_type": "multiple_choice",
+    "question_type": "short_answer",
     "template_json": {
-      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도였어요. 밤이 되어도 기온이 잘 내려가지 않는 곳은 어디일까요?",
-      "options": [
-        "도시와 시골의 밤 기온은 언제나 똑같다",
-        "아스팔트와 건물이 많은 도시 한가운데",
-        "밤에는 어느 곳이든 기온이 내려가지 않는다",
-        "나무와 흙이 많은 시골 들판"
-      ],
-      "correct_answer": "아스팔트와 건물이 많은 도시 한가운데",
-      "explanation_hint": "아스팔트와 콘크리트는 낮에 저장한 열을 밤에 내보내서, 도시는 밤에도 잘 식지 않아요. 이것이 도시 열섬 현상이에요."
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도예요. 도시 한가운데는 아스팔트와 건물이 낮에 모아 둔 열을 밤새 조금씩 내보내서 밤에도 잘 식지 않아요. 열대야는 이렇게 식지 않은 밤의 가장 낮은 기온이 25도를 넘는 밤이에요. 오늘 밤이 열대야인지 알아보려면 25도와 견줘야 할 값은 몇 도일까요? 숫자만 적어 보세요.",
+      "correct_answer": "{today.temp_min}",
+      "explanation_hint": "예보에서 말하는 최저기온이 곧 밤사이 가장 많이 식었을 때의 기온이에요. 도시는 밤에도 이 값이 잘 내려가지 않아서 열대야가 자주 나타나요."
     },
     "uses_live_slots": true,
     "source": {
@@ -432,7 +426,8 @@
         "climate_concepts: heat_island-0",
         "climate_concepts: heat_island-1",
         "knowledge_level=2 · 적용 규칙: R1 무적발 → 사람 판정 2 · uses_live_slots(기온 주입은 배경) (docs/specs/12 §4)",
-        "knowledge_level=2 · 결정 용어: 열섬·열 저장([6과07])"
+        "knowledge_level=2 · 결정 용어: 열섬·열 저장([6과07])",
+        "SPRINT_R13_02 §T3 실황 계산 — multiple_choice → short_answer 전환, correct_answer가 {today.temp_min}이라 매일 정답이 바뀐다 (열섬의 판정 축이 밤 최저기온임을 오늘 값으로 짚게 한다)"
       ]
     },
     "status": "active"
@@ -620,17 +615,11 @@
     "concept_tag": "anomaly",
     "level_group": "elementary",
     "knowledge_level": 2,
-    "question_type": "multiple_choice",
+    "question_type": "short_answer",
     "template_json": {
-      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도다. 이 기온이 '이상고온'인지 판단하려면 무엇과 비교해야 하는가?",
-      "options": [
-        "최근 30년 평균인 평년값",
-        "어제 하루의 기온",
-        "이웃 도시의 오늘 기온",
-        "내일의 비 올 확률"
-      ],
-      "correct_answer": "최근 30년 평균인 평년값",
-      "explanation_hint": "이상기후는 평년(최근 30년 평균) 범위를 크게 벗어나는 현상이므로, 하루의 기온이 이상한지 판단하려면 평년값과 비교해야 합니다."
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도다. 어떤 날이 '이상고온'인지 판단할 때는 그날 가장 더웠던 때의 기온을 최근 30년 평균인 평년값과 견준다. 오늘 평년값과 견주어야 할 값은 몇 도인가? 숫자만 쓰시오.",
+      "correct_answer": "{today.temp_max}",
+      "explanation_hint": "이상기후 판단의 기준은 어제도 옆 도시도 아니라 최근 30년 평균인 평년값이고, 하루의 더위를 대표하는 값은 그날의 최고기온이다."
     },
     "uses_live_slots": true,
     "source": {
@@ -638,7 +627,8 @@
       "refs": [
         "climate_concepts: anomaly-0",
         "knowledge_level=2 · 적용 규칙: R1 무적발 → 사람 판정 2 · uses_live_slots(기온 주입은 배경) (docs/specs/12 §4)",
-        "knowledge_level=2 · 결정 용어: 평년값([6과06-01])"
+        "knowledge_level=2 · 결정 용어: 평년값([6과06-01])",
+        "SPRINT_R13_02 §T3 실황 계산 — multiple_choice → short_answer 전환, correct_answer가 {today.temp_max}이라 매일 정답이 바뀐다 (평년값과 견줄 대상이 일 최고기온임을 오늘 값으로 짚게 한다)"
       ]
     },
     "status": "active"
@@ -695,7 +685,8 @@
           "right": "양쯔강 기단"
         }
       ],
-      "correct_answer": "겨울:시베리아 기단|여름:북태평양 기단|초여름:오호츠크해 기단|봄·가을:양쯔강 기단"
+      "correct_answer": "겨울:시베리아 기단|여름:북태평양 기단|초여름:오호츠크해 기단|봄·가을:양쯔강 기단",
+      "explanation_hint": "기단은 오래 머문 곳의 성질을 그대로 지니고 옮겨 온다 — 차가운 대륙에서 만들어지면 차고 건조하고, 따뜻한 바다에서 만들어지면 덥고 습하다. 계절마다 우리나라를 덮는 기단이 바뀌기 때문에 계절 날씨도 함께 바뀐다. 짝을 외우기보다 그 기단이 어디서 왔는지를 떠올리면 계절이 따라온다."
     },
     "uses_live_slots": false,
     "source": {
@@ -729,7 +720,8 @@
           "right": "여러 날 이어지는 장마"
         }
       ],
-      "correct_answer": "한랭전선:좁은 지역에 강한 소나기|온난전선:넓은 지역에 오래 내리는 약한 비|정체전선:여러 날 이어지는 장마"
+      "correct_answer": "한랭전선:좁은 지역에 강한 소나기|온난전선:넓은 지역에 오래 내리는 약한 비|정체전선:여러 날 이어지는 장마",
+      "explanation_hint": "비의 성격을 가르는 것은 전선의 이름이 아니라 따뜻한 공기가 올라가는 기울기다. 한랭전선은 찬 공기가 파고들며 가파르게 밀어 올려 좁은 곳에 짧고 강한 비가 쏟아지고, 온난전선은 완만하게 타고 올라 넓은 곳에 약한 비가 오래 내린다. 정체전선은 두 기단의 세력이 비슷해 한자리에 머물러 여러 날 비를 뿌린다."
     },
     "uses_live_slots": false,
     "source": {
@@ -757,7 +749,8 @@
         "수증기 공급이 줄어 세력이 급격히 약해진다"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2,3"
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "태풍은 따뜻한 바닷물에서 증발한 수증기가 응결할 때 내놓는 열을 먹고 자란다. 그래서 순서의 뼈대는 수증기를 얻고, 자라고, 공급이 끊기고, 약해지는 흐름이다. 상륙이 세력 약화보다 반드시 앞에 오는 것도 이 때문이다 — 육지에는 태풍을 먹일 바다가 없다."
     },
     "uses_live_slots": false,
     "source": {
@@ -784,7 +777,8 @@
         "지구 평균기온이 올라간다"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2,3"
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "원인에서 결과로 한 칸씩 이어지는 사슬이다. 배출이 늘어야 농도가 오르고, 농도가 올라야 지구가 내보내는 적외선이 더 많이 붙잡히며, 붙잡힌 열이 쌓여야 기온이 오른다. 가운데 두 칸을 건너뛰면 이산화탄소가 곧 기온이라는 성긴 설명이 되어, 열을 붙잡는 주체가 기체라는 사실이 사라진다."
     },
     "uses_live_slots": false,
     "source": {
@@ -804,7 +798,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "밤 최저기온이 ___℃ 아래로 내려가지 않는 밤을 열대야라고 한다.",
-      "correct_answer": "25"
+      "correct_answer": "25",
+      "explanation_hint": "열대야는 낮이 얼마나 더웠는지가 아니라 밤에 얼마나 못 식었는지를 보는 기준이다. 밤 최저기온이 25℃ 아래로 내려가지 않으면 열대야이고, 낮의 열을 오래 품는 도시에서 더 자주 나타난다."
     },
     "uses_live_slots": false,
     "source": {
@@ -824,7 +819,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "기온이나 강수량이 최근 30년 평균인 ___값의 범위를 크게 벗어나는 현상을 이상기후라고 한다.",
-      "correct_answer": "평년"
+      "correct_answer": "평년",
+      "explanation_hint": "평년값은 최근 30년을 평균해 정한 보통 이만큼의 기준이다. 기준이 있어야 올해 값이 벗어났다고 말할 수 있으므로, 이상기후인지 아닌지는 언제나 평년과 견주어 판단한다."
     },
     "uses_live_slots": false,
     "source": {
@@ -988,7 +984,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "아주 심한 더위(폭염)나 갑작스러운 심한 추위(한파)처럼, 날씨가 평소 범위를 크게 벗어나는 현상을 ___(이)라고 해요.",
-      "correct_answer": "이상기후"
+      "correct_answer": "이상기후",
+      "explanation_hint": "폭염과 한파는 반대인 것 같지만 평소 범위를 크게 벗어났다는 점에서는 똑같아요. 그래서 더위든 추위든 평소와 많이 다르면 하나로 묶어 이상기후라고 불러요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1015,7 +1012,8 @@
         "구름이 발달해 비가 내린다"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2,3"
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "저기압에서 비가 오는 까닭은 모여든 공기가 갈 곳이 위밖에 없기 때문이다. 사방에서 모여든 공기가 위로 올라가고, 올라간 공기가 식으면서 수증기가 물방울로 맺혀 구름이 되고, 그 구름이 두꺼워져야 비가 된다. 상승이 구름보다 먼저이고 구름이 비보다 먼저다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1053,7 +1051,8 @@
           "right": "수증기 공급이 줄어 세력이 급격히 약해짐"
         }
       ],
-      "correct_answer": "발생 해역:북태평양 서쪽의 따뜻한 열대 바다|에너지원:수증기가 응결하며 내놓는 열|태풍의 눈:바람이 약하고 맑기도 한 중심부|상륙 후:수증기 공급이 줄어 세력이 급격히 약해짐"
+      "correct_answer": "발생 해역:북태평양 서쪽의 따뜻한 열대 바다|에너지원:수증기가 응결하며 내놓는 열|태풍의 눈:바람이 약하고 맑기도 한 중심부|상륙 후:수증기 공급이 줄어 세력이 급격히 약해짐",
+      "explanation_hint": "네 항목이 따로 있는 것이 아니라 따뜻한 바다라는 한 줄로 이어진다. 태풍은 열대 바다에서 생겨 수증기가 응결할 때 나오는 열로 자라고, 그 바다를 벗어나 육지에 오르면 연료가 끊겨 급히 약해진다. 태풍의 눈만 예외처럼 보이지만 세차게 도는 바람의 한가운데라 오히려 바람이 약한 자리다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1389,7 +1388,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "찬 공기가 따뜻한 공기 아래를 파고들어 밀어내며 나아가는 전선을 ___전선이라고 해요.",
-      "correct_answer": "한랭"
+      "correct_answer": "한랭",
+      "explanation_hint": "찬 공기는 무거워서 따뜻한 공기 위로 올라타지 못하고 아래를 파고들어요. 그래서 한랭전선에서는 따뜻한 공기가 가파르게 밀려 올라가고, 좁은 곳에 짧고 강한 비가 쏟아져요. 완만하게 타고 오르는 온난전선과 정반대예요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1410,7 +1410,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "여름 장마철, 남쪽의 덥고 습한 기단과 북쪽의 찬 기단이 힘겨루기를 하며 만드는 전선을 ___전선이라고 한다.",
-      "correct_answer": "정체"
+      "correct_answer": "정체",
+      "explanation_hint": "두 기단의 세력이 비슷하면 어느 쪽도 상대를 밀어내지 못해 경계가 한자리에 오래 머문다. 이렇게 멈춰 선 전선이 정체전선이고, 같은 지역에 비가 여러 날 이어지는 장마가 여기서 생긴다. 전선이 움직이지 않는다는 것이 곧 비가 길어진다는 뜻이다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1431,7 +1432,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "여름과 초가을에 따뜻한 열대 바다에서 만들어져 우리나라로 올라오는 강한 열대 저기압을 ___(이)라고 해요.",
-      "correct_answer": "태풍"
+      "correct_answer": "태풍",
+      "explanation_hint": "태풍은 따뜻한 열대 바다에서 증발한 수증기를 연료 삼아 자라는 열대저기압이에요. 그래서 바다가 가장 따뜻해지는 여름과 초가을에 몰리고, 육지에 올라 연료가 끊기면 빠르게 약해져요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1452,7 +1454,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "넓은 대륙이나 바다 위에 공기가 오래 머물러 온도와 습도가 비슷해진 커다란 공기 덩어리를 ___(이)라고 한다.",
-      "correct_answer": "기단"
+      "correct_answer": "기단",
+      "explanation_hint": "공기가 한곳에 오래 머물면 그 아래 땅이나 바다의 온도·습도를 닮아 간다. 그렇게 성질이 고르게 맞춰진 커다란 공기 덩어리가 기단이고, 기단이 어디서 만들어졌는지를 알면 어떤 날씨를 몰고 올지도 짐작할 수 있다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1473,7 +1476,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "석탄이나 석유 같은 화석연료를 태우면 공기 중에 ___가 늘어나 지구가 점점 더 더워져요.",
-      "correct_answer": "이산화탄소"
+      "correct_answer": "이산화탄소",
+      "explanation_hint": "화석연료는 땅속에 오래 갇혀 있던 탄소 덩어리예요. 그것을 태우면 탄소가 산소와 붙어 이산화탄소가 되어 공기 중으로 나오고, 늘어난 이산화탄소가 지구가 내보내는 열을 더 많이 붙잡아 기온을 올려요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1494,7 +1498,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "대기 중의 온실가스가 지표가 내보내는 적외선을 흡수해 지구를 데우는 작용을 ___효과라고 한다.",
-      "correct_answer": "온실"
+      "correct_answer": "온실",
+      "explanation_hint": "온실가스는 들어오는 햇빛을 막는 것이 아니라, 지표가 데워진 뒤 내보내는 적외선을 붙잡는다. 들어오는 빛은 통과시키고 나가는 열만 붙잡기 때문에 대기가 데워지고, 유리 온실이 안을 따뜻하게 하는 방식과 닮아 온실효과라고 부른다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1515,7 +1520,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "도시 내부의 기온이 주변 교외 지역보다 섬처럼 높게 나타나는 현상을 도시 ___ 현상이라고 한다.",
-      "correct_answer": "열섬"
+      "correct_answer": "열섬",
+      "explanation_hint": "도시가 더운 것은 햇볕을 더 많이 받아서가 아니라 받은 열을 잘 내보내지 못해서다. 아스팔트와 콘크리트가 낮의 열을 품었다가 밤에 천천히 내놓고 빽빽한 건물이 바람을 막아, 기온 분포를 그리면 도시만 섬처럼 솟는다. 그래서 열섬이라고 부른다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1536,7 +1542,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "적도 부근 동태평양의 바닷물 온도가 평소보다 낮아지는 현상을 ___(이)라고 한다.",
-      "correct_answer": "라니냐"
+      "correct_answer": "라니냐",
+      "explanation_hint": "엘니뇨와 라니냐는 같은 자리를 재는 서로 반대 방향의 이름이다. 적도 동태평양 수온이 평소보다 높으면 엘니뇨, 낮으면 라니냐다. 바다의 온도가 바뀌면 그 위 대기의 흐름도 함께 바뀌기 때문에, 태평양 한쪽의 수온이 지구 곳곳의 날씨를 흔든다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1571,7 +1578,8 @@
           "right": "바람을 막아 열이 빠져나가기 어렵게 한다"
         }
       ],
-      "correct_answer": "아스팔트·콘크리트:낮의 열을 저장했다가 밤에 내보낸다|자동차·에어컨:인공 열을 도시에 내뿜는다|빽빽한 건물:바람을 막아 열이 빠져나가기 어렵게 한다"
+      "correct_answer": "아스팔트·콘크리트:낮의 열을 저장했다가 밤에 내보낸다|자동차·에어컨:인공 열을 도시에 내뿜는다|빽빽한 건물:바람을 막아 열이 빠져나가기 어렵게 한다",
+      "explanation_hint": "세 원인은 열을 다루는 방식이 서로 다르다. 아스팔트와 콘크리트는 낮의 열을 모아 두었다가 밤에 내놓고, 자동차와 에어컨은 없던 열을 새로 만들어 내뿜으며, 빽빽한 건물은 열이 빠져나갈 길을 막는다. 저장·발생·차단 셋이 겹쳐 도시의 밤이 식지 않는다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1606,7 +1614,8 @@
           "right": "주변보다 시원한 편이에요"
         }
       ],
-      "correct_answer": "아스팔트가 많은 도심:밤에도 잘 식지 않아요|나무와 흙이 많은 들판:밤에 기온이 잘 내려가요|물이 흐르는 강가:주변보다 시원한 편이에요"
+      "correct_answer": "아스팔트가 많은 도심:밤에도 잘 식지 않아요|나무와 흙이 많은 들판:밤에 기온이 잘 내려가요|물이 흐르는 강가:주변보다 시원한 편이에요",
+      "explanation_hint": "밤 기온을 가르는 것은 땅이 낮의 열을 얼마나 오래 붙잡고 있느냐예요. 아스팔트는 모아 둔 열을 밤새 내놓아 잘 식지 않고, 흙과 나무가 많은 들판은 열을 덜 품어 빨리 식어요. 강가는 물이 증발하면서 열을 가져가고 바람도 통해서, 아스팔트로 덮인 도심보다는 시원한 편이에요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1641,7 +1650,8 @@
           "right": "바다와 지표의 자연 증발"
         }
       ],
-      "correct_answer": "이산화탄소:화석연료의 연소|메테인:가축의 소화 과정과 논|수증기:바다와 지표의 자연 증발"
+      "correct_answer": "이산화탄소:화석연료의 연소|메테인:가축의 소화 과정과 논|수증기:바다와 지표의 자연 증발",
+      "explanation_hint": "온실가스는 한 종류가 아니고 나오는 곳도 제각각이다. 이산화탄소는 화석연료를 태울 때, 메테인은 가축의 소화 과정과 물을 댄 논에서 주로 나오며, 수증기는 사람이 배출하지 않아도 바다와 지표에서 늘 증발한다. 배출원이 다르면 줄이는 방법도 달라진다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1676,7 +1686,8 @@
           "right": "이산화탄소를 내보내요"
         }
       ],
-      "correct_answer": "나무 심기:이산화탄소를 빨아들여요|가까운 거리 걸어가기:이산화탄소 배출을 줄여요|석탄으로 전기 만들기:이산화탄소를 내보내요"
+      "correct_answer": "나무 심기:이산화탄소를 빨아들여요|가까운 거리 걸어가기:이산화탄소 배출을 줄여요|석탄으로 전기 만들기:이산화탄소를 내보내요",
+      "explanation_hint": "행동을 셋으로 갈라 보면 쉬워요. 나무는 자라면서 이산화탄소를 빨아들이고, 걸어가기는 자동차가 내보낼 이산화탄소를 아예 만들지 않게 하며, 석탄으로 전기를 만들면 이산화탄소가 새로 나와요. 빨아들이기·덜 내보내기·내보내기로 나누면 헷갈리지 않아요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1715,7 +1726,8 @@
           "right": "평년 범위를 크게 벗어난 낮은 기온"
         }
       ],
-      "correct_answer": "엘니뇨:적도 동태평양 수온이 평소보다 높아짐|라니냐:적도 동태평양 수온이 평소보다 낮아짐|폭염:평년 범위를 크게 벗어난 높은 기온|한파:평년 범위를 크게 벗어난 낮은 기온"
+      "correct_answer": "엘니뇨:적도 동태평양 수온이 평소보다 높아짐|라니냐:적도 동태평양 수온이 평소보다 낮아짐|폭염:평년 범위를 크게 벗어난 높은 기온|한파:평년 범위를 크게 벗어난 낮은 기온",
+      "explanation_hint": "네 현상은 두 짝으로 묶인다. 엘니뇨와 라니냐는 적도 동태평양 수온이 평소보다 높은가 낮은가로 갈리고, 폭염과 한파는 기온이 평년 범위를 위로 벗어났는가 아래로 벗어났는가로 갈린다. 앞의 짝은 바다에 붙은 이름이고 뒤의 짝은 대기에 붙은 이름이다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1750,7 +1762,8 @@
           "right": "일 최고 체감온도 33℃ 이상 지속 예상"
         }
       ],
-      "correct_answer": "호우주의보:3시간 강우량 60mm 이상 예상|대설경보:24시간 신적설 20cm 이상 예상|폭염주의보:일 최고 체감온도 33℃ 이상 지속 예상"
+      "correct_answer": "호우주의보:3시간 강우량 60mm 이상 예상|대설경보:24시간 신적설 20cm 이상 예상|폭염주의보:일 최고 체감온도 33℃ 이상 지속 예상",
+      "explanation_hint": "특보 기준은 유도해서 얻는 값이 아니라 기상청이 정해 둔 규정 수치다. 그래서 셋을 가를 때는 무엇을(강우량·신적설·체감온도) 어느 시간 창(3시간·24시간·일 최고)으로 재는지를 먼저 보는 편이 빠르다. 같은 현상이라도 주의보와 경보는 재는 방식이 아니라 기준값이 다르다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1789,7 +1802,8 @@
           "right": "따뜻하고 건조하다"
         }
       ],
-      "correct_answer": "시베리아 기단:차고 건조하다|북태평양 기단:덥고 습하다|오호츠크해 기단:차고 습하다|양쯔강 기단:따뜻하고 건조하다"
+      "correct_answer": "시베리아 기단:차고 건조하다|북태평양 기단:덥고 습하다|오호츠크해 기단:차고 습하다|양쯔강 기단:따뜻하고 건조하다",
+      "explanation_hint": "기단의 성질은 두 축으로 정해진다 — 만들어진 곳이 추운가 더운가가 온도를, 대륙인가 바다인가가 습도를 정한다. 시베리아는 추운 대륙이라 차고 건조하고, 북태평양은 더운 바다라 덥고 습하며, 오호츠크해는 찬 바다라 차고 습하고, 양쯔강 유역은 따뜻한 대륙이라 따뜻하고 건조하다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1824,7 +1838,8 @@
           "right": "손전등과 비상용품을 미리 준비해요"
         }
       ],
-      "correct_answer": "강한 바람:창문을 단단히 고정해요|많은 비:하천이나 바닷가에 가지 않아요|정전:손전등과 비상용품을 미리 준비해요"
+      "correct_answer": "강한 바람:창문을 단단히 고정해요|많은 비:하천이나 바닷가에 가지 않아요|정전:손전등과 비상용품을 미리 준비해요",
+      "explanation_hint": "태풍이 위험한 까닭은 하나가 아니라 바람과 비와 정전이 함께 오기 때문이에요. 바람은 물건을 날리니 창문을 고정하고, 비는 물이 갑자기 불어나니 하천과 바닷가를 피하고, 정전은 불이 꺼지니 손전등을 미리 챙겨요. 위험마다 대비가 따로 있어요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1852,7 +1867,8 @@
         "서해안 지역에 많은 눈이 내린다"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2,3"
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "핵심은 기단이 출발할 때의 성질을 끝까지 지니지 않는다는 것이다. 차고 건조한 시베리아 기단이 자기보다 따뜻한 서해를 건너면 아래부터 데워지고 축축해져 눈구름으로 바뀐다. 그래서 건조한 기단과 폭설 사이에는 반드시 바다를 건넌다는 단계가 들어가야 한다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1881,7 +1897,8 @@
         "영서 지방에 덥고 건조한 바람이 분다"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2,3,4"
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "높새바람은 산을 넘기 전과 넘은 뒤가 다른 바람이다. 오를 때는 식으면서 비를 뿌려 수증기를 잃고, 내려올 때는 눌리며 데워지지만 잃은 수증기는 돌아오지 않는다. 그래서 산을 넘은 뒤 영서 지방에는 덥고 건조한 바람만 남는다 — 비를 뿌리는 단계가 빠지면 건조해진 까닭이 설명되지 않는다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1909,7 +1926,8 @@
         "밤에도 기온이 내려가지 않아 잠들기 힘든 열대야가 돼요"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2,3"
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "열대야는 밤에 갑자기 생기는 것이 아니라 낮에 저장된 열이 밤에 나오는 거예요. 낮에 데워지고, 그 열이 아스팔트와 건물에 쌓이고, 밤에 천천히 나오고, 그래서 기온이 내려가지 않아요. 쌓는 단계와 내보내는 단계의 앞뒤가 바뀌면 이야기가 성립하지 않아요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1937,7 +1955,8 @@
         "대기 순환이 바뀌어 세계 곳곳에 홍수와 가뭄이 나타난다"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2,3"
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "엘니뇨의 시작은 바다가 아니라 바람이다. 따뜻한 바닷물을 서쪽으로 밀어 두던 무역풍이 약해지면 그 물이 동쪽에 남아 동태평양 수온이 오르고, 데워진 바다 위에서 공기가 솟는 자리가 옮겨지며 비 오는 곳과 마른 곳이 지구 규모로 뒤바뀐다. 바람이 먼저이고 바다가 다음, 대기가 마지막이다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1964,7 +1983,8 @@
         "가장 더운 한낮에는 바깥 활동을 쉬어요"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2"
+      "correct_answer": "0,1,2",
+      "explanation_hint": "폭염 대비는 더워진 뒤가 아니라 더워지기 전에 하는 거예요. 아침에 예보로 오늘이 어떤 날인지 알아야 무엇을 챙길지 정할 수 있고, 챙기고 나야 한낮을 피해 쉬는 계획도 지킬 수 있어요. 확인하고, 준비하고, 행동하는 순서예요."
     },
     "uses_live_slots": false,
     "source": {
@@ -1993,7 +2013,8 @@
         "전선이 지나간 뒤 기온이 올라간다"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2,3,4"
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "온난전선은 따뜻한 공기가 찬 공기 위를 완만하게 타고 오르며 다가오므로 구름의 꼭대기 쪽이 먼저 도착한다. 그래서 아주 높은 곳의 얇은 구름이 맨 처음 보이고, 전선이 가까워질수록 구름이 낮아지고 두꺼워지다가 비가 시작된다. 전선이 지나가면 따뜻한 공기 쪽에 들어서므로 기온이 오른다."
     },
     "uses_live_slots": false,
     "source": {
@@ -2020,7 +2041,8 @@
         "태풍이 지나간 뒤, 부서진 곳이 없는지 살펴봐요"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2"
+      "correct_answer": "0,1,2",
+      "explanation_hint": "태풍 대비는 오기 전과 지나가는 동안과 지나간 뒤 세 토막으로 나눠요. 오기 전에는 날아갈 것을 고정하고 필요한 것을 챙기고, 지나가는 동안에는 밖에 나가지 않고 정보만 확인하고, 다 지나간 뒤에 부서진 곳을 살펴요. 지나가는 동안 살펴보러 나가는 것이 가장 위험해요."
     },
     "uses_live_slots": false,
     "source": {
@@ -2049,7 +2071,8 @@
         "해안 저지대의 침수 위험이 커진다"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2,3,4"
+      "correct_answer": "0,1,2,3,4",
+      "explanation_hint": "해수면이 오르는 길은 두 갈래다. 기온이 오르면 빙하가 녹아 바다에 물이 더해지고, 동시에 바닷물 자체가 데워져 부피가 늘어난다. 배출에서 농도로, 농도에서 기온으로, 기온에서 해수면으로 이어지는 사슬에서 한 칸이라도 빠지면 왜 배출을 줄이는 일이 해안 도시의 문제인지가 끊긴다."
     },
     "uses_live_slots": false,
     "source": {
@@ -2067,17 +2090,11 @@
     "concept_tag": "co2_climate",
     "level_group": "elementary",
     "knowledge_level": 1,
-    "question_type": "multiple_choice",
+    "question_type": "short_answer",
     "template_json": {
-      "question_text": "오늘 {today.region}의 하늘은 '{today.sky}'예요. 날씨와 상관없이 매일 실천해서 이산화탄소를 줄일 수 있는 방법은 무엇일까요?",
-      "options": [
-        "한여름에 문을 열고 에어컨 틀기",
-        "가까운 거리는 걷거나 자전거로 다니기",
-        "한 번 쓴 물건을 바로 버리기",
-        "빈방에도 불을 켜 두기"
-      ],
-      "correct_answer": "가까운 거리는 걷거나 자전거로 다니기",
-      "explanation_hint": "자동차 대신 걷거나 자전거를 타면 화석연료 사용이 줄어 이산화탄소 배출도 줄어요. 전기와 물건을 아껴 쓰는 것도 발전소에서 태우는 화석연료를 줄이는 길이에요."
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도예요. 하루 중 가장 더울 때 에어컨을 세게 틀면 전기를 많이 써서 이산화탄소가 더 나와요. 오늘 가장 더웠던 때의 기온은 몇 도일까요? 숫자만 적어 보세요.",
+      "correct_answer": "{today.temp_max}",
+      "explanation_hint": "예보에서 말하는 최고기온이 하루 중 가장 더울 때의 기온이에요. 그때 전기를 아끼면 이산화탄소도 함께 줄어들어요."
     },
     "uses_live_slots": true,
     "source": {
@@ -2086,7 +2103,8 @@
         "R12 §9",
         "생활 속 탄소 감축",
         "knowledge_level=1 · 적용 규칙: R1 무적발 → 사람 판정 1 · uses_live_slots(하늘 주입은 배경) (docs/specs/12 §4)",
-        "knowledge_level=1 · 결정 용어: 기후변화 대응 행동([4과16-03])"
+        "knowledge_level=1 · 결정 용어: 기후변화 대응 행동([4과16-03])",
+        "SPRINT_R13_02 §T3 실황 계산 — multiple_choice → short_answer 전환, correct_answer가 {today.temp_max}이라 매일 정답이 바뀐다 (슬롯이 배경 장식이던 문항을 오늘 값 읽기로 바꾼다)"
       ]
     },
     "status": "active"
@@ -2151,17 +2169,11 @@
     "concept_tag": "anomaly",
     "level_group": "adult",
     "knowledge_level": 5,
-    "question_type": "multiple_choice",
+    "question_type": "cloze",
     "template_json": {
-      "question_text": "오늘 {today.region}의 비 올 확률은 {today.rain_prob}%다. 기후변화가 우리나라 여름철 비의 특징을 바꾸는 방향으로 가장 알맞은 것은?",
-      "options": [
-        "비가 언제나 약하고 고르게만 내리게 된다",
-        "비의 특징은 기후변화와 아무 관련이 없다",
-        "여름철 비가 완전히 사라진다",
-        "한 번에 쏟아지는 집중호우의 빈도가 잦아진다"
-      ],
-      "correct_answer": "한 번에 쏟아지는 집중호우의 빈도가 잦아진다",
-      "explanation_hint": "기온이 오르면 공기가 머금을 수 있는 수증기가 늘어나(1℃당 약 7%), 비가 올 때 한 번에 더 많은 비를 쏟아내는 집중호우가 잦아집니다."
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도다. 폭염주의보는 일 최고기온이 33도 이상인 상태가 이틀 이상 이어질 것으로 예상될 때 발표된다. 이 기준과 직접 견주어야 하는 오늘의 값은 ___도다.",
+      "correct_answer": "{today.temp_max}",
+      "explanation_hint": "폭염 특보의 판정 축은 일 최고기온이다. 최저기온이 기준이 되는 것은 열대야(밤 최저기온 25도 이상)이고, 둘은 서로 다른 지표다."
     },
     "uses_live_slots": true,
     "source": {
@@ -2170,7 +2182,8 @@
         "R12 §9",
         "온난화와 집중호우 빈도",
         "knowledge_level=5 · 적용 규칙: 사람 판정 5 · uses_live_slots · R3 미적용(수치가 해설에만) (docs/specs/12 §4)",
-        "knowledge_level=5 · 결정 용어: 집중호우(악기상, [12지구01-04])"
+        "knowledge_level=5 · 결정 용어: 집중호우(악기상, [12지구01-04])",
+        "SPRINT_R13_02 §T3 실황 계산 — multiple_choice → cloze 전환, correct_answer가 {today.temp_max}이라 매일 정답이 바뀐다 (특보 기준과 견줄 값이 일 최고기온임을 오늘 값으로 짚게 한다)"
       ]
     },
     "status": "active"
@@ -2438,7 +2451,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "온도가 다른 두 물체가 만나 열이 이동하다가, 두 물체의 온도가 같아져 이동이 멈춘 상태를 ___(이)라고 해요.",
-      "correct_answer": "열평형"
+      "correct_answer": "열평형",
+      "explanation_hint": "열은 언제나 뜨거운 쪽에서 차가운 쪽으로만 흘러요. 그러다 두 물체의 온도가 같아지면 한쪽으로 더 흐를 이유가 없어져 이동이 멈추는데, 이 상태를 열평형이라고 해요. 열이 사라진 것이 아니라 서로 주고받는 양이 같아진 거예요."
     },
     "uses_live_slots": false,
     "source": {
@@ -2634,7 +2648,8 @@
           "right": "1g을 1℃ 올리는 데 필요한 열량"
         }
       ],
-      "correct_answer": "물:천천히 데워지고 천천히 식는다|모래:빨리 데워지고 빨리 식는다|비열:1g을 1℃ 올리는 데 필요한 열량"
+      "correct_answer": "물:천천히 데워지고 천천히 식는다|모래:빨리 데워지고 빨리 식는다|비열:1g을 1℃ 올리는 데 필요한 열량",
+      "explanation_hint": "물과 모래가 갈리는 이유는 비열 하나로 설명된다. 비열은 1g의 온도를 1℃ 올리는 데 드는 열량이라, 비열이 큰 물은 같은 햇볕을 받아도 천천히 데워지고 식을 때도 천천히 식는다. 비열이 작은 모래는 그 반대다 — 바닷가에서 낮과 밤에 바람 방향이 바뀌는 것도 이 차이에서 나온다."
     },
     "uses_live_slots": false,
     "source": {
@@ -2765,7 +2780,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "지구는 흡수한 태양 에너지를 눈에 보이지 않는 ___선의 형태로 우주로 다시 내보낸다.",
-      "correct_answer": "적외"
+      "correct_answer": "적외",
+      "explanation_hint": "지구는 받은 만큼 내보내야 기온이 일정하게 유지된다. 다만 들어올 때는 태양이 뜨거워 눈에 보이는 빛이 많고, 나갈 때는 지구가 훨씬 차가워 눈에 보이지 않는 적외선이 된다. 온실가스가 붙잡는 것이 바로 이 나가는 적외선이다."
     },
     "uses_live_slots": false,
     "source": {
@@ -2924,7 +2940,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "우리 머리 위에 쌓인 공기 기둥의 무게 때문에 생기는 압력을 ___(이)라고 해요.",
-      "correct_answer": "기압"
+      "correct_answer": "기압",
+      "explanation_hint": "공기는 가벼워 보이지만 무게가 있어요. 우리 머리 위로 하늘 끝까지 쌓인 공기 기둥이 누르는 힘이 기압이라, 높은 산에 올라가면 위에 쌓인 공기가 줄어드니 기압도 낮아져요."
     },
     "uses_live_slots": false,
     "source": {
@@ -3083,7 +3100,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "따뜻해진 공기나 물이 위로 올라가고 차가워진 것이 아래로 내려오면서 빙글빙글 도는 열의 흐름을 ___(이)라고 해요.",
-      "correct_answer": "대류"
+      "correct_answer": "대류",
+      "explanation_hint": "따뜻해진 공기나 물은 부풀어서 같은 부피일 때 더 가벼워지기 때문에 위로 올라가요. 그 빈자리를 차가운 것이 내려와 채우면서 도는 흐름이 생기는데, 이것이 대류예요. 주전자 속 물도 하늘의 구름도 같은 방식으로 움직여요."
     },
     "uses_live_slots": false,
     "source": {
@@ -3242,7 +3260,8 @@
     "question_type": "cloze",
     "template_json": {
       "question_text": "공기 속 수증기가 식어서 다시 작은 물방울로 변하는 것을 ___(이)라고 해요.",
-      "correct_answer": "응결"
+      "correct_answer": "응결",
+      "explanation_hint": "공기는 따뜻할수록 수증기를 많이 품을 수 있어요. 그래서 공기가 식으면 품고 있던 수증기가 다 담기지 못하고 작은 물방울로 맺히는데, 이것을 응결이라고 해요. 차가운 음료수 컵 겉에 물방울이 맺히는 것도 같은 일이에요."
     },
     "uses_live_slots": false,
     "source": {
@@ -3270,7 +3289,8 @@
         "수증기가 응결해 작은 물방울이 되어 구름을 이룬다"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2,3"
+      "correct_answer": "0,1,2,3",
+      "explanation_hint": "구름은 하늘에서 새로 만들어진 물이 아니라, 땅과 바다에 있던 물이 모습을 바꿔 올라간 것이다. 증발로 수증기가 되어 올라가고, 높은 곳은 차가우니 식고, 식으면 다시 물방울로 응결해 구름이 된다. 올라가는 단계가 식는 단계보다 앞이어야 하는 것은 높이 올라가야 차가워지기 때문이다."
     },
     "uses_live_slots": false,
     "source": {
@@ -3460,7 +3480,8 @@
         "뒤따라온 한랭전선이 좁은 지역에 굵은 소나기를 쏟은 뒤 기온이 뚝 떨어진다"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2"
+      "correct_answer": "0,1,2",
+      "explanation_hint": "중위도 저기압은 온난전선을 앞세우고 한랭전선을 뒤에 달고 이동한다. 그래서 한 지역에서 보면 넓고 약한 비가 먼저 오고, 두 전선 사이의 따뜻한 구역에 들어 잠시 개었다가, 뒤따라온 한랭전선이 짧고 굵은 비를 쏟고 기온을 떨어뜨린다. 비가 두 번 오는데 성격이 서로 다른 것이 이 저기압의 특징이다."
     },
     "uses_live_slots": false,
     "source": {
@@ -3496,7 +3517,8 @@
           "right": "비나 눈이 실제로 내리는 곳과 그 세기를 보여 준다"
         }
       ],
-      "correct_answer": "일기도:기압의 분포와 전선의 위치를 한눈에 보여 준다|위성 영상:구름이 어디에 얼마나 두껍게 퍼져 있는지 보여 준다|레이더 영상:비나 눈이 실제로 내리는 곳과 그 세기를 보여 준다"
+      "correct_answer": "일기도:기압의 분포와 전선의 위치를 한눈에 보여 준다|위성 영상:구름이 어디에 얼마나 두껍게 퍼져 있는지 보여 준다|레이더 영상:비나 눈이 실제로 내리는 곳과 그 세기를 보여 준다",
+      "explanation_hint": "세 자료는 각각 다른 것을 본다. 일기도는 기압 분포와 전선처럼 눈에 보이지 않는 구조를, 위성 영상은 위에서 내려다본 구름을, 레이더 영상은 지금 실제로 떨어지고 있는 비와 눈을 보여 준다. 구름이 있다고 반드시 비가 오는 것은 아니므로 위성과 레이더는 서로를 대신하지 못한다."
     },
     "uses_live_slots": false,
     "source": {
@@ -3609,7 +3631,8 @@
           "right": "낮과 밤의 기온 차가 크고 건조해 맑은 날이 많다"
         }
       ],
-      "correct_answer": "여름:기온이 높고 습도가 높으며 비가 많이 내린다|겨울:기온이 낮고 습도가 낮으며 맑고 추운 날이 이어진다|봄:낮과 밤의 기온 차가 크고 건조해 맑은 날이 많다"
+      "correct_answer": "여름:기온이 높고 습도가 높으며 비가 많이 내린다|겨울:기온이 낮고 습도가 낮으며 맑고 추운 날이 이어진다|봄:낮과 밤의 기온 차가 크고 건조해 맑은 날이 많다",
+      "explanation_hint": "계절 날씨는 기온과 습도를 함께 봐야 갈린다. 여름은 덥고 습해 비가 많고, 겨울은 춥고 건조해 맑고 추운 날이 이어지며, 봄은 건조한 데다 낮과 밤의 기온 차가 크다. 기온만 보면 봄과 가을이 구별되지 않는다."
     },
     "uses_live_slots": false,
     "source": {
@@ -3636,7 +3659,8 @@
         "바람이 약해지거나 비가 내리면서 먼지가 지표로 가라앉아 하늘이 뿌옇게 흐려진다"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2"
+      "correct_answer": "0,1,2",
+      "explanation_hint": "황사는 세 단계가 모두 있어야 우리 하늘에 닿는다. 먼저 메마른 사막에서 강한 바람이 먼지를 높이 띄워야 하고, 그다음 편서풍이 그것을 서쪽에서 동쪽으로 실어 날라야 하며, 마지막으로 바람이 약해지거나 비가 씻어 내리며 먼지가 지표로 가라앉아야 뿌옇게 느껴진다. 셋 중 하나만 빠져도 황사는 오지 않는다."
     },
     "uses_live_slots": false,
     "source": {
@@ -3686,7 +3710,8 @@
         "내보낸 열이 도시의 공기를 데워, 밤에도 기온이 좀처럼 내려가지 않는다"
       ],
       "shuffled": true,
-      "correct_answer": "0,1,2"
+      "correct_answer": "0,1,2",
+      "explanation_hint": "순서를 가르는 것은 비열이다. 비열이 작은 아스팔트와 콘크리트는 낮에 빠르게 데워져 열을 많이 품고, 밤이 되면 그 열을 천천히 내놓으며, 내놓은 열이 도시의 공기를 데워 기온이 좀처럼 내려가지 않는다. 데워지고, 품고, 내놓고, 공기가 데워지는 네 칸은 앞뒤를 바꿀 수 없다."
     },
     "uses_live_slots": false,
     "source": {
@@ -27027,17 +27052,11 @@
     "concept_tag": "density_buoyancy",
     "level_group": "middle_high",
     "knowledge_level": 4,
-    "question_type": "multiple_choice",
+    "question_type": "short_answer",
     "template_json": {
-      "question_text": "오늘 {today.region}의 비 올 확률은 {today.rain_prob}%다. 구름이 만들어지려면 공기 덩어리가 어떤 과정을 거쳐야 하는가?",
-      "options": [
-        "온도가 전혀 변하지 않은 채 수증기만 늘어난다",
-        "높이가 그대로인 채 옆으로만 퍼져 수증기를 잃는다",
-        "아래로 내려가면서 부피가 줄고 온도가 올라가 이슬점에 이른다",
-        "위로 올라가면서 부피가 커지고 온도가 내려가 이슬점에 이른다"
-      ],
-      "correct_answer": "위로 올라가면서 부피가 커지고 온도가 내려가 이슬점에 이른다",
-      "explanation_hint": "주위 기압이 낮아지는 위쪽으로 공기 덩어리가 올라가면 부피가 커지면서 온도가 내려간다. 온도가 이슬점까지 떨어지면 수증기가 물방울로 맺혀 구름이 된다."
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도다. 지표가 데워질수록 그 위의 공기 덩어리는 주위보다 가벼워져 더 잘 떠오르고, 상승기류는 지표 가열이 최대에 이른 시각에 가장 활발하다. 오늘 상승기류가 가장 활발해지는 그 시각의 기온은 몇 도인가? 숫자만 쓰시오.",
+      "correct_answer": "{today.temp_max}",
+      "explanation_hint": "부력은 주위 공기와의 밀도 차에서 나오고, 그 차이는 지표 가열이 최대인 오후 기온 정점에서 가장 커진다. 소나기 구름이 이 무렵에 잘 발달하는 것도 같은 까닭이다."
     },
     "uses_live_slots": true,
     "source": {
@@ -27045,7 +27064,8 @@
       "refs": [
         "climate_concepts: density_buoyancy",
         "SPRINT_R13_02 §T3 실황 현상 — 오늘 강수 확률을 도입부로 쓴다",
-        "knowledge_level=4 · 적용 규칙: R1 → 4(이슬점 introduced_at=4가 정답에 등장) (docs/specs/12 §4)"
+        "knowledge_level=4 · 적용 규칙: R1 → 4(이슬점 introduced_at=4가 정답에 등장) (docs/specs/12 §4)",
+        "SPRINT_R13_02 §T3 실황 계산 — multiple_choice → short_answer 전환, correct_answer가 {today.temp_max}이라 매일 정답이 바뀐다 (부력이 최대가 되는 시각의 지표 기온을 오늘 값으로 짚게 한다)"
       ]
     },
     "status": "active"
@@ -27117,17 +27137,11 @@
     "concept_tag": "radiation_budget",
     "level_group": "adult",
     "knowledge_level": 5,
-    "question_type": "multiple_choice",
+    "question_type": "cloze",
     "template_json": {
-      "question_text": "오늘 {today.region}의 하늘은 '{today.sky}'다. 구름이 많은 밤에 기온이 맑은 밤보다 덜 떨어지는 까닭으로 가장 알맞은 것은?",
-      "options": [
-        "구름이 바람을 막아 공기가 섞이지 않기 때문",
-        "구름 속 물방울이 밤새 얼면서 대기를 직접 데우기 때문",
-        "구름이 지표에서 나가는 적외선을 흡수해 다시 지표 쪽으로 되돌려 보내기 때문",
-        "구름이 낮에 받은 햇빛을 밤에 그대로 다시 내보내기 때문"
-      ],
-      "correct_answer": "구름이 지표에서 나가는 적외선을 흡수해 다시 지표 쪽으로 되돌려 보내기 때문",
-      "explanation_hint": "맑은 밤에는 지표가 내보낸 적외선이 우주로 그대로 빠져나가 기온이 크게 떨어진다. 구름이 있으면 그 적외선이 구름에 붙잡혔다가 일부가 지표로 되돌아와 식는 속도가 느려진다."
+      "question_text": "오늘 {today.region}의 하늘은 '{today.sky}', 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도다. 밤에는 지표가 적외선을 내보내며 식고(복사냉각), 구름이 있으면 그 적외선의 일부를 되돌려보내 냉각이 느려진다. 이 냉각이 해 뜨기 직전에 멈추면서 관측되는 값이 일 최저기온이며, 오늘 그 값은 ___도다.",
+      "correct_answer": "{today.temp_min}",
+      "explanation_hint": "야간 복사냉각은 일출 직전까지 이어지므로 일 최저기온은 새벽 끝자락에 나타난다. 구름은 그 냉각의 속도를 늦출 뿐, 최저기온이 나타나는 시각 자체를 바꾸지는 않는다."
     },
     "uses_live_slots": true,
     "source": {
@@ -27135,7 +27149,8 @@
       "refs": [
         "climate_concepts: radiation_budget",
         "SPRINT_R13_02 §T3 실황 현상 — 오늘 하늘 상태를 도입부로 쓴다",
-        "knowledge_level=5 · 적용 규칙: R1 → 5(에너지 수지를 정성적으로 설명, 역학 배제) (docs/specs/12 §4)"
+        "knowledge_level=5 · 적용 규칙: R1 → 5(에너지 수지를 정성적으로 설명, 역학 배제) (docs/specs/12 §4)",
+        "SPRINT_R13_02 §T3 실황 계산 — multiple_choice → cloze 전환, correct_answer가 {today.temp_min}이라 매일 정답이 바뀐다 (복사수지의 야간 종점이 일 최저기온임을 오늘 값으로 짚게 한다)"
       ]
     },
     "status": "active"
