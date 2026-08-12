@@ -553,30 +553,43 @@ async def complete_session(
 
     # 유닛 세션 unit_result (R8-01 §3.1 계약 복구) — grant_unit_crown 반환을
     # 버리지 않고 노출한다(프론트 UnitSummary가 읽는 필드).
-    # **왕관이 유닛 세션 완료로 돌아왔다**(2026-08-12 클라이언트 확정).
-    # 경위를 남긴다: R13-01 §2.10이 왕관을 일일 세션의 **진도 블록**으로 옮기면서
-    # 유닛 직접 진입을 «연습 전용»(grant_crown=False)으로 고정했다. 그런데 오늘
-    # 배합이 `{live:2, new:4, review:3, board:1}`로 바뀌며 **`unit` kind 자체가
-    # 사라졌다** — 진도 블록이 없어졌으므로 그 유입로도 함께 죽는다. 되돌리지
-    # 않으면 왕관이 **도달 불가**가 된다.
-    # ⚠️ 이 두 변경은 **한 쌍**이다. 배합에 `unit`을 되살리면 여기도 함께 되돌려야
-    # 하루 1왕관 상한이 지켜진다(같은 진도에 두 번 주지 않기).
-    # ⚠️ 왕관 유입로는 **3개**다 (CO-L5 정정): ⑴ **유닛 세션 완료**(여기 — 종전
-    # 「일일 세션의 진도 블록」을 대체) · ⑵ 보드 퍼즐 최초 클리어
-    # (routers/board.py) · ⑶ /dev 개발 경로(UserUnitProgress 직접 upsert —
-    # grant_unit_crown 미경유). 목록의 단일 소유자는 curriculum_service 모듈
-    # 독스트링이다.
+    #
+    # ══ 왕관은 **하루 첫 유닛 세션**에만 (2026-08-13 클라이언트 확정) ═══════════
+    # 경위를 남긴다. R13-01 §2.10이 왕관을 일일 세션의 **진도 블록**으로 옮기면서
+    # 유닛 직접 진입을 «연습 전용»로 고정했는데, 그 뒤 배합이
+    # `{live:2, new:4, review:3, board:1}`이 되며 `unit` kind 자체가 사라져
+    # 유입로가 죽었다. 그래서 2026-08-12에 **유닛 세션 완료**로 되돌렸다
+    # (`grant_crown=all_correct`). 그런데 그러면 **하루에 유닛을 여러 개 열수록
+    # 왕관이 무제한으로 나온다** — daily가 갖고 있던 「하루 1세션 = 하루 1왕관」
+    # 상한이 유닛에는 없기 때문이다(`uq_sessions_daily`가 `unit_id IS NULL`에만
+    # 걸린다). 확정 사양이 그 구멍을 닫는다: **하루의 첫 유닛 세션이 곧 데일리
+    # 세션**이고, 왕관은 그 세션에만 붙는다.
+    #
+    # ⚠️ **여기서 「첫 세션인가」를 재계산하지 않는다.** 판정은 발급 시점에 끝났고
+    # 이 코드는 `recipe_json`의 도장을 **읽기만** 한다. 완료 시점에 다시 세면 두
+    # 유닛을 열어 역순으로 완료할 때 둘 다 첫 세션이 되거나 둘 다 아니게 된다
+    # (`curriculum_service.is_first_unit_session_today` 독스트링).
+    # 도장이 없는 세션(개정 이전 발급분)은 `.get`이 None → False라 왕관이 나가지
+    # 않는다 — 모르는 세션은 안 주는 쪽으로 닫는다.
+    #
+    # ⚠️ 왕관 유입로는 **3개**다 (CO-L5 정정): ⑴ **하루 첫 유닛 세션 완료**(여기) ·
+    # ⑵ 보드 퍼즐 최초 클리어(routers/board.py) · ⑶ /dev 개발 경로
+    # (UserUnitProgress 직접 upsert — grant_unit_crown 미경유). 목록의 단일
+    # 소유자는 curriculum_service 모듈 독스트링이다.
     # 진도 스냅샷(crowns·cleared)과 all_correct·all_resolved 표기는 그대로 나간다.
     unit_result: UnitResult | None = None
     if session.unit_id is not None:
+        daily_first = bool(
+            (getattr(session, "recipe_json", None) or {}).get("daily_first")
+        )
         payload = await curriculum_service.unit_result_for_session(
             db,
             user,
             session.unit_id,
             all_correct=all_correct,
-            # 세션 최초 완료 ∧ 전 문항 정답일 때만 — `grant_unit_crown`이 멱등
+            # 하루 첫 유닛 세션 ∧ 전 문항 정답일 때만 — `grant_unit_crown`이 멱등
             # 판정(이미 준 왕관은 다시 안 준다)을 갖고 있어 상한은 그쪽이 지킨다.
-            grant_crown=all_correct,
+            grant_crown=all_correct and daily_first,
         )
         if payload is not None:
             unit_result = UnitResult(**payload, all_resolved=all_resolved)

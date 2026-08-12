@@ -94,6 +94,14 @@ class TestSessionRecipe:
         """
         assert policy["daily_board_cap"] == settings.DAILY_BOARD_CAP
 
+    def test_두_번째_이후_유닛_세션_크기가_같다(self, policy):
+        """**첫 세션은 배합 총합(10), 두 번째 이후가 이 값**(2026-08-13 확정).
+
+        종전 목은 이 자리에 하드코딩 `3`을 갖고 서버(4)와 조용히 갈려 있었다 —
+        대조가 0인 정책이 리터럴로 복사돼 있는 CO-J-9와 똑같은 모양이다.
+        """
+        assert policy["unit_session_size"] == settings.UNIT_SESSION_SIZE
+
     def test_보드_잠금_앞보기가_같다(self, policy):
         """MT-24 — 목이 잠금 규칙을 흉내 내되 **앞보기 칸 수까지** 같아야 한다.
 
@@ -167,14 +175,47 @@ class TestCrownPolicy:
             "블록 0에서 세션 전체로 폴백하는 `... or logs`가 되살아났다 (CO-M7)"
         )
 
-    def test_유닛_세션은_왕관을_주지_않는다(self, policy, session_src):
-        """§2.10 소유권 이전 — 유닛 직접 진입은 연습 전용(grant_crown=False 고정)."""
-        assert policy["crown"]["unit_session_grants_crown"] is False
-        assert re.search(r"grant_crown=False", session_src), (
-            "서버 유닛 세션이 grant_crown=False가 아니다"
+    def test_유닛_왕관은_하루_첫_세션에만_붙는다(self, policy, session_src):
+        """2026-08-13 확정 — 「하루의 첫 유닛 세션이 곧 데일리 세션」.
+
+        ⚠️ **이 계약은 뒤집혔고, 종전 판은 사실상 헛돌고 있었다.** 예전 본문은
+        `grant_crown=False`가 소스에 **존재**하는지만 봤는데, 2026-08-12에 서버가
+        `grant_crown=all_correct`로 바뀐 뒤에도 초록이었다 — 그 문자열이 **경위를
+        설명하는 주석**에 남아 있었기 때문이다. 문자열 존재로 정책을 재는 검사는
+        주석 하나에 속는다. 그래서 지금은 **실제 인자식**을 문다.
+
+        무는 것 셋:
+          ⑴ 목이 같은 정책을 신고한다(`daily_first_only`).
+          ⑵ 서버가 `all_correct`와 `daily_first`의 **논리곱**을 넘긴다.
+          ⑶ 왕관 분기가 「첫 세션인가」를 **재계산하지 않는다** — 발급 시점 도장을
+             읽기만 한다. 재계산하면 두 유닛을 열어 역순으로 완료할 때 둘 다 첫
+             세션이 되거나 둘 다 아니게 된다.
+        """
+        assert policy["crown"]["unit_session_grants_crown"] == "daily_first_only"
+        assert re.search(r"grant_crown=all_correct and daily_first", session_src), (
+            "서버 유닛 세션의 왕관이 「만점 ∧ 하루 첫 세션」이 아니다"
         )
-        assert not re.search(r"grant_crown=True", session_src), (
-            "유닛 세션에 왕관을 주는 분기가 되살아났다 (§2.10)"
+        assert re.search(
+            r'daily_first = bool\(\s*\(getattr\(session, "recipe_json", None\) or \{\}\)'
+            r'\.get\("daily_first"\)',
+            session_src,
+        ), "왕관 분기가 recipe_json 도장을 읽지 않는다"
+
+    def test_첫_세션_판정은_발급_시점에_찍힌_도장이다(self, policy, session_src):
+        """완료 시점 재계산 금지 — 라우터가 세션 수를 **세지 않아야** 한다."""
+        assert policy["crown"]["unit_first_stamped_at_issue"] is True
+        # 주석은 걷어낸다 — 판정의 소유자가 어디인지 **설명하느라** 그 함수 이름을
+        # 인용하므로, 주석까지 세면 근거를 남길수록 테스트가 우는 뒤집힌 유인이
+        # 생긴다(같은 파일 `test_진도_블록_0은_...`이 쓰는 것과 같은 방법).
+        code = "\n".join(
+            line
+            for line in session_src.splitlines()
+            if not line.lstrip().startswith("#")
+        )
+        assert "is_first_unit_session_today" not in code, (
+            "라우터가 완료 시점에 「첫 세션인가」를 재계산한다 — 판정의 소유자는 "
+            "발급 시점(curriculum_service.create_unit_session)이고 여기는 도장을 "
+            "읽기만 해야 한다(역순 완료 경합)"
         )
 
     def test_왕관_대상_쌍이_진도_블록_유닛에서_나온다(self, policy, session_src):

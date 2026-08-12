@@ -514,23 +514,27 @@ class TestCrownOwnership:
         )
         assert "award" not in calls and result.crown_award is None
 
-    def test_계약6_유닛_직접_진입이_왕관_유입로다(self, monkeypatch):
-        """⚠️ **2026-08-12 계약 반전** — 원 계약 6은 "왕관 없이 연습만"이었다.
+    def test_계약6_하루_첫_유닛_세션이_왕관_유입로다(self, monkeypatch):
+        """⚠️ **계약이 두 번 반전됐다** — 원 계약 6은 "왕관 없이 연습만"이었다.
 
         종전 논리는 "왕관은 daily 세션의 **진도 블록**이 소유하므로 유닛 직접
         진입에서 또 주면 이중 수여"였다. 그 전제가 **배합에서 사라졌다** —
         `unit` kind가 기본 배합에서 빠지면서 진도 블록이 발급되지 않고,
         `routers/session.py:_crown_scope_logs`가 `kind == "unit"` 문항만 왕관 판정
-        대상으로 삼으므로 daily 왕관 유입로가 통째로 0이 됐다. 왕관이 도달 불가가
-        되므로 **유닛 세션 완료로 되돌린다**(클라이언트 확정).
+        대상으로 삼으므로 daily 왕관 유입로가 통째로 0이 됐다(2026-08-12 1차 반전).
 
-        이중 수여를 막는 것은 이제 이 분기가 아니라 `grant_unit_crown`의 멱등
-        판정이다(`crown_target` 상한 · `cleared` 전환 1회). 같은 계약을
+        **2026-08-13 2차 반전**: 그렇게 되돌리자 하루에 유닛을 여러 개 열수록
+        왕관이 무제한이 됐다 — daily의 「하루 1세션 = 하루 1왕관」 상한이 유닛에는
+        없기 때문이다. 그래서 **하루 첫 유닛 세션**으로 좁혔고, 판정은 발급 시점에
+        `recipe_json["daily_first"]`로 찍힌다.
+
+        이중 수여를 막는 것은 이 분기가 아니라 `grant_unit_crown`의 멱등 판정이다
+        (`crown_target` 상한 · `cleared` 전환 1회). 같은 계약을
         `test_crown_award.py`가 라우터 쪽에서 소유하고, 여기서는 **진도 블록이
-        켜져 있어도(LEGACY 배합) 유닛 세션은 만점이면 왕관을 요청한다**를 본다.
+        켜져 있어도(LEGACY 배합) 하루 첫 유닛 세션은 만점이면 왕관을 요청한다**를 본다.
         """
         unit_id = uuid.uuid4()
-        session = make_session(mode="unit", unit_id=unit_id)
+        session = make_session(mode="unit", unit_id=unit_id, daily_first=True)
         logs = [make_log("air_mass") for _ in range(UNIT_COUNT)]
         payload = {
             "all_correct": True, "crowns": 0, "crown_target": 1,

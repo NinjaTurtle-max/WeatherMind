@@ -627,9 +627,17 @@ class TestUnitSessionHasNoMinimumFloor:
             cs.create_unit_session(db, user, unit, abilities=[])
         )
         assert entries == []
-        assert session.recipe_json == {
-            "kind": "unit", "unit_id": str(unit.id), "items": []
-        }
+        # ⚠️ **dict 동등에서 부분 단정으로 낮췄다**(2026-08-13, PM 승인).
+        # `recipe_json`에 「오늘 첫 유닛 세션인가」 도장(`daily_first`)이 들어오면서
+        # 이 자리에서 키 집합을 통째로 못 박을 수 없게 됐다 — 그 도장이 왕관 판정의
+        # 유일한 근거라 뺄 수 없다. **여기서 잃은 「예상 못 한 키가 붙는다」 감시는
+        # `test_unit_daily_first.py::TestRecipeJsonKeySet`이 이어받는다**(느슨하게
+        # 바꾸면서 대체물을 안 세우면 그 축을 아무도 안 보게 된다).
+        # 이 테스트가 소유한 계약은 **0문항 풀이어도 세션이 발급된다**이므로
+        # 그것만 남긴다.
+        assert session.recipe_json["kind"] == "unit"
+        assert session.recipe_json["unit_id"] == str(unit.id)
+        assert session.recipe_json["items"] == []
         assert session.mode == cs.MODE_UNIT
 
     def test_daily_하한은_유닛_세션에_적용되지_않는다(self):
