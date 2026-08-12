@@ -850,3 +850,42 @@ class TestPuzzleDetailRoute:
         assert list_route.response_model == list[BoardPuzzle], (
             f"목록 응답 모델이 list[BoardPuzzle]이 아니다 ({list_route.response_model})"
         )
+
+
+class TestSignupStartsFull:
+    """신규 유저는 **만렙으로** 시작한다 (MT-7 리뷰, 2026-08-12).
+
+    ⚠️ 이 계약이 없어서 MT-7이 실질적으로 안 먹혔다. `Settings.CLOUD_MAX`를
+    5 → 10으로 올렸는데 `users.clouds` 열의 기본값이 5로 남아, 신규·게스트
+    유저가 전부 **5/10으로 생성**됐다 — 배지가 첫 화면부터 반쪽이고 이미 다섯을
+    쓴 사람처럼 시작한다. 정확히 MT-7이 겨냥한 인구였다.
+
+    등록·게스트 경로 어디도 `clouds=`를 넘기지 않으므로 **열 기본값이 곧 신규
+    유저의 잔량**이다. 그래서 그 값을 직접 문다.
+    """
+
+    def test_모델_기본값이_만렙이다(self):
+        from app.models.user import User
+
+        default = User.__table__.c.clouds.default
+        value = default.arg(None) if callable(default.arg) else default.arg
+        assert value == settings.CLOUD_MAX, (
+            f"신규 유저가 {value}/{settings.CLOUD_MAX}로 생성된다 — "
+            "만렙을 올릴 때 이 기본값을 함께 올려야 한다"
+        )
+
+    def test_열_기본값도_같은_값을_말한다(self):
+        """앱과 DB가 다른 값을 말하면, SQL로 직접 INSERT하는 경로가 옛 값을 쓴다."""
+        from app.models.user import User
+
+        server_default = User.__table__.c.clouds.server_default
+        assert str(server_default.arg.text) == str(settings.CLOUD_MAX)
+
+    def test_리셋_경로와_가입_경로가_같은_값을_쓴다(self):
+        """`dev.py` 리셋은 이미 settings를 봤다 — 두 경로가 갈리면 재현이 안 된다."""
+        from pathlib import Path
+
+        dev_src = (Path(__file__).resolve().parents[1] / "app" / "routers" / "dev.py").read_text(
+            encoding="utf-8"
+        )
+        assert "settings.CLOUD_MAX" in dev_src, "리셋 경로가 리터럴을 쓰고 있다"

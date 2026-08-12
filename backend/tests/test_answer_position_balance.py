@@ -222,3 +222,63 @@ def test_staging_해설도_정답과_어긋나지_않는다(path):
         pytest.skip(f"항목 목록이 아니다: {path.name}")
     bad = _hint_contradictions(items)
     assert not bad, f"{path.name}: 해설이 정답을 오답이라 말한다 — {bad[:3]}"
+
+
+class TestShuffleToolInvariants:
+    """도구가 지켜야 하는 것 — 전부 코드 리뷰가 실물로 잡아낸 결함이다(2026-08-12).
+
+    이 절이 없으면 도구가 다음 저작 배치에서 같은 피해를 되풀이한다.
+    """
+
+    @pytest.fixture(scope="class")
+    def tool(self):
+        import importlib.util
+        import sys
+
+        path = SEED.parents[2] / "scripts" / "shuffle_answer_positions.py"
+        spec = importlib.util.spec_from_file_location("wm_shuffle", path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["wm_shuffle"] = module
+        spec.loader.exec_module(module)
+        return module
+
+    def test_정답이_앵커면_건드리지_않는다(self, tool):
+        """「둘 다 아니다」가 정답일 때 보기가 하나 늘고 정답이 두 번 실렸다."""
+        options = ["A", "B", "둘 다 아니다"]
+        out = tool.place_answer(options, "둘 다 아니다", "q", 1)
+        assert len(out) == len(options), f"보기 개수가 변했다: {out}"
+        assert out.count("둘 다 아니다") == 1, f"정답이 중복됐다: {out}"
+
+    def test_앵커는_끝에_남는다(self, tool):
+        out = tool.place_answer(["A", "B", "둘 다 아니다"], "A", "q", 2)
+        assert out[-1] == "둘 다 아니다", f"앵커가 앞으로 나왔다: {out}"
+
+    def test_서수는_선지를_가리킬_때만_옮긴다(self, tool):
+        """**학습자에게 나간 실제 오류.** 「두 번째 몫」은 선지가 아니라 물리적
+        기여분이었는데 「네 번째 몫」이 됐다 — 넷이 없는 곳에서 넷째를 가리킨다.
+        """
+        hint = "기압이 밀어 올리는 몫과 바람이 쌓는 몫으로 나뉜다. 두 번째 몫을 크게 키운다."
+        out = tool.remap_hint(hint, ["A", "B", "C", "D"], ["D", "C", "B", "A"])
+        assert "두 번째 몫" in out, f"본문의 서수를 건드렸다: {out}"
+
+    def test_선지_참조는_제대로_옮긴다(self, tool):
+        hint = "세 번째 선지는 오독이다."
+        out = tool.remap_hint(hint, ["A", "B", "C", "D"], ["C", "A", "B", "D"])
+        assert "첫 번째 선지는 오독이다." == out, out
+
+    def test_자리를_모르면_안_건드린다(self, tool):
+        """3지선다에서 「마지막 선지」(4번 매핑)처럼 매핑이 없는 경우."""
+        hint = "네 번째 선지는 오독이다."
+        out = tool.remap_hint(hint, ["A", "B", "C"], ["C", "A", "B"])
+        assert out == hint, f"모르는 자리를 임의로 바꿨다: {out}"
+
+    def test_자리가_문항에서_정해진다(self, tool):
+        """파일 순번으로 정하면 항목 하나 추가에 1,000건 중 207건이 재배치된다.
+
+        같은 문항은 **어느 파일에 있든 어느 위치에 있든** 같은 순서를 받아야,
+        staging 승격이 본시드의 손질을 덮지 않는다.
+        """
+        opts = ["가", "나", "다", "라"]
+        first = tool.place_answer(opts, "다", "같은 문항입니다", 1)
+        # 같은 입력이면 몇 번을 불러도 같다(자리는 내부에서 문항 해시로 정한다)
+        assert tool.place_answer(list(opts), "다", "같은 문항입니다", 1) == first

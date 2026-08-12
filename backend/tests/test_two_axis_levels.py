@@ -593,7 +593,12 @@ class TestMigration0012:
             )
             revisions[found["revision"]] = found.get("down_revision")
         referenced = {down for down in revisions.values() if down}
-        assert set(revisions) - referenced == {"0013_league_result_unique"}
+        heads = set(revisions) - referenced
+        # ⚠️ **개수만 본다.** 이 독스트링이 "특정 번호가 아니다"라고 적어 놓고
+        # 정작 번호를 단정하고 있어서, 리비전을 하나 추가할 때마다 세 파일이 함께
+        # 깨졌다(2026-08-12 `0014_clouds_default_ten`). 감시하려는 것은 head가
+        # 갈라지지 않는다는 것 하나이므로 그것만 문다.
+        assert len(heads) == 1, f"alembic head가 갈라졌다: {sorted(heads)}"
 
     def test_모델_컬럼_계약(self):
         """둘 다 nullable·서버 기본값 없음 — NULL 폴백이 코드 소유라는 뜻(region 선례)."""

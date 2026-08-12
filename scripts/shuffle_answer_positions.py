@@ -53,10 +53,22 @@ ORDINAL_VARIANTS = {
     4: ("네 번째", "네번째", "4번", "④", "마지막 선지", "마지막 보기"),
 }
 _SLOT_OF = {v: k for k, vs in ORDINAL_VARIANTS.items() for v in vs}
+
+# ⚠️ **문맥 가드가 이 정규식의 핵심이다.** 서수만 보고 선지 참조로 단정하면
+# 본문의 서수까지 바꿔 버린다 — 실제로 「빠져나갈 곳이 없어 **두 번째 몫**을 크게
+# 키운다」를 「네 번째 몫」으로 망가뜨렸다. 여기서 '몫'은 선지가 아니라 앞 문장이
+# 든 **물리적 기여분**(기압 상승분·바람 밀어쌓기) 둘 중 두 번째다. 넷이 없는데
+# 네 번째를 가리키니 문장이 뜻을 잃는다. `explanation_hint`는 학습자에게 그대로
+# 나가므로(answer_service 우선순위 ②) 이건 곧 오답 해설이다.
+# 그래서 **바로 뒤에 선지를 뜻하는 말이 오는 경우만** 옮긴다.
+_OPTION_NOUNS = r"(?:\s*(?:선지|보기|답지|번\s*선지))"
 _ORDINAL_RE = re.compile(
-    "|".join(
+    "(?:"
+    + "|".join(
         re.escape(v) for vs in ORDINAL_VARIANTS.values() for v in sorted(vs, key=len, reverse=True)
     )
+    + ")"
+    + _OPTION_NOUNS
 )
 _ORD_NAME = {1: "첫 번째", 2: "두 번째", 3: "세 번째", 4: "네 번째"}
 
@@ -86,6 +98,11 @@ def place_answer(options: list, answer, question_text: str, target_slot: int) ->
     앵커 선지(「둘 다 아니다」류)는 앞의 선지들을 가리키는 말이라 끝에 고정한다 —
     첫 자리로 가면 가리킬 대상이 없다.
     """
+    # 정답 자체가 앵커면 **건드리지 않는다.** 옮기면 앵커가 앞으로 나와 가리킬
+    # 대상이 사라지고, 앵커 목록에서 빼지 않으면 정답이 두 번 실려 보기가 하나
+    # 늘어난다(실측: 3지선다가 4지선다가 됐다 — 코드 리뷰 2026-08-12).
+    if any(a in str(answer) for a in ANCHOR_LAST):
+        return list(options)
     anchored = [o for o in options if any(a in str(o) for a in ANCHOR_LAST)]
     movable = [o for o in options if o not in anchored and o != answer]
     ordered = sorted(movable, key=lambda o: _rank(o, question_text))
@@ -104,9 +121,48 @@ def remap_hint(hint: str, old_options: list, new_options: list) -> str:
         for oi, opt in enumerate(old_options, 1)
         if opt in new_options
     }
-    return _ORDINAL_RE.sub(
-        lambda m: _ORD_NAME.get(move.get(_SLOT_OF[m.group(0)], 0), m.group(0)), hint
+    def _swap(m: "re.Match") -> str:
+        token = m.group(0)
+        # 매치는 「세 번째 선지」처럼 서수+명사다. 서수 부분만 갈고 명사는 보존한다.
+        for variant, slot in _SLOT_OF.items():
+            if token.startswith(variant):
+                new_slot = move.get(slot)
+                if new_slot is None or new_slot not in _ORD_NAME:
+                    return token  # 매핑을 모르면 **건드리지 않는다**
+                return _ORD_NAME[new_slot] + token[len(variant) :]
+        return token
+
+    return _ORDINAL_RE.sub(_swap, hint)
+
+
+# 서수가 **명사 없이** 쓰인 경우까지 잡는다 — 「두 번째와 세 번째는 각각 …」처럼
+# 「선지」를 안 붙이는 해설이 실제로 있다. 이건 옮길 수 없으므로(본문의 서수와
+# 구분이 안 된다) 그런 문항은 **순서를 아예 안 바꾼다** — 해설이 계속 맞는다.
+_BARE_ORDINAL_RE = re.compile(
+    "|".join(
+        re.escape(v) for vs in ORDINAL_VARIANTS.values() for v in sorted(vs, key=len, reverse=True)
     )
+)
+WRONG_CONTEXT = ("오독", "잘못", "아니", "혼동", "설명이다", "기준이다", "것이고", "것이다", "헷갈")
+
+
+def hint_contradicts(hint: str, options: list, answer) -> bool:
+    """해설이 **정답 자리**를 오답이라 말하는가.
+
+    셔플 뒤 이 검사를 통과 못 하면 그 문항은 되돌린다 — 위치가 고르게 퍼지는
+    이득보다 **맞힌 학습자에게 틀렸다고 가르치는 손해**가 훨씬 크다.
+    """
+    if not hint or not options or answer not in options:
+        return False
+    correct = options.index(answer) + 1
+    for match in _BARE_ORDINAL_RE.finditer(hint):
+        variant = match.group(0)
+        if _SLOT_OF.get(variant) != correct:
+            continue
+        around = hint[max(0, match.start() - 10) : match.start() + 45]
+        if any(w in around for w in WRONG_CONTEXT):
+            return True
+    return False
 
 
 def hint_uses_ordinals(hint: str) -> bool:
@@ -136,21 +192,34 @@ def process(path: Path, *, write: bool, remap_hints: bool) -> tuple[int, int]:
             skipped += 1
             continue
         targets.append(template)
-    targets.sort(key=lambda t: _rank("", t.get("question_text", "")))
-
     moved = 0
-    for i, template in enumerate(targets):
+    for template in targets:
         options, answer = template["options"], template["correct_answer"]
         anchors = sum(1 for o in options if any(a in str(o) for a in ANCHOR_LAST))
         slots = max(1, len(options) - anchors)
         hint = str(template.get("explanation_hint") or "")
-        new_options = place_answer(
-            options, answer, template.get("question_text", ""), (i % slots) + 1
-        )
+        # ⚠️ 자리를 **문항 해시**에서 정한다. 파일 안 순번(i % slots)으로 정하면
+        # 항목 하나만 추가해도 뒤의 모든 문항이 밀려 **1,000건 중 207건의 순서가
+        # 바뀐다**(실측). 그러면 다음 저작 배치마다 시드 전체에 diff가 나고, 그
+        # 잡음 속에서 손으로 고친 해설이 조용히 되돌아간다.
+        # 파일을 가로질러도 같은 문항은 같은 자리를 받으므로, 본시드와 staging에
+        # 중복된 문항이 **서로 다른 순서**를 갖는 문제도 함께 사라진다 —
+        # 승격이 손으로 고친 해설을 덮어쓰던 경로가 그것이었다.
+        slot = int(_rank(answer, template.get("question_text", ""))[:8], 16) % slots + 1
+        new_options = place_answer(options, answer, template.get("question_text", ""), slot)
         if new_options == options:
             continue
-        if hint_uses_ordinals(hint):
-            template["explanation_hint"] = remap_hint(hint, options, new_options)
+        new_hint = remap_hint(hint, options, new_options) if hint else hint
+        # ⚠️ **바꾸기 전에 결과를 확인한다.** 서수를 옮길 수 없는 해설이 있어서
+        # (「두 번째와 세 번째는 각각 …」처럼 「선지」를 안 붙인 문장) 순서만
+        # 바뀌면 해설이 정답을 오답이라 가리키게 된다. 그런 문항은 되돌린다 —
+        # 위치가 고르게 퍼지는 이득보다 맞힌 학습자에게 틀렸다고 가르치는 손해가
+        # 훨씬 크다. 실제로 그 상태로 커밋됐다가 리뷰가 잡았다(2026-08-12).
+        if hint_contradicts(new_hint, new_options, answer):
+            skipped += 1
+            continue
+        if new_hint != hint:
+            template["explanation_hint"] = new_hint
         template["options"] = new_options
         moved += 1
 

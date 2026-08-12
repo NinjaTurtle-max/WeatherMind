@@ -429,7 +429,11 @@ try {
     const r = mount(createElement(App), '/');
     await waitFor(() => headerLogout(), 6000, '헤더 로그아웃 버튼');
     click(headerLogout());
-    await waitFor(() => !useAuthStore.getState().accessToken, 4000, '정식 계정 즉시 로그아웃');
+    // ⚠️ 6000ms — 이 한 줄이 두 번 flaky로 터졌다(2026-08-12, 재실행 6회 전건
+    // 통과). 앞선 `headerLogout` 대기가 이미 6000인데 여기만 4000이라, 부하가
+    // 걸린 러너에서 App 전체 마운트가 늦으면 로그아웃 반영을 못 기다린다.
+    // 이 시나리오가 무는 것은 "확인 모달 없이 즉시 로그아웃"이지 응답 속도가 아니다.
+    await waitFor(() => !useAuthStore.getState().accessToken, 6000, '정식 계정 즉시 로그아웃');
     assert(!guestDialog(), '정식 계정에 게스트 확인 모달이 떴다 — 되돌릴 수 있는 행동이다');
     r.unmount();
   });
