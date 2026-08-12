@@ -49,7 +49,23 @@ class SessionItem(QuizQuestion):
     # 서버 배합(plan_bank_picks)이 정한 값을 sessions.recipe_json items에 적어 두고
     # 그대로 흘려보낸다 — 프론트가 문항을 보고 되짚지 않는다(되짚을 방법도 없다).
     # 생성 폴백 문항은 어느 블록의 부족분인지 구분이 없어 'new'다.
-    kind: Literal["new", "review", "live", "unit"] = "new"
+    # `board` — 오늘 현상에 매칭된 보드 퍼즐(T3 배합 `{live:2,new:4,review:3,board:1}`).
+    # ⚠️ 이 토큰이 없으면 발급 루프가 board를 내보내는 순간 **응답 검증에서 500**이다.
+    # 서비스 계층 테스트는 스키마를 안 타서 이것을 **통과시키고 숨긴다** — 라우터
+    # 레벨에서만 터진다(담당 H가 배선 전에 짚었다, 2026-08-12).
+    kind: Literal["new", "review", "live", "unit", "board"] = "new"
+    # 문항의 **지식 단계**(content_items.knowledge_level, 1~N) — R13, additive.
+    # ⚠️ 상속받은 `level_group`과 **다른 축**이다(2축 분리 계약):
+    #   level_group     = 표현 톤(elementary/middle_high/adult/expert)
+    #   knowledge_level = 난이도(교육과정 10단계)
+    # 데이터는 1,000건 전건에 채워져 있었는데 **이 스키마에 자리가 없어 화면까지
+    # 오지 못했다**(2026-08-12 클라이언트 지적 「학습 수준 태깅이 안 보인다」).
+    # 값의 출처는 quiz_logs.question_json이고, 뱅크 문항은 발급 시점에
+    # `session_service`가 컬럼값을 그대로 실어 둔다(생성 문항은 생성기 신고값).
+    # **None이 정상값이다** — 개정 전에 발급된 세션·단계 미분류 문항·유닛/배치
+    # 세션(다른 소유자가 question_json을 쓴다)에서 None이 오고, 프론트는 그때
+    # 배지를 아예 그리지 않는다(빈 배지·"?" 금지 — DifficultyBadge와 같은 관례).
+    knowledge_level: int | None = None
     # 유형별 플레이 페이로드 — render된 값에서 유형 화이트리스트로 추린다
     # (routers/session.QUESTION_PAYLOAD_FIELDS). 프론트가 이 필드 없이는 문항을
     # 렌더하지 못한다(R3-01 §3.3 board → R10-07 §2.1 전 유형 확장):

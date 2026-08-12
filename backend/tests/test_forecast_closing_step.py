@@ -161,10 +161,12 @@ class TestDegradedWithoutKma:
             "유저가 서버가 만든 숫자를 근거로 예보를 낸다"
         )
 
-    def test_계약3_KMA_없어도_15문항_세션이_정상_완료된다(self, monkeypatch):
+    def test_계약3_KMA_없어도_배합_전량_세션이_정상_완료된다(self, monkeypatch):
         """마감 단계가 세션 완주를 막지 않는다 — 프로젝트 계약("키 없이 전 기능").
 
-        complete 경로 전체를 돌려 15문항 결산이 그대로 나오는지 본다.
+        complete 경로 전체를 돌려 배합 전량 결산이 그대로 나오는지 본다.
+        문항 수는 **배합에서 파생**한다 — 15를 박아 두는 바람에 배합이 10으로
+        바뀔 때 이 계약(마감 단계가 완주를 막지 않는다)이 아니라 상수가 깨졌다.
         """
         from test_crown_award import FakeDB, make_log, make_session
 
@@ -208,7 +210,7 @@ class TestDegradedWithoutKma:
                 db,
             )
         )
-        assert result.total == ss.SESSION_SIZE == 15
+        assert result.total == ss.SESSION_SIZE
         assert result.correct_count == ss.SESSION_SIZE
         # CO-M2 — 결산 뒤 마감 단계는 KMA 없이도 붙는다(기준 예보만 빈다)
         assert result.closing_step is not None
@@ -221,13 +223,18 @@ class TestDegradedWithoutKma:
 
 
 class TestRecipeAndRewardsUntouched:
-    def test_계약4_배합은_15문항_그대로(self):
-        """마감 단계는 **문항이 아니다** — SESSION_RECIPE에 kind가 늘지 않는다."""
-        assert settings.SESSION_RECIPE == {
-            "new": 5, "review": 4, "live": 1, "unit": 5
-        }
-        assert ss.SESSION_SIZE == 15
-        assert set(settings.SESSION_RECIPE) == {"new", "review", "live", "unit"}
+    def test_계약4_배합에_예보_kind가_없다(self):
+        """마감 단계는 **문항이 아니다** — SESSION_RECIPE에 kind가 늘지 않는다.
+
+        ⚠️ **2026-08-12: 배합 자체가 15 → 10으로 바뀌었다**
+        (`{live:2,new:4,review:3,board:1}` — SPRINT_R13_02 §T3 / MT-6). 이 테스트가
+        지키는 것은 **배합의 값이 아니라 "예보가 배합에 안 들어온다"**이므로,
+        배합 수치를 여기 복제하지 않는다(그 소유자는 test_session_mix다).
+        종전엔 15·`{new:5,…}`를 통째로 박아 두어 남의 계약이 바뀔 때 같이 깨졌다.
+        """
+        assert "forecast" not in settings.SESSION_RECIPE
+        assert "duel" not in settings.SESSION_RECIPE
+        assert ss.SESSION_SIZE == sum(settings.SESSION_RECIPE.values())
         # 배합 validator 허용 집합에도 예보 kind가 없다(env로도 못 넣는다)
         from app.core.config import Settings
 

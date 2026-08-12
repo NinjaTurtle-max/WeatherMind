@@ -7,6 +7,9 @@ import {
   CO2_MAX,
   CLIMATE_SENSITIVITY,
 } from '../../lib/exploreSims';
+// MT-24 탐구 목표 — 「변수를 바꿔보며」에 「해냈다」를 붙인다.
+import GoalPanel from './GoalPanel';
+import { CLIMATE_GOALS } from './exploreGoals';
 import { useT } from '../../i18n';
 
 /**
@@ -152,6 +155,19 @@ export default function ClimateSimPage() {
       <p className="rounded-xl bg-slate-100 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
         {t('explore.climate.disclaimer')}
       </p>
+
+      {/* 탐구 목표(MT-24) — 슬라이더보다 위. 판정 입력은 **화면에 뜨는 반올림값**
+          그대로다(result.anomaly는 소수 2자리) — 원시값으로 다시 계산해 비교하면
+          "화면은 1.40인데 미달"이 생긴다. */}
+      <GoalPanel
+        goals={CLIMATE_GOALS}
+        facts={{
+          co2,
+          anomaly: result.anomaly,
+          sea_level: result.sea_level,
+          heat_days: result.heat_days,
+        }}
+      />
 
       {/* 아노말리 곡선 카드 */}
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">

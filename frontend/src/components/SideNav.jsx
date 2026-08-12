@@ -31,11 +31,10 @@ import { useT } from '../i18n';
 const TUTOR_BY_PATH = [
   { match: (p) => p === '/board' || p.startsWith('/board/'), name: 'sun', key: 'board' },
   { match: (p) => p.startsWith('/learn/'), name: 'drop', key: 'learn' },
-  // 자유 일일 세션(/daily)도 **물방울이**다(2026-08-11 코드 리뷰). 표에 없어서
-  // 폴백(구름이)이 떴는데, 같은 화면의 정답/해설 말풍선은 물방울이라
-  // 한 화면에 말하는 사람이 둘이었다 — 이번 변경이 없애려던 바로 그 어긋남이다.
-  // key는 learn을 함께 쓴다(같은 학습 세션 튜터 — 문구를 두 벌로 만들지 않는다).
-  { match: (p) => p === '/daily' || p.startsWith('/daily/'), name: 'drop', key: 'learn' },
+  // 자유 일일 세션(/daily) 행은 **제거됐다**(2026-08-12 — 라우트 폐지).
+  // 그 행이 있던 이유(같은 화면에서 튜터와 정답/해설 말풍선의 화자가 갈리면 안
+  // 된다)는 유효하지만, 이제 학습 세션은 `/learn/units/…` 하나뿐이라 바로 위
+  // 행이 그 몫을 전부 받는다. 세션 라우트가 또 늘면 여기에 행을 더할 것.
   { match: (p) => p === '/duel' || p.startsWith('/duel/'), name: 'typhoon', key: 'duel' },
   { match: (p) => p === '/league' || p.startsWith('/league/'), name: 'bolt', key: 'league' },
 ];

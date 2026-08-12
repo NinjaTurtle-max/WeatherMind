@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 // 위성 도식(MT-21) — 시어가 만드는 **비대칭**을 보인다. TyphoonEye가 못 보여주는 축이다.
 import SatelliteView from './SatelliteView';
+// MT-24 탐구 목표 — 「변수를 바꿔보며」에 「해냈다」를 붙인다.
+import GoalPanel from './GoalPanel';
+import { TYPHOON_GOALS } from './exploreGoals';
 import { Link } from 'react-router-dom';
 import {
   typhoonIntensity,
@@ -220,6 +223,16 @@ export default function TyphoonSimPage() {
       <p className="rounded-xl bg-slate-100 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
         {t('explore.typhoon.disclaimer1')} <b>{t('explore.typhoon.disclaimerBold')}</b>{t('explore.typhoon.disclaimer2')}
       </p>
+
+      {/* 탐구 목표(MT-24) — **슬라이더보다 위**에 둔다. 화면에 들어선 사람이
+          "무엇을 해 보면 되는지"를 조작하기 전에 읽어야 목표가 목표로 작동한다.
+          판정 입력은 슬라이더 값(sst·shear)과 모델 산출(intensity·category)을
+          합친 평평한 객체다 — **화면에 뜨는 값 그대로**여야 "보이는 숫자와 판정이
+          다르다"가 안 생긴다. */}
+      <GoalPanel
+        goals={TYPHOON_GOALS}
+        facts={{ sst, shear, intensity: result.intensity, category: result.category }}
+      />
 
       {/* 시각화 카드 */}
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">

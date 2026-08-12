@@ -9,6 +9,15 @@
  *  - ⚠️ ko 값은 외부화 전 원문과 **바이트 동일**이 계약이다(§6.3) — 기존
  *    스모크(gating·session·placement·course-select·guest-convert·review-queue)가
  *    이 한국어 문구를 그대로 단정한다. 문구 개선은 별도 항목으로.
+ *    ↳ **2026-08-13 예외(PM 지시로 문구 검수 항목 수행)**: 아래 3종을 통일했다.
+ *      이 줄이 없으면 다음 사람이 "원문 복구"로 되돌린다.
+ *        ⓐ 「~합니다」체 2건(apiError.generic·network) → 화면 톤인 「~해요」체
+ *        ⓑ 보조용언 띄어쓰기 — `시도해주세요`류 붙임 10건을 `시도해 주세요`(국립
+ *           국어원 원칙형)로. 이 파일 안에 붙임/띄움이 섞여 있었다.
+ *        ⓒ 말줄임표 `...`(19) → `…`(U+2026). 종전 `…`는 1건뿐이었다.
+ *      바이트 동일 계약이 실제로 걸리지 않은 이유: 스모크들이 단정하는 것은
+ *      말줄임표 앞까지의 부분 문자열이고(예: '세션을 준비하고 있어요'),
+ *      바뀐 값 중 어느 것도 단정 대상이 아니었다(변경 전 전 종목 초록 실측).
  *  - 굵기 등 마크업이 문장 중간에 끼는 문구는 segN/strongN 조각 키로 나눈다
  *    (조각을 이어 붙이면 원문과 바이트 동일).
  */
@@ -24,15 +33,12 @@ export default {
     en: 'English',
   },
   common: {
-    loading: '불러오는 중...',
+    loading: '불러오는 중…',
     retry: '다시 시도',
-    retryLater: '잠시 후 다시 시도해주세요.',
+    retryLater: '잠시 후 다시 시도해 주세요.',
   },
   nav: {
-    home: '홈',
     primary: '주 메뉴',
-    homeTitle: '학습 홈으로',
-    logout: '로그아웃',
     learn: '학습',
     board: '보드',
     // 내비 라벨은 **화면 제목과 다르다**(2026-08-11 사용자 지시). 제목은
@@ -41,7 +47,6 @@ export default {
     // 담당하게 됐고(navItems.alsoMatch), 「예보 대결」이라 적으면 리그를 보고
     // 있을 때 내비가 틀린 이름을 켜 놓은 꼴이 된다.
     duel: '예보',
-    league: '리그',
     explore: '탐구',
     me: '내 정보',
     tutor: {
@@ -83,15 +88,39 @@ export default {
     board: '판정 근거',
   },
   forecast: {
-    numeric: '모든 값을 숫자로 입력해주세요.',
+    numeric: '모든 값을 숫자로 입력해 주세요.',
     rainRange: '강수확률은 0~100 사이여야 해요.',
-    submitting: '제출 중...',
+    submitting: '제출 중…',
   },
   guestBanner: {
     aria: '게스트 진도 저장 — 30초 가입으로 계정 전환',
     title: '진도가 쌓였어요 — 30초 가입으로 저장',
     body: '게스트 진도는 이 기기에만 있어요. 계정을 만들면 XP·스트릭이 그대로 옮겨져요.',
     cta: '저장하기',
+  },
+  // 진도 저장(2026-08-12 클라이언트 요구 ⑴⑵) — 「로그인 창」이 아니라 「정보 입력」.
+  // ⚠️ 이 블록에 「로그인」·「회원가입」을 쓰지 않는다(대회 규정 — 렌더된 텍스트
+  // 계약은 tests/onboardingSave.contract.test.mjs가 문다).
+  // 위 guestBanner.*는 **지우지 않는다**: 학습 화면 상단 배너는 걷었지만
+  // GuestSaveBanner 컴포넌트가 저장소에 남아 있고 guest-convert 스모크가 그
+  // 문구를 직접 단정한다.
+  saveProgress: {
+    nodeAria: '진도 저장 — 내 정보에서 정보 입력하기',
+    nodeTitle: '진도 저장',
+    nodeBody: '정보를 입력해 진도를 저장해 주세요',
+    nodeCta: '정보 입력하러 가기 →',
+    cardTitle: '진도 저장',
+    cardBody:
+      '정보를 입력해 진도를 저장해 주세요. 지금 진도는 이 기기에만 있어요 — 저장하면 XP·스트릭·실력 진단이 그대로 남고, 다른 기기에서도 이어서 배울 수 있어요.',
+    submit: '진도 저장하기',
+    done: '진도를 저장했어요 — 이제 다른 기기에서도 이어서 배울 수 있어요.',
+    alreadySaved: '진도는 내 정보에 이미 저장되고 있어요 — 다른 기기에서도 이어서 배울 수 있어요.',
+  },
+  // 위치 안내(2026-08-12 요구 ⑶) — 접속 직후 안내 배너. 모달이 아니다.
+  regionNotice: {
+    title: '어느 지역 날씨로 배울까요?',
+    body: '오늘의 실황 문항이 이 지역 날씨로 나와요. 나중에 내 정보에서도 바꿀 수 있어요.',
+    dismiss: '나중에',
   },
   reviewQueue: {
     title: '복습할 때가 됐어요',
@@ -105,9 +134,9 @@ export default {
     title: '어느 지역 날씨로 배울까요?',
     body: '오늘의 세션 실황 문항과 학습 피드백의 날씨가 이 지역 기준이에요. 예보 대결과 리그는 서울 기준 그대로예요.',
     gps: '내 위치로 설정',
-    gpsPending: '위치 확인 중...',
+    gpsPending: '위치 확인 중…',
     gpsHint: '위치는 가장 가까운 도시를 고르는 데만 쓰고, 어디에도 저장하거나 보내지 않아요.',
-    gpsFailed: '위치를 확인할 수 없었어요 — 아래에서 도시를 직접 골라주세요.',
+    gpsFailed: '위치를 확인할 수 없었어요 — 아래에서 도시를 직접 골라 주세요.',
     saveFailed: '지역을 저장하지 못했어요. {detail}',
     close: '닫기',
     settingTitle: '학습 지역',
@@ -232,21 +261,24 @@ export default {
     // 내 정보 조회 실패 — 현재 목표를 모르니 선택지를 내주지 않고, 대신 자리를
     // 비우지 않는다(목표를 정하러 앵커를 타고 온 사람이 빈 화면 끝을 본다).
     loadFailed: '지금 설정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
-    saveFailed: '목표를 저장하지 못했어요. {detail} 다시 눌러주세요.',
+    saveFailed: '목표를 저장하지 못했어요. {detail} 다시 눌러 주세요.',
     meterTitle: '🎯 오늘 목표 {done}/{goal}',
     reached: '달성!',
     remaining: '{count}문항 남음',
   },
   // api/client.js 에러 정규화 폴백 2건
   apiError: {
-    generic: '요청 처리 중 오류가 발생했습니다.',
-    network: '서버에 연결할 수 없습니다. 네트워크를 확인해주세요.',
+    generic: '요청 처리 중 오류가 발생했어요.',
+    network: '서버에 연결할 수 없어요. 네트워크를 확인해 주세요.',
   },
   // 온보딩 배치고사(modules/onboarding/**)
   placement: {
     skip: '건너뛰기 →',
     title: '실력 진단 — 내 수준 찾기',
-    hint: '🧭 딱 6문항이면 충분해요 — 틀려도 괜찮아요, 진단일 뿐!',
+    // ⚠️ 문항 수는 서버 `Settings.PLACEMENT_SIZE`가 소유한다(2026-08-12 PM 판정으로
+    // 6 → **10**). 이 줄이 6에 멈춰 있어 게스트 첫 화면이 거짓을 말했다 —
+    // 숫자를 바꿀 때는 아래 placementBannerBody·en.js 짝까지 함께 본다.
+    hint: '🧭 딱 10문항이면 충분해요 — 틀려도 괜찮아요, 진단일 뿐!',
     finalizingTitle: '내 난이도를 찾는 중…',
     finalizingBody: 'WeatherBrain이 방금 푼 문항을 분석해 딱 맞는 수준을 계산하고 있어요.',
     doneTitle: '진단 완료!',
@@ -273,30 +305,20 @@ export default {
     goalStreak: '연속 출석 {days}일 달성',
     defaultNickname: '기상 학습자',
     levelXp: 'Lv.{level} · 누적 {xp} XP',
-    leagueTier: '리그 티어',
     streakStat: '연속 출석',
-    levelStat: '현재 레벨',
     placementBannerTitle: '아직 실력 진단 전이에요',
-    placementBannerBody: '6문항 진단을 받으면 WeatherBrain이 내 수준에 맞는 문제를 골라줘요.',
+    placementBannerBody: '10문항 진단을 받으면 WeatherBrain이 내 수준에 맞는 문제를 골라줘요.',
     placementBannerCta: '진단 받고 내 수준 찾기 →',
     // 학습 수준 설정 (R13 P-5) — 게스트가 평생 middle_high에 갇히지 않게 하는 통로
     levelGroupTitle: '🎚️ 학습 수준',
     levelGroupBody: '문항 난이도와 보드에서 열리는 난이도가 이 설정을 따라가요. 세션은 다음 발급부터 반영돼요.',
     levelGroupSaved: '학습 수준을 바꿨어요.',
     levelGroupFailed: '학습 수준을 바꾸지 못했어요.',
-    levelGroupSaving: '바꾸는 중...',
-  },
-  // 게스트 로그아웃 확인 (R13 P-4) — 게스트는 재진입 경로가 없어 진도가 영구 소실된다
-  logoutGuest: {
-    title: '지금 나가면 진도가 사라져요',
-    body: '게스트로 학습 중이라 다시 들어올 방법이 없어요. 지금까지 쌓은 XP·스트릭·실력 진단이 모두 사라집니다.',
-    stay: '계속 학습하기',
-    save: '30초 가입으로 저장하기',
-    quit: '그래도 로그아웃',
+    levelGroupSaving: '바꾸는 중…',
   },
   // 배지 컬렉션(modules/progress/BadgeCollection.jsx)
   badges: {
-    loading: '배지를 불러오는 중...',
+    loading: '배지를 불러오는 중…',
     loadFailed: '배지를 불러오지 못했어요. {detail}',
     title: '🏅 배지 컬렉션',
     earnedCount: '{earned}/{total} 획득',
@@ -306,7 +328,7 @@ export default {
   },
   // 일일 퀘스트(modules/progress/QuestList.jsx)
   quests: {
-    loading: '오늘의 퀘스트를 불러오는 중...',
+    loading: '오늘의 퀘스트를 불러오는 중…',
     loadFailed: '퀘스트를 불러오지 못했어요. {detail}',
     title: '🎯 일일 퀘스트',
     doneCount: '{done}/{total} 완료',
@@ -323,7 +345,7 @@ export default {
   // WeatherBrain 능력 분석(modules/progress/WeatherBrainPanel.jsx)
   weatherBrain: {
     title: '🧠 WeatherBrain 능력 분석',
-    loading: '능력 분석을 불러오는 중...',
+    loading: '능력 분석을 불러오는 중…',
     loadFailed: '능력 분석을 불러오지 못했어요. {detail}',
     // 두 열의 머리 문구는 짝을 이룬다 — 왼쪽 ability(지금 실력) ↔ 오른쪽
     // mastery(익혔을 확률). 한쪽만 고치면 카드가 짝짝이가 된다.
@@ -352,67 +374,40 @@ export default {
       nextHint: '다음 문제 정답 확률 {next}%',
     },
   },
-  // ── 홈 대시보드 (시안 Soft Cloud 홈) ─────────────────────────────────────
-  // 실제 API에 있는 값만 쓴다 — 「최근 활동」은 조회 엔드포인트가 없어 뺐다.
+  // ── 홈 유래 문구 ──────────────────────────────────────────────────────────
+  // ⚠️ 홈 화면(`/`)은 2026-08-09에 학습 화면으로 흡수됐다(navItems.js 머리 주석).
+  // 그래서 이 블록은 **홈의 잔재가 아니라 흡수처가 쓰는 문구**만 남는다 —
+  // `entry.*`는 CurriculumHome의 학습 진입 카드, `goal.*`은 LearnHeroCard,
+  // `streak.*`·`brain.aria`는 내 정보(ProgressPage·AbilityRadar), `tutor.*`는
+  // SideNav의 마스코트 폴백(`nav.tutor.{key}`가 없을 때)이 읽는다.
+  // 2026-08-13에 읽는 곳이 없어진 27키를 걷어냈다(홈 대시보드 전용 문구).
   home: {
-    greet: '안녕하세요, 기상 탐험가님',
-    greetSub: '오늘도 하늘을 읽어볼까요?',
-    dayUnit: '일',
-    quickStart: '바로 시작하기',
     tutor: { name: '구름이', line: '무엇부터 해볼까요?' },
     entry: {
       learn: '학습 세션',
       learnEmpty: '첫 유닛부터 시작해요',
       learnGo: '이어서 풀기 →',
-      go: '바로 가기 →',
       // R13-01 §2.5 진입 통합 — 홈의 학습 진입 카드 1개가 쓰는 문구
       todayLabel: '오늘의 학습',
       doneTitle: '오늘 몫은 다 했어요',
       doneCta: '지난 유닛 다시 보기 →',
-      more: '더 해보기',
-      board: '대기 보드',
-      boardDesc: '기단·전선을 놓아 날씨를 만들어요',
-      duel: '예보 대결',
-      duelDesc: '오늘 기온·강수확률 맞히기',
-      league: '리그',
-      leagueDesc: '{tier} 티어에서 겨루는 중',
     },
     goal: {
       title: '오늘의 목표',
-      cap: '푼 문항 수로 셉니다 — 배치고사는 빼고요.',
       items: '문항',
-      remaining: '{n}문항만 더 풀면 오늘 목표 달성이에요.',
-      done: '오늘 목표를 달성했어요! 🎉',
-      unset: '아직 목표를 정하지 않았어요.',
     },
     streak: {
       title: '연속 출석',
-      cap: '구름 방패 {n}개 보유 — 하루 빠져도 스트릭이 지켜져요.',
       days: '월,화,수,목,금,토,일',
     },
-    review: {
-      title: '다시 볼 개념',
-      cap: '복습 주기가 돌아온 개념이에요.',
-      empty: '지금 복습할 개념이 없어요. 잘하고 있어요!',
-      meta: '연속 정답 {n}회 · {d}일 주기',
-      cta: '복습',
-    },
     brain: {
-      title: 'WeatherBrain 분석',
-      cap: '개념별 실력(θ) — 문제를 풀수록 정밀해져요.',
       aria: '개념별 실력 레이더 차트: {list}',
-      empty: '아직 분석할 기록이 부족해요 — 문항을 조금 더 풀면 개념별 실력이 그려져요.',
-    },
-    // CO-S-2: 전 API 실패에도 홈이 "복습할 개념이 없어요"라고 말하던 자리
-    error: {
-      title: '지금 정보를 불러오지 못했어요',
-      body: '연결을 확인한 뒤 다시 시도해 주세요.',
     },
   },
   curriculum: {
     // 하루 목표 미설정 — 진입 카드에서 내 정보(설정 통로)로 보낸다
     goalUnset: '목표를 설정하세요!',
-    loading: '학습 경로를 불러오고 있어요...',
+    loading: '학습 경로를 불러오고 있어요…',
     loadFailed: '학습 경로를 불러오지 못했어요',
     title: '🎓 학습',
     // 배너 한 줄 부제. 2026-08-09 잠깐 값 안에 개행이 있었다(튜터 말풍선 두 줄
@@ -446,14 +441,6 @@ export default {
       boardChip: '보드 퍼즐 유닛',
       placementOpened: '🧭 진단으로 열림',
     },
-    // 학습 화면 하단 3카드의 리그 칸(2026-08-09 시안). 티어 표시명은 tier.name.*이
-    // 소유하고 여기는 틀만 갖는다 — 두 벌로 두면 리그 화면과 이름이 갈린다.
-    leagueCard: {
-      titleUnranked: '리그',
-      title: '{tier} 리그',
-      people: '/ {total}명',
-      cta: '순위표 보기 →',
-    },
     daily: {
       title: '자유 일일 세션',
       body: '정해진 경로 대신 오늘의 세션을 바로 풀고 싶다면.',
@@ -468,17 +455,12 @@ export default {
       introTitle: '이 단계에서 배우는 것',
       start: '시작',
       estMinutes: '예상 {min}분',
+      estDays: '예상 {days}일',
       fold: '접기',
       unfold: '펼치기',
       scrollHint: '↓ 스크롤해서 다음 단계',
       progressLabel: '현재 진도',
       unitCount: '{done} / {total} 유닛',
-    },
-    tutor: {
-      chip: '💧 튜터',
-      name: '물방울이',
-      greet: '"{title}" 유닛이네요 — 차근차근 같이 풀어봐요!',
-      greetDefault: '오늘도 하늘 읽으러 가볼까요?',
     },
     switcher: {
       aria: '코스 선택',
@@ -503,7 +485,7 @@ export default {
   },
   session: {
     answerHere: '답을 고르면 여기에 정답과 해설이 나와요.',
-    loading: '세션을 준비하고 있어요...',
+    loading: '세션을 준비하고 있어요…',
     title: '오늘의 기상 세션',
     loadFailed: '세션을 불러오지 못했어요',
     // CO-S-3: 0문항 세션은 자동완료 가드(total>0)에 걸려 탈출구가 없었다
@@ -528,6 +510,12 @@ export default {
     progressCount: '{answered} / {total} 문항 완료',
     itemCount: '문항 {current} / {total}',
     slotFilled: '☀️ 오늘 실황 반영 문항',
+    // 문항의 학습 수준 배지 (2026-08-12) — **명칭표를 여기에 두지 않는다.**
+    // 단계 이름은 `ability.knowledgeLevel.name` 하나가 소유하고 이 키들은
+    // 그 이름을 감싸는 틀만 갖는다({name}·{level}은 그쪽에서 온다).
+    // 두 번째 사본을 손으로 쓰면 10칸이 조용히 갈린다(이 저장소의 재발 유형).
+    knowledgeLevel: '🪜 {name}',
+    knowledgeLevelAria: '이 문항의 학습 수준 — {level}단계 {name}',
     combo: '연속 정답 {combo}',
     // 칭찬 4단 (R10-01 §3.5) — SessionRunner.COMBO_PRAISE 계약과 바이트 동일
     // (boardAssistRetention 스모크가 ko 원문 4개를 그대로 단정한다)
@@ -537,9 +525,9 @@ export default {
       3: '훌륭해요',
       4: '완벽해요',
     },
-    grading: 'AI가 채점하고 있어요...',
-    submitFailed: '답안 제출에 실패했어요. 잠시 후 다시 시도해주세요.',
-    completeFailed: '세션 완료 처리에 실패했어요. 잠시 후 다시 시도해주세요.',
+    grading: 'AI가 채점하고 있어요…',
+    submitFailed: '답안 제출에 실패했어요. 잠시 후 다시 시도해 주세요.',
+    completeFailed: '세션 완료 처리에 실패했어요. 잠시 후 다시 시도해 주세요.',
     crownToast: '👑 왕관 획득 — {title}',
     clouds: {
       title: '구름이 모두 흩어졌어요',
@@ -549,23 +537,30 @@ export default {
       strong2: '지금 풀던 세션은 끝까지 마칠 수 있고',
       seg3: ', 구름이 1개라도 회복되면 새 세션도 다시 열려요.',
     },
-    finishing: '세션을 마무리하고 있어요...',
+    finishing: '세션을 마무리하고 있어요…',
     retryAfterRegen: '구름 회복 후 다시 시도',
     finish: '세션 마치기 →',
     next: '다음 문항 →',
     bulkFailTitle: '결과 계산에 실패했어요',
-    bulkFailBody: '잠시 후 다시 시도해주세요. 푼 답안은 그대로 남아 있어요.',
-    bulkFinalizing: '결과를 계산하고 있어요...',
+    bulkFailBody: '잠시 후 다시 시도해 주세요. 푼 답안은 그대로 남아 있어요.',
+    bulkFinalizing: '결과를 계산하고 있어요…',
     leave: {
       title: '지금 나가면 오늘 진도가 사라져요',
       remaining: '{remaining}문항만 더 풀면 오늘 진도와 스트릭이 기록돼요. ',
       almost: '조금만 더 하면 끝나요. ',
+      // 만회 라운드 전용 (2026-08-12) — 만회 중에는 본문 `total - answered`가 **0**이라
+      // 위 `almost`("조금만 더 하면 끝나요")가 떴는데, 그건 거짓이다: 남은 것은
+      // 0이 아니라 **만회 큐에 남은 수**이고, 그것을 다 맞혀야 세션이 끝난다.
+      retryRemaining: '아직 만회할 {remaining}문항이 남았어요. 다 맞혀야 오늘 세션이 끝나요. ',
       tail: '여기서 멈추면 지금까지 푼 만큼만 남아요.',
       stay: '계속 풀기',
       quit: '그만두기',
     },
-    // 만회 라운드 (R13-01 §2.1 · 상한 5 §2.11) — 세션 마지막 문항 뒤 오답 재투입.
+    // 만회 라운드 (R13-01 §2.1) — 세션 마지막 문항 뒤 오답 재투입.
     // 만회는 벌도 파밍도 아니다: 구름 무소모·XP 무가산이라 화면도 그렇게 읽혀야 한다.
+    // ⚠️ 상한 5는 2026-08-12 클라이언트 지시로 폐지됐다 — 다 맞힐 때까지 회전한다.
+    //    그래서 `fail`이 "내일 복습으로 다시 만나요"라고 말하면 거짓이다(이번 라운드에서
+    //    곧바로 다시 나온다). `capNote`도 렌더되지 않아 함께 걷었다.
     retry: {
       banner: '☂️ 만회 라운드 — 아까 놓친 {total}문항',
       note: '만회는 벌이 아니에요 — 구름도 XP도 움직이지 않아요.',
@@ -573,9 +568,15 @@ export default {
       start: '놓친 {count}문항 만회하기 →',
       next: '다음 만회 문항 →',
       success: '☀️ 만회 성공! 이 문항은 해결했어요',
-      fail: '🌧️ 이번엔 못 맞혔어요 — 내일 복습 문항으로 다시 만나요',
+      fail: '🌧️ 아직이에요 — 이 문항은 조금 뒤에 다시 나와요',
       alreadyResolved: '이미 해결한 문항이에요 — 다음으로 넘어갈게요.',
-      capNote: '만회는 마지막 {limit}문항까지만 이어져요.',
+      untilAllCorrect: '다 맞힐 때까지 이어져요.',
+      // 탈출구 (2026-08-12 클라이언트 확정) — 상한이 없으므로 **채점이 잘못된 문항**이
+      // 큐에 들어오면 세션이 영영 안 끝난다. 같은 문항을 RETRY_MERCY_ROUNDS 바퀴
+      // 돌아도 못 맞히면 학습자가 **스스로 눌러** 해설을 보고 넘어간다(자동 아님).
+      // ⚠️ 문구가 "해결했다"고 말하면 거짓이다 — 서버에는 미해결로 남는다.
+      mercy: '해설 보고 넘어가기 →',
+      mercyNote: '몇 번을 시도해도 안 풀리면 해설을 보고 넘어가도 괜찮아요 — 이 문항은 해결하지 못한 것으로 남아요.',
     },
     summary: {
       title: '오늘의 세션 완료!',
@@ -597,6 +598,10 @@ export default {
         review: '복습',
         live: '실황',
         unit: '진도',
+        // R13-02 §T3 — 배합에 들어온 board 블록. **아무 보드가 아니라** KMA 실황으로
+        // 오늘 현상을 판정해 고른 보드다(`order_boards_for_today`). 그래서 「보드」가
+        // 아니라 「오늘의 하늘」 — 학습자가 창밖과 같은 장면을 판에서 만든다.
+        board: '오늘의 하늘',
       },
       blockCount: '{count}문항',
       unitBlockNote: '진도 문항은 지금 배우는 유닛의 다음 5문항이에요.',
@@ -614,7 +619,7 @@ export default {
       submittedTitle: '예보를 냈어요',
       settleNote: '{date}의 실제 날씨가 관측된 뒤 {settleDate}에 결과가 정산돼요.',
       alreadySubmitted: '오늘은 이미 예보를 냈어요.',
-      failed: '예보 제출에 실패했어요. 잠시 후 다시 시도해주세요.',
+      failed: '예보 제출에 실패했어요. 잠시 후 다시 시도해 주세요.',
       lastResultTitle: '지난 예보 결과',
       lastResult: '{date} 예보 — {result}',
       skip: '오늘은 건너뛰기',
@@ -649,7 +654,7 @@ export default {
       lose: '패배',
       draw: '무승부',
     },
-    loading: '오늘의 예보 대결을 불러오는 중...',
+    loading: '오늘의 예보 대결을 불러오는 중…',
     loadFailed: '대결 정보를 불러오지 못했어요',
     title: '🌡️ 예보 대결',
     subtitle: '브리핑을 읽고 AI 캐스터와 내일 예보를 겨뤄요.',
@@ -683,7 +688,7 @@ export default {
     miss: '✗ 빗나감',
     accuracy: '정확도 {score}점',
     historyTitle: '대결 이력',
-    historyLoading: '이력 불러오는 중...',
+    historyLoading: '이력 불러오는 중…',
     historyEmpty: '아직 대결 이력이 없어요. 첫 예보를 제출해 보세요!',
     historyVs: '내 {mine}℃ vs AI {ai}℃',
     settling: '정산 중',
@@ -717,7 +722,7 @@ export default {
   briefing: {
     title: '📊 예보 브리핑',
     regionDefault: '서울',
-    loading: '브리핑 자료를 불러오는 중...',
+    loading: '브리핑 자료를 불러오는 중…',
     loadError: '브리핑 자료를 불러오지 못했어요. 자료 없이도 예측 제출은 가능해요.',
     waitingTitle: '실황 자료 수신 대기',
     waitingBody: '실황 자료 수신 대기 중이에요. 기상 자료가 도착하면 차트가 열려요 — 예측 제출은 지금도 가능해요.',
@@ -753,13 +758,10 @@ export default {
     pty4: '소나기',
   },
   league: {
-    loading: '이번 주 리그 정보를 불러오는 중...',
+    loading: '이번 주 리그 정보를 불러오는 중…',
     loadFailed: '리그 정보를 불러오지 못했어요',
     title: '기상 리그',
-    week: '{week} 주',
     thisWeek: '이번 주',
-    regionDefault: '전국',
-    subtitleTail: ' 날씨 예측 대결',
     submittedTitle: '이번 주 예측 제출 완료! ✅',
     submittedBody: '주간 정산 후 실제 날씨와 비교해 ELO가 반영돼요.',
     formTitle: '이번 주 날씨를 예측해보세요',
@@ -770,7 +772,7 @@ export default {
     minOverMax: '최저기온이 최고기온보다 높을 수 없어요.',
     submitFailed: '예측 제출에 실패했어요.',
     leaderboard: '리더보드',
-    leaderboardLoading: '순위표 불러오는 중...',
+    leaderboardLoading: '순위표 불러오는 중…',
     myHistory: '내 리그 이력',
     accuracy: '정확도 {score}점',
     accuracyPending: '정확도 집계 중',
@@ -803,48 +805,37 @@ export default {
     },
     board: {
       empty: '아직 순위표가 없어요. 첫 예측의 주인공이 되어보세요!',
-      rank: '순위',
-      nickname: '닉네임',
-      accuracy: '정확도',
       me: '(나)',
       anonymous: '익명',
-      score: '{score}점',
     },
   },
   auth: {
+    // ⚠️ **블록 이름이 화면 이름이 아니다.** 로그인·회원가입 화면은 2026-08-12에
+    // 통째로 제거됐다(대회 규정 — 로그인 없이 열려야 한다). 여기 남은 것은 그
+    // 화면들이 쓰던 문구가 아니라 **다른 화면이 계속 읽는 조각**뿐이다:
+    //   login.guest* → App.jsx의 게스트 자동 발급·실패 재시도
+    //   login.email·password → components/SaveProgressForm.jsx(내 정보 진도 저장)
+    //   register.elementary·middleHigh·adult → ProgressPage 학습 수준 선택지
+    //   register.nickname → SaveProgressForm
+    // 2026-08-13에 화면과 함께 죽은 17키를 걷어냈다. 키 경로를 바꾸지 않은 것은
+    // 소비처가 문자열 리터럴로 부르기 때문이고, 이름을 옮기려면 그 6곳을 함께
+    // 고쳐야 한다(이 정리의 범위 밖).
     login: {
-      tagline: '오늘의 날씨로 배우는 기상 · 기후 학습',
-      guestCta: '⚡ 계정 없이 바로 시작하기',
-      guestStarting: '오늘의 하늘을 여는 중...',
+      guestStarting: '오늘의 하늘을 여는 중…',
       // MT-29 — 발급 실패는 **로그인 화면이 아니라** 재시도로 받는다.
       guestFailedTitle: '지금 하늘을 열지 못했어요',
       guestFailedBody: '잠시 연결이 어려웠어요. 다시 시도해 볼까요?',
       guestFailedRetry: '다시 시도하기',
-      guestFailedHasAccount: '이미 계정이 있어요',
-      guestNote: '가입 없이 실력 진단과 오늘의 세션을 바로 체험해요. 쌓인 진도는 나중에 30초 가입으로 저장할 수 있어요.',
       guestFailed: '시작에 실패했어요. 잠시 후 다시 시도해 주세요.',
       guestNickname: '게스트',
-      haveAccount: '이미 계정이 있나요?',
       email: '이메일',
       password: '비밀번호',
-      failed: '로그인에 실패했습니다.',
-      submitting: '로그인 중...',
-      submit: '로그인',
-      noAccount: '아직 계정이 없나요?',
-      register: '회원가입',
     },
     register: {
-      title: '회원가입',
       elementary: '초등학생',
       middleHigh: '중·고등학생',
       adult: '성인',
       nickname: '닉네임',
-      levelGroup: '학습 수준',
-      failed: '회원가입에 실패했습니다.',
-      submitting: '가입 중...',
-      submit: '가입하고 시작하기',
-      haveAccount: '이미 계정이 있나요?',
-      login: '로그인',
     },
     convert: {
       alreadyTitle: '이미 정식 계정이에요',
@@ -857,9 +848,13 @@ export default {
       bodyLine2: '어느 기기에서든 이어서 학습할 수 있어요.',
       nicknameOptional: '(선택 — 비우면 지금 그대로)',
       errNotGuest: '이미 정식 계정이에요 — 진도는 계정에 안전하게 저장되고 있어요.',
-      errEmailExists: '이미 가입된 이메일이에요. 다른 이메일을 입력하거나, 그 계정으로 로그인해 주세요. (로그인하면 지금 게스트 진도는 이 기기에 남지 않아요)',
+      // 2026-08-12(PM 승인): 종전 문구는 "그 계정으로 **로그인**해 주세요"였다.
+      // 로그인 화면이 같은 날 제거돼 **갈 곳이 없는 죽은 안내**가 됐고, 규정
+      // (화면에 「로그인」 문구 없음)과도 충돌했다. 지금 이 자리에서 할 수 있는
+      // 유일한 행동은 다른 이메일로 다시 저장하는 것뿐이라 그것만 말한다.
+      errEmailExists: '이미 사용 중인 이메일이에요. 다른 이메일로 저장해 주세요.',
       errGeneric: '계정 만들기에 실패했어요. 잠시 후 다시 시도해 주세요.',
-      submitting: '진도 옮기는 중...',
+      submitting: '진도 옮기는 중…',
       submit: '가입하고 진도 저장하기',
       later: '나중에 할게요 — 학습 계속하기',
     },

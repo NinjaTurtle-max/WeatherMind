@@ -66,22 +66,94 @@ class Settings(BaseSettings):
     # 조정하기 위한 통로다. 기본값을 바꾸면 스펙 드리프트이므로 계약 테스트가 감시한다
     # (test_r3_r5_contract.TestCloudEnergyConstants / test_session_mix).
 
-    # 세션 배합(§3.2 → R11-01 §9.2 10문항 → R13-01 §2.10 15문항): kind→개수.
-    # env는 JSON 문자열(예: '{"new":3,"review":2,"live":1,"unit":5}').
+    # 세션 배합(§3.2 → R11-01 §9.2 10문항 → R13-01 §2.10 15문항 →
+    # **SPRINT_R13_02 §T3 / MT-6 10문항**): kind→개수.
+    # env는 JSON 문자열(예: '{"new":3,"review":2,"live":1,"board":1}').
     # SESSION_SIZE(총 문항 수)는 이 합에서 파생 — 둘을 독립 구성하지 않는다(드리프트 방지).
-    # unit(진도 블록, R13-01 §2.10): 현재 진행 유닛의 다음 문항 5건을 **덧붙인다**
-    # (기존 3종을 대체하지 않는다). 유닛 잔여가 모자라면 부족분은 new로 메운다 —
-    # review 부족분을 new로 대체하는 기존 선례 준용이라 총합은 항상 15다.
-    # 에너지와의 관계: 오답 최대 15 > CLOUD_MAX 10이지만 "진행 중 세션은 잔량 0에도
-    # 완주 보장"(R10 에너지 계약)이 이미 흡수한다 — daily-goal(3·5·9)·CLOUD_*는 불변.
-    SESSION_RECIPE: dict[str, int] = {"new": 5, "review": 4, "live": 1, "unit": 5}
-    UNIT_SESSION_SIZE: int = 5           # 커리큘럼 유닛 세션 문항 수
-    # daily 세션의 **비진도 블록**(new·review·live 10문항)에 들어갈 board 상한.
-    # 시드 board 비중(2026-08-09 실측 46/284 = 16%)을 10문항에 적용하면 1.6이라 2로
-    # 잡는다. 진도 블록은 제외 — board 유닛의 진도는 board가 나오는 것이 정상이다.
+    #
+    # ⚠️ **2026-08-12: 15 → 10, 그리고 `unit` → `board`.** 근거는 `docs/team/
+    # SPRINT_R13_02.md:68`의 T3 계약(「오늘 날씨 2 · 신규 4 · 복습 3 · 오늘 날씨 반영
+    # 보드 1」)이고, 그것이 클라이언트 사양이라 이 값의 SSOT다. 두 가지를 동시에 고쳤다:
+    #   ⑴ **합 10** — 화면 문구가 R11 이래 「오늘의 10문항」인데 실배합이 15였다
+    #      (대장 CO-S-6). 이 변경으로 문구 쪽이 옳아진다(문구는 안 건드린다).
+    #   ⑵ **`board` kind 신설** — T3 계약은 이 배합을 문자 그대로 적어 놓고도
+    #      **설정 불가능**했다: 아래 `_validate_recipe`의 `allowed`에 `board`가 없어
+    #      그대로 넣으면 ValueError로 기동이 죽었다. 계약서에만 있고 코드가 못 받는
+    #      상태였으므로 `allowed`를 함께 넓힌다(감사 담당 D 독립 발견).
+    # 순서(live 먼저)는 클라이언트 사양의 서술 순서 그대로다. **다만 dict 키 순서가
+    # 출제 순서를 정하지 않는다** — 출제 순서의 소유자는
+    # `session_service.plan_bank_picks`의 블록 호출 순서다. 2026-08-12 그쪽도
+    # **`live → new → review → board → unit`**으로 바뀌어(클라이언트 사양 「실황이
+    # 앞」) 지금은 두 순서가 일치한다. 여기 키 순서를 고쳐도 화면 순서는 안 바뀐다.
+    #
+    # ⚠️ `unit`(진도 블록)은 배합에서 빠졌지만 **kind 자체는 살려 둔다**: env로
+    # 되돌릴 수 있어야 하고(`{"new":5,"review":4,"live":1,"unit":5}`가 종전 계약),
+    # `plan_bank_picks`가 `recipe.get("unit", 0)`으로 읽어 0이면 블록을 통째로
+    # 건너뛴다. 부작용은 **daily 세션의 왕관 유입로**였다 —
+    # `routers/session.py:_crown_scope_logs`가 `kind == "unit"` 문항만 왕관 판정
+    # 대상으로 삼으므로, unit 0이면 daily 왕관이 조용히 0이 된다.
+    # ✅ **해소됨(2026-08-12 클라이언트 확정)**: 왕관을 **유닛 세션 완료**로
+    # 되돌렸다(`routers/session.py`가 만점이면 `grant_crown=True`로 호출). 이중
+    # 수여를 막는 것은 분기가 아니라 `grant_unit_crown`의 멱등 판정이다
+    # (crown_target 상한 · cleared 전환 1회). 보드 퍼즐 경로의 왕관은 불변.
+    #
+    # 에너지와의 관계: 오답 최대 10 = CLOUD_MAX 10이라 이제 한 세션 전건 오답이
+    # 정확히 만렙을 소진한다(종전 15 > 10). 어느 쪽이든 "진행 중 세션은 잔량 0에도
+    # 완주 보장"(R10 에너지 계약)이 흡수한다 — daily-goal(3·5·9)·CLOUD_*는 불변.
+    SESSION_RECIPE: dict[str, int] = {"live": 2, "new": 4, "review": 3, "board": 1}
+    # 커리큘럼 유닛 세션 문항 수 — **「두 번째 이후」 전용**.
+    #
+    # ⚠️ **2026-08-13: 뜻이 바뀌었다(이름은 그대로).** 클라이언트 확정
+    # 「하루의 첫 유닛 세션이 곧 데일리 세션이다」로 유닛 세션이 두 종류가 됐다:
+    #   · 하루 **첫** 유닛 세션 → **10문항**, 배합 `실황2·신규4·복습3·보드1`,
+    #     만점이면 왕관. 크기의 소유자는 이 상수가 아니라 **`SESSION_RECIPE`의
+    #     총합**이다.
+    #   · **두 번째 이후** → 이 상수, 실황 0 · 보드 0의 순수 학습, 왕관 없음.
+    # 갈림은 발급 시점에 판정해 `recipe_json["daily_first"]`에 도장으로 남는다
+    # (`curriculum_service.create_unit_session`).
+    #
+    # 이름을 `UNIT_SESSION_SIZE` 그대로 둔 이유: `test_ci_workflow_contract.py`와
+    # `test_section_est_minutes.py`가 이 **식별자**를 문자열·속성으로 물고 있고
+    # 두 파일 모두 이 개정의 소유 밖이다. 개명은 그 두 계약과 함께 옮겨야 한다.
+    #
+    # 아래 부등식은 **여전히 유효**하다 — 두 번째 이후 세션이 유닛 풀에서 이
+    # 개수를 뽑는 구조는 그대로이기 때문이다.
+    #
+    # ⚠️ **2026-08-12: 5 → 4 (클라이언트 승인).** 시드 재산출(13섹션 **237유닛** —
+    # quiz 231 · board 6)이 **4를 전제로** 유닛을 잘랐다. 5로 남기면 231유닛이
+    # 5문항씩 요구해 1,155건이 필요한데 유닛이 실제로 볼 수 있는 문항은 946건뿐이라
+    # **칸마다 마지막 유닛이 굶는다**(0문항 세션 = 과거 L2 결함의 재발 형태이고,
+    # `TestZeroItemUnitSessionIsUnreachableOnThetaPath`가 그때 운다).
+    #
+    # 성립 조건 — **`quiz 유닛 수 × UNIT_SESSION_SIZE ≤ 946`**:
+    #   231 × 4 = **924 ≤ 946** ✅  /  231 × 5 = 1,155 > 946 ❌
+    # 분모 946의 출처(2026-08-12 실측): 시드 1,012건 − board 46건 = 비board 966건,
+    # 거기서 다시 **`uses_live_slots=true` 20건을 뺀다**. `_unit_content_pool`이
+    # 실황 문항을 제외하기 때문이다 — 966을 분모로 쓰면 20건을 두 번 세는 셈이라
+    # 상한을 넘긴다(담당 C 정정).
+    # 이 부등식의 감시자는 `test_curriculum_band_fallback`이다: 저작이 늘거나
+    # 유닛이 늘어 부등식이 깨지면 "가장 얇은 유닛" 핀이 먼저 운다.
+    UNIT_SESSION_SIZE: int = 4
+    # daily 세션의 **일반 블록**(new·review·live 9문항)에 우발적으로 섞이는 board 상한.
     # 상한을 넘으면 **버리는 게 아니라 뒤로 미룬다**(대체 후보가 없으면 그대로 채운다):
     # 버리면 배합이 덜 차고 그 자리가 유료 생성으로 새기 때문이다(CO-H5·CO-M1).
-    DAILY_BOARD_CAP: int = 2
+    #
+    # ⚠️ **2026-08-12: 2 → 1 (클라이언트 확정).** 근거 산술이 두 번 낡아 있었다.
+    #   ⑴ 종전 근거 "시드 board 비중 46/284 = 16% × 10문항 = 1.6"의 **분모가 낡았다**.
+    #      2026-08-12 실측 시드는 1,012건이고 board 46건이며, 이 블록들이 뽑는 풀은
+    #      비실황 992건이라 실제 비중은 **46/992 = 4.6%**다. 일반 블록 9칸에 적용한
+    #      기대값은 **0.41** — 상한 2는 사실상 아무것도 막지 않는 값이 돼 있었다.
+    #   ⑵ 배합에 `board: 1`이 **명시 블록으로 들어왔다**(위 SESSION_RECIPE). 이 상한이
+    #      막는 것은 이제 "board 총량"이 아니라 **일반 블록(new·review·live)에
+    #      우발적으로 섞이는 board**뿐이다. 2로 두면 보장 1 + 우발 2 = 최악 3/10(30%)이라
+    #      "오늘 날씨 반영 보드 **1**"이라는 T3 계약이 화면에서 3보드로 보일 수 있었다.
+    #      1이면 「명시 1 + 우발 0」이 기대값이고(우발 확률 4.6%) 최악도 2/10이다.
+    #   ⑶ **0으로 내리지 않은 이유**: 명시 블록이 board를 못 찾은 날(오늘 현상 매칭
+    #      실패 → board 풀 빔)에 일반 블록의 board가 대체로 남아야 한다.
+    #   ⑷ 명시 `board` 블록은 이 상한의 **적용을 받지 않는다** — `plan_bank_picks`가
+    #      진도 블록 선례대로 `cap_board=False`로 뽑는다. 보장된 자리를 자기 상한이
+    #      막으면 배합이 덜 차고 그 자리가 유료 생성으로 새기 때문이다(CO-H5·CO-M1).
+    DAILY_BOARD_CAP: int = 1
 
     # 생성 문항 영속화 상태 (R13 A-1/D 선행 — session_service.persist_generated_items).
     # quiz-generate 폴백 산출물을 content_items에 적재할 때 부여하는 status다.
@@ -100,9 +172,18 @@ class Settings(BaseSettings):
     CLOUD_REGEN_MINUTES: int = 20
     CLOUD_COST: int = 1
 
-    # 배치고사(진단 퀴즈) 문항 수 (R7-01 §3.1): 기본값 = 계약 수치(6문항 —
-    # CONCEPT_TAGS 6개념당 1문항). 드리프트는 test_placement가 감시.
-    PLACEMENT_SIZE: int = 6
+    # 배치고사(진단 퀴즈) 문항 수 (R7-01 §3.1 → **2026-08-12 MT / advisor 판정**).
+    #
+    # ⚠️ **6 → 10.** 종전 근거는 "CONCEPT_TAGS 6개념당 1문항"이라 **개념 축**에서
+    # 나온 값이었다. 배치고사의 축이 밴드에서 **지식 단계(kl 1~10)**로 바뀌면서
+    # (`placement_service.target_level_sequence`) 그 근거가 재는 대상과 어긋났다:
+    # 슬롯이 10개여야 `target_level_sequence`가 kl 1~10을 **정확히 한 번씩** 낸다.
+    # 6이나 8이면 결번이 남아 "10단계를 변별한다"가 반쪽이 된다 — 못 본 단계는
+    # 배치 결과가 추정으로만 채우고, 그 오차가 첫 세션 난이도로 그대로 간다.
+    # 개념 커버리지는 잃지 않는다(슬롯이 개념을 순환 배정하므로 10슬롯이면
+    # 14개념 중 10개, 6슬롯이면 6개 — 오히려 넓어진다).
+    # 드리프트는 test_placement·test_selection_by_knowledge_level이 감시한다.
+    PLACEMENT_SIZE: int = 10
 
     # 분반 리더보드 (R13-01 §2.8): 기본값 = 계약 수치(소집단 30인 · 이웃 위아래 3명).
     # 드리프트는 test_league_division이 감시한다(PLACEMENT_SIZE 전례).
@@ -141,7 +222,11 @@ class Settings(BaseSettings):
     @field_validator("SESSION_RECIPE")
     @classmethod
     def _validate_recipe(cls, value: dict[str, int]) -> dict[str, int]:
-        allowed = {"new", "review", "live", "unit"}
+        # `board`는 2026-08-12 추가 (SPRINT_R13_02 §T3 / MT-6). 그 전까지 T3 계약이
+        # 적어 둔 배합을 **문자 그대로 설정하면 여기서 ValueError로 죽었다** —
+        # 계약서와 코드가 갈린 것이 아니라 계약서가 코드에 도달할 수 없었다.
+        # `unit`은 배합에서 빠졌어도 남긴다: env 롤백 통로이자 진도 블록의 kind다.
+        allowed = {"new", "review", "live", "unit", "board"}
         unknown = set(value) - allowed
         if unknown:
             raise ValueError(f"SESSION_RECIPE 알 수 없는 kind: {sorted(unknown)}")

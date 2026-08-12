@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import client from '../../api/client';
+import SaveProgressForm from '../../components/SaveProgressForm';
 import { useAuthStore } from '../../store/authStore';
 import { isGuestUser } from './guest';
 import { useT } from '../../i18n';
@@ -16,52 +16,17 @@ import { useT } from '../../i18n';
  *
  * 성공 시: 토큰 교체 + 게스트 표식 해제(setUser is_guest:false + 실 이메일) →
  * 학습 홈 복귀. 라우트는 Layout 밖 전체 화면(/account/convert — 배치고사 관례).
+ *
+ * ⚠️ 2026-08-12: 폼 본체는 `components/SaveProgressForm`으로 나갔다. 같은 입력이
+ * `/me`(내 정보) 안에도 서기 때문이다(클라이언트 요구 ⑴ — 「로그인 창」이 아니라
+ * 「정보 입력」). 이 화면은 **껍데기와 이동**만 갖는다: 딥링크·북마크의 착지점이고,
+ * 정식 계정의 직접 진입 방어도 여기 남는다.
  */
 export default function ConvertAccountPage() {
   const navigate = useNavigate();
   const t = useT();
   const user = useAuthStore((s) => s.user);
-  const setTokens = useAuthStore((s) => s.setTokens);
-  const setUser = useAuthStore((s) => s.setUser);
-
-  const [form, setForm] = useState({ email: '', password: '', nickname: '' });
-  const [errorMsg, setErrorMsg] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
   const [converted, setConverted] = useState(false);
-
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    setSubmitting(true);
-    try {
-      const payload = { email: form.email, password: form.password };
-      if (form.nickname.trim()) payload.nickname = form.nickname.trim();
-      const { data } = await client.post('/auth/guest/convert', payload);
-      // 전환 성공 — 같은 user_id로 토큰만 재발급되므로 진도는 그대로다.
-      setConverted(true);
-      setTokens({ accessToken: data.access_token, refreshToken: data.refresh_token });
-      setUser({
-        ...user,
-        email: form.email,
-        ...(payload.nickname ? { nickname: payload.nickname } : {}),
-        is_guest: false,
-      });
-      navigate('/', { replace: true });
-    } catch (err) {
-      if (err.code === 'NOT_GUEST') {
-        // 다른 탭·기기에서 이미 전환된 뒤의 재시도 등 — 진도는 이미 안전하다.
-        setErrorMsg(t('auth.convert.errNotGuest'));
-      } else if (err.code === 'EMAIL_ALREADY_EXISTS') {
-        setErrorMsg(t('auth.convert.errEmailExists'));
-      } else {
-        setErrorMsg(err.detail ?? t('auth.convert.errGeneric'));
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   // 게스트가 아니면 전환할 것이 없다(배너 외 직접 진입·전환 직후 재방문 방어).
   // 전환 성공 직후의 리렌더에서 이 분기로 떨어져 화면이 번쩍이지 않도록
@@ -97,59 +62,16 @@ export default function ConvertAccountPage() {
         </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-col gap-3 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
-      >
-        <label className="text-sm font-semibold text-slate-700">
-          {t('auth.login.email')}
-          <input
-            type="email"
-            name="email"
-            required
-            autoComplete="email"
-            value={form.email}
-            onChange={handleChange}
-            className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-normal outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
-          />
-        </label>
-        <label className="text-sm font-semibold text-slate-700">
-          {t('auth.login.password')}
-          <input
-            type="password"
-            name="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            value={form.password}
-            onChange={handleChange}
-            className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-normal outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
-          />
-        </label>
-        <label className="text-sm font-semibold text-slate-700">
-          {t('auth.register.nickname')} <span className="font-normal text-slate-400">{t('auth.convert.nicknameOptional')}</span>
-          <input
-            type="text"
-            name="nickname"
-            maxLength={20}
-            value={form.nickname}
-            onChange={handleChange}
-            className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-normal outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
-          />
-        </label>
-
-        {errorMsg && (
-          <p className="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">{errorMsg}</p>
-        )}
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="mt-2 rounded-xl bg-sky-600 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:opacity-50"
-        >
-          {submitting ? t('auth.convert.submitting') : t('auth.convert.submit')}
-        </button>
-      </form>
+      {/* 전환 성공 직후의 리렌더에서 위 "이미 정식 계정" 분기로 떨어져 화면이
+          번쩍이지 않도록 `converted`가 폼 화면을 유지한다(navigate가 곧 옮긴다). */}
+      <SaveProgressForm
+        onConverted={() => {
+          setConverted(true);
+          navigate('/', { replace: true });
+        }}
+        submitLabel={t('auth.convert.submit')}
+        className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
+      />
 
       <Link to="/" className="mt-4 text-center text-sm text-slate-500 hover:underline">
         {t('auth.convert.later')}

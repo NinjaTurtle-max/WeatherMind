@@ -25,8 +25,20 @@ import { useT } from '../../i18n';
  * 구 응답(필드 없음)에는 `xp_awarded`가 0으로 오므로 `xp_total`로 폴백한다.
  */
 
-// 표기 순서 = 세션 배합 순서. 진도(unit)는 항상 마지막 블록이다(§2.10).
-const BLOCK_ORDER = ['new', 'review', 'live', 'unit'];
+// 표기 순서 = 세션 배합 순서(서버 `plan_bank_picks`가 붙이는 순서와 같다).
+//
+// ⚠️ **`'board'`가 빠져 있었다**(2026-08-12 수리). 배합이
+// `{live:2, new:4, review:3, board:1}`로 바뀌며 board가 명시 블록이 됐는데 이 배열이
+// 그대로여서, `blockCounts`의 `BLOCK_ORDER.includes(kind)` 필터가 board 문항을
+// **통째로 걸러냈다** — i18n에 `session.blocks.board`(「오늘의 하늘」)를 저작해 두고도
+// 완료 화면에 그 블록이 영영 안 떴다(대장 I절 「만들어 두고 안 쓰는 것」 패턴).
+// 이 배열이 표기의 **화이트리스트**라서, 배합에 kind를 추가하면 여기에도 반드시
+// 추가해야 한다. 조용히 사라지는 방향이라 화면만 봐서는 눈치채기 어렵다.
+//
+// ⚠️ `'unit'`은 배합에서 빠졌지만 **남긴다** — 그 kind로 발급된 **레거시 세션**이
+// 아직 완료될 수 있고, 목록에서 빼면 그 세션의 진도 블록이 같은 방식으로 증발한다.
+// 죽은 값이지 틀린 값이 아니다.
+const BLOCK_ORDER = ['new', 'review', 'live', 'unit', 'board'];
 
 /** kind별 문항 수. items가 없거나 kind가 하나도 없으면 빈 배열(미렌더). */
 export function blockCounts(items) {

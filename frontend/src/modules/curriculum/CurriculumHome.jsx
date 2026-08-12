@@ -11,7 +11,6 @@ import { pickLearnEntry, pickSectionEntry } from './learnEntry';
 import { useAttendance } from '../../hooks/useAttendance';
 // R11-01 §6.2 마운트 통합 — props 없는 자급 계약(조건 미충족 시 자가 null).
 // 복습 큐(ReviewQueueCard)는 2026-08-09부터 LearnFooterCards가 마운트한다.
-import GuestSaveBanner from '../../components/GuestSaveBanner';
 import { conceptLabel, useT } from '../../i18n';
 
 /**
@@ -217,8 +216,12 @@ export default function CurriculumHome() {
 
   return (
     <div className="pt-2">
-      {/* 게스트 진도 저장 배너(§6.2 FE-B) — 게스트+진도 있음에만 자가 렌더 */}
-      <GuestSaveBanner />
+      {/* 게스트 진도 저장 배너는 **오른쪽 열로 옮겼다**(2026-08-12 클라이언트 지시).
+          학습 화면 맨 위를 가로로 덮던 자리라, 첫 화면에서 학습 경로보다 먼저
+          눈에 들어왔다. 같은 역할을 우측 여백의 저장 노드가 받는다.
+          ⚠️ `GuestSaveBanner.jsx` 파일은 **남겨 둔다** — `guest-convert` 스모크
+          2-a/2-b/2-c가 그 컴포넌트를 직접 마운트해 문구를 단정한다. 여기서는
+          마운트만 걷는다. */}
 
       {/* 코스 탭(§6.2) — 코스가 2개 이상일 때만 뜬다. 선택은 잠금이 아니라 조회 스코프. */}
       <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} />

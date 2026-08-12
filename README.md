@@ -12,7 +12,7 @@ R3~R5: 지도 기반 대기 보드 · 단계별 커리큘럼(유닛 트리·왕�
 | frontend | 80 | React 18 + Vite + Tailwind, nginx가 `/api/v1` → backend 프록시 |
 | backend | 8000 | FastAPI + SQLAlchemy 2.0(async) + Alembic, JWT 인증, RLS |
 | ai-worker | 8001 | LangChain 3체인(Router/QuizGen/피드백), Gemini, 내부 API(`X-Internal-API-Key`) |
-| celery-worker / celery-beat | - | 일일 퀴즈 생성, 주간 리그 정산, 날씨 수집 |
+| celery-worker / celery-beat | - | 날씨 수집, 주간 리그 정산, 일일 예보 대결 정산, WeatherBrain 재학습 |
 | postgres | 5432(내부) | 스키마·RLS는 Alembic 마이그레이션이 소유 (init.sql은 EXTENSION만) |
 | redis | 6379(내부) | 캐시 `weather:{date}:{region}`(1h) / `quiz:{date}:{level_group}`(24h) / `session:{user_id}`(7d) |
 
@@ -108,7 +108,39 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 
 ## 이번 라운드 범위 밖 (로드맵)
 
-- detective 모듈 (Phase 3) — 프론트 디렉토리만 유지, 라우트 미등록
 - AI 캐스터 롤플레이 — `ROADMAP` §2 마일스톤 4의 장기 정의에 있으나 **미구현**
   (완료 판정 범위 밖 — `docs/ROADMAP.md` §1)
 - 실기동 통합 테스트 — 실제 KMA/Gemini API 키 발급 후 진행
+
+## 라이선스와 출처
+
+이 저장소의 **소스 코드**는 [MIT License](./LICENSE)를 따릅니다.
+
+### 데이터·자산 출처
+
+| 무엇 | 출처 | 라이선스 |
+|---|---|---|
+| 동아시아 해안선 좌표 (`frontend/src/modules/explore/coastline.js`) | Natural Earth 1:50m `ne_50m_land` — [naturalearthdata.com](https://www.naturalearthdata.com/) | **퍼블릭 도메인** — *"No permission is needed to use Natural Earth."* |
+| 기상 실황·예보 데이터 | 기상청(KMA) 공공 API | 공공데이터 이용 약관 — **정확한 유형 확인 필요** |
+| 마스코트·아이콘 PNG 12종 (`frontend/public/`) | 프로젝트 팀이 업로드 | ⚠️ **출처 확인 필요** (아래 참조) |
+| 문항 본문·해설 (`database/seed/`) | 프로젝트 팀 직접 저작 | 이 저장소의 MIT를 따름 |
+
+#### ⚠️ 마스코트 PNG 12종 — 출처 미확정
+
+`bolt` · `cloud` · `drop` · `fire` · `moon` · `rainbow` · `raincloud` · `snow` ·
+`snowcloud` · `sun` · `thermometer` · `typhoon` (`favicon.svg`는 저장소에서 직접 작성).
+
+저장소 기록으로 확인되는 것은 **팀이 업로드했다는 사실뿐**입니다
+(`ae5ddd8`·`b3e0233`·`6579f8a`·`eaec357` — 한글 파일명으로 올린 뒤 ASCII로 개명·크롭).
+직접 제작인지, 생성형 도구 산출인지, 제3자 자산인지는 **커밋·문서 어디에도 기록이
+없습니다.**
+
+**추정으로 출처를 적지 않았습니다.** 심사 제출물에 지어낸 출처를 적는 것은 비워 두는
+것보다 나쁩니다. 원작자를 아는 사람이 이 표를 채워 주세요.
+
+### 주요 오픈소스 의존성
+
+FastAPI · SQLAlchemy · Alembic · Pydantic (백엔드) · React · Vite · TailwindCSS ·
+TanStack Query · Recharts (프론트) · LangChain (ai-worker) · Celery · PostgreSQL ·
+Redis. 전체 목록과 각 버전은 `backend/requirements.txt` · `ai-worker/requirements.txt` ·
+`celery/requirements.txt` · `frontend/package.json`이 소유합니다.

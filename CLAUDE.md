@@ -5,9 +5,16 @@
 (Vite)·`ai-worker`(LangChain/Gemini, 문항 생성·품질 게이트)·`celery`(KMA 수집 배치).
 
 ## 핵심 기능 (실제 코드 기준 — API·도메인 모델)
-- **세션 엔진**(`session.py`): `GET /session/today`가 배합(신규5·복습4·실황1·진도5=**15문항** —
-  `Settings.SESSION_RECIPE`로 env 조정. **진도 블록은 항상 마지막**)으로 하루 세션 발급. `today.*` 슬롯은
-  KMA 실황값으로 문항에 실시간 주입.
+- **세션 엔진**(`session.py`): `GET /session/today`가 배합(**실황2·신규4·복습3·보드1=10문항**
+  — 2026-08-12 클라이언트 사양. `Settings.SESSION_RECIPE`로 env 조정)으로 하루 세션 발급.
+  `today.*` 슬롯은 KMA 실황값으로 문항에 실시간 주입.
+  ⚠️ **`unit`(진도) kind가 배합에서 빠졌다** — 종전 기술 *"신규5·복습4·실황1·진도5=15문항 ·
+  진도 블록은 항상 마지막"*은 낡았다. 그 귀결로 **왕관 판정이 유닛 세션 완료로 되돌아왔다**
+  (`routers/session.py`의 `grant_crown=all_correct`). **두 변경은 한 쌍**이라 배합에
+  `unit`을 되살리면 왕관도 함께 되돌려야 한다.
+  ⚠️ **출제 순서의 소유자는 dict 키 순서가 아니라 `plan_bank_picks`의 블록 호출 순서**다.
+  사양이 "실황이 앞"이므로 그 순서도 계약이다.
+  ⚠️ `board` 1건은 아무 보드가 아니라 **오늘 현상에 매칭된 보드**다(T3 「보드 매칭」).
 - **커리큘럼**(`curriculum.py`): 유닛 트리(섹션→유닛), `unit_order`·`prereq` 선행 잠금,
   유닛 완료 시 세션 발급(`POST /units/{slug}/session`).
   **다과정**(R11): `courses` 테이블 + `GET /courses`·`?course=` — `units.course_id`
@@ -16,7 +23,11 @@
   ✅ **`section_meta.json` 공백은 해소됐다**(2026-08-09 실측 8섹션 전건 — CO-I-4 닫힘).
   이 줄에는 "4섹션(하늘 읽기·공기의 힘·큰 바람·도시와 기후)"과 "section_meta는 아직
   4/7섹션"이 적혀 있었으나 둘 다 거짓이 됐다: 「위험한 하늘」 4유닛이 붙어 기상 코스는
-  **5섹션 16유닛**이고 전체는 **8섹션 24유닛**이다. **섹션·유닛 목록을 여기 나열하지
+  **10섹션 138유닛**이고 전체는 **13섹션 237유닛**이다(2026-08-12 CO-G1 순환식 —
+  기상 코스의 섹션이 **지식 단계 1~10**이 되어 같은 개념이 상위 단계에 재등장한다.
+  기초과학 3섹션은 별도 코스로 존치. 종전 "5섹션 16유닛 / 8섹션 24유닛"은 그 이전 값).
+  ⚠️ **섹션 이름·순서·유닛 수를 여기 적지 않는다** — 소유자는 `units.json`과
+  `SECTION_ORDER`이고, 셋의 정합은 `test_section_name_parity.py`가 문다. **섹션·유닛 목록을 여기 나열하지
   않는다** — 소유자는 `database/seed/units.json`과 `curriculum_service.SECTION_ORDER`다.
 - **대기 보드 퍼즐**(`board.py`): 기단·전선·습기·일사 배치로 실제 대기현상을 만드는
   퍼즐. 서버가 `board_rules.json`(프론트와 공유하는 단일 규칙 파일)로 판정을 재계산
@@ -176,9 +187,12 @@ docs/               ROADMAP(전략 SSOT) · specs/(00~12) · team/(프로세스�
 숫자의 소유자는 `database/seed/content_items.json`이고, 규모는
 `test_seed_contract`·`test_r10_question_payload_contract`가 못박는다.
 
-- **문항 1,000건**(2026-08-10 · 하루에 +716) · 유형 7종
-  `mc 310 · cloze 156 · short_answer 147 · match 124 · ordering 110 · slider 107 · board 46`
+- **문항 1,012건**(2026-08-12 실측 — 8/10에 1,000건, T3 실황 +12) · 유형 7종
+  `multiple_choice 316 · cloze 156 · short_answer 151 · match 125 · ordering 111 · slider 107 · board 46`
   · 개념 태그 **14종**(개념 문서 태그 집합과 완전 일치)
+- **실황 문항 20건**(`uses_live_slots`) — 그중 **정답이 `today.*`에서 도출되는 것 4건**.
+  나머지는 지문만 오늘 값이라 **정답이 날마다 안 바뀐다**(T3가 지적한 그 한계이고,
+  기존 8건이 전부 MC다). 세션당 2건 · 10일 순환(`UNIT_LIVE_CAP`·`live_rotation_window`).
 - **지식 단계 10칸**(6→10 확장, 같은 날) — `1:98 2:100 3:98 4:104 5:100 6:100 7:100
   8:100 9:100 10:100`. **10칸 전건 98건 이상**이라 어느 단계로 배정돼도 세션이 굶지
   않는다 — 확장 직후에는 **6·9단계가 0건**이었다. 2축 정합 위반 0건.

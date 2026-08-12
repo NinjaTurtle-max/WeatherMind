@@ -200,17 +200,55 @@ try {
     assert(heat.due === false, '방금 맞힌 개념은 미due여야 함');
   });
 
-  // ── 3. 카드 실마운트: due만, 상위 3개 이내, /daily 링크 ────────────────────
-  await scenario('카드 — due 개념만 렌더 + "복습하러 가기 →" /daily 링크', async () => {
+  // ── 3. 카드 실마운트: due만, 상위 3개 이내, CTA가 **실재하는 라우트**로 간다 ─
+  //
+  // ⚠️ **계약을 고쳤다**(2026-08-12). 종전에는 `a[href="/daily"]`가 존재하는지만
+  // 봤다. 그래서 `/daily` 라우트가 폐지된 뒤에도 **이 테스트는 초록이었고**, 카드의
+  // 「복습하러 가기」는 눌러도 `*` → `/learn`으로 조용히 되돌아오는 죽은 링크였다.
+  // 앵커의 **존재**를 무는 검사는 앵커의 **목적지**가 썩는 것을 영원히 못 잡는다.
+  //
+  // 그래서 목적지를 `App.jsx`의 라우트 표와 대조한다 — 하드코딩한 기대값이 아니라
+  // **라우트 표를 소유자에게서 읽어** 맞춘다. 목적지가 바뀌어도(제품 결정) 그것이
+  // 실재하는 화면이기만 하면 통과하고, 라우트가 사라지면 즉시 붉어진다.
+  const liveRoutes = (() => {
+    const appSrc = readFileSync(resolve(root, 'src/App.jsx'), 'utf-8');
+    return [...appSrc.matchAll(/path="([^"]+)"/g)]
+      .map((m) => m[1])
+      .filter((p) => p !== '*'); // catch-all은 "도착지"가 아니라 실패 처리다
+  })();
+  const isLiveRoute = (href) =>
+    liveRoutes.some((route) => {
+      if (route.endsWith('/*')) return href === route.slice(0, -2) || href.startsWith(route.slice(0, -1));
+      if (route.includes(':')) {
+        const rx = new RegExp(`^${route.replace(/:[^/]+/g, '[^/]+')}$`);
+        return rx.test(href);
+      }
+      return href === route;
+    });
+
+  await scenario('카드 — due 개념만 렌더 + "복습하러 가기 →"가 실재 라우트로 간다', async () => {
+    // 이 검사가 무의미해지는 경우를 먼저 배제한다: 헬퍼가 항상 참이면 계약이 죽는다.
+    assert(liveRoutes.length > 3, `App.jsx 라우트 표를 못 읽었다 — ${liveRoutes.length}건`);
+    assert(isLiveRoute('/learn'), '라우트 표 대조가 고장났다(/learn을 못 찾는다)');
+    assert(!isLiveRoute('/daily'), '폐지된 /daily가 살아 있는 라우트로 잡힌다 — 대조가 헐겁다');
+
     // 위 시나리오 후 due는 air_mass 1건뿐(typhoon·heat_island는 방금 학습, pressure_front 내일)
     const reactRoot = mountCard();
     await waitFor(() => window.document.querySelector(CARD_SEL), 5000, '카드 렌더');
     const text = window.document.querySelector(CARD_SEL).textContent;
     assert(text.includes('기단'), 'due인 air_mass(기단) 칩이 없음');
     assert(!text.includes('태풍'), '미due인 typhoon(태풍)이 렌더됨 — due 필터 실패');
-    const link = window.document.querySelector(`${CARD_SEL} a[href="/daily"]`);
-    assert(link, '/daily 링크 없음');
-    assert(link.textContent.includes('복습하러 가기'), '링크 문구 없음');
+
+    const link = [...window.document.querySelectorAll(`${CARD_SEL} a`)].find((a) =>
+      a.textContent.includes('복습하러 가기'),
+    );
+    assert(link, '「복습하러 가기」 링크 없음');
+    const href = link.getAttribute('href');
+    assert(
+      isLiveRoute(href),
+      `복습 CTA가 실재하지 않는 라우트로 간다 — href="${href}" · `
+        + `살아 있는 라우트: ${liveRoutes.join(' ')}`,
+    );
     assert(pageErrors.length === 0, `마운트 중 페이지 에러: ${pageErrors[0]}`);
     reactRoot.unmount();
   });
