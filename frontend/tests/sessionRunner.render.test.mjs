@@ -123,6 +123,57 @@ try {
     failed += 1;
   }
 
+  // ── 피드백 화자는 **물방울이 하나** (2026-08-11 사용자 지시) ────────────────
+  // 학습 세션의 튜터가 물방울이다(SideNav `/learn` → drop). 정답일 때만 다른
+  // 캐릭터가 나오면 한 세션 안에서 말하는 사람이 문항마다 바뀐다.
+  // 종전 값(정답 sun · 오답 cloud)으로 되돌아가면 여기서 잡힌다 —
+  // **정오답 두 경우를 다 그려서** 본다(한쪽만 보면 반만 지킨다).
+  {
+    const FeedbackPanel = (await server.ssrLoadModule('/src/components/FeedbackPanel.jsx')).default;
+    for (const isCorrect of [true, false]) {
+      const html = renderToString(
+        createElement(FeedbackPanel, { message: '테스트 해설', isCorrect, source: 'authored' }),
+      );
+      const m = html.match(/data-mascot="([a-z]+)"/);
+      if (m?.[1] === 'drop') {
+        console.log(`PASS 피드백 화자가 물방울이 (isCorrect=${isCorrect})`);
+      } else {
+        console.error(`FAIL 피드백 화자가 물방울이가 아니다 (isCorrect=${isCorrect}) — 실제 ${m?.[1] ?? '(없음)'}`);
+        failed += 1;
+      }
+    }
+  }
+
+  // ── 2열은 **배치고사를 비켜간다** (2026-08-11) ──────────────────────────────
+  // 세션이 「왼쪽 문항 / 오른쪽 정답·해설」 2열이 됐는데, 같은 SessionRunner를
+  // 쓰는 배치고사(bulkMode)에 그대로 걸리면 두 가지가 동시에 깨진다:
+  //   (a) 배치고사는 Layout 밖(/onboarding/placement)이라 컨테이너가 max-w-xl
+  //       하나뿐 — 2열이면 문항이 264px이 된다(위 셸 변수 항목과 같은 뿌리).
+  //   (b) 배치고사는 문항별 채점이 없어 status가 FEEDBACK에 닿지 않는다 —
+  //       오른쪽 열이 "답을 고르면 여기에…"만 든 채 끝까지 비어 있는다.
+  // jsdom·SSR에 CSS 엔진이 없어 좌표로는 못 잰다 → 소스로 단정한다.
+  {
+    const runner = readFileSync(resolve(root, 'src/modules/session/SessionRunner.jsx'), 'utf8');
+    const gridLine = runner.split('\n').find((l) => /lg:grid-cols-2/.test(l));
+    if (gridLine && /bulkMode/.test(gridLine)) {
+      console.log('PASS 세션 2열이 bulkMode(배치고사)를 비켜간다');
+    } else {
+      console.error(`FAIL 세션 2열이 배치고사에도 걸린다 — 실제 「${(gridLine ?? '없음').trim().slice(0, 90)}」`);
+      failed += 1;
+    }
+    const placeholderLine = runner
+      .split('\n')
+      .find((l) => /status !== SESSION_STATUS\.FEEDBACK &&/.test(l));
+    if (placeholderLine && /!bulkMode/.test(placeholderLine)) {
+      console.log('PASS 오른쪽 열 자리표시자가 배치고사에서는 안 뜬다');
+    } else {
+      console.error(
+        `FAIL 배치고사에서 채워지지 않을 자리표시자가 뜬다 — 실제 「${(placeholderLine ?? '없음').trim().slice(0, 90)}」`,
+      );
+      failed += 1;
+    }
+  }
+
   // 같은 함정이 상단 토스트 5개에도 있었다(2026-08-08). 파일 목록을 손으로 적지
   // 않는다 — 적어 두면 **새로 생긴 토스트가 검사를 비켜간다**. src 전체를 훑어
   // 가운데 고정 오버레이가 전부 셸 변수 식을 쓰는지 본다. TabBar처럼 md에서 아예

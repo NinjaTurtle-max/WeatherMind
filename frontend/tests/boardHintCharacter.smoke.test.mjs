@@ -80,7 +80,7 @@ const { MemoryRouter } = await import('react-router-dom');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 
 const AtmosphereBoard = (await vite.ssrLoadModule('/src/modules/board/AtmosphereBoard.jsx')).default;
-const { HINT_STAGE_MASCOT, hintStageMascot } = await vite.ssrLoadModule('/src/modules/board/BoardHintPanel.jsx');
+const { HINT_SPEAKER, hintStageMascot } = await vite.ssrLoadModule('/src/modules/board/BoardHintPanel.jsx');
 const { RESOURCES } = await vite.ssrLoadModule('/src/i18n/core.js');
 const { useLocaleStore } = await vite.ssrLoadModule('/src/i18n/index.js');
 const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
@@ -148,19 +148,17 @@ function mountBoardRoot() {
   return reactRoot;
 }
 
-// ── 3. 화자 목록이 기존 6종 안에 있다 (자산 신규 제작 금지) ──────────────────
+// ── 3. 화자는 **보드 담당 하나**(2026-08-11 사용자 지시) ─────────────────────
+// 종전에는 단계마다 갈랐다(0단 구름이 · 1단 물방울이 · 2단 태양이). 그러면 한
+// 화면에서 말하는 사람이 세 번 바뀌고 그중 둘은 다른 화면 담당이다. 단계가
+// 올랐다는 것은 「힌트 1:/2:」 번호가 이미 말한다.
 {
-  const ASSETS = ['bolt', 'cloud', 'drop', 'snow', 'sun', 'typhoon'];
-  ok(HINT_STAGE_MASCOT.length >= 3, `힌트 단계별 화자 ${HINT_STAGE_MASCOT.length}종 (0·1·2단)`);
-  ok(new Set(HINT_STAGE_MASCOT).size === HINT_STAGE_MASCOT.length,
-     `단계마다 화자가 다르다 — ${HINT_STAGE_MASCOT.join(',')}`);
-  for (const name of HINT_STAGE_MASCOT) {
-    ok(ASSETS.includes(name), `화자 "${name}"가 기존 6종 자산이다`);
-    ok(existsSync(join(root, 'public', `${name}.png`)), `public/${name}.png 실존`);
+  ok(HINT_SPEAKER === 'sun', `보드 힌트 화자는 태양이 — 실제 ${HINT_SPEAKER}`);
+  ok(existsSync(join(root, 'public', `${HINT_SPEAKER}.png`)), `public/${HINT_SPEAKER}.png 실존`);
+  // 단계가 무엇이든 같은 화자 — 범위 밖도 마찬가지(호출부 호환).
+  for (const level of [-1, 0, 1, 2, 99]) {
+    ok(hintStageMascot(level) === HINT_SPEAKER, `${level}단도 태양이`);
   }
-  // 범위 밖 단계는 양 끝으로 고정 — 힌트가 3단으로 늘어도 터지지 않는다
-  ok(hintStageMascot(-1) === HINT_STAGE_MASCOT[0], '음수 단계는 첫 화자');
-  ok(hintStageMascot(99) === HINT_STAGE_MASCOT[HINT_STAGE_MASCOT.length - 1], '초과 단계는 마지막 화자');
 }
 
 // ── 1·2·4. ko 실마운트 — 캐릭터 등장 + 단계별 전환 + 문구 불변 ───────────────
@@ -173,17 +171,15 @@ const KO = RESOURCES.ko.board.atmosphere;
   // 0단 — 아직 아무 힌트도 안 봤지만 캐릭터는 이미 서 있다(권하는 얼굴)
   ok(mascotEl() !== null, '힌트 영역에 마스코트 말풍선이 있다');
   const s0 = speaker();
-  ok(s0 === HINT_STAGE_MASCOT[0], `0단 화자 — ${s0}`);
-  ok(speakerImg() === `/${s0}.png`, `0단 이미지 — ${speakerImg()}`);
+  ok(s0 === HINT_SPEAKER, `0단 화자 — ${s0}`);
+  ok(speakerImg() === `/${HINT_SPEAKER}.png`, `0단 이미지 — ${speakerImg()}`);
   ok(mascotEl().getAttribute('data-hint-stage') === '0', '0단 표기');
 
-  // 1단 — 화자 전환
+  // 1단 — **화자는 그대로**, 단계 표기만 오른다
   click(findButton('힌트 보기'));
   await waitFor(() => text().includes('힌트 1:'), 4000, '1단 힌트 렌더');
-  const s1 = speaker();
-  ok(s1 === HINT_STAGE_MASCOT[1], `1단 화자 — ${s1}`);
-  ok(s1 !== s0, `0단→1단에서 표정이 바뀐다 — ${s0} → ${s1}`);
-  ok(speakerImg() === `/${s1}.png`, `1단 이미지 — ${speakerImg()}`);
+  ok(speaker() === HINT_SPEAKER, `1단도 같은 화자 — ${speaker()}`);
+  ok(mascotEl().getAttribute('data-hint-stage') === '1', '1단 표기');
 
   // 4. 문구 불변 — 1단 문장은 리소스 원문 그대로(지역명만 보간)
   const step1 = KO.hintStep1.replace('{zone}', '수도권');
@@ -193,10 +189,8 @@ const KO = RESOURCES.ko.board.atmosphere;
   // 2단 — 다시 전환
   click(findButton('힌트 보기'));
   await waitFor(() => text().includes('힌트 2:'), 4000, '2단 힌트 렌더');
-  const s2 = speaker();
-  ok(s2 === HINT_STAGE_MASCOT[2], `2단 화자 — ${s2}`);
-  ok(s2 !== s1, `1단→2단에서 표정이 바뀐다 — ${s1} → ${s2}`);
-  ok(speakerImg() === `/${s2}.png`, `2단 이미지 — ${speakerImg()}`);
+  ok(speaker() === HINT_SPEAKER, `2단도 같은 화자 — ${speaker()}`);
+  ok(mascotEl().getAttribute('data-hint-stage') === '2', '2단 표기');
 
   // 4-b. 2단까지 공개해도 문구는 그대로 — 칩 라벨·마무리 문장 원문 대조
   ok(text().includes(KO.hintNeedsLabel), '요소 종류 라벨이 원문 그대로');
@@ -215,19 +209,19 @@ const KO = RESOURCES.ko.board.atmosphere;
      '마스코트는 장식(aria-hidden·alt 빈 문자열)');
 }
 
-// ── 5. en 로케일 — 문구만 갈리고 캐릭터·전환은 같다 ─────────────────────────
+// ── 5. en 로케일 — 문구만 갈리고 캐릭터는 같다 ──────────────────────────────
 {
   useLocaleStore.getState().setLocale('en');
   mountBoardRoot();
   await waitFor(() => findButton('Show hint') != null, 8000, 'en 보드 렌더');
   await sleep(200);
-  ok(speaker() === HINT_STAGE_MASCOT[0], `en 0단 화자 — ${speaker()}`);
+  ok(speaker() === HINT_SPEAKER, `en 0단 화자 — ${speaker()}`);
   click(findButton('Show hint'));
   await waitFor(() => text().includes('Hint 1:'), 4000, 'en 1단 힌트');
-  ok(speaker() === HINT_STAGE_MASCOT[1], `en 1단 화자 — ${speaker()}`);
+  ok(speaker() === HINT_SPEAKER, `en 1단 화자 — ${speaker()}`);
   click(findButton('Show hint'));
   await waitFor(() => text().includes('Hint 2:'), 4000, 'en 2단 힌트');
-  ok(speaker() === HINT_STAGE_MASCOT[2], `en 2단 화자 — ${speaker()}`);
+  ok(speaker() === HINT_SPEAKER, `en 2단 화자 — ${speaker()}`);
   ok(!/힌트/.test(text()), 'en에서 한국어 힌트 원문이 남지 않는다');
   useLocaleStore.getState().setLocale('ko');
 }

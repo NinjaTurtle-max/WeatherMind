@@ -221,6 +221,34 @@ try {
     await enServer.close();
     globalThis.localStorage = prevStorage;
   }
+
+  // ── 7) 두 검사는 **서로 다른 것을 본다** — 병합이 한쪽을 밀어내지 않게 둘 다 둔다.
+  //    위 6은 en 실렌더(MT-28), 아래는 좁은 화면 재배치(2026-08-11)다.
+
+  // 7) wide 배치가 **좁은 화면에서 다시 줄을 선다** (2026-08-11)
+  //
+  // 보드 플레이는 lg에서만 2열이다. lg 미만에서는 두 열 래퍼를 `contents`로 지워
+  // 다섯 블록을 바깥 격자의 직계 칸으로 만들고 `order-*`로 다시 세운다 —
+  // 그러지 않으면 「왼쪽 통째 → 오른쪽 통째」로 접혀 **가이드 단계와 판정이 지도
+  // 아래**로 내려간다(guided 퍼즐은 지시가, 시간 초과는 유일한 재도전 버튼이
+  // 화면 밖으로 나간다). 3열 시절에는 오른쪽 열의 `order-first`가 이 일을 했는데
+  // 2열 개편에서 그 장치가 함께 사라졌다.
+  // CSS 엔진이 없어 좌표로는 못 잰다 → 소스로 단정한다.
+  {
+    const src = readFileSync(resolve(root, 'src/modules/board/AtmosphereBoard.jsx'), 'utf-8');
+    // wide 분기만 본다 — 아래 stacked 배치에도 {verdictBlock}이 있고, 거기에는
+    // 순서 클래스가 없는 것이 정상이다.
+    const body = src.slice(src.indexOf('if (wide) {'));
+    const columns = (body.match(/className="contents lg:flex/g) ?? []).length;
+    check(`wide: 좁은 화면에서 두 열 래퍼가 사라진다(contents ${columns}/2)`, columns === 2);
+    for (const [what, marker] of [
+      ['가이드 블록', '{guidePanel}'],
+      ['판정 블록', '{verdictBlock}'],
+    ]) {
+      const line = body.split('\n').find((l) => l.includes(marker) && l.includes('order-'));
+      check(`wide: ${what}이 좁은 화면 순서를 갖는다(order-*)`, Boolean(line));
+    }
+  }
 } finally {
   await server.close();
 }
