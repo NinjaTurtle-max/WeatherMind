@@ -528,6 +528,12 @@ export default {
     progressCount: '{answered} / {total} 문항 완료',
     itemCount: '문항 {current} / {total}',
     slotFilled: '☀️ 오늘 실황 반영 문항',
+    // 문항의 학습 수준 배지 (2026-08-12) — **명칭표를 여기에 두지 않는다.**
+    // 단계 이름은 `ability.knowledgeLevel.name` 하나가 소유하고 이 키들은
+    // 그 이름을 감싸는 틀만 갖는다({name}·{level}은 그쪽에서 온다).
+    // 두 번째 사본을 손으로 쓰면 10칸이 조용히 갈린다(이 저장소의 재발 유형).
+    knowledgeLevel: '🪜 {name}',
+    knowledgeLevelAria: '이 문항의 학습 수준 — {level}단계 {name}',
     combo: '연속 정답 {combo}',
     // 칭찬 4단 (R10-01 §3.5) — SessionRunner.COMBO_PRAISE 계약과 바이트 동일
     // (boardAssistRetention 스모크가 ko 원문 4개를 그대로 단정한다)
@@ -597,6 +603,10 @@ export default {
         review: '복습',
         live: '실황',
         unit: '진도',
+        // R13-02 §T3 — 배합에 들어온 board 블록. **아무 보드가 아니라** KMA 실황으로
+        // 오늘 현상을 판정해 고른 보드다(`order_boards_for_today`). 그래서 「보드」가
+        // 아니라 「오늘의 하늘」 — 학습자가 창밖과 같은 장면을 판에서 만든다.
+        board: '오늘의 하늘',
       },
       blockCount: '{count}문항',
       unitBlockNote: '진도 문항은 지금 배우는 유닛의 다음 5문항이에요.',

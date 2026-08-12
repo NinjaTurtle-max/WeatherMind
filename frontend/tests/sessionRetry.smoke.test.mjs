@@ -33,7 +33,14 @@ process.env.NODE_ENV = 'production';
 // ── mock API 서버 ───────────────────────────────────────────────────────────
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { createServer } = await import('vite');
-const { default: apiMockPlugin } = await import('../mock/apiMockPlugin.js');
+const { default: apiMockPlugin, __mockPolicy } = await import('../mock/apiMockPlugin.js');
+// 배합 총합은 **목 정책에서 파생**한다 — 숫자를 박으면 배합이 바뀔 때 계약이 아니라
+// 상수가 깨진다(실제로 15가 박혀 있어 10문항 전환에서 그렇게 됐다).
+// `__mockPolicy`는 서버 Settings와 대조되는 값이라(backend test_r13_mock_policy_parity)
+// 여기서 읽으면 사본이 늘지 않는다.
+const MOCK_POLICY = {
+  session_recipe_total: Object.values(__mockPolicy().session_recipe).reduce((a, b) => a + b, 0),
+};
 
 const vite = await createServer({
   root,
@@ -174,6 +181,47 @@ const answerCalls = (mark) => since(mark).filter((l) => /POST .*\/session\/.*\/a
 // ── 정답 키 회수: 전건 오답 1회전 → correct_answer 수집 → 상태 되돌리기 ──────
 const ANSWER_KEY = new Map(); // quiz_id → {type, options, correct}
 
+// ── board 문항 제출 페이로드 (2026-08-12, SPRINT_R13_02 §T3) ────────────────
+// 배합에 「오늘 날씨 반영 보드」 1문항이 들어오면서 이 스모크가 board를 만나게 됐다.
+// board는 `answer` 문자열이 아니라 **`board_state`로 채점**되므로(없으면 422
+// BOARD_STATE_REQUIRED) 정답표(ANSWER_KEY)에 담기지 않는다 — 대신 여기 둔다.
+//
+// 통과 상태는 **목 board 문항의 실제 팔레트에서 나왔다**. 그 문항은
+// `density_buoyancy`이고 팔레트가 `['sun','moisture']` — **배치 요소가 없고 조절값
+// 둘뿐**이다. 목표 `[{zone:1, phenomenon:'shower'}]`은 `board_rules.json`의
+// `convective_shower`(`sun>=80` · `moisture>=60`)로 성립한다.
+// ⚠️ 처음엔 `cold_front_shower`(한랭전선 배치)로 잡았는데, API 채점은 통과하지만
+// **화면에서는 재현할 수 없었다** — 팔레트에 전선이 없어 놓을 칩 자체가 없다.
+// 규칙이 바뀌면 공유 벡터를 읽는 `test:board`가 먼저 운다.
+const BOARD_ZONES = ['서해', '수도권', '태백산맥', '동해안'];
+const BOARD_SUN_PASS = 85;      // convective_shower 임계 sun>=80
+const BOARD_MOISTURE_PASS = 75; // convective_shower 임계 moisture>=60
+const BOARD_STATE_PASS = {
+  zones: BOARD_ZONES,
+  elements: [
+    { type: 'sun', level: BOARD_SUN_PASS, zone: 1 },
+    { type: 'moisture', level: BOARD_MOISTURE_PASS, zone: 1 },
+  ],
+};
+// 형식은 유효하지만 목표를 못 만드는 상태 — "의도적 오답"의 board 판본.
+// (빈 배치는 boardEngine.validateBoardState가 허용한다 — boardEntryGate 스모크 선례.)
+const BOARD_STATE_FAIL = { zones: BOARD_ZONES, elements: [] };
+/** harvest에서 만난 board 문항 id — 화면 조작기가 분기 근거로 쓴다. */
+const BOARD_QUIZ_IDS = new Set();
+
+/** 문항 1건의 제출 바디 — board면 board_state, 아니면 answer 문자열. */
+function answerBody(item, wantCorrect) {
+  if (item.question_type === 'board') {
+    return {
+      quiz_id: item.quiz_id,
+      board_state: wantCorrect ? BOARD_STATE_PASS : BOARD_STATE_FAIL,
+    };
+  }
+  const k = ANSWER_KEY.get(item.quiz_id);
+  assert(k, `정답 키에 없는 문항: ${item.quiz_id}`);
+  return { quiz_id: item.quiz_id, answer: wantCorrect ? String(k.correct) : '__의도적_오답__' };
+}
+
 async function resetMe() {
   const r = await api('POST', '/dev/reset-me', { reset: true });
   assert(r.status === 200, `/dev/reset-me 실패: ${r.status}`);
@@ -182,6 +230,20 @@ async function resetMe() {
 async function harvestAnswerKey() {
   const { data: s } = await api('GET', '/session/today');
   for (const item of s.items) {
+    // ── board는 수집 대상이 아니다 (2026-08-12, SPRINT_R13_02 §T3) ──────────
+    // 배합에 「오늘 날씨 반영 보드」 1문항이 들어오면서 이 루프가 board까지 훑게
+    // 됐는데, board 제출은 `answer` 문자열이 아니라 **`board_state`를 요구**한다
+    // (없으면 422 BOARD_STATE_REQUIRED — 구름 소모 **전** 판정이라 잔량도 안 움직인다).
+    // 그래서 `data.is_correct`가 undefined가 되어 아래 단정이 "정답으로 채점됐다"는
+    // **엉뚱한 메시지로** 실패했다. 정답표(correct_answer)라는 개념 자체가 board에
+    // 없으므로 — 판정은 배치 규칙(goal_conditions)이 한다 — 여기서 건너뛴다.
+    // 뒤따르는 구름 단정이 왜곡되지 않는 근거: 목의 §3.1 순서가 422를 구름 소모
+    // **전**에 내므로, 건너뛰든 422를 받든 잔량은 동일하다(담당 H 실측).
+    if (item.question_type === 'board') {
+      BOARD_QUIZ_IDS.add(item.quiz_id);
+      continue;
+    }
+
     const { data } = await api('POST', `/session/${s.session_id}/answer`, {
       quiz_id: item.quiz_id,
       answer: '__의도적_오답__', // 어떤 유형에서도 정답이 될 수 없는 문자열(slider는 NaN)
@@ -199,8 +261,51 @@ async function harvestAnswerKey() {
   await resetMe();
 }
 
+/**
+ * 화면의 board 문항을 실제로 푼다 (2026-08-12).
+ *
+ * 목 board 문항은 팔레트가 `['sun','moisture']`이라 **놓을 칩이 없고 조절값만 있다**.
+ * `AtmosphereBoard`는 팔레트가 허용한 조절값만 존 카드 안에 `ZoneSlider`로 그리고,
+ * 그 순서는 코드가 고정한 `moisture → sun → wind`다(팔레트로 걸러진 뒤에도 이 순서).
+ * 그래서 존 1 카드의 range 입력을 **라벨이 아니라 순서로** 집는다.
+ *
+ * 정답 상태는 `BOARD_STATE_PASS`와 같은 값(sun 85 · moisture 75)이고,
+ * 오답은 아무것도 건드리지 않는 것이다(기본값 50/50 → cloudy → 목표 미달).
+ */
+/**
+ * 존 카드 — `data-board-zone`은 **두 곳**에 붙는다: SVG 지도의 노드(<circle> 묶음)와
+ * 그 아래 격자 카드. 앞의 것이 DOM에서 먼저 나오므로 `querySelector` 하나로 집으면
+ * 조절값이 없는 SVG 노드를 잡는다(실제로 그렇게 헛짚었다). 조절값을 **가진** 쪽을 고른다.
+ */
+function boardZoneCard(zone) {
+  return [...window.document.querySelectorAll(`[data-board-zone="${zone}"]`)]
+    .find((el) => el.querySelector('input[type="range"]')) ?? null;
+}
+
+async function answerBoardOnScreen(wantCorrect) {
+  await waitFor(() => boardZoneCard(1), 'board 존 카드(조절값 포함)');
+  await sleep(150); // 마운트 effect의 board 초기화가 조작을 덮지 않도록
+  if (wantCorrect) {
+    const card = boardZoneCard(1);
+    assert(card, '존 1 카드를 찾지 못했다');
+    const knobs = [...card.querySelectorAll('input[type="range"]')];
+    assert(knobs.length === 2,
+      `존 1 조절값이 2개(moisture·sun)여야 한다 — ${knobs.length}. 팔레트가 바뀌었나?`);
+    setInputValue(knobs[0], BOARD_MOISTURE_PASS); // levelKnobs 순서 ① moisture
+    await sleep(40);
+    setInputValue(knobs[1], BOARD_SUN_PASS);      // ② sun
+    await sleep(40);
+  }
+  const submit = [...window.document.querySelectorAll('button')]
+    .find((b) => !b.disabled && /제출/.test(b.textContent ?? ''));
+  assert(submit, 'board 제출 버튼을 찾지 못했다');
+  click(submit);
+}
+
 /** 화면의 현재 문항에 정답/오답을 넣는다(유형별 실제 위젯 조작). */
 async function answerOnScreen(quizId, wantCorrect) {
+  // board는 ANSWER_KEY에 없다 — `board_state`로 채점되므로 정답표 개념이 없다.
+  if (BOARD_QUIZ_IDS.has(quizId)) return answerBoardOnScreen(wantCorrect);
   const k = ANSWER_KEY.get(quizId);
   assert(k, `정답 키에 없는 문항: ${quizId}`);
   if (k.type === 'multiple_choice') {
@@ -314,7 +419,7 @@ function orderingRows() {
 
 /** 문항 1건 진행: 등장 대기 → 답안 → 피드백 → 다음 버튼 반환(클릭은 호출자 몫) */
 async function playItem(expectedQuizId, wantCorrect) {
-  await waitFor(() => currentQuizId() === expectedQuizId, `문항 ${expectedQuizId} 등장`);
+  await waitFor(() => currentQuizId() === expectedQuizId, `문항 ${expectedQuizId} 등장 (현재=${currentQuizId()})`);
   await answerOnScreen(expectedQuizId, wantCorrect);
   return waitFor(
     () => window.document.querySelector('[data-session-next]'),
@@ -329,22 +434,30 @@ try {
   await scenario('만회 성공 → 왕관 (구름 무소모 · XP 무가산 · 최초 기록 불변)', async () => {
     await resetMe();
     const { data: s } = await api('GET', '/session/today');
-    const wrongAt = new Set([1, 4, 9]); // 15문항 중 3건만 일부러 틀린다
+    // 틀릴 자리는 **인덱스를 박지 않고 배합에서 고른다**(2026-08-12): 배합이
+    // 15 → 10으로 줄면서 옛 인덱스 {1,4,9}의 9번이 board(마지막)를 가리키게 됐다.
+    // board는 `board_state`로 채점되므로 "의도적 오답 문자열"이 통하지 않는다.
+    // 앞쪽 비board 3건을 고르면 배합이 또 바뀌어도 따라간다.
+    const wrongAt = new Set(
+      s.items.flatMap((it, i) => (it.question_type === 'board' ? [] : [i])).slice(0, 3),
+    );
+    const TOTAL = s.items.length;
     const results = [];
     for (const [i, item] of s.items.entries()) {
-      const k = ANSWER_KEY.get(item.quiz_id);
-      const answer = wrongAt.has(i) ? '__의도적_오답__' : String(k.correct);
-      const { data } = await api('POST', `/session/${s.session_id}/answer`, { quiz_id: item.quiz_id, answer });
+      const { data } = await api(
+        'POST', `/session/${s.session_id}/answer`, answerBody(item, !wrongAt.has(i)),
+      );
       assert(data.is_correct === !wrongAt.has(i), `${item.quiz_id}: 채점이 의도와 다르다`);
       assert(data.is_retry !== true, '최초 제출인데 is_retry가 붙었다');
       results.push(data);
     }
 
     // 최초 정답 문항의 재제출은 만회 대상이 아니다 → 409
-    const okItem = s.items[0];
-    const re = await api('POST', `/session/${s.session_id}/answer`, {
-      quiz_id: okItem.quiz_id, answer: String(ANSWER_KEY.get(okItem.quiz_id).correct),
-    });
+    // 틀린 자리를 배합에서 고르게 바꾸면서 s.items[0]이 오답 후보가 됐다 —
+    // 409(ALREADY_ANSWERED)를 보려면 **최초 정답** 문항을 골라야 한다.
+    const okItem = s.items.find((it, i) => !wrongAt.has(i));
+    assert(okItem, '최초 정답 문항이 하나도 없다 — 배합/오답 선택이 어긋났다');
+    const re = await api('POST', `/session/${s.session_id}/answer`, answerBody(okItem, true));
     assert(re.status === 409 && re.data.code === 'ALREADY_ANSWERED',
       `최초 정답 재제출은 409 ALREADY_ANSWERED여야 한다 — 받은 값: ${re.status}/${re.data?.code}`);
 
@@ -352,9 +465,7 @@ try {
     const cloudsBefore = results[results.length - 1].clouds;
     for (const i of [...wrongAt]) {
       const item = s.items[i];
-      const { data } = await api('POST', `/session/${s.session_id}/answer`, {
-        quiz_id: item.quiz_id, answer: String(ANSWER_KEY.get(item.quiz_id).correct),
-      });
+      const { data } = await api('POST', `/session/${s.session_id}/answer`, answerBody(item, true));
       assert(data.is_retry === true, `${item.quiz_id}: is_retry=true가 아니다`);
       assert(data.retry_correct === true, `${item.quiz_id}: retry_correct=true가 아니다`);
       assert(data.xp_earned === 0, '만회에 XP가 붙었다 — 파밍 차단 계약 위반');
@@ -363,24 +474,32 @@ try {
     }
 
     // 이미 만회로 해결한 문항의 또 다른 재제출도 409
-    const again = await api('POST', `/session/${s.session_id}/answer`, {
-      quiz_id: s.items[1].quiz_id, answer: String(ANSWER_KEY.get(s.items[1].quiz_id).correct),
-    });
+    const againItem = s.items[[...wrongAt][0]];
+    const again = await api('POST', `/session/${s.session_id}/answer`, answerBody(againItem, true));
     assert(again.status === 409 && again.data.code === 'ALREADY_ANSWERED',
       '만회 성공 문항의 재제출은 409여야 한다');
 
     const { data: done } = await api('POST', `/session/${s.session_id}/complete`);
-    assert(done.correct_count === 12, `correct_count는 **최초 정답 수** 12여야 한다 — ${done.correct_count}`);
+    assert(done.correct_count === TOTAL - wrongAt.size,
+      `correct_count는 **최초 정답 수** ${TOTAL - wrongAt.size}여야 한다 — ${done.correct_count}`);
     assert(done.all_resolved === true, '전건 해결인데 all_resolved가 false다');
-    assert(done.retry_resolved_count === 3, `retry_resolved_count 3 기대 — ${done.retry_resolved_count}`);
+    assert(done.retry_resolved_count === wrongAt.size,
+      `retry_resolved_count ${wrongAt.size} 기대 — ${done.retry_resolved_count}`);
   });
 
-  // ── 1b. 유닛 세션은 **연습 전용**이다 — 왕관을 주지 않는다 (CO-A6 / §2.10) ──
-  // 2026-08-08 이전 이 시나리오는 "유닛 세션 만회 → 왕관"을 단정했다. 그건 서버가
-  // §2.10에서 `grant_crown=False`로 바꾸기 전의 계약이고, **목만 옛 계약에 남아**
-  // 목 위에서는 클리어되는데 실서버에서는 안 되는 갈림을 만들고 있었다.
-  // 판정값 개정(all_correct → all_resolved) 자체는 표기 필드로 계속 단정한다.
-  await scenario('유닛 세션: 만회 전건 해결이어도 왕관 0 (§2.10 소유권 이전)', async () => {
+  // ── 1b. 만회로 해결한 유닛 세션은 왕관을 주지 않는다 ────────────────────────
+  // ⚠️ **주석 정정(2026-08-12).** 종전 제목·주석은 「유닛 세션은 **연습 전용**이라
+  // 왕관을 주지 않는다(§2.10 소유권 이전)」였다. 그 기술은 이제 거짓이다 —
+  // 왕관은 2026-08-12 클라이언트 확정으로 **유닛 세션 완료가 소유**한다
+  // (배합에서 `unit` kind가 빠져 daily 왕관 유입로가 닫힌 것의 대응).
+  //
+  // 그런데 이 시나리오는 여전히 초록이고, 그 이유가 계약이 아니다: **전 문항을
+  // 의도적 오답으로 답한 뒤 만회로만 해결**하기 때문이다. 왕관 조건은
+  // `all_correct`(**최초 시도** 만점)이므로 만회 경로에서는 0이 맞다.
+  // 즉 이 시나리오가 지키는 것은 「연습 전용」이 아니라 **「만회는 왕관을 만들지
+  // 않는다」**(파밍 차단)이고, 그 이름으로 고쳐 적는다.
+  // 만점 경로의 왕관은 바로 아래 1b-2가 지킨다 — 종전에는 상주 가드가 없었다.
+  await scenario('유닛 세션: 만회로만 해결하면 왕관 0 (최초 만점이 아니므로)', async () => {
     await resetMe();
     // reset-me는 유닛 진도까지 지워 선행 잠금이 되살아난다 — 전체 해제로 되돌린다
     await api('POST', '/dev/curriculum', { action: 'unlock_all' });
@@ -414,60 +533,104 @@ try {
     assert(done.retry_resolved_count === key.length, '만회 해결 수가 어긋난다');
   });
 
-  // ── 1c. 데일리 왕관의 판정 범위는 **진도 블록 5문항**이다 (CO-A6 / §2.10) ───
-  // 목이 15문항 전건 해결을 요구하고 있었다 — 그러면 왕관이 사실상 닫힌다.
-  // 서버 `_crown_scope_logs`는 kind==='unit' 블록만 보고, 대상 쌍은 발급 시점에
-  // 적어 둔 진도 블록 유닛에서 나온다(`_crown_target` — CO-M6).
-  await scenario('데일리 왕관: 진도 블록만 해결하면 나오고, 진도 블록이 남으면 안 나온다', async () => {
-    // (i) 다양성 블록(신규·복습·실황)은 전건 오답으로 남기고 진도 블록만 정답
+  // ── 1b-2. 유닛 세션 **최초 만점 → 왕관** (2026-08-12 소유권 복귀) ───────────
+  // 왕관이 daily 진도 블록에서 유닛 세션으로 돌아온 뒤 **상주 가드가 없었다**
+  // (담당 A가 수동으로만 확인). 여기가 그 자리다: 배합에서 진도 블록이 빠진 이상
+  // 이 경로가 막히면 왕관이 **어디에서도** 나오지 않으므로, 학습 진도 전체가
+  // 조용히 멈춘다 — 화면에는 아무 오류도 안 뜬다.
+  await scenario('유닛 세션: 최초 시도 만점이면 왕관을 준다 (§2.10 소유권 복귀)', async () => {
+    await resetMe();
+    await api('POST', '/dev/curriculum', { action: 'unlock_all' });
+    const UNIT_ID = 'u0000002-0000-4000-8000-000000000002'; // 기단의 성질(quiz, 미클리어)
+
+    // 정답표를 먼저 회수한다 — 오답 1회로 correct_answer를 받고 진도를 되돌린다.
+    // (harvestAnswerKey와 같은 수법이고, 같은 이유로 board 유닛에는 안 쓴다.)
+    const { data: probe } = await api('POST', `/curriculum/units/${UNIT_ID}/session`);
+    const key = new Map();
+    for (const item of probe.items) {
+      const { data } = await api('POST', `/session/${probe.session_id}/answer`, {
+        quiz_id: item.quiz_id, answer: '__의도적_오답__',
+      });
+      key.set(item.quiz_id, data.correct_answer);
+    }
+    await resetMe();
+    await api('POST', '/dev/curriculum', { action: 'unlock_all' });
+
+    // 본 시도 — 전건 **최초 정답**
+    const { status, data: u } = await api('POST', `/curriculum/units/${UNIT_ID}/session`);
+    assert(status === 200 && Array.isArray(u.items), `유닛 세션 발급 실패: ${status}`);
+    for (const item of u.items) {
+      const { data } = await api('POST', `/session/${u.session_id}/answer`, {
+        quiz_id: item.quiz_id, answer: String(key.get(item.quiz_id)),
+      });
+      assert(data.is_correct === true, `${item.quiz_id}: 정답표대로 냈는데 오답 판정`);
+      assert(data.is_retry !== true, '최초 제출인데 is_retry가 붙었다');
+    }
+    const { data: done } = await api('POST', `/session/${u.session_id}/complete`);
+    assert(done.unit_result, 'unit_result가 없다');
+    assert(done.unit_result.all_correct === true,
+      `최초 시도 만점인데 all_correct가 false다 — ${JSON.stringify(done.unit_result)}`);
+    assert(done.unit_result.crowns >= 1,
+      `최초 만점인데 왕관이 안 붙었다 — ${JSON.stringify(done.unit_result)}. ` +
+      '진도 블록이 배합에서 빠진 뒤 이 경로가 유일한 왕관 유입로다.');
+    assert(done.correct_count === u.items.length, '최초 정답 수가 전건이 아니다');
+
+    // 재완료는 멱등 — 같은 진도에 왕관이 또 붙지 않는다(이중 수여 차단의 자리는
+    // 라우터 분기가 아니라 grant_unit_crown의 crown_target 상한·cleared 1회 전환).
+    const { data: again } = await api('POST', `/session/${u.session_id}/complete`);
+    assert(again.unit_result.crowns === done.unit_result.crowns,
+      `재완료로 왕관이 늘었다 — ${done.unit_result.crowns} → ${again.unit_result.crowns}`);
+  });
+
+  // ── 1c. 데일리 세션은 **왕관을 주지 않는다** (2026-08-12 소유권 재이전) ─────
+  // ⚠️ 이 시나리오는 계약이 **반전됐다**. 종전 제목은 "진도 블록만 해결하면 나온다"
+  // 였고, 서버 `_crown_scope_logs`가 `kind==='unit'` 문항만 왕관 판정 대상으로 삼는
+  // 구조에 기대고 있었다. SPRINT_R13_02 §T3이 배합을
+  // `{live:2,new:4,review:3,board:1}`로 바꾸면서 **`unit` kind가 배합에서 빠졌고**,
+  // 그래서 daily 왕관 유입로는 판정 대상 0건이 되어 구조적으로 닫혔다.
+  // 왕관은 **유닛 세션 완료**가 소유한다(클라이언트 확정 — 위 1b가 그 지점이다).
+  //
+  // 여기서 지키는 것은 그 사실이 **조용히** 성립하지 않게 하는 것이다: 진도 블록이
+  // 배합에 돌아오면(env 롤백 포함) 이 단정이 즉시 깨져 왕관 소유권을 다시 정하게 만든다.
+  await scenario('데일리 왕관: 진도 블록이 없으므로 daily는 왕관을 내지 않는다', async () => {
     await resetMe();
     const { data: s1 } = await api('GET', '/session/today');
     const unitItems = s1.items.filter((it) => it.kind === 'unit');
-    assert(unitItems.length === 5, `진도 블록은 5문항이어야 한다 — ${unitItems.length}`);
+    assert(unitItems.length === 0,
+      `진도 블록이 배합에 돌아왔다(${unitItems.length}문항) — daily 왕관 소유권을 ` +
+      '다시 판정해야 한다. `_crown_scope_logs`(kind==="unit")와 유닛 세션 왕관이 ' +
+      '동시에 열리면 **이중 수여**가 된다.');
+
+    // 전건 정답으로 완주해도 daily 왕관은 없다
     for (const item of s1.items) {
-      const correct = item.kind === 'unit';
-      await api('POST', `/session/${s1.session_id}/answer`, {
-        quiz_id: item.quiz_id,
-        answer: correct ? String(ANSWER_KEY.get(item.quiz_id).correct) : '__의도적_오답__',
-      });
+      await api('POST', `/session/${s1.session_id}/answer`, answerBody(item, true));
     }
     const { data: d1 } = await api('POST', `/session/${s1.session_id}/complete`);
-    assert(d1.all_resolved === false, '다양성 블록 10건이 오답인데 all_resolved가 참이다');
-    assert(d1.crown_award, `진도 블록 전건 해결인데 왕관이 없다 — all_resolved=${d1.all_resolved}`);
-    // 대상은 **블록 유닛 자신**이다 — 문항 태그 최다가 아니라 발급 시 기록한 쌍.
-    assert(d1.crown_award.unit_slug === 'pressure-front-intro',
-      `왕관이 진도 블록 유닛에 붙어야 한다 — ${d1.crown_award.unit_slug}`);
-
-    // (ii) 진도 블록에 미해결 1건이 남으면 나머지 14건이 정답이어도 왕관 0
-    await resetMe();
-    const { data: s2 } = await api('GET', '/session/today');
-    const lastUnit = s2.items.filter((it) => it.kind === 'unit').at(-1);
-    for (const item of s2.items) {
-      const correct = item.quiz_id !== lastUnit.quiz_id;
-      await api('POST', `/session/${s2.session_id}/answer`, {
-        quiz_id: item.quiz_id,
-        answer: correct ? String(ANSWER_KEY.get(item.quiz_id).correct) : '__의도적_오답__',
-      });
-    }
-    const { data: d2 } = await api('POST', `/session/${s2.session_id}/complete`);
-    assert(d2.correct_count === 14, `14문항 정답이어야 한다 — ${d2.correct_count}`);
-    assert(d2.crown_award == null, '진도 블록에 미해결이 남았는데 왕관이 나왔다');
+    assert(d1.all_resolved === true, '전건 정답인데 all_resolved가 false다');
+    assert(d1.correct_count === s1.items.length, '전건 정답 결산이 아니다');
+    assert(d1.crown_award == null,
+      `진도 블록이 없는데 daily 왕관이 나왔다 — ${JSON.stringify(d1.crown_award)}`);
   });
 
   // ── 2. 서버는 상한을 강제하지 않는다 = 상한 5는 프론트 몫이라는 근거 ────────
   await scenario('서버는 만회 상한을 강제하지 않는다 (오답 7건 전부 만회 가능)', async () => {
     await resetMe();
     const { data: s } = await api('GET', '/session/today');
-    const wrongAt = new Set([0, 1, 2, 3, 4, 5, 6]);
+    // 상한(5)보다 **많이** 틀려야 "서버는 안 막는다"가 보인다 — 7건 고정이 아니라
+    // 비board 문항에서 상한+2건을 고른다(배합 축소로 인덱스 리터럴이 위험해졌다).
+    const wrongAt = new Set(
+      s.items.flatMap((it, i) => (it.question_type === 'board' ? [] : [i]))
+        .slice(0, RETRY_QUEUE_LIMIT + 2),
+    );
+    assert(wrongAt.size > RETRY_QUEUE_LIMIT, '상한보다 많이 틀려야 이 계약이 보인다');
     for (const [i, item] of s.items.entries()) {
-      const answer = wrongAt.has(i) ? '__의도적_오답__' : String(ANSWER_KEY.get(item.quiz_id).correct);
-      await api('POST', `/session/${s.session_id}/answer`, { quiz_id: item.quiz_id, answer });
+      await api('POST', `/session/${s.session_id}/answer`, answerBody(item, !wrongAt.has(i)));
     }
-    // 7건 전부 만회가 열린다 — 그래서 상한 5는 UI가 걸어야 한다(§2.11)
+    // 전부 만회가 열린다 — 그래서 상한 5는 UI가 걸어야 한다(§2.11)
     for (const i of [...wrongAt]) {
-      const { data, status } = await api('POST', `/session/${s.session_id}/answer`, {
-        quiz_id: s.items[i].quiz_id, answer: String(ANSWER_KEY.get(s.items[i].quiz_id).correct),
-      });
+      const { data, status } = await api(
+        'POST', `/session/${s.session_id}/answer`, answerBody(s.items[i], true),
+      );
       assert(status === 200 && data.is_retry === true, `서버가 ${i}번 만회를 거절했다`);
     }
     assert(retryQueueOf(['a', 'b', 'c', 'd', 'e', 'f', 'g']).join() === 'c,d,e,f,g',
@@ -477,11 +640,26 @@ try {
 
   // ── 3. 화면: 만회 큐 상한 5 · 블록 구분 표기 · 마감 단계 노출 (실마운트 완주) ──
   let mountedRoot = null;
-  await scenario('화면 완주: 오답 7 → 만회 5(20제출에서 멈춤) → 구분 표기 → 마감 단계', async (mark) => {
+  await scenario('화면 완주: 오답 7 → 만회 5(제출 실측) → 구분 표기 → 마감 단계', async (mark) => {
     await resetMe();
     const { data: s } = await api('GET', '/session/today');
+
+    // ⚠️ 배합에 들어온 「오늘의 하늘」(board)도 **화면에서 실제로 푼다**(2026-08-12).
+    // 미리 API로 정답 처리해 두는 우회를 먼저 시도했는데 **틀린 방법이었다**:
+    // 러너의 재개는 **위치 기준**(응답 수 → 인덱스)이라, 마지막 board를 미리 답하면
+    // 화면이 1번 문항을 건너뛰고 2번부터 시작한다. 세션은 완주되지만 화면이 밟는
+    // 경로가 달라져 만회 큐·제출 수 단정이 통째로 무의미해진다.
+    // 그래서 `answerOnScreen`에 board 분기를 두고 팔레트·존·슬라이더를 실조작한다
+    // (조작 방식은 `boardAssistRetention.smoke.test.mjs`의 선례를 따른다).
     const order = s.items.map((it) => it.quiz_id);
-    const wrongIdx = [0, 1, 2, 3, 4, 5, 6]; // 7건 오답 → 만회 대상은 마지막 5건
+    // 상한보다 2건 많이 틀린다 → 만회 대상은 **마지막 RETRY_QUEUE_LIMIT건**.
+    // board는 틀릴 대상에서 뺀다 — 만회 라운드의 board 재조작은 이 스모크 소관이
+    // 아니고(보드 자체 계약은 boardEntryGate·boardAssistRetention이 소유한다),
+    // board를 오답으로 넣으면 만회 큐에 들어가 그쪽을 끌어들인다.
+    const wrongIdx = s.items
+      .flatMap((it, i) => (it.question_type === 'board' ? [] : [i]))
+      .slice(0, RETRY_QUEUE_LIMIT + 2);
+    assert(wrongIdx.length === RETRY_QUEUE_LIMIT + 2, '오답 후보가 모자란다 — 배합 확인');
     const expectedRetry = wrongIdx.slice(-RETRY_QUEUE_LIMIT).map((i) => order[i]);
 
     mountedRoot = mount(createElement(SessionPage));
@@ -490,7 +668,7 @@ try {
       const next = await playItem(order[i], !wrongIdx.includes(i));
       if (i === order.length - 1) {
         // 마지막 문항 뒤 = 만회 진입 지점. 상한이 걸려 7이 아니라 5로 안내한다.
-        assert(next.textContent.includes('놓친 5문항 만회하기'),
+        assert(next.textContent.includes(`놓친 ${RETRY_QUEUE_LIMIT}문항 만회하기`),
           `마지막 버튼이 만회 5문항을 안내해야 한다 — "${next.textContent.trim()}"`);
       }
       click(next);
@@ -498,7 +676,7 @@ try {
     }
 
     // 만회 라운드 진입 — 배너·상한 안내·진행 표기
-    await waitFor(() => text().includes('만회 라운드 — 아까 놓친 5문항'), '만회 라운드 배너');
+    await waitFor(() => text().includes(`만회 라운드 — 아까 놓친 ${RETRY_QUEUE_LIMIT}문항`), '만회 라운드 배너');
     assert(text().includes('만회는 벌이 아니에요'), '만회 안내 문구(구름·XP 무관)가 없다');
     assert(text().includes('만회는 마지막 5문항까지만 이어져요'), '상한 안내가 없다(오답 7건인데)');
     assert(text().includes('만회 1 / 5'), `만회 진행 표기가 없다 — ${text().slice(0, 120)}`);
@@ -512,15 +690,27 @@ try {
 
     // 완료 화면 — 만회 결산 + 블록 구분 표기(§2.10)
     await waitFor(() => text().includes('오늘의 세션 완료!'), '완료 화면');
-    assert(text().includes('만회 완료 5문항'), '완료 화면에 "만회 완료 N문항"이 없다');
-    for (const [label, count] of [['오늘의 발견', 5], ['복습', 4], ['실황', 1], ['진도', 5]]) {
-      assert(text().includes(`${label} ${count}문항`), `블록 표기 누락: ${label} ${count}문항`);
-    }
-    const unitChip = window.document.querySelector('[data-block-kind="unit"]');
-    assert(unitChip, '진도(unit) 블록 칩이 없다');
+    assert(text().includes(`만회 완료 ${RETRY_QUEUE_LIMIT}문항`), '완료 화면에 "만회 완료 N문항"이 없다');
 
-    // 제출 실측: 15문항 + 만회 5 = 20에서 멈춘다(무제한이면 22가 된다)
-    assert(answerCalls(mark) === 20, `answer 호출은 20이어야 한다(15+만회5) — ${answerCalls(mark)}`);
+    // 블록 표기는 **실제 세션 구성에서 파생**한다 — 라벨·개수를 박아 두면 배합이
+    // 바뀔 때마다 깨진다(실제로 5·4·1·5가 박혀 있었다). 라벨의 소유자는 i18n
+    // `session.summary.blocks`이고 여기서는 kind별 개수만 대조한다.
+    const BLOCK_LABEL = { new: '오늘의 발견', review: '복습', live: '실황', unit: '진도', board: '오늘의 하늘' };
+    const byKind = new Map();
+    for (const it of s.items) byKind.set(it.kind, (byKind.get(it.kind) ?? 0) + 1);
+    assert(byKind.size >= 3, `블록이 ${byKind.size}종뿐 — 배합이 무너졌다`);
+    for (const [kind, count] of byKind) {
+      const label = BLOCK_LABEL[kind];
+      assert(label, `i18n에 없는 kind: ${kind}`);
+      assert(text().includes(`${label} ${count}문항`), `블록 표기 누락: ${label} ${count}문항`);
+      assert(window.document.querySelector(`[data-block-kind="${kind}"]`), `${kind} 블록 칩이 없다`);
+    }
+
+    // 제출 실측: **화면이 낸 것만** 센다 — board는 위에서 fetch로 미리 처리했으므로
+    // xhrLog에 없다. 화면 문항 전건 + 만회 상한 = 여기서 멈춰야 한다(무제한이면 +2).
+    const expectedCalls = order.length + RETRY_QUEUE_LIMIT;
+    assert(answerCalls(mark) === expectedCalls,
+      `answer 호출은 ${expectedCalls}이어야 한다(화면 ${order.length} + 만회 ${RETRY_QUEUE_LIMIT}) — ${answerCalls(mark)}`);
 
     // 마감 단계(R13 A-1)가 완료 화면 뒤에 붙는다
     await waitFor(() => text().includes('마지막 단계 — 내일 예보 내기'), '예보 마감 단계');
@@ -556,19 +746,17 @@ try {
   await scenario('만회 중 새로고침: 서버 정오로 큐를 복원하고 자동완료를 막는다 (CO-A5/M10)', async () => {
     await resetMe();
     const { data: s } = await api('GET', '/session/today');
-    // 화면 조작 없이 API로 15문항을 응답하고 2건만 오답으로 남긴다(= 이탈 상태 재현)
+    // 화면 조작 없이 API로 배합 전량을 응답하고 2건만 오답으로 남긴다(= 이탈 상태 재현)
     const wrongIds = s.items
       .filter((it) => it.question_type === 'multiple_choice')
       .slice(0, 2)
       .map((it) => it.quiz_id);
     assert(wrongIds.length === 2, '다지선다 2건을 못 골랐다 — 목 배합이 바뀌었다');
     for (const item of s.items) {
-      await api('POST', `/session/${s.session_id}/answer`, {
-        quiz_id: item.quiz_id,
-        answer: wrongIds.includes(item.quiz_id)
-          ? '__의도적_오답__'
-          : String(ANSWER_KEY.get(item.quiz_id).correct),
-      });
+      await api(
+        'POST', `/session/${s.session_id}/answer`,
+        answerBody(item, !wrongIds.includes(item.quiz_id)),
+      );
     }
 
     // 서버(그리고 목)가 문항별 정오를 실어 준다 — 복원의 유일한 근거(CO-A5)
@@ -590,7 +778,7 @@ try {
       '복원 전에 자동완료가 발화했다(CO-M10) — 그 순간의 all_resolved로 왕관이 확정된다');
 
     // 복원된 큐를 마치면 그때 완료된다. 화면이 내보내는 제출은 **복원된 2건뿐**이다
-    // (앞의 15건은 이 테스트가 fetch로 보냈으므로 xhrLog에 없다) — 복원이 과하게
+    // (앞의 전건은 이 테스트가 fetch로 보냈으므로 xhrLog에 없다) — 복원이 과하게
     // 잡아 이미 해결된 문항까지 다시 제출하면 이 수가 커진다.
     for (const quizId of wrongIds) {
       const next = await playItem(quizId, true);
@@ -614,10 +802,9 @@ try {
     const { data: s } = await api('GET', '/session/today');
     const wrongId = s.items.find((it) => it.question_type === 'multiple_choice').quiz_id;
     for (const item of s.items) {
-      await api('POST', `/session/${s.session_id}/answer`, {
-        quiz_id: item.quiz_id,
-        answer: item.quiz_id === wrongId ? '__의도적_오답__' : String(ANSWER_KEY.get(item.quiz_id).correct),
-      });
+      await api(
+        'POST', `/session/${s.session_id}/answer`, answerBody(item, item.quiz_id !== wrongId),
+      );
     }
     const { data: failed } = await api('POST', `/session/${s.session_id}/answer`, {
       quiz_id: wrongId, answer: '__또_오답__',
@@ -631,21 +818,24 @@ try {
   });
 
   // ── 5. closing_step: null → 마감 단계 없이 15문항으로 정상 완료 ────────────
-  await scenario('closing_step null(이미 제출) → 15문항 완주 · 마감 단계 미렌더', async () => {
+  await scenario('closing_step null(이미 제출) → 배합 전량 완주 · 마감 단계 미렌더', async () => {
     await resetMe();
     await api('POST', '/duel/today', { temp_max: 28, rain_prob: 30 }); // 오늘 예보 제출 완료
     const { data: s } = await api('GET', '/session/today');
     assert(s.closing_step === null, '이미 제출한 날인데 closing_step이 붙었다');
-    assert(s.items.length === 15, `마감 단계가 없어도 15문항이어야 한다 — ${s.items.length}`);
+    // 문항 수는 **배합에서 파생**한다 — 15를 박아 둔 탓에 배합이 10이 됐을 때
+    // "마감 단계가 완주를 막지 않는다"는 계약이 아니라 상수가 깨졌다.
+    assert(s.items.length === MOCK_POLICY.session_recipe_total,
+      `마감 단계가 없어도 배합 전량이어야 한다 — ${s.items.length}`);
     for (const item of s.items) {
-      await api('POST', `/session/${s.session_id}/answer`, {
-        quiz_id: item.quiz_id, answer: String(ANSWER_KEY.get(item.quiz_id).correct),
-      });
+      await api('POST', `/session/${s.session_id}/answer`, answerBody(item, true));
     }
     const { status, data: done } = await api('POST', `/session/${s.session_id}/complete`);
     assert(status === 200, `마감 단계 없이도 완료돼야 한다 — ${status}`);
     assert(done.closing_step === null, '완료 응답에도 closing_step이 없어야 한다');
-    assert(done.total === 15 && done.correct_count === 15, '15문항 완주 결산이 아니다');
+    const N = MOCK_POLICY.session_recipe_total;
+    assert(done.total === N && done.correct_count === N,
+      `배합 전량(${N}문항) 완주 결산이 아니다 — total=${done.total} correct=${done.correct_count}`);
 
     // 컴포넌트도 step=null이면 아무것도 그리지 않는다(완주를 막지 않는 유일한 형태)
     const container = window.document.getElementById('root');

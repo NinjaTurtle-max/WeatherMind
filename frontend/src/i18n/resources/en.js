@@ -469,6 +469,10 @@ export default {
     progressCount: '{answered} / {total} answered',
     itemCount: 'Question {current} / {total}',
     slotFilled: "☀️ Uses today's live weather",
+    // Per-question knowledge level badge (2026-08-12) — the level *names* live in
+    // `ability.knowledgeLevel.name` only; these keys are just the wrapper.
+    knowledgeLevel: '🪜 {name}',
+    knowledgeLevelAria: 'Knowledge level of this question — level {level}, {name}',
     combo: '{combo} in a row',
     praise: {
       1: 'Correct',
@@ -532,6 +536,10 @@ export default {
         review: 'Review',
         live: 'Live weather',
         unit: 'Course progress',
+        // R13-02 §T3 — matches ko `board: '오늘의 하늘'`. Not just any board puzzle:
+        // it is chosen from today's observed phenomenon (KMA live → phenomenon →
+        // `order_boards_for_today`), so the learner rebuilds the sky outside.
+        board: "Today's sky",
       },
       blockCount: '{count} questions',
       unitBlockNote: 'Progress questions are the next 5 from the unit you are on.',

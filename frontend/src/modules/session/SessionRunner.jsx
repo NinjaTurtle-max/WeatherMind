@@ -12,7 +12,41 @@ import ResultBanner from '../quiz/ResultBanner';
 import SessionProgressBar from './SessionProgressBar';
 import SessionSummary from './SessionSummary';
 import ClosingForecastStep from '../duel/ClosingForecastStep';
+import { KNOWLEDGE_LEVEL_NAME, selectKnowledgeLevel } from '../../lib/abilityDisplay';
 import { translate, useT } from '../../i18n';
+
+/**
+ * 문항의 **학습 수준 배지** (2026-08-12 클라이언트 지적 「학습 수준 태깅이 안 보인다」).
+ *
+ * 문항 1,000건 전건에 `knowledge_level`이 채워져 있는데도 화면 어디에도 안 떴다.
+ * 데이터가 없던 게 아니라 **통로가 없었다** — 세션 응답 스키마에 필드가 없었다.
+ *
+ * ⚠️ **명칭표를 여기서 짓지 않는다.** 10단계 이름의 단일 소유자는
+ * `i18n/resources/{ko,en}.js`의 `ability.knowledgeLevel.name`이고, 이 컴포넌트는
+ * `lib/abilityDisplay.js`의 `KNOWLEDGE_LEVEL_NAME`(그 리소스 파생 사전)만 읽는다.
+ * /me 화면의 KnowledgeLevelCard와 **같은 사전을 본다** — 두 화면이 같은 단계를
+ * 다른 이름으로 부르는 일이 구조적으로 불가능하다.
+ *
+ * 값이 없으면(구 세션·단계 미분류 문항·유닛/배치 세션) **아무것도 그리지 않는다** —
+ * 빈 배지도 "?"도 금지다(board의 DifficultyBadge와 같은 관례).
+ * `selectKnowledgeLevel`이 정수 아님·0 이하를 전부 null로 접어 준다.
+ */
+function ItemKnowledgeLevelBadge({ item }) {
+  const t = useT();
+  const picked = selectKnowledgeLevel(item);
+  if (!picked) return null;
+  const name = KNOWLEDGE_LEVEL_NAME[picked.level];
+  if (!name) return null; // 리소스에 없는 단계(N 확장 중) — 지어내지 않고 감춘다
+  return (
+    <span
+      data-knowledge-level={picked.level}
+      aria-label={t('session.knowledgeLevelAria', { level: picked.level, name })}
+      className="mb-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600"
+    >
+      {t('session.knowledgeLevel', { name })}
+    </span>
+  );
+}
 
 /**
  * SessionRunner — 세션 상태머신 컨트롤러(공용 엔진).
@@ -642,11 +676,16 @@ export default function SessionRunner({
         <SessionProgressBar answered={answered} total={total} currentIndex={currentIndex} />
       )}
 
-      {currentItem?.slot_filled && (
-        <p className="mb-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
-          {t('session.slotFilled')}
-        </p>
-      )}
+      {/* 문항 위 칩 줄 — 실황 반영 · 학습 수준. 둘 다 없으면 줄 자체가 비고
+          `gap`만 남으므로 레이아웃이 밀리지 않는다(빈 배지를 그리지 않는 계약). */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {currentItem?.slot_filled && (
+          <p className="mb-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+            {t('session.slotFilled')}
+          </p>
+        )}
+        <ItemKnowledgeLevelBadge item={currentItem} />
+      </div>
 
       {/* 2열(2026-08-11 사용자 지시) — **왼쪽 문항 / 오른쪽 정답·해설**.
           답을 고르기 전에도 두 열을 유지한다: 제출하는 순간 열이 생기면 문항
