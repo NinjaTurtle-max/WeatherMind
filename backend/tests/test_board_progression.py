@@ -11,10 +11,13 @@
 """
 import json
 import re
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
+from app.routers import board as board_router
 from app.routers.board import board_difficulty, order_puzzles_for_progress
+
 
 SEED_PATH = (
     Path(__file__).resolve().parents[2] / "database" / "seed" / "content_items.json"
@@ -280,3 +283,228 @@ def test_밴드_표가_users_level_group_CHECK와_같다():
     assert bands == set(BAND_MAX_DIFFICULTY), (
         f"CHECK 제약 {bands} ↔ BAND_MAX_DIFFICULTY {set(BAND_MAX_DIFFICULTY)}"
     )
+
+
+# ── MT-24 순차 잠금 (2026-08-11 멘토링 피드백) ─────────────────────────────
+# ⚠️ 위 **학습 수준 잠금**과 축이 다르다. 둘 다 사용자 지시라 어느 한쪽을
+# 버리면 지시 하나를 되돌리게 되므로 두 벌이 함께 산다 — 이 파일이 통째로
+# 통과하는 것이 곧 합성이 두 지시를 다 지켰다는 증거다.
+# 두 파일이 같은 이름으로 각각 만들어져 병합이 서로를 밀어냈고, 최상위
+# 이름 충돌 0을 확인한 뒤 결합했다(2026-08-12).
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _item(order, item_id=None):
+    return SimpleNamespace(
+        id=item_id or uuid.uuid4(),
+        template_json={"board_order": order},
+        level_group="middle_high",
+        concept_tag="air_mass",
+    )
+
+
+def _course(n):
+    """board_order 0..n-1로 정렬된 코스."""
+    return [_item(i) for i in range(n)]
+
+
+class TestComputeUnlocked:
+    def test_아무것도_안_깼으면_앞_LOOKAHEAD_1칸만_열린다(self):
+        items = _course(10)
+        unlocked = board_router.compute_unlocked_ids(items, set())
+        expected = board_router.BOARD_UNLOCK_LOOKAHEAD + 1
+        assert {i for i, it in enumerate(items) if it.id in unlocked} == set(
+            range(expected)
+        )
+
+    def test_깰수록_커서가_앞으로_간다(self):
+        items = _course(10)
+        cleared = {items[0].id, items[1].id}
+        unlocked = board_router.compute_unlocked_ids(items, cleared)
+        # 커서 = 2(첫 미클리어) → 2,3,4 열림 + 깬 0,1
+        assert {i for i, it in enumerate(items) if it.id in unlocked} == {0, 1, 2, 3, 4}
+
+    def test_벽이_생기지_않는다(self):
+        """LOOKAHEAD의 존재 이유 — 어려운 칸 하나가 나머지 전부를 막으면 안 된다.
+
+        엄격 순차(LOOKAHEAD=0)면 46퍼즐 중 하나에서 막힌 학습자가 그 뒤를 영영 못 본다.
+        심사는 처음 보는 브라우저로 5분을 도는 동선이라 벽 하나가 곧 시연 실패다.
+        """
+        assert board_router.BOARD_UNLOCK_LOOKAHEAD >= 1
+        items = _course(10)
+        unlocked = board_router.compute_unlocked_ids(items, set())
+        assert len(unlocked) >= 2, "첫 칸에서 막히면 시도할 다른 칸이 없다"
+
+    def test_이미_깬_칸은_뒤쪽이라도_항상_열린다(self):
+        """잠금 도입 **이전에** 뒤쪽 칸을 깬 유저가 실재한다(8/06~8/11 잠금 없음).
+
+        커서만으로 판정하면 그 칸이 도로 잠겨서 **자기가 푼 것을 다시 못 여는**
+        상태가 된다. 회귀로 남긴다 — 이 조항이 빠지면 조용히 그렇게 된다.
+        """
+        items = _course(10)
+        cleared = {items[9].id}  # 맨 뒤만 깬 상태
+        unlocked = board_router.compute_unlocked_ids(items, cleared)
+        assert items[9].id in unlocked
+        # 커서는 여전히 0이라 앞쪽도 정상적으로 열린다
+        assert items[0].id in unlocked
+
+    def test_전건_클리어면_전건_열림(self):
+        items = _course(5)
+        unlocked = board_router.compute_unlocked_ids(items, {it.id for it in items})
+        assert unlocked == {it.id for it in items}
+
+    def test_빈_목록은_빈_집합(self):
+        assert board_router.compute_unlocked_ids([], set()) == set()
+
+    def test_코스가_LOOKAHEAD보다_짧아도_안_터진다(self):
+        items = _course(2)
+        unlocked = board_router.compute_unlocked_ids(items, set())
+        assert unlocked == {it.id for it in items}
+
+
+class TestServerAuthority:
+    """표시 계층 잠금은 잠금이 아니다 — 두 쓰기 경로가 다 막혀야 한다."""
+
+    @pytest.mark.parametrize("endpoint", ["get_puzzle_detail", "attempt_puzzle"])
+    def test_잠긴_퍼즐은_403_BOARD_LOCKED(self, endpoint):
+        source = (REPO_ROOT / "backend/app/routers/board.py").read_text(
+            encoding="utf-8"
+        )
+        # 두 경로 모두 _unlocked_ids_for로 판정하고 BOARD_LOCKED를 던진다
+        assert source.count("BOARD_LOCKED") >= 2, (
+            "진입(GET)만 막으면 attempt(POST)로 우회된다 — 두 경로 다 막을 것"
+        )
+        assert source.count("_unlocked_ids_for(db, user, cleared)") >= 2
+
+    def test_잠금이_에너지_게이트보다_먼저다(self):
+        """순서가 뒤집히면 잠긴 퍼즐이 429 OUT_OF_CLOUDS로 나간다.
+
+        학습자는 "구름이 없어서 못 한다"고 읽고 20분을 기다린 뒤 다시 막힌다.
+        잠긴 칸은 구름을 써도 안 열리므로 안내가 거짓이 된다.
+        """
+        source = (REPO_ROOT / "backend/app/routers/board.py").read_text(
+            encoding="utf-8"
+        )
+        detail = source[source.index("async def get_puzzle_detail") :]
+        detail = detail[: detail.index("async def _next_board_quiz_id")]
+        assert detail.index("BOARD_LOCKED") < detail.index(
+            "energy_service.require_entry"
+        ), "잠금 판정이 에너지 진입 게이트보다 뒤에 있다"
+
+    def test_attempt는_판정_전에_막는다(self):
+        """통과하면 XP·왕관·퀘스트가 전부 따라 움직인다 — 채점 뒤에 막으면 늦다."""
+        source = (REPO_ROOT / "backend/app/routers/board.py").read_text(
+            encoding="utf-8"
+        )
+        body = source[source.index("async def attempt_puzzle") :]
+        assert body.index("BOARD_LOCKED") < body.index("evaluate_board_answer("), (
+            "잠금 검사가 서버 판정(evaluate_board_answer) 뒤에 있다"
+        )
+
+
+class TestListNotBlocked:
+    def test_목록은_잠긴_칸도_내려보낸다(self):
+        """잠긴 칸을 빼면 앞에 무엇이 있는지 안 보이고 진도감이 사라진다.
+
+        에너지 게이트가 목록을 무차단으로 두는 것과 같은 판단이다(잔량 0에서도
+        cleared 표시는 보여야 한다).
+        """
+        source = (REPO_ROOT / "backend/app/routers/board.py").read_text(
+            encoding="utf-8"
+        )
+        body = source[source.index("async def list_puzzles") :]
+        body = body[: body.index("async def _load_puzzle_or_404")]
+        assert "BOARD_LOCKED" not in body, "목록이 잠금으로 차단하고 있다"
+        assert re.search(r"unlocked=item\.id in unlocked", body), (
+            "목록이 unlocked를 표시로 내려보내지 않는다"
+        )
+
+
+# ── 두 잠금의 합성 (2026-08-12) ────────────────────────────────────────────────
+# 이 절이 무는 것은 **합성이 만든 새 실패 모드** 하나다. 두 잠금은 각각 정상인데
+# 순서를 잘못 세면 그 조합에서만 학습자가 갇힌다 — 어느 한쪽 테스트로도 안 잡힌다.
+
+
+def _graded_item(order, difficulty):
+    """난이도가 정해진 퍼즐 — board_difficulty가 그 값을 내도록 template를 짠다.
+
+    ⚠️ 난이도를 인자로 받는 대신 **실제 산출 규칙을 태운다.** 여기서 값을 꾸며
+    넣으면 규칙이 바뀌었을 때 이 테스트만 옛 세계에서 초록으로 남는다.
+    """
+    template = {"board_order": order}
+    if difficulty >= 2:
+        template["mode"] = "goal_only"
+    else:
+        template["mode"] = "guided"
+    if difficulty >= 3:
+        template["time_limit_sec"] = 120
+    return SimpleNamespace(
+        id=uuid.uuid4(),
+        template_json=template,
+        level_group="middle_high",
+        concept_tag="air_mass",
+    )
+
+
+class TestTwoLocksCompose:
+    def test_초등의_사슬이_보통_칸에서_끊기지_않는다(self):
+        """**이 파일에서 가장 중요한 한 건.**
+
+        난이도로 거르지 않고 전체 위에서 순서를 세면, 초등 학습자의 진행 커서
+        다음 칸이 「보통」인 순간 거기서 영구히 멈춘다 — 그 칸은 수준 잠금으로
+        못 깨고, 커서는 깨야만 넘어간다. 두 잠금이 각각은 옳은데 **조합에서만**
+        생기는 갇힘이라, 어느 한쪽 테스트도 이걸 못 본다.
+        """
+        # 쉬움·보통이 번갈아 나오는 코스 — 2번째가 벌써 보통이다.
+        course = [
+            _graded_item(0, 1), _graded_item(1, 2), _graded_item(2, 1),
+            _graded_item(3, 2), _graded_item(4, 1),
+        ]
+        pool = board_router.sequenceable(course, "elementary")
+        assert [i.template_json["board_order"] for i in pool] == [0, 2, 4], (
+            "초등에게 남아야 할 것은 쉬움 3칸이다"
+        )
+
+        # 첫 칸을 깨면 **다음 쉬움 칸**이 열려야 한다 — 보통 칸에서 막히면 안 된다.
+        unlocked = board_router.compute_unlocked_ids(pool, {pool[0].id})
+        assert pool[1].id in unlocked, "쉬움을 깼는데 다음 쉬움이 안 열렸다 — 사슬이 끊겼다"
+
+        # 끝까지 간다: 매번 하나씩 깨도 다음이 계속 열린다.
+        cleared = set()
+        for item in pool:
+            assert item.id in board_router.compute_unlocked_ids(pool, cleared), (
+                "초등 학습자가 자기 수준 안에서 끝까지 못 간다"
+            )
+            cleared.add(item.id)
+
+    def test_잠긴_난이도는_순서_계산에서_빠진다(self):
+        """성인은 전부 세고, 초등은 쉬움만 센다 — 세는 대상 자체가 다르다."""
+        course = [_graded_item(0, 1), _graded_item(1, 3), _graded_item(2, 1)]
+        assert len(board_router.sequenceable(course, "adult")) == 3
+        assert len(board_router.sequenceable(course, "elementary")) == 2
+
+    def test_수준을_올리면_셀_대상이_넓어진다(self):
+        """PATCH /auth/me로 수준이 바뀌면 재계산이 공짜로 따라온다는 것의 근거."""
+        course = [_graded_item(0, 1), _graded_item(1, 2)]
+        assert len(board_router.sequenceable(course, "elementary")) == 1
+        assert len(board_router.sequenceable(course, "middle_high")) == 2
+
+    def test_순서를_세는_모든_곳이_난이도로_먼저_거른다(self):
+        """위 계약이 **실제 경로에 연결돼 있는가** — 순수 함수 테스트의 사각이다.
+
+        `sequenceable`을 직접 부르는 테스트는 라우터가 그것을 **안 써도** 초록이다.
+        순서를 세는 곳이 둘(목록·단건)이라 한 곳만 고치면 목록은 열렸다고 그리는데
+        진입은 막는 상태가 되고, 그게 이 저장소가 반복해서 겪은 실패다.
+        그래서 `compute_unlocked_ids` 호출 전건이 걸러진 목록을 받는지 소스로 본다.
+        """
+        # `def ` 뒤는 정의라 뺀다 — 거기 오는 것은 인자 이름이지 호출 인자가 아니다.
+        for call in re.finditer(r"(?<!def )compute_unlocked_ids\(\s*([^,]+),", ROUTER_SRC):
+            arg = call.group(1).strip()
+            assert "sequenceable" in arg, (
+                f"난이도로 거르지 않은 목록으로 순서를 센다: compute_unlocked_ids({arg}…) "
+                "— 초등 학습자의 사슬이 보통 칸에서 영구히 끊긴다"
+            )
+        assert ROUTER_SRC.count("compute_unlocked_ids(") >= 3, (
+            "정의 1 + 호출 2(목록·단건)를 기대했다 — 호출 지점이 줄었다면 "
+            "어느 경로가 순차 잠금을 안 보게 된 것이다"
+        )

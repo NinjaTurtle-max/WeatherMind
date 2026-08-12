@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -72,11 +71,9 @@ def test_golden_heuristic(case: dict) -> None:
 
 def test_validate_quiz_without_llm_key(monkeypatch: pytest.MonkeyPatch) -> None:
     """키 부재 시 예외 없이 1단 결과 + llm_skipped로 응답한다."""
-    monkeypatch.setattr(
-        validate_chain,
-        "settings",
-        SimpleNamespace(GEMINI_API_KEY="", GEMINI_MODEL="gemini-3.1-flash-lite"),
-    )
+    # 키 판정 이음매가 `settings` → `_llm_available()`로 옮겨졌다(CO-B7 프로바이더 통로).
+    # 용도별로 갈리므로 settings를 패치해도 이제 아무 데도 안 걸린다.
+    monkeypatch.setattr(validate_chain, "_llm_available", lambda: False)
     good_case = next(c for c in GOLDEN_CASES if c["id"] == "ok_multiple_choice")
     request = good_case["request"]
 
@@ -93,11 +90,7 @@ def test_validate_quiz_without_llm_key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_validate_quiz_heuristic_fail_skips_llm(monkeypatch: pytest.MonkeyPatch) -> None:
     """1단 실패 문항은 키가 있어도 2단을 호출하지 않고 반려된다."""
-    monkeypatch.setattr(
-        validate_chain,
-        "settings",
-        SimpleNamespace(GEMINI_API_KEY="dummy-key", GEMINI_MODEL="gemini-3.1-flash-lite"),
-    )
+    monkeypatch.setattr(validate_chain, "_llm_available", lambda: True)
 
     def _must_not_call(*args, **kwargs):  # pragma: no cover
         raise AssertionError("1단 실패 시 run_llm_checks가 호출되면 안 됨")

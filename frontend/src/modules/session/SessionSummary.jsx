@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { DailyGoalMeter } from '../progress/DailyGoal';
+import RewardChips from '../progress/RewardChips';
 import { useT } from '../../i18n';
 
 /**
@@ -16,6 +17,12 @@ import { useT } from '../../i18n';
  * R13-01 §2.10 (블록 구분 표기): 15문항이 각각 무엇이었는지 `SessionItem.kind`
  * (new|review|live|unit)로 나눠 보인다. items를 받지 못하면(구 호출부·유닛 세션)
  * 이 블록은 통째로 렌더되지 않는다 — 추정하지 않는다.
+ *
+ * R13 CO-T-4 (보상 획득 표기): XP 타일은 `xp_total`이 아니라 **`xp_awarded`**
+ * (= 문항 XP + 퀘스트 보상)를 그린다. `xp_total`만 그리던 종전에는 퀘스트 3종이
+ * 동시에 완료돼도 표기가 **실지급보다 최대 25 적었다.** 합산은 서버가 한다 —
+ * 여기서 더하면 같은 값을 그리는 다른 화면(UnitSessionPage)이 또 빠뜨린다.
+ * 구 응답(필드 없음)에는 `xp_awarded`가 0으로 오므로 `xp_total`로 폴백한다.
  */
 
 // 표기 순서 = 세션 배합 순서. 진도(unit)는 항상 마지막 블록이다(§2.10).
@@ -37,6 +44,8 @@ export default function SessionSummary({ summary, items }) {
   const t = useT();
   if (!summary) return null;
   const { xp_total, correct_count, total, streak_count } = summary;
+  // 서버가 더한 표기용 총합. 구 응답(필드 부재 → 0)이면 문항 XP로 폴백한다.
+  const xpShown = Number(summary.xp_awarded) || xp_total;
   const allCorrect = correct_count === total;
   const retryResolved = Number(summary.retry_resolved_count) || 0;
   const allResolved = Boolean(summary.all_resolved);
@@ -74,7 +83,7 @@ export default function SessionSummary({ summary, items }) {
           <p className="mt-0.5 text-xs font-medium text-slate-500">{t('session.summary.correct')}</p>
         </div>
         <div className="rounded-xl bg-sky-50 p-3">
-          <p className="text-lg font-extrabold text-sky-600">+{xp_total}</p>
+          <p className="text-lg font-extrabold text-sky-600">+{xpShown}</p>
           <p className="mt-0.5 text-xs font-medium text-slate-500">{t('session.summary.xp')}</p>
         </div>
         <div className="rounded-xl bg-orange-50 p-3">
@@ -82,6 +91,13 @@ export default function SessionSummary({ summary, items }) {
           <p className="mt-0.5 text-xs font-medium text-slate-500">{t('session.summary.streak')}</p>
         </div>
       </div>
+
+      {/* 방금 받은 보상 (CO-T-4) — 서버가 실은 것만. 없으면 통째로 미렌더 */}
+      <RewardChips
+        className="mt-4"
+        quests={summary.quest_rewards}
+        badges={summary.badges_earned}
+      />
 
       {/* 블록 구분 표기 (§2.10) — 이 표기가 없으면 15문항이 그냥 길기만 하다.
           진도(unit) 블록은 항상 마지막 5문항이고, 왕관 판정도 이 블록이 소유한다. */}

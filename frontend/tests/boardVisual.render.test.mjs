@@ -156,7 +156,76 @@ try {
     check('PrecipCanvas: typeof window 마운트 가드 존재', src.includes("typeof window === 'undefined'"));
   }
 
-  // 6) wide 배치가 **좁은 화면에서 다시 줄을 선다** (2026-08-11)
+  // ── 6) **en 실렌더** — 심사위원이 보는 화면에 한국어가 남아 있지 않은가 (MT-28) ──
+  //
+  // 이 파일의 1~5는 전부 **로케일 ko 고정**이라(상단 localStorage 스텁) en 경로를
+  // 한 번도 돌리지 않는다. 그래서 "키 패리티 통과 + ko 무회귀 통과"인데도 en 화면이
+  // 통째로 한국어일 수 있고, MT-28 착수 시점이 정확히 그 상태였다(246줄).
+  //
+  // 실제로 이 검사가 **키 외부화만으로는 안 잡히는 것**을 잡았다: 존 이름 4종은
+  // 서버 값(GET /board/regions·board_regions.json 시드)이라 리소스에 넣어도 화면에는
+  // 서버 원문이 그려졌다. 표시 계층(zoneLabel)이 따로 필요했다.
+  //
+  // 검사 대상은 **태그를 벗긴 가시 텍스트**다 — 속성·주석·클래스명은 화면이 아니다.
+  {
+    // **왜 서버를 새로 띄우나**: i18n/core.js가 모듈 **로드 시점에** currentLocale을
+    // 정하고, 위 검사들이 이미 ko로 적재해 뒀다. 로드 뒤에 스토어 setLocale로 바꿔도
+    // 이미 만들어진 모듈 그래프의 초기값은 되돌아오지 않는다(실측: 절반만 en이 됐다).
+    // 그래서 localStorage 스텁을 en으로 갈고 **fresh 그래프**를 하나 더 띄운다 —
+    // 실제 심사 동선(en으로 처음 여는 브라우저)과 같은 조건이다.
+    const prevStorage = globalThis.localStorage;
+    globalThis.localStorage = {
+      getItem: (k) => (k === 'weathermind.locale' ? 'en' : null),
+      setItem() {}, removeItem() {},
+    };
+    // hmr:false — 두 번째 서버가 같은 HMR 포트(24678)를 잡으려다 경고를 뱉는다
+    const enServer = await createServer({
+      root, logLevel: 'error', appType: 'custom',
+      server: { middlewareMode: true, hmr: false },
+      optimizeDeps: { noDiscovery: true, include: [] },
+    });
+    const enPanel = await enServer.ssrLoadModule('/src/modules/board/CrossSectionPanel.jsx');
+    const enBoard = await enServer.ssrLoadModule('/src/modules/board/AtmosphereBoard.jsx');
+    const koWords = (html) => [
+      ...new Set(html.replace(/<[^>]+>/g, ' ').split(/\s+/).filter((w) => /[가-힣]/.test(w))),
+    ];
+
+    let leaked = [];
+    for (const rule of rules) {
+      const html = render(h(enPanel.default, {
+        zoneResult: { zone: 1, zone_name: 'Metro', phenomenon: rule.then.phenomenon,
+                      cloud: rule.then.cloud, rule_id: rule.id, explain: 'X' },
+      }));
+      leaked.push(...koWords(html).map((w) => `${rule.id}:${w}`));
+    }
+    check(`en 단면 패널 ${rules.length}종에 한국어 0건`, leaked.length === 0, leaked.slice(0, 10).join(' '));
+
+    const enPuzzle = {
+      question_text: 'Make a shower over the metro area',
+      initial_state: { elements: [
+        { type: 'front', subtype: 'cold', zone: 1 },
+        { type: 'air_mass', subtype: 'north_pacific', zone: 3 },
+      ] },
+      palette: ['front:cold', 'front:warm', 'front:stationary', 'air_mass:siberian',
+                'air_mass:okhotsk', 'air_mass:yangtze', 'moisture', 'sun', 'wind'],
+      goal_conditions: [{ zone: 1, phenomenon: 'shower' }], hints: [],
+    };
+    const enHtml = render(h(QueryClientProvider, { client: new QueryClient() },
+      h(enBoard.default, { puzzle: enPuzzle, phenomena: [{
+        zone: 1, zone_name: 'Metro', phenomenon: 'shower', cloud: 'cumulonimbus',
+        rule_id: 'cold_front_shower', explain: 'X' }] })));
+    const boardLeak = koWords(enHtml);
+    check('en 보드 전체(지도·팔레트·존 라벨)에 한국어 0건',
+      boardLeak.length === 0, boardLeak.slice(0, 20).join(' '));
+
+    await enServer.close();
+    globalThis.localStorage = prevStorage;
+  }
+
+  // ── 7) 두 검사는 **서로 다른 것을 본다** — 병합이 한쪽을 밀어내지 않게 둘 다 둔다.
+  //    위 6은 en 실렌더(MT-28), 아래는 좁은 화면 재배치(2026-08-11)다.
+
+  // 7) wide 배치가 **좁은 화면에서 다시 줄을 선다** (2026-08-11)
   //
   // 보드 플레이는 lg에서만 2열이다. lg 미만에서는 두 열 래퍼를 `contents`로 지워
   // 다섯 블록을 바깥 격자의 직계 칸으로 만들고 `order-*`로 다시 세운다 —

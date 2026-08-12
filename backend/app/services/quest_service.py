@@ -19,6 +19,12 @@ done은 단조(sticky) — 한번 완료되면 이후 재계산에서 진행도�
   — 실제 유저 XP 잔액에는 보너스가 반영되나, 퀘스트 임계 집계는 하한값을 쓴다.
   임계 30 = 첫 시도 정답 2문항(15+15)으로 세션 내 도달 가능하다.
 
+반환 소비 (R13 CO-T-4): `recalculate_quests`는 전환 목록을 반환하고 **호출부가 그것을
+화면까지 내려보낸다**. 종전에는 두 호출부(세션 complete·보드 attempt)가 모두 버려서
+퀘스트 3종 최대 +25 XP가 지급만 되고 획득 순간 어디에도 뜨지 않았다. 화면에 실리는
+것은 `reward_events`로 거른 **newly_done**뿐이다 — 완료 상태를 그대로 내보내면
+멱등 재계산 때마다 "방금 완료!"가 되살아난다.
+
 하루 경계 · 귀속 기준 (R13 CO-T-1·T-2·T-3):
 - **"오늘"은 언제나 KST 달력일의 UTC 구간**이다. `quiz_logs.answered_at`은 UTC 정규화
   timestamptz라 `.date()`로 날짜를 비교하면 **KST 00:00~09:00 응답이 어제로 샌다**
@@ -32,7 +38,7 @@ done은 단조(sticky) — 한번 완료되면 이후 재계산에서 진행도�
 """
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 
 from sqlalchemy import select
@@ -121,13 +127,19 @@ def recompute_progress(facts: list[AnswerFact]) -> dict[str, int]:
 
 @dataclass(frozen=True)
 class QuestTransition:
-    """재계산 결과 1종 — 저장할 진행도/완료와 이번에 지급할 보상 XP."""
+    """재계산 결과 1종 — 저장할 진행도/완료와 이번에 지급할 보상 XP.
+
+    `title`은 DB 결합부(`recalculate_quests`)에서만 채운다. 순수
+    `plan_transitions`는 quests 테이블을 모르므로 빈 문자열로 두고, 소비자는
+    `reward_events`를 거쳐 QUEST_DEFS 폴백을 받는다 (CO-T-4).
+    """
 
     code: str
     progress: int
     done: bool
     newly_done: bool
     reward_xp: int
+    title: str = ""
 
 
 def plan_transitions(
@@ -158,6 +170,27 @@ def plan_transitions(
             )
         )
     return transitions
+
+
+def reward_events(transitions: list[QuestTransition]) -> list[dict]:
+    """전환 목록 → **이번에 완료된 것만** 추린 화면용 이벤트 (CO-T-4, 순수).
+
+    `recalculate_quests`는 3종 전건을 항상 반환한다(진행도 저장이 목적). 화면이
+    필요한 것은 그중 `newly_done`뿐이다 — 완료 상태를 그대로 내보내면 재계산할
+    때마다 "방금 완료!"가 다시 뜬다. 그래서 필터는 done이 아니라 **newly_done**이고,
+    멱등 재호출(같은 세션 재-complete)에서는 자연히 빈 리스트가 된다.
+
+    title은 DB 행 우선, 없으면 QUEST_DEFS 상수 — `list_quests`와 같은 우선순위다.
+    """
+    return [
+        {
+            "code": t.code,
+            "title": t.title or QUEST_DEFS[t.code]["title"],
+            "reward_xp": t.reward_xp,
+        }
+        for t in transitions
+        if t.newly_done
+    ]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -303,10 +336,22 @@ async def recalculate_quests(
 
     transitions = plan_transitions(progress_map, prior_done)
 
+    # 반환분에 표시용 제목을 실어 보낸다 (CO-T-4). 호출부가 "무엇이 완료됐는지"를
+    # 화면에 띄우려면 code만으로는 부족한데, 여기서 이미 quests 행을 들고 있으므로
+    # 라우터가 같은 테이블을 다시 조회할 이유가 없다.
+    titled: list[QuestTransition] = []
+
     for transition in transitions:
         quest = quests.get(transition.code)
         if quest is None:
+            # 시드에 없는 코드(부분 시드) — 아래 지급·저장이 통째로 스킵된다.
+            # **반환에도 싣지 않는다**: 실으면 화면이 "+10 받았다"고 말하는데
+            # add_xp도 UserQuestProgress 행 쓰기도 안 돌아 잔액은 그대로다.
+            # 게다가 행이 안 남으니 prior_done이 계속 False라 그 유령 칩이
+            # 이후 모든 세션 완료·보드 통과에서 되살아난다 — 이 PR이 고친 결함
+            # (표기 < 실지급)의 정확한 역상이다.
             continue
+        titled.append(replace(transition, title=quest.title))
         row = rows_by_code.get(transition.code)
         if row is None:
             row = UserQuestProgress(
@@ -320,7 +365,7 @@ async def recalculate_quests(
             await xp_service.add_xp(db, user.id, transition.reward_xp)
 
     await db.flush()
-    return transitions
+    return titled
 
 
 async def list_quests(db: AsyncSession, user: User, today: date) -> list[dict]:

@@ -4,11 +4,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { boardApi, progressApi } from '../../api';
 import { useProgressStore } from '../../store/progressStore';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import RewardChips from '../progress/RewardChips';
 import Mascot from '../../components/Mascot';
 import AtmosphereBoard from './AtmosphereBoard';
 import { phenomenonMeta } from './boardDisplay';
 import { SymbolIcon } from './boardSymbols';
 import { ZONES } from '../../lib/boardEngine';
+// 존 표시명 — 서버 zone_name(한국어)을 로케일 리소스로 덮는다(MT-28)
+import { zoneLabel } from './PeninsulaMap';
 import { useT } from '../../i18n';
 
 /**
@@ -20,9 +23,13 @@ import { useT } from '../../i18n';
  * 목록은 서버가 **저작 순서(board_order)**로 내려준다 — 순차 진행이라 순서가 곧
  * 코스다. 클라이언트는 재정렬하지 않는다(2026-08-05, θ 인접 정렬을 대체).
  *
- * **잠금 없음**(2026-08-06 제품 결정): 순차 잠금을 넣었다가 걷어냈다 — 학습자가
- * 원하는 퍼즐을 골라 푼다. 미클리어 칸은 회색으로 표시하되 눌러서 바로 들어간다
- * (회색 = "아직 안 풀었다"이지 "막혔다"가 아니다).
+ * **잠금은 두 축이다**(2026-08-12 합성). 종전 기술 *"잠금 없음(2026-08-06 제품
+ * 결정)"*은 **낡았다** — 그 뒤로 서로 다른 잠금이 각각 사용자 지시로 들어왔고
+ * 축이 달라 둘 다 산다:
+ *   ⑴ `locked`  — **학습 수준**(2026-08-10). 어느 난이도에 들어갈 수 있는가.
+ *   ⑵ `unlocked` — **순차**(MT-24 · 2026-08-11 멘토링). 그 안에서 어디까지 왔는가.
+ * 판정은 **서버가 소유**하고 화면은 그리기만 한다. 2026-08-06에 순차를 걷어냈던
+ * 사유("고를 자유")는 지우지 않는다 — 서버의 LOOKAHEAD가 그 우려를 흡수한다.
  *
  * R10-01 D1 (에너지 진입 게이트): 플레이 진입은 **반드시**
  * GET /board/puzzles/{id}(상세)를 통과한다 — 그 엔드포인트가 보드측 유일한 구름
@@ -157,6 +164,15 @@ export default function BoardPage() {
       // R10-01 §3.1: 소모는 **미통과 시에만** 1(정답 0). 실측은 응답 clouds_spent가
       // 갖고 있고 표기는 AtmosphereBoard가 하므로, 여기서는 헤더 잔량만 갱신한다.
       queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
+      // 퀘스트 보상(CO-T-4)은 퍼즐 XP와 별개 축이다 — 보드 통과가 `daily_xp_30`을
+      // 넘기면 서버가 +10을 실제로 지급하는데, 종전에는 그 사실이 응답에도 화면에도
+      // 없었다. 재도전(xp_earned=0)에서도 퀘스트는 완료될 수 있으므로 조건을 가른다.
+      const bonusXp = Number(res.bonus_xp) || 0;
+      if (bonusXp > 0) {
+        addXp(bonusXp);
+        queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
+        queryClient.invalidateQueries({ queryKey: ['progress', 'quests'] });
+      }
       if (res.passed && res.xp_earned > 0) {
         addXp(res.xp_earned);
         queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
@@ -206,6 +222,12 @@ export default function BoardPage() {
       if (err.code === 'OUT_OF_CLOUDS') {
         queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
       }
+      // MT-24: 잠긴 칸을 눌렀다 = 우리가 들고 있는 목록이 stale하다는 신호다
+      // (정상 흐름에서는 카드가 비활성이라 여기 오지 않는다). 목록을 다시 받아
+      // 자물쇠 표시를 서버 판정과 맞춘다 — 안 하면 계속 눌리는 칸으로 남는다.
+      if (err.code === 'BOARD_LOCKED') {
+        queryClient.invalidateQueries({ queryKey: ['board', 'puzzles'] });
+      }
       setEntryError(err.detail ?? t('board.page.entryFailed'));
     },
   });
@@ -228,12 +250,29 @@ export default function BoardPage() {
   const selectedIndex = selected
     ? list.findIndex((p) => p.content_item_id === selected.content_item_id)
     : -1;
-  // 잠긴 칸은 **건너뛴다**(2026-08-10 코드 리뷰). 바로 다음 칸을 집으면 밴드
-  // 경계에 선 사람(초등의 23번, 중·고등의 36번)이 클리어한 순간 403이 나는
-  // 「다음 퍼즐 →」을 받는다 — 상 대신 빨간 에러가 뜬다. 뒤가 전부 잠겼으면
-  // null이고, 그때는 「마지막 퍼즐까지 마쳤어요」가 뜬다(lastPuzzleDone).
+  // 다음 칸은 **두 잠금이 모두 열린** 첫 칸이다(2026-08-12 합성).
+  // 난이도로 잠긴 칸을 건너뛰는 이유(2026-08-10 코드 리뷰): 밴드 경계에 선 사람
+  // (초등의 23번, 중·고등의 36번)이 클리어한 순간 403이 나는 「다음 퍼즐 →」을
+  // 받는다 — 상 대신 빨간 에러가 뜬다.
+  // 순차로 잠긴 칸도 같이 거르는 이유(MT-24): **뒤쪽 클리어 칸을 다시 푼 경우**
+  // 바로 다음은 아직 잠겨 있고, 버튼을 그대로 두면 눌러서 403을 받는다
+  // (누르기 전에 알린다는 §3.1 관례 위반). 이때 find는 커서 위치의 칸을 집어
+  // 「다음에 할 것」으로 안내한다.
+  // 뒤가 전부 잠겼으면 null이고, 그때는 「마지막 퍼즐까지 마쳤어요」가 뜬다.
   const nextPuzzle =
-    selectedIndex >= 0 ? (list.slice(selectedIndex + 1).find((p) => !p.locked) ?? null) : null;
+    selectedIndex >= 0
+      ? (list.slice(selectedIndex + 1).find((p) => !p.locked && p.unlocked !== false) ?? null)
+      : null;
+
+  // ⚠️ `nextPuzzle`이 없다고 **코스를 마친 것이 아니다.** 두 경우가 같은 null로
+  // 뭉쳐 있었다: ⑴ 진짜 마지막 칸 ⑵ 뒤가 아직 안 열린 칸. ⑵는 흔하다 —
+  // LOOKAHEAD가 2라 열린 3칸 중 **세 번째를 먼저** 깨면 커서는 그대로여서 뒤가
+  // 계속 잠겨 있다. 그때 「마지막 퍼즐까지 마쳤어요」가 뜨면 40칸을 남겨 두고
+  // 완주 축하를 받는다. 열린 미클리어 칸이 남았는지로 가른다.
+  const openUncleared = list.filter(
+    (p) => !p.locked && p.unlocked !== false && !p.cleared,
+  );
+  const courseComplete = openUncleared.length === 0;
 
   if (isLoading) return <LoadingSpinner label={t('board.page.loading')} />;
 
@@ -283,6 +322,10 @@ export default function BoardPage() {
         {result && (
           <div className="mt-3 space-y-2">
             <PhenomenaSummary phenomena={result.phenomena} />
+            {/* 방금 완료된 일일 퀘스트 (CO-T-4). 토스트가 아니라 결과 패널에 두는 이유:
+                토스트 자리는 왕관/첫 클리어가 이미 단일 노출로 쓰고 있어(우선순위 고정)
+                여기에 끼면 둘 중 하나가 사라진다. 미통과 시도는 서버가 빈 목록을 준다. */}
+            <RewardChips quests={result.quest_rewards} />
             {entryError && (
               <p className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
                 {entryError}
@@ -300,9 +343,16 @@ export default function BoardPage() {
                   {t('board.page.nextPuzzle')}
                 </button>
               ) : (
-                // 마지막 칸 — 다음이 없으면 「목록으로」가 주 버튼이 된다
-                <p className="text-center text-sm font-extrabold text-emerald-600">
-                  {t('board.page.lastPuzzleDone')}
+                // 다음 칸이 없다 — **왜 없는지**에 따라 말이 달라야 한다.
+                // 완주가 아닌데 완주를 축하하면 남은 퍼즐을 안 찾는다.
+                <p
+                  className={`text-center text-sm font-extrabold ${
+                    courseComplete ? 'text-emerald-600' : 'text-slate-500'
+                  }`}
+                >
+                  {courseComplete
+                    ? t('board.page.lastPuzzleDone')
+                    : t('board.page.nextNotOpenYet')}
                 </p>
               ))}
             <button
@@ -523,28 +573,44 @@ export default function BoardPage() {
  * 상태는 셋 + 빈 칸: cleared(깬 칸, 초록) · 미클리어(회색) · **잠김**(자물쇠) ·
  * 「???」(EmptyPiece).
  *
- * 잠김의 열쇠는 **학습 수준**이다(2026-08-10 사용자 지시) — 초등은 쉬움, 중·고등은
- * 보통까지, 성인은 전부. 진도가 아니라 수준이라 「내 정보 → 학습 수준」 한 번으로
- * 바뀐다. 열린 난이도 안에서는 미클리어도 눌러서 바로 들어간다(2026-08-06 결정).
+ * **잠금은 두 축이고 사유가 다르다**(2026-08-12 합성 — 둘 다 사용자 지시다):
+ *
+ * ⑴ **학습 수준**(`locked`, 2026-08-10) — 초등은 쉬움, 중·고등은 보통까지,
+ *    성인은 전부. 진도가 아니라 수준이라 「내 정보 → 학습 수준」 한 번으로 바뀐다.
+ * ⑵ **순차**(`unlocked === false`, MT-24 · 2026-08-11 멘토링) — 열린 난이도 안에서
+ *    앞 퍼즐부터. 종전 *"잠금은 없다(2026-08-06)"*는 번복됐고, 당시 우려("고를
+ *    자유")는 서버의 LOOKAHEAD가 흡수한다.
+ *
+ * ⚠️ **두 사유는 해법이 달라 문구를 갈라야 한다** — 수준을 올릴 일인지 앞 퍼즐을
+ * 풀 일인지. 같은 말을 쓰면 학습자가 엉뚱한 것을 시도한다(에너지 차단과도 갈라야
+ * 하는 것과 같은 이유: 그쪽은 기다리면 열린다).
  *
  * ⚠️ 같은 날의 첫 판은 「쉬움 23칸 전건 클리어 → 보통 개방」이었는데 뒤집혔다.
  * 로그인 없이 여는 심사 화면에서 보통·어려움을 볼 방법이 없었기 때문이다.
  *
  * ⚠️ 잠긴 칸도 **제목을 보여준다**. 「???」로 덮으면 아직 저작되지 않은 칸
  * (EmptyPiece)과 구분이 안 되고, 무엇이 기다리는지 안 보이면 잠금이 동기가
- * 아니라 벽이 된다. 화면은 누르는 것만 막고, 진짜 차단은 서버가 한다
- * (GET /puzzles/{id} → 403 PUZZLE_LOCKED) — 주소창으로 들어오면 화면 판정이 없다.
+ * 아니라 벽이 된다. 판정은 서버가 소유하고 여기는 그리기만 한다 — 프론트가
+ * 계산하면 목록과 진입이 갈린다. 화면은 누르는 것만 막고, 진짜 차단은 서버가
+ * 한다(403 PUZZLE_LOCKED · BOARD_LOCKED) — 주소창으로 들어오면 화면 판정이 없다.
  */
 function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pending, busy, onOpen }) {
   const t = useT();
   const tpl = puzzle.template_json ?? {};
   const cleared = Boolean(puzzle.cleared);
-  const locked = Boolean(puzzle.locked);
+  // 두 잠금을 따로 읽는다 — 화면 처리는 같아도 **안내 문구가 달라야** 하기 때문이다.
+  // 구 응답(필드 부재)은 열린 것으로 본다: 잠금이 조용히 생기지 않는다.
+  const levelLocked = Boolean(puzzle.locked);
+  const seqLocked = puzzle.unlocked === false;
+  const locked = levelLocked || seqLocked;
   const goalPhenomenon = tpl.goal_conditions?.[0]?.phenomenon ?? null;
 
   // 잠긴 칸은 **구름 안내를 하지 않는다** — 기다리면 열리는 줄 알게 된다.
   // 두 사유가 겹치면 잠금이 이긴다(구름이 차도 안 열린다).
+  // 잠금끼리 겹치면 **수준이 이긴다**: 그쪽이 더 바깥 조건이라, 앞 퍼즐을 다 풀어도
+  // 수준을 안 올리면 안 열린다. 서버 가드 순서와 같다.
   const blockedReason = locked ? 'locked' : energyBlocked ? 'energy' : null;
+  const lockedTitleKey = levelLocked ? 'board.page.lockedTitle' : 'board.page.seqLockedTitle';
   const skin = locked
     ? 'bg-slate-100/70'
     : cleared
@@ -558,6 +624,7 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
         type="button"
         onClick={onOpen}
         disabled={Boolean(blockedReason) || busy}
+        data-board-locked={locked ? 'true' : undefined}
         aria-disabled={blockedReason ? 'true' : undefined}
         aria-label={`${index + 1}. ${tpl.title ?? tpl.question_text ?? t('board.page.puzzleFallback')}${
           locked
@@ -568,7 +635,7 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
         }`}
         title={
           locked
-            ? t('board.page.lockedTitle')
+            ? t(lockedTitleKey)
             : energyBlocked
               ? t('board.page.blockedTitle', { min: regenMin })
               : (tpl.question_text ?? undefined)
@@ -616,10 +683,12 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
           {pending && <span className="text-[11px] font-bold text-sky-700">{t('board.page.opening')}</span>}
           {/* 누르기 전에 알린다(§3.1) — 429/403을 받고 나서가 아니다.
               잠김이 이긴다: 구름이 차도 안 열리는데 "회복까지 N분"이라고 하면
-              기다리면 열리는 줄 안다. */}
+              기다리면 열리는 줄 안다.
+              ⚠️ 잠금 **사유별로 다른 말**을 쓴다 — 수준을 올릴 일인지 앞 퍼즐을
+              풀 일인지 알려주지 않으면 학습자가 엉뚱한 것을 시도한다. */}
           {locked ? (
             <span className="truncate text-[11px] font-bold text-slate-500">
-              {t('board.page.cardLocked')}
+              {levelLocked ? t('board.page.cardLocked') : t('board.page.lockedHint')}
             </span>
           ) : energyBlocked ? (
             <span className="truncate text-[11px] font-bold text-rose-600">
@@ -702,7 +771,7 @@ function PhenomenaSummary({ phenomena }) {
               <div className="flex justify-center">
                 <SymbolIcon kind="phenomenon" value={p.phenomenon} className="h-6 w-6" />
               </div>
-              <div className="text-[10px] text-slate-500">{p.zone_name ?? ZONES[p.zone] ?? ''}</div>
+              <div className="text-[10px] text-slate-500">{zoneLabel({ name: p.zone_name ?? ZONES[p.zone] }, p.zone, t)}</div>
               <div className="text-[11px] font-bold text-slate-700">{meta.label}</div>
             </div>
           );

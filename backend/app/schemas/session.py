@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app.schemas.curriculum import CrownAward
 from app.schemas.duel import DuelPrediction
 from app.schemas.quiz import AnswerResult, QuizQuestion
+from app.schemas.reward import BadgeAward, QuestReward
 
 
 class ForecastClosingStep(BaseModel):
@@ -189,6 +190,23 @@ class SessionCompleteResult(BaseModel):
     # retry_resolved_count: 만회로 해결한 문항 수 → 완료 화면 "만회 완료 N문항".
     all_resolved: bool = False
     retry_resolved_count: int = 0
+    # ── 보상 획득 알림 (R13 CO-T-4, additive) ──
+    # `recalculate_quests`·`award_badge`의 반환을 버리지 않고 내보낸다. 버렸을 때
+    # 무슨 일이 있었나: 퀘스트 3종 최대 **+25 XP**와 `perfect_session` 배지가
+    # 지급은 됐는데 **획득 순간 어느 화면에도 안 떴다**. 보유 목록(`/progress/quests`·
+    # `/progress/badges`)에서 나중에 발견할 수는 있어도, 그건 "받았다"는 피드백이 아니다.
+    #
+    # 둘 다 **이번 호출에서 새로 일어난 것만** 담는다(멱등 재-complete는 빈 리스트).
+    quest_rewards: list[QuestReward] = []
+    badges_earned: list[BadgeAward] = []
+    # 문항 XP 밖에서 이번 완료로 추가 지급된 XP 합 = sum(quest_rewards.reward_xp).
+    bonus_xp: int = 0
+    # 화면이 "+N XP"로 그릴 값 = xp_total + bonus_xp. **서버가 더해서 보낸다** —
+    # `xp_total`은 세션 문항 XP라는 기존 의미를 그대로 두어야 하고(회귀 방지),
+    # 프론트가 두 값을 더하게 두면 더하는 곳마다 빠뜨릴 수 있다(실제로 그래서
+    # 표기가 실지급보다 최대 25 적었다). 유닛 세션의 `unit_result.unit_xp`는
+    # 별개 축이라 여기 포함하지 않는다 — 그 페이지가 따로 더해 표기한다.
+    xp_awarded: int = 0
     # ── 예보 마감 단계 (R13 A-1, additive) ──
     # 완료 화면이 15문항 결산 뒤에 붙일 단계. /session/today와 **같은 판정**이지만
     # 완료 시점에 다시 계산한다 — 세션 시작 후 다른 화면에서 예보를 냈으면 여기서

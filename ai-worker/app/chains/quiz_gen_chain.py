@@ -3,7 +3,7 @@
 System Prompt / Few-shot 6개는 스펙 원문 그대로 사용한다 (한 글자도 수정 금지).
 생성 유형은 6종(multiple_choice·short_answer·slider·cloze·match·ordering)이고
 board는 제외다 — 판정 규칙을 함께 저작해야 성립하므로 사람이 만든다(CO-O-13).
-LCEL 스타일: build_messages | ChatGoogleGenerativeAI | StrOutputParser
+LCEL 스타일: build_messages | LLM(프로바이더는 env — llm_provider) | StrOutputParser
 주의: LLM 관련 임포트(langchain*)는 실제로 LLM을 쓰는 함수 내부에서 지연 임포트한다
 (validate_chain과 같은 규약). 키가 없으면 generate_quiz는 LLM 경로에 들어가지도
 않으므로, 폴백 뱅크는 langchain 없이 도달해야 한다 — CLAUDE.md가 "키 없어도 폴백
@@ -30,7 +30,25 @@ from app.chains.json_output import extract_json_object
 from app.chains.knowledge_level import load_vocabulary, vocabulary_violations
 from app.chains.payload_contract import GENERATED_PAYLOAD_FIELDS, QuizQuestion
 
-from app.config import llm_configured, settings
+# ⚠️ **최상위 import여야 한다.** author_items.py가 sys.modules 스왑으로 ai-worker를
+# 격리 임포트하는데(backend와 `app` 패키지명 공유), 함수 안에서 지연 import하면
+# **스왑이 끝난 뒤** 실행돼 backend의 `app`을 뒤져 ModuleNotFoundError가 난다.
+# llm_provider 자체는 langchain을 최상단에서 안 끌므로 여기 둬도 안전하다.
+from app.llm_provider import PURPOSE_AUTHOR, build_chat_model, effective_spec, spec_is_usable
+
+
+def _llm_available() -> bool:
+    """이 용도의 LLM을 부를 수 있는가 (CO-B7).
+
+    ⚠️ **`llm_configured()`만 보면 안 된다.** 그건 `GEMINI_API_KEY`만 확인하므로,
+    이 용도를 gpt-oss(OpenAI 호환)로 라우팅해도 "키 없음"으로 판정돼 **LLM 경로가
+    영영 안 열린다** — 프로바이더 통로를 뚫어 놓고 문을 잠가 두는 셈이다.
+    Gemini로 해석되면 종전과 똑같이 `llm_configured()`가 답한다(하위호환).
+    """
+    # **effective_spec**을 본다 — 서빙 모드·예산 강등이 반영된 실제 스펙이다.
+    # resolve_spec(설정값)만 보면 예산이 소진돼도 "호출 가능"이라 답해서,
+    # 체인이 LLM을 부르러 갔다가 빈 스펙으로 실패하고 예외 경로로 떨어진다.
+    return spec_is_usable(effective_spec(PURPOSE_AUTHOR)[0])
 
 logger = logging.getLogger(__name__)
 
@@ -370,27 +388,41 @@ def _build_messages(inputs: dict) -> list:
 
 
 @lru_cache(maxsize=8)
-def _cached_chain(model: str, api_key: str, temperature: float):
-    """(model, api_key, temperature) 조합별 LCEL 체인 캐시.
+def _cached_chain(
+    provider: str, model: str, api_key: str, base_url: str | None, temperature: float
+):
+    """(**실효 스펙**, temperature) 조합별 LCEL 체인 캐시.
 
-    시도 온도는 (0.7, 0.1) 2종뿐이므로 문항 생성마다 ChatGoogleGenerativeAI를
+    시도 온도는 (0.7, 0.1) 2종뿐이므로 문항 생성마다 LLM 클라이언트를
     재생성하지 않는다(R7-02 S7 지연 완화). 생성 실패 예외는 캐시되지 않아
     폴백 문제 세트 동작은 기존과 동일하다.
+
+    ⚠️ **provider·base_url이 키에 있어야 한다.** 종전 (model, api_key)로는
+    OpenRouter → 로컬 Ollama처럼 **모델명이 같고 엔드포인트만 다른** 전환이
+    조용히 옛 클라이언트를 재사용한다 — CO-B7 3파전이 "전부 같은 모델"로 돌아가
+    판정 자체가 무의미해지는 형태다(`validate_chain`은 이미 둘 다 싣고 있었다).
     """
     from langchain_core.output_parsers import StrOutputParser
     from langchain_core.runnables import RunnableLambda
-    from langchain_google_genai import ChatGoogleGenerativeAI
-    llm = ChatGoogleGenerativeAI(
-        model=model,
-        google_api_key=api_key,
-        temperature=temperature,
-    )
+
+    # 프로바이더는 여기서 고르지 않는다 — env가 정한다(CO-B7 용도별 라우팅).
+    # 인자 model·api_key는 **캐시 키로만** 남긴다: 설정이 바뀌면 캐시가 갈라져야 한다.
+    llm = build_chat_model(temperature, purpose=PURPOSE_AUTHOR)
     return RunnableLambda(_build_messages) | llm | StrOutputParser()
 
 
 def _build_chain(temperature: float):
-    """LCEL: 메시지 구성 → Gemini → 문자열 (settings 기준 캐시 조회)."""
-    return _cached_chain(settings.GEMINI_MODEL, settings.GEMINI_API_KEY, temperature)
+    """LCEL: 메시지 구성 → LLM → 문자열.
+
+    캐시 키에 **실효 스펙**을 싣는다. 종전에는 GEMINI_* 만 실어서, 저작 용도를
+    OSS로 돌려도 Gemini로 만든 체인이 그대로 재사용됐다(모델 교체가 무시됐다).
+
+    저작은 배치라 `effective == resolve`지만(서빙 모드·예산이 안 걸린다) 그래도
+    `effective_spec`으로 통일한다 — 클라이언트를 만드는 `build_chat_model`이 그것을
+    보므로, **찾는 열쇠와 만드는 근거가 같아야** 둘이 갈라지지 않는다.
+    """
+    spec, _why = effective_spec(PURPOSE_AUTHOR)
+    return _cached_chain(spec.provider, spec.model, spec.api_key, spec.base_url, temperature)
 
 
 def _parse_output(raw: str) -> QuizQuestion:
@@ -494,7 +526,7 @@ def generate_quiz(
     }
 
     question: QuizQuestion | None = None
-    if not llm_configured():
+    if not _llm_available():
         # 키 미설정 시 LLM 시도 자체를 생략 — 실패 대기 없이 즉시 폴백 뱅크.
         logger.info("GEMINI 키 미설정 — LLM 생성 생략, 폴백 뱅크 사용")
     else:

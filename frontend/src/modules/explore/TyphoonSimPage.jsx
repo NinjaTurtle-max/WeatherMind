@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+// 위성 도식(MT-21) — 시어가 만드는 **비대칭**을 보인다. TyphoonEye가 못 보여주는 축이다.
+import SatelliteView from './SatelliteView';
 import { Link } from 'react-router-dom';
 import {
   typhoonIntensity,
@@ -272,6 +274,10 @@ export default function TyphoonSimPage() {
           </div>
         </div>
       </div>
+
+      {/* 위성 도식(MT-21) — §0.5ⓔ가 정한 자리다. expert 밴드에만 붙이면
+          θ>1.5가 필요해 심사 5분 동선에서 아무도 못 본다(CO-N-4) → **상시 노출**. */}
+      <SatelliteView intensity={result.intensity} shear={shear} />
 
       {/* 발달 곡선 카드 */}
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">

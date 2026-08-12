@@ -49,6 +49,16 @@ const server = await createServer({
 });
 
 let failed = 0;
+
+/** MT-21 위성 도식 검사용 — 위 루프의 expects 방식과 달리 컴포넌트를 직접 그린다. */
+const checkMt21 = (name, cond) => {
+  if (cond) {
+    console.log(`PASS ${name}`);
+  } else {
+    console.error(`FAIL ${name}`);
+    failed += 1;
+  }
+};
 try {
   for (const { path, name, expects } of TARGETS) {
     const mod = await server.ssrLoadModule(path);
@@ -84,6 +94,80 @@ try {
       console.error("FAIL Layout.isWide: pathname.startsWith('/explore')가 없다 — 시뮬 화면이 576px로 접힌다");
       failed += 1;
     }
+  }
+
+  // ── MT-21 위성 도식 — 시어가 **그림을 실제로 바꾸는가** ────────────────────
+  //
+  // 초판은 SVG라 마크업을 문자열로 물었다. 개정판은 **캔버스 절차 렌더**라 SSR에
+  // 픽셀이 없다 — 그래서 판정을 `satelliteField`의 **순수 계산부**로 내렸다.
+  // 화면을 안 보고도 "시어를 올리면 구름이 한쪽으로 쏠린다"를 숫자로 확인한다.
+  {
+    const field = await server.ssrLoadModule('/src/modules/explore/satelliteField.js');
+    const at = (shear) => ({
+      asym: field.asymmetry({ intensity: 85, shear }),
+      core: field.coreCover({ intensity: 85, shear }),
+    });
+    const weak = at('weak');
+    const mod = at('moderate');
+    const strong = at('strong');
+
+    // ⑴ 시어가 셀수록 좌우 불균형이 커진다 — 이 패널의 존립 근거 그 자체
+    checkMt21(
+      `시어↑ → 비대칭↑ (${weak.asym.toFixed(2)} < ${mod.asym.toFixed(2)} < ${strong.asym.toFixed(2)})`,
+      weak.asym < mod.asym && mod.asym < strong.asym,
+    );
+    // ⑵ 시어가 약할 때만 중심이 뚫린다(눈). 세면 중심이 구름에 덮이거나 밀려난다.
+    checkMt21(
+      `시어 약 → 눈이 뚫린다 (눈 깊이 ${weak.core.toFixed(2)} < ${mod.core.toFixed(2)})`,
+      weak.core < mod.core && weak.core < 0.2,
+    );
+    // ⑹ **회전이 "같은 무늬의 이동"인가.** 처음에 노이즈 위상에 회전을 더했더니
+    //    값이 0.04→0.98→0.00으로 널뛰었다 — 그건 회전이 아니라 매 프레임 다른
+    //    무늬였다. 좌표를 반대로 돌려 읽으면 **같은 값**이 나와야 한다.
+    {
+      const r = 0.4;
+      const th = 0.7;
+      const om = -1 / (0.22 + r * 2.2);
+      const P = { intensity: 90, shear: 'weak' };
+      const a = field.cloudAt(r * Math.cos(th), r * Math.sin(th), { ...P, spin: 0 });
+      const back = th - 0.25 * 2 * Math.PI * om;
+      const b = field.cloudAt(r * Math.cos(back), r * Math.sin(back), { ...P, spin: 0.25 });
+      checkMt21(`회전은 무늬를 보존한다 (${a.toFixed(3)} = ${b.toFixed(3)})`,
+        Math.abs(a - b) < 1e-9);
+    }
+    // ⑺ 차등 회전 — 안쪽이 바깥보다 빨라야 밴드가 감긴다(통째로 돌면 바람개비다)
+    checkMt21('안쪽이 바깥보다 빨리 돈다',
+      Math.abs(-1 / (0.22 + 0.2 * 2.2)) > Math.abs(-1 / (0.22 + 1.0 * 2.2)));
+    // ⑶ 미발생은 구름이 0 — 캔버스가 검게 남는다
+    checkMt21('강도 0 → 구름 0', field.asymmetry({ intensity: 0, shear: 'weak' }) === 0);
+    // ⑷ **결정적**이어야 한다. 같은 입력에 그림이 매번 달라지면 슬라이더를 움직였을 때
+    //    무엇 때문에 바뀐 것인지 학습자가 알 수 없다(Math.random 금지).
+    checkMt21('같은 입력은 같은 결과', field.asymmetry({ intensity: 70, shear: 'moderate' })
+      === field.asymmetry({ intensity: 70, shear: 'moderate' }));
+    // ⑸ **실사 아님 표기**는 계약이다 — 사실적으로 보일수록 무게가 커진다.
+    //    산출물 라벨에 실제 기관·위성 이름이 섞이면 출처 사칭이 된다.
+    const { default: koRes } = await server.ssrLoadModule('/src/i18n/resources/board.ko.js');
+    const sat = koRes.explore.satellite;
+    checkMt21('실사 아님 표기가 리소스에 있다', /도식/.test(sat.schematicBadge));
+    // ⑻ **색을 쓰지 않는다**(2026-08-12 결정). 강조 IR의 초록·노랑·빨강·자홍을
+    //    뺐다 — 학습자에게 그 색은 정보가 아니라 소음이고, 세기를 읽는 축이
+    //    크기·속도·색 셋으로 갈리면 무엇을 봐야 할지 모른다.
+    //    램프 전 구간이 **무채색(R≈G≈B)**인지 소스에서 직접 확인한다.
+    {
+      const { readFileSync } = await import('node:fs');
+      const { join } = await import('node:path');
+      const src = readFileSync(join(root, 'src/modules/explore/SatelliteView.jsx'), 'utf8');
+      const block = src.slice(src.indexOf('const IR_RAMP = ['), src.indexOf('];', src.indexOf('const IR_RAMP = [')));
+      const rgbs = [...block.matchAll(/\[\s*(\d+),\s*(\d+),\s*(\d+)\s*\]/g)]
+        .map((m) => [+m[1], +m[2], +m[3]]);
+      const chroma = rgbs.map(([r, g, b]) => Math.max(r, g, b) - Math.min(r, g, b));
+      checkMt21(
+        `색 램프가 무채색이다 (최대 채도차 ${Math.max(...chroma)} — 바다의 푸른기까지만 허용)`,
+        rgbs.length >= 4 && Math.max(...chroma) <= 46,
+      );
+    }
+    checkMt21('산출물 라벨이 실제 기관·위성명을 사칭하지 않는다',
+      !/천리안|GK2A|히마와리|Himawari|KMA|기상청|NOAA|GOES/i.test(sat.productLine));
   }
 } finally {
   await server.close();

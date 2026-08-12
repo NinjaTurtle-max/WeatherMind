@@ -21,6 +21,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import insecure_secret_defaults, settings
 from app.core.database import engine, runtime_role_privilege
+from app.core.fingerprint import code_fingerprint
 from app.core.logging import RequestLogMiddleware, setup_logging
 from app.core.rate_limit import limiter
 from app.core.redis import close_redis, get_redis
@@ -366,6 +367,13 @@ async def health():
         # **보고만** 한다. checks의 형태는 종전 그대로 유지된다(계약 테스트가 완전
         # 일치로 단정한다).
         "kma": weather_api.key_status(),
+        # 실행 중인 코드가 워크트리와 같은가 — `python scripts/code_fingerprint.py
+        # backend/app`의 값과 대조한다. 다르면 이미지가 낡았다(CO-Y-13:
+        # `--no-cache`로도 안 뚫려 `docker builder prune -af`가 필요했다).
+        # 지금까지 대조할 방법이 아예 없어서, 낡은 백엔드를 상대로 검증을 돌리고
+        # 실재하지 않는 결함을 등재했다가 철회한 일이 있었다.
+        # 위 `kma`와 같은 이유로 checks 밖이다 — 진단이지 가동 판정이 아니다.
+        "code_fingerprint": code_fingerprint(),
     }
     if healthy:
         return body

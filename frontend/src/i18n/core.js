@@ -58,12 +58,33 @@ export function _syncLocale(locale) {
   if (SUPPORTED_LOCALES.includes(locale)) currentLocale = locale;
 }
 
-function lookup(locale, key) {
+function lookupNode(locale, key) {
   let node = RESOURCES[locale];
   for (const part of key.split('.')) {
     node = node?.[part];
   }
+  return node;
+}
+
+function lookup(locale, key) {
+  const node = lookupNode(locale, key);
   return typeof node === 'string' ? node : undefined;
+}
+
+/**
+ * 배열 리소스 조회 (MT-28) — 순서가 뜻을 갖는 문자열 목록용.
+ *
+ * `translate()`는 **문자열 리프만** 돌려주므로(비문자열이면 키를 그대로 반환)
+ * 단면 스토리보드의 `steps`처럼 배열인 값은 못 읽는다. 단계를 `steps.0`·`steps.1`로
+ * 쪼개 담을 수도 있지만, 그러면 **길이를 코드가 따로 알아야** 하고 그 길이가
+ * 리소스와 어긋나면 조용히 잘린 스토리보드가 나온다 — 길이는 리소스가 소유해야 한다.
+ *
+ * 미지 키·비배열이면 빈 배열. 폴백은 translate와 같은 순서(현재 로케일 → ko)이고,
+ * **번역 누락 시 빈 화면이 아니라 ko 원문**이 나오게 한다.
+ */
+export function translateList(locale, key) {
+  const node = lookupNode(locale, key) ?? lookupNode(DEFAULT_LOCALE, key);
+  return Array.isArray(node) ? node.filter((v) => typeof v === 'string') : [];
 }
 
 /** 순수 함수 번역 — 컴포넌트 밖(테스트·유틸)에서도 쓸 수 있다. */

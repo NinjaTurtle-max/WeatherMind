@@ -79,6 +79,26 @@ async def award_badge(
     return inserted is not None
 
 
+async def badge_detail(db: AsyncSession, code: str) -> dict | None:
+    """배지 코드 → 표시용 {code, title, description}. 시드에 없으면 None (CO-T-4).
+
+    `award_badge`가 True(신규 지급)를 반환했을 때만 부르는 조회다 — 획득 알림에
+    코드만 보내면 화면이 "무엇을 받았는지" 말할 수 없기 때문. `award_badge`의
+    반환을 bool로 유지하는 대신 여기서 한 번 더 읽는다: 시그니처를 바꾸면
+    출석(progress.py)·리그 정산(celery) 호출부까지 함께 끌려온다.
+    """
+    row = (
+        await db.execute(
+            select(Badge.code, Badge.title, Badge.description).where(
+                Badge.code == code
+            )
+        )
+    ).first()
+    if row is None:
+        return None
+    return {"code": row[0], "title": row[1], "description": row[2]}
+
+
 async def list_badges(db: AsyncSession, user_id: uuid.UUID) -> list[dict]:
     """GET /progress/badges — 전체 배지 정의 + 획득 시각(미획득은 null) (§3.3)."""
     rows = (

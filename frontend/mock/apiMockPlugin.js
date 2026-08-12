@@ -307,7 +307,10 @@ const state = {
   predicted: false,
   tier: 'nimbostratus', // 최근 정산 티어 (§3.2 /progress/me)
   // 일일 퀘스트 진행 (§3.1) — 당일 집계 흉내. 디자인 검토용 초기 진행값 시드.
-  quest: { xpToday: 20, weakCorrect: 0, liveAnswered: 0 },
+  // doneCodes = **이미 완료로 전환된** 코드들. 서버 UserQuestProgress.done(sticky)의
+  // 목 대응물이고, 이것이 있어야 "이번에 새로 완료됐다"(newly_done)를 말할 수 있다
+  // — 진행도만 들고 있으면 재계산할 때마다 완료가 새로 일어난 것처럼 보인다 (CO-T-4).
+  quest: { xpToday: 20, weakCorrect: 0, liveAnswered: 0, doneCodes: [] },
   // 예보 대결 (§3.4) — 오늘 제출 상태. evidence: 선택한 판단 근거 (R9-01 §3.1)
   duel: { submitted: false, userPred: null, aiPred: null, evidence: null },
   // 구름 에너지 (R5-01 §3.3) — 소모성 플레이 자원. 지연 회복 모델.
@@ -895,6 +898,32 @@ function questPayload() {
   ];
 }
 
+/**
+ * 세션 완료·보드 통과가 일으킨 **완료 전환**만 추린다 (CO-T-4 — 서버
+ * quest_service.reward_events 대응).
+ *
+ * 서버와 같은 규칙이어야 하는 지점이 둘이다:
+ * ⑴ 실리는 것은 done이 아니라 **newly_done** — 이미 완료된 퀘스트는 재계산해도
+ *    다시 실리지 않는다. 그래서 doneCodes에 기록하고 그 여집합만 낸다.
+ * ⑵ done은 **sticky** — 한번 전환되면 진행도가 내려가도 유지된다.
+ */
+function questTransitions() {
+  const done = new Set(state.quest.doneCodes);
+  const events = [];
+  for (const q of questPayload()) {
+    if (!q.done || done.has(q.code)) continue;
+    done.add(q.code);
+    // 보상은 **실제로 잔액에 넣는다** — 서버 recalculate_quests가 xp_service.add_xp를
+    // 부르는 자리다. 안 넣으면 응답은 "+10 받았다"인데 /progress/me는 모르고,
+    // 보드에서 addXp(bonus) 직후 ['progress','me'] 무효화가 돌아 헤더 XP가
+    // 올랐다가 도로 내려간다(BoardPage.jsx). 다른 목 XP 지급과 같은 관례.
+    state.xp += q.xp_reward;
+    events.push({ code: q.code, title: q.title, reward_xp: q.xp_reward });
+  }
+  state.quest.doneCodes = [...done];
+  return events;
+}
+
 // GET /progress/badges 응답 5종 (§3.3 저작 코드) — 일부 획득/미획득 혼합
 const BADGES = [
   { code: 'streak_7', title: '7일 연속', description: '7일 연속 출석 달성', earned_at: '2026-07-12T00:00:00Z' },
@@ -1373,9 +1402,48 @@ const boardPuzzlePayload = (p, locked = null) => ({
   difficulty: p.difficulty ?? 1, // R7-02 S5: 난이도 1|2|3
   template_json: p.template_json,
   cleared: clearedBoardPuzzles.has(p.content_item_id),
-  // 상세는 잠긴 퍼즐이 그 앞에서 403이라 항상 false다(서버와 같다).
+  // 잠금 두 축이 다 실린다(서버 schemas/board.BoardPuzzle과 같다).
+  // 상세는 잠긴 퍼즐이 그 앞에서 403이라 둘 다 "안 잠김"으로 나간다.
   locked: locked === null ? false : locked.has(p.difficulty ?? 1),
+  unlocked: unlockedBoardIds().has(p.content_item_id), // MT-24
 });
+
+/** 앞으로 함께 열어 둘 칸 수 — 서버 `board.BOARD_UNLOCK_LOOKAHEAD`와 같아야 한다. */
+const MOCK_BOARD_UNLOCK_LOOKAHEAD = 2;
+
+/**
+ * 열린 퍼즐 id 집합 (MT-24) — 서버 `compute_unlocked_ids`와 **같은 규칙**이다.
+ * ⑴ 이미 깬 칸은 언제나 열림 ⑵ 미클리어는 진행 커서부터 LOOKAHEAD칸까지.
+ *
+ * 목이 이 규칙을 흉내 내지 않으면 목 위 스모크가 **잠금이 없던 시절의 화면**을
+ * 계속 초록으로 통과시킨다 — 목↔서버 정책이 갈라졌던 CO-J-9와 같은 형태다.
+ * `BOARD_PUZZLES`는 이미 board_order로 정렬돼 있다(선언부 참고).
+ */
+function unlockedBoardIds() {
+  // 서버 `sequenceable`과 같다 — 순서는 **난이도가 열린 퍼즐 안에서만** 센다.
+  // 전체 위에서 세면 초등 학습자의 다음 칸이 「보통」인 순간 사슬이 영구히 끊긴다
+  // (그 칸은 난이도로 막혀 못 깨고, 커서는 깨야만 넘어간다).
+  const lockedDiff = lockedBoardDifficulties();
+  const pool = BOARD_PUZZLES.filter((p) => !lockedDiff.has(p.difficulty ?? 1));
+
+  const unlocked = new Set(
+    pool.filter((p) => clearedBoardPuzzles.has(p.content_item_id)).map(
+      (p) => p.content_item_id,
+    ),
+  );
+  let cursor = pool.findIndex((p) => !clearedBoardPuzzles.has(p.content_item_id));
+  if (cursor < 0) cursor = pool.length;
+  for (const p of pool.slice(cursor, cursor + MOCK_BOARD_UNLOCK_LOOKAHEAD + 1)) {
+    unlocked.add(p.content_item_id);
+  }
+  return unlocked;
+}
+
+/** 잠긴 퍼즐 진입·시도 거부 — 서버 403 BOARD_LOCKED와 같은 코드·같은 문구. */
+const boardLockedError = () => [
+  403,
+  { detail: '앞의 퍼즐을 먼저 풀면 열려요.', code: 'BOARD_LOCKED' },
+];
 
 /** 보드 재판정 + 목표 검사 → {passed, phenomena, feedback} (권위 채점 흉내) */
 function judgeBoard(boardState, goalConditions) {
@@ -1969,13 +2037,31 @@ const routes = {
         }
       }
     }
+    // 보상 전환 (CO-T-4) — 서버와 같이 **이번 완료로 새로 전환된 것만** 싣는다.
+    // 배지는 목이 perfect_session을 기획득 상태로 시드해 두어 신규 획득이 없다.
+    //
+    // ⚠️ **배치고사는 제외한다.** 서버는 placement를 XP·스트릭·퀘스트·배지·왕관
+    // 전부 스킵하고 조기 반환한다(routers/session.py §3.3). 여기서 빼지 않으면
+    // `questTransitions()`가 **부수효과로 doneCodes를 태워** 배치 완료가 조용히
+    // `daily_xp_30` 전환을 삼키고(배치 화면은 PlacementSummary라 칩이 안 보인다)
+    // 첫 데일리 세션에서 칩이 안 뜬다 — 이 PR이 고친 결함을 목 위에 되살린다.
+    const isPlacement = s.mode === 'placement';
+    const questRewards = isPlacement ? [] : questTransitions();
+    const bonusXp = questRewards.reduce((sum, r) => sum + r.reward_xp, 0);
+    const itemXp = results.reduce((sum, r) => sum + r.xp_earned, 0);
     return [
       200,
       {
-        xp_total: results.reduce((sum, r) => sum + r.xp_earned, 0),
+        xp_total: itemXp,
         correct_count: correctCount,
         total: progress.total,
         streak_count: state.streak,
+        quest_rewards: questRewards, // CO-T-4 — 방금 완료된 퀘스트
+        badges_earned: [], // CO-T-4 — 목은 신규 배지 지급 경로가 없다
+        bonus_xp: bonusXp,
+        // 표기용 총합은 **서버가 더한다**(프론트 덧셈 금지) — 목도 같은 계약이어야
+        // 목 위 스모크가 실서버와 다른 숫자를 초록으로 통과시키지 않는다.
+        xp_awarded: itemXp + bonusXp,
         unit_result: unitResult, // R8-01 §3.1 — 유닛 세션이 아니면 null(additive)
         crown_award: crownAward, // R8-01 §3.4 — daily 만점 왕관 유입, 없으면 null(additive)
         all_resolved: allResolved, // R13-01 §2.1 — 만회 포함 전건 해결(왕관 판정값)
@@ -2052,11 +2138,14 @@ const routes = {
     if (!puzzle) {
       return [404, { detail: '퍼즐을 찾을 수 없습니다', code: 'PUZZLE_NOT_FOUND' }];
     }
-    // 난이도 잠금은 **구름 검사보다 먼저**(서버와 같은 순서) — 순서를 바꾸면
-    // 잔량 0인 사람이 "구름이 없어서"라는 틀린 이유를 듣는다.
+    // 잠금 둘 다 **구름 검사보다 먼저**다(서버와 같은 순서) — 뒤집으면 잠긴 칸이
+    // OUT_OF_CLOUDS로 나가서, 잔량 0인 사람이 "구름이 없어서"라는 틀린 이유를 듣고
+    // 20분을 기다린 뒤 다시 막힌다. 잠긴 칸은 구름을 써도 안 열린다.
+    // 난이도가 먼저인 것도 서버와 같다 — 그쪽이 더 바깥 조건이다.
     if (lockedBoardDifficulties().has(puzzle.difficulty ?? 1)) {
       return [403, { detail: '내 정보에서 학습 수준을 올리면 열려요.', code: 'PUZZLE_LOCKED' }];
     }
+    if (!unlockedBoardIds().has(puzzle.content_item_id)) return boardLockedError();
     const gate = requireCloudEntry();
     if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
     return [200, boardPuzzlePayload(puzzle)];
@@ -2068,10 +2157,12 @@ const routes = {
     if (!puzzle) {
       return [404, { detail: '퍼즐을 찾을 수 없습니다', code: 'PUZZLE_NOT_FOUND' }];
     }
-    // 잠금은 **판정보다 먼저**(서버와 같은 순서).
+    // 잠금 둘 다 **판정보다 먼저**다(서버와 같은 순서). 진입(GET)만 막으면
+    // attempt를 직접 POST해서 판정·XP·클리어를 다 받아간다.
     if (lockedBoardDifficulties().has(puzzle.difficulty ?? 1)) {
       return [403, { detail: '내 정보에서 학습 수준을 올리면 열려요.', code: 'PUZZLE_LOCKED' }];
     }
+    if (!unlockedBoardIds().has(puzzle.content_item_id)) return boardLockedError();
     if (!body?.board_state) {
       return [422, { detail: '보드 상태(board_state)가 필요합니다', code: 'BOARD_STATE_REQUIRED' }];
     }
@@ -2106,6 +2197,9 @@ const routes = {
       );
       crownAward = grantUnitCrown(unit ?? null);
     }
+    // 퀘스트 전환 (CO-T-4) — 서버는 `if passed:` 안에서만 재계산한다. 미통과 시도가
+    // 보상을 말하면 "틀렸는데 뭔가 받았다"가 되므로 목도 같은 조건으로 가른다.
+    const questRewards = passed ? questTransitions() : [];
     return [
       200,
       {
@@ -2114,6 +2208,8 @@ const routes = {
         feedback,
         xp_earned: xpEarned,
         crown_award: crownAward,
+        quest_rewards: questRewards, // CO-T-4
+        bonus_xp: questRewards.reduce((sum, r) => sum + r.reward_xp, 0),
         // D10-1 (additive): 미통과 피드백 "구름 −1" 표기용 실측값
         clouds_spent: spend.clouds_spent,
         clouds: spend.clouds,
@@ -2606,6 +2702,8 @@ export const __mockPolicy = () => ({
   session_recipe: MOCK_SESSION_RECIPE,
   // daily 비진도 블록 board 상한 (server Settings.DAILY_BOARD_CAP — CO-H5)
   daily_board_cap: MOCK_DAILY_BOARD_CAP,
+  // 보드 순차 잠금 앞보기 (server routers/board.BOARD_UNLOCK_LOOKAHEAD — MT-24)
+  board_unlock_lookahead: MOCK_BOARD_UNLOCK_LOOKAHEAD,
   // 학령 (server schemas/auth.LevelGroup)
   level_groups: LEVEL_GROUPS,
   // 보드 난이도 잠금 (server routers/board.BAND_MAX_DIFFICULTY)

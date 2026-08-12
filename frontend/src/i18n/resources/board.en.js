@@ -10,6 +10,40 @@
 // 스모크는 이제 "ko 화면 무회귀"를 검증하고, en 품질은 이 파일이 소유한다.
 export default {
   board: {
+    // MT-28: board display dictionary (see boardDisplay.js).
+    meta: {
+      airMass: {
+        siberian: { label: 'Siberian air mass', hint: 'cold & dry' },
+        north_pacific: { label: 'North Pacific air mass', hint: 'hot & humid' },
+        yangtze: { label: 'Yangtze air mass', hint: 'warm & dry' },
+        okhotsk: { label: 'Okhotsk air mass', hint: 'cold & humid' },
+      },
+      front: {
+        cold: { label: 'Cold front', hint: 'cold air wedges in' },
+        warm: { label: 'Warm front', hint: 'warm air rides over' },
+        stationary: { label: 'Stationary front', hint: 'two air masses stall (monsoon rains)' },
+      },
+      phenomenon: {
+        shower: { label: 'Shower' },
+        rain: { label: 'Rain' },
+        persistent_rain: { label: 'Persistent rain (monsoon)' },
+        snow: { label: 'Snow' },
+        fog: { label: 'Fog' },
+        heatwave: { label: 'Heat wave' },
+        clear: { label: 'Clear' },
+        cloudy: { label: 'Cloudy' },
+        wildfire_risk: { label: 'Wildfire risk' },
+        flood_risk: { label: 'Flood risk' },
+      },
+      cloud: {
+        cumulonimbus: { label: 'Cumulonimbus' },
+        nimbostratus: { label: 'Nimbostratus' },
+        stratus: { label: 'Stratus' },
+        cumulus: { label: 'Cumulus' },
+        none: { label: 'No cloud' },
+      },
+      element: { moisture: 'Moisture', sun: 'Sunlight', wind: 'Wind' },
+    },
     common: {
       outOfClouds: '☁️ Your clouds have all drifted away',
     },
@@ -37,6 +71,9 @@ export default {
       retryChallenge: 'Challenge again',
       nextPuzzle: 'Next puzzle →',
       lastPuzzleDone: '🎉 You finished the last puzzle!',
+      // Deliberately not the completion line — nothing is finished, the next
+      // cell just is not open yet.
+      nextNotOpenYet: 'Pick your next puzzle from the list',
       title: '🧩 Atmosphere Board',
       subtitle: 'Place weather elements across 4 regions of the Korean Peninsula to create the target weather.',
       depletedBody1: 'Clouds only shrink by',
@@ -57,6 +94,12 @@ export default {
       lockedBannerCta: 'Change learning level',
       blockedSuffix: ' (out of clouds)',
       blockedTitle: 'Opens when a cloud recovers — in about {min} min',
+      // MT-24 sequential lock. Deliberately worded apart from the energy block:
+      // waiting fixes one, solving fixes the other. Also a **distinct key** from
+      // the level lock above — they had briefly collided after the merge and the
+      // later definition silently shadowed the earlier one (2026-08-12).
+      lockedHint: '🔒 Earlier puzzles first',
+      seqLockedTitle: 'Clear the puzzles before this one to open it',
       opening: 'Opening…',
       cleared: '✓ Cleared',
       challenge: 'Challenge',
@@ -114,6 +157,211 @@ export default {
       submit: 'Submit',
     },
     panel: {
+      // MT-28: in-scene labels shared by the SVG and WebGL cross-sections.
+      viz: {
+        altitude: 'Altitude',
+        surface: 'Surface',
+        strongSun: 'Strong sunlight',
+        clearSkyWildfire: 'Cloudless sky · wildfire risk',
+        cloudCannotGrow: 'Clouds cannot grow',
+        nimbostratusWide: 'Nimbostratus (broad, thick layer cloud)',
+        descendCompressWarm: 'Compressed and warmed on the way down',
+        foehnClear: 'Foehn wind — clear',
+        snowCloudDevelop: 'Snow clouds develop (air mass transformed)',
+        convectiveRise: 'Convective rise',
+        heatAccumulates: 'Hot air builds up — temperature ↑',
+        hotHumid: 'Hot & humid',
+        warmedAirRises: 'The warmed air rises',
+        warmDry: 'Warm & dry',
+        warmDryAirMass: 'A warm, dry body of air',
+        warmHumidAir: 'Warm, humid air',
+        warmAir: 'Warm air',
+        warmYellowSea: 'Warm Yellow Sea',
+        groundCannotAbsorb: 'The ground can absorb no more water',
+        groundRadiatesCools: 'The ground radiates heat and cools',
+        clearCalmNight: 'Clear night, light wind',
+        dryWarmWind: 'Dry, warm wind',
+        condenseByWater: 'Vapour condenses by the water',
+        driedLeavesTwigs: 'Leaves and twigs drained of moisture',
+        lowVapourNoSea: 'Little vapour — it never crossed the sea',
+        radiativeCooling: 'Radiative cooling — heat released',
+        northPacificMt: 'North Pacific air mass (mT)',
+        embersRideWind: 'Embers ride the wind',
+        rainCloudRefills: 'Rain clouds keep refilling',
+        monsoonCloudBand: 'Nimbostratus (monsoon cloud band)',
+        mountainRange: 'Mountain range',
+        westCoastSnow: 'Heavy west-coast snow',
+        strongWind: 'Strong wind',
+        vapourShortNoCloud: 'Too little vapour — no cloud can form',
+        condenseToSeaFog: 'Vapour condenses → sea fog',
+        condenseToFogLayer: 'Vapour condenses → fog layer',
+        vapourKeepsArriving: 'Vapour keeps streaming in',
+        humidAirSupply: 'Humid air supplied',
+        siberianCp: 'Siberian air mass (cP)',
+        coolsFromBelow: 'Cools from below',
+        yangtzeAirMass: 'Yangtze air mass',
+        heatVapourSupply: 'Heat & vapour supplied',
+        clearDespiteChurn: 'It churns, yet the sky stays clear',
+        rainOnRiseLosesWater: 'Rain on the climb — moisture lost',
+        okhotskAirMass: 'Okhotsk air mass',
+        noVapourToCondense: 'No vapour left to condense',
+        denseFogEarlyMorning: 'Early morning, dense fog',
+        cumulonimbus: 'Cumulonimbus',
+        stationaryFront: 'Stationary front',
+        groundHeating: 'Surface heating',
+        nearSurfaceCooling: 'Air near the surface cools',
+        coldDry: 'Cold & dry',
+        coldHumidAir: 'Cold, humid air',
+        coldHumid: 'Cold & humid',
+        coldAir: 'Cold air',
+        coldAirRetreating: 'Cold air (retreating)',
+        coldSea: 'Cold sea',
+        coldClearWinterSky: 'Cold, clear winter sky',
+        mildClearSky: 'Mild, clear spring/autumn sky',
+        heatwave: 'Heat wave',
+        liftsAfterSunrise: 'Lifts soon after sunrise',
+        fogLowCloudToShore: 'Fog and low cloud reaching the shore',
+        upglide: 'Upglide',
+      },
+      // MT-28: cross-section storyboards (see CrossSectionPanel STORYBOARDS).
+      // Step counts must match ko — crossSectionWebgl.contract checks steps.length
+      // against the WebGL SCENES stage count.
+      story: {
+        cold_front_shower: {
+          title: 'Cold front — a narrow, intense shower',
+          steps: [
+            'Cold air drives in fast beneath the warm air like a wedge.',
+            'The displaced warm, humid air is forced steeply up the frontal surface.',
+            'Inside the strong updraft, vapour condenses and cumulonimbus towers upward.',
+            'A brief, heavy shower falls over a narrow band near the front, sometimes with lightning.',
+          ],
+        },
+        stationary_front_monsoon: {
+          title: 'Stationary front — days of monsoon rain',
+          steps: [
+            'Cold and warm air of similar strength meet and hold their ground.',
+            'Neither gives way, so the front lingers in one place — a stationary front.',
+            'Humid air keeps feeding in from the south, building a thick nimbostratus band.',
+            'Rain falls over the same region for days, as in the monsoon season.',
+          ],
+        },
+        warm_front_steady_rain: {
+          title: 'Warm front — light rain over a wide area',
+          steps: [
+            'Warm air advances toward the retreating cold air.',
+            'The warm air glides up over the cold air along a gentle frontal surface.',
+            'Cooling slowly, it forms a layered nimbostratus sheet across a wide area.',
+            'Light rain falls steadily over that wide area for a long time.',
+          ],
+        },
+        siberian_snow: {
+          title: 'Siberian air mass transformed — heavy west-coast snow',
+          steps: [
+            'The cold, dry Siberian air mass (cP) moves southward.',
+            'Crossing the warm Yellow Sea, it draws heat and vapour from the water.',
+            'Its lower layer is transformed and snow clouds develop in rows.',
+            'Heavy snow falls where those snow clouds reach the west coast.',
+          ],
+        },
+        convective_shower: {
+          title: 'Convection — a midsummer afternoon shower',
+          steps: [
+            'Strong midsummer sunlight heats the ground.',
+            'The warmed, humid air becomes lighter and rises vigorously — convection.',
+            'As it cools, vapour condenses and cumulonimbus grows tall.',
+            'Even with no front, a shower pours over a small area for part of the afternoon.',
+          ],
+        },
+        radiation_fog: {
+          title: 'Radiation fog — mist on a clear dawn',
+          steps: [
+            'On a clear, cloudless night the ground radiates heat away and cools quickly.',
+            'Air touching the chilled ground cools with it, from the bottom up.',
+            'Vapour in that cooled air condenses into a fog layer blanketing the surface.',
+            'Dense fog lies low until the early morning sunrise.',
+          ],
+        },
+        north_pacific_heatwave: {
+          title: 'North Pacific air mass — midsummer heat wave',
+          steps: [
+            'The hot, humid North Pacific air mass (mT) settles broadly over the country.',
+            'Strong sunlight through the clear sky keeps heating the surface.',
+            'Hot air cannot escape and builds up, so temperatures climb sharply.',
+            'Midsummer swelter — the heat wave persists.',
+          ],
+        },
+        siberian_clear: {
+          title: 'Siberian air mass — a cold, clear winter',
+          steps: [
+            'The cold, dry Siberian air mass (cP) settles in.',
+            'The air is dry and short of vapour, so clouds barely form.',
+            'A cloudless sky — cold but clear winter weather.',
+          ],
+        },
+        okhotsk_sea_fog: {
+          title: 'Okhotsk air mass — fog born of a cold sea',
+          steps: [
+            'The cold, humid Okhotsk air mass pushes toward the East Sea.',
+            'Passing over the cold water, the humid air cools from its lowest layer first.',
+            'Vapour condenses in that cooled layer and fog spreads over the sea.',
+            'Fog and low cloud reach the shore, leaving the early-summer east coast cool and overcast.',
+          ],
+        },
+        okhotsk_foehn_clear: {
+          title: 'Foehn wind — a sky cleared by crossing the mountains',
+          steps: [
+            'Cold, humid air from the east meets the range and climbs the slope.',
+            'Cooling as it rises, it drops rain on the eastern side and loses nearly all its moisture.',
+            'The dried air crosses the ridge and warms as it is compressed on the way down.',
+            'West of the range a dry, warm wind blows under a cloudless sky — the foehn.',
+          ],
+        },
+        yangtze_mild_clear: {
+          title: 'Yangtze air mass — mild, clear spring and autumn',
+          steps: [
+            'The warm, dry Yangtze air mass moves our way in spring and autumn.',
+            'It does not travel far over sea, so it carries little vapour.',
+            'With too little vapour to condense, clouds cannot grow.',
+            'Mild, clear spring and autumn weather continues.',
+          ],
+        },
+        yangtze_morning_fog: {
+          title: 'Yangtze air mass — dawn fog by the river',
+          steps: [
+            'Under a blanket of warm, dry air the night sky is clear and the wind light.',
+            'With no cloud to cover it, the ground radiates heat away and cools quickly.',
+            'Where moisture gathers — by rivers or in basins — vapour in the cooled air condenses.',
+            'Low fog settles at dawn, then lifts soon after the sun warms the ground.',
+          ],
+        },
+        dry_convection_clear: {
+          title: 'Dry convection — a cloudless clear sky',
+          steps: [
+            'Strong sunlight heats the ground, and the warmed air lightens and rises.',
+            'The rising air expands and cools, but holds almost no vapour.',
+            'With no vapour to condense into droplets, no cloud forms.',
+            'The air churns up and down, yet the sky stays clear.',
+          ],
+        },
+        wildfire_risk_dry_gale: {
+          title: 'Dry air + gale — a day wildfire spreads easily',
+          steps: [
+            'When the air is parched, moisture drains out of fallen leaves and twigs.',
+            'A strong wind sweeps across the dry ground.',
+            'The wind carries embers far and keeps feeding them oxygen.',
+            'Not a cloud in the sky — yet the weather in which fire spreads the fastest.',
+          ],
+        },
+        flood_risk_saturated_inflow: {
+          title: 'Saturation + vapour inflow — a day of flooding',
+          steps: [
+            'A strong wind carries vapour in from the sea without pause.',
+            'As soon as one rain band spends itself, the next fills its place.',
+            'So the rain never stops and keeps falling on the same spot.',
+            'It passes what the ground can absorb, and water begins to pool.',
+          ],
+        },
+      },
       badgeConfirmed: '✓ Server verdict',
       badgePreview: 'Preview',
       badgeStatic: 'Static view',
@@ -131,12 +379,50 @@ export default {
       jumpTo: 'Go to step {n}',
     },
     map: {
+      // MT-28: zone display names overriding the server's Korean values.
+      // Keyed by zone index (ZONES is contractually fixed at 0..3).
+      zone: { 0: 'West Sea', 1: 'Metro Seoul', 2: 'Yeongseo · Taebaek', 3: 'Yeongdong · East Sea' },
+      // MT-28: rule annotations (see mapInfographic RULE_ANNOTATIONS).
+      // The \n keeps the leader-line label on two lines.
+      annotation: {
+        cold_front_shower: 'Cold front passes,\nshowers & lightning',
+        stationary_front_monsoon: 'Stationary front forms,\ntorrential rain',
+        warm_front_steady_rain: 'Warm front approaches,\nwide light rain',
+        siberian_snow: 'Air mass transforms,\nwest-coast snowfall',
+        convective_shower: 'Strong insolation,\nafternoon convective shower',
+        radiation_fog: 'Radiative cooling,\ndense dawn fog',
+        north_pacific_heatwave: 'Hot humid air,\npersistent heat wave',
+        siberian_clear: 'Cold dry air,\nclear and cold',
+      },
       mapAria: 'Korean Peninsula atmosphere board map — place elements on the 4 region nodes',
       zoneAria: '{name} zone{goal} — currently {phenomenon}',
       goalSuffix: ' (goal zone)',
     },
   },
   explore: {
+    // MT-21: satellite schematic (modules/explore/SatelliteView.jsx).
+    // schematicBadge is a contract, not decoration — the panel must say it is not
+    // real imagery (the re-scope from KMA photography is what made F3 feasible).
+    satellite: {
+      warming: 'Preparing satellite imagery…',
+      play: 'Play',
+      pause: 'Pause',
+      timeAria: 'Typhoon life stage — from genesis to dissipation',
+      stage: 'Strength {pct}%',
+      title: '🛰️ Satellite cloud schematic',
+      productLine: 'WEATHERMIND SIM · IR 10.5um · SIMULATED PRODUCT',
+      noSystem: 'No developed system — only scattered low cloud',
+      schematicBadge: 'Not real imagery · educational schematic',
+      rampLow: 'Low cloud',
+      rampHigh: 'High, cold cloud',
+      ariaNone: 'Satellite schematic — no typhoon formed, only scattered low cloud',
+      ariaEye: 'Satellite schematic — the cloud shield is symmetric with a clear eye at the centre',
+      ariaSheared: 'Satellite schematic — the cloud shield is pushed to one side, exposing the centre',
+      readNone: 'The sea is not warm enough for cloud to gather in one place. On satellite you would see only scattered low cloud.',
+      readGrowing: 'A cloud shield is growing around the centre. A little stronger and the middle will open into an eye.',
+      readEye: 'Cloud wraps the centre evenly and the middle has opened — that is the eye. It means shear is weak and the column stands upright, so the satellite view alone tells you this is a well-developed typhoon.',
+      readSheared: 'The cloud shield is displaced to one side and the centre is exposed. Winds aloft and below are misaligned, tilting the column — in real satellite reading this shape is the first clue that shear is strong.',
+    },
     common: {
       back: '← Discovery',
       whyTitle: '🤔 Why does this happen?',

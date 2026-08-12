@@ -387,9 +387,11 @@ def run_complete(monkeypatch, session, logs, *, award=None, unit_payload=None):
 
     async def fake_badge(db, user_id, badge):
         calls["badge"] = badge
+        return False  # 신규 지급 아님 — 라우터가 bool로 분기한다 (CO-T-4)
 
     async def fake_quests(db, user, day):
         calls["quests"] = day
+        return []  # 전환 목록(라우터가 소비) — CO-T-4
 
     # 예보 마감 단계(R13 A-1)는 duels 조회 + KMA 캐시를 타므로 이 배선 하네스의
     # 관심사가 아니다 — 단계 없음으로 고정한다. 판정 자체는
@@ -588,6 +590,11 @@ def run_attempt(
     async def fake_cleared(db, user):
         return {item.id} if already_cleared else set()
 
+    async def fake_unlocked(db, user, cleared):
+        # MT-24: 이 하네스의 관심사는 왕관 배선이지 잠금이 아니다 — 열린 것으로 고정.
+        # 잠금 판정 자체는 tests/test_board_progression.py가 단독으로 문다.
+        return {item.id}
+
     async def fake_quiz_id(db, user, content_item_id):
         return "board-테스트-001"
 
@@ -596,7 +603,7 @@ def run_attempt(
         return award
 
     async def fake_quests(db, user, day):
-        pass
+        return []  # 전환 목록(라우터가 소비) — CO-T-4
 
     monkeypatch.setattr(board_router.board_engine, "validate_board", fake_validate)
     monkeypatch.setattr(board_router.energy_service, "get_state", fake_state)
@@ -608,6 +615,7 @@ def run_attempt(
         board_router.board_engine, "select_feedback", fake_feedback
     )
     monkeypatch.setattr(board_router, "_cleared_item_ids", fake_cleared)
+    monkeypatch.setattr(board_router, "_unlocked_ids_for", fake_unlocked)
     monkeypatch.setattr(board_router, "_next_board_quiz_id", fake_quiz_id)
     monkeypatch.setattr(cs, "award_crown_for_activity", fake_award)
     monkeypatch.setattr(

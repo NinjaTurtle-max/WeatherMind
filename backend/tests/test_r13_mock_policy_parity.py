@@ -94,6 +94,17 @@ class TestSessionRecipe:
         """
         assert policy["daily_board_cap"] == settings.DAILY_BOARD_CAP
 
+    def test_보드_잠금_앞보기가_같다(self, policy):
+        """MT-24 — 목이 잠금 규칙을 흉내 내되 **앞보기 칸 수까지** 같아야 한다.
+
+        이 값이 갈리면 목 위 스모크에서는 3칸이 열리는데 실서버에서는 1칸만
+        열리는(또는 그 반대) 화면이 된다. 잠금은 학습자가 **무엇을 할 수 있는지**를
+        정하므로, 갈린 채로 초록이면 스모크가 검증하는 동선 자체가 실서버에 없다.
+        """
+        from app.routers.board import BOARD_UNLOCK_LOOKAHEAD
+
+        assert policy["board_unlock_lookahead"] == BOARD_UNLOCK_LOOKAHEAD
+
 
 @needs_node
 class TestLevelGroups:

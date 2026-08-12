@@ -58,7 +58,25 @@ from pydantic import BaseModel
 
 from app.chains import knowledge_level as kl
 from app.chains.json_output import extract_json_object
-from app.config import llm_configured, settings
+# ⚠️ **최상위 import여야 한다.** author_items.py가 sys.modules 스왑으로 ai-worker를
+# 격리 임포트하는데(backend와 `app` 패키지명 공유), 함수 안에서 지연 import하면
+# **스왑이 끝난 뒤** 실행돼 backend의 `app`을 뒤져 ModuleNotFoundError가 난다.
+# llm_provider 자체는 langchain을 최상단에서 안 끌므로 여기 둬도 안전하다.
+from app.llm_provider import PURPOSE_VALIDATE, build_chat_model, effective_spec, resolve_spec, spec_is_usable
+
+
+def _llm_available() -> bool:
+    """이 용도의 LLM을 부를 수 있는가 (CO-B7).
+
+    ⚠️ **`llm_configured()`만 보면 안 된다.** 그건 `GEMINI_API_KEY`만 확인하므로,
+    이 용도를 gpt-oss(OpenAI 호환)로 라우팅해도 "키 없음"으로 판정돼 **LLM 경로가
+    영영 안 열린다** — 프로바이더 통로를 뚫어 놓고 문을 잠가 두는 셈이다.
+    Gemini로 해석되면 종전과 똑같이 `llm_configured()`가 답한다(하위호환).
+    """
+    # **effective_spec**을 본다 — 서빙 모드·예산 강등이 반영된 실제 스펙이다.
+    # resolve_spec(설정값)만 보면 예산이 소진돼도 "호출 가능"이라 답해서,
+    # 체인이 LLM을 부르러 갔다가 빈 스펙으로 실패하고 예외 경로로 떨어진다.
+    return spec_is_usable(effective_spec(PURPOSE_VALIDATE)[0])
 
 logger = logging.getLogger(__name__)
 
@@ -788,7 +806,7 @@ def _parse_llm_output(raw: str) -> LLMValidationResult:
     return LLMValidationResult(**extract_json_object(raw))
 
 
-# (model, api_key, temperature) → ChatGoogleGenerativeAI 캐시 (R7-02 S7 지연 완화).
+# (해석된 스펙, temperature) → LLM 클라이언트 캐시 (R7-02 S7 지연 완화).
 # langchain 의존성 부재 환경에서도 모듈 임포트가 깨지지 않도록 lru_cache 대신
 # 지연 임포트를 유지하는 모듈 전역 dict를 쓴다. 성공한 인스턴스만 캐시하므로
 # 생성 실패 시 llm_skipped 폴백 동작은 기존과 동일하다.
@@ -796,17 +814,16 @@ _llm_cache: dict[tuple, object] = {}
 
 
 def _cached_validate_llm(temperature: float):
-    """settings 기준으로 검증용 Gemini 클라이언트를 캐시에서 얻는다 (지연 임포트)."""
-    from langchain_google_genai import ChatGoogleGenerativeAI
+    """검증용 LLM 클라이언트를 캐시에서 얻는다 (지연 임포트).
 
-    key = (settings.GEMINI_MODEL, settings.GEMINI_API_KEY, temperature)
+    프로바이더는 env가 정한다(CO-B7) — 캐시 키에 **해석된 스펙**을 실어야
+    모델을 갈아끼웠을 때 옛 클라이언트가 재사용되지 않는다.
+    """
+    spec = resolve_spec(PURPOSE_VALIDATE)
+    key = (spec.provider, spec.model, spec.base_url, spec.api_key, temperature)
     llm = _llm_cache.get(key)
     if llm is None:
-        llm = ChatGoogleGenerativeAI(
-            model=settings.GEMINI_MODEL,
-            google_api_key=settings.GEMINI_API_KEY,
-            temperature=temperature,
-        )
+        llm = build_chat_model(temperature, purpose=PURPOSE_VALIDATE)
         _llm_cache[key] = llm
     return llm
 
@@ -817,7 +834,7 @@ def run_llm_checks(question: dict, concept_tag: str, level_group: str) -> list[d
     1차 시도(temperature 0.2) → 파싱/검증 실패 시 temperature 0.0으로 1회 재시도
     → 2회 연속 실패 시 예외를 올린다 (호출부가 llm_skipped로 폴백).
     """
-    if not llm_configured():
+    if not _llm_available():
         # 키 미설정 시 LLM 시도 없이 즉시 예외 → 호출부의 llm_skipped 폴백(기존 경로).
         raise RuntimeError("GEMINI 키 미설정 — 2단 LLM 검증 생략")
 
@@ -1100,7 +1117,7 @@ def validate_quiz(question: dict, concept_tag: str, level_group: str) -> dict:
         checks.append(
             _check("llm_skipped", True, "1단 휴리스틱 실패로 2단 LLM 검증 생략")
         )
-    elif not llm_configured():
+    elif not _llm_available():
         # `settings.GEMINI_API_KEY` 진리값만 보면 **플레이스홀더 키**(.env.example의
         # "발급받은_키")에서 2단에 진입해 `run_llm_checks`가 즉시 예외를 내고, 사유가
         # "키 부재"가 아니라 "LLM 호출 실패"로 기록된다. 기능은 안 깨지지만 저작 배치
