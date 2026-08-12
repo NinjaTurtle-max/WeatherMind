@@ -82,6 +82,8 @@ export default {
       missionSandbox: '🧪 자유 실험',
       timerTitle: '제한 시간',
       basedOn: '실화 ·',
+      guidePanelTitle: '가이드',
+      guideClose: '가이드 닫기',
       guidePrefix: '안내 {step}/{total}:',
       guideNext: '다음 안내 →',
       paletteHeader: '요소 팔레트 (탭해서 고른 뒤 존을 탭하거나, 끌어다 놓으세요)',

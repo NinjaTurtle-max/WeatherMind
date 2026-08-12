@@ -178,10 +178,28 @@ try {
     const verdictLine = body.split('\n').find((l) => l.includes('{verdictBlock}') && l.includes('order-'));
     check('wide: 판정 블록이 좁은 화면 순서를 갖는다(order-*)', Boolean(verdictLine));
 
-    // 「가이드」 카드는 wide에서 **없어야 한다**(2026-08-12 사용자 지시 —
-    // "오른쪽 하단 가이드는 없애고 애니메이션/해설이 더 집중될 수 있게").
-    // 되살리면 오른쪽 열 세로를 다시 먹어 이번에 키운 단면이 도로 작아진다.
-    check('wide: 가이드 카드가 없다', !src.includes('guidePanel'));
+    // 「가이드」는 **열 안의 카드가 아니라 배너에서 여는 오버레이**다
+    // (2026-08-12 사용자 지시 — 목표 진행 칩 자리를 가이드가 쓰고, 누르면
+    // 회색 카드가 뜬다). 두 열이 같은 높이로 끝나는 배치라 어느 열에 카드를
+    // 넣든 반대쪽에 ~150px 흰 자리가 생긴다(세 배치 실측). 열 안으로
+    // 되돌리면 그 여백이 그대로 돌아온다.
+    // ⚠️ indexOf를 그대로 slice에 넣지 말 것 — 격자 클래스를 조정하면 -1이 되고
+    // slice(-1)은 **한 글자**가 돼 아래 단정이 영원히 공허하게 통과한다.
+    const colsAt = body.indexOf('lg:grid-cols-[minmax(0,1.25fr)');
+    check('wide: 두 열 격자를 찾았다', colsAt > 0);
+    const colsBody = colsAt > 0 ? body.slice(colsAt) : '';
+    check('wide: 가이드가 두 열 안에 카드로 있지 않다', colsAt > 0 && !colsBody.includes('guidePopover'));
+    check('wide: 가이드 오버레이가 배너에 있다', /hasGuide\s*\?\s*guidePopover/.test(body));
+    // 떠 있는 카드는 **격자 높이에 영향을 주지 않아야** 한다 — absolute가 빠지면
+    // 배너가 카드만큼 늘어나 단면이 밀린다.
+    check('wide: 가이드 카드가 absolute로 떠 있다', /id="board-guide-panel"[\s\S]{0,900}?absolute/.test(src));
+    // 폰에서는 칩이 배너 왼쪽 끝으로 내려온다 — right-0만 두면 카드가 칩의
+    // 오른쪽 끝 기준으로 왼쪽에 펼쳐져 화면 밖(390px에서 좌 -181px)으로 나간다.
+    const popoverClass = src.match(/id="board-guide-panel"[\s\S]{0,900}?className="([^"]*)"/)?.[1] ?? '';
+    check(
+      `가이드 카드: 좁은 화면은 left, sm↑는 right로 편다 — "${popoverClass.slice(0, 60)}…"`,
+      /(^|\s)left-0(\s|$)/.test(popoverClass) && /(^|\s)sm:right-0(\s|$)/.test(popoverClass),
+    );
 
     // 힌트는 조절값 열 아래에 **한 번만** 그려진다. 좁은 화면용을 따로 두고
     // CSS로 감추면 BoardHintPanel이 두 개 마운트돼 data-testid가 중복된다.

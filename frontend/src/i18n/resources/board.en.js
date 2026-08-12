@@ -77,6 +77,8 @@ export default {
       missionSandbox: '🧪 Free experiment',
       timerTitle: 'Time limit',
       basedOn: 'Based on a real event ·',
+      guidePanelTitle: 'Guide',
+      guideClose: 'Close guide',
       guidePrefix: 'Guide {step}/{total}:',
       guideNext: 'Next guide →',
       paletteHeader: 'Element palette (tap to pick, then tap a zone — or drag and drop)',
