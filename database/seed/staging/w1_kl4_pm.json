@@ -7,10 +7,10 @@
     "template_json": {
       "question_text": "수증기가 물방울로 응결할 때 둘레 공기에 일어나는 일로 알맞은 것은 무엇인가?",
       "options": [
-        "잠열이 나와 공기가 데워진다",
-        "잠열을 빨아들여 공기가 식는다",
+        "공기의 무게가 늘어난다",
         "공기의 열이 그대로 유지된다",
-        "공기의 무게가 늘어난다"
+        "잠열을 빨아들여 공기가 식는다",
+        "잠열이 나와 공기가 데워진다"
       ],
       "correct_answer": "잠열이 나와 공기가 데워진다",
       "explanation_hint": "물이 수증기로 바뀔 때 빨아들였던 열이 응결하면서 다시 나온다. 이 잠열이 구름 속 공기를 데워 상승기류를 더 강하게 만든다."
@@ -18,7 +18,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 대기를 한 계로 본다", "잠열 introduced_at=3 — 4단계에서 안전"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 대기를 한 계로 본다",
+        "잠열 introduced_at=3 — 4단계에서 안전"
+      ]
     },
     "status": "active"
   },
@@ -42,7 +45,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 대기 연직 과정", "단열 팽창·이슬점·적란운 전부 introduced_at=4"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 대기 연직 과정",
+        "단열 팽창·이슬점·적란운 전부 introduced_at=4"
+      ]
     },
     "status": "active"
   },
@@ -59,7 +65,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 대기·해양을 한 계로", "대기 대순환은 4단계 어휘"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 대기·해양을 한 계로",
+        "대기 대순환은 4단계 어휘"
+      ]
     },
     "status": "active"
   },
@@ -71,9 +80,9 @@
     "template_json": {
       "question_text": "기온이 그대로인데 공기 중 수증기량만 늘어나면 이슬점은 어떻게 되는가?",
       "options": [
-        "높아진다",
-        "낮아진다",
         "변하지 않는다",
+        "낮아진다",
+        "높아진다",
         "0℃로 고정된다"
       ],
       "correct_answer": "높아진다",
@@ -82,7 +91,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 이슬점의 정의", "이슬점 introduced_at=4"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 이슬점의 정의",
+        "이슬점 introduced_at=4"
+      ]
     },
     "status": "active"
   },
@@ -99,7 +111,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 포화 개념", "포화수증기량 introduced_at=4"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 포화 개념",
+        "포화수증기량 introduced_at=4"
+      ]
     },
     "status": "active"
   },
@@ -111,9 +126,18 @@
     "template_json": {
       "question_text": "물의 상태 변화와 그때 열이 드나드는 방향을 짝지어라.",
       "pairs": [
-        { "left": "물이 수증기가 된다", "right": "둘레에서 열을 빼앗아 공기가 식는다" },
-        { "left": "수증기가 물방울이 된다", "right": "둘레로 열을 내놓아 공기가 데워진다" },
-        { "left": "얼음이 곧바로 수증기가 된다", "right": "녹는 단계를 건너뛰고 열을 빼앗는다" }
+        {
+          "left": "물이 수증기가 된다",
+          "right": "둘레에서 열을 빼앗아 공기가 식는다"
+        },
+        {
+          "left": "수증기가 물방울이 된다",
+          "right": "둘레로 열을 내놓아 공기가 데워진다"
+        },
+        {
+          "left": "얼음이 곧바로 수증기가 된다",
+          "right": "녹는 단계를 건너뛰고 열을 빼앗는다"
+        }
       ],
       "correct_answer": "물이 수증기가 된다:둘레에서 열을 빼앗아 공기가 식는다|수증기가 물방울이 된다:둘레로 열을 내놓아 공기가 데워진다|얼음이 곧바로 수증기가 된다:녹는 단계를 건너뛰고 열을 빼앗는다",
       "explanation_hint": "알갱이 사이가 멀어지는 쪽으로 바뀔 때는 열이 필요하고, 가까워지는 쪽으로 바뀔 때는 열이 나온다. 겨울에 빨래가 언 채로 마르는 것이 세 번째 경우다."
@@ -121,7 +145,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 상태 변화와 잠열", "세 짝이 같은 원리의 서로 다른 적용"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 상태 변화와 잠열",
+        "세 짝이 같은 원리의 서로 다른 적용"
+      ]
     },
     "status": "active"
   },
@@ -133,10 +160,10 @@
     "template_json": {
       "question_text": "맑고 바람이 약한 밤에 도시와 시골의 기온 차가 가장 크게 벌어지는 까닭으로 알맞은 것은 무엇인가?",
       "options": [
-        "시골은 복사냉각이 잘 일어나는데 도시는 낮에 저장한 열을 계속 내놓기 때문이다",
-        "도시에만 바람이 불기 때문이다",
         "시골의 공기가 도시보다 무겁기 때문이다",
-        "도시에서만 해가 늦게 지기 때문이다"
+        "도시에서만 해가 늦게 지기 때문이다",
+        "도시에만 바람이 불기 때문이다",
+        "시골은 복사냉각이 잘 일어나는데 도시는 낮에 저장한 열을 계속 내놓기 때문이다"
       ],
       "correct_answer": "시골은 복사냉각이 잘 일어나는데 도시는 낮에 저장한 열을 계속 내놓기 때문이다",
       "explanation_hint": "구름과 바람이 없으면 지면이 열을 하늘로 잘 내보내 크게 식는다. 그런데 도시의 콘크리트와 아스팔트는 낮에 저장한 열을 밤새 내놓아 덜 식는다."
@@ -144,7 +171,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 지면과 대기의 열 교환", "복사냉각 introduced_at=4"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 지면과 대기의 열 교환",
+        "복사냉각 introduced_at=4"
+      ]
     },
     "status": "active"
   },
@@ -161,7 +191,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 대응 기술", "증발의 냉각 효과를 전제로 한다"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 대응 기술",
+        "증발의 냉각 효과를 전제로 한다"
+      ]
     },
     "status": "active"
   },
@@ -173,10 +206,10 @@
     "template_json": {
       "question_text": "지표 부근 공기가 위쪽 공기보다 훨씬 따뜻할 때 대기는 어떤 상태가 되는가?",
       "options": [
-        "위아래가 잘 섞이는 불안정한 상태",
+        "기압이 사라진 상태",
         "위아래가 섞이지 않는 안정한 상태",
-        "바람이 완전히 멎은 상태",
-        "기압이 사라진 상태"
+        "위아래가 잘 섞이는 불안정한 상태",
+        "바람이 완전히 멎은 상태"
       ],
       "correct_answer": "위아래가 잘 섞이는 불안정한 상태",
       "explanation_hint": "아래가 더 따뜻하면 그 공기가 가벼워 위로 솟는다. 그래서 위아래가 활발히 섞이고 구름이 잘 자란다."
@@ -184,7 +217,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 대기 안정도의 정성 이해", "감률·단열선도는 7·8단계 — 쓰지 않는다"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 대기 안정도의 정성 이해",
+        "감률·단열선도는 7·8단계 — 쓰지 않는다"
+      ]
     },
     "status": "active"
   },
@@ -201,7 +237,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 단열 변화", "단열 팽창 introduced_at=4"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 단열 변화",
+        "단열 팽창 introduced_at=4"
+      ]
     },
     "status": "active"
   },
@@ -213,10 +252,10 @@
     "template_json": {
       "question_text": "고기압 한가운데에서 날씨가 대체로 맑은 까닭으로 알맞은 것은 무엇인가?",
       "options": [
-        "하강기류가 생겨 구름이 흩어지기 때문이다",
         "상승기류가 강해 구름이 걷히기 때문이다",
         "수증기가 아예 없기 때문이다",
-        "바람이 구름을 밀어내기 때문이다"
+        "바람이 구름을 밀어내기 때문이다",
+        "하강기류가 생겨 구름이 흩어지기 때문이다"
       ],
       "correct_answer": "하강기류가 생겨 구름이 흩어지기 때문이다",
       "explanation_hint": "고기압에서는 공기가 위에서 아래로 내려온다. 내려오는 공기는 눌리며 데워져 구름이 만들어지지 못하고 있던 구름도 흩어진다."
@@ -224,7 +263,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 기압계와 날씨", "단열 압축 introduced_at=4"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 기압계와 날씨",
+        "단열 압축 introduced_at=4"
+      ]
     },
     "status": "active"
   },
@@ -236,9 +278,18 @@
     "template_json": {
       "question_text": "기압계와 그때 나타나는 날씨를 짝지어라.",
       "pairs": [
-        { "left": "고기압", "right": "하강기류가 생겨 대체로 맑다" },
-        { "left": "저기압", "right": "상승기류가 생겨 흐리거나 비가 온다" },
-        { "left": "정체전선", "right": "한자리에 머물며 오래 비를 뿌린다" }
+        {
+          "left": "고기압",
+          "right": "하강기류가 생겨 대체로 맑다"
+        },
+        {
+          "left": "저기압",
+          "right": "상승기류가 생겨 흐리거나 비가 온다"
+        },
+        {
+          "left": "정체전선",
+          "right": "한자리에 머물며 오래 비를 뿌린다"
+        }
       ],
       "correct_answer": "고기압:하강기류가 생겨 대체로 맑다|저기압:상승기류가 생겨 흐리거나 비가 온다|정체전선:한자리에 머물며 오래 비를 뿌린다",
       "explanation_hint": "공기가 내려오면 구름이 흩어지고 올라가면 구름이 생긴다. 이 한 가지 원리가 세 경우의 날씨를 모두 설명한다."
@@ -246,7 +297,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 기압계 종합", "정체전선 introduced_at=4"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 기압계 종합",
+        "정체전선 introduced_at=4"
+      ]
     },
     "status": "active"
   },
@@ -258,10 +312,10 @@
     "template_json": {
       "question_text": "바닷가 지역이 같은 위도의 내륙보다 일교차와 연교차가 모두 작은 까닭은 무엇인가?",
       "options": [
-        "물의 비열이 커서 바다가 천천히 데워지고 천천히 식기 때문이다",
         "바닷가에 햇빛이 덜 들기 때문이다",
-        "바닷물이 스스로 열을 내기 때문이다",
-        "바닷가의 공기가 더 무겁기 때문이다"
+        "물의 비열이 커서 바다가 천천히 데워지고 천천히 식기 때문이다",
+        "바닷가의 공기가 더 무겁기 때문이다",
+        "바닷물이 스스로 열을 내기 때문이다"
       ],
       "correct_answer": "물의 비열이 커서 바다가 천천히 데워지고 천천히 식기 때문이다",
       "explanation_hint": "바다는 비열이 커서 온도가 잘 바뀌지 않는다. 그 바다에 맞닿은 공기도 함께 완만해져 바닷가의 기온 변화가 작아진다."
@@ -269,7 +323,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 해양이 대기에 주는 영향", "비열(3단계)을 계 규모로 확장 = 4단계"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 해양이 대기에 주는 영향",
+        "비열(3단계)을 계 규모로 확장 = 4단계"
+      ]
     },
     "status": "active"
   },
@@ -280,14 +337,22 @@
     "question_type": "multiple_choice",
     "template_json": {
       "question_text": "짧은 시간에 좁은 지역으로 매우 강한 비를 쏟는 구름은 무엇인가?",
-      "options": ["적란운", "층운", "안개", "얇게 퍼진 구름"],
+      "options": [
+        "안개",
+        "얇게 퍼진 구름",
+        "적란운",
+        "층운"
+      ],
       "correct_answer": "적란운",
       "explanation_hint": "적란운은 위아래로 크게 발달한 구름이라 물방울을 아주 많이 품는다. 그래서 좁은 지역에 짧고 강한 비를 쏟아 도시 침수를 일으킨다."
     },
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 구름과 강수", "적란운·층운 introduced_at=4 · 십운형 명칭(권운 등)은 8단계라 오답 선지에도 쓰지 않는다 — 게이트는 본문 전체를 본다"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 구름과 강수",
+        "적란운·층운 introduced_at=4 · 십운형 명칭(권운 등)은 8단계라 오답 선지에도 쓰지 않는다 — 게이트는 본문 전체를 본다"
+      ]
     },
     "status": "active"
   },
@@ -304,7 +369,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 전선의 종류", "정체전선 introduced_at=4 · '장마'는 name_ok_from=1"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 전선의 종류",
+        "정체전선 introduced_at=4 · '장마'는 name_ok_from=1"
+      ]
     },
     "status": "active"
   },
@@ -316,9 +384,9 @@
     "template_json": {
       "question_text": "봄철 동해안에 산불이 크게 번지기 쉬운 까닭으로 알맞은 것은 무엇인가?",
       "options": [
+        "동해의 물이 얼기 때문이다",
         "산을 넘어온 공기가 단열 압축으로 데워지고 메말라지기 때문이다",
         "동해안에만 비가 많이 오기 때문이다",
-        "동해의 물이 얼기 때문이다",
         "동해안에 나무가 없기 때문이다"
       ],
       "correct_answer": "산을 넘어온 공기가 단열 압축으로 데워지고 메말라지기 때문이다",
@@ -327,7 +395,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 지형과 대기", "'푄'은 8단계 이름이라 쓰지 않고 과정으로 서술 · 단열 압축은 4단계"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 지형과 대기",
+        "'푄'은 8단계 이름이라 쓰지 않고 과정으로 서술 · 단열 압축은 4단계"
+      ]
     },
     "status": "active"
   },
@@ -340,9 +411,9 @@
       "question_text": "지구의 평균기온이 오랫동안 크게 변하지 않았다면 들어온 태양 에너지와 나간 에너지는 어떤 관계인가?",
       "options": [
         "두 양이 같다",
-        "들어온 쪽이 훨씬 많다",
+        "둘은 아무 관계가 없다",
         "나간 쪽이 훨씬 많다",
-        "둘은 아무 관계가 없다"
+        "들어온 쪽이 훨씬 많다"
       ],
       "correct_answer": "두 양이 같다",
       "explanation_hint": "들어온 양이 더 많으면 기온이 계속 오르고, 나간 양이 많으면 계속 내려간다. 평균기온이 유지된다는 것은 두 양이 균형을 이룬다는 뜻이다."
@@ -350,7 +421,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 복사 평형", "복사 평형은 4단계 어휘 · 알베도(8단계)는 쓰지 않는다"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 복사 평형",
+        "복사 평형은 4단계 어휘 · 알베도(8단계)는 쓰지 않는다"
+      ]
     },
     "status": "active"
   },
@@ -362,9 +436,9 @@
     "template_json": {
       "question_text": "온실기체가 늘어나면 지구의 복사 평형은 어떻게 바뀌는가?",
       "options": [
-        "더 높은 기온에서 새 평형을 이룬다",
         "더 낮은 기온에서 새 평형을 이룬다",
         "평형이 아예 사라진다",
+        "더 높은 기온에서 새 평형을 이룬다",
         "기온과 상관없이 그대로다"
       ],
       "correct_answer": "더 높은 기온에서 새 평형을 이룬다",
@@ -373,7 +447,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=4 · 중학 유체지구 — 복사 평형의 이동", "온실효과 introduced_at=4"]
+      "refs": [
+        "knowledge_level=4 · 중학 유체지구 — 복사 평형의 이동",
+        "온실효과 introduced_at=4"
+      ]
     },
     "status": "active"
   }

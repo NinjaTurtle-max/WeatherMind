@@ -6,14 +6,22 @@
     "question_type": "multiple_choice",
     "template_json": {
       "question_text": "겨울철 체감온도를 산출할 때 기온과 함께 쓰는 요소는 무엇인가?",
-      "options": ["풍속", "습도", "기압", "일사량"],
+      "options": [
+        "일사량",
+        "기압",
+        "풍속",
+        "습도"
+      ],
       "correct_answer": "풍속",
       "explanation_hint": "겨울에는 바람이 피부 가까이의 따뜻한 공기층을 걷어내 실제 기온보다 춥게 느껴진다. 그래서 겨울 체감온도는 기온과 풍속으로, 여름 체감온도는 기온과 습도로 계산한다."
     },
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 체감온도 산출 요소", "구조를 묻는다 — 산출식 계수는 개정에 취약해 쓰지 않았다"]
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 — 체감온도 산출 요소",
+        "구조를 묻는다 — 산출식 계수는 개정에 취약해 쓰지 않았다"
+      ]
     },
     "status": "active"
   },
@@ -25,9 +33,18 @@
     "template_json": {
       "question_text": "계절별 체감온도 지수와 그 산출에 쓰는 요소를 짝지어라.",
       "pairs": [
-        { "left": "겨울철 체감온도", "right": "기온과 풍속으로 낸다" },
-        { "left": "여름철 체감온도", "right": "기온과 습도로 낸다" },
-        { "left": "자외선지수", "right": "태양 고도와 오존량 등으로 낸다" }
+        {
+          "left": "겨울철 체감온도",
+          "right": "기온과 풍속으로 낸다"
+        },
+        {
+          "left": "여름철 체감온도",
+          "right": "기온과 습도로 낸다"
+        },
+        {
+          "left": "자외선지수",
+          "right": "태양 고도와 오존량 등으로 낸다"
+        }
       ],
       "correct_answer": "겨울철 체감온도:기온과 풍속으로 낸다|여름철 체감온도:기온과 습도로 낸다|자외선지수:태양 고도와 오존량 등으로 낸다",
       "explanation_hint": "같은 '지수'라도 사람이 무엇에 노출되는가에 따라 입력이 다르다. 겨울은 바람에, 여름은 습도에, 자외선은 태양 고도에 좌우된다."
@@ -35,7 +52,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 생활기상지수의 입력 구분", "세 오른쪽이 전부 다른 입력"]
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 — 생활기상지수의 입력 구분",
+        "세 오른쪽이 전부 다른 입력"
+      ]
     },
     "status": "active"
   },
@@ -47,9 +67,9 @@
     "template_json": {
       "question_text": "자외선지수는 값이 커질수록 무엇이 커진다는 뜻인가?",
       "options": [
-        "피부에 해로운 자외선의 세기",
         "그날의 기온",
         "구름의 양",
+        "피부에 해로운 자외선의 세기",
         "대기 중 수증기량"
       ],
       "correct_answer": "피부에 해로운 자외선의 세기",
@@ -58,7 +78,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 자외선지수의 정의", "지수의 의미를 묻는다 — 구간 경계값은 쓰지 않았다"]
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 — 자외선지수의 정의",
+        "지수의 의미를 묻는다 — 구간 경계값은 쓰지 않았다"
+      ]
     },
     "status": "active"
   },
@@ -75,7 +98,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 관측 요소의 산업 활용", "관측 용어 — 규정 수치가 아니라 정의"]
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 — 관측 요소의 산업 활용",
+        "관측 용어 — 규정 수치가 아니라 정의"
+      ]
     },
     "status": "active"
   },
@@ -92,7 +118,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 예보 요소 간 오해 방지", "'하늘상태'는 예보 용어"]
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 — 예보 요소 간 오해 방지",
+        "'하늘상태'는 예보 용어"
+      ]
     },
     "status": "active"
   },
@@ -105,8 +134,8 @@
       "question_text": "전력 수요 예측에 기상 정보가 쓰이는 가장 직접적인 까닭은 무엇인가?",
       "options": [
         "기온에 따라 냉난방 사용량이 크게 달라지기 때문이다",
-        "발전소가 날씨에 따라 문을 닫기 때문이다",
         "전선의 길이가 기온에 따라 달라지기 때문이다",
+        "발전소가 날씨에 따라 문을 닫기 때문이다",
         "전기 요금이 날씨로 정해지기 때문이다"
       ],
       "correct_answer": "기온에 따라 냉난방 사용량이 크게 달라지기 때문이다",
@@ -115,7 +144,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 기상 정보의 수요 예측 활용", "실무 연계 구조 — 규정 수치 아님"]
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 — 기상 정보의 수요 예측 활용",
+        "실무 연계 구조 — 규정 수치 아님"
+      ]
     },
     "status": "active"
   },
@@ -127,10 +159,22 @@
     "template_json": {
       "question_text": "산업 분야와 그 분야가 특히 민감하게 보는 기상 요소를 짝지어라.",
       "pairs": [
-        { "left": "태양광 발전", "right": "일사량과 하늘상태" },
-        { "left": "풍력 발전", "right": "풍속과 풍향" },
-        { "left": "항공 운항", "right": "시정과 저층 바람 변화" },
-        { "left": "해상 운송", "right": "유의파고와 해상 풍랑" }
+        {
+          "left": "태양광 발전",
+          "right": "일사량과 하늘상태"
+        },
+        {
+          "left": "풍력 발전",
+          "right": "풍속과 풍향"
+        },
+        {
+          "left": "항공 운항",
+          "right": "시정과 저층 바람 변화"
+        },
+        {
+          "left": "해상 운송",
+          "right": "유의파고와 해상 풍랑"
+        }
       ],
       "correct_answer": "태양광 발전:일사량과 하늘상태|풍력 발전:풍속과 풍향|항공 운항:시정과 저층 바람 변화|해상 운송:유의파고와 해상 풍랑",
       "explanation_hint": "같은 예보라도 누가 쓰느냐에 따라 결정적인 요소가 다르다. 그래서 기상청은 일반 예보와 별도로 분야별 특화 정보를 낸다."
@@ -138,7 +182,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 분야별 특화 기상 정보", "네 오른쪽이 전부 다른 요소"]
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 — 분야별 특화 기상 정보",
+        "네 오른쪽이 전부 다른 요소"
+      ]
     },
     "status": "active"
   },
@@ -155,7 +202,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 현업 실무 — 예보 생산 체계", "현업 용어의 정의"]
+      "refs": [
+        "knowledge_level=10 · 기상청 현업 실무 — 예보 생산 체계",
+        "현업 용어의 정의"
+      ]
     },
     "status": "active"
   },
@@ -166,14 +216,22 @@
     "question_type": "multiple_choice",
     "template_json": {
       "question_text": "온실가스 배출량을 서로 견주기 위해 각 기체를 같은 단위로 환산할 때 기준이 되는 기체는 무엇인가?",
-      "options": ["이산화탄소", "메탄", "수증기", "산소"],
+      "options": [
+        "산소",
+        "메탄",
+        "수증기",
+        "이산화탄소"
+      ],
       "correct_answer": "이산화탄소",
       "explanation_hint": "메탄이나 아산화질소는 같은 양이라도 이산화탄소보다 훨씬 강하게 데운다. 그래서 각 기체를 '이산화탄소로 치면 얼마'로 환산해 한 단위로 더한다."
     },
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청·환경 실무 — 배출량 산정 규약", "환산 기준 — 계수 값은 개정되므로 쓰지 않았다"]
+      "refs": [
+        "knowledge_level=10 · 기상청·환경 실무 — 배출량 산정 규약",
+        "환산 기준 — 계수 값은 개정되므로 쓰지 않았다"
+      ]
     },
     "status": "active"
   },
@@ -190,7 +248,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기후 정책 실무 — 목표 개념의 정의", "목표 연도는 국가별로 달라 쓰지 않았다"]
+      "refs": [
+        "knowledge_level=10 · 기후 정책 실무 — 목표 개념의 정의",
+        "목표 연도는 국가별로 달라 쓰지 않았다"
+      ]
     },
     "status": "active"
   },
@@ -207,7 +268,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 기후변화감시 실무 — 관측 단위 규약", "단위 정의 — 특정 관측값은 쓰지 않았다"]
+      "refs": [
+        "knowledge_level=10 · 기상청 기후변화감시 실무 — 관측 단위 규약",
+        "단위 정의 — 특정 관측값은 쓰지 않았다"
+      ]
     },
     "status": "active"
   },
@@ -231,7 +295,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 배출량 산정 실무 절차", "절차 구조 — 구체 계수는 쓰지 않았다"]
+      "refs": [
+        "knowledge_level=10 · 배출량 산정 실무 절차",
+        "절차 구조 — 구체 계수는 쓰지 않았다"
+      ]
     },
     "status": "active"
   },
@@ -243,8 +310,8 @@
     "template_json": {
       "question_text": "기상 관측용 풍선(라디오존데)이 상승하면서 점점 부풀어 오르다 마침내 터지는 까닭은 무엇인가?",
       "options": [
-        "고도가 오를수록 바깥 기압이 낮아지기 때문이다",
         "고도가 오를수록 기온이 높아지기 때문이다",
+        "고도가 오를수록 바깥 기압이 낮아지기 때문이다",
         "풍선 안의 기체가 늘어나기 때문이다",
         "바람이 풍선을 잡아당기기 때문이다"
       ],
@@ -254,7 +321,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 고층 관측 실무 — 존데 운용", "관측 장비의 물리 — 규정 수치가 아니다"]
+      "refs": [
+        "knowledge_level=10 · 기상청 고층 관측 실무 — 존데 운용",
+        "관측 장비의 물리 — 규정 수치가 아니다"
+      ]
     },
     "status": "active"
   },
@@ -271,7 +341,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 고층 관측 실무 — 장비 명칭", "현업 장비 용어"]
+      "refs": [
+        "knowledge_level=10 · 기상청 고층 관측 실무 — 장비 명칭",
+        "현업 장비 용어"
+      ]
     },
     "status": "active"
   },
@@ -288,7 +361,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 고층 관측 실무 — 국제 관측 규약", "국제 표준 관측 시각(00·12 UTC)"]
+      "refs": [
+        "knowledge_level=10 · 기상청 고층 관측 실무 — 국제 관측 규약",
+        "국제 표준 관측 시각(00·12 UTC)"
+      ]
     },
     "status": "active"
   },
@@ -300,10 +376,10 @@
     "template_json": {
       "question_text": "여러 지점에서 잰 기압을 일기도에 그리기 전에 해면기압으로 고쳐 적는 까닭은 무엇인가?",
       "options": [
-        "관측소 높이가 서로 달라 그대로는 견줄 수 없기 때문이다",
-        "기압계마다 눈금이 다르기 때문이다",
         "바다 위에서만 기압이 생기기 때문이다",
-        "해면기압이 항상 더 크기 때문이다"
+        "기압계마다 눈금이 다르기 때문이다",
+        "해면기압이 항상 더 크기 때문이다",
+        "관측소 높이가 서로 달라 그대로는 견줄 수 없기 때문이다"
       ],
       "correct_answer": "관측소 높이가 서로 달라 그대로는 견줄 수 없기 때문이다",
       "explanation_hint": "산 위 관측소는 늘 기압이 낮게 나온다. 이를 그대로 그리면 산이 있는 곳마다 저기압이 생기므로, 모두 해면 높이 기준으로 고쳐 견준다."
@@ -311,7 +387,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 관측 실무 — 해면기압 환산의 이유", "관측 규약 — 환산식은 쓰지 않았다"]
+      "refs": [
+        "knowledge_level=10 · 기상청 관측 실무 — 해면기압 환산의 이유",
+        "관측 규약 — 환산식은 쓰지 않았다"
+      ]
     },
     "status": "active"
   },
@@ -323,10 +402,22 @@
     "template_json": {
       "question_text": "관측망의 종류와 그 성격을 짝지어라.",
       "pairs": [
-        { "left": "종관기상관측(ASOS)", "right": "사람이 관리하는 기준 관측소로 항목이 가장 많다" },
-        { "left": "방재기상관측(AWS)", "right": "무인으로 촘촘히 깔아 국지 현상을 잡는다" },
-        { "left": "고층기상관측", "right": "풍선을 띄워 대기의 연직 구조를 잰다" },
-        { "left": "기상레이더", "right": "전파를 쏘아 강수의 분포와 이동을 본다" }
+        {
+          "left": "종관기상관측(ASOS)",
+          "right": "사람이 관리하는 기준 관측소로 항목이 가장 많다"
+        },
+        {
+          "left": "방재기상관측(AWS)",
+          "right": "무인으로 촘촘히 깔아 국지 현상을 잡는다"
+        },
+        {
+          "left": "고층기상관측",
+          "right": "풍선을 띄워 대기의 연직 구조를 잰다"
+        },
+        {
+          "left": "기상레이더",
+          "right": "전파를 쏘아 강수의 분포와 이동을 본다"
+        }
       ],
       "correct_answer": "종관기상관측(ASOS):사람이 관리하는 기준 관측소로 항목이 가장 많다|방재기상관측(AWS):무인으로 촘촘히 깔아 국지 현상을 잡는다|고층기상관측:풍선을 띄워 대기의 연직 구조를 잰다|기상레이더:전파를 쏘아 강수의 분포와 이동을 본다",
       "explanation_hint": "관측망은 목적이 달라 밀도와 항목이 다르다. 국지성 호우처럼 좁고 빠른 현상은 촘촘한 AWS와 레이더가 아니면 놓친다."
@@ -334,7 +425,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 관측망 체계", "네 오른쪽이 전부 다른 성격"]
+      "refs": [
+        "knowledge_level=10 · 기상청 관측망 체계",
+        "네 오른쪽이 전부 다른 성격"
+      ]
     },
     "status": "active"
   },
@@ -351,7 +445,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 관측망 — 장비 약칭", "현업 약어"]
+      "refs": [
+        "knowledge_level=10 · 기상청 관측망 — 장비 약칭",
+        "현업 약어"
+      ]
     },
     "status": "active"
   },
@@ -363,9 +460,9 @@
     "template_json": {
       "question_text": "기상레이더가 강수를 탐지하는 원리로 알맞은 것은 무엇인가?",
       "options": [
-        "쏜 전파가 빗방울에 부딪혀 되돌아오는 세기를 재는 것",
         "빗방울이 내는 빛을 모으는 것",
         "빗방울의 무게를 직접 재는 것",
+        "쏜 전파가 빗방울에 부딪혀 되돌아오는 세기를 재는 것",
         "구름의 온도를 재는 것"
       ],
       "correct_answer": "쏜 전파가 빗방울에 부딪혀 되돌아오는 세기를 재는 것",
@@ -374,7 +471,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 원격 관측 실무 — 레이더 원리", "관측 원리 — 반사도 수치는 쓰지 않았다"]
+      "refs": [
+        "knowledge_level=10 · 기상청 원격 관측 실무 — 레이더 원리",
+        "관측 원리 — 반사도 수치는 쓰지 않았다"
+      ]
     },
     "status": "active"
   },
@@ -391,7 +491,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 위성 관측 실무 — 적외 영상 해석", "관측 원리"]
+      "refs": [
+        "knowledge_level=10 · 기상청 위성 관측 실무 — 적외 영상 해석",
+        "관측 원리"
+      ]
     },
     "status": "active"
   },
@@ -415,7 +518,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 예보 생산 체계 전체 흐름", "절차 구조"]
+      "refs": [
+        "knowledge_level=10 · 기상청 예보 생산 체계 전체 흐름",
+        "절차 구조"
+      ]
     },
     "status": "active"
   },
@@ -432,7 +538,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 레이더 실무 — 용어와 단위", "정의 — 임계값은 쓰지 않았다"]
+      "refs": [
+        "knowledge_level=10 · 기상청 레이더 실무 — 용어와 단위",
+        "정의 — 임계값은 쓰지 않았다"
+      ]
     },
     "status": "active"
   },
@@ -449,7 +558,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 관측 실무 — 관측 규약의 표준화", "장비 명칭"]
+      "refs": [
+        "knowledge_level=10 · 기상청 관측 실무 — 관측 규약의 표준화",
+        "장비 명칭"
+      ]
     },
     "status": "active"
   },
@@ -461,10 +573,10 @@
     "template_json": {
       "question_text": "강수확률 60%라는 예보를 바르게 읽은 것은 무엇인가?",
       "options": [
-        "그런 조건이 여러 번 있으면 그중 60% 정도에서 비가 왔다는 뜻이다",
         "예보 구역의 60% 넓이에 비가 온다는 뜻이다",
         "하루의 60% 시간 동안 비가 온다는 뜻이다",
-        "예보관이 60%만 확신한다는 뜻이다"
+        "예보관이 60%만 확신한다는 뜻이다",
+        "그런 조건이 여러 번 있으면 그중 60% 정도에서 비가 왔다는 뜻이다"
       ],
       "correct_answer": "그런 조건이 여러 번 있으면 그중 60% 정도에서 비가 왔다는 뜻이다",
       "explanation_hint": "강수확률은 넓이도 시간도 아닌 빈도다. 그래서 한 번의 예보가 맞았는지 틀렸는지로는 평가할 수 없고, 여러 날을 모아야 검증된다."
@@ -472,7 +584,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 예보 실무 — 확률 예보의 해석", "가장 흔한 오독 셋을 오답으로 배치했다"]
+      "refs": [
+        "knowledge_level=10 · 기상청 예보 실무 — 확률 예보의 해석",
+        "가장 흔한 오독 셋을 오답으로 배치했다"
+      ]
     },
     "status": "active"
   },
@@ -489,7 +604,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 예보 검증 실무 — 확률 예보 평가", "검증 개념 — 지표 수식은 쓰지 않았다"]
+      "refs": [
+        "knowledge_level=10 · 기상청 예보 검증 실무 — 확률 예보 평가",
+        "검증 개념 — 지표 수식은 쓰지 않았다"
+      ]
     },
     "status": "active"
   },
@@ -506,7 +624,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=10 · 기상청 수치예보 실무 — 불확실성 추정", "현업 기법 명칭"]
+      "refs": [
+        "knowledge_level=10 · 기상청 수치예보 실무 — 불확실성 추정",
+        "현업 기법 명칭"
+      ]
     },
     "status": "active"
   }

@@ -4,7 +4,6 @@
   "purpose": "**파라미터화 문항 템플릿** 정의. G1(2026-08-10) 키 투입을 완성품 1,360건이 아니라 **생성기**에 쓰기로 한 클라이언트 결정(2026-08-07)의 실증물이다. 여기 있는 5건은 전면 구현이 아니라 '무엇이 되고 무엇이 안 되는가'를 PM이 판단할 수 있게 만든 표본이다.",
   "why_here": "확장 산출물이 시드와 **같은 형태**여서 `scripts/lint_seed_items.py`가 그대로 검사할 수 있고(새 게이트를 만들지 않는다), 확장기는 `scripts/author_items.py`가 소유한다(저작 산출물→뱅크 항목 변환의 기존 소유자와 같은 자리). 정의를 코드가 아니라 데이터로 둔 이유는 `level_vocabulary.json`과 같다 — 교육과정 근거와 저작 내용이 사람이 고칠 수 있는 곳에 있어야 개정된다.",
   "run": "python scripts/author_items.py --expand-templates database/seed/staging/r13_item_templates.json --out database/seed/staging/r13_template_proof.json (LLM 미호출·결정적) → python scripts/lint_seed_items.py database/seed/staging/r13_template_proof.json --base database/seed/content_items.json",
-
   "schema": {
     "id": "템플릿 식별자. 인스턴스의 source.refs에 그대로 남아 역추적 경로가 된다.",
     "concept_tag": "backend seed_content.ALLOWED_CONCEPT_TAGS 안의 값.",
@@ -21,7 +20,6 @@
     "formula": "정답 = 파라미터에 대한 산술식. 허용 문법은 이름 참조·사칙연산·숫자뿐이며 함수 호출·속성 접근은 거부한다(저작 JSON에 임의 파이썬 통로를 만들지 않는다). slider 블록의 min·max·step·unit을 함께 준다.",
     "board_rule": "정답을 **만들지 않는다**. `board_rules.json`의 규칙 id만 주면 확장기가 그 규칙의 `when`에서 palette를, `then`에서 goal_conditions를, `hint_needs`에서 hints를 뽑는다. 채점은 서버가 같은 규칙 파일로 재계산하므로(`board.py`) 정답이 공짜다. ⚠️ 규칙의 `explain`은 힌트로 쓰지 않는다 — 6단계 어휘(난층운 등)가 들어 있어 4단계 퍼즐이 어휘 게이트에 걸린다."
   },
-
   "templates": [
     {
       "id": "front_passage_weather",
@@ -30,12 +28,27 @@
       "knowledge_level": 4,
       "level_basis": "R1 한랭·온난·정체·폐색전선 introduced_at 4 ([9과17-04]) / R2 +0 (전선 종류 → 날씨 단일 인과)",
       "text": "{front}이 지나갈 때 나타나는 날씨로 가장 알맞은 것은?",
-      "answer": { "kind": "field", "field": "weather" },
+      "answer": {
+        "kind": "field",
+        "field": "weather"
+      },
       "params": [
-        { "front": "한랭전선", "weather": "짧은 시간에 좁은 구역으로 강한 비가 쏟아진다" },
-        { "front": "온난전선", "weather": "넓은 구역에 약한 비가 오래 이어진다" },
-        { "front": "정체전선", "weather": "한곳에 오래 머물며 여러 날 비가 계속된다" },
-        { "front": "폐색전선", "weather": "찬 공기가 따뜻한 공기를 완전히 들어 올려 비 구역이 넓게 남는다" }
+        {
+          "front": "한랭전선",
+          "weather": "짧은 시간에 좁은 구역으로 강한 비가 쏟아진다"
+        },
+        {
+          "front": "온난전선",
+          "weather": "넓은 구역에 약한 비가 오래 이어진다"
+        },
+        {
+          "front": "정체전선",
+          "weather": "한곳에 오래 머물며 여러 날 비가 계속된다"
+        },
+        {
+          "front": "폐색전선",
+          "weather": "찬 공기가 따뜻한 공기를 완전히 들어 올려 비 구역이 넓게 남는다"
+        }
       ]
     },
     {
@@ -45,12 +58,27 @@
       "knowledge_level": 4,
       "level_basis": "R1 기단 introduced_at 4 ([9과17-04] — 2022에서 초등 [6과06-04]가 삭제됐다, docs/specs/12 §3.3-①) / R2 +0",
       "text": "{mass}이 우리나라에 영향을 줄 때의 날씨로 가장 알맞은 것은?",
-      "answer": { "kind": "field", "field": "weather" },
+      "answer": {
+        "kind": "field",
+        "field": "weather"
+      },
       "params": [
-        { "mass": "시베리아 기단", "weather": "춥고 건조한 날씨가 이어진다" },
-        { "mass": "북태평양 기단", "weather": "덥고 습한 날씨가 이어진다" },
-        { "mass": "오호츠크해 기단", "weather": "동해안으로 서늘하고 습한 바람이 분다" },
-        { "mass": "양쯔강 기단", "weather": "따뜻하고 건조하며 맑은 날이 이어진다" }
+        {
+          "mass": "시베리아 기단",
+          "weather": "춥고 건조한 날씨가 이어진다"
+        },
+        {
+          "mass": "북태평양 기단",
+          "weather": "덥고 습한 날씨가 이어진다"
+        },
+        {
+          "mass": "오호츠크해 기단",
+          "weather": "동해안으로 서늘하고 습한 바람이 분다"
+        },
+        {
+          "mass": "양쯔강 기단",
+          "weather": "따뜻하고 건조하며 맑은 날이 이어진다"
+        }
       ]
     },
     {
@@ -63,15 +91,35 @@
       "answer": {
         "kind": "formula",
         "expr": "mass * delta",
-        "slider": { "min": 0, "max": 100, "step": 10, "unit": "cal" }
+        "slider": {
+          "min": 0,
+          "max": 100,
+          "step": 10,
+          "unit": "cal"
+        }
       },
       "_param_note": "정답(mass*delta)은 0~100 격자 위에 있어야 한다 — backend `seed_content.validate_entry`가 slider 정답을 0~100으로 좁게 본다(계약 G의 SLIDER_MAX_SPAN 200보다 좁은 별개 제약이다. 실측으로 발견: mass=30·delta=5 → 150이 여기서 탈락했다).",
       "params": [
-        { "mass": 10, "delta": 2 },
-        { "mass": 15, "delta": 2 },
-        { "mass": 20, "delta": 3 },
-        { "mass": 40, "delta": 2 },
-        { "mass": 25, "delta": 4 }
+        {
+          "mass": 10,
+          "delta": 2
+        },
+        {
+          "mass": 15,
+          "delta": 2
+        },
+        {
+          "mass": 20,
+          "delta": 3
+        },
+        {
+          "mass": 40,
+          "delta": 2
+        },
+        {
+          "mass": 25,
+          "delta": 4
+        }
       ]
     },
     {
@@ -86,9 +134,24 @@
         "rule_field": "rule_id"
       },
       "params": [
-        { "rule_id": "cold_front_shower", "zone": 1, "zone_name": "수도권", "goal_ko": "짧고 강한 소나기" },
-        { "rule_id": "warm_front_steady_rain", "zone": 0, "zone_name": "서해", "goal_ko": "넓게 오래 내리는 비" },
-        { "rule_id": "stationary_front_monsoon", "zone": 2, "zone_name": "태백산맥", "goal_ko": "여러 날 이어지는 비" }
+        {
+          "rule_id": "cold_front_shower",
+          "zone": 1,
+          "zone_name": "수도권",
+          "goal_ko": "짧고 강한 소나기"
+        },
+        {
+          "rule_id": "warm_front_steady_rain",
+          "zone": 0,
+          "zone_name": "서해",
+          "goal_ko": "넓게 오래 내리는 비"
+        },
+        {
+          "rule_id": "stationary_front_monsoon",
+          "zone": 2,
+          "zone_name": "태백산맥",
+          "goal_ko": "여러 날 이어지는 비"
+        }
       ]
     },
     {
@@ -98,13 +161,31 @@
       "knowledge_level": 3,
       "level_basis": "R1 [9과04-02] 해설 '융해, 응고, 기화, 액화, 승화를 구분' / R2 +0 (단일 사실 회상)",
       "text": "물질이 {change} 변하는 상태 변화를 ___(이)라고 한다.",
-      "answer": { "kind": "field", "field": "term" },
+      "answer": {
+        "kind": "field",
+        "field": "term"
+      },
       "params": [
-        { "change": "고체에서 액체로", "term": "융해" },
-        { "change": "액체에서 고체로", "term": "응고" },
-        { "change": "액체에서 기체로", "term": "기화" },
-        { "change": "기체에서 액체로", "term": "액화" },
-        { "change": "고체에서 기체로 곧바로", "term": "승화" }
+        {
+          "change": "고체에서 액체로",
+          "term": "융해"
+        },
+        {
+          "change": "액체에서 고체로",
+          "term": "응고"
+        },
+        {
+          "change": "액체에서 기체로",
+          "term": "기화"
+        },
+        {
+          "change": "기체에서 액체로",
+          "term": "액화"
+        },
+        {
+          "change": "고체에서 기체로 곧바로",
+          "term": "승화"
+        }
       ]
     }
   ]

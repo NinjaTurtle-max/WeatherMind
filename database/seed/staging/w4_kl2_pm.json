@@ -19,7 +19,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=2 · 초5~6 관찰에서 규칙성 찾기", "관찰 절차 자체가 답 — 구름 이름은 쓰지 않는다"]
+      "refs": [
+        "knowledge_level=2 · 초5~6 관찰에서 규칙성 찾기",
+        "관찰 절차 자체가 답 — 구름 이름은 쓰지 않는다"
+      ]
     },
     "status": "active"
   },
@@ -40,7 +43,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=2 · 초5~6 측정값 계산", "slider 범위 40 — 관용오차 ±10보다 넓다"]
+      "refs": [
+        "knowledge_level=2 · 초5~6 측정값 계산",
+        "slider 범위 40 — 관용오차 ±10보다 넓다"
+      ]
     },
     "status": "active"
   },
@@ -64,7 +70,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=2 · 초5~6 안전 행동 절차", "규정 수치가 아니라 행동 순서"]
+      "refs": [
+        "knowledge_level=2 · 초5~6 안전 행동 절차",
+        "규정 수치가 아니라 행동 순서"
+      ]
     },
     "status": "active"
   },
@@ -76,9 +85,18 @@
     "template_json": {
       "question_text": "생활 속 장치와 그것이 열을 다루는 방식을 짝지어라.",
       "pairs": [
-        { "left": "보온병", "right": "안팎으로 열이 오가는 것을 막는다" },
-        { "left": "선풍기", "right": "공기를 움직여 몸의 열을 실어 간다" },
-        { "left": "냄비 손잡이의 플라스틱", "right": "열이 손으로 옮아오지 못하게 한다" }
+        {
+          "left": "보온병",
+          "right": "안팎으로 열이 오가는 것을 막는다"
+        },
+        {
+          "left": "선풍기",
+          "right": "공기를 움직여 몸의 열을 실어 간다"
+        },
+        {
+          "left": "냄비 손잡이의 플라스틱",
+          "right": "열이 손으로 옮아오지 못하게 한다"
+        }
       ],
       "correct_answer": "보온병:안팎으로 열이 오가는 것을 막는다|선풍기:공기를 움직여 몸의 열을 실어 간다|냄비 손잡이의 플라스틱:열이 손으로 옮아오지 못하게 한다",
       "explanation_hint": "열을 막는 것과 실어 나르는 것은 반대 방향의 일이다. 어느 쪽이 필요한지에 따라 물건의 재료와 모양이 달라진다."
@@ -86,7 +104,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=2 · 초5~6 생활 속 열의 이동", "세 오른쪽이 전부 다른 방식"]
+      "refs": [
+        "knowledge_level=2 · 초5~6 생활 속 열의 이동",
+        "세 오른쪽이 전부 다른 방식"
+      ]
     },
     "status": "active"
   },
@@ -103,7 +124,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=2 · 초5~6 관찰된 규칙의 설명", "밀도라는 이름은 3단계 — 무게로 서술"]
+      "refs": [
+        "knowledge_level=2 · 초5~6 관찰된 규칙의 설명",
+        "밀도라는 이름은 3단계 — 무게로 서술"
+      ]
     },
     "status": "active"
   },
@@ -115,9 +139,9 @@
     "template_json": {
       "question_text": "우리 지역의 기후가 어떤지 말하려면 며칠치 날씨를 봐야 하는가?",
       "options": [
-        "여러 해 동안 모은 자료를 봐야 한다",
         "오늘 하루만 보면 된다",
         "이번 주만 보면 된다",
+        "여러 해 동안 모은 자료를 봐야 한다",
         "지난달만 보면 된다"
       ],
       "correct_answer": "여러 해 동안 모은 자료를 봐야 한다",
@@ -126,7 +150,10 @@
     "uses_live_slots": false,
     "source": {
       "kind": "seed",
-      "refs": ["knowledge_level=2 · 초5~6 날씨와 기후의 구분", "관측 기간이라는 축을 처음 다룬다"]
+      "refs": [
+        "knowledge_level=2 · 초5~6 날씨와 기후의 구분",
+        "관측 기간이라는 축을 처음 다룬다"
+      ]
     },
     "status": "active"
   }
