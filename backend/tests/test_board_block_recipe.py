@@ -100,7 +100,7 @@ def issue(
     ]
     board_pool = [] if boards is None else list(boards)
 
-    async def fake_pools(db, u, weak, theta=None):
+    async def fake_pools(db, u, weak, theta=None, today=None):
         return list(new_pool), list(review_pool), list(live_pool)
 
     async def fake_board_pool(db, u, theta, today_subq, limit=ss.BOARD_POOL_LIMIT):

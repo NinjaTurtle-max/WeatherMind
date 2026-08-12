@@ -375,7 +375,11 @@ class TestWiredIntoDailyPath:
         )
 
     def test_기준일을_안_넘기면_KST_오늘로_떨어진다(self, live_pool):
-        today = datetime.now(KST).date()
-        assert [i.id for i in _fetch_live(LivePoolDB(live_pool), 0.0, None)[:CAP]] == [
-            i.id for i in _fetch_live(LivePoolDB(live_pool), 0.0, today)[:CAP]
+        before = datetime.now(KST).date()
+        default = [i.id for i in _fetch_live(LivePoolDB(live_pool), 0.0, None)[:CAP]]
+        after = datetime.now(KST).date()
+        if before != after:  # pragma: no cover — KST 자정을 걸친 실행
+            pytest.skip("실행 중 KST 하루가 넘어갔다 — 기준일 비교가 성립하지 않는다")
+        assert default == [
+            i.id for i in _fetch_live(LivePoolDB(live_pool), 0.0, before)[:CAP]
         ], "today 생략 시 기본값이 KST 달력일이 아니다"

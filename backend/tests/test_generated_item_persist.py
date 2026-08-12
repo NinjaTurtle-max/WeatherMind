@@ -296,7 +296,7 @@ def issue_session(monkeypatch, db, *, bank_pool=(), live_pool=(), board_pool=(),
     """
     calls = {"generate": 0}
 
-    async def fake_pools(_db, u, weak, theta=None):
+    async def fake_pools(_db, u, weak, theta=None, today=None):
         return list(bank_pool), [], list(live_pool)
 
     async def fake_unit_pool(_db, u, abilities, count):

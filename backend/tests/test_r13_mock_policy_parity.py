@@ -27,6 +27,7 @@ import pytest
 
 from app.core.config import settings
 from app.schemas.auth import LevelGroup
+from app.services import session_service
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MOCK_PATH = REPO_ROOT / "frontend" / "mock" / "apiMockPlugin.js"
@@ -80,10 +81,64 @@ class TestEnergyConstants:
         assert policy["cloud_cost"] == settings.CLOUD_COST
 
 
+def server_block_order() -> list[str]:
+    """서버의 **출제 순서를 실행으로 캐낸다** — 소스에 적힌 문장이 아니라 실동작.
+
+    `plan_bank_picks`는 배합 dict의 키 순서가 아니라 **블록 호출 순서**로 픽을
+    쌓는다(그 함수의 독스트링이 소유자를 그렇게 못박는다). 그래서 기대값을 여기
+    사본으로 적지 않고, 블록마다 자기 풀만으로 배합을 채울 수 있게 넉넉히 준 뒤
+    나온 kind 나열에서 순서를 읽는다 — 사본을 두면 이 계약이 자기 자신을 대조하게
+    되고, 그것이 애초에 CO-J-9가 생긴 방식이다.
+    """
+    recipe = settings.SESSION_RECIPE
+
+    def pool(kind: str, question_type: str = "multiple_choice") -> list[dict]:
+        return [
+            {"id": f"{kind}-{i}", "question_type": question_type}
+            for i in range(recipe.get(kind, 0))
+        ]
+
+    picks, missing = session_service.plan_bank_picks(
+        pool("new"),
+        pool("review"),
+        pool("live"),
+        unit_pool=pool("unit"),
+        board_pool=pool("board", "board"),
+    )
+    assert missing == 0, f"블록마다 풀을 다 줬는데 배합이 {missing}건 비었다"
+    order: list[str] = []
+    for pick in picks:
+        if not order or order[-1] != pick["kind"]:
+            order.append(pick["kind"])
+    assert len(order) == len(set(order)), (
+        f"한 블록이 두 번 끊겨 나왔다({order}) — 풀 구성이 부족분 대체를 탔다"
+    )
+    return order
+
+
 @needs_node
 class TestSessionRecipe:
     def test_배합이_같다(self, policy):
         assert policy["session_recipe"] == settings.SESSION_RECIPE
+
+    def test_출제_순서가_같다(self, policy):
+        """**목이 서버와 같은 순서로 문항을 내보내는가** (2026-08-13 신설).
+
+        목은 `new → review → live → board`, 서버는 `live → new → review → board`로
+        조용히 갈려 있었다. 하루 첫 유닛 세션이 데일리 화면을 공유하게 되면서
+        이 갭은 단순한 목 결함이 아니라 **눈으로 하는 검증을 무효화하는 자리**가
+        됐다 — 화면에서 본 순서가 진짜 결함인지 목 인공물인지 구분되지 않는다.
+
+        서버 쪽 기대값은 `plan_bank_picks`를 **실행해서** 얻는다(위 헬퍼).
+        """
+        assert policy["block_order"] == server_block_order()
+
+    def test_순서에_배합의_전_블록이_들어_있다(self, policy):
+        """배합에 자리가 있는데 순서 목록에 없으면 그 블록은 **영영 안 나간다**."""
+        wanted = {k for k, v in settings.SESSION_RECIPE.items() if v}
+        assert set(policy["block_order"]) >= wanted, (
+            f"목 출제 순서에 {sorted(wanted - set(policy['block_order']))} 블록이 없다"
+        )
 
     def test_board_상한이_같다(self, policy):
         """CO-H5 — 목 뱅크에 board가 늘어도 서버와 같은 상한을 쓴다.

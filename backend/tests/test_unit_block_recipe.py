@@ -120,7 +120,7 @@ def issue_session(monkeypatch, *, new=20, review=8, live=3, unit_items=None,
     if unit_items is None:
         unit_items = [make_item("unit", i) for i in range(UNIT_COUNT)]
 
-    async def fake_pools(db, u, weak, theta=None):
+    async def fake_pools(db, u, weak, theta=None, today=None):
         return list(new_pool), list(review_pool), list(live_pool)
 
     async def fake_unit_pool(db, u, abilities, count):

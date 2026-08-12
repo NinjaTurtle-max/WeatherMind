@@ -1111,6 +1111,21 @@ const QUIZ = {
 //      KMA 실황 → 현상 판정 → 그 현상에 맞는 보드 선택(`order_boards_for_today`).
 const MOCK_SESSION_RECIPE = { live: 2, new: 4, review: 3, board: 1 };
 
+// ── 출제 순서 (server `session_service.plan_bank_picks`의 **블록 호출 순서**) ──
+// ⚠️ **배합 dict의 키 순서는 출제 순서를 정하지 않는다.** 소유자는 서버에서도
+// 목에서도 "블록을 부르는 순서"이고, 그래서 별도 상수로 선언한다.
+//
+// **2026-08-13 정정**: 목은 `new → review → live → board`로 돌고 있었고 서버는
+// `live → new → review → board`였다 — 조용히 갈린 채였다. 지금 고치는 이유는
+// 하루 첫 유닛 세션이 이 화면을 공유하게 되면서, 크롬으로 눈으로 확인할 때
+// **화면에서 본 순서가 진짜 결함인지 목 인공물인지 구분되지 않기 때문**이다.
+// 하루를 오늘의 날씨로 열고 오늘의 보드로 닫는 것이 클라이언트 사양의 서술
+// 순서(「오늘 날씨 2 · 신규 4 · 복습 3 · 오늘 날씨 반영 보드 1」)다.
+//
+// __mockPolicy()로 노출해 backend `test_r13_mock_policy_parity`가 **서버
+// plan_bank_picks를 실제로 실행한 결과**와 대조한다(기대값 사본 금지 — CO-J-9).
+const MOCK_BLOCK_ORDER = ['live', 'new', 'review', 'board'];
+
 // 서버 `Settings.UNIT_SESSION_SIZE` — **「두 번째 이후」 유닛 세션 문항 수**
 // (2026-08-13 확정: 하루 첫 유닛 세션은 위 배합 총합 10문항을 받는다).
 // __mockPolicy()로 노출해 backend 계약 테스트가 실값으로 대조한다 — 종전 목은
@@ -1308,27 +1323,21 @@ function buildSessionItems(recipe) {
   // 뒤집힌다. 선점해 두면 new는 자동으로 다음 후보로 넘어간다(`seen`이 막는다).
   // cap_board=false: 배합이 **보장한** 자리라 DAILY_BOARD_CAP으로 막지 않는다.
   const boardCount = recipe.board ?? 0;
-  let boardPicks = boardCount ? take('board', boardCount, 'board', false) : [];
+  const boardPicks = boardCount ? take('board', boardCount, 'board', false) : [];
 
+  // ── 출제 순서는 `MOCK_BLOCK_ORDER`가 소유한다 (서버 plan_bank_picks와 같은 형태) ──
   // ⚠️ **부족분은 new 풀이 메운다** — 서버와 같은 규칙이고, 없으면 배합 총합이
   // 깨진다(실제로 깨졌다: live 풀이 2건에 못 미쳐 10문항이 9문항이 됐다.
   // 2026-08-12). 서버에서 이 폴백의 뜻은 "그 자리가 유료 생성으로 새지 않게
   // 한다"이고, 목에서는 "총합 계약을 지킨다"이다. 메운 문항의 **라벨은 new**다
   // — 서버가 그렇게 라벨하므로 블록 표기도 같이 맞춘다.
-  const picks = take('new', recipe.new, 'new');
-
-  let reviewPicks = take('review', recipe.review, 'review');
-  reviewPicks = [...reviewPicks, ...take('new', recipe.review - reviewPicks.length, 'new')];
-  picks.push(...reviewPicks);
-
-  let livePicks = take('live', recipe.live, 'live');
-  livePicks = [...livePicks, ...take('new', recipe.live - livePicks.length, 'new')];
-  picks.push(...livePicks);
-
-  if (boardCount) {
-    // 부족분 대체는 **선점 뒤**에 한다 — board 풀이 비었을 때 그 자리를 new가 받는다.
-    boardPicks = [...boardPicks, ...take('new', boardCount - boardPicks.length, 'new')];
-    picks.push(...boardPicks);
+  // board만 예외적으로 **위에서 선점한 결과**를 그대로 쓴다(부족분 대체는 여기서).
+  const picks = [];
+  for (const block of MOCK_BLOCK_ORDER) {
+    const count = recipe[block] ?? 0;
+    if (!count) continue;
+    const taken = block === 'board' ? boardPicks : take(block, count, block);
+    picks.push(...taken, ...take('new', count - taken.length, 'new'));
   }
   return picks;
 }
@@ -2844,6 +2853,8 @@ export const __mockPolicy = () => ({
   cloud_cost: CLOUD_COST,
   // 세션 배합 (server Settings.SESSION_RECIPE) — 하루 첫 유닛 세션도 이 배합이다
   session_recipe: MOCK_SESSION_RECIPE,
+  // 출제 순서 (server session_service.plan_bank_picks의 블록 호출 순서)
+  block_order: MOCK_BLOCK_ORDER,
   // **두 번째 이후** 유닛 세션 문항 수 (server Settings.UNIT_SESSION_SIZE).
   // 첫 세션은 위 배합 총합(10)이라 이 값이 아니다 — 2026-08-13 확정.
   unit_session_size: MOCK_UNIT_SESSION_SIZE,
