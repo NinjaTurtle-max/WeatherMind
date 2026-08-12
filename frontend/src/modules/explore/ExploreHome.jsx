@@ -62,7 +62,10 @@ export default function ExploreHome() {
         mascot="cloud"
         as="h1"
         eyebrow={t('explore.home.title')}
-        title={t('explore.home.subtitle')}
+        // 안내 문장은 **title이 아니라 description**이다 — title은 한 줄로
+        // 잘려서, 문장을 넣으면 1440에서도 끝이 사라진다(2026-08-12 리뷰).
+        title={t('explore.home.heroTitle')}
+        description={t('explore.home.subtitle')}
       />
 
       {/* 넷을 **한 줄에**(2026-08-11 사용자 지시). 2열 정사각 시절에는 2×2로

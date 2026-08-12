@@ -18,7 +18,11 @@ import Mascot from './Mascot';
  *   - mascot   말하는 캐릭터(SideNav TUTOR_BY_PATH의 그 화면 담당과 **같아야**
  *              한다. 다르면 한 화면에서 말하는 사람이 둘이 된다)
  *   - eyebrow  제목 위 한 줄. `as`가 'h1'이면 이쪽이 페이지 제목 역할을 겸한다.
- *   - title    큰 문장
+ *   - title    큰 문장 — **한 줄로 잘린다**(truncate). 짧은 문구만 넣을 것.
+ *   - description 긴 설명. 좁은 화면에서는 통째로 접힌다(`hidden lg:block`) —
+ *              LearnHeroCard·보드 목록 배너와 같은 관례다. 여기에 문장을 넣고
+ *              title에는 짧은 말을 넣는 것이 이 배너의 사용법이다: 문장을
+ *              title에 넣으면 1440에서도 잘린다(2026-08-12 리뷰 실측).
  *   - right    오른쪽 끝 슬롯(배지·칩 등). 없으면 제목 열이 폭을 다 쓴다.
  *   - as       eyebrow 태그. 화면에 다른 h1이 없으면 'h1'을 줄 것 — 보드 목록
  *              배너가 배너로 바뀌면서 그 화면만 heading이 0개가 된 전례가 있다.
@@ -27,6 +31,7 @@ export default function HeroBanner({
   mascot,
   eyebrow,
   title,
+  description = null,
   right = null,
   as: Eyebrow = 'p',
   testId,
@@ -53,6 +58,13 @@ export default function HeroBanner({
           {title}
         </p>
       </div>
+
+      {/* 설명 — 좁아지면 접는다. 접혀도 잃는 정보가 없어야 한다(안내문 전용). */}
+      {description && (
+        <p className="hidden min-w-0 basis-[300px] truncate text-[11.5px] leading-relaxed text-slate-300 lg:block">
+          {description}
+        </p>
+      )}
 
       {right}
     </div>

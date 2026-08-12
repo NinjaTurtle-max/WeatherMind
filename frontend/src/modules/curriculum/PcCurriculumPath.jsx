@@ -227,7 +227,7 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, l
   );
 }
 
-function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit, joinInK, joinOutK }) {
+function Stage({ section, index, total, sizingN, fitN, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit, joinInK, joinOutK }) {
   const t = useT();
   const units = section.units;
   const cleared = units.filter((u) => resolveStatus(u) === 'cleared').length;
@@ -303,7 +303,8 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
           (--dot 식이 "n칸이 들어가는 크기"를 구하므로 최대 n이 곧 안전한 상한). */}
       <div
         className="wm-vpath"
-        style={{ '--n': sizingN, '--chrome': `${CHROME}px` }}
+        // --nsec(이 섹션의 칸 수)는 **자리 계산 전용**이다 — 크기(--n)와 섞지 말 것.
+        style={{ '--n': sizingN, '--nfit': fitN, '--nsec': units.length, '--chrome': `${CHROME}px` }}
       >
         <StageLine
           layoutKey={introOpen}
@@ -402,6 +403,16 @@ export default function PcCurriculumPath({
   // 정하면 아이콘이 단계를 넘길 때마다 커졌다 작아진다. 가장 긴 섹션에 맞춰
   // 통일하면 어느 단계도 넘치지 않는다. 섹션이 없을 때의 1은 0 나눗셈 방지.
   const sizingN = Math.max(PATH_SIZING_FLOOR, ...withUnits.map((s) => s.units.length));
+
+  // 세로 **자리**의 기준 칸 수 — 크기(sizingN)와 다르다(2026-08-12 사용자 제보:
+  // "기초과학 탭에서 전부 살짝씩 위로 배치된 것 같다").
+  //
+  // 크기는 코스가 달라도 같아야 해서 바닥값 4를 깔지만, **자리**까지 4로 잡으면
+  // 최대 섹션이 3칸인 코스(기초 과학)는 **어떤 섹션도 예약 높이를 못 채워** 늘
+  // 위로 쏠린다. 자리는 이 코스가 실제로 쓰는 최대 칸 수로 잡는다 — 그러면
+  // 가장 긴 섹션이 트랙 가운데에 꽉 차고, 짧은 섹션은 그 블록 안에서 위로 붙는다.
+  // 여전히 **섹션마다 상수**라 첫 노드가 튀지 않는다(그게 flex-start의 이유였다).
+  const fitN = Math.max(1, ...withUnits.map((s) => s.units.length));
 
   // 섹션별 시작 인덱스(전역) — 완료 구간을 경계 너머로 잇기 위해 필요하다.
   const offsets = [];
@@ -543,6 +554,7 @@ export default function PcCurriculumPath({
                 index={i}
                 total={withUnits.length}
                 sizingN={sizingN}
+                fitN={fitN}
                 joinInK={joinK(withUnits, i - 1, i)}
                 joinOutK={joinK(withUnits, i, i + 1)}
                 offset={offsets[i]}

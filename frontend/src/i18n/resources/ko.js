@@ -645,6 +645,7 @@ export default {
     },
   },
   duel: {
+    heroTitle: '캐스터보다 잘 맞혀 볼까요?',
     result: {
       win: '승리',
       lose: '패배',

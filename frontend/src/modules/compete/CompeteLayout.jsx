@@ -33,7 +33,7 @@ const TABS = [
   { to: '/league', labelKey: 'compete.tabLeague', icon: '🏆' },
 ];
 
-export default function CompeteLayout({ tab, title, subtitle, headerRight, mascot = null, children, below }) {
+export default function CompeteLayout({ tab, title, subtitle, headerRight, mascot = null, heroTitle = null, children, below }) {
   const t = useT();
   const briefingQ = useQuery({
     queryKey: ['duel', 'briefing'],
@@ -80,12 +80,17 @@ export default function CompeteLayout({ tab, title, subtitle, headerRight, masco
           갖는 것이 어색하지만, 안 시킨 화면을 같이 바꾸는 쪽이 더 나쁘다. */}
       {mascot ? (
         <div className="mb-4">
+          {/* 계층은 다른 배너와 같게 둔다: eyebrow=화면 이름 · title=짧은 말 ·
+              description=긴 안내. 종전에는 subtitle(날짜 + 문장)을 title에
+              넣었는데, title은 한 줄로 잘려 폰에서 날짜와 두 단어만 남았다
+              (2026-08-12 리뷰). 날짜는 문장 앞에 그대로 붙어 있다. */}
           <HeroBanner
             testId="compete-hero"
             mascot={mascot}
             as="h1"
             eyebrow={title}
-            title={subtitle || title}
+            title={heroTitle ?? title}
+            description={subtitle}
             right={headerRight && <div className="flex-none">{headerRight}</div>}
           />
         </div>

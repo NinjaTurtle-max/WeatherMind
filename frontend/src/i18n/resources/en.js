@@ -579,6 +579,7 @@ export default {
     },
   },
   duel: {
+    heroTitle: 'Can you beat the caster today?',
     result: {
       win: 'Win',
       lose: 'Loss',
