@@ -218,11 +218,20 @@ for (const [rel, guard] of [
   ok(wraps === 2, `${rel}: 로딩·오류 분기가 CompeteLayout 안에서 그려진다 — 실제 감싼 수 ${wraps}`);
 }
 
-// ── ④ 튜터는 태풍이 ─────────────────────────────────────────────────────────
-const tutorImg = $('[data-testid="sidenav"] img');
-ok(tutorImg?.getAttribute('src') === '/typhoon.png', `사이드바 튜터 이미지 — ${tutorImg?.getAttribute('src')}`);
-const sidenavText = $('[data-testid="sidenav"]')?.textContent ?? '';
-ok(sidenavText.includes('태풍이'), `사이드바 튜터 이름이 태풍이 — "${sidenavText.slice(-40)}"`);
+// ── ④ 태풍이는 **상단 배너**가 말한다 (2026-08-12 사용자 지시) ─────────────
+// 종전에는 사이드바 왼쪽 하단 튜터였다. 학습·보드처럼 배너로 옮기면서
+// SideNav는 이 경로에서 튜터를 접는다 — **둘 다 뜨면 한 화면에 태풍이가 둘**이고
+// 각자 다른 말을 한다(2026-08-11에 /board에서 실제로 그랬다).
+const heroImg = $('[data-hero-mascot] img');
+ok(
+  $('[data-hero-mascot]')?.getAttribute('data-hero-mascot') === 'typhoon',
+  `상단 배너 마스코트가 태풍이 — ${$('[data-hero-mascot]')?.getAttribute('data-hero-mascot')}`,
+);
+ok(heroImg?.getAttribute('src') === '/typhoon.png', `배너 튜터 이미지 — ${heroImg?.getAttribute('src')}`);
+ok(
+  !$('[data-testid="sidenav"] img'),
+  '배너가 있는데 사이드바 튜터도 떠 있다 — 한 화면에 같은 캐릭터가 둘',
+);
 
 // ── ⑤ 시각 라벨이 실서버 형식을 읽는가 (2026-08-10 실기동 회귀) ─────────────
 // 실서버는 `"202608101500"`(YYYYMMDDHHMM)을 주는데 종전 fmtHour가 ISO만 가정해

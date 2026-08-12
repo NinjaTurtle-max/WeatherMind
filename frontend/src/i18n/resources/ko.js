@@ -49,6 +49,7 @@ export default {
       board: { name: '태양이', line: '어떤 날씨를 만들어 볼까요?' },
       learn: { name: '물방울이', line: '오늘은 어디까지 가볼까요?' },
       duel: { name: '태풍이', line: '자료를 보고 내일 날씨를 맞혀 봐요!' },
+      explore: { name: '구름이', line: '오늘은 무엇을 살펴볼까요?' },
       league: { name: '번개', line: '이번 주 순위를 올려볼까요?' },
     },
   },

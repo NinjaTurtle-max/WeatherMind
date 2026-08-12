@@ -93,7 +93,7 @@ export default function DuelPage() {
   // 것은 말이 안 된다. 왼쪽 브리핑도 같이 뜨므로 조회 한 번이 늦춰지지도 않는다.
   if (todayQ.isLoading) {
     return (
-      <CompeteLayout tab="/duel" title={t('duel.title')} subtitle={t('duel.subtitle')}>
+      <CompeteLayout mascot="typhoon" tab="/duel" title={t('duel.title')} subtitle={t('duel.subtitle')}>
         <LoadingSpinner label={t('duel.loading')} />
       </CompeteLayout>
     );
@@ -101,7 +101,7 @@ export default function DuelPage() {
 
   if (todayQ.isError) {
     return (
-      <CompeteLayout tab="/duel" title={t('duel.title')} subtitle={t('duel.subtitle')}>
+      <CompeteLayout mascot="typhoon" tab="/duel" title={t('duel.title')} subtitle={t('duel.subtitle')}>
         <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
           <p className="text-3xl">🌡️</p>
           <p className="mt-2 font-bold text-slate-800">{t('duel.loadFailed')}</p>
@@ -128,6 +128,7 @@ export default function DuelPage() {
 
   return (
     <CompeteLayout
+      mascot="typhoon"
       tab="/duel"
       title={t('duel.title')}
       subtitle={`${today?.duel_date ? `${today.duel_date} · ` : ''}${t('duel.subtitle')}`}
