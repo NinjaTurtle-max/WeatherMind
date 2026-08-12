@@ -68,6 +68,9 @@ export default {
       retryChallenge: 'Challenge again',
       nextPuzzle: 'Next puzzle →',
       lastPuzzleDone: '🎉 You finished the last puzzle!',
+      // Deliberately not the completion line — nothing is finished, the next
+      // cell just is not open yet.
+      nextNotOpenYet: 'Pick your next puzzle from the list',
       title: '🧩 Atmosphere Board',
       subtitle: 'Place weather elements across 4 regions of the Korean Peninsula to create the target weather.',
       depletedBody1: 'Clouds only shrink by',

@@ -209,3 +209,52 @@ class TestUsageParsing:
             response_metadata = {"token_usage": {"prompt_tokens": 7, "completion_tokens": 9}}
 
         assert budget.usage_from_response(R()) == (7, 9)
+
+
+class TestLadderReachesTheChain:
+    """강등이 **체인까지 닿는가** — 스펙만 바뀌고 클라이언트가 그대로면 소용없다.
+
+    2026-08-12 코드 리뷰가 잡은 결함이다. `_build_chain`이 캐시 키를
+    `resolve_spec`(설정값)으로 만들면, 한도를 넘겨 강등돼도 **키가 안 바뀌어**
+    예산 소진 전에 만든 Gemini 체인이 그대로 돌아온다. 클라이언트를 만든 것은
+    강등을 반영한 `build_chat_model`인데 **찾는 열쇠가 그것을 모르는 것**이라,
+    프로세스가 사는 동안 상한을 넘겨 계속 과금된다 —
+    「최대 $5」가 곧이곧대로 참이어야 한다는 이 모듈의 존재 이유가 무너진다.
+    """
+
+    def _keys(self, monkeypatch):
+        """`_build_chain`이 캐시에 넘기는 키를 가로챈다(체인 생성 없이 본다)."""
+        from app.chains import rag_chain
+
+        seen = []
+        monkeypatch.setattr(
+            rag_chain, "_cached_chain", lambda *args: seen.append(args) or "chain"
+        )
+        rag_chain._build_chain(True)
+        return seen[-1]
+
+    def test_강등되면_캐시_키가_달라진다(self, monkeypatch):
+        _with_key(monkeypatch)
+        monkeypatch.setenv("LLM_SERVING_MODE", "live")
+        monkeypatch.setenv("LLM_FALLBACK_MODEL", "openai/gpt-oss-120b")
+        monkeypatch.setenv("LLM_FALLBACK_BASE_URL", "https://openrouter.ai/api/v1")
+
+        _budget(monkeypatch, available=True)
+        before = self._keys(monkeypatch)
+
+        _budget(monkeypatch, available=False, reason="총 한도 소진", total=5.0)
+        after = self._keys(monkeypatch)
+
+        assert before != after, (
+            "예산이 소진됐는데 캐시 키가 같다 — 강등 전 클라이언트가 재사용되어 "
+            "상한을 넘겨 계속 과금된다"
+        )
+        assert "gpt-oss" in after[1], f"폴백 모델로 안 바뀌었다: {after}"
+
+    def test_키에_프로바이더와_엔드포인트가_실린다(self, monkeypatch):
+        """모델명이 같고 **엔드포인트만** 다른 전환(OpenRouter → 로컬 Ollama)도 갈려야 한다."""
+        _with_key(monkeypatch)
+        monkeypatch.setenv("LLM_SERVING_MODE", "live")
+        _budget(monkeypatch, available=True)
+        key = self._keys(monkeypatch)
+        assert len(key) >= 5, f"provider·base_url이 키에 없다: {key}"

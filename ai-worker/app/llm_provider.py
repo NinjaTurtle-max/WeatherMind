@@ -30,7 +30,7 @@ from functools import lru_cache
 # backend에는 `app/config.py`가 없고 `app/core/config.py`라 ModuleNotFoundError가 난다.
 # 실제로 이 함정에 걸렸다(test_author_batch 5건).
 from app import llm_budget
-from app.config import _LLM_KEY_PLACEHOLDERS, _env, llm_configured, settings
+from app.config import _LLM_KEY_PLACEHOLDERS, _env, settings
 
 logger = logging.getLogger(__name__)
 
@@ -128,17 +128,28 @@ def spec_is_usable(spec: LlmSpec) -> bool:
 
     ⚠️ 로컬 Ollama는 **키가 필요 없다**. 키 유무만 보면 로컬 경로가 영영 안 열린다.
     그래서 base_url이 있으면 키 없이도 사용 가능으로 본다(그쪽이 인증을 안 쓴다).
+
+    ⚠️ **판정은 전역 설정이 아니라 `spec`을 본다.** 종전 Gemini 분기는
+    `llm_configured()`(= 전역 `GEMINI_API_KEY`)만 봐서 스펙과 두 방향으로 어긋났다:
+      ⓐ `LLM_AUTHOR_API_KEY`만 주고 `GEMINI_API_KEY`를 안 주면 — 스펙에는 쓸 수 있는
+         키가 실려 있는데 "없음"으로 판정돼 **G1 저작 배치가 조용히 폴백 뱅크로**
+         떨어진다(생성 0건인데 성공처럼 보인다).
+      ⓑ 전역 키는 진짜인데 용도별 키가 플레이스홀더면 — "있음"으로 판정하고
+         **플레이스홀더로 클라이언트를 만들어** 매 호출 401을 맞는다. 이건
+         `_LLM_KEY_PLACEHOLDERS`가 막으려던 바로 그 상황이다.
+    클라이언트를 만드는 `_cached_model`이 `spec.api_key`를 쓰므로, **판정도 같은
+    값을 봐야** 둘이 갈라지지 않는다.
     """
-    if spec.provider == PROVIDER_GEMINI:
-        return llm_configured()
-    if not spec.model:
-        return False
-    # 플레이스홀더 키는 **없는 것과 같다.** Gemini 쪽이 이미 그렇게 판정하는데
-    # (config._LLM_KEY_PLACEHOLDERS) OpenAI 경로만 진리값을 보면, `.env.example`을
-    # 그대로 복사한 환경이 "키 있음"으로 판정돼 매 호출 401을 맞는다.
     key = (spec.api_key or "").strip()
+    # 플레이스홀더 키는 **없는 것과 같다.** `.env.example`을 그대로 복사한 환경이
+    # "키 있음"으로 판정되면 매 호출 401이다. 두 프로바이더에 같은 잣대를 쓴다.
     if key and any(p in key for p in _LLM_KEY_PLACEHOLDERS):
         key = ""
+    if spec.provider == PROVIDER_GEMINI:
+        # 모델명은 settings 기본값이 늘 채워 주므로 키만 본다(종전 동작과 같다).
+        return bool(key)
+    if not spec.model:
+        return False
     return bool(key) or bool(spec.base_url)
 
 

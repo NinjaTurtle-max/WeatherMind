@@ -134,11 +134,29 @@ def test_rag_chain_reuses_instance_for_same_settings(monkeypatch):
     assert len(created) == 1
 
 
+def _serving_live(monkeypatch):
+    """런타임 체인을 **실제로 쓰는** 상태로 둔다 (2026-08-12).
+
+    ⚠️ 이게 없으면 아래 캐시 계약이 항상 초록으로 통과한다 — 서빙 모드 기본이
+    `dummy`라 런타임 실효 스펙이 **빈 스펙 하나로 수렴**하고, 모델을 무엇으로
+    바꿔도 키가 같아지기 때문이다(그 상태에서는 체인을 애초에 안 부르므로 무해하지만,
+    "모델 교체가 반영되는가"라는 이 테스트의 질문은 그때 검사되지 않는다).
+    """
+    from app import llm_budget
+
+    monkeypatch.setenv("LLM_SERVING_MODE", llm_budget.MODE_LIVE)
+    monkeypatch.setattr(
+        llm_budget, "state",
+        lambda: llm_budget.BudgetState(0.0, 0.0, 5.0, 1.0, True, "여유"),
+    )
+
+
 def test_rag_chain_rebuilds_when_model_changes(monkeypatch):
     rag_chain = _import_rag_chain()
     rag_chain._cached_chain.cache_clear()
     created: list = []
     _stub_provider(monkeypatch, created)
+    _serving_live(monkeypatch)
 
     first = rag_chain._build_chain()
     monkeypatch.setenv("LLM_RUNTIME_MODEL", "gemini-other-model")

@@ -90,3 +90,28 @@ def test_health이_지문을_싣는다():
     from app.core.fingerprint import code_fingerprint
 
     assert len(code_fingerprint()) == 12
+
+
+def test_저장소에_병합_충돌_마커가_없다():
+    """⚠️ **실제로 화면까지 나갔던 결함이다**(2026-08-12 코드 리뷰가 잡았다).
+
+    `>>>>>>> origin/main` 한 줄이 `BoardPage.jsx`의 JSX 안에 남았는데, `>`는 적법한
+    JSX 텍스트라 **빌드가 통과하고 배포까지 간다.** 구름이 0일 때만 렌더되는
+    분기라 스모크 24종 어디에도 안 걸렸고, 학습자는 모든 퍼즐 카드에서 그 문자열을
+    본다. 병합 뒤 `grep '<<<<<<<'`만 세어 `>>>>>>>`를 놓친 것이 원인이라
+    **세 마커를 다 본다.**
+
+    파이썬이 아니라 저장소 전체를 보는 이유: 이 실패는 언어를 안 가린다.
+    """
+    import subprocess
+
+    out = subprocess.run(
+        ["git", "grep", "-nE", r"^(<<<<<<<|>>>>>>>|=======$)", "--", ".", ":!*test_code_fingerprint.py*"],
+        cwd=REPO, capture_output=True, text=True,
+    ).stdout.strip()
+    # `=======`는 마크다운 제목 밑줄로도 쓰이므로 코드 파일에서만 문제 삼는다.
+    offenders = [
+        line for line in out.splitlines()
+        if not (line.split(":")[0].endswith(".md") and "=======" in line)
+    ]
+    assert not offenders, "병합 충돌 마커가 남았다:\n" + "\n".join(offenders[:10])

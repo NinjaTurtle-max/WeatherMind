@@ -70,6 +70,8 @@ export default {
       // CO-K11: 클리어 후 유일한 출구가 화면 밖으로 밀려 「다시 도전」만 보였다.
       nextPuzzle: '다음 퍼즐 →',
       lastPuzzleDone: '🎉 마지막 퍼즐까지 마쳤어요!',
+      // 완주와 **다른 말**이다 — 열린 칸을 다 깬 게 아니라 앞 칸을 안 깬 것이다.
+      nextNotOpenYet: '목록에서 다음 퍼즐을 골라 이어가요',
       title: '🧩 대기 보드',
       subtitle: '기상요소를 한반도 4개 지역에 배치해 목표 날씨를 만들어 보세요.',
       depletedBody1: '구름은',

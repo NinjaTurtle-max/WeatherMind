@@ -60,7 +60,7 @@ from app.chains.seed_paths import resolve_seed_path
 # 격리 임포트하는데(backend와 `app` 패키지명 공유), 함수 안에서 지연 import하면
 # **스왑이 끝난 뒤** 실행돼 backend의 `app`을 뒤져 ModuleNotFoundError가 난다.
 # llm_provider 자체는 langchain을 최상단에서 안 끌므로 여기 둬도 안전하다.
-from app.llm_provider import PURPOSE_RUNTIME, build_chat_model, effective_spec, resolve_spec, spec_is_usable
+from app.llm_provider import PURPOSE_RUNTIME, build_chat_model, effective_spec, spec_is_usable
 
 
 def _llm_available() -> bool:
@@ -186,13 +186,19 @@ def _format_context(documents: list[dict]) -> str:
 
 
 @lru_cache(maxsize=8)
-def _cached_chain(model: str, api_key: str, with_context: bool = True):
-    """(model, api_key, 프롬프트 변형)별 LCEL 체인 캐시.
+def _cached_chain(
+    provider: str, model: str, api_key: str, base_url: str | None, with_context: bool = True
+):
+    """(**실효 스펙**, 프롬프트 변형)별 LCEL 체인 캐시.
 
     LLM 클라이언트 생성 비용이 피드백 호출마다 반복되지 않도록
     모듈 수명 동안 재사용한다(R7-02 S7 지연 완화). 지연 초기화이므로 LLM 키 부재
     환경에서도 임포트는 깨지지 않고, 생성 실패 예외는 lru_cache에 캐시되지 않아
     호출부의 기본 피드백 폴백 동작이 그대로 유지된다.
+
+    ⚠️ **키에 provider·base_url이 들어가야 한다.** 종전에는 (model, api_key)만
+    실어서, OpenRouter → 로컬 Ollama처럼 **모델명이 같고 엔드포인트만 다른** 전환이
+    조용히 옛 클라이언트를 재사용했다(`validate_chain`은 이미 둘 다 싣고 있었다).
     """
     prompt = ChatPromptTemplate.from_messages(
         [("system", SYSTEM_PROMPT if with_context else SYSTEM_PROMPT_NO_CONTEXT)]
@@ -204,9 +210,18 @@ def _cached_chain(model: str, api_key: str, with_context: bool = True):
 
 
 def _build_chain(with_context: bool = True):
-    """LCEL: 프롬프트 → LLM → 순수 텍스트 (해석된 스펙 기준 캐시 조회)."""
-    spec = resolve_spec(PURPOSE_RUNTIME)
-    return _cached_chain(spec.model, spec.api_key, with_context)
+    """LCEL: 프롬프트 → LLM → 순수 텍스트 (**실효 스펙** 기준 캐시 조회).
+
+    ⚠️ **`resolve_spec`이 아니라 `effective_spec`으로 키를 만든다.** 이 한 줄이
+    예산 사다리의 성패를 가른다: 캐시를 설정값으로 키잉하면 한도를 넘겨 강등된
+    뒤에도 **키가 그대로**라 `_cached_chain`이 예산 소진 전에 만든 Gemini 체인을
+    돌려준다. 클라이언트를 만든 것은 `build_chat_model`(강등 반영)인데 **찾는
+    열쇠가 그 사실을 모르는 것**이라, 프로세스가 사는 동안 상한을 넘겨 계속 과금된다
+    — 이 모듈이 존재하는 이유("최대 $5"가 곧이곧대로 참이어야 한다)가 무너진다.
+    저작·검증은 `effective == resolve`(batch)라 영향이 없고, 런타임만 갈린다.
+    """
+    spec, _why = effective_spec(PURPOSE_RUNTIME)
+    return _cached_chain(spec.provider, spec.model, spec.api_key, spec.base_url, with_context)
 
 
 def generate_feedback(

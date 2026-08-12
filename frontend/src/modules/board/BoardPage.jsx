@@ -263,6 +263,16 @@ export default function BoardPage() {
       ? (list.slice(selectedIndex + 1).find((p) => !p.locked && p.unlocked !== false) ?? null)
       : null;
 
+  // ⚠️ `nextPuzzle`이 없다고 **코스를 마친 것이 아니다.** 두 경우가 같은 null로
+  // 뭉쳐 있었다: ⑴ 진짜 마지막 칸 ⑵ 뒤가 아직 안 열린 칸. ⑵는 흔하다 —
+  // LOOKAHEAD가 2라 열린 3칸 중 **세 번째를 먼저** 깨면 커서는 그대로여서 뒤가
+  // 계속 잠겨 있다. 그때 「마지막 퍼즐까지 마쳤어요」가 뜨면 40칸을 남겨 두고
+  // 완주 축하를 받는다. 열린 미클리어 칸이 남았는지로 가른다.
+  const openUncleared = list.filter(
+    (p) => !p.locked && p.unlocked !== false && !p.cleared,
+  );
+  const courseComplete = openUncleared.length === 0;
+
   if (isLoading) return <LoadingSpinner label={t('board.page.loading')} />;
 
   if (isError) {
@@ -332,9 +342,16 @@ export default function BoardPage() {
                   {t('board.page.nextPuzzle')}
                 </button>
               ) : (
-                // 마지막 칸 — 다음이 없으면 「목록으로」가 주 버튼이 된다
-                <p className="text-center text-sm font-extrabold text-emerald-600">
-                  {t('board.page.lastPuzzleDone')}
+                // 다음 칸이 없다 — **왜 없는지**에 따라 말이 달라야 한다.
+                // 완주가 아닌데 완주를 축하하면 남은 퍼즐을 안 찾는다.
+                <p
+                  className={`text-center text-sm font-extrabold ${
+                    courseComplete ? 'text-emerald-600' : 'text-slate-500'
+                  }`}
+                >
+                  {courseComplete
+                    ? t('board.page.lastPuzzleDone')
+                    : t('board.page.nextNotOpenYet')}
                 </p>
               ))}
             <button
@@ -527,7 +544,6 @@ export default function BoardPage() {
  * 아니라 벽이 된다. 판정은 서버가 소유하고 여기는 그리기만 한다 — 프론트가
  * 계산하면 목록과 진입이 갈린다. 화면은 누르는 것만 막고, 진짜 차단은 서버가
  * 한다(403 PUZZLE_LOCKED · BOARD_LOCKED) — 주소창으로 들어오면 화면 판정이 없다.
->>>>>>> origin/main
  */
 function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pending, busy, onOpen }) {
   const t = useT();
@@ -627,7 +643,6 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
             </span>
           ) : energyBlocked ? (
             <span className="truncate text-[11px] font-bold text-rose-600">
->>>>>>> origin/main
               {t('board.page.cardRecovery', { min: regenMin })}
             </span>
           ) : null}

@@ -34,7 +34,7 @@ from app.chains.payload_contract import GENERATED_PAYLOAD_FIELDS, QuizQuestion
 # 격리 임포트하는데(backend와 `app` 패키지명 공유), 함수 안에서 지연 import하면
 # **스왑이 끝난 뒤** 실행돼 backend의 `app`을 뒤져 ModuleNotFoundError가 난다.
 # llm_provider 자체는 langchain을 최상단에서 안 끌므로 여기 둬도 안전하다.
-from app.llm_provider import PURPOSE_AUTHOR, build_chat_model, effective_spec, resolve_spec, spec_is_usable
+from app.llm_provider import PURPOSE_AUTHOR, build_chat_model, effective_spec, spec_is_usable
 
 
 def _llm_available() -> bool:
@@ -388,12 +388,19 @@ def _build_messages(inputs: dict) -> list:
 
 
 @lru_cache(maxsize=8)
-def _cached_chain(model: str, api_key: str, temperature: float):
-    """(model, api_key, temperature) 조합별 LCEL 체인 캐시.
+def _cached_chain(
+    provider: str, model: str, api_key: str, base_url: str | None, temperature: float
+):
+    """(**실효 스펙**, temperature) 조합별 LCEL 체인 캐시.
 
     시도 온도는 (0.7, 0.1) 2종뿐이므로 문항 생성마다 LLM 클라이언트를
     재생성하지 않는다(R7-02 S7 지연 완화). 생성 실패 예외는 캐시되지 않아
     폴백 문제 세트 동작은 기존과 동일하다.
+
+    ⚠️ **provider·base_url이 키에 있어야 한다.** 종전 (model, api_key)로는
+    OpenRouter → 로컬 Ollama처럼 **모델명이 같고 엔드포인트만 다른** 전환이
+    조용히 옛 클라이언트를 재사용한다 — CO-B7 3파전이 "전부 같은 모델"로 돌아가
+    판정 자체가 무의미해지는 형태다(`validate_chain`은 이미 둘 다 싣고 있었다).
     """
     from langchain_core.output_parsers import StrOutputParser
     from langchain_core.runnables import RunnableLambda
@@ -407,11 +414,15 @@ def _cached_chain(model: str, api_key: str, temperature: float):
 def _build_chain(temperature: float):
     """LCEL: 메시지 구성 → LLM → 문자열.
 
-    캐시 키에 **해석된 스펙**을 싣는다. 종전에는 GEMINI_* 만 실어서, 저작 용도를
+    캐시 키에 **실효 스펙**을 싣는다. 종전에는 GEMINI_* 만 실어서, 저작 용도를
     OSS로 돌려도 Gemini로 만든 체인이 그대로 재사용됐다(모델 교체가 무시됐다).
+
+    저작은 배치라 `effective == resolve`지만(서빙 모드·예산이 안 걸린다) 그래도
+    `effective_spec`으로 통일한다 — 클라이언트를 만드는 `build_chat_model`이 그것을
+    보므로, **찾는 열쇠와 만드는 근거가 같아야** 둘이 갈라지지 않는다.
     """
-    spec = resolve_spec(PURPOSE_AUTHOR)
-    return _cached_chain(spec.model, spec.api_key, temperature)
+    spec, _why = effective_spec(PURPOSE_AUTHOR)
+    return _cached_chain(spec.provider, spec.model, spec.api_key, spec.base_url, temperature)
 
 
 def _parse_output(raw: str) -> QuizQuestion:
