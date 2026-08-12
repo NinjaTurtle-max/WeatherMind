@@ -177,6 +177,88 @@ const jsxFiles = (dir) =>
     const p = join(dir, name);
     return statSync(p).isDirectory() ? jsxFiles(p) : (/\.jsx$/.test(name) ? [p] : []);
   });
+/**
+ * `attr={ ... }`의 중괄호 **짝을 세어** 안쪽을 꺼낸다.
+ * 정규식 `\{([\s\S]*?)\}`는 첫 `}`에서 끊겨 템플릿 리터럴(`${}`)을 잘라 먹는다.
+ */
+function braced(source, attr) {
+  const at = source.indexOf(`${attr}{`);
+  if (at < 0) return null;
+  let depth = 0;
+  for (let i = at + attr.length; i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(at + attr.length + 1, i);
+    }
+  }
+  return null;
+}
+
+/** 템플릿 리터럴에서 `${...}`를 걷어내고 **정적 텍스트**만 남긴다(중첩 중괄호 포함). */
+function stripInterpolations(body) {
+  let out = '';
+  for (let i = 0; i < body.length; i += 1) {
+    if (body[i] === '$' && body[i + 1] === '{') {
+      let depth = 1;
+      i += 2;
+      while (i < body.length && depth > 0) {
+        if (body[i] === '{') depth += 1;
+        else if (body[i] === '}') depth -= 1;
+        i += 1;
+      }
+      out += ' '; // 보간 자리는 공백 — 앞뒤 클래스가 붙어 버리면 안 된다
+      i -= 1;
+      continue;
+    }
+    out += body[i];
+  }
+  return out;
+}
+
+/**
+ * 문자열 리터럴만으로 된 삼항의 가지 목록. 가지 하나라도 문자열이 아니면
+ * `null`(= 검증 불가 → 실패). 중첩 삼항도 편다.
+ */
+function ternaryBranches(expr) {
+  if (expr == null) return null;
+  const text = expr.trim();
+  const quoted = /^(?:'([^']*)'|"([^"]*)")$/.exec(text);
+  if (quoted) return [quoted[1] ?? quoted[2]];
+  // 템플릿 리터럴은 **정적 부분**으로 판정한다. 거기에 h-/w-가 이미 있으면
+  // 보간이 무엇을 더 붙이든 크기는 보장된다. 정적 부분만으로 모자라면 아래
+  // sized 검사에서 떨어진다 — 보간이 크기를 줄 수도 있지만 확인할 수 없으니
+  // 그때는 삼항으로 펴 쓰라는 뜻이다.
+  if (text.startsWith('`') && text.endsWith('`') && text.length >= 2) {
+    return [stripInterpolations(text.slice(1, -1))];
+  }
+  // 최상위 `?`를 찾는다(괄호 밖).
+  let depth = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if ('([{'.includes(ch)) depth += 1;
+    else if (')]}'.includes(ch)) depth -= 1;
+    else if (ch === '?' && depth === 0) {
+      // 대응하는 최상위 `:`를 찾는다(중첩 삼항이면 그 안의 `:`는 건너뛴다).
+      let q = 0;
+      for (let j = i + 1; j < text.length; j += 1) {
+        const c = text[j];
+        if ('([{'.includes(c)) depth += 1;
+        else if (')]}'.includes(c)) depth -= 1;
+        else if (c === '?' && depth === 0) q += 1;
+        else if (c === ':' && depth === 0) {
+          if (q > 0) { q -= 1; continue; }
+          const left = ternaryBranches(text.slice(i + 1, j));
+          const right = ternaryBranches(text.slice(j + 1));
+          return left && right ? [...left, ...right] : null;
+        }
+      }
+      return null;
+    }
+  }
+  return null; // 문자열도 삼항도 아니다 — 변수·함수 호출 등은 검증할 수 없다
+}
+
 let callCount = 0;
 for (const file of jsxFiles(join(ROOT, 'src'))) {
   if (file.endsWith(`components${sep}Mascot.jsx`)) continue; // 정의부
@@ -184,20 +266,28 @@ for (const file of jsxFiles(join(ROOT, 'src'))) {
   const rel = relative(ROOT, file);
   for (const call of src.match(/<Mascot[^>]*\/>/g) ?? []) {
     callCount += 1;
-    // className은 리터럴(`className="h-9 w-9"`)일 수도, 조건식
-    // (`className={stack ? 'h-7 w-7' : 'h-9 w-9'}`)일 수도 있다. 조건식이면
-    // **모든 가지**가 가로·세로를 줘야 한다 — 종전에는 리터럴만 읽어서 조건식이
-    // 통째로 ""가 됐고, 크기를 분기시키는 순간 무조건 실패했다(2026-08-12).
-    // 느슨해진 것이 아니다: 문자열이 하나도 없는 표현식은 그대로 실패한다.
+    // className은 리터럴(`className="h-9 w-9"`)일 수도, **문자열만으로 된
+    // 삼항**(`className={stack ? 'h-7 w-7' : 'h-9 w-9'}`)일 수도 있다.
+    // 삼항이면 **모든 가지**가 가로·세로를 줘야 한다.
+    //
+    // ⚠️ 2026-08-12 1차 수정은 "표현식 안의 따옴표 문자열을 다 모아 검사"였는데
+    // 그것은 **느슨했다**: `cond ? 'h-7 w-7' : sizeVar`가 통과한다(sizeVar를
+    // 아무도 안 본다). 그래서 지금은 가지 자체가 문자열 리터럴일 것을 요구하고,
+    // 하나라도 아니면 **검증 불가로 실패**시킨다. 변수로 크기를 주고 싶으면
+    // 삼항 문자열로 펴 쓰라는 뜻이다 — 이 계약이 지키려는 것이 그것이다.
     const literal = call.match(/className="([^"]*)"/)?.[1];
-    const expr = call.match(/className=\{([\s\S]*?)\}/)?.[1];
-    const branches = literal != null
-      ? [literal]
-      : [...(expr ?? '').matchAll(/'([^']*)'|"([^"]*)"|`([^`${]*)`/g)].map((m) => m[1] ?? m[2] ?? m[3]);
+    const expr = literal == null ? braced(call, 'className=') : null;
+    const branches = literal != null ? [literal] : ternaryBranches(expr);
     const sized = (cls) => /(^|\s)h-\S+/.test(cls) && /(^|\s)w-\S+/.test(cls);
     ok(
-      branches.length > 0 && branches.every(sized),
-      `${rel}: 가로·세로 지정 — ${branches.length ? branches.map((c) => `"${c}"`).join(' | ') : '(className 없음)'}`,
+      branches != null && branches.length > 0 && branches.every(sized),
+      `${rel}: 가로·세로 지정 — ${
+        branches == null
+          ? `검증 불가(문자열 삼항이 아니다): ${String(expr).trim().slice(0, 60)}`
+          : branches.length
+            ? branches.map((c) => `"${c}"`).join(' | ')
+            : '(className 없음)'
+      }`,
     );
   }
 }

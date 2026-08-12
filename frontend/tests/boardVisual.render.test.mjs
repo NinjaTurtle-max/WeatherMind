@@ -189,16 +189,23 @@ try {
     check('wide: 두 열 격자를 찾았다', colsAt > 0);
     const colsBody = colsAt > 0 ? body.slice(colsAt) : '';
     check('wide: 가이드가 두 열 안에 카드로 있지 않다', colsAt > 0 && !colsBody.includes('guidePopover'));
-    check('wide: 가이드 오버레이가 배너에 있다', /hasGuide\s*\?\s*guidePopover/.test(body));
+    check('wide: 가이드 칩·카드가 배너 안에 있다', body.includes('{guideChip}') && body.includes('{guidePanel}'));
+    // 카드는 **배너**(relative)에 매단다. 칩에 매달면 칩이 줄 어디에 있느냐에
+    // 따라(목표 칩·타이머와 같이 뜨면 줄 가운데로 밀린다) 카드가 화면 밖으로
+    // 나간다. 배너는 항상 화면 폭을 차지하므로 어느 조합에서도 안 넘친다.
+    check('wide: 배너가 앵커(relative)다', /data-testid="board-mission-hero"[\s\S]{0,400}?className="relative /.test(src));
     // 떠 있는 카드는 **격자 높이에 영향을 주지 않아야** 한다 — absolute가 빠지면
     // 배너가 카드만큼 늘어나 단면이 밀린다.
     check('wide: 가이드 카드가 absolute로 떠 있다', /id="board-guide-panel"[\s\S]{0,900}?absolute/.test(src));
-    // 폰에서는 칩이 배너 왼쪽 끝으로 내려온다 — right-0만 두면 카드가 칩의
-    // 오른쪽 끝 기준으로 왼쪽에 펼쳐져 화면 밖(390px에서 좌 -181px)으로 나간다.
+    // 폰은 배너 폭을 꽉 채우고(left-4 right-4), sm↑는 배너 오른쪽에 320px.
+    // 칩 기준(left-0/right-0)으로 되돌리면 칩 위치에 따라 화면을 넘는다.
     const popoverClass = src.match(/id="board-guide-panel"[\s\S]{0,900}?className="([^"]*)"/)?.[1] ?? '';
     check(
-      `가이드 카드: 좁은 화면은 left, sm↑는 right로 편다 — "${popoverClass.slice(0, 60)}…"`,
-      /(^|\s)left-0(\s|$)/.test(popoverClass) && /(^|\s)sm:right-0(\s|$)/.test(popoverClass),
+      `가이드 카드: 폰은 배너 폭, sm↑는 오른쪽 고정폭 — "${popoverClass.slice(0, 64)}…"`,
+      /(^|\s)left-4(\s|$)/.test(popoverClass)
+        && /(^|\s)right-4(\s|$)/.test(popoverClass)
+        && /(^|\s)sm:right-4(\s|$)/.test(popoverClass)
+        && /(^|\s)sm:w-\[/.test(popoverClass),
     );
 
     // 힌트는 조절값 열 아래에 **한 번만** 그려진다. 좁은 화면용을 따로 두고

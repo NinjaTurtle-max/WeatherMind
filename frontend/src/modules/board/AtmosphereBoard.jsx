@@ -209,7 +209,16 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
       // 칩 자신은 제외 — 여기서 닫으면 칩의 onClick이 곧바로 다시 연다.
       if (guideRef.current?.contains(e.target)) return;
       if (e.target.closest?.('[data-testid="board-guide-toggle"]')) return;
+      // 포커스가 카드 안(예: 「다음 안내」)에 있었으면 그 노드가 지금 사라진다.
+      // 그렇다고 여기서 곧바로 칩에 focus()를 주면 **사용자가 방금 누른 요소에서
+      // 포커스를 빼앗는다**. 브라우저가 클릭 대상에 포커스를 옮길 기회를 준 뒤,
+      // 아무도 안 가져갔을 때(=<body>로 떨어졌을 때)만 칩으로 돌려준다.
+      const wasInside = guideRef.current?.contains(document.activeElement);
       setGuideOpen(false);
+      if (!wasInside) return;
+      requestAnimationFrame(() => {
+        if (document.activeElement === document.body) guideToggleRef.current?.focus();
+      });
     };
     const onKeyDown = (e) => {
       if (e.key !== 'Escape') return;
@@ -566,42 +575,47 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
    * 그림은 열 **폭**에만 묶여 있기 때문이다. 그래서 「항상 펼쳐진 카드」를 버리고
    * 「필요할 때 여는 오버레이」로 바꿨다: 여백 0, 단면 그대로.
    *
-   * 칩은 **목표 진행 칩 자리**를 대신 쓴다(사용자 지시). 목표 달성 수는 액션
-   * 바의 미리보기 문구가 이미 말하고 있어 중복이었다. guided가 아닌 퍼즐에는
-   * 가이드가 없으므로 그 자리에 목표 진행 칩이 종전대로 남는다.
+   * 칩은 **목표 진행 칩 자리**를 대신 쓴다(사용자 지시). 목표가 하나뿐이면
+   * 액션 바 미리보기가 같은 것을 말하므로 칩을 뺀다. 목표가 둘 이상이면
+   * 미리보기(이분값)로 대체가 안 돼 칩이 함께 남는다.
+   *
+   * ⚠️ **패널은 칩이 아니라 배너에 매단다.** 칩에 매달면 칩이 줄 어디에 있느냐에
+   * 따라 카드가 화면 밖으로 나간다 — 목표 칩·타이머가 함께 뜨면 칩이 줄 가운데로
+   * 밀리는데, 그때 `right-0`은 카드를 왼쪽 화면 밖으로(640~900px에서 -92px),
+   * `left-0`은 오른쪽 밖으로 보낸다(2026-08-12 리뷰 2차). 배너는 항상 화면
+   * 전체를 차지하므로 거기 매달면 어느 조합에서도 안 넘친다.
    *
    * stacked(세션 안 보드)는 안 건드렸다 — 종전대로 missionBlock의 한 줄 안내.
    */
   const guideSteps = wide && puzzle?.mode === 'guided' ? (puzzle?.guide_steps ?? []) : [];
   const hasGuide = guideSteps.length > 0;
 
-  const guidePopover = hasGuide && (
-    <div className="relative">
-      <button
-        type="button"
-        ref={guideToggleRef}
-        data-testid="board-guide-toggle"
-        aria-expanded={guideOpen}
-        // 닫혀 있으면 가리킬 대상이 없다 — 없는 id를 가리키는 aria-controls는
-        // 보조기기에 깨진 참조로 간다(2026-08-12 리뷰).
-        aria-controls={guideOpen ? 'board-guide-panel' : undefined}
-        onClick={() => setGuideOpen((o) => !o)}
-        className={`rounded-full px-2.5 py-1 text-[11.5px] font-bold tabular-nums transition ${
-          guideOpen ? 'bg-white text-slate-900' : 'bg-white/15 text-slate-200 hover:bg-white/25'
-        }`}
-      >
-        📋 {t('board.atmosphere.guidePanelTitle')} {guideStep + 1}/{guideSteps.length}
-      </button>
-      {guideOpen && (
+  const guideChip = hasGuide && (
+    <button
+      type="button"
+      ref={guideToggleRef}
+      data-testid="board-guide-toggle"
+      aria-expanded={guideOpen}
+      // 닫혀 있으면 가리킬 대상이 없다 — 없는 id를 가리키는 aria-controls는
+      // 보조기기에 깨진 참조로 간다(2026-08-12 리뷰).
+      aria-controls={guideOpen ? 'board-guide-panel' : undefined}
+      onClick={() => setGuideOpen((o) => !o)}
+      className={`rounded-full px-2.5 py-1 text-[11.5px] font-bold tabular-nums transition ${
+        guideOpen ? 'bg-white text-slate-900' : 'bg-white/15 text-slate-200 hover:bg-white/25'
+      }`}
+    >
+      📋 {t('board.atmosphere.guidePanelTitle')} {guideStep + 1}/{guideSteps.length}
+    </button>
+  );
+
+  /** 「가이드」 카드 — **배너**(`relative`) 기준으로 떠 있다. 위 주석의 앵커 이유. */
+  const guidePanel = hasGuide && guideOpen && (
         <div
           id="board-guide-panel"
           ref={guideRef}
           // 배너 안에서 **떠 있는** 카드다 — 격자 높이에 영향을 주지 않는다.
-          // ⚠️ 폰에서는 `left-0`이다. 배너가 접히면서 칩이 **왼쪽 끝**으로 가는데
-          // right-0으로 두면 카드가 칩의 오른쪽 끝을 기준으로 왼쪽으로 펼쳐져
-          // 화면 밖(390px에서 좌측 -181px)으로 나가고 스크롤로도 못 본다
-          // (2026-08-12 리뷰). sm↑에서는 칩이 오른쪽 끝이라 종전대로 right-0.
-          className="absolute left-0 top-full z-30 mt-2 w-[min(320px,80vw)] rounded-xl bg-slate-200 p-3.5 text-left shadow-lg ring-1 ring-slate-400/40 sm:left-auto sm:right-0"
+          // 폰은 배너 폭을 꽉 채우고(left-4 right-4), sm↑는 오른쪽에 320px.
+          className="absolute left-4 right-4 top-full z-30 mt-2 rounded-xl bg-slate-200 p-3.5 text-left shadow-lg ring-1 ring-slate-400/40 sm:left-auto sm:right-4 sm:w-[320px]"
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-extrabold tracking-[0.4px] text-slate-500">
@@ -646,8 +660,6 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
             </button>
           )}
         </div>
-      )}
-    </div>
   );
 
   const paletteBlock = placeItems.length > 0 && (
@@ -993,7 +1005,8 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
             길어 배너보다 자유롭게 두되 마스코트 원·그림 크기는 같은 값). */}
         <div
           data-testid="board-mission-hero"
-          className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[20px] bg-gradient-to-r from-[#1F3A5F] to-[#16293F] px-5 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
+          // relative — 「가이드」 카드가 **이 배너** 기준으로 뜬다(guidePanel 주석).
+          className="relative flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[20px] bg-gradient-to-r from-[#1F3A5F] to-[#16293F] px-5 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
         >
           <span className="hidden h-[62px] w-[62px] flex-none place-items-center rounded-full bg-white/10 sm:grid">
             <Mascot name="sun" className="h-[50px] w-[50px]" />
@@ -1028,18 +1041,12 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                 **이분값**이라 1/2와 2/2를 구분하지 못하고 제출 뒤에는(`!result`)
                 아예 사라진다. 시드 board 46건 중 11건이 목표 복수이고 그중
                 guided가 4건이다 — 그 4건에서만 칩이 함께 뜬다(2026-08-12 리뷰). */}
-            {!sandbox && goalTotal > 1 && (
+            {!sandbox && goalTotal > 0 && (!hasGuide || goalTotal > 1) && (
               <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11.5px] font-bold tabular-nums text-slate-200">
                 {t('board.atmosphere.goalProgressLabel')} {goalMetCount}/{goalTotal}
               </span>
             )}
-            {hasGuide
-              ? guidePopover
-              : !sandbox && goalTotal === 1 && (
-                  <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11.5px] font-bold tabular-nums text-slate-200">
-                    {t('board.atmosphere.goalProgressLabel')} {goalMetCount}/{goalTotal}
-                  </span>
-                )}
+            {guideChip}
             {hasTimer && (
               <span
                 className={`rounded-full px-2.5 py-1 text-xs font-extrabold tabular-nums ${
@@ -1055,6 +1062,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
               </span>
             )}
           </div>
+          {guidePanel}
         </div>
         {disasterBanner}
 
