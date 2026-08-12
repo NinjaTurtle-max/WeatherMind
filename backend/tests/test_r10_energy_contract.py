@@ -464,7 +464,9 @@ class TestRegenRegression:
 
     @pytest.mark.parametrize(
         "minutes,expected",
-        [(0, 0), (19, 0), (20, 1), (100, 3)],  # 100분: clamp(2+5, MAX=5) → 3
+        # 100분: 5회복. 2+5=7 ≤ MAX(10)이라 clamp가 안 걸린다
+        # (MT-7 만렙 상향 전에는 clamp에 잘려 3이었다).
+        [(0, 0), (19, 0), (20, 1), (100, 5)],
     )
     def test_계약8_회복_경계_회귀(self, minutes, expected):
         assert es.regen_amount(2, _ago(minutes), NOW) == expected, (
@@ -472,9 +474,16 @@ class TestRegenRegression:
         )
 
     def test_계약8_MAX_clamp_회귀(self):
-        assert es.regen_amount(0, _ago(100), NOW) == es.CLOUD_MAX
-        assert es.regen_amount(es.CLOUD_MAX, _ago(100), NOW) == 0
-        clouds, updated = es.apply_regen(3, _ago(100), NOW)
+        """만렙을 넘겨 차오르지 않는다.
+
+        ⚠️ 경과 시간을 **만렙에서 파생**한다. 종전에는 100분을 리터럴로 박아
+        "만렙까지 찬다"를 전제했는데, MT-7로 만렙이 5 → 10이 되자 100분(5개)으로는
+        모자라 이 테스트가 깨졌다 — 계약 수치를 올릴 때마다 깨질 자리였다.
+        """
+        full = _ago(es.CLOUD_MAX * es.CLOUD_REGEN_MINUTES + 20)  # 만렙을 채우고도 남게
+        assert es.regen_amount(0, full, NOW) == es.CLOUD_MAX
+        assert es.regen_amount(es.CLOUD_MAX, full, NOW) == 0
+        clouds, updated = es.apply_regen(3, full, NOW)
         assert (clouds, updated) == (es.CLOUD_MAX, NOW)
 
     def test_계약8_잉여_carry_회귀(self):
@@ -614,7 +623,7 @@ class TestEnergyNumbersContract:
     """
 
     def test_계약11_settings_기본값이_계약값(self):
-        assert settings.CLOUD_MAX == 5
+        assert settings.CLOUD_MAX == 10  # MT-7 (2026-08-11 멘토링)
         assert settings.CLOUD_REGEN_MINUTES == 20
         assert settings.CLOUD_COST == 1
 
