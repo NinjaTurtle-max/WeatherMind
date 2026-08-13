@@ -1158,8 +1158,25 @@ async def create_unit_session(
             # 세이브포인트는 실패한 문만 되감아 세션을 다시 쓸 수 있게 만든다
             # (`routers/session.py`의 daily 발급이 쓰는 것과 같은 장치).
             async with db.begin_nested():
+                # ⚠️ **표적 단계를 함께 넘긴다** (2026-08-13 — 클라이언트 3회 지적).
+                # 이 값이 없으면 첫 세션의 풀이 **학습자의 밴드**로만 잘려,
+                # 「섹션 1 · 초등 3~4학년」 유닛에서 「중학교 유체 지구」(kl 4)
+                # 문항이 나온다(게스트 기본값이 middle_high다). 유닛=데일리 통합이
+                # 들여온 비정합이었다 — `_unit_content_pool`(두 번째 이후 세션)은
+                # 이미 *"표적 단계는 **유닛이 먼저**다"*라고 적으며 같은 값을 쓰고
+                # 있었고, **첫 세션만 그 원칙에서 빠져 있었다**.
+                #
+                # fallback이 **None**인 것이 계약이다: 섹션이 단계를 말하지 않는
+                # 유닛(기초과학 3섹션·미등재·대역)은 표적 없이 넘어가 daily가
+                # 종전대로 θ에서 파생한다 — 하위 호환이 이 한 줄에 들어 있다
+                # (`_unit_content_pool`이 같은 자리에서 θ 파생값을 넣는 것과 다른
+                # 점은, 여기서는 **수신측이 같은 파생을 이미 갖고 있다**는 것뿐이다).
                 plan = await session_service.plan_daily_picks(
-                    db, user, today, abilities=abilities
+                    db,
+                    user,
+                    today,
+                    abilities=abilities,
+                    target_level=unit_target_level(unit, None),
                 )
         except Exception as exc:  # noqa: BLE001 — 사유는 아래
             # **학습 세션 발급은 실황·라우팅 장애로 막히지 않는다.** 이 방어는

@@ -385,7 +385,6 @@ export default {
       sectionEyebrow: 'Section {n} · {title}',
       introTitle: 'What this stage covers',
       start: 'Start',
-      estMinutes: 'about {min} min',
       estDays: 'about {days} day(s)',
       fold: 'Collapse',
       unfold: 'Expand',

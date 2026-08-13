@@ -423,8 +423,43 @@ def generation_tone(user_level_group: str | None) -> str:
     return user_level_group or weatherbrain_service.NEUTRAL_LEVEL_GROUP
 
 
-def pool_level_groups(user_level_group: str, theta: float | None) -> list[str]:
+def pool_level_groups(
+    user_level_group: str,
+    theta: float | None,
+    target_level: int | None = None,
+) -> list[str]:
     """뱅크 풀 level_group 필터 집합 — θ가 있으면 **전 밴드**(2026-08-12 사양).
+
+    ══ `target_level` — **유닛에서 진입한 세션**의 밴드 (2026-08-13 PM 판정) ══════
+
+    표적이 주어지면 위 두 분기를 **모두 건너뛰고** 그 단계의 밴드 하나만 돌려준다
+    (`weatherbrain_service.level_group_of_knowledge_level` — kl→밴드 표의 단일
+    소유자다. 여기에 표를 다시 적으면 두 번째 사본이 된다).
+
+    ⚠️ **이것은 위 문단의 「필터는 열고 정렬로 좁힌다」와 모순이 아니다.** 그
+    원칙이 다루는 것은 **학습자 축**의 표적이다 — 학습자의 θ로 풀을 자르면 추정
+    오차가 그대로 굶주림이 되므로 정렬로만 좁힌다. 반면 `target_level`은
+    **콘텐츠 자신의 축**이다: CO-G1이 「섹션 = 지식 단계」를 정했으므로 유닛이
+    무엇을 가르치는지는 유닛이 정하고, 학습자의 수준은 **경로 위 어디에 서는지**
+    (배치고사)를 정한다. 성인이 kl 1 유닛을 열면 kl 1 문항을 받는 것이 맞다.
+
+    **왜 정렬로는 안 되는가 — 실측**(2026-08-13, 이 개정이 고친 결함):
+    `middle_high` 학습자의 풀은 `rank_by_knowledge_level`이 돌기 **전에** 이미
+    kl 3~4로 잘려 있다. 표적 1에 대한 거리로 정렬하면 kl 3이 이기므로 문항이
+    「중학교 유체 지구」 → 「중학교 물질·에너지」로 바뀔 뿐 **여전히 중학교**다.
+    클라이언트가 세 번 지적한 화면이 그것이고,
+    `test_unit_session_target_level.TestSortingAloneIsNotEnough`가 그 사실을
+    실측으로 못 박는다.
+
+    **굶주림은 여기서 나지 않는다.** 밴드가 좁아져 배합을 못 채우면 부족분은
+    `plan_bank_picks`가 new로 메우고(총합 불변), 밴드 안에서 표적은 여전히
+    「정렬이지 필터가 아니다」 — 바꾸는 것은 **어느 밴드가 풀을 먹이는가**뿐이다.
+    10섹션 전건이 정원을 채운다는 것은 같은 파일의
+    `TestNoStarvationAtAnyLevel`이 실 시드로 확인한다.
+
+    **표적이 None이면 아래 두 분기가 한 글자도 바뀌지 않는다** — 그것이
+    `GET /session/today`(daily)를 지키는 회귀 계약이다.
+    ═════════════════════════════════════════════════════════════════════════
 
     클라이언트 확정(2026-08-12): "무조건 배치고사에 따른 위치 배정이고, 말투만
     선택 수준에 따른 변환이야". 즉 **문항 선택 축은 배치고사가 준 θ 하나**이고,
@@ -461,6 +496,8 @@ def pool_level_groups(user_level_group: str, theta: float | None) -> list[str]:
     분기를 갖는다). 실사용에서 θ None은 `seed_placement`가 실패한 유저뿐이며,
     그 경로에서 신고 학령이 남는 것은 **잔존 밴드 사용처**로 보고 대상이다.
     """
+    if target_level is not None:
+        return [weatherbrain_service.level_group_of_knowledge_level(target_level)]
     if theta is None:
         return [user_level_group]
     return sorted(
@@ -767,6 +804,7 @@ async def _fetch_pools(
     weak_concepts: Sequence[str],
     theta: float | None = None,
     today: date | None = None,
+    target_level: int | None = None,
 ) -> tuple[list[ContentItem], list[ContentItem], list[ContentItem]]:
     """new/review/live 후보 풀 조회 (active + level_group, θ 난이도 정렬).
 
@@ -789,13 +827,19 @@ async def _fetch_pools(
     `today`(KST 달력일)는 당일 제외 경계와 **실황 순환의 기준일**을 함께 정한다.
     호출측이 넘기지 않으면 종전대로 `datetime.now(KST).date()`다 — 하루 경계가
     KST라는 계약은 이 한 줄이 소유한다(UTC로 세면 09:00에 하루가 넘어간다).
+
+    `target_level`(2026-08-13)은 **유닛에서 진입한 세션**의 표적 지식 단계다.
+    주어지면 ⑴ 풀의 밴드가 학습자가 아니라 그 단계에서 파생되고
+    (`pool_level_groups` 독스트링 — 「어느 밴드가 풀을 먹이는가」), ⑵ 아래 재정렬·
+    실황 순환의 표적도 θ 파생값 대신 이 값이 된다. **None이면 종전과 완전히
+    동일**하다 — daily(`GET /session/today`)가 그 경로다.
     """
     day = today or datetime.now(KST).date()
     served_subq = select(QuizLog.content_item_id).where(
         QuizLog.user_id == user.id, QuizLog.content_item_id.is_not(None)
     )
     today_subq = answered_today_subq(user.id, kst_day_start_utc(day))
-    groups = pool_level_groups(user.level_group, theta)
+    groups = pool_level_groups(user.level_group, theta, target_level)
 
     # ── 6단계 해상도 재정렬 (CO-E-1) ────────────────────────────────────────
     # SQL이 자를 수 있는 최소 단위는 밴드(|b−θ|의 사전 b가 밴드당 한 값)다. 유닛
@@ -812,21 +856,30 @@ async def _fetch_pools(
     # 지연 import한다(`_fetch_unit_pool`이 같은 이유로 같은 일을 한다).
     from app.services import curriculum_service
 
-    target_level = (
-        None
-        if theta is None
-        else weatherbrain_service.theta_to_knowledge_level(theta)
+    # 표적 단계 — **유닛이 먼저**다(CO-G1). 유닛 경로가 넘긴 값이 있으면 그것이
+    # 이기고, 없을 때만(=daily) θ에서 파생한다. `_unit_content_pool`이 두 번째
+    # 이후 유닛 세션에서 이미 같은 우선순위를 쓴다 — 첫 세션만 빠져 있었다.
+    # ⚠️ 인자를 덮어쓰지 않고 **새 이름**을 쓴다: 인자는 위 `groups`가 쓰는
+    # **밴드 축**이라 유닛에서만 오고, 이쪽은 **정렬 축**이라 daily에서도 값이 있다.
+    rank_target = (
+        target_level
+        if target_level is not None
+        else (
+            None
+            if theta is None
+            else weatherbrain_service.theta_to_knowledge_level(theta)
+        )
     )
-    prefetch = 1 if theta is None else DAILY_POOL_PREFETCH
+    prefetch = 1 if rank_target is None else DAILY_POOL_PREFETCH
 
     def _ranked(rows, limit: int) -> list[ContentItem]:
         """선취분을 지식 수준으로 다시 세우고 원래 요구량으로 자른다.
 
-        `target_level`이 None(콜드스타트)이면 `rank_by_knowledge_level`이 입력
+        `rank_target`이 None(콜드스타트)이면 `rank_by_knowledge_level`이 입력
         순서를 그대로 돌려주고 prefetch도 1이라 **조회·결과 모두 종전과 동일**하다.
         """
         return curriculum_service.rank_by_knowledge_level(
-            list(rows), target_level
+            list(rows), rank_target
         )[:limit]
 
     new_pool = (
@@ -891,7 +944,7 @@ async def _fetch_pools(
         .scalars()
         .all(),
         day,
-        target_level,
+        rank_target,
     )
     return (
         _ranked(new_pool, NEW_POOL_LIMIT),
@@ -948,6 +1001,7 @@ async def _fetch_board_pool(
     theta: float | None,
     today_subq: Any,
     limit: int = BOARD_POOL_LIMIT,
+    target_level: int | None = None,
 ) -> list[ContentItem]:
     """board 블록 후보 풀 (R13-02 §T3 ⑵) — 유형 board · 오늘 안 푼 것.
 
@@ -969,12 +1023,18 @@ async def _fetch_board_pool(
       커버리지 차로 바뀐다. 못 맞춘 현상은 종전대로 `order_boards_for_today`의
       board_order 폴백이 흡수하므로 **어떤 θ에서도 보드는 나온다**.
       ⚠️ 커버리지를 올리는 길은 저작(단계별 board 증보)이지 이 필터가 아니다.
+    - **유닛에서 진입한 세션은 유닛의 밴드를 쓴다**(`target_level` — 2026-08-13).
+      「오늘의 보드」도 세션의 일부라 여기만 학습자 밴드로 남으면 초등 유닛 세션의
+      마지막 한 문항이 중학교 보드로 나간다. 밴드가 좁아 후보가 0이면 board 자리는
+      `plan_bank_picks`가 new로 메운다(총합 불변).
     """
     return list(
         (
             await db.execute(
                 build_pool_query(
-                    level_groups=pool_level_groups(user.level_group, theta),
+                    level_groups=pool_level_groups(
+                        user.level_group, theta, target_level
+                    ),
                     theta=theta,
                     live=False,
                     served_subq=today_subq,
@@ -1293,6 +1353,7 @@ async def plan_daily_picks(
     today: date,
     *,
     abilities: list | None = None,
+    target_level: int | None = None,
 ) -> DailyPlan:
     """daily 배합(§3.2)대로 뱅크에서 문항을 고른다 — **발급하지 않는다**.
 
@@ -1313,6 +1374,23 @@ async def plan_daily_picks(
     `abilities`를 넘기면 `refresh_abilities`를 생략한다 — 유닛 경로는 라우터가
     잠금 판정에 쓰려고 이미 1회 재추정했고(R8-01 §3.2), 여기서 또 돌리면 한
     발급에 θ 재추정이 2회가 된다.
+
+    ══ `target_level` — **유닛에서 진입한 세션은 유닛의 단계를 따른다** ══════════
+
+    ⑵의 소비자(`create_unit_session`)가 `unit_target_level(unit, None)`을 넘기고,
+    ⑴(`GET /session/today`)은 **아무것도 안 넘긴다**. 넘어오면 이 발급의
+    **풀 밴드**(`pool_level_groups`)와 **정렬 표적**(`rank_by_knowledge_level` ·
+    `live_rotation_order` · `order_boards_for_today`)이 둘 다 그 단계에서
+    파생된다 — 학습자의 θ·신고 학령이 아니라.
+
+    고치는 결함(클라이언트 3회 지적): 「섹션 1 · 초등 3~4학년」 유닛을 열었는데
+    문항이 「중학교 유체 지구」(kl 4)로 떴다. 게스트 기본값이 `middle_high`라
+    풀이 학습자 밴드로 잘려 있었기 때문이고, **정렬만 고치면 kl 3으로 바뀔 뿐
+    여전히 중학교다**(사유·실측은 `pool_level_groups` 독스트링).
+
+    ⚠️ **`target_level=None`은 개정 전과 SQL·픽이 모두 동일**해야 한다 — 그것이
+    기존 daily 계약 전건을 지키는 회귀 불변식이고,
+    `test_unit_session_target_level.TestNoneIsIdentity`가 소유한다.
     """
     # weak_tags 조회는 라우터 폴백 payload 전용으로만 남는다 (decide_route —
     # ai-worker 장애 복원력 유지, R8-01 §3.5).
@@ -1337,7 +1415,7 @@ async def plan_daily_picks(
     # `today`를 넘기는 것이 계약이다 — 당일 중복 제외 경계와 **실황 순환의 기준일**이
     # 같은 KST 달력일이어야 한다(`_fetch_pools` 독스트링 · `live_rotation_order`).
     new_pool, review_pool, live_pool = await _fetch_pools(
-        db, user, weak_concepts, theta=theta, today=today
+        db, user, weak_concepts, theta=theta, today=today, target_level=target_level
     )
     # 실황 풀에서 **치환 불가 문항을 배합 전에 걸러낸다** (CO-M1). 예전에는 배합
     # 뒤에 치환을 시도하고 실패하면 `generate_count += 1`로 넘겼는데, 그 자리는
@@ -1377,10 +1455,23 @@ async def plan_daily_picks(
         # 필터가 하던 일을 여기서 받는다. daily 풀 재정렬(`_fetch_pools`)·생성
         # 난이도와 **같은 함수**를 쓴다 — 세 경로가 다른 단계를 보면 "신규는 3단계,
         # 보드는 5단계"가 된다. θ None(콜드스타트)이면 None이고 정렬은 개정 전과 같다.
-        target_level = (
-            weatherbrain_service.theta_to_knowledge_level(theta)
-            if theta is not None
-            else None
+        #
+        # **유닛에서 진입했으면 유닛의 단계가 이긴다**(2026-08-13) — θ 파생은
+        # 표적이 안 넘어온 daily 경로의 폴백으로 내려간다. 세 경로(신규·실황·보드)가
+        # 같은 표적을 봐야 한다는 위 문단의 요구가 유닛 축에서도 그대로 성립한다.
+        #
+        # ⚠️ **두 값을 갈라 둔다.** `target_level`(인자)은 **밴드 축**이라 유닛에서만
+        # 온다 — θ 파생값을 그 자리에 실으면 daily의 board 풀이 전 밴드에서 한
+        # 밴드로 좁아져 「필터는 열고 정렬로 좁힌다」가 daily에서 깨진다.
+        # `board_target`은 **정렬 축**이고 daily에서는 종전대로 θ 파생이다.
+        board_target = (
+            target_level
+            if target_level is not None
+            else (
+                weatherbrain_service.theta_to_knowledge_level(theta)
+                if theta is not None
+                else None
+            )
         )
         board_pool = weather_phenomenon.order_boards_for_today(
             await _fetch_board_pool(
@@ -1388,14 +1479,15 @@ async def plan_daily_picks(
                 user,
                 theta,
                 answered_today_subq(user.id, kst_day_start_utc(today)),
+                target_level=target_level,
             ),
             today_phenomenon,
-            target_level,
+            board_target,
         )
         logger.info(
             "오늘 현상 판정 %s · 표적 단계 %s — board 후보 %d건 (user=%s)",
             today_phenomenon or "판정없음(board_order 폴백)",
-            target_level if target_level is not None else "미정(콜드스타트)",
+            board_target if board_target is not None else "미정(콜드스타트)",
             len(board_pool),
             user.id,
         )

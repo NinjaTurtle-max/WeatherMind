@@ -147,7 +147,7 @@ def fake_plan(monkeypatch, *, generate_count=0):
                 }
             )
 
-    async def _fake(db, user, today, *, abilities=None):
+    async def _fake(db, user, today, *, abilities=None, target_level=None):
         return ss.DailyPlan(
             picks=picks,
             generate_count=generate_count,
@@ -253,7 +253,7 @@ class TestSecondUnitSessionIsPlainLearning:
         불러 놓고 버리면 KMA·Redis 왕복이 매 세션 그대로 남는다."""
         called = []
 
-        async def _spy(db, user, today, *, abilities=None):
+        async def _spy(db, user, today, *, abilities=None, target_level=None):
             called.append(True)
             raise AssertionError("두 번째 이후 세션이 daily 배합을 조회했다")
 
@@ -403,7 +403,7 @@ class TestDegradedFirstSessionStillGrantsCrown:
     @pytest.fixture
     def broken_daily(self, monkeypatch):
         """daily 배합 경로가 터지는 상황 — 무키·KMA 장애·Redis 캐시 장애."""
-        async def _boom(db, user, today, *, abilities=None):
+        async def _boom(db, user, today, *, abilities=None, target_level=None):
             raise RuntimeError("redis down")
 
         monkeypatch.setattr(ss, "plan_daily_picks", _boom)

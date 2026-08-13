@@ -315,9 +315,24 @@ class TestExistingConsumersUnchanged:
         독스트링이 지목한 것 하나다 — 미분류(NULL) 문항이 **풀에서 탈락**하는 것.
         정렬은 미분류를 뒤로 보낼 뿐이지만 필터는 굶긴다. 그러므로:
 
-        - 금지: `build_pool_query`(SQL WHERE) · `pool_level_groups`(밴드 선택) ·
-          `plan_bank_picks`(배합) — 여기에 kl이 들어오면 굶기거나 계약을 흔든다.
+        - 금지: `build_pool_query`(SQL WHERE) · `plan_bank_picks`(배합) —
+          여기에 kl이 들어오면 굶기거나 계약을 흔든다.
         - 허용: 조회 조립부(`_fetch_pools`·`_fetch_unit_pool`) — **정렬 위임만**.
+
+        ⚠️ **2026-08-13 개정 — `pool_level_groups`가 금지 목록에서 빠진다.**
+        유닛에서 진입한 세션은 유닛의 지식 단계를 따르므로(CO-G1 · 클라이언트
+        3회 지적) 그 함수가 `target_level`을 받아 **밴드를 파생**한다.
+        **위험 서술이 여기에 해당하지 않는다는 것이 근거다**: 이 금지가 막으려던
+        것은 「미분류(NULL) 문항이 **풀에서 탈락**하는 것」인데, 파생 결과는
+        여전히 `level_group` 값이고 SQL WHERE에 들어가는 컬럼도 `level_group`
+        하나다 — kl이 NULL인 문항도 자기 밴드로 그대로 조회된다. 즉 kl은
+        **밴드를 고르는 데 한 번 읽힐 뿐 필터 값이 되지 않는다.**
+        그래서 금지를 걷는 대신 **그 성질을 직접 잰다**(아래 두 단정):
+          ⑴ 반환은 어떤 kl에서도 `LEVEL_GROUP_BANDS`의 부분집합이고,
+          ⑵ kl을 읽는 통로는 `level_group_of_knowledge_level`(kl→밴드 표의 단일
+             소유자) 하나뿐이다 — 함수 안에서 kl로 직접 비교·산술하지 않는다.
+        「kl은 SQL WHERE에 못 들어온다」는 상위 불변식은 `build_pool_query`
+        금지가 그대로 소유한다.
 
         ⚠️ **2026-08-12 개정**: `placement_service` **파일 전체 금지를 걷는다.**
         그 금지의 근거는 "배치고사 3밴드 고정(CO-D1)의 판정 전에 kl이 새면 안 된다"
@@ -347,10 +362,18 @@ class TestExistingConsumersUnchanged:
 
         for fn in (
             session_service.build_pool_query,
-            session_service.pool_level_groups,
             session_service.plan_bank_picks,
         ):
             assert "knowledge_level" not in code_without_docstring(fn), fn.__name__
+
+        # `pool_level_groups` — 금지 대신 성질 검사(위 2026-08-13 개정)
+        code = code_without_docstring(session_service.pool_level_groups)
+        assert code.count("knowledge_level") == code.count(
+            "level_group_of_knowledge_level"
+        ), "kl이 밴드 파생 통로 밖에서 읽힌다"
+        for level in range(wb.KNOWLEDGE_LEVEL_MIN, wb.KNOWLEDGE_LEVEL_MAX + 1):
+            groups = session_service.pool_level_groups("middle_high", 0.0, level)
+            assert set(groups) <= set(wb.LEVEL_GROUP_BANDS), groups
 
     def test_daily_풀_재정렬은_유닛과_같은_함수를_쓴다(self):
         """CO-E-1 — 두 경로가 갈리면 결함이 형태만 바꿔 남는다.

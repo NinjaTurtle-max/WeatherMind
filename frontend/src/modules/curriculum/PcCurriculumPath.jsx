@@ -37,7 +37,13 @@ const STATUS_ICON = { cleared: '👑', current: '⭐', unlocked: '🌀', locked:
 // **접기 상태와 연동하지 않는다** — 접을 때마다 아이콘이 커졌다 작아지면 화면이
 // 출렁인다. 스트립을 접으면 경로가 쓸 높이는 늘지만 아이콘은 그대로 두고 여백만
 // 늘어난다(2026-08-05 결정).
-const CHROME = 135;
+// 2026-08-13: **+34** — `.wm-vpath`에 「시작」 말풍선 자리(padding-top: 34px)를
+// 냈다. 그 말풍선은 첫 노드 **위쪽 바깥**에 그려지는데 위가 flex-start라
+// 트랙 밖으로 넘쳐 「이 단계에서 배우는 것」 칩 줄을 덮고 있었다(클라이언트 제보).
+// 여기 안 더하면 --dot이 트랙을 실제보다 크게 잡아 마지막 노드가 잘린다.
+// ⚠️ **export한다** — 스모크가 `'135px'`를 리터럴로 단정하고 있어서 이 값을 바꾸는
+// 순간 두 곳이 붉어졌다(2026-08-13). 소유자는 여기 하나이고 테스트는 파생시킨다.
+export const CHROME = 135 + 34;
 
 /**
  * 노드 지름 계산(`--n`)의 **바닥값** — 코스가 달라도 동그라미 크기가 같게 한다.
@@ -363,13 +369,12 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
               {c.label}
             </span>
           ))}
-          {section.est_minutes ? (
-            <span className="text-[10.5px] font-bold text-slate-400">
-              · {t('curriculum.path.estMinutes', { min: section.est_minutes })}
-            </span>
-          ) : null}
-          {/* 예상 **일수**(⑴) — 분과 나란히. 근거가 없으면 줄을 안 그린다(분과 같은 관례).
-              산식의 소유자는 `EST_DAYS_BASIS` 한 줄이다(파일 머리). */}
+          {/* 예상 **일수**만 그린다. 「예상 52분」은 2026-08-13 클라이언트 지시로
+              걷었다 — 하루 리듬이 「하루에 유닛 하나」인데 분 단위를 나란히 두면
+              **한 자리에서 두 가지 리듬을 말하는 꼴**이고, 칩 줄만 길어졌다.
+              `est_minutes` 자체는 서버 메타에 남는다(일수 산식의 후보 하나이고
+              `test_section_est_minutes`가 유닛 수 파생을 계속 문다).
+              근거가 없으면 줄을 안 그린다. 산식 소유자는 `EST_DAYS_BASIS` 한 줄. */}
           {estDays ? (
             <span data-est-days={estDays} className="text-[10.5px] font-bold text-slate-400">
               · {t('curriculum.path.estDays', { days: estDays })}

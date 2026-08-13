@@ -88,7 +88,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const mod = await vite.ssrLoadModule('/src/modules/curriculum/PcCurriculumPath.jsx');
 const PcCurriculumPath = mod.default;
-const { blueEndIndex, stageDoneCount, joinK, PATH_SIZING_FLOOR, PATH_SIZING_CAP, estDaysOf } = mod;
+const { blueEndIndex, stageDoneCount, joinK, PATH_SIZING_FLOOR, PATH_SIZING_CAP, estDaysOf, CHROME } = mod;
 
 let failures = 0;
 const ok = (cond, label) => {
@@ -239,7 +239,14 @@ await render({});
 
   // 섹션 메타 — 있으면 그리고, 없으면 그 줄 자체를 만들지 않는다
   ok(container.textContent.includes(SUBTITLE), '메타가 있는 섹션은 부제를 보여준다');
-  ok(container.textContent.includes('예상 15분'), '예상 소요시간을 보여준다');
+  // 「예상 N분」은 2026-08-13 클라이언트 지시로 걷었다 — 하루 리듬이 「하루에 유닛
+  // 하나」인데 분 단위를 나란히 두면 한 자리에서 두 리듬을 말하는 꼴이었다.
+  // 남는 것은 **일수**이고, 기대값은 리터럴이 아니라 소유자(estDaysOf)에서 파생한다.
+  ok(!container.textContent.includes('예상 15분'), '예상 **분**은 더 이상 안 보인다');
+  ok(
+    container.textContent.includes(`예상 ${estDaysOf(sections[1])}일`),
+    '예상 **일수**를 보여준다',
+  );
   ok(container.textContent.includes('시베리아 기단'), 'topics를 칩으로 보여준다');
   const stage1 = container.querySelectorAll('.wm-stage')[0];
   ok(!stage1.querySelector('p.truncate'), '메타 없는 섹션은 부제 줄을 만들지 않는다');
@@ -278,7 +285,7 @@ await render({});
   const chipsBefore = container.querySelectorAll('.wm-stage .rounded-full.bg-sky-100').length;
   ok(chipsBefore > 0, `펼침 상태에서 개념 칩이 보인다 — ${chipsBefore}개`);
   const chromeOpen = container.querySelector('.wm-vpath').style.getPropertyValue('--chrome');
-  ok(chromeOpen === '135px', `펼침 상태 --chrome=135px — 실제 ${chromeOpen}`);
+  ok(chromeOpen === `${CHROME}px`, `펼침 상태 --chrome=${CHROME}px — 실제 ${chromeOpen}`);
   const toggle = container.querySelector('.wm-stage button[aria-expanded]');
   await click(toggle);
   const expandedAll = [...container.querySelectorAll('button[aria-expanded]')].map((b) =>
@@ -292,7 +299,7 @@ await render({});
   // 접어도 **아이콘 크기는 그대로**다(2026-08-05 결정). 노드 지름은 --chrome에서
   // 역산하므로, 접기와 연동하면 접을 때마다 아이콘이 커졌다 작아져 화면이 출렁인다.
   const chromeFolded = container.querySelector('.wm-vpath').style.getPropertyValue('--chrome');
-  ok(chromeFolded === '135px', `접어도 --chrome 불변(135px) — 실제 ${chromeFolded}`);
+  ok(chromeFolded === `${CHROME}px`, `접어도 --chrome 불변(${CHROME}px) — 실제 ${chromeFolded}`);
   await click(toggle); // 원복
 }
 
