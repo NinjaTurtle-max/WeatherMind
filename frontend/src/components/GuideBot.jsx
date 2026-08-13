@@ -222,7 +222,14 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
         aria-label={t(open ? 'guide.aria.collapse' : 'guide.aria.expand')}
         // 128px — 「이어서 풀기」 노드 정도의 존재감을 요구받았다(2026-08-13).
         // ⚠️ 이 크기를 바꾸면 위 `SIZE` 상수를 **같이** 바꿔야 한다(클램프 계약).
-        className="grid h-32 w-32 flex-none place-items-center rounded-full bg-white shadow-lg ring-1 ring-sky-200"
+        //
+        // ⚠️ **흰 원 배경을 두지 않는다**(2026-08-13 클라이언트 지시). 종전에는
+        // `rounded-full bg-white shadow-lg ring-1 ring-sky-200`으로 캐릭터 뒤에 흰
+        // 동그라미를 깔았는데, 그러면 **캐릭터가 아니라 버튼처럼 보인다** — 화면을
+        // 떠다니며 말을 거는 캐릭터라는 인상이 그 테두리 하나에 깨진다. 접지
+        // 그림자(GuideBot3D)가 이미 "떠 있다"를 만들고 있으므로 판이 필요 없다.
+        // 배경을 지웠으니 **버튼임을 알리는 것은 커서와 접근 이름이 맡는다**.
+        className="grid h-32 w-32 flex-none cursor-pointer place-items-center bg-transparent"
       >
         {/* 2D와 3D가 **같은 정사각 박스**를 공유한다 — 크기·중심이 같아야 교체가
             안 보인다(PNG는 내용 경계로 잘려 있고 3D는 그 박스에 맞춰 그린다). */}
