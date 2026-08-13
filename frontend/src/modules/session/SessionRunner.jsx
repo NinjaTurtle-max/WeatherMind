@@ -12,7 +12,41 @@ import ResultBanner from '../quiz/ResultBanner';
 import SessionProgressBar from './SessionProgressBar';
 import SessionSummary from './SessionSummary';
 import ClosingForecastStep from '../duel/ClosingForecastStep';
+import { KNOWLEDGE_LEVEL_NAME, selectKnowledgeLevel } from '../../lib/abilityDisplay';
 import { translate, useT } from '../../i18n';
+
+/**
+ * 문항의 **학습 수준 배지** (2026-08-12 클라이언트 지적 「학습 수준 태깅이 안 보인다」).
+ *
+ * 문항 1,000건 전건에 `knowledge_level`이 채워져 있는데도 화면 어디에도 안 떴다.
+ * 데이터가 없던 게 아니라 **통로가 없었다** — 세션 응답 스키마에 필드가 없었다.
+ *
+ * ⚠️ **명칭표를 여기서 짓지 않는다.** 10단계 이름의 단일 소유자는
+ * `i18n/resources/{ko,en}.js`의 `ability.knowledgeLevel.name`이고, 이 컴포넌트는
+ * `lib/abilityDisplay.js`의 `KNOWLEDGE_LEVEL_NAME`(그 리소스 파생 사전)만 읽는다.
+ * /me 화면의 KnowledgeLevelCard와 **같은 사전을 본다** — 두 화면이 같은 단계를
+ * 다른 이름으로 부르는 일이 구조적으로 불가능하다.
+ *
+ * 값이 없으면(구 세션·단계 미분류 문항·유닛/배치 세션) **아무것도 그리지 않는다** —
+ * 빈 배지도 "?"도 금지다(board의 DifficultyBadge와 같은 관례).
+ * `selectKnowledgeLevel`이 정수 아님·0 이하를 전부 null로 접어 준다.
+ */
+function ItemKnowledgeLevelBadge({ item }) {
+  const t = useT();
+  const picked = selectKnowledgeLevel(item);
+  if (!picked) return null;
+  const name = KNOWLEDGE_LEVEL_NAME[picked.level];
+  if (!name) return null; // 리소스에 없는 단계(N 확장 중) — 지어내지 않고 감춘다
+  return (
+    <span
+      data-knowledge-level={picked.level}
+      aria-label={t('session.knowledgeLevelAria', { level: picked.level, name })}
+      className="mb-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600"
+    >
+      {t('session.knowledgeLevel', { name })}
+    </span>
+  );
+}
 
 /**
  * SessionRunner — 세션 상태머신 컨트롤러(공용 엔진).
@@ -31,7 +65,11 @@ import { translate, useT } from '../../i18n';
  *   - title: 상단 제목
  *   - attendance: 진입 시 출석 체크 호출 여부(자유 세션·학습 홈에서만 true)
  *   - subheader: 제목 아래 보조 영역(유닛 배지 등)
- *   - renderSummary(summary): 완료 요약 렌더(기본 SessionSummary)
+ *   - renderSummary(summary, items): 완료 요약 렌더(기본 SessionSummary)
+ *     ⚠️ `items`를 두 번째 인자로 넘기는 이유 — 유닛 완료 화면이 **블록 구분**
+ *     (실황·신규·복습·오늘의 하늘)을 그리려면 kind가 붙은 문항 목록이 필요하다.
+ *     `summary`만 넘기던 종전에는 유닛 세션이 10문항 데일리 배합을 받아도
+ *     **무슨 구성인지 화면이 말할 방법이 없었다**.
  *   - onSessionComplete(summary): 완료 후 부수효과(예: 커리큘럼 무효화)
  *
  * bulkMode (R7-02 S1 — 배치고사 전용, daily/unit 경로 불변):
@@ -64,21 +102,59 @@ export function comboPraise(combo) {
 }
 
 /**
- * 만회 큐 상한 (R13-01 §2.11) — **서버는 상한을 강제하지 않는다**(문항별 만회
- * 가능 여부만 판정한다). 상한은 프론트 몫이다: 15문항 + 만회 무제한이면 최악
- * 30문항이 되어 좋은 장치가 피로 유발로 뒤집힌다. 최대 20문항에서 멈춘다.
+ * 만회 큐 — **상한이 없다**(2026-08-12 클라이언트 확정: "만회 라운드는 만회할
+ * 때까지 계속 기회를 줘, 유닛을 한 번 시도에 무조건 종료되도록").
+ *
+ * ⚠️ 종전에는 `RETRY_QUEUE_LIMIT = 5`가 있었고 그 근거가 **「15문항 + 만회
+ * 무제한이면 최악 30문항이라 피로 유발」**이었다. 그 근거는 낡았다:
+ * 배합이 15 → **10문항**(`SESSION_RECIPE = {live:2,new:4,review:3,board:1}`)으로
+ * 줄었고 유닛 세션은 **4문항**(`UNIT_SESSION_SIZE`)이다. 4문항짜리 유닛에서
+ * 만회 무제한의 최악은 8~12문항이라 피로 논거가 성립하지 않는다.
+ *
+ * 상한을 걷은 **적극적 이유**는 피로 계산이 아니라 학습 계약이다: 한 번 유닛에
+ * 들어가면 **틀린 것을 다 맞힐 때까지 그 안에서 끝낸다**. 상한이 있으면 6번째
+ * 오답부터는 "틀린 채로 종료"가 되어, 왕관 판정(all_resolved)이 실력이 아니라
+ * 오답 개수에 좌우된다.
+ *
+ * ⚠️ 상한이 없으므로 **종료 조건이 유일한 안전장치**다(§만회 종료 조건 — handleNext).
+ * 서버 `is_retry_eligible`(= `is_correct is False and retry_correct is not True`)이
+ * False가 되는 문항은 409 ALREADY_ANSWERED로 돌아오고, 그 문항을 큐에서 빼지
+ * 않으면 화면이 영영 안 끝난다.
  */
-export const RETRY_QUEUE_LIMIT = 5;
 
 /**
- * 오답 quiz_id 목록 → 실제 만회 대상 (계약용 순수 함수).
- * 상한을 넘으면 **마지막 N개**만 남긴다 — 방금 놓친 것이 기억에 가깝고,
- * "오늘 놓친 것 몇 개를 마무리한다"는 의미가 선명해진다(§2.11).
+ * 오답 quiz_id 목록 → 만회 큐 (계약용 순수 함수).
+ * **전건**이고 출제 순서를 보존한다. 중복만 접는다(같은 문항이 두 자리를
+ * 차지하면 진행 표기의 분모가 실제 대상 수와 어긋난다).
  */
-export function retryQueueOf(wrongIds, limit = RETRY_QUEUE_LIMIT) {
+export function retryQueueOf(wrongIds) {
   if (!Array.isArray(wrongIds)) return [];
-  return wrongIds.slice(-Math.max(0, limit));
+  return [...new Set(wrongIds)];
 }
+
+/**
+ * 만회 탈출구가 열리는 **바퀴 수**(2026-08-12 클라이언트 확정).
+ *
+ * 왜 필요한가: 상한이 없으므로 **채점이 잘못된 문항**이 큐에 들어오면 학습자가
+ * 맞는 답을 내도 계속 오답 처리되어 세션이 영영 안 끝난다. 가상의 위험이 아니다 —
+ * 이 저장소는 `lint_seed_items` 초록 상태에서 채점 결함 2건(오독이 정답 처리 ·
+ * 맞는 답이 오답 처리)이 발견된 이력이 있다(CARRYOVER_R13 §1.1e).
+ *
+ * 값이 3인 근거:
+ *  · **시도 총량 = 1(최초) + 3(만회) = 4회.** 유닛 세션이 4문항이므로 한 문항에
+ *    4번은 "포기가 아니라 충분히 붙어 본" 양이다.
+ *  · **해설을 3번 읽은 뒤에 열린다.** 만회 실패 화면은 매번 FeedbackPanel로
+ *    해설을 이미 띄운다 — 탈출구는 "안 본 해설을 보여주는 문"이 아니라 "세 번
+ *    읽고도 안 되면 놓아 주는 문"이다. 1~2였다면 해설을 읽기 전에 눌러 버리는
+ *    회피 통로가 되어 클라이언트가 고른 「만회할 때까지」의 취지가 죽는다.
+ *  · **상한 폐지의 근거를 훼손하지 않는다.** 상한 5는 "5번째 오답부터 틀린 채
+ *    종료"라 실력이 아니라 오답 **개수**로 결과가 갈렸다. 이 상수는 개수가 아니라
+ *    **같은 문항의 반복 실패**에만 걸리므로 그 결함이 되살아나지 않는다.
+ *
+ * ⚠️ **리터럴로 흩뿌리지 말 것.** 화면·테스트 모두 이 상수에서 파생시킨다 —
+ * 값을 바꾸면 스모크가 함께 따라가야 계약이지 상수 대조가 아니다.
+ */
+export const RETRY_MERCY_ROUNDS = 3;
 export default function SessionRunner({
   queryKey,
   loadSession,
@@ -122,14 +198,23 @@ export default function SessionRunner({
   // 연속 정답 콤보(§3.5) — 정답이면 +1, 오답·제출 실패면 0으로 초기화
   const [combo, setCombo] = useState(0);
 
-  // ── 만회 라운드(R13-01 §2.1) · 상한 5(§2.11) ──────────────────────────────
+  // ── 만회 라운드(R13-01 §2.1) · **상한 없음**(2026-08-12) ───────────────────
   // wrongIds: 틀린 문항 quiz_id(출제 순서 보존). 이번 자리에서 틀린 것 **+ 재진입
   //   복원분**(CO-A5 — 서버 SessionItem.is_correct).
-  // retryQueue: 마지막 문항 뒤에 확정되는 실제 만회 대상(= retryQueueOf(wrongIds)).
-  //   길이가 0보다 크면 만회 라운드 진행 중이라는 뜻이다(retryPhase).
+  // retryQueue: **아직 해결되지 않은** 만회 대상. 머리(=[0])가 지금 푸는 문항이고,
+  //   만회에 실패하면 꼬리로 돌아간다(다음 바퀴에 다시 나온다). 길이가 0보다 크면
+  //   만회 라운드 진행 중이라는 뜻이고(retryPhase), **0이 되는 것이 유일한 종료**다.
+  //   인덱스 포인터를 두지 않는 이유: 무제한 반복에서는 "몇 번째"가 아니라
+  //   "무엇이 남았는가"가 상태다 — 포인터와 큐가 두 벌이면 어긋난다.
+  // retryTotal: 라운드 진입 시점의 대상 수(진행 표기의 분모. 반복해도 안 늘어난다).
+  // retryFails: quiz_id → **만회에 실패한 횟수**(= 그 문항으로 돈 바퀴 수).
+  //   RETRY_MERCY_ROUNDS에 닿으면 그 문항에 「해설 보고 넘어가기」 탈출구가 열린다.
+  //   ⚠️ 실패 **횟수**여야 한다(큐를 돈 횟수가 아니라): 큐에 5문항이 있으면 한
+  //   바퀴에 5번 제출이 일어나므로 "회전 수"로 세면 문항별 고집과 무관해진다.
   const [wrongIds, setWrongIds] = useState([]);
   const [retryQueue, setRetryQueue] = useState([]);
-  const [retryIndex, setRetryIndex] = useState(0);
+  const [retryTotal, setRetryTotal] = useState(0);
+  const [retryFails, setRetryFails] = useState({});
   const retryPhase = retryQueue.length > 0;
   // 이 세션의 복원이 끝났는가(= 복원 대상 sessionId). **상태**여야 한다(ref 아님):
   // 복원이 자동완료보다 먼저 반영됐다는 사실을 렌더 사이클로 전달해야 자동완료
@@ -151,7 +236,8 @@ export default function SessionRunner({
     setCombo(0);
     setWrongIds([]);
     setRetryQueue([]);
-    setRetryIndex(0);
+    setRetryTotal(0);
+    setRetryFails({});
     setRestoredFor(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyString]);
@@ -201,6 +287,14 @@ export default function SessionRunner({
             prev.includes(variables.quizId) ? prev : [...prev, variables.quizId],
           );
         }
+      } else if (result.retry_correct === false && variables?.quizId) {
+        // 만회 실패 1건 적립 — RETRY_MERCY_ROUNDS에 닿으면 탈출구가 열린다.
+        // **여기서 센다**(handleNext가 아니라): 탈출구는 실패 피드백 화면에 함께
+        // 떠야 하고, 그 화면은 이 응답이 만든다.
+        setRetryFails((prev) => ({
+          ...prev,
+          [variables.quizId]: (prev[variables.quizId] ?? 0) + 1,
+        }));
       }
       queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
       queryClient.invalidateQueries({ queryKey: ['progress', 'quests'] });
@@ -267,12 +361,16 @@ export default function SessionRunner({
    * **자동완료가 곧바로 발화**해 만회 화면이 뜨지도 않고 세션이 끝났고, 그 순간의
    * `all_resolved`로 왕관이 확정됐다(대장 CO-M10).
    *
-   * 복원 조건은 **`is_correct === false && retry_correct == null`**이다.
-   * 서버 `is_retry_eligible`은 `retry_correct is not True`라 만회에 **실패한** 문항도
-   * 여전히 재제출을 받아 주지만, 그 조건으로 복원하면 새로고침할 때마다 실패한
-   * 만회가 되살아난다 — §2.11의 "성공·실패 모두 한 번씩만"이 새로고침으로 무너지고
-   * 왕관 판정(all_resolved)이 재시도 횟수에 좌우된다. 서버 조건의 **진부분집합**이라
-   * 이 큐가 409를 맞는 일은 없다(반대 방향의 어긋남만 위험하다).
+   * 복원 조건은 **`is_correct === false && retry_correct !== true`**로,
+   * 서버 `answer_service.is_retry_eligible`과 **글자 그대로 같은 식**이다
+   * (`backend/app/services/answer_service.py:67` · 목 `apiMockPlugin.js:1878`).
+   *
+   * ⚠️ 2026-08-12 이전에는 `retry_correct == null`(= 만회를 아직 안 해 본 것)이라는
+   * **진부분집합**이었고, 그 근거가 §2.11의 "성공·실패 모두 한 번씩만"이었다.
+   * 만회가 무제한이 되면서 그 근거가 사라졌다 — 이제 **만회에 실패한 문항은
+   * 새로고침 뒤에도 다시 나와야 한다**(안 그러면 새로고침이 "다 맞힐 때까지"를
+   * 우회하는 통로가 된다). 두 식이 같아진 덕에 이 큐가 409를 맞는 경우도
+   * 구조적으로 사라졌다(전에는 한쪽 방향의 어긋남만 안전했다).
    *
    * ⚠️ 복원 근거는 **로드 응답(`session`)**이지 스토어가 아니다. 스토어는 모듈
    * 싱글턴이라 진입 첫 패스에서 **직전 세션의 값**을 들고 있고(초기화 이펙트가 같은
@@ -287,17 +385,32 @@ export default function SessionRunner({
     if (!loadedId || restoredFor === loadedId) return;
     if (sessionId !== loadedId) return; // 스토어가 아직 이 응답을 반영하지 않았다
     const restored = (session.items ?? [])
-      .filter((it) => it.is_correct === false && it.retry_correct == null)
+      .filter((it) => it.is_correct === false && it.retry_correct !== true)
       .map((it) => it.quiz_id);
     if (restored.length > 0) {
       // 이번 자리에서 이미 쌓인 것이 있으면 그쪽이 최신이다(복원은 최초 1회뿐).
       setWrongIds((prev) => (prev.length > 0 ? prev : restored));
-      // 본문 15문항이 이미 끝나 있었다 = 만회 라운드에서 이탈했다는 뜻이다.
+      // 만회 실패 이력도 되살린다 — `retry_correct === false`는 **최소 1바퀴는
+      // 돌았다**는 서버의 증언이다. 정확한 횟수는 서버에 없으므로 1로 접는다:
+      // 새로고침이 탈출구 카운터를 통째로 0으로 되돌려 "고쳐지지 않는 문항"에
+      // 다시 처음부터 갇히는 것보다 낫다. (과대 계상은 구조적으로 불가 — 1이
+      // 하한이다.) 라이브 카운트가 있으면 그쪽이 최신이라 건드리지 않는다.
+      setRetryFails((prev) =>
+        Object.keys(prev).length > 0
+          ? prev
+          : Object.fromEntries(
+              (session.items ?? [])
+                .filter((it) => it.retry_correct === false)
+                .map((it) => [it.quiz_id, 1]),
+            ),
+      );
+      // 본문이 이미 끝나 있었다 = 만회 라운드에서 이탈했다는 뜻이다.
       // 큐를 세워 두면 아래 자동완료가 `retryPhase`로 막힌다.
       const loaded = session.progress ?? {};
       if ((loaded.total ?? 0) > 0 && (loaded.answered ?? 0) >= loaded.total) {
-        setRetryQueue(retryQueueOf(restored, RETRY_QUEUE_LIMIT));
-        setRetryIndex(0);
+        const queue = retryQueueOf(restored);
+        setRetryQueue(queue);
+        setRetryTotal(queue.length);
       }
     }
     setRestoredFor(loadedId);
@@ -362,17 +475,40 @@ export default function SessionRunner({
   }, [leaveIntent, navigate, setLeaveIntent]);
 
   // 만회 라운드 중에는 큐가 출제 순서를 소유한다(§2.1) — store의 currentIndex는
-  // 15문항 본문 진행에만 쓰이고 그대로 마지막 문항에 머문다.
+  // 본문 진행에만 쓰이고 그대로 마지막 문항에 머문다. 지금 푸는 것은 **큐의 머리**다.
   const retryTarget = retryPhase
-    ? (items.find((it) => it.quiz_id === retryQueue[retryIndex]) ?? null)
+    ? (items.find((it) => it.quiz_id === retryQueue[0]) ?? null)
     : null;
   const currentItem = retryPhase ? retryTarget : (items[currentIndex] ?? null);
   const isLastItem = currentIndex + 1 >= items.length;
-  const isLastRetry = retryIndex + 1 >= retryQueue.length;
+  // 이번 만회로 라운드가 끝나는가 = 큐에 이것 하나뿐이고 **이번에 맞혔다**.
+  // 상한이 없으므로 "마지막 문항"이라는 위치 개념은 없다 — 틀리면 다시 나온다.
+  const isLastRetry = retryQueue.length === 1 && answerState?.retry_correct === true;
+  // 탈출구가 열렸는가 — **지금 화면의 만회 실패**가 그 문항의 N번째 실패일 때만.
+  // 성공·409·제출 실패 화면에는 뜨지 않는다(넘어갈 이유가 없거나 판단 근거가 없다).
+  const mercyOpen =
+    retryPhase &&
+    status === SESSION_STATUS.FEEDBACK &&
+    answerState?.is_retry === true &&
+    answerState?.retry_correct === false &&
+    (retryFails[retryQueue[0]] ?? 0) >= RETRY_MERCY_ROUNDS;
   // 마지막 문항 피드백 화면에서 확정되는 만회 대상 수 — 버튼 문구를 "세션 마치기"가
   // 아니라 "놓친 N문항 만회하기"로 바꾸는 근거(만회가 있다는 걸 미리 알린다).
-  const pendingRetryCount =
-    !retryPhase && isLastItem ? retryQueueOf(wrongIds, RETRY_QUEUE_LIMIT).length : 0;
+  const pendingRetryCount = !retryPhase && isLastItem ? retryQueueOf(wrongIds).length : 0;
+
+  /**
+   * 큐 머리가 **이 세션의 문항이 아닐 때** 빼낸다 — 무한 루프 방지 ③.
+   *
+   * 복원분·오답 목록은 quiz_id 문자열이라, 세션 응답이 그 문항을 더 이상 싣지
+   * 않으면(재발급·부분 응답 등) `retryTarget`이 null이 되고 QuestionCard가
+   * 아무것도 그리지 못한 채 라운드가 멈춘다 — 화면에는 오류도 안 뜬다.
+   * 큐가 비면 아래 자동완료 이펙트가 세션을 닫는다.
+   */
+  useEffect(() => {
+    if (!retryPhase || items.length === 0) return;
+    if (items.some((it) => it.quiz_id === retryQueue[0])) return;
+    setRetryQueue((q) => q.slice(1));
+  }, [retryPhase, retryQueue, items]);
 
   const handleSubmit = (answer, options = {}) => {
     if (!currentItem || status !== SESSION_STATUS.IN_PROGRESS || isSubmitting) return;
@@ -396,29 +532,69 @@ export default function SessionRunner({
     });
   };
 
+  /**
+   * 만회 큐 머리를 처리하고 다음 상태로 넘긴다 — 큐를 만지는 **유일한 통로**.
+   * keepHead=true면 꼬리로 돌린다(다음 바퀴에 다시 나온다), false면 큐에서 뺀다.
+   * 큐가 비면 그 자리에서 세션을 닫는다(§만회 종료 조건).
+   */
+  const advanceRetryQueue = ({ keepHead }) => {
+    const head = retryQueue[0];
+    const rest = retryQueue.slice(1);
+    const next = keepHead ? [...rest, head] : rest;
+    setRetryQueue(next);
+    if (next.length === 0) completeMutation.mutate();
+    else retryItem(); // answerState 비우고 IN_PROGRESS 복귀(전이는 기존 액션 재사용)
+  };
+
+  /**
+   * 「해설 보고 넘어가기」(2026-08-12 클라이언트 확정) — 만회 탈출구.
+   *
+   * 같은 문항에서 RETRY_MERCY_ROUNDS 바퀴를 실패했을 때만 버튼이 뜨고, **학습자가
+   * 스스로 눌러야** 발동한다(자동 스킵 금지 — 자동이면 「만회할 때까지」가 아니라
+   * 그냥 상한이다). 해설은 이 화면에 이미 떠 있으므로(FeedbackPanel/FeedbackCard)
+   * 새로 그릴 것이 없다 — 하는 일은 **큐에서 빼는 것뿐**이다.
+   *
+   * ⚠️ **서버에 아무것도 보내지 않는다.** 만회 제출이 구름 0·XP 0이라 해도, 안 푼
+   * 문항을 푼 것으로 만들면 `all_resolved`가 거짓이 된다. 이 문항은 서버에
+   * `is_correct=false · retry_correct=false`로 **미해결인 채** 남고, 화면 문구
+   * (`session.retry.mercyNote`)도 그렇게 말한다.
+   */
+  const handleMercySkip = () => {
+    if (!retryPhase || status !== SESSION_STATUS.FEEDBACK || isSubmitting) return;
+    advanceRetryQueue({ keepHead: false });
+  };
+
   const handleNext = () => {
     if (status !== SESSION_STATUS.FEEDBACK || isSubmitting) return;
     if (answerState?._submitFailed) {
       retryItem();
       return;
     }
-    // ── 만회 라운드 진행 중(§2.1): 큐를 한 칸씩 소모하고 끝나면 완료 ──
-    // 성공·실패 모두 한 번씩만 준다 — 서버는 만회 실패 문항을 계속 만회 가능으로
-    // 두지만(is_retry_eligible), 무한 재시도는 §2.11의 피로 상한 취지에 어긋난다.
+    // ══ 만회 라운드 진행 중(§2.1) — **다 맞힐 때까지 반복한다**(2026-08-12) ══
+    //
+    // 종료 조건은 **큐가 비는 것 하나뿐**이고, 머리가 큐에서 빠지는 경우는 셋이다:
+    //   ① `retry_correct === true`   — 만회 성공. 해결됐으므로 뺀다.
+    //   ② `_alreadyAnswered`(409)    — 서버 `is_retry_eligible`이 False라는 뜻이다
+    //      (최초 정답·이미 만회 성공). **이걸 안 빼면 화면이 영영 안 끝난다** —
+    //      다시 내도 또 409라 큐가 줄지 않는다. 무한 루프 방지의 본체.
+    //   ③ 큐 머리가 이 세션 문항이 아님 — 위 이펙트가 뺀다(방어적).
+    // 만회 실패(`retry_correct === false`)는 **꼬리로 돌린다** — 남은 문항을 한
+    // 바퀴 돈 뒤 다시 나온다. 서버가 그 문항을 계속 만회 가능으로 두므로
+    // (`is_correct is False and retry_correct is not True`) 재제출은 200이다.
+    // 제출 실패(네트워크·5xx)는 위 `_submitFailed` 분기가 먼저 받는다 — 큐를
+    // 건드리지 않고 같은 문항을 다시 낼 뿐이다(답안 유실 없음).
     if (retryPhase) {
-      if (isLastRetry) completeMutation.mutate();
-      else {
-        setRetryIndex((i) => i + 1);
-        retryItem(); // answerState 비우고 IN_PROGRESS 복귀(전이는 기존 액션 재사용)
-      }
+      const resolved =
+        answerState?.retry_correct === true || answerState?._alreadyAnswered === true;
+      advanceRetryQueue({ keepHead: !resolved });
       return;
     }
     if (isLastItem) {
-      // 마지막 문항 뒤 = 만회 라운드 진입 지점. 상한 5는 여기서 걸린다(§2.11).
-      const queue = retryQueueOf(wrongIds, RETRY_QUEUE_LIMIT);
+      // 마지막 문항 뒤 = 만회 라운드 진입 지점. **오답 전건**이 들어온다(상한 없음).
+      const queue = retryQueueOf(wrongIds);
       if (queue.length > 0) {
         setRetryQueue(queue);
-        setRetryIndex(0);
+        setRetryTotal(queue.length);
         retryItem();
         return;
       }
@@ -545,7 +721,7 @@ export default function SessionRunner({
             {crownToast}
           </div>
         )}
-        {renderSummary ? renderSummary(summary) : <SessionSummary summary={summary} items={items} />}
+        {renderSummary ? renderSummary(summary, items) : <SessionSummary summary={summary} items={items} />}
         {/* 예보 마감 단계 (R13 A-1) — **완료 응답의 closing_step이 정본**이다.
             /session/today의 값이 아니라 여기서 다시 계산된 값을 쓴다: 세션 도중
             다른 화면에서 예보를 냈으면 여기서 null이 되고, 그러면 409로 끝날
@@ -587,9 +763,11 @@ export default function SessionRunner({
         <h1 className="text-lg font-extrabold text-slate-900">{title ?? t('session.title')}</h1>
         <span className="text-sm font-medium text-slate-500">
           {retryPhase
-            ? t('session.retry.itemCount', {
-                current: Math.min(retryIndex + 1, retryQueue.length),
-                total: retryQueue.length,
+            ? // 분모는 라운드 진입 시점의 대상 수, 분자는 **해결한 수 + 1**이다.
+              // 만회에 실패하면 분자가 안 움직인다 — 실제로 아직 그 자리이므로.
+              t('session.retry.itemCount', {
+                current: Math.min(retryTotal - retryQueue.length + 1, Math.max(retryTotal, 1)),
+                total: Math.max(retryTotal, retryQueue.length),
               })
             : t('session.itemCount', {
                 current: Math.min(currentIndex + 1, items.length),
@@ -610,11 +788,19 @@ export default function SessionRunner({
           <p className="text-xs font-extrabold text-indigo-700">
             {t('session.retry.banner', { total: retryQueue.length })}
           </p>
+          {/* 상한 안내(`session.retry.capNote`)가 있던 자리 — 상한이 없어졌으므로
+              **그리지 않는다**(키도 삭제됐다). 대신 그 자리에서 말해야 하는 것은
+              「다 맞힐 때까지 이어진다」이고, 그것이 아래 `untilAllCorrect`다.
+              데이터 속성으로 집는다 — 문구는 저작으로 바뀌지만 "이 줄이 있다"는
+              계약이다(상한 폐지를 화면이 실제로 말하는지의 유일한 증거). */}
           <p className="mt-0.5 text-[11px] leading-relaxed text-indigo-500">
             {t('session.retry.note')}
-            {wrongIds.length > RETRY_QUEUE_LIMIT
-              ? ` ${t('session.retry.capNote', { limit: RETRY_QUEUE_LIMIT })}`
-              : ''}
+          </p>
+          <p
+            data-retry-until-all-correct=""
+            className="mt-0.5 text-[11px] font-bold leading-relaxed text-indigo-600"
+          >
+            {t('session.retry.untilAllCorrect')}
           </p>
         </div>
       )}
@@ -634,19 +820,24 @@ export default function SessionRunner({
 
       {retryPhase ? (
         <SessionProgressBar
-          answered={retryIndex}
-          total={retryQueue.length}
-          currentIndex={retryIndex}
+          answered={retryTotal - retryQueue.length}
+          total={Math.max(retryTotal, retryQueue.length)}
+          currentIndex={retryTotal - retryQueue.length}
         />
       ) : (
         <SessionProgressBar answered={answered} total={total} currentIndex={currentIndex} />
       )}
 
-      {currentItem?.slot_filled && (
-        <p className="mb-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
-          {t('session.slotFilled')}
-        </p>
-      )}
+      {/* 문항 위 칩 줄 — 실황 반영 · 학습 수준. 둘 다 없으면 줄 자체가 비고
+          `gap`만 남으므로 레이아웃이 밀리지 않는다(빈 배지를 그리지 않는 계약). */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {currentItem?.slot_filled && (
+          <p className="mb-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+            {t('session.slotFilled')}
+          </p>
+        )}
+        <ItemKnowledgeLevelBadge item={currentItem} />
+      </div>
 
       {/* 2열(2026-08-11 사용자 지시) — **왼쪽 문항 / 오른쪽 정답·해설**.
           답을 고르기 전에도 두 열을 유지한다: 제출하는 순간 열이 생기면 문항
@@ -750,6 +941,25 @@ export default function SessionRunner({
                       ? t('session.finish')
                       : t('session.next')}
           </button>
+          {/* 만회 탈출구(2026-08-12) — N바퀴 실패한 문항에만, **주 CTA 아래 작게**.
+              위 버튼("다음 만회 문항 →")이 여전히 기본값이다: 넘어가기는 학습자가
+              스스로 고르는 부차 선택지여야 「만회할 때까지」의 취지가 산다.
+              해설은 바로 아래 FeedbackCard/FeedbackPanel에 이미 떠 있다. */}
+          {mercyOpen && (
+            <div data-session-mercy="" className="mt-2 text-center">
+              <button
+                type="button"
+                onClick={handleMercySkip}
+                disabled={isSubmitting}
+                className="text-xs font-bold text-slate-500 underline transition hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t('session.retry.mercy')}
+              </button>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                {t('session.retry.mercyNote')}
+              </p>
+            </div>
+          )}
           {!outOfClouds && !answerState._alreadyAnswered && (
             <>
               {/* 넓은 화면: 해설이 **오른쪽 열 안에** 들어간다 — 화면 아래를 덮는
@@ -780,7 +990,18 @@ export default function SessionRunner({
       </div>
 
       {/* 이탈 인텐트 확인 1단(§3.5) */}
-      {leaveIntent && <LeaveIntentDialog onStay={stay} onLeave={leave} remaining={Math.max(0, total - answered)} />}
+      {/* 이탈 다이얼로그의 「남은 수」는 **지금 무엇을 하고 있는가**에 달렸다
+          (2026-08-12). 만회 중에는 본문을 다 답했으므로 `total - answered`가 0이고,
+          그러면 "조금만 더 하면 끝나요"가 떴다 — 거짓이다. 만회 중 남은 것은
+          **큐에 남은 만회 문항 수**이고, 그것을 다 맞혀야 세션이 끝난다. */}
+      {leaveIntent && (
+        <LeaveIntentDialog
+          onStay={stay}
+          onLeave={leave}
+          remaining={retryPhase ? retryQueue.length : Math.max(0, total - answered)}
+          retryPhase={retryPhase}
+        />
+      )}
     </div>
   );
 }
@@ -892,7 +1113,7 @@ function useLeaveIntent(active) {
  * 접근성: role=dialog·aria-modal, 진입 시 주 CTA 포커스, Tab 순환(포커스 트랩),
  * Esc = 계속 풀기, 닫힐 때 이전 포커스 복원. 애니메이션 없음(reduced-motion 무관).
  */
-function LeaveIntentDialog({ onStay, onLeave, remaining }) {
+function LeaveIntentDialog({ onStay, onLeave, remaining, retryPhase = false }) {
   const t = useT();
   const panelRef = useRef(null);
   const primaryRef = useRef(null);
@@ -944,8 +1165,16 @@ function LeaveIntentDialog({ onStay, onLeave, remaining }) {
         <h2 id="leave-intent-title" className="mt-2 text-lg font-extrabold text-slate-900">
           {t('session.leave.title')}
         </h2>
-        <p id="leave-intent-desc" className="mt-1.5 text-sm leading-relaxed text-slate-500">
-          {remaining > 0 ? t('session.leave.remaining', { remaining }) : t('session.leave.almost')}
+        <p
+          id="leave-intent-desc"
+          data-leave-phase={retryPhase ? 'retry' : 'main'}
+          className="mt-1.5 text-sm leading-relaxed text-slate-500"
+        >
+          {retryPhase
+            ? t('session.leave.retryRemaining', { remaining })
+            : remaining > 0
+              ? t('session.leave.remaining', { remaining })
+              : t('session.leave.almost')}
           {t('session.leave.tail')}
         </p>
         <button

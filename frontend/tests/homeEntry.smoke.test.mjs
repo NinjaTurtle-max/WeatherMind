@@ -145,21 +145,49 @@ const ok = (cond, label) => {
   // `/learn/units/undefined`로 보내면 404 화면이 뜬다.
   ok(e.to === '/learn', `①-d id 없으면 /learn 폴백 — ${e.to}`);
 
-  // ② 진행 중 유닛이 없고 오늘 몫이 남았으면 일일 세션
+  // ② 진행 중 유닛이 없고 오늘 몫이 남았으면 **마지막 유닛을 다시 연다**
+  //
+  // ⚠️ **계약이 뒤집혔다**(2026-08-12 — 자유 일일 세션 폐지). 종전 ②는
+  // `kind:'daily'` + `to:'/daily'`를 단정했다. 그 라우트가 사라져 진입 배너의
+  // 주 CTA가 **죽은 링크**가 됐고(눌러도 `*` → `/learn`), 목적지만 고치는 것으로는
+  // 부족했다 — `CurriculumHome`의 `ENTRY_COPY.daily`가 제목·CTA로 없어진 기능의
+  // 이름(「자유 일일 세션」·「오늘의 세션 풀기」)을 쓰기 때문이다. 그래서
+  // `learnEntry`가 kind째 `unit`으로 접었다.
+  //
+  // **가르는 축은 살아 있다**: 오늘 몫이 남았으면 `unit`(=「이어서 풀기」로 초대),
+  // 다 했으면 아래 ③의 `done`(=「오늘 몫은 다 했어요」). 목적지는 둘 다 마지막으로
+  // 깬 유닛이다 — 자유 세션이 사라진 이유가 「학습 세션이 오늘 날씨를 받는다」라
+  // 오늘 몫을 푸는 의도를 유닛 세션이 흡수한다.
+  // ⚠️ `ALL_CLEARED`는 **id가 없는** 픽스처다(구 서버·부분 트리 재현) — 목적지는
+  // `/learn` 폴백이 정답이다. 여기서 무는 것은 "죽은 `/daily`가 아니다"까지.
   e = pickHomeEntry({ units: ALL_CLEARED, todayAnswered: 0, dailyGoal: 10 });
-  ok(e.kind === 'daily' && e.to === '/daily', `② 유닛 없음+오늘 미발급 → 일일 — ${e.kind}/${e.to}`);
+  ok(e.kind === 'unit' && e.to === '/learn',
+     `② 유닛 없음+오늘 미발급 → 재개(id 없으면 /learn 폴백) — ${e.kind}/${e.to}`);
+
+  // ②-a id가 있으면 **실제 유닛 플레이**로 간다 — 폴백에 가려 목적지가 영영
+  // `/learn`(제자리걸음)이 되는 것을 막는다. 종전 `/daily` 자리를 무엇이
+  // 이어받았는지 못 박는 줄이다.
+  const ALL_CLEARED_WITH_ID = [
+    { id: 'a', slug: 'a', title: '기단의 성질', status: 'cleared' },
+    { id: 'b', slug: 'b', title: '전선의 종류', status: 'cleared' },
+  ];
+  e = pickHomeEntry({ units: ALL_CLEARED_WITH_ID, todayAnswered: 0, dailyGoal: 10 });
+  ok(e.kind === 'unit' && e.to === '/learn/units/b',
+     `②-a 마지막으로 깬 유닛을 다시 연다 — ${e.kind}/${e.to}`);
 
   // ②-b 목표 미달(진행 중)도 아직 오늘 몫이 남은 것으로 본다
   e = pickHomeEntry({ units: ALL_CLEARED, todayAnswered: 3, dailyGoal: 10 });
-  ok(e.kind === 'daily', `②-b 목표 미달은 일일 — ${e.kind}`);
+  ok(e.kind === 'unit', `②-b 목표 미달은 아직 오늘 몫이 남았다 — ${e.kind}`);
 
   // ②-c 목표 미설정(null)이면 "오늘 한 문항이라도 풀었는가"로 가른다
   e = pickHomeEntry({ units: ALL_CLEARED, todayAnswered: 0, dailyGoal: null });
-  ok(e.kind === 'daily', `②-c 목표 미설정+오늘 0문항 → 일일 — ${e.kind}`);
+  ok(e.kind === 'unit', `②-c 목표 미설정+오늘 0문항 — ${e.kind}`);
 
-  // ②-d 트리가 비어 있어도(코스에 유닛 0) 일일로 떨어진다 — 빈 화면 금지
+  // ②-d 트리가 비어 있어도(코스에 유닛 0) 빈 화면이 되지 않는다.
+  // 다시 열 유닛이 없으므로 목적지는 `/learn` 폴백이다 — **죽은 링크가 아니어야**
+  // 한다는 것이 이 줄의 요지다(종전에는 `/daily`로 떨어졌다).
   e = pickHomeEntry({ units: [], todayAnswered: 0, dailyGoal: null });
-  ok(e.kind === 'daily', `②-d 빈 트리 → 일일 — ${e.kind}`);
+  ok(e.kind === 'unit' && e.to === '/learn', `②-d 빈 트리 → /learn 폴백 — ${e.kind}/${e.to}`);
 
   // ③ 둘 다 없으면 완료 축하
   e = pickHomeEntry({ units: ALL_CLEARED, todayAnswered: 10, dailyGoal: 10 });
@@ -167,8 +195,10 @@ const ok = (cond, label) => {
   e = pickHomeEntry({ units: ALL_CLEARED, todayAnswered: 1, dailyGoal: null });
   ok(e.kind === 'done', `③-b 목표 미설정+오늘 풀었음 → 완료 축하 — ${e.kind}`);
 
-  // 인자 없이 불러도 터지지 않는다(첫 렌더 방어)
-  ok(pickHomeEntry().kind === 'daily', '인자 없음도 판정된다');
+  // 인자 없이 불러도 터지지 않는다(첫 렌더 방어).
+  // 빈 트리와 같은 자리로 떨어진다 — kind는 `unit`, 목적지는 `/learn` 폴백.
+  const bare = pickHomeEntry();
+  ok(bare.kind === 'unit' && bare.to === '/learn', `인자 없음도 판정된다 — ${bare.kind}/${bare.to}`);
 }
 
 // ── 1·3·4·5 실마운트 ────────────────────────────────────────────────────────
@@ -207,15 +237,31 @@ const ok = (cond, label) => {
   ok(card.tagName !== 'A', `카드 바깥은 링크가 아니다 — 실제 <${card.tagName.toLowerCase()}>`);
   ok(card.textContent.includes('기단의 성질'), '카드가 진행 중 유닛 제목을 말한다');
 
-  // 1-b. 예전 4칸(보드·대결·리그)이 카드로 되돌아오지 않았다 — 링크로만 존재
-  const secondary = $('[data-testid="learn-secondary"]');
-  ok(Boolean(secondary), '보조 진입 줄이 있다');
-  const secHrefs = [...(secondary?.querySelectorAll('a') ?? [])].map((a) => a.getAttribute('href'));
-  // 2026-08-09: 자유 일일 세션(/daily)이 같은 줄로 내려왔다 — 예전에는 별도 흰
-  // 카드였고, 카드로 두면 위의 진입 카드와 무게가 비슷해진다.
-  // 2026-08-09: 보드·대결·리그 링크는 걷었다 — 내비(6탭)가 이미 갖고 있어
-  // 같은 목적지가 한 화면에 두 벌이었다. 이 줄은 자유 일일 세션만 갖는다.
-  ok(secHrefs.join(',') === '/daily', `자유 일일 세션 링크만 남는다 — ${secHrefs.join(',')}`);
+  // 1-b. ⚠️ **「보조 진입 줄」(`learn-secondary`) 단정은 폐기됐다**(2026-08-12).
+  //
+  // 그 줄의 정체는 **자유 일일 세션 카드**였고(`LearnFooterCards`), 클라이언트
+  // 지시로 `/daily` 라우트와 함께 카드째 제거됐다. 여기 있던 단정 —
+  // "보조 진입 줄이 있다" · "링크는 정확히 `/daily` 하나뿐" — 은 이제 없어진
+  // 화면 요소를 요구한다.
+  //
+  // **이 줄이 지키던 것 중 살아남은 계약은 아래 두 개다**(그래서 그것만 남긴다):
+  //   · 예전 4칸(보드·대결·리그)이 카드로 되돌아오지 않았다 — 내비 탭이 이미
+  //     같은 목적지를 갖고 있어 한 화면에 두 벌이 되는 것을 막는다.
+  //   · 복습은 별도 카드/줄이 아니라 오른쪽 열(`learn-footer`) 안에 있다.
+  // 첫 번째는 오른쪽 열 전체에서 그 세 목적지가 없음을 보는 것으로 옮긴다 —
+  // 사라진 특정 컨테이너가 아니라 **화면**을 무는 편이 오래 간다.
+  const rail = $('[data-testid="learn-footer"]');
+  ok(Boolean(rail), '오른쪽 열(learn-footer)이 있다');
+  const railHrefs = [...(rail?.querySelectorAll('a') ?? [])].map((a) => a.getAttribute('href'));
+  ok(
+    !railHrefs.some((h) => ['/board', '/duel', '/league'].includes(h)),
+    `보드·대결·리그가 오른쪽 열로 되돌아왔다(내비와 중복) — ${railHrefs.join(',')}`,
+  );
+  // 죽은 링크 금지 — `/daily`는 폐지된 라우트다. 되살아나면 조용한 회귀가 된다.
+  ok(
+    !railHrefs.includes('/daily'),
+    `폐지된 /daily 링크가 오른쪽 열에 남아 있다 — ${railHrefs.join(',')}`,
+  );
   // 복습은 이 줄이 아니라 **하단 3카드의 첫 칸**이다(2026-08-09 시안).
   // 자기 쿼리가 도착해야 그려지므로 기다린다 — 즉시 보면 due 0건과 구분되지 않는다.
   await waitFor(() => $$('[data-testid="review-queue-tile"]').length > 0, 6000, '복습 칸');
@@ -227,20 +273,19 @@ const ok = (cond, label) => {
     $('[data-testid="review-queue-strip"]') === null && $('[data-testid="review-queue-card"]') === null,
     '복습이 하단 줄·별도 카드로 되돌아가지 않았다',
   );
-  for (const a of secondary?.querySelectorAll('a') ?? []) {
-    const cls = a.getAttribute('class') ?? '';
-    ok(!/\bbg-(sky|slate|emerald)-\d/.test(cls), `보조 링크는 채움 버튼이 아니다 — "${cls}"`);
-  }
-
-  // 3. 자유 일일 세션 = 보조 링크(채움 버튼 금지) + 지역 픽커 동거
-  const free = secondary;
-  ok(Boolean(free), '자유 일일 세션 줄이 있다');
-  const freeLink = free?.querySelector('a[href="/daily"]');
-  ok(Boolean(freeLink), '자유 일일 세션이 /daily 링크를 준다');
-  ok(!/\bbg-(slate|sky)-\d/.test(freeLink?.getAttribute('class') ?? ''),
-     `자유 일일 세션이 채움 버튼으로 되돌아가지 않았다 — "${freeLink?.getAttribute('class')}"`);
-  ok((free?.textContent ?? '').includes('서울') || Boolean(free?.querySelector('button')),
-     '지역 픽커가 이 줄에 남아 있다');
+  // 3. ⚠️ **「자유 일일 세션」 단정 3건은 폐기됐다**(2026-08-12 — 카드 제거).
+  //    "줄이 있다" · "/daily 링크를 준다" · "채움 버튼이 아니다"가 여기 있었다.
+  //    카드가 사라졌으므로 잴 대상이 없다.
+  //
+  //    **지역 픽커 단정은 살린다** — 그것은 자유 세션에 딸린 것이 아니라 실황
+  //    주입(`today.*` 슬롯)의 입력이고, 유닛 세션이 오늘 날씨를 받게 되면서 오히려
+  //    더 중요해졌다. 없어진 카드 머리에 얹혀 있었을 뿐이라 카드와 함께 조용히
+  //    사라질 뻔했다(그래서 `LearnFooterCards`가 독립 줄로 남겼다).
+  //    컨테이너가 바뀌었으므로 **오른쪽 열 전체**에서 찾는다.
+  ok(
+    (rail?.textContent ?? '').includes('서울') || Boolean(rail?.querySelector('button')),
+    '지역 픽커가 오른쪽 열에 남아 있다 — 실황 주입의 입력이라 카드와 함께 사라지면 안 된다',
+  );
 
   // 4. 내비 탭 구조 불변
   const tabs = $$('[data-testid="tabbar"] a');

@@ -9,7 +9,7 @@
   {
     "id": "weather",
     "title": "날씨와 기후",
-    "description": "하늘 읽기부터 도시와 기후까지 — 실제 대기현상을 퍼즐로 체득하는 기상 커리큘럼 4섹션.",
+    "description": "초등 3~4학년부터 기상청 현업까지 — 같은 개념을 지식 단계별로 다시 만나며 실제 대기현상을 퍼즐로 체득하는 기상 커리큘럼 10섹션.",
     "course_order": 2,
     "prereq_course_id": "basic-science"
   }

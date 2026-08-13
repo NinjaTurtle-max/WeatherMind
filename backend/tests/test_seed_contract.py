@@ -102,7 +102,11 @@ class TestSeedSchema:
         # 저작 웨이브 4-a(2026-08-10): +6 = 880. kl6 잔여 — kl5·kl6 각 100건.
         # 저작 웨이브 4-b(2026-08-10): +120 = **1000. 대회 목표 달성.**
         # kl7·8·9 각 100 · kl10 100 · kl2 100. 하루에 284 → 1000(+716).
-        assert len(SEED_ITEMS) == 1000
+        # R13-02 T3 실황 자산(2026-08-12): +12 = **1012**. 실황 문항이 8 → 20건이
+        # 됐고, 종전 8건이 **전부 MC·정답 고정**이라 "정답이 날마다 바뀐다"는 차별점을
+        # 실제로 만들지 못하던 것을 short_answer 4 · ordering 1 · match 1 · slider 1로
+        # 넓혔다(T3 완료 판정: 정답이 `today.*`를 참조하는 문항 ≥ 4건).
+        assert len(SEED_ITEMS) == 1012
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
@@ -216,31 +220,55 @@ class TestUnitsSeedContract:
     코스 구분은 course 필드로 시드에서 파생한다(하드코딩 대신 시드 파생).
     """
 
-    def test_24유닛_기상16_기초과학8(self):
+    def test_237유닛_기상138_기초과학99(self):
+        """CO-G1 순환식 재구조화(2026-08-12): 24 → 93 → **237**(기상 138 + 기초과학 99).
+
+        기상 코스만 지식 단계 10섹션으로 재편됐고 **기초과학은 별도 코스로 유지**된다
+        (전체 13섹션). 그래서 `by_course` 분할 단정이 살아 있다 — 코스 경계가 이
+        재구조화에서 바뀌지 않았다는 것이 이 줄이 지키는 계약이다.
+        """
         by_course: dict[str, int] = {}
         for u in UNITS:
             by_course[u.get("course")] = by_course.get(u.get("course"), 0) + 1
-        assert len(UNITS) == 24
-        assert by_course == {"weather": 16, "basic-science": 8}
+        assert len(UNITS) == 237
+        assert by_course == {"weather": 138, "basic-science": 99}
 
-    def test_섹션은_기상5_기초과학3(self):
-        """기상 코스는 관측보고서 4섹션 + **재난 1섹션**(R13 CO-A1), 기초과학은 specs/11 §2의 3섹션.
+    def test_섹션_등장순서가_SECTION_ORDER와_같다(self):
+        """섹션 집합·순서는 `SECTION_ORDER`가 단일 소유자다 — 리터럴을 여기 적지 않는다.
 
-        「위험한 하늘」은 R13에서 개통했다 — 재난 문항 15건이 시드에 있는데
-        `units.json`에 유닛이 0건이라 **학습 경로에서 도달 불가**였다.
+        ⚠️ **2026-08-12 재작성.** 종전 이름은 `test_섹션은_기상5_기초과학3`이었고
+        기상 5종 · 기초과학 3종을 **리터럴로 두 번째 사본**으로 들고 있었다.
+        섹션 구조가 지식 단계 기반으로 재편되면서(CO-G1 · `docs/design/
+        cyclic_sections.md`) 그 리터럴이 통째로 낡았는데, 같은 일이 또 생기면
+        또 손으로 고쳐야 한다. 이 저장소에서 가장 잦은 실패가 "사본이 갈리는 것"이라
+        **파생 계약**으로 바꾼다.
+
+        여기서 무는 것은 두 가지다.
+        ⑴ 시드에 `SECTION_ORDER` **미등재 섹션이 없다** — 미등재는 예외가 아니라
+           `_section_key`의 폴백을 타고 알파벳순으로 꼬리에 붙어서, 루트·current·
+           배치 선해제가 조용히 전부 뒤집힌다(실제로 재구조화 중 이 형태로 겪었다).
+        ⑵ 시드의 섹션 **등장 순서**가 `SECTION_ORDER`의 부분수열이다 —
+           `ordered_units`가 이 순서로 트리를 세우므로 두 순서가 갈리면 화면 순서와
+           선행 사슬이 어긋난다.
+
+        섹션명이 `ko.js`(표시명)와도 같은지는 `test_section_name_parity.py`가 소유한다.
+        유닛 **개수** 핀은 이 클래스의 다른 테스트가 소유한다.
         """
-        weather_sections = list(
-            dict.fromkeys(u["section"] for u in UNITS if u.get("course") == "weather")
+        from app.services import curriculum_service as cs
+
+        seen = list(dict.fromkeys(u["section"] for u in UNITS))
+        unregistered = [s for s in seen if s not in cs.SECTION_ORDER]
+        assert unregistered == [], (
+            f"SECTION_ORDER 미등재 섹션: {unregistered} — 정렬 폴백으로 꼬리에 "
+            "붙어 루트·current·배치 선해제가 전부 뒤집힌다"
         )
-        assert weather_sections == [
-            "하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후", "위험한 하늘",
-        ]
-        bs_sections = list(
-            dict.fromkeys(
-                u["section"] for u in UNITS if u.get("course") == "basic-science"
-            )
+        expected = [s for s in cs.SECTION_ORDER if s in set(seen)]
+        assert seen == expected, (
+            f"시드 섹션 등장 순서 {seen} != SECTION_ORDER 부분수열 {expected}"
         )
-        assert bs_sections == ["열과 빛", "공기의 무게", "물과 에너지"]
+        # 공허 통과 방지 — 섹션이 실제로 여러 개 있고 전 유닛이 그중 하나에 속한다
+        assert len(seen) >= 3
+        assert all(u.get("section") in set(seen) for u in UNITS)
 
     def test_board_유닛은_board_퍼즐_태그를_가진다(self):
         """board kind 유닛의 concept_tag는 board 퍼즐이 존재하는 태그여야 한다

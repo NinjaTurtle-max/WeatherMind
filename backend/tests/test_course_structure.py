@@ -109,35 +109,65 @@ class TestCoursesSeed:
 # ═══════════════════════════════════════════════════════════════
 
 
-WEATHER_SECTIONS = ("하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후")
+#: 기상 코스 섹션 = `SECTION_ORDER`의 지식 단계 10칸.
+#:
+#: ⚠️ **2026-08-12: 리터럴 4종에서 파생으로 바꿨다.** 종전 값은
+#: `("하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후")`였는데, CO-G1 순환식
+#: 재구조화로 그 4종이 시드에서 통째로 사라졌다. 그 결과 아래 두 테스트가
+#: **매칭 0건으로 공허하게 통과**했다 — 계약이 죽었는데 초록이라 아무도 몰랐다
+#: (대장 I절 「만들어 두고 안 쓰는 것」의 전형). 리터럴을 다시 적으면 같은 일이
+#: 또 생기므로 `SECTION_ORDER`에서 파생시키고, 아래에서 **매칭 건수를 단정**해
+#: 공허 통과 자체를 불가능하게 만든다.
+WEATHER_SECTIONS = tuple(cs.SECTION_ORDER[:10])
 
 
 class TestUnitsSeedCourse:
-    def test_기존_4섹션_전_유닛이_weather_귀속(self):
-        """계약 F: weather 코스에 기존 4섹션 전부 귀속(불변).
-
-        R12 AU-2로 기초과학 유닛이 추가됐으므로, 계약의 원의미(기존 4섹션의
-        코스 귀속)를 섹션 기준으로 판정한다."""
-        for entry in load_units_seed():
-            if entry["section"] in WEATHER_SECTIONS:
-                assert entry.get("course") == "weather", entry["id"]
+    def test_기상_섹션_전_유닛이_weather_귀속(self):
+        """계약 F: 기상 섹션의 유닛은 전부 weather 코스에 귀속(불변)."""
+        matched = [e for e in load_units_seed() if e["section"] in WEATHER_SECTIONS]
+        # 공허 통과 방지 — 섹션명이 낡으면 매칭 0건이 되어 아래 루프가 무의미해진다
+        assert len(matched) >= 50, (
+            f"기상 섹션에 매칭된 유닛이 {len(matched)}건뿐 — WEATHER_SECTIONS가 "
+            "시드와 갈렸다(이 테스트가 공허하게 통과하던 실패 유형)"
+        )
+        for entry in matched:
+            assert entry.get("course") == "weather", entry["id"]
+        # 역방향: weather 코스 유닛은 전부 기상 섹션 안에 있다(양방향이라야 계약이다)
+        weather = [e for e in load_units_seed() if e.get("course") == "weather"]
+        assert {e["id"] for e in weather} == {e["id"] for e in matched}
 
     def test_참조_코스가_courses_json에_존재(self):
         course_slugs = {c["id"] for c in load_courses_seed()}
         referenced = {e["course"] for e in load_units_seed() if e.get("course")}
         assert referenced <= course_slugs
 
-    def test_basic_science는_specs11_8유닛(self):
-        """R12 AU-2: 기초과학 트리는 specs/11 §2 그대로 — 3섹션 8유닛,
-        board 1유닛(bs-convection-board), 나머지 quiz. (구 계약 "빈 트리"는
-        유닛 저작 전까지의 상태였고, 저작과 함께 이 계약으로 교체.)"""
+    #: specs/11 §2가 저작한 기초과학 **원 8유닛**. 이 집합은 커리큘럼이 커져도
+    #: **사라지면 안 되는 것**이라 여기 남긴다(전체 목록이 아니라 하한이다).
+    SPECS11_ORIGINAL_UNITS = frozenset({
+        "bs-temp-vs-heat", "bs-specific-heat", "bs-radiation",
+        "bs-pressure", "bs-density-buoyancy", "bs-convection-board",
+        "bs-phase-change", "bs-energy-transfer",
+    })
+
+    def test_basic_science는_specs11_원8유닛을_보존한다(self):
+        """기초과학 트리 계약 — **부분집합**으로 판정한다 (2026-08-12 재작성).
+
+        ⚠️ 종전엔 id **전체 집합 등식**(8종)이었다. 2026-08-12 재산출로 기초과학이
+        8 → **99유닛**이 되면서 그 등식은 저작이 늘 때마다 깨지는 핀이 됐다 —
+        그런데 이 테스트가 실제로 지키려던 것은 "몇 개인가"가 아니라
+        **specs/11 §2가 저작한 원 유닛이 사라지지 않았는가**다(id가 사라지면
+        `user_progress` 계열의 참조가 끊긴다 — CO-Y-10의 형제 문제).
+        그래서 등식을 **부분집합 + 개수 핀**으로 가른다.
+        """
         bs = [e for e in load_units_seed() if e.get("course") == "basic-science"]
-        assert {e["id"] for e in bs} == {
-            "bs-temp-vs-heat", "bs-specific-heat", "bs-radiation",
-            "bs-pressure", "bs-density-buoyancy", "bs-convection-board",
-            "bs-phase-change", "bs-energy-transfer",
-        }
-        assert [e["id"] for e in bs if e["kind"] == "board"] == ["bs-convection-board"]
+        ids = {e["id"] for e in bs}
+        assert len(bs) == 99
+        missing = self.SPECS11_ORIGINAL_UNITS - ids
+        assert missing == set(), (
+            f"specs/11 원 유닛이 사라졌다: {sorted(missing)} — "
+            "id가 사라지면 진도 참조가 끊긴다(재배치는 되지만 삭제는 안 된다)"
+        )
+        assert "bs-convection-board" in {e["id"] for e in bs if e["kind"] == "board"}
         assert all(e["section"] not in WEATHER_SECTIONS for e in bs)
         # 섹션 간 선행 없음(specs/11 §2): 각 섹션 첫 유닛 prereq=null
         firsts = [e for e in bs if e["unit_order"] == 1]

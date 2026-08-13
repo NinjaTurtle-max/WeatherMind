@@ -32,7 +32,10 @@
  *   5. 배치고사 결과 화면(PlacementSummary)에서 "5문항" 선택 → PUT 발생 + 저장 확인.
  *  10·11. **자동 게스트 발급**(CO-N-1 ① — 대회 규정 「로그인 없이 열려야」):
  *      토큰 없이 진입하면 POST /auth/guest가 **정확히 1회** 나가고 보호 라우트가
- *      그대로 렌더된다(딥링크 보존). 로그아웃 뒤에는 재발급하지 않는다.
+ *      그대로 렌더된다(딥링크 보존). 토큰이 지워진 뒤에는 재발급하지 않고
+ *      재시도 화면으로 받는다 — 2026-08-12에 「로그아웃 뒤」에서 갱신됐다
+ *      (로그인·회원가입 구조 전면 제거로 로그아웃 버튼이 사라졌고, 토큰이
+ *      지워지는 경로는 401 인터셉터만 남았다. 시나리오 11 본문 참조).
  */
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -388,14 +391,17 @@ try {
     let r = mount(createElement(App), '/learn');
     await waitFor(() => text().includes('구름 회복까지 약'), 5000, '세션 CTA 인라인 회복 ETA');
     assert(text().includes('틀린 문항에만 1개'), '새 소모 규칙(실수에만 소모) 안내가 없다');
-    const cta = [...window.document.querySelectorAll('button')].find((b) =>
-      b.textContent.includes('오늘의 세션 풀기'),
-    );
-    assert(cta && cta.disabled, '잔량 0에서 세션 진입 CTA가 비활성이어야 한다');
-    // ⚠️ 위 단정은 **하단 카드의 CTA만** 보고 통과할 수 있다(`button`을 훑어
-    // 첫 번째를 찾는다). 화면에서 가장 큰 버튼인 **진입 배너**가 뚫려 있어도
-    // 초록이었다 — 실제로 그랬다(2026-08-09 코드 리뷰). 배너를 따로 못 박는다:
-    // 잔량 0이면 `<a>`가 아니라 disabled 버튼이어야 한다.
+    // ⚠️ **하단 카드 CTA 단정은 삭제됐다**(2026-08-12 — 자유 일일 세션 제거).
+    // 여기에는 `button` 중 「오늘의 세션 풀기」(`curriculum.daily.cta`)를 찾아
+    // disabled를 확인하는 단정이 있었다. 그 문구의 소유자가 `LearnFooterCards`의
+    // 자유 일일 세션 카드였고 카드째 제거됐다.
+    //
+    // 잃은 것은 없다. 그 단정은 이 시나리오의 **약한 쪽**이었다 — `button`을 훑어
+    // 첫 번째를 찾으므로 하단 카드만 보고 통과했고, 화면에서 가장 큰 버튼인
+    // **진입 배너**가 뚫려 있어도 초록이었다(2026-08-09 코드 리뷰에서 실제로
+    // 발견된 구멍이다). 그래서 그때 배너를 따로 못 박는 아래 단정이 추가됐고,
+    // 지금은 그것이 이 시나리오의 본체다: 잔량 0이면 `<a>`가 아니라 disabled
+    // 버튼이어야 한다.
     const heroCta = window.document.querySelector('[data-testid="learn-entry-cta"]');
     assert(heroCta, '진입 배너 CTA를 찾지 못했다');
     assert(
@@ -405,13 +411,16 @@ try {
     );
     r.unmount();
 
-    // 회복 후에는 원래대로 링크 CTA
+    // 회복 후에는 원래대로 링크 CTA.
+    // 종전에는 「오늘의 세션 풀기」 문구를 가진 `<a>`를 기다렸는데, 그 문구의
+    // 소유자(자유 일일 세션 카드)가 제거됐다 — 진입 배너가 링크로 돌아오는 것을
+    // 직접 기다린다. 어차피 아래 `heroBack` 단정이 재던 것이 그것이다.
     await api('POST', '/dev/clouds', { clouds: 5 });
     r = mount(createElement(App), '/');
     await waitFor(
-      () => [...window.document.querySelectorAll('a')].some((a) => a.textContent.includes('오늘의 세션 풀기')),
+      () => window.document.querySelector('[data-testid="learn-entry-cta"]')?.tagName === 'A',
       5000,
-      '구름 회복 후 세션 CTA 링크 복귀',
+      '구름 회복 후 진입 배너 CTA 링크 복귀',
     );
     assert(!text().includes('구름 회복까지 약'), '회복 후에도 차단 안내가 남아 있다');
     const heroBack = window.document.querySelector('[data-testid="learn-entry-cta"]');
@@ -486,8 +495,24 @@ try {
     }
   });
 
-  // ── 8. "풀던 것을 뺏기지 않는다": 진행 중 세션은 잔량 0에서도 진입 가능 ────
-  await scenario('구름 0 + 진행 중 세션: CTA는 링크로 남고 "이어서 풀기"로 바뀐다', async () => {
+  // ── 8. "풀던 것을 뺏기지 않는다": 진행 중 세션은 잔량 0에서도 재조회 200 ────
+  //
+  // ⚠️ **UI 단정은 걷어냈다**(2026-08-12 — 자유 일일 세션 `/daily` 제거).
+  // 이 시나리오는 원래 화면까지 봤다: 잔량 0이어도 CTA가 disabled로 죽지 않고
+  // 「풀던 세션 이어서 풀기」로 바뀌는지. 그 문구(`curriculum.daily.resume`)와
+  // 재개 안내(`daily.regenResume`)의 소유자가 `LearnFooterCards`의 자유 일일 세션
+  // 카드였고, 클라이언트 지시로 카드·라우트가 통째로 제거됐다.
+  //
+  // **폐기하지 않고 서버 계약 절반을 남기는 이유**: 불변식 자체("이미 발급된
+  // 세션은 잔량 0에서도 200")는 살아 있고 오히려 더 중요해진다 — 유닛 세션이
+  // 오늘 날씨를 받는 쪽으로 옮겨 가는 중이라(담당 B) 같은 규칙이 그쪽에 걸린다.
+  // 여기서 지키는 것은 **목이 그 계약을 지키는가**이고, 이것이 깨지면 어느
+  // 화면이 소비하든 함께 깨진다.
+  //
+  // ⚠️ **유닛 세션 쪽 재개 UI 단정은 아직 수신자가 없다** — 담당 B가 서버를
+  // 착지시킨 뒤 그 화면을 소유하는 스모크에 행으로 받아야 한다. 여기 주석에만
+  // 남기면 이월 대장이 못 본다(CLAUDE.md 「이월은 대장에만 존재한다」).
+  await scenario('구름 0 + 진행 중 세션: 발급된 세션은 재조회 200(뺏기지 않는다)', async () => {
     await api('POST', '/dev/reset-me', { reset: true });
     await api('POST', '/dev/clouds', { clouds: 5 });
     const today = await api('GET', '/session/today');
@@ -505,16 +530,13 @@ try {
     const again = await api('GET', '/session/today');
     assert(again.status === 200, `발급된 세션 재조회는 200이어야 함 — 실제 ${again.status}`);
 
-    useOnboardingGate.getState().reset();
-    authenticate('resume-user');
-    const r = mount(createElement(App), '/learn');
-    await waitFor(() => text().includes('풀던 세션 이어서 풀기'), 5000, '재개 CTA 문구');
-    const disabledCta = [...window.document.querySelectorAll('button[disabled]')].find((b) =>
-      b.textContent.includes('세션'),
+    // 재조회가 새로 소모하지도 않는다 — 200이면서 잔량은 0 그대로여야 한다.
+    // (소모가 붙으면 "풀던 것을 뺏기지 않는다"가 음수 잔량으로 우회 위반된다.)
+    const meAfter = await api('GET', '/progress/me');
+    assert(
+      meAfter.body?.clouds === 0,
+      `발급된 세션 재조회가 구름을 더 소모했다 — 잔량 ${meAfter.body?.clouds}`,
     );
-    assert(!disabledCta, '진행 중 세션이 있는데 세션 CTA가 비활성됐다(재개를 막는 회귀)');
-    assert(text().includes('끝까지 마칠 수 있어요'), '재개 가능 안내가 없다');
-    r.unmount();
     await api('POST', '/dev/clouds', { clouds: 5 });
   });
   // ── 9. 오답 피드백의 "구름 −1"은 서버 실측 clouds_spent만 쓴다(D10-1) ─────
@@ -620,8 +642,23 @@ try {
     }
   });
 
-  // ── 11. 딥링크 보존 + 로그아웃이 새 게스트를 낳지 않는다 ───────────────────
-  await scenario('토큰 없이 /explore 딥링크 → /explore가 그대로 뜬다 · 로그아웃은 재발급 없음', async () => {
+  // ── 11. 딥링크 보존 + 토큰이 지워져도 조용한 재발급이 없다 ─────────────────
+  //
+  // ⚠️ **갱신됨(2026-08-12 클라이언트 지시 — 로그인·회원가입 구조 전면 제거).**
+  // 이 시나리오의 뒷단은 원래 "**로그아웃**은 재발급 없음"이었다. 헤더 로그아웃
+  // 버튼이 제거됐으므로 그 이름의 사용자 행동은 더 이상 존재하지 않는다.
+  //
+  // 그래도 **폐기하지 않고 갱신한다** — 무는 불변식이 로그아웃 버튼이 아니라
+  // `guestAttempted` 플래그이고, 토큰이 지워지는 경로는 여전히 살아 있기 때문이다:
+  // `api/client.js:112`의 401 인터셉터가 `authStore.logout()`을 부른다(만료·서버
+  // 재시작). 그때 보호 라우트가 조용히 새 게스트를 발급하면 **만료가 계정 교체로
+  // 둔갑한다** — 학습자가 남의 진도(정확히는 빈 진도)를 보게 된다. 버튼이 사라진
+  // 지금이 오히려 이 가드가 유일한 감시자다.
+  //
+  // 단정 하나를 **더한다**: 재발급이 없을 뿐 아니라 화면이 `GuestIssueRetry`여야
+  // 한다. 로그인 화면이 없어져 App.jsx의 `guestSettled` 분기가 여기로 오는데,
+  // 그 분기가 빠지면 사용자는 빈 화면이나 영구 스피너에 갇힌다.
+  await scenario('토큰 없이 /explore 딥링크 → /explore 렌더 · 토큰 소실 후 조용한 재발급 없음 + 재시도 화면', async () => {
     resetGuestAutoIssue();
     useAuthStore.getState().logout();
     const r = mount(createElement(App), '/explore');
@@ -629,14 +666,33 @@ try {
     await waitFor(() => text().includes('탐구'), 5000, '/explore 화면 렌더(딥링크 보존)');
     r.unmount();
 
-    // 이제 토큰이 지워져도 다시 발급하지 않는다 — 그러지 않으면 로그아웃이 동작하지
-    // 않는다(보호 라우트가 조용히 새 게스트를 만든다).
+    // ⚠️ **언마운트 뒤 정지(quiesce)를 기다린 다음 로그아웃한다.** 앞 마운트가
+    // 띄운 요청이 아직 날고 있으면, 그 응답의 401을 `api/client.js` 인터셉터가
+    // 받아 `POST /auth/refresh` → `setTokens`로 **토큰을 되살린다**. 그러면 이
+    // 시나리오는 재시도 화면 대신 학습 화면을 보고 간헐 실패한다(실측: 같은
+    // 코드가 연속 3회 통과 뒤 실패). 지우기 전에 조용해질 때까지 기다린다.
+    await sleep(600);
     const mark = xhrLog.length;
     useAuthStore.getState().logout();
     const r2 = mount(createElement(App), '/');
     await sleep(400);
     const calls = xhrLog.slice(mark).filter((l) => l === 'POST /api/v1/auth/guest');
-    assert(calls.length === 0, `로그아웃 후 게스트 재발급이 나갔다 — ${calls.length}회`);
+    assert(calls.length === 0, `토큰 소실 후 게스트 재발급이 나갔다 — ${calls.length}회`);
+    // 토큰이 되살아났으면 아래 화면 단정이 엉뚱한 이유로 죽는다 — 원인을 갈라 둔다.
+    assert(
+      !useAuthStore.getState().accessToken,
+      '로그아웃 뒤 토큰이 되살아났다(늦게 도착한 401 → refresh 경로) — '
+        + `이후 XHR: ${JSON.stringify(xhrLog.slice(mark))}`,
+    );
+    // 갈 곳이 없어 빈 화면이 되면 안 된다. 로그인 화면은 제거됐으므로 재시도가 답이다.
+    // ⚠️ 단정이 아니라 `waitFor`다 — 렌더 분기가 보는 `guestSettled`는 발급
+    // 프라미스의 **체인된** .then에서 세워지므로, 토큰 등장과 같은 순간이 아니다.
+    // 그 사이를 단정으로 찍으면 아직 스피너라 간헐 실패한다.
+    await waitFor(
+      () => text().includes('다시 시도하기'),
+      3000,
+      '토큰이 없는데 재시도 화면이 아니다 — 로그인 화면이 제거된 지금 사용자가 갇힌다',
+    );
     r2.unmount();
   });
 } finally {

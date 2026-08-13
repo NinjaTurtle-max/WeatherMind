@@ -27,6 +27,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.core.config import settings
 from app.models.content_item import ContentItem
 from app.models.user import User
 from app.routers import progress as progress_router
@@ -250,13 +251,17 @@ class TestExistingConsumersUnchanged:
         """정규화하지 않는 것이 요점 — 파생 뷰가 값을 손대면 하위 호환이 깨진다."""
         assert wb.effective_level_group(make_item(level_group=band)) == band
 
-    def test_pool_level_groups_불변(self):
-        """세션 풀 필터(session_service:187) — θ 유무 두 갈래 모두 오늘 그대로."""
+    def test_pool_level_groups_콜드스타트만_불변(self):
+        """세션 풀 필터 — **θ None 갈래만** 오늘 그대로다.
+
+        ⚠️ **2026-08-12**: θ가 있는 갈래는 「가입 ∪ θ」에서 **전 밴드**로 바뀌었다
+        (선택 축 단일화 — `pool_level_groups` 독스트링). 콜드스타트는 θ가 없어
+        정렬 근거 자체가 없으므로 신고 학령 하나만 쓰는 종전 동작이 유지된다.
+        """
         assert session_service.pool_level_groups("middle_high", None) == ["middle_high"]
-        assert set(session_service.pool_level_groups("elementary", 1.0)) == {
-            "elementary",
-            "adult",
-        }
+        assert set(session_service.pool_level_groups("elementary", 1.0)) == set(
+            wb.LEVEL_GROUP_BANDS
+        )
 
     def test_placement_픽은_불변(self):
         """배치고사 선발이 새 컬럼 없는 dict 후보로도 오늘과 같이 돈다."""
@@ -272,7 +277,9 @@ class TestExistingConsumersUnchanged:
             for group in ps.LEVEL_GROUPS
         ]
         picks = ps.plan_placement_picks(candidates, "middle_high")
-        assert len(picks) == len(wb.PLACEMENT_QUIZ_TAGS)
+        # ⚠️ 2026-08-12: 픽 수의 근거가 **개념 수 → PLACEMENT_SIZE**로 바뀌었다.
+        # 슬롯이 kl 1~10을 하나씩 재므로 개념 수와 무관해졌다(슬롯이 개념을 순환 배정).
+        assert len(picks) == settings.PLACEMENT_SIZE
         assert {p["level_group"] for p in picks} <= set(ps.LEVEL_GROUPS)
 
     def test_저작_검증기는_knowledge_level_없이_통과(self):
@@ -311,18 +318,39 @@ class TestExistingConsumersUnchanged:
         - 금지: `build_pool_query`(SQL WHERE) · `pool_level_groups`(밴드 선택) ·
           `plan_bank_picks`(배합) — 여기에 kl이 들어오면 굶기거나 계약을 흔든다.
         - 허용: 조회 조립부(`_fetch_pools`·`_fetch_unit_pool`) — **정렬 위임만**.
-        - `placement_service`는 파일 전체 금지 유지(배치고사 3밴드 고정은 CO-D1
-          별건이고, 그 판정 전에 kl이 새면 안 된다).
+
+        ⚠️ **2026-08-12 개정**: `placement_service` **파일 전체 금지를 걷는다.**
+        그 금지의 근거는 "배치고사 3밴드 고정(CO-D1)의 판정 전에 kl이 새면 안 된다"
+        였는데, 그 판정이 났다 — 배치고사의 축이 밴드에서 **kl로 바뀌었고**
+        (`target_level_sequence`) 이제 kl은 그 파일의 **의무** 축이다. 금지를 남기면
+        사양과 정반대를 지키게 된다.
+        살릴 불변식은 성격이 다르다: **kl은 정렬·표적으로만 들어오고 SQL WHERE에는
+        못 들어온다.** 그쪽은 `test_selection_by_knowledge_level.py`의
+        `TestSelectionAxisIsSingleOwner`가 소유하므로 여기서 중복하지 않는다.
         """
+        import ast
         import inspect
+        import textwrap
+
+        def code_without_docstring(fn) -> str:
+            """함수 본문에서 **독스트링을 뺀** 소스 — 가드는 코드만 봐야 한다.
+
+            2026-08-12에 이 구분이 필요해졌다: `pool_level_groups`의 독스트링이
+            "좁히는 일은 정렬이 한다"를 설명하며 `theta_to_knowledge_level`을
+            언급하는데, 원문 검색은 그것을 **필터에 kl이 들어왔다**고 오판한다.
+            설명을 지워야 통과하는 가드는 설명을 못 쓰게 만든다.
+            """
+            tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+            node = tree.body[0]
+            body = node.body[1:] if ast.get_docstring(node) is not None else node.body
+            return "\n".join(ast.unparse(stmt) for stmt in body)
 
         for fn in (
             session_service.build_pool_query,
             session_service.pool_level_groups,
             session_service.plan_bank_picks,
         ):
-            assert "knowledge_level" not in inspect.getsource(fn), fn.__name__
-        assert "knowledge_level" not in Path(ps.__file__).read_text(encoding="utf-8")
+            assert "knowledge_level" not in code_without_docstring(fn), fn.__name__
 
     def test_daily_풀_재정렬은_유닛과_같은_함수를_쓴다(self):
         """CO-E-1 — 두 경로가 갈리면 결함이 형태만 바꿔 남는다.

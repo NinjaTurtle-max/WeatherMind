@@ -26,12 +26,22 @@ def _clear_meta_cache():
 
 
 def test_시드_섹션은_메타_3종을_싣는다():
+    """섹션명 리터럴을 적지 않는다 — `SECTION_ORDER`에서 대표 섹션을 고른다.
+
+    ⚠️ **2026-08-12 재작성.** 종전엔 `"공기의 힘"`을 리터럴로 박아 놨는데,
+    CO-G1 순환식 재구조화로 그 섹션이 사라지면서 이 테스트가 죽었다. 표본을
+    한 칸으로 좁힐 이유도 없어서 **전 섹션을 순회**한다 — 한 섹션만 보면
+    나머지 12섹션의 메타 결손이 안 걸린다(실제로 그 형태로 4/7 결손이 감사 전까지
+    안 잡혔다 — 아래 테스트 독스트링 참조).
+    """
     meta = curriculum_service.load_section_meta()
-    assert "공기의 힘" in meta, f"시드에 '공기의 힘'이 없다: {sorted(meta)}"
-    row = meta["공기의 힘"]
-    assert row["subtitle"], "부제가 비어 있다"
-    assert isinstance(row["est_minutes"], int) and row["est_minutes"] > 0
-    assert len(row["topics"]) >= 2, f"세부 주제가 너무 적다: {row['topics']}"
+    assert len(meta) >= 3, f"메타가 {len(meta)}종뿐 — 로더가 헛읽었다"
+    for section in curriculum_service.SECTION_ORDER:
+        assert section in meta, f"메타에 '{section}'이 없다: {sorted(meta)}"
+        row = meta[section]
+        assert row["subtitle"], f"'{section}' 부제가 비어 있다"
+        assert isinstance(row["est_minutes"], int) and row["est_minutes"] > 0
+        assert len(row["topics"]) >= 2, f"'{section}' 세부 주제가 적다: {row['topics']}"
 
 
 def test_시드_파일의_모든_섹션이_units_json의_섹션명과_일치한다():

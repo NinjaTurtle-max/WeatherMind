@@ -425,15 +425,45 @@ export default {
       readSheared: 'The cloud shield is displaced to one side and the centre is exposed. Winds aloft and below are misaligned, tilting the column — in real satellite reading this shape is the first clue that shear is strong.',
     },
     common: {
-      back: '← Discovery',
+      back: '← Explore',
       whyTitle: '🤔 Why does this happen?',
       modelBadge: 'Simplified educational model — not a real forecast',
+    },
+    // MT-24: explore goals (modules/explore/exploreGoals.js·GoalPanel.jsx).
+    // The numbers in the task lines (26.5°C · 31°C · 40 · 1.40–1.50°C · 20 days)
+    // are the **same values the conditions test** — change a condition, change these.
+    goals: {
+      title: '🎯 Exploration goals',
+      progress: '{done} / {total} done',
+      doneBadge: 'Done!',
+      lessonLabel: 'What you found —',
+      howto: 'Move the conditions and the goals update instantly. This is an exploration log, not grading — no clouds are spent.',
+      allDone: '🎉 Every goal cleared! Keep moving the conditions and try other combinations.',
+      typhoon: {
+        calmTitle: 'Cool the ocean down',
+        calmTask: 'Lower the sea surface temperature until no typhoon forms at all.',
+        calmLesson: 'Below 26.5°C nothing grows, no matter how long you wait — the warm ocean is the typhoon’s fuel.',
+        shearWallTitle: 'The shear wall',
+        shearWallTask: 'Heat the ocean to 31°C or more and still keep the intensity at 40 or below.',
+        shearWallLesson: 'With shear set to “strong”, even a hot ocean cannot grow a typhoon. Energy alone is not enough — the vertical column has to stand upright.',
+        superTitle: 'Reach super typhoon',
+        superTask: 'Develop the storm all the way to the super typhoon category.',
+        superLesson: 'A sea at 31°C or warmer AND weak shear must line up at the same time. One favourable condition is never enough.',
+      },
+      climate: {
+        line15Title: 'The 1.5°C line',
+        line15Task: 'Land the global mean temperature rise between 1.40°C and 1.50°C.',
+        line15Lesson: 'The 1.5°C line is crossed around 390 ppm of CO₂ — you reach it well before the doubling point (560 ppm).',
+        heatFirstTitle: 'Heatwaves arrive first',
+        heatFirstTask: 'Keep the temperature rise at 1.20°C or below while pushing heatwave days to 20 or more per year.',
+        heatFirstLesson: 'While the mean warms by barely 1°C, heatwave days have already doubled. A small shift in the average shows up far larger in the extremes.',
+      },
     },
     home: {
       sandboxTitle: 'Free experiment',
       sandboxDesc: 'No goal, no grading. Place air masses, fronts, moisture and sunlight freely and watch what weather appears.',
       sandboxInputs: '9 elements · no grading · no clouds spent',
-      title: '🔭 Discovery',
+      title: '🔭 Explore',
       subtitle: 'A space to explore the principles of weather and climate by moving the conditions yourself.',
       typhoonTitle: 'Build a Typhoon',
       typhoonDesc: 'Adjust sea temperature and wind shear to see when — and how strongly — a typhoon develops.',
