@@ -26,8 +26,38 @@
 > grep -o 'mem_limit: [0-9]*m' docker-compose.prod.yml | grep -o '[0-9]*' | paste -sd+ - | bc
 > ```
 
+### 🔴 클라우드 방화벽 — **태그와 규칙은 별개다** (2026-08-13 실측, 30분 소모)
+
+GCP에서 인증서 발급이 **4번 연속 실패**했고 원인이 여기였다. VM에
+`http-server`·`https-server` **태그는 붙어 있었는데, 그 태그를 여는 방화벽 규칙
+자체가 없었다**(프로젝트에 `default-allow-icmp`·`internal`·`rdp`·`ssh` 넷뿐).
+
+⚠️ **태그를 붙였다고 포트가 열리지 않는다.** 태그는 「이 규칙을 어느 VM에
+적용할지」의 **라벨**일 뿐이고, 규칙이 없으면 라벨은 아무것도 가리키지 않는다.
+콘솔의 VM 상세에 「HTTP 트래픽 허용 ✅」이 체크돼 보여도 그렇다.
+
+**증상으로 알아보는 법**: Let's Encrypt HTTP-01 챌린지가 타임아웃으로 실패한다.
+컨테이너는 정상이고 서버 안에서 `curl localhost`는 되는데 **밖에서만 안 닿는다**.
+OS 방화벽(§3)을 아무리 봐도 안 나온다 — 그건 다른 층이다.
+
+```bash
+# ① 규칙이 실제로 있는지 확인 — 태그가 아니라 규칙을 본다
+gcloud compute firewall-rules list --format='table(name,allowed[],targetTags.list())'
+
+# ② 없으면 만든다 (태그를 이미 붙여 뒀어도 이 두 줄이 필요하다)
+gcloud compute firewall-rules create allow-http  --allow=tcp:80  --target-tags=http-server
+gcloud compute firewall-rules create allow-https --allow=tcp:443 --target-tags=https-server
+```
+
 **아키텍처**: GHCR 이미지는 `linux/amd64`·`linux/arm64` 둘 다 발행된다
 (`release.yml`). x86 VM(GCP·AWS)도 ARM VM(Oracle A1)도 그대로 돌아간다.
+
+⚠️ **2026-08-13부터 GHCR을 쓰지 않는다**(대회 종료까지). GitHub Actions가 무료 분
+소진으로 멈췄고 클라이언트가 과금하지 않기로 정했다 — **이미지는 서버에서 직접
+빌드한다**(롤링마다 10~20분). 함정 하나: `docker-compose.prod.yml`에는 `build:`가
+**없다**(`image:`만) — 그대로 `compose build`하면 **아무것도 만들지 않는다.** dev
+정의(`docker-compose.yml`)로 빌드 → prod가 찾는 이름으로 `docker tag` → prod 기동.
+9/1에 무료 분이 초기화되면 원복된다. 경위는 대장 §4.11.
 
 **재기동 정책**: prod 전 컨테이너가 `restart: unless-stopped`다 — **호스트 재부팅
 후에도 스택이 자동 복구된다**(URL을 9월 셋째 주까지 유지해야 하므로 이게 계약이다).
