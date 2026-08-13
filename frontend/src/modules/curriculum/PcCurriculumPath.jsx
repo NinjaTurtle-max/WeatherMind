@@ -20,6 +20,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
  *     **시작**에 물리는 것까지만 남았다(단계 안에서는 자유 스크롤).
  *   - **노드 좌표를 상수로 박지 않는다.** 가로 흔들림은 노드 인덱스의 주기 사인
  *     하나로 구하고(weave), 연결선은 렌더 후 실측 좌표로 그린다(리사이즈 시 재계산).
+ *   - **길은 꺾은선이 아니라 곡선이다**(`curvePath` — 2026-08-13 복원). 노드마다
+ *     접선이 수직인 3차 베지에라, 길이 노드를 수직으로 통과했다가 그 사이에서만
+ *     좌우로 눕는다. 시안은 처음부터 베지에였고 앱으로 옮기며 `L`로 회귀했던 것을
+ *     되돌린 것이다 — 경위와 실측(59° 꺾임)은 `curvePath` 주석이 소유한다.
  *   - **길은 단계 경계를 넘어 이어진다.** 각 단계의 첫·끝 노드에서 위아래로 꼬리를
  *     뻗어, 단계가 나뉘어 있어도 하나의 길로 보이게 한다.
  *   - 완료(파란) 구간은 **전역 인덱스**로 판정한다. 단계별로 따로 계산하면
@@ -106,6 +110,61 @@ export const PATH_WAVE_PERIOD = 8;
 
 // 단계 경계 너머로 뻗는 길의 꼬리 길이(px).
 const TAIL = 90;
+
+/**
+ * 길의 **굵기**(px). 소유자는 이 상수 하나이고 두 path(회색·파랑)가 함께 쓴다.
+ *
+ * ⚠️ 10 → 6(2026-08-13). 10px은 시안(`docs/design/learn_session_mockup.html:142`)이
+ * **노드 지름 86px**일 때 고른 값이라 지름의 11.6%였다. 노드가 32px로 줄면서 같은
+ * 10px이 **지름의 31%**가 됐고, 길이 노드를 삼켜 구슬을 꿴 리본처럼 읽혔다.
+ *
+ * 이것은 취향이 아니라 **빠진 일괄 보정 1건**이다: 2026-08-13 축소 때 `LIP`(5→3) ·
+ * `HALO`(8→5) · 보드 칩(24→16) · 「시작」 말풍선(34→26)이 전부 다시 재어졌는데
+ * 선 굵기만 그 사슬에서 빠져 있었다.
+ *
+ * 값의 근거: 시안 비율(11.6%)을 그대로 옮기면 3.7px인데, 회색(#E1E8EF)이 흰
+ * 배경에서 존재감을 잃기 시작한다(2026-08-13 브라우저 A/B 4px vs 6px). 6px은
+ * 지름의 18.75%로, 시안 비율보다 굵되 노드 안쪽 아이콘을 건드리지 않는다.
+ */
+export const PATH_LINE_PX = 6;
+
+/**
+ * 노드 중심들을 잇는 **3차 베지에** path의 `d`를 만든다.
+ *
+ * 제어점은 두 끝점의 x를 그대로 쓰고 y만 구간 중점에 둔다 —
+ *   `C a.x,midY  b.x,midY  b.x,b.y`
+ * 그래서 **모든 노드에서 접선이 수직**이다. 길이 노드를 수직으로 통과했다가
+ * 그 사이에서만 좌우로 눕는, 「내려가는 길」의 모양이 된다.
+ *
+ * ⚠️ 이 함수가 있기 전에는 `L`로 잇는 **꺾은선**이었다. 시안
+ * (`docs/design/learn_session_mockup.html:529-540`)은 처음부터 베지에였고,
+ * 앱으로 옮기는 과정에서 직선으로 회귀했던 것이다 — 취향 차이가 아니라 회귀다.
+ * 실측(2026-08-13 1470×801): 마디 회전각이 `0°, ±24°, ±59°`로, 굽이의 극점마다
+ * **59° 꺾임**이 서고 그 사이는 회전각 0°인 완전 직선이었다. "직선 → 급격한
+ * 팔꿈치 → 직선"이 4칸마다 반복돼 리듬이 아니라 톱니로 읽혔다.
+ *
+ * 곁가지 효과가 본체만큼 크다: 접선이 수직이라 **진폭·주기를 한 글자도 건드리지
+ * 않고** "옆으로 눕는 리본" 인상이 사라진다. 클라이언트가 직접 지시한 형태
+ * (S자 · 32px · 고정 간격)가 그대로 유지된다.
+ *
+ * ⚠️ **`includes('C')`로 이 계약을 지키지 말 것.** `C`는 남긴 채 제어점만 끝점
+ * 좌표로 바꾸면 다시 직선이 되는데 그런 단정은 통과한다 — 스모크는 제어점
+ * **x가 각 끝점의 x와 같고 y가 구간 중점**임을 직접 잰다.
+ *
+ * 순수 함수로 뺀 이유는 `blueEndIndex`·`joinK`·`alignScrollTop`과 같다: jsdom에는
+ * 레이아웃이 없어 실좌표로는 못 재는데, 여기는 회귀가 눈으로만 잡히는 자리다.
+ */
+export function curvePath(pts) {
+  if (pts.length < 2) return '';
+  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i += 1) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    const my = a.y + (b.y - a.y) / 2;
+    d += ` C${a.x.toFixed(1)},${my.toFixed(1)} ${b.x.toFixed(1)},${my.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`;
+  }
+  return d;
+}
 
 /**
  * 예상 **일수** — 「며칠 걸리는가」(2026-08-12 클라이언트 요구 ⑴).
@@ -306,8 +365,6 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, l
     all.push(...pts);
     if (leadOut) all.push({ x: joinX(joinOutK), y: box.height + TAIL });
 
-    const line = (list) => list.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-
     // 파란 구간: 꼬리를 포함해 앞에서부터 몇 점까지인지로 자른다.
     const head = leadIn ? 1 : 0;
     let doneLen = 0;
@@ -319,8 +376,11 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, l
     // 움직였는데 선만 옛 자리에 남아 흔들려 보인다(실측: 소개 스트립을 접었다
     // 펼 때마다 1프레임 13.5px). ResizeObserver 콜백은 레이아웃 뒤·페인트 전에
     // 도므로, 여기서 attribute를 바로 쓰면 같은 프레임에 함께 그려진다.
-    baseRef.current?.setAttribute('d', line(all));
-    doneRef.current?.setAttribute('d', doneLen >= 2 ? line(all.slice(0, doneLen)) : '');
+    // 파란 길을 **앞에서부터 잘라** 다시 그린다. 구간별 베지에라 `curvePath`의
+    // 앞부분과 `curvePath(앞부분)`이 기하적으로 같다 — 그래서 파랑이 회색 위에
+    // 정확히 겹친다(시안도 같은 성질에 기댄다).
+    baseRef.current?.setAttribute('d', curvePath(all));
+    doneRef.current?.setAttribute('d', doneLen >= 2 ? curvePath(all.slice(0, doneLen)) : '');
     // layoutKey는 계산에 쓰이지 않는다 — **노드를 움직이는 바깥 변화**(소개 스트립
     // 접기 등)를 의존성으로 들여와, 그 변화와 **같은 커밋**에서 다시 그리게 하는
     // 스위치다. ResizeObserver에만 맡기면 다시 그리는 시점이 브라우저의 콜백 전달
@@ -341,8 +401,8 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, l
     // 두 path는 **항상 그린다** — 조건부로 붙였다 떼면 그 순간 ref가 갈려서
     // draw()가 쓸 대상을 잃는다. 빈 d는 아무것도 그리지 않는다.
     <svg ref={svgRef} className="wm-line" aria-hidden="true">
-      <path ref={baseRef} d="" fill="none" stroke="#E1E8EF" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
-      <path ref={doneRef} d="" fill="none" stroke="#9AD5F2" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+      <path ref={baseRef} d="" fill="none" stroke="#E1E8EF" strokeWidth={PATH_LINE_PX} strokeLinecap="round" strokeLinejoin="round" />
+      <path ref={doneRef} d="" fill="none" stroke="#9AD5F2" strokeWidth={PATH_LINE_PX} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

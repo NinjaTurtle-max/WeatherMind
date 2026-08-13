@@ -94,8 +94,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const mod = await vite.ssrLoadModule('/src/modules/curriculum/PcCurriculumPath.jsx');
 const PcCurriculumPath = mod.default;
 const {
-  blueEndIndex, stageDoneCount, joinK, estDaysOf,
-  PATH_DOT_PX, PATH_GAP_PX, PATH_AMP_PX, PATH_HIT_PX, PATH_WAVE_PERIOD, alignScrollTop,
+  blueEndIndex, stageDoneCount, joinK, estDaysOf, curvePath,
+  PATH_DOT_PX, PATH_GAP_PX, PATH_AMP_PX, PATH_HIT_PX, PATH_WAVE_PERIOD, PATH_LINE_PX,
+  alignScrollTop,
 } = mod;
 
 let failures = 0;
@@ -492,6 +493,109 @@ await render({});
   ok(
     !/^\s*--(dot|gap|amp|hit):/m.test(vpathRule) && !/var\(--(dot|gap|hit),/.test(css),
     'CSS가 치수를 스스로 정하거나 폴백을 갖지 않는다(소유자 이중화 금지)',
+  );
+}
+
+// ── ⑨ 길이 **곡선**이다 · 굵기가 노드에 비례한다 (2026-08-13) ────────────────
+//
+// 클라이언트 지시: "학습 경로가 지금 너무 형태는 좋은데 부자연스러워."
+// 형태(S자·32px·고정 간격)는 바로 앞 라운드에 클라이언트가 직접 지시한 것이라
+// 유지하고, **「부자연스러움」의 정체 2건**만 고쳤다. 둘 다 취향이 아니라 시안
+// 대비 회귀이고, 둘 다 실측으로 특정했다:
+//
+//   ㉠ 꺾은선 — 시안(`docs/design/learn_session_mockup.html:529-540`)은 처음부터
+//      3차 베지에인데 앱은 `L`로 이었다. 실측(1470×801) 마디 회전각이
+//      `0°, ±24°, ±59°`로 굽이의 극점마다 59° 팔꿈치가 서고 그 사이는 완전 직선.
+//   ㉡ 선 굵기 — 10px은 시안이 **지름 86px**일 때 고른 값(11.6%)인데, 노드가
+//      32px이 되면서 **31%**가 됐다. 2026-08-13 축소 때 LIP·HALO·보드칩·말풍선은
+//      전부 다시 재어졌고 **선 굵기만 그 사슬에서 빠져 있었다**.
+//
+// ⚠️ **두 축이 따로 울어야 한다.** `includes('C')` 한 줄로 두면 "C는 남기고
+// 제어점만 끝점으로 바꾸는" 변이가 그대로 통과한다 — 그러면 화면은 다시 직선인데
+// 테스트는 초록이다. 그래서 제어점 좌표를 **직접 잰다**.
+{
+  // d 문자열에서 C 세그먼트를 숫자로 되꺼낸다.
+  const segs = (d) =>
+    [...d.matchAll(/C([-\d.]+),([-\d.]+) ([-\d.]+),([-\d.]+) ([-\d.]+),([-\d.]+)/g)]
+      .map((m) => m.slice(1).map(Number));
+
+  // ㉠-1 두 점이면 C 한 구간. 제어점 x = 각 끝점의 x, y = 구간 중점 → **접선이 수직**.
+  {
+    const d = curvePath([{ x: 10, y: 0 }, { x: 50, y: 100 }]);
+    const s = segs(d);
+    ok(s.length === 1, `두 점 → C 한 구간 — 실제 ${s.length} ("${d}")`);
+    const [c1x, c1y, c2x, c2y, ex, ey] = s[0] ?? [];
+    ok(c1x === 10 && c2x === 50,
+       `제어점 x가 각 끝점의 x와 같다(노드에서 접선이 수직) — 실제 ${c1x}, ${c2x}`);
+    ok(c1y === 50 && c2y === 50,
+       `제어점 y가 둘 다 구간 중점이다 — 실제 ${c1y}, ${c2y}`);
+    ok(ex === 50 && ey === 100, `구간이 다음 노드에서 끝난다 — 실제 ${ex},${ey}`);
+    // 제어점을 끝점으로 뭉개면(= 직선) 위 두 단정이 운다. 그 변이를 여기 박제한다.
+    ok(!(c1x === 10 && c1y === 0), '제어점이 시작점과 같지 않다(같으면 C를 쓴 직선이다)');
+  }
+
+  // ㉠-2 꺾은선(L)으로 되돌아가지 않았다 — **분리된 축**이다.
+  {
+    const d = curvePath([{ x: 0, y: 0 }, { x: 40, y: 60 }, { x: 0, y: 120 }]);
+    ok(!/\bL[-\d]/.test(d), `길에 직선 구간(L)이 없다 — "${d}"`);
+    ok(segs(d).length === 2, `점 3개 → C 두 구간 — 실제 ${segs(d).length}`);
+    ok(curvePath([{ x: 1, y: 1 }]) === '' && curvePath([]) === '',
+       '점이 2개 미만이면 아무것도 그리지 않는다(빈 d)');
+  }
+
+  // ㉠-3 파란 길이 회색 위에 **정확히** 겹친다. 구간별 베지에라
+  //      curvePath(앞부분)이 curvePath(전체)의 접두사여야 한다 — 이 성질이
+  //      깨지면 완료 구간이 길에서 떠서 두 줄로 보인다.
+  {
+    const pts = [{ x: 0, y: 0 }, { x: 40, y: 60 }, { x: 0, y: 120 }, { x: -40, y: 180 }];
+    ok(curvePath(pts).startsWith(curvePath(pts.slice(0, 3))),
+       '완료 구간이 전체 길의 접두사다(파랑이 회색 위에 겹친다)');
+  }
+
+  // ㉠-4 컴포넌트가 실제로 이 함수를 쓴다 — 순수 함수만 고치고 StageLine이 옛
+  //      지역 `line()`을 그대로 쓰면 화면은 하나도 안 바뀐다(alignScrollTop과 같은 관례).
+  const pcSrc4 = readFileSync(resolve(root, 'src/modules/curriculum/PcCurriculumPath.jsx'), 'utf8');
+  ok(
+    /baseRef\.current\?\.setAttribute\('d',\s*curvePath\(all\)\)/.test(pcSrc4),
+    '회색 길을 curvePath로 그린다(지역 폴리라인 빌더로 되돌아가지 않았다)',
+  );
+  ok(
+    /doneRef\.current\?\.setAttribute\('d',[\s\S]{0,60}curvePath\(all\.slice\(0,\s*doneLen\)\)/.test(pcSrc4),
+    '파란 길도 같은 curvePath로 그린다',
+  );
+  ok(
+    !/=>\s*list\.map\(\(p, i\) =>\s*`\$\{i \? 'L' : 'M'\}/.test(pcSrc4),
+    '옛 꺾은선 빌더(L 폴리라인)가 되살아나지 않았다',
+  );
+
+  // ㉡ 굵기 — jsdom은 레이아웃이 없어 d는 빈 값이지만 **stroke-width는 정적
+  //    속성이라 실제로 읽힌다**. 값과 비율을 함께 문다.
+  ok(
+    PATH_LINE_PX <= PATH_DOT_PX * 0.25,
+    `길 굵기가 노드 지름의 1/4 이하 — ${PATH_LINE_PX}px / ${PATH_DOT_PX}px `
+      + `(${((PATH_LINE_PX / PATH_DOT_PX) * 100).toFixed(1)}%). 10px 시절은 31%였다`,
+  );
+  ok(PATH_LINE_PX >= 4, `그래도 흰 배경에서 보일 만큼은 굵다(≥4px) — 실제 ${PATH_LINE_PX}px`);
+  const stroke4 = {
+    section: 'S',
+    units: Array.from({ length: 4 }, (_, i) => ({
+      id: `s${i}`, title: `u${i}`, status: i === 0 ? 'current' : 'locked',
+    })),
+  };
+  root2.render(createElement(PcCurriculumPath, {
+    sections: [stroke4], onOpenUnit: () => {},
+  }));
+  await sleep(60);
+  const strokes = [...container.querySelectorAll('.wm-line path')].map((p) =>
+    p.getAttribute('stroke-width'),
+  );
+  ok(
+    strokes.length === 2 && strokes.every((w) => w === String(PATH_LINE_PX)),
+    `회색·파랑 두 path가 같은 굵기(${PATH_LINE_PX})를 상수에서 받는다 — 실제 [${strokes.join(', ')}]`,
+  );
+  ok(
+    !/strokeWidth="10"/.test(pcSrc4),
+    '굵기 10px 리터럴이 되살아나지 않았다(86px 노드 시절의 값)',
   );
 }
 
