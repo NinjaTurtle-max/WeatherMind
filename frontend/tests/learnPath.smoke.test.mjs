@@ -16,10 +16,15 @@
  *      교체). 종전 ⑤는 "--n은 전 단계가 공유하는 최대 노드 수"였다 — 지름을
  *      뷰포트 높이에 n칸을 욱여넣어 구하던 시절, 섹션마다 크기가 달라지는 것을
  *      막는 보정이었다. 그 계산을 걷었으므로 지킬 것이 바뀐다:
- *        ㉮ 시각 지름이 24~36px(「마우스 포인터 하나~하나 반」)
+ *        ㉮ 시각 지름이 **선행 학습 앱 실측 스케일 ±20%**(2026-08-13 교체 —
+ *           종전 "24~36px(마우스 포인터 하나~하나 반)"은 지름이 44~86px 가변으로
+ *           **겹치던** 시점의 지시였고, 클라이언트가 그 32px 결과를 보고 "부자연스럽다
+ *           → 참고 앱을 봐라 → 전혀 반영이 안 됐다"를 연속으로 내며 대체됐다)
  *        ㉯ **클릭 표적은 44×44 이상**(WCAG 2.5.5) — 시각 크기와 분리된다
  *        ㉰ 세로 피치(지름+간격) ≥ 클릭 표적. 좁으면 표적이 겹쳐 엉뚱한 유닛이 열린다
  *        ㉱ 치수를 뷰포트에서 역산하지 않는다(cqh·--n·--chrome 부활 금지)
+ *        ㉲ **진폭/피치 ≤ 0.9** — 길이 옆으로 눕지 않는다(종전 1.93)
+ *        ㉳ **연결선을 렌더하지 않는다** — 진도는 노드 상태가 나른다
  *   ⑥ 접기도 **아이콘 크기를 바꾸지 않는다** — 축은 같은 단계의 펼침/접힘 간.
  *      이제는 고정값이라 구조적으로 성립하지만, 되살아나는 경로(높이 역산)를 막는
  *      가드로 단정은 남긴다.
@@ -161,18 +166,10 @@ const TOTAL = n;
     const into = joinK(stages, below - 1, below);
     ok(out === into, `경계 ${i + 1}→${i + 2}: 두 단계가 같은 값을 쓴다 — ${out} / ${into}`);
   }
-  // 순수 함수가 맞아도 **컴포넌트가 인덱스를 한 칸 잘못 넘기면** 다시 어긋난다.
-  // 두 호출 지점이 같은 경계를 가리키는지는 소스로 확인한다(계약 테스트 관례).
-  const pcSrc = readFileSync(
-    resolve(dirname(fileURLToPath(import.meta.url)), '../src/modules/curriculum/PcCurriculumPath.jsx'),
-    'utf-8',
-  );
-  ok(
-    pcSrc.includes('joinInK={joinK(withUnits, i - 1, i)}')
-      && pcSrc.includes('joinOutK={joinK(withUnits, i, i + 1)}'),
-    '경계 인덱스: 단계 i의 아래꼬리와 i+1의 위꼬리가 같은 쌍(i, i+1)을 가리킨다',
-  );
-
+  // ⚠️ 여기 있던 **JSX 배선 단정**(`joinInK={joinK(withUnits, i - 1, i)}`)은 걷었다
+  // (2026-08-13): 연결선을 마운트하지 않게 되면서 꼬리도, 그 꼬리를 잇는 배선도
+  // 없어졌다. `joinK` 자체는 export로 남아 있고 **순수 함수 단정은 그대로 둔다** —
+  // 선을 되살리는 날 이 계약이 먼저 필요해지기 때문이다(경위: StageLine 주석).
   ok(joinK(stages, -1, 0) === 0, '맨 위 경계는 0 — 뻗을 이웃이 없다');
   ok(joinK(stages, stages.length - 1, stages.length) === 0, '맨 아래 경계는 0');
   // 중간값이 맞는가 — 한쪽 노드 x로 쏠리면 다시 어긋난다
@@ -221,21 +218,19 @@ await render({});
     '노드 옆에 유닛명 텍스트를 두지 않는다(진도 바의 현재 유닛명은 예외)',
   );
 
-  // 연결선이 경로 컨테이너를 실제로 잡았는가 — **프로덕션에서만 터진 버그의 가드**.
-  // 부모의 ref를 받아 쓰면 자식 layout effect 시점에 아직 null이라 관측이 0건이 되고,
-  // 개발 모드에서는 StrictMode의 이중 실행이 그걸 가려 준다(실제로 그랬다).
-  const vpathObserved = observed.filter((el) => el?.classList?.contains('wm-vpath'));
-  ok(vpathObserved.length >= stages.length,
-     `단계마다 경로 컨테이너를 관측한다 — 관측 ${vpathObserved.length}건 / 단계 ${stages.length}개`);
+  // ⓐ 연결선을 **그리지 않는다**(2026-08-13). 선행 학습 앱은 길을 아예 안 그리고
+  // 노드 상태(👑·⭐·🔒)로만 진도를 말한다 — 실측표는
+  // `docs/Observation_Report_02_Benchmarking.md` §4.6가 소유한다.
+  // ⚠️ 여기 있던 두 단정(「단계마다 .wm-vpath를 관측한다」·「path 2개를 상시 둔다」)은
+  // 전부 **연결선이 있을 때만 뜻이 있던 것**이라 함께 걷었다. StageLine이 유일한
+  // .wm-vpath 관측자였다. 트랙 조상 관측 단정(아래)은 wrapRef 몫이라 그대로 남는다.
+  ok(
+    container.querySelectorAll('.wm-line').length === 0
+      && container.querySelectorAll('.wm-line path').length === 0,
+    `연결선을 렌더하지 않는다 — .wm-line ${container.querySelectorAll('.wm-line').length}개`,
+  );
   ok(observed.every(Boolean),
      '관측 대상에 null이 섞이지 않는다(부모 ref 미확보 시 null이 들어온다)');
-
-  // 연결선 path 2개는 **항상** DOM에 있어야 한다. 조건부로 붙였다 떼면 그 순간
-  // ref가 갈려서, 좌표를 다시 쓸 대상을 잃는다(선이 옛 자리에 굳는다).
-  // jsdom은 레이아웃이 없어 d는 빈 값이지만, 요소가 있는지는 여기서 지킨다.
-  const linePaths = container.querySelectorAll('.wm-line path');
-  ok(linePaths.length === stages.length * 2,
-     `단계마다 연결선 path 2개(회색·파랑)를 상시 둔다 — 실제 ${linePaths.length} / 기대 ${stages.length * 2}`);
 
   // 트랙 높이를 정하는 `--wm-track-top`이 실제로 써지는가.
   // 트랙 위에 붙는 것(게스트 배너·코스 탭·구름 경고)이 상황마다 달라서 상수로 두면
@@ -362,7 +357,13 @@ await render({});
 //   `undefined`를 받아 통과했다. 새 단정은 값을 바꿔 실제로 붉어지는 것만 남긴다.
 //
 // 대신 새로 지킬 것:
-//   ㉮ 시각 지름이 24~36px(커서 하나~하나 반)
+//   ㉮ 시각 지름이 **선행 학습 앱 스케일**(실측 70px)의 ±20% 안
+//      ⚠️ 종전 ㉮는 "24~36px(커서 하나~하나 반)"이었고 2026-08-13에 교체됐다.
+//      그 지시는 지름이 44~86px 가변으로 **겹치던** 시점에 나온 것이라 「겹치지
+//      말라」가 「작게」로 실현된 것이었는데, 클라이언트가 32px 결과를 보고
+//      "부자연스럽다 → 참고 앱을 봐라 → 전혀 반영이 안 됐다"를 연속으로 내며
+//      **나중 지시가 앞 지시를 대체**했다. 근거표는
+//      `docs/Observation_Report_02_Benchmarking.md` §4.6가 소유한다.
 //   ㉯ 클릭 표적 ≥ 44×44 — 시각 크기와 **분리**돼 있고 CSS가 실제로 그 상자를 만든다
 //   ㉰ 세로 피치(지름+간격) ≥ 클릭 표적 — 좁으면 위아래 표적이 겹친다
 //   ㉱ 굴곡이 S자다 — 한 주기 안에 좌우가 다 나오고, 좌우가 상쇄된다
@@ -393,10 +394,29 @@ await render({});
     })),
   });
 
-  // ㉮ 커서 하나(≈24px) ~ 하나 반(≈36px)
+  // ㉮ 노드 지름이 참고 스케일 대역. **리터럴을 박지 않고** 관찰 문서의 실측값에서
+  //    파생한다 — 그래야 관찰이 갱신될 때 기대값이 따라 움직인다.
+  const obsDoc = readFileSync(resolve(root, '../docs/Observation_Report_02_Benchmarking.md'), 'utf8');
+  const refDot = Number(/노드 지름 \*\*(\d+)px\*\*/.exec(obsDoc)?.[1] ?? NaN);
+  ok(Number.isFinite(refDot),
+     `관찰 문서에서 참고 앱 노드 지름을 읽는다 — 실제 ${refDot}`);
   ok(
-    PATH_DOT_PX >= 24 && PATH_DOT_PX <= 36,
-    `노드 시각 지름이 커서 하나~하나 반(24~36px) — 실제 ${PATH_DOT_PX}px`,
+    Math.abs(PATH_DOT_PX - refDot) / refDot <= 0.2,
+    `노드 지름이 참고 스케일 ±20% 안 — 우리 ${PATH_DOT_PX}px / 참고 ${refDot}px `
+      + `(차 ${(((PATH_DOT_PX - refDot) / refDot) * 100).toFixed(1)}%)`,
+  );
+  // 32px 시절로 되돌아가면 위 단정이 운다(|32-70|/70 = 54%).
+
+  // ⓑ **진폭/피치 ≤ 0.9** — 「부자연스럽다」의 정체였던 축이다.
+  //    종전 104/(32+22) = 1.93으로, 한 칸 내려가는 동안 참고 앱(0.82)보다
+  //    **2.4배 더 옆으로 누웠다**. 참고 앱의 길은 압도적으로 수직이다.
+  //    ⚠️ 이것도 리터럴(64)이 아니라 **비율**로 문다 — 지름·간격이 다시 바뀌어도
+  //    "너무 눕지 않는다"가 따라오게.
+  const pitch = PATH_DOT_PX + PATH_GAP_PX;
+  ok(
+    PATH_AMP_PX / pitch <= 0.9,
+    `진폭/피치 ≤ 0.9 (길이 옆으로 눕지 않는다) — ${PATH_AMP_PX}/${pitch} = `
+      + `${(PATH_AMP_PX / pitch).toFixed(3)}. 종전 104/54 = 1.93이었다`,
   );
 
   // ㉯ 표적은 시각 크기와 **다른 값**이고, CSS가 그 상자를 실제로 만든다.
@@ -568,30 +588,12 @@ await render({});
     '옛 꺾은선 빌더(L 폴리라인)가 되살아나지 않았다',
   );
 
-  // ㉡ 굵기 — jsdom은 레이아웃이 없어 d는 빈 값이지만 **stroke-width는 정적
-  //    속성이라 실제로 읽힌다**. 값과 비율을 함께 문다.
+  // ㉡ 굵기 — **선을 마운트하지 않으므로 DOM 단정은 걷었다**(2026-08-13).
+  //    상수 단정만 남긴다: 선을 되살리는 날 이 비율이 먼저 필요해지고, 그때
+  //    10px(= 노드 86px 시절 값)으로 되돌아가는 것을 막는다.
   ok(
-    PATH_LINE_PX <= PATH_DOT_PX * 0.25,
-    `길 굵기가 노드 지름의 1/4 이하 — ${PATH_LINE_PX}px / ${PATH_DOT_PX}px `
-      + `(${((PATH_LINE_PX / PATH_DOT_PX) * 100).toFixed(1)}%). 10px 시절은 31%였다`,
-  );
-  ok(PATH_LINE_PX >= 4, `그래도 흰 배경에서 보일 만큼은 굵다(≥4px) — 실제 ${PATH_LINE_PX}px`);
-  const stroke4 = {
-    section: 'S',
-    units: Array.from({ length: 4 }, (_, i) => ({
-      id: `s${i}`, title: `u${i}`, status: i === 0 ? 'current' : 'locked',
-    })),
-  };
-  root2.render(createElement(PcCurriculumPath, {
-    sections: [stroke4], onOpenUnit: () => {},
-  }));
-  await sleep(60);
-  const strokes = [...container.querySelectorAll('.wm-line path')].map((p) =>
-    p.getAttribute('stroke-width'),
-  );
-  ok(
-    strokes.length === 2 && strokes.every((w) => w === String(PATH_LINE_PX)),
-    `회색·파랑 두 path가 같은 굵기(${PATH_LINE_PX})를 상수에서 받는다 — 실제 [${strokes.join(', ')}]`,
+    PATH_LINE_PX <= PATH_DOT_PX * 0.25 && PATH_LINE_PX >= 4,
+    `(주차된 계약) 길 굵기가 노드 지름의 1/4 이하이고 4px 이상 — ${PATH_LINE_PX}px / ${PATH_DOT_PX}px`,
   );
   ok(
     !/strokeWidth="10"/.test(pcSrc4),

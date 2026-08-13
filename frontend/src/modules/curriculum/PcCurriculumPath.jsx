@@ -19,15 +19,18 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
  *     최대 1368px 쏟아졌다 — 그 계산을 걷은 것이 이번 변경이다. 스냅은 단계의
  *     **시작**에 물리는 것까지만 남았다(단계 안에서는 자유 스크롤).
  *   - **노드 좌표를 상수로 박지 않는다.** 가로 흔들림은 노드 인덱스의 주기 사인
- *     하나로 구하고(weave), 연결선은 렌더 후 실측 좌표로 그린다(리사이즈 시 재계산).
- *   - **길은 꺾은선이 아니라 곡선이다**(`curvePath` — 2026-08-13 복원). 노드마다
- *     접선이 수직인 3차 베지에라, 길이 노드를 수직으로 통과했다가 그 사이에서만
- *     좌우로 눕는다. 시안은 처음부터 베지에였고 앱으로 옮기며 `L`로 회귀했던 것을
- *     되돌린 것이다 — 경위와 실측(59° 꺾임)은 `curvePath` 주석이 소유한다.
- *   - **길은 단계 경계를 넘어 이어진다.** 각 단계의 첫·끝 노드에서 위아래로 꼬리를
- *     뻗어, 단계가 나뉘어 있어도 하나의 길로 보이게 한다.
- *   - 완료(파란) 구간은 **전역 인덱스**로 판정한다. 단계별로 따로 계산하면
- *     1단계를 끝내고 2단계로 넘어갈 때 경계에서 길이 끊긴다(실제로 그랬다).
+ *     하나로 구한다(weave).
+ *   - **연결선을 그리지 않는다**(2026-08-13). 선행 학습 앱 실측에서 길을 아예
+ *     그리지 않는 것이 확인됐고, 그것이 우리 화면과의 여섯 차이 중 **가장 큰 시각
+ *     신호**로 판정됐다(관찰표: `docs/Observation_Report_02_Benchmarking.md` §4.6).
+ *     진도는 선이 아니라 **노드 상태**가 나른다(👑 완료 · ⭐ 현재 · 🔒 잠금).
+ *     ⚠️ 아래 세 계약은 **선을 되살리는 날 함께 되살아난다** — `StageLine`·
+ *     `curvePath`·`joinK`가 그 때문에 파일에 남아 있다(경위는 StageLine 주석):
+ *       · 길은 꺾은선이 아니라 **곡선**이다(노드마다 접선이 수직인 3차 베지에)
+ *       · 길은 **단계 경계를 넘어** 꼬리로 이어진다
+ *       · 완료(파란) 구간은 **전역 인덱스**로 판정한다(단계별로 재면 경계에서 끊긴다)
+ *   - **길이 옆으로 눕지 않는다** — `PATH_AMP_PX / (PATH_DOT_PX + PATH_GAP_PX) ≤ 0.9`.
+ *     이 비율이 1.93이던 것이 「부자연스럽다」의 정체였다(참고 앱 0.82).
  *
  * 시안에 있으나 여기서 뺀 것 — **대응 API가 없다**:
  *   섹션 부제·예상 소요시간(`SectionOut`은 name과 units뿐) · 섹션 보상 상자 ·
@@ -59,11 +62,25 @@ const STATUS_ICON = { cleared: '👑', current: '⭐', unlocked: '🌀', locked:
  */
 
 /**
- * 노드 **시각** 지름(px) — "마우스 포인터 하나~하나 반".
- * 표준 화살표 커서가 세로 ≈24px이므로 계약 범위는 24~36px이고 그 가운데를 쓴다.
- * ⚠️ **클릭 표적은 이 값이 아니다** — `PATH_HIT_PX`를 볼 것.
+ * 노드 **시각** 지름(px) — 선행 학습 앱 실측 스케일.
+ *
+ * ⚠️ **32 → 64(2026-08-13). 「마우스 포인터 하나~하나 반」 지시를 뒤집는 값이라
+ * 경위를 남긴다.**
+ * 그 지시는 지름이 **44~86px 가변으로 겹치던 시점**에 나왔다 — 겹침을 멈추라는
+ * 뜻이 「작게」로 실현된 것이지, 32px 자체가 목표였던 적은 없다. 클라이언트는 그
+ * 32px 결과를 **보고 나서** "형태는 좋은데 부자연스럽다" → "선행 학습 앱 경로를
+ * 크롬으로 봐라" → "전혀 반영이 안 됐다"를 연속으로 냈다. **나중 지시가 앞
+ * 지시를 대체**한 것으로 판정됐고, 참고 화면의 가장 두드러진 특징이 큰 노드다.
+ *
+ * 값의 근거: 참고 앱 실측 지름 **70px**(관찰표는
+ * `docs/Observation_Report_02_Benchmarking.md` §4.6가 소유한다). 64는 그 스케일에
+ * 들면서 아이콘이 `0.55 × 64 = 35px`이 되어 🔒·👑·⭐·🌀가 확대 없이 읽힌다 —
+ * 32px 시절에는 17.6px이라 판독성이 한계였다.
+ *
+ * ⚠️ **클릭 표적은 이 값이 아니다** — `PATH_HIT_PX`를 볼 것. 다만 64 ≥ 44라
+ * 이제는 `::before` 표적이 노드 자체보다 작아, 보이는 원이 곧 표적이다.
  */
-export const PATH_DOT_PX = 32;
+export const PATH_DOT_PX = 64;
 
 /**
  * 노드 **클릭 표적**의 최소 한 변(px) — WCAG 2.1 AA(2.5.5 Target Size)의 44px.
@@ -79,10 +96,19 @@ export const PATH_HIT_PX = 44;
  * 노드 **세로 간격**(px). 규정값이지 파생값이 아니다 — 섹션이 길면 크기를 줄이는
  * 것이 아니라 **스크롤**로 흐른다.
  *
- * ⚠️ 계약: `PATH_DOT_PX + PATH_GAP_PX ≥ PATH_HIT_PX`.
+ * ⚠️ 계약 ①: `PATH_DOT_PX + PATH_GAP_PX ≥ PATH_HIT_PX`.
  * 세로 피치가 클릭 표적보다 좁으면 위아래 노드의 **투명 표적이 겹쳐** 엉뚱한
- * 유닛이 열린다. 지금 값은 32+22 = 54 ≥ 44(여유 10px)이고, 스모크가 이 부등식을
- * 직접 단정한다.
+ * 유닛이 열린다. 지금 값은 64+22 = 86 ≥ 44이고, 스모크가 이 부등식을 직접 단정한다.
+ *
+ * ⚠️ 계약 ②: 「시작」 말풍선이 **위로 솟는 높이 ≤ 이 값**. 지금 rise는
+ * offset 5 + 글자 10 + 세로 패딩 3×2 = **21px**이라 22에 마진 1px이다.
+ *
+ * ⚠️ **2026-08-13 판정은 20이었고 22로 유지했다 — 경위를 남긴다.**
+ * 20이면 계약 ②가 21 ≤ 20으로 깨진다. 그 계약은 노드 축소 때 말풍선이 위 노드를
+ * **11.5px 덮은 실제 사고**(클라이언트 제보)로 생긴 것이라 마진을 0으로 깎지
+ * 않는다. 그리고 22가 판정 근거에도 더 맞는다: 판정의 이유가 "피치를 참고 앱
+ * 평균에 맞춘다"인데, 실측 평균이 **85.2px**이므로 64+22 = **86**(차 0.8)이
+ * 64+20 = 84(차 1.2)보다 가깝다. 진폭/피치도 64/86 = 0.744로 계약(≤0.9) 안이다.
  */
 export const PATH_GAP_PX = 22;
 
@@ -96,10 +122,21 @@ export const PATH_GAP_PX = 22;
  * 그 세 겹이 전부 없어진다 — CSS가 이 상수를 인라인으로 받고, StageLine은 그냥
  * 임포트한다.
  *
- * 값의 근거: 반주기(4칸 = 216px)에 가로로 2·amp(208px)를 움직여야 기울기가 45°
- * 언저리로 잡힌다. 더 키우면 지그재그가 눕고, 더 줄이면 굴곡이 안 보인다.
+ * ⚠️ **104 → 64(2026-08-13).** 종전 값은 "기울기 45° 언저리"를 노렸는데, 그것이
+ * 바로 클라이언트가 "부자연스럽다"고 한 것의 정체였다. 실측 대조
+ * (`docs/Observation_Report_02_Benchmarking.md` §4.6):
+ *
+ *   진폭/피치 — 선행 학습 앱 **0.82** · 종전 우리 **1.93**(104/54)
+ *
+ * 즉 우리 길은 한 칸 내려가는 동안 **2.4배 더 옆으로 눕고** 있었다. 참고 앱의
+ * 길은 압도적으로 수직이고(최대 각도 28°) 좌우 흔들림은 곁들임이다.
+ *
+ * 값의 근거: 64/86 = **0.744**로 참고 비율 0.82 대역에 들고, 노드당 가로 이동이
+ * 최대 45px(참고 실측 ±25~45px과 같은 대역), 총 폭 128px(참고 140px)이 된다.
+ * ⚠️ **리터럴로 외우지 말 것** — 지켜야 하는 것은 값이 아니라 **비율 ≤ 0.9**이고,
+ * 스모크가 `PATH_AMP_PX / (PATH_DOT_PX + PATH_GAP_PX)`로 직접 잰다.
  */
-export const PATH_AMP_PX = 104;
+export const PATH_AMP_PX = 64;
 
 /**
  * S자 한 주기의 **칸 수**. 8칸(= 432px)마다 왼→오→왼으로 한 번 굽이친다.
@@ -316,7 +353,22 @@ function badgeStyle(status) {
 }
 
 /**
- * 한 단계(섹션)의 연결선. 렌더 후 노드 중심을 실측해 폴리라인을 그린다.
+ * ⚠️ **2026-08-13부터 마운트되지 않는다 — 지우지 말고 남겨 둔 것이다.**
+ *
+ * 선행 학습 앱 실측에서 **연결선을 아예 그리지 않는다**는 것이 확인됐고
+ * (관찰표: `docs/Observation_Report_02_Benchmarking.md` §4.6), 그것이 우리 화면과의
+ * 다섯 가지 차이 중 **가장 큰 시각 신호**로 판정돼 마운트만 걷었다. 진도는 선이
+ * 아니라 **노드 상태가 나른다**(👑 완료 · ⭐ 현재 · 🔒 잠금) — 참고 앱과 같은 방식이다.
+ *
+ * 파일과 `curvePath` export를 남기는 이유: **당일 번복이 실재한다.** 같은 날
+ * 시안이 이미 한 번 뒤집혔고(우측 열 B안 → 원복), 오늘 오전에 이 곡선을 복원한
+ * 것도 "시안에 있던 것이 앱으로 옮겨지며 사라진" 회귀를 되돌린 작업이었다.
+ * 지워 버리면 되살릴 때 같은 발굴을 처음부터 반복해야 한다.
+ * 되살리려면 `Stage`에서 `<StageLine …>`을 다시 마운트하고 `joinInK`·`joinOutK`
+ * 배선을 되돌리면 된다(`joinK`는 export로 살아 있다).
+ *
+ * ── 이하 원래 설명 ──
+ * 한 단계(섹션)의 연결선. 렌더 후 노드 중심을 실측해 곡선을 그린다.
  * `doneCount`는 이 단계에서 파란색으로 칠할 **노드 수**(꼬리 포함 판정은 호출부).
  *
  * ⚠️ **부모의 ref를 받아 쓰지 말 것.** React는 커밋 때 자식 → 부모 순으로 ref를
@@ -407,7 +459,10 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, l
   );
 }
 
-function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit, joinInK, joinOutK }) {
+// ⚠️ `offset`·`blueTo`·`joinInK`·`joinOutK`는 **연결선 전용 입력이라 함께 걷었다**
+// (2026-08-13). 되살릴 때는 이 넷을 같이 되돌린다 — 파생 함수(`blueEndIndex`·
+// `stageDoneCount`·`joinK`)는 export로 살아 있고 스모크가 계속 문다.
+function Stage({ section, index, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit }) {
   const t = useT();
   const units = section.units;
   const estDays = estDaysOf(section);
@@ -424,8 +479,8 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
           label: conceptLabel(t, c),
         }));
 
-  // 이 단계에서 파란색으로 칠할 노드 수 — 전역 blueTo를 단계 로컬로 환산한다.
-  const doneCount = stageDoneCount(blueTo, offset, units.length);
+  // (연결선이 없어지면서 `doneCount = stageDoneCount(blueTo, offset, …)` 계산도
+  //  함께 걷었다 — 파란 길이 없으니 칠할 대상이 없다. 2026-08-13)
 
   return (
     <section className="wm-stage flex flex-col bg-white px-6 pb-4 pt-4">
@@ -499,15 +554,11 @@ function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro
           '--hit': `${PATH_HIT_PX}px`,
         }}
       >
-        <StageLine
-          layoutKey={introOpen}
-          joinInK={joinInK}
-          joinOutK={joinOutK}
-          nodeCount={units.length}
-          doneCount={doneCount}
-          leadIn={index > 0}
-          leadOut={index < total - 1}
-        />
+        {/* ⚠️ 연결선(`<StageLine …>`)이 있던 자리 — 2026-08-13에 **마운트만** 걷었다.
+            선행 학습 앱은 길을 아예 그리지 않고 노드 상태로만 진도를 말한다
+            (근거표: `docs/Observation_Report_02_Benchmarking.md` §4.6).
+            컴포넌트와 `curvePath`는 파일에 그대로 있다 — 경위는 StageLine 주석이
+            소유한다. 되살릴 때는 `joinInK`·`joinOutK` 배선도 함께 되돌릴 것. */}
         {units.map((unit, i) => {
           const status = resolveStatus(unit);
           const locked = status === 'locked';
@@ -616,7 +667,8 @@ export default function PcCurriculumPath({
   const flat = withUnits.flatMap((s) => s.units);
 
   const statuses = flat.map(resolveStatus);
-  const blueTo = blueEndIndex(statuses);
+  // (`const blueTo = blueEndIndex(statuses)`가 있던 자리 — 연결선과 함께 걷었다.
+  //  `blueEndIndex`는 export로 남아 스모크가 계속 문다. 2026-08-13)
 
   const clearedCount = statuses.filter((s) => s === 'cleared').length;
   const currentIdx = statuses.indexOf('current');
@@ -780,11 +832,6 @@ export default function PcCurriculumPath({
                 key={section.section}
                 section={section}
                 index={i}
-                total={withUnits.length}
-                joinInK={joinK(withUnits, i - 1, i)}
-                joinOutK={joinK(withUnits, i, i + 1)}
-                offset={offsets[i]}
-                blueTo={blueTo}
                 introOpen={introOpen}
                 onToggleIntro={() => setIntroOpen((v) => !v)}
                 energyBlocked={energyBlocked}
