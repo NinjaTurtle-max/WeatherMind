@@ -223,8 +223,12 @@ export default function CurriculumHome() {
           2-a/2-b/2-c가 그 컴포넌트를 직접 마운트해 문구를 단정한다. 여기서는
           마운트만 걷는다. */}
 
-      {/* 코스 탭(§6.2) — 코스가 2개 이상일 때만 뜬다. 선택은 잠금이 아니라 조회 스코프. */}
-      <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} />
+      {/* 코스 탭(§6.2)은 **PC 경로 카드 안**으로 옮겼다(2026-08-13 클라이언트 지시
+          — 아래 `<PcCurriculumPath tabs={...}>`). 모바일 목록에서는 여기 그대로
+          남는다: 모바일에는 그 카드가 없다. */}
+      <div className="md:hidden">
+        <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} />
+      </div>
 
       {/* 페이지 머리말(🎓 학습 + 설명)은 **없앴다**(2026-08-09 사용자 지시).
           같은 설명을 진입 배너가 부제로 말한다 — 두 벌이면 세로만 66px 먹는다.
@@ -354,6 +358,9 @@ export default function CurriculumHome() {
       {/* PC(md↑) 경로. `energyBlocked`를 반드시 넘긴다 — 넘기지 않으면 구름 0에서
           모바일은 잠기고 PC는 열려, 문항 진입 전 차단(R10-01 S4)이 PC에서만 깨진다. */}
       <PcCurriculumPath
+        tabs={
+          <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} variant="tab" />
+        }
         sections={sections}
         energyBlocked={energyBlocked}
         regenMin={regenMin}

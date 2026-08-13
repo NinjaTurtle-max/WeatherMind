@@ -587,6 +587,7 @@ export default function PcCurriculumPath({
   energyBlocked = false,
   regenMin = 1,
   onViewSection = null,
+  tabs = null,
 }) {
   const t = useT();
   const scrollerRef = useRef(null);
@@ -763,6 +764,16 @@ export default function PcCurriculumPath({
           비었고(2026-08-09 시안), 빈 열을 남기면 트랙이 이유 없이 296px 좁아진다. */}
       <div className="grid grid-cols-[minmax(0,1fr)]">
         <div className="wm-track min-w-0 rounded-[20px] bg-white ring-1 ring-slate-200">
+          {/* 코스 탭 — **경로 카드 안 맨 위**, 웹 브라우저 탭 꼴(2026-08-13
+              클라이언트 지시: "섹션 변경 노드를 학습 경로 란에 넣어, 웹페이지 탭
+              노드처럼"). 종전에는 카드 **밖** 위쪽에 알약 꼴로 떠 있어서, 무엇을
+              바꾸는 스위치인지(= 이 경로 전체) 화면에서 안 붙어 보였다.
+              ⚠️ `.wm-track`의 높이는 `--wm-track-top`(자기 위치 실측)에서 나오므로
+              탭이 **안으로 들어와도** 계산이 어긋나지 않는다 — 트랙 자신의 top이
+              바뀌지 않기 때문이다. 밖에 두고 높이를 빼는 식으로 만들면 그때부터
+              상수 보정이 필요해진다(이 파일이 그 방식으로 겪은 실패가 헤더 주석에
+              적혀 있다). */}
+          {tabs}
           <div ref={scrollerRef} className="wm-scroller" onScroll={onScroll}>
             {withUnits.map((section, i) => (
               <Stage

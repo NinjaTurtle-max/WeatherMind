@@ -30,7 +30,14 @@ export function useCourses() {
   return data?.courses ?? [];
 }
 
-export default function CourseSwitcher({ selected, onSelect }) {
+/**
+ * @param variant  'pill'(기본) — 카드 **밖**에 뜨는 알약 꼴. 모바일 목록이 쓴다.
+ *   'tab' — **경로 카드 안 맨 위**에 붙는 웹 브라우저 탭 꼴(2026-08-13 클라이언트
+ *   지시: "섹션 변경 노드를 학습 경로 란에 넣어, 웹페이지 탭 노드처럼").
+ *   차이는 모양만이 아니다 — 탭은 **아래 내용에 붙어** 있어야 「이 경로를 바꾸는
+ *   스위치」로 읽힌다. 그래서 아래 테두리를 공유하고, 선택된 탭만 그 선을 끊는다.
+ */
+export default function CourseSwitcher({ selected, onSelect, variant = 'pill' }) {
   const courses = useCourses();
   const t = useT();
   if (courses.length < 2) return null; // 단일 코스 = 선택할 것이 없다(현행 화면 유지)
@@ -41,7 +48,15 @@ export default function CourseSwitcher({ selected, onSelect }) {
   // 탭은 학습 경로 위에 얹히는 보조 조작이다 — 크게 잡으면 정작 트랙이 밀린다.
   // (2026-08-05) 칩 치수를 줄여 세로를 트랙에 돌려준다.
   return (
-    <div role="tablist" aria-label={t('curriculum.switcher.aria')} className="mb-2.5 flex flex-wrap gap-1.5">
+    <div
+      role="tablist"
+      aria-label={t('curriculum.switcher.aria')}
+      className={
+        variant === 'tab'
+          ? 'flex flex-wrap items-end gap-1 border-b border-slate-200 px-3 pt-2.5'
+          : 'mb-2.5 flex flex-wrap gap-1.5'
+      }
+    >
       {courses.map((course) => {
         const active = course.id === selected;
         const prereqTitle = course.prereq_course_id
@@ -59,11 +74,21 @@ export default function CourseSwitcher({ selected, onSelect }) {
                 ? t('curriculum.switcher.prereqTitle', { title: prereqTitle })
                 : course.description ?? course.title
             }
-            className={`flex items-center gap-1 rounded-full px-3 py-1 text-[12.5px] font-bold transition ${
-              active
-                ? 'bg-sky-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
-            }`}
+            className={
+              variant === 'tab'
+                ? // 웹 탭 꼴 — 위 모서리만 둥글고, **선택된 탭이 아래 테두리를 끊어**
+                  // 카드와 이어진다(`-mb-px`가 그 한 픽셀을 덮는다).
+                  `-mb-px flex items-center gap-1 rounded-t-lg border border-b-0 px-3.5 py-1.5 text-[12.5px] font-bold transition ${
+                    active
+                      ? 'border-slate-200 bg-white text-sky-700'
+                      : 'border-transparent bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                  }`
+                : `flex items-center gap-1 rounded-full px-3 py-1 text-[12.5px] font-bold transition ${
+                    active
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
+                  }`
+            }
           >
             {course.title}
             {prereqTitle && (

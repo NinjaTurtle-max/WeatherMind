@@ -72,22 +72,16 @@ export default function LearnFooterCards() {
   const needsPlacement = me?.placement_done === false;
 
   return (
-    // ⚠️ **바깥 한 장이 테두리를 소유하고 안은 음영 띠로 나눈다**(2026-08-13
-    //    클라이언트 시안 B + "구분을 음영과 같이").
-    //    종전에는 칸마다 `rounded-2xl ring-1 shadow-sm`을 각자 갖고 `gap-3.5`로
-    //    떨어져 있어서, 네 장의 **무게가 균등**했다 — 무엇이 「지금 할 일」이고
-    //    무엇이 설정인지 시선이 못 갈랐다. 주버튼(「이어서 풀기」)은 진한 남색으로
-    //    이 카드 **밖**에 남는다(CurriculumHome 소유).
-    //    ⚠️ `gap`을 두지 않는다 — 띠가 붙어 있어야 한 장으로 읽힌다. 칸 사이는
-    //    `divide-y`와 각 칸의 **자기 음영**이 가른다.
-    //    ⚠️ **자식은 여전히 직계다.** `home.smoke`가 이 열의 직계 자식 testid
-    //    순서로 「지역이 복습보다 위」를 문다 — 감싸면 indexOf가 -1이 되어 그
-    //    계약이 공허하게 죽는다. 그래서 묶는 방법으로 **래퍼가 아니라 바깥
-    //    div의 스타일 변경 + 자식의 bare 모드**를 택했다.
-    <div
-      data-testid="learn-footer"
-      className="flex flex-col divide-y divide-slate-200 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 md:h-full"
-    >
+    // ⚠️ **카드 한 장씩 떨어진 형상으로 되돌린다**(2026-08-13 클라이언트 판정:
+    //    "이전의 카드 형상 디자인이 낫다. 그 대신 서브 노드들을 흰색으로").
+    //    한 장으로 묶는 시안(B)을 만들어 보였고 클라이언트가 원래 쪽을 골랐다.
+    //    **다만 색은 통일한다** — 종전에는 칸마다 다른 음영(indigo·sky·그라데이션)을
+    //    갖고 있어 넷이 서로 주목을 다퉜다. 전부 흰색으로 두면 색을 가진 것은
+    //    「이어서 풀기」(진한 남색) 하나뿐이라 **주버튼이 혼자 튄다.**
+    //    ⚠️ **자식은 직계로 유지한다** — `home.smoke`가 이 열의 직계 자식 testid
+    //    순서로 「지역이 복습보다 위」를 문다. 감싸면 indexOf가 -1이 되어 그 계약이
+    //    공허하게 죽는다.
+    <div data-testid="learn-footer" className="flex flex-col gap-3.5 md:h-full">
       {/* 진단 입구 — 아직 안 받은 사람에게만. 받고 나면 영구히 사라진다.
           문구는 `/me` 배너와 **같은 키**를 쓴다(profile.placementBanner*) —
           같은 행동을 두 화면에서 다른 말로 부르지 않기 위해서다. */}
@@ -95,15 +89,15 @@ export default function LearnFooterCards() {
         <Link
           to="/onboarding/placement"
           data-testid="learn-placement-entry"
-          className="bg-indigo-50 p-3.5 transition hover:bg-indigo-100"
+          className="rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50"
         >
           <div className="flex items-center gap-2">
             <span aria-hidden="true">🧭</span>
-            <p className="text-[13px] font-extrabold text-indigo-900">
+            <p className="text-[13px] font-extrabold text-slate-900">
               {t('profile.placementBannerTitle')}
             </p>
           </div>
-          <p className="mt-1 text-[11.5px] font-bold text-indigo-700">
+          <p className="mt-1 text-[11.5px] font-bold text-sky-700">
             {t('profile.placementBannerCta')}
           </p>
         </Link>
@@ -132,14 +126,14 @@ export default function LearnFooterCards() {
         data-testid="learn-region"
         persistent
         onboarding={false}
-        className="flex flex-col gap-2 bg-sky-50 p-3.5"
+        className="flex flex-col gap-2 rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-slate-200"
       />
 
       {/* 복습 — due 0건이면 컴포넌트가 스스로 null이라 카드째 빠진다.
           자유 일일 세션 카드가 없어져 이제 이 열의 세로를 혼자 쓴다.
           종전의 `md:max-h-[340px]`는 두 카드가 트랙 높이를 나눠 쓰던 시절의
           상한이었다 — 소유자가 하나가 됐으므로 카드 본연의 높이에 맡긴다. */}
-      <ReviewQueueCard variant="tile" bare />
+      <ReviewQueueCard variant="tile" />
 
       {/* 게스트 진도 저장(2026-08-12 요구 ⑵) — 화면 맨 위를 가로로 덮던 배너가
           여기 여백으로 내려왔다. **맨 아래**에 둔다: 오늘 할 일(진단·지역·복습)이
@@ -147,7 +141,7 @@ export default function LearnFooterCards() {
           ⚠️ 열의 세로 순서를 무는 계약이 있다(`home.smoke` — 학습 지역이 복습보다
           위). 사이에 끼우지 말 것. 게스트가 아니면 컴포넌트가 스스로 null이라
           정식 계정에서는 칸이 아예 없다. */}
-      <GuestSaveNode bare />
+      <GuestSaveNode />
     </div>
   );
 }

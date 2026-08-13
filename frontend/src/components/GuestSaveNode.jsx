@@ -74,7 +74,7 @@ export default function GuestSaveNode({ bare = false }) {
     <Link
       to="/me#save-progress"
       data-testid="learn-guest-save"
-      className={`bg-gradient-to-r from-sky-50 to-indigo-50 p-3.5 transition ${bare ? 'hover:from-sky-100 hover:to-indigo-100' : 'rounded-2xl ring-1 ring-sky-200 hover:ring-sky-300'}`}
+      className={`bg-white p-3.5 transition ${bare ? 'hover:bg-slate-50' : 'rounded-2xl shadow-sm ring-1 ring-slate-200 hover:bg-slate-50'}`}
       aria-label={t('saveProgress.nodeAria')}
     >
       <div className="flex items-center gap-2">
