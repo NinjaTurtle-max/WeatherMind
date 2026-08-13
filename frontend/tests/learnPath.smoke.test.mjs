@@ -505,6 +505,38 @@ await render({});
     !/container-type:\s*size\s*;/.test(stageRule),
     '.wm-stage에 container-type:size가 되살아나지 않았다(내용과 무관하게 높이를 확정한다)',
   );
+  // ㉴ **스크롤 스냅이 되살아나지 않았다**(2026-08-13 오후 — 클라이언트 제보
+  //    「상위 섹션 유닛에 도달할 수 없다」의 원인).
+  //    스냅 계약은 "단계 ≤ 트랙"일 때만 성립했다. 노드가 고정 크기가 되면서
+  //    단계 높이가 칸 수에 비례하게 됐고(시드 10섹션 전부 957px 이상), 트랙은
+  //    clamp 상한이 800px이라 **그 전제가 다시 참이 될 수 없다**. 단계가 트랙보다
+  //    크면 단계 경계 한 화면치가 **어느 단계도 스냅포트를 덮지 못하는 정지 불가
+  //    구간**이 되어, 휠을 조금씩 굴리는 사람이 그 앞에서 되튕긴다.
+  //
+  //    브라우저 실측(1470×745 · 트랙 641px · scrollTop 0에서 휠 1틱씩):
+  //      mandatory+always → 574↔674 무한 진동 / proximity+always → 동일
+  //      mandatory+normal → 1섹션 꼬리를 건너뛰고 2574에서 정지
+  //      none             → 0,200,…,2400 자유
+  //
+  // ⚠️ **이 단정의 한계**: jsdom에는 레이아웃이 없어 스냅을 계산하지 않는다
+  //    (scrollHeight·clientHeight가 전부 0이고 `scroll-snap-*`은 무시된다).
+  //    그래서 여기서 재는 것은 **"CSS 선언이 없다"뿐이고, "스크롤이 원하는 자리에
+  //    선다"가 아니다.** 후자는 브라우저 실측 몫이고 위 표가 그 기록이다.
+  //    선언이 없어도 JS가 스크롤을 붙잡는 회귀는 이 단정이 못 본다.
+  const scrollerRule = cut('.wm-scroller {', '.wm-stage {');
+  ok(
+    !/scroll-snap-type\s*:/.test(scrollerRule),
+    '.wm-scroller에 scroll-snap-type이 되살아나지 않았다(mandatory·proximity 둘 다 단계 경계를 정지 불가로 만든다)',
+  );
+  ok(
+    !/scroll-snap-stop\s*:\s*always/.test(stageRule),
+    '.wm-stage에 scroll-snap-stop:always가 되살아나지 않았다(한 제스처에 한 단계로 묶인다)',
+  );
+  ok(
+    !/scroll-snap-align\s*:/.test(stageRule),
+    '.wm-stage에 scroll-snap-align이 되살아나지 않았다(스냅포트가 없으면 죽은 선언이다)',
+  );
+
   const vpathRule = cut('.wm-vpath {', '.wm-node {');
   ok(!/\bcqh\b/.test(vpathRule), '.wm-vpath가 지름을 뷰포트 높이(cqh)에서 역산하지 않는다');
   ok(!/min-height:\s*0/.test(vpathRule),
