@@ -16,10 +16,13 @@ import boardEn from './resources/board.en.js';
 // 기후 탐정(R13 CO-N-2)도 같은 이유로 파일을 갈랐다 — 최상위 키는 detective.* 하나뿐.
 import detectiveKo from './resources/detective.ko.js';
 import detectiveEn from './resources/detective.en.js';
+// 안내봇(MT-26)도 같은 이유로 파일을 갈랐다 — 최상위 키는 guide.* 하나뿐.
+import guideKo from './resources/guide.ko.js';
+import guideEn from './resources/guide.en.js';
 
 export const RESOURCES = {
-  ko: { ...ko, ...boardKo, ...detectiveKo },
-  en: { ...en, ...boardEn, ...detectiveEn },
+  ko: { ...ko, ...boardKo, ...detectiveKo, ...guideKo },
+  en: { ...en, ...boardEn, ...detectiveEn, ...guideEn },
 };
 export const SUPPORTED_LOCALES = Object.keys(RESOURCES);
 export const DEFAULT_LOCALE = 'ko';
