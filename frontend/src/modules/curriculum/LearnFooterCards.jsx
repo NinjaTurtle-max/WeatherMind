@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ReviewQueueCard from '../../components/ReviewQueueCard';
 import RegionPicker from '../../components/RegionPicker';
+import RegionOnboardingNotice from '../../components/RegionOnboardingNotice';
 import GuestSaveNode from '../../components/GuestSaveNode';
 import { progressApi } from '../../api';
 import { useAuthStore } from '../../store/authStore';
@@ -71,7 +72,22 @@ export default function LearnFooterCards() {
   const needsPlacement = me?.placement_done === false;
 
   return (
-    <div data-testid="learn-footer" className="flex flex-col gap-3.5 md:h-full">
+    // ⚠️ **바깥 한 장이 테두리를 소유하고 안은 음영 띠로 나눈다**(2026-08-13
+    //    클라이언트 시안 B + "구분을 음영과 같이").
+    //    종전에는 칸마다 `rounded-2xl ring-1 shadow-sm`을 각자 갖고 `gap-3.5`로
+    //    떨어져 있어서, 네 장의 **무게가 균등**했다 — 무엇이 「지금 할 일」이고
+    //    무엇이 설정인지 시선이 못 갈랐다. 주버튼(「이어서 풀기」)은 진한 남색으로
+    //    이 카드 **밖**에 남는다(CurriculumHome 소유).
+    //    ⚠️ `gap`을 두지 않는다 — 띠가 붙어 있어야 한 장으로 읽힌다. 칸 사이는
+    //    `divide-y`와 각 칸의 **자기 음영**이 가른다.
+    //    ⚠️ **자식은 여전히 직계다.** `home.smoke`가 이 열의 직계 자식 testid
+    //    순서로 「지역이 복습보다 위」를 문다 — 감싸면 indexOf가 -1이 되어 그
+    //    계약이 공허하게 죽는다. 그래서 묶는 방법으로 **래퍼가 아니라 바깥
+    //    div의 스타일 변경 + 자식의 bare 모드**를 택했다.
+    <div
+      data-testid="learn-footer"
+      className="flex flex-col divide-y divide-slate-200 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 md:h-full"
+    >
       {/* 진단 입구 — 아직 안 받은 사람에게만. 받고 나면 영구히 사라진다.
           문구는 `/me` 배너와 **같은 키**를 쓴다(profile.placementBanner*) —
           같은 행동을 두 화면에서 다른 말로 부르지 않기 위해서다. */}
@@ -79,7 +95,7 @@ export default function LearnFooterCards() {
         <Link
           to="/onboarding/placement"
           data-testid="learn-placement-entry"
-          className="rounded-2xl bg-indigo-50 p-3.5 ring-1 ring-indigo-200 transition hover:bg-indigo-100"
+          className="bg-indigo-50 p-3.5 transition hover:bg-indigo-100"
         >
           <div className="flex items-center gap-2">
             <span aria-hidden="true">🧭</span>
@@ -93,19 +109,37 @@ export default function LearnFooterCards() {
         </Link>
       )}
 
-      {/* 학습 지역 — 카드 한 장을 쓰기에는 작아서 한 줄로 얹는다. */}
-      <div
+      {/* 학습 지역 — **파란 안내 하나가 지역 칸을 통째로 소유한다**
+          (2026-08-13 클라이언트 지시: "흰색 지역 노드 너무 이상해, 그냥 파랑 날씨
+          노드를 「나중에」 없이 흰색 대신으로 고정해줘").
+
+          ⚠️ 무엇이 바뀌었나 — 이 자리에는 **두 칸이 겹쳐 있었다**:
+            ⓐ `RegionOnboardingNotice` — 지역 **미설정일 때만** 뜨는 파란 안내
+              (안에 지역 칩이 들어 있다). 「나중에」로 닫으면 사라진다.
+            ⓑ `learn-region` — 지역 칩만 얹은 **흰 줄**. 항상 떴다.
+          미설정 동안 칩이 두 개로 보이고, 설정한 뒤에는 ⓑ만 남아 **머리말도 설명도
+          없는 흰 칸**이 됐다. 클라이언트가 「이상하다」고 한 것이 그 상태다.
+
+          이제 파란 안내가 **상시** 뜨고 흰 줄은 없앴다. 그래서 「나중에」(닫기)도
+          함께 걷었다 — 닫을 수 있게 두면 **지역을 고르는 통로가 화면에서 통째로
+          사라진다**(종전에 흰 줄을 조건부로 숨기지 않았던 이유가 정확히 그것이다).
+          안내가 상시가 됐으므로 그 걱정이 구조적으로 없어졌다.
+
+          ⚠️ **형제로 끼운다 — 감싸지 말 것.** `home.smoke`가 이 열의 **직계 자식**
+          testid 순서로 「지역이 복습보다 위」를 문다. 감싸는 순간 indexOf가 -1이
+          되어 그 계약이 공허하게 죽는다. */}
+      <RegionOnboardingNotice
         data-testid="learn-region"
-        className="flex items-center justify-end rounded-2xl bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200"
-      >
-        <RegionPicker />
-      </div>
+        persistent
+        onboarding={false}
+        className="flex flex-col gap-2 bg-sky-50 p-3.5"
+      />
 
       {/* 복습 — due 0건이면 컴포넌트가 스스로 null이라 카드째 빠진다.
           자유 일일 세션 카드가 없어져 이제 이 열의 세로를 혼자 쓴다.
           종전의 `md:max-h-[340px]`는 두 카드가 트랙 높이를 나눠 쓰던 시절의
           상한이었다 — 소유자가 하나가 됐으므로 카드 본연의 높이에 맡긴다. */}
-      <ReviewQueueCard variant="tile" />
+      <ReviewQueueCard variant="tile" bare />
 
       {/* 게스트 진도 저장(2026-08-12 요구 ⑵) — 화면 맨 위를 가로로 덮던 배너가
           여기 여백으로 내려왔다. **맨 아래**에 둔다: 오늘 할 일(진단·지역·복습)이
@@ -113,7 +147,7 @@ export default function LearnFooterCards() {
           ⚠️ 열의 세로 순서를 무는 계약이 있다(`home.smoke` — 학습 지역이 복습보다
           위). 사이에 끼우지 말 것. 게스트가 아니면 컴포넌트가 스스로 null이라
           정식 계정에서는 칸이 아예 없다. */}
-      <GuestSaveNode />
+      <GuestSaveNode bare />
     </div>
   );
 }

@@ -8,7 +8,6 @@ import CloudEnergyBadge from './CloudEnergyBadge';
 import LocaleSwitcher from './LocaleSwitcher';
 import TabBar from './TabBar';
 import SideNav from './SideNav';
-import RegionOnboardingNotice from './RegionOnboardingNotice';
 import { useT } from '../i18n';
 import { authApi, progressApi } from '../api';
 import { isGuestUser } from '../modules/auth/guest';
@@ -175,12 +174,18 @@ export default function Layout() {
 
         {/* 헤더/탭바 높이만큼 여백 확보 — 탭바는 md↑에서 숨으므로 하단 여백을 줄인다 */}
         <main className="flex-1 px-4 pb-20 pt-16 md:pb-8">
-          {/* 위치 안내(2026-08-12 요구 ⑶) — 지역 미설정일 때만, 본문 **흐름 안**에.
-              모달이 아니다: 규정이 「로그인 없이 열려야」이므로 아무것도 안 눌러도
-              아래 화면이 그대로 조작 가능해야 한다. 라우트마다 다시 붙이지 않고
-              레이아웃이 한 번만 소유한다 — 첫 착지(`/learn`)든 딥링크든 접속
-              직후에 보이는 것이 요구다. 조건 미충족이면 컴포넌트가 스스로 null. */}
-          <RegionOnboardingNotice />
+          {/* 위치 안내(`RegionOnboardingNotice`)는 **여기서 걷었다**(2026-08-13
+              클라이언트 지시 ⑴ — 「가로로 눕는 두 노드를 오른쪽 세로 열로」).
+              본문 맨 위를 가로로 덮던 자리라 학습 경로보다 먼저 눈에 들어왔다.
+              새 소유자는 `modules/curriculum/LearnFooterCards.jsx`이고, 그 열에서
+              자기가 설명하는 지역 칩(`learn-region`) **바로 위**에 선다.
+              ⚠️ **되돌릴 때 알아 둘 것**: 여기 있던 시절의 근거는 "라우트마다 다시
+              붙이지 않고 레이아웃이 한 번만 소유한다 — 딥링크로 들어와도 보인다"
+              였다. 오른쪽 열은 `/learn`에만 있으므로 그 보증은 사라졌다(딥링크로
+              `/board`에 내린 사람은 위치 안내를 못 본다). 이것은 지시에 따른
+              **의도된 축소**이지 누락이 아니다 — 전 라우트 노출이 다시 필요해지면
+              레이아웃이 아니라 제품 결정으로 다룰 것. 컴포넌트 자체의 비차단
+              계약(모달 아님)은 `onboardingSave.contract` ⑤가 위치와 무관하게 문다. */}
           <Outlet />
         </main>
 

@@ -4,20 +4,24 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
  * PcCurriculumPath — 학습 홈의 PC(데스크톱, md↑) 전용 경로 뷰.
  *
  * 시안 `docs/design/learn_session_mockup.html`의 구현이다. 이전의 4열 스네이크를
- * **섹션당 한 화면(스크롤 스냅) + 세로 지그재그**로 교체했다. 모바일 뷰
- * (§CurriculumHome)는 그대로 둔다.
+ * **세로 S자 경로 + 스크롤**로 교체했다. 모바일 뷰(§CurriculumHome)는 그대로 둔다.
  *
  * 캐릭터(물방울이)는 **좌측 사이드바가 소유한다**(SideNav의 화면별 튜터).
  * 예전에는 이 화면 우측 레일에도 물방울이 카드가 있었는데, 사이드바 튜터가
  * 화면별로 바뀌게 되면서 같은 캐릭터가 한 화면에 둘 떴다 — 여기서 뺐다.
  *
- * 레이아웃 계약(시안 README「검증된 동작 계약」):
- *   - 한 화면에 한 단계. 트랙만 스크롤되고 페이지는 따라 움직이지 않는다.
- *   - **노드 좌표를 상수로 박지 않는다.** 섹션마다 노드 수가 달라(2~5) 손으로
- *     찍으면 리듬이 어긋난다. 가로 흔들림은 노드 인덱스 사인으로 구하고,
- *     연결선은 렌더 후 실측 좌표로 그린다(리사이즈 시 다시 그린다).
- *   - **길은 스냅 경계를 넘어 이어진다.** 각 단계의 첫·끝 노드에서 위아래로 꼬리를
- *     뻗어, 한 화면 한 단계로 스냅되면서도 하나의 길로 보이게 한다.
+ * 레이아웃 계약(시안 README「검증된 동작 계약」 + 2026-08-13 클라이언트 지시):
+ *   - **치수는 고정, 길이는 스크롤.** 노드 지름·간격·진폭이 상수(PATH_*_PX)이고,
+ *     칸이 많은 단계는 크기를 잃는 대신 세로로 길어져 스크롤로 흐른다. 트랙만
+ *     스크롤되고 페이지는 따라 움직이지 않는다.
+ *     ⚠️ 종전 계약은 「한 화면에 한 단계」였고, 지름을 트랙 높이에 n칸 욱여넣어
+ *     구했다. 유닛이 237개가 되면서 그 식이 하한에 걸려 노드가 다음 단계 위로
+ *     최대 1368px 쏟아졌다 — 그 계산을 걷은 것이 이번 변경이다. 스냅은 단계의
+ *     **시작**에 물리는 것까지만 남았다(단계 안에서는 자유 스크롤).
+ *   - **노드 좌표를 상수로 박지 않는다.** 가로 흔들림은 노드 인덱스의 주기 사인
+ *     하나로 구하고(weave), 연결선은 렌더 후 실측 좌표로 그린다(리사이즈 시 재계산).
+ *   - **길은 단계 경계를 넘어 이어진다.** 각 단계의 첫·끝 노드에서 위아래로 꼬리를
+ *     뻗어, 단계가 나뉘어 있어도 하나의 길로 보이게 한다.
  *   - 완료(파란) 구간은 **전역 인덱스**로 판정한다. 단계별로 따로 계산하면
  *     1단계를 끝내고 2단계로 넘어갈 때 경계에서 길이 끊긴다(실제로 그랬다).
  *
@@ -30,56 +34,75 @@ import { conceptLabel, useT } from '../../i18n';
 
 const STATUS_ICON = { cleared: '👑', current: '⭐', unlocked: '🌀', locked: '🔒' };
 
-// 노드 지름 계산에서 빼는 고정 영역(머리말 + 개념 칩 줄 + 진도 바)의 높이.
-// 2026-08-09 210 → 135: 소개 스트립(슬레이트 박스)을 머리말 한 줄로 눌렀다.
-// 실측 근거 — 흐름에 있는 크롬(머리말+칩+패딩)이 81px, 여기에 절대배치라
-// 흐름에 안 잡히는 진도 바 37px을 더해 118px. 135는 그 위 17px 여유다.
-// **접기 상태와 연동하지 않는다** — 접을 때마다 아이콘이 커졌다 작아지면 화면이
-// 출렁인다. 스트립을 접으면 경로가 쓸 높이는 늘지만 아이콘은 그대로 두고 여백만
-// 늘어난다(2026-08-05 결정).
-// 2026-08-13: **+34** — `.wm-vpath`에 「시작」 말풍선 자리(padding-top: 34px)를
-// 냈다. 그 말풍선은 첫 노드 **위쪽 바깥**에 그려지는데 위가 flex-start라
-// 트랙 밖으로 넘쳐 「이 단계에서 배우는 것」 칩 줄을 덮고 있었다(클라이언트 제보).
-// 여기 안 더하면 --dot이 트랙을 실제보다 크게 잡아 마지막 노드가 잘린다.
-// ⚠️ **export한다** — 스모크가 `'135px'`를 리터럴로 단정하고 있어서 이 값을 바꾸는
-// 순간 두 곳이 붉어졌다(2026-08-13). 소유자는 여기 하나이고 테스트는 파생시킨다.
-export const CHROME = 135 + 34;
+/* ── 경로의 치수 — **전부 고정 px이고 소유자는 여기 하나다**(2026-08-13 클라이언트
+ *    지시: "섹션마다 학습 경로 범위를 정의하지 말고 그냥 간격을 규정하고 S자 또는
+ *    굴곡으로 잡고, 유닛마다의 칸을 마우스 포인트 하나에서 하나 반 정도로").
+ *
+ * 걷어낸 것 — **뷰포트 높이에 n칸을 욱여넣던 계산**:
+ *   --dot: max(44px, min(86px, (100cqh - --chrome) / (1.18·--n - 0.18)))
+ * 이 식이 있었기 때문에 `--n`(전 섹션 최대 칸 수) · `--chrome`(머리말·칩·진도 바
+ * 높이) · `PATH_SIZING_FLOOR`(코스 간 크기 통일) · `PATH_SIZING_CAP`(겹침 방지
+ * 상한)이 **전부 그 식 하나를 떠받치는 보정**으로 붙어 있었다. 크기가 고정되면
+ * 넷 다 지킬 대상이 없어진다 — 코스가 달라도, 섹션이 몇 칸이어도, 접든 펴든
+ * 지름은 `PATH_DOT_PX` 하나다.
+ *
+ * ⚠️ 걷어낸 계산이 **실제로 무엇을 하고 있었는지**(2026-08-13 1470×801 실측):
+ * `--n`이 상한 8에서 끊긴 채 `--dot`은 하한 44px에 눌려, 노드가 트랙 높이를
+ * **13칸 226px · 19칸 537px · 35칸 1368px 넘쳐** 다음 단계 위로 흘러내리고 있었다.
+ * 넘침이 보이지 않은 이유는 `.wm-stage`의 `container-type: size`가 단계 높이를
+ * 내용과 무관하게 고정했기 때문이다(그래서 스크롤도 안 생겼다). 아래 CSS에서
+ * 그 선언을 `inline-size`로 내리고 `height: 100%`를 `min-height: 100%`로 바꿨다.
+ */
 
 /**
- * 노드 지름 계산(`--n`)의 **바닥값** — 코스가 달라도 동그라미 크기가 같게 한다.
- *
- * `--n`은 "이 코스에서 가장 긴 섹션의 칸 수"다(sizingN). 그런데 코스마다 그 값이
- * 다르다 — 날씨와 기후는 4, 기초 과학은 3이다. 화면이 넉넉하면 둘 다 상한(86px)에
- * 걸려 같아 보이지만, 트랙이 짧아지면 갈린다(1440×720 실측: 70px 대 86px).
- * 탭을 옮길 때마다 동그라미가 커졌다 작아지는 것이 그 증상이다.
- *
- * 그래서 **전 코스 통틀어 가장 긴 섹션**을 바닥으로 깐다. 반대 방향(작은 쪽에
- * 맞추기 = 날씨를 3으로)은 불가능하다 — 4칸 섹션이 트랙을 넘쳐 마지막 노드가
- * 잘린다(needed = dot*(1.18n-0.18)+chrome = 600 > 561).
- *
- * ⚠️ 값의 근거는 `database/seed/units.json`이고, 저작이 5칸 섹션을 만들면 여기가
- * 낡는다 — `learnPath` 스모크가 시드를 세어 대조한다(사람이 아니라 테스트가 감시).
+ * 노드 **시각** 지름(px) — "마우스 포인터 하나~하나 반".
+ * 표준 화살표 커서가 세로 ≈24px이므로 계약 범위는 24~36px이고 그 가운데를 쓴다.
+ * ⚠️ **클릭 표적은 이 값이 아니다** — `PATH_HIT_PX`를 볼 것.
  */
-export const PATH_SIZING_FLOOR = 4;
+export const PATH_DOT_PX = 32;
 
 /**
- * 노드 크기 계산의 **상한** — 2026-08-12 클라이언트 판정("상한을 두자 8로 하고
- * 긴 섹션은 스크롤").
+ * 노드 **클릭 표적**의 최소 한 변(px) — WCAG 2.1 AA(2.5.5 Target Size)의 44px.
  *
- * `sizingN`은 원래 「전 단계 중 최대 칸 수」였다. 유닛이 93 → **237개**가 되면서
- * 최장 섹션이 4칸 → **35칸**이 됐고, `--dot` 식이 `max(44px, …)`로 하한에 걸려
- * **노드가 서로 겹쳤다**(화면 실측: 지그재그 한 자리에 자물쇠 2개가 포개짐).
- * n이 커질수록 지름이 줄어드는 식이라, 시드를 따라가면 크기만 잃고 겹침은
- * 안 풀린다.
- *
- * 그래서 크기 기준을 8칸에서 **끊고**, 8칸을 넘는 섹션은 세로로 넘쳐 스크롤한다.
- * 8은 1440×720에서 `--dot`이 56px로 잡히는 값이다(4칸=86px · 13칸 이상=44px 하한).
- *
- * ⚠️ `learnPath` 스모크가 「바닥값 == 시드 최장 섹션」을 단정했는데, 그 계약은
- * 상한 도입으로 **뜻을 잃었다**(시드가 35인데 상한이 8이면 영원히 어긋난다).
- * 그 자리는 「크기가 코스마다 같다 + 넘치면 스크롤된다」로 바뀐다.
+ * 시각 지름을 32px로 줄이면 버튼 상자도 32×32가 되어 표적이 규격 미달이 된다.
+ * 그래서 `.wm-dot::before`가 `max(var(--hit), var(--dot))` 크기의 **투명 상자**를
+ * 노드 중심에 겹쳐 둔다(보이는 원은 그대로 32px, 눌리는 넓이만 44px).
+ * ⚠️ 이 값을 44 밑으로 내리면 `learnPath` 스모크가 운다.
  */
-export const PATH_SIZING_CAP = 8;
+export const PATH_HIT_PX = 44;
+
+/**
+ * 노드 **세로 간격**(px). 규정값이지 파생값이 아니다 — 섹션이 길면 크기를 줄이는
+ * 것이 아니라 **스크롤**로 흐른다.
+ *
+ * ⚠️ 계약: `PATH_DOT_PX + PATH_GAP_PX ≥ PATH_HIT_PX`.
+ * 세로 피치가 클릭 표적보다 좁으면 위아래 노드의 **투명 표적이 겹쳐** 엉뚱한
+ * 유닛이 열린다. 지금 값은 32+22 = 54 ≥ 44(여유 10px)이고, 스모크가 이 부등식을
+ * 직접 단정한다.
+ */
+export const PATH_GAP_PX = 22;
+
+/**
+ * S자 **가로 진폭**(px, 중심에서 한쪽). 노드 x = 가운데 + weave(i)·amp.
+ *
+ * ⚠️ 종전에는 CSS가 `--amp: clamp(56px, 16cqw, 132px)`로 소유했고, StageLine이
+ * 꼬리선 x를 구하려고 **이미 그려진 노드에서 역산**했다(등록 안 된 커스텀
+ * 프로퍼티라 getComputedStyle이 clamp 토큰을 그대로 돌려줬기 때문). 역산이 안 되는
+ * 칸 1개짜리 단계를 위해 CSS 식의 **사본**까지 JS에 두고 있었다. 값이 고정되면
+ * 그 세 겹이 전부 없어진다 — CSS가 이 상수를 인라인으로 받고, StageLine은 그냥
+ * 임포트한다.
+ *
+ * 값의 근거: 반주기(4칸 = 216px)에 가로로 2·amp(208px)를 움직여야 기울기가 45°
+ * 언저리로 잡힌다. 더 키우면 지그재그가 눕고, 더 줄이면 굴곡이 안 보인다.
+ */
+export const PATH_AMP_PX = 104;
+
+/**
+ * S자 한 주기의 **칸 수**. 8칸(= 432px)마다 왼→오→왼으로 한 번 굽이친다.
+ * 섹션마다 i=0에서 위상이 다시 시작하므로 **첫 노드는 늘 가운데**이고, 그래서
+ * `justify-content: flex-start`(첫 노드 y 고정)와 짝이 맞는다.
+ */
+export const PATH_WAVE_PERIOD = 8;
 
 // 단계 경계 너머로 뻗는 길의 꼬리 길이(px).
 const TAIL = 90;
@@ -125,6 +148,33 @@ export function estDaysOf(section, basis = EST_DAYS_BASIS, assume = EST_DAYS_ASS
   return units > 0 ? units : null; // 'unitsPerDay'
 }
 
+/**
+ * 첫 화면의 스크롤 위치 — **현재 노드가 보이는 자리**를 돌려준다.
+ *
+ * ⚠️ 종전에는 그냥 `stage.offsetTop`(단계의 맨 위)이었고, 그것으로 충분했다 —
+ * 「한 화면에 한 단계」라 단계 맨 위로 가면 그 안의 노드가 전부 보였기 때문이다.
+ * **고정 간격으로 바뀌면서 그 전제가 깨졌다**: 19칸 단계는 1069px, 35칸 단계는
+ * 1987px인데 트랙은 660px이다. 25번째 유닛에 서 있는 학습자를 단계 맨 위에
+ * 떨어뜨리면 자기 ⭐가 두 화면 아래에 있다 — "매번 1단계부터 스크롤하게 두지
+ * 않는다"는 이 효과의 목적이 그대로 되살아난다.
+ *
+ * 그래서 **현재 노드를 세로 가운데**에 두되, 단계 밖으로는 나가지 않게 자른다:
+ *   - 아래 한계(`hi`)는 단계의 마지막 화면. 단계가 트랙보다 짧으면 hi < lo가 되어
+ *     `Math.max(lo, …)`가 lo로 눌러 준다 — 짧은 단계는 종전과 똑같이 맨 위다
+ *     (그리고 그 자리가 스냅이 허용하는 유일한 정지 위치이기도 하다).
+ *   - 위 한계(`lo`)는 단계의 맨 위. 앞 단계로 넘어가 버리지 않게 한다.
+ *
+ * 순수 함수로 뺀 이유: jsdom에는 레이아웃이 없어 실제 스크롤로는 못 재는데,
+ * 이 자리는 **세 가지 경우가 갈리는 분기**(짧은 단계·긴 단계의 앞·긴 단계의 끝)라
+ * 회귀를 눈으로만 잡을 수 없다. 값은 스모크가 문다.
+ */
+export function alignScrollTop({ stageTop, stageHeight, nodeTop, nodeHeight, viewport }) {
+  const lo = stageTop;
+  const hi = Math.max(lo, stageTop + stageHeight - viewport);
+  const want = nodeTop + nodeHeight / 2 - viewport / 2;
+  return Math.min(hi, Math.max(lo, want));
+}
+
 export function resolveStatus(unit) {
   return unit.status ?? (unit.cleared ? 'cleared' : unit.locked ? 'locked' : 'current');
 }
@@ -149,31 +199,28 @@ export function stageDoneCount(blueTo, offset, count) {
 }
 
 /**
- * 노드 위치 → 좌우 흔들림 계수(-1~1).
+ * 노드 위치 → 좌우 흔들림 계수(-1~1). **주기 사인 = S자**(2026-08-13 클라이언트
+ * 지시 "S자 또는 굴곡으로 잡고").
  *
- * **단계 안의 인덱스와 단계의 노드 수 둘 다** 필요하다. 전역 인덱스로 계산하면
- * 어느 단계는 노드가 전부 같은 쪽에 몰린다(2칸 섹션이 둘 다 왼쪽으로 갔다).
- * 좌우를 교대시키되 진폭을 사인으로 부풀려, 노드 수와 무관하게 가운데가 가장
- * 벌어지고 양 끝이 안쪽으로 모이는 대칭 지그재그가 된다.
+ * 인자가 인덱스 하나뿐인 것이 핵심이다 — 섹션의 칸 수를 안 본다. 그래서 3칸이든
+ * 35칸이든 굽이의 모양·진폭·주기가 같고, 「섹션마다 범위를 맞추는」 보정이 필요
+ * 없어진다.
+ *
+ * ── 여기 있던 두 세대의 실패를 남긴다(같은 자리로 돌아가지 말 것) ──
+ * ① `sin(((i+0.5)/n)·π)`로 **섹션 전체에 곱선을 한 번** 폈던 시절: n이 커지면
+ *    인접한 같은 쪽 노드의 sin이 수렴해(13칸에서 0.71·0.89·0.99·0.99·0.89) x 차이가
+ *    한 자릿수 px이 됐고, 노드가 세로로 포개졌다.
+ * ② 그래서 좌우 **교대**(side = ±1)에 sin 봉투를 씌우고 주기를 8칸으로 끊었다.
+ *    겹침은 풀렸지만 굽이가 아니라 톱니가 됐다 — 한 칸 내려갈 때마다 x가 진폭의
+ *    두 배(264px)를 건너뛰는데 세로는 52px뿐이라 거의 수평선이었다.
+ * ③ 지금: 교대를 없애고 **x 자체를 사인**으로 놓는다. sin(2πi/8) =
+ *    0 · .71 · 1 · .71 · 0 · -.71 · -1 · -.71 → 오른쪽으로 부풀었다 왼쪽으로 넘어가는
+ *    한 번의 S. ①의 겹침이 되살아나지 않는 이유는 x가 아니라 **y가 고정**이기
+ *    때문이다 — 세로 피치가 `PATH_DOT_PX + PATH_GAP_PX`로 상수라 x가 같아져도
+ *    (i와 i+8) 54px×8만큼 떨어져 있다.
  */
-function weave(i, n) {
-  if (n <= 1) return 0;
-  const side = i % 2 === 0 ? -1 : 1;
-  // ⚠️ **주기를 PATH_SIZING_CAP으로 끊는다**(2026-08-12 클라이언트 판정
-  // "칸이 많으면 곱선을 반복한다").
-  //
-  // 종전에는 곱선을 섹션 전체에 한 번 폈다: `sin(((i+0.5)/n)·π)`. n이 작을 때는
-  // 예쁜 배불림이지만 **n이 커지면 인접한 같은 쪽 노드들의 sin이 거의 같아진다** —
-  // 유닛이 93 → 237개가 되면서 섹션이 11~35칸이 됐고, 13칸에서 오른쪽 k가
-  // `0.71·0.89·0.99·0.99·0.89`로 수렴했다. 진폭 132px를 곱해도 차이가 **한 자릿수
-  // px**이라 노드 지름(56~86px)보다 작고, 그래서 같은 쪽 노드들이 세로로 겹쳐
-  // 보였다(화면 실측: 지그재그 한 자리에 자물쇠 2개가 포개짐).
-  //
-  // 크기를 키우는 것으로는 안 풀린다 — 원인이 지름이 아니라 **x 좌표의 수렴**이다.
-  // 주기를 고정하면 몇 칸짜리 섹션이든 곱선의 모양과 진폭 폭이 같게 유지된다.
-  const period = Math.min(n, PATH_SIZING_CAP);
-  const phase = ((i % period) + 0.5) / period;
-  return side * (0.55 + 0.45 * Math.sin(phase * Math.PI));
+function weave(i) {
+  return Math.sin((2 * Math.PI * i) / PATH_WAVE_PERIOD);
 }
 
 /**
@@ -187,20 +234,26 @@ export function joinK(stages, aboveIdx, belowIdx) {
   const above = stages[aboveIdx];
   const below = stages[belowIdx];
   if (!above || !below) return 0;
-  const aK = weave(above.units.length - 1, above.units.length);
-  const bK = weave(0, below.units.length);
+  const aK = weave(above.units.length - 1);
+  const bK = weave(0);
   return (aK + bK) / 2;
 }
 
+// 입체 턱(아래 그림자)과 현재 노드 후광의 두께. 지름에 비례해 줄인다 —
+// 86px 시절의 5px 턱·8px 후광을 32px 노드에 그대로 쓰면 턱이 지름의 1/6이 되어
+// 아이콘보다 그림자가 먼저 읽힌다(2026-08-13 축소와 함께 5→3 · 8→5).
+const LIP = 3;
+const HALO = 5;
+
 function badgeStyle(status) {
   if (status === 'cleared') {
-    return { background: 'linear-gradient(160deg, #7DC9F0, #2E9BD6)', color: '#fff', boxShadow: '0 5px 0 #1E7FB4' };
+    return { background: 'linear-gradient(160deg, #7DC9F0, #2E9BD6)', color: '#fff', boxShadow: `0 ${LIP}px 0 #1E7FB4` };
   }
-  if (status === 'locked') return { background: '#E7EDF3', color: '#A6B6C5', boxShadow: '0 5px 0 #D2DCE6' };
+  if (status === 'locked') return { background: '#E7EDF3', color: '#A6B6C5', boxShadow: `0 ${LIP}px 0 #D2DCE6` };
   const base = { background: '#0284C7', color: '#fff' };
   return status === 'current'
-    ? { ...base, boxShadow: '0 5px 0 #0369A1, 0 0 0 8px rgba(2,132,199,0.14)' }
-    : { ...base, boxShadow: '0 5px 0 #0369A1' };
+    ? { ...base, boxShadow: `0 ${LIP}px 0 #0369A1, 0 0 0 ${HALO}px rgba(2,132,199,0.14)` }
+    : { ...base, boxShadow: `0 ${LIP}px 0 #0369A1` };
 }
 
 /**
@@ -240,26 +293,13 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, l
     // 단계가 같은 x**(이웃 노드와의 중간값)로 뻗게 한다 — joinInK/joinOutK가 그 값의
     // 흔들림 계수이고, 실제 픽셀은 여기서 진폭을 역산해 만든다.
     const center = box.width / 2;
-    // 진폭은 CSS가 소유한다(`--amp`: clamp(56px, 16cqw, 132px)). 노드 좌표에서
-    // 역산하지 않고 **계산된 값을 그대로 읽는다** — 역산은 흔들린 노드가 하나도
-    // 없는 단계(칸 1개, k=0뿐)에서 0이 되어, 그 경계만 다시 어긋난다.
-    // 진폭(px)은 CSS `--amp`가 정하는데 **읽을 수 없다** — 등록되지 않은 커스텀
-    // 프로퍼티라 getComputedStyle이 `clamp(56px, 16cqw, 132px)` 토큰을 그대로
-    // 돌려준다(실측: parseFloat → NaN). 그래서 이미 그려진 노드에서 역산한다:
-    // 노드 x = 가운데 + k·amp 이므로 k≠0인 노드 하나면 amp가 나온다.
-    let amp = 0;
-    for (const node of el.querySelectorAll('[data-wm-node]')) {
-      const k = parseFloat(node.style.getPropertyValue('--k'));
-      if (Number.isFinite(k) && Math.abs(k) > 0.01) {
-        const r = node.getBoundingClientRect();
-        amp = (r.left + r.width / 2 - box.left - center) / k;
-        break;
-      }
-    }
-    // 칸이 하나뿐인 단계는 k=0밖에 없어 역산이 안 된다 — 그때만 CSS 식을 옮겨 쓴다.
-    // ⚠️ 아래 수치는 index.css `.wm-vpath { --amp }`의 사본이다(둘을 같이 고칠 것).
-    if (amp === 0) amp = Math.min(132, Math.max(56, box.width * 0.16));
-    const joinX = (k) => center + (Number.isFinite(k) ? k : 0) * amp;
+    // 진폭은 **JS 상수 하나가 소유한다**(PATH_AMP_PX). 종전에는 CSS의
+    // `clamp(56px, 16cqw, 132px)`가 소유했고 여기서 두 겹으로 되찾아야 했다 —
+    // getComputedStyle이 등록 안 된 커스텀 프로퍼티를 clamp 토큰 그대로 돌려줘서
+    // (parseFloat → NaN) **이미 그려진 노드에서 역산**했고, 역산이 불가능한
+    // 칸 1개짜리 단계(k=0뿐)를 위해 CSS 식의 **사본**을 또 뒀다. 고정값이 되면서
+    // 둘 다 지웠다. 값을 바꾸려면 PATH_AMP_PX 한 줄만 고친다.
+    const joinX = (k) => center + (Number.isFinite(k) ? k : 0) * PATH_AMP_PX;
 
     const all = [];
     if (leadIn) all.push({ x: joinX(joinInK), y: -TAIL });
@@ -307,7 +347,7 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, l
   );
 }
 
-function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit, joinInK, joinOutK }) {
+function Stage({ section, index, total, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit, joinInK, joinOutK }) {
   const t = useT();
   const units = section.units;
   const estDays = estDaysOf(section);
@@ -383,14 +423,21 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
         </div>
       )}
 
-      {/* --n은 **이 단계의 칸 수가 아니라 전 단계 중 최대 칸 수**다(sizingN).
-          자기 칸 수를 넣으면 3칸 섹션이 5칸 섹션보다 큰 동그라미를 받아, 단계를
-          넘길 때마다 아이콘 크기가 들쭉날쭉했다(실측 86px ↔ 58px). 최대값으로
-          통일하면 전 단계가 같은 크기를 쓰면서 가장 긴 섹션도 넘치지 않는다
-          (--dot 식이 "n칸이 들어가는 크기"를 구하므로 최대 n이 곧 안전한 상한). */}
+      {/* 치수 넷을 **JS 상수에서 그대로** 내려준다 — 지름·간격·진폭·클릭 표적.
+          종전에는 `--n`(전 섹션 최대 칸 수)과 `--chrome`(머리말·칩·진도 바 높이)을
+          넣어 CSS가 뷰포트 높이에서 지름을 **역산**했고, 그 식 하나 때문에
+          「섹션마다 범위 맞추기」 보정이 겹겹이 붙었다(2026-08-13 걷어냄).
+          지금은 어느 섹션이든 같은 값이고, 칸이 많으면 세로로 흘러 스크롤된다.
+          ⚠️ CSS에 폴백값을 두지 않는다 — 소유자가 둘이 되는 순간 한쪽만 고쳐도
+          화면이 조용히 안 따라온다(`'135px'` 리터럴로 이미 겪었다). */}
       <div
         className="wm-vpath"
-        style={{ '--n': sizingN, '--chrome': `${CHROME}px` }}
+        style={{
+          '--dot': `${PATH_DOT_PX}px`,
+          '--gap': `${PATH_GAP_PX}px`,
+          '--amp': `${PATH_AMP_PX}px`,
+          '--hit': `${PATH_HIT_PX}px`,
+        }}
       >
         <StageLine
           layoutKey={introOpen}
@@ -418,11 +465,17 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
                 ? ` (${t('curriculum.unit.placementOpened')})`
                 : '';
           return (
-            <div key={unit.id} data-wm-node className="wm-node" style={{ '--k': weave(i, units.length).toFixed(3) }}>
+            <div key={unit.id} data-wm-node className="wm-node" style={{ '--k': weave(i).toFixed(3) }}>
               {/* 「시작」 말풍선 — 지금 설 자리를 노드 위에 붙인다(시안). 데이터가
-                  필요 없는 표시라 여기서 만든다. */}
+                  필요 없는 표시라 여기서 만든다.
+                  ⚠️ **위로 솟는 높이가 세로 간격(PATH_GAP_PX = 22px)을 넘으면 안 된다.**
+                  넘으면 바로 위 노드를 덮는다 — 노드가 86 → 32px로 작아지면서 간격도
+                  22px이 됐고, 종전 치수(offset 9 + 높이 25 = 34px)로는 섹션 중간에
+                  서 있는 학습자에게 **11.5px 겹침**이 생겼다(2026-08-13 실측).
+                  지금은 offset 5 + 높이 16(leading-none) = 21px ≤ 22px이다.
+                  간격을 줄이거나 글자를 키우면 여기부터 다시 잰다. */}
               {status === 'current' && !blocked && (
-                <span className="pointer-events-none absolute bottom-[calc(100%+9px)] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-sky-600 px-3 py-1 text-[11px] font-extrabold text-white shadow-[0_3px_0_#0369A1]">
+                <span className="pointer-events-none absolute bottom-[calc(100%+5px)] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-sky-600 px-2 py-[3px] text-[10px] font-extrabold leading-none text-white shadow-[0_2px_0_#0369A1]">
                   {t('curriculum.path.start')}
                 </span>
               )}
@@ -447,9 +500,12 @@ function Stage({ section, index, total, sizingN, offset, blueTo, introOpen, onTo
                 style={badgeStyle(status)}
               >
                 {STATUS_ICON[status] ?? '🌀'}
+                {/* 보드 칩 — 노드가 86 → 32px이 되면서 24px(h-6) 칩이 지름의 3/4를
+                    덮어 정작 상태 아이콘을 가렸다. 16px(h-4)로 줄이고 바깥으로 더
+                    내보낸다. 이보다 작게 하면 🧩가 안 읽힌다(2026-08-13 확대 확인). */}
                 {unit.kind === 'board' && !locked && (
                   <span
-                    className="absolute -right-0.5 bottom-0 grid h-6 w-6 place-items-center rounded-full bg-white text-[12px] shadow ring-1 ring-slate-200"
+                    className="absolute -right-1.5 -bottom-1 grid h-4 w-4 place-items-center rounded-full bg-white text-[10px] shadow ring-1 ring-slate-200"
                     title={t('curriculum.unit.boardChip')}
                   >
                     🧩
@@ -485,14 +541,9 @@ export default function PcCurriculumPath({
 
   const withUnits = sections.filter((s) => s.units.length > 0);
 
-  // 노드 크기의 기준 칸 수 — **전 단계 중 최대**. 단계마다 자기 칸 수로 크기를
-  // 정하면 아이콘이 단계를 넘길 때마다 커졌다 작아진다. 가장 긴 섹션에 맞춰
-  // 통일하면 어느 단계도 넘치지 않는다. 섹션이 없을 때의 1은 0 나눗셈 방지.
-  // 바닥값과 **상한** 사이로 재단한다 — 상한 위는 스크롤이 받는다(PATH_SIZING_CAP).
-  const sizingN = Math.min(
-    PATH_SIZING_CAP,
-    Math.max(PATH_SIZING_FLOOR, ...withUnits.map((s) => s.units.length)),
-  );
+  // ⚠️ 여기 있던 `sizingN`(전 단계 중 최대 칸 수를 바닥값·상한으로 재단)은 걷었다 —
+  // 노드 크기가 고정값이라 「어느 섹션에 맞출 것인가」라는 질문 자체가 없어졌다.
+  // 되살리려면 --dot을 뷰포트 높이에서 역산하는 식부터 되살려야 한다.
 
   // 섹션별 시작 인덱스(전역) — 완료 구간을 경계 너머로 잇기 위해 필요하다.
   const offsets = [];
@@ -529,15 +580,27 @@ export default function PcCurriculumPath({
   /**
    * **지금 보고 있는 단계**를 위로 알린다 — 배너 제목이 이걸 따라간다.
    *
-   * 스크롤 스냅이라 `scrollTop`은 항상 단계 높이의 배수 근처다. 그래서 나누기
-   * 반올림이면 충분하고, 각 단계의 offsetTop을 훑을 필요가 없다. 스냅이 끝나기
-   * 전 중간 프레임에서도 **가장 가까운 단계**가 나오므로 제목이 미리 바뀐다.
-   * (`clientHeight`가 0인 첫 프레임은 나누기가 터지므로 건너뛴다.)
+   * ⚠️ 종전 식은 `Math.round(scrollTop / clientHeight)`였다. 단계 높이가 전부
+   * 트랙 높이와 같다는 전제였는데, **고정 간격으로 바뀌면서 그 전제가 깨졌다** —
+   * 이제 단계 높이는 칸 수에 비례하고(3칸 ≈ 한 화면 · 35칸 ≈ 네 화면), 나누기
+   * 반올림은 35칸 섹션 하나를 훑는 동안 존재하지도 않는 4·5·6단계를 배너에
+   * 올린다. 그래서 **실제 offsetTop을 훑는다**.
+   *
+   * 판정선은 뷰포트 위에서 35% 지점이다: 다음 단계의 머리말이 화면에 충분히
+   * 들어왔을 때 넘어간다(0이면 1px만 스쳐도 바뀌고, 50%면 늦다).
+   * (`clientHeight`가 0인 첫 프레임은 건너뛴다.)
    */
   const syncViewed = useCallback(() => {
     const el = scrollerRef.current;
     if (!el || !onViewSection || el.clientHeight === 0) return;
-    onViewSection(Math.round(el.scrollTop / el.clientHeight));
+    const line = el.scrollTop + el.clientHeight * 0.35;
+    let idx = 0;
+    // offsetTop은 위치 지정 조상(.wm-track) 기준이고 스크롤에 영향받지 않는다 —
+    // 아래 초깃값 정렬(`el.scrollTop = stage.offsetTop`)이 쓰는 것과 같은 좌표계다.
+    for (let i = 0; i < el.children.length; i += 1) {
+      if (el.children[i].offsetTop <= line) idx = i;
+    }
+    onViewSection(idx);
   }, [onViewSection]);
 
   const onScroll = useCallback(() => {
@@ -591,7 +654,9 @@ export default function PcCurriculumPath({
     // syncHasMore는 useCallback([])이라 안정적이다 — 마운트 1회 실행 의도는 그대로다.
   }, [syncHasMore]);
 
-  // 현재 유닛이 있는 단계로 초깃값 정렬 — 매번 1단계부터 스크롤하게 두지 않는다.
+  // 현재 **유닛**이 보이는 자리로 초깃값 정렬 — 매번 1단계부터 스크롤하게 두지 않는다.
+  // ⚠️ 종전에는 「현재 단계의 맨 위」였다. 단계가 트랙보다 길어질 수 있게 되면서
+  //    그것만으로는 부족해졌다(위 `alignScrollTop` 주석에 경위).
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -602,9 +667,21 @@ export default function PcCurriculumPath({
       for (let i = 0; i < offsets.length; i += 1) if (currentIdx >= offsets[i]) si = i;
       const stage = el.children[si];
       if (stage) {
+        // 노드 좌표는 rect 차로 구한다 — `offsetTop`은 offsetParent가 `.wm-node`인지
+        // `.wm-vpath`인지에 따라 기준이 갈리는데, rect 차는 스크롤 좌표계 하나뿐이다.
+        const node = stage.querySelectorAll('[data-wm-node]')[currentIdx - offsets[si]];
+        const box = el.getBoundingClientRect();
         const prev = el.style.scrollBehavior;
         el.style.scrollBehavior = 'auto'; // 초기 정렬은 애니메이션 없이
-        el.scrollTop = stage.offsetTop;
+        el.scrollTop = node
+          ? alignScrollTop({
+              stageTop: stage.offsetTop,
+              stageHeight: stage.offsetHeight,
+              nodeTop: node.getBoundingClientRect().top - box.top + el.scrollTop,
+              nodeHeight: node.offsetHeight,
+              viewport: el.clientHeight,
+            })
+          : stage.offsetTop;
         el.style.scrollBehavior = prev;
       }
     }
@@ -633,7 +710,6 @@ export default function PcCurriculumPath({
                 section={section}
                 index={i}
                 total={withUnits.length}
-                sizingN={sizingN}
                 joinInK={joinK(withUnits, i - 1, i)}
                 joinOutK={joinK(withUnits, i, i + 1)}
                 offset={offsets[i]}

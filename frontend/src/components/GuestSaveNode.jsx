@@ -42,7 +42,8 @@ import { useT } from '../i18n';
  * 쿼리 키는 `Layout`과 같은 `['auth','me']`·`['progress','me']`라 요청이 추가로
  * 나가지 않는다.
  */
-export default function GuestSaveNode() {
+/** @param bare  true면 테두리·모서리를 안 그린다(바깥 카드가 소유). 위 ReviewQueueCard와 같은 규약. */
+export default function GuestSaveNode({ bare = false }) {
   const t = useT();
   const accessToken = useAuthStore((s) => s.accessToken);
   const storeUser = useAuthStore((s) => s.user);
@@ -73,7 +74,7 @@ export default function GuestSaveNode() {
     <Link
       to="/me#save-progress"
       data-testid="learn-guest-save"
-      className="rounded-2xl bg-gradient-to-r from-sky-50 to-indigo-50 p-3.5 ring-1 ring-sky-200 transition hover:ring-sky-300"
+      className={`bg-gradient-to-r from-sky-50 to-indigo-50 p-3.5 transition ${bare ? 'hover:from-sky-100 hover:to-indigo-100' : 'rounded-2xl ring-1 ring-sky-200 hover:ring-sky-300'}`}
       aria-label={t('saveProgress.nodeAria')}
     >
       <div className="flex items-center gap-2">

@@ -42,7 +42,13 @@ import { useT } from '../i18n';
  *           본문 없이 제목·키워드 칩·링크뿐이라 세로가 얕다(하단 줄은 세로
  *           예산이 빠듯하다 — 트랙 높이를 그만큼 뺏는다). 계약은 위 둘과 같다.
  */
-export default function ReviewQueueCard({ variant = 'card' }) {
+/**
+ * @param bare  true면 **자기 테두리·그림자·모서리를 그리지 않는다**(2026-08-13
+ *   클라이언트 지시: 우측 열을 카드 한 장으로 묶고 구분은 음영으로).
+ *   바깥 카드가 테두리를 소유하고 이 컴포넌트는 **음영 띠 한 칸**이 된다.
+ *   기본 false는 종전 동작(단독 카드로 서는 자리 — /me 등).
+ */
+export default function ReviewQueueCard({ variant = 'card', bare = false }) {
   const t = useT();
   const { data } = useQuery({
     queryKey: ['progress', 'review-queue'],
@@ -63,7 +69,7 @@ export default function ReviewQueueCard({ variant = 'card' }) {
         // md:flex-1 — 학습 화면 오른쪽 열에서 자유 일일 세션과 트랙 높이를 나눠
         // 쓴다(그 파일의 주석 참조). 다른 마운트처(모바일 스택)에서는 md 미만이라
         // 영향이 없다.
-        className="flex flex-col rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 md:max-h-[340px] md:flex-1"
+        className={`flex flex-col p-4 text-left md:max-h-[340px] md:flex-1 ${bare ? 'bg-white' : 'rounded-2xl bg-white shadow-sm ring-1 ring-slate-200'}`}
       >
         <div className="flex items-center gap-1.5">
           <p className="text-[13.5px] font-extrabold text-slate-800">{t('reviewQueue.title')}</p>

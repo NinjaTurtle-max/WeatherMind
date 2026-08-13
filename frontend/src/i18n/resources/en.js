@@ -226,6 +226,21 @@ export default {
     generic: 'Something went wrong while processing your request.',
     network: "Can't reach the server. Please check your network.",
   },
+  // 첫 접속 정보 입력(EntryInfoPage) — ko.js의 같은 블록 주석 참고.
+  // ⚠️ 금칙어는 영어도 문다('log in'·'login'·'sign up'·'sign-up', 소문자 부분일치).
+  entryInfo: {
+    title: 'Welcome! Tell us how you want to learn',
+    body: 'Questions are matched to your learning level. Pick one now and go straight to a quick placement check.',
+    levelLabel: 'Learning level',
+    levelHint: {
+      elementary: 'Plain words and pictures first',
+      middleHigh: 'Built around school science concepts',
+      adult: 'Everyday and advanced concepts too',
+    },
+    submit: 'Next — take the placement check →',
+    skip: 'Skip →',
+    note: 'You can change this any time under My Info.',
+  },
   placement: {
     skip: 'Skip →',
     title: 'Placement — find my level',
