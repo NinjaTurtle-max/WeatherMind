@@ -7,10 +7,17 @@
  *      (파일럿의 en 키를 지우는 변이가 이 시나리오 + 시나리오 3의 실렌더
  *      대조에서 이중으로 실패해야 정상)
  *   2. translate() 순수 함수 — {name} 보간, 미지 키는 키 그대로 반환.
- *   3. 파일럿(StreakBadge)이 ko/en 양 언어로 실제 렌더되고, LocaleSwitcher
- *      버튼 클릭으로 전환된다(스토어 구독 리렌더까지 실마운트로 확인).
- *   4. 로케일 영속 — 전환이 localStorage(weathermind.locale)에 남고,
- *      detectLocale()이 저장값 → navigator.language → ko 순으로 고른다.
+ *   3. 파일럿(StreakBadge)이 ko/en 양 언어로 실제 렌더되고, LocaleSwitcher를
+ *      **직접 마운트**해 클릭하면 전환된다(스토어 구독 리렌더까지 실마운트로 확인).
+ *      ⚠️ 이 컴포넌트는 2026-08-13부터 화면에 배선돼 있지 않다 — 여기가 en 리소스가
+ *      실제로 렌더되는지 보는 유일한 지점이라 계약 1의 실렌더 절반으로 남긴다.
+ *   4. 로케일 고정 — setLocale은 여전히 localStorage(weathermind.locale)에 쓰지만,
+ *      detectLocale()은 **저장값도 navigator도 보지 않고 항상 ko**다.
+ *   5. 「영어 기능 제거」 계약(2026-08-13 클라이언트 결정):
+ *      ⓐ 화면에 언어 전환 통로가 없다 — src/ 어디에서도 LocaleSwitcher를 마운트하지
+ *        않고, setLocale을 부르는 제품 코드가 없다(정적 원문 스캔).
+ *      ⓑ navigator가 en-US이고 localStorage에 'en'이 남아 있어도 ko로 연다.
+ *      되돌리면(헤더 재배선·detectLocale 감지 복원) 여기가 붉어야 한다.
  *
  * 관례는 onboardingGating.smoke.test.mjs와 동일: 테스트 러너 의존 없음,
  * vite ssrLoadModule + jsdom 실마운트(createRoot). API 호출이 없는 순수
@@ -18,6 +25,9 @@
  */
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+// 시나리오 5ⓐ는 원문을 파싱해 대조한다 — 저장소 선례와 같은 형태
+// (backend test_ci_workflow_contract가 워크플로 yml을 파싱해 ci.sh와 맞춘다).
+import { readdirSync, readFileSync } from 'node:fs';
 
 process.env.NODE_ENV = 'production';
 
@@ -50,8 +60,10 @@ for (const k of ['HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'Event', 
 globalThis.requestAnimationFrame = window.requestAnimationFrame?.bind(window) ?? ((cb) => setTimeout(cb, 16));
 globalThis.cancelAnimationFrame = window.cancelAnimationFrame?.bind(window) ?? clearTimeout;
 
-// i18n 모듈은 로드 시점에 detectLocale()로 초기 로케일을 정한다 — jsdom의
-// navigator.language 기본값(en-US)에 좌우되지 않도록 저장값 경로를 먼저 심는다.
+// i18n 모듈은 로드 시점에 detectLocale()로 초기 로케일을 정한다. 2026-08-13부터
+// detectLocale()이 ko 고정이라 이 심기는 결과를 바꾸지 않지만, 다른 스모크 하네스
+// 20여 종과 같은 형태를 유지한다(고정을 되돌리는 변이가 여기서 조용히 초록이 되지
+// 않도록 하는 것은 시나리오 5ⓑ의 몫 — 그쪽은 'en'을 심고 ko를 단정한다).
 window.localStorage.setItem('weathermind.locale', 'ko');
 
 const { createElement, Fragment } = await import('react');
@@ -250,6 +262,10 @@ try {
   });
 
   // ── 3. 파일럿 실마운트: ko 렌더 → 스위처 클릭 → en 렌더 ──────────────────
+  // 여기서 마운트하는 LocaleSwitcher는 **제품 화면에 없다**(2026-08-13, 시나리오 5ⓐ).
+  // 그래도 남기는 이유: 키 패리티(시나리오 1)는 "en에 키가 있다"만 보고 "en 값이
+  // 화면에 그려진다"는 못 본다 — MT-28에서 실제로 en 리소스가 있는데도 서버 원문이
+  // 그려지던 결함을 잡은 것이 이런 실렌더 대조였다. en을 되살릴 때의 안전망이다.
   await scenario('StreakBadge: ko 렌더 → LocaleSwitcher 클릭 → en 렌더(양 언어 실대조)', async () => {
     useLocaleStore.getState().setLocale('ko');
     useProgressStore.getState().setStreak(7);
@@ -278,35 +294,77 @@ try {
     }
   });
 
-  // ── 4. 로케일 영속: localStorage + detectLocale 우선순위 ──────────────────
-  await scenario('영속: 전환이 localStorage에 남고 detectLocale이 저장값→navigator→ko 순', async () => {
+  // ── 4. 프로그램 전환의 저장 + setLocale 방어 ──────────────────────────────
+  // 종전 이 시나리오는 "detectLocale이 저장값 → navigator → ko 순"을 단정했다.
+  // 2026-08-13 ko 고정으로 **그 단정은 뜻을 잃었고**(우선순위 자체가 없어졌다)
+  // 시나리오 5ⓑ가 그 자리를 대신한다. 여기 남는 것은 여전히 참인 두 가지다:
+  // setLocale이 저장 키에 쓴다는 것, 그리고 미지원 로케일을 거부한다는 것.
+  await scenario('setLocale: 저장 키에 남기고 미지원 로케일은 거부한다', async () => {
     assert(LOCALE_STORAGE_KEY === 'weathermind.locale', `저장 키 계약 드리프트: ${LOCALE_STORAGE_KEY}`);
-    // 시나리오 3에서 en으로 전환했다 — 영속돼 있어야 한다
+    // 시나리오 3에서 en으로 전환했다 — 저장돼 있어야 한다
     assert(
       window.localStorage.getItem(LOCALE_STORAGE_KEY) === 'en',
       `전환이 저장되지 않았다: ${window.localStorage.getItem(LOCALE_STORAGE_KEY)}`,
     );
-    assert(detectLocale() === 'en', '저장값(en)이 최우선이어야 함');
-
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, 'ko');
-    assert(detectLocale() === 'ko', '저장값(ko)이 최우선이어야 함');
-
-    // 저장값 없음 → navigator.language (jsdom 기본 en-US → en)
-    window.localStorage.removeItem(LOCALE_STORAGE_KEY);
-    assert(detectLocale() === 'en', `저장값 없으면 navigator(en-US)→en — 실제 ${detectLocale()}`);
-
-    // 미지원 언어 → 기본 ko
-    Object.defineProperty(globalThis, 'navigator', { value: { language: 'fr-FR' }, configurable: true });
-    assert(detectLocale() === 'ko', `미지원 navigator면 기본 ko — 실제 ${detectLocale()}`);
-
-    // 저장값이 오염(미지원 값)돼도 안전하게 폴백
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, 'zz');
-    assert(detectLocale() === 'ko', '미지원 저장값은 무시하고 폴백해야 함');
 
     // setLocale이 미지원 로케일을 거부한다
     useLocaleStore.getState().setLocale('ko');
     useLocaleStore.getState().setLocale('zz');
     assert(useLocaleStore.getState().locale === 'ko', 'setLocale이 미지원 로케일을 거부해야 함');
+  });
+
+  // ── 5. 「영어 기능 제거」 계약 (2026-08-13 클라이언트 결정) ────────────────
+  // 이 두 단정이 있어야 제거가 되돌려질 때 CI가 운다. ⓐ는 화면 통로,
+  // ⓑ는 시동 로케일 — **둘 다 걸어야** 한다. 한쪽만 되돌리면 en 화면이 아니라
+  // "눌러도 안 바뀌는 버튼"이나 "통로는 없는데 en으로 열리는 앱"이 되기 때문이다.
+  await scenario('ⓐ 화면에 언어 전환 통로가 없다(src 정적 스캔)', async () => {
+    const srcDir = resolve(root, 'src');
+    const files = readdirSync(srcDir, { recursive: true })
+      .map((p) => String(p))
+      .filter((p) => /\.(jsx?|mjs)$/.test(p))
+      // 스위처 자신은 제외 — 파일은 존치한다(테스트가 직접 마운트한다).
+      .filter((p) => !p.endsWith('components/LocaleSwitcher.jsx'));
+
+    // 주석은 화면이 아니다 — 제거 사유·되살리는 법을 적은 주석이 스스로를 위반으로
+    // 만들면 안 되므로 **주석을 걷어낸 코드**만 본다(Layout.jsx가 실제로 그렇다).
+    const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
+
+    const mounts = [];
+    const setters = [];
+    for (const rel of files) {
+      const code = stripComments(readFileSync(resolve(srcDir, rel), 'utf-8'));
+      if (/LocaleSwitcher/.test(code)) mounts.push(rel);
+      // i18n 스토어 자신이 setLocale을 **정의**하는 것은 통로가 아니다.
+      if (/setLocale\s*\(/.test(code) && !rel.startsWith('i18n/')) setters.push(rel);
+    }
+    assert(
+      mounts.length === 0,
+      `언어 전환 통로가 화면에 되살아났다(LocaleSwitcher 참조): ${mounts.join(', ')} — ` +
+        '되살리려면 i18n/core.js의 detectLocale 고정도 함께 풀어야 한다',
+    );
+    assert(
+      setters.length === 0,
+      `제품 코드가 setLocale을 부른다(전환 통로): ${setters.join(', ')}`,
+    );
+  });
+
+  await scenario('ⓑ navigator가 en-US이고 저장값이 en이어도 detectLocale은 ko', async () => {
+    // 심사위원 브라우저(en-US) + 개발 중 스위처를 눌러 본 사용자(저장값 en) 조건을
+    // 동시에 세운다 — 종전 우선순위(저장값 → navigator)라면 둘 다 en으로 갔다.
+    Object.defineProperty(globalThis, 'navigator', { value: { language: 'en-US' }, configurable: true });
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, 'en');
+    assert(detectLocale() === 'ko', `en-US + 저장값 en에서도 ko여야 한다 — 실제 ${detectLocale()}`);
+
+    // 저장값 없음 · navigator만 en-US
+    window.localStorage.removeItem(LOCALE_STORAGE_KEY);
+    assert(detectLocale() === 'ko', `navigator(en-US)만으로도 ko여야 한다 — 실제 ${detectLocale()}`);
+
+    // 미지원 언어·오염된 저장값도 당연히 ko(기존 폴백 성질 유지)
+    Object.defineProperty(globalThis, 'navigator', { value: { language: 'fr-FR' }, configurable: true });
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, 'zz');
+    assert(detectLocale() === 'ko', `미지원 값에서도 ko — 실제 ${detectLocale()}`);
+
+    assert(DEFAULT_LOCALE === 'ko', `기본 로케일 계약 드리프트: ${DEFAULT_LOCALE}`);
   });
 } finally {
   await vite.close();
