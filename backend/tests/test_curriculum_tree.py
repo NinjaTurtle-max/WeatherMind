@@ -178,20 +178,30 @@ class TestPlacementUnlockFloor:
             [ability("pressure_front", -0.01)], units, "middle_high"
         ) == 0
 
-    def test_배정_단계에서_끊긴다_중간_점프_없음(self):
+    def test_사전평균_가드와_배정_단계_상한(self):
         """옛 `test_연속_끊기면_중단_중간_점프_없음`의 자리 — 끊는 것이 단계다.
 
         옛 계약은 "중간 개념의 θ가 낮으면 뒤가 높아도 중단"이었다. 새 축에서
         중단선은 **배정 단계**이고, 그 뒤 유닛은 θ와 무관하게 열리지 않는다.
+
+        ⚠️ **이 테스트는 「중간 점프 없음」을 검증하지 않는다.** 두 경우 다
+        전부-아니면-전무(0 또는 전체)라 선두 연속이 끊기는 지점을 지나가지
+        않는다. 그 축의 실제 커버리지는
+        `test_placement_unlock_level.py::TestLeadingRunOnly`에 있다 — 그쪽은
+        **단조가 아닌 배치**를 만들어 `break`↔`continue`를 갈라낸다.
+        종전 이름(`…중간_점프_없음`)은 없는 검증을 주장하고 있었으므로 바꿨다
+        (코드 리뷰 지적, 2026-08-13).
         """
-        # overall θ = n 가중평균 = 0.0 → 4단계... 가 아니라 2단계로 낮춘다
-        abilities = [ability("pressure_front", -0.25)]  # → 3단계
+        # θ −0.25 → 3단계. 그런데 middle_high 사전평균(0.0) **미만**이라
+        # 단계와 무관하게 가드에서 0으로 떨어진다.
+        abilities = [ability("pressure_front", -0.25)]
         assert cs.placement_unlock_floor(
             abilities, self._units(), "middle_high"
-        ) == 0  # 사전평균(0.0) 미만이라 가드에서 걸린다
+        ) == 0
 
-        # 2단계 배정: SEC1×2 + SEC2 = 3유닛. SEC3(3단계)는 열리지 않는다
-        abilities = [ability("pressure_front", 0.25)]  # → 4단계
+        # θ 0.25 → 4단계. 픽스처 4유닛이 전부 1~3단계라 전부 열린다.
+        # (여기서 「끊김」은 안 일어난다 — 위 경고 참조.)
+        abilities = [ability("pressure_front", 0.25)]
         assert cs.placement_unlock_floor(
             abilities, self._units(), "middle_high"
         ) == 4
@@ -206,7 +216,9 @@ class TestPlacementUnlockFloor:
 
     def test_전체_순서는_SECTION_ORDER_기준(self):
         # 입력 순서를 섞어도 ordered_units(섹션 교육 순서)가 선두를 결정한다.
-        # 3단계 배정이면 SEC1×2 + SEC2 = 3유닛이고 SEC3(3단계)까지 = 4유닛.
+        # θ 1.0 → **6단계**(경계가 [1.0, 1.5)). 픽스처 4유닛이 전부 1~3단계라
+        # 결과가 4가 되는 것이지 "3단계 배정이라서"가 아니다 — 종전 주석이
+        # 그렇게 적혀 있어서 픽스처를 손대는 사람을 오도했다(코드 리뷰 지적).
         units = list(reversed(self._units()))
         assert cs.placement_unlock_floor(
             [ability("pressure_front", 1.0)], units, "middle_high"

@@ -528,6 +528,24 @@ await render({});
     !/scroll-snap-type\s*:/.test(scrollerRule),
     '.wm-scroller에 scroll-snap-type이 되살아나지 않았다(mandatory·proximity 둘 다 단계 경계를 정지 불가로 만든다)',
   );
+  // ⚠️ 이 단정이 **없어서 아침 커밋에서 선언이 살아남았다.** 스냅을 걷을 때
+  // `scroll-behavior: smooth`도 함께 걷어야 했는데 CSS 주석만 "되살리지 말 것"으로
+  // 고치고 가드를 안 붙였고, 그래서 별도 커밋이 한 번 더 필요했다. 형제인
+  // scroll-snap 3종에는 단정이 있는데 이것만 없던 비대칭을 코드 리뷰가 잡았다
+  // (2026-08-13). 주석은 회귀를 막지 못한다 — 그게 이 줄이 있는 이유다.
+  //
+  // ⚠️⚠️ **이 단정을 처음 쓸 때 두 번 헛짚었다** — 그대로 적어 둔다.
+  //   ⓐ `/scroll-behavior\s*:/`는 같은 블록의 **`overscroll-behavior: contain`을
+  //      부분 문자열로 잡는다.** 형제 `scroll-snap-*`에는 그런 접두 이웃이 없어
+  //      같은 모양의 정규식이 거기서는 멀쩡했다.
+  //   ⓑ 블록 안의 **주석**(위 "되살리지 말 것" 문장)에도 그 글자가 들어 있다.
+  // 그래서 주석을 걷어내고 **선언의 시작 경계**를 요구한다. 가드를 새로 쓸 때
+  // 원문 그대로 검색하면 거짓 빨강이 나온다는 사례로 남긴다.
+  const scrollerDecls = scrollerRule.replace(/\/\*[\s\S]*?\*\//g, '');
+  ok(
+    !/(^|[;{\s])scroll-behavior\s*:/.test(scrollerDecls),
+    '.wm-scroller에 scroll-behavior가 되살아나지 않았다(빠르게 굴리면 관성이 밀려 원하는 자리에 못 선다)',
+  );
   ok(
     !/scroll-snap-stop\s*:\s*always/.test(stageRule),
     '.wm-stage에 scroll-snap-stop:always가 되살아나지 않았다(한 제스처에 한 단계로 묶인다)',
