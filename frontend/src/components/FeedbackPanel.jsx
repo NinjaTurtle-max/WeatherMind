@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useT } from '../i18n';
 import Mascot from './Mascot';
 
@@ -93,7 +94,19 @@ export function FeedbackCard({ message, isCorrect, source }) {
 }
 
 export default function FeedbackPanel({ message, isCorrect, source }) {
-  if (!message) return null;
+  // 닫기 — **모바일에서 필수다**(2026-08-13 클라이언트 제보: "정답 피드백이 다음
+  // 문제 넘어가는 노드도 가려"). 이 패널은 `fixed bottom-14`로 떠 있는데 「다음」
+  // 컨트롤은 본문에 있어서, 좁은 화면에서는 패널이 그 위를 덮는다. 데스크톱은
+  // 세로 여유가 있어 안 겹쳐 **오늘까지 아무도 못 봤다.**
+  //
+  // ⚠️ **문항이 바뀌면 다시 열려야 한다.** 닫힌 채로 남으면 다음 문항의 해설이
+  // 통째로 안 보이고, 그건 이 패널이 존재하는 이유(사람 저작 해설 966건을 화면에
+  // 보여 주는 것 — CO-I-1)를 지우는 셈이다. `message`를 key로 상태를 리셋한다.
+  const t = useT();
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => { setDismissed(false); }, [message]);
+
+  if (!message || dismissed) return null;
   const tone = TONE(isCorrect);
 
   return (
@@ -106,9 +119,22 @@ export default function FeedbackPanel({ message, isCorrect, source }) {
     // Layout 밖인데 같은 SessionRunner를 쓴다)에서도 그려져, 거기서는 반대로
     // 104px 오른쪽으로 틀어진다. 변수는 Layout 안이면 208 · 밖이면 0이 온다.
     <div className="fixed bottom-14 right-0 z-40 mx-auto max-w-xl px-3 pb-3 left-[var(--wm-shell-left)]">
-      <div className="animate-slide-up overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
-        <div className={`h-1.5 w-full ${tone.bar}`} />
-        <FeedbackBubble message={message} isCorrect={isCorrect} source={source} />
+      {/* `overflow-hidden`을 걷을 수 없어(위 색 띠가 모서리를 따라야 한다) 닫기
+          버튼은 이 래퍼에 얹는다 — 안쪽에 넣으면 잘린다. */}
+      <div className="relative">
+        <button
+          type="button"
+          data-testid="feedback-dismiss"
+          onClick={() => setDismissed(true)}
+          aria-label={t('session.feedbackDismiss')}
+          className="absolute -right-1 -top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-white text-sm leading-none text-slate-500 shadow ring-1 ring-slate-200"
+        >
+          ✕
+        </button>
+        <div className="animate-slide-up overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
+          <div className={`h-1.5 w-full ${tone.bar}`} />
+          <FeedbackBubble message={message} isCorrect={isCorrect} source={source} />
+        </div>
       </div>
     </div>
   );

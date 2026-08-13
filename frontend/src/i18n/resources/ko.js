@@ -505,6 +505,8 @@ export default {
     backToPath: '학습 경로로 돌아가기',
   },
   session: {
+    // 좁은 화면에서 이 패널이 「다음」 컨트롤을 덮는다 — 닫을 수 있어야 한다.
+    feedbackDismiss: '해설 닫기',
     answerHere: '답을 고르면 여기에 정답과 해설이 나와요.',
     loading: '세션을 준비하고 있어요…',
     title: '오늘의 기상 세션',

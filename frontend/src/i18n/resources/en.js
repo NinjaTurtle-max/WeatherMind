@@ -443,6 +443,8 @@ export default {
     backToPath: 'Back to learning path',
   },
   session: {
+    // 좁은 화면에서 이 패널이 「다음」 컨트롤을 덮는다 — 닫을 수 있어야 한다.
+    feedbackDismiss: 'Close explanation',
     answerHere: 'Pick an answer and the result and explanation appear here.',
     loading: 'Preparing your session…',
     title: "Today's Weather Session",

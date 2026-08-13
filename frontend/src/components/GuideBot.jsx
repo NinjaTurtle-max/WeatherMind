@@ -51,6 +51,9 @@ import { GUIDE_SPEAKER, pickGuideMessage } from '../lib/guideRules';
 /** 위치 영속 키. 사용자가 옮긴 자리는 새로고침해도 남는다. */
 const POS_KEY = 'weathermind.guidebot.pos';
 
+/** 말풍선을 닫은 선택을 기억하는 키. 캐릭터를 눌러 다시 열면 지워진다. */
+const DISMISS_KEY = 'weathermind.guidebot.dismissed';
+
 /**
  * 캐릭터 지름(px). 화면 밖 이탈을 막는 계산에 쓴다.
  *
@@ -123,6 +126,23 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
   const t = useT();
   const [pos, setPos] = useState(null); // null = 아직 CSS 기본 자리(SSR 포함)
   const [open, setOpen] = useState(true);
+
+  /**
+   * 말풍선을 닫고 **그 선택을 기억한다**.
+   *
+   * 기억하지 않으면 새로고침·재방문마다 다시 떠서 X를 붙인 뜻이 없어진다 —
+   * 모바일에서는 그게 곧 "화면이 계속 가려진다"는 뜻이다.
+   * ⚠️ 캐릭터 자체는 남긴다(다시 눌러 펼 수 있다). 캐릭터까지 지우면 되살릴
+   * 통로가 사라져서, 한 번 닫으면 영영 못 여는 기능이 된다.
+   */
+  const dismiss = useCallback(() => {
+    setOpen(false);
+    try {
+      window.localStorage?.setItem(DISMISS_KEY, '1');
+    } catch {
+      /* 프라이빗 모드 — 이번 세션만 닫힌 채로 간다 */
+    }
+  }, []);
   const [Bot3D, setBot3D] = useState(null); // 로드된 3D 컴포넌트(없으면 2D만)
   const [live3D, setLive3D] = useState(false); // 3D가 실제로 한 프레임 그렸나
   const [dragging, setDragging] = useState(false); // 끄는 중에는 커서 추종을 끈다
@@ -131,9 +151,14 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
   const swallowClickRef = useRef(false);
   const nodeRef = useRef(null);
 
-  // 첫 마운트에 저장된 자리를 읽는다(클라이언트 전용).
+  // 첫 마운트에 저장된 자리와 **닫아 둔 선택**을 읽는다(클라이언트 전용).
   useEffect(() => {
     setPos(readPos(window, nodeRef.current));
+    try {
+      if (window.localStorage?.getItem(DISMISS_KEY) === '1') setOpen(false);
+    } catch {
+      /* 못 읽으면 기본값(열림) */
+    }
   }, []);
 
   // 3D는 **유휴 시간에** 받는다 — 첫 페인트·초기 API 호출과 대역폭을 다투지 않게.
@@ -270,6 +295,23 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
             aria-hidden="true"
             className="absolute -right-[5px] bottom-8 h-2.5 w-2.5 rotate-45 border-b border-r border-sky-200 bg-sky-50"
           />
+          {/* 닫기 X — **모바일에서 필수다**(2026-08-13 클라이언트 제보:
+              "컴퓨터는 괜찮은데 모바일 웹 접속이 가로막아").
+              390px 폰에서 말풍선 208 + 간격 8 + 캐릭터 96 = 312px로 **가로의 80%**를
+              먹고, `FeedbackPanel`(`fixed bottom-14 z-40`)과 **같은 z-40**이라
+              정답 피드백 위에 겹친다. 캐릭터를 눌러 접을 수는 있었지만 그게
+              접기 버튼이라는 단서가 화면에 없었다 — 눌러 볼 생각이 안 든다.
+              ⚠️ 지우지 말 것: 이 X가 없으면 모바일에서 **화면을 되찾을 방법이 없다.** */}
+          <button
+            type="button"
+            data-testid="guide-bot-dismiss"
+            onClick={(e) => { e.stopPropagation(); dismiss(); }}
+            onPointerDown={(e) => e.stopPropagation()}
+            aria-label={t('guide.aria.dismiss')}
+            className="absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full bg-white text-sm leading-none text-sky-700 shadow ring-1 ring-sky-200"
+          >
+            ✕
+          </button>
           {message}
         </div>
       )}
@@ -277,7 +319,15 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
       <button
         type="button"
         data-testid="guide-bot-toggle"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((v) => {
+          const next = !v;
+          // 다시 열면 「닫아 뒀다」는 기억을 지운다 — 안 그러면 새로고침에 또 닫힌다.
+          try {
+            if (next) window.localStorage?.removeItem(DISMISS_KEY);
+            else window.localStorage?.setItem(DISMISS_KEY, '1');
+          } catch { /* 기억 못 해도 이번 세션 상태는 유지된다 */ }
+          return next;
+        })}
         // 드래그로 옮기고 클릭으로 접는다. 키보드 사용자에게는 접기만 있으면
         // 충분하다 — 위치는 기능이 아니라 편의이고, 기본 자리가 이미 유효하다.
         aria-expanded={open}

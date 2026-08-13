@@ -29,6 +29,8 @@ export default {
       default: 'Not sure where to start? Try Learn first.',
     },
     aria: {
+      // 모바일에서 화면을 되찾는 유일한 통로 — 지우지 말 것.
+      dismiss: 'Dismiss guide bot message',
       collapse: 'Collapse guide bot message',
       expand: 'Expand guide bot message',
     },

@@ -141,6 +141,26 @@ try {
         console.error(`FAIL 피드백 화자가 물방울이가 아니다 (isCorrect=${isCorrect}) — 실제 ${m?.[1] ?? '(없음)'}`);
         failed += 1;
       }
+      // ⚠️ **닫기 X가 있어야 한다**(2026-08-13 클라이언트 제보). 이 패널은
+      // `fixed bottom-14`인데 「다음」 컨트롤은 본문에 있어서, 좁은 화면에서는
+      // 패널이 그 위를 덮어 **다음 문항으로 못 넘어간다.** 데스크톱은 세로 여유가
+      // 있어 안 겹치므로 눈으로는 영영 안 보이는 결함이다 — 그래서 단정으로 문다.
+      if (html.includes('data-testid="feedback-dismiss"')) {
+        console.log(`PASS 해설 패널에 닫기 X가 있다 (isCorrect=${isCorrect})`);
+      } else {
+        console.error(`FAIL 해설 패널에 닫기 X가 없다 — 좁은 화면에서 「다음」이 가린 채로 막힌다 (isCorrect=${isCorrect})`);
+        failed += 1;
+      }
+    }
+    // 닫힘이 **문항마다 초기화**돼야 한다. 안 그러면 한 번 닫은 뒤로 해설이
+    // 영영 안 보이고, 그건 사람 저작 해설을 화면에 띄운다는 이 패널의 존재
+    // 이유(CO-I-1)를 지우는 셈이다. `message`를 의존성으로 갖는지 소스로 본다.
+    const panelSrc = readFileSync(resolve(root, 'src/components/FeedbackPanel.jsx'), 'utf8');
+    if (/useEffect\(\s*\(\)\s*=>\s*\{\s*setDismissed\(false\);?\s*\}\s*,\s*\[message\]\s*\)/.test(panelSrc)) {
+      console.log('PASS 닫힘이 문항이 바뀌면 초기화된다');
+    } else {
+      console.error('FAIL 닫힘이 문항 변경에 초기화되지 않는다 — 한 번 닫으면 해설이 영영 안 뜬다');
+      failed += 1;
     }
   }
 
