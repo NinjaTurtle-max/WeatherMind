@@ -5,7 +5,7 @@ import XPBar from './XPBar';
 import SpineBadge from './SpineBadge';
 import StreakBadge from './StreakBadge';
 import CloudEnergyBadge from './CloudEnergyBadge';
-import LocaleSwitcher from './LocaleSwitcher';
+// LocaleSwitcher import는 걷었다(2026-08-13) — 아래 헤더 주석 참고.
 import TabBar from './TabBar';
 import SideNav from './SideNav';
 import { useT } from '../i18n';
@@ -152,9 +152,14 @@ export default function Layout() {
           <div className="flex-1" />
           <CloudEnergyBadge />
           <StreakBadge />
-          {/* 로케일 전환(§6.3) — header 안·nav 밖(gating 스모크가 탭바 항목 수를
-              단정한다). compact = 버튼 1개 아이콘화로 R10 헤더 겹침 재발 방지. */}
-          <LocaleSwitcher compact />
+          {/* 로케일 전환(§6.3)은 **걷어냈다** (2026-08-13 클라이언트 결정 "영어 기능 제거").
+              en으로 바꿔도 화면이 반쪽만 영어라서다 — 서버 오류 문구(`api/client.js`의
+              `data.detail ?? t(...)`)·문항 1,012건·코스/섹션/유닛명이 전부 한국어다.
+              지운 것은 **통로뿐**이고 i18n 골격·en 리소스·`LocaleSwitcher.jsx`는 남아 있다
+              (근거는 `i18n/core.js`의 `detectLocale` 주석). 되살리려면 여기에 다시
+              `<LocaleSwitcher compact />`를 넣고 `detectLocale` 고정을 함께 풀 것 —
+              한쪽만 되돌리면 눌러도 안 바뀌는 버튼이 된다.
+              ⚠️ 되살림은 `tests/i18n.smoke.test.mjs` 시나리오 5가 붉게 감시한다. */}
         </div>
       </header>
 

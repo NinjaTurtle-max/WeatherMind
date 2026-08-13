@@ -23,24 +23,35 @@ export const RESOURCES = {
 };
 export const SUPPORTED_LOCALES = Object.keys(RESOURCES);
 export const DEFAULT_LOCALE = 'ko';
-/** localStorage 키 — 로케일 영속(브라우저 재방문 시 유지) */
+/**
+ * localStorage 키 — `setLocale`이 아직 여기에 쓴다.
+ * ⚠️ 2026-08-13부터 **읽는 쪽이 없다**: `detectLocale()`이 ko 고정이라 저장값은
+ * 시동 로케일에 영향을 주지 않는다. 키를 지우지 않는 이유는 en을 되살릴 때
+ * 저장 형식이 그대로 필요하고, 스모크가 키 이름 자체를 계약으로 물기 때문이다.
+ */
 export const LOCALE_STORAGE_KEY = 'weathermind.locale';
 
-function readStoredLocale() {
-  try {
-    const v = globalThis.localStorage?.getItem(LOCALE_STORAGE_KEY);
-    return SUPPORTED_LOCALES.includes(v) ? v : null;
-  } catch {
-    return null; // localStorage 접근 불가(프라이빗 모드 등) — 감지로 폴백
-  }
-}
-
-/** 초기 로케일: localStorage → navigator.language 앞 2자 → ko */
+/**
+ * 초기 로케일 — **항상 ko**(2026-08-13 클라이언트 결정: "영어 기능 제거").
+ *
+ * 종전에는 `localStorage → navigator.language 앞 2자 → ko` 순이었다. 그 경로를
+ * 막은 이유는 **en으로 열면 화면이 반쪽만 영어**이기 때문이다:
+ *  · `api/client.js`의 오류 표시가 `data.detail ?? t(...)`라 **서버 한국어 원문이
+ *    항상 i18n을 이긴다** — 프론트 22곳의 영어 폴백은 한 번도 발화한 적이 없다.
+ *  · 문항·해설·선지 1,012건이 전량 한국어다(시드에 `_en` 계열 필드 0개).
+ *  · 코스명·섹션명·유닛명·개념 칩도 서버 시드라 한국어로 그려진다.
+ * 반쪽 영어 화면을 내느니 한국어 전용이 낫다는 판단이고, 특히 **심사위원 브라우저의
+ * navigator가 en-US여도 ko로 열려야** 한다. 개발 중 스위처를 눌러 localStorage에
+ * `en`이 남은 사용자도 여기서 ko로 되돌아온다(저장값을 더 이상 읽지 않는다).
+ *
+ * ⚠️ 되살릴 때는 위 3건(서버 오류 문구·문항 en·시드 명칭)이 먼저 해소돼야 한다.
+ * 이 고정을 되돌리면 `tests/i18n.smoke.test.mjs` 시나리오 5가 운다.
+ *
+ * 프로그램 전환(`useLocaleStore.setLocale`)은 **그대로 남긴다** — 화면 통로가 아니라
+ * en 리소스가 실제로 렌더되는지 보는 스모크의 진입점이고, 키 패리티 안전망의 절반이다.
+ */
 export function detectLocale() {
-  const stored = readStoredLocale();
-  if (stored) return stored;
-  const lang = (globalThis.navigator?.language ?? '').slice(0, 2).toLowerCase();
-  return SUPPORTED_LOCALES.includes(lang) ? lang : DEFAULT_LOCALE;
+  return DEFAULT_LOCALE;
 }
 
 

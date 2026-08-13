@@ -171,19 +171,41 @@ try {
     // **왜 서버를 새로 띄우나**: i18n/core.js가 모듈 **로드 시점에** currentLocale을
     // 정하고, 위 검사들이 이미 ko로 적재해 뒀다. 로드 뒤에 스토어 setLocale로 바꿔도
     // 이미 만들어진 모듈 그래프의 초기값은 되돌아오지 않는다(실측: 절반만 en이 됐다).
-    // 그래서 localStorage 스텁을 en으로 갈고 **fresh 그래프**를 하나 더 띄운다 —
-    // 실제 심사 동선(en으로 처음 여는 브라우저)과 같은 조건이다.
-    const prevStorage = globalThis.localStorage;
-    globalThis.localStorage = {
-      getItem: (k) => (k === 'weathermind.locale' ? 'en' : null),
-      setItem() {}, removeItem() {},
-    };
-    // hmr:false — 두 번째 서버가 같은 HMR 포트(24678)를 잡으려다 경고를 뱉는다
+    // 그래서 **fresh 그래프**를 하나 더 띄우고 그 그래프의 currentLocale을 en으로
+    // 세운 뒤 화면 모듈을 적재한다.
+    //
+    // ⚠️ 2026-08-13(로케일 ko 고정) 전에는 localStorage 스텁을 'en'으로 갈아 끼웠다 —
+    // 그때는 detectLocale()이 저장값을 읽었기 때문이다. 지금은 저장값도 navigator도
+    // 보지 않고 항상 ko를 돌려주므로 그 방법은 **조용히 ko를 렌더**하고, 이 검사가
+    // "한국어 0건"이 아니라 "전부 한국어"로 뒤집힌다. 그래서 en 적재 경로를
+    // core.js의 `_syncLocale`(스토어 밖 소비자용 동기화 함수)로 바꿨다.
+    // 화면 모듈 **적재 전에** 세워야 한다 — 모듈 최상위에서 값을 굳히는 표가 있다.
     const enServer = await createServer({
+      // hmr:false — 두 번째 서버가 같은 HMR 포트(24678)를 잡으려다 경고를 뱉는다
       root, logLevel: 'error', appType: 'custom',
       server: { middlewareMode: true, hmr: false },
       optimizeDeps: { noDiscovery: true, include: [] },
     });
+    // 로케일은 **화면 모듈보다 먼저** 세운다. 순서가 계약이다:
+    //   ① core.js를 적재하고 `_syncLocale('en')`으로 currentLocale을 en으로 놓는다.
+    //   ② 그 다음 index.js를 적재한다 — zustand 스토어의 초기 locale이 core의
+    //      currentLocale에서 오므로(§ src/i18n/index.js) 스토어도 en으로 생긴다.
+    // ②가 ①보다 먼저면 스토어는 ko로 굳고 **되돌릴 수 없다**: zustand 5의 useStore는
+    // SSR 스냅샷으로 `api.getInitialState()`를 넘기고(zustand/esm/react.mjs:9)
+    // renderToString은 그 초기값만 본다 — setLocale로 나중에 바꿔도 훅 경로(useT)는
+    // 안 따라온다. 원 주석의 "실측: 절반만 en이 됐다"가 정확히 그 절반이다.
+    //
+    // ⚠️ 2026-08-13(로케일 ko 고정) 전에는 localStorage 스텁을 'en'으로 갈아 끼웠다 —
+    // detectLocale()이 저장값을 읽었기 때문이다. 지금은 저장값도 navigator도 보지
+    // 않고 항상 ko라 그 방법은 **조용히 ko를 렌더**하고, 이 검사가 "한국어 0건"이
+    // 아니라 "전부 한국어"로 뒤집힌다.
+    const enCore = await enServer.ssrLoadModule('/src/i18n/core.js');
+    enCore._syncLocale('en');
+    const enI18n = await enServer.ssrLoadModule('/src/i18n/index.js');
+    check('en 그래프 로케일 고정(스토어 밖 · 훅/SSR 스냅샷 양쪽)',
+      enCore.getCurrentLocale() === 'en'
+        && enI18n.useLocaleStore.getInitialState().locale === 'en',
+      `${enCore.getCurrentLocale()} / ${enI18n.useLocaleStore.getInitialState().locale}`);
     const enPanel = await enServer.ssrLoadModule('/src/modules/board/CrossSectionPanel.jsx');
     const enBoard = await enServer.ssrLoadModule('/src/modules/board/AtmosphereBoard.jsx');
     const koWords = (html) => [
@@ -218,8 +240,9 @@ try {
     check('en 보드 전체(지도·팔레트·존 라벨)에 한국어 0건',
       boardLeak.length === 0, boardLeak.slice(0, 20).join(' '));
 
+    // localStorage 스텁 되돌리기는 없다 — 더 이상 건드리지 않는다(위 주석 참고).
+    // en 로케일은 enServer 전용 모듈 그래프 안에만 있으므로 서버를 닫으면 끝난다.
     await enServer.close();
-    globalThis.localStorage = prevStorage;
   }
 
   // ── 7) 두 검사는 **서로 다른 것을 본다** — 병합이 한쪽을 밀어내지 않게 둘 다 둔다.
