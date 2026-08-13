@@ -103,8 +103,20 @@ export default function Layout() {
       ? answerState.is_correct
       : undefined;
 
-  // 세션 완료 — 요약 화면에 머무는 동안만.
-  const sessionComplete = sessionStatus === SESSION_STATUS.SUMMARY;
+  // 세션 완료 — **요약에 막 도달한 잠깐만**.
+  //
+  // ⚠️ `status === SUMMARY`를 그대로 쓰면 안 된다. SUMMARY는 sessionStore에서
+  // **종착 상태**라 그것을 벗어나는 유일한 writer가 `reset()`이고, 그건 다음 세션을
+  // 열 때 SessionRunner의 마운트 effect에서만 불린다. Layout(=GuideBot)은 언마운트되지
+  // 않으므로, 유닛 하나 끝내고 /board나 /me로 가면 **다음 세션을 열 때까지 모든
+  // 화면에서 "오늘 치 끝!"이 떠 있는다**. 코드 리뷰가 잡았다.
+  const [sessionComplete, setSessionComplete] = useState(false);
+  useEffect(() => {
+    if (sessionStatus !== SESSION_STATUS.SUMMARY) return undefined;
+    setSessionComplete(true);
+    const timer = setTimeout(() => setSessionComplete(false), 8000);
+    return () => clearTimeout(timer);
+  }, [sessionStatus]);
 
   // 레벨업 — `/progress/me`의 knowledge_level이 **올라간 순간**에만 참이다.
   // 서버가 "올랐다"를 안 알려 주므로 직전 값과 비교한다. 첫 조회(prev가 null)는
@@ -125,16 +137,26 @@ export default function Layout() {
 
   // 첫 방문 인사는 한 번만. localStorage는 SSR에서 못 읽으므로 effect에서만 만진다
   // (첫 페인트에는 화면 안내가 뜨고, 처음 온 사람에게만 인사로 바뀐다).
+  // ⚠️ **인사는 반드시 스스로 꺼져야 한다.** firstVisit은 상태 규칙이고 상태 규칙은
+  // 전부 화면 규칙을 이기므로, 안 끄면 첫 세션 내내 어느 화면에서든 "안녕! 나는
+  // 구름이예요"만 반복되고 **화면별 안내가 영영 안 뜬다**. 규정상 로그인 없이
+  // 열려야 해서 **심사위원은 전원 새 브라우저 = 전원 첫 방문자**다 — 그들이 보는
+  // 것이 정확히 그 화면이 된다. 바로 위 levelUp이 같은 이유로 타이머를 갖는다.
+  // 코드 리뷰가 잡았다.
   const [firstVisit, setFirstVisit] = useState(false);
   useEffect(() => {
+    let timer;
     try {
       if (!window.localStorage?.getItem('weathermind.guidebot.seen')) {
         setFirstVisit(true);
         window.localStorage?.setItem('weathermind.guidebot.seen', '1');
+        // 인사는 한 번, 잠깐. 그 뒤로는 화면별 안내가 자리를 넘겨받는다.
+        timer = setTimeout(() => setFirstVisit(false), 8000);
       }
     } catch {
       /* 프라이빗 모드 — 인사를 매번 하게 되지만 기능은 산다 */
     }
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {

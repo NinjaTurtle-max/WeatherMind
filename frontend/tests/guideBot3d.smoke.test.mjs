@@ -243,6 +243,33 @@ try {
   check(`캐릭터가 96px 이상이다 (실측 ${btnRem * 4}px)`, btnRem * 4 >= 96);
   check(`SIZE 상수 = 실제 버튼 크기 (${sizeConst} vs ${btnRem * 4}px) — 어긋나면 화면 밖으로 나간다`,
     sizeConst === btnRem * 4);
+  // ⚠️ 위 단정만으로는 **부족하다**. SIZE는 캐릭터 하나의 크기인데 화면에서 자리를
+  // 잡는 것은 말풍선까지 포함한 **상자 전체**(≈408px)라, SIZE로만 클램프하면
+  // 오른쪽으로 넘친다. 코드 리뷰가 *"이 테스트가 오히려 버그를 고정한다"*고 잡았다.
+  // 그래서 클램프가 **실제 노드를 재는지**를 함께 못박는다 — SIZE는 노드를 못 받는
+  // 첫 읽기·SSR용 폴백으로만 남아야 한다.
+  check('clamp가 노드 실측을 쓴다 — getBoundingClientRect 경유',
+    /function clamp\(pos, win, node\)/.test(botSrc)
+    && /node\?\.getBoundingClientRect\?\.\(\)/.test(botSrc));
+  check('clamp 호출부가 전부 노드를 넘긴다 (리사이즈·드래그·첫 읽기)',
+    (botSrc.match(/clamp\([^)]*window, (?:nodeRef\.current|node)\)/g) || []).length >= 2
+    && /return clamp\(parsed, win, node\)/.test(botSrc));
+  // 드래그와 클릭이 서로를 잡아먹지 않는지 — 리뷰가 잡은 3번.
+  // ⚠️ **주석을 걷어내고 본다.** 이 파일은 왜 캡처를 미루는지를 주석으로 길게
+  // 설명하고 있어서, 날것의 소스로 검사하면 그 설명 문장을 코드로 오인한다
+  // (실제로 처음 쓴 단정이 그렇게 거짓 빨강을 냈다).
+  const code = botSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const downBody = /const onPointerDown[\s\S]*?\}, \[\]\);/.exec(code)?.[0] ?? '';
+  const moveBody = /const onPointerMove[\s\S]*?\}, \[\]\);/.exec(code)?.[0] ?? '';
+  check('포인터 캡처를 누르는 즉시 걸지 않는다 (안쪽 버튼의 click을 죽인다)',
+    downBody.length > 0 && !/setPointerCapture/.test(downBody));
+  check('캡처는 실제로 움직인 뒤에 건다 (그때는 클릭이 아니라 드래그다)',
+    /setPointerCapture/.test(moveBody));
+  check('드래그 문턱이 있고, 끈 뒤의 click은 캡처 단계에서 삼킨다',
+    /DRAG_SLOP/.test(botSrc) && /onClickCapture/.test(botSrc));
+  // 탭바(md:hidden)에 가리지 않는지 — 리뷰가 잡은 5번.
+  check('바닥 여백 분기가 md다 (sm이면 640~767px에서 탭바가 캐릭터를 덮는다)',
+    /md:bottom-6/.test(botSrc) && !/sm:bottom-6/.test(botSrc));
   check(`2D PNG와 3D 캔버스가 같은 박스를 쓴다 (${figRem * 4}px)`,
     Number.isFinite(figRem) && figRem < btnRem && new RegExp(`h-${figRem} w-${figRem}`).test(botSrc));
 
