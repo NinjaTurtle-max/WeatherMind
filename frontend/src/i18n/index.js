@@ -38,13 +38,16 @@ export {
 import {
   SUPPORTED_LOCALES,
   LOCALE_STORAGE_KEY,
-  detectLocale,
+  getCurrentLocale,
   translate,
   _syncLocale,
 } from './core.js';
 
 export const useLocaleStore = create((set) => ({
-  locale: detectLocale(),
+  // core가 이미 정한 값을 그대로 받는다 — `detectLocale()`을 여기서 **한 번 더**
+  // 부르면 같은 사실의 소유자가 둘이 되고, 그 둘이 갈리면 훅 경로와 스토어 밖
+  // 경로가 다른 언어로 그려진다. core.currentLocale이 단일 소스다.
+  locale: getCurrentLocale(),
   setLocale: (locale) => {
     if (!SUPPORTED_LOCALES.includes(locale)) return;
     try {

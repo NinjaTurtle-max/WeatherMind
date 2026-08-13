@@ -118,15 +118,33 @@ class TestIsLocked:
 
 
 class TestPlacementUnlockFloor:
-    """§3.4 시작점 산출 — 선두 연속 "θ≥임계 AND n>0"만 인정 (순수).
+    """§3.4 시작점 산출 — 선두 연속 "유닛 표적 단계 ≤ 배정 단계"만 인정 (순수).
 
-    임계는 **학령 상대**다(R13 CO-V-2 = CO-U-3-B) — middle_high가 0.5라 아래
-    기존 수치는 그대로 유지되고, 학령별 이동은 test_weatherbrain_relative_thresholds.py::TestUnlockWiring가
-    별도로 고정한다.
+    ⚠️ **2026-08-13 대체.** 이 클래스는 **개념별 θ vs 밴드 임계**를 단정하고
+    있었다(R7-02 §3.4 원안):
+
+        전체 순서 선두부터 "그 유닛 concept_tag의 θ ≥ unlock_theta_threshold
+        (level_group) AND num_responses>0"가 연속으로 성립하는 유닛 개수
+
+    그 규칙은 **CO-G1 이전**의 것이다. 섹션이 곧 지식 단계가 된 뒤로는 축 자체가
+    틀렸고, 클라이언트 제보(*"배치고사를 봐서 나온 수준까지는 학습 세션이 열려야
+    하는데 안 열리네"*)가 그 귀결이다 — 실서버에서 만점 게스트에게 138 중 10유닛만
+    열렸다(전건 1섹션). 배선이 아니라 판정 축이 원인이었다.
+
+    지금은 **단계 축이 있는 코스**(기상 10섹션)에서 "유닛 표적 단계 ≤
+    `placed_knowledge_level`"로 판정하고, **단계 축이 없는 코스**(기초과학·미등재
+    섹션)에서만 위 옛 규칙이 그대로 산다. 아래 픽스처의 SEC1~3은 등재 섹션이라
+    전자를 탄다.
+
+    전체 계약(밴드 4종 × 단계 10칸 · 상한 · 코스 경계 · 호출부)의 소유자는
+    **`test_placement_unlock_level.py`**이고, 여기서는 이 클래스가 원래 물던
+    두 축(빈 입력·n=0 불인정)만 남긴다. 학령별 이동은 여전히
+    test_weatherbrain_relative_thresholds.py::TestUnlockWiring가 고정한다
+    (그쪽 픽스처는 미등재 섹션이라 옛 규칙 경로를 탄다).
     """
 
     def _units(self):
-        # 전체 순서: SEC1(pressure_front×2) → SEC2(air_mass) → SEC3(typhoon)
+        # 전체 순서: SEC1(1단계)×2 → SEC2(2단계) → SEC3(3단계)
         return [
             make_unit(SEC1, 1, concept_tag="pressure_front"),
             make_unit(SEC1, 2, concept_tag="pressure_front"),
@@ -141,23 +159,52 @@ class TestPlacementUnlockFloor:
         abilities = [ability("pressure_front", 2.0, n=0)]
         assert cs.placement_unlock_floor(abilities, self._units(), "middle_high") == 0
 
-    def test_경계_0_5는_포함_미만은_제외(self):
+    def test_밴드_사전평균_미달이면_선해제_없음(self):
+        """옛 `test_경계_0_5는_포함_미만은_제외`의 자리 — 축이 바뀌었다.
+
+        옛 계약은 "θ 0.5면 선두 2개, 0.49면 0"이었다(개념별 θ vs 밴드 상단 경계).
+        새 축에서 0.49는 **4단계**라 1단계 유닛이 열리는 것이 옳다. 대신 이 자리가
+        지켜야 할 것은 「근거 없이 열리지 않는다」이고, 그 경계는
+        `band_prior_theta`(middle_high 0.0)다 — 배치를 전건 틀려도 EAP가 사전으로
+        수축해 코스가 열리던 것을 막는 가드다.
+        """
         units = self._units()
+        # 0.0 = middle_high 사전평균 → 통과, 4단계 배정 → 4유닛 전부(1~3단계)
         assert cs.placement_unlock_floor(
-            [ability("pressure_front", 0.5)], units, "middle_high"
-        ) == 2  # 선두 pressure_front 2개
+            [ability("pressure_front", 0.0)], units, "middle_high"
+        ) == 4
+        # 사전평균 미만 → 선해제 자체가 없다
         assert cs.placement_unlock_floor(
-            [ability("pressure_front", 0.49)], units, "middle_high"
+            [ability("pressure_front", -0.01)], units, "middle_high"
         ) == 0
 
-    def test_연속_끊기면_중단_중간_점프_없음(self):
-        # air_mass가 낮으면 뒤의 typhoon이 높아도 3·4번째는 열리지 않는다
-        abilities = [
-            ability("pressure_front", 1.0),
-            ability("air_mass", 0.0),
-            ability("typhoon", 2.0),
-        ]
-        assert cs.placement_unlock_floor(abilities, self._units(), "middle_high") == 2
+    def test_사전평균_가드와_배정_단계_상한(self):
+        """옛 `test_연속_끊기면_중단_중간_점프_없음`의 자리 — 끊는 것이 단계다.
+
+        옛 계약은 "중간 개념의 θ가 낮으면 뒤가 높아도 중단"이었다. 새 축에서
+        중단선은 **배정 단계**이고, 그 뒤 유닛은 θ와 무관하게 열리지 않는다.
+
+        ⚠️ **이 테스트는 「중간 점프 없음」을 검증하지 않는다.** 두 경우 다
+        전부-아니면-전무(0 또는 전체)라 선두 연속이 끊기는 지점을 지나가지
+        않는다. 그 축의 실제 커버리지는
+        `test_placement_unlock_level.py::TestLeadingRunOnly`에 있다 — 그쪽은
+        **단조가 아닌 배치**를 만들어 `break`↔`continue`를 갈라낸다.
+        종전 이름(`…중간_점프_없음`)은 없는 검증을 주장하고 있었으므로 바꿨다
+        (코드 리뷰 지적, 2026-08-13).
+        """
+        # θ −0.25 → 3단계. 그런데 middle_high 사전평균(0.0) **미만**이라
+        # 단계와 무관하게 가드에서 0으로 떨어진다.
+        abilities = [ability("pressure_front", -0.25)]
+        assert cs.placement_unlock_floor(
+            abilities, self._units(), "middle_high"
+        ) == 0
+
+        # θ 0.25 → 4단계. 픽스처 4유닛이 전부 1~3단계라 전부 열린다.
+        # (여기서 「끊김」은 안 일어난다 — 위 경고 참조.)
+        abilities = [ability("pressure_front", 0.25)]
+        assert cs.placement_unlock_floor(
+            abilities, self._units(), "middle_high"
+        ) == 4
 
     def test_전부_통과면_전체_개수(self):
         abilities = [
@@ -168,11 +215,17 @@ class TestPlacementUnlockFloor:
         assert cs.placement_unlock_floor(abilities, self._units(), "middle_high") == 4
 
     def test_전체_순서는_SECTION_ORDER_기준(self):
-        # 입력 순서를 섞어도 ordered_units(섹션 교육 순서)가 선두를 결정한다
+        # 입력 순서를 섞어도 ordered_units(섹션 교육 순서)가 선두를 결정한다.
+        # θ 1.0 → **6단계**(경계가 [1.0, 1.5)). 픽스처 4유닛이 전부 1~3단계라
+        # 결과가 4가 되는 것이지 "3단계 배정이라서"가 아니다 — 종전 주석이
+        # 그렇게 적혀 있어서 픽스처를 손대는 사람을 오도했다(코드 리뷰 지적).
         units = list(reversed(self._units()))
         assert cs.placement_unlock_floor(
             [ability("pressure_front", 1.0)], units, "middle_high"
-        ) == 2
+        ) == 4
+        # 섞인 입력에서도 열리는 것은 **선두**여야 한다 — 뒤에서부터 열리지 않는다
+        ordered = cs.ordered_units(units)
+        assert [u.section for u in ordered[:4]] == [SEC1, SEC1, SEC2, SEC3]
 
 
 class TestStatus:
@@ -492,39 +545,44 @@ class TestRealUnitsJson:
         assert flat["w01-typhoon"]["status"] == "locked"
 
     def test_배치_선해제_실데이터_시작점(self):
-        """§3.4 소급 적용: pressure_front θ≥임계(실응답)면 선두 1유닛 선해제.
+        """§3.4 소급 적용: 배정 단계까지 실데이터에서 선해제된다.
 
-        ⚠️ **2026-08-12: floor 3 → 1.** 결함이 아니라 순환식 구조의 귀결이다
-        (`docs/design/cyclic_sections.md` §5-④). 종전 「하늘 읽기」는 선두 3유닛이
-        전부 `pressure_front`라 θ 하나로 3유닛이 열렸다. 새 구조는 섹션 안에서
-        개념이 **교차**하므로(pressure_front → air_mass → typhoon …) 선두 연속
-        구간이 1유닛뿐이다. `placement_unlock_floor`는 "선두 연속"만 인정하고
-        중간 점프를 하지 않으므로, 개념이 바뀌는 두 번째 유닛에서 즉시 멈춘다.
+        ⚠️ **2026-08-13: floor 1 → 62.** 이 독스트링은 종전에 이렇게 적고 있었다:
 
-        선해제를 되살리려면 floor가 "선두 연속"이 아니라 "개념별 최고 도달 섹션"을
-        보게 바꿔야 한다 — 별도 판정 사항이고 이 테스트의 범위가 아니다.
+            선해제를 되살리려면 floor가 "선두 연속"이 아니라 "개념별 최고 도달
+            섹션"을 보게 바꿔야 한다 — 별도 판정 사항이고 이 테스트의 범위가 아니다.
+
+        **그 판정이 났다**(2026-08-13, 클라이언트 제보 — *"배치고사를 봐서 나온
+        수준까지는 학습 세션이 열려야 하는데 안 열리네"*). 실서버 재현에서 만점
+        게스트가 138 중 **10유닛**만 받았고, 같은 유저의 `/progress/me`는
+        `knowledge_level: 5`였다. 지금은 「유닛 표적 단계 ≤ 배정 단계」로 판정하므로
+        θ 0.8(=5단계)이면 1~5단계 섹션 전부 = **62유닛**이 열린다.
+
+        경위·근거·상한 가드의 소유자는 `test_placement_unlock_level.py`다.
 
         선해제 유닛은 왕관 0 그대로(잠금만 해제)이고, current는 첫 미클리어
         유닛(w01-pressure-front — 클리어 강제 아님)에 남는다.
         """
         units = _units_from_json(_load_real_units())
-        # 선두 유닛의 개념 = pressure_front (「초등 3~4학년」 첫 칸)
-        abilities = [ability("pressure_front", 0.8, n=5)]
+        abilities = [ability("pressure_front", 0.8, n=5)]  # θ 0.8 → 5단계
         floor = cs.placement_unlock_floor(abilities, units, "middle_high")
-        assert floor == 1  # 선두 1유닛에서 개념이 바뀌어 중단
+        assert floor == 62  # 1~5단계 섹션(13+11+10+17+11)
         tree = cs.build_curriculum(units, {}, unlock_floor=floor)
         flat = {u["id"]: u for s in tree for u in s["units"]}
         opened = {uid for uid, v in flat.items() if not v["locked"]}
-        # 선해제 1유닛 + 진도 0에서도 열려 있는 루트 유닛(기초과학 섹션 첫 유닛 포함).
-        # 선해제분이 마침 기상 루트와 같은 유닛이라 합집합이 루트 집합과 일치한다 —
-        # 그래도 왼쪽 항을 남긴다: floor가 2 이상으로 돌아오면 이 등식이 깨져야 한다.
-        assert opened == {"w01-pressure-front"} | _real_roots()
+        # 선해제 62유닛 + 진도 0에서도 열려 있는 루트 유닛(기초과학 첫 유닛 포함).
+        expected = {
+            u.slug for u in cs.ordered_units(units)[:floor]
+        } | _real_roots()
+        assert opened == expected
         # 잠금만 해제 — 왕관·클리어는 소급되지 않는다
         assert all(flat[uid]["crowns"] == 0 for uid in opened)
         assert flat["w01-pressure-front"]["status"] == "current"
-        # floor가 1이라 두 번째 유닛부터 잠금 — 선해제가 개념 경계에서 멈춘 증거
-        assert flat["w01-air-mass"]["status"] == "locked"
-        assert flat["w01-typhoon"]["status"] == "locked"
+        # 같은 섹션 안의 뒤쪽 유닛도 열린다 — 개념 경계가 더는 끊지 않는다
+        assert flat["w01-air-mass"]["status"] == "unlocked"
+        assert flat["w01-wildfire-weather"]["status"] == "unlocked"
+        # 6단계(고등학교 일반선택) 이후는 여전히 잠김 — 전체 개방이 아니다
+        assert flat["w06-pressure-front"]["status"] == "locked"
 
     def test_순차_클리어로_전_체인_해제(self):
         """의존 순서대로 각 유닛을 clear하면 다음이 열려 결국 237유닛 전부 해제된다."""
