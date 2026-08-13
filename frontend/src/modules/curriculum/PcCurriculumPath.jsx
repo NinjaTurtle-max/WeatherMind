@@ -549,7 +549,14 @@ function Stage({ section, index, panelId, introOpen, onToggleIntro, energyBlocke
   //  함께 걷었다 — 파란 길이 없으니 칠할 대상이 없다. 2026-08-13)
 
   return (
-    <section id={panelId} className="wm-stage flex flex-col bg-white px-6 pb-4 pt-4">
+    // `tabIndex={-1}` — Tab 순서에는 안 들어가지만 **스크립트로 포커스는 받는다**.
+    // 접힌 줄을 눌러 이 패널이 그 자리를 대신할 때 부모가 여기로 포커스를 옮긴다
+    // (그 줄이 언마운트되면서 포커스가 `<body>`로 떨어지는 것을 막는다).
+    <section
+      id={panelId}
+      tabIndex={-1}
+      className="wm-stage flex flex-col bg-white px-6 pb-4 pt-4 focus:outline-none"
+    >
       {/* 머리말 한 줄 — 시안(2026-08-09). 종전에는 번호 배지가 붙은 머리말 아래에
           「이 단계에서 배우는 것」 슬레이트 박스가 따로 있었는데, 배너+하단 3카드가
           세로를 가져가면서 그 박스만큼(실측 56px) 노드가 작아졌다. 같은 정보를
@@ -708,6 +715,9 @@ export default function PcCurriculumPath({
 }) {
   const t = useT();
   const scrollerRef = useRef(null);
+  // 접힌 줄을 눌러 펼친 **직후 한 번만** 포커스를 옮기기 위한 표시. 조건 없이
+  // 옮기면 첫 렌더에서 페이지가 포커스를 빼앗아 간다(들어오자마자 경로로 튄다).
+  const focusPendingRef = useRef(false);
   // 접기는 전 단계에 함께 적용한다 — 단계마다 따로 접게 하면 스크롤할 때마다
   // 다시 접어야 한다.
   const [introOpen, setIntroOpen] = useState(true);
@@ -756,8 +766,33 @@ export default function PcCurriculumPath({
     for (let i = 0; i < offsets.length; i += 1) if (currentIdx >= offsets[i]) si = i;
     return si;
   })();
-  const [openIdx, setOpenIdx] = useState(null);
-  // 섹션 수가 줄어드는 응답(코스 전환)에서 인덱스가 범위를 벗어나지 않게 자른다.
+  /**
+   * ⚠️ **펼침 인덱스는 「어느 섹션 목록에 대한 인덱스인가」와 함께 들고 다닌다.**
+   *
+   * 종전에는 인덱스만 state에 두고 범위 초과만 잘랐다(`Math.min(openIdx, len-1)`).
+   * 그것으로는 **코스 전환이 안 잡힌다** — `CurriculumHome`이 `PcCurriculumPath`를
+   * `key` 없이 마운트하고 `CourseSwitcher`를 `tabs`로 **이 안에** 넣기 때문에,
+   * 코스를 바꿔도 리마운트가 일어나지 않고 `sections` prop만 갈린다. 그러면 앞
+   * 코스에서 눌러 둔 인덱스가 그대로 살아남는다:
+   *   기상(10섹션)에서 5섹션을 펼쳐 두고 → 기초과학(3섹션) 탭 →
+   *   `min(5, 2) = 2`라 **엉뚱하게 마지막 섹션**이 펼쳐지고, 아래 effect가 그 2를
+   *   `onViewSection`으로 올려 배너 제목·CTA까지 잠긴 섹션을 가리켰다.
+   * 범위 안이면 클램프가 아예 발화하지 않으므로 「잘랐으니 안전하다」도 거짓이다.
+   *
+   * 그래서 **목록의 신원(`sectionKey`)이 달라지면 눌러 둔 값을 버린다.** effect로
+   * 되돌리지 않고 **렌더 중 파생**으로 처리하는 이유: effect는 한 프레임 늦어서
+   * 그 사이 잘못된 `openSection`이 `onViewSection`으로 한 번 새어 나간다.
+   */
+  // 구분자는 **섹션 이름에 못 들어가는 문자**를 쓴다. 공백으로 이으면
+  // ["큰 바람","이 온다"]와 ["큰","바람 이 온다"]가 같은 키가 되어, 서로 다른
+  // 목록을 같은 것으로 보고 인덱스를 살려 둔다. 길이도 앞에 붙여 한 번 더 가른다.
+  // ⚠️ 이스케이프로 적을 것 — 소스에 생 NUL 바이트를 박으면 화면에서 공백과
+  //    구분되지 않아 다음 사람이 읽을 수 없다(실제로 한 번 그렇게 들어갔다).
+  const sectionKey = `${withUnits.length}\u0000${withUnits.map((s) => s.section).join('\u0000')}`;
+  const [open, setOpen] = useState({ key: null, idx: null });
+  const openIdx = open.key === sectionKey ? open.idx : null;
+  // 범위 클램프는 **그대로 둔다** — 같은 코스 안에서 섹션이 줄어드는 응답(진도
+  // 초기화 등)은 위 신원 비교로는 안 잡힌다. 둘은 다른 사고를 막는다.
   const openSection = Math.min(openIdx ?? currentSectionIdx, Math.max(0, withUnits.length - 1));
   const currentUnit = flat[currentIdx] ?? flat.find((_, i) => statuses[i] === 'unlocked') ?? null;
   const currentSection = withUnits.find((s) => s.units.some((u) => u.id === currentUnit?.id)) ?? null;
@@ -770,11 +805,31 @@ export default function PcCurriculumPath({
    * 「스크롤해서 다음 단계」 힌트가 영원히 남았다**(초깃값 true). 스크롤이 불가능한
    * 높이에서는 onScroll도 안 뜨므로 스스로 고쳐지지도 않았다. 창을 줄여 경로가
    * 다 들어오는 경우도 같았다 — 리사이즈는 이 값을 아예 안 봤다.
+   *
+   * ⚠️ **재는 대상은 스크롤러 전체가 아니라 「펼친 단계」다**(2026-08-13 정정).
+   * 접기가 들어오면서 스크롤러 안에 펼친 `.wm-stage` **말고도 접힌 줄들**(각 52px)이
+   * 함께 산다. `el.scrollHeight`를 그대로 보면 그 줄들까지 「더 있는 것」으로 세어,
+   * 힌트 문구(「이 섹션 더 보기」)가 거짓이 된다:
+   *   1섹션(3칸, 트랙에 다 들어옴)을 펼치면 정렬 effect가 `scrollTop = 0`으로 두는데,
+   *   기상 코스는 아래에 접힌 줄이 9개(≈468px) 더 있어 `0 + clientHeight <
+   *   scrollHeight - 24`가 **항상 참**이다 → 더 볼 것이 없는 섹션에서 힌트가 상주했다.
+   *   맨 끝 섹션을 펼쳤을 때만 우연히 맞았다.
+   * 물어야 할 것은 「스크롤러가 넘치는가」가 아니라 **「펼친 단계가 화면을 넘치는가」**다.
+   * `.wm-stage`는 `min-height: 100%`라 다 들어오는 섹션에서는 높이가 정확히 트랙
+   * 높이가 되고, 그때 아래 식이 거짓이 된다.
    */
   const syncHasMore = useCallback(() => {
     const el = scrollerRef.current;
     if (!el) return;
-    setHasMore(el.scrollTop + el.clientHeight < el.scrollHeight - 24);
+    const stage = el.querySelector('.wm-stage');
+    if (!stage) {
+      setHasMore(false);
+      return;
+    }
+    // 단계의 아래끝을 **스크롤 좌표계**로 환산한다 — `offsetTop`은 위치 지정 조상
+    // 기준이라 42px 어긋난다(정렬 effect가 같은 이유로 rect 차를 쓴다).
+    const stageTop = stage.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+    setHasMore(el.scrollTop + el.clientHeight < stageTop + stage.offsetHeight - 24);
   }, []);
 
   /**
@@ -889,6 +944,25 @@ export default function PcCurriculumPath({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIdx, withUnits.length, openSection]);
 
+  /**
+   * 펼친 직후 **새 패널로 포커스를 옮긴다** — 키보드 사용자가 자리를 잃지 않게.
+   *
+   * 접힌 줄 자체가 버튼이고, 누르는 순간 그 버튼이 `<Stage>`로 **교체(언마운트)**
+   * 된다. React는 포커스를 옮겨 주지 않으므로 `document.activeElement`가 `<body>`로
+   * 떨어진다 — 4섹션까지 Tab으로 내려가 Enter를 누른 사용자가 **문서 맨 처음으로**
+   * 되돌아가고, 패널이 열렸다는 안내도 없다.
+   *
+   * ⚠️ `preventScroll: true`가 필수다. 위 정렬 effect가 `scrollTop`의 소유자인데,
+   * 브라우저 기본 포커스 스크롤이 그 값을 덮어써 정렬이 무효가 된다.
+   * ⚠️ 조건 없이 옮기면 안 된다 — 첫 진입에서도 발화해 페이지가 열리자마자
+   * 경로로 포커스가 튄다. 그래서 `onOpen`이 세우는 표시를 본다.
+   */
+  useEffect(() => {
+    if (!focusPendingRef.current) return;
+    focusPendingRef.current = false;
+    scrollerRef.current?.querySelector('.wm-stage')?.focus?.({ preventScroll: true });
+  }, [openSection]);
+
   if (flat.length === 0) return null;
 
   // pb-6은 뺐다 — main이 이미 pb-8을 갖고 있어, 트랙 아래 여백이 두 겹으로
@@ -935,7 +1009,12 @@ export default function PcCurriculumPath({
                   section={section}
                   index={i}
                   panelId={`wm-stage-${i}`}
-                  onOpen={() => setOpenIdx(i)}
+                  onOpen={() => {
+                    // 누른 줄이 곧 언마운트되므로 포커스를 새 패널로 옮겨야 한다.
+                    // 그 이동을 **사용자 조작일 때만** 하도록 여기서 표시한다.
+                    focusPendingRef.current = true;
+                    setOpen({ key: sectionKey, idx: i });
+                  }}
                 />
               ),
             )}

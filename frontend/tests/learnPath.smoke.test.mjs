@@ -450,6 +450,76 @@ await render({});
   );
 }
 
+// ── ㉶ 코스 전환: 눌러 둔 펼침 인덱스를 다음 코스로 들고 가지 않는다 ─────────
+//
+// `CurriculumHome`은 `PcCurriculumPath`를 **`key` 없이** 마운트하고 코스 탭
+// (`CourseSwitcher`)을 `tabs` prop으로 **그 안에** 넣는다. 그래서 코스를 바꿔도
+// 리마운트가 일어나지 않고 `sections`만 갈린다 — 눌러 둔 펼침 인덱스가 살아남는다.
+//
+// ⚠️ **범위 클램프(`Math.min(openIdx, len-1)`)로는 못 막는다.** 그것은 인덱스가
+//    범위를 벗어날 때만 발화하는데, 벗어나든 안 벗어나든 **다른 코스의 인덱스**는
+//    이미 틀린 값이다. 기상(4섹션)에서 4섹션을 펼쳐 두고 2섹션짜리 코스로 넘어가면
+//    `min(3, 1) = 1`이라 **엉뚱하게 마지막 섹션**이 펼쳐졌고, 그 인덱스가
+//    `onViewSection`으로 올라가 배너 제목·CTA까지 잠긴 섹션을 가리켰다.
+//    (2026-08-13 `/code-review` 게이트 지적. 고치기 전에는 이 파일 어느 단정도
+//     이 사고를 보지 못했다 — 수정 전후로 전 종목이 초록이었다.)
+{
+  root2.render(createElement('div')); // 펼침 인덱스는 state다 — 강제 언마운트로 초기화
+  await sleep(30);
+  const viewed = [];
+  await render({ onViewSection: (i) => viewed.push(i) });
+
+  const row3 = container.querySelector('[data-wm-collapsed][aria-controls="wm-stage-3"]');
+  await click(row3);
+  ok(viewed.at(-1) === 3, `전제: 4섹션을 펼쳐 뒀다 — 실제 [${viewed.join(',')}]`);
+
+  // 접힌 줄을 누르면 그 줄이 **언마운트**된다(그 자리를 `<Stage>`가 대신한다).
+  // React는 포커스를 옮겨 주지 않으므로 그냥 두면 `document.activeElement`가
+  // `<body>`로 떨어져, 키보드로 4섹션까지 내려온 사용자가 문서 맨 처음으로 되돌아간다.
+  ok(
+    window.document.activeElement === container.querySelector('.wm-stage'),
+    '펼친 직후 포커스가 새 패널로 옮겨간다(누른 줄이 사라지며 body로 떨어지지 않는다)',
+  );
+
+  // 같은 인스턴스에 **다른 코스**를 넘긴다 — 리마운트 없이 prop만 갈리는 실제 경로.
+  const other = ['기초과학 하나', '기초과학 둘'].map((name, si) => ({
+    section: name,
+    subtitle: null,
+    est_minutes: null,
+    topics: [],
+    units: [
+      {
+        id: `b${si}`,
+        title: `기초 유닛 ${si + 1}`,
+        concept_tag: 'air_mass',
+        kind: 'quiz',
+        crowns: 0,
+        status: si === 0 ? 'current' : 'locked',
+      },
+    ],
+  }));
+  root2.render(
+    createElement(PcCurriculumPath, {
+      sections: other,
+      onOpenUnit: () => {},
+      onViewSection: (i) => viewed.push(i),
+    }),
+  );
+  await sleep(60);
+
+  const switched = container.querySelector('.wm-stage');
+  ok(
+    switched?.textContent.includes('기초과학 하나'),
+    `코스를 바꾸면 앞 코스의 펼침 인덱스를 버리고 현재 섹션을 펼친다 — 실제 「${
+      switched?.textContent.slice(0, 12) ?? '없음'
+    }」`,
+  );
+  ok(
+    viewed.at(-1) === 0,
+    `배너로 올리는 인덱스도 새 코스 기준이다(0) — 실제 [${viewed.join(',')}]`,
+  );
+}
+
 // ── 유닛 0개면 렌더하지 않는다(빈 코스 트리) ────────────────────────────────
 {
   root2.render(createElement(PcCurriculumPath, { sections: [], onOpenUnit: () => {} }));
