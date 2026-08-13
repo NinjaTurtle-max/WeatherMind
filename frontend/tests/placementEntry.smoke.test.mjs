@@ -10,10 +10,16 @@
  * useEffect까지 실행) + mock 서버(mock/apiMockPlugin.js) 실호출로 가드한다.
  *
  * 시나리오 (모두 실 XHR — 단언은 서버 도달 여부):
- *   1. 가입 플로우: /register에서 폼 제출 → placement/start 호출 발생 +
- *      배치고사 화면 도달 (R7 스모크에 있었으나 상주화되지 않아 회귀를 놓친 지점)
+ *   1. 콜드 오픈: 토큰 없이 /onboarding/placement 진입 → 자동 게스트 발급 →
+ *      placement/start 호출 발생 + 배치고사 화면 도달.
+ *      **2026-08-12에 「가입 플로우(/register 폼 제출)」에서 갱신됐다** — 로그인·
+ *      회원가입 구조가 제거되어 가입 화면도 `RedirectIfAuthed`도 없다(위 R9-09
+ *      기술은 그래서 역사다). 본문 시나리오 1의 주석 참조.
  *   2. PlacementPage 단독 마운트: 마운트 크래시·쿼리 미발화 가드
- *   3. daily(/daily)·unit(/learn/units/:id) 세션 무회귀: 각 세션 로드 호출 발생
+ *   3. /daily **제거 가드**: 라우트가 없어져 자유 세션 발급이 나가지 않는다
+ *      (2026-08-12에 「daily 세션 무회귀」에서 뒤집혔다).
+ *   4. unit(/learn/units/:id) 세션 무회귀: 유닛 세션 발급 호출 발생 —
+ *      `/daily`가 사라진 뒤로 **세션 발급 경로의 유일한 수신자**다.
  *
  * 관례: 테스트 러너 의존 없는 node 직접 실행. jsdom은 devDependency.
  */
@@ -108,12 +114,8 @@ function mount(element, initialPath) {
   return reactRoot;
 }
 
-// React 18 제어 입력에 값 주입(네이티브 setter + input 이벤트)
-function setInputValue(input, value) {
-  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-  setter.call(input, value);
-  input.dispatchEvent(new window.Event('input', { bubbles: true }));
-}
+// (`setInputValue` 헬퍼는 제거됐다 — 유일한 사용처가 삭제된 회원가입 폼 제출이었다.
+//  폼을 채우는 스모크가 다시 필요하면 guest-convert.smoke.test.mjs의 `fillInput`을 볼 것.)
 
 let failed = 0;
 async function scenario(name, fn) {
@@ -132,21 +134,33 @@ async function scenario(name, fn) {
 const since = (mark) => xhrLog.slice(mark);
 
 try {
-  // ── 1. 가입 플로우: register 폼 제출 → placement/start 도달 (핵심 회귀 가드) ──
-  await scenario('가입 → 배치고사 진입 (placement/start 호출 발생)', async (mark) => {
-    const rootEl = mount(createElement(App), '/register');
-    await waitFor(() => window.document.querySelector('input[name="email"]'), 3000, '회원가입 폼 렌더');
-    setInputValue(window.document.querySelector('input[name="email"]'), `smoke-${Date.now()}@test.dev`);
-    setInputValue(window.document.querySelector('input[name="password"]'), 'passw0rd!');
-    setInputValue(window.document.querySelector('input[name="nickname"]'), '스모크');
-    await sleep(30);
-    window.document.querySelector('form').dispatchEvent(
-      new window.Event('submit', { bubbles: true, cancelable: true }),
+  // ── 1. 콜드 오픈 → 배치고사 도달 (구 "가입 플로우"의 후신) ─────────────────
+  //
+  // ⚠️ **갱신됨(2026-08-12 클라이언트 지시 — 로그인·회원가입 구조 전면 제거).**
+  // 종전 이 시나리오는 `/register`에 마운트해 폼을 채우고 제출했다. 그 화면이
+  // 삭제됐다(git rm). 원래 물던 R9-09 회귀 — 가입 성공의 `setTokens`가
+  // `RedirectIfAuthed`의 `<Navigate to="/">`를 먼저 일으켜 배치고사 목적지를
+  // 덮어쓰던 것 — 은 **구조적으로 불가능해졌다**: 가입 화면도, `RedirectIfAuthed`
+  // 자체도 없다(App.jsx 주석 참조).
+  //
+  // 그래도 **폐기하지 않는다.** 이 시나리오의 값어치는 "배치고사가 라우팅을 거쳐
+  // 실제로 도달되는가"이고, 그 위험은 진입 방식이 바뀌어도 남는다. 오히려 새 진입
+  // (토큰 없는 콜드 오픈 → 자동 게스트 발급 → 보호 라우트 렌더)은 홉이 하나 더
+  // 늘었다 — 발급이 끝나기 전에 라우트가 렌더되면 배치고사가 빈손으로 뜬다.
+  // 시나리오 2(PlacementPage 단독 마운트)는 컴포넌트만 보므로 이 홉을 못 본다.
+  //
+  // 뒤 시나리오들이 쓰는 토큰도 여기서 선다(종전에는 가입이 세웠다).
+  await scenario('콜드 오픈(토큰 없음) → 자동 게스트 발급 → 배치고사 도달', async (mark) => {
+    const rootEl = mount(createElement(App), '/onboarding/placement');
+    await waitFor(
+      () => since(mark).some((l) => l === 'POST /api/v1/auth/guest'),
+      6000,
+      'POST /auth/guest 발화 — 토큰 없는 진입은 자동 게스트로 받는다(대회 규정)',
     );
     await waitFor(
       () => since(mark).some((l) => l === 'POST /api/v1/onboarding/placement/start'),
       6000,
-      'POST /onboarding/placement/start 발화 — 가입 직후 배치고사 미진입 회귀(R9-09)',
+      'POST /onboarding/placement/start 발화 — 발급 후 배치고사가 실제로 시작되지 않았다',
     );
     // 화면도 배치고사(전체 화면, '건너뛰기' 헤더)에 도달했는지 확인
     await waitFor(
@@ -155,6 +169,58 @@ try {
       '배치고사 화면 렌더(건너뛰기 헤더)',
     );
     rootEl.unmount();
+  });
+
+  // ── 1-b. 🔴 배치고사로 가는 **UI 경로가 최소 1개** 존재한다 ────────────────
+  //
+  // ⚠️ **이 계약이 없어서 진입 경로가 통째로 증발했다**(2026-08-12).
+  // 로그인·회원가입 제거로 `LoginPage`가 삭제되자, 신규 학습자를
+  // `/onboarding/placement`로 보내던 유일한 동선(가입 직후 진입)이 함께 사라졌다.
+  // 라우트도 시작 호출도 멀쩡했기 때문에 **아무 테스트도 붉어지지 않았다** —
+  // 시나리오 1·2는 "그 화면에 도착하면 동작하는가"를 물 뿐, "누가 보내주는가"를
+  // 묻지 않았다. 규정상 심사위원은 계정 없이 열어 보므로, 진단은 도달 불가였다.
+  //
+  // 그래서 **화면에서 실제로 링크를 찾는다.** 소스 grep이 아니라 실마운트인 이유는
+  // 진입점이 조건부(`placement_done === false`)라서다 — 렌더 조건이 뒤집히면
+  // 링크는 소스에 남은 채 화면에서만 사라진다.
+  //
+  // 한 곳으로 못 박지 않는 이유: 어느 화면이 진입을 갖느냐는 제품 결정이다.
+  // 계약은 **"최소 한 곳"**이고, 지금은 학습 홈(LearnFooterCards)과
+  // 내 정보(ProgressPage) 두 곳이 갖는다.
+  await scenario('배치고사 진입: 미진단 상태에서 UI 경로가 최소 1개 존재한다', async () => {
+    const reset = await fetch(`${origin}/api/v1/dev/reset-me`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reset: true }),
+    });
+    if (reset.status !== 200) throw new Error(`/dev/reset-me 실패 (${reset.status})`);
+
+    const found = [];
+    for (const path of ['/learn', '/me']) {
+      const rootEl = mount(createElement(App), path);
+      try {
+        // 진입점은 /progress/me(placement_done)를 보고 그려지므로 도착을 기다린다.
+        await waitFor(
+          () => window.document.querySelector('a[href="/onboarding/placement"]') !== null,
+          6000,
+          `${path} 진단 진입점`,
+        );
+        found.push(path);
+      } catch {
+        /* 이 화면에는 없다 — 계약은 "최소 1개"라 여기서 실패시키지 않는다 */
+      } finally {
+        rootEl.unmount();
+      }
+    }
+
+    if (found.length === 0) {
+      throw new Error(
+        '미진단 학습자가 배치고사로 갈 UI 경로가 **0개**다 — 온보딩 진단이 도달 '
+          + '불가다(라우트는 살아 있어도 아무도 그 문을 열어 주지 않는다). '
+          + '학습 홈 LearnFooterCards 또는 내 정보 ProgressPage의 진입 배너를 확인할 것',
+      );
+    }
+    console.log(`     ↳ 진단 진입점 보유 화면: ${found.join(', ')}`);
   });
 
   // ── 2. PlacementPage 단독 마운트: 크래시 없음 + 쿼리 발화 ──────────────────
@@ -169,14 +235,34 @@ try {
     rootEl.unmount();
   });
 
-  // ── 3. daily/unit 세션 무회귀: 세션 로드 호출 발생 ─────────────────────────
-  await scenario('daily 세션(/daily) 무회귀 — GET /session/today 발화', async (mark) => {
-    const rootEl = mount(createElement(App), '/daily'); // 시나리오 1의 토큰이 스토어에 남아 인증 통과
+  // ── 3. `/daily` 제거 가드 (구 "daily 세션 무회귀"의 후신) ──────────────────
+  //
+  // ⚠️ **뒤집혔다(2026-08-12 클라이언트 지시 — 자유 일일 세션 제거).**
+  // 종전에는 `/daily`에서 `GET /session/today`가 **발화하는지**를 물었다. 이제는
+  // 그 라우트가 없어야 한다: 자유 세션을 없애고 학습(유닛) 세션이 오늘 날씨를
+  // 받는 쪽으로 옮겼다(서버 몫은 담당 B).
+  //
+  // 단정을 뒤집어 **되살아남을 잡는 가드**로 쓴다 — `/daily`는 매칭되는 라우트가
+  // 없어 `*` → `/` → `/learn`으로 떨어지므로, 자유 세션 발급이 나가면 안 된다.
+  // 라우트가 실수로 복구되면 여기서 먼저 운다.
+  //
+  // ⚠️ 아래 유닛 세션 시나리오가 이제 "세션이 실제로 열린다"의 **유일한** 수신자다.
+  // 그것까지 지우면 세션 발급 경로 전체가 무가드가 된다 — 함께 지우지 말 것.
+  await scenario('/daily는 제거됐다 — 자유 세션 발급이 나가지 않는다', async (mark) => {
+    const rootEl = mount(createElement(App), '/daily'); // 시나리오 1의 게스트 토큰으로 인증 통과
+    // 학습 화면으로 떨어졌는지: 커리큘럼 트리를 부르는 것이 그 신호다.
     await waitFor(
-      () => since(mark).some((l) => l === 'GET /api/v1/session/today'),
-      4000,
-      'GET /session/today 발화',
+      () => since(mark).some((l) => l === 'GET /api/v1/curriculum'),
+      5000,
+      '/daily가 학습 화면으로 떨어지지 않았다',
     );
+    await sleep(300); // 뒤늦은 발급이 있으면 잡히도록 여유를 준다
+    const dailyIssued = since(mark).filter((l) => l === 'GET /api/v1/session/today');
+    if (dailyIssued.length > 0) {
+      throw new Error(
+        `제거된 자유 일일 세션이 발급됐다(${dailyIssued.length}회) — /daily 라우트가 되살아났다`,
+      );
+    }
     rootEl.unmount();
   });
 
@@ -190,6 +276,34 @@ try {
     );
     rootEl.unmount();
   });
+
+  // ── 5. 배치고사 문항 수 = 서버 `Settings.PLACEMENT_SIZE`(10) ───────────────
+  //
+  // 이 브랜치가 서버를 6 → 10으로 올렸는데 목은 `CONCEPT_TAGS`(6종)에서 만들어져
+  // **6문항에 멈춰 있었다**(2026-08-13 코드 리뷰 결함 ④). 목 위에서 본 진단 화면이
+  // 실서버보다 4문항 짧았고, 화면 문구(`i18n placement.hint` 「딱 10문항」)와도
+  // 어긋났다. 서버와의 수치 대조는 backend `test_r13_mock_policy_parity`가
+  // `__mockPolicy().placement_size`로 소유하고, 여기서는 **실제 응답이 그만큼
+  // 나오는가**를 HTTP 왕복으로 본다 — 정책을 신고하면서 페이로드는 안 따라오는
+  // 갈림이 CO-J-9의 모양이었다.
+  await scenario('배치고사 응답이 10문항이고 문항이 겹치지 않는다', async () => {
+    const res = await fetch(`${origin}/api/v1/onboarding/placement/start`, {
+      method: 'POST',
+    });
+    const body = await res.json();
+    const items = body.items ?? [];
+    if (items.length !== 10) {
+      throw new Error(`배치고사가 ${items.length}문항이다 — 서버 PLACEMENT_SIZE는 10`);
+    }
+    const quizIds = new Set(items.map((it) => it.quiz_id));
+    if (quizIds.size !== items.length) {
+      throw new Error('quiz_id가 중복됐다 — 채점 맵이 문항을 덮어쓴다');
+    }
+    const texts = new Set(items.map((it) => it.question_text));
+    if (texts.size !== items.length) {
+      throw new Error('같은 문항이 두 번 나왔다 — 개념 순환에서 시드 중복 제거가 빠졌다');
+    }
+  });
 } finally {
   await vite.close();
   httpServer.close();
@@ -199,5 +313,5 @@ if (failed > 0) {
   console.error(`\n${failed}건 실패`);
   process.exit(1);
 }
-console.log('OK: 가입→배치고사 진입 + 세션 3경로 실마운트 스모크 통과');
+console.log('OK: 콜드 오픈→배치고사 진입 + /daily 제거 + 유닛 세션 실마운트 스모크 통과');
 process.exit(0);

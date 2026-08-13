@@ -142,7 +142,7 @@ def _quiz_gen_chain():
     게이트가 있는 척만 하게 된다(CI SKIP 방어로 막은 바로 그 패턴).
 
     스텁이 안전한 근거: quiz_gen_chain이 langchain에서 쓰는 것은 import 시점의 이름
-    4개뿐이고, 여기서 검사하는 폴백 경로는 `llm_configured()`가 False라 체인을 아예
+    4개뿐이고, 여기서 검사하는 폴백 경로는 `_llm_available()`이 False라 체인을 아예
     만들지 않는다. 끝나면 sys.modules를 원상복구해 다른 테스트의 importorskip
     판정(7 skipped)을 오염시키지 않는다.
     """
@@ -549,7 +549,7 @@ class TestChainSemantics:
 
     def test_키_없이_generate_quiz는_계약을_통과한_payload를_돌려준다(self, monkeypatch):
         with _quiz_gen_chain() as chain:
-            monkeypatch.setattr(chain, "llm_configured", lambda: False)
+            monkeypatch.setattr(chain, "_llm_available", lambda: False)
             monkeypatch.setattr(
                 chain,
                 "_build_chain",
@@ -576,7 +576,7 @@ class TestChainSemantics:
                 temperatures.append(temperature)
                 return types.SimpleNamespace(invoke=lambda _: bad)
 
-            monkeypatch.setattr(chain, "llm_configured", lambda: True)
+            monkeypatch.setattr(chain, "_llm_available", lambda: True)
             monkeypatch.setattr(chain, "_build_chain", _fake_chain)
             payload = chain.generate_quiz({}, "adult", "general", "typhoon")
 
@@ -595,7 +595,7 @@ class TestChainSemantics:
                 '"question_text":"초속 몇 m 이상일 때 태풍인가?","correct_answer":"17",'
                 '"min":0,"max":40,"step":1,"unit":"m/s"}'
             )
-            monkeypatch.setattr(chain, "llm_configured", lambda: True)
+            monkeypatch.setattr(chain, "_llm_available", lambda: True)
             monkeypatch.setattr(
                 chain,
                 "_build_chain",

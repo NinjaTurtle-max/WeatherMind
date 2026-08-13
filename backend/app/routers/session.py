@@ -25,6 +25,7 @@ from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.user import User
 from app.schemas.curriculum import CrownAward
+from app.schemas.reward import BadgeAward, QuestReward
 from app.schemas.session import (
     ForecastClosingStep,
     SessionAnswerRequest,
@@ -128,6 +129,11 @@ def _to_session_item(
         question_text=question.get("question_text", ""),
         options=question.get("options"),
         level_group=level_group,
+        # 문항의 **지식 단계**(난이도 축) — `level_group`(표현 톤·학령)과 다른 축이다.
+        # 데이터에는 1,000건 전건 채워져 있는데 이 한 줄이 없어서 화면까지 오는
+        # 통로가 끊겨 있었다(2026-08-12 클라이언트 지적 「학습 수준 태깅이 안 보인다」).
+        # 없으면 None이고 프론트는 배지를 그리지 않는다(구 세션·구 데이터 하위 호환).
+        knowledge_level=question.get("knowledge_level"),
         source=source,
         slot_filled=slot_filled,
         kind=kind,
@@ -506,13 +512,25 @@ async def complete_session(
     )
     is_first_complete = session.completed_at is None
     crown_award: CrownAward | None = None
+    # 이번 완료로 **새로** 획득한 배지 (CO-T-4). 재-complete는 is_first_complete가
+    # False라 지급 자체가 안 돌고, 이미 보유 중이면 award_badge가 False다 —
+    # 두 경우 모두 빈 리스트로 나가야 화면이 "방금 받았다"를 두 번 말하지 않는다.
+    badges_earned: list[BadgeAward] = []
 
     if is_first_complete:
         session.completed_at = datetime.now(timezone.utc)
         await db.flush()
         # 무오답 세션 배지(perfect_session) — 전 문항 정답(total/total), 중복은 UNIQUE로 방어 (R4-01 §3.3)
         if badge_service.is_perfect_session(correct_count, progress.total):
-            await badge_service.award_badge(db, user.id, badge_service.BADGE_PERFECT_SESSION)
+            granted = await badge_service.award_badge(
+                db, user.id, badge_service.BADGE_PERFECT_SESSION
+            )
+            if granted:
+                detail = await badge_service.badge_detail(
+                    db, badge_service.BADGE_PERFECT_SESSION
+                )
+                if detail is not None:
+                    badges_earned.append(BadgeAward(**detail))
         # 데일리 → 왕관 유입 (R8-01 §3.4 → R13-01 §2.10 소유권 이전): 판정 대상은
         # **진도 블록 5문항**(_crown_scope_logs)이고, 그 블록이 전건 해결(만회 포함,
         # §2.1)이면 블록 최다 개념(동률: route target 우선→사전순)의 "열린 첫
@@ -535,34 +553,69 @@ async def complete_session(
 
     # 유닛 세션 unit_result (R8-01 §3.1 계약 복구) — grant_unit_crown 반환을
     # 버리지 않고 노출한다(프론트 UnitSummary가 읽는 필드).
-    # **R13-01 §2.10 왕관 소유권 이전**: 유닛 직접 진입(/learn 유닛 세션)은 이제
-    # **연습 전용**이라 grant_crown=False 고정이다(같은 진도에 두 번 주면 하루
-    # 1왕관 상한이 무너진다).
-    # ⚠️ 왕관 유입로는 **3개**다 (CO-L5 정정 — 여기 "진도 블록이 유일한 유입로"라
-    # 적혀 있었으나 거짓이었다): ⑴ 일일 세션의 진도 블록 · ⑵ 보드 퍼즐 최초
-    # 클리어(routers/board.py) · ⑶ /dev 개발 경로(UserUnitProgress 직접 upsert —
-    # grant_unit_crown 미경유). 목록의 단일 소유자는 curriculum_service 모듈
-    # 독스트링이다.
+    #
+    # ══ 왕관은 **하루 첫 유닛 세션**에만 (2026-08-13 클라이언트 확정) ═══════════
+    # 경위를 남긴다. R13-01 §2.10이 왕관을 일일 세션의 **진도 블록**으로 옮기면서
+    # 유닛 직접 진입을 «연습 전용»로 고정했는데, 그 뒤 배합이
+    # `{live:2, new:4, review:3, board:1}`이 되며 `unit` kind 자체가 사라져
+    # 유입로가 죽었다. 그래서 2026-08-12에 **유닛 세션 완료**로 되돌렸다
+    # (`grant_crown=all_correct`). 그런데 그러면 **하루에 유닛을 여러 개 열수록
+    # 왕관이 무제한으로 나온다** — daily가 갖고 있던 「하루 1세션 = 하루 1왕관」
+    # 상한이 유닛에는 없기 때문이다(`uq_sessions_daily`가 `unit_id IS NULL`에만
+    # 걸린다). 확정 사양이 그 구멍을 닫는다: **하루의 첫 유닛 세션이 곧 데일리
+    # 세션**이고, 왕관은 그 세션에만 붙는다.
+    #
+    # ⚠️ **여기서 「첫 세션인가」를 재계산하지 않는다.** 판정은 발급 시점에 끝났고
+    # 이 코드는 `recipe_json`의 도장을 **읽기만** 한다. 완료 시점에 다시 세면 두
+    # 유닛을 열어 역순으로 완료할 때 둘 다 첫 세션이 되거나 둘 다 아니게 된다
+    # (`curriculum_service.is_first_unit_session_today` 독스트링).
+    # 도장이 없는 세션(개정 이전 발급분)은 `.get`이 None → False라 왕관이 나가지
+    # 않는다 — 모르는 세션은 안 주는 쪽으로 닫는다.
+    #
+    # ⚠️ 왕관 유입로는 **3개**다 (CO-L5 정정): ⑴ **하루 첫 유닛 세션 완료**(여기) ·
+    # ⑵ 보드 퍼즐 최초 클리어(routers/board.py) · ⑶ /dev 개발 경로
+    # (UserUnitProgress 직접 upsert — grant_unit_crown 미경유). 목록의 단일
+    # 소유자는 curriculum_service 모듈 독스트링이다.
     # 진도 스냅샷(crowns·cleared)과 all_correct·all_resolved 표기는 그대로 나간다.
     unit_result: UnitResult | None = None
     if session.unit_id is not None:
+        daily_first = bool(
+            (getattr(session, "recipe_json", None) or {}).get("daily_first")
+        )
         payload = await curriculum_service.unit_result_for_session(
             db,
             user,
             session.unit_id,
             all_correct=all_correct,
-            grant_crown=False,
+            # 하루 첫 유닛 세션 ∧ 전 문항 정답일 때만 — `grant_unit_crown`이 멱등
+            # 판정(이미 준 왕관은 다시 안 준다)을 갖고 있어 상한은 그쪽이 지킨다.
+            grant_crown=all_correct and daily_first,
         )
         if payload is not None:
             unit_result = UnitResult(**payload, all_resolved=all_resolved)
 
     # 일일 퀘스트 재계산 — 세션 complete 트리거(당일 집계 멱등 재계산) (R4-01 §3.1)
-    await quest_service.recalculate_quests(db, user, session.session_date)
+    # 반환(무엇이 완료됐고 몇 XP인지)을 **버리지 않는다** (CO-T-4): 버렸을 때
+    # 최대 +25 XP가 지급만 되고 화면 어디에도 안 떴고, 요약의 "+N XP"는 문항 XP만이라
+    # 표기가 실지급보다 그만큼 적었다.
+    transitions = await quest_service.recalculate_quests(
+        db, user, session.session_date
+    )
+    quest_rewards = [
+        QuestReward(**event) for event in quest_service.reward_events(transitions)
+    ]
+    bonus_xp = sum(reward.reward_xp for reward in quest_rewards)
 
     db_user = await db.get(User, user.id)
     streak_count = db_user.streak_count if db_user is not None else user.streak_count
     return SessionCompleteResult(
         xp_total=session.xp_total,
+        quest_rewards=quest_rewards,
+        badges_earned=badges_earned,
+        bonus_xp=bonus_xp,
+        # 화면 표기용 총합은 서버가 더한다 — 프론트에 덧셈을 맡기면 더하는 화면마다
+        # 빠뜨릴 수 있고, 그게 정확히 이 결함이 났던 방식이다.
+        xp_awarded=session.xp_total + bonus_xp,
         correct_count=correct_count,
         total=progress.total,
         streak_count=streak_count,

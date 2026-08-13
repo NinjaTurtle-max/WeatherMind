@@ -10,6 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.schemas.curriculum import CrownAward
+from app.schemas.reward import QuestReward
 
 
 class BoardPuzzle(BaseModel):
@@ -18,13 +19,24 @@ class BoardPuzzle(BaseModel):
     difficulty: 1(쉬움)~3(어려움) — routers.board.board_difficulty가 template_json
     (mode·time_limit_sec·palette)과 level_group에서 산출(R7-02 §3.5).
 
-    locked: **학습 수준** 잠금(2026-08-10) — 초등은 쉬움, 중·고등은 보통까지,
-    성인은 전부 열린다. 규칙은 routers.board.locked_difficulties가 소유하고
-    열쇠는 users.level_group이다(진도가 아니다 — 「내 정보 → 학습 수준」이 통로).
-    난이도 안에서는 순서가 없다(board_order는 배치의 근거일 뿐 강제가 아니다) —
-    2026-08-06에 걷어낸 **퍼즐 단위** 순차 잠금과 강제 범위가 다르다.
-    목록은 잠긴 퍼즐도 제목과 함께 내려보낸다(무엇이 기다리는지 보여야 동기가 된다).
-    실제 차단은 진입(GET /puzzles/{id})이 403 PUZZLE_LOCKED로 한다.
+    **잠금은 두 축이고 둘 다 산다**(2026-08-12 병합 판정). 서로 다른 것을 막으므로
+    합쳐도 모순이 아니고, 어느 한쪽을 버리면 사용자 지시 하나를 되돌리게 된다:
+
+    locked: **학습 수준** 잠금(2026-08-10 지시) — *어느 난이도에 들어갈 수 있는가*.
+    초등은 쉬움, 중·고등은 보통까지, 성인은 전부. 규칙은
+    routers.board.locked_difficulties가 소유하고 열쇠는 users.level_group이다
+    (진도가 아니다 — 「내 정보 → 학습 수준」이 통로).
+
+    unlocked: **순차** 잠금(MT-24, 2026-08-11 멘토링 지시) — *열린 난이도 안에서
+    어디까지 왔는가*. 2026-08-06에 "고를 자유가 없다"고 걷어냈던 것을 되살린 것이고,
+    그때의 우려는 BOARD_UNLOCK_LOOKAHEAD가 흡수한다(벽 하나에 막히지 않는다).
+    ⚠️ 순서는 **난이도로 거른 뒤에** 센다 — 전체를 대상으로 세면 초등 학습자의
+    다음 칸이 「보통」인 순간 사슬이 영구히 끊긴다.
+
+    목록은 두 축 모두 **무차단**이다. 잠긴 퍼즐도 제목과 함께 내려보내고 표시만
+    다르게 한다 — 무엇이 기다리는지 보이지 않으면 잠금이 동기가 아니라 벽이 된다
+    (에너지 게이트가 목록을 무차단으로 두는 것과 같은 이유).
+    실제 차단은 진입(GET /puzzles/{id})·attempt(POST)가 403으로 한다.
 
     제목·요약·진행 순서는 template_json 안에 있다(title·summary·board_order —
     시드 저작). template_json을 통째로 노출하므로 별도 필드를 두지 않는다."""
@@ -33,7 +45,10 @@ class BoardPuzzle(BaseModel):
     template_json: dict[str, Any]
     cleared: bool
     difficulty: int
+    # 두 기본값의 방향이 반대인 것은 의도다 — **구 클라이언트·구 응답에서 잠금이
+    # 조용히 생기지 않아야** 한다. 각각 "안 잠김"이 기본이다.
     locked: bool = False
+    unlocked: bool = True
 
 
 class BoardAttemptRequest(BaseModel):
@@ -55,3 +70,10 @@ class BoardAttemptResult(BaseModel):
     # clouds_spent = 실제 소모량(0 또는 CLOUD_COST) · clouds = 소모 후 잔량.
     clouds_spent: int = 0
     clouds: int = 0
+    # R13 CO-T-4 (additive): 이 attempt로 **새로 완료된** 일일 퀘스트와 그 보상 XP.
+    # 보드 통과는 `daily_xp_30`을 넘길 수 있고(+10) 실제로 지급까지 되는데, 종전에는
+    # `recalculate_quests` 반환을 버려 **보드 화면에서 그 사실이 보이지 않았다**.
+    # 미통과(passed=False)면 재계산 자체를 안 하므로 항상 빈 리스트다.
+    quest_rewards: list[QuestReward] = []
+    # sum(quest_rewards.reward_xp) — 퍼즐 XP(xp_earned)와 축이 다르므로 합치지 않는다.
+    bonus_xp: int = 0

@@ -28,8 +28,18 @@ class TestRegenAmount:
         assert es.regen_amount(2, _ago(20), NOW) == 1
 
     def test_100분_경과는_회복_5(self):
-        # 100 // 20 = 5, clamp(2+5, MAX=5) → 회복분 3
-        assert es.regen_amount(2, _ago(100), NOW) == 3
+        # 100 // 20 = 5. 2+5=7 ≤ MAX(10)이라 clamp가 안 걸린다.
+        # ⚠️ MT-7로 만렙이 5 → 10이 되면서 이 값이 3 → 5로 바뀌었다(종전에는
+        # clamp에 잘려 3이었다). 아래에 clamp 자체를 보는 케이스를 따로 둔다.
+        assert es.regen_amount(2, _ago(100), NOW) == 5
+
+    def test_만렙을_넘겨_회복하지_않는다(self):
+        """clamp 경계 — 위 케이스가 만렙 상향으로 clamp를 안 타게 됐다.
+
+        경과 시간을 만렙에서 파생해, 다음에 만렙이 또 바뀌어도 이 검사는 살아 있다.
+        """
+        long_enough = _ago((es.CLOUD_MAX + 2) * es.CLOUD_REGEN_MINUTES)
+        assert es.regen_amount(2, long_enough, NOW) == es.CLOUD_MAX - 2
 
     def test_MAX면_회복_0(self):
         assert es.regen_amount(es.CLOUD_MAX, _ago(100), NOW) == 0
@@ -54,7 +64,10 @@ class TestApplyRegen:
         assert new_updated == _ago(10)
 
     def test_MAX_도달시_updated_at_now로(self):
-        new_clouds, new_updated = es.apply_regen(3, _ago(100), NOW)
+        # 시간을 만렙에서 파생한다 — 100분 리터럴은 만렙 5 시절에만 만렙을 채웠다.
+        new_clouds, new_updated = es.apply_regen(
+            3, _ago((es.CLOUD_MAX + 2) * es.CLOUD_REGEN_MINUTES), NOW
+        )
         assert new_clouds == es.CLOUD_MAX
         assert new_updated == NOW
 

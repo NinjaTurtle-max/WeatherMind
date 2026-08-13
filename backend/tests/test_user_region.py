@@ -252,7 +252,7 @@ class TestSessionLiveSlotWiring:
                 question_type="multiple_choice",
             )
 
-        async def fake_pools(db, u, weak, theta=None):
+        async def fake_pools(db, u, weak, theta=None, today=None):
             # live 풀은 슬롯 없는 템플릿 — 빈 날씨({})여도 치환 성공, 폴백 0.
             # new 풀은 배합 파생(new+review 대체분) — 수를 하드코딩하면 배합 개정
             # (R11-01 §9.2 10문항) 때 생성 폴백이 새어 실 네트워크를 친다.
@@ -555,7 +555,10 @@ class TestMigration0010:
             revisions[found["revision"]] = found.get("down_revision")
         referenced = {down for down in revisions.values() if down}
         heads = set(revisions) - referenced
-        assert heads == {"0013_league_result_unique"}
+        # ⚠️ **개수만 본다** — 리비전을 추가할 때마다 깨지던 자리다
+        # (2026-08-12 `0014_clouds_default_ten`). 감시 대상은 head가 갈라지지
+        # 않는다는 것 하나다.
+        assert len(heads) == 1, f"alembic head가 갈라졌다: {sorted(heads)}"
         assert revisions["0011_retry_round"] == "0010_user_region"
 
     def test_모델_컬럼_계약(self):

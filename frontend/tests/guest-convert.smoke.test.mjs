@@ -3,8 +3,10 @@
  *   node tests/guest-convert.smoke.test.mjs
  *
  * R10-J의 축("투자 후 계정 유도")을 상주 가드로 만든다:
- *   1. LoginPage: 게스트 CTA가 **주 동선**(로그인 폼보다 앞) + 실호출(POST /auth/guest)
- *      → 배치고사 진입. 구 "게스트(테스트)" 톤이 되살아나면 문다.
+ *   1. ~~LoginPage: 게스트 CTA가 주 동선~~ **폐기(2026-08-12)** — 로그인·회원가입
+ *      구조 전면 제거로 그 화면이 삭제됐다. 계약("계정 없이 시작하는 길이 주
+ *      동선")은 사라진 게 아니라 **유일 동선**이 되어 `onboardingGating`
+ *      시나리오 10·10-b·11로 옮겨 갔다. 본문 해당 위치의 주석 참조.
  *   2. GuestSaveBanner 렌더 조건: 게스트 && 진도 있음(xp>0 ∨ streak≥1)일 때만.
  *      진도 없으면 **null**(빈 카드 금지) — 조건을 무력화(항상 렌더)하면 2-a가 문다.
  *      정식 계정이면 진도가 있어도 null(2-c).
@@ -194,10 +196,8 @@ const submitForm = () =>
     .querySelector('form')
     .dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
 
-function loggedOut() {
-  useAuthStore.getState().logout();
-  useOnboardingGate.getState().reset();
-}
+// (`loggedOut()` 헬퍼는 제거됐다 — 유일한 사용처가 시나리오 1(LoginPage)이었고
+//  그 시나리오가 2026-08-12에 폐기됐다. 남은 시나리오는 전부 인증 상태에서 시작한다.)
 function authenticateGuest(token = 'mock-guest-access') {
   useAuthStore.getState().setTokens({ accessToken: token, refreshToken: 'mock-guest-refresh' });
   useAuthStore.getState().setUser({ nickname: '게스트', is_guest: true });
@@ -232,40 +232,23 @@ console.log(
 );
 
 try {
-  // ── 1. LoginPage: 게스트 CTA 주 동선 승격 + 실호출 → 배치고사 ─────────────
-  await scenario('LoginPage: 게스트 CTA가 첫 시선(로그인 폼보다 앞) + POST /auth/guest → 배치고사', async () => {
-    loggedOut();
-    const r = mount(createElement(App), '/login');
-    await waitFor(() => text().includes('계정 없이 바로 시작하기'), 4000, '게스트 주 CTA 렌더');
-    assert(!text().includes('게스트(테스트)'), '구 "게스트(테스트) 계정" 톤이 남아 있다(체험 초대 톤 계약 위반)');
-    assert(text().includes('30초 가입'), '진도 저장 예고(30초 가입) 카피가 없다');
-
-    const guestBtn = [...window.document.querySelectorAll('button')].find((b) =>
-      b.textContent.includes('계정 없이 바로 시작하기'),
-    );
-    const emailInput = byName('email');
-    assert(guestBtn && emailInput, '게스트 CTA 또는 로그인 폼이 없다');
-    // DOM 순서로 "첫 시선"을 고정: 게스트 CTA가 로그인 입력보다 앞이어야 한다.
-    assert(
-      guestBtn.compareDocumentPosition(emailInput) & window.Node.DOCUMENT_POSITION_FOLLOWING,
-      '게스트 CTA가 로그인 폼보다 뒤에 있다(주 동선 강등 회귀)',
-    );
-
-    const mark = xhrLog.length;
-    click(guestBtn);
-    await waitFor(
-      () => xhrLog.slice(mark).some((l) => l === 'POST /api/v1/auth/guest'),
-      4000,
-      'POST /auth/guest 실호출',
-    );
-    await waitFor(() => useAuthStore.getState().accessToken != null, 4000, '게스트 토큰 수신');
-    const { user, accessToken } = useAuthStore.getState();
-    assert(accessToken === 'mock-guest-access', `목 게스트 토큰 기대 — 실제 ${accessToken}`);
-    assert(isGuestUser(user), '게스트 표식(is_guest)이 스토어에 실리지 않았다');
-    // 온보딩 재배치: 게스트도 가입 동선처럼 배치고사로 — "배치고사·첫 세션 완주"(§6.2)
-    await waitFor(() => text().includes('실력 진단'), 5000, '배치고사 화면 진입');
-    r.unmount();
-  });
+  // ── 1. LoginPage 시나리오는 **폐기됐다** (2026-08-12 클라이언트 지시) ──────
+  //
+  // 로그인·회원가입 구조가 전면 제거되면서 `LoginPage.jsx`가 삭제됐다(git rm).
+  // 이 시나리오는 그 화면 안에서 "게스트 CTA가 로그인 폼보다 **앞**에 있는가"를
+  // DOM 순서로 쟀다 — 화면이 없으므로 잴 대상이 없다. `/login`으로 마운트하면
+  // 이제 `*` → `/`로 리다이렉트되어 단정이 통째로 헛돈다.
+  //
+  // **계약이 사라진 것이 아니라 더 강해졌다.** 이 시나리오가 지키던 것은
+  // "계정 없이 시작하는 길이 주 동선"이었는데, 지금은 게스트 발급이 **유일한**
+  // 진입이다(App.jsx `RequireAuth`의 자동 발급). 그 계약의 수신자는
+  // `onboardingGating.smoke.test.mjs` 시나리오 10·10-b·11이다 —
+  // 토큰 없이 진입 → POST /auth/guest 정확히 1회 → 보호 라우트 렌더,
+  // 발급 실패 → 로그인 폼이 아니라 재시도 화면.
+  // 배치고사 진입(구 게스트 CTA의 목적지)은 `placementEntry.smoke.test.mjs`가 문다.
+  //
+  // 여기서 폐기만 하고 옮기지 않으면 이월이 증발하므로 **수신자 이름을 적어 둔다**
+  // (CLAUDE.md 「이월할 때는 받는 문서에 행을 만들 것」).
 
   // ── 2. GuestSaveBanner 렌더 조건 (변이 검증 대상) ─────────────────────────
   await scenario('배너 2-a: 게스트 + 진도 없음 → null (빈 카드 금지)', async () => {
@@ -350,8 +333,15 @@ try {
     fillInput(byName('email'), 'taken@weathermind.dev'); // 목·폴백 공통 중복 시드
     fillInput(byName('password'), 'password-123');
     submitForm();
-    await waitFor(() => text().includes('이미 가입된 이메일'), 4000, '중복 이메일 안내');
-    assert(text().includes('로그인'), '대안 행동(기존 계정 로그인) 안내가 없다');
+    // ⚠️ 2026-08-12(PM 승인): 종전 단정은 `이미 가입된 이메일` + `로그인`이었다.
+    // 안내 문구가 바뀐 이유는 화면이 바뀌었기 때문이다 — 로그인 화면이 같은 날
+    // 제거돼 "그 계정으로 로그인해 주세요"가 **갈 곳 없는 안내**가 됐고, 대회
+    // 규정(화면에 「로그인」 문구 금지)과도 충돌했다. 계약의 실질은 「실패를
+    // 사용자 언어로 알리고 **지금 할 수 있는 행동**을 준다」이고, 그 행동이
+    // '다른 이메일로 다시 저장'으로 바뀐 것이다. 문구 부재는
+    // `onboardingSave.contract.test.mjs` ③이 렌더 텍스트로 따로 문다.
+    await waitFor(() => text().includes('이미 사용 중인 이메일'), 4000, '중복 이메일 안내');
+    assert(text().includes('다른 이메일'), '대안 행동(다른 이메일로 저장) 안내가 없다');
     // 게스트 상태·토큰은 그대로여야 한다 — 실패가 세션을 파괴하면 진도 유실 경로
     assert(useAuthStore.getState().user?.is_guest === true, '실패 후 게스트 표식이 사라졌다');
     r.unmount();
@@ -381,58 +371,25 @@ try {
     assert(byName('email') == null, '정식 계정에 전환 폼이 렌더됐다');
     r.unmount();
   });
-  // ── 6. 게스트 로그아웃 = 진도 영구 소실 → 확인 1단 (R13 CO-P-4) ───────────
-  // 게스트 비밀번호는 무작위 시크릿이라 **재진입 경로가 없다.** 그런데 로그아웃
-  // 버튼은 게스트에게도 헤더에 항상 있고 확인 없이 즉시 실행됐다 — 시연 중 한 번
-  // 누르면 끝이다. `confirm()` 브라우저 모달이 아니라 세션 이탈 확인(§3.5)과 같은
-  // 관례(role=dialog·포커스 관리 4종·대안 제시)를 쓴다.
-  const headerLogout = () =>
-    [...window.document.querySelectorAll('button')].find((b) => b.textContent.trim() === '로그아웃');
-  const guestDialog = () => window.document.querySelector('[data-confirm-dialog="guest-logout"]');
-
-  await scenario('CO-P-4: 게스트 로그아웃은 확인 1단을 거친다(즉시 실행 금지)', async () => {
-    const g = await api('POST', '/auth/guest');
-    authenticateGuest(g.body.access_token);
-    const r = mount(createElement(App), '/');
-    await waitFor(() => headerLogout(), 6000, '헤더 로그아웃 버튼');
-
-    click(headerLogout());
-    await waitFor(() => guestDialog(), 4000, '게스트 로그아웃 확인 모달');
-    assert(useAuthStore.getState().accessToken, '확인 없이 즉시 로그아웃됐다 — 진도 영구 소실 경로');
-    assert(text().includes('지금 나가면 진도가 사라져요'), '무엇을 잃는지 말하지 않는다');
-    assert(text().includes('30초 가입으로 저장하기'), '대안(계정 전환)이 제시되지 않는다');
-    const dlg = guestDialog();
-    assert(dlg.getAttribute('role') === 'dialog' && dlg.getAttribute('aria-modal') === 'true',
-      'role=dialog·aria-modal이 없다 — LeaveIntentDialog 관례 위반');
-    assert(dlg.getAttribute('aria-labelledby') && dlg.getAttribute('aria-describedby'),
-      '제목·본문이 모달에 연결되지 않았다');
-
-    // Esc = 머무르기(안전한 쪽) — 이탈 확인과 같은 규칙
-    window.document.dispatchEvent(
-      new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
-    );
-    await waitFor(() => !guestDialog(), 3000, 'Esc로 모달 닫힘');
-    assert(useAuthStore.getState().accessToken, 'Esc가 로그아웃을 실행했다');
-
-    // 확정은 작은 링크 쪽 — 그때 비로소 세션이 정리된다
-    click(headerLogout());
-    await waitFor(() => guestDialog(), 4000, '확인 모달 재진입');
-    click(window.document.querySelector('[data-confirm-accept="guest-logout"]'));
-    await waitFor(() => !useAuthStore.getState().accessToken, 4000, '확정 후 로그아웃');
-    r.unmount();
-  });
-
-  await scenario('CO-P-4: 정식 계정은 종전대로 즉시 로그아웃(확인은 게스트 전용)', async () => {
-    await api('POST', '/auth/login', { email: 'user@test.dev', password: 'password-123' });
-    useAuthStore.getState().setTokens({ accessToken: 'mock-access', refreshToken: 'mock-refresh' });
-    useAuthStore.getState().setUser({ user_id: 'u-1', email: 'user@test.dev', nickname: '정회원' });
-    const r = mount(createElement(App), '/');
-    await waitFor(() => headerLogout(), 6000, '헤더 로그아웃 버튼');
-    click(headerLogout());
-    await waitFor(() => !useAuthStore.getState().accessToken, 4000, '정식 계정 즉시 로그아웃');
-    assert(!guestDialog(), '정식 계정에 게스트 확인 모달이 떴다 — 되돌릴 수 있는 행동이다');
-    r.unmount();
-  });
+  // ── 6. CO-P-4 로그아웃 확인 시나리오 2건은 **폐기됐다** (2026-08-12) ───────
+  //
+  // 두 시나리오("게스트 로그아웃은 확인 1단을 거친다" · "정식 계정은 즉시
+  // 로그아웃")가 여기 있었다. 클라이언트 지시로 헤더 로그아웃 버튼·확인 모달·
+  // `doLogout`이 통째로 제거되어(`components/Layout.jsx`) 누를 버튼이 없다.
+  //
+  // **CO-P-4가 무효화된 것이 아니라, 더 센 수단으로 해결됐다.** CO-P-4가 막으려던
+  // 위험은 "게스트가 로그아웃을 누르면 진도가 영구 소실된다"였고 — 게스트 비밀번호는
+  // 무작위 시크릿이라 재진입 경로가 없다 — 확인 모달은 그 위험을 **줄이는** 완화책
+  // 이었다. 버튼 자체를 없앤 것은 위험을 **제거**한다. 로그인 화면이 사라진 지금은
+  // 정식 계정에게도 돌아올 문이 없어 완화책으로는 부족하기도 했다.
+  //
+  // 진도를 지키는 길(계정 전환)은 그대로 살아 있고 이 파일의 시나리오 2~5가
+  // 계속 문다 — GuestSaveBanner 렌더 조건 · 전환 왕복 · 409 실패 UX ·
+  // 정식 계정 직접 진입 방어. 즉 **이 파일의 본론은 손대지 않았다.**
+  //
+  // 로그아웃 버튼이 되살아나는 회귀는 `Layout.jsx`의 주석이 경위를 들고 있고,
+  // 로그인 화면 쪽은 `backend/tests/test_r13_mock_policy_parity.py`의
+  // `TestNoLoginInMainFlow`가 라우트 참조 0건으로 감시한다.
 
   // ── 7. 학습 수준 변경 통로 (R13 CO-P-5) ───────────────────────────────────
   // 학령 신고 writer가 `POST /auth/register`의 필드 하나뿐이라, 게스트로 들어온

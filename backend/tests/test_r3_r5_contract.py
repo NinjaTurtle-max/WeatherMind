@@ -7,7 +7,7 @@
 - 보드 채점 권위성(§3.4): 서버가 board_state를 엔진으로 재판정하며, 클라이언트가
   판정 결과(passed/phenomena)를 **주입할 통로 자체가 없다**(요청 스키마 구조 증명) +
   실제 채점 레지스트리(GRADERS["board"])가 goal_conditions로만 판정한다.
-- 구름 에너지 상수(§3.3): CLOUD_MAX=5·CLOUD_REGEN_MINUTES=20이 소스의 리터럴 상수와
+- 구름 에너지 상수(§3.3): CLOUD_MAX=10·CLOUD_REGEN_MINUTES=20이 소스의 리터럴 상수와
   일치(계약 수치 고정).
 - 커리큘럼 3자 스키마 정합(§3.2·§3.6): 동일한 units.json을 백엔드 로더(seed_units)와
   AI 게이트(validate_chain.validate_curriculum)가 **둘 다** 수용한다.
@@ -133,7 +133,8 @@ class TestCloudEnergyConstants:
     def test_상수_임포트값(self):
         from app.services import energy_service
 
-        assert energy_service.CLOUD_MAX == 5
+        # 만렙 10 — 2026-08-11 멘토링(MT-7)으로 5에서 올렸다.
+        assert energy_service.CLOUD_MAX == 10
         assert energy_service.CLOUD_REGEN_MINUTES == 20
 
     def test_Settings_기본값_계약수치(self):
@@ -141,7 +142,7 @@ class TestCloudEnergyConstants:
         from app.core.config import Settings
 
         fields = Settings.model_fields
-        assert fields["CLOUD_MAX"].default == 5
+        assert fields["CLOUD_MAX"].default == 10
         assert fields["CLOUD_REGEN_MINUTES"].default == 20
         assert fields["CLOUD_COST"].default == 1
 
@@ -185,9 +186,12 @@ class TestCurriculumThreeWaySchema:
     """
 
     def test_units_json_로드(self):
-        # R12 AU-2: 기상 16(12+재난 4) + 기초과학 8(specs/11 §2) = 20
+        # CO-G1 순환식 재구조화(2026-08-12): 기상 138(지식 단계 10섹션) +
+        # 기초과학 99(별도 코스 유지 · 3섹션) = **237**. 24 → 93 → 237.
+        # 2차 확대의 이유는 문항 소진율이다(45% → 97.7%).
+        # 설계 근거·파생 규칙은 docs/design/cyclic_sections.md.
         units = json.loads(UNITS_JSON.read_text(encoding="utf-8"))
-        assert isinstance(units, list) and len(units) == 24
+        assert isinstance(units, list) and len(units) == 237
 
     def test_백엔드_로더_수용(self):
         from app.scripts.seed_units import validate_entry
@@ -211,7 +215,10 @@ class TestCurriculumThreeWaySchema:
         validate_chain = _import_ai_worker_validate_chain()
         units = json.loads(UNITS_JSON.read_text(encoding="utf-8"))
         weather_units = [u for u in units if u.get("course") == "weather"]
-        assert len(weather_units) == 16  # 원계약(R5) 범위 불변 가드
+        # CO-G1(2026-08-12): 16 → 85. 이 리터럴은 **게이트보다 앞에서 멈추는
+        # 자리**라 낡으면 게이트 자체가 실행되지 않는다 — 실제로 재구조화 검증 때
+        # `validate_curriculum`을 이 단정 밖에서 따로 돌려야 했다.
+        assert len(weather_units) == 138  # 원계약(R5) 범위 가드 — 코스 경계 불변
         content = json.loads(CONTENT_JSON.read_text(encoding="utf-8"))
         result = validate_chain.validate_curriculum(weather_units, content)
         failed = [c for c in result["checks"] if not c["passed"]]

@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import XPBar from './XPBar';
@@ -8,7 +8,7 @@ import CloudEnergyBadge from './CloudEnergyBadge';
 import LocaleSwitcher from './LocaleSwitcher';
 import TabBar from './TabBar';
 import SideNav from './SideNav';
-import ConfirmDialog from './ConfirmDialog';
+import RegionOnboardingNotice from './RegionOnboardingNotice';
 import { useT } from '../i18n';
 import { authApi, progressApi } from '../api';
 import { isGuestUser } from '../modules/auth/guest';
@@ -31,13 +31,13 @@ import { useOnboardingGate } from '../lib/onboardingGate';
  * - 새로 열린 탭은 1회성 축하 토스트로 알린다(§3.4).
  */
 export default function Layout() {
-  const navigate = useNavigate();
   const t = useT();
   // 넓은 컨테이너를 쓰는 화면(데스크톱) — 홈 대시보드와 학습 경로 둘 다 가로를
   // 넓게 쓴다. 페이지 쪽에서 100vw 음수 마진으로 컨테이너를 탈출하면 스크롤바
   // 폭만큼(100vw > clientWidth) 가로 스크롤이 생기므로, 폭은 레이아웃이 소유한다.
   const pathname = useLocation().pathname;
-  // /board는 플레이가 3열(팔레트·지도·미션)이라 576px로는 가운데 열이 0으로 눌린다.
+  // /board는 플레이가 넓은 배치(문제 배너 + 조작 / 관찰 2열 — 2026-08-11 개편 전에는
+  // 팔레트·지도·미션 3열이었다)라 576px로는 지도 열이 0으로 눌린다.
   // 한때 보드만 7xl로 한 단계 더 넓게 썼다(지도를 크게 쓰려고). 되돌렸다
   // (2026-08-07) — 헤더는 전 화면 고정 폭인데 본문만 넓어서, 보드에서만 제목·판이
   // 헤더 항목보다 40px 왼쪽에서 시작했다. 화면을 오갈 때 눈에 띄게 어긋난다.
@@ -58,17 +58,19 @@ export default function Layout() {
     || pathname === '/duel'
     || pathname === '/league'
     || pathname === '/me'
+    // 세션도 2열이 됐다(2026-08-11 사용자 지시 — 왼쪽 문항 / 오른쪽 정답·해설).
+    // 576px에서는 한 열이 264px라 보기 4개짜리 문항이 다 접힌다.
+    // 자유 일일 세션(`/daily`)이 여기 함께 있었는데 라우트가 제거됐다
+    // (2026-08-12) — 이제 같은 SessionRunner를 쓰는 것은 유닛 세션뿐이다.
+    || pathname.startsWith('/learn/units/')
     || isBoard;
   const shellWidth = isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);
   const userKey = useAuthStore((s) => s.user?.user_id ?? null);
-  const logoutLocal = useAuthStore((s) => s.logout);
   const setProgress = useProgressStore((s) => s.setProgress);
-  const resetProgress = useProgressStore((s) => s.reset);
 
   const syncGate = useOnboardingGate((s) => s.syncFromProgress);
   const recordSessionComplete = useOnboardingGate((s) => s.recordSessionComplete);
-  const resetGate = useOnboardingGate((s) => s.reset);
 
   const sessionStatus = useSessionStore((s) => s.status);
   const sessionSummary = useSessionStore((s) => s.summary);
@@ -98,16 +100,18 @@ export default function Layout() {
 
 
   /**
-   * 게스트 로그아웃 = 진도 영구 소실 (R13 CO-P-4).
+   * **로그아웃은 없다**(2026-08-12 클라이언트 지시 — 로그인·회원가입 구조 전면 제거).
    *
-   * 게스트 비밀번호는 무작위 시크릿이라 **재진입 경로가 존재하지 않는다.** 그런데
-   * 로그아웃 버튼은 게스트에게도 헤더 오른쪽 끝에 항상 있고 확인 없이 즉시 실행됐다 —
-   * 시연 중 한 번 누르면 XP·θ·스트릭이 DB에 고아로 남고 끝이다.
+   * 없앤 것이 기능이 아니라 **막다른 길**이라는 점을 적어 둔다. 게스트 비밀번호는
+   * 무작위 시크릿이라 재진입 경로가 존재하지 않는다 — 게스트에게 로그아웃은
+   * 「진도 영구 소실」 버튼이었고(CO-P-4가 확인 1단을 붙인 이유가 그것이다),
+   * 로그인 화면이 사라진 지금은 정식 계정에게도 돌아올 문이 없다.
+   * 그래서 버튼·확인 모달·`doLogout`을 통째로 걷어냈다.
    *
-   * 게스트 판별의 **1순위는 서버**(`GET /auth/me`)다: 종전에는 100% 클라이언트 상태
-   * 의존이라 그 상태가 유실되면 경고 자체가 사라졌다(P-10). 조회가 실패하거나 아직
-   * 도착하지 않았으면 종전 신호(`user.is_guest` ∨ 이메일 도메인)로 떨어진다 —
-   * **경고를 못 띄우는 쪽보다 한 번 더 묻는 쪽이 안전하다.**
+   * 계정 전환(`/account/convert`)은 **남는다** — 진도를 지우는 길이 아니라
+   * 지키는 길이고, 로그인 화면과 무관하게 성립한다.
+   *
+   * 게스트 판별(`isGuest`)은 계정 전환 배너가 계속 쓰므로 아래에 그대로 둔다.
    */
   const { data: me } = useQuery({
     queryKey: ['auth', 'me'],
@@ -118,29 +122,6 @@ export default function Layout() {
   });
   const storeUser = useAuthStore((s) => s.user);
   const isGuest = me ? me.is_guest === true : isGuestUser(storeUser);
-  const [logoutIntent, setLogoutIntent] = useState(false);
-
-  const doLogout = async () => {
-    setLogoutIntent(false);
-    try {
-      await authApi.logout();
-    } catch {
-      // 서버 로그아웃 실패해도 로컬 세션은 정리한다.
-    }
-    logoutLocal();
-    resetProgress();
-    resetGate(); // 다음 로그인 계정에서 다시 판정 — 계정 간 게이트 누출 방지
-    navigate('/login', { replace: true });
-  };
-
-  // 정식 계정은 종전 그대로 즉시 로그아웃한다(되돌릴 수 있으므로 확인이 마찰일 뿐).
-  const handleLogout = () => {
-    if (isGuest) {
-      setLogoutIntent(true);
-      return;
-    }
-    doLogout();
-  };
 
   return (
     <div className="wm-shell pl-[var(--wm-shell-left)]">
@@ -175,13 +156,6 @@ export default function Layout() {
           {/* 로케일 전환(§6.3) — header 안·nav 밖(gating 스모크가 탭바 항목 수를
               단정한다). compact = 버튼 1개 아이콘화로 R10 헤더 겹침 재발 방지. */}
           <LocaleSwitcher compact />
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-900"
-          >
-            {t('nav.logout')}
-          </button>
         </div>
       </header>
 
@@ -201,31 +175,18 @@ export default function Layout() {
 
         {/* 헤더/탭바 높이만큼 여백 확보 — 탭바는 md↑에서 숨으므로 하단 여백을 줄인다 */}
         <main className="flex-1 px-4 pb-20 pt-16 md:pb-8">
+          {/* 위치 안내(2026-08-12 요구 ⑶) — 지역 미설정일 때만, 본문 **흐름 안**에.
+              모달이 아니다: 규정이 「로그인 없이 열려야」이므로 아무것도 안 눌러도
+              아래 화면이 그대로 조작 가능해야 한다. 라우트마다 다시 붙이지 않고
+              레이아웃이 한 번만 소유한다 — 첫 착지(`/learn`)든 딥링크든 접속
+              직후에 보이는 것이 요구다. 조건 미충족이면 컴포넌트가 스스로 null. */}
+          <RegionOnboardingNotice />
           <Outlet />
         </main>
 
         <TabBar />
       </div>
 
-      {/* 게스트 로그아웃 확인 1단(CO-P-4) — 세션 이탈 확인(§3.5)과 같은 위계다:
-          큰 CTA가 사고를 막고, 작은 링크가 의도를 확인한다. 가운데에 "가입해서
-          저장하기"를 둔다 — 여기가 계정 전환을 가장 절실하게 설명하는 자리다. */}
-      {logoutIntent && (
-        <ConfirmDialog
-          testId="guest-logout"
-          title={t('logoutGuest.title')}
-          body={t('logoutGuest.body')}
-          stayLabel={t('logoutGuest.stay')}
-          onStay={() => setLogoutIntent(false)}
-          altLabel={t('logoutGuest.save')}
-          onAlt={() => {
-            setLogoutIntent(false);
-            navigate('/account/convert');
-          }}
-          confirmLabel={t('logoutGuest.quit')}
-          onConfirm={doLogout}
-        />
-      )}
     </div>
   );
 }

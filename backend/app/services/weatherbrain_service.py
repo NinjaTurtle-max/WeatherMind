@@ -35,9 +35,13 @@ from app.services.ai_client import AIWorkerError
 logger = logging.getLogger(__name__)
 
 # 정본 개념 태그 — database/seed/content_items.json 과 일치(계약 테스트가 감시).
-# 배치고사 6문항의 선별 도메인 — **기상 코스 6종만**(R12 §9 판정).
-# CONCEPT_TAGS(아래, 12종)는 가입 시 θ를 초기화하는 전체 개념 목록이고, 배치 문항은
-# PLACEMENT_SIZE=6으로 개념당 1을 만족해야 하므로 도메인을 기상 6종으로 한정한다.
+# 배치고사의 선별 도메인 — **기상 코스 6종만**(R12 §9 판정).
+# CONCEPT_TAGS(아래, 12종)는 가입 시 θ를 초기화하는 전체 개념 목록이다.
+# ⚠️ **근거가 바뀌었다**(2026-08-12 PM 판정 `PLACEMENT_SIZE` 6 → 10):
+# 종전 근거는 "PLACEMENT_SIZE=6으로 개념당 1을 만족해야 한다"였는데, 슬롯이 10칸이
+# 되면서 「개념당 1」은 성립하지 않는다 — 슬롯은 지식 단계 1~10을 겨냥하고
+# (`placement_service.target_level_sequence`) 개념은 이 6종을 **순환**한다.
+# 도메인을 6종으로 유지하는 근거는 이제 「진단은 기상 코스만 잰다」(R12 §9)뿐이다.
 # 기초과학 개념의 θ는 사전분포로 초기화되고 실제 응답으로 갱신된다(specs/11 §4).
 PLACEMENT_QUIZ_TAGS: tuple[str, ...] = (
     "pressure_front",

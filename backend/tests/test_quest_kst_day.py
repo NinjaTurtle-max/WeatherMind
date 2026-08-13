@@ -324,6 +324,37 @@ class TestDoubleSubmitGuard:
         assert asyncio.run(quest_service.recalculate_quests(db, fake_user())) == []
         assert db.added == []
 
+    def test_시드에_없는_코드는_반환에도_안_실린다(self, monkeypatch):
+        """부분 시드 — 지급도 저장도 안 되는 전환을 화면에 말하면 안 된다 (CO-T-4).
+
+        `quests` 행이 없으면 `add_xp`도 `UserQuestProgress` 쓰기도 건너뛴다. 그런데
+        전환만 반환하면 응답의 `bonus_xp`/`xp_awarded`가 **주지 않은 XP를 신고**한다.
+        게다가 행이 안 남아 `prior_done`이 계속 False라, 그 유령 칩은 이후 **모든**
+        세션 완료·보드 통과에서 되살아난다 — 이 항목이 고친 결함(표기 < 실지급)의
+        정확한 역상이다.
+        """
+        patch_weak(monkeypatch)
+        monkeypatch.setattr(quest_service, "kst_today", lambda: DAY)
+        granted: list[int] = []
+
+        async def fake_add_xp(db, user_id, amount):
+            granted.append(amount)
+            return amount
+
+        monkeypatch.setattr(quest_service.xp_service, "add_xp", fake_add_xp)
+
+        # daily_xp_30만 시드에서 빠진 상태 — 정답 2문항이라 완료 조건은 충족한다
+        partial = [q for q in quest_rows() if q.code != quest_service.QUEST_DAILY_XP]
+        db = FakeDB({"Quest": partial, "QuizLog": [log(KST_0200), log(KST_0200)]})
+        transitions = asyncio.run(
+            quest_service.recalculate_quests(db, fake_user(), DAY)
+        )
+
+        codes = [t.code for t in transitions]
+        assert quest_service.QUEST_DAILY_XP not in codes
+        assert quest_service.reward_events(transitions) == []
+        assert granted == []  # 지급 0 — 반환도 0이어야 정합
+
 
 # ═══════════════════════════════════════════════════════════════
 # 모델 계약 — 하루 1행 보장(락과 함께 이중 지급을 막는 반쪽)

@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { curriculumApi } from '../../api';
 import SessionRunner from '../session/SessionRunner';
 import { DailyGoalMeter } from '../progress/DailyGoal';
+import RewardChips from '../progress/RewardChips';
+import { SessionBlocks } from '../session/SessionSummary';
 import { useT } from '../../i18n';
 
 /**
@@ -38,8 +40,8 @@ export default function UnitSessionPage() {
           queryClient.invalidateQueries({ queryKey: ['curriculum'] });
           queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
         }}
-        renderSummary={(summary) => (
-          <UnitSummary summary={summary} onNext={() => navigate('/learn')} />
+        renderSummary={(summary, items) => (
+          <UnitSummary summary={summary} items={items} onNext={() => navigate('/learn')} />
         )}
       />
     </div>
@@ -52,7 +54,7 @@ export default function UnitSessionPage() {
  * crown_target 반영: 왕관은 n/target로 표시하고, 만점이어도 target 미달이면
  * "클리어"가 아니라 남은 왕관 안내를 보여준다(crown_target≥2 유닛 대비).
  */
-function UnitSummary({ summary, onNext }) {
+function UnitSummary({ summary, items, onNext }) {
   const t = useT();
   const ur = summary?.unit_result ?? {};
   const cleared = ur.cleared;
@@ -89,7 +91,12 @@ function UnitSummary({ summary, onNext }) {
           <p className="mt-0.5 text-xs font-medium text-slate-500">{t('session.summary.correct')}</p>
         </div>
         <div className="rounded-xl bg-sky-50 p-3">
-          <p className="text-lg font-extrabold text-sky-600">+{(summary?.xp_total ?? 0) + (ur.unit_xp ?? 0)}</p>
+          {/* CO-T-4: 문항 XP가 아니라 서버가 더한 `xp_awarded`(문항 + 퀘스트 보상)에
+              유닛 보너스를 얹는다. `xp_total`만 쓰던 종전에는 유닛 세션으로 일일
+              퀘스트를 완료해도 그 +10/+5가 표기에서 빠졌다. 구 응답은 0 폴백. */}
+          <p className="text-lg font-extrabold text-sky-600">
+            +{(Number(summary?.xp_awarded) || summary?.xp_total || 0) + (ur.unit_xp ?? 0)}
+          </p>
           <p className="mt-0.5 text-xs font-medium text-slate-500">{t('session.summary.xp')}</p>
         </div>
       </div>
@@ -97,6 +104,19 @@ function UnitSummary({ summary, onNext }) {
       {ur.unit_xp > 0 && (
         <p className="mt-3 text-xs font-bold text-amber-600">{t('unitSession.bonus', { xp: ur.unit_xp })}</p>
       )}
+
+      {/* 방금 받은 보상 (CO-T-4) — 유닛 세션도 일일 퀘스트를 완료시킬 수 있다 */}
+      <RewardChips
+        className="mt-3"
+        quests={summary?.quest_rewards}
+        badges={summary?.badges_earned}
+      />
+
+
+      {/* 블록 구분 표기 — 데일리와 **같은 컴포넌트**를 쓴다. 하루 첫 유닛 세션은
+          `실황2·신규4·복습3·보드1` 배합을 받으므로 여기서 그 구성이 보여야 한다.
+          두 번째 이후 세션은 전건 `unit`이라 칩 하나로 접힌다. */}
+      <SessionBlocks items={items} className="mt-5" />
 
       {/* 오늘 목표 N/M (R10-01 §3.4 — 웨이브 1 잔여: 데일리 SessionSummary와 같은 방식).
           목표 미설정이면 렌더되지 않는다. */}

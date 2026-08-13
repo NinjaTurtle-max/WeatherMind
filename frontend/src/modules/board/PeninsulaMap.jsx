@@ -72,6 +72,25 @@ const RIDGE = 'M62.0,22.0 C65.5,31.0 66.5,40.0 64.5,48.0 C62.8,55.5 59.0,61.0 55
  * 폴백 2경로: (a) WebGL2 미지원·초기화 실패·컨텍스트 소실 → 아래 SVG 레이어 +
  * Canvas2D PrecipCanvas 그대로, (b) SSR → 항상 폴백 경로(GL 접근 0).
  */
+/**
+ * 존 표시명 (MT-28) — **서버 원문을 그대로 그리지 않는다.**
+ *
+ * `region.name`은 `GET /board/regions`(또는 시드 사본 FALLBACK_REGIONS)에서 오는
+ * **서버 값**이라 항상 한국어다. 값 자체는 판정·계약이 쓰는 정본이므로 바꾸지 않고,
+ * 표시만 로케일 리소스로 덮는다 — `RegionPicker`가 `geoSnap` 서버 값을
+ * `t('region.city.*')`로 덮는 것과 같은 관례다.
+ *
+ * 키는 **존 인덱스**다(`boardEngine.ZONES`가 "index 0~3 고정"을 계약으로 못박았다).
+ * 이름으로 키를 만들면 서버가 표기를 바꾸는 순간 조용히 키 미스가 나고 한국어가
+ * 되돌아온다 — 인덱스는 계약이라 그런 일이 없다.
+ * 리소스에 없는 인덱스면 서버 원문으로 폴백한다(빈 라벨보다 낫다).
+ */
+export function zoneLabel(region, zone, t) {
+  const key = `board.map.zone.${zone}`;
+  const label = t(key);
+  return label === key ? (region?.name ?? '') : label;
+}
+
 export default function PeninsulaMap({ regions, preview, board, goals, goalConditions, selected, interactive, onZoneTap, dragging = false, dragOverZone = null, zoneVisuals = null }) {
   const t = useT();
   const reduced = usePrefersReducedMotion();
@@ -232,7 +251,7 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
                 data-board-zone={zone}
                 role="button"
                 tabIndex={interactive ? 0 : -1}
-                aria-label={t('board.map.zoneAria', { name: region.name, goal: isGoalZone ? t('board.map.goalSuffix') : '', phenomenon: ph.label })}
+                aria-label={t('board.map.zoneAria', { name: zoneLabel(region, zone, t), goal: isGoalZone ? t('board.map.goalSuffix') : '', phenomenon: ph.label })}
                 aria-disabled={!interactive}
                 onClick={() => interactive && onZoneTap(zone)}
                 onKeyDown={(e) => {
@@ -344,7 +363,7 @@ export default function PeninsulaMap({ regions, preview, board, goals, goalCondi
               paintOrder="stroke"
               style={{ pointerEvents: 'none' }}
             >
-              {region.name}
+              {zoneLabel(region, zone, t)}
             </text>
           );
         })}

@@ -29,7 +29,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -40,10 +40,42 @@ from app.models.session import Session
 from app.models.unit import Unit, UserUnitProgress
 from app.models.user import User
 from app.services import session_service, weatherbrain_service, xp_service
+# ⚠️ `get_today_weather`·`user_region`은 여기서 더 이상 쓰지 않는다 — 유닛 실황
+# 경로(`unit_slot_values`)와 함께 2026-08-13에 철거됐다. 하루 첫 유닛 세션의 실황은
+# `session_service.plan_daily_picks`가 자기 안에서 조회한다.
 from app.services.weather_api import KST
 
 MODE_UNIT = "unit"
-UNIT_SESSION_SIZE = settings.UNIT_SESSION_SIZE   # 기본 5 — env 튜닝(R5.5)
+# 유닛 세션 문항 수 — **「두 번째 이후」 전용**(2026-08-13 클라이언트 확정).
+# 하루 첫 유닛 세션은 그 자체가 데일리 세션이라 크기의 소유자가 여기가 아니라
+# `Settings.SESSION_RECIPE`의 총합(10)이다. 자세한 것은 `create_unit_session`.
+UNIT_SESSION_SIZE = settings.UNIT_SESSION_SIZE   # env 튜닝(R5.5)
+
+# ⚠️ **유닛 실황 경로는 2026-08-13에 철거됐다** — `UNIT_LIVE_CAP`(2) ·
+# `UNIT_LIVE_POOL_LIMIT`(100) · `live_rotation_window` · `unit_slot_values` ·
+# `_unit_content_pool(slot_values=...)`가 모두 여기 있었다. 되살리지 말 것.
+#
+# **왜 필터 보강이 아니라 철거인가** — 두 이유가 겹쳤다.
+#   ⑴ **아무도 안 쓰는 경로가 됐다.** 확정 사양에서 하루 **첫** 유닛 세션은
+#      데일리 배합(`실황2·신규4·복습3·보드1`)을 받으므로 실황을 daily 경로가 주고,
+#      **두 번째 이후**는 실황이 **0건**인 순수 학습이다. 어느 쪽도 이 경로를 타지
+#      않는다.
+#   ⑵ **애초에 사양대로 돈 적이 없다.** 실황 풀 조회가 `weak_concepts=[unit.
+#      concept_tag]`를 **하드 WHERE**로 걸어, 순환 풀이 실황 20종이 아니라
+#      **개념당 1~4건**이었다. `pressure_front`는 2건뿐이라 `UNIT_LIVE_CAP=2`가
+#      **매일 같은 2건 전부**를 넣었다 — 「20종·10일 순환」은 유닛 층위에서 한 번도
+#      존재하지 않았고, 기상 138유닛 기준 실황 픽의 74%가 표적 단계에서 2단계
+#      이상 벗어났다. 도는 적이 없던 순환에 창 필터를 덧대는 것은 낭비다.
+#
+# ⚠️ **딸려 나간 것 하나 — 같은 날 복원됐다.** `live_rotation_window`는 「날짜
+# 결정적 10일 순환」의 저장소 유일 구현이었고, 철거 직후 클라이언트 결정 ④의
+# 「실황 20유형 · 세션당 2건 · 10일 순환」은 코드에 소유자가 **없었다**(daily의
+# 실황 선택이 `limit 5 · 오늘 응답분 제외 · |b−θ|→random`이라 순환이 아니었다).
+# **새 소유자는 `session_service.live_rotation_order`**이고, 자리는 예고대로
+# 유닛이 아니라 **daily live 풀**(`session_service._fetch_pools`)이다. 옮기면서
+# 바뀐 것 하나: 표적 정렬(|kl − 표적|)이 1차 키로 앞에 붙어 회전 범위가 거리
+# 계층 코호트로 좁아졌다 — 주기 산식과 그 근거는 그 함수의 독스트링이 소유한다.
+# 여기 유닛 경로로 되살리지 말 것은 그대로다.
 
 # 유닛 풀 선취 배수 (CO-L-F2) — θ 경로에서 SQL LIMIT을 UNIT_SESSION_SIZE의 이 배로
 # 잡는다. SQL은 밴드 해상도(|b−θ|)로만 자를 수 있어, 5건에서 끊으면
@@ -58,13 +90,33 @@ UNIT_POOL_PREFETCH = 4
 # 아래 튜플 자신**이고, 코스별 분포는 `database/seed/units.json`이 소유한다.
 # 미등재 섹션은 뒤로(알파벳). unit_order는 섹션 내 유일(§3.6).
 SECTION_ORDER = (
-    "하늘 읽기", "공기의 힘", "큰 바람", "도시와 기후",
-    # 재난 축 1차 개통 (R13 §2.4 · CO-A1) — "위험 기상 생성 보드 → 행동 요령" 연쇄.
-    "위험한 하늘",
-    # 기초과학 코스 3섹션 (R12 §9 — specs/11 §2 순서: 열·복사 → 압력·밀도 → 상태변화).
+    # 기상 코스 10섹션 = 지식 단계 1~10 (CO-G1 순환식 — docs/design/cyclic_sections.md).
+    # **섹션명은 여기가 원본이 아니다.** /me 화면이 렌더하는 10단계 표시명
+    # (frontend/src/i18n/resources/ko.js `ability.knowledgeLevel.name`)의 사본이고,
+    # 원본은 database/seed/units.json이 소유한다.
+    "초등 3~4학년", "초등 5~6학년", "중학교 물질·에너지", "중학교 유체 지구",
+    "고등학교 공통", "고등학교 일반선택", "고등학교 진로선택",
+    "학부 대기과학", "학부 고학년", "기상청 현업",
+    # 기초과학 3섹션 — **별도 코스로 존치**(2026-08-12 클라이언트 확인).
     # 코스가 갈려도 정렬 키는 전역 하나로 충분하다 — 섹션명이 코스 간 유일.
     "열과 빛", "공기의 무게", "물과 에너지",
 )
+# 종전 기상 5종("하늘 읽기"·"공기의 힘"·"큰 바람"·"도시와 기후"·"위험한 하늘")은
+# 2026-08-12 재구조화로 사라졌다. 미등재 섹션은 `_section_key`가 뒤로(알파벳)
+# 보내므로, 새 10종이 여기 없으면 **초등이 뒤쪽에서 렌더된다** — 교육과정이 거꾸로
+# 선다. 실제로 그 상태로 한 번 실측됐고(담당 D: 13개 중 10번째), 클라이언트가
+# "열과빛 → 공기의무게"로 시작하는 화면을 지적한 것이 바로 그 증상이다.
+
+# 섹션 → 지식 단계. 기상 코스 섹션은 **이름 자체가 단계**라 별도 컬럼을 두지 않는다
+# (units.json에 knowledge_level 필드를 넣으면 같은 사실이 두 곳에 적히고, 이 저장소
+# 에서 가장 잘 기록된 실패 유형이 "두 번째 사본"이다). 앞 10종이 기상 코스의 단계
+# 축이라는 것은 위 배열의 구조적 계약이고, 그 사실은 계약 테스트가 감시한다.
+# 기초과학 3섹션은 단계 축이 아니라 **코스**이므로 매핑에 넣지 않는다 — 넣으면
+# 그 유닛의 θ 파생 표적이 엉뚱한 단계로 덮인다.
+WEATHER_SECTION_COUNT = 10
+SECTION_KNOWLEDGE_LEVEL = {
+    name: i + 1 for i, name in enumerate(SECTION_ORDER[:WEATHER_SECTION_COUNT])
+}
 
 # 기본 코스 (R11-01 §3 F) — 기존 유저·course 파라미터 생략·코스 미시드 DB 전부
 # weather가 기본이다. 코스별 유저 선택 영속화는 웨이브 2(코스 선택 UX와 함께).
@@ -189,6 +241,28 @@ def _section_key(section: str) -> tuple[int, str]:
         return (SECTION_ORDER.index(section), "")
     except ValueError:
         return (len(SECTION_ORDER), section)
+
+
+def unit_target_level(unit: Any, fallback: int | None) -> int | None:
+    """유닛의 표적 지식 단계 — 섹션이 단계를 말하면 그것이 이기고, 아니면 θ 파생값.
+
+    CO-G1 순환식 배선의 본체다(`docs/design/cyclic_sections.md` §5-①). 배선 전에는
+    `_unit_content_pool`이 `concept_tag + kind`로만 풀을 골랐고 단계 표적은 **유저
+    θ에서만** 나왔다 — 그래서 `w01-pressure-front`(초등 3~4학년)와
+    `w09-pressure-front`(학부 고학년)가 **완전히 같은 5문항**을 냈고, 10섹션은
+    화면상의 장식이었다.
+
+    ⚠️ **정렬 표적이지 필터가 아니다.** `rank_by_knowledge_level`에만 넘기고
+    SQL의 `where`로 내리지 않는다 — `test_curriculum_band_fallback`의
+    `test_지식수준_고정반경으로는_굶주림이_안_풀린다`가 "고정 kl 창은 밴드 공백을
+    단계 공백으로 옮길 뿐"임을 실측으로 못 박아 두었다. 표적 단계에 문항이 없으면
+    **가장 가까운 단계로 내려앉고 굶지 않는다**.
+
+    기초과학 3섹션(단계 축이 아니라 코스다)과 섹션이 없거나 미등재인 유닛
+    (대역 객체·재구조화 전 유닛)은 매핑에 없으므로 `fallback`(θ 파생)이 그대로
+    산다 — 하위 호환이 이 한 줄에 들어 있다.
+    """
+    return SECTION_KNOWLEDGE_LEVEL.get(getattr(unit, "section", None), fallback)
 
 
 def ordered_units(units: Iterable[Any]) -> list[Any]:
@@ -668,7 +742,14 @@ async def is_unit_locked(
 def unit_pool_level_groups(user_level_group: str, theta: float | None) -> list[str]:
     """유닛 풀의 밴드 필터 집합 — **밴드 공백에 대한 폴백** (CO-L2·CO-L-F2·CO-L-F3).
 
-    `session_service.pool_level_groups`(가입 그룹 ∪ θ 매핑 그룹, 최대 2밴드)를
+    ⚠️ **2026-08-12부터 이 함수는 `session_service.pool_level_groups`와 같은 값을
+    돌려준다.** 클라이언트 확정("무조건 배치고사에 따른 위치 배정")으로 daily 풀도
+    θ 경로에서 전 밴드를 열었기 때문이다 — 즉 유닛 풀이 **먼저 옳았고** 나머지가
+    따라온 형태다. 두 함수를 합치지 않고 남기는 이유는 이 자리가 넓힘의 근거
+    (아래 실측·반경 검증)를 소유하고 있고, 유닛 풀만 다시 좁혀야 할 일이 생겨도
+    호출측을 안 건드리게 하기 위해서다.
+
+    `session_service.pool_level_groups`(종전: 가입 그룹 ∪ θ 매핑 그룹, 최대 2밴드)를
     유닛 풀에서만 넓힌다. 넓히는 이유는 실측이다 — 유닛 24개 × 4밴드 96칸 중
     **16칸이 0문항**(신고 가능한 3밴드로만 세도 9칸)이고, 밴드 정확 일치 필터에는
     강등 폴백이 없어 그 칸에 떨어진 유저는 **0문항 세션**을 받는다. 유닛 세션에는
@@ -762,7 +843,11 @@ def rank_by_knowledge_level(items: list, target_level: int | None) -> list:
 
 
 async def _unit_content_pool(
-    db: AsyncSession, user: User, unit: Unit, abilities: list | None = None
+    db: AsyncSession,
+    user: User,
+    unit: Unit,
+    abilities: list | None = None,
+    today: date | None = None,
 ) -> list[ContentItem]:
     """유닛의 concept_tag+kind 문항 풀 — θ→난이도 연결 (R7-02 §3.3).
 
@@ -781,8 +866,19 @@ async def _unit_content_pool(
       먼저 자르면 재정렬이 볼 후보가 남지 않기 때문이다 — 조회 **횟수**는 그대로다.
     - 콜드스타트(θ None)는 현행과 완전 동일: 가입 그룹 단일 + random 정렬 +
       선취 없음 + 재정렬 없음(단계 표적이 없으므로).
-    - 슬롯 미치환 노출 방지의 live 슬롯 제외(live=False)는 board에도 적용된다
-      (유닛 세션은 슬롯 치환이 없고, 시드상 board는 전부 uses_live_slots=false).
+
+    ⚠️ **이 풀은 실황 문항을 내지 않는다** — `build_pool_query(live=False)`가
+    `uses_live_slots=true`를 제외한다. 2026-08-12~13 사이에 잠깐 실황 예약분
+    (`slot_values`·`UNIT_LIVE_CAP`·`live_rotation_window`)이 얹혀 있었으나
+    **철거됐다**(사유는 모듈 상단 주석). 지금 이 풀의 소비자는 둘 다 실황을
+    받으면 안 되는 자리다:
+      · **두 번째 이후 유닛 세션** — 확정 사양이 「실황 0 · 보드 0」인 순수 학습.
+      · **daily 진도 블록**(`progress_block_pool`) — `session_service`의 발급
+        루프는 `pick["kind"] == "live"`인 문항에만 슬롯을 치환하는데 진도 블록의
+        kind는 "unit"이라, 실황이 섞이면 「{today.temp_max}」 **원문이 그대로**
+        화면에 나간다.
+    하루 첫 유닛 세션의 실황 2건은 이 함수가 아니라 **daily 배합 경로**
+    (`session_service.plan_daily_picks`)가 소유한다.
 
     당일 중복 방지는 **best-effort**다 (R10-01 D2·D8-5): 1차 조회는 오늘 응답분을
     제외하고(신선도 우선), 그 결과가 UNIT_SESSION_SIZE보다 적으면 제외를 뗀
@@ -793,10 +889,12 @@ async def _unit_content_pool(
     if abilities is None:
         abilities = await weatherbrain_service.load_abilities(db, user)
     theta = weatherbrain_service.overall_theta(abilities, unit.concept_tag)
-    target_level = (
-        None
-        if theta is None
-        else weatherbrain_service.theta_to_knowledge_level(theta)
+    # 표적 단계는 **유닛이 먼저**다 (CO-G1 — unit_target_level 독스트링).
+    # 같은 개념이 10섹션을 가로질러 재등장하므로, 섹션이 곧 그 유닛이 겨냥하는
+    # 단계다. 섹션이 단계를 말하지 않는 유닛(기초과학·대역)만 θ 파생값으로 간다.
+    target_level = unit_target_level(
+        unit,
+        None if theta is None else weatherbrain_service.theta_to_knowledge_level(theta),
     )
     fetch_limit = UNIT_SESSION_SIZE * (1 if theta is None else UNIT_POOL_PREFETCH)
 
@@ -813,12 +911,17 @@ async def _unit_content_pool(
             return stmt.where(ContentItem.question_type == "board")
         return stmt.where(ContentItem.question_type != "board")
 
+    # 기준일 — **KST**. 당일 중복 제외의 하루 경계다(UTC로 세면 09:00 KST에
+    # 하루가 넘어간다 — 목의 `KST_OFFSET_MS`가 지키는 것과 같은 계약).
+    day = today or datetime.now(KST).date()
     today_subq = session_service.answered_today_subq(
-        user.id, session_service.kst_day_start_utc(datetime.now(KST).date())
+        user.id, session_service.kst_day_start_utc(day)
     )
+
+    quota = UNIT_SESSION_SIZE
     fresh = list((await db.execute(_pool_stmt(today_subq))).scalars().all())
-    items = rank_by_knowledge_level(fresh, target_level)[:UNIT_SESSION_SIZE]
-    if len(items) >= UNIT_SESSION_SIZE:
+    items = rank_by_knowledge_level(fresh, target_level)[:quota]
+    if len(items) >= quota:
         return items
 
     seen = {item.id for item in items}
@@ -826,7 +929,7 @@ async def _unit_content_pool(
         list((await db.execute(_pool_stmt(None))).scalars().all()), target_level
     )
     for item in backfill:
-        if len(items) >= UNIT_SESSION_SIZE:
+        if len(items) >= quota:
             break
         if item.id not in seen:
             seen.add(item.id)
@@ -881,6 +984,10 @@ async def progress_block_pool(
     seen: set = set()
     block_unit: Unit | None = None
     for unit in open_units_in_order(scoped, progress, unlock_floor)[:count]:
+        # slot_values를 넘기지 **않는다** — 이 블록은 daily 세션이 소비하고,
+        # daily의 발급 루프는 kind="live"인 문항에만 슬롯을 치환한다(진도 블록의
+        # kind는 "unit"). 실황을 넣으면 미치환 원문이 그대로 화면에 나간다.
+        # daily의 실황 1문항은 배합의 live 블록이 이미 소유한다.
         for item in await _unit_content_pool(db, user, unit, abilities):
             if item.id in seen:
                 continue
@@ -893,6 +1000,94 @@ async def progress_block_pool(
     return items, block_unit
 
 
+async def is_first_unit_session_today(
+    db: AsyncSession, user: User, today: date
+) -> bool:
+    """오늘 이 유저의 유닛 세션이 **아직 없는가** — 「하루 첫 세션」 판정.
+
+    2026-08-13 클라이언트 확정: **하루의 첫 유닛 세션이 곧 데일리 세션이다.**
+    그 세션만 10문항 데일리 배합을 받고 왕관을 준다.
+
+    ⚠️ **판정을 완료 시점이 아니라 발급 시점에 하는 것이 설계의 핵심**이다.
+    완료 시점에 재계산하면 경합에 진다 — 두 유닛을 열어 **역순으로** 완료하면
+    "먼저 완료된 쪽"과 "먼저 발급된 쪽"이 갈려 둘 다 첫 세션이 되거나 둘 다
+    아니게 된다. 발급 시점에 판정해 `recipe_json`에 도장을 찍으면 그 세션의
+    성격이 발급 순간에 고정되고, 완료 경로는 **읽기만** 한다.
+
+    **하루 경계는 KST다.** `session_date`가 이미 `datetime.now(KST).date()`
+    파생이라 경계가 컬럼 자체에 들어 있다 — 여기서 UTC 타임스탬프를 다시 비교하면
+    09:00 KST에 하루가 넘어간다.
+
+    단순 count로 충분한 이유: `uq_sessions_daily` 부분 인덱스는 `unit_id IS NULL`
+    에만 걸려 **유닛 행은 제약 밖**이다. 즉 DB가 "오늘 유닛 세션은 하나"를
+    보장하지 않으므로, 판정은 제약이 아니라 이 질의가 한다.
+
+    ⚠️ **잔여 위험(동시성)**: 같은 유저가 두 유닛 발급을 **동시에** 호출하면 둘 다
+    0을 세어 둘 다 첫 세션 도장을 받는다(→ 왕관 2개). 막으려면 부분 유니크 인덱스
+    (`mode='unit'`에도 daily 멱등 인덱스를 거는 것)가 필요한데 그것은
+    마이그레이션이라 이 담당의 소유 밖이다. 실사용 창은 한 사람이 두 유닛을
+    같은 순간에 여는 경우로 좁다.
+    """
+    return (
+        await db.execute(
+            select(func.count())
+            .select_from(Session)
+            .where(
+                Session.user_id == user.id,
+                Session.session_date == today,
+                Session.mode == MODE_UNIT,
+            )
+        )
+    ).scalar_one() == 0
+
+
+async def get_open_unit_session(
+    db: AsyncSession, user: User, unit: Unit, today: date
+) -> Session | None:
+    """오늘·이 유닛의 **미완료** 유닛 세션 — 있으면 재발급하지 않고 이어 푼다.
+
+    ══ D10-3(「유닛 세션은 재개 개념이 없다」)의 **대체** — 드리프트가 아니다 ══
+
+    D10-3은 유닛 세션이 **데일리와 별개**이던 시절의 판정이다. 그때 재발급의
+    비용은 「4문항을 다시 뽑는다」뿐이라 현행 수용이 합리적이었다. 2026-08-13에
+    「하루의 첫 유닛 세션이 곧 데일리 세션」이 확정되면서 그 전제가 무너졌다 —
+    지금 재발급의 비용은 **그날의 왕관**이다:
+
+      1번째 발급: 10문항 · `daily_first=True`
+      새로고침 한 번 → 2번째 발급: 4문항 · `daily_first=False`
+      → 그날 남은 시간 동안 **어떤 유닛도 왕관을 못 준다**(도장은 발급 시점에
+        찍히고 완료 경로는 읽기만 하므로 되돌릴 방법이 없다).
+
+    `UnitSessionPage`가 마운트마다 다시 POST하므로(`staleTime: 0`) 도달 조건은
+    「새로고침 한 번」이다. 2026-08-13 PM이 실서버로 재현했다.
+
+    ⚠️ **「오늘 유닛 세션을 완료했는가」로 도장을 찍는 대안은 채택하지 않았다.**
+    유닛 A를 열고 완료 전에 B를 열면 둘 다 첫 세션이 되어 **왕관이 2개** 나간다 —
+    경합이 아니라 평범한 탐색 동선이다.
+
+    **완료된 세션은 재사용하지 않는다** — 같은 유닛 재도전은 새 세션이고, 그것은
+    이미 오늘의 첫 세션이 아니므로 `UNIT_SESSION_SIZE`짜리 순수 학습이 된다.
+    목(`frontend/mock/apiMockPlugin.js:startUnitSession`)이 처음부터 이 규칙이었다.
+
+    **정렬은 생략하지 않는다**: 이 개정 이전에 발급된 하루치 세션이 같은 유닛에
+    여러 행 남아 있을 수 있다(PM의 재현이 정확히 그런 행을 만들었다). 순서가
+    비결정적이면 새로고침마다 다른 세션이 잡혀 재개가 다시 깨진다.
+    """
+    return (
+        await db.execute(
+            select(Session)
+            .where(
+                Session.user_id == user.id,
+                Session.unit_id == unit.id,
+                Session.session_date == today,
+                Session.mode == MODE_UNIT,
+                Session.completed_at.is_(None),
+            )
+            .order_by(Session.id)
+        )
+    ).scalars().first()
+
+
 async def create_unit_session(
     db: AsyncSession,
     user: User,
@@ -903,31 +1098,138 @@ async def create_unit_session(
     """유닛 문항으로 세션을 발급한다 (기존 세션 엔진 재사용, mode='unit', unit_id 기록).
 
     반환: (Session, entries — [{"quiz_id", "question", "source", "slot_filled",
-    "content_item_id"}]). 잠금·미존재 판정은 라우터가 담당한다.
+    "content_item_id", "kind"}]). 잠금·미존재 판정은 라우터가 담당한다.
     abilities는 라우터의 refresh_abilities 1회 결과(R8-01 §3.2) — 풀 정렬에 전달.
     문항 풀이 비면 0문항 세션이 발급된다(데이터 저작 대기 — 클리어 불가).
+
+    ══ **하루 첫 유닛 세션 = 데일리 세션** (2026-08-13 클라이언트 확정) ══════════
+
+    한 함수가 **두 종류**의 세션을 낸다. 갈림은 발급 시점의 「오늘 첫 유닛 세션인가」
+    하나이고, 그 판정을 `recipe_json["daily_first"]`에 **도장으로 찍는다**.
+
+    | | 문항 수 | 배합 | 왕관 |
+    |---|---|---|---|
+    | 하루 **첫** 유닛 세션 | **10** | `실황2·신규4·복습3·보드1` | **준다**(만점 시) |
+    | **두 번째 이후** | `UNIT_SESSION_SIZE`(4) | 실황 0 · 보드 0 — 순수 학습 | 안 준다 |
+
+    ⚠️ **두 번째 이후가 「현행 유지」가 아니다.** 종전 4문항은 실황 2 + 일반 2였고,
+    그 화면이 바로 클라이언트가 「2+4+3+1인데 왜 2+2로 뜨니」라고 지적한 대상이다.
+    지금은 실황도 보드도 0이다 — 유닛 실황 경로 자체가 철거됐다(모듈 상단 주석).
+
+    **왜 도장인가**: 완료 시점에 「이게 오늘 첫 세션이었나」를 재계산하면 경합에
+    진다(`is_first_unit_session_today` 독스트링). 도장은 발급 순간에 성격을
+    고정하고, `routers/session.py`의 왕관 분기는 그것을 **읽기만** 한다.
+    도장은 **양쪽 분기 모두** 찍는다 — 키가 없는 세션(이 개정 이전 발급분)은
+    라우터에서 False로 읽혀 왕관이 안 나간다(안전한 쪽으로 닫힘).
+
+    첫 세션의 배합·치환·정렬은 daily와 **같은 함수**가 소유한다
+    (`session_service.plan_daily_picks` → `entries_from_picks` →
+    `order_session_entries`). 복사하지 않는 이유는 그 순간 두 화면이 갈리기
+    때문이다 — 「오늘 날씨 2건이 앞, 오늘의 보드 1건이 끝」이라는 출제 순서까지
+    같아야 "유닛 세션이 곧 데일리 세션"이 참이 된다.
+
+    ⚠️ **귀결 — 그날의 왕관 세션은 「처음 연 유닛」에 묶인다.** 발급된 미완료
+    세션은 `get_open_unit_session`이 재사용하므로(그 독스트링 — D10-3 대체),
+    유닛 A를 열어 놓고 완료하지 않은 채 B를 열면 **B는 4문항**이다. A로 돌아가면
+    10문항 세션이 진행 상태 그대로 남아 있다. 정합적이지만(시작한 곳에서 끝내라)
+    **말해 두지 않으면 결함으로 읽힌다** — 프론트가 이 사실을 화면에 어떻게
+    비칠지는 별건이다.
+
+    **첫 세션에도 quiz-generate 유료 폴백은 없다.** daily 경로가 뱅크 부족분을
+    생성으로 메우는 것과 달리 여기서는 부족하면 **그만큼 적게** 발급한다 — 유닛
+    세션에 생성 폴백이 없다는 것이 기존 계약이고(0문항 세션도 허용 — CO-H12),
+    무키 실운영에서 이 경로가 상시 과금 지점이 되는 것을 막는다.
     """
     now = datetime.now(KST)
     today = today or now.date()
     today_str = now.strftime("%Y%m%d")
 
-    items = await _unit_content_pool(db, user, unit, abilities)
-    entries: list[dict[str, Any]] = []
-    for item in items:
-        template = dict(item.template_json or {})
-        question = {
-            **template,
-            "concept_tag": item.concept_tag,
-            "question_type": item.question_type,
-        }
-        entries.append(
+    daily_first = await is_first_unit_session_today(db, user, today)
+    entries: list[dict[str, Any]] | None = None
+    if daily_first:
+        try:
+            # ⚠️ **세이브포인트로 감싼다** (2026-08-13 코드 리뷰 결함 ③).
+            # `plan_daily_picks`는 **같은 AsyncSession으로 여러 문을 실행한다**
+            # (`_load_weak_tag_rows`·`refresh_abilities`·`_fetch_pools`·
+            # `_fetch_board_pool`). 그중 하나가 SQLAlchemy 오류를 내면 트랜잭션이
+            # 이미 죽어 있고, 아래 except 가지가 **같은 세션으로**
+            # `_unit_content_pool`을 부르는 순간 `PendingRollbackError` → 500이
+            # 난다 — 폴백이 막으려던 바로 그 일을 폴백이 일으킨다.
+            # 세이브포인트는 실패한 문만 되감아 세션을 다시 쓸 수 있게 만든다
+            # (`routers/session.py`의 daily 발급이 쓰는 것과 같은 장치).
+            async with db.begin_nested():
+                plan = await session_service.plan_daily_picks(
+                    db, user, today, abilities=abilities
+                )
+        except Exception as exc:  # noqa: BLE001 — 사유는 아래
+            # **학습 세션 발급은 실황·라우팅 장애로 막히지 않는다.** 이 방어는
+            # 철거된 `unit_slot_values`가 갖고 있던 계약을 그대로 옮겨 온 것이다:
+            # daily 배합 경로는 KMA·Redis 캐시·ai-worker에 닿으므로 무키 실운영과
+            # 캐시 장애에서 터질 수 있는데, daily 세션은 그때 503으로 끝나도
+            # 되지만(`GET /session/today`) **유닛 진입은 학습 자체가 막힌다**.
+            # 그래서 배합을 포기하고 순수 학습 문항으로 내려앉는다.
+            #
+            # ⚠️ **`daily_first` 도장은 그대로 True로 남긴다** — 오늘의 첫 세션인
+            # 것은 변함이 없고, 장애로 배합이 열화됐다고 왕관까지 뺏으면 학습자가
+            # 서버 사정으로 진도를 잃는다.
+            #
+            # ⚠️ **넓은 catch를 예외 종류 열거로 좁히지 말 것** — 이 경로가 닿는
+            # 층(KMA HTTP·Redis·ai-worker·SQLAlchemy)의 예외 계보를 하나라도
+            # 빠뜨리면 그 하나가 그대로 500이 된다. 좁히는 대신 위 세이브포인트로
+            # **세션 상태를 복구 가능하게** 만드는 쪽을 택했다.
+            logger.warning(
+                "첫 유닛 세션의 daily 배합 실패 — 순수 학습 문항으로 발급"
+                " (user=%s unit=%s): %s",
+                user.id,
+                getattr(unit, "slug", None),
+                exc,
+            )
+        else:
+            entries = session_service.order_session_entries(
+                session_service.entries_from_picks(plan.picks, plan.slot_values)
+            )
+            if plan.generate_count:
+                logger.info(
+                    "첫 유닛 세션 뱅크 부족 %d건 — 생성 폴백 없이 %d문항으로 발급"
+                    " (user=%s unit=%s)",
+                    plan.generate_count,
+                    len(entries),
+                    user.id,
+                    getattr(unit, "slug", None),
+                )
+    # ⚠️ **`is None`이 아니라 `not entries`다** (2026-08-13 코드 리뷰 결함 ②).
+    # 종전 가드는 `plan_daily_picks`가 **예외를 던질 때만** 폴백했다. 배합이
+    # 성공하고도 픽이 0건이면 `entries == []`가 되어 폴백을 타지 않고 **0문항
+    # 세션이 발급됐다** — 오래 쓴 학습자의 `served` 집합이 비실황 뱅크를 덮고 ·
+    # 약점 개념 없음 · 오늘 실황 이미 응답 · θ에 맞는 보드 풀 없음이 겹치면
+    # 실제로 도달한다. 프론트의 자동완료 이펙트는 `total > 0`으로 막혀 있어
+    # (CO-H12) 학습자가 빈 세션에서 **나갈 길이 없다**.
+    # 유닛 풀 자체가 비어 나오는 0문항 세션은 여전히 허용한다(CO-H12 판정 —
+    # `test_curriculum_band_fallback.TestUnitSessionHasNoMinimumFloor`가 소유).
+    if not entries:
+        items = await _unit_content_pool(db, user, unit, abilities, today)
+        entries = [
             {
-                "question": question,
+                "question": {
+                    **dict(item.template_json or {}),
+                    "concept_tag": item.concept_tag,
+                    "question_type": item.question_type,
+                    # 학습 단계 배지의 통로 (2026-08-12 담당 E 이월) — 라우터의
+                    # `_to_session_item`이 `question_json`에서 읽으므로, 여기서
+                    # 싣지 않으면 유닛 세션에서만 배지가 사라진다. nullable이라
+                    # None이면 None 그대로 내려가고 프론트가 배지를 그리지 않는다.
+                    "knowledge_level": getattr(item, "knowledge_level", None),
+                },
                 "source": "bank",
+                # 실황이 없는 경로라 항상 False다 — 풀이 `live=False`로 조회한다.
                 "slot_filled": False,
                 "content_item_id": item.id,
+                # 순수 학습 블록. daily의 「진도 블록」과 같은 kind를 쓰는 것이
+                # 맞다 — 완료 화면이 "내 진도"로 표기하는 그 블록이다.
+                "kind": "unit",
             }
-        )
+            for item in items
+        ]
 
     session = Session(
         user_id=user.id,
@@ -958,8 +1260,29 @@ async def create_unit_session(
     session.recipe_json = {
         "kind": "unit",
         "unit_id": str(unit.id),
+        # ── 「오늘 첫 유닛 세션인가」 도장 (2026-08-13 확정) ──────────────────
+        # **왕관 판정의 유일한 근거**다. `routers/session.py`는 이 값을 읽기만
+        # 하고 재계산하지 않는다 — 재계산하면 두 유닛을 역순으로 완료할 때
+        # 판정이 뒤집힌다(`is_first_unit_session_today` 독스트링).
+        # 키가 없는 세션(개정 이전 발급분)은 라우터에서 False로 읽힌다.
+        "daily_first": daily_first,
+        # 첫 세션은 daily 배합을 그대로 받았다는 사실을 행에 남긴다 — 8/11~18
+        # 실운영에서 "이 세션이 왜 10문항이었나"를 세션 행만으로 되짚을 수 있어야
+        # 한다(daily의 `issued_count`가 같은 목적으로 있는 것과 같은 취지).
+        "recipe": dict(session_service.DEFAULT_RECIPE) if daily_first else None,
+        "issued_count": len(entries),
         "items": [
-            {"quiz_id": e["quiz_id"], "source": e["source"], "slot_filled": False}
+            {
+                "quiz_id": e["quiz_id"],
+                "source": e["source"],
+                # 실제 치환 여부를 그대로 싣는다 — `session_today_response`가 이
+                # 메타에서 slot_filled를 읽으므로, False 고정이면 치환이 화면
+                # 계약에서 사라진다(재진입·재조회 응답까지).
+                "slot_filled": e["slot_filled"],
+                # 블록 표기(「오늘의 날씨/발견/복습/보드」)의 근거 — 첫 세션은
+                # daily 배합이라 kind가 5종으로 갈린다.
+                "kind": e["kind"],
+            }
             for e in entries
         ],
     }

@@ -15,49 +15,76 @@ import { useT } from '../../i18n';
  * 이후 문자열에 숫자가 없을 것**을 단정한다. 이 패널에 무엇을 더 붙이든
  * 2단 힌트 뒤에는 숫자를 넣지 말 것(캐릭터 이름·설명도 마찬가지).
  *
- * 표정 전환: 여섯 마스코트는 "표정 6종"으로 쓰인다(자산 신규 제작 없음).
- * 단계가 오를수록 화자가 바뀌어 "한 걸음 더 들어갔다"가 그림으로도 보인다.
- *   0단(아직 안 봄) 구름이  — 메인 튜터가 권한다
- *   1단(지역 지목)  물방울이 — 보드 담당이 미션을 좁혀 준다
- *   2단(요소 종류)  태양이  — 개념 설명 담당이 마지막 한 걸음을 남긴다
+ * 화자는 **태양이 하나**다(2026-08-11 사용자 지시 — 힌트를 왼쪽 아래로 내리면서
+ * "태양이가 힌트를 말해 주는 것처럼"). 태양이가 보드 담당이다(SideNav
+ * TUTOR_BY_PATH `/board` → sun. 담당표 소유자는 거기다).
+ *
+ * ⚠️ 종전에는 단계마다 화자를 갈랐다(R13-01 §2.6 — 0단 구름이 · 1단 물방울이 ·
+ * 2단 태양이). "한 걸음 더 들어갔다"를 그림으로 보이려던 것인데, 그 대가로
+ * **한 화면에서 말하는 사람이 세 번 바뀌었고** 그중 둘은 다른 화면 담당이었다.
+ * 단계가 올랐다는 것은 「힌트 1:/2:」 번호와 칩이 이미 말한다. 같은 판단을
+ * 학습 세션 피드백(FeedbackPanel)에도 같은 날 적용했다 — 화면 하나에 화자 하나.
  */
-export const HINT_STAGE_MASCOT = Object.freeze(['cloud', 'drop', 'sun']);
+export const HINT_SPEAKER = 'sun';
 
-/** 공개한 힌트 수 → 화자. 범위를 벗어나면 양 끝으로 고정한다. */
-export function hintStageMascot(level) {
-  const i = Math.min(Math.max(Number(level) || 0, 0), HINT_STAGE_MASCOT.length - 1);
-  return HINT_STAGE_MASCOT[i];
+/** 화자 — 단계와 무관하게 보드 담당(태양이)이다. 단계 인자는 더 받지 않는다. */
+export function hintStageMascot() {
+  return HINT_SPEAKER;
 }
 
+/**
+ * `stack` — 캐릭터를 말풍선 **위**로 올린다(가로가 좁은 칸 전용).
+ *
+ * 보드 플레이의 힌트는 2026-08-12부터 조절값 열(168px) 아래에 붙는다. 가로로
+ * 두면 마스코트 44 + 간격 8 + 말풍선 안여백 24를 빼고 **글자 폭이 92px**밖에
+ * 안 남아 두 단짜리 힌트가 15줄짜리 리본이 된다(코드 리뷰 실측). 세로로 쌓으면
+ * 같은 칸에서 글자 폭이 144px가 된다. 세션 안 보드(stacked)는 칸이 넓으므로
+ * 기본값 false 그대로 가로 배치다 — 한쪽 때문에 양쪽을 바꾸지 않는다.
+ */
 export default function BoardHintPanel({
   steps = [],
   level = 0,
   kindLabels = [],
   interactive = false,
   onReveal,
+  stack = false,
 }) {
   const t = useT();
   if (steps.length === 0) return null;
 
-  const stage = Math.min(Math.max(level, 0), HINT_STAGE_MASCOT.length - 1);
-  const speaker = hintStageMascot(level);
+  // stage는 **표시 단계**로만 남는다(화자를 고르지 않는다) — 스모크가
+  // data-hint-stage로 단계 진행을 확인한다.
+  const stage = Math.min(Math.max(level, 0), 2);
+  const speaker = HINT_SPEAKER;
 
   return (
-    <div data-testid="board-hint" data-hint-level={level} className="flex items-start gap-2">
+    <div
+      data-testid="board-hint"
+      data-hint-level={level}
+      data-hint-stacked={stack ? '1' : '0'}
+      className={`flex gap-2 ${stack ? 'flex-col items-start' : 'items-start'}`}
+    >
       <span
         data-testid="board-hint-mascot"
         data-hint-stage={stage}
         data-mascot={speaker}
-        className="grid h-11 w-11 flex-none place-items-center rounded-full bg-amber-100"
+        className={`grid flex-none place-items-center rounded-full bg-amber-100 ${
+          stack ? 'h-9 w-9' : 'h-11 w-11'
+        }`}
       >
-        <Mascot name={speaker} className="h-9 w-9" />
+        <Mascot name={speaker} className={stack ? 'h-7 w-7' : 'h-9 w-9'} />
       </span>
 
-      {/* 말풍선 — 꼬리가 캐릭터를 가리켜 "이 캐릭터가 말한다"를 만든다 */}
-      <div className="relative min-w-0 flex-1 rounded-2xl bg-amber-50 px-3 py-2 ring-1 ring-amber-200">
+      {/* 말풍선 — 꼬리가 캐릭터를 가리켜 "이 캐릭터가 말한다"를 만든다.
+          쌓은 배치에서는 캐릭터가 위에 있으므로 꼬리도 **위**를 가리킨다. */}
+      <div className={`relative rounded-2xl bg-amber-50 px-3 py-2 ring-1 ring-amber-200 ${
+        stack ? 'w-full' : 'min-w-0 flex-1'
+      }`}>
         <span
           aria-hidden="true"
-          className="absolute -left-[5px] top-4 h-2.5 w-2.5 rotate-45 border-b border-l border-amber-200 bg-amber-50"
+          className={`absolute h-2.5 w-2.5 rotate-45 border-amber-200 bg-amber-50 ${
+            stack ? '-top-[5px] left-3 border-l border-t' : '-left-[5px] top-4 border-b border-l'
+          }`}
         />
         {steps.slice(0, level).map((h, i) => (
           <div key={i} className="mb-1 text-xs text-amber-800 last:mb-0">

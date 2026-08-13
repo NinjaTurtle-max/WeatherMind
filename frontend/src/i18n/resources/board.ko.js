@@ -7,9 +7,52 @@
 // (assist·board-entry·visual·webgl·overlay)가 이 문자열을 단정한다.
 export default {
   board: {
+    // MT-28: board 표시 사전 — `boardDisplay.js`가 getter로 참조한다.
+    // ko 값은 종전 리터럴과 **바이트 동일**이어야 한다: 한국어 문구를 단정하는
+    // 스모크(boardAssistRetention의 selectPalette('한랭전선') 등)가 로케일 ko로
+    // 고정돼 있어서, 한 글자만 달라도 그 스모크가 붉어진다.
+    meta: {
+      airMass: {
+        siberian: { label: '시베리아 기단', hint: '한랭 건조' },
+        north_pacific: { label: '북태평양 기단', hint: '고온 다습' },
+        yangtze: { label: '양쯔강 기단', hint: '온난 건조' },
+        okhotsk: { label: '오호츠크해 기단', hint: '한랭 다습' },
+      },
+      front: {
+        cold: { label: '한랭전선', hint: '찬 공기가 파고듦' },
+        warm: { label: '온난전선', hint: '따뜻한 공기가 타고 오름' },
+        stationary: { label: '정체전선', hint: '두 기단이 대치(장마)' },
+      },
+      phenomenon: {
+        shower: { label: '소나기' },
+        rain: { label: '비' },
+        persistent_rain: { label: '지속성 비(장마)' },
+        snow: { label: '눈' },
+        fog: { label: '안개' },
+        heatwave: { label: '폭염' },
+        clear: { label: '맑음' },
+        cloudy: { label: '흐림' },
+        wildfire_risk: { label: '산불 위험' },
+        flood_risk: { label: '침수 위험' },
+      },
+      cloud: {
+        cumulonimbus: { label: '적란운' },
+        nimbostratus: { label: '난층운' },
+        stratus: { label: '층운' },
+        cumulus: { label: '적운' },
+        none: { label: '구름 없음' },
+      },
+      element: { moisture: '습기', sun: '일사', wind: '바람' },
+    },
     common: {
       // assist·board-entry 스모크가 '구름이 모두 흩어졌어요'를 단정
       outOfClouds: '☁️ 구름이 모두 흩어졌어요',
+    },
+    // 태양이 튜터 배너(2026-08-11 사용자 지시) — /learn 물방울이 배너와 같은 자리·
+    // 같은 치수. eyebrow는 `page.title`, 설명은 `page.subtitle`을 그대로 재사용하고
+    // 여기 있는 것은 **태양이가 하는 한마디**뿐이다(문구를 두 벌로 만들지 않는다).
+    hero: {
+      title: '오늘은 어떤 날씨를 만들어 볼까요?',
     },
     page: {
       difficulty1: '쉬움',
@@ -33,6 +76,8 @@ export default {
       // CO-K11: 클리어 후 유일한 출구가 화면 밖으로 밀려 「다시 도전」만 보였다.
       nextPuzzle: '다음 퍼즐 →',
       lastPuzzleDone: '🎉 마지막 퍼즐까지 마쳤어요!',
+      // 완주와 **다른 말**이다 — 열린 칸을 다 깬 게 아니라 앞 칸을 안 깬 것이다.
+      nextNotOpenYet: '목록에서 다음 퍼즐을 골라 이어가요',
       title: '🧩 대기 보드',
       subtitle: '기상요소를 한반도 4개 지역에 배치해 목표 날씨를 만들어 보세요.',
       depletedBody1: '구름은',
@@ -55,6 +100,15 @@ export default {
       lockedBannerCta: '학습 수준 바꾸기',
       blockedSuffix: ' (구름 부족)',
       blockedTitle: '구름이 회복되면 열 수 있어요 — 약 {min}분 후',
+      // MT-24 순차 잠금. 에너지 차단과 **다른 말**을 써야 한다 — 둘은 해법이
+      // 반대다(기다리면 열림 vs 앞을 풀어야 열림). 같은 문구를 쓰면 학습자가
+      // 잠긴 칸 앞에서 20분을 기다린다.
+      // ⚠️ 학습 수준 잠금(위 lockedTitle)과도 **다른 키**여야 한다. 병합 직후
+      // 잠깐 같은 이름으로 두 번 정의돼 있었고, 객체 리터럴이라 뒤엣것이 앞엣것을
+      // 조용히 덮어 「수준 올리면 열림」 안내가 통째로 사라져 있었다(2026-08-12).
+      // 해법이 서로 다르므로(수준 올리기 vs 앞 퍼즐 풀기) 문구도 갈라야 한다.
+      lockedHint: '🔒 앞 퍼즐부터',
+      seqLockedTitle: '앞의 퍼즐을 먼저 풀면 열려요',
       opening: '여는 중…',
       cleared: '✓ 클리어',
       challenge: '도전',
@@ -71,8 +125,13 @@ export default {
         sun: '일사',
         wind: '바람',
       },
+      // 태양이 문제 배너의 eyebrow(2026-08-11) — 미션 문장 위에 붙는 한 줄
+      missionEyebrow: '🎯 이번 미션',
+      missionSandbox: '🧪 자유 실험',
       timerTitle: '제한 시간',
       basedOn: '실화 ·',
+      guidePanelTitle: '가이드',
+      guideClose: '가이드 닫기',
       guidePrefix: '안내 {step}/{total}:',
       guideNext: '다음 안내 →',
       paletteHeader: '요소 팔레트 (탭해서 고른 뒤 존을 탭하거나, 끌어다 놓으세요)',
@@ -80,7 +139,6 @@ export default {
       focusControls: '{zone} 조절값',
       focusEmpty: '아직 놓인 요소가 없어요',
       goalProgressLabel: '목표 현상',
-      guidePanelTitle: '가이드',
       goalMet: '✓ 목표 조건을 모두 만족했어요 — 제출해 보세요!',
       goalPending: '미리보기: 아직 목표에 도달하지 않았어요',
       hintStep1: '먼저 {zone}만 집중해서 보세요. 목표 현상은 이 지역의 대기 상태에서 만들어져요.',
@@ -110,6 +168,216 @@ export default {
       submit: '제출하기',
     },
     panel: {
+      // MT-28: 단면 장면 내부 라벨 61종 — **SVG(CrossSectionPanel)와 WebGL
+      // (scenes.js)이 이 한 벌을 공유한다.** 종전에는 두 파일이 같은 문자열을
+      // 손으로 각각 들고 있었고(고유 58건이 양쪽 중복), 제외 주석은 *"부분 번역 시
+      // SVG↔GL 표기가 어긋난다"*를 걱정했다 — 어긋남은 이미 구조적으로 존재했고
+      // 키를 하나로 모으는 것이 그 위험을 **없앤다**.
+      viz: {
+        altitude: '고도',
+        surface: '지표',
+        strongSun: '강한 햇볕',
+        clearSkyWildfire: '구름 없는 하늘 · 산불 위험',
+        cloudCannotGrow: '구름이 자라지 못해요',
+        nimbostratusWide: '난층운(넓고 두꺼운 층 구름)',
+        descendCompressWarm: '내려오며 눌려 데워져요',
+        foehnClear: '높새바람 — 맑음',
+        snowCloudDevelop: '눈구름 발달(기단 변질)',
+        convectiveRise: '대류 상승',
+        heatAccumulates: '더운 공기 축적 — 기온↑',
+        hotHumid: '덥고 습함',
+        warmedAirRises: '데워진 공기가 올라가요',
+        warmDry: '따뜻하고 건조',
+        warmDryAirMass: '따뜻하고 건조한 공기 덩어리',
+        warmHumidAir: '따뜻하고 습한 공기',
+        warmAir: '따뜻한 공기',
+        warmYellowSea: '따뜻한 서해',
+        groundCannotAbsorb: '땅이 물을 더 받아들이지 못해요',
+        groundRadiatesCools: '땅이 열을 내보내며 식어요',
+        clearCalmNight: '맑고 바람 약한 밤',
+        dryWarmWind: '메마르고 따뜻한 바람',
+        condenseByWater: '물가에서 수증기가 응결해요',
+        driedLeavesTwigs: '물기가 빠진 낙엽과 잔가지',
+        lowVapourNoSea: '바다를 거치지 않아 수증기가 적어요',
+        radiativeCooling: '복사냉각 — 열 방출',
+        northPacificMt: '북태평양 기단(mT)',
+        embersRideWind: '불씨가 바람을 타요',
+        rainCloudRefills: '비구름이 자꾸 다시 채워져요',
+        monsoonCloudBand: '비층운(장마 구름 띠)',
+        mountainRange: '산맥',
+        westCoastSnow: '서해안 폭설',
+        strongWind: '센 바람',
+        vapourShortNoCloud: '수증기 부족 — 구름이 못 생겨요',
+        condenseToSeaFog: '수증기 응결 → 바다 안개',
+        condenseToFogLayer: '수증기 응결 → 안개층',
+        vapourKeepsArriving: '수증기가 계속 실려 와요',
+        humidAirSupply: '습한 공기 공급',
+        siberianCp: '시베리아 기단(cP)',
+        coolsFromBelow: '아래에서부터 식어요',
+        yangtzeAirMass: '양쯔강 기단',
+        heatVapourSupply: '열·수증기 공급',
+        clearDespiteChurn: '오르내려도 하늘은 맑아요',
+        rainOnRiseLosesWater: '오르며 비 — 물기를 잃어요',
+        okhotskAirMass: '오호츠크해 기단',
+        noVapourToCondense: '응결할 수증기가 없어요',
+        denseFogEarlyMorning: '이른 아침, 짙은 안개',
+        cumulonimbus: '적란운',
+        stationaryFront: '정체전선',
+        groundHeating: '지면 가열',
+        nearSurfaceCooling: '지표 부근 공기 냉각',
+        coldDry: '차고 건조',
+        coldHumidAir: '차고 습한 공기',
+        coldHumid: '차고 습함',
+        coldAir: '찬 공기',
+        coldAirRetreating: '찬 공기(물러남)',
+        coldSea: '찬 바다',
+        coldClearWinterSky: '춥고 맑은 겨울 하늘',
+        mildClearSky: '포근하고 맑은 봄가을 하늘',
+        heatwave: '폭염',
+        liftsAfterSunrise: '해가 뜨면 곧 걷혀요',
+        fogLowCloudToShore: '해안까지 덮은 안개와 낮은 구름',
+        upglide: '활승',
+      },
+      // MT-28: 단면 스토리보드 15종(CrossSectionPanel STORYBOARDS).
+      // ko 값은 외부화 전 원문과 **바이트 동일** — boardVisual.render.test가
+      // steps[0]과 `1/N단계`를 렌더 HTML에서 대조하고, crossSectionWebgl.contract가
+      // steps.length를 SCENES 단계 수와 정합 검사한다(둘 다 로케일 ko 고정).
+      story: {
+        cold_front_shower: {
+          title: '한랭전선 — 좁고 강한 소나기',
+          steps: [
+            '차가운 공기가 쐐기처럼 따뜻한 공기 밑을 빠르게 파고들어요.',
+            '밀려난 따뜻하고 습한 공기가 가파른 전선면을 따라 급하게 상승해요.',
+            '강한 상승기류 속에서 수증기가 응결해 적란운이 수직으로 발달해요.',
+            '전선 부근 좁은 지역에 강한 소나기가 짧게 쏟아지고 번개가 치기도 해요.',
+          ],
+        },
+        stationary_front_monsoon: {
+          title: '정체전선 — 여러 날 이어지는 장맛비',
+          steps: [
+            '세력이 비슷한 찬 공기와 따뜻한 공기가 한자리에서 맞서요.',
+            '어느 쪽도 밀리지 않아 전선이 한곳에 오래 머물러요 — 정체전선.',
+            '남쪽에서 습한 공기가 계속 공급되어 두꺼운 비층운 띠가 만들어져요.',
+            '같은 지역에 장마처럼 여러 날 지속되는 비가 내려요.',
+          ],
+        },
+        warm_front_steady_rain: {
+          title: '온난전선 — 넓은 지역의 약한 비',
+          steps: [
+            '따뜻한 공기가 물러나는 찬 공기 쪽으로 다가와요.',
+            '따뜻한 공기가 찬 공기 위로 완만한 전선면을 따라 타고 올라요(활승).',
+            '천천히 식으며 넓은 지역에 층 모양의 난층운이 만들어져요.',
+            '넓은 지역에 약한 비가 오랫동안 잔잔하게 내려요.',
+          ],
+        },
+        siberian_snow: {
+          title: '시베리아 기단 변질 — 서해안 폭설',
+          steps: [
+            '차고 건조한 시베리아 기단(cP)이 남쪽으로 이동해요.',
+            '따뜻한 서해를 건너는 동안 바다에서 열과 수증기를 공급받아요.',
+            '기단 아랫부분이 변질되어 눈구름이 줄지어 발달해요.',
+            '눈구름이 도착하는 서해안 지역에 많은 눈이 내려요.',
+          ],
+        },
+        convective_shower: {
+          title: '대류 — 한여름 오후 소나기',
+          steps: [
+            '한여름 강한 햇볕이 지면을 뜨겁게 데워요.',
+            '데워진 습한 공기가 가벼워져 활발히 상승해요 — 대류.',
+            '상승한 공기가 식으며 수증기가 응결해 적란운이 키 크게 발달해요.',
+            '전선이 없어도 오후 한때 좁은 지역에 소나기가 쏟아져요.',
+          ],
+        },
+        radiation_fog: {
+          title: '복사안개 — 맑은 새벽의 안개',
+          steps: [
+            '구름 없는 맑은 밤, 지표가 열을 내보내며 빠르게 식어요(복사냉각).',
+            '차가워진 지표에 닿은 공기가 아래층부터 함께 식어요.',
+            '식은 공기 속 수증기가 응결해 지표를 덮는 안개층이 만들어져요.',
+            '해가 뜨는 이른 아침까지 짙은 안개가 낮게 깔려 있어요.',
+          ],
+        },
+        north_pacific_heatwave: {
+          title: '북태평양 기단 — 한여름 폭염',
+          steps: [
+            '덥고 습한 북태평양 기단(mT)이 우리나라에 넓게 자리 잡아요.',
+            '맑은 하늘 위로 강한 햇볕이 더해져 지면이 계속 가열돼요.',
+            '더운 공기가 빠져나가지 못하고 쌓여 기온이 크게 올라요.',
+            '한여름 무더위 — 폭염이 이어져요.',
+          ],
+        },
+        siberian_clear: {
+          title: '시베리아 기단 — 춥고 맑은 겨울',
+          steps: [
+            '차고 건조한 시베리아 기단(cP)이 자리 잡아요.',
+            '공기가 건조해 수증기가 부족하니 구름이 잘 만들어지지 않아요.',
+            '구름 없는 하늘 — 춥지만 맑은 겨울 날씨가 돼요.',
+          ],
+        },
+        okhotsk_sea_fog: {
+          title: '오호츠크해 기단 — 찬 바다가 만드는 안개',
+          steps: [
+            '차고 습한 오호츠크해 기단이 동해 쪽으로 밀려와요.',
+            '습한 공기가 찬 바다 위를 지나며 아래층부터 먼저 식어요.',
+            '식은 아래층에서 수증기가 응결해 바다 위에 안개가 깔려요.',
+            '안개와 낮은 구름이 해안까지 덮어 초여름 동해안이 서늘하고 흐려져요.',
+          ],
+        },
+        okhotsk_foehn_clear: {
+          title: '높새바람 — 산을 넘어와 맑아진 하늘',
+          steps: [
+            '동쪽에서 온 차고 습한 공기가 산맥에 부딪혀 비탈을 타고 올라요.',
+            '올라가며 식은 공기가 산 동쪽에 비를 뿌리고 물기를 거의 다 잃어요.',
+            '물기를 잃은 공기가 산을 넘어 내려오면서 눌려 데워져요.',
+            '산맥 서쪽에는 메마르고 따뜻한 바람이 불어 구름 없이 맑아요 — 높새바람.',
+          ],
+        },
+        yangtze_mild_clear: {
+          title: '양쯔강 기단 — 포근하고 맑은 봄가을',
+          steps: [
+            '따뜻하고 건조한 양쯔강 기단이 봄가을에 우리나라 쪽으로 이동해요.',
+            '바다를 길게 거치지 않아 공기에 수증기가 넉넉히 실리지 않아요.',
+            '응결할 수증기가 부족해 구름이 자라지 못해요.',
+            '포근하고 맑은 봄가을 날씨가 이어져요.',
+          ],
+        },
+        yangtze_morning_fog: {
+          title: '양쯔강 기단 — 강가의 새벽 안개',
+          steps: [
+            '따뜻하고 건조한 공기 덩어리가 덮인 밤은 하늘이 맑고 바람도 약해요.',
+            '하늘을 가릴 구름이 없어 땅이 열을 그대로 내보내며 빠르게 식어요.',
+            '강가나 분지처럼 물기가 모인 곳에서 식은 공기 속 수증기가 응결해요.',
+            '이른 아침 낮은 안개가 깔렸다가, 해가 뜨고 데워지면 곧 걷혀요.',
+          ],
+        },
+        dry_convection_clear: {
+          title: '마른 대류 — 구름 없는 맑은 하늘',
+          steps: [
+            '강한 햇볕이 지면을 데우고, 데워진 공기가 가벼워져 위로 올라가요.',
+            '올라간 공기는 부풀며 식지만 그 안에 수증기가 거의 없어요.',
+            '물방울로 맺힐 수증기가 없으니 구름이 만들어지지 않아요.',
+            '공기가 활발히 오르내려도 하늘은 맑게 남아요.',
+          ],
+        },
+        wildfire_risk_dry_gale: {
+          title: '건조 + 강풍 — 산불이 번지기 쉬운 날',
+          steps: [
+            '공기가 메마르면 낙엽과 잔가지에서 물기가 빠져나가요.',
+            '마른 땅 위로 센 바람이 지나가요.',
+            '바람은 불씨를 멀리 실어 나르고 산소도 계속 대 줘요.',
+            '구름 한 점 없이 맑지만, 불이 붙으면 가장 크게 번지는 날씨예요.',
+          ],
+        },
+        flood_risk_saturated_inflow: {
+          title: '포화 + 수증기 유입 — 물에 잠기는 날',
+          steps: [
+            '센 바람이 바다에서 수증기를 쉬지 않고 실어 와요.',
+            '비를 뿌리고 흩어진 자리를 다음 비구름이 곧 채워요.',
+            '그래서 비가 그치지 않고 같은 곳에 계속 내려요.',
+            '땅이 스며들 수 있는 양을 넘겨 물이 고이기 시작해요.',
+          ],
+        },
+      },
       badgeConfirmed: '✓ 서버 판정',
       badgePreview: '미리보기',
       badgeStatic: '정적 표시',
@@ -127,16 +395,85 @@ export default {
       jumpTo: '{n}단계로 이동',
     },
     map: {
+      // MT-28: 존 표시명 — 서버 원문(board_regions.json / GET /board/regions)을
+      // 덮는 표시 계층. 키는 존 인덱스(ZONES "index 0~3 고정" 계약).
+      // ko 값은 서버 원문과 바이트 동일 — 보드 스모크가 이 문구를 단정한다.
+      zone: { 0: '서해상', 1: '수도권', 2: '영서·태백', 3: '영동·동해' },
+      // MT-28: 규칙 8종 주석(mapInfographic RULE_ANNOTATIONS). 줄바꿈(\n)이 리더선
+      // 라벨의 2줄 배치를 만든다 — 지우면 한 줄로 붙어 지도 밖으로 넘친다.
+      annotation: {
+        cold_front_shower: '한랭전선 통과,\n소나기·번개',
+        stationary_front_monsoon: '정체전선 형성,\n집중호우 발생',
+        warm_front_steady_rain: '온난전선 접근,\n넓은 지역 약한 비',
+        siberian_snow: '기단 변질,\n서해안 폭설',
+        convective_shower: '강한 일사,\n오후 대류성 소나기',
+        radiation_fog: '복사냉각,\n새벽 짙은 안개',
+        north_pacific_heatwave: '고온 다습 공기,\n폭염 지속',
+        siberian_clear: '한랭 건조 공기,\n맑고 추움',
+      },
       mapAria: '한반도 대기 보드 지도 — 4개 지역 노드에 요소를 배치하세요',
       zoneAria: '{name} 존{goal} — 현재 {phenomenon}',
       goalSuffix: ' (목표 존)',
     },
   },
   explore: {
+    // MT-21: 위성 도식 오버레이(modules/explore/SatelliteView.jsx).
+    // ⚠️ 원 F3(KMA 실사 위성 영상)를 **우리가 그리는 도식**으로 재범위한 결과라
+    // schematicBadge는 장식이 아니라 계약이다 — 실사가 아님을 화면이 말해야 한다.
+    satellite: {
+      warming: '위성 영상 준비 중…',
+      play: '재생',
+      pause: '일시정지',
+      timeAria: '태풍 생애 단계 — 발생부터 소멸까지',
+      stage: '세력 {pct}%',
+      title: '🛰️ 위성 구름 도식',
+      productLine: 'WEATHERMIND SIM · IR 10.5㎛ · 모의 산출',
+      noSystem: '발달한 저기압계 없음 — 낮은 구름만 흩어져 있어요',
+      schematicBadge: '실사 영상 아님 · 교육용 도식',
+      rampLow: '낮은 구름',
+      rampHigh: '높고 찬 구름',
+      ariaNone: '위성 도식 — 태풍이 발생하지 않아 낮은 구름만 흩어져 있어요',
+      ariaEye: '위성 도식 — 구름 방패가 중심 대칭이고 가운데에 눈이 뚫려 있어요',
+      ariaSheared: '위성 도식 — 구름 방패가 한쪽으로 밀리고 중심이 드러나 있어요',
+      readNone: '바다가 충분히 따뜻하지 않아 구름이 한곳에 모이지 못해요. 위성으로 보면 낮은 구름만 흩어져 보여요.',
+      readGrowing: '구름 방패가 중심을 둘러싸며 자라고 있어요. 조금 더 강해지면 가운데가 뚫려 눈이 보이기 시작해요.',
+      readEye: '구름이 중심을 고르게 감싸고 가운데가 뚫렸어요 — 눈이에요. 시어가 약해 기둥이 곧게 서 있다는 뜻이라, 위성 사진만 보고도 잘 발달한 태풍임을 알 수 있어요.',
+      readSheared: '구름 방패가 한쪽으로 밀리고 중심이 드러났어요. 위아래 바람이 어긋나 기둥이 기울었다는 뜻이에요 — 실제 위성 판독에서도 이 모양이 시어가 세다는 첫 단서예요.',
+    },
     common: {
       back: '← 탐구',
       whyTitle: '🤔 왜 그럴까?',
       modelBadge: '교육용 단순화 모델 — 실제 예측이 아니에요',
+    },
+    // MT-24: 탐구 목표(modules/explore/exploreGoals.js·GoalPanel.jsx).
+    // 지시문에 든 수치(26.5℃·31℃·40·1.40~1.50℃·20일)는 **판정 조건과 같은 값**이라
+    // 장식이 아니다 — 조건을 고치면 이 문구도 함께 고쳐야 한다.
+    goals: {
+      title: '🎯 탐구 목표',
+      progress: '{done} / {total} 달성',
+      doneBadge: '달성!',
+      lessonLabel: '알아낸 것 —',
+      howto: '조건을 움직이면 달성 여부가 바로 바뀌어요. 채점이 아니라 탐구 기록이라 구름을 쓰지 않아요.',
+      allDone: '🎉 목표를 전부 달성했어요! 조건을 더 바꿔 보며 다른 조합도 확인해 보세요.',
+      typhoon: {
+        calmTitle: '바다를 식혀 보기',
+        calmTask: '해수면온도를 낮춰 태풍이 아예 발생하지 않게 만들어 보세요.',
+        calmLesson: '26.5℃ 아래에서는 아무리 기다려도 태풍이 생기지 않아요. 따뜻한 바다가 곧 태풍의 연료라는 뜻이에요.',
+        shearWallTitle: '시어의 벽',
+        shearWallTask: '바다를 31℃ 이상으로 뜨겁게 하고도 강도를 40 이하로 묶어 보세요.',
+        shearWallLesson: '연직 시어를 「강」으로 두면 뜨거운 바다에서도 태풍이 크지 못해요. 에너지만으로는 부족하고 기둥이 곧게 서야 발달해요.',
+        superTitle: '초강력까지 키우기',
+        superTask: '초강력 태풍 등급까지 발달시켜 보세요.',
+        superLesson: '31℃ 이상의 바다와 약한 시어, 두 조건이 동시에 맞아야 초강력에 닿아요. 하나만 좋아서는 닿지 않아요.',
+      },
+      climate: {
+        line15Title: '1.5℃ 저지선',
+        line15Task: '지구 평균기온 상승을 1.40℃ 이상 1.50℃ 이하에 맞춰 보세요.',
+        line15Lesson: '1.5℃ 선은 CO₂ 390ppm 언저리에서 넘어가요. 배증(560ppm)까지 가지 않아도 도달하는 선이에요.',
+        heatFirstTitle: '폭염이 먼저 온다',
+        heatFirstTask: '기온 상승을 1.20℃ 이하로 유지하면서 연간 폭염일수를 20일 이상으로 만들어 보세요.',
+        heatFirstLesson: '기온이 겨우 1℃ 남짓 오르는 사이 폭염일수는 이미 두 배가 됐어요. 평균의 작은 변화가 극단값에서는 훨씬 크게 나타나요.',
+      },
     },
     home: {
       sandboxTitle: '자유 실험',
@@ -176,7 +513,7 @@ export default {
       title: '🌪️ 태풍 만들기',
       disclaimer1: '교육용 단순화 모델이에요. 실제 태풍 예측(수치 모델)이 아니라, 바다 온도와 바람 시어가 태풍 발달에 미치는',
       disclaimerBold: '경향',
-      disclaimer2: '만 담은 결정적 근사입니다.',
+      disclaimer2: '만 담은 결정적 근사예요.',
       sstLabel: '해수면온도 (SST)',
       sstCold: '{min}℃ 차가운 바다',
       sstThreshold: '임계 26.5℃',
@@ -192,13 +529,13 @@ export default {
     climate: {
       why1: 'CO₂는 지구가 내보내는 적외선(열)을 흡수해 되돌려 보내는 온실기체예요. 농도가 {baseline}ppm(산업화 이전)에서 {co2}ppm으로 오르면, 이 모델에서 지구 평균기온은 약 {anomaly}℃ 올라요.',
       why2: '주목할 점은 온도가 농도에 정비례하지 않고 로그(배수)로 반응한다는 거예요. CO₂가 두 배(280→560ppm)가 될 때마다 약 {sens}℃씩 오르죠. 같은 +10ppm이라도 농도가 낮을 때 더 큰 효과를 내요.',
-      whyBaseline: '지금은 산업화 이전 수준이에요 — 기준점(아노말리 0℃)입니다.',
+      whyBaseline: '지금은 산업화 이전 수준이에요 — 기준점(아노말리 0℃)이에요.',
       whyPast: '이 구간은 인류가 이미 지나온 길이에요. 산업혁명 이후 화석연료 연소로 농도가 {baseline}ppm에서 오늘날 약 {present}ppm까지 올랐어요.',
       whyFuture: '{present}ppm(현재 근사)을 넘는 구간은 앞으로의 선택에 달린 미래예요. 따뜻해진 바닷물은 부피가 커지고(열팽창) 빙하가 녹아 해수면이 오르고, 평균기온이 조금만 올라도 극단적인 더위는 훨씬 자주 나타나요.',
       curveAria: 'CO2 {co2}ppm에서 온도 아노말리 {anomaly}℃',
       presentMark: '현재≈{n}',
       title: '🌡️ 기후변화 체험',
-      disclaimer: '교육용 단순화 모델이에요. ΔT = S·log₂(C/C₀), S=3.0℃(배증당) 로그 감도 근사로, 실제 기후 전망(수치 모델)·특정 연도 예측이 아닙니다.',
+      disclaimer: '교육용 단순화 모델이에요. ΔT = S·log₂(C/C₀), S=3.0℃(배증당) 로그 감도 근사로, 실제 기후 전망(수치 모델)·특정 연도 예측이 아니에요.',
       anomalyTitle: '지구 평균기온 아노말리',
       anomalySub: '산업화 이전(280ppm) 대비 상승분 — 로그 감도 곡선',
       co2Label: 'CO₂ 농도',

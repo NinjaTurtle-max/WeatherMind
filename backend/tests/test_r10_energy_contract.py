@@ -464,7 +464,9 @@ class TestRegenRegression:
 
     @pytest.mark.parametrize(
         "minutes,expected",
-        [(0, 0), (19, 0), (20, 1), (100, 3)],  # 100분: clamp(2+5, MAX=5) → 3
+        # 100분: 5회복. 2+5=7 ≤ MAX(10)이라 clamp가 안 걸린다
+        # (MT-7 만렙 상향 전에는 clamp에 잘려 3이었다).
+        [(0, 0), (19, 0), (20, 1), (100, 5)],
     )
     def test_계약8_회복_경계_회귀(self, minutes, expected):
         assert es.regen_amount(2, _ago(minutes), NOW) == expected, (
@@ -472,9 +474,16 @@ class TestRegenRegression:
         )
 
     def test_계약8_MAX_clamp_회귀(self):
-        assert es.regen_amount(0, _ago(100), NOW) == es.CLOUD_MAX
-        assert es.regen_amount(es.CLOUD_MAX, _ago(100), NOW) == 0
-        clouds, updated = es.apply_regen(3, _ago(100), NOW)
+        """만렙을 넘겨 차오르지 않는다.
+
+        ⚠️ 경과 시간을 **만렙에서 파생**한다. 종전에는 100분을 리터럴로 박아
+        "만렙까지 찬다"를 전제했는데, MT-7로 만렙이 5 → 10이 되자 100분(5개)으로는
+        모자라 이 테스트가 깨졌다 — 계약 수치를 올릴 때마다 깨질 자리였다.
+        """
+        full = _ago(es.CLOUD_MAX * es.CLOUD_REGEN_MINUTES + 20)  # 만렙을 채우고도 남게
+        assert es.regen_amount(0, full, NOW) == es.CLOUD_MAX
+        assert es.regen_amount(es.CLOUD_MAX, full, NOW) == 0
+        clouds, updated = es.apply_regen(3, full, NOW)
         assert (clouds, updated) == (es.CLOUD_MAX, NOW)
 
     def test_계약8_잉여_carry_회귀(self):
@@ -614,7 +623,7 @@ class TestEnergyNumbersContract:
     """
 
     def test_계약11_settings_기본값이_계약값(self):
-        assert settings.CLOUD_MAX == 5
+        assert settings.CLOUD_MAX == 10  # MT-7 (2026-08-11 멘토링)
         assert settings.CLOUD_REGEN_MINUTES == 20
         assert settings.CLOUD_COST == 1
 
@@ -818,6 +827,10 @@ class TestPuzzleDetailRoute:
             # 다 채우는지** 확인하고 늘렸다 — 목록은 locked_difficulties로 계산해
             # 넣고, 상세는 잠긴 퍼즐이 그 앞에서 403이라 항상 False를 넣는다.
             "locked",
+            # MT-24 순차 잠금 — 목록은 compute_unlocked_ids로, 상세는 403 가드를
+            # 통과했으므로 True로 **양쪽이 다 채운다**(이 테스트가 요구하는 조건).
+            # 두 필드가 공존하는 것은 의도다: 축이 달라 서로를 대체하지 않는다.
+            "unlocked",
         }, (
             f"BoardPuzzle 필드가 변경됐다: {sorted(BoardPuzzle.model_fields)} — "
             "목록·상세가 같은 스키마를 공유한다는 계약이 깨진다"
@@ -836,4 +849,67 @@ class TestPuzzleDetailRoute:
         )
         assert list_route.response_model == list[BoardPuzzle], (
             f"목록 응답 모델이 list[BoardPuzzle]이 아니다 ({list_route.response_model})"
+        )
+
+
+class TestSignupStartsFull:
+    """신규 유저는 **만렙으로** 시작한다 (MT-7 리뷰, 2026-08-12).
+
+    ⚠️ 이 계약이 없어서 MT-7이 실질적으로 안 먹혔다. `Settings.CLOUD_MAX`를
+    5 → 10으로 올렸는데 `users.clouds` 열의 기본값이 5로 남아, 신규·게스트
+    유저가 전부 **5/10으로 생성**됐다 — 배지가 첫 화면부터 반쪽이고 이미 다섯을
+    쓴 사람처럼 시작한다. 정확히 MT-7이 겨냥한 인구였다.
+
+    등록·게스트 경로 어디도 `clouds=`를 넘기지 않으므로 **열 기본값이 곧 신규
+    유저의 잔량**이다. 그래서 그 값을 직접 문다.
+    """
+
+    def test_모델_기본값이_만렙이다(self):
+        from app.models.user import User
+
+        default = User.__table__.c.clouds.default
+        value = default.arg(None) if callable(default.arg) else default.arg
+        assert value == settings.CLOUD_MAX, (
+            f"신규 유저가 {value}/{settings.CLOUD_MAX}로 생성된다 — "
+            "만렙을 올릴 때 이 기본값을 함께 올려야 한다"
+        )
+
+    def test_열_기본값도_같은_값을_말한다(self):
+        """앱과 DB가 다른 값을 말하면, SQL로 직접 INSERT하는 경로가 옛 값을 쓴다."""
+        from app.models.user import User
+
+        server_default = User.__table__.c.clouds.server_default
+        assert str(server_default.arg.text) == str(settings.CLOUD_MAX)
+
+    def test_리셋_경로와_가입_경로가_같은_값을_쓴다(self):
+        """`dev.py` 리셋은 이미 settings를 봤다 — 두 경로가 갈리면 재현이 안 된다."""
+        from pathlib import Path
+
+        dev_src = (Path(__file__).resolve().parents[1] / "app" / "routers" / "dev.py").read_text(
+            encoding="utf-8"
+        )
+        assert "settings.CLOUD_MAX" in dev_src, "리셋 경로가 리터럴을 쓰고 있다"
+
+    def test_마이그레이션도_같은_값을_말한다(self):
+        """모델은 `settings`에서 파생하는데 마이그레이션은 리터럴이라 갈릴 수 있다.
+
+        ⚠️ 위 두 검사는 **모델 ↔ settings**만 본다. `CLOUD_MAX=7`로 배포하면
+        모델 메타데이터는 7인데 마이그레이션이 만든 열은 10이고, 그 어긋남을
+        아무도 못 본다(코드 리뷰 2026-08-12). 파이썬 밖 파일을 파싱해 대조하는
+        것은 이 저장소의 선례다(`test_ci_workflow_contract`·`test_prompt_spec_parity`).
+        """
+        import re
+        from pathlib import Path
+
+        versions = Path(__file__).resolve().parents[1] / "alembic" / "versions"
+        migration = next(versions.glob("*clouds_default*.py"), None)
+        assert migration is not None, "clouds 기본값 마이그레이션을 못 찾았다"
+
+        src = migration.read_text(encoding="utf-8")
+        upgrade = src[src.index("def upgrade"):src.index("def downgrade")]
+        found = re.search(r'server_default="(\d+)"', upgrade)
+        assert found, f"upgrade에서 server_default를 못 읽었다:\n{upgrade}"
+        assert int(found.group(1)) == settings.CLOUD_MAX, (
+            f"마이그레이션은 {found.group(1)}, settings는 {settings.CLOUD_MAX} — "
+            "만렙을 바꾸면 마이그레이션도 함께 고쳐야 한다"
         )

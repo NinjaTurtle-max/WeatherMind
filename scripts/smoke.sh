@@ -45,7 +45,7 @@
 #               → 첫 유닛 POST /curriculum/units/{slug}/session 200 + 문항 ≥1
 #               (θ 풀 확장 경로 실기동 — R7-02 S3·S4)
 #  11 r8        R8-01 검증 5종 (SPRINT_R8_01.md — 판정: 트리 id==slug 계약):
-#   11a spine     GET /progress/me → spine {units_total=12, units_cleared,
+#   11a spine     GET /progress/me → spine {units_total(시드 파생), units_cleared,
 #                 crowns_earned, crowns_total, current_unit} 서버 집계 (§3.3)
 #   11b unit-id   트리 노출 id와 spine.current_unit.slug가 동일 값(계약)임을
 #                 확인하고, 두 진입점 값 각각으로 유닛 세션 발급 200 (§1 판정:
@@ -769,7 +769,23 @@ ensure_r8_user() {
 }
 
 step_r8_spine() { # ① /progress/me spine 서버 집계 (R8-01 §3.3)
-  banner "11a r8-spine: GET /progress/me → spine 집계 (units_total=12)"
+  # 기대 유닛 수는 **시드에서 파생**한다 — 숫자를 박으면 저작이 진행될 때마다 배포
+  # 게이트가 조용히 막힌다. 실제로 이 자리가 기상 12유닛 시절의 12로 남아, 16을
+  # 거쳐 85(CO-G1 순환식 재구조화)가 될 때까지 아무도 못 고쳤다(2026-08-12).
+  # 배합 합계를 SESSION_RECIPE에서 파생시킨 위 7단계와 같은 처방이다.
+  local expected_units
+  expected_units="$("$PYTHON" -c '
+import json, sys
+units = json.load(open(sys.argv[1], encoding="utf-8"))
+# spine은 유저의 코스(기본 weather)로 스코프된다 — course 누락은 weather 취급
+# (0009 이전 시드 하위 호환, curriculum_service.scope_units_to_course).
+print(sum(1 for u in units if (u.get("course") or "weather") == "weather"))
+' "$ROOT/database/seed/units.json" 2>/dev/null | tr -d "\r\n")"
+  if [ -z "$expected_units" ]; then
+    record "11a spine" "FAIL" "units.json 파싱 실패 — 시드 파일 확인"
+    return 0
+  fi
+  banner "11a r8-spine: GET /progress/me → spine 집계 (units_total=$expected_units)"
   ensure_user || { record "11a spine" "FAIL" "스모크 유저 가입 실패"; return 0; }
   local out http body check
   out="$(http_get "$API/api/v1/progress/me" "$SMOKE_TOKEN")"
@@ -782,25 +798,27 @@ step_r8_spine() { # ① /progress/me spine 서버 집계 (R8-01 §3.3)
   check="$("$PYTHON" -c '
 import json, sys
 d = json.load(sys.stdin)
+expected = int(sys.argv[1])
 sp = d.get("spine")
 keys = {"units_total", "units_cleared", "crowns_earned", "crowns_total", "current_unit"}
 if not isinstance(sp, dict) or not keys <= set(sp):
     print("bad: spine 필드 누락 — %s" % sp); sys.exit()
-if sp["units_total"] != 12:
-    print("bad: units_total=%s (기대 12 — 시드 units.json)" % sp["units_total"]); sys.exit()
+if sp["units_total"] != expected:
+    print("bad: units_total=%s (기대 %s — 시드 units.json)"
+          % (sp["units_total"], expected)); sys.exit()
 cu = sp["current_unit"]
 if cu is not None and not ({"slug", "title"} <= set(cu)):
     print("bad: current_unit 형태 위반 — %s" % cu); sys.exit()
 print("ok|cleared=%s crowns=%s/%s current=%s"
       % (sp["units_cleared"], sp["crowns_earned"], sp["crowns_total"],
          (cu or {}).get("slug")))
-' <<<"$body")"
+' "$expected_units" <<<"$body")"
   if [[ "$check" != ok\|* ]]; then
     record "11a spine" "FAIL" "$check"
     return 0
   fi
   echo "  spine OK: ${check#ok|}"
-  record "11a spine" "OK" "units_total=12 · ${check#ok|}"
+  record "11a spine" "OK" "units_total=$expected_units · ${check#ok|}"
 }
 
 step_r8_unitid() { # ② 트리 id == spine slug 계약 + 양쪽 값으로 발급 200 (§1 판정)

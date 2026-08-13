@@ -5,7 +5,6 @@ import client from './api/client';
 import { translate, getCurrentLocale } from './i18n/core.js';
 import LoadingSpinner from './components/LoadingSpinner';
 import Layout from './components/Layout';
-import SessionPage from './modules/session/SessionPage';
 import CurriculumHome from './modules/curriculum/CurriculumHome';
 import UnitSessionPage from './modules/curriculum/UnitSessionPage';
 import BoardPage from './modules/board/BoardPage';
@@ -17,8 +16,6 @@ import DetectiveRoutes from './modules/detective/DetectiveRoutes';
 import LeaguePage from './modules/league/LeaguePage';
 import DuelPage from './modules/duel/DuelPage';
 import ProgressPage from './modules/progress/ProgressPage';
-import LoginPage from './modules/auth/LoginPage';
-import RegisterPage from './modules/auth/RegisterPage';
 import ConvertAccountPage from './modules/auth/ConvertAccountPage';
 import PlacementPage from './modules/onboarding/PlacementPage';
 
@@ -33,7 +30,13 @@ const DevPanel = lazy(() => import('./modules/dev/DevPanel'));
  * 삭제되고 /는 /learn(CurriculumHome)으로 리다이렉트한다. 홈이 갖고 있던 진입
  * 카드·오늘의 목표는 학습 화면 오른쪽 진입 카드(LearnHeroCard)가 흡수했고,
  * 출석 POST 소유자도 CurriculumHome으로 넘어왔다. 유닛 세션은 /learn/units/:unitId.
- * 자유 일일 세션(SessionPage)은 /daily로 병존 유지(§3.4).
+ *
+ * **자유 일일 세션(`/daily`)은 제거됐다**(2026-08-12 클라이언트 지시). 학습(유닛)
+ * 세션이 오늘 날씨를 직접 받는 쪽으로 바뀌면서, 같은 일을 하는 입구가 둘일 이유가
+ * 없어졌다 — 「오늘 몫」과 「경로 진도」가 갈라져 있던 것을 하나로 합친 셈이다.
+ * ⚠️ `SessionPage.jsx` 파일 자체는 **남는다**: 배치고사·유닛 세션이 같은
+ * `SessionRunner`를 공유하고, 여러 렌더 테스트가 SessionPage를 직접 마운트한다.
+ * 끊은 것은 라우트뿐이다.
  * R3-01 §0 제품 결정: 기후 시뮬레이터(/simulator) 폐지 → 대기 보드 퍼즐(/board)로 대체.
  * R7-01 S3: 온보딩 배치고사(/onboarding/placement)는 인증 필요하되 Layout(탭바) 밖
  * 전체 화면 — 가입 직후 진입, 건너뛰기 가능.
@@ -53,24 +56,43 @@ const DevPanel = lazy(() => import('./modules/dev/DevPanel'));
  * 없이 URL만으로 서비스를 열 수 있어야 한다고 요구하고, 우리는 이미 서버에
  * `POST /auth/guest`(실 유저 + 실 JWT)를 갖고 있다 — 첫 진입에서 그것을 대신
  * 눌러 준다. 딥링크가 보존되므로 `/explore`로 바로 들어온 심사위원은 `/explore`에
- * 도착한다(LoginPage의 명시적 게스트 CTA만 배치고사로 보낸다 — 그 동선은 불변).
+ * 도착한다.
+ *
+ * **2026-08-12부터 이것이 유일한 진입이다** — 로그인·회원가입 화면이 제거되면서
+ * 「명시적 게스트 CTA를 눌러 배치고사로」 가던 종전 대안 동선도 함께 사라졌다.
+ *
+ * ⚠️ **그래서 배치고사로 보내는 UI 동선이 지금 없다.** 자동 발급은 딥링크를
+ * 보존할 뿐 아무도 `/onboarding/placement`로 보내지 않는다 — 그 화면은 현재
+ * URL을 직접 쳐야 닿는다(라우트·시작 호출 자체는 살아 있고
+ * `placementEntry.smoke.test.mjs` 시나리오 1이 그것을 문다). 신규 학습자에게
+ * 진단을 태울 것인지·어디서 태울 것인지는 **제품 결정**이라 여기서 정하지 않는다.
  *
  * 중복 발급 방지가 이 모듈 스코프 두 변수의 전부다:
  *   - `guestAttempted`: **한 번 시도했으면 다시 시도하지 않는다.** 실패 시 무한
- *     재시도를 막고, 더 중요하게는 **로그아웃**을 막는다 — 보호 라우트에서
- *     토큰이 지워졌을 때 이 플래그가 없으면 조용히 새 게스트를 발급해 로그아웃이
- *     동작하지 않는다.
+ *     재시도를 막는다. 종전에는 "**로그아웃**을 막는다"가 더 큰 이유라고 적혀
+ *     있었는데 로그아웃 버튼이 없어졌다 — 다만 토큰이 지워지는 경로는 남아 있다
+ *     (`api/client.js`의 401 인터셉터가 `authStore.logout()`을 부른다). 그때
+ *     조용히 새 게스트를 발급하면 만료가 계정 교체로 둔갑하므로 규칙은 그대로다.
  *   - `guestPromise`: StrictMode 이중 마운트·동시 렌더가 한 요청을 공유한다.
  */
 let guestAttempted = false; // 이 페이지 로드에서 이미 시도했는가(또는 토큰을 본 적 있는가)
-let guestSettled = false; // 그 시도가 끝났는가(성공이면 토큰이, 실패면 /login이 다음 화면)
+let guestSettled = false; // 그 시도가 끝났는가(성공이면 토큰이 다음 화면)
 let guestPromise = null; // StrictMode 이중 실행·동시 렌더가 공유하는 단일 요청
+// **발급 실패를 따로 표시한다**(MT-29, 2026-08-12). 원래 이 플래그는 실패와
+// 로그아웃을 가르려고 만들었다 — 로그아웃은 본인이 한 일이라 로그인 화면이 맞고
+// 발급 실패는 네트워크 사고라 재시도가 맞는데, 종전에는 둘 다 /login으로 보내서
+// 규정이 "로그인 없이 열려야 한다"고 요구하는 바로 그 화면을 연결이 나쁜
+// 심사위원에게 보여 줬다. 같은 날 로그인 화면이 통째로 제거되면서 **두 분기의
+// 도착지가 같아졌지만**(둘 다 재시도), 플래그는 남긴다: 실패는 안내 문구가 다르고
+// (「연결을 확인하세요」) 실패 분기가 먼저 잡혀야 그 문구가 산다.
+let guestFailed = false;
 
 /** 테스트 전용 — 다음 진입에서 자동 발급을 다시 시도할 수 있게 되돌린다. */
 export function resetGuestAutoIssue() {
   guestAttempted = false;
   guestSettled = false;
   guestPromise = null;
+  guestFailed = false;
 }
 
 function issueGuestOnce() {
@@ -88,9 +110,49 @@ function issueGuestOnce() {
   return guestPromise;
 }
 
+/**
+ * 게스트 발급 실패 화면 — **로그인 폼을 보여주지 않는다**(MT-29).
+ *
+ * 대회 규정이 요구하는 것은 "로그인 없이 열린다"이고, 연결이 잠깐 나빴다는 이유로
+ * 그 보증이 깨지면 안 된다. 여기서 할 일은 다시 시도하는 것이지 계정을 만드는
+ * 것이 아니다.
+ *
+ * ⚠️ 여기에 "계정이 이미 있는 사람(R10-J로 전환한 사용자)을 위한 통로를 아래에
+ * 작게 남긴다"고 적혀 있었으나 **그런 통로는 없다**(2026-08-12 정정). 로그인
+ * 화면이 제거되면서 링크의 목적지 자체가 사라졌다. 전환한 사용자가 다른 기기에서
+ * 다시 들어올 방법은 현재 **없다** — 이것은 알려진 공백이고, 지금 서비스가
+ * 기기 1대에 묶인 게스트 진도를 전제로 선다는 뜻이다. 되살릴 때는 이 화면이
+ * 아니라 제품 결정으로 다룰 것.
+ */
+function GuestIssueRetry({ onRetry }) {
+  const locale = getCurrentLocale();
+  return (
+    <div className="mx-auto mt-24 max-w-sm px-6 text-center">
+      <p className="text-4xl" aria-hidden="true">☁️</p>
+      <h1 className="mt-3 text-lg font-extrabold text-slate-800">
+        {translate(locale, 'auth.login.guestFailedTitle')}
+      </h1>
+      <p className="mt-1.5 text-sm text-slate-500">
+        {translate(locale, 'auth.login.guestFailedBody')}
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-5 w-full rounded-xl bg-sky-600 py-2.5 text-sm font-extrabold text-white hover:bg-sky-700"
+      >
+        {translate(locale, 'auth.login.guestFailedRetry')}
+      </button>
+    </div>
+  );
+}
+
 function RequireAuth() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const [, bump] = useState(0); // 모듈 스코프 플래그가 바뀐 뒤 한 번 다시 그린다
+  // ⚠️ **재시도는 effect 의존성에 있어야 한다.** `bump`만 올리면 리렌더는 되지만
+  // `[accessToken]`이 그대로(null)라 발급 effect가 다시 안 돈다 — 재시도 화면이
+  // 영구 스피너로 바뀌고 사용자가 갇힌다. MT-29가 막으려던 결과 그 자체다.
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
     // 토큰을 한 번이라도 본 순간 "시도 완료"로 못박는다 — 이후 **로그아웃으로
@@ -102,15 +164,39 @@ function RequireAuth() {
     }
     if (guestAttempted) return;
     guestAttempted = true;
-    issueGuestOnce().then(() => {
+    issueGuestOnce().then((ok) => {
       guestSettled = true;
+      guestFailed = !ok;
       bump((n) => n + 1);
     });
-  }, [accessToken]);
+  }, [accessToken, retryTick]);
 
   if (!accessToken) {
-    // 시도가 끝났는데도 토큰이 없다 = 발급 실패(또는 로그아웃) → 종전 폴백 유지.
-    if (guestSettled) return <Navigate to="/login" replace />;
+    // 발급이 **실패**했다 → 재시도 화면. 로그인 폼이 아니다(MT-29).
+    if (guestFailed) {
+      return (
+        <GuestIssueRetry
+          onRetry={() => {
+            resetGuestAutoIssue();
+            setRetryTick((n) => n + 1); // effect 의존성 — 이것이 실제 재시도를 일으킨다
+          }}
+        />
+      );
+    }
+    // 시도가 끝났고 실패도 아닌 상태(옛 로그아웃 경로)도 재시도로 받는다.
+    // **로그인 화면이 없어졌으므로 보낼 곳이 없다**(2026-08-12 클라이언트 지시:
+    // 로그인·회원가입 구조 전면 제거). 토큰이 없는 이유가 무엇이든 학습자가
+    // 할 수 있는 일은 다시 여는 것 하나뿐이다.
+    if (guestSettled) {
+      return (
+        <GuestIssueRetry
+          onRetry={() => {
+            resetGuestAutoIssue();
+            setRetryTick((n) => n + 1);
+          }}
+        />
+      );
+    }
     return <LoadingSpinner label={translate(getCurrentLocale(), 'auth.login.guestStarting')} />;
   }
   return (
@@ -124,41 +210,14 @@ function RequireAuth() {
   );
 }
 
-/**
- * R9-09 버그픽스: 인증 직후 목적지는 authStore.postAuthRoute가 단일 진실원.
- * 가입 성공 흐름에서 setTokens(외부 스토어 구독 = sync 우선 플러시)가
- * 페이지의 navigate('/onboarding/placement')보다 먼저 렌더를 일으키면, 이
- * 컴포넌트의 <Navigate>가 뒤늦게 발화해 목적지를 '/'로 덮어쓰는 경합이 있었다
- * (가입 직후 배치고사 미진입 회귀). 페이지가 의도(postAuthRoute)를 스토어에
- * 실어 두면 어느 쪽이 이기든 같은 곳으로 간다 — 경합 자체가 무해해진다.
- */
-function RedirectIfAuthed({ children }) {
-  const accessToken = useAuthStore((s) => s.accessToken);
-  const postAuthRoute = useAuthStore((s) => s.postAuthRoute);
-  if (accessToken) return <Navigate to={postAuthRoute ?? '/'} replace />;
-  return children;
-}
+// `RedirectIfAuthed`는 로그인·가입 화면과 함께 제거됐다(2026-08-12 클라이언트
+// 지시). "이미 로그인한 사람이 로그인 화면에 오면 돌려보낸다"는 컴포넌트라
+// 그 화면이 없으면 존재 이유가 없다. `authStore.postAuthRoute`는 계정 전환
+// (`/account/convert`)이 여전히 쓰므로 스토어에는 남는다.
 
 export default function App() {
   return (
     <Routes>
-      <Route
-        path="/login"
-        element={
-          <RedirectIfAuthed>
-            <LoginPage />
-          </RedirectIfAuthed>
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          <RedirectIfAuthed>
-            <RegisterPage />
-          </RedirectIfAuthed>
-        }
-      />
-
       <Route element={<RequireAuth />}>
         {/* 온보딩 배치고사 — 탭바 없는 전체 화면(Layout 밖) */}
         <Route path="/onboarding/placement" element={<PlacementPage />} />
@@ -173,7 +232,6 @@ export default function App() {
           <Route path="/" element={<Navigate to="/learn" replace />} />
           <Route path="/learn" element={<CurriculumHome />} />
           <Route path="/learn/units/:unitId" element={<UnitSessionPage />} />
-          <Route path="/daily" element={<SessionPage />} />
           <Route path="/board" element={<BoardPage />} />
           {/* R9-01 §3.5: 탐구 시뮬 v1 — 순수 클라이언트 모듈. 진입은 BoardPage 카드
               **와 내비 「탐구」 탭**(CO-N-1 ②, 2026-08-08). */}

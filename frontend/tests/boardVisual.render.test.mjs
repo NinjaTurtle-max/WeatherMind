@@ -155,6 +155,152 @@ try {
     const src = readFileSync(resolve(root, 'src/modules/board/realisticEffects.jsx'), 'utf-8');
     check('PrecipCanvas: typeof window 마운트 가드 존재', src.includes("typeof window === 'undefined'"));
   }
+
+  // ── 6) **en 실렌더** — 심사위원이 보는 화면에 한국어가 남아 있지 않은가 (MT-28) ──
+  //
+  // 이 파일의 1~5는 전부 **로케일 ko 고정**이라(상단 localStorage 스텁) en 경로를
+  // 한 번도 돌리지 않는다. 그래서 "키 패리티 통과 + ko 무회귀 통과"인데도 en 화면이
+  // 통째로 한국어일 수 있고, MT-28 착수 시점이 정확히 그 상태였다(246줄).
+  //
+  // 실제로 이 검사가 **키 외부화만으로는 안 잡히는 것**을 잡았다: 존 이름 4종은
+  // 서버 값(GET /board/regions·board_regions.json 시드)이라 리소스에 넣어도 화면에는
+  // 서버 원문이 그려졌다. 표시 계층(zoneLabel)이 따로 필요했다.
+  //
+  // 검사 대상은 **태그를 벗긴 가시 텍스트**다 — 속성·주석·클래스명은 화면이 아니다.
+  {
+    // **왜 서버를 새로 띄우나**: i18n/core.js가 모듈 **로드 시점에** currentLocale을
+    // 정하고, 위 검사들이 이미 ko로 적재해 뒀다. 로드 뒤에 스토어 setLocale로 바꿔도
+    // 이미 만들어진 모듈 그래프의 초기값은 되돌아오지 않는다(실측: 절반만 en이 됐다).
+    // 그래서 localStorage 스텁을 en으로 갈고 **fresh 그래프**를 하나 더 띄운다 —
+    // 실제 심사 동선(en으로 처음 여는 브라우저)과 같은 조건이다.
+    const prevStorage = globalThis.localStorage;
+    globalThis.localStorage = {
+      getItem: (k) => (k === 'weathermind.locale' ? 'en' : null),
+      setItem() {}, removeItem() {},
+    };
+    // hmr:false — 두 번째 서버가 같은 HMR 포트(24678)를 잡으려다 경고를 뱉는다
+    const enServer = await createServer({
+      root, logLevel: 'error', appType: 'custom',
+      server: { middlewareMode: true, hmr: false },
+      optimizeDeps: { noDiscovery: true, include: [] },
+    });
+    const enPanel = await enServer.ssrLoadModule('/src/modules/board/CrossSectionPanel.jsx');
+    const enBoard = await enServer.ssrLoadModule('/src/modules/board/AtmosphereBoard.jsx');
+    const koWords = (html) => [
+      ...new Set(html.replace(/<[^>]+>/g, ' ').split(/\s+/).filter((w) => /[가-힣]/.test(w))),
+    ];
+
+    let leaked = [];
+    for (const rule of rules) {
+      const html = render(h(enPanel.default, {
+        zoneResult: { zone: 1, zone_name: 'Metro', phenomenon: rule.then.phenomenon,
+                      cloud: rule.then.cloud, rule_id: rule.id, explain: 'X' },
+      }));
+      leaked.push(...koWords(html).map((w) => `${rule.id}:${w}`));
+    }
+    check(`en 단면 패널 ${rules.length}종에 한국어 0건`, leaked.length === 0, leaked.slice(0, 10).join(' '));
+
+    const enPuzzle = {
+      question_text: 'Make a shower over the metro area',
+      initial_state: { elements: [
+        { type: 'front', subtype: 'cold', zone: 1 },
+        { type: 'air_mass', subtype: 'north_pacific', zone: 3 },
+      ] },
+      palette: ['front:cold', 'front:warm', 'front:stationary', 'air_mass:siberian',
+                'air_mass:okhotsk', 'air_mass:yangtze', 'moisture', 'sun', 'wind'],
+      goal_conditions: [{ zone: 1, phenomenon: 'shower' }], hints: [],
+    };
+    const enHtml = render(h(QueryClientProvider, { client: new QueryClient() },
+      h(enBoard.default, { puzzle: enPuzzle, phenomena: [{
+        zone: 1, zone_name: 'Metro', phenomenon: 'shower', cloud: 'cumulonimbus',
+        rule_id: 'cold_front_shower', explain: 'X' }] })));
+    const boardLeak = koWords(enHtml);
+    check('en 보드 전체(지도·팔레트·존 라벨)에 한국어 0건',
+      boardLeak.length === 0, boardLeak.slice(0, 20).join(' '));
+
+    await enServer.close();
+    globalThis.localStorage = prevStorage;
+  }
+
+  // ── 7) 두 검사는 **서로 다른 것을 본다** — 병합이 한쪽을 밀어내지 않게 둘 다 둔다.
+  //    위 6은 en 실렌더(MT-28), 아래는 좁은 화면 재배치(2026-08-11)다.
+
+  // 7) wide 배치가 **좁은 화면에서 다시 줄을 선다** (2026-08-11)
+  //
+  // 보드 플레이는 lg에서만 2열이다. lg 미만에서는 두 열 래퍼를 `contents`로 지워
+  // 블록들을 바깥 격자의 직계 칸으로 만들고 `order-*`로 다시 세운다 —
+  // 그러지 않으면 「왼쪽 통째 → 오른쪽 통째」로 접혀 **판정이 지도 아래**로
+  // 내려간다(시간 초과의 유일한 재도전 버튼이 화면 밖으로 나간다). 3열 시절에는
+  // 오른쪽 열의 `order-first`가 이 일을 했는데 2열 개편에서 함께 사라졌다.
+  // CSS 엔진이 없어 좌표로는 못 잰다 → 소스로 단정한다.
+  {
+    const src = readFileSync(resolve(root, 'src/modules/board/AtmosphereBoard.jsx'), 'utf-8');
+    // wide 분기 **안쪽만** 본다 — 뒤따르는 stacked 배치에도 {verdictBlock}·
+    // {hintBlock}이 있고 거기에는 순서·분기 클래스가 없는 것이 정상이다.
+    // 끝은 stacked의 최상위 `return (`(들여쓰기 2칸)다.
+    const wideStart = src.indexOf('if (wide) {');
+    const stackedStart = src.indexOf('\n  return (', wideStart);
+    check('wide 분기 경계를 찾았다', wideStart > 0 && stackedStart > wideStart);
+    const body = src.slice(wideStart, stackedStart);
+    const columns = (body.match(/className="contents lg:flex/g) ?? []).length;
+    check(`wide: 좁은 화면에서 두 열 래퍼가 사라진다(contents ${columns}/2)`, columns === 2);
+    const verdictLine = body.split('\n').find((l) => l.includes('{verdictBlock}') && l.includes('order-'));
+    check('wide: 판정 블록이 좁은 화면 순서를 갖는다(order-*)', Boolean(verdictLine));
+
+    // 「가이드」는 **열 안의 카드가 아니라 배너에서 여는 오버레이**다
+    // (2026-08-12 사용자 지시 — 목표 진행 칩 자리를 가이드가 쓰고, 누르면
+    // 회색 카드가 뜬다). 두 열이 같은 높이로 끝나는 배치라 어느 열에 카드를
+    // 넣든 반대쪽에 ~150px 흰 자리가 생긴다(세 배치 실측). 열 안으로
+    // 되돌리면 그 여백이 그대로 돌아온다.
+    // ⚠️ indexOf를 그대로 slice에 넣지 말 것 — 격자 클래스를 조정하면 -1이 되고
+    // slice(-1)은 **한 글자**가 돼 아래 단정이 영원히 공허하게 통과한다.
+    const colsAt = body.indexOf('lg:grid-cols-[minmax(0,1.25fr)');
+    check('wide: 두 열 격자를 찾았다', colsAt > 0);
+    const colsBody = colsAt > 0 ? body.slice(colsAt) : '';
+    check('wide: 가이드가 두 열 안에 카드로 있지 않다', colsAt > 0 && !colsBody.includes('guidePopover'));
+    check('wide: 가이드 칩·카드가 배너 안에 있다', body.includes('{guideChip}') && body.includes('{guidePanel}'));
+    // 카드는 **배너**(relative)에 매단다. 칩에 매달면 칩이 줄 어디에 있느냐에
+    // 따라(목표 칩·타이머와 같이 뜨면 줄 가운데로 밀린다) 카드가 화면 밖으로
+    // 나간다. 배너는 항상 화면 폭을 차지하므로 어느 조합에서도 안 넘친다.
+    check('wide: 배너가 앵커(relative)다', /data-testid="board-mission-hero"[\s\S]{0,400}?className="relative /.test(src));
+    // 떠 있는 카드는 **격자 높이에 영향을 주지 않아야** 한다 — absolute가 빠지면
+    // 배너가 카드만큼 늘어나 단면이 밀린다.
+    check('wide: 가이드 카드가 absolute로 떠 있다', /id="board-guide-panel"[\s\S]{0,900}?absolute/.test(src));
+    // 폰은 배너 폭을 꽉 채우고(left-4 right-4), sm↑는 배너 오른쪽에 320px.
+    // 칩 기준(left-0/right-0)으로 되돌리면 칩 위치에 따라 화면을 넘는다.
+    const popoverClass = src.match(/id="board-guide-panel"[\s\S]{0,900}?className="([^"]*)"/)?.[1] ?? '';
+    check(
+      `가이드 카드: 폰은 배너 폭, sm↑는 오른쪽 고정폭 — "${popoverClass.slice(0, 64)}…"`,
+      /(^|\s)left-4(\s|$)/.test(popoverClass)
+        && /(^|\s)right-4(\s|$)/.test(popoverClass)
+        && /(^|\s)sm:right-4(\s|$)/.test(popoverClass)
+        && /(^|\s)sm:w-\[/.test(popoverClass),
+    );
+
+    // 힌트는 조절값 열 아래에 **한 번만** 그려진다. 좁은 화면용을 따로 두고
+    // CSS로 감추면 BoardHintPanel이 두 개 마운트돼 data-testid가 중복된다.
+    const hintLines = body.split('\n').filter((l) => l.includes('{hintBlock}'));
+    check(`wide: 힌트 인스턴스가 하나다(${hintLines.length}곳)`, hintLines.length === 1);
+  }
+
+  // 7) 좁은 칸에 놓인 힌트는 캐릭터를 **위로 쌓는다** (2026-08-12)
+  //
+  // wide의 힌트는 168px 조절값 열 아래에 붙는다. 가로 배치면 마스코트 44 +
+  // 간격 8 + 말풍선 안여백 24를 빼고 글자 폭이 92px만 남아 두 단짜리 힌트가
+  // 리본이 된다. 세션 안 보드(stacked)는 칸이 넓어 종전 가로 배치 그대로다.
+  {
+    const panel = await server.ssrLoadModule('/src/modules/board/BoardHintPanel.jsx');
+    const props = { steps: ['첫 단계 문구', '둘째 단계 문구'], level: 2, kindLabels: ['일사'] };
+    const stacked = render(h(panel.default, { ...props, stack: true }));
+    const inline = render(h(panel.default, props));
+    check('힌트: stack이면 세로로 쌓는다', /data-hint-stacked="1"/.test(stacked) && /flex-col/.test(stacked));
+    check('힌트: 기본은 가로 배치 그대로', /data-hint-stacked="0"/.test(inline) && !/flex-col/.test(inline));
+    check('힌트: 두 배치 모두 본문 문구는 같다', ['첫 단계 문구', '둘째 단계 문구', '일사']
+      .every((s) => stacked.includes(s) && inline.includes(s)));
+
+    const board = readFileSync(resolve(root, 'src/modules/board/AtmosphereBoard.jsx'), 'utf-8');
+    check('힌트: wide에서만 stack을 켠다', /stack=\{wide\}/.test(board));
+  }
 } finally {
   await server.close();
 }

@@ -199,6 +199,39 @@ try {
     }
   });
 
+  await scenario('보드 시각화 모듈에 하드코딩 한국어가 없다 (MT-28 회귀)', async () => {
+    // **왜 이 가드가 있나**: 이월 대장(:1409)이 *"하드코딩 한국어는 1건뿐"*이라
+    // 단정하는 동안 실제로는 **246줄 / 5파일**이었다. 세 파일이 각자 주석으로
+    // "§6.3 외부화 제외"를 자백해 놓고도 색인에 행이 없어 8/10까지 안 잡혔다.
+    // **자백은 등재를 대신하지 못하고, 사람의 단정은 드리프트한다** — 그래서
+    // 사람이 아니라 이 테스트가 소유한다.
+    //
+    // 하필 이 네 파일이 심사 배점 ②(체험·참여형)를 겨눈 보드 퍼즐의 **판정 순간
+    // 화면 전부**다. en으로 한 번 풀면 단면 캡션·팔레트·지도 라벨이 통째로 한국어였다.
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const GUARDED = [
+      'src/modules/board/CrossSectionPanel.jsx',
+      'src/modules/board/webgl/crossSection/scenes.js',
+      'src/modules/board/boardDisplay.js',
+      'src/modules/board/mapInfographic.jsx',
+      'src/modules/board/crossSectionLabels.js',
+    ];
+    const hangul = /[가-힣]/;
+    for (const rel of GUARDED) {
+      const src = readFileSync(join(root, rel), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')            // 블록 주석
+        .split('\n')
+        .filter((l) => !l.trimStart().startsWith('//'))
+        .map((l) => l.replace(/\/\/.*$/, ''))        // 행말 주석
+        .filter((l) => hangul.test(l));
+      assert(
+        src.length === 0,
+        `${rel}: 코드에 한국어 ${src.length}줄 — 리소스(board.*.js)로 뺄 것. 예: ${src[0]?.trim().slice(0, 60)}`,
+      );
+    }
+  });
+
   // ── 2. translate 순수 함수: 보간 + 미지 키 ────────────────────────────────
   await scenario('translate(): {name} 보간·미지 키는 키 반환·미지 파라미터는 원문 유지', async () => {
     assert(

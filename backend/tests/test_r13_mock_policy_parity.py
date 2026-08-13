@@ -27,6 +27,7 @@ import pytest
 
 from app.core.config import settings
 from app.schemas.auth import LevelGroup
+from app.services import session_service
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MOCK_PATH = REPO_ROOT / "frontend" / "mock" / "apiMockPlugin.js"
@@ -80,10 +81,64 @@ class TestEnergyConstants:
         assert policy["cloud_cost"] == settings.CLOUD_COST
 
 
+def server_block_order() -> list[str]:
+    """서버의 **출제 순서를 실행으로 캐낸다** — 소스에 적힌 문장이 아니라 실동작.
+
+    `plan_bank_picks`는 배합 dict의 키 순서가 아니라 **블록 호출 순서**로 픽을
+    쌓는다(그 함수의 독스트링이 소유자를 그렇게 못박는다). 그래서 기대값을 여기
+    사본으로 적지 않고, 블록마다 자기 풀만으로 배합을 채울 수 있게 넉넉히 준 뒤
+    나온 kind 나열에서 순서를 읽는다 — 사본을 두면 이 계약이 자기 자신을 대조하게
+    되고, 그것이 애초에 CO-J-9가 생긴 방식이다.
+    """
+    recipe = settings.SESSION_RECIPE
+
+    def pool(kind: str, question_type: str = "multiple_choice") -> list[dict]:
+        return [
+            {"id": f"{kind}-{i}", "question_type": question_type}
+            for i in range(recipe.get(kind, 0))
+        ]
+
+    picks, missing = session_service.plan_bank_picks(
+        pool("new"),
+        pool("review"),
+        pool("live"),
+        unit_pool=pool("unit"),
+        board_pool=pool("board", "board"),
+    )
+    assert missing == 0, f"블록마다 풀을 다 줬는데 배합이 {missing}건 비었다"
+    order: list[str] = []
+    for pick in picks:
+        if not order or order[-1] != pick["kind"]:
+            order.append(pick["kind"])
+    assert len(order) == len(set(order)), (
+        f"한 블록이 두 번 끊겨 나왔다({order}) — 풀 구성이 부족분 대체를 탔다"
+    )
+    return order
+
+
 @needs_node
 class TestSessionRecipe:
     def test_배합이_같다(self, policy):
         assert policy["session_recipe"] == settings.SESSION_RECIPE
+
+    def test_출제_순서가_같다(self, policy):
+        """**목이 서버와 같은 순서로 문항을 내보내는가** (2026-08-13 신설).
+
+        목은 `new → review → live → board`, 서버는 `live → new → review → board`로
+        조용히 갈려 있었다. 하루 첫 유닛 세션이 데일리 화면을 공유하게 되면서
+        이 갭은 단순한 목 결함이 아니라 **눈으로 하는 검증을 무효화하는 자리**가
+        됐다 — 화면에서 본 순서가 진짜 결함인지 목 인공물인지 구분되지 않는다.
+
+        서버 쪽 기대값은 `plan_bank_picks`를 **실행해서** 얻는다(위 헬퍼).
+        """
+        assert policy["block_order"] == server_block_order()
+
+    def test_순서에_배합의_전_블록이_들어_있다(self, policy):
+        """배합에 자리가 있는데 순서 목록에 없으면 그 블록은 **영영 안 나간다**."""
+        wanted = {k for k, v in settings.SESSION_RECIPE.items() if v}
+        assert set(policy["block_order"]) >= wanted, (
+            f"목 출제 순서에 {sorted(wanted - set(policy['block_order']))} 블록이 없다"
+        )
 
     def test_board_상한이_같다(self, policy):
         """CO-H5 — 목 뱅크에 board가 늘어도 서버와 같은 상한을 쓴다.
@@ -93,6 +148,41 @@ class TestSessionRecipe:
         복사한 채 대조가 0이던 CO-J-9가 정확히 그렇게 생겼다.
         """
         assert policy["daily_board_cap"] == settings.DAILY_BOARD_CAP
+
+    def test_두_번째_이후_유닛_세션_크기가_같다(self, policy):
+        """**첫 세션은 배합 총합(10), 두 번째 이후가 이 값**(2026-08-13 확정).
+
+        종전 목은 이 자리에 하드코딩 `3`을 갖고 서버(4)와 조용히 갈려 있었다 —
+        대조가 0인 정책이 리터럴로 복사돼 있는 CO-J-9와 똑같은 모양이다.
+        """
+        assert policy["unit_session_size"] == settings.UNIT_SESSION_SIZE
+
+    def test_배치고사_문항_수가_같다(self, policy):
+        """온보딩 배치고사 크기 — 서버 `Settings.PLACEMENT_SIZE`(2026-08-13 신설).
+
+        이 브랜치가 `PLACEMENT_SIZE`를 **6 → 10**으로 올렸다
+        (`target_level_sequence`가 지식 단계 1~10을 한 번씩 겨냥하려면 슬롯이
+        10칸이어야 한다). 목의 `PLACEMENT_ITEMS`는 `CONCEPT_TAGS`(6종)에서
+        만들어져 **6문항에 멈춰 있었고**, `__mockPolicy()`가 이 크기를 노출하지
+        않아 **패리티가 원리적으로 못 봤다** — 에너지 상수 3종이 리터럴 사본인
+        채 대조가 0이던 CO-J-9와 정확히 같은 모양이다.
+
+        ⚠️ 목이 내보내는 값은 선언 상수가 아니라 **실제로 만들어진 배열의
+        길이**여야 한다(`placement_size: PLACEMENT_ITEMS.length`). 상수를
+        내보내면 배열이 6건이어도 이 계약이 초록이 된다.
+        """
+        assert policy["placement_size"] == settings.PLACEMENT_SIZE
+
+    def test_보드_잠금_앞보기가_같다(self, policy):
+        """MT-24 — 목이 잠금 규칙을 흉내 내되 **앞보기 칸 수까지** 같아야 한다.
+
+        이 값이 갈리면 목 위 스모크에서는 3칸이 열리는데 실서버에서는 1칸만
+        열리는(또는 그 반대) 화면이 된다. 잠금은 학습자가 **무엇을 할 수 있는지**를
+        정하므로, 갈린 채로 초록이면 스모크가 검증하는 동선 자체가 실서버에 없다.
+        """
+        from app.routers.board import BOARD_UNLOCK_LOOKAHEAD
+
+        assert policy["board_unlock_lookahead"] == BOARD_UNLOCK_LOOKAHEAD
 
 
 @needs_node
@@ -128,6 +218,134 @@ class TestLevelGroups:
 
 
 @needs_node
+class TestKnowledgeLevelAxis:
+    """지식 단계 축 — **목에 아예 없던** 도메인(2026-08-12).
+
+    목의 `GET /progress/me`가 `knowledge_level`·`knowledge_level_max`를 안 보내서
+    `KnowledgeLevelCard`가 목에서 **항상 null**을 반환했다. 카드가 통째로 안 뜨니
+    프론트 스모크 24종 중 어느 것도 그 카드를 렌더해 본 적이 없었고, 그 상태로
+    카드를 /me 오른쪽 열로 옮기는 배치 변경이 들어갔다. J-9가 "값이 갈렸다"였다면
+    이것은 "필드가 없었다"다 — 갈림보다 조용하다.
+
+    분모(MAX)와 경계(BOUNDS)가 어긋나면 목 화면의 「10단계 중 3단계」가 실서버에서
+    다른 숫자가 된다. 두 값 모두 서버가 소유하고 목은 사본이라 실값으로 문다.
+    """
+
+    def test_지식_단계_분모가_같다(self, policy):
+        from app.services.weatherbrain_service import KNOWLEDGE_LEVEL_MAX
+
+        assert policy["knowledge_level_max"] == KNOWLEDGE_LEVEL_MAX
+
+    def test_θ_단계_경계가_같다(self, policy):
+        from app.services.weatherbrain_service import THETA_KNOWLEDGE_LEVEL_BOUNDS
+
+        assert policy["theta_knowledge_level_bounds"] == list(
+            THETA_KNOWLEDGE_LEVEL_BOUNDS
+        )
+
+    def test_목이_같은_θ에서_같은_밴드를_낸다(self, policy):
+        """4밴드 축도 같은 θ에서 같아야 한다.
+
+        지식 단계를 붙이다 발견했다(2026-08-12): 목 `thetaToLevelGroup`에
+        **expert 가지가 없어** θ≥1.5에서 목은 adult, 서버는 expert였다. 두 축은
+        접으면 같아야 하는데(`level_group_of_knowledge_level ∘
+        theta_to_knowledge_level == theta_to_level_group`) 목만 그 불변식을
+        깨고 있었고, 밴드로 잠기는 보드 난이도까지 이 값을 탄다.
+        """
+        import json
+        import subprocess
+
+        from app.services.weatherbrain_service import theta_to_level_group
+
+        samples = [-9.0, -0.51, -0.5, 0.0, 0.49, 0.5, 1.0, 1.49, 1.5, 2.0, 9.0]
+        code = (
+            f"const m = await import({str(MOCK_PATH.as_uri())!r});"
+            f"const xs = {json.dumps(samples)};"
+            "process.stdout.write(JSON.stringify(xs.map(m.__thetaToLevelGroup)));"
+        )
+        proc = subprocess.run(
+            [NODE, "--input-type=module", "-e", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=MOCK_PATH.parent,
+        )
+        assert proc.returncode == 0, proc.stderr[-2000:]
+        mock_bands = json.loads(proc.stdout)
+        server_bands = [theta_to_level_group(x) for x in samples]
+        mismatched = [
+            (x, m, s) for x, m, s in zip(samples, mock_bands, server_bands) if m != s
+        ]
+        assert not mismatched, f"θ→밴드가 갈린다 (θ, 목, 서버): {mismatched}"
+
+    def test_두_축이_목_안에서도_접힌다(self, policy):
+        """목 스스로도 2축 정합을 지키는가 — 단계를 밴드로 접으면 밴드와 같아야."""
+        import json
+        import subprocess
+
+        from app.services.weatherbrain_service import level_group_of_knowledge_level
+
+        samples = [-9.0, -0.5, 0.0, 0.5, 1.0, 1.5, 1.75, 2.0, 2.25, 9.0]
+        code = (
+            f"const m = await import({str(MOCK_PATH.as_uri())!r});"
+            f"const xs = {json.dumps(samples)};"
+            "process.stdout.write(JSON.stringify(xs.map((x) => "
+            "[m.__thetaToKnowledgeLevel(x), m.__thetaToLevelGroup(x)])));"
+        )
+        proc = subprocess.run(
+            [NODE, "--input-type=module", "-e", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=MOCK_PATH.parent,
+        )
+        assert proc.returncode == 0, proc.stderr[-2000:]
+        broken = [
+            (x, lvl, band, level_group_of_knowledge_level(lvl))
+            for x, (lvl, band) in zip(samples, json.loads(proc.stdout))
+            if level_group_of_knowledge_level(lvl) != band
+        ]
+        assert not broken, f"목의 2축이 안 접힌다 (θ, 단계, 밴드, 접은값): {broken}"
+
+    def test_목이_같은_θ에서_같은_단계를_낸다(self, policy):
+        """경계값 전건 대조 — 표만 같고 **비교 방향**(< vs <=)이 다르면 경계에서
+        갈린다. 목은 `findIndex(theta < bound)`, 서버는 `if theta < bound`다.
+        """
+        import json
+        import subprocess
+
+        from app.services.weatherbrain_service import theta_to_knowledge_level
+
+        bounds = policy["theta_knowledge_level_bounds"]
+        # 경계 위·정확히·아래를 모두 던진다(경계는 하위 제외·상위 포함 관례)
+        samples = [-9.0, 9.0]
+        for b in bounds:
+            samples += [b - 0.01, b, b + 0.01]
+
+        code = (
+            f"const m = await import({str(MOCK_PATH.as_uri())!r});"
+            f"const xs = {json.dumps(samples)};"
+            "process.stdout.write(JSON.stringify(xs.map(m.__thetaToKnowledgeLevel)));"
+        )
+        proc = subprocess.run(
+            [NODE, "--input-type=module", "-e", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=MOCK_PATH.parent,
+        )
+        assert proc.returncode == 0, proc.stderr[-2000:]
+        mock_levels = json.loads(proc.stdout)
+        server_levels = [theta_to_knowledge_level(x) for x in samples]
+        mismatched = [
+            (x, m, s)
+            for x, m, s in zip(samples, mock_levels, server_levels)
+            if m != s
+        ]
+        assert not mismatched, f"θ→단계가 갈린다 (θ, 목, 서버): {mismatched}"
+
+
+@needs_node
 class TestCrownPolicy:
     """왕관 — **행위가 이미 갈라져 있던** 도메인(CO-A6 / CO-J-9).
 
@@ -156,14 +374,47 @@ class TestCrownPolicy:
             "블록 0에서 세션 전체로 폴백하는 `... or logs`가 되살아났다 (CO-M7)"
         )
 
-    def test_유닛_세션은_왕관을_주지_않는다(self, policy, session_src):
-        """§2.10 소유권 이전 — 유닛 직접 진입은 연습 전용(grant_crown=False 고정)."""
-        assert policy["crown"]["unit_session_grants_crown"] is False
-        assert re.search(r"grant_crown=False", session_src), (
-            "서버 유닛 세션이 grant_crown=False가 아니다"
+    def test_유닛_왕관은_하루_첫_세션에만_붙는다(self, policy, session_src):
+        """2026-08-13 확정 — 「하루의 첫 유닛 세션이 곧 데일리 세션」.
+
+        ⚠️ **이 계약은 뒤집혔고, 종전 판은 사실상 헛돌고 있었다.** 예전 본문은
+        `grant_crown=False`가 소스에 **존재**하는지만 봤는데, 2026-08-12에 서버가
+        `grant_crown=all_correct`로 바뀐 뒤에도 초록이었다 — 그 문자열이 **경위를
+        설명하는 주석**에 남아 있었기 때문이다. 문자열 존재로 정책을 재는 검사는
+        주석 하나에 속는다. 그래서 지금은 **실제 인자식**을 문다.
+
+        무는 것 셋:
+          ⑴ 목이 같은 정책을 신고한다(`daily_first_only`).
+          ⑵ 서버가 `all_correct`와 `daily_first`의 **논리곱**을 넘긴다.
+          ⑶ 왕관 분기가 「첫 세션인가」를 **재계산하지 않는다** — 발급 시점 도장을
+             읽기만 한다. 재계산하면 두 유닛을 열어 역순으로 완료할 때 둘 다 첫
+             세션이 되거나 둘 다 아니게 된다.
+        """
+        assert policy["crown"]["unit_session_grants_crown"] == "daily_first_only"
+        assert re.search(r"grant_crown=all_correct and daily_first", session_src), (
+            "서버 유닛 세션의 왕관이 「만점 ∧ 하루 첫 세션」이 아니다"
         )
-        assert not re.search(r"grant_crown=True", session_src), (
-            "유닛 세션에 왕관을 주는 분기가 되살아났다 (§2.10)"
+        assert re.search(
+            r'daily_first = bool\(\s*\(getattr\(session, "recipe_json", None\) or \{\}\)'
+            r'\.get\("daily_first"\)',
+            session_src,
+        ), "왕관 분기가 recipe_json 도장을 읽지 않는다"
+
+    def test_첫_세션_판정은_발급_시점에_찍힌_도장이다(self, policy, session_src):
+        """완료 시점 재계산 금지 — 라우터가 세션 수를 **세지 않아야** 한다."""
+        assert policy["crown"]["unit_first_stamped_at_issue"] is True
+        # 주석은 걷어낸다 — 판정의 소유자가 어디인지 **설명하느라** 그 함수 이름을
+        # 인용하므로, 주석까지 세면 근거를 남길수록 테스트가 우는 뒤집힌 유인이
+        # 생긴다(같은 파일 `test_진도_블록_0은_...`이 쓰는 것과 같은 방법).
+        code = "\n".join(
+            line
+            for line in session_src.splitlines()
+            if not line.lstrip().startswith("#")
+        )
+        assert "is_first_unit_session_today" not in code, (
+            "라우터가 완료 시점에 「첫 세션인가」를 재계산한다 — 판정의 소유자는 "
+            "발급 시점(curriculum_service.create_unit_session)이고 여기는 도장을 "
+            "읽기만 해야 한다(역순 완료 경합)"
         )
 
     def test_왕관_대상_쌍이_진도_블록_유닛에서_나온다(self, policy, session_src):
@@ -195,3 +446,165 @@ class TestMockExposesPolicy:
         assert "cloud_cost: CLOUD_COST" in body
         assert "CLOUD_REGEN_MS" in body
         assert "session_recipe: MOCK_SESSION_RECIPE" in body
+        # 배치고사 크기만은 **상수가 아니라 실제 배열 길이**를 내보내야 한다 —
+        # 상수를 내보내면 배열이 옛 크기(6)에 멈춰 있어도 패리티가 초록이다
+        # (2026-08-13 결함 ④가 그렇게 숨어 있었다).
+        assert "placement_size: PLACEMENT_ITEMS.length" in body
+
+    def test_목도_재사용_판정을_구름_게이트보다_먼저_한다(self):
+        """2026-08-13 결함 ① — **서버와 목이 같은 결함을 갖고 있었다.**
+
+        서버가 오늘·같은 유닛의 미완료 세션을 재사용하게 되면서(D10-3 대체),
+        구름 게이트는 **신규 발급 분기 안**으로 들어갔다. 목의
+        `startUnitSession`은 재사용을 처음부터 하고 있었는데 게이트는 그 앞에
+        있었다 — 구름 0인 학습자가 이미 발급된 세션에 재진입하면 목에서도 429가
+        났다는 뜻이고, 「이미 발급된 세션은 잔량 0이어도 끝까지 보장」(R10)이
+        목 위 스모크에서 원리적으로 확인 불가였다.
+
+        `__mockPolicy()`로는 잴 수 없는 **순서**라 소스로 문다(같은 파일의
+        `test_계약14_...`가 서버 쪽에 쓰는 것과 같은 방법).
+        """
+        src = MOCK_PATH.read_text(encoding="utf-8")
+        fn = re.search(
+            r"function startUnitSession\(.*?\n\}\n", src, re.S
+        )
+        assert fn, "목의 startUnitSession을 못 찾았다 — 이 계약을 갱신할 것"
+        block = fn.group(0)
+        reuse_at = block.index("sessions.get(sessionId)")
+        gate_at = block.index("requireCloudEntry()")
+        assert reuse_at < gate_at, (
+            "목이 재사용 조회보다 먼저 구름 게이트를 건다 — 이미 발급된 세션에 "
+            "재진입하는 학습자가 429로 쫓겨난다(서버는 신규 발급 분기 안에서만 건다)"
+        )
+
+
+class TestNoLoginInMainFlow:
+    """로그인 화면이 **없다** — MT-29 → 2026-08-12 클라이언트 지시로 강화.
+
+    ⚠️ **계약이 뒤집혔다.** 이 클래스는 원래 "라우트 자체는 의도적으로 존치한다"고
+    적혀 있었다(로그인 화면이 정식 계정의 재진입 통로이자 게스트 발급 실패의
+    도착지라는 근거였다). 2026-08-12 클라이언트 지시로 로그인·회원가입 구조를
+    전면 제거하면서 그 전제가 둘 다 무너졌다:
+
+      · 게스트 비밀번호는 무작위 시크릿이라 **애초에 재진입 경로가 없다.**
+        로그인 화면은 게스트에게 돌아올 문이 아니라 막다른 길이었다.
+      · 발급 실패의 도착지는 이미 `GuestIssueRetry`로 갈려 나갔다(MT-29 본체).
+        로그인 화면이 받던 몫이 남아 있지 않다.
+
+    진도를 지키는 통로는 로그인이 아니라 **계정 전환**(`/account/convert`)이고,
+    그쪽은 그대로 산다.
+
+    그래서 무는 것은 셋이다:
+      1. `frontend/src`에 `/login`·`/register` **라우트 참조가 0건**
+      2. `App.jsx` 라우트 표에 그 경로가 없다
+      3. 발급 실패를 `GuestIssueRetry`가 받고, **재시도가 effect 의존성에 있다**
+
+    ⚠️ 3번의 뒷단이 핵심이다 — 재시도 버튼이 리렌더만 일으키고 발급을 다시 안 걸면
+    화면이 영구 스피너가 되고 사용자가 갇힌다(실제로 그렇게 커밋된 적이 있다.
+    2026-08-12 코드 리뷰). 그래서 문자열 존재가 아니라 **의존성 배열**을 문다.
+    """
+
+    FRONT = Path(__file__).resolve().parents[2] / "frontend" / "src"
+
+    # ⚠️ **부분 문자열로 세면 안 된다.** `/auth/login`·`/auth/register`는 계정 전환이
+    # 쓰는 정당한 **API 엔드포인트**라 `api/auth.js`에 그대로 남고, 산문 주석에도
+    # "종전에는 /login으로 튕겼다" 같은 경위 기술이 남는다. 무는 것은 화면으로
+    # 가는 **라우트 참조**이므로 라우트 모양의 마커만 센다.
+    ROUTE_MARKERS = tuple(
+        tmpl.format(path=path)
+        for path in ("/login", "/register")
+        for tmpl in (
+            'to="{path}"',
+            "to='{path}'",
+            'navigate("{path}")',
+            "navigate('{path}')",
+            'path="{path}"',
+            "path='{path}'",
+            'Navigate to="{path}"',
+            # ⚠️ **`.js` 헬퍼가 목적지를 데이터로 들고 있는 선례가 있다** —
+            # `modules/curriculum/learnEntry.js`의 `pickLearnEntry`가
+            # `{ kind: 'daily', to: '/daily' }`를 돌려주고 화면이 그걸 `<Link to>`에
+            # 그대로 꽂는다. JSX 속성만 보면 그런 경로는 감시를 빠져나간다.
+            "to: '{path}'",
+            'to: "{path}"',
+        )
+    )
+
+    def test_프론트에_로그인_가입_라우트_참조가_없다(self):
+        """계약 1 — `frontend/src` 전역 0건.
+
+        ALLOWED 예외가 없다. 종전에는 LoginPage·RegisterPage끼리의 상호 링크를
+        허용했는데 **두 파일이 삭제됐고**, App.jsx도 이제 깨끗해야 한다.
+
+        `.jsx`뿐 아니라 `.js`도 훑는다(위 ROUTE_MARKERS 주석의 learnEntry 선례).
+        `/auth/login`·`/auth/register`는 계정 전환이 쓰는 실 엔드포인트라 남지만,
+        마커가 전부 `to:`/`path=`/`navigate(` 접두를 요구하므로 걸리지 않는다.
+        """
+        offenders = []
+        for path in sorted([*self.FRONT.rglob("*.jsx"), *self.FRONT.rglob("*.js")]):
+            src = path.read_text(encoding="utf-8")
+            for marker in self.ROUTE_MARKERS:
+                if marker in src:
+                    offenders.append(f"{path.relative_to(self.FRONT)}: {marker}")
+        assert not offenders, (
+            "로그인·회원가입 화면으로 가는 라우트 참조가 되살아났다 — 그 화면은 "
+            "2026-08-12에 제거됐고 게스트는 재진입 경로가 없다(진도 영구 소실). "
+            "진도를 지키는 통로는 /account/convert다: " + " · ".join(offenders)
+        )
+
+    def test_App_라우트_표에_로그인_가입_경로가_없다(self):
+        """계약 2 — 라우트 정의 자체가 사라졌는가.
+
+        위 1번은 `src` 전역을 훑으므로 App.jsx도 포함하지만, 이 계약은 **App.jsx가
+        라우트 표의 단일 소유자**라는 사실에 기대어 따로 못 박는다. 라우트가
+        되살아나는 회귀는 여기서 먼저 운다.
+        """
+        src = (self.FRONT / "App.jsx").read_text(encoding="utf-8")
+        for path in ("/login", "/register"):
+            for marker in (f'path="{path}"', f"path='{path}'"):
+                assert marker not in src, (
+                    f"App.jsx 라우트 표에 {path}가 되살아났다 — 로그인·회원가입 "
+                    "구조는 2026-08-12에 제거됐다"
+                )
+        # 삭제된 페이지 모듈을 다시 임포트하지도 않는다(파일 자체가 git rm 됐다).
+        # ⚠️ **맨 이름으로 세지 않는다.** `LoginPage`는 "종전에 LoginPage가 …했다"
+        # 같은 경위 기술로 주석에 정당하게 남는다(CLAUDE.md: 메커니즘 서술과
+        # 근거 참조는 남기고 고유명사만 바꾼다). 무는 것은 **import 문**이다.
+        for gone in ("LoginPage", "RegisterPage"):
+            assert not re.search(rf"^import\s+.*\b{gone}\b.*$", src, re.M), (
+                f"App.jsx가 삭제된 {gone}을 임포트한다 — 파일은 git rm 됐다"
+            )
+
+    def test_발급_실패는_재시도_화면으로_받고_재시도가_실제로_돈다(self):
+        """계약 3 — 실패를 `GuestIssueRetry`가 받고 재시도가 effect를 다시 돌린다.
+
+        ⚠️ 앞단(문자열 존재)만 물면 **아무 일도 안 하는 재시도 버튼**이 통과한다 —
+        실제로 그렇게 커밋됐다. `bump`로 리렌더만 하면 발급 effect의 의존성
+        `[accessToken]`이 그대로(null)라 재발급이 안 걸리고, 재시도 화면이 영구
+        스피너로 바뀐다. MT-29가 막으려던 결과 그 자체다.
+
+        그래서 **재시도 신호가 effect 의존성 배열에 있는지**를 문다.
+        누르는 것까지 보는 실마운트 계약은
+        `frontend/tests/onboardingGating.smoke.test.mjs`(시나리오 10-b)가 소유한다.
+        """
+        src = (self.FRONT / "App.jsx").read_text(encoding="utf-8")
+        assert "guestFailed" in src, "발급 실패와 그 외(토큰 없음)를 구분하지 않는다"
+        assert "GuestIssueRetry" in src, "발급 실패에 재시도 화면이 없다"
+
+        # 재시도 신호(retryTick)가 발급 effect의 의존성 배열에 있어야 한다.
+        deps = re.search(r"\}, \[accessToken([^\]]*)\]\);", src)
+        assert deps, (
+            "게스트 발급 effect의 의존성 배열(`[accessToken…]`)을 못 찾았다 — "
+            "이 계약을 갱신할 것"
+        )
+        assert "retryTick" in deps.group(1), (
+            "재시도가 effect 의존성에 없다 — 버튼이 리렌더만 일으키고 발급을 다시 "
+            "걸지 않는다. 재시도 화면이 영구 스피너가 되고 사용자가 갇힌다"
+        )
+        # 실패 분기가 "그 외" 분기보다 **먼저** 와야 한다. 종전에는 뒤 분기가
+        # `Navigate to="/login"`이었고 그 문자열로 순서를 쟀다 — 로그인 화면이
+        # 없어졌으므로 이제 두 분기 모두 GuestIssueRetry다. 순서는 실패 플래그가
+        # 정착 플래그보다 앞서는 것으로 잰다.
+        assert src.index("guestFailed)") < src.index("guestSettled)"), (
+            "발급 실패가 '그 외' 분기에 먼저 잡힌다 — 실패 전용 안내가 죽는다"
+        )

@@ -30,7 +30,15 @@ import { SymbolIcon, SunShape, SnowFlake, WaveLine } from './boardSymbols';
 import { anim, usePrefersReducedMotion } from './realisticEffects';
 import { frontCurveGeometry, taperedArrowPath, FrontTick } from './mapInfographic';
 import { supportsWebGL2 } from './webgl/crossSection/support';
+// 장면 내부 라벨 — SVG·WebGL 공유 단일 소유자(MT-28)
+import { V } from './crossSectionLabels.js';
+import { zoneLabel } from './PeninsulaMap';
 import { useT } from '../../i18n';
+// STORYBOARDS는 컴포넌트 밖 데이터라 훅(useT)을 못 쓴다 — core의 순수 함수를 쓴다.
+import { translate, translateList, getCurrentLocale } from '../../i18n/core.js';
+
+const tx = (key) => translate(getCurrentLocale(), key);
+const txList = (key) => translateList(getCurrentLocale(), key);
 
 const CrossSectionGL = lazy(() => import('./webgl/crossSection/CrossSectionGL'));
 
@@ -295,8 +303,8 @@ function BlockFrame({ night = false, sea = null, children }) {
         <line x1="14" y1="112" x2="14" y2="62" />
         <path d="M11,66 L14,61 L17,66" />
       </g>
-      <text x="14" y="57" textAnchor="middle" fontSize="6" fontWeight="700" fill="#475569">고도</text>
-      <text x="238" y="127" textAnchor="middle" fontSize="6" fontWeight="700" fill="#57534e">지표</text>
+      <text x="14" y="57" textAnchor="middle" fontSize="6" fontWeight="700" fill="#475569">{V.altitude}</text>
+      <text x="238" y="127" textAnchor="middle" fontSize="6" fontWeight="700" fill="#57534e">{V.surface}</text>
     </svg>
   );
 }
@@ -311,17 +319,17 @@ function ColdFrontScene({ step, animate }) {
         <GroundFrontLine fx0={0.6} fx1={0.74} kind="cold" animate={animate} />
         <polygon points={P(wedge)} fill={COLD_FILL} stroke={COLD} strokeWidth="1" />
         <BroadArrow x1={40} y1={100} x2={98} y2={100} color={COLD} bend={0.06} />
-        <CSText x={64} y={92} color={COLD}>찬 공기</CSText>
+        <CSText x={64} y={92} color={COLD}>{V.coldAir}</CSText>
       </Appear>
       <Appear at={1} step={step} animate={animate}>
         <polygon points={P([fp(0.6, 0), fp(1, 0), fp(1, 0.8), fp(0.2, 0.8), fp(0.15, 0.75)])} fill={WARM_FILL} />
-        <CSText x={178} y={86} color={WARM}>따뜻하고 습한 공기</CSText>
+        <CSText x={178} y={86} color={WARM}>{V.warmHumidAir}</CSText>
       </Appear>
       <RisingArrows at={1} step={step} animate={animate} cx={128} cy={92} rotate={-32} color={WARM} />
       <RisingArrows at={1} step={step} animate={animate} cx={106} cy={76} rotate={-32} color={WARM} count={2} />
       <Appear at={2} step={step} animate={animate} enter="animate-board-grow">
         <CbTower x={146} groundY={114} topY={26} animate={animate} grow={step === 2} />
-        <CSText x={188} y={34} size={6}>적란운</CSText>
+        <CSText x={188} y={34} size={6}>{V.cumulonimbus}</CSText>
       </Appear>
       <Appear at={3} step={step} animate={animate}>
         <CSRain x={146} y0={98} y1={116} count={5} slant={16} width={1.6} animate={animate} />
@@ -340,17 +348,17 @@ function MonsoonScene({ step, animate }) {
         <polygon points={P([fp(1, 0), fp(0.54, 0), fp(1, 0.62)])} fill="rgba(252,165,165,0.6)" stroke={WARM} strokeWidth="0.9" />
         <BroadArrow x1={44} y1={102} x2={86} y2={102} color={COLD} bend={0.05} w0={7} w1={3} />
         <BroadArrow x1={196} y1={102} x2={154} y2={102} color={WARM} bend={0.05} w0={7} w1={3} />
-        <CSText x={62} y={90} color={COLD}>찬 공기</CSText>
-        <CSText x={182} y={90} color={WARM}>따뜻한 공기</CSText>
+        <CSText x={62} y={90} color={COLD}>{V.coldAir}</CSText>
+        <CSText x={182} y={90} color={WARM}>{V.warmAir}</CSText>
       </Appear>
       <Appear at={1} step={step} animate={animate}>
         <GroundFrontLine fx0={0.48} fx1={0.56} kind="stationary" animate={animate} wobble />
       </Appear>
       <Appear at={2} step={step} animate={animate}>
         <BroadArrow x1={236} y1={70} x2={172} y2={62} color="#0d9488" bend={-0.16} w0={8} w1={3} />
-        <CSText x={222} y={54} color="#0f766e" size={6}>습한 공기 공급</CSText>
+        <CSText x={222} y={54} color="#0f766e" size={6}>{V.humidAirSupply}</CSText>
         <LayerCloud x={120} y={62} w={104} dark animate={animate} grow={step === 2} />
-        <CSText x={120} y={44} size={6}>비층운(장마 구름 띠)</CSText>
+        <CSText x={120} y={44} size={6}>{V.monsoonCloudBand}</CSText>
       </Appear>
       <Appear at={3} step={step} animate={animate}>
         <CSRain x={96} y0={74} y1={114} count={5} gap={7} slant={4} slow animate={animate} />
@@ -367,16 +375,16 @@ function WarmFrontScene({ step, animate }) {
       <Appear at={0} step={step} animate={animate} enter="animate-board-front">
         <polygon points={P([fp(1, 0), fp(0.36, 0), fp(1, 0.66)])} fill={COLD_FILL} stroke={COLD} strokeWidth="1" />
         <GroundFrontLine fx0={0.36} fx1={0.5} kind="warm" animate={animate} />
-        <CSText x={192} y={104} color={COLD}>찬 공기(물러남)</CSText>
+        <CSText x={192} y={104} color={COLD}>{V.coldAirRetreating}</CSText>
         <BroadArrow x1={36} y1={98} x2={82} y2={94} color={WARM} bend={0.08} />
-        <CSText x={58} y={84} color={WARM}>따뜻한 공기</CSText>
+        <CSText x={58} y={84} color={WARM}>{V.warmAir}</CSText>
       </Appear>
       <RisingArrows at={1} step={step} animate={animate} cx={116} cy={92} rotate={62} color={WARM} />
       <RisingArrows at={1} step={step} animate={animate} cx={152} cy={78} rotate={62} color={WARM} count={2} />
       <Appear at={2} step={step} animate={animate}>
         <LayerCloud x={100} y={78} w={70} dark animate={animate} grow={step === 2} />
         <LayerCloud x={150} y={62} w={76} dark animate={animate} grow={step === 2} />
-        <CSText x={112} y={48} size={6}>난층운(넓고 두꺼운 층 구름)</CSText>
+        <CSText x={112} y={48} size={6}>{V.nimbostratusWide}</CSText>
       </Appear>
       <Appear at={3} step={step} animate={animate}>
         <CSRain x={78} y0={86} y1={114} count={5} gap={6.5} slant={3} width={1} slow animate={animate} />
@@ -393,23 +401,23 @@ function SiberianSnowScene({ step, animate }) {
       <Appear at={0} step={step} animate={animate} enter="animate-board-front">
         <ellipse cx={gp(0.16, 0.72)[0]} cy={gp(0.16, 0.72)[1] - 26} rx="46" ry="30" fill="url(#cs-bloom-cold)" />
         <BroadArrow x1={48} y1={64} x2={106} y2={74} color={COLD} bend={0.1} />
-        <CSText x={70} y={50} color={COLD}>시베리아 기단(cP)</CSText>
-        <CSText x={70} y={58} color="#3b82f6" size={5.5}>차고 건조</CSText>
+        <CSText x={70} y={50} color={COLD}>{V.siberianCp}</CSText>
+        <CSText x={70} y={58} color="#3b82f6" size={5.5}>{V.coldDry}</CSText>
       </Appear>
       <Appear at={1} step={step} animate={animate}>
-        <CSText x={90} y={106} color="#0369a1" size={6}>따뜻한 서해</CSText>
-        <CSText x={128} y={72} color="#b45309" size={6}>열·수증기 공급</CSText>
+        <CSText x={90} y={106} color="#0369a1" size={6}>{V.warmYellowSea}</CSText>
+        <CSText x={128} y={72} color="#b45309" size={6}>{V.heatVapourSupply}</CSText>
       </Appear>
       <RisingArrows at={1} step={step} animate={animate} cx={102} cy={98} rotate={0} color="#f59e0b" count={3} gap={16} />
       <Appear at={2} step={step} animate={animate}>
         <PuffCloud x={112} y={74} scale={0.7} fill="#e2e8f0" />
         <PuffCloud x={140} y={68} scale={0.95} fill="#cbd5e1" />
         <PuffCloud x={172} y={62} scale={1.2} fill="#cbd5e1" />
-        <CSText x={158} y={40} size={6}>눈구름 발달(기단 변질)</CSText>
+        <CSText x={158} y={40} size={6}>{V.snowCloudDevelop}</CSText>
       </Appear>
       <Appear at={3} step={step} animate={animate}>
         <CSSnow x={176} y={74} count={5} animate={animate} />
-        <CSText x={192} y={104} size={6} color="#0c4a6e">서해안 폭설</CSText>
+        <CSText x={192} y={104} size={6} color="#0c4a6e">{V.westCoastSnow}</CSText>
       </Appear>
     </BlockFrame>
   );
@@ -427,15 +435,15 @@ function ConvectiveScene({ step, animate }) {
           <line key={i} x1={60 + i * 6} y1={36 + i * 2} x2={92 + i * 10} y2={92} stroke="#fbbf24" strokeWidth="1.2" strokeDasharray="4 3" opacity="0.8" />
         ))}
         <ellipse cx={126} cy={116} rx="52" ry="10" fill="url(#cs-heat)" />
-        <CSText x={126} y={104} color="#c2410c" size={6}>지면 가열</CSText>
+        <CSText x={126} y={104} color="#c2410c" size={6}>{V.groundHeating}</CSText>
       </Appear>
       <RisingArrows at={1} step={step} animate={animate} cx={132} cy={88} rotate={0} color="#ea580c" />
       <Appear at={1} step={step} animate={animate}>
-        <CSText x={168} y={84} color="#c2410c" size={6}>대류 상승</CSText>
+        <CSText x={168} y={84} color="#c2410c" size={6}>{V.convectiveRise}</CSText>
       </Appear>
       <Appear at={2} step={step} animate={animate} enter="animate-board-grow">
         <CbTower x={140} groundY={112} topY={28} animate={animate} grow={step === 2} />
-        <CSText x={188} y={36} size={6}>적란운</CSText>
+        <CSText x={188} y={36} size={6}>{V.cumulonimbus}</CSText>
       </Appear>
       <Appear at={3} step={step} animate={animate}>
         <CSRain x={140} y0={96} y1={115} count={4} slant={12} width={1.5} animate={animate} />
@@ -455,7 +463,7 @@ function RadiationFogScene({ step, animate }) {
         {[[60, 18], [96, 30], [150, 16], [186, 38]].map(([x, y], i) => (
           <circle key={i} cx={x} cy={y} r="1" fill="#e2e8f0" />
         ))}
-        <CSText x={78} y={64} color="#fbbf24" size={6}>복사냉각 — 열 방출</CSText>
+        <CSText x={78} y={64} color="#fbbf24" size={6}>{V.radiativeCooling}</CSText>
       </Appear>
       {[0, 1, 2].map((i) => (
         <Loop key={i} at={0} step={step} animate={animate} cls="" >
@@ -469,7 +477,7 @@ function RadiationFogScene({ step, animate }) {
       ))}
       <Appear at={1} step={step} animate={animate}>
         <polygon points={P([fp(0, 0), fp(1, 0), fp(1, 0.24), fp(0, 0.24)])} fill="rgba(96,165,250,0.3)" />
-        <CSText x={120} y={100} color="#bfdbfe" size={6}>지표 부근 공기 냉각</CSText>
+        <CSText x={120} y={100} color="#bfdbfe" size={6}>{V.nearSurfaceCooling}</CSText>
       </Appear>
       <Appear at={2} step={step} animate={animate} enter="animate-board-grow">
         <g filter="url(#cs-soft)">
@@ -477,12 +485,12 @@ function RadiationFogScene({ step, animate }) {
           <ellipse cx={150} cy={106} rx="58" ry="6" fill="#f1f5f9" opacity="0.75" />
           <ellipse cx={126} cy={98} rx="46" ry="5" fill="#ffffff" opacity="0.6" />
         </g>
-        <CSText x={64} y={82} color="#e2e8f0" size={6}>수증기 응결 → 안개층</CSText>
+        <CSText x={64} y={82} color="#e2e8f0" size={6}>{V.condenseToFogLayer}</CSText>
       </Appear>
       <Appear at={3} step={step} animate={animate}>
         <SunShape x={228} y={44} scale={0.9} fill="#fcd34d" />
         <circle cx="228" cy="44" r="12" fill="#e0f2fe" opacity="0.5" />
-        <CSText x={186} y={70} color="#f8fafc" size={6}>이른 아침, 짙은 안개</CSText>
+        <CSText x={186} y={70} color="#f8fafc" size={6}>{V.denseFogEarlyMorning}</CSText>
       </Appear>
     </BlockFrame>
   );
@@ -495,8 +503,8 @@ function HeatwaveScene({ step, animate }) {
       <Appear at={0} step={step} animate={animate}>
         <ellipse cx={126} cy={116} rx="110" ry="72" fill="url(#cs-bloom-warm)" />
         <BroadArrow x1={224} y1={96} x2={168} y2={90} color="#ea580c" bend={-0.12} />
-        <CSText x={120} y={70} color="#c2410c">북태평양 기단(mT)</CSText>
-        <CSText x={120} y={78} color="#ea580c" size={5.5}>덥고 습함</CSText>
+        <CSText x={120} y={70} color="#c2410c">{V.northPacificMt}</CSText>
+        <CSText x={120} y={78} color="#ea580c" size={5.5}>{V.hotHumid}</CSText>
       </Appear>
       <Appear at={1} step={step} animate={animate}>
         <g className={anim(animate, 'animate-board-sun-pulse')}>
@@ -505,7 +513,7 @@ function HeatwaveScene({ step, animate }) {
         {[0, 1].map((i) => (
           <line key={i} x1={66 + i * 8} y1={36 + i * 3} x2={96 + i * 14} y2={90} stroke="#fb923c" strokeWidth="1.3" strokeDasharray="4 3" opacity="0.85" />
         ))}
-        <CSText x={92} y={100} color="#c2410c" size={6}>강한 햇볕</CSText>
+        <CSText x={92} y={100} color="#c2410c" size={6}>{V.strongSun}</CSText>
       </Appear>
       {[0, 1, 2].map((i) => (
         <Loop key={i} at={2} step={step} animate={animate} cls="">
@@ -518,11 +526,11 @@ function HeatwaveScene({ step, animate }) {
         </Loop>
       ))}
       <Appear at={2} step={step} animate={animate}>
-        <CSText x={182} y={84} color="#b91c1c" size={6}>더운 공기 축적 — 기온↑</CSText>
+        <CSText x={182} y={84} color="#b91c1c" size={6}>{V.heatAccumulates}</CSText>
       </Appear>
       <Appear at={3} step={step} animate={animate}>
         <rect x="102" y="34" width="48" height="15" rx="7.5" fill="#dc2626" opacity="0.92" />
-        <text x="126" y="45" textAnchor="middle" fontSize="8" fontWeight="800" fill="#ffffff">폭염</text>
+        <text x="126" y="45" textAnchor="middle" fontSize="8" fontWeight="800" fill="#ffffff">{V.heatwave}</text>
       </Appear>
     </BlockFrame>
   );
@@ -535,19 +543,19 @@ function SiberianClearScene({ step, animate }) {
       <Appear at={0} step={step} animate={animate} enter="animate-board-front">
         <ellipse cx={110} cy={112} rx="104" ry="66" fill="url(#cs-bloom-cold)" />
         <BroadArrow x1={40} y1={58} x2={92} y2={70} color={COLD} bend={0.1} />
-        <CSText x={92} y={48} color={COLD}>시베리아 기단(cP)</CSText>
-        <CSText x={92} y={56} color="#3b82f6" size={5.5}>차고 건조</CSText>
+        <CSText x={92} y={48} color={COLD}>{V.siberianCp}</CSText>
+        <CSText x={92} y={56} color="#3b82f6" size={5.5}>{V.coldDry}</CSText>
       </Appear>
       <Appear at={1} step={step} animate={animate} until={1}>
         <PuffCloud x={150} y={74} scale={1.1} fill="none" stroke="#94a3b8" opacity={0.55} dashed />
         <line x1="136" y1="62" x2="164" y2="84" stroke="#94a3b8" strokeWidth="1.4" opacity="0.6" />
-        <CSText x={150} y={100} size={6} color="#64748b">수증기 부족 — 구름이 못 생겨요</CSText>
+        <CSText x={150} y={100} size={6} color="#64748b">{V.vapourShortNoCloud}</CSText>
       </Appear>
       <Appear at={2} step={step} animate={animate}>
         <g className={anim(animate, 'animate-board-sun-pulse')}>
           <SunShape x={172} y={30} scale={1.4} />
         </g>
-        <CSText x={120} y={80} color="#1d4ed8" size={6.5}>춥고 맑은 겨울 하늘</CSText>
+        <CSText x={120} y={80} color="#1d4ed8" size={6.5}>{V.coldClearWinterSky}</CSText>
       </Appear>
     </BlockFrame>
   );
@@ -567,12 +575,12 @@ function OkhotskSeaFogScene({ step, animate }) {
       <Appear at={0} step={step} animate={animate} enter="animate-board-front">
         <ellipse cx={gp(0.86, 0.6)[0]} cy={gp(0.86, 0.6)[1] - 28} rx="44" ry="30" fill="url(#cs-bloom-cold)" />
         <BroadArrow x1={224} y1={62} x2={162} y2={74} color={COLD} bend={-0.1} />
-        <CSText x={186} y={48} color={COLD}>오호츠크해 기단</CSText>
-        <CSText x={186} y={56} color="#3b82f6" size={5.5}>차고 습함</CSText>
+        <CSText x={186} y={48} color={COLD}>{V.okhotskAirMass}</CSText>
+        <CSText x={186} y={56} color="#3b82f6" size={5.5}>{V.coldHumid}</CSText>
       </Appear>
       <Appear at={1} step={step} animate={animate}>
-        <CSText x={188} y={106} color="#0369a1" size={6}>찬 바다</CSText>
-        <CSText x={104} y={70} color="#1d4ed8" size={6}>아래에서부터 식어요</CSText>
+        <CSText x={188} y={106} color="#0369a1" size={6}>{V.coldSea}</CSText>
+        <CSText x={104} y={70} color="#1d4ed8" size={6}>{V.coolsFromBelow}</CSText>
       </Appear>
       {/* 하강 냉각 — 상승 화살표를 180° 돌려 아래로 향하게 한다 */}
       <RisingArrows at={1} step={step} animate={animate} cx={150} cy={92} rotate={180} color="#3b82f6" count={3} gap={16} />
@@ -581,7 +589,7 @@ function OkhotskSeaFogScene({ step, animate }) {
           <ellipse cx={162} cy={110} rx="58" ry="7" fill="#f8fafc" opacity="0.9" />
           <ellipse cx={132} cy={104} rx="50" ry="6" fill="#f1f5f9" opacity="0.8" />
         </g>
-        <CSText x={132} y={92} color="#0f172a" size={6}>수증기 응결 → 바다 안개</CSText>
+        <CSText x={132} y={92} color="#0f172a" size={6}>{V.condenseToSeaFog}</CSText>
       </Appear>
       <Appear at={3} step={step} animate={animate}>
         <g className={anim(animate, 'animate-cloud-drift-slow')}>
@@ -590,7 +598,7 @@ function OkhotskSeaFogScene({ step, animate }) {
         <g filter="url(#cs-soft)">
           <ellipse cx={78} cy={108} rx="52" ry="6" fill="#ffffff" opacity="0.7" />
         </g>
-        <CSText x={78} y={62} size={6} color="#334155">해안까지 덮은 안개와 낮은 구름</CSText>
+        <CSText x={78} y={62} size={6} color="#334155">{V.fogLowCloudToShore}</CSText>
       </Appear>
     </BlockFrame>
   );
@@ -607,32 +615,32 @@ function OkhotskFoehnScene({ step, animate }) {
       {/* 산맥은 전 단계 공통 배경 — 단계마다 다시 등장하면 지형이 깜빡인다 */}
       <polygon points={P([peak, back(peak), back(east), east])} fill="#7d8794" stroke="#6b7280" strokeWidth="0.6" />
       <polygon points={P([west, peak, east])} fill="#9ca3af" stroke="#6b7280" strokeWidth="0.8" />
-      <CSText x={116} y={112} size={5.5} color="#475569">산맥</CSText>
+      <CSText x={116} y={112} size={5.5} color="#475569">{V.mountainRange}</CSText>
 
       <Appear at={0} step={step} animate={animate} enter="animate-board-front">
         <BroadArrow x1={222} y1={104} x2={168} y2={78} color={COLD} bend={-0.14} />
-        <CSText x={214} y={72} color={COLD} size={6}>차고 습한 공기</CSText>
+        <CSText x={214} y={72} color={COLD} size={6}>{V.coldHumidAir}</CSText>
       </Appear>
       <RisingArrows at={0} step={step} animate={animate} cx={176} cy={86} rotate={-38} color={COLD} count={2} gap={11} />
 
       <Appear at={1} step={step} animate={animate}>
         <LayerCloud x={166} y={54} w={62} dark animate={animate} grow={step === 1} />
         <CSRain x={162} y0={62} y1={96} count={4} gap={6} slant={6} slow animate={animate} />
-        <CSText x={186} y={40} size={6}>오르며 비 — 물기를 잃어요</CSText>
+        <CSText x={186} y={40} size={6}>{V.rainOnRiseLosesWater}</CSText>
       </Appear>
 
       <Appear at={2} step={step} animate={animate}>
         <BroadArrow x1={128} y1={62} x2={62} y2={104} color="#ea580c" bend={0.16} />
         <ellipse cx={64} cy={114} rx="40" ry="9" fill="url(#cs-heat)" />
-        <CSText x={72} y={78} color="#c2410c" size={6}>내려오며 눌려 데워져요</CSText>
+        <CSText x={72} y={78} color="#c2410c" size={6}>{V.descendCompressWarm}</CSText>
       </Appear>
 
       <Appear at={3} step={step} animate={animate}>
         <g className={anim(animate, 'animate-board-sun-pulse')}>
           <SunShape x={44} y={28} scale={1.3} />
         </g>
-        <CSText x={62} y={54} color="#b45309" size={6}>메마르고 따뜻한 바람</CSText>
-        <CSText x={62} y={64} color="#1d4ed8" size={6.5}>높새바람 — 맑음</CSText>
+        <CSText x={62} y={54} color="#b45309" size={6}>{V.dryWarmWind}</CSText>
+        <CSText x={62} y={64} color="#1d4ed8" size={6.5}>{V.foehnClear}</CSText>
       </Appear>
     </BlockFrame>
   );
@@ -645,23 +653,23 @@ function YangtzeMildClearScene({ step, animate }) {
       <Appear at={0} step={step} animate={animate} enter="animate-board-front">
         <ellipse cx={104} cy={112} rx="96" ry="60" fill="url(#cs-bloom-warm)" />
         <BroadArrow x1={36} y1={64} x2={98} y2={72} color="#ea580c" bend={0.1} />
-        <CSText x={100} y={48} color="#c2410c">양쯔강 기단</CSText>
-        <CSText x={100} y={56} color="#ea580c" size={5.5}>따뜻하고 건조</CSText>
+        <CSText x={100} y={48} color="#c2410c">{V.yangtzeAirMass}</CSText>
+        <CSText x={100} y={56} color="#ea580c" size={5.5}>{V.warmDry}</CSText>
       </Appear>
       <Appear at={1} step={step} animate={animate}>
         <BroadArrow x1={132} y1={96} x2={200} y2={96} color="#f59e0b" bend={0.05} w0={7} w1={3} />
-        <CSText x={172} y={88} color="#b45309" size={6}>바다를 거치지 않아 수증기가 적어요</CSText>
+        <CSText x={172} y={88} color="#b45309" size={6}>{V.lowVapourNoSea}</CSText>
       </Appear>
       <Appear at={2} step={step} animate={animate} until={2}>
         <PuffCloud x={148} y={68} scale={1.1} fill="none" stroke="#94a3b8" opacity={0.55} dashed />
         <line x1="134" y1="56" x2="162" y2="78" stroke="#94a3b8" strokeWidth="1.4" opacity="0.6" />
-        <CSText x={148} y={44} size={6} color="#64748b">구름이 자라지 못해요</CSText>
+        <CSText x={148} y={44} size={6} color="#64748b">{V.cloudCannotGrow}</CSText>
       </Appear>
       <Appear at={3} step={step} animate={animate}>
         <g className={anim(animate, 'animate-board-sun-pulse')}>
           <SunShape x={186} y={30} scale={1.4} />
         </g>
-        <CSText x={116} y={72} color="#b45309" size={6.5}>포근하고 맑은 봄가을 하늘</CSText>
+        <CSText x={116} y={72} color="#b45309" size={6.5}>{V.mildClearSky}</CSText>
       </Appear>
     </BlockFrame>
   );
@@ -675,8 +683,8 @@ function YangtzeMorningFogScene({ step, animate }) {
         {[[52, 20], [92, 34], [148, 18], [196, 30]].map(([x, y], i) => (
           <circle key={i} cx={x} cy={y} r="1" fill="#e2e8f0" />
         ))}
-        <CSText x={122} y={50} color="#fcd34d" size={6}>맑고 바람 약한 밤</CSText>
-        <CSText x={122} y={60} color="#cbd5e1" size={5.5}>따뜻하고 건조한 공기 덩어리</CSText>
+        <CSText x={122} y={50} color="#fcd34d" size={6}>{V.clearCalmNight}</CSText>
+        <CSText x={122} y={60} color="#cbd5e1" size={5.5}>{V.warmDryAirMass}</CSText>
       </Appear>
       {[0, 1, 2].map((i) => (
         <Loop key={i} at={1} step={step} animate={animate} cls="">
@@ -690,21 +698,21 @@ function YangtzeMorningFogScene({ step, animate }) {
       ))}
       <Appear at={1} step={step} animate={animate}>
         <polygon points={P([fp(0, 0), fp(1, 0), fp(1, 0.2), fp(0, 0.2)])} fill="rgba(96,165,250,0.28)" />
-        <CSText x={124} y={104} color="#bfdbfe" size={6}>땅이 열을 내보내며 식어요</CSText>
+        <CSText x={124} y={104} color="#bfdbfe" size={6}>{V.groundRadiatesCools}</CSText>
       </Appear>
       <Appear at={2} step={step} animate={animate} enter="animate-board-grow">
         <g filter="url(#cs-soft)">
           <ellipse cx={92} cy={110} rx="54" ry="7" fill="#f8fafc" opacity="0.85" />
           <ellipse cx={118} cy={104} rx="44" ry="5.5" fill="#ffffff" opacity="0.6" />
         </g>
-        <CSText x={64} y={80} color="#e2e8f0" size={6}>물가에서 수증기가 응결해요</CSText>
+        <CSText x={64} y={80} color="#e2e8f0" size={6}>{V.condenseByWater}</CSText>
       </Appear>
       <Appear at={3} step={step} animate={animate}>
         <g className={anim(animate, 'animate-board-sun-pulse')}>
           <SunShape x={222} y={40} scale={1} fill="#fcd34d" />
         </g>
         <circle cx="222" cy="40" r="13" fill="#fde68a" opacity="0.35" />
-        <CSText x={172} y={68} color="#f8fafc" size={6}>해가 뜨면 곧 걷혀요</CSText>
+        <CSText x={172} y={68} color="#f8fafc" size={6}>{V.liftsAfterSunrise}</CSText>
       </Appear>
     </BlockFrame>
   );
@@ -722,19 +730,19 @@ function DryConvectionClearScene({ step, animate }) {
           <line key={i} x1={62 + i * 6} y1={36 + i * 2} x2={94 + i * 10} y2={94} stroke="#fbbf24" strokeWidth="1.2" strokeDasharray="4 3" opacity="0.8" />
         ))}
         <ellipse cx={128} cy={116} rx="54" ry="10" fill="url(#cs-heat)" />
-        <CSText x={128} y={106} color="#c2410c" size={6}>지면 가열</CSText>
+        <CSText x={128} y={106} color="#c2410c" size={6}>{V.groundHeating}</CSText>
       </Appear>
       <RisingArrows at={1} step={step} animate={animate} cx={134} cy={86} rotate={0} color="#ea580c" />
       <Appear at={1} step={step} animate={animate}>
-        <CSText x={176} y={82} color="#c2410c" size={6}>데워진 공기가 올라가요</CSText>
+        <CSText x={176} y={82} color="#c2410c" size={6}>{V.warmedAirRises}</CSText>
       </Appear>
       <Appear at={2} step={step} animate={animate} until={2}>
         <PuffCloud x={134} y={54} scale={1.15} fill="none" stroke="#94a3b8" opacity={0.55} dashed />
         <line x1="120" y1="42" x2="148" y2="64" stroke="#94a3b8" strokeWidth="1.4" opacity="0.6" />
-        <CSText x={134} y={34} size={6} color="#64748b">응결할 수증기가 없어요</CSText>
+        <CSText x={134} y={34} size={6} color="#64748b">{V.noVapourToCondense}</CSText>
       </Appear>
       <Appear at={3} step={step} animate={animate}>
-        <CSText x={132} y={66} color="#1d4ed8" size={6.5}>오르내려도 하늘은 맑아요</CSText>
+        <CSText x={132} y={66} color="#1d4ed8" size={6.5}>{V.clearDespiteChurn}</CSText>
       </Appear>
     </BlockFrame>
   );
@@ -759,12 +767,12 @@ function WildfireRiskScene({ step, animate }) {
           const [lx, ly] = gp(fx, 0.45);
           return <path key={fx} d={`M${lx} ${ly} l4 -3 l4 3 l-4 2 Z`} fill="#a16207" opacity="0.85" />;
         })}
-        <CSText x={128} y={104} color="#92400e" size={6}>물기가 빠진 낙엽과 잔가지</CSText>
+        <CSText x={128} y={104} color="#92400e" size={6}>{V.driedLeavesTwigs}</CSText>
       </Appear>
       <Appear at={1} step={step} animate={animate}>
         <BroadArrow x1={30} y1={72} x2={126} y2={70} color="#0e7490" bend={0.04} w0={9} w1={4} />
         <BroadArrow x1={30} y1={88} x2={112} y2={86} color="#0e7490" bend={0.03} w0={7} w1={3} />
-        <CSText x={74} y={60} color="#0e7490" size={6}>센 바람</CSText>
+        <CSText x={74} y={60} color="#0e7490" size={6}>{V.strongWind}</CSText>
       </Appear>
       <Appear at={2} step={step} animate={animate}>
         <g className={anim(animate, 'animate-board-sun-pulse')}>
@@ -782,10 +790,10 @@ function WildfireRiskScene({ step, animate }) {
             style={animate ? { animationDelay: `${(i * 0.22).toFixed(2)}s` } : undefined}
           />
         ))}
-        <CSText x={198} y={70} color="#c2410c" size={6}>불씨가 바람을 타요</CSText>
+        <CSText x={198} y={70} color="#c2410c" size={6}>{V.embersRideWind}</CSText>
       </Appear>
       <Appear at={3} step={step} animate={animate}>
-        <CSText x={128} y={46} color="#b45309" size={6.5}>구름 없는 하늘 · 산불 위험</CSText>
+        <CSText x={128} y={46} color="#b45309" size={6.5}>{V.clearSkyWildfire}</CSText>
       </Appear>
     </BlockFrame>
   );
@@ -798,12 +806,12 @@ function FloodRiskScene({ step, animate }) {
       <Appear at={0} step={step} animate={animate}>
         <BroadArrow x1={34} y1={82} x2={116} y2={74} color="#0d9488" bend={0.1} w0={9} w1={4} />
         <BroadArrow x1={34} y1={98} x2={104} y2={92} color="#0d9488" bend={0.08} w0={7} w1={3} />
-        <CSText x={70} y={64} color="#0f766e" size={6}>수증기가 계속 실려 와요</CSText>
+        <CSText x={70} y={64} color="#0f766e" size={6}>{V.vapourKeepsArriving}</CSText>
       </Appear>
       <Appear at={1} step={step} animate={animate}>
         <LayerCloud x={118} y={62} w={92} dark animate={animate} grow={step === 1} />
         <LayerCloud x={182} y={58} w={72} dark animate={animate} grow={step === 1} />
-        <CSText x={140} y={42} size={6}>비구름이 자꾸 다시 채워져요</CSText>
+        <CSText x={140} y={42} size={6}>{V.rainCloudRefills}</CSText>
       </Appear>
       <Appear at={2} step={step} animate={animate}>
         <CSRain x={104} y0={72} y1={110} count={5} gap={7} slant={5} slow animate={animate} />
@@ -812,7 +820,7 @@ function FloodRiskScene({ step, animate }) {
       </Appear>
       <Appear at={3} step={step} animate={animate}>
         <polygon points={P([gp(0, 0), gp(1, 0), gp(1, 1), gp(0, 1)])} fill="#38bdf8" opacity="0.5" />
-        <CSText x={128} y={108} color="#0c4a6e" size={6}>땅이 물을 더 받아들이지 못해요</CSText>
+        <CSText x={128} y={108} color="#0c4a6e" size={6}>{V.groundCannotAbsorb}</CSText>
       </Appear>
     </BlockFrame>
   );
@@ -824,157 +832,45 @@ function FloodRiskScene({ step, animate }) {
 // steps.length를 SCENES 단계와 정합 검사한다. 장면 내 CSText 라벨·scenes.js 라벨
 // 스프라이트와 한 묶음(rule_id 파생 과학 콘텐츠 클러스터)이라 부분 번역 시 SVG↔GL
 // 표기가 어긋난다 — 로케일화는 테스트가 리소스를 읽도록 바뀌는 후속 웨이브에서.
-export const STORYBOARDS = {
-  cold_front_shower: {
-    title: '한랭전선 — 좁고 강한 소나기',
-    Scene: ColdFrontScene,
-    steps: [
-      '차가운 공기가 쐐기처럼 따뜻한 공기 밑을 빠르게 파고들어요.',
-      '밀려난 따뜻하고 습한 공기가 가파른 전선면을 따라 급하게 상승해요.',
-      '강한 상승기류 속에서 수증기가 응결해 적란운이 수직으로 발달해요.',
-      '전선 부근 좁은 지역에 강한 소나기가 짧게 쏟아지고 번개가 치기도 해요.',
-    ],
-  },
-  stationary_front_monsoon: {
-    title: '정체전선 — 여러 날 이어지는 장맛비',
-    Scene: MonsoonScene,
-    steps: [
-      '세력이 비슷한 찬 공기와 따뜻한 공기가 한자리에서 맞서요.',
-      '어느 쪽도 밀리지 않아 전선이 한곳에 오래 머물러요 — 정체전선.',
-      '남쪽에서 습한 공기가 계속 공급되어 두꺼운 비층운 띠가 만들어져요.',
-      '같은 지역에 장마처럼 여러 날 지속되는 비가 내려요.',
-    ],
-  },
-  warm_front_steady_rain: {
-    title: '온난전선 — 넓은 지역의 약한 비',
-    Scene: WarmFrontScene,
-    steps: [
-      '따뜻한 공기가 물러나는 찬 공기 쪽으로 다가와요.',
-      '따뜻한 공기가 찬 공기 위로 완만한 전선면을 따라 타고 올라요(활승).',
-      '천천히 식으며 넓은 지역에 층 모양의 난층운이 만들어져요.',
-      '넓은 지역에 약한 비가 오랫동안 잔잔하게 내려요.',
-    ],
-  },
-  siberian_snow: {
-    title: '시베리아 기단 변질 — 서해안 폭설',
-    Scene: SiberianSnowScene,
-    steps: [
-      '차고 건조한 시베리아 기단(cP)이 남쪽으로 이동해요.',
-      '따뜻한 서해를 건너는 동안 바다에서 열과 수증기를 공급받아요.',
-      '기단 아랫부분이 변질되어 눈구름이 줄지어 발달해요.',
-      '눈구름이 도착하는 서해안 지역에 많은 눈이 내려요.',
-    ],
-  },
-  convective_shower: {
-    title: '대류 — 한여름 오후 소나기',
-    Scene: ConvectiveScene,
-    steps: [
-      '한여름 강한 햇볕이 지면을 뜨겁게 데워요.',
-      '데워진 습한 공기가 가벼워져 활발히 상승해요 — 대류.',
-      '상승한 공기가 식으며 수증기가 응결해 적란운이 키 크게 발달해요.',
-      '전선이 없어도 오후 한때 좁은 지역에 소나기가 쏟아져요.',
-    ],
-  },
-  radiation_fog: {
-    title: '복사안개 — 맑은 새벽의 안개',
-    Scene: RadiationFogScene,
-    steps: [
-      '구름 없는 맑은 밤, 지표가 열을 내보내며 빠르게 식어요(복사냉각).',
-      '차가워진 지표에 닿은 공기가 아래층부터 함께 식어요.',
-      '식은 공기 속 수증기가 응결해 지표를 덮는 안개층이 만들어져요.',
-      '해가 뜨는 이른 아침까지 짙은 안개가 낮게 깔려 있어요.',
-    ],
-  },
-  north_pacific_heatwave: {
-    title: '북태평양 기단 — 한여름 폭염',
-    Scene: HeatwaveScene,
-    steps: [
-      '덥고 습한 북태평양 기단(mT)이 우리나라에 넓게 자리 잡아요.',
-      '맑은 하늘 위로 강한 햇볕이 더해져 지면이 계속 가열돼요.',
-      '더운 공기가 빠져나가지 못하고 쌓여 기온이 크게 올라요.',
-      '한여름 무더위 — 폭염이 이어져요.',
-    ],
-  },
-  siberian_clear: {
-    title: '시베리아 기단 — 춥고 맑은 겨울',
-    Scene: SiberianClearScene,
-    steps: [
-      '차고 건조한 시베리아 기단(cP)이 자리 잡아요.',
-      '공기가 건조해 수증기가 부족하니 구름이 잘 만들어지지 않아요.',
-      '구름 없는 하늘 — 춥지만 맑은 겨울 날씨가 돼요.',
-    ],
-  },
-  okhotsk_sea_fog: {
-    title: '오호츠크해 기단 — 찬 바다가 만드는 안개',
-    Scene: OkhotskSeaFogScene,
-    steps: [
-      '차고 습한 오호츠크해 기단이 동해 쪽으로 밀려와요.',
-      '습한 공기가 찬 바다 위를 지나며 아래층부터 먼저 식어요.',
-      '식은 아래층에서 수증기가 응결해 바다 위에 안개가 깔려요.',
-      '안개와 낮은 구름이 해안까지 덮어 초여름 동해안이 서늘하고 흐려져요.',
-    ],
-  },
-  okhotsk_foehn_clear: {
-    title: '높새바람 — 산을 넘어와 맑아진 하늘',
-    Scene: OkhotskFoehnScene,
-    steps: [
-      '동쪽에서 온 차고 습한 공기가 산맥에 부딪혀 비탈을 타고 올라요.',
-      '올라가며 식은 공기가 산 동쪽에 비를 뿌리고 물기를 거의 다 잃어요.',
-      '물기를 잃은 공기가 산을 넘어 내려오면서 눌려 데워져요.',
-      '산맥 서쪽에는 메마르고 따뜻한 바람이 불어 구름 없이 맑아요 — 높새바람.',
-    ],
-  },
-  yangtze_mild_clear: {
-    title: '양쯔강 기단 — 포근하고 맑은 봄가을',
-    Scene: YangtzeMildClearScene,
-    steps: [
-      '따뜻하고 건조한 양쯔강 기단이 봄가을에 우리나라 쪽으로 이동해요.',
-      '바다를 길게 거치지 않아 공기에 수증기가 넉넉히 실리지 않아요.',
-      '응결할 수증기가 부족해 구름이 자라지 못해요.',
-      '포근하고 맑은 봄가을 날씨가 이어져요.',
-    ],
-  },
-  yangtze_morning_fog: {
-    title: '양쯔강 기단 — 강가의 새벽 안개',
-    Scene: YangtzeMorningFogScene,
-    steps: [
-      '따뜻하고 건조한 공기 덩어리가 덮인 밤은 하늘이 맑고 바람도 약해요.',
-      '하늘을 가릴 구름이 없어 땅이 열을 그대로 내보내며 빠르게 식어요.',
-      '강가나 분지처럼 물기가 모인 곳에서 식은 공기 속 수증기가 응결해요.',
-      '이른 아침 낮은 안개가 깔렸다가, 해가 뜨고 데워지면 곧 걷혀요.',
-    ],
-  },
-  dry_convection_clear: {
-    title: '마른 대류 — 구름 없는 맑은 하늘',
-    Scene: DryConvectionClearScene,
-    steps: [
-      '강한 햇볕이 지면을 데우고, 데워진 공기가 가벼워져 위로 올라가요.',
-      '올라간 공기는 부풀며 식지만 그 안에 수증기가 거의 없어요.',
-      '물방울로 맺힐 수증기가 없으니 구름이 만들어지지 않아요.',
-      '공기가 활발히 오르내려도 하늘은 맑게 남아요.',
-    ],
-  },
-  wildfire_risk_dry_gale: {
-    title: '건조 + 강풍 — 산불이 번지기 쉬운 날',
-    Scene: WildfireRiskScene,
-    steps: [
-      '공기가 메마르면 낙엽과 잔가지에서 물기가 빠져나가요.',
-      '마른 땅 위로 센 바람이 지나가요.',
-      '바람은 불씨를 멀리 실어 나르고 산소도 계속 대 줘요.',
-      '구름 한 점 없이 맑지만, 불이 붙으면 가장 크게 번지는 날씨예요.',
-    ],
-  },
-  flood_risk_saturated_inflow: {
-    title: '포화 + 수증기 유입 — 물에 잠기는 날',
-    Scene: FloodRiskScene,
-    steps: [
-      '센 바람이 바다에서 수증기를 쉬지 않고 실어 와요.',
-      '비를 뿌리고 흩어진 자리를 다음 비구름이 곧 채워요.',
-      '그래서 비가 그치지 않고 같은 곳에 계속 내려요.',
-      '땅이 스며들 수 있는 양을 넘겨 물이 고이기 시작해요.',
-    ],
-  },
+export const SCENE_BY_RULE = {
+  cold_front_shower: ColdFrontScene,
+  stationary_front_monsoon: MonsoonScene,
+  warm_front_steady_rain: WarmFrontScene,
+  siberian_snow: SiberianSnowScene,
+  convective_shower: ConvectiveScene,
+  radiation_fog: RadiationFogScene,
+  north_pacific_heatwave: HeatwaveScene,
+  siberian_clear: SiberianClearScene,
+  okhotsk_sea_fog: OkhotskSeaFogScene,
+  okhotsk_foehn_clear: OkhotskFoehnScene,
+  yangtze_mild_clear: YangtzeMildClearScene,
+  yangtze_morning_fog: YangtzeMorningFogScene,
+  dry_convection_clear: DryConvectionClearScene,
+  wildfire_risk_dry_gale: WildfireRiskScene,
+  flood_risk_saturated_inflow: FloodRiskScene,
 };
+
+/**
+ * rule_id → {title, Scene, steps} — **title·steps는 리소스 파생**(MT-28).
+ *
+ * 인덱싱 형태(`STORYBOARDS[ruleId]?.steps`)와 미지 키 undefined 폴백을 그대로
+ * 유지한다. 접근 시점의 로케일로 풀리므로 로케일 전환이 즉시 반영되고, ko 값이
+ * 원문과 바이트 동일이라 한국어를 단정하는 스모크가 그대로 통과한다.
+ *
+ * `steps` 길이의 소유자는 **리소스**다 — 코드가 길이를 따로 알면 리소스와 어긋난
+ * 순간 조용히 잘린 스토리보드가 나온다(그래서 translateList를 썼다).
+ */
+export const STORYBOARDS = {};
+for (const [ruleId, Scene] of Object.entries(SCENE_BY_RULE)) {
+  Object.defineProperty(STORYBOARDS, ruleId, {
+    enumerable: true,
+    get: () => ({
+      title: tx(`board.panel.story.${ruleId}.title`),
+      Scene,
+      steps: txList(`board.panel.story.${ruleId}.steps`),
+    }),
+  });
+}
 
 // ── 패널 본체 ───────────────────────────────────────────────────────────────
 /**
@@ -1029,7 +925,7 @@ export default function CrossSectionPanel({ zoneResult, confirmed = false, reduc
   const cl = cloudMeta(zoneResult.cloud);
   const header = (
     <p className="text-xs font-bold text-slate-800">
-      {zoneResult.zone_name ? `${zoneResult.zone_name} — ` : ''}
+      {zoneResult.zone_name ? `${zoneLabel({ name: zoneResult.zone_name }, zoneResult.zone, t)} — ` : ''}
       {ph.label}
       <span className="ml-1 font-medium text-slate-400">({cl.label})</span>
     </p>

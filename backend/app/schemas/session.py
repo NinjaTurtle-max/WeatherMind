@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app.schemas.curriculum import CrownAward
 from app.schemas.duel import DuelPrediction
 from app.schemas.quiz import AnswerResult, QuizQuestion
+from app.schemas.reward import BadgeAward, QuestReward
 
 
 class ForecastClosingStep(BaseModel):
@@ -48,7 +49,23 @@ class SessionItem(QuizQuestion):
     # 서버 배합(plan_bank_picks)이 정한 값을 sessions.recipe_json items에 적어 두고
     # 그대로 흘려보낸다 — 프론트가 문항을 보고 되짚지 않는다(되짚을 방법도 없다).
     # 생성 폴백 문항은 어느 블록의 부족분인지 구분이 없어 'new'다.
-    kind: Literal["new", "review", "live", "unit"] = "new"
+    # `board` — 오늘 현상에 매칭된 보드 퍼즐(T3 배합 `{live:2,new:4,review:3,board:1}`).
+    # ⚠️ 이 토큰이 없으면 발급 루프가 board를 내보내는 순간 **응답 검증에서 500**이다.
+    # 서비스 계층 테스트는 스키마를 안 타서 이것을 **통과시키고 숨긴다** — 라우터
+    # 레벨에서만 터진다(담당 H가 배선 전에 짚었다, 2026-08-12).
+    kind: Literal["new", "review", "live", "unit", "board"] = "new"
+    # 문항의 **지식 단계**(content_items.knowledge_level, 1~N) — R13, additive.
+    # ⚠️ 상속받은 `level_group`과 **다른 축**이다(2축 분리 계약):
+    #   level_group     = 표현 톤(elementary/middle_high/adult/expert)
+    #   knowledge_level = 난이도(교육과정 10단계)
+    # 데이터는 1,000건 전건에 채워져 있었는데 **이 스키마에 자리가 없어 화면까지
+    # 오지 못했다**(2026-08-12 클라이언트 지적 「학습 수준 태깅이 안 보인다」).
+    # 값의 출처는 quiz_logs.question_json이고, 뱅크 문항은 발급 시점에
+    # `session_service`가 컬럼값을 그대로 실어 둔다(생성 문항은 생성기 신고값).
+    # **None이 정상값이다** — 개정 전에 발급된 세션·단계 미분류 문항·유닛/배치
+    # 세션(다른 소유자가 question_json을 쓴다)에서 None이 오고, 프론트는 그때
+    # 배지를 아예 그리지 않는다(빈 배지·"?" 금지 — DifficultyBadge와 같은 관례).
+    knowledge_level: int | None = None
     # 유형별 플레이 페이로드 — render된 값에서 유형 화이트리스트로 추린다
     # (routers/session.QUESTION_PAYLOAD_FIELDS). 프론트가 이 필드 없이는 문항을
     # 렌더하지 못한다(R3-01 §3.3 board → R10-07 §2.1 전 유형 확장):
@@ -189,6 +206,23 @@ class SessionCompleteResult(BaseModel):
     # retry_resolved_count: 만회로 해결한 문항 수 → 완료 화면 "만회 완료 N문항".
     all_resolved: bool = False
     retry_resolved_count: int = 0
+    # ── 보상 획득 알림 (R13 CO-T-4, additive) ──
+    # `recalculate_quests`·`award_badge`의 반환을 버리지 않고 내보낸다. 버렸을 때
+    # 무슨 일이 있었나: 퀘스트 3종 최대 **+25 XP**와 `perfect_session` 배지가
+    # 지급은 됐는데 **획득 순간 어느 화면에도 안 떴다**. 보유 목록(`/progress/quests`·
+    # `/progress/badges`)에서 나중에 발견할 수는 있어도, 그건 "받았다"는 피드백이 아니다.
+    #
+    # 둘 다 **이번 호출에서 새로 일어난 것만** 담는다(멱등 재-complete는 빈 리스트).
+    quest_rewards: list[QuestReward] = []
+    badges_earned: list[BadgeAward] = []
+    # 문항 XP 밖에서 이번 완료로 추가 지급된 XP 합 = sum(quest_rewards.reward_xp).
+    bonus_xp: int = 0
+    # 화면이 "+N XP"로 그릴 값 = xp_total + bonus_xp. **서버가 더해서 보낸다** —
+    # `xp_total`은 세션 문항 XP라는 기존 의미를 그대로 두어야 하고(회귀 방지),
+    # 프론트가 두 값을 더하게 두면 더하는 곳마다 빠뜨릴 수 있다(실제로 그래서
+    # 표기가 실지급보다 최대 25 적었다). 유닛 세션의 `unit_result.unit_xp`는
+    # 별개 축이라 여기 포함하지 않는다 — 그 페이지가 따로 더해 표기한다.
+    xp_awarded: int = 0
     # ── 예보 마감 단계 (R13 A-1, additive) ──
     # 완료 화면이 15문항 결산 뒤에 붙일 단계. /session/today와 **같은 판정**이지만
     # 완료 시점에 다시 계산한다 — 세션 시작 후 다른 화면에서 예보를 냈으면 여기서

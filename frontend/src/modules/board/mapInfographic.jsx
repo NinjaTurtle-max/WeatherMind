@@ -12,6 +12,10 @@
  * 기하 헬퍼(frontCurveGeometry·taperedArrowPath)는 순수 함수로 export — 테스트 가능.
  */
 import { anim } from './realisticEffects';
+// core만 import — index.js(zustand)를 끌면 순수 node 경로가 죽는다(i18n/core.js 주석)
+import { translate, getCurrentLocale } from '../../i18n/core.js';
+
+const tx = (key) => translate(getCurrentLocale(), key);
 
 // ── 기하 헬퍼 (순수) ────────────────────────────────────────────────────────
 /** Catmull-Rom 스플라인 위 점 (p0~p3 제어, t∈[0,1] — p1→p2 구간) */
@@ -224,11 +228,16 @@ export function FrontCurve({ subtype, points, animate = true }) {
 
 // ── ③ 곡선 유동 화살표 ──────────────────────────────────────────────────────
 // 기단별 유입 방향(지리 관례): cP=북서, mP(오호츠크)=북동, mT=남동, cT=남서
+// MT-28: `label`(4건, 한국어)은 **소비처가 0이라 지웠다** — 화면에 뜬 적이 없다.
+// 외부화 대신 삭제한 이유: 안 쓰는 문자열을 리소스로 옮기면 ko/en 양쪽에 번역
+// 부채만 남고 아무도 그것이 죽은 값인 줄 모른다. 이 사전이 소유하는 것은 기하
+// (from·bend)와 색이고, 그 셋만이 `overlayScene`의 값 사본과 대조된다
+// (mapOverlayGeometry.contract §5 — 파서도 그 셋만 읽는다).
 const FLOW_META = {
-  siberian: { from: [-30, -26], bend: 0.22, color: '#3b82f6', label: '한랭 건조한 공기 남하' },
-  okhotsk: { from: [30, -24], bend: -0.22, color: '#0891b2', label: '차고 습한 공기 유입' },
-  north_pacific: { from: [26, 32], bend: 0.24, color: '#f97316', label: '고온 다습한 공기 유입' },
-  yangtze: { from: [-32, 24], bend: -0.2, color: '#f59e0b', label: '따뜻하고 건조한 공기 유입' },
+  siberian: { from: [-30, -26], bend: 0.22, color: '#3b82f6' },
+  okhotsk: { from: [30, -24], bend: -0.22, color: '#0891b2' },
+  north_pacific: { from: [26, 32], bend: 0.24, color: '#f97316' },
+  yangtze: { from: [-32, 24], bend: -0.2, color: '#f59e0b' },
 };
 
 /**
@@ -270,19 +279,30 @@ export function FlowArrow({ subtype, x, y, animate = true }) {
 
 // ── ④ 현상 주석 라벨 ────────────────────────────────────────────────────────
 /** 규칙 8종 → 인포그래픽 주석 문구(하.png "정체전선 형성, 집중호우 발생" 문법 — 자체 저작) */
-// ⚠️ i18n 외부화 제외(R11-01 §6.3 판정): rule_id 파생 과학 콘텐츠 클러스터
-// (STORYBOARDS·scenes.js 라벨과 한 묶음)이고 boardVisual.render.test가
-// '소나기·번개' 문구를 렌더 HTML에서 직접 대조한다.
-export const RULE_ANNOTATIONS = {
-  cold_front_shower: '한랭전선 통과,\n소나기·번개',
-  stationary_front_monsoon: '정체전선 형성,\n집중호우 발생',
-  warm_front_steady_rain: '온난전선 접근,\n넓은 지역 약한 비',
-  siberian_snow: '기단 변질,\n서해안 폭설',
-  convective_shower: '강한 일사,\n오후 대류성 소나기',
-  radiation_fog: '복사냉각,\n새벽 짙은 안개',
-  north_pacific_heatwave: '고온 다습 공기,\n폭염 지속',
-  siberian_clear: '한랭 건조 공기,\n맑고 추움',
-};
+// MT-28 외부화. 종전 주석은 *"i18n 외부화 제외 … boardVisual.render.test가
+// '소나기·번개' 문구를 렌더 HTML에서 직접 대조한다"*였다. 그 대조는 **여전히 돈다** —
+// 하네스가 로케일 ko 고정이고 리소스 ko 값이 원문과 바이트 동일이라, 테스트는
+// 한 글자도 안 고치고 통과한다. 결합은 실재했지만 **차단은 아니었다.**
+const RULE_ANNOTATION_IDS = [
+  'cold_front_shower',
+  'stationary_front_monsoon',
+  'warm_front_steady_rain',
+  'siberian_snow',
+  'convective_shower',
+  'radiation_fog',
+  'north_pacific_heatwave',
+  'siberian_clear',
+];
+
+// 인덱싱 형태(`RULE_ANNOTATIONS[ruleId]` → 문자열)를 그대로 유지한다 — 소비처가
+// 객체가 아니라 문자열을 기대하고, 미지 rule_id는 종전처럼 undefined로 떨어진다.
+export const RULE_ANNOTATIONS = {};
+for (const id of RULE_ANNOTATION_IDS) {
+  Object.defineProperty(RULE_ANNOTATIONS, id, {
+    enumerable: true,
+    get: () => tx(`board.map.annotation.${id}`),
+  });
+}
 
 /**
  * ZoneAnnotation — 리더선 + 짧은 설명 라벨. 존 x에 따라 좌/우로 뻗는다.

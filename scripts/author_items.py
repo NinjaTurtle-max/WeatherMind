@@ -52,6 +52,7 @@ import logging
 import random
 import re
 import sys
+import time
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
@@ -792,6 +793,9 @@ class BatchResult:
     band_drift: Counter = field(default_factory=Counter)  # (요청, 산출) → 건수
     tag_drift: Counter = field(default_factory=Counter)  # (요청, 실제) → 건수
     band_underived: int = 0  # knowledge_level 미신고·범위 밖으로 요청 밴드 유지
+    # ── G1 배치 인프라 (MT-2) ────────────────────────────────────────────────
+    resumed_skipped: int = 0   # 진행 파일에 이미 있어 건너뛴 항목(=다시 과금하지 않은 것)
+    aborted_remaining: int = 0  # 연속 실패로 포기한 잔여 계획 — 0이 아니면 배치가 완주하지 않았다
 
     @property
     def stage_counts(self) -> Counter:
@@ -820,6 +824,86 @@ def _failed_names(checks: Sequence[dict], prefix: str | None = None) -> list[str
     ]
 
 
+# ── G1 배치 인프라 (MT-2 — 2026-08-11 멘토링 피드백) ────────────────────────
+# 대량 배치(1,000건대)에서 이 셋이 없으면 **비용만 쓰고 결과가 없다**:
+#   ⑴ 429/일시 오류에 물러섰다 다시 시도하지 않으면 한 번 걸린 콜이 그냥 버려진다
+#   ⑵ 연속 실패에 멈추지 않으면 죽은 키로 남은 계획을 끝까지 태운다
+#   ⑶ 중단 지점을 기억하지 않으면 재실행이 **처음부터** 다시 과금한다
+# API 키는 발급됐고 비용 때문에 미투입인 상태라(G0·G1·G2 게이트), 배치를 켜는
+# 순간의 손실 상한을 정하는 것이 이 절의 목적이다.
+
+RETRYABLE_HINTS = (
+    "429", "rate limit", "ratelimit", "quota", "resource has been exhausted",
+    "timeout", "timed out", "deadline", "503", "502", "unavailable", "overloaded",
+)
+RETRY_ATTEMPTS = 4
+RETRY_BASE_SEC = 2.0
+# 연속 실패가 이만큼 쌓이면 남은 계획을 **포기**한다. 키가 죽었거나 한도가 소진된
+# 상태에서 계속 두드리는 것은 비용도 시간도 버리는 일이고, 그 구간의 산출물은
+# 어차피 0이다. 부분 산출은 그대로 반환하므로 여기까지 만든 것은 잃지 않는다.
+CIRCUIT_BREAK_AFTER = 6
+
+
+def is_retryable(exc: Exception) -> bool:
+    """다시 시도할 만한 실패인가 — 문구로 판정한다.
+
+    공급자마다 예외 타입이 달라(google.api_core / openai / httpx) 타입으로 잡으면
+    프로바이더를 바꾸는 순간 조용히 안 걸린다. 우리 통로는 프로바이더를 갈아
+    끼우는 것이 전제라(CO-B7) 문구 판정이 그 설계와 맞는다.
+    """
+    text = f"{type(exc).__name__} {exc}".lower()
+    return any(hint in text for hint in RETRYABLE_HINTS)
+
+
+def call_with_backoff(fn, *, attempts: int = RETRY_ATTEMPTS, sleep=time.sleep):
+    """일시적 실패에 지수 백오프로 재시도한다. 마지막 실패는 그대로 올린다.
+
+    ⚠️ 재시도하지 **않는** 실패(스키마 위반·프롬프트 오류 등)는 즉시 올린다 —
+    그런 것은 몇 번을 불러도 같은 결과라 재시도가 비용만 늘린다.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            return fn()
+        except Exception as exc:
+            if attempt >= attempts or not is_retryable(exc):
+                raise
+            wait = RETRY_BASE_SEC * (2 ** (attempt - 1))
+            print(
+                f"[author_items] 일시 실패({attempt}/{attempts}) — {wait:.0f}s 후 재시도: "
+                f"{type(exc).__name__}",
+                file=sys.stderr,
+            )
+            sleep(wait)
+
+
+def plan_key(concept_tag: str, level_group: str, index: int) -> str:
+    """진행 파일에 적는 계획 항목 식별자 — 같은 (태그·밴드)가 여러 번 나온다."""
+    return f"{index}:{concept_tag}:{level_group}"
+
+
+def load_progress(path: Path | None) -> set[str]:
+    """이미 처리한 계획 항목 — 없으면 빈 집합(처음부터)."""
+    if path is None or not path.exists():
+        return set()
+    done: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            done.add(line)
+    return done
+
+
+def record_progress(path: Path | None, key: str) -> None:
+    """한 항목이 끝날 때마다 **즉시** append 한다.
+
+    배치가 중간에 죽는 것을 전제한 설계다 — 끝에 몰아 쓰면 죽는 순간 전부 잃는다.
+    """
+    if path is None:
+        return
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(key + "\n")
+
+
 def run_batch(
     *,
     plan: Sequence[tuple[str, str]],
@@ -829,8 +913,13 @@ def run_batch(
     ai: AiWorkerApi,
     now: datetime | None = None,
     knowledge_level: int | None = None,
+    progress_path: Path | None = None,
 ) -> BatchResult:
-    """계약 P-2의 1~5단계를 돌리고 추가 후보와 탈락 내역을 반환한다 (쓰기 없음)."""
+    """계약 P-2의 1~5단계를 돌리고 추가 후보와 탈락 내역을 반환한다 (쓰기 없음).
+
+    `progress_path`를 주면 항목마다 진행을 기록하고, 이미 있는 항목은 건너뛴다
+    (MT-2 재개). 중단된 배치를 이어 돌릴 때 **이미 과금한 구간을 다시 사지 않는다.**
+    """
     if ai.generate is None:
         raise RuntimeError("생성기가 로드되지 않았다 (load_ai_worker(with_generator=True))")
 
@@ -848,7 +937,26 @@ def run_batch(
     batch_text: set[str] = set()
     batch_answer: set[str] = set()
 
-    for concept_tag, requested_group in plan:
+    done_keys = load_progress(progress_path)
+    if done_keys:
+        print(f"[author_items] 재개 — 이미 끝난 {len(done_keys)}건은 건너뛴다.")
+    consecutive_failures = 0
+
+    for plan_index, (concept_tag, requested_group) in enumerate(plan):
+        key = plan_key(concept_tag, requested_group, plan_index)
+        if key in done_keys:
+            result.resumed_skipped += 1
+            continue
+        if consecutive_failures >= CIRCUIT_BREAK_AFTER:
+            result.aborted_remaining = len(plan) - plan_index
+            print(
+                f"[author_items] 연속 {consecutive_failures}회 실패 — 남은 "
+                f"{result.aborted_remaining}건을 포기한다(키·한도를 확인할 것). "
+                f"여기까지 만든 것은 그대로 반환한다.",
+                file=sys.stderr,
+            )
+            break
+
         level_group = requested_group
         result.attempted += 1
         # ── 1단계: 생성 (키 없으면 폴백 뱅크 — 무키에서도 완주한다)
@@ -858,22 +966,34 @@ def run_batch(
             generate_kwargs: dict[str, Any] = {}
             if knowledge_level is not None:
                 generate_kwargs["knowledge_level"] = knowledge_level
-            flat = ai.generate(
-                weather_data=weather,
-                level_group=level_group,
-                route="general",
-                target_concept_tag=concept_tag,
-                **generate_kwargs,
+            flat = call_with_backoff(
+                lambda: ai.generate(
+                    weather_data=weather,
+                    level_group=level_group,
+                    route="general",
+                    target_concept_tag=concept_tag,
+                    **generate_kwargs,
+                )
             )
         except Exception as exc:  # 생성 실패는 탈락이 아니라 시도 실패로 따로 센다
             result.generate_errors.append(f"{concept_tag}/{level_group}: {exc}")
+            if is_retryable(exc):
+                # 재시도까지 하고도 실패했다 — 한도 소진·키 사망이 의심되는 신호라
+                # 연속 횟수를 센다. 스키마 위반 같은 항구적 실패는 세지 않는다
+                # (그건 그 문항의 문제이지 배치를 멈출 이유가 아니다).
+                consecutive_failures += 1
+            record_progress(progress_path, key)
             continue
+        consecutive_failures = 0
 
         actual_tag = str(flat.get("concept_tag") or concept_tag)
         text = str(flat.get("question_text") or "")
 
-        def reject(stage: str, reasons: list[str]) -> None:
+        def reject(stage: str, reasons: list[str], _key: str = key) -> None:
+            # 탈락도 **끝난 항목**이다 — 재개 시 다시 부르면 같은 이유로 또 떨어지고
+            # 그만큼 다시 과금한다. 탈락 경로가 여럿이라 여기 한 곳에 모은다.
             result.rejections.append(Rejection(stage, actual_tag, text, reasons))
+            record_progress(progress_path, _key)
 
         # ── 1.5단계: 태그 대조 (CO-O-8) ──────────────────────────────────────
         # 종전에는 모델이 신고한 태그를 **비교 없이** 수용했다. 이후 게이트가 전부
@@ -978,6 +1098,7 @@ def run_batch(
         batch_text.add(text_key)
         batch_answer.add(answer_key)
         result.items.append(item)
+        record_progress(progress_path, key)
 
     return result
 
@@ -1081,6 +1202,15 @@ def format_report(result: BatchResult, *, seed_path: Path, write: bool) -> str:
         "",
         f"생성 시도   : {result.attempted}",
     ]
+    # 재개·중단은 **눈에 띄어야 한다.** 조용하면 "1,000건 계획했는데 300건만 나온"
+    # 배치를 정상 완주로 착각한다(CLAUDE.md: 조용히 빠지는 것만 금지).
+    if result.resumed_skipped:
+        lines.append(f"  {_pad('재개로 건너뜀', 26)}: {result.resumed_skipped} (다시 과금하지 않음)")
+    if result.aborted_remaining:
+        lines.append(
+            f"  {_pad('⚠️ 연속 실패로 포기', 26)}: {result.aborted_remaining}건 미시도 "
+            f"— 키·한도를 확인하고 --resume으로 이어서 돌릴 것"
+        )
     if result.generate_errors:
         lines.append(f"  생성 실패     : {len(result.generate_errors)}")
         lines += [f"    - {e}" for e in result.generate_errors]
@@ -1163,6 +1293,13 @@ def build_parser(concepts: Sequence[str], level_groups: Sequence[str]) -> argpar
     parser.add_argument("--seed-path", type=Path, default=DEFAULT_SEED_PATH)
     parser.add_argument("--weather-json", type=Path, help="프롬프트에 넣을 기상 JSON 경로")
     parser.add_argument("--random-seed", type=int, help="폴백 뱅크 추첨을 고정한다")
+    parser.add_argument(
+        "--resume",
+        type=Path,
+        metavar="PROGRESS",
+        help="진행 파일에 끝난 항목을 기록하고, 이미 있는 것은 건너뛴다(MT-2). "
+             "중단된 배치를 이어 돌릴 때 이미 과금한 구간을 다시 사지 않는다.",
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--dry-run",
@@ -1232,6 +1369,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         backend=backend,
         ai=ai,
         knowledge_level=args.knowledge_level,
+        progress_path=args.resume,
     )
     print(format_report(result, seed_path=args.seed_path, write=args.write))
 

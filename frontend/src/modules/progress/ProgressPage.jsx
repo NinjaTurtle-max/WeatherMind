@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { kstWeekdayIndex } from '../../lib/kstWeekday';
 import { Link, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,6 +14,9 @@ import { DailyGoalPicker, GOAL_ANCHOR } from './DailyGoal';
 import { selectUnlockStage, useOnboardingGate } from '../../lib/onboardingGate';
 // R12 선행 §8 — 학습 지역 설정(자급 컴포넌트, 제작 FE-R)
 import RegionPicker from '../../components/RegionPicker';
+// 2026-08-12 요구 ⑴ — 진도 저장 입력. 폼 본체는 ConvertAccountPage와 공유한다.
+import SaveProgressForm from '../../components/SaveProgressForm';
+import { isGuestUser } from '../auth/guest';
 import { useT } from '../../i18n';
 
 /**
@@ -171,23 +174,44 @@ export default function ProgressPage() {
           전폭에 있던 **학습 지역을 왼쪽 배지 바로 밑**으로 올렸다. 배지 아래가
           800px 가까이 비어 있었고(왼쪽 스택이 오른쪽보다 짧다) 학습 지역은
           안이 한 줄뿐이라 전폭을 쓸 이유가 없던 카드다 — 폭은 열이 정한다. */}
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">
+      {/* 2026-08-12(사용자 지시): `lg:items-start`를 뺐다 — 두 열이 **같은 높이**로
+          늘어나야 한다("세로 길이가 딱 맞게"). 남는 높이를 흡수하는 칸은
+          **왼쪽 열의 배지(order-2)** 하나다(`lg:flex-1`) — 타일 5장이 나눠 받아
+          커져도 빈 데가 없다. items-start를 되살리면 다시 왼쪽만 짧아진다.
+          ⚠️ 흡수 칸을 학습 지역으로 옮기지 말 것 — 한 줄짜리 카드가 142px까지
+          늘어 빈 카드가 된다(하루 만에 되돌린 자리다. 아래 order-7 주석). */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
         {/* 왼쪽 열 — "나" */}
         <div className="contents lg:flex lg:flex-col lg:gap-4">
           <div className="order-1 lg:order-none">
             <ProfileCard me={me} user={user} badges={badges} />
           </div>
-          <div className="order-2 lg:order-none">
+          {/* lg:flex-1 — 오른쪽 열이 더 길 때 그 차이를 **이 칸**이 먹는다
+              (2026-08-12 사용자 지시 — "배지 컬렉션을 더 키우고 학습 지역을
+              줄여서 다시 여백 맞춰줘"). 종전에는 학습 지역이 먹었는데, 안이
+              한 줄뿐인 카드가 142px까지 늘어 빈 카드로 보였다. 배지는 타일
+              5장이 늘어난 높이를 나눠 받으므로 커져도 빈 데가 없다
+              (BadgeCollection이 h-full·격자 flex-1로 그 높이를 타일까지
+              내려보낸다 — 짝을 이루는 코드다). */}
+          <div className="order-2 lg:order-none lg:flex-1">
             <BadgeCollection collapsed={collapsed} />
           </div>
-          {/* order-7 — lg에서는 왼쪽 열 3번째지만, 1열로 쌓이는 좁은 화면에서는
-              **이 격자의 맨 뒤**로 보낸다. 배지와 스파인 사이에 끼면 「나」와
-              「할 일」 사이에 설정이 하나 박힌 꼴이 된다(2026-08-11 코드 리뷰).
-              ⚠️ 그렇다고 학습 수준·하루 목표와 **붙지는 않는다** — 그 둘은 격자
-              바깥이고 사이에 능력 분석 판이 있다. 설정 셋을 한 덩어리로 모으려면
-              카드를 격자 밖으로 빼야 하는데, 그러면 lg에서 왼쪽 열의 빈자리를
-              메우지 못한다(이 이동의 목적이 그것이었다). 여기서 얻는 것은
-              「중간에 안 낀다」까지다. */}
+          {/* order-7 — lg에서는 왼쪽 열 3번째다. 1열로 쌓이는 좁은 화면에서는
+              뒤쪽으로 보낸다: 배지와 할 일 사이에 끼면 「나」와 「할 일」 사이에
+              설정이 하나 박힌 꼴이 된다(2026-08-11 코드 리뷰).
+              ⚠️ **2026-08-12부터 「격자의 맨 뒤」는 아니다** — 지식 단계(order-8)가
+              뒤에 붙었다. 순서를 맞바꿔 이 카드를 맨 뒤로 돌리면 지식 단계가
+              능력 분석 판에서 떨어지는데, 「단계를 먼저 읽고 개념별 θ를 읽는다」는
+              그 카드의 존재 이유라 그쪽을 지켰다. 얻은 것은 여전히
+              「배지와 할 일 사이에 안 낀다」까지고, 잃은 것은 「맨 뒤」다.
+              ⚠️ 학습 수준·하루 목표와 **붙지는 않는다** — 그 둘은 격자 바깥이고
+              사이에 능력 분석 판이 있다. 설정 셋을 한 덩어리로 모으려면 카드를
+              격자 밖으로 빼야 하는데, 그러면 lg에서 왼쪽 열의 빈자리를 메우지
+              못한다(이 이동의 목적이 그것이었다).
+
+              ⚠️ 남는 높이는 이 칸이 **안 먹는다** — 배지 칸(order-2)이 먹는다.
+              한 줄짜리 카드를 늘이면 그냥 빈 카드가 된다(2026-08-12 사용자 지시로
+              되돌린 자리 — 늘였다가 142px이 됐고, 다시 자연 높이로 돌렸다). */}
           <div className="order-7 lg:order-none">
             <RegionCard />
           </div>
@@ -198,15 +222,33 @@ export default function ProgressPage() {
             왕관·이어서 학습은 /learn 화면이 경로 트랙과 진입 배너로 전부 말하고
             있어, 여기서는 같은 말을 한 번 더 하는 카드였다. 프로필 4칸 지표의
             🎓 클리어 유닛·👑 획득 왕관이 요약은 계속 들고 있다.
-            빠진 만큼 두 열의 끝이 어긋난다 — 높이는 카드를 늘여 맞추지 않고
-            **학습 지역을 왼쪽으로 돌려** 맞췄다(위 order-7). 빈 카드를 늘이면
-            안에 든 것 없이 흰 여백만 커진다. */}
+            빠진 만큼 두 열의 끝이 어긋나 **학습 지역을 왼쪽으로 돌려** 맞췄다.
+            2026-08-12에 **지식 단계까지 이 열로 들어와** 이제는 오른쪽이 더 길다
+            — 부족한 쪽은 왼쪽이고, 그 차이는 배지 칸이 먹는다(위 격자 주석).
+            "빈 카드를 늘이면 흰 여백만 커진다"는 그때의 판단은 **여전히 유효해서**
+            흡수 칸을 학습 지역이 아니라 배지로 골랐다: 배지는 타일 5장이 높이를
+            나눠 받지만(실측 1440에서 타일 91 → 163px) 학습 지역은 한 줄뿐이라
+            늘어난 만큼이 그대로 빈 카드가 된다(실측 70 → 142px). */}
         <div className="contents lg:flex lg:flex-col lg:gap-4">
           <div className="order-5 lg:order-none">
             <QuestList collapsed={collapsed} />
           </div>
           <div className="order-6 lg:order-none">
             <NextGoalsCard me={me} />
+          </div>
+          {/* 지식 단계 — 2026-08-12(사용자 지시)에 **전폭에서 오른쪽 열로** 왔다
+              ("가로로 줄여서 오른쪽에 배치"). 1120px 전폭에서는 Lv 칩 한 줄과
+              막대 하나가 가로로 늘어져 빈 카드처럼 보였다.
+              order-8 — 1열로 쌓이는 좁은 화면에서는 격자의 **맨 뒤**라, 바로
+              아래 능력 분석 판과 붙는다(단계를 먼저 읽고 개념별 θ를 읽는 순서).
+              ⚠️ `empty:hidden`이 필요하다. 이 카드는 서버 필드가 없거나
+              콜드스타트(θ 행 없음)면 **스스로 null**을 뱉는데, 그때 이 래퍼가
+              남으면 빈 칸 하나와 gap 16px가 그대로 붙는다. 종전에는 카드가
+              flex의 맨 자식이라 null이면 노드째 없었다 — 순서를 주려고 래퍼를
+              씌우면서 생긴 자리다(2026-08-12 코드 리뷰). 목(mock)의
+              `/progress/me`가 실제로 이 필드를 안 보내므로 **그 경로가 기본값**이다. */}
+          <div className="order-8 empty:hidden lg:order-none">
+            <KnowledgeLevelCard />
           </div>
         </div>
       </div>
@@ -216,16 +258,20 @@ export default function ProgressPage() {
           설정 두 장보다 **위**에 둔다: 설정은 페이지 꼬리로 읽히는 자리라,
           그 아래에 큰 분석 판을 두면 페이지가 끝난 줄 알고 스크롤을 멈춘다.
 
-          지식 단계 카드가 그 **바로 위**에 붙는다 — 같은 "나의 실력" 묶음이고,
-          단계(난이도)를 먼저 읽고 개념별 θ(4밴드 칩 포함)를 읽는 순서가 맞다.
-          ⚠️ 병합 충돌 해소(2026-08-10): 내 브랜치는 이 카드를 왼쪽 열 order-3
-          칸에 넣었는데, main(PR #55)이 능력 분석을 **격자 밖 전체 폭**으로
-          옮겼다. 왼쪽 열에 그대로 두면 단계와 분석이 떨어져 의도가 깨지므로
-          여기로 따라왔다. 서버 필드가 없으면 카드가 스스로 null이라 자리째 빠진다. */}
+          지식 단계 카드는 2026-08-12에 **위 격자의 오른쪽 열 맨 아래**로 갔다
+          (사용자 지시 — 전폭에서 반폭으로). 「단계를 먼저 읽고 개념별 θ를 읽는다」는
+          순서는 그대로다: 좁은 화면에서는 order-8이라 이 판 바로 위에 오고,
+          넓은 화면에서는 오른쪽 열 끝이라 이 판 바로 위 오른쪽에 있다. */}
       <div className="mt-4 flex flex-col gap-4">
-        <KnowledgeLevelCard />
         <WeatherBrainPanel />
       </div>
+
+      {/* 진도 저장 — 정보 입력 (2026-08-12 클라이언트 요구 ⑴).
+          설정 묶음의 **맨 앞**이다: 학습 수준·하루 목표는 취향이고, 이것은
+          "잃으면 끝인 것"을 지키는 행동이라 같은 무게가 아니다.
+          앵커 id는 학습 화면 오른쪽 저장 노드(`/me#save-progress`)의 목적지다 —
+          해시 스크롤은 이 파일 위쪽 useEffect가 이미 소유한다. */}
+      <SaveProgressCard />
 
       {/* 설정 — 학습 수준 (R13 CO-P-5) */}
       <LevelGroupCard />
@@ -280,18 +326,25 @@ export default function ProgressPage() {
 }
 
 /**
- * 학습 지역 (R12 선행 §8) — 퀴즈 실황·피드백 날씨의 기준 지역.
+ * RegionCard — 학습 지역 (R12 선행 §8) — 퀴즈 실황·피드백 날씨의 기준 지역.
  * 대결/브리핑·리그는 서울 고정(PM 정정 2026-08-05 — 지역 예보로 예측하고 서울
  * 실측으로 채점되는 정합성 문제) — 대결 화면에는 칩을 달지 않는다.
  *
  * 2026-08-11: 페이지 꼬리의 전폭 카드에서 **왼쪽 열**로 올라왔다. 열 폭이
  * 절반(약 552px)이라 설명과 지역 칩이 한 줄에 안 들어갈 수 있어, 좁아지면
  * 칩이 아랫줄로 내려가게 `flex-wrap`으로 둔다.
+ *
+ * 2026-08-12: 두 열 높이를 맞추는 **남는 높이는 배지 칸이 먹는다**(order-2의
+ * `lg:flex-1`). 이 카드가 잠깐 그 역할을 했는데(70 → 142px) 안이 한 줄뿐이라
+ * 빈 카드로 보여 사용자 지시로 되돌렸다. `h-full` + `justify-center`는 남겨
+ * 둔다 — 슬롯이 늘어나는 배치로 다시 바뀌어도 카드가 칸을 채우고 내용이
+ * 가운데에 오도록, 즉 **깨지지 않도록** 하는 방어값이다(지금은 슬롯이
+ * 자연 높이라 아무 효과가 없다).
  */
 function RegionCard() {
   const t = useT();
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+    <div className="flex h-full flex-col justify-center rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="min-w-0 flex-1 basis-[220px]">
           <p className="text-sm font-extrabold text-slate-900">{t('region.settingTitle')}</p>
@@ -299,6 +352,72 @@ function RegionCard() {
         </div>
         <RegionPicker />
       </div>
+    </div>
+  );
+}
+
+/**
+ * SaveProgressCard — 「내 정보에서 정보를 입력해 진도를 저장」(2026-08-12 요구 ⑴).
+ *
+ * 왜 여기인가: 오늘 로그인·회원가입 화면이 통째로 제거됐다(규정 — 심사위원이 계정
+ * 없이 URL만으로 열어야 한다). 그런데 **진도 저장은 남아야 한다** — 게스트 진도는
+ * 그 기기에만 있어서 잃으면 복구 경로가 없다(게스트 비밀번호는 무작위 시크릿이다).
+ * 그래서 같은 서버 API(`POST /auth/guest/convert`)를 **로그인 창이 아니라 내 정보
+ * 안의 입력란**으로 다시 세운다. 별도 페이지(`/account/convert`)도 남지만, 거기까지
+ * 가야만 되는 상태가 요구가 지적한 그 불편이었다.
+ *
+ * ⚠️ 문구에 「로그인」·「회원가입」을 쓰지 않는다. 규정이 금지하는 것은 그 **동선**
+ * 이지만, 문구가 그렇게 읽히면 심사에서 같은 지적을 받는다. 렌더된 텍스트를
+ * `tests/onboardingSave.contract.test.mjs`가 문다.
+ *
+ * ⚠️ 카드는 게스트에게만 뜬다. 정식 계정에게는 저장할 것이 이미 저장돼 있어
+ * 입력란이 하는 일이 없다(서버도 409 NOT_GUEST로 막는다). 다만 **자리를 비우지
+ * 않고** 한 줄로 사실을 알린다 — 진도가 어디에 있는지는 누구나 궁금하다.
+ * 조회 실패(`me` 없음)면 렌더하지 않는다: 게스트 여부를 모르는 채로 "저장하세요"를
+ * 띄우면 이미 정식 계정인 사람에게 실패할 폼을 내미는 꼴이다.
+ */
+function SaveProgressCard() {
+  const t = useT();
+  const storeUser = useAuthStore((s) => s.user);
+  // ⚠️ **한 번 세운 폼은 이 방문 동안 유지한다(래치).** 저장에 성공하면 이 사람은
+  // 게스트가 아니게 되고, 폼이 캐시의 is_guest를 즉시 내린다 — 게이트를 그대로
+  // 두면 그 순간 가지가 「이미 저장되고 있어요」로 갈아치워지고, **폼이 새
+  // 인스턴스로 다시 서면서 방금 띄운 성공 문구가 증발한다**(2026-08-12 실측:
+  // 저장은 됐는데 화면은 빈 폼으로 되돌아갔다. 하루 목표 카드가 두 번 적어 둔
+  // "누른 순간 화면에서 지워지는 버튼"과 같은 함정이다).
+  //
+  // 상태가 아니라 ref로 잠그는 이유: 성공 처리에서 캐시 갱신과 콜백이 **어느
+  // 순서로 렌더에 반영될지**에 기대면 안 된다. 실제로 순서를 바꿔 봐도 한
+  // 프레임이 새는 것을 실측했다. 렌더 중 래치는 멱등이라 안전하다.
+  const engagedRef = useRef(false);
+
+  const { data: me } = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: authApi.me,
+    staleTime: 60_000,
+    retry: false,
+  });
+  if (!me) return null;
+  if (me.is_guest === true || isGuestUser(storeUser)) engagedRef.current = true;
+  const guest = engagedRef.current;
+
+  return (
+    <div
+      id="save-progress"
+      data-testid="save-progress-card"
+      className="mt-4 scroll-mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+    >
+      <p className="text-sm font-extrabold text-slate-900">
+        <span aria-hidden="true">💾</span> {t('saveProgress.cardTitle')}
+      </p>
+      {guest ? (
+        <>
+          <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{t('saveProgress.cardBody')}</p>
+          <SaveProgressForm className="mt-3" />
+        </>
+      ) : (
+        <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{t('saveProgress.alreadySaved')}</p>
+      )}
     </div>
   );
 }
@@ -555,7 +674,7 @@ function NextGoalsCard({ me }) {
           now={Math.min(streak, STREAK_TARGET)}
           target={STREAK_TARGET}
           unit=""
-          chip={`${streak}일`}
+          chip={t('profile.streak.dayCount', { n: streak })}
         />
       </div>
     </div>

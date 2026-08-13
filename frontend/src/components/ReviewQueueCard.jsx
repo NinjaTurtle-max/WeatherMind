@@ -19,6 +19,17 @@ import { useT } from '../i18n';
  * 숨긴 것: consecutive_correct·interval_days·타임스탬프 원값 — 스케줄 내부값이라
  * 학습자에게 소음이다. 보여주는 것은 "무엇을(개념명) 지금 복습할 때"뿐.
  *
+ * **CTA 목적지 = `/learn`**(2026-08-12 변경. 종전 `/daily` 3곳).
+ * 자유 일일 세션이 폐지되면서 세 variant의 「복습하러 가기」가 전부 죽은 링크가
+ * 됐다 — 눌러도 `*` → `/learn`으로 조용히 되돌아왔고, **스모크는 초록이었다**
+ * (앵커 존재만 봤다. 그 결함은 review-queue 스모크 쪽에서 함께 고쳤다).
+ *
+ * `/learn`인 이유: 복습 전용 라우트는 **없다**. 복습 문항은 세션 배합(복습 4문항)
+ * 으로 세션에 섞여 나오므로 학습자가 할 일은 "세션을 연다"이고, 그 입구가
+ * 학습 화면이다. 이 카드는 **무엇이** 도래했는지를 말하는 자리이지 세션을 직접
+ * 발급하는 자리가 아니다(props 없는 자급 컴포넌트라 유닛 트리를 모른다 —
+ * 특정 유닛으로 보내려면 소유하지 않은 데이터가 필요하다).
+ *
  * variant (2026-08-09):
  *   'card'  기본 — 흰 카드. 다른 화면이 레일에 세울 때 쓴다.
  *   'strip' 카드 껍데기 없이 **한 줄**. 학습 화면이 흰 카드를 3장으로 줄이면서
@@ -77,7 +88,7 @@ export default function ReviewQueueCard({ variant = 'card' }) {
           {rest > 0 && <li className="px-1 py-1 text-[11px] font-medium text-slate-400">+{rest}</li>}
         </ul>
         <Link
-          to="/daily"
+          to="/learn"
           className="mt-auto pt-2.5 text-[12px] font-bold text-sky-600 hover:text-sky-700"
         >
           {t('reviewQueue.cta')}
@@ -106,7 +117,7 @@ export default function ReviewQueueCard({ variant = 'card' }) {
           {rest > 0 && <li className="px-1 py-1 text-[11px] font-bold text-slate-400">+{rest}</li>}
         </ul>
         <Link
-          to="/daily"
+          to="/learn"
           className="font-bold text-slate-500 underline-offset-4 hover:text-sky-700 hover:underline"
         >
           {t('reviewQueue.cta')}
@@ -149,7 +160,7 @@ export default function ReviewQueueCard({ variant = 'card' }) {
         )}
       </ul>
       <Link
-        to="/daily"
+        to="/learn"
         className="mt-auto inline-block self-start rounded-xl bg-sky-600 px-4 py-2 text-[12.5px] font-bold text-white transition hover:bg-sky-700"
       >
         {t('reviewQueue.cta')}

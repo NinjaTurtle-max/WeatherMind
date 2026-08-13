@@ -5,7 +5,11 @@ from sqlalchemy import CheckConstraint, Date, DateTime, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.config import settings
 from app.models.base import Base
+
+# server_default는 클래스 정의 시점에 굳는 리터럴이라 함수를 못 쓴다.
+_DEFAULT_CLOUDS = settings.CLOUD_MAX
 
 
 class User(Base):
@@ -43,8 +47,21 @@ class User(Base):
     last_login_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     # ── 구름 에너지 (R5-01 §3.3) — 스트릭 프리즈("구름 방패")와 독립 자원 ──
     # 파이썬측 default 포함: flush 전 인스턴스의 None 산술/시각 비교 방지 (R4 교훈)
+    # ⚠️ 기본값은 **리터럴이 아니라 `settings.CLOUD_MAX`**여야 한다. MT-7로 만렙을
+    # 5 → 10으로 올렸을 때 이 줄이 5로 남아, 신규·게스트 유저가 전부 **5/10으로**
+    # 생성됐다 — 배지가 첫 화면부터 반쪽으로 보이고, 이미 다섯을 쓴 사람처럼
+    # 시작한다. 정확히 MT-7이 겨냥한 인구다("5는 한 세션을 마치기 전에 바닥나서
+    # 시작을 막는다"). 등록·게스트 경로 어디도 `clouds=`를 넘기지 않으므로 이
+    # 기본값이 곧 신규 유저의 잔량이고, `dev.py`의 리셋은 이미 settings를 보고
+    # 있어서 두 경로가 서로 다른 값을 쓰고 있었다(코드 리뷰 2026-08-12).
     clouds: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=5, server_default=text("5")
+        Integer,
+        nullable=False,
+        default=lambda: settings.CLOUD_MAX,
+        # server_default는 **기존 DB의 열 정의**라 마이그레이션 없이는 안 바뀐다.
+        # 앱이 항상 값을 채우므로(위 default) 실효는 없지만, 새로 만드는 DB가
+        # 앱과 같은 값을 갖도록 함께 올린다.
+        server_default=text(str(_DEFAULT_CLOUDS)),
     )
     clouds_updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

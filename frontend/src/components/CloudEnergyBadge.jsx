@@ -32,7 +32,7 @@ export default function CloudEnergyBadge() {
   });
 
   const clouds = data?.clouds ?? null;
-  const max = data?.max ?? 5;
+  const max = data?.max ?? 10;  // 조회 전 첫 페인트용 — 권위는 서버 `max`
   const isFull = clouds != null && clouds >= max;
   const isEmpty = clouds === 0;
 
