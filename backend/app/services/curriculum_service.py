@@ -252,11 +252,17 @@ def unit_target_level(unit: Any, fallback: int | None) -> int | None:
     `w09-pressure-front`(학부 고학년)가 **완전히 같은 5문항**을 냈고, 10섹션은
     화면상의 장식이었다.
 
-    ⚠️ **정렬 표적이지 필터가 아니다.** `rank_by_knowledge_level`에만 넘기고
-    SQL의 `where`로 내리지 않는다 — `test_curriculum_band_fallback`의
+    ⚠️ **정렬 표적이지 필터가 아니다.** SQL의 `where`로는 **절대** 내리지 않는다 —
+    `test_curriculum_band_fallback`의
     `test_지식수준_고정반경으로는_굶주림이_안_풀린다`가 "고정 kl 창은 밴드 공백을
     단계 공백으로 옮길 뿐"임을 실측으로 못 박아 두었다. 표적 단계에 문항이 없으면
     **가장 가까운 단계로 내려앉고 굶지 않는다**.
+
+    ⚠️ **다만 "`rank_by_knowledge_level`에만 넘긴다"는 2026-08-13부로 거짓이다.**
+    이 값은 `unit_pool_sort_theta`를 거쳐 **SQL의 ORDER BY 기준점**도 정한다 —
+    재정렬만으로는 SQL의 LIMIT이 표적 밴드를 먼저 잘라 버려서 유닛 재진입이
+    학습자 밴드로 되돌아갔기 때문이다(사유·실측은 그 함수의 독스트링). 정렬 두 겹이
+    모두 유닛 쪽을 보게 됐을 뿐, **필터가 아니라는 성질은 그대로**다.
 
     기초과학 3섹션(단계 축이 아니라 코스다)과 섹션이 없거나 미등재인 유닛
     (대역 객체·재구조화 전 유닛)은 매핑에 없으므로 `fallback`(θ 파생)이 그대로
@@ -781,7 +787,9 @@ def unit_pool_level_groups(user_level_group: str, theta: float | None) -> list[s
     개념별 θ 행을 만들고 `overall_theta`는 abilities가 빌 때만 None이다.
 
     **강등/승격 방향은 이 함수가 정하지 않는다.** 넓힘은 대칭이고(전 밴드), 어느
-    쪽을 먼저 줄지는 거리 정렬이 판단한다 — 1차로 SQL의 `|b − θ|`, 2차로
+    쪽을 먼저 줄지는 거리 정렬이 판단한다 — 1차로 SQL의 `|b − 기준점|`(기준점의
+    소유자는 `unit_pool_sort_theta`다: 섹션이 단계를 말하면 **유닛의 표적 밴드**,
+    아니면 학습자 θ), 2차로
     `rank_by_knowledge_level`의 `|kl − 단계|`. 방향을 여기 상수로 박으면 θ가 자기
     학령을 넘어선 유저에게 계속 쉬운 문항이 가거나(사다리 = 쉬운 쪽 고정) 그
     반대로 학습자를 막는다. 거리가 완전히 같을 때만 **쉬운 쪽 우선**이고, 그
@@ -808,6 +816,51 @@ def unit_pool_level_groups(user_level_group: str, theta: float | None) -> list[s
     return sorted(
         set(weatherbrain_service.LEVEL_GROUP_BANDS)
         | set(session_service.pool_level_groups(user_level_group, theta))
+    )
+
+
+def unit_pool_sort_theta(
+    section_level: int | None, theta: float | None
+) -> float | None:
+    """유닛 풀 SQL의 **정렬 기준점** — 섹션이 단계를 말하면 유닛 쪽으로 옮긴다.
+
+    ══ 왜 필요한가 — 재진입 결함 (2026-08-13, 담당 Z) ═══════════════════════
+    `unit_target_level`은 표적을 `rank_by_knowledge_level`에 넘기지만, **그 전에
+    SQL이 `|b − θ|` + LIMIT으로 후보를 선취**한다. 학습자 θ로 정렬하면 표적 밴드가
+    재정렬이 보기도 전에 잘려 나간다 — 실측(2026-08-13, 실 시드):
+    `middle_high` θ=0.0 학습자가 `w01-pressure-front`(섹션 1 = kl 1)에 **재진입**
+    하면 middle_high 후보만 16건이라 선취창(UNIT_SESSION_SIZE × UNIT_POOL_PREFETCH)이
+    그 밴드로 꽉 차고, 결과가 **kl {3: 4}**였다. 하루 첫 세션은 9b72d70이 고쳤으므로
+    화면상 증상은 "초등 유닛을 끝내고 같은 날 다시 들어가면 중학교 문항이 돌아온다"였다.
+
+    ⚠️ **필터가 아니라 정렬 기준을 옮기는 것이 요점이다.** 밴드는
+    `unit_pool_level_groups`가 계속 전부 열어 두므로 굶주림 계약이 그대로 산다.
+    하드 밴드 필터(첫 세션 경로가 쓰는 `session_service.pool_level_groups(
+    target_level=...)`)를 여기 그대로 들여오면 안 된다 — 그쪽에는 부족분을 메우는
+    `plan_bank_picks` 교차 보충이 있지만 **이 경로에는 없다**. 실측으로 실 시드에서
+    `risk-wildfire-board`·`risk-flood-board`가 4문항 정원에서 **3으로 짧아지고**,
+    표적 밴드가 빈 (유닛 × 개념) 조합은 **0문항**이 된다. 그 사실은
+    `test_unit_reentry_target_level.TestFilterWouldStarve`가 소유한다.
+
+    기준점은 **`weatherbrain_service.band_prior_theta`** — 새 상수를 만들지 않고
+    `LEVEL_GROUP_ITEM_B`(SQL의 사전 b CASE가 쓰는 바로 그 표)를 재사용한다. 해상도가
+    밴드 단위인 것은 **일부러**다: SQL의 `prior_b`가 밴드당 한 값이라 그보다 잘게
+    잡아도 보정 이력(`item_params.b`) 없는 문항에서는 순서가 한 건도 안 바뀐다.
+    밴드 안의 단계 해상도는 종전대로 `rank_by_knowledge_level`이 메운다.
+
+    **`section_level`이 None이면 θ를 그대로 돌려준다** — 기초과학 3섹션·미등재·
+    대역 유닛은 개정 전과 SQL이 한 글자도 다르지 않다(하위 호환).
+    **θ가 None(콜드스타트)이면 유닛 표적이 있어도 None이다**: θ None 경로는
+    `unit_pool_level_groups`가 가입 밴드 하나로 좁히고 선취도 없는 별개 계약이라
+    (`test_curriculum_band_fallback.TestQueryShapeUnchanged`), 여기서만 정렬을
+    붙이면 그 계약과 어긋난 반쪽 상태가 된다. 즉 **`sort_theta is None`은
+    `theta is None`과 동치**이고, 콜드스타트의 잔여 증상은 알려진 이월이다
+    (도달 대상은 `seed_placement`가 실패한 유저뿐).
+    """
+    if section_level is None or theta is None:
+        return theta
+    return weatherbrain_service.band_prior_theta(
+        weatherbrain_service.level_group_of_knowledge_level(section_level)
     )
 
 
@@ -860,10 +913,16 @@ async def _unit_content_pool(
     - θ가 있으면 level_group 필터가 `unit_pool_level_groups`로 **전 밴드까지**
       확장되고(학령 풀 공백 96칸 중 0문항 16칸이 여기서 해소 — CO-L2.
       칸 인구는 test_curriculum_band_fallback.py가 소유한다),
-      SQL이 |b−θ|로 좁힌 선취분을 `rank_by_knowledge_level`이 6단계 해상도로
+      SQL이 좁힌 선취분을 `rank_by_knowledge_level`이 10단계 해상도로
       다시 세운다. 즉 **굶기지 않으면서 강등 폭은 한 단계**다(CO-L-F2).
       선취 배수(UNIT_POOL_PREFETCH)만큼 더 읽는 이유는 SQL LIMIT이 밴드 해상도로
       먼저 자르면 재정렬이 볼 후보가 남지 않기 때문이다 — 조회 **횟수**는 그대로다.
+    - ⚠️ **SQL의 정렬 기준점은 `unit_pool_sort_theta`가 정한다**(2026-08-13 담당 Z).
+      섹션이 단계를 말하는 유닛에서는 `|b − θ|`가 아니라 **`|b − 표적 밴드의 사전
+      b|`**다 — 학습자 θ로 정렬하면 선취창이 학습자 밴드로 꽉 차서 표적 밴드가
+      `rank_by_knowledge_level`에 닿기도 전에 잘렸다(재진입 결함. 실측과 "왜
+      하드 필터가 아닌가"는 그 함수의 독스트링이 소유한다). 섹션이 없는 유닛과
+      콜드스타트는 종전대로 θ다.
     - 콜드스타트(θ None)는 현행과 완전 동일: 가입 그룹 단일 + random 정렬 +
       선취 없음 + 재정렬 없음(단계 표적이 없으므로).
 
@@ -892,16 +951,26 @@ async def _unit_content_pool(
     # 표적 단계는 **유닛이 먼저**다 (CO-G1 — unit_target_level 독스트링).
     # 같은 개념이 10섹션을 가로질러 재등장하므로, 섹션이 곧 그 유닛이 겨냥하는
     # 단계다. 섹션이 단계를 말하지 않는 유닛(기초과학·대역)만 θ 파생값으로 간다.
-    target_level = unit_target_level(
-        unit,
-        None if theta is None else weatherbrain_service.theta_to_knowledge_level(theta),
+    section_level = unit_target_level(unit, None)
+    target_level = (
+        section_level
+        if section_level is not None
+        else (
+            None
+            if theta is None
+            else weatherbrain_service.theta_to_knowledge_level(theta)
+        )
     )
+    sort_theta = unit_pool_sort_theta(section_level, theta)
     fetch_limit = UNIT_SESSION_SIZE * (1 if theta is None else UNIT_POOL_PREFETCH)
 
     def _pool_stmt(served_subq):
         stmt = session_service.build_pool_query(
+            # ⚠️ **밴드는 실 θ로 연다** — 여기에 `sort_theta`를 넣으면 밴드 집합이
+            # 같아 보여도(둘 다 non-None) 콜드스타트 분기가 갈린다. 굶주림 폴백의
+            # 소유자는 학습자 축이지 유닛 축이 아니다.
             level_groups=unit_pool_level_groups(user.level_group, theta),
-            theta=theta,
+            theta=sort_theta,
             live=False,
             served_subq=served_subq,
             weak_concepts=[unit.concept_tag],
