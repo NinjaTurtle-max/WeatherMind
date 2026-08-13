@@ -43,6 +43,13 @@
  */
 
 const SRC = {
+  // 안내봇 전용(MT-26). 유일하게 **3D 모델에서 렌더한** 캐릭터다 —
+  // 소스는 `weathermind-bot.glb`(텍스처·애니메이션 0 · 단색 재질 5종)이고
+  // 정면 직교 뷰를 소프트웨어 래스터라이저로 뽑았다. 표정을 바꾸거나 각도를
+  // 돌릴 일이 있으면 PNG를 손보지 말고 **원본 glb에서 다시 렌더**할 것.
+  // `cloud`와 갈라 둔 이유: cloud는 담당 없는 화면의 폴백 튜터이자 개념
+  // 캐릭터라 12종 체계에 묶여 있고, 그것을 바꾸면 홈·복습 줄이 함께 바뀐다.
+  guidebot: '/guidebot.png',
   cloud: '/cloud.png',
   sun: '/sun.png',
   drop: '/drop.png',
@@ -58,6 +65,7 @@ const SRC = {
 };
 
 const LABEL = {
+  guidebot: '구름이',
   cloud: '구름이',
   sun: '태양이',
   drop: '물방울이',
