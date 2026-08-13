@@ -54,11 +54,18 @@ const POS_KEY = 'weathermind.guidebot.pos';
 /**
  * 캐릭터 지름(px). 화면 밖 이탈을 막는 계산에 쓴다.
  *
- * ⚠️ **아래 버튼의 `h-32 w-32`(128px)와 반드시 같은 값이어야 한다.** 이 값이
- * 실제보다 작으면 클램프가 캐릭터를 화면 밖으로 내보낸다(오른쪽·아래 가장자리에서
- * 잘린 채 돌아오지 못한다). 2026-08-13에 56 → 128로 키웠다 — 클라이언트가
- * "너무 작다, 적어도 「이어서 풀기」 노드만큼은 돼야 한다"고 했고, 그때 이 상수를
- * 같이 안 옮기면 커진 만큼 그대로 화면 밖으로 나간다.
+ * ⚠️ **버튼이 가질 수 있는 「가장 큰」 값과 같아야 한다**(지금은 2xl의 128px).
+ * 이 값은 노드를 아직 못 재는 순간(첫 읽기·SSR)의 **폴백**이다 — 실제 클램프는
+ * `clamp()`가 `getBoundingClientRect()`로 상자 전체를 잰다. 폴백을 작은 쪽에
+ * 맞추면 큰 화면에서 캐릭터가 화면 밖으로 나가므로 **큰 쪽에 맞춘다**(보수적).
+ *
+ * 2026-08-13에 두 번 바뀌었다: 56 → 128(클라이언트 "「이어서 풀기」 노드만큼")
+ * → **2xl 미만 96 · 2xl 이상 128**(해상도 검증). 1366×768에서 128px 캐릭터가
+ * 본문 오른쪽을 141px 덮었다 — 본문(max-w-6xl=1152)이 사이드바 208을 뺀 1158
+ * 안에 들어가 **좌우 여백이 3px밖에 안 남기 때문**이다. 1920에서는 여백이 280px
+ * 이라 안 겹친다.
+ * **분기를 `2xl`(1536)로 잡은 이유**: 1366은 md·lg·xl에 전부 걸려서 그보다 낮은
+ * 분기점으로는 1366과 1920을 가를 수 없다.
  */
 const SIZE = 128;
 
@@ -257,7 +264,7 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
           aria-live="polite"
           // 캐릭터가 56 → 128px가 되면서 말풍선도 함께 키웠다(13rem은 그 옆에서
           // 쪽지처럼 작아 보인다). 꼬리는 캐릭터 세로 중앙에 맞춘다.
-          className="relative max-w-[17rem] rounded-2xl bg-sky-50 px-4 py-3 text-sm leading-snug text-sky-900 shadow-lg ring-1 ring-sky-200"
+          className="relative max-w-[13rem] rounded-2xl bg-sky-50 px-4 py-3 text-sm leading-snug text-sky-900 shadow-lg ring-1 ring-sky-200 2xl:max-w-[17rem]"
         >
           <span
             aria-hidden="true"
@@ -284,16 +291,16 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
         // 떠다니며 말을 거는 캐릭터라는 인상이 그 테두리 하나에 깨진다. 접지
         // 그림자(GuideBot3D)가 이미 "떠 있다"를 만들고 있으므로 판이 필요 없다.
         // 배경을 지웠으니 **버튼임을 알리는 것은 커서와 접근 이름이 맡는다**.
-        className="grid h-32 w-32 flex-none cursor-pointer place-items-center bg-transparent"
+        className="grid h-24 w-24 flex-none cursor-pointer place-items-center bg-transparent 2xl:h-32 2xl:w-32"
       >
         {/* 2D와 3D가 **같은 정사각 박스**를 공유한다 — 크기·중심이 같아야 교체가
             안 보인다(PNG는 내용 경계로 잘려 있고 3D는 그 박스에 맞춰 그린다). */}
-        <span className="relative block h-28 w-28" data-guide-3d={live3D ? '1' : '0'}>
+        <span className="relative block h-20 w-20 2xl:h-28 2xl:w-28" data-guide-3d={live3D ? '1' : '0'}>
           <Mascot
             name={speaker}
             // 3D가 살아 있는 동안만 숨긴다. 지우지 않는 이유는 컨텍스트 소실 같은
             // 사고가 났을 때 **같은 프레임에** 되돌아와야 하기 때문이다.
-            className={`h-28 w-28 ${live3D ? 'invisible' : ''}`}
+            className={`h-20 w-20 2xl:h-28 2xl:w-28 ${live3D ? 'invisible' : ''}`}
           />
           {Bot3D && (
             <Bot3D

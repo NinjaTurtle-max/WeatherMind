@@ -239,10 +239,21 @@ try {
   const botSrc = await readFile(resolve(root, 'src/components/GuideBot.jsx'), 'utf8');
   const sizeConst = Number(/const SIZE = (\d+)/.exec(botSrc)?.[1]);
   const btnRem = Number(/grid h-(\d+) w-\1 flex-none/.exec(botSrc)?.[1]);
+  const btnBig = Number(/2xl:h-(\d+) 2xl:w-\1/.exec(botSrc)?.[1]);
   const figRem = Number(/relative block h-(\d+) w-\1/.exec(botSrc)?.[1]);
-  check(`캐릭터가 96px 이상이다 (실측 ${btnRem * 4}px)`, btnRem * 4 >= 96);
-  check(`SIZE 상수 = 실제 버튼 크기 (${sizeConst} vs ${btnRem * 4}px) — 어긋나면 화면 밖으로 나간다`,
-    sizeConst === btnRem * 4);
+  // 해상도 검증(2026-08-13): 1366×768에서 128px 캐릭터가 본문을 141px 덮었다.
+  // 본문(max-w-6xl=1152)이 사이드바 208을 뺀 1158 안에 들어가 좌우 여백이 3px뿐이라
+  // 그렇다. 1920은 여백 280px이라 안 겹친다. 1366은 md·lg·xl에 전부 걸리므로
+  // **2xl(1536)만이 둘을 가르는 분기점**이다 — 이 단정이 그 사실을 못박는다.
+  check(`기본 크기가 96px 이상이다 (실측 ${btnRem * 4}px)`, btnRem * 4 >= 96);
+  check(`넓은 화면에서만 커진다 — 2xl 분기 존재 (${btnBig * 4}px)`,
+    Number.isFinite(btnBig) && btnBig > btnRem);
+  check(`1366에서 본문을 안 덮는다 — 기본 ${btnRem * 4}px + 여백 16 ≤ 셸 여백 이내`,
+    btnRem * 4 <= 96);
+  // SIZE는 노드를 못 재는 순간(첫 읽기·SSR)의 폴백이다. 작은 쪽에 맞추면 큰
+  // 화면에서 캐릭터가 밖으로 나가므로 **가장 큰 값**과 같아야 한다.
+  check(`SIZE 상수 = 가질 수 있는 최대 크기 (${sizeConst} vs ${btnBig * 4}px)`,
+    sizeConst === btnBig * 4);
   // ⚠️ 위 단정만으로는 **부족하다**. SIZE는 캐릭터 하나의 크기인데 화면에서 자리를
   // 잡는 것은 말풍선까지 포함한 **상자 전체**(≈408px)라, SIZE로만 클램프하면
   // 오른쪽으로 넘친다. 코드 리뷰가 *"이 테스트가 오히려 버그를 고정한다"*고 잡았다.
