@@ -16,7 +16,7 @@ refresh token은 Redis session:{user_id}에 7일 TTL로 저장 (08번 스펙).
 Settings.LIMIT_AUTH(기본 30회/분/IP — NAT 뒤 다중 사용자 전제).
 """
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -52,6 +52,26 @@ from app.schemas.auth import (
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 SESSION_TTL = timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS)
+
+
+def _declared_now() -> datetime:
+    """학령 신고 도장 (`users.level_group_declared_at` — 0015).
+
+    ⚠️ **이 함수를 부르는 자리가 곧 "사용자가 학령을 직접 골랐다"의 정의**다.
+    기본값 경로(온보딩 건너뛰기·`/learn` 딥링크·무바디 게스트 시작)에서 실수로
+    호출되면 실운영 로그의 신고/미신고 구분이 통째로 무의미해지고, **로그는
+    되감을 수 없어** 8/18 IRT b-재보정이 그 구분을 영영 못 얻는다. 경계는
+    `test_level_group_source.py`가 못박는다.
+
+    부르는 곳은 셋뿐이다:
+      · `register` — `RegisterRequest.level_group`이 필수라 항상 명시 신고
+      · `guest_login` — 바디에 `level_group`이 **실제로 실려 온 경우만**
+        (`model_fields_set` — 파싱된 값을 보면 기본값과 구분이 안 된다)
+      · `update_me` — `UpdateMeRequest.level_group`이 필수라 항상 명시 신고
+    `convert_guest`는 level_group을 받지 않으므로 도장을 건드리지 않는다
+    (같은 행 갱신이라 게스트 때 찍힌 신고 시각이 그대로 보존된다).
+    """
+    return datetime.now(timezone.utc)
 
 
 async def _store_session(user_id: uuid.UUID, refresh_token: str) -> None:
@@ -95,6 +115,8 @@ async def register(
         password_hash=hash_password(body.password),
         nickname=body.nickname,
         level_group=body.level_group,
+        # RegisterRequest.level_group은 필수 필드 — 가입은 언제나 명시 신고다.
+        level_group_declared_at=_declared_now(),
     )
     db.add(user)
     await db.commit()
@@ -233,13 +255,23 @@ async def guest_login(
     """게스트 시작 — 실 유저 생성 + 실 JWT (응답 형태는 login과 동일 스키마).
 
     바디는 선택이다 — 없으면 level_group=middle_high (기존 동작·하위 호환).
+
+    학령이 **실제로 실려 왔을 때만** 신고 도장을 찍는다(0015). 온보딩을 건너뛴
+    사람과 `/learn` 딥링크로 처음 온 사람이 여기로 들어와 같은 middle_high가
+    되는데, 그 구분이 8/18 재보정의 유일한 단서다.
     """
     guest_id = uuid.uuid4()
+    # ⚠️ **파싱된 값이 아니라 "필드가 왔는가"를 본다.** `level_group`에는 pydantic
+    # 기본값(middle_high)이 채워지므로, `body.level_group`을 보면 무바디·빈 바디·
+    # 명시 신고 middle_high가 **전부 똑같이** 보인다 — 그 셋을 가르는 것이 이
+    # 작업의 전부라, 여기서 값을 보면 컬럼이 무의미해진다.
+    declared = body is not None and "level_group" in body.model_fields_set
     user = User(
         email=f"guest-{guest_id}@{GUEST_EMAIL_DOMAIN}",
         password_hash=hash_password(uuid.uuid4().hex),  # 로그인 불가 무작위 시크릿
         nickname=f"게스트-{guest_id.hex[:6]}",
         level_group=body.level_group if body else GUEST_LEVEL_GROUP,
+        level_group_declared_at=_declared_now() if declared else None,
     )
     db.add(user)
     await db.commit()
@@ -386,6 +418,10 @@ async def update_me(
             detail={"detail": "유효하지 않은 사용자입니다.", "code": "INVALID_CREDENTIALS"},
         )
     db_user.level_group = body.level_group
+    # UpdateMeRequest.level_group은 필수 필드 — 이 경로는 언제나 명시 신고다(0015).
+    # 재신고는 도장을 **덮어쓴다**: 마지막 신고가 참값이고, 그 이전 로그는
+    # `answered_at < level_group_declared_at`으로 재보정에서 갈린다.
+    db_user.level_group_declared_at = _declared_now()
     await db.commit()
     return MeResponse(
         user_id=db_user.id,
