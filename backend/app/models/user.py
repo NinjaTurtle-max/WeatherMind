@@ -89,6 +89,28 @@ class User(Base):
     # region의 NULL=서울과 같은 하위 호환 패턴이라 기존 유저·게스트 무변경, backfill
     # 불필요. 설정 API는 이번 범위 밖(신고는 가입 시 — R13-0 §3.2).
     tone: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # 학령을 **사용자가 직접 신고한 시각** (0015) — NULL이면 신고한 적이 없다,
+    # 즉 `level_group`의 현재 값은 무정보 기본값(`GUEST_LEVEL_GROUP`)이다.
+    #
+    # ⚠️ 왜 필요한가: 온보딩의 「건너뛰기」(대회 규정상 로그인 없이 열려야 하므로
+    # 필수)와 `/learn` 딥링크 진입은 학령을 묻지 않고 middle_high로 들어온다.
+    # 그러면 실운영 로그에 **신고한 middle_high**와 **묻지 않은 middle_high**가
+    # 같은 값으로 섞이고, 8/18 IRT b-재보정은 둘을 구분할 방법이 없다.
+    # **로그는 되감을 수 없다** — 쌓인 뒤에는 "이 사람이 신고했었나"를 되살릴 수
+    # 없으므로 DB가 비어 있는 지금이 유일하게 싼 시점이다.
+    #
+    # 왜 `declared|default` enum이 아니라 시각인가: enum의 상위집합이다. 건너뛴
+    # 뒤 나중에 `PATCH /auth/me`로 신고한 사람의 로그는 **신고 시각 전후로 성격이
+    # 갈리는데**, enum은 과거 로그까지 소급해서 declared로 물들인다. 시각이면
+    # `answered_at < level_group_declared_at` 한 줄로 가른다.
+    #
+    # NULL=미신고는 region(0010)·tone(0012)과 같은 하위 호환 패턴이라 backfill이
+    # 필요 없다 — 기존 행은 신고한 적이 없으므로 NULL이 곧 참값이다.
+    # 기입 지점은 **명시 신고 경로 셋뿐**이고 그 경계는 auth.py의 `_declared_now`가
+    # 단독으로 소유한다(기본값 경로에 도장이 찍히면 이 컬럼 전체가 무의미해진다).
+    level_group_declared_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
