@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ReviewQueueCard from '../../components/ReviewQueueCard';
 import RegionPicker from '../../components/RegionPicker';
+import RegionOnboardingNotice from '../../components/RegionOnboardingNotice';
 import GuestSaveNode from '../../components/GuestSaveNode';
 import { progressApi } from '../../api';
 import { useAuthStore } from '../../store/authStore';
@@ -71,6 +72,15 @@ export default function LearnFooterCards() {
   const needsPlacement = me?.placement_done === false;
 
   return (
+    // ⚠️ **카드 한 장씩 떨어진 형상으로 되돌린다**(2026-08-13 클라이언트 판정:
+    //    "이전의 카드 형상 디자인이 낫다. 그 대신 서브 노드들을 흰색으로").
+    //    한 장으로 묶는 시안(B)을 만들어 보였고 클라이언트가 원래 쪽을 골랐다.
+    //    **다만 색은 통일한다** — 종전에는 칸마다 다른 음영(indigo·sky·그라데이션)을
+    //    갖고 있어 넷이 서로 주목을 다퉜다. 전부 흰색으로 두면 색을 가진 것은
+    //    「이어서 풀기」(진한 남색) 하나뿐이라 **주버튼이 혼자 튄다.**
+    //    ⚠️ **자식은 직계로 유지한다** — `home.smoke`가 이 열의 직계 자식 testid
+    //    순서로 「지역이 복습보다 위」를 문다. 감싸면 indexOf가 -1이 되어 그 계약이
+    //    공허하게 죽는다.
     <div data-testid="learn-footer" className="flex flex-col gap-3.5 md:h-full">
       {/* 진단 입구 — 아직 안 받은 사람에게만. 받고 나면 영구히 사라진다.
           문구는 `/me` 배너와 **같은 키**를 쓴다(profile.placementBanner*) —
@@ -79,27 +89,45 @@ export default function LearnFooterCards() {
         <Link
           to="/onboarding/placement"
           data-testid="learn-placement-entry"
-          className="rounded-2xl bg-indigo-50 p-3.5 ring-1 ring-indigo-200 transition hover:bg-indigo-100"
+          className="rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50"
         >
           <div className="flex items-center gap-2">
             <span aria-hidden="true">🧭</span>
-            <p className="text-[13px] font-extrabold text-indigo-900">
+            <p className="text-[13px] font-extrabold text-slate-900">
               {t('profile.placementBannerTitle')}
             </p>
           </div>
-          <p className="mt-1 text-[11.5px] font-bold text-indigo-700">
+          <p className="mt-1 text-[11.5px] font-bold text-sky-700">
             {t('profile.placementBannerCta')}
           </p>
         </Link>
       )}
 
-      {/* 학습 지역 — 카드 한 장을 쓰기에는 작아서 한 줄로 얹는다. */}
-      <div
+      {/* 학습 지역 — **파란 안내 하나가 지역 칸을 통째로 소유한다**
+          (2026-08-13 클라이언트 지시: "흰색 지역 노드 너무 이상해, 그냥 파랑 날씨
+          노드를 「나중에」 없이 흰색 대신으로 고정해줘").
+
+          ⚠️ 무엇이 바뀌었나 — 이 자리에는 **두 칸이 겹쳐 있었다**:
+            ⓐ `RegionOnboardingNotice` — 지역 **미설정일 때만** 뜨는 파란 안내
+              (안에 지역 칩이 들어 있다). 「나중에」로 닫으면 사라진다.
+            ⓑ `learn-region` — 지역 칩만 얹은 **흰 줄**. 항상 떴다.
+          미설정 동안 칩이 두 개로 보이고, 설정한 뒤에는 ⓑ만 남아 **머리말도 설명도
+          없는 흰 칸**이 됐다. 클라이언트가 「이상하다」고 한 것이 그 상태다.
+
+          이제 파란 안내가 **상시** 뜨고 흰 줄은 없앴다. 그래서 「나중에」(닫기)도
+          함께 걷었다 — 닫을 수 있게 두면 **지역을 고르는 통로가 화면에서 통째로
+          사라진다**(종전에 흰 줄을 조건부로 숨기지 않았던 이유가 정확히 그것이다).
+          안내가 상시가 됐으므로 그 걱정이 구조적으로 없어졌다.
+
+          ⚠️ **형제로 끼운다 — 감싸지 말 것.** `home.smoke`가 이 열의 **직계 자식**
+          testid 순서로 「지역이 복습보다 위」를 문다. 감싸는 순간 indexOf가 -1이
+          되어 그 계약이 공허하게 죽는다. */}
+      <RegionOnboardingNotice
         data-testid="learn-region"
-        className="flex items-center justify-end rounded-2xl bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200"
-      >
-        <RegionPicker />
-      </div>
+        persistent
+        onboarding={false}
+        className="flex flex-col gap-2 rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-slate-200"
+      />
 
       {/* 복습 — due 0건이면 컴포넌트가 스스로 null이라 카드째 빠진다.
           자유 일일 세션 카드가 없어져 이제 이 열의 세로를 혼자 쓴다.

@@ -12,12 +12,17 @@
  *   ③ 구름 0이면 노드가 잠긴다 — 모바일 UnitNode와 같은 의미론이어야 한다
  *      (넘기지 않으면 구름 0에서 PC만 열려 문항 진입 전 차단이 뷰포트별로 갈린다).
  *   ④ 접기는 **전 단계에 함께** 적용된다(단계마다 따로면 스크롤할 때마다 다시 접는다).
- *   ⑤ 노드 지름 계산에 쓰는 --n은 **전 단계가 공유하는 최대 노드 수**여야 한다.
- *      단계마다 자기 노드 수를 넣으면 3칸 섹션이 5칸 섹션보다 큰 동그라미를
- *      받아 단계를 넘길 때마다 아이콘이 커졌다 작아진다(2026-08-06 수정).
- *      최대값이라야 가장 긴 섹션도 넘치지 않는다 — 더 작은 값은 넘침이다.
- *   ⑥ 접기도 **아이콘 크기를 바꾸지 않는다** — ⑤와 같은 이유(출렁임 방지)이고,
- *      축은 다르다: ⑤는 단계 간, ⑥은 같은 단계의 펼침/접힘 간.
+ *   ⑤ 노드 치수는 **고정 px**이고 소유자가 하나다(2026-08-13 클라이언트 지시로
+ *      교체). 종전 ⑤는 "--n은 전 단계가 공유하는 최대 노드 수"였다 — 지름을
+ *      뷰포트 높이에 n칸을 욱여넣어 구하던 시절, 섹션마다 크기가 달라지는 것을
+ *      막는 보정이었다. 그 계산을 걷었으므로 지킬 것이 바뀐다:
+ *        ㉮ 시각 지름이 24~36px(「마우스 포인터 하나~하나 반」)
+ *        ㉯ **클릭 표적은 44×44 이상**(WCAG 2.5.5) — 시각 크기와 분리된다
+ *        ㉰ 세로 피치(지름+간격) ≥ 클릭 표적. 좁으면 표적이 겹쳐 엉뚱한 유닛이 열린다
+ *        ㉱ 치수를 뷰포트에서 역산하지 않는다(cqh·--n·--chrome 부활 금지)
+ *   ⑥ 접기도 **아이콘 크기를 바꾸지 않는다** — 축은 같은 단계의 펼침/접힘 간.
+ *      이제는 고정값이라 구조적으로 성립하지만, 되살아나는 경로(높이 역산)를 막는
+ *      가드로 단정은 남긴다.
  *   ⑦ 학습 화면이 **홈을 흡수했다**(2026-08-09). 진입 카드(LearnHeroCard)와
  *      출석 POST 소유권이 넘어왔고, 흰 카드를 늘리지 않기로 했다. 여기서는 그중
  *      **소스로만 확인 가능한 것**을 잡는다 — 진입 카드가 실제로 마운트되는지는
@@ -88,7 +93,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const mod = await vite.ssrLoadModule('/src/modules/curriculum/PcCurriculumPath.jsx');
 const PcCurriculumPath = mod.default;
-const { blueEndIndex, stageDoneCount, joinK, PATH_SIZING_FLOOR, PATH_SIZING_CAP, estDaysOf } = mod;
+const {
+  blueEndIndex, stageDoneCount, joinK, estDaysOf, curvePath,
+  PATH_DOT_PX, PATH_GAP_PX, PATH_AMP_PX, PATH_HIT_PX, PATH_WAVE_PERIOD, PATH_LINE_PX,
+  alignScrollTop,
+} = mod;
 
 let failures = 0;
 const ok = (cond, label) => {
@@ -239,7 +248,14 @@ await render({});
 
   // 섹션 메타 — 있으면 그리고, 없으면 그 줄 자체를 만들지 않는다
   ok(container.textContent.includes(SUBTITLE), '메타가 있는 섹션은 부제를 보여준다');
-  ok(container.textContent.includes('예상 15분'), '예상 소요시간을 보여준다');
+  // 「예상 N분」은 2026-08-13 클라이언트 지시로 걷었다 — 하루 리듬이 「하루에 유닛
+  // 하나」인데 분 단위를 나란히 두면 한 자리에서 두 리듬을 말하는 꼴이었다.
+  // 남는 것은 **일수**이고, 기대값은 리터럴이 아니라 소유자(estDaysOf)에서 파생한다.
+  ok(!container.textContent.includes('예상 15분'), '예상 **분**은 더 이상 안 보인다');
+  ok(
+    container.textContent.includes(`예상 ${estDaysOf(sections[1])}일`),
+    '예상 **일수**를 보여준다',
+  );
   ok(container.textContent.includes('시베리아 기단'), 'topics를 칩으로 보여준다');
   const stage1 = container.querySelectorAll('.wm-stage')[0];
   ok(!stage1.querySelector('p.truncate'), '메타 없는 섹션은 부제 줄을 만들지 않는다');
@@ -247,18 +263,19 @@ await render({});
   ok(stage1.querySelectorAll('.rounded-full.bg-sky-100').length > 0,
      'topics 없는 섹션은 concept_tag 칩으로 폴백한다');
 
-  // ⑤ --n 은 전 단계가 공유하는 **최대** 노드 수 (픽스처 섹션은 3·3·2·4칸)
-  const ns = stages.map((s) => s.querySelector('.wm-vpath').style.getPropertyValue('--n'));
+  // ⑤ 치수는 전 단계가 **같은 고정 px**을 받는다 (픽스처 섹션은 3·3·2·4칸)
+  const dots = stages.map((s) => s.querySelector('.wm-vpath').style.getPropertyValue('--dot'));
   const counts = stages.map((s) => s.querySelectorAll('[data-wm-node]').length);
-  const maxCount = Math.max(...counts);
   ok(
-    new Set(ns).size === 1,
-    `전 단계가 같은 --n을 쓴다(아이콘 크기 통일) — 실제 ${ns.join(',')}`,
+    new Set(dots).size === 1 && dots[0] === `${PATH_DOT_PX}px`,
+    `칸 수가 달라도(${counts.join(',')}) --dot이 같다 — 실제 ${dots.join(',')}`,
   );
-  ok(
-    Number(ns[0]) === maxCount,
-    `--n이 최대 칸 수와 같다(가장 긴 섹션도 안 넘침) — 칸 수 ${counts.join(',')} · --n ${ns[0]}`,
-  );
+  // 종전 `--n`·`--chrome`은 지름을 뷰포트 높이에서 역산할 때만 필요했다. 되살아나면
+  // 「섹션마다 범위 맞추기」 보정도 함께 돌아온다.
+  const revivedVars = stages
+    .map((s) => s.querySelector('.wm-vpath'))
+    .filter((v) => v.style.getPropertyValue('--n') || v.style.getPropertyValue('--chrome'));
+  ok(revivedVars.length === 0, '높이 역산용 --n/--chrome이 되살아나지 않았다');
 
   // 상태 아이콘: 완료 3 + 현재 1
   ok(nodes.filter((b) => b.textContent.includes('👑')).length === 3, '완료 노드 3개(👑)');
@@ -277,8 +294,8 @@ await render({});
 {
   const chipsBefore = container.querySelectorAll('.wm-stage .rounded-full.bg-sky-100').length;
   ok(chipsBefore > 0, `펼침 상태에서 개념 칩이 보인다 — ${chipsBefore}개`);
-  const chromeOpen = container.querySelector('.wm-vpath').style.getPropertyValue('--chrome');
-  ok(chromeOpen === '135px', `펼침 상태 --chrome=135px — 실제 ${chromeOpen}`);
+  const dotOpen = container.querySelector('.wm-vpath').style.getPropertyValue('--dot');
+  ok(dotOpen === `${PATH_DOT_PX}px`, `펼침 상태 --dot=${PATH_DOT_PX}px — 실제 ${dotOpen}`);
   const toggle = container.querySelector('.wm-stage button[aria-expanded]');
   await click(toggle);
   const expandedAll = [...container.querySelectorAll('button[aria-expanded]')].map((b) =>
@@ -289,10 +306,11 @@ await render({});
     container.querySelectorAll('.wm-stage .rounded-full.bg-sky-100').length === 0,
     '접으면 개념 칩이 전 단계에서 사라진다',
   );
-  // 접어도 **아이콘 크기는 그대로**다(2026-08-05 결정). 노드 지름은 --chrome에서
-  // 역산하므로, 접기와 연동하면 접을 때마다 아이콘이 커졌다 작아져 화면이 출렁인다.
-  const chromeFolded = container.querySelector('.wm-vpath').style.getPropertyValue('--chrome');
-  ok(chromeFolded === '135px', `접어도 --chrome 불변(135px) — 실제 ${chromeFolded}`);
+  // 접어도 **아이콘 크기는 그대로**다(2026-08-05 결정). 종전에는 지름을 --chrome
+  // (머리말·칩 높이)에서 역산했기 때문에 이 단정이 실제로 위험을 막고 있었다.
+  // 고정값이 된 지금은 구조적으로 성립하지만, 역산으로 되돌아가면 여기가 먼저 운다.
+  const dotFolded = container.querySelector('.wm-vpath').style.getPropertyValue('--dot');
+  ok(dotFolded === `${PATH_DOT_PX}px`, `접어도 --dot 불변(${PATH_DOT_PX}px) — 실제 ${dotFolded}`);
   await click(toggle); // 원복
 }
 
@@ -330,22 +348,29 @@ await render({});
   ok(container.querySelector('.wm-stage') === null, '빈 트리: 아무것도 렌더하지 않는다');
 }
 
-// ── ⑧ 동그라미 크기가 **코스마다 같다** + 상한을 넘는 섹션도 노드를 안 잃는다 ──
+// ── ⑧ 고정 치수 계약 (2026-08-13 클라이언트 지시) ───────────────────────────
 //
-// ⚠️ **계약이 바뀌었다**(2026-08-12). 종전 단정은 「`PATH_SIZING_FLOOR` == 시드의
-// 최장 섹션」이었고, `--n`이 "전 코스 통틀어 최장 섹션 칸 수"라는 정의에 기대고
-// 있었다. 유닛이 93 → 237개가 되면서 최장 섹션이 4 → **35칸**이 됐고, n이 커질수록
-// 지름이 줄어드는 `--dot` 식이 하한(44px)에 걸려 **노드가 서로 겹쳤다**. 그래서
-// 크기 기준을 8칸에서 끊는 상한(`PATH_SIZING_CAP`)이 들어왔고, 그 순간 종전 단정은
-// **영원히 어긋나는 식**이 됐다(시드 35 ≠ 상한 8). 시드를 그대로 따라가는 것 자체가
-// 목적이었던 적은 없으므로, 원래 지키려던 두 가지로 고쳐 적는다:
-//   ㉠ **크기가 코스마다 같다** — 코스를 옮길 때 아이콘이 커졌다 작아지지 않는다.
-//      (바닥값과 상한이 둘 다 존재하는 이유가 이것이다.)
-//   ㉡ **상한을 넘는 섹션도 노드를 잃지 않는다** — 8칸 상한은 *크기* 기준일 뿐,
-//      35칸 섹션은 35개를 다 그린다.
+// ⚠️ **계약이 두 번 바뀐 자리다.** 원래는 「`PATH_SIZING_FLOOR` == 시드 최장 섹션」,
+// 다음은 「크기가 코스마다 같다 + 상한(`PATH_SIZING_CAP`)을 넘으면 스크롤」이었다.
+// 둘 다 **지름을 뷰포트 높이에 n칸 욱여넣어 구하는 식**을 전제로 한 보정이었고,
+// 2026-08-13에 그 식 자체를 걷었다("섹션마다 학습 경로 범위를 정의하지 말고 그냥
+// 간격을 규정하고 S자 또는 굴곡으로 잡고, 유닛마다의 칸을 마우스 포인트 하나에서
+// 하나 반 정도로"). 지름이 상수가 되면 「어느 섹션에 맞출 것인가」라는 질문 자체가
+// 사라지므로 바닥값·상한·`--n`·`--chrome`은 지킬 대상이 없다 — 지워야 할 단정이다.
+//   ⚠️ 덧: 종전 ㉠은 실은 **아무것도 안 지키고 있었다.** 키를 NUL로 이어 놓고
+//   `startsWith('weather ')`(공백)로 찾아 늘 빈 배열이었고, 두 코스가 나란히
+//   `undefined`를 받아 통과했다. 새 단정은 값을 바꿔 실제로 붉어지는 것만 남긴다.
+//
+// 대신 새로 지킬 것:
+//   ㉮ 시각 지름이 24~36px(커서 하나~하나 반)
+//   ㉯ 클릭 표적 ≥ 44×44 — 시각 크기와 **분리**돼 있고 CSS가 실제로 그 상자를 만든다
+//   ㉰ 세로 피치(지름+간격) ≥ 클릭 표적 — 좁으면 위아래 표적이 겹친다
+//   ㉱ 굴곡이 S자다 — 한 주기 안에 좌우가 다 나오고, 좌우가 상쇄된다
+//   ㉲ 칸 수와 무관하게 노드를 전건 그린다(35칸도 35개)
+//   ㉳ 치수를 뷰포트에서 역산하지 않는다(cqh · contain:size 부활 금지)
 // ⚠️ jsdom에는 레이아웃이 없어 "실제로 스크롤되는가"(px)는 **여기서 못 잰다** —
-//    scrollHeight·clientHeight가 전부 0이다. 그래서 ㉡은 노드 수와 `--n`으로
-//    구조를 단정한다(넘침의 시각적 처리는 브라우저 확인 몫으로 남는다).
+//    scrollHeight·clientHeight가 전부 0이다. 그래서 ㉳는 CSS 선언으로 단정하고,
+//    넘침의 시각적 처리는 브라우저 실측 몫으로 남는다.
 {
   const seed = JSON.parse(readFileSync(resolve(root, '../database/seed/units.json'), 'utf8'));
   const perSection = new Map();
@@ -353,54 +378,272 @@ await render({});
     const key = `${u.course ?? 'weather'}\u0000${u.section}`;
     perSection.set(key, (perSection.get(key) ?? 0) + 1);
   }
-  const longestOf = (course) =>
-    Math.max(...[...perSection].filter(([k]) => k.startsWith(`${course} `)).map(([, v]) => v));
-
-  // 바닥값·상한의 관계 — 상한이 바닥값보다 작아지면 두 상수가 서로를 무효화한다.
-  ok(
-    PATH_SIZING_FLOOR <= PATH_SIZING_CAP,
-    `바닥값 ≤ 상한 — 바닥 ${PATH_SIZING_FLOOR} · 상한 ${PATH_SIZING_CAP}`,
-  );
-
+  const longest = Math.max(...perSection.values());
+  // ⚠️ **주석을 걷고 본다.** 아래 단정들은 전부 "이 선언이 되살아났는가"를 묻는데,
+  // 되살리지 말라고 적어 둔 주석에 옛 식이 그대로 인용돼 있다(`min-height: 0`·
+  // `--dot: max(...)`). 원문을 그냥 grep하면 **근거를 지워야 통과하는 가드**가 된다 —
+  // `--wm-track-tail` 단정에서 이미 겪은 함정이고 같은 처방을 쓴다.
+  const css = readFileSync(resolve(root, 'src/styles/index.css'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+  const cut = (from, to) => css.slice(css.indexOf(from), css.indexOf(to));
   const mk = (name, count) => ({
     section: name,
     units: Array.from({ length: count }, (_, i) => ({
       id: `${name}-${i}`, title: `u${i}`, status: i === 0 ? 'current' : 'locked',
     })),
   });
-  const nOf = async (count) => {
-    root2.render(createElement(PcCurriculumPath, { sections: [mk('S', count)], onOpenUnit: () => {} }));
-    await sleep(60);
-    return container.querySelector('.wm-vpath')?.style.getPropertyValue('--n');
-  };
 
-  // ㉠ 시드의 두 코스를 실제 칸 수로 세워 --n을 대조한다.
-  const nWeather = await nOf(longestOf('weather'));
-  const nBasic = await nOf(longestOf('basic-science'));
+  // ㉮ 커서 하나(≈24px) ~ 하나 반(≈36px)
   ok(
-    String(nWeather) === String(nBasic),
-    `코스가 달라도 --n이 같다 — weather ${nWeather}(최장 ${longestOf('weather')}칸) · ` +
-      `basic-science ${nBasic}(최장 ${longestOf('basic-science')}칸)`,
-  );
-  ok(
-    String(nWeather) === String(PATH_SIZING_CAP),
-    `시드 최장 섹션이 상한을 넘으므로 --n은 상한에서 끊긴다 — ${nWeather} / 상한 ${PATH_SIZING_CAP}`,
+    PATH_DOT_PX >= 24 && PATH_DOT_PX <= 36,
+    `노드 시각 지름이 커서 하나~하나 반(24~36px) — 실제 ${PATH_DOT_PX}px`,
   );
 
-  // 바닥값이 실제로 걸리는가: 상한보다 짧은 코스(3칸)도 바닥값을 받는다.
-  ok(String(await nOf(3)) === String(PATH_SIZING_FLOOR),
-    `3칸 코스도 --n=${PATH_SIZING_FLOOR}을 받는다(코스 간 크기 통일)`);
+  // ㉯ 표적은 시각 크기와 **다른 값**이고, CSS가 그 상자를 실제로 만든다.
+  ok(PATH_HIT_PX >= 44, `클릭 표적 최소 한 변 ≥ 44px(WCAG 2.5.5) — 실제 ${PATH_HIT_PX}px`);
+  // ⚠️ **두 축을 따로 단정한다.** 한쪽만 보면 `width`만 되돌려도 초록이었다
+  // (2026-08-13 변이 확인에서 실제로 통과했다) — 표적은 44×44지 44×32가 아니다.
+  const dotRule = cut('.wm-dot {', '.wm-line {');
+  const target = /\.wm-dot::before\s*\{([^}]*)\}/.exec(dotRule)?.[1] ?? '';
+  ok(
+    /width:\s*max\(\s*var\(--hit\)\s*,\s*var\(--dot\)\s*\)/.test(target)
+      && /height:\s*max\(\s*var\(--hit\)\s*,\s*var\(--dot\)\s*\)/.test(target),
+    '.wm-dot::before가 가로·세로 **둘 다** max(var(--hit), var(--dot))인 표적을 겹친다',
+  );
 
-  // ㉡ 상한을 넘는 섹션이 노드를 잃지 않는다 — 크기는 8칸 기준, 노드는 전건.
-  const longest = Math.max(...perSection.values());
+  // ㉰ 피치가 표적보다 좁으면 위아래 표적이 겹쳐 엉뚱한 유닛이 열린다.
+  ok(
+    PATH_DOT_PX + PATH_GAP_PX >= PATH_HIT_PX,
+    `세로 피치 ≥ 클릭 표적 — ${PATH_DOT_PX}+${PATH_GAP_PX}=${PATH_DOT_PX + PATH_GAP_PX} / ${PATH_HIT_PX}`,
+  );
+
+  // ㉰-2 「시작」 말풍선이 **위로 솟는 높이 ≤ 세로 간격**.
+  // 노드가 86 → 32px이 되면서 간격이 22px이 됐는데 말풍선은 그대로라, 섹션 중간에
+  // 서 있는 학습자에게 바로 위 노드를 **11.5px 덮었다**(2026-08-13 브라우저 실측).
+  // 겹침 자체는 jsdom이 못 재지만 **치수 산술은 여기서 문다** — 글자를 키우거나
+  // 간격을 줄이면 이 줄이 먼저 운다. leading-none이라 높이 = 글자 + 세로 패딩×2.
+  const pcSrc3 = readFileSync(resolve(root, 'src/modules/curriculum/PcCurriculumPath.jsx'), 'utf8');
+  const bubble = /status === 'current' && !blocked && \(\s*<span([\s\S]*?)>/.exec(pcSrc3)?.[1] ?? '';
+  const num = (re) => Number(re.exec(bubble)?.[1] ?? NaN);
+  const rise = num(/bottom-\[calc\(100%\+(\d+)px\)\]/)
+    + num(/text-\[(\d+)px\]/) + 2 * num(/py-\[(\d+)px\]/);
+  ok(
+    /leading-none/.test(bubble) && rise <= PATH_GAP_PX,
+    `「시작」 말풍선이 솟는 높이 ≤ 세로 간격 — ${rise}px / ${PATH_GAP_PX}px (leading-none 필수)`,
+  );
+  // 그 자리는 `.wm-vpath`의 padding-top이 대준다 — 첫 노드는 위에 이웃이 없고
+  // 대신 「이 단계에서 배우는 것」 칩 줄이 있다(2026-08-13 클라이언트 제보).
+  const padTop = Number(/padding-top:\s*(\d+)(?:px)?/.exec(cut('.wm-vpath {', '.wm-node {'))?.[1] ?? NaN);
+  ok(padTop >= rise, `첫 노드 위 여백 ≥ 말풍선 높이 — padding-top ${padTop}px / ${rise}px`);
+
+  // ㉱ S자인가 — 한 주기 안에서 좌우가 다 나오고 합이 0에 수렴한다(대칭 굴곡).
+  //    weave는 export하지 않으므로 노드의 --k를 실제 렌더에서 읽는다.
+  root2.render(createElement(PcCurriculumPath, {
+    sections: [mk('W', PATH_WAVE_PERIOD)], onOpenUnit: () => {},
+  }));
+  await sleep(60);
+  const ks = [...container.querySelectorAll('[data-wm-node]')].map((el) =>
+    Number(el.style.getPropertyValue('--k')),
+  );
+  ok(ks.length === PATH_WAVE_PERIOD, `한 주기 = ${PATH_WAVE_PERIOD}칸 — 실제 ${ks.length}`);
+  ok(ks.some((k) => k > 0.5) && ks.some((k) => k < -0.5),
+     `한 주기 안에 좌우가 다 나온다 — k [${ks.join(', ')}]`);
+  ok(Math.abs(ks.reduce((a, b) => a + b, 0)) < 0.01,
+     '한 주기의 좌우가 상쇄된다(한쪽으로 쏠린 톱니가 아니다)');
+  ok(ks.every((k) => Math.abs(k) <= 1), '흔들림 계수가 ±1을 넘지 않는다(진폭의 소유자는 --amp)');
+  ok(ks[0] === 0, '섹션의 첫 노드는 가운데에서 시작한다(단계마다 위상이 다시 시작)');
+
+  // 치수 넷이 실제로 화면까지 내려가는가 — 소유자는 JSX 상수 하나뿐이다.
+  const vp = container.querySelector('.wm-vpath');
+  for (const [name, want] of [
+    ['--dot', PATH_DOT_PX], ['--gap', PATH_GAP_PX],
+    ['--amp', PATH_AMP_PX], ['--hit', PATH_HIT_PX],
+  ]) {
+    const got = vp?.style.getPropertyValue(name);
+    ok(got === `${want}px`, `${name}이 화면까지 내려간다(${want}px) — 실제 "${got}"`);
+  }
+
+  // ㉲ 시드 최장 섹션도 노드를 전건 그린다.
   root2.render(createElement(PcCurriculumPath, { sections: [mk('L', longest)], onOpenUnit: () => {} }));
   await sleep(60);
   const drawn = container.querySelectorAll('[data-wm-node]').length;
-  ok(drawn === longest, `최장 섹션(${longest}칸)의 노드를 전건 그린다 — 실제 ${drawn}`);
+  ok(drawn === longest, `시드 최장 섹션(${longest}칸)의 노드를 전건 그린다 — 실제 ${drawn}`);
   ok(
-    String(container.querySelector('.wm-vpath')?.style.getPropertyValue('--n')) ===
-      String(PATH_SIZING_CAP),
-    `${longest}칸이어도 크기 기준은 상한 ${PATH_SIZING_CAP}에서 멈춘다(겹침 방지)`,
+    container.querySelector('.wm-vpath')?.style.getPropertyValue('--dot') === `${PATH_DOT_PX}px`,
+    `${longest}칸이어도 지름은 ${PATH_DOT_PX}px 그대로다(칸 수가 크기를 못 건드린다)`,
+  );
+
+  // ㉳ 단계가 **자랄 수 있어야** 그 노드들이 스크롤로 흐른다.
+  //    - height:100% 고정이면 내용이 넘쳐 다음 단계 위로 쏟아진다(2026-08-13 실측
+  //      1470×801: 13칸 226px · 19칸 537px · 35칸 1368px).
+  //    - container-type:size는 contain:size라 **내용과 무관하게** 높이를 확정한다 —
+  //      넘침이 스크롤로 바뀌지 않던 진짜 원인이 이것이었다.
+  const stageRule = cut('.wm-stage {', '.wm-vpath {');
+  ok(/min-height:\s*100%/.test(stageRule), '.wm-stage는 min-height로 자란다');
+  ok(!/^\s*height:\s*100%/m.test(stageRule), '.wm-stage에 height:100% 고정이 되살아나지 않았다');
+  ok(
+    !/container-type:\s*size\s*;/.test(stageRule),
+    '.wm-stage에 container-type:size가 되살아나지 않았다(내용과 무관하게 높이를 확정한다)',
+  );
+  const vpathRule = cut('.wm-vpath {', '.wm-node {');
+  ok(!/\bcqh\b/.test(vpathRule), '.wm-vpath가 지름을 뷰포트 높이(cqh)에서 역산하지 않는다');
+  ok(!/min-height:\s*0/.test(vpathRule),
+     '.wm-vpath에 min-height:0이 되살아나지 않았다(내용보다 작아지면 다시 넘친다)');
+  // 치수의 소유자는 JSX 한 곳 — CSS에 폴백을 두면 조용한 두 번째 소유자가 된다.
+  ok(
+    !/^\s*--(dot|gap|amp|hit):/m.test(vpathRule) && !/var\(--(dot|gap|hit),/.test(css),
+    'CSS가 치수를 스스로 정하거나 폴백을 갖지 않는다(소유자 이중화 금지)',
+  );
+}
+
+// ── ⑨ 길이 **곡선**이다 · 굵기가 노드에 비례한다 (2026-08-13) ────────────────
+//
+// 클라이언트 지시: "학습 경로가 지금 너무 형태는 좋은데 부자연스러워."
+// 형태(S자·32px·고정 간격)는 바로 앞 라운드에 클라이언트가 직접 지시한 것이라
+// 유지하고, **「부자연스러움」의 정체 2건**만 고쳤다. 둘 다 취향이 아니라 시안
+// 대비 회귀이고, 둘 다 실측으로 특정했다:
+//
+//   ㉠ 꺾은선 — 시안(`docs/design/learn_session_mockup.html:529-540`)은 처음부터
+//      3차 베지에인데 앱은 `L`로 이었다. 실측(1470×801) 마디 회전각이
+//      `0°, ±24°, ±59°`로 굽이의 극점마다 59° 팔꿈치가 서고 그 사이는 완전 직선.
+//   ㉡ 선 굵기 — 10px은 시안이 **지름 86px**일 때 고른 값(11.6%)인데, 노드가
+//      32px이 되면서 **31%**가 됐다. 2026-08-13 축소 때 LIP·HALO·보드칩·말풍선은
+//      전부 다시 재어졌고 **선 굵기만 그 사슬에서 빠져 있었다**.
+//
+// ⚠️ **두 축이 따로 울어야 한다.** `includes('C')` 한 줄로 두면 "C는 남기고
+// 제어점만 끝점으로 바꾸는" 변이가 그대로 통과한다 — 그러면 화면은 다시 직선인데
+// 테스트는 초록이다. 그래서 제어점 좌표를 **직접 잰다**.
+{
+  // d 문자열에서 C 세그먼트를 숫자로 되꺼낸다.
+  const segs = (d) =>
+    [...d.matchAll(/C([-\d.]+),([-\d.]+) ([-\d.]+),([-\d.]+) ([-\d.]+),([-\d.]+)/g)]
+      .map((m) => m.slice(1).map(Number));
+
+  // ㉠-1 두 점이면 C 한 구간. 제어점 x = 각 끝점의 x, y = 구간 중점 → **접선이 수직**.
+  {
+    const d = curvePath([{ x: 10, y: 0 }, { x: 50, y: 100 }]);
+    const s = segs(d);
+    ok(s.length === 1, `두 점 → C 한 구간 — 실제 ${s.length} ("${d}")`);
+    const [c1x, c1y, c2x, c2y, ex, ey] = s[0] ?? [];
+    ok(c1x === 10 && c2x === 50,
+       `제어점 x가 각 끝점의 x와 같다(노드에서 접선이 수직) — 실제 ${c1x}, ${c2x}`);
+    ok(c1y === 50 && c2y === 50,
+       `제어점 y가 둘 다 구간 중점이다 — 실제 ${c1y}, ${c2y}`);
+    ok(ex === 50 && ey === 100, `구간이 다음 노드에서 끝난다 — 실제 ${ex},${ey}`);
+    // 제어점을 끝점으로 뭉개면(= 직선) 위 두 단정이 운다. 그 변이를 여기 박제한다.
+    ok(!(c1x === 10 && c1y === 0), '제어점이 시작점과 같지 않다(같으면 C를 쓴 직선이다)');
+  }
+
+  // ㉠-2 꺾은선(L)으로 되돌아가지 않았다 — **분리된 축**이다.
+  {
+    const d = curvePath([{ x: 0, y: 0 }, { x: 40, y: 60 }, { x: 0, y: 120 }]);
+    ok(!/\bL[-\d]/.test(d), `길에 직선 구간(L)이 없다 — "${d}"`);
+    ok(segs(d).length === 2, `점 3개 → C 두 구간 — 실제 ${segs(d).length}`);
+    ok(curvePath([{ x: 1, y: 1 }]) === '' && curvePath([]) === '',
+       '점이 2개 미만이면 아무것도 그리지 않는다(빈 d)');
+  }
+
+  // ㉠-3 파란 길이 회색 위에 **정확히** 겹친다. 구간별 베지에라
+  //      curvePath(앞부분)이 curvePath(전체)의 접두사여야 한다 — 이 성질이
+  //      깨지면 완료 구간이 길에서 떠서 두 줄로 보인다.
+  {
+    const pts = [{ x: 0, y: 0 }, { x: 40, y: 60 }, { x: 0, y: 120 }, { x: -40, y: 180 }];
+    ok(curvePath(pts).startsWith(curvePath(pts.slice(0, 3))),
+       '완료 구간이 전체 길의 접두사다(파랑이 회색 위에 겹친다)');
+  }
+
+  // ㉠-4 컴포넌트가 실제로 이 함수를 쓴다 — 순수 함수만 고치고 StageLine이 옛
+  //      지역 `line()`을 그대로 쓰면 화면은 하나도 안 바뀐다(alignScrollTop과 같은 관례).
+  const pcSrc4 = readFileSync(resolve(root, 'src/modules/curriculum/PcCurriculumPath.jsx'), 'utf8');
+  ok(
+    /baseRef\.current\?\.setAttribute\('d',\s*curvePath\(all\)\)/.test(pcSrc4),
+    '회색 길을 curvePath로 그린다(지역 폴리라인 빌더로 되돌아가지 않았다)',
+  );
+  ok(
+    /doneRef\.current\?\.setAttribute\('d',[\s\S]{0,60}curvePath\(all\.slice\(0,\s*doneLen\)\)/.test(pcSrc4),
+    '파란 길도 같은 curvePath로 그린다',
+  );
+  ok(
+    !/=>\s*list\.map\(\(p, i\) =>\s*`\$\{i \? 'L' : 'M'\}/.test(pcSrc4),
+    '옛 꺾은선 빌더(L 폴리라인)가 되살아나지 않았다',
+  );
+
+  // ㉡ 굵기 — jsdom은 레이아웃이 없어 d는 빈 값이지만 **stroke-width는 정적
+  //    속성이라 실제로 읽힌다**. 값과 비율을 함께 문다.
+  ok(
+    PATH_LINE_PX <= PATH_DOT_PX * 0.25,
+    `길 굵기가 노드 지름의 1/4 이하 — ${PATH_LINE_PX}px / ${PATH_DOT_PX}px `
+      + `(${((PATH_LINE_PX / PATH_DOT_PX) * 100).toFixed(1)}%). 10px 시절은 31%였다`,
+  );
+  ok(PATH_LINE_PX >= 4, `그래도 흰 배경에서 보일 만큼은 굵다(≥4px) — 실제 ${PATH_LINE_PX}px`);
+  const stroke4 = {
+    section: 'S',
+    units: Array.from({ length: 4 }, (_, i) => ({
+      id: `s${i}`, title: `u${i}`, status: i === 0 ? 'current' : 'locked',
+    })),
+  };
+  root2.render(createElement(PcCurriculumPath, {
+    sections: [stroke4], onOpenUnit: () => {},
+  }));
+  await sleep(60);
+  const strokes = [...container.querySelectorAll('.wm-line path')].map((p) =>
+    p.getAttribute('stroke-width'),
+  );
+  ok(
+    strokes.length === 2 && strokes.every((w) => w === String(PATH_LINE_PX)),
+    `회색·파랑 두 path가 같은 굵기(${PATH_LINE_PX})를 상수에서 받는다 — 실제 [${strokes.join(', ')}]`,
+  );
+  ok(
+    !/strokeWidth="10"/.test(pcSrc4),
+    '굵기 10px 리터럴이 되살아나지 않았다(86px 노드 시절의 값)',
+  );
+}
+
+// ── ⑧-3 첫 화면이 **현재 노드**에 선다 (고정 간격이 만든 새 분기) ───────────
+//
+// 「한 화면에 한 단계」였을 때는 `scrollTop = stage.offsetTop`이면 그 단계의 노드가
+// 전부 보였다. 단계가 트랙보다 길어질 수 있게 되면서(19칸 1069px · 35칸 1987px vs
+// 트랙 660px) 단계 맨 위에 떨어뜨리면 **25번째 유닛에 선 학습자의 ⭐가 두 화면
+// 아래**에 있다 — 이 효과의 목적("매번 1단계부터 스크롤하게 두지 않는다")이 그대로
+// 되살아난다. jsdom에는 레이아웃이 없어 실스크롤로는 못 재므로 순수 함수로 문다.
+{
+  const V = 660;
+  // ㉠ 단계가 트랙보다 짧다 → 종전과 같이 단계 맨 위(스냅이 허용하는 유일한 자리)
+  ok(
+    alignScrollTop({ stageTop: 1000, stageHeight: 400, nodeTop: 1300, nodeHeight: 32, viewport: V })
+      === 1000,
+    '짧은 단계는 맨 위 그대로 — 회귀 0',
+  );
+  // ㉡ 긴 단계의 한가운데 → 노드가 세로 가운데
+  ok(
+    alignScrollTop({ stageTop: 1000, stageHeight: 2000, nodeTop: 2000, nodeHeight: 32, viewport: V })
+      === 2000 + 16 - 330,
+    '긴 단계 한가운데: 현재 노드를 화면 가운데에 둔다',
+  );
+  // ㉢ 긴 단계의 앞쪽 → 앞 단계로 넘어가지 않는다
+  ok(
+    alignScrollTop({ stageTop: 1000, stageHeight: 2000, nodeTop: 1020, nodeHeight: 32, viewport: V })
+      === 1000,
+    '단계 앞쪽에서도 앞 단계로 넘어가지 않는다(아래 한계 lo)',
+  );
+  // ㉣ 긴 단계의 끝 → 단계 밖(다음 단계)까지 밀지 않는다
+  ok(
+    alignScrollTop({ stageTop: 1000, stageHeight: 2000, nodeTop: 2960, nodeHeight: 32, viewport: V })
+      === 1000 + 2000 - V,
+    '단계 끝에서도 다음 단계를 넘겨다보지 않는다(위 한계 hi)',
+  );
+  // 세 분기가 서로를 무효화하지 않는가 — hi < lo(아주 짧은 단계)에서도 lo가 이긴다
+  ok(
+    alignScrollTop({ stageTop: 500, stageHeight: 100, nodeTop: 500, nodeHeight: 32, viewport: V })
+      === 500,
+    '단계가 트랙보다 훨씬 짧아도(hi < lo) 앞 단계로 새지 않는다',
+  );
+  // 순수 함수가 맞아도 **호출부가 옛 식(`el.scrollTop = stage.offsetTop`)이면**
+  // 화면은 하나도 안 고쳐진다 — joinK 경계 단정과 같은 이유로 소스도 본다.
+  const pcSrc2 = readFileSync(resolve(root, 'src/modules/curriculum/PcCurriculumPath.jsx'), 'utf8');
+  ok(
+    /el\.scrollTop\s*=\s*node[\s\S]{0,40}alignScrollTop\(\{/.test(pcSrc2),
+    '초깃값 정렬이 alignScrollTop을 실제로 쓴다(단계 맨 위로 되돌아가지 않았다)',
   );
 }
 

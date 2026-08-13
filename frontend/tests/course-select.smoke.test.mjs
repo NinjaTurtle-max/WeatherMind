@@ -165,7 +165,24 @@ function mount(element, initialPath) {
 }
 
 const text = () => window.document.body.textContent ?? '';
-const courseTabs = () => [...window.document.querySelectorAll('[role="tablist"] button[role="tab"]')];
+/**
+ * 코스 탭 — **한 탭목록(tablist) 안의 탭만** 센다.
+ *
+ * ⚠️ 2026-08-13에 탭이 **두 벌 렌더된다**(클라이언트 지시로 PC 탭이 학습 경로
+ * 카드 **안**으로 들어갔다 — 모바일 목록은 자기 위에 그대로 둔다). 화면에서는
+ * 미디어쿼리로 한 벌만 보이지만 **jsdom은 CSS를 안 태우므로 둘 다 DOM에 있다.**
+ * 종전처럼 문서 전체에서 세면 2가 아니라 4가 나와 「탭 2개」 계약이 시간 초과로
+ * 죽는다 — 실제로 그렇게 죽었다.
+ *
+ * 그래서 **마지막 tablist**(= PC 경로 카드 안, 지시가 가리킨 그것)를 기준으로 센다.
+ * 「두 벌이 같은 코스 집합을 그린다」는 아래 ⓐ가 따로 문다.
+ */
+const tablists = () => [...window.document.querySelectorAll('[role="tablist"]')];
+const courseTabs = () => {
+  const lists = tablists();
+  const scope = lists[lists.length - 1];
+  return scope ? [...scope.querySelectorAll('button[role="tab"]')] : [];
+};
 const selectedTab = () => courseTabs().find((b) => b.getAttribute('aria-selected') === 'true');
 // 학습 홈 유닛 노드(모바일 지그재그) — onboardingGating과 동일 선택자 관례.
 // data-wm-unit으로 고른다(aria-label로 세면 같은 묶음의 카드 버튼이 섞인다).
@@ -199,6 +216,17 @@ try {
   try {
     await scenario('코스 탭 렌더 + is_default(weather) 우선 선택 + weather 트리 무회귀', async () => {
       await waitFor(() => courseTabs().length === 2, 6000, '코스 탭 2개 렌더');
+      // ⓐ 두 벌(모바일·PC)이 **같은 코스 집합**을 그린다. 한쪽만 고치면 화면이
+      //    갈리는데 위 선택자는 한 벌만 보므로, 그 축을 여기서 따로 문다.
+      const lists = tablists();
+      assert(lists.length >= 1, '탭목록이 하나도 없다');
+      const labelSets = lists.map((l) =>
+        [...l.querySelectorAll('button[role="tab"]')].map((b) => b.textContent.trim()).join('|'),
+      );
+      assert(
+        new Set(labelSets).size === 1,
+        `모바일·PC 탭이 서로 다른 코스를 그린다 — ${JSON.stringify(labelSets)}`,
+      );
       assert(xhrLog.some((l) => l.endsWith('/api/v1/courses')), 'GET /courses가 발화되지 않았다');
       const sel = selectedTab();
       assert(sel, '선택된 탭이 없다');

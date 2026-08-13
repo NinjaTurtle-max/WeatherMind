@@ -573,7 +573,19 @@ try {
   // `/`는 2026-08-09부터 `/learn` 리다이렉트다(홈 화면 삭제) — 이 시나리오가 보는
   // 것은 "보호 라우트가 로그인 화면으로 튕기지 않고 그대로 렌더되는가"라 목적지
   // 이름만 바뀌고 계약은 같다.
-  await scenario('토큰 없이 진입: POST /auth/guest가 1번만 나가고 학습 화면이 렌더된다', async () => {
+  //
+  // ⚠️ **갱신됨(2026-08-13 클라이언트 지시 ⑵⑶ — 첫 접속 정보 입력).** 맨 URL(`/`)로
+  // 들어온 첫 접속에는 이제 **발급 앞에** 정보 입력 화면이 한 장 선다. 학령을
+  // `POST /auth/guest`의 **바디**에 실어야 하는데(요구 ⑶), 발급은 한 번뿐이라
+  // 고르기 전에 발급해 버리면 그 문이 영영 닫히기 때문이다.
+  //
+  // 그래서 무는 것을 **둘로 나눈다**:
+  //   ⓐ 규정(「로그인 없이 열려야」) — 화면이 뜨되 **아무것도 입력하지 않고
+  //      건너뛸 수 있고**, 건너뛰면 곧장 서비스가 렌더된다. 로그인 폼이 아니다.
+  //   ⓑ 종전 계약 그대로 — 발급은 **정확히 1회**, 게스트 표식이 서고, 보호
+  //      라우트가 실제로 렌더된다(탭바 5).
+  // 딥링크는 이 게이트를 타지 않는다 — 시나리오 11(`/explore`)이 그쪽을 문다.
+  await scenario('토큰 없이 진입: 정보 입력 → 건너뛰기 → POST /auth/guest 1회 + 학습 화면', async () => {
     resetGuestAutoIssue();
     useAuthStore.getState().logout();
     useOnboardingGate.getState().reset();
@@ -581,6 +593,26 @@ try {
     const mark = xhrLog.length;
 
     const r = mount(createElement(App), '/');
+    // ⓐ 첫 접속 정보 입력이 먼저다 — 그리고 **로그인 폼이 아니다**(규정).
+    await waitFor(
+      () => window.document.querySelector('[data-testid="entry-info"]') !== null,
+      6000,
+      '첫 접속 정보 입력 화면',
+    );
+    assert(
+      !/로그인|회원가입/.test(text()),
+      '정보 입력 화면에 「로그인」·「회원가입」 문구가 떴다(규정 위반)',
+    );
+    // 아직 발급 전이어야 한다 — 학령이 바디에 실릴 기회가 여기서만 있다.
+    assert(
+      xhrLog.slice(mark).filter((l) => l === 'POST /api/v1/auth/guest').length === 0,
+      '정보 입력을 보여주기도 전에 게스트가 발급됐다 — 학령을 실을 문이 닫힌다',
+    );
+    // 아무것도 고르지 않고 건너뛴다(규정 — 입력 없이도 학습에 도달해야 한다).
+    const skip = window.document.querySelector('[data-testid="entry-info-skip"]');
+    assert(skip, '건너뛰기 통로가 없다 — 규정 「로그인 없이 열려야」가 깨진다');
+    skip.click();
+
     await waitFor(
       () => Boolean(useAuthStore.getState().accessToken),
       6000,
@@ -618,6 +650,14 @@ try {
 
     try {
       const r = mount(createElement(App), '/');
+      // 2026-08-13: `/` 첫 접속에는 정보 입력이 먼저다 — 건너뛰어 발급을 태운다.
+      // 여기서 재는 것은 **그 뒤의 실패 처리**라, 게이트 자체는 시나리오 10이 문다.
+      await waitFor(
+        () => window.document.querySelector('[data-testid="entry-info-skip"]') !== null,
+        6000,
+        '첫 접속 정보 입력 화면',
+      );
+      window.document.querySelector('[data-testid="entry-info-skip"]').click();
       await waitFor(() => text().includes('다시 시도하기'), 6000, '재시도 화면');
       // 규정: 로그인 없이 열려야 한다 — 실패했다고 로그인 폼을 들이밀지 않는다
       assert(!text().includes('계정 없이 바로 시작하기'), '발급 실패에 로그인 화면이 떴다');

@@ -272,6 +272,24 @@ export default {
     network: '서버에 연결할 수 없어요. 네트워크를 확인해 주세요.',
   },
   // 온보딩 배치고사(modules/onboarding/**)
+  // 첫 접속 정보 입력(modules/onboarding/EntryInfoPage.jsx — 2026-08-13 요구 ⑵⑶).
+  // ⚠️ 「로그인」·「회원가입」은 규정 금칙어다(onboardingSave.contract ③⑧이 렌더
+  // 텍스트와 리소스 값 양쪽을 문다) — 이 블록은 계정·이메일을 아예 언급하지 않는다.
+  // 학습 수준 라벨은 새로 만들지 않고 `auth.register.*`를 재사용한다(/me의 학습
+  // 수준 카드와 같은 말이어야 한다). 여기 있는 것은 그 옆에 붙는 설명뿐이다.
+  entryInfo: {
+    title: '반가워요! 어떻게 배울지 알려주세요',
+    body: '학습 수준에 맞춰 문항이 나와요. 지금 정하면 바로 이어서 실력 진단을 받아요.',
+    levelLabel: '학습 수준',
+    levelHint: {
+      elementary: '쉬운 말과 그림 위주로 배워요',
+      middleHigh: '교과 개념을 중심으로 배워요',
+      adult: '실생활·심화 개념까지 배워요',
+    },
+    submit: '다음 — 실력 진단 받기 →',
+    skip: '건너뛰기 →',
+    note: '나중에 내 정보에서 언제든 바꿀 수 있어요.',
+  },
   placement: {
     skip: '건너뛰기 →',
     title: '실력 진단 — 내 수준 찾기',
@@ -454,7 +472,6 @@ export default {
       sectionEyebrow: '섹션 {n} · {title}',
       introTitle: '이 단계에서 배우는 것',
       start: '시작',
-      estMinutes: '예상 {min}분',
       estDays: '예상 {days}일',
       fold: '접기',
       unfold: '펼치기',

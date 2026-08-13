@@ -160,7 +160,7 @@ def run(db):
 def empty_plan(monkeypatch):
     """배합이 **성공하고** 픽이 0건인 상황 — 예외가 아니라 빈 결과다."""
 
-    async def _fake(db, user, today, *, abilities=None):
+    async def _fake(db, user, today, *, abilities=None, target_level=None):
         return ss.DailyPlan(
             picks=[],
             generate_count=0,
