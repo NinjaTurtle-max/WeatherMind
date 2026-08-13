@@ -36,7 +36,8 @@
     "test:duel": "node tests/duelLayout.smoke.test.mjs",
     "test:detective": "node tests/detective.smoke.test.mjs",
     "test:knowledge-level": "node tests/knowledgeLevel.test.mjs",
-    "test:guide-bot": "node tests/guideBot.smoke.test.mjs"
+    "test:guide-bot": "node tests/guideBot.smoke.test.mjs",
+    "test:guide-bot-3d": "node tests/guideBot3d.smoke.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",

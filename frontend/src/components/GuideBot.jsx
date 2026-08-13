@@ -30,13 +30,37 @@ import { GUIDE_SPEAKER, pickGuideMessage } from '../lib/guideRules';
  * mouse/touch를 따로 달면 같은 로직이 두 벌이 되고 한쪽만 고쳐지는 일이 생긴다.
  * pointer는 마우스·터치·펜을 한 경로로 받고, `setPointerCapture`가 커서가 캐릭터를
  * 앞질러도 드래그를 놓치지 않게 해 준다(빠르게 끌면 실제로 놓친다).
+ *
+ * ── 3D는 「덤」이다 ───────────────────────────────────────────────────
+ * 캐릭터 그림은 **항상 2D PNG가 먼저 그려지고**, 실제 WebGL 3D(`GuideBot3D`)는
+ * 준비된 뒤에야 그 자리를 넘겨받는다. 세 가지가 이 순서에 걸려 있다:
+ *   ⓐ 첫 페인트 — `.mesh`는 266KB다. 정적 import를 하면 메인 번들과 첫 화면이
+ *     같이 느려지므로 **동적 import + 유휴 시간**에 받는다(2D가 그동안 서 있다).
+ *   ⓑ 폴백 — WebGL2 미지원·컨텍스트 실패·`.mesh` 오류·컨텍스트 소실 중 무엇이든
+ *     `onFail`로 올라오고, 그러면 3D를 걷어내 PNG가 다시 보인다. 3D가 없어도
+ *     화면은 처음부터 완성돼 있다는 것이 이 구조의 요점이다.
+ *   ⓒ 교체를 페이드로 하지 않는다 — **이유가 2026-08-13에 바뀌었다.** 처음에는
+ *     베이킹이 PNG와 같은 프레이밍·같은 조명 상수를 써서 두 그림이 거의 같았고,
+ *     그래서 겹쳐 넘기면 밝기만 한 번 꺼졌다 켜지므로 즉시 교체가 나았다. 지금은
+ *     클라이언트 지시로 3D가 **원근 투영 + 강한 대비**로 바뀌어 두 그림이 일부러
+ *     다르다(평평한 2D → 입체). 즉시 교체는 그 전환을 흐리지 않으려는 선택이고,
+ *     캐릭터가 정지 그림에서 살아 움직이는 것으로 바뀌는 순간이 오히려 눈에 띄는
+ *     편이 낫다는 판단이다. **폴백은 그대로 1순위** — 아래 onFail이 즉시 되돌린다.
  */
 
 /** 위치 영속 키. 사용자가 옮긴 자리는 새로고침해도 남는다. */
 const POS_KEY = 'weathermind.guidebot.pos';
 
-/** 캐릭터 지름(px). 화면 밖 이탈을 막는 계산에 쓴다. */
-const SIZE = 56;
+/**
+ * 캐릭터 지름(px). 화면 밖 이탈을 막는 계산에 쓴다.
+ *
+ * ⚠️ **아래 버튼의 `h-32 w-32`(128px)와 반드시 같은 값이어야 한다.** 이 값이
+ * 실제보다 작으면 클램프가 캐릭터를 화면 밖으로 내보낸다(오른쪽·아래 가장자리에서
+ * 잘린 채 돌아오지 못한다). 2026-08-13에 56 → 128로 키웠다 — 클라이언트가
+ * "너무 작다, 적어도 「이어서 풀기」 노드만큼은 돼야 한다"고 했고, 그때 이 상수를
+ * 같이 안 옮기면 커진 만큼 그대로 화면 밖으로 나간다.
+ */
+const SIZE = 128;
 
 /** 여백(px) — 캐릭터가 화면 모서리에 딱 붙어 잘려 보이지 않게 한다. */
 const EDGE = 8;
@@ -74,12 +98,33 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
   const t = useT();
   const [pos, setPos] = useState(null); // null = 아직 CSS 기본 자리(SSR 포함)
   const [open, setOpen] = useState(true);
+  const [Bot3D, setBot3D] = useState(null); // 로드된 3D 컴포넌트(없으면 2D만)
+  const [live3D, setLive3D] = useState(false); // 3D가 실제로 한 프레임 그렸나
+  const [dragging, setDragging] = useState(false); // 끄는 중에는 커서 추종을 끈다
   const dragRef = useRef(null); // { dx, dy } — 잡은 지점과 캐릭터 좌상단의 차이
   const nodeRef = useRef(null);
 
   // 첫 마운트에 저장된 자리를 읽는다(클라이언트 전용).
   useEffect(() => {
     setPos(readPos(window));
+  }, []);
+
+  // 3D는 **유휴 시간에** 받는다 — 첫 페인트·초기 API 호출과 대역폭을 다투지 않게.
+  // 이 import가 실패해도(청크 404 등) 조용히 2D로 남는다.
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      import('./GuideBot3D')
+        .then((m) => { if (alive) setBot3D(() => m.default); })
+        .catch(() => { /* 2D 유지 */ });
+    };
+    const ric = window.requestIdleCallback;
+    const id = ric ? ric(load, { timeout: 2000 }) : window.setTimeout(load, 400);
+    return () => {
+      alive = false;
+      if (ric) window.cancelIdleCallback?.(id);
+      else window.clearTimeout(id);
+    };
   }, []);
 
   // 창 크기가 바뀌면 다시 안으로 밀어 넣는다.
@@ -94,6 +139,8 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
     if (!node) return;
     const rect = node.getBoundingClientRect();
     dragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    // 3D의 커서 추종을 끈다 — 끌고 가는 손과 쳐다보는 고개가 싸우지 않게.
+    setDragging(true);
     // 커서가 캐릭터를 앞질러도 move/up이 계속 이 노드로 온다.
     node.setPointerCapture?.(e.pointerId);
   }, []);
@@ -109,6 +156,7 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
   const onPointerUp = useCallback(() => {
     if (!dragRef.current) return;
     dragRef.current = null;
+    setDragging(false);
     // 놓은 자리만 저장한다 — 드래그 중 매 프레임 쓰면 localStorage가 동기라 끊긴다.
     setPos((p) => {
       if (p) {
@@ -152,11 +200,13 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
           data-testid="guide-bot-bubble"
           role="status"
           aria-live="polite"
-          className="relative max-w-[13rem] rounded-2xl bg-sky-50 px-3 py-2 text-xs text-sky-900 shadow-lg ring-1 ring-sky-200"
+          // 캐릭터가 56 → 128px가 되면서 말풍선도 함께 키웠다(13rem은 그 옆에서
+          // 쪽지처럼 작아 보인다). 꼬리는 캐릭터 세로 중앙에 맞춘다.
+          className="relative max-w-[17rem] rounded-2xl bg-sky-50 px-4 py-3 text-sm leading-snug text-sky-900 shadow-lg ring-1 ring-sky-200"
         >
           <span
             aria-hidden="true"
-            className="absolute -right-[5px] bottom-4 h-2.5 w-2.5 rotate-45 border-b border-r border-sky-200 bg-sky-50"
+            className="absolute -right-[5px] bottom-8 h-2.5 w-2.5 rotate-45 border-b border-r border-sky-200 bg-sky-50"
           />
           {message}
         </div>
@@ -170,9 +220,31 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
         // 충분하다 — 위치는 기능이 아니라 편의이고, 기본 자리가 이미 유효하다.
         aria-expanded={open}
         aria-label={t(open ? 'guide.aria.collapse' : 'guide.aria.expand')}
-        className="grid h-14 w-14 flex-none place-items-center rounded-full bg-white shadow-lg ring-1 ring-sky-200"
+        // 128px — 「이어서 풀기」 노드 정도의 존재감을 요구받았다(2026-08-13).
+        // ⚠️ 이 크기를 바꾸면 위 `SIZE` 상수를 **같이** 바꿔야 한다(클램프 계약).
+        className="grid h-32 w-32 flex-none place-items-center rounded-full bg-white shadow-lg ring-1 ring-sky-200"
       >
-        <Mascot name={speaker} className="h-11 w-11" />
+        {/* 2D와 3D가 **같은 정사각 박스**를 공유한다 — 크기·중심이 같아야 교체가
+            안 보인다(PNG는 내용 경계로 잘려 있고 3D는 그 박스에 맞춰 그린다). */}
+        <span className="relative block h-28 w-28" data-guide-3d={live3D ? '1' : '0'}>
+          <Mascot
+            name={speaker}
+            // 3D가 살아 있는 동안만 숨긴다. 지우지 않는 이유는 컨텍스트 소실 같은
+            // 사고가 났을 때 **같은 프레임에** 되돌아와야 하기 때문이다.
+            className={`h-28 w-28 ${live3D ? 'invisible' : ''}`}
+          />
+          {Bot3D && (
+            <Bot3D
+              className="absolute inset-0 h-full w-full"
+              // 문구가 바뀌는 순간이 「말하는 순간」이다 — 규칙표의 키를 그대로
+              // 넘긴다(무엇을 말할지는 guideRules가 소유하고 여기는 안 정한다).
+              speakKey={key}
+              dragging={dragging}
+              onReady={() => setLive3D(true)}
+              onFail={() => { setLive3D(false); setBot3D(null); }}
+            />
+          )}
+        </span>
       </button>
     </div>
   );

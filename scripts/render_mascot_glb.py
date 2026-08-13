@@ -78,12 +78,20 @@ def walk(idx, parent):
     M = parent @ node_matrix(nd)
     if 'mesh' in nd:
         for pr in G['meshes'][nd['mesh']]['primitives']:
-            if 'indices' not in pr:
-                continue
-            idxs = accessor(pr['indices']).astype(np.int64)
+            pos_acc = pr['attributes']['POSITION']
+            if 'indices' in pr:
+                idxs = accessor(pr['indices']).astype(np.int64)
+            else:
+                # ⚠️ **무인덱스 프리미티브를 건너뛰면 안 된다.** glTF에서 indices는
+                # 선택 항목이고, 없으면 정점이 그려지는 순서 그대로 삼각형이 된다.
+                # 이 모델에서 그런 프리미티브는 `face_panel`(흰 얼굴판) 하나뿐이고,
+                # 종전 코드가 `continue`로 넘겨 **PNG에서 얼굴판이 통째로 빠져
+                # 있었다**(삼각형 93,032 vs 실제 94,708 — 차이 1,676이 그것이다).
+                # 3D 담당이 두 경로의 재질 수가 안 맞는 것을 보고 잡아냈다.
+                idxs = np.arange(G['accessors'][pos_acc]['count'], dtype=np.int64)
             if idxs.size == 0:
                 continue
-            pos = accessor(pr['attributes']['POSITION']).astype(np.float64)
+            pos = accessor(pos_acc).astype(np.float64)
             nor = accessor(pr['attributes']['NORMAL']).astype(np.float64)
             wp = (M[:3, :3] @ pos.T).T + M[:3, 3]
             wn = (np.linalg.inv(M[:3, :3]).T @ nor.T).T
