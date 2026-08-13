@@ -414,7 +414,10 @@ export default {
       estDays: 'about {days} day(s)',
       fold: 'Collapse',
       unfold: 'Expand',
-      scrollHint: '↓ Scroll for the next stage',
+      // 2026-08-13: was '↓ Scroll for the next stage'. One section expands at a
+      // time now, so scrolling can no longer reach the next stage (a collapsed
+      // row does) — the old copy became false. See ko.js for the full note.
+      scrollHint: '↓ Scroll for more of this section',
       progressLabel: 'Progress',
       unitCount: '{done} / {total} units',
     },

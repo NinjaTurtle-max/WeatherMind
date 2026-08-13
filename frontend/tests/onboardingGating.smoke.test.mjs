@@ -480,11 +480,40 @@ try {
     try {
       await waitFor(() => pcUnitButtons().length > 0, 5000, 'PC 경로 유닛 노드 렌더');
       const pcOpen = pcUnitButtons().filter((b) => !b.disabled).length;
-      const mobileOpen = mobileUnitButtons().filter((b) => !b.disabled).length;
       assert(pcOpen > 0, '구름 회복 후에도 PC 경로가 전부 잠겨 있다');
+
+      // ⚠️ **「열린 유닛 **수**가 같다」는 걷었다**(2026-08-13 — 섹션 접기 도입).
+      //    PC 경로는 이제 **펼친 섹션의 노드만 마운트**하고(전 섹션을 펼치면
+      //    콘텐츠가 12,836px이 되어 상위 섹션에 도달할 수 없었다) 모바일 목록은
+      //    전 섹션을 그린다. 그래서 트리 전체를 세면 두 뷰포트가 반드시 갈린다
+      //    (실측 PC 1 vs 모바일 2) — **세는 방법이 깨진 것이지 계약이 깨진 게 아니다.**
+      //
+      //    계약 본체는 「같은 게이트가 걸린다」이고 그것은 그대로 살아 있다.
+      //    지키던 회귀도 그대로다: `PcCurriculumPath`에 `energyBlocked`를 안 넘기면
+      //    모바일만 잠기고 PC는 열려, 문항 진입 전 차단(R10-01 S4)이 뷰포트별로
+      //    갈라진다(실제로 났던 사고다 — 7.1 시나리오 주석 참조).
+      //
+      //    그래서 **두 뷰포트가 함께 그리는 유닛만 골라 하나씩 대조**한다.
+      //    수 비교보다 오히려 촘촘하다 — 종전 식은 "PC가 A를 열고 모바일이 B를
+      //    여는" 어긋남을 수만 같으면 통과시켰다. 이제 유닛 단위로 어긋나면 운다.
+      //    양쪽 suffix는 전부 ` (…)` 꼴이라(잠김·구름 부족·진단으로 열림) 지운다.
+      const unitKey = (b) => (b.getAttribute('aria-label') ?? '').replace(/\s*\([^()]*\)\s*$/, '').trim();
+      const verdicts = (list) => new Map(list.map((b) => [unitKey(b), !b.disabled]));
+      const pcV = verdicts(pcUnitButtons());
+      const mobileV = verdicts(mobileUnitButtons());
+      const shared = [...pcV.keys()].filter((k) => mobileV.has(k));
+      // 교집합이 비면 단정이 **조용히 통과**한다 — 대조가 성립하는지부터 못박는다.
       assert(
-        pcOpen === mobileOpen,
-        `열린 유닛 수가 뷰포트별로 다르다 — PC ${pcOpen} vs 모바일 ${mobileOpen}`,
+        shared.length > 0,
+        `두 뷰포트가 함께 그리는 유닛이 없다 — PC ${pcV.size}종 / 모바일 ${mobileV.size}종`,
+      );
+      const mismatched = shared.filter((k) => pcV.get(k) !== mobileV.get(k));
+      assert(
+        mismatched.length === 0,
+        `같은 유닛의 열림 여부가 뷰포트별로 다르다 — ${mismatched
+          .slice(0, 3)
+          .map((k) => `"${k}" PC ${pcV.get(k) ? '열림' : '잠김'} vs 모바일 ${mobileV.get(k) ? '열림' : '잠김'}`)
+          .join(' / ')}`,
       );
       assert(
         pcUnitButtons().every((b) => !(b.getAttribute('aria-label') ?? '').includes('구름 부족')),

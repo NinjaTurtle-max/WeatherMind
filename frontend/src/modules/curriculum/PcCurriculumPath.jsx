@@ -475,7 +475,60 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, l
 // ⚠️ `offset`·`blueTo`·`joinInK`·`joinOutK`는 **연결선 전용 입력이라 함께 걷었다**
 // (2026-08-13). 되살릴 때는 이 넷을 같이 되돌린다 — 파생 함수(`blueEndIndex`·
 // `stageDoneCount`·`joinK`)는 export로 살아 있고 스모크가 계속 문다.
-function Stage({ section, index, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit }) {
+/**
+ * 접힌 섹션 한 줄 — 머리말 + 가로 진도 바(2026-08-13 클라이언트 확정 「B안」).
+ *
+ * ⚠️ **`.wm-stage`를 쓰지 않는다.** 그 클래스에는 `min-height: 100%`가 걸려 있어
+ * 접힌 줄 **하나가 트랙 한 화면(실측 641px)으로 부푼다** — 접는 의미가 사라진다.
+ * 여기는 자기 내용 높이(실측 52px)만 차지한다.
+ *
+ * 진도 바는 **새로 만들지 않고 트랙 하단 진도 바의 어휘를 그대로 쓴다**
+ * (`h-[7px] w-[120px]` 껍데기 + `bg-sky-600` 속). 같은 화면에서 같은 뜻의 막대가
+ * 두 가지 모양이면 읽는 사람이 다른 지표로 오해한다.
+ *
+ * 줄 전체가 버튼이다 — 섹션 전환에 **새 조작 표면을 만들지 않는다**(2026-08-13
+ * 확정). 카드 맨 위 코스 탭이 이미 「탭 꼴」을 쓰고 있어서, 섹션 전환까지 탭으로
+ * 만들면 같은 카드 안에 탭 줄이 둘이 된다. 줄 높이 52px이라 클릭 표적 44px
+ * (WCAG 2.5.5)은 자연히 넘는다 — 노드처럼 별도 표적 상자를 겹칠 필요가 없다.
+ */
+function CollapsedSectionRow({ section, index, panelId, onOpen }) {
+  const t = useT();
+  const units = section.units;
+  const cleared = units.filter((u) => resolveStatus(u) === 'cleared').length;
+  return (
+    <button
+      type="button"
+      data-wm-collapsed
+      onClick={onOpen}
+      aria-expanded={false}
+      // ⚠️ 펼침 패널은 접힌 동안 **마운트되지 않는다**(그것이 이 구조의 목적이다).
+      // 그래서 이 id는 지금 화면에 없는 요소를 가리킨다 — 접힘/펼침 패널을 언마운트
+      // 하는 disclosure에서는 일반적인 절충이고, 대안(패널을 늘 그려 두고 감추기)은
+      // 12,836px을 그대로 두는 것이라 목적과 정면으로 어긋난다.
+      aria-controls={panelId}
+      className="flex w-full flex-none items-center gap-3 border-b border-slate-100 px-6 py-4 text-left hover:bg-slate-50"
+    >
+      <span className="flex-none text-[14px] font-extrabold text-slate-900">
+        {t('curriculum.path.sectionEyebrow', { n: index + 1, title: section.section })}
+      </span>
+      {section.subtitle && (
+        <span className="min-w-0 truncate text-[11.5px] text-slate-400">{section.subtitle}</span>
+      )}
+      <span className="h-px min-w-[16px] flex-1 bg-slate-200" />
+      <span className="h-[7px] w-[120px] flex-none overflow-hidden rounded-full bg-sky-100">
+        <i
+          className="block h-full rounded-full bg-sky-600"
+          style={{ width: `${units.length > 0 ? Math.round((cleared / units.length) * 100) : 0}%` }}
+        />
+      </span>
+      <span className="flex-none text-[11.5px] font-bold tabular-nums text-slate-500">
+        {t('curriculum.sectionDone', { cleared, total: units.length })}
+      </span>
+    </button>
+  );
+}
+
+function Stage({ section, index, panelId, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit }) {
   const t = useT();
   const units = section.units;
   const estDays = estDaysOf(section);
@@ -496,7 +549,14 @@ function Stage({ section, index, introOpen, onToggleIntro, energyBlocked, regenM
   //  함께 걷었다 — 파란 길이 없으니 칠할 대상이 없다. 2026-08-13)
 
   return (
-    <section className="wm-stage flex flex-col bg-white px-6 pb-4 pt-4">
+    // `tabIndex={-1}` — Tab 순서에는 안 들어가지만 **스크립트로 포커스는 받는다**.
+    // 접힌 줄을 눌러 이 패널이 그 자리를 대신할 때 부모가 여기로 포커스를 옮긴다
+    // (그 줄이 언마운트되면서 포커스가 `<body>`로 떨어지는 것을 막는다).
+    <section
+      id={panelId}
+      tabIndex={-1}
+      className="wm-stage flex flex-col bg-white px-6 pb-4 pt-4 focus:outline-none"
+    >
       {/* 머리말 한 줄 — 시안(2026-08-09). 종전에는 번호 배지가 붙은 머리말 아래에
           「이 단계에서 배우는 것」 슬레이트 박스가 따로 있었는데, 배너+하단 3카드가
           세로를 가져가면서 그 박스만큼(실측 56px) 노드가 작아졌다. 같은 정보를
@@ -655,6 +715,9 @@ export default function PcCurriculumPath({
 }) {
   const t = useT();
   const scrollerRef = useRef(null);
+  // 접힌 줄을 눌러 펼친 **직후 한 번만** 포커스를 옮기기 위한 표시. 조건 없이
+  // 옮기면 첫 렌더에서 페이지가 포커스를 빼앗아 간다(들어오자마자 경로로 튄다).
+  const focusPendingRef = useRef(false);
   // 접기는 전 단계에 함께 적용한다 — 단계마다 따로 접게 하면 스크롤할 때마다
   // 다시 접어야 한다.
   const [introOpen, setIntroOpen] = useState(true);
@@ -685,6 +748,52 @@ export default function PcCurriculumPath({
 
   const clearedCount = statuses.filter((s) => s === 'cleared').length;
   const currentIdx = statuses.indexOf('current');
+
+  /**
+   * **펼친 섹션 하나**(2026-08-13 클라이언트 확정 — 아코디언).
+   *
+   * ⚠️ **`introOpen`을 전용하지 않았다.** 모델이 다르다: `introOpen`은 전 단계에
+   * 함께 걸리는 boolean 하나(칩 줄 전용)이고, 여기 필요한 것은 **어느 섹션인가**
+   * 라는 인덱스다. 칩 접기는 별개 기능으로 그대로 남는다.
+   *
+   * 초깃값이 `null`인 이유: 「지금 서 있는 섹션」은 서버 응답(status)에서 나오고
+   * 그 값은 렌더마다 바뀔 수 있다. state에 복사해 두면 진도가 나갔을 때 낡은
+   * 섹션이 펼쳐진 채 굳는다 — **아직 아무도 안 눌렀으면 현재 섹션을 따라간다.**
+   */
+  const currentSectionIdx = (() => {
+    if (currentIdx < 0) return 0;
+    let si = 0;
+    for (let i = 0; i < offsets.length; i += 1) if (currentIdx >= offsets[i]) si = i;
+    return si;
+  })();
+  /**
+   * ⚠️ **펼침 인덱스는 「어느 섹션 목록에 대한 인덱스인가」와 함께 들고 다닌다.**
+   *
+   * 종전에는 인덱스만 state에 두고 범위 초과만 잘랐다(`Math.min(openIdx, len-1)`).
+   * 그것으로는 **코스 전환이 안 잡힌다** — `CurriculumHome`이 `PcCurriculumPath`를
+   * `key` 없이 마운트하고 `CourseSwitcher`를 `tabs`로 **이 안에** 넣기 때문에,
+   * 코스를 바꿔도 리마운트가 일어나지 않고 `sections` prop만 갈린다. 그러면 앞
+   * 코스에서 눌러 둔 인덱스가 그대로 살아남는다:
+   *   기상(10섹션)에서 5섹션을 펼쳐 두고 → 기초과학(3섹션) 탭 →
+   *   `min(5, 2) = 2`라 **엉뚱하게 마지막 섹션**이 펼쳐지고, 아래 effect가 그 2를
+   *   `onViewSection`으로 올려 배너 제목·CTA까지 잠긴 섹션을 가리켰다.
+   * 범위 안이면 클램프가 아예 발화하지 않으므로 「잘랐으니 안전하다」도 거짓이다.
+   *
+   * 그래서 **목록의 신원(`sectionKey`)이 달라지면 눌러 둔 값을 버린다.** effect로
+   * 되돌리지 않고 **렌더 중 파생**으로 처리하는 이유: effect는 한 프레임 늦어서
+   * 그 사이 잘못된 `openSection`이 `onViewSection`으로 한 번 새어 나간다.
+   */
+  // 구분자는 **섹션 이름에 못 들어가는 문자**를 쓴다. 공백으로 이으면
+  // ["큰 바람","이 온다"]와 ["큰","바람 이 온다"]가 같은 키가 되어, 서로 다른
+  // 목록을 같은 것으로 보고 인덱스를 살려 둔다. 길이도 앞에 붙여 한 번 더 가른다.
+  // ⚠️ 이스케이프로 적을 것 — 소스에 생 NUL 바이트를 박으면 화면에서 공백과
+  //    구분되지 않아 다음 사람이 읽을 수 없다(실제로 한 번 그렇게 들어갔다).
+  const sectionKey = `${withUnits.length}\u0000${withUnits.map((s) => s.section).join('\u0000')}`;
+  const [open, setOpen] = useState({ key: null, idx: null });
+  const openIdx = open.key === sectionKey ? open.idx : null;
+  // 범위 클램프는 **그대로 둔다** — 같은 코스 안에서 섹션이 줄어드는 응답(진도
+  // 초기화 등)은 위 신원 비교로는 안 잡힌다. 둘은 다른 사고를 막는다.
+  const openSection = Math.min(openIdx ?? currentSectionIdx, Math.max(0, withUnits.length - 1));
   const currentUnit = flat[currentIdx] ?? flat.find((_, i) => statuses[i] === 'unlocked') ?? null;
   const currentSection = withUnits.find((s) => s.units.some((u) => u.id === currentUnit?.id)) ?? null;
 
@@ -696,43 +805,57 @@ export default function PcCurriculumPath({
    * 「스크롤해서 다음 단계」 힌트가 영원히 남았다**(초깃값 true). 스크롤이 불가능한
    * 높이에서는 onScroll도 안 뜨므로 스스로 고쳐지지도 않았다. 창을 줄여 경로가
    * 다 들어오는 경우도 같았다 — 리사이즈는 이 값을 아예 안 봤다.
+   *
+   * ⚠️ **재는 대상은 스크롤러 전체가 아니라 「펼친 단계」다**(2026-08-13 정정).
+   * 접기가 들어오면서 스크롤러 안에 펼친 `.wm-stage` **말고도 접힌 줄들**(각 52px)이
+   * 함께 산다. `el.scrollHeight`를 그대로 보면 그 줄들까지 「더 있는 것」으로 세어,
+   * 힌트 문구(「이 섹션 더 보기」)가 거짓이 된다:
+   *   1섹션(3칸, 트랙에 다 들어옴)을 펼치면 정렬 effect가 `scrollTop = 0`으로 두는데,
+   *   기상 코스는 아래에 접힌 줄이 9개(≈468px) 더 있어 `0 + clientHeight <
+   *   scrollHeight - 24`가 **항상 참**이다 → 더 볼 것이 없는 섹션에서 힌트가 상주했다.
+   *   맨 끝 섹션을 펼쳤을 때만 우연히 맞았다.
+   * 물어야 할 것은 「스크롤러가 넘치는가」가 아니라 **「펼친 단계가 화면을 넘치는가」**다.
+   * `.wm-stage`는 `min-height: 100%`라 다 들어오는 섹션에서는 높이가 정확히 트랙
+   * 높이가 되고, 그때 아래 식이 거짓이 된다.
    */
   const syncHasMore = useCallback(() => {
     const el = scrollerRef.current;
     if (!el) return;
-    setHasMore(el.scrollTop + el.clientHeight < el.scrollHeight - 24);
+    const stage = el.querySelector('.wm-stage');
+    if (!stage) {
+      setHasMore(false);
+      return;
+    }
+    // 단계의 아래끝을 **스크롤 좌표계**로 환산한다 — `offsetTop`은 위치 지정 조상
+    // 기준이라 42px 어긋난다(정렬 effect가 같은 이유로 rect 차를 쓴다).
+    const stageTop = stage.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+    setHasMore(el.scrollTop + el.clientHeight < stageTop + stage.offsetHeight - 24);
   }, []);
 
   /**
-   * **지금 보고 있는 단계**를 위로 알린다 — 배너 제목이 이걸 따라간다.
+   * **지금 보고 있는 단계**를 위로 알린다 — 배너 제목과 CTA가 이걸 따라간다.
    *
-   * ⚠️ 종전 식은 `Math.round(scrollTop / clientHeight)`였다. 단계 높이가 전부
-   * 트랙 높이와 같다는 전제였는데, **고정 간격으로 바뀌면서 그 전제가 깨졌다** —
-   * 이제 단계 높이는 칸 수에 비례하고(3칸 ≈ 한 화면 · 35칸 ≈ 네 화면), 나누기
-   * 반올림은 35칸 섹션 하나를 훑는 동안 존재하지도 않는 4·5·6단계를 배너에
-   * 올린다. 그래서 **실제 offsetTop을 훑는다**.
+   * ⚠️ **스크롤에서 유도하던 계산은 걷었다**(2026-08-13). 한 번에 한 섹션만
+   * 펼치게 되면서 「보고 있는 섹션」이 **펼친 섹션 그 자체**가 됐다 — 스크롤은
+   * 이제 섹션 **안**을 움직일 뿐이라 위치에서 섹션을 되짚을 이유가 없다.
+   * 걷어낸 식의 경위를 남긴다(같은 자리로 돌아가지 말 것):
+   *   ① `Math.round(scrollTop / clientHeight)` — "단계 높이 = 트랙 높이" 전제.
+   *      노드가 고정 크기가 되면서 깨졌고, 35칸 섹션 하나를 훑는 동안 존재하지도
+   *      않는 4·5·6단계를 배너에 올렸다.
+   *   ② `offsetTop`을 훑어 뷰포트 35% 선과 대는 식 — ①의 후속. 단계가 하나뿐인
+   *      지금은 언제나 0을 돌려준다.
    *
-   * 판정선은 뷰포트 위에서 35% 지점이다: 다음 단계의 머리말이 화면에 충분히
-   * 들어왔을 때 넘어간다(0이면 1px만 스쳐도 바뀌고, 50%면 늦다).
-   * (`clientHeight`가 0인 첫 프레임은 건너뛴다.)
+   * ⚠️ **제목만 올리면 안 된다** — 배너 CTA가 그대로면 "3섹션 제목 + 1섹션으로
+   * 가는 버튼"이 된다. 목적지까지 함께 가는 계약의 소유자는 `learnEntry.js`의
+   * `pickSectionEntry`이고 소비자는 `CurriculumHome`이다. 여기는 **인덱스만**
+   * 올리며, 그 쌍은 그대로 유지된다.
    */
-  const syncViewed = useCallback(() => {
-    const el = scrollerRef.current;
-    if (!el || !onViewSection || el.clientHeight === 0) return;
-    const line = el.scrollTop + el.clientHeight * 0.35;
-    let idx = 0;
-    // offsetTop은 위치 지정 조상(.wm-track) 기준이고 스크롤에 영향받지 않는다 —
-    // 아래 초깃값 정렬(`el.scrollTop = stage.offsetTop`)이 쓰는 것과 같은 좌표계다.
-    for (let i = 0; i < el.children.length; i += 1) {
-      if (el.children[i].offsetTop <= line) idx = i;
-    }
-    onViewSection(idx);
-  }, [onViewSection]);
+  useEffect(() => {
+    onViewSection?.(openSection);
+  }, [openSection, onViewSection]);
 
-  const onScroll = useCallback(() => {
-    syncHasMore();
-    syncViewed();
-  }, [syncHasMore, syncViewed]);
+  // 스크롤이 알려 주는 것은 이제 「아래로 더 있는가」 하나뿐이다.
+  const onScroll = syncHasMore;
 
   /**
    * 트랙이 화면 어디서 시작하는지를 재서 CSS로 넘긴다(`--wm-track-top`).
@@ -786,38 +909,59 @@ export default function PcCurriculumPath({
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
-    // 정렬은 현재 유닛이 있을 때만. **힌트 갱신은 그와 무관하게 항상** 한다 —
-    // 여기서 같이 early return하면 전 유닛을 깬 학습자에게 힌트가 영원히 남는다.
-    if (currentIdx >= 0) {
-      let si = 0;
-      for (let i = 0; i < offsets.length; i += 1) if (currentIdx >= offsets[i]) si = i;
-      const stage = el.children[si];
-      if (stage) {
-        // 노드 좌표는 rect 차로 구한다 — `offsetTop`은 offsetParent가 `.wm-node`인지
-        // `.wm-vpath`인지에 따라 기준이 갈리는데, rect 차는 스크롤 좌표계 하나뿐이다.
-        const node = stage.querySelectorAll('[data-wm-node]')[currentIdx - offsets[si]];
-        const box = el.getBoundingClientRect();
-        const prev = el.style.scrollBehavior;
-        el.style.scrollBehavior = 'auto'; // 초기 정렬은 애니메이션 없이
-        el.scrollTop = node
-          ? alignScrollTop({
-              stageTop: stage.offsetTop,
-              stageHeight: stage.offsetHeight,
-              nodeTop: node.getBoundingClientRect().top - box.top + el.scrollTop,
-              nodeHeight: node.offsetHeight,
-              viewport: el.clientHeight,
-            })
-          : stage.offsetTop;
-        el.style.scrollBehavior = prev;
-      }
+    // 펼친 섹션은 하나뿐이므로 `.wm-stage`도 하나뿐이다 — 인덱스로 children을
+    // 세지 않는다(접힌 줄이 섞여 있어 자리 계산이 두 종류가 된다).
+    const stage = el.querySelector('.wm-stage');
+    if (stage) {
+      const box = el.getBoundingClientRect();
+      // ⚠️ 단계의 top도 **rect 차**로 잰다(2026-08-13). 종전에는 `stage.offsetTop`
+      // 이었는데 그것은 위치 지정 조상(`.wm-track`) 기준이라 스크롤러 좌표와
+      // **42px 어긋나 있었다**(1470×745 실측: 1단계 offsetTop 42 ↔ 참값 0).
+      // 아래 nodeTop이 이미 rect 차를 쓰므로 두 입력의 좌표계가 갈려 있었다.
+      // rect 차는 스크롤 좌표계 하나뿐이라 둘이 같은 자를 쓴다.
+      const stageTop = Math.round(stage.getBoundingClientRect().top - box.top + el.scrollTop);
+      // 현재 유닛이 **펼친 섹션 안에** 있을 때만 그 노드로 맞춘다. 다른 섹션을
+      // 펼쳐 놓고 보는 중이면 맞출 노드가 화면에 없다 — 그때는 섹션 맨 위다.
+      const from = offsets[openSection] ?? 0;
+      const count = withUnits[openSection]?.units.length ?? 0;
+      const local = currentIdx >= from && currentIdx < from + count ? currentIdx - from : -1;
+      const node = local >= 0 ? stage.querySelectorAll('[data-wm-node]')[local] : null;
+      el.scrollTop = node
+        ? alignScrollTop({
+            stageTop,
+            stageHeight: stage.offsetHeight,
+            nodeTop: node.getBoundingClientRect().top - box.top + el.scrollTop,
+            nodeHeight: node.offsetHeight,
+            viewport: el.clientHeight,
+          })
+        : stageTop;
     }
+    // **힌트 갱신은 정렬과 무관하게 항상** 한다 — 여기서 같이 early return하면
+    // 전 유닛을 깬 학습자에게 힌트가 영원히 남는다.
     syncHasMore();
-    // 정렬 직후의 단계도 알린다 — 첫 화면이 1단계가 아니라 **현재 단계**라
-    // 여기서 안 알리면 배너만 1단계를 가리킨 채 남는다.
-    syncViewed();
-    // 트리가 바뀔 때만 다시 맞춘다(스크롤 중 재정렬 금지).
+    // 섹션을 갈아탈 때도 다시 맞춘다(`openSection`) — 안 넣으면 새 섹션을 펼쳐도
+    // 스크롤이 앞 섹션에서 서 있던 자리에 그대로 남는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIdx, withUnits.length]);
+  }, [currentIdx, withUnits.length, openSection]);
+
+  /**
+   * 펼친 직후 **새 패널로 포커스를 옮긴다** — 키보드 사용자가 자리를 잃지 않게.
+   *
+   * 접힌 줄 자체가 버튼이고, 누르는 순간 그 버튼이 `<Stage>`로 **교체(언마운트)**
+   * 된다. React는 포커스를 옮겨 주지 않으므로 `document.activeElement`가 `<body>`로
+   * 떨어진다 — 4섹션까지 Tab으로 내려가 Enter를 누른 사용자가 **문서 맨 처음으로**
+   * 되돌아가고, 패널이 열렸다는 안내도 없다.
+   *
+   * ⚠️ `preventScroll: true`가 필수다. 위 정렬 effect가 `scrollTop`의 소유자인데,
+   * 브라우저 기본 포커스 스크롤이 그 값을 덮어써 정렬이 무효가 된다.
+   * ⚠️ 조건 없이 옮기면 안 된다 — 첫 진입에서도 발화해 페이지가 열리자마자
+   * 경로로 포커스가 튄다. 그래서 `onOpen`이 세우는 표시를 본다.
+   */
+  useEffect(() => {
+    if (!focusPendingRef.current) return;
+    focusPendingRef.current = false;
+    scrollerRef.current?.querySelector('.wm-stage')?.focus?.({ preventScroll: true });
+  }, [openSection]);
 
   if (flat.length === 0) return null;
 
@@ -839,19 +983,41 @@ export default function PcCurriculumPath({
               상수 보정이 필요해진다(이 파일이 그 방식으로 겪은 실패가 헤더 주석에
               적혀 있다). */}
           {tabs}
+          {/* 한 번에 **한 섹션만** 펼친다(2026-08-13 클라이언트 확정). 전 섹션을
+              펼쳐 두면 콘텐츠가 12,836px(1470×745 실측)이 되고, 그 길이가
+              스크롤 스냅을 부르고 스냅이 상위 섹션을 못 가게 만들었다.
+              ⚠️ 접는다고 스크롤이 0이 되지는 **않는다** — 단계 높이가
+              `97 + 86 × 유닛수`라 최장 19칸 섹션 혼자 1,731px(트랙의 2.7화면)이다.
+              그래서 아래 힌트·`alignScrollTop`·`hasMore`가 전부 그대로 필요하다. */}
           <div ref={scrollerRef} className="wm-scroller" onScroll={onScroll}>
-            {withUnits.map((section, i) => (
-              <Stage
-                key={section.section}
-                section={section}
-                index={i}
-                introOpen={introOpen}
-                onToggleIntro={() => setIntroOpen((v) => !v)}
-                energyBlocked={energyBlocked}
-                regenMin={regenMin}
-                onOpenUnit={onOpenUnit}
-              />
-            ))}
+            {withUnits.map((section, i) =>
+              i === openSection ? (
+                <Stage
+                  key={section.section}
+                  section={section}
+                  index={i}
+                  panelId={`wm-stage-${i}`}
+                  introOpen={introOpen}
+                  onToggleIntro={() => setIntroOpen((v) => !v)}
+                  energyBlocked={energyBlocked}
+                  regenMin={regenMin}
+                  onOpenUnit={onOpenUnit}
+                />
+              ) : (
+                <CollapsedSectionRow
+                  key={section.section}
+                  section={section}
+                  index={i}
+                  panelId={`wm-stage-${i}`}
+                  onOpen={() => {
+                    // 누른 줄이 곧 언마운트되므로 포커스를 새 패널로 옮겨야 한다.
+                    // 그 이동을 **사용자 조작일 때만** 하도록 여기서 표시한다.
+                    focusPendingRef.current = true;
+                    setOpen({ key: sectionKey, idx: i });
+                  }}
+                />
+              ),
+            )}
           </div>
 
           {/* 트랙 하단 진도 바 — 노드 라벨을 뺀 만큼 "지금 어디"를 여기서 말한다 */}
@@ -879,7 +1045,12 @@ export default function PcCurriculumPath({
                 가는 문이 위 배너 CTA(「이어서 풀기」)와 현재 노드 자체로 둘 더 있어
                 한 화면에 같은 목적지가 셋이었다. 힌트는 트랙 가운데에 떠 있었는데
                 거기서는 경로를 가렸다. */}
-            {hasMore && withUnits.length > 1 && (
+            {/* ⚠️ 조건에서 `withUnits.length > 1`을 뺐다(2026-08-13). 그것은
+                「스크롤하면 다음 **단계**가 나온다」가 참이던 시절의 조건이다 —
+                이제 스크롤은 펼친 섹션 **안**을 움직이므로, 섹션이 하나뿐이어도
+                그 섹션이 트랙보다 길면(19칸 = 2.7화면) 힌트가 필요하다.
+                판정은 `hasMore` 하나가 소유한다(실제 트랙 치수를 재는 쪽). */}
+            {hasMore && (
               <span
                 data-testid="path-scroll-hint"
                 className="ml-auto flex-none text-[11.5px] font-bold text-slate-400"

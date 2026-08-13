@@ -198,21 +198,55 @@ async function click(el) {
   el.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await sleep(60);
 }
+// 섹션 i를 펼친다(이미 펼쳐져 있으면 아무것도 안 누른다). 접힌 줄 **자체가**
+// 전환 버튼이라는 것이 2026-08-13 확정 사항이라, 여기서도 그 줄을 누른다.
+async function openSectionRow(i) {
+  const row = container.querySelector(`[data-wm-collapsed][aria-controls="wm-stage-${i}"]`);
+  if (row) await click(row);
+  return container.querySelector('.wm-stage');
+}
 
 // ── ②③⑤ 기본 렌더 ─────────────────────────────────────────────────────────
 await render({});
 {
+  // ⚠️ **「단계 4개 렌더」는 걷었다**(2026-08-13 클라이언트 확정 — 한 번에 한
+  //    섹션만 펼친다). 전 섹션을 펼치면 콘텐츠가 12,836px(1470×745 실측)이 되고,
+  //    그 길이가 스크롤 스냅을 불렀고 스냅이 상위 섹션을 못 가게 만들었다.
   const stages = [...container.querySelectorAll('.wm-stage')];
-  ok(stages.length === 4, `단계 4개 렌더 — 실제 ${stages.length}`);
+  const rows = [...container.querySelectorAll('[data-wm-collapsed]')];
+  ok(stages.length === 1, `펼친 단계는 언제나 1개 — 실제 ${stages.length}`);
+  ok(
+    rows.length === sections.length - 1,
+    `나머지 섹션은 접힌 줄 — ${sections.length - 1} / 실제 ${rows.length}`,
+  );
+  // 접힌 줄이 `.wm-stage`를 쓰면 그 클래스의 `min-height: 100%` 때문에 **한 줄이
+  // 트랙 한 화면(1470×745 실측 641px)으로 부푼다** — 접는 의미가 통째로 사라진다.
+  ok(
+    rows.every((r) => !r.classList.contains('wm-stage')),
+    '접힌 줄은 .wm-stage를 쓰지 않는다(min-height:100%가 한 줄을 한 화면으로 부풀린다)',
+  );
+  // 접힌 줄 **자체가** 전환 버튼이다 — 섹션 전환에 새 조작 표면을 만들지 않는다
+  // (카드 맨 위 코스 탭이 이미 「탭 꼴」을 쓰고 있어 두 번째 탭 줄이 생긴다).
+  ok(
+    rows.every((r) => r.tagName === 'BUTTON' && r.getAttribute('aria-expanded') === 'false'),
+    '접힌 줄은 aria-expanded=false인 button이다(줄 전체가 표적)',
+  );
+  // 첫 진입에 펼치는 것은 **현재 유닛이 있는 섹션**이다(픽스처: u3 = 2섹션).
+  const OPEN_I = 1;
+  ok(
+    stages[0].textContent.includes(SHAPE[OPEN_I][0]),
+    `첫 진입은 현재 유닛이 있는 섹션을 펼친다 — 실제 "${stages[0].textContent.slice(0, 14)}"`,
+  );
 
+  const OPEN_N = sections[OPEN_I].units.length;
   const nodes = [...container.querySelectorAll('.wm-dot')];
-  ok(nodes.length === TOTAL, `노드 ${TOTAL}개 — 실제 ${nodes.length}`);
+  ok(nodes.length === OPEN_N, `펼친 섹션의 노드만 그린다 — ${OPEN_N} / 실제 ${nodes.length}`);
 
   // ② 라벨을 뺀 대신 aria-label이 유닛명을 나른다. 2026-08-09 시안으로 눈에
   // 보이는 라벨이 잠깐 돌아왔다가 **2026-08-10 사용자 지시로 다시 뺐다** —
   // 경로가 왼쪽 열로 좁아지면서 라벨이 노드를 밀어냈다.
   const labelled = nodes.filter((b) => (b.getAttribute('aria-label') ?? '').includes('유닛 '));
-  ok(labelled.length === TOTAL, `노드 aria-label 전부에 유닛명 — 실제 ${labelled.length}`);
+  ok(labelled.length === OPEN_N, `노드 aria-label 전부에 유닛명 — 실제 ${labelled.length}`);
   ok(
     !container.textContent.includes('유닛 5'),
     '노드 옆에 유닛명 텍스트를 두지 않는다(진도 바의 현재 유닛명은 예외)',
@@ -252,37 +286,83 @@ await render({});
     '예상 **일수**를 보여준다',
   );
   ok(container.textContent.includes('시베리아 기단'), 'topics를 칩으로 보여준다');
-  const stage1 = container.querySelectorAll('.wm-stage')[0];
-  ok(!stage1.querySelector('p.truncate'), '메타 없는 섹션은 부제 줄을 만들지 않는다');
-  // topics가 없는 섹션은 concept_tag 파생으로 떨어진다(칩이 아예 없으면 안 된다)
-  ok(stage1.querySelectorAll('.rounded-full.bg-sky-100').length > 0,
-     'topics 없는 섹션은 concept_tag 칩으로 폴백한다');
+  // ⚠️ 「메타 없는 섹션은 부제 줄을 안 만든다」·「topics 없으면 concept_tag 폴백」
+  //    두 단정은 **아래 아코디언 블록으로 옮겼다** — 그 둘은 메타가 없는 1섹션을
+  //    봐야 하는데, 첫 진입에 펼쳐지는 것은 현재 유닛이 있는 2섹션이다.
 
-  // ⑤ 치수는 전 단계가 **같은 고정 px**을 받는다 (픽스처 섹션은 3·3·2·4칸)
-  const dots = stages.map((s) => s.querySelector('.wm-vpath').style.getPropertyValue('--dot'));
-  const counts = stages.map((s) => s.querySelectorAll('[data-wm-node]').length);
+  // ⑤ 치수는 어느 섹션을 펼쳐도 **같은 고정 px**이다 (픽스처 섹션은 3·3·2·4칸)
+  // ⚠️ 종전에는 한 화면에 있던 4단계를 map으로 훑었다. 한 번에 하나만 펼치므로
+  //    **차례로 펼쳐 가며** 모은다 — 단정의 뜻("칸 수가 크기를 못 건드린다")은 같다.
+  const dots = [];
+  const counts = [];
+  for (let i = 0; i < sections.length; i += 1) {
+    const st = await openSectionRow(i);
+    dots.push(st.querySelector('.wm-vpath').style.getPropertyValue('--dot'));
+    counts.push(st.querySelectorAll('[data-wm-node]').length);
+  }
   ok(
     new Set(dots).size === 1 && dots[0] === `${PATH_DOT_PX}px`,
     `칸 수가 달라도(${counts.join(',')}) --dot이 같다 — 실제 ${dots.join(',')}`,
   );
+  ok(
+    counts.join(',') === SHAPE.map(([, c]) => c).join(','),
+    `펼친 섹션마다 자기 칸 수를 전건 그린다 — ${counts.join(',')}`,
+  );
   // 종전 `--n`·`--chrome`은 지름을 뷰포트 높이에서 역산할 때만 필요했다. 되살아나면
   // 「섹션마다 범위 맞추기」 보정도 함께 돌아온다.
-  const revivedVars = stages
-    .map((s) => s.querySelector('.wm-vpath'))
-    .filter((v) => v.style.getPropertyValue('--n') || v.style.getPropertyValue('--chrome'));
-  ok(revivedVars.length === 0, '높이 역산용 --n/--chrome이 되살아나지 않았다');
+  const vpNow = container.querySelector('.wm-vpath');
+  ok(
+    !vpNow.style.getPropertyValue('--n') && !vpNow.style.getPropertyValue('--chrome'),
+    '높이 역산용 --n/--chrome이 되살아나지 않았다',
+  );
 
-  // 상태 아이콘: 완료 3 + 현재 1
-  ok(nodes.filter((b) => b.textContent.includes('👑')).length === 3, '완료 노드 3개(👑)');
-  ok(nodes.filter((b) => b.textContent.includes('⭐')).length === 1, '현재 노드 1개(⭐)');
+  // 상태 아이콘 — 완료(👑)는 1섹션, 현재(⭐)는 2섹션에 있다. 한 번에 한 섹션만
+  // 보이므로 **각자 자기 섹션을 펼쳐 놓고** 센다.
+  const stage0 = await openSectionRow(0);
+  ok(
+    [...stage0.querySelectorAll('.wm-dot')].filter((b) => b.textContent.includes('👑')).length === 3,
+    '1섹션을 펼치면 완료 노드 3개(👑)',
+  );
+  // 메타가 없는 섹션이 여기다 — 위에서 옮겨 온 두 단정.
+  ok(!stage0.querySelector('p.truncate'), '메타 없는 섹션은 부제 줄을 만들지 않는다');
+  ok(
+    stage0.querySelectorAll('.rounded-full.bg-sky-100').length > 0,
+    'topics 없는 섹션은 concept_tag 칩으로 폴백한다',
+  );
+  const stageOpen = await openSectionRow(OPEN_I); // 뒤 블록이 기대하는 기본 상태로 원복
+  ok(
+    [...stageOpen.querySelectorAll('.wm-dot')].filter((b) => b.textContent.includes('⭐')).length === 1,
+    '2섹션을 펼치면 현재 노드 1개(⭐)',
+  );
 
   // 진도 바 — 노드 라벨을 뺀 만큼 "지금 어디"를 여기서 말한다
   ok(container.textContent.includes(`3 / ${TOTAL} 유닛`), `진도 표기 3 / ${TOTAL} 유닛`);
   ok(container.textContent.includes('공기의 힘'), '진도 바가 현재 섹션명을 보여준다');
 
-  // 잠긴 노드는 눌리지 않는다
-  const locked = nodes.filter((b) => b.textContent.includes('🔒'));
-  ok(locked.length === TOTAL - 4 && locked.every((b) => b.disabled), '잠금 노드는 전부 disabled');
+  // 잠긴 노드는 눌리지 않는다 — 선행 잠금이 **클릭 차단까지** 가는지 본다.
+  // 모바일 UnitNode와 같은 의미론이어야 한다(안 넘기면 구름 0에서 PC만 열린다).
+  //
+  // ⚠️ **뜻이 사라진 게 아니라 스코프만 바뀌었다**(2026-08-13). 한 번에 한 섹션만
+  //    마운트되면서 잠긴 노드 8개가 한 화면에 같이 있지 않게 됐을 뿐, "잠긴 노드는
+  //    disabled다"라는 계약 자체는 그대로다. 종전 한 줄은 사실 **두 가지**를 재고
+  //    있었다 — ⓐ 잠긴 것이 전부 disabled인가(계약) ⓑ 픽스처에 잠금이 8개인가
+  //    (모양 확인). 둘 다 살리려고 **섹션을 차례로 펼쳐 가며 합산**한다.
+  //    약화가 아니라 오히려 촘촘해졌다: 이제 **섹션마다** 자기 잠금 노드를 제대로
+  //    그리는지까지 본다(종전에는 어느 섹션 것인지 구분 없이 8개만 셌다).
+  //    ⓑ를 빼고 ⓐ만 남기면 "잠긴 노드를 아예 안 그려도 통과"가 되므로 빼지 않는다.
+  let lockedSeen = 0;
+  let lockedEnabled = 0;
+  for (let i = 0; i < sections.length; i += 1) {
+    const st = await openSectionRow(i);
+    const here = [...st.querySelectorAll('.wm-dot')].filter((b) => b.textContent.includes('🔒'));
+    lockedSeen += here.length;
+    lockedEnabled += here.filter((b) => !b.disabled).length;
+  }
+  ok(
+    lockedSeen === TOTAL - 4 && lockedEnabled === 0,
+    `잠금 노드는 전부 disabled — 잠금 ${lockedSeen}개(기대 ${TOTAL - 4}) · 안 잠긴 것 ${lockedEnabled}개`,
+  );
+  await openSectionRow(OPEN_I); // 뒤 블록(⭐ 클릭·구름 0)이 기대하는 기본 상태로 원복
 }
 
 // ── ④ 접기가 전 단계에 함께 적용된다 ────────────────────────────────────────
@@ -334,6 +414,110 @@ await render({});
   const current = [...container.querySelectorAll('.wm-dot')].find((b) => b.textContent.includes('⭐'));
   await click(current);
   ok(opened.length === 1 && opened[0] === 'u3', `현재 노드 클릭 → onOpenUnit('u3') — 실제 ${opened.join(',')}`);
+}
+
+// ── ⑩ 섹션 전환 = 접힌 줄 클릭 · 배너는 **펼침 인덱스**를 따라간다 (2026-08-13) ─
+{
+  // 스크롤 위치에서 섹션을 되짚던 `syncViewed`는 걷혔다 — 한 번에 한 섹션만
+  // 펼치므로 「보고 있는 섹션」이 「펼친 섹션」 그 자체가 됐다.
+  // ⚠️ 이 단정이 **jsdom에서 가능해진 것 자체가 그 변화의 증거**다: 종전 식은
+  //    scrollTop·offsetTop을 읽었는데 jsdom에는 레이아웃이 없어 전부 0이라,
+  //    「배너가 3섹션을 가리킨다」를 여기서 만들 방법이 아예 없었다.
+  root2.render(createElement('div')); // 펼침 인덱스는 state다 — 강제 언마운트로 초기화
+  await sleep(30);
+  const viewed = [];
+  await render({ onViewSection: (i) => viewed.push(i) });
+  ok(viewed.at(-1) === 1, `첫 진입은 현재 유닛의 섹션(1)을 올린다 — 실제 [${viewed.join(',')}]`);
+
+  const row3 = container.querySelector('[data-wm-collapsed][aria-controls="wm-stage-3"]');
+  ok(row3, '4섹션이 접힌 줄로 서 있다(펼친 것 하나 말고는 전부 줄이다)');
+  await click(row3);
+  ok(viewed.at(-1) === 3, `접힌 줄을 누르면 그 섹션을 배너로 올린다 — 실제 [${viewed.join(',')}]`);
+  const nowStages = [...container.querySelectorAll('.wm-stage')];
+  ok(
+    nowStages.length === 1 && nowStages[0].textContent.includes(SHAPE[3][0]),
+    `누른 섹션만 펼쳐진다(앞 섹션은 접힌다) — 단계 ${nowStages.length}개`,
+  );
+  ok(
+    container.querySelectorAll('.wm-dot').length === SHAPE[3][1],
+    `펼친 섹션의 칸 수만 그린다 — ${SHAPE[3][1]} / 실제 ${container.querySelectorAll('.wm-dot').length}`,
+  );
+  // 앞 섹션이 접힌 줄로 **돌아왔는가** — 펼침이 누적되면(인덱스가 아니라 집합이
+  // 되면) 여기가 먼저 운다. 그게 「전 섹션이 펼쳐진다」 변이의 모양이다.
+  ok(
+    container.querySelectorAll('[data-wm-collapsed]').length === sections.length - 1,
+    `펼친 하나를 뺀 나머지는 접힌 줄이다 — ${sections.length - 1} / 실제 ${container.querySelectorAll('[data-wm-collapsed]').length}`,
+  );
+}
+
+// ── ㉶ 코스 전환: 눌러 둔 펼침 인덱스를 다음 코스로 들고 가지 않는다 ─────────
+//
+// `CurriculumHome`은 `PcCurriculumPath`를 **`key` 없이** 마운트하고 코스 탭
+// (`CourseSwitcher`)을 `tabs` prop으로 **그 안에** 넣는다. 그래서 코스를 바꿔도
+// 리마운트가 일어나지 않고 `sections`만 갈린다 — 눌러 둔 펼침 인덱스가 살아남는다.
+//
+// ⚠️ **범위 클램프(`Math.min(openIdx, len-1)`)로는 못 막는다.** 그것은 인덱스가
+//    범위를 벗어날 때만 발화하는데, 벗어나든 안 벗어나든 **다른 코스의 인덱스**는
+//    이미 틀린 값이다. 기상(4섹션)에서 4섹션을 펼쳐 두고 2섹션짜리 코스로 넘어가면
+//    `min(3, 1) = 1`이라 **엉뚱하게 마지막 섹션**이 펼쳐졌고, 그 인덱스가
+//    `onViewSection`으로 올라가 배너 제목·CTA까지 잠긴 섹션을 가리켰다.
+//    (2026-08-13 `/code-review` 게이트 지적. 고치기 전에는 이 파일 어느 단정도
+//     이 사고를 보지 못했다 — 수정 전후로 전 종목이 초록이었다.)
+{
+  root2.render(createElement('div')); // 펼침 인덱스는 state다 — 강제 언마운트로 초기화
+  await sleep(30);
+  const viewed = [];
+  await render({ onViewSection: (i) => viewed.push(i) });
+
+  const row3 = container.querySelector('[data-wm-collapsed][aria-controls="wm-stage-3"]');
+  await click(row3);
+  ok(viewed.at(-1) === 3, `전제: 4섹션을 펼쳐 뒀다 — 실제 [${viewed.join(',')}]`);
+
+  // 접힌 줄을 누르면 그 줄이 **언마운트**된다(그 자리를 `<Stage>`가 대신한다).
+  // React는 포커스를 옮겨 주지 않으므로 그냥 두면 `document.activeElement`가
+  // `<body>`로 떨어져, 키보드로 4섹션까지 내려온 사용자가 문서 맨 처음으로 되돌아간다.
+  ok(
+    window.document.activeElement === container.querySelector('.wm-stage'),
+    '펼친 직후 포커스가 새 패널로 옮겨간다(누른 줄이 사라지며 body로 떨어지지 않는다)',
+  );
+
+  // 같은 인스턴스에 **다른 코스**를 넘긴다 — 리마운트 없이 prop만 갈리는 실제 경로.
+  const other = ['기초과학 하나', '기초과학 둘'].map((name, si) => ({
+    section: name,
+    subtitle: null,
+    est_minutes: null,
+    topics: [],
+    units: [
+      {
+        id: `b${si}`,
+        title: `기초 유닛 ${si + 1}`,
+        concept_tag: 'air_mass',
+        kind: 'quiz',
+        crowns: 0,
+        status: si === 0 ? 'current' : 'locked',
+      },
+    ],
+  }));
+  root2.render(
+    createElement(PcCurriculumPath, {
+      sections: other,
+      onOpenUnit: () => {},
+      onViewSection: (i) => viewed.push(i),
+    }),
+  );
+  await sleep(60);
+
+  const switched = container.querySelector('.wm-stage');
+  ok(
+    switched?.textContent.includes('기초과학 하나'),
+    `코스를 바꾸면 앞 코스의 펼침 인덱스를 버리고 현재 섹션을 펼친다 — 실제 「${
+      switched?.textContent.slice(0, 12) ?? '없음'
+    }」`,
+  );
+  ok(
+    viewed.at(-1) === 0,
+    `배너로 올리는 인덱스도 새 코스 기준이다(0) — 실제 [${viewed.join(',')}]`,
+  );
 }
 
 // ── 유닛 0개면 렌더하지 않는다(빈 코스 트리) ────────────────────────────────
@@ -558,6 +742,23 @@ await render({});
   ok(
     !/scroll-snap-align\s*:/.test(stageRule),
     '.wm-stage에 scroll-snap-align이 되살아나지 않았다(스냅포트가 없으면 죽은 선언이다)',
+  );
+  // ㉵ **`scroll-behavior: smooth`도 되살아나지 않았다**(2026-08-13 클라이언트
+  //    제보 "빠르게 하면 스크롤이 밀리는구나"). 스냅과 **같은 계보**다 —
+  //    「한 화면에 한 단계」를 부드럽게 넘기려고 둔 것인데, 스냅이 철회되면서
+  //    이유는 사라지고 증상만 남았다. 크롬은 이 선언이 붙은 스크롤러에서
+  //    **휠 입력에도 애니메이션을 걸어** 화면이 입력을 뒤따라오며 밀린다.
+  //    실측(제거 전): `scrollTop += 400`을 30ms 간격 12회 → 기대 4800인데
+  //    **즉시 120 · 1.5초 뒤 511**(각 대입이 앞 애니메이션의 진행 중 값을 읽는다).
+  //
+  // ⚠️ **이 단정이 없어서 실제로 회귀가 살아남았다.** 스냅을 걷은 아침 커밋은
+  //    CSS 주석만 고치고 선언을 안 지웠고, 형제 3종(snap-type·snap-stop·snap-align)
+  //    에는 가드를 세우면서 이것만 빠져 있었다. 주석은 회귀를 못 막는다.
+  //    부드러운 이동이 다시 필요하면 CSS 전역이 아니라 호출부에서
+  //    `scrollTo({behavior:'smooth'})`로 국소 지정할 것 — 그건 이 단정에 안 걸린다.
+  ok(
+    !/scroll-behavior\s*:\s*smooth/.test(scrollerRule),
+    '.wm-scroller에 scroll-behavior:smooth가 되살아나지 않았다(휠 입력에도 애니메이션이 걸려 빠르게 굴리면 밀린다)',
   );
 
   const vpathRule = cut('.wm-vpath {', '.wm-node {');
