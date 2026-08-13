@@ -14,6 +14,8 @@ export default {
     state: {
       outOfClouds: "You're out of clouds. Take a short break and they'll build back up!",
       levelUp: 'Nice — you moved up a level! Let’s keep going.',
+      sessionComplete: "That's today's set done! Same again tomorrow is plenty.",
+      correctAnswer: 'Got it! Keep that instinct going.',
       wrongAnswer: "That's okay. Let's read the explanation together — it'll come around again!",
       firstVisit: "Hi! I'm Cloudy. Let's get to know the weather together.",
     },

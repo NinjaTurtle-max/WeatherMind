@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import XPBar from './XPBar';
 import SpineBadge from './SpineBadge';
 import StreakBadge from './StreakBadge';
@@ -92,6 +92,36 @@ export default function Layout() {
     enabled: Boolean(accessToken),
     staleTime: 10_000,
   });
+
+  // 안내봇이 채점 결과에 반응한다 — 화자는 **FEEDBACK 단계에서만** 말한다.
+  // answerState를 그대로 읽으면 다음 문항으로 넘어간 뒤에도 직전 정오답이 남아
+  // 안내봇이 한 박자 늦게 떠든다(retryItem이 answerState를 비우기는 하지만
+  // 요약·이탈 경로는 안 비운다). 단계로 한 번 더 거른다.
+  const answerState = useSessionStore((s) => s.answerState);
+  const lastAnswerCorrect =
+    sessionStatus === SESSION_STATUS.FEEDBACK && typeof answerState?.is_correct === 'boolean'
+      ? answerState.is_correct
+      : undefined;
+
+  // 세션 완료 — 요약 화면에 머무는 동안만.
+  const sessionComplete = sessionStatus === SESSION_STATUS.SUMMARY;
+
+  // 레벨업 — `/progress/me`의 knowledge_level이 **올라간 순간**에만 참이다.
+  // 서버가 "올랐다"를 안 알려 주므로 직전 값과 비교한다. 첫 조회(prev가 null)는
+  // 레벨업이 아니다 — 그러지 않으면 로그인할 때마다 축하가 뜬다.
+  const prevLevelRef = useRef(null);
+  const [levelUp, setLevelUp] = useState(false);
+  useEffect(() => {
+    const level = progress?.knowledge_level;
+    if (typeof level !== 'number') return;
+    const prev = prevLevelRef.current;
+    prevLevelRef.current = level;
+    if (prev == null || level <= prev) return;
+    setLevelUp(true);
+    // 축하는 잠깐이면 된다 — 계속 띄우면 다음 화면 안내를 영영 가린다.
+    const timer = setTimeout(() => setLevelUp(false), 8000);
+    return () => clearTimeout(timer);
+  }, [progress?.knowledge_level]);
 
   // 첫 방문 인사는 한 번만. localStorage는 SSR에서 못 읽으므로 effect에서만 만진다
   // (첫 페인트에는 화면 안내가 뜨고, 처음 온 사람에게만 인사로 바뀐다).
@@ -220,7 +250,16 @@ export default function Layout() {
       {/* 안내봇(MT-26) — 셸 최상위에 둔다. 본문 안에 넣으면 화면마다 마운트가
           풀려 사용자가 옮겨 둔 자리와 접어 둔 상태가 이동할 때마다 되돌아간다.
           말할 내용은 lib/guideRules.js가 정한다(결정적 · LLM 호출 없음). */}
-      <GuideBot pathname={pathname} state={{ clouds: energy?.clouds, firstVisit }} />
+      <GuideBot
+        pathname={pathname}
+        state={{
+          clouds: energy?.clouds,
+          levelUp,
+          sessionComplete,
+          lastAnswerCorrect,
+          firstVisit,
+        }}
+      />
 
     </div>
   );

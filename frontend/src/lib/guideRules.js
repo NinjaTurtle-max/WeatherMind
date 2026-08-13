@@ -43,7 +43,11 @@ export const GUIDE_SPEAKER = 'guidebot';
 export const STATE_RULES = [
   { id: 'outOfClouds', key: 'guide.state.outOfClouds', when: (s) => s.clouds === 0 },
   { id: 'levelUp', key: 'guide.state.levelUp', when: (s) => s.levelUp === true },
+  { id: 'sessionComplete', key: 'guide.state.sessionComplete', when: (s) => s.sessionComplete === true },
   { id: 'wrongAnswer', key: 'guide.state.wrongAnswer', when: (s) => s.lastAnswerCorrect === false },
+  // 정답에도 반응한다. 오답에만 말하면 **혼날 때만 나타나는 캐릭터**가 되고,
+  // 그러면 사용자는 안내봇이 뜨는 것 자체를 나쁜 신호로 학습한다.
+  { id: 'correctAnswer', key: 'guide.state.correctAnswer', when: (s) => s.lastAnswerCorrect === true },
   { id: 'firstVisit', key: 'guide.state.firstVisit', when: (s) => s.firstVisit === true },
 ];
 

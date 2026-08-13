@@ -63,6 +63,12 @@ try {
     R.pickGuideMessage('/learn', { ...all, clouds: 3 }).ruleId === 'levelUp');
   check('레벨업이 없으면 오답이 첫 방문을 이긴다',
     R.pickGuideMessage('/learn', { ...all, clouds: 3, levelUp: false }).ruleId === 'wrongAnswer');
+  check('세션 완료가 오답을 이긴다 — 다 끝낸 순간에 직전 오답을 꺼내지 않는다',
+    R.pickGuideMessage('/learn', { lastAnswerCorrect: false, sessionComplete: true }).ruleId === 'sessionComplete');
+  check('정답에도 반응한다 — 오답에만 말하면 「혼날 때만 뜨는 캐릭터」가 된다',
+    R.pickGuideMessage('/learn', { lastAnswerCorrect: true }).ruleId === 'correctAnswer');
+  check('레벨업이 정답 반응을 이긴다',
+    R.pickGuideMessage('/learn', { lastAnswerCorrect: true, levelUp: true }).ruleId === 'levelUp');
   check('첫 방문은 나머지가 없을 때만 — 처음 온 사람에게 네 마디를 쏟지 않는다',
     R.pickGuideMessage('/learn', { firstVisit: true }).ruleId === 'firstVisit');
 
