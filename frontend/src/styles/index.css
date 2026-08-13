@@ -132,7 +132,19 @@ input[type='range'] {
   overscroll-behavior: contain; /* 트랙 끝에서 페이지로 스크롤이 새지 않게 */
   /* ⚠️ `scroll-snap-type`을 여기 되살리지 말 것 — mandatory도 proximity도 단계
      경계 한 화면치를 정지 불가 구간으로 만든다(위 ① 블록의 실측표). */
-  scroll-behavior: smooth;
+  /* ⚠️ **`scroll-behavior: smooth`를 여기 되살리지 말 것**(2026-08-13 클라이언트
+     제보: "빠르게 하면 스크롤이 밀리는구나").
+     스냅과 **같은 계보**다 — 「한 화면에 한 단계」를 부드럽게 넘기려고 둔 것인데,
+     스냅이 철회되면서 이유가 사라졌고 증상만 남았다. 크롬은 이 선언이 붙은
+     스크롤러에서 **휠 입력에도 애니메이션을 건다**. 그래서 빠르게 굴리면 화면이
+     입력을 뒤따라오며 밀린다.
+     실측(프로그램 스크롤, 제거 전): `scrollTop += 400`을 30ms 간격 12회 →
+     기대 4800인데 **즉시 120 · 1.5초 뒤 511**. 각 대입이 앞선 애니메이션의
+     **진행 중 값**을 읽어 누적이 거의 안 됐다.
+     ⚠️ JS 정렬(`alignScrollTop`·초깃값 정렬)은 `el.scrollTop = ...` 직접 대입이라
+     이 선언에 의존하지 않는다 — 걷어도 그 경로는 그대로 동작한다.
+     부드러운 이동이 다시 필요해지면 CSS 전역이 아니라 **그 호출부에서
+     `scrollTo({behavior:'smooth'})`**로 국소 지정할 것. */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* 구 Edge */
 }
