@@ -213,6 +213,61 @@ check('사용자 1인의 대표 단계는 ProgressMe(/progress/me)에 있다', (
   );
 });
 
+// ── 5. **목이 이 카드를 실제로 띄운다** (2026-08-12) ─────────────────────────
+//
+// 위 1~4는 전부 "값이 오면 어떻게 되는가"였다. 정작 **값이 오는가**를 아무도 안
+// 봤고, 목의 `GET /progress/me`는 `knowledge_level`을 **안 보내고 있었다** —
+// `selectKnowledgeLevel`이 항상 null → 카드가 통째로 렌더되지 않음 → 프론트
+// 스모크 24종 중 어느 것도 이 카드를 본 적이 없음. 그 상태로 카드를 /me 오른쪽
+// 열로 옮기는 배치 변경이 들어갔다(2026-08-12에 발견).
+//
+// 목 라우트가 쓰는 **바로 그 함수**를 불러 선택자에 통과시킨다. 목이 필드를
+// 다시 잃으면 여기서 먼저 운다.
+const { __progressMePayload } = await import('../mock/apiMockPlugin.js');
+
+check('목의 /progress/me가 지식 단계 두 필드를 보낸다', () => {
+  const me = __progressMePayload();
+  assert(
+    Number.isInteger(me.knowledge_level),
+    `knowledge_level이 정수가 아니다 — ${JSON.stringify(me.knowledge_level)} (목이 필드를 안 보내면 카드가 통째로 사라진다)`,
+  );
+  assert(
+    Number.isInteger(me.knowledge_level_max),
+    `knowledge_level_max가 정수가 아니다 — ${JSON.stringify(me.knowledge_level_max)}`,
+  );
+});
+
+check('목 응답이 선택자를 통과한다(= 카드가 뜬다)', () => {
+  const picked = ability.selectKnowledgeLevel(__progressMePayload());
+  assert(picked !== null, '목 응답으로 selectKnowledgeLevel이 null — 카드가 안 뜬다');
+  const me = __progressMePayload();
+  assert(
+    picked.level === me.knowledge_level && picked.max === me.knowledge_level_max,
+    `선택자 결과가 응답과 다르다 — ${JSON.stringify(picked)} vs ${me.knowledge_level}/${me.knowledge_level_max}`,
+  );
+});
+
+// 목이 **반올림된 θ**로 단계를 내면 서버와 경계에서 갈린다: `abilityRows()`는
+// 표시용으로 θ를 소수 2자리로 자르는데(θ=0.4951 → 0.50) 서버는 원값으로 센다.
+// 그 한 칸 차이가 화면의 「10단계 중 N단계」를 통째로 바꾼다.
+// 파이썬 패리티 테스트는 **변환 함수**만 대조하므로 이 파생 경로는 여기서 문다.
+check('목이 반올림 전 θ로 단계를 낸다', () => {
+  const src = readFileSync(resolve(here, '..', 'mock', 'apiMockPlugin.js'), 'utf8');
+  const fn = src.slice(src.indexOf('function knowledgeLevelNow()'));
+  const body = fn.slice(0, fn.indexOf('\n}'));
+  assert(
+    !body.includes('abilityRows('),
+    'knowledgeLevelNow가 abilityRows()(θ 2자리 반올림)를 쓴다 — 서버는 원값이라 경계에서 한 칸 갈린다',
+  );
+  assert(body.includes('devAbilities'), 'knowledgeLevelNow가 원 저장소(devAbilities)를 안 본다');
+});
+
+check('목 단계에 라벨이 있다(카드가 키 문자열을 그대로 띄우지 않는다)', () => {
+  const { level } = ability.selectKnowledgeLevel(__progressMePayload());
+  const name = ability.KNOWLEDGE_LEVEL_NAME[level];
+  assert(typeof name === 'string' && name.length > 0, `${level}단계 라벨이 없다`);
+});
+
 if (failed > 0) {
   console.error(`\n실패 ${failed}건`);
   process.exitCode = 1;

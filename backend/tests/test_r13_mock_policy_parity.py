@@ -218,6 +218,134 @@ class TestLevelGroups:
 
 
 @needs_node
+class TestKnowledgeLevelAxis:
+    """지식 단계 축 — **목에 아예 없던** 도메인(2026-08-12).
+
+    목의 `GET /progress/me`가 `knowledge_level`·`knowledge_level_max`를 안 보내서
+    `KnowledgeLevelCard`가 목에서 **항상 null**을 반환했다. 카드가 통째로 안 뜨니
+    프론트 스모크 24종 중 어느 것도 그 카드를 렌더해 본 적이 없었고, 그 상태로
+    카드를 /me 오른쪽 열로 옮기는 배치 변경이 들어갔다. J-9가 "값이 갈렸다"였다면
+    이것은 "필드가 없었다"다 — 갈림보다 조용하다.
+
+    분모(MAX)와 경계(BOUNDS)가 어긋나면 목 화면의 「10단계 중 3단계」가 실서버에서
+    다른 숫자가 된다. 두 값 모두 서버가 소유하고 목은 사본이라 실값으로 문다.
+    """
+
+    def test_지식_단계_분모가_같다(self, policy):
+        from app.services.weatherbrain_service import KNOWLEDGE_LEVEL_MAX
+
+        assert policy["knowledge_level_max"] == KNOWLEDGE_LEVEL_MAX
+
+    def test_θ_단계_경계가_같다(self, policy):
+        from app.services.weatherbrain_service import THETA_KNOWLEDGE_LEVEL_BOUNDS
+
+        assert policy["theta_knowledge_level_bounds"] == list(
+            THETA_KNOWLEDGE_LEVEL_BOUNDS
+        )
+
+    def test_목이_같은_θ에서_같은_밴드를_낸다(self, policy):
+        """4밴드 축도 같은 θ에서 같아야 한다.
+
+        지식 단계를 붙이다 발견했다(2026-08-12): 목 `thetaToLevelGroup`에
+        **expert 가지가 없어** θ≥1.5에서 목은 adult, 서버는 expert였다. 두 축은
+        접으면 같아야 하는데(`level_group_of_knowledge_level ∘
+        theta_to_knowledge_level == theta_to_level_group`) 목만 그 불변식을
+        깨고 있었고, 밴드로 잠기는 보드 난이도까지 이 값을 탄다.
+        """
+        import json
+        import subprocess
+
+        from app.services.weatherbrain_service import theta_to_level_group
+
+        samples = [-9.0, -0.51, -0.5, 0.0, 0.49, 0.5, 1.0, 1.49, 1.5, 2.0, 9.0]
+        code = (
+            f"const m = await import({str(MOCK_PATH.as_uri())!r});"
+            f"const xs = {json.dumps(samples)};"
+            "process.stdout.write(JSON.stringify(xs.map(m.__thetaToLevelGroup)));"
+        )
+        proc = subprocess.run(
+            [NODE, "--input-type=module", "-e", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=MOCK_PATH.parent,
+        )
+        assert proc.returncode == 0, proc.stderr[-2000:]
+        mock_bands = json.loads(proc.stdout)
+        server_bands = [theta_to_level_group(x) for x in samples]
+        mismatched = [
+            (x, m, s) for x, m, s in zip(samples, mock_bands, server_bands) if m != s
+        ]
+        assert not mismatched, f"θ→밴드가 갈린다 (θ, 목, 서버): {mismatched}"
+
+    def test_두_축이_목_안에서도_접힌다(self, policy):
+        """목 스스로도 2축 정합을 지키는가 — 단계를 밴드로 접으면 밴드와 같아야."""
+        import json
+        import subprocess
+
+        from app.services.weatherbrain_service import level_group_of_knowledge_level
+
+        samples = [-9.0, -0.5, 0.0, 0.5, 1.0, 1.5, 1.75, 2.0, 2.25, 9.0]
+        code = (
+            f"const m = await import({str(MOCK_PATH.as_uri())!r});"
+            f"const xs = {json.dumps(samples)};"
+            "process.stdout.write(JSON.stringify(xs.map((x) => "
+            "[m.__thetaToKnowledgeLevel(x), m.__thetaToLevelGroup(x)])));"
+        )
+        proc = subprocess.run(
+            [NODE, "--input-type=module", "-e", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=MOCK_PATH.parent,
+        )
+        assert proc.returncode == 0, proc.stderr[-2000:]
+        broken = [
+            (x, lvl, band, level_group_of_knowledge_level(lvl))
+            for x, (lvl, band) in zip(samples, json.loads(proc.stdout))
+            if level_group_of_knowledge_level(lvl) != band
+        ]
+        assert not broken, f"목의 2축이 안 접힌다 (θ, 단계, 밴드, 접은값): {broken}"
+
+    def test_목이_같은_θ에서_같은_단계를_낸다(self, policy):
+        """경계값 전건 대조 — 표만 같고 **비교 방향**(< vs <=)이 다르면 경계에서
+        갈린다. 목은 `findIndex(theta < bound)`, 서버는 `if theta < bound`다.
+        """
+        import json
+        import subprocess
+
+        from app.services.weatherbrain_service import theta_to_knowledge_level
+
+        bounds = policy["theta_knowledge_level_bounds"]
+        # 경계 위·정확히·아래를 모두 던진다(경계는 하위 제외·상위 포함 관례)
+        samples = [-9.0, 9.0]
+        for b in bounds:
+            samples += [b - 0.01, b, b + 0.01]
+
+        code = (
+            f"const m = await import({str(MOCK_PATH.as_uri())!r});"
+            f"const xs = {json.dumps(samples)};"
+            "process.stdout.write(JSON.stringify(xs.map(m.__thetaToKnowledgeLevel)));"
+        )
+        proc = subprocess.run(
+            [NODE, "--input-type=module", "-e", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=MOCK_PATH.parent,
+        )
+        assert proc.returncode == 0, proc.stderr[-2000:]
+        mock_levels = json.loads(proc.stdout)
+        server_levels = [theta_to_knowledge_level(x) for x in samples]
+        mismatched = [
+            (x, m, s)
+            for x, m, s in zip(samples, mock_levels, server_levels)
+            if m != s
+        ]
+        assert not mismatched, f"θ→단계가 갈린다 (θ, 목, 서버): {mismatched}"
+
+
+@needs_node
 class TestCrownPolicy:
     """왕관 — **행위가 이미 갈라져 있던** 도메인(CO-A6 / CO-J-9).
 
