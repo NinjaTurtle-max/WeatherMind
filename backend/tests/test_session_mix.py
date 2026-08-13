@@ -1,9 +1,15 @@
-"""세션 배합 로직(R2-01 §3.2 → R11-01 §9.2 10문항 → R13-01 §2.10 15문항) 단위 테스트.
+"""세션 배합 로직 단위 테스트
+(R2-01 §3.2 → R11-01 §9.2 10문항 → R13-01 §2.10 15문항 → **SPRINT_R13_02 §T3 10문항**).
 
 순수 함수만 — DB 불필요.
-plan_bank_picks: new 5 + review 4 + live 1 + unit 5, review·unit 부족 시 new 대체,
+`plan_bank_picks`: 배합대로 뽑고 review·unit·live 부족분은 new로 대체,
 뱅크 부족분은 generate_count(폴백 생성 수)로 반환.
-enforce_type_variety: 같은 question_type 3연속 금지.
+`enforce_type_variety`: 같은 question_type 3연속 금지.
+
+⚠️ **2026-08-12: 기본 배합에서 `unit`이 빠졌다**(`{live:2,new:4,review:3,board:1}`).
+진도 블록 코드는 살아 있고 env로 되돌릴 수 있으므로(`recipe.get("unit", 0)`),
+진도 블록을 보는 케이스는 `LEGACY_UNIT_RECIPE`를 **인자로 명시 전달**한다.
+기본 배합이 무엇인지는 `test_recipe_합계는_세션_크기`가 따로 못 박는다.
 """
 from app.services.session_service import (
     DEFAULT_RECIPE,
@@ -11,6 +17,11 @@ from app.services.session_service import (
     enforce_type_variety,
     plan_bank_picks,
 )
+
+#: 진도 블록이 켜진 배합 — 옛 기본값이자 지금은 env 전용 경로.
+#: `tests/test_unit_block_recipe.LEGACY_UNIT_RECIPE`와 같은 값이고 같은 이유로 있다.
+LEGACY_UNIT_RECIPE = {"new": 5, "review": 4, "live": 1, "unit": 5}
+LEGACY_SESSION_SIZE = sum(LEGACY_UNIT_RECIPE.values())
 
 
 def make_items(count: int, prefix: str, question_type: str = "multiple_choice"):
@@ -24,25 +35,35 @@ def kinds_of(picks):
 
 
 class TestPlanBankPicks:
-    def test_뱅크_충분시_5_4_1_5_배합_폴백_없음(self):
+    def test_뱅크_충분시_LEGACY_5_4_1_5_배합_폴백_없음(self):
         picks, generate_count = plan_bank_picks(
             make_items(8, "new"),
             make_items(8, "rev"),
             make_items(3, "live"),
+            LEGACY_UNIT_RECIPE,
             unit_pool=make_items(8, "unit"),
         )
-        assert len(picks) == SESSION_SIZE
+        assert len(picks) == LEGACY_SESSION_SIZE
         assert generate_count == 0
+        # 순서: **live가 앞**(클라이언트 사양 「실황이 앞」 — 2026-08-12 H 반영).
+        # `plan_bank_picks`의 전역 블록 순서가 live → new → review → board → unit이고,
+        # 레거시 배합(board 없음)도 그 순서를 그대로 탄다.
         assert kinds_of(picks) == (
-            ["new"] * 5 + ["review"] * 4 + ["live"] + ["unit"] * 5
+            ["live"] + ["new"] * 5 + ["review"] * 4 + ["unit"] * 5
         )
 
     def test_진도_블록이_항상_마지막(self):
-        """§2.10 "마지막 5문항 = 내 진도" — 배합 순서가 곧 발급 순서다."""
+        """§2.10 "마지막 5문항 = 내 진도" — 블록 호출 순서가 곧 발급 순서다.
+
+        ⚠️ 이 순서를 정하는 것은 **배합 dict의 키 순서가 아니라**
+        `plan_bank_picks`의 블록 호출 순서다(new → review → live → unit 고정).
+        기본 배합을 `{live:2,…}`로 적어도 실황이 앞으로 오지 않는 이유가 이것이다.
+        """
         picks, _ = plan_bank_picks(
             make_items(20, "new"),
             make_items(8, "rev"),
             make_items(3, "live"),
+            LEGACY_UNIT_RECIPE,
             unit_pool=make_items(8, "unit"),
         )
         assert kinds_of(picks)[-5:] == ["unit"] * 5
@@ -50,10 +71,11 @@ class TestPlanBankPicks:
     def test_review_없으면_new로_대체(self):
         picks, generate_count = plan_bank_picks(
             make_items(20, "new"), [], make_items(1, "live"),
+            LEGACY_UNIT_RECIPE,
             unit_pool=make_items(5, "unit"),
         )
         assert generate_count == 0
-        assert kinds_of(picks) == ["new"] * 9 + ["live"] + ["unit"] * 5
+        assert kinds_of(picks) == ["live"] + ["new"] * 9 + ["unit"] * 5
 
     def test_뱅크_부족시_부족분만큼_생성_폴백(self):
         picks, generate_count = plan_bank_picks(make_items(1, "new"), [], [])
@@ -78,19 +100,21 @@ class TestPlanBankPicks:
             make_items(20, "new"),
             make_items(8, "rev"),
             make_items(3, "live"),
+            LEGACY_UNIT_RECIPE,
             unit_pool=make_items(2, "unit"),
         )
         assert generate_count == 0
-        assert len(picks) == SESSION_SIZE
+        assert len(picks) == LEGACY_SESSION_SIZE
         assert kinds_of(picks)[-5:] == ["unit"] * 2 + ["new"] * 3
 
     def test_열린_유닛_없으면_진도_0이어도_총합_유지(self):
-        """신규 유저(열린 유닛 0) — 진도 블록 0 + 부족분 new 대체로 여전히 15문항."""
+        """신규 유저(열린 유닛 0) — 진도 블록 0 + 부족분 new 대체로 총합 유지."""
         picks, generate_count = plan_bank_picks(
-            make_items(20, "new"), make_items(8, "rev"), make_items(3, "live")
+            make_items(20, "new"), make_items(8, "rev"), make_items(3, "live"),
+            LEGACY_UNIT_RECIPE,
         )
         assert generate_count == 0
-        assert len(picks) == SESSION_SIZE
+        assert len(picks) == LEGACY_SESSION_SIZE
         assert "unit" not in kinds_of(picks)
 
     def test_블록_간_중복_없음(self):
@@ -104,14 +128,19 @@ class TestPlanBankPicks:
         assert len(picks) + generate_count == SESSION_SIZE
 
     def test_recipe_합계는_세션_크기(self):
-        """계약값 15 고정 (R13-01 §2.10 — 신규5·복습4·실황1·진도5).
+        """계약값 **10** 고정 (SPRINT_R13_02 §T3 / MT-6 —
+        오늘 날씨 2 · 신규 4 · 복습 3 · 오늘 날씨 반영 보드 1).
 
-        env 기본값 = 계약값 유지(CLAUDE.md 드리프트 감시 관례). 에너지와의 관계:
-        오답 최대 15 > 구름 만렙 5이지만 "진행 중 세션은 잔량 0에도 완주 보장"
+        env 기본값 = 계약값 유지(CLAUDE.md 드리프트 감시 관례). 화면 문구가 R11
+        이래 「오늘의 10문항」인데 실배합이 15였던 어긋남(대장 CO-S-6)이 이 값으로
+        닫힌다. 에너지와의 관계: 오답 최대 10 = 구름 만렙 10이라 한 세션 전건
+        오답이 정확히 만렙을 소진하지만, "진행 중 세션은 잔량 0에도 완주 보장"
         계약(R10 에너지 전환)이 이미 흡수한다 — daily-goal(3·5·9)·CLOUD_* 불변.
         """
-        assert DEFAULT_RECIPE == {"new": 5, "review": 4, "live": 1, "unit": 5}
-        assert sum(DEFAULT_RECIPE.values()) == SESSION_SIZE == 15
+        assert DEFAULT_RECIPE == {"live": 2, "new": 4, "review": 3, "board": 1}
+        assert sum(DEFAULT_RECIPE.values()) == SESSION_SIZE == 10
+        # 진도 블록은 기본 배합에서 빠졌다 — 사고가 아니라 계약이다(env 롤백 가능)
+        assert "unit" not in DEFAULT_RECIPE
 
 
 class TestEnforceTypeVariety:

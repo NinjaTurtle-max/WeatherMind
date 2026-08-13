@@ -268,6 +268,11 @@ function seedToSessionItem(seed, { quizId, source = 'bank' }) {
     question_text: template.question_text ?? '',
     options: template.options ?? null,
     level_group: seed.level_group ?? 'middle_high',
+    // 지식 단계(난이도 축) — 서버 SessionItem.knowledge_level과 같은 필드.
+    // 시드 행의 컬럼값을 **파생 없이** 그대로 흘린다(서버 session_service와 동일).
+    // 없으면 null이고 화면은 배지를 그리지 않는다 — 목이 값을 지어내면 "구 데이터엔
+    // 배지가 안 뜬다"는 계약을 목에서 검증할 수 없게 된다.
+    knowledge_level: seed.knowledge_level ?? null,
     source,
     slot_filled: Boolean(seed.uses_live_slots),
     template_json: questionPayload(template, type),
@@ -1096,16 +1101,47 @@ const QUIZ = {
 //   heat_island '도시 상공의 오존층이 두꺼워져서'). 이 문구들은 시드 53문항에
 //   존재하지 않아(전수 grep 확인) 시드 파생으로 대체하면 스모크가 깨진다.
 //   스모크를 함께 손댈 수 있을 때 이 4건도 시드 파생으로 넘긴다(R10-07 보고 사항).
-// R13-01 §2.10: 세션 디폴트 15문항(신규5·복습4·실황1·**진도5**) — backend
+// R13-02 §T3: 세션 디폴트 **10문항**(실황2·신규4·복습3·**보드1**) — backend
 // Settings.SESSION_RECIPE와 parity 계약(test_r10_mock_parity_contract)이 대조한다.
-// 진도(unit) 블록은 서버에서 "현재 진행 유닛의 다음 문항"이며 항상 **마지막**에 온다.
-const MOCK_SESSION_RECIPE = { new: 5, review: 4, live: 1, unit: 5 };
+//
+// ⚠️ **2026-08-12 개정**(종전 15문항 신규5·복습4·실황1·진도5).
+//   ⑴ **`unit`(진도) 블록이 빠졌다.** 왕관 판정을 유닛 세션 완료로 되돌리기로
+//      클라이언트가 확정했다 — 데일리가 진도를 겸하지 않는다.
+//   ⑵ **`board` 1문항이 명시 블록으로 들어왔다.** 「오늘 날씨 반영 보드」다:
+//      KMA 실황 → 현상 판정 → 그 현상에 맞는 보드 선택(`order_boards_for_today`).
+const MOCK_SESSION_RECIPE = { live: 2, new: 4, review: 3, board: 1 };
+
+// ── 출제 순서 (server `session_service.plan_bank_picks`의 **블록 호출 순서**) ──
+// ⚠️ **배합 dict의 키 순서는 출제 순서를 정하지 않는다.** 소유자는 서버에서도
+// 목에서도 "블록을 부르는 순서"이고, 그래서 별도 상수로 선언한다.
+//
+// **2026-08-13 정정**: 목은 `new → review → live → board`로 돌고 있었고 서버는
+// `live → new → review → board`였다 — 조용히 갈린 채였다. 지금 고치는 이유는
+// 하루 첫 유닛 세션이 이 화면을 공유하게 되면서, 크롬으로 눈으로 확인할 때
+// **화면에서 본 순서가 진짜 결함인지 목 인공물인지 구분되지 않기 때문**이다.
+// 하루를 오늘의 날씨로 열고 오늘의 보드로 닫는 것이 클라이언트 사양의 서술
+// 순서(「오늘 날씨 2 · 신규 4 · 복습 3 · 오늘 날씨 반영 보드 1」)다.
+//
+// __mockPolicy()로 노출해 backend `test_r13_mock_policy_parity`가 **서버
+// plan_bank_picks를 실제로 실행한 결과**와 대조한다(기대값 사본 금지 — CO-J-9).
+const MOCK_BLOCK_ORDER = ['live', 'new', 'review', 'board'];
+
+// 서버 `Settings.UNIT_SESSION_SIZE` — **「두 번째 이후」 유닛 세션 문항 수**
+// (2026-08-13 확정: 하루 첫 유닛 세션은 위 배합 총합 10문항을 받는다).
+// __mockPolicy()로 노출해 backend 계약 테스트가 실값으로 대조한다 — 종전 목은
+// 이 자리에 하드코딩 `3`을 갖고 있어 서버(4)와 조용히 갈려 있었다(CO-J-9와 같은 모양).
+const MOCK_UNIT_SESSION_SIZE = 4;
 
 // 서버 Settings.DAILY_BOARD_CAP — daily 비진도 블록의 board 상한(CO-H5).
 // 목 뱅크는 board가 소수라 지금은 상한에 닿지 않지만, **정책을 선언하지 않으면
 // 저작이 늘었을 때 조용히 갈린다**(에너지 상수를 리터럴로 복사했다가 대조가 0이던
 // CO-J-9와 같은 자리). __mockPolicy()로 노출해 backend 계약 테스트가 실값을 문다.
-const MOCK_DAILY_BOARD_CAP = 2;
+//
+// **2 → 1** (2026-08-12 클라이언트 확정, 서버가 먼저 바뀜).
+// 배합이 `board: 1`을 **보장 자리**로 갖게 되면서 상한 2는 「보장 1 + 우발 1」을
+// 뜻했다. 상한 1이면 배합이 보장한 그 1건이 예산을 전부 쓰고, new·review 슬롯에
+// board가 우발적으로 끼어드는 경로가 닫힌다 — 하루에 보드는 「오늘의 하늘」 하나.
+const MOCK_DAILY_BOARD_CAP = 1;
 
 // 신규(new) 슬롯 픽스처 — 스모크 시나리오 7이 1·2번 문항으로 고정
 const PINNED_NEW_ITEMS = [
@@ -1116,6 +1152,7 @@ const PINNED_NEW_ITEMS = [
     question_text: '전선을 경계로 성질이 다른 두 공기가 만납니다. 찬 공기가 따뜻한 공기를 밀어 올리며 이동할 때 만들어지는 전선은?',
     options: ['한랭 전선', '온난 전선', '정체 전선', '폐색 전선'],
     level_group: 'middle_high',
+    knowledge_level: 4,
     source: 'bank',
     slot_filled: false,
     template_json: null, // 서버: 추가 페이로드가 필요 없는 유형은 None
@@ -1134,6 +1171,7 @@ const PINNED_NEW_ITEMS = [
     question_text: '여름철 우리나라에 덥고 습한 날씨를 가져오는, 남동쪽 해양에서 발달하는 기단의 이름은? (○○○○ 기단)',
     options: null,
     level_group: 'middle_high',
+    knowledge_level: 3,
     source: 'bank',
     slot_filled: false,
     template_json: null,
@@ -1150,6 +1188,10 @@ const PINNED_NEW_ITEMS = [
 
 // 복습(review) 슬롯 픽스처 — 스모크 시나리오 10이 개념·정답으로 고정
 // (typhoon = 목 WEAK_TAGS 최약 개념 → 약점 보너스 XP 분해 검증, heat_island = 비약점)
+// ⚠️ 이 두 건에는 `knowledge_level`을 **일부러 안 넣는다**(2026-08-12). 단계 미분류
+// 문항(구 데이터·생성 문항)에서 학습 수준 배지가 그려지지 않는 것을 개발 화면에서
+// 매번 눈으로 확인할 수 있게 하는 자리다 — 빈 배지·"?"가 뜨면 여기서 먼저 보인다.
+// 값을 채우고 싶어지면 그 계약이 어디서 검증되는지부터 확인할 것.
 const PINNED_REVIEW_ITEMS = [
   {
     quiz_id: `${todayISO()}-s3-review`,
@@ -1223,29 +1265,34 @@ const SESSION_SLOT_POOLS = {
   live: SEED_LIVE_POOL.map((seed, i) =>
     seedToSessionItem(seed, { quizId: `${todayISO()}-live${i + 1}-generated`, source: 'generated' }),
   ),
-  // 진도(unit) 슬롯 — R13-01 §2.10. 서버는 "현재 진행 유닛의 다음 문항"을 뽑지만
-  // 목에는 유저 진도 상태가 없어 시드 중간부터 결정적으로 집는다(신규·복습 슬롯이
-  // 앞/뒤 끝에서 집으므로 겹침이 가장 적은 구간). 총합·블록 표기 검증이 목적이다.
-  unit: [...SEED_QUIZ_POOL]
-    .slice(Math.floor(SEED_QUIZ_POOL.length / 2))
-    .map((seed, i) =>
-      seedToSessionItem(seed, { quizId: `${todayISO()}-unit${i + 1}-bank` }),
-    ),
+  // board 슬롯 (R13-02 §T3) — 「오늘 날씨 반영 보드」 1문항.
+  // 서버는 KMA 실황으로 오늘 현상을 판정해 `order_boards_for_today`로 정렬하지만,
+  // 목에는 실황 판정기가 없으므로 board 유형 시드를 **결정적 순서**로 집는다.
+  // 여기서 검증하는 것은 "board 블록이 배합만큼 실려 오고 kind가 board로 표시되는가"다.
+  // ⚠️ **`SEED_ITEMS`에서 고른다 — `SEED_QUIZ_POOL`이 아니다.** 그 풀은 정의부터
+  // `question_type !== 'board'`라 board를 걸러낸다(위 1215행). 거기서 board를 찾으면
+  // 항상 빈 배열이고, 그러면 board 블록이 조용히 new로 대체되어 **화면에 「오늘의
+  // 하늘」 블록이 영영 안 뜬다** — 실제로 그렇게 한 번 짰다(2026-08-12).
+  board: SEED_ITEMS.filter(
+    (seed) => seed.question_type === 'board' && !seed.uses_live_slots,
+  ).map((seed, i) => seedToSessionItem(seed, { quizId: `${todayISO()}-board${i + 1}-bank` })),
 };
 
 /** 배합대로 슬롯을 채운다 — 총 문항 수는 항상 배합 총합. 같은 문항은 한 번만.
  *  블록 구분(kind)은 서버 SessionItem.kind와 같은 값으로 실어 보낸다(§2.10). */
 function buildSessionItems(recipe) {
-  const picked = [];
   const seen = new Set();
   let boardTaken = 0;
-  for (const kind of ['new', 'review', 'live', 'unit']) {
+
+  /** 한 블록을 `count`만큼 집는다 — 서버 `plan_bank_picks`의 `take()`와 같은 역할.
+   *  `kind`는 **표시 라벨**이라 풀과 다를 수 있다(부족분을 new 풀에서 메울 때
+   *  서버가 그 문항을 "new"로 라벨하는 것과 동일). */
+  function take(poolName, count, kind, capBoard = true) {
+    const picked = [];
     let taken = 0;
-    // 진도 블록은 board 상한 면제 — 서버 plan_bank_picks와 같은 규칙(CO-H5).
-    const capBoard = kind !== 'unit';
     const deferred = [];
-    for (const item of SESSION_SLOT_POOLS[kind]) {
-      if (taken >= (recipe[kind] ?? 0)) break;
+    for (const item of SESSION_SLOT_POOLS[poolName] ?? []) {
+      if (taken >= (count ?? 0)) break;
       if (seen.has(item.question_text)) continue;
       if (capBoard && item.question_type === 'board' && boardTaken >= MOCK_DAILY_BOARD_CAP) {
         deferred.push(item);
@@ -1258,33 +1305,80 @@ function buildSessionItems(recipe) {
     }
     // 상한 초과분은 버리지 않고 뒤로 미룬다 — 서버와 같은 이유(배합이 덜 차면
     // 그 자리가 유료 생성으로 샌다). 목은 생성이 없으므로 여기서는 "문항 수가
-    // 줄어 15문항 계약이 깨지는 것"을 막는 역할이다.
+    // 줄어 배합 총합 계약이 깨지는 것"을 막는 역할이다.
     for (const item of deferred) {
-      if (taken >= (recipe[kind] ?? 0)) break;
+      if (taken >= (count ?? 0)) break;
       seen.add(item.question_text);
       boardTaken += 1;
       picked.push({ ...item, kind });
       taken += 1;
     }
+    return picked;
   }
-  return picked;
+
+  // ── board 블록은 **선점**한다 (서버 plan_bank_picks와 같은 순서 — R13-02 §T3) ──
+  // 자리는 live 뒤지만 **선택은 맨 먼저** 한다. board 문항은 new 풀에도 들어 있어서
+  // new 블록이 먼저 돌면 오늘 현상에 맞춰 고른 바로 그 보드를 new가 집어가고,
+  // board 블록은 차선을 받는다 — 「오늘 날씨 반영 보드」의 핵심이 정확히 그 1건이라
+  // 뒤집힌다. 선점해 두면 new는 자동으로 다음 후보로 넘어간다(`seen`이 막는다).
+  // cap_board=false: 배합이 **보장한** 자리라 DAILY_BOARD_CAP으로 막지 않는다.
+  const boardCount = recipe.board ?? 0;
+  const boardPicks = boardCount ? take('board', boardCount, 'board', false) : [];
+
+  // ── 출제 순서는 `MOCK_BLOCK_ORDER`가 소유한다 (서버 plan_bank_picks와 같은 형태) ──
+  // ⚠️ **부족분은 new 풀이 메운다** — 서버와 같은 규칙이고, 없으면 배합 총합이
+  // 깨진다(실제로 깨졌다: live 풀이 2건에 못 미쳐 10문항이 9문항이 됐다.
+  // 2026-08-12). 서버에서 이 폴백의 뜻은 "그 자리가 유료 생성으로 새지 않게
+  // 한다"이고, 목에서는 "총합 계약을 지킨다"이다. 메운 문항의 **라벨은 new**다
+  // — 서버가 그렇게 라벨하므로 블록 표기도 같이 맞춘다.
+  // board만 예외적으로 **위에서 선점한 결과**를 그대로 쓴다(부족분 대체는 여기서).
+  const picks = [];
+  for (const block of MOCK_BLOCK_ORDER) {
+    const count = recipe[block] ?? 0;
+    if (!count) continue;
+    const taken = block === 'board' ? boardPicks : take(block, count, block);
+    picks.push(...taken, ...take('new', count - taken.length, 'new'));
+  }
+  return picks;
 }
 
 const SESSION_ITEMS = buildSessionItems(MOCK_SESSION_RECIPE);
 
-// ── 온보딩 배치고사 (R7-01 S3) — 6문항 진단 세션. 6개 concept_tag 전 영역 1문항씩. ──
-// **시드 파생**(R10-07 §2.3): 개념 태그마다 board·실황을 뺀 첫 문항을 고르되,
-// 아직 쓰지 않은 question_type을 우선해 진단이 한 유형으로 편중되지 않게 한다(결정적).
+// ── 온보딩 배치고사 (R7-01 S3) — 진단 세션 ────────────────────────────────
+// 서버 `Settings.PLACEMENT_SIZE` — **6 → 10**(2026-08-12 PM 판정).
+// `placement_service.target_level_sequence`가 지식 단계 1~10을 한 번씩 겨냥하려면
+// 슬롯이 10칸이어야 한다. 진단 도메인은 여전히 기상 6종(`CONCEPT_TAGS`)이므로
+// **개념이 순환한다** — 서버의 `CONCEPT_TAGS[i % len(CONCEPT_TAGS)]` 배정과 같다.
+// 「개념당 1문항」은 더 이상 성립하지 않고, 그것이 사양이다.
+//
+// ⚠️ 목이 6문항에 멈춰 있었고 `__mockPolicy()`가 이 크기를 노출하지 않아
+// **패리티 테스트가 못 봤다**(2026-08-13 코드 리뷰 결함 ④ — 에너지 상수를
+// 리터럴로 복사한 채 대조가 0이던 CO-J-9와 같은 모양).
+//
+// **시드 파생**(R10-07 §2.3): 슬롯마다 board·실황을 뺀 문항을 고르되, 아직 쓰지
+// 않은 question_type을 우선해 진단이 한 유형으로 편중되지 않게 한다(결정적).
+// 같은 개념이 두 번 돌아오므로 **이미 쓴 시드도 제외**한다 — 안 그러면 같은 문항이
+// quiz_id만 바꿔 두 번 나온다.
 // 실황 슬롯 없음(진단 성격) · board 없음(일괄 채점 경로는 board_state를 받지 않는다).
+const MOCK_PLACEMENT_SIZE = 10;
+
 const PLACEMENT_ITEMS = (() => {
   const usedTypes = new Set();
-  return CONCEPT_TAGS.map((tag, i) => {
-    const candidates = SEED_QUIZ_POOL.filter((it) => it.concept_tag === tag);
-    const seed = candidates.find((it) => !usedTypes.has(it.question_type)) ?? candidates[0];
-    if (!seed) return null;
+  const usedSeeds = new Set();
+  const items = [];
+  for (let i = 0; i < MOCK_PLACEMENT_SIZE; i += 1) {
+    const tag = CONCEPT_TAGS[i % CONCEPT_TAGS.length];
+    const candidates = SEED_QUIZ_POOL.filter(
+      (it) => it.concept_tag === tag && !usedSeeds.has(it),
+    );
+    const seed =
+      candidates.find((it) => !usedTypes.has(it.question_type)) ?? candidates[0];
+    if (!seed) continue;
+    usedSeeds.add(seed);
     usedTypes.add(seed.question_type);
-    return seedToSessionItem(seed, { quizId: `${todayISO()}-p${i + 1}` });
-  }).filter(Boolean);
+    items.push(seedToSessionItem(seed, { quizId: `${todayISO()}-p${i + 1}` }));
+  }
+  return items;
 })();
 
 const PLACEMENT_SESSION_ID = '91ac8b1e-0000-4000-8000-0000000000bb';
@@ -1515,8 +1609,42 @@ const sessionProgress = (s) => ({
   total: s.items.length,
 });
 
-/** 유닛 kind+concept_tag로 문항 풀을 결정해 세션 items 구성 (§3.2) */
-function buildUnitItems(unit) {
+/** 오늘(KST) 이미 발급된 유닛 세션이 있는가 — 서버
+ *  `curriculum_service.is_first_unit_session_today`의 목 대응물.
+ *
+ *  ⚠️ **하루 경계는 KST다**(`todayISO()` → `KST_OFFSET_MS`). UTC로 세면 09:00 KST에
+ *  하루가 넘어가고 「하루 첫 세션」이 아침에 두 번 열린다 — 서버는 `session_date`가
+ *  `datetime.now(KST).date()` 파생이라 KST이고, 갈리면 목 위 스모크가 실서버에
+ *  없는 동선을 검증하게 된다. */
+const hasUnitSessionToday = () => {
+  const today = todayISO();
+  for (const s of sessions.values()) {
+    if (s.mode === 'unit' && s.session_date === today) return true;
+  }
+  return false;
+};
+
+/** 유닛 세션 items 구성 — **하루 첫 세션이면 데일리 배합**(2026-08-13 확정).
+ *
+ *  서버 `create_unit_session`과 같은 갈림이다:
+ *    · `dailyFirst` → 10문항 `실황2·신규4·복습3·보드1` (= daily 세션과 같은 배합).
+ *      목에는 유닛별 daily 풀이 없으므로 daily가 쓰는 `SESSION_ITEMS`를 그대로
+ *      재사용한다 — **검증 대상은 "첫 세션이 데일리 배합·10문항으로 온다"**이지
+ *      문항 선정 알고리즘이 아니다(그쪽은 서버 계약 테스트가 소유).
+ *    · 그 외 → `MOCK_UNIT_SESSION_SIZE`문항, **실황 0 · 보드 0**의 순수 학습.
+ *
+ *  ⚠️ **종전 목은 첫 세션도 비실황 3~4문항으로 만들었다.** 서버가 첫 세션에
+ *  데일리 배합을 주기 시작하면 그 순간 목과 서버가 갈리고, **프론트 스모크는 그
+ *  차이를 못 본다** — 목 위에서는 영영 4문항 화면만 보이기 때문이다. */
+function buildUnitItems(unit, dailyFirst = false) {
+  if (dailyFirst) {
+    // quiz_id를 유닛 세션용으로 다시 붙인다 — daily 세션과 같은 id를 쓰면
+    // `sessions` 답안 맵이 두 세션 사이에서 섞인다.
+    return SESSION_ITEMS.map((item, i) => ({
+      ...item,
+      quiz_id: `${todayISO()}-unit${unit.unit_order}-${unit.slug}-d${i + 1}`,
+    }));
+  }
   if (unit.kind === 'board') {
     const puzzle =
       BOARD_PUZZLES.find((p) => p.concept_tag === unit.concept_tag) ?? BOARD_PUZZLES[0];
@@ -1525,6 +1653,11 @@ function buildUnitItems(unit) {
         quiz_id: `${todayISO()}-unit${unit.unit_order}-${unit.section}-board`,
         concept_tag: unit.concept_tag,
         question_type: 'board',
+        // 서버 `create_unit_session`이 두 번째 이후 세션에 싣는 블록 라벨과 같은 값.
+        // ⚠️ board **유닛**의 퍼즐은 확정 사양의 「보드 0」과 무관하다 — 그 0은
+        // 데일리 배합의 board **블록**을 뜻하고, 이쪽은 그 유닛이 가르치는 내용
+        // 자체다(서버도 `question_type == "board"`로 필터해 같은 것을 낸다).
+        kind: 'unit',
         question_text: puzzle.template_json.question_text,
         template_json: puzzle.template_json,
         level_group: 'middle_high',
@@ -1538,28 +1671,34 @@ function buildUnitItems(unit) {
       },
     ];
   }
-  // quiz 유닛: **시드 파생**(R10-07 §2.3) — 같은 concept_tag의 board·실황 제외 문항
-  // 최대 3건. 유형이 겹치지 않는 것을 먼저 골라(결정적) 유닛 하나에서 여러 유형이
-  // 보이게 한다(데일리 배합이 5건으로 줄어 유형 전시가 유닛으로 옮겨졌다).
+  // quiz 유닛(두 번째 이후): **시드 파생**(R10-07 §2.3) — 같은 concept_tag의
+  // board·실황 제외 문항을 `MOCK_UNIT_SESSION_SIZE`건. 유형이 겹치지 않는 것을
+  // 먼저 골라(결정적) 유닛 하나에서 여러 유형이 보이게 한다.
+  // ⚠️ **`SEED_QUIZ_POOL`은 정의부터 board·실황을 뺀 풀**이라 여기서 실황 0 ·
+  // 보드 0이 구조적으로 성립한다(확정 사양의 「두 번째 이후는 순수 학습」).
   const candidates = SEED_QUIZ_POOL.filter((it) => it.concept_tag === unit.concept_tag);
   const pool = candidates.length > 0 ? candidates : SEED_QUIZ_POOL;
   const picked = [];
   const seenTypes = new Set();
   for (const seed of pool) {
-    if (picked.length >= 3) break;
+    if (picked.length >= MOCK_UNIT_SESSION_SIZE) break;
     if (seenTypes.has(seed.question_type)) continue;
     seenTypes.add(seed.question_type);
     picked.push(seed);
   }
   for (const seed of pool) {
-    if (picked.length >= 3) break;
+    if (picked.length >= MOCK_UNIT_SESSION_SIZE) break;
     if (!picked.includes(seed)) picked.push(seed);
   }
-  return picked.map((seed, i) =>
-    seedToSessionItem(seed, {
+  return picked.map((seed, i) => ({
+    ...seedToSessionItem(seed, {
       quizId: `${todayISO()}-unit${unit.unit_order}-${unit.slug}-${i + 1}`,
     }),
-  );
+    // 서버가 두 번째 이후 세션의 entries에 싣는 블록 라벨과 같은 값 —
+    // 완료 화면이 이 값으로 「내 진도」 블록을 표기한다. 없으면 목에서만
+    // 라벨이 비어 화면이 서버와 갈린다.
+    kind: 'unit',
+  }));
 }
 
 /** POST /curriculum/units/{id|slug}/session — 유닛 문항으로 세션 발급(멱등, §3.2).
@@ -1571,23 +1710,38 @@ function startUnitSession(unitIdOrSlug) {
   if (isUnitLocked(unit)) {
     return [403, { detail: '선행 유닛을 먼저 완료해야 열려요', code: 'UNIT_LOCKED' }];
   }
-  // 진입 게이트 (R10-01 §3.1·D6): 잠금 403 판정 **이후**, 세션 생성 직전.
-  // 서버 create_unit_session은 호출마다 새 세션을 만들므로(멱등 재사용 없음)
-  // 이 경로는 조건 없이 차단한다 — 목의 아래 멱등 재사용은 목 전용 편의다.
-  const gate = requireCloudEntry();
-  if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
   const unitId = unit.id; // 정규화 — slug 발급이어도 진도는 id 키로 기록
   const today = todayISO();
   const sessionId = `unit-${unitId}-${today}`;
   let s = sessions.get(sessionId);
   if (!s || s.completed || s.session_date !== today) {
-    // 미완료 당일 세션은 멱등 재사용, 완료됐으면 새 세션(재도전) 발급
+    // 진입 게이트 (R10-01 §3.1·D6): 잠금 403 판정 **이후**, 세션 생성 직전.
+    //
+    // ⚠️ **재사용 판정 다음으로 옮겼다** (2026-08-13 코드 리뷰 결함 ①).
+    // 종전 주석은 "서버는 호출마다 새 세션을 만드므로 조건 없이 차단한다 —
+    // 목의 멱등 재사용은 목 전용 편의다"였는데, 그 전제가 뒤집혔다: 서버도
+    // 오늘·같은 유닛의 미완료 세션을 재사용한다(`curriculum_service.
+    // get_open_unit_session` — D10-3 대체). 게이트가 앞에 있으면 구름 0인
+    // 학습자가 **이미 발급된 세션**에 재진입할 때 429로 쫓겨나 「이미 발급된
+    // 세션은 잔량 0이어도 끝까지 보장」(R10)이 깨진다 — 서버와 목이 **같이**
+    // 갖고 있던 결함이라 양쪽을 함께 고쳤다.
+    const gate = requireCloudEntry();
+    if (!gate.ok) return outOfCloudsError(gate.next_regen_sec);
+    // 이 분기 자체가 재사용 규칙이다 — 미완료 당일 세션은 위에서 그대로 반환되고,
+    // 완료됐으면(재도전) 새 세션을 발급한다. 서버도 같은 규칙이다.
+    //
+    // 「오늘 첫 유닛 세션인가」 도장 (2026-08-13 확정) — 서버
+    // `recipe_json["daily_first"]`에 대응한다. **발급 시점에 찍고 완료 시점은
+    // 읽기만 한다**: 완료 시점에 재계산하면 두 유닛을 역순으로 완료할 때 둘 다
+    // 첫 세션이 되거나 둘 다 아니게 된다(서버와 같은 사유).
+    const dailyFirst = !hasUnitSessionToday();
     s = {
       session_id: sessionId,
       session_date: today,
       mode: 'unit',
       unit_id: unitId,
-      items: buildUnitItems(unit),
+      daily_first: dailyFirst,
+      items: buildUnitItems(unit, dailyFirst),
       answers: {},
       completed: false,
     };
@@ -1938,27 +2092,55 @@ const routes = {
     // 유닛 세션(§3.2 + R8-01 §3.1): 전 문항 정답 시 왕관 +1, cleared 전환 시 +20 XP(1회).
     // unit_result는 백엔드 grant_unit_crown 반환 dict와 동일한 5필드 고정 형태
     // {all_correct, crowns, crown_target, cleared, unit_xp} — 유닛 세션이 아니면 null.
-    // **R13-01 §2.10 왕관 소유권 이전** (CO-A6/CO-J-9, 2026-08-08): 유닛 직접 진입
-    // (/learn 유닛 세션)은 이제 **연습 전용**이라 왕관을 주지 않는다 — 서버
-    // routers/session.py가 `grant_crown=False` 고정이고, 왕관 유입로는 일일 세션의
-    // 진도 블록 하나뿐이다(같은 진도에 두 번 주면 하루 1왕관 상한이 무너진다).
-    // 종전 목은 여기서 왕관을 줬고, 그래서 "목에선 클리어되는데 실서버는 안 되는"
-    // 갈림이 스모크 초록 뒤에 숨어 있었다. 진도 스냅샷(crowns·cleared)과
-    // all_correct·all_resolved 표기는 그대로 나간다(unit_xp는 서버와 같이 0).
+    //
+    // ⚠️ **왕관은 「하루 첫 유닛 세션」에만**(2026-08-13 클라이언트 확정 — 서버
+    // `routers/session.py`가 `grant_crown=all_correct and daily_first`로 배선됨).
+    //
+    // 경위를 남긴다(같은 자리가 세 번 뒤집혔다):
+    //   · R13-01 §2.10(2026-08-08)이 왕관을 일일 세션의 **진도 블록**으로 옮기면서
+    //     유닛 직접 진입을 «연습 전용»(`grant_crown=False`)으로 고정했다.
+    //   · 2026-08-12 배합이 `{live:2,new:4,review:3,board:1}`로 바뀌며 **`unit`
+    //     kind 자체가 사라졌다** — 진도 블록이 없으니 그 유입로도 함께 죽어
+    //     `grant_crown=all_correct`로 되돌렸다.
+    //   · 그러자 **하루에 유닛을 여러 개 열수록 왕관이 무제한**이 됐다. daily가
+    //     갖고 있던 「하루 1세션 = 하루 1왕관」 상한이 유닛에는 없기 때문이다.
+    //     2026-08-13 확정이 그 구멍을 닫는다 — 하루 첫 유닛 세션이 곧 데일리
+    //     세션이고, 왕관은 그 세션에만 붙는다.
+    //
+    // **재계산하지 않고 발급 시점 도장(`s.daily_first`)을 읽는다** — 서버와 같은
+    // 이유(두 유닛을 역순으로 완료하면 재계산이 뒤집힌다). 도장이 없는 세션은
+    // undefined → falsy라 왕관이 안 나간다(모르는 세션은 안 주는 쪽으로 닫힘).
+    //
+    // 멱등은 `grantUnitCrown`이 지킨다(이미 만관이면 null·무동작) — 서버가
+    // "`grant_unit_crown`이 멱등 판정을 갖고 있어 상한은 그쪽이 지킨다"고 적은 것과
+    // 같은 구조다. 재완료로 왕관이 두 번 붙지 않는다.
     let unitResult = null;
     if (s.unit_id) {
       const unit = getUnit(s.unit_id);
-      const prog = getUnitProgress(s.unit_id);
       const crownTarget = unit?.crown_target ?? 1;
       const allCorrect = progress.total > 0 && correctCount === progress.total;
+      const grantCrown = allCorrect && Boolean(s.daily_first);
+
+      // cleared 전환 여부를 **부여 전에** 기록한다 — `unit_xp`는 서버
+      // `grant_unit_crown`의 `xp_earned`와 같은 뜻이라 "이번에 처음 클리어됐을 때만
+      // 20"이다. grantUnitCrown의 반환 4필드 계약(crown_award 페이로드)은 건드리지
+      // 않으려고 전/후 스냅샷으로 판정한다.
+      const wasCleared = getUnitProgress(s.unit_id).cleared_at != null;
+      if (grantCrown) grantUnitCrown(unit ?? null);
+      const prog = getUnitProgress(s.unit_id);
+      const newlyCleared = !wasCleared && prog.cleared_at != null;
+
       unitResult = {
         // all_correct는 **최초 시도 만점**이라는 원래 뜻을 유지한다(§2.1) —
-        // 두 값이 갈리는 세션 = 만회로 클리어한 세션.
+        // 두 값이 갈리는 세션 = 만회로 클리어한 세션. 왕관은 이 값 **∧ 첫 세션**을
+        // 따른다(만회 클리어에는 왕관이 없다 — 서버와 동일).
+        // ⚠️ `all_correct`는 표기값이라 두 번째 이후 세션에서도 그대로 true가
+        // 나간다 — 왕관이 안 붙었을 뿐 만점은 만점이다(서버도 같다).
         all_correct: allCorrect,
         crowns: prog.crowns,
         crown_target: crownTarget,
         cleared: prog.cleared_at != null,
-        unit_xp: 0,
+        unit_xp: newlyCleared ? 20 : 0, // backend xp_service.XP_UNIT_CLEAR
         all_resolved: allResolved,
       };
     }
@@ -2699,12 +2881,22 @@ export const __mockPolicy = () => ({
   cloud_max: CLOUD_MAX,
   cloud_regen_minutes: CLOUD_REGEN_MS / 60000,
   cloud_cost: CLOUD_COST,
-  // 세션 배합 (server Settings.SESSION_RECIPE)
+  // 세션 배합 (server Settings.SESSION_RECIPE) — 하루 첫 유닛 세션도 이 배합이다
   session_recipe: MOCK_SESSION_RECIPE,
+  // 출제 순서 (server session_service.plan_bank_picks의 블록 호출 순서)
+  block_order: MOCK_BLOCK_ORDER,
+  // **두 번째 이후** 유닛 세션 문항 수 (server Settings.UNIT_SESSION_SIZE).
+  // 첫 세션은 위 배합 총합(10)이라 이 값이 아니다 — 2026-08-13 확정.
+  unit_session_size: MOCK_UNIT_SESSION_SIZE,
   // daily 비진도 블록 board 상한 (server Settings.DAILY_BOARD_CAP — CO-H5)
   daily_board_cap: MOCK_DAILY_BOARD_CAP,
   // 보드 순차 잠금 앞보기 (server routers/board.BOARD_UNLOCK_LOOKAHEAD — MT-24)
   board_unlock_lookahead: MOCK_BOARD_UNLOCK_LOOKAHEAD,
+  // 온보딩 배치고사 문항 수 (server Settings.PLACEMENT_SIZE — 2026-08-12 6 → 10).
+  // ⚠️ **선언 상수가 아니라 실제로 만들어진 배열의 길이를 내보낸다.** 상수를
+  // 내보내면 배열이 6건에 멈춰 있어도 패리티가 초록이라 결함이 그대로 산다 —
+  // 이 항목이 애초에 그렇게 생겼다(결함 ④).
+  placement_size: PLACEMENT_ITEMS.length,
   // 학령 (server schemas/auth.LevelGroup)
   level_groups: LEVEL_GROUPS,
   // 보드 난이도 잠금 (server routers/board.BAND_MAX_DIFFICULTY)
@@ -2717,8 +2909,13 @@ export const __mockPolicy = () => ({
     daily_scope_kind: 'unit',
     // 진도 블록 0인 세션은 세션 전체로 폴백하지 않는다 (CO-M7)
     daily_scope_fallback_to_session: false,
-    // 유닛 직접 진입은 연습 전용 — 왕관을 주지 않는다 (grant_crown=False)
-    unit_session_grants_crown: false,
+    // 유닛 세션의 왕관 — **하루 첫 세션에만**(2026-08-13 확정).
+    // 서버는 `grant_crown=all_correct and daily_first`이고, 판정은 발급 시점에
+    // 찍은 도장(`recipe_json["daily_first"]` / 목은 `s.daily_first`)을 읽는다.
+    unit_session_grants_crown: 'daily_first_only',
+    // 「첫 세션인가」를 **완료 시점에 재계산하지 않는다** — 발급 시점 도장을
+    // 읽기만 한다(역순 완료 경합 방지).
+    unit_first_stamped_at_issue: true,
     // 왕관 대상 쌍의 출처: 발급 시점에 기록한 진도 블록 유닛 (CO-M6)
     target_source: 'unit_block',
   },

@@ -35,9 +35,6 @@ AUTH_SRC = (
     REPO_ROOT / "backend" / "app" / "routers" / "auth.py"
 ).read_text(encoding="utf-8")
 MOCK_PATH = REPO_ROOT / "frontend" / "mock" / "apiMockPlugin.js"
-LOGIN_PAGE_PATH = (
-    REPO_ROOT / "frontend" / "src" / "modules" / "auth" / "LoginPage.jsx"
-)
 
 GUEST_EMAIL_RE = re.compile(
     r"^guest-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
@@ -369,12 +366,20 @@ class TestMockParity:
             f"{set(LoginResponse.model_fields)}"
         )
 
-    def test_LoginPage_가짜_토큰_조작이_제거됐다(self):
-        """R11-01 J: guest_access_token 하드코딩 제거 → /auth/guest 실호출."""
-        src = LOGIN_PAGE_PATH.read_text(encoding="utf-8")
-        assert "guest_access_token" not in src, "가짜 토큰 조작이 되살아났다"
-        assert "guest_refresh_token" not in src
-        assert "/auth/guest" in src, "LoginPage가 /auth/guest를 호출하지 않는다"
+    # ── 삭제됨: `test_LoginPage_가짜_토큰_조작이_제거됐다` (2026-08-12) ──────
+    # R11-01 J의 가드였다: `LoginPage.jsx`에 `guest_access_token` 하드코딩이 없고
+    # `/auth/guest`를 실호출하는지 원문으로 봤다. 2026-08-12 클라이언트 지시로
+    # **로그인·회원가입 구조가 전면 제거**되면서 그 파일이 사라졌고, 남은 가드는
+    # 없는 파일을 읽어 `FileNotFoundError`로 CI를 붉히기만 했다 — 지키는 대상이
+    # 없는 사문(死文)이라 **수리가 아니라 삭제**가 맞다(담당 A 판정).
+    #
+    # 그것이 지키던 것("게스트 발급은 가짜 토큰 조작이 아니라 실제 호출이다")은
+    # 아래 셋이 나눠 갖고 있으므로 계약에 구멍이 나지 않는다:
+    #   · `App.jsx`가 첫 진입에서 `POST /auth/guest`를 직접 호출(가짜 토큰 경로 부재)
+    #   · `test_r13_mock_policy_parity::TestNoLoginInMainFlow` — `frontend/src`에
+    #     `/login`·`/register` 참조 0건 + `LoginPage`·`RegisterPage` 부재를 단정
+    #   · `onboardingGating` 스모크의 게스트 발급·재시도 시나리오
+    # 바로 위 `test_mock_guest_경로가_서버와_형태_동일`은 목을 읽으므로 그대로 산다.
 
 
 # ═══════════════════════════════════════════════════════════════

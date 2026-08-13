@@ -70,14 +70,26 @@ class TestMajorityConcept:
 
 class TestPickCrownUnit:
     def _fixtures(self):
-        """하늘 읽기: quiz(pf)→board(pf), 공기의 힘: quiz(am, prereq=board)."""
-        u_quiz = make_unit("하늘 읽기", 1, kind="quiz", concept_tag="pressure_front")
+        """섹션1: quiz(pf)→board(pf), 섹션2: quiz(am, prereq=board).
+
+        ⚠️ **2026-08-12: 섹션명을 `SECTION_ORDER`에서 뽑는다.** 종전엔
+        `"하늘 읽기"`·`"공기의 힘"`을 리터럴로 썼는데, CO-G1 순환식 재구조화로
+        그 둘이 `SECTION_ORDER` **미등재**가 되면서 `_section_key`의 폴백(알파벳
+        정렬)을 탔다. 한글 정렬에서 `공기의 힘 < 하늘 읽기`라 전체 순서가
+        **뒤집혔고**(`['공기의 힘/1', '하늘 읽기/1', '하늘 읽기/2']`),
+        `unlock_floor=2`가 선해제하는 선두 2개가 board를 포함하지 않게 되어
+        `test_unlock_floor_배치_선해제로_열린_유닛도_후보`가 실패했다.
+        **기능 결함이 아니라 픽스처 노후화**였다 — 등재 섹션명으로 바꾸면
+        의도한 순서(quiz → board → am)가 그대로 돌아온다.
+        """
+        sec1, sec2 = cs.SECTION_ORDER[0], cs.SECTION_ORDER[1]
+        u_quiz = make_unit(sec1, 1, kind="quiz", concept_tag="pressure_front")
         u_board = make_unit(
-            "하늘 읽기", 2, kind="board", concept_tag="pressure_front",
+            sec1, 2, kind="board", concept_tag="pressure_front",
             prereq=u_quiz.id, crown_target=2,
         )
         u_am = make_unit(
-            "공기의 힘", 1, kind="quiz", concept_tag="air_mass", prereq=u_board.id
+            sec2, 1, kind="quiz", concept_tag="air_mass", prereq=u_board.id
         )
         return u_quiz, u_board, u_am
 
@@ -336,7 +348,20 @@ class TestUnitResultForSession:
 # ═══════════════════════════════════════════════════════════════
 
 
-def make_session(mode="daily", unit_id=None, completed=False, route_target=None):
+def make_session(
+    mode="daily",
+    unit_id=None,
+    completed=False,
+    route_target=None,
+    daily_first=None,
+):
+    """세션 대역.
+
+    `daily_first`는 발급 시점에 찍히는 「오늘 첫 유닛 세션인가」 도장이다
+    (2026-08-13 확정 — `curriculum_service.create_unit_session`이 `recipe_json`에
+    적고 라우터는 **읽기만** 한다). None이면 키 자체를 넣지 않아 **개정 이전에
+    발급된 세션**을 재현한다 — 그런 세션은 왕관이 나가면 안 된다.
+    """
     return SimpleNamespace(
         id=uuid.uuid4(),
         user_id=_FAKE_USER.id,
@@ -347,6 +372,10 @@ def make_session(mode="daily", unit_id=None, completed=False, route_target=None)
         xp_total=50,
         route_decision=(
             {"target_concept_tag": route_target} if route_target else None
+        ),
+        recipe_json=(
+            {"kind": "unit"} if daily_first is None
+            else {"kind": "unit", "daily_first": daily_first}
         ),
     )
 
@@ -462,20 +491,28 @@ class TestCompleteSessionUnitResult:
         "cleared": True, "unit_xp": 20,
     }
 
-    def test_유닛_세션_만점_최초_완료도_grant_crown_False(self, monkeypatch):
-        """R13-01 §2.10 왕관 소유권 이전 — 유닛 직접 진입은 **연습 전용**이다.
+    def test_하루_첫_유닛_세션_만점이면_왕관을_준다(self, monkeypatch):
+        """**왕관은 「하루 첫 유닛 세션」에만**(2026-08-13 클라이언트 확정).
 
-        개정 전에는 (unit_id, True, True)로 왕관을 가산했다. 왕관 유입로가 일일
-        세션의 진도 블록으로 옮겨졌으므로 여기서 또 주면 하루 1왕관 상한이
-        무너진다(같은 진도에 이중 수여). 진도 스냅샷 노출은 그대로다.
+        경위(같은 자리가 세 번 뒤집혔다):
+          · R13-01 §2.10이 왕관을 일일 세션의 **진도 블록**으로 옮기면서 여기를
+            `grant_crown=False`(연습 전용)로 고정했다.
+          · 2026-08-12 배합이 `{live:2,new:4,review:3,board:1}`이 되며 `unit`
+            kind가 사라져 그 유입로가 죽자 `grant_crown=all_correct`로 되돌렸다.
+          · 그러자 **하루에 유닛을 여러 개 열수록 왕관이 무제한**이 됐다 — daily의
+            「하루 1세션 = 하루 1왕관」 상한이 유닛에는 없기 때문이다
+            (`uq_sessions_daily`가 `unit_id IS NULL`에만 걸린다).
+        확정 사양이 그 구멍을 닫는다: 하루의 첫 유닛 세션이 곧 데일리 세션이고,
+        왕관은 그 세션에만 붙는다. 이중 수여를 막는 것은 이 분기가 아니라
+        `grant_unit_crown`의 멱등 판정이다(같은 유닛 재클리어).
         """
         unit_id = uuid.uuid4()
-        session = make_session(mode="unit", unit_id=unit_id)
+        session = make_session(mode="unit", unit_id=unit_id, daily_first=True)
         logs = [make_log("air_mass") for _ in range(5)]
         result, calls = run_complete(
             monkeypatch, session, logs, unit_payload=self.UNIT_PAYLOAD
         )
-        assert calls["unit_result"] == (unit_id, True, False)
+        assert calls["unit_result"] == (unit_id, True, True)
         assert result.unit_result is not None
         assert result.unit_result.all_correct is True
         assert result.unit_result.crowns == 1
@@ -485,9 +522,34 @@ class TestCompleteSessionUnitResult:
         # 데일리 유입로(mode 분기)는 유닛 세션에 미적용
         assert "award" not in calls and result.crown_award is None
 
+    def test_두_번째_이후_유닛_세션은_만점이어도_왕관_없음(self, monkeypatch):
+        """확정 사양의 나머지 절반 — 두 번째 이후는 순수 학습이고 보상이 없다.
+
+        `all_correct`는 **표기값이라 그대로 True**로 나간다(만점은 만점이다).
+        갈리는 것은 `grant_crown` 하나뿐이다.
+        """
+        unit_id = uuid.uuid4()
+        session = make_session(mode="unit", unit_id=unit_id, daily_first=False)
+        logs = [make_log("air_mass") for _ in range(5)]
+        _, calls = run_complete(
+            monkeypatch, session, logs, unit_payload=self.UNIT_PAYLOAD
+        )
+        assert calls["unit_result"] == (unit_id, True, False)
+
+    def test_도장_없는_옛_세션은_왕관을_주지_않는다(self, monkeypatch):
+        """개정 이전에 발급된 세션에는 `daily_first` 키가 없다 —
+        **모르는 세션은 안 주는 쪽으로 닫는다**(`.get` → None → False)."""
+        unit_id = uuid.uuid4()
+        session = make_session(mode="unit", unit_id=unit_id)  # daily_first 미기록
+        logs = [make_log("air_mass") for _ in range(5)]
+        _, calls = run_complete(
+            monkeypatch, session, logs, unit_payload=self.UNIT_PAYLOAD
+        )
+        assert calls["unit_result"] == (unit_id, True, False)
+
     def test_오답_있으면_grant_crown_False_스냅샷(self, monkeypatch):
         unit_id = uuid.uuid4()
-        session = make_session(mode="unit", unit_id=unit_id)
+        session = make_session(mode="unit", unit_id=unit_id, daily_first=True)
         logs = [make_log("air_mass"), make_log("air_mass", correct=False)]
         payload = {
             "all_correct": False, "crowns": 0, "crown_target": 1,
@@ -500,14 +562,22 @@ class TestCompleteSessionUnitResult:
         assert result.unit_result.all_correct is False
         assert result.unit_result.unit_xp == 0
 
-    def test_재완료_멱등도_스냅샷_grant_crown_False(self, monkeypatch):
+    def test_재완료도_같은_인자로_부른다(self, monkeypatch):
+        """**이중 수여를 막는 것은 이 분기가 아니다.**
+
+        라우터는 「만점 ∧ 첫 세션」이면 언제나 `grant_crown=True`로 부르고, 이미
+        준 왕관을 다시 주지 않는 판정은 `grant_unit_crown`이 멱등으로 갖고 있다.
+        라우터가 "재완료인가"를 따로 세면 그 판정이 두 곳에 생겨 갈린다.
+        """
         unit_id = uuid.uuid4()
-        session = make_session(mode="unit", unit_id=unit_id, completed=True)
+        session = make_session(
+            mode="unit", unit_id=unit_id, completed=True, daily_first=True
+        )
         logs = [make_log("air_mass") for _ in range(5)]
         result, calls = run_complete(
             monkeypatch, session, logs, unit_payload=self.UNIT_PAYLOAD
         )
-        assert calls["unit_result"] == (unit_id, True, False)
+        assert calls["unit_result"] == (unit_id, True, True)
         assert result.unit_result is not None  # 재완료에도 계약 필드는 노출
 
     def test_데일리_세션은_unit_result_null(self, monkeypatch):

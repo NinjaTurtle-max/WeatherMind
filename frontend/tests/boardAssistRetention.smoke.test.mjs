@@ -512,26 +512,62 @@ try {
     assert(comboPraise(9) === '완벽해요', '4단을 넘어 문구가 사라졌다(상한 미유지)');
   });
 
-  // ── 7. 콤보 실제 렌더(진행바 위) — 목 세션 1문항 정답 ───────────────────────
-  await scenario('콤보 렌더: 연속 정답 1→2에서 카운터·칭찬이 함께 오른다', async () => {
+  // ── 7. 콤보 실제 렌더(진행바 위) — 연속 정답 2문항 ─────────────────────────
+  // ⚠️ **위치를 단정하지 않는다**(2026-08-13). 종전에는 "목 세션 1번 문항"이
+  // 픽스처 객관식('한랭 전선')이라고 단정했는데, 목의 출제 순서를 서버
+  // `plan_bank_picks`와 맞추면서(new → review → live → board **→** live → new →
+  // review → board) 앞자리가 실황 문항으로 바뀌었다. 콤보가 세는 것은 절대
+  // 위치가 아니라 **연속**이므로, 정답을 목이 고정해 둔 픽스처 문항까지 전진한
+  // 뒤 거기서부터의 1단 상승을 본다 — 배합·순서가 또 움직여도 안 깨진다.
+  const comboNow = () =>
+    Number(window.document.querySelector('[data-combo]')?.getAttribute('data-combo') ?? 0);
+
+  /** 픽스처 문항이 나올 때까지 전진한다 — 앞 문항은 오답으로 지나간다.
+   *  (오답이라 콤보는 0으로 초기화되고, 그래서 아래 단정이 1→2가 된다.) */
+  async function advanceTo(needle, limit = 6) {
+    for (let i = 0; i < limit; i += 1) {
+      if (text().includes(needle) && findButton(needle)) return;
+      const input = window.document.querySelector('input[type="text"]');
+      if (input) {
+        setInput(input, '__오답__');
+        await sleep(50);
+        input.closest('form').dispatchEvent(
+          new window.Event('submit', { bubbles: true, cancelable: true }));
+      } else {
+        const option = buttons().find((b) => (b.dataset ?? {}).choice != null)
+          ?? buttons().find((b) => !/다음 문항|힌트|그만두기|계속 풀기/.test(b.textContent ?? ''));
+        assert(option, `전진할 수 없다 — 응답 위젯을 못 찾았다(문항: ${text().slice(0, 60)})`);
+        click(option);
+      }
+      await waitFor(() => findButton('다음 문항') != null, 8000, '피드백 → 다음 문항');
+      click(findButton('다음 문항'));
+      await sleep(80);
+    }
+    assert(false, `${limit}문항을 지나도 "${needle}"가 안 나왔다`);
+  }
+
+  await scenario('콤보 렌더: 연속 정답이 오르면 카운터·칭찬이 함께 오른다', async () => {
     await api('POST', '/dev/clouds', { clouds: 5 });
     mount(createElement(SessionPage), '/daily');
-    await waitFor(() => text().includes('한랭 전선') && findButton('한랭 전선') != null, 8000,
-      '목 세션 1번 문항(객관식) 렌더');
+    await waitFor(() => buttons().length > 0, 8000, '세션 진행 화면');
+    await advanceTo('한랭 전선');
+    const before = comboNow();
     click(findButton('한랭 전선'));
-    await waitFor(() => text().includes('연속 정답 1'), 8000, '콤보 카운터 렌더');
-    assert(text().includes('정답이에요'), '콤보 1단 칭찬이 없다');
+    await waitFor(() => comboNow() === before + 1, 8000, '콤보 카운터 렌더');
+    assert(text().includes(comboPraise(before + 1)),
+      `콤보 ${before + 1}단 칭찬("${comboPraise(before + 1)}")이 없다`);
 
     // 두 문항 연속 정답 → 카운터와 칭찬이 함께 오른다(에스컬레이션 실동작)
     click(findButton('다음 문항'));
     await waitFor(() => window.document.querySelector('input[type="text"]') != null, 6000,
-      '2번 문항(단답) 렌더');
+      '다음 픽스처 문항(단답) 렌더');
     const input = window.document.querySelector('input[type="text"]');
     setInput(input, '북태평양 기단');
     await sleep(50);
     input.closest('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
-    await waitFor(() => text().includes('연속 정답 2'), 8000, '콤보 2단 카운터');
-    assert(text().includes('좋아요'), '콤보 2단 칭찬(좋아요)이 없다');
+    await waitFor(() => comboNow() === before + 2, 8000, '콤보 2단 카운터');
+    assert(text().includes(comboPraise(before + 2)),
+      `콤보 ${before + 2}단 칭찬("${comboPraise(before + 2)}")이 없다`);
   });
 
   // ── 8. 이탈 인텐트: 링크 차단 → 확인 1단 · 포커스 트랩 · Esc ────────────────

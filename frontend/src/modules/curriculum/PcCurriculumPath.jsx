@@ -56,8 +56,68 @@ const CHROME = 135;
  */
 export const PATH_SIZING_FLOOR = 4;
 
+/**
+ * 노드 크기 계산의 **상한** — 2026-08-12 클라이언트 판정("상한을 두자 8로 하고
+ * 긴 섹션은 스크롤").
+ *
+ * `sizingN`은 원래 「전 단계 중 최대 칸 수」였다. 유닛이 93 → **237개**가 되면서
+ * 최장 섹션이 4칸 → **35칸**이 됐고, `--dot` 식이 `max(44px, …)`로 하한에 걸려
+ * **노드가 서로 겹쳤다**(화면 실측: 지그재그 한 자리에 자물쇠 2개가 포개짐).
+ * n이 커질수록 지름이 줄어드는 식이라, 시드를 따라가면 크기만 잃고 겹침은
+ * 안 풀린다.
+ *
+ * 그래서 크기 기준을 8칸에서 **끊고**, 8칸을 넘는 섹션은 세로로 넘쳐 스크롤한다.
+ * 8은 1440×720에서 `--dot`이 56px로 잡히는 값이다(4칸=86px · 13칸 이상=44px 하한).
+ *
+ * ⚠️ `learnPath` 스모크가 「바닥값 == 시드 최장 섹션」을 단정했는데, 그 계약은
+ * 상한 도입으로 **뜻을 잃었다**(시드가 35인데 상한이 8이면 영원히 어긋난다).
+ * 그 자리는 「크기가 코스마다 같다 + 넘치면 스크롤된다」로 바뀐다.
+ */
+export const PATH_SIZING_CAP = 8;
+
 // 단계 경계 너머로 뻗는 길의 꼬리 길이(px).
 const TAIL = 90;
+
+/**
+ * 예상 **일수** — 「며칠 걸리는가」(2026-08-12 클라이언트 요구 ⑴).
+ *
+ * ⚠️ **「하루치」의 정의는 아직 클라이언트 판정 대기다.** 그래서 이 파일은 정의를
+ * 고르지 않고 **후보 셋을 전부 구현**해 두고 스위치 한 줄(`EST_DAYS_BASIS`)만
+ * 남긴다 — 판정이 오면 값만 갈아끼운다(화면·테스트·서버는 손대지 않는다).
+ *
+ *   'unitsPerDay'   하루에 유닛 1개(= 하루 한 세션). 2026-08-12 확정 사양
+ *                   「하루의 첫 유닛 세션이 곧 데일리 세션」과 결이 같다.
+ *   'minutesPerDay' `est_minutes` ÷ 하루 학습 시간(분) 가정.
+ *   'itemsPerDay'   섹션 문항 수(유닛 × `UNIT_SESSION_SIZE`) ÷ 하루 문항 수
+ *                   (`SESSION_RECIPE` 총합). 지금 시드에서는 `est_minutes`가
+ *                   유닛당 4분이라 minutesPerDay(10분)와 **수치가 같아진다** —
+ *                   우연이지 같은 산식이 아니다.
+ *
+ * 가정값을 여기 두는 이유: 서버 `SESSION_RECIPE`·`UNIT_SESSION_SIZE`는 env 노브라
+ * 프론트가 읽을 통로가 없다. 판정이 확정되면 그 값을 서버가 내려보내게 바꾸는 것이
+ * 다음 단계다(그때는 이 상수가 폴백이 된다).
+ */
+export const EST_DAYS_BASIS = 'unitsPerDay';
+export const EST_DAYS_ASSUMPTION = Object.freeze({
+  minutesPerDay: 10, // 하루 학습 시간 가정(분)
+  itemsPerDay: 10, // SESSION_RECIPE 총합(live2+new4+review3+board1)
+  itemsPerUnit: 4, // UNIT_SESSION_SIZE
+});
+
+/** 섹션 → 예상 일수(정수). 근거가 없으면 **null**이고 화면은 아무것도 그리지 않는다. */
+export function estDaysOf(section, basis = EST_DAYS_BASIS, assume = EST_DAYS_ASSUMPTION) {
+  const units = section?.units?.length ?? 0;
+  const minutes = Number(section?.est_minutes) || 0;
+  if (basis === 'minutesPerDay') {
+    return minutes > 0 ? Math.max(1, Math.ceil(minutes / assume.minutesPerDay)) : null;
+  }
+  if (basis === 'itemsPerDay') {
+    return units > 0
+      ? Math.max(1, Math.ceil((units * assume.itemsPerUnit) / assume.itemsPerDay))
+      : null;
+  }
+  return units > 0 ? units : null; // 'unitsPerDay'
+}
 
 export function resolveStatus(unit) {
   return unit.status ?? (unit.cleared ? 'cleared' : unit.locked ? 'locked' : 'current');
@@ -93,7 +153,21 @@ export function stageDoneCount(blueTo, offset, count) {
 function weave(i, n) {
   if (n <= 1) return 0;
   const side = i % 2 === 0 ? -1 : 1;
-  return side * (0.55 + 0.45 * Math.sin(((i + 0.5) / n) * Math.PI));
+  // ⚠️ **주기를 PATH_SIZING_CAP으로 끊는다**(2026-08-12 클라이언트 판정
+  // "칸이 많으면 곱선을 반복한다").
+  //
+  // 종전에는 곱선을 섹션 전체에 한 번 폈다: `sin(((i+0.5)/n)·π)`. n이 작을 때는
+  // 예쁜 배불림이지만 **n이 커지면 인접한 같은 쪽 노드들의 sin이 거의 같아진다** —
+  // 유닛이 93 → 237개가 되면서 섹션이 11~35칸이 됐고, 13칸에서 오른쪽 k가
+  // `0.71·0.89·0.99·0.99·0.89`로 수렴했다. 진폭 132px를 곱해도 차이가 **한 자릿수
+  // px**이라 노드 지름(56~86px)보다 작고, 그래서 같은 쪽 노드들이 세로로 겹쳐
+  // 보였다(화면 실측: 지그재그 한 자리에 자물쇠 2개가 포개짐).
+  //
+  // 크기를 키우는 것으로는 안 풀린다 — 원인이 지름이 아니라 **x 좌표의 수렴**이다.
+  // 주기를 고정하면 몇 칸짜리 섹션이든 곱선의 모양과 진폭 폭이 같게 유지된다.
+  const period = Math.min(n, PATH_SIZING_CAP);
+  const phase = ((i % period) + 0.5) / period;
+  return side * (0.55 + 0.45 * Math.sin(phase * Math.PI));
 }
 
 /**
@@ -230,6 +304,7 @@ function StageLine({ nodeCount, doneCount, leadIn, leadOut, joinInK, joinOutK, l
 function Stage({ section, index, total, sizingN, fitN, offset, blueTo, introOpen, onToggleIntro, energyBlocked, regenMin, onOpenUnit, joinInK, joinOutK }) {
   const t = useT();
   const units = section.units;
+  const estDays = estDaysOf(section);
   const cleared = units.filter((u) => resolveStatus(u) === 'cleared').length;
 
   // 세부 주제 칩 — 서버 메타(section_meta.json)의 topics가 1순위다.
@@ -291,6 +366,13 @@ function Stage({ section, index, total, sizingN, fitN, offset, blueTo, introOpen
           {section.est_minutes ? (
             <span className="text-[10.5px] font-bold text-slate-400">
               · {t('curriculum.path.estMinutes', { min: section.est_minutes })}
+            </span>
+          ) : null}
+          {/* 예상 **일수**(⑴) — 분과 나란히. 근거가 없으면 줄을 안 그린다(분과 같은 관례).
+              산식의 소유자는 `EST_DAYS_BASIS` 한 줄이다(파일 머리). */}
+          {estDays ? (
+            <span data-est-days={estDays} className="text-[10.5px] font-bold text-slate-400">
+              · {t('curriculum.path.estDays', { days: estDays })}
             </span>
           ) : null}
         </div>
@@ -402,17 +484,27 @@ export default function PcCurriculumPath({
   // 노드 크기의 기준 칸 수 — **전 단계 중 최대**. 단계마다 자기 칸 수로 크기를
   // 정하면 아이콘이 단계를 넘길 때마다 커졌다 작아진다. 가장 긴 섹션에 맞춰
   // 통일하면 어느 단계도 넘치지 않는다. 섹션이 없을 때의 1은 0 나눗셈 방지.
-  const sizingN = Math.max(PATH_SIZING_FLOOR, ...withUnits.map((s) => s.units.length));
+  // 바닥값과 **상한** 사이로 재단한다 — 상한 위는 스크롤이 받는다(PATH_SIZING_CAP).
+  const sizingN = Math.min(
+    PATH_SIZING_CAP,
+    Math.max(PATH_SIZING_FLOOR, ...withUnits.map((s) => s.units.length)),
+  );
 
   // 세로 **자리**의 기준 칸 수 — 크기(sizingN)와 다르다(2026-08-12 사용자 제보:
   // "기초과학 탭에서 전부 살짝씩 위로 배치된 것 같다").
   //
   // 크기는 코스가 달라도 같아야 해서 바닥값 4를 깔지만, **자리**까지 4로 잡으면
-  // 최대 섹션이 3칸인 코스(기초 과학)는 **어떤 섹션도 예약 높이를 못 채워** 늘
-  // 위로 쏠린다. 자리는 이 코스가 실제로 쓰는 최대 칸 수로 잡는다 — 그러면
-  // 가장 긴 섹션이 트랙 가운데에 꽉 차고, 짧은 섹션은 그 블록 안에서 위로 붙는다.
+  // 최대 섹션이 그보다 짧은 코스는 **어떤 섹션도 예약 높이를 못 채워** 늘 위로
+  // 쏠린다. 그래서 이 코스가 실제로 쓰는 최대 칸 수를 본다.
+  //
+  // ⚠️ **상한(sizingN)으로 조인다.** 예약은 「트랙이 담도록 계산된 높이」를 넘을 수
+  // 없다 — 넘기면 짧은 섹션에 그 차이만큼 빈 여백이 붙어 스크롤만 길어진다.
+  // 시드 재편(2026-08-13, main) 후 최장 섹션이 19·35칸이 되면서 상한 없는 식은
+  // 10칸 섹션에 9칸(기상)·25칸(기초과학) 분량의 여백을 다는 값이 됐다.
+  // 지금 시드에서는 두 코스 다 최장 섹션이 상한(8) 이상이라 fitN == sizingN이고
+  // 여백은 0이다 — 이 식은 **최장 섹션이 상한보다 짧은 코스에서만** 일한다.
   // 여전히 **섹션마다 상수**라 첫 노드가 튀지 않는다(그게 flex-start의 이유였다).
-  const fitN = Math.max(1, ...withUnits.map((s) => s.units.length));
+  const fitN = Math.min(sizingN, Math.max(1, ...withUnits.map((s) => s.units.length)));
 
   // 섹션별 시작 인덱스(전역) — 완료 구간을 경계 너머로 잇기 위해 필요하다.
   const offsets = [];
