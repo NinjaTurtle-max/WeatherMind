@@ -8,6 +8,7 @@ import CloudEnergyBadge from './CloudEnergyBadge';
 import LocaleSwitcher from './LocaleSwitcher';
 import TabBar from './TabBar';
 import SideNav from './SideNav';
+import GuideBot from './GuideBot';
 import { useT } from '../i18n';
 import { authApi, progressApi } from '../api';
 import { isGuestUser } from '../modules/auth/guest';
@@ -81,6 +82,30 @@ export default function Layout() {
     enabled: Boolean(accessToken),
     staleTime: 30_000,
   });
+
+  // 안내봇용 에너지 — **CloudEnergyBadge와 같은 쿼리 키**라 react-query가 합쳐
+  // 준다(네트워크 호출이 늘지 않는다). 키나 queryFn을 여기서 바꾸면 그 순간
+  // 같은 값을 두 번 받아 오게 되므로 배지 쪽과 짝을 맞춰 둘 것.
+  const { data: energy } = useQuery({
+    queryKey: ['progress', 'energy'],
+    queryFn: progressApi.fetchEnergy,
+    enabled: Boolean(accessToken),
+    staleTime: 10_000,
+  });
+
+  // 첫 방문 인사는 한 번만. localStorage는 SSR에서 못 읽으므로 effect에서만 만진다
+  // (첫 페인트에는 화면 안내가 뜨고, 처음 온 사람에게만 인사로 바뀐다).
+  const [firstVisit, setFirstVisit] = useState(false);
+  useEffect(() => {
+    try {
+      if (!window.localStorage?.getItem('weathermind.guidebot.seen')) {
+        setFirstVisit(true);
+        window.localStorage?.setItem('weathermind.guidebot.seen', '1');
+      }
+    } catch {
+      /* 프라이빗 모드 — 인사를 매번 하게 되지만 기능은 산다 */
+    }
+  }, []);
 
   useEffect(() => {
     if (progress) setProgress(progress);
@@ -191,6 +216,11 @@ export default function Layout() {
 
         <TabBar />
       </div>
+
+      {/* 안내봇(MT-26) — 셸 최상위에 둔다. 본문 안에 넣으면 화면마다 마운트가
+          풀려 사용자가 옮겨 둔 자리와 접어 둔 상태가 이동할 때마다 되돌아간다.
+          말할 내용은 lib/guideRules.js가 정한다(결정적 · LLM 호출 없음). */}
+      <GuideBot pathname={pathname} state={{ clouds: energy?.clouds, firstVisit }} />
 
     </div>
   );
