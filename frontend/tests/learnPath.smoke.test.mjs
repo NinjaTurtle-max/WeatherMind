@@ -650,6 +650,23 @@ await render({});
     !/scroll-snap-align\s*:/.test(stageRule),
     '.wm-stage에 scroll-snap-align이 되살아나지 않았다(스냅포트가 없으면 죽은 선언이다)',
   );
+  // ㉵ **`scroll-behavior: smooth`도 되살아나지 않았다**(2026-08-13 클라이언트
+  //    제보 "빠르게 하면 스크롤이 밀리는구나"). 스냅과 **같은 계보**다 —
+  //    「한 화면에 한 단계」를 부드럽게 넘기려고 둔 것인데, 스냅이 철회되면서
+  //    이유는 사라지고 증상만 남았다. 크롬은 이 선언이 붙은 스크롤러에서
+  //    **휠 입력에도 애니메이션을 걸어** 화면이 입력을 뒤따라오며 밀린다.
+  //    실측(제거 전): `scrollTop += 400`을 30ms 간격 12회 → 기대 4800인데
+  //    **즉시 120 · 1.5초 뒤 511**(각 대입이 앞 애니메이션의 진행 중 값을 읽는다).
+  //
+  // ⚠️ **이 단정이 없어서 실제로 회귀가 살아남았다.** 스냅을 걷은 아침 커밋은
+  //    CSS 주석만 고치고 선언을 안 지웠고, 형제 3종(snap-type·snap-stop·snap-align)
+  //    에는 가드를 세우면서 이것만 빠져 있었다. 주석은 회귀를 못 막는다.
+  //    부드러운 이동이 다시 필요하면 CSS 전역이 아니라 호출부에서
+  //    `scrollTo({behavior:'smooth'})`로 국소 지정할 것 — 그건 이 단정에 안 걸린다.
+  ok(
+    !/scroll-behavior\s*:\s*smooth/.test(scrollerRule),
+    '.wm-scroller에 scroll-behavior:smooth가 되살아나지 않았다(휠 입력에도 애니메이션이 걸려 빠르게 굴리면 밀린다)',
+  );
 
   const vpathRule = cut('.wm-vpath {', '.wm-node {');
   ok(!/\bcqh\b/.test(vpathRule), '.wm-vpath가 지름을 뷰포트 높이(cqh)에서 역산하지 않는다');
