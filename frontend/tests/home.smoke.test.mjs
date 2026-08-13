@@ -31,6 +31,7 @@
  *      "옮겼다"고 말하려면 도착지도 같이 단정해야 한다. 여기가 그 유일한 지점이다
  *      (내 정보를 마운트하는 스모크가 따로 없다).
  */
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import http from 'node:http';
@@ -249,6 +250,42 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   // 복습은 **개념명 키워드**다(2026-08-09 결정). 한때 담당 캐릭터 그림으로 바꿨다가
   // 되돌렸다 — 캐릭터 8장에 개념 14종이라 둘 이상이 같은 얼굴을 쓴다.
   ok(tile.querySelector('img') === null, '복습은 그림이 아니라 개념명 키워드다');
+
+  // ── ⑧ 가로로 눕던 두 노드가 **오른쪽 세로 열**로 갔다 (2026-08-13 지시 ⑴) ──
+  //
+  // 옮긴 것은 둘이다: ⓐ 진입 배너(`learn-entry`) — 경로 위 폭 전체 가로 띠 ·
+  // ⓑ 위치 안내(`RegionOnboardingNotice`) — `Layout`의 본문 맨 위 가로 띠.
+  // 화면 첫 두 줄이 통째로 가로 띠라 학습 경로가 그만큼 아래에서 시작했다.
+  //
+  // ⚠️ **이 계약이 없으면 되돌림이 조용하다.** 배너를 다시 폭 전체로 올려도
+  // `learn-entry`는 여전히 하나 있고 CTA도 살아 있어 위 단정이 전부 초록이다.
+  // 그래서 **위치**를 문다 — 배너가 오른쪽 열의 **형제**이고 그 열의 **첫째**인가.
+  const heroEl = $('[data-testid="learn-entry"]');
+  const colEl = $('[data-testid="learn-footer"]');
+  ok(
+    heroEl?.parentElement === colEl?.parentElement,
+    'ⓐ 진입 배너가 오른쪽 열과 같은 묶음 안에 있다(경로 위 가로 띠로 되돌아가지 않았다)',
+  );
+  ok(
+    heroEl?.parentElement != null
+      && [...heroEl.parentElement.children].indexOf(heroEl)
+        < [...heroEl.parentElement.children].indexOf(colEl),
+    'ⓐ 그 열의 맨 위가 「지금 할 일」(진입 배너)이다',
+  );
+  // ⓑ 위치 안내는 지역 미설정일 때만 뜨는데 **목은 region을 null로 못 준다**
+  // (항상 '서울' — `onboardingSave.contract`가 같은 이유로 캐시를 직접 심는다).
+  // 그래서 여기서는 소유자만 소스로 확인한다: 레이아웃이 놓고 오른쪽 열이 받았다.
+  // 뜨는 모습·비차단 계약은 `onboardingSave.contract` ④⑤가 계속 소유한다.
+  const layoutSrc = readFileSync(resolve(root, 'src/components/Layout.jsx'), 'utf8');
+  const footerSrc = readFileSync(resolve(root, 'src/modules/curriculum/LearnFooterCards.jsx'), 'utf8');
+  ok(
+    !/^\s*<RegionOnboardingNotice/m.test(layoutSrc),
+    'ⓑ 레이아웃이 위치 안내를 본문 맨 위에 다시 얹었다(전 라우트 가로 띠로 회귀)',
+  );
+  ok(
+    /<RegionOnboardingNotice/.test(footerSrc),
+    'ⓑ 오른쪽 열이 위치 안내를 소유한다',
+  );
 
   // ⑤ 출석 체크는 이 화면이 만든다 — 비동기라 도착을 기다린다
   const attendance = () => xhrLog.filter((l) => l.includes('/attendance')).length;

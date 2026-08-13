@@ -1,7 +1,8 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import client from './api/client';
+import { authApi } from './api';
 import { translate, getCurrentLocale } from './i18n/core.js';
 import LoadingSpinner from './components/LoadingSpinner';
 import Layout from './components/Layout';
@@ -18,6 +19,7 @@ import DuelPage from './modules/duel/DuelPage';
 import ProgressPage from './modules/progress/ProgressPage';
 import ConvertAccountPage from './modules/auth/ConvertAccountPage';
 import PlacementPage from './modules/onboarding/PlacementPage';
+import EntryInfoPage from './modules/onboarding/EntryInfoPage';
 
 // R7-03 개발자 패널 — 런타임 게이트(GET /dev/state 404=비활성)는 유지하되,
 // lazy 코드 스플릿으로 메인 번들에서 분리 (compose 스택의 빌드 프론트에서도 동작)
@@ -61,11 +63,19 @@ const DevPanel = lazy(() => import('./modules/dev/DevPanel'));
  * **2026-08-12부터 이것이 유일한 진입이다** — 로그인·회원가입 화면이 제거되면서
  * 「명시적 게스트 CTA를 눌러 배치고사로」 가던 종전 대안 동선도 함께 사라졌다.
  *
- * ⚠️ **그래서 배치고사로 보내는 UI 동선이 지금 없다.** 자동 발급은 딥링크를
- * 보존할 뿐 아무도 `/onboarding/placement`로 보내지 않는다 — 그 화면은 현재
- * URL을 직접 쳐야 닿는다(라우트·시작 호출 자체는 살아 있고
- * `placementEntry.smoke.test.mjs` 시나리오 1이 그것을 문다). 신규 학습자에게
- * 진단을 태울 것인지·어디서 태울 것인지는 **제품 결정**이라 여기서 정하지 않는다.
+ * ⚠️ ~~**그래서 배치고사로 보내는 UI 동선이 지금 없다.**~~ **해소됐다
+ * (2026-08-13 클라이언트 지시 ⑵ — 「배치고사는 접속시 내 정보 입력창 이후로,
+ * 이전에 회원가입 후 바로 나타나던 것처럼」).** 사라진 것은 가입 화면이었고,
+ * 그 화면이 갖고 있던 두 가지 일 — **학령을 묻는 것**과 **직후 진단으로 보내는
+ * 것** — 을 `EntryInfoPage`(첫 접속 정보 입력)가 이어받는다. 진입 동선은
+ * 이제 **접속(`/`) → 정보 입력 → 배치고사 → 학습**이다.
+ *
+ * ⚠️ **게이트는 `/` 하나에만 건다**(아래 `AT_ENTRY`). 딥링크(`/explore`·`/board`·
+ * `/onboarding/placement`…)는 종전 그대로 **아무 조작 없이** 자동 발급으로
+ * 통과한다 — 규정 「로그인 없이 열려야」의 가장 강한 형태를 딥링크에서는
+ * 유지하고, 맨 URL로 들어온 첫 접속에서만 한 화면을 끼운다(그마저도 건너뛸 수
+ * 있다). 이 경계가 `onboardingGating` 시나리오 10·11과 `placementEntry`
+ * 시나리오 1이 각각 무는 지점이다.
  *
  * 중복 발급 방지가 이 모듈 스코프 두 변수의 전부다:
  *   - `guestAttempted`: **한 번 시도했으면 다시 시도하지 않는다.** 실패 시 무한
@@ -95,10 +105,23 @@ export function resetGuestAutoIssue() {
   guestFailed = false;
 }
 
-function issueGuestOnce() {
+/**
+ * 게스트 발급 — **학령을 바디에 싣는다**(2026-08-13 요구 ⑶).
+ *
+ * 종전에는 `client.post('/auth/guest')`로 바디가 없었다. 서버는
+ * `POST /auth/guest {level_group?}`를 이미 받는데(routers/auth.py `guest_login` —
+ * "바디는 선택이다 — 없으면 level_group=middle_high") **프론트가 그 문을 안 써서
+ * 모든 게스트가 `middle_high`로 시작**했다. 「초등인데 중등이 나온다」의 뿌리다.
+ *
+ * ⚠️ 값은 서버 `LevelGroup` Literal 3종뿐이다 — 밖의 값은 422라 발급이 실패하고
+ * 사용자가 재시도 화면에 갇힌다. 고르지 않았으면(`null`) **바디를 아예 보내지
+ * 않는다**: `{level_group: null}`은 pydantic이 거부하고, 무엇보다 "안 고름"의
+ * 서버 표현은 필드 부재다(하위 호환 — 건너뛰면 지금과 같은 기본값).
+ */
+function issueGuestOnce(levelGroup = null) {
   if (!guestPromise) {
     guestPromise = client
-      .post('/auth/guest')
+      .post('/auth/guest', levelGroup ? { level_group: levelGroup } : undefined)
       .then(({ data }) => {
         const store = useAuthStore.getState();
         store.setTokens({ accessToken: data.access_token, refreshToken: data.refresh_token });
@@ -146,13 +169,39 @@ function GuestIssueRetry({ onRetry }) {
   );
 }
 
+/**
+ * 정보 입력 게이트가 걸리는 경로 — **맨 URL로 들어온 첫 접속 하나뿐**이다.
+ *
+ * `/learn`을 넣지 않는 이유가 계약이다: `placementEntry` 시나리오 1-b가
+ * `/learn`·`/me`에서 진단 진입점을 찾고, `onboardingSave`·`home` 스모크가
+ * `/learn`을 직접 마운트한다 — 그 경로를 가로채면 "이미 들어와 있는 사람"의
+ * 화면까지 바뀐다. 게이트는 **토큰이 아직 없을 때만** 뜨므로(아래 조건),
+ * 이 기기에서 한 번 열어 본 사람에게는 두 번 다시 보이지 않는다
+ * (`authStore`가 토큰을 localStorage에 persist한다).
+ */
+const AT_ENTRY = '/';
+
 function RequireAuth() {
   const accessToken = useAuthStore((s) => s.accessToken);
+  const navigate = useNavigate();
+  const atEntry = useLocation().pathname === AT_ENTRY;
   const [, bump] = useState(0); // 모듈 스코프 플래그가 바뀐 뒤 한 번 다시 그린다
   // ⚠️ **재시도는 effect 의존성에 있어야 한다.** `bump`만 올리면 리렌더는 되지만
   // `[accessToken]`이 그대로(null)라 발급 effect가 다시 안 돈다 — 재시도 화면이
   // 영구 스피너로 바뀌고 사용자가 갇힌다. MT-29가 막으려던 결과 그 자체다.
   const [retryTick, setRetryTick] = useState(0);
+  /**
+   * 첫 접속 정보 입력의 결과 — 발급 바디에 실릴 값이다.
+   *   `undefined` 아직 안 정함(= 화면을 보여줄 차례)
+   *   `null`      건너뜀 → 바디 없이 발급(서버 기본값 `middle_high`, 하위 호환)
+   *   문자열      고른 학령 → `POST /auth/guest {level_group}`
+   * ⚠️ **모듈 스코프가 아니라 컴포넌트 상태**다. `RequireAuth`는 레이아웃 라우트라
+   * 자식 라우트가 바뀌어도 언마운트되지 않으므로, 정보 입력 → 배치고사로 넘어가는
+   * 동안 값이 살아 있다. 모듈 스코프로 두면 상태 변경이 리렌더를 못 일으켜
+   * 화면이 그대로 멈춘다.
+   */
+  const [entryChoice, setEntryChoice] = useState(undefined);
+  const needsEntryInfo = atEntry && entryChoice === undefined;
 
   useEffect(() => {
     // 토큰을 한 번이라도 본 순간 "시도 완료"로 못박는다 — 이후 **로그아웃으로
@@ -163,13 +212,36 @@ function RequireAuth() {
       return;
     }
     if (guestAttempted) return;
+    // 첫 접속 정보 입력이 **발급보다 먼저**다 — 학령이 발급 바디에 실려야 하므로
+    // 여기서 기다리지 않으면 요구 ⑶이 성립할 수 없다(발급은 한 번뿐이다).
+    if (needsEntryInfo) return;
     guestAttempted = true;
-    issueGuestOnce().then((ok) => {
+    issueGuestOnce(entryChoice ?? null).then((ok) => {
       guestSettled = true;
       guestFailed = !ok;
       bump((n) => n + 1);
     });
-  }, [accessToken, retryTick]);
+  }, [accessToken, retryTick, needsEntryInfo, entryChoice]);
+
+  /**
+   * 정보 입력 완료 — 고른 값을 상태에 싣고 **먼저 라우팅한다**.
+   *
+   * ⚠️ 순서가 계약이다. 발급을 여기서 직접 부르고 그 `.then`에서 이동하면
+   * R9-09와 같은 경합이 된다(토큰 등장이 일으킨 렌더가 목적지를 덮어쓴다).
+   * 대신 **경로를 먼저 바꾸고** 발급은 위 effect에 맡긴다 — 토큰이 생기는 순간
+   * 이미 배치고사 라우트에 서 있으므로 어느 쪽이 먼저 끝나도 도착지가 같다.
+   */
+  const finishEntryInfo = (level) => {
+    setEntryChoice(level ?? null);
+    // 이미 발급된 뒤라면(경합·되돌아온 진입) 발급 바디가 아니라 갱신 통로를 쓴다 —
+    // `PATCH /auth/me`가 학령 writer의 나머지 절반이다(R13 CO-P-5, `/me`의 학습
+    // 수준 카드가 쓰는 바로 그 API). 지금 게이트 조건상 거의 닿지 않는 가지지만,
+    // 닿았을 때 값이 조용히 버려지는 것보다 낫다.
+    if (level && useAuthStore.getState().accessToken) {
+      authApi.updateLevelGroup(level).catch(() => {});
+    }
+    if (level) navigate('/onboarding/placement', { replace: true });
+  };
 
   if (!accessToken) {
     // 발급이 **실패**했다 → 재시도 화면. 로그인 폼이 아니다(MT-29).
@@ -197,6 +269,9 @@ function RequireAuth() {
         />
       );
     }
+    // 첫 접속 정보 입력 (요구 ⑵⑶) — **발급 실패·정착 분기보다 뒤**다. 앞에 두면
+    // 토큰이 지워진 사람(401 인터셉터)이 재시도 화면 대신 정보 입력을 다시 본다.
+    if (needsEntryInfo) return <EntryInfoPage onSubmit={finishEntryInfo} />;
     return <LoadingSpinner label={translate(getCurrentLocale(), 'auth.login.guestStarting')} />;
   }
   return (

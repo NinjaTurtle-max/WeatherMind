@@ -223,8 +223,12 @@ export default function CurriculumHome() {
           2-a/2-b/2-c가 그 컴포넌트를 직접 마운트해 문구를 단정한다. 여기서는
           마운트만 걷는다. */}
 
-      {/* 코스 탭(§6.2) — 코스가 2개 이상일 때만 뜬다. 선택은 잠금이 아니라 조회 스코프. */}
-      <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} />
+      {/* 코스 탭(§6.2)은 **PC 경로 카드 안**으로 옮겼다(2026-08-13 클라이언트 지시
+          — 아래 `<PcCurriculumPath tabs={...}>`). 모바일 목록에서는 여기 그대로
+          남는다: 모바일에는 그 카드가 없다. */}
+      <div className="md:hidden">
+        <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} />
+      </div>
 
       {/* 페이지 머리말(🎓 학습 + 설명)은 **없앴다**(2026-08-09 사용자 지시).
           같은 설명을 진입 배너가 부제로 말한다 — 두 벌이면 세로만 66px 먹는다.
@@ -277,32 +281,46 @@ export default function CurriculumHome() {
       )}
 
 
-      {/* 진입 배너 — 맨 위 한 줄, 폭 전체. `hasPath`와 무관하게 뜬다:
-          빈 트리 코스에서도 「오늘의 세션」으로 갈 통로가 필요하다. */}
-      <div className="mb-3.5">
-        <LearnHeroCard
-          entry={bannerEntry}
-          copy={ENTRY_COPY[bannerEntry.kind]}
-          lockedNote={bannerEntry.locked ? t('curriculum.unit.lockedTitle') : null}
-          goalTotal={goalTotal}
-          goalDone={goalDone}
-          dailyBlocked={dailyBlocked}
-          energyBlocked={energyBlocked}
-          regenMin={regenMin}
-        />
-      </div>
-
-      {/* 배너 아래 2열(2026-08-10 사용자 지시) — 왼쪽 경로 · 오른쪽 카드 2장.
+      {/* 2열(2026-08-10 사용자 지시) — 왼쪽 경로 · 오른쪽 세로 열.
           카드가 경로 **아래**가 아니라 **옆**에 서므로 트랙 높이를 안 뺏는다.
-          노드 지름은 높이만 보므로(index.css `--dot`) 배너가 있는데도 상한
-          86px에 붙는다 — 카드가 아래 줄이던 직전 배치에서는 68px이었다.
-          대신 트랙 **폭**을 나눠 쓴다(1440에서 1120 → 858px).
-          모바일에서는 flex가 꺼져 DOM 순서대로 쌓인다: 배너 → 경로 → 카드들.
-          PC 경로는 `hidden md:block`이라 모바일에서는 그 자리에 모바일
-          지그재그가 대신 선다. */}
+          노드 지름은 높이만 보므로(index.css `--dot`) 상한 86px에 붙는다 —
+          카드가 아래 줄이던 배치에서는 68px이었다. 대신 트랙 **폭**을 나눠 쓴다.
+
+          **2026-08-13(클라이언트 지시 ⑴): 가로로 눕던 진입 배너가 이 오른쪽 열로
+          들어왔다.** 종전에는 배너가 폭 전체를 쓰는 한 줄로 경로 위에 있었고,
+          위치 안내는 `Layout`이 본문 맨 위에 얹었다 — 화면 첫 두 줄이 통째로
+          가로 띠였다. 둘 다 걷었으므로 **학습 경로가 세로를 그만큼 더 쓴다**
+          (`PcCurriculumPath`는 읽기 전용이라 그쪽 상수는 손대지 않았다 — 트랙이
+          받는 높이만 늘었다).
+
+          ⚠️ **DOM 순서는 오른쪽 열이 먼저다.** 모바일에서는 `md:flex`가 꺼져
+          DOM 순서대로 쌓이므로, 열이 뒤에 있으면 「이어서 풀기」가 경로 노드
+          100여 개 **아래**로 밀린다 — 지금 할 일이 화면에서 사라지는 셈이다.
+          PC에서는 `md:order-*`로 되돌려 왼쪽 경로 · 오른쪽 열을 유지한다. */}
       <div className="md:flex md:gap-3.5">
+        {/* 오른쪽 열 — 진입 배너(위) · 나머지 노드(아래). DOM 첫째, 화면 둘째. */}
+        <div className="mb-3.5 flex flex-col gap-3.5 md:order-2 md:mb-0 md:w-[248px] md:flex-none lg:w-[264px]">
+          {/* 진입 배너. `hasPath`와 무관하게 뜬다: 빈 트리 코스에서도 통로가 필요하다. */}
+          <LearnHeroCard
+            entry={bannerEntry}
+            copy={ENTRY_COPY[bannerEntry.kind]}
+            lockedNote={bannerEntry.locked ? t('curriculum.unit.lockedTitle') : null}
+            goalTotal={goalTotal}
+            goalDone={goalDone}
+            dailyBlocked={dailyBlocked}
+            energyBlocked={energyBlocked}
+            regenMin={regenMin}
+          />
+          <LearnFooterCards
+            dailyBlocked={dailyBlocked}
+            energyBlocked={energyBlocked}
+            regenMin={regenMin}
+            dailyIsPrimary={entry.kind === 'daily'}
+          />
+        </div>
+
         {/* 왼쪽 — 경로. min-w-0이 없으면 트랙 안의 긴 유닛명이 열을 밀어낸다. */}
-        <div className="min-w-0 md:flex-1">
+        <div className="min-w-0 md:order-1 md:flex-1">
       {/* 모바일: 세로 지그재그 경로(기존 유지) */}
       <div className="md:hidden">
         {sections.map((section) => (
@@ -340,22 +358,15 @@ export default function CurriculumHome() {
       {/* PC(md↑) 경로. `energyBlocked`를 반드시 넘긴다 — 넘기지 않으면 구름 0에서
           모바일은 잠기고 PC는 열려, 문항 진입 전 차단(R10-01 S4)이 PC에서만 깨진다. */}
       <PcCurriculumPath
+        tabs={
+          <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} variant="tab" />
+        }
         sections={sections}
         energyBlocked={energyBlocked}
         regenMin={regenMin}
         onOpenUnit={(unitId) => navigate(`/learn/units/${unitId}`)}
         onViewSection={setViewedIdx}
       />
-        </div>
-
-        {/* 오른쪽 — 자유 일일 세션(위) · 복습(아래) */}
-        <div className="mt-3.5 md:mt-0 md:w-[248px] md:flex-none lg:w-[264px]">
-          <LearnFooterCards
-            dailyBlocked={dailyBlocked}
-            energyBlocked={energyBlocked}
-            regenMin={regenMin}
-            dailyIsPrimary={entry.kind === 'daily'}
-          />
         </div>
       </div>
     </div>

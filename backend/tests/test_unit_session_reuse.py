@@ -235,7 +235,7 @@ def wiring(monkeypatch):
                 }
             )
 
-    async def fake_plan(db, user, today, *, abilities=None):
+    async def fake_plan(db, user, today, *, abilities=None, target_level=None):
         return ss.DailyPlan(
             picks=picks,
             generate_count=0,
