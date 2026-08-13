@@ -92,11 +92,14 @@ export default {
     nodeBody: 'Fill in your details to save your progress',
     nodeCta: 'Go fill in your details →',
     cardTitle: 'Save your progress',
+    // ⚠️ ko와 **같은 이유로** "on any device"를 되살리지 말 것 — 돌아올 문(`/login`)이
+    //    없다. 경위는 `ko.js`의 같은 자리 주석이 소유한다. 계약이 en 값도 함께 문다.
     cardBody:
-      'Fill in your details to save your progress. Right now it lives only on this device — once saved, your XP, streak and placement stay with you on any device.',
+      'Fill in your details to save your progress. Right now it lives only on this device — once saved, your XP, streak and placement stay with your account.',
     submit: 'Save my progress',
-    done: 'Your progress is saved — you can pick up where you left off on any device.',
-    alreadySaved: 'Your progress is already saved to your details — pick up where you left off on any device.',
+    done: 'Your progress is saved — your XP, streak and placement stay with your account.',
+    alreadySaved:
+      'Your progress is already saved to your details — your XP, streak and placement stay with your account.',
   },
   // Region notice (2026-08-12 request ③) — an inline banner, never a modal.
   regionNotice: {
@@ -773,7 +776,9 @@ export default {
       bodySeg1: 'The XP, streak, and placement results you have built up become your account ',
       bodyStrong: 'as-is',
       bodySeg2: '.',
-      bodyLine2: 'Continue learning from any device.',
+      // ⚠️ ko와 같은 이유로 'Continue learning from any device.'를 걷었다 — 돌아올
+      //    문(`/login`)이 없다. 경위는 `saveProgress` 블록 주석이 소유한다.
+      bodyLine2: 'You can review the details you saved any time under My Info.',
       nicknameOptional: '(optional — leave blank to keep your current one)',
       errNotGuest: 'You already have a full account — your progress is safely saved to it.',
       // 2026-08-12: the old copy pointed at a login screen that was removed the same
