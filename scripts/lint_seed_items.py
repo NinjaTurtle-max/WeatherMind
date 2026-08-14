@@ -91,6 +91,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import re
 import sys
 from collections import Counter
 from dataclasses import dataclass, field
@@ -478,6 +479,98 @@ def hint_ordinal_errors(item: dict) -> list[tuple[str, str]]:
     ]
 
 
+# ── ⑥ⓒ 채점 정합 (MT-14 「오독이 정답 처리 · 맞는 답이 오답 처리」) ──────────
+@dataclass(frozen=True)
+class GradingContract:
+    """채점기 상수 — backend `answer_service`에서 실임포트한 값 (사본 금지).
+
+    ⚠️ `author_items.SLIDER_MIN_SPAN`(=40)은 **저작·생성 시점의 권고**를 손으로
+    적어 둔 수치이지 채점기가 쓰는 값이 아니다. 여기서 그것을 재사용하면 관용오차가
+    바뀌는 날 두 숫자가 갈린다 — 판정은 **실제로 채점하는 상수**로 한다.
+    """
+
+    slider_tolerance: float
+
+
+def load_grading_contract() -> GradingContract:
+    """`answer_service.SLIDER_TOLERANCE`를 backend에서 실임포트한다.
+
+    load_render_required와 같은 관례(사본 금지). 실패하면 예외를 올린다 —
+    검사가 조용히 꺼지면 규칙이 없는 것과 같다(load_vocabulary 주석과 같은 판단).
+    """
+    mods = author_items._import_isolated(
+        author_items.BACKEND_DIR, ("app.services.answer_service",)
+    )
+    return GradingContract(
+        slider_tolerance=float(mods["app.services.answer_service"].SLIDER_TOLERANCE)
+    )
+
+
+# 정답이 「숫자+단위」로 붙어 있는 형태 — 소수점·자릿수 쉼표는 단위로 읽지 않는다.
+_ANSWER_WITH_UNIT_RE = re.compile(r"^-?\d+(?:\.\d+)?\s*([^\d\s.,]+)$")
+
+# 문자열 일치로 채점하는 유형 (`answer_service.GRADERS`의 `_grade_text` 대상 중
+# **학습자가 직접 입력하는** 둘). multiple_choice도 같은 채점기를 쓰지만 학습자는
+# 선지를 고를 뿐이라 표기 문제가 생기지 않는다.
+_TYPED_ANSWER_TYPES: tuple[str, ...] = ("short_answer", "cloze")
+
+
+def grading_errors(item: dict, *, grading: GradingContract) -> list[tuple[str, str]]:
+    """채점기에 걸어 보면 **문항이 성립하지 않는** 것 (MT-14의 채점 결함 2종).
+
+    ⑴ **오독이 정답 처리** — slider의 눈금 전 구간이 채점 관용오차 안에 들어가면
+       학습자가 무엇을 짚어도 정답이다. `_grade_slider`의 오차는 **절대값**
+       (`SLIDER_TOLERANCE`)이라 범위가 좁을수록 판정이 무의미해진다. 정답률이
+       1.0으로 고정되므로 **θ·BKT가 그것을 능력으로 읽는다** — 배치고사·적응
+       출제·숙련도 표시가 전부 그 위에 얹혀 있다.
+       ⚠️ 범위·숫자 여부는 여기서 보지 않는다 — 게이트 ①의 `slider_range`가
+       이미 본다. 같은 결함을 두 번 보고하면 리포트가 시끄러워진다.
+    ⑵ **맞는 답이 오답 처리** — short_answer·cloze는 공백·대소문자만 무시하는
+       **완전 일치**로 채점한다(`_grade_text`). 정답이 「30년」이면 「30」이라고
+       쓴 학습자가 틀린 것이 되는데, 그 학습자는 자기가 왜 틀렸는지 알 수 없다.
+       본시드의 관례는 **맨 숫자**이고(단위는 지문·빈칸 뒤에 둔다), 이 검사는
+       그 관례를 게이트로 세운다.
+
+    board는 대상이 아니다 — 규칙 엔진이 재판정하므로 정답 문자열이 채점에 쓰이지
+    않는다(`_grade_board`).
+    """
+    template = item.get("template_json") or {}
+    question_type = item.get("question_type")
+    answer = template.get("correct_answer")
+    errors: list[tuple[str, str]] = []
+
+    if question_type == "slider":
+        low, high = template.get("min"), template.get("max")
+        try:
+            value, low, high = float(answer), float(low), float(high)
+        except (TypeError, ValueError):
+            return errors  # 숫자·범위 결손은 ①(slider_range)의 몫
+        tol = grading.slider_tolerance
+        if abs(low - value) <= tol and abs(high - value) <= tol:
+            errors.append(
+                (
+                    "slider_indiscriminate",
+                    f"슬라이더 전 구간[{low:g}, {high:g}]이 채점 관용오차"
+                    f" ±{tol:g} 안이라 **어떤 값을 짚어도 정답**이다"
+                    f" (정답 {value:g}). 범위를 넓히거나 다른 유형으로 낼 것",
+                )
+            )
+
+    if question_type in _TYPED_ANSWER_TYPES:
+        match = _ANSWER_WITH_UNIT_RE.match(str(answer or "").strip())
+        if match:
+            errors.append(
+                (
+                    "answer_unit_suffix",
+                    f"정답이 숫자+단위 결합('{answer}')이라 완전 일치 채점에서"
+                    f" 「{str(answer).replace(match.group(1), '').strip()}」이"
+                    " 오답 처리된다. 단위는 지문·빈칸 뒤에 두고 정답은 맨 숫자로",
+                )
+            )
+
+    return errors
+
+
 # ── 기지 잔여 (래칫) ─────────────────────────────────────────────────────────
 # ⑥ 계열은 **이미 저작된 1,012건에 잔여가 있다.** 셋 중 하나를 골라야 했다:
 #   ⓐ 탈락으로 센다 → 게이트가 첫날부터 붉고, 그 압력이 게이트를 약화시킨다
@@ -532,6 +625,38 @@ FACTUAL_BASELINE: dict[str, dict[str, str]] = {
             " 시각 혼합층은 3km까지 깊어져 있었다. 이 변화를 설명한 것으로 옳은 것은?"
         ): "「마지막 선지」 — 정오는 맞다. 셔플 제외분.",
     },
+    # 슬라이더 변별 불능 6건 — 관용오차 ±10이 눈금 전체를 덮는다. **문항이 틀린
+    # 게 아니라 채점이 성립하지 않는다**: 정답률이 1.0으로 고정돼 θ·BKT를 오염시킨다.
+    # 해소: 범위를 넓히거나(관용오차의 4배 = author_items.SLIDER_MIN_SPAN이 권고)
+    # 애초에 슬라이더로 낼 값이 아니면 다른 유형으로 재저작.
+    "slider_indiscriminate": {
+        (
+            "파리협정에서 세계 각국은 지구 평균기온 상승 폭을 산업화 이전 대비"
+            " 몇 ℃보다 훨씬 낮게 억제하기로 합의했는가? (단위: ℃)"
+        ): "범위 0~5℃ — 소수 스케일이라 ±10이 전 구간을 덮는다.",
+        "물 1g의 온도를 1℃ 올리는 데 필요한 열량은 몇 cal인가? (단위: cal)": (
+            "범위 0~10cal — 값 자체가 작아 슬라이더와 맞지 않는다."
+        ),
+        "물의 밀도가 가장 커지는 온도는 약 몇 ℃인가? (단위: ℃)": "범위 0~10℃.",
+        (
+            "물은 얼음, 물, 수증기처럼 모습을 바꾼다. 물이 가질 수 있는 상태는"
+            " 모두 몇 가지인가? (단위: 가지)"
+        ): "범위 0~6가지 — 개수를 묻는 문항이라 슬라이더가 구조적으로 안 맞는다.",
+        (
+            "어느 맑은 날 지표 기온이 20℃, 높이 1km 지점의 기온이 12℃로 관측됐다."
+            " 주변 공기가 높이 1km마다 식는 정도인 환경 감률은 몇 ℃/km인가? (단위: ℃/km)"
+        ): "범위 0~15℃/km — 감률 계열은 스케일이 작다.",
+        "우리나라에 태풍이 가장 많이 오는 달은 몇 월인지 슬라이더로 표시하라.": (
+            "범위 1~12월 — 달을 묻는 문항이라 눈금 폭이 12를 넘을 수 없다."
+        ),
+    },
+    # 단위 결합 정답 1건 — 본시드 관례(맨 숫자)의 유일한 예외다.
+    "answer_unit_suffix": {
+        (
+            "어떤 지역의 기후를 말할 때 기준으로 삼는, 세계기상기구가 정한"
+            " 평년값의 산출 기간은 몇 년인가?"
+        ): "정답 '30년' — 「30」이 오답 처리된다. 지문이 이미 「몇 년」이라 단위 중복.",
+    },
 }
 
 
@@ -543,7 +668,7 @@ def baseline_index() -> dict[str, set[str]]:
     }
 
 
-# 탈락 사유 카테고리 — 리포트는 항상 이 8종을 0건 포함해 전부 출력한다.
+# 탈락 사유 카테고리 — 리포트는 항상 이 9종을 0건 포함해 전부 출력한다.
 STAGES: tuple[tuple[str, str], ...] = (
     ("gate1", "① 1차 게이트 탈락 (휴리스틱)"),
     ("payload", "② payload 계약 탈락"),
@@ -553,6 +678,7 @@ STAGES: tuple[tuple[str, str], ...] = (
     ("vocab", "⑤ 단계 금칙 어휘"),
     ("fact_hint", "⑥ⓐ 해설–정답 위치 모순"),
     ("fact_ordinal", "⑥ⓑ 해설의 선지 위치 참조"),
+    ("fact_grading", "⑥ⓒ 채점 정합 (관용오차·정답 표기)"),
 )
 
 
@@ -589,6 +715,7 @@ def lint_items(
     ai: "author_items.AiWorkerApi",
     render_required: dict[str, tuple[str, ...]],
     vocabulary: dict,
+    grading: GradingContract,
     base_items: list[dict] | None = None,
 ) -> LintResult:
     """전 문항에 5종 검사를 실행한다 (순수 함수 — 출력·exit 없음).
@@ -693,6 +820,11 @@ def lint_items(
         ordinal_errors = hint_ordinal_errors(item)
         if ordinal_errors:
             found_factual("fact_ordinal", ordinal_errors)
+
+        # ⑥ⓒ 채점 정합 — 채점기에 걸어 보면 문항이 성립하지 않는 것(래칫).
+        grade_errors = grading_errors(item, grading=grading)
+        if grade_errors:
+            found_factual("fact_grading", grade_errors)
 
         # ④ 중복 배제 — 본시드 대조(있으면) + 파일 내. 어느 키가 겹쳐도 중복
         #    (정답 키는 정규화 정답이 있는 문항만 — answer_key_active).
@@ -852,6 +984,7 @@ def main(argv: list[str] | None = None) -> int:
         ai = author_items.load_ai_worker(with_generator=False)
         render_required = load_render_required()
         vocabulary = load_vocabulary()
+        grading = load_grading_contract()
     except Exception as exc:
         print(f"[lint_seed_items] 파이프라인 로드 실패: {exc}", file=sys.stderr)
         return 2
@@ -861,6 +994,7 @@ def main(argv: list[str] | None = None) -> int:
         "ai": ai,
         "render_required": render_required,
         "vocabulary": vocabulary,
+        "grading": grading,
     }
 
     if args.staging:
