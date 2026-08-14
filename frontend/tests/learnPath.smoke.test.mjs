@@ -101,7 +101,7 @@ const PcCurriculumPath = mod.default;
 const {
   blueEndIndex, stageDoneCount, joinK, estDaysOf, curvePath,
   PATH_DOT_PX, PATH_GAP_PX, PATH_AMP_PX, PATH_HIT_PX, PATH_WAVE_PERIOD, PATH_LINE_PX,
-  alignScrollTop,
+  alignScrollTop, hasMoreBelow,
 } = mod;
 
 let failures = 0;
@@ -743,23 +743,22 @@ await render({});
     !/scroll-snap-align\s*:/.test(stageRule),
     '.wm-stage에 scroll-snap-align이 되살아나지 않았다(스냅포트가 없으면 죽은 선언이다)',
   );
-  // ㉵ **`scroll-behavior: smooth`도 되살아나지 않았다**(2026-08-13 클라이언트
-  //    제보 "빠르게 하면 스크롤이 밀리는구나"). 스냅과 **같은 계보**다 —
-  //    「한 화면에 한 단계」를 부드럽게 넘기려고 둔 것인데, 스냅이 철회되면서
-  //    이유는 사라지고 증상만 남았다. 크롬은 이 선언이 붙은 스크롤러에서
-  //    **휠 입력에도 애니메이션을 걸어** 화면이 입력을 뒤따라오며 밀린다.
-  //    실측(제거 전): `scrollTop += 400`을 30ms 간격 12회 → 기대 4800인데
-  //    **즉시 120 · 1.5초 뒤 511**(각 대입이 앞 애니메이션의 진행 중 값을 읽는다).
+  // ㉵ **여기 있던 `scroll-behavior: smooth` 한정 단정은 걷었다**(대장 §4.10,
+  //    2026-08-14). 지운 것이지 완화한 것이 아니다 — 위 :660의 단정이
+  //    **엄밀히 더 강하다**:
+  //      · 이것: `scroll-behavior: smooth`만 잡는다
+  //      · :660: **값 무관**(`auto`가 들어와도 잡는다) + 선언 시작 경계 요구
+  //        + 주석 재걷기(이중 안전)
+  //    같은 회귀를 둘이 무는데 약한 쪽을 남겨 둘 이유가 없다.
   //
-  // ⚠️ **이 단정이 없어서 실제로 회귀가 살아남았다.** 스냅을 걷은 아침 커밋은
-  //    CSS 주석만 고치고 선언을 안 지웠고, 형제 3종(snap-type·snap-stop·snap-align)
-  //    에는 가드를 세우면서 이것만 빠져 있었다. 주석은 회귀를 못 막는다.
-  //    부드러운 이동이 다시 필요하면 CSS 전역이 아니라 호출부에서
-  //    `scrollTo({behavior:'smooth'})`로 국소 지정할 것 — 그건 이 단정에 안 걸린다.
-  ok(
-    !/scroll-behavior\s*:\s*smooth/.test(scrollerRule),
-    '.wm-scroller에 scroll-behavior:smooth가 되살아나지 않았다(휠 입력에도 애니메이션이 걸려 빠르게 굴리면 밀린다)',
-  );
+  // ⚠️ **왜 중복이 생겼는지가 이 주석의 값이다.** 두 세션이 같은 날 같은 결함을
+  //    **각자 발견해 각자 고쳤다**(#70·#72). 소통이 늦으면 놓치는 것이 아니라
+  //    **겹치는** 쪽으로도 나타난다는 사례다(대장 §4.7·§4.8과 같은 뿌리).
+  //
+  // 남은 :660 단정이 지키는 것과 그 경위(스냅을 걷은 커밋이 CSS 주석만 고치고
+  // 선언을 남겨 회귀가 살아남았다는 것, 실측 `scrollTop += 400`×12 → 기대 4800인데
+  // 즉시 120·1.5초 뒤 511)는 그쪽 주석이 소유한다. 여기 복제하지 않는다 —
+  // 한 사실을 두 곳에 적으면 한쪽만 갱신된다.
 
   const vpathRule = cut('.wm-vpath {', '.wm-node {');
   ok(!/\bcqh\b/.test(vpathRule), '.wm-vpath가 지름을 뷰포트 높이(cqh)에서 역산하지 않는다');
@@ -902,6 +901,58 @@ await render({});
   ok(
     /el\.scrollTop\s*=\s*node[\s\S]{0,40}alignScrollTop\(\{/.test(pcSrc2),
     '초깃값 정렬이 alignScrollTop을 실제로 쓴다(단계 맨 위로 되돌아가지 않았다)',
+  );
+
+  // ── ㉰ 스크롤 힌트 판정 `hasMoreBelow` (대장 §4.13 — 2026-08-14) ────────────
+  //
+  // 🔴 **이 계약은 하루 늦게 왔다.** `#72` 코드리뷰가 낸 medium을 고칠 때 판정이
+  //    컴포넌트 안에 인라인이라 물 방법이 없었고, 그동안 **되돌려도 우는 것이
+  //    없었다**(기하 추론만이 근거였다). 순수 함수로 빼면서 세운다.
+  //
+  // 무는 것은 **「스크롤러가 넘치는가」가 아니라 「펼친 단계가 화면을 넘치는가」**다.
+  // 접기 이후 스크롤러 안에는 접힌 줄들(각 52px)이 함께 살기 때문에, 스크롤러를
+  // 재면 **더 볼 것이 없는 섹션에서도 힌트가 상주**한다(맨 끝 섹션일 때만 우연히 맞음).
+  {
+    const V = 640; // 트랙 한 화면
+    // ⓐ 다 들어오는 섹션 — `.wm-stage`가 min-height:100%라 높이가 정확히 트랙이다.
+    //    정렬 effect가 scrollTop을 stageTop에 두므로 이 조합이 실제로 일어난다.
+    ok(
+      hasMoreBelow({ scrollTop: 1000, viewport: V, stageTop: 1000, stageHeight: V }) === false,
+      'ⓐ 다 들어오는 섹션에서는 힌트가 뜨지 않는다 — 아래 접힌 줄이 몇 개든 무관하다',
+    );
+    // ⓑ 긴 섹션의 맨 위 — 아직 볼 것이 남았다
+    ok(
+      hasMoreBelow({ scrollTop: 1000, viewport: V, stageTop: 1000, stageHeight: 1731 }) === true,
+      'ⓑ 트랙보다 긴 섹션(19칸=1731px)의 맨 위에서는 힌트가 뜬다',
+    );
+    // ⓒ 그 섹션의 끝까지 내려왔다 — 남은 것이 없다
+    ok(
+      hasMoreBelow({ scrollTop: 1000 + 1731 - V, viewport: V, stageTop: 1000, stageHeight: 1731 })
+        === false,
+      'ⓒ 긴 섹션의 끝에 닿으면 힌트가 사라진다',
+    );
+    // ⓓ 바닥 근처 여유 — 소수점 오차로 깜빡이지 않는다
+    ok(
+      hasMoreBelow({ scrollTop: 1000 + 1731 - V - 10, viewport: V, stageTop: 1000, stageHeight: 1731 })
+        === false,
+      'ⓓ 끝에서 10px 못 미쳐도 「더 있음」으로 뒤집히지 않는다(slack 24)',
+    );
+    // ⓔ **회귀의 모양 그 자체** — 스크롤러 전체를 재던 옛 식이면 여기서 true가 된다.
+    //    3칸 섹션(97+86×3=355px, min-height로 640까지 부푼다) 아래에 접힌 줄 9개(468px).
+    //    옛 식: scrollTop(0) + 640 < scrollHeight(640+468) - 24 → **참**(거짓 힌트).
+    ok(
+      hasMoreBelow({ scrollTop: 0, viewport: V, stageTop: 0, stageHeight: V }) === false,
+      'ⓔ 1섹션(다 들어옴) + 아래 접힌 줄 9개에서 힌트가 뜨지 않는다 — 이것이 고친 회귀다',
+    );
+  }
+  // 순수 함수가 맞아도 **호출부가 옛 식이면** 화면은 안 고쳐진다 — 위와 같은 관례.
+  ok(
+    /setHasMore\(\s*hasMoreBelow\(\{/.test(pcSrc2),
+    '힌트 판정이 hasMoreBelow를 실제로 쓴다(스크롤러 전체를 재던 식으로 안 돌아갔다)',
+  );
+  ok(
+    !/setHasMore\([^)]*scrollHeight/.test(pcSrc2),
+    '힌트 판정이 el.scrollHeight를 다시 보지 않는다(접힌 줄까지 세던 그 식이다)',
   );
 }
 
