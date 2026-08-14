@@ -505,6 +505,24 @@ try {
     }
   });
 
+  // ── 3-c. ①안 3단이 여는 `explain` 전건에 임계 수치가 없다 (§3.5 「수치 임계 미공개」) ──
+  // 🔴 **종전에는 계약이 아니라 스팟 체크였다**(2026-08-14 코드 리뷰). `BoardHintPanel`
+  // 주석이 *"규칙 15건의 explain 전건에 숫자가 없음을 실측 확인했다"*고 적었지만,
+  // 그 실측은 **한 번 돌려 본 것**이라 다음 규칙 저작에서 조용히 깨진다.
+  // 3단은 학습자에게 **그대로** 나가므로(N-3 ①안) 여기가 §3.5의 마지막 방어선이다.
+  //
+  // 왜 「숫자 없음」인가: 배치 좌표·수치 임계는 **여전히 미공개**가 계약이다(3단이
+  // 여는 것은 요소명까지다 — R10-01 §3.5). explain에 「습기를 60 이상」류가 들어오면
+  // 그 선이 무너진다. 바로 위 3-a가 `hint_needs`에 같은 검사를 거는 것과 한 쌍이다.
+  await scenario('①안 3단: 규칙 explain 전건에 임계 수치가 없다(§3.5 수치 미공개)', async () => {
+    assert(RULES.length > 0, '규칙이 비었다');
+    for (const rule of RULES) {
+      const ex = rule.explain ?? '';
+      assert(typeof ex === 'string' && ex.length > 0, `${rule.id}: explain이 없다 — 3단이 빈 칸을 연다`);
+      assert(!/\d/.test(ex), `${rule.id}: explain에 임계 수치가 들어 있다 — 3단이 그대로 노출한다`);
+    }
+  });
+
   // ── 3-b. 시드 보드 퍼즐 전건에서 힌트 2단이 무내용 폴백에 빠지지 않는다 (P2-2) ──
   // hintRules가 비면 2단은 "팔레트 종류를 하나씩 시험해 보세요"가 되어 값이 0에
   // 가깝다. 폴백 자체는 방어 코드로 남기되(규칙 로드 실패·생성 문항), **실데이터가
@@ -515,6 +533,7 @@ try {
     const boards = items.filter((it) => it.question_type === 'board');
     assert(boards.length > 0, '시드에 board 문항이 없다');
     const fellBack = [];
+    const multi = [];
     const covered = new Set();
     for (const it of boards) {
       const t = it.template_json ?? {};
@@ -523,6 +542,7 @@ try {
       const zs = zoneStates(createBoard(t.initial_state))[goal.zone] ?? null;
       const cands = hintRulesForGoal(RULES, goal, t.palette ?? [], zs);
       if (cands.length === 0) fellBack.push(`${goal.phenomenon}@zone${goal.zone} palette=${JSON.stringify(t.palette)}`);
+      if (cands.length > 1) multi.push(`${goal.phenomenon}@zone${goal.zone}`);
       for (const c of cands) covered.add(c.id);
       // 후보가 있으면 2단이 실제로 문구를 갖는다(hint_needs 저작 누락 교차 확인)
       assert(cands.every((c) => typeof c.hint_needs === 'string' && c.hint_needs.length > 0),
@@ -533,6 +553,18 @@ try {
     // 규칙 8종이 모두 어느 퍼즐에서든 후보로 쓰인다 = 저작한 hint_needs가 사장되지 않는다
     const unused = RULES.map((r) => r.id).filter((id) => !covered.has(id));
     assert(unused.length === 0, `어느 시드 퍼즐에서도 후보가 되지 않는 규칙: ${unused.join(', ')}`);
+
+    // 🔴 **후보가 2개 이상인 퍼즐을 여기서 못박는다** (2026-08-14 코드 리뷰).
+    // ①안 3단이 `hintRules[0].explain`을 여는데, 그 코드 주석이 *"전건 후보 1개로
+    // 좁혀지는 것은 3-b가 상주 감시한다"*고 적어 놓고 **이 테스트는 ≥1만 단정**했다
+    // — 감시한다고 적은 것을 감시하지 않았다.
+    // 실측하니 **정확히 1건**이 후보 2개다(`fog@zone1`). 그 자체는 결함이 아니다:
+    // `hintRulesForGoal`이 **goal.phenomenon으로 먼저 거르므로** 후보들은 전부
+    // 「같은 현상에 이르는 다른 경로」이고, 어느 것을 열어도 **틀린 현상을 가르치지
+    // 않는다**(팔레트 도달 가능성도 `conditionReachable`이 이미 걸렀다).
+    // 그래서 1개로 **강제하지 않고** 현재 상태를 고정한다 — 늘어나면 그때
+    // 「어느 경로를 보여줄 것인가」를 사람이 판단해야 한다.
+    assert(multi.length <= 1, `후보가 2개 이상인 퍼즐이 늘었다(${multi.length}건): ${multi.join(', ')} — ①안 3단이 어느 경로의 해설을 열지 판단이 필요하다`);
   });
 
   // ── 4. 판정 확정 후 "판정 중..." 잔존 없음 (§3.5 마감 2) ────────────────────

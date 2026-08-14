@@ -528,8 +528,17 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
 
   // ── ①안 3단(N-3): N회 미통과 후 현상 해설 공개 ────────────────────────────
   // 규칙은 힌트 2단이 **이미 좁혀 놓은 후보**를 그대로 쓴다(hintRulesForGoal).
-  // 시드 board 전건이 후보 1개로 좁혀지는 것은 boardAssistRetention 3-b가 상주
-  // 감시하므로, 후보가 흔들리면 그 테스트가 먼저 운다.
+  //
+  // ⚠️ **종전 주석은 거짓이었다**(2026-08-14 코드 리뷰): *"시드 전건이 후보 1개로
+  // 좁혀지는 것은 3-b가 상주 감시한다"*고 적었는데 **3-b는 ≥1만 단정**했고, 실측하니
+  // **후보 2개인 퍼즐이 1건 있다**(`fog@zone1`). 감시한다고 적은 것을 감시하지 않았다.
+  //
+  // 그래도 `[0]`을 여는 것이 **안전한 이유**는 따로 있다 — `hintRulesForGoal`이
+  // **`goal.phenomenon`으로 먼저 거르고**(같은 함수 :124) 팔레트 도달 가능성까지
+  // 보므로, 후보들은 전부 **「같은 현상에 이르는 다른 경로」**다. 어느 것을 열어도
+  // 틀린 현상을 가르치지 않는다. 다만 **여러 경로 중 하나만 보여 준다**는 사실은
+  // 그대로이므로, 후보가 더 늘면 「어느 경로를 보여줄 것인가」는 사람 판단이다 —
+  // 그 신호를 3-b가 `multi.length <= 1`로 낸다(이제 실제로 감시한다).
   // 자유 실험(sandbox)은 목표도 채점도 없어 미통과가 존재하지 않는다.
   const explainRevealed = !sandbox && missCount >= EXPLAIN_AFTER_MISSES;
   const revealedExplain = explainRevealed ? (hintRules[0]?.explain ?? null) : null;
