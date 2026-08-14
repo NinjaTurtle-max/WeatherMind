@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import Mascot from '../../components/Mascot';
-import client from '../../api/client';
 import { useT } from '../../i18n';
 
 /**
@@ -17,9 +16,11 @@ import { useT } from '../../i18n';
  * 소비자는 `App.jsx`의 `RequireAuth`이고, 여기서는 고르기만 한다(요청을 만들지
  * 않는다 — 토큰이 아직 없어서 여기서 부를 수 있는 것도 없다).
  *
- * 2026-08-14로 산출물이 둘이 됐다 — **학령과 닉네임**. 닉네임은 `onSubmit`을 타지
- * 못해서(아래 `pendingNickname` 주석) 발급 요청에 얹는 방식으로 실린다. 둘 다
- * **선택**이고, 둘 다 안 정해도 이 화면을 통과할 수 있어야 한다.
+ * 2026-08-14로 산출물이 둘이 됐다 — **학령과 닉네임**. 둘 다 `onSubmit({level,
+ * nickname})` 한 통로로 나가고 발급 바디는 `App.jsx`가 만든다. 둘 다 **선택**이고,
+ * 둘 다 안 정해도 이 화면을 통과할 수 있어야 한다.
+ * (같은 날 잠깐 axios 인터셉터로 얹는 우회를 썼다가 걷었다 — 그 경위는 아래
+ *  「인터셉터는 걷었다」 주석이 소유한다. 409를 화면에 되돌릴 수 없는 구조였다.)
  *
  * ⚠️ **규정 계약 3가지를 동시에 지킨다.**
  *   ① 「로그인」·「회원가입」·「Log in」·「Sign up」 문구를 쓰지 않는다. 계약은
@@ -46,66 +47,39 @@ export const ENTRY_LEVEL_GROUPS = [
 const NICKNAME_MAX = 50;
 
 /**
- * 신고한 닉네임 — **발급 바디에 실릴 값**이고, 이 모듈 밖으로는 나가지 않는다.
+ * ⚠️ **여기 있던 axios 인터셉터 2개는 걷었다**(2026-08-14). 경위를 남긴다.
  *
- * 왜 인터셉터인가. 이 화면의 산출물은 `onSubmit(level)` 하나인데 그 시그니처는
- * `App.jsx`의 `finishEntryInfo(level)`가 소유한다 — 거기에 객체를 실으면
- * `POST /auth/guest {level_group: {...}}`가 되어 pydantic 422로 **발급 자체가
- * 깨진다**. 학령과 달리 닉네임은 그 통로를 못 쓴다. 그래서 값이 흐르는 곳을
- * 바꾸지 않고 **요청이 나가는 순간에 얹는다**: 발급을 부르는 주체(App.jsx)는
- * 그대로 두고, 바디에 필드 하나가 더 붙는다.
+ * 처음 만들 때 이 화면의 산출물이 `onSubmit(level)` 하나였다 — 그 시그니처는
+ * `App.jsx`의 `finishEntryInfo`가 소유하는데 담당이 그 파일을 소유 밖으로
+ * 받았다. 객체를 실으면 `POST /auth/guest {level_group:{...}}`가 되어 pydantic
+ * 422로 **발급 자체가 깨지므로**, 값이 흐르는 곳을 안 바꾸고 **요청이 나가는
+ * 순간 바디에 얹는** 우회를 썼다.
  *
- * ⚠️ **한 번 쓰면 지운다.** 안 지우면 건너뛰기·딥링크 발급까지 앞 시도의 닉네임을
- * 물고 간다(entryFlow ⑤⑥이 바디가 비어 있음을 단정한다).
- * ⚠️ **빈 문자열은 보내지 않는다.** 서버가 나중에 `min_length=1`을 걸면 빈 값이
- * 발급을 422로 떨어뜨리고 사용자가 재시도 화면에 갇힌다 — 「안 적음」의 서버 표현은
- * 학령과 마찬가지로 **필드 부재**다.
- * ⚠️ 값은 오늘 서버에서 **조용히 무시된다**: `GuestStartRequest`에 `nickname`이 없고
- * pydantic 기본이 extra=ignore라 201 그대로다(목도 `level_group`만 본다). 유일성은
- * 서버 몫이라 이번 범위 밖이고, 여기는 「값을 싣는 데」까지다.
+ * 🔴 **그 우회로는 409를 화면에 되돌릴 수가 없다.** 인터셉터는 요청만 알고
+ * 응답의 종류를 화면에 알릴 통로가 없다 — 발급 실패는 `guestFailed` →
+ * 재시도 화면으로 가고 이 화면은 이미 언마운트된 뒤라, 재시도가 **이름 없이**
+ * 나가 성공한다. 사용자는 오류가 아니라 **자기 이름의 증발**을 겪는다.
+ *
+ * 그래서 배선을 하나로 모았다: `onSubmit({level, nickname})`로 올려 보내고,
+ * `App.jsx`가 발급 바디를 만들고 `NICKNAME_TAKEN`이면 이 화면을 다시 띄운다
+ * (적어 둔 이름은 `nickname` prop으로 돌아온다). 대장 §4.16.
+ *
+ * ⚠️ **인터셉터를 되살리지 말 것.** 모듈 스코프 인터셉터는 이 화면이 언마운트된
+ * 뒤에도 `client`에 남아, 나중의 어떤 발급 요청에도 계속 끼어든다.
  */
-let pendingNickname = null;
-
 /**
- * 닉네임 중복 통보 걸쇠 — 서버가 발급을 409/422로 되돌려줄 때 켜진다.
- *
- * ⚠️ **오늘은 켜지지 않는다.** 서버에 유일성 제약이 없고(게스트들이 같은 자동
- * 닉네임을 공유해 unique 인덱스가 만들어지지 않는다) 그 상태에서 발급은 201이다.
- * 발화해도 화면까지 닿으려면 `App.jsx` 배선이 한 번 더 필요하다 — 발급 실패는
- * `guestFailed` → 재시도 화면으로 가고 이 화면은 이미 언마운트된 뒤라, 다시
- * 들어왔을 때에야 읽힌다. 그 배선은 소유 밖이라 손대지 않고 보고로 남긴다.
+ * @param nickname      되돌아왔을 때 다시 채워 넣을 이름(`App.jsx`가 보관한다).
+ *                      비우고 다시 적게 하면 학습자가 방금 친 것을 또 쳐야 한다.
+ * @param nicknameTaken 그 이름이 이미 쓰이고 있어 되돌아왔는가.
  */
-let nicknameRejected = false;
-const takeNicknameRejection = () => {
-  const was = nicknameRejected;
-  nicknameRejected = false;
-  return was;
-};
-
-const GUEST_ISSUE_URL = '/auth/guest';
-
-client.interceptors.request.use((config) => {
-  // `/auth/guest/convert`가 아니라 발급 그 자체만 — 정확 일치로 문다.
-  if (config.url === GUEST_ISSUE_URL && pendingNickname) {
-    config.data = { ...(config.data ?? {}), nickname: pendingNickname };
-    pendingNickname = null;
-  }
-  return config;
-});
-
-client.interceptors.response.use(undefined, (error) => {
-  const status = error?.response?.status;
-  if (error?.config?.url === GUEST_ISSUE_URL && (status === 409 || status === 422)) {
-    nicknameRejected = true;
-  }
-  return Promise.reject(error);
-});
-
-export default function EntryInfoPage({ onSubmit }) {
+export default function EntryInfoPage({
+  onSubmit,
+  nickname: initialNickname = '',
+  nicknameTaken = false,
+}) {
   const t = useT();
   const [picked, setPicked] = useState(null);
-  const [nickname, setNickname] = useState('');
-  const [nicknameTaken] = useState(takeNicknameRejection);
+  const [nickname, setNickname] = useState(initialNickname);
 
   /**
    * 화면을 떠나는 **모든** 출구가 여기를 지난다 — 「다음」도 「건너뛰기」도.
@@ -113,8 +87,7 @@ export default function EntryInfoPage({ onSubmit }) {
    * 안 적었으면 `null`이고 그러면 인터셉터가 아무것도 얹지 않는다.
    */
   const leave = (level) => {
-    pendingNickname = nickname.trim() || null;
-    onSubmit(level);
+    onSubmit({ level, nickname: nickname.trim() });
   };
 
   return (

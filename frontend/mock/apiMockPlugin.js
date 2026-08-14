@@ -450,10 +450,23 @@ function reviewQueuePayload(nowMs = Date.now()) {
 // level_group은 서버 users.level_group의 목 대응물이다 (R13 CO-P-5). 종전에는
 // 목에 학령 자체가 없어서 "게스트는 평생 middle_high"라는 결함을 목 위 스모크로는
 // 원리적으로 볼 수 없었다 — 이제 GET/PATCH /auth/me가 서버와 같은 형태로 읽고 쓴다.
+// takenNicknames는 서버 **닉네임 유일성 검사**의 대응물이다 —
+// ⚠️ **DB 유니크 제약이 아니다.** `users.nickname`에는 제약이 없고(기존 게스트가
+// 자동 닉네임 `게스트-xxxxxx`를 공유해 인덱스가 만들어지지 않는다) 유일성은
+// `guest_login`이 **신고 경로에서만** SELECT로 확인한다(대장 §4.16).
+// registeredEmails와 **같은 관례**로, 이미 쓰이고 있는 이름 1건을 시드해 409 경로를
+// 목 위에서 재현한다. 시드값은 새로 지어낸 이름이 아니라 **목이 이미 「쓰이고 있다」고
+// 선언한 이름**이다: `meResponse`의 정식 계정 닉네임 '날씨러버'.
+// ⚠️ 리그 리더보드의 닉네임 10종은 **시드하지 않는다.** 그 배열의 '구름사냥꾼'은
+// i18n 예시 문구(`entryInfo.nicknamePlaceholder`)이자 entryFlow ⑧-a가 실제로 적어
+// 넣는 이름이라, 시드하면 「적은 이름이 바디에 실린다」 계약이 409로 무너진다.
+// nickname은 현재 게스트가 신고한 이름(없으면 null → 서버 자동 닉네임 자리).
 const mockAuth = {
   isGuest: false,
   levelGroup: 'middle_high', // 서버 GUEST_LEVEL_GROUP과 같은 무정보 기본값
+  nickname: null,
   registeredEmails: new Set(['taken@weathermind.dev']),
+  takenNicknames: new Set(['날씨러버']),
 };
 
 // 서버 schemas/auth.LevelGroup Literal과 같은 3값 — 목이 사본을 갖는 대신
@@ -475,7 +488,9 @@ const meResponse = () => ({
   email: mockAuth.isGuest
     ? `guest-${MOCK_USER_ID}@${GUEST_EMAIL_DOMAIN}`
     : 'demo@weathermind.dev',
-  nickname: mockAuth.isGuest ? '게스트-2b1c8b' : '날씨러버',
+  // 게스트가 이름을 신고했으면 그 이름으로 유저가 만들어진 것이다 — 신고가 없으면
+  // 서버가 짓는 자동 닉네임(`게스트-{uuid6}`)의 목 대응물로 되돌아간다.
+  nickname: mockAuth.isGuest ? (mockAuth.nickname ?? '게스트-2b1c8b') : '날씨러버',
   is_guest: mockAuth.isGuest,
   level_group: mockAuth.levelGroup,
 });
@@ -1935,12 +1950,34 @@ const routes = {
   // {access_token, refresh_token}). 드리프트는 test_auth_guest 계약이 감시한다.
   // 바디는 **선택**이다(서버 GuestStartRequest) — 없으면 기본 middle_high.
   // 보내면 그 학령으로 시작한다(R13 CO-P-5). 허용값 밖은 서버 pydantic이 422다.
+  //
+  // nickname도 **선택**이다(2026-08-14). 안 보내면 이 핸들러는 종전과 완전히 동일하게
+  // 동작한다 — 기존 스모크 다수가 무바디·`{level_group}`만으로 부른다.
+  // 보내면 유일성 검사를 통과해야 유저가 만들어진다: 이미 쓰이는 이름이면 409
+  // `NICKNAME_TAKEN`(서버 `guest_login`의 신고 경로 유일성 검사에 대응 — 프론트
+  // `EntryInfoPage`의 거절 걸쇠가 이 코드로 분기한다).
+  // 검사 순서는 서버와 같다: pydantic 형태 검증(422)이 먼저고, 유일성은 그 다음이다.
   'POST /auth/guest': (body) => {
     if (body?.level_group != null && !LEVEL_GROUPS.includes(body.level_group)) {
       return [422, { detail: '알 수 없는 학습 수준입니다.', code: 'VALIDATION_ERROR' }];
     }
+    const nickname = body?.nickname ?? null;
+    // 서버 GuestStartRequest.nickname의 `min_length=1, max_length=50` 대응 —
+    // 「안 적음」의 서버 표현은 빈 문자열이 아니라 **필드 부재**다. 이 분기가 없으면
+    // 목에서만 빈 이름이 유효한 닉네임으로 접수돼 실서버 422를 리허설할 수 없다.
+    if (nickname !== null && (typeof nickname !== 'string' || nickname.length < 1 || nickname.length > 50)) {
+      return [422, { detail: '닉네임은 1~50자로 적어 주세요.', code: 'VALIDATION_ERROR' }];
+    }
+    if (nickname !== null && mockAuth.takenNicknames.has(nickname)) {
+      return [409, { detail: '이미 사용 중인 닉네임입니다.', code: 'NICKNAME_TAKEN' }];
+    }
+    if (nickname !== null) mockAuth.takenNicknames.add(nickname);
     mockAuth.isGuest = true;
     mockAuth.levelGroup = body?.level_group ?? 'middle_high';
+    // ⚠️ 이름을 **매번** 덮어쓴다(신고가 없으면 null). 서버는 발급마다 새 유저 행을
+    // 새 자동 닉네임으로 만들므로, 앞선 발급의 이름이 다음 무바디 발급에 남으면
+    // 「닉네임 없이 부르면 종전과 동일」이 한 프로세스 안에서 깨진다.
+    mockAuth.nickname = nickname;
     return [201, { access_token: 'mock-guest-access', refresh_token: 'mock-guest-refresh' }];
   },
   // R11-01 §6.2: 게스트→정식 계정 전환 — BE-1 서버 계약 그대로.

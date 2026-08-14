@@ -438,9 +438,13 @@ try {
   //
   // 학령과 같은 자리로 간다 — 게스트 유저 행이 만들어지는 곳이 발급 하나뿐이라
   // (`routers/auth.py guest_login`이 `nickname=f"게스트-{...}"`를 거기서 정한다)
-  // 유일성을 걸 서버가 볼 자리도 거기다. 오늘 서버는 이 필드를 조용히 무시한다
-  // (`GuestStartRequest`에 없고 pydantic extra=ignore) — 그래서 **결과가 아니라
-  // 바디만** 단정한다. 결과까지 재면 서버가 받는 날까지 영구 실패다.
+  // 유일성을 걸 서버가 볼 자리도 거기다.
+  //
+  // ⚠️ **여기 있던 「오늘 서버는 이 필드를 조용히 무시한다」는 낡았다**(2026-08-14 오후).
+  //    같은 날 `GuestStartRequest.nickname`(`min_length=1,max_length=50`)과 유일성
+  //    검사가 착지했다 — 이제 서버가 받고, 겹치면 409 `NICKNAME_TAKEN`을 준다.
+  //    이 시나리오가 **바디만** 재는 것은 그 시절의 잔재가 아니라 지금도 맞는 분업이다:
+  //    「값이 실려 나가는가」는 여기가, 「겹쳤을 때 화면이 어떻게 되는가」는 아래 ⑨가 문다.
   await scenario('⑧ 적은 닉네임이 발급 바디에 실린다 — 「다음」·「건너뛰기」 양쪽', async () => {
     // ⑧-a 「다음」 — 학령과 나란히 실린다
     await coldOpen();
@@ -477,6 +481,88 @@ try {
     ok(
       me.body?.level_group === 'middle_high',
       `⑧-b 이름만 적었으면 학령은 서버 기본값 그대로다 — 실제 ${me.body?.level_group}`,
+    );
+    r.unmount();
+  });
+
+  // ── ⑨ 이름이 겹치면 정보 입력으로 되돌아온다 (409 NICKNAME_TAKEN) ──────────
+  //
+  // 🔴 **이 계약이 없으면 「이름의 증발」이 되살아난다.** 처음 만든 판은 닉네임을
+  //    axios 인터셉터로 요청에 얹었는데, 그 구조는 **응답의 종류를 화면에 알릴
+  //    통로가 없다** — 409가 오면 일반 발급 실패로 취급돼 재시도 화면으로 가고,
+  //    값이 일회성이라 재시도는 **이름 없이 나가 성공한다.** 학습자는 오류를 보는
+  //    것이 아니라 자기가 적은 이름이 사라진 것을 겪는다(대장 §4.16).
+  //
+  // ⚠️ **`NICKNAME_TAKEN`만 폼으로 되돌린다.** 나머지 실패는 전부 `GuestIssueRetry`다
+  //    — 넓히면 MT-29가 고친 결함(발급 실패를 폼으로 보내는 것)이 그대로 재발하고,
+  //    그것이 규정의 「로그인 없이 열려야」를 연결 나쁜 심사위원에게서 깨뜨린다.
+  //
+  // 🔴 **그 경계를 무는 것은 이 파일이 아니다.** 처음 이 자리에 "⑨-c가 그 경계를
+  //    문다"고 적었는데 **거짓이었고 되돌림 확인이 잡았다**: 분기를 `if (!ok)`로
+  //    넓혀도 ⑨는 전건 초록이었다. 당연하다 — 이 시나리오가 만드는 실패는 **중복
+  //    하나뿐**이라, 「중복 **아닌** 실패가 폼으로 새는가」를 잴 표본이 없다.
+  //    실제 소유자는 `onboardingGating.smoke`의 「발급 실패: 로그인 폼이 아니라
+  //    재시도 화면」이고, 같은 변이에서 그쪽이 6초 타임아웃으로 운다(실측).
+  //    ⑨-c가 무는 것은 **반대 방향**이다 — 중복일 때 재시도 화면으로 새지 않는가.
+  //    둘이 합쳐져야 경계가 양쪽에서 닫힌다.
+  //
+  // 목이 `날씨러버`를 **이미 쓰이는 이름으로 시드**해 둔다(정식 계정 닉네임 —
+  // `registeredEmails`가 `taken@…`을 시드하는 것과 같은 관례). 그래서 이 시나리오는
+  // 앞선 발급에 의존하지 않고 **결정적으로** 409를 만든다.
+  await scenario('⑨ 겹치는 이름 → 정보 입력으로 되돌아오고 적은 이름이 남는다', async () => {
+    const mark = await coldOpen();
+    const r = mountApp('/');
+    await waitFor(() => $ni(), 8000, '닉네임 입력란');
+    fillInput($ni(), '날씨러버');
+    await sleep(60);
+    $('[data-testid="entry-info-levels"] button[data-level="adult"]').click();
+    await sleep(60);
+    $('[data-testid="entry-info-submit"]').click();
+
+    // ⑨-a 되돌아온다 — 재시도 화면이 아니라 **정보 입력 화면**이다
+    await waitFor(
+      () => $('[data-testid="entry-info-nickname-taken"]'),
+      8000,
+      '중복 안내와 함께 정보 입력 화면 복귀',
+    );
+    ok(
+      Boolean($('[data-testid="entry-info"]')),
+      '⑨-a 🔴 겹치는 이름이면 정보 입력 화면으로 되돌아온다(재시도 화면이 아니다)',
+    );
+
+    // ⑨-b 적은 이름이 그대로 남는다 — 비우면 방금 친 것을 또 쳐야 한다
+    ok(
+      $ni()?.value === '날씨러버',
+      `⑨-b 적은 이름이 입력란에 남아 있다 — 실제 "${$ni()?.value}"`,
+    );
+
+    // ⑨-c **경계** — 재시도 화면으로 새지 않았다. 이 단정이 MT-29 회귀를 문다.
+    ok(
+      $('[data-testid="guest-issue-retry"]') === null,
+      '⑨-c 중복은 재시도 화면으로 가지 않는다(발급 실패와 사유가 다르다 — MT-29)',
+    );
+
+    // ⑨-d 이름을 바꾸면 통과한다 — 되돌아온 화면이 **살아 있는 화면**이어야 한다
+    //     (얼어붙은 화면이면 학습자가 갇힌다 — 재시도가 effect 의존성에 있어야
+    //      한다는 계약과 같은 뿌리다).
+    fillInput($ni(), '아직안쓴이름');
+    await sleep(60);
+    $('[data-testid="entry-info-levels"] button[data-level="adult"]').click();
+    await sleep(60);
+    $('[data-testid="entry-info-submit"]').click();
+    await waitFor(
+      () => useAuthStore.getState().accessToken,
+      8000,
+      '이름을 바꾼 뒤 발급 성공',
+    );
+    const sent = wireBodies.at(-1);
+    ok(
+      sent?.nickname === '아직안쓴이름',
+      `⑨-d 바꾼 이름으로 다시 나간다 — 실제 ${JSON.stringify(sent)}`,
+    );
+    ok(
+      guestCalls(mark).length === 2,
+      `⑨-d 발급은 겹친 1회 + 성공 1회 = 2회다 — 실제 ${guestCalls(mark).length}회`,
     );
     r.unmount();
   });
