@@ -32,6 +32,15 @@ export default {
     ko: '한국어',
     en: 'English',
   },
+  // 🔴 원출처 표기 — **대회 규정 요구**(2026-08-14 감사 판정). 화면 하단 한 줄.
+  // ⚠️ **기관명은 번역 대상이 아니다** — en에서도 원문이 그대로 온다. 그래도 키로
+  //    두는 이유는 이 저장소가 UI 문구를 예외 없이 외부화하기 때문이고, 예외를
+  //    하나 만들면 「어떤 문구가 키를 갖는가」의 규칙이 사람 판단으로 내려간다.
+  // ⚠️ 값을 바꿀 때는 `tests/home.smoke.test.mjs`의 원출처 단정 3종을 먼저 볼 것 —
+  //    기관명이 빠지면 요소가 남아 있어도 규정을 못 지킨다.
+  attribution: {
+    data: '자료: 기상청 날씨누리 · 기상청 API허브',
+  },
   common: {
     loading: '불러오는 중…',
     retry: '다시 시도',
@@ -304,7 +313,10 @@ export default {
   // 학습 수준 라벨은 새로 만들지 않고 `auth.register.*`를 재사용한다(/me의 학습
   // 수준 카드와 같은 말이어야 한다). 여기 있는 것은 그 옆에 붙는 설명뿐이다.
   entryInfo: {
-    title: '반가워요! 어떻게 배울지 알려주세요',
+    // 2026-08-14(S-12): `알려주세요` → `알려 주세요`. 이 파일의 ⓑ 규약(보조용언
+    // 띄어쓰기 원칙형)이 8/13에 10건을 띄웠는데, 그 뒤에 저작된 이 블록만 붙임으로
+    // 남아 파일 안에서 유일한 예외였다(다른 `~해 주세요` 18건은 전부 띄움).
+    title: '반가워요! 어떻게 배울지 알려 주세요',
     body: '학습 수준에 맞춰 문항이 나와요. 지금 정하면 바로 이어서 실력 진단을 받아요.',
     levelLabel: '학습 수준',
     levelHint: {
@@ -492,13 +504,15 @@ export default {
       boardChip: '보드 퍼즐 유닛',
       placementOpened: '🧭 진단으로 열림',
     },
+    // 2026-08-14(S-11 고아 키 정리): `body`·`resume`·`regenResume` 3키를 걷었다.
+    // 소유자였던 자유 일일 세션 카드·`/daily` 라우트가 2026-08-12에 통째로
+    // 제거되면서 읽는 곳이 사라졌다(`tests/onboardingGating.smoke.test.mjs` §8이
+    // 그 UI 단정을 걷어낸 경위를 소유한다). 남은 3키는 실사용처가 있다 —
+    // title·cta는 CurriculumHome, regen은 LearnHeroCard.
     daily: {
       title: '자유 일일 세션',
-      body: '정해진 경로 대신 오늘의 세션을 바로 풀고 싶다면.',
       cta: '오늘의 세션 풀기 →',
-      resume: '풀던 세션 이어서 풀기 →',
       regen: '☁️ 구름 회복까지 약 {min}분',
-      regenResume: '☁️ 구름 회복까지 약 {min}분 — 오늘 시작한 세션은 끝까지 마칠 수 있어요.',
     },
     // 세로 경로(PcCurriculumPath) — 노드 밑 라벨을 뺀 대신 진도 바가 "지금 어디"를 말한다.
     path: {
@@ -827,7 +841,9 @@ export default {
     submit: '예측 제출 (주 1회)',
     minOverMax: '최저기온이 최고기온보다 높을 수 없어요.',
     submitFailed: '예측 제출에 실패했어요.',
-    leaderboard: '리더보드',
+    // 2026-08-14(S-11): `leaderboard`('리더보드') 제목 키를 걷었다 — 대시보드
+    // 개편으로 그 자리의 제목은 `dash.ranking`(「리그 순위」)이 됐고 읽는 곳이
+    // 없었다. `leaderboardLoading`은 LeaguePage가 그대로 쓴다.
     leaderboardLoading: '순위표 불러오는 중…',
     myHistory: '내 리그 이력',
     accuracy: '정확도 {score}점',
