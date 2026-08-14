@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Mascot from '../../components/Mascot';
+import client from '../../api/client';
 import { useT } from '../../i18n';
 
 /**
@@ -15,6 +16,10 @@ import { useT } from '../../i18n';
  * 그래서 이 화면의 산출물은 화면 자체가 아니라 **발급 바디에 실릴 값**이다.
  * 소비자는 `App.jsx`의 `RequireAuth`이고, 여기서는 고르기만 한다(요청을 만들지
  * 않는다 — 토큰이 아직 없어서 여기서 부를 수 있는 것도 없다).
+ *
+ * 2026-08-14로 산출물이 둘이 됐다 — **학령과 닉네임**. 닉네임은 `onSubmit`을 타지
+ * 못해서(아래 `pendingNickname` 주석) 발급 요청에 얹는 방식으로 실린다. 둘 다
+ * **선택**이고, 둘 다 안 정해도 이 화면을 통과할 수 있어야 한다.
  *
  * ⚠️ **규정 계약 3가지를 동시에 지킨다.**
  *   ① 「로그인」·「회원가입」·「Log in」·「Sign up」 문구를 쓰지 않는다. 계약은
@@ -37,9 +42,80 @@ export const ENTRY_LEVEL_GROUPS = [
   { value: 'adult', labelKey: 'auth.register.adult', hintKey: 'entryInfo.levelHint.adult' },
 ];
 
+/** 서버 `RegisterRequest.nickname` / `ConvertRequest.nickname`과 같은 상한(50자). */
+const NICKNAME_MAX = 50;
+
+/**
+ * 신고한 닉네임 — **발급 바디에 실릴 값**이고, 이 모듈 밖으로는 나가지 않는다.
+ *
+ * 왜 인터셉터인가. 이 화면의 산출물은 `onSubmit(level)` 하나인데 그 시그니처는
+ * `App.jsx`의 `finishEntryInfo(level)`가 소유한다 — 거기에 객체를 실으면
+ * `POST /auth/guest {level_group: {...}}`가 되어 pydantic 422로 **발급 자체가
+ * 깨진다**. 학령과 달리 닉네임은 그 통로를 못 쓴다. 그래서 값이 흐르는 곳을
+ * 바꾸지 않고 **요청이 나가는 순간에 얹는다**: 발급을 부르는 주체(App.jsx)는
+ * 그대로 두고, 바디에 필드 하나가 더 붙는다.
+ *
+ * ⚠️ **한 번 쓰면 지운다.** 안 지우면 건너뛰기·딥링크 발급까지 앞 시도의 닉네임을
+ * 물고 간다(entryFlow ⑤⑥이 바디가 비어 있음을 단정한다).
+ * ⚠️ **빈 문자열은 보내지 않는다.** 서버가 나중에 `min_length=1`을 걸면 빈 값이
+ * 발급을 422로 떨어뜨리고 사용자가 재시도 화면에 갇힌다 — 「안 적음」의 서버 표현은
+ * 학령과 마찬가지로 **필드 부재**다.
+ * ⚠️ 값은 오늘 서버에서 **조용히 무시된다**: `GuestStartRequest`에 `nickname`이 없고
+ * pydantic 기본이 extra=ignore라 201 그대로다(목도 `level_group`만 본다). 유일성은
+ * 서버 몫이라 이번 범위 밖이고, 여기는 「값을 싣는 데」까지다.
+ */
+let pendingNickname = null;
+
+/**
+ * 닉네임 중복 통보 걸쇠 — 서버가 발급을 409/422로 되돌려줄 때 켜진다.
+ *
+ * ⚠️ **오늘은 켜지지 않는다.** 서버에 유일성 제약이 없고(게스트들이 같은 자동
+ * 닉네임을 공유해 unique 인덱스가 만들어지지 않는다) 그 상태에서 발급은 201이다.
+ * 발화해도 화면까지 닿으려면 `App.jsx` 배선이 한 번 더 필요하다 — 발급 실패는
+ * `guestFailed` → 재시도 화면으로 가고 이 화면은 이미 언마운트된 뒤라, 다시
+ * 들어왔을 때에야 읽힌다. 그 배선은 소유 밖이라 손대지 않고 보고로 남긴다.
+ */
+let nicknameRejected = false;
+const takeNicknameRejection = () => {
+  const was = nicknameRejected;
+  nicknameRejected = false;
+  return was;
+};
+
+const GUEST_ISSUE_URL = '/auth/guest';
+
+client.interceptors.request.use((config) => {
+  // `/auth/guest/convert`가 아니라 발급 그 자체만 — 정확 일치로 문다.
+  if (config.url === GUEST_ISSUE_URL && pendingNickname) {
+    config.data = { ...(config.data ?? {}), nickname: pendingNickname };
+    pendingNickname = null;
+  }
+  return config;
+});
+
+client.interceptors.response.use(undefined, (error) => {
+  const status = error?.response?.status;
+  if (error?.config?.url === GUEST_ISSUE_URL && (status === 409 || status === 422)) {
+    nicknameRejected = true;
+  }
+  return Promise.reject(error);
+});
+
 export default function EntryInfoPage({ onSubmit }) {
   const t = useT();
   const [picked, setPicked] = useState(null);
+  const [nickname, setNickname] = useState('');
+  const [nicknameTaken] = useState(takeNicknameRejection);
+
+  /**
+   * 화면을 떠나는 **모든** 출구가 여기를 지난다 — 「다음」도 「건너뛰기」도.
+   * 닉네임은 학령과 독립이라 건너뛰기에 적어 둔 이름도 버리지 않는다.
+   * 안 적었으면 `null`이고 그러면 인터셉터가 아무것도 얹지 않는다.
+   */
+  const leave = (level) => {
+    pendingNickname = nickname.trim() || null;
+    onSubmit(level);
+  };
 
   return (
     <div
@@ -52,7 +128,7 @@ export default function EntryInfoPage({ onSubmit }) {
         <button
           type="button"
           data-testid="entry-info-skip"
-          onClick={() => onSubmit(null)}
+          onClick={() => leave(null)}
           className="rounded-lg px-2 py-1 text-sm font-medium text-slate-400 transition hover:text-slate-600"
         >
           {t('entryInfo.skip')}
@@ -92,6 +168,37 @@ export default function EntryInfoPage({ onSubmit }) {
         ))}
       </div>
 
+      {/* 닉네임 — **선택 항목**이다(2026-08-14 클라이언트 결정).
+          🔴 어떤 버튼도 이 값으로 잠그지 않는다. 규정이 「로그인·결제 없이 열려야」
+          이고 이 화면의 원칙이 「조작 최소·건너뛰기 상시」라, 이름을 물어보는 것이
+          진입을 막는 순간 둘 다 깨진다 — 「다음」은 학령만 보고, 「건너뛰기」는
+          언제나 눌린다. 계약은 `entryFlow.smoke` ⑦이 문다.
+          ⚠️ `type="text"`다 — 이메일·비밀번호 입력란이 없어야 한다는 규정 계약을
+          `entryFlow` ②가 입력 타입으로 재고 있다. */}
+      <label
+        className="mt-7 block text-sm font-extrabold text-slate-900"
+        htmlFor="entry-info-nickname"
+      >
+        {t('entryInfo.nicknameLabel')}
+      </label>
+      <input
+        id="entry-info-nickname"
+        data-testid="entry-info-nickname"
+        type="text"
+        value={nickname}
+        maxLength={NICKNAME_MAX}
+        autoComplete="off"
+        placeholder={t('entryInfo.nicknamePlaceholder')}
+        onChange={(e) => setNickname(e.target.value)}
+        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-300 focus:border-sky-600"
+      />
+      <p className="mt-1.5 text-xs text-slate-400">{t('entryInfo.nicknameHint')}</p>
+      {nicknameTaken && (
+        <p data-testid="entry-info-nickname-taken" className="mt-1.5 text-xs font-bold text-rose-500">
+          {t('entryInfo.nicknameTaken')}
+        </p>
+      )}
+
       {/* 다음 — 고른 값을 들고 배치고사로. 안 고르면 누를 수 없다(건너뛰기가 그 몫).
           ⚠️ 「선택 없이 다음」을 허용하면 건너뛰기와 구분이 없어지고, 사용자는
           자기가 무엇을 정했는지 모르는 채 진단에 들어간다. */}
@@ -99,7 +206,7 @@ export default function EntryInfoPage({ onSubmit }) {
         type="button"
         data-testid="entry-info-submit"
         disabled={!picked}
-        onClick={() => onSubmit(picked)}
+        onClick={() => leave(picked)}
         className="mt-6 w-full rounded-2xl bg-sky-600 py-3.5 text-sm font-extrabold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
       >
         {t('entryInfo.submit')}

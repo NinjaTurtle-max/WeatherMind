@@ -32,6 +32,10 @@
  *   ⑥ **딥링크는 게이트를 타지 않는다.** `/board`로 바로 들어온 심사위원은
  *      정보 입력을 거치지 않고 조작 0회로 보드에 도착한다 — 규정의 가장 강한
  *      형태를 딥링크에서는 그대로 유지한다.
+ *   ⑦ 🔴 **닉네임을 비우고도 두 출구 모두 끝까지 통과된다**(2026-08-14). 닉네임은
+ *      선택 항목이고, 선택이 필수로 굳으면 ①~⑥ 중 어느 것도 울지 않는다.
+ *   ⑧ 적은 닉네임은 **발급 바디에 실린다** — 「다음」이든 「건너뛰기」든. 학령과
+ *      독립이라 학령을 안 골라도 이름은 버리지 않는다.
  *
  * ⚠️ 시나리오 순서에 의존한다. 목의 `mockAuth.levelGroup`은 **프로세스 전역**이라
  * 앞 시나리오가 `elementary`로 바꿔 놓으면 뒤 시나리오의 기본값 단정이 오염된다.
@@ -98,7 +102,27 @@ const xhrLog = [];
 const origXhrOpen = window.XMLHttpRequest.prototype.open;
 window.XMLHttpRequest.prototype.open = function (method, url, ...rest) {
   xhrLog.push(`${method} ${url}`);
+  this.__wmUrl = url;
   return origXhrOpen.call(this, method, url, ...rest);
+};
+
+/**
+ * 발급 바디를 **전선에서** 집는다 — 인터셉터 층이 아니라 XHR 층이다(⑦⑧).
+ *
+ * ⚠️ 아래 `guestBodies`(axios 인터셉터)로는 ⑧을 잴 수 없다. 닉네임을 얹는 쪽도
+ * 요청 인터셉터인데(`EntryInfoPage`), axios는 요청 인터셉터를 **등록 역순**으로
+ * 돌린다 — 이 파일의 관측자는 App 모듈이 적재된 **뒤에** 등록되므로 얹기보다
+ * 먼저 실행되고, 실제로는 나간 바디에 닉네임이 있는데도 못 본 것으로 보인다.
+ * 등록 순서에 기대는 관측은 계약이 아니라 사고다. `send()`가 받는 문자열은
+ * 그런 순서와 무관한 **실제로 나간 바이트**라 그쪽을 본다.
+ */
+const wireBodies = [];
+const origXhrSend = window.XMLHttpRequest.prototype.send;
+window.XMLHttpRequest.prototype.send = function (body) {
+  if (this.__wmUrl === '/api/v1/auth/guest') {
+    wireBodies.push(body == null ? undefined : JSON.parse(body));
+  }
+  return origXhrSend.call(this, body);
 };
 
 const { createElement } = await import('react');
@@ -137,6 +161,17 @@ async function waitFor(pred, timeoutMs = 8000, label = '') {
   throw new Error(`시간 초과(${timeoutMs}ms): ${typeof label === 'function' ? label() : label}`);
 }
 
+/**
+ * 마운트한 루트 — **시나리오가 끝나면 실패했더라도 반드시 걷는다.**
+ *
+ * ⚠️ 안 걷으면 **뒤 시나리오가 아예 실행되지 않는다.** 앞 시나리오가 단정 실패로
+ * 중간에 던지면 `r.unmount()`가 안 돌고, 다음 `mountApp`이 같은 `#root`에 두 번째
+ * 루트를 만든다 → `NotFoundError: The node to be removed is not a child of this
+ * node`로 **프로세스가 통째로 죽는다**(2026-08-14 실측 — ⑦ 변이 확인 중 발견).
+ * 그러면 "⑦이 붉다"와 "⑦이 돌지도 못했다"가 구분되지 않아, 뒤쪽 계약이 조용히
+ * 무력해진다. 걷기는 멱등이라 시나리오 안의 `r.unmount()`와 겹쳐도 안전하다.
+ */
+const liveRoots = [];
 function mountApp(path) {
   const container = window.document.getElementById('root');
   const reactRoot = createRoot(container);
@@ -147,7 +182,20 @@ function mountApp(path) {
     createElement(QueryClientProvider, { client: qc },
       createElement(MemoryRouter, { initialEntries: [path] }, createElement(App))),
   );
-  return reactRoot;
+  let unmounted = false;
+  const handle = {
+    unmount() {
+      if (unmounted) return;
+      unmounted = true;
+      try {
+        reactRoot.unmount();
+      } catch {
+        /* 이미 걷힌 뒤 — 정리 경로라 삼킨다 */
+      }
+    },
+  };
+  liveRoots.push(handle);
+  return handle;
 }
 
 const api = async (method, path, body) => {
@@ -174,6 +222,8 @@ async function scenario(name, fn) {
   } catch (err) {
     failed += 1;
     console.error(`FAIL ${name}: ${err?.message ?? err}`);
+  } finally {
+    while (liveRoots.length) liveRoots.pop().unmount();
   }
 }
 
@@ -192,7 +242,16 @@ async function coldOpen() {
   resetGuestAutoIssue();
   useAuthStore.getState().logout();
   guestBodies.length = 0;
+  wireBodies.length = 0;
   return xhrLog.length;
+}
+
+const $ni = () => $('[data-testid="entry-info-nickname"]');
+/** React 제어 입력 채우기 — onboardingSave·guest-convert 스모크와 같은 관례. */
+function fillInput(input, value) {
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  setter.call(input, value);
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
 }
 
 try {
@@ -316,6 +375,111 @@ try {
     );
     r.unmount();
   });
+
+  // ── ⑦ 🔴 닉네임을 비우고도 끝까지 통과된다 (필수화 금지) ─────────────────────
+  //
+  // 🔴 **이 시나리오가 이 파일에서 가장 중요한 한 건이다.** 닉네임은 2026-08-14에
+  // 붙은 **선택** 항목인데, 선택 항목이 필수로 굳는 것은 코드 한 글자로 일어난다
+  // (`disabled={!picked}` → `disabled={!picked || !nickname.trim()}`). 그러면 대회
+  // 규정(「로그인·결제 없이 열려야」)이 깨지는데 **다른 어떤 테스트도 안 운다** —
+  // ①③④⑤는 닉네임을 아예 모르고, 건너뛰기를 잠가도 ⑤가 클릭만 하고 결과를
+  // 기다리므로 시간 초과로만 갈린다.
+  //
+  // ⚠️ **`required` 속성의 부재를 재지 않는다.** 이 화면은 `<form>`이 없고 버튼이
+  // `type="button"`이라 그 속성은 아무것도 막지 못한다 — 없다고 단정해 봐야 참인
+  // 채로 필수화가 지나간다. 재는 것은 속성이 아니라 **비운 채로 도착하는가**다.
+  await scenario('⑦ 닉네임을 비워도 두 출구 모두 통과된다(선택 항목 계약)', async () => {
+    // ⑦-a 「다음」 출구 — 학령만 고르고 닉네임은 비운 채
+    const markA = await coldOpen();
+    let r = mountApp('/');
+    await waitFor(() => $ni(), 8000, '닉네임 입력란');
+    ok(Boolean($ni()), '⑦ 닉네임 입력란이 화면에 있다');
+    ok($ni().value === '', '⑦ 처음엔 비어 있다(자동 입력 없음)');
+    ok(
+      $('[data-testid="entry-info-skip"]').disabled !== true,
+      '⑦ 🔴 닉네임이 비어도 「건너뛰기」는 눌린다(규정 — 건너뛰기 상시)',
+    );
+    $('[data-testid="entry-info-levels"] button[data-level="adult"]').click();
+    await sleep(60);
+    ok(
+      $('[data-testid="entry-info-submit"]').disabled === false,
+      '⑦ 🔴 닉네임이 비어도 「다음」이 열린다(잠그는 것은 학령뿐)',
+    );
+    $('[data-testid="entry-info-submit"]').click();
+    await waitFor(() => wireBodies.length >= 1, 8000, 'POST /auth/guest 발화');
+    ok(
+      wireBodies[0]?.nickname === undefined,
+      `⑦ 안 적었으면 바디에 nickname 필드가 아예 없다 — 실제 ${JSON.stringify(wireBodies[0])}`,
+    );
+    await waitFor(
+      () => xhrLog.slice(markA).some((l) => l === 'POST /api/v1/onboarding/placement/start'),
+      8000,
+      '⑦-a 닉네임 없이 배치고사에 도달하지 못했다',
+    );
+    ok(true, '⑦-a 🔴 닉네임을 비운 채 「다음」 → 배치고사까지 끝까지 간다');
+    r.unmount();
+
+    // ⑦-b 「건너뛰기」 출구 — 아무것도 안 적고 안 고른 채 학습까지
+    const markB = await coldOpen();
+    r = mountApp('/');
+    await waitFor(() => $ni(), 8000, '닉네임 입력란');
+    ok($ni().value === '', '⑦-b 닉네임을 비운 채로 둔다');
+    $('[data-testid="entry-info-skip"]').click();
+    await waitFor(() => $('[data-testid="learn-entry"]'), 8000, '⑦-b 학습 진입 카드');
+    ok(Boolean($('[data-testid="learn-entry"]')), '⑦-b 🔴 닉네임을 비운 채 건너뛰기 → 학습 화면이 열린다');
+    ok(
+      guestCalls(markB).length === 1,
+      `⑦-b 발급은 여전히 정확히 1회다 — 실제 ${guestCalls(markB).length}회`,
+    );
+    r.unmount();
+  });
+
+  // ── ⑧ 적은 닉네임은 발급 바디에 실린다 (두 출구 모두) ───────────────────────
+  //
+  // 학령과 같은 자리로 간다 — 게스트 유저 행이 만들어지는 곳이 발급 하나뿐이라
+  // (`routers/auth.py guest_login`이 `nickname=f"게스트-{...}"`를 거기서 정한다)
+  // 유일성을 걸 서버가 볼 자리도 거기다. 오늘 서버는 이 필드를 조용히 무시한다
+  // (`GuestStartRequest`에 없고 pydantic extra=ignore) — 그래서 **결과가 아니라
+  // 바디만** 단정한다. 결과까지 재면 서버가 받는 날까지 영구 실패다.
+  await scenario('⑧ 적은 닉네임이 발급 바디에 실린다 — 「다음」·「건너뛰기」 양쪽', async () => {
+    // ⑧-a 「다음」 — 학령과 나란히 실린다
+    await coldOpen();
+    let r = mountApp('/');
+    await waitFor(() => $ni(), 8000, '닉네임 입력란');
+    fillInput($ni(), '구름사냥꾼');
+    await sleep(60);
+    $('[data-testid="entry-info-levels"] button[data-level="elementary"]').click();
+    await sleep(60);
+    $('[data-testid="entry-info-submit"]').click();
+    await waitFor(() => wireBodies.length >= 1, 8000, 'POST /auth/guest 발화');
+    ok(
+      wireBodies[0]?.nickname === '구름사냥꾼' && wireBodies[0]?.level_group === 'elementary',
+      `⑧-a 🔴 닉네임이 학령과 함께 발급 바디로 간다 — 실제 ${JSON.stringify(wireBodies[0])}`,
+    );
+    r.unmount();
+
+    // ⑧-b 「건너뛰기」 — 학령은 안 골랐어도 이름은 버리지 않는다. 닉네임은 학령과
+    //      독립이므로 「건너뛰기 = 아무것도 안 보냄」이 아니라 「학령을 안 보냄」이다.
+    await coldOpen();
+    r = mountApp('/');
+    await waitFor(() => $ni(), 8000, '닉네임 입력란');
+    fillInput($ni(), '비구름');
+    await sleep(60);
+    $('[data-testid="entry-info-skip"]').click();
+    await waitFor(() => wireBodies.length >= 1, 8000, 'POST /auth/guest 발화');
+    ok(
+      wireBodies[0]?.nickname === '비구름' && wireBodies[0]?.level_group === undefined,
+      `⑧-b 건너뛰어도 이름은 실리고 학령은 안 실린다 — 실제 ${JSON.stringify(wireBodies[0])}`,
+    );
+    // 학령 기본값이 그대로여야 한다 — 닉네임을 얹는 인터셉터가 ⑤의 계약을
+    // 건드리지 않았음을 여기서 한 번 더 못박는다(같은 바디를 만지는 코드다).
+    const me = await api('GET', '/auth/me');
+    ok(
+      me.body?.level_group === 'middle_high',
+      `⑧-b 이름만 적었으면 학령은 서버 기본값 그대로다 — 실제 ${me.body?.level_group}`,
+    );
+    r.unmount();
+  });
 } finally {
   await vite.close();
   httpServer.close();
@@ -325,5 +489,5 @@ if (failed > 0) {
   console.error(`\n${failed}건 실패`);
   process.exit(1);
 }
-console.log('OK: 진입 동선(접속 → 정보 입력 → 배치고사 · 학령이 발급 바디로 · 건너뛰기 · 딥링크) 통과');
+console.log('OK: 진입 동선(접속 → 정보 입력 → 배치고사 · 학령·닉네임이 발급 바디로 · 닉네임은 선택 · 건너뛰기 · 딥링크) 통과');
 process.exit(0);
