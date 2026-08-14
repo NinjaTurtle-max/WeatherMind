@@ -26,12 +26,69 @@
 > grep -o 'mem_limit: [0-9]*m' docker-compose.prod.yml | grep -o '[0-9]*' | paste -sd+ - | bc
 > ```
 
+### 🔴 클라우드 방화벽 — **태그와 규칙은 별개다** (2026-08-13 실측, 30분 소모)
+
+GCP에서 인증서 발급이 **4번 연속 실패**했고 원인이 여기였다. VM에
+`http-server`·`https-server` **태그는 붙어 있었는데, 그 태그를 여는 방화벽 규칙
+자체가 없었다**(프로젝트에 `default-allow-icmp`·`internal`·`rdp`·`ssh` 넷뿐).
+
+⚠️ **태그를 붙였다고 포트가 열리지 않는다.** 태그는 「이 규칙을 어느 VM에
+적용할지」의 **라벨**일 뿐이고, 규칙이 없으면 라벨은 아무것도 가리키지 않는다.
+콘솔의 VM 상세에 「HTTP 트래픽 허용 ✅」이 체크돼 보여도 그렇다.
+
+**증상으로 알아보는 법**: Let's Encrypt HTTP-01 챌린지가 타임아웃으로 실패한다.
+컨테이너는 정상이고 서버 안에서 `curl localhost`는 되는데 **밖에서만 안 닿는다**.
+OS 방화벽(§3)을 아무리 봐도 안 나온다 — 그건 다른 층이다.
+
+```bash
+# ① 규칙이 실제로 있는지 확인 — 태그가 아니라 규칙을 본다
+gcloud compute firewall-rules list --format='table(name,allowed[],targetTags.list())'
+
+# ② 없으면 만든다 (태그를 이미 붙여 뒀어도 이 두 줄이 필요하다)
+gcloud compute firewall-rules create allow-http  --allow=tcp:80  --target-tags=http-server
+gcloud compute firewall-rules create allow-https --allow=tcp:443 --target-tags=https-server
+```
+
 **아키텍처**: GHCR 이미지는 `linux/amd64`·`linux/arm64` 둘 다 발행된다
 (`release.yml`). x86 VM(GCP·AWS)도 ARM VM(Oracle A1)도 그대로 돌아간다.
+
+⚠️ **2026-08-13부터 GHCR을 쓰지 않는다**(대회 종료까지). GitHub Actions가 무료 분
+소진으로 멈췄고 클라이언트가 과금하지 않기로 정했다 — **이미지는 서버에서 직접
+빌드한다**(롤링마다 10~20분). 함정 하나: `docker-compose.prod.yml`에는 `build:`가
+**없다**(`image:`만) — 그대로 `compose build`하면 **아무것도 만들지 않는다.** dev
+정의(`docker-compose.yml`)로 빌드 → prod가 찾는 이름으로 `docker tag` → prod 기동.
+9/1에 무료 분이 초기화되면 원복된다. 경위는 대장 §4.11.
 
 **재기동 정책**: prod 전 컨테이너가 `restart: unless-stopped`다 — **호스트 재부팅
 후에도 스택이 자동 복구된다**(URL을 9월 셋째 주까지 유지해야 하므로 이게 계약이다).
 운영자가 `docker compose stop`으로 명시적으로 내린 것만 그대로 남는다.
+
+### 🔴 외부 IP가 **ephemeral이면 VM stop/start에서 제출 URL이 죽는다**
+
+바로 위 「재기동 정책」은 **컨테이너** 이야기다. 그 위층에 하나가 더 있다:
+**VM의 외부 IP가 ephemeral이면 VM을 stop 했다가 start 할 때 IP가 새로 배정된다.**
+
+⚠️ **제출 URL이 `34-47-71-146.sslip.io`이므로 이건 "IP가 바뀐다"로 끝나지 않는다.**
+sslip.io는 **호스트명이 곧 IP**다 — `34-47-71-146.sslip.io`는 DNS가
+`34.47.71.146`을 되돌려 주도록 이름 자체에 주소가 박혀 있다. 그래서 IP가 바뀌면
+A레코드를 고쳐 살릴 수 있는 종류의 사고가 아니라 **URL 문자열 자체가 죽는다.**
+구글 폼으로 제출한 구동 URL이 그대로 무효가 되고, 새 IP로 URL이 바뀌면
+**제출물을 고칠 수 없는 시점(8/21 18:00 동결)에는 복구 수단이 없다.**
+
+🟢 **재부팅(`sudo reboot`)은 무해하다** — VM 인스턴스가 RUNNING을 유지하므로
+ephemeral IP도 그대로 붙어 있고, 컨테이너는 `unless-stopped`로 자동 복구된다.
+🔴 **위험한 것은 stop/start다** — 콘솔의 「중지」, `gcloud compute instances stop`,
+비용 절감용 자동 일시중지, 유지보수 정책에 따른 종료·재생성이 전부 여기 해당한다.
+**둘을 같은 것으로 취급하지 말 것.**
+
+```bash
+# 지금 어느 쪽인지 확인 — EPHEMERAL이면 아직 안전하지 않다
+gcloud compute addresses list
+```
+
+`EPHEMERAL`로 나오면 **static으로 승격**해야 URL이 stop/start를 견딘다.
+승격 전까지는 **VM을 stop 하지 않는 것**이 유일한 방어다(재부팅으로 충분한
+일이면 재부팅을 쓴다). 승격 후에는 예약 주소가 되어 stop/start에도 유지된다.
 
 ---
 
@@ -162,7 +219,10 @@ backend를 Caddy가 프론트해 첫 방문자가 502를 보는 것을 막는 �
 하나도 없어서 잘못된 키로 며칠을 갈 수 있었다. 지금은 `/health`가 보고한다.
 
 ```bash
-curl -s localhost:8000/health | python3 -m json.tool
+# ⚠️ 호스트에서 `curl localhost:8000`은 **prod에서 안 된다.**
+# docker-compose.prod.yml이 backend의 ports를 `!reset []`로 지워 8000은
+# 호스트에 열려 있지 않다(하드닝 — 외부에 열린 것은 Caddy뿐). 컨테이너 안에서 친다.
+$C exec -T backend curl -s http://localhost:8000/health | python3 -m json.tool
 ```
 
 `kma` 필드만 보면 된다.
@@ -257,11 +317,36 @@ $C ps    # 전 컨테이너 Up, backend는 (healthy)
 ```bash
 $C ps                          # 전 컨테이너 Up
 $C logs -f caddy               # 인증서 발급 로그(실패 시 §8)
-curl -I https://<도메인>/        # 200
-curl -s https://<도메인>/health  # backend 헬스 — Caddy가 /health를 직접 프록시한다
-                                 # (infra/Caddyfile: /api/* 와 /health만 backend 행)
+curl -I https://<도메인>/        # 200 — 외부에서 확인하는 것은 여기까지다
+
+# backend 헬스는 **컨테이너 안에서** 본다. 외부 URL로 치지 말 것 — 이유는 바로 아래.
+$C exec -T backend curl -s http://localhost:8000/health | python3 -m json.tool
+
 docker stats --no-stream       # 메모리가 mem_limit 안에 있는지
 ```
+
+### 🔴 `/health`를 외부 URL로 치지 말 것 — **2026-08-18 롤링부터 거짓말을 한다**
+
+`infra/Caddyfile`의 `handle /health` 블록은 **2026-08-18 롤링에서 제거된다**
+(헬스 엔드포인트를 외부에 노출하지 않기 위해). 그 뒤 `https://<도메인>/health`는
+**404가 되지 않는다** — Caddy의 남은 `handle`이 그 경로를 frontend nginx로 보내고
+nginx의 **SPA 폴백이 `200 + index.html`을 되돌려 준다.**
+
+⚠️ **그래서 이건 "안 되는 것"이 아니라 "틀린 초록"이다.**
+- **업타임 모니터를 `https://<도메인>/health`에 걸면 backend가 죽어도 영원히
+  초록으로 보인다.** 정적 파일을 서빙하는 nginx만 살아 있으면 200이 나가기 때문이다.
+  DB가 끊겨도, backend 컨테이너가 통째로 내려가도 모니터는 아무 말도 하지 않는다.
+- `curl -s https://<도메인>/health`의 응답이 JSON이 아니라 HTML이면 그게 이 상태다.
+  `db: ok`를 찾다가 못 찾는 게 아니라, **찾을 것이 애초에 안 온다.**
+
+**시점 구분** — 이건 지금 당장 틀린 게 아니라 날짜가 정해진 변경이다:
+- **~2026-08-17**: 외부 `/health`가 아직 backend로 프록시된다(위 블록이 살아 있다).
+  옛 절차대로 쳐도 답이 온다 — 다만 8/18 이후를 대비해 지금부터 아래 형태를 쓴다.
+- **2026-08-18~**: 외부 `/health`는 SPA로 떨어진다. **컨테이너 안에서만** 유효하다.
+
+**외부에서 backend 생존을 봐야 한다면** `/health`가 아니라 `/api/*` 경로를 쓴다 —
+`handle /api/*`는 8/18 이후에도 backend로 그대로 프록시되므로, 거기서 오는 응답은
+backend가 실제로 답한 것이다(§8.5의 `POST /api/v1/auth/guest` 201 확인이 그 예다).
 
 브라우저에서 **로그인 없이 바로 조작되는지** 확인한다(대회 요건 — `HACKATHON_RULES.md` §4-A).
 크롬 **1366×768 · 1920×1080 · 2560×1440** 세 해상도 모두 점검한다.

@@ -50,6 +50,7 @@
  */
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 import http from 'node:http';
 
 process.env.NODE_ENV = 'production';
@@ -283,6 +284,120 @@ function assertResourcesClean(localeName, resource) {
   );
   // 범위 자체가 살아 있는지 — 예외가 늘어 검사 대상이 껍데기만 남는 것을 막는다.
   ok(scanned > 400, `${localeName} 검사 범위가 리소스 전체다 — 실제 ${scanned}키`);
+}
+
+/**
+ * ㉮ **「다른 기기에서도 이어서」는 돌아올 문이 있을 때만 쓴다** (2026-08-13 실서버 검수)
+ *
+ * 🔴 **이 계약이 없어서 못 지킬 약속이 실서버까지 갔다.** `saveProgress` 세 문구가
+ * 전부 "다른 기기에서도 이어서 배울 수 있어요"라고 말했는데, `App.jsx`에 `/login`
+ * 라우트가 없다 — `a4a8b6f`(2026-08-13 00:06)가 로그인·회원가입 **화면을 걷으면서
+ * 라우트도 함께** 가져갔고, `:327`이 모르는 경로를 전부 `/`로 튕긴다. 다른 기기로
+ * 열면 그냥 새 게스트가 된다.
+ *
+ * ⚠️ **바로 위 금칙어 검사가 이것을 못 잡는다.** 「로그인」·「sign up」은 한 글자도
+ * 없기 때문이다. `ko.js:102` 주석은 "이 블록은 `onboardingSave.contract`가 문다"고
+ * 적어 두었지만, 그 계약이 무는 것은 **단어 목록**이지 **문구가 참인지**가 아니었다.
+ * 계약이 있는데 그 성질을 안 무는 사례라 대장 §4.8 계열이다.
+ *
+ * 그래서 **조건부**로 세운다 — 「라우트가 없다 **그리고** 문구가 약속한다」만 금지다.
+ * ⓑ(`/login` 복구)가 착지하면 이 단정은 **스스로 풀린다**(약속이 참이 되므로).
+ * 금칙어 목록에 「다른 기기」를 그냥 넣지 않은 이유가 그것이다 — 무조건 금지는
+ * 라우트가 돌아온 뒤에도 남아, 참인 문구를 못 쓰게 만든다.
+ */
+function assertCrossDeviceClaimIsTrue(resources) {
+  const appSrc = readFileSync(resolve(root, 'src/App.jsx'), 'utf8');
+  // 라우트 유무의 판정 — `path="/login"` 꼴만 본다(주석·경위 서술에는 `/login`이
+  // 여럿 남아 있고 그것은 지워야 할 대상이 아니다).
+  const hasLoginRoute = /path=\{?['"]\/login['"]/.test(appSrc);
+
+  // ⚠️ **표현의 변주까지 담아야 한다.** 처음 세울 때 「다른 기기」·"any device"만
+  //    넣었더니 `en.auth.convert.bodyLine2`("Continue learning from any device.")는
+  //    잡혔는데 짝인 ko(「**어느** 기기에서든」)는 **그대로 통과했다** — 같은 약속을
+  //    다른 낱말로 한 것이라, 목록이 좁으면 한쪽만 고치고 끝났다고 믿게 된다.
+  //    새 문구를 저작할 때 여기 없는 표현을 쓰면 이 계약이 조용해진다는 것이
+  //    이 방식의 한계다(§4.13과 같은 성질 — 알고 쓴다).
+  const CLAIMS = [
+    '다른 기기', '어느 기기', '다른 브라우저', '기기를 바꿔',
+    'any device', 'other device', 'another device', 'any browser',
+  ];
+  const offenders = [];
+  for (const [localeName, resource] of Object.entries(resources)) {
+    for (const [key, value] of Object.entries(flatten(resource))) {
+      const hay = value.toLowerCase();
+      for (const c of CLAIMS) {
+        if (hay.includes(c.toLowerCase())) offenders.push(`${localeName}.${key} → "${value}"`);
+      }
+    }
+  }
+
+  if (hasLoginRoute) {
+    // 라우트가 돌아왔다 — 약속이 참이므로 문구를 막지 않는다. 대신 **이 계약이
+    // 조건부라는 사실**을 눈에 보이게 남긴다(조용히 무력해지지 않게).
+    ok(true, `㉮ /login 라우트가 있다 — 「다른 기기」 약속이 참이라 문구를 막지 않는다(현재 ${offenders.length}건 사용 중)`);
+    return;
+  }
+  ok(
+    offenders.length === 0,
+    '㉮ /login 라우트가 없는 동안에는 「다른 기기에서도 이어서」를 약속하지 않는다'
+      + (offenders.length
+        ? `\n      돌아올 문이 없는데 약속하는 문구 ${offenders.length}건:\n      - ${offenders.join('\n      - ')}`
+        : ''),
+  );
+}
+
+/**
+ * ㉯ **주 동선에 진도 불러오기 링크가 없다** (2026-08-14 ⓑ 복구와 함께)
+ *
+ * MT-29가 고정한 계약이고, 「로그인 **없이** 열려야 한다」는 대회 규정의 해석
+ * 근거다. 라우트가 있는 것과 주 동선이 계정을 요구하는 것은 다르다 — 규정이
+ * 막는 것은 뒤쪽이다.
+ *
+ * 🔴 **이 단정이 지금 필요해진 이유**: 8/13~14 사이 「주 동선 0건」은 **화면이
+ * 아예 없어서** 참이었다. 그 보장은 계약이 아니라 **부재**였고, 라우트가 돌아온
+ * 순간 사라진다. 링크 한 줄이면 규정 해석이 깨지는데 우는 것이 없게 된다.
+ *
+ * 범위는 **nav 표면 3개**뿐이다 — 「진도 저장」 카드(`ProgressPage`)는 유일한
+ * 정당한 진입점이라 여기서 세면 안 된다. 저장소 전체로 넓히면 그 한 곳 때문에
+ * 영구 실패가 되고, 예외를 적는 순간 계약이 이름만 남는다.
+ */
+function assertNoNavLinkToLoadProgress() {
+  // ⚠️ **`navItems.js`가 빠지면 이 계약은 껍데기다.** 처음 세울 때 SideNav·TabBar·
+  //    Layout 셋만 넣었는데, 되돌림 확인을 하다 드러났다 — 탭 항목의 **단일
+  //    소유자는 `navItems.js`**이고 SideNav·TabBar는 그 배열을 렌더할 뿐이라
+  //    `to={tab.to}` 한 줄만 있다. 항목을 늘리는 사람은 당연히 소유자 파일을
+  //    고치므로, 그 파일을 안 보면 **가장 일어날 법한 경로가 통과한다.**
+  //    「렌더하는 곳」이 아니라 「값을 정하는 곳」을 무는 것이 맞다.
+  const NAV_SURFACES = [
+    'src/components/navItems.js',
+    'src/components/SideNav.jsx',
+    'src/components/TabBar.jsx',
+    'src/components/Layout.jsx',
+  ];
+  const offenders = [];
+  for (const rel of NAV_SURFACES) {
+    const src = readFileSync(resolve(root, rel), 'utf8')
+      // 주석은 걷는다 — 「여기에 넣지 말 것」이라고 적어 둔 경고가 스스로를 잡으면
+      // **근거를 지워야 통과하는 가드**가 된다(이 저장소가 두 번 겪은 함정이다).
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
+    src.split('\n').forEach((line, i) => {
+      if (/["'`]\/login["'`]/.test(line)) offenders.push(`${rel}:${i + 1} → ${line.trim()}`);
+    });
+  }
+  ok(
+    offenders.length === 0,
+    `㉯ 주 동선(navItems·SideNav·TabBar·Layout)에 /login 링크가 없다 — 진입은 「진도 저장」 카드 한 곳뿐`
+      + (offenders.length ? `\n      위반 ${offenders.length}건:\n      - ${offenders.join('\n      - ')}` : ''),
+  );
+
+  // 진입점이 **실제로 있는지**도 함께 본다 — 없으면 위 단정은 「아무 데도 없다」로
+  // 공허하게 통과한다(라우트만 있고 갈 길이 없는 상태를 초록으로 신고하게 된다).
+  const card = readFileSync(resolve(root, 'src/modules/progress/ProgressPage.jsx'), 'utf8');
+  ok(
+    /["'`]\/login["'`]/.test(card),
+    '㉯ 「진도 저장」 카드에 불러오기 진입이 살아 있다(라우트만 있고 갈 길이 없는 상태 방지)',
+  );
 }
 
 const DISMISS_KEY = 'weathermind.regionNotice.dismissed';
@@ -572,6 +687,18 @@ try {
   await scenario('⑧ ko·en 리소스 전체 금칙어', async () => {
     assertResourcesClean('ko', koResource);
     assertResourcesClean('en', enResource);
+  });
+
+  // ── ㉮ 규정 밖의 진실성: 못 지킬 약속을 하지 않는다 ────────────────────────
+  // ⑧이 무는 것은 **단어 목록**이다. 여기는 **문구가 참인지**를 문다 — ⑧이 초록인
+  // 채로 "다른 기기에서도 이어서"가 실서버까지 갔던 것이 이 단정을 만든 이유다.
+  await scenario('㉮ 「다른 기기에서도 이어서」는 돌아올 문이 있을 때만', async () => {
+    assertCrossDeviceClaimIsTrue({ ko: koResource, en: enResource });
+  });
+
+  // ── ㉯ 문이 돌아와도 주 동선은 계정을 요구하지 않는다 ──────────────────────
+  await scenario('㉯ 주 동선에 진도 불러오기 링크 0건', async () => {
+    assertNoNavLinkToLoadProgress();
   });
 } finally {
   await vite.close();

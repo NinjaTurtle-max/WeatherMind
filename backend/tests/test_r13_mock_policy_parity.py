@@ -218,6 +218,134 @@ class TestLevelGroups:
 
 
 @needs_node
+class TestKnowledgeLevelAxis:
+    """지식 단계 축 — **목에 아예 없던** 도메인(2026-08-12).
+
+    목의 `GET /progress/me`가 `knowledge_level`·`knowledge_level_max`를 안 보내서
+    `KnowledgeLevelCard`가 목에서 **항상 null**을 반환했다. 카드가 통째로 안 뜨니
+    프론트 스모크 24종 중 어느 것도 그 카드를 렌더해 본 적이 없었고, 그 상태로
+    카드를 /me 오른쪽 열로 옮기는 배치 변경이 들어갔다. J-9가 "값이 갈렸다"였다면
+    이것은 "필드가 없었다"다 — 갈림보다 조용하다.
+
+    분모(MAX)와 경계(BOUNDS)가 어긋나면 목 화면의 「10단계 중 3단계」가 실서버에서
+    다른 숫자가 된다. 두 값 모두 서버가 소유하고 목은 사본이라 실값으로 문다.
+    """
+
+    def test_지식_단계_분모가_같다(self, policy):
+        from app.services.weatherbrain_service import KNOWLEDGE_LEVEL_MAX
+
+        assert policy["knowledge_level_max"] == KNOWLEDGE_LEVEL_MAX
+
+    def test_θ_단계_경계가_같다(self, policy):
+        from app.services.weatherbrain_service import THETA_KNOWLEDGE_LEVEL_BOUNDS
+
+        assert policy["theta_knowledge_level_bounds"] == list(
+            THETA_KNOWLEDGE_LEVEL_BOUNDS
+        )
+
+    def test_목이_같은_θ에서_같은_밴드를_낸다(self, policy):
+        """4밴드 축도 같은 θ에서 같아야 한다.
+
+        지식 단계를 붙이다 발견했다(2026-08-12): 목 `thetaToLevelGroup`에
+        **expert 가지가 없어** θ≥1.5에서 목은 adult, 서버는 expert였다. 두 축은
+        접으면 같아야 하는데(`level_group_of_knowledge_level ∘
+        theta_to_knowledge_level == theta_to_level_group`) 목만 그 불변식을
+        깨고 있었고, 밴드로 잠기는 보드 난이도까지 이 값을 탄다.
+        """
+        import json
+        import subprocess
+
+        from app.services.weatherbrain_service import theta_to_level_group
+
+        samples = [-9.0, -0.51, -0.5, 0.0, 0.49, 0.5, 1.0, 1.49, 1.5, 2.0, 9.0]
+        code = (
+            f"const m = await import({str(MOCK_PATH.as_uri())!r});"
+            f"const xs = {json.dumps(samples)};"
+            "process.stdout.write(JSON.stringify(xs.map(m.__thetaToLevelGroup)));"
+        )
+        proc = subprocess.run(
+            [NODE, "--input-type=module", "-e", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=MOCK_PATH.parent,
+        )
+        assert proc.returncode == 0, proc.stderr[-2000:]
+        mock_bands = json.loads(proc.stdout)
+        server_bands = [theta_to_level_group(x) for x in samples]
+        mismatched = [
+            (x, m, s) for x, m, s in zip(samples, mock_bands, server_bands) if m != s
+        ]
+        assert not mismatched, f"θ→밴드가 갈린다 (θ, 목, 서버): {mismatched}"
+
+    def test_두_축이_목_안에서도_접힌다(self, policy):
+        """목 스스로도 2축 정합을 지키는가 — 단계를 밴드로 접으면 밴드와 같아야."""
+        import json
+        import subprocess
+
+        from app.services.weatherbrain_service import level_group_of_knowledge_level
+
+        samples = [-9.0, -0.5, 0.0, 0.5, 1.0, 1.5, 1.75, 2.0, 2.25, 9.0]
+        code = (
+            f"const m = await import({str(MOCK_PATH.as_uri())!r});"
+            f"const xs = {json.dumps(samples)};"
+            "process.stdout.write(JSON.stringify(xs.map((x) => "
+            "[m.__thetaToKnowledgeLevel(x), m.__thetaToLevelGroup(x)])));"
+        )
+        proc = subprocess.run(
+            [NODE, "--input-type=module", "-e", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=MOCK_PATH.parent,
+        )
+        assert proc.returncode == 0, proc.stderr[-2000:]
+        broken = [
+            (x, lvl, band, level_group_of_knowledge_level(lvl))
+            for x, (lvl, band) in zip(samples, json.loads(proc.stdout))
+            if level_group_of_knowledge_level(lvl) != band
+        ]
+        assert not broken, f"목의 2축이 안 접힌다 (θ, 단계, 밴드, 접은값): {broken}"
+
+    def test_목이_같은_θ에서_같은_단계를_낸다(self, policy):
+        """경계값 전건 대조 — 표만 같고 **비교 방향**(< vs <=)이 다르면 경계에서
+        갈린다. 목은 `findIndex(theta < bound)`, 서버는 `if theta < bound`다.
+        """
+        import json
+        import subprocess
+
+        from app.services.weatherbrain_service import theta_to_knowledge_level
+
+        bounds = policy["theta_knowledge_level_bounds"]
+        # 경계 위·정확히·아래를 모두 던진다(경계는 하위 제외·상위 포함 관례)
+        samples = [-9.0, 9.0]
+        for b in bounds:
+            samples += [b - 0.01, b, b + 0.01]
+
+        code = (
+            f"const m = await import({str(MOCK_PATH.as_uri())!r});"
+            f"const xs = {json.dumps(samples)};"
+            "process.stdout.write(JSON.stringify(xs.map(m.__thetaToKnowledgeLevel)));"
+        )
+        proc = subprocess.run(
+            [NODE, "--input-type=module", "-e", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=MOCK_PATH.parent,
+        )
+        assert proc.returncode == 0, proc.stderr[-2000:]
+        mock_levels = json.loads(proc.stdout)
+        server_levels = [theta_to_knowledge_level(x) for x in samples]
+        mismatched = [
+            (x, m, s)
+            for x, m, s in zip(samples, mock_levels, server_levels)
+            if m != s
+        ]
+        assert not mismatched, f"θ→단계가 갈린다 (θ, 목, 서버): {mismatched}"
+
+
+@needs_node
 class TestCrownPolicy:
     """왕관 — **행위가 이미 갈라져 있던** 도메인(CO-A6 / CO-J-9).
 
@@ -366,9 +494,25 @@ class TestNoLoginInMainFlow:
     진도를 지키는 통로는 로그인이 아니라 **계정 전환**(`/account/convert`)이고,
     그쪽은 그대로 산다.
 
+    ⚠️⚠️ **계약이 두 번째로 뒤집혔다(2026-08-14 클라이언트 결정 ⓑ) — 절반만.**
+
+    위 8/12 전제는 **게스트에게는 참이었지만 「전환을 마친 사용자」를 못 봤다.**
+    저장(계정 전환)을 마치면 그 사람은 **자기가 정한 이메일·비밀번호**를 가진 정식
+    계정이다 — 「무작위 시크릿이라 재진입 경로가 없다」가 그 사람에게는 거짓이다.
+    그리고 저장 안내 문구는 *"다른 기기에서도 이어서 배울 수 있어요"*라고 계속
+    말하고 있었다. **돌아올 문이 없는데 하는 약속**이 실서버까지 갔다(대장 §4.14).
+
+    그래서 `/login`이 「**진도 불러오기**」라는 이름으로 돌아왔다(「진도 저장」의 짝).
+    ⚠️ **되돌아온 것은 라우트뿐이고, 규정을 지키던 부분은 그대로다:**
+      · `/register`는 **여전히 0건**이다. 가입은 저장(전환) 동선이 소유한다.
+      · **주 동선(navItems·SideNav·TabBar·헤더)에 링크 0건** — 그것이 「로그인 없이
+        열려야 한다」는 규정의 해석이다. 진입은 「진도 저장」 카드 한 줄뿐이다.
+      · **발급 실패 폴백은 되돌아오지 않는다**(계약 3) — 그것이 MT-29가 고친 결함
+        자체였다(연결 나쁜 심사위원에게 규정이 금지한 화면을 보여 주는 경로).
+
     그래서 무는 것은 셋이다:
-      1. `frontend/src`에 `/login`·`/register` **라우트 참조가 0건**
-      2. `App.jsx` 라우트 표에 그 경로가 없다
+      1. `/register` 참조 0건 · `/login` 참조는 **정확히 승인된 집합과 같다**
+      2. `App.jsx` 라우트 표에 `/register`가 없고 **`/login`은 있어야 한다**
       3. 발급 실패를 `GuestIssueRetry`가 받고, **재시도가 effect 의존성에 있다**
 
     ⚠️ 3번의 뒷단이 핵심이다 — 재시도 버튼이 리렌더만 일으키고 발급을 다시 안 걸면
@@ -402,26 +546,56 @@ class TestNoLoginInMainFlow:
         )
     )
 
-    def test_프론트에_로그인_가입_라우트_참조가_없다(self):
-        """계약 1 — `frontend/src` 전역 0건.
+    # 🔴 **승인된 `/login` 참조 — 이 집합 자체가 계약이다.**
+    #
+    # 「허용 목록」이 아니라 **정확한 집합**으로 문다. 목록이면 빠지는 것을 못 보지만
+    # 집합이면 **양쪽으로** 운다:
+    #   · 세 번째 참조가 생기면(navItems에 탭 추가·헤더 링크·엉뚱한 navigate) 붉다
+    #   · 승인된 참조가 사라져도 붉다(진입점만 지우면 라우트가 고아가 된다)
+    # ⚠️ **여기에 줄을 더하는 것은 테스트 수정이 아니라 계약 변경이다** — 주 동선
+    #    링크 0건이 규정 해석의 근거이므로 클라이언트 결정 없이 늘리지 말 것.
+    SANCTIONED_LOGIN_REFS = {
+        # 라우트 정의 — 표의 단일 소유자
+        'App.jsx: path="/login"',
+        # 유일한 진입점 — 「진도 저장」 카드. 이미 저장한 사람이 이 카드를 다시 보는
+        # 경우가 곧 「돌아오려는 사람」이라 자리도 여기가 맞다.
+        'modules/progress/ProgressPage.jsx: to="/login"',
+    }
 
-        ALLOWED 예외가 없다. 종전에는 LoginPage·RegisterPage끼리의 상호 링크를
-        허용했는데 **두 파일이 삭제됐고**, App.jsx도 이제 깨끗해야 한다.
+    def test_프론트에_로그인_가입_라우트_참조가_없다(self):
+        """계약 1 — `/register`는 0건, `/login`은 **승인된 집합과 정확히 일치**.
 
         `.jsx`뿐 아니라 `.js`도 훑는다(위 ROUTE_MARKERS 주석의 learnEntry 선례).
-        `/auth/login`·`/auth/register`는 계정 전환이 쓰는 실 엔드포인트라 남지만,
-        마커가 전부 `to:`/`path=`/`navigate(` 접두를 요구하므로 걸리지 않는다.
+        `/auth/login`·`/auth/register`는 계정 전환·진도 불러오기가 쓰는 실
+        엔드포인트라 남지만, 마커가 전부 `to:`/`path=`/`navigate(` 접두를 요구하므로
+        걸리지 않는다.
         """
-        offenders = []
+        found = []
         for path in sorted([*self.FRONT.rglob("*.jsx"), *self.FRONT.rglob("*.js")]):
             src = path.read_text(encoding="utf-8")
             for marker in self.ROUTE_MARKERS:
                 if marker in src:
-                    offenders.append(f"{path.relative_to(self.FRONT)}: {marker}")
-        assert not offenders, (
-            "로그인·회원가입 화면으로 가는 라우트 참조가 되살아났다 — 그 화면은 "
-            "2026-08-12에 제거됐고 게스트는 재진입 경로가 없다(진도 영구 소실). "
-            "진도를 지키는 통로는 /account/convert다: " + " · ".join(offenders)
+                    found.append(f"{path.relative_to(self.FRONT)}: {marker}")
+
+        register_refs = [f for f in found if "/register" in f]
+        assert not register_refs, (
+            "회원가입 화면으로 가는 라우트 참조가 되살아났다 — 가입은 저장(계정 "
+            "전환) 동선이 소유한다: " + " · ".join(register_refs)
+        )
+
+        login_refs = {f for f in found if "/login" in f}
+        extra = login_refs - self.SANCTIONED_LOGIN_REFS
+        missing = self.SANCTIONED_LOGIN_REFS - login_refs
+        assert not extra, (
+            "승인되지 않은 「진도 불러오기」 진입이 생겼다 — 주 동선 링크 0건이 "
+            "「로그인 없이 열려야 한다」는 규정의 해석이고, 진입은 「진도 저장」 카드 "
+            "하나뿐이다(대장 §4.14). 늘리려면 클라이언트 결정이 먼저다: "
+            + " · ".join(sorted(extra))
+        )
+        assert not missing, (
+            "승인된 「진도 불러오기」 참조가 사라졌다 — 라우트나 진입점 한쪽만 지우면 "
+            "고아가 된다(라우트만 남으면 갈 길이 없고, 링크만 남으면 `*`가 삼킨다): "
+            + " · ".join(sorted(missing))
         )
 
     def test_App_라우트_표에_로그인_가입_경로가_없다(self):
@@ -432,12 +606,20 @@ class TestNoLoginInMainFlow:
         되살아나는 회귀는 여기서 먼저 운다.
         """
         src = (self.FRONT / "App.jsx").read_text(encoding="utf-8")
-        for path in ("/login", "/register"):
-            for marker in (f'path="{path}"', f"path='{path}'"):
-                assert marker not in src, (
-                    f"App.jsx 라우트 표에 {path}가 되살아났다 — 로그인·회원가입 "
-                    "구조는 2026-08-12에 제거됐다"
-                )
+        for marker in ('path="/register"', "path='/register'"):
+            assert marker not in src, (
+                "App.jsx 라우트 표에 /register가 되살아났다 — 가입 구조는 "
+                "2026-08-12에 제거됐고 저장(계정 전환)이 그 몫을 갖는다"
+            )
+        # 🔴 **`/login`은 이제 「없어야」가 아니라 「있어야」다**(2026-08-14 ⓑ).
+        # 방향을 뒤집어 못박는 이유: 라우트를 다시 지우면 **아무도 울지 않는다.**
+        # 프론트 계약 ㉮는 문구가 겸손해서 초록이고(약속을 안 하므로), 「진도 저장」
+        # 카드의 링크는 `*` catch-all에 삼켜져 조용히 `/`로 튕긴다 — 화면상으로는
+        # 「눌러도 아무 일도 안 일어난다」로 보인다.
+        assert 'path="/login"' in src or "path='/login'" in src, (
+            "App.jsx에서 진도 불러오기 라우트가 사라졌다 — 「진도 저장」 카드의 "
+            "진입 링크가 `*`에 삼켜져 조용히 학습 화면으로 튕긴다(대장 §4.14 ⓑ)"
+        )
         # 삭제된 페이지 모듈을 다시 임포트하지도 않는다(파일 자체가 git rm 됐다).
         # ⚠️ **맨 이름으로 세지 않는다.** `LoginPage`는 "종전에 LoginPage가 …했다"
         # 같은 경위 기술로 주석에 정당하게 남는다(CLAUDE.md: 메커니즘 서술과

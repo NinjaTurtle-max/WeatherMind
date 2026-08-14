@@ -480,11 +480,40 @@ try {
     try {
       await waitFor(() => pcUnitButtons().length > 0, 5000, 'PC 경로 유닛 노드 렌더');
       const pcOpen = pcUnitButtons().filter((b) => !b.disabled).length;
-      const mobileOpen = mobileUnitButtons().filter((b) => !b.disabled).length;
       assert(pcOpen > 0, '구름 회복 후에도 PC 경로가 전부 잠겨 있다');
+
+      // ⚠️ **「열린 유닛 **수**가 같다」는 걷었다**(2026-08-13 — 섹션 접기 도입).
+      //    PC 경로는 이제 **펼친 섹션의 노드만 마운트**하고(전 섹션을 펼치면
+      //    콘텐츠가 12,836px이 되어 상위 섹션에 도달할 수 없었다) 모바일 목록은
+      //    전 섹션을 그린다. 그래서 트리 전체를 세면 두 뷰포트가 반드시 갈린다
+      //    (실측 PC 1 vs 모바일 2) — **세는 방법이 깨진 것이지 계약이 깨진 게 아니다.**
+      //
+      //    계약 본체는 「같은 게이트가 걸린다」이고 그것은 그대로 살아 있다.
+      //    지키던 회귀도 그대로다: `PcCurriculumPath`에 `energyBlocked`를 안 넘기면
+      //    모바일만 잠기고 PC는 열려, 문항 진입 전 차단(R10-01 S4)이 뷰포트별로
+      //    갈라진다(실제로 났던 사고다 — 7.1 시나리오 주석 참조).
+      //
+      //    그래서 **두 뷰포트가 함께 그리는 유닛만 골라 하나씩 대조**한다.
+      //    수 비교보다 오히려 촘촘하다 — 종전 식은 "PC가 A를 열고 모바일이 B를
+      //    여는" 어긋남을 수만 같으면 통과시켰다. 이제 유닛 단위로 어긋나면 운다.
+      //    양쪽 suffix는 전부 ` (…)` 꼴이라(잠김·구름 부족·진단으로 열림) 지운다.
+      const unitKey = (b) => (b.getAttribute('aria-label') ?? '').replace(/\s*\([^()]*\)\s*$/, '').trim();
+      const verdicts = (list) => new Map(list.map((b) => [unitKey(b), !b.disabled]));
+      const pcV = verdicts(pcUnitButtons());
+      const mobileV = verdicts(mobileUnitButtons());
+      const shared = [...pcV.keys()].filter((k) => mobileV.has(k));
+      // 교집합이 비면 단정이 **조용히 통과**한다 — 대조가 성립하는지부터 못박는다.
       assert(
-        pcOpen === mobileOpen,
-        `열린 유닛 수가 뷰포트별로 다르다 — PC ${pcOpen} vs 모바일 ${mobileOpen}`,
+        shared.length > 0,
+        `두 뷰포트가 함께 그리는 유닛이 없다 — PC ${pcV.size}종 / 모바일 ${mobileV.size}종`,
+      );
+      const mismatched = shared.filter((k) => pcV.get(k) !== mobileV.get(k));
+      assert(
+        mismatched.length === 0,
+        `같은 유닛의 열림 여부가 뷰포트별로 다르다 — ${mismatched
+          .slice(0, 3)
+          .map((k) => `"${k}" PC ${pcV.get(k) ? '열림' : '잠김'} vs 모바일 ${mobileV.get(k) ? '열림' : '잠김'}`)
+          .join(' / ')}`,
       );
       assert(
         pcUnitButtons().every((b) => !(b.getAttribute('aria-label') ?? '').includes('구름 부족')),
@@ -492,6 +521,137 @@ try {
       );
     } finally {
       r.unmount();
+    }
+  });
+
+  // ── 7.3 배치 θ 선해제(`status: 'unlocked'`)가 화면에 어떻게 나타나는가 ──────
+  //
+  // 🔴 **이 시나리오가 없어서 커버리지 구멍이 있었다**(대장 §4.9, 2026-08-14).
+  //    `#72` 변이 확인 중 드러났다: 「`unlocked`도 잠근다」는 변이를 넣었는데
+  //    **아무 테스트도 울지 않았다.** 가드의 구멍이 아니라 **변이가 도달할 픽스처가
+  //    없었던 것**이다 — 여기 시나리오들이 전부 잠김/완료/current만 만들었다.
+  //
+  //    `#70`이 넣은 `test_placement_unlock_level.py`가 **순수 함수 축**은 덮지만
+  //    **화면까지 오는 경로**(트리 응답 → 렌더)는 비어 있었다. 「배치고사 본 만큼
+  //    학습이 열린다」가 이 제품의 약속인데, 그 약속이 화면에서 지켜지는지를
+  //    아무도 안 보고 있었다는 뜻이다.
+  //
+  // ⚠️ 목을 고치지 않는다 — `POST /dev/curriculum {action:'unlock_all'}`가 이미
+  //    `preUnlockedUnits`를 채우고, 트리 빌더가 그중 **첫 하나만 `current`로
+  //    승격**하므로 나머지가 `unlocked`로 남는다(백엔드 `build_curriculum`과 같은
+  //    규칙). 즉 이 상태는 **목이 원래 만들 수 있던 것**이고, 우리가 안 만들었을 뿐이다.
+  await scenario('배치 선해제: unlocked 유닛이 열린 채로 그려지고 사유가 구분된다', async () => {
+    await api('POST', '/dev/reset-me', { reset: true });
+    await api('POST', '/dev/clouds', { clouds: 5 });
+    const unlockAll = await api('POST', '/dev/curriculum', { action: 'unlock_all' });
+    assert(unlockAll.status === 200, `/dev/curriculum unlock_all 실패 (${unlockAll.status})`);
+    useOnboardingGate.getState().reset();
+    authenticate('placement-unlocked-user');
+
+    const r = mount(createElement(App), '/learn');
+    try {
+      await waitFor(() => pcUnitButtons().length > 0, 5000, 'PC 경로 유닛 노드 렌더');
+
+      // ⓐ **전제는 데이터로 잰다.** 렌더된 라벨로 재면 안 된다 — 렌더가 망가지는
+      //    변이(`unlocked`도 잠근다)에서 라벨이 「(잠김)」으로 바뀌어 **전제가 먼저
+      //    실패하고 "unlock_all이 안 먹었다"고 오진**한다. 원인은 서버가 아니라
+      //    화면인데 그 반대를 가리키는 실패 메시지는 함정이다.
+      const tree = await api('GET', '/curriculum');
+      const treeUnits = (tree.body?.sections ?? []).flatMap((s) => s.units ?? []);
+      const unlockedInData = treeUnits.filter((u) => u.status === 'unlocked');
+      assert(
+        unlockedInData.length > 0,
+        `전제 실패: 트리 응답에 status:'unlocked' 유닛이 없다 — unlock_all이 안 먹었거나 ` +
+          `트리 빌더가 status를 안 내린다(상태 분포: ${JSON.stringify(
+            treeUnits.reduce((m, u) => ({ ...m, [u.status]: (m[u.status] ?? 0) + 1 }), {}),
+          )})`,
+      );
+
+      // ⓑ 그 유닛들이 **화면에서 열려 있어야** 한다. 「`unlocked`도 잠근다」 변이가
+      //    여기서 운다 — 그 변이가 못 도달하던 것이 §4.9의 내용이다.
+      //    데이터의 제목으로 버튼을 찾는다(라벨 suffix에 기대지 않는다 — 그것이
+      //    바로 변이가 바꾸는 값이다).
+      const byTitle = new Map(
+        pcUnitButtons().map((b) => [
+          (b.getAttribute('aria-label') ?? '').replace(/\s*\([^()]*\)\s*$/, '').trim(),
+          b,
+        ]),
+      );
+      const rendered = unlockedInData.map((u) => byTitle.get(u.title)).filter(Boolean);
+      assert(
+        rendered.length > 0,
+        `선해제 유닛 ${unlockedInData.length}건이 PC 경로에 하나도 안 그려졌다 — ` +
+          '접기로 다른 섹션만 펼쳐져 있을 수 있다(그러면 이 시나리오가 헛돈다)',
+      );
+      const lockedOpened = rendered.filter((b) => b.disabled);
+      assert(
+        lockedOpened.length === 0,
+        `배치로 열린 유닛이 화면에서 잠겨 있다(${lockedOpened.length}/${rendered.length}) — ` +
+          '배치고사를 본 만큼 학습이 열린다는 약속이 화면에서 깨진다(R7-02 §3.4). ' +
+          `라벨: ${lockedOpened.slice(0, 2).map((b) => `"${b.getAttribute('aria-label')}"`).join(' / ')}`,
+      );
+
+      // ⓑ-2 사유 표기도 함께 온다 — 열려 있기만 하고 「왜 열렸는지」가 없으면
+      //     학습자는 자기가 건너뛴 구간을 인지하지 못한다.
+      const pcOpened = rendered.filter((b) =>
+        (b.getAttribute('aria-label') ?? '').includes('진단으로 열림'),
+      );
+      assert(
+        pcOpened.length > 0,
+        '선해제 유닛에 "(🧭 진단으로 열림)" 표기가 하나도 없다 — 열린 이유가 화면에 없다',
+      );
+
+      // ⓒ 사유가 섞이지 않는다 — 선해제 유닛에 「잠김」이 함께 붙으면 안 된다.
+      const contradictory = pcOpened.filter((b) =>
+        (b.getAttribute('aria-label') ?? '').includes('잠김'),
+      );
+      assert(
+        contradictory.length === 0,
+        '같은 유닛이 "진단으로 열림"과 "잠김"을 동시에 말한다 — 사유 표기가 섞였다',
+      );
+
+      // ⓓ 두 뷰포트가 같은 판정을 내리는가 — 7.2와 같은 축이지만 **상태가 다르다**
+      //    (7.2는 구름 축, 여기는 선해제 축). PC만 선해제를 무시하는 회귀를 문다.
+      const unitKey = (b) => (b.getAttribute('aria-label') ?? '').replace(/\s*\([^()]*\)\s*$/, '').trim();
+      const pcV = new Map(pcUnitButtons().map((b) => [unitKey(b), !b.disabled]));
+      const mobileV = new Map(mobileUnitButtons().map((b) => [unitKey(b), !b.disabled]));
+      const shared = [...pcV.keys()].filter((k) => mobileV.has(k));
+      assert(shared.length > 0, '두 뷰포트가 함께 그리는 유닛이 없다(대조 불성립)');
+      const mismatched = shared.filter((k) => pcV.get(k) !== mobileV.get(k));
+      assert(
+        mismatched.length === 0,
+        `선해제 상태에서 같은 유닛의 열림 여부가 뷰포트별로 다르다 — ${mismatched
+          .slice(0, 3)
+          .map((k) => `"${k}" PC ${pcV.get(k) ? '열림' : '잠김'} vs 모바일 ${mobileV.get(k) ? '열림' : '잠김'}`)
+          .join(' / ')}`,
+      );
+    } finally {
+      r.unmount();
+    }
+
+    // ⓔ 구름 0에서는 **선해제 유닛도 함께 막히되 사유는 구름이다.** 선해제는
+    //    「선행 잠금이 아니다」이지 「자원 없이도 들어간다」가 아니다 — 문항 진입 전
+    //    차단(R10-01 S4)은 상태와 무관하게 걸린다.
+    await api('POST', '/dev/clouds', { clouds: 0 });
+    useOnboardingGate.getState().reset();
+    authenticate('placement-unlocked-noclouds');
+    const r2 = mount(createElement(App), '/learn');
+    try {
+      await waitFor(() => pcUnitButtons().length > 0, 5000, 'PC 경로 재렌더');
+      const opened = pcUnitButtons().filter((b) =>
+        (b.getAttribute('aria-label') ?? '').includes('구름 부족'),
+      );
+      assert(opened.length > 0, '구름 0인데 "(구름 부족)" 표기가 없다');
+      assert(
+        pcUnitButtons().every((b) => b.disabled),
+        '구름 0에서 선해제 유닛이 열린 채 남아 있다 — 선해제는 자원 게이트를 면제하지 않는다',
+      );
+      assert(
+        pcUnitButtons().every((b) => !(b.getAttribute('aria-label') ?? '').includes('잠김')),
+        '구름 0에서 선해제 유닛이 "잠김"으로 표기된다 — 사유가 선행 잠금으로 오인된다',
+      );
+    } finally {
+      r2.unmount();
     }
   });
 
@@ -573,7 +733,19 @@ try {
   // `/`는 2026-08-09부터 `/learn` 리다이렉트다(홈 화면 삭제) — 이 시나리오가 보는
   // 것은 "보호 라우트가 로그인 화면으로 튕기지 않고 그대로 렌더되는가"라 목적지
   // 이름만 바뀌고 계약은 같다.
-  await scenario('토큰 없이 진입: POST /auth/guest가 1번만 나가고 학습 화면이 렌더된다', async () => {
+  //
+  // ⚠️ **갱신됨(2026-08-13 클라이언트 지시 ⑵⑶ — 첫 접속 정보 입력).** 맨 URL(`/`)로
+  // 들어온 첫 접속에는 이제 **발급 앞에** 정보 입력 화면이 한 장 선다. 학령을
+  // `POST /auth/guest`의 **바디**에 실어야 하는데(요구 ⑶), 발급은 한 번뿐이라
+  // 고르기 전에 발급해 버리면 그 문이 영영 닫히기 때문이다.
+  //
+  // 그래서 무는 것을 **둘로 나눈다**:
+  //   ⓐ 규정(「로그인 없이 열려야」) — 화면이 뜨되 **아무것도 입력하지 않고
+  //      건너뛸 수 있고**, 건너뛰면 곧장 서비스가 렌더된다. 로그인 폼이 아니다.
+  //   ⓑ 종전 계약 그대로 — 발급은 **정확히 1회**, 게스트 표식이 서고, 보호
+  //      라우트가 실제로 렌더된다(탭바 5).
+  // 딥링크는 이 게이트를 타지 않는다 — 시나리오 11(`/explore`)이 그쪽을 문다.
+  await scenario('토큰 없이 진입: 정보 입력 → 건너뛰기 → POST /auth/guest 1회 + 학습 화면', async () => {
     resetGuestAutoIssue();
     useAuthStore.getState().logout();
     useOnboardingGate.getState().reset();
@@ -581,6 +753,26 @@ try {
     const mark = xhrLog.length;
 
     const r = mount(createElement(App), '/');
+    // ⓐ 첫 접속 정보 입력이 먼저다 — 그리고 **로그인 폼이 아니다**(규정).
+    await waitFor(
+      () => window.document.querySelector('[data-testid="entry-info"]') !== null,
+      6000,
+      '첫 접속 정보 입력 화면',
+    );
+    assert(
+      !/로그인|회원가입/.test(text()),
+      '정보 입력 화면에 「로그인」·「회원가입」 문구가 떴다(규정 위반)',
+    );
+    // 아직 발급 전이어야 한다 — 학령이 바디에 실릴 기회가 여기서만 있다.
+    assert(
+      xhrLog.slice(mark).filter((l) => l === 'POST /api/v1/auth/guest').length === 0,
+      '정보 입력을 보여주기도 전에 게스트가 발급됐다 — 학령을 실을 문이 닫힌다',
+    );
+    // 아무것도 고르지 않고 건너뛴다(규정 — 입력 없이도 학습에 도달해야 한다).
+    const skip = window.document.querySelector('[data-testid="entry-info-skip"]');
+    assert(skip, '건너뛰기 통로가 없다 — 규정 「로그인 없이 열려야」가 깨진다');
+    skip.click();
+
     await waitFor(
       () => Boolean(useAuthStore.getState().accessToken),
       6000,
@@ -618,6 +810,14 @@ try {
 
     try {
       const r = mount(createElement(App), '/');
+      // 2026-08-13: `/` 첫 접속에는 정보 입력이 먼저다 — 건너뛰어 발급을 태운다.
+      // 여기서 재는 것은 **그 뒤의 실패 처리**라, 게이트 자체는 시나리오 10이 문다.
+      await waitFor(
+        () => window.document.querySelector('[data-testid="entry-info-skip"]') !== null,
+        6000,
+        '첫 접속 정보 입력 화면',
+      );
+      window.document.querySelector('[data-testid="entry-info-skip"]').click();
       await waitFor(() => text().includes('다시 시도하기'), 6000, '재시도 화면');
       // 규정: 로그인 없이 열려야 한다 — 실패했다고 로그인 폼을 들이밀지 않는다
       assert(!text().includes('계정 없이 바로 시작하기'), '발급 실패에 로그인 화면이 떴다');

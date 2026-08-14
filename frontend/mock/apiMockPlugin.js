@@ -450,10 +450,23 @@ function reviewQueuePayload(nowMs = Date.now()) {
 // level_group은 서버 users.level_group의 목 대응물이다 (R13 CO-P-5). 종전에는
 // 목에 학령 자체가 없어서 "게스트는 평생 middle_high"라는 결함을 목 위 스모크로는
 // 원리적으로 볼 수 없었다 — 이제 GET/PATCH /auth/me가 서버와 같은 형태로 읽고 쓴다.
+// takenNicknames는 서버 **닉네임 유일성 검사**의 대응물이다 —
+// ⚠️ **DB 유니크 제약이 아니다.** `users.nickname`에는 제약이 없고(기존 게스트가
+// 자동 닉네임 `게스트-xxxxxx`를 공유해 인덱스가 만들어지지 않는다) 유일성은
+// `guest_login`이 **신고 경로에서만** SELECT로 확인한다(대장 §4.16).
+// registeredEmails와 **같은 관례**로, 이미 쓰이고 있는 이름 1건을 시드해 409 경로를
+// 목 위에서 재현한다. 시드값은 새로 지어낸 이름이 아니라 **목이 이미 「쓰이고 있다」고
+// 선언한 이름**이다: `meResponse`의 정식 계정 닉네임 '날씨러버'.
+// ⚠️ 리그 리더보드의 닉네임 10종은 **시드하지 않는다.** 그 배열의 '구름사냥꾼'은
+// i18n 예시 문구(`entryInfo.nicknamePlaceholder`)이자 entryFlow ⑧-a가 실제로 적어
+// 넣는 이름이라, 시드하면 「적은 이름이 바디에 실린다」 계약이 409로 무너진다.
+// nickname은 현재 게스트가 신고한 이름(없으면 null → 서버 자동 닉네임 자리).
 const mockAuth = {
   isGuest: false,
   levelGroup: 'middle_high', // 서버 GUEST_LEVEL_GROUP과 같은 무정보 기본값
+  nickname: null,
   registeredEmails: new Set(['taken@weathermind.dev']),
+  takenNicknames: new Set(['날씨러버']),
 };
 
 // 서버 schemas/auth.LevelGroup Literal과 같은 3값 — 목이 사본을 갖는 대신
@@ -475,7 +488,9 @@ const meResponse = () => ({
   email: mockAuth.isGuest
     ? `guest-${MOCK_USER_ID}@${GUEST_EMAIL_DOMAIN}`
     : 'demo@weathermind.dev',
-  nickname: mockAuth.isGuest ? '게스트-2b1c8b' : '날씨러버',
+  // 게스트가 이름을 신고했으면 그 이름으로 유저가 만들어진 것이다 — 신고가 없으면
+  // 서버가 짓는 자동 닉네임(`게스트-{uuid6}`)의 목 대응물로 되돌아간다.
+  nickname: mockAuth.isGuest ? (mockAuth.nickname ?? '게스트-2b1c8b') : '날씨러버',
   is_guest: mockAuth.isGuest,
   level_group: mockAuth.levelGroup,
 });
@@ -501,12 +516,75 @@ const abilityRows = () =>
     num_responses,
   }));
 
-/** θ 평균 → 출제 대상 레벨 그룹. 경계(-0.5, 0.5)는 backend
- *  weatherbrain_service.theta_level_label·ai-worker theta_to_target_level_group과 동일. */
+/**
+ * 대표 θ — backend `weatherbrain_service.overall_theta`와 **같은 규칙**이다:
+ * n 가중 평균, 전부 n=0이면 단순 평균, 행이 없으면 null(콜드스타트).
+ * 종전에는 devStatePayload가 여기서 단순 평균만 썼는데, 시드가 n=0이라 값이
+ * 같아 드리프트가 안 보였을 뿐이다 — 배치고사·응답으로 n이 붙는 순간 갈렸다.
+ */
+function overallTheta(rows) {
+  if (!rows.length) return null;
+  const totalN = rows.reduce((sum, r) => sum + (r.num_responses || 0), 0);
+  if (totalN <= 0) return rows.reduce((sum, r) => sum + r.theta, 0) / rows.length;
+  return rows.reduce((sum, r) => sum + r.theta * (r.num_responses || 0), 0) / totalN;
+}
+
+/**
+ * θ → 지식 단계(1..MAX) — backend `weatherbrain_service.theta_to_knowledge_level`의
+ * **사본**이다. 4밴드(thetaToLevelGroup)와 같은 축을 더 잘게 나눈 뷰다.
+ *
+ * ⚠️ 이 상수 둘은 서버가 소유하고 여기 있는 것은 사본이라, `__mockPolicy()`로
+ * 노출해 `test_r13_mock_policy_parity`가 서버 실값과 대조한다(CO-J-9 관례).
+ * **테스트에 기대값 사본을 또 쓰지 말 것** — 그러면 계약이 자기 자신을 본다.
+ */
+/** 학령 → 표현 톤. server weatherbrain_service.LEVEL_GROUP_TONE의 사본. */
+const LEVEL_GROUP_TONE = {
+  elementary: 'child',
+  middle_high: 'teen',
+  adult: 'adult',
+  expert: 'adult', // 신고 학령은 아니지만 서버가 방어적으로 성인 톤에 붙인다
+};
+
+const KNOWLEDGE_LEVEL_MIN = 1;
+const KNOWLEDGE_LEVEL_MAX = 10;
+const THETA_KNOWLEDGE_LEVEL_BOUNDS = [-1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 1.75, 2.0, 2.25];
+
+function thetaToKnowledgeLevel(theta) {
+  const i = THETA_KNOWLEDGE_LEVEL_BOUNDS.findIndex((bound) => theta < bound);
+  return i < 0 ? KNOWLEDGE_LEVEL_MAX : KNOWLEDGE_LEVEL_MIN + i;
+}
+
+/**
+ * 지금의 대표 지식 단계 — 서버 `overall_knowledge_level`과 같은 경로.
+ * ⚠️ **`abilityRows()`를 쓰지 않는다.** 그쪽은 표시용으로 θ를 소수 2자리로
+ * 반올림하는데 서버는 원값으로 계산한다 — θ=0.495면 목은 5단계(0.50 < 0.5가
+ * 거짓), 서버는 4단계로 갈린다(2026-08-12 리뷰). 저장소 원값을 그대로 본다.
+ */
+function knowledgeLevelNow() {
+  const rows = [...devAbilities.values()].map((a) => ({
+    theta: a.theta,
+    num_responses: a.num_responses,
+  }));
+  const theta = overallTheta(rows);
+  return theta === null ? null : thetaToKnowledgeLevel(theta);
+}
+
+/**
+ * θ → 출제 대상 레벨 그룹. 경계는 backend `weatherbrain_service.LEVEL_GROUP_BANDS`
+ * (·ai-worker theta_to_target_level_group)와 동일하다.
+ *
+ * ⚠️ **expert가 빠져 있었다**(2026-08-12 발견). 서버는 4밴드
+ * (elementary/middle_high/adult/**expert**)이고 θ≥1.5가 expert인데 목은 adult를
+ * 냈다. 지식 단계 축을 붙이면서 드러난 어긋남이다 — 같은 θ에서 목이
+ * 「9단계(expert 구간)」이라 하면서 밴드는 adult라고 말하는 자기모순이었다
+ * (두 축은 접으면 같아야 한다: level_group_of_knowledge_level ∘
+ *  theta_to_knowledge_level == theta_to_level_group).
+ */
 function thetaToLevelGroup(theta) {
   if (theta < -0.5) return 'elementary';
   if (theta < 0.5) return 'middle_high';
-  return 'adult';
+  if (theta < 1.5) return 'adult';
+  return 'expert';
 }
 
 // DEV_MODE 꺼진 실서버(FastAPI 라우터 미등록)의 기본 404 본문과 동일
@@ -516,14 +594,13 @@ const DEV_404 = [404, { detail: 'Not Found' }];
 function devStatePayload() {
   regenClouds();
   const rows = abilityRows();
-  const overallTheta = rows.length
-    ? Number((rows.reduce((sum, r) => sum + r.theta, 0) / rows.length).toFixed(2))
-    : 0;
+  // 서버와 같은 규칙(n 가중) — 위 overallTheta 주석 참조.
+  const overall = Number((overallTheta(rows) ?? 0).toFixed(2));
   return {
     dev_mode: true,
     abilities: rows,
-    overall_theta: overallTheta,
-    target_level_group: thetaToLevelGroup(overallTheta),
+    overall_theta: overall,
+    target_level_group: thetaToLevelGroup(overall),
     // unlock_floor: 배치 θ 선해제가 연 선두 연속 유닛 수 (backend placement_unlock_floor)
     unlock_floor: preUnlockedUnits.size,
     clouds: state.clouds,
@@ -769,6 +846,50 @@ function currentProgressUnit() {
     UNITS.find((u) => (unitProgress.get(u.id)?.crowns ?? 0) < u.crown_target && !isUnitLocked(u))
     ?? null
   );
+}
+
+/**
+ * GET /progress/me 페이로드 — **함수로 뺐다**(2026-08-12). 테스트가 라우트를
+ * 거치지 않고 같은 값을 볼 수 있어야 한다: 목이 `knowledge_level`을 안 보내
+ * 「현재 지식 단계」 카드가 목에서 통째로 안 뜨던 것을 24종 스모크 중 아무도
+ * 못 잡았다. `__progressMePayload`로 노출한다 — 사본이 아니라 **라우트가 쓰는
+ * 바로 그 함수**다(사본을 두면 계약이 자기 자신을 보게 된다).
+ */
+function progressMePayload() {
+  regenClouds();
+  return {
+    xp: state.xp,
+    level: state.level,
+    streak_count: state.streak,
+    next_level_xp: nextLevelXp(state.level),
+    streak_freeze_count: state.streakFreeze,
+    tier: state.tier, // 현재 리그 티어 (§3.2 — 최근 정산, 없으면 stratus)
+    clouds: state.clouds, // 구름 에너지 잔량 (§3.3)
+    max_clouds: CLOUD_MAX,
+    next_regen_sec: nextRegenSec(),
+    placement_done: state.placementDone, // 온보딩 배치고사 완료 여부 (R7-01 S3)
+    spine: spinePayload(), // 스파인 집계 (R8-01 §3.3, additive)
+    // 일일 목표 (R10-01 §3.4·D4, additive) — null이면 미설정(온보딩 1스텝 노출).
+    daily_goal_items: state.dailyGoalItems,
+    // 오늘 응답한 문항 수 — "오늘 목표 N/M" 표기의 N (자정 지연 리셋 포함).
+    today_answered_count: todayAnsweredCount(),
+    // 학습 지역 (R12 선행 §8.2, additive) — 서버는 NULL=서울 해석값을 노출.
+    region: state.region,
+    // 지식 단계 (R13) — 서버 schemas/progress.ProgressMe의 두 필드.
+    // ⚠️ 종전에는 **이 둘이 없었다**. 그래서 `KnowledgeLevelCard`가 목에서
+    // 항상 null을 반환했고(카드가 통째로 안 뜸), 프론트 스모크 어느 것도
+    // 그 카드를 렌더해 본 적이 없었다 — 2026-08-12에 그 카드를 /me 오른쪽
+    // 열로 옮기고 나서야 드러난 mock↔서버 드리프트다.
+    // 값은 서버 `overall_knowledge_level`과 같은 경로로 만든다:
+    // 개념 θ → 대표 θ(n 가중) → 단계. 행이 없으면 null(콜드스타트).
+    knowledge_level: knowledgeLevelNow(),
+    knowledge_level_max: KNOWLEDGE_LEVEL_MAX,
+    // 표현 톤 (server schemas/progress.ProgressMe.tone ·
+    // weatherbrain_service.effective_tone) — 신고 톤이 없으면 학령에서 파생한다.
+    // 목에는 users.tone이 없으므로 항상 파생 경로다. 종전에는 이 필드가 아예
+    // 없었다(지식 단계와 같은 종류의 구멍 — 2026-08-12 리뷰).
+    tone: LEVEL_GROUP_TONE[mockAuth.levelGroup] ?? LEVEL_GROUP_TONE.middle_high,
+  };
 }
 
 function spinePayload() {
@@ -1829,12 +1950,34 @@ const routes = {
   // {access_token, refresh_token}). 드리프트는 test_auth_guest 계약이 감시한다.
   // 바디는 **선택**이다(서버 GuestStartRequest) — 없으면 기본 middle_high.
   // 보내면 그 학령으로 시작한다(R13 CO-P-5). 허용값 밖은 서버 pydantic이 422다.
+  //
+  // nickname도 **선택**이다(2026-08-14). 안 보내면 이 핸들러는 종전과 완전히 동일하게
+  // 동작한다 — 기존 스모크 다수가 무바디·`{level_group}`만으로 부른다.
+  // 보내면 유일성 검사를 통과해야 유저가 만들어진다: 이미 쓰이는 이름이면 409
+  // `NICKNAME_TAKEN`(서버 `guest_login`의 신고 경로 유일성 검사에 대응 — 프론트
+  // `EntryInfoPage`의 거절 걸쇠가 이 코드로 분기한다).
+  // 검사 순서는 서버와 같다: pydantic 형태 검증(422)이 먼저고, 유일성은 그 다음이다.
   'POST /auth/guest': (body) => {
     if (body?.level_group != null && !LEVEL_GROUPS.includes(body.level_group)) {
       return [422, { detail: '알 수 없는 학습 수준입니다.', code: 'VALIDATION_ERROR' }];
     }
+    const nickname = body?.nickname ?? null;
+    // 서버 GuestStartRequest.nickname의 `min_length=1, max_length=50` 대응 —
+    // 「안 적음」의 서버 표현은 빈 문자열이 아니라 **필드 부재**다. 이 분기가 없으면
+    // 목에서만 빈 이름이 유효한 닉네임으로 접수돼 실서버 422를 리허설할 수 없다.
+    if (nickname !== null && (typeof nickname !== 'string' || nickname.length < 1 || nickname.length > 50)) {
+      return [422, { detail: '닉네임은 1~50자로 적어 주세요.', code: 'VALIDATION_ERROR' }];
+    }
+    if (nickname !== null && mockAuth.takenNicknames.has(nickname)) {
+      return [409, { detail: '이미 사용 중인 닉네임입니다.', code: 'NICKNAME_TAKEN' }];
+    }
+    if (nickname !== null) mockAuth.takenNicknames.add(nickname);
     mockAuth.isGuest = true;
     mockAuth.levelGroup = body?.level_group ?? 'middle_high';
+    // ⚠️ 이름을 **매번** 덮어쓴다(신고가 없으면 null). 서버는 발급마다 새 유저 행을
+    // 새 자동 닉네임으로 만들므로, 앞선 발급의 이름이 다음 무바디 발급에 남으면
+    // 「닉네임 없이 부르면 종전과 동일」이 한 프로세스 안에서 깨진다.
+    mockAuth.nickname = nickname;
     return [201, { access_token: 'mock-guest-access', refresh_token: 'mock-guest-refresh' }];
   },
   // R11-01 §6.2: 게스트→정식 계정 전환 — BE-1 서버 계약 그대로.
@@ -2400,31 +2543,8 @@ const routes = {
     ];
   },
 
-  'GET /progress/me': () => {
-    regenClouds();
-    return [
-      200,
-      {
-        xp: state.xp,
-        level: state.level,
-        streak_count: state.streak,
-        next_level_xp: nextLevelXp(state.level),
-        streak_freeze_count: state.streakFreeze,
-        tier: state.tier, // 현재 리그 티어 (§3.2 — 최근 정산, 없으면 stratus)
-        clouds: state.clouds, // 구름 에너지 잔량 (§3.3)
-        max_clouds: CLOUD_MAX,
-        next_regen_sec: nextRegenSec(),
-        placement_done: state.placementDone, // 온보딩 배치고사 완료 여부 (R7-01 S3)
-        spine: spinePayload(), // 스파인 집계 (R8-01 §3.3, additive)
-        // 일일 목표 (R10-01 §3.4·D4, additive) — null이면 미설정(온보딩 1스텝 노출).
-        daily_goal_items: state.dailyGoalItems,
-        // 오늘 응답한 문항 수 — "오늘 목표 N/M" 표기의 N (자정 지연 리셋 포함).
-        today_answered_count: todayAnsweredCount(),
-        // 학습 지역 (R12 선행 §8.2, additive) — 서버는 NULL=서울 해석값을 노출.
-        region: state.region,
-      },
-    ];
-  },
+  'GET /progress/me': () => [200, progressMePayload()],
+
   // ── 복습 큐 (R11-01 C2 · §6.2) — 응답 이력 파생, 전 개념 + due 플래그 ──
   // 서버 ReviewQueueItem 6필드와 동일 형태(파생 로직은 위 reviewQueuePayload 주석).
   // due 필터·상위 3개 표시는 소비자(ReviewQueueCard) 몫 — 서버와 같은 분업.
@@ -2901,6 +3021,10 @@ export const __mockPolicy = () => ({
   level_groups: LEVEL_GROUPS,
   // 보드 난이도 잠금 (server routers/board.BAND_MAX_DIFFICULTY)
   board_band_max_difficulty: BOARD_BAND_MAX_DIFFICULTY,
+  // 지식 단계 축 (server weatherbrain_service.KNOWLEDGE_LEVEL_MAX ·
+  // THETA_KNOWLEDGE_LEVEL_BOUNDS) — /progress/me의 분모와 경계다.
+  knowledge_level_max: KNOWLEDGE_LEVEL_MAX,
+  theta_knowledge_level_bounds: THETA_KNOWLEDGE_LEVEL_BOUNDS,
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
   guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN
   // 왕관 정책 (server routers/session.py — §2.10 소유권 이전)
@@ -2920,6 +3044,19 @@ export const __mockPolicy = () => ({
     target_source: 'unit_block',
   },
 });
+
+/**
+ * θ→단계 변환 자체를 노출한다 — 상수 표가 같아도 **비교 방향**(< vs <=)이
+ * 다르면 경계에서 갈린다. `test_r13_mock_policy_parity`가 경계 전건을 던져
+ * 서버 `theta_to_knowledge_level`과 결과를 대조한다.
+ */
+export const __thetaToKnowledgeLevel = thetaToKnowledgeLevel;
+
+/** 같은 이유로 4밴드 변환도 노출한다 — expert 가지가 빠져 있던 자리다. */
+export const __thetaToLevelGroup = thetaToLevelGroup;
+
+/** 라우트가 쓰는 바로 그 /progress/me 페이로드(사본 아님). */
+export const __progressMePayload = progressMePayload;
 
 export default function apiMockPlugin() {
   return {

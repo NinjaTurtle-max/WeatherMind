@@ -1,6 +1,17 @@
 /**
  * en 리소스 (R11-01 §3 D — i18n 골격 · §6.3 페이즈 B 전면 외부화)
  *
+ * ⚠️ **2026-08-13부터 제품 화면에서는 쓰지 않는다.** 클라이언트 결정("영어 기능
+ * 제거")으로 로케일이 ko 고정이 됐고(`../core.js`의 `detectLocale`), 헤더 스위처도
+ * 걷었다 — en으로 열리는 경로가 없다. 사유는 en 화면이 반쪽만 영어이기 때문이다:
+ * 서버 오류 문구(`api/client.js`가 `data.detail`을 우선한다)·문항 1,012건·
+ * 코스/섹션/유닛명이 전부 한국어다.
+ *
+ * **그래도 지우지 않는다.** 이 파일이 사라지면 `tests/i18n.smoke.test.mjs`의 ko↔en
+ * 키 패리티 계약이 통째로 죽고, 그때부터 ko에 키를 추가/삭제해도 아무도 울지 않는다
+ * — en을 되살릴 때 그 계약만이 안전망이다. 형제 파일 `board.en.js`·`detective.en.js`도
+ * 같은 이유로 존치한다. 새 문구를 저작할 때는 **ko와 함께 여기에도** 넣을 것.
+ *
  * ko와 키 집합이 1:1로 일치해야 한다 — tests/i18n.smoke.test.mjs가
  * 키 패리티를 상주 가드하므로, 한쪽만 추가/삭제하면 CI가 잡는다.
  * 번역은 FE-D2 직접 작성(§6.3 — UI 문구라 G1 불요).
@@ -14,6 +25,11 @@ export default {
     label: 'Language',
     ko: '한국어',
     en: 'English',
+  },
+  // Source attribution (contest rule). The agency names stay in Korean on purpose —
+  // they are proper nouns of the data provider, not UI copy to translate.
+  attribution: {
+    data: 'Data: KMA Weather Nuri · KMA API Hub',
   },
   common: {
     loading: 'Loading…',
@@ -82,11 +98,28 @@ export default {
     nodeBody: 'Fill in your details to save your progress',
     nodeCta: 'Go fill in your details →',
     cardTitle: 'Save your progress',
+    // 8/13에 "on any device"를 걷었고(돌아올 문이 없었다), 8/14에 문이 돌아왔지만
+    // **되돌리지 않는다** — 저장 전 화면의 약속이라 저장을 안 마친 사람에게는 여전히
+    // 거짓이다. 경위는 `ko.js`의 같은 자리 주석이 소유한다. 계약이 en 값도 함께 문다.
     cardBody:
-      'Fill in your details to save your progress. Right now it lives only on this device — once saved, your XP, streak and placement stay with you on any device.',
+      'Fill in your details to save your progress. Right now it lives only on this device — once saved, your XP, streak and placement stay with your account.',
     submit: 'Save my progress',
-    done: 'Your progress is saved — you can pick up where you left off on any device.',
-    alreadySaved: 'Your progress is already saved to your details — pick up where you left off on any device.',
+    done: 'Your progress is saved — your XP, streak and placement stay with your account.',
+    alreadySaved:
+      'Your progress is already saved to your details — your XP, streak and placement stay with your account.',
+  },
+  // Load progress (2026-08-14 client decision ⓑ) — the counterpart of "save".
+  // ⚠️ Never the words "log in" / "sign up" here either — the banned-word contract
+  //    scans en values too. "Load my progress" is the name. Entry point is the one
+  //    line on the save card (`fromSave`); never a nav link (MT-29 계약).
+  loadProgress: {
+    fromSave: 'Already saved? Load your progress',
+    title: 'Load your progress',
+    body: 'Enter the email and password you saved with, and you will be back where you left off.',
+    submit: 'Load my progress',
+    submitting: 'Loading your progress…',
+    failed: "Couldn't load your progress. Please check the email and password and try again.",
+    back: '← Back to learning',
   },
   // Region notice (2026-08-12 request ③) — an inline banner, never a modal.
   regionNotice: {
@@ -226,6 +259,25 @@ export default {
   apiError: {
     generic: 'Something went wrong while processing your request.',
     network: "Can't reach the server. Please check your network.",
+  },
+  // 첫 접속 정보 입력(EntryInfoPage) — ko.js의 같은 블록 주석 참고.
+  // ⚠️ 금칙어는 영어도 문다('log in'·'login'·'sign up'·'sign-up', 소문자 부분일치).
+  entryInfo: {
+    title: 'Welcome! Tell us how you want to learn',
+    body: 'Questions are matched to your learning level. Pick one now and go straight to a quick placement check.',
+    levelLabel: 'Learning level',
+    levelHint: {
+      elementary: 'Plain words and pictures first',
+      middleHigh: 'Built around school science concepts',
+      adult: 'Everyday and advanced concepts too',
+    },
+    nicknameLabel: 'Nickname (optional)',
+    nicknamePlaceholder: 'e.g. CloudChaser',
+    nicknameHint: "This is the name shown on leagues and rankings. Leave it blank and we'll pick one for you.",
+    nicknameTaken: 'That name is already taken — please try another one.',
+    submit: 'Next — take the placement check →',
+    skip: 'Skip →',
+    note: 'You can change this any time under My Info.',
   },
   placement: {
     skip: 'Skip →',
@@ -374,23 +426,25 @@ export default {
       boardChip: 'Board puzzle unit',
       placementOpened: '🧭 Opened by placement',
     },
+    // 2026-08-14 (S-11 orphan-key sweep): `body`·`resume`·`regenResume` removed —
+    // the free-daily-session card and `/daily` route that owned them were deleted
+    // on 2026-08-12, so nothing reads them. See ko.js for the full note.
     daily: {
       title: 'Free daily session',
-      body: "Want today's session right away instead of the set path?",
       cta: "Start today's session →",
-      resume: 'Resume your session →',
       regen: '☁️ About {min} min until a cloud returns',
-      regenResume: '☁️ About {min} min until a cloud returns — a session you started today can still be finished.',
     },
     path: {
       sectionEyebrow: 'Section {n} · {title}',
       introTitle: 'What this stage covers',
       start: 'Start',
-      estMinutes: 'about {min} min',
       estDays: 'about {days} day(s)',
       fold: 'Collapse',
       unfold: 'Expand',
-      scrollHint: '↓ Scroll for the next stage',
+      // 2026-08-13: was '↓ Scroll for the next stage'. One section expands at a
+      // time now, so scrolling can no longer reach the next stage (a collapsed
+      // row does) — the old copy became false. See ko.js for the full note.
+      scrollHint: '↓ Scroll for more of this section',
       progressLabel: 'Progress',
       unitCount: '{done} / {total} units',
     },
@@ -416,6 +470,8 @@ export default {
     backToPath: 'Back to learning path',
   },
   session: {
+    // 좁은 화면에서 이 패널이 「다음」 컨트롤을 덮는다 — 닫을 수 있어야 한다.
+    feedbackDismiss: 'Close explanation',
     answerHere: 'Pick an answer and the result and explanation appear here.',
     loading: 'Preparing your session…',
     title: "Today's Weather Session",
@@ -678,7 +734,8 @@ export default {
     submit: 'Submit prediction (1/week)',
     minOverMax: 'The low cannot be higher than the high.',
     submitFailed: "Couldn't submit your prediction.",
-    leaderboard: 'Leaderboard',
+    // 2026-08-14 (S-11): `leaderboard` heading key removed — the dashboard rework
+    // made `dash.ranking` the heading in that slot. `leaderboardLoading` is live.
     leaderboardLoading: 'Loading rankings…',
     myHistory: 'My league history',
     accuracy: 'Accuracy {score}',
@@ -747,7 +804,9 @@ export default {
       bodySeg1: 'The XP, streak, and placement results you have built up become your account ',
       bodyStrong: 'as-is',
       bodySeg2: '.',
-      bodyLine2: 'Continue learning from any device.',
+      // 8/13에 'Continue learning from any device.'를 걷었다. 8/14에 문이 돌아왔지만
+      // 되돌리지 않는다 — 경위는 `saveProgress` 블록 주석이 소유한다.
+      bodyLine2: 'You can review the details you saved any time under My Info.',
       nicknameOptional: '(optional — leave blank to keep your current one)',
       errNotGuest: 'You already have a full account — your progress is safely saved to it.',
       // 2026-08-12: the old copy pointed at a login screen that was removed the same

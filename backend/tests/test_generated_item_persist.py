@@ -296,13 +296,15 @@ def issue_session(monkeypatch, db, *, bank_pool=(), live_pool=(), board_pool=(),
     """
     calls = {"generate": 0}
 
-    async def fake_pools(_db, u, weak, theta=None, today=None):
+    async def fake_pools(_db, u, weak, theta=None, today=None, target_level=None):
         return list(bank_pool), [], list(live_pool)
 
     async def fake_unit_pool(_db, u, abilities, count):
         return [], None
 
-    async def fake_board_pool(_db, u, theta, today_subq, limit=None):
+    async def fake_board_pool(
+        _db, u, theta, today_subq, limit=None, target_level=None
+    ):
         return list(board_pool)
 
     async def fake_quiz_generate(**kwargs):
