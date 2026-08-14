@@ -71,7 +71,8 @@ class TestBoardDifficultySeedDistribution:
     def test_분포_1_2_3_모두_존재(self):
         boards = self._seed_boards()
         # R12 §9 13건 → R13 2일차 통합에서 +21(2일차 저작 7 + 규칙 확장 10 + 재난 4)
-        assert len(boards) == 46
+        # staging 승격(2026-08-14): 46 → **49**(CO-I-2/X-1 잔여 3건, 난이도 2)
+        assert len(boards) == 49
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
@@ -97,7 +98,12 @@ class TestBoardDifficultySeedDistribution:
         # → test_board_progression의 단조 증가 계약이 깨진다. board_order는 순서 계약상
         # 고정이고 board_difficulty는 순수 함수라 낮출 길이 없다.
         # 사유 전문은 board_rules.json wildfire_risk_dry_gale의 note_authoring.
-        assert dist == {1: 23, 2: 13, 3: 10}
+        # staging 승격(2026-08-14): **2가 13 → 16**. 승격한 3건이 전부
+        # `goal_only`(기본 2) · palette 2개 · middle_high(가산 없음) → 난이도 2다.
+        # ⚠️ **자리도 이 값이 정했다** — 난이도 2라서 난이도 3 구간(옛 37~46) 뒤에
+        # 붙이면 위 단조 증가 계약이 깨진다(실제로 깨졌다). 난이도 2 블록 끝인 36
+        # 다음 37~39로 넣고 옛 37~46을 +3 밀었다. 1·3은 안 변했다.
+        assert dist == {1: 23, 2: 16, 3: 10}
 
 
 def _puzzle(name: str, level_group: str):
