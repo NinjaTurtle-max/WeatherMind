@@ -51,9 +51,12 @@ export default {
       title: 'What weather shall we build today?',
     },
     page: {
-      difficulty1: 'Easy',
-      difficulty2: 'Normal',
-      difficulty3: 'Hard',
+      // School-level labels, not Easy/Normal/Hard (#32b) — mirrors board.ko.js.
+      // Kept short on purpose: on a locked card the compact badge shares one
+      // row with the lock reason (see the badge-row comment in BoardPage.jsx).
+      difficulty1: 'Elementary',
+      difficulty2: 'Mid & high',
+      difficulty3: 'Adult',
       difficultyAria: 'Difficulty: {label}',
       difficultyText: 'Difficulty {label}',
       sandboxQuestion: 'Sandbox — place elements freely and observe what weather emerges',
@@ -90,7 +93,9 @@ export default {
       lockedTitle: 'Raise your learning level in Profile to unlock',
       cardLocked: 'Above your level',
       lockedBannerTitle: '🔒 You see the difficulties your learning level opens',
-      lockedBannerBody: 'Elementary opens Easy, middle/high school opens Normal, adult opens everything.',
+      // Same words as difficulty1~3 above — the badge and this banner must not
+      // name the same tier two different ways.
+      lockedBannerBody: 'Elementary students open Elementary, middle/high students up to Mid & high, adults open all tiers up to Adult.',
       lockedBannerCta: 'Change learning level',
       blockedSuffix: ' (out of clouds)',
       blockedTitle: 'Opens when a cloud recovers — in about {min} min',

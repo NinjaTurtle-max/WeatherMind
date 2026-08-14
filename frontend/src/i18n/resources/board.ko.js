@@ -55,9 +55,20 @@ export default {
       title: '오늘은 어떤 날씨를 만들어 볼까요?',
     },
     page: {
-      difficulty1: '쉬움',
-      difficulty2: '보통',
-      difficulty3: '어려움',
+      // 난이도 라벨은 **교과 과정 표기**다(#32b · 2026-08-14 멘토 지목).
+      // 종전 '쉬움/보통/어려움'은 서비스에서 보드만 쓰던 예외였다 — 지식 단계는
+      // 이미 「초등 3~4학년」…「기상청 현업」(KnowledgeLevelCard)으로 통일돼 있다.
+      //
+      // ⚠️ 이 셋은 **잠금 문구(lockedBannerBody)와 한 몸**이다. 잠금은 학교급으로
+      // 갈리므로(초등→1, 중·고등→2까지, 성인→전부) 라벨이 곧 「누구에게 열리는
+      // 칸인가」를 말한다. 한쪽만 고치면 배지와 안내가 서로 다른 말을 한다.
+      // 계약 감시: boardEntryGate.smoke.test.mjs 「난이도 라벨은 교과 과정 표기다」.
+      //
+      // ⚠️ 짧게 유지할 것 — 잠긴 칸에서는 배지(compact)와 잠금 사유가 한 줄에
+      // 같이 선다(아래 배지 줄 주석의 187px 실측). 낱말을 늘리면 사유가 잘린다.
+      difficulty1: '초등',
+      difficulty2: '중·고등',
+      difficulty3: '성인',
       difficultyAria: '난이도: {label}',
       difficultyText: '난이도 {label}',
       sandboxQuestion: '자유 실험 — 요소를 마음껏 배치하고 어떤 날씨가 만들어지는지 관찰해 보세요',
@@ -96,7 +107,9 @@ export default {
       lockedTitle: '내 정보에서 학습 수준을 올리면 열려요',
       cardLocked: '수준 올리면 열림',
       lockedBannerTitle: '🔒 지금 학습 수준에서 열리는 난이도까지 보여요',
-      lockedBannerBody: '초등학생은 쉬움, 중·고등학생은 보통까지, 성인은 전부 열려요.',
+      // 위 difficulty1~3과 **같은 낱말**을 쓴다 — 배지에 「중·고등」이라 적힌 칸을
+      // 두고 안내가 「보통」이라 부르면 학습자가 둘을 다른 축으로 읽는다.
+      lockedBannerBody: '초등학생은 초등, 중·고등학생은 중·고등까지, 성인은 전부 열려요.',
       lockedBannerCta: '학습 수준 바꾸기',
       blockedSuffix: ' (구름 부족)',
       blockedTitle: '구름이 회복되면 열 수 있어요 — 약 {min}분 후',
