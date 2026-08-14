@@ -346,6 +346,60 @@ function assertCrossDeviceClaimIsTrue(resources) {
   );
 }
 
+/**
+ * ㉯ **주 동선에 진도 불러오기 링크가 없다** (2026-08-14 ⓑ 복구와 함께)
+ *
+ * MT-29가 고정한 계약이고, 「로그인 **없이** 열려야 한다」는 대회 규정의 해석
+ * 근거다. 라우트가 있는 것과 주 동선이 계정을 요구하는 것은 다르다 — 규정이
+ * 막는 것은 뒤쪽이다.
+ *
+ * 🔴 **이 단정이 지금 필요해진 이유**: 8/13~14 사이 「주 동선 0건」은 **화면이
+ * 아예 없어서** 참이었다. 그 보장은 계약이 아니라 **부재**였고, 라우트가 돌아온
+ * 순간 사라진다. 링크 한 줄이면 규정 해석이 깨지는데 우는 것이 없게 된다.
+ *
+ * 범위는 **nav 표면 3개**뿐이다 — 「진도 저장」 카드(`ProgressPage`)는 유일한
+ * 정당한 진입점이라 여기서 세면 안 된다. 저장소 전체로 넓히면 그 한 곳 때문에
+ * 영구 실패가 되고, 예외를 적는 순간 계약이 이름만 남는다.
+ */
+function assertNoNavLinkToLoadProgress() {
+  // ⚠️ **`navItems.js`가 빠지면 이 계약은 껍데기다.** 처음 세울 때 SideNav·TabBar·
+  //    Layout 셋만 넣었는데, 되돌림 확인을 하다 드러났다 — 탭 항목의 **단일
+  //    소유자는 `navItems.js`**이고 SideNav·TabBar는 그 배열을 렌더할 뿐이라
+  //    `to={tab.to}` 한 줄만 있다. 항목을 늘리는 사람은 당연히 소유자 파일을
+  //    고치므로, 그 파일을 안 보면 **가장 일어날 법한 경로가 통과한다.**
+  //    「렌더하는 곳」이 아니라 「값을 정하는 곳」을 무는 것이 맞다.
+  const NAV_SURFACES = [
+    'src/components/navItems.js',
+    'src/components/SideNav.jsx',
+    'src/components/TabBar.jsx',
+    'src/components/Layout.jsx',
+  ];
+  const offenders = [];
+  for (const rel of NAV_SURFACES) {
+    const src = readFileSync(resolve(root, rel), 'utf8')
+      // 주석은 걷는다 — 「여기에 넣지 말 것」이라고 적어 둔 경고가 스스로를 잡으면
+      // **근거를 지워야 통과하는 가드**가 된다(이 저장소가 두 번 겪은 함정이다).
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
+    src.split('\n').forEach((line, i) => {
+      if (/["'`]\/login["'`]/.test(line)) offenders.push(`${rel}:${i + 1} → ${line.trim()}`);
+    });
+  }
+  ok(
+    offenders.length === 0,
+    `㉯ 주 동선(navItems·SideNav·TabBar·Layout)에 /login 링크가 없다 — 진입은 「진도 저장」 카드 한 곳뿐`
+      + (offenders.length ? `\n      위반 ${offenders.length}건:\n      - ${offenders.join('\n      - ')}` : ''),
+  );
+
+  // 진입점이 **실제로 있는지**도 함께 본다 — 없으면 위 단정은 「아무 데도 없다」로
+  // 공허하게 통과한다(라우트만 있고 갈 길이 없는 상태를 초록으로 신고하게 된다).
+  const card = readFileSync(resolve(root, 'src/modules/progress/ProgressPage.jsx'), 'utf8');
+  ok(
+    /["'`]\/login["'`]/.test(card),
+    '㉯ 「진도 저장」 카드에 불러오기 진입이 살아 있다(라우트만 있고 갈 길이 없는 상태 방지)',
+  );
+}
+
 const DISMISS_KEY = 'weathermind.regionNotice.dismissed';
 
 try {
@@ -640,6 +694,11 @@ try {
   // 채로 "다른 기기에서도 이어서"가 실서버까지 갔던 것이 이 단정을 만든 이유다.
   await scenario('㉮ 「다른 기기에서도 이어서」는 돌아올 문이 있을 때만', async () => {
     assertCrossDeviceClaimIsTrue({ ko: koResource, en: enResource });
+  });
+
+  // ── ㉯ 문이 돌아와도 주 동선은 계정을 요구하지 않는다 ──────────────────────
+  await scenario('㉯ 주 동선에 진도 불러오기 링크 0건', async () => {
+    assertNoNavLinkToLoadProgress();
   });
 } finally {
   await vite.close();

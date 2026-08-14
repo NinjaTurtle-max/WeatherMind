@@ -18,6 +18,7 @@ import LeaguePage from './modules/league/LeaguePage';
 import DuelPage from './modules/duel/DuelPage';
 import ProgressPage from './modules/progress/ProgressPage';
 import ConvertAccountPage from './modules/auth/ConvertAccountPage';
+import LoadProgressPage from './modules/auth/LoadProgressPage';
 import PlacementPage from './modules/onboarding/PlacementPage';
 import EntryInfoPage from './modules/onboarding/EntryInfoPage';
 
@@ -299,6 +300,19 @@ export default function App() {
         {/* R11-01 웨이브 2 (R10-J): 게스트 → 정식 계정 전환 — 배치고사와 같은
             전체 화면 관례(Layout 밖). 진입은 GuestSaveBanner(학습 홈)에서. */}
         <Route path="/account/convert" element={<ConvertAccountPage />} />
+        {/* 진도 불러오기 (2026-08-14 클라이언트 결정 ⓑ) — 전환(`/account/convert`)의
+            **짝**이라 같은 전체 화면 관례를 쓴다.
+            ⚠️ **경로 이름은 `/login`을 그대로 쓴다.** 더 예쁜 이름을 붙일 수 있지만
+            URL은 렌더되는 텍스트가 아니라 규정(화면에 로그인 문구 없음)과 무관하고,
+            `onboardingSave.contract`의 ㉮가 **이 문자열의 존재**로 「돌아올 문이
+            있는가」를 판정한다. 이름을 바꾸면 그 계약의 조건부터 고쳐야 한다.
+            ⚠️ **인증 가드(`RedirectIfAuthed` 류)를 씌우지 말 것.** 지금은 모든
+            방문자가 게스트 토큰을 들고 있어서(위 `RequireAuth`가 발급한다), 그런
+            가드는 **이 화면이 필요한 사람만 정확히 막는다.** 그 컴포넌트는 8/12에
+            제거됐고 되살릴 이유가 없다(위 :288 주석).
+            ⚠️ 진입 링크는 **「진도 저장」 카드 한 줄뿐**이다 — 주 동선(SideNav·
+            TabBar·헤더)에 넣지 않는다(MT-29 계약, 대장 §4.14). */}
+        <Route path="/login" element={<LoadProgressPage />} />
         <Route element={<Layout />}>
           {/* 2026-08-09: 홈 화면을 지우고 학습 하나로 합쳤다(사용자 지시).
               `/`는 남기되 **리다이렉트**다 — 지우면 북마크·외부 링크·로그인 직후

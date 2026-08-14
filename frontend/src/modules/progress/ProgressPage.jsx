@@ -414,6 +414,19 @@ function SaveProgressCard() {
         <>
           <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{t('saveProgress.cardBody')}</p>
           <SaveProgressForm className="mt-3" />
+          {/* 진도 **불러오기** 진입 — 저장소 전체에서 **이 한 곳뿐**이다
+              (2026-08-14 ⓑ). 주 동선(SideNav·TabBar·헤더)에 넣으면 MT-29가 고정한
+              「주 동선 링크 0건」이 깨지고, 그것이 「로그인 없이 열려야 한다」는
+              규정의 해석 근거다. 이미 저장한 사람이 이 카드를 다시 보는 경우가
+              곧 「돌아오려는 사람」이라 자리도 여기가 맞다.
+              ⚠️ 이 링크를 옮기거나 늘리기 전에 `onboardingSave.contract`의 nav 표면
+              단정을 먼저 읽을 것 — 그 계약이 nav 쪽 0건을 문다. */}
+          <Link
+            to="/login"
+            className="mt-3 block text-center text-[11.5px] font-bold text-sky-700 underline-offset-2 hover:underline"
+          >
+            {t('loadProgress.fromSave')}
+          </Link>
         </>
       ) : (
         <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{t('saveProgress.alreadySaved')}</p>
