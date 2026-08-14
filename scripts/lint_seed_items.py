@@ -14,7 +14,7 @@
 #   python scripts/lint_seed_items.py database/seed/staging/au1_weather_items.json
 #   python scripts/lint_seed_items.py <파일> --base database/seed/content_items.json
 #
-# 검사 5종 (문항마다 전부 실행 — 첫 탈락에서 멈추지 않는다):
+# 검사 6종 (문항마다 전부 실행 — 첫 탈락에서 멈추지 않는다):
 #   ① gate1    validate_chain.run_heuristic_checks — LLM 무관·결정적 1차 게이트.
 #              서버 전개형(expand_like_server)에 적용한다.
 #   ② payload  ⓐ 프론트 렌더 필수 필드(REQUIRED_FIELDS — 아래 소유자 주석)가
@@ -61,6 +61,16 @@
 #              어휘를 박지 않는다(교육과정 근거가 데이터와 같은 곳에 있어야 개정된다).
 #              발단: 본시드 [86] middle_high ordering의 정답 항목이 권운·권층운·
 #              고층운·난층운이었다(중학 교육과정 밖 십운형 명칭).
+#   ⑥ⓐ fact_hint  해설–정답 **위치 모순** (MT-14 · 2026-08-14) — 객관식 해설이
+#              선지를 서수로 가리키면서 **정답 자리를 오답이라** 말하거나(맞힌
+#              학습자에게 틀렸다고 가르친다) **오답 자리를 정답이라** 말하는 것.
+#              MT-15 셔플의 전신이 9건을 깨뜨렸고 그중 3건이 이 결함이었는데,
+#              그 3건은 게이트 16종·per-item 검사 5종 어디에도 안 걸렸다
+#              (`test_answer_position_balance` 머리 주석: 집합 검사도 못 본다 —
+#              문항 하나만 봐도, 분포만 봐도 안 보이는 자리에 있다).
+#              판정 함수는 **shuffle_answer_positions가 단독 소유**한다(사본 금지).
+#              그쪽은 「셔플한 뒤 이렇게 되면 되돌린다」는 사후 검사라 **저작 시점에
+#              그렇게 태어난 문항은 아무도 안 본다** — 그 구멍이 여기다.
 #
 # 검사 로직은 전부 author_items.py에서 **import 재사용**한다(사본 금지 —
 # expand_like_server·payload_contract_errors·dedupe_keys·_failed_names,
@@ -91,6 +101,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import author_items  # noqa: E402  (검사 로직 단일 소유자 — 사본 금지)
+import shuffle_answer_positions as shuffle_tool  # noqa: E402  (서수 판정 단일 소유자)
 
 DEFAULT_SEED_PATH = author_items.DEFAULT_SEED_PATH
 VOCABULARY_PATH = author_items.REPO_ROOT / "database" / "seed" / "level_vocabulary.json"
@@ -376,7 +387,63 @@ def vocabulary_errors(item: dict, vocabulary: dict) -> list[str]:
     ]
 
 
-# 탈락 사유 카테고리 — 리포트는 항상 이 6종을 0건 포함해 전부 출력한다.
+# ── ⑥ⓐ 해설–정답 위치 모순 (MT-14) ──────────────────────────────────────────
+# 「이 자리가 정답이다」를 뜻하는 말 — shuffle_answer_positions.WRONG_CONTEXT의
+# **거울상**이다. 그쪽은 셔플한 결과가 정답 자리를 오답이라 가리키는지만 보면 됐다
+# (그러면 되돌리면 그만이다). 저작 시점 검사는 반대 방향도 봐야 한다: **오답 자리를
+# 정답이라** 가리키는 해설은 셔플과 무관하게 처음부터 틀렸고 되돌릴 원본조차 없다.
+# 목록을 짧게 유지한다 — 놓치는 편이 오탐보다 낫다(이 계열은 사람이 읽어야 최종
+# 판정이 되므로, 게이트가 시끄러우면 읽히지 않는다).
+RIGHT_CONTEXT: tuple[str, ...] = ("정답", "옳다", "옳은", "맞다", "맞는")
+
+
+def hint_position_errors(item: dict) -> list[str]:
+    """객관식 해설이 선지를 **자리로** 가리키면서 정오를 뒤집어 말하는가.
+
+    두 방향을 함께 본다 — 학습자에게 미치는 해악이 서로 거울상이다:
+      ⑴ 정답 자리를 오답이라 말한다 → **맞힌 학습자에게 틀렸다고 가르친다**
+         (판정은 `shuffle_answer_positions.hint_contradicts`가 단독 소유한다.
+         사본을 만들면 WRONG_CONTEXT가 두 벌이 되어 한쪽만 자란다.)
+      ⑵ 오답 자리를 정답이라 말한다 → **틀린 답을 정답으로 가르친다**
+
+    `explanation_hint`는 `answer_service` 우선순위 ②로 학습자에게 **그대로** 나간다
+    (사람 저작 해설이 RAG보다 앞이라 LLM이 고쳐 줄 여지도 없다). 그래서 이 결함은
+    "해설이 조금 어색하다"가 아니라 **오답 해설의 상시 서빙**이다.
+    """
+    if item.get("question_type") != "multiple_choice":
+        return []
+    template = item.get("template_json") or {}
+    hint = str(template.get("explanation_hint") or "")
+    options = template.get("options") or []
+    answer = template.get("correct_answer")
+    # 정답이 보기에 없는 문항은 여기서 판정하지 않는다 — 그 자체가 별개 결함이고
+    # (test_answer_position_balance가 0건을 단정한다) 자리를 셀 수 없다.
+    if not hint or not options or answer not in options:
+        return []
+
+    errors: list[str] = []
+    if shuffle_tool.hint_contradicts(hint, options, answer):
+        errors.append(
+            "해설이 **정답 자리**를 오답이라 가리킨다 — 맞힌 학습자에게 틀렸다고"
+            " 가르친다. 서수 대신 선지 내용으로 가리킬 것"
+        )
+
+    correct_slot = options.index(answer) + 1
+    for match in shuffle_tool._BARE_ORDINAL_RE.finditer(hint):
+        slot = shuffle_tool._SLOT_OF.get(match.group(0))
+        # 존재하지 않는 자리(3지선다의 「마지막」=4)는 판정하지 않는다 — 보수적으로.
+        if slot is None or slot == correct_slot or slot > len(options):
+            continue
+        around = hint[max(0, match.start() - 10) : match.start() + 45]
+        if any(w in around for w in RIGHT_CONTEXT):
+            errors.append(
+                f"해설이 **오답 자리**({match.group(0)} = {slot}번, 정답은"
+                f" {correct_slot}번)를 정답이라 가리킨다: …{around.strip()}…"
+            )
+    return errors
+
+
+# 탈락 사유 카테고리 — 리포트는 항상 이 7종을 0건 포함해 전부 출력한다.
 STAGES: tuple[tuple[str, str], ...] = (
     ("gate1", "① 1차 게이트 탈락 (휴리스틱)"),
     ("payload", "② payload 계약 탈락"),
@@ -384,6 +451,7 @@ STAGES: tuple[tuple[str, str], ...] = (
     ("dup_file", "④ 중복 (파일 내)"),
     ("dup_base", "④ 중복 (본시드 대조)"),
     ("vocab", "⑤ 단계 금칙 어휘"),
+    ("fact_hint", "⑥ⓐ 해설–정답 위치 모순"),
 )
 
 
@@ -492,6 +560,11 @@ def lint_items(
         vocab_errors = vocabulary_errors(item, vocabulary)
         if vocab_errors:
             found("vocab", vocab_errors)
+
+        # ⑥ⓐ 해설–정답 위치 모순 (MT-14) — 객관식만 해당, 그 밖은 빈 목록
+        position_errors = hint_position_errors(item)
+        if position_errors:
+            found("fact_hint", position_errors)
 
         # ④ 중복 배제 — 본시드 대조(있으면) + 파일 내. 어느 키가 겹쳐도 중복
         #    (정답 키는 정규화 정답이 있는 문항만 — answer_key_active).
