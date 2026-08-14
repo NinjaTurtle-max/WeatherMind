@@ -331,3 +331,42 @@ def test_객관식이_아니면_판정하지_않는다():
         },
     }
     assert lint.hint_position_errors(item) == []
+
+
+# ── 오탐 회귀 가드 (2026-08-14 코드 리뷰 실행 재현) ──────────────────────────
+# ⚠️ **이 게이트에는 래칫이 없다**(위 테스트가 그 없음을 지킨다). 그래서 오탐 하나가
+# 「맞는 해설을 고쳐 쓰는 것」 말고 탈출구가 없는 상태를 만든다 — 게이트가 사람을
+# 틀렸다고 규탄하는 자리가 된다. 아래 넷은 리뷰가 **실제로 실행해 재현한** 오탐이고,
+# 셋은 명사 가드 부재, 하나는 창이 절 경계를 넘은 것이 원인이었다.
+FALSE_POSITIVES = [
+    ("빈도", "태풍은 가을에 평균 3번 상륙한다. 이것이 정답이다."),
+    ("단계 번호", "\u2460 단계에서 증발이 일어난다. 그래서 정답이다."),
+    ("횟수", "밀물과 썰물은 하루에 각각 2번씩 나타나는 것이다."),
+    ("절 경계", "첫 번째 선지는 오독이고, 두 번째가 정답이다."),
+]
+
+
+def test_선지와_무관한_서수는_걸리지_않는다():
+    """정답은 2번 자리 — 위 넷 어디에도 「2번 선지」를 가리키는 말이 없다."""
+    for name, hint in FALSE_POSITIVES:
+        item = _mc(hint, options=OPTIONS, answer="비가 온다")
+        assert lint.hint_position_errors(item) == [], f"{name}: 오탐"
+
+
+def test_자릿수_콤마가_붙은_단위_결합_정답도_잡는다():
+    """`'1,000mm'`가 초판 정규식에서 None이었다 — ⑥ⓒ가 잡으라는 그 결함이
+    **네 자리부터 통째로 빠져나갔다.** 기상 수치는 네 자리가 흔하다(강수량·고도·기압).
+    """
+    item = {
+        "question_type": "short_answer",
+        "concept_tag": "anomaly",
+        "level_group": "middle_high",
+        "knowledge_level": 5,
+        "template_json": {
+            "question_text": "기록적 호우의 일 강수량은?",
+            "correct_answer": "1,000mm",
+            "explanation_hint": "기록적 호우였다.",
+        },
+    }
+    codes = [code for code, _ in lint.grading_errors(item, grading=_GRADING)]
+    assert "answer_unit_suffix" in codes, codes

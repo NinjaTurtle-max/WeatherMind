@@ -155,6 +155,14 @@ _BARE_ORDINAL_RE = re.compile(
 )
 WRONG_CONTEXT = ("오독", "잘못", "아니", "혼동", "설명이다", "기준이다", "것이고", "것이다", "헷갈")
 
+# 위 두 정규식의 **캡처 판**(2026-08-14) — `ordinal_slots_with_context`가 자리 번호를
+# 뽑으려면 서수 부분만 따로 받아야 한다. 알파벳(패턴 문자열)은 같은 것을 쓴다.
+_ORDINAL_ALT = "|".join(
+    re.escape(v) for vs in ORDINAL_VARIANTS.values() for v in sorted(vs, key=len, reverse=True)
+)
+_ORDINAL_CAP_RE = re.compile("(" + _ORDINAL_ALT + ")" + _OPTION_NOUNS)
+_BARE_ORDINAL_CAP_RE = re.compile("(" + _ORDINAL_ALT + ")")
+
 
 def hint_contradicts(hint: str, options: list, answer) -> bool:
     """해설이 **정답 자리**를 오답이라 말하는가.
@@ -165,14 +173,60 @@ def hint_contradicts(hint: str, options: list, answer) -> bool:
     if not hint or not options or answer not in options:
         return False
     correct = options.index(answer) + 1
-    for match in _BARE_ORDINAL_RE.finditer(hint):
-        variant = match.group(0)
-        if _SLOT_OF.get(variant) != correct:
+    # 스캔 자체는 `ordinal_slots_with_context`가 소유한다(2026-08-14) — 셔플은
+    # 종전대로 **명사 가드 없이** 넓게 본다. 오탐 비용이 「안 옮김」이라서다.
+    return correct in ordinal_slots_with_context(hint, WRONG_CONTEXT, noun_guarded=False)
+
+
+def ordinal_slots_with_context(
+    hint: str,
+    context_words,
+    *,
+    noun_guarded: bool,
+    before: int = 10,
+    after: int = 45,
+) -> set[int]:
+    """서수 표기 **주변**에 `context_words` 중 하나가 있는 자리 번호 집합.
+
+    `hint_contradicts`가 하던 스캔을 꺼내 **양쪽 방향이 함께 쓰는 한 곳**으로 만든
+    것이다(2026-08-14 코드 리뷰). 그 전에는 lint 쪽이 같은 루프를 손으로 다시
+    쓰면서 `_BARE_ORDINAL_RE`·`_SLOT_OF` 같은 **사설 이름에 침투**했다 — 「판정
+    함수는 여기가 단독 소유(사본 금지)」라고 적어 놓고 구조 사본을 만든 셈이었다.
+
+    ⚠️ **`noun_guarded`가 이 함수의 핵심 손잡이다.** 같은 스캔이라도 부르는 쪽의
+    **오탐 비용이 다르기 때문**이다:
+      · **셔플(False)** — 오탐하면 그 문항을 **안 옮길 뿐**이다. 넓게 잡는 편이 낫다.
+      · **게이트(True)** — 오탐하면 **CI가 빨개지고 사람이 맞는 해설을 고쳐 쓴다.**
+        「태풍은 가을에 평균 **3번** 상륙」(빈도) · 「**① 단계**에서 증발」(단계 번호)
+        처럼 선지와 무관한 서수가 실제로 걸렸다. 명사 가드(「~ 선지/보기/답지」)를
+        요구하면 그 부류가 통째로 빠진다.
+    좁힌 대가는 **「두 번째는 오독」처럼 명사 없는 진짜 결함을 게이트가 놓치는 것**인데,
+    그쪽은 셔플이 계속 넓게 보므로 위치 재배치 시점에 다시 걸린다.
+    """
+    if not hint:
+        return set()
+    pattern = _ORDINAL_CAP_RE if noun_guarded else _BARE_ORDINAL_CAP_RE
+    # ⚠️ **경계는 언제나 「맨 서수」로 잡는다** — 판정 대상이 명사 가드로 좁아져도
+    # 절을 가르는 것은 서수의 등장 자체이기 때문이다. 안 그러면 「첫 번째 선지는
+    # 오독이고, **두 번째가 정답**이다」에서 「두 번째」가 명사가 없어 경계로 안 잡히고,
+    # 앞 서수의 +45자 창이 뒤 절의 「정답」을 읽어 **맞는 해설이 탈락**한다(실행 재현).
+    bounds = [(m.start(), m.end()) for m in _BARE_ORDINAL_CAP_RE.finditer(hint)]
+    hits: set[int] = set()
+    for match in pattern.finditer(hint):
+        slot = _SLOT_OF.get(match.group(1))
+        if slot is None:
             continue
-        around = hint[max(0, match.start() - 10) : match.start() + 45]
-        if any(w in around for w in WRONG_CONTEXT):
-            return True
-    return False
+        left = max(0, match.start() - before)
+        right = match.start() + after
+        for b_start, b_end in bounds:
+            if b_end <= match.start():          # 앞 절
+                left = max(left, b_end)
+            elif b_start > match.start():       # 뒤 절
+                right = min(right, b_start)
+                break
+        if any(w in hint[left:right] for w in context_words):
+            hits.add(slot)
+    return hits
 
 
 def hint_uses_ordinals(hint: str) -> bool:

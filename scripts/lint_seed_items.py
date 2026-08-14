@@ -423,24 +423,37 @@ def hint_position_errors(item: dict) -> list[str]:
         return []
 
     errors: list[str] = []
-    if shuffle_tool.hint_contradicts(hint, options, answer):
+    correct_slot = options.index(answer) + 1
+
+    # 양방향 모두 **명사 가드를 요구한다**(`noun_guarded=True`) — 2026-08-14 코드
+    # 리뷰가 실행 재현으로 오탐 4종을 냈고, 원인이 전부 명사 없는 서수였다:
+    #   · 「태풍은 가을에 평균 **3번** 상륙」 — 빈도
+    #   · 「**① 단계**에서 증발」 — 단계 번호
+    #   · 「**첫 번째 선지는 오독**이고 **두 번째가 정답**」(정답 2번) — 절 경계 너머
+    #     45자 창에 「정답」이 걸려 **맞는 해설**이 탈락
+    #   · 「하루에 각각 **2번**씩」 — 횟수
+    # ⚠️ **이 게이트에는 래칫이 없다**(그 없음을 테스트가 지킨다). 그래서 오탐 하나가
+    # **「맞는 해설을 고쳐 쓰는 것」 말고는 탈출구가 없는 상태**를 만든다 — 게이트가
+    # 사람을 틀렸다고 규탄하는 자리가 된다. 좁히는 쪽이 옳다.
+    # 놓치는 것(명사 없는 진짜 결함)은 셔플이 계속 넓게 보므로 위치 재배치 시점에 걸린다.
+    if correct_slot in shuffle_tool.ordinal_slots_with_context(
+        hint, shuffle_tool.WRONG_CONTEXT, noun_guarded=True
+    ):
         errors.append(
             "해설이 **정답 자리**를 오답이라 가리킨다 — 맞힌 학습자에게 틀렸다고"
             " 가르친다. 서수 대신 선지 내용으로 가리킬 것"
         )
 
-    correct_slot = options.index(answer) + 1
-    for match in shuffle_tool._BARE_ORDINAL_RE.finditer(hint):
-        slot = shuffle_tool._SLOT_OF.get(match.group(0))
+    for slot in sorted(
+        shuffle_tool.ordinal_slots_with_context(hint, RIGHT_CONTEXT, noun_guarded=True)
+    ):
         # 존재하지 않는 자리(3지선다의 「마지막」=4)는 판정하지 않는다 — 보수적으로.
-        if slot is None or slot == correct_slot or slot > len(options):
+        if slot == correct_slot or slot > len(options):
             continue
-        around = hint[max(0, match.start() - 10) : match.start() + 45]
-        if any(w in around for w in RIGHT_CONTEXT):
-            errors.append(
-                f"해설이 **오답 자리**({match.group(0)} = {slot}번, 정답은"
-                f" {correct_slot}번)를 정답이라 가리킨다: …{around.strip()}…"
-            )
+        errors.append(
+            f"해설이 **오답 자리**({slot}번, 정답은 {correct_slot}번)를 정답이라"
+            " 가리킨다 — 서수 대신 선지 내용으로 가리킬 것"
+        )
     return errors
 
 
@@ -507,7 +520,16 @@ def load_grading_contract() -> GradingContract:
 
 
 # 정답이 「숫자+단위」로 붙어 있는 형태 — 소수점·자릿수 쉼표는 단위로 읽지 않는다.
-_ANSWER_WITH_UNIT_RE = re.compile(r"^-?\d+(?:\.\d+)?\s*([^\d\s.,]+)$")
+# ⚠️ **자릿수 콤마를 반드시 뚫어야 한다**(2026-08-14 코드 리뷰 실행 재현).
+# 초판은 `^-?\d+(?:\.\d+)?\s*(...)$`라 **`'1,000mm'`가 None**이 됐다 — 이 검사가
+# 잡으라는 바로 그 결함(숫자+단위 결합 정답)이 **네 자리부터 통째로 빠져나갔다.**
+# 기상 수치는 네 자리가 흔하다(강수량·고도·기압). 콤마 그룹을 명시로 받는다.
+# ⚠️ 캡처는 **하나뿐**이어야 한다 — 소비처가 `match.group(1)`으로 단위를 빼서
+# 「맨 숫자」를 만들어 메시지에 넣는다. 콤마형을 별도 대안으로 병기하면 한쪽이
+# None이 되어 그 자리에서 죽는다. 그래서 숫자부만 갈라 하나의 그룹을 유지한다.
+_ANSWER_WITH_UNIT_RE = re.compile(
+    r"^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s*([^\d\s.,]+)$"
+)
 
 # 문자열 일치로 채점하는 유형 (`answer_service.GRADERS`의 `_grade_text` 대상 중
 # **학습자가 직접 입력하는** 둘). multiple_choice도 같은 채점기를 쓰지만 학습자는
@@ -718,7 +740,11 @@ def lint_items(
     grading: GradingContract,
     base_items: list[dict] | None = None,
 ) -> LintResult:
-    """전 문항에 5종 검사를 실행한다 (순수 함수 — 출력·exit 없음).
+    """전 문항에 **6종** 검사를 실행한다 (순수 함수 — 출력·exit 없음).
+
+    ⚠️ 종전 「5종」은 ⑥(사실성·채점 정합)을 더하면서 안 고친 자리다 — 같은 파일
+    머리 주석이 이미 「검사 6종」이었으므로 **한 파일 안에서 갈려 있었다**.
+    개수를 두 곳에 적으면 한쪽만 갱신된다.
 
     base_items가 주어지면(=staging lint) 본시드 대조 중복까지 본다.
     중복 비교는 정규화 키 set(O(n)) — dedupe_keys의 두 키(정규화 question_text /
