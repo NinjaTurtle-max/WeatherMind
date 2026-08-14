@@ -443,7 +443,107 @@ def hint_position_errors(item: dict) -> list[str]:
     return errors
 
 
-# 탈락 사유 카테고리 — 리포트는 항상 이 7종을 0건 포함해 전부 출력한다.
+# ── ⑥ⓑ 해설의 선지 위치 참조 (MT-15 재발 방지) ──────────────────────────────
+def hint_ordinal_errors(item: dict) -> list[tuple[str, str]]:
+    """객관식 해설이 선지를 **자리로** 가리키는가 (정오가 맞아도 탈락).
+
+    ⓐ와 사유가 다르다: 이쪽은 **지금 틀린 것이 아니라 셔플하면 틀려지는 것**이다.
+    그래서 처방도 다르다 — ⓐ는 정오를 고치고, ⓑ는 자리 대신 **내용**으로 가리킨다.
+
+    왜 정오가 맞아도 거는가:
+      · `shuffle_answer_positions`가 이런 문항을 **셔플 대상에서 뺀다**(--remap-hints
+        없이는 건너뛰고, 명사 없는 서수는 옵션과 무관하게 건너뛴다). 곧 MT-15가
+        고치려던 정답 위치 쏠림에서 **이 문항들만 영구히 남는다**.
+      · 손으로 선지 순서를 만지는 순간 ⓐ가 된다. 그 도구의 전신이 실제로 9건을
+        깨뜨렸고 3건이 정답을 오독이라 말했다.
+      · 저작이 이 결함을 고치는 게 아니라 **증폭시킨다** — MT-15 실측 84 → 311건.
+
+    판정은 `hint_uses_ordinals`(명사 가드 있음)만 쓴다. 명사 없는 서수
+    (`hint_has_bare_ordinal`)까지 걸면 「두 번째 **몫**」 같은 정상 서술이 걸린다 —
+    본시드 실측 4건이 그런 문장이고, 그중 2건은 선지와 아무 상관이 없다.
+    """
+    if item.get("question_type") != "multiple_choice":
+        return []
+    hint = str((item.get("template_json") or {}).get("explanation_hint") or "")
+    if not shuffle_tool.hint_uses_ordinals(hint):
+        return []
+    match = shuffle_tool._ORDINAL_RE.search(hint)
+    return [
+        (
+            "ordinal_ref",
+            f"해설이 선지를 자리로 가리킨다(「{match.group(0)}」) — 순서를 섞으면"
+            " 다른 선지를 가리키게 되고, 그때까지 셔플 대상에서 빠진다."
+            " 선지 **내용**으로 가리켜 저작할 것",
+        )
+    ]
+
+
+# ── 기지 잔여 (래칫) ─────────────────────────────────────────────────────────
+# ⑥ 계열은 **이미 저작된 1,012건에 잔여가 있다.** 셋 중 하나를 골라야 했다:
+#   ⓐ 탈락으로 센다 → 게이트가 첫날부터 붉고, 그 압력이 게이트를 약화시킨다
+#     (모듈 머리 ④의 `--staging` 중복 판단이 같은 이유로 같은 선택을 했다).
+#   ⓑ 경고로만 낸다 → 저작 배치가 도는 바로 그 주에 아무것도 못 막는다.
+#   ⓒ **래칫** — 아래 목록에 있는 것만 통과하고 **새로 생기면 탈락한다.**
+# ⓒ를 골랐다. 이 결함군이 위험한 이유가 "지금 몇 건인가"가 아니라 **"저작이
+# 진행되면 늘어난다"**이기 때문이다(MT-15 실측 84 → 311건, 3.7배).
+#
+# 의미는 **부분집합**이다(같음이 아니다): 저작 담당이 문항을 고치면 항목이 낡을
+# 뿐 CI는 붉어지지 않는다 — 파일 소유가 갈린 사람에게 남의 파일을 고치게 만들지
+# 않는다. 낡은 항목의 청소는 선택이다.
+#
+# 키는 **question_text 원문**이다. 인덱스는 저작 한 건에 밀리고(실측 207건 재배치),
+# 해설 문자열은 --remap-hints가 바꾼다. 대조는 author_items.dedupe_keys와 같은
+# 정규화(normalize_text)를 쓴다 — 중복 판정과 키 규칙이 두 벌이 되지 않게.
+#
+# ⚠️ **⑥ⓐ에는 래칫이 없다.** 「정답을 오답이라 가르치는 해설」은 유예할 수 있는
+# 종류의 결함이 아니다. 그래서 아래에 그 코드가 없고, 있어서도 안 된다.
+FACTUAL_BASELINE: dict[str, dict[str, str]] = {
+    # 자리 참조 7건 — 전부 **가리키는 정오는 맞다**(2026-08-14 전건 확인). 지금
+    # 틀린 것이 아니라 셔플에서 빠져 있고, 손대는 순간 ⓐ가 되는 잠복분이다.
+    # 해소: 해설을 선지 내용 참조로 고쳐 저작(그러면 다음 셔플에서 자동으로 풀린다).
+    "ordinal_ref": {
+        "라니냐가 발달한 해에 적도 태평양에서 나타나는 상태로 가장 알맞은 것은 무엇인가?": (
+            "「두 번째 선지」 — 정오는 맞다(2번은 엘니뇨 설명). 셔플 제외분."
+        ),
+        (
+            "같은 크기의 기압 경도가 걸린 두 지점이 있다. 한 곳은 위도 20도, 다른 곳은 위도 60도이고"
+            " 둘 다 마찰이 거의 없는 상공이다. 전향력 인자는 위도가 높을수록 커진다."
+            " 두 곳 지균풍의 풍속을 비교한 것으로 옳은 것은?"
+        ): "「네 번째 선지」+「세 번째」 — 정오는 맞다. 셔플 제외분.",
+        (
+            "겨울 눈이 두껍게 덮인 벌판에서는 낮에도 기온이 잘 오르지 않고 밤에는 유난히 강한"
+            " 역전층이 생긴다. 낮과 밤을 함께 설명한 것으로 옳은 것은?"
+        ): "「두 번째 선지」 — 정오는 맞다. 셔플 제외분.",
+        (
+            "같은 햇빛을 받는 도심 아스팔트 광장과 교외 잔디밭에서 낮 기온을 재니 광장 쪽이 훨씬"
+            " 높았다. 두 지면이 받은 태양 에너지가 쓰이는 방식을 비교한 것으로 옳은 것은?"
+        ): "「세 번째 선지」 — 정오는 맞다. 셔플 제외분.",
+        (
+            "온난화로 극지방이 중위도보다 더 크게 데워지면 남북 기온 차가 줄어든다. 상층 서풍의"
+            " 세기가 남북 기온 차에 좌우된다고 볼 때 중위도 날씨에 기대되는 변화로 옳은 것은?"
+        ): "「네 번째 선지」 — 정오는 맞다. 셔플 제외분.",
+        (
+            "같은 세기의 습한 남서풍이 완만한 구릉과 급한 산 사면에 각각 부딪힌다. 지형이 공기를"
+            " 밀어 올리는 속도는 풍속과 사면 기울기의 곱으로 어림한다. 두 곳의 비를 비교한 것으로"
+            " 옳은 것은?"
+        ): "「첫 번째 선지」 — 정오는 맞다. 셔플 제외분.",
+        (
+            "봄철 오후 산불 현장에서 상대습도가 급격히 떨어지고 바람이 돌풍성으로 바뀌었다. 같은"
+            " 시각 혼합층은 3km까지 깊어져 있었다. 이 변화를 설명한 것으로 옳은 것은?"
+        ): "「마지막 선지」 — 정오는 맞다. 셔플 제외분.",
+    },
+}
+
+
+def baseline_index() -> dict[str, set[str]]:
+    """래칫 목록을 대조용 정규화 키로 편다 — 키 규칙은 dedupe_keys와 같다."""
+    return {
+        code: {author_items.normalize_text(text) for text in texts}
+        for code, texts in FACTUAL_BASELINE.items()
+    }
+
+
+# 탈락 사유 카테고리 — 리포트는 항상 이 8종을 0건 포함해 전부 출력한다.
 STAGES: tuple[tuple[str, str], ...] = (
     ("gate1", "① 1차 게이트 탈락 (휴리스틱)"),
     ("payload", "② payload 계약 탈락"),
@@ -452,6 +552,7 @@ STAGES: tuple[tuple[str, str], ...] = (
     ("dup_base", "④ 중복 (본시드 대조)"),
     ("vocab", "⑤ 단계 금칙 어휘"),
     ("fact_hint", "⑥ⓐ 해설–정답 위치 모순"),
+    ("fact_ordinal", "⑥ⓑ 해설의 선지 위치 참조"),
 )
 
 
@@ -468,6 +569,9 @@ class Finding:
 class LintResult:
     total: int = 0
     findings: list[Finding] = field(default_factory=list)
+    # 래칫 목록에 있어 탈락시키지 않은 ⑥ 계열 적발 — **숨기지 않고 따로 센다.**
+    # 조용히 빼면 목록이 잊히고, 잊힌 예외는 규칙이 없는 것과 같다.
+    baseline: list[Finding] = field(default_factory=list)
 
     @property
     def stage_counts(self) -> Counter:
@@ -495,6 +599,7 @@ def lint_items(
     단, 정답 키는 정규화 정답이 비어 있지 않은 문항만 참여한다(모듈 머리 ④ 주석).
     """
     result = LintResult(total=len(items))
+    baseline = baseline_index()
 
     def answer_key_active(item: dict) -> bool:
         template = item.get("template_json") or {}
@@ -529,6 +634,23 @@ def lint_items(
         def found(stage: str, reasons: list[str]) -> None:
             result.findings.append(Finding(i, stage, concept_tag, text, reasons))
 
+        def found_factual(stage: str, coded: list[tuple[str, str]]) -> None:
+            """⑥ 계열 — 래칫(FACTUAL_BASELINE)에 있는 코드·문항이면 탈락시키지 않는다.
+
+            판정은 **코드별**이다. 같은 문항이 다른 사유로 새로 걸리면 그때는
+            탈락한다 — 한 번 목록에 오른 문항이 이후 무엇을 해도 통과하는
+            「영구 면제」가 되지 않게.
+            """
+            text_key = author_items.normalize_text(text)
+            excused = [c for c in coded if text_key in baseline.get(c[0], set())]
+            live = [c for c in coded if c not in excused]
+            if excused:
+                result.baseline.append(
+                    Finding(i, stage, concept_tag, text, [r for _, r in excused])
+                )
+            if live:
+                found(stage, [r for _, r in live])
+
         # ① 1차 게이트 — 서버 전개형(flat)에 적용
         flat = author_items.expand_like_server(item)
         gate1_failed = author_items._failed_names(ai.gate1(flat, concept_tag or None))
@@ -561,10 +683,16 @@ def lint_items(
         if vocab_errors:
             found("vocab", vocab_errors)
 
-        # ⑥ⓐ 해설–정답 위치 모순 (MT-14) — 객관식만 해당, 그 밖은 빈 목록
+        # ⑥ⓐ 해설–정답 위치 모순 (MT-14) — 객관식만 해당, 그 밖은 빈 목록.
+        #     **래칫 없음**: 정답을 오답이라 가르치는 해설에는 유예를 두지 않는다.
         position_errors = hint_position_errors(item)
         if position_errors:
             found("fact_hint", position_errors)
+
+        # ⑥ⓑ 해설의 선지 위치 참조 — 정오가 맞아도 셔플에서 깨지므로 건다(래칫).
+        ordinal_errors = hint_ordinal_errors(item)
+        if ordinal_errors:
+            found_factual("fact_ordinal", ordinal_errors)
 
         # ④ 중복 배제 — 본시드 대조(있으면) + 파일 내. 어느 키가 겹쳐도 중복
         #    (정답 키는 정규화 정답이 있는 문항만 — answer_key_active).
@@ -604,6 +732,17 @@ def format_report(
     for stage, label in STAGES:
         lines.append(f"  {author_items._pad(label, 34)}: {counts.get(stage, 0)}")
     lines.append(f"  {author_items._pad('통과(전 검사)', 34)}: {passed}")
+
+    if result.baseline:
+        # 래칫 잔여는 **탈락이 아니지만 숨기지도 않는다** — 모듈 머리 「기지 잔여」
+        # 참조. 건수가 줄면 저작이 갚은 것이고, 늘면 목록을 늘린 사람이 있는 것이다.
+        lines += [
+            "",
+            f"기지 잔여 (⑥ 래칫 — 탈락 아님, 저작이 갚을 몫): {len(result.baseline)}건",
+        ]
+        for f in result.baseline:
+            head = f.question_text[:48] + ("…" if len(f.question_text) > 48 else "")
+            lines.append(f"    - [{f.index}] ({f.concept_tag}) {head}")
 
     lines += ["", "탈락 상세:"]
     if not result.findings:

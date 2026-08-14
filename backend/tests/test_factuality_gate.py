@@ -17,6 +17,7 @@
 import importlib.util
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -58,6 +59,21 @@ def _mc(hint: str, *, options: list[str], answer: str) -> dict:
 
 
 OPTIONS = ["맑아진다", "비가 온다", "눈이 온다", "안개가 낀다"]
+
+# ⑥ 계열만 보는 최소 파이프라인 — ①②③⑤는 빈 판정으로 뗀다.
+#
+# ⚠️ **여기서 진짜 파이프라인을 로드하지 않는 것이 의도다.** load_backend_contract·
+# load_ai_worker·load_render_required는 `app.*`를 sys.modules에서 갈아 끼웠다
+# 되돌리는데(author_items._import_isolated), 이 파일은 **이미 app을 임포트한**
+# backend 테스트 세션 안에서 돈다. 전 파이프라인 검증은 `ci.sh seed`가 실제
+# 시드로 하고, 여기서 봐야 하는 것은 ⑥ 판정과 래칫 의미 하나다.
+_NULL_BACKEND = SimpleNamespace(validate_entry=lambda item, index: [])
+_NULL_AI = SimpleNamespace(
+    gate1=lambda flat, tag: [],
+    generated_fields={},
+    check_payload=lambda flat: None,
+)
+_NULL_VOCAB = {"terms": [], "mechanism_markers": ["왜"], "anchor": {"1": []}}
 
 
 # ── ⑥ⓐ 해설–정답 위치 모순 ───────────────────────────────────────────────────
@@ -113,6 +129,74 @@ def test_본문의_서수는_선지_참조로_읽지_않는다():
         answer="맑아진다",
     )
     assert lint.hint_position_errors(item) == []
+
+
+# ── ⑥ⓑ 해설의 선지 위치 참조 (래칫) ─────────────────────────────────────────
+def test_정오가_맞아도_자리_참조는_걸린다():
+    """⑥ⓐ와 사유가 다르다 — 지금 틀린 게 아니라 **셔플하면 틀려진다**.
+
+    그리고 그때까지 이 문항은 `shuffle_answer_positions`의 대상에서 빠진다:
+    MT-15가 고치려던 정답 위치 쏠림에서 이 문항들만 영구히 남는다.
+    """
+    item = _mc("두 번째 선지는 저기압의 설명이라 오독이다.", options=OPTIONS, answer="맑아진다")
+    coded = lint.hint_ordinal_errors(item)
+    assert coded and coded[0][0] == "ordinal_ref"
+
+
+def test_명사_없는_서수는_자리_참조로_읽지_않는다():
+    """「두 번째 몫」을 걸면 오탐이다 — 본시드 실측 4건이 그런 문장이다."""
+    item = _mc(
+        "해일은 기압 몫과 바람 몫이 더해진다. 얕은 만은 두 번째 몫을 크게 키운다.",
+        options=OPTIONS,
+        answer="맑아진다",
+    )
+    assert lint.hint_ordinal_errors(item) == []
+
+
+def test_래칫은_같음이_아니라_부분집합이다():
+    """저작 담당이 문항을 고치면 항목이 낡을 뿐이어야 한다 — CI가 붉어지면 안 된다.
+
+    소유가 갈린 파일을 서로 고치게 만드는 게이트는 결국 꺼진다.
+    """
+    stale = "이 문항은 시드에 없다 — 낡은 래칫 항목"
+    lint.FACTUAL_BASELINE["ordinal_ref"][stale] = "테스트용"
+    try:
+        clean = _mc("고기압에서는 공기가 내려온다.", options=OPTIONS, answer="맑아진다")
+        result = lint.lint_items(
+            [clean],
+            backend=_NULL_BACKEND,
+            ai=_NULL_AI,
+            render_required={},
+            vocabulary=_NULL_VOCAB,
+        )
+        assert not result.findings
+    finally:
+        del lint.FACTUAL_BASELINE["ordinal_ref"][stale]
+
+
+def test_래칫_밖의_새_자리_참조는_탈락한다():
+    """**이 한 줄이 래칫의 존재 이유다.** 저작이 결함을 고치는 게 아니라 증폭시킨다
+    (MT-15 실측 84 → 311건). 기지 잔여는 통과시키되 새것은 막는다."""
+    fresh = _mc("세 번째 선지는 반대의 설명이다.", options=OPTIONS, answer="맑아진다")
+    result = lint.lint_items(
+        [fresh],
+        backend=_NULL_BACKEND,
+        ai=_NULL_AI,
+        render_required={},
+        vocabulary=_NULL_VOCAB,
+    )
+    stages = {f.stage for f in result.findings}
+    assert "fact_ordinal" in stages, "래칫 밖의 새 자리 참조를 통과시켰다"
+
+
+def test_래칫에_위치_모순_검사가_없다():
+    """정답을 오답이라 가르치는 해설에 유예를 두지 않는다 — 이 규약이 코드로 선다.
+
+    문서에만 적힌 금지는 다음 사람이 「한 건만」 넣으며 무너진다.
+    """
+    assert "fact_hint" not in lint.FACTUAL_BASELINE
+    for code in lint.FACTUAL_BASELINE:
+        assert code != "hint_contradiction"
 
 
 def test_객관식이_아니면_판정하지_않는다():
