@@ -97,6 +97,22 @@ let guestPromise = null; // StrictMode 이중 실행·동시 렌더가 공유하
 // 도착지가 같아졌지만**(둘 다 재시도), 플래그는 남긴다: 실패는 안내 문구가 다르고
 // (「연결을 확인하세요」) 실패 분기가 먼저 잡혀야 그 문구가 산다.
 let guestFailed = false;
+/**
+ * 실패의 **종류**를 들고 있는다 — `guestFailed`(참/거짓)만으로는 못 가르는 하나가 있다.
+ *
+ * 🔴 **`NICKNAME_TAKEN`만 특별하다.** 나머지 실패(네트워크·5xx·422…)는 학습자가
+ * 할 수 있는 일이 「다시 열기」뿐이라 재시도 화면이 맞다. 그런데 닉네임 중복은
+ * **학습자가 고칠 수 있는 유일한 실패**다 — 이름만 바꾸면 된다. 재시도 화면으로
+ * 보내면 같은 이름으로 다시 시도해 또 막히거나(무한), 이름이 일회성이라 조용히
+ * 지워진 채 성공한다(**자기 이름의 증발** — 대장 §4.16).
+ *
+ * ⚠️ **이 분기를 넓히지 말 것.** `NICKNAME_TAKEN` 하나만 정보 입력 화면으로
+ * 되돌리고 나머지는 전부 `GuestIssueRetry`다. 느슨하게 하면 **MT-29가 고친 결함
+ * (발급 실패를 폼으로 보내는 것)이 그대로 재발**하고, 그것이 규정이 요구하는
+ * 「로그인 없이 열려야」를 연결 나쁜 심사위원에게서 깨뜨린다.
+ * `backend/tests/test_r13_mock_policy_parity.py`의 계약 ③이 그 회귀를 문다.
+ */
+let guestErrorCode = null;
 
 /** 테스트 전용 — 다음 진입에서 자동 발급을 다시 시도할 수 있게 되돌린다. */
 export function resetGuestAutoIssue() {
@@ -104,6 +120,7 @@ export function resetGuestAutoIssue() {
   guestSettled = false;
   guestPromise = null;
   guestFailed = false;
+  guestErrorCode = null;
 }
 
 /**
@@ -119,17 +136,36 @@ export function resetGuestAutoIssue() {
  * 않는다**: `{level_group: null}`은 pydantic이 거부하고, 무엇보다 "안 고름"의
  * 서버 표현은 필드 부재다(하위 호환 — 건너뛰면 지금과 같은 기본값).
  */
-function issueGuestOnce(levelGroup = null) {
+function issueGuestOnce(levelGroup = null, nickname = null) {
   if (!guestPromise) {
+    // 바디는 **실어 보낼 것이 있을 때만** 만든다. 빈 객체를 보내도 서버는 받지만,
+    // 「아무것도 안 골랐다」의 서버 표현이 **필드 부재**라 그 의미를 흐리지 않는다.
+    const body = {};
+    if (levelGroup) body.level_group = levelGroup;
+    // 빈 문자열은 안 보낸다 — 서버가 `min_length=1`이라 422가 되고, 학습자는
+    // 「이름을 안 적었다」가 아니라 **발급 실패 화면**을 보게 된다.
+    if (nickname && nickname.trim()) body.nickname = nickname.trim();
+
     guestPromise = client
-      .post('/auth/guest', levelGroup ? { level_group: levelGroup } : undefined)
+      .post('/auth/guest', Object.keys(body).length > 0 ? body : undefined)
       .then(({ data }) => {
         const store = useAuthStore.getState();
         store.setTokens({ accessToken: data.access_token, refreshToken: data.refresh_token });
-        store.setUser({ nickname: translate(getCurrentLocale(), 'auth.login.guestNickname'), is_guest: true });
+        // 학습자가 이름을 적었으면 **그 이름을 화면에 쓴다** — 서버가 그것으로
+        // 계정을 만들었는데 화면만 「게스트」로 부르면 두 소유자가 갈린다.
+        store.setUser({
+          nickname:
+            body.nickname ?? translate(getCurrentLocale(), 'auth.login.guestNickname'),
+          is_guest: true,
+        });
         return true;
       })
-      .catch(() => false);
+      .catch((err) => {
+        // `client.js`가 `{detail, code}`를 `ApiError`로 정규화한다 — 여기서 종류를
+        // 잃으면 위 `guestErrorCode` 주석의 「이름 증발」이 그대로 일어난다.
+        guestErrorCode = err?.code ?? 'UNKNOWN_ERROR';
+        return false;
+      });
   }
   return guestPromise;
 }
@@ -202,6 +238,15 @@ function RequireAuth() {
    * 화면이 그대로 멈춘다.
    */
   const [entryChoice, setEntryChoice] = useState(undefined);
+  /**
+   * 학습자가 적은 이름 — **`entryChoice`와 함께 발급 바디로 간다.**
+   *
+   * ⚠️ 종전에는 이 값이 `EntryInfoPage` 안의 **모듈 스코프 axios 인터셉터**로
+   * 발급 요청에 얹혔다. 담당이 `App.jsx`를 소유 밖으로 받아 우회한 것인데,
+   * 그 우회로는 **409를 화면으로 되돌릴 수가 없다** — 인터셉터는 요청만 알고
+   * 응답의 종류를 화면에 알릴 통로가 없다. 여기로 올려 배선을 하나로 만든다.
+   */
+  const [entryNickname, setEntryNickname] = useState('');
   const needsEntryInfo = atEntry && entryChoice === undefined;
 
   useEffect(() => {
@@ -217,11 +262,28 @@ function RequireAuth() {
     // 여기서 기다리지 않으면 요구 ⑶이 성립할 수 없다(발급은 한 번뿐이다).
     if (needsEntryInfo) return;
     guestAttempted = true;
-    issueGuestOnce(entryChoice ?? null).then((ok) => {
+    issueGuestOnce(entryChoice ?? null, entryNickname).then((ok) => {
       guestSettled = true;
       guestFailed = !ok;
+      // 🔴 **이름이 겹쳤을 때만** 정보 입력 화면으로 되돌린다 — 학습자가 고칠 수
+      //    있는 유일한 실패다. 나머지 실패는 아래 `guestFailed` 분기가 재시도
+      //    화면으로 받는다(MT-29 계약 ③ — 실패를 폼으로 보내지 않는다).
+      // ⚠️ **`guestAttempted`도 함께 되돌려야 한다.** 안 그러면 위 `if
+      //    (guestAttempted) return`에 걸려 **다시 적어도 발급이 안 일어나고**
+      //    화면이 멈춘다(재시도가 effect 의존성에 있어야 한다는 계약과 같은 뿌리).
+      if (!ok && guestErrorCode === 'NICKNAME_TAKEN') {
+        guestAttempted = false;
+        guestSettled = false;
+        guestPromise = null;
+        guestFailed = false;
+        setEntryChoice(undefined);
+        // 「다음」을 눌렀으면 이미 배치고사 라우트에 서 있다 — 진입으로 돌려놔야
+        // `needsEntryInfo`(= `atEntry && …`)가 참이 되어 화면이 다시 뜬다.
+        navigate(AT_ENTRY, { replace: true });
+      }
       bump((n) => n + 1);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, retryTick, needsEntryInfo, entryChoice]);
 
   /**
@@ -232,8 +294,11 @@ function RequireAuth() {
    * 대신 **경로를 먼저 바꾸고** 발급은 위 effect에 맡긴다 — 토큰이 생기는 순간
    * 이미 배치고사 라우트에 서 있으므로 어느 쪽이 먼저 끝나도 도착지가 같다.
    */
-  const finishEntryInfo = (level) => {
+  const finishEntryInfo = ({ level = null, nickname = '' } = {}) => {
     setEntryChoice(level ?? null);
+    // 이름은 **상태로** 받는다 — 종전 인터셉터 우회는 응답의 종류를 화면에
+    // 알릴 통로가 없어 409에서 이름이 조용히 증발했다(대장 §4.16).
+    setEntryNickname(nickname ?? '');
     // 이미 발급된 뒤라면(경합·되돌아온 진입) 발급 바디가 아니라 갱신 통로를 쓴다 —
     // `PATCH /auth/me`가 학령 writer의 나머지 절반이다(R13 CO-P-5, `/me`의 학습
     // 수준 카드가 쓰는 바로 그 API). 지금 게이트 조건상 거의 닿지 않는 가지지만,
@@ -272,7 +337,18 @@ function RequireAuth() {
     }
     // 첫 접속 정보 입력 (요구 ⑵⑶) — **발급 실패·정착 분기보다 뒤**다. 앞에 두면
     // 토큰이 지워진 사람(401 인터셉터)이 재시도 화면 대신 정보 입력을 다시 본다.
-    if (needsEntryInfo) return <EntryInfoPage onSubmit={finishEntryInfo} />;
+    // ⚠️ **이름이 겹쳐 되돌아온 경우를 함께 넘긴다.** 되돌리기만 하고 이유를 안
+    //    주면 학습자는 「왜 처음 화면으로 왔지」만 겪는다 — 적어 둔 이름을 그대로
+    //    다시 채워 주고(`nickname`) 무엇이 문제였는지 말한다(`nicknameTaken`).
+    if (needsEntryInfo) {
+      return (
+        <EntryInfoPage
+          onSubmit={finishEntryInfo}
+          nickname={entryNickname}
+          nicknameTaken={guestErrorCode === 'NICKNAME_TAKEN'}
+        />
+      );
+    }
     return <LoadingSpinner label={translate(getCurrentLocale(), 'auth.login.guestStarting')} />;
   }
   return (

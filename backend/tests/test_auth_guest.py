@@ -28,7 +28,12 @@ from app.core.security import decode_token
 from app.main import app
 from app.models.user import User
 from app.routers import auth
-from app.schemas.auth import EMAIL_PATTERN, LoginResponse, RegisterRequest
+from app.schemas.auth import (
+    EMAIL_PATTERN,
+    ConvertRequest,
+    LoginResponse,
+    RegisterRequest,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AUTH_SRC = (
@@ -48,23 +53,37 @@ GUEST_EMAIL_RE = re.compile(
 
 
 class FakeResult:
+    def __init__(self, value=None):
+        self._value = value
+
     def scalar_one_or_none(self):
-        return None
+        return self._value
 
 
 class FakeDB:
-    """auth 라우터가 쓰는 AsyncSession 표면만 흉내 낸다."""
+    """auth 라우터가 쓰는 AsyncSession 표면만 흉내 낸다.
+
+    닉네임 유일성 검사(`SELECT users.id WHERE users.nickname = :x`)를 재현하려면
+    실행된 문장을 **구분해서** 답해야 한다. 그래서 nickname 조건이 걸린 SELECT만
+    골라 `taken_nicknames`와 대조하고, 나머지(set_config text() 등)는 종전 그대로
+    `None`을 돌려준다 — 기존 호출처의 관측은 바뀌지 않는다.
+    """
 
     def __init__(self):
         self.added: list = []
         self.executed: list = []
         self.commits = 0
+        self.taken_nicknames: set[str] = set()
 
     def add(self, obj):
         self.added.append(obj)
 
     async def execute(self, stmt, params=None):
         self.executed.append((stmt, params))
+        if "users.nickname" in str(stmt):
+            bound = list(stmt.compile().params.values())
+            if bound and bound[0] in self.taken_nicknames:
+                return FakeResult(uuid.uuid4())  # 이미 그 이름을 쓰는 유저가 있다
         return FakeResult()
 
     async def commit(self):
@@ -472,14 +491,203 @@ class TestGuestLevelGroup:
             is RegisterRequest.model_fields["level_group"].annotation
         )
 
-    def test_다른_필드는_무시된다(self, client, fake_db):
-        """게스트 시작은 학령 외의 것을 받지 않는다(닉네임·이메일 주입 금지)."""
+    def test_계약_밖_필드는_무시된다(self, client, fake_db):
+        """게스트 시작이 받는 것은 학령·닉네임 둘뿐 — 그 밖은 주입 금지.
+
+        ⚠️ 2026-08-14 개정: 초판은 이름이 `test_다른_필드는_무시된다`였고
+        **`nickname`도 무시 대상**으로 단정했다(`user.nickname.startswith("게스트-")`).
+        그때는 참이었다 — `GuestStartRequest`에 필드가 없어 pydantic extra=ignore가
+        버렸다. 진입 화면의 닉네임 입력이 서버에 닿게 되면서 그 단정이 **계약의
+        반대말**이 됐으므로 뒤집는다. 지키던 것(이메일·XP 같은 남의 컬럼을 바디로
+        못 건드린다)은 그대로 남긴다.
+        """
         res = post_guest(
-            client, json={"level_group": "adult", "nickname": "해커", "xp": 9999}
+            client,
+            json={
+                "level_group": "adult",
+                "nickname": "해커",
+                "xp": 9999,
+                "email": "attacker@example.com",
+            },
         )
         assert res.status_code == 201
         user = fake_db.added[-1]
-        assert user.nickname.startswith("게스트-")
+        assert user.nickname == "해커"  # 계약 안의 필드 — 반영된다
+        assert GUEST_EMAIL_RE.match(user.email), "바디로 이메일을 주입할 수 없다"
+        assert not hasattr(user, "xp") or user.xp in (None, 0)
+
+
+# ═══════════════════════════════════════════════════════════════
+# 게스트 닉네임 신고 — 선택 필드 + 유일성 409 (진입 화면 다리)
+# ═══════════════════════════════════════════════════════════════
+#
+# 진입 화면(`EntryInfoPage.jsx`)에 닉네임 입력이 먼저 만들어졌는데 서버가 그 값을
+# **버리고 있었다** — `GuestStartRequest`에 필드가 없고 pydantic 기본이
+# extra=ignore라 201이 그대로 나갔다. 「아무 일도 안 하는 입력란」이었다.
+#
+# 유일성은 **엔드포인트 검사**다(마이그레이션·새 컬럼 없음). `users.nickname`에
+# unique 인덱스를 걸 수 없기 때문이다 — 기존 게스트들이 자동 부여 닉네임을 공유해
+# 인덱스 생성 자체가 실패한다. 그 귀결로 유일성은 **신고한 이름에만** 걸리고,
+# 경합 창(TOCTOU)은 해커톤 규모에서 감수한다(라우터 주석이 근거를 소유).
+
+
+class TestGuestNickname:
+    def test_신고한_닉네임이_쓰인다(self, client, fake_db):
+        res = post_guest(client, json={"nickname": "구름사냥꾼"})
+        assert res.status_code == 201
+        assert fake_db.added[-1].nickname == "구름사냥꾼"
+
+    def test_학령과_함께_실려도_둘_다_반영된다(self, client, fake_db):
+        """진입 화면이 실제로 보내는 형태 — 「다음」 출구는 둘을 같이 싣는다."""
+        res = post_guest(
+            client, json={"nickname": "비구름", "level_group": "elementary"}
+        )
+        assert res.status_code == 201
+        user = fake_db.added[-1]
+        assert (user.nickname, user.level_group) == ("비구름", "elementary")
+        assert decode_token(res.json()["access_token"])["level_group"] == "elementary"
+
+    # ── 중복이면 409 NICKNAME_TAKEN ─────────────────────────────────────────
+    # `code` 문자열은 프론트·목의 분기 키라 **오타 하나가 조용한 회귀**다.
+
+    def test_중복이면_409_NICKNAME_TAKEN(self, client, fake_db):
+        fake_db.taken_nicknames.add("구름사냥꾼")
+        res = post_guest(client, json={"nickname": "구름사냥꾼"})
+        assert res.status_code == 409
+        assert res.json()["code"] == "NICKNAME_TAKEN"
+
+    def test_409_응답은_저장소_관례_형태다(self, client, fake_db):
+        """`{detail, code}` — register의 EMAIL_ALREADY_EXISTS와 같은 모양."""
+        fake_db.taken_nicknames.add("겹침")
+        body = post_guest(client, json={"nickname": "겹침"}).json()
+        assert set(body) == {"detail", "code"}
+        assert isinstance(body["detail"], str) and body["detail"]
+
+    def test_중복이면_유저가_아예_안_만들어진다(self, client, fake_db, hashed, seeded):
+        """검사가 생성보다 **앞**이라는 계약 — 뒤로 밀리면 고아 유저가 남는다."""
+        fake_db.taken_nicknames.add("구름사냥꾼")
+        before = sum(isinstance(o, User) for o in fake_db.added)
+        assert post_guest(client, json={"nickname": "구름사냥꾼"}).status_code == 409
+        assert sum(isinstance(o, User) for o in fake_db.added) == before
+        assert hashed == [] and seeded == []  # 해싱·θ 배정도 안 돈다
+
+    def test_중복이_아니면_통과한다(self, client, fake_db):
+        fake_db.taken_nicknames.add("남의이름")
+        assert post_guest(client, json={"nickname": "내이름"}).status_code == 201
+        assert fake_db.added[-1].nickname == "내이름"
+
+    def test_유일성은_신고_경로에서만_돈다(self, client, fake_db):
+        """자동 부여 닉네임은 검사 분기를 안 지나간다 — 「신고한 이름에만 유일성」의 본체.
+
+        (그래서 기존 게스트들이 `게스트-xxxxxx`를 공유해도 발급이 막히지 않는다.)
+        """
+        def nickname_selects():
+            return [s for s, _ in fake_db.executed if "users.nickname" in str(s)]
+
+        post_guest(client)
+        assert nickname_selects() == [], "닉네임 미신고인데 유일성 SELECT가 돌았다"
+        post_guest(client, json={"level_group": "adult"})
+        assert nickname_selects() == []
+        post_guest(client, json={"nickname": "신고"})
+        assert len(nickname_selects()) == 1
+
+    # ── 「안 적음」의 서버 표현은 빈 문자열이 아니라 필드 부재다 ───────────────
+
+    def test_닉네임_없으면_자동_부여_기존과_동일(self, client, fake_db):
+        """무바디·빈 바디·학령만 — 셋 다 종전 그대로 `게스트-{hex6}`."""
+        for payload in (None, {}, {"level_group": "adult"}):
+            assert post_guest(client, json=payload).status_code == 201
+            nickname = fake_db.added[-1].nickname
+            assert re.fullmatch(r"게스트-[0-9a-f]{6}", nickname), nickname
+
+    def test_명시적_null도_자동_부여(self, client, fake_db):
+        assert post_guest(client, json={"nickname": None}).status_code == 201
+        assert fake_db.added[-1].nickname.startswith("게스트-")
+
+    def test_빈_문자열은_422(self, client, fake_db):
+        """min_length=1 — 프론트가 빈 값을 싣기 시작하면 조용히 넘어가지 않는다."""
+        before = sum(isinstance(o, User) for o in fake_db.added)
+        assert post_guest(client, json={"nickname": ""}).status_code == 422
+        assert sum(isinstance(o, User) for o in fake_db.added) == before
+
+    def test_상한은_users_nickname_컬럼과_같다(self, client, fake_db):
+        """50자 — String(50)을 넘기면 DB가 아니라 pydantic이 먼저 막아야 한다."""
+        assert post_guest(client, json={"nickname": "가" * 50}).status_code == 201
+        assert fake_db.added[-1].nickname == "가" * 50
+        assert post_guest(client, json={"nickname": "가" * 51}).status_code == 422
+
+    # ── 정규화 — 앞뒤 공백은 다듬고, 대소문자는 안 접는다 ────────────────────
+    # 「구름」과 「구름 」이 화면에서 구분되지 않는데 유일성 검사가 둘을 다른 이름으로
+    # 보면 **눈에 보이지 않는 중복**이 생긴다. 대소문자 접기는 표시 이름 정책이라
+    # 이 엔드포인트가 혼자 정할 것이 아니다(라우터 주석이 근거를 소유).
+
+    def test_앞뒤_공백은_다듬어_저장된다(self, client, fake_db):
+        assert post_guest(client, json={"nickname": "  구름사냥꾼  "}).status_code == 201
+        assert fake_db.added[-1].nickname == "구름사냥꾼"
+
+    def test_공백만_다른_이름은_중복으로_걸린다(self, client, fake_db):
+        """다듬기의 본체 — 안 다듬으면 눈에 안 보이는 중복이 통과한다."""
+        fake_db.taken_nicknames.add("구름사냥꾼")
+        res = post_guest(client, json={"nickname": " 구름사냥꾼 "})
+        assert res.status_code == 409
+        assert res.json()["code"] == "NICKNAME_TAKEN"
+
+    def test_공백뿐인_이름은_422다(self, client, fake_db):
+        """다듬으면 빈 문자열 → min_length 위반. 조용히 자동 부여로 넘어가지 않는다."""
+        before = sum(isinstance(o, User) for o in fake_db.added)
+        assert post_guest(client, json={"nickname": "   "}).status_code == 422
+        assert post_guest(client, json={"nickname": "\t\n "}).status_code == 422
+        assert sum(isinstance(o, User) for o in fake_db.added) == before
+
+    def test_상한은_다듬은_뒤에_잰다(self, client, fake_db):
+        """50자 이름 뒤에 공백 하나가 붙었다고 거절하지 않는다 — mode='before'의 이유."""
+        assert post_guest(client, json={"nickname": "가" * 50 + " "}).status_code == 201
+        assert fake_db.added[-1].nickname == "가" * 50
+
+    def test_대소문자는_안_접는다(self, client, fake_db):
+        """`Cloud`와 `cloud`는 **다른 이름**이고, 적은 대소문자가 그대로 저장된다.
+
+        ⚠️ 초판은 이미 쓰인 이름을 `"Cloud"`로 두고 `"cloud"`를 보냈는데, 그러면
+        **접기를 도입해도 초록이었다** — 접힌 질의 `"cloud"`가 이미 쓰인 `"Cloud"`와
+        문자열로 안 맞아 201이 나오고 저장값도 `"cloud"` 그대로였기 때문이다.
+        (되돌림 확인에서 실제로 안 붉어서 잡았다.) 접기가 관측되는 자리는 둘이다:
+        ① 대소문자만 다른 이름이 **중복으로 걸리는가** ② 저장값의 대소문자가
+        **보존되는가**. 이제 둘 다 단정한다.
+        """
+        fake_db.taken_nicknames.add("cloud")
+        res = post_guest(client, json={"nickname": "Cloud"})
+        assert res.status_code == 201, "대소문자만 다른 이름을 중복으로 보고 있다"
+        assert fake_db.added[-1].nickname == "Cloud", "적은 대소문자가 보존되지 않는다"
+
+    def test_상한이_ConvertRequest와_같은_값이다(self):
+        """전환 화면과 진입 화면이 다른 상한을 쓰면 「여기선 되고 저기선 안 되는」 이름이 생긴다."""
+        field = auth.GuestStartRequest.model_fields["nickname"]
+        convert = ConvertRequest.model_fields["nickname"]
+
+        def bounds(f):
+            return {(type(m).__name__, getattr(m, "min_length", None),
+                     getattr(m, "max_length", None)) for m in f.metadata}
+
+        assert bounds(field) == bounds(convert)
+
+    # ── 학령 신고 도장 의미론 무손상 (0015) ──────────────────────────────────
+    # 닉네임 필드가 늘어도 `declared` 판정은 `"level_group" in model_fields_set`이다.
+    # 여기가 깨지면 8/18 IRT b-재보정이 신고/미신고 구분을 영영 못 얻는다.
+
+    def test_닉네임만_신고해도_학령_도장은_안_찍힌다(self, client, fake_db):
+        assert post_guest(client, json={"nickname": "구름"}).status_code == 201
+        user = fake_db.added[-1]
+        assert user.level_group_declared_at is None
+        assert user.level_group == "middle_high"
+
+    def test_닉네임과_학령을_같이_신고하면_도장이_찍힌다(self, client, fake_db):
+        res = post_guest(client, json={"nickname": "구름", "level_group": "adult"})
+        assert res.status_code == 201
+        assert fake_db.added[-1].level_group_declared_at is not None
+
+    def test_판정은_여전히_필드_수신_여부다(self):
+        """`nickname`을 세는 판정으로 바뀌면 미신고 인구가 declared로 물든다."""
+        assert 'declared = body is not None and "level_group" in body.model_fields_set' in AUTH_SRC
 
 
 # ═══════════════════════════════════════════════════════════════

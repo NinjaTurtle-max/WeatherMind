@@ -2,7 +2,7 @@
 
 | POST | /register | {email, password, nickname, level_group} → {user_id, access_token} |
 | POST | /login    | {email, password} → {access_token, refresh_token} |
-| POST | /guest    | {level_group?} (바디 선택) → {access_token, refresh_token} (R11-01 J — 실 유저 생성) |
+| POST | /guest    | {level_group?, nickname?} (바디 선택) → {access_token, refresh_token} (R11-01 J — 실 유저 생성. 닉네임 중복은 409 NICKNAME_TAKEN) |
 | POST | /guest/convert | Bearer + {email, password, nickname?} → {access_token, refresh_token} (같은 user_id 유지) |
 | POST | /refresh  | {refresh_token} → {access_token} |
 | GET  | /me       | Bearer → {user_id, email, nickname, is_guest, level_group} (R13 P-4) |
@@ -19,7 +19,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -187,19 +187,49 @@ def is_guest_user(user: User) -> bool:
 
 
 class GuestStartRequest(BaseModel):
-    """게스트 시작 옵션 — **바디 전체가 선택**이다 (R13 P-5).
+    """게스트 시작 옵션 — **바디 전체가 선택**이고 **필드 각각도 선택**이다 (R13 P-5).
 
     학령 신고 writer가 `POST /auth/register`의 필드 하나뿐이라, R10-J가 주 동선으로
     만든 게스트 진입을 탄 사람은 초등학생이든 성인이든 평생 middle_high였다.
     여기를 열면 온보딩에서 학령을 고른 뒤 게스트로 시작하는 경로가 성립한다.
 
-    바디를 생략하면 기존과 완전히 동일하게 동작한다(기본값 middle_high) —
-    무바디로 호출하는 기존 프론트·목·스모크가 그대로 통과해야 한다.
+    바디를 생략하면 기존과 완전히 동일하게 동작한다(학령 middle_high · 닉네임
+    자동 부여) — 무바디로 호출하는 기존 프론트·목·스모크가 그대로 통과해야 한다.
     허용값은 RegisterRequest와 같은 `LevelGroup` Literal을 **재사용**한다
     (문자열 사본을 만들면 두 경로가 조용히 갈라진다).
+
+    `nickname`은 진입 화면이 실어 보내는 **선택** 필드다. 「안 적음」의 서버 표현은
+    빈 문자열이 아니라 **필드 부재**이므로 `min_length=1`을 건다 — 프론트가 빈 값을
+    싣기 시작하면 발급이 422로 죽는 것이 조용히 무시되는 것보다 낫다(그 규약은
+    `EntryInfoPage.jsx`의 `pendingNickname`이 같은 문장으로 적어 놓았다).
+    상한 50은 `RegisterRequest.nickname`·`users.nickname` 컬럼과 같은 값이다.
     """
 
     level_group: LevelGroup = Field(default=GUEST_LEVEL_GROUP)
+    nickname: str | None = Field(default=None, min_length=1, max_length=50)
+
+    @field_validator("nickname", mode="before")
+    @classmethod
+    def _trim_nickname(cls, value: object) -> object:
+        """앞뒤 공백은 다듬는다. 대소문자는 접지 않는다 — **의도적으로 고른 비대칭**.
+
+        · **trim은 한다.** 「구름」과 「구름 」은 화면에서 구분되지 않으므로 유일성
+          검사가 그 둘을 다른 이름으로 보면 **눈에 보이지 않는 중복**이 생긴다.
+          프론트가 이미 `nickname.trim()`으로 실어 보내므로(`EntryInfoPage.jsx`의
+          `leave()`) 서버가 같은 규칙이면 두 층이 어긋나지 않고, 다른 클라이언트가
+          다듬지 않고 보내도 결과가 같아진다.
+        · **대소문자는 안 접는다.** 한글에는 무의미하고 영문 닉네임에만 작용해
+          「Cloud」와 「cloud」를 같은 이름으로 만드는데, 그건 유일성 규칙이 아니라
+          **표시 이름 정책**이라 이 엔드포인트가 혼자 정할 것이 아니다. 접기를
+          도입하려면 `register`·`guest/convert`까지 같은 규칙이어야 한다(지금은
+          그 둘이 유일성 자체를 안 본다 — 아래 검사 주석 ①).
+
+        `mode="before"`인 이유: 다듬은 **뒤에** 길이 제약이 걸려야 한다. 그래야
+        공백뿐인 이름이 422로 떨어지고(다듬으면 빈 문자열 → min_length=1 위반),
+        50자 이름 뒤에 공백 하나가 붙었다고 상한 초과로 거절되지 않는다.
+        문자열이 아닌 입력은 그대로 흘려보내 pydantic의 타입 오류에 맡긴다.
+        """
+        return value.strip() if isinstance(value, str) else value
 
 
 class UpdateMeRequest(BaseModel):
@@ -254,13 +284,46 @@ async def guest_login(
 ) -> LoginResponse:
     """게스트 시작 — 실 유저 생성 + 실 JWT (응답 형태는 login과 동일 스키마).
 
-    바디는 선택이다 — 없으면 level_group=middle_high (기존 동작·하위 호환).
+    바디는 선택이다 — 없으면 level_group=middle_high · 닉네임 자동 부여
+    (기존 동작·하위 호환).
 
     학령이 **실제로 실려 왔을 때만** 신고 도장을 찍는다(0015). 온보딩을 건너뛴
     사람과 `/learn` 딥링크로 처음 온 사람이 여기로 들어와 같은 middle_high가
     되는데, 그 구분이 8/18 재보정의 유일한 단서다.
+
+    닉네임을 신고하면 중복은 409 `NICKNAME_TAKEN`이다(아래 유일성 주석 참조).
     """
     guest_id = uuid.uuid4()
+    # 신고된 닉네임(없으면 None). 무바디·닉네임 미기재가 같은 None으로 접힌다.
+    wanted_nickname = body.nickname if body is not None else None
+
+    # ── 닉네임 유일성 — **엔드포인트 검사이고, DB 제약이 아니다** ──────────────
+    # `users.nickname`에 unique 인덱스를 걸 수 없다: 기존 게스트들이 자동 부여
+    # 닉네임(`게스트-{hex6}`)을 공유하므로 **인덱스 생성 자체가 실패**한다. 그래서
+    # 마이그레이션·새 컬럼 없이 여기서만 본다.
+    #
+    # 그 선택의 귀결이 둘이다.
+    #  ① 유일성은 **신고한 이름에만** 걸린다 — 자동 부여 닉네임은 이 분기를 안
+    #     지나가므로 서로 겹쳐도 통과한다(그게 지금 실존하는 상태이기도 하다).
+    #     같은 이유로 `register`·`guest/convert`가 정하는 닉네임도 이 검사를 안
+    #     지나간다: 그 둘까지 물리면 유일성이 전역 규칙이 되어 DB 제약 없이는
+    #     지킬 수 없다. **이 엔드포인트의 신고 경로**가 검사의 전 범위다.
+    #  ② ⚠️ **경합 창이 실재한다** — 같은 이름을 두 요청이 동시에 보내면 둘 다
+    #     SELECT에서 「없음」을 보고 둘 다 INSERT한다(TOCTOU). DB 제약이 없으니
+    #     막을 최후 방어선도 없다. **해커톤 규모(동시 진입 수십 명)에서 감수하기로
+    #     한 결정**이고, 실패 모드는 "이름이 겹친 게스트 두 명"뿐이라 데이터 손상도
+    #     인증 우회도 아니다. 나중에 "왜 DB로 안 막았나"를 묻게 되면 답은 위 ①의
+    #     인덱스 불가이고, 되돌리려면 **자동 닉네임부터 유일하게 만드는 것이 선행**이다.
+    if wanted_nickname is not None:
+        taken = await db.execute(
+            select(User.id).where(User.nickname == wanted_nickname)
+        )
+        if taken.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"detail": "이미 사용 중인 닉네임입니다.", "code": "NICKNAME_TAKEN"},
+            )
+
     # ⚠️ **파싱된 값이 아니라 "필드가 왔는가"를 본다.** `level_group`에는 pydantic
     # 기본값(middle_high)이 채워지므로, `body.level_group`을 보면 무바디·빈 바디·
     # 명시 신고 middle_high가 **전부 똑같이** 보인다 — 그 셋을 가르는 것이 이
@@ -269,7 +332,8 @@ async def guest_login(
     user = User(
         email=f"guest-{guest_id}@{GUEST_EMAIL_DOMAIN}",
         password_hash=hash_password(uuid.uuid4().hex),  # 로그인 불가 무작위 시크릿
-        nickname=f"게스트-{guest_id.hex[:6]}",
+        # 신고한 이름이 있으면 그것, 없으면 종전 그대로 자동 부여.
+        nickname=wanted_nickname or f"게스트-{guest_id.hex[:6]}",
         level_group=body.level_group if body else GUEST_LEVEL_GROUP,
         level_group_declared_at=_declared_now() if declared else None,
     )
