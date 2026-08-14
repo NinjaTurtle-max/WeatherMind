@@ -425,13 +425,13 @@ export default {
       boardChip: 'Board puzzle unit',
       placementOpened: '🧭 Opened by placement',
     },
+    // 2026-08-14 (S-11 orphan-key sweep): `body`·`resume`·`regenResume` removed —
+    // the free-daily-session card and `/daily` route that owned them were deleted
+    // on 2026-08-12, so nothing reads them. See ko.js for the full note.
     daily: {
       title: 'Free daily session',
-      body: "Want today's session right away instead of the set path?",
       cta: "Start today's session →",
-      resume: 'Resume your session →',
       regen: '☁️ About {min} min until a cloud returns',
-      regenResume: '☁️ About {min} min until a cloud returns — a session you started today can still be finished.',
     },
     path: {
       sectionEyebrow: 'Section {n} · {title}',
@@ -732,7 +732,8 @@ export default {
     submit: 'Submit prediction (1/week)',
     minOverMax: 'The low cannot be higher than the high.',
     submitFailed: "Couldn't submit your prediction.",
-    leaderboard: 'Leaderboard',
+    // 2026-08-14 (S-11): `leaderboard` heading key removed — the dashboard rework
+    // made `dash.ranking` the heading in that slot. `leaderboardLoading` is live.
     leaderboardLoading: 'Loading rankings…',
     myHistory: 'My league history',
     accuracy: 'Accuracy {score}',
