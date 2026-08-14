@@ -26,6 +26,11 @@ export default {
     ko: '한국어',
     en: 'English',
   },
+  // Source attribution (contest rule). The agency names stay in Korean on purpose —
+  // they are proper nouns of the data provider, not UI copy to translate.
+  attribution: {
+    data: 'Data: KMA Weather Nuri · KMA API Hub',
+  },
   common: {
     loading: 'Loading…',
     retry: 'Try again',

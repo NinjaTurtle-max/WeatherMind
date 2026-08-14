@@ -214,6 +214,34 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
     ok(!text().includes(gone), `홈 카드가 되살아나지 않았다 — ${gone} 없음`);
   }
   ok(!text().includes('안녕하세요'), '홈 인사말이 되살아나지 않았다');
+
+  // ⑥-2 🔴 **원출처 표기가 화면에 있다 — 대회 규정 요구**(2026-08-14 감사 판정).
+  //
+  // README 고지만으로는 「화면에서 확인 가능한가」가 불확실하다는 판정이라 한 줄을
+  // 화면에 세웠다. **레이아웃이 소유**하므로 어느 라우트로 들어와도 보인다 —
+  // 화면마다 붙이면 새 화면이 생길 때 빠지고, 빠진 것을 아무도 모른다.
+  //
+  // ⚠️ **존재만 재지 않는다.** 요소가 있어도 문구가 「자료: …」로 바뀌어 기관명이
+  //    빠지면 규정을 못 지킨다. 그래서 **기관명 문자열**을 함께 문다.
+  // ⚠️ **탭바 위인지도 잰다.** 탭바는 모바일에서 하단 고정(fixed)이라 그 뒤로 가면
+  //    화면에는 있는데 **사람 눈에는 안 보인다** — 규정이 요구하는 것은 DOM 존재가
+  //    아니라 표기다. jsdom에 레이아웃이 없어 좌표로는 못 재므로 **문서 순서**로
+  //    대신한다(탭바보다 앞에 온다).
+  const attribution = $('[data-testid="data-attribution"]');
+  ok(Boolean(attribution), '🔴 원출처 표기 줄이 화면에 있다(대회 규정 — 원출처 표기 필수)');
+  ok(
+    (attribution?.textContent ?? '').includes('기상청'),
+    `🔴 원출처 표기에 기관명이 들어 있다 — 실제 "${attribution?.textContent ?? '없음'}"`,
+  );
+  {
+    const tabbar = $('[data-testid="tabbar"]') ?? $('nav');
+    ok(
+      Boolean(tabbar) &&
+        Boolean(attribution) &&
+        (attribution.compareDocumentPosition(tabbar) & window.Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+      '원출처 표기가 하단 고정 탭바보다 앞에 온다(뒤로 가면 모바일에서 가려진다)',
+    );
+  }
   ok($('[data-testid="review-queue-card"]') === null, '복습이 236px짜리 큰 카드가 아니다');
   // 복습은 자기 쿼리(GET /progress/review-queue)가 도착해야 그려진다 — 즉시 보면
   // 아직 null이다(due 0건과 구분되지 않는다).

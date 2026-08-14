@@ -271,6 +271,24 @@ export default function Layout() {
           <Outlet />
         </main>
 
+        {/* 🔴 원출처 표기 — **대회 규정이 요구한다**(2026-08-14 감사 판정, PM·QA 세션
+            라우팅). README 고지만으로는 「화면에서 확인 가능한가」가 불확실하다는
+            판정이라 화면에 한 줄로 세운다.
+            ⚠️ **레이아웃이 소유한다.** 화면마다 붙이면 새 화면이 생길 때 빠지고,
+            빠진 것을 아무도 모른다 — 여기 두면 딥링크로 어느 경로에 내려도 보인다.
+            ⚠️ 탭바 **위**다. 탭바는 모바일에서 화면 하단에 고정(fixed)이라 그 아래에
+            두면 가려진다. `main`의 `pb-20`이 탭바 높이를 이미 비워 두므로 이 줄은
+            그 여백 안에 든다.
+            ⚠️ 문구는 **i18n 키**다(`attribution.data`). 기관명 자체는 번역 대상이
+            아니지만 이 저장소는 UI 문구를 예외 없이 외부화한다 — 예외를 하나 만들면
+            「어떤 문구가 키를 갖는가」가 사람 판단으로 내려간다. */}
+        <p
+          data-testid="data-attribution"
+          className="px-4 pb-3 text-center text-[10.5px] leading-relaxed text-slate-400"
+        >
+          {t('attribution.data')}
+        </p>
+
         <TabBar />
       </div>
 
