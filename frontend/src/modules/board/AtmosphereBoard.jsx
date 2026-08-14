@@ -153,11 +153,45 @@ export function hintRulesForGoal(rules, goal, palette, zoneState) {
  *      1단 = 목표 존만 하이라이트(어느 지역을 먼저 볼지)
  *      2단 = 필요한 "요소 종류"(전선 계열·기단 계열·습기·일사) + 저작 문구
  *    문구는 board_rules.json의 `hint_needs`(R10-01 §3.5 additive 저작 필드, 8종
- *    전부)를 그대로 쓴다. explain(현상 해설 — 정답 요소명 포함)은 힌트에 쓰지 않고,
- *    요소 종류는 규칙 `when`의 **타입 접두어만** 사용해 subtype(정답 요소)이 새지
- *    않게 한다. 문항 저작 `hints`(정답 좌표·수치를 그대로 알려주는 기존 문구)는
- *    이 경로에서 쓰지 않는다.
+ *    전부)를 그대로 쓴다. explain(현상 해설 — 정답 요소명 포함)은 **1·2단에는**
+ *    쓰지 않고(3단은 아래), 요소 종류는 규칙 `when`의 **타입 접두어만** 사용해
+ *    subtype(정답 요소)이 새지 않게 한다. 문항 저작 `hints`(정답 좌표·수치를
+ *    그대로 알려주는 기존 문구)는 이 경로에서 쓰지 않는다.
+ * 3) **3단 = N회 미통과 후 현상 해설 공개**(N-3 ①안, 2026-08-14 클라이언트 승인).
+ *
+ *    ⚠️ **이것은 위 「정답 배치 미공개」의 의도된 예외다** — 조용히 넘기지 말 것.
+ *    board 문항 46건 전건이 `template_json.correct_answer`가 빈 값이고, 힌트는
+ *    2단이 상한이었다. 그 결과 **못 푸는 학습자가 답에 닿는 경로가 하나도 없었다**
+ *    (N-3). 3단은 그 경로를 여는 것이 목적이므로, 답을 가리는 것이 아니라 답에
+ *    닿게 하는 것이 계약이다.
+ *
+ *    ⚠️ **`explain`은 정답 요소명을 실제로 노출한다.** subtype 조건을 가진 규칙
+ *    10건 중 **8건**의 explain이 정답 subtype을 한국어 낱말로 그대로 담는다
+ *    (예: cold_front_shower → "한랭전선은…", okhotsk_sea_fog → "오호츠크해 기단은…").
+ *    위 156행이 원래부터 그렇게 적어 놓았고 실측도 같다. 그러므로 "explain은
+ *    해설이라 정답을 노출하지 않는다"는 설명을 **근거로 재인용하지 말 것** —
+ *    3단이 정답 요소를 노출한다는 것은 알고 고른 것이다.
+ *
+ *    노출하지 않는 것은 그대로 남는다: **존 좌표·임계 수치·팔레트 강조**.
+ *    explain 전문만 그대로 보이고 규칙의 `when`은 어떤 형태로도 그리지 않는다.
+ *    (규칙 파일 자체는 이미 `GET /board/rules`로 클라이언트에 내려간다 — 3단은
+ *     새 유출면이 아니라 **표시 게이트**다.)
+ *
+ *    적용 범위는 **연습 탭(BoardPage)뿐**이다. 세션 문항 경로는 `result`를 받지
+ *    않고(부모가 피드백 UI를 소유) 재제출도 없어 미통과 횟수 자체가 안 쌓인다.
  */
+
+/**
+ * N — 몇 번 미통과해야 해설을 여는가. **이 상수 하나가 소유자다**(계약 테스트
+ * `boardAssistRetention.smoke.test.mjs` 「①안: N회 미통과 후 현상 해설 공개」).
+ *
+ * 3으로 잡은 근거: 기존 사다리가 2단(존 지목 → 요소 종류)이다. 두 단을 다 켜고도
+ * 한 번 더 틀렸다는 것은 **힌트를 소진하고도 못 닿았다**는 뜻이고, 그때가 해설이
+ * 필요한 시점이다. 2면 힌트를 다 보기 전에 답이 나와 사다리가 무의미해지고,
+ * 4 이상이면 오답마다 구름을 1씩 태우므로(에너지 §R10) 만렙 5인 학습자가 해설에
+ * 닿기 전에 잔량이 바닥난다.
+ */
+export const EXPLAIN_AFTER_MISSES = 3;
 /**
  * `layout` — 이 보드가 어디에 놓이느냐.
  *
@@ -199,6 +233,28 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   const timeLimit = Number(puzzle?.time_limit_sec);
   const hasTimer = Number.isFinite(timeLimit) && timeLimit > 0;
   const [attemptKey, setAttemptKey] = useState(0); // 재도전마다 보드·타이머 리셋
+
+  // ── ①안(N-3): 미통과 횟수 — EXPLAIN_AFTER_MISSES회에서 해설이 열린다 ──────
+  // ⚠️ **`attemptKey`와 함께 리셋하면 안 된다.** 재도전이 곧 attemptKey 증가라
+  // 아래 초기화 effect에 얹으면 셀 때마다 0으로 돌아가 해설이 영영 안 열린다.
+  // 수명의 기준은 **퍼즐**이다 — 다른 퍼즐로 넘어갈 때만 0으로 돌린다.
+  const [missCount, setMissCount] = useState(0);
+  // 같은 판정 객체를 두 번 세지 않는다(리렌더는 result 정체성을 안 바꾼다).
+  const countedResultRef = useRef(null);
+  useEffect(() => {
+    setMissCount(0);
+    countedResultRef.current = null;
+  }, [puzzle]);
+  useEffect(() => {
+    // `phenomena`가 있는 것만 **채점된 미통과**다. 구름 소진(outOfClouds)과
+    // 제출 실패(네트워크 — BoardPage가 phenomena 없이 passed:false를 넣는다)는
+    // 학습자가 틀린 것이 아니므로 세지 않는다. 그걸 세면 서버가 흔들릴 때
+    // 답이 저절로 열린다.
+    if (!result || result.passed || result.outOfClouds || !result.phenomena) return;
+    if (countedResultRef.current === result) return;
+    countedResultRef.current = result;
+    setMissCount((n) => n + 1);
+  }, [result]);
   const [remaining, setRemaining] = useState(hasTimer ? timeLimit : 0);
   const [timedOut, setTimedOut] = useState(false);
 
@@ -469,6 +525,14 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     // t는 렌더마다 새 클로저(로케일 변경 반영) — 매 렌더 재계산이지만 배열 2칸이라 무시 가능
   }, [sandbox, hintZone, hintsAuthored, regions, hintRules, t]);
   const hintZoneActive = hintLevel > 0 && hintZone != null;
+
+  // ── ①안 3단(N-3): N회 미통과 후 현상 해설 공개 ────────────────────────────
+  // 규칙은 힌트 2단이 **이미 좁혀 놓은 후보**를 그대로 쓴다(hintRulesForGoal).
+  // 시드 board 전건이 후보 1개로 좁혀지는 것은 boardAssistRetention 3-b가 상주
+  // 감시하므로, 후보가 흔들리면 그 테스트가 먼저 운다.
+  // 자유 실험(sandbox)은 목표도 채점도 없어 미통과가 존재하지 않는다.
+  const explainRevealed = !sandbox && missCount >= EXPLAIN_AFTER_MISSES;
+  const revealedExplain = explainRevealed ? (hintRules[0]?.explain ?? null) : null;
 
   // 「지금 보고 있는 존」 — wide 배치에서 존 카드 4장을 대신하는 한 줄이 이 존을 말한다.
   // stageZone과 같은 규칙(마지막 조작 존 → 목표 존 → 0)이라 단면 패널과 초점이 어긋나지 않는다.
@@ -903,13 +967,15 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   // 힌트 표시는 BoardHintPanel이 소유한다(R13-01 §2.6 — 교사 캐릭터 말풍선).
   // 문구·순서·칩은 그대로 옮겼다. 여기서는 "무엇을 말할지"만 정하고 "누가 어떻게
   // 말하는지"는 패널이 정한다.
-  const hintBlock = hintSteps.length > 0 && !result && (
+  const hintBlock = (hintSteps.length > 0 || revealedExplain) && !result && (
     <BoardHintPanel
       steps={hintSteps}
       level={hintLevel}
       kindLabels={hintKinds.map((kind) => (HINT_KIND_LABEL[kind] ? t(HINT_KIND_LABEL[kind]) : kind))}
       interactive={interactive}
       onReveal={() => setHintLevel((l) => Math.min(l + 1, hintSteps.length))}
+      // ①안 3단 — 사다리 **다음 단**으로 얹는다(1·2단은 그대로 둔다).
+      explain={revealedExplain}
       // wide는 힌트를 168px 조절값 열 아래에 둔다 — 가로 배치로는 글자 폭이
       // 92px밖에 안 남는다(BoardHintPanel의 `stack` 주석). stacked(세션)는 넓다.
       stack={wide}

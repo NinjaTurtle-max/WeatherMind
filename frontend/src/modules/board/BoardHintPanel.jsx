@@ -48,9 +48,10 @@ export default function BoardHintPanel({
   interactive = false,
   onReveal,
   stack = false,
+  explain = null,
 }) {
   const t = useT();
-  if (steps.length === 0) return null;
+  if (steps.length === 0 && !explain) return null;
 
   // stage는 **표시 단계**로만 남는다(화자를 고르지 않는다) — 스모크가
   // data-hint-stage로 단계 진행을 확인한다.
@@ -113,8 +114,23 @@ export default function BoardHintPanel({
             {t('board.atmosphere.hintCta', { n: level, total: steps.length })}
           </button>
         )}
-        {level >= steps.length && (
+        {/* 「힌트는 정답 배치를 알려주지 않아요」 — 해설이 열린 뒤에는 **거짓말이
+            된다**. 사다리를 다 밟았을 때만, 그리고 3단이 아직 안 열렸을 때만 쓴다. */}
+        {level >= steps.length && !explain && (
           <p className="mt-1 text-[11px] text-amber-700">{t('board.atmosphere.hintNoAnswer')}</p>
+        )}
+        {/* ①안 3단(N-3) — N회 미통과 후 열리는 현상 해설. 사다리 **다음 단**이라
+            맨 아래에 오고, 위 선 하나로 1·2단과 갈라 놓는다.
+            ⚠️ **「힌트 3:」으로 번호를 붙이지 않는다.** boardAssistRetention이
+            '힌트 2:' **이후 문자열 전체**에 숫자가 없을 것을 단정한다
+            (`!/\d/.test(hint2.replace('힌트 2:', ''))`). 번호를 붙이면 그 계약이
+            깨지므로 번호 없는 단으로 얹고, 라벨 문구에도 숫자를 넣지 않는다
+            (규칙 15건의 explain 전건에 숫자가 없음을 실측 확인했다). */}
+        {explain && (
+          <div data-testid="board-hint-explain" className="mt-2 border-t border-amber-200 pt-2">
+            <p className="text-xs font-bold text-amber-900">{t('board.atmosphere.explainLabel')}</p>
+            <p className="mt-1 text-xs leading-relaxed text-amber-800">{explain}</p>
+          </div>
         )}
       </div>
     </div>

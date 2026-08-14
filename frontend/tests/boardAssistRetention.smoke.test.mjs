@@ -99,7 +99,7 @@ window.XMLHttpRequest.prototype.open = function (method, url, ...rest) {
   return origXhrOpen.call(this, method, url, ...rest);
 };
 
-const { createElement } = await import('react');
+const { createElement, useState } = await import('react');
 const { createRoot } = await import('react-dom/client');
 const { MemoryRouter } = await import('react-router-dom');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
@@ -110,7 +110,7 @@ const SessionSummary = (await vite.ssrLoadModule('/src/modules/session/SessionSu
 const SessionPage = (await vite.ssrLoadModule('/src/modules/session/SessionPage.jsx')).default;
 const { comboPraise, COMBO_PRAISE } = await vite.ssrLoadModule('/src/modules/session/SessionRunner.jsx');
 const ResultBanner = (await vite.ssrLoadModule('/src/modules/quiz/ResultBanner.jsx')).default;
-const { hintRulesForGoal } = await vite.ssrLoadModule('/src/modules/board/AtmosphereBoard.jsx');
+const { hintRulesForGoal, EXPLAIN_AFTER_MISSES } = await vite.ssrLoadModule('/src/modules/board/AtmosphereBoard.jsx');
 const { zoneStates, createBoard } = await vite.ssrLoadModule('/src/lib/boardEngine.js');
 const { AIR_MASS_META, FRONT_META } = await vite.ssrLoadModule('/src/modules/board/boardDisplay.js');
 const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
@@ -330,6 +330,114 @@ try {
     // 문항 저작 hints(정답 그대로 알려주는 기존 문구)는 이 경로에서 쓰이지 않는다
     assert(!text().includes('한랭전선을 놓고'), '문항 저작 hints의 정답 노출 문구가 렌더됐다');
     assert(!text().includes('습기를 60 이상'), '문항 저작 hints의 임계 수치가 렌더됐다');
+  });
+
+  // ── 2-b. ①안(N-3): N회 미통과 후 현상 해설 공개 ─────────────────────────────
+  // **왜 이 계약이 필요한가**: board 문항 46건 전건이 template_json.correct_answer가
+  // 빈 값이고 힌트는 2단이 상한이라, 못 푸는 학습자가 답에 닿는 경로가 **하나도
+  // 없었다**(N-3). 3단은 그 경로다. 위 시나리오 2가 "노출하지 않는다"를 지키므로,
+  // 여기서는 반대 방향 — **N회에서는 실제로 열린다**를 고정한다. 둘 중 하나만
+  // 있으면 다른 쪽이 조용히 죽는다.
+  //
+  // 미통과를 세는 주체가 AtmosphereBoard 내부 state라, 실제 루프(제출 → 판정 →
+  // 재도전)를 돌려야 한다. BoardPage가 하는 일(setResult(res) / setResult(null))만
+  // 그대로 흉내 내는 최소 하네스를 쓴다.
+  await scenario('①안: N회 미통과 후 현상 해설이 열린다(그 전에는 안 열린다)', async () => {
+    assert(EXPLAIN_AFTER_MISSES === 3,
+      `N이 바뀌었다(${EXPLAIN_AFTER_MISSES}) — 사다리 2단을 다 밟고도 틀린 시점이 근거다. `
+      + '바꾸려면 AtmosphereBoard.jsx의 근거 주석을 함께 고칠 것');
+
+    // 이 퍼즐(수도권 소나기 · palette front:cold + moisture)의 성립 규칙
+    const RULE = RULES.find((r) => r.id === 'cold_front_shower');
+    assert(RULE, 'cold_front_shower 규칙이 사라졌다');
+
+    const FAIL_PHENOMENA = [0, 1, 2, 3].map((zone) => ({
+      zone, zone_name: `존${zone}`, phenomenon: 'cloudy', cloud: 'cumulus', rule_id: null, explain: null,
+    }));
+
+    function Harness() {
+      const [result, setResult] = useState(null);
+      return createElement('div', null,
+        createElement(AtmosphereBoard, {
+          puzzle: PUZZLE,
+          onSubmit: () => {},
+          result,
+        }),
+        // BoardPage의 판정 수신(onSuccess → setResult)과 재도전(setResult(null))
+        createElement('button', {
+          onClick: () => setResult({ passed: false, phenomena: FAIL_PHENOMENA, feedback: '아직이에요' }),
+        }, 'T-미통과'),
+        createElement('button', {
+          onClick: () => setResult({ passed: false, outOfClouds: true, feedback: '구름 부족' }),
+        }, 'T-구름부족'),
+        // 네트워크 실패 — BoardPage는 phenomena 없이 passed:false를 넣는다
+        createElement('button', {
+          onClick: () => setResult({ passed: false, feedback: '제출 실패' }),
+        }, 'T-제출실패'),
+        createElement('button', { onClick: () => setResult(null) }, 'T-재도전'),
+      );
+    }
+
+    mount(createElement(Harness));
+    await waitFor(() => findButton('힌트 보기') != null, 6000, '하네스 초기 렌더');
+    await sleep(200);
+
+    const explainBlock = () => window.document.querySelector('[data-testid="board-hint-explain"]');
+    const miss = async () => {
+      click(findButton('T-미통과'));
+      await sleep(60);
+      click(findButton('T-재도전'));
+      await sleep(60);
+    };
+
+    assert(explainBlock() == null, '아무것도 안 틀렸는데 해설이 이미 열려 있다');
+
+    // ⓐ 세지 않아야 하는 것들 — 구름 부족·제출 실패는 학습자가 틀린 것이 아니다.
+    // 이걸 세면 서버가 흔들릴 때 답이 저절로 열린다.
+    for (const label of ['T-구름부족', 'T-제출실패']) {
+      for (let i = 0; i < EXPLAIN_AFTER_MISSES + 1; i += 1) {
+        click(findButton(label));
+        await sleep(60);
+        click(findButton('T-재도전'));
+        await sleep(60);
+      }
+    }
+    assert(explainBlock() == null,
+      `구름 부족·제출 실패를 미통과로 셌다 — ${EXPLAIN_AFTER_MISSES + 1}회씩인데 해설이 열렸다`);
+
+    // ⓑ N-1회까지는 안 열린다
+    for (let i = 1; i < EXPLAIN_AFTER_MISSES; i += 1) {
+      await miss();
+      assert(explainBlock() == null, `${i}회 미통과인데 해설이 열렸다(N=${EXPLAIN_AFTER_MISSES})`);
+    }
+
+    // ⓒ N회에서 열린다 — 규칙 explain **전문**이 그대로
+    await miss();
+    await waitFor(() => explainBlock() != null, 4000,
+      `${EXPLAIN_AFTER_MISSES}회 미통과인데 해설이 안 열렸다 — 답에 닿을 길이 다시 사라졌다`);
+    const shown = explainBlock().textContent ?? '';
+    assert(shown.includes(RULE.explain),
+      `해설이 규칙 explain 전문이 아니다: ${shown.slice(0, 120)}`);
+
+    // ⓓ 3단이어도 **여전히 안 내보내는 것**: 존 좌표·임계 수치.
+    // (정답 요소명은 explain에 원래 들어 있고 그것이 ①안의 의도다 —
+    //  AtmosphereBoard 머리말 §3.5 3) 참조. 그래서 ANSWER_LABELS는 안 문다.)
+    assert(!/\d/.test(shown), `해설 블록에 숫자(존 좌표·임계 수치)가 새어 나왔다: ${shown.slice(0, 160)}`);
+    for (const cond of RULE.when) {
+      assert(!shown.includes(cond), `해설 블록이 규칙 조건 원문 "${cond}"을 그렸다`);
+    }
+    // 문항 저작 hints(정답 배치를 그대로 알려주는 문구)는 3단에서도 안 쓴다
+    assert(!text().includes('한랭전선을 놓고'), '3단에서 문항 저작 hints가 렌더됐다');
+    assert(!text().includes('습기를 60 이상'), '3단에서 문항 저작 hints의 임계 수치가 렌더됐다');
+
+    // ⓔ 해설이 열린 뒤에는 「힌트는 정답 배치를 알려주지 않아요」가 사라진다
+    // — 남겨두면 화면이 스스로 거짓말을 한다.
+    click(findButton('힌트 보기'));
+    await sleep(60);
+    click(findButton('힌트 보기'));
+    await sleep(80);
+    assert(!text().includes('정답 배치를 알려주지 않아요'),
+      '해설을 열어 놓고도 "정답 배치를 알려주지 않아요"가 남아 있다');
   });
 
   // ── 3. hint_needs 데이터 계약 (전종 · 정답 요소·수치 미포함) ────────────────

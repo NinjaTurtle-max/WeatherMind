@@ -144,6 +144,8 @@ export default {
       hintNeedsLabel: 'Piece types needed:',
       hintCta: '💡 Show hint ({n}/{total})',
       hintNoAnswer: 'Hints never reveal the answer placement — take the last step yourself.',
+      // ①안 3단 (N-3) label. No digits — see the BoardHintPanel comment.
+      explainLabel: '📖 Stuck a few times — here is how this weather forms',
       moisture: '💧 Moisture',
       sun: '☀️ Insolation',
       wind: '🌬️ Wind',

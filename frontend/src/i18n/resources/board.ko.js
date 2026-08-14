@@ -162,6 +162,11 @@ export default {
       hintNeedsLabel: '필요한 요소 종류:',
       hintCta: '💡 힌트 보기 ({n}/{total})',
       hintNoAnswer: '힌트는 정답 배치를 알려주지 않아요 — 남은 한 걸음은 직접 골라 보세요.',
+      // ①안 3단(N-3) 라벨 — N회 미통과 후 열리는 현상 해설의 머리말.
+      // ⚠️ **숫자를 넣지 말 것.** boardAssistRetention이 '힌트 2:' 이후 문자열
+      // 전체에 숫자가 없을 것을 단정한다(BoardHintPanel의 해당 주석 참조).
+      // ⚠️ 「정답」이라 부르지 않는다 — 이건 배치 답안이 아니라 **현상의 원리**다.
+      explainLabel: '📖 여러 번 막혔네요 — 이 날씨가 만들어지는 원리를 알려줄게요',
       moisture: '💧 습기',
       sun: '☀️ 일사',
       wind: '🌬️ 바람',
