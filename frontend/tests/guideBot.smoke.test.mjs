@@ -133,6 +133,33 @@ try {
   const outHtml = renderToString(createElement(GuideBot, { pathname: '/board', state: { clouds: 0 } }));
   check('에너지 0이면 화면 안내를 밀어내고 상태 안내가 뜬다',
     outHtml.includes('data-guide-kind="state"') && outHtml.includes('구름이 다 떨어졌'));
+
+  // ── ⑺ 자리 — 왼쪽 아래 · 말풍선은 오른쪽 (2026-08-17 사용자 지시) ─────────
+  /**
+   * 사이드바 튜터 카드가 걷히면서 안내봇이 **그 자리**를 물려받았다. 셋이 한
+   * 묶음이라 하나만 되돌아가도 화면이 깨진다 — 그래서 셋을 따로 문다.
+   *
+   *  ⓐ `left-4` — `right-4`로 되돌아가면 카드가 있던 자리가 빈다.
+   *  ⓑ `z-50` — `SideNav`도 `z-50`이라 **`z-40`으로 되돌리면 캐릭터가
+   *     사이드바 뒤로 숨는다.** 왼쪽으로 옮기기 전에는 겹칠 일이 없어 z-40으로
+   *     충분했으므로, 자리만 되돌리고 z를 안 고치는 실수가 나오기 쉽다.
+   *  ⓒ 자식 순서가 **캐릭터 → 말풍선**이고 꼬리가 왼쪽(`-left-`)을 가리킨다.
+   *     순서만 뒤집히면 말풍선이 화면 왼쪽 밖으로 나가고, 꼬리만 안 뒤집히면
+   *     말풍선이 캐릭터 반대쪽을 가리킨다.
+   */
+  const botSrc = await readFile(resolve(root, 'src/components/GuideBot.jsx'), 'utf8');
+  const rootCls = botSrc.match(/className=\{`fixed ([^`]*)`/)?.[1] ?? '';
+  check(`ⓐ 기본 자리가 왼쪽이다 — 실제 "${rootCls.slice(0, 40)}"`,
+    /\bleft-4\b/.test(rootCls) && !/\bright-4\b/.test(rootCls));
+  check('ⓑ z-50이다 — SideNav(z-50) 뒤로 숨지 않는다',
+    /\bz-50\b/.test(rootCls) && !/\bz-40\b/.test(rootCls));
+  check('ⓒ 꼬리가 캐릭터 쪽(왼쪽)을 가리킨다',
+    /-left-\[5px\][^"]*border-b border-l/.test(botSrc));
+  check('ⓒ 자식 순서가 캐릭터 → 말풍선이다 — 뒤집히면 말풍선이 화면 밖으로 나간다',
+    botSrc.indexOf('data-testid="guide-bot-toggle"') < botSrc.indexOf('data-testid="guide-bot-bubble"'));
+  // 옛 좌표(오른쪽 자리)가 남아 있으면 이 변경이 그 사람에게만 안 보인다.
+  check('저장 키가 갱신됐다 — 옛 위치가 새 기본 자리를 덮지 않는다',
+    /POS_KEY = 'weathermind\.guidebot\.pos\.v\d+'/.test(botSrc));
 } finally {
   await server.close();
 }

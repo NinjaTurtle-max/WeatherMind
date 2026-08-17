@@ -24,7 +24,7 @@ import { GUIDE_SPEAKER, pickGuideMessage } from '../lib/guideRules';
  * 이 저장소는 화면들을 **서버에서 렌더해 보는 스모크**를 돌린다(SessionRunner·보드
  * 비주얼 등). 그래서 모듈 최상단은 물론 **첫 렌더까지** `window`·`localStorage`를
  * 만지면 안 된다. 위치는 `null`로 시작해 `useEffect`(= 클라이언트 전용)에서만
- * 채우고, 그 전에는 CSS 기본 자리(오른쪽 아래)에 붙는다.
+ * 채우고, 그 전에는 CSS 기본 자리(**왼쪽 아래** — 2026-08-17)에 붙는다.
  *
  * ── 왜 pointer 이벤트인가 ────────────────────────────────────────────
  * mouse/touch를 따로 달면 같은 로직이 두 벌이 되고 한쪽만 고쳐지는 일이 생긴다.
@@ -48,8 +48,15 @@ import { GUIDE_SPEAKER, pickGuideMessage } from '../lib/guideRules';
  *     편이 낫다는 판단이다. **폴백은 그대로 1순위** — 아래 onFail이 즉시 되돌린다.
  */
 
-/** 위치 영속 키. 사용자가 옮긴 자리는 새로고침해도 남는다. */
-const POS_KEY = 'weathermind.guidebot.pos';
+/**
+ * 위치 영속 키. 사용자가 옮긴 자리는 새로고침해도 남는다.
+ *
+ * ⚠️ **`.v2`는 2026-08-17에 붙였다.** 기본 자리가 오른쪽 아래 → 왼쪽 아래로
+ * 바뀌었는데, 저장된 좌표는 절대값(`left`/`top`)이라 옛 값이 남아 있으면
+ * **이 변경이 그 사람에게만 안 보인다**(캐릭터가 계속 오른쪽에 뜬다).
+ * 키를 바꿔 옛 좌표를 버린다 — 잃는 것은 「끌어다 둔 자리」 하나뿐이다.
+ */
+const POS_KEY = 'weathermind.guidebot.pos.v2';
 
 /** 말풍선을 닫은 선택을 기억하는 키. 캐릭터를 눌러 다시 열면 지워진다. */
 const DISMISS_KEY = 'weathermind.guidebot.dismissed';
@@ -93,9 +100,10 @@ const DRAG_SLOP = 4;
  */
 function clamp(pos, win, node) {
   // ⚠️ **캐릭터가 아니라 「자리를 잡는 상자」 전체를 재야 한다.** 말풍선이 펼쳐져
-  // 있으면 상자는 말풍선(최대 17rem=272) + 간격 8 + 캐릭터 128 ≈ 408px이고
-  // 캐릭터는 그 **오른쪽 끝**에 있다. SIZE(128)로만 재면 큰 모니터에서 오른쪽에
-  // 뒀다가 작은 화면에서 열 때 상자가 화면 밖으로 밀려 캐릭터가 잘린다 —
+  // 있으면 상자는 캐릭터 128 + 간격 8 + 말풍선(최대 17rem=272) ≈ 408px이고
+  // 캐릭터는 그 **왼쪽 끝**에 있다(2026-08-17에 좌우가 뒤집혔다 — 잘리는 쪽은
+  // 이제 말풍선이다). SIZE(128)로만 재면 큰 모니터에서 오른쪽에
+  // 뒀다가 작은 화면에서 열 때 상자가 화면 밖으로 밀려 말풍선이 잘린다 —
   // 이 함수가 막겠다고 적어 둔 바로 그 실패다. 노드를 못 받으면(첫 읽기·SSR)
   // SIZE로 떨어지되, 그때는 아직 CSS 기본 자리라 넘칠 일이 없다.
   const rect = node?.getBoundingClientRect?.();
@@ -262,7 +270,7 @@ export default function GuideBot({ pathname = '/', state = {}, laneBusy = false,
   const { key, ruleId, kind } = pickGuideMessage(pathname, state);
   const message = t(key);
 
-  // 위치가 아직 없으면 CSS 기본 자리(오른쪽 아래)에 둔다 — SSR과 첫 페인트가 같다.
+  // 위치가 아직 없으면 CSS 기본 자리(왼쪽 아래)에 둔다 — SSR과 첫 페인트가 같다.
   const style = pos
     ? { left: `${pos.x}px`, top: `${pos.y}px`, right: 'auto', bottom: 'auto' }
     : undefined;
@@ -294,51 +302,23 @@ export default function GuideBot({ pathname = '/', state = {}, laneBusy = false,
       //
       // ⚠️ 바닥 여백의 분기점은 **`md`**다(`sm` 아님). `bottom-20`은 TabBar를
       // 피하려고 있는데, TabBar는 `md:hidden`이라 **767px까지 떠 있다**. 여기를
-      // `sm:`(640px)으로 두면 640~767px 구간에서 z-50 불투명 탭바가 z-40 캐릭터의
+      // `sm:`(640px)으로 두면 640~767px 구간에서 z-50 불투명 탭바가 캐릭터의
       // 아랫부분을 덮는다 — 코드 리뷰가 실측으로 잡았다.
-      className={`fixed bottom-20 right-4 z-40 flex cursor-grab touch-none select-none items-end gap-2 active:cursor-grabbing md:bottom-6 ${laneBusy ? LANE_YIELD_CLASS : ''}`}
+      //
+      // 🔴 **기본 자리가 왼쪽 아래다**(2026-08-17 사용자 지시 — 종전 `right-4`).
+      // 사이드바 튜터 카드가 있던 자리를 그대로 물려받는다(`SideNav.jsx`에서
+      // 그 카드를 걷었다). 캐릭터는 208px 사이드바 폭 안에 들어가고 말풍선만
+      // 오른쪽으로 삐져나와 본문 위에 뜬다 — 그래서 아래 자식 순서가
+      // **캐릭터 → 말풍선**이다.
+      //
+      // ⚠️ **z가 `z-40` → `z-50`이다.** `SideNav`가 `z-50`이라 그대로 두면
+      // 캐릭터가 사이드바 **뒤로** 숨는다(왼쪽으로 옮기기 전에는 사이드바와
+      // 겹칠 일이 없어 z-40으로 충분했다). 같은 z에서는 DOM 뒤가 위로 오는데,
+      // `Layout`이 `SideNav`(:211) → `TabBar`(:322) → `GuideBot`(:341) 순으로
+      // 그리므로 이 노드가 마지막이다. ⚠️ Layout의 그 순서가 바뀌면 여기가
+      // 조용히 가려진다.
+      className={`fixed bottom-20 left-4 z-50 flex cursor-grab touch-none select-none items-end gap-2 active:cursor-grabbing md:bottom-6 ${laneBusy ? LANE_YIELD_CLASS : ''}`}
     >
-      {open && (
-        // 말풍선이 캐릭터 **왼쪽**에 온다 — 캐릭터 기본 자리가 오른쪽 아래라
-        // 오른쪽에 두면 화면 밖으로 나간다.
-        <div
-          data-testid="guide-bot-bubble"
-          role="status"
-          aria-live="polite"
-          // 캐릭터가 56 → 128px가 되면서 말풍선도 함께 키웠다(13rem은 그 옆에서
-          // 쪽지처럼 작아 보인다). 꼬리는 캐릭터 세로 중앙에 맞춘다.
-          // ⚠️ 폭 상한이 **셋**이다(2026-08-14 B3에서 좁은 쪽 한 칸을 더 넣었다).
-          // §4.15 실측: 390px 폰에서 말풍선 208 + 간격 8 + 캐릭터 96 = 312px으로
-          // **가로의 80%**를 먹었다. 10.5rem(168)로 내리면 272px = 70%다. 레인
-          // 양보(위 LANE_YIELD_CLASS)가 해설과의 충돌은 이미 없앴지만, 해설이 없는
-          // 화면(학습 경로·보드)에서도 캐릭터 상자가 본문 오른쪽을 덮는 것은 남는다.
-          className="relative max-w-[10.5rem] rounded-2xl bg-sky-50 px-4 py-3 text-sm leading-snug text-sky-900 shadow-lg ring-1 ring-sky-200 sm:max-w-[13rem] 2xl:max-w-[17rem]"
-        >
-          <span
-            aria-hidden="true"
-            className="absolute -right-[5px] bottom-8 h-2.5 w-2.5 rotate-45 border-b border-r border-sky-200 bg-sky-50"
-          />
-          {/* 닫기 X — **모바일에서 필수다**(2026-08-13 클라이언트 제보:
-              "컴퓨터는 괜찮은데 모바일 웹 접속이 가로막아").
-              390px 폰에서 말풍선 208 + 간격 8 + 캐릭터 96 = 312px로 **가로의 80%**를
-              먹고, `FeedbackPanel`(`fixed bottom-14 z-40`)과 **같은 z-40**이라
-              정답 피드백 위에 겹친다. 캐릭터를 눌러 접을 수는 있었지만 그게
-              접기 버튼이라는 단서가 화면에 없었다 — 눌러 볼 생각이 안 든다.
-              ⚠️ 지우지 말 것: 이 X가 없으면 모바일에서 **화면을 되찾을 방법이 없다.** */}
-          <button
-            type="button"
-            data-testid="guide-bot-dismiss"
-            onClick={(e) => { e.stopPropagation(); dismiss(); }}
-            onPointerDown={(e) => e.stopPropagation()}
-            aria-label={t('guide.aria.dismiss')}
-            className="absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full bg-white text-sm leading-none text-sky-700 shadow ring-1 ring-sky-200"
-          >
-            ✕
-          </button>
-          {message}
-        </div>
-      )}
-
       <button
         type="button"
         data-testid="guide-bot-toggle"
@@ -388,6 +368,51 @@ export default function GuideBot({ pathname = '/', state = {}, laneBusy = false,
           )}
         </span>
       </button>
+
+      {open && (
+        // 말풍선이 캐릭터 **오른쪽**에 온다(2026-08-17 사용자 지시 — 종전 왼쪽).
+        // 캐릭터가 왼쪽 아래(사이드바 폭 안)로 옮겨졌으므로 왼쪽에 두면 화면
+        // 밖으로 나간다 — 방향이 캐릭터 자리를 따라 뒤집힌 것이지 취향이 아니다.
+        <div
+          data-testid="guide-bot-bubble"
+          role="status"
+          aria-live="polite"
+          // 캐릭터가 56 → 128px가 되면서 말풍선도 함께 키웠다(13rem은 그 옆에서
+          // 쪽지처럼 작아 보인다). 꼬리는 캐릭터 세로 중앙에 맞춘다.
+          // ⚠️ 폭 상한이 **셋**이다(2026-08-14 B3에서 좁은 쪽 한 칸을 더 넣었다).
+          // §4.15 실측: 390px 폰에서 말풍선 208 + 간격 8 + 캐릭터 96 = 312px으로
+          // **가로의 80%**를 먹었다. 10.5rem(168)로 내리면 272px = 70%다. 레인
+          // 양보(위 LANE_YIELD_CLASS)가 해설과의 충돌은 이미 없앴지만, 해설이 없는
+          // 화면(학습 경로·보드)에서도 캐릭터 상자가 본문 오른쪽을 덮는 것은 남는다.
+          className="relative max-w-[10.5rem] rounded-2xl bg-sky-50 px-4 py-3 text-sm leading-snug text-sky-900 shadow-lg ring-1 ring-sky-200 sm:max-w-[13rem] 2xl:max-w-[17rem]"
+        >
+          {/* 꼬리 — 캐릭터 쪽(왼쪽)을 가리킨다. 종전 오른쪽 꼬리
+              (`-right-[5px] … border-b border-r`)의 **수평 거울상**이다:
+              위치가 좌우로 뒤집히고, 드러나는 두 변도 r → l로 바뀐다. */}
+          <span
+            aria-hidden="true"
+            className="absolute -left-[5px] bottom-8 h-2.5 w-2.5 rotate-45 border-b border-l border-sky-200 bg-sky-50"
+          />
+          {/* 닫기 X — **모바일에서 필수다**(2026-08-13 클라이언트 제보:
+              "컴퓨터는 괜찮은데 모바일 웹 접속이 가로막아").
+              390px 폰에서 말풍선 208 + 간격 8 + 캐릭터 96 = 312px로 **가로의 80%**를
+              먹고, `FeedbackPanel`(`fixed bottom-14 z-40`)과 **같은 z-40**이라
+              정답 피드백 위에 겹친다. 캐릭터를 눌러 접을 수는 있었지만 그게
+              접기 버튼이라는 단서가 화면에 없었다 — 눌러 볼 생각이 안 든다.
+              ⚠️ 지우지 말 것: 이 X가 없으면 모바일에서 **화면을 되찾을 방법이 없다.** */}
+          <button
+            type="button"
+            data-testid="guide-bot-dismiss"
+            onClick={(e) => { e.stopPropagation(); dismiss(); }}
+            onPointerDown={(e) => e.stopPropagation()}
+            aria-label={t('guide.aria.dismiss')}
+            className="absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full bg-white text-sm leading-none text-sky-700 shadow ring-1 ring-sky-200"
+          >
+            ✕
+          </button>
+          {message}
+        </div>
+      )}
     </div>
   );
 }
