@@ -293,5 +293,45 @@ for (const file of jsxFiles(join(ROOT, 'src'))) {
 }
 ok(callCount >= 3, `Mascot 호출부를 훑었다 — ${callCount}건 (0이면 정규식이 죽은 것)`);
 
+console.log('④ 상단 배너를 세운 화면은 사이드바 튜터를 접는다');
+// **한 화면에 말하는 사람은 하나다.** 배너를 세워 놓고 SideNav의 HERO_PATHS에
+// 넣지 않으면 같은 캐릭터가 74px(사이드바) + 62px(배너) 둘로 뜨고 각자 다른
+// 말을 한다 — 2026-08-11에 /board에서 실제로 그랬다.
+// 배너 쪽 마스코트와 담당표(TUTOR_BY_PATH)가 **같은 이름**인지도 함께 본다:
+// 다르면 화면을 오갈 때 같은 자리의 캐릭터가 바뀐다.
+{
+  const nav = readFileSync(join(ROOT, 'src/components/SideNav.jsx'), 'utf8');
+  const heroPaths = [...(nav.match(/const HERO_PATHS = \[([^\]]*)\]/)?.[1] ?? '')
+    .matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  ok(heroPaths.length >= 4, `HERO_PATHS를 읽었다 — ${JSON.stringify(heroPaths)}`);
+
+  // 담당표에서 경로별 마스코트 이름을 뽑는다(문자열 리터럴 쌍).
+  const table = nav.slice(nav.indexOf('const TUTOR_BY_PATH'), nav.indexOf('export default function SideNav'));
+  const assigned = {};
+  for (const row of table.split('\n')) {
+    const path = row.match(/p === '([^']+)'/)?.[1];
+    const name = row.match(/name: '([^']+)'/)?.[1];
+    if (path && name) assigned[path] = name;
+  }
+  for (const p of heroPaths) {
+    ok(p in assigned, `${p}에 배너를 세웠는데 담당표(TUTOR_BY_PATH)에 없다 — 폴백 캐릭터가 뜬다`);
+  }
+
+  // 배너를 세운 화면의 마스코트가 담당표와 같은가(2026-08-12에 추가한 둘만 소스로 확인)
+  const banners = [
+    ['/explore', 'src/modules/explore/ExploreHome.jsx'],
+    ['/duel', 'src/modules/duel/DuelPage.jsx'],
+  ];
+  for (const [path, file] of banners) {
+    const src = readFileSync(join(ROOT, file), 'utf8');
+    const used = src.match(/mascot="([a-z]+)"/)?.[1];
+    ok(
+      used === assigned[path],
+      `${path} 배너 마스코트(${used}) ≠ 담당표(${assigned[path]}) — 한 화면에 다른 캐릭터가 뜬다`,
+    );
+    ok(heroPaths.includes(path), `${path}에 배너가 있는데 HERO_PATHS에 없다 — 사이드바 튜터와 둘이 뜬다`);
+  }
+}
+
 console.log(failures === 0 ? '\n전부 통과' : `\n실패 ${failures}건`);
 process.exit(failures === 0 ? 0 : 1);

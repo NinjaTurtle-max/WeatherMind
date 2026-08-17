@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { duelApi } from '../../api';
 import BriefingRoom from '../duel/BriefingRoom';
+import HeroBanner from '../../components/HeroBanner';
 import { useT } from '../../i18n';
 
 /**
@@ -32,7 +33,7 @@ const TABS = [
   { to: '/league', labelKey: 'compete.tabLeague', icon: '🏆' },
 ];
 
-export default function CompeteLayout({ tab, title, subtitle, headerRight, children, below }) {
+export default function CompeteLayout({ tab, title, subtitle, headerRight, mascot = null, heroTitle = null, children, below }) {
   const t = useT();
   const briefingQ = useQuery({
     queryKey: ['duel', 'briefing'],
@@ -72,13 +73,36 @@ export default function CompeteLayout({ tab, title, subtitle, headerRight, child
         })}
       </nav>
 
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-        <div className="min-w-0">
-          <h1 className="text-lg font-extrabold text-slate-900">{title}</h1>
-          {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+      {/* `mascot`을 준 탭만 **상단 배너**로 말한다(2026-08-12 사용자 지시 —
+          예보는 태풍이). 배너를 쓰면 그 경로는 SideNav가 왼쪽 하단 튜터를
+          접는다(HERO_PATHS) — 안 접으면 같은 캐릭터가 한 화면에 둘이 된다.
+          리그는 지시 범위 밖이라 종전 제목 줄 그대로다. 한 껍데기가 두 꼴을
+          갖는 것이 어색하지만, 안 시킨 화면을 같이 바꾸는 쪽이 더 나쁘다. */}
+      {mascot ? (
+        <div className="mb-4">
+          {/* 계층은 다른 배너와 같게 둔다: eyebrow=화면 이름 · title=짧은 말 ·
+              description=긴 안내. 종전에는 subtitle(날짜 + 문장)을 title에
+              넣었는데, title은 한 줄로 잘려 폰에서 날짜와 두 단어만 남았다
+              (2026-08-12 리뷰). 날짜는 문장 앞에 그대로 붙어 있다. */}
+          <HeroBanner
+            testId="compete-hero"
+            mascot={mascot}
+            as="h1"
+            eyebrow={title}
+            title={heroTitle ?? title}
+            description={subtitle}
+            right={headerRight && <div className="flex-none">{headerRight}</div>}
+          />
         </div>
-        {headerRight}
-      </div>
+      ) : (
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-lg font-extrabold text-slate-900">{title}</h1>
+            {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+          </div>
+          {headerRight}
+        </div>
+      )}
 
       {/* grid-cols-[minmax(0,1fr)]는 장식이 아니다 — 격자 항목은 기본이
           min-width:auto라, 브리핑 안의 하늘 타임라인(자체 overflow-x-auto)이

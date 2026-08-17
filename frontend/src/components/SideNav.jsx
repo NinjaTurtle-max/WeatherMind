@@ -30,12 +30,22 @@ import { useT } from '../i18n';
 // 유닛 플레이(/learn/units/…)는 진입 카드가 없는 화면이라 튜터가 남는다.
 const TUTOR_BY_PATH = [
   { match: (p) => p === '/board' || p.startsWith('/board/'), name: 'sun', key: 'board' },
-  { match: (p) => p.startsWith('/learn/'), name: 'drop', key: 'learn' },
-  // 자유 일일 세션(/daily) 행은 **제거됐다**(2026-08-12 — 라우트 폐지).
+  // `/learn` 자신도 넣는다(2026-08-12). 종전에는 하위 경로만 있어서 학습 홈은
+  // **폴백**(구름이)으로 떨어졌다 — 그 화면은 튜터를 접으니 눈에 안 띄었을 뿐,
+  // 담당표가 "이 화면 담당은 누구인가"의 소유자라면 비어 있으면 안 된다.
+  // 값은 LearnHeroCard가 그리는 물방울이(learnEntry.ENTRY_MASCOT)와 같다.
+  //
+  // 자유 일일 세션(/daily) 행은 **제거됐다**(2026-08-12 — 라우트 폐지, main).
   // 그 행이 있던 이유(같은 화면에서 튜터와 정답/해설 말풍선의 화자가 갈리면 안
-  // 된다)는 유효하지만, 이제 학습 세션은 `/learn/units/…` 하나뿐이라 바로 위
+  // 된다)는 유효하지만, 이제 학습 세션은 `/learn/units/…` 하나뿐이라 아래 한
   // 행이 그 몫을 전부 받는다. 세션 라우트가 또 늘면 여기에 행을 더할 것.
+  { match: (p) => p === '/learn' || p.startsWith('/learn/'), name: 'drop', key: 'learn' },
   { match: (p) => p === '/duel' || p.startsWith('/duel/'), name: 'typhoon', key: 'duel' },
+  // 탐구 — 구름이(2026-08-12 사용자 지시). 표에 없어서 **폴백**으로 구름이가
+  // 뜨고 있었는데, 폴백은 "담당이 정해졌다"가 아니라 "모르겠다"다. 그 화면에
+  // 배너를 세우려면 담당이 명시돼야 한다(배너와 사이드바가 같은 표를 봐야
+  // 한 화면에 둘이 안 뜬다).
+  { match: (p) => p === '/explore' || p.startsWith('/explore/'), name: 'cloud', key: 'explore' },
   { match: (p) => p === '/league' || p.startsWith('/league/'), name: 'bolt', key: 'league' },
 ];
 
@@ -55,7 +65,11 @@ export default function SideNav() {
   // '/learn'만 보던 탓에 그 URL에서 둘이 함께 떴다(2026-08-09 코드 리뷰).
   // ⚠️ 하위 경로는 접지 않는다: /learn/units·/board/{id}는 배너가 없는 화면이라
   // 튜터가 남아야 한다.
-  const HERO_PATHS = ['/learn', '/board'];
+  //   /explore·/duel  2026-08-12에 상단 배너가 생겼다(사용자 지시) — 탐구
+  //           구름이 · 예보 태풍이. 배너를 세운 화면은 반드시 여기 넣을 것.
+  //           하위 경로는 여기서도 안 접는다: 시뮬 화면(/explore/typhoon 등)은
+  //           ExploreHome이 아니라 각자 페이지라 배너가 없다.
+  const HERO_PATHS = ['/learn', '/board', '/explore', '/duel'];
   const hideTutor = HERO_PATHS.includes(pathname.replace(/\/+$/, ''));
   const mascot = tutor?.name ?? 'cloud';
   const nameKey = tutor ? `nav.tutor.${tutor.key}.name` : 'home.tutor.name';

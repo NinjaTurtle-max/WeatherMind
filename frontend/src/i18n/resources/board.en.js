@@ -463,6 +463,7 @@ export default {
       sandboxTitle: 'Free experiment',
       sandboxDesc: 'No goal, no grading. Place air masses, fronts, moisture and sunlight freely and watch what weather appears.',
       sandboxInputs: '9 elements · no grading · no clouds spent',
+      heroTitle: 'What shall we play with today?',
       title: '🔭 Explore',
       subtitle: 'A space to explore the principles of weather and climate by moving the conditions yourself.',
       typhoonTitle: 'Build a Typhoon',
