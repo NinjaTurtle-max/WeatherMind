@@ -297,7 +297,7 @@ $C exec -T postgres psql -U weathermind -d weathermind -v ON_ERROR_STOP=1 \
 #    그러면 전 유닛이 단일 코스로 뭉치고 GET /courses가 비어 학습 화면이 백지가 된다.
 #    scripts/smoke.sh가 이 순서를 계약으로 검사한다.
 $C exec backend python -m app.scripts.seed_courses    # ← 빠뜨리기 쉽다
-$C exec backend python -m app.scripts.seed_content    # 문항 284 (2026-08-09 실측)
+$C exec backend python -m app.scripts.seed_content    # 문항 1,012 (2026-08-12 실측 — 08-09의 284는 낡았다)
 $C exec backend python -m app.scripts.seed_units      # 유닛 24 (courses 필요)
 $C exec backend python -m app.scripts.seed_badges     # 배지
 
@@ -484,6 +484,20 @@ git diff --name-only <이전sha>..HEAD | grep -E 'alembic/versions/|database/see
 | 위 어느 것도 아님 | 없음 — 이미지 교체만으로 끝난다 |
 
 시드 스크립트는 전부 멱등이라 **의심되면 그냥 돌리는 쪽이 안전하다.**
+
+### 🔴 9.0a 시드를 갱신해도 **이미 발급된 세션은 안 바뀐다**
+
+문항 payload가 발급 시점에 `quiz_logs`로 **스냅샷**되어 채점이 그 사본으로 돈다.
+위 표대로 시드를 다시 넣어도 **이미 세션을 받은 학습자는 재발급 전까지 옛 문항으로
+푼다.** 시드가 DB에 들어간 것과 학습자 화면이 바뀌는 것은 다른 사건이다.
+
+- **채점 결함을 고친 롤링** — 시드 갱신만으로는 **오늘 이미 세션을 받은 사람에게
+  안 닿는다.** 급하면 그 사실을 인지하고 별도 대응을 정할 것(세션 만료를 기다리거나
+  대상 세션을 무효화하거나 — 둘 다 이 문서 밖 결정이다)
+- **표기·해설만 고친 롤링** — 다음 세션부터 반영되면 충분하다
+
+⚠️ **「시드를 넣었으니 반영됐다」로 검증을 끝내지 말 것.** 확인은 **새 세션을 받아서**
+한다. 옛 세션을 열어 보고 「안 고쳐졌다」로 오진하는 것이 이 구조의 함정이다.
 
 ### 9.1 ⚠️ Redis 영속성을 처음 켜는 갱신 — **선행 1회 명령이 있다**
 
