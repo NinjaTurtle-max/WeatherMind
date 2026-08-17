@@ -317,7 +317,14 @@ export default function GuideBot({ pathname = '/', state = {}, laneBusy = false,
       // `Layout`이 `SideNav`(:211) → `TabBar`(:322) → `GuideBot`(:341) 순으로
       // 그리므로 이 노드가 마지막이다. ⚠️ Layout의 그 순서가 바뀌면 여기가
       // 조용히 가려진다.
-      className={`fixed bottom-20 left-4 z-50 flex cursor-grab touch-none select-none items-end gap-2 active:cursor-grabbing md:bottom-6 ${laneBusy ? LANE_YIELD_CLASS : ''}`}
+      //
+      // ⚠️ **세로 정렬은 `items-start`다**(2026-08-17 — 종전 `items-end`).
+      // 바닥에 맞추면 말풍선이 캐릭터 발치까지 내려와 **화면 맨 아래 줄을
+      // 덮는다**(학습 경로 카드의 「현재 진도」 막대에서 실제로 그랬다).
+      // 위에 맞추면 말풍선이 캐릭터 **얼굴 높이**로 올라가고, 바닥 한 줄이
+      // 비어 그 겹침이 사라진다. 캐릭터가 더 크므로 상자 높이는 그대로다
+      // — 움직이는 것은 말풍선뿐이다.
+      className={`fixed bottom-20 left-4 z-50 flex cursor-grab touch-none select-none items-start gap-2 active:cursor-grabbing md:bottom-6 ${laneBusy ? LANE_YIELD_CLASS : ''}`}
     >
       <button
         type="button"
@@ -388,10 +395,16 @@ export default function GuideBot({ pathname = '/', state = {}, laneBusy = false,
         >
           {/* 꼬리 — 캐릭터 쪽(왼쪽)을 가리킨다. 종전 오른쪽 꼬리
               (`-right-[5px] … border-b border-r`)의 **수평 거울상**이다:
-              위치가 좌우로 뒤집히고, 드러나는 두 변도 r → l로 바뀐다. */}
+              위치가 좌우로 뒤집히고, 드러나는 두 변도 r → l로 바뀐다.
+
+              ⚠️ 세로 기준이 `bottom-8` → **`top-8`**로 바뀌었다(2026-08-17).
+              바깥이 `items-start`라 말풍선 **위쪽**이 캐릭터 위쪽에 고정되므로,
+              위에서 재야 꼬리가 항상 같은 높이(= 얼굴)를 가리킨다. 아래에서
+              재면 문구가 한 줄이냐 세 줄이냐에 따라 꼬리가 오르내려서, 긴
+              문구에서는 얼굴이 아니라 발치를 가리킨다. */}
           <span
             aria-hidden="true"
-            className="absolute -left-[5px] bottom-8 h-2.5 w-2.5 rotate-45 border-b border-l border-sky-200 bg-sky-50"
+            className="absolute -left-[5px] top-8 h-2.5 w-2.5 rotate-45 border-b border-l border-sky-200 bg-sky-50"
           />
           {/* 닫기 X — **모바일에서 필수다**(2026-08-13 클라이언트 제보:
               "컴퓨터는 괜찮은데 모바일 웹 접속이 가로막아").

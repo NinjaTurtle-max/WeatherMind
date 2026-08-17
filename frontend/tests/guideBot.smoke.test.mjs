@@ -155,6 +155,15 @@ try {
     /\bz-50\b/.test(rootCls) && !/\bz-40\b/.test(rootCls));
   check('ⓒ 꼬리가 캐릭터 쪽(왼쪽)을 가리킨다',
     /-left-\[5px\][^"]*border-b border-l/.test(botSrc));
+  // ⓓ 말풍선을 **얼굴 높이**에 맞춘다(2026-08-17 사용자 지시). 바닥 정렬이면
+  //    말풍선이 캐릭터 발치까지 내려와 화면 맨 아래 줄을 덮는다(학습 경로의
+  //    「현재 진도」 막대에서 실제로 그랬다). 둘이 한 쌍이라 따로 문다:
+  //    `items-start`가 말풍선 위쪽을 캐릭터 위쪽에 붙이고, 꼬리도 **위에서**
+  //    재야(`top-8`) 문구 줄 수와 무관하게 같은 높이를 가리킨다.
+  check('ⓓ 말풍선이 캐릭터 위쪽(얼굴)에 맞춰진다 — items-start',
+    /\bitems-start\b/.test(rootCls) && !/\bitems-end\b/.test(rootCls));
+  check('ⓓ 꼬리를 위에서 잰다 — 문구가 길어져도 얼굴을 가리킨다',
+    /-left-\[5px\] top-8\b/.test(botSrc));
   check('ⓒ 자식 순서가 캐릭터 → 말풍선이다 — 뒤집히면 말풍선이 화면 밖으로 나간다',
     botSrc.indexOf('data-testid="guide-bot-toggle"') < botSrc.indexOf('data-testid="guide-bot-bubble"'));
   // 옛 좌표(오른쪽 자리)가 남아 있으면 이 변경이 그 사람에게만 안 보인다.
