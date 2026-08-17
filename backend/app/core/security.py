@@ -57,10 +57,28 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
     """비밀번호 일치 여부. 해시가 손상·미지 형식이면 예외 대신 False.
 
     (passlib은 UnknownHashError를 던져 500이 됐다 — 인증 실패는 401이어야 한다.)
+
+    ⚠️ **`(ValueError, TypeError)`만으로는 부족하다** — 설치된 bcrypt 판에 따라
+    갈린다. `bcrypt==4.0.x`의 Rust 확장은 짧은/깨진 해시에서 `ValueError`가 아니라
+    **패닉**을 낸다(`pyo3_runtime.PanicException: range end index 22 out of range
+    for slice of length 9`). 그 예외는 `Exception`이 아니라 `BaseException`을
+    상속하므로 위 절이 못 잡고 **500**이 나간다 — 이 함수가 막으려던 바로 그
+    결과다. requirements가 `bcrypt>=4.0`(핀 없음)이라 4.0이 해석되는 환경이
+    실재하고, 실제로 이 컨테이너(4.0.1)에서 `test_손상된_해시는_예외가_아니라_False`가
+    붉었다(2026-08-14). bcrypt 5.x에서는 같은 입력이 `ValueError`라 초록이다 —
+    즉 **어느 판이 깔렸는지에 따라 500이 되는** 종류의 결함이다.
+
+    그래서 `BaseException`까지 받되 **중단 신호는 돌려보낸다**: `KeyboardInterrupt`·
+    `SystemExit`(+`GeneratorExit`)를 삼키면 프로세스가 안 죽는다. 손상된 해시를
+    False로 접는 것과 종료 요청을 무시하는 것은 다른 일이다.
     """
     try:
         return bcrypt.checkpw(_secret(plain_password), password_hash.encode("utf-8"))
     except (ValueError, TypeError):
+        return False
+    except (KeyboardInterrupt, SystemExit, GeneratorExit):
+        raise
+    except BaseException:  # bcrypt 4.0.x의 pyo3 PanicException
         return False
 
 

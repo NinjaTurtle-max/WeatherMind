@@ -122,7 +122,22 @@ function readPos(win, node) {
   }
 }
 
-export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_SPEAKER }) {
+/**
+ * 화면 아래 오버레이 레인을 양보하는 조건(2026-08-14, B3 — §4.15).
+ *
+ * `laneBusy`가 참이면 **좁은 화면에서만** 자취를 감춘다. 폭 기준을 `lg`로 잡은 것은
+ * 임의값이 아니라 **`FeedbackPanel`의 짝**이다: `SessionRunner`가 그 패널을
+ * `<div className="lg:hidden">`에 감싸 좁은 화면에서만 띄우고, 넓은 화면에서는
+ * 같은 내용을 오른쪽 열 안(`FeedbackCard`)에 인라인으로 넣는다. 즉 레인을 다투는
+ * 구간이 정확히 `<lg`다. `max-lg:hidden`은 그 여집합이므로 **둘이 동시에 화면에
+ * 있을 수 있는 폭이 존재하지 않는다** — z 순서가 아니라 점유 자체가 갈린다.
+ * ⚠️ `SessionRunner`의 감싸개 분기점이 바뀌면 여기도 같이 바꿔야 한다.
+ * ⚠️ **언마운트가 아니라 CSS 숨김이다.** 조건부 렌더로 하면 사용자가 끌어다 둔
+ * 자리(`pos`)와 3D 로드 상태가 매번 날아간다 — 위 SSR/영속 주석의 전제가 깨진다.
+ */
+const LANE_YIELD_CLASS = 'max-lg:hidden';
+
+export default function GuideBot({ pathname = '/', state = {}, laneBusy = false, speaker = GUIDE_SPEAKER }) {
   const t = useT();
   const [pos, setPos] = useState(null); // null = 아직 CSS 기본 자리(SSR 포함)
   const [open, setOpen] = useState(true);
@@ -259,6 +274,9 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
       data-guide-rule={ruleId}
       data-guide-kind={kind}
       data-guide-placed={pos ? '1' : '0'}
+      // 레인 점유 상태를 **항상** 내보낸다(둘 중 하나). 없을 때만 없는 속성으로
+      // 두면 "아직 안 붙었다"와 "양보 안 한다"를 구별할 수 없다.
+      data-guide-lane={laneBusy ? 'yielded' : 'free'}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -278,7 +296,7 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
       // 피하려고 있는데, TabBar는 `md:hidden`이라 **767px까지 떠 있다**. 여기를
       // `sm:`(640px)으로 두면 640~767px 구간에서 z-50 불투명 탭바가 z-40 캐릭터의
       // 아랫부분을 덮는다 — 코드 리뷰가 실측으로 잡았다.
-      className="fixed bottom-20 right-4 z-40 flex cursor-grab touch-none select-none items-end gap-2 active:cursor-grabbing md:bottom-6"
+      className={`fixed bottom-20 right-4 z-40 flex cursor-grab touch-none select-none items-end gap-2 active:cursor-grabbing md:bottom-6 ${laneBusy ? LANE_YIELD_CLASS : ''}`}
     >
       {open && (
         // 말풍선이 캐릭터 **왼쪽**에 온다 — 캐릭터 기본 자리가 오른쪽 아래라
@@ -289,7 +307,12 @@ export default function GuideBot({ pathname = '/', state = {}, speaker = GUIDE_S
           aria-live="polite"
           // 캐릭터가 56 → 128px가 되면서 말풍선도 함께 키웠다(13rem은 그 옆에서
           // 쪽지처럼 작아 보인다). 꼬리는 캐릭터 세로 중앙에 맞춘다.
-          className="relative max-w-[13rem] rounded-2xl bg-sky-50 px-4 py-3 text-sm leading-snug text-sky-900 shadow-lg ring-1 ring-sky-200 2xl:max-w-[17rem]"
+          // ⚠️ 폭 상한이 **셋**이다(2026-08-14 B3에서 좁은 쪽 한 칸을 더 넣었다).
+          // §4.15 실측: 390px 폰에서 말풍선 208 + 간격 8 + 캐릭터 96 = 312px으로
+          // **가로의 80%**를 먹었다. 10.5rem(168)로 내리면 272px = 70%다. 레인
+          // 양보(위 LANE_YIELD_CLASS)가 해설과의 충돌은 이미 없앴지만, 해설이 없는
+          // 화면(학습 경로·보드)에서도 캐릭터 상자가 본문 오른쪽을 덮는 것은 남는다.
+          className="relative max-w-[10.5rem] rounded-2xl bg-sky-50 px-4 py-3 text-sm leading-snug text-sky-900 shadow-lg ring-1 ring-sky-200 sm:max-w-[13rem] 2xl:max-w-[17rem]"
         >
           <span
             aria-hidden="true"

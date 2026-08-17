@@ -108,6 +108,40 @@ class TestLegacyHashCompat:
         for broken in ["", "not-a-hash", "$2b$12$too-short", "$9z$99$xxx"]:
             assert verify_password("pw12345678", broken) is False
 
+    def test_BaseException_판_확장_패닉도_False다(self, monkeypatch):
+        """🔴 **위 테스트는 설치된 bcrypt 판에 따라 갈렸다**(2026-08-14).
+
+        `bcrypt==4.0.x`의 Rust 확장은 짧은 해시에서 `ValueError`가 아니라
+        `pyo3_runtime.PanicException`을 낸다 — `BaseException` 상속이라
+        `except (ValueError, TypeError)`가 못 잡고 **500**이 나갔다. 5.x에서는
+        같은 입력이 `ValueError`라 초록이다. requirements가 `bcrypt>=4.0`
+        (핀 없음)이라 **어느 판이 깔리느냐로 500 여부가 갈리는** 상태였다.
+
+        그래서 실 bcrypt 판에 기대지 않고 **예외 종류로 직접** 문다 — 그러지
+        않으면 CI에 5.x가 깔린 날 이 계약이 조용히 사라진다(CLAUDE.md가
+        「로컬에서 안 도는 테스트가 CI에서만 돈다」로 적어 둔 함정의 반대 방향).
+        """
+
+        class _FakePanic(BaseException):
+            pass
+
+        monkeypatch.setattr(
+            "app.core.security.bcrypt.checkpw",
+            lambda *_a, **_k: (_ for _ in ()).throw(_FakePanic("panicked")),
+        )
+        assert verify_password("pw12345678", "$2b$12$whatever") is False
+
+    @pytest.mark.parametrize("signal", [KeyboardInterrupt, SystemExit])
+    def test_중단_신호는_삼키지_않는다(self, monkeypatch, signal):
+        """`BaseException`을 넓게 받으면서 여기를 안 열어 두면 **프로세스가 안 죽는다** —
+        Ctrl-C·종료 요청이 「비밀번호 불일치」로 접힌다."""
+        monkeypatch.setattr(
+            "app.core.security.bcrypt.checkpw",
+            lambda *_a, **_k: (_ for _ in ()).throw(signal()),
+        )
+        with pytest.raises(signal):
+            verify_password("pw12345678", "$2b$12$whatever")
+
 
 # ═══════════════════════════════════════════════════════════════
 # 72바이트 경계 — passlib↔bcrypt 비호환의 진원지

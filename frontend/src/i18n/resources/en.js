@@ -26,6 +26,11 @@ export default {
     ko: '한국어',
     en: 'English',
   },
+  // Source attribution (contest rule). The agency names stay in Korean on purpose —
+  // they are proper nouns of the data provider, not UI copy to translate.
+  attribution: {
+    data: 'Data: KMA Weather Nuri · KMA API Hub',
+  },
   common: {
     loading: 'Loading…',
     retry: 'Try again',
@@ -42,6 +47,7 @@ export default {
       board: { name: 'Sunny', line: 'What weather shall we build?' },
       learn: { name: 'Dewey', line: 'How far shall we go today?' },
       duel: { name: 'Twister', line: 'Read the charts and call tomorrow!' },
+      explore: { name: 'Cloud', line: 'What shall we look into today?' },
       league: { name: 'Bolt', line: "Shall we climb this week's ranking?" },
     },
   },
@@ -420,13 +426,13 @@ export default {
       boardChip: 'Board puzzle unit',
       placementOpened: '🧭 Opened by placement',
     },
+    // 2026-08-14 (S-11 orphan-key sweep): `body`·`resume`·`regenResume` removed —
+    // the free-daily-session card and `/daily` route that owned them were deleted
+    // on 2026-08-12, so nothing reads them. See ko.js for the full note.
     daily: {
       title: 'Free daily session',
-      body: "Want today's session right away instead of the set path?",
       cta: "Start today's session →",
-      resume: 'Resume your session →',
       regen: '☁️ About {min} min until a cloud returns',
-      regenResume: '☁️ About {min} min until a cloud returns — a session you started today can still be finished.',
     },
     path: {
       sectionEyebrow: 'Section {n} · {title}',
@@ -609,6 +615,7 @@ export default {
     },
   },
   duel: {
+    heroTitle: 'Can you beat the caster today?',
     result: {
       win: 'Win',
       lose: 'Loss',
@@ -727,7 +734,8 @@ export default {
     submit: 'Submit prediction (1/week)',
     minOverMax: 'The low cannot be higher than the high.',
     submitFailed: "Couldn't submit your prediction.",
-    leaderboard: 'Leaderboard',
+    // 2026-08-14 (S-11): `leaderboard` heading key removed — the dashboard rework
+    // made `dash.ranking` the heading in that slot. `leaderboardLoading` is live.
     leaderboardLoading: 'Loading rankings…',
     myHistory: 'My league history',
     accuracy: 'Accuracy {score}',
@@ -775,6 +783,15 @@ export default {
       guestFailedBody: 'The connection hiccuped. Shall we try again?',
       guestFailedRetry: 'Try again',
       guestFailed: "Couldn't start. Please try again in a moment.",
+      // Expired screen (2026-08-14) — NOT the same as a failed issue. Whoever
+      // lands here already had an account and only lost this device's key.
+      // Silently minting a new one would strand that progress for good.
+      expiredTitle: 'This device lost its connection',
+      expiredBody:
+        'Your learning progress is still there. If you saved it, you can load it back — otherwise you can start fresh.',
+      expiredLoad: 'Load my progress',
+      expiredFresh: 'Start fresh',
+      expiredFreshNote: "Starting fresh means you can't get back to the progress left on this device.",
       guestNickname: 'Guest',
       email: 'Email',
       password: 'Password',

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import HeroBanner from '../../components/HeroBanner';
 import { useT } from '../../i18n';
 
 /**
@@ -53,12 +54,19 @@ export default function ExploreHome() {
   const t = useT();
   return (
     <div className="space-y-4 py-4">
-      <div>
-        <h1 className="text-lg font-extrabold text-slate-800">{t('explore.home.title')}</h1>
-        <p className="mt-1 text-xs text-slate-500">
-          {t('explore.home.subtitle')}
-        </p>
-      </div>
+      {/* 상단 배너 — 학습·보드와 같은 꼴(2026-08-12 사용자 지시). 왼쪽 하단
+          사이드바 튜터를 걷고 여기서 구름이가 말한다. 화면 담당의 소유자는
+          SideNav `TUTOR_BY_PATH`이고, 그 표에서 /explore가 구름이다. */}
+      <HeroBanner
+        testId="explore-hero"
+        mascot="cloud"
+        as="h1"
+        eyebrow={t('explore.home.title')}
+        // 안내 문장은 **title이 아니라 description**이다 — title은 한 줄로
+        // 잘려서, 문장을 넣으면 1440에서도 끝이 사라진다(2026-08-12 리뷰).
+        title={t('explore.home.heroTitle')}
+        description={t('explore.home.subtitle')}
+      />
 
       {/* 넷을 **한 줄에**(2026-08-11 사용자 지시). 2열 정사각 시절에는 2×2로
           접혀 네 번째(기후 탐정)가 접힌 화면 밖으로 내려갔다 — 탐구는 넷 중

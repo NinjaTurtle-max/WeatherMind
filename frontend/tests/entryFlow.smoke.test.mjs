@@ -566,6 +566,156 @@ try {
     );
     r.unmount();
   });
+
+  // ── ⑩ 세션 만료 — 「다시 시도」가 계정 교체가 되지 않는다 ──────────────────
+  /**
+   * 🔴 **이 시나리오가 무는 결함이 가장 조용했다.** 토큰이 지워진 뒤(401 인터셉터
+   * → `authStore.logout()`) `RequireAuth`가 `GuestIssueRetry`를 재사용했고, 그
+   * 「다시 시도」 버튼이 `resetGuestAutoIssue()`를 불러 **새 게스트를 발급**했다.
+   * 게스트 비밀번호는 무작위 시크릿이라 옛 계정으로 돌아갈 길이 없다 — 버튼 이름은
+   * 「다시 시도」인데 실제 결과는 **진도 영구 소실**이었다. `App.jsx:85` 주석이
+   * "조용히 새 게스트를 발급하면 만료가 계정 교체로 둔갑한다"고 금지해 둔 바로
+   * 그 일을, 같은 파일의 렌더 분기가 하고 있었다.
+   *
+   * 세 가지를 함께 본다. 하나만 보면 갈린다:
+   *   ⑩-a 만료 화면이 뜨고 **발급이 자동으로 안 나간다**(교체 차단).
+   *   ⑩-b 「진도 불러오기」가 실제로 그 화면에 **닿는다** — `/login`이
+   *        `RequireAuth` 안쪽 라우트라 토큰 게이트를 뚫지 못하면 만료 화면으로
+   *        되돌아오는 무한 루프가 된다. 목적지가 살아 있는지까지 봐야 한다.
+   *   ⑩-c 「새로 시작하기」는 여전히 **발급을 일으킨다** — 막기만 하고 출구를
+   *        닫으면 학습자가 갇힌다(MT-29가 막으려던 결과 그 자체다).
+   */
+  await scenario('⑩ 세션 만료 → 선택 화면(자동 계정 교체 없음)', async () => {
+    await coldOpen();
+    const r = mountApp('/learn'); // 딥링크 = 정보 입력 게이트 없음, 바로 발급
+    await waitFor(() => useAuthStore.getState().accessToken, 8000, '게스트 발급');
+    const afterIssue = xhrLog.length;
+
+    // 401 인터셉터가 하는 일과 같다 — 토큰만 지운다.
+    useAuthStore.getState().logout();
+
+    await waitFor(() => $('[data-testid="session-expired"]'), 8000, '만료 화면');
+    ok(
+      Boolean($('[data-testid="session-expired"]')),
+      '⑩-a 토큰이 지워지면 만료 화면이 뜬다',
+    );
+    ok(
+      $('[data-testid="guest-issue-retry"]') === null,
+      '⑩-a 발급 실패 재시도 화면이 아니다(사유가 다르다 — 계정이 이미 있다)',
+    );
+    await sleep(400); // 자동 발급이 있었다면 이 사이에 나간다
+    ok(
+      guestCalls(afterIssue).length === 0,
+      `⑩-a 🔴 만료만으로는 새 게스트를 발급하지 않는다 — 실제 ${guestCalls(afterIssue).length}회`,
+    );
+
+    // ⑩-b 「진도 불러오기」 → 목적지가 실제로 그려진다(토큰 없이 통과)
+    $('[data-testid="session-expired-load"]').click();
+    await waitFor(
+      () => text().includes('저장할 때 쓴 이메일과 비밀번호'),
+      8000,
+      () => `진도 불러오기 화면 — 실제 본문 "${text().slice(0, 120)}"`,
+    );
+    ok(
+      Boolean($('input[name="email"]')) && Boolean($('input[name="password"]')),
+      '⑩-b 「진도 불러오기」가 실제 화면에 닿는다(토큰 게이트 통과)',
+    );
+    r.unmount();
+  });
+
+  await scenario('⑩-c 만료 화면의 「새로 시작하기」는 발급을 일으킨다', async () => {
+    await coldOpen();
+    const r = mountApp('/learn');
+    await waitFor(() => useAuthStore.getState().accessToken, 8000, '게스트 발급');
+    const afterIssue = xhrLog.length;
+    useAuthStore.getState().logout();
+    await waitFor(() => $('[data-testid="session-expired-fresh"]'), 8000, '만료 화면');
+
+    $('[data-testid="session-expired-fresh"]').click();
+    await waitFor(
+      () => useAuthStore.getState().accessToken,
+      8000,
+      '「새로 시작하기」 뒤 새 게스트 발급',
+    );
+    ok(
+      guestCalls(afterIssue).length === 1,
+      `⑩-c 누른 사람에게만 발급이 일어난다(정확히 1회) — 실제 ${guestCalls(afterIssue).length}회`,
+    );
+    r.unmount();
+  });
+  // ── ⑪ 새로고침해도 만료 안내가 유지된다 ────────────────────────────────
+  /**
+   * 🔴 **⑩만으로는 부족하다.** ⑩이 무는 것은 「이 페이지 로드에서」 토큰이
+   * 지워진 경우이고, 그 판정은 모듈 스코프 플래그(`guestSettled`)가 들고 있다.
+   * 학습자가 **새로고침**하면 그 플래그가 초기화돼 「첫 방문자」와 구분이 안 되고,
+   * 만료 안내 대신 새 게스트가 조용히 발급된다 — 안내 화면을 만들어 놓고 가장
+   * 흔한 사용자 행동 하나로 우회되는 셈이다. persist되는 `authStore.hadAccount`가
+   * 그 구분을 갖는다.
+   *
+   * 새로고침의 재현: `resetGuestAutoIssue()`로 모듈 플래그를 첫 로드 상태로
+   * 되돌린 뒤(그것이 `hadAccount`도 지우므로) 스토어에 **persist에서 복원된 것과
+   * 같은 상태**를 직접 심는다 — 토큰 없음 + `hadAccount: true`.
+   */
+  await scenario('⑪ 새로고침 후에도 만료 안내(조용한 재발급 없음)', async () => {
+    const mark = await coldOpen();
+    useAuthStore.setState({ hadAccount: true }); // persist 복원분
+    const r = mountApp('/learn');
+    await waitFor(() => $('[data-testid="session-expired"]'), 8000, '만료 화면');
+    await sleep(400);
+    ok(
+      guestCalls(mark).length === 0,
+      `⑪ 🔴 새로고침이 만료를 첫 방문으로 둔갑시키지 않는다 — 실제 ${guestCalls(mark).length}회`,
+    );
+    ok(
+      !useAuthStore.getState().accessToken,
+      '⑪ 토큰이 조용히 생기지 않았다',
+    );
+    // 출구는 살아 있다 — 막기만 하고 닫으면 학습자가 갇힌다.
+    $('[data-testid="session-expired-fresh"]').click();
+    await waitFor(() => useAuthStore.getState().accessToken, 8000, '「새로 시작하기」 발급');
+    ok(guestCalls(mark).length === 1, '⑪ 「새로 시작하기」는 여전히 발급을 일으킨다');
+    r.unmount();
+  });
+
+  // ── ⑫ 늦게 도착한 자동 발급이 복구된 계정을 덮지 않는다 ──────────────────
+  /**
+   * 🔴 `/login`(진도 불러오기)이 토큰 게이트를 통과하게 되면서 생긴 경합이다.
+   * 그 화면은 토큰 없이 열리므로 **자동 게스트 발급과 동시에** 진행될 수 있고,
+   * 발급이 느리게 성공하면 방금 복구한 계정 토큰을 게스트 토큰이 덮어쓴다 —
+   * 학습자는 로그인에 성공하고도 빈 게스트로 떨어진다.
+   *
+   * 재현은 「로그인이 먼저 끝난다」를 만들면 된다: 발급이 날아가는 동안
+   * 스토어에 복구 토큰을 심고, 발급 응답이 도착한 **뒤에** 그 토큰이 살아
+   * 있는지 본다.
+   */
+  await scenario('⑫ 진행 중인 자동 발급이 복구된 토큰을 덮지 않는다', async () => {
+    // ⚠️ **경합을 우연에 맡기지 않는다.** 마운트 직후 토큰을 심으면 발급이
+    // 아예 시작되지 않고(effect의 `if (accessToken)` 분기), 요청이 나간 뒤를
+    // 노리면 응답이 먼저 도착해 간헐 실패한다. 발급 **응답만** 지연시켜
+    // 「로그인이 먼저 끝났다」를 결정적으로 만든다.
+    const slow = client.interceptors.response.use(async (res) => {
+      if (res.config?.url === '/auth/guest') await sleep(700);
+      return res;
+    });
+    try {
+      const mark = await coldOpen();
+      const r = mountApp('/learn'); // 발급 시작
+      await waitFor(() => guestCalls(mark).length === 1, 8000, '발급 요청이 나갔다');
+      // 응답이 도착하기 전에 「로그인 성공」을 심는다(LoadProgressPage와 동일).
+      useAuthStore.getState().setTokens({
+        accessToken: 'restored-access',
+        refreshToken: 'restored-refresh',
+      });
+      await sleep(1200); // 지연된 발급 응답이 도착하고도 남을 시간
+      ok(
+        useAuthStore.getState().accessToken === 'restored-access',
+        `⑫ 🔴 늦게 온 발급분이 복구 토큰을 덮지 않는다 — 실제 "${useAuthStore.getState().accessToken}"`,
+      );
+      r.unmount();
+    } finally {
+      client.interceptors.response.eject(slow);
+    }
+  });
 } finally {
   await vite.close();
   httpServer.close();

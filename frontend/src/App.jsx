@@ -114,13 +114,22 @@ let guestFailed = false;
  */
 let guestErrorCode = null;
 
-/** 테스트 전용 — 다음 진입에서 자동 발급을 다시 시도할 수 있게 되돌린다. */
+/**
+ * 다음 진입에서 자동 발급을 다시 시도할 수 있게 되돌린다.
+ *
+ * 소비처는 둘이다: 테스트 하네스와 **만료 화면의 「새로 시작하기」**. 후자가
+ * 있으므로 `authStore.hadAccount`도 함께 지운다 — 그것이 남아 있으면 아래
+ * `RequireAuth`가 계속 만료 화면을 띄워 버튼이 아무 일도 안 하는 것처럼 보인다.
+ * 「새로 시작하기」는 학습자가 옛 계정을 포기한다고 명시한 순간이라, 그 한
+ * 지점에서만 기억을 지우는 것이 맞다.
+ */
 export function resetGuestAutoIssue() {
   guestAttempted = false;
   guestSettled = false;
   guestPromise = null;
   guestFailed = false;
   guestErrorCode = null;
+  useAuthStore.getState().forgetAccount();
 }
 
 /**
@@ -150,6 +159,13 @@ function issueGuestOnce(levelGroup = null, nickname = null) {
       .post('/auth/guest', Object.keys(body).length > 0 ? body : undefined)
       .then(({ data }) => {
         const store = useAuthStore.getState();
+        // 🔴 **그 사이에 다른 통로로 토큰이 생겼으면 덮지 않는다.** 「진도
+        // 불러오기」(`/login`)는 토큰 없이 열리므로(아래 `AT_LOAD_PROGRESS`)
+        // 이 발급과 **동시에** 진행될 수 있다. 발급이 느리게 성공하면 방금
+        // 복구한 계정 토큰을 게스트 토큰이 덮어써, 학습자가 로그인에 성공하고도
+        // 빈 게스트로 떨어진다. 늦게 온 발급분은 버리는 쪽이 항상 옳다 —
+        // 사용자가 명시적으로 만든 세션이 자동 발급보다 우선한다.
+        if (store.accessToken) return true;
         store.setTokens({ accessToken: data.access_token, refreshToken: data.refresh_token });
         // 학습자가 이름을 적었으면 **그 이름을 화면에 쓴다** — 서버가 그것으로
         // 계정을 만들었는데 화면만 「게스트」로 부르면 두 소유자가 갈린다.
@@ -187,7 +203,11 @@ function issueGuestOnce(levelGroup = null, nickname = null) {
 function GuestIssueRetry({ onRetry }) {
   const locale = getCurrentLocale();
   return (
-    <div className="mx-auto mt-24 max-w-sm px-6 text-center">
+    // ⚠️ `data-testid`는 장식이 아니다 — `entryFlow` ⑨-c가
+    // `$('[data-testid="guest-issue-retry"]') === null`로 「중복이 재시도 화면으로
+    // 새지 않았다」를 단정하는데, **이 속성이 없어서 그 단정이 공허하게 통과**하고
+    // 있었다(2026-08-14 발견). 붙이는 순간 그 계약이 실제로 물기 시작한다.
+    <div data-testid="guest-issue-retry" className="mx-auto mt-24 max-w-sm px-6 text-center">
       <p className="text-4xl" aria-hidden="true">☁️</p>
       <h1 className="mt-3 text-lg font-extrabold text-slate-800">
         {translate(locale, 'auth.login.guestFailedTitle')}
@@ -207,6 +227,62 @@ function GuestIssueRetry({ onRetry }) {
 }
 
 /**
+ * 세션 만료 화면 — **발급 실패(`GuestIssueRetry`)와 다른 상황이고, 다르게 받는다.**
+ *
+ * 🔴 여기 오는 조건이 곧 결함의 설명이다: `guestSettled`가 참인데 토큰이 없다 =
+ * **토큰을 한 번 봤고 그 뒤 지워졌다**(401 인터셉터 → `authStore.logout()`).
+ * 즉 이 사람에게는 **서버에 계정과 진도가 이미 있다.** 종전에는 이 분기가
+ * `GuestIssueRetry`를 그대로 재사용했고, 그 「다시 시도」 버튼이
+ * `resetGuestAutoIssue()`를 불러 **새 게스트를 발급**했다 — 게스트 비밀번호는
+ * 무작위 시크릿이라 옛 계정으로 돌아갈 방법이 없다. 「다시 시도」라고 적힌
+ * 버튼이 실제로는 **계정 교체**였고, 모듈 스코프 주석(:85)이 "조용히 새 게스트를
+ * 발급하면 만료가 계정 교체로 둔갑한다"고 금지한 바로 그 일이다.
+ *
+ * 그래서 자동으로 아무것도 하지 않고 **묻는다**:
+ *   ⑴ 진도 불러오기(`/login` = `LoadProgressPage`) — 진도를 저장해 둔 사람
+ *   ⑵ 새로 시작하기 — 결과를 적어 두고 **누른 사람에게만** 새 게스트를 발급
+ *
+ * ⚠️ MT-29·`LoadProgressPage` 계약 ③(「발급 실패 폴백을 로그인 화면으로 되돌리지
+ * 않는다」)과 충돌하지 않는다 — 그 계약이 막는 것은 **발급 실패**(위 `guestFailed`
+ * 분기)이고 그쪽은 손대지 않았다. 연결 나쁜 심사위원은 계정 화면을 보지 않는다.
+ * 여기는 토큰을 가진 적이 있어야만 닿는 분기라 첫 접속에서는 절대 뜨지 않는다.
+ */
+function SessionExpired({ onStartFresh }) {
+  const locale = getCurrentLocale();
+  const navigate = useNavigate();
+  return (
+    <div data-testid="session-expired" className="mx-auto mt-24 max-w-sm px-6 text-center">
+      <p className="text-4xl" aria-hidden="true">🔑</p>
+      <h1 className="mt-3 text-lg font-extrabold text-slate-800">
+        {translate(locale, 'auth.login.expiredTitle')}
+      </h1>
+      <p className="mt-1.5 text-sm text-slate-500">
+        {translate(locale, 'auth.login.expiredBody')}
+      </p>
+      <button
+        type="button"
+        data-testid="session-expired-load"
+        onClick={() => navigate(AT_LOAD_PROGRESS)}
+        className="mt-5 w-full rounded-xl bg-sky-600 py-2.5 text-sm font-extrabold text-white hover:bg-sky-700"
+      >
+        {translate(locale, 'auth.login.expiredLoad')}
+      </button>
+      <button
+        type="button"
+        data-testid="session-expired-fresh"
+        onClick={onStartFresh}
+        className="mt-2 w-full rounded-xl bg-slate-100 py-2.5 text-sm font-extrabold text-slate-600 hover:bg-slate-200"
+      >
+        {translate(locale, 'auth.login.expiredFresh')}
+      </button>
+      <p className="mt-2 text-[11.5px] leading-relaxed text-slate-400">
+        {translate(locale, 'auth.login.expiredFreshNote')}
+      </p>
+    </div>
+  );
+}
+
+/**
  * 정보 입력 게이트가 걸리는 경로 — **맨 URL로 들어온 첫 접속 하나뿐**이다.
  *
  * `/learn`을 넣지 않는 이유가 계약이다: `placementEntry` 시나리오 1-b가
@@ -218,10 +294,37 @@ function GuestIssueRetry({ onRetry }) {
  */
 const AT_ENTRY = '/';
 
+/**
+ * 진도 불러오기 경로 — **토큰 게이트를 통과시키는 유일한 예외다.**
+ *
+ * 이 화면은 「토큰을 되찾는 곳」이라 토큰을 요구하면 **필요한 사람만 정확히
+ * 막힌다**(`LoadProgressPage` 독스트링이 "인증 가드를 씌우지 말 것"이라 적은
+ * 것과 같은 함정이고, 그 가드가 라우터 층에 있다는 것만 다르다). 만료 화면
+ * (`SessionExpired`)의 「진도 불러오기」 버튼이 여기로 보내는데, 게이트가
+ * 그대로면 그 버튼이 만료 화면으로 되돌아와 무한 루프가 된다.
+ *
+ * 값은 `App`의 `<Route path="/login">`과 **같아야** 한다 — 갈리면 버튼이 조용히
+ * 죽는다. `onboardingSave.contract`의 ㉮가 이 문자열의 존재로 「돌아올 문이
+ * 있는가」를 판정한다.
+ */
+const AT_LOAD_PROGRESS = '/login';
+
 function RequireAuth() {
   const accessToken = useAuthStore((s) => s.accessToken);
+  /**
+   * 🔴 **새로고침을 건너는 만료 판정** — 모듈 스코프 플래그로는 못 한다.
+   *
+   * `guestSettled`는 이 페이지 로드에서만 산다. 401 인터셉터가 토큰을 지운 뒤
+   * 학습자가 새로고침하면 플래그가 초기화돼 「첫 방문자」와 구분이 안 되고,
+   * 만료 안내 대신 **새 게스트가 조용히 발급**된다 — 이 파일이 막으려는 계정
+   * 교체가 가장 흔한 사용자 행동 하나로 되살아난다. persist되는
+   * `hadAccount`(`store/authStore.js`)가 그 구분을 갖고 있다.
+   */
+  const hadAccount = useAuthStore((s) => s.hadAccount);
   const navigate = useNavigate();
-  const atEntry = useLocation().pathname === AT_ENTRY;
+  const pathname = useLocation().pathname;
+  const atEntry = pathname === AT_ENTRY;
+  const atLoadProgress = pathname === AT_LOAD_PROGRESS;
   const [, bump] = useState(0); // 모듈 스코프 플래그가 바뀐 뒤 한 번 다시 그린다
   // ⚠️ **재시도는 effect 의존성에 있어야 한다.** `bump`만 올리면 리렌더는 되지만
   // `[accessToken]`이 그대로(null)라 발급 effect가 다시 안 돈다 — 재시도 화면이
@@ -258,6 +361,10 @@ function RequireAuth() {
       return;
     }
     if (guestAttempted) return;
+    // 🔴 **이 기기에 계정이 있었으면 자동 발급하지 않는다.** 새로고침으로
+    // 모듈 플래그가 초기화돼도 여기서 멈춘다 — 아래 렌더가 만료 안내를 띄우고,
+    // 「새로 시작하기」가 `forgetAccount()`로 이 조건을 풀 때만 발급이 돈다.
+    if (hadAccount) return;
     // 첫 접속 정보 입력이 **발급보다 먼저**다 — 학령이 발급 바디에 실려야 하므로
     // 여기서 기다리지 않으면 요구 ⑶이 성립할 수 없다(발급은 한 번뿐이다).
     if (needsEntryInfo) return;
@@ -284,7 +391,9 @@ function RequireAuth() {
       bump((n) => n + 1);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken, retryTick, needsEntryInfo, entryChoice]);
+    // `hadAccount`가 의존성에 있어야 「새로 시작하기」가 실제 발급을 일으킨다
+    // (`forgetAccount()` → false 전이가 이 effect를 다시 돌린다).
+  }, [accessToken, retryTick, needsEntryInfo, entryChoice, hadAccount]);
 
   /**
    * 정보 입력 완료 — 고른 값을 상태에 싣고 **먼저 라우팅한다**.
@@ -310,6 +419,11 @@ function RequireAuth() {
   };
 
   if (!accessToken) {
+    // 진도 불러오기만 토큰 없이 통과한다(위 `AT_LOAD_PROGRESS`) — 토큰을 되찾는
+    // 화면이라 토큰을 요구하면 자기 목적을 스스로 막는다. 자동 발급 effect는
+    // 위에서 그대로 돌므로, 첫 접속이 이 경로로 딥링크해도 게스트는 발급된다
+    // (그때는 토큰이 생겨 이 분기 자체를 안 탄다).
+    if (atLoadProgress) return <Outlet />;
     // 발급이 **실패**했다 → 재시도 화면. 로그인 폼이 아니다(MT-29).
     if (guestFailed) {
       return (
@@ -321,16 +435,22 @@ function RequireAuth() {
         />
       );
     }
-    // 시도가 끝났고 실패도 아닌 상태(옛 로그아웃 경로)도 재시도로 받는다.
-    // **로그인 화면이 없어졌으므로 보낼 곳이 없다**(2026-08-12 클라이언트 지시:
-    // 로그인·회원가입 구조 전면 제거). 토큰이 없는 이유가 무엇이든 학습자가
-    // 할 수 있는 일은 다시 여는 것 하나뿐이다.
-    if (guestSettled) {
+    // 시도가 끝났고 실패도 아닌 상태 = **토큰을 봤는데 지워졌다**(401 인터셉터).
+    // 이 사람에게는 서버에 계정이 이미 있으므로 **새 게스트를 자동 발급하지
+    // 않는다** — 종전에는 여기가 `GuestIssueRetry`를 재사용해 「다시 시도」가
+    // 곧 계정 교체였다(`SessionExpired` 독스트링). 이제 선택을 묻고,
+    // 「새로 시작하기」를 누른 사람에게만 발급이 일어난다.
+    // ⚠️ 2026-08-12 지시로 로그인 화면이 없던 시절의 주석("보낼 곳이 없다")은
+    //    낡았다 — 8/14에 `/login`(진도 불러오기)이 되살아났다.
+    // `guestSettled`(이 로드에서 토큰을 봤다) **또는** `hadAccount`(예전 로드에서
+    // 봤다 — persist) 어느 쪽이든 계정이 있었다는 뜻이다. 뒤엣것이 없으면
+    // 새로고침 한 번으로 이 화면이 사라진다.
+    if (guestSettled || hadAccount) {
       return (
-        <GuestIssueRetry
-          onRetry={() => {
+        <SessionExpired
+          onStartFresh={() => {
             resetGuestAutoIssue();
-            setRetryTick((n) => n + 1);
+            setRetryTick((n) => n + 1); // effect 의존성 — 이것이 실제 발급을 일으킨다
           }}
         />
       );

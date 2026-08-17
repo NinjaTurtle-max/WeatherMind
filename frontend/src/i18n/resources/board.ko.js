@@ -479,6 +479,7 @@ export default {
       sandboxTitle: '자유 실험',
       sandboxDesc: '목표도 채점도 없어요. 기단·전선·습기·일사를 마음껏 놓아 보고 어떤 날씨가 만들어지는지 관찰해요.',
       sandboxInputs: '요소 9종 · 채점 없음 · 구름 무소모',
+      heroTitle: '무엇을 직접 움직여 볼까요?',
       title: '🔭 탐구',
       subtitle: '조건을 직접 움직여 보며 날씨와 기후의 원리를 체험하는 공간이에요.',
       typhoonTitle: '태풍 만들기',

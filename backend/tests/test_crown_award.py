@@ -562,12 +562,20 @@ class TestCompleteSessionUnitResult:
         assert result.unit_result.all_correct is False
         assert result.unit_result.unit_xp == 0
 
-    def test_재완료도_같은_인자로_부른다(self, monkeypatch):
-        """**이중 수여를 막는 것은 이 분기가 아니다.**
+    def test_재완료는_왕관을_주지_않는다(self, monkeypatch):
+        """**재완료 파밍 차단** — `grant_crown`의 세 번째 조건이 `is_first_complete`다.
 
-        라우터는 「만점 ∧ 첫 세션」이면 언제나 `grant_crown=True`로 부르고, 이미
-        준 왕관을 다시 주지 않는 판정은 `grant_unit_crown`이 멱등으로 갖고 있다.
-        라우터가 "재완료인가"를 따로 세면 그 판정이 두 곳에 생겨 갈린다.
+        이 자리에는 「이중 수여를 막는 것은 이 분기가 아니다 · 이미 준 왕관을 다시
+        주지 않는 판정은 `grant_unit_crown`이 멱등으로 갖고 있다」고 적힌
+        `test_재완료도_같은_인자로_부른다`가 있었고, **그 전제가 거짓이었다**:
+        `plan_crown`은 `crowns < crown_target`이면 +1 하므로 멱등은
+        `crown_target == 1`에서만 성립한다. 시드의 `crown_target = 2` 유닛 6개
+        (전부 board)는 같은 세션에 `complete`를 두 번 던지는 것만으로 만관·
+        `cleared`·**+20 XP**까지 한 세션에서 났다.
+
+        「판정이 두 곳에 생겨 갈린다」는 우려는 남지 않는다 — 라우터가 재완료를
+        **따로 세지 않고**, 배지·데일리 왕관이 이미 쓰는 같은 변수
+        (`is_first_complete = session.completed_at is None`)를 그대로 읽는다.
         """
         unit_id = uuid.uuid4()
         session = make_session(
@@ -577,8 +585,62 @@ class TestCompleteSessionUnitResult:
         result, calls = run_complete(
             monkeypatch, session, logs, unit_payload=self.UNIT_PAYLOAD
         )
-        assert calls["unit_result"] == (unit_id, True, True)
+        assert calls["unit_result"] == (unit_id, True, False)
         assert result.unit_result is not None  # 재완료에도 계약 필드는 노출
+
+    def test_재완료_파밍으로_crown_target_2_유닛이_만관되지_않는다(self):
+        """결함의 실체를 서비스 층에서 못박는다 — 라우터 배선이 아니라 **결과**.
+
+        `unit_result_for_session`을 `grant_crown=True`로 두 번 부르면
+        `crown_target = 2` 유닛이 1회 세션에서 만관 + `cleared` + XP 20을 낸다.
+        그래서 라우터가 두 번째 호출을 `grant_crown=False`로 내려야 한다.
+        """
+        unit = SimpleNamespace(id=uuid.uuid4(), crown_target=2)
+        prog = SimpleNamespace(user_id=_FAKE_USER.id, unit_id=unit.id, crowns=0,
+                               cleared_at=None)
+
+        class _ProgDB:
+            """grant_unit_crown이 만지는 3개(get·execute·flush)만 응답."""
+
+            async def get(self, model, pk):
+                return unit if pk == unit.id else None
+
+            async def execute(self, stmt):
+                return _Result(prog)
+
+            def add(self, obj):
+                pass
+
+            async def flush(self):
+                pass
+
+        xp_calls: list[int] = []
+
+        async def fake_add_xp(db, user_id, amount):
+            xp_calls.append(amount)
+
+        original = cs.xp_service.add_xp
+        cs.xp_service.add_xp = fake_add_xp
+        try:
+            first = asyncio.run(
+                cs.unit_result_for_session(
+                    _ProgDB(), _FAKE_USER, unit.id,
+                    all_correct=True, grant_crown=True,
+                )
+            )
+            second = asyncio.run(
+                cs.unit_result_for_session(
+                    _ProgDB(), _FAKE_USER, unit.id,
+                    all_correct=True, grant_crown=True,
+                )
+            )
+        finally:
+            cs.xp_service.add_xp = original
+
+        assert first["crowns"] == 1 and first["cleared"] is False
+        # ↓ 라우터가 막지 않으면 재완료 한 번으로 여기까지 간다
+        assert second["crowns"] == 2 and second["cleared"] is True
+        assert second["unit_xp"] == 20 and xp_calls == [20]
 
     def test_데일리_세션은_unit_result_null(self, monkeypatch):
         session = make_session()

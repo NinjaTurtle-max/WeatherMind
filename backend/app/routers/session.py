@@ -577,6 +577,19 @@ async def complete_session(
     # (UserUnitProgress 직접 upsert — grant_unit_crown 미경유). 목록의 단일
     # 소유자는 curriculum_service 모듈 독스트링이다.
     # 진도 스냅샷(crowns·cleared)과 all_correct·all_resolved 표기는 그대로 나간다.
+    #
+    # ⚠️ **재완료에는 왕관이 없다 — `is_first_complete`가 세 번째 조건이다.**
+    # 종전 코드는 이 분기가 `if is_first_complete:` **밖**에 있으면서 "상한은
+    # `grant_unit_crown`의 멱등 판정이 지킨다"고 적었는데, 그 멱등은
+    # **`crown_target == 1`에서만** 성립한다: `plan_crown`이 `crowns <
+    # crown_target`이면 +1 하므로 `crown_target = 2`인 유닛은 같은 세션에
+    # `POST /session/{id}/complete`를 두 번 던지는 것만으로 만관 + `cleared`
+    # 전환 + **XP_UNIT_CLEAR 20**까지 한 세션에서 나온다. 시드에 그런 유닛이
+    # 6개 있다(전부 board 유닛). 「하루 1왕관」 상한을 세우려던 `daily_first`
+    # 도장도 세션 **발급**당 1개라 같은 세션 재완료는 못 막는다.
+    # 배지·데일리 왕관과 같은 게이트(`is_first_complete`)로 맞춘다 —
+    # 보상은 최초 완료에만 나간다. `unit_result` 자체는 재완료에도 계속
+    # 노출된다(`grant_crown=False` 경로가 진도 스냅샷을 돌려준다).
     unit_result: UnitResult | None = None
     if session.unit_id is not None:
         daily_first = bool(
@@ -587,9 +600,8 @@ async def complete_session(
             user,
             session.unit_id,
             all_correct=all_correct,
-            # 하루 첫 유닛 세션 ∧ 전 문항 정답일 때만 — `grant_unit_crown`이 멱등
-            # 판정(이미 준 왕관은 다시 안 준다)을 갖고 있어 상한은 그쪽이 지킨다.
-            grant_crown=all_correct and daily_first,
+            # 최초 완료 ∧ 하루 첫 유닛 세션 ∧ 전 문항 정답일 때만.
+            grant_crown=all_correct and daily_first and is_first_complete,
         )
         if payload is not None:
             unit_result = UnitResult(**payload, all_resolved=all_resolved)
