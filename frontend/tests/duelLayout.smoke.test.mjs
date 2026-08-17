@@ -234,6 +234,40 @@ ok(
   '사이드바에 튜터 이미지가 없다 — 있으면 한 화면에 같은 캐릭터가 둘',
 );
 
+// ── ③-3 탭이 **카드 안**에 붙어 있다 (2026-08-17 사용자 지시) ───────────────
+/**
+ * "학습 세션처럼 예보/리그 탭을 카드 안에 넣어 줘". 종전에는 카드 **밖** 위쪽에
+ * 알약 꼴로 떠 있어서, 무엇을 바꾸는 스위치인지가 화면에서 안 붙어 보였다.
+ * 학습 경로가 2026-08-13에 같은 이유로 같은 꼴이 됐다(`CourseSwitcher`
+ * variant='tab' — `PcCurriculumPath`의 카드 안 맨 위).
+ *
+ * 세 가지가 한 묶음이고 하나만 빠져도 "붙어 있다"가 깨진다:
+ *   ⓐ 탭이 흰 카드(`rounded-[20px]`)의 **자손**이다.
+ *   ⓑ 탭 줄이 아래 테두리를 갖는다(`border-b`) — 카드와 이어지는 선.
+ *   ⓒ 선택된 탭이 `-mb-px`로 그 선을 **끊는다**. 이게 없으면 그냥 네모 버튼 둘이다.
+ * ⚠️ 카드는 **탭 분기 바깥**에 있어야 한다 — 배너 분기 안에 두면 마스코트가
+ *    없는 리그 탭에서 카드가 사라져 탭이 다시 허공에 뜬다.
+ */
+{
+  const tabEl = $('[data-compete-tab="/duel"]');
+  let card = tabEl;
+  while (card && !/rounded-\[20px\]/.test(card.className || '')) card = card.parentElement;
+  ok(Boolean(card), 'ⓐ 탭이 흰 카드 안에 있다 — 밖에 뜨면 무엇을 바꾸는지 안 붙어 보인다');
+  ok(
+    Boolean(card && /bg-white/.test(card.className)),
+    `ⓐ 그 카드가 학습 경로 카드와 같은 프레임이다 — "${card?.className ?? '(없음)'}"`,
+  );
+  const strip = tabEl?.parentElement;
+  ok(
+    Boolean(strip && /border-b\b/.test(strip.className)),
+    `ⓑ 탭 줄이 카드와 이어지는 선을 갖는다 — "${strip?.className ?? '(없음)'}"`,
+  );
+  ok(
+    /-mb-px/.test(tabEl?.className ?? ''),
+    'ⓒ 선택된 탭이 그 선을 끊는다(-mb-px) — 없으면 카드에 안 붙고 버튼처럼 보인다',
+  );
+}
+
 // ── ④-b 배너 설명이 **한 줄로 잘리지 않는다** (2026-08-17 사용자 지시) ───────
 // 종전 `truncate`는 300px에서 문장 끝을 «…»로 잘랐다 — 탐구·예보 둘 다
 // "…체험하는 공…" / "…내일 예보를 겨…"로 끝났다. 두 줄 접기로 바꿨다.
