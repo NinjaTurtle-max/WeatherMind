@@ -179,6 +179,7 @@ def classify_phenomenon(weather: Any) -> str | None:
       2. flood_risk    포화 + 강풍 + 강수 (재난은 일반 강수를 선점한다)
       3. wildfire_risk 건조 + 강풍 + 무강수
       4. heatwave      최고 33℃ 이상이면서 비는 오지 않는 날
+                       (「비가 안 온다」 = PTY에 비·소나기가 없고 ∧ POP도 낮음)
       5. shower/rain/persistent_rain   PTY 우선, 결측이면 POP 폴백
       6. fog           포화에 가깝고 비는 없는 날
       7. clear         SKY 맑음 + 무강수
@@ -223,9 +224,18 @@ def classify_phenomenon(weather: Any) -> str | None:
             return "wildfire_risk"
 
     # 4. 폭염 — 비 오는 날의 33℃는 폭염보다 강수가 「오늘의 날씨」다.
+    #
+    # ⚠️ **「비 오는 날」의 판정은 POP 하나가 아니다.** 종전에는 `wet`(POP)만 보고
+    # `pty`를 안 읽어서, 기상청이 **강수형태를 직접 알려준** 날조차 폭염이 선점했다:
+    # `TMX 34 · POP 40 · PTY 4(소나기)` → 소나기가 예보된 날에 `heatwave`가 나갔다.
+    # 5번 계단이 "PTY가 1순위, 결측이면 POP 폴백"인 것과 정면으로 어긋난다 —
+    # 관측이 있는데 확률로 덮은 셈이다. 눈(PTY_SNOW)은 1번에서 이미 반환됐으므로
+    # 여기서 볼 것은 비·소나기 둘뿐이다.
+    raining_now = bool(pty & (PTY_SHOWER | PTY_RAIN))
     if (
         temp_max is not None
         and temp_max >= HEATWAVE_TEMP_MAX
+        and not raining_now
         and wet < FLOOD_RAIN_PROB
     ):
         return "heatwave"

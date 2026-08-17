@@ -153,6 +153,40 @@ class TestLadder:
     def test_사다리_대표값(self, label, weather, expected):
         assert wp.classify_phenomenon(weather) == expected, label
 
+    @pytest.mark.parametrize(
+        ("label", "weather", "expected"),
+        [
+            # 🔴 결함 원형 — POP은 낮은데 기상청이 PTY로 강수를 직접 알려준 날.
+            (
+                "34도 · POP 40 · PTY 4(소나기)",
+                wx(hour(TMX=34.0, POP=40, PTY=4, TMP=34)),
+                "shower",
+            ),
+            (
+                "35도 · POP 30 · PTY 1(비)",
+                wx(hour(TMX=35.0, POP=30, PTY=1, TMP=35)),
+                "rain",
+            ),
+            # 경계 — PTY 0(강수 없음)은 종전과 같이 폭염이다.
+            ("34도 · POP 40 · PTY 0", wx(hour(TMX=34.0, POP=40, PTY=0, TMP=34)), "heatwave"),
+            # 경계 — PTY 결측(관측 없음)도 종전과 같이 POP만으로 판정한다.
+            ("34도 · POP 40 · PTY 없음", wx(hour(TMX=34.0, POP=40, TMP=34)), "heatwave"),
+        ],
+    )
+    def test_폭염은_예보된_강수를_덮지_않는다(self, label, weather, expected):
+        """🔴 **4번 계단이 5번 계단의 1순위 신호를 무시하고 있었다.**
+
+        사다리는 강수를 "PTY가 1순위, 결측이면 POP 폴백"으로 판정한다고 적어
+        놓고, 그 **위** 계단인 폭염은 `wet`(POP)만 보고 `pty`를 안 읽었다.
+        그래서 `TMX 34 · POP 40 · PTY 4`처럼 **기상청이 소나기를 직접 알려준
+        날**에 `heatwave`가 나갔다 — 확률이 관측을 덮은 셈이고, 그날의 보드가
+        소나기 대신 폭염으로 배정됐다.
+
+        경계 두 개를 함께 문다: `PTY 0`(강수 없음을 **명시**)과 PTY 결측은
+        종전 그대로 폭염이어야 한다 — 안 그러면 이 수정이 폭염 자체를 죽인다.
+        """
+        assert wp.classify_phenomenon(weather) == expected, label
+
     def test_지속형_비는_젖은_시간대_비율로_가른다(self):
         """장마(persistent_rain) vs 한때 비(rain) — 하루치 예보로 쓸 수 있는 유일한 신호."""
         long_rain = wx(*[hour(PTY=1, POP=90, TMP=22) for _ in range(6)])
