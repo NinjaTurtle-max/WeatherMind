@@ -332,9 +332,13 @@ console.log('④ 화면마다 말하는 캐릭터는 하나 — 배너는 담당
   // ⓒ 배너를 세운 화면의 마스코트가 담당표와 같은가.
   //    라벨을 「같다」로 적는다 — 종전에는 실패 문안(`≠`)을 그대로 써서
   //    **통과할 때 `ok … ≠ …`** 로 찍혔다(읽으면 정반대로 보인다).
+  // ⚠️ 배너를 세운 화면은 **반드시 여기 넣을 것.** 안 넣으면 그 화면의 마스코트가
+  //    담당표와 갈려도 아무도 울지 않는다 — /league가 2026-08-17에 배너를
+  //    갖게 되면서 실제로 그 상태가 잠깐 있었다.
   const banners = [
     ['/explore', 'src/modules/explore/ExploreHome.jsx'],
     ['/duel', 'src/modules/duel/DuelPage.jsx'],
+    ['/league', 'src/modules/league/LeaguePage.jsx'],
   ];
   for (const [path, file] of banners) {
     const src = readFileSync(join(ROOT, file), 'utf8');
