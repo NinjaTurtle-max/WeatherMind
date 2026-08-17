@@ -114,13 +114,22 @@ let guestFailed = false;
  */
 let guestErrorCode = null;
 
-/** 테스트 전용 — 다음 진입에서 자동 발급을 다시 시도할 수 있게 되돌린다. */
+/**
+ * 다음 진입에서 자동 발급을 다시 시도할 수 있게 되돌린다.
+ *
+ * 소비처는 둘이다: 테스트 하네스와 **만료 화면의 「새로 시작하기」**. 후자가
+ * 있으므로 `authStore.hadAccount`도 함께 지운다 — 그것이 남아 있으면 아래
+ * `RequireAuth`가 계속 만료 화면을 띄워 버튼이 아무 일도 안 하는 것처럼 보인다.
+ * 「새로 시작하기」는 학습자가 옛 계정을 포기한다고 명시한 순간이라, 그 한
+ * 지점에서만 기억을 지우는 것이 맞다.
+ */
 export function resetGuestAutoIssue() {
   guestAttempted = false;
   guestSettled = false;
   guestPromise = null;
   guestFailed = false;
   guestErrorCode = null;
+  useAuthStore.getState().forgetAccount();
 }
 
 /**
@@ -150,6 +159,13 @@ function issueGuestOnce(levelGroup = null, nickname = null) {
       .post('/auth/guest', Object.keys(body).length > 0 ? body : undefined)
       .then(({ data }) => {
         const store = useAuthStore.getState();
+        // 🔴 **그 사이에 다른 통로로 토큰이 생겼으면 덮지 않는다.** 「진도
+        // 불러오기」(`/login`)는 토큰 없이 열리므로(아래 `AT_LOAD_PROGRESS`)
+        // 이 발급과 **동시에** 진행될 수 있다. 발급이 느리게 성공하면 방금
+        // 복구한 계정 토큰을 게스트 토큰이 덮어써, 학습자가 로그인에 성공하고도
+        // 빈 게스트로 떨어진다. 늦게 온 발급분은 버리는 쪽이 항상 옳다 —
+        // 사용자가 명시적으로 만든 세션이 자동 발급보다 우선한다.
+        if (store.accessToken) return true;
         store.setTokens({ accessToken: data.access_token, refreshToken: data.refresh_token });
         // 학습자가 이름을 적었으면 **그 이름을 화면에 쓴다** — 서버가 그것으로
         // 계정을 만들었는데 화면만 「게스트」로 부르면 두 소유자가 갈린다.
@@ -295,6 +311,16 @@ const AT_LOAD_PROGRESS = '/login';
 
 function RequireAuth() {
   const accessToken = useAuthStore((s) => s.accessToken);
+  /**
+   * 🔴 **새로고침을 건너는 만료 판정** — 모듈 스코프 플래그로는 못 한다.
+   *
+   * `guestSettled`는 이 페이지 로드에서만 산다. 401 인터셉터가 토큰을 지운 뒤
+   * 학습자가 새로고침하면 플래그가 초기화돼 「첫 방문자」와 구분이 안 되고,
+   * 만료 안내 대신 **새 게스트가 조용히 발급**된다 — 이 파일이 막으려는 계정
+   * 교체가 가장 흔한 사용자 행동 하나로 되살아난다. persist되는
+   * `hadAccount`(`store/authStore.js`)가 그 구분을 갖고 있다.
+   */
+  const hadAccount = useAuthStore((s) => s.hadAccount);
   const navigate = useNavigate();
   const pathname = useLocation().pathname;
   const atEntry = pathname === AT_ENTRY;
@@ -335,6 +361,10 @@ function RequireAuth() {
       return;
     }
     if (guestAttempted) return;
+    // 🔴 **이 기기에 계정이 있었으면 자동 발급하지 않는다.** 새로고침으로
+    // 모듈 플래그가 초기화돼도 여기서 멈춘다 — 아래 렌더가 만료 안내를 띄우고,
+    // 「새로 시작하기」가 `forgetAccount()`로 이 조건을 풀 때만 발급이 돈다.
+    if (hadAccount) return;
     // 첫 접속 정보 입력이 **발급보다 먼저**다 — 학령이 발급 바디에 실려야 하므로
     // 여기서 기다리지 않으면 요구 ⑶이 성립할 수 없다(발급은 한 번뿐이다).
     if (needsEntryInfo) return;
@@ -361,7 +391,9 @@ function RequireAuth() {
       bump((n) => n + 1);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken, retryTick, needsEntryInfo, entryChoice]);
+    // `hadAccount`가 의존성에 있어야 「새로 시작하기」가 실제 발급을 일으킨다
+    // (`forgetAccount()` → false 전이가 이 effect를 다시 돌린다).
+  }, [accessToken, retryTick, needsEntryInfo, entryChoice, hadAccount]);
 
   /**
    * 정보 입력 완료 — 고른 값을 상태에 싣고 **먼저 라우팅한다**.
@@ -410,7 +442,10 @@ function RequireAuth() {
     // 「새로 시작하기」를 누른 사람에게만 발급이 일어난다.
     // ⚠️ 2026-08-12 지시로 로그인 화면이 없던 시절의 주석("보낼 곳이 없다")은
     //    낡았다 — 8/14에 `/login`(진도 불러오기)이 되살아났다.
-    if (guestSettled) {
+    // `guestSettled`(이 로드에서 토큰을 봤다) **또는** `hadAccount`(예전 로드에서
+    // 봤다 — persist) 어느 쪽이든 계정이 있었다는 뜻이다. 뒤엣것이 없으면
+    // 새로고침 한 번으로 이 화면이 사라진다.
+    if (guestSettled || hadAccount) {
       return (
         <SessionExpired
           onStartFresh={() => {

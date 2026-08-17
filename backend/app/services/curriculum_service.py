@@ -946,11 +946,18 @@ def unit_pool_sort_theta(
     **`section_level`이 None이면 θ를 그대로 돌려준다** — 기초과학 3섹션·미등재·
     대역 유닛은 개정 전과 SQL이 한 글자도 다르지 않다(하위 호환).
     **θ가 None(콜드스타트)이면 유닛 표적이 있어도 None이다**: θ None 경로는
-    `unit_pool_level_groups`가 가입 밴드 하나로 좁히고 선취도 없는 별개 계약이라
-    (`test_curriculum_band_fallback.TestQueryShapeUnchanged`), 여기서만 정렬을
-    붙이면 그 계약과 어긋난 반쪽 상태가 된다. 즉 **`sort_theta is None`은
-    `theta is None`과 동치**이고, 콜드스타트의 잔여 증상은 알려진 이월이다
-    (도달 대상은 `seed_placement`가 실패한 유저뿐).
+    `unit_pool_level_groups`가 **가입 밴드 하나로 좁히므로** `prior_b`도 한 값이라,
+    기준점을 옮겨도 `|b − 기준점|`이 전건 동률이 되어 **순서가 한 건도 안 바뀐다**.
+    즉 **`sort_theta is None`은 `theta is None`과 동치**다.
+
+    ⚠️ **여기 근거로 「선취도 없는 별개 계약이라」가 함께 적혀 있었고 그것은
+    2026-08-14부로 거짓이다.** 두 결정은 근거가 다른데 한 문장으로 묶여 있었다 —
+    기준점을 안 옮기는 이유는 위의 「동률이라 무의미」이고, 선취는 **재정렬이
+    실제로 도는가**에 걸린다. CO-G1 순환식 배선 이후 `section_level`이 θ 없이도
+    표적을 내므로 콜드스타트에서도 `rank_by_knowledge_level`이 돌고, 그래서
+    선취도 함께 건다(`_unit_content_pool`의 `fetch_limit` 주석이 소유).
+    선취 계약의 소유자는 여전히
+    `test_curriculum_band_fallback.TestQueryShapeUnchanged`다.
     """
     if section_level is None or theta is None:
         return theta

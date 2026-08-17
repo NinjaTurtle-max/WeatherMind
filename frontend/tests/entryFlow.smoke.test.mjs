@@ -643,6 +643,79 @@ try {
     );
     r.unmount();
   });
+  // ── ⑪ 새로고침해도 만료 안내가 유지된다 ────────────────────────────────
+  /**
+   * 🔴 **⑩만으로는 부족하다.** ⑩이 무는 것은 「이 페이지 로드에서」 토큰이
+   * 지워진 경우이고, 그 판정은 모듈 스코프 플래그(`guestSettled`)가 들고 있다.
+   * 학습자가 **새로고침**하면 그 플래그가 초기화돼 「첫 방문자」와 구분이 안 되고,
+   * 만료 안내 대신 새 게스트가 조용히 발급된다 — 안내 화면을 만들어 놓고 가장
+   * 흔한 사용자 행동 하나로 우회되는 셈이다. persist되는 `authStore.hadAccount`가
+   * 그 구분을 갖는다.
+   *
+   * 새로고침의 재현: `resetGuestAutoIssue()`로 모듈 플래그를 첫 로드 상태로
+   * 되돌린 뒤(그것이 `hadAccount`도 지우므로) 스토어에 **persist에서 복원된 것과
+   * 같은 상태**를 직접 심는다 — 토큰 없음 + `hadAccount: true`.
+   */
+  await scenario('⑪ 새로고침 후에도 만료 안내(조용한 재발급 없음)', async () => {
+    const mark = await coldOpen();
+    useAuthStore.setState({ hadAccount: true }); // persist 복원분
+    const r = mountApp('/learn');
+    await waitFor(() => $('[data-testid="session-expired"]'), 8000, '만료 화면');
+    await sleep(400);
+    ok(
+      guestCalls(mark).length === 0,
+      `⑪ 🔴 새로고침이 만료를 첫 방문으로 둔갑시키지 않는다 — 실제 ${guestCalls(mark).length}회`,
+    );
+    ok(
+      !useAuthStore.getState().accessToken,
+      '⑪ 토큰이 조용히 생기지 않았다',
+    );
+    // 출구는 살아 있다 — 막기만 하고 닫으면 학습자가 갇힌다.
+    $('[data-testid="session-expired-fresh"]').click();
+    await waitFor(() => useAuthStore.getState().accessToken, 8000, '「새로 시작하기」 발급');
+    ok(guestCalls(mark).length === 1, '⑪ 「새로 시작하기」는 여전히 발급을 일으킨다');
+    r.unmount();
+  });
+
+  // ── ⑫ 늦게 도착한 자동 발급이 복구된 계정을 덮지 않는다 ──────────────────
+  /**
+   * 🔴 `/login`(진도 불러오기)이 토큰 게이트를 통과하게 되면서 생긴 경합이다.
+   * 그 화면은 토큰 없이 열리므로 **자동 게스트 발급과 동시에** 진행될 수 있고,
+   * 발급이 느리게 성공하면 방금 복구한 계정 토큰을 게스트 토큰이 덮어쓴다 —
+   * 학습자는 로그인에 성공하고도 빈 게스트로 떨어진다.
+   *
+   * 재현은 「로그인이 먼저 끝난다」를 만들면 된다: 발급이 날아가는 동안
+   * 스토어에 복구 토큰을 심고, 발급 응답이 도착한 **뒤에** 그 토큰이 살아
+   * 있는지 본다.
+   */
+  await scenario('⑫ 진행 중인 자동 발급이 복구된 토큰을 덮지 않는다', async () => {
+    // ⚠️ **경합을 우연에 맡기지 않는다.** 마운트 직후 토큰을 심으면 발급이
+    // 아예 시작되지 않고(effect의 `if (accessToken)` 분기), 요청이 나간 뒤를
+    // 노리면 응답이 먼저 도착해 간헐 실패한다. 발급 **응답만** 지연시켜
+    // 「로그인이 먼저 끝났다」를 결정적으로 만든다.
+    const slow = client.interceptors.response.use(async (res) => {
+      if (res.config?.url === '/auth/guest') await sleep(700);
+      return res;
+    });
+    try {
+      const mark = await coldOpen();
+      const r = mountApp('/learn'); // 발급 시작
+      await waitFor(() => guestCalls(mark).length === 1, 8000, '발급 요청이 나갔다');
+      // 응답이 도착하기 전에 「로그인 성공」을 심는다(LoadProgressPage와 동일).
+      useAuthStore.getState().setTokens({
+        accessToken: 'restored-access',
+        refreshToken: 'restored-refresh',
+      });
+      await sleep(1200); // 지연된 발급 응답이 도착하고도 남을 시간
+      ok(
+        useAuthStore.getState().accessToken === 'restored-access',
+        `⑫ 🔴 늦게 온 발급분이 복구 토큰을 덮지 않는다 — 실제 "${useAuthStore.getState().accessToken}"`,
+      );
+      r.unmount();
+    } finally {
+      client.interceptors.response.eject(slow);
+    }
+  });
 } finally {
   await vite.close();
   httpServer.close();

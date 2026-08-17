@@ -105,6 +105,27 @@ try {
     after.accessToken === null && after.refreshToken === null,
     '④ logout()은 refresh 토큰까지 지운다 — 그래서 ①의 판정이 계정의 생사를 가른다',
   );
+
+  // ── ⑤ 「계정이 있었다」는 기억은 **새로고침을 건넌다** ────────────────────
+  /**
+   * 🔴 만료 안내 화면(`App.jsx`의 `SessionExpired`)이 서는 근거가 이 값이다.
+   * 모듈 스코프 플래그(`guestSettled`)는 페이지 로드마다 초기화되므로, 토큰이
+   * 지워진 뒤 **새로고침 한 번**이면 「첫 방문자」와 구분이 안 되고 새 게스트가
+   * 조용히 발급된다 — 안내 화면을 만들어도 가장 흔한 사용자 행동으로 우회된다.
+   * 그래서 `hadAccount`는 ⓐ `setTokens`가 세우고 ⓑ `logout()`이 **안 지우고**
+   * ⓒ persist에 실리고 ⓓ 「새로 시작하기」(`forgetAccount`)에서만 지워진다.
+   */
+  ok(after.hadAccount === true, '⑤-a logout()은 「계정이 있었다」를 지우지 않는다');
+  const persisted = JSON.parse(localStorageStub.getItem('weathermind-auth') ?? '{}');
+  ok(
+    persisted?.state?.hadAccount === true,
+    `⑤-b 🔴 그 기억이 persist된다(새로고침을 건넌다) — 실제 ${JSON.stringify(persisted?.state ?? null)}`,
+  );
+  useAuthStore.getState().forgetAccount();
+  ok(
+    useAuthStore.getState().hadAccount === false,
+    '⑤-c 「새로 시작하기」만 그 기억을 지운다(출구가 없으면 학습자가 갇힌다)',
+  );
 } finally {
   await vite.close();
   httpServer.close();
