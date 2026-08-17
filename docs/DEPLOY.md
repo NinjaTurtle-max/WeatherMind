@@ -456,6 +456,14 @@ docker build -t ghcr.io/ninjaturtle-max/weathermind-frontend:$TAG ./frontend
 IMAGE_TAG=$TAG $C up -d backend frontend
 $C ps                                                   # 전 컨테이너 Up · backend (healthy)
 $C exec -T backend curl -s http://localhost:8000/health  # 외부 URL로 치지 말 것(§7)
+
+# 🔴 지문 대조 — 위 /health 출력의 code_fingerprint와 워크트리 지문이 **같아야 한다**
+#    (2026-08-17 추가) #89가 /health를 외부에서 닫으면서 「실행 중인 코드 = 워크트리」의
+#    외부 확인 경로도 함께 닫혔다(code_fingerprint의 유일한 노출부가 /health다 —
+#    main.py). 컨테이너 안에서는 그대로 사니 **재던 자리를 밖에서 안으로 옮긴 것**
+#    뿐이지만, 이 대조를 생략하면 8/14의 「명령은 성공했는데 낡은 코드가 돈다」를
+#    감지할 수단이 없다(그날 백엔드를 배제하고 프론트로 좁힌 근거가 이 지문이었다).
+python scripts/code_fingerprint.py                       # ← 워크트리 쪽 값
 ```
 
 **소요 10~20분**(ai-worker를 빌드하면 그쪽이 대부분). 롤링마다 치르는 값이다.
