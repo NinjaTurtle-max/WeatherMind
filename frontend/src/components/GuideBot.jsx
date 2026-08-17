@@ -391,7 +391,15 @@ export default function GuideBot({ pathname = '/', state = {}, laneBusy = false,
           // **가로의 80%**를 먹었다. 10.5rem(168)로 내리면 272px = 70%다. 레인
           // 양보(위 LANE_YIELD_CLASS)가 해설과의 충돌은 이미 없앴지만, 해설이 없는
           // 화면(학습 경로·보드)에서도 캐릭터 상자가 본문 오른쪽을 덮는 것은 남는다.
-          className="relative max-w-[10.5rem] rounded-2xl bg-sky-50 px-4 py-3 text-sm leading-snug text-sky-900 shadow-lg ring-1 ring-sky-200 sm:max-w-[13rem] 2xl:max-w-[17rem]"
+          // `-mt-4` — `items-start`가 붙여 준 자리에서 **16px 더 올린다**
+          // (2026-08-17 사용자 지시 "조금만 더 위로"). 캐릭터 위로 살짝
+          // 걸치는 자리가 얼굴 옆에 말풍선이 뜬 것처럼 읽힌다.
+          // ⚠️ 음수 마진이라 말풍선이 상자 위로 **삐져나온다.** 상자 높이는
+          // 여전히 캐릭터(96/128px)가 정하므로 `clamp()`가 재는 값은 그만큼
+          // 짧다 — 봇이 화면 **아래쪽**에 사는 한 위로 밀려 잘릴 일이 없어
+          // 그대로 둔다. 기본 자리를 위로 옮기게 되면 `clamp`가 이 삐져나온
+          // 만큼을 함께 재도록 고쳐야 한다.
+          className="relative -mt-4 max-w-[10.5rem] rounded-2xl bg-sky-50 px-4 py-3 text-sm leading-snug text-sky-900 shadow-lg ring-1 ring-sky-200 sm:max-w-[13rem] 2xl:max-w-[17rem]"
         >
           {/* 꼬리 — 캐릭터 쪽(왼쪽)을 가리킨다. 종전 오른쪽 꼬리
               (`-right-[5px] … border-b border-r`)의 **수평 거울상**이다:
