@@ -54,12 +54,15 @@ export default function ExploreHome() {
   const t = useT();
   return (
     <div className="space-y-4 py-4">
-      {/* 상단 배너 — 학습·보드와 같은 꼴(2026-08-12 사용자 지시). 왼쪽 하단
-          사이드바 튜터를 걷고 여기서 구름이가 말한다. 화면 담당의 소유자는
-          SideNav `TUTOR_BY_PATH`이고, 그 표에서 /explore가 구름이다. */}
+      {/* 상단 배너 — 학습·보드와 같은 꼴(2026-08-12 사용자 지시). 화면 담당의
+          소유자는 SideNav `TUTOR_BY_PATH`이고, 그 표와 여기가 **같아야** 한다
+          (`tests/mascotAssets.contract.test.mjs` ④가 대조한다).
+          ⚠️ 담당이 **번개**로 바뀌었다(2026-08-17 사용자 지시 — 종전 구름이).
+          번개는 리그 담당이기도 해서 두 화면이 한 캐릭터를 공유한다. 리그에는
+          배너가 없어 한 화면에 둘이 뜨는 일은 없다. */}
       <HeroBanner
         testId="explore-hero"
-        mascot="cloud"
+        mascot="bolt"
         as="h1"
         eyebrow={t('explore.home.title')}
         // 안내 문장은 **title이 아니라 description**이다 — title은 한 줄로

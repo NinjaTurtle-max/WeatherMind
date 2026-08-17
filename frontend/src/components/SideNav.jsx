@@ -41,11 +41,10 @@ const TUTOR_BY_PATH = [
   // 행이 그 몫을 전부 받는다. 세션 라우트가 또 늘면 여기에 행을 더할 것.
   { match: (p) => p === '/learn' || p.startsWith('/learn/'), name: 'drop', key: 'learn' },
   { match: (p) => p === '/duel' || p.startsWith('/duel/'), name: 'typhoon', key: 'duel' },
-  // 탐구 — 구름이(2026-08-12 사용자 지시). 표에 없어서 **폴백**으로 구름이가
-  // 뜨고 있었는데, 폴백은 "담당이 정해졌다"가 아니라 "모르겠다"다. 그 화면에
-  // 배너를 세우려면 담당이 명시돼야 한다(배너와 사이드바가 같은 표를 봐야
-  // 한 화면에 둘이 안 뜬다).
-  { match: (p) => p === '/explore' || p.startsWith('/explore/'), name: 'cloud', key: 'explore' },
+  // 탐구 — **번개**(2026-08-17 사용자 지시. 2026-08-12에 구름이로 명시했던
+  // 것을 바꿨다). 리그와 같은 캐릭터를 쓰게 되는데, 리그에는 배너가 없어
+  // 한 화면에 둘이 뜨는 일은 없다.
+  { match: (p) => p === '/explore' || p.startsWith('/explore/'), name: 'bolt', key: 'explore' },
   { match: (p) => p === '/league' || p.startsWith('/league/'), name: 'bolt', key: 'league' },
 ];
 
