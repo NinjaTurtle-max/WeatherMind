@@ -106,7 +106,15 @@ class TestSeedSchema:
         # 됐고, 종전 8건이 **전부 MC·정답 고정**이라 "정답이 날마다 바뀐다"는 차별점을
         # 실제로 만들지 못하던 것을 short_answer 4 · ordering 1 · match 1 · slider 1로
         # 넓혔다(T3 완료 판정: 정답이 `today.*`를 참조하는 문항 ≥ 4건).
-        assert len(SEED_ITEMS) == 1012
+        # staging board 승격(2026-08-14): +3 = **1015**. CO-I-2/X-1의 잔여 3건
+        # (`r13_template_proof.json` · `pressure_front` · kl4)에 `board_order`
+        # **37~39**·`title`·`summary`를 채워 본시드로 올렸다(⚠️ 초안이 「47~49」라
+        # 적었는데 그것은 **밀려난 옛 자리**다 — 셋 다 난이도 2라 난이도 3 구간
+        # 앞에 넣어야 단조 계약이 선다. 옛 37~46이 40~49로 밀렸다).
+        # ⚠️ 대장이 한때 적은
+        # "24건 → 보드 34→58"은 거짓이고(21건은 이미 병합돼 지금 수가 그 결과다)
+        # **실제 잔여는 3건 · 보드 46 → 49**다.
+        assert len(SEED_ITEMS) == 1015
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
@@ -123,7 +131,18 @@ class TestSeedSchema:
         for i, item in enumerate(SEED_ITEMS):
             source = item.get("source") or {}
             # R12 §9: Claude 저작분은 kind="claude-authored"(출처 추적 — 회수 단위)
-            assert source.get("kind") in ("seed", "claude-authored"), f"[{i}] source.kind"
+            # 2026-08-14: **`template` 추가** — staging 템플릿 전개분이 본시드로 처음
+            # 승격됐다(CO-I-2/X-1 잔여 board 3건, board_order **37~39**). 승격하면서
+            # kind를 "claude-authored"로 고쳐 적는 선택지가 있었으나 **출처를 지우는
+            # 쪽이라 택하지 않았다** — 이 필드의 존재 이유가 회수 단위 추적이고,
+            # 템플릿 전개분은 회수 단위가 다르다(템플릿 하나를 고치면 파생분이 함께
+            # 움직인다). refs가 `template: <이름>` + `params[...]`를 실어 그 추적을
+            # 실제로 가능하게 한다.
+            assert source.get("kind") in (
+                "seed",
+                "claude-authored",
+                "template",
+            ), f"[{i}] source.kind"
             refs = source.get("refs")
             assert isinstance(refs, list) and refs, f"[{i}] source.refs 비어 있음"
 

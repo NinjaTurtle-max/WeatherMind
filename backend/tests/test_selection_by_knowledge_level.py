@@ -198,8 +198,9 @@ class TestBandDoesNotAffectSelection:
 def board_pool(reported: str, theta: float, shuffle_seed: int = 0) -> list:
     """`_fetch_board_pool`을 재현한다 — **작은 풀**이라 꼬리가 실제로 드러난다.
 
-    new 풀(1012건 중 60건 선취)에서는 θ에 가장 가까운 밴드만으로 선취가 다 차서
-    신고 학령이 결과에 닿지 못한다. board는 전 밴드 합쳐 46건뿐이고 한도가
+    new 풀(**1,015**건 중 60건 선취 — 2026-08-14 재실측)에서는 θ에 가장 가까운
+    밴드만으로 선취가 다 차서
+    신고 학령이 결과에 닿지 못한다. board는 전 밴드 합쳐 **49건**뿐이고 한도가
     `BOARD_POOL_LIMIT`(40)이라 **꼬리가 반드시 다른 밴드로 넘어간다** — 신고
     학령이 선택을 오염시키던 자리가 여기다. board 풀은 kl 재정렬을 걸지 않으므로
     (`order_boards_for_today`가 현상 축으로 다시 세운다) 순서는 SQL 정렬 그대로다.

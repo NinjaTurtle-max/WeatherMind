@@ -190,7 +190,13 @@ class TestSeedBoardRoundTrip:
         """시드 board 문항 수 고정 — 증감 시 이 계약과 §3.5 커버리지를 함께 갱신."""
         # R12 §9 13건 → R13 2일차 통합 병합으로 34건(2일차 저작 7 + 규칙 확장 10 +
         # 재난 연쇄 4). 규칙이 8→13종이 되면서 저단계·상단계 퍼즐이 함께 열렸다.
-        assert len(self.boards) == 46
+        # staging 승격(2026-08-14): 46 → **49**. CO-I-2/X-1 잔여 3건
+        # (`pressure_front`·kl4)에 `board_order`·`title`·`summary`를 채웠다.
+        # ⚠️ **말미에 붙이지 않았다** — 셋 다 난이도 2라 난이도 3 구간(옛 37~46) 뒤에
+        # 두면 `test_board_progression`의 **단조 증가 계약이 깨진다**(실제로 깨졌고
+        # 그래서 옮겼다). 난이도 2 블록 끝인 36 다음 **37~39**로 넣고 옛 37~46을
+        # +3 밀었다. 순차 잠금(MT-24)이 이 순서 위에 서 있으므로 자리가 계약이다.
+        assert len(self.boards) == 49
 
     def test_전건_렌더_필수_필드_온전(self):
         for i, item in enumerate(self.boards):
