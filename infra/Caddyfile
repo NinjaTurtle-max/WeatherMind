@@ -6,9 +6,11 @@
 #   auto-HTTPS(Let's Encrypt 발급·갱신 자동). 실도메인·공인 인증서는 §7.0 범위 밖
 #   (도메인 미보유) — 오버레이는 도메인이 생기는 즉시 env 한 줄로 전환되게만 한다.
 #
-# 라우팅: /api/* 와 /health 는 Caddy에서 직접 backend로 보낸다 — 프론트 nginx를
+# 라우팅: **`/api/*`만** Caddy에서 직접 backend로 보낸다 — 프론트 nginx를
 #   경유하면 X-Forwarded-Proto가 http(내부 구간)로 덮여 원 스킴(https)을 잃는다.
 #   나머지 경로는 frontend nginx(정적 SPA + SPA fallback)로.
+#   ⚠️ 이 줄은 **`/health`도 직접 보낸다**고 적고 있었으나 2026-08-18 반영분으로
+#   거짓이 됐다 — 그 블록은 지웠다(사유는 아래 site 블록 안 주석).
 # =============================================================================
 
 # ── X-Forwarded-For 신뢰 (CO-P-7 — 2026-08-09 실측으로 전제가 뒤집힘) ──────────
@@ -36,10 +38,25 @@
 		reverse_proxy backend:8000
 	}
 
-	# 헬스체크 — 로깅·모니터링이 프록시 뒤에서도 backend 상태를 본다
-	handle /health {
-		reverse_proxy backend:8000
-	}
+	# ── `/health`는 **공개하지 않는다** (2026-08-14 클라이언트 결정 · 8/18 반영) ──
+	#
+	# 종전에는 여기 `handle /health { reverse_proxy backend:8000 }`이 있었다.
+	# 그 블록이 db·redis 상태와 **KMA 키 개수**·코드 지문을 **인증 없이** 내보냈다.
+	# 키 값이 아니므로 규정 위반은 아니었지만(HACKATHON_RULES §3은 키 **값** 노출을
+	# 실격으로 본다) 심사 기간에 굳이 열어 둘 표면이 아니다.
+	#
+	# **끊기지 않는 것** — 지우기 전에 확인했다:
+	#   · 컨테이너 헬스체크는 도커 네트워크 안에서 `backend:8000`을 직접 때린다
+	#     (`docker-compose.prod.yml`). Caddy를 안 지나므로 **영향 없다.**
+	#   · 운영자 점검은 컨테이너 안에서 친다(`DEPLOY.md §5.2`). ⚠️ 호스트에서
+	#     `localhost:8000`으로 치는 형태는 **이 변경과 무관하게 원래 죽어 있었다** —
+	#     prod compose가 backend `ports`를 `!reset []`로 지워 호스트에 안 열린다.
+	#   · 외부에서 backend 생존만 보고 싶으면 **`/api/*`를 쓴다.**
+	#
+	# ⚠️ **지운 뒤의 응답이 404가 아니다.** 아래 `handle {}`(SPA 폴백)이 받아
+	# **200 + `index.html`**을 낸다. 그래서 외부 업타임 모니터를 `/health`에 걸면
+	# **서버가 죽어도 영원히 초록으로 보인다.** 지금 그런 모니터는 없지만, 생기면
+	# 이 사실이 먼저다. 같은 성질을 `/login`에서 실측했다(대장 §5.6).
 
 	# 정적 SPA — frontend nginx (assets 캐시·SPA fallback은 nginx 소유)
 	handle {
