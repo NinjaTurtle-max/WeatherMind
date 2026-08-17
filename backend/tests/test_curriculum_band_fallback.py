@@ -492,14 +492,56 @@ class TestQueryShapeUnchanged:
         params = self._run([]).stmts[0].compile().params
         assert params["level_group_1"] == ["adult"]
 
-    def test_선취는_θ_경로에만_걸린다(self):
-        """콜드스타트는 재정렬이 없으므로 여유분을 읽을 이유도 없다 —
-        조회량이 조용히 늘어나는 것을 여기서 막는다."""
-        cold = self._run([]).stmts[0].compile().params
+    # 섹션이 **단계를 말하는** 유닛 — 위 UNIT(섹션 없음)과 짝이다.
+    # 값은 `SECTION_KNOWLEDGE_LEVEL`의 실제 키여야 한다(테스트가 지어내면
+    # `unit_target_level`이 None을 내고 이 짝 자체가 무의미해진다).
+    SECTIONED_UNIT = SimpleNamespace(
+        kind="quiz",
+        concept_tag="temperature_heat",
+        section=next(iter(cs.SECTION_KNOWLEDGE_LEVEL)),
+    )
+
+    @staticmethod
+    def _limits(params):
+        return [v for k, v in params.items() if k.startswith("param_")]
+
+    def test_선취는_재정렬이_도는_경로에만_걸린다(self):
+        """**기준은 θ의 유무가 아니라 표적 단계의 유무다.**
+
+        이 테스트는 `test_선취는_θ_경로에만_걸린다`였고 근거를 "콜드스타트는
+        재정렬이 없으므로"라고 적었는데, **CO-G1 순환식 배선(10섹션 = 지식 단계)
+        이후로 거짓**이다: `section_level`이 θ 없이도 표적을 내므로 콜드스타트
+        에서도 `rank_by_knowledge_level`이 돈다. 그때 선취가 없으면 SQL의
+        `ORDER BY random() LIMIT 4`가 먼저 자른 4건만 재정렬 대상이라 재정렬이
+        사실상 무력했다. 종전 픽스처의 유닛에 `section`이 없어서 이 자리가
+        **초록인 채로** 그 공백을 덮고 있었다.
+        """
+        # ⓐ 표적이 없다(섹션 없음 + θ 없음) → 여유분을 읽을 이유가 없다
+        cold_no_target = self._run([]).stmts[0].compile().params
+        assert cs.UNIT_SESSION_SIZE in self._limits(cold_no_target)
+        # ⓑ 🔴 표적이 있다(섹션이 단계를 말한다) → θ가 없어도 선취한다
+        cold_with_target = (
+            self._run([], unit=self.SECTIONED_UNIT).stmts[0].compile().params
+        )
+        assert (
+            cs.UNIT_SESSION_SIZE * cs.UNIT_POOL_PREFETCH
+            in self._limits(cold_with_target)
+        )
+        # ⓒ θ 경로는 종전 그대로
         warm = self._run(self.ABILITIES).stmts[0].compile().params
-        limits = lambda p: [v for k, v in p.items() if k.startswith("param_")]
-        assert cs.UNIT_SESSION_SIZE in limits(cold)
-        assert cs.UNIT_SESSION_SIZE * cs.UNIT_POOL_PREFETCH in limits(warm)
+        assert cs.UNIT_SESSION_SIZE * cs.UNIT_POOL_PREFETCH in self._limits(warm)
+
+    def test_선취를_넓혀도_콜드스타트_밴드는_가입_밴드_하나다(self):
+        """ⓑ의 경계 — 넓어지는 것은 **표본 수**지 밴드가 아니다.
+
+        여기가 갈리면 콜드스타트에서 학령 표적이 통째로 무너진다
+        (`unit_pool_level_groups` 독스트링의 「random 정렬에서는 넓히지 않는다」).
+        """
+        params = self._run([], unit=self.SECTIONED_UNIT).stmts[0].compile().params
+        assert params["level_group_1"] == ["adult"]
+
+    def test_표적이_있는_콜드스타트도_조회는_정확히_2회(self):
+        assert len(self._run([], unit=self.SECTIONED_UNIT).stmts) == 2
 
     def test_두_조회가_같은_필터를_쓴다(self):
         """백필(2차)이 밴드를 좁히면 굶주림이 그 경로에서 되살아난다."""

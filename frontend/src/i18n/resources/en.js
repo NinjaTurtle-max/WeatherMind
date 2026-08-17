@@ -783,6 +783,15 @@ export default {
       guestFailedBody: 'The connection hiccuped. Shall we try again?',
       guestFailedRetry: 'Try again',
       guestFailed: "Couldn't start. Please try again in a moment.",
+      // Expired screen (2026-08-14) — NOT the same as a failed issue. Whoever
+      // lands here already had an account and only lost this device's key.
+      // Silently minting a new one would strand that progress for good.
+      expiredTitle: 'This device lost its connection',
+      expiredBody:
+        'Your learning progress is still there. If you saved it, you can load it back — otherwise you can start fresh.',
+      expiredLoad: 'Load my progress',
+      expiredFresh: 'Start fresh',
+      expiredFreshNote: "Starting fresh means you can't get back to the progress left on this device.",
       guestNickname: 'Guest',
       email: 'Email',
       password: 'Password',
