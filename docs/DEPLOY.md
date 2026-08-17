@@ -297,7 +297,7 @@ $C exec -T postgres psql -U weathermind -d weathermind -v ON_ERROR_STOP=1 \
 #    그러면 전 유닛이 단일 코스로 뭉치고 GET /courses가 비어 학습 화면이 백지가 된다.
 #    scripts/smoke.sh가 이 순서를 계약으로 검사한다.
 $C exec backend python -m app.scripts.seed_courses    # ← 빠뜨리기 쉽다
-$C exec backend python -m app.scripts.seed_content    # 문항 284 (2026-08-09 실측)
+$C exec backend python -m app.scripts.seed_content    # 문항 1,012 (2026-08-12 실측 — 08-09의 284는 낡았다)
 $C exec backend python -m app.scripts.seed_units      # 유닛 24 (courses 필요)
 $C exec backend python -m app.scripts.seed_badges     # 배지
 
@@ -421,6 +421,38 @@ RLS 예외 정책도 없다 — **복원은 성공했는데 런타임이 그 DB�
 git pull
 IMAGE_TAG=<새 커밋 sha> $C pull && IMAGE_TAG=<새 커밋 sha> $C up -d
 ```
+
+### 9.0 🔴 **시드가 바뀐 롤링이면 시드를 다시 넣어야 한다** (2026-08-14)
+
+⚠️ **이 절이 없어서 공백이 있었다.** 시딩이 §6 「초기화(최초 1회)」에만 있고 여기
+운영 중 갱신에는 없었다 — 그래서 **시드를 고친 PR이 병합돼도 실서버 DB에는 영원히
+안 닿는다.** 이미지에는 새 JSON이 들어 있는데 아무도 적재를 안 부르므로, 화면은
+계속 옛 문항을 낸다. 코드 결함이 아니라 **절차 공백**이라 테스트로는 안 잡힌다.
+
+```bash
+# database/seed/*.json 이 바뀐 롤링에서만. 안 바뀌었으면 건너뛴다.
+$C exec backend python -m app.scripts.seed_content
+```
+
+**다시 돌려도 안전하다** — `seed_content.py`가 **멱등**이다(키 = `concept_tag` +
+`question_text`). 같은 키면 기존 행을 갱신하고 새 키면 추가한다. 그래서 「고친
+문항이 반영되는」 경로가 바로 이것이다.
+
+⚠️ **다른 시드도 바뀌었으면 함께 돌린다** — 순서는 §6과 같다(`seed_courses` →
+`seed_content` → `seed_units` → `seed_badges`). **`courses`가 `units`보다 먼저**라는
+제약(CO-J-7)은 여기서도 그대로다.
+
+### 🔴 9.0a 시드를 갱신해도 **이미 발급된 세션은 안 바뀐다**
+
+문항 payload가 발급 시점에 `quiz_logs`로 **스냅샷**되어 채점이 그 사본으로 돌아간다.
+그래서 시드를 고쳐도 **이미 세션을 받은 학습자는 재발급 전까지 옛 문항으로 푼다.**
+
+- **오답 채점 결함을 고친 경우** — 시드 갱신만으로는 **오늘 이미 세션을 받은 사람에게
+  안 닿는다.** 급하면 그 사실을 인지하고 별도 대응을 정할 것(세션 만료를 기다리거나
+  대상 세션을 무효화하거나 — 둘 다 이 문서 밖 결정이다)
+- **표기·해설만 고친 경우** — 다음 세션부터 반영되면 충분하다
+
+**「시드를 넣었으니 반영됐다」로 검증을 끝내지 말 것.** 확인은 **새 세션을 받아서** 한다.
 
 ### 9.1 ⚠️ Redis 영속성을 처음 켜는 갱신 — **선행 1회 명령이 있다**
 
