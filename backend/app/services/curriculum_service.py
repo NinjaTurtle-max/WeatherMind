@@ -457,6 +457,13 @@ def plan_crown(
 
     - 왕관은 crown_target까지만 +1 (초과 미가산).
     - cleared 전환(왕관이 target에 처음 도달)에만 +20 XP 1회 — 재클리어는 XP 0.
+
+    ⚠️ **이 함수는 멱등이 아니다.** "같은 활동을 두 번 불러도 안전하다"가 성립하는
+    것은 `crown_target == 1`일 때뿐이고, `crown_target >= 2`면 부를 때마다 +1 해서
+    만관까지 올라간다(그리고 그 도달 시점에 XP도 나간다). 상한 판정 —
+    「이 활동으로 이미 왕관을 줬는가」 — 은 **호출측이 소유**한다. 이 주의를 적는
+    이유는 `routers/session.py`의 유닛 왕관 분기가 실제로 "grant가 멱등이니
+    괜찮다"고 적힌 채 재완료 파밍을 열어 놨기 때문이다(2026-08-14 수정).
     """
     new_crowns = crowns + 1 if crowns < crown_target else crowns
     newly_cleared = new_crowns >= crown_target and not cleared

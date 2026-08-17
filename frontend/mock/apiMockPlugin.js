@@ -2223,6 +2223,10 @@ const routes = {
         },
       ];
     }
+    // 재완료 여부를 **표시를 세우기 전에** 잡는다 — 서버
+    // `routers/session.py`의 `is_first_complete = session.completed_at is None`과
+    // 같은 값이고, 보상(배지·왕관·XP 전환)은 전부 이 값에 걸린다.
+    const isFirstComplete = !s.completed;
     s.completed = true;
     const results = Object.values(s.answers);
     const correctCount = results.filter((r) => r.is_correct).length;
@@ -2254,15 +2258,20 @@ const routes = {
     // 이유(두 유닛을 역순으로 완료하면 재계산이 뒤집힌다). 도장이 없는 세션은
     // undefined → falsy라 왕관이 안 나간다(모르는 세션은 안 주는 쪽으로 닫힘).
     //
-    // 멱등은 `grantUnitCrown`이 지킨다(이미 만관이면 null·무동작) — 서버가
-    // "`grant_unit_crown`이 멱등 판정을 갖고 있어 상한은 그쪽이 지킨다"고 적은 것과
-    // 같은 구조다. 재완료로 왕관이 두 번 붙지 않는다.
+    // ⚠️ **재완료에는 왕관이 없다 — `isFirstComplete`가 세 번째 조건이다.**
+    // 이 자리에는 "멱등은 `grantUnitCrown`이 지킨다(이미 만관이면 null·무동작)"고
+    // 적혀 있었고 서버도 같은 말을 적었는데, **둘 다 틀렸다**: 만관 판정은
+    // `crowns >= crown_target`이라 `crown_target = 2`인 유닛은 같은 세션에
+    // `complete`를 두 번 던지면 두 번째에 왕관이 또 붙는다(서버는 거기에 +20 XP도
+    // 얹혔다). 목의 UNITS는 전건 `crown_target: 1`이라 증상이 안 났을 뿐이라
+    // **목이 서버 결함을 가려 준 꼴**이었다. 서버가
+    // `all_correct and daily_first and is_first_complete`로 닫혔으므로 목도 같이 닫는다.
     let unitResult = null;
     if (s.unit_id) {
       const unit = getUnit(s.unit_id);
       const crownTarget = unit?.crown_target ?? 1;
       const allCorrect = progress.total > 0 && correctCount === progress.total;
-      const grantCrown = allCorrect && Boolean(s.daily_first);
+      const grantCrown = allCorrect && Boolean(s.daily_first) && isFirstComplete;
 
       // cleared 전환 여부를 **부여 전에** 기록한다 — `unit_xp`는 서버
       // `grant_unit_crown`의 `xp_earned`와 같은 뜻이라 "이번에 처음 클리어됐을 때만
@@ -2297,8 +2306,10 @@ const routes = {
     // **진도 블록 0이면 왕관도 0**이다 — 세션 전체로 폴백하지 않는다(CO-M7:
     // 폴백하면 기준이 5문항에서 15문항으로 조용히 올라간다).
     // placement는 제외. daily는 하루 1세션 멱등이라 파밍 자연 상한.
+    // 데일리도 **최초 완료에만** — 서버는 이 분기 전체가 `if is_first_complete:`
+    // 안에 있다(배지와 같은 블록). 목에는 그 게이트가 없어 서버와 갈렸다.
     let crownAward = null;
-    if (s.mode === 'daily') {
+    if (s.mode === 'daily' && isFirstComplete) {
       const crownItems = s.items.filter((it) => it.kind === 'unit');
       const crownResolved =
         crownItems.length > 0 && crownItems.every((it) => isResolved(s.answers[it.quiz_id] ?? {}));
