@@ -179,8 +179,19 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   await waitFor(() => entries[0].textContent.includes('기단의 성질'), 6000, '진입 카드 현재 유닛');
   ok(/기단의 성질|첫 유닛/.test(entries[0].textContent), `카드 제목이 현재 유닛 — "${entries[0].textContent.slice(0, 30)}"`);
   ok(entries[0].getAttribute('data-entry-kind') === 'unit', `진입 종류 unit — 실제 ${entries[0].getAttribute('data-entry-kind')}`);
-  const mascotSrc = entries[0].querySelector('img')?.getAttribute('src');
-  ok(mascotSrc === '/drop.png', `진입 카드 화자는 물방울이 — 실제 ${mascotSrc}`);
+  // ⚠️ **화자는 2026-08-17에 상단 배너로 옮겨갔다**(사용자 지시 — 다섯 화면이
+  // 같은 배너 꼴). 종전에는 이 카드가 물방울이를 그렸다.
+  // 자리 대신 **개수**를 문다: 물방울이가 화면에 정확히 한 번. 배너 62px과
+  // 카드 56px로 둘이 뜨면 어느 쪽이 말하는 건지 알 수 없다 — 사이드바 튜터를
+  // 걷은 것과 같은 기준이고, 자리를 또 옮겨도 이 가드는 계속 유효하다.
+  const dropImgs = $$('img[src="/drop.png"]');
+  ok(dropImgs.length === 1, `물방울이가 화면에 한 번만 그려진다 — 실제 ${dropImgs.length}개`);
+  const bannerMascot = $('[data-testid="learn-hero"] img')?.getAttribute('src');
+  ok(bannerMascot === '/drop.png', `그 한 번은 상단 배너다 — 실제 ${bannerMascot}`);
+  ok(
+    entries[0].querySelector('img') === null,
+    '진입 카드는 캐릭터를 안 그린다(유닛명·진도·CTA만)',
+  );
 
   // ④ 오늘의 목표 — 목 기본값은 미설정(null)이다. 그래도 **자리는 남아야 한다**:
   // 한때 숨겼는데, 홈이 사라진 뒤로 목표를 정하는 통로가 이 화면에 없어서

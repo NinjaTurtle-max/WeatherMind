@@ -4,10 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { curriculumApi, progressApi } from '../../api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import PcCurriculumPath from './PcCurriculumPath';
+import HeroBanner from '../../components/HeroBanner';
 import CourseSwitcher, { useCourses } from './CourseSwitcher';
 import LearnHeroCard from './LearnHeroCard';
 import LearnFooterCards from './LearnFooterCards';
-import { pickLearnEntry, pickSectionEntry } from './learnEntry';
+import { ENTRY_MASCOT, pickLearnEntry, pickSectionEntry } from './learnEntry';
 import { useAttendance } from '../../hooks/useAttendance';
 // R11-01 §6.2 마운트 통합 — props 없는 자급 계약(조건 미충족 시 자가 null).
 // 복습 큐(ReviewQueueCard)는 2026-08-09부터 LearnFooterCards가 마운트한다.
@@ -230,9 +231,37 @@ export default function CurriculumHome() {
         <CourseSwitcher selected={selectedCourse} onSelect={setPickedCourse} />
       </div>
 
-      {/* 페이지 머리말(🎓 학습 + 설명)은 **없앴다**(2026-08-09 사용자 지시).
-          같은 설명을 진입 배너가 부제로 말한다 — 두 벌이면 세로만 66px 먹는다.
-          문구의 소유자는 `curriculum.subtitle`이다(LearnHeroCard가 읽는다). */}
+      {/* 🔴 **상단 물방울이 배너**(2026-08-17 사용자 지시 — "학습 세션도 상단
+          튜터 카드로 같이 맞춰 줘"). 이제 다섯 화면이 같은 배너를 쓴다:
+          학습 물방울이 · 보드 태양이 · 탐구 번개 · 예보 태풍이 · 리그 눈송이.
+
+          경위. 2026-08-09에 페이지 머리말(🎓 학습 + 설명)을 **없앴었다** —
+          같은 설명을 오른쪽 진입 카드가 부제로 말해서 두 벌이었기 때문이다.
+          지금은 그 반대로 정리한다: 머리말 자리를 배너가 받고, **오른쪽 카드는
+          마스코트와 부제를 내놓는다**(`LearnHeroCard`). 두 벌이 되지 않는 것이
+          그때와 같은 기준이고, 달라진 것은 어느 쪽이 남느냐뿐이다.
+
+          ⚠️ **유닛명은 배너로 올리지 않는다.** `HeroBanner`의 title은 한 줄로
+          잘리는데(`truncate`) 유닛명은 「높은 기압과 낮은 기압 · 빈칸 채우기」
+          처럼 길어 오른쪽 카드에서 두 줄로 접힌다. 배너는 **화면 이름**만
+          말하고, 「지금 무엇을 풀 차례인가」는 계속 카드가 말한다.
+
+          ⚠️ 세로 비용이 있다: 배너 90 + 간격 16 = **106px**이 경로에서 빠진다
+          (1366에서 664 → 558). 오른쪽 카드가 마스코트 행과 부제를 내놓으며
+          ~93px 짧아져 그 열의 넘침은 오히려 줄지만, **경로가 짧아지는 것은
+          그대로**다 — 이 화면에서 세로가 부족한 쪽은 경로다. */}
+      <div className="mb-4">
+        <HeroBanner
+          testId="learn-hero"
+          // 마스코트의 소유자는 `learnEntry.ENTRY_MASCOT`다 — 여기서 'drop'을
+          // 직접 박으면 표와 갈릴 수 있다(담당표 대조는 mascotAssets ④).
+          mascot={ENTRY_MASCOT.unit}
+          as="h1"
+          eyebrow={t('curriculum.title')}
+          title={t('curriculum.heroTitle')}
+          description={t('curriculum.subtitle')}
+        />
+      </div>
 
 
       {/* 구름 소진 안내 (§3.1) — 새 세션은 열 수 없지만 이유·회복 시점을 먼저 알린다 */}

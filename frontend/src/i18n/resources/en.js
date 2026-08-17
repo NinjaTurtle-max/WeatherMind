@@ -395,6 +395,8 @@ export default {
     },
   },
   curriculum: {
+    // Banner headline — truncates to one line (HeroBanner title rule).
+    heroTitle: 'Shall we take one more step today?',
     // 하루 목표 미설정 — 진입 카드에서 내 정보(설정 통로)로 보낸다
     goalUnset: 'Set your daily goal!',
     loading: 'Loading your learning path…',
