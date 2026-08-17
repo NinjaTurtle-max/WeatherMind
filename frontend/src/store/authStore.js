@@ -18,6 +18,21 @@ export const useAuthStore = create(
       accessToken: null,
       refreshToken: null,
       postAuthRoute: null, // 인증 직후 1회성 목적지 (기본 '/' — App에서 해석)
+      /**
+       * 🔴 **이 기기가 계정을 가진 적이 있는가** — `logout()`이 지우지 않는 유일한 값.
+       *
+       * 없으면 이런 일이 난다: 401 인터셉터가 토큰을 지운 뒤 학습자가 **새로고침**
+       * 하면, `App.jsx`의 모듈 스코프 플래그(`guestAttempted`)가 함께 초기화돼
+       * 「토큰이 없는 첫 방문자」와 구분이 안 된다 → 조용히 새 게스트가 발급되고
+       * 옛 진도는 영영 닿을 수 없게 된다. 게스트 비밀번호는 무작위 시크릿이라
+       * 복구 경로가 없다. 만료 안내 화면(`SessionExpired`)을 만들어도 **가장 흔한
+       * 사용자 행동 하나(새로고침)로 우회**되면 없는 것과 같다.
+       *
+       * 그래서 토큰과 **다른 수명**을 갖는다: `setTokens`가 세우고, `logout()`은
+       * 건드리지 않으며, 지우는 것은 학습자가 「새로 시작하기」를 눌렀을 때
+       * (`forgetAccount`)뿐이다. persist에 포함되어야 새로고침을 건넌다.
+       */
+      hadAccount: false,
 
       setUser: (user) => set({ user }),
 
@@ -27,11 +42,17 @@ export const useAuthStore = create(
         set((state) => ({
           accessToken: accessToken ?? state.accessToken,
           refreshToken: refreshToken !== undefined ? refreshToken : state.refreshToken,
+          hadAccount: true,
         })),
 
       setAccessToken: (accessToken) => set({ accessToken }),
 
+      // ⚠️ `hadAccount`는 **의도적으로 빠져 있다**(위 주석). 여기에 더하면
+      // 만료 안내가 새로고침 한 번으로 사라진다.
       logout: () => set({ user: null, accessToken: null, refreshToken: null, postAuthRoute: null }),
+
+      /** 「새로 시작하기」 — 옛 계정을 포기한다고 학습자가 명시했을 때만. */
+      forgetAccount: () => set({ hadAccount: false }),
     }),
     {
       name: 'weathermind-auth',
@@ -41,6 +62,8 @@ export const useAuthStore = create(
         user: state.user,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
+        // 새로고침을 건너야 의미가 있다 — 이 한 줄이 빠지면 위 주석의 결함이 그대로 돌아온다.
+        hadAccount: state.hadAccount,
       }),
     },
   ),
