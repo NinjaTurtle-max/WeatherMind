@@ -354,12 +354,21 @@ class TestSectionlessUnitsUnchanged:
 
 
 class TestColdStartUnchanged:
-    """PM 계약 ④ / 기존 밴드 폴백 계약: θ None은 유닛 표적이 있어도 불변.
+    """PM 계약 ④: 콜드스타트의 **정렬 기준점과 밴드**는 유닛 표적이 있어도 불변.
 
     `sort_theta is None ⟺ theta is None`이 계약이다 — 콜드스타트는
-    `unit_pool_level_groups`가 가입 밴드 하나로 좁히고 선취도 없는 별개 경로라
-    (`test_curriculum_band_fallback.TestQueryShapeUnchanged`가 소유),
-    여기서만 정렬을 붙이면 반쪽 상태가 된다.
+    `unit_pool_level_groups`가 가입 밴드 하나로 좁히는 별개 경로라, 여기서만
+    정렬 기준점을 옮기면 반쪽 상태가 된다. 밴드가 하나뿐이면 `prior_b`도 한
+    값이라 `|b − 기준점|`이 전건 동률이 되어 **옮겨도 순서가 안 바뀐다**는
+    실질적 이유도 있다.
+
+    ⚠️ **「선취도 없다」는 여기서 빠졌다**(2026-08-14). 이 독스트링은 콜드스타트를
+    "선취도 없는 별개 경로"라고 적었고 아래 테스트가 그것을 못박고 있었는데,
+    CO-G1 순환식 배선 이후로 **콜드스타트에서도 `rank_by_knowledge_level`이
+    돈다**(`section_level`이 θ 없이 표적을 낸다). 재정렬은 도는데 선취가 없으니
+    SQL의 `random() LIMIT 4`가 자른 4건만 재정렬 대상이었다 — 정렬 기준점을 안
+    옮기는 것과 표본을 안 넓히는 것은 근거가 다른데 한 문장으로 묶여 있었다.
+    선취의 소유자는 `test_curriculum_band_fallback.TestQueryShapeUnchanged`다.
     """
 
     def test_유닛_표적이_있어도_기준점이_없다(self):
@@ -372,8 +381,21 @@ class TestColdStartUnchanged:
         assert "random()" in [str(c) for c in stmt._order_by_clauses]
         assert stmt.compile().params["level_group_1"] == [USER.level_group]
 
-    def test_콜드스타트는_선취하지_않는다(self):
+    def test_콜드스타트도_표적이_있으면_선취한다(self):
+        """정렬 기준점은 안 옮겨도 **표본은 넓힌다** — 근거가 다르다.
+
+        기준점을 안 옮기는 이유는 「밴드가 하나라 순서가 안 바뀐다」이고,
+        표본을 넓히는 이유는 「재정렬이 실제로 돌기 때문」이다. 넓히지 않으면
+        `random() LIMIT 4`가 자른 4건이 곧 세션이라, 섹션이 정한 단계가
+        콜드스타트에서만 무시된다.
+        """
         _, db = pool([row("middle_high", 3)], unit_obj("초등 3~4학년"), abilities=[])
+        assert db.stmts[0]._limit_clause.value == SIZE * cs.UNIT_POOL_PREFETCH
+
+    def test_섹션이_단계를_말하지_않으면_콜드스타트는_선취하지_않는다(self):
+        """경계 — 기초과학·미등재 섹션은 θ도 표적도 없어 재정렬 자체가 없다.
+        읽는 양이 이유 없이 늘어나는 것을 여기서 막는다."""
+        _, db = pool([row("middle_high", 3)], unit_obj("이런 섹션 없음"), abilities=[])
         assert db.stmts[0]._limit_clause.value == SIZE
 
     def test_θ_경로는_선취한다(self):

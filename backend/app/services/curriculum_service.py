@@ -1018,8 +1018,12 @@ async def _unit_content_pool(
       `rank_by_knowledge_level`에 닿기도 전에 잘렸다(재진입 결함. 실측과 "왜
       하드 필터가 아닌가"는 그 함수의 독스트링이 소유한다). 섹션이 없는 유닛과
       콜드스타트는 종전대로 θ다.
-    - 콜드스타트(θ None)는 현행과 완전 동일: 가입 그룹 단일 + random 정렬 +
-      선취 없음 + 재정렬 없음(단계 표적이 없으므로).
+    - 콜드스타트(θ None): 가입 그룹 단일 + random 정렬. **선취·재정렬은
+      섹션이 단계를 말하면 콜드스타트에도 걸린다**(2026-08-14 정정 — 종전
+      "선취 없음 + 재정렬 없음(단계 표적이 없으므로)"은 CO-G1 순환식 배선 전의
+      기술이고, 그 뒤로 `section_level`이 θ 없이도 표적을 낸다). 재정렬은 이미
+      돌고 있었고 **선취만 빠져 있어서** 재정렬이 볼 표본이 정원과 같았다 —
+      사유는 `fetch_limit` 자리의 주석이 소유한다.
 
     ⚠️ **이 풀은 실황 문항을 내지 않는다** — `build_pool_query(live=False)`가
     `uses_live_slots=true`를 제외한다. 2026-08-12~13 사이에 잠깐 실황 예약분
@@ -1057,7 +1061,26 @@ async def _unit_content_pool(
         )
     )
     sort_theta = unit_pool_sort_theta(section_level, theta)
-    fetch_limit = UNIT_SESSION_SIZE * (1 if theta is None else UNIT_POOL_PREFETCH)
+    # 선취 배수는 **재정렬이 실제로 도는가**에 걸린다 — θ의 유무가 아니라
+    # `target_level`의 유무다.
+    #
+    # 🔴 종전에는 `1 if theta is None else UNIT_POOL_PREFETCH`였고, 그 근거로
+    # "콜드스타트는 단계 표적이 없으므로 재정렬이 없다"고 적혀 있었다. **CO-G1
+    # 순환식 배선(10섹션 = 지식 단계 1~10)이 그 전제를 무효로 만들었다**: 이제
+    # `section_level`이 θ와 무관하게 표적을 내므로 콜드스타트에서도
+    # `rank_by_knowledge_level`이 돈다. 그런데 선취가 없으면 SQL이
+    # `ORDER BY random() LIMIT 4`로 **먼저 잘라 놓은** 4건만 재정렬 대상이라,
+    # 표적 단계 문항은 그 4건에 들 확률만큼만 나온다 — 재정렬이 있으나 마나 한
+    # 상태였다. 유닛 세션의 「같은 개념이라도 섹션이 단계를 정한다」가
+    # 콜드스타트에서만 조용히 무너지는 것이 증상이다.
+    #
+    # 넓혀도 밴드는 그대로다: 콜드스타트의 `unit_pool_level_groups`는 가입 밴드
+    # 하나라, 선취가 늘어나는 것은 **같은 밴드 안의 무작위 표본**이고 그 표본을
+    # 재정렬이 단계순으로 세운다. 조회 **횟수**는 종전과 같은 2회다
+    # (`TestQueryShapeUnchanged`).
+    fetch_limit = UNIT_SESSION_SIZE * (
+        UNIT_POOL_PREFETCH if target_level is not None else 1
+    )
 
     def _pool_stmt(served_subq):
         stmt = session_service.build_pool_query(
