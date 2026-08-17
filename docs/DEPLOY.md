@@ -417,10 +417,73 @@ RLS 예외 정책도 없다 — **복원은 성공했는데 런타임이 그 DB�
 
 ## 9. 운영 중 갱신
 
+### 🔴 지금은 **서버에서 빌드한다** — `$C pull`은 조용히 옛 이미지를 붙인다
+
+이 자리에 아래 두 줄이 적혀 있었고 **2026-08-13부터 거짓이다**(§0의 GHCR 경고와
+어긋난 채 방치됐다 — 2026-08-17 정정):
+
 ```bash
-git pull
+# ⛔ 낡음 — 그대로 하지 말 것
 IMAGE_TAG=<새 커밋 sha> $C pull && IMAGE_TAG=<새 커밋 sha> $C up -d
 ```
+
+GitHub Actions 무료 분 소진으로 `release.yml`이 멈춰 **새 커밋의 GHCR 이미지가
+없다.** 그런데 `$C pull`은 **에러를 내지 않는다** — 태그를 못 찾으면 이미 받아 둔
+이미지를 그대로 쓴다. 증상이 *"명령은 다 성공했는데 화면이 안 바뀐다"* 라서, 운영자는
+빌드가 아니라 브라우저 캐시나 Caddy를 의심하며 시간을 쓴다. 9/1에 무료 분이
+초기화되면 위 두 줄로 원복된다(경위는 대장 §4.11).
+
+```bash
+C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+cd <저장소>
+git pull
+TAG=$(git rev-parse --short HEAD)
+
+# ⚠️ `$C build`가 아니라 `docker build`다. docker-compose.prod.yml에는 `build:`가
+#    **없고**(`build: !reset null` — §0), dev 정의로 빌드하면 이미지 이름이
+#    compose 프로젝트명에서 파생돼 prod가 찾는 이름과 다르다. 여기서 목적지 이름을
+#    직접 박으면 `docker tag` 단계 자체가 없어지고 이름이 어긋날 여지도 없다.
+#    빌드 인자는 필요 없다 — frontend/Dockerfile의 VITE_API_BASE_URL 기본값
+#    `/api/v1`이 곧 prod 값이다(nginx가 backend:8000으로 프록시).
+docker build -t ghcr.io/ninjaturtle-max/weathermind-backend:$TAG  ./backend
+docker build -t ghcr.io/ninjaturtle-max/weathermind-frontend:$TAG ./frontend
+# ai-worker·celery는 그 디렉토리가 바뀐 롤링에서만 (각각 10분 이상 걸린다)
+# docker build -t ghcr.io/ninjaturtle-max/weathermind-ai-worker:$TAG ./ai-worker
+# docker build -t ghcr.io/ninjaturtle-max/weathermind-celery:$TAG    ./celery
+
+# 안 바꾼 서비스는 그 이미지가 $TAG로 없으므로 **바꾼 것만 지정해서** 올린다.
+# 인자 없이 `up -d`를 치면 안 바꾼 서비스가 없는 태그를 찾다가 멈춘다.
+IMAGE_TAG=$TAG $C up -d backend frontend
+$C ps                                                   # 전 컨테이너 Up · backend (healthy)
+$C exec -T backend curl -s http://localhost:8000/health  # 외부 URL로 치지 말 것(§7)
+```
+
+**소요 10~20분**(ai-worker를 빌드하면 그쪽이 대부분). 롤링마다 치르는 값이다.
+
+### 9.0 코드만 올려서는 안 바뀌는 것 — **마이그레이션과 시드**
+
+⚠️ **이 절이 없어서 실제로 걸렸다.** 「학습 섹션이 5개인데 4개만 보인다」의 원인이
+배포가 아니라 **시드 미실행**이었다(`위험한 하늘` 4유닛이 `units.json`에는 들어왔는데
+DB에는 없었다). 유닛은 `seed_units.py`로만 DB에 들어가고 그 스크립트는 §6(최초 1회)
+에만 적혀 있었으므로, 롤링을 몇 번 반복해도 영영 4개다. 프론트가 빈 섹션을 감추기
+때문에(`CurriculumHome.jsx:149` — `.filter((sec) => sec.units.length > 0)`)
+**에러도 안 난다** — 화면에는 그냥 섹션이 하나 적게 보일 뿐이다.
+
+올리기 전에 diff로 판단한다:
+
+```bash
+git diff --name-only <이전sha>..HEAD | grep -E 'alembic/versions/|database/seed/'
+```
+
+| 바뀐 것 | 해야 할 것 |
+|---|---|
+| `backend/alembic/versions/` | `$C exec backend alembic upgrade head` — **§6 ①-a의 이미지 대조를 먼저** 할 것(낡은 이미지로 upgrade하면 도중까지만 적용되고 `current == heads`가 되어 조용히 통과한다) |
+| `database/seed/courses.json` · `units.json` | `seed_courses` → `seed_units` **순서대로**(§6 ③ — 순서를 어기면 course_id가 NULL이 되어 학습 화면이 백지가 된다) |
+| `database/seed/content_items.json` | `$C exec backend python -m app.scripts.seed_content` (멱등 키 = concept_tag + question_text) |
+| `database/seed/badges.json` | `$C exec backend python -m app.scripts.seed_badges` |
+| 위 어느 것도 아님 | 없음 — 이미지 교체만으로 끝난다 |
+
+시드 스크립트는 전부 멱등이라 **의심되면 그냥 돌리는 쪽이 안전하다.**
 
 ### 9.1 ⚠️ Redis 영속성을 처음 켜는 갱신 — **선행 1회 명령이 있다**
 
