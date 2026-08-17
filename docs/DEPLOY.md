@@ -417,42 +417,87 @@ RLS 예외 정책도 없다 — **복원은 성공했는데 런타임이 그 DB�
 
 ## 9. 운영 중 갱신
 
+### 🔴 지금은 **서버에서 빌드한다** — `$C pull`은 조용히 옛 이미지를 붙인다
+
+이 자리에 아래 두 줄이 적혀 있었고 **2026-08-13부터 거짓이다**(§0의 GHCR 경고와
+어긋난 채 방치됐다 — 2026-08-17 정정):
+
 ```bash
-git pull
+# ⛔ 낡음 — 그대로 하지 말 것
 IMAGE_TAG=<새 커밋 sha> $C pull && IMAGE_TAG=<새 커밋 sha> $C up -d
 ```
 
-### 9.0 🔴 **시드가 바뀐 롤링이면 시드를 다시 넣어야 한다** (2026-08-14)
-
-⚠️ **이 절이 없어서 공백이 있었다.** 시딩이 §6 「초기화(최초 1회)」에만 있고 여기
-운영 중 갱신에는 없었다 — 그래서 **시드를 고친 PR이 병합돼도 실서버 DB에는 영원히
-안 닿는다.** 이미지에는 새 JSON이 들어 있는데 아무도 적재를 안 부르므로, 화면은
-계속 옛 문항을 낸다. 코드 결함이 아니라 **절차 공백**이라 테스트로는 안 잡힌다.
+GitHub Actions 무료 분 소진으로 `release.yml`이 멈춰 **새 커밋의 GHCR 이미지가
+없다.** 그런데 `$C pull`은 **에러를 내지 않는다** — 태그를 못 찾으면 이미 받아 둔
+이미지를 그대로 쓴다. 증상이 *"명령은 다 성공했는데 화면이 안 바뀐다"* 라서, 운영자는
+빌드가 아니라 브라우저 캐시나 Caddy를 의심하며 시간을 쓴다. 9/1에 무료 분이
+초기화되면 위 두 줄로 원복된다(경위는 대장 §4.11).
 
 ```bash
-# database/seed/*.json 이 바뀐 롤링에서만. 안 바뀌었으면 건너뛴다.
-$C exec backend python -m app.scripts.seed_content
+C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+cd <저장소>
+git pull
+TAG=$(git rev-parse --short HEAD)
+
+# ⚠️ `$C build`가 아니라 `docker build`다. docker-compose.prod.yml에는 `build:`가
+#    **없고**(`build: !reset null` — §0), dev 정의로 빌드하면 이미지 이름이
+#    compose 프로젝트명에서 파생돼 prod가 찾는 이름과 다르다. 여기서 목적지 이름을
+#    직접 박으면 `docker tag` 단계 자체가 없어지고 이름이 어긋날 여지도 없다.
+#    빌드 인자는 필요 없다 — frontend/Dockerfile의 VITE_API_BASE_URL 기본값
+#    `/api/v1`이 곧 prod 값이다(nginx가 backend:8000으로 프록시).
+docker build -t ghcr.io/ninjaturtle-max/weathermind-backend:$TAG  ./backend
+docker build -t ghcr.io/ninjaturtle-max/weathermind-frontend:$TAG ./frontend
+# ai-worker·celery는 그 디렉토리가 바뀐 롤링에서만 (각각 10분 이상 걸린다)
+# docker build -t ghcr.io/ninjaturtle-max/weathermind-ai-worker:$TAG ./ai-worker
+# docker build -t ghcr.io/ninjaturtle-max/weathermind-celery:$TAG    ./celery
+
+# 안 바꾼 서비스는 그 이미지가 $TAG로 없으므로 **바꾼 것만 지정해서** 올린다.
+# 인자 없이 `up -d`를 치면 안 바꾼 서비스가 없는 태그를 찾다가 멈춘다.
+IMAGE_TAG=$TAG $C up -d backend frontend
+$C ps                                                   # 전 컨테이너 Up · backend (healthy)
+$C exec -T backend curl -s http://localhost:8000/health  # 외부 URL로 치지 말 것(§7)
 ```
 
-**다시 돌려도 안전하다** — `seed_content.py`가 **멱등**이다(키 = `concept_tag` +
-`question_text`). 같은 키면 기존 행을 갱신하고 새 키면 추가한다. 그래서 「고친
-문항이 반영되는」 경로가 바로 이것이다.
+**소요 10~20분**(ai-worker를 빌드하면 그쪽이 대부분). 롤링마다 치르는 값이다.
 
-⚠️ **다른 시드도 바뀌었으면 함께 돌린다** — 순서는 §6과 같다(`seed_courses` →
-`seed_content` → `seed_units` → `seed_badges`). **`courses`가 `units`보다 먼저**라는
-제약(CO-J-7)은 여기서도 그대로다.
+### 9.0 코드만 올려서는 안 바뀌는 것 — **마이그레이션과 시드**
+
+⚠️ **이 절이 없어서 실제로 걸렸다.** 「학습 섹션이 5개인데 4개만 보인다」의 원인이
+배포가 아니라 **시드 미실행**이었다(`위험한 하늘` 4유닛이 `units.json`에는 들어왔는데
+DB에는 없었다). 유닛은 `seed_units.py`로만 DB에 들어가고 그 스크립트는 §6(최초 1회)
+에만 적혀 있었으므로, 롤링을 몇 번 반복해도 영영 4개다. 프론트가 빈 섹션을 감추기
+때문에(`CurriculumHome.jsx:149` — `.filter((sec) => sec.units.length > 0)`)
+**에러도 안 난다** — 화면에는 그냥 섹션이 하나 적게 보일 뿐이다.
+
+올리기 전에 diff로 판단한다:
+
+```bash
+git diff --name-only <이전sha>..HEAD | grep -E 'alembic/versions/|database/seed/'
+```
+
+| 바뀐 것 | 해야 할 것 |
+|---|---|
+| `backend/alembic/versions/` | `$C exec backend alembic upgrade head` — **§6 ①-a의 이미지 대조를 먼저** 할 것(낡은 이미지로 upgrade하면 도중까지만 적용되고 `current == heads`가 되어 조용히 통과한다) |
+| `database/seed/courses.json` · `units.json` | `seed_courses` → `seed_units` **순서대로**(§6 ③ — 순서를 어기면 course_id가 NULL이 되어 학습 화면이 백지가 된다) |
+| `database/seed/content_items.json` | `$C exec backend python -m app.scripts.seed_content` (멱등 키 = concept_tag + question_text) |
+| `database/seed/badges.json` | `$C exec backend python -m app.scripts.seed_badges` |
+| 위 어느 것도 아님 | 없음 — 이미지 교체만으로 끝난다 |
+
+시드 스크립트는 전부 멱등이라 **의심되면 그냥 돌리는 쪽이 안전하다.**
 
 ### 🔴 9.0a 시드를 갱신해도 **이미 발급된 세션은 안 바뀐다**
 
-문항 payload가 발급 시점에 `quiz_logs`로 **스냅샷**되어 채점이 그 사본으로 돌아간다.
-그래서 시드를 고쳐도 **이미 세션을 받은 학습자는 재발급 전까지 옛 문항으로 푼다.**
+문항 payload가 발급 시점에 `quiz_logs`로 **스냅샷**되어 채점이 그 사본으로 돈다.
+위 표대로 시드를 다시 넣어도 **이미 세션을 받은 학습자는 재발급 전까지 옛 문항으로
+푼다.** 시드가 DB에 들어간 것과 학습자 화면이 바뀌는 것은 다른 사건이다.
 
-- **오답 채점 결함을 고친 경우** — 시드 갱신만으로는 **오늘 이미 세션을 받은 사람에게
+- **채점 결함을 고친 롤링** — 시드 갱신만으로는 **오늘 이미 세션을 받은 사람에게
   안 닿는다.** 급하면 그 사실을 인지하고 별도 대응을 정할 것(세션 만료를 기다리거나
   대상 세션을 무효화하거나 — 둘 다 이 문서 밖 결정이다)
-- **표기·해설만 고친 경우** — 다음 세션부터 반영되면 충분하다
+- **표기·해설만 고친 롤링** — 다음 세션부터 반영되면 충분하다
 
-**「시드를 넣었으니 반영됐다」로 검증을 끝내지 말 것.** 확인은 **새 세션을 받아서** 한다.
+⚠️ **「시드를 넣었으니 반영됐다」로 검증을 끝내지 말 것.** 확인은 **새 세션을 받아서**
+한다. 옛 세션을 열어 보고 「안 고쳐졌다」로 오진하는 것이 이 구조의 함정이다.
 
 ### 9.1 ⚠️ Redis 영속성을 처음 켜는 갱신 — **선행 1회 명령이 있다**
 

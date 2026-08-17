@@ -63,6 +63,7 @@ export default {
       board: { name: '태양이', line: '어떤 날씨를 만들어 볼까요?' },
       learn: { name: '물방울이', line: '오늘은 어디까지 가볼까요?' },
       duel: { name: '태풍이', line: '자료를 보고 내일 날씨를 맞혀 봐요!' },
+      explore: { name: '구름이', line: '오늘은 무엇을 살펴볼까요?' },
       league: { name: '번개', line: '이번 주 순위를 올려볼까요?' },
     },
   },
@@ -719,6 +720,7 @@ export default {
     },
   },
   duel: {
+    heroTitle: '캐스터보다 잘 맞혀 볼까요?',
     result: {
       win: '승리',
       lose: '패배',
@@ -899,6 +901,15 @@ export default {
       guestFailedBody: '잠시 연결이 어려웠어요. 다시 시도해 볼까요?',
       guestFailedRetry: '다시 시도하기',
       guestFailed: '시작에 실패했어요. 잠시 후 다시 시도해 주세요.',
+      // 만료 화면(2026-08-14) — **발급 실패와 다른 상황**이다. 이 화면에 온
+      // 사람은 계정이 이미 있었고 이 기기의 열쇠만 없어졌다. 「다시 시도」로
+      // 새 계정을 조용히 만들면 그 진도가 영영 사라지므로 선택을 묻는다.
+      expiredTitle: '이 기기의 연결이 끊겼어요',
+      expiredBody:
+        '학습 진도는 그대로 남아 있어요. 진도를 저장해 두었다면 불러올 수 있고, 아니면 새로 시작할 수 있어요.',
+      expiredLoad: '진도 불러오기',
+      expiredFresh: '새로 시작하기',
+      expiredFreshNote: '새로 시작하면 이 기기에 남아 있던 진도로는 돌아갈 수 없어요.',
       guestNickname: '게스트',
       email: '이메일',
       password: '비밀번호',
