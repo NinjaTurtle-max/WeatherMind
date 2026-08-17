@@ -53,7 +53,12 @@ const SIMS = [
 export default function ExploreHome() {
   const t = useT();
   return (
-    <div className="space-y-4 py-4">
+    // ⚠️ 바깥 여백은 **`pt-2`** — 다른 화면(학습·보드·예보·내 정보)이 전부
+    // 그것이다. 여기만 `py-4`라 첫 카드가 8px 아래에서 시작했고(실측 1440:
+    // 탐구 y=80 · 나머지 y=72), 화면을 오갈 때 한 칸 내려앉는 것으로 보였다
+    // (2026-08-17 사용자 제보). 아래 여백은 `Layout`의 `main`이 `pb-8`로 이미
+    // 갖고 있어 `py`로 겹쳐 줄 이유가 없다.
+    <div className="space-y-4 pt-2">
       {/* 상단 배너 — 학습·보드와 같은 꼴(2026-08-12 사용자 지시). 화면 담당의
           소유자는 SideNav `TUTOR_BY_PATH`이고, 그 표와 여기가 **같아야** 한다
           (`tests/mascotAssets.contract.test.mjs` ④가 대조한다).
