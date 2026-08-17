@@ -12733,7 +12733,7 @@
     "knowledge_level": 6,
     "question_type": "short_answer",
     "template_json": {
-      "question_text": "어떤 지역의 기후를 말할 때 기준으로 삼는, 세계기상기구가 정한 평년값의 산출 기간은 몇 년인가?",
+      "question_text": "어떤 지역의 기후를 말할 때 기준으로 삼는, 세계기상기구가 정한 평년값의 산출 기간은 몇 년인가? (숫자만 쓴다)",
       "correct_answer": "30",
       "explanation_hint": "한두 해의 변동을 걸러내고 그 지역의 기후를 대표하려면 충분히 긴 기간이 필요하다. 그래서 30년 평균을 평년값으로 쓴다."
     },
@@ -12902,7 +12902,7 @@
     "knowledge_level": 6,
     "question_type": "short_answer",
     "template_json": {
-      "question_text": "태풍이 만들어지려면 해수면 온도가 대체로 몇 ℃ 이상이어야 하는가?",
+      "question_text": "태풍이 만들어지려면 해수면 온도가 대체로 몇 ℃ 이상이어야 하는가? (숫자만 쓴다)",
       "correct_answer": "26",
       "explanation_hint": "태풍은 따뜻한 바다에서 올라오는 수증기를 에너지로 삼는다. 해수면 온도가 대체로 26~27℃ 아래로 내려가면 그 공급이 모자라 태풍이 만들어지지도, 세력을 유지하지도 못한다."
     },
@@ -17896,7 +17896,7 @@
     "knowledge_level": 1,
     "question_type": "short_answer",
     "template_json": {
-      "question_text": "산에서 불이 난 것을 발견했을 때 곧바로 걸어야 하는 전화번호는 몇 번인가?",
+      "question_text": "산에서 불이 난 것을 발견했을 때 곧바로 걸어야 하는 전화번호는 몇 번인가? (숫자만 쓴다)",
       "correct_answer": "119",
       "explanation_hint": "산불을 보면 119로 신고한다. 직접 끄려 하지 말고 불길과 연기에서 멀리 떨어져야 한다."
     },

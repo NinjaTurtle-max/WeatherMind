@@ -62,7 +62,12 @@ class TestBoardDifficultyAxes:
 
 
 class TestBoardDifficultySeedDistribution:
-    """AC(§3.5): 실 시드 board 12건에서 난이도 1~3이 모두 존재."""
+    """AC(§3.5): 실 시드 board에서 난이도 1~3이 모두 존재.
+
+    ⚠️ 독스트링이 「12건」이라 적고 있었는데 **R12 시절 값**이다(2026-08-14 재실측
+    **49건**). 아래 단정이 개수를 이미 갖고 있으므로 여기서는 개수를 안 적는다 —
+    두 곳에 적으면 한쪽만 갱신된다.
+    """
 
     def _seed_boards(self):
         entries = json.loads(SEED_PATH.read_text(encoding="utf-8"))
