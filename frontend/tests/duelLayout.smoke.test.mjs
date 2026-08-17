@@ -21,6 +21,7 @@
  * "클래스가 붙어 있다"까지만 본다 — 실제 픽셀은 브라우저 실측으로 확인했고,
  * 여기서 막고 싶은 것은 그 클래스가 정리 중에 사라지는 회귀다.
  */
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import http from 'node:http';
@@ -230,8 +231,31 @@ ok(
 ok(heroImg?.getAttribute('src') === '/typhoon.png', `배너 튜터 이미지 — ${heroImg?.getAttribute('src')}`);
 ok(
   !$('[data-testid="sidenav"] img'),
-  '배너가 있는데 사이드바 튜터도 떠 있다 — 한 화면에 같은 캐릭터가 둘',
+  '사이드바에 튜터 이미지가 없다 — 있으면 한 화면에 같은 캐릭터가 둘',
 );
+
+// ── ④-b 배너 설명이 **한 줄로 잘리지 않는다** (2026-08-17 사용자 지시) ───────
+// 종전 `truncate`는 300px에서 문장 끝을 «…»로 잘랐다 — 탐구·예보 둘 다
+// "…체험하는 공…" / "…내일 예보를 겨…"로 끝났다. 두 줄 접기로 바꿨다.
+//
+// ⚠️ **`truncate`로 되돌리는 것을 막는 것이 요점이다.** 잘림은 픽셀 계산이라
+// jsdom이 못 보고(레이아웃 엔진 없음), 화면에서도 "문장이 원래 저런가 보다"로
+// 넘어가기 쉽다. 실제 폭은 브라우저 실측으로 확인했다(1440: 설명 2줄 37px ·
+// 배너 h=90으로 **전후 동일**). 여기서는 소스 계약만 못박는다.
+// ⚠️ 높이가 그대로여야 하는 이유는 이 파일 머리말의 「배너 치수는 어디서나
+// 같다」 — 마스코트 원(62px)이 행 높이를 정하므로 두 줄(≈37px)은 안 넘긴다.
+{
+  const banner = readFileSync(resolve(root, 'src/components/HeroBanner.jsx'), 'utf8');
+  const descCls = banner.match(/className="hidden min-w-0 basis-\[300px\]([^"]*)"/)?.[1] ?? '';
+  ok(
+    /line-clamp-2/.test(descCls),
+    `배너 설명이 두 줄까지 접힌다 — 실제 "${descCls.trim()}"`,
+  );
+  ok(
+    !/\btruncate\b/.test(descCls),
+    '배너 설명에 truncate가 없다 — 붙으면 문장 끝이 «…»로 잘린다',
+  );
+}
 
 // ── ⑤ 시각 라벨이 실서버 형식을 읽는가 (2026-08-10 실기동 회귀) ─────────────
 // 실서버는 `"202608101500"`(YYYYMMDDHHMM)을 주는데 종전 fmtHour가 ISO만 가정해

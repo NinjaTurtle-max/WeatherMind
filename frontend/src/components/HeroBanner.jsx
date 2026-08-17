@@ -23,6 +23,8 @@ import Mascot from './Mascot';
  *              LearnHeroCard·보드 목록 배너와 같은 관례다. 여기에 문장을 넣고
  *              title에는 짧은 말을 넣는 것이 이 배너의 사용법이다: 문장을
  *              title에 넣으면 1440에서도 잘린다(2026-08-12 리뷰 실측).
+ *              **최대 두 줄까지 접힌다**(2026-08-17) — 한 문장은 다 보인다.
+ *              그보다 길면 잘리니, 넘치면 배너가 아니라 문구를 줄일 것.
  *   - right    오른쪽 끝 슬롯(배지·칩 등). 없으면 제목 열이 폭을 다 쓴다.
  *   - as       eyebrow 태그. 화면에 다른 h1이 없으면 'h1'을 줄 것 — 보드 목록
  *              배너가 배너로 바뀌면서 그 화면만 heading이 0개가 된 전례가 있다.
@@ -59,9 +61,21 @@ export default function HeroBanner({
         </p>
       </div>
 
-      {/* 설명 — 좁아지면 접는다. 접혀도 잃는 정보가 없어야 한다(안내문 전용). */}
+      {/* 설명 — 좁아지면 접는다. 접혀도 잃는 정보가 없어야 한다(안내문 전용).
+          ⚠️ **한 줄 자르기(`truncate`)가 아니라 두 줄 접기(`line-clamp-2`)다**
+          (2026-08-17 사용자 지시 — "안 짤리게"). 종전에는 300px에서 한 줄로
+          잘려 탐구·예보 둘 다 문장 끝이 «…»로 사라졌다.
+
+          **배너 높이는 그대로다.** 이 행의 높이를 정하는 것은 설명이 아니라
+          마스코트 원(62px)이고, 두 줄은 11.5px × leading-relaxed ≈ 36px라
+          그 안에 들어간다. 그래서 「배너 치수는 어디서나 같다」는 계약
+          (`duelLayout`·`mascotAssets`가 무는 그것)이 깨지지 않는다 —
+          실측 1440에서 전후 모두 h=90.
+          ⚠️ 세 줄(≈54px)까지도 62px 안이지만 `2`로 묶는다: 안내문이 그보다
+          길어지면 배너가 아니라 **문구가 잘못된 것**이고, 네 줄이 되는 순간
+          원을 넘겨 배너가 다른 화면보다 높아진다. */}
       {description && (
-        <p className="hidden min-w-0 basis-[300px] truncate text-[11.5px] leading-relaxed text-slate-300 lg:block">
+        <p className="hidden min-w-0 basis-[300px] text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2 lg:block">
           {description}
         </p>
       )}
