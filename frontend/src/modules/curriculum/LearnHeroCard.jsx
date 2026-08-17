@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import Mascot from '../../components/Mascot';
+import { ENTRY_MASCOT } from './learnEntry';
 import { GOAL_ANCHOR } from '../progress/DailyGoal';
 import { useT } from '../../i18n';
 
@@ -32,9 +34,8 @@ import { useT } from '../../i18n';
  * `<a>` 중첩이 된다 — 브라우저가 태그를 쪼개 React 마크업과 실제 DOM이 갈린다.
  * 누를 수 있는 것은 CTA와 (미설정일 때) 목표 링크뿐이다.
  *
- * 마스코트는 이 파일에 없다(2026-08-17) — 상단 배너(`CurriculumHome`의
- * `HeroBanner`)가 물방울이를 그린다. 그림을 두 곳에서 그리지 않는 것이
- * 사이드바 튜터를 걷은 것과 같은 기준이다.
+ * 마스코트는 **물방울이**(learnEntry.ENTRY_MASCOT). 사이드바 튜터가 /learn에서
+ * 같은 캐릭터를 그리므로 그 화면에서는 SideNav가 튜터를 접는다.
  */
 export default function LearnHeroCard({
   entry,
@@ -70,29 +71,34 @@ export default function LearnHeroCard({
       data-entry-kind={entry.kind}
       className="rounded-[20px] bg-gradient-to-b from-[#1F3A5F] to-[#16293F] px-[18px] py-5 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
     >
-      {/* 머리 — 머리글(섹션) + 제목(유닛명).
-          ⚠️ **마스코트와 부제(`curriculum.subtitle`)는 2026-08-17에 상단 배너로
-          올라갔다**(사용자 지시 "학습 세션도 상단 튜터 카드로"). 둘 다 여기서
-          지운 이유는 같다 — **한 화면에 두 벌이면 안 된다.** 물방울이가 배너
-          62px + 카드 56px로 둘이 뜨면 어느 쪽이 말하는 건지 알 수 없고,
-          부제도 같은 문장이 위아래로 두 번 나온다.
-          ⚠️ **유닛명은 여기 남는다.** 배너 title은 한 줄로 잘리는데
-          (`HeroBanner` 규약) 유닛명은 「높은 기압과 낮은 기압 · 빈칸 채우기」
-          처럼 길어 두 줄이 필요하다. 배너는 화면 이름을, 이 카드는 「지금 무엇을
-          풀 차례인가」를 말한다 — 그 분담이 마스코트를 내준 대가다.
-          min-w-0이 없으면 긴 유닛명이 카드를 밀어낸다(줄임표가 안 걸린다). */}
-      <div className="min-w-0">
-        <p className="truncate text-[11px] font-bold tracking-[0.02em] text-sky-300">
-          {copy.eyebrow}
-        </p>
-        <p className="mt-0.5 break-keep text-[17px] font-extrabold leading-tight tracking-[-0.02em] text-white">
-          {copy.title}
-        </p>
+      {/* 머리 — 마스코트 + 머리글/제목. 화자가 먼저 오고 그 뒤에 말할 내용이 온다.
+          원형 배경을 깔아 남색 위에서 실루엣이 뜨게 한다(투명 PNG라 배경 없이
+          두면 어둡게 묻힌다). 종전의 `hidden … sm:grid`는 뗐다 — 배너가 가로로
+          누워 있을 때 두 줄이 되는 것을 막던 장치였고, 세로 카드에서는 접을
+          이유가 없다. */}
+      <div className="flex items-center gap-3">
+        <span className="grid h-[56px] w-[56px] flex-none place-items-center rounded-full bg-white/10">
+          <Mascot name={ENTRY_MASCOT[entry.kind] ?? 'drop'} className="h-[44px] w-[44px]" />
+        </span>
+        {/* min-w-0이 없으면 긴 유닛명이 카드를 밀어낸다(줄임표가 안 걸린다). */}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-bold tracking-[0.02em] text-sky-300">
+            {copy.eyebrow}
+          </p>
+          <p className="mt-0.5 break-keep text-[17px] font-extrabold leading-tight tracking-[-0.02em] text-white">
+            {copy.title}
+          </p>
+        </div>
       </div>
 
-      {/* 진도 바 — 값 자체는 경로 카드 하단 바도 갖는다.
+      {/* 설명 + 진도 바 — **항상 보인다.** 가로 배너 시절에는 `hidden lg:block`으로
+          접었지만(두 줄이 되는 것을 막으려고), 세로 열에서는 접을 폭이 없고 접으면
+          부제가 화면에서 사라진다. 진도 값 자체는 경로 카드 하단 바도 갖는다.
           ⚠️ **오늘의 목표는 여기 넣지 말 것.** 아래로 따로 뺀 이유가 그것이다. */}
-      <span className="mt-4 block h-[7px] overflow-hidden rounded-full bg-white/15">
+      <p className="mt-4 text-[11.5px] leading-relaxed text-slate-300">
+        {t('curriculum.subtitle')}
+      </p>
+      <span className="mt-3 block h-[7px] overflow-hidden rounded-full bg-white/15">
         <i className="block h-full rounded-full bg-sky-400" style={{ width: `${pct}%` }} />
       </span>
 

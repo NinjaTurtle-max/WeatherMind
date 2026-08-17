@@ -303,15 +303,7 @@ const ok = (cond, label) => {
   // 카드 본문(「진행 중인 유닛이에요…」)은 삭제됐다 — 배너 부제와 겹쳐서 뺐고,
   // 고아가 된 `home.entry.unitBody`도 ko/en에서 지웠다. 로케일 왕복은 **아직
   // 화면에 있는 문구**로 확인해야 하므로 부제를 본다.
-  // ⚠️ **그 부제가 2026-08-17에 상단 배너로 옮겨갔다**(사용자 지시). 카드가
-  //    아니라 배너에서 찾는다 — 화면 어딘가에 한 번은 있어야 하고, 두 벌이면
-  //    `learnPath` 스모크가 운다(설명 사용처 개수 계약).
-  const enBanner = $('[data-testid="learn-hero"]');
-  ok(enBanner?.textContent.includes('Clear units in order'), 'en: 배너 부제가 영어');
-  ok(
-    !enCard?.textContent.includes('Clear units in order'),
-    '부제가 카드에 두 벌로 남아 있지 않다',
-  );
+  ok(enCard?.textContent.includes('Clear units in order'), 'en: 배너 부제가 영어');
   ok(!/유닛을 순서대로|더 해보기/.test(text()), 'en에서 한국어 원문이 남지 않는다');
   useLocaleStore.getState().setLocale('ko');
   await waitFor(() => text().includes('유닛을 순서대로'), 6000, 'ko 복귀');

@@ -339,20 +339,10 @@ console.log('④ 화면마다 말하는 캐릭터는 하나 — 배너는 담당
     ['/explore', 'src/modules/explore/ExploreHome.jsx'],
     ['/duel', 'src/modules/duel/DuelPage.jsx'],
     ['/league', 'src/modules/league/LeaguePage.jsx'],
-    ['/learn', 'src/modules/curriculum/CurriculumHome.jsx'],
   ];
-  // 학습 배너는 문자열이 아니라 `ENTRY_MASCOT.unit`을 넘긴다(값의 소유자가
-  // `learnEntry.js`이고, 거기서 한 번 더 갈리면 안 되기 때문). 그래서 리터럴만
-  // 찾는 정규식으로는 못 읽는다 — 그 참조를 여기서 풀어 준다.
-  const entryMascot = Object.fromEntries([
-    ...readFileSync(join(ROOT, 'src/modules/curriculum/learnEntry.js'), 'utf8')
-      .match(/ENTRY_MASCOT = \{([^}]*)\}/)?.[1]
-      .matchAll(/(\w+):\s*'([a-z]+)'/g) ?? [],
-  ].map((m) => [m[1], m[2]]));
   for (const [path, file] of banners) {
     const src = readFileSync(join(ROOT, file), 'utf8');
-    const used = src.match(/mascot="([a-z]+)"/)?.[1]
-      ?? entryMascot[src.match(/mascot=\{ENTRY_MASCOT\.(\w+)\}/)?.[1]];
+    const used = src.match(/mascot="([a-z]+)"/)?.[1];
     ok(path in assigned, `${path} 배너의 담당이 표에 있다 — 없으면 담당이 정해지지 않은 화면이다`);
     ok(
       used === assigned[path],

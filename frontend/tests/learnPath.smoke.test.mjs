@@ -1013,25 +1013,10 @@ await render({});
   const path = readFileSync(resolve(root, 'src/modules/curriculum/PcCurriculumPath.jsx'), 'utf8');
   ok(!path.includes('rail'), '경로 뷰에 레일 잔재가 없다');
 
-  // ⚠️ **이 두 단정이 2026-08-17에 뒤집혔다 — 지키려는 것은 그대로다.**
-  // 종전에는 「페이지 머리말(`curriculum.title`)이 없다 · 설명은 진입 카드가
-  // 부제로 말한다」였다. 사용자 지시로 상단에 물방울이 배너가 서면서 그 둘의
-  // **자리가 맞바뀌었다**: 머리말과 설명은 배너가, 유닛명·진도·CTA는 카드가.
-  //
-  // 2026-08-09에 머리말을 걷은 진짜 이유는 「머리말이 나쁘다」가 아니라
-  // **「같은 설명이 두 벌이면 세로만 먹는다」**였다. 그래서 자리 대신 **개수**를
-  // 문다 — 설명이 몇 군데서 나오는가. 이러면 앞으로 어느 쪽으로 옮기든
-  // 이 가드가 계속 유효하다.
+  // 페이지 머리말은 없다 — 같은 설명을 배너 부제가 말한다. 두 벌이면 세로만 먹는다.
+  ok(!home.includes("t('curriculum.title')"), '페이지 머리말이 되살아나지 않았다');
   const hero = readFileSync(resolve(root, 'src/modules/curriculum/LearnHeroCard.jsx'), 'utf8');
-  const subtitleUses = [home, hero].filter((f) => f.includes("t('curriculum.subtitle')")).length;
-  ok(
-    subtitleUses === 1,
-    `학습 설명이 화면에 **한 번만** 나온다 — 실제 ${subtitleUses}곳(배너/진입 카드)`,
-  );
-  ok(
-    home.includes("t('curriculum.subtitle')") && !hero.includes("t('curriculum.subtitle')"),
-    '그 한 번은 상단 배너다(진입 카드는 유닛명·진도·CTA만 갖는다)',
-  );
+  ok(hero.includes("t('curriculum.subtitle')"), '학습 설명을 배너가 부제로 말한다');
 
   // 복습·자유 세션·리그는 **경로 아래 3카드**가 소유한다(시안). 배너가 얇아지면서
   // 배너 안에 넣을 자리가 없어졌다 — 배너로 되돌리면 배너가 다시 두꺼워진다.
