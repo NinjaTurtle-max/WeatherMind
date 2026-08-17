@@ -75,6 +75,30 @@ function normalizeError(error) {
 // ── 401 → refresh 처리 (동시 요청은 하나의 refresh를 공유) ──
 let refreshPromise = null;
 
+/**
+ * 갱신 실패가 **되돌릴 수 없는 실패인가** — 토큰을 버려도 되는지의 판정.
+ *
+ * 🔴 이 판정이 없을 때 무슨 일이 있었나: 아래 인터셉터가 `refreshAccessToken()`이
+ * 던지기만 하면 종류를 안 보고 `logout()`을 불렀고, `logout()`은
+ * **refresh 토큰까지 지운다**. 게스트 비밀번호는 무작위 시크릿이라 그 토큰이
+ * 유일한 열쇠다 — 즉 **지하철에서 잠깐 끊긴 것만으로 학습자의 계정이 영구
+ * 소실**됐다. 진도는 서버에 멀쩡히 남아 있는데 다시 닿을 방법이 없어진다.
+ *
+ * 그래서 버리는 것은 **서버가 이 토큰을 거절했을 때뿐**이다(401·403 — 만료·폐기).
+ * 네트워크 실패(`response` 없음)·5xx·타임아웃은 토큰의 유효성에 대해 아무것도
+ * 말해 주지 않으므로 그대로 들고 있다가 다음 요청에서 다시 시도한다.
+ *
+ * `export`인 이유는 `tests/sessionExpiry.contract.test.mjs`가 경계
+ * (401·403·5xx·네트워크·타임아웃)를 직접 재기 때문이다 — 인터셉터를 통째로
+ * 흉내 내면 재는 것이 축소되고, 이 판정 하나가 「진도가 사라지는가」를 가른다.
+ */
+export function refreshIsUnrecoverable(err) {
+  // refresh 토큰 자체가 없으면(스토어가 비었음) 들고 있을 것도 없다.
+  if (err?.message === 'no refresh token') return true;
+  const status = err?.response?.status;
+  return status === 401 || status === 403;
+}
+
 async function refreshAccessToken() {
   const { refreshToken } = useAuthStore.getState();
   if (!refreshToken) throw new Error('no refresh token');
@@ -107,9 +131,12 @@ client.interceptors.response.use(
         const newToken = await refreshAccessToken();
         config.headers = { ...config.headers, Authorization: `Bearer ${newToken}` };
         return client(config);
-      } catch {
-        // refresh 실패 → 세션 만료 처리
-        useAuthStore.getState().logout();
+      } catch (refreshErr) {
+        // refresh 실패 → **서버가 토큰을 거절했을 때만** 세션 만료 처리.
+        // 끊긴 연결은 만료가 아니다(위 `refreshIsUnrecoverable` 주석).
+        if (refreshIsUnrecoverable(refreshErr)) {
+          useAuthStore.getState().logout();
+        }
       }
     }
     return Promise.reject(normalizeError(error));

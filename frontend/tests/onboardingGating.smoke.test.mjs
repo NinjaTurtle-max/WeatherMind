@@ -855,10 +855,17 @@ try {
   // 둔갑한다** — 학습자가 남의 진도(정확히는 빈 진도)를 보게 된다. 버튼이 사라진
   // 지금이 오히려 이 가드가 유일한 감시자다.
   //
-  // 단정 하나를 **더한다**: 재발급이 없을 뿐 아니라 화면이 `GuestIssueRetry`여야
-  // 한다. 로그인 화면이 없어져 App.jsx의 `guestSettled` 분기가 여기로 오는데,
+  // 단정 하나를 **더한다**: 재발급이 없을 뿐 아니라 화면이 안내여야 한다.
   // 그 분기가 빠지면 사용자는 빈 화면이나 영구 스피너에 갇힌다.
-  await scenario('토큰 없이 /explore 딥링크 → /explore 렌더 · 토큰 소실 후 조용한 재발급 없음 + 재시도 화면', async () => {
+  //
+  // ⚠️ **화면이 바뀌었다(2026-08-14).** 종전에는 여기가 `GuestIssueRetry`
+  // (「다시 시도하기」)였는데, **그 버튼이 누르는 순간 새 게스트를 발급**했다 —
+  // 이 시나리오가 막던 「만료가 계정 교체로 둔갑」을 자동 경로에서만 막고
+  // 버튼 경로로는 그대로 열어 둔 셈이다. 지금은 `SessionExpired`가 선택을
+  // 묻는다(진도 불러오기 / 새로 시작하기). **이 시나리오가 소유하는 불변식은
+  // 「조용한 재발급이 없다」 + 「갇히지 않는다」 둘이고 그것은 그대로**다 —
+  // 만료 화면의 두 출구 자체는 `entryFlow.smoke` ⑩이 소유한다.
+  await scenario('토큰 없이 /explore 딥링크 → /explore 렌더 · 토큰 소실 후 조용한 재발급 없음 + 만료 안내', async () => {
     resetGuestAutoIssue();
     useAuthStore.getState().logout();
     const r = mount(createElement(App), '/explore');
@@ -884,14 +891,21 @@ try {
       '로그아웃 뒤 토큰이 되살아났다(늦게 도착한 401 → refresh 경로) — '
         + `이후 XHR: ${JSON.stringify(xhrLog.slice(mark))}`,
     );
-    // 갈 곳이 없어 빈 화면이 되면 안 된다. 로그인 화면은 제거됐으므로 재시도가 답이다.
+    // 갈 곳이 없어 빈 화면이 되면 안 된다 — 만료 안내가 두 출구를 준다.
     // ⚠️ 단정이 아니라 `waitFor`다 — 렌더 분기가 보는 `guestSettled`는 발급
     // 프라미스의 **체인된** .then에서 세워지므로, 토큰 등장과 같은 순간이 아니다.
     // 그 사이를 단정으로 찍으면 아직 스피너라 간헐 실패한다.
     await waitFor(
-      () => text().includes('다시 시도하기'),
+      () => Boolean(window.document.querySelector('[data-testid="session-expired"]')),
       3000,
-      '토큰이 없는데 재시도 화면이 아니다 — 로그인 화면이 제거된 지금 사용자가 갇힌다',
+      '토큰이 없는데 만료 안내가 아니다 — 갈 곳을 안 주면 사용자가 갇힌다',
+    );
+    // 🔴 **경계** — 이 화면이 `GuestIssueRetry`로 되돌아가면 안 된다. 그 버튼은
+    // 누르는 즉시 새 게스트를 발급해, 이 시나리오가 자동 경로에서 막은 계정
+    // 교체를 버튼 경로로 그대로 통과시킨다.
+    assert(
+      window.document.querySelector('[data-testid="guest-issue-retry"]') === null,
+      '만료가 발급 실패 재시도 화면으로 처리됐다 — 「다시 시도」가 곧 계정 교체가 된다',
     );
     r2.unmount();
   });

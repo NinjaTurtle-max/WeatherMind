@@ -566,6 +566,83 @@ try {
     );
     r.unmount();
   });
+
+  // ── ⑩ 세션 만료 — 「다시 시도」가 계정 교체가 되지 않는다 ──────────────────
+  /**
+   * 🔴 **이 시나리오가 무는 결함이 가장 조용했다.** 토큰이 지워진 뒤(401 인터셉터
+   * → `authStore.logout()`) `RequireAuth`가 `GuestIssueRetry`를 재사용했고, 그
+   * 「다시 시도」 버튼이 `resetGuestAutoIssue()`를 불러 **새 게스트를 발급**했다.
+   * 게스트 비밀번호는 무작위 시크릿이라 옛 계정으로 돌아갈 길이 없다 — 버튼 이름은
+   * 「다시 시도」인데 실제 결과는 **진도 영구 소실**이었다. `App.jsx:85` 주석이
+   * "조용히 새 게스트를 발급하면 만료가 계정 교체로 둔갑한다"고 금지해 둔 바로
+   * 그 일을, 같은 파일의 렌더 분기가 하고 있었다.
+   *
+   * 세 가지를 함께 본다. 하나만 보면 갈린다:
+   *   ⑩-a 만료 화면이 뜨고 **발급이 자동으로 안 나간다**(교체 차단).
+   *   ⑩-b 「진도 불러오기」가 실제로 그 화면에 **닿는다** — `/login`이
+   *        `RequireAuth` 안쪽 라우트라 토큰 게이트를 뚫지 못하면 만료 화면으로
+   *        되돌아오는 무한 루프가 된다. 목적지가 살아 있는지까지 봐야 한다.
+   *   ⑩-c 「새로 시작하기」는 여전히 **발급을 일으킨다** — 막기만 하고 출구를
+   *        닫으면 학습자가 갇힌다(MT-29가 막으려던 결과 그 자체다).
+   */
+  await scenario('⑩ 세션 만료 → 선택 화면(자동 계정 교체 없음)', async () => {
+    await coldOpen();
+    const r = mountApp('/learn'); // 딥링크 = 정보 입력 게이트 없음, 바로 발급
+    await waitFor(() => useAuthStore.getState().accessToken, 8000, '게스트 발급');
+    const afterIssue = xhrLog.length;
+
+    // 401 인터셉터가 하는 일과 같다 — 토큰만 지운다.
+    useAuthStore.getState().logout();
+
+    await waitFor(() => $('[data-testid="session-expired"]'), 8000, '만료 화면');
+    ok(
+      Boolean($('[data-testid="session-expired"]')),
+      '⑩-a 토큰이 지워지면 만료 화면이 뜬다',
+    );
+    ok(
+      $('[data-testid="guest-issue-retry"]') === null,
+      '⑩-a 발급 실패 재시도 화면이 아니다(사유가 다르다 — 계정이 이미 있다)',
+    );
+    await sleep(400); // 자동 발급이 있었다면 이 사이에 나간다
+    ok(
+      guestCalls(afterIssue).length === 0,
+      `⑩-a 🔴 만료만으로는 새 게스트를 발급하지 않는다 — 실제 ${guestCalls(afterIssue).length}회`,
+    );
+
+    // ⑩-b 「진도 불러오기」 → 목적지가 실제로 그려진다(토큰 없이 통과)
+    $('[data-testid="session-expired-load"]').click();
+    await waitFor(
+      () => text().includes('저장할 때 쓴 이메일과 비밀번호'),
+      8000,
+      () => `진도 불러오기 화면 — 실제 본문 "${text().slice(0, 120)}"`,
+    );
+    ok(
+      Boolean($('input[name="email"]')) && Boolean($('input[name="password"]')),
+      '⑩-b 「진도 불러오기」가 실제 화면에 닿는다(토큰 게이트 통과)',
+    );
+    r.unmount();
+  });
+
+  await scenario('⑩-c 만료 화면의 「새로 시작하기」는 발급을 일으킨다', async () => {
+    await coldOpen();
+    const r = mountApp('/learn');
+    await waitFor(() => useAuthStore.getState().accessToken, 8000, '게스트 발급');
+    const afterIssue = xhrLog.length;
+    useAuthStore.getState().logout();
+    await waitFor(() => $('[data-testid="session-expired-fresh"]'), 8000, '만료 화면');
+
+    $('[data-testid="session-expired-fresh"]').click();
+    await waitFor(
+      () => useAuthStore.getState().accessToken,
+      8000,
+      '「새로 시작하기」 뒤 새 게스트 발급',
+    );
+    ok(
+      guestCalls(afterIssue).length === 1,
+      `⑩-c 누른 사람에게만 발급이 일어난다(정확히 1회) — 실제 ${guestCalls(afterIssue).length}회`,
+    );
+    r.unmount();
+  });
 } finally {
   await vite.close();
   httpServer.close();
