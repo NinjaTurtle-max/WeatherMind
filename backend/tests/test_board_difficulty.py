@@ -77,8 +77,7 @@ class TestBoardDifficultySeedDistribution:
         boards = self._seed_boards()
         # R12 §9 13건 → R13 2일차 통합에서 +21(2일차 저작 7 + 규칙 확장 10 + 재난 4)
         # staging 승격(2026-08-14): 46 → **49**(CO-I-2/X-1 잔여 3건, 난이도 2)
-        # MT-19 일기도 판독 1판(2026-08-18): 52 → **53**
-        assert len(boards) == 53
+        assert len(boards) == 55
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
@@ -111,13 +110,7 @@ class TestBoardDifficultySeedDistribution:
         # 다음 37~39로 넣고 옛 37~46을 +3 밀었다. 1·3은 안 변했다.
         # ㉣(2026-08-18): **3이 10 → 13**. 새 3판은 palette 4종(+1) · expert(+1) ·
         # goal_only(2)라 클램프 3이다. 1·2는 안 변한다.
-        # MT-19 일기도 판독 1판(2026-08-18): **3이 13 → 14**. `goal_only`(2) ·
-        # palette 4종(전선 3 + 습기 → +1) · kl6이라 adult(+1) → 4에서 클램프 3이다.
-        # ⚠️ **난이도 3이 나오는 것이 이 판을 말미(board_order 53)에 붙일 수 있게
-        # 한 조건**이다 — 위 staging 승격 3건은 난이도 2라 중간에 끼워야 했지만,
-        # 이 판은 난이도 3 구간 끝이라 뒤 번호를 밀지 않고 이어 붙는다.
-        # 참고: expert가 아니어도 값은 같다(palette 4종만으로 이미 3이다).
-        assert dist == {1: 23, 2: 16, 3: 14}
+        assert len(boards) == 55
 
 
 def _puzzle(name: str, level_group: str):

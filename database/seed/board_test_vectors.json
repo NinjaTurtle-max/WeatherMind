@@ -2,499 +2,2210 @@
   {
     "name": "cold_front_shower: 한랭전선+고습으로 수도권 소나기",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "front", "subtype": "cold", "zone": 1},
-        {"type": "moisture", "level": 75, "zone": 1}
+        {
+          "type": "front",
+          "subtype": "cold",
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 75,
+          "zone": 1
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "shower", "cloud": "cumulonimbus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "warm_front_steady_rain: 온난전선+습기로 수도권 약한 비",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "front", "subtype": "warm", "zone": 1},
-        {"type": "moisture", "level": 60, "zone": 1}
+        {
+          "type": "front",
+          "subtype": "warm",
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 60,
+          "zone": 1
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "rain", "cloud": "nimbostratus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "rain",
+        "cloud": "nimbostratus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "stationary_front_monsoon: 정체전선+고습으로 서해 장마",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "front", "subtype": "stationary", "zone": 0},
-        {"type": "moisture", "level": 85, "zone": 0}
+        {
+          "type": "front",
+          "subtype": "stationary",
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 85,
+          "zone": 0
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "persistent_rain", "cloud": "nimbostratus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "persistent_rain",
+        "cloud": "nimbostratus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "convective_shower: 전선 없이 강한 일사+습기로 태백산맥 소나기",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "sun", "level": 90, "zone": 2},
-        {"type": "moisture", "level": 70, "zone": 2}
+        {
+          "type": "sun",
+          "level": 90,
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 70,
+          "zone": 2
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "shower", "cloud": "cumulonimbus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "radiation_fog: 약한 일사+고습으로 동해안 복사안개",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "sun", "level": 20, "zone": 3},
-        {"type": "moisture", "level": 85, "zone": 3}
+        {
+          "type": "sun",
+          "level": 20,
+          "zone": 3
+        },
+        {
+          "type": "moisture",
+          "level": 85,
+          "zone": 3
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "fog", "cloud": "stratus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "fog",
+        "cloud": "stratus"
+      }
     ]
   },
   {
     "name": "north_pacific_heatwave: 북태평양 기단+강한 일사로 서해 폭염",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "air_mass", "subtype": "north_pacific", "zone": 0},
-        {"type": "sun", "level": 85, "zone": 0}
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 0
+        },
+        {
+          "type": "sun",
+          "level": 85,
+          "zone": 0
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "heatwave", "cloud": "none"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "heatwave",
+        "cloud": "none"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "siberian_snow: 시베리아 기단+습기(변질)로 서해 눈",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "air_mass", "subtype": "siberian", "zone": 0},
-        {"type": "moisture", "level": 70, "zone": 0}
+        {
+          "type": "air_mass",
+          "subtype": "siberian",
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 70,
+          "zone": 0
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "snow", "cloud": "nimbostratus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "snow",
+        "cloud": "nimbostratus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "siberian_clear: 시베리아 기단+건조로 동해안 맑음",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "air_mass", "subtype": "siberian", "zone": 3},
-        {"type": "moisture", "level": 20, "zone": 3},
-        {"type": "sun", "level": 60, "zone": 3}
+        {
+          "type": "air_mass",
+          "subtype": "siberian",
+          "zone": 3
+        },
+        {
+          "type": "moisture",
+          "level": 20,
+          "zone": 3
+        },
+        {
+          "type": "sun",
+          "level": 60,
+          "zone": 3
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "clear", "cloud": "none"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "clear",
+        "cloud": "none"
+      }
     ]
   },
   {
     "name": "default_no_rule: 어떤 규칙도 성립하지 않으면 기본값(온난전선이지만 습기 부족)",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "front", "subtype": "warm", "zone": 1},
-        {"type": "moisture", "level": 45, "zone": 1}
+        {
+          "type": "front",
+          "subtype": "warm",
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 45,
+          "zone": 1
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "priority_conflict: 한랭전선(100)과 대류(60)가 함께 성립 → 한랭전선 우선",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "front", "subtype": "cold", "zone": 1},
-        {"type": "moisture", "level": 80, "zone": 1},
-        {"type": "sun", "level": 90, "zone": 1}
+        {
+          "type": "front",
+          "subtype": "cold",
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 80,
+          "zone": 1
+        },
+        {
+          "type": "sun",
+          "level": 90,
+          "zone": 1
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "shower", "cloud": "cumulonimbus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "okhotsk_sea_fog: 오호츠크해 기단+고습으로 동해안 해무 (R13 확장)",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "air_mass", "subtype": "okhotsk", "zone": 3},
-        {"type": "moisture", "level": 80, "zone": 3}
+        {
+          "type": "air_mass",
+          "subtype": "okhotsk",
+          "zone": 3
+        },
+        {
+          "type": "moisture",
+          "level": 80,
+          "zone": 3
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "fog", "cloud": "stratus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "fog",
+        "cloud": "stratus"
+      }
     ]
   },
   {
     "name": "okhotsk_foehn_clear: 오호츠크해 기단+건조(산을 넘은 공기)로 수도권 맑음 (R13 확장)",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "air_mass", "subtype": "okhotsk", "zone": 1},
-        {"type": "moisture", "level": 20, "zone": 1}
+        {
+          "type": "air_mass",
+          "subtype": "okhotsk",
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 20,
+          "zone": 1
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "clear", "cloud": "none"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "clear",
+        "cloud": "none"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "yangtze_mild_clear: 양쯔강 기단만 놓아도(습기 미배치 기본 40) 서해 맑음 (R13 확장)",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "air_mass", "subtype": "yangtze", "zone": 0}
+        {
+          "type": "air_mass",
+          "subtype": "yangtze",
+          "zone": 0
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "clear", "cloud": "none"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "clear",
+        "cloud": "none"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "yangtze_morning_fog: 양쯔강 기단+약한 일사+습기로 수도권 새벽 안개 (R13 확장)",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "air_mass", "subtype": "yangtze", "zone": 1},
-        {"type": "sun", "level": 15, "zone": 1},
-        {"type": "moisture", "level": 70, "zone": 1}
+        {
+          "type": "air_mass",
+          "subtype": "yangtze",
+          "zone": 1
+        },
+        {
+          "type": "sun",
+          "level": 15,
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 70,
+          "zone": 1
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "fog", "cloud": "stratus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "fog",
+        "cloud": "stratus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "dry_convection_clear: 전선·기단 없이 강한 일사+건조로 태백산맥 맑음 (R13 확장)",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "sun", "level": 90, "zone": 2},
-        {"type": "moisture", "level": 20, "zone": 2}
+        {
+          "type": "sun",
+          "level": 90,
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 20,
+          "zone": 2
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "clear", "cloud": "none"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "clear",
+        "cloud": "none"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "priority_expansion_1: 북태평양 폭염(40)과 건조대류 맑음(18)이 함께 성립 → 기존 규칙 우선",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "air_mass", "subtype": "north_pacific", "zone": 0},
-        {"type": "sun", "level": 85, "zone": 0},
-        {"type": "moisture", "level": 20, "zone": 0}
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 0
+        },
+        {
+          "type": "sun",
+          "level": 85,
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 20,
+          "zone": 0
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "heatwave", "cloud": "none"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "heatwave",
+        "cloud": "none"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "priority_expansion_2: 한랭전선 소나기(100)와 오호츠크 해무(26)가 함께 성립 → 기존 규칙 우선",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "air_mass", "subtype": "okhotsk", "zone": 3},
-        {"type": "front", "subtype": "cold", "zone": 3},
-        {"type": "moisture", "level": 75, "zone": 3}
+        {
+          "type": "air_mass",
+          "subtype": "okhotsk",
+          "zone": 3
+        },
+        {
+          "type": "front",
+          "subtype": "cold",
+          "zone": 3
+        },
+        {
+          "type": "moisture",
+          "level": 75,
+          "zone": 3
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "shower", "cloud": "cumulonimbus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      }
     ]
   },
   {
     "name": "wildfire_risk: 건조 + 강풍으로 태백산맥 산불 위험 — 강한 일사가 겹쳐도 마른 대류 맑음(18)을 이긴다",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "moisture", "level": 15, "zone": 2},
-        {"type": "wind", "level": 80, "zone": 2},
-        {"type": "sun", "level": 85, "zone": 2}
+        {
+          "type": "moisture",
+          "level": 15,
+          "zone": 2
+        },
+        {
+          "type": "wind",
+          "level": 80,
+          "zone": 2
+        },
+        {
+          "type": "sun",
+          "level": 85,
+          "zone": 2
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "wildfire_risk", "cloud": "none"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "wildfire_risk",
+        "cloud": "none"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "flood_risk: 포화에 가까운 습기 + 강풍(수증기 유입)으로 동해안 침수 위험 (R13 재난 축)",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "moisture", "level": 92, "zone": 3},
-        {"type": "wind", "level": 70, "zone": 3}
+        {
+          "type": "moisture",
+          "level": 92,
+          "zone": 3
+        },
+        {
+          "type": "wind",
+          "level": 70,
+          "zone": 3
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "flood_risk", "cloud": "nimbostratus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "flood_risk",
+        "cloud": "nimbostratus"
+      }
     ]
   },
   {
     "name": "wildfire_boundary: 경계값 정확히(습기 30·바람 60)도 성립한다(>= <= 포함 관계)",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "moisture", "level": 30, "zone": 0},
-        {"type": "wind", "level": 60, "zone": 0},
-        {"type": "sun", "level": 70, "zone": 0},
-        {"type": "moisture", "level": 85, "zone": 1},
-        {"type": "wind", "level": 60, "zone": 1}
+        {
+          "type": "moisture",
+          "level": 30,
+          "zone": 0
+        },
+        {
+          "type": "wind",
+          "level": 60,
+          "zone": 0
+        },
+        {
+          "type": "sun",
+          "level": 70,
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 85,
+          "zone": 1
+        },
+        {
+          "type": "wind",
+          "level": 60,
+          "zone": 1
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "wildfire_risk", "cloud": "none"},
-      {"zone": 1, "phenomenon": "flood_risk", "cloud": "nimbostratus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "wildfire_risk",
+        "cloud": "none"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "flood_risk",
+        "cloud": "nimbostratus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "wind_below_threshold: 건조해도 바람이 약하면 재난이 아니다(기본 판정 유지)",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "moisture", "level": 10, "zone": 2},
-        {"type": "wind", "level": 55, "zone": 2}
+        {
+          "type": "moisture",
+          "level": 10,
+          "zone": 2
+        },
+        {
+          "type": "wind",
+          "level": 55,
+          "zone": 2
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "wind_default_20: 바람을 배치하지 않은 존은 기본 20이라 재난 규칙이 발화하지 않는다",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "moisture", "level": 5, "zone": 0},
-        {"type": "moisture", "level": 98, "zone": 1}
+        {
+          "type": "moisture",
+          "level": 5,
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 98,
+          "zone": 1
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "disaster_4cond_overrides: 4조건 재난은 일반 날씨를 덮는다(2026-08-18 PM 판정) — 정체전선 장마(90)는 2조건 재난(29)을 계속 이긴다",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "air_mass", "subtype": "siberian", "zone": 0},
-        {"type": "moisture", "level": 10, "zone": 0},
-        {"type": "wind", "level": 95, "zone": 0},
-        {"type": "sun", "level": 90, "zone": 0},
-        {"type": "front", "subtype": "stationary", "zone": 1},
-        {"type": "moisture", "level": 95, "zone": 1},
-        {"type": "wind", "level": 95, "zone": 1}
+        {
+          "type": "air_mass",
+          "subtype": "siberian",
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 10,
+          "zone": 0
+        },
+        {
+          "type": "wind",
+          "level": 95,
+          "zone": 0
+        },
+        {
+          "type": "sun",
+          "level": 90,
+          "zone": 0
+        },
+        {
+          "type": "front",
+          "subtype": "stationary",
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 95,
+          "zone": 1
+        },
+        {
+          "type": "wind",
+          "level": 95,
+          "zone": 1
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "wildfire_warning", "cloud": "none"},
-      {"zone": 1, "phenomenon": "persistent_rain", "cloud": "nimbostratus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "wildfire_warning",
+        "cloud": "none"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "persistent_rain",
+        "cloud": "nimbostratus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "disaster_2cond_never_overrides: 2조건 재난은 일반 날씨를 못 덮는다 — 경계는 「조건 수」다(위 4조건 벡터와 한 쌍)",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "air_mass", "subtype": "siberian", "zone": 0},
-        {"type": "moisture", "level": 10, "zone": 0},
-        {"type": "wind", "level": 95, "zone": 0}
+        {
+          "type": "air_mass",
+          "subtype": "siberian",
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 10,
+          "zone": 0
+        },
+        {
+          "type": "wind",
+          "level": 95,
+          "zone": 0
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "clear", "cloud": "none"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "clear",
+        "cloud": "none"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ]
   },
   {
     "name": "goals_empty: 목표가 비면 자동 정답이 아니다 (CO-K3 — JS와 Python이 정반대였던 구간)",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": []
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ],
     "goals": [
-      {"note": "빈 목표 → false", "conditions": [], "passed": false},
-      {"note": "기본 판정과 일치하는 목표는 참", "conditions": [{"zone": 1, "phenomenon": "cloudy"}], "passed": true},
-      {"note": "구름까지 명시해 일치", "conditions": [{"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"}], "passed": true},
-      {"note": "현상은 맞고 구름이 다르면 거짓", "conditions": [{"zone": 1, "phenomenon": "cloudy", "cloud": "stratus"}], "passed": false},
-      {"note": "존 범위 밖은 거짓", "conditions": [{"zone": 9, "phenomenon": "cloudy"}], "passed": false},
-      {"note": "phenomenon 누락은 거짓", "conditions": [{"zone": 1}], "passed": false}
+      {
+        "note": "빈 목표 → false",
+        "conditions": [],
+        "passed": false
+      },
+      {
+        "note": "기본 판정과 일치하는 목표는 참",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "cloudy"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "구름까지 명시해 일치",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "cloudy",
+            "cloud": "cumulus"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "현상은 맞고 구름이 다르면 거짓",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "cloudy",
+            "cloud": "stratus"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "존 범위 밖은 거짓",
+        "conditions": [
+          {
+            "zone": 9,
+            "phenomenon": "cloudy"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "phenomenon 누락은 거짓",
+        "conditions": [
+          {
+            "zone": 1
+          }
+        ],
+        "passed": false
+      }
     ]
   },
   {
     "name": "goals_multi_zone: 다존 목표는 전부 충족해야 참 (AND) — 재난 2종 동시 판정",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "moisture", "level": 12, "zone": 2},
-        {"type": "wind", "level": 75, "zone": 2},
-        {"type": "sun", "level": 88, "zone": 2},
-        {"type": "moisture", "level": 90, "zone": 3},
-        {"type": "wind", "level": 75, "zone": 3}
+        {
+          "type": "moisture",
+          "level": 12,
+          "zone": 2
+        },
+        {
+          "type": "wind",
+          "level": 75,
+          "zone": 2
+        },
+        {
+          "type": "sun",
+          "level": 88,
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 3
+        },
+        {
+          "type": "wind",
+          "level": 75,
+          "zone": 3
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "wildfire_risk", "cloud": "none"},
-      {"zone": 3, "phenomenon": "flood_risk", "cloud": "nimbostratus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "wildfire_risk",
+        "cloud": "none"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "flood_risk",
+        "cloud": "nimbostratus"
+      }
     ],
     "goals": [
-      {"note": "한 존만 요구 — 충족", "conditions": [{"zone": 2, "phenomenon": "wildfire_risk"}], "passed": true},
-      {"note": "두 존 전부 충족", "conditions": [{"zone": 2, "phenomenon": "wildfire_risk"}, {"zone": 3, "phenomenon": "flood_risk"}], "passed": true},
-      {"note": "한 존만 충족(부분)이면 거짓", "conditions": [{"zone": 2, "phenomenon": "wildfire_risk"}, {"zone": 1, "phenomenon": "flood_risk"}], "passed": false},
-      {"note": "존을 서로 바꾸면 거짓", "conditions": [{"zone": 2, "phenomenon": "flood_risk"}, {"zone": 3, "phenomenon": "wildfire_risk"}], "passed": false},
-      {"note": "재난 목표에 구름까지 명시해 일치", "conditions": [{"zone": 3, "phenomenon": "flood_risk", "cloud": "nimbostratus"}], "passed": true}
+      {
+        "note": "한 존만 요구 — 충족",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "wildfire_risk"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "두 존 전부 충족",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "wildfire_risk"
+          },
+          {
+            "zone": 3,
+            "phenomenon": "flood_risk"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "한 존만 충족(부분)이면 거짓",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "wildfire_risk"
+          },
+          {
+            "zone": 1,
+            "phenomenon": "flood_risk"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "존을 서로 바꾸면 거짓",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "flood_risk"
+          },
+          {
+            "zone": 3,
+            "phenomenon": "wildfire_risk"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "재난 목표에 구름까지 명시해 일치",
+        "conditions": [
+          {
+            "zone": 3,
+            "phenomenon": "flood_risk",
+            "cloud": "nimbostratus"
+          }
+        ],
+        "passed": true
+      }
     ]
   },
   {
     "name": "mt19_chart_read_front_choice: 일기도 판독(board_order 53) — 전선을 잘못 읽으면 목표에 닿지 않는다",
     "note_authoring": "MT-19 판독 1판의 **역검증을 계약으로 고정**한다. 그 보드의 팔레트는 전선 3종 + 습기이고 목표는 서해상 shower/cumulonimbus다. 판독이 실제로 채점되는지는 「틀린 전선을 놓으면 떨어지는가」로만 확인된다 — 그 실패를 여기 네 존에 나란히 놓았다(존별 판정이 독립이라 한 보드로 네 갈래를 잰다). ⚠️ **팔레트에 `sun`이 없는 것이 설계**다: sun이 있으면 `convective_shower`(sun>=80·moisture>=60)로 **전선 없이** 같은 목표에 닿아 판독이 채점 대상에서 빠진다.",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "front", "subtype": "cold", "zone": 0},
-        {"type": "moisture", "level": 70, "zone": 0},
-        {"type": "front", "subtype": "warm", "zone": 1},
-        {"type": "moisture", "level": 70, "zone": 1},
-        {"type": "front", "subtype": "stationary", "zone": 2},
-        {"type": "moisture", "level": 70, "zone": 2},
-        {"type": "moisture", "level": 100, "zone": 3}
+        {
+          "type": "front",
+          "subtype": "cold",
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 70,
+          "zone": 0
+        },
+        {
+          "type": "front",
+          "subtype": "warm",
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 70,
+          "zone": 1
+        },
+        {
+          "type": "front",
+          "subtype": "stationary",
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 70,
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 100,
+          "zone": 3
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "shower", "cloud": "cumulonimbus"},
-      {"zone": 1, "phenomenon": "rain", "cloud": "nimbostratus"},
-      {"zone": 2, "phenomenon": "persistent_rain", "cloud": "nimbostratus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "rain",
+        "cloud": "nimbostratus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "persistent_rain",
+        "cloud": "nimbostratus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ],
     "goals": [
-      {"note": "한랭전선으로 읽으면 충족 — 적란운·좁은 강수·통과 후 기온 급강하가 그 단서다", "conditions": [{"zone": 0, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": true},
-      {"note": "온난전선으로 오독하면 난층운·약한 비라 미달", "conditions": [{"zone": 1, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": false},
-      {"note": "정체전선으로 오독하면 여러 날 이어지는 비라 미달", "conditions": [{"zone": 2, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": false},
-      {"note": "전선을 안 놓으면 물기를 100까지 올려도 미달 — 판독을 건너뛸 지름길이 없다", "conditions": [{"zone": 3, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": false}
+      {
+        "note": "한랭전선으로 읽으면 충족 — 적란운·좁은 강수·통과 후 기온 급강하가 그 단서다",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "shower",
+            "cloud": "cumulonimbus"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "온난전선으로 오독하면 난층운·약한 비라 미달",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "shower",
+            "cloud": "cumulonimbus"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "정체전선으로 오독하면 여러 날 이어지는 비라 미달",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "shower",
+            "cloud": "cumulonimbus"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "전선을 안 놓으면 물기를 100까지 올려도 미달 — 판독을 건너뛸 지름길이 없다",
+        "conditions": [
+          {
+            "zone": 3,
+            "phenomenon": "shower",
+            "cloud": "cumulonimbus"
+          }
+        ],
+        "passed": false
+      }
     ]
   },
   {
     "name": "mt19_chart_read_moisture_threshold: 전선만 맞혀도 물기가 임계에 못 미치면 구름이 자라지 않는다",
     "note_authoring": "같은 판의 둘째 축. 팔레트의 습기가 **장식이 아님**을 고정한다 — 미배치(기본 40)와 임계 미달(55)은 떨어지고 임계(60)에서 성립한다. 경계값 자체는 TestBoundary6059가 따로 물지만, 그것은 규칙의 경계이고 여기는 **이 보드의 목표**가 그 경계에 걸린다는 계약이다.",
     "board": {
-      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
       "elements": [
-        {"type": "front", "subtype": "cold", "zone": 0},
-        {"type": "front", "subtype": "cold", "zone": 1},
-        {"type": "moisture", "level": 55, "zone": 1},
-        {"type": "front", "subtype": "cold", "zone": 2},
-        {"type": "moisture", "level": 60, "zone": 2}
+        {
+          "type": "front",
+          "subtype": "cold",
+          "zone": 0
+        },
+        {
+          "type": "front",
+          "subtype": "cold",
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 55,
+          "zone": 1
+        },
+        {
+          "type": "front",
+          "subtype": "cold",
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 60,
+          "zone": 2
+        }
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
-      {"zone": 2, "phenomenon": "shower", "cloud": "cumulonimbus"},
-      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
     ],
     "goals": [
-      {"note": "습기를 아예 안 놓으면(기본 40) 전선이 맞아도 미달", "conditions": [{"zone": 0, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": false},
-      {"note": "55는 임계 미달이라 미달", "conditions": [{"zone": 1, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": false},
-      {"note": "60에서 성립 — 경계 포함", "conditions": [{"zone": 2, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": true}
+      {
+        "note": "습기를 아예 안 놓으면(기본 40) 전선이 맞아도 미달",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "shower",
+            "cloud": "cumulonimbus"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "55는 임계 미달이라 미달",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "shower",
+            "cloud": "cumulonimbus"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "60에서 성립 — 경계 포함",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "shower",
+            "cloud": "cumulonimbus"
+          }
+        ],
+        "passed": true
+      }
+    ]
+  },
+  {
+    "name": "mt18_typhoon_genesis: 태풍(board_order 54) — 조건 넷이 다 맞아야 기둥이 자란다",
+    "note_authoring": "MT-18 태풍 보드의 **역검증을 계약으로 고정**한다. 존별 판정이 독립이라 한 보드의 네 존에 네 갈래를 나란히 놓았다.\n🔴 **핵심은 존 2다 — `wind`를 아예 놓지 않은 존**이다. 기본값 20이 남아 `wind<=15`가 성립하지 않으므로 태풍이 되지 않는다. 임계를 `DEFAULT_WIND`(20) **아래**로 잡은 이유가 이 한 칸에 걸려 있다: 20으로 잡으면 이 존이 통과해 **바람이 장식**이 되고 「가르치려는 요소를 빼도 목표를 채운다」가 된다.\n⚠️ **이 존은 처음 판에 없었다.** 첫 벡터는 네 존을 전건·시어과다·일사부족·기단없음으로 채웠고, 그 상태에서 `wind<=15`를 `wind<=20`으로 바꾸는 회귀를 주입했더니 **28/28 초록이 그대로 났다** — 즉 벡터가 그 회귀를 못 봤다. 「바람 미배치」를 재는 칸이 없었기 때문이다. 다음 저작자가 이 칸을 지우면 같은 눈먼 구간이 되살아난다.\n일사 부족(연료 부족)·기단 없음 갈래는 아래 `mt18_typhoon_missing_pieces`가 잇는다.",
+    "board": {
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
+      "elements": [
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 95,
+          "zone": 0
+        },
+        {
+          "type": "sun",
+          "level": 80,
+          "zone": 0
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 0
+        },
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 95,
+          "zone": 1
+        },
+        {
+          "type": "sun",
+          "level": 80,
+          "zone": 1
+        },
+        {
+          "type": "wind",
+          "level": 70,
+          "zone": 1
+        },
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 95,
+          "zone": 2
+        },
+        {
+          "type": "sun",
+          "level": 80,
+          "zone": 2
+        },
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 3
+        },
+        {
+          "type": "moisture",
+          "level": 95,
+          "zone": 3
+        },
+        {
+          "type": "sun",
+          "level": 80,
+          "zone": 3
+        },
+        {
+          "type": "wind",
+          "level": 15,
+          "zone": 3
+        }
+      ]
+    },
+    "expected": [
+      {
+        "zone": 0,
+        "phenomenon": "typhoon",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "typhoon",
+        "cloud": "cumulonimbus"
+      }
+    ],
+    "goals": [
+      {
+        "note": "넷이 다 맞으면 충족 — 덥고 습한 기단 · 물기 · 햇볕 · 약한 시어",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "typhoon"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "시어가 크면(바람 70) 기둥이 어긋나 평범한 소나기로 끝난다",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "typhoon"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "🔴 바람을 아예 안 놓으면 기본값 20이 남아 미달 — 임계가 20이면 이 칸이 통과해 바람이 장식이 된다",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "typhoon"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "경계 포함: 바람 15는 성립한다(<=15)",
+        "conditions": [
+          {
+            "zone": 3,
+            "phenomenon": "typhoon"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "구름까지 명시해도 일치(적란운)",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "typhoon",
+            "cloud": "cumulonimbus"
+          }
+        ],
+        "passed": true
+      }
+    ]
+  },
+  {
+    "name": "mt18_typhoon_missing_pieces: 태풍 — 연료가 모자라거나 기단이 없으면 기둥이 안 선다",
+    "note_authoring": "위 벡터가 바람 축(시어·미배치·경계)을 맡고, 이 벡터가 **나머지 세 축**을 맡는다: 일사 부족 · 습기 부족 · 기단 없음. 넷을 한 보드에 다 담을 수 없어(존이 4칸) 갈랐다 — 존을 아껴 쓰려고 축을 빼면 그 축이 회귀에 눈먼 구간이 된다.",
+    "board": {
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
+      "elements": [
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 95,
+          "zone": 0
+        },
+        {
+          "type": "sun",
+          "level": 60,
+          "zone": 0
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 0
+        },
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 85,
+          "zone": 1
+        },
+        {
+          "type": "sun",
+          "level": 80,
+          "zone": 1
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 95,
+          "zone": 2
+        },
+        {
+          "type": "sun",
+          "level": 80,
+          "zone": 2
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 2
+        },
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 3
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 3
+        },
+        {
+          "type": "sun",
+          "level": 70,
+          "zone": 3
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 3
+        }
+      ]
+    },
+    "expected": [
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "typhoon",
+        "cloud": "cumulonimbus"
+      }
+    ],
+    "goals": [
+      {
+        "note": "햇볕이 모자라면(60 < 70) 바다가 덜 데워져 연료가 안 생긴다",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "typhoon"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "물기가 모자라면(85 < 90) 잠열 연료가 모자라 대류성 소나기까지만 간다",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "typhoon"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "기단을 놓지 않으면 덥고 습한 공기가 없어 미달",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "typhoon"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "경계 포함: 습기 90·일사 70은 성립한다",
+        "conditions": [
+          {
+            "zone": 3,
+            "phenomenon": "typhoon"
+          }
+        ],
+        "passed": true
+      }
+    ]
+  },
+  {
+    "name": "mt18_greenhouse_tropical_night: 열대야(board_order 55) — 되돌림이 끊기면 식는다",
+    "note_authoring": "MT-18 온실효과 보드의 역검증. 🔴 **존 1이 이 판의 교육 대비 전체**다: 같은 습도·같은 밤인데 **기단만 빼면 복사안개**가 된다. 찬 공기에서는 지표가 이슬점 아래로 식어 안개가 끼고, 덥고 습한 기단에서는 이슬점에 닿지 않아 **맑은 채로 식지 않는다** — 그래서 결과 구름을 `none`으로 잡았고, `(fog, stratus)`로 잡으면 `radiation_fog`와 결과가 겹쳐 고유 결과 계약을 위반한다.\n🔴 **존 2는 `wind`를 아예 놓지 않은 칸**이다(기본값 20 > 15이므로 미달). 태풍 벡터와 같은 이유로 반드시 있어야 한다 — 이 칸이 없으면 `wind<=15`를 `wind<=20`으로 바꾸는 회귀가 **초록으로 통과**한다(실제로 태풍 벡터에서 그 눈먼 구간을 만들었다가 주입 시험으로 찾아냈다).\n존 3은 일사를 놓지 않으면 기본값 50이 남아 「밤」이 되지 않는다는 것을 잰다. 습기 부족·강풍·일사 과다 갈래는 아래 `mt18_tropical_night_edges`가 잇는다.",
+    "board": {
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
+      "elements": [
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 0
+        },
+        {
+          "type": "sun",
+          "level": 20,
+          "zone": 0
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 1
+        },
+        {
+          "type": "sun",
+          "level": 20,
+          "zone": 1
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 1
+        },
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 2
+        },
+        {
+          "type": "sun",
+          "level": 20,
+          "zone": 2
+        },
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 3
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 3
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 3
+        }
+      ]
+    },
+    "expected": [
+      {
+        "zone": 0,
+        "phenomenon": "tropical_night",
+        "cloud": "none"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "fog",
+        "cloud": "stratus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "fog",
+        "cloud": "stratus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
+    ],
+    "goals": [
+      {
+        "note": "넷이 다 맞으면 충족 — 맑은데도 식지 않는 밤",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "tropical_night"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "기단을 빼면 같은 습도·같은 밤이 복사안개가 된다(교육 대비의 핵심)",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "tropical_night"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "🔴 바람을 아예 안 놓으면 기본값 20이 남아 미달 — 임계가 20이면 이 칸이 통과해 바람이 장식이 된다",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "tropical_night"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "일사를 놓지 않으면 기본값 50이 남아 밤이 되지 않는다",
+        "conditions": [
+          {
+            "zone": 3,
+            "phenomenon": "tropical_night"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "구름이 none인 것까지 계약이다 — 안개·층운이면 radiation_fog와 겹친다",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "tropical_night",
+            "cloud": "none"
+          }
+        ],
+        "passed": true
+      }
+    ]
+  },
+  {
+    "name": "mt18_tropical_night_edges: 열대야 — 습기·바람·일사의 나머지 갈래와 경계",
+    "note_authoring": "위 벡터가 기단·바람미배치·일사미배치를 맡고, 이 벡터가 나머지를 맡는다: 습기 부족(80 < 85) · 강풍(열이 섞여 흩어짐) · 일사 과다(40 > 30 = 밤이 아니다) · 그리고 **세 임계의 경계 전건**(85·30·15)이 성립한다는 것. 존이 4칸이라 갈랐다.",
+    "board": {
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
+      "elements": [
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 80,
+          "zone": 0
+        },
+        {
+          "type": "sun",
+          "level": 20,
+          "zone": 0
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 0
+        },
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 1
+        },
+        {
+          "type": "sun",
+          "level": 20,
+          "zone": 1
+        },
+        {
+          "type": "wind",
+          "level": 70,
+          "zone": 1
+        },
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 2
+        },
+        {
+          "type": "sun",
+          "level": 40,
+          "zone": 2
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 2
+        },
+        {
+          "type": "air_mass",
+          "subtype": "north_pacific",
+          "zone": 3
+        },
+        {
+          "type": "moisture",
+          "level": 85,
+          "zone": 3
+        },
+        {
+          "type": "sun",
+          "level": 30,
+          "zone": 3
+        },
+        {
+          "type": "wind",
+          "level": 15,
+          "zone": 3
+        }
+      ]
+    },
+    "expected": [
+      {
+        "zone": 0,
+        "phenomenon": "fog",
+        "cloud": "stratus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "fog",
+        "cloud": "stratus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "tropical_night",
+        "cloud": "none"
+      }
+    ],
+    "goals": [
+      {
+        "note": "습기가 모자라면(80 < 85) 되돌릴 기체가 부족해 미달 — 되레 복사안개가 이긴다",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "tropical_night"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "바람이 세면(70) 열이 섞여 흩어져 미달",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "tropical_night"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "일사가 40이면 밤이 아니라 미달",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "tropical_night"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "경계 포함: 습기 85·일사 30·바람 15 전건이 성립한다",
+        "conditions": [
+          {
+            "zone": 3,
+            "phenomenon": "tropical_night"
+          }
+        ],
+        "passed": true
+      }
     ]
   }
 ]
