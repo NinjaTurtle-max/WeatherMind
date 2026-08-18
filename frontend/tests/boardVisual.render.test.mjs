@@ -336,6 +336,52 @@ try {
       heroAt > 0 && rowAt > heroAt,
     );
 
+    // ── 판정 결과는 **왼쪽 열**이다 (2026-08-18 사용자 지시) ────────────────
+    /**
+     * "미션 성공하면 뜨는 칸을 가로로 길게 만들어서 보드 칸이랑 길이 맞춰줘."
+     *
+     * 오른쪽 열에 있으면 단면 카드 폭(1536에서 약 500px)만 차지한다. 왼쪽으로
+     * 옮기면 보드 카드와 같은 폭이 된다 — 실측 둘 다 x=249 w=676으로 **일치**.
+     * 열이 하나뿐이라 폭이 자동으로 맞는 구조라, 무는 것은 「어느 열에 있나」다.
+     *
+     * ⚠️ `order-3`은 함께 남아야 한다. lg 미만에서는 두 열 래퍼가 `contents`라
+     * 이 블록이 바깥 격자의 직계 칸이 되고, 좁은 화면 순서(조작 2 → 판정 3 →
+     * 단면 4)를 **그 숫자가** 정한다 — 열을 옮겨도 좁은 화면은 안 바뀐다.
+     */
+    const rightColAt = body.indexOf('{/* 오른쪽 —');
+    const verdictAt = body.indexOf('{hasVerdict &&');
+    check(
+      'wide: 판정 결과가 왼쪽 열에 있다 — 폭이 보드 카드와 같아진다',
+      verdictAt > 0 && rightColAt > 0 && verdictAt < rightColAt,
+    );
+    check(
+      'wide: 판정 결과가 좁은 화면 순서를 그대로 갖는다(order-3)',
+      /\{hasVerdict && <div className="order-3 lg:contents">/.test(body),
+    );
+
+    // ── 현상 주석 상자가 존 이름표를 피한다 (2026-08-18 사용자 지시) ────────
+    /**
+     * "「강한 일사, 오후 대류성 소나기」 카드가 주변 글씨랑 겹친다."
+     *
+     * 실측 1536에서 상자 y 278~333인데 「수도권」 287~306 · 「영동·동해」
+     * 312~331이라 양쪽 다 물렸다. **세로만 올려서는 안 됐다** — 수도권처럼
+     * 지도 위쪽에 붙은 존은 하한에 걸려 더 못 올라가는데 그 이름표도 위쪽에
+     * 있기 때문이다. 세로(−28)와 가로(±26)를 **함께** 키워야 떨어진다.
+     * 고친 뒤 셋 다 겹침 없음(상자 646~818 / 232~287).
+     * 좌표 계산이라 jsdom으로는 못 재고, 세 상수가 한 묶음이라 소스로 문다.
+     */
+    const anno = readFileSync(resolve(root, 'src/modules/board/mapInfographic.jsx'), 'utf8');
+    const lxLine = anno.match(/const lx = toRight \? Math\.min\(x \+ (\d+), 78\) : Math\.max\(x - (\d+), 22\);/);
+    const lyLine = anno.match(/const ly = Math\.max\(y - (\d+), (\d+)\);/);
+    check(
+      `주석 상자가 옆으로 26 이상 비킨다 — 실제 ${lxLine?.[1]}/${lxLine?.[2]}`,
+      Number(lxLine?.[1]) >= 26 && Number(lxLine?.[2]) >= 26,
+    );
+    check(
+      `주석 상자가 위로 28 이상 뜨고 하한이 4 이하다 — 실제 −${lyLine?.[1]}, 하한 ${lyLine?.[2]}`,
+      Number(lyLine?.[1]) >= 28 && Number(lyLine?.[2]) <= 4,
+    );
+
     // 순서의 소유자는 패널이다 — 그림이 캡션보다 **위**에 있는지 소스로 확인한다.
     const panel = readFileSync(resolve(root, 'src/modules/board/CrossSectionPanel.jsx'), 'utf8');
     const sceneAt = panel.indexOf('{useGL ? (');
