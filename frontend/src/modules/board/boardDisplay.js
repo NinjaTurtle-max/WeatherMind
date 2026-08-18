@@ -77,6 +77,10 @@ export const PHENOMENON_META = metaDict('board.meta.phenomenon', [
   ['severe_storm', '⛈️'],
   ['wildfire_warning', '🚨'],
   ['flood_warning', '🚨'],
+  // MT-18 전문가 보드(2026-08-18) — 태풍·온실효과. 위와 같은 이유로 필요하다:
+  // 없으면 phenomenonMeta 폴백이 enum 원문 + ❔를 그린다.
+  ['typhoon', '🌀'],
+  ['tropical_night', '🌡️'],
 ]);
 
 export const CLOUD_META = metaDict('board.meta.cloud', [

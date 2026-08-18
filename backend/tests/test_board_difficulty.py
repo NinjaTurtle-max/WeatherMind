@@ -77,7 +77,7 @@ class TestBoardDifficultySeedDistribution:
         boards = self._seed_boards()
         # R12 §9 13건 → R13 2일차 통합에서 +21(2일차 저작 7 + 규칙 확장 10 + 재난 4)
         # staging 승격(2026-08-14): 46 → **49**(CO-I-2/X-1 잔여 3건, 난이도 2)
-        assert len(boards) == 52  # ㉣ 상위 보드 3판(2026-08-18)
+        assert len(boards) == 55
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
@@ -110,7 +110,15 @@ class TestBoardDifficultySeedDistribution:
         # 다음 37~39로 넣고 옛 37~46을 +3 밀었다. 1·3은 안 변했다.
         # ㉣(2026-08-18): **3이 10 → 13**. 새 3판은 palette 4종(+1) · expert(+1) ·
         # goal_only(2)라 클램프 3이다. 1·2는 안 변한다.
-        assert dist == {1: 23, 2: 16, 3: 13}
+        # MT-19 판독 + MT-18 2판(2026-08-18 저녁): **3이 13 → 16.** 셋 다 클램프 3이다
+        # (판독은 palette 4종 + adult, 태풍·열대야는 palette 4종 + expert).
+        # 🔴 **이 단정이 `len(boards)`로 바뀌어 있었다**(2026-08-18 리뷰 finding 2).
+        # 그러면 형제 테스트와 중복이고 `dist`는 계산만 되고 안 쓰인다 —
+        # `ci.sh`가 pyflakes를 `backend/app`에만 돌리므로 **미사용 변수도 안 잡힌다.**
+        # 분포 고정이 **난이도 가중 드리프트를 잡는 유일한 계측기**라 되살린다:
+        # 개수만 보면 「보드가 늘었다」는 알지만 **어느 칸으로 늘었는지**를 못 본다.
+        assert dist == {1: 23, 2: 16, 3: 16}, f"난이도 분포가 바뀌었다: {dict(sorted(dist.items()))}"
+        assert len(boards) == 55
 
 
 def _puzzle(name: str, level_group: str):
