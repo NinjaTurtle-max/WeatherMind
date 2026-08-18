@@ -359,27 +359,41 @@ try {
       /\{hasVerdict && <div className="order-3 lg:contents">/.test(body),
     );
 
-    // ── 현상 주석 상자가 존 이름표를 피한다 (2026-08-18 사용자 지시) ────────
+    // ── 현상 주석 상자가 이름표 띠 **위**에 산다 (2026-08-18 사용자 지시) ───
     /**
-     * "「강한 일사, 오후 대류성 소나기」 카드가 주변 글씨랑 겹친다."
+     * "카드가 지도랑 겹쳐. 수도권/영동·동해 글씨 사이로 상단에 배치해줘."
      *
-     * 실측 1536에서 상자 y 278~333인데 「수도권」 287~306 · 「영동·동해」
-     * 312~331이라 양쪽 다 물렸다. **세로만 올려서는 안 됐다** — 수도권처럼
-     * 지도 위쪽에 붙은 존은 하한에 걸려 더 못 올라가는데 그 이름표도 위쪽에
-     * 있기 때문이다. 세로(−28)와 가로(±26)를 **함께** 키워야 떨어진다.
-     * 고친 뒤 셋 다 겹침 없음(상자 646~818 / 232~287).
-     * 좌표 계산이라 jsdom으로는 못 재고, 세 상수가 한 묶음이라 소스로 문다.
+     * ⚠️ **존에 상대적인 자리 잡기로는 못 고친다.** 이름표들이 저마다 다른
+     * 높이에 흩어져 있어 한 존에서 비켜 놓으면 다른 존에서 다시 물린다 —
+     * 실제로 두 번 고쳤고 두 번 다 다른 존에서 재발했다(수도권 → 영서·태백).
+     * 그래서 상자를 **지도 맨 위 띠에 고정**한다: `ly`가 상수라야 한다.
+     *
+     * 이름표 y(userSpace = label_anchor × VIEW_H/100):
+     *   수도권 17.1 · 영동·동해 22.5 · 서해상 46.9 · 영서·태백 47.8
+     * 글자 높이를 감안한 **가장 높은 이름표 윗변이 13.8**이고, 2줄 상자 높이는
+     * 11.8이다. 그래서 `ly + boxH ≤ 13.8`, 즉 `ly ≤ 2`면 어느 존을 가리켜도
+     * 안 닿는다. 실측(1536)으로 네 존 전부 겹침 0 — 상자 y 228~282.
+     *
+     * jsdom에는 CSS 엔진이 없어 좌표로 못 재므로 소스로 문다. 이름표 y는
+     * `boardLayout`이 소유하므로 **거기서 읽어** 상수와 대조한다 — 지도가
+     * 바뀌어 이름표가 더 위로 올라가면 이 단정이 먼저 운다.
      */
     const anno = readFileSync(resolve(root, 'src/modules/board/mapInfographic.jsx'), 'utf8');
-    const lxLine = anno.match(/const lx = toRight \? Math\.min\(x \+ (\d+), 78\) : Math\.max\(x - (\d+), 22\);/);
-    const lyLine = anno.match(/const ly = Math\.max\(y - (\d+), (\d+)\);/);
+    const lyLine = anno.match(/const ly = (\d+(?:\.\d+)?);/);
     check(
-      `주석 상자가 옆으로 26 이상 비킨다 — 실제 ${lxLine?.[1]}/${lxLine?.[2]}`,
-      Number(lxLine?.[1]) >= 26 && Number(lxLine?.[2]) >= 26,
+      `주석 상자 y가 상수다 — 존 위치를 따라가면 다시 겹친다. 실제 ly=${lyLine?.[1]}`,
+      lyLine != null,
     );
+    const layout = readFileSync(resolve(root, 'src/modules/board/boardLayout.js'), 'utf8');
+    const viewH = Number(layout.match(/export const VIEW_H = (\d+)/)?.[1]);
+    const anchors = [...layout.matchAll(/label_anchor: \[[\d.]+, ([\d.]+)\]/g)].map((m) => Number(m[1]));
+    check(`이름표 앵커를 읽었다(${anchors.length}개) · VIEW_H=${viewH}`, anchors.length >= 4 && viewH > 0);
+    // 글자 윗변 ≈ 기준선 − 3.3(fontSize 3.6 실측). 2줄 상자 높이 = 2*4.6+2.6.
+    const topLabel = Math.min(...anchors) * (viewH / 100) - 3.3;
+    const boxH2 = 2 * 4.6 + 2.6;
     check(
-      `주석 상자가 위로 28 이상 뜨고 하한이 4 이하다 — 실제 −${lyLine?.[1]}, 하한 ${lyLine?.[2]}`,
-      Number(lyLine?.[1]) >= 28 && Number(lyLine?.[2]) <= 4,
+      `상자가 가장 높은 이름표(윗변 ${topLabel.toFixed(1)})보다 위에서 끝난다 — ly ${lyLine?.[1]} + 높이 ${boxH2}`,
+      Number(lyLine?.[1]) + boxH2 <= topLabel,
     );
 
     // 순서의 소유자는 패널이다 — 그림이 캡션보다 **위**에 있는지 소스로 확인한다.
