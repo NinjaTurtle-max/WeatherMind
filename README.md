@@ -57,6 +57,15 @@ DB 실경로(마이그레이션·RLS·θ 왕복·배치고사)까지 확인한�
 
 ## 개발 중 개별 실행 (hot reload)
 
+**Windows에서는 `dev.cmd` 한 번이면 된다** — Docker로 백엔드(postgres·redis·backend)를
+띄우고 마이그레이션·시드(둘 다 멱등)를 돌린 뒤 vite dev server를 연다. 끄는 것은
+`dev-stop.cmd`(볼륨은 남긴다).
+
+```
+dev.cmd          rem 브라우저에서 http://localhost:5173
+dev-stop.cmd     rem 백엔드까지 정지
+```
+
 ```bash
 # 백엔드만
 cd backend && uvicorn app.main:app --reload --port 8000
@@ -64,6 +73,12 @@ cd backend && uvicorn app.main:app --reload --port 8000
 # 프론트만 (vite dev server가 /api/v1을 localhost:8000으로 프록시)
 cd frontend && npm install && npm run dev   # 보통 5173포트
 ```
+
+⚠️ **`VITE_MOCK=1`은 「화면만」 보는 모드다.** 백엔드 없이 뜨는 대신 목 픽스처가
+작아서 **코스 탭이 안 뜨고**(목에 `GET /courses`가 없어 CourseSwitcher가 스스로
+숨는다) **학습 경로가 3칸**으로 보인다(목 유닛 총 10개). 실제 시드로 보려면 위
+`dev.cmd`(또는 백엔드 기동 + `VITE_MOCK` 없이 `npm run dev`)를 쓸 것 — 이 차이를
+화면 결함으로 오인한 전례가 있다(2026-08-18).
 
 ## API 개요 (`/api/v1`, 상세는 docs/specs/02_api_spec.md)
 
@@ -121,22 +136,27 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 | 무엇 | 출처 | 라이선스 |
 |---|---|---|
 | 동아시아 해안선 좌표 (`frontend/src/modules/explore/coastline.js`) | Natural Earth 1:50m `ne_50m_land` — [naturalearthdata.com](https://www.naturalearthdata.com/) | **퍼블릭 도메인** — *"No permission is needed to use Natural Earth."* |
-| 기상 실황·예보 데이터 | 기상청(KMA) 공공 API | 공공데이터 이용 약관 — **정확한 유형 확인 필요** |
-| 마스코트·아이콘 PNG 12종 (`frontend/public/`) | 프로젝트 팀이 업로드 | ⚠️ **출처 확인 필요** (아래 참조) |
+| 기상 실황·예보 데이터 | **기상청 API허브**(apihub.kma.go.kr) — 공공데이터포털(data.go.kr)과 별개 시스템 | 출처 표시: 「기상청 API허브」. 공공누리(KOGL) 적용 유형은 제출 전 확인 후 이 칸에 기재 |
+| 마스코트·아이콘 PNG 12종 + `guidebot.png`·`guidebot.mesh` (`frontend/public/`) | **팀이 생성형 AI 도구로 직접 제작** (2026-08-14 확인) | AI 생성 자산 — 제3자 저작물 아님 |
+| 3D 마스코트 (`design/mascot/weathermind-bot.glb`) | **팀이 생성형 AI 도구로 직접 제작** (2026-08-14 확인). `guidebot.png`는 `scripts/render_mascot_glb.py`, `guidebot.mesh`는 `scripts/bake_mascot_glb.py`가 이 파일에서 결정적으로 생성한 파생물 | AI 생성 자산 — 원본과 동일 |
 | 문항 본문·해설 (`database/seed/`) | 프로젝트 팀 직접 저작 | 이 저장소의 MIT를 따름 |
 
-#### ⚠️ 마스코트 PNG 12종 — 출처 미확정
+`favicon.svg`는 저장소에서 직접 작성했습니다. 마스코트 PNG의 저장소 투입 기록은
+`ae5ddd8`·`b3e0233`·`6579f8a`·`eaec357`(업로드 후 ASCII 개명·크롭)입니다.
 
-`bolt` · `cloud` · `drop` · `fire` · `moon` · `rainbow` · `raincloud` · `snow` ·
-`snowcloud` · `sun` · `thermometer` · `typhoon` (`favicon.svg`는 저장소에서 직접 작성).
+저작권을 의식해 내린 설계 결정도 코드에 남아 있습니다: 위성 화면은 KMA 실사 영상
+대신 **자체 도식**이며 「실사 아님」 표기를 계약으로 유지하고(`SatelliteView.jsx`),
+일기도는 기상청 인포그래픽의 **문법을 절차적 SVG로 독립 재구현**한 것으로 원본
+이미지를 복제·트레이싱하지 않았습니다(`mapInfographic.jsx`).
 
-저장소 기록으로 확인되는 것은 **팀이 업로드했다는 사실뿐**입니다
-(`ae5ddd8`·`b3e0233`·`6579f8a`·`eaec357` — 한글 파일명으로 올린 뒤 ASCII로 개명·크롭).
-직접 제작인지, 생성형 도구 산출인지, 제3자 자산인지는 **커밋·문서 어디에도 기록이
-없습니다.**
+### 폰트
 
-**추정으로 출처를 적지 않았습니다.** 심사 제출물에 지어낸 출처를 적는 것은 비워 두는
-것보다 나쁩니다. 원작자를 아는 사람이 이 표를 채워 주세요.
+이 저장소는 **폰트 파일을 배포하지 않습니다.** `frontend/src/styles/index.css`가
+`Pretendard Variable → Pretendard → 시스템 UI 폰트(-apple-system · Apple SD Gothic
+Neo · Segoe UI · Noto Sans KR) → sans-serif` 순의 폴백 스택을 **이름으로만** 선언할
+뿐이며, `@font-face`·웹폰트 CDN 링크·번들 폰트 파일(woff/woff2/ttf/otf)은 0개입니다.
+폰트를 재배포하지 않으므로 폰트 라이선스 의무가 발생하지 않고, 미설치 환경에서는
+OS 시스템 폰트로 폴백합니다.
 
 ### 주요 오픈소스 의존성
 
@@ -144,3 +164,18 @@ FastAPI · SQLAlchemy · Alembic · Pydantic (백엔드) · React · Vite · Tai
 TanStack Query · Recharts (프론트) · LangChain (ai-worker) · Celery · PostgreSQL ·
 Redis. 전체 목록과 각 버전은 `backend/requirements.txt` · `ai-worker/requirements.txt` ·
 `celery/requirements.txt` · `frontend/package.json`이 소유합니다.
+
+**라이선스 구성** (2026-08-14 실측): 프론트엔드 전이 의존성 285종은
+MIT 247 · ISC 22 · Apache-2.0 4 · BSD-3-Clause 4 · MIT-0 2 · BSD-2-Clause 2 ·
+CC-BY-4.0 1(`caniuse-lite` — 브라우저 지원 데이터셋, 코드 아님) · CC0-1.0 1 ·
+BlueOak-1.0.0 1로 **GPL/AGPL/LGPL 계열 0건**입니다(권위 소스는
+`frontend/package-lock.json`). 파이썬 의존성도 MIT · BSD-3-Clause · Apache-2.0
+계열입니다 — 단 하나의 예외는 아래에 고지합니다.
+
+> ⚠️ **LGPL 고지** — `celery/requirements.txt`의 `psycopg2-binary`(2.9.x)는
+> **LGPL-3.0 with exceptions**입니다. 수정 없이 별도 컨테이너에서 동적 링크로
+> 사용하므로 본 저장소 소스의 공개 의무는 발생하지 않습니다. 적용 범위는 celery
+> 워커의 동기 DB 드라이버 1곳이며, backend는 `asyncpg`(Apache-2.0)를 사용합니다.
+>
+> Redis 이미지는 SSPL 전환 이전 버전인 `redis:7.2-alpine`(BSD-3-Clause)에
+> 고정했습니다(`docker-compose.yml`).

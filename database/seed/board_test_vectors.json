@@ -360,7 +360,7 @@
     ]
   },
   {
-    "name": "disaster_never_overrides_v1: 시베리아 맑음(30)·정체전선 장마(90)가 재난(28·29)을 이긴다",
+    "name": "disaster_4cond_overrides: 4조건 재난은 일반 날씨를 덮는다(2026-08-18 PM 판정) — 정체전선 장마(90)는 2조건 재난(29)을 계속 이긴다",
     "board": {
       "zones": ["서해", "수도권", "태백산맥", "동해안"],
       "elements": [
@@ -374,8 +374,25 @@
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "clear", "cloud": "none"},
+      {"zone": 0, "phenomenon": "wildfire_warning", "cloud": "none"},
       {"zone": 1, "phenomenon": "persistent_rain", "cloud": "nimbostratus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ]
+  },
+  {
+    "name": "disaster_2cond_never_overrides: 2조건 재난은 일반 날씨를 못 덮는다 — 경계는 「조건 수」다(위 4조건 벡터와 한 쌍)",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "siberian", "zone": 0},
+        {"type": "moisture", "level": 10, "zone": 0},
+        {"type": "wind", "level": 95, "zone": 0}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "clear", "cloud": "none"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
       {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
       {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
     ]

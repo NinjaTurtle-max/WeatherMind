@@ -59,9 +59,17 @@ class TestVocabulary:
             "그 현상을 목표로 하는 보드가 없어 board 자리가 폴백으로 샌다"
         )
 
-    def test_어휘는_9종이다(self):
-        """§T3 완료 판정이 「9종 어휘 전건」이라 개수 자체가 계약이다."""
-        assert len(wp.PHENOMENA) == len(set(wp.PHENOMENA)) == 9
+    def test_어휘_개수(self):
+        """§T3 완료 판정이 「9종 어휘 전건」이라 개수 자체가 계약이었다.
+
+        🔴 **2026-08-18에 두 수로 갈렸다.** ㉣의 경보급 3종은 `board_rules`의 거울에는
+        속하지만 **실황 판정으로는 도달할 수 없다**(조건 4개 동시 성립을 실황
+        카테고리로 알 수 없다). 그래서 사문 판정의 대상은 `CLASSIFIABLE`이고,
+        **T3가 말한 9종은 그쪽**이다.
+        """
+        assert len(wp.PHENOMENA) == len(set(wp.PHENOMENA)) == 12
+        assert len(wp.CLASSIFIABLE) == 9, "T3 완료 판정의 9종은 실황 도달 집합이다"
+        assert set(wp.BOARD_ONLY_PHENOMENA) < set(wp.PHENOMENA)
 
     def test_cloudy는_어휘가_아니다(self):
         """board_engine의 무성립 기본값이지 board_rules가 목표로 삼는 어휘가 아니다."""
@@ -153,6 +161,40 @@ class TestLadder:
     def test_사다리_대표값(self, label, weather, expected):
         assert wp.classify_phenomenon(weather) == expected, label
 
+    @pytest.mark.parametrize(
+        ("label", "weather", "expected"),
+        [
+            # 🔴 결함 원형 — POP은 낮은데 기상청이 PTY로 강수를 직접 알려준 날.
+            (
+                "34도 · POP 40 · PTY 4(소나기)",
+                wx(hour(TMX=34.0, POP=40, PTY=4, TMP=34)),
+                "shower",
+            ),
+            (
+                "35도 · POP 30 · PTY 1(비)",
+                wx(hour(TMX=35.0, POP=30, PTY=1, TMP=35)),
+                "rain",
+            ),
+            # 경계 — PTY 0(강수 없음)은 종전과 같이 폭염이다.
+            ("34도 · POP 40 · PTY 0", wx(hour(TMX=34.0, POP=40, PTY=0, TMP=34)), "heatwave"),
+            # 경계 — PTY 결측(관측 없음)도 종전과 같이 POP만으로 판정한다.
+            ("34도 · POP 40 · PTY 없음", wx(hour(TMX=34.0, POP=40, TMP=34)), "heatwave"),
+        ],
+    )
+    def test_폭염은_예보된_강수를_덮지_않는다(self, label, weather, expected):
+        """🔴 **4번 계단이 5번 계단의 1순위 신호를 무시하고 있었다.**
+
+        사다리는 강수를 "PTY가 1순위, 결측이면 POP 폴백"으로 판정한다고 적어
+        놓고, 그 **위** 계단인 폭염은 `wet`(POP)만 보고 `pty`를 안 읽었다.
+        그래서 `TMX 34 · POP 40 · PTY 4`처럼 **기상청이 소나기를 직접 알려준
+        날**에 `heatwave`가 나갔다 — 확률이 관측을 덮은 셈이고, 그날의 보드가
+        소나기 대신 폭염으로 배정됐다.
+
+        경계 두 개를 함께 문다: `PTY 0`(강수 없음을 **명시**)과 PTY 결측은
+        종전 그대로 폭염이어야 한다 — 안 그러면 이 수정이 폭염 자체를 죽인다.
+        """
+        assert wp.classify_phenomenon(weather) == expected, label
+
     def test_지속형_비는_젖은_시간대_비율로_가른다(self):
         """장마(persistent_rain) vs 한때 비(rain) — 하루치 예보로 쓸 수 있는 유일한 신호."""
         long_rain = wx(*[hour(PTY=1, POP=90, TMP=22) for _ in range(6)])
@@ -194,8 +236,13 @@ class TestLadder:
         """None은 「보드 없음」이 아니라 「board_order 순」이라는 뜻이다(§T3)."""
         assert wp.classify_phenomenon(weather) is None, label
 
-    def test_9종_전건이_도달_가능하다(self):
-        """어휘에 있는데 어떤 입력으로도 안 나오는 현상 = 사문(死文) 판정."""
+    def test_실황_도달_집합_전건이_도달_가능하다(self):
+        """어휘에 있는데 어떤 입력으로도 안 나오는 현상 = 사문(死文) 판정.
+
+        ⚠️ 대상은 `CLASSIFIABLE`이다 — 보드 전용 3종(경보급)은 **실황이 만들 수 없는
+        것이 정상**이고, 그것까지 요구하면 만들 수 없는 것을 만들라는 계약이 된다.
+        그 셋이 실황에서 **안 나온다는 사실 자체**는 아래 별도 단정이 문다.
+        """
         reachable = {
             wp.classify_phenomenon(w)
             for w in [
@@ -210,7 +257,23 @@ class TestLadder:
                 wx(hour(SKY=1, POP=0, REH=50, TMP=20)),
             ]
         }
-        assert reachable == set(wp.PHENOMENA)
+        assert reachable == set(wp.CLASSIFIABLE)
+
+    def test_보드_전용_현상은_실황에서_안_나온다(self):
+        """경보급 3종이 실황 판정으로 새면 **보드에서만 만들 수 있다는 전제**가 깨진다.
+
+        그러면 브리핑·실황 문항이 「산불 경보급」을 말하면서 그 근거(기단·전선 조합)를
+        보여줄 수 없게 된다. 도달성의 **반대 방향** 계약이다.
+        """
+        inputs = [
+            wx(hour(PTY=3, POP=80)),
+            wx(hour(REH=25, WSD=12.0, POP=0, TMP=30, SKY=1)),   # 건조·강풍·맑음
+            wx(*[hour(PTY=1, POP=95, TMP=22, REH=98) for _ in range(6)]),  # 지속 강수
+            wx(hour(TMX=36.0, POP=0, SKY=1)),
+        ]
+        produced = {wp.classify_phenomenon(w) for w in inputs}
+        leaked = produced & set(wp.BOARD_ONLY_PHENOMENA)
+        assert not leaked, f"실황 판정이 보드 전용 현상을 냈다: {leaked}"
 
 
 # ═══════════════════════════════════════════════════════════════

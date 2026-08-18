@@ -457,6 +457,13 @@ def plan_crown(
 
     - 왕관은 crown_target까지만 +1 (초과 미가산).
     - cleared 전환(왕관이 target에 처음 도달)에만 +20 XP 1회 — 재클리어는 XP 0.
+
+    ⚠️ **이 함수는 멱등이 아니다.** "같은 활동을 두 번 불러도 안전하다"가 성립하는
+    것은 `crown_target == 1`일 때뿐이고, `crown_target >= 2`면 부를 때마다 +1 해서
+    만관까지 올라간다(그리고 그 도달 시점에 XP도 나간다). 상한 판정 —
+    「이 활동으로 이미 왕관을 줬는가」 — 은 **호출측이 소유**한다. 이 주의를 적는
+    이유는 `routers/session.py`의 유닛 왕관 분기가 실제로 "grant가 멱등이니
+    괜찮다"고 적힌 채 재완료 파밍을 열어 놨기 때문이다(2026-08-14 수정).
     """
     new_crowns = crowns + 1 if crowns < crown_target else crowns
     newly_cleared = new_crowns >= crown_target and not cleared
@@ -939,11 +946,18 @@ def unit_pool_sort_theta(
     **`section_level`이 None이면 θ를 그대로 돌려준다** — 기초과학 3섹션·미등재·
     대역 유닛은 개정 전과 SQL이 한 글자도 다르지 않다(하위 호환).
     **θ가 None(콜드스타트)이면 유닛 표적이 있어도 None이다**: θ None 경로는
-    `unit_pool_level_groups`가 가입 밴드 하나로 좁히고 선취도 없는 별개 계약이라
-    (`test_curriculum_band_fallback.TestQueryShapeUnchanged`), 여기서만 정렬을
-    붙이면 그 계약과 어긋난 반쪽 상태가 된다. 즉 **`sort_theta is None`은
-    `theta is None`과 동치**이고, 콜드스타트의 잔여 증상은 알려진 이월이다
-    (도달 대상은 `seed_placement`가 실패한 유저뿐).
+    `unit_pool_level_groups`가 **가입 밴드 하나로 좁히므로** `prior_b`도 한 값이라,
+    기준점을 옮겨도 `|b − 기준점|`이 전건 동률이 되어 **순서가 한 건도 안 바뀐다**.
+    즉 **`sort_theta is None`은 `theta is None`과 동치**다.
+
+    ⚠️ **여기 근거로 「선취도 없는 별개 계약이라」가 함께 적혀 있었고 그것은
+    2026-08-14부로 거짓이다.** 두 결정은 근거가 다른데 한 문장으로 묶여 있었다 —
+    기준점을 안 옮기는 이유는 위의 「동률이라 무의미」이고, 선취는 **재정렬이
+    실제로 도는가**에 걸린다. CO-G1 순환식 배선 이후 `section_level`이 θ 없이도
+    표적을 내므로 콜드스타트에서도 `rank_by_knowledge_level`이 돌고, 그래서
+    선취도 함께 건다(`_unit_content_pool`의 `fetch_limit` 주석이 소유).
+    선취 계약의 소유자는 여전히
+    `test_curriculum_band_fallback.TestQueryShapeUnchanged`다.
     """
     if section_level is None or theta is None:
         return theta
@@ -1011,8 +1025,12 @@ async def _unit_content_pool(
       `rank_by_knowledge_level`에 닿기도 전에 잘렸다(재진입 결함. 실측과 "왜
       하드 필터가 아닌가"는 그 함수의 독스트링이 소유한다). 섹션이 없는 유닛과
       콜드스타트는 종전대로 θ다.
-    - 콜드스타트(θ None)는 현행과 완전 동일: 가입 그룹 단일 + random 정렬 +
-      선취 없음 + 재정렬 없음(단계 표적이 없으므로).
+    - 콜드스타트(θ None): 가입 그룹 단일 + random 정렬. **선취·재정렬은
+      섹션이 단계를 말하면 콜드스타트에도 걸린다**(2026-08-14 정정 — 종전
+      "선취 없음 + 재정렬 없음(단계 표적이 없으므로)"은 CO-G1 순환식 배선 전의
+      기술이고, 그 뒤로 `section_level`이 θ 없이도 표적을 낸다). 재정렬은 이미
+      돌고 있었고 **선취만 빠져 있어서** 재정렬이 볼 표본이 정원과 같았다 —
+      사유는 `fetch_limit` 자리의 주석이 소유한다.
 
     ⚠️ **이 풀은 실황 문항을 내지 않는다** — `build_pool_query(live=False)`가
     `uses_live_slots=true`를 제외한다. 2026-08-12~13 사이에 잠깐 실황 예약분
@@ -1050,7 +1068,26 @@ async def _unit_content_pool(
         )
     )
     sort_theta = unit_pool_sort_theta(section_level, theta)
-    fetch_limit = UNIT_SESSION_SIZE * (1 if theta is None else UNIT_POOL_PREFETCH)
+    # 선취 배수는 **재정렬이 실제로 도는가**에 걸린다 — θ의 유무가 아니라
+    # `target_level`의 유무다.
+    #
+    # 🔴 종전에는 `1 if theta is None else UNIT_POOL_PREFETCH`였고, 그 근거로
+    # "콜드스타트는 단계 표적이 없으므로 재정렬이 없다"고 적혀 있었다. **CO-G1
+    # 순환식 배선(10섹션 = 지식 단계 1~10)이 그 전제를 무효로 만들었다**: 이제
+    # `section_level`이 θ와 무관하게 표적을 내므로 콜드스타트에서도
+    # `rank_by_knowledge_level`이 돈다. 그런데 선취가 없으면 SQL이
+    # `ORDER BY random() LIMIT 4`로 **먼저 잘라 놓은** 4건만 재정렬 대상이라,
+    # 표적 단계 문항은 그 4건에 들 확률만큼만 나온다 — 재정렬이 있으나 마나 한
+    # 상태였다. 유닛 세션의 「같은 개념이라도 섹션이 단계를 정한다」가
+    # 콜드스타트에서만 조용히 무너지는 것이 증상이다.
+    #
+    # 넓혀도 밴드는 그대로다: 콜드스타트의 `unit_pool_level_groups`는 가입 밴드
+    # 하나라, 선취가 늘어나는 것은 **같은 밴드 안의 무작위 표본**이고 그 표본을
+    # 재정렬이 단계순으로 세운다. 조회 **횟수**는 종전과 같은 2회다
+    # (`TestQueryShapeUnchanged`).
+    fetch_limit = UNIT_SESSION_SIZE * (
+        UNIT_POOL_PREFETCH if target_level is not None else 1
+    )
 
     def _pool_stmt(served_subq):
         stmt = session_service.build_pool_query(

@@ -305,6 +305,49 @@ ok(
 reactRoot.unmount();
 window.XMLHttpRequest = RealXHR;
 
+// ── 단서 카드가 4열 2줄이다 (2026-08-18 사용자 지시) ─────────────────────────
+/**
+ * "가로2줄 세로4줄인데 가로4줄 세로2줄로 바꿔줘."
+ *
+ * 단서가 7개라 2열이면 4줄이 된다. 4열로 바꾸려면 **둘이 같이** 있어야 한다:
+ *  ⓐ `CasePlayPage`의 `xl:grid-cols-4`
+ *  ⓑ `Layout`의 `isWide`에 `/detective` — 이게 없으면 셸이 576px이라 4열이
+ *     한 칸 130px로 눌린다. 실측: 넓힌 뒤 셸 1152 · 한 칸 274px(종전 268px과
+ *     사실상 같다 — 카드를 줄인 게 아니라 줄 수를 줄인 것이다).
+ * 한쪽만 되돌려도 화면이 깨지는데 **에러는 안 난다** — 그래서 짝으로 문다.
+ * jsdom에는 CSS 엔진이 없어 열 수를 좌표로 못 재므로 소스 계약으로 둔다.
+ */
+{
+  const play = readFileSync(resolve(root, 'src/modules/detective/CasePlayPage.jsx'), 'utf-8');
+  const clueUl = play.match(/<ul className="(grid grid-cols-1[^"]*)"/)?.[1] ?? '';
+  ok(
+    /\bxl:grid-cols-4\b/.test(clueUl),
+    `단서 목록이 xl에서 4열이다 — 실제 "${clueUl}"`,
+  );
+  const layout = readFileSync(resolve(root, 'src/components/Layout.jsx'), 'utf-8');
+  const isWide = layout.slice(layout.indexOf('const isWide ='), layout.indexOf('const shellWidth'));
+  ok(
+    /pathname\.startsWith\('\/detective'\)/.test(isWide),
+    '탐정 화면이 넓은 셸을 쓴다 — 아니면 4열이 한 칸 130px로 눌린다',
+  );
+
+  // 사건 목록도 같은 이유로 짝이다(2026-08-18 "가로2줄 세로3줄 → 가로3줄 세로2줄").
+  // ⚠️ **열 수와 폭 상한을 함께** 봐야 한다. `max-w-[760px]`이 남은 채 3열로
+  // 바꾸면 격자가 760에 묶여 한 칸이 240px로 **작아진다** — 사용자가 본 것과
+  // 반대 방향이다. 실측: 상한을 1120으로 풀면 1536에서 363px(종전 2열 368px).
+  const list = readFileSync(resolve(root, 'src/modules/detective/CaseListPage.jsx'), 'utf-8');
+  const listGrid = list.match(/<div className="(grid max-w-\[[^"]*)"/)?.[1] ?? '';
+  ok(
+    /\bxl:grid-cols-3\b/.test(listGrid),
+    `사건 목록이 xl에서 3열이다 — 실제 "${listGrid}"`,
+  );
+  const cap = Number(listGrid.match(/max-w-\[(\d+)px\]/)?.[1]);
+  ok(
+    cap >= 1080,
+    `목록 폭 상한이 3열을 담는다(${cap}px) — 760이면 3열이 한 칸 240px로 눌린다`,
+  );
+}
+
 await vite.close();
 await new Promise((r) => httpServer.close(r));
 if (failed) {

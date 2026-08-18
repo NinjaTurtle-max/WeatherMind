@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import HeroBanner from '../../components/HeroBanner';
 import { useT } from '../../i18n';
 
 /**
@@ -52,13 +53,28 @@ const SIMS = [
 export default function ExploreHome() {
   const t = useT();
   return (
-    <div className="space-y-4 py-4">
-      <div>
-        <h1 className="text-lg font-extrabold text-slate-800">{t('explore.home.title')}</h1>
-        <p className="mt-1 text-xs text-slate-500">
-          {t('explore.home.subtitle')}
-        </p>
-      </div>
+    // ⚠️ 바깥 여백은 **`pt-2`** — 다른 화면(학습·보드·예보·내 정보)이 전부
+    // 그것이다. 여기만 `py-4`라 첫 카드가 8px 아래에서 시작했고(실측 1440:
+    // 탐구 y=80 · 나머지 y=72), 화면을 오갈 때 한 칸 내려앉는 것으로 보였다
+    // (2026-08-17 사용자 제보). 아래 여백은 `Layout`의 `main`이 `pb-8`로 이미
+    // 갖고 있어 `py`로 겹쳐 줄 이유가 없다.
+    <div className="space-y-4 pt-2">
+      {/* 상단 배너 — 학습·보드와 같은 꼴(2026-08-12 사용자 지시). 화면 담당의
+          소유자는 SideNav `TUTOR_BY_PATH`이고, 그 표와 여기가 **같아야** 한다
+          (`tests/mascotAssets.contract.test.mjs` ④가 대조한다).
+          ⚠️ 담당이 **번개**로 바뀌었다(2026-08-17 사용자 지시 — 종전 구름이).
+          같은 날 잠깐 리그와 겹쳤으나, 리그가 **눈송이**를 받고 자기 배너를
+          갖게 되면서 풀렸다 — 지금은 화면마다 담당이 하나씩이다. */}
+      <HeroBanner
+        testId="explore-hero"
+        mascot="bolt"
+        as="h1"
+        eyebrow={t('explore.home.title')}
+        // 안내 문장은 **title이 아니라 description**이다 — title은 한 줄로
+        // 잘려서, 문장을 넣으면 1440에서도 끝이 사라진다(2026-08-12 리뷰).
+        title={t('explore.home.heroTitle')}
+        description={t('explore.home.subtitle')}
+      />
 
       {/* 넷을 **한 줄에**(2026-08-11 사용자 지시). 2열 정사각 시절에는 2×2로
           접혀 네 번째(기후 탐정)가 접힌 화면 밖으로 내려갔다 — 탐구는 넷 중

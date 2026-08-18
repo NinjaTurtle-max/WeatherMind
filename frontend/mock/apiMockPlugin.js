@@ -450,10 +450,23 @@ function reviewQueuePayload(nowMs = Date.now()) {
 // level_group은 서버 users.level_group의 목 대응물이다 (R13 CO-P-5). 종전에는
 // 목에 학령 자체가 없어서 "게스트는 평생 middle_high"라는 결함을 목 위 스모크로는
 // 원리적으로 볼 수 없었다 — 이제 GET/PATCH /auth/me가 서버와 같은 형태로 읽고 쓴다.
+// takenNicknames는 서버 **닉네임 유일성 검사**의 대응물이다 —
+// ⚠️ **DB 유니크 제약이 아니다.** `users.nickname`에는 제약이 없고(기존 게스트가
+// 자동 닉네임 `게스트-xxxxxx`를 공유해 인덱스가 만들어지지 않는다) 유일성은
+// `guest_login`이 **신고 경로에서만** SELECT로 확인한다(대장 §4.16).
+// registeredEmails와 **같은 관례**로, 이미 쓰이고 있는 이름 1건을 시드해 409 경로를
+// 목 위에서 재현한다. 시드값은 새로 지어낸 이름이 아니라 **목이 이미 「쓰이고 있다」고
+// 선언한 이름**이다: `meResponse`의 정식 계정 닉네임 '날씨러버'.
+// ⚠️ 리그 리더보드의 닉네임 10종은 **시드하지 않는다.** 그 배열의 '구름사냥꾼'은
+// i18n 예시 문구(`entryInfo.nicknamePlaceholder`)이자 entryFlow ⑧-a가 실제로 적어
+// 넣는 이름이라, 시드하면 「적은 이름이 바디에 실린다」 계약이 409로 무너진다.
+// nickname은 현재 게스트가 신고한 이름(없으면 null → 서버 자동 닉네임 자리).
 const mockAuth = {
   isGuest: false,
   levelGroup: 'middle_high', // 서버 GUEST_LEVEL_GROUP과 같은 무정보 기본값
+  nickname: null,
   registeredEmails: new Set(['taken@weathermind.dev']),
+  takenNicknames: new Set(['날씨러버']),
 };
 
 // 서버 schemas/auth.LevelGroup Literal과 같은 3값 — 목이 사본을 갖는 대신
@@ -475,7 +488,9 @@ const meResponse = () => ({
   email: mockAuth.isGuest
     ? `guest-${MOCK_USER_ID}@${GUEST_EMAIL_DOMAIN}`
     : 'demo@weathermind.dev',
-  nickname: mockAuth.isGuest ? '게스트-2b1c8b' : '날씨러버',
+  // 게스트가 이름을 신고했으면 그 이름으로 유저가 만들어진 것이다 — 신고가 없으면
+  // 서버가 짓는 자동 닉네임(`게스트-{uuid6}`)의 목 대응물로 되돌아간다.
+  nickname: mockAuth.isGuest ? (mockAuth.nickname ?? '게스트-2b1c8b') : '날씨러버',
   is_guest: mockAuth.isGuest,
   level_group: mockAuth.levelGroup,
 });
@@ -1935,12 +1950,34 @@ const routes = {
   // {access_token, refresh_token}). 드리프트는 test_auth_guest 계약이 감시한다.
   // 바디는 **선택**이다(서버 GuestStartRequest) — 없으면 기본 middle_high.
   // 보내면 그 학령으로 시작한다(R13 CO-P-5). 허용값 밖은 서버 pydantic이 422다.
+  //
+  // nickname도 **선택**이다(2026-08-14). 안 보내면 이 핸들러는 종전과 완전히 동일하게
+  // 동작한다 — 기존 스모크 다수가 무바디·`{level_group}`만으로 부른다.
+  // 보내면 유일성 검사를 통과해야 유저가 만들어진다: 이미 쓰이는 이름이면 409
+  // `NICKNAME_TAKEN`(서버 `guest_login`의 신고 경로 유일성 검사에 대응 — 프론트
+  // `EntryInfoPage`의 거절 걸쇠가 이 코드로 분기한다).
+  // 검사 순서는 서버와 같다: pydantic 형태 검증(422)이 먼저고, 유일성은 그 다음이다.
   'POST /auth/guest': (body) => {
     if (body?.level_group != null && !LEVEL_GROUPS.includes(body.level_group)) {
       return [422, { detail: '알 수 없는 학습 수준입니다.', code: 'VALIDATION_ERROR' }];
     }
+    const nickname = body?.nickname ?? null;
+    // 서버 GuestStartRequest.nickname의 `min_length=1, max_length=50` 대응 —
+    // 「안 적음」의 서버 표현은 빈 문자열이 아니라 **필드 부재**다. 이 분기가 없으면
+    // 목에서만 빈 이름이 유효한 닉네임으로 접수돼 실서버 422를 리허설할 수 없다.
+    if (nickname !== null && (typeof nickname !== 'string' || nickname.length < 1 || nickname.length > 50)) {
+      return [422, { detail: '닉네임은 1~50자로 적어 주세요.', code: 'VALIDATION_ERROR' }];
+    }
+    if (nickname !== null && mockAuth.takenNicknames.has(nickname)) {
+      return [409, { detail: '이미 사용 중인 닉네임입니다.', code: 'NICKNAME_TAKEN' }];
+    }
+    if (nickname !== null) mockAuth.takenNicknames.add(nickname);
     mockAuth.isGuest = true;
     mockAuth.levelGroup = body?.level_group ?? 'middle_high';
+    // ⚠️ 이름을 **매번** 덮어쓴다(신고가 없으면 null). 서버는 발급마다 새 유저 행을
+    // 새 자동 닉네임으로 만들므로, 앞선 발급의 이름이 다음 무바디 발급에 남으면
+    // 「닉네임 없이 부르면 종전과 동일」이 한 프로세스 안에서 깨진다.
+    mockAuth.nickname = nickname;
     return [201, { access_token: 'mock-guest-access', refresh_token: 'mock-guest-refresh' }];
   },
   // R11-01 §6.2: 게스트→정식 계정 전환 — BE-1 서버 계약 그대로.
@@ -1965,6 +2002,54 @@ const routes = {
       { access_token: 'mock-converted-access', refresh_token: 'mock-converted-refresh' },
     ];
   },
+  /**
+   * GET /courses — 코스 목록 (R11-01 §3 F · `schemas/curriculum.CoursesOut`).
+   *
+   * 🔴 **이 핸들러가 없어서 `entry-flow ⑫`가 환경에 따라 갈렸다**(2026-08-18).
+   * 경위를 남긴다:
+   *   ① 목이 모르는 `/api/v1/*`는 `next()`로 넘어가고, 스모크가 만드는 vite
+   *      서버는 `vite.config.js`의 **개발 프록시를 그대로 물려받는다**
+   *      (`VITE_MOCK`이 안 켜져 있으므로 프록시 분기가 산다) → `localhost:8000`
+   *   ② 그래서 로컬 도커 백엔드가 **떠 있으면** 가짜 토큰이 진짜 401
+   *      (`{"detail":"Invalid token","code":"UNAUTHORIZED"}`)을 받고,
+   *      401 인터셉터가 refresh를 돌려 토큰을 `mock-access-2`로 갈아 끼운다
+   *   ③ 백엔드가 **꺼져 있으면** 연결 실패라 401이 아니어서 refresh가 안 돌고
+   *      같은 테스트가 **통과**한다
+   * 즉 「목이 안 덮은 경로」가 **환경 전역 상태(도커 기동 여부)에 대한 단정**으로
+   * 둔갑했다 — CLAUDE.md가 금지하는 바로 그 형태다.
+   *
+   * ⚠️ **목의 공백은 조용하지 않다.** 안 덮으면 404가 아니라 **다른 서버의 응답**이
+   * 돌아온다. 새 엔드포인트를 프론트가 쓰기 시작하면 여기에도 함께 넣을 것.
+   *
+   * 시드는 `database/seed/courses.json`과 같은 두 코스다. `CourseSwitcher`가
+   * **2개 미만이면 탭을 안 그리므로**(단일 코스 = 고를 것이 없다) 둘 다 있어야
+   * 코스 전환 경로가 목 위에서 재현된다.
+   */
+  'GET /courses': () => [
+    200,
+    {
+      courses: [
+        {
+          id: 'weather',
+          title: '날씨와 기후',
+          description: '하늘을 읽는 법부터 기후 변화까지',
+          course_order: 1,
+          prereq_course_id: null,
+          is_default: true,
+          units_total: 138,
+        },
+        {
+          id: 'basic-science',
+          title: '기초 과학',
+          description: '온도·압력·물의 상태 변화',
+          course_order: 2,
+          prereq_course_id: null,
+          is_default: false,
+          units_total: 99,
+        },
+      ],
+    },
+  ],
   'POST /auth/refresh': () => [200, { access_token: 'mock-access-2' }],
   'POST /auth/logout': () => [200, { success: true }],
 
@@ -2186,6 +2271,10 @@ const routes = {
         },
       ];
     }
+    // 재완료 여부를 **표시를 세우기 전에** 잡는다 — 서버
+    // `routers/session.py`의 `is_first_complete = session.completed_at is None`과
+    // 같은 값이고, 보상(배지·왕관·XP 전환)은 전부 이 값에 걸린다.
+    const isFirstComplete = !s.completed;
     s.completed = true;
     const results = Object.values(s.answers);
     const correctCount = results.filter((r) => r.is_correct).length;
@@ -2217,15 +2306,20 @@ const routes = {
     // 이유(두 유닛을 역순으로 완료하면 재계산이 뒤집힌다). 도장이 없는 세션은
     // undefined → falsy라 왕관이 안 나간다(모르는 세션은 안 주는 쪽으로 닫힘).
     //
-    // 멱등은 `grantUnitCrown`이 지킨다(이미 만관이면 null·무동작) — 서버가
-    // "`grant_unit_crown`이 멱등 판정을 갖고 있어 상한은 그쪽이 지킨다"고 적은 것과
-    // 같은 구조다. 재완료로 왕관이 두 번 붙지 않는다.
+    // ⚠️ **재완료에는 왕관이 없다 — `isFirstComplete`가 세 번째 조건이다.**
+    // 이 자리에는 "멱등은 `grantUnitCrown`이 지킨다(이미 만관이면 null·무동작)"고
+    // 적혀 있었고 서버도 같은 말을 적었는데, **둘 다 틀렸다**: 만관 판정은
+    // `crowns >= crown_target`이라 `crown_target = 2`인 유닛은 같은 세션에
+    // `complete`를 두 번 던지면 두 번째에 왕관이 또 붙는다(서버는 거기에 +20 XP도
+    // 얹혔다). 목의 UNITS는 전건 `crown_target: 1`이라 증상이 안 났을 뿐이라
+    // **목이 서버 결함을 가려 준 꼴**이었다. 서버가
+    // `all_correct and daily_first and is_first_complete`로 닫혔으므로 목도 같이 닫는다.
     let unitResult = null;
     if (s.unit_id) {
       const unit = getUnit(s.unit_id);
       const crownTarget = unit?.crown_target ?? 1;
       const allCorrect = progress.total > 0 && correctCount === progress.total;
-      const grantCrown = allCorrect && Boolean(s.daily_first);
+      const grantCrown = allCorrect && Boolean(s.daily_first) && isFirstComplete;
 
       // cleared 전환 여부를 **부여 전에** 기록한다 — `unit_xp`는 서버
       // `grant_unit_crown`의 `xp_earned`와 같은 뜻이라 "이번에 처음 클리어됐을 때만
@@ -2260,8 +2354,10 @@ const routes = {
     // **진도 블록 0이면 왕관도 0**이다 — 세션 전체로 폴백하지 않는다(CO-M7:
     // 폴백하면 기준이 5문항에서 15문항으로 조용히 올라간다).
     // placement는 제외. daily는 하루 1세션 멱등이라 파밍 자연 상한.
+    // 데일리도 **최초 완료에만** — 서버는 이 분기 전체가 `if is_first_complete:`
+    // 안에 있다(배지와 같은 블록). 목에는 그 게이트가 없어 서버와 갈렸다.
     let crownAward = null;
-    if (s.mode === 'daily') {
+    if (s.mode === 'daily' && isFirstComplete) {
       const crownItems = s.items.filter((it) => it.kind === 'unit');
       const crownResolved =
         crownItems.length > 0 && crownItems.every((it) => isResolved(s.answers[it.quiz_id] ?? {}));

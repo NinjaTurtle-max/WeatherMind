@@ -156,7 +156,12 @@ export default function CasePlayPage() {
         >
           {t('detective.play.progress', { opened: opened.size, total: clues.length })}
         </p>
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {/* 단서 7개 — `xl`부터 **4열**이라 두 줄로 끝난다(2026-08-18 사용자 지시.
+            종전 2열 4줄). 카드 폭은 그대로다: 셸이 576 → 1152로 넓어졌기 때문에
+            (`Layout.jsx` isWide에 /detective 추가) 열이 늘어도 한 칸이 268px다.
+            ⚠️ `lg`가 아니라 `xl`인 이유 — lg(1024) 뷰포트에서는 사이드바를 뺀
+            셸이 784px이라 4열이면 한 칸 180px로 눌린다. */}
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {clues.map((clue) => {
             const isOpen = opened.has(clue.clue_id);
             const isSupport = result?.supporting_clues?.includes(clue.clue_id);

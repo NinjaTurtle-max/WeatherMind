@@ -655,10 +655,64 @@ class TestNoLoginInMainFlow:
             "재시도가 effect 의존성에 없다 — 버튼이 리렌더만 일으키고 발급을 다시 "
             "걸지 않는다. 재시도 화면이 영구 스피너가 되고 사용자가 갇힌다"
         )
-        # 실패 분기가 "그 외" 분기보다 **먼저** 와야 한다. 종전에는 뒤 분기가
-        # `Navigate to="/login"`이었고 그 문자열로 순서를 쟀다 — 로그인 화면이
-        # 없어졌으므로 이제 두 분기 모두 GuestIssueRetry다. 순서는 실패 플래그가
-        # 정착 플래그보다 앞서는 것으로 잰다.
-        assert src.index("guestFailed)") < src.index("guestSettled)"), (
+        # 실패 분기가 "그 외" 분기보다 **먼저** 와야 한다. 순서 표기가 두 번
+        # 바뀌었다: 처음에는 뒤 분기가 `Navigate to="/login"`이라 그 문자열로 쟀고,
+        # 로그인 화면 제거 뒤에는 두 분기 모두 `GuestIssueRetry`라 플래그 이름
+        # (`guestSettled)`)으로 쟀다. 2026-08-14부터 뒤 분기는 조건이 늘어난
+        # `guestSettled || hadAccount`라 **닫는 괄호가 붙지 않는다** — 그래서
+        # 여기서는 `if (` 다음의 플래그 등장 위치로 잰다(조건이 또 늘어나도 산다).
+        fail_at = src.index("if (guestFailed)")
+        settled_at = src.index("if (guestSettled")
+        assert fail_at < settled_at, (
             "발급 실패가 '그 외' 분기에 먼저 잡힌다 — 실패 전용 안내가 죽는다"
+        )
+
+    def test_만료는_재시도가_아니라_선택_화면이고_새로고침을_건넌다(self):
+        """계약 3-b — **「다시 시도」가 계정 교체가 되면 안 된다**(2026-08-14).
+
+        계약 3은 「발급 **실패**를 재시도로 받는다」를 지킨다. 그 옆에 다른 상황이
+        있다: 토큰을 **가진 적이 있는데 지워진** 경우(401 인터셉터 →
+        `authStore.logout()`). 종전에는 그 자리도 `GuestIssueRetry`를 재사용했고,
+        버튼이 `resetGuestAutoIssue()`로 **새 게스트를 발급**했다 — 게스트
+        비밀번호는 무작위 시크릿이라 옛 진도로 돌아갈 길이 없다. 버튼 이름은
+        「다시 시도」인데 결과는 진도 영구 소실이었다.
+
+        두 겹을 문다. 하나만 있으면 나머지 하나로 우회된다:
+          ⓐ 만료 전용 화면(`SessionExpired`)이 있고 그 분기가 존재한다.
+          ⓑ 판정이 **persist되는 값**(`authStore.hadAccount`)에 걸린다 —
+             모듈 스코프 플래그만 보면 **새로고침 한 번**에 「첫 방문자」로
+             둔갑해 안내 화면이 통째로 우회된다.
+
+        누르는 것까지 보는 실마운트 계약은
+        `frontend/tests/entryFlow.smoke.test.mjs` ⑩~⑫가 소유한다.
+        """
+        src = (self.FRONT / "App.jsx").read_text(encoding="utf-8")
+        assert "SessionExpired" in src, (
+            "만료를 발급 실패와 같은 화면으로 받는다 — 「다시 시도」가 곧 계정 "
+            "교체가 되고 게스트 진도가 영구 소실된다"
+        )
+        assert "hadAccount" in src, (
+            "만료 판정이 모듈 스코프 플래그에만 걸려 있다 — 새로고침 한 번이면 "
+            "「첫 방문자」와 구분되지 않아 새 게스트가 조용히 발급된다"
+        )
+        deps = re.search(r"\}, \[accessToken([^\]]*)\]\);", src)
+        assert deps and "hadAccount" in deps.group(1), (
+            "`hadAccount`가 발급 effect 의존성에 없다 — 「새로 시작하기」가 "
+            "플래그만 지우고 발급을 다시 걸지 않아 버튼이 죽은 것처럼 보인다"
+        )
+
+        store = (self.FRONT / "store" / "authStore.js").read_text(encoding="utf-8")
+        logout_line = next(
+            line for line in store.splitlines() if line.strip().startswith("logout:")
+        )
+        assert "hadAccount" not in logout_line, (
+            "`logout()`이 `hadAccount`까지 지운다 — 토큰과 같은 수명이 되면 "
+            "만료 안내가 새로고침 한 번으로 사라진다(이 값의 존재 이유가 그것이다)"
+        )
+        partialize = src_partialize = re.search(
+            r"partialize:\s*\(state\)\s*=>\s*\(\{(.*?)\}\)", store, re.S
+        )
+        assert partialize and "hadAccount" in partialize.group(1), (
+            "`hadAccount`가 persist에 실리지 않는다 — 새로고침을 못 건너므로 "
+            "있으나 마나 하다"
         )

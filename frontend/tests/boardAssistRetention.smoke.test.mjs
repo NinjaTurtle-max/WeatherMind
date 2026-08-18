@@ -471,9 +471,14 @@ try {
     'north_pacific_heatwave', 'siberian_clear',
   ];
   const V1_MIN_PRIORITY = 30;
+  // ⚠️ **「확장은 전부 v1 아래」는 2026-08-18에 갈렸다**(PM 판정 (A)) — 조건 4개
+  // 이상 확장 규칙은 **위**(v1 최고 초과)여야 한다. 낮게 두면 조건이 다 맞아도
+  // v1이 이겨 **영원히 안 걸리는 장식**이 된다. 경계(조건 수 ↔ priority 밴드)의
+  // 정본은 backend `test_board_engine.TestDisasterPriorityPolicy`이고 여기는 사본이다.
+  const V1_MAX_PRIORITY = 100;
   const AIR_MASS_SUBTYPES = Object.keys(AIR_MASS_META);
 
-  await scenario('board_rules.json: v1 8규칙 잔존 + 확장 priority < v1 최저 + 기단 4종 전부 사용', async () => {
+  await scenario('board_rules.json: v1 8규칙 잔존 + 확장 priority 밴드(조건 수에 따라 위/아래) + 기단 4종 전부 사용', async () => {
     const ids = RULES.map((r) => r.id);
     const missing = V1_RULE_IDS.filter((id) => !ids.includes(id));
     assert(missing.length === 0, `v1 규칙 소실: ${missing.join(', ')}`);
@@ -486,8 +491,13 @@ try {
         assert(rule.priority >= V1_MIN_PRIORITY,
           `v1 규칙 ${rule.id}의 priority ${rule.priority} < ${V1_MIN_PRIORITY}`);
       } else {
-        assert(rule.priority < V1_MIN_PRIORITY,
-          `확장 규칙 ${rule.id}의 priority ${rule.priority}가 v1 최저 ${V1_MIN_PRIORITY} 이상 — v1 판정을 덮을 수 있다`);
+        if ((rule.when ?? []).length >= 4) {
+          assert(rule.priority > V1_MAX_PRIORITY,
+            `조건 4개 이상 확장 규칙 ${rule.id}의 priority ${rule.priority}가 v1 최고 ${V1_MAX_PRIORITY} 이하 — 조건이 다 맞아도 v1이 이겨 장식이 된다`);
+        } else {
+          assert(rule.priority < V1_MIN_PRIORITY,
+            `확장 규칙 ${rule.id}의 priority ${rule.priority}가 v1 최저 ${V1_MIN_PRIORITY} 이상 — v1 판정을 덮을 수 있다`);
+        }
       }
     }
 

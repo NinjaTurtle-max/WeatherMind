@@ -1,5 +1,8 @@
 /**
- * 탐구 목표 계약 (MT-24) — node tests/exploreGoals.test.mjs
+ * 탐구 목표 계약 (MT-25) — node tests/exploreGoals.test.mjs
+ *
+ * ⚠️ 종전 머리말의 "MT-24"는 오기다(2026-08-18 정정). MT-24 = 보드 순차 열림,
+ * MT-25 = 탐구 시뮬 목표 조건(CARRYOVER_R13 §2561 S-5).
  *
  * 「변수를 바꿔보며 학습 탐구」에 「해냈다」를 붙인 판정부의 계약이다. 무는 것은 네 가지:
  *  ⑴ **판정 의미론** — AND · 연산자 집합 {>=, <=, eq} · fail-closed(모르는 필드·

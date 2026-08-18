@@ -72,6 +72,11 @@ export const PHENOMENON_META = metaDict('board.meta.phenomenon', [
   // 이 두 줄이 없으면 phenomenonMeta 폴백이 지도·단면 패널에 enum 원문 + ❔를 그린다.
   ['wildfire_risk', '🔥'],
   ['flood_risk', '🌊'],
+  // ㉣ 4조건 규칙의 고유 결과 — 경보급(2026-08-18). ⚠️ **이 세 줄이 없으면
+  // 화면에 enum 원문 + ❔가 뜬다**(위 두 줄이 같은 이유로 추가됐다).
+  ['severe_storm', '⛈️'],
+  ['wildfire_warning', '🚨'],
+  ['flood_warning', '🚨'],
 ]);
 
 export const CLOUD_META = metaDict('board.meta.cloud', [

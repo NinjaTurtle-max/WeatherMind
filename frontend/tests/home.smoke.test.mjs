@@ -214,6 +214,37 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
     ok(!text().includes(gone), `홈 카드가 되살아나지 않았다 — ${gone} 없음`);
   }
   ok(!text().includes('안녕하세요'), '홈 인사말이 되살아나지 않았다');
+
+  // ⑥-2 🔴 **원출처 표기가 화면에 있다 — 대회 규정 요구**(2026-08-14 감사 판정).
+  //
+  // README 고지만으로는 「화면에서 확인 가능한가」가 불확실하다는 판정이라 한 줄을
+  // 화면에 세웠다. **레이아웃이 소유**하므로 어느 라우트로 들어와도 보인다 —
+  // 화면마다 붙이면 새 화면이 생길 때 빠지고, 빠진 것을 아무도 모른다.
+  //
+  // ⚠️ **존재만 재지 않는다.** 요소가 있어도 문구가 「자료: …」로 바뀌어 기관명이
+  //    빠지면 규정을 못 지킨다. 그래서 **기관명 문자열**을 함께 문다.
+  // ⚠️ **탭바 위인지도 잰다.** 탭바는 모바일에서 하단 고정(fixed)이라 그 뒤로 가면
+  //    화면에는 있는데 **사람 눈에는 안 보인다** — 규정이 요구하는 것은 DOM 존재가
+  //    아니라 표기다. ⚠️ **B3(같은 날)이 탭바를 `fixed`에서 `sticky`로 바꿨다** —
+  //    이제 탭바가 흐름에 자리를 먹으므로 「고정 요소 뒤로 가려진다」가 아니라
+  //    「흐름에서 뒤로 밀린다」가 정확한 서술이다. 재는 것은 그대로 문서 순서다.
+  //    jsdom에 레이아웃이 없어 좌표로는 못 재므로 **문서 순서**로
+  //    대신한다(탭바보다 앞에 온다).
+  const attribution = $('[data-testid="data-attribution"]');
+  ok(Boolean(attribution), '🔴 원출처 표기 줄이 화면에 있다(대회 규정 — 원출처 표기 필수)');
+  ok(
+    (attribution?.textContent ?? '').includes('기상청'),
+    `🔴 원출처 표기에 기관명이 들어 있다 — 실제 "${attribution?.textContent ?? '없음'}"`,
+  );
+  {
+    const tabbar = $('[data-testid="tabbar"]') ?? $('nav');
+    ok(
+      Boolean(tabbar) &&
+        Boolean(attribution) &&
+        (attribution.compareDocumentPosition(tabbar) & window.Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+      '원출처 표기가 탭바보다 앞에 온다(뒤에 두면 모바일에서 흐름상 밀려 안 보인다)',
+    );
+  }
   ok($('[data-testid="review-queue-card"]') === null, '복습이 236px짜리 큰 카드가 아니다');
   // 복습은 자기 쿼리(GET /progress/review-queue)가 도착해야 그려진다 — 즉시 보면
   // 아직 null이다(due 0건과 구분되지 않는다).
@@ -382,6 +413,90 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
     ok(saved, '9문항을 눌렀는데 저장 확인 문구가 안 뜬다');
     ok(Boolean($('#daily-goal')), '저장 직후 목표 카드가 사라졌다(확인 문구를 볼 수 없다)');
   }
+
+  r.unmount();
+}
+
+// ── ⑧ 모바일 겹침 **구조** 계약 (B3 — 대장 §4.15) ──────────────────────────
+//
+// 실배포 첫 제보가 "모바일에서 「다음」이 가려 진행이 막혔다"였다. 응급 처치(X 버튼)는
+// `sessionRunner.render.test.mjs`가 이미 물고 있고, **여기서 무는 것은 겹침이 애초에
+// 일어날 수 없게 만든 구조**다. 되돌리면 겹침이 되살아나는 세 가지를 잰다.
+//
+// 🔴 **이 단정들이 무엇을 재고 무엇을 못 재는지** — jsdom에는 레이아웃 엔진이 없어
+//    `getBoundingClientRect()`가 전부 0이고 CSS 파일도 적용되지 않는다. 그래서:
+//    ✅ 잰다   — 클래스·문서 순서·데이터 속성. 즉 **구조가 어떤 규칙을 선언했는가**.
+//    ❌ 못 잰다 — 실제 픽셀 겹침 · 탭바의 진짜 높이 · `sticky`가 정말 붙는지 ·
+//                `max-lg:hidden`이 실제로 감추는지(Tailwind 컴파일 결과와 뷰포트 폭이
+//                필요하다). 그 층은 실기기·브라우저 확인이 소유한다.
+//    따라서 이 셋은 **회귀 방지**용이다 — 누가 `sticky`를 `fixed`로 되돌리거나
+//    레인 양보를 걷어내면 여기서 운다. 「지금 화면이 안 겹친다」의 증명은 아니다.
+{
+  const { useSessionStore, SESSION_STATUS } = await vite.ssrLoadModule('/src/store/sessionStore.js');
+  const r = mount('/');
+  await waitFor(() => $('.wm-scroller') !== null, 6000, '/ → /learn');
+
+  // ⑧-a 탭바가 **흐름에 자리를 차지한다**(`sticky`). `fixed`면 자리를 안 먹으므로
+  //     자기 높이를 소비자들이 짐작해 비워 둬야 하고, 그 짐작이 어긋난 것이
+  //     §4.15의 시작이었다. **`fixed`가 아님**까지 함께 무는 이유: `sticky`를
+  //     남겨 둔 채 `fixed`를 덧붙이면 뒤에 오는 선언이 이겨 조용히 되돌아간다.
+  const tabbar = $('[data-testid="tabbar"]');
+  const tabCls = tabbar?.className ?? '';
+  ok(
+    /(^|\s)sticky(\s|$)/.test(tabCls) && !/(^|\s)fixed(\s|$)/.test(tabCls),
+    `🔴 하단 탭바가 흐름에 참여한다(sticky · fixed 아님) — 실제 "${tabCls}"`,
+  );
+
+  // ⑧-b 본문이 **탭바 높이를 짐작한 여백을 갖지 않는다**. `pb-20`(80px)은 탭바가
+  //     흐름 밖이던 시절의 짐작값이고, 실제 탭바 높이와 무관하게 굳은 숫자였다.
+  //     ⚠️ 이 단정은 "80px 리터럴의 부활"만 막는다 — 다른 숫자로 다시 짐작하는
+  //     것(예: `pb-24`)은 못 막는다. 그 방향은 ⑧-a가 이미 닫는다(탭바가 sticky인
+  //     한 짐작 여백은 아무 일도 하지 않는다).
+  const mainEl = $('main');
+  ok(
+    Boolean(mainEl) && !/(^|\s)pb-20(\s|$)/.test(mainEl.className),
+    `🔴 본문에 탭바 짐작 여백(pb-20)이 되살아났다 — 실제 "${mainEl?.className ?? '없음'}"`,
+  );
+
+  // ⑧-c **화면 아래 오버레이 레인은 한 번에 한 명만 쓴다.**
+  //     세션이 FEEDBACK이면 `FeedbackPanel`이 좁은 화면 아래를 차지하므로 안내봇이
+  //     양보한다. 겹침이 사고가 아니라 설계였던 지점이다(Layout이 `lastAnswerCorrect`를
+  //     주는 상태가 곧 그 상태다).
+  //     ⚠️ **같은 노드로 남는지**를 함께 잰다. 조건부 렌더로 걷어내면 사용자가
+  //     끌어다 둔 자리와 접어 둔 선택이 매번 날아간다 — 양보가 상태 파괴가 되면
+  //     안 된다는 것이 계약의 절반이다.
+  const botBefore = $('[data-testid="guide-bot"]');
+  ok(botBefore?.getAttribute('data-guide-lane') === 'free', `안내봇이 평상시 레인을 쓴다 — 실제 ${botBefore?.getAttribute('data-guide-lane')}`);
+  ok(!/max-lg:hidden/.test(botBefore?.className ?? ''), '평상시인데 안내봇이 이미 숨어 있다');
+
+  useSessionStore.setState({ status: SESSION_STATUS.FEEDBACK });
+  await waitFor(
+    () => $('[data-testid="guide-bot"]')?.getAttribute('data-guide-lane') === 'yielded',
+    6000,
+    'FEEDBACK에서 안내봇이 레인을 양보',
+  ).catch(() => {});
+  const botAfter = $('[data-testid="guide-bot"]');
+  ok(
+    botAfter?.getAttribute('data-guide-lane') === 'yielded',
+    `🔴 해설이 뜨는 동안 안내봇이 같은 자리를 계속 차지한다 — 실제 ${botAfter?.getAttribute('data-guide-lane')}`,
+  );
+  ok(
+    /max-lg:hidden/.test(botAfter?.className ?? ''),
+    `🔴 양보 표시만 하고 좁은 화면에서 안 비킨다(max-lg:hidden 없음) — 실제 "${botAfter?.className ?? '없음'}"`,
+  );
+  ok(botAfter === botBefore, '🔴 양보가 언마운트로 구현됐다 — 옮겨 둔 자리·접어 둔 선택이 날아간다');
+
+  // 되돌아오는지도 잰다 — 양보가 편도면 세션 뒤 안내봇이 영영 안 보인다.
+  useSessionStore.setState({ status: SESSION_STATUS.IN_PROGRESS });
+  await waitFor(
+    () => $('[data-testid="guide-bot"]')?.getAttribute('data-guide-lane') === 'free',
+    6000,
+    'FEEDBACK을 벗어나면 안내봇이 돌아온다',
+  ).catch(() => {});
+  ok(
+    $('[data-testid="guide-bot"]')?.getAttribute('data-guide-lane') === 'free',
+    '🔴 레인 양보가 편도다 — 세션이 끝나도 안내봇이 안 돌아온다',
+  );
 
   r.unmount();
 }

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { duelApi } from '../../api';
 import BriefingRoom from '../duel/BriefingRoom';
+import HeroBanner from '../../components/HeroBanner';
 import { useT } from '../../i18n';
 
 /**
@@ -32,7 +33,7 @@ const TABS = [
   { to: '/league', labelKey: 'compete.tabLeague', icon: '🏆' },
 ];
 
-export default function CompeteLayout({ tab, title, subtitle, headerRight, children, below }) {
+export default function CompeteLayout({ tab, title, subtitle, headerRight, mascot = null, heroTitle = null, children, below }) {
   const t = useT();
   const briefingQ = useQuery({
     queryKey: ['duel', 'briefing'],
@@ -43,14 +44,31 @@ export default function CompeteLayout({ tab, title, subtitle, headerRight, child
 
   return (
     <div className="pt-2">
-      {/* 탭바 — 학습 화면의 코스 탭(CourseSwitcher)과 같은 알약 꼴. 같은 층위의
+      {/* 🔴 **탭 + 머리말을 한 카드에 담는다**(2026-08-17 사용자 지시 —
+          "학습 세션처럼 예보/리그 탭을 카드 안에"). 프레임은 학습 경로 카드와
+          같은 값이다(`PcCurriculumPath`의 `rounded-[20px] bg-white ring-1
+          ring-slate-200`) — 두 화면이 같은 물건으로 보여야 하므로 여기서
+          새 치수를 만들지 않는다.
+          ⚠️ 카드가 **탭 분기 바깥**에 있어야 한다. 안쪽(배너 분기)에 두면
+          마스코트 없는 리그 탭에서 카드가 통째로 사라져, 탭이 다시 허공에 뜬다. */}
+      <div className="mb-4 overflow-hidden rounded-[20px] bg-white ring-1 ring-slate-200">
+      {/* 탭바 — 학습 화면의 코스 탭(CourseSwitcher)과 같은 꼴. 같은 층위의
           조작이 화면마다 다르게 생기면 "이게 탭인지" 매번 다시 배워야 한다.
           ⚠️ `role="tablist"`/`role="tab"`을 **쓰지 않는다**(2026-08-11 코드 리뷰).
           이것은 진짜 탭 위젯이 아니라 **경로가 다른 링크 둘**이다 — tab 역할을
           붙이면 tabpanel·aria-controls·roving tabindex가 따라와야 하는데 그중
           아무것도 없어서, 스크린 리더에는 깨진 탭으로 들리고 링크라는 사실까지
           잃는다. 링크로 두고 현재 위치는 `aria-current="page"`가 말한다. */}
-      <nav aria-label={t('compete.tabsAria')} className="mb-3 flex flex-wrap gap-1.5">
+      <nav
+        aria-label={t('compete.tabsAria')}
+        // 웹 브라우저 탭 꼴 — **카드 안 맨 위**에 붙는다(2026-08-17 사용자 지시
+        // "학습 세션처럼 카드 안에"). 종전에는 카드 **밖**에 알약으로 떠 있어서
+        // 무엇을 바꾸는 스위치인지 화면에서 안 붙어 보였다. 학습 경로가
+        // 2026-08-13에 같은 이유로 같은 꼴이 됐고(`CourseSwitcher` variant='tab'),
+        // 치수·색을 그쪽과 **글자 하나까지 맞춘다** — 같은 층위의 조작이 화면마다
+        // 다르게 생기면 "이게 탭인지"를 매번 다시 배워야 한다.
+        className="flex flex-wrap items-end gap-1 border-b border-slate-200 px-3 pt-2.5"
+      >
         {TABS.map((item) => {
           const active = item.to === tab;
           return (
@@ -59,10 +77,13 @@ export default function CompeteLayout({ tab, title, subtitle, headerRight, child
               to={item.to}
               aria-current={active ? 'page' : undefined}
               data-compete-tab={item.to}
-              className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold transition ${
+              // 선택된 탭이 **아래 테두리를 끊어** 카드와 이어진다
+              // (`-mb-px`가 그 한 픽셀을 덮는다). 이 한 줄이 「탭이 카드에
+              // 붙어 있다」를 만든다 — 빼면 그냥 네모 버튼 둘이 된다.
+              className={`-mb-px flex items-center gap-1 rounded-t-lg border border-b-0 px-3.5 py-1.5 text-[12.5px] font-bold transition ${
                 active
-                  ? 'bg-sky-600 text-white shadow-sm'
-                  : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
+                  ? 'border-slate-200 bg-white text-sky-700'
+                  : 'border-transparent bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-700'
               }`}
             >
               <span aria-hidden="true">{item.icon}</span>
@@ -72,12 +93,43 @@ export default function CompeteLayout({ tab, title, subtitle, headerRight, child
         })}
       </nav>
 
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-        <div className="min-w-0">
-          <h1 className="text-lg font-extrabold text-slate-900">{title}</h1>
-          {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+      {/* `mascot`을 준 탭만 **상단 배너**로 말한다(2026-08-12 사용자 지시 —
+          예보는 태풍이).
+          ✅ **2026-08-17에 리그도 배너가 됐다**(사용자 지시 — 눈송이). 그래서
+          지금은 두 탭 모두 배너이고, 여기 적혀 있던 "리그는 지시 범위 밖이라
+          종전 제목 줄 그대로다 · 한 껍데기가 두 꼴을 갖는 것이 어색하다"는
+          해소됐다.
+          ⚠️ 그래도 **제목 줄 분기는 남긴다.** `mascot` 없이 이 껍데기를 쓰는
+          화면이 생길 수 있고(담당 캐릭터가 아직 안 정해진 탭), 그때 배너를
+          강요하면 폴백 캐릭터가 뜬다 — 폴백은 "담당이 정해졌다"가 아니라
+          "모르겠다"다. */}
+      {mascot ? (
+        // 카드 안쪽 여백 — 배너가 카드 테두리에 딱 붙지 않게. 바깥 `mb-4`는
+        // 카드로 올라갔다(두 겹으로 주면 탭과 배너 사이가 벌어진다).
+        <div className="p-3">
+          {/* 계층은 다른 배너와 같게 둔다: eyebrow=화면 이름 · title=짧은 말 ·
+              description=긴 안내. 종전에는 subtitle(날짜 + 문장)을 title에
+              넣었는데, title은 한 줄로 잘려 폰에서 날짜와 두 단어만 남았다
+              (2026-08-12 리뷰). 날짜는 문장 앞에 그대로 붙어 있다. */}
+          <HeroBanner
+            testId="compete-hero"
+            mascot={mascot}
+            as="h1"
+            eyebrow={title}
+            title={heroTitle ?? title}
+            description={subtitle}
+            right={headerRight && <div className="flex-none">{headerRight}</div>}
+          />
         </div>
-        {headerRight}
+      ) : (
+        <div className="flex flex-wrap items-end justify-between gap-2 px-4 py-3.5">
+          <div className="min-w-0">
+            <h1 className="text-lg font-extrabold text-slate-900">{title}</h1>
+            {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+          </div>
+          {headerRight}
+        </div>
+      )}
       </div>
 
       {/* grid-cols-[minmax(0,1fr)]는 장식이 아니다 — 격자 항목은 기본이

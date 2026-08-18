@@ -419,9 +419,11 @@ export default function BoardPage() {
           (Mascot 배정표 · SideNav TUTOR_BY_PATH `/board` → sun) 보드 설명을
           태양이가 하는 것이 배정표와 맞는다(담당표 소유자는 SideNav.TUTOR_BY_PATH
           — Mascot.jsx 머리말의 표는 2026-08-11까지 거꾸로였다).
-          ⚠️ 사이드바 튜터는 이 배너가 생기면서 `/board`에서 **접힌다** — 안 접으면
-          같은 태양이가 74px·62px로 한 화면에 둘, 각자 다른 말을 한다(SideNav
-          HERO_PATHS). /learn이 같은 이유로 이미 접고 있었다.
+          ⚠️ 여기 "사이드바 튜터가 `/board`에서 접힌다(SideNav HERO_PATHS)"고
+          적혀 있었으나 **낡았다**(2026-08-17 정정) — 사이드바 튜터 카드 자체가
+          철거되고 `HERO_PATHS`도 함께 사라졌다. 막으려던 것("같은 캐릭터가 한
+          화면에 둘")은 여전히 유효하고, 지금 그것을 지키는 것은 접기가 아니라
+          **말하는 캐릭터가 배너와 GuideBot 둘뿐**이라는 구조다.
           ⚠️ 치수는 눈대중이 아니라 LearnHeroCard에서 그대로 옮긴 값이다 —
           px-5 py-3.5 · 원 62px · 그림 50px · eyebrow 11.5 · 제목 21.
           한쪽만 고치면 두 화면의 같은 자리 배너가 서로 다른 크기가 된다. */}
