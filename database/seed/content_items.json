@@ -1744,7 +1744,7 @@
   {
     "concept_tag": "anomaly",
     "level_group": "expert",
-    "knowledge_level": 7,
+    "knowledge_level": 10,
     "question_type": "match",
     "template_json": {
       "question_text": "기상특보와 그 발표 기준을 알맞게 연결하세요.",
