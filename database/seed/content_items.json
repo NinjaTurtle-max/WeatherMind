@@ -59,9 +59,9 @@
     "knowledge_level": 4,
     "question_type": "short_answer",
     "template_json": {
-      "question_text": "성질이 다른 두 기단이 만나는 경계면을 무엇이라고 하는가?",
-      "correct_answer": "전선",
-      "explanation_hint": "전선은 성질이 다른 두 기단이 만나는 경계면으로, 한랭전선과 온난전선이 대표적입니다."
+      "question_text": "성질이 다른 두 기단이 만나 서로 섞이지 못하고 이루는 경계면을 무엇이라고 하는가?",
+      "correct_answer": "전선면",
+      "explanation_hint": "두 기단의 경계는 면으로 서 있고 그 면을 전선면이라 한다. 전선면이 지표와 만나는 선이 전선이다 — 면과 선을 구별해 부른다."
     },
     "uses_live_slots": false,
     "source": {
@@ -10559,9 +10559,9 @@
     "knowledge_level": 4,
     "question_type": "short_answer",
     "template_json": {
-      "question_text": "여름철 한반도에 오래 머물며 긴 비를 뿌리는, 두 공기 덩어리가 힘겨루기하는 전선을 무엇이라고 하는가?",
-      "correct_answer": "정체전선",
-      "explanation_hint": "세력이 비슷한 두 공기 덩어리가 만나면 어느 쪽도 밀리지 않아 전선이 한자리에 머문다. 이때 그 자리를 따라 오래 비가 내린다."
+      "question_text": "여름철 정체전선이 한반도에 오래 머무는 동안 여러 날 비가 이어지는 기간을 무엇이라고 하는가?",
+      "correct_answer": "장마",
+      "explanation_hint": "세력이 비슷한 두 공기 덩어리가 힘겨루기하면 전선이 한자리에 머문다. 그 자리를 따라 여러 날 비가 이어지는 기간을 장마라고 한다."
     },
     "uses_live_slots": false,
     "source": {
