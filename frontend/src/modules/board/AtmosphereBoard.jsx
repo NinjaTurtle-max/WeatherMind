@@ -73,6 +73,28 @@ export const DISASTER_META = Object.freeze({
     bodyKey: 'board.atmosphere.disasterFloodBody',
     tone: 'bg-sky-100 text-sky-900 ring-sky-300',
   },
+  /**
+   * 🔴 **경보급 2종이 빠져 있었고, 그것이 이 배너가 막으려던 결함 그 자체였다.**
+   * ㉣(변동 기상요소)이 `wildfire_warning`·`flood_warning`을 들이면서 이 표에 행을
+   * 안 넣었다. 그래서 **재난 중에서도 가장 센 두 판정에서만 배너가 안 떴다** —
+   * 학습자가 4조건을 다 맞춰 경보급을 만들어도 화면이 그것을 말하지 않았다.
+   * 위 주석이 *"산불을 만들어도 화면이 ☀️ 맑음이라고 말했다"*고 적어 둔 그 형태가
+   * 한 단계 위에서 되살아나 있었다(2026-08-19 회수 · 전수 감사 발견).
+   *
+   * **색조는 위험급보다 세다.** 경보급이 위험급보다 약해 보이면 단계가 뒤집혀
+   * 읽힌다 — 그래서 orange-50 → red-100, sky-100 → sky-200으로 한 칸씩 올리고
+   * ring도 함께 진하게 한다(색만으로 구분하지 않도록 제목에 🚨를 함께 둔다).
+   */
+  wildfire_warning: {
+    titleKey: 'board.atmosphere.disasterWildfireWarningTitle',
+    bodyKey: 'board.atmosphere.disasterWildfireWarningBody',
+    tone: 'bg-red-100 text-red-900 ring-red-400',
+  },
+  flood_warning: {
+    titleKey: 'board.atmosphere.disasterFloodWarningTitle',
+    bodyKey: 'board.atmosphere.disasterFloodWarningBody',
+    tone: 'bg-sky-200 text-sky-950 ring-sky-500',
+  },
 });
 
 /** 두 보드의 배치가 실질적으로 같은지 (히스토리에 빈 칸을 쌓지 않기 위한 비교) */
