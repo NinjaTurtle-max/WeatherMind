@@ -95,7 +95,10 @@ export default function LearnHeroCard({
           접었지만(두 줄이 되는 것을 막으려고), 세로 열에서는 접을 폭이 없고 접으면
           부제가 화면에서 사라진다. 진도 값 자체는 경로 카드 하단 바도 갖는다.
           ⚠️ **오늘의 목표는 여기 넣지 말 것.** 아래로 따로 뺀 이유가 그것이다. */}
-      <p className="mt-4 text-[11.5px] leading-relaxed text-slate-300">
+      {/* 11.5 → **10.5px**(2026-08-18 사용자 지시 "글씨 크기 살짝만 줄여줘").
+          이 부제만 줄인다 — 아래 진도 수치·설정 링크(11.5px)는 짧은 한 줄이라
+          답답하지 않았고, 같이 줄이면 카드 전체가 흐릿해진다. */}
+      <p className="mt-4 text-[10.5px] leading-relaxed text-slate-300">
         {t('curriculum.subtitle')}
       </p>
       <span className="mt-3 block h-[7px] overflow-hidden rounded-full bg-white/15">
