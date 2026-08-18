@@ -85,8 +85,15 @@ def find_pairs(items: list[dict], min_sim: float) -> tuple[list, list]:
         answer = _answer(item)
         if answer is None:
             continue                        # board 등 정답 없는 유형
-        if LIVE_SLOT.search(answer):
-            live[(item.get("question_type", ""), answer)].append(index)
+        slot = LIVE_SLOT.search(answer)
+        if slot:
+            # ⚠️ **키는 슬롯명이다**(`temp_max`), 정답 문자열이 아니다. 그리고 **1벌도
+            # 버리지 않는다** — 이 집계의 목적은 「같은 슬롯이 몇 벌인가」가 아니라
+            # **「정답이 오늘 값에서 도출되는 문항이 전부 몇 건인가」**이고, 그 수가
+            # CLAUDE.md에 인용된다. 종전에 `len>1` 필터로 단일 그룹을 버려 **8을 냈고
+            # 실제는 10**이었다(2026-08-18 리뷰) — 다음 사람이 8을 보고 문서를 틀린
+            # 값으로 「정정」하는 경로였다.
+            live[slot.group(1)].append(index)
             continue                        # 실황은 따로 본다
         if NUMERIC_ONLY.match(answer):
             continue                        # 수치 일치는 증거가 아니다
@@ -107,7 +114,7 @@ def find_pairs(items: list[dict], min_sim: float) -> tuple[list, list]:
                 pairs.append((sim, answer, i, j, same_type, same_tag))
 
     pairs.sort(reverse=True)
-    return pairs, {k: v for k, v in live.items() if len(v) > 1}
+    return pairs, dict(live)
 
 
 def main() -> int:
@@ -144,13 +151,16 @@ def main() -> int:
         print("     %s" % _label(j, items[j]))
 
     print()
-    print("· 실황 슬롯을 정답으로 쓰는 묶음(정답 일치는 당연 — 슬롯 편중을 본다)")
-    for (qtype, answer), idxs in sorted(live.items(), key=lambda kv: -len(kv[1])):
+    total_live = sum(len(v) for v in live.values())
+    print("· 정답이 오늘 값에서 도출되는 문항: **%d건** (슬롯 %d종)"
+          % (total_live, len(live)))
+    print("  (이 수가 CLAUDE.md에 인용된다 — 1벌 슬롯도 세므로 그룹 수와 다르다)")
+    for slot, idxs in sorted(live.items(), key=lambda kv: -len(kv[1])):
         tags = [items[i].get("concept_tag") for i in idxs]
         bands = [items[i].get("level_group") for i in idxs]
-        print("  %s %s → %d벌" % (qtype[:12], answer[:20], len(idxs)))
+        print("  today.%-12s → %d건" % (slot, len(idxs)))
         print("     태그 %s" % tags)
-        print("     밴드 %s" % bands)
+        print("     밴드 %s%s" % (bands, "  ← 같은 밴드에 겹친다" if len(set(bands)) < len(bands) else ""))
 
     print("────────────────────────────────────────────────────────────")
     print("판정은 사람이 한다 — 이 스크립트는 **탈락시키지 않는다**(종료코드 0 고정).")
