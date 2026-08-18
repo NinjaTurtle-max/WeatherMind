@@ -378,27 +378,71 @@ class TestWideningDoesNotBlurHealthyCells:
         보장하는 **성질 두 개**를 직접 문다. 성질은 시드가 어떻게 바뀌어도 참이고,
         깨지면 그때는 정말로 정렬이 회귀한 것이다.
         """
-        unit_id, reported, top = self._first_fallback_case()
-        assert len(top) == cs.UNIT_SESSION_SIZE
+        cases = self._all_fallback_cases(require_demotion=True)
+        assert cases, "강등이 일어나는 폴백 칸이 하나도 없다 — 저작이 전 칸을 채웠는지 확인"
 
-        target = wb.knowledge_level_of_level_group(reported)
-        keys = [
-            (abs(it.knowledge_level - target), 0 if it.knowledge_level <= target else 1)
-            for it in top
-        ]
-        # ⑴ 거리 오름차순 — "가까운 것을 먼저 쓰고 모자란 만큼만 멀어진다"
-        assert [k[0] for k in keys] == sorted(k[0] for k in keys)
-        # ⑵ 거리가 같으면 쉬운 쪽이 먼저 — CO-L2의 강등 방향 판단
-        #    (한 단계 위는 못 풀어서 막지만, 한 단계 아래는 쉬워도 가르친다)
-        assert keys == sorted(keys)
-        # 강등이 실제로 일어나는 사례인지 — 표적보다 아래가 하나도 없으면
-        # 이 테스트는 강등 축을 검증하지 못한 것이다(승격 테스트가 따로 있다).
-        assert any(it.knowledge_level < target for it in top), (
-            f"{unit_id} × {reported}: 자기 밴드는 비었는데 강등이 안 일어났다"
+        violations = []
+        for unit_id, reported, top in cases:
+            assert len(top) == cs.UNIT_SESSION_SIZE
+            target = wb.knowledge_level_of_level_group(reported)
+            keys = [
+                (abs(it.knowledge_level - target), 0 if it.knowledge_level <= target else 1)
+                for it in top
+            ]
+            # ⑴ 거리 오름차순 — "가까운 것을 먼저 쓰고 모자란 만큼만 멀어진다"
+            # ⑵ 거리가 같으면 쉬운 쪽이 먼저 — CO-L2의 강등 방향 판단
+            #    (한 단계 위는 못 풀어서 막지만, 한 단계 아래는 쉬워도 가르친다)
+            if keys != sorted(keys):
+                violations.append(
+                    (unit_id, reported, [it.knowledge_level for it in top], [k[0] for k in keys])
+                )
+
+        unexpected = [v for v in violations if (v[0], v[1]) not in self.KNOWN_ORDER_VIOLATIONS]
+        assert not unexpected, f"거리 오름차순이 깨진 폴백 칸: {unexpected}"
+        # 기지 위반이 고쳐지면 목록을 줄여야 한다 — 낡은 면제가 새 회귀를 덮지 않게.
+        fixed = self.KNOWN_ORDER_VIOLATIONS - {(v[0], v[1]) for v in violations}
+        assert not fixed, (
+            f"기지 위반이 해소됐다: {fixed} — KNOWN_ORDER_VIOLATIONS에서 지울 것"
         )
 
-    def _first_fallback_case(self):
+    # 🔴 **선행 위반 1건** (2026-08-18 발견 — ㉣ 저작이 드러냈지 만든 것이 아니다).
+    # `city-anomaly-board × adult`는 kl [7, 4, 4, 4](표적 5)라 **거리 2가 거리 1보다
+    # 먼저** 나온다 — 학습자가 가까운 것보다 먼 것을 먼저 받는다.
+    # ⚠️ **왜 지금까지 안 걸렸나**: 종전 테스트는 `_first_fallback_case()`가 집는
+    # **칸 하나만** 봤고, 그 자리는 저작에 따라 옮겨 다녔다(주석이 두 번 옮겼다고
+    # 적어 두었다). 즉 **위반하는 칸이 있어도 그 칸이 첫 번째가 아니면 조용했다.**
+    # 그래서 이 테스트를 **전수 스캔**으로 바꾸고 기지 위반만 면제한다.
+    # ⚠️ 이 위반은 board 유닛 특유의 경로(파이썬 측 정렬)에서 나온 것으로 보이며
+    # **㉣ 범위 밖**이다 — 수신자·수리는 별건.
+    KNOWN_ORDER_VIOLATIONS = {("city-anomaly-board", "adult")}
+
+    def _all_fallback_cases(self, *, require_demotion: bool = False):
+        """자기 밴드가 빈 (유닛 × 신고밴드)를 **전부** 돌려준다."""
+        out = []
+        for unit in load_units():
+            unit_id = unit["id"]
+            for reported in wb.LEVEL_GROUP_BANDS:
+                top = self._top(unit_id, reported)
+                if len(top) != cs.UNIT_SESSION_SIZE:
+                    continue
+                if reported in {it.level_group for it in top}:
+                    continue
+                if require_demotion:
+                    target = wb.knowledge_level_of_level_group(reported)
+                    if not any(it.knowledge_level < target for it in top):
+                        continue
+                out.append((unit_id, reported, top))
+        return out
+
+    def _first_fallback_case(self, *, require_demotion: bool = False):
         """자기 밴드가 **지금** 비어 있는 (유닛 × 신고밴드)를 하나 찾아 돌려준다.
+
+        `require_demotion=True`면 **표적보다 아래가 실제로 섞여 나오는 사례**만 고른다.
+        ⚠️ 2026-08-18에 이것이 필요해졌다: ㉣ 상위 보드 3판(kl 9·9·10)이 들어오자
+        선택자가 집는 첫 사례가 `city-anomaly-board × elementary`로 바뀌었는데
+        그 칸은 **승격만 일어나는** 자리라(표적보다 아래가 없다) 강등 단정이 대상을
+        잃었다. 승격 축은 `test_초등_board_공백은_승격으로_해소된다`가 따로 문다 —
+        **한 테스트가 두 축을 우연히 겸하고 있던 것**이고, 시드가 바뀌자 드러났다.
 
         사례를 파일에 박지 않는 이유: 저작이 칸을 채우면 그 사례는 강등 예시가
         아니게 된다. 실제로 이 자리는 두 번 옮겨졌다 — `bs-radiation`·
@@ -415,10 +459,17 @@ class TestWideningDoesNotBlurHealthyCells:
                 top = self._top(unit_id, reported)
                 if len(top) != cs.UNIT_SESSION_SIZE:
                     continue
-                if reported not in {it.level_group for it in top}:
-                    return unit_id, reported, top
+                if reported in {it.level_group for it in top}:
+                    continue
+                if require_demotion:
+                    target = wb.knowledge_level_of_level_group(reported)
+                    if not any(it.knowledge_level < target for it in top):
+                        continue  # 승격만 일어나는 칸 — 강등 축의 사례가 아니다
+                return unit_id, reported, top
         pytest.skip(
-            "자기 밴드가 빈 (유닛 × 밴드)가 하나도 없다 — 저작이 전 칸을 채웠다는 뜻이다. "
+            "자기 밴드가 빈 (유닛 × 밴드)가 하나도 없다"
+            + (" — 그중 강등이 일어나는 사례도 없다" if require_demotion else "")
+            + ". 저작이 전 칸을 채웠다는 뜻이다. "
             "강등 축은 순수 함수 계약(TestKnowledgeLevelReranking)이 계속 지킨다."
         )
 

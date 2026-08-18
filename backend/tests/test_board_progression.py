@@ -118,8 +118,14 @@ class TestDisasterBoards:
     def _disaster_items(self) -> list[dict]:
         return [i for i in _board_items() if i["concept_tag"] in self.DISASTER_TAGS]
 
-    def test_재난_board가_4건이다(self):
-        assert len(self._disaster_items()) == 10
+    def test_재난_board_수_고정(self):
+        """⚠️ 이름이 「4건이다」였는데 값은 이미 10이었다 — 이름과 값이 갈려 있었다.
+        개수는 저작으로 계속 자라므로 **이름에 수를 적지 않는다**(2026-08-18 정정).
+
+        ㉣ 개통(2026-08-18): 10 → **12**. 새 4조건 규칙을 쓰는 상위 보드 2판
+        (산불 kl9 · 침수 kl10)이 재난 축에 들어왔다 — 소나기판은 재난이 아니다.
+        """
+        assert len(self._disaster_items()) == 12
 
     def test_목표가_재난_현상이다(self):
         for item in self._disaster_items():
@@ -148,7 +154,26 @@ class TestDisasterBoards:
                     r for r in rules if r["then"]["phenomenon"] == goal["phenomenon"]
                 ]
                 assert matching, f"{goal['phenomenon']}을(를) 내는 규칙이 없다"
-                rule = matching[0]
+                # ⚠️ **종전에는 `matching[0]`을 그대로 썼다** — 규칙 파일이 priority
+                # 내림차순이라 「그 현상을 내는 첫 규칙」이 곧 이 퍼즐이 쓰는 규칙이라는
+                # 가정이었다. 2026-08-18 ㉣ 개통으로 **조건 4개짜리 재난 규칙이 맨 위로
+                # 오면서** 그 가정이 깨졌다(그 규칙은 `front:stationary` 같은 배치 요소를
+                # 요구하는데 재난 퍼즐 팔레트에는 슬라이더뿐이다).
+                # 퍼즐이 실제로 쓰는 것은 **그 팔레트로 도달 가능한 규칙**이므로 그것을
+                # 고른다 — 이러면 규칙이 더 늘어도 이 테스트가 흔들리지 않는다.
+                reachable = [
+                    r for r in matching
+                    if all(
+                        board_engine.parse_condition(c)[0] == "numeric"
+                        and board_engine.parse_condition(c)[1] in palette
+                        for c in r["when"]
+                    )
+                ]
+                assert reachable, (
+                    f"{template['title']}: 목표 {goal['phenomenon']}을(를) 이 팔레트"
+                    f"({palette})로 도달 가능한 규칙이 하나도 없다 — 풀 수 없는 퍼즐이다"
+                )
+                rule = reachable[0]
                 for condition in rule["when"]:
                     kind, *rest = board_engine.parse_condition(condition)
                     assert kind == "numeric", (
@@ -164,8 +189,16 @@ class TestDisasterBoards:
             # 실제로 판정을 돌려 목표가 성립하는지 확인 (권위 엔진 그대로)
             elements = []
             for goal in goals:
+                # 위와 같은 이유로 **팔레트로 도달 가능한** 규칙을 고른다(2026-08-18).
+                # `next(...)`로 첫 규칙을 집으면 조건에 배치 요소가 섞여 unpack이 깨진다.
                 rule = next(
-                    r for r in rules if r["then"]["phenomenon"] == goal["phenomenon"]
+                    r for r in rules
+                    if r["then"]["phenomenon"] == goal["phenomenon"]
+                    and all(
+                        board_engine.parse_condition(c)[0] == "numeric"
+                        and board_engine.parse_condition(c)[1] in palette
+                        for c in r["when"]
+                    )
                 )
                 for condition in rule["when"]:
                     _, field, op, value = board_engine.parse_condition(condition)

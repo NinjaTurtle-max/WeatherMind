@@ -186,7 +186,7 @@ def parse_condition(condition: Any) -> tuple:
         return ("numeric", match.group(1), match.group(2), float(match.group(3)))
     raise BoardRulesError(
         f"허용되지 않는 조건 문법: {condition!r} "
-        "(\"air_mass|front:<subtype>\" 또는 \"moisture|sun>=|<=<숫자>\" 만 허용)"
+        "(\"air_mass|front:<subtype>\" 또는 \"moisture|sun|wind>=|<=<숫자>\" 만 허용)"
     )
 
 

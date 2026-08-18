@@ -114,7 +114,11 @@ class TestSeedSchema:
         # ⚠️ 대장이 한때 적은
         # "24건 → 보드 34→58"은 거짓이고(21건은 이미 병합돼 지금 수가 그 결과다)
         # **실제 잔여는 3건 · 보드 46 → 49**다.
-        assert len(SEED_ITEMS) == 1015
+        # ㉣ 상위 보드 3판(2026-08-18): +3 = **1018**. 새 4조건 규칙을 쓰는 보드
+        # (kl 9·9·10 · board_order 50~52). ⚠️ ①(규칙)만 넣으면 「어느 퍼즐에서도
+        # 후보가 되지 않는 규칙」 계약이 울어 **②와 같은 PR이어야 한다** — 구조가
+        # §4.4의 3단 순서를 강제한다.
+        assert len(SEED_ITEMS) == 1018
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
@@ -330,8 +334,11 @@ V1_RULE_IDS = frozenset({
     "siberian_snow", "convective_shower", "radiation_fog",
     "north_pacific_heatwave", "siberian_clear",
 })
-# v1 8규칙의 최저 priority. 확장 규칙은 전부 이 아래여야 한다 — 아래 테스트가 근거.
+# v1 8규칙의 priority 경계. ⚠️ **「확장은 전부 아래」는 2026-08-18에 갈렸다**:
+# 조건 3개 이하 확장은 여전히 아래(V1_MIN)여야 하고, **조건 4개 이상은 위**(V1_MAX 초과)
+# 여야 한다 — 아래 테스트와 `test_board_engine.TestDisasterPriorityPolicy`가 근거.
 V1_MIN_PRIORITY = 30
+V1_MAX_PRIORITY = 100
 
 
 class TestBoardRulesSeedContract:
@@ -356,6 +363,20 @@ class TestBoardRulesSeedContract:
         for rule in BOARD_RULES:
             if rule["id"] in V1_RULE_IDS:
                 assert rule["priority"] >= V1_MIN_PRIORITY, rule["id"]
+            elif len(rule["when"]) >= 4:
+                # 🔴 **2026-08-18 PM 판정 (A)로 갈린 갈래** — 조건 4개 이상은 덮는다.
+                # 종전 계약(확장은 전부 v1보다 낮다)의 보호 대상은 「너무 쉽게
+                # 발화하는 확장」이었다: 2조건이면 건조하고 바람만 불면 어디든
+                # 재난이 된다. **조건 4개가 동시에 맞아야 하는 규칙은 그 걱정의
+                # 범위 밖**이고, 오히려 낮은 우선순위로 두면 v1이 항상 이겨
+                # **영원히 안 걸리는 장식**이 된다(대장 Z-2가 그 부작용의 실례).
+                # 경계 자체(조건 수 ↔ priority 밴드)는
+                # `test_board_engine.TestDisasterPriorityPolicy`가 단독으로 문다.
+                assert rule["priority"] > V1_MAX_PRIORITY, (
+                    f"조건 4개 이상 확장 규칙 {rule['id']}의 priority "
+                    f"{rule['priority']}가 v1 최고 {V1_MAX_PRIORITY} 이하 — "
+                    "조건이 다 맞아도 v1이 이겨 이 규칙은 장식이 된다"
+                )
             else:
                 assert rule["priority"] < V1_MIN_PRIORITY, (
                     f"확장 규칙 {rule['id']}의 priority {rule['priority']}가 "
