@@ -77,9 +77,14 @@ TEMP_MIN, TEMP_MAX = -60.0, 60.0
 #   질의: archive-api.open-meteo.com/v1/archive?...&daily=temperature_2m_max,
 #         precipitation_sum&timezone=Asia/Seoul (2026-08-18 실행)
 #
+# `enabled`: 화면·채점에 나가는 회차인가. **False는 삭제가 아니라 보류**다 —
+# 값과 출처를 남겨 두고 조건이 갖춰지면 되살린다(`disabled_reason`이 그 조건을
+# 적는다). 근거를 데이터와 같은 자리에 두는 것은 `level_vocabulary.json`의 `basis`
+# 필드가 세운 관례다: 근거가 딴 곳에 있으면 개정될 때 같이 고쳐지지 않는다.
 HINDCAST_CASES: tuple[dict, ...] = (
     {
         "case_id": "seoul-2018-08-01",
+        "enabled": True,
         "observed_date": date(2018, 8, 1),
         "region": "서울",
         "station": "108",  # 서울기상관측소(종로구 송월동) — weather_api.KMA_STATION
@@ -112,6 +117,23 @@ HINDCAST_CASES: tuple[dict, ...] = (
     },
     {
         "case_id": "seoul-2022-08-08",
+        # 🔴 **보류(2026-08-19 PM 판정) — 지우지 않는다.**
+        # 사유: 이 회차의 **기온축 공식값이 미확인**이다. 강수 129.6mm는 서울기상
+        # 관측소(108) 공식 기록이지만, 최고기온 27.2℃는 ERA5 재분석 값이다.
+        # `accuracy_score`가 **1℃당 10점**을 깎으므로 학습자가 공식값이 아닌 수치로
+        # 채점된다 — 「과거 예보」라는 이름으로 공식 기록을 표방하는 화면에서 그
+        # 혼입은 방어가 어렵다. **3중 고지가 있어도 채점은 고지를 읽지 않는다**는 것이
+        # 판정의 요점이었다.
+        # 활성 조건: **KMA 공식 관측소(108)의 2022-08-08 일최고기온을 확인**해
+        # `actual.temp_max`와 `sources.temp_max`를 그 값·출처로 교체하면 곧바로
+        # `enabled: True`로 되살린다. 강수축은 이미 공식이라 손댈 것이 없다.
+        "enabled": False,
+        "disabled_reason": (
+            "기온축 공식값 미확인 — 확인되면 활성. "
+            "강수(129.6mm)는 서울기상관측소 108 공식 기록이나 최고기온(27.2℃)은 "
+            "ERA5 재분석 값이고, accuracy_score가 1℃당 10점을 깎아 학습자가 "
+            "공식값이 아닌 수치로 채점된다(2026-08-19 PM 판정)."
+        ),
         "observed_date": date(2022, 8, 8),
         "region": "서울",
         "station": "108",
@@ -152,13 +174,35 @@ HINDCAST_CASES: tuple[dict, ...] = (
 # ═══════════════════════════════════════════════════════════════
 
 
+def is_enabled(case: dict) -> bool:
+    """활성 회차인가. 키가 없으면 활성으로 본다(신규 회차 추가 시 기본값)."""
+    return case.get("enabled", True)
+
+
 def list_cases() -> tuple[dict, ...]:
-    """제공 중인 과거 예보 회차 전체 (고정 픽스처)."""
-    return HINDCAST_CASES
+    """**활성** 회차만 (목록·플레이에 나가는 것). 보류분은 여기서 빠진다.
+
+    보류된 회차가 목록에 뜨면 제외한 의미가 없다 — 라우터·목·프론트가 모두 이
+    함수(또는 그 응답)만 본다.
+    """
+    return tuple(c for c in HINDCAST_CASES if is_enabled(c))
 
 
 def get_case(case_id: str) -> dict | None:
-    """case_id로 회차를 찾는다. 없으면 None(라우터가 404 판정)."""
+    """**활성** 회차만 찾는다. 없거나 보류면 None(라우터가 404 판정).
+
+    보류된 회차를 지목해 제출하면 404다 — 화면에서 감추는 것만으로는 URL을 직접
+    치는 경로가 남는다(채점 권위는 서버이므로 서버가 막아야 한다).
+    """
+    return next((c for c in list_cases() if c["case_id"] == case_id), None)
+
+
+def find_case_meta(case_id: str) -> dict | None:
+    """보류분까지 포함해 찾는다 — **지난 시도의 이력 렌더 전용**.
+
+    회차가 보류돼도 이미 제출한 사람의 기록은 제목·해설·출처를 잃지 않아야 한다.
+    제출 경로는 `get_case`(활성 한정)를 쓰므로 이 함수가 플레이를 열어 주지는 않는다.
+    """
     return next((c for c in HINDCAST_CASES if c["case_id"] == case_id), None)
 
 

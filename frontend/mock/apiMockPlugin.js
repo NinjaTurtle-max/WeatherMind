@@ -85,15 +85,10 @@ const HINDCAST_CASES = [
     climatology: { temp_max: 29.6, rain_prob: 70 },
     actual: { temp_max: 39.6, sum_rn: 0.0 },
   },
-  {
-    case_id: 'seoul-2022-08-08',
-    observed_date: '2022-08-08',
-    region: '서울',
-    station: '108',
-    title: '2022년 8월 8일 — 서울',
-    climatology: { temp_max: 29.4, rain_prob: 70 },
-    actual: { temp_max: 27.2, sum_rn: 129.6 },
-  },
+  // 🔴 seoul-2022-08-08은 **보류**라 여기 없다(2026-08-19 PM 판정 — 기온축 공식값
+  // 미확인). 서버 픽스처에는 `enabled: false`로 남아 있고 사유·활성 조건도 거기 있다.
+  // 목은 **활성 회차만** 담는다 — 이 배열과 서버의 활성분이 갈리는 것은
+  // backend/tests/test_hindcast_mock_parity.py가 막는다.
 ];
 
 // 「데모용 고정 날짜」 고지 — 서버 `hindcast_service.DISCLOSURE`와 같은 뜻.

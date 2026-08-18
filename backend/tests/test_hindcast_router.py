@@ -351,11 +351,36 @@ class TestNoExternalDependency:
 
 
 class TestListCases:
-    def test_목록이_회차를_준다(self, client):
+    def test_목록이_활성_회차만_준다(self, client):
+        """**활성분만**이다(2026-08-19 PM 판정으로 seoul-2022-08-08 보류).
+        보류된 회차가 목록에 뜨면 제외한 의미가 없다."""
         res = client.get(CASES_URL)
         assert res.status_code == 200
         body = res.json()
-        assert len(body["cases"]) == len(hindcast_service.HINDCAST_CASES)
+        assert len(body["cases"]) == len(hindcast_service.list_cases())
+
+    def test_보류_회차는_응답에_없다(self, client):
+        """id도 실측 기온도 본문에 나오지 않는다."""
+        raw = client.get(CASES_URL).text
+        for case in hindcast_service.HINDCAST_CASES:
+            if hindcast_service.is_enabled(case):
+                continue
+            assert case["case_id"] not in raw, case["case_id"]
+            assert str(case["actual"]["temp_max"]) not in raw, case["case_id"]
+
+    def test_보류_회차_제출은_404(self, client):
+        """화면에서 감추는 것만으로는 URL을 직접 치는 경로가 남는다 —
+        채점 권위가 서버이므로 서버가 막아야 한다."""
+        disabled = [
+            c for c in hindcast_service.HINDCAST_CASES
+            if not hindcast_service.is_enabled(c)
+        ]
+        for case in disabled:
+            res = client.post(
+                predict_url(case["case_id"]), json={"temp_max": 27.0, "rain_prob": 90}
+            )
+            assert res.status_code == 404, case["case_id"]
+            assert res.json()["code"] == "CASE_NOT_FOUND"
 
     def test_실측도_해설도_출처도_없다(self, client):
         """★핵심 — 재귀 키 워크로 본다."""

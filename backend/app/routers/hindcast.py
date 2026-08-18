@@ -204,7 +204,12 @@ async def list_hindcast_attempts(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_with_rls),
 ) -> HindcastAttemptList:
-    """내 과거 예보 이력 — 최신순. 조회 키가 유저 자신뿐이라 남의 기록 경로가 없다."""
+    """내 과거 예보 이력 — 최신순. 조회 키가 유저 자신뿐이라 남의 기록 경로가 없다.
+
+    메타는 `find_case_meta`로 붙인다(**보류분 포함**) — 회차가 보류돼도 이미 제출한
+    사람의 기록이 제목·해설·출처를 잃지 않아야 한다. 제출은 `get_case`(활성 한정)를
+    타므로 이 경로가 보류 회차의 플레이를 열어 주지는 않는다.
+    """
     rows = (
         (
             await db.execute(
@@ -219,7 +224,7 @@ async def list_hindcast_attempts(
     return HindcastAttemptList(
         attempts=[
             HindcastResult(
-                **_result_payload(hindcast_service.get_case(row.case_id), row)
+                **_result_payload(hindcast_service.find_case_meta(row.case_id), row)
             )
             for row in rows
         ]

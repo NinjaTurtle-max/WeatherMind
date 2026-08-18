@@ -66,7 +66,13 @@ def mock_cases() -> list[dict]:
 
 @pytest.fixture(scope="module")
 def server_cases() -> tuple[dict, ...]:
-    return hindcast_service.HINDCAST_CASES
+    """**활성** 회차만 — 목이 담는 것과 같은 집합.
+
+    보류(`enabled: false`) 회차는 목에 없어야 하므로 여기서도 뺀다. "목과 서버가
+    같다"의 뜻은 *활성분이 같다*이고, 보류분이 목에 없는 것은 아래
+    TestDisabledCase가 따로 문다.
+    """
+    return hindcast_service.list_cases()
 
 
 class TestMockParity:
@@ -126,3 +132,50 @@ class TestMockParity:
             scoring = hindcast_service.scoring_actual(server)
             expected = 100.0 if server["actual"]["sum_rn"] > 0 else 0.0
             assert scoring["rain_prob"] == expected, server["case_id"]
+
+
+# ═══════════════════════════════════════════════════════════════
+# 보류 회차 (2026-08-19 PM 판정) — 지우지 않고 감춘다
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestDisabledCase:
+    """`seoul-2022-08-08` 보류가 **되돌릴 수 있는 형태**로 유지되는가.
+
+    삭제가 아니라 보류인 이유: 기온축 공식값을 확인하면 곧바로 되살린다. 그래서
+    값·출처를 지우지 않고 `enabled: False` + `disabled_reason`으로 둔다.
+    """
+
+    CASE_ID = "seoul-2022-08-08"
+
+    def test_픽스처에_남아_있다(self):
+        """지우면 되돌릴 수 없다 — 공식값을 찾았을 때 복구할 자리가 사라진다."""
+        assert hindcast_service.find_case_meta(self.CASE_ID) is not None
+
+    def test_활성_목록에는_없다(self):
+        assert self.CASE_ID not in [c["case_id"] for c in hindcast_service.list_cases()]
+
+    def test_get_case가_보류분을_열어_주지_않는다(self):
+        """화면에서 감추는 것만으로는 URL을 직접 치는 경로가 남는다."""
+        assert hindcast_service.get_case(self.CASE_ID) is None
+
+    def test_사유가_데이터와_같은_자리에_있다(self):
+        """근거가 딴 곳에 있으면 개정될 때 같이 고쳐지지 않는다
+        (`level_vocabulary.json`의 `basis` 관례)."""
+        case = hindcast_service.find_case_meta(self.CASE_ID)
+        reason = case.get("disabled_reason", "")
+        assert "기온축 공식값 미확인" in reason
+        assert "확인되면 활성" in reason
+
+    def test_강수축_공식값은_그대로_남는다(self):
+        """활성 조건은 기온축뿐 — 강수 129.6mm는 이미 공식이라 손댈 것이 없다."""
+        case = hindcast_service.find_case_meta(self.CASE_ID)
+        assert case["actual"]["sum_rn"] == 129.6
+        assert "공식 기록" in case["sources"]["sum_rn"]
+
+    def test_목에도_없다(self, mock_cases):
+        assert self.CASE_ID not in [c["case_id"] for c in mock_cases]
+
+    def test_활성분이_하나_이상_남는다(self):
+        """보류로 회차가 0건이 되면 「없음」과 같아진다 — 최소 착지가 무너진다."""
+        assert len(hindcast_service.list_cases()) >= 1
