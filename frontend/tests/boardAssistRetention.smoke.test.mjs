@@ -355,7 +355,7 @@ try {
   const V1_MAX_PRIORITY = 100;
   const AIR_MASS_SUBTYPES = Object.keys(AIR_MASS_META);
 
-  await scenario('board_rules.json: v1 8규칙 잔존 + 확장 priority < v1 최저 + 기단 4종 전부 사용', async () => {
+  await scenario('board_rules.json: v1 8규칙 잔존 + 확장 priority 밴드(조건 수에 따라 위/아래) + 기단 4종 전부 사용', async () => {
     const ids = RULES.map((r) => r.id);
     const missing = V1_RULE_IDS.filter((id) => !ids.includes(id));
     assert(missing.length === 0, `v1 규칙 소실: ${missing.join(', ')}`);

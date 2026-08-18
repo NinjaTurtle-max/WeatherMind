@@ -61,7 +61,27 @@ PHENOMENA = (
     "clear",
     "flood_risk",
     "wildfire_risk",
+    # ㉣ 4조건 규칙의 고유 결과 — 경보급(2026-08-18). 이 튜플은 board_rules의
+    # `then.phenomenon` 전건과 **같아야** 하고 그 일치를 계약 테스트가 문다.
+    # ⚠️ 실황 판정(`classify`)은 이 셋을 **내지 않는다** — 4조건 동시 성립은
+    # 보드 위에서만 만들 수 있고, 실황 카테고리로는 그 조합을 알 수 없다.
+    "severe_storm",
+    "wildfire_warning",
+    "flood_warning",
 )
+
+# ── 🔴 어휘가 두 역할을 겸하고 있었다 — 갈랐다 (2026-08-18) ────────────────────
+# `PHENOMENA`는 두 가지로 동시에 쓰였다: ⑴ **board_rules의 거울**(계약 ②) ⑵ **실황
+# 판정이 낼 수 있는 집합**(사문 판정 — 어휘에 있는데 어떤 입력으로도 안 나오면 죽은 값).
+# ㉣의 경보급 3종이 들어오자 그 겸용이 깨졌다: ⑴에는 속하지만 ⑵에는 **속할 수 없다.**
+# 조건 4개가 **동시에** 맞아야 나는 결과이고, 실황 카테고리(하늘·습도·풍속·강수형태)로는
+# 「기단이 시베리아인가」·「전선이 정체인가」를 알 수 없기 때문이다.
+#
+# 그래서 사문 판정의 대상을 **`CLASSIFIABLE`**로 좁힌다. 이 분리가 없으면 둘 중 하나가
+# 거짓이 된다 — 어휘를 안 늘리면 board_rules 거울이 깨지고, 늘린 채로 도달성을 요구하면
+# **실황이 만들 수 없는 것을 만들라고** 요구한다.
+BOARD_ONLY_PHENOMENA = ("severe_storm", "wildfire_warning", "flood_warning")
+CLASSIFIABLE = tuple(p for p in PHENOMENA if p not in BOARD_ONLY_PHENOMENA)
 
 # ── KMA 단기예보 카테고리 (읽는 것만) ──
 # backend weather_api.KMA_CATEGORY · celery kma_client.KMA_CATEGORY **양쪽에 다

@@ -589,41 +589,67 @@ class TestDisasterPriorityPolicy:
     **다음 저작자가 3조건 재난 규칙을 높은 우선순위로 쓰면** 벡터는 조용하고 여기가 운다.
     """
 
-    DISASTER_PHENOMENA = frozenset({"wildfire_risk", "flood_risk"})
     V1_MIN_PRIORITY = 30   # siberian_clear — v1 규칙의 최저
     V1_MAX_PRIORITY = 100  # cold_front_shower — v1 규칙의 최고
 
-    def _disaster_rules(self):
-        return [
-            r for r in be.load_rules()
-            if r["then"]["phenomenon"] in self.DISASTER_PHENOMENA
-        ]
+    def _extensions(self):
+        """v1 밖의 확장 규칙 — 판정 대상."""
+        v1 = {
+            "cold_front_shower", "stationary_front_monsoon", "warm_front_steady_rain",
+            "siberian_snow", "convective_shower", "radiation_fog",
+            "north_pacific_heatwave", "siberian_clear",
+        }
+        return [r for r in be.load_rules() if r["id"] not in v1]
 
-    def test_재난_규칙이_존재한다(self):
+    @staticmethod
+    def _unique_outcome(rule, all_rules) -> bool:
+        """결과를 **조건 3개 이하 규칙 중 아무도 내지 않는가** — 덮을 권리의 조건."""
+        mine = (rule["then"]["phenomenon"], rule["then"].get("cloud"))
+        return not any(
+            other["id"] != rule["id"]
+            and len(other["when"]) <= 3
+            and (other["then"]["phenomenon"], other["then"].get("cloud")) == mine
+            for other in all_rules
+        )
+
+    def test_확장_규칙이_존재한다(self):
         """전제 확인 — 없으면 아래 두 계약이 공허하게 통과한다."""
-        assert self._disaster_rules(), "재난 규칙이 하나도 없다"
+        assert self._extensions(), "확장 규칙이 하나도 없다"
 
-    def test_조건_3개_이하_재난은_일반_날씨를_안_덮는다(self):
+    def test_조건이_적거나_결과가_겹치면_안_덮는다(self):
+        """덮을 권리는 **조건 4개 이상 AND 고유 결과** 둘 다 만족할 때만 생긴다.
+
+        둘 중 하나만으로는 부족하다 — 2조건 재난(`flood_risk_saturated_inflow`)은
+        결과가 고유하지만 **너무 쉽게 발화**하므로 계속 아래여야 하고(PM (A) 판정),
+        4조건이면서 결과가 겹치는 규칙은 **구분이 안 돼 장식**이다(차단 1).
+
+        ⚠️ 리뷰 ⑸가 지적한 우회가 여기서 막힌다 — 아무 규칙에 네 번째 조건만 붙여
+        v1 불변 보증을 넘기려 해도, 결과가 겹치면 이 단정이 운다.
+        """
+        rules = be.load_rules()
         offenders = [
             (r["id"], len(r["when"]), r["priority"])
-            for r in self._disaster_rules()
-            if len(r["when"]) <= 3 and r["priority"] >= self.V1_MIN_PRIORITY
+            for r in self._extensions()
+            if not (len(r["when"]) >= 4 and self._unique_outcome(r, rules))
+            and r["priority"] >= self.V1_MIN_PRIORITY
         ]
         assert not offenders, (
-            f"조건 3개 이하인데 일반 날씨를 덮는 재난 규칙: {offenders} — "
-            "건조하고 바람만 불면 어디든 재난이 된다. 조건을 4개로 늘리거나 "
+            f"결과가 지름길과 겹치는데 일반 날씨를 덮는 규칙: {offenders} — "
+            "구분할 수 없는 결과를 내면서 판정을 가로챈다. 고유 결과를 주거나 "
             f"priority를 {self.V1_MIN_PRIORITY} 미만으로 내릴 것"
         )
 
-    def test_조건_4개_이상_재난은_덮는다(self):
-        """장식이 되지 않게 — 조건을 늘려 놓고 우선순위가 낮으면 **영원히 안 걸린다**."""
+    def test_고유_결과를_내는_확장은_덮는다(self):
+        """장식이 되지 않게 — 고유 결과인데 우선순위가 낮으면 **영원히 안 걸린다**."""
+        rules = be.load_rules()
         offenders = [
             (r["id"], len(r["when"]), r["priority"])
-            for r in self._disaster_rules()
-            if len(r["when"]) >= 4 and r["priority"] <= self.V1_MAX_PRIORITY
+            for r in self._extensions()
+            if len(r["when"]) >= 4 and self._unique_outcome(r, rules)
+            and r["priority"] <= self.V1_MAX_PRIORITY
         ]
         assert not offenders, (
-            f"조건 4개 이상인데 일반 날씨에 지는 재난 규칙: {offenders} — "
-            "조건이 다 맞아도 v1 규칙이 이겨 이 규칙은 영원히 안 걸린다(장식). "
+            f"고유 결과인데 일반 날씨에 지는 규칙: {offenders} — 조건이 다 맞아도 "
+            "v1이 이겨 영원히 안 걸린다(장식). "
             f"priority를 {self.V1_MAX_PRIORITY} 초과로 올릴 것"
         )

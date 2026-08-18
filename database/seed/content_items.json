@@ -27401,7 +27401,7 @@
       "goal_conditions": [
         {
           "zone": 1,
-          "phenomenon": "shower"
+          "phenomenon": "severe_storm"
         }
       ],
       "hints": [
@@ -27450,11 +27450,11 @@
       "goal_conditions": [
         {
           "zone": 0,
-          "phenomenon": "wildfire_risk"
+          "phenomenon": "wildfire_warning"
         }
       ],
       "hints": [
-        "메마름과 바람만으로도 위험은 오른다. 다만 이 판은 그것만으로는 판정이 바뀌지 않는다 — 어떤 공기가 내려와 있어야 하는지부터 정해 보자.",
+        "메마름과 바람만으로도 산불 위험까지는 오른다. 다만 이 판이 요구하는 것은 그보다 한 단계 위여서 그것만으로는 목표에 닿지 않는다 — 어떤 공기가 내려와 있어야 하는지부터 정해 보자.",
         "기단을 놓은 뒤 물기는 아주 낮게, 바람과 햇볕은 함께 높게 올려야 한다."
       ],
       "correct_answer": "",
@@ -27499,7 +27499,7 @@
       "goal_conditions": [
         {
           "zone": 2,
-          "phenomenon": "flood_risk"
+          "phenomenon": "flood_warning"
         }
       ],
       "hints": [

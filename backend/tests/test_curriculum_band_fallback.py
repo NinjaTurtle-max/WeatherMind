@@ -434,44 +434,6 @@ class TestWideningDoesNotBlurHealthyCells:
                 out.append((unit_id, reported, top))
         return out
 
-    def _first_fallback_case(self, *, require_demotion: bool = False):
-        """자기 밴드가 **지금** 비어 있는 (유닛 × 신고밴드)를 하나 찾아 돌려준다.
-
-        `require_demotion=True`면 **표적보다 아래가 실제로 섞여 나오는 사례**만 고른다.
-        ⚠️ 2026-08-18에 이것이 필요해졌다: ㉣ 상위 보드 3판(kl 9·9·10)이 들어오자
-        선택자가 집는 첫 사례가 `city-anomaly-board × elementary`로 바뀌었는데
-        그 칸은 **승격만 일어나는** 자리라(표적보다 아래가 없다) 강등 단정이 대상을
-        잃었다. 승격 축은 `test_초등_board_공백은_승격으로_해소된다`가 따로 문다 —
-        **한 테스트가 두 축을 우연히 겸하고 있던 것**이고, 시드가 바뀌자 드러났다.
-
-        사례를 파일에 박지 않는 이유: 저작이 칸을 채우면 그 사례는 강등 예시가
-        아니게 된다. 실제로 이 자리는 두 번 옮겨졌다 — `bs-radiation`·
-        `bs-temp-vs-heat`(2026-08-08 저작) → `risk-flood`(2026-08-10 저작).
-        1,000건 목표 중 700건 넘게 남았으므로 앞으로도 계속 옮겨진다.
-        **사례를 고르는 일을 사람이 아니라 테스트가 하게 한다.**
-
-        전건이 채워지면 `pytest.skip`한다 — 그건 실패가 아니라 **저작이 성공해서
-        폴백이 필요 없어졌다**는 뜻이다. 다만 조용히 지나가면 안 되므로 사유를 남긴다.
-        """
-        for unit in load_units():
-            unit_id = unit["id"]
-            for reported in wb.LEVEL_GROUP_BANDS:
-                top = self._top(unit_id, reported)
-                if len(top) != cs.UNIT_SESSION_SIZE:
-                    continue
-                if reported in {it.level_group for it in top}:
-                    continue
-                if require_demotion:
-                    target = wb.knowledge_level_of_level_group(reported)
-                    if not any(it.knowledge_level < target for it in top):
-                        continue  # 승격만 일어나는 칸 — 강등 축의 사례가 아니다
-                return unit_id, reported, top
-        pytest.skip(
-            "자기 밴드가 빈 (유닛 × 밴드)가 하나도 없다"
-            + (" — 그중 강등이 일어나는 사례도 없다" if require_demotion else "")
-            + ". 저작이 전 칸을 채웠다는 뜻이다. "
-            "강등 축은 순수 함수 계약(TestKnowledgeLevelReranking)이 계속 지킨다."
-        )
 
     def test_초등_board_공백은_승격으로_해소된다(self):
         """초등(kl 2) × `city-anomaly-board` — 자기 단계 0건이라 위로 올라간다.

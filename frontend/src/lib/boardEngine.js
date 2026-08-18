@@ -35,6 +35,8 @@ export const PHENOMENON_ENUM = Object.freeze([
   'shower', 'rain', 'persistent_rain', 'snow', 'fog', 'heatwave', 'clear', 'cloudy',
   // R13 재난 축(CO-A3·CO-K4) — 재난 보드가 'clear'를 목표로 삼던 상태를 끝낸다
   'wildfire_risk', 'flood_risk',
+  // ㉣ 4조건 규칙의 고유 결과 — 경보급(2026-08-18). 백엔드 PHENOMENA와 같은 집합이어야 한다.
+  'severe_storm', 'wildfire_warning', 'flood_warning',
 ]);
 export const CLOUD_ENUM = Object.freeze(['cumulonimbus', 'nimbostratus', 'stratus', 'cumulus', 'none']);
 

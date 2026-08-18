@@ -34,6 +34,10 @@ export default {
         cloudy: { label: 'Cloudy' },
         wildfire_risk: { label: 'Wildfire risk' },
         flood_risk: { label: 'Flood risk' },
+        // ㉣ warning tier (2026-08-18) — only when all four conditions hold.
+        severe_storm: { label: 'Organized thunderstorm' },
+        wildfire_warning: { label: 'Wildfire warning' },
+        flood_warning: { label: 'Flood warning' },
       },
       cloud: {
         cumulonimbus: { label: 'Cumulonimbus' },

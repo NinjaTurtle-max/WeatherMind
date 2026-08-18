@@ -374,7 +374,7 @@
       ]
     },
     "expected": [
-      {"zone": 0, "phenomenon": "wildfire_risk", "cloud": "none"},
+      {"zone": 0, "phenomenon": "wildfire_warning", "cloud": "none"},
       {"zone": 1, "phenomenon": "persistent_rain", "cloud": "nimbostratus"},
       {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
       {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}

@@ -59,9 +59,17 @@ class TestVocabulary:
             "그 현상을 목표로 하는 보드가 없어 board 자리가 폴백으로 샌다"
         )
 
-    def test_어휘는_9종이다(self):
-        """§T3 완료 판정이 「9종 어휘 전건」이라 개수 자체가 계약이다."""
-        assert len(wp.PHENOMENA) == len(set(wp.PHENOMENA)) == 9
+    def test_어휘_개수(self):
+        """§T3 완료 판정이 「9종 어휘 전건」이라 개수 자체가 계약이었다.
+
+        🔴 **2026-08-18에 두 수로 갈렸다.** ㉣의 경보급 3종은 `board_rules`의 거울에는
+        속하지만 **실황 판정으로는 도달할 수 없다**(조건 4개 동시 성립을 실황
+        카테고리로 알 수 없다). 그래서 사문 판정의 대상은 `CLASSIFIABLE`이고,
+        **T3가 말한 9종은 그쪽**이다.
+        """
+        assert len(wp.PHENOMENA) == len(set(wp.PHENOMENA)) == 12
+        assert len(wp.CLASSIFIABLE) == 9, "T3 완료 판정의 9종은 실황 도달 집합이다"
+        assert set(wp.BOARD_ONLY_PHENOMENA) < set(wp.PHENOMENA)
 
     def test_cloudy는_어휘가_아니다(self):
         """board_engine의 무성립 기본값이지 board_rules가 목표로 삼는 어휘가 아니다."""
@@ -228,8 +236,13 @@ class TestLadder:
         """None은 「보드 없음」이 아니라 「board_order 순」이라는 뜻이다(§T3)."""
         assert wp.classify_phenomenon(weather) is None, label
 
-    def test_9종_전건이_도달_가능하다(self):
-        """어휘에 있는데 어떤 입력으로도 안 나오는 현상 = 사문(死文) 판정."""
+    def test_실황_도달_집합_전건이_도달_가능하다(self):
+        """어휘에 있는데 어떤 입력으로도 안 나오는 현상 = 사문(死文) 판정.
+
+        ⚠️ 대상은 `CLASSIFIABLE`이다 — 보드 전용 3종(경보급)은 **실황이 만들 수 없는
+        것이 정상**이고, 그것까지 요구하면 만들 수 없는 것을 만들라는 계약이 된다.
+        그 셋이 실황에서 **안 나온다는 사실 자체**는 아래 별도 단정이 문다.
+        """
         reachable = {
             wp.classify_phenomenon(w)
             for w in [
@@ -244,7 +257,23 @@ class TestLadder:
                 wx(hour(SKY=1, POP=0, REH=50, TMP=20)),
             ]
         }
-        assert reachable == set(wp.PHENOMENA)
+        assert reachable == set(wp.CLASSIFIABLE)
+
+    def test_보드_전용_현상은_실황에서_안_나온다(self):
+        """경보급 3종이 실황 판정으로 새면 **보드에서만 만들 수 있다는 전제**가 깨진다.
+
+        그러면 브리핑·실황 문항이 「산불 경보급」을 말하면서 그 근거(기단·전선 조합)를
+        보여줄 수 없게 된다. 도달성의 **반대 방향** 계약이다.
+        """
+        inputs = [
+            wx(hour(PTY=3, POP=80)),
+            wx(hour(REH=25, WSD=12.0, POP=0, TMP=30, SKY=1)),   # 건조·강풍·맑음
+            wx(*[hour(PTY=1, POP=95, TMP=22, REH=98) for _ in range(6)]),  # 지속 강수
+            wx(hour(TMX=36.0, POP=0, SKY=1)),
+        ]
+        produced = {wp.classify_phenomenon(w) for w in inputs}
+        leaked = produced & set(wp.BOARD_ONLY_PHENOMENA)
+        assert not leaked, f"실황 판정이 보드 전용 현상을 냈다: {leaked}"
 
 
 # ═══════════════════════════════════════════════════════════════
