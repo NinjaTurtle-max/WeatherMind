@@ -57,6 +57,15 @@ DB 실경로(마이그레이션·RLS·θ 왕복·배치고사)까지 확인한�
 
 ## 개발 중 개별 실행 (hot reload)
 
+**Windows에서는 `dev.cmd` 한 번이면 된다** — Docker로 백엔드(postgres·redis·backend)를
+띄우고 마이그레이션·시드(둘 다 멱등)를 돌린 뒤 vite dev server를 연다. 끄는 것은
+`dev-stop.cmd`(볼륨은 남긴다).
+
+```
+dev.cmd          rem 브라우저에서 http://localhost:5173
+dev-stop.cmd     rem 백엔드까지 정지
+```
+
 ```bash
 # 백엔드만
 cd backend && uvicorn app.main:app --reload --port 8000
@@ -64,6 +73,12 @@ cd backend && uvicorn app.main:app --reload --port 8000
 # 프론트만 (vite dev server가 /api/v1을 localhost:8000으로 프록시)
 cd frontend && npm install && npm run dev   # 보통 5173포트
 ```
+
+⚠️ **`VITE_MOCK=1`은 「화면만」 보는 모드다.** 백엔드 없이 뜨는 대신 목 픽스처가
+작아서 **코스 탭이 안 뜨고**(목에 `GET /courses`가 없어 CourseSwitcher가 스스로
+숨는다) **학습 경로가 3칸**으로 보인다(목 유닛 총 10개). 실제 시드로 보려면 위
+`dev.cmd`(또는 백엔드 기동 + `VITE_MOCK` 없이 `npm run dev`)를 쓸 것 — 이 차이를
+화면 결함으로 오인한 전례가 있다(2026-08-18).
 
 ## API 개요 (`/api/v1`, 상세는 docs/specs/02_api_spec.md)
 
