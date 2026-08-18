@@ -130,7 +130,8 @@ uniform vec4 uColor;
 out vec4 outColor;
 void main() { outColor = vec4(uColor.rgb * uColor.a, uColor.a); }`;
 
-// ── 4) 빌보드 (구름 볼륨 노이즈 · 색 번짐 · 햇빛 · 안개층 · 번개) ───────────
+// ── 4) 빌보드 (색번짐0·구름1·햇빛2·눕는판3·번개4·**불꽃5·연기6**) ──────────
+// kind는 **프래그먼트 분기**다 — 늘어도 드로우 패스 수는 그대로 8이다(MT-23).
 export const BILLBOARD_VS = /* glsl */ `#version 300 es
 in vec2 aCorner;      // [-0.5,0.5]^2
 in vec3 iCenter;
@@ -207,10 +208,40 @@ void main() {
     // 3: 지표에 눕는 판 — 열 번짐·안개층
     a = pow(smoothstep(1.0, 0.05, r), 1.35);
     a *= 0.82 + 0.18 * fbm(vUV * 5.0 + uTime * 0.12);
-  } else {
+  } else if (vKind < 4.5) {
     // 4: 번개 섬광 — 짧고 불규칙하게 번쩍
     float flick = step(0.86, hash21(vec2(floor(uTime * 3.4), vSeed)));
     a = pow(smoothstep(1.0, 0.0, r), 2.2) * flick;
+  } else if (vKind < 5.5) {
+    // 5: 불꽃 (MT-23) — 종전에는 kind 2(**태양 원반**)를 주황으로 칠해 불로 썼다.
+    //    태양은 중심 대칭이라 「위로 솟고 끝이 흔들린다」는 불의 성질이 하나도 없다.
+    //    조사(§3A)에서 차용한 문법은 **연직 배열**이다: 아래는 넓고 밝고, 위로
+    //    갈수록 좁아지며 끝이 갈라진다. 그래서 반지름 r을 쓰지 않고 **아래→위
+    //    좌표 up**으로 폭 포락선을 만든다.
+    //    흔들림은 uTime을 **위로 흘려보내는** fbm이다(불꽃이 위로 핥아 올라간다).
+    //    ⚠️ Math.random 금지 계약 — 여기 난수는 전부 해시 노이즈라 결정적이다.
+    //    ⚠️ 실기기(M2/ANGLE) 확인에서 처음 판이 **흐린 주황 원뿔**로 보였다:
+    //    가장자리 전이대(edge → edge*0.2)가 폭에 비해 너무 넓어 실루엣이 통째로
+    //    번졌고, 그 번짐이 심지 노랑까지 삼켰다. 전이대를 좁히고(0.62배) 끝 페이드를
+    //    늦춰(0.74) **윤곽을 세운다** — 불은 구름과 달리 경계가 있어야 불로 읽힌다.
+    float up = vUV.y + 0.5;                       // 0=바닥, 1=끝
+    float env = mix(0.60, 0.04, up * up);         // 폭 포락선(위로 갈수록 뾰족)
+    float lick = fbm(vec2(vUV.x * 3.6 + vSeed * 5.7, up * 3.1 - uTime * 2.1));
+    float edge = env * (0.62 + 0.84 * lick);      // 혀가 갈라지도록 진폭을 키운다
+    a = smoothstep(edge, edge * 0.62, abs(vUV.x));
+    a *= smoothstep(1.02, 0.74, up) * smoothstep(-0.03, 0.07, up);
+    // 심지 — 아래 중심이 더 뜨겁다(색을 밝은 쪽으로 민다)
+    c.rgb += vec3(0.42, 0.26, 0.02) * smoothstep(0.26, 0.0, abs(vUV.x)) * (1.0 - up * 0.85);
+  } else {
+    // 6: 연기 (MT-23) — 구름(kind 1)과 같은 fbm이지만 **덜 뭉치고 더 성기게** 푼다.
+    //    구름은 윤곽이 또렷해야 뭉게구름으로 읽히고, 연기는 반대로 윤곽이
+    //    흩어져야 연기로 읽힌다. 그래서 노이즈 진폭을 키우고 알파를 눌렀다.
+    //    바람에 눕는 것은 셰이더가 아니라 **빌보드 배치**가 맡는다(scenes.js) —
+    //    드리프트를 셰이더에 넣으면 빌보드마다 같은 방향으로만 흘러 줄이 선다.
+    vec2 q = vUV * 2.1 + vec2(vSeed * 9.3 + uTime * 0.09, vSeed * 3.7 - uTime * 0.14);
+    float n = fbm(q);
+    a = smoothstep(1.0, 0.30, r + (n - 0.5) * 0.62) * 0.82;
+    c.rgb *= 0.84 + 0.32 * n;
   }
   a *= c.a;
   if (a < 0.004) discard;
