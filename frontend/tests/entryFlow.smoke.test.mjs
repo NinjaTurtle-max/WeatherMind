@@ -32,6 +32,10 @@
  *   ⑥ **딥링크는 게이트를 타지 않는다.** `/board`로 바로 들어온 심사위원은
  *      정보 입력을 거치지 않고 조작 0회로 보드에 도착한다 — 규정의 가장 강한
  *      형태를 딥링크에서는 그대로 유지한다.
+ *   ⑦ 🔴 **닉네임을 비우고도 두 출구 모두 끝까지 통과된다**(2026-08-14). 닉네임은
+ *      선택 항목이고, 선택이 필수로 굳으면 ①~⑥ 중 어느 것도 울지 않는다.
+ *   ⑧ 적은 닉네임은 **발급 바디에 실린다** — 「다음」이든 「건너뛰기」든. 학령과
+ *      독립이라 학령을 안 골라도 이름은 버리지 않는다.
  *
  * ⚠️ 시나리오 순서에 의존한다. 목의 `mockAuth.levelGroup`은 **프로세스 전역**이라
  * 앞 시나리오가 `elementary`로 바꿔 놓으면 뒤 시나리오의 기본값 단정이 오염된다.
@@ -98,7 +102,27 @@ const xhrLog = [];
 const origXhrOpen = window.XMLHttpRequest.prototype.open;
 window.XMLHttpRequest.prototype.open = function (method, url, ...rest) {
   xhrLog.push(`${method} ${url}`);
+  this.__wmUrl = url;
   return origXhrOpen.call(this, method, url, ...rest);
+};
+
+/**
+ * 발급 바디를 **전선에서** 집는다 — 인터셉터 층이 아니라 XHR 층이다(⑦⑧).
+ *
+ * ⚠️ 아래 `guestBodies`(axios 인터셉터)로는 ⑧을 잴 수 없다. 닉네임을 얹는 쪽도
+ * 요청 인터셉터인데(`EntryInfoPage`), axios는 요청 인터셉터를 **등록 역순**으로
+ * 돌린다 — 이 파일의 관측자는 App 모듈이 적재된 **뒤에** 등록되므로 얹기보다
+ * 먼저 실행되고, 실제로는 나간 바디에 닉네임이 있는데도 못 본 것으로 보인다.
+ * 등록 순서에 기대는 관측은 계약이 아니라 사고다. `send()`가 받는 문자열은
+ * 그런 순서와 무관한 **실제로 나간 바이트**라 그쪽을 본다.
+ */
+const wireBodies = [];
+const origXhrSend = window.XMLHttpRequest.prototype.send;
+window.XMLHttpRequest.prototype.send = function (body) {
+  if (this.__wmUrl === '/api/v1/auth/guest') {
+    wireBodies.push(body == null ? undefined : JSON.parse(body));
+  }
+  return origXhrSend.call(this, body);
 };
 
 const { createElement } = await import('react');
@@ -137,6 +161,17 @@ async function waitFor(pred, timeoutMs = 8000, label = '') {
   throw new Error(`시간 초과(${timeoutMs}ms): ${typeof label === 'function' ? label() : label}`);
 }
 
+/**
+ * 마운트한 루트 — **시나리오가 끝나면 실패했더라도 반드시 걷는다.**
+ *
+ * ⚠️ 안 걷으면 **뒤 시나리오가 아예 실행되지 않는다.** 앞 시나리오가 단정 실패로
+ * 중간에 던지면 `r.unmount()`가 안 돌고, 다음 `mountApp`이 같은 `#root`에 두 번째
+ * 루트를 만든다 → `NotFoundError: The node to be removed is not a child of this
+ * node`로 **프로세스가 통째로 죽는다**(2026-08-14 실측 — ⑦ 변이 확인 중 발견).
+ * 그러면 "⑦이 붉다"와 "⑦이 돌지도 못했다"가 구분되지 않아, 뒤쪽 계약이 조용히
+ * 무력해진다. 걷기는 멱등이라 시나리오 안의 `r.unmount()`와 겹쳐도 안전하다.
+ */
+const liveRoots = [];
 function mountApp(path) {
   const container = window.document.getElementById('root');
   const reactRoot = createRoot(container);
@@ -147,7 +182,20 @@ function mountApp(path) {
     createElement(QueryClientProvider, { client: qc },
       createElement(MemoryRouter, { initialEntries: [path] }, createElement(App))),
   );
-  return reactRoot;
+  let unmounted = false;
+  const handle = {
+    unmount() {
+      if (unmounted) return;
+      unmounted = true;
+      try {
+        reactRoot.unmount();
+      } catch {
+        /* 이미 걷힌 뒤 — 정리 경로라 삼킨다 */
+      }
+    },
+  };
+  liveRoots.push(handle);
+  return handle;
 }
 
 const api = async (method, path, body) => {
@@ -174,6 +222,8 @@ async function scenario(name, fn) {
   } catch (err) {
     failed += 1;
     console.error(`FAIL ${name}: ${err?.message ?? err}`);
+  } finally {
+    while (liveRoots.length) liveRoots.pop().unmount();
   }
 }
 
@@ -192,7 +242,16 @@ async function coldOpen() {
   resetGuestAutoIssue();
   useAuthStore.getState().logout();
   guestBodies.length = 0;
+  wireBodies.length = 0;
   return xhrLog.length;
+}
+
+const $ni = () => $('[data-testid="entry-info-nickname"]');
+/** React 제어 입력 채우기 — onboardingSave·guest-convert 스모크와 같은 관례. */
+function fillInput(input, value) {
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  setter.call(input, value);
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
 }
 
 try {
@@ -316,6 +375,347 @@ try {
     );
     r.unmount();
   });
+
+  // ── ⑦ 🔴 닉네임을 비우고도 끝까지 통과된다 (필수화 금지) ─────────────────────
+  //
+  // 🔴 **이 시나리오가 이 파일에서 가장 중요한 한 건이다.** 닉네임은 2026-08-14에
+  // 붙은 **선택** 항목인데, 선택 항목이 필수로 굳는 것은 코드 한 글자로 일어난다
+  // (`disabled={!picked}` → `disabled={!picked || !nickname.trim()}`). 그러면 대회
+  // 규정(「로그인·결제 없이 열려야」)이 깨지는데 **다른 어떤 테스트도 안 운다** —
+  // ①③④⑤는 닉네임을 아예 모르고, 건너뛰기를 잠가도 ⑤가 클릭만 하고 결과를
+  // 기다리므로 시간 초과로만 갈린다.
+  //
+  // ⚠️ **`required` 속성의 부재를 재지 않는다.** 이 화면은 `<form>`이 없고 버튼이
+  // `type="button"`이라 그 속성은 아무것도 막지 못한다 — 없다고 단정해 봐야 참인
+  // 채로 필수화가 지나간다. 재는 것은 속성이 아니라 **비운 채로 도착하는가**다.
+  await scenario('⑦ 닉네임을 비워도 두 출구 모두 통과된다(선택 항목 계약)', async () => {
+    // ⑦-a 「다음」 출구 — 학령만 고르고 닉네임은 비운 채
+    const markA = await coldOpen();
+    let r = mountApp('/');
+    await waitFor(() => $ni(), 8000, '닉네임 입력란');
+    ok(Boolean($ni()), '⑦ 닉네임 입력란이 화면에 있다');
+    ok($ni().value === '', '⑦ 처음엔 비어 있다(자동 입력 없음)');
+    ok(
+      $('[data-testid="entry-info-skip"]').disabled !== true,
+      '⑦ 🔴 닉네임이 비어도 「건너뛰기」는 눌린다(규정 — 건너뛰기 상시)',
+    );
+    $('[data-testid="entry-info-levels"] button[data-level="adult"]').click();
+    await sleep(60);
+    ok(
+      $('[data-testid="entry-info-submit"]').disabled === false,
+      '⑦ 🔴 닉네임이 비어도 「다음」이 열린다(잠그는 것은 학령뿐)',
+    );
+    $('[data-testid="entry-info-submit"]').click();
+    await waitFor(() => wireBodies.length >= 1, 8000, 'POST /auth/guest 발화');
+    ok(
+      wireBodies[0]?.nickname === undefined,
+      `⑦ 안 적었으면 바디에 nickname 필드가 아예 없다 — 실제 ${JSON.stringify(wireBodies[0])}`,
+    );
+    await waitFor(
+      () => xhrLog.slice(markA).some((l) => l === 'POST /api/v1/onboarding/placement/start'),
+      8000,
+      '⑦-a 닉네임 없이 배치고사에 도달하지 못했다',
+    );
+    ok(true, '⑦-a 🔴 닉네임을 비운 채 「다음」 → 배치고사까지 끝까지 간다');
+    r.unmount();
+
+    // ⑦-b 「건너뛰기」 출구 — 아무것도 안 적고 안 고른 채 학습까지
+    const markB = await coldOpen();
+    r = mountApp('/');
+    await waitFor(() => $ni(), 8000, '닉네임 입력란');
+    ok($ni().value === '', '⑦-b 닉네임을 비운 채로 둔다');
+    $('[data-testid="entry-info-skip"]').click();
+    await waitFor(() => $('[data-testid="learn-entry"]'), 8000, '⑦-b 학습 진입 카드');
+    ok(Boolean($('[data-testid="learn-entry"]')), '⑦-b 🔴 닉네임을 비운 채 건너뛰기 → 학습 화면이 열린다');
+    ok(
+      guestCalls(markB).length === 1,
+      `⑦-b 발급은 여전히 정확히 1회다 — 실제 ${guestCalls(markB).length}회`,
+    );
+    r.unmount();
+  });
+
+  // ── ⑧ 적은 닉네임은 발급 바디에 실린다 (두 출구 모두) ───────────────────────
+  //
+  // 학령과 같은 자리로 간다 — 게스트 유저 행이 만들어지는 곳이 발급 하나뿐이라
+  // (`routers/auth.py guest_login`이 `nickname=f"게스트-{...}"`를 거기서 정한다)
+  // 유일성을 걸 서버가 볼 자리도 거기다.
+  //
+  // ⚠️ **여기 있던 「오늘 서버는 이 필드를 조용히 무시한다」는 낡았다**(2026-08-14 오후).
+  //    같은 날 `GuestStartRequest.nickname`(`min_length=1,max_length=50`)과 유일성
+  //    검사가 착지했다 — 이제 서버가 받고, 겹치면 409 `NICKNAME_TAKEN`을 준다.
+  //    이 시나리오가 **바디만** 재는 것은 그 시절의 잔재가 아니라 지금도 맞는 분업이다:
+  //    「값이 실려 나가는가」는 여기가, 「겹쳤을 때 화면이 어떻게 되는가」는 아래 ⑨가 문다.
+  await scenario('⑧ 적은 닉네임이 발급 바디에 실린다 — 「다음」·「건너뛰기」 양쪽', async () => {
+    // ⑧-a 「다음」 — 학령과 나란히 실린다
+    await coldOpen();
+    let r = mountApp('/');
+    await waitFor(() => $ni(), 8000, '닉네임 입력란');
+    fillInput($ni(), '구름사냥꾼');
+    await sleep(60);
+    $('[data-testid="entry-info-levels"] button[data-level="elementary"]').click();
+    await sleep(60);
+    $('[data-testid="entry-info-submit"]').click();
+    await waitFor(() => wireBodies.length >= 1, 8000, 'POST /auth/guest 발화');
+    ok(
+      wireBodies[0]?.nickname === '구름사냥꾼' && wireBodies[0]?.level_group === 'elementary',
+      `⑧-a 🔴 닉네임이 학령과 함께 발급 바디로 간다 — 실제 ${JSON.stringify(wireBodies[0])}`,
+    );
+    r.unmount();
+
+    // ⑧-b 「건너뛰기」 — 학령은 안 골랐어도 이름은 버리지 않는다. 닉네임은 학령과
+    //      독립이므로 「건너뛰기 = 아무것도 안 보냄」이 아니라 「학령을 안 보냄」이다.
+    await coldOpen();
+    r = mountApp('/');
+    await waitFor(() => $ni(), 8000, '닉네임 입력란');
+    fillInput($ni(), '비구름');
+    await sleep(60);
+    $('[data-testid="entry-info-skip"]').click();
+    await waitFor(() => wireBodies.length >= 1, 8000, 'POST /auth/guest 발화');
+    ok(
+      wireBodies[0]?.nickname === '비구름' && wireBodies[0]?.level_group === undefined,
+      `⑧-b 건너뛰어도 이름은 실리고 학령은 안 실린다 — 실제 ${JSON.stringify(wireBodies[0])}`,
+    );
+    // 학령 기본값이 그대로여야 한다 — 닉네임을 얹는 인터셉터가 ⑤의 계약을
+    // 건드리지 않았음을 여기서 한 번 더 못박는다(같은 바디를 만지는 코드다).
+    const me = await api('GET', '/auth/me');
+    ok(
+      me.body?.level_group === 'middle_high',
+      `⑧-b 이름만 적었으면 학령은 서버 기본값 그대로다 — 실제 ${me.body?.level_group}`,
+    );
+    r.unmount();
+  });
+
+  // ── ⑨ 이름이 겹치면 정보 입력으로 되돌아온다 (409 NICKNAME_TAKEN) ──────────
+  //
+  // 🔴 **이 계약이 없으면 「이름의 증발」이 되살아난다.** 처음 만든 판은 닉네임을
+  //    axios 인터셉터로 요청에 얹었는데, 그 구조는 **응답의 종류를 화면에 알릴
+  //    통로가 없다** — 409가 오면 일반 발급 실패로 취급돼 재시도 화면으로 가고,
+  //    값이 일회성이라 재시도는 **이름 없이 나가 성공한다.** 학습자는 오류를 보는
+  //    것이 아니라 자기가 적은 이름이 사라진 것을 겪는다(대장 §4.16).
+  //
+  // ⚠️ **`NICKNAME_TAKEN`만 폼으로 되돌린다.** 나머지 실패는 전부 `GuestIssueRetry`다
+  //    — 넓히면 MT-29가 고친 결함(발급 실패를 폼으로 보내는 것)이 그대로 재발하고,
+  //    그것이 규정의 「로그인 없이 열려야」를 연결 나쁜 심사위원에게서 깨뜨린다.
+  //
+  // 🔴 **그 경계를 무는 것은 이 파일이 아니다.** 처음 이 자리에 "⑨-c가 그 경계를
+  //    문다"고 적었는데 **거짓이었고 되돌림 확인이 잡았다**: 분기를 `if (!ok)`로
+  //    넓혀도 ⑨는 전건 초록이었다. 당연하다 — 이 시나리오가 만드는 실패는 **중복
+  //    하나뿐**이라, 「중복 **아닌** 실패가 폼으로 새는가」를 잴 표본이 없다.
+  //    실제 소유자는 `onboardingGating.smoke`의 「발급 실패: 로그인 폼이 아니라
+  //    재시도 화면」이고, 같은 변이에서 그쪽이 6초 타임아웃으로 운다(실측).
+  //    ⑨-c가 무는 것은 **반대 방향**이다 — 중복일 때 재시도 화면으로 새지 않는가.
+  //    둘이 합쳐져야 경계가 양쪽에서 닫힌다.
+  //
+  // 목이 `날씨러버`를 **이미 쓰이는 이름으로 시드**해 둔다(정식 계정 닉네임 —
+  // `registeredEmails`가 `taken@…`을 시드하는 것과 같은 관례). 그래서 이 시나리오는
+  // 앞선 발급에 의존하지 않고 **결정적으로** 409를 만든다.
+  await scenario('⑨ 겹치는 이름 → 정보 입력으로 되돌아오고 적은 이름이 남는다', async () => {
+    const mark = await coldOpen();
+    const r = mountApp('/');
+    await waitFor(() => $ni(), 8000, '닉네임 입력란');
+    fillInput($ni(), '날씨러버');
+    await sleep(60);
+    $('[data-testid="entry-info-levels"] button[data-level="adult"]').click();
+    await sleep(60);
+    $('[data-testid="entry-info-submit"]').click();
+
+    // ⑨-a 되돌아온다 — 재시도 화면이 아니라 **정보 입력 화면**이다
+    await waitFor(
+      () => $('[data-testid="entry-info-nickname-taken"]'),
+      8000,
+      '중복 안내와 함께 정보 입력 화면 복귀',
+    );
+    ok(
+      Boolean($('[data-testid="entry-info"]')),
+      '⑨-a 🔴 겹치는 이름이면 정보 입력 화면으로 되돌아온다(재시도 화면이 아니다)',
+    );
+
+    // ⑨-b 적은 이름이 그대로 남는다 — 비우면 방금 친 것을 또 쳐야 한다
+    ok(
+      $ni()?.value === '날씨러버',
+      `⑨-b 적은 이름이 입력란에 남아 있다 — 실제 "${$ni()?.value}"`,
+    );
+
+    // ⑨-c **경계** — 재시도 화면으로 새지 않았다. 이 단정이 MT-29 회귀를 문다.
+    ok(
+      $('[data-testid="guest-issue-retry"]') === null,
+      '⑨-c 중복은 재시도 화면으로 가지 않는다(발급 실패와 사유가 다르다 — MT-29)',
+    );
+
+    // ⑨-d 이름을 바꾸면 통과한다 — 되돌아온 화면이 **살아 있는 화면**이어야 한다
+    //     (얼어붙은 화면이면 학습자가 갇힌다 — 재시도가 effect 의존성에 있어야
+    //      한다는 계약과 같은 뿌리다).
+    fillInput($ni(), '아직안쓴이름');
+    await sleep(60);
+    $('[data-testid="entry-info-levels"] button[data-level="adult"]').click();
+    await sleep(60);
+    $('[data-testid="entry-info-submit"]').click();
+    await waitFor(
+      () => useAuthStore.getState().accessToken,
+      8000,
+      '이름을 바꾼 뒤 발급 성공',
+    );
+    const sent = wireBodies.at(-1);
+    ok(
+      sent?.nickname === '아직안쓴이름',
+      `⑨-d 바꾼 이름으로 다시 나간다 — 실제 ${JSON.stringify(sent)}`,
+    );
+    ok(
+      guestCalls(mark).length === 2,
+      `⑨-d 발급은 겹친 1회 + 성공 1회 = 2회다 — 실제 ${guestCalls(mark).length}회`,
+    );
+    r.unmount();
+  });
+
+  // ── ⑩ 세션 만료 — 「다시 시도」가 계정 교체가 되지 않는다 ──────────────────
+  /**
+   * 🔴 **이 시나리오가 무는 결함이 가장 조용했다.** 토큰이 지워진 뒤(401 인터셉터
+   * → `authStore.logout()`) `RequireAuth`가 `GuestIssueRetry`를 재사용했고, 그
+   * 「다시 시도」 버튼이 `resetGuestAutoIssue()`를 불러 **새 게스트를 발급**했다.
+   * 게스트 비밀번호는 무작위 시크릿이라 옛 계정으로 돌아갈 길이 없다 — 버튼 이름은
+   * 「다시 시도」인데 실제 결과는 **진도 영구 소실**이었다. `App.jsx:85` 주석이
+   * "조용히 새 게스트를 발급하면 만료가 계정 교체로 둔갑한다"고 금지해 둔 바로
+   * 그 일을, 같은 파일의 렌더 분기가 하고 있었다.
+   *
+   * 세 가지를 함께 본다. 하나만 보면 갈린다:
+   *   ⑩-a 만료 화면이 뜨고 **발급이 자동으로 안 나간다**(교체 차단).
+   *   ⑩-b 「진도 불러오기」가 실제로 그 화면에 **닿는다** — `/login`이
+   *        `RequireAuth` 안쪽 라우트라 토큰 게이트를 뚫지 못하면 만료 화면으로
+   *        되돌아오는 무한 루프가 된다. 목적지가 살아 있는지까지 봐야 한다.
+   *   ⑩-c 「새로 시작하기」는 여전히 **발급을 일으킨다** — 막기만 하고 출구를
+   *        닫으면 학습자가 갇힌다(MT-29가 막으려던 결과 그 자체다).
+   */
+  await scenario('⑩ 세션 만료 → 선택 화면(자동 계정 교체 없음)', async () => {
+    await coldOpen();
+    const r = mountApp('/learn'); // 딥링크 = 정보 입력 게이트 없음, 바로 발급
+    await waitFor(() => useAuthStore.getState().accessToken, 8000, '게스트 발급');
+    const afterIssue = xhrLog.length;
+
+    // 401 인터셉터가 하는 일과 같다 — 토큰만 지운다.
+    useAuthStore.getState().logout();
+
+    await waitFor(() => $('[data-testid="session-expired"]'), 8000, '만료 화면');
+    ok(
+      Boolean($('[data-testid="session-expired"]')),
+      '⑩-a 토큰이 지워지면 만료 화면이 뜬다',
+    );
+    ok(
+      $('[data-testid="guest-issue-retry"]') === null,
+      '⑩-a 발급 실패 재시도 화면이 아니다(사유가 다르다 — 계정이 이미 있다)',
+    );
+    await sleep(400); // 자동 발급이 있었다면 이 사이에 나간다
+    ok(
+      guestCalls(afterIssue).length === 0,
+      `⑩-a 🔴 만료만으로는 새 게스트를 발급하지 않는다 — 실제 ${guestCalls(afterIssue).length}회`,
+    );
+
+    // ⑩-b 「진도 불러오기」 → 목적지가 실제로 그려진다(토큰 없이 통과)
+    $('[data-testid="session-expired-load"]').click();
+    await waitFor(
+      () => text().includes('저장할 때 쓴 이메일과 비밀번호'),
+      8000,
+      () => `진도 불러오기 화면 — 실제 본문 "${text().slice(0, 120)}"`,
+    );
+    ok(
+      Boolean($('input[name="email"]')) && Boolean($('input[name="password"]')),
+      '⑩-b 「진도 불러오기」가 실제 화면에 닿는다(토큰 게이트 통과)',
+    );
+    r.unmount();
+  });
+
+  await scenario('⑩-c 만료 화면의 「새로 시작하기」는 발급을 일으킨다', async () => {
+    await coldOpen();
+    const r = mountApp('/learn');
+    await waitFor(() => useAuthStore.getState().accessToken, 8000, '게스트 발급');
+    const afterIssue = xhrLog.length;
+    useAuthStore.getState().logout();
+    await waitFor(() => $('[data-testid="session-expired-fresh"]'), 8000, '만료 화면');
+
+    $('[data-testid="session-expired-fresh"]').click();
+    await waitFor(
+      () => useAuthStore.getState().accessToken,
+      8000,
+      '「새로 시작하기」 뒤 새 게스트 발급',
+    );
+    ok(
+      guestCalls(afterIssue).length === 1,
+      `⑩-c 누른 사람에게만 발급이 일어난다(정확히 1회) — 실제 ${guestCalls(afterIssue).length}회`,
+    );
+    r.unmount();
+  });
+  // ── ⑪ 새로고침해도 만료 안내가 유지된다 ────────────────────────────────
+  /**
+   * 🔴 **⑩만으로는 부족하다.** ⑩이 무는 것은 「이 페이지 로드에서」 토큰이
+   * 지워진 경우이고, 그 판정은 모듈 스코프 플래그(`guestSettled`)가 들고 있다.
+   * 학습자가 **새로고침**하면 그 플래그가 초기화돼 「첫 방문자」와 구분이 안 되고,
+   * 만료 안내 대신 새 게스트가 조용히 발급된다 — 안내 화면을 만들어 놓고 가장
+   * 흔한 사용자 행동 하나로 우회되는 셈이다. persist되는 `authStore.hadAccount`가
+   * 그 구분을 갖는다.
+   *
+   * 새로고침의 재현: `resetGuestAutoIssue()`로 모듈 플래그를 첫 로드 상태로
+   * 되돌린 뒤(그것이 `hadAccount`도 지우므로) 스토어에 **persist에서 복원된 것과
+   * 같은 상태**를 직접 심는다 — 토큰 없음 + `hadAccount: true`.
+   */
+  await scenario('⑪ 새로고침 후에도 만료 안내(조용한 재발급 없음)', async () => {
+    const mark = await coldOpen();
+    useAuthStore.setState({ hadAccount: true }); // persist 복원분
+    const r = mountApp('/learn');
+    await waitFor(() => $('[data-testid="session-expired"]'), 8000, '만료 화면');
+    await sleep(400);
+    ok(
+      guestCalls(mark).length === 0,
+      `⑪ 🔴 새로고침이 만료를 첫 방문으로 둔갑시키지 않는다 — 실제 ${guestCalls(mark).length}회`,
+    );
+    ok(
+      !useAuthStore.getState().accessToken,
+      '⑪ 토큰이 조용히 생기지 않았다',
+    );
+    // 출구는 살아 있다 — 막기만 하고 닫으면 학습자가 갇힌다.
+    $('[data-testid="session-expired-fresh"]').click();
+    await waitFor(() => useAuthStore.getState().accessToken, 8000, '「새로 시작하기」 발급');
+    ok(guestCalls(mark).length === 1, '⑪ 「새로 시작하기」는 여전히 발급을 일으킨다');
+    r.unmount();
+  });
+
+  // ── ⑫ 늦게 도착한 자동 발급이 복구된 계정을 덮지 않는다 ──────────────────
+  /**
+   * 🔴 `/login`(진도 불러오기)이 토큰 게이트를 통과하게 되면서 생긴 경합이다.
+   * 그 화면은 토큰 없이 열리므로 **자동 게스트 발급과 동시에** 진행될 수 있고,
+   * 발급이 느리게 성공하면 방금 복구한 계정 토큰을 게스트 토큰이 덮어쓴다 —
+   * 학습자는 로그인에 성공하고도 빈 게스트로 떨어진다.
+   *
+   * 재현은 「로그인이 먼저 끝난다」를 만들면 된다: 발급이 날아가는 동안
+   * 스토어에 복구 토큰을 심고, 발급 응답이 도착한 **뒤에** 그 토큰이 살아
+   * 있는지 본다.
+   */
+  await scenario('⑫ 진행 중인 자동 발급이 복구된 토큰을 덮지 않는다', async () => {
+    // ⚠️ **경합을 우연에 맡기지 않는다.** 마운트 직후 토큰을 심으면 발급이
+    // 아예 시작되지 않고(effect의 `if (accessToken)` 분기), 요청이 나간 뒤를
+    // 노리면 응답이 먼저 도착해 간헐 실패한다. 발급 **응답만** 지연시켜
+    // 「로그인이 먼저 끝났다」를 결정적으로 만든다.
+    const slow = client.interceptors.response.use(async (res) => {
+      if (res.config?.url === '/auth/guest') await sleep(700);
+      return res;
+    });
+    try {
+      const mark = await coldOpen();
+      const r = mountApp('/learn'); // 발급 시작
+      await waitFor(() => guestCalls(mark).length === 1, 8000, '발급 요청이 나갔다');
+      // 응답이 도착하기 전에 「로그인 성공」을 심는다(LoadProgressPage와 동일).
+      useAuthStore.getState().setTokens({
+        accessToken: 'restored-access',
+        refreshToken: 'restored-refresh',
+      });
+      await sleep(1200); // 지연된 발급 응답이 도착하고도 남을 시간
+      ok(
+        useAuthStore.getState().accessToken === 'restored-access',
+        `⑫ 🔴 늦게 온 발급분이 복구 토큰을 덮지 않는다 — 실제 "${useAuthStore.getState().accessToken}"`,
+      );
+      r.unmount();
+    } finally {
+      client.interceptors.response.eject(slow);
+    }
+  });
 } finally {
   await vite.close();
   httpServer.close();
@@ -325,5 +725,5 @@ if (failed > 0) {
   console.error(`\n${failed}건 실패`);
   process.exit(1);
 }
-console.log('OK: 진입 동선(접속 → 정보 입력 → 배치고사 · 학령이 발급 바디로 · 건너뛰기 · 딥링크) 통과');
+console.log('OK: 진입 동선(접속 → 정보 입력 → 배치고사 · 학령·닉네임이 발급 바디로 · 닉네임은 선택 · 건너뛰기 · 딥링크) 통과');
 process.exit(0);

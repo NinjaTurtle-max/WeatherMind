@@ -34,6 +34,11 @@ export default {
         cloudy: { label: '흐림' },
         wildfire_risk: { label: '산불 위험' },
         flood_risk: { label: '침수 위험' },
+        // ㉣ 경보급(2026-08-18) — 조건 4개가 동시에 맞을 때만 난다.
+        // 「위험」과 이름이 비슷하지만 **다른 결과**다: 지름길로는 여기 못 온다.
+        severe_storm: { label: '조직된 뇌우' },
+        wildfire_warning: { label: '산불 경보급' },
+        flood_warning: { label: '호우 침수 경보급' },
       },
       cloud: {
         cumulonimbus: { label: '적란운' },
@@ -237,6 +242,19 @@ export default {
         liftsAfterSunrise: '해가 뜨면 곧 걷혀요',
         fogLowCloudToShore: '해안까지 덮은 안개와 낮은 구름',
         upglide: '활승',
+        daysOfDrying: '며칠째 마른 공기 — 속까지 말랐어요',
+        fireFrontHead: '불머리 — 바람 부는 쪽이 가장 빨라요',
+        spotFireAhead: '날아간 불씨가 앞에 새 불을 놓아요',
+        newCellsUpwind: '바람 위쪽에서 새 비구름이 계속 생겨요',
+        soilAlreadyFull: '땅속 틈이 이미 물로 찼어요',
+        runoffGathersLow: '못 스민 물이 낮은 곳으로 모여요',
+        forestedRidge: '숲이 우거진 산등성이 — 비탈을 타고 더 빨라져요',
+        cityImpervious: '도시 — 포장된 땅은 물을 먹지 못해요',
+        fireRunsUphill: '불은 비탈을 더 빨리 올라가요',
+        crownFireInTrees: '나무 꼭대기로 옮겨붙었어요',
+        drainOverwhelmed: '빗물받이가 감당하지 못하고 되넘쳐요',
+        basementFloods: '지하부터 물이 차요',
+        greenGroundSoaks: '풀밭은 그래도 물을 먹어요',
       },
       // MT-28: 단면 스토리보드 15종(CrossSectionPanel STORYBOARDS).
       // ko 값은 외부화 전 원문과 **바이트 동일** — boardVisual.render.test가
@@ -479,6 +497,7 @@ export default {
       sandboxTitle: '자유 실험',
       sandboxDesc: '목표도 채점도 없어요. 기단·전선·습기·일사를 마음껏 놓아 보고 어떤 날씨가 만들어지는지 관찰해요.',
       sandboxInputs: '요소 9종 · 채점 없음 · 구름 무소모',
+      heroTitle: '무엇을 직접 움직여 볼까요?',
       title: '🔭 탐구',
       subtitle: '조건을 직접 움직여 보며 날씨와 기후의 원리를 체험하는 공간이에요.',
       typhoonTitle: '태풍 만들기',

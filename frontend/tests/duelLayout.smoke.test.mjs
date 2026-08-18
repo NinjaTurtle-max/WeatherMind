@@ -21,6 +21,7 @@
  * "클래스가 붙어 있다"까지만 본다 — 실제 픽셀은 브라우저 실측으로 확인했고,
  * 여기서 막고 싶은 것은 그 클래스가 정리 중에 사라지는 회귀다.
  */
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import http from 'node:http';
@@ -218,11 +219,100 @@ for (const [rel, guard] of [
   ok(wraps === 2, `${rel}: 로딩·오류 분기가 CompeteLayout 안에서 그려진다 — 실제 감싼 수 ${wraps}`);
 }
 
-// ── ④ 튜터는 태풍이 ─────────────────────────────────────────────────────────
-const tutorImg = $('[data-testid="sidenav"] img');
-ok(tutorImg?.getAttribute('src') === '/typhoon.png', `사이드바 튜터 이미지 — ${tutorImg?.getAttribute('src')}`);
-const sidenavText = $('[data-testid="sidenav"]')?.textContent ?? '';
-ok(sidenavText.includes('태풍이'), `사이드바 튜터 이름이 태풍이 — "${sidenavText.slice(-40)}"`);
+// ── ④ 태풍이는 **상단 배너**가 말한다 (2026-08-12 사용자 지시) ─────────────
+// 종전에는 사이드바 왼쪽 하단 튜터였다. 학습·보드처럼 배너로 옮기면서
+// SideNav는 이 경로에서 튜터를 접는다 — **둘 다 뜨면 한 화면에 태풍이가 둘**이고
+// 각자 다른 말을 한다(2026-08-11에 /board에서 실제로 그랬다).
+const heroImg = $('[data-hero-mascot] img');
+ok(
+  $('[data-hero-mascot]')?.getAttribute('data-hero-mascot') === 'typhoon',
+  `상단 배너 마스코트가 태풍이 — ${$('[data-hero-mascot]')?.getAttribute('data-hero-mascot')}`,
+);
+ok(heroImg?.getAttribute('src') === '/typhoon.png', `배너 튜터 이미지 — ${heroImg?.getAttribute('src')}`);
+ok(
+  !$('[data-testid="sidenav"] img'),
+  '사이드바에 튜터 이미지가 없다 — 있으면 한 화면에 같은 캐릭터가 둘',
+);
+
+// ── ③-3 탭이 **카드 안**에 붙어 있다 (2026-08-17 사용자 지시) ───────────────
+/**
+ * "학습 세션처럼 예보/리그 탭을 카드 안에 넣어 줘". 종전에는 카드 **밖** 위쪽에
+ * 알약 꼴로 떠 있어서, 무엇을 바꾸는 스위치인지가 화면에서 안 붙어 보였다.
+ * 학습 경로가 2026-08-13에 같은 이유로 같은 꼴이 됐다(`CourseSwitcher`
+ * variant='tab' — `PcCurriculumPath`의 카드 안 맨 위).
+ *
+ * 세 가지가 한 묶음이고 하나만 빠져도 "붙어 있다"가 깨진다:
+ *   ⓐ 탭이 흰 카드(`rounded-[20px]`)의 **자손**이다.
+ *   ⓑ 탭 줄이 아래 테두리를 갖는다(`border-b`) — 카드와 이어지는 선.
+ *   ⓒ 선택된 탭이 `-mb-px`로 그 선을 **끊는다**. 이게 없으면 그냥 네모 버튼 둘이다.
+ * ⚠️ 카드는 **탭 분기 바깥**에 있어야 한다 — 배너 분기 안에 두면 마스코트가
+ *    없는 리그 탭에서 카드가 사라져 탭이 다시 허공에 뜬다.
+ */
+{
+  const tabEl = $('[data-compete-tab="/duel"]');
+  let card = tabEl;
+  while (card && !/rounded-\[20px\]/.test(card.className || '')) card = card.parentElement;
+  ok(Boolean(card), 'ⓐ 탭이 흰 카드 안에 있다 — 밖에 뜨면 무엇을 바꾸는지 안 붙어 보인다');
+  ok(
+    Boolean(card && /bg-white/.test(card.className)),
+    `ⓐ 그 카드가 학습 경로 카드와 같은 프레임이다 — "${card?.className ?? '(없음)'}"`,
+  );
+  const strip = tabEl?.parentElement;
+  ok(
+    Boolean(strip && /border-b\b/.test(strip.className)),
+    `ⓑ 탭 줄이 카드와 이어지는 선을 갖는다 — "${strip?.className ?? '(없음)'}"`,
+  );
+  ok(
+    /-mb-px/.test(tabEl?.className ?? ''),
+    'ⓒ 선택된 탭이 그 선을 끊는다(-mb-px) — 없으면 카드에 안 붙고 버튼처럼 보인다',
+  );
+}
+
+// ── ④-b 배너 설명이 **한 줄로 잘리지 않는다** (2026-08-17 사용자 지시) ───────
+// 종전 `truncate`는 300px에서 문장 끝을 «…»로 잘랐다 — 탐구·예보 둘 다
+// "…체험하는 공…" / "…내일 예보를 겨…"로 끝났다. 두 줄 접기로 바꿨다.
+//
+// ⚠️ **`truncate`로 되돌리는 것을 막는 것이 요점이다.** 잘림은 픽셀 계산이라
+// jsdom이 못 보고(레이아웃 엔진 없음), 화면에서도 "문장이 원래 저런가 보다"로
+// 넘어가기 쉽다. 실제 폭은 브라우저 실측으로 확인했다(1440: 설명 2줄 37px ·
+// 배너 h=90으로 **전후 동일**). 여기서는 소스 계약만 못박는다.
+// ⚠️ 높이가 그대로여야 하는 이유는 이 파일 머리말의 「배너 치수는 어디서나
+// 같다」 — 마스코트 원(62px)이 행 높이를 정하므로 두 줄(≈37px)은 안 넘긴다.
+{
+  const banner = readFileSync(resolve(root, 'src/components/HeroBanner.jsx'), 'utf8');
+  // ⚠️ **클래스 전체**를 잡는다(종전에는 `basis-[300px]` **뒤**만 캡처했다).
+  // 앵커에 넣은 토큰은 캡처에서 빠지므로, 그 토큰을 단정하는 줄이 영원히
+  // 실패한다 — 폭 계약을 추가하다 실제로 그렇게 걸렸다.
+  const descCls = banner.match(/<p className="(hidden min-w-0 [^"]*)"/)?.[1] ?? '';
+  ok(
+    /line-clamp-2/.test(descCls),
+    `배너 설명이 두 줄까지 접힌다 — 실제 "${descCls.trim()}"`,
+  );
+  ok(
+    !/\btruncate\b/.test(descCls),
+    '배너 설명에 truncate가 없다 — 붙으면 문장 끝이 «…»로 잘린다',
+  );
+  // ⚠️ **`lg:block`이 같이 있으면 위 두 줄이 통과하면서도 클램프는 죽는다**
+  // (2026-08-17 코드 리뷰가 잡았다 — 실제로 그 상태로 초록이었다).
+  // `line-clamp-2`는 `display:-webkit-box`고 `lg:block`은 `display:block`인데
+  // 특이도가 같고 컴파일 CSS에서 `.lg\:block`이 뒤에 온다(실측 54676 < 54779)
+  // — block이 이긴다. 클래스가 붙어 있는지만 보는 계약은 이 충돌을 못 보므로
+  // **충돌하는 짝을 직접 금지**한다. lg에서 펴지는 것은 `hidden`(7835)보다
+  // `.lg\:line-clamp-2`(54676)가 뒤라 clamp 자신이 해낸다.
+  ok(
+    !/\blg:block\b/.test(descCls),
+    'lg:block이 없다 — display:block이 line-clamp의 -webkit-box를 덮어 클램프가 죽는다',
+  );
+  // ⚠️ **폭을 넓히는 것은 `xl` 이상에서만이다**(2026-08-18 "줄 바꿈없이 일자로 쭉").
+  // 한 줄에 필요한 폭이 351px이라 기본 300으로는 반드시 두 줄이 된다. 그런데
+  // 1024·1152에서 360을 주면 예보·리그 배너(CompeteLayout 카드 안이라 더 좁다)의
+  // **제목이 «…»로 잘린다** — 실측으로 확인하고 xl로 물렸다. 기본값을 360으로
+  // 올리는 「간단한」 수정이 그 회귀다.
+  ok(
+    /\bbasis-\[300px\]/.test(descCls) && /\bxl:basis-\[360px\]/.test(descCls),
+    `설명 폭이 xl에서만 넓어진다(기본 300 · xl 360) — 실제 "${descCls.trim()}"`,
+  );
+}
 
 // ── ⑤ 시각 라벨이 실서버 형식을 읽는가 (2026-08-10 실기동 회귀) ─────────────
 // 실서버는 `"202608101500"`(YYYYMMDDHHMM)을 주는데 종전 fmtHour가 ISO만 가정해

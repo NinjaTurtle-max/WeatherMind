@@ -61,8 +61,19 @@ export default function CaseListPage() {
         </div>
       )}
 
+      {/* 사건 6개 — `xl`부터 **3열**이라 두 줄로 끝난다(2026-08-18 사용자 지시.
+          종전 2열 3줄). `lg`가 아니라 `xl`인 이유는 옆 화면(단서 목록)과 같다 —
+          lg(1024) 뷰포트에서는 셸이 784px이라 3열이면 한 칸 246px로 눌린다
+          (실측). xl에서 331px · 1536에서 363px로, 종전 2열(368px)과 사실상 같다.
+          ⚠️ **폭 상한을 함께 풀어야 한다.** `max-w-[760px]`이 남아 있으면 셸이
+          1152여도 격자가 760에 묶여 한 칸이 240px로 눌린다 — 열 수만 바꾸면
+          카드가 작아지는 것으로 보인다. 1120이면 한 칸 364px로 종전 2열(368px)과
+          사실상 같다.
+          ⚠️ 이 주석을 아래 `&& (` **안쪽 첫 줄**로 옮기지 말 것 — JSX 주석이
+          그 자리에 오면 `{...}`가 객체 리터럴로 파싱돼 빌드가 깨진다(실제로
+          그렇게 썼다가 깨뜨렸다). */}
       {casesQ.isSuccess && casesQ.data.length > 0 && (
-        <div className="grid max-w-[760px] grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid max-w-[1120px] grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {casesQ.data.map((item) => (
             <Link
               key={item.case_id}

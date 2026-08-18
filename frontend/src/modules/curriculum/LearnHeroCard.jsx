@@ -69,7 +69,7 @@ export default function LearnHeroCard({
     <div
       data-testid="learn-entry"
       data-entry-kind={entry.kind}
-      className="rounded-[20px] bg-gradient-to-b from-[#1F3A5F] to-[#16293F] px-4 py-4 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
+      className="rounded-[20px] bg-gradient-to-b from-[#1F3A5F] to-[#16293F] px-[18px] py-5 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
     >
       {/* 머리 — 마스코트 + 머리글/제목. 화자가 먼저 오고 그 뒤에 말할 내용이 온다.
           원형 배경을 깔아 남색 위에서 실루엣이 뜨게 한다(투명 PNG라 배경 없이
@@ -77,8 +77,8 @@ export default function LearnHeroCard({
           누워 있을 때 두 줄이 되는 것을 막던 장치였고, 세로 카드에서는 접을
           이유가 없다. */}
       <div className="flex items-center gap-3">
-        <span className="grid h-[48px] w-[48px] flex-none place-items-center rounded-full bg-white/10">
-          <Mascot name={ENTRY_MASCOT[entry.kind] ?? 'drop'} className="h-[38px] w-[38px]" />
+        <span className="grid h-[56px] w-[56px] flex-none place-items-center rounded-full bg-white/10">
+          <Mascot name={ENTRY_MASCOT[entry.kind] ?? 'drop'} className="h-[44px] w-[44px]" />
         </span>
         {/* min-w-0이 없으면 긴 유닛명이 카드를 밀어낸다(줄임표가 안 걸린다). */}
         <div className="min-w-0 flex-1">
@@ -95,10 +95,13 @@ export default function LearnHeroCard({
           접었지만(두 줄이 되는 것을 막으려고), 세로 열에서는 접을 폭이 없고 접으면
           부제가 화면에서 사라진다. 진도 값 자체는 경로 카드 하단 바도 갖는다.
           ⚠️ **오늘의 목표는 여기 넣지 말 것.** 아래로 따로 뺀 이유가 그것이다. */}
-      <p className="mt-3 text-[11.5px] leading-relaxed text-slate-300">
+      {/* 11.5 → **10.5px**(2026-08-18 사용자 지시 "글씨 크기 살짝만 줄여줘").
+          이 부제만 줄인다 — 아래 진도 수치·설정 링크(11.5px)는 짧은 한 줄이라
+          답답하지 않았고, 같이 줄이면 카드 전체가 흐릿해진다. */}
+      <p className="mt-4 text-[10.5px] leading-relaxed text-slate-300">
         {t('curriculum.subtitle')}
       </p>
-      <span className="mt-2 block h-[6px] overflow-hidden rounded-full bg-white/15">
+      <span className="mt-3 block h-[7px] overflow-hidden rounded-full bg-white/15">
         <i className="block h-full rounded-full bg-sky-400" style={{ width: `${pct}%` }} />
       </span>
 
@@ -114,7 +117,7 @@ export default function LearnHeroCard({
         <span
           data-testid="learn-goal"
           data-goal-state="set"
-          className="mt-2.5 block whitespace-nowrap text-[11.5px] font-bold tabular-nums text-slate-300"
+          className="mt-3.5 block whitespace-nowrap text-[11.5px] font-bold tabular-nums text-slate-300"
         >
           {t('home.goal.title')} {goalDone}/{goalTotal} {t('home.goal.items')}
         </span>
@@ -126,20 +129,20 @@ export default function LearnHeroCard({
           to={`/me#${GOAL_ANCHOR}`}
           data-testid="learn-goal"
           data-goal-state="unset"
-          className="mt-2.5 block whitespace-nowrap text-[11.5px] font-bold text-sky-300 hover:text-sky-200"
+          className="mt-3.5 block whitespace-nowrap text-[11.5px] font-bold text-sky-300 hover:text-sky-200"
         >
           {t('curriculum.goalUnset')}
         </Link>
       )}
 
       {ctaBlocked ? (
-        <span className="mt-3 block">
+        <span className="mt-4 block">
           <button
             type="button"
             disabled
             aria-disabled="true"
             data-testid="learn-entry-cta"
-            className="block w-full cursor-not-allowed rounded-[14px] bg-white/15 px-4 py-2.5 text-center text-[13.5px] font-extrabold tracking-[-0.01em] text-white/50"
+            className="block w-full cursor-not-allowed rounded-[14px] bg-white/15 px-4 py-3 text-center text-[13.5px] font-extrabold tracking-[-0.01em] text-white/50"
           >
             {copy.cta}
           </button>
@@ -149,7 +152,7 @@ export default function LearnHeroCard({
         <Link
           to={entry.to}
           data-testid="learn-entry-cta"
-          className="mt-3 block rounded-[14px] bg-sky-500 px-4 py-2.5 text-center text-[13.5px] font-extrabold tracking-[-0.01em] text-white shadow-[0_3px_0_#0369A1] transition hover:bg-sky-400"
+          className="mt-4 block rounded-[14px] bg-sky-500 px-4 py-3 text-center text-[13.5px] font-extrabold tracking-[-0.01em] text-white shadow-[0_3px_0_#0369A1] transition hover:bg-sky-400"
         >
           {copy.cta}
         </Link>

@@ -275,6 +275,31 @@ export function alignScrollTop({ stageTop, stageHeight, nodeTop, nodeHeight, vie
   return Math.min(hi, Math.max(lo, want));
 }
 
+/**
+ * 「아래로 **이 섹션이** 더 있는가」 — 스크롤 힌트의 판정 (대장 §4.13, 2026-08-14)
+ *
+ * ⚠️ **재는 대상은 스크롤러가 아니라 「펼친 단계」다.** 접기 이후 스크롤러 안에는
+ * 펼친 `.wm-stage` 말고 **접힌 줄들**(각 52px)이 함께 산다. `el.scrollHeight`를
+ * 그대로 보면 그 줄들까지 「더 있는 것」으로 세어 힌트 문구(「이 섹션 더 보기」)가
+ * 거짓이 된다 — 3칸짜리 섹션을 펼치면 정렬이 `scrollTop = stageTop`으로 두는데
+ * 기상 코스는 아래에 접힌 줄이 9개(≈468px) 더 있어 판정이 **항상 참**이었다.
+ * 맨 끝 섹션을 펼쳤을 때만 우연히 맞았다(`#72` 코드리뷰 medium).
+ *
+ * 순수 함수로 뺀 이유는 `alignScrollTop`과 같다 — **jsdom에는 레이아웃이 없어
+ * 전부 0으로 재므로** 컴포넌트 안에 두면 회귀를 무는 방법이 없다. 실제로 §4.13은
+ * 「고쳤지만 계약을 못 세웠다」로 하루 열려 있었고, 그동안 **되돌려도 우는 것이
+ * 없었다.** 값은 스모크가 문다.
+ *
+ * `.wm-stage`가 `min-height: 100%`라 다 들어오는 섹션에서는 `stageHeight`가 정확히
+ * `viewport`가 되고, 그때 `scrollTop === stageTop`이면 아래 식이 거짓이 된다.
+ *
+ * @param slack 바닥 근처를 「더 없음」으로 보는 여유(px). 스크롤이 끝에 닿았을 때
+ *   소수점 오차로 힌트가 깜빡이는 것을 막는다.
+ */
+export function hasMoreBelow({ scrollTop, viewport, stageTop, stageHeight, slack = 24 }) {
+  return scrollTop + viewport < stageTop + stageHeight - slack;
+}
+
 export function resolveStatus(unit) {
   return unit.status ?? (unit.cleared ? 'cleared' : unit.locked ? 'locked' : 'current');
 }
@@ -828,8 +853,17 @@ export default function PcCurriculumPath({
     }
     // 단계의 아래끝을 **스크롤 좌표계**로 환산한다 — `offsetTop`은 위치 지정 조상
     // 기준이라 42px 어긋난다(정렬 effect가 같은 이유로 rect 차를 쓴다).
+    // 여기는 **재기만** 하고 판정은 `hasMoreBelow`가 소유한다(순수 함수라 스모크가
+    // 문다 — 대장 §4.13). 식을 여기에 인라인으로 되돌리면 그 계약이 죽는다.
     const stageTop = stage.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
-    setHasMore(el.scrollTop + el.clientHeight < stageTop + stage.offsetHeight - 24);
+    setHasMore(
+      hasMoreBelow({
+        scrollTop: el.scrollTop,
+        viewport: el.clientHeight,
+        stageTop,
+        stageHeight: stage.offsetHeight,
+      }),
+    );
   }, []);
 
   /**

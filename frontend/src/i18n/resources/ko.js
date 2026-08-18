@@ -32,6 +32,15 @@ export default {
     ko: '한국어',
     en: 'English',
   },
+  // 🔴 원출처 표기 — **대회 규정 요구**(2026-08-14 감사 판정). 화면 하단 한 줄.
+  // ⚠️ **기관명은 번역 대상이 아니다** — en에서도 원문이 그대로 온다. 그래도 키로
+  //    두는 이유는 이 저장소가 UI 문구를 예외 없이 외부화하기 때문이고, 예외를
+  //    하나 만들면 「어떤 문구가 키를 갖는가」의 규칙이 사람 판단으로 내려간다.
+  // ⚠️ 값을 바꿀 때는 `tests/home.smoke.test.mjs`의 원출처 단정 3종을 먼저 볼 것 —
+  //    기관명이 빠지면 요소가 남아 있어도 규정을 못 지킨다.
+  attribution: {
+    data: '자료: 기상청 날씨누리 · 기상청 API허브',
+  },
   common: {
     loading: '불러오는 중…',
     retry: '다시 시도',
@@ -54,7 +63,11 @@ export default {
       board: { name: '태양이', line: '어떤 날씨를 만들어 볼까요?' },
       learn: { name: '물방울이', line: '오늘은 어디까지 가볼까요?' },
       duel: { name: '태풍이', line: '자료를 보고 내일 날씨를 맞혀 봐요!' },
-      league: { name: '번개', line: '이번 주 순위를 올려볼까요?' },
+      // 탐구 담당이 구름이 → **번개**로 바뀌었다(2026-08-17 사용자 지시).
+      // 같은 날 잠깐 리그와 겹쳤다가, 리그가 눈송이를 받으면서 풀렸다(아래).
+      explore: { name: '번개', line: '오늘은 무엇을 살펴볼까요?' },
+      // 리그 담당이 번개 → **눈송이**로 바뀌었다(2026-08-17 사용자 지시).
+      league: { name: '눈송이', line: '이번 주 순위를 올려볼까요?' },
     },
   },
   // 개념 태그 → 표시명 (클라이언트 저작 라벨 — 서버는 태그 코드만 보낸다.
@@ -304,7 +317,10 @@ export default {
   // 학습 수준 라벨은 새로 만들지 않고 `auth.register.*`를 재사용한다(/me의 학습
   // 수준 카드와 같은 말이어야 한다). 여기 있는 것은 그 옆에 붙는 설명뿐이다.
   entryInfo: {
-    title: '반가워요! 어떻게 배울지 알려주세요',
+    // 2026-08-14(S-12): `알려주세요` → `알려 주세요`. 이 파일의 ⓑ 규약(보조용언
+    // 띄어쓰기 원칙형)이 8/13에 10건을 띄웠는데, 그 뒤에 저작된 이 블록만 붙임으로
+    // 남아 파일 안에서 유일한 예외였다(다른 `~해 주세요` 18건은 전부 띄움).
+    title: '반가워요! 어떻게 배울지 알려 주세요',
     body: '학습 수준에 맞춰 문항이 나와요. 지금 정하면 바로 이어서 실력 진단을 받아요.',
     levelLabel: '학습 수준',
     levelHint: {
@@ -312,6 +328,13 @@ export default {
       middleHigh: '교과 개념을 중심으로 배워요',
       adult: '실생활·심화 개념까지 배워요',
     },
+    // 닉네임은 **선택**이다 — 라벨에 그것을 적어 두는 것이 계약의 일부다.
+    // 「안 적어도 된다」가 화면에서 읽히지 않으면 사용자는 막힌 줄 알고 되돌아간다.
+    nicknameLabel: '닉네임 (선택)',
+    nicknamePlaceholder: '예: 구름사냥꾼',
+    nicknameHint: '리그와 순위표에 보일 이름이에요. 비워 두면 자동으로 지어 드려요.',
+    // 서버가 중복을 알려줄 때만 뜬다(오늘은 유일성 제약이 없어 뜨지 않는다).
+    nicknameTaken: '이미 쓰고 있는 이름이에요. 다른 이름으로 바꿔 주세요.',
     submit: '다음 — 실력 진단 받기 →',
     skip: '건너뛰기 →',
     note: '나중에 내 정보에서 언제든 바꿀 수 있어요.',
@@ -485,13 +508,15 @@ export default {
       boardChip: '보드 퍼즐 유닛',
       placementOpened: '🧭 진단으로 열림',
     },
+    // 2026-08-14(S-11 고아 키 정리): `body`·`resume`·`regenResume` 3키를 걷었다.
+    // 소유자였던 자유 일일 세션 카드·`/daily` 라우트가 2026-08-12에 통째로
+    // 제거되면서 읽는 곳이 사라졌다(`tests/onboardingGating.smoke.test.mjs` §8이
+    // 그 UI 단정을 걷어낸 경위를 소유한다). 남은 3키는 실사용처가 있다 —
+    // title·cta는 CurriculumHome, regen은 LearnHeroCard.
     daily: {
       title: '자유 일일 세션',
-      body: '정해진 경로 대신 오늘의 세션을 바로 풀고 싶다면.',
       cta: '오늘의 세션 풀기 →',
-      resume: '풀던 세션 이어서 풀기 →',
       regen: '☁️ 구름 회복까지 약 {min}분',
-      regenResume: '☁️ 구름 회복까지 약 {min}분 — 오늘 시작한 세션은 끝까지 마칠 수 있어요.',
     },
     // 세로 경로(PcCurriculumPath) — 노드 밑 라벨을 뺀 대신 진도 바가 "지금 어디"를 말한다.
     path: {
@@ -698,6 +723,7 @@ export default {
     },
   },
   duel: {
+    heroTitle: '캐스터보다 잘 맞혀 볼까요?',
     result: {
       win: '승리',
       lose: '패배',
@@ -810,6 +836,8 @@ export default {
     loading: '이번 주 리그 정보를 불러오는 중…',
     loadFailed: '리그 정보를 불러오지 못했어요',
     title: '기상 리그',
+    // 배너 큰 문장 — 한 줄로 잘리므로 짧게(`HeroBanner` title 규약).
+    heroTitle: '이번 주 등급을 올려 볼까요?',
     thisWeek: '이번 주',
     submittedTitle: '이번 주 예측 제출 완료! ✅',
     submittedBody: '주간 정산 후 실제 날씨와 비교해 ELO가 반영돼요.',
@@ -820,7 +848,9 @@ export default {
     submit: '예측 제출 (주 1회)',
     minOverMax: '최저기온이 최고기온보다 높을 수 없어요.',
     submitFailed: '예측 제출에 실패했어요.',
-    leaderboard: '리더보드',
+    // 2026-08-14(S-11): `leaderboard`('리더보드') 제목 키를 걷었다 — 대시보드
+    // 개편으로 그 자리의 제목은 `dash.ranking`(「리그 순위」)이 됐고 읽는 곳이
+    // 없었다. `leaderboardLoading`은 LeaguePage가 그대로 쓴다.
     leaderboardLoading: '순위표 불러오는 중…',
     myHistory: '내 리그 이력',
     accuracy: '정확도 {score}점',
@@ -876,6 +906,15 @@ export default {
       guestFailedBody: '잠시 연결이 어려웠어요. 다시 시도해 볼까요?',
       guestFailedRetry: '다시 시도하기',
       guestFailed: '시작에 실패했어요. 잠시 후 다시 시도해 주세요.',
+      // 만료 화면(2026-08-14) — **발급 실패와 다른 상황**이다. 이 화면에 온
+      // 사람은 계정이 이미 있었고 이 기기의 열쇠만 없어졌다. 「다시 시도」로
+      // 새 계정을 조용히 만들면 그 진도가 영영 사라지므로 선택을 묻는다.
+      expiredTitle: '이 기기의 연결이 끊겼어요',
+      expiredBody:
+        '학습 진도는 그대로 남아 있어요. 진도를 저장해 두었다면 불러올 수 있고, 아니면 새로 시작할 수 있어요.',
+      expiredLoad: '진도 불러오기',
+      expiredFresh: '새로 시작하기',
+      expiredFreshNote: '새로 시작하면 이 기기에 남아 있던 진도로는 돌아갈 수 없어요.',
       guestNickname: '게스트',
       email: '이메일',
       password: '비밀번호',

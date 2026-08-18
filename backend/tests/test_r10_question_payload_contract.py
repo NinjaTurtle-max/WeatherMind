@@ -201,7 +201,11 @@ class TestSeedTypeCoverage:
         #   4건 전부 `short_answer`인 것은 선택이 아니라 제약이다: slider에 슬롯
         #   정답을 넣으면 `validate_chain.slider_range`·계약 G `check_payload`·
         #   `seed_content.validate_entry` 세 곳이 "정답이 숫자가 아님"으로 떨군다.
-        assert len(_seed_items()) == 1012
+        # staging board 승격(2026-08-14): **+3 = 1015.** board 46 → 49
+        #   (CO-I-2/X-1 잔여 — 셋 다 `pressure_front`·kl4라 **조작 다양성은 안 는다**.
+        #   그 판정은 CO-K4(조건 문법이 2형뿐)가 소유한다).
+        # ㉣ 상위 보드 3판(2026-08-18): +3 = **1018** · board 49 → 52.
+        assert len(_seed_items()) == 1018
 
 
 class TestEverySeedItemIsPlayable:

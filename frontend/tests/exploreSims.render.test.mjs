@@ -5,6 +5,7 @@
  * renderToString(MemoryRouter 래핑)이 성공하고 핵심 문구가 출력되는지 확인한다.
  * 테스트 러너 의존 없이 boardEngine.vectors.test.mjs와 같은 node 직접 실행 관례.
  */
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -169,6 +170,29 @@ try {
     checkMt21('산출물 라벨이 실제 기관·위성명을 사칭하지 않는다',
       !/천리안|GK2A|히마와리|Himawari|KMA|기상청|NOAA|GOES/i.test(sat.productLine));
   }
+
+  // ── 화면 간 배치 정합 (2026-08-17 사용자 제보) ────────────────────────────
+  /**
+   * "탐구만 배치가 오른쪽 아래로 살짝 치우쳐 보인다"의 원인이 둘이었고, 둘 다
+   * **탐구 안에서는 안 보이는 종류**라 소스 계약으로 못박는다.
+   *
+   *  ⓐ 세로 — 페이지 래퍼가 `py-4`라 첫 카드가 8px 아래에서 시작했다(실측
+   *     1440: 탐구 y=80 · 학습·보드·예보·내 정보 y=72). 다른 화면과 같은
+   *     `pt-2`를 쓴다. 아래 여백은 `Layout`의 `main`이 `pb-8`로 이미 갖는다.
+   *  ⓑ 가로 — 탐구는 **내용이 한 화면에 들어가 페이지 스크롤이 없는 유일한
+   *     화면**이라(실측 docH 900 = 화면 높이 · 나머지 929~2303), 그 화면으로
+   *     갈 때만 세로 스크롤바가 사라지고 가운데 정렬 본문이 ≈8px 오른쪽으로
+   *     밀린다. `scrollbar-gutter: stable`이 자리를 늘 비워 고정한다.
+   *     ⚠️ 탐구를 길게 만들어 고칠 문제가 아니다 — 카드가 하나 늘면 증상이
+   *     저절로 사라졌다가 지우면 돌아온다.
+   */
+  const homeSrc = await readFile(resolve(root, 'src/modules/explore/ExploreHome.jsx'), 'utf8');
+  const wrap = homeSrc.match(/<div className="(space-y-4[^"]*)"/)?.[1] ?? '';
+  checkMt21(`ⓐ 탐구 래퍼가 다른 화면과 같은 상단 여백을 쓴다 — 실제 "${wrap}"`,
+    /\bpt-2\b/.test(wrap) && !/\bpy-\d/.test(wrap));
+  const cssSrc = await readFile(resolve(root, 'src/styles/index.css'), 'utf8');
+  checkMt21('ⓑ 스크롤바 자리를 늘 비운다 — 화면을 오갈 때 본문이 옆으로 안 밀린다',
+    /scrollbar-gutter:\s*stable/.test(cssSrc));
 } finally {
   await server.close();
 }

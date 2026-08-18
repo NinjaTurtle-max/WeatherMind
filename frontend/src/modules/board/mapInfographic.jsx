@@ -305,18 +305,40 @@ for (const id of RULE_ANNOTATION_IDS) {
 }
 
 /**
- * ZoneAnnotation — 리더선 + 짧은 설명 라벨. 존 x에 따라 좌/우로 뻗는다.
+ * ZoneAnnotation — 리더선 + 짧은 설명 라벨. **상자는 지도 맨 위 띠에 고정**이고
+ * 리더선만 존까지 내려간다(2026-08-18 — 종전에는 상자도 존을 따라다녔다).
  */
 export function ZoneAnnotation({ x, y, ruleId, animate = true }) {
   const text = RULE_ANNOTATIONS[ruleId];
   if (!text) return null;
   const lines = text.split('\n');
-  const toRight = x < 50;
-  const lx = toRight ? Math.min(x + 20, 78) : Math.max(x - 20, 22);
-  const ly = Math.max(y - 14, 8);
+  // 🔴 **상자를 지도 맨 위 띠에 고정한다**(2026-08-18 사용자 지시 —
+  // "수도권/영동·동해 지역 글씨 사이로 상단에 배치해줘").
+  //
+  // 종전에는 자리를 **존 좌표에 상대적으로** 잡았다(위로 −28, 옆으로 ±26).
+  // 그 방식으로는 겹침을 못 없앤다 — 이름표들이 저마다 다른 높이에 흩어져
+  // 있어서, 한 존에서 비켜 놓으면 다른 존에서 다시 물린다. 실제로 두 번
+  // 고쳤고 두 번 다 다른 존에서 재발했다(수도권 → 영서·태백).
+  //
+  // 이름표 y(userSpace, `boardLayout.FALLBACK_REGIONS`의 label_anchor × 0.8):
+  //   수도권 17.1 · 영동·동해 22.5 · 서해상 46.9 · 영서·태백 47.8
+  // 글자 높이를 감안한 **가장 높은 이름표의 윗변이 13.8**이다. 상자를 1에
+  // 두면 아래변이 12.8이라 **어느 이름표와도, 어느 존을 가리키든** 안 닿는다.
+  // 존마다 다른 규칙이 아니라 **하나의 상수**로 끝나는 것이 이 방식의 값이다.
+  //
+  // 가로는 존 바로 위 — 리더선이 짧은 세로선이 되어 어느 존의 설명인지가
+  // 오히려 또렷해진다. 지도 밖으로 나가지 않게만 좌우로 민다.
+  //
+  // ⚠️ 규칙이 **여러 존에서 동시에** 서면 상자들이 같은 띠에서 겹칠 수 있다.
+  //    종전 방식도 마찬가지였다(수도권 ly 2 · 영동·동해 3.3으로 이미 겹쳤다)
+  //    — 이 변경이 만든 문제가 아니라 남아 있는 문제다. 실제 퍼즐은 목표 존이
+  //    하나라 드러나지 않는다. 고치려면 존별 슬롯(위 띠·아래 띠)이 필요하다.
   const wMax = Math.max(...lines.map((l) => l.length));
   const boxW = wMax * 3.3 + 4;
   const boxH = lines.length * 4.6 + 2.6;
+  const half = boxW / 2;
+  const lx = Math.min(Math.max(x, half + 1), 100 - half - 1);
+  const ly = 1;
   return (
     <g aria-hidden="true" style={{ pointerEvents: 'none' }} className={anim(animate, 'animate-annot-in')}>
       <path

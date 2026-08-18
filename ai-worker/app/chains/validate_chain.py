@@ -119,6 +119,12 @@ PHENOMENON_ENUM = (
     # 이 두 값이 없으면 재난 board 문항의 goal_conditions가 lint_seed_items ⑧에서
     # 전건 탈락한다(재난 보드가 clear를 목표로 삼던 상태를 끝낸 것이 그 확장이다).
     "wildfire_risk",
+    # ㉣ 4조건 규칙의 고유 결과 — 경보급(2026-08-18). 소유자는
+    # `board_engine.PHENOMENA`이고 여기는 생성 게이트용 사본이다 —
+    # `test_weather_phenomenon`이 두 집합의 일치를 문다.
+    "severe_storm",
+    "wildfire_warning",
+    "flood_warning",
     "flood_risk",
 )
 BOARD_MODES = ("guided", "goal_only")

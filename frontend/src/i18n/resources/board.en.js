@@ -34,6 +34,10 @@ export default {
         cloudy: { label: 'Cloudy' },
         wildfire_risk: { label: 'Wildfire risk' },
         flood_risk: { label: 'Flood risk' },
+        // ㉣ warning tier (2026-08-18) — only when all four conditions hold.
+        severe_storm: { label: 'Organized thunderstorm' },
+        wildfire_warning: { label: 'Wildfire warning' },
+        flood_warning: { label: 'Flood warning' },
       },
       cloud: {
         cumulonimbus: { label: 'Cumulonimbus' },
@@ -223,6 +227,19 @@ export default {
         liftsAfterSunrise: 'Lifts soon after sunrise',
         fogLowCloudToShore: 'Fog and low cloud reaching the shore',
         upglide: 'Upglide',
+        daysOfDrying: 'Days of dry air — dry all the way through',
+        fireFrontHead: 'Fire head — fastest on the downwind side',
+        spotFireAhead: 'Flying embers start a new fire ahead',
+        newCellsUpwind: 'New rain cells keep forming upwind',
+        soilAlreadyFull: 'The gaps in the soil are already full of water',
+        runoffGathersLow: 'Water that cannot soak in gathers in low ground',
+        forestedRidge: 'Forested ridge — fire runs faster up a slope',
+        cityImpervious: 'City — paved ground cannot soak water up',
+        fireRunsUphill: 'Fire runs faster up a slope',
+        crownFireInTrees: 'It has climbed into the treetops',
+        drainOverwhelmed: 'The storm drain cannot keep up and backs up',
+        basementFloods: 'Water fills the basement first',
+        greenGroundSoaks: 'Green ground still soaks water in',
       },
       // MT-28: cross-section storyboards (see CrossSectionPanel STORYBOARDS).
       // Step counts must match ko — crossSectionWebgl.contract checks steps.length
@@ -463,6 +480,7 @@ export default {
       sandboxTitle: 'Free experiment',
       sandboxDesc: 'No goal, no grading. Place air masses, fronts, moisture and sunlight freely and watch what weather appears.',
       sandboxInputs: '9 elements · no grading · no clouds spent',
+      heroTitle: 'What shall we play with today?',
       title: '🔭 Explore',
       subtitle: 'A space to explore the principles of weather and climate by moving the conditions yourself.',
       typhoonTitle: 'Build a Typhoon',

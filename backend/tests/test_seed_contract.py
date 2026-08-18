@@ -106,7 +106,19 @@ class TestSeedSchema:
         # 됐고, 종전 8건이 **전부 MC·정답 고정**이라 "정답이 날마다 바뀐다"는 차별점을
         # 실제로 만들지 못하던 것을 short_answer 4 · ordering 1 · match 1 · slider 1로
         # 넓혔다(T3 완료 판정: 정답이 `today.*`를 참조하는 문항 ≥ 4건).
-        assert len(SEED_ITEMS) == 1012
+        # staging board 승격(2026-08-14): +3 = **1015**. CO-I-2/X-1의 잔여 3건
+        # (`r13_template_proof.json` · `pressure_front` · kl4)에 `board_order`
+        # **37~39**·`title`·`summary`를 채워 본시드로 올렸다(⚠️ 초안이 「47~49」라
+        # 적었는데 그것은 **밀려난 옛 자리**다 — 셋 다 난이도 2라 난이도 3 구간
+        # 앞에 넣어야 단조 계약이 선다. 옛 37~46이 40~49로 밀렸다).
+        # ⚠️ 대장이 한때 적은
+        # "24건 → 보드 34→58"은 거짓이고(21건은 이미 병합돼 지금 수가 그 결과다)
+        # **실제 잔여는 3건 · 보드 46 → 49**다.
+        # ㉣ 상위 보드 3판(2026-08-18): +3 = **1018**. 새 4조건 규칙을 쓰는 보드
+        # (kl 9·9·10 · board_order 50~52). ⚠️ ①(규칙)만 넣으면 「어느 퍼즐에서도
+        # 후보가 되지 않는 규칙」 계약이 울어 **②와 같은 PR이어야 한다** — 구조가
+        # §4.4의 3단 순서를 강제한다.
+        assert len(SEED_ITEMS) == 1018
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
@@ -123,7 +135,18 @@ class TestSeedSchema:
         for i, item in enumerate(SEED_ITEMS):
             source = item.get("source") or {}
             # R12 §9: Claude 저작분은 kind="claude-authored"(출처 추적 — 회수 단위)
-            assert source.get("kind") in ("seed", "claude-authored"), f"[{i}] source.kind"
+            # 2026-08-14: **`template` 추가** — staging 템플릿 전개분이 본시드로 처음
+            # 승격됐다(CO-I-2/X-1 잔여 board 3건, board_order **37~39**). 승격하면서
+            # kind를 "claude-authored"로 고쳐 적는 선택지가 있었으나 **출처를 지우는
+            # 쪽이라 택하지 않았다** — 이 필드의 존재 이유가 회수 단위 추적이고,
+            # 템플릿 전개분은 회수 단위가 다르다(템플릿 하나를 고치면 파생분이 함께
+            # 움직인다). refs가 `template: <이름>` + `params[...]`를 실어 그 추적을
+            # 실제로 가능하게 한다.
+            assert source.get("kind") in (
+                "seed",
+                "claude-authored",
+                "template",
+            ), f"[{i}] source.kind"
             refs = source.get("refs")
             assert isinstance(refs, list) and refs, f"[{i}] source.refs 비어 있음"
 
@@ -311,8 +334,38 @@ V1_RULE_IDS = frozenset({
     "siberian_snow", "convective_shower", "radiation_fog",
     "north_pacific_heatwave", "siberian_clear",
 })
-# v1 8규칙의 최저 priority. 확장 규칙은 전부 이 아래여야 한다 — 아래 테스트가 근거.
+# v1 8규칙의 priority 경계. ⚠️ **「확장은 전부 아래」는 2026-08-18에 갈렸다**:
+# 조건 3개 이하 확장은 여전히 아래(V1_MIN)여야 하고, **조건 4개 이상은 위**(V1_MAX 초과)
+# 여야 한다 — 아래 테스트와 `test_board_engine.TestDisasterPriorityPolicy`가 근거.
 V1_MIN_PRIORITY = 30
+V1_MAX_PRIORITY = 100
+# ⚠️ **덮을 권리의 조건은 「재난이냐」가 아니라 「결과가 고유하냐」다**(2026-08-18).
+#
+# 리뷰 ⑸가 지적한 우회는 실재한다 — 조건 수만 보면 아무 확장 규칙에 **네 번째 조건
+# 하나만 붙여** v1 불변 보증을 넘길 수 있다. PM은 「재난 현상으로 게이팅」을 제시했고
+# 그것도 우회는 막지만, 적용해 보니 **`severe_storm`(재난이 아닌 4조건 규칙)이 걸렸다.**
+#
+# 그 자리에서 더 정확한 불변식이 드러났다: **차단 1의 교훈이 곧 이 조건이다.**
+# 4조건 규칙이 지름길과 **같은 결과**를 내면 `check_goals`가 둘을 구분할 수 없어
+# 「가르치려는 요소를 무시해도 통과」가 되고, 그 규칙은 우선순위를 아무리 높여도
+# **교육적으로 장식**이다. 반대로 **결과가 고유하면** 지름길이 목표를 못 채우므로
+# 덮을 권리가 실제 값을 갖는다.
+#
+# 그래서 판정은 **「조건 4개 이상 AND 고유 결과」 둘 다**로 한다. 둘 중 하나만으로는
+# 부족하다 — 2조건 재난은 결과가 고유하지만 **너무 쉽게 발화**하므로 계속 아래여야
+# 하고(PM (A) 판정), 4조건이면서 결과가 겹치면 **구분이 안 돼 장식**이다(차단 1).
+# 재난 게이팅보다 넓게 맞고 ⑸의 우회도 함께 막는다.
+
+
+def _unique_outcome(rule: dict, all_rules: list[dict]) -> bool:
+    """이 규칙의 결과를 **조건 3개 이하 규칙 중 아무도 내지 않는가**."""
+    mine = (rule["then"]["phenomenon"], rule["then"].get("cloud"))
+    return not any(
+        other["id"] != rule["id"]
+        and len(other["when"]) <= 3
+        and (other["then"]["phenomenon"], other["then"].get("cloud")) == mine
+        for other in all_rules
+    )
 
 
 class TestBoardRulesSeedContract:
@@ -337,6 +390,20 @@ class TestBoardRulesSeedContract:
         for rule in BOARD_RULES:
             if rule["id"] in V1_RULE_IDS:
                 assert rule["priority"] >= V1_MIN_PRIORITY, rule["id"]
+            elif len(rule["when"]) >= 4 and _unique_outcome(rule, BOARD_RULES):
+                # 🔴 **2026-08-18 PM 판정 (A)로 갈린 갈래** — 조건 4개 이상은 덮는다.
+                # 종전 계약(확장은 전부 v1보다 낮다)의 보호 대상은 「너무 쉽게
+                # 발화하는 확장」이었다: 2조건이면 건조하고 바람만 불면 어디든
+                # 재난이 된다. **조건 4개가 동시에 맞아야 하는 규칙은 그 걱정의
+                # 범위 밖**이고, 오히려 낮은 우선순위로 두면 v1이 항상 이겨
+                # **영원히 안 걸리는 장식**이 된다(대장 Z-2가 그 부작용의 실례).
+                # 경계 자체(조건 수 ↔ priority 밴드)는
+                # `test_board_engine.TestDisasterPriorityPolicy`가 단독으로 문다.
+                assert rule["priority"] > V1_MAX_PRIORITY, (
+                    f"조건 4개 이상 확장 규칙 {rule['id']}의 priority "
+                    f"{rule['priority']}가 v1 최고 {V1_MAX_PRIORITY} 이하 — "
+                    "조건이 다 맞아도 v1이 이겨 이 규칙은 장식이 된다"
+                )
             else:
                 assert rule["priority"] < V1_MIN_PRIORITY, (
                     f"확장 규칙 {rule['id']}의 priority {rule['priority']}가 "

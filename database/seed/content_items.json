@@ -60,8 +60,8 @@
     "question_type": "short_answer",
     "template_json": {
       "question_text": "성질이 다른 두 기단이 만나는 경계면을 무엇이라고 하는가?",
-      "correct_answer": "전선",
-      "explanation_hint": "전선은 성질이 다른 두 기단이 만나는 경계면으로, 한랭전선과 온난전선이 대표적입니다."
+      "correct_answer": "전선면",
+      "explanation_hint": "두 기단의 경계는 면으로 서 있고 그 면을 전선면이라 한다. 전선면이 지표와 만나는 선이 전선이다 — 면과 선을 구별해 부른다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1744,7 +1744,7 @@
   {
     "concept_tag": "anomaly",
     "level_group": "expert",
-    "knowledge_level": 7,
+    "knowledge_level": 10,
     "question_type": "match",
     "template_json": {
       "question_text": "기상특보와 그 발표 기준을 알맞게 연결하세요.",
@@ -2555,7 +2555,7 @@
       "correct_answer": "1",
       "explanation_hint": "물의 비열은 1cal/(g·℃)입니다. 어떤 물질 1g의 온도를 1℃ 올리는 데 필요한 열량을 그 물질의 비열이라고 해요.",
       "min": 0,
-      "max": 10,
+      "max": 40,
       "step": 1,
       "unit": "cal"
     },
@@ -3077,7 +3077,7 @@
       "correct_answer": "4",
       "explanation_hint": "물은 약 4℃에서 밀도가 가장 큽니다. 그래서 겨울 호수는 표면부터 얼고, 바닥 쪽 물은 4℃ 부근을 유지해 물고기가 살 수 있어요.",
       "min": 0,
-      "max": 10,
+      "max": 40,
       "step": 1,
       "unit": "℃"
     },
@@ -4954,7 +4954,7 @@
       "correct_answer": "8",
       "explanation_hint": "20℃에서 12℃로 8℃ 떨어졌으므로 환경 감률은 8℃/km다. 구름이 없는 공기 덩어리가 스스로 식는 정도는 약 10℃/km이므로, 올라간 공기는 주변보다 차가워지고 무거워져 제자리로 되돌아온다. 구름이 없는 한 이 대기는 안정하다.",
       "min": 0,
-      "max": 15,
+      "max": 40,
       "step": 0.5,
       "unit": "℃/km"
     },
@@ -8331,7 +8331,7 @@
         "수도권(존 1)의 일사를 80 이상, 습기를 60 이상으로 함께 올리면 대류가 일어나 적란운이 발달해요."
       ],
       "correct_answer": "",
-      "board_order": 37,
+      "board_order": 40,
       "title": "제한 시간: 소나기",
       "summary": "60초 안에, 전선 없이 일사와 습기만으로 소나기를 만들어요."
     },
@@ -8379,7 +8379,7 @@
         "서해(존 0)에 시베리아 기단을 놓고 습기를 60 이상으로 올리면 기단이 변질해 눈구름이 만들어져요."
       ],
       "correct_answer": "",
-      "board_order": 38,
+      "board_order": 41,
       "title": "제한 시간: 눈",
       "summary": "90초 안에, 시베리아 기단을 서해에서 변질시켜 눈을 내려요."
     },
@@ -8426,7 +8426,7 @@
         "공기를 거의 포화 상태까지 채우고, 그 물기를 실어 나를 바람도 함께 세게 올려야 한다. 둘 중 하나만으로는 땅이 물에 잠기지 않는다."
       ],
       "correct_answer": "",
-      "board_order": 39,
+      "board_order": 42,
       "title": "좁고 굵은 집중호우",
       "summary": "포화에 가까운 공기와 강한 기류로 서해에 침수 위험을 만들어요."
     },
@@ -8475,7 +8475,7 @@
         "완만한 상승은 넓고 두꺼운 비구름을 만들어 약한 비를 오래 내리게 한다. 습기는 50 이상이 필요하다."
       ],
       "correct_answer": "",
-      "board_order": 40,
+      "board_order": 43,
       "title": "저기압 앞쪽 비",
       "summary": "온난전선으로 서해에 넓고 약한 비를 오래 내려요."
     },
@@ -8524,7 +8524,7 @@
         "그 위로 강한 햇볕이 더해지면 기온이 크게 오른다. 일사를 70 이상으로 올려야 한다."
       ],
       "correct_answer": "",
-      "board_order": 41,
+      "board_order": 44,
       "title": "더 잦아진 폭염",
       "summary": "북태평양 기단과 센 햇볕으로 동해안에 폭염을 불러요."
     },
@@ -8577,7 +8577,7 @@
         "해가 들지 않은 존은 일사를 30 이하로 낮추고 습기를 60 이상으로 올린다. 해가 든 존은 습기를 50 이하로 두면 맑아진다."
       ],
       "correct_answer": "",
-      "board_order": 42,
+      "board_order": 45,
       "title": "고기압 아래 새벽",
       "summary": "이동성 고기압 아래 수도권엔 안개, 동해안엔 맑음을 놓아요."
     },
@@ -8630,7 +8630,7 @@
         "산을 오르며 비를 뿌린 공기는 물기를 잃는다. 동쪽 존은 습기를 70 이상으로, 서쪽 존은 30 이하로 두어야 한다."
       ],
       "correct_answer": "",
-      "board_order": 43,
+      "board_order": 46,
       "title": "높새바람 넘기",
       "summary": "산을 넘은 공기로 동해안엔 안개, 수도권엔 높새바람을 불러요."
     },
@@ -8679,7 +8679,7 @@
         "차고 건조한 기단이 따뜻한 바다를 건너 수증기를 받으면 눈구름이 만들어진다. 습기를 60 이상으로 올려야 한다."
       ],
       "correct_answer": "",
-      "board_order": 44,
+      "board_order": 47,
       "title": "대설경보 재현",
       "summary": "시베리아 기단과 습기로 태백산맥에 대설을 퍼부어요."
     },
@@ -8732,7 +8732,7 @@
         "건조경보만으로는 큰 산불이 되지 않는다. 두 존 모두에서 습기를 바닥까지 내리고 바람까지 세게 올려야 산불 위험 상태가 된다. 한 존만 맞으면 목표는 달성되지 않는다."
       ],
       "correct_answer": "",
-      "board_order": 45,
+      "board_order": 48,
       "title": "건조경보 두 칸",
       "summary": "건조와 강풍을 두 지역에 동시에 만들어 산불 위험을 재현해요."
     },
@@ -8780,7 +8780,7 @@
         "산 너머로 내려온 그 공기 덩어리를 수도권에 놓고, 습기를 30 이하로 낮춰야 한다."
       ],
       "correct_answer": "",
-      "board_order": 46,
+      "board_order": 49,
       "title": "산 넘어 마른 바람",
       "summary": "물기를 잃고 산을 내려온 공기로 수도권을 맑게 만들어요."
     },
@@ -12733,8 +12733,8 @@
     "knowledge_level": 6,
     "question_type": "short_answer",
     "template_json": {
-      "question_text": "어떤 지역의 기후를 말할 때 기준으로 삼는, 세계기상기구가 정한 평년값의 산출 기간은 몇 년인가?",
-      "correct_answer": "30년",
+      "question_text": "어떤 지역의 기후를 말할 때 기준으로 삼는, 세계기상기구가 정한 평년값의 산출 기간은 몇 년인가? (숫자만 쓴다)",
+      "correct_answer": "30",
       "explanation_hint": "한두 해의 변동을 걸러내고 그 지역의 기후를 대표하려면 충분히 긴 기간이 필요하다. 그래서 30년 평균을 평년값으로 쓴다."
     },
     "uses_live_slots": false,
@@ -12902,7 +12902,7 @@
     "knowledge_level": 6,
     "question_type": "short_answer",
     "template_json": {
-      "question_text": "태풍이 만들어지려면 해수면 온도가 대체로 몇 ℃ 이상이어야 하는가?",
+      "question_text": "태풍이 만들어지려면 해수면 온도가 대체로 몇 ℃ 이상이어야 하는가? (숫자만 쓴다)",
       "correct_answer": "26",
       "explanation_hint": "태풍은 따뜻한 바다에서 올라오는 수증기를 에너지로 삼는다. 해수면 온도가 대체로 26~27℃ 아래로 내려가면 그 공급이 모자라 태풍이 만들어지지도, 세력을 유지하지도 못한다."
     },
@@ -16205,7 +16205,7 @@
         "북반구에서는 마찰력이 언제나 바람을 오른쪽으로 90도 꺾기 때문이다"
       ],
       "correct_answer": "북위 30도 위쪽 상공의 편서풍대에 들어가 흐름을 타고 동쪽으로 밀려 나가기 때문이다",
-      "explanation_hint": "태풍은 스스로 길을 고르지 못하고 주변 흐름에 실려 간다. 저위도에서는 동풍 계열 흐름을 타고 북서쪽으로 오다가, 중위도 상공의 편서풍대에 들어가면 흐름이 뒤바뀌어 북동쪽으로 휘어 나간다. 전향력은 위도가 높을수록 커지므로 두 번째 선택지는 방향이 반대다."
+      "explanation_hint": "태풍은 스스로 길을 고르지 못하고 주변 흐름에 실려 간다. 저위도에서는 동풍 계열 흐름을 타고 북서쪽으로 오다가, 중위도 상공의 편서풍대에 들어가면 흐름이 뒤바뀌어 북동쪽으로 휘어 나간다. 전향력은 위도가 높을수록 커지므로, 「북쪽으로 갈수록 전향력이 0에 가까워져 회전이 풀린다」는 설명은 실제와 반대다."
     },
     "uses_live_slots": false,
     "source": {
@@ -17896,7 +17896,7 @@
     "knowledge_level": 1,
     "question_type": "short_answer",
     "template_json": {
-      "question_text": "산에서 불이 난 것을 발견했을 때 곧바로 걸어야 하는 전화번호는 몇 번인가?",
+      "question_text": "산에서 불이 난 것을 발견했을 때 곧바로 걸어야 하는 전화번호는 몇 번인가? (숫자만 쓴다)",
       "correct_answer": "119",
       "explanation_hint": "산불을 보면 119로 신고한다. 직접 끄려 하지 말고 불길과 연기에서 멀리 떨어져야 한다."
     },
@@ -27230,6 +27230,294 @@
         "climate_concepts: pressure_basics",
         "SPRINT_R13_02 §T3 실황 현상 — 오늘 최고기온을 도입부로 쓴다",
         "knowledge_level=7 · 적용 규칙: R3 강제 상향 → 7(고도-기압 관계의 정량 계산, 진로선택 정량 입문) (docs/specs/12 §4)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "수도권(존 1)에 짧고 강한 소나기가 나타나게 만들어 보라.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:cold",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "shower"
+        }
+      ],
+      "hints": [
+        "전선 계열 요소 하나와 넉넉한 습기가 함께 필요해요. 어떤 전선이 공기를 가장 급하게 밀어 올릴지 떠올려 보세요."
+      ],
+      "correct_answer": "",
+      "board_order": 37,
+      "title": "짧고 강한 소나기",
+      "summary": "수도권 하늘에 짧고 굵게 쏟아지는 비를 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: front_board_puzzle (r13_item_templates.json)",
+        "params[0]: {\"goal_ko\": \"짧고 강한 소나기\", \"rule_id\": \"cold_front_shower\", \"zone\": 1, \"zone_name\": \"수도권\"}",
+        "정답 도출: answer.kind=board_rule → board_rules.json[cold_front_shower] (서버가 같은 파일로 판정을 재계산 — 템플릿은 정답을 갖지 않는다)",
+        "knowledge_level=4 · 근거: R5 보드 특례 — palette가 전선 계열을 요구하므로 결정 용어는 전선([9과17-04]) 4단계. mode는 단계를 바꾸지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "서해(존 0)에 넓게 오래 내리는 비가 나타나게 만들어 보라.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:warm",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "rain"
+        }
+      ],
+      "hints": [
+        "전선 계열 요소 하나와 어느 정도의 습기가 필요해요. 공기가 완만하게 타고 오르는 전선을 골라 보세요."
+      ],
+      "correct_answer": "",
+      "board_order": 38,
+      "title": "넓게 오래 내리는 비",
+      "summary": "서해에 잔잔하고 길게 이어지는 비를 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: front_board_puzzle (r13_item_templates.json)",
+        "params[1]: {\"goal_ko\": \"넓게 오래 내리는 비\", \"rule_id\": \"warm_front_steady_rain\", \"zone\": 0, \"zone_name\": \"서해\"}",
+        "정답 도출: answer.kind=board_rule → board_rules.json[warm_front_steady_rain] (서버가 같은 파일로 판정을 재계산 — 템플릿은 정답을 갖지 않는다)",
+        "knowledge_level=4 · 근거: R5 보드 특례 — palette가 전선 계열을 요구하므로 결정 용어는 전선([9과17-04]) 4단계. mode는 단계를 바꾸지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "middle_high",
+    "knowledge_level": 4,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "태백산맥(존 2)에 여러 날 이어지는 비가 나타나게 만들어 보라.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:stationary",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "persistent_rain"
+        }
+      ],
+      "hints": [
+        "전선 계열 요소 하나와 아주 많은 습기가 필요해요. 한곳에 오래 머무는 전선이 어떤 것일지 생각해 보세요."
+      ],
+      "correct_answer": "",
+      "board_order": 39,
+      "title": "여러 날 이어지는 비",
+      "summary": "태백산맥에 며칠씩 머무는 비를 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "template",
+      "refs": [
+        "template: front_board_puzzle (r13_item_templates.json)",
+        "params[2]: {\"goal_ko\": \"여러 날 이어지는 비\", \"rule_id\": \"stationary_front_monsoon\", \"zone\": 2, \"zone_name\": \"태백산맥\"}",
+        "정답 도출: answer.kind=board_rule → board_rules.json[stationary_front_monsoon] (서버가 같은 파일로 판정을 재계산 — 템플릿은 정답을 갖지 않는다)",
+        "knowledge_level=4 · 근거: R5 보드 특례 — palette가 전선 계열을 요구하므로 결정 용어는 전선([9과17-04]) 4단계. mode는 단계를 바꾸지 않는다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "여름 오후, 강한 햇볕이 지면 부근 공기를 데워 대기를 불안정하게 만든 상태에서 한랭전선이 다가온다. 상층과 하층의 바람 차이까지 크면 올라가는 공기와 내려오는 공기가 서로를 방해하지 않아, 소나기 구름이 한 번 쏟고 흩어지는 대신 한 덩어리로 조직된다. 수도권(존 1)에 그렇게 조직된 소나기를 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:cold",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "severe_storm"
+        }
+      ],
+      "hints": [
+        "전선 하나와 물기만으로도 소나기는 내린다. 다만 그때는 한 번 쏟고 흩어진다 — 오래 가게 하려면 무엇이 더 있어야 할지 생각해 보자.",
+        "지면을 데우는 것과 위아래 흐름의 차이를 함께 키워야 한다. 넷이 모두 높은 쪽에 있어야 조직된 소나기가 된다."
+      ],
+      "correct_answer": "",
+      "board_order": 50,
+      "title": "흩어지지 않는 소나기",
+      "summary": "네 가지를 함께 맞춰 수도권에 오래 가는 소나기를 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "㉣ 변동 기상요소 개통(2026-08-18) — 요소 4종을 요구하는 첫 상위 보드",
+        "board_rules.json: cold_front_squall_storm (신규 4조건 규칙)",
+        "기상학 근거: 강한 일사에 의한 대기 불안정 + 한랭전선의 강제 상승 + 연직 시어가 함께 갖춰지면 대류가 조직화돼 단일 세포보다 오래 지속된다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "wildfire_weather",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "차고 메마른 공기가 내려와 있는 데다, 산을 넘어 불어 내리는 바람이 더해지면 낙엽과 잔가지의 물기가 빠르게 빠져나간다. 여기에 햇볕까지 강하면 마른 연료가 더 뜨거워져 작은 불씨 하나가 순식간에 번진다. 서해(존 0)에 그 네 조건이 겹친 산불 위험 상태를 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:siberian",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "wildfire_warning"
+        }
+      ],
+      "hints": [
+        "메마름과 바람만으로도 산불 위험까지는 오른다. 다만 이 판이 요구하는 것은 그보다 한 단계 위여서 그것만으로는 목표에 닿지 않는다 — 어떤 공기가 내려와 있어야 하는지부터 정해 보자.",
+        "기단을 놓은 뒤 물기는 아주 낮게, 바람과 햇볕은 함께 높게 올려야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 51,
+      "title": "마른 바람이 부는 날",
+      "summary": "기단과 세 조절값을 함께 맞춰 산불 위험을 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "㉣ 개통분 — 산을 넘어 내려오며 마르고 세지는 바람 계열을 요소 조합으로 표현",
+        "board_rules.json: siberian_gale_wildfire (신규 4조건 규칙)",
+        "대장 Z-2: 종전에는 siberian_clear(30)가 재난(28)을 항상 이겨 기단을 놓는 조작이 아무 일도 일으키지 못했다. 4조건 재난이 덮게 되면서(2026-08-18 PM 판정) 이 조작이 실제로 판정을 바꾼다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "flood_response",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "정체전선이 한자리에 머무는 동안 아래쪽에서 습한 바람이 계속 불어 들어오면 같은 곳에 수증기가 끊임없이 채워진다. 두꺼운 구름이 햇볕을 가려 지면이 데워지지 않으니 비구름을 흩을 힘도 생기지 않는다. 태백산맥(존 2)에 물이 빠져나갈 새 없이 쌓이는 상태를 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:stationary",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "flood_warning"
+        }
+      ],
+      "hints": [
+        "물기와 바람만 키우면 침수 위험은 오른다. 이 판은 거기에 더해 비구름이 왜 흩어지지 않는지를 함께 만들어야 한다.",
+        "한자리에 머무는 전선을 놓고, 물기와 바람은 높게, 햇볕은 낮게 두어야 한다."
+      ],
+      "correct_answer": "",
+      "board_order": 52,
+      "title": "빠져나갈 새가 없다",
+      "summary": "전선이 머무는 동안 물기가 계속 채워지게 만들어요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "㉣ 개통분 — 기존 flood_risk(2조건)의 상위판. 「왜 한곳에 머무는가」까지 묻는다",
+        "board_rules.json: front_convergence_flood (신규 4조건 규칙)",
+        "기상학 근거: 정체전선의 지속 + 하층 수렴에 의한 수증기 공급 + 일사 부족으로 인한 대류 억제가 겹치면 같은 지역에 강수가 집중된다"
       ]
     },
     "status": "active"

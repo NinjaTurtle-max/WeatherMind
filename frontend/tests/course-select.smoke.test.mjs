@@ -7,12 +7,16 @@
  * 관례는 onboardingGating.smoke.test.mjs와 동일: 테스트 러너 의존 없음,
  * vite middlewareMode + mock/apiMockPlugin(실 XHR) + jsdom 실마운트.
  *
- * ⚠️ mock/apiMockPlugin(FE-C 소유)에는 아직 `GET /courses`·`GET /curriculum?course=`
- * 경로가 없다(2026-08-04 실측 — 라우터가 쿼리스트링을 떼므로 ?course=는 기존
- * /curriculum에 흡수된다). 그래서 이 테스트는 **자기 파일 안에서만** 서버 계약
- * (database/seed/courses.json + backend CoursesOut) 형태의 픽스처 미들웨어를 mock
- * 앞단에 세운다 — mock 파일은 건드리지 않는다. FE-C가 parity mock을 붙이면 이
- * 심(shim)은 걷어낼 수 있다.
+ * ⚠️ **「목에 `GET /courses`가 없다」는 2026-08-18에 낡았다.** 그날 목에 추가됐다
+ * (사유: 목이 안 덮은 경로가 dev 프록시로 빠져 **실제 백엔드 401**을 받아 오는
+ * 바람에 `entryFlow ⑫`가 도커 기동 여부에 따라 갈렸다). `GET /curriculum?course=`는
+ * 여전히 없다 — 라우터가 쿼리스트링을 떼므로 기존 `/curriculum`에 흡수된다.
+ *
+ * 이 파일은 계속 **자기 앞단 픽스처 심**을 쓴다. 목이 주는 값은 dev 화면용이고,
+ * 여기서 무는 것은 **서버 계약 형태**(courses.json + `CoursesOut`)이며 특히
+ * `is_default`와 `course_order`가 **어긋난 배치**(weather가 기본인데 순서는 2번)를
+ * 일부러 만들어 「기본 우선 선택」이 「첫 탭 선택」으로 구현되면 잡히게 하기 때문이다.
+ * 목 값과 같아지면 그 함정이 사라진다.
  *
  * 시나리오
  *   1. 코스 탭 렌더 + is_default(weather) 우선 선택 + weather 트리 무회귀.
@@ -66,8 +70,29 @@ const COURSES_FIXTURE = {
   ],
 };
 
-let shimEnabled = true; // 시나리오 4에서 끈다(= 현 dev mock과 동일한 상태)
+/**
+ * 시나리오 4(디그레이드)를 위한 스위치.
+ *
+ * ⚠️ **끄면 「404를 준다」이지 「목으로 흘려보낸다」가 아니다**(2026-08-18 정정).
+ * 종전에는 끄기 = 통과였고, 그때는 **목에 `GET /courses`가 없어서** 결과적으로
+ * 404가 나왔다. 즉 이 시나리오가 **목의 공백에 얹혀 있었다.**
+ *
+ * 🔴 그 공백이 메워지자(같은 날 목에 `GET /courses` 추가) 이 시나리오가 깨졌다.
+ * 더 나쁜 것은 **공백이 조용하지 않았다는 점**이다 — 목이 안 덮은 `/api/v1/*`는
+ * `next()`로 빠지고, 스모크가 만드는 vite 서버는 `vite.config.js`의 **개발
+ * 프록시를 물려받아** `localhost:8000`으로 나간다. 그래서 로컬 도커 백엔드가
+ * 떠 있느냐에 따라 응답이 **404가 되기도 하고 진짜 401이 되기도 했다**
+ * (`entryFlow ⑫`가 그 때문에 환경 따라 갈렸다).
+ *
+ * 그래서 「부재」를 **이 파일이 직접 만든다**. 다른 파일의 공백에 기대지 않는다.
+ */
+let shimEnabled = true;
 const httpServer = http.createServer((req, res) => {
+  if (!shimEnabled && req.method === 'GET' && req.url.split('?')[0] === '/api/v1/courses') {
+    res.statusCode = 404;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    return res.end(JSON.stringify({ detail: 'Not Found', code: 'NOT_FOUND' }));
+  }
   if (shimEnabled && req.method === 'GET') {
     const [path, qs = ''] = req.url.split('?');
     const sendJson = (status, payload) => {
@@ -274,7 +299,10 @@ try {
     r.unmount();
   }
 
-  // ── 4. /courses 부재(현 dev mock 상태) → 탭 없이 현행 화면 그대로 ──────────
+  // ── 4. /courses 부재 → 탭 없이 현행 화면 그대로(디그레이드) ──────────────
+  // ⚠️ 「현 dev mock 상태」라고 적혀 있었으나 2026-08-18에 목이 그 경로를 덮었다.
+  //    이 시나리오가 무는 것은 **구 백엔드·코스 미시드 DB**처럼 `/courses`가 없는
+  //    배포이고, 그 부재는 이제 위 심이 **직접 404로** 만든다.
   await scenario('/courses 없는 환경: 탭 미렌더 + weather 트리 현행 유지(디그레이드)', async () => {
     shimEnabled = false;
     authenticate('no-courses-user');

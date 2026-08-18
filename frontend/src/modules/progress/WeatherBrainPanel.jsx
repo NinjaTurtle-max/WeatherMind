@@ -263,38 +263,49 @@ export default function WeatherBrainPanel() {
                 : t('weatherBrain.basisMeasured', { count: row.num_responses }),
             })}
           >
-            <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="flex min-w-0 items-center gap-1.5">
+            {/* 🔴 **한 줄에 마스코트 · 개념 · 막대**(2026-08-18 사용자 지시 —
+                "마스코트를 더 살려야 하니까"). 종전에는 막대가 **아랫줄**로
+                내려가 한 개념이 두 줄을 먹었고, 14개가 쌓이니 캐릭터는
+                22px 점처럼 보이고 세로만 길었다.
+
+                ⚠️ 이름 열은 **고정폭**이다. `w-fit`으로 두면 「태풍」과
+                「복사와 에너지 수지」에서 막대 시작점이 제각각이라 14줄이
+                들쭉날쭉해진다 — 눈이 훑는 기준선을 하나로 만드는 값이다.
+                sm 미만에서 좁히는 것은 그 폭에서 막대가 먼저 죽기 때문이다.
+                ⚠️ 「아직 응답 없음」 안내는 **lg 이상에서만** 보인다. 좁은
+                화면에서 막대·배지와 셋이 한 줄을 다투면 막대가 사라진다.
+                안내가 접혀도 잃는 정보는 없다 — 같은 사실을 막대 색(연한
+                회청)과 `title` 툴팁이 이미 말한다. */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="flex w-[132px] flex-none items-center gap-1.5 sm:w-[164px]">
                 <Mascot
                   name={conceptCharacter(row.tag)}
-                  className="h-[22px] w-[22px] flex-none"
+                  className="h-[28px] w-[28px] flex-none"
                 />
                 <span className="min-w-0 truncate font-semibold text-slate-700">{row.name}</span>
               </span>
-              <span className="flex shrink-0 items-center gap-1.5">
-                {row.isPrior && (
-                  <span className="text-[10px] font-medium text-slate-400">
-                    {t('weatherBrain.priorNote')}
-                  </span>
-                )}
+              <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                    LEVEL_CHIP[row.level_label] ?? 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  {row.levelKo}
-                </span>
+                  className="block h-full rounded-full transition-none"
+                  style={{
+                    width: `${row.score}%`,
+                    backgroundColor: row.isPrior ? COLOR_PRIOR : COLOR_MEASURED,
+                    opacity: row.isPrior ? 0.7 : 1,
+                  }}
+                />
               </span>
-            </div>
-            <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full transition-none"
-                style={{
-                  width: `${row.score}%`,
-                  backgroundColor: row.isPrior ? COLOR_PRIOR : COLOR_MEASURED,
-                  opacity: row.isPrior ? 0.7 : 1,
-                }}
-              />
+              {row.isPrior && (
+                <span className="hidden shrink-0 text-[10px] font-medium text-slate-400 lg:inline">
+                  {t('weatherBrain.priorNote')}
+                </span>
+              )}
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  LEVEL_CHIP[row.level_label] ?? 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {row.levelKo}
+              </span>
             </div>
           </li>
         ))}

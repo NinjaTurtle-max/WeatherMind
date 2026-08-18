@@ -63,6 +63,33 @@ gcloud compute firewall-rules create allow-https --allow=tcp:443 --target-tags=h
 후에도 스택이 자동 복구된다**(URL을 9월 셋째 주까지 유지해야 하므로 이게 계약이다).
 운영자가 `docker compose stop`으로 명시적으로 내린 것만 그대로 남는다.
 
+### 🔴 외부 IP가 **ephemeral이면 VM stop/start에서 제출 URL이 죽는다**
+
+바로 위 「재기동 정책」은 **컨테이너** 이야기다. 그 위층에 하나가 더 있다:
+**VM의 외부 IP가 ephemeral이면 VM을 stop 했다가 start 할 때 IP가 새로 배정된다.**
+
+⚠️ **제출 URL이 `34-47-71-146.sslip.io`이므로 이건 "IP가 바뀐다"로 끝나지 않는다.**
+sslip.io는 **호스트명이 곧 IP**다 — `34-47-71-146.sslip.io`는 DNS가
+`34.47.71.146`을 되돌려 주도록 이름 자체에 주소가 박혀 있다. 그래서 IP가 바뀌면
+A레코드를 고쳐 살릴 수 있는 종류의 사고가 아니라 **URL 문자열 자체가 죽는다.**
+구글 폼으로 제출한 구동 URL이 그대로 무효가 되고, 새 IP로 URL이 바뀌면
+**제출물을 고칠 수 없는 시점(8/21 18:00 동결)에는 복구 수단이 없다.**
+
+🟢 **재부팅(`sudo reboot`)은 무해하다** — VM 인스턴스가 RUNNING을 유지하므로
+ephemeral IP도 그대로 붙어 있고, 컨테이너는 `unless-stopped`로 자동 복구된다.
+🔴 **위험한 것은 stop/start다** — 콘솔의 「중지」, `gcloud compute instances stop`,
+비용 절감용 자동 일시중지, 유지보수 정책에 따른 종료·재생성이 전부 여기 해당한다.
+**둘을 같은 것으로 취급하지 말 것.**
+
+```bash
+# 지금 어느 쪽인지 확인 — EPHEMERAL이면 아직 안전하지 않다
+gcloud compute addresses list
+```
+
+`EPHEMERAL`로 나오면 **static으로 승격**해야 URL이 stop/start를 견딘다.
+승격 전까지는 **VM을 stop 하지 않는 것**이 유일한 방어다(재부팅으로 충분한
+일이면 재부팅을 쓴다). 승격 후에는 예약 주소가 되어 stop/start에도 유지된다.
+
 ---
 
 ## 1. 서버 접속
@@ -192,7 +219,10 @@ backend를 Caddy가 프론트해 첫 방문자가 502를 보는 것을 막는 �
 하나도 없어서 잘못된 키로 며칠을 갈 수 있었다. 지금은 `/health`가 보고한다.
 
 ```bash
-curl -s localhost:8000/health | python3 -m json.tool
+# ⚠️ 호스트에서 `curl localhost:8000`은 **prod에서 안 된다.**
+# docker-compose.prod.yml이 backend의 ports를 `!reset []`로 지워 8000은
+# 호스트에 열려 있지 않다(하드닝 — 외부에 열린 것은 Caddy뿐). 컨테이너 안에서 친다.
+$C exec -T backend curl -s http://localhost:8000/health | python3 -m json.tool
 ```
 
 `kma` 필드만 보면 된다.
@@ -267,7 +297,7 @@ $C exec -T postgres psql -U weathermind -d weathermind -v ON_ERROR_STOP=1 \
 #    그러면 전 유닛이 단일 코스로 뭉치고 GET /courses가 비어 학습 화면이 백지가 된다.
 #    scripts/smoke.sh가 이 순서를 계약으로 검사한다.
 $C exec backend python -m app.scripts.seed_courses    # ← 빠뜨리기 쉽다
-$C exec backend python -m app.scripts.seed_content    # 문항 284 (2026-08-09 실측)
+$C exec backend python -m app.scripts.seed_content    # 문항 1,012 (2026-08-12 실측 — 08-09의 284는 낡았다)
 $C exec backend python -m app.scripts.seed_units      # 유닛 24 (courses 필요)
 $C exec backend python -m app.scripts.seed_badges     # 배지
 
@@ -287,11 +317,36 @@ $C ps    # 전 컨테이너 Up, backend는 (healthy)
 ```bash
 $C ps                          # 전 컨테이너 Up
 $C logs -f caddy               # 인증서 발급 로그(실패 시 §8)
-curl -I https://<도메인>/        # 200
-curl -s https://<도메인>/health  # backend 헬스 — Caddy가 /health를 직접 프록시한다
-                                 # (infra/Caddyfile: /api/* 와 /health만 backend 행)
+curl -I https://<도메인>/        # 200 — 외부에서 확인하는 것은 여기까지다
+
+# backend 헬스는 **컨테이너 안에서** 본다. 외부 URL로 치지 말 것 — 이유는 바로 아래.
+$C exec -T backend curl -s http://localhost:8000/health | python3 -m json.tool
+
 docker stats --no-stream       # 메모리가 mem_limit 안에 있는지
 ```
+
+### 🔴 `/health`를 외부 URL로 치지 말 것 — **2026-08-18 롤링부터 거짓말을 한다**
+
+`infra/Caddyfile`의 `handle /health` 블록은 **2026-08-18 롤링에서 제거된다**
+(헬스 엔드포인트를 외부에 노출하지 않기 위해). 그 뒤 `https://<도메인>/health`는
+**404가 되지 않는다** — Caddy의 남은 `handle`이 그 경로를 frontend nginx로 보내고
+nginx의 **SPA 폴백이 `200 + index.html`을 되돌려 준다.**
+
+⚠️ **그래서 이건 "안 되는 것"이 아니라 "틀린 초록"이다.**
+- **업타임 모니터를 `https://<도메인>/health`에 걸면 backend가 죽어도 영원히
+  초록으로 보인다.** 정적 파일을 서빙하는 nginx만 살아 있으면 200이 나가기 때문이다.
+  DB가 끊겨도, backend 컨테이너가 통째로 내려가도 모니터는 아무 말도 하지 않는다.
+- `curl -s https://<도메인>/health`의 응답이 JSON이 아니라 HTML이면 그게 이 상태다.
+  `db: ok`를 찾다가 못 찾는 게 아니라, **찾을 것이 애초에 안 온다.**
+
+**시점 구분** — 이건 지금 당장 틀린 게 아니라 날짜가 정해진 변경이다:
+- **~2026-08-17**: 외부 `/health`가 아직 backend로 프록시된다(위 블록이 살아 있다).
+  옛 절차대로 쳐도 답이 온다 — 다만 8/18 이후를 대비해 지금부터 아래 형태를 쓴다.
+- **2026-08-18~**: 외부 `/health`는 SPA로 떨어진다. **컨테이너 안에서만** 유효하다.
+
+**외부에서 backend 생존을 봐야 한다면** `/health`가 아니라 `/api/*` 경로를 쓴다 —
+`handle /api/*`는 8/18 이후에도 backend로 그대로 프록시되므로, 거기서 오는 응답은
+backend가 실제로 답한 것이다(§8.5의 `POST /api/v1/auth/guest` 201 확인이 그 예다).
 
 브라우저에서 **로그인 없이 바로 조작되는지** 확인한다(대회 요건 — `HACKATHON_RULES.md` §4-A).
 크롬 **1366×768 · 1920×1080 · 2560×1440** 세 해상도 모두 점검한다.
@@ -362,10 +417,95 @@ RLS 예외 정책도 없다 — **복원은 성공했는데 런타임이 그 DB�
 
 ## 9. 운영 중 갱신
 
+### 🔴 지금은 **서버에서 빌드한다** — `$C pull`은 조용히 옛 이미지를 붙인다
+
+이 자리에 아래 두 줄이 적혀 있었고 **2026-08-13부터 거짓이다**(§0의 GHCR 경고와
+어긋난 채 방치됐다 — 2026-08-17 정정):
+
 ```bash
-git pull
+# ⛔ 낡음 — 그대로 하지 말 것
 IMAGE_TAG=<새 커밋 sha> $C pull && IMAGE_TAG=<새 커밋 sha> $C up -d
 ```
+
+GitHub Actions 무료 분 소진으로 `release.yml`이 멈춰 **새 커밋의 GHCR 이미지가
+없다.** 그런데 `$C pull`은 **에러를 내지 않는다** — 태그를 못 찾으면 이미 받아 둔
+이미지를 그대로 쓴다. 증상이 *"명령은 다 성공했는데 화면이 안 바뀐다"* 라서, 운영자는
+빌드가 아니라 브라우저 캐시나 Caddy를 의심하며 시간을 쓴다. 9/1에 무료 분이
+초기화되면 위 두 줄로 원복된다(경위는 대장 §4.11).
+
+```bash
+C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+cd <저장소>
+git pull
+TAG=$(git rev-parse --short HEAD)
+
+# ⚠️ `$C build`가 아니라 `docker build`다. docker-compose.prod.yml에는 `build:`가
+#    **없고**(`build: !reset null` — §0), dev 정의로 빌드하면 이미지 이름이
+#    compose 프로젝트명에서 파생돼 prod가 찾는 이름과 다르다. 여기서 목적지 이름을
+#    직접 박으면 `docker tag` 단계 자체가 없어지고 이름이 어긋날 여지도 없다.
+#    빌드 인자는 필요 없다 — frontend/Dockerfile의 VITE_API_BASE_URL 기본값
+#    `/api/v1`이 곧 prod 값이다(nginx가 backend:8000으로 프록시).
+docker build -t ghcr.io/ninjaturtle-max/weathermind-backend:$TAG  ./backend
+docker build -t ghcr.io/ninjaturtle-max/weathermind-frontend:$TAG ./frontend
+# ai-worker·celery는 그 디렉토리가 바뀐 롤링에서만 (각각 10분 이상 걸린다)
+# docker build -t ghcr.io/ninjaturtle-max/weathermind-ai-worker:$TAG ./ai-worker
+# docker build -t ghcr.io/ninjaturtle-max/weathermind-celery:$TAG    ./celery
+
+# 안 바꾼 서비스는 그 이미지가 $TAG로 없으므로 **바꾼 것만 지정해서** 올린다.
+# 인자 없이 `up -d`를 치면 안 바꾼 서비스가 없는 태그를 찾다가 멈춘다.
+IMAGE_TAG=$TAG $C up -d backend frontend
+$C ps                                                   # 전 컨테이너 Up · backend (healthy)
+$C exec -T backend curl -s http://localhost:8000/health  # 외부 URL로 치지 말 것(§7)
+
+# 🔴 지문 대조 — 위 /health 출력의 code_fingerprint와 워크트리 지문이 **같아야 한다**
+#    (2026-08-17 추가) #89가 /health를 외부에서 닫으면서 「실행 중인 코드 = 워크트리」의
+#    외부 확인 경로도 함께 닫혔다(code_fingerprint의 유일한 노출부가 /health다 —
+#    main.py). 컨테이너 안에서는 그대로 사니 **재던 자리를 밖에서 안으로 옮긴 것**
+#    뿐이지만, 이 대조를 생략하면 8/14의 「명령은 성공했는데 낡은 코드가 돈다」를
+#    감지할 수단이 없다(그날 백엔드를 배제하고 프론트로 좁힌 근거가 이 지문이었다).
+python scripts/code_fingerprint.py                       # ← 워크트리 쪽 값
+```
+
+**소요 10~20분**(ai-worker를 빌드하면 그쪽이 대부분). 롤링마다 치르는 값이다.
+
+### 9.0 코드만 올려서는 안 바뀌는 것 — **마이그레이션과 시드**
+
+⚠️ **이 절이 없어서 실제로 걸렸다.** 「학습 섹션이 5개인데 4개만 보인다」의 원인이
+배포가 아니라 **시드 미실행**이었다(`위험한 하늘` 4유닛이 `units.json`에는 들어왔는데
+DB에는 없었다). 유닛은 `seed_units.py`로만 DB에 들어가고 그 스크립트는 §6(최초 1회)
+에만 적혀 있었으므로, 롤링을 몇 번 반복해도 영영 4개다. 프론트가 빈 섹션을 감추기
+때문에(`CurriculumHome.jsx:149` — `.filter((sec) => sec.units.length > 0)`)
+**에러도 안 난다** — 화면에는 그냥 섹션이 하나 적게 보일 뿐이다.
+
+올리기 전에 diff로 판단한다:
+
+```bash
+git diff --name-only <이전sha>..HEAD | grep -E 'alembic/versions/|database/seed/'
+```
+
+| 바뀐 것 | 해야 할 것 |
+|---|---|
+| `backend/alembic/versions/` | `$C exec backend alembic upgrade head` — **§6 ①-a의 이미지 대조를 먼저** 할 것(낡은 이미지로 upgrade하면 도중까지만 적용되고 `current == heads`가 되어 조용히 통과한다) |
+| `database/seed/courses.json` · `units.json` | `seed_courses` → `seed_units` **순서대로**(§6 ③ — 순서를 어기면 course_id가 NULL이 되어 학습 화면이 백지가 된다) |
+| `database/seed/content_items.json` | `$C exec backend python -m app.scripts.seed_content` (멱등 키 = concept_tag + question_text) |
+| `database/seed/badges.json` | `$C exec backend python -m app.scripts.seed_badges` |
+| 위 어느 것도 아님 | 없음 — 이미지 교체만으로 끝난다 |
+
+시드 스크립트는 전부 멱등이라 **의심되면 그냥 돌리는 쪽이 안전하다.**
+
+### 🔴 9.0a 시드를 갱신해도 **이미 발급된 세션은 안 바뀐다**
+
+문항 payload가 발급 시점에 `quiz_logs`로 **스냅샷**되어 채점이 그 사본으로 돈다.
+위 표대로 시드를 다시 넣어도 **이미 세션을 받은 학습자는 재발급 전까지 옛 문항으로
+푼다.** 시드가 DB에 들어간 것과 학습자 화면이 바뀌는 것은 다른 사건이다.
+
+- **채점 결함을 고친 롤링** — 시드 갱신만으로는 **오늘 이미 세션을 받은 사람에게
+  안 닿는다.** 급하면 그 사실을 인지하고 별도 대응을 정할 것(세션 만료를 기다리거나
+  대상 세션을 무효화하거나 — 둘 다 이 문서 밖 결정이다)
+- **표기·해설만 고친 롤링** — 다음 세션부터 반영되면 충분하다
+
+⚠️ **「시드를 넣었으니 반영됐다」로 검증을 끝내지 말 것.** 확인은 **새 세션을 받아서**
+한다. 옛 세션을 열어 보고 「안 고쳐졌다」로 오진하는 것이 이 구조의 함정이다.
 
 ### 9.1 ⚠️ Redis 영속성을 처음 켜는 갱신 — **선행 1회 명령이 있다**
 

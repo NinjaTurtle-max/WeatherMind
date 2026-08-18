@@ -63,6 +63,14 @@ export default function Layout() {
     // 자유 일일 세션(`/daily`)이 여기 함께 있었는데 라우트가 제거됐다
     // (2026-08-12) — 이제 같은 SessionRunner를 쓰는 것은 유닛 세션뿐이다.
     || pathname.startsWith('/learn/units/')
+    // 기후 탐정(2026-08-18 사용자 지시 "가로2줄 세로4줄 → 가로4줄 세로2줄").
+    // 단서가 7개인데 576px 셸에서는 2열(268px)이 한계라 **4줄**이 됐다. 셸을
+    // 넓히면 같은 268px 카드로 **4열 2줄**이 된다 — 카드를 줄이는 게 아니라
+    // 줄 수를 줄이는 것이라 글자 크기는 그대로다.
+    // 사건 목록도 같은 셸을 쓴다 — 종전에 여기 "목록은 `max-w-[760px]`로 자기
+    // 폭을 묶고 있어 안 넓어진다"고 적혀 있었으나, 목록을 3열로 바꾸면서 그
+    // 상한을 1120으로 풀었다(2026-08-18). 두 화면 모두 xl에서 열이 늘어난다.
+    || pathname.startsWith('/detective')
     || isBoard;
   const shellWidth = isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -199,10 +207,17 @@ export default function Layout() {
   const storeUser = useAuthStore((s) => s.user);
   const isGuest = me ? me.is_guest === true : isGuestUser(storeUser);
 
+  // ⚠️ **셸이 세로 흐름을 소유한다**(2026-08-14, B3 — §4.15 구조 해소).
+  // `min-h-screen`이 안쪽 본문 열에 있었고 탭바는 `fixed`라 흐름 밖이었다.
+  // 그래서 「화면 바닥에 무엇이 있는가」를 아무도 안 갖고, 소비자들이 각자
+  // 짐작한 여백(`pb-20`·`bottom-20`·`bottom-14`)으로 피해 다녔다.
+  // 지금은 셸이 `flex-col min-h-screen`이고 탭바가 그 **마지막 흐름 항목**이라,
+  // 본문 열은 `flex-1`로 남는 높이를 먹고 탭바는 자기 높이를 스스로 차지한다.
+  // ⚠️ SideNav·헤더·GuideBot은 `fixed`라 이 흐름에 영향받지 않는다.
   return (
-    <div className="wm-shell pl-[var(--wm-shell-left)]">
+    <div className="wm-shell flex min-h-screen flex-col pl-[var(--wm-shell-left)]">
       <SideNav />
-      <div className={`mx-auto flex min-h-screen max-w-xl flex-col ${shellWidth}`}>
+      <div className={`mx-auto flex w-full max-w-xl flex-1 flex-col ${shellWidth}`}>
       <header className="fixed right-0 top-0 z-50 border-b border-slate-200 bg-white left-[var(--wm-shell-left)]">
         {/* md↑에서 헤더를 사이드바 오른쪽부터 시작시킨다 — inset-x-0 그대로 두면
             헤더는 화면 전체 기준으로, 본문은 사이드바를 뺀 폭 기준으로 가운데
@@ -254,8 +269,16 @@ export default function Layout() {
           styles/index.css의 `--wm-shell-left` 주석 참고 — 사이드바 없는 라우트에서
           반대로 틀린다. */}
 
-        {/* 헤더/탭바 높이만큼 여백 확보 — 탭바는 md↑에서 숨으므로 하단 여백을 줄인다 */}
-        <main className="flex-1 px-4 pb-20 pt-16 md:pb-8">
+        {/* 위 여백(`pt-16`)은 **고정 헤더** 몫이라 남는다 — 헤더는 여전히 흐름 밖이다.
+            ⚠️ **아래 여백에서 탭바 몫(`pb-20 md:pb-8`)은 지웠다**(2026-08-14, B3).
+            그 80px은 탭바 높이를 **짐작한 값**이었고, 짐작이 필요했던 이유는 탭바가
+            `fixed`라 자리를 안 차지했기 때문이다. 이제 탭바가 `sticky`로 흐름에
+            들어와 스스로 자리를 차지하므로 여기서 대신 비워 줄 것이 없다 —
+            **본문이 탭바 밑으로 흘러 들어가는 일 자체가 구조적으로 불가능**해졌다.
+            남은 `pb-8`은 탭바와 무관한 「본문 끝 숨 쉴 자리」이고, 그 값은
+            `styles/index.css`의 `--wm-track-tail` 기본값 32px과 짝이다(이제 모바일
+            에서도 참이다 — 종전에는 모바일만 80px이라 그 주석이 반만 맞았다). */}
+        <main className="flex-1 px-4 pb-8 pt-16">
           {/* 위치 안내(`RegionOnboardingNotice`)는 **여기서 걷었다**(2026-08-13
               클라이언트 지시 ⑴ — 「가로로 눕는 두 노드를 오른쪽 세로 열로」).
               본문 맨 위를 가로로 덮던 자리라 학습 경로보다 먼저 눈에 들어왔다.
@@ -271,14 +294,61 @@ export default function Layout() {
           <Outlet />
         </main>
 
-        <TabBar />
+        {/* 🔴 원출처 표기 — **대회 규정이 요구한다**(2026-08-14 감사 판정, PM·QA 세션
+            라우팅). README 고지만으로는 「화면에서 확인 가능한가」가 불확실하다는
+            판정이라 화면에 한 줄로 세운다.
+            ⚠️ **레이아웃이 소유한다.** 화면마다 붙이면 새 화면이 생길 때 빠지고,
+            빠진 것을 아무도 모른다 — 여기 두면 딥링크로 어느 경로에 내려도 보인다.
+            ⚠️ 탭바 **위**다(문서 순서 — `tests/home.smoke.test.mjs`가 단정한다).
+            ⚠️⚠️ **여기 적혀 있던 근거는 틀렸다**(2026-08-14, B3에서 정정).
+            "`main`의 `pb-20`이 탭바 높이를 이미 비워 두므로 이 줄은 그 여백 안에
+            든다"고 적혀 있었는데, 이 `<p>`는 `main`의 **형제**라 `main` 안쪽 패딩
+            바깥에 선다. 열이 `min-h-screen`이고 `main`이 `flex-1`이라 이 줄은
+            **화면 맨 아래**에 놓였고, 거기가 정확히 `fixed` 탭바가 덮던 자리다 —
+            즉 모바일에서 원출처 표기가 **탭바 뒤에 숨어 있었다.** 스모크는 DOM
+            존재만 봤으므로 초록이었다. 탭바를 `sticky`로 흐름에 넣으면서 이 줄은
+            탭바 **바로 위**에 실제 자리를 갖는다(대회 규정 「화면에서 확인 가능」).
+            ⚠️ 문구는 **i18n 키**다(`attribution.data`). 기관명 자체는 번역 대상이
+            아니지만 이 저장소는 UI 문구를 예외 없이 외부화한다 — 예외를 하나 만들면
+            「어떤 문구가 키를 갖는가」가 사람 판단으로 내려간다. */}
+        <p
+          data-testid="data-attribution"
+          className="px-4 pb-3 text-center text-[10.5px] leading-relaxed text-slate-400"
+        >
+          {t('attribution.data')}
+        </p>
+
       </div>
+
+      {/* 하단 탭바 — **본문 열 밖·셸의 마지막 흐름 항목**이다(2026-08-14, B3).
+          열 안에 두면 `sticky`가 `max-w-xl`(576px) 열 폭을 따라가서 576~767px
+          구간에서 좌우에 회색 여백이 생긴다(가로 폰이 그 구간이다). 셸 직속이면
+          전 폭을 쓰면서도 흐름에는 그대로 참여한다.
+          ⚠️ **원출처 표기(`data-attribution`)보다 뒤**여야 한다 — 문서 순서 계약
+          (`tests/home.smoke.test.mjs`). 위 `</div>`가 그 줄을 포함하므로 여기서
+          순서가 유지된다. 탭바를 열 안으로 되돌리지 말 것. */}
+      <TabBar />
 
       {/* 안내봇(MT-26) — 셸 최상위에 둔다. 본문 안에 넣으면 화면마다 마운트가
           풀려 사용자가 옮겨 둔 자리와 접어 둔 상태가 이동할 때마다 되돌아간다.
-          말할 내용은 lib/guideRules.js가 정한다(결정적 · LLM 호출 없음). */}
+          말할 내용은 lib/guideRules.js가 정한다(결정적 · LLM 호출 없음).
+
+          🔴 **`laneBusy` — 화면 아래 오버레이 레인은 한 번에 한 명만 쓴다**
+          (2026-08-14, B3 — §4.15의 남은 절반).
+          겹침은 사고가 아니라 **설계였다**: 바로 위에서 `lastAnswerCorrect`를
+          `SESSION_STATUS.FEEDBACK`일 때만 채워 안내봇을 정오답에 반응시키는데,
+          `FeedbackPanel`이 화면 아래에 뜨는 순간이 정확히 그 상태다. 좁은 화면에서
+          **같은 사건에 대한 말풍선 둘이 같은 자리에** 뜨고, 둘 다 `z-40`이라
+          문서상 뒤에 있는 안내봇이 해설을 덮었다(사람 저작 해설 966건 — CO-I-1).
+          z를 올리고 내리는 것은 **누가 위에 그려지나**를 바꿀 뿐 둘이 같은 자리를
+          다투는 사실을 안 바꾼다. 그래서 **자리를 배분**한다 — 레인의 상태를 아는
+          것은 레이아웃뿐이므로(세션 상태를 여기서 이미 읽는다) 레이아웃이 준다.
+          ⚠️ **DOM 존재가 아니라 상태로 판정한다.** `FeedbackPanel`이 실제로
+          떠 있는지 물으려면 이 파일이 남의 컴포넌트를 들여다봐야 한다 —
+          소유 경계를 넘고, 그렇게 얽힌 것이 애초에 겹침이 안 잡힌 이유다. */}
       <GuideBot
         pathname={pathname}
+        laneBusy={sessionStatus === SESSION_STATUS.FEEDBACK}
         state={{
           clouds: energy?.clouds,
           levelUp,
