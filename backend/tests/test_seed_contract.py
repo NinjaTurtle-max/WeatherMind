@@ -115,7 +115,7 @@ class TestSeedSchema:
         # "24건 → 보드 34→58"은 거짓이고(21건은 이미 병합돼 지금 수가 그 결과다)
         # **실제 잔여는 3건 · 보드 46 → 49**다.
         # ㉣ 상위 보드 3판(2026-08-18): +3 = **1018**. 새 4조건 규칙을 쓰는 보드
-        # (kl 9·9·10 · board_order 50~52). ⚠️ ①(규칙)만 넣으면 「어느 퍼즐에서도
+        # (kl 9·9·10 · board_order **51~53** — 판독 보드가 47로 들어와 +1 밀렸다). ⚠️ ①(규칙)만 넣으면 「어느 퍼즐에서도
         # 후보가 되지 않는 규칙」 계약이 울어 **②와 같은 PR이어야 한다** — 구조가
         # §4.4의 3단 순서를 강제한다.
         # MT-19 일기도 판독 1판(2026-08-18): +1. **이 판은 새 규칙을 쓰지 않는다** —
@@ -195,6 +195,111 @@ class TestSeedCoverage:
     def test_슬롯_문항_6건_이상(self):
         live = [item for item in SEED_ITEMS if item.get("uses_live_slots")]
         assert len(live) >= 6
+
+
+class TestFixSurvival:
+    """🔴 **한 번 고친 사실이 병합을 타고 되돌아가지 않는다** (2026-08-18 신설).
+
+    ## 왜 있나 — 세 번째 형태였다
+
+    같은 뿌리의 실패가 이 저장소에서 세 번 났다. *수리가 학습자 위쪽 어딘가에 있는데
+    조용히 도착하지 않는다*:
+
+    | | 무엇 |
+    |---|---|
+    | 태풍 진로 해설 | 병합됐지만 **배포**가 안 됐다(시드 재적재를 안 돌림) |
+    | §5.17 | 병합됐지만 **DB에 안 닿았다**(지문을 바꿔 upsert가 삽입이 됨) |
+    | **이 계약** | 병합됐지만 **다음 병합에서 사라졌다** |
+
+    마지막 것의 기제: 브랜치를 수리 **전** main에서 팠고, 통합 때 손으로 재구성하면서
+    키 `(concept_tag, question_text)`가 같은 항목을 **옛 판으로 채웠다.** 수리의 최종
+    형태가 「지문은 그대로 두고 정답·해설만 고침」이었기 때문에 키가 같았다 —
+    **키 기반 재구성은 「같은 키·다른 내용」을 구조적으로 못 본다.**
+
+    ## 왜 lint·기존 계약이 못 잡나
+
+    그것들은 **파일 대 스키마**를 본다(형식·중복·금칙어·payload). 되돌아간 값도 스키마상
+    완벽하므로 전건 초록이다. **파일 대 이력**을 보는 장치가 없었다.
+
+    ## 그래서 값을 못박는다
+
+    이 저장소의 방어 관례를 그대로 쓴다 — 맞바꿈은 주석이 아니라 **테스트가 소유**한다.
+    여기 적힌 문항은 **한 번 사람이 판정해 고친 것**이라, 다시 바뀌면 그것은 개선이 아니라
+    **회귀일 가능성이 높다.** 정당한 재저작이면 이 핀을 **의식적으로** 갱신하게 된다 —
+    그것이 목적이다(조용히 지나가지 않게).
+
+    ⚠️ **인덱스로 찾지 않는다.** 시드가 자라면 위치가 밀린다(어휘표의 `기단` basis가
+    이미 그렇게 가리키는 곳을 잃었다). 내용으로 찾는다.
+    """
+
+    def test_전선면_수리가_되돌아가지_않는다(self):
+        """「두 기단이 만나는 경계면」의 정답은 **전선면**이다.
+
+        전선은 전선면이 **지표와 만나는 선**이다(`[9과17-04]` 계열, kl4 = 중학 유체지구라
+        이 구별 자체가 학습 요소다). 종전에 이 문항이 정답을 「전선」이라 가르쳤고,
+        `_grade_text`가 완전일치라 **「전선면」이라 맞게 쓴 학습자가 오답 처리**됐다.
+        같은 시드의 kl5 문항이 그 구별을 맞게 써서 **시드가 자기와 모순**이었다.
+        """
+        target = [
+            item for item in SEED_ITEMS
+            if item["concept_tag"] == "pressure_front"
+            and "경계면" in (item["template_json"].get("question_text") or "")
+            and item["question_type"] == "short_answer"
+        ]
+        assert len(target) == 1, f"대상 문항이 1건이 아니다: {len(target)}건"
+        template = target[0]["template_json"]
+        assert template["correct_answer"] == "전선면", (
+            "「경계면」을 묻는데 정답이 전선면이 아니다 — 되돌림이거나 재저작이다. "
+            "재저작이면 이 단정을 의식적으로 갱신할 것"
+        )
+        hint = template.get("explanation_hint") or ""
+        assert "전선면" in hint and "지표" in hint, (
+            "해설이 면/선 구별을 가르치지 않는다 — 정답만 고치고 해설이 옛 정의로 "
+            f"남으면 학습자는 여전히 틀리게 배운다: {hint[:60]}"
+        )
+
+    def test_태풍_진로_해설이_자리를_가리키지_않는다(self):
+        """해설이 **정답 자리**를 「방향이 반대다」라고 가리켜 맞힌 학습자에게 틀렸다고
+        가르치던 문항. 수리는 서수를 **선지 내용 인용**으로 바꾸는 형태였다 —
+        자리 참조는 `shuffle_answer_positions`가 보기를 재배열하면 다시 깨진다.
+        그래서 이 핀은 특정 문장이 아니라 **「자리 참조가 없다」**를 문다.
+
+        ⚠️ **어휘 목록을 여기 복제하지 않는다.** 판정은 `shuffle_answer_positions`의
+        `hint_uses_ordinals`가 소유한다 — 사본을 만들면 **네 번째 사본**이 되고
+        (`test_answer_position_balance`의 사설 `WRONG_CONTEXT`가 이미 세 번째다)
+        한쪽만 자란다. 실제로 처음 이 핀을 사설 정규식으로 썼더니 **「마지막 보기」를
+        놓쳤다**(역검증 변이 ③에서 초록이 나서 발견). 소유자를 부르면 그 구멍이 없다.
+
+        ⚠️ **그 대신 이 핀의 적발 범위는 소유자의 어휘에 매인다.** 역검증에서 확인했다:
+        지금 `_OPTION_NOUNS`가 `선지|보기|답지`라 **「선택지」는 못 잡는다** — 그것을
+        추가하는 것이 PR #79의 수정분이고, **그 PR이 병합되면 이 핀의 범위가 함께
+        넓어진다.** 사본을 두지 않은 대가가 아니라 이득이다: 어휘를 한 곳에서 고치면
+        모든 소비자의 적발 범위가 동시에 넓어진다.
+        ⇒ **지금 확실히 무는 것**: `선지`·`보기`·`답지`·「마지막 보기」 계열.
+        **#79 병합 후 추가로 무는 것**: `선택지` — 실제 되돌림 문장이 그 형태였으므로
+        #79가 이 계약의 마지막 조각이다.
+        """
+        import importlib.util
+        import sys
+
+        path = REPO_ROOT / "scripts" / "shuffle_answer_positions.py"
+        spec = importlib.util.spec_from_file_location("wm_shuffle_pin", path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["wm_shuffle_pin"] = module
+        spec.loader.exec_module(module)
+
+        offenders = [
+            (item["template_json"].get("explanation_hint") or "")[:70]
+            for item in SEED_ITEMS
+            if item["concept_tag"] == "typhoon"
+            and module.hint_uses_ordinals(
+                item["template_json"].get("explanation_hint") or ""
+            )
+        ]
+        assert not offenders, (
+            "태풍 해설이 선지를 자리로 가리킨다 — 보기 순서가 바뀌면 다른 선지를 "
+            f"가리키게 된다. 자리 대신 선지 내용을 인용할 것: {offenders}"
+        )
 
 
 class TestSeedSlots:

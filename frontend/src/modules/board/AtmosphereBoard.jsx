@@ -153,11 +153,54 @@ export function hintRulesForGoal(rules, goal, palette, zoneState) {
  *      1단 = 목표 존만 하이라이트(어느 지역을 먼저 볼지)
  *      2단 = 필요한 "요소 종류"(전선 계열·기단 계열·습기·일사) + 저작 문구
  *    문구는 board_rules.json의 `hint_needs`(R10-01 §3.5 additive 저작 필드, 8종
- *    전부)를 그대로 쓴다. explain(현상 해설 — 정답 요소명 포함)은 힌트에 쓰지 않고,
- *    요소 종류는 규칙 `when`의 **타입 접두어만** 사용해 subtype(정답 요소)이 새지
- *    않게 한다. 문항 저작 `hints`(정답 좌표·수치를 그대로 알려주는 기존 문구)는
- *    이 경로에서 쓰지 않는다.
+ *    전부)를 그대로 쓴다. explain(현상 해설 — 정답 요소명 포함)은 **1·2단에는**
+ *    쓰지 않고(3단은 아래), 요소 종류는 규칙 `when`의 **타입 접두어만** 사용해
+ *    subtype(정답 요소)이 새지 않게 한다. 문항 저작 `hints`(정답 좌표·수치를
+ *    그대로 알려주는 기존 문구)는 이 경로에서 쓰지 않는다.
+ * 3) **3단 = N회 미통과 후 현상 해설 공개**(N-3 ①안, 2026-08-14 클라이언트 승인).
+ *
+ *    ⚠️ **이것은 위 「정답 배치 미공개」의 의도된 예외다** — 조용히 넘기지 말 것.
+ *    board 문항 **전건**이 `template_json.correct_answer`가 빈 값이고, 힌트는
+ *    2단이 상한이었다. 그 결과 **못 푸는 학습자가 답에 닿는 경로가 하나도 없었다**
+ *    (N-3). 3단은 그 경로를 여는 것이 목적이므로, 답을 가리는 것이 아니라 답에
+ *    닿게 하는 것이 계약이다.
+ *
+ *    ⚠️ **`explain`은 정답 요소명을 실제로 노출한다.** subtype 조건을 가진 규칙
+ *    10건 중 **8건**의 explain이 정답 subtype을 한국어 낱말로 그대로 담는다
+ *    (예: cold_front_shower → "한랭전선은…", okhotsk_sea_fog → "오호츠크해 기단은…").
+ *    위 156행이 원래부터 그렇게 적어 놓았고 실측도 같다. 그러므로 "explain은
+ *    해설이라 정답을 노출하지 않는다"는 설명을 **근거로 재인용하지 말 것** —
+ *    3단이 정답 요소를 노출한다는 것은 알고 고른 것이다.
+ *
+ *    노출하지 않는 것은 그대로 남는다: **존 좌표·임계 수치·팔레트 강조**.
+ *    explain 전문만 그대로 보이고 규칙의 `when`은 어떤 형태로도 그리지 않는다.
+ *    (규칙 파일 자체는 이미 `GET /board/rules`로 클라이언트에 내려간다 — 3단은
+ *     새 유출면이 아니라 **표시 게이트**다.)
+ *
+ *    적용 범위는 **연습 탭(BoardPage)뿐**이다. 세션 문항 경로는 `result`를 받지
+ *    않고(부모가 피드백 UI를 소유) 재제출도 없어 미통과 횟수 자체가 안 쌓인다.
  */
+
+/**
+ * N — 몇 번 미통과해야 해설을 여는가. **이 상수 하나가 소유자다**(계약 테스트
+ * `boardAssistRetention.smoke.test.mjs` 「①안: N회 미통과 후 현상 해설 공개」).
+ *
+ * 3으로 잡은 근거: 기존 사다리가 2단(존 지목 → 요소 종류)이라, 3은 사다리를 다
+ * 밟아 볼 **기회가 있는 최소값**이다. 2면 힌트를 다 보기 전에 답이 나와 사다리가
+ * 무의미해지고, 4 이상이면 오답마다 구름을 1씩 태우므로(에너지 §R10) 만렙 5인
+ * 학습자가 해설에 닿기 전에 잔량이 바닥난다.
+ *
+ * ⚠️ **공개는 힌트를 몇 단 켰는지와 무관하다 — 의도된 분리다.** 아래 판정
+ * (`explainRevealed`)은 `missCount`만 보고 `hintLevel`을 보지 않으므로, 힌트를
+ * 한 번도 안 켠 학습자도 3회 미통과면 해설을 받는다. 승인된 계약(N-3 ①안,
+ * 2026-08-14 클라이언트 승인)이 **「3회 미통과 후」 그 자체**이고, 교육적으로도
+ * 그 방향이 맞다: 힌트를 안 켠 학습자가 **가장 막힌** 학습자인데 **오답은 구름을
+ * 태우고 힌트는 안 태우므로**, `hintLevel` 게이팅은 도움에 닿으려고 **돈 내는
+ * 오답을 더** 하게 만든다. 그러므로 여기에 `hintLevel` 조건을 붙이는 것은
+ * 「수정」이 아니라 **승인된 계약의 변경**이다. 계약 테스트 「①안: N회 미통과 후…」
+ * 시나리오 ⓔ가 **힌트를 한 번도 열지 않은 채** 공개가 뜨는 것을 단정해 이것을 문다.
+ */
+export const EXPLAIN_AFTER_MISSES = 3;
 /**
  * `layout` — 이 보드가 어디에 놓이느냐.
  *
@@ -199,6 +242,28 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   const timeLimit = Number(puzzle?.time_limit_sec);
   const hasTimer = Number.isFinite(timeLimit) && timeLimit > 0;
   const [attemptKey, setAttemptKey] = useState(0); // 재도전마다 보드·타이머 리셋
+
+  // ── ①안(N-3): 미통과 횟수 — EXPLAIN_AFTER_MISSES회에서 해설이 열린다 ──────
+  // ⚠️ **`attemptKey`와 함께 리셋하면 안 된다.** 재도전이 곧 attemptKey 증가라
+  // 아래 초기화 effect에 얹으면 셀 때마다 0으로 돌아가 해설이 영영 안 열린다.
+  // 수명의 기준은 **퍼즐**이다 — 다른 퍼즐로 넘어갈 때만 0으로 돌린다.
+  const [missCount, setMissCount] = useState(0);
+  // 같은 판정 객체를 두 번 세지 않는다(리렌더는 result 정체성을 안 바꾼다).
+  const countedResultRef = useRef(null);
+  useEffect(() => {
+    setMissCount(0);
+    countedResultRef.current = null;
+  }, [puzzle]);
+  useEffect(() => {
+    // `phenomena`가 있는 것만 **채점된 미통과**다. 구름 소진(outOfClouds)과
+    // 제출 실패(네트워크 — BoardPage가 phenomena 없이 passed:false를 넣는다)는
+    // 학습자가 틀린 것이 아니므로 세지 않는다. 그걸 세면 서버가 흔들릴 때
+    // 답이 저절로 열린다.
+    if (!result || result.passed || result.outOfClouds || !result.phenomena) return;
+    if (countedResultRef.current === result) return;
+    countedResultRef.current = result;
+    setMissCount((n) => n + 1);
+  }, [result]);
   const [remaining, setRemaining] = useState(hasTimer ? timeLimit : 0);
   const [timedOut, setTimedOut] = useState(false);
 
@@ -436,9 +501,11 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     }
     // 후보 규칙을 못 찾았을 때만 팔레트 종류로 대체(정답 요소는 여전히 미노출).
     // **방어 코드다** — 실데이터에서는 걸리지 않는다(P2-2 조사, 2026-08-03):
-    // 시드 board 12건 전부 후보 규칙이 정확히 1개로 좁혀지고(폴백 0/12), 규칙 8종이
-    // 모두 어느 퍼즐에서든 후보로 선택된다. `boardAssistRetention.smoke.test.mjs`가
-    // 이 사실을 상주 고정하므로, 새 퍼즐이 폴백에 빠지면 테스트가 먼저 실패한다.
+    // 시드 board **전건**이 후보 규칙 **1개 이상**으로 좁혀지고(폴백 0건), 규칙
+    // 전종이 어느 퍼즐에서든 후보로 선택된다. `boardAssistRetention.smoke.test.mjs`
+    // 3-b가 그 둘을 상주 고정하므로, 새 퍼즐이 폴백에 빠지면 테스트가 먼저 실패한다.
+    // ⚠️ **「후보가 정확히 1개」는 계약이 아니다** — 팔레트가 넓은 판은 여러 경로가
+    // 도달 가능한 것이 정상이고(㉣ 변동 기상요소), 3-b도 개수를 단정하지 않는다.
     // 남겨두는 이유(실제로 도달 가능한 경로):
     //   ① 규칙 로드 전(GET /board/rules 지연·실패) ② ai-worker 생성 퍼즐이 규칙
     //   8종으로 성립 불가한 목표를 담은 경우 ③ 규칙 파일만 먼저 축소 저작된 경우.
@@ -460,7 +527,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     return [
       t('board.atmosphere.hintStep1', { zone: zoneName }),
       // needs가 비는 경로는 hintKinds 폴백과 동일한 방어 케이스다(주석 참조 —
-      // 실시드 12/12는 후보 1개). 그때도 "요소 종류" 칩은 팔레트에서 채워지므로
+      // 실시드 전건이 후보 ≥1). 그때도 "요소 종류" 칩은 팔레트에서 채워지므로
       // 2단이 완전히 무내용이 되지는 않는다.
       needs.length > 0
         ? needs.join(t('board.atmosphere.hintJoiner'))
@@ -469,6 +536,27 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     // t는 렌더마다 새 클로저(로케일 변경 반영) — 매 렌더 재계산이지만 배열 2칸이라 무시 가능
   }, [sandbox, hintZone, hintsAuthored, regions, hintRules, t]);
   const hintZoneActive = hintLevel > 0 && hintZone != null;
+
+  // ── ①안 3단(N-3): N회 미통과 후 현상 해설 공개 ────────────────────────────
+  // 규칙은 힌트 2단이 **이미 좁혀 놓은 후보**를 그대로 쓴다(hintRulesForGoal).
+  //
+  // ⚠️ **종전 주석은 거짓이었다**(2026-08-14 코드 리뷰): *"시드 전건이 후보 1개로
+  // 좁혀지는 것은 3-b가 상주 감시한다"*고 적었는데 **3-b는 ≥1만 단정**했고, 실측하니
+  // **후보가 2개 이상인 퍼즐이 있다**(`fog@zone1`). 감시한다고 적은 것을 감시하지 않았다.
+  //
+  // 그래도 `[0]`을 여는 것이 **안전한 이유**는 따로 있다 — `hintRulesForGoal`이
+  // **`goal.phenomenon`으로 먼저 거르고**(같은 함수 :124) 팔레트 도달 가능성까지
+  // 보므로, 후보들은 전부 **「같은 현상에 이르는 다른 경로」**다. 어느 것을 열어도
+  // 틀린 현상을 가르치지 않는다. 그리고 **무엇을 보여줄지는 사람이 고르지 않는다** —
+  // 여는 것은 언제나 `[0]`, 곧 **후보 중 최고 priority 규칙**이고, 규칙 파일이
+  // priority 내림차순이며 **priority 전역 유일**이 계약이므로(`boardAssistRetention
+  // .smoke.test.mjs:466` 「priority 중복 — 판정 순서가 비결정적이 된다」) 그 선택은
+  // **결정적**이다. 후보가 몇 개로 늘어도 같다. 그래서 지켜야 할 실질은 개수가 아니라
+  // **「보여주는 해설 == 그 판에서 엔진이 실제로 적용하는 규칙」**이고, 그것을 3-b의
+  // 동일성 루프가 시드 board 전건에 대해 단정한다(같은 파일 `:573` 이하).
+  // 자유 실험(sandbox)은 목표도 채점도 없어 미통과가 존재하지 않는다.
+  const explainRevealed = !sandbox && missCount >= EXPLAIN_AFTER_MISSES;
+  const revealedExplain = explainRevealed ? (hintRules[0]?.explain ?? null) : null;
 
   // 「지금 보고 있는 존」 — wide 배치에서 존 카드 4장을 대신하는 한 줄이 이 존을 말한다.
   // stageZone과 같은 규칙(마지막 조작 존 → 목표 존 → 0)이라 단면 패널과 초점이 어긋나지 않는다.
@@ -903,13 +991,15 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   // 힌트 표시는 BoardHintPanel이 소유한다(R13-01 §2.6 — 교사 캐릭터 말풍선).
   // 문구·순서·칩은 그대로 옮겼다. 여기서는 "무엇을 말할지"만 정하고 "누가 어떻게
   // 말하는지"는 패널이 정한다.
-  const hintBlock = hintSteps.length > 0 && !result && (
+  const hintBlock = (hintSteps.length > 0 || revealedExplain) && !result && (
     <BoardHintPanel
       steps={hintSteps}
       level={hintLevel}
       kindLabels={hintKinds.map((kind) => (HINT_KIND_LABEL[kind] ? t(HINT_KIND_LABEL[kind]) : kind))}
       interactive={interactive}
       onReveal={() => setHintLevel((l) => Math.min(l + 1, hintSteps.length))}
+      // ①안 3단 — 사다리 **다음 단**으로 얹는다(1·2단은 그대로 둔다).
+      explain={revealedExplain}
       // wide는 힌트를 168px 조절값 열 아래에 둔다 — 가로 배치로는 글자 폭이
       // 92px밖에 안 남는다(BoardHintPanel의 `stack` 주석). stacked(세션)는 넓다.
       stack={wide}
@@ -1041,8 +1131,14 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                 ⚠️ 단, **목표가 2개 이상이면 칩을 같이 남긴다.** 대체할 수 있다고
                 본 근거는 액션 바의 미리보기 문구인데, 그것은 「다 됐다 / 아직」
                 **이분값**이라 1/2와 2/2를 구분하지 못하고 제출 뒤에는(`!result`)
-                아예 사라진다. 시드 board 46건 중 11건이 목표 복수이고 그중
-                guided가 4건이다 — 그 4건에서만 칩이 함께 뜬다(2026-08-12 리뷰). */}
+                아예 사라진다. **목표가 복수인 판이 11건이고 그중 guided가 4건**이라
+                그 4건에서만 칩이 함께 뜬다(2026-08-18 재실측).
+                ⚠️ **분모는 적지 않는다.** 종전에 「board 46건 중 11건」이라 적혀 있었고
+                **46이 낡았다**(그 뒤 55판). 다만 **11과 4는 그대로였다** — 새로 저작된
+                판이 전부 목표 1개였기 때문이다. 즉 이 논거가 기대는 것은 총계가 아니라
+                **「목표 복수인 guided 판이 존재한다」**이므로, 저작마다 낡는 분모를
+                근거로 쓰지 않는다(§0 규약). 수가 필요하면 세는 곳은
+                `content_items.json`이다. */}
             {!sandbox && goalTotal > 0 && (!hasGuide || goalTotal > 1) && (
               <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11.5px] font-bold tabular-nums text-slate-200">
                 {t('board.atmosphere.goalProgressLabel')} {goalMetCount}/{goalTotal}

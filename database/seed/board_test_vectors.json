@@ -1367,7 +1367,7 @@
     ]
   },
   {
-    "name": "mt19_chart_read_front_choice: 일기도 판독(board_order 53) — 전선을 잘못 읽으면 목표에 닿지 않는다",
+    "name": "mt19_chart_read_front_choice: 일기도 판독(board_order 47) — 전선을 잘못 읽으면 목표에 닿지 않는다",
     "note_authoring": "MT-19 판독 1판의 **역검증을 계약으로 고정**한다. 그 보드의 팔레트는 전선 3종 + 습기이고 목표는 서해상 shower/cumulonimbus다. 판독이 실제로 채점되는지는 「틀린 전선을 놓으면 떨어지는가」로만 확인된다 — 그 실패를 여기 네 존에 나란히 놓았다(존별 판정이 독립이라 한 보드로 네 갈래를 잰다). ⚠️ **팔레트에 `sun`이 없는 것이 설계**다: sun이 있으면 `convective_shower`(sun>=80·moisture>=60)로 **전선 없이** 같은 목표에 닿아 판독이 채점 대상에서 빠진다.",
     "board": {
       "zones": [
@@ -2051,8 +2051,8 @@
     ]
   },
   {
-    "name": "mt18_tropical_night_edges: 열대야 — 습기·바람·일사의 나머지 갈래와 경계",
-    "note_authoring": "위 벡터가 기단·바람미배치·일사미배치를 맡고, 이 벡터가 나머지를 맡는다: 습기 부족(80 < 85) · 강풍(열이 섞여 흩어짐) · 일사 과다(40 > 30 = 밤이 아니다) · 그리고 **세 임계의 경계 전건**(85·30·15)이 성립한다는 것. 존이 4칸이라 갈랐다.",
+    "name": "mt18_tropical_night_edges: 열대야 — 임계 경계 · 미달 갈래 · **기단만 다른 대비**",
+    "note_authoring": "⚠️ **2026-08-18 재작성: 종전 기대값이 역전을 계약으로 박아 두었다.** 종전 존 0(기단 있음·습기 80)의 기대값이 `fog`였고, 그것은 `greenhouse_tropical_night`의 임계가 85인데 `radiation_fog`가 80이어서 생긴 80~84 구간이었다 — **습기를 올리면 안개가 사라지는** 동작이고, 엔진이 「물기가 많을수록 안개가 덜 낀다」를 가르쳐 `explain`과 정반대였다(실측: 80·82·84 → fog, 85 → tropical_night). 기단 배제 조건을 새로 만들거나 안개 임계를 올리는 대신 **임계를 80으로 정렬**했다: `radiation_fog`가 맑고 찬 밤에 80에서 발화하는 것은 옳은 물리이고 다른 보드가 그 v1 규칙으로 판정되므로 건드릴 수 없고, 조건 문법에 부정 연산자가 없어 기단 배제는 엔진 문법 확장(㉣이 한 사이클을 다 쓴 성격)이다. 정렬하면 네 조건이 다 맞는 순간 pri 136이 이겨 **더운 기단 밑에서는 안개가 아예 안 뜨고**, 안개는 **기단이 없을 때만** 남는다 — 그것이 옳은 물리다. ⚠️ 그리고 첫 수정에서 **존 3(경계 검사)을 대비 칸으로 덮어 경계 계약을 잃었다.** 두 계약이 다 필요하므로 존 0을 임계 경계 전건(80·30·15) 포괄 칸으로, 존 3을 **기단만 없는** 대비 칸으로 다시 배치했다. 종전 벡터에는 대비 칸이 아예 없었다 — 네 존 전부에 기단이 놓여 있었다.",
     "board": {
       "zones": [
         "서해",
@@ -2073,12 +2073,12 @@
         },
         {
           "type": "sun",
-          "level": 20,
+          "level": 30,
           "zone": 0
         },
         {
           "type": "wind",
-          "level": 10,
+          "level": 15,
           "zone": 0
         },
         {
@@ -2122,23 +2122,18 @@
           "zone": 2
         },
         {
-          "type": "air_mass",
-          "subtype": "north_pacific",
-          "zone": 3
-        },
-        {
           "type": "moisture",
-          "level": 85,
+          "level": 90,
           "zone": 3
         },
         {
           "type": "sun",
-          "level": 30,
+          "level": 20,
           "zone": 3
         },
         {
           "type": "wind",
-          "level": 15,
+          "level": 10,
           "zone": 3
         }
       ]
@@ -2146,8 +2141,8 @@
     "expected": [
       {
         "zone": 0,
-        "phenomenon": "fog",
-        "cloud": "stratus"
+        "phenomenon": "tropical_night",
+        "cloud": "none"
       },
       {
         "zone": 1,
@@ -2161,23 +2156,23 @@
       },
       {
         "zone": 3,
-        "phenomenon": "tropical_night",
-        "cloud": "none"
+        "phenomenon": "fog",
+        "cloud": "stratus"
       }
     ],
     "goals": [
       {
-        "note": "습기가 모자라면(80 < 85) 되돌릴 기체가 부족해 미달 — 되레 복사안개가 이긴다",
+        "note": "경계 포함: 습기 80·일사 30·바람 15 전건이 성립한다 (임계 정렬 후 새 경계는 80이다)",
         "conditions": [
           {
             "zone": 0,
             "phenomenon": "tropical_night"
           }
         ],
-        "passed": false
+        "passed": true
       },
       {
-        "note": "바람이 세면(70) 열이 섞여 흩어져 미달",
+        "note": "바람이 세면(70) 열이 섞여 흩어져 미달 — 복사안개가 이긴다",
         "conditions": [
           {
             "zone": 1,
@@ -2197,14 +2192,14 @@
         "passed": false
       },
       {
-        "note": "경계 포함: 습기 85·일사 30·바람 15 전건이 성립한다",
+        "note": "🔴 **같은 습도(90)·같은 밤·같은 약풍인데 기단만 없으면 안개다** — 이 판이 가르치려는 대비. 더운 기단 밑에서는 이슬점에 닿지 않아 안개가 끼지 않는다",
         "conditions": [
           {
             "zone": 3,
             "phenomenon": "tropical_night"
           }
         ],
-        "passed": true
+        "passed": false
       }
     ]
   }
