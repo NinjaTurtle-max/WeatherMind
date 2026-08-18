@@ -477,6 +477,39 @@ try {
    }
   });
 
+  // ── #32b 난이도 라벨은 교과 과정 표기다 ──────────────────────────────────
+  // 왜 여기냐: 바로 위 시나리오가 **학습 수준 잠금**을 검사한다. 라벨과 잠금은
+  // 한 몸이라(초등→1, 중·고등→2까지, 성인→전부) 같은 파일에서 함께 물어야
+  // 한쪽만 바뀌는 드리프트가 잡힌다.
+  //
+  // 낱말 자체를 단정하지 **않는다** — 이 파일이 2026-08-06에 「도전」을 단정했다가
+  // 문구가 바뀌며 조용히 죽은 전례가 있다(위 248행 시나리오 주석). 대신 두 가지
+  // **성질**을 문다: ⑴ 상대 난이도 어휘로 되돌아가지 않았을 것 ⑵ 세 라벨이
+  // 잠금 안내문에 그대로 등장할 것(배지와 안내가 같은 낱말을 쓸 것).
+  await scenario('#32b: 난이도 라벨이 교과 과정 표기이고 잠금 안내와 같은 낱말을 쓴다', async () => {
+    const RELATIVE_WORDS = {
+      ko: ['쉬움', '보통', '어려움', '도전'],
+      en: ['Easy', 'Normal', 'Hard'],
+    };
+    for (const locale of ['ko', 'en']) {
+      const res = (await vite.ssrLoadModule(`/src/i18n/resources/board.${locale}.js`)).default;
+      const page = res.board.page;
+      const labels = [page.difficulty1, page.difficulty2, page.difficulty3];
+
+      assert(labels.every((l) => typeof l === 'string' && l.trim()),
+        `${locale}: difficulty1~3 라벨이 비었다`);
+      for (const word of RELATIVE_WORDS[locale]) {
+        assert(!labels.includes(word),
+          `${locale}: 난이도 라벨이 상대 난이도 어휘 「${word}」로 되돌아갔다 — #32b는 교과 과정 표기다`);
+      }
+      // ⑵ 한 몸 계약: 라벨 3개가 전부 잠금 안내문 안에 있어야 한다.
+      for (const label of labels) {
+        assert(page.lockedBannerBody.includes(label),
+          `${locale}: 잠금 안내문이 라벨 「${label}」을 안 쓴다 — 배지와 안내가 다른 말을 하면 학습자가 두 축으로 읽는다`);
+      }
+    }
+  });
+
 } finally {
   await vite.close();
   httpServer.close();

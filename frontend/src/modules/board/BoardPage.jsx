@@ -19,7 +19,11 @@ import { useT } from '../../i18n';
  * GET /board/puzzles 목록(클리어 표시) → 선택 → 플레이 → POST attempt.
  * 최초 클리어 시 +5 XP 토스트(재도전 0). 시뮬레이터 탭을 대체한다.
  *
- * R7-02 S5: 퍼즐 카드에 난이도 배지(difficulty 1|2|3 → 쉬움/보통/도전).
+ * R7-02 S5: 퍼즐 카드에 난이도 배지(difficulty 1|2|3 → **초등/중·고등/성인**).
+ * ⚠️ 낱말의 소유자는 `board.{ko,en}.js`의 `page.difficulty1~3`이지 이 주석이 아니다 —
+ * 여기 적힌 값은 두 번 낡었다(「도전」은 2026-08-06에 이미 죽은 낱말이었고,
+ * 「쉬움/보통/어려움」은 #32b 교과 표기 전환으로 죽었다). 다음에 또 바뀌면
+ * 이 줄이 아니라 리소스를 본다.
  * 목록은 서버가 **저작 순서(board_order)**로 내려준다 — 순차 진행이라 순서가 곧
  * 코스다. 클라이언트는 재정렬하지 않는다(2026-08-05, θ 인접 정렬을 대체).
  *
@@ -54,9 +58,13 @@ const DIFFICULTY_META = {
 };
 
 // compact — 「난이도」 접두어를 떼고 등급만 쓴다. 잠긴 칸에서만 켠다: 같은 줄에
-// 잠금 사유가 따라붙어 접두어까지 놓을 폭이 없다(en 「Difficulty Normal」 +
-// 「Previous tier first」 = 187px 칸에서 줄임표. 2026-08-10 실측). **읽어 주는
-// 이름은 줄지 않는다** — aria-label은 두 경우 모두 전체 문구다.
+// 잠금 사유가 따라붙어 접두어까지 놓을 폭이 없다(en에서 「Difficulty ___」 접두어를
+// 붙인 채로는 사유 문구가 줄임표에 걸린다).
+// ⚠️ 폭의 기준은 **배지 행 내폭 158px**이다(2026-08-18 실측, xl 1920). 종전 이
+// 자리에 적혀 있던 「187px 칸」은 **칸** 폭 인용값이라 이 행의 기준이 아니었고,
+// 함께 적혀 있던 「Previous tier first」는 **지금 없는 문자열**이다(현재 순차 잠금
+// 사유는 `lockedHint`). 수치의 소유자는 `board.en.js` difficulty1~3 주석이다.
+// **읽어 주는 이름은 줄지 않는다** — aria-label은 두 경우 모두 전체 문구다.
 function DifficultyBadge({ difficulty, compact = false }) {
   const t = useT();
   const meta = DIFFICULTY_META[difficulty];
@@ -587,8 +595,10 @@ export default function BoardPage() {
  *
  * **잠금은 두 축이고 사유가 다르다**(2026-08-12 합성 — 둘 다 사용자 지시다):
  *
- * ⑴ **학습 수준**(`locked`, 2026-08-10) — 초등은 쉬움, 중·고등은 보통까지,
+ * ⑴ **학습 수준**(`locked`, 2026-08-10) — 초등은 「초등」, 중·고등은 「중·고등」까지,
  *    성인은 전부. 진도가 아니라 수준이라 「내 정보 → 학습 수준」 한 번으로 바뀐다.
+ *    #32b(2026-08-14) 이후 **난이도 라벨이 곧 학교급**이라 이 규칙이 배지에서
+ *    바로 읽힌다 — 라벨과 `lockedBannerBody`는 같은 낱말을 써야 한다.
  * ⑵ **순차**(`unlocked === false`, MT-24 · 2026-08-11 멘토링) — 열린 난이도 안에서
  *    앞 퍼즐부터. 종전 *"잠금은 없다(2026-08-06)"*는 번복됐고, 당시 우려("고를
  *    자유")는 서버의 LOOKAHEAD가 흡수한다.
@@ -689,7 +699,19 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
             밀어 칸이 답답해졌다. 두 가지로 폭을 벌었다: 사유 문구에서 자물쇠
             이모지를 뺐고(이미 칸 오른쪽 위에 있어 중복이었다), 잠긴 칸에서는
             배지를 compact로 줄였다. 여기에 무엇을 더 붙이기 전에 **en으로**
-            xl(6열)에서 줄임표가 나는지 재 볼 것 — ko는 통과하고 en만 깨진다. */}
+            xl(6열)에서 줄임표가 나는지 재 볼 것 — ko는 통과하고 en만 깨진다.
+            ⚠️ 폭을 잃는 쪽은 **항상 사유 문구**다: 배지가 `shrink-0`(:76)이라
+            안 줄고, 사유 span만 `truncate`(:724)로 잘린다.
+            ⚠️ **두 잠금 사유를 따로 재야 한다.** `cardLocked`(수준 잠김)와
+            `lockedHint`(순차 잠김)는 문구도 폭도 다르고, 순차 잠김은 **어느
+            난이도에서나** 나므로 가장 넓은 배지(en Elementary 64px)와 만난다 —
+            그쪽이 실제 최악 케이스다.
+            ⚠️ 실측(2026-08-18)은 이 행의 내폭이 **158px**임을 말한다 — 위 :90의
+            「칸 187px」은 **칸** 폭 인용값이고 이 행의 기준이 아니다. en에서
+            `Elementary`(64) + 6 + 「Above your level」(92) = 162 > 158로 줄임표가
+            났고, 그래서 en 사유 문구 2건을 줄였다(🔒도 en `lockedHint`에서 뺐다 —
+            자물쇠는 :674에 이미 있다). 측정 근거·후보·미적용 축약안은
+            `i18n/resources/board.en.js`의 difficulty1~3 주석이 소유한다. */}
         <div className="mt-auto flex items-center gap-1.5 pt-2">
           <DifficultyBadge difficulty={puzzle.difficulty} compact={locked} />
           {pending && <span className="text-[11px] font-bold text-sky-700">{t('board.page.opening')}</span>}

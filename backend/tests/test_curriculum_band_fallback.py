@@ -304,6 +304,25 @@ class TestWideningDoesNotBlurHealthyCells:
     `test_cyclic_sections.py`가 소유한다.
     """
 
+    @staticmethod
+    def _rank_target(reported: str) -> int:
+        """이 클래스가 재현하는 **표적 단계의 단일 소유자**.
+
+        `_unit_content_pool`이 섹션 없는 유닛에서 쓰는 산출과 같은 식이다
+        (`curriculum_service.py:1067` — `theta_to_knowledge_level(θ)`). 시뮬레이션의
+        학습자 θ는 신고 밴드의 사전 b이므로 표적은 `theta_to_knowledge_level(
+        LEVEL_GROUP_ITEM_B[band])`가 된다. `unit_pool_level_groups` 독스트링이
+        **이 파일을 이름으로 지목하며** 그 산출을 쓴다고 적어 두었고,
+        `test_지식수준_고정반경으로는_굶주림이_안_풀린다`도 같은 식으로 센다.
+
+        ⚠️ **`knowledge_level_of_level_group`을 표적으로 쓰지 말 것.** 그것은
+        `knowledge_level`이 NULL인 **문항**의 폴백 대표값(밴드의 최하 단계)이지
+        학습자의 표적이 아니다 — 두 값은 전 밴드에서 정확히 한 단계씩 갈린다
+        (1↔2 · 3↔4 · 5↔6 · 7↔9). 실제로 그 혼용이 없는 위반을 만들어 냈다
+        (2026-08-18 — 아래 KNOWN_ORDER_VIOLATIONS 주석).
+        """
+        return wb.theta_to_knowledge_level(wb.LEVEL_GROUP_ITEM_B[reported])
+
     def _top(self, unit_id: str, reported: str, size: int | None = None):
         size = size or cs.UNIT_SESSION_SIZE
         items = load_items()
@@ -315,7 +334,7 @@ class TestWideningDoesNotBlurHealthyCells:
         pool = pool[: size * cs.UNIT_POOL_PREFETCH]
         return cs.rank_by_knowledge_level(
             [SimpleNamespace(**it) for it in pool],
-            wb.theta_to_knowledge_level(theta),
+            self._rank_target(reported),
         )[:size]
 
     @pytest.mark.parametrize(
@@ -363,10 +382,17 @@ class TestWideningDoesNotBlurHealthyCells:
         assert {it.knowledge_level for it in top} == {3}  # kl 2(거리 3)는 안 쓴다
 
     def test_강등은_필요한_만큼만_깊어진다(self):
-        """거리 오름차순이 방향과 무관하게 작동한다 (`risk-flood` × middle_high).
+        """거리 오름차순이 방향과 무관하게 작동한다 — **자기 밴드가 빈 칸 전수**.
 
         자기 밴드 0건이라 **가까운 것부터 쓰고 모자란 만큼만** 멀어진다. 강등도
         승격도 같은 함수가 하므로 표적보다 위·아래가 섞여 나오는 것이 정상이다.
+        표적의 소유자는 `_rank_target` 하나다.
+
+        ⚠️ **사례 이름을 여기 적지 않는다**(2026-08-18). 종전 독스트링은
+        "(`risk-flood` × middle_high)"를 예시로 박아 두었는데, **전수 스캔으로
+        바뀐 뒤에도 그대로 남아** 그 칸이 더는 폴백 칸이 아닌 지금까지 낡은 채
+        살아 있었다. 어느 칸이 폴백인지는 저작에 따라 옮겨 다니므로
+        `_all_fallback_cases`가 매번 다시 센다.
 
         ⚠️ **골든 벡터를 쓰지 않는다**(2026-08-10 전환). 종전에는 기대 벡터를
         `[5, 6, 1, 1, 1]`로 박아 뒀는데, 같은 날 **두 번 깨졌다**:
@@ -384,11 +410,21 @@ class TestWideningDoesNotBlurHealthyCells:
         violations = []
         for unit_id, reported, top in cases:
             assert len(top) == cs.UNIT_SESSION_SIZE
-            target = wb.knowledge_level_of_level_group(reported)
+            target = self._rank_target(reported)
             keys = [
                 (abs(it.knowledge_level - target), 0 if it.knowledge_level <= target else 1)
                 for it in top
             ]
+            # 🔴 **이 단정이 못 잡는 것 하나를 적어 둔다 — 「3종 다 잡는다」로 읽지 말 것.**
+            #    2026-08-18 변이 실측:
+            #      ⑴ 거리 키 부호 역전        → FAILED (여기서 운다)
+            #      ⑵ 타이브레이크 방향 역전    → FAILED (여기서 운다)
+            #      ⑶ 타이브레이크 **소멸**     → PASSED ⚠️ **안 운다**
+            #    ⑶이 안 우는 이유: 파이썬 안정 정렬이 시드 JSON의 **파일 순서를 우연히
+            #    보존**한다. 프로덕션 SQL은 동률을 random으로 흩으므로 그 순서는
+            #    보장이 아니라 artifact다 — 즉 **타이브레이크가 사라져도 이 픽스처에서는
+            #    티가 안 난다.** 잡으려면 시드에 안 기대는 인위 픽스처가 필요한데
+            #    그것은 이 파일의 「골든 벡터 금지」 원칙과 충돌한다(판단 대기).
             # ⑴ 거리 오름차순 — "가까운 것을 먼저 쓰고 모자란 만큼만 멀어진다"
             # ⑵ 거리가 같으면 쉬운 쪽이 먼저 — CO-L2의 강등 방향 판단
             #    (한 단계 위는 못 풀어서 막지만, 한 단계 아래는 쉬워도 가르친다)
@@ -405,16 +441,26 @@ class TestWideningDoesNotBlurHealthyCells:
             f"기지 위반이 해소됐다: {fixed} — KNOWN_ORDER_VIOLATIONS에서 지울 것"
         )
 
-    # 🔴 **선행 위반 1건** (2026-08-18 발견 — ㉣ 저작이 드러냈지 만든 것이 아니다).
-    # `city-anomaly-board × adult`는 kl [7, 4, 4, 4](표적 5)라 **거리 2가 거리 1보다
-    # 먼저** 나온다 — 학습자가 가까운 것보다 먼 것을 먼저 받는다.
-    # ⚠️ **왜 지금까지 안 걸렸나**: 종전 테스트는 `_first_fallback_case()`가 집는
-    # **칸 하나만** 봤고, 그 자리는 저작에 따라 옮겨 다녔다(주석이 두 번 옮겼다고
-    # 적어 두었다). 즉 **위반하는 칸이 있어도 그 칸이 첫 번째가 아니면 조용했다.**
-    # 그래서 이 테스트를 **전수 스캔**으로 바꾸고 기지 위반만 면제한다.
-    # ⚠️ 이 위반은 board 유닛 특유의 경로(파이썬 측 정렬)에서 나온 것으로 보이며
-    # **㉣ 범위 밖**이다 — 수신자·수리는 별건.
-    KNOWN_ORDER_VIOLATIONS = {("city-anomaly-board", "adult")}
+    # 🔴 **기지 위반 목록 — 지금은 비어 있다.** 전수 스캔으로 새 위반이 생기면
+    # 위 `unexpected`가 울고, 여기 적힌 것이 고쳐지면 `fixed`가 운다(양방향 래칫).
+    #
+    # ⚠️ **경위를 남긴다 — 여기 적혀 있던 1건은 실재하지 않는 위반이었다**
+    # (2026-08-18 정정. 종전 기술: *"`city-anomaly-board × adult`는 kl [7,4,4,4]
+    # (표적 5)라 거리 2가 거리 1보다 먼저 나온다 · 이 위반은 board 유닛 특유의
+    # 경로(파이썬 측 정렬)에서 나온 것으로 보인다"* — **둘 다 거짓**이었다).
+    #   · 계측: 그 칸의 풀은 kl `[4,4,4,4,7]`이고 `rank_by_knowledge_level`이 받는
+    #     표적은 **6**이다(θ=사전 b 1.0 → `theta_to_knowledge_level` = 6). 거리는
+    #     `[1,2,2,2]`로 **오름차순이 성립**한다. 정렬은 회귀하지 않았다.
+    #   · 진짜 원인은 **단정 쪽의 표적 산출**이었다. 이 파일 안에서 표적을 두 가지
+    #     식으로 세고 있었고(`_top`은 `theta_to_knowledge_level`, 단정은
+    #     `knowledge_level_of_level_group`), 그 둘은 전 밴드에서 정확히 한 단계씩
+    #     갈린다 — 밴드 사전 b가 `THETA_KNOWLEDGE_LEVEL_BOUNDS`의 내부 경계에
+    #     **정확히 얹혀** 있어 `theta < bound` 관례가 늘 위쪽 칸을 준다.
+    #   · 수리: 표적 산출을 `_rank_target` 하나로 모았다(그 독스트링이 소유자).
+    # ⚠️ **전수 스캔 전환 자체는 유효했다** — 종전 `_first_fallback_case()`는 칸
+    # 하나만 봤고 그 자리가 저작에 따라 옮겨 다녔으므로, 진짜 위반이 첫 칸이
+    # 아니면 조용했다. 되돌리지 말 것.
+    KNOWN_ORDER_VIOLATIONS: set[tuple[str, str]] = set()
 
     def _all_fallback_cases(self, *, require_demotion: bool = False):
         """자기 밴드가 빈 (유닛 × 신고밴드)를 **전부** 돌려준다."""
@@ -428,7 +474,7 @@ class TestWideningDoesNotBlurHealthyCells:
                 if reported in {it.level_group for it in top}:
                     continue
                 if require_demotion:
-                    target = wb.knowledge_level_of_level_group(reported)
+                    target = self._rank_target(reported)
                     if not any(it.knowledge_level < target for it in top):
                         continue
                 out.append((unit_id, reported, top))

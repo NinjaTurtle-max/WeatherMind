@@ -217,6 +217,116 @@ function LayerCloud({ x, y, w = 60, dark = true, animate, grow }) {
   );
 }
 
+// ── 재난 2종 전용 프리미티브 (MT-23 표현 문법 — 조사 문서 §3A·E·F) ──────────
+/**
+ * 아래 넷은 **SVG 폴백이 WebGL과 같은 뜻을 그리게** 하려고 추가한 것이다
+ * (`webgl/crossSection/scenes.js`의 `flame`·`smoke`·`tree`·`building` 관용구의 2D판).
+ * 똑같이 그리지 않는다 — SVG는 2D이고 폴백이라 **뜻만 통하면 된다**.
+ *
+ * 🔴 `data-cs*` 속성은 **계약 테스트가 읽는 유일한 창**이다
+ * (`tests/boardVisual.render.test.mjs` §8). jsdom·SSR에는 레이아웃 엔진이 없어
+ * 「보기 좋은가」는 못 재고, 잴 수 있는 것은 **선언된 좌표 사이의 관계**뿐이다:
+ * 화선이 비탈 위에 있는가 · 불머리가 위쪽인가 · 건물이 포장면 위에 서 있는가.
+ * 그래서 수치는 path를 만드는 상수와 **같은 값**을 그대로 내보낸다(단일 소유).
+ */
+/** 불꽃 — 바람 아래(동)로 기운 물방울꼴. role: front(화선)·spot(비화)·crown(수관화) */
+const flamePath = (x, y, h, w) =>
+  `M${(x - w / 2).toFixed(1)},${y.toFixed(1)}`
+  + ` C${(x - w * 0.52).toFixed(1)},${(y - h * 0.46).toFixed(1)}`
+  + ` ${(x - w * 0.12).toFixed(1)},${(y - h * 0.54).toFixed(1)}`
+  + ` ${(x + w * 0.3).toFixed(1)},${(y - h).toFixed(1)}`
+  + ` C${(x + w * 0.14).toFixed(1)},${(y - h * 0.5).toFixed(1)}`
+  + ` ${(x + w * 0.58).toFixed(1)},${(y - h * 0.34).toFixed(1)}`
+  + ` ${(x + w / 2).toFixed(1)},${y.toFixed(1)} Z`;
+
+function Flame({ x, y, h, role, animate, delay = 0 }) {
+  const w = h * 0.66;
+  return (
+    <g
+      className={anim(animate, 'animate-board-sun-pulse')}
+      style={animate ? { animationDelay: `${delay.toFixed(2)}s` } : undefined}
+    >
+      <path
+        data-cs="flame" data-cs-role={role}
+        data-cs-x={x.toFixed(1)} data-cs-y={y.toFixed(1)} data-cs-h={h.toFixed(1)}
+        d={flamePath(x, y, h, w)} fill="#ea580c"
+      />
+      <path d={flamePath(x, y - 0.3, h * 0.55, w * 0.52)} fill="#fbbf24" />
+    </g>
+  );
+}
+
+/** 침엽수 — 연료이자 수관화의 그릇(지표화 → 사다리 → 수관, 조사 §3A) */
+function ConiferTree({ x, y, h = 12, w = 9 }) {
+  return (
+    <g>
+      <rect x={x - 0.7} y={y - h * 0.16} width="1.4" height={h * 0.18} fill="#7c5b3f" />
+      <polygon
+        data-cs="tree" data-cs-x={x.toFixed(1)} data-cs-y={y.toFixed(1)} data-cs-h={h.toFixed(1)}
+        points={P([[x, y - h * 0.72], [x + w * 0.5, y], [x - w * 0.5, y]])}
+        fill="#4d7c0f" stroke="#365314" strokeWidth="0.5"
+      />
+      <polygon
+        points={P([[x, y - h], [x + w * 0.34, y - h * 0.44], [x - w * 0.34, y - h * 0.44]])}
+        fill="#3f6212" stroke="#365314" strokeWidth="0.5"
+      />
+    </g>
+  );
+}
+
+/** 연기 기둥 — 바람 아래로 눕는다(조사 §3A). 난수 없음: i로만 어긋 배치 */
+function SmokePlume({ x, y, n = 3, lean = 5, rise = 6, animate }) {
+  return (
+    <g className={anim(animate, 'animate-cloud-drift-slow')}>
+      {Array.from({ length: n }, (_, i) => (
+        <circle
+          key={i} cx={x + lean * (i + 1)} cy={y - rise * (i + 1)} r={2.6 + i * 1.2}
+          fill="#57534e" opacity={(0.3 - i * 0.06).toFixed(2)}
+        />
+      ))}
+    </g>
+  );
+}
+
+/** 도시 건물 — 앞줄/뒷줄 두 줄(한 줄이면 「건물 몇 개」이지 거리가 안 읽힌다) */
+function CityBuilding({ x, base, h, w = 14, color = '#a8a29e', row = 'front' }) {
+  const floors = Math.max(1, Math.floor((h - 7) / 7));
+  return (
+    <g>
+      <rect
+        data-cs="building" data-cs-row={row}
+        data-cs-x={x.toFixed(1)} data-cs-base={base.toFixed(1)} data-cs-h={h.toFixed(1)}
+        x={x - w / 2} y={base - h} width={w} height={h}
+        fill={color} stroke="#78716c" strokeWidth="0.5"
+      />
+      {Array.from({ length: floors }, (_, r) => [0, 1].map((c) => (
+        <rect
+          key={`${r}-${c}`} x={x - w * 0.3 + c * w * 0.36} y={base - h + 3.5 + r * 7}
+          width={w * 0.24} height="2.8" fill="#e7e5e4" opacity="0.72"
+        />
+      )))}
+    </g>
+  );
+}
+
+/** 수직 흐름 화살표 — 빗물받이가 삼키다(down) / 되넘치다(up), 투수면 침투(down) */
+function VFlow({ x, y0, y1, marker, color = '#0369a1', animate, delay = 0 }) {
+  const up = y1 < y0;
+  const hy = up ? y1 + 3.4 : y1 - 3.4;
+  return (
+    <g
+      className={anim(animate, up ? 'animate-board-updraft' : 'animate-board-rain')}
+      style={animate ? { animationDelay: `${delay.toFixed(2)}s` } : undefined}
+    >
+      <path
+        data-cs={marker} data-cs-dir={up ? 'up' : 'down'} data-cs-x={x.toFixed(1)}
+        d={`M${x},${y0} L${x},${y1} M${x - 2.6},${hy} L${x},${y1} L${x + 2.6},${hy}`}
+        fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+      />
+    </g>
+  );
+}
+
 /** 번개 */
 function Bolt({ x, y, animate }) {
   return (
@@ -749,78 +859,231 @@ function DryConvectionClearScene({ step, animate }) {
 }
 
 /**
- * ── R13 재난 축 2종 (CO-A3·CO-K4) ─────────────────────────────────────────
- * 기존 11종은 「전선·기단이 구름을 어떻게 만드는가」를 그리고, 그 정교함(전선면
- * 폴리곤·표준 전선 기호·활승 화살표)은 그 문법을 그대로 물려받은 결과다. 재난 2종은
- * **다른 것을 말한다** — 만들어진 대기 상태가 지상에서 무엇이 되는가(불이 번진다·
- * 물이 찬다). 그래서 전선면 문법을 흉내 내지 않고 지면에서 벌어지는 일만 그린다.
- * 판단(2026-08-09, PM 「정직하게 최소로」 지시): 읽히는 것이 목적이고 과시가 아니다.
+ * ── R13 재난 축 2종 (CO-A3·CO-K4) — **MT-23 표현 격차를 폴백에서도 닫는다** ──
+ *
+ * 종전 주석은 *"전선면 문법을 흉내 내지 않고 지면에서 벌어지는 일만 그린다"*
+ * (2026-08-09 PM 「정직하게 최소로」)였고, 그 최소판은 **산불에 산이 없고 홍수에
+ * 도시가 없었다** — 불은 평지에서 탔고(들불이지 산불이 아니다) 물은 바닥 평면을
+ * 파랗게 칠한 것이 전부였다.
+ *
+ * MT-23이 WebGL 쪽 두 장면을 조사 문법으로 다시 세웠지만
+ * (`docs/design/research/RESEARCH_MT23_WILDFIRE_FLOOD.md`) **SVG는 범위 밖이라
+ * 옛 표현 그대로 남았다**. 그 상태의 문제는 취향이 아니다: WebGL2 미지원 기기·
+ * SSR 첫 렌더·reduced-motion 세 경로가 전부 이 SVG를 본다(위 파일 머리 주석).
+ * `GuideBot3D`가 적어 둔 그대로 **심사위원 기기를 고를 수 없다.**
+ *
+ * 그래서 여기서 회수하는 것은 「같은 그림」이 아니라 **같은 뜻**이다:
+ *   · 산불 = 산이 보이고 **화선이 비탈 위**에 있으며 위로 갈수록 크다(불머리),
+ *            능선 너머로 **비화**가 새 불을 놓고, 마지막에 **수관화**로 옮겨붙는다
+ *   · 홍수 = **투수면 ↔ 포장면 대비**가 있는 도시 단면이고, 빗물받이가 2단계에
+ *            삼키다 3단계에 **역류**하며, 물은 **땅속·지하부터** 차고 수면이 오른다
+ * 2D라서 못 옮기는 것(연기 셰이더·부피 물결)은 옮기지 않는다 — 폴백의 목적은
+ * 대체가 아니라 **읽히는 것**이다.
+ *
+ * ⚠️ 4단계 캡션과 그림이 어긋나면 안 된다. 산불 4단계가 「구름 한 점 없이 맑지만」
+ *    이므로 이 장면에는 **어떤 구름도 그리지 않는다**(조사 §3A의 화재적운도
+ *    같은 이유로 뺐다). 그 금지는 계약 테스트가 소스로 문다.
  */
-/** wildfire_risk_dry_gale: 메마른 지면 → 센 바람 → 불씨 확산 → 구름 없는 위험한 하늘 */
+// 산불 지형 — 삼각 단면 산(`okhotsk_foehn_clear`와 같은 관용구). 바람이 서→동이라
+// **동쪽으로 오르는 비탈**을 두면 바람과 경사가 같은 곳을 가리켜 그림이 한 방향으로
+// 읽힌다(조사 §3E: 불은 비탈을 더 빨리 오른다). fx 상한은 1.0 — GL의 1.06을 그대로
+// 옮기면 유리 상자 밖으로 나간다.
+const WF = { foot: 0.4, apex: 0.82, east: 1, peak: 0.62 };
+/** 산 능선의 고도(h) — 서쪽 비탈은 오르고 동쪽 비탈은 내린다 */
+const wfSlopeH = (fx) => (fx <= WF.apex
+  ? (WF.peak * (fx - WF.foot)) / (WF.apex - WF.foot)
+  : (WF.peak * (WF.east - fx)) / (WF.east - WF.apex));
+/** 능선 위의 점(화면 좌표) — 나무·화선의 base가 전부 여기서 나온다(단일 소유) */
+const wfOn = (fx) => fp(fx, Math.max(0, wfSlopeH(fx)));
+
+/** wildfire_risk_dry_gale: 마른 숲 → 강풍 → 비탈을 오르는 화선·비화 → 위험한 맑음 */
 function WildfireRiskScene({ step, animate }) {
+  const peak = fp(WF.apex, WF.peak);
+  const west = fp(WF.foot, 0);
+  const east = fp(WF.east, 0);
+  const back = ([x, y]) => [x + BF.DX * 0.6, y - BF.DY * 0.6];
+  // 화선 — 아래가 배화, 위가 불머리(조사 §3A 비대칭 + §3E 상향 가속)
+  const front = [0.52, 0.62, 0.72].map((fx, i) => ({ fx, h: 9 + i * 3.2, p: wfOn(fx) }));
+  // 비탈 4그루 + 평지 2그루 — 숲이 산 앞까지 이어져야 「산에 난 불」로 읽힌다
+  const trees = [0.2, 0.3, 0.47, 0.57, 0.67, 0.77].map((fx) => ({ fx, p: wfOn(fx) }));
+  const slope = trees.slice(2); // 수관화가 붙는 것은 비탈 위의 나무다
+  const [ex, ey] = wfOn(0.92); // 능선 너머 — 비화가 놓는 새 불
   return (
     <BlockFrame>
+      {/* 마른 평지 바닥칠은 **지형보다 먼저** — 뒤에 칠하면 반투명 노랑이 평지의
+          나무를 덮는다(SVG는 JSX 순서가 곧 그리는 순서다) */}
       <Appear at={0} step={step} animate={animate}>
-        <SunShape x={210} y={30} scale={1.1} fill="#f59e0b" />
-        <polygon points={P([gp(0, 0), gp(1, 0), gp(1, 1), gp(0, 1)])} fill="#fde68a" opacity="0.55" />
-        {[0.18, 0.42, 0.66, 0.88].map((fx) => {
-          const [lx, ly] = gp(fx, 0.45);
+        <polygon points={P([gp(0, 0), gp(WF.foot, 0), gp(WF.foot, 1), gp(0, 1)])} fill="#fde68a" opacity="0.55" />
+      </Appear>
+      {/* 지형은 전 단계 공통 배경 — 단계마다 다시 등장하면 지형이 깜빡인다(foehn 규약) */}
+      <polygon points={P([peak, back(peak), back(east), east])} fill="#6f7f5e" stroke="#4d5c3e" strokeWidth="0.6" />
+      <polygon
+        data-cs="mountain"
+        data-cs-ax={peak[0].toFixed(1)} data-cs-ay={peak[1].toFixed(1)}
+        data-cs-wx={west[0].toFixed(1)} data-cs-wy={west[1].toFixed(1)}
+        data-cs-ex={east[0].toFixed(1)} data-cs-ey={east[1].toFixed(1)}
+        points={P([west, peak, east])} fill="#8aa06e" stroke="#4d5c3e" strokeWidth="0.8"
+      />
+      {trees.map(({ fx, p }) => <ConiferTree key={fx} x={p[0]} y={p[1]} />)}
+      <CSText x={152} y={68} color="#3f6212" size={5.5}>{V.forestedRidge}</CSText>
+
+      {/* 0 — 연료. 「마름」은 오늘 습도가 아니라 **며칠의 누적**이다(실효습도, 조사 §3B) */}
+      <Appear at={0} step={step} animate={animate}>
+        <SunShape x={210} y={28} scale={1.1} fill="#f59e0b" />
+        {/* 낙엽은 바닥 평면의 **안쪽**(z=0.75)에 흩는다 — 앞쪽에 두면 아래 두 줄
+            라벨과 같은 높이에 놓여 글자에 그대로 덮인다(실렌더 확인) */}
+        {[0.06, 0.16, 0.26].map((fx) => {
+          const [lx, ly] = gp(fx, 0.75);
           return <path key={fx} d={`M${lx} ${ly} l4 -3 l4 3 l-4 2 Z`} fill="#a16207" opacity="0.85" />;
         })}
-        <CSText x={128} y={104} color="#92400e" size={6}>{V.driedLeavesTwigs}</CSText>
+        <CSText x={64} y={106} color="#92400e" size={5.5}>{V.driedLeavesTwigs}</CSText>
+        <CSText x={64} y={114} color="#a16207" size={5.5}>{V.daysOfDrying}</CSText>
       </Appear>
+
+      {/* 1 — 강풍. 비탈 밑에서 멈춘다(그 앞은 산이다) */}
       <Appear at={1} step={step} animate={animate}>
-        <BroadArrow x1={30} y1={72} x2={126} y2={70} color="#0e7490" bend={0.04} w0={9} w1={4} />
-        <BroadArrow x1={30} y1={88} x2={112} y2={86} color="#0e7490" bend={0.03} w0={7} w1={3} />
-        <CSText x={74} y={60} color="#0e7490" size={6}>{V.strongWind}</CSText>
+        <BroadArrow x1={30} y1={80} x2={100} y2={78} color="#0e7490" bend={0.04} w0={9} w1={4} />
+        <BroadArrow x1={30} y1={94} x2={94} y2={92} color="#0e7490" bend={0.03} w0={7} w1={3} />
+        <CSText x={48} y={80} color="#0e7490" size={6}>{V.strongWind}</CSText>
       </Appear>
+
+      {/* 2 — 비탈 위의 화선 + 능선을 넘는 비화(조사 §3A: 방화선을 뛰어넘는다) */}
       <Appear at={2} step={step} animate={animate}>
-        <g className={anim(animate, 'animate-board-sun-pulse')}>
-          <path d="M138 112 q6 -22 14 -26 q-3 12 4 16 q6 -8 5 -18 q10 14 6 28 Z" fill="#ea580c" />
-          <path d="M144 112 q4 -13 8 -16 q-1 8 3 10 q3 -5 3 -11 q6 9 3 17 Z" fill="#fbbf24" />
-        </g>
-        {[0, 1, 2].map((i) => (
-          <circle
-            key={i}
-            cx={172 + i * 16}
-            cy={86 - i * 6}
-            r={1.8 - i * 0.3}
-            fill="#f97316"
-            className={anim(animate, 'animate-board-rain')}
-            style={animate ? { animationDelay: `${(i * 0.22).toFixed(2)}s` } : undefined}
-          />
+        {front.map(({ fx, h, p }, i) => (
+          <Flame key={fx} x={p[0]} y={p[1]} h={h} role="front" animate={animate} delay={i * 0.25} />
         ))}
-        <CSText x={198} y={70} color="#c2410c" size={6}>{V.embersRideWind}</CSText>
+        <SmokePlume x={164} y={78} animate={animate} />
+        <BroadArrow x1={168} y1={80} x2={ex - 3} y2={ey - 8} color="#f97316" bend={-0.34} w0={5} w1={2} opacity={0.9} />
+        <Flame x={ex} y={ey} h={8} role="spot" animate={animate} delay={0.4} />
+        <CSText x={72} y={90} color="#9a3412" size={5.5}>{V.fireRunsUphill}</CSText>
+        <CSText x={205} y={80} color="#c2410c" size={5.5}>{V.embersRideWind}</CSText>
+        <CSText x={190} y={112} color="#c2410c" size={5.5}>{V.spotFireAhead}</CSText>
       </Appear>
+
+      {/* 3 — 수관화. 지표화가 사다리 연료를 타고 꼭대기로 옮겨붙는 분기점(조사 §3A·E).
+              구름은 없다 — 4단계 캡션이 「구름 한 점 없이 맑지만」이다 */}
       <Appear at={3} step={step} animate={animate}>
-        <CSText x={128} y={46} color="#b45309" size={6.5}>{V.clearSkyWildfire}</CSText>
+        {[slope[1], slope[2]].map(({ fx, p }, i) => (
+          <Flame key={fx} x={p[0]} y={p[1] - 12} h={7.5} role="crown" animate={animate} delay={i * 0.3} />
+        ))}
+        <CSText x={100} y={98} color="#b45309" size={5.5}>{V.crownFireInTrees}</CSText>
+        <CSText x={70} y={56} color="#b45309" size={6.5}>{V.clearSkyWildfire}</CSText>
       </Appear>
     </BlockFrame>
   );
 }
 
-/** flood_risk_saturated_inflow: 수증기 유입 → 비구름 보충 → 그치지 않는 비 → 지면 포화 */
+// 홍수 지형 — **도시 단면**. 조사 §3F가 도시 침수를 정의하는 문장이 *"배수 체계의
+// 용량을 넘어서는 것"*이라, 있어야 하는 것은 건물 실루엣이 아니라
+// ① 포장면 ② 빗물받이 ③ 지하 ④ 스며드는 땅과의 대비 넷이다. ④가 핵심이다 —
+// 「왜 하필 도시에서 잠기나」는 투수/불투수 대비로만 설명된다.
+const FL = {
+  street: 114, // 포장면 윗면(도로 높이) — 3단계 수위가 이 위로 올라오는지가 계약이다
+  perv: [fp(0.22, 0)[0], fp(0.34, 0)[0]], // 투수면(풀밭)
+  paved: [fp(0.34, 0)[0], fp(1, 0)[0]], // 불투수면(포장)
+  drain: 172.5, // 빗물받이 — 앞줄 두 건물 사이 「거리」
+  basement: 128, // 지하실 — 도시 침수는 수면 높이보다 지하부터 체감된다
+};
+
+/** flood_risk_saturated_inflow: 수증기 유입 → 후방 생성 → 지속 강수 → 포화·배수 초과 */
 function FloodRiskScene({ step, animate }) {
   return (
     <BlockFrame sea={{ to: 0.2 }}>
+      {/* 지형은 전 단계 공통 배경 */}
+      <rect
+        data-cs="pervious" data-cs-x0={FL.perv[0].toFixed(1)} data-cs-x1={FL.perv[1].toFixed(1)}
+        data-cs-y={(FL.street + 1.5).toFixed(1)}
+        x={FL.perv[0]} y={FL.street + 1.5} width={FL.perv[1] - FL.perv[0]} height={118 - FL.street - 1.5}
+        fill="#4d7c0f"
+      />
+      {[0, 1, 2, 3].map((i) => {
+        const gx = FL.perv[0] + 3 + i * ((FL.perv[1] - FL.perv[0] - 6) / 3);
+        return (
+          <path
+            key={i} d={`M${gx},${FL.street + 1.5} l-1.6,-4 M${gx},${FL.street + 1.5} l1.6,-3.4`}
+            stroke="#4d7c0f" strokeWidth="0.9" fill="none" strokeLinecap="round"
+          />
+        );
+      })}
+      <rect
+        data-cs="paved" data-cs-x0={FL.paved[0].toFixed(1)} data-cs-x1={FL.paved[1].toFixed(1)}
+        data-cs-y={FL.street.toFixed(1)}
+        x={FL.paved[0]} y={FL.street} width={FL.paved[1] - FL.paved[0]} height={118 - FL.street}
+        fill="#a8a29e" stroke="#78716c" strokeWidth="0.5"
+      />
+      {/* 뒷줄은 높고 앞줄은 낮게 — 그 사이가 **거리**로 읽히고, 그 거리에 빗물받이를 둔다 */}
+      {[[112, 20], [142, 28], [172, 17], [202, 24]].map(([x, h]) => (
+        <CityBuilding key={`b-${x}`} x={x} base={FL.street - 13} h={h} w={12} color="#c8c2bc" row="back" />
+      ))}
+      {[[100, 26], [FL.basement, 34], [156, 21], [190, 30]].map(([x, h]) => (
+        <CityBuilding key={`f-${x}`} x={x} base={FL.street} h={h} />
+      ))}
+      <rect
+        data-cs="drain" data-cs-x={FL.drain.toFixed(1)} data-cs-top={(FL.street - 1).toFixed(1)}
+        x={FL.drain - 4.5} y={FL.street - 1} width="9" height="11" fill="#44403c"
+      />
+      <rect
+        data-cs="basement" data-cs-x={FL.basement.toFixed(1)} data-cs-top="119"
+        x={FL.basement - 7} y="119" width="14" height="8" fill="#57534e"
+      />
+      {/* 두 라벨은 **수면(3단계 y=106) 위**에 둔다 — 아래에 두면 물에 덮여 사라지고,
+          하필 그 둘이 「왜 도시에서 잠기나」를 설명하는 대비다 */}
+      <CSText x={56} y={98} color="#3f6212" size={5.5}>{V.greenGroundSoaks}</CSText>
+      <CSText x={160} y={98} color="#44403c" size={5.5}>{V.cityImpervious}</CSText>
+
+      {/* 0 — 유입. 두 층으로 나눠 「쉬지 않고」를 두께로 보인다(바다는 서쪽 0~0.2) */}
       <Appear at={0} step={step} animate={animate}>
-        <BroadArrow x1={34} y1={82} x2={116} y2={74} color="#0d9488" bend={0.1} w0={9} w1={4} />
-        <BroadArrow x1={34} y1={98} x2={104} y2={92} color="#0d9488" bend={0.08} w0={7} w1={3} />
-        <CSText x={70} y={64} color="#0f766e" size={6}>{V.vapourKeepsArriving}</CSText>
+        <BroadArrow x1={30} y1={70} x2={100} y2={64} color="#0d9488" bend={0.1} w0={9} w1={4} />
+        <BroadArrow x1={30} y1={82} x2={92} y2={76} color="#0d9488" bend={0.08} w0={7} w1={3} />
+        <CSText x={58} y={58} color="#0f766e" size={6}>{V.vapourKeepsArriving}</CSText>
       </Appear>
+
+      {/* 1 — **후방 생성**(조사 §3D). 상류(서)에서 작은 셀이 새로 생겨 자라며 동으로
+              가고 하류에서 흩어진다 — **밴드 자체는 서 있다**는 것이 요점이다 */}
       <Appear at={1} step={step} animate={animate}>
-        <LayerCloud x={118} y={62} w={92} dark animate={animate} grow={step === 1} />
-        <LayerCloud x={182} y={58} w={72} dark animate={animate} grow={step === 1} />
-        <CSText x={140} y={42} size={6}>{V.rainCloudRefills}</CSText>
+        {[[96, 56, 0.55], [126, 50, 0.75], [156, 46, 0.95], [186, 50, 0.8]].map(([x, y, s]) => (
+          <PuffCloud key={x} x={x} y={y} scale={s} fill="#cbd5e1" />
+        ))}
+        <CSText x={58} y={40} color="#475569" size={5.5}>{V.newCellsUpwind}</CSText>
+        <CSText x={182} y={32} size={5.5}>{V.rainCloudRefills}</CSText>
       </Appear>
+
+      {/* 2 — 비. 풀밭은 스며들고(아래로) 빗물받이는 아직 삼킨다(아래로) */}
       <Appear at={2} step={step} animate={animate}>
-        <CSRain x={104} y0={72} y1={110} count={5} gap={7} slant={5} slow animate={animate} />
-        <CSRain x={150} y0={72} y1={110} count={5} gap={7} slant={5} slow animate={animate} />
-        <CSRain x={192} y0={70} y1={110} count={4} gap={7} slant={5} slow animate={animate} />
+        {/* 가늘게·짧게 — 굵은 빗줄기 16줄이면 도시가 그 뒤로 사라진다(실렌더 확인) */}
+        {[78, 112, 150, 190].map((x) => (
+          <CSRain key={x} x={x} y0={68} y1={112} count={3} gap={6} slant={5} width={1} slow animate={animate} />
+        ))}
+        <VFlow x={78} y0={116} y1={124} marker="soak-flow" color="#15803d" animate={animate} />
       </Appear>
+      {/* ⚠️ 삼키는 화살표는 **2단계에서 끝난다**(until). 그대로 두면 3단계에 역류
+          화살표와 나란히 서서 「빗물받이가 동시에 삼키고 되넘친다」가 된다 —
+          계약 테스트가 실제로 그 상태를 잡았다(2026-08-18). 용량 초과는 상태가
+          아니라 **사건**이라 아래→위로 **바뀌어야** 뜻이 선다 */}
+      <Appear at={2} until={2} step={step} animate={animate}>
+        <VFlow x={FL.drain} y0={112} y1={122} marker="drain-flow" animate={animate} delay={0.3} />
+      </Appear>
+
+      {/* 3 — **포화·배수 초과**(조사 §3C·§3F). 순서가 문법이다: 땅속이 차고 → 지하가
+              잠기고 → 빗물받이가 역류하고 → 위에 고여 수위가 오르고 → 못 스민 물이
+              포장면을 타고 낮은 곳(서쪽 바다)으로 빠르게 흐른다 */}
       <Appear at={3} step={step} animate={animate}>
-        <polygon points={P([gp(0, 0), gp(1, 0), gp(1, 1), gp(0, 1)])} fill="#38bdf8" opacity="0.5" />
-        <CSText x={128} y={108} color="#0c4a6e" size={6}>{V.groundCannotAbsorb}</CSText>
+        <rect data-cs="water-soil" x={BF.L} y="120" width={BF.R - BF.L} height="7" fill="#0ea5e9" opacity="0.34" />
+        <rect
+          data-cs="water-basement" data-cs-top="119"
+          x={FL.basement - 7} y="119" width="14" height="8" fill="#0284c7" opacity="0.8"
+        />
+        <rect
+          data-cs="water-surface" data-cs-top="106"
+          x={BF.L} y="106" width={BF.R - BF.L} height={118 - 106} fill="#38bdf8" opacity="0.5"
+        />
+        <VFlow x={FL.drain} y0={112} y1={102} marker="drain-flow" color="#075985" animate={animate} />
+        <BroadArrow x1={200} y1={109} x2={112} y2={112} color="#075985" bend={0.05} w0={7} w1={3} opacity={0.9} />
+        <CSText x={70} y={88} color="#0c4a6e" size={6}>{V.groundCannotAbsorb}</CSText>
+        <CSText x={172} y={88} color="#0369a1" size={5.5}>{V.runoffGathersLow}</CSText>
+        <CSText x={176} y={76} color="#075985" size={5.5}>{V.drainOverwhelmed}</CSText>
+        <CSText x={60} y={126} color="#0369a1" size={5.5}>{V.soilAlreadyFull}</CSText>
+        <CSText x={140} y={126} color="#0c4a6e" size={5.5}>{V.basementFloods}</CSText>
       </Appear>
     </BlockFrame>
   );
@@ -948,6 +1211,68 @@ function FrontConvergenceFloodScene({ step, animate }) {
   );
 }
 
+/** tropical_cyclone_genesis: 바다 가열 → 잠열 방출 → 약한 시어로 조직 → 눈벽 */
+function CycloneGenesisScene({ step, animate }) {
+  return (
+    <BlockFrame sea={{ to: 1 }}>
+      <Appear at={0} step={step} animate={animate}>
+        <SunShape x={30} y={24} scale={1.1} fill="#f59e0b" />
+        <polygon points={P([gp(0, 0), gp(1, 0), gp(1, 1), gp(0, 1)])} fill="#fca5a5" opacity="0.3" />
+        <CSText x={58} y={108} color={WARM} size={6}>{V.warmHumidAir}</CSText>
+      </Appear>
+      <RisingArrows at={0} step={step} animate={animate} cx={128} cy={100} rotate={0} color={WARM} />
+      <Appear at={1} step={step} animate={animate}>
+        <PuffCloud x={128} y={64} scale={1.1} />
+      </Appear>
+      {/* 연료 라벨은 **3단계 전까지만** 띄운다(`until`). 문장이 길어 상자 가운데를
+          가로지르는데, 4단계에서 눈벽 기둥 둘이 정확히 그 자리에 서기 때문이다 —
+          짧게 줄이면 뜻이 뭉개지고, 옆으로 밀 자리는 상자에 없다. 그 단계의 캡션이
+          같은 말을 하고 있으므로 라벨이 물러나도 잃는 것이 없다. */}
+      <Appear at={1} until={2} step={step} animate={animate}>
+        <CSText x={128} y={92} color="#b91c1c" size={6}>{V.latentHeatFuel}</CSText>
+      </Appear>
+      <Appear at={2} step={step} animate={animate}>
+        {/* 시어가 **작다**는 것은 위아래 화살표가 **같은 쪽으로 나란한** 것으로 읽힌다
+            — squall의 시어(서로 반대)와 일부러 대비를 이룬다. */}
+        <BroadArrow x1={92} y1={26} x2={164} y2={24} color="#7c3aed" bend={0.02} w0={5} w1={3} />
+        <BroadArrow x1={92} y1={48} x2={158} y2={46} color="#7c3aed" bend={0.02} w0={5} w1={3} />
+        <CSText x={128} y={12} color="#6d28d9" size={6}>{V.lowShearColumn}</CSText>
+      </Appear>
+      <Appear at={3} step={step} animate={animate} enter="animate-board-grow">
+        <CbTower x={104} groundY={112} topY={30} animate={animate} grow={step === 3} />
+        <CbTower x={162} groundY={112} topY={34} animate={animate} grow={step === 3} />
+        <CSText x={128} y={118} color="#7f1d1d" size={6}>{V.eyewallStrongest}</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+/** greenhouse_tropical_night: 낮 축열 → 장파 방출 → 수증기가 되돌림 → 안 식는 밤 */
+function TropicalNightScene({ step, animate }) {
+  return (
+    <BlockFrame night>
+      <Appear at={0} step={step} animate={animate}>
+        <polygon points={P([gp(0, 0), gp(1, 0), gp(1, 1), gp(0, 1)])} fill="#f97316" opacity="0.42" />
+        <CSText x={128} y={112} color="#7c2d12" size={6}>{V.heatAccumulates}</CSText>
+      </Appear>
+      <Appear at={1} step={step} animate={animate}>
+        <RisingArrows at={1} step={step} animate={animate} cx={92} cy={96} rotate={0} color="#fb923c" count={2} />
+        <RisingArrows at={1} step={step} animate={animate} cx={168} cy={96} rotate={0} color="#fb923c" count={2} />
+        <CSText x={128} y={78} color="#fdba74" size={6}>{V.groundEmitsLongwave}</CSText>
+      </Appear>
+      <Appear at={2} step={step} animate={animate}>
+        <polygon points={P([fp(0, 0.3), fp(1, 0.3), fp(1, 0.62), fp(0, 0.62)])} fill="#38bdf8" opacity="0.22" />
+        <BroadArrow x1={116} y1={54} x2={104} y2={92} color="#fb923c" bend={0.1} w0={6} w1={3} />
+        <BroadArrow x1={168} y1={54} x2={180} y2={92} color="#fb923c" bend={-0.1} w0={6} w1={3} />
+        <CSText x={128} y={46} color="#7dd3fc" size={6}>{V.longwaveTrapped}</CSText>
+      </Appear>
+      <Appear at={3} step={step} animate={animate}>
+        <CSText x={128} y={18} color="#fca5a5" size={6}>{V.noWindNoMixing}</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
 // ── 스토리보드 레지스트리 (board_rules.json 15종 — explain을 메커니즘 순서로 분해) ──
 // ⚠️ i18n 외부화 제외(R11-01 §6.3 판정): boardVisual.render.test가 이 모듈 데이터
 // (steps·title)를 렌더 HTML과 **문자열 대조**하고, crossSectionWebgl.contract가
@@ -974,6 +1299,9 @@ export const SCENE_BY_RULE = {
   cold_front_squall_storm: SquallStormScene,
   siberian_gale_wildfire: SiberianGaleWildfireScene,
   front_convergence_flood: FrontConvergenceFloodScene,
+  // 태풍 씨앗·열대야(2026-08-18) — 같은 공백이 두 번째로 반복돼 함께 채웠다.
+  tropical_cyclone_genesis: CycloneGenesisScene,
+  greenhouse_tropical_night: TropicalNightScene,
 };
 
 /**
