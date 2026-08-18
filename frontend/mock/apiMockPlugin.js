@@ -2002,6 +2002,54 @@ const routes = {
       { access_token: 'mock-converted-access', refresh_token: 'mock-converted-refresh' },
     ];
   },
+  /**
+   * GET /courses — 코스 목록 (R11-01 §3 F · `schemas/curriculum.CoursesOut`).
+   *
+   * 🔴 **이 핸들러가 없어서 `entry-flow ⑫`가 환경에 따라 갈렸다**(2026-08-18).
+   * 경위를 남긴다:
+   *   ① 목이 모르는 `/api/v1/*`는 `next()`로 넘어가고, 스모크가 만드는 vite
+   *      서버는 `vite.config.js`의 **개발 프록시를 그대로 물려받는다**
+   *      (`VITE_MOCK`이 안 켜져 있으므로 프록시 분기가 산다) → `localhost:8000`
+   *   ② 그래서 로컬 도커 백엔드가 **떠 있으면** 가짜 토큰이 진짜 401
+   *      (`{"detail":"Invalid token","code":"UNAUTHORIZED"}`)을 받고,
+   *      401 인터셉터가 refresh를 돌려 토큰을 `mock-access-2`로 갈아 끼운다
+   *   ③ 백엔드가 **꺼져 있으면** 연결 실패라 401이 아니어서 refresh가 안 돌고
+   *      같은 테스트가 **통과**한다
+   * 즉 「목이 안 덮은 경로」가 **환경 전역 상태(도커 기동 여부)에 대한 단정**으로
+   * 둔갑했다 — CLAUDE.md가 금지하는 바로 그 형태다.
+   *
+   * ⚠️ **목의 공백은 조용하지 않다.** 안 덮으면 404가 아니라 **다른 서버의 응답**이
+   * 돌아온다. 새 엔드포인트를 프론트가 쓰기 시작하면 여기에도 함께 넣을 것.
+   *
+   * 시드는 `database/seed/courses.json`과 같은 두 코스다. `CourseSwitcher`가
+   * **2개 미만이면 탭을 안 그리므로**(단일 코스 = 고를 것이 없다) 둘 다 있어야
+   * 코스 전환 경로가 목 위에서 재현된다.
+   */
+  'GET /courses': () => [
+    200,
+    {
+      courses: [
+        {
+          id: 'weather',
+          title: '날씨와 기후',
+          description: '하늘을 읽는 법부터 기후 변화까지',
+          course_order: 1,
+          prereq_course_id: null,
+          is_default: true,
+          units_total: 138,
+        },
+        {
+          id: 'basic-science',
+          title: '기초 과학',
+          description: '온도·압력·물의 상태 변화',
+          course_order: 2,
+          prereq_course_id: null,
+          is_default: false,
+          units_total: 99,
+        },
+      ],
+    },
+  ],
   'POST /auth/refresh': () => [200, { access_token: 'mock-access-2' }],
   'POST /auth/logout': () => [200, { success: true }],
 
