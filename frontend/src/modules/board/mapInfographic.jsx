@@ -311,9 +311,20 @@ export function ZoneAnnotation({ x, y, ruleId, animate = true }) {
   const text = RULE_ANNOTATIONS[ruleId];
   if (!text) return null;
   const lines = text.split('\n');
+  // 🔴 **주석 상자가 존 이름표와 겹쳤다**(2026-08-18 사용자 지시 "위치를 조금
+  // 위로 올려줘"). 실측 1536에서 상자 y 278~333인데 「수도권」이 287~306,
+  // 「영동·동해」가 312~331이라 **양쪽 다** 물렸다. 고친 것이 둘이다:
+  //
+  //  ⓐ 세로 −14 → **−28**. 아래쪽 이름표(영동·동해)는 이것으로 빠진다.
+  //  ⓑ 가로 ±20 → **±26**. ⓐ만으로는 안 됐다 — 수도권처럼 **지도 위쪽에 붙은
+  //     존**은 −28을 줘도 하한에 걸려 더 못 올라가는데, 그 존의 이름표도 같이
+  //     위쪽에 있어 세로로 계속 물린다. 옆으로 밀어야 떨어진다.
+  //
+  // 하한 2 — 상자가 지도 밖으로 나가는 것만 막는다(종전 8은 필요 이상으로
+  // 크게 잡혀 있어 위쪽 존에서 ⓐ가 통째로 무력화됐다).
   const toRight = x < 50;
-  const lx = toRight ? Math.min(x + 20, 78) : Math.max(x - 20, 22);
-  const ly = Math.max(y - 14, 8);
+  const lx = toRight ? Math.min(x + 26, 78) : Math.max(x - 26, 22);
+  const ly = Math.max(y - 28, 2);
   const wMax = Math.max(...lines.map((l) => l.length));
   const boxW = wMax * 3.3 + 4;
   const boxH = lines.length * 4.6 + 2.6;

@@ -1135,6 +1135,17 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                 </div>
               </div>
             </div>
+            {/* 🔴 **판정 결과는 왼쪽 열이다**(2026-08-18 사용자 지시 —
+                "미션 성공하면 뜨는 칸을 가로로 길게 만들어서 보드 칸이랑 길이
+                맞춰줘"). 종전에는 오른쪽 열에 있어 단면 카드 폭(1536에서 약
+                500px)만 차지했다 — 성공 해설이 서너 줄이라 좁은 칸에서 답답했다.
+                왼쪽으로 옮기면 폭이 **보드 카드와 같아진다**(약 700px, 열이
+                하나라 자동으로 맞는다).
+                ⚠️ `order-3`은 그대로 둔다 — lg 미만에서는 두 열 래퍼가 `contents`라
+                이 블록이 바깥 격자의 직계 칸이 되고, 좁은 화면 순서
+                (조작 2 → 판정 3 → 단면 4)는 **어느 열에 적혀 있든 이 숫자가
+                정한다.** 옮겨도 좁은 화면은 한 픽셀도 안 바뀐다. */}
+            {hasVerdict && <div className="order-3 lg:contents">{verdictBlock}</div>}
           </div>
 
           {/* 오른쪽 — **보는 쪽**: 단면 애니메이션과 해설이 통째로 갖는다.
@@ -1161,7 +1172,6 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
             >
               <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
             </div>
-            {hasVerdict && <div className="order-3 lg:contents">{verdictBlock}</div>}
           </div>
         </div>
       </div>
