@@ -1085,7 +1085,26 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
             좁은 화면 순서: 조작 카드(order-2) → 판정(order-3) → 단면(order-4).
             **힌트는 이 순서에 없다** — 조작 카드 *안*의 조절값 열에 들어 있어
             좁은 화면에서는 지도보다 위에 온다(아래 조절값 열 주석). */}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+        {/* 🔴 **카드 두 장만 셸 밖으로 넓힌다**(2026-08-18 사용자 지시 —
+            "상단바는 고정시키고 아래 보드/해설 카드 크기를 전체적으로 다 키워줘").
+
+            셸은 `md:max-w-6xl`(1152)인데 1536 화면에서 사이드바를 뺀 자리는
+            1328이라 **양옆 88px씩이 그냥 빈다**(실측). 지도와 단면 그림은 둘 다
+            `w-full`이라 크기가 열 폭에 비례하므로, 이 여백을 되찾는 것 말고는
+            그림을 키울 방법이 없다 — 카드를 세로로만 늘리면 흰 여백만 는다.
+
+            ⚠️ **셸 자체를 넓히지 않는다.** 넓히면 위 미션 배너까지 함께 커지는데
+            사용자가 "상단바는 고정"이라고 못박았다. 그래서 이 행에만 음수 마진을
+            준다 — 좌우 대칭이라 가운데 정렬은 그대로다.
+
+            음수 마진은 **남는 공간만큼만, 최대 120px**이다:
+              clamp(0, (100vw − 사이드바 − 4rem − 1152) / 2, 120)
+            · 1440 → 8px  · 1536 → 56px  · 1920 → 120px(상한)
+            · 1280 이하 → 계산이 음수라 clamp가 0으로 막는다 = **넘칠 수 없다**
+            ⚠️ 빼는 여유를 `4rem`으로 넉넉히 잡은 이유: `100vw`는 스크롤바 폭을
+            **포함**하는데(`html`에 `scrollbar-gutter: stable`이라 항상 있다)
+            그 몫을 안 빼면 좌우로 7~8px씩 삐져나온다. */}
+        <div className="-mx-[clamp(0px,(100vw_-_var(--wm-shell-left)_-_4rem_-_1152px)/2,120px)] grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
           {/* 왼쪽 — **만지는 쪽**: 조절값·지도·액션. 힌트는 조절값 열 아래. */}
           <div className="contents lg:flex lg:flex-col lg:gap-3">
             <div className="order-2 flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none">
