@@ -289,6 +289,17 @@ ok(
     !/\btruncate\b/.test(descCls),
     '배너 설명에 truncate가 없다 — 붙으면 문장 끝이 «…»로 잘린다',
   );
+  // ⚠️ **`lg:block`이 같이 있으면 위 두 줄이 통과하면서도 클램프는 죽는다**
+  // (2026-08-17 코드 리뷰가 잡았다 — 실제로 그 상태로 초록이었다).
+  // `line-clamp-2`는 `display:-webkit-box`고 `lg:block`은 `display:block`인데
+  // 특이도가 같고 컴파일 CSS에서 `.lg\:block`이 뒤에 온다(실측 54676 < 54779)
+  // — block이 이긴다. 클래스가 붙어 있는지만 보는 계약은 이 충돌을 못 보므로
+  // **충돌하는 짝을 직접 금지**한다. lg에서 펴지는 것은 `hidden`(7835)보다
+  // `.lg\:line-clamp-2`(54676)가 뒤라 clamp 자신이 해낸다.
+  ok(
+    !/\blg:block\b/.test(descCls),
+    'lg:block이 없다 — display:block이 line-clamp의 -webkit-box를 덮어 클램프가 죽는다',
+  );
 }
 
 // ── ⑤ 시각 라벨이 실서버 형식을 읽는가 (2026-08-10 실기동 회귀) ─────────────

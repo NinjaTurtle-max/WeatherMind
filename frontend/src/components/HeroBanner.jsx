@@ -73,9 +73,19 @@ export default function HeroBanner({
           실측 1440에서 전후 모두 h=90.
           ⚠️ 세 줄(≈54px)까지도 62px 안이지만 `2`로 묶는다: 안내문이 그보다
           길어지면 배너가 아니라 **문구가 잘못된 것**이고, 네 줄이 되는 순간
-          원을 넘겨 배너가 다른 화면보다 높아진다. */}
+          원을 넘겨 배너가 다른 화면보다 높아진다.
+
+          🔴 **`lg:block`을 같이 쓰면 안 된다**(2026-08-17 코드 리뷰가 잡았다).
+          `line-clamp-2`는 `display:-webkit-box`로 동작하는데 `lg:block`이
+          `display:block`을 준다. 둘은 특이도가 같고 컴파일된 CSS에서
+          `.lg\:block`이 **뒤에 온다**(실측 54676 < 54779) — 그래서 block이
+          이기고 **클램프가 통째로 죽는다.** 눈으로는 두 줄짜리 문구에서
+          차이가 안 나므로(둘 다 두 줄) 긴 문구가 들어오는 날에야 배너가
+          늘어나며 드러난다. 좁은 화면 접기는 `hidden` 하나로 충분하다:
+          `.hidden`(7835)보다 `.lg\:line-clamp-2`(54676)가 뒤라 lg에서
+          -webkit-box가 이겨 스스로 펴진다. */}
       {description && (
-        <p className="hidden min-w-0 basis-[300px] text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2 lg:block">
+        <p className="hidden min-w-0 basis-[300px] text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2">
           {description}
         </p>
       )}
