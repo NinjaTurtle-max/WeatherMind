@@ -1131,8 +1131,14 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                 ⚠️ 단, **목표가 2개 이상이면 칩을 같이 남긴다.** 대체할 수 있다고
                 본 근거는 액션 바의 미리보기 문구인데, 그것은 「다 됐다 / 아직」
                 **이분값**이라 1/2와 2/2를 구분하지 못하고 제출 뒤에는(`!result`)
-                아예 사라진다. 시드 board 46건 중 11건이 목표 복수이고 그중
-                guided가 4건이다 — 그 4건에서만 칩이 함께 뜬다(2026-08-12 리뷰). */}
+                아예 사라진다. **목표가 복수인 판이 11건이고 그중 guided가 4건**이라
+                그 4건에서만 칩이 함께 뜬다(2026-08-18 재실측).
+                ⚠️ **분모는 적지 않는다.** 종전에 「board 46건 중 11건」이라 적혀 있었고
+                **46이 낡았다**(그 뒤 55판). 다만 **11과 4는 그대로였다** — 새로 저작된
+                판이 전부 목표 1개였기 때문이다. 즉 이 논거가 기대는 것은 총계가 아니라
+                **「목표 복수인 guided 판이 존재한다」**이므로, 저작마다 낡는 분모를
+                근거로 쓰지 않는다(§0 규약). 수가 필요하면 세는 곳은
+                `content_items.json`이다. */}
             {!sandbox && goalTotal > 0 && (!hasGuide || goalTotal > 1) && (
               <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11.5px] font-bold tabular-nums text-slate-200">
                 {t('board.atmosphere.goalProgressLabel')} {goalMetCount}/{goalTotal}
