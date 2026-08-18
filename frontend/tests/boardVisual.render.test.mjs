@@ -309,6 +309,33 @@ try {
       'wide: 단면 카드가 왼쪽 열 높이까지 늘어난다(두 열이 같이 끝난다)',
       /\blg:flex-1\b/.test(sectionCard),
     );
+    // ── 카드 두 장만 셸 밖으로 넓힌다 (2026-08-18 사용자 지시) ──────────────
+    /**
+     * "상단바는 고정시키고 아래 보드/해설 카드 크기를 전체적으로 다 키워줘."
+     *
+     * 셸이 `md:max-w-6xl`(1152)이라 1536 화면에서 양옆 88px씩이 빈다. 지도·단면
+     * 그림은 둘 다 `w-full`이라 **열 폭에 비례**하므로, 그 여백을 되찾는 것 말고는
+     * 그림을 키울 방법이 없다(세로로만 늘리면 흰 여백만 는다). 실측 1536에서
+     * 카드행 1120 → 1232 · 지도 401 → 464.
+     *
+     * 두 가지를 문다. 되돌아갈 수 있는 길이 둘이라서다:
+     *  ⓐ **음수 마진이 `clamp(0px,…)`으로 막혀 있다.** 상한만 있고 하한이 없으면
+     *     좁은 화면에서 계산이 음수가 되어 카드가 화면 밖으로 삐져나온다.
+     *  ⓑ **미션 배너는 그 행 밖에 있다.** 안으로 들어가면 배너까지 같이 넓어져
+     *     "상단바는 고정"이 깨진다. 눈으로는 두 값이 비슷해 잘 안 보인다.
+     */
+    const escapeCls = body.match(/className="(-mx-\[[^"]*?)\s+grid gap-4 lg:grid-cols/)?.[1] ?? '';
+    check(
+      `wide: 카드행이 셸 밖으로 남는 폭만큼 넓어진다 — "${escapeCls.slice(0, 40)}…"`,
+      escapeCls.startsWith('-mx-[clamp(0px,'),
+    );
+    const heroAt = body.indexOf('data-testid="board-mission-hero"');
+    const rowAt = body.indexOf('-mx-[clamp(0px,');
+    check(
+      'wide: 미션 배너는 넓어지는 행 **밖**에 있다(상단바 고정)',
+      heroAt > 0 && rowAt > heroAt,
+    );
+
     // 순서의 소유자는 패널이다 — 그림이 캡션보다 **위**에 있는지 소스로 확인한다.
     const panel = readFileSync(resolve(root, 'src/modules/board/CrossSectionPanel.jsx'), 'utf8');
     const sceneAt = panel.indexOf('{useGL ? (');

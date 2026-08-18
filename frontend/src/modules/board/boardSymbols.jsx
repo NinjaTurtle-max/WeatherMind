@@ -53,20 +53,42 @@ export function CloudShape({ fill = C.cloud, y = -3, scale = 1, opacity = 1 }) {
 }
 
 /** 태양 (원 + 8방위 광선) */
+/**
+ * 해 — 코어 원 + 광선 + **부드러운 후광 두 겹**.
+ *
+ * ⚠️ **후광은 `filter`(feGaussianBlur)가 아니라 반투명 원이다.** 블러 필터는
+ * `<defs>`에 id가 필요한데 이 컴포넌트는 한 화면에 여러 번(단면도 한 장에만
+ * 최대 3개) 그려지고 인스턴스마다 `fill`이 다르다 — id를 공유하면 색이 하나로
+ * 묶이고, 인스턴스마다 발급하면 SSR/클라이언트 id가 갈려 하이드레이션이 어긋난다.
+ * 반투명 원 두 겹은 id도 필터도 없이 같은 「번지는」 인상을 준다.
+ *
+ * 2026-08-18 사용자 지시("이 해 모양을 더 부드럽게"). 종전에는 굵은 광선 8개가
+ * 코어에서 뾰족하게 뻗어 **톱니바퀴처럼** 보였다. 바꾼 것 셋:
+ *   · 광선 8 → 12개(촘촘할수록 별보다 빛무리로 읽힌다)
+ *   · 굵기 1.4 → 1.05 · 길이 계수 0.78배 · 불투명도 0.82
+ *   · 후광 2겹(코어 가까이 진하게, 광선 끝까지 옅게)
+ * 실루엣은 그대로라 작은 아이콘(`ClearSymbol`, scale 1)에서도 해로 읽힌다.
+ */
 export function SunShape({ fill = C.sun, r = 4, ray = 2.6, scale = 1, x = 0, y = 0 }) {
-  const rays = Array.from({ length: 8 }, (_, i) => i * 45);
+  const rays = Array.from({ length: 12 }, (_, i) => i * 30);
+  const len = ray * 0.78;
   return (
     <g transform={`translate(${x} ${y}) scale(${scale})`}>
+      {/* 바깥 후광 — 광선 끝을 덮어 뾰족함을 지운다 */}
+      <circle r={r + 1 + len} fill={fill} opacity="0.1" />
+      {/* 안쪽 후광 — 코어에서 번지는 밝기 */}
+      <circle r={r + 1.4} fill={fill} opacity="0.2" />
       {rays.map((deg) => (
         <line
           key={deg}
           x1="0"
           y1={-(r + 1)}
           x2="0"
-          y2={-(r + 1 + ray)}
+          y2={-(r + 1 + len)}
           stroke={fill}
-          strokeWidth="1.4"
+          strokeWidth="1.05"
           strokeLinecap="round"
+          opacity="0.82"
           transform={`rotate(${deg})`}
         />
       ))}
