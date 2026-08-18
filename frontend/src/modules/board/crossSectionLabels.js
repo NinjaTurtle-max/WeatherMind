@@ -77,6 +77,22 @@ const SLUGS = [
   'liftsAfterSunrise',
   'fogLowCloudToShore',
   'upglide',
+  // MT-23 재난 2종 품질 개선 — 조사 문법에서 온 라벨(RESEARCH_MT23_WILDFIRE_FLOOD.md).
+  // GL 전용이다: SVG 스토리보드(CrossSectionPanel)는 이번 소유 범위 밖이라 손대지
+  // 않았고, 그쪽이 같은 문법을 그리게 되면 여기 키를 그대로 쓰면 된다.
+  'daysOfDrying',
+  'fireFrontHead',
+  'spotFireAhead',
+  'newCellsUpwind',
+  'soilAlreadyFull',
+  'runoffGathersLow',
+  'forestedRidge',
+  'cityImpervious',
+  'fireRunsUphill',
+  'crownFireInTrees',
+  'drainOverwhelmed',
+  'basementFloods',
+  'greenGroundSoaks',
 ];
 
 export const V = {};
