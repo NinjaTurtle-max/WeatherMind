@@ -126,6 +126,12 @@ PHENOMENON_ENUM = (
     "wildfire_warning",
     "flood_warning",
     "flood_risk",
+    # MT-18 전문가 보드(2026-08-18) — 태풍·온실효과. 소유자는 여전히
+    # `board_engine.PHENOMENA`이고 여기는 생성 게이트용 사본이다.
+    # ⚠️ 이 두 값이 빠지면 새 보드 2판의 `goal_conditions`가 lint_seed_items ⑧에서
+    # **전건 탈락**한다 — 규칙·보드를 같은 PR에 넣어도 게이트가 먼저 막는다.
+    "typhoon",
+    "tropical_night",
 )
 BOARD_MODES = ("guided", "goal_only")
 

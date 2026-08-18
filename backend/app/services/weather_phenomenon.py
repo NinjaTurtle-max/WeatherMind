@@ -68,6 +68,10 @@ PHENOMENA = (
     "severe_storm",
     "wildfire_warning",
     "flood_warning",
+    # MT-18 전문가 보드(2026-08-18) — 태풍·온실효과. 위 셋과 **같은 성질**이다:
+    # 조건 4개 동시 성립이라 실황 카테고리로는 도달할 수 없다(→ BOARD_ONLY).
+    "typhoon",
+    "tropical_night",
 )
 
 # ── 🔴 어휘가 두 역할을 겸하고 있었다 — 갈랐다 (2026-08-18) ────────────────────
@@ -80,7 +84,15 @@ PHENOMENA = (
 # 그래서 사문 판정의 대상을 **`CLASSIFIABLE`**로 좁힌다. 이 분리가 없으면 둘 중 하나가
 # 거짓이 된다 — 어휘를 안 늘리면 board_rules 거울이 깨지고, 늘린 채로 도달성을 요구하면
 # **실황이 만들 수 없는 것을 만들라고** 요구한다.
-BOARD_ONLY_PHENOMENA = ("severe_storm", "wildfire_warning", "flood_warning")
+BOARD_ONLY_PHENOMENA = (
+    "severe_storm", "wildfire_warning", "flood_warning",
+    # MT-18(2026-08-18). `typhoon`은 실황으로 **부분적으로는** 알 수 있어 보이지만
+    # (강풍 + 강수) 이 어휘가 뜻하는 것은 「태풍이 발생·유지되는 조건이 갖춰졌다」이고
+    # 그 판정에는 해수면 온도와 연직 시어가 필요하다 — READ_CATEGORIES에 없다.
+    # `tropical_night`도 최저기온만으로는 **되돌림이 원인인지**를 가릴 수 없다.
+    # 실황으로 반쯤 닮은 값을 내면 사문 판정이 아니라 **오판정**이 된다.
+    "typhoon", "tropical_night",
+)
 CLASSIFIABLE = tuple(p for p in PHENOMENA if p not in BOARD_ONLY_PHENOMENA)
 
 # ── KMA 단기예보 카테고리 (읽는 것만) ──

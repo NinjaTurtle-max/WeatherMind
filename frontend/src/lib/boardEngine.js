@@ -37,6 +37,9 @@ export const PHENOMENON_ENUM = Object.freeze([
   'wildfire_risk', 'flood_risk',
   // ㉣ 4조건 규칙의 고유 결과 — 경보급(2026-08-18). 백엔드 PHENOMENA와 같은 집합이어야 한다.
   'severe_storm', 'wildfire_warning', 'flood_warning',
+  // MT-18 전문가 보드(2026-08-18) — 태풍·온실효과. 새 배치 요소는 0개이고 둘 다
+  // 기존 5종의 조합으로 성립한다. 백엔드 PHENOMENA와 같은 집합이어야 한다.
+  'typhoon', 'tropical_night',
 ]);
 export const CLOUD_ENUM = Object.freeze(['cumulonimbus', 'nimbostratus', 'stratus', 'cumulus', 'none']);
 

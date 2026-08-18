@@ -8679,7 +8679,7 @@
         "차고 건조한 기단이 따뜻한 바다를 건너 수증기를 받으면 눈구름이 만들어진다. 습기를 60 이상으로 올려야 한다."
       ],
       "correct_answer": "",
-      "board_order": 47,
+      "board_order": 48,
       "title": "대설경보 재현",
       "summary": "시베리아 기단과 습기로 태백산맥에 대설을 퍼부어요."
     },
@@ -8732,7 +8732,7 @@
         "건조경보만으로는 큰 산불이 되지 않는다. 두 존 모두에서 습기를 바닥까지 내리고 바람까지 세게 올려야 산불 위험 상태가 된다. 한 존만 맞으면 목표는 달성되지 않는다."
       ],
       "correct_answer": "",
-      "board_order": 48,
+      "board_order": 49,
       "title": "건조경보 두 칸",
       "summary": "건조와 강풍을 두 지역에 동시에 만들어 산불 위험을 재현해요."
     },
@@ -8780,7 +8780,7 @@
         "산 너머로 내려온 그 공기 덩어리를 수도권에 놓고, 습기를 30 이하로 낮춰야 한다."
       ],
       "correct_answer": "",
-      "board_order": 49,
+      "board_order": 50,
       "title": "산 넘어 마른 바람",
       "summary": "물기를 잃고 산을 내려온 공기로 수도권을 맑게 만들어요."
     },
@@ -27409,7 +27409,7 @@
         "지면을 데우는 것과 위아래 흐름의 차이를 함께 키워야 한다. 넷이 모두 높은 쪽에 있어야 조직된 소나기가 된다."
       ],
       "correct_answer": "",
-      "board_order": 50,
+      "board_order": 51,
       "title": "흩어지지 않는 소나기",
       "summary": "네 가지를 함께 맞춰 수도권에 오래 가는 소나기를 만들어요."
     },
@@ -27458,7 +27458,7 @@
         "기단을 놓은 뒤 물기는 아주 낮게, 바람과 햇볕은 함께 높게 올려야 한다."
       ],
       "correct_answer": "",
-      "board_order": 51,
+      "board_order": 52,
       "title": "마른 바람이 부는 날",
       "summary": "기단과 세 조절값을 함께 맞춰 산불 위험을 만들어요."
     },
@@ -27507,7 +27507,7 @@
         "한자리에 머무는 전선을 놓고, 물기와 바람은 높게, 햇볕은 낮게 두어야 한다."
       ],
       "correct_answer": "",
-      "board_order": 52,
+      "board_order": 53,
       "title": "빠져나갈 새가 없다",
       "summary": "전선이 머무는 동안 물기가 계속 채워지게 만들어요."
     },
@@ -27518,6 +27518,160 @@
         "㉣ 개통분 — 기존 flood_risk(2조건)의 상위판. 「왜 한곳에 머무는가」까지 묻는다",
         "board_rules.json: front_convergence_flood (신규 4조건 규칙)",
         "기상학 근거: 정체전선의 지속 + 하층 수렴에 의한 수증기 공급 + 일사 부족으로 인한 대류 억제가 겹치면 같은 지역에 강수가 집중된다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "일기도를 읽어 보자. 서해상(존 0)에서 등압선이 나란히 흐르다가 한 곳에서 뾰족한 V자로 꺾여 기압골을 이루고, 그 골을 따라 전선이 그려져 있다. 골 뒤쪽은 등압선 간격이 좁고 적란운과 좁은 강수 구역이 표시돼 있으며, 전선이 지난 뒤 기온이 급히 떨어지고 풍향이 시계 방향으로 바뀐다. 일기도가 가리키는 전선을 서해상에 놓고 물기를 채워 그 강수 구역을 재현해 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:cold",
+        "front:warm",
+        "front:stationary",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "shower",
+          "cloud": "cumulonimbus"
+        }
+      ],
+      "hints": [
+        "일기도가 이미 답을 적어 두었다. 어떤 구름이 그려져 있는지, 전선이 지난 뒤 기온과 풍향이 어떻게 바뀌는지를 먼저 읽어 보자.",
+        "적란운과 좁은 강수 구역, 통과 뒤 기온 급강하는 찬 공기가 따뜻한 공기를 급하게 밀어 올릴 때 나타난다. 물기도 넉넉히 채워야 구름이 자란다."
+      ],
+      "correct_answer": "",
+      "board_order": 47,
+      "title": "일기도가 가리킨 전선",
+      "summary": "일기도 단서를 읽고 알맞은 전선을 놓아요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "MT-19 일기도 판독 보드 — docs/design/research/RESEARCH_MT19_WEATHER_CHART.md §2ⓑ(판독 규칙) · §4 판독 1",
+        "한국식 일기도 문법만 차용(등압선·기압골·전선·강수 구역 4요소). 국제식 기호·실제 일기도 이미지는 저작권 선에 따라 반입하지 않았다",
+        "docs/specs/12: 교육과정상 일기도 「작성」은 제외·「판독」만 — 이 판은 판독이다",
+        "판독 방향이 기존 보드와 반대다: 기존은 원인을 놓아 결과를 만들고, 이 판은 결과(등압선 꺾임·구름·기온 변화)를 읽어 원인(전선 종류)을 고른다. 엔진 변경 0 — 기존 cold_front_shower가 판정한다",
+        "기상학 근거: 전선은 기압골을 수반해 등압선이 V자로 꺾인다 · 한랭전선 통과 시 기온 급강하와 풍향 시계 방향 변화 · 한랭전선 구름은 적란운 계열로 좁고 강한 강수를 낸다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "태풍은 스스로 생기지 않는다. 따뜻한 바다에서 올라온 수증기가 물방울로 맺힐 때 내놓는 열이 연료이고, 그 연료가 흩어지지 않고 하나의 기둥으로 조직되려면 상층과 하층의 바람 차이가 작아야 한다. 서해상(존 0)에 덥고 습한 공기를 들이고, 바다를 데우는 햇볕은 크게, 기둥을 어긋나게 만드는 바람 차이는 작게 두어 태풍이 자랄 조건을 갖춰 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:north_pacific",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "typhoon"
+        }
+      ],
+      "hints": [
+        "물기와 햇볕만 크게 올리면 소나기로 끝난다. 이 판이 묻는 것은 그 소나기가 흩어지지 않고 하나의 기둥으로 조직될 조건이다.",
+        "덥고 습한 기단을 놓고 물기와 햇볕은 아주 높게, 바람은 아주 낮게 두어야 한다. 바람을 아예 놓지 않으면 기본값이 남아 기둥이 어긋난다 — 낮게 놓는 것까지가 조작이다."
+      ],
+      "correct_answer": "",
+      "board_order": 54,
+      "title": "태풍이 자랄 조건",
+      "summary": "바다의 연료와 고요한 상층을 함께 갖춰요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "MT-18 전문가 보드 — docs/design/research/RESEARCH_MT18_EXPERT_BOARD.md §2ⓑ(발생·유지 조건)",
+        "board_rules.json: tropical_cyclone_genesis (신규 4조건 규칙 · priority 140)",
+        "새 배치 요소 0개 — 태풍을 기존 5종(기단·습기·일사·바람)의 조합으로 표현했다. 요소를 늘리면 프론트 팔레트·UI·i18n까지 번진다",
+        "기상학 근거: 해수면 26.5°C 이상의 따뜻한 바다 · 수증기의 잠열이 에너지원 · 연직 시어 10m/s 미만이어야 구조가 유지된다(시어가 크면 상하층이 어긋나 조직이 무너진다)",
+        "조사 문서 §0①의 머리 발견(중심이 가장 세지 않다 — 최대 풍속은 눈벽, 눈은 하강 기류라 맑고 약하다)은 규칙 explain 말미가 가르친다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "낮에 들어온 태양의 짧은 파장 빛은 지표에 흡수돼 열이 되고, 지표는 그 열을 눈에 보이지 않는 긴 파장으로 되돌려 내보낸다. 공기 속 수증기는 그 긴 파장을 붙잡아 다시 지표로 돌려보내는데, 이 되돌림이 강하면 해가 넘어가 들어오는 빛이 끊겨도 밤새 기온이 내려가지 않는다. 수도권(존 1)에 덥고 습한 공기를 들이고 해가 넘어간 밤을 만들어, 열이 빠져나가지 못하는 상태를 재현해 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:north_pacific",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "tropical_night"
+        }
+      ],
+      "hints": [
+        "이 판은 구름을 만들어 덮는 문제가 아니다. 열을 되돌려 보내는 것은 눈에 보이는 구름이 아니라 공기 속에 섞여 있는 물기다.",
+        "덥고 습한 기단을 놓고 물기는 아주 높게, 햇볕은 아주 낮게(해가 넘어간 밤), 바람도 낮게 두어야 한다 — 바람이 세면 열이 섞여 흩어진다."
+      ],
+      "correct_answer": "",
+      "board_order": 55,
+      "title": "식지 않는 밤",
+      "summary": "물기가 열을 되돌려 밤에도 식지 않게 해요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "MT-18 전문가 보드 — docs/design/research/RESEARCH_MT18_EXPERT_BOARD.md §3(온실효과 왕복 구조) · §0④",
+        "board_rules.json: greenhouse_tropical_night (신규 4조건 규칙 · priority 136)",
+        "조사 문서 §3⚠의 경고를 지킨다: 「CO₂ = 나쁘다」로 만들면 오개념을 심는다. 조작 대상은 되돌리는 기체(수증기 — 기여도 72%로 1위)와 밤(일사 차단)이고, 기여도 수치는 지문에 넣지 않았다",
+        "기상학 근거: 단파 입사 → 지표 흡수 → 장파 재방출 → 온실기체 흡수·지표로 되돌림의 왕복 구조. 온실효과 자체는 정상이며 문제는 과다다(규칙 explain이 그 문장을 가르친다)",
+        "결과 구름이 `none`인 것은 설계다 — 고온다습 기단에서는 밤에도 이슬점에 닿지 않아 안개·층운이 끼지 않는다. 「맑은데도 안 식는다」가 되돌림의 증거이고, 동시에 radiation_fog(fog·stratus)와 결과가 겹치지 않게 한다"
       ]
     },
     "status": "active"

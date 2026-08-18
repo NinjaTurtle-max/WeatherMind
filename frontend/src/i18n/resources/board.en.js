@@ -38,6 +38,10 @@ export default {
         severe_storm: { label: 'Organized thunderstorm' },
         wildfire_warning: { label: 'Wildfire warning' },
         flood_warning: { label: 'Flood warning' },
+        // MT-18 expert boards (2026-08-18) — typhoon · greenhouse effect.
+        // Keys must match board.ko.js exactly (i18n parity smoke asserts the key sets).
+        typhoon: { label: 'Typhoon' },
+        tropical_night: { label: 'Tropical night' },
       },
       cloud: {
         cumulonimbus: { label: 'Cumulonimbus' },

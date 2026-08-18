@@ -37,6 +37,16 @@ export const PRECIP_META = {
   // 뜨고 비가 안 내리면 그 존만 그림이 멈춰 보인다. persistent_rain보다 촘촘하게.
   // (산불은 cloud=none이라 강수·구름이 없고 노드 아이콘 🔥만 뜨는 것이 옳다)
   flood_risk: { kind: 'rain', weight: 3, slant: 0.6 },
+  // 🔴 **2026-08-18: 세 종이 빠져 있었다.** 위 flood_risk 주석이 경고한 바로 그 상태가
+  // 실제로 났다 — 「지도에 비층운만 뜨고 비가 안 내리면 그 존만 그림이 멈춰 보인다」.
+  // ㉣(4조건 규칙)이 severe_storm·flood_warning을 들이고 MT-18이 typhoon을 들였는데
+  // 이 표에 아무도 행을 안 넣었다. **계약 테스트가 강수 4종만 요구해서 전부 초록이었다** —
+  // 화면에만 나는 결함은 여기서 아무도 안 잡는다.
+  // 나머지 미등재 현상(clear·heatwave·tropical_night·wildfire_*·fog)은 **옳게 없는 것**이다:
+  // cloud가 none/stratus라 강수가 없어야 하고, 산불은 노드 아이콘 🔥만 뜨는 것이 맞다.
+  severe_storm: { kind: 'rain', weight: 3, slant: 1.6 },   // 스콜선 — shower보다 세고 더 비스듬
+  flood_warning: { kind: 'rain', weight: 3, slant: 0.5 },  // flood_risk의 경보급 — 더 수직
+  typhoon: { kind: 'rain', weight: 3, slant: 1.2 },        // 눈벽 강수 — 세고 회전이라 중간 기울기
 };
 
 /** 강수 에미터 박스(userSpace) — 존 중심 기준 14×12 박스. SVG 경로와 동일 수치. */
