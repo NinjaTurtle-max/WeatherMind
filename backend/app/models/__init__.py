@@ -13,6 +13,7 @@ from app.models.course import Course
 from app.models.unit import Unit, UserUnitProgress
 from app.models.user_concept_ability import UserConceptAbility
 from app.models.item_param import ItemParam
+from app.models.hindcast_attempt import HindcastAttempt
 
 __all__ = [
     "Base",
@@ -33,4 +34,5 @@ __all__ = [
     "UserUnitProgress",
     "UserConceptAbility",
     "ItemParam",
+    "HindcastAttempt",
 ]
