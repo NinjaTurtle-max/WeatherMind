@@ -160,7 +160,7 @@ export function hintRulesForGoal(rules, goal, palette, zoneState) {
  * 3) **3단 = N회 미통과 후 현상 해설 공개**(N-3 ①안, 2026-08-14 클라이언트 승인).
  *
  *    ⚠️ **이것은 위 「정답 배치 미공개」의 의도된 예외다** — 조용히 넘기지 말 것.
- *    board 문항 46건 전건이 `template_json.correct_answer`가 빈 값이고, 힌트는
+ *    board 문항 **전건**이 `template_json.correct_answer`가 빈 값이고, 힌트는
  *    2단이 상한이었다. 그 결과 **못 푸는 학습자가 답에 닿는 경로가 하나도 없었다**
  *    (N-3). 3단은 그 경로를 여는 것이 목적이므로, 답을 가리는 것이 아니라 답에
  *    닿게 하는 것이 계약이다.
