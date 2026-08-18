@@ -98,6 +98,51 @@ class TestSeedAuthoring:
         assert not long, f"제목이 너무 길다(14자 초과): {long}"
 
 
+def _reachable_with(rule: dict, palette: list) -> bool:
+    """이 팔레트로 규칙의 **모든** 조건에 도달할 수 있는가.
+
+    🔴 **2026-08-18 정정 — 종전 판은 「전 조건이 numeric」을 요구했다.** 그래서
+    존재 조건(`air_mass:siberian`·`front:stationary`)을 가진 규칙이 **통째로
+    제외**됐고, 도달성 검사가 **레거시 2조건 규칙으로 인증**하며 헤드라인 규칙을
+    한 번도 밟지 않았다. 계측기가 눈을 감은 것이다(리뷰 차단 4).
+    ⚠️ 그때 주석에 *"재난 퍼즐 팔레트에는 슬라이더뿐"*이라 적었는데 ㉣이 추가한
+    보드에서는 **거짓**이다 — 둘 다 팔레트에 존재 조건이 있다.
+
+    프론트 `conditionReachable`과 같은 의미로 판정한다: 존재 조건은 팔레트에
+    그 요소가 있으면 도달 가능(초기 배치가 비어 있는 시드에서는 그것이 유일한 길),
+    수치 조건은 그 슬라이더가 팔레트에 있으면 도달 가능.
+    """
+    from app.services import board_engine
+
+    for condition in rule["when"]:
+        parsed = board_engine.parse_condition(condition)
+        if parsed[0] == "presence":
+            if f"{parsed[1]}:{parsed[2]}" not in palette:
+                return False
+        elif parsed[1] not in palette:
+            return False
+    return True
+
+
+def _placement_for(rule: dict, zone: int) -> list[dict]:
+    """규칙이 성립하는 최소 배치 — 존재 조건은 놓고, 수치 조건은 임계를 ±5 넘긴다."""
+    from app.services import board_engine
+
+    out = []
+    for condition in rule["when"]:
+        parsed = board_engine.parse_condition(condition)
+        if parsed[0] == "presence":
+            out.append({"type": parsed[1], "subtype": parsed[2], "zone": zone})
+            continue
+        _, field, op, value = parsed
+        out.append({
+            "type": field,
+            "level": min(100, value + 5) if op == ">=" else max(0, value - 5),
+            "zone": zone,
+        })
+    return out
+
+
 class TestDisasterBoards:
     """재난 board 4건이 **실제로 재난을 판정 결과로 낸다** (R13 CO-A3·CO-K4).
 
@@ -113,13 +158,19 @@ class TestDisasterBoards:
     """
 
     DISASTER_TAGS = ("wildfire_weather", "flood_response")
-    DISASTER_PHENOMENA = frozenset({"wildfire_risk", "flood_risk"})
+    DISASTER_PHENOMENA = frozenset({"wildfire_risk", "flood_risk", "wildfire_warning", "flood_warning"})
 
     def _disaster_items(self) -> list[dict]:
         return [i for i in _board_items() if i["concept_tag"] in self.DISASTER_TAGS]
 
-    def test_재난_board가_4건이다(self):
-        assert len(self._disaster_items()) == 10
+    def test_재난_board_수_고정(self):
+        """⚠️ 이름이 「4건이다」였는데 값은 이미 10이었다 — 이름과 값이 갈려 있었다.
+        개수는 저작으로 계속 자라므로 **이름에 수를 적지 않는다**(2026-08-18 정정).
+
+        ㉣ 개통(2026-08-18): 10 → **12**. 새 4조건 규칙을 쓰는 상위 보드 2판
+        (산불 kl9 · 침수 kl10)이 재난 축에 들어왔다 — 소나기판은 재난이 아니다.
+        """
+        assert len(self._disaster_items()) == 12
 
     def test_목표가_재난_현상이다(self):
         for item in self._disaster_items():
@@ -148,34 +199,35 @@ class TestDisasterBoards:
                     r for r in rules if r["then"]["phenomenon"] == goal["phenomenon"]
                 ]
                 assert matching, f"{goal['phenomenon']}을(를) 내는 규칙이 없다"
-                rule = matching[0]
-                for condition in rule["when"]:
-                    kind, *rest = board_engine.parse_condition(condition)
-                    assert kind == "numeric", (
-                        f"{template['title']}: 재난 규칙이 배치 요소를 요구하는데 "
-                        "팔레트 도달 가능성을 여기서 보장할 수 없다"
-                    )
-                    field = rest[0]
-                    assert field in palette, (
-                        f"{template['title']}: 규칙이 {field}를 요구하는데 팔레트에 "
-                        f"없다({palette}) — 기본값에 갇혀 풀 수 없는 퍼즐이 된다"
-                    )
+                # ⚠️ **종전에는 `matching[0]`을 그대로 썼다** — 규칙 파일이 priority
+                # 내림차순이라 「그 현상을 내는 첫 규칙」이 곧 이 퍼즐이 쓰는 규칙이라는
+                # 가정이었다. 2026-08-18 ㉣ 개통으로 **조건 4개짜리 재난 규칙이 맨 위로
+                # 오면서** 그 가정이 깨졌다(그 규칙은 `front:stationary` 같은 배치 요소를
+                # 요구하는데 재난 퍼즐 팔레트에는 슬라이더뿐이다).
+                # 퍼즐이 실제로 쓰는 것은 **그 팔레트로 도달 가능한 규칙**이므로 그것을
+                # 고른다 — 이러면 규칙이 더 늘어도 이 테스트가 흔들리지 않는다.
+                reachable = [r for r in matching if _reachable_with(r, palette)]
+                assert reachable, (
+                    f"{template['title']}: 목표 {goal['phenomenon']}을(를) 이 팔레트"
+                    f"({palette})로 도달 가능한 규칙이 하나도 없다 — 풀 수 없는 퍼즐이다"
+                )
+                # ⚠️ 종전에는 여기서 「전 조건이 numeric이고 팔레트에 있다」를 단정했다.
+                # `_reachable_with`가 존재 조건까지 같은 의미로 판정하므로 중복이고,
+                # 그 단정이 **존재 조건을 가진 규칙을 거부**해 계측기를 눈감게 했다
+                # (리뷰 차단 4). 도달 가능성은 위 `reachable` 필터가 소유한다.
+                rule = reachable[0]
 
             # 실제로 판정을 돌려 목표가 성립하는지 확인 (권위 엔진 그대로)
             elements = []
             for goal in goals:
+                # 위와 같은 이유로 **팔레트로 도달 가능한** 규칙을 고른다(2026-08-18).
+                # `next(...)`로 첫 규칙을 집으면 조건에 배치 요소가 섞여 unpack이 깨진다.
                 rule = next(
-                    r for r in rules if r["then"]["phenomenon"] == goal["phenomenon"]
+                    r for r in rules
+                    if r["then"]["phenomenon"] == goal["phenomenon"]
+                    and _reachable_with(r, palette)
                 )
-                for condition in rule["when"]:
-                    _, field, op, value = board_engine.parse_condition(condition)
-                    elements.append(
-                        {
-                            "type": field,
-                            "level": min(100, value + 5) if op == ">=" else max(0, value - 5),
-                            "zone": goal["zone"],
-                        }
-                    )
+                elements.extend(_placement_for(rule, goal["zone"]))
             board = {"zones": list(board_engine.ZONES), "elements": elements}
             phenomena = board_engine.evaluate(board, rules)
             assert board_engine.check_goals(phenomena, goals), (

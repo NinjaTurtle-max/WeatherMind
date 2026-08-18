@@ -34,6 +34,11 @@ export default {
         cloudy: { label: '흐림' },
         wildfire_risk: { label: '산불 위험' },
         flood_risk: { label: '침수 위험' },
+        // ㉣ 경보급(2026-08-18) — 조건 4개가 동시에 맞을 때만 난다.
+        // 「위험」과 이름이 비슷하지만 **다른 결과**다: 지름길로는 여기 못 온다.
+        severe_storm: { label: '조직된 뇌우' },
+        wildfire_warning: { label: '산불 경보급' },
+        flood_warning: { label: '호우 침수 경보급' },
       },
       cloud: {
         cumulonimbus: { label: '적란운' },

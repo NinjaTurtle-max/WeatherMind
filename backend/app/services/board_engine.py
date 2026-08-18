@@ -55,6 +55,15 @@ PHENOMENA = frozenset(
     {
         "shower", "rain", "persistent_rain", "snow", "fog", "heatwave", "clear",
         "cloudy", "wildfire_risk", "flood_risk",
+        # ㉣ 4조건 규칙의 **고유 결과**(2026-08-18 PM 판정). 이름은 기상청 어휘를
+        # 따른다 — 「위험(주의보)」 위의 **경보급**이고, 조건 4개가 동시에 맞을 때만 난다.
+        # ⚠️ **왜 고유 결과가 필요했나**: 4조건 규칙이 지름길(2조건)과 같은 현상을
+        # 내면 `check_goals`가 둘을 구분할 수 없어(rule_id 축이 없다) **가르치려는
+        # 요소를 무시해도 통과**했다. 그리고 그 요소를 놓으면 v1 규칙이 이겨
+        # **오히려 실패**했다 — 무시가 통과하고 배움이 실패하는 역전이었다.
+        # rule_id로 채점하는 길(ⓐ)은 기각했다: 정당한 다른 경로로 목표 날씨를 만든
+        # 학습자가 오답이 되어 §3.2(결과가 채점 대상)를 뒤집는다.
+        "severe_storm", "wildfire_warning", "flood_warning",
     }
 )
 CLOUDS = frozenset({"cumulonimbus", "nimbostratus", "stratus", "cumulus", "none"})
@@ -186,7 +195,7 @@ def parse_condition(condition: Any) -> tuple:
         return ("numeric", match.group(1), match.group(2), float(match.group(3)))
     raise BoardRulesError(
         f"허용되지 않는 조건 문법: {condition!r} "
-        "(\"air_mass|front:<subtype>\" 또는 \"moisture|sun>=|<=<숫자>\" 만 허용)"
+        "(\"air_mass|front:<subtype>\" 또는 \"moisture|sun|wind>=|<=<숫자>\" 만 허용)"
     )
 
 
