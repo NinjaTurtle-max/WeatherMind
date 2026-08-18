@@ -1177,9 +1177,25 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
               단면 4)는 **어느 자리에 적혀 있든 이 숫자가** 정한다. 옮겨도 좁은
               화면은 한 픽셀도 안 바뀐다.
               ⚠️ `lg:` 접두사로만 flex를 켠다 — 좁은 화면에서 켜면 종전에 없던
-              간격이 생긴다(이 변경의 범위 밖). */}
+              간격이 생긴다(이 변경의 범위 밖).
+
+              🔴 **가로 여백이 위 행의 음수 여백을 그대로 되돌린다**(2026-08-18
+              사용자 지시 — "밑에 서버 판정 결과 카드 크기에 맞춰줘"). 판정이
+              붙어야 할 상대는 지도·단면 카드가 아니라 **바로 아래 이어지는
+              「서버 판정 결과」와 3버튼**인데, 그쪽은 `BoardPage`가 격자 **밖**
+              에서 그려 셸 폭(1536에서 1120)이다. 행 안에 그대로 두면 판정만
+              1232로 튀어나와 한 줄기로 안 읽힌다.
+              같은 clamp 값을 **양수**로 주면 순수하게 상쇄된다 — 1536에서
+              1232 − 56×2 = 1120, 1920에서 1360 − 120×2 = 1120, 1280 이하는
+              clamp가 0이라 양쪽 다 0. 어느 폭에서도 아래 카드와 딱 맞는다.
+              ⚠️ **두 식은 글자까지 같아야 한다.** Tailwind는 소스 텍스트를
+              훑어 클래스를 만들므로 상수로 빼서 템플릿 문자열로 조립하면
+              **CSS가 아예 안 생긴다** — 그래서 일부러 두 번 적었고, 그 짝은
+              `boardVisual.render` 계약이 문다. */}
           {hasVerdict && (
-            <div className="order-3 lg:col-span-2 lg:flex lg:flex-col lg:gap-3">{verdictBlock}</div>
+            <div className="order-3 mx-[clamp(0px,(100vw_-_var(--wm-shell-left)_-_4rem_-_1152px)/2,120px)] lg:col-span-2 lg:flex lg:flex-col lg:gap-3">
+              {verdictBlock}
+            </div>
           )}
         </div>
       </div>
