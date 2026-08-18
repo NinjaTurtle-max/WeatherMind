@@ -41,6 +41,12 @@
  *                         (= 고쳐지기 전 dispose와 같은 관측)
  *   WM_FAULT=aspect       setScene의 종횡비 되읽기를 **파킹본 그대로** 되돌린 사본을
  *                         만들어 그것으로 렌더러를 세운다(임시 파일은 반드시 지운다)
+ *   WM_FAULT=t1-rotation  T1 상층 링의 감김을 하층과 **같게** 만든다
+ *                         (= 「회전 방향이 반대」를 못 그린 장면과 같은 관측)
+ *   WM_FAULT=t1-maxwind   T1 눈 속 화살표를 가장 굵게 만든다
+ *                         (= 「가운데가 제일 세다」로 틀리게 그린 장면)
+ *   WM_FAULT=t2-cumulative T2에서 `until`을 걷어낸다(= 시간 전개가 아니라 누적 →
+ *                         화면에 태풍이 5마리)
  */
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -68,6 +74,8 @@ const cameraMod = await import(`${SCHEMATIC}/camera.js`);
 const rendererMod = await import(`${SCHEMATIC}/renderer.js`);
 const sceneMod = await import(`${SCHEMATIC}/radiationScene.js`);
 const shaders = await import(`${SCHEMATIC}/shaders.js`);
+const t1Mod = await import(`${SCHEMATIC}/typhoonSectionScene.js`);
+const t2Mod = await import(`${SCHEMATIC}/typhoonLifecycleScene.js`);
 
 const { arrowMesh3D, arrow3DVertexCount, arrowBasis, ARROW3D_DEFAULTS, PARALLEL_EPS } = mesh;
 // WM_FAULT=aspect — 파킹본의 종횡비 되읽기(`cam.aspect ?? ASPECT`)를 되살린 사본으로
@@ -415,6 +423,139 @@ function createStubCanvas() {
   check('셰이더 — 난수·텍스처 0(결정적 그림)', !/random|texture\s*\(/i.test(vs + shaders.ARROW_FS));
   check('셰이더 — 램버트 조명이 있다(단색이면 입체가 안 읽힌다)', /dot\s*\(\s*n\s*,\s*L\s*\)/.test(shaders.ARROW_FS));
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  T1 태풍 단면 — 🔴 **틀리게 그리면 틀린 것을 가르치는** 두 사실을 값으로 문다
+// ═══════════════════════════════════════════════════════════════════════════
+const { TYPHOON_SECTION_SCENE, T1_STEPS, T1_FACTS, KM_PER_UNIT, rightOfMotion, MOTION_DIR, tangent } = t1Mod;
+
+// 고장 주입 — 장면 사본을 틀리게 만든다(저작자가 틀리게 그린 것과 같은 관측)
+const t1Scene = (() => {
+  if (FAULT === 't1-rotation') {
+    return { ...TYPHOON_SECTION_SCENE, items: TYPHOON_SECTION_SCENE.items.map((it) => (it.ring && it.origin[1] >= 0.4
+      ? { ...it, spin: +1, dir: [-it.dir[0], 0, -it.dir[2]] } : it)) };
+  }
+  if (FAULT === 't1-maxwind') {
+    return { ...TYPHOON_SECTION_SCENE, items: TYPHOON_SECTION_SCENE.items.map((it) => (it.type === 'arrow'
+      && Math.hypot(it.origin[0], it.origin[2]) < 0.02 ? { ...it, thickness: 2 } : it)) };
+  }
+  return TYPHOON_SECTION_SCENE;
+})();
+const t1Arrows = t1Scene.items.filter((it) => it.type === 'arrow');
+const radiusKm = (a) => Math.hypot(a.origin[0], a.origin[2]) * KM_PER_UNIT;
+
+// ① 최대 풍속은 **눈벽**(중심에서 40~100km)이지 중심이 아니다
+const strongest = t1Arrows.reduce((m, a) => (a.thickness > m.thickness ? a : m), t1Arrows[0]);
+check('🔴 T1 — 가장 굵은(=가장 센) 화살표가 눈벽 반지름 40~100km에 있다',
+  radiusKm(strongest) >= T1_FACTS.maxWindInnerKm && radiusKm(strongest) <= T1_FACTS.maxWindOuterKm,
+  `가장 굵은 화살표가 중심에서 ${radiusKm(strongest).toFixed(0)}km에 있다 — 「가운데가 제일 세다」는 틀린 그림이다`);
+const eyeArrows = t1Arrows.filter((a) => radiusKm(a) < T1_FACTS.eyeRadiusKm);
+check('🔴 T1 — 눈 속 화살표가 눈벽보다 가늘다(눈은 약풍·하강기류)',
+  eyeArrows.length > 0 && Math.max(...eyeArrows.map((a) => a.thickness)) < strongest.thickness,
+  `눈 속 최대 ${Math.max(...eyeArrows.map((a) => a.thickness))} ↔ 눈벽 ${strongest.thickness}`);
+check('T1 — 눈 속에 하강 화살표가 있다(dir.y < 0)', eyeArrows.some((a) => a.dir[1] < -0.9));
+
+// ② 하층 반시계 · 상층 시계 — **감김이 반대**여야 한다
+const lowRing = t1Arrows.filter((a) => a.ring && a.origin[1] < 0.4);
+const highRing = t1Arrows.filter((a) => a.ring && a.origin[1] >= 0.4);
+const spinOf = (a) => {
+  // 실제 방향벡터로 감김을 되잰다(주석이 아니라 좌표가 증거다):
+  // (ŷ × p) · dir 의 부호 — 양수면 위에서 봤을 때 반시계
+  const p = [a.origin[0], 0, a.origin[2]];
+  const t = [p[2], 0, -p[0]];
+  return Math.sign(t[0] * a.dir[0] + t[2] * a.dir[2]);
+};
+const lowSpins = new Set(lowRing.map(spinOf));
+const highSpins = new Set(highRing.map(spinOf));
+check('T1 — 링이 두 층 모두 실재한다(공허 통과 방지)', lowRing.length >= 8 && highRing.length >= 8,
+  `하층 ${lowRing.length} · 상층 ${highRing.length}`);
+check('🔴 T1 — 하층은 반시계(위에서 볼 때)', lowSpins.size === 1 && lowSpins.has(1), `부호 ${[...lowSpins]}`);
+check('🔴 T1 — 상층은 시계 — 하층과 **반대**다', highSpins.size === 1 && highSpins.has(-1), `부호 ${[...highSpins]}`);
+{
+  // 좌표로 한 번 더: 동쪽(+x)에 선 하층 화살표는 **북(-z)**으로 흘러야 반시계다
+  const east = lowRing.reduce((m, a) => (a.origin[0] > m.origin[0] ? a : m), lowRing[0]);
+  const eastUp = highRing.reduce((m, a) => (a.origin[0] > m.origin[0] ? a : m), highRing[0]);
+  check('T1 — 동쪽 하층 화살표가 북쪽(-z)으로 흐른다', east.dir[2] < -0.3, `dir.z=${east.dir[2].toFixed(2)}`);
+  check('T1 — 동쪽 상층 화살표는 남쪽(+z)으로 흐른다(반대 감김의 좌표 증거)', eastUp.dir[2] > 0.3, `dir.z=${eastUp.dir[2].toFixed(2)}`);
+}
+
+// ③ 위험반원 — 진행 방향 **오른쪽**이 더 세다
+{
+  const right = rightOfMotion();
+  check('T1 — 오른쪽 단위벡터가 진행 방향과 직교하고 화면 오른편이다',
+    Math.abs(right[0] * MOTION_DIR[0] + right[2] * MOTION_DIR[2]) < 1e-9 && right[0] > 0);
+  const side = (a) => (a.origin[0] * right[0] + a.origin[2] * right[2]);
+  const r = lowRing.filter((a) => side(a) > 0.2);
+  const l = lowRing.filter((a) => side(a) < -0.2);
+  check('🔴 T1 — 위험반원(오른쪽)이 반대쪽보다 굵다(비대칭이 구조의 일부)',
+    r.length > 0 && l.length > 0 && Math.max(...r.map((a) => a.thickness)) > Math.max(...l.map((a) => a.thickness)),
+    `오른쪽 ${Math.max(...r.map((a) => a.thickness)).toFixed(2)} ↔ 왼쪽 ${Math.max(...l.map((a) => a.thickness)).toFixed(2)}`);
+}
+check('T1 — 수직 화살표(특이점 분기)를 담고 있다', t1Arrows.some((a) => Math.abs(a.dir[1]) > 0.99));
+check('T1 — 축척이 조사값과 맞는다(눈 25km · 구름 꼭대기 12~20km)',
+  T1_FACTS.eyeRadiusKm * 2 >= 20 && T1_FACTS.eyeRadiusKm * 2 <= 50 && T1_FACTS.cloudTopKm >= 12 && T1_FACTS.cloudTopKm <= 20);
+check('T1 — 접선 함수의 부호 규약이 문서대로다', tangent(0, 1)[2] < 0 && tangent(0, -1)[2] > 0);
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  T2 태풍의 생애 — 🔴 **시간 전개**가 렌더러 계약 안에서 성립하는가
+// ═══════════════════════════════════════════════════════════════════════════
+const { TYPHOON_LIFECYCLE_SCENE, T2_STEPS, T2_STAGES, t2Checks, zOfLat, speedLen } = t2Mod;
+const t2Scene = FAULT === 't2-cumulative'
+  ? { ...TYPHOON_LIFECYCLE_SCENE, items: TYPHOON_LIFECYCLE_SCENE.items.map(({ until, ...rest }) => rest) }
+  : TYPHOON_LIFECYCLE_SCENE;
+const visibleAt = (scene, step) => scene.items.filter((it) => (it.at ?? 0) <= step && step <= (it.until ?? Infinity));
+
+{
+  // 🔴 이 그림의 성립 조건: **한 단계에 태풍은 하나**. 누적이면 태풍이 5마리가 된다
+  const perStep = T2_STEPS.map((_, s) => new Set(visibleAt(t2Scene, s).filter((it) => it.storm).map((it) => it.storm)).size);
+  check('🔴 T2 — 단계마다 태풍이 정확히 하나다(시간 전개이지 누적이 아니다)',
+    perStep.every((n) => n === 1), `단계별 태풍 수 ${perStep.join(',')} — 2 이상이면 지난 단계가 안 사라진 것이다`);
+  // 경로는 반대로 **쌓여야** 한다(지나온 길이 남는다)
+  const track = T2_STEPS.map((_, s) => visibleAt(t2Scene, s).filter((it) => it.track).length);
+  check('T2 — 지나온 경로는 누적된다', track.every((n, i) => i === 0 || n > track[i - 1]), track.join(','));
+  check('T2 — 단계 수와 조사의 생애 단계가 맞는다(형성·발달·최성/전향·가속·ET)',
+    T2_STEPS.length === 5 && T2_STAGES[T2_STAGES.length - 1].key === 'et');
+}
+{
+  const c = t2Checks();
+  check('🔴 T2 — 전향은 북위 20~30° 사이에서 일어난다', c.recurveLat >= 20 && c.recurveLat <= 30, `${c.recurveLat}°`);
+  check('🔴 T2 — 전향 때 정체(가장 짧은 이동) → 전향 후 급가속(가장 긴 이동)',
+    c.stallLen < c.growLen && c.growLen < c.accelLen,
+    `정체 ${c.stallLen.toFixed(3)} · 발달 ${c.growLen.toFixed(3)} · 가속 ${c.accelLen.toFixed(3)}`);
+  check('T2 — 이동 화살표 길이가 속도(km/h)에 비례한다', Math.abs(speedLen(40) / speedLen(20) - 2) < 1e-9);
+  check('T2 — 세력의 키가 최성기에서 최대다',
+    T2_STAGES[2].height === Math.max(...T2_STAGES.map((s) => s.height)));
+  check('T2 — 회전은 북반구 저기압성(반시계) 하나뿐', c.spins.length === 1 && c.spins[0] === 1);
+  check('T2 — 위도가 커질수록 북(-z)으로 간다', zOfLat(40) < zOfLat(20) && zOfLat(20) < zOfLat(10));
+  check('T2 — ET 단계 문구가 「사라진다」가 아니라 「성질이 바뀐다」다',
+    /성질이 바뀐/.test(T2_STAGES[4].note) && !/사라진다$/.test(T2_STAGES[4].note));
+}
+
+// ── 두 장면을 스텁 GL로 실제로 돌린다(예산·깊이·드로우콜) ────────────────────
+for (const [name, scene, steps] of [['T1', t1Scene, T1_STEPS], ['T2', t2Scene, T2_STEPS]]) {
+  const canvas = createStubCanvas();
+  const r = createSchematicRenderer(canvas);
+  r.setScene(scene);
+  r.resize();
+  let minCalls = Infinity;
+  let maxArrow = 0;
+  let dropped = 0;
+  for (let s = 0; s < steps.length; s += 1) {
+    r.setStep(s);
+    minCalls = Math.min(minCalls, r.render(s * 0.3));
+    maxArrow = Math.max(maxArrow, r.counts.arrow);
+    dropped += r.counts.arrowDropped + r.counts.lineDropped;
+  }
+  check(`${name} — 전 단계가 실제로 그려진다(드로우콜 > 0)`, minCalls > 0, `최소 ${minCalls}`);
+  check(`${name} — 예산 안(화살표 ≤ ${MAX_ARROWS} · 잘린 항목 0)`, maxArrow <= MAX_ARROWS && dropped === 0,
+    `최대 화살표 ${maxArrow} · 잘림 ${dropped}`);
+  check(`${name} — 화살표를 그리는 순간 DEPTH_TEST가 켜져 있다`,
+    canvas.gl.stats.enabledAtArrowDraw?.has(canvas.gl.DEPTH_TEST) === true);
+  check(`${name} — 라벨 좌표가 전 단계에서 유한하다`,
+    steps.every((_, s) => labelsFor(scene, s, 1.5).every((l) => Number.isFinite(l.left) && Number.isFinite(l.top))));
+  r.dispose();
+}
+
 
 console.log(failed === 0 ? '\nOK — 입체 화살표 계약 통과' : `\n${failed}건 실패`);
 process.exit(failed === 0 ? 0 : 1);
