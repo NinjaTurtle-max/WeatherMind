@@ -65,7 +65,15 @@ _SLOT_OF = {v: k for k, vs in ORDINAL_VARIANTS.items() for v in vs}
 # 네 번째를 가리키니 문장이 뜻을 잃는다. `explanation_hint`는 학습자에게 그대로
 # 나가므로(answer_service 우선순위 ②) 이건 곧 오답 해설이다.
 # 그래서 **바로 뒤에 선지를 뜻하는 말이 오는 경우만** 옮긴다.
-_OPTION_NOUNS = r"(?:\s*(?:선지|보기|답지|번\s*선지))"
+# ⚠️ **「선택지」가 빠져 있었다**(2026-08-18 리뷰 중 발견). 그 한 낱말 때문에
+# 「… 두 번째 **선택지**는 방향이 반대다」가 **명사 없는 서수**로 오분류되어 게이트·셔플
+# 양쪽에서 조용히 빠졌다 — 그 문항은 **정답이 2번인데 해설이 2번을 틀렸다고 말한다.**
+# 후보를 추측으로 늘리지 않는다: mc 해설 310건을 훑어 실제로 쓰이는 것만 넣었다
+# (2026-08-18 · 시드 1,012건 — 선지 10건 · 보기 1건 · **선택지 1건** · 그 밖의 후보
+# 「항목」·「진술」·「답지」는 서수 뒤에 **0건**). 「선택지」를 넣어 새로 걸리는 것은
+# **1건**이고 그것이 위의 진짜 결함이다(PM 전수 스윕과 일치).
+# ⚠️ 「선택지」를 「선지」보다 **앞에** 둔다 — 교대는 왼쪽부터 시도하므로 긴 것이 먼저다.
+_OPTION_NOUNS = r"(?:\s*(?:선택지|선지|보기|답지|번\s*선지))"
 _ORDINAL_RE = re.compile(
     "(?:"
     + "|".join(
@@ -162,9 +170,16 @@ _BARE_ORDINAL_RE = re.compile(
 # **오답이다**」가 셔플·게이트 **두 층 모두를 통과**했다. 가장 흔한 표현이 빠져 있었고,
 # 「틀린 설명이다」가 잡히던 것은 「설명이다」라는 **중립 어미에 우연히** 걸린 것이라
 # 방어가 아니었다. 이 목록은 **셔플용(광역)**이다 — 게이트는 자기 목록을 따로 쓴다.
+# ⚠️ **게이트 쪽 공백이 이 목록에도 있었다**(2026-08-18 2차 리뷰에서 따로 확인).
+# 「않」이 없어서 「옳지 **않다**」가, 「없」이 없어서 「정답이 될 수 **없다**」가,
+# 「반대」·「어긋」이 없어서 「방향이 **반대**다」·「점에서 **어긋난다**」가 통과했다
+# (「아니」는 「않」의 부분문자열이 아니다). 확장 비용을 실측했다: 이 넷을 넣어
+# `hint_contradicts`가 새로 True를 내는 본시드 문항은 **1건**이고, 그 1건이 위
+# 「선택지」 문항 = 진짜 결함이다(2026-08-18 · 시드 1,012건). 셔플의 오탐 비용은
+# 「안 옮김」뿐이므로 넓히는 쪽이 맞다.
 WRONG_CONTEXT = (
-    "오답", "틀리", "틀린", "오독", "잘못", "아니", "혼동", "헷갈",
-    "설명이다", "기준이다", "것이고", "것이다",
+    "오답", "틀리", "틀린", "오독", "잘못", "아니", "않", "없", "혼동", "헷갈",
+    "반대", "어긋", "설명이다", "기준이다", "것이고", "것이다",
 )
 
 # 위 두 정규식의 **캡처 판**(2026-08-14) — `ordinal_slots_with_context`가 자리 번호를
@@ -174,6 +189,18 @@ _ORDINAL_ALT = "|".join(
 )
 _ORDINAL_CAP_RE = re.compile("(" + _ORDINAL_ALT + ")" + _OPTION_NOUNS)
 _BARE_ORDINAL_CAP_RE = re.compile("(" + _ORDINAL_ALT + ")")
+
+# 절 경계용 — **서수 참조 전체**(서수 + 붙어 있으면 선지 명사)의 스팬이다.
+# ⚠️ 2026-08-18 리뷰 결함 2: 종전에는 좌측을 `_BARE_ORDINAL_CAP_RE`의 끝, 즉 **서수
+# 토큰 끝**까지만 잘랐다. 그래서 「두 번째 **선지는 정답이고** 세 번째 선지는
+# 오답이다」에서 3번의 창이 앞 절의 「정답」을 물었고(정답이 2번인 맞는 해설),
+# 게이트가 「오답 자리를 정답이라 가리킨다」로 탈락시켰다. 1차 회귀 픽스처는
+# **우측만** 쟀기 때문에 좌측은 한 번도 시험된 적이 없었다.
+_ORDINAL_REF_RE = re.compile("(?:" + _ORDINAL_ALT + ")" + _OPTION_NOUNS + "?")
+# 문장 끝 — 「0.5」의 소수점을 문장 끝으로 읽지 않게 뒤에 공백·문자열 끝을 요구한다.
+# 앞 **문장**이 새어드는 것도 절 경계로 막는다(결함 3 재현: 「… 정답이 아니다.
+# 세 번째 선지가 정답이다」에서 뒤 서수의 창이 앞 문장의 부정된 긍정어를 물었다).
+_SENTENCE_END_RE = re.compile(r"[.!?。](?=\s|$)")
 
 
 def hint_contradicts(hint: str, options: list, answer) -> bool:
@@ -214,9 +241,11 @@ def ordinal_hits(
     낱말·부정 판정은 각자 갖는 것이 옳은 분할이다.
 
     `clause_bounded`:
-      · **True(게이트)** — 창을 이웃 서수에서 끊는다. 「첫 번째 선지는 오독이고,
-        두 번째가 정답이다」에서 앞 서수가 뒤 절의 「정답」을 읽어 **맞는 해설이
-        탈락**하는 것을 막는다.
+      · **True(게이트)** — 창을 **이웃 서수 참조**와 **문장 끝**에서 끊는다.
+        「첫 번째 선지는 오독이고, 두 번째가 정답이다」에서 앞 서수가 뒤 절의
+        「정답」을 읽어 **맞는 해설이 탈락**하는 것을 막는다. ⚠️ 좌측은 이웃 서수의
+        **토큰 끝**이 아니라 **참조 전체(서수+선지 명사) 끝**이어야 하고, 문장 끝도
+        경계여야 한다 — 그 둘이 없어서 앞 절·앞 문장이 새어들었다(2026-08-18 결함 2·3).
       · **False(셔플)** — 끊지 않는다. 「첫 번째 선지는, **두 번째 선지와
         마찬가지로**, 오독이다」처럼 **절을 건너 걸린 진짜 모순**을 잡아야 하기
         때문이다. 좁히면 그 부류를 놓친다(2026-08-18 실행 재현).
@@ -230,9 +259,15 @@ def ordinal_hits(
     if not hint:
         return []
     pattern = _ORDINAL_CAP_RE if noun_guarded else _BARE_ORDINAL_CAP_RE
+    # 절 경계는 **이웃 서수 참조**와 **문장 끝** 둘로 잡는다(clause_bounded일 때만 —
+    # False 경로는 종전과 바이트 동일해야 한다. 셔플이 절을 건너 걸린 모순을 잡는
+    # 것이 그 경로의 존재 이유다).
     bounds = (
-        [(m.start(), m.end()) for m in _BARE_ORDINAL_CAP_RE.finditer(hint)]
+        [(m.start(), m.end()) for m in _ORDINAL_REF_RE.finditer(hint)]
         if clause_bounded else []
+    )
+    sentences = (
+        [m.end() for m in _SENTENCE_END_RE.finditer(hint)] if clause_bounded else []
     )
     hits: list[tuple[int, str]] = []
     for match in pattern.finditer(hint):
@@ -249,6 +284,12 @@ def ordinal_hits(
                 left = max(left, b_end)
             elif b_start > match.start():
                 right = min(right, b_start)
+                break
+        for end in sentences:
+            if end <= match.start():
+                left = max(left, end)
+            elif end > match.start():
+                right = min(right, end)
                 break
         hits.append((slot, hint[left:right]))
     return hits
