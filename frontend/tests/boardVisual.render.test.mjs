@@ -267,8 +267,11 @@ try {
     const body = src.slice(wideStart, stackedStart);
     const columns = (body.match(/className="contents lg:flex/g) ?? []).length;
     check(`wide: 좁은 화면에서 두 열 래퍼가 사라진다(contents ${columns}/2)`, columns === 2);
-    const verdictLine = body.split('\n').find((l) => l.includes('{verdictBlock}') && l.includes('order-'));
-    check('wide: 판정 블록이 좁은 화면 순서를 갖는다(order-*)', Boolean(verdictLine));
+    // ⚠️ 여기 있던 「{verdictBlock}과 order-가 **같은 줄**에 있다」 단정은
+    //    걷었다(2026-08-18). JSX가 두 줄로 나뉘자 바로 깨졌는데, 그때 바뀐 것은
+    //    줄바꿈뿐이고 order는 멀쩡히 붙어 있었다 — **줄 단위로 보는 계약은
+    //    서식에 걸려 넘어진다.** 같은 것을 아래 「order-3」 단정이 요소의
+    //    className 전체를 읽어 더 정확하게 문다.
 
     // 「가이드」는 **열 안의 카드가 아니라 배너에서 여는 오버레이**다
     // (2026-08-12 사용자 지시 — 목표 진행 칩 자리를 가이드가 쓰고, 누르면
@@ -378,6 +381,20 @@ try {
     check(
       `wide: 판정 결과가 좁은 화면 순서를 그대로 갖는다(order-3) — 실제 "${verdictCls}"`,
       /\border-3\b/.test(verdictCls),
+    );
+    // 판정이 붙어야 할 상대는 지도·단면 카드가 아니라 **바로 아래 이어지는
+    // 「서버 판정 결과」와 3버튼**이다. 그쪽은 `BoardPage`가 격자 밖에서 그려
+    // 셸 폭(1536에서 1120)이므로, 판정도 행의 음수 여백을 **양수로 되돌려**
+    // 같은 폭으로 돌아온다(2026-08-18 사용자 지시). 실측 1280·1440·1536·1920
+    // 네 폭 모두 성공 카드 · 서버 판정 결과 · 다음 퍼즐이 x·w 완전 일치.
+    // ⚠️ **두 clamp 식이 글자까지 같아야 순수 상쇄다.** 상수로 빼서 템플릿
+    //    문자열로 조립하면 Tailwind가 소스에서 못 찾아 **CSS가 아예 안 생긴다**
+    //    — 그래서 일부러 두 번 적혀 있고, 그 짝을 여기서 문다.
+    const rowEscape = escapeCls.replace(/^-mx-\[/, '').replace(/\]$/, '');
+    const verdictMx = verdictCls.match(/(?:^|\s)mx-\[([^\]]*)\]/)?.[1] ?? '';
+    check(
+      `wide: 판정이 행의 넓힘을 정확히 되돌린다 — 행 "${rowEscape}" · 판정 "${verdictMx}"`,
+      rowEscape.length > 10 && verdictMx === rowEscape,
     );
 
     // ── 현상 주석 상자가 이름표 띠 **위**에 산다 (2026-08-18 사용자 지시) ───
