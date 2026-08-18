@@ -693,7 +693,13 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
             밀어 칸이 답답해졌다. 두 가지로 폭을 벌었다: 사유 문구에서 자물쇠
             이모지를 뺐고(이미 칸 오른쪽 위에 있어 중복이었다), 잠긴 칸에서는
             배지를 compact로 줄였다. 여기에 무엇을 더 붙이기 전에 **en으로**
-            xl(6열)에서 줄임표가 나는지 재 볼 것 — ko는 통과하고 en만 깨진다. */}
+            xl(6열)에서 줄임표가 나는지 재 볼 것 — ko는 통과하고 en만 깨진다.
+            ⚠️ 「자물쇠 이모지를 뺐다」는 **`cardLocked`(수준 잠김)에만** 해당한다 —
+            `lockedHint`(순차 잠김)는 ko·en 모두 아직 🔒을 달고 있다. 폭을 잴 때
+            **두 사유를 따로** 봐야 한다(순차 잠김 쪽이 이모지 한 글자만큼 더 넓다).
+            ⚠️ 폭을 잃는 쪽은 **항상 사유 문구**다: 배지가 `shrink-0`(:72)이라
+            안 줄고, 사유 span만 `truncate`(:706)로 잘린다. en 라벨 재검토 이력과
+            축약어 후보는 `i18n/resources/board.en.js`의 difficulty1~3 주석. */}
         <div className="mt-auto flex items-center gap-1.5 pt-2">
           <DifficultyBadge difficulty={puzzle.difficulty} compact={locked} />
           {pending && <span className="text-[11px] font-bold text-sky-700">{t('board.page.opening')}</span>}

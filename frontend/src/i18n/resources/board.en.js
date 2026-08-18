@@ -54,6 +54,22 @@ export default {
       // School-level labels, not Easy/Normal/Hard (#32b) — mirrors board.ko.js.
       // Kept short on purpose: on a locked card the compact badge shares one
       // row with the lock reason (see the badge-row comment in BoardPage.jsx).
+      //
+      // ⚠️ **UNMEASURED — do not shorten these without a render measurement.**
+      //    `difficulty2` grew 'Normal'(6ch) → 'Mid & high'(10ch) when the labels
+      //    became school levels. On a **locked** card the badge is compact and
+      //    `shrink-0` (BoardPage.jsx:72), so it never yields width; the lock
+      //    reason next to it absorbs the whole loss through `truncate`
+      //    (BoardPage.jsx:706). Worst case is a level-locked card at xl:
+      //    'Mid & high' + gap-1.5 + `cardLocked` 'Above your level' inside
+      //    ~159px (187px cell at 1440 − `p-3.5`; ~173px at 1280 → ~145px inner).
+      //    Whether that ellipsizes is a **browser measurement**, routed to
+      //    another owner —「I checked and it looked fine」 is not accepted.
+      //    Shortlist **if** measurement says it clips (not applied yet):
+      //      difficulty2: 'Mid-high' (8ch) · 'Secondary' (9ch) · 'Middle+' (7ch)
+      //    Prefer 'Secondary' on meaning (one school tier, not two joined);
+      //    prefer 'Mid-high' on width. Whichever wins, `difficultyAria` keeps
+      //    the full wording — the spoken name must not shrink (BoardPage.jsx:71).
       difficulty1: 'Elementary',
       difficulty2: 'Mid & high',
       difficulty3: 'Adult',
