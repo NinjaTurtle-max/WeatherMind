@@ -97,6 +97,18 @@ const SLUGS = [
   'drainOverwhelmed',
   'basementFloods',
   'greenGroundSoaks',
+  // MT-24 ㉣ 변동 기상요소 3종 — 이 8종은 **처음부터 SVG·WebGL 양쪽이 함께 쓴다**.
+  // 위 MT-23 묶음이 「GL 전용으로 시작해 나중에 SVG가 따라왔다」였던 것과 달리,
+  // 이번에는 두 표현이 같은 커밋에서 같은 키를 받는다 — 이 모듈이 단일 소유자인
+  // 것의 효과가 「어긋난 뒤 맞추기」가 아니라 「어긋날 자리가 없기」로 바뀐 자리다.
+  'upperWindFaster',
+  'updraftDowndraftApart',
+  'organizedStorm',
+  'windDriesDescending',
+  'oneSparkSpreads',
+  'cloudBlocksSun',
+  'rainBandCannotScatter',
+  'waterPilesUp',
 ];
 
 export const V = {};

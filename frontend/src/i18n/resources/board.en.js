@@ -240,6 +240,17 @@ export default {
         drainOverwhelmed: 'The storm drain cannot keep up and backs up',
         basementFloods: 'Water fills the basement first',
         greenGroundSoaks: 'Green ground still soaks water in',
+        // MT-24 (㉣ variable weather elements) — new labels that show what the
+        // *fourth* condition of each 4-condition rule actually does. Kept short
+        // on purpose: en runs longer than ko and these sit inside a 260×150 viewBox.
+        upperWindFaster: 'Faster winds aloft',
+        updraftDowndraftApart: 'Up and down flows split',
+        organizedStorm: 'One organized storm',
+        windDriesDescending: 'Drier and stronger downslope',
+        oneSparkSpreads: 'One spark spreads in moments',
+        cloudBlocksSun: 'Thick cloud blocks the sun',
+        rainBandCannotScatter: 'Nothing stirs it — it stays put',
+        waterPilesUp: 'Water piles up, nowhere to drain',
       },
       // MT-28: cross-section storyboards (see CrossSectionPanel STORYBOARDS).
       // Step counts must match ko — crossSectionWebgl.contract checks steps.length
@@ -377,6 +388,38 @@ export default {
             'As soon as one rain band spends itself, the next fills its place.',
             'So the rain never stops and keeps falling on the same spot.',
             'It passes what the ground can absorb, and water begins to pool.',
+          ],
+        },
+        // ── MT-24: the three ㉣ rules that had no scene ──────────────────────
+        // Commits 46e3ef4 / 99b7bc1 added these 4-condition rules to
+        // board_rules.json without extending the display tables, so those three
+        // verdicts fell back to "explain caption only, no animation".
+        // Each step maps to one of the rule's four `when` conditions doing its job.
+        cold_front_squall_storm: {
+          title: 'Cold front + strong sun — an organized thunderstorm',
+          steps: [
+            'Strong sunlight heats the ground until the air just above it is primed to rise.',
+            'A cold front drives in like a wedge and forces that humid air steeply upward.',
+            'Winds differ sharply with height, so the rising and sinking flows take separate lanes.',
+            'The shower clouds organize into one system instead of scattering — heavier, and for longer.',
+          ],
+        },
+        siberian_gale_wildfire: {
+          title: 'Siberian air + a gale over the ridge — wildfire warning',
+          steps: [
+            'Cold, parched Siberian air settles in over the land.',
+            'Wind pouring down over the ridge grows drier and stronger, stripping moisture from leaves and twigs.',
+            'Strong sunlight is added, and the dry fuel heats up further still.',
+            'A single spark rides the wind and spreads in moments.',
+          ],
+        },
+        front_convergence_flood: {
+          title: 'Stationary front + humid wind — a day of flooding',
+          steps: [
+            'Two air masses of similar strength hold their ground, and the front stalls in one place.',
+            'Humid wind keeps blowing in underneath, refilling the same spot with vapour.',
+            'Thick cloud blocks the sunlight, so the ground never warms and nothing stirs the rain band away.',
+            'The rain stays over one place, and water piles up faster than it can drain.',
           ],
         },
       },
