@@ -533,7 +533,6 @@ try {
     const boards = items.filter((it) => it.question_type === 'board');
     assert(boards.length > 0, '시드에 board 문항이 없다');
     const fellBack = [];
-    const multi = [];
     const covered = new Set();
     for (const it of boards) {
       const t = it.template_json ?? {};
@@ -542,7 +541,6 @@ try {
       const zs = zoneStates(createBoard(t.initial_state))[goal.zone] ?? null;
       const cands = hintRulesForGoal(RULES, goal, t.palette ?? [], zs);
       if (cands.length === 0) fellBack.push(`${goal.phenomenon}@zone${goal.zone} palette=${JSON.stringify(t.palette)}`);
-      if (cands.length > 1) multi.push(`${goal.phenomenon}@zone${goal.zone}`);
       for (const c of cands) covered.add(c.id);
       // 후보가 있으면 2단이 실제로 문구를 갖는다(hint_needs 저작 누락 교차 확인)
       assert(cands.every((c) => typeof c.hint_needs === 'string' && c.hint_needs.length > 0),
@@ -556,7 +554,9 @@ try {
 
     // 🔴 **「후보 1개」 래칫의 대체 — 폐기가 아니다** (PM 판정 2026-08-18).
     //
-    // 종전 이 자리에는 `multi.length <= 1`이 있었다. 그 래칫이 막으려던 **원 위험**은
+    // 종전 이 자리에는 `multi.length <= 1`이 있었다(개수를 모으던 `multi` 배열도
+    // 함께 지웠다 — 단정 없이 채우기만 하던 변수가 「감시한다」는 착각을 남긴다).
+    // 그 래칫이 막으려던 **원 위험**은
     // 「①안 3단이 **엉뚱한 해설**을 연다」였고, 개수는 그 위험의 **간접 지표**였다
     // (후보가 하나뿐이면 고를 여지가 없으니 안전하다는 논리).
     //

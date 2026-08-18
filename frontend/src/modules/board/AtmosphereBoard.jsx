@@ -492,9 +492,11 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     }
     // 후보 규칙을 못 찾았을 때만 팔레트 종류로 대체(정답 요소는 여전히 미노출).
     // **방어 코드다** — 실데이터에서는 걸리지 않는다(P2-2 조사, 2026-08-03):
-    // 시드 board 12건 전부 후보 규칙이 정확히 1개로 좁혀지고(폴백 0/12), 규칙 8종이
-    // 모두 어느 퍼즐에서든 후보로 선택된다. `boardAssistRetention.smoke.test.mjs`가
-    // 이 사실을 상주 고정하므로, 새 퍼즐이 폴백에 빠지면 테스트가 먼저 실패한다.
+    // 시드 board **전건**이 후보 규칙 **1개 이상**으로 좁혀지고(폴백 0건), 규칙
+    // 전종이 어느 퍼즐에서든 후보로 선택된다. `boardAssistRetention.smoke.test.mjs`
+    // 3-b가 그 둘을 상주 고정하므로, 새 퍼즐이 폴백에 빠지면 테스트가 먼저 실패한다.
+    // ⚠️ **「후보가 정확히 1개」는 계약이 아니다** — 팔레트가 넓은 판은 여러 경로가
+    // 도달 가능한 것이 정상이고(㉣ 변동 기상요소), 3-b도 개수를 단정하지 않는다.
     // 남겨두는 이유(실제로 도달 가능한 경로):
     //   ① 규칙 로드 전(GET /board/rules 지연·실패) ② ai-worker 생성 퍼즐이 규칙
     //   8종으로 성립 불가한 목표를 담은 경우 ③ 규칙 파일만 먼저 축소 저작된 경우.
@@ -516,7 +518,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     return [
       t('board.atmosphere.hintStep1', { zone: zoneName }),
       // needs가 비는 경로는 hintKinds 폴백과 동일한 방어 케이스다(주석 참조 —
-      // 실시드 12/12는 후보 1개). 그때도 "요소 종류" 칩은 팔레트에서 채워지므로
+      // 실시드 전건이 후보 ≥1). 그때도 "요소 종류" 칩은 팔레트에서 채워지므로
       // 2단이 완전히 무내용이 되지는 않는다.
       needs.length > 0
         ? needs.join(t('board.atmosphere.hintJoiner'))
@@ -531,14 +533,18 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
   //
   // ⚠️ **종전 주석은 거짓이었다**(2026-08-14 코드 리뷰): *"시드 전건이 후보 1개로
   // 좁혀지는 것은 3-b가 상주 감시한다"*고 적었는데 **3-b는 ≥1만 단정**했고, 실측하니
-  // **후보 2개인 퍼즐이 1건 있다**(`fog@zone1`). 감시한다고 적은 것을 감시하지 않았다.
+  // **후보가 2개 이상인 퍼즐이 있다**(`fog@zone1`). 감시한다고 적은 것을 감시하지 않았다.
   //
   // 그래도 `[0]`을 여는 것이 **안전한 이유**는 따로 있다 — `hintRulesForGoal`이
   // **`goal.phenomenon`으로 먼저 거르고**(같은 함수 :124) 팔레트 도달 가능성까지
   // 보므로, 후보들은 전부 **「같은 현상에 이르는 다른 경로」**다. 어느 것을 열어도
-  // 틀린 현상을 가르치지 않는다. 다만 **여러 경로 중 하나만 보여 준다**는 사실은
-  // 그대로이므로, 후보가 더 늘면 「어느 경로를 보여줄 것인가」는 사람 판단이다 —
-  // 그 신호를 3-b가 `multi.length <= 1`로 낸다(이제 실제로 감시한다).
+  // 틀린 현상을 가르치지 않는다. 그리고 **무엇을 보여줄지는 사람이 고르지 않는다** —
+  // 여는 것은 언제나 `[0]`, 곧 **후보 중 최고 priority 규칙**이고, 규칙 파일이
+  // priority 내림차순이며 **priority 전역 유일**이 계약이므로(`boardAssistRetention
+  // .smoke.test.mjs:466` 「priority 중복 — 판정 순서가 비결정적이 된다」) 그 선택은
+  // **결정적**이다. 후보가 몇 개로 늘어도 같다. 그래서 지켜야 할 실질은 개수가 아니라
+  // **「보여주는 해설 == 그 판에서 엔진이 실제로 적용하는 규칙」**이고, 그것을 3-b의
+  // 동일성 루프가 시드 board 전건에 대해 단정한다(같은 파일 `:573` 이하).
   // 자유 실험(sandbox)은 목표도 채점도 없어 미통과가 존재하지 않는다.
   const explainRevealed = !sandbox && missCount >= EXPLAIN_AFTER_MISSES;
   const revealedExplain = explainRevealed ? (hintRules[0]?.explain ?? null) : null;
