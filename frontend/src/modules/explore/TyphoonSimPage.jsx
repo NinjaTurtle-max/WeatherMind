@@ -4,6 +4,10 @@ import SatelliteView from './SatelliteView';
 // MT-24 탐구 목표 — 「변수를 바꿔보며」에 「해냈다」를 붙인다.
 import GoalPanel from './GoalPanel';
 import { TYPHOON_GOALS } from './exploreGoals';
+// 입체 모식도 2종(MT-22) — T1 단면(하층·상층의 감김이 반대) · T2 생애(전향과 급가속).
+import SchematicPanel from './SchematicPanel';
+import { TYPHOON_SECTION_SCENE, T1_STEPS } from './schematic/typhoonSectionScene';
+import { TYPHOON_LIFECYCLE_SCENE, T2_STEPS } from './schematic/typhoonLifecycleScene';
 import { Link } from 'react-router-dom';
 import {
   typhoonIntensity,
@@ -291,6 +295,26 @@ export default function TyphoonSimPage() {
       {/* 위성 도식(MT-21) — §0.5ⓔ가 정한 자리다. expert 밴드에만 붙이면
           θ>1.5가 필요해 심사 5분 동선에서 아무도 못 본다(CO-N-4) → **상시 노출**. */}
       <SatelliteView intensity={result.intensity} shear={shear} />
+
+      {/* 입체 모식도 2종(MT-22) — 기존 시각화(TyphoonEye·게이지·위성 도식)를
+          **하나도 걷어내지 않고 뒤에 덧붙인다.** 셋이 말하는 축이 다르기 때문이다:
+          눈 그림은 세기(크기), 위성 도식은 비대칭, 그리고 이 둘은 **연직 구조**와
+          **시간**이다. 앞의 것들이 위에서 본 평면이라 「하층과 상층이 반대로 감긴다」·
+          「전향 뒤 급가속」은 어느 것도 보여주지 못한다. */}
+      <SchematicPanel
+        title="태풍 단면 — 하층과 상층은 반대로 감긴다"
+        caption="굵기가 풍속이다. 가장 센 곳은 가운데가 아니라 눈벽이다."
+        scene={TYPHOON_SECTION_SCENE}
+        steps={T1_STEPS}
+        ariaLabel="태풍 단면 입체 모식도"
+      />
+      <SchematicPanel
+        title="태풍의 일생 — 발생에서 온대저기압까지"
+        caption="화살표 길이가 이동 속도다. 전향에서 멈췄다가 갑자기 빨라진다."
+        scene={TYPHOON_LIFECYCLE_SCENE}
+        steps={T2_STEPS}
+        ariaLabel="태풍 생애 입체 모식도"
+      />
 
       {/* 발달 곡선 카드 */}
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
