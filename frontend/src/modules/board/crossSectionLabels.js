@@ -97,6 +97,18 @@ const SLUGS = [
   'drainOverwhelmed',
   'basementFloods',
   'greenGroundSoaks',
+  // ㉣ 변동 기상요소 규칙 3종(2026-08-18) — 아래 셋만 새로 필요했다.
+  // 나머지는 기존 어휘를 그대로 쓴다(예: 양간지풍은 `dryWarmWind`+`mountainRange`).
+  'windShear',
+  'organizedStorm',
+  'cloudBlocksSun',
+  // 태풍 씨앗·열대야(2026-08-18) — 규칙 2종이 또 장면 없이 들어와 함께 채운다.
+  'latentHeatFuel',
+  'lowShearColumn',
+  'eyewallStrongest',
+  'longwaveTrapped',
+  'noWindNoMixing',
+  'groundEmitsLongwave',
 ];
 
 export const V = {};

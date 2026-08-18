@@ -311,6 +311,15 @@ export default {
         drainOverwhelmed: 'The storm drain cannot keep up and backs up',
         basementFloods: 'Water fills the basement first',
         greenGroundSoaks: 'Green ground still soaks water in',
+        windShear: 'Wind shear (upper vs lower)',
+        organizedStorm: 'Storm organised into one system',
+        cloudBlocksSun: 'Thick cloud blocks the sun',
+        latentHeatFuel: 'Heat released as vapour condenses — the fuel',
+        lowShearColumn: 'Little shear, so it builds one column',
+        eyewallStrongest: 'Eyewall — the strongest winds',
+        longwaveTrapped: 'Vapour traps the longwave and sends it back',
+        noWindNoMixing: 'Too little wind to mix the heat away',
+        groundEmitsLongwave: 'The ground emits the heat as long-wave',
       },
       // MT-28: cross-section storyboards (see CrossSectionPanel STORYBOARDS).
       // Step counts must match ko — crossSectionWebgl.contract checks steps.length
@@ -448,6 +457,51 @@ export default {
             'As soon as one rain band spends itself, the next fills its place.',
             'So the rain never stops and keeps falling on the same spot.',
             'It passes what the ground can absorb, and water begins to pool.',
+          ],
+        },
+        cold_front_squall_storm: {
+          title: 'Cold front + sun + wind — an organised squall',
+          steps: [
+            'Strong sunshine heats the air near the ground and the atmosphere turns unstable.',
+            'A cold front shoves that humid air sharply upward.',
+            'Upper and lower winds differ enough that rising and sinking air each get their own lane.',
+            'So the cloud does not fall apart — it organises into one system and pours longer and harder.',
+          ],
+        },
+        siberian_gale_wildfire: {
+          title: 'Siberian air + gale — wildfire-warning weather',
+          steps: [
+            'Cold, bone-dry air settles in.',
+            'Wind pouring down off the mountains strips the moisture from leaves and twigs.',
+            'Strong sunshine heats that dry fuel further.',
+            'One small ember rides the wind and spreads in moments.',
+          ],
+        },
+        front_convergence_flood: {
+          title: 'Stationary front + convergence — the water rises',
+          steps: [
+            'A stationary front parks in one place.',
+            'Humid wind keeps flowing in from below, refilling the same spot with vapour.',
+            'Thick cloud blocks the sun, so the ground never warms enough to break the rain cloud up.',
+            'The rain stays over one place and the water piles up faster than it can drain.',
+          ],
+        },
+        tropical_cyclone_genesis: {
+          title: 'Warm sea + low shear — the seed of a typhoon',
+          steps: [
+            'Hot, humid air rises off a sea the sun has warmed.',
+            'Vapour condenses and releases heat, and that heat pushes the air up again.',
+            'Upper and lower winds differ little, so the column stays aligned and organises.',
+            'Once grown, the strongest winds are not at the centre but in the wall of cloud around it.',
+          ],
+        },
+        greenhouse_tropical_night: {
+          title: 'Humid air + still wind — the night that will not cool',
+          steps: [
+            'Daytime sunlight is absorbed by the ground and stored as heat.',
+            'The ground sends that heat back out as invisible long-wave radiation.',
+            'Water vapour in the air catches it and returns it to the ground.',
+            'With too little wind to mix the heat away, the temperature never drops overnight.',
           ],
         },
       },
