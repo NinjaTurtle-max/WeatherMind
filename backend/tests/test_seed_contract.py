@@ -118,7 +118,12 @@ class TestSeedSchema:
         # (kl 9·9·10 · board_order 50~52). ⚠️ ①(규칙)만 넣으면 「어느 퍼즐에서도
         # 후보가 되지 않는 규칙」 계약이 울어 **②와 같은 PR이어야 한다** — 구조가
         # §4.4의 3단 순서를 강제한다.
-        assert len(SEED_ITEMS) == 1018
+        # MT-19 일기도 판독 1판(2026-08-18): +1 = **1019**. board_order 53 · kl6.
+        # ⚠️ **이 판은 새 규칙을 쓰지 않는다** — 위 ㉣ 3판과 성격이 다르다. 판독은
+        # 새 물리가 아니라 **읽는 방향의 반전**이라(기존 보드는 원인을 놓아 결과를
+        # 만들고, 이 판은 결과를 읽어 원인을 고른다) 기존 `cold_front_shower`가
+        # 그대로 판정한다. 그래서 규칙 파일·엔진·현상 어휘 변경이 0이다.
+        assert len(SEED_ITEMS) == 1019
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS

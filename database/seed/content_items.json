@@ -27521,5 +27521,57 @@
       ]
     },
     "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "adult",
+    "knowledge_level": 6,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "일기도를 읽어 보자. 서해상(존 0)에서 등압선이 나란히 흐르다가 한 곳에서 뾰족한 V자로 꺾여 기압골을 이루고, 그 골을 따라 전선이 그려져 있다. 골 뒤쪽은 등압선 간격이 좁고 적란운과 좁은 강수 구역이 표시돼 있으며, 전선이 지난 뒤 기온이 급히 떨어지고 풍향이 시계 방향으로 바뀐다. 일기도가 가리키는 전선을 서해상에 놓고 물기를 채워 그 강수 구역을 재현해 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:cold",
+        "front:warm",
+        "front:stationary",
+        "moisture"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "shower",
+          "cloud": "cumulonimbus"
+        }
+      ],
+      "hints": [
+        "일기도가 이미 답을 적어 두었다. 어떤 구름이 그려져 있는지, 전선이 지난 뒤 기온과 풍향이 어떻게 바뀌는지를 먼저 읽어 보자.",
+        "적란운과 좁은 강수 구역, 통과 뒤 기온 급강하는 찬 공기가 따뜻한 공기를 급하게 밀어 올릴 때 나타난다. 물기도 넉넉히 채워야 구름이 자란다."
+      ],
+      "correct_answer": "",
+      "board_order": 53,
+      "title": "일기도가 가리킨 전선",
+      "summary": "일기도 단서를 읽고 알맞은 전선을 놓아요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "MT-19 일기도 판독 보드 — docs/design/research/RESEARCH_MT19_WEATHER_CHART.md §2ⓑ(판독 규칙) · §4 판독 1",
+        "한국식 일기도 문법만 차용(등압선·기압골·전선·강수 구역 4요소). 국제식 기호·실제 일기도 이미지는 저작권 선에 따라 반입하지 않았다",
+        "docs/specs/12: 교육과정상 일기도 「작성」은 제외·「판독」만 — 이 판은 판독이다",
+        "판독 방향이 기존 보드와 반대다: 기존은 원인을 놓아 결과를 만들고, 이 판은 결과(등압선 꺾임·구름·기온 변화)를 읽어 원인(전선 종류)을 고른다. 엔진 변경 0 — 기존 cold_front_shower가 판정한다",
+        "기상학 근거: 전선은 기압골을 수반해 등압선이 V자로 꺾인다 · 한랭전선 통과 시 기온 급강하와 풍향 시계 방향 변화 · 한랭전선 구름은 적란운 계열로 좁고 강한 강수를 낸다"
+      ]
+    },
+    "status": "active"
   }
 ]
