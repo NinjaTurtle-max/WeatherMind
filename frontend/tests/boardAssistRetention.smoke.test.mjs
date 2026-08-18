@@ -111,7 +111,7 @@ const SessionPage = (await vite.ssrLoadModule('/src/modules/session/SessionPage.
 const { comboPraise, COMBO_PRAISE } = await vite.ssrLoadModule('/src/modules/session/SessionRunner.jsx');
 const ResultBanner = (await vite.ssrLoadModule('/src/modules/quiz/ResultBanner.jsx')).default;
 const { hintRulesForGoal, EXPLAIN_AFTER_MISSES } = await vite.ssrLoadModule('/src/modules/board/AtmosphereBoard.jsx');
-const { zoneStates, createBoard } = await vite.ssrLoadModule('/src/lib/boardEngine.js');
+const { zoneStates, createBoard, evaluateBoard } = await vite.ssrLoadModule('/src/lib/boardEngine.js');
 const { AIR_MASS_META, FRONT_META } = await vite.ssrLoadModule('/src/modules/board/boardDisplay.js');
 const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
 
@@ -554,17 +554,53 @@ try {
     const unused = RULES.map((r) => r.id).filter((id) => !covered.has(id));
     assert(unused.length === 0, `어느 시드 퍼즐에서도 후보가 되지 않는 규칙: ${unused.join(', ')}`);
 
-    // 🔴 **후보가 2개 이상인 퍼즐을 여기서 못박는다** (2026-08-14 코드 리뷰).
-    // ①안 3단이 `hintRules[0].explain`을 여는데, 그 코드 주석이 *"전건 후보 1개로
-    // 좁혀지는 것은 3-b가 상주 감시한다"*고 적어 놓고 **이 테스트는 ≥1만 단정**했다
-    // — 감시한다고 적은 것을 감시하지 않았다.
-    // 실측하니 **정확히 1건**이 후보 2개다(`fog@zone1`). 그 자체는 결함이 아니다:
-    // `hintRulesForGoal`이 **goal.phenomenon으로 먼저 거르므로** 후보들은 전부
-    // 「같은 현상에 이르는 다른 경로」이고, 어느 것을 열어도 **틀린 현상을 가르치지
-    // 않는다**(팔레트 도달 가능성도 `conditionReachable`이 이미 걸렀다).
-    // 그래서 1개로 **강제하지 않고** 현재 상태를 고정한다 — 늘어나면 그때
-    // 「어느 경로를 보여줄 것인가」를 사람이 판단해야 한다.
-    assert(multi.length <= 1, `후보가 2개 이상인 퍼즐이 늘었다(${multi.length}건): ${multi.join(', ')} — ①안 3단이 어느 경로의 해설을 열지 판단이 필요하다`);
+    // 🔴 **「후보 1개」 래칫의 대체 — 폐기가 아니다** (PM 판정 2026-08-18).
+    //
+    // 종전 이 자리에는 `multi.length <= 1`이 있었다. 그 래칫이 막으려던 **원 위험**은
+    // 「①안 3단이 **엉뚱한 해설**을 연다」였고, 개수는 그 위험의 **간접 지표**였다
+    // (후보가 하나뿐이면 고를 여지가 없으니 안전하다는 논리).
+    //
+    // ㉣(변동 기상요소)로 상위 보드의 팔레트가 4종이 되자 그 지표가 무너졌다 —
+    // **팔레트가 넓어지면 여러 경로가 도달 가능해지는 것이 정상**이기 때문이다
+    // (실측: order 50 = 후보 3개). 개수를 강제하면 ㉣의 목적 자체를 막는다.
+    //
+    // 그래서 **같은 위험을 직접 막는 계약으로 바꾼다**: 3단이 여는 해설이
+    // **그 판에서 엔진이 실제로 적용하는 규칙의 것**과 같은가. 이러면 후보가
+    // 몇 개든 「보여주는 해설 = 그 판의 설계 경로」가 보장되고, 팔레트가 더 넓어져도
+    // 계약이 계속 참이다. (`[0]`이 결정적인 것은 규칙 파일이 priority 내림차순이고
+    // **priority 전역 유일**이 위에서 이미 단정되기 때문이다 — 동률이면 [0]이
+    // 비결정적이 되어 이 계약이 흔들린다.)
+    for (const it of boards) {
+      const t = it.template_json ?? {};
+      const goal = t.goal_conditions?.[0] ?? null;
+      const zs = zoneStates(createBoard(t.initial_state))[goal.zone] ?? null;
+      const cands = hintRulesForGoal(RULES, goal, t.palette ?? [], zs);
+      if (cands.length === 0) continue; // 폴백 0건은 위에서 이미 단정했다
+      const shown = cands[0];
+
+      // 그 규칙이 성립하는 배치를 만든다 — 존재 조건은 요소를 놓고, 수치 조건은
+      // 임계를 넘겨 둔다(±5는 `test_board_progression`의 재난 도달성 검사와 같은 관례).
+      const elements = [];
+      for (const cond of shown.when) {
+        const presence = /^(air_mass|front):([a-z_]+)$/.exec(cond);
+        if (presence) {
+          elements.push({ type: presence[1], subtype: presence[2], zone: goal.zone });
+          continue;
+        }
+        const numeric = /^(moisture|sun|wind)(>=|<=)(\d+(?:\.\d+)?)$/.exec(cond);
+        assert(numeric, `${shown.id}: 알 수 없는 조건 문법 ${cond}`);
+        const v = Number(numeric[3]);
+        elements.push({
+          type: numeric[1],
+          level: numeric[2] === '>=' ? Math.min(100, v + 5) : Math.max(0, v - 5),
+          zone: goal.zone,
+        });
+      }
+      const applied = evaluateBoard({ zones: t.initial_state.zones, elements }, RULES)
+        .find((p) => p.zone === goal.zone);
+      assert(applied?.rule_id === shown.id,
+        `${t.title}: 3단이 여는 해설(${shown.id})과 엔진이 적용하는 규칙(${applied?.rule_id})이 다르다 — 학습자가 자기 배치와 무관한 설명을 읽는다`);
+    }
   });
 
   // ── 4. 판정 확정 후 "판정 중..." 잔존 없음 (§3.5 마감 2) ────────────────────
