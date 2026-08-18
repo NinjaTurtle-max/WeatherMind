@@ -205,7 +205,11 @@ class TestSeedTypeCoverage:
         #   (CO-I-2/X-1 잔여 — 셋 다 `pressure_front`·kl4라 **조작 다양성은 안 는다**.
         #   그 판정은 CO-K4(조건 문법이 2형뿐)가 소유한다).
         # ㉣ 상위 보드 3판(2026-08-18): +3 = **1018** · board 49 → 52.
-        assert len(_seed_items()) == 1018
+        # MT-19 일기도 판독 1판(2026-08-18): +1 = **1019** · board 52 → 53.
+        #   ⚠️ 위 3판과 달리 **조작 다양성이 실제로 는다**: 팔레트에 전선 3종을
+        #   나란히 놓고 그중 하나를 고르게 하는 첫 보드라, 조작이 「조절값을 맞추는
+        #   것」에서 「지문을 읽어 요소를 고르는 것」으로 갈린다(판독 = 결과 → 원인).
+        assert len(_seed_items()) == 1019
 
 
 class TestEverySeedItemIsPlayable:
