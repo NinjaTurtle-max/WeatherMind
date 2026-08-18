@@ -336,27 +336,48 @@ try {
       heroAt > 0 && rowAt > heroAt,
     );
 
-    // ── 판정 결과는 **왼쪽 열**이다 (2026-08-18 사용자 지시) ────────────────
+    // ── 판정 결과가 **두 열을 가로지른다** (2026-08-18 사용자 지시) ─────────
     /**
-     * "미션 성공하면 뜨는 칸을 가로로 길게 만들어서 보드 칸이랑 길이 맞춰줘."
+     * "한반도 지도/애니메이션 카드 크기로 가로로 길게."
      *
-     * 오른쪽 열에 있으면 단면 카드 폭(1536에서 약 500px)만 차지한다. 왼쪽으로
-     * 옮기면 보드 카드와 같은 폭이 된다 — 실측 둘 다 x=249 w=676으로 **일치**.
-     * 열이 하나뿐이라 폭이 자동으로 맞는 구조라, 무는 것은 「어느 열에 있나」다.
+     * 자리를 두 번 옮겼다. 오른쪽 열(단면 폭 500) → 왼쪽 열(보드 폭 676) →
+     * **행 전체**(1232). 판정은 어느 한쪽 카드의 결과가 아니라 그 판 전체의
+     * 결과라 행을 다 쓰는 쪽이 뜻에도 맞는다.
      *
-     * ⚠️ `order-3`은 함께 남아야 한다. lg 미만에서는 두 열 래퍼가 `contents`라
-     * 이 블록이 바깥 격자의 직계 칸이 되고, 좁은 화면 순서(조작 2 → 판정 3 →
-     * 단면 4)를 **그 숫자가** 정한다 — 열을 옮겨도 좁은 화면은 안 바뀐다.
+     * 두 가지가 **함께** 있어야 성립한다 — 하나만 되돌아가면 폭이 조용히
+     * 절반으로 줄고 에러는 안 난다:
+     *  ⓐ `lg:col-span-2`
+     *  ⓑ 두 열 래퍼 **밖**의 직계 격자 칸. 래퍼 안에 두면 col-span이 안 듣고
+     *     그 열 폭에 갇힌다(왼쪽 열에 넣었던 판이 676에서 멈춘 이유가 그것).
+     *
+     * ⚠️ `order-3`도 남아야 한다. lg 미만에서는 두 열 래퍼가 `contents`라 이
+     * 블록이 어차피 직계 칸이 되고, 좁은 화면 순서(조작 2 → 판정 3 → 단면 4)를
+     * **그 숫자가** 정한다 — 자리를 옮겨도 좁은 화면은 안 바뀐다.
      */
-    const rightColAt = body.indexOf('{/* 오른쪽 —');
-    const verdictAt = body.indexOf('{hasVerdict &&');
+    // ⚠️ **텍스트 순서로는 부족하다.** 「오른쪽 열 주석보다 뒤」는 래퍼 **안**에
+    //    넣어도 참이라, 그 단정만으로는 col-span이 죽은 상태를 못 잡는다
+    //    (실제로 그렇게 써 놓고 되살림 실험에서 통과해 버렸다). 들여쓰기로
+    //    **격자의 직계 칸인지**를 본다 — 두 열 래퍼와 같은 칸이어야 한다.
+    const indentOf = (needle) => {
+      const at = body.indexOf(needle);
+      if (at < 0) return -1;
+      const lineStart = body.lastIndexOf('\n', at) + 1;
+      return at - lineStart;
+    };
+    const colIndent = indentOf('<div className="contents lg:flex');
+    const verdictIndent = indentOf('{hasVerdict &&');
     check(
-      'wide: 판정 결과가 왼쪽 열에 있다 — 폭이 보드 카드와 같아진다',
-      verdictAt > 0 && rightColAt > 0 && verdictAt < rightColAt,
+      `wide: 판정 결과가 두 열 래퍼와 같은 칸(격자 직계)이다 — 열 ${colIndent} · 판정 ${verdictIndent}`,
+      colIndent > 0 && verdictIndent === colIndent,
+    );
+    const verdictCls = body.match(/\{hasVerdict && \(?\s*<div className="([^"]*)"/)?.[1] ?? '';
+    check(
+      `wide: 판정 결과가 두 열을 가로지른다(lg:col-span-2) — 실제 "${verdictCls}"`,
+      /\blg:col-span-2\b/.test(verdictCls),
     );
     check(
-      'wide: 판정 결과가 좁은 화면 순서를 그대로 갖는다(order-3)',
-      /\{hasVerdict && <div className="order-3 lg:contents">/.test(body),
+      `wide: 판정 결과가 좁은 화면 순서를 그대로 갖는다(order-3) — 실제 "${verdictCls}"`,
+      /\border-3\b/.test(verdictCls),
     );
 
     // ── 현상 주석 상자가 이름표 띠 **위**에 산다 (2026-08-18 사용자 지시) ───

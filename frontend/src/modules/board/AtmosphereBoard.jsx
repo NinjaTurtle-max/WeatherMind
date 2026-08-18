@@ -1135,17 +1135,6 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                 </div>
               </div>
             </div>
-            {/* 🔴 **판정 결과는 왼쪽 열이다**(2026-08-18 사용자 지시 —
-                "미션 성공하면 뜨는 칸을 가로로 길게 만들어서 보드 칸이랑 길이
-                맞춰줘"). 종전에는 오른쪽 열에 있어 단면 카드 폭(1536에서 약
-                500px)만 차지했다 — 성공 해설이 서너 줄이라 좁은 칸에서 답답했다.
-                왼쪽으로 옮기면 폭이 **보드 카드와 같아진다**(약 700px, 열이
-                하나라 자동으로 맞는다).
-                ⚠️ `order-3`은 그대로 둔다 — lg 미만에서는 두 열 래퍼가 `contents`라
-                이 블록이 바깥 격자의 직계 칸이 되고, 좁은 화면 순서
-                (조작 2 → 판정 3 → 단면 4)는 **어느 열에 적혀 있든 이 숫자가
-                정한다.** 옮겨도 좁은 화면은 한 픽셀도 안 바뀐다. */}
-            {hasVerdict && <div className="order-3 lg:contents">{verdictBlock}</div>}
           </div>
 
           {/* 오른쪽 — **보는 쪽**: 단면 애니메이션과 해설이 통째로 갖는다.
@@ -1173,6 +1162,25 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
               <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
             </div>
           </div>
+
+          {/* 🔴 **판정 결과는 두 열을 가로지른다**(2026-08-18 사용자 지시 —
+              "한반도 지도/애니메이션 카드 크기로 가로로 길게"). 자리를 두 번
+              옮겼다: 오른쪽 열(단면 폭 약 500px) → 왼쪽 열(보드 폭 약 700px) →
+              **행 전체**(1536에서 1232px). 판정은 어느 한쪽 카드의 결과가
+              아니라 **그 판 전체의 결과**라 행을 다 쓰는 쪽이 뜻에도 맞는다.
+
+              ⚠️ 열 래퍼 **밖**의 직계 격자 칸이라야 `col-span-2`가 듣는다.
+              래퍼 안에 두면 그 열 폭에 갇힌다(그래서 왼쪽 열에 넣었던 판이
+              700px에서 멈췄다).
+              ⚠️ `order-3`은 그대로다 — lg 미만에서는 두 열 래퍼가 `contents`라
+              이 블록이 어차피 직계 칸이 되고, 좁은 화면 순서(조작 2 → 판정 3 →
+              단면 4)는 **어느 자리에 적혀 있든 이 숫자가** 정한다. 옮겨도 좁은
+              화면은 한 픽셀도 안 바뀐다.
+              ⚠️ `lg:` 접두사로만 flex를 켠다 — 좁은 화면에서 켜면 종전에 없던
+              간격이 생긴다(이 변경의 범위 밖). */}
+          {hasVerdict && (
+            <div className="order-3 lg:col-span-2 lg:flex lg:flex-col lg:gap-3">{verdictBlock}</div>
+          )}
         </div>
       </div>
     );
