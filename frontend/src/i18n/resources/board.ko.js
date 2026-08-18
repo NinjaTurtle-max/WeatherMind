@@ -186,6 +186,10 @@ export default {
       disasterWildfireBody: '공기가 메말라 불이 붙기 쉽고, 센 바람이 불씨를 실어 날라요.',
       disasterFloodTitle: '🌊 침수 위험',
       disasterFloodBody: '수증기가 계속 실려 들어와 비가 그치지 않고, 땅이 물을 더 받아들이지 못해요.',
+      disasterWildfireWarningTitle: '🚨 산불 경보급',
+      disasterWildfireWarningBody: '메마른 공기에 강풍까지 겹쳤어요. 불이 나면 순식간에 번져 손쓰기 어려워요.',
+      disasterFloodWarningTitle: '🚨 호우 침수 경보급',
+      disasterFloodWarningBody: '전선이 겹쳐 비가 퍼붓는데 물이 빠질 곳이 없어요. 도시가 잠길 수 있어요.',
       resultSuccess: '🎉 성공! 목표 대기현상을 만들었어요',
       resultFail: '아직이에요 — 배치를 바꿔 다시 시도해 보세요',
       timeoutTitle: '⏱ 시간 초과! 제한 시간 안에 완성하지 못했어요',
@@ -506,6 +510,23 @@ export default {
         radiation_fog: '복사냉각,\n새벽 짙은 안개',
         north_pacific_heatwave: '고온 다습 공기,\n폭염 지속',
         siberian_clear: '한랭 건조 공기,\n맑고 추움',
+        // 🔴 **2026-08-19 회수: 여기 8종만 있어 나머지 12종이 무표시였다.**
+        // 표는 규칙 8종 시절에 멈춰 있었고, ㉣(4조건)·MT-18·재난 축이 규칙을 20종으로
+        // 늘리는 동안 아무도 이 표에 행을 안 넣었다. `ZoneAnnotation`이 `if (!text)
+        // return null`이라 **조용히 안 뜬다** — 크래시가 없어 아무도 못 봤다.
+        // 문구 규약: 「원인,\n결과」 2줄. 줄바꿈이 리더선 라벨의 2줄 배치를 만든다.
+        tropical_cyclone_genesis: '뜨겁고 습한 바다,\n태풍의 씨앗',
+        greenhouse_tropical_night: '열이 갇힌 밤,\n식지 않는 도시',
+        cold_front_squall_storm: '찬 공기가 밀어 올려,\n한 줄로 선 뇌우',
+        siberian_gale_wildfire: '메마른 공기에 강풍,\n산불 경보급',
+        front_convergence_flood: '정체전선에 강풍,\n물이 빠지지 않는다',
+        flood_risk_saturated_inflow: '수증기가 계속 유입,\n땅이 다 찼다',
+        wildfire_risk_dry_gale: '건조한 강풍,\n불씨가 날아간다',
+        okhotsk_sea_fog: '찬 바다 위 습한 공기,\n바다 안개',
+        okhotsk_foehn_clear: '산을 넘어온 건조 공기,\n맑고 따뜻',
+        yangtze_mild_clear: '온화한 대륙 공기,\n맑음',
+        yangtze_morning_fog: '약한 햇빛에 습기,\n아침 안개',
+        dry_convection_clear: '강한 햇빛에 건조,\n구름이 못 자란다',
       },
       mapAria: '한반도 대기 보드 지도 — 4개 지역 노드에 요소를 배치하세요',
       zoneAria: '{name} 존{goal} — 현재 {phenomenon}',
