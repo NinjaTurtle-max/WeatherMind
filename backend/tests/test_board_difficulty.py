@@ -77,7 +77,7 @@ class TestBoardDifficultySeedDistribution:
         boards = self._seed_boards()
         # R12 §9 13건 → R13 2일차 통합에서 +21(2일차 저작 7 + 규칙 확장 10 + 재난 4)
         # staging 승격(2026-08-14): 46 → **49**(CO-I-2/X-1 잔여 3건, 난이도 2)
-        assert len(boards) == 49
+        assert len(boards) == 52  # ㉣ 상위 보드 3판(2026-08-18)
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
@@ -108,7 +108,9 @@ class TestBoardDifficultySeedDistribution:
         # ⚠️ **자리도 이 값이 정했다** — 난이도 2라서 난이도 3 구간(옛 37~46) 뒤에
         # 붙이면 위 단조 증가 계약이 깨진다(실제로 깨졌다). 난이도 2 블록 끝인 36
         # 다음 37~39로 넣고 옛 37~46을 +3 밀었다. 1·3은 안 변했다.
-        assert dist == {1: 23, 2: 16, 3: 10}
+        # ㉣(2026-08-18): **3이 10 → 13**. 새 3판은 palette 4종(+1) · expert(+1) ·
+        # goal_only(2)라 클램프 3이다. 1·2는 안 변한다.
+        assert dist == {1: 23, 2: 16, 3: 13}
 
 
 def _puzzle(name: str, level_group: str):

@@ -286,6 +286,145 @@ try {
     // 따라(목표 칩·타이머와 같이 뜨면 줄 가운데로 밀린다) 카드가 화면 밖으로
     // 나간다. 배너는 항상 화면 폭을 차지하므로 어느 조합에서도 안 넘친다.
     check('wide: 배너가 앵커(relative)다', /data-testid="board-mission-hero"[\s\S]{0,400}?className="relative /.test(src));
+
+    // ── 오른쪽 열: 위에서부터 채운다 (2026-08-17 사용자 지시) ────────────────
+    /**
+     * "오른쪽 수도권-흐림 이거 상단으로 올려줘. 애니메이션 나오면 애니메이션은
+     * 상단으로, 수도권 결과는 하단으로."
+     *
+     * 순서(애니메이션 → 결과)는 `CrossSectionPanel`이 구조로 갖는다 —
+     * [단면 그림][캡션 상자]. 문제는 **정렬**이었다: 단면 카드가 `lg:flex-1`로
+     * 왼쪽 열 높이만큼 늘어나는데 `justify-center`라 내용이 빈 카드 한복판에
+     * 떠 있었다(규칙이 안 선 상태에서는 캡션 한 줄뿐이라 특히 그렇게 보였다).
+     *
+     * ⚠️ `lg:flex-1`은 **남아야 한다** — 두 열이 같은 높이로 끝나는 계약이
+     * 거기 걸려 있다. 되돌아갈 수 있는 것은 `justify-center` 쪽이라 그것만 문다.
+     */
+    const sectionCard = src.match(/className="order-4 ([^"]*)"/)?.[1] ?? '';
+    check(
+      `wide: 단면 카드가 위에서부터 채운다 — "${sectionCard.slice(0, 56)}…"`,
+      !/\bjustify-center\b/.test(sectionCard),
+    );
+    check(
+      'wide: 단면 카드가 왼쪽 열 높이까지 늘어난다(두 열이 같이 끝난다)',
+      /\blg:flex-1\b/.test(sectionCard),
+    );
+    // ── 카드 두 장만 셸 밖으로 넓힌다 (2026-08-18 사용자 지시) ──────────────
+    /**
+     * "상단바는 고정시키고 아래 보드/해설 카드 크기를 전체적으로 다 키워줘."
+     *
+     * 셸이 `md:max-w-6xl`(1152)이라 1536 화면에서 양옆 88px씩이 빈다. 지도·단면
+     * 그림은 둘 다 `w-full`이라 **열 폭에 비례**하므로, 그 여백을 되찾는 것 말고는
+     * 그림을 키울 방법이 없다(세로로만 늘리면 흰 여백만 는다). 실측 1536에서
+     * 카드행 1120 → 1232 · 지도 401 → 464.
+     *
+     * 두 가지를 문다. 되돌아갈 수 있는 길이 둘이라서다:
+     *  ⓐ **음수 마진이 `clamp(0px,…)`으로 막혀 있다.** 상한만 있고 하한이 없으면
+     *     좁은 화면에서 계산이 음수가 되어 카드가 화면 밖으로 삐져나온다.
+     *  ⓑ **미션 배너는 그 행 밖에 있다.** 안으로 들어가면 배너까지 같이 넓어져
+     *     "상단바는 고정"이 깨진다. 눈으로는 두 값이 비슷해 잘 안 보인다.
+     */
+    const escapeCls = body.match(/className="(-mx-\[[^"]*?)\s+grid gap-4 lg:grid-cols/)?.[1] ?? '';
+    check(
+      `wide: 카드행이 셸 밖으로 남는 폭만큼 넓어진다 — "${escapeCls.slice(0, 40)}…"`,
+      escapeCls.startsWith('-mx-[clamp(0px,'),
+    );
+    const heroAt = body.indexOf('data-testid="board-mission-hero"');
+    const rowAt = body.indexOf('-mx-[clamp(0px,');
+    check(
+      'wide: 미션 배너는 넓어지는 행 **밖**에 있다(상단바 고정)',
+      heroAt > 0 && rowAt > heroAt,
+    );
+
+    // ── 판정 결과가 **두 열을 가로지른다** (2026-08-18 사용자 지시) ─────────
+    /**
+     * "한반도 지도/애니메이션 카드 크기로 가로로 길게."
+     *
+     * 자리를 두 번 옮겼다. 오른쪽 열(단면 폭 500) → 왼쪽 열(보드 폭 676) →
+     * **행 전체**(1232). 판정은 어느 한쪽 카드의 결과가 아니라 그 판 전체의
+     * 결과라 행을 다 쓰는 쪽이 뜻에도 맞는다.
+     *
+     * 두 가지가 **함께** 있어야 성립한다 — 하나만 되돌아가면 폭이 조용히
+     * 절반으로 줄고 에러는 안 난다:
+     *  ⓐ `lg:col-span-2`
+     *  ⓑ 두 열 래퍼 **밖**의 직계 격자 칸. 래퍼 안에 두면 col-span이 안 듣고
+     *     그 열 폭에 갇힌다(왼쪽 열에 넣었던 판이 676에서 멈춘 이유가 그것).
+     *
+     * ⚠️ `order-3`도 남아야 한다. lg 미만에서는 두 열 래퍼가 `contents`라 이
+     * 블록이 어차피 직계 칸이 되고, 좁은 화면 순서(조작 2 → 판정 3 → 단면 4)를
+     * **그 숫자가** 정한다 — 자리를 옮겨도 좁은 화면은 안 바뀐다.
+     */
+    // ⚠️ **텍스트 순서로는 부족하다.** 「오른쪽 열 주석보다 뒤」는 래퍼 **안**에
+    //    넣어도 참이라, 그 단정만으로는 col-span이 죽은 상태를 못 잡는다
+    //    (실제로 그렇게 써 놓고 되살림 실험에서 통과해 버렸다). 들여쓰기로
+    //    **격자의 직계 칸인지**를 본다 — 두 열 래퍼와 같은 칸이어야 한다.
+    const indentOf = (needle) => {
+      const at = body.indexOf(needle);
+      if (at < 0) return -1;
+      const lineStart = body.lastIndexOf('\n', at) + 1;
+      return at - lineStart;
+    };
+    const colIndent = indentOf('<div className="contents lg:flex');
+    const verdictIndent = indentOf('{hasVerdict &&');
+    check(
+      `wide: 판정 결과가 두 열 래퍼와 같은 칸(격자 직계)이다 — 열 ${colIndent} · 판정 ${verdictIndent}`,
+      colIndent > 0 && verdictIndent === colIndent,
+    );
+    const verdictCls = body.match(/\{hasVerdict && \(?\s*<div className="([^"]*)"/)?.[1] ?? '';
+    check(
+      `wide: 판정 결과가 두 열을 가로지른다(lg:col-span-2) — 실제 "${verdictCls}"`,
+      /\blg:col-span-2\b/.test(verdictCls),
+    );
+    check(
+      `wide: 판정 결과가 좁은 화면 순서를 그대로 갖는다(order-3) — 실제 "${verdictCls}"`,
+      /\border-3\b/.test(verdictCls),
+    );
+
+    // ── 현상 주석 상자가 이름표 띠 **위**에 산다 (2026-08-18 사용자 지시) ───
+    /**
+     * "카드가 지도랑 겹쳐. 수도권/영동·동해 글씨 사이로 상단에 배치해줘."
+     *
+     * ⚠️ **존에 상대적인 자리 잡기로는 못 고친다.** 이름표들이 저마다 다른
+     * 높이에 흩어져 있어 한 존에서 비켜 놓으면 다른 존에서 다시 물린다 —
+     * 실제로 두 번 고쳤고 두 번 다 다른 존에서 재발했다(수도권 → 영서·태백).
+     * 그래서 상자를 **지도 맨 위 띠에 고정**한다: `ly`가 상수라야 한다.
+     *
+     * 이름표 y(userSpace = label_anchor × VIEW_H/100):
+     *   수도권 17.1 · 영동·동해 22.5 · 서해상 46.9 · 영서·태백 47.8
+     * 글자 높이를 감안한 **가장 높은 이름표 윗변이 13.8**이고, 2줄 상자 높이는
+     * 11.8이다. 그래서 `ly + boxH ≤ 13.8`, 즉 `ly ≤ 2`면 어느 존을 가리켜도
+     * 안 닿는다. 실측(1536)으로 네 존 전부 겹침 0 — 상자 y 228~282.
+     *
+     * jsdom에는 CSS 엔진이 없어 좌표로 못 재므로 소스로 문다. 이름표 y는
+     * `boardLayout`이 소유하므로 **거기서 읽어** 상수와 대조한다 — 지도가
+     * 바뀌어 이름표가 더 위로 올라가면 이 단정이 먼저 운다.
+     */
+    const anno = readFileSync(resolve(root, 'src/modules/board/mapInfographic.jsx'), 'utf8');
+    const lyLine = anno.match(/const ly = (\d+(?:\.\d+)?);/);
+    check(
+      `주석 상자 y가 상수다 — 존 위치를 따라가면 다시 겹친다. 실제 ly=${lyLine?.[1]}`,
+      lyLine != null,
+    );
+    const layout = readFileSync(resolve(root, 'src/modules/board/boardLayout.js'), 'utf8');
+    const viewH = Number(layout.match(/export const VIEW_H = (\d+)/)?.[1]);
+    const anchors = [...layout.matchAll(/label_anchor: \[[\d.]+, ([\d.]+)\]/g)].map((m) => Number(m[1]));
+    check(`이름표 앵커를 읽었다(${anchors.length}개) · VIEW_H=${viewH}`, anchors.length >= 4 && viewH > 0);
+    // 글자 윗변 ≈ 기준선 − 3.3(fontSize 3.6 실측). 2줄 상자 높이 = 2*4.6+2.6.
+    const topLabel = Math.min(...anchors) * (viewH / 100) - 3.3;
+    const boxH2 = 2 * 4.6 + 2.6;
+    check(
+      `상자가 가장 높은 이름표(윗변 ${topLabel.toFixed(1)})보다 위에서 끝난다 — ly ${lyLine?.[1]} + 높이 ${boxH2}`,
+      Number(lyLine?.[1]) + boxH2 <= topLabel,
+    );
+
+    // 순서의 소유자는 패널이다 — 그림이 캡션보다 **위**에 있는지 소스로 확인한다.
+    const panel = readFileSync(resolve(root, 'src/modules/board/CrossSectionPanel.jsx'), 'utf8');
+    const sceneAt = panel.indexOf('{useGL ? (');
+    const captionAt = panel.indexOf('<div className="bg-white px-3 py-2">');
+    check(
+      'wide: 애니메이션이 수도권 결과보다 위에 온다(CrossSectionPanel 순서)',
+      sceneAt > 0 && captionAt > 0 && sceneAt < captionAt,
+    );
     // 떠 있는 카드는 **격자 높이에 영향을 주지 않아야** 한다 — absolute가 빠지면
     // 배너가 카드만큼 늘어나 단면이 밀린다.
     check('wide: 가이드 카드가 absolute로 떠 있다', /id="board-guide-panel"[\s\S]{0,900}?absolute/.test(src));

@@ -53,13 +53,21 @@ const SIMS = [
 export default function ExploreHome() {
   const t = useT();
   return (
-    <div className="space-y-4 py-4">
-      {/* 상단 배너 — 학습·보드와 같은 꼴(2026-08-12 사용자 지시). 왼쪽 하단
-          사이드바 튜터를 걷고 여기서 구름이가 말한다. 화면 담당의 소유자는
-          SideNav `TUTOR_BY_PATH`이고, 그 표에서 /explore가 구름이다. */}
+    // ⚠️ 바깥 여백은 **`pt-2`** — 다른 화면(학습·보드·예보·내 정보)이 전부
+    // 그것이다. 여기만 `py-4`라 첫 카드가 8px 아래에서 시작했고(실측 1440:
+    // 탐구 y=80 · 나머지 y=72), 화면을 오갈 때 한 칸 내려앉는 것으로 보였다
+    // (2026-08-17 사용자 제보). 아래 여백은 `Layout`의 `main`이 `pb-8`로 이미
+    // 갖고 있어 `py`로 겹쳐 줄 이유가 없다.
+    <div className="space-y-4 pt-2">
+      {/* 상단 배너 — 학습·보드와 같은 꼴(2026-08-12 사용자 지시). 화면 담당의
+          소유자는 SideNav `TUTOR_BY_PATH`이고, 그 표와 여기가 **같아야** 한다
+          (`tests/mascotAssets.contract.test.mjs` ④가 대조한다).
+          ⚠️ 담당이 **번개**로 바뀌었다(2026-08-17 사용자 지시 — 종전 구름이).
+          같은 날 잠깐 리그와 겹쳤으나, 리그가 **눈송이**를 받고 자기 배너를
+          갖게 되면서 풀렸다 — 지금은 화면마다 담당이 하나씩이다. */}
       <HeroBanner
         testId="explore-hero"
-        mascot="cloud"
+        mascot="bolt"
         as="h1"
         eyebrow={t('explore.home.title')}
         // 안내 문장은 **title이 아니라 description**이다 — title은 한 줄로

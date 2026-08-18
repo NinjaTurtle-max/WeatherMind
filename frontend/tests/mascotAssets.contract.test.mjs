@@ -293,19 +293,30 @@ for (const file of jsxFiles(join(ROOT, 'src'))) {
 }
 ok(callCount >= 3, `Mascot 호출부를 훑었다 — ${callCount}건 (0이면 정규식이 죽은 것)`);
 
-console.log('④ 상단 배너를 세운 화면은 사이드바 튜터를 접는다');
-// **한 화면에 말하는 사람은 하나다.** 배너를 세워 놓고 SideNav의 HERO_PATHS에
-// 넣지 않으면 같은 캐릭터가 74px(사이드바) + 62px(배너) 둘로 뜨고 각자 다른
-// 말을 한다 — 2026-08-11에 /board에서 실제로 그랬다.
-// 배너 쪽 마스코트와 담당표(TUTOR_BY_PATH)가 **같은 이름**인지도 함께 본다:
-// 다르면 화면을 오갈 때 같은 자리의 캐릭터가 바뀐다.
+console.log('④ 화면마다 말하는 캐릭터는 하나 — 배너는 담당표를 따른다');
+// **한 화면에 말하는 사람은 하나다.**
+//
+// ⚠️ **이 절의 지키는 방법이 2026-08-17에 바뀌었다.** 종전에는 「배너를 세운
+// 화면은 사이드바 튜터를 접는가」(`HERO_PATHS`)를 물었다 — 안 접으면 같은
+// 캐릭터가 74px(사이드바) + 62px(배너) 둘로 뜨고 각자 다른 말을 했다
+// (2026-08-11에 /board에서 실제로 그랬다). 지금은 **사이드바 튜터 카드 자체가
+// 없어져서**(`SideNav.jsx`) 접을 것이 없고, `HERO_PATHS`도 함께 사라졌다.
+// 그래서 무는 것을 **한 단계 강한 쪽**으로 옮긴다: 목록에 잘 넣었는지가 아니라
+// **사이드바가 캐릭터를 아예 안 그리는지**를 본다. 카드가 되살아나면 여기서 운다.
+//
+// 담당표(`TUTOR_BY_PATH`)는 남는다 — 렌더 입력이 아니라 「어느 화면을 누가
+// 맡는가」의 단일 소유자이고, 배너들이 각자 하드코딩한 마스코트가 그 표와
+// 어긋나지 않는지를 아래에서 대조한다.
 {
   const nav = readFileSync(join(ROOT, 'src/components/SideNav.jsx'), 'utf8');
-  const heroPaths = [...(nav.match(/const HERO_PATHS = \[([^\]]*)\]/)?.[1] ?? '')
-    .matchAll(/'([^']+)'/g)].map((m) => m[1]);
-  ok(heroPaths.length >= 4, `HERO_PATHS를 읽었다 — ${JSON.stringify(heroPaths)}`);
 
-  // 담당표에서 경로별 마스코트 이름을 뽑는다(문자열 리터럴 쌍).
+  // ⓐ 사이드바는 캐릭터를 그리지 않는다(튜터 카드 부활 감시).
+  ok(
+    !/<Mascot\b/.test(nav),
+    '사이드바는 마스코트를 그리지 않는다 — 그리면 튜터 카드가 부활해 GuideBot과 둘이 뜬다',
+  );
+
+  // ⓑ 담당표에서 경로별 마스코트 이름을 뽑는다(문자열 리터럴 쌍).
   const table = nav.slice(nav.indexOf('const TUTOR_BY_PATH'), nav.indexOf('export default function SideNav'));
   const assigned = {};
   for (const row of table.split('\n')) {
@@ -313,23 +324,43 @@ console.log('④ 상단 배너를 세운 화면은 사이드바 튜터를 접는
     const name = row.match(/name: '([^']+)'/)?.[1];
     if (path && name) assigned[path] = name;
   }
-  for (const p of heroPaths) {
-    ok(p in assigned, `${p}에 배너를 세웠는데 담당표(TUTOR_BY_PATH)에 없다 — 폴백 캐릭터가 뜬다`);
-  }
+  ok(
+    Object.keys(assigned).length >= 5,
+    `담당표(TUTOR_BY_PATH)를 읽었다 — ${JSON.stringify(assigned)}`,
+  );
 
-  // 배너를 세운 화면의 마스코트가 담당표와 같은가(2026-08-12에 추가한 둘만 소스로 확인)
+  // ⓒ 배너를 세운 화면의 마스코트가 담당표와 같은가.
+  //    라벨을 「같다」로 적는다 — 종전에는 실패 문안(`≠`)을 그대로 써서
+  //    **통과할 때 `ok … ≠ …`** 로 찍혔다(읽으면 정반대로 보인다).
+  // ⚠️ 배너를 세운 화면은 **반드시 여기 넣을 것.** 안 넣으면 그 화면의 마스코트가
+  //    담당표와 갈려도 아무도 울지 않는다 — /league가 2026-08-17에 배너를
+  //    갖게 되면서 실제로 그 상태가 잠깐 있었다.
   const banners = [
     ['/explore', 'src/modules/explore/ExploreHome.jsx'],
     ['/duel', 'src/modules/duel/DuelPage.jsx'],
+    ['/league', 'src/modules/league/LeaguePage.jsx'],
   ];
   for (const [path, file] of banners) {
     const src = readFileSync(join(ROOT, file), 'utf8');
     const used = src.match(/mascot="([a-z]+)"/)?.[1];
+    ok(path in assigned, `${path} 배너의 담당이 표에 있다 — 없으면 담당이 정해지지 않은 화면이다`);
     ok(
       used === assigned[path],
-      `${path} 배너 마스코트(${used}) ≠ 담당표(${assigned[path]}) — 한 화면에 다른 캐릭터가 뜬다`,
+      `${path} 배너 마스코트 = 담당표 (배너 ${used} · 표 ${assigned[path]})`,
     );
-    ok(heroPaths.includes(path), `${path}에 배너가 있는데 HERO_PATHS에 없다 — 사이드바 튜터와 둘이 뜬다`);
+    // ⓓ **배너만 보면 놓친다.** 화면 본문에도 캐릭터를 직접 그리는 자리가 있다
+    //    (리그의 「예측 제출됨」 카드가 그렇다). 2026-08-17에 리그 담당이
+    //    번개 → 눈송이로 바뀌었을 때 배너 셋만 따라오고 그 카드는 번개로
+    //    남아, **한 화면에서 두 캐릭터가 말했다** — 위 ⓒ는 초록이었다.
+    //    그래서 파일 안의 모든 마스코트 참조를 담당표와 대조한다.
+    const all = new Set([
+      ...src.matchAll(/mascot="([a-z]+)"/g),
+      ...src.matchAll(/<Mascot\s+name="([a-z]+)"/g),
+    ].map((m) => m[1]));
+    ok(
+      all.size === 1 && all.has(assigned[path]),
+      `${path} 화면의 캐릭터가 담당표 하나뿐이다 — 쓰인 것 ${JSON.stringify([...all])} · 표 ${assigned[path]}`,
+    );
   }
 }
 

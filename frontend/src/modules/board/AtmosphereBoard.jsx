@@ -1085,7 +1085,26 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
             좁은 화면 순서: 조작 카드(order-2) → 판정(order-3) → 단면(order-4).
             **힌트는 이 순서에 없다** — 조작 카드 *안*의 조절값 열에 들어 있어
             좁은 화면에서는 지도보다 위에 온다(아래 조절값 열 주석). */}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+        {/* 🔴 **카드 두 장만 셸 밖으로 넓힌다**(2026-08-18 사용자 지시 —
+            "상단바는 고정시키고 아래 보드/해설 카드 크기를 전체적으로 다 키워줘").
+
+            셸은 `md:max-w-6xl`(1152)인데 1536 화면에서 사이드바를 뺀 자리는
+            1328이라 **양옆 88px씩이 그냥 빈다**(실측). 지도와 단면 그림은 둘 다
+            `w-full`이라 크기가 열 폭에 비례하므로, 이 여백을 되찾는 것 말고는
+            그림을 키울 방법이 없다 — 카드를 세로로만 늘리면 흰 여백만 는다.
+
+            ⚠️ **셸 자체를 넓히지 않는다.** 넓히면 위 미션 배너까지 함께 커지는데
+            사용자가 "상단바는 고정"이라고 못박았다. 그래서 이 행에만 음수 마진을
+            준다 — 좌우 대칭이라 가운데 정렬은 그대로다.
+
+            음수 마진은 **남는 공간만큼만, 최대 120px**이다:
+              clamp(0, (100vw − 사이드바 − 4rem − 1152) / 2, 120)
+            · 1440 → 8px  · 1536 → 56px  · 1920 → 120px(상한)
+            · 1280 이하 → 계산이 음수라 clamp가 0으로 막는다 = **넘칠 수 없다**
+            ⚠️ 빼는 여유를 `4rem`으로 넉넉히 잡은 이유: `100vw`는 스크롤바 폭을
+            **포함**하는데(`html`에 `scrollbar-gutter: stable`이라 항상 있다)
+            그 몫을 안 빼면 좌우로 7~8px씩 삐져나온다. */}
+        <div className="-mx-[clamp(0px,(100vw_-_var(--wm-shell-left)_-_4rem_-_1152px)/2,120px)] grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
           {/* 왼쪽 — **만지는 쪽**: 조절값·지도·액션. 힌트는 조절값 열 아래. */}
           <div className="contents lg:flex lg:flex-col lg:gap-3">
             <div className="order-2 flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none">
@@ -1125,12 +1144,43 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
           <div className="contents lg:flex lg:flex-col lg:gap-3">
             <div
               ref={stageRef}
-              className="order-4 flex flex-col justify-center rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none lg:flex-1"
+              // ⚠️ **세로 가운데 정렬(`justify-center`)을 걷었다**(2026-08-17
+              // 사용자 지시 "오른쪽 수도권-흐림 이거 상단으로 올려줘").
+              // 카드가 `lg:flex-1`로 왼쪽 열 높이만큼 늘어나는데 가운데 정렬이면
+              // 내용이 빈 카드 한복판에 떠 있다 — 아직 규칙이 안 선 상태에서는
+              // 캡션 한 줄뿐이라 특히 그렇게 보였다. 위로 붙이면 애니메이션이
+              // 생겨도 그 자리에서 아래로 자라 **눈이 따라갈 곳이 안 바뀐다**.
+              // ⚠️ `lg:flex-1`은 남긴다 — 두 열이 같은 높이로 끝나는 계약
+              // (`items-stretch`)이 그것에 걸려 있다. 바꾼 것은 **정렬**뿐이다.
+              //
+              // 「애니메이션 위 · 수도권 결과 아래」는 **이미 그 순서다** —
+              // `CrossSectionPanel`이 [단면 그림][캡션 상자] 순으로 그린다.
+              // 규칙이 안 서면 그림 없이 캡션만 나온다. 그래서 여기서 손댈 것은
+              // 정렬 하나뿐이었다.
+              className="order-4 flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none lg:flex-1"
             >
               <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
             </div>
-            {hasVerdict && <div className="order-3 lg:contents">{verdictBlock}</div>}
           </div>
+
+          {/* 🔴 **판정 결과는 두 열을 가로지른다**(2026-08-18 사용자 지시 —
+              "한반도 지도/애니메이션 카드 크기로 가로로 길게"). 자리를 두 번
+              옮겼다: 오른쪽 열(단면 폭 약 500px) → 왼쪽 열(보드 폭 약 700px) →
+              **행 전체**(1536에서 1232px). 판정은 어느 한쪽 카드의 결과가
+              아니라 **그 판 전체의 결과**라 행을 다 쓰는 쪽이 뜻에도 맞는다.
+
+              ⚠️ 열 래퍼 **밖**의 직계 격자 칸이라야 `col-span-2`가 듣는다.
+              래퍼 안에 두면 그 열 폭에 갇힌다(그래서 왼쪽 열에 넣었던 판이
+              700px에서 멈췄다).
+              ⚠️ `order-3`은 그대로다 — lg 미만에서는 두 열 래퍼가 `contents`라
+              이 블록이 어차피 직계 칸이 되고, 좁은 화면 순서(조작 2 → 판정 3 →
+              단면 4)는 **어느 자리에 적혀 있든 이 숫자가** 정한다. 옮겨도 좁은
+              화면은 한 픽셀도 안 바뀐다.
+              ⚠️ `lg:` 접두사로만 flex를 켠다 — 좁은 화면에서 켜면 종전에 없던
+              간격이 생긴다(이 변경의 범위 밖). */}
+          {hasVerdict && (
+            <div className="order-3 lg:col-span-2 lg:flex lg:flex-col lg:gap-3">{verdictBlock}</div>
+          )}
         </div>
       </div>
     );

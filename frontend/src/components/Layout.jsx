@@ -63,6 +63,14 @@ export default function Layout() {
     // 자유 일일 세션(`/daily`)이 여기 함께 있었는데 라우트가 제거됐다
     // (2026-08-12) — 이제 같은 SessionRunner를 쓰는 것은 유닛 세션뿐이다.
     || pathname.startsWith('/learn/units/')
+    // 기후 탐정(2026-08-18 사용자 지시 "가로2줄 세로4줄 → 가로4줄 세로2줄").
+    // 단서가 7개인데 576px 셸에서는 2열(268px)이 한계라 **4줄**이 됐다. 셸을
+    // 넓히면 같은 268px 카드로 **4열 2줄**이 된다 — 카드를 줄이는 게 아니라
+    // 줄 수를 줄이는 것이라 글자 크기는 그대로다.
+    // 사건 목록도 같은 셸을 쓴다 — 종전에 여기 "목록은 `max-w-[760px]`로 자기
+    // 폭을 묶고 있어 안 넓어진다"고 적혀 있었으나, 목록을 3열로 바꾸면서 그
+    // 상한을 1120으로 풀었다(2026-08-18). 두 화면 모두 xl에서 열이 늘어난다.
+    || pathname.startsWith('/detective')
     || isBoard;
   const shellWidth = isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);

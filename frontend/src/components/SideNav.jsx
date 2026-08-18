@@ -1,5 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import Mascot from './Mascot';
+// Mascot import는 걷었다(2026-08-17) — 튜터 카드가 사라지면서 이 파일에
+// 그리는 캐릭터가 없어졌다. 배정표(`TUTOR_BY_PATH`)는 이름만 들고 있고
+// 그리는 것은 각 배너와 `GuideBot`이다.
 import { NAV_ITEMS, isNavActive } from './navItems';
 import { useT } from '../i18n';
 
@@ -14,20 +16,12 @@ import { useT } from '../i18n';
  * 탭바/사이드바를 구분해 세야 한다(`data-testid`) — 실제로 gating 스모크가
  * `nav a, nav button` 전체 개수를 단정하고 있어 함께 고쳤다.
  *
- * 튜터는 **지금 있는 화면의 담당 마스코트**다(`Mascot.jsx` 배정표). 기본은 메인
- * 튜터인 구름이고, 보드에서는 태양이, 학습에서는 물방울이, 예보 대결에서는
- * 태풍이, 리그에서는 번개가 나온다 — 화면마다 안내하는 캐릭터가 바뀌는 것이
- * 배정표의 뜻이다.
- *
- * 학습 화면 우측 레일에도 물방울이 카드가 있었는데 걷어냈다(2026-08-05) —
- * 같은 캐릭터가 한 화면에 둘 뜨면 어느 쪽이 말하는 건지 알 수 없다.
+ * 아래 `TUTOR_BY_PATH`는 **화면별 담당 마스코트 배정표**다 — 보드 태양이 ·
+ * 학습 물방울이 · 예보 태풍이 · 탐구 번개 · 리그 눈송이. 화면마다 안내하는
+ * 캐릭터가 바뀌는 것이 이 표의 뜻이다.
+ * ⚠️ **이 파일은 더 이상 그것을 그리지 않는다**(2026-08-17 — 아래 렌더부 주석).
+ * 표는 각 화면의 배너가 하드코딩한 마스코트와 대조되는 **기준**으로만 남는다.
  */
-// 학습 화면(/learn)은 **튜터를 접는다**(2026-08-09). 홈을 흡수하면서 오른쪽
-// 진입 카드가 물방울이를 104px로 그리는데, 사이드바가 같은 캐릭터를 74px로 한 번
-// 더 그리면 한 화면에 같은 그림이 둘이라 어느 쪽이 말하는 건지 알 수 없다
-// (이 파일 머리말이 2026-08-05에 반대 방향으로 같은 판단을 했다 — 그때는 레일
-// 카드를 걷었고, 이번에는 레일이 이겼다).
-// 유닛 플레이(/learn/units/…)는 진입 카드가 없는 화면이라 튜터가 남는다.
 const TUTOR_BY_PATH = [
   { match: (p) => p === '/board' || p.startsWith('/board/'), name: 'sun', key: 'board' },
   // `/learn` 자신도 넣는다(2026-08-12). 종전에는 하위 경로만 있어서 학습 홈은
@@ -41,43 +35,30 @@ const TUTOR_BY_PATH = [
   // 행이 그 몫을 전부 받는다. 세션 라우트가 또 늘면 여기에 행을 더할 것.
   { match: (p) => p === '/learn' || p.startsWith('/learn/'), name: 'drop', key: 'learn' },
   { match: (p) => p === '/duel' || p.startsWith('/duel/'), name: 'typhoon', key: 'duel' },
-  // 탐구 — 구름이(2026-08-12 사용자 지시). 표에 없어서 **폴백**으로 구름이가
-  // 뜨고 있었는데, 폴백은 "담당이 정해졌다"가 아니라 "모르겠다"다. 그 화면에
-  // 배너를 세우려면 담당이 명시돼야 한다(배너와 사이드바가 같은 표를 봐야
-  // 한 화면에 둘이 안 뜬다).
-  { match: (p) => p === '/explore' || p.startsWith('/explore/'), name: 'cloud', key: 'explore' },
-  { match: (p) => p === '/league' || p.startsWith('/league/'), name: 'bolt', key: 'league' },
+  // 탐구 — **번개**(2026-08-17 사용자 지시. 2026-08-12에 구름이로 명시했던
+  // 것을 바꿨다). 같은 날 잠깐 리그와 겹쳤다가, 리그가 눈송이가 되면서 풀렸다.
+  { match: (p) => p === '/explore' || p.startsWith('/explore/'), name: 'bolt', key: 'explore' },
+  // 리그 — **눈송이**(2026-08-17 사용자 지시 "기상 리그도 예보랑 똑같이 튜터
+  // 카드가 있었으면, 눈결정으로"). 리그가 배너를 갖게 된 것이 같은 지시다.
+  { match: (p) => p === '/league' || p.startsWith('/league/'), name: 'snow', key: 'league' },
 ];
 
 export default function SideNav() {
   const t = useT();
   const pathname = useLocation().pathname;
-  const tutor = TUTOR_BY_PATH.find((r) => r.match(pathname));
-  // 학습 홈에서는 튜터 카드를 통째로 내린다(위 주석).
-  // 끝의 슬래시를 떼고 본다 — `/learn/`도 라우터가 같은 화면을 그리는데
-  // 정확히 '/learn'만 보던 탓에 그 URL에서 사이드바 튜터와 배너 마스코트가
-  // 함께 떴다(이 분기가 막으려던 바로 그 중복. 2026-08-09 코드 리뷰).
-  // 화면 안에 **같은 캐릭터를 그리는 배너**가 있으면 사이드바 튜터를 접는다.
-  //   /learn  진입 배너가 물방울이를 그린다(2026-08-09)
-  //   /board  태양이 튜터 배너가 생겼다(2026-08-11) — 안 접으면 사이드바 74px
-  //           태양이와 배너 62px 태양이가 한 화면에 둘, 각자 다른 말을 한다.
-  // 끝의 슬래시를 떼고 본다 — `/learn/`도 라우터가 같은 화면을 그리는데 정확히
-  // '/learn'만 보던 탓에 그 URL에서 둘이 함께 떴다(2026-08-09 코드 리뷰).
-  // ⚠️ 하위 경로는 접지 않는다: /learn/units·/board/{id}는 배너가 없는 화면이라
-  // 튜터가 남아야 한다.
-  //   /explore·/duel  2026-08-12에 상단 배너가 생겼다(사용자 지시) — 탐구
-  //           구름이 · 예보 태풍이. 배너를 세운 화면은 반드시 여기 넣을 것.
-  //           하위 경로는 여기서도 안 접는다: 시뮬 화면(/explore/typhoon 등)은
-  //           ExploreHome이 아니라 각자 페이지라 배너가 없다.
-  const HERO_PATHS = ['/learn', '/board', '/explore', '/duel'];
-  const hideTutor = HERO_PATHS.includes(pathname.replace(/\/+$/, ''));
-  const mascot = tutor?.name ?? 'cloud';
-  const nameKey = tutor ? `nav.tutor.${tutor.key}.name` : 'home.tutor.name';
-  const lineKey = tutor ? `nav.tutor.${tutor.key}.line` : 'home.tutor.line';
   return (
     <aside
       data-testid="sidenav"
-      className="fixed inset-y-0 left-0 z-50 hidden w-[var(--wm-shell-left)] flex-col gap-5 overflow-y-auto border-r border-slate-200 bg-sky-50 px-3.5 pb-4 pt-4 md:flex"
+      // ⚠️ **z-40이다**(2026-08-17 코드 리뷰 — 종전 z-50). 낮춘 것은 사이드바를
+      // 덜 중요하게 봐서가 아니라, `GuideBot`이 이 위에 떠야 하는데(왼쪽 하단
+      // 자리를 물려받았다) 그러려고 봇을 z-50으로 올렸더니 **전체 화면 모달
+      // (RegionPicker·ConfirmDialog·PlacementFinalizing — 전부 `fixed inset-0
+      // z-50`) 위로도 올라가** 그 구석의 클릭을 삼켰기 때문이다.
+      // 층위를 이렇게 정리한다: 셸(사이드바·봇) 40 < 모달 50.
+      // 봇은 같은 40이지만 `Layout`에서 **뒤에 그려져** 사이드바를 덮는다.
+      // ⚠️ 헤더·탭바는 z-50 그대로다 — 사이드바와 화면을 나눠 갖고 겹치지
+      //    않는다(헤더는 `left-[var(--wm-shell-left)]`, 탭바는 `md:hidden`).
+      className="fixed inset-y-0 left-0 z-40 hidden w-[var(--wm-shell-left)] flex-col gap-5 overflow-y-auto border-r border-slate-200 bg-sky-50 px-3.5 pb-4 pt-4 md:flex"
     >
       <Link
         to="/learn"
@@ -110,16 +91,26 @@ export default function SideNav() {
         ))}
       </nav>
 
-      {!hideTutor && (
-      <div className="mt-auto rounded-2xl border border-slate-200 bg-white p-3 text-center">
-        {/* 정사각 박스 — 폭만 주면 세로가 원본 비율을 따라가 캐릭터마다 카드
-            높이가 달라지고(가로형 cloud 43px ↔ 세로형 bolt 123px) 화면을 옮길
-            때마다 사이드바 아래가 들썩인다. */}
-        <Mascot name={mascot} className="mx-auto h-[74px] w-[74px]" />
-        <p className="mt-1.5 text-[12.5px] font-extrabold text-slate-800">{t(nameKey)}</p>
-        <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t(lineKey)}</p>
-      </div>
-      )}
+      {/* 🔴 **사이드바 튜터 카드는 걷혔다**(2026-08-17 사용자 지시).
+          말하는 캐릭터를 `GuideBot` 하나로 통일하고, 그 자리(왼쪽 하단)를
+          GuideBot이 물려받는다.
+
+          걷은 이유가 위 주석들이 세 번 반복해 온 그것이다 — **한 화면에 튜터가
+          둘**. 배너를 세운 4개 화면(`/learn`·`/board`·`/explore`·`/duel`)만
+          `HERO_PATHS`로 카드를 접고 있었는데, 나머지 화면(`/me`·`/league`·
+          `/learn/units/…`·`/board/{id}`·`/explore/typhoon`…)에서는 **이 카드와
+          GuideBot이 나란히** 떠 있었다. 화면마다 접었다 폈다 하는 표를 늘리는
+          대신 카드를 없앤다 — 그래서 `HERO_PATHS`도 함께 사라졌다(더 이상
+          접을 것이 없다).
+
+          ⚠️ 위 `TUTOR_BY_PATH`는 **남는다.** 이제 렌더 입력이 아니라
+          「어느 화면을 어느 캐릭터가 맡는가」의 **단일 배정표**이고, 배너들이
+          각자 하드코딩한 마스코트가 그 표와 어긋나지 않는지를
+          `tests/mascotAssets.contract.test.mjs` ④가 대조한다. 표를 지우면 그
+          대조의 기준이 사라진다.
+          ⚠️ `nav.tutor.*.name`·`.line` 리소스도 이 카드가 마지막 소비처였다.
+          지우지 않은 것은 배정표의 사람이 읽는 절반이고 카드를 되살릴 때
+          그대로 필요하기 때문이다 — 되살릴 계획이 없어지면 그때 함께 걷을 것. */}
     </aside>
   );
 }
