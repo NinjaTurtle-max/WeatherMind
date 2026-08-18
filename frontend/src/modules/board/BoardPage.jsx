@@ -701,7 +701,7 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
             배지를 compact로 줄였다. 여기에 무엇을 더 붙이기 전에 **en으로**
             xl(6열)에서 줄임표가 나는지 재 볼 것 — ko는 통과하고 en만 깨진다.
             ⚠️ 폭을 잃는 쪽은 **항상 사유 문구**다: 배지가 `shrink-0`(:76)이라
-            안 줄고, 사유 span만 `truncate`(:722)로 잘린다.
+            안 줄고, 사유 span만 `truncate`(:724)로 잘린다.
             ⚠️ **두 잠금 사유를 따로 재야 한다.** `cardLocked`(수준 잠김)와
             `lockedHint`(순차 잠김)는 문구도 폭도 다르고, 순차 잠김은 **어느
             난이도에서나** 나므로 가장 넓은 배지(en Elementary 64px)와 만난다 —
@@ -710,7 +710,7 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
             「칸 187px」은 **칸** 폭 인용값이고 이 행의 기준이 아니다. en에서
             `Elementary`(64) + 6 + 「Above your level」(92) = 162 > 158로 줄임표가
             났고, 그래서 en 사유 문구 2건을 줄였다(🔒도 en `lockedHint`에서 뺐다 —
-            자물쇠는 :672에 이미 있다). 측정 근거·후보·미적용 축약안은
+            자물쇠는 :674에 이미 있다). 측정 근거·후보·미적용 축약안은
             `i18n/resources/board.en.js`의 difficulty1~3 주석이 소유한다. */}
         <div className="mt-auto flex items-center gap-1.5 pt-2">
           <DifficultyBadge difficulty={puzzle.difficulty} compact={locked} />

@@ -62,7 +62,7 @@ export default {
       // ⚠️ **MEASURED 2026-08-18 — leave these three labels alone.**
       //    Badge row inner width **158px** (xl 1920), gap 6px. The badge is
       //    `shrink-0` (BoardPage.jsx:76) so it never yields width; the lock
-      //    reason absorbs the whole loss via `truncate` (BoardPage.jsx:722).
+      //    reason absorbs the whole loss via `truncate` (BoardPage.jsx:724).
       //    Measured: Elementary 64 · Mid & high 59 · Adult 30 · 중·고등(ko) 32.
       //    Against the **old** `cardLocked` 'Above your level' (92px):
       //      Elementary  64+6+92 = 162 > 158  → 🔴 ellipsis
@@ -154,7 +154,7 @@ export default {
       // sits at any difficulty, so it routinely faces the widest badge
       // (Elementary 64px → only 88px left), and it carried a 🔒 the level-lock
       // string had already dropped — the lock is already drawn at the card's
-      // top-right (BoardPage.jsx:672), so the emoji was duplicate width.
+      // top-right (BoardPage.jsx:674), so the emoji was duplicate width.
       // Old string ≈ 121px + emoji ≈ 14px, far past 88px.
       // 🔴 **This is the tighter of the two and it is NOT certified.**
       // Predicted ≈ 77–80px (12 letters + 1 space at 6.14–6.4px/letter) →
