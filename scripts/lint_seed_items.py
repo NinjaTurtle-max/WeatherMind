@@ -14,7 +14,7 @@
 #   python scripts/lint_seed_items.py database/seed/staging/au1_weather_items.json
 #   python scripts/lint_seed_items.py <파일> --base database/seed/content_items.json
 #
-# 검사 5종 (문항마다 전부 실행 — 첫 탈락에서 멈추지 않는다):
+# 검사 6종 (문항마다 전부 실행 — 첫 탈락에서 멈추지 않는다):
 #   ① gate1    validate_chain.run_heuristic_checks — LLM 무관·결정적 1차 게이트.
 #              서버 전개형(expand_like_server)에 적용한다.
 #   ② payload  ⓐ 프론트 렌더 필수 필드(REQUIRED_FIELDS — 아래 소유자 주석)가
@@ -61,6 +61,22 @@
 #              어휘를 박지 않는다(교육과정 근거가 데이터와 같은 곳에 있어야 개정된다).
 #              발단: 본시드 [86] middle_high ordering의 정답 항목이 권운·권층운·
 #              고층운·난층운이었다(중학 교육과정 밖 십운형 명칭).
+#   ⛔ **⑥ⓐ(해설–정답 위치 모순)는 없다 — 2026-08-19에 절제했다.**
+#              그 검사는 서수 주변의 낱말로 「이 자리는 틀렸다/맞다」를 **기계가
+#              판정**하려 했고, 세 라운드 내내 **매번 다른 언어적 이음매에서 새
+#              오탐**이 났다(창 → 문맥어 → 부정 범위 → 대조절 → 수량 토큰).
+#              실현된 결과가 판정 근거다: **실제 적발 0건 · 실제 오탐 3라운드.**
+#              같은 부류의 실사례 2건은 **둘 다 사람이** 잡았다(쌍둥이 유사도 +
+#              읽기 · 인구 세기 + 읽기). 재현율은 어휘에서 왔고 실패는 판정에서 왔다.
+#              ⇒ 경계를 이렇게 긋는다:
+#              **스캔 층(서수+명사 참조 탐지)은 남고, 판정 층(극성 휴리스틱)이
+#              나간다 — 판정 층은 사람이다.**
+#              자리 참조 문항의 **열거는 ⑥ⓑ 래칫이 이미 한다**(명사 있는 서수) —
+#              명사 없는 것까지 합쳐 십여 건이라 사람이 한 번에 읽는다(소유 = 표본
+#              검수). 기계로 강제할 수 있는 더 강한 규칙은 **자리 참조 자체를
+#              금지하고 극성은 판정하지 않는 것**이고, 그것이 곧 ⑥ⓑ다.
+#              재개봉 조건은 **생성 규모 저작** — 그때는 축이 낱말표가 아니라 LLM
+#              게이트다. 경위·이월 행은 docs/team/CARRYOVER_R13.md.
 #
 # 검사 로직은 전부 author_items.py에서 **import 재사용**한다(사본 금지 —
 # expand_like_server·payload_contract_errors·dedupe_keys·_failed_names,
@@ -81,6 +97,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import re
 import sys
 from collections import Counter
 from dataclasses import dataclass, field
@@ -91,6 +108,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import author_items  # noqa: E402  (검사 로직 단일 소유자 — 사본 금지)
+import shuffle_answer_positions as shuffle_tool  # noqa: E402  (서수 판정 단일 소유자)
 
 DEFAULT_SEED_PATH = author_items.DEFAULT_SEED_PATH
 VOCABULARY_PATH = author_items.REPO_ROOT / "database" / "seed" / "level_vocabulary.json"
@@ -376,7 +394,298 @@ def vocabulary_errors(item: dict, vocabulary: dict) -> list[str]:
     ]
 
 
-# 탈락 사유 카테고리 — 리포트는 항상 이 6종을 0건 포함해 전부 출력한다.
+# ── ⑥ⓐ 해설–정답 위치 모순 — **절제됨 (2026-08-19)** ────────────────────────
+# 이 자리에 `claim_polarity`·`GATE_WRONG_CONTEXT`·`GATE_RIGHT_CONTEXT`·
+# `_NEGATORS`·`hint_position_errors`가 있었다. **되살리지 말 것** — 세 라운드가
+# 전부 이 판정을 고쳤고 매번 다른 언어적 이음매에서 새 오탐이 났다. 3차 리뷰의
+# 결정적 증거는 **같은 문형이 한 방향에서 오탐, 반대 방향에서 미탐**이었다:
+#   · 「네 번째 선지가 정답처럼 보이기 쉽다」  → 오탐(맞는 해설을 규탄)
+#   · 「세 번째 선지는 오답이고 나머지가 정답이다」 → **미탐인데 이것이 잡으려던 결함**
+# 그리고 「`반대`·`어긋`은 wrong 방향이라 오탐을 만들 수 없다」던 단정도 거짓이었다:
+#   · 「두 번째 선지처럼 북반구와 남반구는 회전 방향이 반대다」(정답 2번) → 오탐
+#     — **`반대`는 판정어가 아니라 기상 일반 어휘**다.
+# 실현된 결과: **실제 적발 0건 · 실제 오탐 3라운드.** 실사례 2건은 둘 다 사람이 잡았다.
+# ⇒ **스캔 층(서수+명사 참조 탐지)은 남고, 판정 층(극성 휴리스틱)이 나간다 —
+#    판정 층은 사람이다.** 표적 결함은 사라지지 않았고 **⑥ⓑ가 자리 참조 자체를**
+#    막는다(극성을 묻지 않는 더 강한 규칙). 열거는 ⑥ⓑ 래칫 + 명사 없는 서수 목록이
+#    하고, 읽는 것은 표본 검수(사람)다. 재개봉 조건은 생성 규모 저작이며 그때의 축은
+#    낱말표가 아니라 LLM 게이트다. 이월 행: docs/team/CARRYOVER_R13.md.
+
+# ── ⑥ⓑ 해설의 선지 위치 참조 (MT-15 재발 방지) ──────────────────────────────
+def hint_ordinal_errors(item: dict) -> list[tuple[str, str]]:
+    """객관식 해설이 선지를 **자리로** 가리키는가 (정오가 맞아도 탈락).
+
+    ⓐ와 사유가 다르다: 이쪽은 **지금 틀린 것이 아니라 셔플하면 틀려지는 것**이다.
+    그래서 처방도 다르다 — ⓐ는 정오를 고치고, ⓑ는 자리 대신 **내용**으로 가리킨다.
+
+    왜 정오가 맞아도 거는가:
+      · `shuffle_answer_positions`가 이런 문항을 **셔플 대상에서 뺀다**(--remap-hints
+        없이는 건너뛰고, 명사 없는 서수는 옵션과 무관하게 건너뛴다). 곧 MT-15가
+        고치려던 정답 위치 쏠림에서 **이 문항들만 영구히 남는다**.
+      · 손으로 선지 순서를 만지는 순간 ⓐ가 된다. 그 도구의 전신이 실제로 9건을
+        깨뜨렸고 3건이 정답을 오독이라 말했다.
+      · 저작이 이 결함을 고치는 게 아니라 **증폭시킨다** — MT-15 실측 84 → 311건.
+
+    판정은 `hint_uses_ordinals`(명사 가드 있음)만 쓴다. 명사 없는 서수
+    (`hint_has_bare_ordinal`)까지 걸면 「두 번째 **몫**」 같은 정상 서술이 걸린다.
+
+    ⚠️ **여기 적혀 있던 「본시드 실측 4건」은 시드가 272건이던 때의 값이었다**
+    (2026-08-18 정정). 재실측: **시드 1,018건 · mc 310건 기준 3건**(문항 수이고 서수
+    출현 수가 아니다). 3건 중 **1건**(「두 번째 몫」)이 선지와 무관한 정상 서술이고
+    **2건**은 실제 선지 참조라 **의도된 미탐**이다(그 맞바꿈은
+    `test_명사_없는_자리_참조는_파이프라인이_그냥_지나친다`가 소유한다).
+    ⚠️ 인용할 때는 **잰 날과 시드 건수를 함께** 적을 것 — 그러지 않아서 낡았다.
+    """
+    if item.get("question_type") != "multiple_choice":
+        return []
+    hint = str((item.get("template_json") or {}).get("explanation_hint") or "")
+    if not shuffle_tool.hint_uses_ordinals(hint):
+        return []
+    match = shuffle_tool.ORDINAL_WITH_NOUN_RE.search(hint)
+    return [
+        (
+            "ordinal_ref",
+            f"해설이 선지를 자리로 가리킨다(「{match.group(0)}」) — 순서를 섞으면"
+            " 다른 선지를 가리키게 되고, 그때까지 셔플 대상에서 빠진다."
+            " 선지 **내용**으로 가리켜 저작할 것",
+        )
+    ]
+
+
+# ── ⑥ⓒ 채점 정합 (MT-14 「오독이 정답 처리 · 맞는 답이 오답 처리」) ──────────
+@dataclass(frozen=True)
+class GradingContract:
+    """채점기 상수 — backend `answer_service`에서 실임포트한 값 (사본 금지).
+
+    ⚠️ `author_items.SLIDER_MIN_SPAN`(=40)은 **저작·생성 시점의 권고**를 손으로
+    적어 둔 수치이지 채점기가 쓰는 값이 아니다. 여기서 그것을 재사용하면 관용오차가
+    바뀌는 날 두 숫자가 갈린다 — 판정은 **실제로 채점하는 상수**로 한다.
+    """
+
+    slider_tolerance: float
+
+
+def load_grading_contract() -> GradingContract:
+    """`answer_service.SLIDER_TOLERANCE`를 backend에서 실임포트한다.
+
+    load_render_required와 같은 관례(사본 금지). 실패하면 예외를 올린다 —
+    검사가 조용히 꺼지면 규칙이 없는 것과 같다(load_vocabulary 주석과 같은 판단).
+    """
+    mods = author_items._import_isolated(
+        author_items.BACKEND_DIR, ("app.services.answer_service",)
+    )
+    return GradingContract(
+        slider_tolerance=float(mods["app.services.answer_service"].SLIDER_TOLERANCE)
+    )
+
+
+# 정답이 「숫자+단위」로 붙어 있는 형태 — 소수점·자릿수 쉼표는 단위로 읽지 않는다.
+# ⚠️ **자릿수 콤마를 반드시 뚫어야 한다**(2026-08-14 코드 리뷰 실행 재현).
+# 초판은 `^-?\d+(?:\.\d+)?\s*(...)$`라 **`'1,000mm'`가 None**이 됐다 — 이 검사가
+# 잡으라는 바로 그 결함(숫자+단위 결합 정답)이 **네 자리부터 통째로 빠져나갔다.**
+# 기상 수치는 네 자리가 흔하다(강수량·고도·기압). 콤마 그룹을 명시로 받는다.
+# ⚠️ 캡처는 **하나뿐**이어야 한다 — 소비처가 `match.group(1)`으로 단위를 빼서
+# 「맨 숫자」를 만들어 메시지에 넣는다. 콤마형을 별도 대안으로 병기하면 한쪽이
+# None이 되어 그 자리에서 죽는다. 그래서 숫자부만 갈라 하나의 그룹을 유지한다.
+# ⚠️ **세 형태를 더 뚫는다**(2026-08-18 리뷰 5번 실행 재현):
+#   · `30m3`·`5km2` — **단위 안에 숫자**가 있어 종전 `[^\d\s.,]+`가 못 받았다
+#     (면적·부피 단위는 기상 문항에 흔하다)
+#   · `1 000mm` — **공백 자릿수 구분**(유럽식·조판 관례)
+# 숫자부와 단위부를 각각 넓히되 **캡처는 하나로 유지**한다 — 소비처가
+# `match.group(1)`으로 단위를 떼서 「맨 숫자」를 만든다.
+_ANSWER_WITH_UNIT_RE = re.compile(
+    r"^-?(?:\d{1,3}(?:[,\s]\d{3})+|\d+)(?:\.\d+)?\s*"
+    r"([^\d\s.,][^\s.,]*)$"
+)
+
+# ⚠️ **정규식만으로는 「수치+단위」와 「숫자로 시작하는 낱말」을 못 가른다**
+# (2026-08-18 리뷰 결함 5 실행 재현): 「2차전지」·「1등성」·「3중수소」·「4계절」이
+# 전부 탈락하면서 **틀린 조치를 지시했다** — 「정답을 맨 숫자로」는 정답을 「2」로
+# 만들라는 뜻이다. 지문을 파싱해 단위를 찾는 대안보다 **화이트리스트**가 낫다.
+#
+# 목록은 **추측이 아니라 실측**이다(2026-08-18 · 시드 1,018건):
+#   · slider `template_json.unit` 필드 전건(67건 25종) — 이 저장소가 「단위」라고
+#     부르는 것의 소유자다. 지문의 「(단위: X)」 26건은 그 부분집합이라 겹친다.
+#   · `년` — typed 정답에서 관측됐던 유일한 단위 결합(「30년」). ⚠️ 그 문항은
+#     수리돼 지금 시드에는 **0건**이고 `answer_unit_suffix` 래칫 항이 낡았다.
+#     어휘는 남긴다 — 2026-08-14 계약 픽스처가 이 형태를 못박고 있다.
+#   · `m2`·`m3`·`km2` — 관측된 상첨자 족(`W/m²`·`㎍/㎥`·`만 m³`)의 ASCII 표기이고,
+#     2026-08-18 리뷰 5번이 계약 픽스처로 못박은 형태다(`30m3`·`5km2`).
+# **관측 안 된 단위는 넣지 않는다.** 그 대가로 받아들이는 미탐: 목록 밖 단위가
+# 붙은 정답(예: 맨 `m`) · 공백이 든 단위(`만 m³` — 정규식이 애초에 공백을 못 받는다).
+MEASURED_UNITS: frozenset[str] = frozenset({
+    "℃", "℃/km", "K", "%", "m/s", "kt", "노트", "hPa", "mm", "cm", "㎍/㎥",
+    "W/m²", "cal", "kcal", "kg", "mL", "ppm", "도", "월", "시간", "년",
+    "가지", "등분", "개", "배", "m2", "m3", "km2",
+})
+
+# 문자열 일치로 채점하는 유형 (`answer_service.GRADERS`의 `_grade_text` 대상 중
+# **학습자가 직접 입력하는** 둘). multiple_choice도 같은 채점기를 쓰지만 학습자는
+# 선지를 고를 뿐이라 표기 문제가 생기지 않는다.
+_TYPED_ANSWER_TYPES: tuple[str, ...] = ("short_answer", "cloze")
+
+
+def grading_errors(item: dict, *, grading: GradingContract) -> list[tuple[str, str]]:
+    """채점기에 걸어 보면 **문항이 성립하지 않는** 것 (MT-14의 채점 결함 2종).
+
+    ⑴ **오독이 정답 처리** — slider의 눈금 전 구간이 채점 관용오차 안에 들어가면
+       학습자가 무엇을 짚어도 정답이다. `_grade_slider`의 오차는 **절대값**
+       (`SLIDER_TOLERANCE`)이라 범위가 좁을수록 판정이 무의미해진다. 정답률이
+       1.0으로 고정되므로 **θ·BKT가 그것을 능력으로 읽는다** — 배치고사·적응
+       출제·숙련도 표시가 전부 그 위에 얹혀 있다.
+       ⚠️ 범위·숫자 여부는 여기서 보지 않는다 — 게이트 ①의 `slider_range`가
+       이미 본다. 같은 결함을 두 번 보고하면 리포트가 시끄러워진다.
+    ⑵ **맞는 답이 오답 처리** — short_answer·cloze는 공백·대소문자만 무시하는
+       **완전 일치**로 채점한다(`_grade_text`). 정답이 「30년」이면 「30」이라고
+       쓴 학습자가 틀린 것이 되는데, 그 학습자는 자기가 왜 틀렸는지 알 수 없다.
+       본시드의 관례는 **맨 숫자**이고(단위는 지문·빈칸 뒤에 둔다), 이 검사는
+       그 관례를 게이트로 세운다.
+
+    board는 대상이 아니다 — 규칙 엔진이 재판정하므로 정답 문자열이 채점에 쓰이지
+    않는다(`_grade_board`).
+    """
+    template = item.get("template_json") or {}
+    question_type = item.get("question_type")
+    answer = template.get("correct_answer")
+    errors: list[tuple[str, str]] = []
+
+    if question_type == "slider":
+        low, high = template.get("min"), template.get("max")
+        try:
+            value, low, high = float(answer), float(low), float(high)
+        except (TypeError, ValueError):
+            return errors  # 숫자·범위 결손은 ①(slider_range)의 몫
+        tol = grading.slider_tolerance
+        if abs(low - value) <= tol and abs(high - value) <= tol:
+            errors.append(
+                (
+                    "slider_indiscriminate",
+                    f"슬라이더 전 구간[{low:g}, {high:g}]이 채점 관용오차"
+                    f" ±{tol:g} 안이라 **어떤 값을 짚어도 정답**이다"
+                    f" (정답 {value:g}). 범위를 넓히거나 다른 유형으로 낼 것",
+                )
+            )
+
+    if question_type in _TYPED_ANSWER_TYPES:
+        match = _ANSWER_WITH_UNIT_RE.match(str(answer or "").strip())
+        # 접미가 **관측된 단위**일 때만 조치를 지시한다 — 아니면 「2차전지」 같은
+        # 일반 낱말이고, 그것을 맨 숫자로 만들라는 안내는 정답을 망가뜨린다.
+        if match and match.group(1) in MEASURED_UNITS:
+            errors.append(
+                (
+                    "answer_unit_suffix",
+                    f"정답이 숫자+단위 결합('{answer}')이라 완전 일치 채점에서"
+                    f" 「{str(answer).replace(match.group(1), '').strip()}」이"
+                    " 오답 처리된다. 단위는 지문·빈칸 뒤에 두고 정답은 맨 숫자로",
+                )
+            )
+
+    return errors
+
+
+# ── 기지 잔여 (래칫) ─────────────────────────────────────────────────────────
+# ⑥ 계열은 **이미 저작된 1,012건에 잔여가 있다.** 셋 중 하나를 골라야 했다:
+#   ⓐ 탈락으로 센다 → 게이트가 첫날부터 붉고, 그 압력이 게이트를 약화시킨다
+#     (모듈 머리 ④의 `--staging` 중복 판단이 같은 이유로 같은 선택을 했다).
+#   ⓑ 경고로만 낸다 → 저작 배치가 도는 바로 그 주에 아무것도 못 막는다.
+#   ⓒ **래칫** — 아래 목록에 있는 것만 통과하고 **새로 생기면 탈락한다.**
+# ⓒ를 골랐다. 이 결함군이 위험한 이유가 "지금 몇 건인가"가 아니라 **"저작이
+# 진행되면 늘어난다"**이기 때문이다(MT-15 실측 84 → 311건, 3.7배).
+#
+# 의미는 **부분집합**이다(같음이 아니다): 저작 담당이 문항을 고치면 항목이 낡을
+# 뿐 CI는 붉어지지 않는다 — 파일 소유가 갈린 사람에게 남의 파일을 고치게 만들지
+# 않는다. 낡은 항목의 청소는 선택이다.
+#
+# 키는 **question_text 원문**이다. 인덱스는 저작 한 건에 밀리고(실측 207건 재배치),
+# 해설 문자열은 --remap-hints가 바꾼다. 대조는 author_items.dedupe_keys와 같은
+# 정규화(normalize_text)를 쓴다 — 중복 판정과 키 규칙이 두 벌이 되지 않게.
+#
+# ⚠️ **이 목록이 곧 「사람이 읽을 자리 참조 문항 열거」다**(2026-08-19). ⑥ⓐ 절제로
+# 극성을 기계가 판정하지 않게 됐으므로, 「이 해설이 실제로 정오를 뒤집어 말하는가」의
+# 판정은 표본 검수(사람)가 이 열거를 읽어서 한다. 명사 **없는** 서수는 여기 안 잡히니
+# 함께 읽어야 하고, 그 목록·인구는 test_factuality_gate의 미탐 픽스처가 날짜와 함께
+# 들고 있다(휘발성이라 인용할 때 날짜를 볼 것).
+FACTUAL_BASELINE: dict[str, dict[str, str]] = {
+    # 자리 참조 7건 — 전부 **가리키는 정오는 맞다**(2026-08-14 전건 확인). 지금
+    # 틀린 것이 아니라 셔플에서 빠져 있고, 손으로 순서를 만지는 순간 틀려지는 잠복분이다.
+    # 해소: 해설을 선지 내용 참조로 고쳐 저작(그러면 다음 셔플에서 자동으로 풀린다).
+    "ordinal_ref": {
+        "라니냐가 발달한 해에 적도 태평양에서 나타나는 상태로 가장 알맞은 것은 무엇인가?": (
+            "「두 번째 선지」 — 정오는 맞다(2번은 엘니뇨 설명). 셔플 제외분."
+        ),
+        (
+            "같은 크기의 기압 경도가 걸린 두 지점이 있다. 한 곳은 위도 20도, 다른 곳은 위도 60도이고"
+            " 둘 다 마찰이 거의 없는 상공이다. 전향력 인자는 위도가 높을수록 커진다."
+            " 두 곳 지균풍의 풍속을 비교한 것으로 옳은 것은?"
+        ): "「네 번째 선지」+「세 번째」 — 정오는 맞다. 셔플 제외분.",
+        (
+            "겨울 눈이 두껍게 덮인 벌판에서는 낮에도 기온이 잘 오르지 않고 밤에는 유난히 강한"
+            " 역전층이 생긴다. 낮과 밤을 함께 설명한 것으로 옳은 것은?"
+        ): "「두 번째 선지」 — 정오는 맞다. 셔플 제외분.",
+        (
+            "같은 햇빛을 받는 도심 아스팔트 광장과 교외 잔디밭에서 낮 기온을 재니 광장 쪽이 훨씬"
+            " 높았다. 두 지면이 받은 태양 에너지가 쓰이는 방식을 비교한 것으로 옳은 것은?"
+        ): "「세 번째 선지」 — 정오는 맞다. 셔플 제외분.",
+        (
+            "온난화로 극지방이 중위도보다 더 크게 데워지면 남북 기온 차가 줄어든다. 상층 서풍의"
+            " 세기가 남북 기온 차에 좌우된다고 볼 때 중위도 날씨에 기대되는 변화로 옳은 것은?"
+        ): "「네 번째 선지」 — 정오는 맞다. 셔플 제외분.",
+        (
+            "같은 세기의 습한 남서풍이 완만한 구릉과 급한 산 사면에 각각 부딪힌다. 지형이 공기를"
+            " 밀어 올리는 속도는 풍속과 사면 기울기의 곱으로 어림한다. 두 곳의 비를 비교한 것으로"
+            " 옳은 것은?"
+        ): "「첫 번째 선지」 — 정오는 맞다. 셔플 제외분.",
+        (
+            "봄철 오후 산불 현장에서 상대습도가 급격히 떨어지고 바람이 돌풍성으로 바뀌었다. 같은"
+            " 시각 혼합층은 3km까지 깊어져 있었다. 이 변화를 설명한 것으로 옳은 것은?"
+        ): "「마지막 선지」 — 정오는 맞다. 셔플 제외분.",
+    },
+    # 슬라이더 변별 불능 6건 — 관용오차 ±10이 눈금 전체를 덮는다. **문항이 틀린
+    # 게 아니라 채점이 성립하지 않는다**: 정답률이 1.0으로 고정돼 θ·BKT를 오염시킨다.
+    # 해소: 범위를 넓히거나(관용오차의 4배 = author_items.SLIDER_MIN_SPAN이 권고)
+    # 애초에 슬라이더로 낼 값이 아니면 다른 유형으로 재저작.
+    "slider_indiscriminate": {
+        (
+            "파리협정에서 세계 각국은 지구 평균기온 상승 폭을 산업화 이전 대비"
+            " 몇 ℃보다 훨씬 낮게 억제하기로 합의했는가? (단위: ℃)"
+        ): "범위 0~5℃ — 소수 스케일이라 ±10이 전 구간을 덮는다.",
+        "물 1g의 온도를 1℃ 올리는 데 필요한 열량은 몇 cal인가? (단위: cal)": (
+            "범위 0~10cal — 값 자체가 작아 슬라이더와 맞지 않는다."
+        ),
+        "물의 밀도가 가장 커지는 온도는 약 몇 ℃인가? (단위: ℃)": "범위 0~10℃.",
+        (
+            "물은 얼음, 물, 수증기처럼 모습을 바꾼다. 물이 가질 수 있는 상태는"
+            " 모두 몇 가지인가? (단위: 가지)"
+        ): "범위 0~6가지 — 개수를 묻는 문항이라 슬라이더가 구조적으로 안 맞는다.",
+        (
+            "어느 맑은 날 지표 기온이 20℃, 높이 1km 지점의 기온이 12℃로 관측됐다."
+            " 주변 공기가 높이 1km마다 식는 정도인 환경 감률은 몇 ℃/km인가? (단위: ℃/km)"
+        ): "범위 0~15℃/km — 감률 계열은 스케일이 작다.",
+        "우리나라에 태풍이 가장 많이 오는 달은 몇 월인지 슬라이더로 표시하라.": (
+            "범위 1~12월 — 달을 묻는 문항이라 눈금 폭이 12를 넘을 수 없다."
+        ),
+    },
+    # 단위 결합 정답 1건 — 본시드 관례(맨 숫자)의 유일한 예외다.
+    "answer_unit_suffix": {
+        (
+            "어떤 지역의 기후를 말할 때 기준으로 삼는, 세계기상기구가 정한"
+            " 평년값의 산출 기간은 몇 년인가?"
+        ): "정답 '30년' — 「30」이 오답 처리된다. 지문이 이미 「몇 년」이라 단위 중복.",
+    },
+}
+
+
+def baseline_index() -> dict[str, set[str]]:
+    """래칫 목록을 대조용 정규화 키로 편다 — 키 규칙은 dedupe_keys와 같다."""
+    return {
+        code: {author_items.normalize_text(text) for text in texts}
+        for code, texts in FACTUAL_BASELINE.items()
+    }
+
+
+# 탈락 사유 카테고리 — 리포트는 항상 이 8종을 0건 포함해 전부 출력한다.
+# ⚠️ 종전 9종이었다. `fact_hint`(⑥ⓐ)는 2026-08-19에 절제됐고 **생산자가 없는 단계를
+# 리포트에 남기지 않는다** — 영구 0건은 「검사하고 있다」는 거짓 신호가 된다.
 STAGES: tuple[tuple[str, str], ...] = (
     ("gate1", "① 1차 게이트 탈락 (휴리스틱)"),
     ("payload", "② payload 계약 탈락"),
@@ -384,6 +693,8 @@ STAGES: tuple[tuple[str, str], ...] = (
     ("dup_file", "④ 중복 (파일 내)"),
     ("dup_base", "④ 중복 (본시드 대조)"),
     ("vocab", "⑤ 단계 금칙 어휘"),
+    ("fact_ordinal", "⑥ⓑ 해설의 선지 위치 참조"),
+    ("fact_grading", "⑥ⓒ 채점 정합 (관용오차·정답 표기)"),
 )
 
 
@@ -400,6 +711,9 @@ class Finding:
 class LintResult:
     total: int = 0
     findings: list[Finding] = field(default_factory=list)
+    # 래칫 목록에 있어 탈락시키지 않은 ⑥ 계열 적발 — **숨기지 않고 따로 센다.**
+    # 조용히 빼면 목록이 잊히고, 잊힌 예외는 규칙이 없는 것과 같다.
+    baseline: list[Finding] = field(default_factory=list)
 
     @property
     def stage_counts(self) -> Counter:
@@ -417,9 +731,14 @@ def lint_items(
     ai: "author_items.AiWorkerApi",
     render_required: dict[str, tuple[str, ...]],
     vocabulary: dict,
+    grading: GradingContract,
     base_items: list[dict] | None = None,
 ) -> LintResult:
-    """전 문항에 5종 검사를 실행한다 (순수 함수 — 출력·exit 없음).
+    """전 문항에 **6종** 검사를 실행한다 (순수 함수 — 출력·exit 없음).
+
+    ⚠️ 종전 「5종」은 ⑥(사실성·채점 정합)을 더하면서 안 고친 자리다 — 같은 파일
+    머리 주석이 이미 「검사 6종」이었으므로 **한 파일 안에서 갈려 있었다**.
+    개수를 두 곳에 적으면 한쪽만 갱신된다.
 
     base_items가 주어지면(=staging lint) 본시드 대조 중복까지 본다.
     중복 비교는 정규화 키 set(O(n)) — dedupe_keys의 두 키(정규화 question_text /
@@ -427,6 +746,7 @@ def lint_items(
     단, 정답 키는 정규화 정답이 비어 있지 않은 문항만 참여한다(모듈 머리 ④ 주석).
     """
     result = LintResult(total=len(items))
+    baseline = baseline_index()
 
     def answer_key_active(item: dict) -> bool:
         template = item.get("template_json") or {}
@@ -461,6 +781,23 @@ def lint_items(
         def found(stage: str, reasons: list[str]) -> None:
             result.findings.append(Finding(i, stage, concept_tag, text, reasons))
 
+        def found_factual(stage: str, coded: list[tuple[str, str]]) -> None:
+            """⑥ 계열 — 래칫(FACTUAL_BASELINE)에 있는 코드·문항이면 탈락시키지 않는다.
+
+            판정은 **코드별**이다. 같은 문항이 다른 사유로 새로 걸리면 그때는
+            탈락한다 — 한 번 목록에 오른 문항이 이후 무엇을 해도 통과하는
+            「영구 면제」가 되지 않게.
+            """
+            text_key = author_items.normalize_text(text)
+            excused = [c for c in coded if text_key in baseline.get(c[0], set())]
+            live = [c for c in coded if c not in excused]
+            if excused:
+                result.baseline.append(
+                    Finding(i, stage, concept_tag, text, [r for _, r in excused])
+                )
+            if live:
+                found(stage, [r for _, r in live])
+
         # ① 1차 게이트 — 서버 전개형(flat)에 적용
         flat = author_items.expand_like_server(item)
         gate1_failed = author_items._failed_names(ai.gate1(flat, concept_tag or None))
@@ -492,6 +829,19 @@ def lint_items(
         vocab_errors = vocabulary_errors(item, vocabulary)
         if vocab_errors:
             found("vocab", vocab_errors)
+
+        # ⑥ⓐ는 없다 — 2026-08-19 절제(모듈 머리 ⛔). 극성을 기계가 판정하려던
+        #     자리이고, 표적 결함은 아래 ⑥ⓑ가 **자리 참조 자체를 금지**해 막는다.
+
+        # ⑥ⓑ 해설의 선지 위치 참조 — 정오가 맞아도 셔플에서 깨지므로 건다(래칫).
+        ordinal_errors = hint_ordinal_errors(item)
+        if ordinal_errors:
+            found_factual("fact_ordinal", ordinal_errors)
+
+        # ⑥ⓒ 채점 정합 — 채점기에 걸어 보면 문항이 성립하지 않는 것(래칫).
+        grade_errors = grading_errors(item, grading=grading)
+        if grade_errors:
+            found_factual("fact_grading", grade_errors)
 
         # ④ 중복 배제 — 본시드 대조(있으면) + 파일 내. 어느 키가 겹쳐도 중복
         #    (정답 키는 정규화 정답이 있는 문항만 — answer_key_active).
@@ -531,6 +881,17 @@ def format_report(
     for stage, label in STAGES:
         lines.append(f"  {author_items._pad(label, 34)}: {counts.get(stage, 0)}")
     lines.append(f"  {author_items._pad('통과(전 검사)', 34)}: {passed}")
+
+    if result.baseline:
+        # 래칫 잔여는 **탈락이 아니지만 숨기지도 않는다** — 모듈 머리 「기지 잔여」
+        # 참조. 건수가 줄면 저작이 갚은 것이고, 늘면 목록을 늘린 사람이 있는 것이다.
+        lines += [
+            "",
+            f"기지 잔여 (⑥ 래칫 — 탈락 아님, 저작이 갚을 몫): {len(result.baseline)}건",
+        ]
+        for f in result.baseline:
+            head = f.question_text[:48] + ("…" if len(f.question_text) > 48 else "")
+            lines.append(f"    - [{f.index}] ({f.concept_tag}) {head}")
 
     lines += ["", "탈락 상세:"]
     if not result.findings:
@@ -640,6 +1001,7 @@ def main(argv: list[str] | None = None) -> int:
         ai = author_items.load_ai_worker(with_generator=False)
         render_required = load_render_required()
         vocabulary = load_vocabulary()
+        grading = load_grading_contract()
     except Exception as exc:
         print(f"[lint_seed_items] 파이프라인 로드 실패: {exc}", file=sys.stderr)
         return 2
@@ -649,6 +1011,7 @@ def main(argv: list[str] | None = None) -> int:
         "ai": ai,
         "render_required": render_required,
         "vocabulary": vocabulary,
+        "grading": grading,
     }
 
     if args.staging:
