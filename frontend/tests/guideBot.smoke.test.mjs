@@ -175,9 +175,23 @@ try {
   const bubbleMt = Number(botSrc.match(/className="relative -mt-(\d+) /)?.[1]);
   check(`ⓔ BUBBLE_OVERHANG(${overhang})이 말풍선 -mt-${bubbleMt}(=${bubbleMt * 4}px)와 같다`,
     Number.isFinite(overhang) && Number.isFinite(bubbleMt) && overhang === bubbleMt * 4);
-  check('ⓔ clamp()의 최소 y가 그 값을 더한다 — 안 더하면 말풍선 머리가 잘린다',
-    /Math\.min\(EDGE \+ BUBBLE_OVERHANG, maxY\)/.test(botSrc)
+  // 닫기 ✕도 절대 위치라 상자 밖으로 나간다(`-right-2 -top-2`). 좌우가 뒤집히기
+  // 전에는 ✕가 상자 **안쪽**을 향했는데, 말풍선이 오른쪽 끝이 되면서 오른쪽으로
+  // 삐져나왔다 — 봇을 오른쪽으로 끌면 닫기 버튼이 잘려 **말풍선을 못 닫는다**
+  // (2026-08-18 코드 리뷰). 세 값이 한 묶음이라 짝으로 문다.
+  const dismiss = Number(botSrc.match(/const DISMISS_OVERHANG = (\d+);/)?.[1]);
+  const dismissCls = botSrc.match(/data-testid="guide-bot-dismiss"[\s\S]{0,400}?className="absolute -right-(\d+) -top-(\d+)/);
+  check(`ⓕ DISMISS_OVERHANG(${dismiss})이 ✕의 -right-${dismissCls?.[1]}(=${Number(dismissCls?.[1]) * 4}px)와 같다`,
+    Number.isFinite(dismiss) && dismiss === Number(dismissCls?.[1]) * 4 && dismissCls?.[1] === dismissCls?.[2]);
+  check('ⓕ clamp()의 최대 x가 ✕ 몫을 뺀다 — 안 빼면 닫기 버튼이 화면 밖으로 잘린다',
+    /maxX = Math\.max\(EDGE, vw - w - EDGE - DISMISS_OVERHANG\)/.test(botSrc));
+  check('ⓔ clamp()의 최소 y가 말풍선+✕ 몫을 더한다 — 안 더하면 머리가 잘린다',
+    /Math\.min\(EDGE \+ BUBBLE_OVERHANG \+ DISMISS_OVERHANG, maxY\)/.test(botSrc)
       && /Math\.max\(pos\.y, minY\)/.test(botSrc));
+  // ⚠️ `innerWidth`는 스크롤바 폭을 **포함**한다(`html`에 scrollbar-gutter: stable
+  //    이라 항상 자리를 차지한다) — 그대로 쓰면 봇이 그 15px 아래로 파고든다.
+  check('ⓕ 뷰포트를 documentElement.clientWidth로 잰다 — innerWidth는 스크롤바를 포함한다',
+    /documentElement\?\.clientWidth/.test(botSrc) && !/win\.innerWidth - w/.test(botSrc));
   check('ⓒ 꼬리가 캐릭터 쪽(왼쪽)을 가리킨다',
     /-left-\[5px\][^"]*border-b border-l/.test(botSrc));
   // ⓓ 말풍선을 **얼굴 높이**에 맞춘다(2026-08-17 사용자 지시). 바닥 정렬이면

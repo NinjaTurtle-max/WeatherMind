@@ -52,7 +52,6 @@ export function CloudShape({ fill = C.cloud, y = -3, scale = 1, opacity = 1 }) {
   );
 }
 
-/** 태양 (원 + 8방위 광선) */
 /**
  * 해 — 코어 원 + 광선 + **부드러운 후광 두 겹**.
  *

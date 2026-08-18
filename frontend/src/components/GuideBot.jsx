@@ -97,6 +97,18 @@ const EDGE = 8;
 const BUBBLE_OVERHANG = 16;
 
 /**
+ * 닫기 ✕가 **말풍선 밖으로** 더 삐져나오는 양(px) — `-right-2 -top-2`.
+ *
+ * 절대 위치라 이것도 상자 크기에 안 잡힌다. 좌우가 뒤집히기 전에는 말풍선이
+ * 캐릭터 **왼쪽**이라 ✕가 상자 안쪽을 향했는데(2026-08-17에 뒤집혔다), 지금은
+ * 말풍선이 오른쪽 끝이라 ✕가 상자 **오른쪽 밖**으로 나간다 — 봇을 오른쪽으로
+ * 끌면 닫기 버튼이 화면 밖으로 잘려 말풍선을 못 닫는다(2026-08-18 코드 리뷰).
+ *
+ * 위로는 말풍선 몫과 **합쳐서** 24px다(-mt-4 16 + -top-2 8).
+ */
+const DISMISS_OVERHANG = 8;
+
+/**
  * 드래그로 인정하는 최소 이동(px, 맨해튼 거리).
  *
  * 이 문턱이 없으면 **손떨림 한 픽셀이 드래그가 되어 클릭을 삼킨다**(말풍선을
@@ -123,13 +135,21 @@ function clamp(pos, win, node) {
   const rect = node?.getBoundingClientRect?.();
   const w = rect?.width || SIZE;
   const h = rect?.height || SIZE;
-  const maxX = Math.max(EDGE, win.innerWidth - w - EDGE);
-  const maxY = Math.max(EDGE, win.innerHeight - h - EDGE);
-  // 위쪽만 여백이 다르다 — 말풍선의 `-mt-4`가 상자 밖으로 삐져나오는데 그
-  // 삐져나온 만큼은 위 `rect`에 안 잡히기 때문이다(BUBBLE_OVERHANG 주석).
-  // `Math.min(…, maxY)`로 감싸는 것은 아주 낮은 창(maxY < 24)에서 최소가
+  // ⚠️ 뷰포트는 `innerWidth`가 아니라 **`documentElement.clientWidth`**로 잰다.
+  // innerWidth는 스크롤바 폭을 **포함**하는데(`html`에 `scrollbar-gutter: stable`
+  // 이라 항상 자리를 차지한다) 그대로 쓰면 봇이 그 15px 아래로 파고든다.
+  // 못 읽는 환경(구식 jsdom 등)에서만 innerWidth로 떨어진다.
+  const vw = win.document?.documentElement?.clientWidth || win.innerWidth;
+  const vh = win.document?.documentElement?.clientHeight || win.innerHeight;
+  // 오른쪽·위쪽은 여백이 다르다 — 절대 위치로 상자 **밖**에 그려지는 것들이
+  // `rect`에 안 잡히기 때문이다(BUBBLE_OVERHANG·DISMISS_OVERHANG 주석):
+  //   · 오른쪽 = 닫기 ✕의 `-right-2`(8)
+  //   · 위쪽   = 말풍선 `-mt-4`(16) + ✕의 `-top-2`(8) = 24
+  // `Math.min(…, maxY)`로 감싸는 것은 아주 낮은 창(maxY < 32)에서 최소가
   // 최대를 넘어 y가 거꾸로 튀는 것을 막기 위해서다.
-  const minY = Math.min(EDGE + BUBBLE_OVERHANG, maxY);
+  const maxX = Math.max(EDGE, vw - w - EDGE - DISMISS_OVERHANG);
+  const maxY = Math.max(EDGE, vh - h - EDGE);
+  const minY = Math.min(EDGE + BUBBLE_OVERHANG + DISMISS_OVERHANG, maxY);
   return {
     x: Math.min(Math.max(pos.x, EDGE), maxX),
     y: Math.min(Math.max(pos.y, minY), maxY),
