@@ -83,6 +83,20 @@ const SIZE = 128;
 const EDGE = 8;
 
 /**
+ * 말풍선이 상자 **위로** 삐져나오는 양(px).
+ *
+ * 말풍선에 `-mt-4`(=16px)가 붙어 있다(2026-08-17 "조금만 더 위로"). 음수 마진은
+ * **`getBoundingClientRect()`에 안 잡힌다** — 상자 높이는 여전히 캐릭터가 정하고,
+ * 말풍선의 위쪽 16px은 그 상자 **밖**에 그려진다. 그래서 `clamp()`가 y를 EDGE(8)
+ * 까지 허용하면 말풍선 머리 8px이 화면 위로 잘린다(드래그로 위로 끌면 재현된다).
+ * 아래 `clamp()`의 최소 y가 이 값을 더해 막는다.
+ *
+ * ⚠️ **`-mt-4`와 한 쌍이다.** 말풍선 마진을 바꾸면 여기도 같이 바꿀 것 —
+ * `tests/guideBot.smoke.test.mjs` ⑺가 두 값의 짝을 문다.
+ */
+const BUBBLE_OVERHANG = 16;
+
+/**
  * 드래그로 인정하는 최소 이동(px, 맨해튼 거리).
  *
  * 이 문턱이 없으면 **손떨림 한 픽셀이 드래그가 되어 클릭을 삼킨다**(말풍선을
@@ -111,9 +125,14 @@ function clamp(pos, win, node) {
   const h = rect?.height || SIZE;
   const maxX = Math.max(EDGE, win.innerWidth - w - EDGE);
   const maxY = Math.max(EDGE, win.innerHeight - h - EDGE);
+  // 위쪽만 여백이 다르다 — 말풍선의 `-mt-4`가 상자 밖으로 삐져나오는데 그
+  // 삐져나온 만큼은 위 `rect`에 안 잡히기 때문이다(BUBBLE_OVERHANG 주석).
+  // `Math.min(…, maxY)`로 감싸는 것은 아주 낮은 창(maxY < 24)에서 최소가
+  // 최대를 넘어 y가 거꾸로 튀는 것을 막기 위해서다.
+  const minY = Math.min(EDGE + BUBBLE_OVERHANG, maxY);
   return {
     x: Math.min(Math.max(pos.x, EDGE), maxX),
-    y: Math.min(Math.max(pos.y, EDGE), maxY),
+    y: Math.min(Math.max(pos.y, minY), maxY),
   };
 }
 
@@ -311,12 +330,16 @@ export default function GuideBot({ pathname = '/', state = {}, laneBusy = false,
       // 오른쪽으로 삐져나와 본문 위에 뜬다 — 그래서 아래 자식 순서가
       // **캐릭터 → 말풍선**이다.
       //
-      // ⚠️ **z가 `z-40` → `z-50`이다.** `SideNav`가 `z-50`이라 그대로 두면
-      // 캐릭터가 사이드바 **뒤로** 숨는다(왼쪽으로 옮기기 전에는 사이드바와
-      // 겹칠 일이 없어 z-40으로 충분했다). 같은 z에서는 DOM 뒤가 위로 오는데,
+      // ⚠️ **z는 `z-40`이고, 사이드바와 같은 값이다**(2026-08-17 코드 리뷰).
+      // 왼쪽으로 옮기면서 사이드바(당시 z-50) 뒤로 숨는 것을 막으려고 잠깐
+      // z-50으로 올렸는데, 그러면 **전체 화면 모달**(RegionPicker ·
+      // ConfirmDialog · PlacementFinalizing — 전부 `fixed inset-0 z-50`)
+      // **위로도** 올라가 그 구석의 클릭을 봇이 삼킨다. 그래서 봇을 올리는
+      // 대신 사이드바를 z-40으로 내렸다: 층위는 **셸(사이드바·봇) 40 < 모달 50**.
+      // 같은 40에서 봇이 사이드바를 덮는 것은 **DOM 순서** 덕이다 —
       // `Layout`이 `SideNav`(:211) → `TabBar`(:322) → `GuideBot`(:341) 순으로
       // 그리므로 이 노드가 마지막이다. ⚠️ Layout의 그 순서가 바뀌면 여기가
-      // 조용히 가려진다.
+      // 조용히 가려진다. ⚠️ 여기를 z-50으로 되돌리면 모달이 다시 먹힌다.
       //
       // ⚠️ **세로 정렬은 `items-start`다**(2026-08-17 — 종전 `items-end`).
       // 바닥에 맞추면 말풍선이 캐릭터 발치까지 내려와 **화면 맨 아래 줄을
@@ -324,7 +347,7 @@ export default function GuideBot({ pathname = '/', state = {}, laneBusy = false,
       // 위에 맞추면 말풍선이 캐릭터 **얼굴 높이**로 올라가고, 바닥 한 줄이
       // 비어 그 겹침이 사라진다. 캐릭터가 더 크므로 상자 높이는 그대로다
       // — 움직이는 것은 말풍선뿐이다.
-      className={`fixed bottom-20 left-4 z-50 flex cursor-grab touch-none select-none items-start gap-2 active:cursor-grabbing md:bottom-6 ${laneBusy ? LANE_YIELD_CLASS : ''}`}
+      className={`fixed bottom-20 left-4 z-40 flex cursor-grab touch-none select-none items-start gap-2 active:cursor-grabbing md:bottom-6 ${laneBusy ? LANE_YIELD_CLASS : ''}`}
     >
       <button
         type="button"
@@ -395,10 +418,11 @@ export default function GuideBot({ pathname = '/', state = {}, laneBusy = false,
           // (2026-08-17 사용자 지시 "조금만 더 위로"). 캐릭터 위로 살짝
           // 걸치는 자리가 얼굴 옆에 말풍선이 뜬 것처럼 읽힌다.
           // ⚠️ 음수 마진이라 말풍선이 상자 위로 **삐져나온다.** 상자 높이는
-          // 여전히 캐릭터(96/128px)가 정하므로 `clamp()`가 재는 값은 그만큼
-          // 짧다 — 봇이 화면 **아래쪽**에 사는 한 위로 밀려 잘릴 일이 없어
-          // 그대로 둔다. 기본 자리를 위로 옮기게 되면 `clamp`가 이 삐져나온
-          // 만큼을 함께 재도록 고쳐야 한다.
+          // 여전히 캐릭터(96/128px)가 정하므로 `getBoundingClientRect()`는 이
+          // 16px을 **안 센다.** 기본 자리는 아래쪽이라 문제가 없지만 봇은
+          // **드래그로 위로 끌 수 있으므로**, `clamp()`가 위쪽 최소 y에
+          // `BUBBLE_OVERHANG`을 더해 막는다(2026-08-17 코드 리뷰). 이 숫자를
+          // 바꾸면 그 상수도 같이 바꿀 것.
           className="relative -mt-4 max-w-[10.5rem] rounded-2xl bg-sky-50 px-4 py-3 text-sm leading-snug text-sky-900 shadow-lg ring-1 ring-sky-200 sm:max-w-[13rem] 2xl:max-w-[17rem]"
         >
           {/* 꼬리 — 캐릭터 쪽(왼쪽)을 가리킨다. 종전 오른쪽 꼬리

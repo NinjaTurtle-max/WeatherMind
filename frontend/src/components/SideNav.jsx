@@ -49,7 +49,16 @@ export default function SideNav() {
   return (
     <aside
       data-testid="sidenav"
-      className="fixed inset-y-0 left-0 z-50 hidden w-[var(--wm-shell-left)] flex-col gap-5 overflow-y-auto border-r border-slate-200 bg-sky-50 px-3.5 pb-4 pt-4 md:flex"
+      // ⚠️ **z-40이다**(2026-08-17 코드 리뷰 — 종전 z-50). 낮춘 것은 사이드바를
+      // 덜 중요하게 봐서가 아니라, `GuideBot`이 이 위에 떠야 하는데(왼쪽 하단
+      // 자리를 물려받았다) 그러려고 봇을 z-50으로 올렸더니 **전체 화면 모달
+      // (RegionPicker·ConfirmDialog·PlacementFinalizing — 전부 `fixed inset-0
+      // z-50`) 위로도 올라가** 그 구석의 클릭을 삼켰기 때문이다.
+      // 층위를 이렇게 정리한다: 셸(사이드바·봇) 40 < 모달 50.
+      // 봇은 같은 40이지만 `Layout`에서 **뒤에 그려져** 사이드바를 덮는다.
+      // ⚠️ 헤더·탭바는 z-50 그대로다 — 사이드바와 화면을 나눠 갖고 겹치지
+      //    않는다(헤더는 `left-[var(--wm-shell-left)]`, 탭바는 `md:hidden`).
+      className="fixed inset-y-0 left-0 z-40 hidden w-[var(--wm-shell-left)] flex-col gap-5 overflow-y-auto border-r border-slate-200 bg-sky-50 px-3.5 pb-4 pt-4 md:flex"
     >
       <Link
         to="/learn"
