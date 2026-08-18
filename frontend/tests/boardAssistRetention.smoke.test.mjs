@@ -344,7 +344,8 @@ try {
   // 그대로 흉내 내는 최소 하네스를 쓴다.
   await scenario('①안: N회 미통과 후 현상 해설이 열린다(그 전에는 안 열린다)', async () => {
     assert(EXPLAIN_AFTER_MISSES === 3,
-      `N이 바뀌었다(${EXPLAIN_AFTER_MISSES}) — 사다리 2단을 다 밟고도 틀린 시점이 근거다. `
+      `N이 바뀌었다(${EXPLAIN_AFTER_MISSES}) — 사다리 2단을 밟아 볼 기회가 있는 최소값이 근거다`
+      + '(힌트를 몇 단 켰는지는 조건이 아니다 — 아래 ⓔ). '
       + '바꾸려면 AtmosphereBoard.jsx의 근거 주석을 함께 고칠 것');
 
     // 이 퍼즐(수도권 소나기 · palette front:cold + moisture)의 성립 규칙
@@ -430,7 +431,21 @@ try {
     assert(!text().includes('한랭전선을 놓고'), '3단에서 문항 저작 hints가 렌더됐다');
     assert(!text().includes('습기를 60 이상'), '3단에서 문항 저작 hints의 임계 수치가 렌더됐다');
 
-    // ⓔ 해설이 열린 뒤에는 「힌트는 정답 배치를 알려주지 않아요」가 사라진다
+    // ⓔ **힌트를 한 번도 열지 않았는데 열렸다** — 그 분리가 계약이다.
+    // 승인된 계약(N-3 ①안)은 「3회 미통과 후」 그 자체이고 `hintLevel`을 조건으로
+    // 걸지 않는다(근거: AtmosphereBoard.jsx의 EXPLAIN_AFTER_MISSES 독스트링 —
+    // 오답은 구름을 태우고 힌트는 안 태우므로, 게이팅하면 힌트를 안 켠 **가장 막힌**
+    // 학습자가 도움에 닿으려고 돈 내는 오답을 더 하게 된다).
+    // 위 ⓐ~ⓒ 루프는 「힌트 보기」를 한 번도 누르지 않았다 — 그 사실 자체를 단정으로
+    // 못박아, `hintLevel` 게이팅이 나중에 「수정」으로 들어오거나 이 시나리오가
+    // 힌트를 먼저 켜도록 바뀌면 계약이 조용히 사라지지 않게 한다.
+    // ⚠️ 바로 아래 ⓕ가 CTA를 누르므로 이 단정은 **반드시 ⓕ 앞**에 있어야 한다.
+    assert(window.document.querySelector('[data-testid="board-hint"]')
+      ?.getAttribute('data-hint-level') === '0',
+      '이 시나리오가 힌트를 먼저 켰다 — 「힌트 없이 3회 미통과 → 공개」를 더 이상 검증하지 않는다');
+    assert(!text().includes('힌트 1:'), '힌트 1단이 열려 있다 — 위 단정과 함께 무너졌다');
+
+    // ⓕ 해설이 열린 뒤에는 「힌트는 정답 배치를 알려주지 않아요」가 사라진다
     // — 남겨두면 화면이 스스로 거짓말을 한다.
     click(findButton('힌트 보기'));
     await sleep(60);
