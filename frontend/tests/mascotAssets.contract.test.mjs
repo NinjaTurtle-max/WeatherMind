@@ -348,6 +348,19 @@ console.log('④ 화면마다 말하는 캐릭터는 하나 — 배너는 담당
       used === assigned[path],
       `${path} 배너 마스코트 = 담당표 (배너 ${used} · 표 ${assigned[path]})`,
     );
+    // ⓓ **배너만 보면 놓친다.** 화면 본문에도 캐릭터를 직접 그리는 자리가 있다
+    //    (리그의 「예측 제출됨」 카드가 그렇다). 2026-08-17에 리그 담당이
+    //    번개 → 눈송이로 바뀌었을 때 배너 셋만 따라오고 그 카드는 번개로
+    //    남아, **한 화면에서 두 캐릭터가 말했다** — 위 ⓒ는 초록이었다.
+    //    그래서 파일 안의 모든 마스코트 참조를 담당표와 대조한다.
+    const all = new Set([
+      ...src.matchAll(/mascot="([a-z]+)"/g),
+      ...src.matchAll(/<Mascot\s+name="([a-z]+)"/g),
+    ].map((m) => m[1]));
+    ok(
+      all.size === 1 && all.has(assigned[path]),
+      `${path} 화면의 캐릭터가 담당표 하나뿐이다 — 쓰인 것 ${JSON.stringify([...all])} · 표 ${assigned[path]}`,
+    );
   }
 }
 

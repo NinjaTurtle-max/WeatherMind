@@ -63,8 +63,8 @@ export default function ExploreHome() {
           소유자는 SideNav `TUTOR_BY_PATH`이고, 그 표와 여기가 **같아야** 한다
           (`tests/mascotAssets.contract.test.mjs` ④가 대조한다).
           ⚠️ 담당이 **번개**로 바뀌었다(2026-08-17 사용자 지시 — 종전 구름이).
-          번개는 리그 담당이기도 해서 두 화면이 한 캐릭터를 공유한다. 리그에는
-          배너가 없어 한 화면에 둘이 뜨는 일은 없다. */}
+          같은 날 잠깐 리그와 겹쳤으나, 리그가 **눈송이**를 받고 자기 배너를
+          갖게 되면서 풀렸다 — 지금은 화면마다 담당이 하나씩이다. */}
       <HeroBanner
         testId="explore-hero"
         mascot="bolt"

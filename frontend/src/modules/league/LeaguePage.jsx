@@ -374,7 +374,10 @@ function SubmittedCard() {
   return (
     <Card className="flex flex-col">
       <div className="flex items-start gap-3">
-        <Mascot name="bolt" className="h-14 w-14 shrink-0" />
+        {/* 눈송이 — 리그 담당(2026-08-17). `bolt`가 남아 있었는데 같은 날
+            탐구가 번개를 가져갔으므로, 예측을 제출하면 **배너의 눈송이 아래에
+            남의 화면 캐릭터**가 붙어 있었다(코드 리뷰가 잡았다). */}
+        <Mascot name="snow" className="h-14 w-14 shrink-0" />
         <div className="min-w-0">
           <p className="text-sm font-extrabold text-emerald-700">{t('league.submittedTitle')}</p>
           <p className="mt-1 text-[12px] leading-relaxed text-slate-500">{t('league.submittedBody')}</p>

@@ -47,8 +47,8 @@ export default {
       board: { name: 'Sunny', line: 'What weather shall we build?' },
       learn: { name: 'Dewey', line: 'How far shall we go today?' },
       duel: { name: 'Twister', line: 'Read the charts and call tomorrow!' },
-      // Explore switched from Cloud to Bolt (2026-08-17). Same character as
-      // the league — the league has no banner, so they never collide.
+      // Explore switched from Cloud to Bolt (2026-08-17). It briefly shared
+      // the character with the league until the league took Flake (below).
       explore: { name: 'Bolt', line: 'What shall we look into today?' },
       // League switched from Bolt to Flake (2026-08-17).
       league: { name: 'Flake', line: "Shall we climb this week's ranking?" },
