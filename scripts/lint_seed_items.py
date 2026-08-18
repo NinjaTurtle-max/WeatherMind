@@ -395,7 +395,37 @@ def vocabulary_errors(item: dict, vocabulary: dict) -> list[str]:
 # 정답이라** 가리키는 해설은 셔플과 무관하게 처음부터 틀렸고 되돌릴 원본조차 없다.
 # 목록을 짧게 유지한다 — 놓치는 편이 오탐보다 낫다(이 계열은 사람이 읽어야 최종
 # 판정이 되므로, 게이트가 시끄러우면 읽히지 않는다).
-RIGHT_CONTEXT: tuple[str, ...] = ("정답", "옳다", "옳은", "맞다", "맞는")
+# ── 게이트 **전용** 문맥어 (2026-08-18 리뷰 2·3번) ──────────────────────────
+# ⚠️ **셔플의 광역 목록을 그대로 쓰면 안 된다.** 두 층의 오탐 비용이 다르기 때문이다
+# (셔플=안 옮김 / 게이트=CI 적색 + 틀린 규탄, 그리고 ⑥ⓐ에는 래칫이 없다).
+# 실행 재현으로 드러난 두 가지:
+#   ⑴ **중립 어미**(`설명이다`·`기준이다`·`것이다`)가 들어 있어 「두 번째 선지는
+#      저기압의 **설명이다**」 같은 **맞는 서술이 탈락**했다 → 게이트 목록에서 뺀다.
+#   ⑵ 「오답」·「틀리」가 **없어서** 가장 흔한 표현을 놓쳤다 → 넣는다.
+GATE_WRONG_CONTEXT: tuple[str, ...] = ("오답", "틀리", "틀린", "오독", "잘못", "혼동", "헷갈")
+GATE_RIGHT_CONTEXT: tuple[str, ...] = ("정답", "옳다", "옳은", "맞다", "맞는")
+# 「정답이 **아니다**」·「옳지 **않다**」 — 긍정어가 부정되면 뜻이 뒤집힌다.
+# ⚠️ 이것이 없을 때 「두 번째 선지는 **정답이 아니다**」(맞는 해설)가 「오답 자리를
+# 정답이라 가리킨다」로 **탈락**했다(실행 재현). 부정은 긍정어 **뒤쪽**에 온다.
+_NEGATORS: tuple[str, ...] = ("아니", "않")
+_NEGATION_SPAN = 6  # 긍정어 뒤로 이만큼 안에 부정어가 오면 부정으로 본다
+
+
+def claim_polarity(window: str) -> str | None:
+    """창 안의 주장이 「이 자리는 틀렸다/맞다」 중 무엇인가 — `"wrong"`·`"right"`·None.
+
+    부정을 **긍정어 판정보다 먼저** 본다: 「정답이 아니다」는 right가 아니라 wrong이다.
+    """
+    for word in GATE_RIGHT_CONTEXT:
+        index = window.find(word)
+        while index != -1:
+            tail = window[index + len(word) : index + len(word) + _NEGATION_SPAN]
+            if any(neg in tail for neg in _NEGATORS):
+                return "wrong"          # 「정답이 아니다」 = 틀렸다는 주장
+            return "right"
+    if any(w in window for w in GATE_WRONG_CONTEXT):
+        return "wrong"
+    return None
 
 
 def hint_position_errors(item: dict) -> list[str]:
@@ -425,35 +455,34 @@ def hint_position_errors(item: dict) -> list[str]:
     errors: list[str] = []
     correct_slot = options.index(answer) + 1
 
-    # 양방향 모두 **명사 가드를 요구한다**(`noun_guarded=True`) — 2026-08-14 코드
-    # 리뷰가 실행 재현으로 오탐 4종을 냈고, 원인이 전부 명사 없는 서수였다:
-    #   · 「태풍은 가을에 평균 **3번** 상륙」 — 빈도
-    #   · 「**① 단계**에서 증발」 — 단계 번호
-    #   · 「**첫 번째 선지는 오독**이고 **두 번째가 정답**」(정답 2번) — 절 경계 너머
-    #     45자 창에 「정답」이 걸려 **맞는 해설**이 탈락
-    #   · 「하루에 각각 **2번**씩」 — 횟수
-    # ⚠️ **이 게이트에는 래칫이 없다**(그 없음을 테스트가 지킨다). 그래서 오탐 하나가
-    # **「맞는 해설을 고쳐 쓰는 것」 말고는 탈출구가 없는 상태**를 만든다 — 게이트가
-    # 사람을 틀렸다고 규탄하는 자리가 된다. 좁히는 쪽이 옳다.
-    # 놓치는 것(명사 없는 진짜 결함)은 셔플이 계속 넓게 보므로 위치 재배치 시점에 걸린다.
-    if correct_slot in shuffle_tool.ordinal_slots_with_context(
-        hint, shuffle_tool.WRONG_CONTEXT, noun_guarded=True
-    ):
-        errors.append(
-            "해설이 **정답 자리**를 오답이라 가리킨다 — 맞힌 학습자에게 틀렸다고"
-            " 가르친다. 서수 대신 선지 내용으로 가리킬 것"
-        )
-
-    for slot in sorted(
-        shuffle_tool.ordinal_slots_with_context(hint, RIGHT_CONTEXT, noun_guarded=True)
+    # **명사 가드를 요구한다**(`noun_guarded=True`) — 2026-08-14 리뷰가 실행 재현으로
+    # 오탐 4종을 냈고 원인이 전부 명사 없는 서수였다(빈도 「평균 3번 상륙」 · 단계
+    # 번호 「① 단계」 · 횟수 「하루 각각 2번씩」 · 절 경계 누출).
+    # ⚠️ **이 게이트에는 래칫이 없다**(그 없음을 테스트가 지킨다). 오탐 하나가
+    # 「맞는 해설을 고쳐 쓰는 것」 말고 탈출구가 없는 상태를 만든다 — 게이트가 사람을
+    # 틀렸다고 규탄하는 자리가 된다. 놓치는 것은 셔플이 넓게 보므로 재배치 때 걸린다.
+    #
+    # 낱말 판정은 **게이트 자기 목록 + 부정 가드**로 한다(2026-08-18 리뷰 2·3번) —
+    # 셔플의 광역 목록을 쓰면 중립 어미가 맞는 해설을 탈락시킨다.
+    # `last_slot`을 넘겨 「마지막」을 **실제 마지막 자리**로 푼다 — 3지선다에서
+    # 「마지막 선지」가 없는 4번을 가리켜 조용히 빠지던 것을 막는다(리뷰 6번).
+    for slot, window in shuffle_tool.ordinal_hits(
+        hint, noun_guarded=True, last_slot=len(options)
     ):
         # 존재하지 않는 자리(3지선다의 「마지막」=4)는 판정하지 않는다 — 보수적으로.
-        if slot == correct_slot or slot > len(options):
+        if slot > len(options):
             continue
-        errors.append(
-            f"해설이 **오답 자리**({slot}번, 정답은 {correct_slot}번)를 정답이라"
-            " 가리킨다 — 서수 대신 선지 내용으로 가리킬 것"
-        )
+        polarity = claim_polarity(window)
+        if polarity == "wrong" and slot == correct_slot:
+            errors.append(
+                "해설이 **정답 자리**를 오답이라 가리킨다 — 맞힌 학습자에게 틀렸다고"
+                " 가르친다. 서수 대신 선지 내용으로 가리킬 것"
+            )
+        elif polarity == "right" and slot != correct_slot:
+            errors.append(
+                f"해설이 **오답 자리**({slot}번, 정답은 {correct_slot}번)를 정답이라"
+                " 가리킨다 — 서수 대신 선지 내용으로 가리킬 것"
+            )
     return errors
 
 
@@ -481,7 +510,7 @@ def hint_ordinal_errors(item: dict) -> list[tuple[str, str]]:
     hint = str((item.get("template_json") or {}).get("explanation_hint") or "")
     if not shuffle_tool.hint_uses_ordinals(hint):
         return []
-    match = shuffle_tool._ORDINAL_RE.search(hint)
+    match = shuffle_tool.ORDINAL_WITH_NOUN_RE.search(hint)
     return [
         (
             "ordinal_ref",
@@ -527,8 +556,15 @@ def load_grading_contract() -> GradingContract:
 # ⚠️ 캡처는 **하나뿐**이어야 한다 — 소비처가 `match.group(1)`으로 단위를 빼서
 # 「맨 숫자」를 만들어 메시지에 넣는다. 콤마형을 별도 대안으로 병기하면 한쪽이
 # None이 되어 그 자리에서 죽는다. 그래서 숫자부만 갈라 하나의 그룹을 유지한다.
+# ⚠️ **세 형태를 더 뚫는다**(2026-08-18 리뷰 5번 실행 재현):
+#   · `30m3`·`5km2` — **단위 안에 숫자**가 있어 종전 `[^\d\s.,]+`가 못 받았다
+#     (면적·부피 단위는 기상 문항에 흔하다)
+#   · `1 000mm` — **공백 자릿수 구분**(유럽식·조판 관례)
+# 숫자부와 단위부를 각각 넓히되 **캡처는 하나로 유지**한다 — 소비처가
+# `match.group(1)`으로 단위를 떼서 「맨 숫자」를 만든다.
 _ANSWER_WITH_UNIT_RE = re.compile(
-    r"^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s*([^\d\s.,]+)$"
+    r"^-?(?:\d{1,3}(?:[,\s]\d{3})+|\d+)(?:\.\d+)?\s*"
+    r"([^\d\s.,][^\s.,]*)$"
 )
 
 # 문자열 일치로 채점하는 유형 (`answer_service.GRADERS`의 `_grade_text` 대상 중

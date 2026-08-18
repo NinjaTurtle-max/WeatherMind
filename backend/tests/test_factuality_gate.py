@@ -398,3 +398,111 @@ def test_명사_없는_자리_참조는_의도된_미탐이다():
     import shuffle_answer_positions as shuffle_tool
 
     assert shuffle_tool.hint_contradicts("두 번째는 오독이다.", OPTIONS, "비가 온다")
+
+
+# ── 2026-08-18 리뷰 8건 회귀 가드 ────────────────────────────────────────────
+# ⚠️ **이 블록은 「고치기 전에 실패를 먼저 만든」 것들이다.** PM 요구:
+# *"「고쳤다」를 증명하려면 고치기 전에 그 어휘로 실패를 만들어 두 층이 다 놓치는
+# 것을 보이고, 고친 뒤 잡히는 것까지 보여야 한다."* 기준선은 실측으로 남겼다 —
+# 아래 각 단정 옆에 「고치기 전」 상태를 적어 둔다.
+import shuffle_answer_positions as _shuffle  # noqa: E402
+
+
+def test_오답_어휘를_두_층이_모두_잡는다():
+    """🔴 **고치기 전: 게이트 놓침 · 셔플 놓침** — 가장 흔한 표현이 빠져 있었다.
+
+    「두 번째 선지는 **오답이다**」가 `WRONG_CONTEXT`에 「오답」·「틀리」가 없어서
+    **두 층 모두를 통과**했다. 「틀린 설명이다」가 잡히던 것은 「설명이다」라는
+    **중립 어미에 우연히** 걸린 것이라 방어가 아니었다 — 그래서 「셔플이 잡는다」던
+    이중 방어가 이 어휘에서 거짓이었고, 의도된-미탐 픽스처의 주석도 함께 거짓이었다.
+    """
+    item = _mc("두 번째 선지는 오답이다.", options=OPTIONS, answer="비가 온다")
+    assert lint.hint_position_errors(item), "게이트가 「오답」 어휘를 놓쳤다"
+    assert _shuffle.hint_contradicts("두 번째 선지는 오답이다.", OPTIONS, "비가 온다"), (
+        "셔플도 놓쳤다 — 이중 방어가 성립하지 않는다"
+    )
+
+
+def test_정답이_아니다는_맞는_해설이다():
+    """🔴 **고치기 전: 게이트가 탈락시켰다**(오탐) — 부정을 안 봤다.
+
+    「두 번째 선지는 **정답이 아니다**」는 정답이 1번일 때 **맞는 서술**이다.
+    긍정어(`정답`)만 보고 「오답 자리를 정답이라 가리킨다」로 판정했다.
+    ⚠️ 래칫이 없는 게이트라 오탐의 탈출구가 **맞는 해설을 고쳐 쓰는 것**뿐이었다.
+    """
+    item = _mc("두 번째 선지는 정답이 아니다.", options=OPTIONS, answer="맑아진다")
+    assert lint.hint_position_errors(item) == [], "부정 가드가 없다"
+
+
+def test_정답_자리를_부정하면_잡는다():
+    """부정 가드의 **반대 방향** — 뜻이 뒤집히므로 이쪽은 잡아야 한다.
+
+    정답이 2번인데 「두 번째 선지는 정답이 아니다」라고 하면 맞힌 학습자에게
+    틀렸다고 가르친다. 부정을 「무시」가 아니라 「극성 반전」으로 다루는 이유다.
+    """
+    item = _mc("두 번째 선지는 정답이 아니다.", options=OPTIONS, answer="비가 온다")
+    errors = lint.hint_position_errors(item)
+    assert errors and "정답 자리" in errors[0]
+
+
+def test_중립_어미는_맞는_서술로_본다():
+    """🔴 **고치기 전: 게이트가 탈락시켰다**(오탐) — 셔플의 광역 목록을 그대로 썼다.
+
+    「두 번째 선지는 저기압의 **설명이다**」는 정답이 2번이어도 **틀렸다는 주장이
+    아니다**. 게이트가 자기 낱말 목록을 갖고 중립 어미를 빼야 하는 이유다
+    (셔플은 계속 넓게 본다 — 오탐 비용이 「안 옮김」뿐이라서).
+    """
+    for hint in ("두 번째 선지는 저기압의 설명이다.", "두 번째 선지는 고기압의 기준이다."):
+        item = _mc(hint, options=OPTIONS, answer="비가 온다")
+        assert lint.hint_position_errors(item) == [], hint
+
+
+def test_절을_건너_걸린_모순은_셔플이_잡는다():
+    """🔴 **고치기 전: 셔플이 놓쳤다** — 2026-08-14 절 경계 도입이 셔플까지 좁혔다.
+
+    「첫 번째 선지는, **두 번째 선지와 마찬가지로**, 오독이다」는 정답이 1번일 때
+    진짜 모순인데, 창을 이웃 서수에서 끊으면 「오독」이 창 밖으로 나간다.
+    게이트는 좁은 창이 맞고(오탐 비용이 크다) **셔플은 넓어야 한다** — 그 비대칭이
+    `clause_bounded` 손잡이의 존재 이유다. 주석은 「종전대로 넓게 본다」였는데
+    코드가 아니었다.
+    """
+    hint = "첫 번째 선지는, 두 번째 선지와 마찬가지로, 오독이다."
+    assert _shuffle.hint_contradicts(hint, OPTIONS, "맑아진다"), (
+        "셔플이 절을 건너 걸린 모순을 놓쳤다"
+    )
+
+
+def test_숫자를_품은_단위와_공백_자릿수도_잡는다():
+    """🔴 **고치기 전: 세 형태가 전부 None**이었다 — 잡으라는 결함이 빠져나갔다.
+
+    `30m3`·`5km2`는 **단위 안에 숫자**가 있어 종전 문자 클래스가 못 받았고
+    (면적·부피는 기상 문항에 흔하다), `1 000mm`는 **공백 자릿수 구분**이다.
+    """
+    for answer in ("30m3", "5km2", "1 000mm", "1,000mm", "30년"):
+        item = {
+            "question_type": "short_answer",
+            "concept_tag": "anomaly",
+            "level_group": "middle_high",
+            "knowledge_level": 5,
+            "template_json": {
+                "question_text": "값은?",
+                "correct_answer": answer,
+                "explanation_hint": "해설.",
+            },
+        }
+        codes = [code for code, _ in lint.grading_errors(item, grading=_GRADING)]
+        assert "answer_unit_suffix" in codes, answer
+
+
+def test_마지막은_보기_개수로_푼다():
+    """🔴 **고치기 전: 3지선다에서 조용히 빠졌다** — 「마지막」이 4로 하드코딩됐다.
+
+    현 시드는 MC 전건 4지라 잠재 결함이지만, 3지선다가 하나라도 저작되면
+    「마지막 선지」가 **존재하지 않는 4번**을 가리켜 판정 밖으로 나간다.
+    """
+    three = ["가", "나", "다"]
+    caught = _mc("마지막 선지가 정답이다.", options=three, answer="가")
+    assert lint.hint_position_errors(caught), "3지선다의 「마지막」을 놓쳤다"
+    # 정답이 실제로 마지막이면 맞는 서술이므로 잡으면 오탐이다
+    fine = _mc("마지막 선지가 정답이다.", options=three, answer="다")
+    assert lint.hint_position_errors(fine) == []

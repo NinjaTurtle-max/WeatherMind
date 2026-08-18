@@ -76,6 +76,11 @@ _ORDINAL_RE = re.compile(
 )
 _ORD_NAME = {1: "첫 번째", 2: "두 번째", 3: "세 번째", 4: "네 번째"}
 
+# 공개 별칭 — 다른 모듈이 **사설 이름에 침투하지 않도록** 내보낸다(2026-08-18 리뷰 7번).
+# 사본이 아니라 **같은 객체**다: 두 벌이 되면 한쪽만 자란다(이 파일이 「판정 함수는
+# 여기가 단독 소유」라고 적어 놓고 lint가 `_ORDINAL_RE`를 직접 읽던 자리다).
+ORDINAL_WITH_NOUN_RE = _ORDINAL_RE
+
 
 def _rank(option, question_text: str) -> str:
     """정렬 키 — **보기 내용**에서 파생한다(자리 번호가 아니라).
@@ -153,7 +158,14 @@ _BARE_ORDINAL_RE = re.compile(
         re.escape(v) for vs in ORDINAL_VARIANTS.values() for v in sorted(vs, key=len, reverse=True)
     )
 )
-WRONG_CONTEXT = ("오독", "잘못", "아니", "혼동", "설명이다", "기준이다", "것이고", "것이다", "헷갈")
+# ⚠️ **「오답」·「틀리」가 없었다**(2026-08-18 리뷰 실행 재현) — 「두 번째 선지는
+# **오답이다**」가 셔플·게이트 **두 층 모두를 통과**했다. 가장 흔한 표현이 빠져 있었고,
+# 「틀린 설명이다」가 잡히던 것은 「설명이다」라는 **중립 어미에 우연히** 걸린 것이라
+# 방어가 아니었다. 이 목록은 **셔플용(광역)**이다 — 게이트는 자기 목록을 따로 쓴다.
+WRONG_CONTEXT = (
+    "오답", "틀리", "틀린", "오독", "잘못", "아니", "혼동", "헷갈",
+    "설명이다", "기준이다", "것이고", "것이다",
+)
 
 # 위 두 정규식의 **캡처 판**(2026-08-14) — `ordinal_slots_with_context`가 자리 번호를
 # 뽑으려면 서수 부분만 따로 받아야 한다. 알파벳(패턴 문자열)은 같은 것을 쓴다.
@@ -173,9 +185,73 @@ def hint_contradicts(hint: str, options: list, answer) -> bool:
     if not hint or not options or answer not in options:
         return False
     correct = options.index(answer) + 1
-    # 스캔 자체는 `ordinal_slots_with_context`가 소유한다(2026-08-14) — 셔플은
-    # 종전대로 **명사 가드 없이** 넓게 본다. 오탐 비용이 「안 옮김」이라서다.
-    return correct in ordinal_slots_with_context(hint, WRONG_CONTEXT, noun_guarded=False)
+    # 스캔 자체는 `ordinal_hits`가 소유한다 — 셔플은 **명사 가드도 절 경계도 없이**
+    # 넓게 본다. 오탐 비용이 「안 옮김」뿐이기 때문이다.
+    # ⚠️ **2026-08-18 정정**: 2026-08-14에 절 경계를 도입하면서 이 호출까지 함께
+    # 좁아졌고, 주석은 「종전대로 넓게 본다」인 채였다 — 코드와 설명이 갈렸다.
+    # 그 사이 「첫 번째 선지는, 두 번째 선지와 마찬가지로, 오독이다」 같은
+    # **절을 건너 걸린 진짜 모순을 놓쳤다**(실행 재현). 명시적으로 되돌린다.
+    return correct in ordinal_slots_with_context(
+        hint, WRONG_CONTEXT, noun_guarded=False, clause_bounded=False
+    )
+
+
+def ordinal_hits(
+    hint: str,
+    *,
+    noun_guarded: bool,
+    clause_bounded: bool = True,
+    last_slot: int | None = None,
+    before: int = 10,
+    after: int = 45,
+) -> list[tuple[int, str]]:
+    """서수 표기마다 `(자리 번호, 그 주변 텍스트)`를 낸다 — **스캔만** 한다.
+
+    ⚠️ **판정(어떤 낱말이 무엇을 뜻하는가)은 부르는 쪽 몫이다.** 2026-08-18 코드
+    리뷰가 그 경계를 요구했다: 셔플과 게이트가 같은 낱말 목록을 쓰다가 서로의
+    요구를 망가뜨렸다(게이트가 「설명이다」 같은 중립 어미로 **맞는 해설을 탈락**
+    시켰고, 셔플은 「오답」 어휘를 **아예 못 잡았다**). 스캔은 한 곳이 소유하고
+    낱말·부정 판정은 각자 갖는 것이 옳은 분할이다.
+
+    `clause_bounded`:
+      · **True(게이트)** — 창을 이웃 서수에서 끊는다. 「첫 번째 선지는 오독이고,
+        두 번째가 정답이다」에서 앞 서수가 뒤 절의 「정답」을 읽어 **맞는 해설이
+        탈락**하는 것을 막는다.
+      · **False(셔플)** — 끊지 않는다. 「첫 번째 선지는, **두 번째 선지와
+        마찬가지로**, 오독이다」처럼 **절을 건너 걸린 진짜 모순**을 잡아야 하기
+        때문이다. 좁히면 그 부류를 놓친다(2026-08-18 실행 재현).
+
+    `last_slot`: 「마지막」이 가리키는 자리. ⚠️ `ORDINAL_VARIANTS`는 「마지막」을
+    **4로 하드코딩**한다 — 4지선다가 전제였고 현 시드는 실제로 전건 4지라 지금은
+    맞는다. 그러나 3지선다가 하나라도 저작되면 **「마지막 선지」가 존재하지 않는
+    4번을 가리켜 조용히 판정 밖으로 빠진다.** 보기 개수를 아는 쪽(게이트)이 그 수를
+    넘겨 주면 「마지막」을 그 자리로 푼다(2026-08-18 리뷰 6번).
+    """
+    if not hint:
+        return []
+    pattern = _ORDINAL_CAP_RE if noun_guarded else _BARE_ORDINAL_CAP_RE
+    bounds = (
+        [(m.start(), m.end()) for m in _BARE_ORDINAL_CAP_RE.finditer(hint)]
+        if clause_bounded else []
+    )
+    hits: list[tuple[int, str]] = []
+    for match in pattern.finditer(hint):
+        token = match.group(1)
+        slot = _SLOT_OF.get(token)
+        if slot is None:
+            continue
+        if token == "마지막" and last_slot is not None:
+            slot = last_slot
+        left = max(0, match.start() - before)
+        right = match.start() + after
+        for b_start, b_end in bounds:
+            if b_end <= match.start():
+                left = max(left, b_end)
+            elif b_start > match.start():
+                right = min(right, b_start)
+                break
+        hits.append((slot, hint[left:right]))
+    return hits
 
 
 def ordinal_slots_with_context(
@@ -183,6 +259,8 @@ def ordinal_slots_with_context(
     context_words,
     *,
     noun_guarded: bool,
+    clause_bounded: bool = True,
+    last_slot: int | None = None,
     before: int = 10,
     after: int = 45,
 ) -> set[int]:
@@ -203,30 +281,18 @@ def ordinal_slots_with_context(
     좁힌 대가는 **「두 번째는 오독」처럼 명사 없는 진짜 결함을 게이트가 놓치는 것**인데,
     그쪽은 셔플이 계속 넓게 보므로 위치 재배치 시점에 다시 걸린다.
     """
-    if not hint:
-        return set()
-    pattern = _ORDINAL_CAP_RE if noun_guarded else _BARE_ORDINAL_CAP_RE
-    # ⚠️ **경계는 언제나 「맨 서수」로 잡는다** — 판정 대상이 명사 가드로 좁아져도
-    # 절을 가르는 것은 서수의 등장 자체이기 때문이다. 안 그러면 「첫 번째 선지는
-    # 오독이고, **두 번째가 정답**이다」에서 「두 번째」가 명사가 없어 경계로 안 잡히고,
-    # 앞 서수의 +45자 창이 뒤 절의 「정답」을 읽어 **맞는 해설이 탈락**한다(실행 재현).
-    bounds = [(m.start(), m.end()) for m in _BARE_ORDINAL_CAP_RE.finditer(hint)]
-    hits: set[int] = set()
-    for match in pattern.finditer(hint):
-        slot = _SLOT_OF.get(match.group(1))
-        if slot is None:
-            continue
-        left = max(0, match.start() - before)
-        right = match.start() + after
-        for b_start, b_end in bounds:
-            if b_end <= match.start():          # 앞 절
-                left = max(left, b_end)
-            elif b_start > match.start():       # 뒤 절
-                right = min(right, b_start)
-                break
-        if any(w in hint[left:right] for w in context_words):
-            hits.add(slot)
-    return hits
+    return {
+        slot
+        for slot, window in ordinal_hits(
+            hint,
+            noun_guarded=noun_guarded,
+            clause_bounded=clause_bounded,
+            last_slot=last_slot,
+            before=before,
+            after=after,
+        )
+        if any(w in window for w in context_words)
+    }
 
 
 def hint_uses_ordinals(hint: str) -> bool:
