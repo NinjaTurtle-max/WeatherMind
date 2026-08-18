@@ -77,6 +77,11 @@ const SLUGS = [
   'liftsAfterSunrise',
   'fogLowCloudToShore',
   'upglide',
+  // ㉣ 변동 기상요소 규칙 3종(2026-08-18) — 아래 셋만 새로 필요했다.
+  // 나머지는 기존 어휘를 그대로 쓴다(예: 양간지풍은 `dryWarmWind`+`mountainRange`).
+  'windShear',
+  'organizedStorm',
+  'cloudBlocksSun',
 ];
 
 export const V = {};

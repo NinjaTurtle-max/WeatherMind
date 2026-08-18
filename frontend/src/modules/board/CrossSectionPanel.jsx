@@ -826,6 +826,128 @@ function FloodRiskScene({ step, animate }) {
   );
 }
 
+/**
+ * ㉣ 변동 기상요소 규칙 3종(2026-08-18) — `feat/board-wind-rules`가 규칙만 넣고
+ * 스토리보드를 안 넣어 계약 테스트 2종이 울고 있었다(main 빨강). 세 장면 모두
+ * **기존 형제 장면의 상위판**이라 그 문법을 물려받되, 한 단계씩을 새 조건에
+ * 내준다 — 그 단계가 「왜 상위판인가」를 말하는 자리다.
+ */
+
+/** cold_front_squall_storm: 지면 가열 → 전선이 밀어 올림 → 바람 시어 → 조직된 폭우 */
+function SquallStormScene({ step, animate }) {
+  const wedge = [fp(0, 0), fp(0.5, 0), fp(0.12, 0.72), fp(0, 0.78)];
+  return (
+    <BlockFrame>
+      {/* 배치는 `ColdFrontScene`에서 그대로 물려받았다 — 같은 메커니즘의 상위판이라
+          라벨 자리를 새로 잡을 이유가 없고, 검증된 자리가 겹침도 없다. 다른 것은
+          ①단계가 「전선」이 아니라 「지면 가열」로 시작하고 ③단계에 시어가 낀다는
+          점뿐이다. */}
+      <Appear at={0} step={step} animate={animate}>
+        <SunShape x={214} y={24} scale={1.1} fill="#f59e0b" />
+        <polygon points={P([gp(0.34, 0), gp(1, 0), gp(1, 1), gp(0.34, 1)])} fill="#fed7aa" opacity="0.5" />
+        <RisingArrows at={0} step={step} animate={animate} cx={196} cy={100} rotate={0} color="#ea580c" count={2} />
+        <CSText x={196} y={64} color="#c2410c" size={6}>{V.groundHeating}</CSText>
+      </Appear>
+      <Appear at={1} step={step} animate={animate} enter="animate-board-front">
+        <polygon points={P(wedge)} fill={COLD_FILL} stroke={COLD} strokeWidth="1" />
+        <CSText x={40} y={92} color={COLD}>{V.coldAir}</CSText>
+        <CSText x={178} y={86} color={WARM}>{V.warmHumidAir}</CSText>
+      </Appear>
+      <RisingArrows at={1} step={step} animate={animate} cx={118} cy={92} rotate={-32} color={WARM} />
+      <RisingArrows at={1} step={step} animate={animate} cx={96} cy={76} rotate={-32} color={WARM} count={2} />
+      <Appear at={2} step={step} animate={animate}>
+        {/* 시어는 «차이»라 화살표 하나로는 안 읽힌다 — 위는 길고 동쪽으로, 아래는
+            짧고 서쪽으로 두 개를 한 단계에 같이 둔다. */}
+        <BroadArrow x1={64} y1={22} x2={196} y2={18} color="#7c3aed" bend={0.02} w0={7} w1={3} />
+        <BroadArrow x1={116} y1={48} x2={72} y2={46} color="#7c3aed" bend={0.02} w0={5} w1={2} />
+        <CSText x={128} y={10} color="#6d28d9" size={6}>{V.windShear}</CSText>
+      </Appear>
+      <Appear at={3} step={step} animate={animate} enter="animate-board-grow">
+        <CbTower x={146} groundY={114} topY={26} animate={animate} grow={step === 3} />
+        <CSRain x={134} y0={84} y1={114} count={6} gap={6} slant={16} width={1.7} animate={animate} />
+        <CSText x={70} y={112} color="#1e3a8a" size={6}>{V.organizedStorm}</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+/** siberian_gale_wildfire: 찬 건조 기단 → 산 넘는 바람 → 일사로 더 마름 → 불씨 확산 */
+function SiberianGaleWildfireScene({ step, animate }) {
+  return (
+    <BlockFrame>
+      <Appear at={0} step={step} animate={animate}>
+        <polygon points={P([fp(0, 0), fp(0.42, 0), fp(0.42, 0.56), fp(0, 0.56)])} fill="#bfdbfe" opacity="0.6" />
+        <CSText x={44} y={62} color="#1d4ed8" size={6}>{V.siberianCp}</CSText>
+        <CSText x={44} y={80} color="#1d4ed8" size={6}>{V.coldDry}</CSText>
+      </Appear>
+      <Appear at={1} step={step} animate={animate}>
+        <polygon points={P([gp(0.42, 0), gp(0.58, 0), gp(0.5, 1)])} fill="#a8a29e" opacity="0.7" />
+        <CSText x={128} y={96} color="#57534e" size={5.5}>{V.mountainRange}</CSText>
+        <BroadArrow x1={54} y1={54} x2={122} y2={44} color="#0e7490" bend={-0.06} w0={9} w1={4} />
+        <BroadArrow x1={134} y1={48} x2={220} y2={86} color="#c2410c" bend={0.12} w0={8} w1={3} />
+        <CSText x={196} y={64} color="#c2410c" size={6}>{V.dryWarmWind}</CSText>
+        <CSText x={128} y={116} color="#92400e" size={6}>{V.driedLeavesTwigs}</CSText>
+      </Appear>
+      <Appear at={2} step={step} animate={animate}>
+        <SunShape x={216} y={26} scale={1.1} fill="#f59e0b" />
+        {[186, 208, 230].map((x) => (
+          <BroadArrow key={x} x1={x} y1={44} x2={x - 6} y2={92} color="#f59e0b" bend={0.02} w0={4} w1={2} />
+        ))}
+        <CSText x={196} y={40} color="#b45309" size={6}>{V.strongSun}</CSText>
+      </Appear>
+      <Appear at={3} step={step} animate={animate}>
+        <g className={anim(animate, 'animate-board-sun-pulse')}>
+          <path d="M176 114 q6 -20 13 -24 q-3 11 4 15 q5 -8 4 -17 q10 13 6 26 Z" fill="#ea580c" />
+          <path d="M181 114 q4 -12 8 -15 q-1 8 3 9 q3 -4 3 -10 q6 8 3 16 Z" fill="#fbbf24" />
+        </g>
+        {[0, 1, 2, 3].map((i) => (
+          <circle
+            key={i}
+            cx={168 - i * 17}
+            cy={92 - i * 7}
+            r={1.9 - i * 0.28}
+            fill="#f97316"
+            className={anim(animate, 'animate-board-sun-pulse')}
+          />
+        ))}
+        <CSText x={112} y={40} color="#c2410c" size={6}>{V.embersRideWind}</CSText>
+        <CSText x={128} y={14} color="#b45309" size={6}>{V.clearSkyWildfire}</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+/** front_convergence_flood: 정체 → 습기 유입 → 햇볕 차단 → 물 고임 */
+function FrontConvergenceFloodScene({ step, animate }) {
+  return (
+    <BlockFrame sea={{ to: 0.18 }}>
+      <Appear at={0} step={step} animate={animate}>
+        <polygon points={P([fp(0, 0), fp(0.46, 0), fp(0.46, 0.5), fp(0, 0.5)])} fill="#93c5fd" opacity="0.5" />
+        <polygon points={P([fp(0.54, 0), fp(1, 0), fp(1, 0.5), fp(0.54, 0.5)])} fill="#fca5a5" opacity="0.42" />
+        <path d={`M${P([fp(0.5, 0)])} L${P([fp(0.5, 0.68)])}`} stroke="#7c3aed" strokeWidth="1.6" strokeDasharray="4 3" fill="none" />
+        <CSText x={56} y={26} color="#6d28d9" size={6}>{V.stationaryFront}</CSText>
+      </Appear>
+      <Appear at={1} step={step} animate={animate}>
+        <BroadArrow x1={26} y1={102} x2={112} y2={92} color="#0d9488" bend={0.08} w0={9} w1={4} />
+        <BroadArrow x1={26} y1={116} x2={98} y2={108} color="#0d9488" bend={0.06} w0={7} w1={3} />
+        <CSText x={58} y={78} color="#0f766e" size={6}>{V.vapourKeepsArriving}</CSText>
+      </Appear>
+      <Appear at={2} step={step} animate={animate}>
+        <LayerCloud x={110} y={54} w={104} dark animate={animate} grow={step === 2} />
+        <LayerCloud x={184} y={50} w={84} dark animate={animate} grow={step === 2} />
+        <CSText x={158} y={26} color="#475569" size={6}>{V.cloudBlocksSun}</CSText>
+      </Appear>
+      <Appear at={3} step={step} animate={animate}>
+        <CSRain x={96} y0={66} y1={112} count={5} gap={7} slant={4} slow animate={animate} />
+        <CSRain x={142} y0={66} y1={112} count={5} gap={7} slant={4} slow animate={animate} />
+        <CSRain x={186} y0={64} y1={112} count={4} gap={7} slant={4} slow animate={animate} />
+        <polygon points={P([gp(0, 0), gp(1, 0), gp(1, 1), gp(0, 1)])} fill="#38bdf8" opacity="0.5" />
+        <CSText x={128} y={110} color="#0c4a6e" size={6}>{V.groundCannotAbsorb}</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
 // ── 스토리보드 레지스트리 (board_rules.json 15종 — explain을 메커니즘 순서로 분해) ──
 // ⚠️ i18n 외부화 제외(R11-01 §6.3 판정): boardVisual.render.test가 이 모듈 데이터
 // (steps·title)를 렌더 HTML과 **문자열 대조**하고, crossSectionWebgl.contract가
@@ -848,6 +970,10 @@ export const SCENE_BY_RULE = {
   dry_convection_clear: DryConvectionClearScene,
   wildfire_risk_dry_gale: WildfireRiskScene,
   flood_risk_saturated_inflow: FloodRiskScene,
+  // ㉣ 변동 기상요소 3종(2026-08-18) — 규칙만 있고 장면이 없어 main이 빨갛던 자리.
+  cold_front_squall_storm: SquallStormScene,
+  siberian_gale_wildfire: SiberianGaleWildfireScene,
+  front_convergence_flood: FrontConvergenceFloodScene,
 };
 
 /**

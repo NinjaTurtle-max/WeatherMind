@@ -227,6 +227,9 @@ export default {
         liftsAfterSunrise: 'Lifts soon after sunrise',
         fogLowCloudToShore: 'Fog and low cloud reaching the shore',
         upglide: 'Upglide',
+        windShear: 'Wind shear (upper vs lower)',
+        organizedStorm: 'Storm organised into one system',
+        cloudBlocksSun: 'Thick cloud blocks the sun',
       },
       // MT-28: cross-section storyboards (see CrossSectionPanel STORYBOARDS).
       // Step counts must match ko — crossSectionWebgl.contract checks steps.length
@@ -364,6 +367,33 @@ export default {
             'As soon as one rain band spends itself, the next fills its place.',
             'So the rain never stops and keeps falling on the same spot.',
             'It passes what the ground can absorb, and water begins to pool.',
+          ],
+        },
+        cold_front_squall_storm: {
+          title: 'Cold front + sun + wind — an organised squall',
+          steps: [
+            'Strong sunshine heats the air near the ground and the atmosphere turns unstable.',
+            'A cold front shoves that humid air sharply upward.',
+            'Upper and lower winds differ enough that rising and sinking air each get their own lane.',
+            'So the cloud does not fall apart — it organises into one system and pours longer and harder.',
+          ],
+        },
+        siberian_gale_wildfire: {
+          title: 'Siberian air + gale — wildfire-warning weather',
+          steps: [
+            'Cold, bone-dry air settles in.',
+            'Wind pouring down off the mountains strips the moisture from leaves and twigs.',
+            'Strong sunshine heats that dry fuel further.',
+            'One small ember rides the wind and spreads in moments.',
+          ],
+        },
+        front_convergence_flood: {
+          title: 'Stationary front + convergence — the water rises',
+          steps: [
+            'A stationary front parks in one place.',
+            'Humid wind keeps flowing in from below, refilling the same spot with vapour.',
+            'Thick cloud blocks the sun, so the ground never warms enough to break the rain cloud up.',
+            'The rain stays over one place and the water piles up faster than it can drain.',
           ],
         },
       },
