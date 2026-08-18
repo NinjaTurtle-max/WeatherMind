@@ -55,9 +55,41 @@ export default {
       title: 'What weather shall we build today?',
     },
     page: {
-      difficulty1: 'Easy',
-      difficulty2: 'Normal',
-      difficulty3: 'Hard',
+      // School-level labels, not Easy/Normal/Hard (#32b) — mirrors board.ko.js.
+      // Kept short on purpose: on a locked card the compact badge shares one
+      // row with the lock reason (see the badge-row comment in BoardPage.jsx).
+      //
+      // ⚠️ **MEASURED 2026-08-18 — leave these three labels alone.**
+      //    Badge row inner width **158px** (xl 1920), gap 6px. The badge is
+      //    `shrink-0` (BoardPage.jsx:76) so it never yields width; the lock
+      //    reason absorbs the whole loss via `truncate` (BoardPage.jsx:724).
+      //    Measured: Elementary 64 · Mid & high 59 · Adult 30 · 중·고등(ko) 32.
+      //    Against the **old** `cardLocked` 'Above your level' (92px):
+      //      Elementary  64+6+92 = 162 > 158  → 🔴 ellipsis
+      //      Mid & high  59+6+92 = 157 vs 158 → passed by **1px**
+      //      Adult       30+6+92 = 128        → fine
+      //    No wrapping — the row height is fixed at 25px. Ellipsis was the
+      //    only defect.
+      //    ⚠️ The review flagged `difficulty2`, but the card that actually
+      //    broke was **`difficulty1`** — and shortening only that label would
+      //    have left Mid & high passing by 1px, a value that flips with a
+      //    different font load, renderer or OS. The 92px reason string is the
+      //    **common term of all three cards**, so the fix went to
+      //    `cardLocked`/`lockedHint` below and these labels are untouched.
+      //    ⚠️ Measurement method — keep this caveat: the app is ko-locked
+      //    (`detectLocale`), so **no en screen was rendered**. The en strings
+      //    were measured against the running screen's real badge-row classes,
+      //    inner width and font stack. 187px appears in older comments as a
+      //    quoted **cell** width; the row-inner basis is 158px.
+      //    Shortlist kept **only** as a fallback if some future measurement
+      //    says difficulty2 itself must shrink (not applied — do not apply):
+      //      'Mid-high' (8ch) · 'Secondary' (9ch) · 'Middle+' (7ch)
+      //    Prefer 'Secondary' on meaning (one school tier, not two joined);
+      //    prefer 'Mid-high' on width. Whichever wins, `difficultyAria` keeps
+      //    the full wording — the spoken name must not shrink (BoardPage.jsx:75).
+      difficulty1: 'Elementary',
+      difficulty2: 'Mid & high',
+      difficulty3: 'Adult',
       difficultyAria: 'Difficulty: {label}',
       difficultyText: 'Difficulty {label}',
       sandboxQuestion: 'Sandbox — place elements freely and observe what weather emerges',
@@ -92,9 +124,24 @@ export default {
       puzzleFallback: 'Puzzle',
       lockedSuffix: ' (locked)',
       lockedTitle: 'Raise your learning level in Profile to unlock',
-      cardLocked: 'Above your level',
+      // Shortened 2026-08-18 from 'Above your level' (measured 92px) — that
+      // width is the **common term** of all three badge cards, so cutting it
+      // buys margin on every one of them (see the measurement block above).
+      // Chosen by width, not by taste: this is a strict deletion of 'your '
+      // from the measured string, so it is **provably** narrower than 92px.
+      // Predicted ≈ 64px (4 letters + 1 space ≈ 28px off, at the 6.14px/letter
+      // rate implied by the 92px measurement) → ≈ 24px margin on the worst
+      // card (Elementary: 158 − 64 − 6 = 88px available).
+      // Terseness is safe here because the full wording lives where it is
+      // read out and hovered: `lockedTitle` (button `title`) and
+      // `lockedSuffix` (aria-label). Only the 11px visual hint shrinks.
+      // ⚠️ Predicted, **not** certified — the margin table is the measurement
+      // role's to produce, on the same 158px basis.
+      cardLocked: 'Above level',
       lockedBannerTitle: '🔒 You see the difficulties your learning level opens',
-      lockedBannerBody: 'Elementary opens Easy, middle/high school opens Normal, adult opens everything.',
+      // Same words as difficulty1~3 above — the badge and this banner must not
+      // name the same tier two different ways.
+      lockedBannerBody: 'Elementary students open Elementary, middle/high students up to Mid & high, adults open all tiers up to Adult.',
       lockedBannerCta: 'Change learning level',
       blockedSuffix: ' (out of clouds)',
       blockedTitle: 'Opens when a cloud recovers — in about {min} min',
@@ -102,7 +149,25 @@ export default {
       // waiting fixes one, solving fixes the other. Also a **distinct key** from
       // the level lock above — they had briefly collided after the merge and the
       // later definition silently shadowed the earlier one (2026-08-12).
-      lockedHint: '🔒 Earlier puzzles first',
+      // Shortened 2026-08-18 from '🔒 Earlier puzzles first'. This is the
+      // **real worst case**, not the level lock: a sequentially locked puzzle
+      // sits at any difficulty, so it routinely faces the widest badge
+      // (Elementary 64px → only 88px left), and it carried a 🔒 the level-lock
+      // string had already dropped — the lock is already drawn at the card's
+      // top-right (BoardPage.jsx:674), so the emoji was duplicate width.
+      // Old string ≈ 121px + emoji ≈ 14px, far past 88px.
+      // 🔴 **This is the tighter of the two and it is NOT certified.**
+      // Predicted ≈ 77–80px (12 letters + 1 space at 6.14–6.4px/letter) →
+      // predicted worst-card margin only ≈ 8–11px, and the prediction itself
+      // carries a few px of error. If re-measurement on the 158px basis gives
+      // under ~10px, fall back to **'In order'** (≈ 46px predicted, ≈ 42px
+      // margin) — pre-cleared for meaning because the 🔒 icon and
+      // `seqLockedTitle` ('Clear the puzzles before this one to open it')
+      // already carry the explanation on hover and to screen readers.
+      // ko is deliberately unchanged: its row has wide headroom
+      // (중·고등 32 + 6 + ~93 = ~131 of 158) and ko values are byte-identical
+      // to the authored source. So en drops the 🔒 while ko keeps it.
+      lockedHint: 'Earlier first',
       seqLockedTitle: 'Clear the puzzles before this one to open it',
       opening: 'Opening…',
       cleared: '✓ Cleared',
@@ -143,6 +208,8 @@ export default {
       hintNeedsLabel: 'Piece types needed:',
       hintCta: '💡 Show hint ({n}/{total})',
       hintNoAnswer: 'Hints never reveal the answer placement — take the last step yourself.',
+      // ①안 3단 (N-3) label. No digits — see the BoardHintPanel comment.
+      explainLabel: '📖 Stuck a few times — here is how this weather forms',
       moisture: '💧 Moisture',
       sun: '☀️ Insolation',
       wind: '🌬️ Wind',
