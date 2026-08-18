@@ -64,6 +64,56 @@ function loadDetectiveCases() {
 
 const DETECTIVE_CASES = loadDetectiveCases();
 
+// ── 과거 예보 회차 (MT-30) ───────────────────────────────────────────────────
+// ⚠️ **사본이다.** 단일 진실원은 `backend/app/services/hindcast_service.py`의
+// `HINDCAST_CASES`이고, 그것이 **파이썬 모듈**이라 detective처럼 JSON을 읽을 수 없다.
+// 그래서 여기 값을 손으로 맞춰 두고, 갈라지는 것은 사람이 아니라
+// `backend/tests/test_hindcast_mock_parity.py`가 이 파일을 파싱해 대조한다
+// (test_ci_workflow_contract·test_prompt_spec_parity가 세운 「파이썬 밖 파일을
+// 파싱해 대조하는 계약 테스트」 선례). 값을 고치면 양쪽을 함께 고쳐야 한다.
+//
+// 실측(actual)은 **여기 있어도 응답에 넣지 않는다** — 목이 정답을 흘리면 프론트가
+// 목에서만 되는 로컬 판정을 짤 수 있게 된다(detective와 같은 주의). 채점은 아래
+// 핸들러가 서버와 같은 공식으로 계산한다.
+const HINDCAST_CASES = [
+  {
+    case_id: 'seoul-2018-08-01',
+    observed_date: '2018-08-01',
+    region: '서울',
+    station: '108',
+    title: '2018년 8월 1일 — 서울',
+    climatology: { temp_max: 29.6, rain_prob: 70 },
+    actual: { temp_max: 39.6, sum_rn: 0.0 },
+  },
+  {
+    case_id: 'seoul-2022-08-08',
+    observed_date: '2022-08-08',
+    region: '서울',
+    station: '108',
+    title: '2022년 8월 8일 — 서울',
+    climatology: { temp_max: 29.4, rain_prob: 70 },
+    actual: { temp_max: 27.2, sum_rn: 129.6 },
+  },
+];
+
+// 「데모용 고정 날짜」 고지 — 서버 `hindcast_service.DISCLOSURE`와 같은 뜻.
+// 화면은 i18n 리소스를 쓰고, 이 필드는 API를 직접 보는 쪽을 위한 것이다.
+const HINDCAST_DISCLOSURE =
+  '과거 관측을 서버에 적재하는 경로가 아직 없어, 공개 기록으로 검증된 ' +
+  '고정 날짜만 제공하는 데모입니다. 값의 출처는 각 회차 결과에 함께 표시됩니다.';
+
+/** 채점용 실측 — sumRn>0 → 100 이진화 (서버 hindcast_service.scoring_actual과 동일) */
+function hindcastScoringActual(c) {
+  return { temp_max: c.actual.temp_max, rain_prob: c.actual.sum_rn > 0 ? 100 : 0 };
+}
+
+/** 정확도 점수 — 07번 문서 공식(league_service.accuracy_score와 동일) */
+function hindcastAccuracy(pred, actual) {
+  const tempScore = Math.max(0, 100 - Math.abs(pred.temp_max - actual.temp_max) * 10);
+  const rainScore = Math.max(0, 100 - Math.abs(pred.rain_prob - actual.rain_prob));
+  return Math.round(((tempScore + rainScore) / 2) * 100) / 100;
+}
+
 // ── 문항 시드 (R10-07 §2.3) ─────────────────────────────────────────────────
 // board_rules.json 선례를 확장해 **database/seed/content_items.json을 단일 진실원**
 // 으로 읽는다. 손으로 베낀 픽스처는 시드가 바뀌면 조용히 갈라지고(보드 퍼즐 4 vs
@@ -318,6 +368,8 @@ const state = {
   quest: { xpToday: 20, weakCorrect: 0, liveAnswered: 0, doneCodes: [] },
   // 예보 대결 (§3.4) — 오늘 제출 상태. evidence: 선택한 판단 근거 (R9-01 §3.1)
   duel: { submitted: false, userPred: null, aiPred: null, evidence: null },
+  // 과거 예보 (MT-30) — 회차당 1회. 제출된 판정 결과를 case_id로 들고 있다.
+  hindcastAttempts: [],
   // 구름 에너지 (R5-01 §3.3) — 소모성 플레이 자원. 지연 회복 모델.
   clouds: 10,
   cloudsUpdatedAt: Date.now(),
@@ -2712,6 +2764,7 @@ const routes = {
       tier: 'stratus',
       quest: { xpToday: 0, weakCorrect: 0, liveAnswered: 0 },
       duel: { submitted: false, userPred: null, aiPred: null, evidence: null },
+      hindcastAttempts: [],
       clouds: CLOUD_MAX,
       cloudsUpdatedAt: Date.now(),
       placementDone: false,
@@ -2927,6 +2980,81 @@ const routes = {
         min_clues: minClues,
       },
     ];
+  },
+
+  // ── 과거 예보 (MT-30 — backend routers/hindcast.py와 같은 형태·같은 판정) ──
+  // ⚠️ 목록 응답에 actual·sources·explanation을 **넣지 않는다**(서버 스키마가
+  //    구조적으로 배제한 것과 같은 계약). 목이 정답을 흘리면 프론트가 목에서만
+  //    되는 로컬 판정을 짤 수 있게 된다.
+  // 날짜 계산이 없다 — 회차는 고정 과거 날짜라 하루 경계(KST)가 개입하지 않는다.
+  'GET /hindcast/cases': () => [
+    200,
+    {
+      cases: HINDCAST_CASES.map((c) => ({
+        case_id: c.case_id,
+        observed_date: c.observed_date,
+        region: c.region,
+        station: c.station,
+        title: c.title,
+        intro: `${c.title} 회차입니다. 그날의 최고기온과 강수확률을 예보해 보세요.`,
+        climatology: c.climatology,
+        is_demo_fixture: true,
+        disclosure: HINDCAST_DISCLOSURE,
+        already_played: state.hindcastAttempts.some((a) => a.case_id === c.case_id),
+      })),
+      disclosure: HINDCAST_DISCLOSURE,
+    },
+  ],
+  'GET /hindcast/attempts': () => [200, { attempts: state.hindcastAttempts }],
+  'POST /hindcast/cases/:caseId/predict': (body, params) => {
+    const c = HINDCAST_CASES.find((x) => x.case_id === params.caseId);
+    if (!c) return [404, { detail: '그런 과거 예보 회차가 없습니다.', code: 'CASE_NOT_FOUND' }];
+
+    const tempMax = Number(body?.temp_max);
+    const rainProb = Number(body?.rain_prob);
+    if (
+      !Number.isFinite(tempMax) || !Number.isFinite(rainProb) ||
+      tempMax < -60 || tempMax > 60 || rainProb < 0 || rainProb > 100
+    ) {
+      return [422, { detail: '최고기온·강수확률 값이 올바르지 않습니다.', code: 'INVALID_PREDICTION' }];
+    }
+    // 회차당 1회 — 서버 UNIQUE(user_id, case_id)의 목 대응물
+    if (state.hindcastAttempts.some((a) => a.case_id === c.case_id)) {
+      return [409, { detail: '이 회차는 이미 예보했습니다.', code: 'ALREADY_SUBMITTED' }];
+    }
+
+    const scoringActual = hindcastScoringActual(c);
+    const userPred = { temp_max: tempMax, rain_prob: rainProb };
+    // 캐스터: 평년값 기준 + 고정 오프셋(목은 결정적 해시 대신 단순 고정 — 서버의
+    // 재현성 계약은 backend tests가 문다. 여기서는 "평년값 근처"만 성립하면 된다).
+    const aiPred = {
+      temp_max: Math.round((c.climatology.temp_max + 0.8) * 10) / 10,
+      rain_prob: Math.max(0, Math.min(100, c.climatology.rain_prob - 5)),
+      noise_scale: 1.0,
+    };
+    const userScore = hindcastAccuracy(userPred, scoringActual);
+    const aiScore = hindcastAccuracy(aiPred, scoringActual);
+    const result = userScore > aiScore ? 'win' : userScore < aiScore ? 'lose' : 'draw';
+
+    const payload = {
+      case_id: c.case_id,
+      observed_date: c.observed_date,
+      title: c.title,
+      user_pred: { ...userPred, noise_scale: null },
+      ai_pred: aiPred,
+      actual: { ...scoringActual, sum_rn: c.actual.sum_rn },
+      user_score: userScore,
+      ai_score: aiScore,
+      result,
+      explanation: `실제 최고기온은 ${c.actual.temp_max}℃였고, 일강수량은 ${c.actual.sum_rn}mm였습니다.`,
+      sources: {
+        temp_max: `${c.actual.temp_max}℃ — 공개 기록 기반 고정 픽스처(출처는 서버 hindcast_service.HINDCAST_CASES가 소유).`,
+        sum_rn: `${c.actual.sum_rn}mm — 공개 기록 기반 고정 픽스처.`,
+      },
+      created_at: new Date().toISOString(),
+    };
+    state.hindcastAttempts = [payload, ...state.hindcastAttempts];
+    return [200, payload];
   },
 
   // ── 예보 대결 (R4-01 §3.4 /duel + R9-01 §3.1 브리핑·근거) ──
