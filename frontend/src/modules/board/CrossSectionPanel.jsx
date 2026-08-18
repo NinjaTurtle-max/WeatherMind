@@ -2,7 +2,7 @@
  * CrossSectionPanel — 판정 시 단면 모식도 애니메이션 패널 (R9-08 §B, 기준 이미지 중.png).
  *
  * 교과서 3D 블록 다이어그램 문법: 투명한 공기 상자 + 바닥 지면 평면(지도 시점)
- * + 전면 수직 단면. 규칙 13종(board_rules.json)마다 explain을 실제 메커니즘 순서로
+ * + 전면 수직 단면. `board_rules.json`의 규칙마다 explain을 실제 메커니즘 순서로
  * 분해한 스토리보드(3~4단계, 단계당 1.4s 순차 재생 + 캡션)를 자체 저작했다.
  * 과학적 정확성 최우선 — 각 단계가 실제 기상 메커니즘 순서와 일치한다.
  *
@@ -1089,7 +1089,257 @@ function FloodRiskScene({ step, animate }) {
   );
 }
 
-// ── 스토리보드 레지스트리 (board_rules.json 15종 — explain을 메커니즘 순서로 분해) ──
+/**
+ * ── ㉣ 변동 기상요소 3종 (MT-24) — **규칙만 있고 장면이 없던 자리** ────────────
+ *
+ * `46e3ef4`·`99b7bc1`이 `board_rules.json`에 4조건 규칙 3종을 넣으면서 표시 표
+ * (`SCENE_BY_RULE`·`webgl/crossSection/scenes.js`)를 함께 늘리지 않았다. 그래서 그
+ * 3판만 **위 머리 주석이 계약으로 적어 둔 폴백**(explain 캡션만·애니메이션 없음)에
+ * 떨어져 있었다 — 크래시가 아니라서 조용했고, 그 조용함이 대회 동결까지 갈 뻔했다.
+ *
+ * 🔴 **여기가 파일 끝(FloodRiskScene 뒤)인 것은 우연이 아니다.** `boardVisual.render`
+ * §8이 `'function WildfireRiskScene'`부터 `'// 홍수 지형'`까지를 잘라 그 구간에
+ * `CbTower`·`CSRain` 같은 구름·강수 프리미티브가 **0건**임을 단정한다(산불 4단계
+ * 캡션이 「구름 한 점 없이 맑지만」이라서다). 아래 `ColdFrontSquallScene`은 정확히
+ * 그 둘을 쓰므로, 두 마커 **사이에** 두면 산불의 무구름 단정이 엉뚱한 메시지로
+ * 빨개진다. 새 장면은 반드시 이 자리(레지스트리 바로 위)에 둔다.
+ *
+ * 그림의 근거는 이름이 아니라 규칙의 `when`이다 — 4조건 각각이 **무슨 일을 하는지**를
+ * 한 단계씩 맡는다. 그래야 「왜 조건이 넷이나 필요한가」가 그림으로 답해진다:
+ *   · squall = 일사(불안정) + 전선(강제 상승) + **바람 시어**(오름/내림 분리) + 습기
+ *   · gale   = 기단(차고 메마름) + **강풍**(산을 넘어 내리며 더 마름) + 일사 + 건조
+ *   · flood  = 전선(정체) + 바람(수증기 보급) + 습기 + **약한 일사**(흩을 힘 없음)
+ */
+
+/** cold_front_squall_storm: 지면 가열 → 전선 강제 상승 → 바람 시어 → 조직된 뇌우 */
+function ColdFrontSquallScene({ step, animate }) {
+  const wedge = [fp(0, 0), fp(0.55, 0), fp(0.14, 0.72), fp(0, 0.8)];
+  return (
+    <BlockFrame>
+      {/* 0 — 일사. 데워지는 곳은 **전선 앞쪽(동)의 따뜻한 구역**이다.
+              ⚠️ 햇살 선은 적란운이 서기 **전에** 끝나야 한다 — 실렌더에서 선이
+              구름을 관통해 「구름 속으로 들어가는 햇빛」이 됐다(y2·x2를 낮춰 해소) */}
+      <Appear at={0} step={step} animate={animate}>
+        <g className={anim(animate, 'animate-board-sun-pulse')}>
+          <SunShape x={44} y={26} scale={1.4} fill="#f59e0b" />
+        </g>
+        {[0, 1, 2].map((i) => (
+          <line
+            key={i} x1={56 + i * 6} y1={36 + i * 2} x2={120 + i * 10} y2={104}
+            stroke="#fbbf24" strokeWidth="1.2" strokeDasharray="4 3" opacity="0.8"
+          />
+        ))}
+        <ellipse cx={150} cy={115} rx="34" ry="7" fill="url(#cs-heat)" />
+        <CSText x={182} y={110} color="#c2410c" size={5.5}>{V.groundHeating}</CSText>
+      </Appear>
+
+      {/* 1 — 한랭전선이 그 습한 공기를 급하게 밀어 올린다(ColdFrontScene과 같은 문법).
+              ⚠️ 「따뜻하고 습한 공기」 라벨은 **일부러 없다** — 실렌더에서 적란운
+              몸통과 시어 화살표 사이에 끼여 글자가 잘렸고, 그 뜻은 분홍 영역 +
+              붉은 상승 화살표 + 캡션이 이미 나른다(라벨을 옮기는 대신 줄였다) */}
+      <Appear at={1} step={step} animate={animate} enter="animate-board-front">
+        <GroundFrontLine fx0={0.55} fx1={0.69} kind="cold" animate={animate} />
+        <polygon points={P(wedge)} fill={COLD_FILL} stroke={COLD} strokeWidth="1" />
+        <polygon points={P([fp(0.55, 0), fp(1, 0), fp(1, 0.78), fp(0.2, 0.78), fp(0.14, 0.72)])} fill={WARM_FILL} />
+        <BroadArrow x1={36} y1={104} x2={92} y2={104} color={COLD} bend={0.05} />
+        <CSText x={58} y={96} color={COLD}>{V.coldAir}</CSText>
+      </Appear>
+      <RisingArrows at={1} step={step} animate={animate} cx={96} cy={92} rotate={-28} color={WARM} count={3} gap={11} />
+
+      {/* 2 — **연직 시어**. 위 화살표가 길고 빠르며 아래가 짧다 — 그 차이가 오르는
+              흐름과 내려오는 흐름을 서로 다른 자리에 놓는다(그래서 안 흩어진다) */}
+      <Appear at={2} step={step} animate={animate}>
+        <BroadArrow x1={172} y1={62} x2={214} y2={60} color="#0e7490" bend={0.03} w0={8} w1={3.5} />
+        <BroadArrow x1={182} y1={86} x2={204} y2={85} color="#0e7490" bend={0.02} w0={5.5} w1={2.5} />
+        <CSText x={190} y={50} color="#0e7490" size={5.5}>{V.upperWindFaster}</CSText>
+        <CSText x={78} y={58} color="#9a3412" size={5.5}>{V.updraftDowndraftApart}</CSText>
+      </Appear>
+      {/* 오름(주황)과 내림(파랑)이 나란히 서지 않고 **좌우로 갈라진다**.
+          둘 다 구름 몸통(x 127~162) 밖에 둔다 — 안에 두면 화살표가 구름에 먹힌다 */}
+      <RisingArrows at={2} step={step} animate={animate} cx={118} cy={72} rotate={-10} color="#ea580c" count={2} gap={10} />
+      <RisingArrows at={2} step={step} animate={animate} cx={170} cy={80} rotate={180} color="#2563eb" count={2} gap={10} />
+      <Appear at={2} step={step} animate={animate} enter="animate-board-grow">
+        <CbTower x={144} groundY={114} topY={24} animate={animate} grow={step === 2} />
+        <CSText x={196} y={34} size={6}>{V.cumulonimbus}</CSText>
+      </Appear>
+
+      {/* 3 — 조직된 뇌우. 한 번 쏟고 흩어지는 대신 **한 덩어리로** 더 세게 */}
+      <Appear at={3} step={step} animate={animate}>
+        <CSRain x={148} y0={96} y1={116} count={6} gap={5} slant={18} width={1.8} animate={animate} />
+        <Bolt x={132} y={94} animate={animate} />
+        <Bolt x={162} y={100} animate={animate} />
+        <CSText x={68} y={44} color="#b91c1c" size={6.5}>{V.organizedStorm}</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+// 산을 넘어 내려오며 마르고 세지는 바람 — 지형은 `okhotsk_foehn_clear`·산불과 같은
+// 삼각 단면 관용구인데 **바람 방향이 반대**라 능선을 왼쪽에 둔다(서→동). 불이 나는
+// 곳은 비탈이 아니라 **내리막 바람이 닿는 동쪽 평지**다.
+const SG = { west: 0.06, apex: 0.34, east: 0.56, peak: 0.6 };
+const sgSlopeH = (fx) => (fx <= SG.apex
+  ? (SG.peak * (fx - SG.west)) / (SG.apex - SG.west)
+  : (SG.peak * (SG.east - fx)) / (SG.east - SG.apex));
+/** 능선 위의 점(화면 좌표) — 나무·불꽃의 base가 전부 여기서 나온다(단일 소유) */
+const sgOn = (fx) => fp(fx, Math.max(0, sgSlopeH(fx)));
+
+/** siberian_gale_wildfire: 차고 메마른 기단 → 산을 넘는 강풍 → 일사 → 산불 */
+function SiberianGaleWildfireScene({ step, animate }) {
+  const peak = fp(SG.apex, SG.peak);
+  const west = fp(SG.west, 0);
+  const east = fp(SG.east, 0);
+  // 뒷면은 얕게(0.5) — 깊게 두면 능선을 넘는 내리막 화살표가 뒷면 위를 길게 지나
+  // **산을 뚫고 지나가는 것처럼** 보인다(실렌더 확인). 이 투영에서 뒷면은 항상
+  // 오른쪽-위로 뻗으므로, 서→동 바람은 뒷면과의 교차를 피할 수 없다 — 줄이는 것이
+  // 유일한 수단이고, 대신 내리막 화살표를 더 진하게(#0891b2) 세워 대비를 준다.
+  const back = ([x, y]) => [x + BF.DX * 0.5, y - BF.DY * 0.5];
+  const trees = [0.18, 0.28, 0.42, 0.50, 0.60, 0.68, 0.76].map((fx) => ({ fx, p: sgOn(fx) }));
+  const fires = [0.62, 0.70, 0.78].map((fx, i) => ({ fx, h: 9 + i * 3, p: sgOn(fx) }));
+  const [ex, ey] = sgOn(0.90); // 바람이 실어 간 불씨가 놓는 새 불
+  return (
+    <BlockFrame>
+      {/* 0의 색 번짐은 **지형보다 먼저** — 뒤에 칠하면 산과 나무를 덮는다
+          (SVG는 JSX 순서가 곧 그리는 순서다. 산불 장면의 마른 평지와 같은 규약) */}
+      <Appear at={0} step={step} animate={animate}>
+        <ellipse cx={70} cy={64} rx="42" ry="26" fill="url(#cs-bloom-cold)" />
+      </Appear>
+      {/* 지형은 전 단계 공통 배경 — 단계마다 다시 등장하면 지형이 깜빡인다(foehn 규약) */}
+      <polygon points={P([peak, back(peak), back(east), east])} fill="#6f7f5e" stroke="#4d5c3e" strokeWidth="0.6" />
+      <polygon
+        data-cs="mountain"
+        data-cs-ax={peak[0].toFixed(1)} data-cs-ay={peak[1].toFixed(1)}
+        data-cs-wx={west[0].toFixed(1)} data-cs-wy={west[1].toFixed(1)}
+        data-cs-ex={east[0].toFixed(1)} data-cs-ey={east[1].toFixed(1)}
+        points={P([west, peak, east])} fill="#8aa06e" stroke="#4d5c3e" strokeWidth="0.8"
+      />
+      {trees.map(({ fx, p }) => <ConiferTree key={fx} x={p[0]} y={p[1]} />)}
+      <CSText x={80} y={112} size={5.5} color="#3f4c33">{V.mountainRange}</CSText>
+
+      {/* 0 — 차고 메마른 기단이 내려와 자리 잡는다 */}
+      <Appear at={0} step={step} animate={animate} enter="animate-board-front">
+        <BroadArrow x1={28} y1={58} x2={80} y2={70} color={COLD} bend={0.1} />
+        <CSText x={66} y={38} color={COLD}>{V.siberianCp}</CSText>
+        <CSText x={66} y={46} color="#3b82f6" size={5.5}>{V.coldDry}</CSText>
+      </Appear>
+
+      {/* 1 — 산을 오르고 **넘어 내려오며** 더 마르고 세진다(양쪽 화살표 한 쌍이 문법).
+              내리막 쪽이 능선 바로 위를 훑고 평지 앞에서 멈춘다 — 그 앞은 불이다 */}
+      <Appear at={1} step={step} animate={animate}>
+        <BroadArrow x1={34} y1={104} x2={74} y2={80} color="#0e7490" bend={0.06} w0={7} w1={3} />
+        <BroadArrow x1={98} y1={74} x2={140} y2={104} color="#0891b2" bend={0.12} w0={7} w1={3.5} />
+        <CSText x={146} y={60} color="#0e7490" size={5.5}>{V.windDriesDescending}</CSText>
+      </Appear>
+
+      {/* 2 — 일사가 마른 연료를 한층 더 달군다. 낙엽은 바닥 평면 **안쪽**(z)에 흩는다 */}
+      <Appear at={2} step={step} animate={animate}>
+        <g className={anim(animate, 'animate-board-sun-pulse')}>
+          <SunShape x={206} y={24} scale={1.1} fill="#f59e0b" />
+        </g>
+        {[0, 1].map((i) => (
+          <line
+            key={i} x1={196 - i * 6} y1={36 + i * 2} x2={182 - i * 10} y2={84}
+            stroke="#fbbf24" strokeWidth="1.1" strokeDasharray="4 3" opacity="0.8"
+          />
+        ))}
+        {[0.62, 0.70, 0.78].map((fx) => {
+          const [lx, ly] = gp(fx, 0.72);
+          return <path key={fx} d={`M${lx} ${ly} l4 -3 l4 3 l-4 2 Z`} fill="#a16207" opacity="0.85" />;
+        })}
+        <CSText x={160} y={88} color="#92400e" size={5.5}>{V.driedLeavesTwigs}</CSText>
+      </Appear>
+
+      {/* 3 — 불씨 하나가 번진다. 바람 아래(동)로 갈수록 커지는 것이 **불머리**다.
+              구름은 그리지 않는다 — 이 규칙의 cloud는 none이다.
+              ⚠️ 결론 라벨은 **불 위 하늘**에 둔다. 처음엔 왼쪽 하늘(66,58)에 뒀는데
+              실렌더에서 기단 화살표와 겹친 데다 불에서 멀어 어디를 가리키는지
+              안 읽혔다 */}
+      <Appear at={3} step={step} animate={animate}>
+        {fires.map(({ fx, h, p }, i) => (
+          <Flame key={fx} x={p[0]} y={p[1]} h={h} role="front" animate={animate} delay={i * 0.25} />
+        ))}
+        <SmokePlume x={172} y={106} animate={animate} />
+        <BroadArrow x1={176} y1={102} x2={ex - 3} y2={ey - 9} color="#f97316" bend={-0.3} w0={5} w1={2} opacity={0.9} />
+        <Flame x={ex} y={ey} h={8} role="spot" animate={animate} delay={0.4} />
+        <CSText x={150} y={46} color="#b45309" size={6}>{V.oneSparkSpreads}</CSText>
+        <CSText x={196} y={74} color="#c2410c" size={5.5}>{V.embersRideWind}</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+/** front_convergence_flood: 정체 → 습기 보급 → 햇볕 차단(흩을 힘 없음) → 침수 */
+function FrontConvergenceFloodScene({ step, animate }) {
+  return (
+    // 습한 바람이 오는 쪽(동)에 바다를 둔다 — WebGL 장면과 같은 sea 범위다
+    <BlockFrame sea={{ from: 0.86, to: 1 }}>
+      {/* 0 — 세력이 비슷해 어느 쪽도 밀리지 않는다(MonsoonScene의 대치 문법) */}
+      <Appear at={0} step={step} animate={animate}>
+        <polygon points={P([fp(0, 0), fp(0.44, 0), fp(0, 0.6)])} fill={COLD_FILL} stroke={COLD} strokeWidth="0.9" />
+        <polygon points={P([fp(1, 0), fp(0.56, 0), fp(1, 0.6)])} fill="rgba(252,165,165,0.6)" stroke={WARM} strokeWidth="0.9" />
+        <BroadArrow x1={42} y1={106} x2={82} y2={106} color={COLD} bend={0.05} w0={7} w1={3} />
+        <BroadArrow x1={198} y1={106} x2={158} y2={106} color={WARM} bend={0.05} w0={7} w1={3} />
+        <CSText x={52} y={92} color={COLD}>{V.coldAir}</CSText>
+        <CSText x={192} y={104} color={WARM}>{V.warmAir}</CSText>
+        {/* 전선은 **기호**로만 말한다 — 실렌더에서 「정체전선」 글자가 빗줄기 다발
+            한복판에 놓여 읽히지 않았고, 이중 기호(반원+삼각 교대)가 이미 그 뜻이다.
+            형제 장면 MonsoonScene도 SVG에서는 이 라벨을 쓰지 않는다(GL에만 있다) */}
+        <GroundFrontLine fx0={0.46} fx1={0.54} kind="stationary" animate={animate} wobble />
+      </Appear>
+
+      {/* 1 — 아래쪽에서 습한 바람이 **쉬지 않고** 들어와 같은 곳을 다시 채운다.
+              두 층으로 나눠 「끊기지 않음」을 두께로 보인다(홍수 장면과 같은 규약) */}
+      <Appear at={1} step={step} animate={animate}>
+        <BroadArrow x1={238} y1={66} x2={178} y2={58} color="#0d9488" bend={-0.14} w0={9} w1={4} />
+        <BroadArrow x1={238} y1={80} x2={188} y2={72} color="#0d9488" bend={-0.1} w0={7} w1={3} />
+        {/* 라벨은 구름 **오른쪽 바깥**에 둔다 — 구름은 다음 단계에 그려지므로
+            띠 폭 안에 두면 나중에 덮여 글자가 잘린다(실렌더에서 실제로 잘렸다) */}
+        <CSText x={190} y={90} color="#0f766e" size={5.5}>{V.vapourKeepsArriving}</CSText>
+      </Appear>
+
+      {/* 2 — **약한 일사가 조건인 이유**. 두꺼운 구름이 햇볕을 가로막아 지면이
+              데워지지 않고, 그래서 비구름을 흩을 힘이 생기지 않는다.
+              햇살 선을 구름 **위에서 끊는 것**이 「가려졌다」의 문법이다 */}
+      <Appear at={2} step={step} animate={animate}>
+        <g className={anim(animate, 'animate-board-sun-pulse')}>
+          <SunShape x={58} y={26} scale={1.15} fill="#fcd34d" />
+        </g>
+        {[0, 1].map((i) => (
+          <line
+            key={i} x1={64 + i * 7} y1={36 + i * 2} x2={82 + i * 12} y2={56}
+            stroke="#fbbf24" strokeWidth="1.1" strokeDasharray="4 3" opacity="0.7"
+          />
+        ))}
+        <CSText x={62} y={42} color="#78716c" size={5.5}>{V.cloudBlocksSun}</CSText>
+      </Appear>
+      <Appear at={2} step={step} animate={animate} enter="animate-board-grow">
+        <LayerCloud x={112} y={68} w={96} dark animate={animate} grow={step === 2} />
+        <CSText x={158} y={50} color="#475569" size={5.5}>{V.rainBandCannotScatter}</CSText>
+      </Appear>
+
+      {/* 3 — 같은 곳에 오래 내리고, 물이 빠져나갈 새 없이 쌓인다.
+              물은 **땅속 → 지표** 두 겹으로 — 수위가 오르는 것이 홍수의 문법이다.
+              ⚠️ 수면에 진한 선을 하나 얹는다. 실렌더에서 반투명 판만으로는 기단
+              폴리곤과 구별이 안 돼 「물이 찼다」가 아니라 「파란 안개」로 보였다 */}
+      <Appear at={3} step={step} animate={animate}>
+        <CSRain x={100} y0={78} y1={112} count={5} gap={6.5} slant={4} width={1.2} slow animate={animate} />
+        <CSRain x={150} y0={78} y1={112} count={5} gap={6.5} slant={4} width={1.2} slow animate={animate} />
+        <rect data-cs="water-soil" x={BF.L} y="120" width={BF.R - BF.L} height="7" fill="#0ea5e9" opacity="0.34" />
+        <rect
+          data-cs="water-surface" data-cs-top="108"
+          x={BF.L} y="108" width={BF.R - BF.L} height={118 - 108} fill="#38bdf8" opacity="0.55"
+        />
+        <line x1={BF.L} y1="108" x2={BF.R} y2="108" stroke="#0284c7" strokeWidth="0.9" />
+        <CSText x={82} y={104} color="#0c4a6e" size={6}>{V.waterPilesUp}</CSText>
+      </Appear>
+    </BlockFrame>
+  );
+}
+
+// ── 스토리보드 레지스트리 (board_rules.json 전건 — explain을 메커니즘 순서로 분해) ──
+// ⚠️ 종수를 여기 적지 않는다(CLAUDE.md §0-2). 소유자는 `database/seed/board_rules.json`
+//    하나이고, 「규칙 수 === 이 표의 키 수」는 boardVisual.render·crossSectionWebgl.contract가
+//    문다 — 종전에 여기 적혀 있던 "15종"은 규칙이 18종이 된 뒤에도 그대로 남아 있었다.
 // ⚠️ i18n 외부화 제외(R11-01 §6.3 판정): boardVisual.render.test가 이 모듈 데이터
 // (steps·title)를 렌더 HTML과 **문자열 대조**하고, crossSectionWebgl.contract가
 // steps.length를 SCENES 단계와 정합 검사한다. 장면 내 CSText 라벨·scenes.js 라벨
@@ -1111,6 +1361,10 @@ export const SCENE_BY_RULE = {
   dry_convection_clear: DryConvectionClearScene,
   wildfire_risk_dry_gale: WildfireRiskScene,
   flood_risk_saturated_inflow: FloodRiskScene,
+  // ㉣ 변동 기상요소(MT-24) — 규칙만 있고 장면이 없던 3종
+  cold_front_squall_storm: ColdFrontSquallScene,
+  siberian_gale_wildfire: SiberianGaleWildfireScene,
+  front_convergence_flood: FrontConvergenceFloodScene,
 };
 
 /**

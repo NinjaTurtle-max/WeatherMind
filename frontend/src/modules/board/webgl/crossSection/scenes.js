@@ -1,5 +1,10 @@
 /**
- * scenes — 규칙 13종 단면 장면 기술(記述) (R10-C / S2 · R13 확장 5종).
+ * scenes — 단면 장면 기술(記述) (R10-C / S2 · R13 확장 · MT-24 ㉣ 3종).
+ *
+ * ⚠️ 종수를 여기 적지 않는다(CLAUDE.md §0-2). 소유자는 `database/seed/board_rules.json`
+ * 하나이고 「규칙 수 === SCENES 키 수 === STORYBOARDS 키 수」는
+ * `crossSectionWebgl.contract`가 문다 — 종전에 적혀 있던 "13종"은 규칙이 15종·18종이
+ * 된 뒤에도 그대로 남아 있었고, 실제로 그 표가 늘지 않은 것이 MT-24의 결함이었다.
  *
  * **서버 계약·rule_id 매핑 불변**: 입력은 기존과 동일한 로컬 엔진 산출
  * {현상·구름·rule_id·explain}이고, 여기서는 rule_id → 3D 장면만 매핑한다.
@@ -578,6 +583,135 @@ const floodRiskSaturatedInflow = () => [
   label({ x: 0.90, y: H(0.44), text: V.runoffGathersLow, color: '#0369a1', at: 3, size: 10 }),
 ];
 
+/**
+ * ── ㉣ 변동 기상요소 3종 (MT-24) — **규칙만 있고 장면이 없던 자리** ────────────
+ *
+ * `46e3ef4`·`99b7bc1`이 `board_rules.json`에 4조건 규칙 3종을 넣으면서 이 표와
+ * `CrossSectionPanel.SCENE_BY_RULE`을 함께 늘리지 않았다. 그 결과 `buildScene`이
+ * null → `CrossSectionGL` onFail → SVG 폴백인데, SVG에도 장면이 없어 **explain
+ * 캡션만 뜨는 최종 폴백**까지 내려갔다. 이번에 두 표를 같은 커밋에서 함께 늘린다.
+ *
+ * 새 표현 요소는 **하나도 없다** — 빌보드 kind도 pattern도 기존 것뿐이라
+ * 드로우 패스 8은 그대로다(crossSectionWebgl.contract가 그 예산을 문다).
+ * 새로 하는 일은 **기존 관용구의 재배치**뿐이고, 배치의 근거는 규칙의 `when`이다:
+ * 4조건 각각이 무슨 일을 하는지를 단계 하나씩 맡는다.
+ */
+
+/** cold_front_squall_storm: 지면 가열 → 전선 강제 상승 → 바람 시어 → 조직된 뇌우 */
+const coldFrontSquallStorm = () => [
+  // 0 — 일사. 데워지는 곳은 전선 **앞쪽(동)의 따뜻한 구역**이다
+  bb({ x: 0.14, y: H(1.0), z: 0.06, w: 0.19, h: 0.19, color: rgba('#f59e0b', 0.95), kind: 2, at: 0 }),
+  bb({ x: 0.76, y: 0.004, w: 0.46, h: 0.3, color: rgba('#fb923c', 0.5), kind: 3, at: 0 }),
+  label({ x: 0.78, y: H(0.16), text: V.groundHeating, color: '#c2410c', at: 0, size: 10 }),
+
+  // 1 — 한랭전선 쐐기가 그 습한 공기를 급하게 밀어 올린다(cold_front_shower와 같은 문법)
+  wedge({ x0: 0, x1: 0.55, tx0: 0.02, tx1: 0.14, y1: H(0.8), color: COLD_FILL, at: 1 }),
+  frontSlab({ xb: 0.55, xt: 0.14, y1: H(0.8), color: COLD_EDGE, at: 1 }),
+  vol({ x0: 0.52, x1: 1, y1: H(0.78), color: WARM_FILL, at: 1 }),
+  ...flow({ from: [0.05, H(0.12), ZC], dir: [1, 0, 0], travel: 0.3, color: rgba('#2563eb', 0.85), at: 1, speed: 0.4 }),
+  ...flow({ from: [0.54, H(0.1), ZC], dir: [-0.5, 1, 0], travel: 0.28, count: 3, color: rgba('#dc2626', 0.9), at: 1, speed: 0.55 }),
+  label({ x: 0.2, y: H(0.42), text: V.coldAir, color: COLD_TXT, at: 1 }),
+  label({ x: 0.87, y: H(0.52), text: V.warmHumidAir, color: WARM_TXT, at: 1, size: 10 }),
+
+  // 2 — **연직 시어**. 위 화살표가 길고 빠르며 아래가 짧다. 그 차이가 오르는 흐름과
+  //     내려오는 흐름을 **다른 자리**에 놓아 서로를 방해하지 않게 한다(규칙 explain).
+  ...flow({ from: [0.58, H(0.88), ZC], dir: [1, 0, 0], travel: 0.34, count: 3, scale: 0.05, color: rgba('#0e7490', 0.92), at: 2, speed: 0.95, spreadZ: 0.14 }),
+  ...flow({ from: [0.62, H(0.44), ZC], dir: [1, 0, 0], travel: 0.15, count: 2, scale: 0.04, color: rgba('#0e7490', 0.78), at: 2, speed: 0.38, spreadZ: 0.1 }),
+  label({ x: 0.88, y: H(1.06), text: V.upperWindFaster, color: '#0e7490', at: 2, size: 10 }),
+  ...flow({ from: [0.48, H(0.08), ZC - 0.07], dir: [0.1, 1, 0], travel: 0.3, count: 2, color: rgba('#ea580c', 0.92), at: 2, speed: 0.62 }),
+  ...flow({ from: [0.74, H(0.58), ZC + 0.07], dir: [-0.1, -1, 0], travel: 0.26, count: 2, color: rgba('#2563eb', 0.9), at: 2, speed: 0.55 }),
+  label({ x: 0.26, y: H(0.6), text: V.updraftDowndraftApart, color: '#9a3412', at: 2, size: 10 }),
+  ...cbTower({ x: 0.58, top: H(0.98), at: 2 }),
+  label({ x: 0.28, y: H(1.04), text: V.cumulonimbus, at: 2, size: 10 }),
+
+  // 3 — 조직된 뇌우. 한 번 쏟고 흩어지는 대신 한 덩어리로 더 오래·더 세게
+  precip({ x0: 0.47, x1: 0.71, y1: H(0.7), slant: 0.32, speed: 1.8, count: 32, at: 3 }),
+  bb({ x: 0.48, y: H(0.5), w: 0.13, h: 0.13, color: rgba('#facc15', 0.95), kind: 4, at: 3 }),
+  bb({ x: 0.69, y: H(0.4), w: 0.11, h: 0.11, color: rgba('#facc15', 0.9), kind: 4, at: 3 }),
+  label({ x: 0.24, y: H(0.84), text: V.organizedStorm, color: '#b91c1c', at: 3, size: 11 }),
+];
+
+/** siberian_gale_wildfire: 차고 메마른 기단 → 산을 넘는 강풍 → 일사 → 산불 */
+const siberianGaleWildfire = () => [
+  // 지형 — 산맥. `okhotsk_foehn_clear`·`wildfire_risk_dry_gale`과 같은 삼각 단면
+  //   관용구인데 **바람 방향이 반대**라 능선을 왼쪽에 둔다(서→동). 불이 나는 곳은
+  //   비탈이 아니라 **내리막 바람이 닿는 동쪽 평지**다 — 규칙의 note_authoring이
+  //   말하는 「산을 넘어 내려오며 마르고 세지는 바람」이 그 자리를 정한다.
+  //   동쪽 비탈 높이 = 0.248 × (0.60−x)/0.26 — 아래 나무의 base가 전부 이 값이다.
+  wedge({ x0: 0.06, x1: 0.60, tx0: 0.30, tx1: 0.38, y1: H(0.62), color: rgba('#93ad78', 0.97), at: 0, z0: 0.03, z1: Z - 0.03 }),
+  tree({ x: 0.16, base: 0.089, h: 0.062, z: ZC - 0.05, at: 0 }),
+  tree({ x: 0.25, base: 0.168, h: 0.060, z: ZC - 0.08, at: 0 }),
+  tree({ x: 0.42, base: 0.172, h: 0.064, z: ZC - 0.07, at: 0 }),
+  tree({ x: 0.50, base: 0.095, h: 0.066, z: ZC - 0.09, at: 0 }),
+  tree({ x: 0.64, h: 0.070, at: 0 }),
+  tree({ x: 0.72, h: 0.066, z: ZC - 0.05, at: 0 }),
+  tree({ x: 0.80, h: 0.068, z: ZC - 0.08, at: 0 }),
+  label({ x: 0.30, y: H(0.16), text: V.mountainRange, color: '#3f4c33', at: 0, size: 9.5 }),
+
+  // 0 — 차고 메마른 기단이 내려와 자리 잡는다
+  bb({ x: 0.16, y: H(0.66), w: 0.6, h: 0.4, color: rgba('#3b82f6', 0.36), kind: 0, at: 0 }),
+  ...flow({ from: [0.02, H(0.9), ZC + 0.08], dir: [0.92, -0.28, -0.24], travel: 0.3, count: 3, color: rgba('#2563eb', 0.9), at: 0, speed: 0.36 }),
+  label({ x: 0.18, y: H(1.04), text: V.siberianCp, color: COLD_TXT, at: 0 }),
+  label({ x: 0.18, y: H(0.9), text: V.coldDry, color: '#3b82f6', at: 0, size: 9.5 }),
+
+  // 1 — 산을 오르고 **넘어 내려오며** 더 마르고 세진다. 두 화살표 한 쌍이 문법이고,
+  //     내리막 쪽이 더 빠르다(speed) — 그것이 「세진다」의 관측 가능한 표현이다.
+  ...flow({ from: [0.06, H(0.12), ZC], dir: [0.86, 0.5, 0], travel: 0.26, count: 2, color: rgba('#0e7490', 0.88), at: 1, speed: 0.5 }),
+  ...flow({ from: [0.40, H(0.6), ZC], dir: [0.9, -0.44, 0], travel: 0.34, count: 3, color: rgba('#0e7490', 0.94), at: 1, speed: 0.95, spreadZ: 0.14 }),
+  label({ x: 0.62, y: H(0.9), text: V.windDriesDescending, color: '#0e7490', at: 1, size: 10 }),
+
+  // 2 — 일사가 마른 연료를 한층 더 달군다
+  bb({ x: 0.92, y: H(1.02), z: 0.06, w: 0.16, h: 0.16, color: rgba('#f59e0b', 0.95), kind: 2, at: 2 }),
+  bb({ x: 0.74, y: 0.004, w: 0.42, h: 0.08, color: rgba('#ca8a04', 0.42), kind: 3, at: 2 }),
+  label({ x: 0.76, y: H(0.24), text: V.driedLeavesTwigs, color: '#92400e', at: 2, size: 10 }),
+
+  // 3 — 불씨 하나가 번진다. 바람 아래(동)로 갈수록 커지는 것이 **불머리**다.
+  //     구름은 없다 — 이 규칙의 cloud는 none이다.
+  ...flame({ x: 0.62, h: 0.085, z: ZC - 0.04, at: 3 }),
+  ...flame({ x: 0.70, h: 0.115, z: ZC - 0.04, at: 3 }),
+  ...flame({ x: 0.78, h: 0.145, z: ZC - 0.04, at: 3 }),
+  ...smoke({ x: 0.80, y: H(0.42), n: 3, lean: 0.05, rise: 0.06, at: 3 }),
+  ...flow({ from: [0.80, H(0.5), ZC], dir: [1, 0.16, 0], travel: 0.2, count: 3, scale: 0.03, color: rgba('#f97316', 0.95), at: 3, speed: 0.9, spreadZ: 0.1 }),
+  ...flame({ x: 0.95, h: 0.062, at: 3 }),
+  label({ x: 0.24, y: H(0.56), text: V.oneSparkSpreads, color: '#b45309', at: 3, size: 11 }),
+  label({ x: 0.90, y: H(0.78), text: V.embersRideWind, color: '#c2410c', at: 3, size: 9.5 }),
+];
+
+/** front_convergence_flood: 정체 → 습기 보급 → 햇볕 차단(흩을 힘 없음) → 침수 */
+const frontConvergenceFlood = () => [
+  // 0 — 세력이 비슷해 어느 쪽도 밀리지 않는다(stationary_front_monsoon의 대치 문법)
+  wedge({ x0: 0, x1: 0.44, tx0: 0.0, tx1: 0.06, y1: H(0.6), color: COLD_FILL, at: 0 }),
+  wedge({ x0: 0.56, x1: 1, tx0: 0.94, tx1: 1.0, y1: H(0.6), color: rgba('#fca5a5', 0.44), at: 0 }),
+  ...flow({ from: [0.08, H(0.12), ZC], dir: [1, 0, 0], travel: 0.2, count: 2, color: rgba('#2563eb', 0.85), at: 0, speed: 0.28 }),
+  ...flow({ from: [0.92, H(0.12), ZC], dir: [-1, 0, 0], travel: 0.2, count: 2, color: rgba('#dc2626', 0.85), at: 0, speed: 0.28 }),
+  label({ x: 0.18, y: H(0.4), text: V.coldAir, color: COLD_TXT, at: 0 }),
+  label({ x: 0.82, y: H(0.4), text: V.warmAir, color: WARM_TXT, at: 0 }),
+  frontSlab({ xb: 0.5, xt: 0.54, y1: H(0.72), color: rgba('#7c3aed', 0.5), at: 0, thick: 0.02 }),
+  label({ x: 0.5, y: H(0.76), text: V.stationaryFront, color: '#6d28d9', at: 0, size: 10 }),
+
+  // 1 — 아래쪽에서 습한 바람이 **쉬지 않고** 들어와 같은 곳을 다시 채운다.
+  //     두 층으로 나눠 「끊기지 않음」을 두께로 보인다(flood_risk와 같은 규약).
+  ...flow({ from: [0.99, H(0.5), ZC + 0.05], dir: [-1, 0.06, -0.1], travel: 0.36, count: 3, color: rgba('#0d9488', 0.92), at: 1, speed: 0.6 }),
+  ...flow({ from: [0.99, H(0.24), ZC - 0.05], dir: [-1, 0.04, 0.08], travel: 0.3, count: 2, scale: 0.046, color: rgba('#0d9488', 0.85), at: 1, speed: 0.5 }),
+  label({ x: 0.84, y: H(0.72), text: V.vapourKeepsArriving, color: '#0f766e', at: 1, size: 10 }),
+
+  // 2 — **약한 일사가 조건인 이유**. 두꺼운 구름이 햇볕을 가로막아 지면이 데워지지
+  //     않고, 그래서 비구름을 흩을 힘이 생기지 않는다. 햇살 화살표를 구름 **위에서
+  //     끊는 것**이 「가려졌다」의 문법이다(지면까지 닿으면 뜻이 뒤집힌다).
+  bb({ x: 0.14, y: H(1.06), z: 0.06, w: 0.16, h: 0.16, color: rgba('#fcd34d', 0.86), kind: 2, at: 2 }),
+  ...flow({ from: [0.2, H(1.0), ZC + 0.1], dir: [0.5, -1, 0], travel: 0.1, count: 2, scale: 0.038, color: rgba('#fbbf24', 0.8), at: 2, speed: 0.3 }),
+  label({ x: 0.2, y: H(0.86), text: V.cloudBlocksSun, color: '#78716c', at: 2, size: 10 }),
+  ...layerBand({ x0: 0.1, x1: 0.94, y: H(0.68), at: 2, n: 4 }),
+  label({ x: 0.72, y: H(0.94), text: V.rainBandCannotScatter, color: '#475569', at: 2, size: 10 }),
+
+  // 3 — 같은 곳에 오래 내리고, 물이 빠져나갈 새 없이 쌓인다. 물은 새 셰이더가 아니라
+  //     기존 `pattern: 3`(잔물결)이고, 볼륨이라 등장 grow가 곧 **수위 상승**이 된다.
+  precip({ x0: 0.16, x1: 0.9, y1: H(0.64), slant: 0.06, speed: 0.85, count: 30, at: 3 }),
+  vol({ x0: 0, x1: 1, y0: -0.062, y1: -0.02, color: rgba('#0ea5e9', 0.34), pattern: 3, at: 3 }),
+  vol({ x0: 0.02, x1: 0.98, y0: -0.006, y1: H(0.1), color: rgba('#38bdf8', 0.5), pattern: 3, at: 3 }),
+  label({ x: 0.22, y: H(0.28), text: V.waterPilesUp, color: '#0c4a6e', at: 3, size: 10 }),
+];
+
 // ── 레지스트리 ──────────────────────────────────────────────────────────────
 /**
  * rule_id → 장면. `STORYBOARDS`(캡션·단계 수의 단일 진실원)와 키가 일치해야 하며
@@ -600,6 +734,10 @@ export const SCENES = {
   dry_convection_clear: { build: dryConvectionClear },
   wildfire_risk_dry_gale: { build: wildfireRiskDryGale },
   flood_risk_saturated_inflow: { build: floodRiskSaturatedInflow, sea: { from: 0, to: 0.2 } },
+  // ㉣ 변동 기상요소(MT-24) — 규칙만 있고 장면이 없던 3종
+  cold_front_squall_storm: { build: coldFrontSquallStorm },
+  siberian_gale_wildfire: { build: siberianGaleWildfire },
+  front_convergence_flood: { build: frontConvergenceFlood, sea: { from: 0.86, to: 1 } },
 };
 
 /** 장면 전체(지표 레이어 + 단계 아이템) 조립 — 단계 필터는 renderer가 수행 */
