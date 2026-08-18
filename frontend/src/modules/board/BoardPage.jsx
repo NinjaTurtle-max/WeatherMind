@@ -58,9 +58,13 @@ const DIFFICULTY_META = {
 };
 
 // compact — 「난이도」 접두어를 떼고 등급만 쓴다. 잠긴 칸에서만 켠다: 같은 줄에
-// 잠금 사유가 따라붙어 접두어까지 놓을 폭이 없다(en 「Difficulty Normal」 +
-// 「Previous tier first」 = 187px 칸에서 줄임표. 2026-08-10 실측). **읽어 주는
-// 이름은 줄지 않는다** — aria-label은 두 경우 모두 전체 문구다.
+// 잠금 사유가 따라붙어 접두어까지 놓을 폭이 없다(en에서 「Difficulty ___」 접두어를
+// 붙인 채로는 사유 문구가 줄임표에 걸린다).
+// ⚠️ 폭의 기준은 **배지 행 내폭 158px**이다(2026-08-18 실측, xl 1920). 종전 이
+// 자리에 적혀 있던 「187px 칸」은 **칸** 폭 인용값이라 이 행의 기준이 아니었고,
+// 함께 적혀 있던 「Previous tier first」는 **지금 없는 문자열**이다(현재 순차 잠금
+// 사유는 `lockedHint`). 수치의 소유자는 `board.en.js` difficulty1~3 주석이다.
+// **읽어 주는 이름은 줄지 않는다** — aria-label은 두 경우 모두 전체 문구다.
 function DifficultyBadge({ difficulty, compact = false }) {
   const t = useT();
   const meta = DIFFICULTY_META[difficulty];
@@ -694,12 +698,18 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
             이모지를 뺐고(이미 칸 오른쪽 위에 있어 중복이었다), 잠긴 칸에서는
             배지를 compact로 줄였다. 여기에 무엇을 더 붙이기 전에 **en으로**
             xl(6열)에서 줄임표가 나는지 재 볼 것 — ko는 통과하고 en만 깨진다.
-            ⚠️ 「자물쇠 이모지를 뺐다」는 **`cardLocked`(수준 잠김)에만** 해당한다 —
-            `lockedHint`(순차 잠김)는 ko·en 모두 아직 🔒을 달고 있다. 폭을 잴 때
-            **두 사유를 따로** 봐야 한다(순차 잠김 쪽이 이모지 한 글자만큼 더 넓다).
-            ⚠️ 폭을 잃는 쪽은 **항상 사유 문구**다: 배지가 `shrink-0`(:72)이라
-            안 줄고, 사유 span만 `truncate`(:706)로 잘린다. en 라벨 재검토 이력과
-            축약어 후보는 `i18n/resources/board.en.js`의 difficulty1~3 주석. */}
+            ⚠️ 폭을 잃는 쪽은 **항상 사유 문구**다: 배지가 `shrink-0`(:76)이라
+            안 줄고, 사유 span만 `truncate`(:722)로 잘린다.
+            ⚠️ **두 잠금 사유를 따로 재야 한다.** `cardLocked`(수준 잠김)와
+            `lockedHint`(순차 잠김)는 문구도 폭도 다르고, 순차 잠김은 **어느
+            난이도에서나** 나므로 가장 넓은 배지(en Elementary 64px)와 만난다 —
+            그쪽이 실제 최악 케이스다.
+            ⚠️ 실측(2026-08-18)은 이 행의 내폭이 **158px**임을 말한다 — 위 :90의
+            「칸 187px」은 **칸** 폭 인용값이고 이 행의 기준이 아니다. en에서
+            `Elementary`(64) + 6 + 「Above your level」(92) = 162 > 158로 줄임표가
+            났고, 그래서 en 사유 문구 2건을 줄였다(🔒도 en `lockedHint`에서 뺐다 —
+            자물쇠는 :672에 이미 있다). 측정 근거·후보·미적용 축약안은
+            `i18n/resources/board.en.js`의 difficulty1~3 주석이 소유한다. */}
         <div className="mt-auto flex items-center gap-1.5 pt-2">
           <DifficultyBadge difficulty={puzzle.difficulty} compact={locked} />
           {pending && <span className="text-[11px] font-bold text-sky-700">{t('board.page.opening')}</span>}
