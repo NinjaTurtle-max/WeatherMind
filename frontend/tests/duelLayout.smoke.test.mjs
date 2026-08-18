@@ -280,7 +280,10 @@ ok(
 // 같다」 — 마스코트 원(62px)이 행 높이를 정하므로 두 줄(≈37px)은 안 넘긴다.
 {
   const banner = readFileSync(resolve(root, 'src/components/HeroBanner.jsx'), 'utf8');
-  const descCls = banner.match(/className="hidden min-w-0 basis-\[300px\]([^"]*)"/)?.[1] ?? '';
+  // ⚠️ **클래스 전체**를 잡는다(종전에는 `basis-[300px]` **뒤**만 캡처했다).
+  // 앵커에 넣은 토큰은 캡처에서 빠지므로, 그 토큰을 단정하는 줄이 영원히
+  // 실패한다 — 폭 계약을 추가하다 실제로 그렇게 걸렸다.
+  const descCls = banner.match(/<p className="(hidden min-w-0 [^"]*)"/)?.[1] ?? '';
   ok(
     /line-clamp-2/.test(descCls),
     `배너 설명이 두 줄까지 접힌다 — 실제 "${descCls.trim()}"`,
@@ -299,6 +302,15 @@ ok(
   ok(
     !/\blg:block\b/.test(descCls),
     'lg:block이 없다 — display:block이 line-clamp의 -webkit-box를 덮어 클램프가 죽는다',
+  );
+  // ⚠️ **폭을 넓히는 것은 `xl` 이상에서만이다**(2026-08-18 "줄 바꿈없이 일자로 쭉").
+  // 한 줄에 필요한 폭이 351px이라 기본 300으로는 반드시 두 줄이 된다. 그런데
+  // 1024·1152에서 360을 주면 예보·리그 배너(CompeteLayout 카드 안이라 더 좁다)의
+  // **제목이 «…»로 잘린다** — 실측으로 확인하고 xl로 물렸다. 기본값을 360으로
+  // 올리는 「간단한」 수정이 그 회귀다.
+  ok(
+    /\bbasis-\[300px\]/.test(descCls) && /\bxl:basis-\[360px\]/.test(descCls),
+    `설명 폭이 xl에서만 넓어진다(기본 300 · xl 360) — 실제 "${descCls.trim()}"`,
   );
 }
 

@@ -75,6 +75,15 @@ export default function HeroBanner({
           길어지면 배너가 아니라 **문구가 잘못된 것**이고, 네 줄이 되는 순간
           원을 넘겨 배너가 다른 화면보다 높아진다.
 
+          🔴 **폭이 `xl`(1280)에서 300 → 360px로 넓어진다**(2026-08-18 사용자
+          지시 "줄 바꿈없이 일자로 쭉"). 탐구 안내문이 한 줄로 펴지는 데
+          필요한 폭이 **351px**이라(실측) 300으로는 반드시 두 줄이 됐다.
+          ⚠️ **`xl` 아래로는 넓히면 안 된다.** 예보·리그 배너는
+          `CompeteLayout` 카드 안이라 더 좁은데, 1024·1152에서 360을 주면
+          제목 열이 눌려 **제목이 «…»로 잘린다**(실측으로 확인하고 되돌렸다).
+          1280부터는 셋 다 한 줄이고 제목도 안 잘린다. 배너 높이는 전 구간
+          **h=90 그대로**다 — 한 줄이 되면서 오히려 여유가 늘었다.
+
           🔴 **`lg:block`을 같이 쓰면 안 된다**(2026-08-17 코드 리뷰가 잡았다).
           `line-clamp-2`는 `display:-webkit-box`로 동작하는데 `lg:block`이
           `display:block`을 준다. 둘은 특이도가 같고 컴파일된 CSS에서
@@ -85,7 +94,7 @@ export default function HeroBanner({
           `.hidden`(7835)보다 `.lg\:line-clamp-2`(54676)가 뒤라 lg에서
           -webkit-box가 이겨 스스로 펴진다. */}
       {description && (
-        <p className="hidden min-w-0 basis-[300px] text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2">
+        <p className="hidden min-w-0 basis-[300px] text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2 xl:basis-[360px]">
           {description}
         </p>
       )}
