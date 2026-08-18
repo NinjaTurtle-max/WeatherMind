@@ -27521,5 +27521,107 @@
       ]
     },
     "status": "active"
+  },
+  {
+    "concept_tag": "typhoon",
+    "level_group": "expert",
+    "knowledge_level": 9,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "태풍은 스스로 생기지 않는다. 따뜻한 바다에서 올라온 수증기가 물방울로 맺힐 때 내놓는 열이 연료이고, 그 연료가 흩어지지 않고 하나의 기둥으로 조직되려면 상층과 하층의 바람 차이가 작아야 한다. 서해상(존 0)에 덥고 습한 공기를 들이고, 바다를 데우는 햇볕은 크게, 기둥을 어긋나게 만드는 바람 차이는 작게 두어 태풍이 자랄 조건을 갖춰 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:north_pacific",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 0,
+          "phenomenon": "typhoon"
+        }
+      ],
+      "hints": [
+        "물기와 햇볕만 크게 올리면 소나기로 끝난다. 이 판이 묻는 것은 그 소나기가 흩어지지 않고 하나의 기둥으로 조직될 조건이다.",
+        "덥고 습한 기단을 놓고 물기와 햇볕은 아주 높게, 바람은 아주 낮게 두어야 한다. 바람을 아예 놓지 않으면 기본값이 남아 기둥이 어긋난다 — 낮게 놓는 것까지가 조작이다."
+      ],
+      "correct_answer": "",
+      "board_order": 54,
+      "title": "태풍이 자랄 조건",
+      "summary": "바다의 연료와 고요한 상층을 함께 갖춰요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "MT-18 전문가 보드 — docs/design/research/RESEARCH_MT18_EXPERT_BOARD.md §2ⓑ(발생·유지 조건)",
+        "board_rules.json: tropical_cyclone_genesis (신규 4조건 규칙 · priority 140)",
+        "새 배치 요소 0개 — 태풍을 기존 5종(기단·습기·일사·바람)의 조합으로 표현했다. 요소를 늘리면 프론트 팔레트·UI·i18n까지 번진다",
+        "기상학 근거: 해수면 26.5°C 이상의 따뜻한 바다 · 수증기의 잠열이 에너지원 · 연직 시어 10m/s 미만이어야 구조가 유지된다(시어가 크면 상하층이 어긋나 조직이 무너진다)",
+        "조사 문서 §0①의 머리 발견(중심이 가장 세지 않다 — 최대 풍속은 눈벽, 눈은 하강 기류라 맑고 약하다)은 규칙 explain 말미가 가르친다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "co2_climate",
+    "level_group": "expert",
+    "knowledge_level": 10,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "낮에 들어온 태양의 짧은 파장 빛은 지표에 흡수돼 열이 되고, 지표는 그 열을 눈에 보이지 않는 긴 파장으로 되돌려 내보낸다. 공기 속 수증기는 그 긴 파장을 붙잡아 다시 지표로 돌려보내는데, 이 되돌림이 강하면 해가 넘어가 들어오는 빛이 끊겨도 밤새 기온이 내려가지 않는다. 수도권(존 1)에 덥고 습한 공기를 들이고 해가 넘어간 밤을 만들어, 열이 빠져나가지 못하는 상태를 재현해 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:north_pacific",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "tropical_night"
+        }
+      ],
+      "hints": [
+        "이 판은 구름을 만들어 덮는 문제가 아니다. 열을 되돌려 보내는 것은 눈에 보이는 구름이 아니라 공기 속에 섞여 있는 물기다.",
+        "덥고 습한 기단을 놓고 물기는 아주 높게, 햇볕은 아주 낮게(해가 넘어간 밤), 바람도 낮게 두어야 한다 — 바람이 세면 열이 섞여 흩어진다."
+      ],
+      "correct_answer": "",
+      "board_order": 55,
+      "title": "식지 않는 밤",
+      "summary": "물기가 열을 되돌려 밤에도 식지 않게 해요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "MT-18 전문가 보드 — docs/design/research/RESEARCH_MT18_EXPERT_BOARD.md §3(온실효과 왕복 구조) · §0④",
+        "board_rules.json: greenhouse_tropical_night (신규 4조건 규칙 · priority 136)",
+        "조사 문서 §3⚠의 경고를 지킨다: 「CO₂ = 나쁘다」로 만들면 오개념을 심는다. 조작 대상은 되돌리는 기체(수증기 — 기여도 72%로 1위)와 밤(일사 차단)이고, 기여도 수치는 지문에 넣지 않았다",
+        "기상학 근거: 단파 입사 → 지표 흡수 → 장파 재방출 → 온실기체 흡수·지표로 되돌림의 왕복 구조. 온실효과 자체는 정상이며 문제는 과다다(규칙 explain이 그 문장을 가르친다)",
+        "결과 구름이 `none`인 것은 설계다 — 고온다습 기단에서는 밤에도 이슬점에 닿지 않아 안개·층운이 끼지 않는다. 「맑은데도 안 식는다」가 되돌림의 증거이고, 동시에 radiation_fog(fog·stratus)와 결과가 겹치지 않게 한다"
+      ]
+    },
+    "status": "active"
   }
 ]

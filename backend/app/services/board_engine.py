@@ -64,6 +64,14 @@ PHENOMENA = frozenset(
         # rule_id로 채점하는 길(ⓐ)은 기각했다: 정당한 다른 경로로 목표 날씨를 만든
         # 학습자가 오답이 되어 §3.2(결과가 채점 대상)를 뒤집는다.
         "severe_storm", "wildfire_warning", "flood_warning",
+        # MT-18 전문가 보드(2026-08-18) — 태풍·온실효과. 역시 **조건 4개 규칙의
+        # 고유 결과**라 위 3종과 같은 계약 위에 선다(priority > 100).
+        # ⚠️ **새 배치 요소는 0개다** — 둘 다 기존 5종(기단·전선·습기·일사·바람)의
+        # 조합으로 성립한다. 요소를 늘리면 프론트 팔레트·UI·i18n까지 번진다.
+        # `tropical_night`(열대야)이 온실효과 왕복 구조의 결과 이름이다 —
+        # 「CO₂를 놓으면 더워진다」가 아니라 **되돌리는 기체(수증기)와 밤**을
+        # 조작하게 만든 결과다(board_rules.json note_authoring 참조).
+        "typhoon", "tropical_night",
     }
 )
 CLOUDS = frozenset({"cumulonimbus", "nimbostratus", "stratus", "cumulus", "none"})

@@ -39,6 +39,12 @@ export default {
         severe_storm: { label: '조직된 뇌우' },
         wildfire_warning: { label: '산불 경보급' },
         flood_warning: { label: '호우 침수 경보급' },
+        // MT-18 전문가 보드(2026-08-18) — 태풍·온실효과. 이 두 줄이 없으면
+        // phenomenonMeta 폴백이 지도·단면 패널에 enum 원문 + ❔를 그린다.
+        // `tropical_night`는 온실효과 **왕복 구조**의 결과 이름이다(기상청 어휘) —
+        // 「CO₂를 놓으면 더워진다」가 아니라 되돌리는 기체와 밤을 조작한 결과다.
+        typhoon: { label: '태풍' },
+        tropical_night: { label: '열대야' },
       },
       cloud: {
         cumulonimbus: { label: '적란운' },

@@ -443,5 +443,150 @@
       {"note": "존을 서로 바꾸면 거짓", "conditions": [{"zone": 2, "phenomenon": "flood_risk"}, {"zone": 3, "phenomenon": "wildfire_risk"}], "passed": false},
       {"note": "재난 목표에 구름까지 명시해 일치", "conditions": [{"zone": 3, "phenomenon": "flood_risk", "cloud": "nimbostratus"}], "passed": true}
     ]
+  },
+  {
+    "name": "mt18_typhoon_genesis: 태풍(board_order 54) — 조건 넷이 다 맞아야 기둥이 자란다",
+    "note_authoring": "MT-18 태풍 보드의 **역검증을 계약으로 고정**한다. 존별 판정이 독립이라 한 보드의 네 존에 네 갈래를 나란히 놓았다.\n🔴 **핵심은 존 2다 — `wind`를 아예 놓지 않은 존**이다. 기본값 20이 남아 `wind<=15`가 성립하지 않으므로 태풍이 되지 않는다. 임계를 `DEFAULT_WIND`(20) **아래**로 잡은 이유가 이 한 칸에 걸려 있다: 20으로 잡으면 이 존이 통과해 **바람이 장식**이 되고 「가르치려는 요소를 빼도 목표를 채운다」가 된다.\n⚠️ **이 존은 처음 판에 없었다.** 첫 벡터는 네 존을 전건·시어과다·일사부족·기단없음으로 채웠고, 그 상태에서 `wind<=15`를 `wind<=20`으로 바꾸는 회귀를 주입했더니 **28/28 초록이 그대로 났다** — 즉 벡터가 그 회귀를 못 봤다. 「바람 미배치」를 재는 칸이 없었기 때문이다. 다음 저작자가 이 칸을 지우면 같은 눈먼 구간이 되살아난다.\n일사 부족(연료 부족)·기단 없음 갈래는 아래 `mt18_typhoon_missing_pieces`가 잇는다.",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 0},
+        {"type": "moisture", "level": 95, "zone": 0},
+        {"type": "sun", "level": 80, "zone": 0},
+        {"type": "wind", "level": 10, "zone": 0},
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 1},
+        {"type": "moisture", "level": 95, "zone": 1},
+        {"type": "sun", "level": 80, "zone": 1},
+        {"type": "wind", "level": 70, "zone": 1},
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 2},
+        {"type": "moisture", "level": 95, "zone": 2},
+        {"type": "sun", "level": 80, "zone": 2},
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 3},
+        {"type": "moisture", "level": 95, "zone": 3},
+        {"type": "sun", "level": 80, "zone": 3},
+        {"type": "wind", "level": 15, "zone": 3}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "typhoon", "cloud": "cumulonimbus"},
+      {"zone": 1, "phenomenon": "shower", "cloud": "cumulonimbus"},
+      {"zone": 2, "phenomenon": "shower", "cloud": "cumulonimbus"},
+      {"zone": 3, "phenomenon": "typhoon", "cloud": "cumulonimbus"}
+    ],
+    "goals": [
+      {"note": "넷이 다 맞으면 충족 — 덥고 습한 기단 · 물기 · 햇볕 · 약한 시어", "conditions": [{"zone": 0, "phenomenon": "typhoon"}], "passed": true},
+      {"note": "시어가 크면(바람 70) 기둥이 어긋나 평범한 소나기로 끝난다", "conditions": [{"zone": 1, "phenomenon": "typhoon"}], "passed": false},
+      {"note": "🔴 바람을 아예 안 놓으면 기본값 20이 남아 미달 — 임계가 20이면 이 칸이 통과해 바람이 장식이 된다", "conditions": [{"zone": 2, "phenomenon": "typhoon"}], "passed": false},
+      {"note": "경계 포함: 바람 15는 성립한다(<=15)", "conditions": [{"zone": 3, "phenomenon": "typhoon"}], "passed": true},
+      {"note": "구름까지 명시해도 일치(적란운)", "conditions": [{"zone": 0, "phenomenon": "typhoon", "cloud": "cumulonimbus"}], "passed": true}
+    ]
+  },
+  {
+    "name": "mt18_typhoon_missing_pieces: 태풍 — 연료가 모자라거나 기단이 없으면 기둥이 안 선다",
+    "note_authoring": "위 벡터가 바람 축(시어·미배치·경계)을 맡고, 이 벡터가 **나머지 세 축**을 맡는다: 일사 부족 · 습기 부족 · 기단 없음. 넷을 한 보드에 다 담을 수 없어(존이 4칸) 갈랐다 — 존을 아껴 쓰려고 축을 빼면 그 축이 회귀에 눈먼 구간이 된다.",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 0},
+        {"type": "moisture", "level": 95, "zone": 0},
+        {"type": "sun", "level": 60, "zone": 0},
+        {"type": "wind", "level": 10, "zone": 0},
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 1},
+        {"type": "moisture", "level": 85, "zone": 1},
+        {"type": "sun", "level": 80, "zone": 1},
+        {"type": "wind", "level": 10, "zone": 1},
+        {"type": "moisture", "level": 95, "zone": 2},
+        {"type": "sun", "level": 80, "zone": 2},
+        {"type": "wind", "level": 10, "zone": 2},
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 3},
+        {"type": "moisture", "level": 90, "zone": 3},
+        {"type": "sun", "level": 70, "zone": 3},
+        {"type": "wind", "level": 10, "zone": 3}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "shower", "cloud": "cumulonimbus"},
+      {"zone": 2, "phenomenon": "shower", "cloud": "cumulonimbus"},
+      {"zone": 3, "phenomenon": "typhoon", "cloud": "cumulonimbus"}
+    ],
+    "goals": [
+      {"note": "햇볕이 모자라면(60 < 70) 바다가 덜 데워져 연료가 안 생긴다", "conditions": [{"zone": 0, "phenomenon": "typhoon"}], "passed": false},
+      {"note": "물기가 모자라면(85 < 90) 잠열 연료가 모자라 대류성 소나기까지만 간다", "conditions": [{"zone": 1, "phenomenon": "typhoon"}], "passed": false},
+      {"note": "기단을 놓지 않으면 덥고 습한 공기가 없어 미달", "conditions": [{"zone": 2, "phenomenon": "typhoon"}], "passed": false},
+      {"note": "경계 포함: 습기 90·일사 70은 성립한다", "conditions": [{"zone": 3, "phenomenon": "typhoon"}], "passed": true}
+    ]
+  },
+  {
+    "name": "mt18_greenhouse_tropical_night: 열대야(board_order 55) — 되돌림이 끊기면 식는다",
+    "note_authoring": "MT-18 온실효과 보드의 역검증. 🔴 **존 1이 이 판의 교육 대비 전체**다: 같은 습도·같은 밤인데 **기단만 빼면 복사안개**가 된다. 찬 공기에서는 지표가 이슬점 아래로 식어 안개가 끼고, 덥고 습한 기단에서는 이슬점에 닿지 않아 **맑은 채로 식지 않는다** — 그래서 결과 구름을 `none`으로 잡았고, `(fog, stratus)`로 잡으면 `radiation_fog`와 결과가 겹쳐 고유 결과 계약을 위반한다.\n🔴 **존 2는 `wind`를 아예 놓지 않은 칸**이다(기본값 20 > 15이므로 미달). 태풍 벡터와 같은 이유로 반드시 있어야 한다 — 이 칸이 없으면 `wind<=15`를 `wind<=20`으로 바꾸는 회귀가 **초록으로 통과**한다(실제로 태풍 벡터에서 그 눈먼 구간을 만들었다가 주입 시험으로 찾아냈다).\n존 3은 일사를 놓지 않으면 기본값 50이 남아 「밤」이 되지 않는다는 것을 잰다. 습기 부족·강풍·일사 과다 갈래는 아래 `mt18_tropical_night_edges`가 잇는다.",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 0},
+        {"type": "moisture", "level": 90, "zone": 0},
+        {"type": "sun", "level": 20, "zone": 0},
+        {"type": "wind", "level": 10, "zone": 0},
+        {"type": "moisture", "level": 90, "zone": 1},
+        {"type": "sun", "level": 20, "zone": 1},
+        {"type": "wind", "level": 10, "zone": 1},
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 2},
+        {"type": "moisture", "level": 90, "zone": 2},
+        {"type": "sun", "level": 20, "zone": 2},
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 3},
+        {"type": "moisture", "level": 90, "zone": 3},
+        {"type": "wind", "level": 10, "zone": 3}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "tropical_night", "cloud": "none"},
+      {"zone": 1, "phenomenon": "fog", "cloud": "stratus"},
+      {"zone": 2, "phenomenon": "fog", "cloud": "stratus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ],
+    "goals": [
+      {"note": "넷이 다 맞으면 충족 — 맑은데도 식지 않는 밤", "conditions": [{"zone": 0, "phenomenon": "tropical_night"}], "passed": true},
+      {"note": "기단을 빼면 같은 습도·같은 밤이 복사안개가 된다(교육 대비의 핵심)", "conditions": [{"zone": 1, "phenomenon": "tropical_night"}], "passed": false},
+      {"note": "🔴 바람을 아예 안 놓으면 기본값 20이 남아 미달 — 임계가 20이면 이 칸이 통과해 바람이 장식이 된다", "conditions": [{"zone": 2, "phenomenon": "tropical_night"}], "passed": false},
+      {"note": "일사를 놓지 않으면 기본값 50이 남아 밤이 되지 않는다", "conditions": [{"zone": 3, "phenomenon": "tropical_night"}], "passed": false},
+      {"note": "구름이 none인 것까지 계약이다 — 안개·층운이면 radiation_fog와 겹친다", "conditions": [{"zone": 0, "phenomenon": "tropical_night", "cloud": "none"}], "passed": true}
+    ]
+  },
+  {
+    "name": "mt18_tropical_night_edges: 열대야 — 습기·바람·일사의 나머지 갈래와 경계",
+    "note_authoring": "위 벡터가 기단·바람미배치·일사미배치를 맡고, 이 벡터가 나머지를 맡는다: 습기 부족(80 < 85) · 강풍(열이 섞여 흩어짐) · 일사 과다(40 > 30 = 밤이 아니다) · 그리고 **세 임계의 경계 전건**(85·30·15)이 성립한다는 것. 존이 4칸이라 갈랐다.",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 0},
+        {"type": "moisture", "level": 80, "zone": 0},
+        {"type": "sun", "level": 20, "zone": 0},
+        {"type": "wind", "level": 10, "zone": 0},
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 1},
+        {"type": "moisture", "level": 90, "zone": 1},
+        {"type": "sun", "level": 20, "zone": 1},
+        {"type": "wind", "level": 70, "zone": 1},
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 2},
+        {"type": "moisture", "level": 90, "zone": 2},
+        {"type": "sun", "level": 40, "zone": 2},
+        {"type": "wind", "level": 10, "zone": 2},
+        {"type": "air_mass", "subtype": "north_pacific", "zone": 3},
+        {"type": "moisture", "level": 85, "zone": 3},
+        {"type": "sun", "level": 30, "zone": 3},
+        {"type": "wind", "level": 15, "zone": 3}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "fog", "cloud": "stratus"},
+      {"zone": 1, "phenomenon": "fog", "cloud": "stratus"},
+      {"zone": 2, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 3, "phenomenon": "tropical_night", "cloud": "none"}
+    ],
+    "goals": [
+      {"note": "습기가 모자라면(80 < 85) 되돌릴 기체가 부족해 미달 — 되레 복사안개가 이긴다", "conditions": [{"zone": 0, "phenomenon": "tropical_night"}], "passed": false},
+      {"note": "바람이 세면(70) 열이 섞여 흩어져 미달", "conditions": [{"zone": 1, "phenomenon": "tropical_night"}], "passed": false},
+      {"note": "일사가 40이면 밤이 아니라 미달", "conditions": [{"zone": 2, "phenomenon": "tropical_night"}], "passed": false},
+      {"note": "경계 포함: 습기 85·일사 30·바람 15 전건이 성립한다", "conditions": [{"zone": 3, "phenomenon": "tropical_night"}], "passed": true}
+    ]
   }
 ]
