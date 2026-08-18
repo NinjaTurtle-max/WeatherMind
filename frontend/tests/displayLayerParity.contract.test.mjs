@@ -58,6 +58,8 @@
  *   WM_FAULT=orphan-exempt 요구 집합에 없는 키를 면제한다(유령 면제 — 아무것도 안 지킴)
  *   WM_FAULT=filled-gap    `KNOWN_GAPS` 키를 표에 심는다(공백 해소 — 지울 것)
  *   WM_FAULT=break-parse   소스 파싱 산출을 비운다(파서가 조용히 죽는 것 차단)
+ *   WM_FAULT=hangul-new    면제 없는 파일에 한국어가 생긴 상황(고정 목록이 못 보던 자리)
+ *   WM_FAULT=hangul-drift  면제 줄 수가 실측과 어긋난 상황(외부화 진행 — 목록 갱신)
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -521,6 +523,121 @@ try {
     `board_engine.py CLOUDS(${BE_CLOUDS.length}) === boardEngine.js CLOUD_ENUM(${feCloud.length})`,
     setEq(BE_CLOUDS, feCloud),
     `       백엔드에만: [${BE_CLOUDS.filter((k) => !feCloud.includes(k))}] / 프론트에만: [${feCloud.filter((k) => !BE_CLOUDS.includes(k))}]`,
+  );
+
+  // ── 검사 ⑤: 하드코딩 한국어 — **디렉터리 전수**(고정 목록이 아니다) ────────
+  //
+  // 🔴 **네 번째 같은 뿌리다.** `i18n.smoke.test.mjs`의 「보드 시각화 모듈에
+  // 하드코딩 한국어가 없다」(MT-28 회귀)가 **파일 5개를 손으로 적어** 검사한다.
+  // `src/modules/board` 한 디렉터리만 27파일이고, 새로 생기는 화면 모듈은
+  // 그 목록에 자동으로 들어가지 않는다 — `PRECIP_META`·`SCENE_BY_RULE`·
+  // `PHENOMENON_META`와 정확히 같은 실패 형태다(계약이 자기 목록만 본다).
+  //
+  // 여기서는 목록을 지우고 **`src/**` 전수**를 훑는다. 탐지 규칙은 그 스모크와
+  // 같게 맞췄다(블록 주석·행 주석 제거 후 한글 포함 줄) — 두 검사가 같은 것을
+  // 세야 결과가 갈리지 않는다. 그 스모크를 지울지는 PM 라우팅 몫이라 손대지 않았다.
+  //
+  // ⚠️ **리소스 디렉터리는 목록이 아니라 규칙으로 뺀다.** `src/i18n/resources/`는
+  // 외부화의 **목적지**라 한국어가 있는 것이 옳다 — 새 리소스 파일이 생겨도
+  // 자동으로 옳다. 목록으로 뺐다면 그때마다 손을 봐야 한다.
+  //
+  // ⚠️ **면제는 줄 수를 못박는다.** 파일 단위로 통째 면제하면 그 파일에 새로
+  // 들어오는 한국어를 영영 못 본다. 정확히 N줄로 못박아 **늘어도 줄어도** 운다.
+  const { readdirSync, statSync } = await import('node:fs');
+  const { join, sep } = await import('node:path');
+
+  const walkJs = (dir) =>
+    readdirSync(dir).flatMap((name) => {
+      const p = join(dir, name);
+      return statSync(p).isDirectory() ? walkJs(p) : (/\.(jsx?|mjs)$/.test(name) ? [p] : []);
+    });
+  const HANGUL = /[가-힣]/;
+  const hangulLines = (abs) =>
+    readFileSync(abs, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n')
+      .filter((l) => !l.trimStart().startsWith('//'))
+      .map((l) => l.replace(/\/\/.*$/, ''))
+      .filter((l) => HANGUL.test(l));
+
+  // ── 대장 ③ 「코드에 한국어가 있어도 되는 파일」 ─────────────────────────────
+  // `lines`는 **지금 실측값**이고 양방향 래칫이다. 늘면 새 한국어가 들어온 것,
+  // 줄면 외부화가 진행된 것 — 어느 쪽이든 이 목록을 갱신해야 한다.
+  const HANGUL_CORRECT = [
+    { file: 'src/lib/boardEngine.js', lines: 11,
+      why: '서버 어휘 미러(ZONES·조건 파서 주석 문자열) — 화면 표시명은 board.map.zone에서 온다(PeninsulaMap.zoneLabel).' },
+    { file: 'src/modules/board/boardLayout.js', lines: 4,
+      why: 'FALLBACK_REGIONS의 name은 서버 board_regions.json 원문 미러 — 표시는 zoneLabel이 i18n으로 덮는다.' },
+    { file: 'src/lib/geoSnap.js', lines: 12,
+      why: 'REGIONS.value는 **서버 전송용 원문**이고 표시명은 region.city.{key}다 — 파일 자신이 :17에 그렇게 적어 두었다.' },
+    { file: 'src/components/RegionPicker.jsx', lines: 1,
+      why: "me?.region ?? '서울' — 서버 지역 어휘의 기본값(전송 값)이지 표시 문자열이 아니다." },
+    { file: 'src/modules/dev/DevPanel.jsx', lines: 38,
+      why: '개발자 전용 패널 — GET /dev/state가 200일 때만 렌더된다(운영 서버는 404라 마운트 자체가 없다). 학습자 화면이 아니다.' },
+    { file: 'src/lib/guideBotMesh.js', lines: 8,
+      why: 'throw new Error 메시지 — 개발자·CI가 읽는 진단 문자열이고 화면에 나가지 않는다.' },
+    { file: 'src/modules/board/webgl/crossSection/glCore.js', lines: 2,
+      why: '셰이더 컴파일 실패 throw — 개발자용 진단.' },
+    { file: 'src/components/GuideBot3D.jsx', lines: 1,
+      why: 'WebGL 컨텍스트 소실 Error — 개발자용 진단(사용자에게는 폴백 그림이 뜬다).' },
+    { file: 'src/lib/exploreSims.js', lines: 1,
+      why: '인자 검증 throw — 개발자용 진단.' },
+  ];
+
+  // ── 대장 ④ 「외부화해야 하는데 안 된 것」 ──────────────────────────────────
+  const HANGUL_GAPS = [
+    { file: 'src/components/Mascot.jsx', lines: 13,
+      why: 'LABEL이 <img alt>로 나간다(:97) — 스크린리더가 읽는 사용자 문자열이라 리소스로 빼야 한다. MASCOT_NAMES로 재수출돼 소비처가 여럿이라 이 작업의 소유 밖.' },
+  ];
+  // ⚠️ MT-22의 `src/modules/explore/schematic/**`는 origin/main에 **아직 없다**.
+  // 병합되면 이 검사가 그 파일들을 처음으로 본다 — 외부화가 이월된 상태라면
+  // HANGUL_GAPS에 { file, lines, why }를 넣어야 초록이 된다. **그 압력이 의도다**:
+  // 고정 목록이었다면 새 디렉터리가 통째로 안 보인 채 들어왔을 것이다.
+
+  const hangulLedger = new Map(
+    [...HANGUL_CORRECT, ...HANGUL_GAPS].map((e) => [e.file, e]),
+  );
+  const RESOURCE_DIR = join('src', 'i18n', 'resources') + sep;
+  const unlisted = [];
+  const drifted = [];
+  const seen = new Set();
+  for (const abs of walkJs(join(root, 'src'))) {
+    const rel = abs.slice(root.length + 1);
+    if (rel.startsWith(RESOURCE_DIR)) continue; // 규칙으로 제외 — 외부화의 목적지
+    const lines = hangulLines(abs);
+    let n = lines.length;
+    if (FAULT === 'hangul-new' && rel === 'src/modules/board/boardDisplay.js') { n = 1; lines[0] ??= "  const 라벨 = '하드코딩';"; }
+    if (FAULT === 'hangul-drift' && rel === 'src/lib/geoSnap.js') n -= 1; // 외부화 진행
+    if (n === 0) continue;
+    const e = hangulLedger.get(rel);
+    if (!e) unlisted.push({ rel, n, sample: (lines[0] ?? '').trim().slice(0, 60) });
+    else if (e.lines !== n) drifted.push({ rel, was: e.lines, now: n });
+    seen.add(rel);
+  }
+  check(
+    `하드코딩 한국어 — src/** 전수(리소스 제외) 중 미등재 0건 (등재 ${hangulLedger.size}파일)`,
+    unlisted.length === 0,
+    unlisted.map((u) => `       ${u.rel}: 코드에 한국어 ${u.n}줄 — 예: ${u.sample}`).join('\n') +
+      '\n       → 셋 중 하나다:\n' +
+      '         ⑴ 화면에 나가는 문자열이면 src/i18n/resources/*.ko.js·en.js로 빼고 t()로 읽는다.\n' +
+      '         ⑵ 서버 어휘 미러·개발자 진단이라 옳게 있는 것이면 이 파일의 HANGUL_CORRECT에\n' +
+      '            { file, lines, why } 를 넣는다(lines = 실측 줄 수).\n' +
+      '         ⑶ 빼야 하는데 지금 못 빼면 HANGUL_GAPS에 같은 형태로 넣는다.\n' +
+      '       why는 「어디에 어떻게 나가는가/안 나가는가」를 적을 것 — 값이 아니라 근거다.',
+  );
+  check(
+    '하드코딩 한국어 면제의 줄 수가 실측과 일치(양방향 래칫)',
+    drifted.length === 0,
+    drifted.map((d) => `       ${d.rel}: 등재 ${d.was}줄 ↔ 실측 ${d.now}줄`).join('\n') +
+      '\n       → 늘었으면 새 한국어가 들어온 것이다(그 줄을 리소스로 뺄 것).\n' +
+      '         줄었으면 외부화가 진행된 것이다(등재 줄 수를 낮추고, 0이 되면 행을 지울 것).',
+  );
+  const ghostFiles = [...hangulLedger.keys()].filter((f) => !seen.has(f));
+  check(
+    '하드코딩 한국어 면제가 실재하는 파일만 가리킨다',
+    ghostFiles.length === 0,
+    `       유령 면제: ${ghostFiles.join(', ')}\n` +
+      '       → 파일이 사라졌거나 한국어가 0줄이 됐다. HANGUL_CORRECT·HANGUL_GAPS에서 지울 것.',
   );
 
   // ── 요약 ───────────────────────────────────────────────────────────────────
