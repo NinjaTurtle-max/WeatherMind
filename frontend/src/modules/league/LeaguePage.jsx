@@ -87,7 +87,13 @@ export default function LeaguePage() {
   // 오가는 유일한 통로다. 밖으로 일찍 return하면 여기서 예보 대결로 못 돌아간다).
   if (currentQ.isLoading) {
     return (
-      <CompeteLayout tab="/league" title={`🏆 ${t('league.title')}`} subtitle={t('league.dash.subtitle')}>
+      <CompeteLayout
+        tab="/league"
+        mascot="snow"
+        heroTitle={t('league.heroTitle')}
+        title={`🏆 ${t('league.title')}`}
+        subtitle={t('league.dash.subtitle')}
+      >
         <LoadingSpinner label={t('league.loading')} />
       </CompeteLayout>
     );
@@ -95,7 +101,13 @@ export default function LeaguePage() {
 
   if (currentQ.isError) {
     return (
-      <CompeteLayout tab="/league" title={`🏆 ${t('league.title')}`} subtitle={t('league.dash.subtitle')}>
+      <CompeteLayout
+        tab="/league"
+        mascot="snow"
+        heroTitle={t('league.heroTitle')}
+        title={`🏆 ${t('league.title')}`}
+        subtitle={t('league.dash.subtitle')}
+      >
         <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
           <p className="text-3xl">🌪️</p>
           <p className="mt-2 font-bold text-slate-800">{t('league.loadFailed')}</p>
@@ -126,6 +138,15 @@ export default function LeaguePage() {
   return (
     <CompeteLayout
       tab="/league"
+      // 눈송이 배너 — 예보와 같은 꼴(2026-08-17 사용자 지시 "기상 리그도 예보랑
+      // 똑같이 튜터 카드가 있었으면, 눈결정으로"). 종전에는 `mascot`을 안 줘서
+      // `CompeteLayout`이 제목 줄로 떨어졌고, 한 껍데기가 두 꼴을 갖는 것이
+      // 어색하다고 그 파일이 스스로 적어 두었다("안 시킨 화면을 같이 바꾸는
+      // 쪽이 더 나쁘다") — 이제 시켰으므로 그 예외가 사라진다.
+      // ⚠️ 화면 담당의 소유자는 `SideNav`의 `TUTOR_BY_PATH`다. 거기 `/league`도
+      //    `snow`로 함께 바꿨다(`mascotAssets.contract` ④가 대조한다).
+      mascot="snow"
+      heroTitle={t('league.heroTitle')}
       title={`🏆 ${t('league.title')}`}
       subtitle={t('league.dash.subtitle')}
       headerRight={
@@ -353,7 +374,10 @@ function SubmittedCard() {
   return (
     <Card className="flex flex-col">
       <div className="flex items-start gap-3">
-        <Mascot name="bolt" className="h-14 w-14 shrink-0" />
+        {/* 눈송이 — 리그 담당(2026-08-17). `bolt`가 남아 있었는데 같은 날
+            탐구가 번개를 가져갔으므로, 예측을 제출하면 **배너의 눈송이 아래에
+            남의 화면 캐릭터**가 붙어 있었다(코드 리뷰가 잡았다). */}
+        <Mascot name="snow" className="h-14 w-14 shrink-0" />
         <div className="min-w-0">
           <p className="text-sm font-extrabold text-emerald-700">{t('league.submittedTitle')}</p>
           <p className="mt-1 text-[12px] leading-relaxed text-slate-500">{t('league.submittedBody')}</p>

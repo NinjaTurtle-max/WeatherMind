@@ -133,6 +133,67 @@ try {
   const outHtml = renderToString(createElement(GuideBot, { pathname: '/board', state: { clouds: 0 } }));
   check('에너지 0이면 화면 안내를 밀어내고 상태 안내가 뜬다',
     outHtml.includes('data-guide-kind="state"') && outHtml.includes('구름이 다 떨어졌'));
+
+  // ── ⑺ 자리 — 왼쪽 아래 · 말풍선은 오른쪽 (2026-08-17 사용자 지시) ─────────
+  /**
+   * 사이드바 튜터 카드가 걷히면서 안내봇이 **그 자리**를 물려받았다. 셋이 한
+   * 묶음이라 하나만 되돌아가도 화면이 깨진다 — 그래서 셋을 따로 문다.
+   *
+   *  ⓐ `left-4` — `right-4`로 되돌아가면 카드가 있던 자리가 빈다.
+   *  ⓑ `z-40` — **봇과 사이드바가 같은 40이고, 모달(z-50)보다 낮다.**
+   *     왼쪽으로 옮기면서 사이드바 뒤로 숨는 것을 막으려고 봇을 z-50으로
+   *     올렸더니 `fixed inset-0 z-50` 전체 화면 모달(RegionPicker ·
+   *     ConfirmDialog · PlacementFinalizing) **위로도** 올라가 그 구석의
+   *     클릭을 삼켰다(2026-08-17 코드 리뷰). 해법은 봇을 올리는 것이 아니라
+   *     사이드바를 내리는 것이었다 — 같은 40에서 봇이 위에 오는 것은 `Layout`
+   *     의 DOM 순서(SideNav → TabBar → GuideBot)가 만든다. 둘이 **한 쌍**이라
+   *     한쪽만 되돌아가도 깨지므로 두 파일을 함께 문다.
+   *  ⓒ 자식 순서가 **캐릭터 → 말풍선**이고 꼬리가 왼쪽(`-left-`)을 가리킨다.
+   *     순서만 뒤집히면 말풍선이 화면 왼쪽 밖으로 나가고, 꼬리만 안 뒤집히면
+   *     말풍선이 캐릭터 반대쪽을 가리킨다.
+   */
+  const botSrc = await readFile(resolve(root, 'src/components/GuideBot.jsx'), 'utf8');
+  const rootCls = botSrc.match(/className=\{`fixed ([^`]*)`/)?.[1] ?? '';
+  check(`ⓐ 기본 자리가 왼쪽이다 — 실제 "${rootCls.slice(0, 40)}"`,
+    /\bleft-4\b/.test(rootCls) && !/\bright-4\b/.test(rootCls));
+  check('ⓑ 봇이 z-40이다 — z-50이면 전체 화면 모달 위로 올라가 클릭을 삼킨다',
+    /\bz-40\b/.test(rootCls) && !/\bz-50\b/.test(rootCls));
+  const navSrc = await readFile(resolve(root, 'src/components/SideNav.jsx'), 'utf8');
+  const navCls = navSrc.match(/className="fixed inset-y-0 ([^"]*)"/)?.[1] ?? '';
+  check(`ⓑ 사이드바도 z-40이다 — z-50이면 봇이 그 뒤로 숨는다. 실제 "${navCls.slice(0, 30)}"`,
+    /\bz-40\b/.test(navCls) && !/\bz-50\b/.test(navCls));
+  // 같은 40에서 봇이 위로 오는 근거는 z가 아니라 **DOM 순서**다. Layout이
+  // 순서를 바꾸면 봇이 조용히 사이드바 뒤로 숨으므로 그 순서도 함께 문다.
+  const layoutSrc = await readFile(resolve(root, 'src/components/Layout.jsx'), 'utf8');
+  check('ⓑ Layout이 SideNav → GuideBot 순으로 그린다 — 같은 z에서 뒤가 위에 온다',
+    layoutSrc.indexOf('<SideNav') < layoutSrc.indexOf('<GuideBot'));
+  // ⓔ 말풍선의 음수 마진(`-mt-4`=16px)은 상자 밖으로 삐져나오는데 그만큼은
+  //    `getBoundingClientRect()`에 안 잡힌다. 봇을 위로 드래그하면 말풍선 머리가
+  //    화면 밖으로 잘리므로 `clamp()`가 최소 y에 그 값을 더한다. 두 숫자가
+  //    **한 쌍**이라 따로 두면 조용히 어긋난다 — 짝을 직접 문다.
+  const overhang = Number(botSrc.match(/const BUBBLE_OVERHANG = (\d+);/)?.[1]);
+  const bubbleMt = Number(botSrc.match(/className="relative -mt-(\d+) /)?.[1]);
+  check(`ⓔ BUBBLE_OVERHANG(${overhang})이 말풍선 -mt-${bubbleMt}(=${bubbleMt * 4}px)와 같다`,
+    Number.isFinite(overhang) && Number.isFinite(bubbleMt) && overhang === bubbleMt * 4);
+  check('ⓔ clamp()의 최소 y가 그 값을 더한다 — 안 더하면 말풍선 머리가 잘린다',
+    /Math\.min\(EDGE \+ BUBBLE_OVERHANG, maxY\)/.test(botSrc)
+      && /Math\.max\(pos\.y, minY\)/.test(botSrc));
+  check('ⓒ 꼬리가 캐릭터 쪽(왼쪽)을 가리킨다',
+    /-left-\[5px\][^"]*border-b border-l/.test(botSrc));
+  // ⓓ 말풍선을 **얼굴 높이**에 맞춘다(2026-08-17 사용자 지시). 바닥 정렬이면
+  //    말풍선이 캐릭터 발치까지 내려와 화면 맨 아래 줄을 덮는다(학습 경로의
+  //    「현재 진도」 막대에서 실제로 그랬다). 둘이 한 쌍이라 따로 문다:
+  //    `items-start`가 말풍선 위쪽을 캐릭터 위쪽에 붙이고, 꼬리도 **위에서**
+  //    재야(`top-8`) 문구 줄 수와 무관하게 같은 높이를 가리킨다.
+  check('ⓓ 말풍선이 캐릭터 위쪽(얼굴)에 맞춰진다 — items-start',
+    /\bitems-start\b/.test(rootCls) && !/\bitems-end\b/.test(rootCls));
+  check('ⓓ 꼬리를 위에서 잰다 — 문구가 길어져도 얼굴을 가리킨다',
+    /-left-\[5px\] top-8\b/.test(botSrc));
+  check('ⓒ 자식 순서가 캐릭터 → 말풍선이다 — 뒤집히면 말풍선이 화면 밖으로 나간다',
+    botSrc.indexOf('data-testid="guide-bot-toggle"') < botSrc.indexOf('data-testid="guide-bot-bubble"'));
+  // 옛 좌표(오른쪽 자리)가 남아 있으면 이 변경이 그 사람에게만 안 보인다.
+  check('저장 키가 갱신됐다 — 옛 위치가 새 기본 자리를 덮지 않는다',
+    /POS_KEY = 'weathermind\.guidebot\.pos\.v\d+'/.test(botSrc));
 } finally {
   await server.close();
 }

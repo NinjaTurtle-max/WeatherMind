@@ -286,6 +286,37 @@ try {
     // 따라(목표 칩·타이머와 같이 뜨면 줄 가운데로 밀린다) 카드가 화면 밖으로
     // 나간다. 배너는 항상 화면 폭을 차지하므로 어느 조합에서도 안 넘친다.
     check('wide: 배너가 앵커(relative)다', /data-testid="board-mission-hero"[\s\S]{0,400}?className="relative /.test(src));
+
+    // ── 오른쪽 열: 위에서부터 채운다 (2026-08-17 사용자 지시) ────────────────
+    /**
+     * "오른쪽 수도권-흐림 이거 상단으로 올려줘. 애니메이션 나오면 애니메이션은
+     * 상단으로, 수도권 결과는 하단으로."
+     *
+     * 순서(애니메이션 → 결과)는 `CrossSectionPanel`이 구조로 갖는다 —
+     * [단면 그림][캡션 상자]. 문제는 **정렬**이었다: 단면 카드가 `lg:flex-1`로
+     * 왼쪽 열 높이만큼 늘어나는데 `justify-center`라 내용이 빈 카드 한복판에
+     * 떠 있었다(규칙이 안 선 상태에서는 캡션 한 줄뿐이라 특히 그렇게 보였다).
+     *
+     * ⚠️ `lg:flex-1`은 **남아야 한다** — 두 열이 같은 높이로 끝나는 계약이
+     * 거기 걸려 있다. 되돌아갈 수 있는 것은 `justify-center` 쪽이라 그것만 문다.
+     */
+    const sectionCard = src.match(/className="order-4 ([^"]*)"/)?.[1] ?? '';
+    check(
+      `wide: 단면 카드가 위에서부터 채운다 — "${sectionCard.slice(0, 56)}…"`,
+      !/\bjustify-center\b/.test(sectionCard),
+    );
+    check(
+      'wide: 단면 카드가 왼쪽 열 높이까지 늘어난다(두 열이 같이 끝난다)',
+      /\blg:flex-1\b/.test(sectionCard),
+    );
+    // 순서의 소유자는 패널이다 — 그림이 캡션보다 **위**에 있는지 소스로 확인한다.
+    const panel = readFileSync(resolve(root, 'src/modules/board/CrossSectionPanel.jsx'), 'utf8');
+    const sceneAt = panel.indexOf('{useGL ? (');
+    const captionAt = panel.indexOf('<div className="bg-white px-3 py-2">');
+    check(
+      'wide: 애니메이션이 수도권 결과보다 위에 온다(CrossSectionPanel 순서)',
+      sceneAt > 0 && captionAt > 0 && sceneAt < captionAt,
+    );
     // 떠 있는 카드는 **격자 높이에 영향을 주지 않아야** 한다 — absolute가 빠지면
     // 배너가 카드만큼 늘어나 단면이 밀린다.
     check('wide: 가이드 카드가 absolute로 떠 있다', /id="board-guide-panel"[\s\S]{0,900}?absolute/.test(src));

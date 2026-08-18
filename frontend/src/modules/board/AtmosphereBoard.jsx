@@ -1125,7 +1125,20 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
           <div className="contents lg:flex lg:flex-col lg:gap-3">
             <div
               ref={stageRef}
-              className="order-4 flex flex-col justify-center rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none lg:flex-1"
+              // ⚠️ **세로 가운데 정렬(`justify-center`)을 걷었다**(2026-08-17
+              // 사용자 지시 "오른쪽 수도권-흐림 이거 상단으로 올려줘").
+              // 카드가 `lg:flex-1`로 왼쪽 열 높이만큼 늘어나는데 가운데 정렬이면
+              // 내용이 빈 카드 한복판에 떠 있다 — 아직 규칙이 안 선 상태에서는
+              // 캡션 한 줄뿐이라 특히 그렇게 보였다. 위로 붙이면 애니메이션이
+              // 생겨도 그 자리에서 아래로 자라 **눈이 따라갈 곳이 안 바뀐다**.
+              // ⚠️ `lg:flex-1`은 남긴다 — 두 열이 같은 높이로 끝나는 계약
+              // (`items-stretch`)이 그것에 걸려 있다. 바꾼 것은 **정렬**뿐이다.
+              //
+              // 「애니메이션 위 · 수도권 결과 아래」는 **이미 그 순서다** —
+              // `CrossSectionPanel`이 [단면 그림][캡션 상자] 순으로 그린다.
+              // 규칙이 안 서면 그림 없이 캡션만 나온다. 그래서 여기서 손댈 것은
+              // 정렬 하나뿐이었다.
+              className="order-4 flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:order-none lg:flex-1"
             >
               <CrossSectionPanel zoneResult={stageResult} confirmed={Boolean(confirmedPhenomena)} />
             </div>
