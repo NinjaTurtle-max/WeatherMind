@@ -1027,9 +1027,18 @@ function FloodRiskScene({ step, animate }) {
         x={FL.basement - 7} y="119" width="14" height="8" fill="#57534e"
       />
       {/* 두 라벨은 **수면(3단계 y=106) 위**에 둔다 — 아래에 두면 물에 덮여 사라지고,
-          하필 그 둘이 「왜 도시에서 잠기나」를 설명하는 대비다 */}
-      <CSText x={56} y={98} color="#3f6212" size={5.5}>{V.greenGroundSoaks}</CSText>
-      <CSText x={160} y={98} color="#44403c" size={5.5}>{V.cityImpervious}</CSText>
+          하필 그 둘이 「왜 도시에서 잠기나」를 설명하는 대비다.
+          ⚠️ **2026-08-19: 0~1단계에서만 뜬다.** 종전엔 단계 무관 상시라 3단계에
+             다른 5개와 함께 **7개가 몰렸다**. 대비는 도시가 등장하는 앞 단계에서
+             할 일을 마치고, 3단계의 결론은 물 자체가 말한다.
+             GL 쪽은 같은 판단을 `until: 1`로 적었다(scenes.js) — 두 벌이 갈리면
+             갤러리에서 GL과 SVG가 다른 글자 수를 보인다. */}
+      {step <= 1 && (
+        <>
+          <CSText x={56} y={98} color="#3f6212" size={5.5}>{V.greenGroundSoaks}</CSText>
+          <CSText x={160} y={98} color="#44403c" size={5.5}>{V.cityImpervious}</CSText>
+        </>
+      )}
 
       {/* 0 — 유입. 두 층으로 나눠 「쉬지 않고」를 두께로 보인다(바다는 서쪽 0~0.2) */}
       <Appear at={0} step={step} animate={animate}>
@@ -1082,7 +1091,13 @@ function FloodRiskScene({ step, animate }) {
         <CSText x={70} y={88} color="#0c4a6e" size={6}>{V.groundCannotAbsorb}</CSText>
         <CSText x={172} y={88} color="#0369a1" size={5.5}>{V.runoffGathersLow}</CSText>
         <CSText x={176} y={76} color="#075985" size={5.5}>{V.drainOverwhelmed}</CSText>
-        <CSText x={60} y={126} color="#0369a1" size={5.5}>{V.soilAlreadyFull}</CSText>
+        {/* `soilAlreadyFull`(땅이 이미 찼다)은 뺐다 — `groundCannotAbsorb`(땅이 못
+            흡수한다)와 **같은 사실의 두 표현**이고, 그 뜻은 캡션 4번째 문장이 이미
+            갖는다(*"땅이 스며들 수 있는 양을 넘겨 물이 고이기 시작해요"*).
+            **지운 것이 아니라 캡션이 소유한다** — 클라이언트: *"글자들이 너무 난잡하다"*.
+            ⚠️ 리소스 키는 지우지 않는다(`crossSectionLabels.js`가 목록으로 소유하고,
+               고아 키 금지 규칙은 **아무도 안 쓰는 키**를 말한다 — 이 키는 계속
+               그 목록에 있고 뜻도 유효하다). */}
         <CSText x={140} y={126} color="#0c4a6e" size={5.5}>{V.basementFloods}</CSText>
       </Appear>
     </BlockFrame>
@@ -1134,6 +1149,26 @@ function SquallStormScene({ step, animate }) {
   );
 }
 
+/**
+ * 산불 경보급 4단계 「번짐」의 기하 — **단일 소유자**. 캡션이 *"작은 불씨 하나가
+ * 바람을 타고 순식간에 번져요"*이므로 출발 → 경로 → 도착 셋이 좌표로 존재해야 한다.
+ * 🔴 **동쪽(x 증가)이 곧 바람 아래**다: 1단계 활강풍 화살표가 134 → 220이므로
+ *    `src < 도착점` · `arcFrom[0] < arcTo[0]`이 이 장면의 계약이다.
+ *    종전 판은 불티가 `cx = 168 − 17i`로 서쪽으로 가 **바람을 거슬렀다**.
+ */
+const SGW = {
+  ground: fp(0, 0)[1], // 지표선 — 불꽃·나무 밑동이 전부 여기 선다
+  src: 152, // 출발 — 산(화면 x 105~144) 바로 동쪽, 작은 불씨 하나
+  trees: [164, 186, 202], // 풍하쪽 숲 = 새 불이 붙을 연료
+  arcFrom: [156, 110],
+  apex: [182, 84],
+  arcTo: [208, 106],
+  embers: [[164, 99], [173, 92], [190, 90], [200, 99]],
+  // 도착 — [x, 높이]. 멀수록 나중에 붙은 불이라 작다. 셋 다 `src`보다 동쪽이고,
+  // 가장 가까운 새 불(13)이 출발한 불씨(8)보다 크다 = 「순식간에 번졌다」.
+  spots: [[176, 13], [195, 10], [209, 7]],
+};
+
 /** siberian_gale_wildfire: 찬 건조 기단 → 산 넘는 바람 → 일사로 더 마름 → 불씨 확산 */
 function SiberianGaleWildfireScene({ step, animate }) {
   return (
@@ -1147,9 +1182,16 @@ function SiberianGaleWildfireScene({ step, animate }) {
         <polygon points={P([gp(0.42, 0), gp(0.58, 0), gp(0.5, 1)])} fill="#a8a29e" opacity="0.7" />
         <CSText x={128} y={96} color="#57534e" size={5.5}>{V.mountainRange}</CSText>
         <BroadArrow x1={54} y1={54} x2={122} y2={44} color="#0e7490" bend={-0.06} w0={9} w1={4} />
-        <BroadArrow x1={134} y1={48} x2={220} y2={86} color="#c2410c" bend={0.12} w0={8} w1={3} />
+        {/* 활강풍 — **4단계 비화의 방향을 결정하는 화살표**. 테스트가 「동쪽」을 손으로
+            적지 않고 여기서 부호를 캐 가므로, 이 화살표를 뒤집으면 비화 단정이 운다. */}
+        <g data-cs="wind" data-cs-x1="134" data-cs-x2="220">
+          <BroadArrow x1={134} y1={48} x2={220} y2={86} color="#c2410c" bend={0.12} w0={8} w1={3} />
+        </g>
         <CSText x={196} y={64} color="#c2410c" size={6}>{V.dryWarmWind}</CSText>
         <CSText x={128} y={116} color="#92400e" size={6}>{V.driedLeavesTwigs}</CSText>
+        {/* 풍하(동)쪽 숲 — 불씨가 떨어질 곳에 **탈 것**이 있어야 4단계의 새 불이
+            성립한다. `WildfireRiskScene`과 같은 `ConiferTree` 관용구다. */}
+        {SGW.trees.map((x) => <ConiferTree key={x} x={x} y={SGW.ground} h={12} />)}
       </Appear>
       <Appear at={2} step={step} animate={animate}>
         <SunShape x={216} y={26} scale={1.1} fill="#f59e0b" />
@@ -1158,23 +1200,43 @@ function SiberianGaleWildfireScene({ step, animate }) {
         ))}
         <CSText x={196} y={40} color="#b45309" size={6}>{V.strongSun}</CSText>
       </Appear>
+      {/* 3 — **비화로 번진다**. 종전 판은 정지한 주황색 타원 두 겹이었고, 불티가
+          `cx = 168 − 17i`로 **서쪽**(바람 반대)으로 갔으며, 도착이 없었다.
+          GL과 같은 문법으로 셋을 세운다: 출발(작은 불씨 하나) → 경로(바람을 타고
+          나는 포물선) → 도착(떨어진 자리마다 새 불). 조사 §3A의 비화(spotting)다. */}
       <Appear at={3} step={step} animate={animate}>
-        <g className={anim(animate, 'animate-board-sun-pulse')}>
-          <path d="M176 114 q6 -20 13 -24 q-3 11 4 15 q5 -8 4 -17 q10 13 6 26 Z" fill="#ea580c" />
-          <path d="M181 114 q4 -12 8 -15 q-1 8 3 9 q3 -4 3 -10 q6 8 3 16 Z" fill="#fbbf24" />
-        </g>
-        {[0, 1, 2, 3].map((i) => (
-          <circle
-            key={i}
-            cx={168 - i * 17}
-            cy={92 - i * 7}
-            r={1.9 - i * 0.28}
-            fill="#f97316"
-            className={anim(animate, 'animate-board-sun-pulse')}
+        <Flame x={SGW.src} y={SGW.ground} h={8} role="source" animate={animate} />
+        <SmokePlume x={SGW.src + 4} y={SGW.ground - 10} animate={animate} />
+        {/* 경로 — 두 도막으로 포물선. 둘 다 **동쪽으로** 간다(1단계 활강풍 134→220과
+            같은 부호). 이 부호가 어긋나면 「바람을 타고」를 반대로 가르친다. */}
+        <g
+          data-cs="ember"
+          data-cs-x1={SGW.arcFrom[0].toFixed(1)} data-cs-y1={SGW.arcFrom[1].toFixed(1)}
+          data-cs-x2={SGW.arcTo[0].toFixed(1)} data-cs-y2={SGW.arcTo[1].toFixed(1)}
+        >
+          <BroadArrow
+            x1={SGW.arcFrom[0]} y1={SGW.arcFrom[1]} x2={SGW.apex[0]} y2={SGW.apex[1]}
+            color="#f97316" bend={-0.22} w0={5} w1={3} opacity={0.9}
           />
+          <BroadArrow
+            x1={SGW.apex[0]} y1={SGW.apex[1]} x2={SGW.arcTo[0]} y2={SGW.arcTo[1]}
+            color="#f97316" bend={-0.22} w0={3.4} w1={2} opacity={0.9}
+          />
+          {SGW.embers.map(([cx, cy], i) => (
+            <circle
+              key={cx} cx={cx} cy={cy} r={2 - i * 0.3} fill="#f97316"
+              className={anim(animate, 'animate-board-sun-pulse')}
+            />
+          ))}
+        </g>
+        {/* 도착 — 떨어진 자리마다 새 불. 멀수록 나중에 붙은 불이라 작다(시간 순서가
+            크기로 읽힌다). 가장 가까운 새 불이 출발한 불씨보다 크다 = 「순식간에」. */}
+        {SGW.spots.map(([x, h], i) => (
+          <Flame key={x} x={x} y={SGW.ground} h={h} role="spot" animate={animate} delay={0.2 + i * 0.25} />
         ))}
-        <CSText x={112} y={40} color="#c2410c" size={6}>{V.embersRideWind}</CSText>
-        <CSText x={128} y={14} color="#b45309" size={6}>{V.clearSkyWildfire}</CSText>
+        <CSText x={148} y={78} color="#c2410c" size={6}>{V.embersRideWind}</CSText>
+        <CSText x={198} y={100} color="#c2410c" size={5.5}>{V.spotFireAhead}</CSText>
+        <CSText x={100} y={14} color="#b45309" size={6}>{V.clearSkyWildfire}</CSText>
       </Appear>
     </BlockFrame>
   );
