@@ -33,11 +33,13 @@ APP_ROLE_SQL = (BACKEND / "app" / "scripts" / "rls_app_role.sql").read_text(
 )
 ENV_PY = (BACKEND / "alembic" / "env.py").read_text(encoding="utf-8")
 
-# 실DB pg_policies 실측(2026-08-05) — user_isolation이 걸린 11개 테이블.
+# 실DB pg_policies 실측(2026-08-05) — user_isolation이 걸린 11개 테이블
+# + 0016 hindcast_attempts(MT-30) = 12개.
 # 마이그레이션이 RLS 테이블을 추가하면 이 목록과 아래 예외 계약을 함께 갱신한다.
 RLS_TABLES = {
     "attendance",
     "duels",
+    "hindcast_attempts",  # 0016 (MT-30 과거 예보) — 예외 없는 격리 대상
     "league_results",
     "quiz_logs",
     "sessions",
