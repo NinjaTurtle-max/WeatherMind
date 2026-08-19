@@ -331,6 +331,9 @@ try {
     // ⓐⓒ 「건너뛰기」가 여전히 렌더되고, 아무것도 안 넣고 학습에 도달한다.
     const skip = $('[data-testid="entry-info-skip"]');
     ok(Boolean(skip) && skip.disabled !== true, '④-a 「건너뛰기」가 여전히 있고 눌린다');
+    // 없으면 여기서 **이유를 말하고** 멈춘다 — 그냥 `skip.click()`을 하면
+    // "Cannot read properties of null"이 나와 실패 메시지가 원인을 안 가리킨다.
+    if (!skip) throw new Error('④ 「건너뛰기」 출구가 사라졌다 — 주 동선의 출구가 없으면 ④-c(입력 0회로 학습 도달)를 잴 수 없다');
     skip.click();
     await waitFor(
       () => xhrLog.slice(mark).some((l) => l === 'GET /api/v1/curriculum'),

@@ -610,14 +610,22 @@ try {
     );
 
     // ⑩-b 「진도 불러오기」 → 목적지가 실제로 그려진다(토큰 없이 통과)
+    //
+    // ⚠️ **2026-08-19에 문구와 입력란이 바뀌었다** — 이 단정은 종전에
+    // `저장할 때 쓴 이메일과 비밀번호` + `input[name=email]`·`[name=password]`를
+    // 봤다. 그 화면은 게스트 비밀번호가 무작위 시크릿이라 **아무도 못 여는 문**
+    // 이었고, 닉네임 하나(`POST /auth/resume`)로 바뀌었다. 여기가 재는 것은
+    // 「토큰 없이 이 라우트에 닿는가」이지 폼의 생김새가 아니므로, 목적지 표식
+    // (`load-progress`)으로 갈아탄다 — 폼의 구성은 `loadProgress.contract`가
+    // 소유한다(그쪽이 password·email 입력란의 **부재**까지 단정한다).
     $('[data-testid="session-expired-load"]').click();
     await waitFor(
-      () => text().includes('저장할 때 쓴 이메일과 비밀번호'),
+      () => $('[data-testid="load-progress"]'),
       8000,
       () => `진도 불러오기 화면 — 실제 본문 "${text().slice(0, 120)}"`,
     );
     ok(
-      Boolean($('input[name="email"]')) && Boolean($('input[name="password"]')),
+      Boolean($('input[name="nickname"]')),
       '⑩-b 「진도 불러오기」가 실제 화면에 닿는다(토큰 게이트 통과)',
     );
     r.unmount();
