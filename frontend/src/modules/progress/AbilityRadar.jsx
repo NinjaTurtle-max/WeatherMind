@@ -1,4 +1,5 @@
 import { conceptLabel, useT } from '../../i18n';
+import { knowledgeLevelLabel } from '../../lib/abilityDisplay';
 
 /**
  * AbilityRadar — 개념별 실력(θ) 레이더 차트.
@@ -81,9 +82,16 @@ export default function AbilityRadar({
       // 그림은 스크린리더에 안 보이므로 **읽을 수 있는 요약**을 준다.
       // 옆 막대 목록과 같은 내용이지만, 막대는 li 단위라 "전체 모양"에 해당하는
       // 문장이 따로 필요하다.
+      //
+      // 난이도 표기는 **교과 단계**다(2026-08-19 사용자 지적 — /me가 한 화면에서
+      // 「고등학교 진로선택」과 「중급」을 동시에 말하고 있었다). 여기가 옆 막대 칩과
+      // **같은 함수**를 읽는 것이 계약이다: 눈으로 보는 문구와 스크린리더가 읽는
+      // 문구가 갈리면 같은 그림을 두 사람이 다르게 듣는다.
+      // `knowledge_level`이 null·부재면 knowledgeLevelLabel이 4밴드로 내려앉는다 —
+      // 종전 `ability.level.*`가 n=0에서도 라벨을 줬으므로 **빈칸은 회귀**다.
       aria-label={ariaLabel ?? t('home.brain.aria', {
         list: abilities
-          .map((a) => `${conceptLabel(t, a.concept_tag)} ${t(`ability.level.${a.level_label}`)}`)
+          .map((a) => `${conceptLabel(t, a.concept_tag)} ${knowledgeLevelLabel(a)}`)
           .join(', '),
       })}
     >
