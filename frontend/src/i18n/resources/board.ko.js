@@ -275,7 +275,7 @@ export default {
         spotFireAhead: '날아간 불씨가 앞에 새 불을 놓아요',
         newCellsUpwind: '바람 위쪽에서 새 비구름이 계속 생겨요',
         soilAlreadyFull: '땅속 틈이 이미 물로 찼어요',
-        runoffGathersLow: '못 스민 물이 낮은 곳으로 모여요',
+        runoffGathersLow: '못 스며든 물이 낮은 곳으로 모여요',
         forestedRidge: '숲이 우거진 산등성이 — 비탈을 타고 더 빨라져요',
         cityImpervious: '도시 — 포장된 땅은 물을 먹지 못해요',
         fireRunsUphill: '불은 비탈을 더 빨리 올라가요',
