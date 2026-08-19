@@ -624,6 +624,41 @@ try {
     );
   }
 
+  // ── 7-f) 🔴 **도시 물체가 한 깊이에 있는가** ─────────────────────────────
+  // **2026-08-19 클라이언트**: *"물하고 건물하고 자동차를 한 레이어에 넣어.
+  // 지금 레이어를 쌓아서 부정합하니"*
+  //
+  // `renderer.js`가 `gl.disable(gl.DEPTH_TEST)`로 **중심 깊이 하나로** 정렬하므로,
+  // 물체들의 깊이가 갈리면 **앞뒤가 물체마다 따로 정해지고** 물과의 관계도 물체마다
+  // 달라진다 — 그것이 「부정합」이다. 종전 건물 z=0.22 · 차 z=0.25로 갈려 있었다.
+  //
+  // ⇒ 도시 물체(지표에 서고 물의 z 구간 안에 있는 것)의 **z 중심이 하나**여야 한다.
+  // ⚠️ 물은 이 층 **밖**이다 — 감싸면서 중심이 더 앞이라 마지막에 그려진다(7-b).
+  {
+    const FLOOD = 'flood_risk_saturated_inflow';
+    const items = buildScene(FLOOD)?.items ?? [];
+    const step = 3;
+    const at3 = items.filter((it) => it.type === 'solid' && step >= (it.at ?? 0) && (it.until === undefined || step <= it.until));
+    const water = at3.filter((it) => (it.at ?? 0) === 3 && it.pattern === 3 && it.center[1] > 0);
+    const wz0 = Math.min(...water.map((w) => w.center[2] - w.size[2] / 2));
+    const wz1 = Math.max(...water.map((w) => w.center[2] + w.size[2] / 2));
+    // 도시 물체 = 물의 z 구간 안 · 도시 x 구간 · 물 자신과 지표판(x 전폭)이 아닌 것
+    const city = at3.filter((it) => {
+      if (water.includes(it)) return false;
+      const c = it.center;
+      return c[2] > wz0 && c[2] < wz1 && c[0] > 0.33 && it.size[0] < 0.3;
+    });
+    const zs = [...new Set(city.map((it) => it.center[2].toFixed(4)))];
+    check(
+      `홍수 도시 물체가 한 깊이에 있다 — ${city.length}개, z ${zs.join(' / ')}`,
+      city.length >= 4 && zs.length === 1,
+      city.length < 4
+        ? `도시 물체를 ${city.length}개만 찾았다 — 선별식이 낡았나? 공허 통과 방지로 실패로 둔다.`
+        : `깊이가 ${zs.length}가지로 갈려 있다(${zs.join(' / ')}). 깊이 테스트가 없으므로 ` +
+          `**갈리면 앞뒤가 물체마다 따로 정해진다** — 「한 레이어」로 모을 것.`,
+    );
+  }
+
   // ── 7-c) 🔴 **라벨이 겹치지 않는가 · 프레임을 넘지 않는가** ────────────────
   // **2026-08-19 클라이언트**: *"글자 렌더링 겹침 확인하고 안 겹치도록"*.
   //
