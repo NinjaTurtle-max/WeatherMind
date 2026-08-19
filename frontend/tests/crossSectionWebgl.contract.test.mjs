@@ -197,6 +197,9 @@ try {
   // 카메라는 **camera.js가 소유한다** — 방위·고도·거리를 여기 베끼면 갈린 순간
   // 이 계약이 거짓을 단정한다(오늘 낡은 수로 겪은 그 형태).
   const { isoCamera } = await server.ssrLoadModule('/src/modules/board/webgl/crossSection/camera.js');
+  // 라벨 투영은 **렌더러가 소유한다**(`labelsFor`) — 여기서 투영을 다시 구현하면
+  // 갈린 순간 이 계약이 화면과 다른 것을 재게 된다.
+  const { labelsFor } = rendererMod;
   const { STORYBOARDS } = panelMod;
 
   // ── 1) SCENES ↔ STORYBOARDS 키 정합 ───────────────────────────────────────
@@ -511,8 +514,14 @@ try {
     //   「작은」의 기준은 건물과 가르는 것이다 — 차는 높이 0.024~0.030이고
     //   가장 낮은 건물도 0.092다. 0.06은 그 사이의 여유 있는 경계다.
     {
-      const CAR_MAX_H = 0.06;
-      const small = at3.filter((it) => !water.includes(it) && it.size[1] <= CAR_MAX_H && inFloodZone(it.center) && it.center[0] > 0.33);
+      // 🔴 **높이만 보던 첫 판이 뚫렸다**(2026-08-19 변이③): 물을 창문선 아래로
+      //   내려도 초록이었다. **포장면**(y 두께 0.008이지만 폭 0.665 × 깊이 0.295인
+      //   판)이 「온전히 잠긴 작은 물체」로 세어졌기 때문이다.
+      //   ⇒ 「작은」은 **세 축 전부**로 재야 한다. 자는 **뭉툭한 물체**다 —
+      //      차는 0.070 × 0.030 × 0.052이고 가장 낮은 건물도 높이 0.092다.
+      const CAR_MAX = [0.12, 0.06, 0.12];
+      const compact = (it) => it.size.every((v, i) => v <= CAR_MAX[i]);
+      const small = at3.filter((it) => !water.includes(it) && compact(it) && inFloodZone(it.center) && it.center[0] > 0.33);
       const straddling = small.filter((it) => {
         const bottom = it.center[1] - it.size[1] / 2;
         const top = it.center[1] + it.size[1] / 2;
@@ -574,6 +583,74 @@ try {
       `이 물체들이 **물보다 카메라에 가깝고 불투명하며 수면보다 높다** ⇒ 나중에 그려져 물을 덮는다. ` +
         `깊이 테스트가 없으므로 **잠긴 땅을 카메라 쪽에, 마른 땅을 뒤에** 두어야 한다: ` +
         blockers.map((it) => `x=${it.center[0].toFixed(3)} y=${it.center[1].toFixed(3)} z=${it.center[2].toFixed(3)} h=${it.size[1].toFixed(3)} a=${it.color[3]}`).join(' / '),
+    );
+  }
+
+  // ── 7-c) 🔴 **라벨이 겹치지 않는가 · 프레임을 넘지 않는가** ────────────────
+  // **2026-08-19 클라이언트**: *"글자 렌더링 겹침 확인하고 안 겹치도록"*.
+  //
+  // 라벨은 GL이 아니라 **SVG `<text>`**로 그려진다(`CrossSectionGL.jsx`):
+  //   x = left/100 × 260 · y = top/100 × 150 · fontSize = size × 0.6 · anchor=middle
+  // 그래서 겹침은 **화면 좌표에서만** 재진다 — 장면 좌표로는 알 수 없다.
+  //
+  // ⚠️ **글자 폭은 추정이다**(CJK 1.0em · 그 밖 0.55em · 공백 0.3em). 실제 폰트
+  //    메트릭이 아니므로 **절대 판정이 아니라 회귀 감시**로 쓴다. 그래서 아래는
+  //    래칫이다 — 「오늘보다 늘지 않는다」. 값을 **올리지 말 것**.
+  // ⚠️ 남은 8건 중 **7건이 산불 2장면**이고 그 장면은 다른 조가 쥐고 있다
+  //    (`wildfire_risk_dry_gale` 4+2 · `siberian_gale_wildfire` 1). 그 작업이
+  //    착지하면 이 값을 내린다.
+  {
+    const VB_W = 260;
+    const VB_H = 150;
+    const LABEL_SCALE = 0.6; // CrossSectionGL.jsx가 소유 — 갈리면 이 계산이 거짓
+    const isCJK = (c) => /[가-힣ㄱ-ㅎㅏ-ㅣ一-鿿]/.test(c);
+    const widthEm = (t) => [...t].reduce((w, c) => w + (c === ' ' ? 0.3 : isCJK(c) ? 1.0 : 0.55), 0);
+    const boxOf = (l) => {
+      const fs = l.size * LABEL_SCALE;
+      const lines = String(l.text).split('\n');
+      const w = Math.max(...lines.map(widthEm)) * fs;
+      const cx = (l.left / 100) * VB_W;
+      const by = (l.top / 100) * VB_H;
+      return { x0: cx - w / 2, x1: cx + w / 2, y0: by - fs * 0.8, y1: by + fs * 0.2 + (lines.length - 1) * fs * 1.25 };
+    };
+    const overlaps = (a, b) =>
+      Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) > 0.5 && Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) > 0.5;
+    let ov = 0;
+    let out = 0;
+    const floodBad = [];
+    for (const id of Object.keys(SCENES)) {
+      const scene = buildScene(id);
+      const steps = STORYBOARDS[id]?.length ?? 4;
+      for (let step = 0; step < steps; step += 1) {
+        const boxes = labelsFor(scene, step, VB_W / VB_H).map(boxOf);
+        let localOv = 0;
+        for (let i = 0; i < boxes.length; i += 1) {
+          for (let j = i + 1; j < boxes.length; j += 1) if (overlaps(boxes[i], boxes[j])) localOv += 1;
+        }
+        const localOut = boxes.filter((b) => b.x0 < 0 || b.x1 > VB_W || b.y0 < 0 || b.y1 > VB_H).length;
+        ov += localOv;
+        out += localOut;
+        if (id === 'flood_risk_saturated_inflow' && (localOv || localOut)) floodBad.push(`step${step}: 겹침 ${localOv} · 프레임밖 ${localOut}`);
+      }
+    }
+    // 오늘의 값(래칫) — 내릴 때만 고친다
+    const MAX_OVERLAP = 8;
+    const MAX_OUTSIDE = 6;
+    check(
+      `라벨 겹침이 ${MAX_OVERLAP}건을 넘지 않는다 (실측 ${ov})`,
+      ov <= MAX_OVERLAP,
+      `라벨이 서로 가려 읽을 수 없다. **이 상한을 올리지 말 것** — 좌표를 벌리거나 ` +
+        `역할 끝난 라벨을 \`until\`로 걷는다.`,
+    );
+    check(
+      `프레임 밖 라벨이 ${MAX_OUTSIDE}건을 넘지 않는다 (실측 ${out})`,
+      out <= MAX_OUTSIDE,
+      `라벨이 260×150 뷰박스를 넘어 잘린다.`,
+    );
+    check(
+      `홍수는 겹침·프레임밖이 **0**이다 (PM 소유 장면)`,
+      floodBad.length === 0,
+      `홍수 라벨이 겹치거나 프레임을 넘었다: ${floodBad.join(' / ')}`,
     );
   }
 

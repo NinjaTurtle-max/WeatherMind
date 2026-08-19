@@ -460,7 +460,10 @@ const yangtzeMorningFog = () => [
 
   bb({ x: 0.34, y: 0.012, w: 0.62, h: 0.3, color: rgba('#f8fafc', 0.82), kind: 3, at: 2 }),
   bb({ x: 0.52, y: 0.03, w: 0.46, h: 0.22, color: rgba('#ffffff', 0.6), kind: 3, at: 2 }),
-  label({ x: 0.2, y: H(0.56), text: V.condenseByWater, color: '#e2e8f0', at: 2, size: 10 }),
+  // ⚠️ y H(0.56) → H(0.44). 실측 겹침(2026-08-19): 1단계 `groundRadiatesCools`
+  //    (H(0.28))·3단계 `liftsAfterSunrise`와 세로가 가까웠다. 응결은 지표 가까이
+  //    일어나므로 낮추는 것이 뜻에도 맞다.
+  label({ x: 0.2, y: H(0.44), text: V.condenseByWater, color: '#e2e8f0', at: 2, size: 10 }),
 
   bb({ x: 0.9, y: H(0.46), z: 0.06, w: 0.15, h: 0.15, color: rgba('#fcd34d', 0.92), kind: 2, at: 3 }),
   label({ x: 0.7, y: H(0.74), text: V.liftsAfterSunrise, color: '#f8fafc', at: 3, size: 10 }),
@@ -577,9 +580,14 @@ const floodRiskSaturatedInflow = () => [
   //   보인다 — 물리적으로도 이쪽이 자연스럽다.
   //   실측: 물을 가리는 물체 **0개** · 잠겨야 할 6개 전건 물이 덮음.
   //
-  //   ⚠️ **물의 y는 5차에도 한 값도 안 바뀌었다.** 수면 H(0.115)=0.046,
-  //      실척 3.6~10 m(조사 §Q2). 네 판 내내 수위는 그대로다 — 바뀐 것은
-  //      **무엇이 무엇 앞에 서는가**뿐이다.
+  //   ⚠️ **6차(2026-08-19): 수면을 처음으로 내렸다** — 클라이언트: *"물높이를
+  //      살짝 낮히고"*. `H(0.115)=0.046` → **`H(0.105)=0.042`**(−8.7%).
+  //      5차까지는 한 값도 안 바꿨고, 그 근거(실척 3.6~10 m가 이미 한국 최상위
+  //      밴드 3.0 m 초과 — 조사 §Q2)는 **내리는 쪽과 같은 방향**이라 그대로 유효하다.
+  //      🔴 **더 내리지 못하는 하한이 차의 창문선이다**: 차체 0.004~0.034 ·
+  //      캐빈 0.034~0.058. 수면이 **0.034 아래로 가면 창문선이 물 위로 올라와
+  //      침수 깊이의 자가 죽는다**(조사 §Q3 — 기준은 차의 창문선 60~80 cm).
+  //      0.042는 캐빈의 1/3 지점이라 **창문은 잠기고 지붕은 남는다.**
   //
   // ── 지형 ────────────────────────────────────────────────────────────────
   // 풀밭(투수) — 조사 §3F ④. 「왜 도시에서만 잠기나」는 투수/불투수 대비로만
@@ -647,9 +655,9 @@ const floodRiskSaturatedInflow = () => [
   //   ⚠️ z0=0.125에서 시작한다 — 고지대(z 0~0.125)를 관통하지 않는다.
   //   ⚠️ x0=0.335 — 종전 0.02는 바다(0~0.2)에 붙어 **해일로 읽히고** 풀밭까지
   //      덮어 투수/불투수 대비를 부쉈다.
-  vol({ x0: 0.335, x1: 0.98, y0: -0.006, y1: H(0.115), z0: 0.125, z1: 0.285,
+  vol({ x0: 0.335, x1: 0.98, y0: -0.006, y1: H(0.105), z0: 0.125, z1: 0.285,
     color: rgba('#38bdf8', 0.5), pattern: 3, at: 3 }),
-  vol({ x0: 0.335, x1: 0.98, y0: -0.006, y1: H(0.115), z0: 0.285, z1: Z,
+  vol({ x0: 0.335, x1: 0.98, y0: -0.006, y1: H(0.105), z0: 0.285, z1: Z,
     color: rgba('#38bdf8', 0.5), pattern: 3, at: 3 }),
   // 빗물받이 역류 — 아래로 못 내려가니 위로 되올라온다
   ...flow({ from: [0.660, H(0.03), 0.285], dir: [0, 1, 0], travel: 0.065, count: 2, scale: 0.04, color: rgba('#075985', 0.98), at: 3, speed: 0.7, spreadZ: 0.045 }),
@@ -660,7 +668,10 @@ const floodRiskSaturatedInflow = () => [
   label({ x: 0.20, y: H(0.40), text: V.groundCannotAbsorb, color: '#0c4a6e', at: 3, size: 10 }),
   label({ x: 0.73, y: H(0.34), text: V.drainOverwhelmed, color: '#075985', at: 3, size: 9.5 }),
   label({ x: 0.546, y: H(0.14), text: V.basementFloods, color: '#0c4a6e', at: 3, size: 9.5 }),
-  label({ x: 0.90, y: H(0.48), text: V.runoffGathersLow, color: '#0369a1', at: 3, size: 10 }),
+  // ⚠️ y를 H(0.48) → H(0.60)으로 올렸다. 실측 겹침(2026-08-19): 「빗물받이가
+  //    감당하지 못하고 되넘쳐요」와 **세로 2.6 · 가로 65.2** 겹쳤다. 세로가 겨우
+  //    2.6이라 y만 벌리면 풀린다 — x를 옮기면 「낮은 곳(동쪽)」이라는 뜻이 깨진다.
+  label({ x: 0.90, y: H(0.60), text: V.runoffGathersLow, color: '#0369a1', at: 3, size: 10 }),
 ];
 
 // ── ㉣ 변동 기상요소 3종(2026-08-18) ────────────────────────────────────────
@@ -673,7 +684,10 @@ const coldFrontSquallStorm = () => [
   bb({ x: 0.86, y: H(1.0), z: 0.06, w: 0.17, h: 0.17, color: rgba('#f59e0b', 0.95), kind: 2, at: 0 }),
   vol({ x0: 0.3, x1: 1, y1: H(0.14), color: rgba('#fdba74', 0.34), at: 0 }),
   ...flow({ from: [0.62, H(0.04), ZC], dir: [-0.1, 1, 0], travel: 0.2, count: 3, color: rgba('#ea580c', 0.9), at: 0, speed: 0.5 }),
-  label({ x: 0.6, y: H(0.24), text: V.groundHeating, color: '#c2410c', at: 0, size: 10 }),
+  // ⚠️ `until: 2` 추가. 실측 겹침(2026-08-19): 3단계 `organizedStorm`(H(0.16))과
+  //    **세로 1.9** 겹쳤다. 좌표를 옮기는 대신 걷은 이유 — **지면 가열은 0단계의
+  //    일이고 3단계에서는 역할이 끝났다.** 「역할 끝난 라벨은 `until`로 걷는다」.
+  label({ x: 0.6, y: H(0.24), text: V.groundHeating, color: '#c2410c', at: 0, until: 2, size: 10 }),
 
   wedge({ x0: 0, x1: 0.34, tx0: 0.0, tx1: 0.1, y1: H(0.62), color: COLD_FILL, at: 1 }),
   frontSlab({ xb: 0.34, xt: 0.1, y1: H(0.62), color: COLD_EDGE, at: 1 }),
@@ -688,7 +702,9 @@ const coldFrontSquallStorm = () => [
   label({ x: 0.7, y: H(1.02), text: V.windShear, color: '#6d28d9', at: 2, size: 10 }),
 
   ...cbTower({ x: 0.56, top: H(1.0), at: 3 }),
-  label({ x: 0.74, y: H(1.06), text: V.cumulonimbus, at: 3, size: 10 }),
+  // ⚠️ y H(1.06) → H(1.22). 실측 겹침(2026-08-19): 2단계 `windShear`(H(1.02))와
+  //    붙어 있었다. 적란운은 위로 뻗는 구름이라 더 높이 두는 것이 뜻에도 맞다.
+  label({ x: 0.74, y: H(1.22), text: V.cumulonimbus, at: 3, size: 10 }),
   precip({ x0: 0.44, x1: 0.7, y1: H(0.72), slant: 0.32, speed: 1.75, count: 34, at: 3 }),
   label({ x: 0.56, y: H(0.16), text: V.organizedStorm, color: '#1e3a8a', at: 3, size: 10 }),
 ];
