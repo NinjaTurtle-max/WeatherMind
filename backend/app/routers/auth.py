@@ -252,6 +252,23 @@ class UpdateMeRequest(BaseModel):
     """
 
     level_group: LevelGroup
+    # 🔴 **닉네임도 이 통로로 바꾼다**(2026-08-19 · 8/18 롤링분 ③).
+    # 종전에는 닉네임 writer가 **최초 진입(`EntryInfoPage`) 1회뿐**이었다 —
+    # `App.jsx`의 `needsEntryInfo = atEntry && entryChoice === undefined`가
+    # **이미 들어온 사용자에게는 영영 거짓**이라, 한 번 지나가면 「기상 학습자」
+    # (`ko.js` `defaultNickname`)로 고정됐다. 클라이언트가 실화면에서 잡았다.
+    #
+    # ⚠️ **`None`과 「안 보냄」을 가른다.** `model_fields_set`으로 본다 —
+    # 학령만 바꾸는 기존 호출이 닉네임을 지우면 안 되기 때문이다.
+    nickname: str | None = None
+
+    @field_validator("nickname")
+    @classmethod
+    def _trim_nickname_update(cls, value: object) -> object:
+        if isinstance(value, str):
+            trimmed = value.strip()
+            return trimmed or None
+        return value
 
 
 class MeResponse(BaseModel):
@@ -578,6 +595,22 @@ async def update_me(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"detail": "유효하지 않은 사용자입니다.", "code": "INVALID_CREDENTIALS"},
         )
+    # 닉네임은 **온 경우에만** 건드린다(위 스키마 주석 참조).
+    if "nickname" in body.model_fields_set and body.nickname is not None:
+        # 유일성은 `POST /guest`의 신고 경로와 **같은 규칙**이다(그 자리의 긴 주석이
+        # 왜 DB 제약이 아닌지를 소유한다). 자기 자신은 제외해야 「같은 이름으로
+        # 다시 저장」이 409가 되지 않는다.
+        taken = await db.execute(
+            select(User.id).where(
+                User.nickname == body.nickname, User.id != db_user.id
+            )
+        )
+        if taken.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"detail": "이미 사용 중인 닉네임입니다.", "code": "NICKNAME_TAKEN"},
+            )
+        db_user.nickname = body.nickname
     db_user.level_group = body.level_group
     # UpdateMeRequest.level_group은 필수 필드 — 이 경로는 언제나 명시 신고다(0015).
     # 재신고는 도장을 **덮어쓴다**: 마지막 신고가 참값이고, 그 이전 로그는

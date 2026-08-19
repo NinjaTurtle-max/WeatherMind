@@ -49,6 +49,8 @@ export default {
     data: 'Data: KMA Weather Nuri · KMA API Hub',
   },
   common: {
+    save: 'Save',
+    cancel: 'Cancel',
     loading: 'Loading…',
     retry: 'Try again',
     retryLater: 'Please try again in a moment.',
@@ -337,6 +339,9 @@ export default {
     goalLevel: 'Reach level {level}',
     goalStreak: 'Reach a {days}-day streak',
     defaultNickname: 'Weather Learner',
+    nicknameEdit: 'Change name',
+    nicknameTaken: 'That name is already taken. Please try another.',
+    nicknameFailed: 'Could not change the name. Please try again shortly.',
     levelXp: 'Lv.{level} · {xp} XP total',
     streakStat: 'Day streak',
     placementBannerTitle: "You haven't taken the placement yet",

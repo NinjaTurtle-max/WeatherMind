@@ -60,6 +60,21 @@ export async function updateLevelGroup(level_group) {
   return res.data;
 }
 
+/**
+ * PATCH /auth/me {nickname} → 닉네임 변경 (2026-08-19 · 8/18 롤링분 ③)
+ *
+ * 🔴 종전에는 닉네임 writer가 **최초 진입 1회뿐**이었다. `App.jsx`의
+ * `needsEntryInfo = atEntry && entryChoice === undefined`가 이미 들어온
+ * 사용자에게는 영영 거짓이라, 한 번 지나가면 「기상 학습자」로 고정됐다.
+ * 같은 엔드포인트를 쓰는 이유: 학령 변경과 **같은 행 갱신**이고, 그 자리가
+ * 이미 "게스트가 갇히지 않게 하는 통로"로 존재한다.
+ * 중복은 409 `NICKNAME_TAKEN`(자기 자신은 제외된다).
+ */
+export async function updateNickname(nickname) {
+  const res = await client.patch('/auth/me', { nickname });
+  return res.data;
+}
+
 // POST /auth/logout → {"success": true}
 export async function logout() {
   const res = await client.post('/auth/logout');

@@ -394,6 +394,41 @@ try {
     ok(Boolean($('[data-testid="learn-entry"]')), '⑤-c 불러온 뒤 학습 화면으로 간다');
     r.unmount();
   });
+
+  // ── ⑥ `/me`에서 두 피커가 **없다** · 이름은 **바꿀 수 있다** ─────────────────
+  // 🔴 **없음을 무는 단정이다.** 있는 것만 세면 카드가 되살아나도 조용하다 —
+  // 8/18에 놓친 6건이 정확히 그 형태였다(번들에 문자열이 있는지만 보고 화면을
+  // 안 봤다). 그래서 `grep`이 아니라 **실제 렌더 결과**를 본다.
+  await scenario('⑥ /me — 수준·목표 피커 없음 + 닉네임 변경 있음', async () => {
+    useAuthStore.setState({ accessToken: 'mock-access', refreshToken: 'mock-refresh',
+      user: { id: 1, nickname: '테스트이름', level_group: 'adult' } });
+    const r = mountApp('/me');
+    await waitFor(() => $('[data-nickname-edit]'), 8000, '⑥ 프로필 화면');
+
+    // ⑥-a 🔴 학습 수준 카드가 없다 — 종전 `data-level-group` 속성이 그 카드의 표식이었다
+    ok(!$('[data-level-group]'), '⑥-a 🔴 /me에 학습 수준 선택이 없다');
+
+    // ⑥-b 🔴 하루 목표 **피커**가 없다. 진행 미터는 별개이므로 피커 고유 문구로 본다
+    const body = document.body.textContent ?? '';
+    ok(!body.includes('하루 목표를 정해요'),
+      `⑥-b 🔴 /me에 하루 목표 피커가 없다 — 실제 본문에 그 제목이 ${body.includes('하루 목표를 정해요') ? '있다' : '없다'}`);
+
+    // ⑥-c 이름을 바꿀 통로가 **실재한다**(③) — 최초 진입을 지난 사용자의 유일한 길
+    // ⚠️ **되돌림 실측(2026-08-19): 이 단정은 「자기 자리」에서 울지 않는다.**
+    // `data-nickname-edit`를 지우면 위 `waitFor`가 먼저 시간 초과로 죽어
+    // `⑥ 프로필 화면` 이름으로 실패한다. 신호는 남지만 **원인을 덜 정확히**
+    // 가리킨다. 그대로 두는 이유: 그 표식이 화면이 떴는지 판정하는 유일한
+    // 안정 표식이라, 앞의 대기를 다른 것으로 바꾸면 화면이 안 뜬 상태를
+    // 「없다」로 오독할 수 있다. **약점을 지우지 않고 적어 둔다.**
+    ok(Boolean($('[data-nickname-edit]')), '⑥-c 🔴 닉네임 변경 통로가 화면에 있다');
+
+    // ⑥-d 누르면 입력이 열린다 — 버튼만 있고 안 열리는 상태를 막는다
+    $('[data-nickname-edit]').click();
+    await waitFor(() => document.querySelector('input[type="text"]'), 8000, '⑥-d 이름 입력');
+    ok(Boolean(document.querySelector('input[type="text"]')), '⑥-d 누르면 이름 입력이 열린다');
+    r.unmount();
+  });
+
 } finally {
   await vite.close();
   httpServer.close();

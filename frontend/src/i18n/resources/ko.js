@@ -62,6 +62,8 @@ export default {
     data: '자료: 기상청 날씨누리 · 기상청 API허브',
   },
   common: {
+    save: '저장',
+    cancel: '취소',
     loading: '불러오는 중…',
     retry: '다시 시도',
     retryLater: '잠시 후 다시 시도해 주세요.',
@@ -408,6 +410,9 @@ export default {
     goalLevel: '레벨 {level} 달성',
     goalStreak: '연속 출석 {days}일 달성',
     defaultNickname: '기상 학습자',
+    nicknameEdit: '이름 바꾸기',
+    nicknameTaken: '이미 쓰고 있는 이름이에요. 다른 이름을 넣어 주세요.',
+    nicknameFailed: '이름을 바꾸지 못했어요. 잠시 뒤 다시 해 주세요.',
     levelXp: 'Lv.{level} · 누적 {xp} XP',
     streakStat: '연속 출석',
     placementBannerTitle: '아직 실력 진단 전이에요',
