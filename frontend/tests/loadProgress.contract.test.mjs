@@ -1,15 +1,32 @@
 /**
- * 진도 불러오기 계약 — 닉네임 하나로 돌아온다 (2026-08-19 클라이언트 지시) —
+ * 진도 불러오기 계약 — **저장할 때 쓴 자격으로 돌아온다**
+ * (2026-08-19 **오후** 클라이언트 결정, 주최측 확인 후) —
  *   node tests/loadProgress.contract.test.mjs
  *
  * ## 왜 있나 — 「번들에 문자열이 있는지만 보고 화면을 안 열어서」 놓쳤다
  * 실서버가 두 가지를 동시에 틀리고 있었다.
  *   · 진입 화면에 **불러오기 진입점이 없었다** — `/login` URL을 직접 아는 사람만
- *     닿았다. 화면이 닉네임을 적게 해 놓고 그 이름으로 돌아올 문이 안 보였다.
- *   · 불러오기 화면이 **이메일·비밀번호**를 요구했다. 게스트 비밀번호는 무작위
- *     시크릿이라 **원리적으로 아무도 못 여는 문**이었다.
+ *     닿았다. 화면이 이름을 적게 해 놓고 그 이름으로 돌아올 문이 안 보였다.
+ *   · 불러오기 화면이 요구하는 것과 저장 화면이 정하는 것이 **서로 달랐다.**
  * 둘 다 「문구가 저장소에 있다」로는 초록이었다. 그래서 이 파일의 단정은 예외 없이
  * **실제로 마운트한 화면의 렌더 결과**를 본다 — 소스 grep도, 번들 문자열도 아니다.
+ *
+ * ## 🔴 계약 ③이 **정반대로 뒤집혔다** — 지우지 말고 사유를 읽을 것
+ * 같은 날 오전 판의 ③은 *"`input[type=password]`·`input[type=email]`이 **없다**"*
+ * 였다. **단정의 형태는 옳았고 지금도 그 형태다** — 있는 것만 세는 계약은 필드가
+ * 되살아나도 조용하므로 **없음을 문다**. 틀린 것은 형태가 아니라 **무엇이 없어야
+ * 하는가**였고, 그 전제를 클라이언트가 뒤집었다:
+ *   *"닉네임을 통한 호출은 **보안의 개별성이 약하기에** 로그인을 통한 진도
+ *     불러오기가 맞는 것 같다"*
+ * 그래서 지금은 **닉네임 입력란의 부재**를 문다. 저장(`guest/convert`)이 이미
+ * 이메일+비밀번호였으므로 이제 저장과 불러오기가 **같은 열쇠**를 쓴다.
+ *
+ * ## 🔴 이 파일만으로는 그 결함을 **못 잡는다** — 반드시 알아야 한다
+ * 진짜 결함은 화면이 아니라 **서버**에 있었다. `POST /auth/resume`가 `{nickname}`
+ * 하나로 토큰을 줬으므로, 화면을 아무리 고쳐도 `curl` 한 번이면 이름만으로 남의
+ * 진도가 열린다 — 그리고 이 파일은 폼만 보고, 폼은 이름을 안 보내므로 **초록이다.**
+ * 그 축의 소유자는 `backend/tests/test_auth_resume.py`의 `TestNicknameDoorIsClosed`다.
+ * 여기는 「프론트가 서버 계약대로 부르고 응답대로 말하는가」까지다.
  *
  * ## 지키는 계약
  *   ① **진입 화면에 불러오기 진입점이 렌더된다.** 맨 URL(`/`) 콜드 오픈 — 첫
@@ -17,26 +34,27 @@
  *      화면에 있어야 한다.
  *   ② 그것을 누르면 **불러오기 화면이 실제로 뜬다.** 라우트 문자열이 아니라
  *      렌더된 폼을 본다(그 둘이 갈리는 것이 8/13 사고였다 — 라우트만 걷혔다).
- *   ③ 🔴 **불러오기가 닉네임만 받는다.** `input[type="password"]`·
- *      `input[type="email"]`이 **없다**는 것까지 단정한다 — 있는 것만 세는 계약은
- *      필드가 되살아나도 조용하다. 나가는 요청 바디도 `{nickname}` 하나뿐이다.
- *   ④ 🔴 **불러오기가 진입을 막지 않는다**(2026-08-19 PM 추가 계약). ①과 **반대
- *      방향**의 단정이고 둘 다 있어야 한다 — 하나만 있으면 「진입점을 키우다가 주
- *      동선을 덮는」 변경이 조용히 통과한다. 규정(「로그인·결제 없이 열려야」)이
- *      금지하는 것은 주 동선이 계정을 요구하는 것이고, 불러오기는 **선택 경로**다.
+ *   ③ 🔴 **불러오기가 이메일+비밀번호를 묻고, 닉네임으로는 안 열린다.**
+ *      `input[name="nickname"]`이 **없다**는 것과, 나가는 요청 바디의 키가 정확히
+ *      `['email','password']`라는 것을 함께 단정한다 — 화면에 없어도 코드가 실어
+ *      보내면 계약이 아니다.
+ *   ④ 🔴 **불러오기가 진입을 막지 않는다.** ①과 **반대 방향**의 단정이고 둘 다
+ *      있어야 한다 — 하나만 있으면 「진입점을 키우다가 주 동선을 덮는」 변경이
+ *      조용히 통과한다. 규정(「로그인·결제 없이 열려야」)이 금지하는 것은 주
+ *      동선이 계정을 요구하는 것이고, 불러오기는 **선택 경로**다.
  *        ⓐ 「건너뛰기」가 여전히 렌더되고, 눌러서 **학습 화면에 도달**한다.
  *        ⓑ 「다음」도 종전대로 학령만 고르면 열린다.
  *        ⓒ 불러오기는 **필수 단계가 아니다** — 아무것도 안 넣고 앞으로 간다.
- *   ⑤ 실제로 **돌아와진다.** 저장된 이름을 넣으면 토큰이 갈리고 학습으로 간다.
- *      없는 이름·동명이인은 **각각 다른 안내**가 그 자리에 뜬다(서버 코드 1:1).
+ *   ⑤ 실제로 **돌아와진다.** 저장한 자격을 넣으면 토큰이 갈리고 학습으로 간다.
+ *      틀린 자격은 **그 자리에서** 한 갈래로 안내된다(계정 열거를 만들지 않으려고
+ *      「없는 계정」과 「틀린 비밀번호」를 가르지 않는다 — 서버 401과 1:1).
  *
  * ## 🔴 이 파일이 **못 무는 것** — 읽는 사람이 알아야 한다
  *   · **실화면(브라우저) 확인이 아니다.** jsdom 렌더라 CSS·레이아웃·겹침·색 대비를
  *     모른다. 「진입점이 렌더 트리에 있다」와 「사람 눈에 보인다」는 다르다.
- *   · **본인 확인을 안 본다.** 남의 닉네임을 넣으면 그 진도로 들어가는 것이 현재
- *     설계이고(규정 해석 — 클라이언트 결정), 이 파일은 그것을 결함으로 세지 않는다.
- *   · 서버 판정 자체는 `backend/tests/test_auth_resume.py`가 소유한다. 여기는 목을
- *     타므로 「프론트가 서버 계약대로 부르고 응답대로 말하는가」까지다.
+ *   · **서버의 이름 통로를 못 본다**(위 참조). 그 축은 backend 계약이 소유한다.
+ *   · **게스트가 이 문을 못 여는 것**은 결함이 아니라 설계다(무작위 시크릿) —
+ *     게스트는 이 화면이 필요 없고, 그 경계는 ④가 무는 「주 동선 불차단」이다.
  *
  * 관례는 `entryFlow.smoke`와 동일: 테스트 러너 의존 없음, vite middlewareMode +
  * mock/apiMockPlugin(실 XHR) + jsdom 실마운트, 하네스 로케일 **ko 고정**.
@@ -216,10 +234,13 @@ function fillInput(input, value) {
   input.dispatchEvent(new window.Event('input', { bubbles: true }));
 }
 
-/** 목이 「이미 쓰이고 있다」고 선언한 이름 — `mockAuth.takenNicknames` 시드. */
-const SAVED_NICKNAME = '날씨러버';
-/** 목이 「같은 이름이 여럿」이라고 선언한 이름 — 자동 부여 닉네임의 충돌. */
-const AMBIGUOUS_NICKNAME = '게스트-2b1c8b';
+/**
+ * 목이 「저장을 마쳤다」고 선언한 계정 — `mockAuth.savedAccounts` 시드.
+ * ⚠️ 값을 여기서 지어내지 않는다. 목이 소유하고, 서버 계약
+ * (`test_auth_resume`의 `SAVED_EMAIL`)이 같은 값을 쓴다.
+ */
+const SAVED_EMAIL = 'saved@weathermind.dev';
+const SAVED_PASSWORD = 'weathermind-8';
 
 try {
   // ── ① 진입 화면에 진입점이 **렌더**된다 ────────────────────────────────────
@@ -294,43 +315,58 @@ try {
     r.unmount();
   });
 
-  // ── ③ 🔴 닉네임 하나만 받는다 (되살아나면 여기가 운다) ──────────────────────
-  await scenario('③ 불러오기가 닉네임만 받는다 — 이메일·비밀번호 입력란이 없다', async () => {
+  // ── ③ 🔴 이메일+비밀번호를 묻는다 · 닉네임으로는 안 열린다 ──────────────────
+  //
+  // 🔴 **이 시나리오는 오전 판의 정반대다.** 그때는 password·email의 **부재**를
+  //    쟀다. 형태(없음을 문다)는 그대로 두고 **전제만 뒤집었다** — 무엇이 없어야
+  //    하는가가 클라이언트 결정으로 바뀌었기 때문이다(파일 머리 주석 참조).
+  await scenario('③ 불러오기가 이메일+비밀번호를 묻는다 — 닉네임으로는 안 열린다', async () => {
     await coldOpen();
     const r = mountApp('/login');
     await waitFor(() => $('[data-testid="load-progress"]'), 8000, '불러오기 화면');
 
-    // 🔴 **부재**를 단정한다 — 있는 것만 세면 필드가 추가돼도 조용하다.
+    // 있어야 하는 것 — 실제로 렌더된 입력란을 본다.
     ok(
-      $('input[type="password"]') === null,
-      `③ 🔴 비밀번호 입력란이 없다 — 실제 ${$$('input[type="password"]').length}개`,
+      Boolean($('[data-testid="load-progress"] input[name="email"]')),
+      `③ 이메일 입력란이 있다 — 실제 ${JSON.stringify($$('[data-testid="load-progress"] input').map((i) => i.name))}`,
     );
     ok(
-      $('input[type="email"]') === null,
-      `③ 🔴 이메일 입력란이 없다 — 실제 ${$$('input[type="email"]').length}개`,
+      Boolean($('[data-testid="load-progress"] input[name="password"]')),
+      '③ 비밀번호 입력란이 있다',
+    );
+    ok(
+      $('[data-testid="load-progress"] input[name="password"]')?.type === 'password',
+      `③ 비밀번호가 가려진다(type=password) — 실제 "${$('[data-testid="load-progress"] input[name="password"]')?.type}"`,
+    );
+
+    // 🔴 **부재**를 단정한다 — 있는 것만 세면 필드가 되살아나도 조용하다.
+    ok(
+      $('input[name="nickname"]') === null,
+      `③ 🔴 닉네임 입력란이 없다 — 실제 ${$$('input[name="nickname"]').length}개`,
     );
     const inputs = $$('[data-testid="load-progress"] input');
     ok(
-      inputs.length === 1 && inputs[0].type === 'text',
-      `③ 입력란이 텍스트 하나뿐이다 — 실제 ${JSON.stringify(inputs.map((i) => i.type))}`,
+      JSON.stringify(inputs.map((i) => i.name)) === JSON.stringify(['email', 'password']),
+      `③ 입력란이 이메일·비밀번호 둘뿐이다 — 실제 ${JSON.stringify(inputs.map((i) => i.name))}`,
     );
+    // 안내 문구도 함께 — 문구만 닉네임을 안내하면 필드가 없어도 거짓말이 남는다.
     ok(
-      Boolean($('[data-testid="load-progress-nickname"]')),
-      '③ 그 하나가 닉네임 입력란이다',
+      !text().includes('닉네임'),
+      `③ 안내 문구가 닉네임을 요구하지 않는다 — 실제 "${text().replace(/\s+/g, ' ').slice(0, 140)}"`,
     );
-    // 안내 문구도 함께 — 문구만 이메일을 안내하면 필드가 없어도 거짓말이 남는다.
-    ok(
-      !text().includes('이메일') && !text().includes('비밀번호'),
-      `③ 안내 문구가 이메일·비밀번호를 요구하지 않는다 — 실제 "${text().replace(/\s+/g, ' ').slice(0, 120)}"`,
-    );
+    // 규정 — 이메일·비밀번호를 물어도 금칙 문구는 여전히 0건이어야 한다.
+    ok(!text().includes('로그인'), '③ 화면에 「로그인」 문구가 없다(규정)');
+    ok(!text().includes('회원가입'), '③ 화면에 「회원가입」 문구가 없다(규정)');
 
     // 나가는 바디까지 — 화면에 없어도 코드가 실어 보내면 계약이 아니다.
-    fillInput($('[data-testid="load-progress-nickname"]'), SAVED_NICKNAME);
+    fillInput($('[data-testid="load-progress"] input[name="email"]'), SAVED_EMAIL);
+    fillInput($('[data-testid="load-progress"] input[name="password"]'), SAVED_PASSWORD);
     $('[data-testid="load-progress-submit"]').click();
     await waitFor(() => resumeBodies.length >= 1, 8000, 'POST /auth/resume 발화');
     ok(
-      JSON.stringify(Object.keys(resumeBodies[0] ?? {})) === JSON.stringify(['nickname']),
-      `③ 요청 바디가 {nickname} 하나뿐이다 — 실제 ${JSON.stringify(resumeBodies[0])}`,
+      JSON.stringify(Object.keys(resumeBodies[0] ?? {}).sort()) ===
+        JSON.stringify(['email', 'password']),
+      `③ 🔴 요청 바디가 {email, password}뿐이다(닉네임이 실리지 않는다) — 실제 ${JSON.stringify(Object.keys(resumeBodies[0] ?? {}))}`,
     );
     r.unmount();
   });
@@ -380,44 +416,57 @@ try {
     r.unmount();
   });
 
-  // ── ⑤ 실제로 돌아와진다 · 실패는 갈라서 말한다 ──────────────────────────────
-  await scenario('⑤ 저장된 닉네임으로 돌아오고, 실패는 갈라서 말한다', async () => {
+  // ── ⑤ 실제로 돌아와진다 · 실패는 한 갈래로 말한다 ──────────────────────────
+  const fillCreds = (email, password) => {
+    fillInput($('[data-testid="load-progress"] input[name="email"]'), email);
+    fillInput($('[data-testid="load-progress"] input[name="password"]'), password);
+  };
+
+  await scenario('⑤ 저장한 자격으로 돌아오고, 틀린 자격은 한 갈래로 말한다', async () => {
     await coldOpen();
-    let r = mountApp('/login');
+    const r = mountApp('/login');
     await waitFor(() => $('[data-testid="load-progress"]'), 8000, '불러오기 화면');
 
-    // ⑤-a 없는 이름 → 그 자리에서 「못 찾았다」
-    fillInput($('[data-testid="load-progress-nickname"]'), '없는사람입니다');
+    // ⑤-a 틀린 비밀번호 → 그 자리에서 안내
+    fillCreds(SAVED_EMAIL, '틀린비밀번호');
     $('[data-testid="load-progress-submit"]').click();
     await waitFor(() => $('[data-testid="load-progress-error"]'), 8000, '실패 안내');
+    const wrongPwText = $('[data-testid="load-progress-error"]').textContent;
     ok(
-      $('[data-testid="load-progress-error"]').textContent.includes('닉네임을 다시 확인'),
-      `⑤-a 없는 이름은 「못 찾았다 + 이름을 확인하라」고 말한다(리소스 문구 — 서버 detail보다 앞) — 실제 "${$('[data-testid="load-progress-error"]')?.textContent}"`,
+      wrongPwText.includes('이메일 또는 비밀번호가 맞지 않아요'),
+      `⑤-a 틀린 자격은 리소스 문구로 말한다(서버 detail보다 앞) — 실제 "${wrongPwText}"`,
     );
     ok(
       Boolean($('[data-testid="load-progress"]')),
       '⑤-a 실패해도 이 화면에 남는다(다른 화면으로 튕기지 않는다)',
     );
-
-    // ⑤-b 동명이인 → **다른** 안내. 한 문구로 뭉치면 학습자가 할 행동이 사라진다.
-    fillInput($('[data-testid="load-progress-nickname"]'), AMBIGUOUS_NICKNAME);
-    $('[data-testid="load-progress-submit"]').click();
-    await waitFor(
-      () => $('[data-testid="load-progress-error"]')?.textContent.includes('다른 이름으로 저장'),
-      8000,
-      () => `⑤-b 동명이인 안내 — 실제 "${$('[data-testid="load-progress-error"]')?.textContent}"`,
+    ok(
+      useAuthStore.getState().accessToken !== 'mock-resume-access',
+      '⑤-a 🔴 틀린 자격으로는 토큰이 갈리지 않는다',
     );
-    ok(true, '⑤-b 동명이인은 다른 안내다(서버 NICKNAME_AMBIGUOUS와 1:1)');
 
-    // ⑤-c 저장된 이름 → 토큰이 갈리고 학습으로 간다
-    fillInput($('[data-testid="load-progress-nickname"]'), SAVED_NICKNAME);
+    // ⑤-b 🔴 **없는 계정도 똑같은 문구다.** 가르면 화면이 「그 이메일은 있다」를
+    //    자백한다(계정 열거) — 서버도 401 하나로 뭉치므로 화면도 하나여야 한다.
+    //    ⚠️ 오전 판은 여기가 「없는 이름」/「동명이인」 **두 갈래**였고, 그 갈라짐이
+    //    바로 이름 통로가 존재 여부를 응답으로 알려 주던 자국이다.
+    fillCreds('아무도아닌사람@weathermind.dev', SAVED_PASSWORD);
+    $('[data-testid="load-progress-submit"]').click();
+    await sleep(400); // 문구가 같으므로 「바뀜」을 못 기다린다 — 왕복을 기다린다
+    await waitFor(() => $('[data-testid="load-progress-error"]'), 8000, '실패 안내');
+    ok(
+      $('[data-testid="load-progress-error"]').textContent === wrongPwText,
+      `⑤-b 🔴 없는 계정과 틀린 비밀번호가 **같은 안내**다(계정 열거 방지) — 실제 "${$('[data-testid="load-progress-error"]')?.textContent}"`,
+    );
+
+    // ⑤-c 저장한 자격 → 토큰이 갈리고 학습으로 간다
+    fillCreds(SAVED_EMAIL, SAVED_PASSWORD);
     $('[data-testid="load-progress-submit"]').click();
     await waitFor(
       () => useAuthStore.getState().accessToken === 'mock-resume-access',
       8000,
       () => `⑤-c 불러오기 토큰 — 실제 "${useAuthStore.getState().accessToken}"`,
     );
-    ok(true, '⑤-c 🔴 저장된 이름으로 그 계정의 토큰을 받는다(새로 시작이 아니다)');
+    ok(true, '⑤-c 🔴 저장한 자격으로 그 계정의 토큰을 받는다(새로 시작이 아니다)');
     await waitFor(() => $('[data-testid="learn-entry"]'), 8000, '학습 화면');
     ok(Boolean($('[data-testid="learn-entry"]')), '⑤-c 불러온 뒤 학습 화면으로 간다');
     r.unmount();
@@ -466,5 +515,5 @@ if (failed > 0) {
   console.error(`\n${failed}건 실패`);
   process.exit(1);
 }
-console.log('OK: 진도 불러오기(진입점 렌더 · 닉네임만 · 주 동선 불차단 · 왕복) 통과');
+console.log('OK: 진도 불러오기(진입점 렌더 · 이메일+비밀번호 · 주 동선 불차단 · 왕복) 통과');
 process.exit(0);

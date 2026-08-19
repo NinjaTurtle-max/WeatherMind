@@ -134,21 +134,31 @@ export default {
   // ⚠️ Never the words "log in" / "sign up" here either — the banned-word contract
   //    scans en values too. "Load my progress" is the name. Entry point is the one
   //    line on the save card (`fromSave`); never a nav link (MT-29 계약).
-  // ⚠️ 2026-08-19: email·password를 걷고 닉네임 하나로 바꿨다. 경위는 `ko.js`의
-  //    같은 자리 주석이 소유한다. ⚠️ 금칙어 계약이 en 값에서 **`login` 부분문자열**
-  //    까지 보므로 "log in"·"login"을 쓰지 말 것 — "Load your progress"가 이름이다.
+  // ⚠️ 2026-08-19 **오전**: email·password를 걷고 닉네임 하나로 바꿨다.
+  // 🔴 2026-08-19 **오후**: 다시 email·password다(클라이언트 결정 — 주최측 확인 후).
+  //    경위는 `ko.js`의 같은 자리 주석이 소유한다. 요지는 저장(`guest/convert`)이
+  //    이미 email+password라 **저장과 불러오기가 같은 열쇠**가 됐다는 것이고, 진짜
+  //    결함은 화면이 아니라 이름 하나로 토큰을 주던 **서버**에 있었다는 것이다.
+  // ⚠️ 금칙어 계약이 en 값에서 **`login` 부분문자열**까지 보므로 "log in"·"login"을
+  //    쓰지 말 것 — "Load your progress"가 이름이다.
   loadProgress: {
     fromSave: 'Already saved? Load your progress',
     title: 'Load your progress',
-    body: 'Enter the nickname you saved your progress with and you will be back where you left off.',
+    body: 'Enter the email and password you saved your progress with, and you will be back where you left off.',
+    // 🔴 아래 네 줄은 안 쓰이지만 **남긴다** — 오전 판의 닉네임 통로가 무엇을
+    //    감당할 수 없었는지의 증거다(`ambiguous`가 그것을 문구로 자백한다).
+    //    사유 전문은 `ko.js`의 같은 자리가 소유한다.
     nicknameLabel: 'Nickname',
     nicknamePlaceholder: 'e.g. CloudChaser',
-    submit: 'Load my progress',
-    submitting: 'Loading your progress…',
     notFound: "We couldn't find progress saved under that name. Please check the nickname.",
     ambiguous: 'Several people share that name, so we cannot tell which progress is yours. Please save under a different name.',
+    submit: 'Load my progress',
+    submitting: 'Loading your progress…',
+    // 🔴 실패는 한 갈래다 — 가르면 "that email exists"를 자백한다(계정 열거).
+    invalidCredentials: "That email and password don't match. Please use the ones you saved with.",
     failed: "Couldn't load your progress. Please try again in a moment.",
     back: '← Back to learning',
+    noAccountNote: "If you haven't saved yet, just head back and keep learning — you can save any time.",
   },
   // Region notice (2026-08-12 request ③) — an inline banner, never a modal.
   regionNotice: {
