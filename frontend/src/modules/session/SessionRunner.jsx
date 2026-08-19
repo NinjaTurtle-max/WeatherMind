@@ -480,6 +480,10 @@ export default function SessionRunner({
     ? (items.find((it) => it.quiz_id === retryQueue[0]) ?? null)
     : null;
   const currentItem = retryPhase ? retryTarget : (items[currentIndex] ?? null);
+  // 보드 문항인가 — 아래 2열 접기와 `QuestionCard`의 `layout="wide"`가 이 하나를
+  // 보고 갈린다. 판정 기준을 `question_type` 하나로 두는 이유는 세션·보드 화면이
+  // 같은 값을 쓰기 때문이다(문항 유형 7종의 소유자는 `content_items`).
+  const isBoardItem = currentItem?.question_type === 'board';
   const isLastItem = currentIndex + 1 >= items.length;
   // 이번 만회로 라운드가 끝나는가 = 큐에 이것 하나뿐이고 **이번에 맞혔다**.
   // 상한이 없으므로 "마지막 문항"이라는 위치 개념은 없다 — 틀리면 다시 나온다.
@@ -852,7 +856,12 @@ export default function SessionRunner({
           (b) 배치고사는 문항별 채점이 없어(:380 handleSubmit 단락) status가
               FEEDBACK에 **영원히 닿지 않는다** — 오른쪽 열은 "답을 고르면
               여기에…"만 든 채 끝까지 비어 있게 된다. */}
-      <div className={bulkMode ? undefined : 'lg:grid lg:grid-cols-2 lg:items-start lg:gap-4'}>
+      {/* ⚠️ **보드 문항은 2열을 접는다**(2026-08-19 사용자 지시). 보드는 판
+          자체가 2열(조작 / 관찰)이라 절반 폭에 넣으면 지도가 눌린다 — 보드
+          화면(`/board`)이 셸을 넓게 쓰는 이유와 같다(Layout.jsx의 isBoard).
+          해설은 판 아래로 쌓이는데, 그것도 보드 화면과 같은 순서다.
+          짝: `QuestionCard`가 보드에 `layout="wide"`를 준다. */}
+      <div className={bulkMode || isBoardItem ? undefined : 'lg:grid lg:grid-cols-2 lg:items-start lg:gap-4'}>
       <div className="min-w-0">
       <QuestionCard
         question={currentItem}

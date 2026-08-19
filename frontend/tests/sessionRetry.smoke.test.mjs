@@ -319,22 +319,36 @@ async function harvestAnswerKey() {
  * 오답은 아무것도 건드리지 않는 것이다(기본값 50/50 → cloudy → 목표 미달).
  */
 /**
- * 존 카드 — `data-board-zone`은 **두 곳**에 붙는다: SVG 지도의 노드(<circle> 묶음)와
- * 그 아래 격자 카드. 앞의 것이 DOM에서 먼저 나오므로 `querySelector` 하나로 집으면
- * 조절값이 없는 SVG 노드를 잡는다(실제로 그렇게 헛짚었다). 조절값을 **가진** 쪽을 고른다.
+ * ⚠️ 여기 있던 `boardZoneCard()`(슬라이더를 품은 존 카드를 찾는 헬퍼)는 걷었다
+ * (2026-08-19) — 세션 board가 wide 배치가 되면서 **그런 카드가 없어졌다**.
+ * 남겨 두면 다음 사람이 "왜 항상 null이지" 하며 그 함수를 고치려 든다.
+ * 그때 적어 둔 관찰은 아래 helper로 옮겼다: `data-board-zone`은 SVG 노드와
+ * 카드 **두 곳**에 붙으므로 `querySelector` 하나로 집으면 헛짚는다.
  */
-function boardZoneCard(zone) {
-  return [...window.document.querySelectorAll(`[data-board-zone="${zone}"]`)]
-    .find((el) => el.querySelector('input[type="range"]')) ?? null;
+
+/**
+ * ⚠️ **세션의 board 문항이 2026-08-19에 wide 배치가 됐다**(사용자 지시 — 보드
+ * 화면과 같은 꼴). 그러면서 조절값의 자리가 바뀌었다:
+ *   · 종전(쌓는 배치): 존마다 카드가 있고 그 **안에** 슬라이더 2개
+ *   · 지금(wide):      지도에서 존을 고르면 **옆 패널**에 그 존의 슬라이더 2개
+ * 그래서 `boardZoneCard(1)`(= 슬라이더를 품은 존 카드)이 영영 안 나타나 8초
+ * 기다리다 죽었다. 존을 **고르는 절차**를 넣고 슬라이더는 패널에서 찾는다.
+ */
+function boardRangeKnobs() {
+  return [...window.document.querySelectorAll('input[type="range"]')];
 }
 
 async function answerBoardOnScreen(wantCorrect) {
-  await waitFor(() => boardZoneCard(1), 'board 존 카드(조절값 포함)');
+  await waitFor(() => window.document.querySelector('[data-board-zone]'), 'board 존');
   await sleep(150); // 마운트 effect의 board 초기화가 조작을 덮지 않도록
   if (wantCorrect) {
-    const card = boardZoneCard(1);
-    assert(card, '존 1 카드를 찾지 못했다');
-    const knobs = [...card.querySelectorAll('input[type="range"]')];
+    // 존 1(수도권)을 고른다 — wide 배치의 조절값 패널은 **고른 존**의 것이다.
+    const zone = [...window.document.querySelectorAll('[data-board-zone="1"]')].pop();
+    assert(zone, '존 1을 찾지 못했다');
+    click(zone);
+    await sleep(80);
+    await waitFor(() => boardRangeKnobs().length >= 2, '존 1 조절값 슬라이더');
+    const knobs = boardRangeKnobs();
     assert(knobs.length === 2,
       `존 1 조절값이 2개(moisture·sun)여야 한다 — ${knobs.length}. 팔레트가 바뀌었나?`);
     setInputValue(knobs[0], BOARD_MOISTURE_PASS); // levelKnobs 순서 ① moisture

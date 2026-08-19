@@ -78,7 +78,7 @@ export default function WeatherBrainPanel() {
         <h3 className="text-sm font-bold text-slate-800">
           {t('weatherBrain.mastery.title')}
         </h3>
-        <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+        <p className="mt-0.5 text-xs leading-relaxed text-slate-500 lg:min-h-[39px]">
           {t('weatherBrain.mastery.subtitle')}
         </p>
         {/* 🔴 **초록 레이더**(2026-08-18 사용자 지시 — "개념 숙련도도 초록색으로
@@ -185,26 +185,17 @@ export default function WeatherBrainPanel() {
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">{children}</div>
   );
   /**
-   * 제목 줄 — **lg에서는 카드 위로 솟는 「탭」**이다(2026-08-19 사용자 지시:
-   * "능력분석만 위로 탭처럼 튀어나와서 여백을 채우자").
+   * 제목 줄 — **카드 안의 평범한 제목**이다.
    *
-   * 왜 필요한가: 위 격자의 왼쪽 열(프로필+배지)이 오른쪽 열(할 일·다음 목표·
-   * 지식 단계·학습 지역)보다 짧아 **왼쪽 아래가 빈다.** 종전에는 배지 카드를
-   * 늘여(`lg:flex-1`) 메웠는데, 그러면 타일이 필요 이상으로 커진다(사용자가
-   * 되돌리라고 한 그것). 대신 바로 아래 판이 제 머리를 그 자리로 올려 메운다.
-   *
-   * ⚠️ **좁은 화면에서는 그냥 제목이다.** 1열로 쌓이면 위에 빈자리가 없고,
-   * 솟게 두면 앞 카드를 덮는다. 그래서 `lg:` 접두사로만 띄운다.
-   * ⚠️ `after`의 1px 흰 띠는 **탭과 카드 사이 이음매를 지운다** — 카드의
-   * `ring`이 탭 아래를 가로지르면 탭이 붙은 게 아니라 얹힌 것으로 보인다.
+   * ⚠️ 2026-08-19에 잠깐 `absolute bottom-full`로 카드 위에 솟는 「탭」이었다가
+   * **같은 날 되돌렸다**(사용자 지시 "원래대로 탭 바 없애고 하나의 카드로").
+   * 탭은 왼쪽 열이 짧던 시절의 여백을 메우려던 장치였는데, 학습 지역이 왼쪽으로
+   * 돌아와 두 열 길이가 맞으면서 **메울 여백 자체가 없어졌다** — 남은 것은
+   * 카드가 둘로 보이는 인상뿐이었다. 되살릴 일이 없기를 바라지만, 되살린다면
+   * `ProgressPage`의 판 위 여백(`lg:mt-*`)도 함께여야 한다(짝이다).
    */
   const Header = () => (
-    <div
-      className="mb-1 flex items-center gap-2 lg:absolute lg:bottom-full lg:left-0 lg:z-10 lg:mb-0
-                 lg:rounded-t-2xl lg:border lg:border-b-0 lg:border-slate-200 lg:bg-white
-                 lg:px-4 lg:pb-3 lg:pt-3
-                 lg:after:absolute lg:after:inset-x-0 lg:after:top-full lg:after:h-px lg:after:bg-white"
-    >
+    <div className="mb-1 flex items-center gap-2">
       <h2 className="text-base font-extrabold text-slate-900">{t('weatherBrain.title')}</h2>
     </div>
   );
@@ -260,8 +251,6 @@ export default function WeatherBrainPanel() {
   }
 
   return (
-    // relative — 위 Header가 lg에서 `absolute bottom-full`로 이 상자 위에 붙는다.
-    <div className="relative">
     <Card>
       <Header />
       {/* 폭 전체 한 판이 되면서(2026-08-10 사용자 지시) 카드 안이 2열로 갈린다 —
@@ -277,7 +266,13 @@ export default function WeatherBrainPanel() {
       <div className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start lg:gap-6">
       <div>
       <h3 className="text-sm font-bold text-slate-800">{t('weatherBrain.ability.title')}</h3>
-      <p className="mb-3 mt-0.5 text-xs leading-relaxed text-slate-500">
+      {/* ⚠️ `lg:min-h-[39px]` — **두 열의 머리 높이를 맞춘다**(2026-08-19 사용자
+          지시 "개념 숙련도를 아래로 살짝 내려서 위치 맞춰줘"). 왼쪽 설명은 두
+          줄, 오른쪽은 한 줄이라 그 차이만큼 오른쪽 레이더가 **20px 위**에서
+          시작했다(실측 986 ↔ 1006). 39px = 두 줄(12px × leading-relaxed 1.625).
+          ⚠️ **두 값은 짝이다** — 한쪽만 바꾸면 다시 어긋난다. 설명이 세 줄로
+          길어지면 이 값도 함께 올릴 것(`home.smoke` ⓔ가 짝을 문다). */}
+      <p className="mb-3 mt-0.5 text-xs leading-relaxed text-slate-500 lg:min-h-[39px]">
         {t('weatherBrain.introSeg1')}
         <span className="font-semibold text-sky-700">{t('weatherBrain.introStrong')}</span>
         {t('weatherBrain.introSeg2')}
@@ -377,6 +372,5 @@ export default function WeatherBrainPanel() {
       </div>
       </div>
     </Card>
-    </div>
   );
 }

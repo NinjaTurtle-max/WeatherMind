@@ -160,10 +160,16 @@ export default function QuestionCard({ question, disabled, onSubmit, answerResul
       )}
 
       {isBoard && (
+        // 🔴 **보드 화면과 같은 wide 배치**(2026-08-19 사용자 지시 — "보드 문제
+        // 화면도 보드 게임 화면이랑 배치 맞춰서 가로로 확장"). 종전에는 기본
+        // (세로로 쌓는) 배치라 같은 판이 두 화면에서 다르게 보였다.
+        // ⚠️ 짝이 있다 — `SessionRunner`가 보드 문항일 때 **2열을 접는다.**
+        //    안 접으면 이 판이 절반 폭에 들어가 지도가 눌린다.
         <AtmosphereBoard
           puzzle={question.template_json ?? question}
           disabled={disabled}
           submitting={disabled}
+          layout="wide"
           phenomena={answerResult?.phenomena ?? null}
           onSubmit={(boardState) => onSubmit('', { boardState })}
         />
