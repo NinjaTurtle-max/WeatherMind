@@ -548,7 +548,7 @@ const wildfireRiskDryGale = () => [
   tree({ x: 0.65, base: 0.158, h: 0.066, z: ZC - 0.07, at: 0 }),
   tree({ x: 0.725, base: 0.209, h: 0.064, z: ZC - 0.10, at: 0 }),
   tree({ x: 0.79, base: 0.253, h: 0.058, z: ZC - 0.065, at: 0 }),
-  label({ x: 0.86, y: H(1.00), text: V.forestedRidge, color: '#3f6212', at: 0, size: 9.5 }),
+  label({ x: 0.86, y: H(1.00), text: V.forestedRidge, color: '#3f6212', at: 0, until: 1, size: 9.5 }),
 
   // 0 — 연료. 「마름」은 오늘 습도가 아니라 **며칠의 누적**이다(실효습도, 조사 §3B).
   bb({ x: 0.10, y: H(1.02), z: 0.06, w: 0.15, h: 0.15, color: rgba('#f59e0b', 0.95), kind: 2, at: 0 }),
@@ -559,7 +559,7 @@ const wildfireRiskDryGale = () => [
   // 1 — 강풍. 두 층으로 나눠 「지면을 훑는 바람」을 만들고 비탈 밑에서 멈춘다.
   ...flow({ from: [0.02, H(0.16), ZC], dir: [1, 0.02, 0], travel: 0.30, count: 3, color: rgba('#0e7490', 0.9), at: 1, speed: 0.8, spreadZ: 0.15, spreadY: 0.016 }),
   ...flow({ from: [0.02, H(0.38), ZC], dir: [1, 0.05, 0], travel: 0.26, count: 2, scale: 0.046, color: rgba('#0e7490', 0.82), at: 1, speed: 0.6, spreadZ: 0.12 }),
-  label({ x: 0.14, y: H(0.54), text: V.strongWind, color: '#0e7490', at: 1, size: 11 }),
+  label({ x: 0.14, y: H(0.54), text: V.strongWind, color: '#0e7490', at: 1, until: 2, size: 11 }),
 
   // 2 — **비탈 위의 화선**. 바람도 비탈도 동쪽을 가리키므로 위로 갈수록 크다:
   //     아래가 배화, 위가 불머리다(조사 §3A 비대칭 + §3E 상향 가속).
@@ -568,12 +568,12 @@ const wildfireRiskDryGale = () => [
   ...flame({ x: 0.68, y: 0.178, h: 0.185, z: ZC - 0.04, at: 2 }),
   ...smoke({ x: 0.70, y: H(0.52), n: 3, lean: 0.05, rise: 0.062, at: 2 }),
   label({ x: 0.40, y: H(0.50), text: V.fireRunsUphill, color: '#9a3412', at: 2, size: 10 }),
-  label({ x: 0.66, y: H(0.88), text: V.fireFrontHead, color: '#9a3412', at: 2, size: 10 }),
+  label({ x: 0.66, y: H(0.88), text: V.fireFrontHead, color: '#9a3412', at: 2, until: 2, size: 10 }),
   // 비화 — 불티가 **능선을 넘어** 반대 비탈에 새 불을 놓는다(조사 §3A: 방화선을 뛰어넘는다)
   ...flow({ from: [0.70, H(0.72), ZC], dir: [1, 0.28, 0], travel: 0.24, count: 3, scale: 0.03, color: rgba('#f97316', 0.95), at: 2, speed: 0.9, spreadZ: 0.1 }),
   label({ x: 0.80, y: H(1.10), text: V.embersRideWind, color: '#c2410c', at: 2, size: 10 }),
   ...flame({ x: 0.93, y: 0.215, h: 0.065, at: 2 }),
-  label({ x: 0.95, y: H(0.74), text: V.spotFireAhead, color: '#c2410c', at: 2, size: 9.5 }),
+  label({ x: 0.90, y: H(0.74), text: V.spotFireAhead, color: '#c2410c', at: 2, size: 9.5 }),
 
   // 3 — **수관화**. 지표화가 사다리 연료를 타고 나무 꼭대기로 옮겨붙는 것이
   //     조사 §3A·§3E가 말하는 surface → crown 전이다. 산불이 커지는 분기점이다.
@@ -733,7 +733,7 @@ const siberianGaleWildfire = () => [
   label({ x: 0.5, y: H(0.52), text: V.mountainRange, color: '#57534e', at: 1, size: 9 }),
   ...flow({ from: [0.14, H(0.34), ZC], dir: [1, 0.1, 0], travel: 0.26, count: 3, color: rgba('#0e7490', 0.9), at: 1, speed: 0.7, spreadY: 0.02 }),
   ...flow({ from: [0.6, H(0.4), ZC], dir: [1, -0.5, 0], travel: 0.3, count: 3, color: rgba('#c2410c', 0.9), at: 1, speed: 0.85, spreadY: 0.02 }),
-  label({ x: 0.84, y: H(0.34), text: V.dryWarmWind, color: '#c2410c', at: 1, size: 10 }),
+  label({ x: 0.84, y: H(0.48), text: V.dryWarmWind, color: '#c2410c', at: 1, size: 10 }),
   bb({ x: 0.5, y: 0.004, w: 0.86, h: 0.1, color: rgba('#ca8a04', 0.42), kind: 3, at: 1 }),
   label({ x: 0.5, y: H(0.1), text: V.driedLeavesTwigs, color: '#92400e', at: 1, size: 10 }),
 
