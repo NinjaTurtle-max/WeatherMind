@@ -689,16 +689,42 @@ const siberianGaleWildfire = () => [
   label({ x: 0.84, y: H(0.34), text: V.dryWarmWind, color: '#c2410c', at: 1, size: 10 }),
   bb({ x: 0.5, y: 0.004, w: 0.86, h: 0.1, color: rgba('#ca8a04', 0.42), kind: 3, at: 1 }),
   label({ x: 0.5, y: H(0.1), text: V.driedLeavesTwigs, color: '#92400e', at: 1, size: 10 }),
+  // 풍하(동)쪽 숲 — **불씨가 떨어질 곳에 탈 것이 있어야** 4단계의 새 불이 성립한다.
+  // `wildfire_risk_dry_gale`와 같은 `tree()` 관용구다(경보급이 위험급보다 빈약하면
+  // 두 단계가 뒤집혀 읽힌다). 산 동쪽은 평지이므로 base는 지표 그대로 둔다.
+  tree({ x: 0.70, h: 0.062, z: ZC - 0.05, at: 1 }),
+  tree({ x: 0.83, h: 0.058, z: ZC - 0.09, at: 1 }),
+  tree({ x: 0.93, h: 0.060, z: ZC - 0.03, at: 1 }),
 
   bb({ x: 0.88, y: H(1.0), z: 0.06, w: 0.17, h: 0.17, color: rgba('#f59e0b', 0.95), kind: 2, at: 2 }),
   ...flow({ from: [0.84, H(0.78), ZC], dir: [-0.25, -1, 0], travel: 0.3, count: 3, scale: 0.04, color: rgba('#f59e0b', 0.9), at: 2, speed: 0.5 }),
   label({ x: 0.8, y: H(0.9), text: V.strongSun, color: '#b45309', at: 2, size: 10 }),
 
-  bb({ x: 0.6, y: H(0.12), w: 0.13, h: 0.22, color: rgba('#ea580c', 0.9), kind: 2, at: 3 }),
-  bb({ x: 0.6, y: H(0.08), w: 0.07, h: 0.13, color: rgba('#fbbf24', 0.95), kind: 2, at: 3 }),
-  ...flow({ from: [0.54, H(0.3), ZC], dir: [-1, 0.42, 0], travel: 0.32, count: 3, scale: 0.03, color: rgba('#f97316', 0.95), at: 3, speed: 0.95, spreadZ: 0.1 }),
-  label({ x: 0.3, y: H(0.62), text: V.embersRideWind, color: '#c2410c', at: 3, size: 10 }),
-  label({ x: 0.5, y: H(1.06), text: V.clearSkyWildfire, color: '#b45309', at: 3, size: 11 }),
+  // 3 — **비화로 번진다**. 2026-08-19 클라이언트: *"작은 불씨 하나가 바람을 타고
+  //   순식간에 번져요 — 이 부분이 주황색 타원으로만 설명하는 게 너무 빈약해"*.
+  //   종전 판의 결함은 「빈약」만이 아니었다. ⓐ 불이 `kind: 2` 타원 두 겹이라
+  //   `flame()` 어휘를 안 썼고, ⓑ 불티 화살표가 `dir: [-1, …]` **서쪽**이라
+  //   같은 장면의 강풍(1단계 `[1, 0.1, 0]` · 활강 `[1, -0.5, 0]`)을 **거슬렀다**
+  //   — 「바람을 타고」를 그림이 정반대로 가르치고 있었다. ⓒ 도착이 없어
+  //   「번진다」의 결과가 화면에 없었다(불티가 날아가고 끝났다).
+  //   그래서 셋을 한 줄기로 세운다: **출발(작은 불씨 하나) → 경로(바람을 타고
+  //   포물선) → 도착(떨어진 자리마다 새 불)**. 조사 §3A의 비화(spotting)가
+  //   *"불티가 바람을 타고 날아가 방화선 너머에 새 불을 놓는다"*는 그것이다.
+  //   경보급을 위험급보다 세게 만드는 축은 **새 불의 수(1 → 3)와 도달 거리**다.
+  ...flame({ x: 0.62, h: 0.07, at: 3 }),
+  ...smoke({ x: 0.64, y: H(0.24), n: 2, lean: 0.055, rise: 0.05, s: 0.8, at: 3 }),
+  // 경로 — 두 도막으로 포물선을 만든다(오름 → 내림). 두 도막 모두 dir[0] > 0이라
+  // 1단계 강풍과 **같은 부호**다. 이 부호가 어긋나면 틀린 것을 가르친다.
+  ...flow({ from: [0.645, H(0.16), ZC], dir: [1, 0.5, 0], travel: 0.17, count: 3, scale: 0.028, color: rgba('#f97316', 0.95), at: 3, speed: 1.0, spreadZ: 0.1 }),
+  ...flow({ from: [0.80, H(0.40), ZC], dir: [1, -0.55, 0], travel: 0.2, count: 3, scale: 0.028, color: rgba('#f97316', 0.9), at: 3, speed: 1.0, spreadZ: 0.1 }),
+  label({ x: 0.62, y: H(0.72), text: V.embersRideWind, color: '#c2410c', at: 3, size: 10 }),
+  // 도착 — 떨어진 자리마다 새 불. 멀수록 **나중에** 붙은 불이라 작다(시간 순서가
+  // 크기로 읽힌다). 가장 가까운 새 불이 출발한 불씨보다 크다 = 「순식간에」.
+  ...flame({ x: 0.775, h: 0.12, z: ZC - 0.05, at: 3 }),
+  ...flame({ x: 0.875, h: 0.095, z: ZC - 0.09, at: 3 }),
+  ...flame({ x: 0.955, h: 0.07, z: ZC - 0.03, at: 3 }),
+  label({ x: 0.92, y: H(0.52), text: V.spotFireAhead, color: '#c2410c', at: 3, size: 10 }),
+  label({ x: 0.30, y: H(1.06), text: V.clearSkyWildfire, color: '#b45309', at: 3, size: 11 }),
 ];
 
 /** front_convergence_flood: 정체 → 습기 유입 → 햇볕 차단 → 물 고임 */
