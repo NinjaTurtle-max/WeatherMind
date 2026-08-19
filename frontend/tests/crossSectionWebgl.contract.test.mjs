@@ -672,8 +672,12 @@ try {
       }
     }
     // 오늘의 값(래칫) — 내릴 때만 고친다
-    const MAX_OVERLAP = 8;
-    const MAX_OUTSIDE = 6;
+    // 🔴 8/6 → **2/2로 조인다**(2026-08-19). 이 PR이 산불 라벨을 5→2로 줄여
+    //    그 여유를 만들었고, **느슨한 채로 두면 이 PR이 고친 것을 계약이 못 지킨다**
+    //    — 되돌림 확인에서 `forestedRidge`의 `until`을 되돌려도 8 안이라 안 울었다.
+    //    ⚠️ 값을 **올리지 말 것.** 새 장면이 걸리면 라벨을 걷는 쪽이 답이다.
+    const MAX_OVERLAP = 2;
+    const MAX_OUTSIDE = 2;
     check(
       `라벨 겹침이 ${MAX_OVERLAP}건을 넘지 않는다 (실측 ${ov})`,
       ov <= MAX_OVERLAP,
