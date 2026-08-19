@@ -97,6 +97,30 @@ class TestSoftenRules:
     def test_이미_존댓말이면_바이트_동일(self, text):
         assert tone_text.soften_for_tone(text, "child") == text
 
+    @pytest.mark.parametrize(
+        "plain,expected",
+        [
+            ("그것은 구름이 아니다.", "그것은 구름이 아니랍니다."),
+            (
+                "공기가 위로 올라간다. 그것은 햇볕 때문이 아니다.",
+                "공기가 위로 올라간답니다. 그것은 햇볕 때문이 아니랍니다.",
+            ),
+        ],
+    )
+    def test_아니다는_존댓_오분류를_뚫고_변환된다(self, plain, expected):
+        """🔴 `_POLITE`가 `니다$`를 물어 `아니다`를 존댓으로 **오분류**한다.
+
+        오분류된 문장은 원문으로 남으므로 전부-아니면-전무 스킵에도 안 걸리고,
+        `~답니다.` 옆에 `~아니다.`가 서서 **섞인 어투가 그대로 통과한다.**
+        분기 순서가 뒤집히면 두 번째 케이스가 즉시 운다.
+        """
+        assert tone_text.soften_for_tone(plain, "child") == expected
+
+    def test_진짜_존댓_아닙니다는_안_건드린다(self):
+        """`아닙니다`는 `닙니다`로 끝나 위 분기에 안 걸린다(과잉 변환 방지)."""
+        text = "그것은 구름이 아닙니다."
+        assert tone_text.soften_for_tone(text, "child") == text
+
     def test_한_문장이라도_못_바꾸면_해설_전체가_원문이다(self):
         """섞인 어투 금지 — `~답니다.`와 `~한다.`가 한 문단에 공존하면 안 된다."""
         mixed = "공기가 위로 올라간다. 지역마다 기온이 모두 다르다."
@@ -267,6 +291,11 @@ class TestSeedCorpus:
         """독립 오라클 검사 — 바뀐 것은 **전 문장이** 존댓이어야 한다.
 
         한 문장이라도 한다체로 남으면 섞인 어투가 화면에 나간 것이다.
+
+        ⚠️ 오라클이 변환기와 **같은 정규식**을 쓰면 같은 맹점을 공유한다 —
+        `_POLITE`의 `니다$`는 한다체 `아니다`를 존댓으로 오분류하므로, 그 꼬리는
+        여기서 **따로** 배제한다. (이 한 줄이 없으면 `아니다`가 남은 섞인 해설이
+        오라클을 그냥 통과한다.)
         """
         touched = 0
         for hint in _elementary_hints():
@@ -278,6 +307,9 @@ class TestSeedCorpus:
                 core = sentence.strip().rstrip(" .!?~'\"”’)…")
                 if not core:
                     continue
+                assert not core.endswith(
+                    "아니다"
+                ), f"오분류로 한다체가 남았다: {sentence!r} ← {hint!r}"
                 assert POLITE.search(core), f"한다체가 남았다: {sentence!r} ← {hint!r}"
         assert touched, "초등 해설이 한 건도 안 바뀌었다 — 변환기가 죽어 있다"
 
