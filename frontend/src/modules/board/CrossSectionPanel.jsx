@@ -2,7 +2,7 @@
  * CrossSectionPanel — 판정 시 단면 모식도 애니메이션 패널 (R9-08 §B, 기준 이미지 중.png).
  *
  * 교과서 3D 블록 다이어그램 문법: 투명한 공기 상자 + 바닥 지면 평면(지도 시점)
- * + 전면 수직 단면. 규칙 13종(board_rules.json)마다 explain을 실제 메커니즘 순서로
+ * + 전면 수직 단면. **board_rules.json의 전 규칙**마다 explain을 실제 메커니즘 순서로
  * 분해한 스토리보드(3~4단계, 단계당 1.4s 순차 재생 + 캡션)를 자체 저작했다.
  * 과학적 정확성 최우선 — 각 단계가 실제 기상 메커니즘 순서와 일치한다.
  *
@@ -419,7 +419,7 @@ function BlockFrame({ night = false, sea = null, children }) {
   );
 }
 
-// ── 장면 v1 8종 (규칙별 스토리보드 — 실제 메커니즘 순서) ────────────────────
+// ── 장면 v1 (도입 당시 8종 — 규칙별 스토리보드, 실제 메커니즘 순서) ─────────
 /** cold_front_shower: 찬 공기 쐐기 → 급상승 → 적란운 수직 발달 → 소나기·번개 */
 function ColdFrontScene({ step, animate }) {
   const wedge = [fp(0, 0), fp(0.6, 0), fp(0.15, 0.75), fp(0, 0.82)];
@@ -671,7 +671,7 @@ function SiberianClearScene({ step, animate }) {
   );
 }
 
-// ── 장면 5종 추가 (R13 확장 규칙 — board_rules.json 8 → 13종) ───────────────
+// ── 장면 5종 추가 (R13 확장 — **그때의** 증분 8 → 13. 현재 총수는 아니다) ──
 // 어휘 규약: `database/seed/level_vocabulary.json` v3 기준으로 **화면 문자열**을
 // 5단계 이하로 묶는다. 십운형 명칭(난층운·권층운 등 introduced_at 6)과 단열 감률·
 // 실무 수치는 캡션·라벨에 쓰지 않는다. `okhotsk_foehn_clear`의 id에 있는 "푄"도
@@ -1273,7 +1273,7 @@ function TropicalNightScene({ step, animate }) {
   );
 }
 
-// ── 스토리보드 레지스트리 (board_rules.json 15종 — explain을 메커니즘 순서로 분해) ──
+// ── 스토리보드 레지스트리 (board_rules.json 전 규칙 — explain을 메커니즘 순서로 분해) ──
 // ⚠️ i18n 외부화 제외(R11-01 §6.3 판정): boardVisual.render.test가 이 모듈 데이터
 // (steps·title)를 렌더 HTML과 **문자열 대조**하고, crossSectionWebgl.contract가
 // steps.length를 SCENES 단계와 정합 검사한다. 장면 내 CSText 라벨·scenes.js 라벨

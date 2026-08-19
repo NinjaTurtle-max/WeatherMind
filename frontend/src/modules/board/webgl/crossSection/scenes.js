@@ -1,5 +1,5 @@
 /**
- * scenes — 규칙 13종 단면 장면 기술(記述) (R10-C / S2 · R13 확장 5종).
+ * scenes — **전 규칙** 단면 장면 기술(記述) (R10-C / S2 · R13 확장 5종).
  *
  * **서버 계약·rule_id 매핑 불변**: 입력은 기존과 동일한 로컬 엔진 산출
  * {현상·구름·rule_id·explain}이고, 여기서는 rule_id → 3D 장면만 매핑한다.
@@ -226,7 +226,7 @@ export function groundLayer({ night = false, sea = null }) {
   return items;
 }
 
-// ── 장면 v1 8종 (board_rules.json rule_id ↔ STORYBOARDS 단계 인덱스와 1:1) ──
+// ── 장면 v1 (도입 당시 8종 — rule_id ↔ STORYBOARDS 단계 인덱스와 1:1) ──
 
 /** cold_front_shower: 찬 공기 쐐기 → 급상승 → 적란운 수직 발달 → 소나기·번개 */
 const coldFrontShower = () => [
@@ -380,7 +380,7 @@ const siberianClear = () => [
   label({ x: 0.44, y: H(0.5), text: V.coldClearWinterSky, color: '#1d4ed8', at: 2, size: 11 }),
 ];
 
-// ── 장면 5종 추가 (R13 확장 규칙 — board_rules.json 8 → 13종) ───────────────
+// ── 장면 5종 추가 (R13 확장 — **그때의** 증분 8 → 13. 현재 총수는 아니다) ──
 // 라벨 문자열은 SVG 스토리보드의 CSText와 한 묶음이다(같은 어휘 규약: 십운형
 // 명칭·"푄"·단열 감률 금지 — level_vocabulary v3에서 introduced_at 6).
 

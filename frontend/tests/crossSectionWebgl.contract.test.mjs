@@ -11,14 +11,14 @@
  *
  * 고정하는 것:
  *  1) 드로우콜 예산 — 스텁 WebGL2 컨텍스트로 drawArrays/drawArraysInstanced 호출을
- *     **실측 카운트**한다. 규칙 8종 × 전 단계 × 등장 애니메이션 구간/정상 상태에서
+ *     **실측 카운트**한다. **전 규칙** × 전 단계 × 등장 애니메이션 구간/정상 상태에서
  *     프레임당 ≤ DRAW_BUDGET(32). 컨텍스트도 1개만 만드는지 확인.
  *     - 공허 통과 방지: createRenderer가 null이 아님 + 프레임당 드로우콜 > 0 +
  *       renderer.stats.lastDrawCalls와 스텁 실측치 일치를 함께 요구한다.
  *  2) 강수 인스턴스 상한 — counts.precip ≤ MAX_PRECIP(200) (precipEngine과 같은 예산)
  *  3) uniform 이름 정합 — 렌더러가 세팅하는 uniform이 셰이더 active uniform에 전부
  *     존재(오타·이름 변경 시 조용히 no-op 되는 것을 잡는다)
- *  4) SCENES ↔ STORYBOARDS 키 1:1 + board_rules.json 8종 커버 +
+ *  4) SCENES ↔ STORYBOARDS 키 1:1 + board_rules.json **전 규칙** 커버 +
  *     3D 아이템의 단계 인덱스(at)가 스토리보드 단계 수를 넘지 않음
  *  5) **컨텍스트 생명주기 — dispose 후 재초기화**(R10-06 실브라우저 결함). 아래 참조.
  *
@@ -212,7 +212,7 @@ try {
     `SCENES에만: [${sceneKeys.filter((k) => !storyKeys.includes(k))}] / STORYBOARDS에만: [${storyKeys.filter((k) => !sceneKeys.includes(k))}]. ${WHO_KEYS}`,
   );
   check(
-    `SCENES가 board_rules.json 8종 전부 커버 (${ruleKeys.length}종)`,
+    `SCENES가 board_rules.json 전 규칙 커버 (규칙 ${ruleKeys.length}종)`,
     ruleKeys.every((k) => sceneKeys.includes(k)),
     `누락: [${ruleKeys.filter((k) => !sceneKeys.includes(k))}]. ${WHO_KEYS}`,
   );
