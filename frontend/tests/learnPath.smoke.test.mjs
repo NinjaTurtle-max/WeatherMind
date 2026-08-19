@@ -1210,6 +1210,88 @@ await vite.close();
   }
 }
 
+// ── ⑪-c 아이콘이 흑백(텍스트 표현)으로 떨어지지 않는다 (2026-08-19) ───────────
+// 🔴 `anomaly`가 U+26A1 **단독**이라 macOS/Chrome에서 잉크가 `24×17.9`였다 —
+// 같은 줄 다른 아이콘은 전건 `38×38`이라 **혼자 작고 좁게** 보였다. VS16(U+FE0F)이
+// 붙으면 브라우저가 이모지 표현을 쓴다.
+//
+// ⚠️ **특정 글자를 하드코딩하지 않는다** — 표는 계속 자라고(오늘만 재난 축 2종·
+// 기초과학 6종이 붙었다) 사람이 새 글자마다 VS16을 기억할 수는 없다. 그래서
+// **조건에 맞는 값 전건**을 본다. 조건이 두 갈래인 것이 이 계약의 요점이다:
+//
+//   ㉠ **속성 기반** — 유니코드가 기본 표현을 텍스트로 정한 글자
+//      (`Emoji=Yes` ∧ `Emoji_Presentation=No`). ☀ U+2600 · ☁ U+2601 ·
+//      ❄ U+2744 · ⚠ U+26A0 · ⛈ U+26C8 · 🌤 U+1F324 · 🌫 U+1F32B 계열이고,
+//      표에 이미 있는 🌡 U+1F321 · 🌪 U+1F32A · 🏙 U+1F3D9가 그렇다.
+//      **다음에 ☀를 추가해도 이 단정이 문다.**
+//
+//   ㉡ **실측 예외** — `Emoji_Presentation=Yes`인데도 실제 화면에서 흑백으로
+//      떨어진 글자. ㉠만으로는 **영원히 못 잡는다.** U+26A1이 바로 그 경우다:
+//      유니코드 15.1에서 `Emoji_Presentation=Yes`인데(Node `\p{...}`·파이썬
+//      `regex` 양쪽 실측) 그래도 `24×17.9`로 떨어졌다. 원인은 브라우저가 기본
+//      표현을 보기 **전에 CSS 폰트 스택을 먼저 걷기** 때문이고, 스택 앞쪽 텍스트
+//      폰트의 U+26A1 글리프는 정사각 em을 안 채운다.
+//      🔴 그러니 이 목록을 「유니코드가 Yes라던데?」로 지우지 말 것 — 지우면
+//      ⑪-c가 계약 없이 되살아난다. 지울 근거는 유니코드 표가 아니라 **재실측**이다.
+{
+  const stripComments = (src) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  // ⚠️ 주석을 먼저 걷는다. 머리말이 **VS16 없는 옛 ⚡을 이력으로 인용**하고 있고
+  //    (§0-5: 틀린 기술은 지우지 말고 경위를 남긴다), 수정 사유 주석도 그 글자를
+  //    다시 적는다 — 산문을 값으로 읽으면 고쳐 놓고도 빨강이 난다.
+  const iconSrc = stripComments(
+    readFileSync(resolve(root, 'src/modules/curriculum/unitIcon.js'), 'utf-8'),
+  );
+  const VS16 = '️';
+  // 표 두 개(CONCEPT_ICON·STATUS_WINS)와 폴백('📘')을 **한 번에** 훑는다 —
+  // 자리를 나열하면 새 표가 생겼을 때 조용히 빠진다.
+  const values = [...new Set([...iconSrc.matchAll(/'([^']*)'/g)].map((m) => m[1]))]
+    .filter((v) => [...v].some((c) => c.codePointAt(0) > 0x2000));
+
+  // 파싱이 실제로 표를 잡았는지 먼저 확인한다 — 정규식이 0건을 반환하면 아래
+  // 단정 둘이 **공집합을 통과**하고, 계약이 있는 척만 하게 된다(오늘 mascot
+  // 계약이 옛 자리를 슬라이스해 빈 블록을 검사한 것과 같은 함정이다).
+  ok(values.length >= 15, `⑪-c 아이콘 값을 읽었다 — ${values.length}종 (표가 옮겨지면 여기가 먼저 운다)`);
+
+  const baseOf = (v) => String.fromCodePoint(v.codePointAt(0));
+  const textDefault = values.filter((v) => {
+    const base = baseOf(v);
+    return /\p{Emoji}/u.test(base) && !/\p{Emoji_Presentation}/u.test(base);
+  });
+  const bareTextDefault = textDefault.filter((v) => !v.includes(VS16));
+  ok(
+    bareTextDefault.length === 0,
+    `🔴 ⑪-c 기본 텍스트 표현 문자는 VS16을 갖는다 — Emoji_Presentation=No ${textDefault.length}종 중 `
+      + `VS16 없는 것 ${bareTextDefault.length}종`
+      + `${bareTextDefault.length ? ` (${bareTextDefault.map((v) => `U+${v.codePointAt(0).toString(16).toUpperCase()}`)})` : ''}`,
+  );
+
+  // 실측 예외 목록. 값이 아니라 **코드포인트로** 적는다 — 소스에 보이지 않는
+  // VS16을 넣으면 목록 자신이 판정 대상과 구별되지 않는다.
+  const MEASURED_MONOCHROME = [
+    { cp: '⚡', why: 'macOS/Chrome 잉크 24×17.9 ↔ 다른 아이콘 38×38 (2026-08-19 실측)' },
+  ];
+  const bareMeasured = MEASURED_MONOCHROME.filter(({ cp }) =>
+    values.some((v) => v.startsWith(cp) && !v.includes(VS16)));
+  ok(
+    bareMeasured.length === 0,
+    `🔴 ⑪-c 실측으로 흑백이던 문자도 VS16을 갖는다 — 빠진 것 ${bareMeasured.length}종`
+      + `${bareMeasured.length
+        ? ` (${bareMeasured.map(({ cp, why }) => `U+${cp.codePointAt(0).toString(16).toUpperCase()}: ${why}`).join(' / ')})`
+        : ''}`,
+  );
+
+  // 예외 목록이 **죽지 않았는지** 본다 — 그 글자가 표에서 사라지면 위 단정은
+  // 공집합으로 조용히 통과한다. 배정이 바뀌어 정말 빠졌다면 목록에서 지울 것이고,
+  // 그 판단을 사람이 하도록 여기서 소리를 낸다.
+  const orphanExceptions = MEASURED_MONOCHROME.filter(({ cp }) => !values.some((v) => v.startsWith(cp)));
+  ok(
+    orphanExceptions.length === 0,
+    `⑪-c 실측 예외 목록에 죽은 항목이 없다 — 표에 없는 것 ${orphanExceptions.length}종`
+      + `${orphanExceptions.length ? ` (${orphanExceptions.map(({ cp }) => `U+${cp.codePointAt(0).toString(16).toUpperCase()}`)})` : ''}`,
+  );
+}
+
 if (failures) {
   console.error(`\n실패 ${failures}건`);
   process.exit(1);
