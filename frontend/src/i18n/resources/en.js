@@ -49,6 +49,8 @@ export default {
     data: 'Data: KMA Weather Nuri · KMA API Hub',
   },
   common: {
+    save: 'Save',
+    cancel: 'Cancel',
     loading: 'Loading…',
     retry: 'Try again',
     retryLater: 'Please try again in a moment.',
@@ -132,13 +134,20 @@ export default {
   // ⚠️ Never the words "log in" / "sign up" here either — the banned-word contract
   //    scans en values too. "Load my progress" is the name. Entry point is the one
   //    line on the save card (`fromSave`); never a nav link (MT-29 계약).
+  // ⚠️ 2026-08-19: email·password를 걷고 닉네임 하나로 바꿨다. 경위는 `ko.js`의
+  //    같은 자리 주석이 소유한다. ⚠️ 금칙어 계약이 en 값에서 **`login` 부분문자열**
+  //    까지 보므로 "log in"·"login"을 쓰지 말 것 — "Load your progress"가 이름이다.
   loadProgress: {
     fromSave: 'Already saved? Load your progress',
     title: 'Load your progress',
-    body: 'Enter the email and password you saved with, and you will be back where you left off.',
+    body: 'Enter the nickname you saved your progress with and you will be back where you left off.',
+    nicknameLabel: 'Nickname',
+    nicknamePlaceholder: 'e.g. CloudChaser',
     submit: 'Load my progress',
     submitting: 'Loading your progress…',
-    failed: "Couldn't load your progress. Please check the email and password and try again.",
+    notFound: "We couldn't find progress saved under that name. Please check the nickname.",
+    ambiguous: 'Several people share that name, so we cannot tell which progress is yours. Please save under a different name.',
+    failed: "Couldn't load your progress. Please try again in a moment.",
     back: '← Back to learning',
   },
   // Region notice (2026-08-12 request ③) — an inline banner, never a modal.
@@ -294,10 +303,16 @@ export default {
     nicknameLabel: 'Nickname (optional)',
     nicknamePlaceholder: 'e.g. CloudChaser',
     nicknameHint: "This is the name shown on leagues and rankings. Leave it blank and we'll pick one for you.",
+    goalLabel: 'Daily goal (optional)',
+    goalHint: 'Choose how many questions a day. You can change it later.',
     nicknameTaken: 'That name is already taken — please try another one.',
     submit: 'Next — take the placement check →',
     skip: 'Skip →',
     note: 'You can change this any time under My Info.',
+    // The "returning visitor" slot (2026-08-19). ⚠️ Never the words "log in" /
+    // "sign up" — the banned-word contract scans en values too (and it matches
+    // the bare substring `login`).
+    loadProgressCta: 'Load your progress →',
   },
   placement: {
     skip: 'Skip →',
@@ -326,6 +341,9 @@ export default {
     goalLevel: 'Reach level {level}',
     goalStreak: 'Reach a {days}-day streak',
     defaultNickname: 'Weather Learner',
+    nicknameEdit: 'Change name',
+    nicknameTaken: 'That name is already taken. Please try another.',
+    nicknameFailed: 'Could not change the name. Please try again shortly.',
     levelXp: 'Lv.{level} · {xp} XP total',
     streakStat: 'Day streak',
     placementBannerTitle: "You haven't taken the placement yet",

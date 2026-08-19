@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { DAILY_GOAL_CHOICES } from '../../lib/onboardingGate';
+import { useNavigate } from 'react-router-dom';
 import Mascot from '../../components/Mascot';
 import { useT } from '../../i18n';
 
@@ -78,16 +80,26 @@ export default function EntryInfoPage({
   nicknameTaken = false,
 }) {
   const t = useT();
+  const navigate = useNavigate();
   const [picked, setPicked] = useState(null);
   const [nickname, setNickname] = useState(initialNickname);
+  // 🔴 하루 목표도 **여기서** 받는다(2026-08-19 · 클라이언트 지시의 앞 문장).
+  // 값을 직접 적지 않고 `DAILY_GOAL_CHOICES`를 읽는다 — 서버가 그 밖의 값을
+  // 422로 막고, 상한이 세션 길이 정합으로 움직이는 중이기 때문이다.
+  const [goal, setGoal] = useState(null);
 
   /**
    * 화면을 떠나는 **모든** 출구가 여기를 지난다 — 「다음」도 「건너뛰기」도.
    * 닉네임은 학령과 독립이라 건너뛰기에 적어 둔 이름도 버리지 않는다.
    * 안 적었으면 `null`이고 그러면 인터셉터가 아무것도 얹지 않는다.
+   *
+   * ⚠️ **출구가 셋이 됐다**(2026-08-19). 「진도 불러오기」는 여기를 지나지 **않는다** —
+   * 학령·닉네임은 *새로 시작하는 사람*의 신고이고, 돌아온 사람의 이름은 이미 서버에
+   * 있기 때문이다. 그쪽은 `navigate('/login')`으로 곧장 나간다(`SessionExpired`의
+   * 「진도 불러오기」 버튼과 같은 관례).
    */
   const leave = (level) => {
-    onSubmit({ level, nickname: nickname.trim() });
+    onSubmit({ level, nickname: nickname.trim(), goal });
   };
 
   return (
@@ -97,15 +109,40 @@ export default function EntryInfoPage({
     >
       <div className="flex items-center justify-between">
         <span className="text-base font-extrabold tracking-tight text-sky-900">⛅ WeatherMind</span>
-        {/* 건너뛰기 — 규정 ②. 배치고사 화면과 같은 자리·같은 무게로 둔다. */}
-        <button
-          type="button"
-          data-testid="entry-info-skip"
-          onClick={() => leave(null)}
-          className="rounded-lg px-2 py-1 text-sm font-medium text-slate-400 transition hover:text-slate-600"
-        >
-          {t('entryInfo.skip')}
-        </button>
+        <div className="flex items-center gap-1">
+          {/* 🔴 진도 불러오기 — **「돌아온 사람」의 자리**(2026-08-19 클라이언트 지시).
+              왜 여기인가:
+                · 「건너뛰기」와 **같은 층위**다(같은 줄·같은 텍스트 버튼 무게) —
+                  둘 다 「이 화면을 채우지 않고 나가는 출구」이고, 지시가 그 층위를
+                  지목했다.
+                · **첫 화면 맨 위**라 아무것도 적기 전에 보인다. 돌아온 사람은 폼을
+                  읽을 이유가 없는 사람이라, 폼 아래에 두면 「이름을 새로 정하라」는
+                  요구를 먼저 통과해야 자기 문을 본다.
+                · 종전에는 진입점이 **하나도 없었고** `/login` URL을 아는 사람만
+                  닿았다 — 이름을 적게 해 놓고 그 이름으로 못 돌아오는 상태였다.
+              ⚠️ **주 동선이 아니다.** SideNav·TabBar·헤더에는 여전히 0건이고
+                 (`onboardingSave.contract` ㉯), 여기는 건너뛸 수 있는 진입 화면이다.
+              ⚠️ **이것이 관문이 되면 규정 위반**이다 — 「건너뛰기」와 「다음」은
+                 이 버튼과 무관하게 계속 동작해야 한다. `loadProgress.contract` ④가
+                 그 반대 방향을 함께 문다. */}
+          <button
+            type="button"
+            data-testid="entry-info-load"
+            onClick={() => navigate('/login')}
+            className="rounded-lg px-2 py-1 text-sm font-bold text-sky-700 transition hover:text-sky-900"
+          >
+            {t('entryInfo.loadProgressCta')}
+          </button>
+          {/* 건너뛰기 — 규정 ②. 배치고사 화면과 같은 자리·같은 무게로 둔다. */}
+          <button
+            type="button"
+            data-testid="entry-info-skip"
+            onClick={() => leave(null)}
+            className="rounded-lg px-2 py-1 text-sm font-medium text-slate-400 transition hover:text-slate-600"
+          >
+            {t('entryInfo.skip')}
+          </button>
+        </div>
       </div>
 
       <div className="mt-6 text-center">
@@ -171,6 +208,40 @@ export default function EntryInfoPage({
           {t('entryInfo.nicknameTaken')}
         </p>
       )}
+
+      {/* 🔴 하루 목표 — **시작 시점에 묻는 자리**(2026-08-19 클라이언트 지시).
+          원문 앞 문장: *"시작 시점에서 목표량과 수준을 물어야 하는데 그것도 없어"*.
+
+          왜 여기인가: `PlacementSummary`에도 같은 피커가 있지만 그것은 **배치고사를
+          본 사람만** 지난다. 게스트 자동 발급이 주 동선이라 **건너뛴 사람은 목표를
+          정할 데가 없었다** — `/me`의 피커를 걷으면서 그 공백이 드러났다.
+          이 화면은 배치를 보든 안 보든 **모두가 지나는 유일한 시작점**이다.
+
+          ⚠️ **선택 항목이다.** 필수로 만들면 진입이 막혀 대회 규정(주 동선이
+          입력을 요구하면 안 된다)에 걸린다 — 「건너뛰기」와 「다음」은 목표를
+          안 골라도 동작해야 한다.
+          ⚠️ 값을 여기 적지 않는다 — `DAILY_GOAL_CHOICES`가 소유자이고 서버가
+          그 밖의 값을 422로 막는다. */}
+      <p className="mt-5 text-sm font-extrabold text-slate-900">{t('entryInfo.goalLabel')}</p>
+      <p className="mt-0.5 text-xs text-slate-500">{t('entryInfo.goalHint')}</p>
+      <div className="mt-2 grid grid-cols-3 gap-2" data-testid="entry-info-goals">
+        {DAILY_GOAL_CHOICES.map((choice) => (
+          <button
+            key={choice.items}
+            type="button"
+            aria-pressed={goal === choice.items}
+            onClick={() => setGoal(goal === choice.items ? null : choice.items)}
+            className={`rounded-xl border px-2 py-2.5 text-sm font-bold transition ${
+              goal === choice.items
+                ? 'border-sky-600 bg-sky-600 text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+            }`}
+          >
+            <span className="block">{choice.label}</span>
+            <span className="mt-0.5 block text-[11px] font-medium opacity-80">{choice.caption}</span>
+          </button>
+        ))}
+      </div>
 
       {/* 다음 — 고른 값을 들고 배치고사로. 안 고르면 누를 수 없다(건너뛰기가 그 몫).
           ⚠️ 「선택 없이 다음」을 허용하면 건너뛰기와 구분이 없어지고, 사용자는

@@ -10,7 +10,6 @@ import QuestList from './QuestList';
 import BadgeCollection from './BadgeCollection';
 import WeatherBrainPanel from './WeatherBrainPanel';
 import KnowledgeLevelCard from './KnowledgeLevelCard';
-import { DailyGoalPicker, GOAL_ANCHOR } from './DailyGoal';
 import { selectUnlockStage, useOnboardingGate } from '../../lib/onboardingGate';
 // R12 선행 §8 — 학습 지역 설정(자급 컴포넌트, 제작 FE-R)
 import RegionPicker from '../../components/RegionPicker';
@@ -278,74 +277,37 @@ export default function ProgressPage() {
           해시 스크롤은 이 파일 위쪽 useEffect가 이미 소유한다. */}
       <SaveProgressCard />
 
-      {/* 설정 — 학습 수준 (R13 CO-P-5) */}
-      <LevelGroupCard />
+      {/* 🔴 **학습 수준 카드와 하루 목표 피커를 여기서 걷었다**(2026-08-19 · 클라이언트 지시).
+          원문: *"시작 시점에서 목표량과 수준을 물어야 하는데 그것도 없어, 즉
+          내정보란에는 목표선정과 수준 선택이 필요없어 첫 배치고사 시점 제외"*.
 
-      {/* 설정 — 하루 목표. 2026-08-11(사용자 지시)에 오른쪽 맨 위에서 **내려왔다**.
-          지우지 않고 옮긴 이유: 이 화면이 목표를 정하는 **유일한 통로**다.
-          배치고사를 건너뛴 사람(게스트 자동 발급이 주 동선이다)은 여기 말고
-          정할 데가 없고, /learn 배너의 「목표 미설정」 링크도 여기로 온다.
+          두 질문은 **이미 시작 시점에 있다** — 학습 수준은 `EntryInfoPage`의
+          `ENTRY_LEVEL_GROUPS`, 하루 목표는 `PlacementSummary`의 `DailyGoalPicker`.
+          이 화면의 두 카드는 **같은 질문을 두 번째로 묻는 자리**였다.
 
-          ⚠️ **미설정일 때만 띄우지 말 것**(2026-08-11 코드 리뷰). 저장에 성공하면
-          picker의 onSuccess가 같은 캐시를 갱신하므로 카드가 그 자리에서 사라져,
-          「N문항으로 정했어요」 확인 문구를 아무도 못 본다 — 누른 순간 화면에서
-          지워지는 버튼이 된다. 학습 수준 카드와 같이 **늘 떠 있는 설정**으로 둔다
-          (picker가 현재 선택을 강조하고 저장 문구도 스스로 띄운다).
-          진행도 표시(DailyGoalMeter)는 걷었다 — /learn 배너와 세션 완료 화면이
-          같은 값을 이미 보여준다.
+          ⚠️ **걷으면서 잃는 것 둘을 적어 둔다** — 종전 주석이 이 자리를
+          *"목표를 정하는 **유일한 통로**"*라고 스스로 밝혔기 때문이다:
+           ⑴ **배치고사를 건너뛴 사람**(게스트 자동 발급이 주 동선이다)은 이제
+              하루 목표를 정할 데가 없다.
+           ⑵ `LearnHeroCard:129`의 「목표 미설정」 링크가 `/me#daily-goal`로 오는데
+              **그 앵커가 사라졌다** — 링크가 빈 화면 끝으로 간다.
+          둘 다 지시 범위 밖이라 **고치지 않고 남긴다.** 되돌릴 곳은 여기다.
+          대안인 「미설정일 때만 띄우기」는 2026-08-11 코드 리뷰가 **명시적으로 반려**
+          했다(저장 성공 순간 카드가 사라져 확인 문구를 아무도 못 본다). */}
 
-          ⚠️ `me`는 **기다린다**(LevelGroupCard와 같은 이유). 조회 전에 그리면
-          현재값을 모르는 채로 아무것도 강조되지 않아, 이미 9문항으로 정해 둔
-          사람이 「미설정」으로 읽고 모르게 덮어쓴다. 저장 뒤에는 `me`가 그대로
-          참이라 카드도 그대로 남는다 — 위 ⚠️와 충돌하지 않는다.
-
-          ⚠️ 조회가 **실패하면 자리를 비우지 않는다**(2026-08-11 코드 리뷰).
-          `me &&`만 두면 실패 시 카드가 조용히 사라져, 목표를 정하러 앵커를 타고
-          온 사람이 빈 화면 끝을 본다 — 통로가 끊긴 것과 같은데 이유도 안 보인다.
-          현재값을 모르니 선택지는 안 내주고, **왜 못 그리는지와 다시 시도**를
-          같은 자리(같은 앵커 id)에 놓는다. */}
-      {me ? (
-        <DailyGoalPicker id={GOAL_ANCHOR} className="mt-4 scroll-mt-4" />
-      ) : meFailed ? (
-        <div
-          id={GOAL_ANCHOR}
-          className="mt-4 scroll-mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
-        >
-          <p className="text-sm font-extrabold text-slate-900">{t('dailyGoal.pickerTitle')}</p>
-          <p className="mt-0.5 text-xs text-slate-500">{t('dailyGoal.loadFailed')}</p>
-          {/* 재시도 중에는 **눌린 티가 나야 한다**(2026-08-11 코드 리뷰).
-              react-query는 실패 상태를 유지한 채 다시 부르므로, 표시를 안 바꾸면
-              백엔드가 죽어 있는 사람에게는 눌러도 아무 일이 없는 버튼이 된다. */}
-          <button
-            type="button"
-            disabled={meFetching}
-            onClick={() => refetchMe()}
-            className="mt-3 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {meFetching ? t('common.loading') : t('common.retry')}
-          </button>
-        </div>
-      ) : null}
     </div>
   );
 }
 
-/**
- * RegionCard — 학습 지역 (R12 선행 §8) — 퀴즈 실황·피드백 날씨의 기준 지역.
- * 대결/브리핑·리그는 서울 고정(PM 정정 2026-08-05 — 지역 예보로 예측하고 서울
- * 실측으로 채점되는 정합성 문제) — 대결 화면에는 칩을 달지 않는다.
- *
- * 2026-08-11: 페이지 꼬리의 전폭 카드에서 **왼쪽 열**로 올라왔다. 열 폭이
- * 절반(약 552px)이라 설명과 지역 칩이 한 줄에 안 들어갈 수 있어, 좁아지면
- * 칩이 아랫줄로 내려가게 `flex-wrap`으로 둔다.
- *
- * 2026-08-12: 두 열 높이를 맞추는 **남는 높이는 배지 칸이 먹는다**(order-2의
- * `lg:flex-1`). 이 카드가 잠깐 그 역할을 했는데(70 → 142px) 안이 한 줄뿐이라
- * 빈 카드로 보여 사용자 지시로 되돌렸다. `h-full` + `justify-center`는 남겨
- * 둔다 — 슬롯이 늘어나는 배치로 다시 바뀌어도 카드가 칸을 채우고 내용이
- * 가운데에 오도록, 즉 **깨지지 않도록** 하는 방어값이다(지금은 슬롯이
- * 자연 높이라 아무 효과가 없다).
- */
+/* 🔴 `LevelGroupCard`(학습 수준 선택)와 `LEVEL_GROUPS`를 2026-08-19에 **통째로 지웠다**
+   — 클라이언트 지시: *"내정보란에는 목표선정과 수준 선택이 필요없어 첫 배치고사 시점 제외"*.
+   학습 수준은 `EntryInfoPage`의 `ENTRY_LEVEL_GROUPS`가 **시작 시점에 이미 묻는다**.
+
+   ⚠️ **서버 통로(`PATCH /auth/me`)는 그대로 살아 있다.** 그 자리 독스트링이 스스로
+   *"게스트가 평생 middle_high에 갇히지 않게 하는 유일한 통로"*라고 밝힌 곳이라,
+   화면만 걷고 통로는 남긴다 — 요구는 충족하면서 되돌릴 길이 막히지는 않는다. */
+
+/** RegionCard — 관심 지역 설정(실황 문항이 이 값을 쓴다). */
 function RegionCard() {
   const t = useT();
   return (
@@ -440,102 +402,90 @@ function SaveProgressCard() {
   );
 }
 
-/** 학령 3값 — 서버 schemas/auth.LevelGroup Literal과 같은 순서·값 */
-const LEVEL_GROUPS = [
-  { value: 'elementary', labelKey: 'auth.register.elementary' },
-  { value: 'middle_high', labelKey: 'auth.register.middleHigh' },
-  { value: 'adult', labelKey: 'auth.register.adult' },
-];
-
 /**
- * LevelGroupCard — 학습 수준 설정 (R13 CO-P-5).
+ * NicknameLine — 프로필의 이름 줄. **여기가 닉네임을 바꾸는 유일한 화면 통로다.**
  *
- * 학령 신고 writer가 `POST /auth/register`의 필드 하나뿐이었다. R10-J 이후 주 동선은
- * **게스트 시작**이고 그 경로는 register를 아예 타지 않는다 — 전환도 학령을 안 받고,
- * 배치고사도 θ만 건드린다. 그래서 게스트로 들어온 사람은 초등학생이든 성인이든
- * **평생 middle_high**였고 배치고사로도 못 바꿨다.
+ * 🔴 왜 생겼나(2026-08-19 · 8/18 롤링분 ③): 닉네임 입력이 `EntryInfoPage`
+ * (최초 진입)에**만** 있었다. `App.jsx`의
+ * `needsEntryInfo = atEntry && entryChoice === undefined`가 **이미 들어온
+ * 사용자에게는 영영 거짓**이라, 한 번 지나가면 「기상 학습자」
+ * (`profile.defaultNickname`)로 고정됐다 — 클라이언트가 실화면에서 잡았다.
+ * 6f217e2(8/14)가 닉네임을 서버·목·화면 세 층에 착지시켜 놓고 **입구만 1회짜리**로
+ * 둔 것이라, 이미 쓰던 사용자에게는 존재하지 않는 기능이었다.
  *
- * 통로를 **여기(내 정보)**에 둔 이유: 자동 게스트 발급(CO-N-1 ①) 이후 첫 화면이
- * 로그인이 아니다 — URL만 열면 곧장 홈이라, 시작 화면의 학령 선택지는 심사 5분
- * 동선에 아예 등장하지 않는다. 나중에 바꿀 수 있는 자리가 있어야 잠금이 풀린다.
- *
- * ⚠️ 종전 주석은 "학습 지역 설정이 **바로 위**에 있어 위계가 섰다"고 적었는데,
- * 2026-08-11에 학습 지역이 왼쪽 열로 올라가면서 거짓이 됐다(코드 리뷰). 지금
- * 이 카드와 붙어 있는 것은 **아래의 하루 목표**다 — 페이지 꼬리 = 설정이라는
- * 위계 자체는 그대로다.
+ * ⚠️ **낙관적 갱신을 하지 않는다.** 409(중복)가 실재하는 경로라, 먼저 바꿔 놓고
+ * 되돌리면 사용자가 "됐다가 취소된" 이름을 보게 된다.
  */
-function LevelGroupCard() {
+function NicknameLine() {
   const t = useT();
-  const queryClient = useQueryClient();
-  const [notice, setNotice] = useState(null);
-
-  const { data: me } = useQuery({
-    queryKey: ['auth', 'me'],
-    queryFn: authApi.me,
-    staleTime: 60_000,
-    retry: false,
-  });
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [error, setError] = useState(null);
 
   const mutation = useMutation({
-    mutationFn: authApi.updateLevelGroup,
-    onSuccess: (updated) => {
-      // 헤더(Layout)도 같은 키를 보고 게스트 여부를 판정한다 — 한 번에 갱신한다.
-      queryClient.setQueryData(['auth', 'me'], updated);
-      // 배합은 세션 발급 시점에 확정되므로 오늘 세션은 그대로다. 다음 발급이
-      // 새 학령을 쓰도록 캐시만 비운다.
-      queryClient.invalidateQueries({ queryKey: ['session'] });
-      // 보드 잠금은 **즉시** 따라온다(2026-08-10) — 열쇠가 이 값이기 때문이다.
-      // 목록 캐시는 staleTime 60초라, 비우지 않으면 수준을 올리고 보드로 가도
-      // 1분간 잠긴 채로 보인다. "바꿨는데 안 열린다"가 되면 통로가 없는 것과 같다.
-      queryClient.invalidateQueries({ queryKey: ['board', 'puzzles'] });
-      setNotice({ ok: true, text: t('profile.levelGroupSaved') });
+    mutationFn: authApi.updateNickname,
+    onSuccess: (data) => {
+      // 서버가 돌려준 값을 쓴다 — 트림·정규화가 서버 몫이라 화면이 앞서면 갈린다.
+      setUser({ ...(user ?? {}), nickname: data?.nickname ?? draft.trim() });
+      setEditing(false);
+      setError(null);
     },
-    onError: (err) => setNotice({ ok: false, text: err?.detail ?? t('profile.levelGroupFailed') }),
+    onError: (err) => {
+      const code = err?.response?.data?.detail?.code ?? err?.response?.data?.code;
+      setError(code === 'NICKNAME_TAKEN' ? t('profile.nicknameTaken') : t('profile.nicknameFailed'));
+    },
   });
 
-  // 서버가 현재 값을 알려주지 않으면 고를 수도 없다 — 조회 실패 시엔 렌더하지 않는다
-  // (틀린 현재값을 보여 주고 바꾸게 하는 것보다 없는 편이 낫다).
-  if (!me?.level_group) return null;
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <p className="truncate text-lg font-extrabold">
+          {user?.nickname ?? t('profile.defaultNickname')}
+        </p>
+        <button
+          type="button"
+          data-nickname-edit="1"
+          onClick={() => { setDraft(user?.nickname ?? ''); setError(null); setEditing(true); }}
+          className="shrink-0 rounded-lg bg-sky-800/70 px-2 py-1 text-[11px] font-bold text-sky-100 ring-1 ring-sky-700 transition hover:bg-sky-700"
+        >
+          {t('profile.nicknameEdit')}
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-      <p className="text-sm font-extrabold text-slate-900">{t('profile.levelGroupTitle')}</p>
-      <p className="mt-0.5 text-xs text-slate-500">{t('profile.levelGroupBody')}</p>
-      <div className="mt-3 grid grid-cols-3 gap-2" data-level-group={me.level_group}>
-        {LEVEL_GROUPS.map((g) => (
-          <button
-            key={g.value}
-            type="button"
-            disabled={mutation.isPending}
-            aria-pressed={me.level_group === g.value}
-            onClick={() => {
-              if (me.level_group === g.value) return;
-              setNotice(null);
-              mutation.mutate(g.value);
-            }}
-            className={`rounded-xl border px-2 py-2.5 text-sm font-medium transition disabled:opacity-50 ${
-              me.level_group === g.value
-                ? 'border-sky-600 bg-sky-50 text-sky-700'
-                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-            }`}
-          >
-            {t(g.labelKey)}
-          </button>
-        ))}
-      </div>
-      {mutation.isPending && (
-        <p className="mt-2 text-xs text-slate-500">{t('profile.levelGroupSaving')}</p>
-      )}
-      {notice && !mutation.isPending && (
-        <p
-          className={`mt-2 rounded-lg px-3 py-2 text-xs font-bold ${
-            notice.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
-    </div>
+    <form
+      className="flex items-center gap-2"
+      onSubmit={(e) => { e.preventDefault(); if (draft.trim()) mutation.mutate(draft.trim()); }}
+    >
+      <input
+        type="text"
+        autoFocus
+        value={draft}
+        maxLength={20}
+        onChange={(e) => setDraft(e.target.value)}
+        aria-label={t('profile.nicknameEdit')}
+        className="min-w-0 flex-1 rounded-lg bg-sky-950/60 px-2 py-1 text-sm font-bold text-white ring-1 ring-sky-700 outline-none focus:ring-sky-400"
+      />
+      <button
+        type="submit"
+        disabled={mutation.isPending || !draft.trim()}
+        className="shrink-0 rounded-lg bg-white px-2 py-1 text-[11px] font-bold text-sky-900 disabled:opacity-50"
+      >
+        {t('common.save')}
+      </button>
+      <button
+        type="button"
+        onClick={() => { setEditing(false); setError(null); }}
+        className="shrink-0 text-[11px] font-bold text-sky-300"
+      >
+        {t('common.cancel')}
+      </button>
+      {error ? <p className="basis-full text-[11px] font-bold text-rose-200">{error}</p> : null}
+    </form>
   );
 }
 
@@ -565,9 +515,7 @@ function ProfileCard({ me, user, badges }) {
           <Mascot name="snow" className="h-12 w-12" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-lg font-extrabold">
-            {user?.nickname ?? t('profile.defaultNickname')}
-          </p>
+          <NicknameLine />
           <p className="mt-1">
             <TierBadge tier={me?.tier ?? 'stratus'} />
           </p>

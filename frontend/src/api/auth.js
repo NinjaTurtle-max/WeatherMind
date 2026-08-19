@@ -14,6 +14,21 @@ export async function login({ email, password }) {
   return res.data;
 }
 
+/**
+ * POST /auth/resume {nickname} → {access_token, refresh_token} (2026-08-19)
+ *
+ * 「진도 불러오기」의 유일한 통로다. `login`(이메일·비밀번호)은 서버에 남아 있지만
+ * **프론트에서 부르는 곳이 없다** — 진입 화면이 묻는 것은 닉네임뿐이고 게스트의
+ * 비밀번호는 무작위 시크릿이라, 그 문은 원리적으로 아무도 못 열었다.
+ *
+ * 실패 코드는 세 갈래고 화면이 각각 다르게 말한다:
+ * 404 `NICKNAME_NOT_FOUND` · 409 `NICKNAME_AMBIGUOUS`(동명이인) · 그 밖.
+ */
+export async function resume(nickname) {
+  const res = await client.post('/auth/resume', { nickname });
+  return res.data;
+}
+
 // POST /auth/refresh → {access_token}
 export async function refresh(refresh_token) {
   const res = await client.post('/auth/refresh', { refresh_token });
@@ -42,6 +57,21 @@ export async function me() {
  */
 export async function updateLevelGroup(level_group) {
   const res = await client.patch('/auth/me', { level_group });
+  return res.data;
+}
+
+/**
+ * PATCH /auth/me {nickname} → 닉네임 변경 (2026-08-19 · 8/18 롤링분 ③)
+ *
+ * 🔴 종전에는 닉네임 writer가 **최초 진입 1회뿐**이었다. `App.jsx`의
+ * `needsEntryInfo = atEntry && entryChoice === undefined`가 이미 들어온
+ * 사용자에게는 영영 거짓이라, 한 번 지나가면 「기상 학습자」로 고정됐다.
+ * 같은 엔드포인트를 쓰는 이유: 학령 변경과 **같은 행 갱신**이고, 그 자리가
+ * 이미 "게스트가 갇히지 않게 하는 통로"로 존재한다.
+ * 중복은 409 `NICKNAME_TAKEN`(자기 자신은 제외된다).
+ */
+export async function updateNickname(nickname) {
+  const res = await client.patch('/auth/me', { nickname });
   return res.data;
 }
 

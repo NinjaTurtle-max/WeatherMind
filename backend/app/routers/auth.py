@@ -4,6 +4,7 @@
 | POST | /login    | {email, password} → {access_token, refresh_token} |
 | POST | /guest    | {level_group?, nickname?} (바디 선택) → {access_token, refresh_token} (R11-01 J — 실 유저 생성. 닉네임 중복은 409 NICKNAME_TAKEN) |
 | POST | /guest/convert | Bearer + {email, password, nickname?} → {access_token, refresh_token} (같은 user_id 유지) |
+| POST | /resume   | {nickname} → {access_token, refresh_token} (2026-08-19 — 「진도 불러오기」. 없으면 404 NICKNAME_NOT_FOUND, 동명이인 409 NICKNAME_AMBIGUOUS) |
 | POST | /refresh  | {refresh_token} → {access_token} |
 | GET  | /me       | Bearer → {user_id, email, nickname, is_guest, level_group} (R13 P-4) |
 | PATCH| /me       | Bearer + {level_group} → MeResponse (R13 P-5 — 학령 변경 통로) |
@@ -251,6 +252,23 @@ class UpdateMeRequest(BaseModel):
     """
 
     level_group: LevelGroup
+    # 🔴 **닉네임도 이 통로로 바꾼다**(2026-08-19 · 8/18 롤링분 ③).
+    # 종전에는 닉네임 writer가 **최초 진입(`EntryInfoPage`) 1회뿐**이었다 —
+    # `App.jsx`의 `needsEntryInfo = atEntry && entryChoice === undefined`가
+    # **이미 들어온 사용자에게는 영영 거짓**이라, 한 번 지나가면 「기상 학습자」
+    # (`ko.js` `defaultNickname`)로 고정됐다. 클라이언트가 실화면에서 잡았다.
+    #
+    # ⚠️ **`None`과 「안 보냄」을 가른다.** `model_fields_set`으로 본다 —
+    # 학령만 바꾸는 기존 호출이 닉네임을 지우면 안 되기 때문이다.
+    nickname: str | None = None
+
+    @field_validator("nickname")
+    @classmethod
+    def _trim_nickname_update(cls, value: object) -> object:
+        if isinstance(value, str):
+            trimmed = value.strip()
+            return trimmed or None
+        return value
 
 
 class MeResponse(BaseModel):
@@ -350,6 +368,102 @@ async def guest_login(
     await weatherbrain_service.seed_placement(db, user)
     await db.commit()
 
+    refresh_token = create_refresh_token(str(user.id))
+    await _store_session(user.id, refresh_token)
+
+    return LoginResponse(
+        access_token=create_access_token(str(user.id), user.level_group),
+        refresh_token=refresh_token,
+    )
+
+
+# ── 닉네임으로 진도 불러오기 (2026-08-19 클라이언트 지시) ────────────────────
+# `POST /auth/guest {nickname}`의 **짝**이다. 진입 화면이 이름을 적게 해 놓고
+# 그 이름으로 돌아올 문이 없었다 — 실서버의 「진도 불러오기」는 이메일·비밀번호를
+# 요구했는데, 게스트의 비밀번호는 무작위 시크릿이라 **원리적으로 아무도 못 쓴다.**
+# 이름을 적게 하는 화면과 이름으로 못 돌아오는 화면이 한 제품에 같이 있었다.
+#
+# 🔴 **이것은 인증이 아니다 — 확인 절차가 없다.** 남의 닉네임을 적으면 그 사람의
+#    진도로 들어간다. 대회 규정이 「로그인·결제 없이 열려야」이고 클라이언트가
+#    8/14에 *"닉네임 기반 진도 저장은 허용(회원가입 메커니즘이 아니다)"*로 확정한
+#    해석 위에 서 있다. 확인 수단(4자리 코드 등)을 붙일지는 **클라이언트 결정**이고,
+#    여기서 임의로 붙이면 규정 해석을 담당자가 바꾸는 것이 된다.
+#    ⚠️ 그래서 **레이트리밋을 형제들과 같이 건다** — 이름 대입은 비밀번호 대입보다
+#    싸다. LIMIT_AUTH가 유일한 억제 수단이라 뺄 수 없다.
+#
+# ⚠️ **게스트로 제한하지 않는다.** 정식 계정(`register`·`guest/convert`를 거친 사람)도
+#    이 문으로 들어온다. 불러오기 화면이 닉네임 하나만 받게 된 뒤로는 그 사람들에게
+#    **다른 문이 없기 때문**이다(`POST /auth/login`은 서버에 남아 있지만 프론트가
+#    더 이상 부르지 않는다). 게스트만 통과시키면 저장을 마친 사람이 정확히 못 돌아온다.
+#
+# ⚠️ **닉네임은 유일하지 않다.** `users.nickname`에 유니크 제약이 없고(위 guest_login의
+#    「엔드포인트 검사이고 DB 제약이 아니다」 주석 참조), 자동 부여 닉네임과
+#    `register`·`guest/convert`가 정하는 이름은 유일성 검사를 아예 안 지나간다.
+#    그래서 **여러 건이 나올 수 있고, 그때 아무거나 한 건을 고르면 안 된다** —
+#    「이 이름 중 하나의 진도」를 임의로 넘겨주는 것은 데이터 사고다. 409로 막고
+#    학습자에게 다른 이름을 요구한다.
+
+
+class ResumeRequest(BaseModel):
+    """진도 불러오기 요청 — **닉네임 하나뿐**이다.
+
+    형태 규약은 `GuestStartRequest.nickname`과 **같은 것을 쓴다**(1~50자, 앞뒤
+    공백 제거). 저장 쪽에서 통과한 이름이 불러오기 쪽에서 422가 되면, 학습자는
+    자기가 분명히 적었던 이름을 서버가 거절하는 것을 겪는다.
+
+    ⚠️ 여기가 `str | None`이 아니라 **필수**인 것이 저장 쪽과 다른 점이다 —
+    저장에서 「안 적음」은 자동 이름을 뜻하지만, 불러오기에서 「안 적음」은
+    무엇을 불러올지 모른다는 뜻이라 성립하지 않는다.
+    """
+
+    nickname: str = Field(min_length=1, max_length=50)
+
+    @field_validator("nickname", mode="before")
+    @classmethod
+    def _trim_nickname(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+@router.post("/resume", response_model=LoginResponse)
+@limiter.limit(LIMIT_AUTH)
+async def resume_by_nickname(
+    request: Request, body: ResumeRequest, db: AsyncSession = Depends(get_db)
+) -> LoginResponse:
+    """닉네임으로 그 사람의 진도(=계정)로 돌아간다 — 응답은 login과 동일 스키마.
+
+    유저를 **만들지 않는다.** `seed_placement`도 부르지 않는다 — 이미 있는 계정을
+    여는 것이라 θ·XP·스트릭은 그 행에 그대로 붙어 있다. 하는 일은 로그인의 꼬리
+    (토큰 발급 + 세션 저장)와 완전히 같다.
+
+    ⚠️ RLS: `users` SELECT는 `app_auth_users` 정책(인증 카탈로그 예외, `docs/specs/08`)
+    이 이미 허용한다 — `login`의 이메일 조회와 **같은 성격의 조회**라 정책을 늘리지
+    않는다. 이 엔드포인트가 그 예외의 범위를 넓히지 않는다는 뜻이기도 하다.
+    """
+    # ⚠️ `scalar_one_or_none()`을 쓰면 **동명이인에서 예외로 500이 난다.**
+    #    limit(2)는 "있나/여럿인가"를 가르는 최소 질의다(전건을 끌어올 이유가 없다).
+    result = await db.execute(
+        select(User).where(User.nickname == body.nickname).limit(2)
+    )
+    users = list(result.scalars().all())
+
+    if not users:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "detail": "그 이름으로 저장된 진도를 찾지 못했어요.",
+                "code": "NICKNAME_NOT_FOUND",
+            },
+        )
+    if len(users) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "detail": "같은 이름이 여럿이라 진도를 특정할 수 없어요.",
+                "code": "NICKNAME_AMBIGUOUS",
+            },
+        )
+
+    user = users[0]
     refresh_token = create_refresh_token(str(user.id))
     await _store_session(user.id, refresh_token)
 
@@ -481,6 +595,22 @@ async def update_me(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"detail": "유효하지 않은 사용자입니다.", "code": "INVALID_CREDENTIALS"},
         )
+    # 닉네임은 **온 경우에만** 건드린다(위 스키마 주석 참조).
+    if "nickname" in body.model_fields_set and body.nickname is not None:
+        # 유일성은 `POST /guest`의 신고 경로와 **같은 규칙**이다(그 자리의 긴 주석이
+        # 왜 DB 제약이 아닌지를 소유한다). 자기 자신은 제외해야 「같은 이름으로
+        # 다시 저장」이 409가 되지 않는다.
+        taken = await db.execute(
+            select(User.id).where(
+                User.nickname == body.nickname, User.id != db_user.id
+            )
+        )
+        if taken.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"detail": "이미 사용 중인 닉네임입니다.", "code": "NICKNAME_TAKEN"},
+            )
+        db_user.nickname = body.nickname
     db_user.level_group = body.level_group
     # UpdateMeRequest.level_group은 필수 필드 — 이 경로는 언제나 명시 신고다(0015).
     # 재신고는 도장을 **덮어쓴다**: 마지막 신고가 참값이고, 그 이전 로그는
