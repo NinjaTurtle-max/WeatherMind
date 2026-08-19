@@ -1239,9 +1239,19 @@ await vite.close();
   // ⚠️ 주석을 먼저 걷는다. 머리말이 **VS16 없는 옛 ⚡을 이력으로 인용**하고 있고
   //    (§0-5: 틀린 기술은 지우지 말고 경위를 남긴다), 수정 사유 주석도 그 글자를
   //    다시 적는다 — 산문을 값으로 읽으면 고쳐 놓고도 빨강이 난다.
-  const iconSrc = stripComments(
-    readFileSync(resolve(root, 'src/modules/curriculum/unitIcon.js'), 'utf-8'),
-  );
+  // 🔴 **이모지 표를 가진 자리 전부를 훑는다 — 한 자리만 고치면 N곳 중 N-1을 고친 것**이다.
+  //    ⑪-c를 유닛 노드에서만 고쳤을 때 `BadgeCollection`의 `streak_30`이 U+26A1 단독으로
+  //    남아 있었고, **그 자리를 찾은 것은 계약이 아니라 사람**이었다. 그래서 계약을 넓혔다.
+  //    ⚠️ 새 이모지 표가 생기면 여기 경로를 추가해야 한다 — 그것을 잊는 것이 이 계약의
+  //    유일한 구멍이고, 아래 `values.length` 하한이 **표가 옮겨진 것만** 잡는다(표가
+  //    새로 **생긴** 것은 못 잡는다). 못 무는 것을 문다고 적지 않는다.
+  const ICON_TABLE_FILES = [
+    'src/modules/curriculum/unitIcon.js',
+    'src/modules/progress/BadgeCollection.jsx',
+  ];
+  const iconSrc = ICON_TABLE_FILES
+    .map((rel) => stripComments(readFileSync(resolve(root, rel), 'utf-8')))
+    .join('\n');
   const VS16 = '️';
   // 표 두 개(CONCEPT_ICON·STATUS_WINS)와 폴백('📘')을 **한 번에** 훑는다 —
   // 자리를 나열하면 새 표가 생겼을 때 조용히 빠진다.
