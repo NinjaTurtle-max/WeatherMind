@@ -181,6 +181,7 @@ export default function WeatherBrainPanel() {
                         정정). 값이 무엇인지는 **이름이 아니라 어느 응답에서 왔는지**가
                         정한다: 이 `m`은 `GET /progress/mastery`의 행이다. */}
                     <span
+                      data-testid="mastery-level-chip"
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
                         MASTERY_CHIP[m.level_label] ?? MASTERY_CHIP.insufficient
                       }`}
@@ -381,7 +382,11 @@ export default function WeatherBrainPanel() {
                   {t('weatherBrain.priorNote')}
                 </span>
               )}
+              {/* data-testid — 계약이 **렌더된 칩 하나**를 집어 글자를 재기 위한 손잡이다.
+                  `knowledge_level`이 null일 때 여기가 **빈칸이 되는 것**이 이 변경의
+                  회귀 지점이라, 소스 grep이 아니라 실제 노드의 textContent를 물어야 한다. */}
               <span
+                data-testid="ability-level-chip"
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
                   LEVEL_CHIP[row.level_label] ?? 'bg-slate-100 text-slate-600'
                 }`}
