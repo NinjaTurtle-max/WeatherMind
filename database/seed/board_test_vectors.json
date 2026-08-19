@@ -2315,5 +2315,123 @@
         "passed": true
       }
     ]
+  },
+  {
+    "name": "mt18_static_stability_contrast: 안정도 — 같은 물기, 지면 가열만 갈린다",
+    "note_authoring": "board_order 57의 계약. 이 판의 본체는 **대비**이므로 두 존을 같게 만들거나 한쪽만 맞히면 반드시 실패해야 한다 — 안 걸리면 안정도를 안 가르치고도 통과한다. 존 0·1이 의도한 답(불안정/안정), 존 2는 **같은 물기인데 일사만 중간**이라 어느 규칙도 성립하지 않는 구간(임계 사이가 비어 있다는 것 자체가 계약이다), 존 3은 **경계 포함**(일사 80·물기 60).",
+    "board": {
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
+      "elements": [
+        {
+          "type": "sun",
+          "level": 90,
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 70,
+          "zone": 0
+        },
+        {
+          "type": "sun",
+          "level": 20,
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 1
+        },
+        {
+          "type": "sun",
+          "level": 55,
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 2
+        },
+        {
+          "type": "sun",
+          "level": 80,
+          "zone": 3
+        },
+        {
+          "type": "moisture",
+          "level": 60,
+          "zone": 3
+        }
+      ]
+    },
+    "expected": [
+      {
+        "zone": 0,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "fog",
+        "cloud": "stratus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      }
+    ],
+    "goals": [
+      {
+        "note": "지면을 강하게 데우면 공기가 연직으로 자란다(불안정)",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "shower"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "🔴 같은 물기라도 지면이 식으면 깔린다(안정) — 갈린 것은 물기가 아니다",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "fog"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "일사가 중간이면 어느 쪽도 아니다 — 임계 사이에 빈 구간이 있다",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "shower"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "경계 포함: 일사 80·물기 60에서 성립한다",
+        "conditions": [
+          {
+            "zone": 3,
+            "phenomenon": "shower"
+          }
+        ],
+        "passed": true
+      }
+    ]
   }
 ]

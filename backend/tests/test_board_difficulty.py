@@ -77,7 +77,7 @@ class TestBoardDifficultySeedDistribution:
         boards = self._seed_boards()
         # R12 §9 13건 → R13 2일차 통합에서 +21(2일차 저작 7 + 규칙 확장 10 + 재난 4)
         # staging 승격(2026-08-14): 46 → **49**(CO-I-2/X-1 잔여 3건, 난이도 2)
-        assert len(boards) == 56
+        assert len(boards) == 57
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
@@ -122,8 +122,11 @@ class TestBoardDifficultySeedDistribution:
         # ⚠️ **이 계약이 설계대로 울어서 알았다** — 보드를 늘리고 개수 핀만 고쳤을 때
         # 여기가 빨강이 났다. 개수만 보면 「늘었다」는 알지만 **어느 칸으로 늘었는지**를
         # 못 본다는 것이 이 단정의 값이고, 그것이 실제로 작동했다.
-        assert dist == {1: 23, 2: 16, 3: 17}, f"난이도 분포가 바뀌었다: {dict(sorted(dist.items()))}"
-        assert len(boards) == 56
+        # 안정도 보드(2026-08-19): **3이 17 → 18.** palette가 2종(sun·moisture)뿐인데도
+        # expert(+1) · goal_only(2) · 목표 복수라 클램프 3이다 — **팔레트 크기가
+        # 난이도의 전부가 아니다.**
+        assert dist == {1: 23, 2: 16, 3: 18}, f"난이도 분포가 바뀌었다: {dict(sorted(dist.items()))}"
+        assert len(boards) == 57
 
 
 def _puzzle(name: str, level_group: str):
