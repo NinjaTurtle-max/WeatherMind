@@ -770,6 +770,11 @@ export default function SessionRunner({
   }
 
   const outOfClouds = answerState?._outOfClouds;
+  // 해설을 그리는 조건. 넓은 화면 카드(「다음 문항」 위)와 좁은 화면 고정 말풍선이
+  // **떨어진 두 자리**에 있어서(2026-08-19 순서 교체) 조건을 한 곳이 갖는다 —
+  // 한쪽만 고치면 화면 폭에 따라 해설이 뜨거나 안 뜨는 차이가 조용히 생긴다.
+  // 구름 소진·409는 각자 전용 안내를 그리므로 그 위에 해설을 겹치지 않는다.
+  const showExplanation = !outOfClouds && !answerState?._alreadyAnswered;
 
   return (
     <div className="pt-2">
@@ -936,6 +941,22 @@ export default function SessionRunner({
               <ResultBanner result={answerState} />
             </>
           )}
+          {/* 🔴 **해설이 「다음 문항」보다 위다**(2026-08-19 사용자 지시 — 종전에는
+              배너 → 버튼 → 해설 순이라 해설을 읽기 전에 버튼이 먼저 눈에 들어왔다).
+              읽고 나서 넘어가는 순서로 뒤집는다.
+              ⚠️ 좁은 화면 몫(`lg:hidden` FeedbackPanel)은 **같이 올리지 않는다** —
+              그쪽은 `fixed bottom-14` 오버레이라 DOM 순서가 화면에 안 보이는 대신,
+              같이 딸린 `h-40` 자리막이는 흐름에 있다. 그걸 버튼 위로 올리면 좁은
+              화면에서 버튼이 160px 아래로 밀린다. 그래서 lg 카드만 여기로 온다. */}
+          {showExplanation && (
+            <div className="mt-4 hidden lg:block">
+              <FeedbackCard
+                message={answerState.feedback}
+                isCorrect={answerState.is_correct}
+                source={answerState.feedback_source}
+              />
+            </div>
+          )}
           <button
             type="button"
             onClick={handleNext}
@@ -963,7 +984,8 @@ export default function SessionRunner({
           {/* 만회 탈출구(2026-08-12) — N바퀴 실패한 문항에만, **주 CTA 아래 작게**.
               위 버튼("다음 만회 문항 →")이 여전히 기본값이다: 넘어가기는 학습자가
               스스로 고르는 부차 선택지여야 「만회할 때까지」의 취지가 산다.
-              해설은 바로 아래 FeedbackCard/FeedbackPanel에 이미 떠 있다. */}
+              해설은 이미 떠 있다 — 넓은 화면은 **버튼 위**(FeedbackCard, 2026-08-19
+              순서 교체), 좁은 화면은 화면 아래 고정 말풍선(FeedbackPanel). */}
           {mercyOpen && (
             <div data-session-mercy="" className="mt-2 text-center">
               <button
@@ -979,29 +1001,19 @@ export default function SessionRunner({
               </p>
             </div>
           )}
-          {!outOfClouds && !answerState._alreadyAnswered && (
-            <>
-              {/* 넓은 화면: 해설이 **오른쪽 열 안에** 들어간다 — 화면 아래를 덮는
-                  오버레이가 필요 없다. 좁은 화면: 종전 그대로 고정 말풍선.
-                  둘은 같은 본문(FeedbackBubble)을 그린다. */}
-              <div className="mt-4 hidden lg:block">
-                <FeedbackCard
-                  message={answerState.feedback}
-                  isCorrect={answerState.is_correct}
-                  source={answerState.feedback_source}
-                />
-              </div>
-              <div className="lg:hidden">
-                <FeedbackPanel
-                  message={answerState.feedback}
-                  isCorrect={answerState.is_correct}
-                  source={answerState.feedback_source}
-                />
-                {/* 고정 말풍선이 가리는 만큼의 바닥 여백 — 오버레이가 없는
-                    넓은 화면에는 필요 없다. */}
-                <div className="h-40" />
-              </div>
-            </>
+          {/* 좁은 화면 몫만 남는다 — 넓은 화면 카드는 위 「다음 문항」 **앞**으로
+              옮겼다(2026-08-19). 둘은 같은 본문(FeedbackBubble)을 그린다. */}
+          {showExplanation && (
+            <div className="lg:hidden">
+              <FeedbackPanel
+                message={answerState.feedback}
+                isCorrect={answerState.is_correct}
+                source={answerState.feedback_source}
+              />
+              {/* 고정 말풍선이 가리는 만큼의 바닥 여백 — 오버레이가 없는
+                  넓은 화면에는 필요 없다. */}
+              <div className="h-40" />
+            </div>
           )}
         </>
       )}

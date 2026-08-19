@@ -680,6 +680,53 @@ try {
     const board = readFileSync(resolve(root, 'src/modules/board/AtmosphereBoard.jsx'), 'utf-8');
     check('힌트: wide에서만 stack을 켠다', /stack=\{wide\}/.test(board));
   }
+
+  // 8) 자유 실험만 팔레트가 **지도 아래 4열**이다 (2026-08-19 사용자 지시)
+  //
+  // "기단과 같은 요소들을 한반도 지도 아래로 가로4열 세로2행으로 배치해주고,
+  //  왼쪽에는 기존 보드 화면과 마찬가지로 습도·일사 조절 카드"
+  //
+  // 자유 실험은 배치 요소를 **전부**(기단 4 · 전선 3) 열어 주므로 168px 조절값
+  // 열에 세로로 쌓으면 팔레트만 7칸 기둥이 된다. 목표가 있는 퍼즐은 팔레트가
+  // 그 판에 필요한 부분집합이라 종전 자리가 맞다 — 그래서 **sandbox 한정**이다.
+  //
+  // jsdom에는 CSS 엔진이 없어 4열을 좌표로 못 잰다(실브라우저 1536 실측:
+  // 4+3 두 줄 · 조절값 카드는 x=265 w=168로 지도 왼쪽 그대로). 소스로 문다.
+  {
+    const board = readFileSync(resolve(root, 'src/modules/board/AtmosphereBoard.jsx'), 'utf-8');
+    check(
+      'ⓐ 팔레트 이사는 자유 실험 한정이다 (목표 퍼즐의 팔레트는 부분집합이라 제자리)',
+      /const paletteUnderMap = wide && sandbox;/.test(board),
+    );
+    check(
+      'ⓑ 자유 실험 팔레트가 4열이다 (좁은 화면은 2열 — 4열이면 「북태평양 기단」이 안 들어간다)',
+      /paletteUnderMap \? 'grid grid-cols-2 gap-2 sm:grid-cols-4' : 'flex flex-wrap gap-2'/.test(board),
+    );
+    // ⓒ 조건이 **한 쌍**이다. 한쪽만 남으면 팔레트가 사라지거나(둘 다 부정),
+    //    두 번 그려진다(둘 다 긍정) — 후자는 드래그 대상이 중복돼 더 나쁘다.
+    check(
+      'ⓒ 팔레트가 정확히 한 자리에만 그려진다 (조절값 열 !paletteUnderMap ↔ 지도 열 paletteUnderMap)',
+      /\{!paletteUnderMap && paletteBlock\}/.test(board)
+        && /\{paletteUnderMap && \(\s*<>\s*\{paletteBlock\}/.test(board),
+    );
+    // ⓓ 조절값 카드는 **안 따라간다** — 사용자가 "왼쪽에 기존 보드 화면과
+    //    마찬가지로"라고 못박은 부분이다. focusPanel에 조건이 붙으면 실패한다.
+    const controlColumn = board.slice(
+      board.indexOf('{!paletteUnderMap && paletteBlock}'),
+      board.indexOf('{hintBlock}'),
+    );
+    check(
+      'ⓓ 습기·일사 조절 카드는 지도 왼쪽에 그대로 남는다 (팔레트만 옮긴다)',
+      /^\s*\{focusPanel\}\s*$/m.test(controlColumn),
+    );
+    // ⓔ 조작 도움말("요소를 고른 뒤 지도의 지역을 누르면")은 팔레트를 따라간다 —
+    //    떨어지면 무엇을 고르라는 말인지 가리키는 대상이 없다. 두 자리 다 있어야
+    //    하고, 그래서 소스에 정확히 두 번 등장한다.
+    check(
+      'ⓔ 조작 도움말이 팔레트를 따라간다 (두 자리 모두)',
+      (board.match(/board\.atmosphere\.paletteHowTo/g) ?? []).length === 2,
+    );
+  }
 } finally {
   await server.close();
 }

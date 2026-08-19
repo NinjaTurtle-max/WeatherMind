@@ -774,10 +774,18 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         </div>
   );
 
+  // 🔴 **자유 실험만 팔레트가 지도 아래 4열이다**(2026-08-19 사용자 지시 —
+  // "기단과 같은 요소들을 한반도 지도 아래로 가로4열 세로2행으로"). 자유 실험은
+  // 배치 요소를 **전부**(기단 4 · 전선 3) 열어 주므로 168px 조절값 열에 세로로
+  // 쌓으면 팔레트만 7칸 기둥이 되어 지도 옆이 길어진다. 목표가 있는 퍼즐은
+  // 팔레트가 그 판에 필요한 것만 담긴 부분집합이라 종전 자리가 여전히 맞다.
+  // ⚠️ 좁은 화면에서 4열이면 「북태평양 기단」이 한 칸에 안 들어가 두 줄로
+  //    접힌다 — sm(640) 미만은 2열로 떨어뜨린다.
+  const paletteUnderMap = wide && sandbox;
   const paletteBlock = placeItems.length > 0 && (
     <div>
       <p className="mb-1.5 text-xs font-bold text-slate-500">{t('board.atmosphere.paletteHeader')}</p>
-      <div className="flex flex-wrap gap-2">
+      <div className={paletteUnderMap ? 'grid grid-cols-2 gap-2 sm:grid-cols-4' : 'flex flex-wrap gap-2'}>
         {placeItems.map((item) => {
           const isSel = selected?.token === item.token;
           return (
@@ -791,7 +799,11 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
               }}
               disabled={!interactive}
               style={{ touchAction: 'none' }} // 터치 드래그 중 스크롤 차단(§3.3 ③)
-              className={`flex min-h-[44px] items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-60 ${
+              // `break-keep`(word-break: keep-all) — 4열 격자에서 칸이 좁아지면
+              // 라벨이 접히는데, 없으면 「오호츠크 / 해 기단」처럼 **낱말 한복판**
+              // 에서 끊긴다. keep-all이면 공백에서만 끊긴다(2026-08-19).
+              // 가로로 넉넉한 종전 배치에서는 애초에 안 접히므로 무해하다.
+              className={`flex min-h-[44px] items-center gap-1.5 break-keep rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-60 ${
                 isSel
                   ? 'border-sky-500 bg-sky-600 text-white shadow'
                   : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-sky-400 hover:bg-sky-50'
@@ -1234,15 +1246,33 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
                     중복된다(2026-08-12 코드 리뷰). 좁은 화면에서는 이 열이 지도
                     위로 접히므로 힌트가 지도보다 앞에 오는데, 조작 도움말 바로
                     뒤라 묶음으로는 맞는 자리다. */}
+                {/* 조절값 열은 자유 실험에서도 **지도 왼쪽 그대로**다
+                    (2026-08-19 사용자 지시 — "왼쪽에 기존 보드 화면과 마찬가지로
+                    습도·일사 조절 카드"). 옮기는 것은 팔레트뿐이다. */}
                 <div className="flex flex-col gap-3">
-                  {paletteBlock}
+                  {!paletteUnderMap && paletteBlock}
                   {focusPanel}
-                  <p className="text-[11px] leading-relaxed text-slate-400">
-                    {t('board.atmosphere.paletteHowTo')}
-                  </p>
+                  {/* 조작 도움말은 **팔레트를 따라간다** — "요소를 고른 뒤 지도의
+                      지역을 누르면"이라 팔레트에서 떨어지면 무엇을 고르라는
+                      말인지 가리키는 대상이 없다. */}
+                  {!paletteUnderMap && (
+                    <p className="text-[11px] leading-relaxed text-slate-400">
+                      {t('board.atmosphere.paletteHowTo')}
+                    </p>
+                  )}
                   {hintBlock}
                 </div>
-                <div className="min-w-0">{mapBlock}</div>
+                <div className="flex min-w-0 flex-col gap-3">
+                  {mapBlock}
+                  {paletteUnderMap && (
+                    <>
+                      {paletteBlock}
+                      <p className="text-[11px] leading-relaxed text-slate-400">
+                        {t('board.atmosphere.paletteHowTo')}
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
               {dragGhost}
               <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
