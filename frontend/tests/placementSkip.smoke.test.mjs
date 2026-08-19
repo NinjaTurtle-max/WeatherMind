@@ -172,6 +172,25 @@ async function openPlacement(mark, label) {
 }
 
 try {
+  // ── 0. 센티널 **값** 계약 ─────────────────────────────────────────────────
+  //
+  // 아래 시나리오들은 payload를 `PLACEMENT_SKIP_SENTINEL`과 대조한다 — 배선은
+  // 그렇게 봐야 하지만(사본 두 벌은 계약이 아니다), 그것만으로는 **값 자체**를
+  // 아무도 못 박지 않는다: 프론트가 상수를 'skipped'로 바꿔도 대조는 초록이다.
+  // 그래서 리터럴을 여기 한 번 못 박는다. 값의 소유자는 백엔드
+  // `PLACEMENT_SKIP_SENTINEL`이고 목(apiMockPlugin.js)까지 세 자리가 같아야 한다.
+  await scenario('센티널 값이 백엔드 계약과 같은 리터럴이다(빈 문자열·새 필드 금지)', async () => {
+    assert(
+      PLACEMENT_SKIP_SENTINEL === '__skip__',
+      `센티널이 백엔드 PLACEMENT_SKIP_SENTINEL('__skip__')과 다르다 — 실제 ${JSON.stringify(PLACEMENT_SKIP_SENTINEL)}. `
+        + '세 자리(서버·목·프론트)가 어긋나면 스킵이 서버에서 오답 처리되지 않는다',
+    );
+    assert(
+      PLACEMENT_SKIP_SENTINEL !== '',
+      '빈 문자열은 금지다 — 목의 slider 채점이 Number("")=0으로 접어 스킵이 **정답**이 된다',
+    );
+  });
+
   // ── 1. 버튼이 보인다 + 페이지 이탈 「건너뛰기」와 구별된다 ─────────────────
   //
   // 콜드 오픈(토큰 없음)이므로 자동 게스트 발급까지 함께 지난다 — 뒤 시나리오가
