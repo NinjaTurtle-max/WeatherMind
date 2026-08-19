@@ -514,6 +514,11 @@ const mockAuth = {
   nickname: null,
   registeredEmails: new Set(['taken@weathermind.dev']),
   takenNicknames: new Set(['날씨러버']),
+  // 「같은 이름을 쓰는 유저가 둘 이상」의 목 대응물(2026-08-19, POST /auth/resume).
+  // ⚠️ 이것은 결함이 아니라 **실서버에 실재하는 상태**다 — 자동 부여 닉네임
+  // (`게스트-{hex6}`)은 유일성 검사를 아예 안 지나가므로 겹친다. 그래서 시드값도
+  // 지어낸 이름이 아니라 meResponse가 쓰는 그 자동 닉네임이다.
+  ambiguousNicknames: new Set(['게스트-2b1c8b']),
 };
 
 // 서버 schemas/auth.LevelGroup Literal과 같은 3값 — 목이 사본을 갖는 대신
@@ -2026,6 +2031,36 @@ const routes = {
     // 「닉네임 없이 부르면 종전과 동일」이 한 프로세스 안에서 깨진다.
     mockAuth.nickname = nickname;
     return [201, { access_token: 'mock-guest-access', refresh_token: 'mock-guest-refresh' }];
+  },
+  // 진도 불러오기(2026-08-19) — 서버 `POST /auth/resume`와 형태 동일.
+  // 200 LoginResponse · 없는 이름 404 NICKNAME_NOT_FOUND · 동명이인 409
+  // NICKNAME_AMBIGUOUS · 형태 위반 422. 드리프트는 backend test_auth_resume가 감시한다.
+  //
+  // 「이 이름이 있는가」의 소유자는 `mockAuth.takenNicknames` **하나**다 — 게스트
+  // 발급이 신고된 이름을 넣는 바로 그 집합이라, 목 안에서 「저장 → 불러오기」가
+  // 한 왕복으로 성립한다. 별도 사본을 만들면 저장한 이름을 못 불러오는 목이 된다.
+  'POST /auth/resume': (body) => {
+    const nickname = typeof body?.nickname === 'string' ? body.nickname.trim() : null;
+    // 서버 ResumeRequest는 닉네임이 **필수**다(저장 쪽과 다른 점) — 「안 적음」은
+    // 불러오기에서 성립하지 않는다.
+    if (nickname === null || nickname.length < 1 || nickname.length > 50) {
+      return [422, { detail: '닉네임은 1~50자로 적어 주세요.', code: 'VALIDATION_ERROR' }];
+    }
+    // 🔴 동명이인 — `users.nickname`에 유니크 제약이 없어 실서버에 실재하는 상태다.
+    //    자동 부여 이름(`게스트-{hex6}`)은 유일성 검사를 아예 안 지나가므로 겹친다.
+    //    시드값을 meResponse의 자동 닉네임으로 쓰는 이유가 그것이다 — 지어낸 이름이
+    //    아니라 **목이 이미 「자동으로 붙는다」고 선언한 이름**이 실제로 겹치는 이름이다.
+    if (mockAuth.ambiguousNicknames.has(nickname)) {
+      return [409, { detail: '같은 이름이 여럿이라 진도를 특정할 수 없어요.', code: 'NICKNAME_AMBIGUOUS' }];
+    }
+    if (!mockAuth.takenNicknames.has(nickname)) {
+      return [404, { detail: '그 이름으로 저장된 진도를 찾지 못했어요.', code: 'NICKNAME_NOT_FOUND' }];
+    }
+    // 그 이름의 주인으로 갈아탄다 — 정식 계정 닉네임이면 게스트가 아니게 된다
+    // (서버가 게스트 한정 필터를 두지 않는 것과 같은 의미론).
+    mockAuth.isGuest = nickname !== '날씨러버';
+    mockAuth.nickname = mockAuth.isGuest ? nickname : null;
+    return [200, { access_token: 'mock-resume-access', refresh_token: 'mock-resume-refresh' }];
   },
   // R11-01 §6.2: 게스트→정식 계정 전환 — BE-1 서버 계약 그대로.
   // 게스트 아님 → 409 NOT_GUEST · 이메일 중복 → register 의미론(409 EMAIL_ALREADY_EXISTS,

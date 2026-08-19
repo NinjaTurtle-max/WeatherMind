@@ -12,6 +12,7 @@
     "test:explore-goals": "node tests/exploreGoals.test.mjs",
     "test:session-blocks": "node tests/sessionBlocks.contract.test.mjs",
     "test:entry-flow": "node tests/entryFlow.smoke.test.mjs",
+    "test:load-progress": "node tests/loadProgress.contract.test.mjs",
     "test:session": "node tests/sessionRunner.render.test.mjs",
     "test:session-retry": "node tests/sessionRetry.smoke.test.mjs",
     "test:placement": "node tests/placementEntry.smoke.test.mjs",

@@ -14,6 +14,21 @@ export async function login({ email, password }) {
   return res.data;
 }
 
+/**
+ * POST /auth/resume {nickname} → {access_token, refresh_token} (2026-08-19)
+ *
+ * 「진도 불러오기」의 유일한 통로다. `login`(이메일·비밀번호)은 서버에 남아 있지만
+ * **프론트에서 부르는 곳이 없다** — 진입 화면이 묻는 것은 닉네임뿐이고 게스트의
+ * 비밀번호는 무작위 시크릿이라, 그 문은 원리적으로 아무도 못 열었다.
+ *
+ * 실패 코드는 세 갈래고 화면이 각각 다르게 말한다:
+ * 404 `NICKNAME_NOT_FOUND` · 409 `NICKNAME_AMBIGUOUS`(동명이인) · 그 밖.
+ */
+export async function resume(nickname) {
+  const res = await client.post('/auth/resume', { nickname });
+  return res.data;
+}
+
 // POST /auth/refresh → {access_token}
 export async function refresh(refresh_token) {
   const res = await client.post('/auth/refresh', { refresh_token });
