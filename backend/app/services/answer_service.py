@@ -34,7 +34,13 @@ from app.models.quiz_log import QuizLog
 from app.models.session import Session
 from app.models.user import User
 from app.schemas.quiz import AnswerResult
-from app.services import ai_client, board_engine, weatherbrain_service, xp_service
+from app.services import (
+    ai_client,
+    board_engine,
+    tone_text,
+    weatherbrain_service,
+    xp_service,
+)
 from app.services.weather_api import get_today_weather, user_region
 
 # 슬라이더 채점 허용 오차 (0~100 스케일)
@@ -206,7 +212,10 @@ async def build_feedback(
     우선순위 3단 (CO-I-1에서 ②가 신설됐다):
       ① board  → 규칙 explain/hints (RAG 미호출 — §3.4). board 판정 여부는
          phenomena 유무가 아니라 question_type으로 본다(판정이 비어도 board다).
-      ② **사람이 저작한 해설**(`template_json.explanation_hint`) → 그대로 반환.
+      ② **사람이 저작한 해설**(`template_json.explanation_hint`) → 반환.
+         ⚠️ **초등(`effective_tone(user) == "child"`)에서만** 문말이 부드러운
+         설명체로 바뀐다(MT-11 — `tone_text.soften_for_tone`). 그 외 톤은 원문
+         바이트 그대로이고, 변환 불가 문장이 하나라도 있으면 초등도 원문이다.
       ③ 그 외 → RAG Chain(실패 시 ai_client 내부 정적 문구 fallback).
 
     ②를 넣은 이유(CO-I-1 — 대장 I절 "최대 건"):
@@ -237,7 +246,12 @@ async def build_feedback(
         )
     hint = str(question.get("explanation_hint") or "").strip()
     if hint:
-        return hint
+        # MT-11 — `effective_tone`의 **첫 소비처**. 그 전까지 톤은 파생·노출만 되고
+        # 아무도 읽지 않았다(조사 §1.4). child가 아니면 tone_text가 입력을 그대로
+        # 돌려주므로 다른 학령의 문구는 한 글자도 안 바뀐다.
+        return tone_text.soften_for_tone(
+            hint, weatherbrain_service.effective_tone(user)
+        )
     # RAG 피드백의 오늘 날씨도 유저 지역 기준 (R11-01 §8.2 — NULL=서울)
     today_weather = await get_today_weather(user_region(user))
     return await ai_client.rag_feedback(
