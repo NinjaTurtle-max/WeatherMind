@@ -283,7 +283,11 @@ try {
       await waitFor(
         () => requests.some((r) => (r.url ?? '').includes('/onboarding/placement/submit-all')),
         8000,
-        '전 문항 스킵 뒤 finalizeBulk(submit-all)가 발화하지 않았다 — 스킵이 answered를 올리지 못했다',
+        // ⚠️ 원인을 단정하지 않는다. 역검증에서 이 자리를 두 갈래로 밟았다:
+        // (a) 스킵이 answered를 못 올림, (b) answered는 올랐는데 finalize 이펙트가
+        // 막힘. 실패 메시지가 (a)만 말하면 (b)일 때 오진으로 이어진다.
+        '전 문항 스킵 뒤 finalizeBulk(submit-all)가 발화하지 않았다 — 스킵이 answered를 올리지 못했거나'
+          + ' 일괄 제출 이펙트가 막혔다(마지막 문항 뒤 학습자가 갇힌다)',
       );
       const req = requests.find((r) => (r.url ?? '').includes('/onboarding/placement/submit-all'));
       const body = JSON.parse(req.body);
