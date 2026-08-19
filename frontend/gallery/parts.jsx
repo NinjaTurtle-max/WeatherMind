@@ -26,8 +26,21 @@ export const C = {
   accent: '#0369a1',
 };
 
-/** 모든 그림 칸의 판형 — 보드 단면 viewBox 260×150과 같다. 절대 키우지 않는다. */
-const FRAME = { aspectRatio: '260 / 150', width: '100%', position: 'relative' };
+/**
+ * 모든 그림 칸의 판형 — 보드 단면 viewBox 260×150과 같다. 절대 키우지 않는다.
+ *
+ * `contentVisibility: auto` + `containIntrinsicSize`가 붙어 있다. 화면 밖 칸의
+ * **레이아웃·페인트를 브라우저가 통째로 건너뛴다** — 이 페이지는 칸이 200개에 가까워
+ * 그 비용이 곧 「페이지가 안 뜬다」로 나타난다. 크기를 미리 못박아 둬야
+ * 스크롤바가 요동치지 않는다(그래서 intrinsic size가 판형과 같은 값이다).
+ */
+const FRAME = {
+  aspectRatio: '260 / 150',
+  width: '100%',
+  position: 'relative',
+  contentVisibility: 'auto',
+  containIntrinsicSize: '260px 150px',
+};
 
 function Placeholder({ text, tone = C.dim, bg = '#e2e8f0' }) {
   return (
@@ -107,6 +120,53 @@ export function GLCell({ ruleId = null, scene = null, step = 0 }) {
   );
 }
 
+/**
+ * 뷰포트 근방에 들어올 때까지 자식을 **아예 만들지 않는다**(한 번 들어오면 유지).
+ *
+ * 🔴 GL만 지연시키고 SVG를 즉시 그렸더니 **첫 페인트가 도저히 못 기다릴 만큼 느렸다.**
+ * 이유는 단순하다: 보드 단면 SVG 장면 79벌이 동시에 마운트되는데, 한 벌이 빗줄기
+ * 30여 개를 포함한 수백 노드짜리라 초기 DOM이 800 kB를 넘었다. GL 컨텍스트만
+ * 예산이 있는 게 아니라 **DOM 자체가 예산**이다.
+ *
+ * GL과 달리 한 번 그린 뒤에는 **언마운트하지 않는다** — SVG는 상한이 걸린 자원이
+ * 아니고, 되감을 때마다 다시 만들면 스크롤이 튄다. 대신 화면 밖 비용은 위
+ * `contentVisibility: auto`가 흡수한다.
+ */
+function Defer({ children, fallbackText }) {
+  const ref = useRef(null);
+  const [seen, setSeen] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    if (typeof IntersectionObserver === 'undefined') {
+      setSeen(true); // IO가 없는 환경에서는 지연이 곧 영구 공백이 된다 — 그냥 그린다
+      return undefined;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setSeen(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: '600px 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} style={FRAME}>
+      {seen ? <div style={{ position: 'absolute', inset: 0 }}>{children}</div> : (
+        <div style={{ position: 'absolute', inset: 0, background: '#e2e8f0', display: 'grid', placeItems: 'center', padding: 8 }}>
+          <span style={{ fontSize: 11, color: C.dim, textAlign: 'center', lineHeight: 1.5 }}>{fallbackText}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** SVG 폴백 한 칸 — `STORYBOARDS[ruleId].Scene`을 그대로 그린다. */
 export function SvgCell({ Scene, step }) {
   if (!Scene) {
@@ -114,11 +174,9 @@ export function SvgCell({ Scene, step }) {
   }
   // animate={false}: 화면 밖에서 등장 애니메이션이 흘러가 버리지 않게 정지 프레임으로 본다.
   return (
-    <div style={FRAME}>
-      <div style={{ position: 'absolute', inset: 0 }}>
-        <Scene step={step} animate={false} />
-      </div>
-    </div>
+    <Defer fallbackText={'뷰포트 밖 — 스크롤해 들어오면 그린다.\n(그림이 없는 것이 아니다)'}>
+      <Scene step={step} animate={false} />
+    </Defer>
   );
 }
 
