@@ -514,11 +514,23 @@ const mockAuth = {
   nickname: null,
   registeredEmails: new Set(['taken@weathermind.dev']),
   takenNicknames: new Set(['날씨러버']),
-  // 「같은 이름을 쓰는 유저가 둘 이상」의 목 대응물(2026-08-19, POST /auth/resume).
-  // ⚠️ 이것은 결함이 아니라 **실서버에 실재하는 상태**다 — 자동 부여 닉네임
-  // (`게스트-{hex6}`)은 유일성 검사를 아예 안 지나가므로 겹친다. 그래서 시드값도
-  // 지어낸 이름이 아니라 meResponse가 쓰는 그 자동 닉네임이다.
-  ambiguousNicknames: new Set(['게스트-2b1c8b']),
+  /**
+   * 🔴 **저장을 마친 계정의 자격** — `POST /auth/resume`의 목 대응물
+   * (2026-08-19 오후 · 클라이언트 결정 「불러오기는 로그인 인증으로」).
+   *
+   * ⚠️ **`takenNicknames`가 아니라 여기가 불러오기의 소유자다.** 같은 날 오전
+   * 판은 닉네임 집합을 열쇠로 썼는데, 그러면 **이름만 맞히면 남의 진도가 열린다** —
+   * 화면이 아니라 서버가 그랬고, 목도 그것을 그대로 리허설하고 있었다.
+   *
+   * ⚠️ 시드는 지어낸 값이 아니라 **목이 이미 「등록돼 있다」고 선언한 이메일**
+   * (`registeredEmails`)과 짝을 맞춘다 — 저장(`guest/convert`)이 넣는 그 집합이다.
+   * 비밀번호는 서버 `SaveProgressForm`의 `minLength=8`을 만족해야 목에서만
+   * 통과하는 값이 안 생긴다.
+   *
+   * ⚠️ **게스트는 여기 없다.** 서버에서 게스트 비밀번호는 무작위 시크릿이라 이
+   * 문을 못 연다 — 목이 게스트를 넣어 두면 실서버에 없는 경로가 초록이 된다.
+   */
+  savedAccounts: new Map([['saved@weathermind.dev', 'weathermind-8']]),
 };
 
 // 서버 schemas/auth.LevelGroup Literal과 같은 3값 — 목이 사본을 갖는 대신
@@ -2032,34 +2044,36 @@ const routes = {
     mockAuth.nickname = nickname;
     return [201, { access_token: 'mock-guest-access', refresh_token: 'mock-guest-refresh' }];
   },
-  // 진도 불러오기(2026-08-19) — 서버 `POST /auth/resume`와 형태 동일.
-  // 200 LoginResponse · 없는 이름 404 NICKNAME_NOT_FOUND · 동명이인 409
-  // NICKNAME_AMBIGUOUS · 형태 위반 422. 드리프트는 backend test_auth_resume가 감시한다.
+  // 진도 불러오기(2026-08-19 **오후** — 클라이언트 결정, 주최측 확인 후) —
+  // 서버 `POST /auth/resume`와 형태 동일: {email, password} → 200 LoginResponse ·
+  // 자격 불일치 401 INVALID_CREDENTIALS · 형태 위반 422.
+  // 드리프트는 backend `test_auth_resume`가 감시한다.
   //
-  // 「이 이름이 있는가」의 소유자는 `mockAuth.takenNicknames` **하나**다 — 게스트
-  // 발급이 신고된 이름을 넣는 바로 그 집합이라, 목 안에서 「저장 → 불러오기」가
-  // 한 왕복으로 성립한다. 별도 사본을 만들면 저장한 이름을 못 불러오는 목이 된다.
+  // 🔴 **같은 날 오전 판을 뒤집는다.** 그 판은 `{nickname}` 하나를 받아
+  //    `mockAuth.takenNicknames`에 있으면 토큰을 줬다 — 즉 **이름만 맞히면 남의
+  //    진도가 열렸고**, 서버가 실제로 그랬다. 화면만 고치면 그 통로는 curl로
+  //    그대로 남는다(대장 §4.14 · 이 파일과 서버가 함께 바뀌어야 하는 이유).
+  //    그래서 404 `NICKNAME_NOT_FOUND` · 409 `NICKNAME_AMBIGUOUS` 분기도 함께
+  //    걷힌다 — 그 둘은 「그 이름이 있다/없다」를 응답으로 자백하는 열거 표면이었다.
+  //
+  // 「이 자격이 있는가」의 소유자는 `mockAuth.savedAccounts` **하나**다 — 저장
+  // (`guest/convert`)이 넣는 바로 그 맵이라, 목 안에서 「저장 → 불러오기」가 한
+  // 왕복으로 성립한다. 사본을 만들면 저장한 자격으로 못 여는 목이 된다.
   'POST /auth/resume': (body) => {
-    const nickname = typeof body?.nickname === 'string' ? body.nickname.trim() : null;
-    // 서버 ResumeRequest는 닉네임이 **필수**다(저장 쪽과 다른 점) — 「안 적음」은
-    // 불러오기에서 성립하지 않는다.
-    if (nickname === null || nickname.length < 1 || nickname.length > 50) {
-      return [422, { detail: '닉네임은 1~50자로 적어 주세요.', code: 'VALIDATION_ERROR' }];
+    const email = typeof body?.email === 'string' ? body.email : null;
+    const password = typeof body?.password === 'string' ? body.password : null;
+    // 서버 ResumeRequest = LoginRequest 형태 — 둘 다 필수다.
+    if (!email || !password || email.length > 255) {
+      return [422, { detail: 'email·password가 필요합니다.', code: 'VALIDATION_ERROR' }];
     }
-    // 🔴 동명이인 — `users.nickname`에 유니크 제약이 없어 실서버에 실재하는 상태다.
-    //    자동 부여 이름(`게스트-{hex6}`)은 유일성 검사를 아예 안 지나가므로 겹친다.
-    //    시드값을 meResponse의 자동 닉네임으로 쓰는 이유가 그것이다 — 지어낸 이름이
-    //    아니라 **목이 이미 「자동으로 붙는다」고 선언한 이름**이 실제로 겹치는 이름이다.
-    if (mockAuth.ambiguousNicknames.has(nickname)) {
-      return [409, { detail: '같은 이름이 여럿이라 진도를 특정할 수 없어요.', code: 'NICKNAME_AMBIGUOUS' }];
+    // ⚠️ **없는 계정과 틀린 비밀번호를 가르지 않는다**(서버 `_authenticate`와 같은
+    //    의미론). 가르면 응답이 「그 이메일은 있다」를 자백한다.
+    if (mockAuth.savedAccounts.get(email) !== password) {
+      return [401, { detail: '이메일 또는 비밀번호가 올바르지 않습니다.', code: 'INVALID_CREDENTIALS' }];
     }
-    if (!mockAuth.takenNicknames.has(nickname)) {
-      return [404, { detail: '그 이름으로 저장된 진도를 찾지 못했어요.', code: 'NICKNAME_NOT_FOUND' }];
-    }
-    // 그 이름의 주인으로 갈아탄다 — 정식 계정 닉네임이면 게스트가 아니게 된다
-    // (서버가 게스트 한정 필터를 두지 않는 것과 같은 의미론).
-    mockAuth.isGuest = nickname !== '날씨러버';
-    mockAuth.nickname = mockAuth.isGuest ? nickname : null;
+    // 그 계정의 주인으로 갈아탄다 — 저장을 마친 사람이므로 게스트가 아니다.
+    mockAuth.isGuest = false;
+    mockAuth.nickname = null;
     return [200, { access_token: 'mock-resume-access', refresh_token: 'mock-resume-refresh' }];
   },
   // R11-01 §6.2: 게스트→정식 계정 전환 — BE-1 서버 계약 그대로.
@@ -2078,6 +2092,10 @@ const routes = {
       return [409, { detail: '이미 등록된 이메일입니다.', code: 'EMAIL_ALREADY_EXISTS' }];
     }
     mockAuth.registeredEmails.add(body.email);
+    // 🔴 **저장이 곧 불러오기의 열쇠가 된다**(2026-08-19 오후). 이 한 줄이 없으면
+    //    목에서 「저장했는데 그 자격으로 못 연다」가 되고, 그것이 정확히 오전 판이
+    //    실서버에서 겪은 결함(저장과 불러오기가 서로 다른 열쇠)의 목 버전이다.
+    mockAuth.savedAccounts.set(body.email, body.password);
     mockAuth.isGuest = false;
     return [
       200,
