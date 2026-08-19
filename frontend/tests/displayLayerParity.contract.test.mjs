@@ -554,6 +554,11 @@ try {
   // `lines`는 **지금 실측값**이고 양방향 래칫이다. 늘면 새 한국어가 들어온 것,
   // 줄면 외부화가 진행된 것 — 어느 쪽이든 이 목록을 갱신해야 한다.
   const HANGUL_CORRECT = [
+    // 🔴 **여기와 HANGUL_GAPS를 가르는 선은 「사용자에게 닿는가」다.**
+    // 섞이면 다음 사람이 전부 옮긴다 — 개발 문자열까지 리소스로 가면 번역 대상이
+    // 부풀고, 사용자 문자열이 면제에 묻히면 en 복원 때 화면이 깨진다.
+    { file: 'src/modules/explore/schematic/glCore.js', lines: 2,
+      why: '셰이더 컴파일·링크 실패 시 throw하는 **개발자 진단**이다. 사용자 화면에는 SchematicGL의 폴백 문구(리소스)가 뜨고 이 문자열은 콘솔에만 남는다 — 번역 대상이 아니다.' },
     { file: 'src/lib/boardEngine.js', lines: 11,
       why: '서버 어휘 미러(ZONES·조건 파서 주석 문자열) — 화면 표시명은 board.map.zone에서 온다(PeninsulaMap.zoneLabel).' },
     { file: 'src/modules/board/boardLayout.js', lines: 4,
@@ -579,7 +584,33 @@ try {
   // ⚠️ 그 면제의 사유가 *"MASCOT_NAMES로 재수출돼 소비처가 여럿"*이었는데
   // **실측 소비처는 `src/**`에 0곳**이었다 — 짐작으로 적은 면제 사유가 작업을
   // 미루게 했다. **면제 사유도 근거여야지 짐작이면 안 된다.**
-  const HANGUL_GAPS = [];
+  const HANGUL_GAPS = [
+    // ── MT-22 입체 화살표 모식도(2026-08-19 등재 · PM 판정) ─────────────────
+    // 🔴 **외부화가 아니라 면제로 가는 근거 3개**: ⑴ `detectLocale`이 ko 고정이고
+    // 스위처가 언마운트라 **en 런타임 경로가 없다 — 사용자 영향 0** ⑵ 8/20이 마지막
+    // 기능 창인데 37줄을 옮기는 것은 **회귀면만 넓힌다** ⑶ 대장 §4.25가 이미
+    // 「i18n 위생 담당·대회 후」로 수신자와 시점을 세워 뒀다.
+    //
+    // ⚠️ **줄 수가 곧 계약이다**(양방향 래칫). 늘면 「새 한국어가 들어왔다」고 울고,
+    // 줄면 「외부화가 진행됐으니 낮추거나 지우라」고 운다. 그래서 값을 적는다.
+    //
+    // ✅ **이 목록에서 빠진 것 하나를 남긴다**: `SchematicGL.jsx`의 `ariaLabel`과
+    // WebGL2 폴백 문구는 **리소스로 뺐다**. 스크린리더가 읽고 화면에 그대로 뜨는
+    // **사용자 문자열**이기 때문이다 — 마스코트 `alt`에 적용한 기준과 같다.
+    // 「사용자에게 닿으면 리소스로, 안 닿으면 면제로」가 이 표의 가르는 선이다.
+    { file: 'src/modules/explore/ClimateSimPage.jsx', lines: 3,
+      why: '모식도 카드의 제목·설명·aria — 화면에 뜨는 사용자 문자열이라 결국 리소스로 가야 한다. §4.25 이월(수신자: i18n 위생 담당, 대회 후).' },
+    { file: 'src/modules/explore/TyphoonSimPage.jsx', lines: 6,
+      why: '위와 같음 — 모식도 2종의 제목·설명·aria.' },
+    { file: 'src/modules/explore/SchematicPanel.jsx', lines: 6,
+      why: '단계 컨트롤 라벨(이전/다음/n단계)과 도트 aria — 사용자 문자열. §4.25 이월.' },
+    { file: 'src/modules/explore/schematic/radiationScene.js', lines: 18,
+      why: '복사수지 장면의 라벨·단계 제목 — 화면에 겹쳐 그려지는 사용자 문자열. §4.25 이월.' },
+    { file: 'src/modules/explore/schematic/typhoonSectionScene.js', lines: 16,
+      why: '태풍 단면 장면의 라벨·단계 제목 — 위와 같음.' },
+    { file: 'src/modules/explore/schematic/typhoonLifecycleScene.js', lines: 13,
+      why: '태풍 생애 장면의 라벨·단계 제목 — 위와 같음.' },
+  ];
   // ⚠️ MT-22의 `src/modules/explore/schematic/**`는 origin/main에 **아직 없다**.
   // 병합되면 이 검사가 그 파일들을 처음으로 본다 — 외부화가 이월된 상태라면
   // HANGUL_GAPS에 { file, lines, why }를 넣어야 초록이 된다. **그 압력이 의도다**:

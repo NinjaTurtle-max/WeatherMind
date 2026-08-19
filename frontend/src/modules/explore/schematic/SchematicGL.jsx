@@ -9,18 +9,23 @@
  * 필요한 최소 껍데기이고, 배선은 `<SchematicGL scene={RADIATION_SCENE} step={n} />`
  * 한 줄이면 된다.
  *
- * ⚠️ **문구가 한국어 리터럴이다**(여기와 `radiationScene.js`). i18n 외부화는 별도
- * 담당 소유라 `i18n/resources/**`를 건드리지 않았다 — 옮길 대상은 이 파일의
- * 폴백 문구 1개와 장면의 `text` 문자열들이다.
+ * ✅ **이 파일의 사용자 문자열 2개는 리소스로 나갔다**(2026-08-19) — `ariaLabel`은
+ * 스크린리더가 읽고 폴백 문구는 WebGL2가 없을 때 화면에 그대로 뜬다. 마스코트
+ * `alt`에 적용한 기준과 같다: **사용자에게 닿으면 리소스로.**
+ * ⚠️ 장면 데이터(`radiationScene` 등)의 `text`·`title`은 **아직 리터럴이다** —
+ * 대장 §4.25 이월분이고 면제 대장에 줄 수로 등재돼 있다(늘면 계약이 운다).
  *
  * 실패는 「아무 일도 안 일어남」으로 수렴한다: WebGL2가 없거나 컨텍스트를 잃으면
  * 캔버스를 감추고 한 줄짜리 대체 문구만 남으며 `onFail`이 올라간다.
  */
 import { useEffect, useRef, useState, useMemo } from 'react';
+import { translate, getCurrentLocale } from '../../../i18n/core.js';
 import { mountSchematic, labelsFor } from './renderer.js';
 
+const tx = (key) => translate(getCurrentLocale(), key);
+
 export default function SchematicGL({
-  scene, step = 0, className = '', ariaLabel = '모식도', onFail,
+  scene, step = 0, className = '', ariaLabel, onFail,
 }) {
   const canvasRef = useRef(null);
   const handleRef = useRef(null);
@@ -60,7 +65,7 @@ export default function SchematicGL({
   const labels = useMemo(() => (ok && scene ? labelsFor(scene, step, aspect) : []), [ok, scene, step, aspect]);
 
   return (
-    <div className={`relative w-full ${className}`} role="img" aria-label={ariaLabel}>
+    <div className={`relative w-full ${className}`} role="img" aria-label={ariaLabel ?? tx('explore.schematic.ariaLabel')}>
       <canvas
         ref={canvasRef}
         className="block h-full w-full"
@@ -76,7 +81,7 @@ export default function SchematicGL({
         </span>
       ))}
       {!ok && (
-        <p className="p-4 text-sm text-slate-400">이 기기에서는 입체 모식도를 표시할 수 없습니다.</p>
+        <p className="p-4 text-sm text-slate-400">{tx('explore.schematic.unsupported')}</p>
       )}
     </div>
   );

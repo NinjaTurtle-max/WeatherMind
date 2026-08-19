@@ -559,6 +559,10 @@ export default {
     },
   },
   explore: {
+    schematic: {
+      ariaLabel: 'Schematic',
+      unsupported: 'This device cannot display the 3D schematic.',
+    },
     // MT-21: satellite schematic (modules/explore/SatelliteView.jsx).
     // schematicBadge is a contract, not decoration — the panel must say it is not
     // real imagery (the re-scope from KMA photography is what made F3 feasible).
