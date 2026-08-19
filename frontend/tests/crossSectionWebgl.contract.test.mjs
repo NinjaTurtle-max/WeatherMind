@@ -455,6 +455,16 @@ try {
       water.length >= 2,
       '지표수가 한 상자면 중심 깊이 정렬이 건물마다 이길 수 없다 — 벽이 물을 덮어 수면선이 사라진다.',
     );
+    // 🔴 **쪼개는 쪽으로 도망가지 못하게 상한도 둔다**(클라이언트: *"레이어를
+    //   너무 많이 쌓아서 그래"*). 3차에 저는 물을 6조각으로 쪼개 정렬을 이겼는데,
+    //   그것은 **원인을 늘려 증상을 덮은 것**이었다. 4차에서 물체를 줄여
+    //   (solid 29 → 19) 2판으로 성립시켰다. 다시 조각을 늘려 푸는 것을 막는다.
+    check(
+      `홍수 지표수가 2판을 넘지 않는다 (실측 ${water.length})`,
+      water.length <= 2,
+      '조각을 늘려 정렬을 이기는 것은 원인을 늘리는 것이다 — 물체를 줄여 풀어야 한다. ' +
+        '깊이 테스트가 없는 화가 알고리즘에서는 상자가 많을수록 어느 배치도 안전하지 않다.',
+    );
     // 잠겨야 할 것 = 3단계 수면(물 조각의 y 상단) 아래에 중심이 있는 도시 물체
     const surfaceTop = Math.max(...water.map((w) => w.center[1] + w.size[1] / 2));
     // 🔴 **선별식 정정(첫 판이 틀렸다)**: 「**일부** 잠김」은 물체의 **밑면**이
@@ -482,6 +492,37 @@ try {
         return inX && depth(wc) < d;
       });
     });
+    // 🔴 **자(尺)가 실제로 자 노릇을 하는가** — 변이로 찾은 구멍(2026-08-19).
+    //   차를 **아예 지워도** 위 단정들이 전부 초록이었다. 그런데 조사 §Q3의 결론이
+    //   *"침수 보도가 쓰는 기준은 **차의 창문선**(60~80 cm)이고 건물은 자로 쓰이지
+    //   않는다"*이고, 2차 반려의 정체가 **깊이를 잴 물건이 없어서**였다.
+    //   ⇒ 그 장치가 사라지는 것을 잡지 못하면 계약이 결함의 원인을 안 지킨다.
+    //
+    //   묻는 것 둘: **수면을 걸치는 작은 물체**(= 지붕이 남는다)와 **수면 아래에
+    //   온전히 잠긴 작은 물체**(= 창문선 아래가 잠긴다)가 함께 있는가.
+    //   「작은」의 기준은 건물과 가르는 것이다 — 차는 높이 0.024~0.030이고
+    //   가장 낮은 건물도 0.092다. 0.06은 그 사이의 여유 있는 경계다.
+    {
+      const CAR_MAX_H = 0.06;
+      const small = at3.filter((it) => !water.includes(it) && it.size[1] <= CAR_MAX_H && it.center[2] < 0.20 && it.center[0] > 0.33);
+      const straddling = small.filter((it) => {
+        const bottom = it.center[1] - it.size[1] / 2;
+        const top = it.center[1] + it.size[1] / 2;
+        return bottom < surfaceTop && top > surfaceTop;
+      });
+      const fullyUnder = small.filter((it) => {
+        const top = it.center[1] + it.size[1] / 2;
+        const bottom = it.center[1] - it.size[1] / 2;
+        return bottom >= 0 && top <= surfaceTop;
+      });
+      check(
+        `침수 깊이의 **자**가 있다 — 수면을 걸치는 부분 ${straddling.length}개 + 온전히 잠긴 부분 ${fullyUnder.length}개`,
+        straddling.length >= 1 && fullyUnder.length >= 1,
+        '차(창문선 0.034 · 지붕 0.058, 수면 0.046)가 없거나 수면을 걸치지 않는다 — ' +
+          '**깊이를 잴 물건이 없으면 사람이 침수를 못 읽는다**(조사 §Q3, 2차 반려의 원인). ' +
+          '건물은 침수 깊이의 자로 쓰이지 않는다.',
+      );
+    }
     check(
       `수면 아래 도시 물체 전부에 **더 가까운** 물 조각이 있다 (대상 ${submersible.length}개)`,
       submersible.length > 0 && uncovered.length === 0,
@@ -489,6 +530,64 @@ try {
         ? '수면 아래 도시 물체를 하나도 못 찾았다 — 대상 선별식이 낡았나? 공허 통과 방지로 실패로 둔다.'
         : `이 물체들은 물보다 카메라에 가까워 **물 위에 그려진다** ⇒ 벽에 수면선이 안 생긴다: ` +
           uncovered.map((it) => `x=${it.center[0].toFixed(3)} y=${it.center[1].toFixed(3)} z=${it.center[2].toFixed(3)}`).join(' / '),
+    );
+  }
+
+  // ── 8) 장면 복잡도 — **래칫**: 오늘보다 더 쌓을 수 없다 ────────────────────
+  // 🔴 **2026-08-19 클라이언트 지적: *"레이어를 너무 많이 쌓아서 그래"*.**
+  // 실측이 지적을 뒷받침했다 — 홍수가 20장면 중 **solid 29(2위의 3배)** ·
+  // **라벨 누적 10(중앙값의 2배)**로 둘 다 1위였고, 그 더미가 두 결함의 원인이었다:
+  //   ⓐ 깊이 테스트 없는 화가 알고리즘에서 **상자가 많을수록 가림이 엉킨다**
+  //      (앞줄 5채 중 3채·차 2대 중 1대가 물 위에 그려졌다)
+  //   ⓑ 라벨이 누적돼 마지막 단계에 몰린다 → *"글자들이 너무 난잡하다"*
+  //
+  // ⚠️ **중앙값 배수로 재는 첫 판을 버렸다.** 홍수·산불은 「위험」 복합 장면이라
+  //    **정당하게 가장 복잡하다** — 중앙값의 몇 배인가로 재면 그 사실을 벌한다.
+  //    그리고 그 상한은 지금 다른 조가 고치는 중인 장면(`wildfire_risk_dry_gale`
+  //    라벨 10)을 즉시 빨갛게 만들어 **남의 CI를 막는다.**
+  //
+  // ⇒ **래칫으로 간다.** 절대 좋은 값을 정하는 것이 아니라 **오늘 값보다 나빠질
+  //    수 없게** 못박는다. 개선이 들어오면 그때 이 숫자를 내린다 —
+  //    **올리는 것은 답이 아니다**(그때는 표현을 줄이는 것이 답이다).
+  {
+    // 오늘의 값. 내릴 때만 고친다.
+    const RATCHET = {
+      // 전 장면 공통 — 오늘의 최악. `wildfire_risk_dry_gale`이 라벨 10이고,
+      // 그 장면은 *"주황색 타원으로만 설명하는 게 너무 빈약해"* 반려로 재작업
+      // 중이다(다른 조 소유). 그 작업이 착지하면 이 값을 내릴 것.
+      anyLabels: 10,
+      // 홍수 — 4차 재작성으로 solid 29 → 19, 라벨 10 → 5로 줄인 값이다.
+      // 되돌리거나 다시 쌓으면 여기가 빨강이 난다.
+      floodSolids: 19,
+      floodLabels: 5,
+    };
+    const measure = (id) => {
+      const items = buildScene(id)?.items ?? [];
+      const steps = STORYBOARDS[id]?.length ?? 4;
+      let maxSolid = 0;
+      let maxLabel = 0;
+      for (let step = 0; step < steps; step += 1) {
+        const vis = items.filter((it) => step >= (it.at ?? 0) && (it.until === undefined || step <= it.until));
+        maxSolid = Math.max(maxSolid, vis.filter((it) => it.type === 'solid').length);
+        maxLabel = Math.max(maxLabel, vis.filter((it) => it.type === 'label').length);
+      }
+      return { maxSolid, maxLabel };
+    };
+    const all = Object.keys(SCENES).map((id) => ({ id, ...measure(id) }));
+    const overLabels = all.filter((r) => r.maxLabel > RATCHET.anyLabels);
+    check(
+      `어느 장면도 라벨 ${RATCHET.anyLabels}개를 넘지 않는다 (최대 ${Math.max(...all.map((r) => r.maxLabel))})`,
+      overLabels.length === 0,
+      `라벨이 누적돼 마지막 단계에 몰리면 판독이 무너진다 — 역할 끝난 라벨은 \`until\`로 걷는다. ` +
+        `**이 상한을 올리지 말 것**(표현을 줄이는 것이 답이다): ` +
+        overLabels.map((r) => `${r.id} ${r.maxLabel}`).join(' / '),
+    );
+    const flood = measure('flood_risk_saturated_inflow');
+    check(
+      `홍수 solid ≤ ${RATCHET.floodSolids} (실측 ${flood.maxSolid}) · 라벨 ≤ ${RATCHET.floodLabels} (실측 ${flood.maxLabel})`,
+      flood.maxSolid <= RATCHET.floodSolids && flood.maxLabel <= RATCHET.floodLabels,
+      `4차 재작성이 줄인 값(solid 19 · 라벨 5)을 넘었다. 깊이 테스트 없는 합성에서 ` +
+        `상자를 늘리면 가림이 다시 엉키고, 라벨을 늘리면 3단계에 몰린다. **줄여서 풀 것.**`,
     );
   }
 

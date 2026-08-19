@@ -1027,9 +1027,18 @@ function FloodRiskScene({ step, animate }) {
         x={FL.basement - 7} y="119" width="14" height="8" fill="#57534e"
       />
       {/* 두 라벨은 **수면(3단계 y=106) 위**에 둔다 — 아래에 두면 물에 덮여 사라지고,
-          하필 그 둘이 「왜 도시에서 잠기나」를 설명하는 대비다 */}
-      <CSText x={56} y={98} color="#3f6212" size={5.5}>{V.greenGroundSoaks}</CSText>
-      <CSText x={160} y={98} color="#44403c" size={5.5}>{V.cityImpervious}</CSText>
+          하필 그 둘이 「왜 도시에서 잠기나」를 설명하는 대비다.
+          ⚠️ **2026-08-19: 0~1단계에서만 뜬다.** 종전엔 단계 무관 상시라 3단계에
+             다른 5개와 함께 **7개가 몰렸다**. 대비는 도시가 등장하는 앞 단계에서
+             할 일을 마치고, 3단계의 결론은 물 자체가 말한다.
+             GL 쪽은 같은 판단을 `until: 1`로 적었다(scenes.js) — 두 벌이 갈리면
+             갤러리에서 GL과 SVG가 다른 글자 수를 보인다. */}
+      {step <= 1 && (
+        <>
+          <CSText x={56} y={98} color="#3f6212" size={5.5}>{V.greenGroundSoaks}</CSText>
+          <CSText x={160} y={98} color="#44403c" size={5.5}>{V.cityImpervious}</CSText>
+        </>
+      )}
 
       {/* 0 — 유입. 두 층으로 나눠 「쉬지 않고」를 두께로 보인다(바다는 서쪽 0~0.2) */}
       <Appear at={0} step={step} animate={animate}>
@@ -1082,7 +1091,13 @@ function FloodRiskScene({ step, animate }) {
         <CSText x={70} y={88} color="#0c4a6e" size={6}>{V.groundCannotAbsorb}</CSText>
         <CSText x={172} y={88} color="#0369a1" size={5.5}>{V.runoffGathersLow}</CSText>
         <CSText x={176} y={76} color="#075985" size={5.5}>{V.drainOverwhelmed}</CSText>
-        <CSText x={60} y={126} color="#0369a1" size={5.5}>{V.soilAlreadyFull}</CSText>
+        {/* `soilAlreadyFull`(땅이 이미 찼다)은 뺐다 — `groundCannotAbsorb`(땅이 못
+            흡수한다)와 **같은 사실의 두 표현**이고, 그 뜻은 캡션 4번째 문장이 이미
+            갖는다(*"땅이 스며들 수 있는 양을 넘겨 물이 고이기 시작해요"*).
+            **지운 것이 아니라 캡션이 소유한다** — 클라이언트: *"글자들이 너무 난잡하다"*.
+            ⚠️ 리소스 키는 지우지 않는다(`crossSectionLabels.js`가 목록으로 소유하고,
+               고아 키 금지 규칙은 **아무도 안 쓰는 키**를 말한다 — 이 키는 계속
+               그 목록에 있고 뜻도 유효하다). */}
         <CSText x={140} y={126} color="#0c4a6e" size={5.5}>{V.basementFloods}</CSText>
       </Appear>
     </BlockFrame>
