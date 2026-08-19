@@ -31,7 +31,19 @@ if not exist ".env" (
 
 echo.
 echo [1/5] Docker 백엔드 스택 기동 ^(postgres · redis · backend^)...
-%DC% up -d postgres redis backend
+rem ⚠️ **`--build`를 빼지 말 것**(2026-08-19 사고). backend 컨테이너는 코드와
+rem    데이터를 **다른 경로로** 받는다:
+rem      backend/app/     → 이미지에 COPY   (빌드 시점에 고정)
+rem      database/seed/   → 바인드 마운트   (호스트 파일이 그대로 보인다)
+rem    그래서 `--build` 없이 띄우면 **새 시드 + 옛 코드**가 만나고, 둘이 한
+rem    커밋에서 함께 바뀌었을 때 정확히 어긋난다. 실제 사고: MT-18(f45e1aa)이
+rem    board_rules.json에 태풍 규칙을, board_engine.py의 PHENOMENA에 'typhoon'을
+rem    같이 넣었는데, 옛 이미지가 새 규칙을 읽어 503
+rem    `rules[0](tropical_cyclone_genesis): phenomenon 'typhoon' enum 밖`을 냈다.
+rem    보드 문항이 통째로 못 풀리는 증상인데 소스는 초록이라 원인이 안 보였다.
+rem    postgres·redis는 `image:` 서비스라 --build가 그냥 넘어간다(빌드 대상 없음).
+rem    backend 이미지는 pip 레이어가 캐시되고 `COPY app`만 다시 타므로 몇 초다.
+%DC% up -d --build postgres redis backend
 if errorlevel 1 goto :dockerfail
 
 echo.

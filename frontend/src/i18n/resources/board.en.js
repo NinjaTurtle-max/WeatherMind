@@ -101,6 +101,7 @@ export default {
       toastFirstClear: '🧩 First clear! +{xp} XP',
       outOfCloudsRetry: 'Your clouds have all scattered — please try again in a moment.',
       submitFailed: 'Submission failed. Please try again in a moment.',
+      rulesUnavailable: 'Could not load the board scoring rules. Please try again in a moment.',
       entryFailed: 'Could not open the puzzle. Please try again in a moment.',
       backToList: '← Back to list',
       sandboxFooter: 'Sandbox play is not graded — and it never costs clouds ☁️',
