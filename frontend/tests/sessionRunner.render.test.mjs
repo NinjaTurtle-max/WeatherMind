@@ -259,6 +259,33 @@ try {
     /const isBoardItem = /.test(runner)
       && /bulkMode \|\| isBoardItem \? undefined : 'lg:grid lg:grid-cols-2/.test(runner),
   );
+
+  // ── 해설이 「다음 문항」보다 **위**다 (2026-08-19 사용자 지시) ──────────────
+  // 종전 순서는 배너 → 버튼 → 해설이라, 읽기 전에 넘어가는 버튼이 먼저 눈에
+  // 들어왔다. 뒤집으면서 **좁은 화면 몫은 같이 올리지 않았다** — FeedbackPanel은
+  // `fixed bottom-14` 오버레이라 DOM 순서가 화면에 안 보이는 대신, 딸린 `h-40`
+  // 자리막이는 흐름에 있어서 버튼 위로 가면 좁은 화면에서 버튼이 160px 밀린다.
+  // 그 비대칭이 이 계약의 본체다: **위는 lg 카드만, 아래는 좁은 화면 몫만.**
+  const at = (needle) => runner.indexOf(needle);
+  const iCard = at('<FeedbackCard');
+  const iBtn = at('data-session-next=');
+  const iPanel = at('<FeedbackPanel');
+  const iSpacer = at('className="h-40"');
+  say(
+    'ⓒ 넓은 화면 해설 카드가 「다음 문항」 버튼보다 앞에 있다',
+    iCard > -1 && iBtn > -1 && iCard < iBtn,
+  );
+  say(
+    'ⓓ 좁은 화면 고정 말풍선과 h-40 자리막이는 버튼 **뒤**에 남는다 (앞으로 가면 버튼이 160px 밀린다)',
+    iPanel > iBtn && iSpacer > iBtn,
+  );
+  // 갈라 놓은 두 자리가 같은 조건을 봐야 한다 — 한쪽만 고치면 화면 폭에 따라
+  // 해설이 뜨거나 안 뜨는 차이가 조용히 생긴다.
+  say(
+    'ⓔ 떨어진 두 해설 블록이 같은 플래그(showExplanation) 하나를 쓴다',
+    /const showExplanation = /.test(runner)
+      && (runner.match(/\{showExplanation && \(/g) ?? []).length === 2,
+  );
 }
 
 if (failed > 0) {
