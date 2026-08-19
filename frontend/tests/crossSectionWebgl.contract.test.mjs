@@ -611,7 +611,12 @@ try {
     // ⚠️ **값이 아니라 분포를 묻는다.** 특정 높이를 못박으면 더 나은 배치가 빨강이 된다.
     {
       const ratios = dry
-        .filter((it) => inCity(it) && it.size[1] > 0.06 && Math.abs(lo(it, 1)) < 1e-6)
+        // ⚠️ 문턱을 **수면선에서 읽는다**(2026-08-20 정정). 종전 `> 0.06`은 그때
+        //    가장 낮은 건물(0.068)에 맞춘 상수라, 클라이언트 지시로 들어온 네 번째
+        //    건물(h 0.055 = 76% 잠김, 조사 §2⑺의 「지붕만 남은 집」)을 **조용히
+        //    빼고** 3채로 셌다. 세려는 것은 「수면 위로 머리가 나온 집」이므로
+        //    문턱은 수면선 자신이다.
+        .filter((it) => inCity(it) && it.size[1] > waterline && Math.abs(lo(it, 1)) < 1e-6)
         .map((it) => Math.min(1, (waterline - lo(it, 1)) / it.size[1]));
       const spread = ratios.length ? Math.max(...ratios) - Math.min(...ratios) : 0;
       const MIN_SPREAD = 0.2;
@@ -627,29 +632,53 @@ try {
 
     // ── 7-F) 🔴 **깊이를 잴 자가 있는가** ─────────────────────────────────
     // 🔴 **변이로 찾은 구멍**(2026-08-19): 차를 **아예 지워도** 종전 단정이 전부
-    //   초록이었다. 그런데 조사 §Q3의 결론이 *"침수 보도가 쓰는 기준은 **차의
-    //   창문선**이고 건물은 자로 쓰이지 않는다"*이고, **2차 반려의 정체가 「깊이를
-    //   잴 물건이 없어서」**였다. 결함의 원인이던 장치가 사라지는 것을 계약이 못 잡으면
-    //   그 계약은 헛돈다.
-    // 🔴 **높이만 보던 판이 뚫린 적도 있다** — 넓적한 포장면이 「작은 물체」로 세어졌다.
-    //   그래서 **세 축 전부**로 잰다. 특히 z(깊이 방향)가 결정적이다: 차는 0.05,
-    //   건물은 0.09라 z만이 둘을 확실히 가른다(높이는 발치가 잘리면 건물도 작아진다).
+    //   초록이었다. **2차 반려의 정체가 「깊이를 잴 물건이 없어서」**였으므로,
+    //   결함의 원인이던 장치가 사라지는 것을 계약이 못 잡으면 그 계약은 헛돈다.
+    //
+    // 🔴 **자가 차에서 건물로 넘어왔다**(2026-08-20 클라이언트: *"자동차 없애고
+    //   건물을 추가하는 데 간격을 조금 벌려"*). 그래서 이 계약도 **차를 세는 것에서
+    //   요구를 세는 것으로** 옮긴다 — 종전 `CAR_MAX = [0.12, 0.06, 0.06]`은 자의
+    //   **정체**(차 크기)를 물었고, 그 정체가 지시로 바뀌자 울었다. 요구 자체는
+    //   *"수면 위와 아래가 함께 보이는 물건이 있어야 사람이 깊이를 읽는다"*이고
+    //   그것은 차든 건물이든 같다.
+    //
+    // ⇒ 요구를 셋으로 적는다:
+    //   ⑴ 수면선에서 **갈린 물건**이 있다 — 위 조각과 아래 조각이 **둘 다** 있고,
+    //   ⑵ 그 둘의 **색이 다르다**(아래만 물빛 — 조사 §2⑴),
+    //   ⑶ 갈린 물건이 **여럿**이고 잠긴 비율이 서로 다르다(조사 §2⑺의 4단계).
+    //     ⚠️ ⑶이 없으면 한 채만 갈려도 통과한다. 「지붕만 남은 집」과 「벽 절반인
+    //        집」이 **함께** 있는 것이 깊이를 말하는 방식이다.
+    // ⚠️ 물건의 크기·이름·좌표를 안 적는다. 「도시 안에 있고 지표에서 서서 수면선에
+    //    갈린 것」이라는 **뜻**으로만 고른다.
     {
-      const CAR_MAX = [0.12, 0.06, 0.06];
-      const ruler = city.filter((it) => it.size.every((v, i) => v <= CAR_MAX[i]));
-      const above = ruler.filter((it) => lo(it, 1) >= waterline - 1e-6);
-      const below = ruler.filter((it) => hi(it, 1) <= waterline + 1e-6 && lo(it, 1) >= 0);
-      const straddles = ruler.length > 0
-        && Math.min(...ruler.map((it) => lo(it, 1))) < waterline
-        && Math.max(...ruler.map((it) => hi(it, 1))) > waterline;
-      const tinted = above.length > 0 && below.length > 0
-        && below.some((b) => above.some((a) => a.color.some((v, i) => Math.abs(v - b.color[i]) > 1e-6)));
+      const eps = 1e-6;
+      const grounded = city.filter((it) => Math.abs(lo(it, 1)) < eps || (lo(it, 1) >= -eps && lo(it, 1) < waterline));
+      const byColumn = new Map();
+      for (const it of city) {
+        const key = `${lo(it, 0).toFixed(3)}~${hi(it, 0).toFixed(3)}`;
+        if (!byColumn.has(key)) byColumn.set(key, []);
+        byColumn.get(key).push(it);
+      }
+      const cutColumns = [...byColumn.entries()].filter(([, parts]) => {
+        const under = parts.filter((it) => hi(it, 1) <= waterline + eps && lo(it, 1) >= -eps);
+        const over = parts.filter((it) => lo(it, 1) >= waterline - eps);
+        if (!under.length || !over.length) return false;
+        return under.some((b) => over.some((a) => a.color.some((v, k) => Math.abs(v - b.color[k]) > eps)));
+      });
+      const cutRatios = cutColumns.map(([, parts]) => {
+        const top = Math.max(...parts.map((it) => hi(it, 1)));
+        return Math.min(1, waterline / top);
+      });
+      const spread = cutRatios.length ? Math.max(...cutRatios) - Math.min(...cutRatios) : 0;
       check(
-        `깊이를 잴 **자**가 있다 — 차 크기 조각 ${ruler.length}개가 수면선을 가로지르고(${straddles}) 위 ${above.length} · 아래 ${below.length}, 색이 갈린다(${tinted})`,
-        ruler.length >= 2 && straddles && above.length >= 1 && below.length >= 1 && tinted,
-        '차(창문선 0.034 · 지붕 0.058)가 없거나 수면선을 가로지르지 않는다 — '
-          + '**깊이를 잴 물건이 없으면 사람이 침수를 못 읽는다**(조사 §Q3, 2차 반려의 원인). '
-          + '건물은 침수 깊이의 자로 쓰이지 않고, 자는 **수면 위와 아래가 함께 보여야** 자 노릇을 한다.',
+        `깊이를 잴 **자**가 있다 — 수면선에서 갈린 물건 ${cutColumns.length}개(지표에 선 조각 ${grounded.length}), `
+          + `잠긴 비율 ${cutRatios.map((r) => `${Math.round(r * 100)}%`).join(' · ') || '없음'} (편차 ${Math.round(spread * 100)}%p)`,
+        cutColumns.length >= 2 && spread >= 0.2,
+        cutColumns.length < 2
+          ? '수면선에서 **위·아래가 다른 색으로 갈린 물건**이 2개 미만이다 ⇒ 깊이를 잴 자가 없다. '
+            + '자는 **수면 위와 아래가 함께 보여야** 자 노릇을 한다(조사 §2⑴ · 2차 반려의 원인).'
+          : `갈린 물건들이 **비슷한 비율로** 잠겨 있다(편차 ${Math.round(spread * 100)}%p). `
+            + '「지붕만 남은 집」과 「벽 절반인 집」이 함께 있어야 얼마나 깊은지가 읽힌다(조사 §2⑺).',
       );
     }
 
@@ -659,21 +688,159 @@ try {
     // ⚠️ `ground`도 자기들끼리는 중심 깊이로 정렬되므로 **진한 쪽이 나중에** 그려져야
     //    한다. 뒤집히면 계조가 사라지는 것이 아니라 **반대로 뒤집힌다** — 화면에서는
     //    「가장자리가 깊다」로 보이고, 어느 시험도 그것을 안 물으면 조용히 통과한다.
+    // 🔴 **깊은 쪽을 alpha로 고르지 않는다**(2026-08-20 정정). 종전엔
+    //   `sort((a, b) => a.color[3] - b.color[3])`로 **투명도**가 깊이를 정했고,
+    //   `deep.color[3] - faint.color[3] >= 0.15`를 요구했다. 그런데 클라이언트가
+    //   *"물이 다 차서 회색 면은 물로 비치지도 않아야"* 한다고 반려해 **두 판을 모두
+    //   불투명으로** 올리자 이 계약이 울었다 — 요구(계조가 산다)는 그대로인데
+    //   **방법(알파로 낸다)**을 물고 있었기 때문이다.
+    //   ⇒ **밝기로 고른다.** 「깊을수록 어둡다」가 요구 자체이고 알파든 색이든
+    //     그것을 내면 된다. 밝기 차 0.10은 종전 알파 차 0.15과 같은 자리의 문턱이다
+    //     (cyan-500 `#06b6d4` 0.573 ↔ cyan-700 `#0e7490` 0.354 — 여유 0.219).
+    //   ⚠️ 불투명한 판은 **뒤가 안 비치므로 알파를 곱하지 않는다.** 반투명으로
+    //     되돌아가면 실효 밝기는 이 식보다 밝아지지만, 그때는 알파 차가 다시
+    //     밝기 차를 만들어 이 계약이 여전히 성립한다.
     {
-      const sorted = [...water].sort((a, b) => a.color[3] - b.color[3]);
+      const lum = (it) => 0.2126 * it.color[0] + 0.7152 * it.color[1] + 0.0722 * it.color[2];
+      const sorted = [...water].sort((a, b) => lum(b) - lum(a));
       const faint = sorted[0];
       const deep = sorted[sorted.length - 1];
       const nested = water.length >= 2
         && lo(deep, 0) >= lo(faint, 0) - 1e-9 && hi(deep, 0) <= hi(faint, 0) + 1e-9
         && lo(deep, 2) >= lo(faint, 2) - 1e-9 && hi(deep, 2) <= hi(faint, 2) + 1e-9;
       check(
-        `물의 색 계조가 살아 있다 — ${water.length}장, alpha ${water.map((w) => w.color[3].toFixed(2)).join(' / ')} · `
+        `물의 색 계조가 살아 있다 — ${water.length}장, 밝기 ${water.map((w) => lum(w).toFixed(3)).join(' / ')} · `
           + `진한 쪽이 나중(${order(deep).toFixed(4)} > ${order(faint).toFixed(4)}) · 가운데다(${nested})`,
-        water.length >= 2 && deep.color[3] - faint.color[3] >= 0.15 && order(deep) > order(faint) && nested,
+        water.length >= 2 && lum(faint) - lum(deep) >= 0.10 && order(deep) > order(faint) && nested,
         water.length < 2
           ? '지표수가 한 장뿐이라 **깊이를 말할 수단이 없다** — 두께를 뺐으므로 남은 것은 색 계조뿐이다.'
-          : `진한 물이 옅은 물보다 **먼저** 그려지거나(순서 ${order(deep).toFixed(4)} vs ${order(faint).toFixed(4)}) `
+          : `진한 물이 옅은 물보다 밝거나(밝기 ${lum(deep).toFixed(3)} vs ${lum(faint).toFixed(3)}) **먼저** 그려지거나(순서 ${order(deep).toFixed(4)} vs ${order(faint).toFixed(4)}) `
             + `가장자리에 있다(가운데 ${nested}) ⇒ 계조가 뒤집혀 「가장자리가 깊다」로 보인다.`,
+      );
+    }
+
+    // ── 7-G2) 🔴 **물에 잠긴 자리에 마른 면이 남아 있지 않은가** ──────────
+    // **2026-08-20 클라이언트**: *"물이 덮인 게 아니잖아 회색 면이 뒤쪽에 왜 보여?"* ·
+    // *"물이 다 차서 회색 면은 물로 비치지도 않아야 하는데 지금 계속 비치잖아"*
+    //
+    // 실측이었던 것: 포장면 x 0.335~1.000 · z 0.000~0.420 vs 지표수 x 0.335~0.980 ·
+    // z 0.140~0.420 — **깊이의 3분의 1에 물이 안 갔고**, 덮은 자리에서도 alpha 0.42라
+    // 회색이 비쳤다. 원인은 물이 `air`였을 때 정렬을 이기려고 z0을 당긴 값이 `ground`로
+    // 내린 뒤에도 남은 것 — **개선이 만든 유물**이다.
+    //
+    // 🔴 이 결함을 **어떤 계약도 안 물고 있었다.** 되돌림 시험에서 확인했다: 포장면의
+    //    `until: 2`를 빼 3단계에 회색을 되살려도 전 계약이 조용히 통과했다.
+    //    「계약이 안 운다」는 「없다」가 아니라 **「그 자리에 계약이 없다」**다.
+    //
+    // ⇒ 요구로 적는다: **3단계에 「지표에 닿는 윗면을 가진 ground 판」 중 물이 아닌
+    //   것은 물과 x·z에서 겹치면 안 된다.** 겹치면 둘 중 하나가 반드시 다른 하나를
+    //   덮고, 어느 쪽이 이기든 「물에 잠긴 면」이 거짓이 된다.
+    // ⚠️ 좌표도 색도 적지 않는다 — 물의 범위는 **물에서 읽고**, 마른 면은 「물이 아닌
+    //    지표 판」이라는 뜻으로 고른다. 그래야 판형을 옮겨도 이 계약이 안 낡는다.
+    // ⚠️ **몸통은 빼고 센다.** 물은 몸통 「위에 얹힌 판」이 아니라 몸통의 **윗면에 칠한
+    //    얼룩**이므로 몸통과 겹치는 것이 당연하다(그것이 10차의 요지다). 몸통을 안 빼면
+    //    이 계약은 **고쳐도 영원히 우는** 계약이 된다.
+    //    몸통은 좌표로 지목하지 않고 **지표 판 중 바닥 면적이 가장 넓은 것**으로 고른다.
+    const surfaceGround = wet.filter((it) => it.layer === 'ground' && hi(it, 1) >= 0 && lo(it, 1) < 0.02);
+    const footprint = (it) => (hi(it, 0) - lo(it, 0)) * (hi(it, 2) - lo(it, 2));
+    const bodyTop = [...surfaceGround].sort((a, b) => footprint(b) - footprint(a))[0];
+    {
+      const overlap1 = (a, b, i) => Math.max(0, Math.min(hi(a, i), hi(b, i)) - Math.max(lo(a, i), lo(b, i)));
+      const dryTop = surfaceGround.filter((it) => it !== bodyTop && !water.includes(it));
+      const clashes = [];
+      for (const d of dryTop) {
+        for (const w of water) {
+          const a = overlap1(d, w, 0) * overlap1(d, w, 2);
+          if (a > 1e-6) clashes.push(`${d.color.slice(0, 3).map((v) => Math.round(v * 255)).join(',')}×${a.toFixed(3)}`);
+        }
+      }
+      check(
+        `3단계에 물과 겹치는 마른 지표면이 없다 — 지표 판 ${surfaceGround.length}장(물 ${water.length} · 마름 ${dryTop.length}), 겹침 ${clashes.length}건`,
+        water.length >= 1 && clashes.length === 0,
+        water.length === 0
+          ? '3단계에 지표수가 없다 — 선별식이 낡았나? 공허 통과 방지로 실패로 둔다.'
+          : `마른 지표면이 물과 겹친다(${clashes.join(' / ')}). 둘 중 하나가 반드시 다른 하나를 덮는다 — `
+            + '정렬 키가 어느 쪽을 나중에 놓든 「잠긴 면」이 거짓이 된다. 포장면과 지표수는 '
+            + '**같은 자리의 두 상태**이므로, 마른 면을 `until`로 걷고 그 자리를 물이 갖게 할 것.',
+      );
+    }
+
+    // ── 7-G3) 🔴 **물판 하나하나가 제 구역 끝까지 갔는가** ────────────────
+    // 7-G2가 「마른 면이 물 아래 남았나」를 묻는다면 이것은 **「물이 끝까지 갔나」**다.
+    // 둘이 다르다 — 마른 판을 지워 버리면 7-G2는 통과하지만 물이 뒷줄에 안 닿는
+    // 상태는 그대로고, 그때는 회색 대신 **맨 흙**이 보인다.
+    //
+    // ⚠️ **판 하나하나를 본다. 합집합이 아니다.** 합집합으로 재면 얕은 판이 z 0.14에서
+    //    끝나도 깊은 판이 z 0을 덮어 **통과한다** — 실제로는 x 0.335~0.52 · z 0~0.14에
+    //    마른 띠가 남는데도. (되돌림 시험 ②에서 합집합판이 조용히 통과하는 것을 봤다.)
+    //
+    // ⚠️ **서쪽 변만 몸통 안에서 끝날 수 있다.** 물이 x 0.335에서 시작하는 것은
+    //    **투수↔불투수 대비**(조사 §3F ④) 때문에 의도된 것이다. 나머지 세 변
+    //    (동·앞·뒤)은 몸통 변에 물려야 한다 — 계조 판들이 그 세 변을 옅은 판과 같은
+    //    값으로 맞물려 경계선을 x 한 줄로 줄인 것이 10차의 설계다.
+    {
+      const body = bodyTop;
+      const short = body ? water.filter((w) => lo(w, 2) > lo(body, 2) + 1e-9
+        || hi(w, 2) < hi(body, 2) - 1e-9
+        || hi(w, 0) < hi(body, 0) - 1e-9) : [];
+      check(
+        `물판이 저마다 몸통 변에 물린다 — 몸통 x~${body ? hi(body, 0).toFixed(3) : '?'} · z ${body ? `${lo(body, 2).toFixed(3)}~${hi(body, 2).toFixed(3)}` : '?'}, `
+          + `못 미친 판 ${short.length}장${short.length ? ` (${short.map((w) => `x~${hi(w, 0).toFixed(3)} z ${lo(w, 2).toFixed(3)}~${hi(w, 2).toFixed(3)}`).join(' / ')})` : ''}`,
+        !!body && water.length >= 1 && short.length === 0,
+        !body || water.length === 0
+          ? '몸통 또는 지표수를 못 찾았다 — 선별식이 낡았다. 공허 통과 방지로 실패로 둔다.'
+          : '물판이 몸통 변에 못 미친다 ⇒ 그 자리에 마른 띠가 남는다. 물이 `air`였을 때 '
+            + '정렬을 이기려고 z0을 앞으로 당긴 값이 남아 있지 않은지 볼 것 — `ground`는 정렬을 '
+            + '이길 필요가 없다. (서쪽 변은 의도된 것이라 안 본다.)',
+      );
+    }
+
+    // ── 7-G4) 🔴 **물이 불투명한가** ───────────────────────────────────────
+    // **2026-08-20 클라이언트**: *"물이 다 차서 회색 면은 물로 비치지도 않아야 하는데
+    // 지금 계속 비치잖아"* — alpha 0.42/0.72라 아래 포장이 그대로 비쳤다.
+    // 🔴 되돌림 시험에서 **반투명으로 되돌려도 전 계약이 조용히 통과했다.**
+    // ⇒ 요구는 「아래 것이 안 비친다」이고, 물 아래에는 **몸통이 언제나 있다.**
+    //   스텁 렌더러는 픽셀을 안 만들므로 그 요구를 잴 수 있는 자리는 alpha뿐이다.
+    // ⚠️ 잃는 것이 없다는 근거를 함께 남긴다: 잠긴 물체의 윤곽은 물의 투명도가 아니라
+    //    `sunk()`가 **물체 제 자리에 제 조각으로** 그려서 살아 있고(조사 §2⑴),
+    //    몸통의 격자선은 pass 3이라 물 **위에** 그어진다.
+    {
+      const sheer = water.filter((w) => w.color[3] < 1 - 1e-9);
+      check(
+        `지표수가 불투명하다 — alpha ${water.map((w) => w.color[3].toFixed(2)).join(' / ')}`,
+        water.length >= 1 && sheer.length === 0,
+        water.length === 0
+          ? '3단계에 지표수가 없다 — 선별식이 낡았다. 공허 통과 방지로 실패로 둔다.'
+          : `반투명한 물판 ${sheer.length}장 ⇒ 아래 몸통·얼룩이 물 색을 뚫고 비친다. `
+            + '깊이 계조는 알파가 아니라 **색**이 진다(7-G).',
+      );
+    }
+
+    // ── 7-G5) 🔴 **땅속 판이 몸통 윗면을 덮지 않는가** ─────────────────────
+    // 2026-08-20 실렌더 대조에서 나온 결함이다. 땅속 포화대(y -0.066~-0.022)가
+    // z 0.10~Z, 즉 몸통 깊이의 4분의 3을 차지했고 `order`가 몸통보다 커서 **몸통보다
+    // 나중에** 그려졌다 — depth test가 꺼진 판에서 **아래에 있는 것이 위를 덮었다.**
+    // 결과: 풀밭이 청록으로 뒤덮여 사라졌고, 앞 잘린 면에 수위선을 그을 자리가 없었다.
+    //
+    // 🔴 **회색 포장이 물 위로 비친 것과 같은 뿌리다** — y가 낮다고 뒤로 가지 않는다.
+    // ⇒ 요구: 몸통보다 나중에 그려지는 땅속 판은 **앞 잘린 면에 붙은 얇은 켜**여야
+    //   한다. 두꺼우면 그 윗면이 몸통 윗면 위로 올라온다.
+    // ⚠️ 문턱 15%는 몸통 깊이에서 **비율로** 읽는다 — 0.42를 적으면 판형이 바뀔 때
+    //    이 계약이 안 운다.
+    {
+      const body = bodyTop;
+      const bodyDepth = body ? hi(body, 2) - lo(body, 2) : 0;
+      const sub = wet.filter((it) => it.layer === 'ground' && hi(it, 1) < 0 && body && order(it) > order(body));
+      const bad = sub.filter((it) => (hi(it, 2) - lo(it, 2)) > bodyDepth * 0.15 + 1e-9
+        || hi(it, 2) < hi(body, 2) - 1e-9);
+      check(
+        `땅속 판이 몸통 윗면을 안 덮는다 — 몸통보다 나중인 땅속 판 ${sub.length}장, 두껍거나 앞면에서 떨어진 것 ${bad.length}장`
+          + `${sub.length ? ` (${sub.map((it) => `z ${lo(it, 2).toFixed(2)}~${hi(it, 2).toFixed(2)} / 몸통 ${bodyDepth.toFixed(2)}`).join(' / ')})` : ''}`,
+        !!body && bad.length === 0,
+        !body
+          ? '몸통을 못 찾았다 — 선별식이 낡았다. 공허 통과 방지로 실패로 둔다.'
+          : '땅속 판이 몸통보다 나중에 그려지면서 깊이까지 두껍다 ⇒ 그 윗면이 **몸통 윗면 위로 덧칠**된다. '
+            + '땅속 포화는 원래 **단면에서만 보이는 것**이다(조사 정정 2) — 앞 잘린 면에 붙은 얇은 켜로 둘 것.',
       );
     }
 
