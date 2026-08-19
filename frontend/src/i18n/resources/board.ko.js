@@ -653,7 +653,9 @@ export default {
       curveAria: 'CO2 {co2}ppm에서 온도 아노말리 {anomaly}℃',
       presentMark: '현재≈{n}',
       title: '🌡️ 기후변화 체험',
-      disclaimer: '교육용 단순화 모델이에요. ΔT = S·log₂(C/C₀), S=3.0℃(배증당) 로그 감도 근사로, 실제 기후 전망(수치 모델)·특정 연도 예측이 아니에요.',
+      // ⚠️ S를 문장에 못박지 말 것 — 민감도가 조작 변수가 된 뒤로(2026-08-19) 상수를
+      // 적어 두면 슬라이더를 올려도 설명만 "3.0℃"라 화면이 자기 그래프와 다른 말을 한다.
+      disclaimer: '교육용 단순화 모델이에요. ΔT = S·log₂(C/C₀), S={sens}℃(배증당) 로그 감도 근사로, 실제 기후 전망(수치 모델)·특정 연도 예측이 아니에요.',
       anomalyTitle: '지구 평균기온 아노말리',
       anomalySub: '산업화 이전(280ppm) 대비 상승분 — 로그 감도 곡선',
       co2Label: 'CO₂ 농도',
@@ -661,9 +663,27 @@ export default {
       scaleNow: '현재 ≈ {n}ppm',
       scaleMax: '{max}ppm 배증',
       reset: '현재 농도로 되돌리기',
+      // ── ⑬ 조작 변수 2종 추가(2026-08-19). 범위의 근거는 `lib/exploreSims.js`의
+      //    상수 선언 위 주석이 소유한다(IPCC AR6 원문 인용·URL).
+      varsTitle: '바꿔보기',
+      sensLabel: '기후민감도 (CO₂ 두 배당)',
+      sensScaleMin: '{min}℃',
+      sensScaleLikely: '가능성 높음 {lo}~{hi}℃',
+      sensScaleMax: '{max}℃',
+      sensSource: 'IPCC AR6이 평가한 폭 2~5℃(가능성 매우 높음)예요. 가장 그럴듯한 값은 3.0℃이고, 1.5℃보다 작을 가능성은 거의 없다고 봤어요.',
+      seaSlopeLabel: '해수면 반응 (1℃당)',
+      seaSlopeScaleMin: '{min}cm',
+      seaSlopeScaleNow: '기본 {n}cm',
+      seaSlopeScaleMax: '{max}cm',
+      // ⚠️ 「평가된 신뢰구간이 아니다」를 지우지 말 것 — IPCC가 cm/℃ 자체를 평가한
+      //    값은 없고, 이 폭은 2100년 해수면과 승온 평가값을 나눠 만든 탐구용이다.
+      seaSlopeSource: 'IPCC AR6 요약보고서의 2100년 해수면·기온 값에서 만든 탐구용 폭이에요. 평가된 신뢰구간은 아니고, 천 년 단위로 보면 이보다 훨씬 커요.',
+      whySens: '지금 민감도는 {sens}℃예요. IPCC가 가능성이 높다고 본 구간은 {lo}~{hi}℃라, 이 값을 올리면 같은 농도에서도 더 많이 더워져요.',
+      whySea: '해수면 반응을 1℃당 {k}cm로 두면, {anomaly}℃ 상승은 해수면 약 {sea}cm가 돼요.',
       seaTitle: '해수면 상승',
       seaUnit: 'cm',
-      seaNote: '열팽창·빙하 융해를 1℃당 약 23cm로 축약한 교육 근사',
+      // ⚠️ 계수를 문장에 못박지 말 것 — 조작 변수가 됐다(위 `seaSlopeLabel`).
+      seaNote: '열팽창·빙하 융해를 1℃당 약 {k}cm로 축약한 교육 근사',
       heatTitle: '연간 폭염일수',
       heatUnit: '일',
       heatNote: '기준 10일/년에서 1℃당 약 1.9배로 늘어나는 교육 근사',

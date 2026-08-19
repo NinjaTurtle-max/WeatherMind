@@ -389,7 +389,9 @@ export default function ClimateSimPage() {
           title={t('explore.climate.seaTitle')}
           value={result.sea_level}
           unit={t('explore.climate.seaUnit')}
-          note={t('explore.climate.seaNote')}
+          // ⚠️ 계수를 넘겨야 한다 — 이 문구가 「1℃당 약 {k}cm」라서, 안 넘기면
+          // 슬라이더를 39로 올려도 설명만 「23cm」라 카드가 자기 값과 다른 말을 한다.
+          note={t('explore.climate.seaNote', { k: seaLevelPerDeg })}
         />
         <IndicatorCard
           icon="🔥"

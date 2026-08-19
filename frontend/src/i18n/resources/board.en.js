@@ -678,7 +678,9 @@ export default {
       curveAria: 'Temperature anomaly {anomaly}°C at CO2 {co2} ppm',
       presentMark: 'now≈{n}',
       title: '🌡️ Experience Climate Change',
-      disclaimer: 'This is a simplified educational model. ΔT = S·log₂(C/C₀) with S = 3.0°C per doubling — a logarithmic-sensitivity approximation, not a real climate projection (numerical model) or a prediction for any specific year.',
+      // ⚠️ Do not hard-code S — it became an adjustable variable (2026-08-19), so a
+      // fixed number would make the text contradict the graph the learner is moving.
+      disclaimer: 'This is a simplified educational model. ΔT = S·log₂(C/C₀) with S = {sens}°C per doubling — a logarithmic-sensitivity approximation, not a real climate projection (numerical model) or a prediction for any specific year.',
       anomalyTitle: 'Global mean temperature anomaly',
       anomalySub: 'Rise relative to pre-industrial (280 ppm) — logarithmic sensitivity curve',
       co2Label: 'CO₂ concentration',
@@ -686,9 +688,27 @@ export default {
       scaleNow: 'now ≈ {n} ppm',
       scaleMax: '{max} ppm doubling',
       reset: 'Reset to current concentration',
+      // ── ⑬ two adjustable variables added (2026-08-19). The ranges' evidence lives in
+      //    the constant declarations in `lib/exploreSims.js` (IPCC AR6 quotes + URLs).
+      varsTitle: 'Try changing',
+      sensLabel: 'Climate sensitivity (per CO₂ doubling)',
+      sensScaleMin: '{min}°C',
+      sensScaleLikely: 'likely {lo}–{hi}°C',
+      sensScaleMax: '{max}°C',
+      sensSource: 'IPCC AR6 assessed a very likely range of 2–5°C. The best estimate is 3.0°C, and it is virtually certain to be above 1.5°C.',
+      seaSlopeLabel: 'Sea-level response (per 1°C)',
+      seaSlopeScaleMin: '{min} cm',
+      seaSlopeScaleNow: 'default {n} cm',
+      seaSlopeScaleMax: '{max} cm',
+      // ⚠️ Keep "not an assessed confidence interval" — IPCC never assessed cm/°C
+      //    itself; this envelope is derived by dividing 2100 sea-level by warming.
+      seaSlopeSource: 'An exploratory range derived from the 2100 sea-level and warming figures in the IPCC AR6 Summary for Policymakers. It is not an assessed confidence interval, and over millennia the value is far larger.',
+      whySens: 'Sensitivity is currently {sens}°C. IPCC judged {lo}–{hi}°C to be the likely range, so raising this warms the planet more at the same concentration.',
+      whySea: 'With a sea-level response of {k} cm per 1°C, a {anomaly}°C rise gives about {sea} cm of sea-level rise.',
       seaTitle: 'Sea level rise',
       seaUnit: 'cm',
-      seaNote: 'Educational approximation condensing thermal expansion and glacier melt to about 23 cm per 1°C',
+      // ⚠️ Do not hard-code the coefficient — it is now an adjustable variable.
+      seaNote: 'Educational approximation condensing thermal expansion and glacier melt to about {k} cm per 1°C',
       heatTitle: 'Heatwave days per year',
       heatUnit: 'days',
       heatNote: 'Educational approximation: from a baseline of 10 days/year, roughly ×1.9 per 1°C',
