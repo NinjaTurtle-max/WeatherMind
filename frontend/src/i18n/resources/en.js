@@ -300,7 +300,10 @@ export default {
     note: 'You can change this any time under My Info.',
   },
   placement: {
+    // 이 skip은 **진단 전체를 그만두는** 헤더 버튼이다 — 문항 스킵(dontKnow)과 별개.
     skip: 'Skip →',
+    dontKnow: "I don't know — count as wrong",
+    dontKnowNote: "You can move on without picking an answer. Questions you skip are graded as incorrect.",
     title: 'Placement — find my level',
     hint: "🧭 Just 10 questions — it's okay to get them wrong, it's only a check-in!",
     finalizingTitle: 'Finding your level…',
