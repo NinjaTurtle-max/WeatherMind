@@ -86,6 +86,23 @@ needs_node = pytest.mark.skipif(
 )
 
 
+def strip_js_comments(src: str) -> str:
+    """줄 전체가 주석인 줄을 지운다 — **뼈대 단정은 코드만 봐야 한다.**
+
+    ⚠️ 이 함수는 역검증에서 나왔다. `test_목_slider가_파싱_성공을_먼저_본다`의
+    `Number.isFinite` 단정이, 그 코드를 지운 변이에서도 **초록**이었다 — 같은 줄을
+    설명하는 **주석**에 그 문자열이 들어 있었기 때문이다(같은 파일의 경위 주석은
+    이 저장소의 관례라 앞으로도 계속 늘어난다). 주석으로 만족되는 단정은 계약이
+    아니라 장식이고, 이 파일의 첫 문장이 바로 *"주석은 계약이 아니다"*였다.
+
+    문자열 안의 `//`(URL 등)를 깨지 않도록 **줄 머리가 주석인 줄만** 지운다 —
+    코드 뒤에 붙은 꼬리 주석은 남는다(단정 대상이 그 앞 코드라 무해하다).
+    """
+    return "\n".join(
+        line for line in src.splitlines() if not re.match(r"\s*(//|/\*|\*)", line)
+    )
+
+
 def _iter_source_files():
     for root in SENTINEL_DEF_ROOTS:
         if not root.exists():
@@ -140,14 +157,20 @@ def mock_src() -> str:
 
 
 @pytest.fixture(scope="module")
+def mock_code(mock_src: str) -> str:
+    """주석을 뺀 목 소스 — 뼈대 단정은 코드만 본다(`strip_js_comments` 참조)."""
+    return strip_js_comments(mock_src)
+
+
+@pytest.fixture(scope="module")
 def grade_fn(mock_src: str) -> str:
-    """목 `gradeSessionItem` 본문 — 뼈대 단정의 대상."""
+    """목 `gradeSessionItem` 본문 — 뼈대 단정의 대상. **주석은 제거한다.**"""
     fn = re.search(r"function gradeSessionItem\(.*?\n\}\n", mock_src, re.S)
     assert fn, (
         "목의 gradeSessionItem을 못 찾았다 — 함수 이름이 바뀌었으면 이 계약을 "
         "갱신할 것(지우지 말 것: 스킵이 목에서 오답인지를 여기서만 본다)"
     )
-    return fn.group(0)
+    return strip_js_comments(fn.group(0))
 
 
 class TestSentinelValueParity:
@@ -208,14 +231,14 @@ class TestSentinelValueParity:
         )
         assert policy["placement_skip_sentinel"] == answer_service.PLACEMENT_SKIP_SENTINEL
 
-    def test_목_정책이_리터럴_사본이_아니라_상수_식별자를_내보낸다(self, mock_src):
+    def test_목_정책이_리터럴_사본이_아니라_상수_식별자를_내보낸다(self, mock_code):
         """`test_r13_mock_policy_parity`의 같은 단정을 답습한다 (CO-J-9).
 
         값을 `__mockPolicy()` 안에 다시 적으면 채점이 쓰는 상수와 신고값이 갈릴
         수 있고, 그때 위 실값 대조가 **신고값만 보고 초록**을 낸다.
         """
         block = re.search(
-            r"export const __mockPolicy = \(\) => \(\{(.*?)\n\}\);", mock_src, re.S
+            r"export const __mockPolicy = \(\) => \(\{(.*?)\n\}\);", mock_code, re.S
         )
         assert block, "__mockPolicy 본문을 못 찾았다 — 이 계약을 갱신할 것"
         assert "placement_skip_sentinel: MOCK_PLACEMENT_SKIP_SENTINEL" in block.group(1), (
@@ -291,7 +314,7 @@ class TestMockRuleSkeleton:
             "「정답」이 된다)"
         )
 
-    def test_목_배치_θ가_스킵을_분모에는_세고_분자에는_안_센다(self, mock_src):
+    def test_목_배치_θ가_스킵을_분모에는_세고_분자에는_안_센다(self, mock_code):
         """「스킵은 안 푼 것이 아니라 **틀린 것**」의 목 쪽 표현.
 
         ⚠️ **θ 값의 동치는 주장하지 않는다** — 서버는 IRT EAP이고 목은
@@ -301,18 +324,24 @@ class TestMockRuleSkeleton:
         **안 본 문항**이 되어 θ가 안 떨어지고, 배치고사가 스킵을 보상한다.
         """
         block = re.search(
-            r"const byConcept = new Map\(\);(.*?)\n      \}", mock_src, re.S
+            r"const byConcept = new Map\(\);(.*?)\n      \}", mock_code, re.S
         )
         assert block, "목의 배치 θ 집계 루프를 못 찾았다 — 이 계약을 갱신할 것"
         body = block.group(1)
-        # 분모: 응답이 있으면 무조건 오른다 (조건 없는 증가)
-        assert re.search(r"^\s*agg\.n \+= 1;", body, re.M), (
-            "개념별 분모(n) 증가가 무조건이 아니다 — 스킵이 「안 본 문항」이 되면 "
-            "θ가 안 떨어지고 배치고사가 스킵을 보상한다"
-        )
-        # 분자: is_correct일 때만 오른다
-        assert re.search(r"if \(r\.is_correct\) agg\.correct \+= 1;", body), (
-            "분자(correct) 증가가 is_correct 게이트 밖이다"
+        assert "agg.n += 1" in body, "개념별 분모(n) 증가를 못 찾았다"
+        assert "agg.correct += 1" in body, "개념별 분자(correct) 증가를 못 찾았다"
+        # 분모 증가가 is_correct 게이트보다 **앞**이라야 무조건이다.
+        #
+        # ⚠️ 여기는 처음에 `^\s*agg\.n \+= 1;`(줄 머리 정규식)이었고 **역검증에서
+        # 뚫렸다**: `agg.n += 1;`을 `if (r.is_correct)` 블록 **안**으로 옮겨도
+        # `\s*`가 늘어난 들여쓰기를 그대로 먹어 초록이었다. 들여쓰기는 조건부인지를
+        # 말해 주지 않는다 — **위치**로 봐야 한다(구름 게이트 순서 단정과 같은 방법).
+        n_at = body.index("agg.n += 1")
+        gate_at = body.index("if (r.is_correct)")
+        assert n_at < gate_at, (
+            "분모(n) 증가가 is_correct 게이트 **안**으로 들어갔다 — 스킵·오답이 "
+            "표본에서 빠져 「안 본 문항」이 되고, θ가 안 떨어져 배치고사가 스킵을 "
+            "보상한다(전건 스킵이면 0/0 = NaN까지 간다)"
         )
         # 스킵을 건너뛰는 분기가 없다 — 있으면 위 두 단정이 초록인 채 뼈대가 깨진다
         assert "continue" in body and body.count("continue") == 1, (

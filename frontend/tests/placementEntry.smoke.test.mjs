@@ -431,8 +431,13 @@ try {
           + '스킵만 한 학습자가 진단 화면에 갇힌다',
       );
     }
+    // ⚠️ 응답의 `placement_done`은 **못 박힌 리터럴**이라 단정으로 쓸 수 없다 —
+    // 역검증에서 드러났다: 목의 `state.placementDone = true`를 지워도 페이로드는
+    // 여전히 `placement_done: true`를 실어 이 스모크가 **초록**이었다. 저장이
+    // 안 됐으므로 학습자는 다음 진입에서 진단을 다시 받는다. 그래서 페이로드가
+    // 아니라 **남는 상태**를 본다(아래 ⑤에서 /dev/state로).
     if (summary.placement_done !== true) {
-      throw new Error('complete가 placement_done을 안 세웠다 — 진단이 끝나지 않는다');
+      throw new Error('complete 응답에 placement_done이 없다 — 계약 필드가 사라졌다');
     }
     if (summary.correct_count !== 0) {
       throw new Error(`전건 스킵인데 correct_count가 ${summary.correct_count}다`);
@@ -457,8 +462,16 @@ try {
       );
     }
 
-    // ⑤ 선해제 방향 — 개수를 못박지 않고 「전건 스킵이면 안 열린다」만 본다
+    // ⑤ **남는 상태** — 응답 페이로드가 아니라 서버가 기억하는 것을 본다
     const devState = await (await fetch(`${origin}/api/v1/dev/state`)).json();
+    if (devState.placement_done !== true) {
+      throw new Error(
+        '전건 스킵 세션을 끝냈는데 진단 완료가 **저장되지 않았다** — 학습자가 '
+          + '다음 진입에서 진단을 처음부터 다시 받는다(응답의 placement_done은 '
+          + '못 박힌 리터럴이라 이 갈림을 못 본다)',
+      );
+    }
+    // 선해제 방향 — 개수를 못박지 않고 「전건 스킵이면 안 열린다」만 본다
     if (devState.unlock_floor !== 0) {
       throw new Error(
         `전건 스킵인데 유닛 ${devState.unlock_floor}개가 선해제됐다 — 스킵이 늘면 `
