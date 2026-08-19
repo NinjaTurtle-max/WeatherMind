@@ -212,6 +212,12 @@ export const HEAT_DAYS_GROWTH = 1.9;
  * 똑같이** 동작해야 하기 때문이다(아래 하위 호환 계약). 그다음 범위로 클램프한다.
  */
 function paramOr(value, fallback, lo, hi) {
+  // 🔴 `Number(null)`과 `Number('')`는 **0이고 유한하다** — 그래서 `Number.isFinite`
+  // 하나로는 그 둘이 기본값으로 안 떨어지고 **하한으로 클램프된다.** 민감도라면
+  // null 하나가 3.0이 아니라 2.0으로 읽히는 것이고, 이 함수 주석이 약속한
+  // "생략·null·NaN일 때 현행 상수와 똑같이"를 어긴다. 계약이 잡았다
+  // (tests/exploreSims.test.mjs ⑬ⓒ, 2026-08-19).
+  if (value === null || value === '') return clamp(fallback, lo, hi);
   const n = Number(value);
   return clamp(Number.isFinite(n) ? n : fallback, lo, hi);
 }

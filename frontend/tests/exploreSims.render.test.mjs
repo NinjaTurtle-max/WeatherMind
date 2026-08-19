@@ -193,6 +193,83 @@ try {
   const cssSrc = await readFile(resolve(root, 'src/styles/index.css'), 'utf8');
   checkMt21('ⓑ 스크롤바 자리를 늘 비운다 — 화면을 오갈 때 본문이 옆으로 안 밀린다',
     /scrollbar-gutter:\s*stable/.test(cssSrc));
+
+  // ── ⑬ 「숫자만 바뀌고 그림이 안 바뀌면 탐구가 아니다」 (2026-08-19) ────────
+  /**
+   * 클라이언트가 준 AC 그대로다. 이 화면에는 그 결함이 **미리 놓여 있었다** —
+   * 곡선 `useMemo`의 의존성이 `[]`이고 주석이 *"상수 기반 — 의존성 없음"*이었다.
+   * 민감도가 조작 변수가 된 순간 곡선은 첫 렌더로 얼어붙는다.
+   *
+   * ⚠️ **못 무는 것을 밝힌다**: jsdom·SSR에 래스터라이저가 없어 「눈에 보인다」는
+   * 원리적으로 측정 불가다. 여기서 재는 것은 **폴리라인 좌표 문자열과 축 눈금이
+   * 실제로 달라지는지**까지다. 「그려졌다」가 아니라 「좌표가 달라졌다」다.
+   */
+  {
+    const page = await server.ssrLoadModule('/src/modules/explore/ClimateSimPage.jsx');
+    const sims = await server.ssrLoadModule('/src/lib/exploreSims.js');
+    const pageSrc = await readFile(
+      resolve(root, 'src/modules/explore/ClimateSimPage.jsx'), 'utf8');
+    // 주석을 걷는다 — 산문을 값으로 읽으면 고쳐 놓고도 빨강이 나고, 반대로
+    // 주석이 단정을 만족시켜 지워도 초록이 된다(양쪽 다 이번 라운드에 실제로 났다).
+    const code = pageSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+    // ⓐ 곡선이 민감도에 따라 실제로 달라진다 — 이 티켓의 본체
+    const curveLo = page.anomalyCurvePoints(sims.CLIMATE_SENSITIVITY_MIN);
+    const curveMid = page.anomalyCurvePoints(sims.CLIMATE_SENSITIVITY);
+    const curveHi = page.anomalyCurvePoints(sims.CLIMATE_SENSITIVITY_MAX);
+    checkMt21('⑬ⓐ 곡선 좌표가 민감도마다 다르다(셋이 서로 다르다)',
+      curveLo !== curveMid && curveMid !== curveHi && curveLo !== curveHi);
+    // 방향까지 — 민감도가 높으면 곡선이 **위로** 간다(SVG는 y가 작을수록 위).
+    const lastY = (pts) => Number(pts.split(' ').at(-1).split(',')[1]);
+    checkMt21(
+      `⑬ⓐ 민감도가 높을수록 곡선 끝이 위로 간다 (${lastY(curveHi)} < ${lastY(curveMid)} < ${lastY(curveLo)})`,
+      lastY(curveHi) < lastY(curveMid) && lastY(curveMid) < lastY(curveLo));
+
+    // 🔴 ⓑ 축이 **현재 민감도에 묶이지 않았다.** 묶이면 y = anomaly/maxY 에서
+    //    S가 약분돼 **어떤 민감도에서도 곡선이 똑같아진다** — ⓐ가 그것을 잡지만,
+    //    왜 그런지가 여기 남아 있어야 다음 사람이 maxY를 되돌리지 않는다.
+    checkMt21('⑬ⓑ 축 상한이 슬라이더 최대치로 고정이다(현재 민감도가 아니다)',
+      sims.CLIMATE_SENSITIVITY_MAX === page.CURVE_MAX_Y
+      && page.CURVE_MAX_Y !== sims.CLIMATE_SENSITIVITY);
+    checkMt21(`⑬ⓑ y 눈금이 축 상한까지 있다 — 최대 ${Math.max(...page.CURVE_Y_TICKS)}℃`,
+      Math.max(...page.CURVE_Y_TICKS) >= Math.floor(page.CURVE_MAX_Y));
+    // 곡선 전 좌표가 그림 안에 있다 — 축이 좁으면 곡선이 위로 삐져나간다.
+    const ys = curveHi.split(' ').map((p) => Number(p.split(',')[1]));
+    checkMt21('⑬ⓑ 최대 민감도에서도 곡선이 그림 안에 있다',
+      Math.min(...ys) >= page.CURVE_VIEW.pad.top);
+
+    // ⓒ 값을 넣는 자리와 의존성 목록은 **한 쌍**이다 — 둘 중 하나만 고치면
+    //   결함이 그대로 남는다(원래 결함이 정확히 그 형태였다).
+    checkMt21('⑬ⓒ 곡선 useMemo가 민감도를 의존성으로 갖는다',
+      /useMemo\(\s*\(\)\s*=>\s*anomalyCurvePoints\(sensitivity\)\s*,\s*\[\s*sensitivity\s*\]\s*\)/.test(code));
+
+    // ⓓ 조작 변수가 화면에 **3개** 있다(축이 하나면 「바꿔가며」가 성립하지 않는다)
+    const sliders = code.match(/type="range"/g) ?? [];
+    checkMt21(`⑬ⓓ 조작 변수가 3개다 — 실제 ${sliders.length}개`, sliders.length === 3);
+
+    // ⓔ 범위에 자료 근거가 붙어 있다 — 근거 없는 범위는 교육적 거짓이다.
+    const libSrc = await readFile(resolve(root, 'src/lib/exploreSims.js'), 'utf8');
+    checkMt21('⑬ⓔ 슬라이더 범위에 1차 자료 출처가 붙어 있다(IPCC URL)',
+      /ipcc\.ch\/report\/ar6/i.test(libSrc));
+
+    // 🔴 ⓕ 변수가 된 값을 **문구에 못박지 않았다.** 못박으면 슬라이더를 올려도
+    //    설명만 옛 숫자를 말해 화면이 자기 그래프와 다른 말을 한다.
+    for (const loc of ['ko', 'en']) {
+      const res = await readFile(resolve(root, `src/i18n/resources/board.${loc}.js`), 'utf8');
+      const climate = res.slice(res.indexOf('climate: {'));
+      const disclaimer = climate.match(/disclaimer:\s*'([^']*)'/)?.[1] ?? '';
+      const seaNote = climate.match(/seaNote:\s*'([^']*)'/)?.[1] ?? '';
+      checkMt21(`⑬ⓕ ${loc} disclaimer가 민감도를 보간으로 받는다`,
+        disclaimer.includes('{sens}') && !/S\s*=\s*3\.0/.test(disclaimer));
+      checkMt21(`⑬ⓕ ${loc} seaNote가 해수면 계수를 보간으로 받는다`,
+        seaNote.includes('{k}') && !/\b23\s*cm/i.test(seaNote));
+    }
+    // 그리고 호출부가 실제로 넘긴다 — 리소스만 고치면 `{k}`가 화면에 그대로 뜬다.
+    checkMt21('⑬ⓕ seaNote 호출부가 계수를 넘긴다',
+      /seaNote'\s*,\s*\{\s*k:\s*seaLevelPerDeg\s*\}/.test(code));
+    checkMt21('⑬ⓕ disclaimer 호출부가 민감도를 넘긴다',
+      /disclaimer'\s*,\s*\{\s*sens:/.test(code));
+  }
 } finally {
   await server.close();
 }
