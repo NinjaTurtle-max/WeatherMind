@@ -17,11 +17,17 @@ import { useT } from '../../i18n';
 /**
  * WeatherBrainPanel (R6 WeatherBrain) — 개념별 능력(θ) 분석 패널.
  * GET /progress/abilities → [{concept_tag, theta, theta_se, num_responses,
- *   level_label, updated_at}] (약한 개념 우선 정렬).
+ *   level_label, knowledge_level(+_max), updated_at}] (약한 개념 우선 정렬).
+ *   ⚠️ `knowledge_level`을 이 목록에 **꼭 적어 둔다** — 2026-08-19에 칩·레이더가
+ *   그 필드를 소비하기 시작했는데 이 줄은 소비 전 목록 그대로였다. 낡은 필드
+ *   목록은 다음 사람이 "안 내려오는 값"으로 읽고 폴백을 지우게 만든다(§0).
  *
  * WeatherMind 자체 적응형 모델(WeatherBrain)이 개념별 이해도를 추정해 난이도를
  * 배정한다. θ(로짓 -3..3)를 0..100 표시 스케일로 정규화해 가로 막대로 보여주고,
  * num_responses===0(사전 배정, 아직 측정 아님) 개념은 옅은 막대·안내 문구로 구분한다.
+ * 막대 끝 칩의 **글자는 교과 단계**(knowledge_level)이고 **색은 4밴드**
+ * (level_label)다 — 두 축이 한 칩에 겹쳐 있는 것이 아니라, 표기만 교과 단계로
+ * 모으고 색이 쓰던 축은 그대로 둔 것이다(lib/abilityDisplay.knowledgeLevelLabel).
  * θ 표시 헬퍼(정규화·한글 라벨·칩 색)는 lib/abilityDisplay로 추출해
  * 배치고사 결과 화면(R7-01 S3)과 공유하며, 막대도 같은 div 관용구를 쓴다
  * (PlacementSummary와 동일 — 차트 라이브러리 불사용).
