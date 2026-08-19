@@ -307,10 +307,12 @@ export default {
   },
   // lib/onboardingGate.js DAILY_GOAL_CHOICES 라벨 + DailyGoal.jsx(피커·미터)
   dailyGoal: {
+    // 키는 DAILY_GOAL_CHOICES의 값이다(lib/onboardingGate.js). 최대값 10은 하루
+    // 세션 문항 수와 같다 — 2026-08-19에 9에서 바뀌었다(「오늘 목표 10/9」 결함).
     choiceLabel: {
       3: '가볍게',
       5: '보통',
-      9: '열심히',
+      10: '열심히',
     },
     choiceCaption: '하루 {items}문항',
     itemsUnit: '{items}문항',

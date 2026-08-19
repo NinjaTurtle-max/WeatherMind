@@ -668,8 +668,11 @@ const CLOUD_MAX = 10;
 const CLOUD_REGEN_MS = 20 * 60 * 1000; // 20분당 1개 회복
 const CLOUD_COST = 1; // 소모 1회분 (R10-01 §3.1: 수치 불변, 트리거만 변경)
 
-// 일일 목표 허용값 (R10-01 §3.4·D4) — SESSION_RECIPE(합 10)와 독립된 표시용 타깃.
-const DAILY_GOAL_CHOICES = [3, 5, 9];
+// 일일 목표 허용값 (R10-01 §3.4·D4) — 서버 `routers/progress.py`와 같아야 한다.
+// ⚠️ 2026-08-19: 최대값이 9 → 하루 세션 문항 수(SESSION_RECIPE 합 10)로 바뀌었다.
+// 종전에는 "SESSION_RECIPE와 독립된 표시용 타깃"이라 적혀 있었고 설계로는 옳았으나
+// 화면에서 「오늘 목표 10/9」가 됐다(클라이언트 반려). 3·5는 부분 목표라 그대로다.
+const DAILY_GOAL_CHOICES = [3, 5, 10];
 
 /** 지연 회복(§3.3): 읽기·소모 시점에 elapsed로 회복량 계산·clamp·anchor 갱신 */
 function regenClouds() {
