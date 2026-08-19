@@ -1952,12 +1952,46 @@ const sessionItemsOf = (s) =>
     };
   });
 
+/**
+ * 배치고사 「모르겠어요」 센티널 — server `PLACEMENT_SKIP_SENTINEL`의 목 대응물.
+ *
+ * 건너뛴 문항은 **새 필드가 아니라 기존 `answer` 필드에 이 값**으로 온다
+ * (서버 `PlacementAnswerItem`이 `extra='forbid'`라 필드를 늘릴 통로가 없다).
+ *
+ * ⚠️ **왜 빈 문자열이 아닌가 — 목이 빈 답을 「정답」으로 채점하던 자리다.**
+ * `answer: str = ""`가 서버 스키마 기본값이라 "빈 답 = 스킵"이 자연스러워 보이지만,
+ * 이 파일의 slider 채점이 `Number('')` → **0**이어서 `|0 - 정답| <= 허용오차`가
+ * 되고, **정답값이 허용오차 이하인 slider 문항은 빈 답이 정답**이 됐다. 서버
+ * `_grade_slider`는 `float('')` → ValueError → 오답이다. 즉 빈 문자열을 표식으로
+ * 쓰면 스킵이 목에서만 정답이 되고, **프론트 스모크가 목 위에서 도는 탓에 그
+ * 결함이 계약으로 굳는다**(「목이 서버를 안 따라와 화면에 안 닿는다」의 최악 형태).
+ * 비어 있지 않은 센티널은 양쪽 채점기에서 **구조적으로 오답**이다
+ * (`float('__skip__')` → ValueError / `Number('__skip__')` → NaN).
+ *
+ * 값의 **단일 소유자는 서버 상수**이고 목은 같은 리터럴을 쓴다. 세 자리(서버 상수·
+ * 프론트·목)가 같은 값인지는 backend `test_placement_skip_mock_parity.py`가 문다 —
+ * ⚠️ 여기 주석에 "서버와 같다"고 적는 것은 계약이 아니다(이 파일에 그 주석이
+ * 이미 있었고 그래도 갈렸다).
+ */
+const MOCK_PLACEMENT_SKIP_SENTINEL = '__skip__';
+
 function gradeSessionItem(item, rawAnswer) {
   const answer = String(rawAnswer ?? '').trim();
   const { correct, accept, tolerance } = item._mock;
   const norm = (v) => v.replace(/\s+/g, '').toLowerCase();
 
+  // 「모르겠어요」 = 무조건 오답 (유형 분기보다 **앞**이다).
+  // 센티널은 어느 분기에서도 우연히 오답이지만, 그 우연에 기대지 않는다: 규칙이
+  // 유형별 채점의 부수효과로만 성립하면 채점기를 손댈 때 조용히 뒤집힌다.
+  // 진척(`answered`)은 호출자가 결과를 저장하면서 올라간다 — 스킵도 「푼 문항」이다.
+  if (answer === MOCK_PLACEMENT_SKIP_SENTINEL) return false;
+
   if (item.question_type === 'slider') {
+    // ⚠️ **파싱 성공 여부를 먼저 본다** — 서버 `_grade_slider`는 `float()` 실패를
+    // 오답으로 떨구는데, JS `Number('')`는 0이라 목만 「정답」이 됐다(선재 결함:
+    // 정답값 <= 허용오차인 문항에서 빈 답이 통과. 스킵과 별개로 존재했다).
+    // 빈 문자열은 `Number.isFinite(Number(''))`가 true라 따로 걸러야 한다.
+    if (answer === '' || !Number.isFinite(Number(answer))) return false;
     return Math.abs(Number(answer) - Number(correct)) <= (tolerance ?? 0);
   }
   if (item.question_type === 'short_answer' || item.question_type === 'cloze') {
@@ -3199,6 +3233,11 @@ export const __mockPolicy = () => ({
   // 내보내면 배열이 6건에 멈춰 있어도 패리티가 초록이라 결함이 그대로 산다 —
   // 이 항목이 애초에 그렇게 생겼다(결함 ④).
   placement_size: PLACEMENT_ITEMS.length,
+  // 배치고사 「모르겠어요」 센티널 (server PLACEMENT_SKIP_SENTINEL).
+  // ⚠️ 리터럴을 다시 적지 말고 **상수 식별자를 내보낸다** — 값을 여기 복사하면
+  // 이 항목이 자기 사본을 대조하게 되고, 그것이 에너지 상수 3종이 갈렸던 방식이다
+  // (CO-J-9). 세 자리 대조는 `test_placement_skip_mock_parity.py`가 소유한다.
+  placement_skip_sentinel: MOCK_PLACEMENT_SKIP_SENTINEL,
   // 학령 (server schemas/auth.LevelGroup)
   level_groups: LEVEL_GROUPS,
   // 보드 난이도 잠금 (server routers/board.BAND_MAX_DIFFICULTY)
