@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="only light" />
+    <title>WeatherMind — 모식도 전수 갤러리 (판정용)</title>
+  </head>
+  <body>
+    <!--
+      ⚠️ 이 진입점은 **개발 전용 판정 도구**다.
+      · vite dev가 `/gallery.html`로 그대로 서빙한다.
+      · `vite.config.js`의 `build.rollupOptions.input`에 등록하지 **않았다** —
+        본 빌드(index.html)에 한 바이트도 섞이지 않는다는 뜻이고, 그것이
+        「추적 파일 수정 0건」의 조건이다.
+      · `src/**` 밖에 둔 이유: `displayLayerParity.contract`가 `src/**`를 전수로
+        훑어 한국어 리터럴을 잡는다. 판정용 설명문은 리소스화 대상이 아니므로
+        애초에 그 스윕 밖에 둔다.
+    -->
+    <div id="root"></div>
+    <script type="module" src="/gallery/main.jsx"></script>
+  </body>
+</html>
