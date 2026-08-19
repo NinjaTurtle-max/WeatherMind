@@ -802,25 +802,32 @@ const UNITS = [
 // user_unit_progress 흉내 (unit_id → {crowns, cleared_at}). 첫 유닛 1개를 클리어 상태로 시드
 // → u2 열림(현재), u3 잠금, u4 열림, u5 잠금 혼합을 학습 홈에서 보여준다.
 const unitProgress = new Map([
-  ['u0000001-0000-4000-8000-000000000001', { crowns: 1, cleared_at: '2026-07-18T09:00:00Z' }],
+  ['u0000001-0000-4000-8000-000000000001', { crowns: 1, cleared_at: '2026-07-18T09:00:00Z', attempted_at: '2026-07-18T09:00:00Z' }],
 ]);
 
 // id 또는 slug로 조회 — 프론트 라우트는 트리의 id를, spine.current_unit은 slug를 쓴다(R8-01 §3.3).
 const getUnit = (idOrSlug) => UNITS.find((u) => u.id === idOrSlug || u.slug === idOrSlug) ?? null;
 const getUnitProgress = (id) => {
-  if (!unitProgress.has(id)) unitProgress.set(id, { crowns: 0, cleared_at: null });
+  if (!unitProgress.has(id)) unitProgress.set(id, { crowns: 0, cleared_at: null, attempted_at: null });
   return unitProgress.get(id);
 };
 // 배치 θ 선해제(R7-02 S4): 배치 실응답 θ로 선두 연속 잠금 유닛이 왕관 0인 채
 // 열릴 수 있다(백엔드 파생). 목은 선해제된 유닛 id 집합으로 흉내 낸다.
 const preUnlockedUnits = new Set();
 
-/** 선행 잠금(§3.2): prereq 유닛 crowns>=1 이어야 열림. 첫 유닛(무 prereq)은 항상 열림.
- *  배치 θ 선해제(R7-02 S4) 유닛은 왕관 0이어도 열림. */
+/** 선행 잠금(§3.2) — 서버 `curriculum_service.is_locked`와 **같은 규칙**이어야 한다.
+ *  🔴 2026-08-19 결함 ⑩: 종전에는 `prereq.crowns >= 1`만 봤고 서버도 같았는데,
+ *  왕관이 만점·하루 첫·최초 완료를 모두 요구해 **한 문항만 틀려도 다음이 안 열렸다.**
+ *  진행과 보상을 갈랐다 — `attempted_at`(해 봤다)이 잠금을 풀고 `crowns`는 보상이다.
+ *  `crowns >= 1`은 OR로 남긴다(왕관만 올리는 유입로가 있다 — 배지·/dev).
+ *  첫 유닛(무 prereq)은 항상 열림 · 배치 θ 선해제(R7-02 S4)도 열림.
+ *  ⚠️ 이 함수와 서버가 갈리면 dev에서만 되는(또는 안 되는) 결함이 된다 —
+ *  `backend/tests/test_curriculum_mock_parity.py`가 그것을 문다. */
 const isUnitLocked = (unit) => {
   if (!unit.prereq_unit_id) return false;
   if (preUnlockedUnits.has(unit.id)) return false;
-  return (unitProgress.get(unit.prereq_unit_id)?.crowns ?? 0) < 1;
+  const p = unitProgress.get(unit.prereq_unit_id);
+  return !((p?.crowns ?? 0) >= 1 || p?.attempted_at != null);
 };
 
 /** 섹션 표시 메타 — 서버는 database/seed/section_meta.json이 소유한다.
@@ -2373,6 +2380,14 @@ const routes = {
       // 20"이다. grantUnitCrown의 반환 4필드 계약(crown_award 페이로드)은 건드리지
       // 않으려고 전/후 스냅샷으로 판정한다.
       const wasCleared = getUnitProgress(s.unit_id).cleared_at != null;
+      // 🔴 진행 기록은 **왕관과 무관하게 무조건**(2026-08-19 결함 ⑩ — 서버
+      // `unit_result_for_session`이 `grant_crown` 분기 **앞**에서 하는 것과 같다).
+      // 오답이 있어도·재완료여도 「해 봤다」는 사실은 참이고 다음 유닛은 그것으로
+      // 열린다. 멱등 — 첫 시도 시각을 보존한다.
+      {
+        const pr = getUnitProgress(s.unit_id);
+        if (pr.attempted_at == null) pr.attempted_at = new Date().toISOString();
+      }
       if (grantCrown) grantUnitCrown(unit ?? null);
       const prog = getUnitProgress(s.unit_id);
       const newlyCleared = !wasCleared && prog.cleared_at != null;
@@ -2832,6 +2847,9 @@ const routes = {
       const prog = getUnitProgress(unit.id);
       prog.crowns = Math.max(0, Number(body?.crowns ?? 1) || 0);
       prog.cleared_at = prog.crowns >= unit.crown_target ? new Date().toISOString() : null;
+      // /dev 경로도 진행 축을 채운다 — 왕관만 올리고 attempted_at을 비워 두면
+      // 「왕관은 있는데 다음이 안 열린다」가 되고, 그것이 결함 ⑩의 형태다.
+      if (prog.crowns > 0 && prog.attempted_at == null) prog.attempted_at = new Date().toISOString();
     } else {
       return [422, { detail: 'action은 unlock_all|crown|reset 입니다', code: 'VALIDATION_ERROR' }];
     }

@@ -136,7 +136,31 @@ def is_locked(
 ) -> bool:
     """잠금 판정 — 유일 지점(트리 노출·403 게이트 동일 적용).
 
-    §3.2: prereq_unit_id가 있고 그 유닛 crowns<1 이면 잠금. 첫 유닛 무잠금.
+    §3.2: prereq_unit_id가 있고 그 유닛을 **아직 해 보지 않았으면** 잠금.
+    첫 유닛 무잠금.
+
+    🔴 **2026-08-19: 「왕관 1개」에서 「완료 1회」로 바뀌었다**(클라이언트 지적 —
+    *"문제를 풀어도 왜 다음 단계가 안 열리니?"*).
+
+    종전 조건은 `prereq의 crowns >= 1`이었다. 그런데 왕관은 **세 조건이 동시에
+    참일 때만** 나간다(`routers/session.py`의 `grant_crown`):
+      `all_correct` ∧ `daily_first` ∧ `is_first_complete`
+    ⇒ **한 문항만 틀려도 · 그날 두 번째 유닛이어도 · 전에 한 번 푼 유닛이어도**
+    왕관이 0이고, 그러면 **다음 유닛이 영영 안 열렸다.** 하루에 열 수 있는 유닛이
+    사실상 1개이고 그것도 만점이어야 했다.
+
+    ⚠️ **왕관 조건 셋은 각각 타당하다.** `all_correct`는 실력 인정, `daily_first`는
+    「하루에 유닛을 여러 개 열수록 왕관 무제한」 구멍 차단(2026-08-13), 
+    `is_first_complete`는 재완료 파밍 차단(2026-08-14 — `crown_target >= 2` 유닛에서
+    같은 세션 재완료로 만관까지 가는 실제 결함이 있었다). **어느 것도 「진행을
+    막자」는 취지가 아니었다.** 결함은 조건이 아니라 **배선**이었다 — 진행(잠금)과
+    보상(왕관)이 같은 값 하나를 보고 있었다.
+
+    ⇒ **두 축을 가른다**(⑦ 게이지가 「인정」과 「푼 것」을 가른 것과 같은 형태):
+      · **진행** = `attempted_at`(그 유닛 세션을 한 번 끝냈다) → 다음이 열린다
+      · **보상** = `crowns`(만점 · 하루 첫 · 최초 완료) → 왕관·XP. **불변.**
+    `crowns >= 1`을 **OR로 남긴다** — 배지·`/dev` 경로가 왕관만 올리는 유입로가
+    있어서(모듈 독스트링 ⑵⑶), 그것만으로 열려 온 기존 학습자를 되돌리지 않는다.
     R7-02 §3.4 배치 선해제: 유닛의 전체 순서 인덱스(order_index, ordered_units
     기준) < unlock_floor 이면 prereq와 무관하게 열림 — placement_unlock_floor가
     산출한 선두 연속 구간. 기본값 unlock_floor=0 은 현행 동작(선해제 없음).
@@ -150,7 +174,14 @@ def is_locked(
     if prereq is None:
         return False
     prog = progress_by_unit.get(prereq)
-    return not (prog is not None and prog.crowns >= 1)
+    if prog is None:
+        return True
+    # `getattr` — 이 함수는 순수 함수라 호출측이 `.crowns`만 가진 대역물을 넘길 수
+    # 있고(테스트가 실제로 `SimpleNamespace`를 쓴다), 그때 **왕관만 보던 종전
+    # 동작으로 내려가는 것이 안전한 기본값**이다. 새 축을 모르는 호출측을 깨뜨리며
+    # 여는 것보다 덜 여는 쪽이 낫다(`is_locked`는 403 게이트도 겸한다 — 트리에
+    # unlocked로 보이는데 403이 나는 어긋남이 §CO-L1의 실제 사고였다).
+    return not (prog.crowns >= 1 or getattr(prog, "attempted_at", None) is not None)
 
 
 def scope_units_to_course(
@@ -1618,6 +1649,38 @@ async def award_crown_for_activity(
     }
 
 
+async def mark_unit_attempted(
+    db: AsyncSession, user: User, unit_id: uuid.UUID
+) -> None:
+    """이 유닛을 한 번 끝냈음을 기록한다 — **진행 축**(2026-08-19 결함 ⑩).
+
+    `crowns`(보상)와 **다른 축**이다. 왕관은 만점·하루 첫·최초 완료가 모두 참일
+    때만 나가지만, 잠금 해제는 「해 봤다」는 사실만 요구한다. 사유의 단일 소유자는
+    `is_locked` 독스트링이다.
+
+    **멱등** — 이미 값이 있으면 덮지 않는다. 첫 시도 시각을 보존하는 쪽이
+    맞고(진단·분석에 쓸 수 있다), `is_locked`는 NULL 여부만 보므로 갱신할 이유가
+    없다. `grant_unit_crown`이 멱등이 **아닌** 것과 의도적으로 다르다(그쪽은
+    호출 횟수가 왕관 수를 바꾼다 — `plan_crown` 독스트링).
+
+    진도 행이 없으면 만든다(`grant_unit_crown`과 같은 관례).
+    """
+    prog = (
+        await db.execute(
+            select(UserUnitProgress).where(
+                UserUnitProgress.user_id == user.id,
+                UserUnitProgress.unit_id == unit_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if prog is None:
+        prog = UserUnitProgress(user_id=user.id, unit_id=unit_id, crowns=0)
+        db.add(prog)
+    if prog.attempted_at is None:
+        prog.attempted_at = datetime.now(timezone.utc)
+    await db.flush()
+
+
 async def unit_result_for_session(
     db: AsyncSession,
     user: User,
@@ -1636,6 +1699,12 @@ async def unit_result_for_session(
     unit = await db.get(Unit, unit_id)
     if unit is None:
         return None
+    # 🔴 **진행 기록은 왕관과 무관하게 무조건** (2026-08-19 결함 ⑩).
+    # 오답이 있어도·재완료여도·그날 두 번째여도 「이 유닛을 해 봤다」는 사실은
+    # 참이고, 다음 유닛은 그 사실로 열린다. 왕관 분기(`grant_crown`) **앞**에
+    # 두는 것이 요점이다 — 뒤에 두면 종전 결함이 형태만 바꿔 되살아난다.
+    # 멱등: 이미 값이 있으면 덮지 않는다(첫 시도 시각을 보존한다).
+    await mark_unit_attempted(db, user, unit_id)
     if grant_crown:
         grant = await grant_unit_crown(db, user, unit_id)
         crowns, cleared, unit_xp = (
