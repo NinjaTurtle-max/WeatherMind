@@ -534,6 +534,27 @@ await new Promise((r) => httpServer.close(r));
   );
 }
 
+// ── 능력 분석 탭과 그 자리는 **한 쌍**이다 (2026-08-19) ─────────────────────
+/**
+ * 제목이 `absolute bottom-full`로 카드 위에 솟으므로(탭) 그만큼의 자리를 위
+ * 격자와의 사이에 비워 둬야 한다. 종전 `mt-4`(16px)로는 탭 49px이 왼쪽 열을
+ * **33px 파고들었다** — 학습 지역이 왼쪽으로 돌아와 두 열 길이가 같아지면서
+ * 드러났다(오른쪽에 있던 동안에는 그 자리가 비어 있어 안 보였다).
+ *
+ * 겹침은 좌표라 jsdom이 못 재고, 실제로 **오른쪽 열이 길던 동안에는 눈에도
+ * 안 보였다** — 그래서 소스로 짝을 문다.
+ */
+{
+  const page = readFileSync(resolve(root, 'src/modules/progress/ProgressPage.jsx'), 'utf8');
+  const panel = readFileSync(resolve(root, 'src/modules/progress/WeatherBrainPanel.jsx'), 'utf8');
+  const tabbed = /lg:absolute lg:bottom-full/.test(panel);
+  const reserve = page.match(/className="mt-4 flex flex-col gap-4 lg:mt-(\d+)"/)?.[1];
+  ok(
+    !tabbed || Number(reserve) >= 14,
+    `탭이 솟는 만큼 위 여백을 비워 뒀다 — 탭 ${tabbed ? '있음' : '없음'} · lg:mt-${reserve ?? '(없음)'}`,
+  );
+}
+
 if (failed) {
   console.error(`\n실패 ${failed}건`);
   process.exit(1);
