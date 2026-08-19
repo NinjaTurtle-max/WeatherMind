@@ -38,8 +38,13 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
  *   파생하므로 실데이터다.
  */
 import { conceptLabel, useT } from '../../i18n';
+import { unitIcon } from './unitIcon';
 
-const STATUS_ICON = { cleared: '👑', current: '⭐', unlocked: '🌀', locked: '🔒' };
+// 🔴 아이콘 규칙은 `unitIcon.js`가 **단일 소유**한다(2026-08-19 결함 ⑪-a).
+// 종전에 이 자리에 `STATUS_ICON = { …, unlocked: '🌀', … }`이 있었고, 그것이
+// **개념 아이콘을 상태 아이콘으로 덮어써** 열린 유닛이 전부 회오리로 보였다.
+// 작은 화면(`CurriculumHome`)은 처음부터 개념 아이콘을 썼다 — **두 화면이 다른
+// 규칙을 쓰고 있었고 원본은 모바일 쪽이다.** 사유 전문은 `unitIcon.js` 머리말.
 
 /* ── 경로의 치수 — **전부 고정 px이고 소유자는 여기 하나다**(2026-08-13 클라이언트
  *    지시: "섹션마다 학습 경로 범위를 정의하지 말고 그냥 간격을 규정하고 S자 또는
@@ -708,7 +713,7 @@ function Stage({ section, index, panelId, introOpen, onToggleIntro, energyBlocke
                 } ${!locked && energyBlocked ? 'opacity-60' : ''}`}
                 style={badgeStyle(status)}
               >
-                {STATUS_ICON[status] ?? '🌀'}
+                {unitIcon(unit, status)}
                 {/* 보드 칩 — 노드가 86 → 32px이 되면서 24px(h-6) 칩이 지름의 3/4를
                     덮어 정작 상태 아이콘을 가렸다. 16px(h-4)로 줄이고 바깥으로 더
                     내보낸다. 이보다 작게 하면 🧩가 안 읽힌다(2026-08-13 확대 확인). */}

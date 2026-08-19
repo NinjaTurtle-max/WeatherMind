@@ -1116,6 +1116,41 @@ await render({});
 }
 
 await vite.close();
+
+// ── ⑪-a 아이콘 규칙: 두 화면이 **같은 소유자**를 읽는다 (2026-08-19) ──────────
+// 🔴 종전에 PC가 `STATUS_ICON[status] ?? '🌀'`로 **개념 아이콘을 덮어써서**, 열린
+// 유닛이 많아질수록 화면이 **회오리 도배**가 됐다(클라이언트 지적). 작은 화면은
+// 처음부터 개념 아이콘을 썼다 — **두 화면이 다른 규칙**이었다.
+// ⚠️ 주석으로 「같다」고 적어 두면 갈린다(오늘 세 번 봤다: 목↔서버·ko↔en·PC↔모바일).
+// 그래서 **소스에서 확인**한다 — 두 화면이 `unitIcon`만 부르고 자기 표를 안 갖는지.
+{
+  // ⚠️ **주석을 걷고 본다.** 처음엔 원문 그대로 검사했다가 빨강이 났다 — 수정 사유를
+  // 적은 주석 안에 「종전에 `STATUS_ICON = {…}`이 있었다」는 문장이 들어 있어서
+  // **자기 설명이 자기 계약에 걸렸다.** 계약은 **산문이 아니라 코드**를 봐야 한다.
+  // (같은 형태를 오늘 ⑦에서도 겪었다: 새 라벨 안에 옛 문자열이 부분 문자열로 들어갔다.)
+  const stripComments = (src) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const pcSrc = stripComments(readFileSync(resolve(root, 'src/modules/curriculum/PcCurriculumPath.jsx'), 'utf-8'));
+  const mbSrc = stripComments(readFileSync(resolve(root, 'src/modules/curriculum/CurriculumHome.jsx'), 'utf-8'));
+  const ruleSrc = stripComments(readFileSync(resolve(root, 'src/modules/curriculum/unitIcon.js'), 'utf-8'));
+
+  ok(/unitIcon\(unit,\s*status\)/.test(pcSrc), '⑪-a PC가 unitIcon()을 부른다');
+  ok(/unitIcon\(unit,\s*status\)/.test(mbSrc), '⑪-a 모바일이 unitIcon()을 부른다');
+  ok(!/STATUS_ICON\s*=/.test(pcSrc),
+     '🔴 ⑪-a PC가 자기 상태 아이콘 표를 다시 갖지 않는다 — 두 벌이 되면 또 갈린다');
+  ok(!/const CONCEPT_ICON\s*=/.test(mbSrc),
+     '🔴 ⑪-a 모바일이 자기 개념 아이콘 표를 다시 갖지 않는다 — 표는 unitIcon.js 소유다');
+
+  // 규칙 자체 — `unlocked`가 상태 표에 **없어야** 한다(그게 이 수정의 본체다)
+  const statusTable = /const STATUS_WINS\s*=\s*\{([^}]*)\}/.exec(ruleSrc);
+  ok(statusTable, '⑪-a unitIcon.js가 상태 표를 갖는다');
+  ok(!/unlocked/.test(statusTable?.[1] ?? 'unlocked'),
+     '🔴 ⑪-a 상태 표에 unlocked가 없다 — 있으면 열린 유닛이 다시 한 아이콘으로 덮인다');
+  for (const tag of ['pressure_front', 'typhoon', 'air_mass', 'wildfire_weather', 'flood_response']) {
+    ok(ruleSrc.includes(`${tag}:`), `⑪-a 개념 표에 ${tag}가 있다`);
+  }
+}
+
 if (failures) {
   console.error(`\n실패 ${failures}건`);
   process.exit(1);
