@@ -90,6 +90,8 @@ const MT23_ITEMS = () => [
   label({ x: 0.20, y: H(0.44), text: V.groundCannotAbsorb, color: '#0c4a6e', at: 3, size: 10 }),
   label({ x: 0.20, y: H(0.30), text: V.soilAlreadyFull, color: '#0369a1', at: 3, size: 9.5 }),
   label({ x: 0.73, y: H(0.32), text: V.drainOverwhelmed, color: '#075985', at: 3, size: 9.5 }),
+  label({ x: 0.515, y: H(0.14), text: V.basementFloods, color: '#0c4a6e', at: 3, size: 9.5 }),
+  label({ x: 0.90, y: H(0.44), text: V.runoffGathersLow, color: '#0369a1', at: 3, size: 10 }),
 ];
 
 const SEA = { from: 0, to: 0.2 };
