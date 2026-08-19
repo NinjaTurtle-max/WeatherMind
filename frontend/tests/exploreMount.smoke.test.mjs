@@ -328,7 +328,10 @@ try {
       drain();
       rec.reset();
       const c = await mount(createElement(SatelliteView, { intensity: 85, shear: 'weak' }), 400);
-      await waitFor(() => rec.calls.drawImage >= 2);
+      // 예열이 스프라이트 8장을 **진짜로** 굽는 유일한 픽스처다(기록기의
+      // createImageData가 실제 버퍼를 준다) — 느린 러너를 넉넉히 기다린다.
+      // 계약이 깜빡이면 사람이 그 계약을 지운다.
+      await waitFor(() => rec.calls.drawImage >= 2, 20000);
       errs = drain();
       check('⑥-c 세력 85 — 예외 없이 마운트된다', errs.length === 0, fmt(errs));
       check(`⑥-c-2 컨텍스트가 있으면 구름 두 겹이 실제로 얹힌다 (이 프레임들에서 drawImage ${rec.calls.drawImage}회 · 예열이 구운 스프라이트 누적 ${rec.totals.putImageData}장)`,
