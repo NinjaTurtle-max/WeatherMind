@@ -392,20 +392,9 @@ try {
   // 메워야 하는 칸인데 이 작업의 소유 밖이라 수리가 배정되지 않았다.
   // **메워지면 아래 역압력이 "지울 것"이라고 운다.** 수리 라우팅은 PM 몫.
   const KNOWN_GAPS = [
-    // ── RULE_ANNOTATIONS: v1 8종에만 주석이 있다 ──────────────────────────
-    // 저작 시점(R9)에 규칙이 8종이었고, 이후 10종이 들어오는 동안 아무도 이 표를
-    // 안 봤다. 화면 영향은 「무표시」 — ZoneAnnotation이 null을 반환해 지도에
-    // 리더선 라벨이 안 뜬다. 크래시·오표시는 없다. 저작(문구 2줄)이 필요한 칸이라
-    // 코드 수리로 닫히지 않는다 — 그래서 배정 대상이다.
-    ...[
-      'okhotsk_sea_fog', 'okhotsk_foehn_clear', 'yangtze_mild_clear', 'yangtze_morning_fog',
-      'dry_convection_clear', 'flood_risk_saturated_inflow', 'wildfire_risk_dry_gale',
-      'cold_front_squall_storm', 'siberian_gale_wildfire', 'front_convergence_flood',
-    ].flatMap((key) => [
-      { table: 'RULE_ANNOTATIONS', key, why: '지도 주석 문구 미저작(규칙 8종 시절 표) — 무표시. 문구 저작이 필요한 칸.' },
-      { table: 'i18n board.map.annotation (ko)', key, why: '위 표의 리소스 쪽 짝 — 같이 저작된다.' },
-      { table: 'i18n board.map.annotation (en)', key, why: '위와 같음. en은 휴면 자산이라 화면 영향 0.' },
-    ]),
+    // ── RULE_ANNOTATIONS ✅ **해소(2026-08-19 · #124)** ──────────────────────
+    // 12종이 무표시였다(표가 규칙 8종 시절에 멈춤). 문구를 ko/en 저작해 닫혔다.
+    // 행을 남기지 않는다 — **낡은 면제를 남기면 다음 회귀를 덮는다.**
 
     // ── REGISTRY.phenomenon: 재난·경보 5종에 SVG 심볼이 없다 ───────────────
     // ⚠️ 이것은 **크래시도 무표시도 아니다.** EMOJI_FALLBACK이 PHENOMENON_META의
@@ -413,25 +402,26 @@ try {
     // 즉 「설계된 폴백」이고 지금 무해하다. 그래도 CORRECT_ABSENCES가 아니라
     // 여기 두는 이유: 이 레지스트리의 의도된 최종 상태는 **전 현상 SVG**이고
     // (그래서 8종을 손으로 그렸다), 이모지는 과도기 표현이기 때문이다.
-    ...['wildfire_risk', 'flood_risk', 'severe_storm', 'wildfire_warning', 'flood_warning'].map((key) => ({
+    ...['wildfire_risk', 'flood_risk', 'severe_storm', 'wildfire_warning', 'flood_warning',
+        // MT-18이 들인 2종도 같은 성질이다(2026-08-19 등재 · PM 판정).
+        // **심볼을 새로 저작하지 않는다**: ⑴ 이모지 폴백이라 화면이 안 깨지고
+        // ⑵ 8/20이 마지막 창인데 심볼 저작은 **실기기 검증이 필요한 종류**이며
+        // 그 검증이 지금 막혀 있고 ⑶ 면제가 **양방향 래칫**이라 나중에 채우면
+        // 「지우라」고 운다 — 잊히지 않는다. **수신자: 심볼 저작 담당(대회 후).**
+        'typhoon', 'tropical_night',
+    ].map((key) => ({
       table: 'REGISTRY.phenomenon', key,
-      why: 'SVG 심볼 미저작 — EMOJI_FALLBACK이 PHENOMENON_META 이모지로 그려 무해. 최종 상태는 전 현상 SVG.',
+      why: 'SVG 심볼 미저작 — EMOJI_FALLBACK이 PHENOMENON_META 이모지로 그려 화면 무해. 심볼 저작은 대회 후(수신자: 심볼 저작 담당). 최종 상태는 전 현상 SVG.',
     })),
 
-    // ── PRECIP_META: 경보급 2종에 강수 에미터가 없다 ───────────────────────
-    // 둘 다 비를 내리는 구름(severe_storm=적란운 · flood_warning=난층운)을 결과로
-    // 갖는데 표에 행이 없다. flood_risk(난층운)에 대해 이 파일이 스스로 적어 둔
-    // 근거 — "비층운만 뜨고 비가 안 내리면 그 존만 그림이 멈춰 보인다" — 가
-    // 그대로 적용된다. 값(weight·slant) 판단이 필요해 이 작업의 소유 밖이다.
-    { table: 'PRECIP_META', key: 'severe_storm', why: '적란운 결과인데 에미터 행 없음 — 뇌우 존에 비가 안 내린다. weight·slant 값 판단 필요.' },
-    { table: 'PRECIP_META', key: 'flood_warning', why: '난층운 결과인데 에미터 행 없음 — flood_risk와 같은 이유로 그림이 멈춘다.' },
+    // ── PRECIP_META ✅ **해소(#122)** ─────────────────────────────────────────
+    // severe_storm·flood_warning·typhoon이 채워졌다. 행 삭제.
 
-    // ── DISASTER_META: 경보급 2종에 배너가 없다 ────────────────────────────
-    // 이 배너는 "재난을 만들었는데 화면이 ☀️ 맑음이라고 말하던" 것을 끝내려고
-    // 생겼다(AtmosphereBoard 주석). 주의보급 2종은 있는데 **그보다 위인 경보급**이
-    // 빠졌다 — 같은 결함이 한 단계 위에서 되살아나 있다. 문구 키 저작이 필요하다.
-    { table: 'DISASTER_META', key: 'wildfire_warning', why: '경보급 재난인데 배너 없음 — 주의보급(wildfire_risk)에는 있다. 배너 문구 키 저작 필요.' },
-    { table: 'DISASTER_META', key: 'flood_warning', why: '경보급 재난인데 배너 없음 — 주의보급(flood_risk)에는 있다. 배너 문구 키 저작 필요.' },
+    // ── DISASTER_META ✅ **해소(2026-08-19 · #124)** ──────────────────────────
+    // 🔴 **이 칸이 이 계약의 가장 중요한 교훈을 남겼다.** 면제돼 있었으므로 계약이
+    // **조용했고**, 조율 과정에서 「계약이 안 우니 이미 고쳐졌다」로 읽혀 **가장 급한
+    // 결함(경보급 재난인데 배너 없음)이 수리 목록에서 빠질 뻔했다.**
+    // ⇒ **「계약이 안 운다」는 「없다」가 아니다 — 면제 목록을 함께 읽어야 한다.**
   ];
 
   const inLedger = (ledger, table, key) => ledger.some((e) => e.table === table && e.key === key);
@@ -585,10 +575,11 @@ try {
   ];
 
   // ── 대장 ④ 「외부화해야 하는데 안 된 것」 ──────────────────────────────────
-  const HANGUL_GAPS = [
-    { file: 'src/components/Mascot.jsx', lines: 13,
-      why: 'LABEL이 <img alt>로 나간다(:97) — 스크린리더가 읽는 사용자 문자열이라 리소스로 빼야 한다. MASCOT_NAMES로 재수출돼 소비처가 여럿이라 이 작업의 소유 밖.' },
-  ];
+  // ✅ **비었다(2026-08-19).** `Mascot.jsx`의 이름표가 리소스로 나갔다.
+  // ⚠️ 그 면제의 사유가 *"MASCOT_NAMES로 재수출돼 소비처가 여럿"*이었는데
+  // **실측 소비처는 `src/**`에 0곳**이었다 — 짐작으로 적은 면제 사유가 작업을
+  // 미루게 했다. **면제 사유도 근거여야지 짐작이면 안 된다.**
+  const HANGUL_GAPS = [];
   // ⚠️ MT-22의 `src/modules/explore/schematic/**`는 origin/main에 **아직 없다**.
   // 병합되면 이 검사가 그 파일들을 처음으로 본다 — 외부화가 이월된 상태라면
   // HANGUL_GAPS에 { file, lines, why }를 넣어야 초록이 된다. **그 압력이 의도다**:

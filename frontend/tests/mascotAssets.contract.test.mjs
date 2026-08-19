@@ -405,12 +405,28 @@ console.log('⑤ 개념 태그 : 그림 — 폴백으로 떨어지는 태그가 
   // SRC에만 있고 LABEL에 없으면 `MASCOT_NAMES[name]`이 undefined라
   // `decorative={false}` 호출부에서 **alt가 빈 문자열**이 된다 — 장식이 아니라고
   // 선언해 놓고 읽어 줄 이름이 없는 상태다. wind·grass를 넣을 때 실제로 그랬다.
-  const labelBlock = MASCOT_JSX.slice(MASCOT_JSX.indexOf('const LABEL = {'), MASCOT_JSX.indexOf('};', MASCOT_JSX.indexOf('const LABEL = {')));
-  const labels = [...labelBlock.matchAll(/^\s{2}(\w+):/gm)].map((m) => m[1]);
+  // ⚠️ **2026-08-19: LABEL이 리터럴에서 i18n getter로 바뀌었다**(이름이 `<img alt>`로
+  // 나가는 사용자 문자열이라 외부화). 이 단정이 그 변경에 **정확히 울어 줬다** —
+  // 텍스트 파서가 형태 변화에 걸린 것이고, 그래서 파서를 새 형태에 맞춘다.
+  // 🔴 파서를 고칠 때 **검사가 약해지지 않았는지**가 관건이라, 오히려 한 겹 더 문다:
+  // 종전에는 「키가 있다」까지만 봤고 이제 **그 키의 실제 문구가 리소스에 있는지**까지 본다.
+  // (외부화 뒤에는 키만 있고 리소스가 비면 alt가 키 원문이 되어 더 나쁘다)
+  const labelBlock = MASCOT_JSX.slice(MASCOT_JSX.indexOf('const LABEL = {'), MASCOT_JSX.indexOf(']', MASCOT_JSX.indexOf('const LABEL = {')));
+  const labels = [...labelBlock.matchAll(/'(\w+)'/g)].map((m) => m[1]);
+  ok(labels.length > 0, `LABEL 키 목록을 읽었다 — ${labels.length}종`);
   const noLabel = NAMES.filter((n) => !labels.includes(n));
   ok(
     noLabel.length === 0,
     `SRC의 전 캐릭터에 이름표가 있다 — 빠진 것 ${noLabel.length}건${noLabel.length ? ` (${noLabel})` : ''}`,
+  );
+
+  const koRes = readFileSync(join(ROOT, 'src/i18n/resources/ko.js'), 'utf8');
+  const mascotBlock = koRes.slice(koRes.indexOf('  mascot: {'), koRes.indexOf('},', koRes.indexOf('  mascot: {')));
+  const resKeys = [...mascotBlock.matchAll(/^\s{4}(\w+):/gm)].map((m) => m[1]);
+  const noString = labels.filter((n) => !resKeys.includes(n));
+  ok(
+    noString.length === 0,
+    `이름표 키마다 ko 리소스에 실제 문구가 있다 — 빠진 것 ${noString.length}건${noString.length ? ` (${noString})` : ''}`,
   );
 
   // 유닛 노드 아이콘도 같은 짝이다 — `CurriculumHome.CONCEPT_ICON` 머리말이

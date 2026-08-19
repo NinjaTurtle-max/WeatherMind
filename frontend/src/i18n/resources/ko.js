@@ -22,6 +22,26 @@
  *    (조각을 이어 붙이면 원문과 바이트 동일).
  */
 export default {
+  // 마스코트 이름 — `<img alt>`로 나가 **스크린리더가 읽는 사용자 문자열**이다.
+  // 소유자는 `components/Mascot.jsx`의 `LABEL`(여기를 읽는다) · 그림 배정은
+  // `SideNav.TUTOR_BY_PATH`. 🔴 ko 값은 원문 바이트 동일 — 스모크가 단정한다.
+  mascot: {
+    guidebot: '구름이',
+    cloud: '구름이',
+    sun: '태양이',
+    drop: '물방울이',
+    bolt: '번개',
+    typhoon: '태풍이',
+    snow: '눈결정',
+    rainbow: '무지개',
+    moon: '달님',
+    snowcloud: '눈구름',
+    raincloud: '비구름',
+    fire: '불꽃이',
+    thermometer: '온도계',
+    wind: '바람이',
+    grass: '풀',
+  },
   streak: {
     // StreakBadge (파일럿): title 툴팁 전체 문구 + 최협폭에서 접히는 단위 표기
     title: '연속 출석 {count}일',

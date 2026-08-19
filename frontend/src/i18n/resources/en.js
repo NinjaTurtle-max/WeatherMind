@@ -17,6 +17,23 @@
  * 번역은 FE-D2 직접 작성(§6.3 — UI 문구라 G1 불요).
  */
 export default {
+  mascot: {
+    guidebot: 'Cloudy',
+    cloud: 'Cloudy',
+    sun: 'Sunny',
+    drop: 'Droplet',
+    bolt: 'Bolt',
+    typhoon: 'Typhoon',
+    snow: 'Snowflake',
+    rainbow: 'Rainbow',
+    moon: 'Moon',
+    snowcloud: 'Snow cloud',
+    raincloud: 'Rain cloud',
+    fire: 'Blaze',
+    thermometer: 'Thermometer',
+    wind: 'Breezy',
+    grass: 'Grass',
+  },
   streak: {
     title: '{count}-day streak',
     days: 'days',
