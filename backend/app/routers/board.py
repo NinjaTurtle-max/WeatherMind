@@ -241,6 +241,57 @@ def compute_unlocked_ids(ordered_items: list, cleared: set) -> set:
     return unlocked
 
 
+def band_ceiling(level_group: str | None) -> int:
+    """이 학습 수준의 **천장 난이도**. `locked_difficulties`의 짝(같은 표를 읽는다)."""
+    return BAND_MAX_DIFFICULTY.get(level_group or "", DEFAULT_MAX_DIFFICULTY)
+
+
+def below_ceiling_ids(items: list, level_group: str | None) -> set:
+    """**자기 천장보다 낮은 난이도의 퍼즐 id** — 순차와 무관하게 열린다.
+
+    🔴 **2026-08-19 결함 ⑨.** 종전에는 수준이 **천장만** 올리고 시작 위치를 안 옮겨,
+    성인도 1번부터 3칸씩 걸어야 했다(실서버: 49판 중 **01~04만 열림** · 진행도 1/49).
+    `sequenceable`이 난이도로 먼저 거르는 것은 이미 맞았다(2026-08-12) — 원인은
+    거른 목록의 **맨 앞부터** 센다는 것이었다. **⑧과 같은 뿌리**다(수준이 「열 수 있는
+    최대치」만 정하고 실제 시작 위치는 언제나 1번).
+
+    고침의 원리는 선행 학습 앱의 관례다 — **「수준을 인정받으면 그 아래는 열린다」**이지
+    「순서를 없앤다」가 아니다. 그래서:
+      · **천장보다 낮은** 난이도 → 전부 열림(이미 자기 수준 아래다)
+      · **천장** 난이도 → **순차 그대로**(MT-24 유지 — 난이도 곡선이 거기서 산다)
+
+    ⚠️ **초등은 아무것도 안 바뀐다** — 천장이 1이라 「아래」가 비어 있고 1층이 곧 자기
+    층이라 순차다. 천장을 여는 수정이 **바닥을 무너뜨리지 않는다**는 뜻이고, 그것을
+    테스트가 문다.
+    """
+    ceiling = band_ceiling(level_group)
+    return {
+        item.id
+        for item in items
+        if board_difficulty(item.template_json, item.level_group) < ceiling
+    }
+
+
+def ceiling_tier(items: list, level_group: str | None) -> list:
+    """순차가 **셀 대상** — 학습자의 **천장 난이도** 퍼즐만.
+
+    🔴 **이 함수가 없으면 천장층이 하나도 안 열린다.** `sequenceable`(천장 이하 전부)
+    위에서 순차를 세면 커서가 **1층 맨 앞**에 서고 LOOKAHEAD 창이 통째로 1층 안에
+    떨어진다 — 그 1층은 `below_ceiling_ids`가 이미 열어 둔 곳이라 **창이 아무것도
+    추가하지 못한다.** 성인의 3층이 0판이 되는 것이고, 이 결함을 **계약 테스트가
+    먼저 잡았다**(내가 처음 쓴 수정이 그 상태였다).
+
+    ⇒ 순차는 **자기 층 안에서** 센다. 아래층은 인정으로 열리고, 위층은 잠겨 있으며,
+    **커서가 뜻을 갖는 곳은 자기 층뿐**이다.
+    """
+    ceiling = band_ceiling(level_group)
+    return [
+        item
+        for item in items
+        if board_difficulty(item.template_json, item.level_group) == ceiling
+    ]
+
+
 def sequenceable(items: list, level_group: str | None) -> list:
     """순차 잠금이 **셀 대상** — 난이도가 열린 퍼즐만 남긴 목록 (2026-08-12 병합 판정).
 
@@ -281,9 +332,10 @@ async def _unlocked_ids_for(db: AsyncSession, user: User, cleared: set) -> set:
         .scalars()
         .all()
     )
+    # 순차(내 층에서 어디까지) **OR** 천장 아래 인정(내 층 아래는 이미 지났다) — 결함 ⑨.
     return compute_unlocked_ids(
-        sequenceable(order_puzzles_for_progress(items), user.level_group), cleared
-    )
+        ceiling_tier(order_puzzles_for_progress(items), user.level_group), cleared
+    ) | below_ceiling_ids(items, user.level_group)
 
 
 def order_puzzles_for_theta(items: list, theta: float | None) -> list:
@@ -399,7 +451,12 @@ async def list_puzzles(
     ]
     locked = locked_difficulties(user.level_group)
     # 순서는 **난이도로 거른 뒤** 센다 — 이유는 `sequenceable` 참조.
-    unlocked = compute_unlocked_ids(sequenceable(items, user.level_group), cleared)
+    # 순서는 **난이도로 거른 뒤** 센다(`sequenceable`) + **천장 아래는 인정**한다
+    # (`below_ceiling_ids` — 결함 ⑨). 두 축이 AND가 아니라 OR로 합쳐지는 자리다:
+    # 순차는 「내 층에서 어디까지 왔나」를, 인정은 「내 층 아래는 이미 지났다」를 말한다.
+    unlocked = compute_unlocked_ids(
+        ceiling_tier(items, user.level_group), cleared
+    ) | below_ceiling_ids(items, user.level_group)
     return [
         BoardPuzzle(
             content_item_id=item.id,
