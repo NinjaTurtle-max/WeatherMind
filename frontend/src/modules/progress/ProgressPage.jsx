@@ -261,13 +261,10 @@ export default function ProgressPage() {
           (사용자 지시 — 전폭에서 반폭으로). 「단계를 먼저 읽고 개념별 θ를 읽는다」는
           순서는 그대로다: 좁은 화면에서는 order-8이라 이 판 바로 위에 오고,
           넓은 화면에서는 오른쪽 열 끝이라 이 판 바로 위 오른쪽에 있다. */}
-      {/* ⚠️ **lg에서 위 여백이 크다** — 능력 분석의 제목이 `absolute bottom-full`로
-          카드 위에 솟는 탭이라(WeatherBrainPanel.Header) 그 49px이 들어갈 자리를
-          여기서 비워 준다. 종전 `mt-4`(16px)로는 탭이 위 격자의 왼쪽 열을 33px
-          파고들었다(2026-08-19 실측 — 학습 지역이 왼쪽으로 돌아와 두 열 길이가
-          같아지면서 드러났다. 오른쪽에 있던 동안에는 그 자리가 비어 있어 안 보였다).
-          탭 높이가 바뀌면 이 값도 함께 볼 것 — 짝이다. */}
-      <div className="mt-4 flex flex-col gap-4 lg:mt-16">
+      {/* ⚠️ 여백이 `mt-4`로 돌아왔다(2026-08-19) — 제목이 탭이던 잠깐 동안
+          `lg:mt-16`으로 그 49px 자리를 비워 뒀는데, 탭을 걷으면서 함께 걷는다.
+          탭을 되살린다면 이 값도 같이 올릴 것(WeatherBrainPanel.Header 주석). */}
+      <div className="mt-4 flex flex-col gap-4">
         <WeatherBrainPanel />
       </div>
 

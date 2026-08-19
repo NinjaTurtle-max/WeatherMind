@@ -233,6 +233,34 @@ try {
   await server.close();
 }
 
+// ── 보드 문항은 **판도 셸도 넓다** (2026-08-19 사용자 지시) ─────────────────
+/**
+ * "학습 세션의 보드 문제도 보드 게임 화면이랑 배치 맞춰서 가로로 확장."
+ *
+ * 둘이 **한 쌍**이라 하나만 되돌아가면 조용히 나빠진다:
+ *  ⓐ `QuestionCard`가 보드에 `layout="wide"`를 준다 — 없으면 같은 판이 세션에서만
+ *     세로로 쌓여 두 화면의 배치가 갈린다
+ *  ⓑ `SessionRunner`가 보드 문항일 때 **2열을 접는다** — 안 접으면 wide 판이
+ *     절반 폭(1536에서 약 550px)에 들어가 지도가 눌린다. 보드 화면이 셸을 넓게
+ *     쓰는 이유와 같은 이유다(`Layout.jsx`의 isBoard).
+ * jsdom에는 CSS 엔진이 없어 눌림을 좌표로 못 재므로 소스로 짝을 문다.
+ */
+{
+  const { readFileSync } = await import('node:fs');
+  const card = readFileSync(resolve(root, 'src/modules/quiz/QuestionCard.jsx'), 'utf8');
+  const runner = readFileSync(resolve(root, 'src/modules/session/SessionRunner.jsx'), 'utf8');
+  const say = (label, cond) => {
+    if (cond) console.log(`PASS ${label}`);
+    else { failed += 1; console.error(`FAIL ${label}`); }
+  };
+  say('ⓐ 세션 보드 문항이 wide 배치다', /<AtmosphereBoard[\s\S]{0,400}?layout="wide"/.test(card));
+  say(
+    'ⓑ 보드 문항일 때 세션 2열을 접는다 — 안 접으면 wide 판이 절반 폭에 눌린다',
+    /const isBoardItem = /.test(runner)
+      && /bulkMode \|\| isBoardItem \? undefined : 'lg:grid lg:grid-cols-2/.test(runner),
+  );
+}
+
 if (failed > 0) {
   console.error(`\n${failed}건 실패`);
   process.exit(1);
