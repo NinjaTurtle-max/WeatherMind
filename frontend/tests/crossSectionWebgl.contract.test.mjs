@@ -467,6 +467,14 @@ try {
     );
     // 잠겨야 할 것 = 3단계 수면(물 조각의 y 상단) 아래에 중심이 있는 도시 물체
     const surfaceTop = Math.max(...water.map((w) => w.center[1] + w.size[1] / 2));
+    // 🔴 **침수 구간을 물에서 파생한다**(2026-08-19 5차). 첫 판은 `c[2] < 0.20`을
+    //   **하드코딩**했는데, 그것은 4차 배치(고지대가 카메라 쪽)의 값이었다.
+    //   5차에서 배치를 뒤집자 **장면은 옳은데 계약이 빨강**이 났다 —
+    //   오늘 반복된 「낡은 값 인용」이 계약 안에서 일어난 것이다.
+    //   물이 어디 있는지는 물 조각이 안다. 여기 숫자를 적지 않는다.
+    const floodZ0 = Math.min(...water.map((w) => w.center[2] - w.size[2] / 2));
+    const floodZ1 = Math.max(...water.map((w) => w.center[2] + w.size[2] / 2));
+    const inFloodZone = (c) => c[2] > floodZ0 && c[2] < floodZ1;
     // 🔴 **선별식 정정(첫 판이 틀렸다)**: 「**일부** 잠김」은 물체의 **밑면**이
     //   수면 아래라는 뜻이다. 첫 판은 **중심**이 수면 아래인 것만 골라서
     //   **앞줄 건물 5채 중 4채가 빠졌다**(중심 y 0.049~0.064 > 수면 0.046).
@@ -479,7 +487,7 @@ try {
       return (
         top > 0 &&                      // 지면 위로 나와 있다(지하·하수는 제외)
         bottom < surfaceTop - 1e-9 &&   // 밑면이 수면 아래 = **일부 잠김**
-        c[2] < 0.20 &&                  // 저지대 줄(고지대 z 0.20~Z는 마른 채다)
+        inFloodZone(c) &&               // 물의 z 구간 안(고지대는 그 밖이고 마른 채다)
         c[0] > 0.33                     // 도시 구간(풀밭 0.21~0.335 제외)
       );
     });
@@ -504,7 +512,7 @@ try {
     //   가장 낮은 건물도 0.092다. 0.06은 그 사이의 여유 있는 경계다.
     {
       const CAR_MAX_H = 0.06;
-      const small = at3.filter((it) => !water.includes(it) && it.size[1] <= CAR_MAX_H && it.center[2] < 0.20 && it.center[0] > 0.33);
+      const small = at3.filter((it) => !water.includes(it) && it.size[1] <= CAR_MAX_H && inFloodZone(it.center) && it.center[0] > 0.33);
       const straddling = small.filter((it) => {
         const bottom = it.center[1] - it.size[1] / 2;
         const top = it.center[1] + it.size[1] / 2;
@@ -530,6 +538,42 @@ try {
         ? '수면 아래 도시 물체를 하나도 못 찾았다 — 대상 선별식이 낡았나? 공허 통과 방지로 실패로 둔다.'
         : `이 물체들은 물보다 카메라에 가까워 **물 위에 그려진다** ⇒ 벽에 수면선이 안 생긴다: ` +
           uncovered.map((it) => `x=${it.center[0].toFixed(3)} y=${it.center[1].toFixed(3)} z=${it.center[2].toFixed(3)}`).join(' / '),
+    );
+  }
+
+  // ── 7-b) 🔴 **물을 가리는 것이 없는가** ────────────────────────────────────
+  // **2026-08-19 클라이언트가 갤러리에서 직접 봤다**:
+  //   *"홍수에서 물레이어 위에 건물하고 차량이 있어서 물이 가려지는게 나만 보여?"*
+  //
+  // 🔴 **4차 계약이 이것을 못 잡았다.** 「잠겨야 할 것마다 **더 가까운 물 조각이
+  // 있는가**」만 물었고 **「물보다 더 가까운 것이 있는가」를 묻지 않았다.**
+  // 그래서 4차는 고지대(높이 0.080 · alpha 0.94)를 **물 전체 앞**에 세우고도
+  // 전 단정이 초록이었다 — 수면이 0.046인데 그보다 높은 불투명 벽이 앞을 막았다.
+  //
+  // ⚠️ **한 방향만 묻는 단정은 반대 방향으로 자유롭다.** 오늘 네 번째 형태다.
+  {
+    const FLOOD = 'flood_risk_saturated_inflow';
+    const items = buildScene(FLOOD)?.items ?? [];
+    const { eye, forward } = isoCamera();
+    const depth = (p) => (p[0] - eye[0]) * forward[0] + (p[1] - eye[1]) * forward[1] + (p[2] - eye[2]) * forward[2];
+    const step = 3;
+    const at3 = items.filter((it) => it.type === 'solid' && step >= (it.at ?? 0) && (it.until === undefined || step <= it.until));
+    const water = at3.filter((it) => (it.at ?? 0) === 3 && it.pattern === 3 && it.center[1] > 0);
+    const nearestWater = Math.min(...water.map((w) => depth(w.center)));
+    // 「가린다」의 조건: 물보다 카메라에 가깝고(먼저가 아니라 **나중에** 그려진다)
+    // 반투명이 아니다(alpha ≥ 0.9면 뒤가 안 보인다) + 수면보다 위로 솟아 있다.
+    const surfaceTop = Math.max(...water.map((w) => w.center[1] + w.size[1] / 2));
+    const blockers = at3.filter((it) => {
+      if (water.includes(it)) return false;
+      const top = it.center[1] + it.size[1] / 2;
+      return depth(it.center) < nearestWater && it.color[3] >= 0.9 && top > surfaceTop;
+    });
+    check(
+      `홍수 3단계에서 물을 가리는 불투명 물체가 없다 (검사 ${at3.length}개)`,
+      blockers.length === 0,
+      `이 물체들이 **물보다 카메라에 가깝고 불투명하며 수면보다 높다** ⇒ 나중에 그려져 물을 덮는다. ` +
+        `깊이 테스트가 없으므로 **잠긴 땅을 카메라 쪽에, 마른 땅을 뒤에** 두어야 한다: ` +
+        blockers.map((it) => `x=${it.center[0].toFixed(3)} y=${it.center[1].toFixed(3)} z=${it.center[2].toFixed(3)} h=${it.size[1].toFixed(3)} a=${it.color[3]}`).join(' / '),
     );
   }
 
