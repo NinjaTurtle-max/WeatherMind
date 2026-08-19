@@ -101,6 +101,7 @@ const PcCurriculumPath = mod.default;
 const {
   blueEndIndex, stageDoneCount, joinK, estDaysOf, curvePath,
   PATH_DOT_PX, PATH_GAP_PX, PATH_AMP_PX, PATH_HIT_PX, PATH_WAVE_PERIOD, PATH_LINE_PX,
+  PATH_ICON_RATIO,
   alignScrollTop, hasMoreBelow,
 } = mod;
 
@@ -1115,7 +1116,65 @@ await render({});
   ok(/unit:\s*'drop'/.test(entry), '진입 카드 화자가 물방울이(drop)다');
 }
 
+// ── ⑪-b 아이콘이 원 안에 든다: 비율의 소유자는 **JSX 인라인**이다 (2026-08-19) ──
+//
+// 🔴 결함: 노드 지름 64px에 아이콘이 `0.55 × 64 = 35.2px`이었다. macOS/Chrome
+// 실측(2026-08-19, Apple Color Emoji)으로 잉크 상자는 **폰트 크기의 1.079배**
+// (35.2px에서 38×38 정사각. 17종 전건 동일 — 비트맵 폰트라 글리프마다 같다).
+// 정사각 잉크가 **내접원**(반지름 32) 안에 들려면 반대각선 `0.763×F ≤ 32`,
+// 즉 `F ≤ 41.9px = 0.655 × 지름`이 상한이다. 0.55는 그 상한의 84%라
+// **여유가 16%뿐**이고, 3배 확대로 보면 🌈·🌊가 원 테두리에 닿는다(실측 스크린샷).
+// 잉크 상자가 macOS보다 큰 플랫폼(Segoe UI Emoji·Noto Color Emoji는 아웃라인
+// 폰트라 글리프마다 다르다)에서는 그 16%를 먹고 **테두리를 넘는다** — 클라이언트가
+// 본 「해상도 사이즈 따라 짤린다」의 후보다.
+//
+// ⚠️ **소유자가 옮겨졌다.** 종전 소유자는 `src/styles/index.css`의
+// `.wm-dot { font-size: calc(var(--dot) * 0.55) }`였는데, 그 파일은 ⑪-b의
+// 배타 소유가 아니라 손댈 수 없다. 그래서 **JSX 인라인 style이 그 선언을
+// 덮는다**(인라인 > 클래스). 그 결과 index.css의 0.55 줄은 **죽은 값**이다 —
+// 지우는 것은 index.css 소유자 몫이고, 그때까지 이 계약이 인라인을 지킨다.
+// 인라인이 지워지면 화면이 조용히 0.55로 되돌아가므로 **런타임에서** 문다.
+{
+  await render({}); // 앞 블록들이 구름 0·접힘 등으로 상태를 흔들어 놓았으므로 원복
+  const ratioNodes = [...container.querySelectorAll('.wm-dot')];
+  ok(ratioNodes.length > 0, `⑪-b 노드가 마운트됐다 — ${ratioNodes.length}개`);
+  const want = `calc(var(--dot) * ${PATH_ICON_RATIO})`;
+  const inlineSizes = new Set(ratioNodes.map((b) => b.style.fontSize));
+  ok(
+    inlineSizes.size === 1 && inlineSizes.has(want),
+    `🔴 ⑪-b 전 노드가 인라인으로 아이콘 크기를 소유한다 — 기대 '${want}' / 실제 ${[...inlineSizes].map((v) => `'${v}'`).join(',')}`,
+  );
+}
+
 await vite.close();
+
+// ── ⑪-b 비율 자체가 기하 상한과 판독 바닥 사이에 있다 ────────────────────────
+{
+  // ㉮ 내접원 상한. 잉크 상자 한 변 = 1.079×F(macOS 실측)이므로 반대각선은
+  //    0.7629×F. 지름 D의 내접원 반지름은 D/2 → `0.7629 × ratio × D ≤ 0.5 × D`
+  //    ⇒ `ratio ≤ 0.655`. 그 상한을 그대로 쓰면 이질 플랫폼 여유가 0이라
+  //    **0.5로 끊는다** = 잉크가 macOS보다 31% 커져도 원 안에 든다(0.55는 19%).
+  const INK_PER_FONT = 1.079; // 2026-08-19 macOS/Chrome canvas measureText 실측
+  const halfDiag = (INK_PER_FONT * Math.SQRT2) / 2; // 0.7629
+  ok(
+    PATH_ICON_RATIO <= 0.5,
+    `🔴 ⑪-b 아이콘 비율 ≤ 0.5 — 내접원 상한 ${(0.5 / halfDiag).toFixed(3)}에 이질 플랫폼 여유 `
+      + `${((0.5 / halfDiag / PATH_ICON_RATIO - 1) * 100).toFixed(0)}%를 남긴다. 실제 ${PATH_ICON_RATIO}`,
+  );
+  ok(
+    PATH_ICON_RATIO * PATH_DOT_PX * halfDiag <= PATH_DOT_PX / 2,
+    `⑪-b 잉크 반대각선이 내접원 반지름 안 — ${(PATH_ICON_RATIO * PATH_DOT_PX * halfDiag).toFixed(1)}px `
+      + `/ ${PATH_DOT_PX / 2}px`,
+  );
+  // ㉯ 판독 바닥. 모바일 UnitNode가 같은 64px 노드에 24px(=0.375)로 그리는데
+  //    확대 없이 읽힌다(2026-08-19 실측 스크린샷). 그 아래로는 내려가지 않는다 —
+  //    보드 칩 🧩을 24 → 16px로 줄일 때 "이보다 작게 하면 안 읽힌다"고 적은
+  //    것과 같은 절충이다(2026-08-13 선례).
+  ok(
+    PATH_ICON_RATIO >= 0.375,
+    `🔴 ⑪-b 아이콘 비율 ≥ 0.375 — 모바일 24/64가 판독 바닥이다. 실제 ${PATH_ICON_RATIO}`,
+  );
+}
 
 // ── ⑪-a 아이콘 규칙: 두 화면이 **같은 소유자**를 읽는다 (2026-08-19) ──────────
 // 🔴 종전에 PC가 `STATUS_ICON[status] ?? '🌀'`로 **개념 아이콘을 덮어써서**, 열린

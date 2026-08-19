@@ -79,8 +79,11 @@ import { unitIcon } from './unitIcon';
  *
  * 값의 근거: 참고 앱 실측 지름 **70px**(관찰표는
  * `docs/Observation_Report_02_Benchmarking.md` §4.6가 소유한다). 64는 그 스케일에
- * 들면서 아이콘이 `0.55 × 64 = 35px`이 되어 🔒·👑·⭐·🌀가 확대 없이 읽힌다 —
- * 32px 시절에는 17.6px이라 판독성이 한계였다.
+ * 들면서 아이콘이 확대 없이 읽힌다 — 32px 시절에는 아이콘이 17.6px이라 판독성이
+ * 한계였다.
+ * ⚠️ 이 문단에 한때 **"아이콘이 `0.55 × 64 = 35px`"**가 적혀 있었다. 비율이
+ * 0.5로 내려가(⑪-b) 그 숫자는 거짓이 됐고, 애초에 **아이콘 크기의 소유자는
+ * 이 상수가 아니라 `PATH_ICON_RATIO`**다 — 여기 복제하지 않는다.
  *
  * ⚠️ **클릭 표적은 이 값이 아니다** — `PATH_HIT_PX`를 볼 것. 표적은 CSS에서
  * `max(var(--hit), var(--dot))`이라 64 ≥ 44인 지금은 **정확히 같은 64px**이고,
@@ -90,6 +93,52 @@ import { unitIcon } from './unitIcon';
  * 코드 리뷰가 잡았다(2026-08-13).
  */
 export const PATH_DOT_PX = 64;
+
+/**
+ * 노드 아이콘 크기 = `PATH_ICON_RATIO × PATH_DOT_PX` — **0.55 → 0.5**(2026-08-19 ⑪-b).
+ *
+ * ## 왜 줄였나 — 「해상도 사이즈 따라 짤린다」
+ *
+ * 0.55는 `0.55 × 64 = 35.2px`이었다. 이모지 잉크 상자를 실제로 재 보면
+ * (2026-08-19 macOS/Chrome, canvas `measureText().actualBoundingBox*`)
+ * **한 변이 폰트 크기의 1.079배**다 — 35.2px에서 38×38 정사각이고, 개념 14종 +
+ * 상태 3종 + 폴백 📘 **전건이 같다**(Apple Color Emoji는 비트맵 폰트라 글리프마다
+ * 같은 상자를 쓴다).
+ *
+ * 노드는 원인데 잉크는 **정사각**이라, 기준은 변이 아니라 **반대각선**이다:
+ * `(1.079 × √2 / 2) × F = 0.7629 × F ≤ 반지름 32` ⇒ **F ≤ 41.9px = 0.655 × 지름**.
+ * 0.55는 그 상한의 84%로 **여유가 19%뿐**이었다. 3배 확대로 보면 🌈·🌊가 실제로
+ * 원 테두리에 닿는다(가장 넓게 그려지는 두 글리프다).
+ * 0.5는 반대각선 24.4px으로 **여유 31%** — 잉크가 macOS보다 31% 커져도 원 안이다.
+ *
+ * ⚠️ **왜 여유가 필요한가**: 위 1.079는 이 저장소가 잴 수 있는 유일한 플랫폼의
+ * 값이다. Segoe UI Emoji(Windows)·Noto Color Emoji(Android)는 **아웃라인 폰트라
+ * 글리프마다 잉크가 다르고** 우리는 그 값을 재지 못했다(이 맥은 어떤 폰트 이름을
+ * 줘도 Apple Color Emoji로 폴백한다 — `document.fonts.check`가 전건 true다).
+ * 그래서 값은 「macOS에서 안 잘리는 최대」가 아니라 **「모르는 플랫폼이 31% 더
+ * 커도 안 잘리는 값」**으로 고른다.
+ *
+ * ⚠️ **판독성이 반대편 절벽이다.** 모바일 `UnitNode`는 같은 64px 노드에
+ * `text-2xl`(24px = 0.375)로 그리는데 확대 없이 읽힌다 — 그것이 바닥이다.
+ * 0.5(32px)는 그보다 33% 크고, 3배 확대에서 👑의 보석·📘의 표지 글자·🔒의 고리가
+ * 전부 남는다(2026-08-19 확대 확인). 보드 칩을 24 → 16px로 줄일 때 "이보다 작게
+ * 하면 🧩가 안 읽힌다"고 적은 것과 같은 절충이다(2026-08-13 선례).
+ *
+ * ## ⚠️ 소유자가 CSS에서 여기로 옮겨졌다 — index.css의 0.55는 **죽은 값**이다
+ *
+ * 종전 소유자는 `src/styles/index.css`의 `.wm-dot { font-size: calc(var(--dot) * 0.55) }`
+ * 였다. ⑪-b는 그 파일을 배타 소유하지 않으므로 **JSX 인라인 style이 그 선언을
+ * 덮는다**(인라인 > 클래스). 남은 0.55 줄은 이제 화면에 닿지 않는다 —
+ * **지우는 것은 index.css 소유자 몫**이고, 그때까지 두 값이 병존한다.
+ * 이 저장소가 「소유자가 둘이 되면 조용히 갈린다」고 여러 번 적어 둔 그 상태이므로,
+ * `learnPath` 스모크 ⑪-b가 **인라인이 실제로 붙어 있는지를 런타임에서** 문다.
+ * 인라인이 지워지면 화면이 말없이 0.55로 되돌아가기 때문이다.
+ *
+ * ⚠️ 반응형 분기는 **없다.** `--dot`이 상수 64px 하나이므로 이 비율 하나가 전 폭에
+ * 걸린다(320~1920px 실측 확인). 지름을 다시 뷰포트에서 역산하기 시작하면
+ * 이 비율의 근거(반대각선 대 반지름)는 비율이라 그대로 성립한다.
+ */
+export const PATH_ICON_RATIO = 0.5;
 
 /**
  * 노드 **클릭 표적**의 최소 한 변(px) — WCAG 2.1 AA(2.5.5 Target Size)의 44px.
@@ -711,7 +760,11 @@ function Stage({ section, index, panelId, introOpen, onToggleIntro, energyBlocke
                 className={`wm-dot relative grid place-items-center rounded-full border-0 p-0 transition focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-sky-700 ${
                   blocked ? 'cursor-not-allowed' : 'hover:translate-y-[3px] active:scale-95'
                 } ${!locked && energyBlocked ? 'opacity-60' : ''}`}
-                style={badgeStyle(status)}
+                // ⚠️ **아이콘 크기는 여기가 소유한다** — `index.css`의 `.wm-dot`에
+                // 남은 `font-size: calc(var(--dot) * 0.55)`를 인라인으로 덮는다.
+                // 경위·근거·죽은 값 처리는 `PATH_ICON_RATIO` 주석이 소유한다.
+                // 지우면 화면이 말없이 0.55로 되돌아간다 — 스모크 ⑪-b가 문다.
+                style={{ ...badgeStyle(status), fontSize: `calc(var(--dot) * ${PATH_ICON_RATIO})` }}
               >
                 {unitIcon(unit, status)}
                 {/* 보드 칩 — 노드가 86 → 32px이 되면서 24px(h-6) 칩이 지름의 3/4를
