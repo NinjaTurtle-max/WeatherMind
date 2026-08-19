@@ -1683,20 +1683,36 @@ const MOCK_BOARD_UNLOCK_LOOKAHEAD = 2;
  * `BOARD_PUZZLES`는 이미 board_order로 정렬돼 있다(선언부 참고).
  */
 function unlockedBoardIds() {
-  // 서버 `sequenceable`과 같다 — 순서는 **난이도가 열린 퍼즐 안에서만** 센다.
-  // 전체 위에서 세면 초등 학습자의 다음 칸이 「보통」인 순간 사슬이 영구히 끊긴다
-  // (그 칸은 난이도로 막혀 못 깨고, 커서는 깨야만 넘어간다).
-  const lockedDiff = lockedBoardDifficulties();
-  const pool = BOARD_PUZZLES.filter((p) => !lockedDiff.has(p.difficulty ?? 1));
+  // 🔴 **서버 `below_ceiling_ids` + `ceiling_tier`와 같은 규칙**(2026-08-19 결함 ⑨).
+  //
+  // 종전에는 `sequenceable`(천장 **이하** 전부) 위에서 순차를 셌다. 그러면 수준이
+  // **천장만 올리고 시작 위치를 안 옮겨** 성인도 1번부터 3칸씩 걸었다 — PM이 로컬
+  // dev에서 **성인인데 01~03만 열리는 것**을 화면으로 확인했다.
+  //
+  // 고침은 「아래는 인정, 내 층은 순차」다:
+  //   · 천장보다 **낮은** 난이도 → 전부 열림(이미 자기 수준 아래다)
+  //   · **천장** 난이도 → 순차 그대로(MT-24 유지 — 난이도 곡선이 거기서 산다)
+  //
+  // ⚠️ 순차 대상을 천장층으로 **좁히지 않으면 천장층이 하나도 안 열린다**: 커서가
+  // 1층 맨 앞에 서고 LOOKAHEAD 창이 통째로 1층에 떨어지는데, 그 1층은 이미 인정으로
+  // 열려 있어 창이 아무것도 추가하지 못한다(서버 쪽에서 계약 테스트가 그 형태를 잡았다).
+  const ceiling = BOARD_BAND_MAX_DIFFICULTY[mockAuth.levelGroup] ?? BOARD_DEFAULT_MAX_DIFFICULTY;
 
+  // 천장 아래는 순차와 무관하게 열린다
   const unlocked = new Set(
-    pool.filter((p) => clearedBoardPuzzles.has(p.content_item_id)).map(
+    BOARD_PUZZLES.filter((p) => (p.difficulty ?? 1) < ceiling).map(
       (p) => p.content_item_id,
     ),
   );
-  let cursor = pool.findIndex((p) => !clearedBoardPuzzles.has(p.content_item_id));
-  if (cursor < 0) cursor = pool.length;
-  for (const p of pool.slice(cursor, cursor + MOCK_BOARD_UNLOCK_LOOKAHEAD + 1)) {
+  // 이미 깬 칸은 언제나 열린다(서버 compute_unlocked_ids 규칙 ⑴)
+  for (const p of BOARD_PUZZLES) {
+    if (clearedBoardPuzzles.has(p.content_item_id)) unlocked.add(p.content_item_id);
+  }
+  // 천장 층 **안에서만** 순차를 센다(규칙 ⑵)
+  const tier = BOARD_PUZZLES.filter((p) => (p.difficulty ?? 1) === ceiling);
+  let cursor = tier.findIndex((p) => !clearedBoardPuzzles.has(p.content_item_id));
+  if (cursor < 0) cursor = tier.length;
+  for (const p of tier.slice(cursor, cursor + MOCK_BOARD_UNLOCK_LOOKAHEAD + 1)) {
     unlocked.add(p.content_item_id);
   }
   return unlocked;
