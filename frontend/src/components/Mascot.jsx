@@ -62,6 +62,8 @@
  * ⚠️ 새 캐릭터 PNG를 추가하면 넣기 전에 여백을 깎을 것(내용 경계 = 이미지 경계).
  */
 
+import { translate, getCurrentLocale } from '../i18n/core.js';
+
 const SRC = {
   // 안내봇 전용(MT-26). 유일하게 **3D 모델에서 렌더한** 캐릭터다 —
   // 소스는 `weathermind-bot.glb`(텍스처·애니메이션 0 · 단색 재질 5종)이고
@@ -86,23 +88,42 @@ const SRC = {
   grass: '/grass.png',
 };
 
-const LABEL = {
-  guidebot: '구름이',
-  cloud: '구름이',
-  sun: '태양이',
-  drop: '물방울이',
-  bolt: '번개',
-  typhoon: '태풍이',
-  snow: '눈결정',
-  rainbow: '무지개',
-  moon: '달님',
-  snowcloud: '눈구름',
-  raincloud: '비구름',
-  fire: '불꽃이',
-  thermometer: '온도계',
-  wind: '바람이',
-  grass: '풀',
-};
+/**
+ * 마스코트 이름 — **`<img alt>`로 나가 스크린리더가 읽는 사용자 문자열**이라
+ * 리소스에서 읽는다(2026-08-19 외부화).
+ *
+ * 🔴 **왜 미뤄져 있었나**: 전수 감사가 *"MASCOT_NAMES로 재수출돼 소비처가 여럿이라
+ * 소유 밖"*이라 적어 뒀는데 **그 전제가 틀렸다** — `src/**` 실측 소비처는 0곳이고
+ * 참조는 테스트 둘뿐이었다. 값싸게 옮길 수 있었던 것을 「소비처가 여럿」이라는
+ * 짐작 때문에 미뤄 두고 있었다.
+ *
+ * ⚠️ **객체 모양을 그대로 둔다**(getter로 감싼다). `MASCOT_NAMES`를 열거·인덱싱하는
+ * 계약(`mascotAssets.contract`)이 있어 배열·함수로 바꾸면 그쪽이 깨진다.
+ * getter라 **로케일이 바뀌면 이름도 함께 바뀐다** — 상수로 굳히면 안 되는 이유다.
+ */
+const LABEL = {};
+for (const key of [
+  'guidebot',
+  'cloud',
+  'sun',
+  'drop',
+  'bolt',
+  'typhoon',
+  'snow',
+  'rainbow',
+  'moon',
+  'snowcloud',
+  'raincloud',
+  'fire',
+  'thermometer',
+  'wind',
+  'grass',
+]) {
+  Object.defineProperty(LABEL, key, {
+    enumerable: true,
+    get: () => translate(getCurrentLocale(), `mascot.${key}`),
+  });
+}
 
 export const MASCOT_NAMES = LABEL;
 
