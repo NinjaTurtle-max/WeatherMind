@@ -111,12 +111,23 @@ class TestBuildSpine:
         assert spine["current_unit"]["slug"] == u2.slug
 
     def test_unlock_floor_선해제가_current에_반영(self):
-        """배치 선해제(§3.4)와 동일 규칙 — 트리와 잠금 판정 공유."""
+        """배치 선해제(§3.4)와 동일 규칙 — 트리와 잠금 판정 공유.
+
+        🔴 **2026-08-19 갱신(결함 ⑧)**: 종전에는 *"floor=3이어도 current는 여전히
+        첫 미클리어 u2 (순서 불변)"*이라 단정했다. 그 「순서 불변」이 결함이었다 —
+        배치가 세 유닛을 인정했는데 커서가 앞에 서면 **인정을 처음부터 다시 하라는
+        화면**이 된다(실서버에서 고등 진단 계정이 「초등 3~4학년」을 봤다).
+
+        이제 커서는 **인정 구간의 끝**(u3)이다. u1은 클리어됐고 u2는 열려 있어
+        **되돌아갈 수 있다** — 커서 위치와 접근 가능성은 다른 축이다.
+        `build_spine`은 `build_curriculum`의 판정을 그대로 재사용하므로 이 갱신은
+        **정의를 한 곳에서만 고친 결과**이고, 스파인이 트리와 어긋나지 않는다는
+        이 테스트의 목적은 그대로다.
+        """
         u1, u2, u3 = units = chain(3)
         progress = {u1.id: prog(crowns=1, cleared=True)}
-        # floor=3: 전부 선해제 — current는 여전히 첫 미클리어 u2 (순서 불변)
         spine = cs.build_spine(units, progress, unlock_floor=3)
-        assert spine["current_unit"]["slug"] == u2.slug
+        assert spine["current_unit"]["slug"] == u3.slug
 
     def test_섹션_교차_전체_순서로_집계(self):
         # 섹션명은 **SECTION_ORDER에 등재된 값**이어야 한다 — 미등재 섹션은

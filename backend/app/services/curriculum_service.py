@@ -633,8 +633,12 @@ def build_curriculum(
         grouped.setdefault(unit.section, []).append(unit)
 
     sections: list[dict[str, Any]] = []
+    # 뷰에는 **전체 순서 인덱스가 없다**(unit_order는 섹션 안 순서다). 'current' 승격이
+    # 전체 순서를 봐야 하므로 원 유닛 목록을 섹션과 같은 순서로 남겨 둔다.
+    ordered_by_section: list[list[Any]] = []
     for section in sorted(grouped, key=_section_key):
         ordered = sorted(grouped[section], key=lambda u: u.unit_order)
+        ordered_by_section.append(ordered)
         meta = load_section_meta().get(section, {})
         sections.append(
             {
@@ -651,12 +655,40 @@ def build_curriculum(
             }
         )
     # 'current' 승격 — 트리 노출 순서 == ordered_units 전체 순서(동일 정렬 기준)
-    first_open = next(
-        (v for s in sections for v in s["units"] if v["status"] == "unlocked"),
-        None,
-    )
-    if first_open is not None:
-        first_open["status"] = "current"
+    #
+    # 🔴 **배치를 본 학습자는 「열린 구간의 최상위」에서 시작한다**(2026-08-19, 결함 ⑧).
+    #
+    # 종전에는 무조건 「잠기지 않은 **첫** 미클리어 유닛」이었다. 그런데 배치 선해제는
+    # `unlock_floor`로 **선두 연속 구간 [0, floor)** 를 열 뿐 `cleared_at`을 채우지
+    # 않으므로, 고등으로 진단받아 75유닛을 인정받은 학습자도 그 75개가 전부 미클리어라
+    # **커서가 맨 앞으로 떨어졌다** — 화면에 「섹션 1 · 초등 3~4학년」이 뜨고 배치를 본
+    # 흔적이 어디에도 없었다(실서버 실측).
+    #
+    # **「최상위」의 정의**: 배치가 연 구간의 **끝**, 곧 `order_index`가 `unlock_floor`에
+    # 가장 가까운 미클리어 유닛이다.
+    # ⚠️ 구간 **다음** 유닛(`order_index == unlock_floor`)이 아닌 이유: 그 유닛은
+    # **잠겨 있다.** `is_locked`가 선해제 구간 밖에서는 선행 왕관을 요구하는데 배치는
+    # 왕관을 주지 않는다. 학습자는 **인정 구간의 마지막을 한 번 풀어야** 그 다음이
+    # 열린다. 그러므로 열려 있는 것 중 가장 앞선 것은 인정 구간의 끝이다.
+    #
+    # **배치를 안 본 학습자(`unlock_floor == 0`)는 종전 그대로 맨 앞에서 시작한다** —
+    # 이 분기가 없으면 신규 학습자가 갑자기 고등 유닛으로 떨어진다.
+    # **되돌아갈 길은 막지 않는다**: [0, floor)가 전부 `unlocked`이라 앞 유닛을 자유롭게
+    # 고를 수 있다. **커서 위치와 접근 가능성은 다른 축**이다.
+    open_views = [
+        (index_of[unit.id], view)
+        for section_view, section_units in zip(sections, ordered_by_section)
+        for view, unit in zip(section_view["units"], section_units)
+        if view["status"] == "unlocked"
+    ]
+    if open_views:
+        if unlock_floor > 0:
+            inside = [(i, v) for i, v in open_views if i < unlock_floor]
+            # 인정 구간이 전부 클리어됐으면 그 밖의 첫 열린 유닛으로 자연 승계한다.
+            target = max(inside, key=lambda iv: iv[0]) if inside else min(open_views)
+        else:
+            target = min(open_views, key=lambda iv: iv[0])
+        target[1]["status"] = "current"
     return sections
 
 
