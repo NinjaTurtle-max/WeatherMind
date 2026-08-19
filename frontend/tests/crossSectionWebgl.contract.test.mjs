@@ -11,14 +11,14 @@
  *
  * 고정하는 것:
  *  1) 드로우콜 예산 — 스텁 WebGL2 컨텍스트로 drawArrays/drawArraysInstanced 호출을
- *     **실측 카운트**한다. 규칙 8종 × 전 단계 × 등장 애니메이션 구간/정상 상태에서
+ *     **실측 카운트**한다. **전 규칙** × 전 단계 × 등장 애니메이션 구간/정상 상태에서
  *     프레임당 ≤ DRAW_BUDGET(32). 컨텍스트도 1개만 만드는지 확인.
  *     - 공허 통과 방지: createRenderer가 null이 아님 + 프레임당 드로우콜 > 0 +
  *       renderer.stats.lastDrawCalls와 스텁 실측치 일치를 함께 요구한다.
  *  2) 강수 인스턴스 상한 — counts.precip ≤ MAX_PRECIP(200) (precipEngine과 같은 예산)
  *  3) uniform 이름 정합 — 렌더러가 세팅하는 uniform이 셰이더 active uniform에 전부
  *     존재(오타·이름 변경 시 조용히 no-op 되는 것을 잡는다)
- *  4) SCENES ↔ STORYBOARDS 키 1:1 + board_rules.json 8종 커버 +
+ *  4) SCENES ↔ STORYBOARDS 키 1:1 + board_rules.json **전 규칙** 커버 +
  *     3D 아이템의 단계 인덱스(at)가 스토리보드 단계 수를 넘지 않음
  *  6) 🔴 **탐구 모식도 3종**(MT-22 재제작, 2026-08-19) — 이 무대의 요구 집합이
  *     「보드 규칙 전건」에서 **「규칙 전건 + 탐구 장면」**으로 넓어졌다.
@@ -202,6 +202,9 @@ try {
   const panelMod = await server.ssrLoadModule('/src/modules/board/CrossSectionPanel.jsx');
   const { createRenderer, MAX_PRECIP, APPEAR_MS } = rendererMod;
   const { SCENES, buildScene } = scenesMod;
+  // 카메라는 **camera.js가 소유한다** — 방위·고도·거리를 여기 베끼면 갈린 순간
+  // 이 계약이 거짓을 단정한다(오늘 낡은 수로 겪은 그 형태).
+  const { isoCamera } = await server.ssrLoadModule('/src/modules/board/webgl/crossSection/camera.js');
   const { STORYBOARDS } = panelMod;
 
   // ── 1) SCENES ↔ STORYBOARDS 키 정합 ───────────────────────────────────────
@@ -220,7 +223,7 @@ try {
     `SCENES에만: [${sceneKeys.filter((k) => !storyKeys.includes(k))}] / STORYBOARDS에만: [${storyKeys.filter((k) => !sceneKeys.includes(k))}]. ${WHO_KEYS}`,
   );
   check(
-    `SCENES가 board_rules.json 8종 전부 커버 (${ruleKeys.length}종)`,
+    `SCENES가 board_rules.json 전 규칙 커버 (규칙 ${ruleKeys.length}종)`,
     ruleKeys.every((k) => sceneKeys.includes(k)),
     `누락: [${ruleKeys.filter((k) => !sceneKeys.includes(k))}]. ${WHO_KEYS}`,
   );
@@ -424,6 +427,120 @@ try {
       `실측 ${calls2} / 자체집계 ${reported2}. 재초기화가 성공해도 그리지 못하면 화면은 여전히 비어 있다.`,
     );
     r2.dispose();
+  }
+
+  // ── 6) 인스턴스 예산 — **조용히 버려지는 자리가 없다** ─────────────────────
+  // 🔴 **2026-08-19 신설.** 드로우콜 예산(위 1)은 **패스 수**를 세고, 여기는
+  // **인스턴스 수**를 센다. 둘은 다르다: 인스턴싱이라 볼륨을 몇 개 더 넣어도
+  // 드로우콜은 8에서 안 변하는데, `renderer.js`의
+  //   `if (counts[key] >= cap) continue;`
+  // 가 상한(MAX_GROUND 8 · MAX_AIR 32)을 넘는 것을 **말없이 버린다.**
+  // ⇒ 장면에 물체를 더하다 상한을 넘으면 **화면에서 사라지는데 전 시험이
+  //    초록**이다. 홍수 3단계가 이미 air 26/32라 여유가 6뿐이다.
+  {
+    const rendererSrc = readFileSync(resolve(root, 'src/modules/board/webgl/crossSection/renderer.js'), 'utf-8');
+    const capOf = (name) => {
+      const m = rendererSrc.match(new RegExp(`const ${name} = (\\d+)`));
+      return m ? Number(m[1]) : null;
+    };
+    // 상한은 렌더러가 소유한다 — 여기 숫자를 적으면 갈린다(오늘 낡은 수로 겪은 그 형태).
+    const capGround = capOf('MAX_GROUND');
+    const capAir = capOf('MAX_AIR');
+    check(
+      `상한을 렌더러에서 읽었다 (MAX_GROUND=${capGround} · MAX_AIR=${capAir})`,
+      Number.isInteger(capGround) && Number.isInteger(capAir),
+      'renderer.js에서 MAX_GROUND/MAX_AIR를 못 읽었다 — 이름이 바뀌면 이 검사가 공허해지므로 실패로 둔다.',
+    );
+    const over = [];
+    let worstGround = 0;
+    let worstAir = 0;
+    for (const id of Object.keys(SCENES)) {
+      const items = buildScene(id)?.items ?? [];
+      const steps = STORYBOARDS[id]?.length ?? 4;
+      for (let step = 0; step < steps; step += 1) {
+        let g = 0;
+        let a = 0;
+        for (const it of items) {
+          if (it.type !== 'solid') continue;
+          if (step < (it.at ?? 0)) continue;
+          if (it.until !== undefined && step > it.until) continue;
+          if (it.layer === 'ground') g += 1;
+          else a += 1;
+        }
+        worstGround = Math.max(worstGround, g);
+        worstAir = Math.max(worstAir, a);
+        if (g > capGround || a > capAir) over.push(`${id} step${step}: ground ${g}/${capGround} · air ${a}/${capAir}`);
+      }
+    }
+    check(
+      `solid 인스턴스가 상한 안 (최대 ground ${worstGround}/${capGround} · air ${worstAir}/${capAir})`,
+      over.length === 0,
+      `상한을 넘는 자리는 renderer.js가 **말없이 버린다** — 화면에서 사라지는데 다른 시험은 초록이다: ${over.join(' / ')}`,
+    );
+  }
+
+  // ── 7) 홍수 — **잠긴 것이 보이는가**(합성 순서) ────────────────────────────
+  // 🔴 **2026-08-19 클라이언트 3차 반려: 「건물 일부가 물에 잠기게」.**
+  // 형상만으로는 이미 잠겨 있었다(수면 위로 벽의 절반쯤만 나온다). 안 보인 것은
+  // `renderer.js`가 `gl.disable(gl.DEPTH_TEST)`로 **화가 알고리즘**을 쓰면서
+  // 물체를 **중심 깊이 하나로** 정렬하기 때문이다 — 큰 물 상자 하나는 각 건물보다
+  // 전부 앞이거나 전부 뒤이고, 뒤면 **불투명한 벽이 물을 덮어 수면선이 안 생긴다.**
+  // 종전 실측: 앞줄 5채 중 3채 · 차 2대 중 1대가 그 상태였다(자가 절반만 작동).
+  // ⇒ 이 단정은 **잠겨야 할 물체마다 그것보다 카메라에 가까운 물 조각이 있는가**를
+  //    묻는다. 물 상자를 하나로 되돌리면 빨강이 난다.
+  // ⚠️ 「그려진 그림이 잠겨 보인다」를 단정하는 것이 **아니다** — jsdom에 래스터라이저가
+  //    없어 그것은 원리적으로 측정 불가다. 여기서 증명되는 것은 **합성 순서가
+  //    수면선을 벽에 놓을 수 있는 상태인가**까지다. 최종 판정은 사람이 화면으로 한다.
+  {
+    const FLOOD = 'flood_risk_saturated_inflow';
+    const items = buildScene(FLOOD)?.items ?? [];
+    const { eye, forward } = isoCamera();
+    const depth = (p) => (p[0] - eye[0]) * forward[0] + (p[1] - eye[1]) * forward[1] + (p[2] - eye[2]) * forward[2];
+    const centerOf = (it) => it.center;
+    const step = 3;
+    const at3 = items.filter((it) => it.type === 'solid' && step >= (it.at ?? 0) && (it.until === undefined || step <= it.until));
+    // 물 = 3단계에 등장하고 pattern 3(잔물결)인 지표수. 지하·빗물받이는 y가 음수라 뺀다.
+    const water = at3.filter((it) => (it.at ?? 0) === 3 && it.pattern === 3 && centerOf(it)[1] > 0);
+    check(
+      `홍수 3단계 지표수가 여러 조각으로 나뉘어 있다 (실측 ${water.length}조각)`,
+      water.length >= 2,
+      '지표수가 한 상자면 중심 깊이 정렬이 건물마다 이길 수 없다 — 벽이 물을 덮어 수면선이 사라진다.',
+    );
+    // 잠겨야 할 것 = 3단계 수면(물 조각의 y 상단) 아래에 중심이 있는 도시 물체
+    const surfaceTop = Math.max(...water.map((w) => w.center[1] + w.size[1] / 2));
+    // 🔴 **선별식 정정(첫 판이 틀렸다)**: 「**일부** 잠김」은 물체의 **밑면**이
+    //   수면 아래라는 뜻이다. 첫 판은 **중심**이 수면 아래인 것만 골라서
+    //   **앞줄 건물 5채 중 4채가 빠졌다**(중심 y 0.049~0.064 > 수면 0.046).
+    //   벽 절반이 물에 담긴 건물이 「대상 아님」으로 빠지면 이 계약은 헛돈다.
+    const submersible = at3.filter((it) => {
+      if (water.includes(it)) return false;
+      const c = centerOf(it);
+      const bottom = c[1] - it.size[1] / 2;
+      const top = c[1] + it.size[1] / 2;
+      return (
+        top > 0 &&                      // 지면 위로 나와 있다(지하·하수는 제외)
+        bottom < surfaceTop - 1e-9 &&   // 밑면이 수면 아래 = **일부 잠김**
+        c[2] < 0.20 &&                  // 저지대 줄(고지대 z 0.20~Z는 마른 채다)
+        c[0] > 0.33                     // 도시 구간(풀밭 0.21~0.335 제외)
+      );
+    });
+    const uncovered = submersible.filter((it) => {
+      const c = centerOf(it);
+      const d = depth(c);
+      return !water.some((w) => {
+        const wc = w.center;
+        const inX = Math.abs(c[0] - wc[0]) <= w.size[0] / 2;
+        return inX && depth(wc) < d;
+      });
+    });
+    check(
+      `수면 아래 도시 물체 전부에 **더 가까운** 물 조각이 있다 (대상 ${submersible.length}개)`,
+      submersible.length > 0 && uncovered.length === 0,
+      submersible.length === 0
+        ? '수면 아래 도시 물체를 하나도 못 찾았다 — 대상 선별식이 낡았나? 공허 통과 방지로 실패로 둔다.'
+        : `이 물체들은 물보다 카메라에 가까워 **물 위에 그려진다** ⇒ 벽에 수면선이 안 생긴다: ` +
+          uncovered.map((it) => `x=${it.center[0].toFixed(3)} y=${it.center[1].toFixed(3)} z=${it.center[2].toFixed(3)}`).join(' / '),
+    );
   }
 
   // 소스 고정 — 동작 가드가 우회되더라도 loseContext 재도입 자체를 즉시 잡는다
