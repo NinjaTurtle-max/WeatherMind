@@ -586,6 +586,44 @@ try {
     );
   }
 
+  // ── 7-e) 🔴 **잠긴 정도가 여러 단계인가** ────────────────────────────────
+  // **2026-08-19 클라이언트가 침수 도판을 참고로 지정**(freepik "FLOOD ISOMETRIC").
+  // ⚠️ 따라 그리지 않았다 — 가져온 것은 규약이다.
+  //
+  // 그 도판에서 **깊이를 읽게 하는 것은 물 색이 아니다** — 「지붕만 남은 집」과
+  // 「벽 절반인 집」이 **함께** 있는 것이다. 한 단계만 있으면 「물이 있다」까지만
+  // 읽히고 **얼마나 깊은지**는 안 읽힌다. 차(자)는 절대 기준을 주고, **집집마다
+  // 다른 잠김**은 상대 기준을 준다 — 둘이 다른 일을 한다.
+  //
+  // ⚠️ **값이 아니라 분포를 묻는다.** 잠긴 비율의 최대 - 최소가 충분히 벌어졌는가.
+  //    특정 높이를 못박으면 더 나은 배치가 빨강이 된다(오늘 「쪼개야 한다」로 겪었다).
+  {
+    const FLOOD = 'flood_risk_saturated_inflow';
+    const items = buildScene(FLOOD)?.items ?? [];
+    const step = 3;
+    const at3 = items.filter((it) => it.type === 'solid' && step >= (it.at ?? 0) && (it.until === undefined || step <= it.until));
+    const water = at3.filter((it) => (it.at ?? 0) === 3 && it.pattern === 3 && it.center[1] > 0);
+    const surfaceTop = Math.max(...water.map((w) => w.center[1] + w.size[1] / 2));
+    // 건물 = 지표에 서고 높이가 차보다 큰 것(0.06 초과 — 자 계약과 같은 경계)
+    const ratios = at3
+      .filter((it) => {
+        const bottom = it.center[1] - it.size[1] / 2;
+        return !water.includes(it) && it.size[1] > 0.06 && Math.abs(bottom) < 1e-6 && it.center[0] > 0.33;
+      })
+      .map((it) => Math.min(1, (surfaceTop - (it.center[1] - it.size[1] / 2)) / it.size[1]));
+    const spread = ratios.length ? Math.max(...ratios) - Math.min(...ratios) : 0;
+    const MIN_SPREAD = 0.2;
+    check(
+      `잠긴 정도가 여러 단계다 — 건물 ${ratios.length}채, 비율 ${ratios.map((r) => `${Math.round(r * 100)}%`).join(' · ')} (편차 ${Math.round(spread * 100)}%p ≥ ${MIN_SPREAD * 100}%p)`,
+      ratios.length >= 3 && spread >= MIN_SPREAD,
+      ratios.length < 3
+        ? `지표에 선 건물이 ${ratios.length}채뿐이다 — 여러 단계를 보일 수 없다.`
+        : `건물들이 **비슷한 비율로** 잠겨 있다(편차 ${Math.round(spread * 100)}%p). ` +
+          `「지붕만 남은 집」과 「벽 절반인 집」이 함께 있어야 **얼마나 깊은지**가 읽힌다 — ` +
+          `한 단계만 있으면 「물이 있다」까지만 읽힌다.`,
+    );
+  }
+
   // ── 7-c) 🔴 **라벨이 겹치지 않는가 · 프레임을 넘지 않는가** ────────────────
   // **2026-08-19 클라이언트**: *"글자 렌더링 겹침 확인하고 안 겹치도록"*.
   //
