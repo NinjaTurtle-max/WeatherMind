@@ -503,6 +503,58 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
 
 await vite.close();
 await new Promise((r) => httpServer.close(r));
+// ── 능력 분석 판의 두 레이더가 **한 쌍**이다 (2026-08-19 사용자 지시) ────────
+/**
+ * "개념 숙련도도 초록색으로 다이어그램" — 왼쪽 θ(파랑)와 오른쪽 숙련도(초록)가
+ * 같은 부품·같은 치수·같은 임계로 그려져야 한 카드로 읽힌다. 색만 다르고,
+ * 그 색이 유일한 구분이다(축도 범위도 다른 값이라 같은 색이면 겹쳐 읽힌다).
+ *
+ * jsdom에는 CSS 엔진이 없고 숙련도 데이터는 목이 안 주므로 **소스 계약**으로 둔다.
+ * 되돌아갈 수 있는 길이 셋이라 셋을 다 문다:
+ *  ⓐ 숙련도 레이더가 emerald 색조다 — 지우면 파랑 둘이 되어 구분이 사라진다
+ *  ⓑ 두 레이더의 치수가 같다 — 한쪽만 키우면 두 열의 리듬이 깨진다
+ *  ⓒ 임계를 **같은 상수**(RADAR_MIN_CONCEPTS)로 읽는다 — 숫자를 베끼면 한쪽만
+ *     빈 줄이 남는다(왼쪽에서 실제로 있었던 결함이라 주석이 그 경위를 적어 뒀다)
+ */
+{
+  const panel = readFileSync(resolve(root, 'src/modules/progress/WeatherBrainPanel.jsx'), 'utf8');
+  ok(
+    /testId="mastery-radar"[\s\S]{0,200}?tone=\{RADAR_TONES\.emerald\}/.test(panel),
+    'ⓐ 숙련도 레이더가 초록(emerald) 색조다',
+  );
+  const sizes = [...panel.matchAll(/className="h-\[(\d+)px\] w-\[(\d+)px\]"/g)].map((m) => `${m[1]}x${m[2]}`);
+  ok(
+    sizes.length === 2 && sizes[0] === sizes[1],
+    `ⓑ 두 레이더 치수가 같다 — ${sizes.join(' / ')}`,
+  );
+  const thresholds = (panel.match(/RADAR_MIN_CONCEPTS/g) ?? []).length;
+  ok(
+    thresholds >= 3 && !/length >= 3\b/.test(panel),
+    `ⓒ 임계를 같은 상수로 읽는다(숫자 하드코딩 없음) — RADAR_MIN_CONCEPTS ${thresholds}회`,
+  );
+}
+
+// ── 능력 분석 탭과 그 자리는 **한 쌍**이다 (2026-08-19) ─────────────────────
+/**
+ * 제목이 `absolute bottom-full`로 카드 위에 솟으므로(탭) 그만큼의 자리를 위
+ * 격자와의 사이에 비워 둬야 한다. 종전 `mt-4`(16px)로는 탭 49px이 왼쪽 열을
+ * **33px 파고들었다** — 학습 지역이 왼쪽으로 돌아와 두 열 길이가 같아지면서
+ * 드러났다(오른쪽에 있던 동안에는 그 자리가 비어 있어 안 보였다).
+ *
+ * 겹침은 좌표라 jsdom이 못 재고, 실제로 **오른쪽 열이 길던 동안에는 눈에도
+ * 안 보였다** — 그래서 소스로 짝을 문다.
+ */
+{
+  const page = readFileSync(resolve(root, 'src/modules/progress/ProgressPage.jsx'), 'utf8');
+  const panel = readFileSync(resolve(root, 'src/modules/progress/WeatherBrainPanel.jsx'), 'utf8');
+  const tabbed = /lg:absolute lg:bottom-full/.test(panel);
+  const reserve = page.match(/className="mt-4 flex flex-col gap-4 lg:mt-(\d+)"/)?.[1];
+  ok(
+    !tabbed || Number(reserve) >= 14,
+    `탭이 솟는 만큼 위 여백을 비워 뒀다 — 탭 ${tabbed ? '있음' : '없음'} · lg:mt-${reserve ?? '(없음)'}`,
+  );
+}
+
 if (failed) {
   console.error(`\n실패 ${failed}건`);
   process.exit(1);

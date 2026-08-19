@@ -292,6 +292,22 @@ const RULE_ANNOTATION_IDS = [
   'radiation_fog',
   'north_pacific_heatwave',
   'siberian_clear',
+  // 🔴 **2026-08-19: 여기가 8종에서 멈춰 12종이 무표시였다.** 규칙은 20종인데
+  // 이 목록은 v1 시절 그대로였고, `ZoneAnnotation`이 `if (!text) return null`이라
+  // **크래시 없이 조용히 안 떴다**. 계약(`displayLayerParity`)이 이제 이 목록을
+  // 규칙 파일과 대조하므로, 규칙이 늘면 여기도 함께 울린다.
+  'tropical_cyclone_genesis',
+  'greenhouse_tropical_night',
+  'cold_front_squall_storm',
+  'siberian_gale_wildfire',
+  'front_convergence_flood',
+  'flood_risk_saturated_inflow',
+  'wildfire_risk_dry_gale',
+  'okhotsk_sea_fog',
+  'okhotsk_foehn_clear',
+  'yangtze_mild_clear',
+  'yangtze_morning_fog',
+  'dry_convection_clear',
 ];
 
 // 인덱싱 형태(`RULE_ANNOTATIONS[ruleId]` → 문자열)를 그대로 유지한다 — 소비처가

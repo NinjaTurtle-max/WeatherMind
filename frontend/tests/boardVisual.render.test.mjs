@@ -10,6 +10,10 @@
  *     주석 라벨·Canvas 강수 마운트(강수 존 있을 때만) 존재
  *  5) PrecipCanvas SSR 가드 — window 접근 없이 <canvas> 마크업만 출력,
  *     소스에 typeof window 마운트 가드 존재
+ *  6) en 실렌더에 한국어 0건 (MT-28)
+ *  7) 좁은 화면 재배치·카드 폭·힌트 배치 (소스 단정)
+ *  8) **SVG 폴백이 WebGL과 같은 뜻을 그린다** (MT-23) — 산불에 산·비탈 위의 화선,
+ *     홍수에 도시·포장면 대비·수위 상승. **무엇을 못 재는지는 그 절 머리에 적었다.**
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -83,6 +87,12 @@ try {
     };
     const html = render(h(CrossSectionPanel, { zoneResult }));
     const story = STORYBOARDS[rule.id];
+    // ⚠️ 스토리보드가 없는 규칙에서 **여기서 죽지 않는다**(2026-08-18). 종전에는
+    //    `story.steps`가 TypeError를 내며 파일 전체가 멈춰, 규칙 하나가 빠진 것이
+    //    **뒤따르는 모든 검사를 못 돌게** 만들었다(실제로 4조건 규칙 3종이 붙었을 때
+    //    이 파일이 통째로 죽었다). 누락 자체는 위 1)이 이미 FAIL로 세고 있으므로
+    //    신호는 잃지 않는다 — 잃는 것은 나머지 검사뿐이었다.
+    if (!story) continue;
     const okCaption = html.includes(story.steps[0]) && html.includes(`1/${story.steps.length}단계`);
     const okControls = html.includes('일시정지') && html.includes('다음 단계') && html.includes('단계 이동');
     const okExplain = html.includes(rule.explain.slice(0, 12));
@@ -92,7 +102,10 @@ try {
 
   // 3) reduced-motion 정적 렌더 — 최종 장면 + 단계 전체 목록
   {
-    const rule = rules[0];
+    // 스토리보드가 **있는** 첫 규칙을 쓴다 — `rules[0]`은 시드 순서가 바뀌면 언제든
+    // 스토리보드 없는 규칙이 되고(2026-08-18 실제로 그렇게 됐다), 그러면 이 검사가
+    // 「단계 목록이 안 뜬다」가 아니라 TypeError로 죽어 뒤가 전부 안 돈다.
+    const rule = rules.find((r) => STORYBOARDS[r.id]) ?? rules[0];
     const html = render(h(CrossSectionPanel, {
       zoneResult: { zone: 0, zone_name: '서해', phenomenon: rule.then.phenomenon, cloud: rule.then.cloud, rule_id: rule.id, explain: rule.explain },
       reduced: true,
@@ -460,6 +473,193 @@ try {
     // CSS로 감추면 BoardHintPanel이 두 개 마운트돼 data-testid가 중복된다.
     const hintLines = body.split('\n').filter((l) => l.includes('{hintBlock}'));
     check(`wide: 힌트 인스턴스가 하나다(${hintLines.length}곳)`, hintLines.length === 1);
+  }
+
+  // ── 8) **SVG 폴백이 WebGL과 같은 뜻을 그린다** — 산불엔 산, 홍수엔 도시 (MT-23) ──
+  //
+  // 왜 이 검사가 있나: MT-23이 WebGL 단면 2종을 조사 문법으로 다시 세우는 동안
+  // SVG 스토리보드는 범위 밖이라 **옛 표현으로 남았다**(산 없음·도시 없음). 그런데
+  // 이 SVG는 장식이 아니라 **WebGL2 미지원 기기·SSR 첫 렌더·reduced-motion 세 경로가
+  // 실제로 보는 화면**이다(CrossSectionPanel 머리 주석). 표현 격차는 조용하다 —
+  // 3D가 멀쩡하면 아무도 폴백을 안 본다.
+  //
+  // 🔴 **무엇을 재고 무엇을 못 재는가** (이 구분이 이 절의 핵심이다)
+  //  잰다  — SSR 문자열에 **선언된 좌표 사이의 관계**. 산이 지면 위로 솟았는가 ·
+  //          화선이 그 비탈 **선 위에** 있는가 · 위로 갈수록 큰가(불머리) ·
+  //          비화가 능선 **너머**인가 · 건물이 포장면 위에 서 있는가 ·
+  //          투수면과 포장면이 **겹치지 않는가** · 3단계 수위가 도로 **위로**
+  //          올라왔는가 · 빗물받이 화살표가 2→3단계에 **아래→위로 뒤집히는가**.
+  //  못 잰다 — jsdom·SSR에는 **레이아웃/CSS 엔진이 없다**: 라벨끼리 겹치는지,
+  //          글자가 읽히는지, 무엇이 무엇을 가리는지(z-order·불투명도 합성),
+  //          색 대비, 애니메이션 타이밍, 「보기 좋은가」. 그건 사람이 봐야 한다.
+  //          en 문자열이 ko보다 길어 라벨이 부딪히는 것도 여기서 안 잡힌다.
+  //
+  // 창은 `data-cs*` 속성 하나뿐이고, 그 수치는 도형을 만드는 상수와 **같은 값**이다
+  // (CrossSectionPanel의 프리미티브가 단일 소유). 그래서 도형을 옮기면 수치도 같이
+  // 움직인다 — 속성만 맞춰 놓고 그림을 되돌리는 우회가 안 된다.
+  //
+  // ⚠️ 공허 통과 방지: 관계를 묻기 **전에** 파싱 개수를 먼저 단정한다. data-cs 이름을
+  //    오타 내거나 요소를 지우면 「관계가 참인 표본이 0개」로 조용히 통과하는 대신
+  //    개수 단정이 먼저 운다.
+  {
+    // 단계별 장면을 **직접** 렌더한다 — 위 2)의 패널 렌더는 step 0에만 닿는다.
+    const sceneAt = (ruleId, step) =>
+      render(h(STORYBOARDS[ruleId].Scene, { step, animate: false }));
+    /** data-cs="<kind>"를 단 요소들의 속성 표 — 값은 숫자면 숫자로 */
+    const marks = (html, kind) =>
+      [...html.matchAll(/<[a-z]+\s[^>]*data-cs="([^"]+)"[^>]*>/g)]
+        .filter((m) => m[1] === kind)
+        .map((m) => {
+          const attrs = {};
+          for (const a of m[0].matchAll(/data-cs-([a-z0-9-]+)="([^"]*)"/g)) {
+            const n = Number(a[2]);
+            attrs[a[1]] = Number.isFinite(n) && a[2].trim() !== '' ? n : a[2];
+          }
+          return attrs;
+        });
+
+    // ── 산불: 산이 보이고, 화선이 비탈 위에 있고, 위로 갈수록 크다 ──────────
+    const wfTerrain = sceneAt('wildfire_risk_dry_gale', 0);
+    const [mt] = marks(wfTerrain, 'mountain');
+    check('산불: 산 단면(mountain)을 하나 그린다', Boolean(mt), '없으면 아래 관계 단정이 전부 공허해진다');
+    if (mt) {
+      // y는 아래로 증가한다 — 정상이 두 기슭보다 **위**(작은 y)에 있어야 산이다.
+      check(
+        `산불: 정상이 두 기슭보다 위로 솟았다 — 정상 y=${mt.ay} · 서 ${mt.wy} · 동 ${mt.ey}`,
+        mt.ay < mt.wy - 20 && mt.ay < mt.ey - 20,
+      );
+      check(
+        `산불: 두 기슭이 지면(y=118)에 닿는다 — 서 ${mt.wy} · 동 ${mt.ey}`,
+        Math.abs(mt.wy - 118) < 0.6 && Math.abs(mt.ey - 118) < 0.6,
+      );
+    }
+    const wfTrees = marks(wfTerrain, 'tree');
+    check(`산불: 숲을 그린다(나무 ${wfTrees.length}그루)`, wfTrees.length >= 4);
+    // 산 위의 숲인가 — 나무 밑동이 비탈 선 위에 있는지. 서쪽 비탈 y = 118 − 64·h(fx),
+    // 화면 x = 26 + 188·fx 이므로 기울기만으로 검산한다(장면 상수를 테스트가 다시
+    // 적으면 드리프트하므로, **정상·기슭 좌표에서 직선을 세워** 대조한다).
+    const onWestSlope = (x) => (mt ? mt.wy + ((mt.ay - mt.wy) * (x - mt.wx)) / (mt.ax - mt.wx) : NaN);
+    const treesOnSlope = wfTrees.filter((t) => t.x > (mt?.wx ?? 0) && Math.abs(t.y - onWestSlope(t.x)) < 1.5);
+    check(
+      `산불: 나무가 **비탈 위**에 서 있다(${treesOnSlope.length}/${wfTrees.length}그루가 능선 선상)`,
+      treesOnSlope.length >= 3,
+      wfTrees.map((t) => `x${t.x}:y${t.y}≠${onWestSlope(t.x).toFixed(1)}`).join(' '),
+    );
+
+    const wfFire = sceneAt('wildfire_risk_dry_gale', 2);
+    const heads = marks(wfFire, 'flame').filter((f) => f.role === 'front').sort((a, b) => a.x - b.x);
+    check(`산불: 화선을 이루는 불꽃이 여럿이다(${heads.length}개)`, heads.length >= 3);
+    if (heads.length >= 3 && mt) {
+      const off = heads.map((f) => Math.abs(f.y - onWestSlope(f.x)));
+      check(
+        `산불: 화선이 **비탈 위**에 있다 — 능선 선과의 차 [${off.map((d) => d.toFixed(2)).join(', ')}]`,
+        off.every((d) => d < 1.5),
+      );
+      check(
+        `산불: 위로 갈수록 불이 커진다(불머리) — 높이 [${heads.map((f) => f.h).join(', ')}]`,
+        heads.every((f, i) => i === 0 || f.h > heads[i - 1].h),
+      );
+      check(
+        `산불: 불이 비탈을 오른다(x가 커질수록 위) — y [${heads.map((f) => f.y).join(', ')}]`,
+        heads.every((f, i) => i === 0 || f.y < heads[i - 1].y),
+      );
+    }
+    const spot = marks(wfFire, 'flame').filter((f) => f.role === 'spot');
+    check(`산불: 비화가 놓은 새 불이 있다(${spot.length}개)`, spot.length >= 1);
+    check(
+      `산불: 새 불이 **능선 너머**다 — 비화 x=${spot[0]?.x} · 정상 x=${mt?.ax}`,
+      Boolean(mt) && spot.length >= 1 && spot[0].x > mt.ax,
+    );
+
+    const wfCrown = sceneAt('wildfire_risk_dry_gale', 3);
+    const crown = marks(wfCrown, 'flame').filter((f) => f.role === 'crown');
+    check(`산불: 4단계에 수관화가 있다(${crown.length}개)`, crown.length >= 1);
+    check(
+      `산불: 수관화가 지표보다 **나무 높이만큼 위**다 — ${crown.map((f) => `${(onWestSlope(f.x) - f.y).toFixed(1)}px`).join(' ')}`,
+      Boolean(mt) && crown.length >= 1 && crown.every((f) => onWestSlope(f.x) - f.y >= 6),
+    );
+    // 4단계 캡션이 「구름 한 점 없이 맑지만」이다 — 구름을 그리면 캡션과 충돌한다.
+    // 좌표로는 「구름이 없음」을 못 재므로(없는 것에는 data-cs가 안 붙는다) 소스로 문다.
+    const panelSrc = readFileSync(resolve(root, 'src/modules/board/CrossSectionPanel.jsx'), 'utf8');
+    const wfBody = panelSrc.slice(
+      panelSrc.indexOf('function WildfireRiskScene'),
+      panelSrc.indexOf('// 홍수 지형'),
+    );
+    check('산불 장면 본문을 찾았다', wfBody.length > 400);
+    const cloudy = ['PuffCloud', 'LayerCloud', 'CbTower', 'CSRain', 'CSSnow'].filter((n) => wfBody.includes(n));
+    check(
+      `산불: 어떤 구름·강수도 그리지 않는다(4단계 캡션 「구름 한 점 없이 맑지만」) — 발견 [${cloudy.join(', ')}]`,
+      cloudy.length === 0,
+    );
+
+    // ── 홍수: 도시 단면이고, 포장면 ↔ 투수면 대비가 있고, 물이 도로 위로 오른다 ──
+    const flTerrain = sceneAt('flood_risk_saturated_inflow', 0);
+    const [paved] = marks(flTerrain, 'paved');
+    const [perv] = marks(flTerrain, 'pervious');
+    check('홍수: 포장면과 투수면을 둘 다 그린다', Boolean(paved) && Boolean(perv));
+    if (paved && perv) {
+      check(
+        `홍수: 두 면이 겹치지 않는다(대비가 성립한다) — 투수 [${perv.x0}, ${perv.x1}] · 포장 [${paved.x0}, ${paved.x1}]`,
+        perv.x1 <= paved.x0 && perv.x1 - perv.x0 > 8,
+      );
+    }
+    const blds = marks(flTerrain, 'building');
+    check(`홍수: 도시를 이루는 건물이 여럿이다(${blds.length}동)`, blds.length >= 6);
+    check(
+      `홍수: 건물이 **포장면 위**에 있다(투수면 위엔 없다) — x [${blds.map((b) => b.x).join(', ')}]`,
+      Boolean(paved) && blds.length > 0 && blds.every((b) => b.x >= paved.x0 && b.x <= paved.x1),
+    );
+    const front = blds.filter((b) => b.row === 'front');
+    check(
+      `홍수: 앞줄 건물이 도로면(y=${paved?.y})에 서 있다 — base [${front.map((b) => b.base).join(', ')}]`,
+      front.length >= 3 && Boolean(paved) && front.every((b) => Math.abs(b.base - paved.y) < 0.6),
+    );
+    check(
+      `홍수: 앞줄·뒷줄 두 줄이라 그 사이가 「거리」로 읽힌다 — 앞 ${front.length} · 뒤 ${blds.length - front.length}`,
+      front.length >= 3 && blds.length - front.length >= 3,
+    );
+    const [drain] = marks(flTerrain, 'drain');
+    const [base] = marks(flTerrain, 'basement');
+    check('홍수: 빗물받이와 지하를 그린다', Boolean(drain) && Boolean(base));
+    check(
+      `홍수: 지하가 지표(118) **아래**다 — 지하 윗면 y=${base?.top}`,
+      Boolean(base) && base.top > 118,
+    );
+
+    // 「용량 초과」를 사건으로 보이는 것이 이 그림의 요점이다(조사 §3F):
+    // 같은 빗물받이에서 화살표가 2단계 **아래**(삼킨다) → 3단계 **위**(역류)로 뒤집힌다.
+    const swallow = marks(sceneAt('flood_risk_saturated_inflow', 2), 'drain-flow');
+    const backup = marks(sceneAt('flood_risk_saturated_inflow', 3), 'drain-flow');
+    check(`홍수: 2·3단계 모두 빗물받이 화살표가 있다(${swallow.length}·${backup.length})`,
+      swallow.length >= 1 && backup.length >= 1);
+    check(
+      `홍수: 빗물받이가 2단계엔 삼키고 3단계엔 역류한다 — ${swallow[0]?.dir} → ${backup[0]?.dir}`,
+      swallow[0]?.dir === 'down' && backup[0]?.dir === 'up',
+    );
+    check(
+      `홍수: 두 화살표가 **같은 빗물받이**다 — x ${swallow[0]?.x} · ${backup[0]?.x}`,
+      swallow.length >= 1 && backup.length >= 1 && Math.abs(swallow[0].x - backup[0].x) < 0.6,
+    );
+    const soak = marks(sceneAt('flood_risk_saturated_inflow', 2), 'soak-flow');
+    check(
+      `홍수: 투수면은 아직 스민다(아래 화살표 ${soak.length}개, dir=${soak[0]?.dir})`,
+      soak.length >= 1 && soak[0].dir === 'down'
+        && Boolean(perv) && soak[0].x >= perv.x0 - 6 && soak[0].x <= perv.x1 + 6,
+    );
+
+    const flFull = sceneAt('flood_risk_saturated_inflow', 3);
+    const [surf] = marks(flFull, 'water-surface');
+    const [soil] = marks(flFull, 'water-soil');
+    const [bwater] = marks(flFull, 'water-basement');
+    check('홍수: 4단계에 지표수·땅속물·지하실물이 다 있다', Boolean(surf) && Boolean(soil) && Boolean(bwater));
+    check(
+      `홍수: 수위가 도로면 **위**로 올라왔다 — 수면 y=${surf?.top} · 도로 y=${paved?.y}`,
+      Boolean(surf) && Boolean(paved) && surf.top < paved.y - 4,
+    );
+    check(
+      `홍수: 지하부터 잠긴다(지하실 물이 지하 칸 안에 있다) — 물 ${bwater?.top} · 칸 ${base?.top}`,
+      Boolean(bwater) && Boolean(base) && Math.abs(bwater.top - base.top) < 0.6,
+    );
   }
 
   // 7) 좁은 칸에 놓인 힌트는 캐릭터를 **위로 쌓는다** (2026-08-12)

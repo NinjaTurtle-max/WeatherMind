@@ -29,8 +29,17 @@
  *      전선·기압의 기초와 **같은 얼굴**이었다. 불·비구름이 자기 자리를 가진다.
  *   ② 온도와 열: 물방울 → **온도계**. 물방울이 CO₂·기후와 겹쳐 있던 것이 풀린다.
  *   ③ 물의 상태변화: 눈결정 → **눈구름**. 눈결정이 기단과 겹쳐 있던 것이 풀린다.
- * 남은 겹침은 둘뿐이다(태양 = 열섬·복사 균형, 구름 = 기압과 전선·기압의 기초).
- * 개념 14 > 그림 12라 완전 1:1은 아직 안 된다 — 그림이 둘 더 생기면 여기만 고친다.
+ * ✅ **겹침이 0이 됐다**(2026-08-18). 종전 이 자리에 *"남은 겹침은 둘(태양 =
+ * 열섬·복사 균형, 구름 = 기압과 전선·기압의 기초). 개념 14 > 그림 12라 완전 1:1은
+ * 아직 안 된다 — 그림이 둘 더 생기면 여기만 고친다"*고 적혀 있었다. 그림 둘이
+ * 생겨(바람이·풀) 예고한 대로 이 표만 고쳤다: 압력의 기초 → **바람이**,
+ * 복사와 에너지 수지 → **풀**. 개념 14 : 그림 14로 **완전 1:1**이라 지금은
+ * 폴백(구름)으로 떨어지는 태그가 없다 — 폴백은 미지 태그 대비로만 남는다.
+ *
+ * @contract concept-character-1to1
+ *   이 줄이 있는 동안 `mascotAssets.contract` ⑤가 **겹침 0**을 강제한다. 개념이
+ *   그림보다 많아져 1:1을 접기로 하면 **이 한 줄만 지우면 된다** — 위 서술은
+ *   경위라서 남긴다(CLAUDE.md §0-5).
  */
 const BY_CONCEPT = {
   // 날씨 코스(weather)
@@ -44,8 +53,9 @@ const BY_CONCEPT = {
   flood_response: 'raincloud',
   // 기초과학 코스(basic-science)
   temperature_heat: 'thermometer',
-  radiation_budget: 'sun',
-  pressure_basics: 'cloud',
+  // 2026-08-18 — 마지막 겹침 둘이 풀렸다(아래 머리말).
+  radiation_budget: 'grass',
+  pressure_basics: 'wind',
   density_buoyancy: 'rainbow',
   phase_change: 'snowcloud',
   energy_transfer: 'moon',

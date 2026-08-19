@@ -1,0 +1,74 @@
+// Hindcast module resources (en) — MT-30. Key parity with hindcast.ko.js is
+// enforced by frontend/tests/i18n.smoke.test.mjs.
+//
+// ⚠️ Only the `hindcast` top-level namespace belongs here (core.js merges with a
+// shallow spread — any other top-level key would wipe that namespace from en.js).
+export default {
+  hindcast: {
+    entry: {
+      title: 'Hindcast Challenge',
+      desc: 'Travel back to a day that really happened and forecast it. Can you beat an AI caster that only knows the climate normals?',
+      inputs: 'Climate normals · synoptic background',
+      badge: 'Fixed demo dates — real public records',
+    },
+    list: {
+      title: '🕰️ Hindcast Challenge',
+      subtitle: 'The server already knows what actually happened on these days. Step in as that day&apos;s forecaster.',
+      back: '← Explore',
+      loading: 'Loading rounds...',
+      loadErrorTitle: 'Could not load the rounds',
+      loadErrorBody: 'Please try again in a moment.',
+      retry: 'Try again',
+      empty: 'No rounds are open yet',
+      emptyBody: 'Rounds will appear here as past observation data becomes available.',
+      emptyCta: 'Back to Explore',
+      played: 'Done',
+      open: 'Forecast it →',
+      review: 'See result again →',
+      station: 'Station {station}',
+      normalLabel: 'Normal',
+    },
+    play: {
+      backToList: '← All rounds',
+      loading: 'Opening the round...',
+      notFoundTitle: 'Round not found',
+      notFoundBody: 'The address changed or the round was closed.',
+      normalTitle: 'Climate normals for this date',
+      normalHint: 'The AI caster forecasts from these normals. On a record-breaking day, the normals are badly wrong.',
+      tempLabel: 'High temperature (°C)',
+      rainLabel: 'Chance of rain (%)',
+      submit: 'Submit forecast',
+      submitting: 'Scoring...',
+      alreadyTitle: 'You already forecast this round',
+      alreadyBody: 'Each round can be forecast once. Your earlier result is shown below.',
+      invalidBody: 'Temperature must be between -60 and 60°C, and rain chance between 0 and 100%.',
+      errorTitle: 'Could not submit',
+    },
+    result: {
+      title: 'Verdict',
+      you: 'Your forecast',
+      caster: 'AI caster',
+      actual: 'What happened',
+      score: 'Accuracy',
+      win: '🎉 You beat the caster!',
+      lose: 'So close — the caster was more accurate',
+      draw: 'It&apos;s a draw',
+      rained: 'Rain',
+      noRain: 'No rain',
+      rainfall: '{mm}mm of rain',
+      explanationTitle: 'What happened that day',
+      sourcesTitle: 'Where these values come from',
+      sourceTemp: 'Temperature',
+      sourceRain: 'Precipitation',
+    },
+    disclosure: {
+      label: 'About this data',
+      body: 'There is no pipeline storing past observations on the server yet, so this demo offers only fixed dates verified against public records. Each value&apos;s source is shown with the result.',
+      short: 'Fixed demo dates',
+    },
+    history: {
+      title: 'My hindcast record',
+      empty: 'You have not tried any rounds yet.',
+    },
+  },
+};

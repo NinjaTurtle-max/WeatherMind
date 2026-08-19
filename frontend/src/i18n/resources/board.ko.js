@@ -39,6 +39,12 @@ export default {
         severe_storm: { label: '조직된 뇌우' },
         wildfire_warning: { label: '산불 경보급' },
         flood_warning: { label: '호우 침수 경보급' },
+        // MT-18 전문가 보드(2026-08-18) — 태풍·온실효과. 이 두 줄이 없으면
+        // phenomenonMeta 폴백이 지도·단면 패널에 enum 원문 + ❔를 그린다.
+        // `tropical_night`는 온실효과 **왕복 구조**의 결과 이름이다(기상청 어휘) —
+        // 「CO₂를 놓으면 더워진다」가 아니라 되돌리는 기체와 밤을 조작한 결과다.
+        typhoon: { label: '태풍' },
+        tropical_night: { label: '열대야' },
       },
       cloud: {
         cumulonimbus: { label: '적란운' },
@@ -60,9 +66,20 @@ export default {
       title: '오늘은 어떤 날씨를 만들어 볼까요?',
     },
     page: {
-      difficulty1: '쉬움',
-      difficulty2: '보통',
-      difficulty3: '어려움',
+      // 난이도 라벨은 **교과 과정 표기**다(#32b · 2026-08-14 멘토 지목).
+      // 종전 '쉬움/보통/어려움'은 서비스에서 보드만 쓰던 예외였다 — 지식 단계는
+      // 이미 「초등 3~4학년」…「기상청 현업」(KnowledgeLevelCard)으로 통일돼 있다.
+      //
+      // ⚠️ 이 셋은 **잠금 문구(lockedBannerBody)와 한 몸**이다. 잠금은 학교급으로
+      // 갈리므로(초등→1, 중·고등→2까지, 성인→전부) 라벨이 곧 「누구에게 열리는
+      // 칸인가」를 말한다. 한쪽만 고치면 배지와 안내가 서로 다른 말을 한다.
+      // 계약 감시: boardEntryGate.smoke.test.mjs 「난이도 라벨은 교과 과정 표기다」.
+      //
+      // ⚠️ 짧게 유지할 것 — 잠긴 칸에서는 배지(compact)와 잠금 사유가 한 줄에
+      // 같이 선다(아래 배지 줄 주석의 187px 실측). 낱말을 늘리면 사유가 잘린다.
+      difficulty1: '초등',
+      difficulty2: '중·고등',
+      difficulty3: '성인',
       difficultyAria: '난이도: {label}',
       difficultyText: '난이도 {label}',
       sandboxQuestion: '자유 실험 — 요소를 마음껏 배치하고 어떤 날씨가 만들어지는지 관찰해 보세요',
@@ -101,7 +118,9 @@ export default {
       lockedTitle: '내 정보에서 학습 수준을 올리면 열려요',
       cardLocked: '수준 올리면 열림',
       lockedBannerTitle: '🔒 지금 학습 수준에서 열리는 난이도까지 보여요',
-      lockedBannerBody: '초등학생은 쉬움, 중·고등학생은 보통까지, 성인은 전부 열려요.',
+      // 위 difficulty1~3과 **같은 낱말**을 쓴다 — 배지에 「중·고등」이라 적힌 칸을
+      // 두고 안내가 「보통」이라 부르면 학습자가 둘을 다른 축으로 읽는다.
+      lockedBannerBody: '초등학생은 초등, 중·고등학생은 중·고등까지, 성인은 전부 열려요.',
       lockedBannerCta: '학습 수준 바꾸기',
       blockedSuffix: ' (구름 부족)',
       blockedTitle: '구름이 회복되면 열 수 있어요 — 약 {min}분 후',
@@ -154,6 +173,11 @@ export default {
       hintNeedsLabel: '필요한 요소 종류:',
       hintCta: '💡 힌트 보기 ({n}/{total})',
       hintNoAnswer: '힌트는 정답 배치를 알려주지 않아요 — 남은 한 걸음은 직접 골라 보세요.',
+      // ①안 3단(N-3) 라벨 — N회 미통과 후 열리는 현상 해설의 머리말.
+      // ⚠️ **숫자를 넣지 말 것.** boardAssistRetention이 '힌트 2:' 이후 문자열
+      // 전체에 숫자가 없을 것을 단정한다(BoardHintPanel의 해당 주석 참조).
+      // ⚠️ 「정답」이라 부르지 않는다 — 이건 배치 답안이 아니라 **현상의 원리**다.
+      explainLabel: '📖 여러 번 막혔네요 — 이 날씨가 만들어지는 원리를 알려줄게요',
       moisture: '💧 습기',
       sun: '☀️ 일사',
       wind: '🌬️ 바람',
@@ -162,6 +186,10 @@ export default {
       disasterWildfireBody: '공기가 메말라 불이 붙기 쉽고, 센 바람이 불씨를 실어 날라요.',
       disasterFloodTitle: '🌊 침수 위험',
       disasterFloodBody: '수증기가 계속 실려 들어와 비가 그치지 않고, 땅이 물을 더 받아들이지 못해요.',
+      disasterWildfireWarningTitle: '🚨 산불 경보급',
+      disasterWildfireWarningBody: '메마른 공기에 강풍까지 겹쳤어요. 불이 나면 순식간에 번져 손쓰기 어려워요.',
+      disasterFloodWarningTitle: '🚨 호우 침수 경보급',
+      disasterFloodWarningBody: '전선이 겹쳐 비가 퍼붓는데 물이 빠질 곳이 없어요. 도시가 잠길 수 있어요.',
       resultSuccess: '🎉 성공! 목표 대기현상을 만들었어요',
       resultFail: '아직이에요 — 배치를 바꿔 다시 시도해 보세요',
       timeoutTitle: '⏱ 시간 초과! 제한 시간 안에 완성하지 못했어요',
@@ -255,6 +283,15 @@ export default {
         drainOverwhelmed: '빗물받이가 감당하지 못하고 되넘쳐요',
         basementFloods: '지하부터 물이 차요',
         greenGroundSoaks: '풀밭은 그래도 물을 먹어요',
+        windShear: '위아래 바람 차이',
+        organizedStorm: '한 덩어리로 조직된 비구름',
+        cloudBlocksSun: '두꺼운 구름이 햇볕을 가려요',
+        latentHeatFuel: '수증기가 맺히며 내놓는 열 — 태풍의 연료',
+        lowShearColumn: '바람 차이가 작아 하나의 기둥으로',
+        eyewallStrongest: '눈벽 — 바람이 가장 센 곳',
+        longwaveTrapped: '수증기가 긴 파장을 붙잡아 되돌려 보내요',
+        noWindNoMixing: '바람이 약해 열이 섞이지 않아요',
+        groundEmitsLongwave: '지표가 긴 파장으로 열을 내보내요',
       },
       // MT-28: 단면 스토리보드 15종(CrossSectionPanel STORYBOARDS).
       // ko 값은 외부화 전 원문과 **바이트 동일** — boardVisual.render.test가
@@ -395,6 +432,51 @@ export default {
             '땅이 스며들 수 있는 양을 넘겨 물이 고이기 시작해요.',
           ],
         },
+        cold_front_squall_storm: {
+          title: '한랭전선 + 일사 + 바람 — 조직된 강한 소나기',
+          steps: [
+            '강한 햇볕이 지면 부근 공기를 데워 대기가 불안정해져요.',
+            '한랭전선이 그 습한 공기를 급하게 밀어 올려요.',
+            '위아래 바람의 차이가 커서 오르는 공기와 내려오는 공기가 자리를 나눠 가져요.',
+            '그래서 구름이 흩어지지 않고 한 덩어리로 조직돼 더 오래, 더 세게 쏟아요.',
+          ],
+        },
+        siberian_gale_wildfire: {
+          title: '시베리아 기단 + 강풍 — 산불 경보급 날씨',
+          steps: [
+            '차고 메마른 공기가 내려와 자리를 잡아요.',
+            '산을 넘어 불어 내리는 바람이 더해져 낙엽과 잔가지의 물기가 빠르게 빠져나가요.',
+            '햇볕까지 강해서 마른 연료가 더 뜨거워져요.',
+            '작은 불씨 하나가 바람을 타고 순식간에 번져요.',
+          ],
+        },
+        front_convergence_flood: {
+          title: '정체전선 + 수렴 — 물이 차오르는 날',
+          steps: [
+            '정체전선이 한자리에 머물러요.',
+            '아래쪽에서 습한 바람이 계속 불어 들어와 같은 곳에 수증기가 채워져요.',
+            '두꺼운 구름이 햇볕을 가려 지면이 데워지지 않으니 비구름을 흩을 힘도 없어요.',
+            '비가 한곳에 오래 머물러 물이 빠져나갈 새 없이 쌓여요.',
+          ],
+        },
+        tropical_cyclone_genesis: {
+          title: '따뜻한 바다 + 약한 시어 — 태풍의 씨앗',
+          steps: [
+            '햇볕이 데운 따뜻한 바다에서 덥고 습한 공기가 올라가요.',
+            '수증기가 물방울로 맺히며 열을 내놓고, 그 열이 다시 공기를 밀어 올려요.',
+            '위아래 바람 차이가 작아서 기둥이 어긋나지 않고 하나로 조직돼요.',
+            '다 자라면 바람이 가장 센 곳은 중심이 아니라 중심을 둘러싼 구름 벽이에요.',
+          ],
+        },
+        greenhouse_tropical_night: {
+          title: '습한 공기 + 약한 바람 — 식지 않는 밤',
+          steps: [
+            '낮에 들어온 햇빛이 지표에 흡수돼 열로 쌓여요.',
+            '지표는 그 열을 눈에 보이지 않는 긴 파장으로 되돌려 내보내요.',
+            '공기 속 수증기가 그것을 붙잡아 다시 지표로 돌려보내요.',
+            '열을 섞어 흩을 바람마저 약해서 밤새 기온이 내려가지 않아요.',
+          ],
+        },
       },
       badgeConfirmed: '✓ 서버 판정',
       badgePreview: '미리보기',
@@ -428,6 +510,23 @@ export default {
         radiation_fog: '복사냉각,\n새벽 짙은 안개',
         north_pacific_heatwave: '고온 다습 공기,\n폭염 지속',
         siberian_clear: '한랭 건조 공기,\n맑고 추움',
+        // 🔴 **2026-08-19 회수: 여기 8종만 있어 나머지 12종이 무표시였다.**
+        // 표는 규칙 8종 시절에 멈춰 있었고, ㉣(4조건)·MT-18·재난 축이 규칙을 20종으로
+        // 늘리는 동안 아무도 이 표에 행을 안 넣었다. `ZoneAnnotation`이 `if (!text)
+        // return null`이라 **조용히 안 뜬다** — 크래시가 없어 아무도 못 봤다.
+        // 문구 규약: 「원인,\n결과」 2줄. 줄바꿈이 리더선 라벨의 2줄 배치를 만든다.
+        tropical_cyclone_genesis: '뜨겁고 습한 바다,\n태풍의 씨앗',
+        greenhouse_tropical_night: '열이 갇힌 밤,\n식지 않는 도시',
+        cold_front_squall_storm: '찬 공기가 밀어 올려,\n한 줄로 선 뇌우',
+        siberian_gale_wildfire: '메마른 공기에 강풍,\n산불 경보급',
+        front_convergence_flood: '정체전선에 강풍,\n물이 빠지지 않는다',
+        flood_risk_saturated_inflow: '수증기가 계속 유입,\n땅이 다 찼다',
+        wildfire_risk_dry_gale: '건조한 강풍,\n불씨가 날아간다',
+        okhotsk_sea_fog: '찬 바다 위 습한 공기,\n바다 안개',
+        okhotsk_foehn_clear: '산을 넘어온 건조 공기,\n맑고 따뜻',
+        yangtze_mild_clear: '온화한 대륙 공기,\n맑음',
+        yangtze_morning_fog: '약한 햇빛에 습기,\n아침 안개',
+        dry_convection_clear: '강한 햇빛에 건조,\n구름이 못 자란다',
       },
       mapAria: '한반도 대기 보드 지도 — 4개 지역 노드에 요소를 배치하세요',
       zoneAria: '{name} 존{goal} — 현재 {phenomenon}',

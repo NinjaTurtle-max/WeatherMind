@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import AbilityRadar, { RADAR_MIN_CONCEPTS } from './AbilityRadar';
+import AbilityRadar, { RADAR_MIN_CONCEPTS, RADAR_TONES, unitToRatio } from './AbilityRadar';
 import Mascot from '../../components/Mascot';
 import { conceptCharacter } from '../../components/conceptCharacter';
 import { progressApi } from '../../api';
@@ -81,6 +81,34 @@ export default function WeatherBrainPanel() {
         <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
           {t('weatherBrain.mastery.subtitle')}
         </p>
+        {/* 🔴 **초록 레이더**(2026-08-18 사용자 지시 — "개념 숙련도도 초록색으로
+            다이어그램"). 왼쪽 θ 레이더와 **같은 부품·같은 치수·같은 자리**라
+            두 열이 한 카드로 읽힌다. 다른 것은 색뿐이고, 그 색이 유일한 구분이다:
+            왼쪽은 「지금 풀 수 있는 정도(θ)」, 이쪽은 「익혔을 확률(0~1)」이라
+            축도 범위도 다르다 — 같은 파랑이면 두 그림을 겹쳐 읽게 된다.
+            ⚠️ 임계(3종 미만이면 자리째 뺀다)는 왼쪽과 **같은 상수**를 읽는다.
+            숫자를 베끼면 그쪽이 바뀔 때 여기만 빈 줄이 남는다. */}
+        {masteryRows.length >= RADAR_MIN_CONCEPTS && (
+          <div className="mt-3 flex justify-center">
+            <AbilityRadar
+              testId="mastery-radar"
+              tone={RADAR_TONES.emerald}
+              ratio={(m) => unitToRatio(m.p_mastery)}
+              abilities={masteryRows.map((m) => ({
+                concept_tag: m.concept_tag,
+                theta: 0,
+                level_label: m.level_label,
+                p_mastery: m.p_mastery,
+              }))}
+              ariaLabel={t('weatherBrain.mastery.radarAria', {
+                list: masteryRows
+                  .map((m) => `${CONCEPT_KO[m.concept_tag] ?? m.concept_tag} ${pct(m.p_mastery)}%`)
+                  .join(', '),
+              })}
+              className="h-[224px] w-[224px]"
+            />
+          </div>
+        )}
         {masteryRows.length === 0 ? (
           <p className="mt-2 text-xs text-slate-400">{t('weatherBrain.mastery.empty')}</p>
         ) : (
@@ -145,8 +173,27 @@ export default function WeatherBrainPanel() {
   const Card = ({ children }) => (
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">{children}</div>
   );
+  /**
+   * 제목 줄 — **lg에서는 카드 위로 솟는 「탭」**이다(2026-08-19 사용자 지시:
+   * "능력분석만 위로 탭처럼 튀어나와서 여백을 채우자").
+   *
+   * 왜 필요한가: 위 격자의 왼쪽 열(프로필+배지)이 오른쪽 열(할 일·다음 목표·
+   * 지식 단계·학습 지역)보다 짧아 **왼쪽 아래가 빈다.** 종전에는 배지 카드를
+   * 늘여(`lg:flex-1`) 메웠는데, 그러면 타일이 필요 이상으로 커진다(사용자가
+   * 되돌리라고 한 그것). 대신 바로 아래 판이 제 머리를 그 자리로 올려 메운다.
+   *
+   * ⚠️ **좁은 화면에서는 그냥 제목이다.** 1열로 쌓이면 위에 빈자리가 없고,
+   * 솟게 두면 앞 카드를 덮는다. 그래서 `lg:` 접두사로만 띄운다.
+   * ⚠️ `after`의 1px 흰 띠는 **탭과 카드 사이 이음매를 지운다** — 카드의
+   * `ring`이 탭 아래를 가로지르면 탭이 붙은 게 아니라 얹힌 것으로 보인다.
+   */
   const Header = () => (
-    <div className="mb-1 flex items-center gap-2">
+    <div
+      className="mb-1 flex items-center gap-2 lg:absolute lg:bottom-full lg:left-0 lg:z-10 lg:mb-0
+                 lg:rounded-t-2xl lg:border lg:border-b-0 lg:border-slate-200 lg:bg-white
+                 lg:px-4 lg:pb-3 lg:pt-3
+                 lg:after:absolute lg:after:inset-x-0 lg:after:top-full lg:after:h-px lg:after:bg-white"
+    >
       <h2 className="text-base font-extrabold text-slate-900">{t('weatherBrain.title')}</h2>
     </div>
   );
@@ -202,6 +249,8 @@ export default function WeatherBrainPanel() {
   }
 
   return (
+    // relative — 위 Header가 lg에서 `absolute bottom-full`로 이 상자 위에 붙는다.
+    <div className="relative">
     <Card>
       <Header />
       {/* 폭 전체 한 판이 되면서(2026-08-10 사용자 지시) 카드 안이 2열로 갈린다 —
@@ -317,5 +366,6 @@ export default function WeatherBrainPanel() {
       </div>
       </div>
     </Card>
+    </div>
   );
 }

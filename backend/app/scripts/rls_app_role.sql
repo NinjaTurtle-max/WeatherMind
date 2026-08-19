@@ -58,9 +58,11 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 --  (b) league_results SELECT: 공개 리더보드(GET /league/leaderboard)가 설계상
 --      전 유저 집계다(라우터 주석 "전체 유저 집계 — RLS 미적용 세션").
 --      쓰기(WITH CHECK)는 예외 없음 — user_isolation이 그대로 강제된다.
--- 나머지 9개 RLS 테이블(quiz_logs·weak_tags·attendance·sessions·duels·
--- user_quest_progress·user_badges·user_unit_progress·user_concept_ability)은
+-- 나머지 10개 RLS 테이블(quiz_logs·weak_tags·attendance·sessions·duels·
+-- user_quest_progress·user_badges·user_unit_progress·user_concept_ability·
+-- hindcast_attempts)은
 -- 예외 없이 user_isolation이 앱 롤에 실제 강제된다 — 이번 항목의 실체.
+-- (hindcast_attempts는 마이그레이션 0016 신설 — MT-30 과거 예보. 예외 0건.)
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_policies
@@ -103,7 +105,7 @@ END $$;
 --   SELECT defaclobjtype, defaclacl::text FROM pg_default_acl
 --   WHERE defaclacl::text LIKE '%weathermind_app%';
 --
--- [V5] 정책 지형 — 기대: user_isolation 11개(전 RLS 테이블) 불변 +
+-- [V5] 정책 지형 — 기대: user_isolation 12개(전 RLS 테이블) 불변 +
 --   app_auth_users(users)·app_leaderboard_read(league_results) 각 1개
 --   SELECT tablename, policyname, roles::text
 --   FROM pg_policies WHERE schemaname = 'public'
