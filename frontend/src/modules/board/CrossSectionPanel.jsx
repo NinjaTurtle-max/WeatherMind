@@ -1167,7 +1167,11 @@ function SiberianGaleWildfireScene({ step, animate }) {
         <polygon points={P([gp(0.42, 0), gp(0.58, 0), gp(0.5, 1)])} fill="#a8a29e" opacity="0.7" />
         <CSText x={128} y={96} color="#57534e" size={5.5}>{V.mountainRange}</CSText>
         <BroadArrow x1={54} y1={54} x2={122} y2={44} color="#0e7490" bend={-0.06} w0={9} w1={4} />
-        <BroadArrow x1={134} y1={48} x2={220} y2={86} color="#c2410c" bend={0.12} w0={8} w1={3} />
+        {/* 활강풍 — **4단계 비화의 방향을 결정하는 화살표**. 테스트가 「동쪽」을 손으로
+            적지 않고 여기서 부호를 캐 가므로, 이 화살표를 뒤집으면 비화 단정이 운다. */}
+        <g data-cs="wind" data-cs-x1="134" data-cs-x2="220">
+          <BroadArrow x1={134} y1={48} x2={220} y2={86} color="#c2410c" bend={0.12} w0={8} w1={3} />
+        </g>
         <CSText x={196} y={64} color="#c2410c" size={6}>{V.dryWarmWind}</CSText>
         <CSText x={128} y={116} color="#92400e" size={6}>{V.driedLeavesTwigs}</CSText>
         {/* 풍하(동)쪽 숲 — 불씨가 떨어질 곳에 **탈 것**이 있어야 4단계의 새 불이

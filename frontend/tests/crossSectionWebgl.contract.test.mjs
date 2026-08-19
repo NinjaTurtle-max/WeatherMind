@@ -241,6 +241,53 @@ try {
     );
   }
 
+  // ── 1-b) 산불 경보급 4단계가 **번짐**을 그리는가 (MT-23 3차 반려) ─────────────
+  //
+  // 2026-08-19 클라이언트: *"「작은 불씨 하나가 바람을 타고 순식간에 번져요」
+  // 이 부분이 주황색 타원으로만 설명하는 게 너무 빈약해"*. 종전 판의 결함은
+  // 빈약함만이 아니었다 — 불티 화살표가 `dir: [-1, …]`이라 같은 장면의 강풍
+  // (1단계 `[1, …]`)을 **거슬렀다**. 「바람을 타고」를 정반대로 가르치고 있었다.
+  //
+  // 🔴 **바람 부호를 손으로 적지 않는다.** 1단계 화살표에서 캐서 4단계와 대조한다 —
+  //    「동쪽」이라고 못박으면 장면이 좌우 반전돼도 테스트가 같이 틀린다.
+  // 🔴 **개수만 세지 않는다.** 불꽃(kind 5) 빌보드가 몇 개인지가 아니라
+  //    **가장 바람 위 불(출발) 뒤로 서로 다른 자리에 여럿이 서 있는가**를 본다.
+  //    같은 자리에 겹쳐 놓으면 수는 늘어도 「번졌다」가 아니다.
+  {
+    const id = 'siberian_gale_wildfire';
+    const items = buildScene(id)?.items ?? [];
+    const at = (n) => items.filter((it) => (it.at ?? 0) === n);
+    const windSigns = [...new Set(at(1).filter((it) => it.type === 'arrow').map((it) => Math.sign(it.dir[0])))];
+    const emberSigns = [...new Set(at(3).filter((it) => it.type === 'arrow').map((it) => Math.sign(it.dir[0])))];
+    check(
+      `${id}: 1단계 바람의 x 부호가 하나다 [${windSigns}]`,
+      windSigns.length === 1 && windSigns[0] !== 0,
+      '부호가 갈리면 아래 대조가 무의미하다(어느 쪽을 바람으로 볼지 정할 수 없다).',
+    );
+    check(
+      `${id}: 4단계 불티가 **바람과 같은 부호**로 난다 — 바람 [${windSigns}] · 불티 [${emberSigns}]`,
+      emberSigns.length === 1 && emberSigns[0] === windSigns[0],
+      '거스르면 「바람을 타고 번진다」를 그림이 정반대로 가르친다(2026-08-19 반려 사유).',
+    );
+    // 불꽃 = flame()이 내는 kind 5 빌보드. 자리별로 묶어 **서로 다른 자리**를 센다.
+    const fireX = [...new Set(at(3).filter((it) => it.type === 'billboard' && it.kind === 5)
+      .map((it) => Number(it.center[0].toFixed(2))))].sort((a, b) => a - b);
+    check(
+      `${id}: 4단계 불이 **여러 자리**에 선다 — x [${fireX.join(', ')}]`,
+      fireX.length >= 4,
+      '주황 타원 하나로는 「번진다」가 안 된다. flame() 어휘를 쓴 불이 출발 1 + 도착 3 이상이어야 한다.',
+    );
+    if (fireX.length >= 4 && windSigns.length === 1) {
+      const origin = windSigns[0] > 0 ? fireX[0] : fireX[fireX.length - 1];
+      const spread = Math.abs(fireX[fireX.length - 1] - fireX[0]);
+      check(
+        `${id}: 새 불이 전부 출발점의 **바람 아래**다 — 출발 x=${origin}`,
+        fireX.every((x) => x === origin || Math.sign(x - origin) === windSigns[0]),
+      );
+      check(`${id}: 번진 거리가 실재한다 — 월드 x ${spread.toFixed(2)}`, spread >= 0.2);
+    }
+  }
+
   // ── 2) 드로우콜 예산 ──────────────────────────────────────────────────────
   const WHO_BUDGET =
     'renderer.js 성능 계약(§3.2): 컨텍스트 1개 · 프레임당 드로우콜 ≤ 32. ' +
