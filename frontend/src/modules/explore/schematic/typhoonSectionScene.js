@@ -174,6 +174,15 @@ export function tangent(p, spin) {
  *
  * ⚠️ `note`는 **캔버스 밖 캡션**이다(보드 `CrossSectionPanel`이 `steps[step]`을
  * 캔버스 아래 HTML로 뿌리는 것과 같은 자리). 캔버스 안에는 짧은 명사구만 남긴다.
+ *
+ * 🔴 **누적의 범위가 2026-08-19에 갈렸다 — 그림은 누적, 라벨은 아니다.**
+ * 클라이언트 지적(*"글자들이 너무 난잡하다"*) 뒤 실측: 단계별 라벨 5,6,8,9,**12**.
+ * 보드 17장면(수리 중 3장면 제외)의 최대가 6인데 두 배였다. 그래서 **구름·화살표·
+ * 강수는 그대로 누적**하되 **무대를 소개하고 역할이 끝난 라벨만 `until`로 걷는다**
+ * (나선 비구름대·권운 차양은 0단계 무대 소개, 바다 온도는 1단계 유입까지가 몫).
+ * 🔴 **걷으면 안 되는 둘은 남겼다**: 「눈벽」(4단계 「최대 풍속」과 짝이라 ①이
+ * 화면에서 성립한다) · 「하층 수렴 ↔ 상층 발산」(②의 역회전을 **글자로 말하는 유일한
+ * 통로**라 3단계에서 반드시 **함께** 떠 있어야 한다).
  */
 export const T1_STEPS = Object.freeze([
   {
@@ -283,22 +292,31 @@ export const TYPHOON_SECTION_SCENE = composeScene({
     // ── 0단계: 무대 ─────────────────────────────────────────────────────────
     // 따뜻한 바다 = 연료. 보드의 `groundHeating` 관용구(bb kind 3)를 바다에 쓴다.
     bb({ x: 0.5, y: 0.004, w: 1.0, h: 0.1, color: rgba('#fb923c', 0.4), kind: 3, at: 0 }),
-    label({ x: 0.17, y: H(0.06), text: `바다 ${T1_FACTS.warmSeaC}°C 이상`, color: WARM_TXT, at: 0, size: 10 }),
+    // `until: 1` — 연료(따뜻한 바다)는 **하층이 빨려 드는 1단계까지**가 몫이다.
+    // 2단계부터는 이야기가 위로 올라가고, 이 수치는 0단계 캡션이 이미 말한다.
+    label({ x: 0.17, y: H(0.06), text: `바다 ${T1_FACTS.warmSeaC}°C 이상`, color: WARM_TXT, at: 0, until: 1, size: 10 }),
     // 나선 비구름대 — 눈벽보다 **먼저** 놓아 painter 정렬에서 뒤로 간다
     ...rainBands({ side: -1, at: 0 }),
     ...rainBands({ side: +1, at: 0 }),
-    label({ x: 0.10, y: H(0.78), text: '나선 비구름대', color: '#475569', at: 0, size: 9.5 }),
+    // `until: 0` — 무대를 소개하는 이름표다. 아치는 끝까지 그려지고 이름만 걷는다.
+    label({ x: 0.10, y: H(0.78), text: '나선 비구름대', color: '#475569', at: 0, until: 0, size: 9.5 }),
     // 🔴 눈벽 — 좌우 한 쌍이 **위로 갈수록 바깥으로** 기운다(모래시계)
     ...eyewall({ side: -1, at: 0 }),
     ...eyewall({ side: +1, at: 0 }),
+    // 🔴 `until` **없음** — 끝까지 남는다. 4단계의 「최대 풍속」이 이 이름표와 짝일
+    //    때에만 사실 ①(가장 센 곳은 중심이 아니라 **눈벽**)이 화면에서 성립한다.
     label({ x: EYE_X - R_WALL - 0.15, y: H(0.66), text: '눈벽', color: WALL_TXT, at: 0, size: 11 }),
     // 🔴 권운 차양 — 아래보다 넓다. 이것이 0단계를 태풍으로 만든다
     ...cirrusCanopy({ at: 0 }),
     // ⚠️ 높이 H(1.16) — 차양(H(1.03)) 바로 위다. 실측: H(1.16)은 화면 상단 1.3%로 계약(>2%)에 걸렸다. 보드 라벨의 상단
     //    최소가 5.1%(siberian_snow)라 그보다 위로 올리면 글자 윗변이 잘린다.
-    label({ x: 0.31, y: H(1.10), text: '권운 차양', color: '#64748b', at: 0, size: 10 }),
-    // 눈 — 구름을 **비워 두는 것**이 그림이다(중앙에 아무것도 놓지 않는다)
-    label({ x: EYE_X, y: H(0.42), text: '눈', color: EYE_TXT, at: 0, size: 11 }),
+    // 🔴 `until: 0` — **0단계에는 반드시 남아야 한다**: `exploreSims.render.test`가
+    //    T1의 「껍데기 + 장면 라벨」 짝을 이 문자열로 확인하고 SSR은 step 0만 그린다.
+    //    3단계에서 상층이 이 차양을 따라 퍼지지만 그 사실은 3단계 캡션이 말한다.
+    label({ x: 0.31, y: H(1.10), text: '권운 차양', color: '#64748b', at: 0, until: 0, size: 10 }),
+    // 눈 — 구름을 **비워 두는 것**이 그림이다(중앙에 아무것도 놓지 않는다).
+    // `until: 2` — 2단계에서 「하강 · 맑음」이 같은 자리를 이어받는다.
+    label({ x: EYE_X, y: H(0.42), text: '눈', color: EYE_TXT, at: 0, until: 2, size: 11 }),
 
     // ── 1단계: 하층이 빨려 든다 — 반시계(spin +1) ───────────────────────────
     // 동쪽(오른쪽)은 접선이 북(+z), 서쪽은 남(-z) — 그것이 반시계다.
@@ -307,13 +325,18 @@ export const TYPHOON_SECTION_SCENE = composeScene({
     //    (감김의 부호는 그대로라 사실은 안 바뀐다 — 계약이 그 부호를 문다).
     ...limb({ side: +1, x: EYE_X + R_OUTER, y: Y_LOW, radialGain: -1.5, spin: +1, rise: 0.04, thickness: T1_THICKNESS.inflow, color: SEA, travel: 0.3, count: 3, speed: 0.5, at: 1 }),
     ...limb({ side: -1, x: EYE_X - R_OUTER, y: Y_LOW, radialGain: -1.5, spin: +1, rise: 0.04, thickness: T1_THICKNESS.inflow, color: SEA, travel: 0.3, count: 3, speed: 0.5, at: 1 }),
-    label({ x: 0.16, y: H(0.24), text: '하층 수렴', color: SEA_TXT, at: 1, size: 10 }),
+    // 🔴 `until: 3` — **3단계까지는 반드시 남는다.** 「하층 수렴 ↔ 상층 발산」이 한
+    //    화면에 함께 떠야 사실 ②(아래·위 감김이 반대)가 글자로 성립하고, 그 짝이
+    //    맺어지는 곳이 3단계다. 4단계는 「어디가 센가」라 이 몫이 끝난다.
+    label({ x: 0.16, y: H(0.24), text: '하층 수렴', color: SEA_TXT, at: 1, until: 3, size: 10 }),
 
     // ── 2단계: 눈벽은 솟고 눈은 가라앉는다 ──────────────────────────────────
     // 🔴 **여기가 전체 최대 굵기**다 — 최대 풍속은 눈벽이지 중심이 아니다.
     ...limb({ side: +1, x: EYE_X + R_WALL, y: H(0.14), radialGain: -0.12, spin: +1, rise: 2.6, thickness: T1_THICKNESS.eyewall, color: WALL, travel: 0.26, count: 3, speed: 0.62, at: 2 }),
     ...limb({ side: -1, x: EYE_X - R_WALL, y: H(0.14), radialGain: -0.12, spin: +1, rise: 2.6, thickness: T1_THICKNESS.eyewall, color: WALL, travel: 0.26, count: 3, speed: 0.62, at: 2 }),
-    label({ x: EYE_X + R_WALL + 0.19, y: H(0.56), text: '상승', color: WALL_TXT, at: 2, size: 11 }),
+    // `until: 2` — 「솟는다」는 2단계의 말이고, 4단계에서 같은 눈벽을 가리키는 말은
+    // 「최대 풍속」이다. 둘을 함께 띄우면 같은 화살표에 이름표가 둘 붙는다.
+    label({ x: EYE_X + R_WALL + 0.19, y: H(0.56), text: '상승', color: WALL_TXT, at: 2, until: 2, size: 11 }),
     // 눈 속 — 하강기류·약풍·맑음. **가장 가는 화살표**여야 한다
     ...flow({ from: [EYE_X, H(0.66), ZC], dir: [0, -1, 0], travel: 0.22, count: 1, scale: T1_THICKNESS.eye, color: rgba('#94a3b8', 0.95), speed: 0.24, at: 2 })
       .map((a) => ({ ...a, eye: true })),
