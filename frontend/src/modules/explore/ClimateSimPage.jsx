@@ -10,6 +10,9 @@ import {
 // MT-24 탐구 목표 — 「변수를 바꿔보며」에 「해냈다」를 붙인다.
 import GoalPanel from './GoalPanel';
 import { CLIMATE_GOALS } from './exploreGoals';
+// C1 복사수지 입체 모식도(MT-22) — 슬라이더가 못 보여주는 **경로**를 보인다.
+import SchematicPanel from './SchematicPanel';
+import { RADIATION_SCENE, RADIATION_STEPS } from './schematic/radiationScene';
 import { useT } from '../../i18n';
 
 /**
@@ -177,6 +180,18 @@ export default function ClimateSimPage() {
           <AnomalyCurve co2={co2} anomaly={result.anomaly} />
         </div>
       </div>
+
+      {/* C1 복사수지 입체 모식도(MT-22) — **곡선 카드를 대체하지 않고 덧붙인다.**
+          곡선은 "얼마나 더워지나"(결과)를 말하고, 이 그림은 "그 열이 어디로 다니나"
+          (경로)를 말한다 — 온실효과가 「나가는 열이 붙잡히는 것」임은 수치 카드로는
+          보이지 않는다. 슬라이더 **위**에 두어 조작 전에 구조를 먼저 읽게 한다. */}
+      <SchematicPanel
+        title="지구는 받은 만큼 내보낸다 — 복사수지"
+        caption="화살표 굵기가 에너지 양이다. 단계를 넘기며 본다."
+        scene={RADIATION_SCENE}
+        steps={RADIATION_STEPS}
+        ariaLabel="지구 복사수지 입체 모식도"
+      />
 
       {/* CO2 슬라이더 카드 */}
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">

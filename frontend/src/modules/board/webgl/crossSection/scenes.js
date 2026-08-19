@@ -16,10 +16,10 @@ import { rgba } from './glCore';
 // 장면 내부 라벨 — SVG(CrossSectionPanel)와 공유하는 단일 소유자(MT-28)
 import { V } from '../../crossSectionLabels.js';
 
-const Z = WORLD.Z;
-const ZC = Z / 2;
+export const Z = WORLD.Z;
+export const ZC = Z / 2;
 /** SVG fp의 고도 h(0~1) → 월드 y */
-const H = (h) => h * WORLD.Y;
+export const H = (h) => h * WORLD.Y;
 
 // ── 색 (SVG 스토리보드와 동일 팔레트) ───────────────────────────────────────
 const COLD_FILL = rgba('#93c5fd', 0.46);
@@ -32,7 +32,7 @@ const WARM_TXT = '#b91c1c';
 
 // ── 아이템 생성기 ───────────────────────────────────────────────────────────
 /** 볼륨(기단·공기층) — 필요하면 위로 갈수록 좁아지고(taper) 기울어진다(shear) */
-function vol({ x0, x1, y0 = 0, y1, z0 = 0, z1 = Z, color, taper = [1, 1], shear = [0, 0], pattern = 0, at = 0, until, layer = 'air' }) {
+export function vol({ x0, x1, y0 = 0, y1, z0 = 0, z1 = Z, color, taper = [1, 1], shear = [0, 0], pattern = 0, at = 0, until, layer = 'air' }) {
   return {
     type: 'solid', layer, at, until,
     center: [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2],
@@ -42,7 +42,7 @@ function vol({ x0, x1, y0 = 0, y1, z0 = 0, z1 = Z, color, taper = [1, 1], shear 
 }
 
 /** 쐐기 — 바닥 x0~x1, 정상 tx0~tx1(좁음). 한랭기단 쐐기·삼각 대치 단면에 사용 */
-function wedge({ x0, x1, tx0, tx1, y1, color, at = 0, until, pattern = 0, z0 = 0, z1 = Z }) {
+export function wedge({ x0, x1, tx0, tx1, y1, color, at = 0, until, pattern = 0, z0 = 0, z1 = Z }) {
   const bw = x1 - x0;
   const tw = Math.max(tx1 - tx0, 0.001);
   return vol({
@@ -53,7 +53,7 @@ function wedge({ x0, x1, tx0, tx1, y1, color, at = 0, until, pattern = 0, z0 = 0
 }
 
 /** 전선면 — 경사 슬랩(바닥 xb에서 정상 xt까지 기울어진 얇은 판) */
-function frontSlab({ xb, xt, y1, color, at = 0, until, thick = 0.016, z0 = 0.0, z1 = Z }) {
+export function frontSlab({ xb, xt, y1, color, at = 0, until, thick = 0.016, z0 = 0.0, z1 = Z }) {
   return vol({
     x0: xb - thick / 2, x1: xb + thick / 2, y1, z0, z1,
     color, at, until, pattern: 1, shear: [xt - xb, 0],
@@ -61,7 +61,7 @@ function frontSlab({ xb, xt, y1, color, at = 0, until, thick = 0.016, z0 = 0.0, 
 }
 
 /** 기류 벡터 필드 — 같은 방향 화살표 묶음(깊이 방향으로 흩뿌림) */
-function flow({ from, dir, travel = 0.22, count = 3, scale = 0.052, color, speed = 0.42, at = 0, until, spreadZ = 0.13, spreadY = 0 }) {
+export function flow({ from, dir, travel = 0.22, count = 3, scale = 0.052, color, speed = 0.42, at = 0, until, spreadZ = 0.13, spreadY = 0 }) {
   const n = Math.hypot(dir[0], dir[1], dir[2]) || 1;
   const d = [dir[0] / n, dir[1] / n, dir[2] / n];
   return Array.from({ length: count }, (_, i) => {
@@ -76,13 +76,13 @@ function flow({ from, dir, travel = 0.22, count = 3, scale = 0.052, color, speed
 }
 
 let seedCounter = 0;
-function bb({ x, y, z = ZC, w, h, color, kind = 1, at = 0, until }) {
+export function bb({ x, y, z = ZC, w, h, color, kind = 1, at = 0, until }) {
   seedCounter += 1;
   return { type: 'billboard', at, until, center: [x, y, z], size: [w, h], color, kind, seed: (seedCounter * 0.37) % 10 };
 }
 
 /** 적란운 타워 — 모루 + 수직 발달 몸통(구름 볼륨 노이즈 빌보드 적층) */
-function cbTower({ x, z = ZC, top = H(0.9), at }) {
+export function cbTower({ x, z = ZC, top = H(0.9), at }) {
   const body = [
     { dy: -0.055, w: 0.20, h: 0.14, c: rgba('#f1f5f9', 0.96) },
     { dy: -0.125, w: 0.235, h: 0.155, c: rgba('#e2e8f0', 0.96) },
@@ -96,7 +96,7 @@ function cbTower({ x, z = ZC, top = H(0.9), at }) {
 }
 
 /** 층운·난층운 밴드 — 넓고 평평한 구름 띠 */
-function layerBand({ x0, x1, y, z = ZC, at, dark = true, n = 4 }) {
+export function layerBand({ x0, x1, y, z = ZC, at, dark = true, n = 4 }) {
   const w = (x1 - x0) / n;
   return Array.from({ length: n }, (_, i) =>
     bb({
@@ -106,7 +106,7 @@ function layerBand({ x0, x1, y, z = ZC, at, dark = true, n = 4 }) {
     }));
 }
 
-function puff({ x, y, z = ZC, s = 1, color = rgba('#e2e8f0', 0.95), at, until }) {
+export function puff({ x, y, z = ZC, s = 1, color = rgba('#e2e8f0', 0.95), at, until }) {
   return bb({ x, y, z, w: 0.17 * s, h: 0.12 * s, color, kind: 1, at, until });
 }
 
@@ -158,7 +158,7 @@ function smoke({ x, y, z = ZC, n = 3, lean = 0.06, rise = 0.055, s = 1, at, unti
 }
 
 /** 강수 — 인스턴싱 파티클 에미터 박스 */
-function precip({ x0, x1, y1, z0 = 0.02, z1 = Z - 0.02, kind = 'rain', slant = 0.22, speed = 1.5, count = 24, at }) {
+export function precip({ x0, x1, y1, z0 = 0.02, z1 = Z - 0.02, kind = 'rain', slant = 0.22, speed = 1.5, count = 24, at }) {
   return {
     type: 'precip', at,
     origin: [x0, 0, z0], size: [x1 - x0, y1, z1 - z0],
@@ -166,7 +166,7 @@ function precip({ x0, x1, y1, z0 = 0.02, z1 = Z - 0.02, kind = 'rain', slant = 0
   };
 }
 
-function label({ x, y, z = 0.04, text, color = '#334155', size = 11, at, until, weight = 700 }) {
+export function label({ x, y, z = 0.04, text, color = '#334155', size = 11, at, until, weight = 700 }) {
   return { type: 'label', at, until, pos: [x, y, z], text, color, size, weight };
 }
 
@@ -719,17 +719,39 @@ export const SCENES = {
   greenhouse_tropical_night: { build: greenhouseTropicalNight, night: true },
 };
 
+/** 하늘 — 주간·야간 두 벌뿐이고 SVG 스토리보드의 그라데이션과 같은 값이다 */
+export const skyOf = (night) => (night
+  ? { top: rgba('#0f172a', 1), bottom: rgba('#475569', 1) }
+  : { top: rgba('#bfdbfe', 1), bottom: rgba('#eff6ff', 1) });
+
+/**
+ * 무대 위에 항목을 얹어 장면을 조립한다 — **이 무대를 쓰는 유일한 진입점**.
+ *
+ * ⚠️ **진입점을 여기서 넓혔다(MT-22 재제작, 2026-08-19).** 종전에는 `buildScene(ruleId)`
+ * 하나뿐이라 이 무대를 쓰려면 **rule_id를 가져야** 했다. 탐구 화면의 모식도 3종
+ * (복사수지·태풍 단면·태풍 생애)은 보드 규칙이 아니라서, 그대로 두면 선택지가
+ * ⑴ 가짜 rule_id를 만들어 `SCENES`에 끼워 넣거나(= `crossSectionWebgl.contract`의
+ * 「SCENES ↔ STORYBOARDS 1:1」을 **거짓으로 만든다** — 계약이 초록인데 아무것도
+ * 안 지키는 상태) ⑵ 무대를 재구현하거나 둘뿐이었다. **둘 다 나쁘다.**
+ * 그래서 규칙 결합을 `buildScene`에 남기고 **조립만 떼어 냈다.** 규칙 장면은
+ * 그대로 `buildScene`을 지나가므로 기존 계약은 한 줄도 약해지지 않는다.
+ *
+ * `vol`·`wedge`·`bb`·`cbTower`·`layerBand`·`precip`·`flow`·`label`도 같은 이유로
+ * 내보낸다 — **문법을 복제하지 않고 그대로 쓰게** 하기 위해서다. 복제하면 팔레트와
+ * 관용구가 갈라지고, 그 갈라짐이 이 과업이 반려된 원인 그 자체다.
+ */
+export function composeScene({ night = false, sea = null, items = [] }) {
+  return {
+    night: Boolean(night),
+    sky: skyOf(Boolean(night)),
+    items: [...groundLayer({ night: Boolean(night), sea }), ...items],
+  };
+}
+
 /** 장면 전체(지표 레이어 + 단계 아이템) 조립 — 단계 필터는 renderer가 수행 */
 export function buildScene(ruleId) {
   const spec = SCENES[ruleId];
   if (!spec) return null;
   seedCounter = 0;
-  const night = Boolean(spec.night);
-  return {
-    night,
-    sky: night
-      ? { top: rgba('#0f172a', 1), bottom: rgba('#475569', 1) }
-      : { top: rgba('#bfdbfe', 1), bottom: rgba('#eff6ff', 1) },
-    items: [...groundLayer({ night, sea: spec.sea ?? null }), ...spec.build()],
-  };
+  return composeScene({ night: spec.night, sea: spec.sea ?? null, items: spec.build() });
 }

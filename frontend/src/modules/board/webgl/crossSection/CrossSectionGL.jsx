@@ -25,13 +25,20 @@ const VB_H = 150;
 /** scenes.js의 size(px 감각) → viewBox 260×150 단위 */
 const LABEL_SCALE = 0.6;
 
-export default function CrossSectionGL({ ruleId, step, onFail }) {
+/**
+ * @param ruleId  보드 규칙 장면(`SCENES[rule_id]`) — 보드 판정 화면이 쓰는 길
+ * @param scene   **미리 조립된 장면**(`composeScene`) — 탐구 모식도가 쓰는 길.
+ *   ⚠️ 진입을 둘로 넓힌 이유는 `scenes.composeScene` 주석이 소유한다(요지: 규칙이
+ *   아닌 장면에 가짜 rule_id를 붙이면 `crossSectionWebgl.contract`의 정합 계약이
+ *   **거짓이 된다**). `scene`이 오면 `ruleId`는 보지 않는다.
+ */
+export default function CrossSectionGL({ ruleId, scene: preset = null, step, onFail }) {
   const canvasRef = useRef(null);
   const rendererRef = useRef(null);
   const startRef = useRef(null);
   const [aspect, setAspect] = useState(VB_W / VB_H);
 
-  const scene = useMemo(() => buildScene(ruleId), [ruleId]);
+  const scene = useMemo(() => preset ?? buildScene(ruleId), [preset, ruleId]);
   const labels = useMemo(() => labelsFor(scene, step, aspect), [scene, step, aspect]);
 
   // 렌더러 생성 + rAF 생명주기 (장면 교체와 무관하게 1회)

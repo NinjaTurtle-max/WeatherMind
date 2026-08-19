@@ -35,8 +35,35 @@ const TARGETS = [
   { path: '/src/modules/explore/ExploreHome.jsx', name: 'ExploreHome', expects: ['탐구', '교육용 단순화 모델'] },
   // CO-S-10(2026-08-08): 두 시뮬의 θ 루프 CTA는 라벨이 "학습 경로에서 이어가기"인데
   // 목적지가 `/`(홈)였다 — 학습 경로는 `/learn`이다. href를 계약으로 고정한다.
-  { path: '/src/modules/explore/TyphoonSimPage.jsx', name: 'TyphoonSimPage', expects: ['태풍', '왜 그럴까', 'href="/learn"'] },
-  { path: '/src/modules/explore/ClimateSimPage.jsx', name: 'ClimateSimPage', expects: ['기후변화', '폭염일수', 'href="/learn"'] },
+  // MT-22 배선(2026-08-18): 각 화면의 기대 문구에 **껍데기 1개 + 장면 라벨 1개**를
+  // 짝으로 더한다. 껍데기(패널 제목)만 물면 `scene={null}`로 바꿔도 초록이고, 장면
+  // 라벨만 물면 패널이 없어도 라벨은 뜬다 — 둘이 있어야 「그 장면이 그 자리에
+  // 배선됐다」가 된다. 장면 라벨은 `labelsFor()`가 SSR에서도 계산해 DOM으로 겹쳐
+  // 그리는 값이라 문자열로 잡힌다(GL은 글자를 그리지 않는다).
+  // ⚠️ 이것은 **DOM 라벨이 나온다**까지이고 **실브라우저에서 화살표가 그려진다**는
+  // 아니다(R10-06 — 스텁이 초록인데 단면이 한 번도 안 떴던 전례. 그 구분은
+  // crossSectionWebgl.contract.test.mjs 머리 주석이 소유한다).
+  // ⚠️ **장면 라벨 기대 문구가 2026-08-19에 바뀌었다** — 문구를 따라간 것이지
+  //    계약을 느슨하게 한 것이 아니다. 종전 기대는 `구름 꼭대기 16km`(T1)·
+  //    `햇빛 100 (340`(C1)이었는데, 둘 다 **캔버스 안에 있던 긴 문장**이라
+  //    보드 문법(긴 문장은 캔버스 밖 캡션 · 캔버스 안은 짧은 명사구)에 맞춰
+  //    `STEPS[].note`로 옮겨졌다. 그래서 **같은 성격의 다른 장면 라벨**로 바꾼다:
+  //    T1 `권운 차양`(0단계 무대) · T2 `북위 20°`(전향대 눈금) · C1 `태양`.
+  //    🔴 **셋 다 0단계 라벨이어야 한다** — SSR은 step 0만 그리므로 1단계 이후
+  //    라벨을 기대하면 실패한다(`구름 반사 27`로 잡았다가 실측으로 걸렀다).
+  //    ⚠️ 캡션 문자열로 갈아타지 **않았다** — 캡션은 패널이 그리므로 `scene`이
+  //    null이어도 뜬다. 위 주석의 「껍데기+장면 라벨 짝」이 깨진다.
+  { path: '/src/modules/explore/TyphoonSimPage.jsx',
+    name: 'TyphoonSimPage',
+    expects: ['태풍', '왜 그럴까', 'href="/learn"',
+      '태풍 단면 — 하층과 상층은 반대로 감긴다', '권운 차양', '눈과 눈벽', // T1 껍데기+장면+단계
+      '태풍의 일생 — 발생에서 온대저기압까지', '북위 20°'] }, // T2 껍데기+장면
+  { path: '/src/modules/explore/ClimateSimPage.jsx',
+    name: 'ClimateSimPage',
+    expects: ['기후변화', '폭염일수', 'href="/learn"',
+      '지구는 받은 만큼 내보낸다', '태양', '들어오는 햇빛 100'] }, // C1 껍데기+장면+단계
+  // ⚠️ T2는 단계 제목(`T2_STEPS`)이 장면 라벨과 같은 `T2_STAGES.title`에서 나온다 —
+  // 그래서 "단계 배열이 잘못 넘어갔다"를 T2에서는 문자열로 가를 수 없다(T1·C1은 갈린다).
 ];
 
 const server = await createServer({

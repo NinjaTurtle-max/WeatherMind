@@ -534,6 +534,14 @@ export default {
     },
   },
   explore: {
+    // MT-22: 입체 화살표 모식도 껍데기(explore/schematic/SchematicGL.jsx).
+    // 🔴 **이 둘만 리소스로 뺀다** — ariaLabel은 스크린리더가 읽고, 폴백 문구는
+    // WebGL2가 없을 때 화면에 그대로 뜬다. 둘 다 **사용자 문자열**이다.
+    // 장면 데이터(radiationScene 등)의 text/title은 대장 §4.25 이월분이라 여기 없다.
+    schematic: {
+      ariaLabel: '모식도',
+      unsupported: '이 기기에서는 입체 모식도를 표시할 수 없습니다.',
+    },
     // MT-21: 위성 도식 오버레이(modules/explore/SatelliteView.jsx).
     // ⚠️ 원 F3(KMA 실사 위성 영상)를 **우리가 그리는 도식**으로 재범위한 결과라
     // schematicBadge는 장식이 아니라 계약이다 — 실사가 아님을 화면이 말해야 한다.
