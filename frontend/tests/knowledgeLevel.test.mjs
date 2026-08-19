@@ -370,9 +370,18 @@ check('목 단계에 라벨이 있다(카드가 키 문자열을 그대로 띄�
     async function renderPanel(withLevel) {
       const container = window.document.getElementById('root');
       const qc = new QueryClient({
-        defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, gcTime: 0 } },
+        // 🔴 `gcTime: 0`을 쓰지 말 것 — 다른 스모크에서 베껴 오기 쉬운 값인데
+        // 여기서는 **경합**을 만든다. `setQueryData`로 심은 순간 그 쿼리에는
+        // 옵저버가 없어 곧바로 수거 대상이 되고, 마운트보다 수거가 먼저면 캐시가
+        // 비어 컴포넌트가 진짜로 네트워크에 나간다 → jsdom에는 서버가 없으니
+        // 에러 카드가 뜨고 칩이 0개가 된다. 실제로 처음에 그렇게 짜서 **같은
+        // 코드가 돌 때마다 초록·빨강이 갈렸다.**
+        // staleTime도 Infinity로 둔다 — 마운트 시 재검증 요청 자체를 없앤다.
+        defaultOptions: {
+          queries: { retry: false, refetchOnWindowFocus: false, gcTime: Infinity, staleTime: Infinity },
+        },
       });
-      // 캐시를 미리 채우면 컴포넌트의 staleTime(30s) 덕에 네트워크로 나가지 않는다.
+      // 캐시를 미리 채워 두면 네트워크로 나가지 않는다(위 주석).
       qc.setQueryData(['progress', 'abilities'], CONCEPTS.map((t, i) => abilityRow(t, i, withLevel)));
       qc.setQueryData(['progress', 'mastery'], masteryRows);
       const root = createRoot(container);
@@ -382,6 +391,10 @@ check('목 단계에 라벨이 있다(카드가 키 문자열을 그대로 띄�
       }
       return {
         root,
+        // 실패 메시지에 **화면에 실제로 뭐가 떴는지**를 싣는다. 「칩이 0개」만으로는
+        // 「폴백이 죽었다」와 「판이 아예 에러 카드로 갔다」가 구분되지 않는다 —
+        // 되돌림 게이트 ③(메시지가 원인을 가리키는가)이 묻는 것이 그것이다.
+        body: (window.document.body.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 160),
         chips: [...window.document.querySelectorAll('[data-testid="ability-level-chip"]')]
           .map((el) => el.textContent.trim()),
         masteryChips: [...window.document.querySelectorAll('[data-testid="mastery-level-chip"]')]
@@ -394,7 +407,7 @@ check('목 단계에 라벨이 있다(카드가 키 문자열을 그대로 띄�
 
     const withLevel = await renderPanel(true);
     check('ⓐ 실렌더: 개념 칩이 교과 단계로 뜬다(범용 4밴드가 아니다)', () => {
-      assert(withLevel.chips.length === CONCEPTS.length, `칩이 ${withLevel.chips.length}개 — 판이 안 떴다`);
+      assert(withLevel.chips.length === CONCEPTS.length, `칩이 ${withLevel.chips.length}개다(기대 ${CONCEPTS.length}) — 판이 안 떴거나 목록이 비었다\n      화면: ${withLevel.body}`);
       eq(
         withLevel.chips,
         ['초등 5~6학년', '고등학교 공통', '고등학교 진로선택', '기상청 현업'],
@@ -416,7 +429,7 @@ check('목 단계에 라벨이 있다(카드가 키 문자열을 그대로 띄�
     });
 
     check('ⓓ 실렌더: 레이더 낭독이 칩과 같은 표기를 읽는다', () => {
-      assert(withLevel.radarAria.length > 0, '레이더가 안 떴거나 aria-label이 비었다');
+      assert(withLevel.radarAria.length > 0, `레이더가 안 떴거나 aria-label이 비었다\n      화면: ${withLevel.body}`);
       for (const name of ['초등 5~6학년', '고등학교 진로선택', '기상청 현업']) {
         assert(
           withLevel.radarAria.includes(name),
@@ -436,11 +449,11 @@ check('목 단계에 라벨이 있다(카드가 키 문자열을 그대로 띄�
     //    화면이 말을 잃은 것이고 그것이 이 작업의 유일한 회귀다.
     const noLevel = await renderPanel(false);
     check('ⓑ 🔴 실렌더: knowledge_level이 없으면 4밴드로 내려앉는다 (빈칸 금지)', () => {
-      assert(noLevel.chips.length === CONCEPTS.length, `칩이 ${noLevel.chips.length}개 — 판이 안 떴다`);
+      assert(noLevel.chips.length === CONCEPTS.length, `칩이 ${noLevel.chips.length}개다(기대 ${CONCEPTS.length}) — 판이 안 떴거나 목록이 비었다\n      화면: ${noLevel.body}`);
       for (const c of noLevel.chips) {
         assert(
           c.length > 0,
-          '칩이 **빈칸**이다 — 종전 표기는 n=0에서도 라벨을 줬으므로 이것은 회귀다',
+          `칩이 **빈칸**이다 — 종전 표기는 n=0에서도 라벨을 줬으므로 이것은 회귀다\n      렌더된 칩: ${JSON.stringify(noLevel.chips)}`,
         );
       }
       eq(
@@ -450,7 +463,7 @@ check('목 단계에 라벨이 있다(카드가 키 문자열을 그대로 띄�
       );
     });
     check('ⓑ-2 🔴 실렌더: 레이더 낭독도 빈칸이 되지 않는다', () => {
-      assert(noLevel.radarAria.length > 0, '레이더 aria-label이 비었다');
+      assert(noLevel.radarAria.length > 0, `레이더 aria-label이 비었다\n      화면: ${noLevel.body}`);
       for (const w of ['초급', '중급', '고급', '최상급']) {
         assert(noLevel.radarAria.includes(w), `낭독에 4밴드 폴백 「${w}」이 없다 — 낭독이 말을 잃었다\n      실제: ${noLevel.radarAria}`);
       }
