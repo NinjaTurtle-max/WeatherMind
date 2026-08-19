@@ -197,6 +197,9 @@ try {
   // 카메라는 **camera.js가 소유한다** — 방위·고도·거리를 여기 베끼면 갈린 순간
   // 이 계약이 거짓을 단정한다(오늘 낡은 수로 겪은 그 형태).
   const { isoCamera } = await server.ssrLoadModule('/src/modules/board/webgl/crossSection/camera.js');
+  // 라벨 투영은 **렌더러가 소유한다**(`labelsFor`) — 여기서 투영을 다시 구현하면
+  // 갈린 순간 이 계약이 화면과 다른 것을 재게 된다.
+  const { labelsFor } = rendererMod;
   const { STORYBOARDS } = panelMod;
 
   // ── 1) SCENES ↔ STORYBOARDS 키 정합 ───────────────────────────────────────
@@ -450,19 +453,19 @@ try {
     const at3 = items.filter((it) => it.type === 'solid' && step >= (it.at ?? 0) && (it.until === undefined || step <= it.until));
     // 물 = 3단계에 등장하고 pattern 3(잔물결)인 지표수. 지하·빗물받이는 y가 음수라 뺀다.
     const water = at3.filter((it) => (it.at ?? 0) === 3 && it.pattern === 3 && centerOf(it)[1] > 0);
+    // 🔴 **「쪼개야 한다」던 단정을 뒤집었다**(2026-08-19 7차, 클라이언트:
+    //   *"모든 물 렌더링을 앞으로 당기고"*).
+    //   3차는 물을 **6조각**으로, 5차는 **2판**으로 쪼개 중심 깊이 정렬을 이겼다.
+    //   그때 단정은 「여러 조각으로 나뉘어 있는가」(≥2)였다 — **해법을 계약으로
+    //   굳힌 것**이고, 그 해법이 틀렸다. 조각을 늘리는 것은 **원인을 늘려 증상을
+    //   덮는 것**이었다(클라이언트: *"레이어를 너무 많이 쌓아서"*).
+    //   7차는 **물을 한 판으로 합치고 덮을 것들을 뒤로 보내** 풀었다.
+    //   ⇒ 이제 묻는 것은 **조각 수가 아니라 「물이 가장 앞인가」**이고, 그것은
+    //     7-b가 묻는다. 여기서는 **한 판이라는 단순함**만 래칫으로 지킨다.
     check(
-      `홍수 3단계 지표수가 여러 조각으로 나뉘어 있다 (실측 ${water.length}조각)`,
-      water.length >= 2,
-      '지표수가 한 상자면 중심 깊이 정렬이 건물마다 이길 수 없다 — 벽이 물을 덮어 수면선이 사라진다.',
-    );
-    // 🔴 **쪼개는 쪽으로 도망가지 못하게 상한도 둔다**(클라이언트: *"레이어를
-    //   너무 많이 쌓아서 그래"*). 3차에 저는 물을 6조각으로 쪼개 정렬을 이겼는데,
-    //   그것은 **원인을 늘려 증상을 덮은 것**이었다. 4차에서 물체를 줄여
-    //   (solid 29 → 19) 2판으로 성립시켰다. 다시 조각을 늘려 푸는 것을 막는다.
-    check(
-      `홍수 지표수가 2판을 넘지 않는다 (실측 ${water.length})`,
-      water.length <= 2,
-      '조각을 늘려 정렬을 이기는 것은 원인을 늘리는 것이다 — 물체를 줄여 풀어야 한다. ' +
+      `홍수 지표수가 한 판이다 (실측 ${water.length})`,
+      water.length === 1,
+      '물을 쪼개 정렬을 이기려 하지 말 것 — **덮을 것들을 뒤로 보내는 것**이 답이다. ' +
         '깊이 테스트가 없는 화가 알고리즘에서는 상자가 많을수록 어느 배치도 안전하지 않다.',
     );
     // 잠겨야 할 것 = 3단계 수면(물 조각의 y 상단) 아래에 중심이 있는 도시 물체
@@ -511,8 +514,14 @@ try {
     //   「작은」의 기준은 건물과 가르는 것이다 — 차는 높이 0.024~0.030이고
     //   가장 낮은 건물도 0.092다. 0.06은 그 사이의 여유 있는 경계다.
     {
-      const CAR_MAX_H = 0.06;
-      const small = at3.filter((it) => !water.includes(it) && it.size[1] <= CAR_MAX_H && inFloodZone(it.center) && it.center[0] > 0.33);
+      // 🔴 **높이만 보던 첫 판이 뚫렸다**(2026-08-19 변이③): 물을 창문선 아래로
+      //   내려도 초록이었다. **포장면**(y 두께 0.008이지만 폭 0.665 × 깊이 0.295인
+      //   판)이 「온전히 잠긴 작은 물체」로 세어졌기 때문이다.
+      //   ⇒ 「작은」은 **세 축 전부**로 재야 한다. 자는 **뭉툭한 물체**다 —
+      //      차는 0.070 × 0.030 × 0.052이고 가장 낮은 건물도 높이 0.092다.
+      const CAR_MAX = [0.12, 0.06, 0.12];
+      const compact = (it) => it.size.every((v, i) => v <= CAR_MAX[i]);
+      const small = at3.filter((it) => !water.includes(it) && compact(it) && inFloodZone(it.center) && it.center[0] > 0.33);
       const straddling = small.filter((it) => {
         const bottom = it.center[1] - it.size[1] / 2;
         const top = it.center[1] + it.size[1] / 2;
@@ -577,6 +586,74 @@ try {
     );
   }
 
+  // ── 7-c) 🔴 **라벨이 겹치지 않는가 · 프레임을 넘지 않는가** ────────────────
+  // **2026-08-19 클라이언트**: *"글자 렌더링 겹침 확인하고 안 겹치도록"*.
+  //
+  // 라벨은 GL이 아니라 **SVG `<text>`**로 그려진다(`CrossSectionGL.jsx`):
+  //   x = left/100 × 260 · y = top/100 × 150 · fontSize = size × 0.6 · anchor=middle
+  // 그래서 겹침은 **화면 좌표에서만** 재진다 — 장면 좌표로는 알 수 없다.
+  //
+  // ⚠️ **글자 폭은 추정이다**(CJK 1.0em · 그 밖 0.55em · 공백 0.3em). 실제 폰트
+  //    메트릭이 아니므로 **절대 판정이 아니라 회귀 감시**로 쓴다. 그래서 아래는
+  //    래칫이다 — 「오늘보다 늘지 않는다」. 값을 **올리지 말 것**.
+  // ⚠️ 남은 8건 중 **7건이 산불 2장면**이고 그 장면은 다른 조가 쥐고 있다
+  //    (`wildfire_risk_dry_gale` 4+2 · `siberian_gale_wildfire` 1). 그 작업이
+  //    착지하면 이 값을 내린다.
+  {
+    const VB_W = 260;
+    const VB_H = 150;
+    const LABEL_SCALE = 0.6; // CrossSectionGL.jsx가 소유 — 갈리면 이 계산이 거짓
+    const isCJK = (c) => /[가-힣ㄱ-ㅎㅏ-ㅣ一-鿿]/.test(c);
+    const widthEm = (t) => [...t].reduce((w, c) => w + (c === ' ' ? 0.3 : isCJK(c) ? 1.0 : 0.55), 0);
+    const boxOf = (l) => {
+      const fs = l.size * LABEL_SCALE;
+      const lines = String(l.text).split('\n');
+      const w = Math.max(...lines.map(widthEm)) * fs;
+      const cx = (l.left / 100) * VB_W;
+      const by = (l.top / 100) * VB_H;
+      return { x0: cx - w / 2, x1: cx + w / 2, y0: by - fs * 0.8, y1: by + fs * 0.2 + (lines.length - 1) * fs * 1.25 };
+    };
+    const overlaps = (a, b) =>
+      Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) > 0.5 && Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) > 0.5;
+    let ov = 0;
+    let out = 0;
+    const floodBad = [];
+    for (const id of Object.keys(SCENES)) {
+      const scene = buildScene(id);
+      const steps = STORYBOARDS[id]?.length ?? 4;
+      for (let step = 0; step < steps; step += 1) {
+        const boxes = labelsFor(scene, step, VB_W / VB_H).map(boxOf);
+        let localOv = 0;
+        for (let i = 0; i < boxes.length; i += 1) {
+          for (let j = i + 1; j < boxes.length; j += 1) if (overlaps(boxes[i], boxes[j])) localOv += 1;
+        }
+        const localOut = boxes.filter((b) => b.x0 < 0 || b.x1 > VB_W || b.y0 < 0 || b.y1 > VB_H).length;
+        ov += localOv;
+        out += localOut;
+        if (id === 'flood_risk_saturated_inflow' && (localOv || localOut)) floodBad.push(`step${step}: 겹침 ${localOv} · 프레임밖 ${localOut}`);
+      }
+    }
+    // 오늘의 값(래칫) — 내릴 때만 고친다
+    const MAX_OVERLAP = 8;
+    const MAX_OUTSIDE = 6;
+    check(
+      `라벨 겹침이 ${MAX_OVERLAP}건을 넘지 않는다 (실측 ${ov})`,
+      ov <= MAX_OVERLAP,
+      `라벨이 서로 가려 읽을 수 없다. **이 상한을 올리지 말 것** — 좌표를 벌리거나 ` +
+        `역할 끝난 라벨을 \`until\`로 걷는다.`,
+    );
+    check(
+      `프레임 밖 라벨이 ${MAX_OUTSIDE}건을 넘지 않는다 (실측 ${out})`,
+      out <= MAX_OUTSIDE,
+      `라벨이 260×150 뷰박스를 넘어 잘린다.`,
+    );
+    check(
+      `홍수는 겹침·프레임밖이 **0**이다 (PM 소유 장면)`,
+      floodBad.length === 0,
+      `홍수 라벨이 겹치거나 프레임을 넘었다: ${floodBad.join(' / ')}`,
+    );
+  }
+
   // ── 8) 장면 복잡도 — **래칫**: 오늘보다 더 쌓을 수 없다 ────────────────────
   // 🔴 **2026-08-19 클라이언트 지적: *"레이어를 너무 많이 쌓아서 그래"*.**
   // 실측이 지적을 뒷받침했다 — 홍수가 20장면 중 **solid 29(2위의 3배)** ·
@@ -600,9 +677,9 @@ try {
       // 그 장면은 *"주황색 타원으로만 설명하는 게 너무 빈약해"* 반려로 재작업
       // 중이다(다른 조 소유). 그 작업이 착지하면 이 값을 내릴 것.
       anyLabels: 10,
-      // 홍수 — 4차 재작성으로 solid 29 → 19, 라벨 10 → 5로 줄인 값이다.
-      // 되돌리거나 다시 쌓으면 여기가 빨강이 난다.
-      floodSolids: 19,
+      // 홍수 — 재작성으로 solid **29 → 19 → 15**(7차에서 고지대 슬래브 + 건물
+      // 2채 + 물 한 판을 뺐다), 라벨 10 → 5. 되돌리거나 다시 쌓으면 빨강이다.
+      floodSolids: 15,
       floodLabels: 5,
     };
     const measure = (id) => {
