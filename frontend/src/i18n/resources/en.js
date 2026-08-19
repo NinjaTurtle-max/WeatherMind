@@ -323,6 +323,16 @@ export default {
     // "sign up" — the banned-word contract scans en values too (and it matches
     // the bare substring `login`).
     loadProgressCta: 'Load your progress →',
+    // 🔴 The returning-visitor screen (2026-08-19 ⑫-b) — the second face of `/`.
+    // ⚠️ It asks **nothing** again: no level, no nickname, no goal. That is why
+    //    this block has no labels or placeholders — four strings is the contract.
+    //    사유 전문은 `ko.js`의 같은 자리가 소유한다.
+    return: {
+      title: 'Welcome back!',
+      body: 'Pick up right where you left off. Nothing to set up again.',
+      continue: 'Continue learning →',
+      load: 'Load your progress',
+    },
   },
   placement: {
     skip: 'Skip →',

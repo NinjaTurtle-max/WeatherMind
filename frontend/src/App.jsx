@@ -130,7 +130,53 @@ export function resetGuestAutoIssue() {
   guestPromise = null;
   guestFailed = false;
   guestErrorCode = null;
+  returnGate = null; // 재방문 판정도 「첫 접속」으로 되돌린다 (⑫-b)
   useAuthStore.getState().forgetAccount();
+}
+
+/**
+ * 재방문 복귀 화면의 게이트 (2026-08-19 클라이언트 지시 ⑫-b) — **삼상 플래그 하나**.
+ *
+ *   null   아직 판정 전 (이 페이지 로드의 첫 렌더가 아직 안 왔다)
+ *   true   복귀 화면을 보여야 한다 — **아직 안 보여줬다**
+ *   false  보일 일이 없다(첫 방문) **또는 이미 소진됐다**
+ *
+ * ## 왜 「토큰이 있으면 복귀 화면」이 아닌가 — 그렇게 하면 셋이 깨진다
+ * 이 판정은 **페이지 로드의 첫 렌더에서 한 번만** 내려지고, 그 뒤로는 무슨 일이
+ * 있어도 다시 참이 되지 않는다. 단순히 「`/`에 토큰을 갖고 오면 복귀 화면」으로
+ * 두면 앱 **안에서** `/`로 돌아오는 동선이 전부 복귀 화면에 부딪힌다:
+ *   · `SpineBadge`의 로고 링크(`to="/"`) — 학습 중에 누르면 「다시 오셨네요」
+ *   · `ConvertAccountPage`가 저장 성공 뒤 보내는 `/` — 방금 저장한 사람에게
+ *     「진도 불러오기」를 권하는 화면이 뜬다
+ *   · `PlacementPage.goHome` · `DevPanel` — 같은 뿌리
+ * 그래서 **첫 렌더의 경로까지 판정에 넣는다**: 맨 URL(`/`)로 들어온 경우가 아니면
+ * (딥링크·새로고침 후 다른 화면) 그 자리에서 소진시킨다.
+ *
+ * ## 🔴 딥링크는 이 게이트를 **타지 않는다**(대회 규정)
+ * `pathname !== AT_ENTRY`이면 판정이 곧바로 `false`로 굳는다 — `/learn`·`/board`·
+ * `/explore`로 들어온 심사위원은 아무 조작 없이 그 화면에 도착한다. 게이트는
+ * `/` 하나뿐이라는 `AT_ENTRY` 주석의 계약과 **같은 규칙**이고, 정보 입력 게이트가
+ * 이미 그렇게 서 있다.
+ *
+ * ## 🔴 401(만료)이 **먼저**인 것은 순서가 아니라 구조로 보장된다
+ * 이 게이트는 `RequireAuth`의 `accessToken` 분기를 **통과한 뒤**에 있는 `/` 라우트
+ * 엘리먼트가 읽는다. 토큰이 없으면 `SessionExpired`·재시도·정보 입력이 먼저 잡히므로,
+ * 복귀 화면이 만료 안내를 가로챌 경로가 없다. 「먼저 쓴 쪽이 이긴다」로 지키면
+ * 다음 사람이 분기를 옮길 때 조용히 깨진다 — 여기서는 그럴 수가 없다.
+ */
+let returnGate = null;
+
+function shouldShowReturnScreen(pathname) {
+  if (returnGate === null) {
+    returnGate =
+      pathname === AT_ENTRY && Boolean(useAuthStore.getState().accessToken);
+  }
+  return returnGate;
+}
+
+/** 복귀 화면을 지나갔다 — 이 페이지 로드에서 두 번 뜨지 않는다. */
+function consumeReturnScreen() {
+  returnGate = false;
 }
 
 /**
@@ -284,6 +330,79 @@ function SessionExpired({ onStartFresh }) {
 }
 
 /**
+ * 재방문 복귀 화면 (2026-08-19 클라이언트 지시 ⑫-b) — **대문의 두 번째 얼굴**.
+ *
+ * ## 무엇이 문제였나
+ * `needsEntryInfo = atEntry && entryChoice === undefined`는 **토큰이 없을 때만**
+ * 참이다. 그래서 이 기기에서 한 번 연 사람이 다시 `/`로 오면 **아무것도 안 뜨고
+ * 곧장 `/learn`**이었다 — 대문이 첫 방문자에게만 있고 돌아온 사람에게는 없었다.
+ *
+ * ## 🔴 아무것도 다시 묻지 않는다 — 이것이 계약이다
+ * 수준·닉네임·목표를 재방문에 다시 물으면 **④⑤ 반려가 재발**한다(내 정보에서
+ * 걷어낸 바로 그 건). 이 화면에는 **입력이 없다.** 버튼 둘뿐이다:
+ *   ⑴ 「이어서 학습」 — 주 CTA. 한 번 눌러 학습으로 들어간다.
+ *   ⑵ 「진도 불러오기」 — 부 CTA. 다른 기기에 저장해 둔 진도를 여는 사람용이고,
+ *      **선택**이다(규정 — 주 동선이 계정을 요구하면 안 된다).
+ *
+ * ⚠️ **여기에 입력·선택을 붙이지 말 것.** 붙는 순간 「재방문마다 다시 묻는 화면」이
+ * 되고, 그것이 클라이언트가 두 번 반려한 형태다. 값을 바꾸는 자리는 `/me`다.
+ *
+ * ⚠️ **주 동선 링크가 아니다**(MT-29 계약, 대장 §4.14). 「진도 불러오기」는 여기서도
+ * 부 CTA이고 SideNav·TabBar·헤더에는 여전히 0건이다 — 그 계약은 화면 표면이 아니라
+ * **내비 표면**을 세고, `onboardingSave.contract`가 그것을 문다.
+ */
+function ReturnHome() {
+  const locale = getCurrentLocale();
+  const navigate = useNavigate();
+  const go = (to) => {
+    // 🔴 **소진이 이동보다 먼저다.** 뒤집으면 이동이 일으킨 렌더가 아직 참인
+    //    게이트를 다시 읽어, 되돌아왔을 때 같은 화면이 한 번 더 선다.
+    consumeReturnScreen();
+    navigate(to, { replace: true });
+  };
+  return (
+    <div data-testid="entry-return" className="mx-auto mt-24 max-w-sm px-6 text-center">
+      <p className="text-4xl" aria-hidden="true">⛅</p>
+      <h1 className="mt-3 text-lg font-extrabold text-slate-800">
+        {translate(locale, 'entryInfo.return.title')}
+      </h1>
+      <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
+        {translate(locale, 'entryInfo.return.body')}
+      </p>
+      <button
+        type="button"
+        data-testid="entry-return-continue"
+        onClick={() => go('/learn')}
+        className="mt-5 w-full rounded-xl bg-sky-600 py-2.5 text-sm font-extrabold text-white hover:bg-sky-700"
+      >
+        {translate(locale, 'entryInfo.return.continue')}
+      </button>
+      <button
+        type="button"
+        data-testid="entry-return-load"
+        onClick={() => go(AT_LOAD_PROGRESS)}
+        className="mt-2 w-full rounded-xl bg-slate-100 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-200"
+      >
+        {translate(locale, 'entryInfo.return.load')}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * `/`의 엘리먼트 — 재방문이면 복귀 화면, 아니면 **종전 그대로** 학습으로 보낸다.
+ *
+ * ⚠️ 종전 `<Navigate to="/learn" replace />`가 이 `else` 가지에 그대로 남아 있다 —
+ * 첫 방속·발급 직후·앱 안에서 되돌아온 경우가 전부 여기로 떨어진다. 즉 **바뀐 것은
+ * 재방문 하나뿐**이고, 그 경계의 소유자는 위 `shouldShowReturnScreen` 하나다.
+ */
+function EntryOrLearn() {
+  const pathname = useLocation().pathname;
+  if (shouldShowReturnScreen(pathname)) return <ReturnHome />;
+  return <Navigate to="/learn" replace />;
+}
+
+/**
  * 정보 입력 게이트가 걸리는 경로 — **맨 URL로 들어온 첫 접속 하나뿐**이다.
  *
  * `/learn`을 넣지 않는 이유가 계약이다: `placementEntry` 시나리오 1-b가
@@ -326,6 +445,12 @@ function RequireAuth() {
   const pathname = useLocation().pathname;
   const atEntry = pathname === AT_ENTRY;
   const atLoadProgress = pathname === AT_LOAD_PROGRESS;
+  // 🔴 **재방문 판정을 여기서 연다**(⑫-b). `EntryOrLearn`은 `/`에서만 렌더되므로
+  //    거기서만 부르면 **딥링크가 게이트를 소진시키지 못한다** — `/learn`으로 들어와
+  //    학습하다가 로고(`SpineBadge` → `to="/"`)를 누르는 순간 「다시 오셨네요」가
+  //    뜬다. `RequireAuth`는 모든 경로에서 렌더되는 유일한 자리라, 이 한 줄이
+  //    「첫 렌더의 경로로 한 번만 판정한다」를 성립시킨다. 값은 쓰지 않는다.
+  shouldShowReturnScreen(pathname);
   const [, bump] = useState(0); // 모듈 스코프 플래그가 바뀐 뒤 한 번 다시 그린다
   // ⚠️ **재시도는 effect 의존성에 있어야 한다.** `bump`만 올리면 리렌더는 되지만
   // `[accessToken]`이 그대로(null)라 발급 effect가 다시 안 돈다 — 재시도 화면이
@@ -521,12 +646,19 @@ export default function App() {
             ⚠️ 진입 링크는 **「진도 저장」 카드 한 줄뿐**이다 — 주 동선(SideNav·
             TabBar·헤더)에 넣지 않는다(MT-29 계약, 대장 §4.14). */}
         <Route path="/login" element={<LoadProgressPage />} />
+        {/* 2026-08-09: 홈 화면을 지우고 학습 하나로 합쳤다(사용자 지시).
+            `/`는 남기되 **리다이렉트**였다 — 지우면 북마크·외부 링크·인증 직후
+            기본 착지가 전부 죽는다.
+            🔴 **2026-08-19(⑫-b): 여기에 재방문 복귀 화면이 붙었다.** 첫 방문·발급
+            직후·앱 안에서 되돌아온 경우는 **종전과 똑같이** `/learn`으로 간다
+            (`EntryOrLearn`의 else 가지가 그 `<Navigate>` 그대로다). 바뀐 것은
+            **맨 URL로 다시 들어온 재방문 하나**뿐이다.
+            ⚠️ **Layout 밖으로 옮겼다.** 복귀 화면은 대문의 두 번째 얼굴이라
+            첫 방문의 `EntryInfoPage`·배치고사·불러오기와 같은 전체 화면 관례를
+            쓴다. else 가지는 `<Navigate>`라 Layout이 필요 없다(리다이렉트 대상인
+            `/learn`이 Layout 안에 있다). */}
+        <Route path="/" element={<EntryOrLearn />} />
         <Route element={<Layout />}>
-          {/* 2026-08-09: 홈 화면을 지우고 학습 하나로 합쳤다(사용자 지시).
-              `/`는 남기되 **리다이렉트**다 — 지우면 북마크·외부 링크·로그인 직후
-              기본 착지가 전부 죽는다(로그인 성공 경로가 `/`로 보낸다).
-              2026-08-05에 `/`(홈)와 `/learn`(경로)을 갈랐던 것을 되돌린 셈이다. */}
-          <Route path="/" element={<Navigate to="/learn" replace />} />
           <Route path="/learn" element={<CurriculumHome />} />
           <Route path="/learn/units/:unitId" element={<UnitSessionPage />} />
           <Route path="/board" element={<BoardPage />} />
