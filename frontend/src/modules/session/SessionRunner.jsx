@@ -308,11 +308,21 @@ export default function SessionRunner({
       // 계약 문서 초안의 "409 아님"은 오류였다). 이건 채점 실패가 아니라 "이미
       // 해결된 문항"이라는 뜻이므로 재시도 버튼을 띄우면 안 된다 — 다음으로 넘긴다.
       const alreadyAnswered = err.code === 'ALREADY_ANSWERED';
+      // 503 BOARD_RULES_UNAVAILABLE(보드 문항 전용) — 규칙 파일 부재·스키마 오류.
+      // detail이 `rules[0](tropical_cyclone_genesis): phenomenon 'typhoon' enum 밖`
+      // 같은 내부 진단 문자열이라 그대로 찍으면 학습자가 규칙 배열 인덱스를 본다.
+      // ⚠️ 이 문구는 **BoardPage와 같은 키**를 쓴다 — 같은 503을 두 화면이 다른
+      //    말로 설명하면 같은 판이 화면마다 다른 사고처럼 보인다.
+      const rulesUnavailable = err.code === 'BOARD_RULES_UNAVAILABLE';
       if (outOfClouds) queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
       showFeedback({
         is_correct: false,
         correct_answer: null,
-        feedback: alreadyAnswered ? t('session.retry.alreadyResolved') : (err.detail ?? t('session.submitFailed')),
+        feedback: alreadyAnswered
+          ? t('session.retry.alreadyResolved')
+          : rulesUnavailable
+            ? t('board.page.rulesUnavailable')
+            : (err.detail ?? t('session.submitFailed')),
         xp_earned: 0,
         // 409는 진행 수를 움직이면 안 된다 — 서버 진행값을 못 받았으므로 현재 값을 고정한다
         ...(alreadyAnswered ? { session_progress: { answered, total } } : {}),

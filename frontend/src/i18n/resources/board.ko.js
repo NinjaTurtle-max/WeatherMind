@@ -87,6 +87,14 @@ export default {
       toastFirstClear: '🧩 첫 클리어! +{xp} XP',
       outOfCloudsRetry: '구름이 모두 흩어졌어요 — 잠시 후 다시 시도해주세요.',
       submitFailed: '제출에 실패했어요. 잠시 후 다시 시도해주세요.',
+      // 503 BOARD_RULES_UNAVAILABLE 전용(2026-08-19). 이 503은 **학습자 잘못이
+      // 아니라 서버 데이터·배포 문제**다 — 규칙 파일이 없거나 스키마를 위반했다는
+      // 뜻이고, detail은 `rules[0](tropical_cyclone_genesis): phenomenon
+      // 'typhoon' enum 밖` 같은 내부 진단 문자열이다. 그것을 그대로 「AI 피드백」
+      // 자리에 찍는 바람에 학습자에게 규칙 배열 인덱스가 보였다(실사고).
+      // 진단 문자열은 서버 로그가 이미 갖고 있으니(main.py board_rules_handler의
+      // logger.warning) 화면에는 사람 말로만 내보낸다.
+      rulesUnavailable: '보드 판정 규칙을 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
       entryFailed: '퍼즐을 열지 못했어요. 잠시 후 다시 시도해주세요.',
       backToList: '← 목록으로',
       sandboxFooter: '자유 실험은 채점하지 않아요 — 구름도 소모되지 않아요 ☁️',

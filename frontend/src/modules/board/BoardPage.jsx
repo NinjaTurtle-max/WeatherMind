@@ -210,6 +210,14 @@ export default function BoardPage() {
         setResult({ passed: false, outOfClouds: true, feedback: err.detail ?? t('board.page.outOfCloudsRetry') });
         return;
       }
+      // 503 BOARD_RULES_UNAVAILABLE — 서버가 규칙 파일을 읽지 못했거나 스키마가
+      // 어긋났다는 뜻이다. detail이 `rules[0](...): phenomenon '...' enum 밖`
+      // 같은 내부 진단 문자열이라 **학습자에게 그대로 보이면 안 된다**
+      // (2026-08-19 실사고 — 세션 화면에서 그 문자열이 AI 피드백 자리에 떴다).
+      if (err.code === 'BOARD_RULES_UNAVAILABLE') {
+        setResult({ passed: false, feedback: t('board.page.rulesUnavailable') });
+        return;
+      }
       setResult({ passed: false, feedback: err.detail ?? t('board.page.submitFailed') });
     },
   });
