@@ -132,7 +132,7 @@ class TestSeedSchema:
         # `test_weather_phenomenon.TestSeedCoverage`가 「현상마다 실제 board 문항이
         # 있다」를 물어, 규칙만 넣으면 새 현상 2종에서 즉시 빨강이 된다.
         # ⇒ 두 몫을 합쳐 **1021문항 · board 55판**이다.
-        assert len(SEED_ITEMS) == 1021
+        assert len(SEED_ITEMS) == 1022
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS

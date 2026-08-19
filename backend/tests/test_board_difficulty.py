@@ -77,7 +77,7 @@ class TestBoardDifficultySeedDistribution:
         boards = self._seed_boards()
         # R12 §9 13건 → R13 2일차 통합에서 +21(2일차 저작 7 + 규칙 확장 10 + 재난 4)
         # staging 승격(2026-08-14): 46 → **49**(CO-I-2/X-1 잔여 3건, 난이도 2)
-        assert len(boards) == 55
+        assert len(boards) == 56
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
@@ -117,8 +117,13 @@ class TestBoardDifficultySeedDistribution:
         # `ci.sh`가 pyflakes를 `backend/app`에만 돌리므로 **미사용 변수도 안 잡힌다.**
         # 분포 고정이 **난이도 가중 드리프트를 잡는 유일한 계측기**라 되살린다:
         # 개수만 보면 「보드가 늘었다」는 알지만 **어느 칸으로 늘었는지**를 못 본다.
-        assert dist == {1: 23, 2: 16, 3: 16}, f"난이도 분포가 바뀌었다: {dict(sorted(dist.items()))}"
-        assert len(boards) == 55
+        # MT-19 판독 2(2026-08-19): **3이 16 → 17.** 판독 1과 같은 구성이라
+        # (palette 4종 + adult + goal_only) 같은 클램프 3이다. 1·2는 안 변한다.
+        # ⚠️ **이 계약이 설계대로 울어서 알았다** — 보드를 늘리고 개수 핀만 고쳤을 때
+        # 여기가 빨강이 났다. 개수만 보면 「늘었다」는 알지만 **어느 칸으로 늘었는지**를
+        # 못 본다는 것이 이 단정의 값이고, 그것이 실제로 작동했다.
+        assert dist == {1: 23, 2: 16, 3: 17}, f"난이도 분포가 바뀌었다: {dict(sorted(dist.items()))}"
+        assert len(boards) == 56
 
 
 def _puzzle(name: str, level_group: str):

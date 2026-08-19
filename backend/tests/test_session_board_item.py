@@ -197,7 +197,7 @@ class TestSeedBoardRoundTrip:
         # 그래서 옮겼다). 난이도 2 블록 끝인 36 다음 **37~39**로 넣고 옛 37~46을
         # +3 밀었다. 순차 잠금(MT-24)이 이 순서 위에 서 있으므로 자리가 계약이다.
         # ㉣ 개통(2026-08-18): 49 → **52**. 요소 4종 팔레트를 쓰는 첫 보드들이다.
-        assert len(self.boards) == 55
+        assert len(self.boards) == 56
 
     def test_전건_렌더_필수_필드_온전(self):
         for i, item in enumerate(self.boards):
