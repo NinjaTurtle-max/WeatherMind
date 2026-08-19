@@ -126,41 +126,52 @@ export default function WeatherBrainPanel() {
                     count: m.num_responses ?? 0,
                   })}
                 >
-                  <div className="flex items-center justify-between gap-2 text-xs">
-                    <span className="flex min-w-0 items-center gap-1.5">
+                  {/* 🔴 **왼쪽 θ 행과 같은 한 줄 구성**(2026-08-19 사용자 지시
+                      "여기도 똑같이 배치 맞춰줘"). 어제 θ 쪽만 한 줄로 바꾸고
+                      이쪽은 3줄(제목 / 막대 / 다음 확률)로 남겨 뒀는데, 두 열이
+                      한 카드 안에서 **다른 리듬으로 내려가** 나란한 것으로
+                      안 읽혔다.
+                      순서·치수를 왼쪽과 맞춘다: 마스코트 28 · 이름 고정폭
+                      132/sm 164 · 막대 flex-1 · 보조 문구는 lg에서만 · 칩.
+                      ⚠️ 「다음 문제 정답 확률」이 왼쪽의 「아직 응답 없음」 자리를
+                      물려받는다 — 그래서 lg 미만에서는 접힌다. 접혀도 잃는
+                      정보가 없다: 같은 값을 행 `title` 툴팁이 이미 들고 있다.
+                      ⚠️ %는 **접지 않는다.** 이 열에서 그 숫자가 본문이라
+                      막대만 남으면 값을 읽을 수 없다(왼쪽은 등급 칩이 그
+                      몫을 하지만 이쪽 칩은 데이터 충분/부족만 말한다). */}
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="flex w-[132px] flex-none items-center gap-1.5 sm:w-[164px]">
                       <Mascot
                         name={conceptCharacter(m.concept_tag)}
-                        className="h-[22px] w-[22px] flex-none"
+                        className="h-[28px] w-[28px] flex-none"
                       />
                       <span className="min-w-0 truncate font-semibold text-slate-700">
                         {CONCEPT_KO[m.concept_tag] ?? m.concept_tag}
                       </span>
                     </span>
-                    <span className="flex shrink-0 items-center gap-1.5">
-                      <span className="text-[11px] font-bold tabular-nums text-slate-600">
-                        {percent}%
-                      </span>
+                    <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                          MASTERY_CHIP[m.level_label] ?? MASTERY_CHIP.insufficient
-                        }`}
-                      >
-                        {t(`weatherBrain.mastery.${m.level_label}`)}
-                      </span>
+                        className="block h-full rounded-full transition-none"
+                        style={{
+                          width: `${percent}%`,
+                          backgroundColor: cold ? COLOR_MASTERY_COLD : COLOR_MASTERY,
+                        }}
+                      />
+                    </span>
+                    <span className="hidden shrink-0 text-[10px] font-medium text-slate-400 lg:inline">
+                      {t('weatherBrain.mastery.nextHint', { next })}
+                    </span>
+                    <span className="shrink-0 text-[11px] font-bold tabular-nums text-slate-600">
+                      {percent}%
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                        MASTERY_CHIP[m.level_label] ?? MASTERY_CHIP.insufficient
+                      }`}
+                    >
+                      {t(`weatherBrain.mastery.${m.level_label}`)}
                     </span>
                   </div>
-                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full rounded-full transition-none"
-                      style={{
-                        width: `${percent}%`,
-                        backgroundColor: cold ? COLOR_MASTERY_COLD : COLOR_MASTERY,
-                      }}
-                    />
-                  </div>
-                  <p className="mt-0.5 text-[10px] text-slate-400">
-                    {t('weatherBrain.mastery.nextHint', { next })}
-                  </p>
                 </li>
               );
             })}
