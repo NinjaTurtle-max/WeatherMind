@@ -75,13 +75,25 @@ export const zOfLat = (lat) => (lat - GEO.south) * 0.0125;
  * 조사 §3 T2의 수치 — 단계마다 하나씩 대응한다.
  * `lon`·`lat`이 **좌표의 단일 소유자**다(종전에는 x를 손으로 적어 지도와 어긋났다).
  * `note`는 **캔버스 밖 캡션**으로 나간다(위 2차 보정 참조).
+ *
+ * 🔴 **`short`가 캔버스, `title`이 캡션이다**(2026-08-19 가독성 지적).
+ * 종전에는 캔버스 라벨도 `title`을 썼고, 그 탓에 마지막 단계에서 **「쇠퇴 · 온대저기압
+ * 으로 변질」 14자**가 260×150 판형 위에 떠 있었다(폭의 3분의 1). 보드 문법은
+ * 「캔버스 안은 짧은 명사구 · 긴 문장은 캔버스 밖」이므로, 캔버스에는 `short`를 두고
+ * 온전한 이름은 캡션(`T2_STEPS[].title`)이 말한다 — **문구를 지운 것이 아니라 옮겼다.**
+ * ⚠️ `short`를 지우면 캔버스가 자동으로 `title`로 되돌아간다(아래 `??`) — 그래서
+ * 이 필드가 없어도 그림은 깨지지 않고 **길어지기만** 한다. 그 되돌림이 곧 결함이다.
  */
 export const T2_STAGES = Object.freeze([
-  { key: 'form', title: '형성기', lat: 12, lon: 145, speedKmh: 20, power: 0.28, height: 0.3, note: '해수면 26.5°C 이상 · 잠열이 에너지원' },
-  { key: 'grow', title: '발달기', lat: 17, lon: 132, speedKmh: 23, power: 0.44, height: 0.52, note: '무역풍을 타고 서~서북서 20~25km/h' },
-  { key: 'peak', title: '최성기 · 전향', lat: 24, lon: 127, speedKmh: 5, power: 0.62, height: 0.86, note: '북위 20~30°에서 전향한다 — 여기서 약 하루 정체한다' },
-  { key: 'accel', title: '전향 후 급가속', lat: 31, lon: 134, speedKmh: 38, power: 0.5, height: 0.66, note: '편서풍을 타고 북~북동 35~40km/h — 느리게 오다가 갑자기 빨라진다' },
-  { key: 'et', title: '쇠퇴 · 온대저기압으로 변질', lat: 38, lon: 145, speedKmh: 55, power: 0.3, height: 0.34, note: '수증기 공급이 끊긴다 — 사라지는 것이 아니라 성질이 바뀐다(ET). 수명은 평균 5일(길게 10~15일).' },
+  { key: 'form', title: '형성기', short: '형성기', lat: 12, lon: 145, speedKmh: 20, power: 0.28, height: 0.3, note: '해수면 26.5°C 이상 · 잠열이 에너지원' },
+  { key: 'grow', title: '발달기', short: '발달기', lat: 17, lon: 132, speedKmh: 23, power: 0.44, height: 0.52, note: '무역풍을 타고 서~서북서 20~25km/h' },
+  // 「전향」은 지도 위 전향점 라벨이 따로 말한다 — 캔버스에서 두 번 쓰지 않는다
+  { key: 'peak', title: '최성기 · 전향', short: '최성기', lat: 24, lon: 127, speedKmh: 5, power: 0.62, height: 0.86, note: '북위 20~30°에서 전향한다 — 여기서 약 하루 정체한다' },
+  { key: 'accel', title: '전향 후 급가속', short: '급가속', lat: 31, lon: 134, speedKmh: 38, power: 0.5, height: 0.66, note: '편서풍을 타고 북~북동 35~40km/h — 느리게 오다가 갑자기 빨라진다' },
+  // 🔴 `short`가 「쇠퇴」가 아니라 **「온대저기압」**인 이유: 이 단계의 사실은
+  //    「약해진다」가 아니라 **「성질이 바뀐다(ET)」**다. 캔버스에 남길 명사구 하나를
+  //    고른다면 **변한 뒤의 이름**이어야 그 사실이 화면에서 사라지지 않는다.
+  { key: 'et', title: '쇠퇴 · 온대저기압으로 변질', short: '온대저기압', lat: 38, lon: 145, speedKmh: 55, power: 0.3, height: 0.34, note: '수증기 공급이 끊긴다 — 사라지는 것이 아니라 성질이 바뀐다(ET). 수명은 평균 5일(길게 10~15일).' },
 ]);
 
 // ── 색 — 보드 팔레트 ────────────────────────────────────────────────────────
@@ -191,11 +203,19 @@ export const TYPHOON_LIFECYCLE_SCENE = composeScene({
     island(xOfLon(140), xOfLon(145), zOfLat(41), 0.42), // 홋카이도
     island(xOfLon(120), xOfLon(122), zOfLat(22), zOfLat(25)), // 대만
     island(xOfLon(120), xOfLon(124), zOfLat(10), zOfLat(18)), // 필리핀
+    // 지도의 유일한 지명 — 태풍이 어디를 지나는지의 기준이라 끝까지 남는다
     label({ x: xOfLon(127.5), y: H(0.02), z: zOfLat(36), text: '한반도', color: '#3f6212', at: 0, size: 9.5 }),
-    // 전향대(북위 20~30°)를 글자로 못박는다 — 격자는 무대가 이미 그린다
-    label({ x: 0.05, y: H(0.01), z: zOfLat(20), text: '북위 20°', color: TXT_DIM, at: 0, size: 9.5 }),
-    label({ x: 0.05, y: H(0.01), z: zOfLat(30), text: '북위 30°', color: TXT_DIM, at: 0, size: 9.5 }),
-    label({ x: 0.92, y: H(0.01), z: zOfLat(13), text: '무역풍대', color: TXT_DIM, at: 1, size: 9.5 }),
+    // 전향대(북위 20~30°)를 글자로 못박는다 — 격자는 무대가 이미 그린다.
+    // 🔴 `until: 2` — **전향이 일어나는 2단계까지**가 이 눈금의 몫이다. 전향한
+    //    뒤(3·4단계)에는 「전향대가 어디였나」가 이야기에서 빠지고, 지나온 자리는
+    //    경로 점과 「전향」 라벨이 대신 말한다. 🔴 0단계에는 반드시 남아야 한다 —
+    //    `exploreSims.render.test`가 SSR step 0에서 「북위 20°」로 T2 배선을 확인한다.
+    label({ x: 0.05, y: H(0.01), z: zOfLat(20), text: '북위 20°', color: TXT_DIM, at: 0, until: 2, size: 9.5 }),
+    label({ x: 0.05, y: H(0.01), z: zOfLat(30), text: '북위 30°', color: TXT_DIM, at: 0, until: 2, size: 9.5 }),
+    // 바람대는 **그 바람을 타는 단계에만** 뜬다 — 무역풍은 발달기(1), 편서풍은
+    // 전향 뒤(3~4)다. 종전에는 무역풍대가 마지막 단계까지 남아, 이미 편서풍을 타고
+    // 있는 태풍 옆에서 무역풍대를 함께 가리키고 있었다.
+    label({ x: 0.92, y: H(0.01), z: zOfLat(13), text: '무역풍대', color: TXT_DIM, at: 1, until: 1, size: 9.5 }),
     label({ x: 0.9, y: H(0.01), z: zOfLat(35), text: '편서풍대', color: TXT_DIM, at: 3, size: 9.5 }),
 
     // ── 경로: 지나온 자리는 남는다(누적) ────────────────────────────────────
@@ -204,11 +224,12 @@ export const TYPHOON_LIFECYCLE_SCENE = composeScene({
     // ── 각 단계의 태풍 자신 — **그 단계에만**(at = until) ────────────────────
     // ⚠️ 캔버스 안 글자는 **단계 이름과 속도 둘뿐**이다. 설명 문장은 `note`로
     //    나가서 패널 캡션이 된다(보드가 긴 문장을 두는 자리와 같다).
+    //    🔴 이름은 `title`이 아니라 **`short`**를 쓴다 — 온전한 이름은 캡션이 말한다.
     ...T2_STAGES.flatMap((s, i) => [
       ...storm(s, i),
       powerColumn(s, i)[0],
       motionArrow(s, i)[0],
-      label({ x: posOf(s)[0], y: H(0.34 + s.height * 0.5), z: posOf(s)[1], text: s.title, color: stageColor(i), at: i, until: i, size: 11 }),
+      label({ x: posOf(s)[0], y: H(0.34 + s.height * 0.5), z: posOf(s)[1], text: s.short ?? s.title, color: stageColor(i), at: i, until: i, size: 11 }),
       label({ x: posOf(s)[0], y: H(0.02), z: posOf(s)[1] - 0.06, text: `${s.speedKmh}km/h`, color: TXT, at: i, until: i, size: 9.5 }),
     ]),
     // 최성기에만 비를 뿌린다 — 세력이 최대라는 것을 강수로도 말한다
