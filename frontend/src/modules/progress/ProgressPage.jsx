@@ -193,7 +193,11 @@ export default function ProgressPage() {
               5장이 늘어난 높이를 나눠 받으므로 커져도 빈 데가 없다
               (BadgeCollection이 h-full·격자 flex-1로 그 높이를 타일까지
               내려보낸다 — 짝을 이루는 코드다). */}
-          <div className="order-2 lg:order-none lg:flex-1">
+          {/* ⚠️ **흡수(`lg:flex-1`)를 걷었다**(2026-08-19 사용자 지시 — "배지 카드
+              크기는 원래대로"). 학습 지역이 오른쪽으로 가면서 왼쪽이 짧아졌고,
+              그 차이를 배지가 먹으니 타일이 원래보다 크게 늘어났다.
+              남는 자리는 이제 **능력 분석 판의 탭**이 먹는다(아래 주석). */}
+          <div className="order-2 lg:order-none">
             <BadgeCollection collapsed={collapsed} />
           </div>
         </div>
