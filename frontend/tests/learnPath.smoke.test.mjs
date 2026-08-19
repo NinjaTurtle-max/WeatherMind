@@ -1225,14 +1225,33 @@ await vite.close();
 //      표에 이미 있는 🌡 U+1F321 · 🌪 U+1F32A · 🏙 U+1F3D9가 그렇다.
 //      **다음에 ☀를 추가해도 이 단정이 문다.**
 //
-//   ㉡ **실측 예외** — `Emoji_Presentation=Yes`인데도 실제 화면에서 흑백으로
-//      떨어진 글자. ㉠만으로는 **영원히 못 잡는다.** U+26A1이 바로 그 경우다:
+//   ㉡ **조건부 예외** — `Emoji_Presentation=Yes`인데도 **스택에 따라** 흑백으로
+//      떨어질 수 있는 글자. ㉠만으로는 **영원히 못 잡는다.** U+26A1이 그 경우다:
 //      유니코드 15.1에서 `Emoji_Presentation=Yes`인데(Node `\p{...}`·파이썬
-//      `regex` 양쪽 실측) 그래도 `24×17.9`로 떨어졌다. 원인은 브라우저가 기본
-//      표현을 보기 **전에 CSS 폰트 스택을 먼저 걷기** 때문이고, 스택 앞쪽 텍스트
-//      폰트의 U+26A1 글리프는 정사각 em을 안 채운다.
-//      🔴 그러니 이 목록을 「유니코드가 Yes라던데?」로 지우지 말 것 — 지우면
-//      ⑪-c가 계약 없이 되살아난다. 지울 근거는 유니코드 표가 아니라 **재실측**이다.
+//      `regex` 양쪽 실측) 브라우저는 기본 표현을 보기 **전에 CSS 폰트 스택을 먼저
+//      걷고**, 스택 앞쪽에 U+26A1 글리프를 가진 **텍스트 폰트**가 있으면 그쪽이
+//      뽑혀 정사각 em을 안 채운다.
+//
+//      🔴 **정정(2026-08-19 재실측) — 이 줄에 「그래도 `24×17.9`로 떨어졌다」고
+//      적혀 있었고 그것은 이 플랫폼에서 거짓이다.** 실제 페이지 스택
+//      (`Pretendard…, -apple-system, …`) 아래에서 bare `⚡`과 `⚡️`는 canvas 잉크·
+//      칠해진 픽셀·화면 픽셀이 **전부 동일**하다(둘 다 38×38 프레임 / 25×35 칠 /
+//      유채색 97.3%). 이 맥에서는 **결함이 재현되지 않는다** — 스택에 적힌
+//      Pretendard·Noto Sans KR·Segoe UI·Roboto가 **전부 미설치**이고 실제로 닿는
+//      `-apple-system`(SF)에는 U+26A1 글리프가 **없어** Apple Color Emoji로 떨어진다.
+//
+//      ⚠️ 그리고 `24×17.9`는 **폰트를 이름으로 명시해서 얻은 값**이다 — 20여 종을
+//      훑어 그 값을 소수 1자리까지 재현하는 것은 `Apple Symbols` 하나뿐이었고,
+//      그 폰트는 설치돼 있으나 **페이지 스택에는 없다.** 축도 뒤집혀 적혀 있었다:
+//      폭 **17.9** × 높이 **24**(세로로 긴 흑백 번개)다.
+//
+//      ⇒ **그러면 이 가드는 왜 남는가.** 그 조건이 실제로 성립하는 것을 봤기
+//      때문이다 — `Apple Symbols`를 스택 앞에 세우면 bare는 흑백 17.9×24로
+//      떨어지고 **VS16을 붙이면 38×38 컬러로 회복된다.** 그리고 우리 스택 첫
+//      항목인 **Pretendard가 웹폰트로 실제 적재되는 순간** 같은 조건이 성립할 수
+//      있다(지금은 미설치라 조용하다). 즉 이 목록은 **수리가 아니라 예방**이다.
+//      🔴 「유니코드가 Yes라던데?」로 지우지 말 것 — 지우면 예방이 사라진다.
+//      지울 근거는 유니코드 표가 아니라 **스택이 바뀌지 않는다는 보장**이다.
 {
   const stripComments = (src) =>
     src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
@@ -1276,16 +1295,24 @@ await vite.close();
       + `${bareTextDefault.length ? ` (${bareTextDefault.map((v) => `U+${v.codePointAt(0).toString(16).toUpperCase()}`)})` : ''}`,
   );
 
-  // 실측 예외 목록. 값이 아니라 **코드포인트로** 적는다 — 소스에 보이지 않는
+  // 조건부 예외 목록. 값이 아니라 **코드포인트로** 적는다 — 소스에 보이지 않는
   // VS16을 넣으면 목록 자신이 판정 대상과 구별되지 않는다.
-  const MEASURED_MONOCHROME = [
-    { cp: '⚡', why: 'macOS/Chrome 잉크 24×17.9 ↔ 다른 아이콘 38×38 (2026-08-19 실측)' },
+  const CONDITIONAL_MONOCHROME = [
+    {
+      cp: '⚡',
+      // 🔴 사유를 정정했다 — 종전 'macOS/Chrome 잉크 24×17.9'는 **페이지 스택이 아니라
+      //    이름을 명시한 Apple Symbols**의 값이었다(축도 뒤집혀 있었다). 이 맥의 실제
+      //    스택에서는 bare와 VS16이 구별되지 않는다. 남기는 근거는 **예방**이다.
+      why: 'Apple Symbols를 스택 앞에 세우면 bare는 흑백 17.9×24, VS16은 38×38 컬러'
+        + ' — 실제 페이지 스택에서는 차이 0(2026-08-19 재실측). 스택 첫 항목 Pretendard가'
+        + ' 웹폰트로 적재되면 같은 조건이 성립할 수 있어 예방으로 남긴다',
+    },
   ];
-  const bareMeasured = MEASURED_MONOCHROME.filter(({ cp }) =>
+  const bareMeasured = CONDITIONAL_MONOCHROME.filter(({ cp }) =>
     values.some((v) => v.startsWith(cp) && !v.includes(VS16)));
   ok(
     bareMeasured.length === 0,
-    `🔴 ⑪-c 실측으로 흑백이던 문자도 VS16을 갖는다 — 빠진 것 ${bareMeasured.length}종`
+    `🔴 ⑪-c 스택에 따라 흑백이 될 수 있는 문자는 VS16을 갖는다 — 빠진 것 ${bareMeasured.length}종`
       + `${bareMeasured.length
         ? ` (${bareMeasured.map(({ cp, why }) => `U+${cp.codePointAt(0).toString(16).toUpperCase()}: ${why}`).join(' / ')})`
         : ''}`,
@@ -1294,10 +1321,10 @@ await vite.close();
   // 예외 목록이 **죽지 않았는지** 본다 — 그 글자가 표에서 사라지면 위 단정은
   // 공집합으로 조용히 통과한다. 배정이 바뀌어 정말 빠졌다면 목록에서 지울 것이고,
   // 그 판단을 사람이 하도록 여기서 소리를 낸다.
-  const orphanExceptions = MEASURED_MONOCHROME.filter(({ cp }) => !values.some((v) => v.startsWith(cp)));
+  const orphanExceptions = CONDITIONAL_MONOCHROME.filter(({ cp }) => !values.some((v) => v.startsWith(cp)));
   ok(
     orphanExceptions.length === 0,
-    `⑪-c 실측 예외 목록에 죽은 항목이 없다 — 표에 없는 것 ${orphanExceptions.length}종`
+    `⑪-c 조건부 예외 목록에 죽은 항목이 없다 — 표에 없는 것 ${orphanExceptions.length}종`
       + `${orphanExceptions.length ? ` (${orphanExceptions.map(({ cp }) => `U+${cp.codePointAt(0).toString(16).toUpperCase()}`)})` : ''}`,
   );
 }
