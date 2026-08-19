@@ -357,6 +357,7 @@ export default {
     basisMeasured: 'based on {count} response(s)',
     empty: 'No ability data yet. Complete a session and your per-concept analysis will appear.',
     mastery: {
+      radarAria: 'Mastery radar by concept — {list}',
       title: 'Concept mastery',
       subtitle: '"Current level" is what you can solve today; this side is the chance you have learned each concept.',
       empty: 'Answer some questions and we will start tracking what you have learned.',
