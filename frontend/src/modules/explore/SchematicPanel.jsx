@@ -19,7 +19,7 @@ import { usePrefersReducedMotion } from '../board/realisticEffects';
  * `CrossSectionPanel`을 렌더한다. 탐구 화면에 **다른 언어의 패널**을 놓으면 한
  * 화면 안에서 충돌한다 — 그것이 「보드 무대 재사용」이 옳은 결정적 이유다.
  *
- * 판단 넷을 여기 적어 둔다.
+ * 판단 다섯을 여기 적어 둔다.
  *  ⑴ **자동 재생을 넣었다**(보드와 같은 1.4초/단계). 종전에는 수동 전용이라
  *     *"없는 기능은 회귀하지 않는다"*고 적어 두었으나, 보드 규약이 자동 재생이므로
  *     **같아 보이려면 넘어가는 리듬도 같아야 한다.** 대신 정지 버튼을 함께 둔다.
@@ -38,6 +38,13 @@ import { usePrefersReducedMotion } from '../board/realisticEffects';
  *     메인으로 간다** — 즉 이 비용은 게으른 적재를 포기한 대가가 아니라 라우트 분할이
  *     없는 대가다. 라우트를 나누면 저절로 회수된다(그 판단은 이 과업 밖).
  *  ⑷ 화면비는 `CrossSectionGL`이 260:150으로 잡는다(보드 패널과 같은 판형).
+ *  ⑸ 🔴 **긴 문장은 캔버스가 아니라 여기가 그린다**(2026-08-19 2차 보정).
+ *     보드 `CrossSectionPanel`이 그렇게 한다 — 단계 캡션(`steps[step]`)은 캔버스
+ *     **아래 HTML**이고 캔버스 안 라벨은 `V.*`의 **짧은 명사구**뿐이다. 1차
+ *     재제작은 설명 문장을 캔버스 안에 눕혀 놨고, 라벨 화면 좌표 실측에서
+ *     **보드 라벨이 top 5~66%에 머무는 동안 T2만 82%까지 내려갔다** — 반려 사유였던
+ *     「떠 있는 글자 목록」과 같은 형태다. 그래서 `steps[].note`를 받아 여기서
+ *     캡션 둘째 줄로 뿌린다. `note`는 **없어도 된다**(있는 장면만 쓴다).
  *
  * ⚠️ 문구가 한국어 리터럴이다(여기와 호출부의 제목·설명). 외부화는 §4.25 이월이고
  * `displayLayerParity.contract`의 `HANGUL_GAPS`가 줄 수로 못박는다.
@@ -80,11 +87,12 @@ export default function SchematicPanel({ title, caption, scene, steps, ariaLabel
       ) : null}
 
       {reduced || !showGl ? (
-        /* 정지 모드·미지원 — 단계 제목을 전부 글로 남긴다(보드와 같은 계약) */
+        /* 정지 모드·미지원 — 단계 제목과 설명을 전부 글로 남긴다(보드와 같은 계약) */
         <ol className="mt-2 list-decimal space-y-0.5 pl-4">
           {steps.map((s) => (
             <li key={s.key} className="text-[11px] leading-relaxed text-slate-600">
               {s.title}
+              {s.note ? <span className="text-slate-400">{` — ${s.note}`}</span> : null}
             </li>
           ))}
         </ol>
@@ -97,6 +105,10 @@ export default function SchematicPanel({ title, caption, scene, steps, ariaLabel
             <span className="font-bold text-sky-700">{`${step + 1}/${steps.length}단계`}</span>{' '}
             {steps[step].title}
           </p>
+          {/* 🔴 캔버스에 넣지 않는 긴 문장의 자리 — 판단 ⑸ 참조 */}
+          {steps[step].note ? (
+            <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{steps[step].note}</p>
+          ) : null}
 
           <div className="mt-1.5 flex items-center gap-1.5">
             <button

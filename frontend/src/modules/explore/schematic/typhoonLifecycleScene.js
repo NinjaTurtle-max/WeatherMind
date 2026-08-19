@@ -18,12 +18,24 @@
  * 겉모습과 위치가 어떻게 변하는가**다(클라이언트 문장의 「개별적 단면」 ↔ 「전체적
  * 외적」). 하나를 회전시켜 둘로 쓰는 것이 아니다.
  *
+ * ── 2차 보정(2026-08-19 오후 · 이미지 조사 §4) ───────────────────────────────
+ * 조사에서 **「단계 나열」이 아니라 「지도 위 경로」가 관례**임을 확인했다(예외를
+ * 거의 못 봤다) — 1차의 판형 선택이 맞았다는 외부 근거다. 바꾼 것은 하나다:
+ * 🔴 **`note` 전체 문장을 캔버스에서 걷어냈다.** 보드는 `CrossSectionPanel`이 단계
+ * 캡션을 캔버스 **밖 HTML**로 뿌리고 캔버스 안에는 짧은 명사구만 둔다. 1차는 긴
+ * 문장을 상자 앞 바닥에 눕혀 놨는데, **라벨 화면 좌표 실측으로 보드 라벨이 top
+ * 5~66%에 머무는 동안 T2만 82%까지 내려갔다** — 반려 사유였던 「떠 있는 글자 목록」과
+ * 같은 형태다. 이제 문장은 `T2_STEPS[].note`이고 `SchematicPanel`이 캡션으로 뿌린다.
+ *
  * ── 시간 전개가 무대 계약 안에서 되는가 — **된다** ───────────────────────────
  * 근거는 `crossSection/renderer.js:46` 한 줄이다:
  *   `visible = (it) => it.at <= step && step <= (it.until ?? Infinity)`
  *  · `at: k`만 주면 **누적** — 지나온 경로처럼 쌓이는 것
  *  · `at: k, until: k`를 주면 **그 단계에만** — 태풍 자신처럼 **한 번에 한 자리에만**
  *    있어야 하는 것. 이 배타 표시가 곧 시간 전개다(누적이면 태풍이 5마리가 된다)
+ * ⚠️ 관례(정적 요약 이미지)는 오히려 **모든 위치에 기호를 남긴다.** 그쪽은 한 장에
+ * 생애 전체를 담아야 해서이고, 이쪽은 단계 애니메이션이라 성격이 다르다 —
+ * 지나온 자리는 **경로 점**이 대신한다.
  *
  * ── 좌표 규약 — **보드와 같다** ──────────────────────────────────────────────
  *   x 0~1 서→동(`xOfLon`) · z 0~0.42 남→북(`zOfLat`) · y 고도(세력의 키).
@@ -62,13 +74,14 @@ export const zOfLat = (lat) => (lat - GEO.south) * 0.0125;
 /**
  * 조사 §3 T2의 수치 — 단계마다 하나씩 대응한다.
  * `lon`·`lat`이 **좌표의 단일 소유자**다(종전에는 x를 손으로 적어 지도와 어긋났다).
+ * `note`는 **캔버스 밖 캡션**으로 나간다(위 2차 보정 참조).
  */
 export const T2_STAGES = Object.freeze([
   { key: 'form', title: '형성기', lat: 12, lon: 145, speedKmh: 20, power: 0.28, height: 0.3, note: '해수면 26.5°C 이상 · 잠열이 에너지원' },
   { key: 'grow', title: '발달기', lat: 17, lon: 132, speedKmh: 23, power: 0.44, height: 0.52, note: '무역풍을 타고 서~서북서 20~25km/h' },
-  { key: 'peak', title: '최성기 · 전향', lat: 24, lon: 127, speedKmh: 5, power: 0.62, height: 0.86, note: '북위 20~30°에서 전향 — 약 하루 정체' },
-  { key: 'accel', title: '전향 후 급가속', lat: 31, lon: 134, speedKmh: 38, power: 0.5, height: 0.66, note: '편서풍을 타고 북~북동 35~40km/h' },
-  { key: 'et', title: '쇠퇴 · 온대저기압으로 변질', lat: 38, lon: 145, speedKmh: 55, power: 0.3, height: 0.34, note: '수증기 공급이 끊긴다 — 사라지는 것이 아니라 성질이 바뀐다' },
+  { key: 'peak', title: '최성기 · 전향', lat: 24, lon: 127, speedKmh: 5, power: 0.62, height: 0.86, note: '북위 20~30°에서 전향한다 — 여기서 약 하루 정체한다' },
+  { key: 'accel', title: '전향 후 급가속', lat: 31, lon: 134, speedKmh: 38, power: 0.5, height: 0.66, note: '편서풍을 타고 북~북동 35~40km/h — 느리게 오다가 갑자기 빨라진다' },
+  { key: 'et', title: '쇠퇴 · 온대저기압으로 변질', lat: 38, lon: 145, speedKmh: 55, power: 0.3, height: 0.34, note: '수증기 공급이 끊긴다 — 사라지는 것이 아니라 성질이 바뀐다(ET). 수명은 평균 5일(길게 10~15일).' },
 ]);
 
 // ── 색 — 보드 팔레트 ────────────────────────────────────────────────────────
@@ -147,7 +160,7 @@ function motionArrow(stage, i) {
 function trackDots(i) {
   const [ax, az] = posOf(T2_STAGES[i]);
   const [bx, bz] = posOf(T2_STAGES[i + 1]);
-  return [0.25, 0.5, 0.75].map((u) => {
+  return [0.2, 0.35, 0.5, 0.65, 0.8].map((u) => {
     const x = ax + (bx - ax) * u;
     const z = az + (bz - az) * u;
     return {
@@ -160,7 +173,8 @@ function trackDots(i) {
   });
 }
 
-export const T2_STEPS = Object.freeze(T2_STAGES.map((s) => ({ key: s.key, title: s.title })));
+/** 단계 목록 — `note`가 **캔버스 밖 캡션**의 소유자다 */
+export const T2_STEPS = Object.freeze(T2_STAGES.map((s) => ({ key: s.key, title: s.title, note: s.note })));
 
 export const TYPHOON_LIFECYCLE_SCENE = composeScene({
   night: false,
@@ -179,32 +193,29 @@ export const TYPHOON_LIFECYCLE_SCENE = composeScene({
     island(xOfLon(120), xOfLon(124), zOfLat(10), zOfLat(18)), // 필리핀
     label({ x: xOfLon(127.5), y: H(0.02), z: zOfLat(36), text: '한반도', color: '#3f6212', at: 0, size: 9.5 }),
     // 전향대(북위 20~30°)를 글자로 못박는다 — 격자는 무대가 이미 그린다
-    label({ x: 0.06, y: H(0.01), z: zOfLat(20), text: '북위 20°', color: TXT_DIM, at: 0, size: 9.5 }),
-    label({ x: 0.06, y: H(0.01), z: zOfLat(30), text: '북위 30°', color: TXT_DIM, at: 0, size: 9.5 }),
-    label({ x: 0.9, y: H(0.01), z: zOfLat(13), text: '무역풍대 — 서쪽으로', color: TXT_DIM, at: 1, size: 9.5 }),
-    label({ x: 0.86, y: H(0.01), z: zOfLat(35), text: '편서풍대 — 동쪽으로', color: TXT_DIM, at: 3, size: 9.5 }),
+    label({ x: 0.05, y: H(0.01), z: zOfLat(20), text: '북위 20°', color: TXT_DIM, at: 0, size: 9.5 }),
+    label({ x: 0.05, y: H(0.01), z: zOfLat(30), text: '북위 30°', color: TXT_DIM, at: 0, size: 9.5 }),
+    label({ x: 0.92, y: H(0.01), z: zOfLat(13), text: '무역풍대', color: TXT_DIM, at: 1, size: 9.5 }),
+    label({ x: 0.9, y: H(0.01), z: zOfLat(35), text: '편서풍대', color: TXT_DIM, at: 3, size: 9.5 }),
 
     // ── 경로: 지나온 자리는 남는다(누적) ────────────────────────────────────
     ...T2_STAGES.slice(0, -1).flatMap((_, i) => trackDots(i)),
 
     // ── 각 단계의 태풍 자신 — **그 단계에만**(at = until) ────────────────────
+    // ⚠️ 캔버스 안 글자는 **단계 이름과 속도 둘뿐**이다. 설명 문장은 `note`로
+    //    나가서 패널 캡션이 된다(보드가 긴 문장을 두는 자리와 같다).
     ...T2_STAGES.flatMap((s, i) => [
       ...storm(s, i),
       powerColumn(s, i)[0],
       motionArrow(s, i)[0],
-      label({ x: posOf(s)[0], y: H(0.34 + s.height * 0.5), z: posOf(s)[1], text: `${i + 1}. ${s.title}`, color: stageColor(i), at: i, until: i, size: 11 }),
-      label({ x: posOf(s)[0], y: H(0.02), z: posOf(s)[1] - 0.05, text: `${s.speedKmh}km/h`, color: TXT, at: i, until: i, size: 9.5 }),
-      // 긴 문장은 태풍 옆이 아니라 **상자 앞쪽 아래**에 눕힌다 — 옆에 두면 잘린다
-      label({ x: 0.5, y: H(-0.12), z: 0.0, text: s.note, color: TXT_DIM, at: i, until: i, size: 10 }),
+      label({ x: posOf(s)[0], y: H(0.34 + s.height * 0.5), z: posOf(s)[1], text: s.title, color: stageColor(i), at: i, until: i, size: 11 }),
+      label({ x: posOf(s)[0], y: H(0.02), z: posOf(s)[1] - 0.06, text: `${s.speedKmh}km/h`, color: TXT, at: i, until: i, size: 9.5 }),
     ]),
     // 최성기에만 비를 뿌린다 — 세력이 최대라는 것을 강수로도 말한다
     precip({ x0: xOfLon(127) - 0.07, x1: xOfLon(127) + 0.07, y1: H(0.5), z0: zOfLat(24) - 0.05, z1: zOfLat(24) + 0.05, slant: 0.16, speed: 1.5, count: 26, at: 2 }),
 
-    // 🔴 전향점 — 이 그림의 주인공. 해당 단계에서만 못박는다
-    label({ x: 0.5, y: H(-0.24), z: 0.0, text: '전향 — 여기서 약 하루 정체한다', color: PEAK, at: 2, until: 2, size: 11 }),
-    label({ x: 0.5, y: H(-0.24), z: 0.0, text: '전향 뒤 급가속 — 느리게 오다가 갑자기 빨라진다', color: TXT, at: 3, until: 3, size: 11 }),
-    label({ x: 0.5, y: H(-0.24), z: 0.0, text: '온대저기압으로 변질(ET) — 태풍으로서의 일생을 마친 것', color: COLD, at: 4, until: 4, size: 11 }),
-    label({ x: 0.5, y: H(-0.36), z: 0.0, text: '수명 평균 5일(길게 10~15일)', color: TXT_DIM, at: 4, size: 9.5 }),
+    // 🔴 전향점 — 이 그림의 주인공. 짧은 명사구로만 못박는다(문장은 캡션이 맡는다)
+    label({ x: xOfLon(123), y: H(0.02), z: zOfLat(21), text: '전향', color: PEAK, at: 2, size: 11 }),
   ],
 });
 

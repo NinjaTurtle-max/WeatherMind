@@ -605,15 +605,23 @@ try {
     { file: 'src/modules/explore/SchematicPanel.jsx', lines: 8,
       why: '단계 컨트롤 라벨(재생/정지/이전/다음/n단계)과 도트 aria — 사용자 문자열. §4.25 이월.'
         + ' ⚠️ 6 → 8: MT-22 재제작(2026-08-19)이 보드와 같은 **자동 재생**을 넣으면서 재생·정지 라벨이 늘었다.' },
-    { file: 'src/modules/explore/schematic/radiationScene.js', lines: 20,
+    { file: 'src/modules/explore/schematic/radiationScene.js', lines: 25,
       why: '복사수지 장면의 라벨·단계 제목 — 화면에 겹쳐 그려지는 사용자 문자열. §4.25 이월.'
-        + ' ⚠️ 18 → 20: 재제작이 「온실기체 층」·「붙잡힌 열이 되돌아온다」를 새로 그렸다(온실효과의 본체).' },
-    { file: 'src/modules/explore/schematic/typhoonSectionScene.js', lines: 18,
+        + ' ⚠️ 18 → 20: 재제작이 「온실기체 층」·「붙잡힌 열이 되돌아온다」를 새로 그렸다(온실효과의 본체).'
+        + ' ⚠️ 20 → 25: 2차 보정(2026-08-19)이 **긴 문장을 캔버스 밖으로** 내면서 단계마다'
+        + ' `note` 한 줄이 생겼다(캔버스 라벨은 오히려 짧아졌는데 줄 수는 늘었다 — 문장이'
+        + ' 사라진 것이 아니라 **자리를 옮긴** 것이라 총량은 는다). 「태양」 라벨 1줄도 여기 든다.' },
+    { file: 'src/modules/explore/schematic/typhoonSectionScene.js', lines: 22,
       why: '태풍 단면 장면의 라벨·단계 제목 — 위와 같음.'
-        + ' ⚠️ 16 → 18: 재제작이 무대(따뜻한 바다·바깥 나선 비구름대)를 라벨과 함께 세웠다.' },
-    { file: 'src/modules/explore/schematic/typhoonLifecycleScene.js', lines: 14,
+        + ' ⚠️ 16 → 18: 재제작이 무대(따뜻한 바다·바깥 나선 비구름대)를 라벨과 함께 세웠다.'
+        + ' ⚠️ 18 → 22: 2차 보정이 단계마다 `note`(캔버스 밖 캡션) 5줄을 더하고 캔버스 라벨을'
+        + ' 짧은 명사구로 줄였다 — **문장이 캔버스에서 캡션으로 옮겨 간 순증**이다.' },
+    { file: 'src/modules/explore/schematic/typhoonLifecycleScene.js', lines: 11,
       why: '태풍 생애 장면의 라벨·단계 제목 — 위와 같음.'
-        + ' ⚠️ 13 → 14: 재제작이 바다 위에 육지를 세우면서 「한반도」 라벨이 붙었다.' },
+        + ' ⚠️ 13 → 14: 재제작이 바다 위에 육지를 세우면서 「한반도」 라벨이 붙었다.'
+        + ' ✅ 14 → 11: 2차 보정이 **캔버스 안에 눕혀 두었던 설명 문장 라벨을 걷어냈다**'
+        + ' — 문장은 이미 `T2_STAGES[].note`에 있어서 옮길 자리를 새로 만들 필요가 없었다.'
+        + ' 세 파일 중 **여기만 줄었다**는 것이 그 차이다.' },
   ];
   // ⚠️ MT-22의 `src/modules/explore/schematic/**`는 origin/main에 **아직 없다**.
   // 병합되면 이 검사가 그 파일들을 처음으로 본다 — 외부화가 이월된 상태라면
