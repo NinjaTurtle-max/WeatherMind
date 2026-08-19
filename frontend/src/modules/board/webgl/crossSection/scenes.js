@@ -249,23 +249,51 @@ const coldFrontShower = () => [
 
 /** stationary_front_monsoon: 세력 균형 대치 → 정체 → 습기 공급·비층운 → 장맛비 */
 const stationaryFrontMonsoon = () => [
-  wedge({ x0: 0, x1: 0.46, tx0: 0.0, tx1: 0.06, y1: H(0.62), color: COLD_FILL, at: 0 }),
-  wedge({ x0: 0.54, x1: 1, tx0: 0.94, tx1: 1.0, y1: H(0.62), color: rgba('#fca5a5', 0.44), at: 0 }),
-  ...flow({ from: [0.08, H(0.12), ZC], dir: [1, 0, 0], travel: 0.22, count: 2, color: rgba('#2563eb', 0.85), at: 0, speed: 0.3 }),
-  ...flow({ from: [0.92, H(0.12), ZC], dir: [-1, 0, 0], travel: 0.22, count: 2, color: rgba('#dc2626', 0.85), at: 0, speed: 0.3 }),
-  label({ x: 0.2, y: H(0.4), text: V.coldAir, color: COLD_TXT, at: 0 }),
-  label({ x: 0.8, y: H(0.4), text: V.warmAir, color: WARM_TXT, at: 0 }),
-
-  frontSlab({ xb: 0.5, xt: 0.54, y1: H(0.74), color: rgba('#7c3aed', 0.5), at: 1, thick: 0.02 }),
-  label({ x: 0.5, y: H(0.78), text: V.stationaryFront, color: '#6d28d9', at: 1, size: 10 }),
-
-  ...flow({ from: [0.98, H(0.56), ZC + 0.05], dir: [-1, 0.06, -0.12], travel: 0.34, count: 2, color: rgba('#0d9488', 0.9), at: 2, speed: 0.4 }),
-  label({ x: 0.88, y: H(0.72), text: V.humidAirSupply, color: '#0f766e', at: 2, size: 10 }),
-  ...layerBand({ x0: 0.16, x1: 0.88, y: H(0.66), at: 2, n: 4 }),
-  label({ x: 0.42, y: H(0.9), text: V.monsoonCloudBand, at: 2, size: 10 }),
-
-  precip({ x0: 0.22, x1: 0.44, y1: H(0.62), slant: 0.06, speed: 0.85, count: 22, at: 3 }),
-  precip({ x0: 0.5, x1: 0.74, y1: H(0.62), slant: 0.06, speed: 0.8, count: 22, at: 3 }),
+  // 🔴 **2026-08-19: 전선면을 교재 규약대로 고쳤다**(클라이언트가 참조 그림 지정).
+  //   참조: 「정체전선의 3차원 모식도」(출처가 그림 캡션에 `The Atmosphere`로
+  //   박혀 있는 **교재 도판**).
+  //   ⚠️ **따라 그리지 않았다** — 복제·트레이싱 금지(클라이언트 상시 지시)이고
+  //      제출물에 타인 저작물이 들어가면 실격 위험이다. 가져온 것은 **그 도판이
+  //      쓰는 표준 기상 규약**이고, 그것은 WMO·교재 공통이라 저작물이 아니다.
+  //
+  //   종전 장면이 규약과 어긋난 자리 셋:
+  //     ⓐ **두 기단이 같은 높이**(둘 다 H(0.62))라 「찬 공기가 **아래에 깔리고**
+  //        따뜻한 공기가 **위로 올라탄다」가 안 보였다.** 나란히 선 두 덩이였다.
+  //     ⓑ 따뜻한 기단 쐐기가 **위로 갈수록 좁아졌다**(tx 0.94~1.0) — 방향이
+  //        반대다. 올라타려면 **위로 갈수록 찬 공기 쪽으로 더 뻗어야** 한다.
+  //     ⓒ 전선면이 **거의 수직**이었다(xb 0.50 → xt 0.54, 0.04만 기울었다).
+  //        정체전선의 전선면은 **뚜렷한 경사면**이고 그것이 이 그림의 주어다.
+  //
+  // 찬 기단 — **낮고 넓은 쐐기**, 팁이 따뜻한 쪽(동)으로 파고든다. 밀도가 커서
+  //   지면을 붙잡고 눕는다. 높이를 H(0.62) → **H(0.44)**로 낮춰 「아래」를 만든다.
+  wedge({ x0: 0, x1: 0.56, tx0: 0.0, tx1: 0.12, y1: H(0.44), color: COLD_FILL, at: 0 }),
+  // 따뜻한 기단 — **찬 쐐기 위로 올라탄다.** 바닥은 전선 동쪽(0.46~1)이지만
+  //   위로 갈수록 **서쪽으로 뻗어**(0.14~1) 찬 공기를 덮는다 — ⓑ의 정정이다.
+  wedge({ x0: 0.46, x1: 1, tx0: 0.14, tx1: 1.0, y1: H(0.78), color: rgba('#fca5a5', 0.40), at: 0 }),
+  // Cold ↔ Warm — 서로 마주 밀지만 어느 쪽도 못 밀어낸다(그래서 「정체」다).
+  //   참조처럼 **전선 바로 양옆에 굵게** 둔다(종전엔 화면 양 끝에 작게 있었다).
+  ...flow({ from: [0.30, H(0.16), ZC], dir: [1, 0, 0], travel: 0.16, count: 3, scale: 0.060, color: rgba('#2563eb', 0.90), at: 0, speed: 0.28, spreadZ: 0.14 }),
+  ...flow({ from: [0.70, H(0.16), ZC], dir: [-1, 0, 0], travel: 0.16, count: 3, scale: 0.060, color: rgba('#dc2626', 0.90), at: 0, speed: 0.28, spreadZ: 0.14 }),
+  label({ x: 0.16, y: H(0.30), text: V.coldAir, color: COLD_TXT, at: 0 }),
+  label({ x: 0.86, y: H(0.56), text: V.warmAir, color: WARM_TXT, at: 0 }),
+  // 전선면 — **경사면**. 지상에서 x=0.50이고 위로 갈수록 서쪽(0.16)으로 기운다.
+  //   그 아래가 찬 공기, 위가 따뜻한 공기다. 두께도 0.02 → 0.026으로 키워
+  //   「면」으로 읽히게 한다(선이 아니라 면이 이 그림의 주어다).
+  frontSlab({ xb: 0.50, xt: 0.16, y1: H(0.78), color: rgba('#7c3aed', 0.46), at: 1, thick: 0.026 }),
+  // ⚠️ x 0.34 → 0.26 · y H(0.90) → H(0.66). 실측 겹침(2026-08-19): 위로 올린 뒤
+  //    「비층운(장마 구름 띠)」과 **세로 3.7 · 가로 22.4** 부딪혔다. 전선 라벨은
+  //    **경사면 위에 붙는 것**이 뜻에도 맞다 — 면이 이 그림의 주어다.
+  label({ x: 0.26, y: H(0.66), text: V.stationaryFront, color: '#6d28d9', at: 1, size: 10 }),
+  // 습윤 유입 — 따뜻한 쪽에서 전선면을 타고 오른다
+  ...flow({ from: [0.98, H(0.50), ZC + 0.05], dir: [-1, 0.10, -0.12], travel: 0.34, count: 2, color: rgba('#0d9488', 0.9), at: 2, speed: 0.4 }),
+  label({ x: 0.88, y: H(0.34), text: V.humidAirSupply, color: '#0f766e', at: 2, size: 10 }),
+  // 구름 밴드 — 전선면 위에 얹혀 남북으로 길게 선다(장마 전선의 정체)
+  ...layerBand({ x0: 0.16, x1: 0.88, y: H(0.70), at: 2, n: 4 }),
+  label({ x: 0.46, y: H(1.00), text: V.monsoonCloudBand, at: 2, size: 10 }),
+  // 강수 — 전선면 **서쪽(찬 공기 위)**에 집중된다. 따뜻한 공기가 그쪽으로 올라타
+  // 응결하기 때문이고, 실제 장마철 비가 전선 북쪽에 오는 이유다.
+  precip({ x0: 0.18, x1: 0.42, y1: H(0.70), slant: 0.06, speed: 0.85, count: 22, at: 3 }),
+  precip({ x0: 0.42, x1: 0.66, y1: H(0.70), slant: 0.06, speed: 0.8, count: 22, at: 3 }),
 ];
 
 /** warm_front_steady_rain: 온난공기 접근 → 완만한 활승 → 난층운 → 넓은 약한 비 */
@@ -707,9 +735,15 @@ const siberianGaleWildfire = () => [
 
 /** front_convergence_flood: 정체 → 습기 유입 → 햇볕 차단 → 물 고임 */
 const frontConvergenceFlood = () => [
-  wedge({ x0: 0, x1: 0.46, tx0: 0.0, tx1: 0.06, y1: H(0.56), color: COLD_FILL, at: 0 }),
-  wedge({ x0: 0.54, x1: 1, tx0: 0.94, tx1: 1.0, y1: H(0.56), color: rgba('#fca5a5', 0.42), at: 0 }),
-  frontSlab({ xb: 0.5, xt: 0.52, y1: H(0.72), color: rgba('#7c3aed', 0.5), at: 0, thick: 0.02 }),
+  // 🔴 **2026-08-19: 정체전선과 **같은 결함 셋**이 여기에도 있었다.**
+  //   일반 규칙(「전선면은 경사면이다」)을 계약으로 세우다 실측으로 발견했다 —
+  //   이 장면의 전선면 shear가 **0.020**(거의 수직)이었다. 전선 4종 중 나머지는
+  //   -0.440 · -0.340 · +0.640 · -0.240으로 전부 기울어 있었다.
+  //   ⓐ 두 기단이 같은 높이(H(0.56)) ⓑ 따뜻한 쐐기가 위로 **좁아짐** ⓒ 전선면 수직.
+  //   정체전선에 적용한 정정을 그대로 적용한다(사유의 소유자는 그쪽 주석이다).
+  wedge({ x0: 0, x1: 0.52, tx0: 0.0, tx1: 0.10, y1: H(0.40), color: COLD_FILL, at: 0 }),
+  wedge({ x0: 0.44, x1: 1, tx0: 0.12, tx1: 1.0, y1: H(0.72), color: rgba('#fca5a5', 0.38), at: 0 }),
+  frontSlab({ xb: 0.48, xt: 0.14, y1: H(0.72), color: rgba('#7c3aed', 0.46), at: 0, thick: 0.026 }),
   label({ x: 0.5, y: H(0.8), text: V.stationaryFront, color: '#6d28d9', at: 0, size: 10 }),
 
   ...flow({ from: [0.06, H(0.24), ZC], dir: [1, 0.1, 0], travel: 0.4, count: 3, color: rgba('#0d9488', 0.92), at: 1, speed: 0.62, spreadZ: 0.14 }),
