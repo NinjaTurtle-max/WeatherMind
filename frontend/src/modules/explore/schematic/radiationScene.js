@@ -1,21 +1,32 @@
 /**
- * radiationScene — **C1 지구 복사수지** 모식도 장면 데이터 (MT-22).
+ * radiationScene — **C1 지구 복사수지** 모식도 장면 데이터 (MT-22 · 2026-08-19 재제작).
  *
- * MT-22가 만들 모식도는 셋이었다(T1 태풍 단면 · T2 태풍 생애 · C1 복사수지).
- * **먼저 세우는 것은 C1 하나**다 — 「하나만 세우고 실기기로 확인, 되면 나머지」라는
- * 클라이언트·PM 지시이고, **C1이 미검증 항목을 가장 많이 결정하기 때문**이다:
- *  · 입사·방출이 **수직**이라 `arrowBasis`의 **특이점 분기를 반드시 밟는다**
- *    (수평 화살표만 있는 장면은 그 분기를 한 번도 안 지난다)
- *  · 상향·하향이 **앞뒤로 교차**해서 깊이 테스트가 없으면 뜻이 뒤집힌다 —
- *    이 과업이 존재하는 이유 그 자체다
- *  · 원기둥이 세로로 서 있어 램버트 음영의 좌우 그러데이션이 가장 크게 보인다
- *    (「원근에서 입체로 읽히는가」 판정에 가장 유리한 표본)
+ * ══════════════════════════════════════════════════════════════════════════════
+ *  왜 다시 그렸나 — 틀린 것은 「사실」이 아니라 **「시각 문법」**이었다
+ * ══════════════════════════════════════════════════════════════════════════════
+ * 클라이언트 반려: *"내가 원한 모식은 **우리 보드 세션과 같은 모식**인데 지금
+ * **화살표로 지 멋대로**잖아"*. 실화면은 **검은 배경에 화살표와 얇은 평면선**뿐이었다.
+ * 수지(100단위 정규화·굵기 비례)는 맞았지만 **그 사실을 빈 배경에 화살표만으로**
+ * 말했다.
+ *
+ * 원인이 특정됐다: 종전 렌더러(`schematic/renderer.js`)의 항목 종류가
+ * **`arrow`·`line`·`label` 셋뿐**이라 보드 문법이 서 있는 토대(하늘·지면·바다·흙
+ * 앞단면·유리 상자·격자·구름·강수·기단 볼륨)가 **통째로 없었다.** 격차는 노력이
+ * 아니라 **어휘의 부재**였다.
+ *
+ * 그래서 PM 판정대로 **보드 무대를 재사용한다**(`board/webgl/crossSection/`).
+ * 무대·팔레트·관용구를 복제하지 않고 **그대로 import** 한다 — 복제하면 갈라지고,
+ * 그 갈라짐이 반려 사유 그 자체이기 때문이다.
+ *
+ * 🔴 **입체 화살표(원기둥+원뿔)는 포기했다.** 보드 무대는 **직교 카메라 + 깊이
+ * 테스트 OFF + painter 정렬**로 반투명 볼륨을 합성한다 — 불투명 3D 화살표를 섞으면
+ * 그 합성 규칙이 깨진다. *"「보드와 같아 보이는 것」이 입체 화살표보다 위"*라는
+ * PM 판정에 따라 무대의 표현(테이퍼 화살표·볼륨·빌보드)으로 대체했다.
  *
  * ── 숫자의 출처와 저작권 선 ─────────────────────────────────────────────────
  * 수치는 `docs/design/research/RESEARCH_MT22_CO2_TYPHOON.md` §3 C1(출처 S2)이
  * 소유한다. **차용한 것은 「표현 문법」이지 그림이 아니다** — 어떤 이미지도 보고
- * 따라 그리지 않았고, 배치·색·카메라는 전부 이 파일이 새로 정한 것이다.
- * 문법 두 가지만 가져왔다:
+ * 따라 그리지 않았고 전부 절차적으로 만든다. 문법 두 가지만 가져왔다:
  *   ① **TOA 입사 340 W/m²를 100단위로 정규화**한다
  *   ② **굵기가 에너지량에 비례**한다(Sankey 관례)
  *
@@ -23,17 +34,21 @@
  *   입사 100 = 반사 35(구름 27 + 눈얼음 2 + 대기 6) + 흡수 65(대기 14 + 지표 51)
  *   지표 51 → 우주로 직접 17 · 대기로 34(잠열 19 + 대류·난류 9 + 온실기체 흡수 6)
  *   OLR 65 = 직접 17 + 대기 방출 48  ⇒ 흡수 65와 균형
- *   **EEI ≈ +0.9 W/m² = 0.26단위** — 이 미세한 초과가 온난화다
+ *   **EEI ≈ +0.9 W/m² = 0.3단위** — 이 미세한 초과가 온난화다
  *
  * ⚠️ **글자는 GL이 그리지 않는다.** `label` 항목은 `labelsFor()`가 화면 백분율로
- * 돌려주고 호출측이 겹쳐 그린다. 그래서 한국어 문자열이 이 파일에 리터럴로 있다 —
- * **i18n 외부화는 별도 담당 몫**이라 손대지 않았다(키가 필요하면 이 파일의
- * `text`·`caption`만 옮기면 된다).
+ * 돌려주고 `CrossSectionGL`이 **흰 헤일로 SVG 텍스트**로 겹쳐 그린다(보드와 같은
+ * 문법·같은 레이어). 그래서 한국어 문자열이 이 파일에 리터럴로 있고, 그 면제는
+ * `displayLayerParity.contract`의 `HANGUL_GAPS`가 줄 수로 못박는다(§4.25 이월).
  */
+import {
+  H, ZC, vol, bb, flow, label, layerBand, composeScene,
+} from '../../board/webgl/crossSection/scenes.js';
+import { rgba } from '../../board/webgl/crossSection/glCore.js';
 
 /** 100단위 정규화의 기준 — 이 값이 100단위다(W/m²) */
 export const TOA_INSOLATION_WM2 = 340;
-/** 지구 에너지 불균형(2005~2019) — 100단위로는 0.26 */
+/** 지구 에너지 불균형(2005~2019) — 100단위로는 0.3 */
 export const EEI_WM2 = 0.9;
 export const EEI_UNITS = Math.round((EEI_WM2 / TOA_INSOLATION_WM2) * 1000) / 10; // 0.3
 
@@ -71,40 +86,46 @@ export function thicknessFor(units) {
   return Math.max(MIN_THICKNESS, u * UNIT_THICKNESS);
 }
 
-// ── 고도 규약 ────────────────────────────────────────────────────────────────
-// y = 0 지표 · y = 0.52 대기(구름)층 · y = 1.05 대기권 밖(TOA).
-// x는 이야기 순서(왼쪽 = 들어오는 빛, 오른쪽 = 나가는 열)이고, z로 앞뒤를 갈라
-// **상향과 하향이 화면에서 겹치게** 배치했다 — 깊이 테스트가 일을 하는 자리다.
-const TOA = 1.05;
-const AIR = 0.52;
+/**
+ * 굵기 → 보드 무대의 화살표 크기(`flow`의 `scale`).
+ *
+ * ⚠️ **바탕값 `SCALE_BASE`가 있는 이유를 적어 둔다**: 보드 화살표는 자루+촉이 한
+ * 실루엣이라 일정 크기 아래로는 **촉이 뭉개져 방향을 못 읽는다**(보드 장면들이
+ * scale 0.03 아래를 안 쓰는 이유다). 그래서 「비례분」 위에 바탕을 얹는다 —
+ * **비례의 소유자는 여전히 `thicknessFor` 하나**이고, 이 함수는 그것을 화면
+ * 단위로 옮기기만 한다.
+ */
+export const SCALE_BASE = 0.026;
+export const SCALE_GAIN = 0.062;
+export const scaleFor = (units) => SCALE_BASE + thicknessFor(units) * SCALE_GAIN;
+/** 다발의 화살표 개수도 에너지를 말한다 — 굵기 하나로는 3배 이상 차이가 안 읽힌다 */
+export const countFor = (units) => (units >= 40 ? 3 : units >= 15 ? 2 : 1);
 
-const SUN = '#fbbf24'; // 태양 단파(들어오는 것)
-const REFLECT = '#7dd3fc'; // 반사되어 되나가는 단파
-const ABSORB = '#fb923c'; // 흡수(데워지는 것)
-const LONGWAVE = '#f87171'; // 지구 장파(나가는 열)
-const LATENT = '#34d399'; // 잠열·대류(물과 공기가 나르는 것)
-const GRID = '#94a3b8';
+// ── 고도 규약 — 보드와 같다(h 0 = 지표, 1 = 상자 뚜껑) ───────────────────────
+const CLOUD_H = 0.66; // 반사하는 구름층
+const GHG_LO = 0.34; // 온실기체 층 아래
+const GHG_HI = 0.58; // 〃 위
+const TOP = 1.06; // 대기권 밖(뚜껑 위)
 
-const arrow = (origin, dir, length, units, color, extra = {}) => ({
-  type: 'arrow',
-  origin,
-  dir,
-  length,
-  thickness: thicknessFor(units),
-  color,
-  alpha: 1, // 🔴 불투명 고정 — 앞뒤 가림이 이 그림의 뜻이다(반투명이면 깊이가 거짓말을 한다)
-  units,
-  ...extra,
-});
-
-const label = (pos, text, color, extra = {}) => ({
-  type: 'label', pos, text, size: 11, weight: 600, color, ...extra,
-});
+// ── 색 — **보드 팔레트에서 그대로 가져온다**(scenes.js·CrossSectionPanel 공유값) ──
+const SUN = '#f59e0b'; // 강한 일사(보드 strongSun)
+const SUN_TXT = '#b45309';
+const REFLECT = '#38bdf8'; // 되나가는 단파(보드 물·바다 계열)
+const REFLECT_TXT = '#0369a1';
+const ABSORB = '#ea580c'; // 흡수·가열(보드 상승기류·지면가열)
+const ABSORB_TXT = '#c2410c';
+const LONGWAVE = '#dc2626'; // 지구 장파(보드 온난 계열)
+const LONGWAVE_TXT = '#b91c1c';
+const LATENT = '#0d9488'; // 잠열·대류(보드 습기 계열)
+const LATENT_TXT = '#0f766e';
+const GHG_TXT = '#0369a1';
 
 /**
- * 단계(step) — 「들어온다 → 되나간다 → 데운다 → 나간다 → 그런데 조금 남는다」.
- * 항목의 `at`이 이 인덱스이고, 단계는 **누적**이다(끄지 않는다 — 마지막에 수지
- * 전체가 한 화면에 있어야 「균형」이 보인다).
+ * 단계 — **메커니즘 순서**로 나눈다(보드 규약: 원인 → 과정 → 결과).
+ * 복사수지에서 그 순서는 「들어온다 → 일부는 되나간다 → 나머지가 데운다 →
+ * 데운 만큼 내보낸다 → 그런데 조금이 안 나간다」다. 마지막이 곧 온난화이고,
+ * **그 앞 네 단계가 전부 있어야 「조금」이 얼마나 작은지가 보인다.**
+ * 단계는 **누적**이다 — 마지막에 수지 전체가 한 화면에 있어야 「균형」이 보인다.
  */
 export const RADIATION_STEPS = Object.freeze([
   { key: 'incoming', title: '들어오는 햇빛 100' },
@@ -114,60 +135,73 @@ export const RADIATION_STEPS = Object.freeze([
   { key: 'imbalance', title: `남는 ${EEI_WM2} W/m²가 온난화` },
 ]);
 
-export const RADIATION_SCENE = Object.freeze({
-  id: 'c1-radiation-budget',
-  background: null, // 투명 — 패널 배경(CSS)이 하늘 역할을 한다
-  camera: { yaw: 26, pitch: 16, dist: 3.05, fov: 34, target: [0, 0.46, 0] },
+/** 갈래 하나 — 굵기·개수가 전부 `units`에서 파생된다(Sankey 문법의 실행부) */
+const beam = ({ from, dir, travel, units, color, at, speed = 0.4, spreadZ = 0.1 }) => flow({
+  from, dir, travel, count: countFor(units), scale: scaleFor(units),
+  color: rgba(color, 0.95), speed, at, spreadZ,
+});
+
+export const RADIATION_SCENE = composeScene({
+  night: false,
+  // 바다를 서쪽에 둔다 — 잔디/바다 대비가 「지표」를 한 덩어리가 아니라
+  // **지구의 표면**으로 읽히게 하고, 눈·얼음 반사를 놓을 흰 지면도 생긴다.
+  sea: { from: 0, to: 0.3 },
   items: [
-    // ── 무대: 지표면과 대기권 경계 ──────────────────────────────────────────
-    { type: 'line', points: [[-1.05, 0, -0.42], [1.05, 0, -0.42], [1.05, 0, 0.42], [-1.05, 0, 0.42]], closed: true, color: GRID, alpha: 0.75, at: 0 },
-    { type: 'line', points: [[-1.05, TOA, -0.42], [1.05, TOA, -0.42], [1.05, TOA, 0.42], [-1.05, TOA, 0.42]], closed: true, color: GRID, alpha: 0.4, at: 0 },
-    { type: 'line', points: [[-1.05, AIR, 0.42], [1.05, AIR, 0.42]], color: GRID, alpha: 0.28, at: 2 },
+    // ── 0단계: 들어온다 ─────────────────────────────────────────────────────
+    bb({ x: 0.07, y: H(TOP), z: 0.06, w: 0.2, h: 0.2, color: rgba(SUN, 0.95), kind: 2, at: 0 }),
+    ...beam({ from: [0.17, H(1.02), ZC], dir: [0.1, -1, 0], travel: 0.34, units: UNITS.incoming, color: SUN, at: 0, speed: 0.42 }),
+    label({ x: 0.22, y: H(0.98), text: `햇빛 100 (${TOA_INSOLATION_WM2} W/m²)`, color: SUN_TXT, at: 0, size: 11 }),
 
-    // ── 0단계: 입사 100 — 정확히 수직이라 특이점 분기(dir ∥ +y)를 밟는다 ────
-    arrow([-0.78, TOA, 0.02], [0, -1, 0], TOA, UNITS.incoming, SUN, { at: 0 }),
-    label([-0.78, TOA + 0.14, 0.02], `햇빛 100 (${TOA_INSOLATION_WM2} W/m²)`, SUN, { at: 0 }),
+    // ── 1단계: 일부는 되나간다 (35) ─────────────────────────────────────────
+    // 🔴 구름이 **실제로 있어야** 「구름이 되반사한다」가 그림이 된다. 종전에는
+    //    구름 없이 화살표만 위로 올라갔다 — 무엇에 튕겼는지 화면에 없었다.
+    ...layerBand({ x0: 0.26, x1: 0.68, y: H(CLOUD_H), at: 1, dark: false, n: 3 }),
+    ...beam({ from: [0.31, H(CLOUD_H + 0.08), ZC + 0.06], dir: [-0.1, 1, 0], travel: 0.3, units: UNITS.reflectCloud, color: REFLECT, at: 1, speed: 0.44 }),
+    label({ x: 0.33, y: H(0.96), text: '구름 반사 27', color: REFLECT_TXT, at: 1, size: 10 }),
+    ...beam({ from: [0.08, H(0.5), ZC - 0.06], dir: [-0.04, 1, 0], travel: 0.26, units: UNITS.reflectAir, color: REFLECT, at: 1, speed: 0.36 }),
+    label({ x: 0.08, y: H(0.86), text: '대기 반사 6', color: REFLECT_TXT, at: 1, size: 10 }),
+    // 눈·얼음 — 흰 지면 조각이 있어야 「밝은 표면이 되쏜다」가 읽힌다
+    bb({ x: 0.46, y: 0.006, w: 0.2, h: 0.055, color: rgba('#f8fafc', 0.9), kind: 3, at: 1 }),
+    ...beam({ from: [0.46, H(0.05), ZC], dir: [0.04, 1, 0], travel: 0.24, units: UNITS.reflectSurface, color: REFLECT, at: 1, speed: 0.3 }),
+    label({ x: 0.47, y: H(0.36), text: '눈·얼음 2', color: REFLECT_TXT, at: 1, size: 10 }),
 
-    // ── 1단계: 반사 35 = 구름 27 + 눈·얼음 2 + 대기 6 ────────────────────────
-    // 🔴 구름 반사 27은 **입사 100의 바로 앞(z가 크다)**에 세운다. 화면에서 두 화살표가
-    // 같은 세로줄에 겹치고, 앞의 것이 뒤의 것을 **가린다** — 평면 화살표로는 「어느
-    // 쪽이 들어오고 어느 쪽이 되나가는지」를 이 배치에서 구분할 방법이 없다.
-    // (좌표는 카메라 yaw 26°에서 입사 화살표와 화면 세로줄이 겹치도록 역산한 값이다.)
-    arrow([-0.57, AIR, 0.34], [0, 1, 0], TOA - AIR, UNITS.reflectCloud, REFLECT, { at: 1 }),
-    // 라벨은 화살표 끝이 아니라 옆으로 뺀다 — 입사 라벨과 같은 자리에 겹치기 때문이다
-    label([-1.02, 0.86, 0.34], '구름 반사 27', REFLECT, { at: 1 }),
-    arrow([-0.16, 0, 0.24], [0, 1, 0], TOA, UNITS.reflectSurface, REFLECT, { at: 1 }),
-    label([-0.16, TOA + 0.06, 0.24], '눈·얼음 2', REFLECT, { at: 1 }),
-    arrow([-0.33, AIR * 0.6, -0.34], [0, 1, 0], TOA - AIR * 0.6, UNITS.reflectAir, REFLECT, { at: 1 }),
-    label([-0.33, TOA + 0.14, -0.34], '대기 반사 6', REFLECT, { at: 1 }),
+    // ── 2단계: 나머지가 데운다 (65) ─────────────────────────────────────────
+    ...beam({ from: [0.2, H(0.34), ZC], dir: [0.04, -1, 0], travel: 0.2, units: UNITS.absorbSurface, color: ABSORB, at: 2, speed: 0.46 }),
+    // 지면 가열 — 보드의 `groundHeating` 관용구(bb kind 3, 주황 번짐) 그대로
+    bb({ x: 0.34, y: 0.004, w: 0.62, h: 0.16, color: rgba('#fb923c', 0.5), kind: 3, at: 2 }),
+    label({ x: 0.22, y: H(0.2), text: '지표 흡수 51', color: ABSORB_TXT, at: 2, size: 10 }),
+    ...beam({ from: [0.6, H(0.74), ZC - 0.04], dir: [0.02, -1, 0], travel: 0.12, units: UNITS.absorbAir, color: ABSORB, at: 2, speed: 0.34 }),
+    label({ x: 0.62, y: H(0.86), text: '대기 흡수 14', color: ABSORB_TXT, at: 2, size: 10 }),
 
-    // ── 2단계: 흡수 65 = 대기 14 + 지표 51 ──────────────────────────────────
-    arrow([-0.62, AIR + 0.3, -0.3], [0, -1, 0], 0.3, UNITS.absorbAir, ABSORB, { at: 2 }),
-    label([-0.62, AIR + 0.44, -0.3], '대기 흡수 14', ABSORB, { at: 2 }),
-    arrow([-0.98, 0.34, -0.06], [0, -1, 0], 0.34, UNITS.absorbSurface, ABSORB, { at: 2 }),
-    label([-0.98, 0.42, -0.06], '지표 흡수 51', ABSORB, { at: 2 }),
+    // ── 3단계: 데운 만큼 내보낸다 (65) + 붙잡힌다 ───────────────────────────
+    // 온실기체 층 — **반투명 볼륨**이다. 보드가 기단을 그리는 그 문법이고,
+    // 「층이 실재해서 그 안에서 되돌아온다」가 이것 없이는 성립하지 않는다.
+    vol({ x0: 0, x1: 1, y0: H(GHG_LO), y1: H(GHG_HI), color: rgba('#38bdf8', 0.2), at: 3 }),
+    label({ x: 0.14, y: H(0.46), text: '온실기체 층', color: GHG_TXT, at: 3, size: 10 }),
+    // 지표 → 대기 34: 셋을 나란히 세워 「잠열이 제일 굵다」가 보이게 한다
+    ...beam({ from: [0.62, H(0.05), ZC + 0.05], dir: [0, 1, 0], travel: 0.22, units: UNITS.latent, color: LATENT, at: 3, speed: 0.5 }),
+    label({ x: 0.62, y: H(0.3), text: '잠열 19', color: LATENT_TXT, at: 3, size: 10 }),
+    ...beam({ from: [0.71, H(0.05), ZC + 0.05], dir: [0, 1, 0], travel: 0.2, units: UNITS.thermals, color: LATENT, at: 3, speed: 0.44 }),
+    label({ x: 0.72, y: H(0.24), text: '대류 9', color: LATENT_TXT, at: 3, size: 10 }),
+    ...beam({ from: [0.79, H(0.05), ZC + 0.05], dir: [0, 1, 0], travel: 0.2, units: UNITS.surfaceIR, color: LONGWAVE, at: 3, speed: 0.4 }),
+    label({ x: 0.82, y: H(0.18), text: '온실기체가 붙잡는 6', color: LONGWAVE_TXT, at: 3, size: 9.5 }),
+    // 🔴 되돌아 내려오는 장파 — **온실효과의 본체**다. 위로 나가는 화살표만
+    //    그리면 「나간다」로 끝나고 온실효과가 화면에서 사라진다.
+    ...flow({ from: [0.66, H(GHG_LO + 0.02), ZC - 0.08], dir: [-0.12, -1, 0], travel: 0.16, count: 2, scale: 0.036, color: rgba(LONGWAVE, 0.9), speed: 0.5, at: 3, spreadZ: 0.09 }),
+    label({ x: 0.5, y: H(0.6), text: '붙잡힌 열이 되돌아온다', color: LONGWAVE_TXT, at: 3, size: 10 }),
+    // 우주로 나가는 65
+    ...beam({ from: [0.93, H(0.05), ZC - 0.02], dir: [0.02, 1, 0], travel: 0.42, units: UNITS.windowIR, color: LONGWAVE, at: 3, speed: 0.42 }),
+    label({ x: 0.94, y: H(0.44), text: '대기창 17', color: LONGWAVE_TXT, at: 3, size: 10 }),
+    ...beam({ from: [0.86, H(GHG_HI + 0.06), ZC + 0.04], dir: [0.04, 1, 0], travel: 0.3, units: UNITS.atmosphereIR, color: LONGWAVE, at: 3, speed: 0.46 }),
+    label({ x: 0.85, y: H(1.06), text: '대기 방출 48', color: LONGWAVE_TXT, at: 3, size: 10 }),
 
-    // ── 3단계: 나가는 열 65 = 대기창 17 + 대기 방출 48, 그리고 지표 → 대기 34 ─
-    arrow([0.3, 0, 0.16], [0, 1, 0], TOA, UNITS.windowIR, LONGWAVE, { at: 3 }),
-    label([0.3, TOA + 0.06, 0.16], '대기창 17', LONGWAVE, { at: 3 }),
-    arrow([0.74, AIR, -0.16], [0, 1, 0], TOA - AIR, UNITS.atmosphereIR, LONGWAVE, { at: 3 }),
-    label([0.74, TOA + 0.14, -0.16], '대기 방출 48', LONGWAVE, { at: 3 }),
-    // 지표에서 대기로 올라가는 34 — 셋을 나란히 세워 「잠열이 제일 굵다」가 보이게 한다
-    arrow([0.05, 0, -0.3], [0, 1, 0], AIR, UNITS.latent, LATENT, { at: 3 }),
-    label([0.05, AIR + 0.2, -0.3], '잠열 19', LATENT, { at: 3 }),
-    arrow([0.3, 0, -0.3], [0, 1, 0], AIR, UNITS.thermals, LATENT, { at: 3 }),
-    label([0.3, AIR + 0.1, -0.3], '대류 9', LATENT, { at: 3 }),
-    arrow([0.55, 0, -0.3], [0, 1, 0], AIR, UNITS.surfaceIR, LONGWAVE, { at: 3 }),
-    label([0.62, AIR + 0.22, -0.3], '온실기체 흡수 6', LONGWAVE, { at: 3 }),
-
-    // ── 4단계: EEI ─────────────────────────────────────────────────────────
-    // 🔴 **여기만 굵기가 비례가 아니다.** 0.3단위를 비례로 그리면 굵기 0.0016 —
-    // 화면에서 존재하지 않는다. 「보이지 않는 것」과 「없는 것」은 다르므로
-    // 바닥 굵기로 세우고, **짧게** 그려서 다른 갈래와 급이 다름을 길이로 말한다.
-    // 얼마나 작은지는 라벨이 말한다(문법의 예외임을 여기 적어 둔다).
-    arrow([0.92, 0, 0.3], [0, 1, 0], 0.22, EEI_UNITS, LONGWAVE, { at: 4 }),
-    label([0.92, 0.34, 0.3], `남는 열 +${EEI_WM2} W/m² (${EEI_UNITS}단위)`, '#fca5a5', { at: 4 }),
-    label([0.1, 0.12, 0.42], '흡수 65 = 방출 65 — 그 차이가 온난화다', '#e2e8f0', { at: 4, size: 12 }),
+    // ── 4단계: 그런데 조금이 안 나간다 ──────────────────────────────────────
+    // 🔴 **여기만 굵기가 비례가 아니다.** 0.3단위를 비례로 그리면 화면에서
+    //    존재하지 않는다. 「보이지 않는 것」과 「없는 것」은 다르므로 바닥 굵기로
+    //    세우고 **짧게** 그려 다른 갈래와 급이 다름을 길이로 말한다.
+    ...flow({ from: [0.5, H(0.72), ZC - 0.12], dir: [0, 1, 0], travel: 0.08, count: 1, scale: scaleFor(EEI_UNITS), color: rgba('#7f1d1d', 0.95), speed: 0.28, at: 4 }),
+    label({ x: 0.5, y: H(0.86), text: `남는 열 +${EEI_WM2} W/m² (${EEI_UNITS}단위)`, color: '#7f1d1d', at: 4, size: 10 }),
+    label({ x: 0.5, y: H(1.2), text: '흡수 65 = 방출 65 — 그 차이가 온난화다', color: '#334155', at: 4, size: 12 }),
   ],
 });
 

@@ -1,168 +1,210 @@
 /**
- * typhoonLifecycleScene — **T2 태풍의 생애(발달 → 소멸)** 장면 데이터 (MT-22).
+ * typhoonLifecycleScene — **T2 태풍의 생애(발달 → 소멸)** 장면 데이터
+ * (MT-22 · 2026-08-19 재제작).
+ *
+ * ══════════════════════════════════════════════════════════════════════════════
+ *  왜 다시 그렸나 — **좌측 2/3가 통째로 비어 있었다**
+ * ══════════════════════════════════════════════════════════════════════════════
+ * 실측: 종전 0단계의 항목은 `{line 4, label 5, arrow 8}`. 지도라면서 **지도가
+ * 없었다** — 위도선 4줄이 전부였고 해안선도 바다도 육지도 없었다. 화면 우하단
+ * 구석에 주황 화살표 몇 개만 떠 있었다.
+ *
+ * 그래서 **보드 무대의 「지도 시점 바닥」을 그대로 쓴다.** 보드 문법은 「투명 유리
+ * 상자 + 지도 시점 바닥 + 전면 수직 단면」인데, T2는 그중 **바닥이 주인공**인
+ * 그림이다(T1은 전면 단면이 주인공이다). 바닥에 바다를 깔고 그 위에 육지 덩어리를
+ * 세우면, 유리 상자·지표 격자·흙 앞단면이 **무대에서 공짜로 따라온다.**
  *
  * ⚠️ **T1과 다른 그림이다.** T1은 한 시점을 자르는 그림이고, T2는 **시간에 따라
  * 겉모습과 위치가 어떻게 변하는가**다(클라이언트 문장의 「개별적 단면」 ↔ 「전체적
  * 외적」). 하나를 회전시켜 둘로 쓰는 것이 아니다.
  *
- * ── 🔴 착수 전 판정: 「시간 전개가 렌더러 계약 안에서 되는가」 ────────────────
- * **된다. 장면 데이터만으로 되고 렌더러·API 변경이 0이다.** 근거는 `renderer.js:89`
- * 한 줄이다: `visible = (it.at ?? 0) <= step && step <= (it.until ?? Infinity)`.
- *  · `at: k`만 주면 **누적**(C1·T1이 쓰는 방식) — 경로선·위도선처럼 쌓이는 것
- *  · `at: k, until: k`를 주면 **그 단계에만** 보인다 — 태풍 자신처럼 **한 번에 한
- *    자리에만 있어야 하는 것**. 이 배타 표시가 곧 시간 전개다
- * 실측으로도 확인했다(0단계 A·1단계 B·2단계 소멸 — 계약 테스트가 같은 것을 문다).
- * 그래서 범위 확대 없이 진행한다.
+ * ── 시간 전개가 무대 계약 안에서 되는가 — **된다** ───────────────────────────
+ * 근거는 `crossSection/renderer.js:46` 한 줄이다:
+ *   `visible = (it) => it.at <= step && step <= (it.until ?? Infinity)`
+ *  · `at: k`만 주면 **누적** — 지나온 경로처럼 쌓이는 것
+ *  · `at: k, until: k`를 주면 **그 단계에만** — 태풍 자신처럼 **한 번에 한 자리에만**
+ *    있어야 하는 것. 이 배타 표시가 곧 시간 전개다(누적이면 태풍이 5마리가 된다)
  *
- * ── 좌표 규약 — T1과 같다 ────────────────────────────────────────────────────
- *   x = 동 · **z = 남**(+z가 남쪽) · y = 고도(세력의 키).
- * 북이 -z여야 화면에서 북이 위로 온다(이유는 `typhoonSectionScene.js` 헤더).
- * 위도는 `zOfLat()`이 소유한다.
+ * ── 좌표 규약 — **보드와 같다** ──────────────────────────────────────────────
+ *   x 0~1 서→동(`xOfLon`) · z 0~0.42 남→북(`zOfLat`) · y 고도(세력의 키).
+ * 종전 파일은 「북 = -z」라는 자기만의 규약을 세웠으나 보드는 「z 0 = 앞/남」이다.
+ * 규약을 보드로 되돌렸다 — 두 그림이 다른 세계로 보이던 원인 중 하나였다.
  *
- * ── 조사(§3 T2 · 출처 S1)에서 가져온 문법 ────────────────────────────────────
+ * ── 조사(§3 T2 · 출처 S1)에서 가져온 사실 ────────────────────────────────────
  *  · 4단계: 형성기 → 발달기 → **최성기** → 쇠퇴기. 수명 평균 5일(길게 10~15일)
  *  · 발달기에는 **무역풍**을 타고 서~서북서로 **20~25km/h**(느리다)
  *  · 🔴 **북위 20~30°에서 전향** — 이 그림의 주인공이다. **전향할 때 약 하루 정체**하고
  *    **전향 후 편서풍을 타고 급가속**한다(여름 35~40km/h, 가을엔 드물게 80km/h+)
- *  · 🔴 소멸은 「사라진다」가 아니라 **온대저기압으로 성질이 바뀐다(ET)**. 고위도
- *    이동·상륙·연직 시어가 원인
+ *  · 🔴 소멸은 「사라진다」가 아니라 **온대저기압으로 성질이 바뀐다(ET)**
  *
- * **화살표가 말하는 것 두 가지**(이 그림에서 굵기와 길이의 뜻이 T1과 다르다):
- *   · 수평 화살표의 **길이 = 이동 속도**(km/h에 비례) · 굵기 = 세력
- *   · 수직 화살표의 **길이 = 세력의 키**(구름 높이) — 최성기에 가장 높다
- * 정체 구간은 **길이가 거의 0인 화살표**로, 급가속은 **가장 긴 화살표**로 읽힌다.
+ * **화살표가 말하는 것 두 가지**(굵기와 길이의 뜻이 T1과 다르다):
+ *   · 이동 화살표의 **왕복 거리(travel) = 이동 속도**(km/h에 비례) · 크기 = 세력
+ *   · 세력 기둥의 **왕복 거리 = 세력의 키**(구름 높이) — 최성기에 가장 높다
+ * 정체 구간은 **거의 움직이지 않는 화살표**로, 급가속은 **가장 멀리 가는 화살표**로
+ * 읽힌다.
  */
+import {
+  H, vol, bb, cbTower, flow, label, precip, puff, composeScene,
+} from '../../board/webgl/crossSection/scenes.js';
+import { rgba } from '../../board/webgl/crossSection/glCore.js';
 
 const TAU = Math.PI * 2;
 
-/** 이동 속도 → 화살표 길이. 20km/h = 0.16, 80km/h = 0.64 */
-export const SPEED_UNIT = 0.008;
-export const speedLen = (kmh) => Math.max(0.05, kmh * SPEED_UNIT);
+/** 이동 속도 → 화살표 왕복 거리. 20km/h = 0.11, 55km/h = 0.30 */
+export const SPEED_UNIT = 0.0055;
+export const speedLen = (kmh) => Math.max(0.03, kmh * SPEED_UNIT);
 
-/** 위도 → z. 북이 -z다(적도 쪽이 +z) */
-export const zOfLat = (lat) => 0.5 - (lat - 10) * 0.04;
+/** 경위도 → 바닥 좌표. **북이 +z**(보드 규약: z 0 = 앞/남) */
+export const GEO = Object.freeze({ west: 112, east: 152, south: 8, north: 41.6 });
+export const xOfLon = (lon) => (lon - GEO.west) / (GEO.east - GEO.west);
+export const zOfLat = (lat) => (lat - GEO.south) * 0.0125;
 
-/** 조사 §3 T2의 수치 — 단계마다 하나씩 대응한다 */
+/**
+ * 조사 §3 T2의 수치 — 단계마다 하나씩 대응한다.
+ * `lon`·`lat`이 **좌표의 단일 소유자**다(종전에는 x를 손으로 적어 지도와 어긋났다).
+ */
 export const T2_STAGES = Object.freeze([
-  { key: 'form', title: '형성기', lat: 12, x: 0.92, speedKmh: 20, power: 0.28, height: 0.3, note: '해수면 26.5°C 이상 · 잠열이 에너지원' },
-  { key: 'grow', title: '발달기', lat: 17, x: 0.42, speedKmh: 23, power: 0.44, height: 0.52, note: '무역풍을 타고 서~서북서 20~25km/h' },
-  { key: 'peak', title: '최성기 · 전향', lat: 24, x: -0.08, speedKmh: 5, power: 0.62, height: 0.86, note: '북위 20~30°에서 전향 — 약 하루 정체' },
-  { key: 'accel', title: '전향 후 급가속', lat: 31, x: 0.28, speedKmh: 38, power: 0.5, height: 0.66, note: '편서풍을 타고 북~북동 35~40km/h' },
-  { key: 'et', title: '쇠퇴 · 온대저기압으로 변질', lat: 38, x: 0.78, speedKmh: 55, power: 0.3, height: 0.34, note: '수증기 공급이 끊긴다 — 사라지는 것이 아니라 성질이 바뀐다' },
+  { key: 'form', title: '형성기', lat: 12, lon: 145, speedKmh: 20, power: 0.28, height: 0.3, note: '해수면 26.5°C 이상 · 잠열이 에너지원' },
+  { key: 'grow', title: '발달기', lat: 17, lon: 132, speedKmh: 23, power: 0.44, height: 0.52, note: '무역풍을 타고 서~서북서 20~25km/h' },
+  { key: 'peak', title: '최성기 · 전향', lat: 24, lon: 127, speedKmh: 5, power: 0.62, height: 0.86, note: '북위 20~30°에서 전향 — 약 하루 정체' },
+  { key: 'accel', title: '전향 후 급가속', lat: 31, lon: 134, speedKmh: 38, power: 0.5, height: 0.66, note: '편서풍을 타고 북~북동 35~40km/h' },
+  { key: 'et', title: '쇠퇴 · 온대저기압으로 변질', lat: 38, lon: 145, speedKmh: 55, power: 0.3, height: 0.34, note: '수증기 공급이 끊긴다 — 사라지는 것이 아니라 성질이 바뀐다' },
 ]);
 
-const TRACK = '#94a3b8';
-const WARM = '#f97316'; // 열대 성질(태풍)
-const PEAK = '#ef4444'; // 최성기
-const COLD = '#60a5fa'; // 온대저기압으로 변질된 뒤
-const GRID = '#475569';
-const TEXT = '#e2e8f0';
+// ── 색 — 보드 팔레트 ────────────────────────────────────────────────────────
+const LAND = '#a3b98c'; // 육지(보드 잔디 #c6dbb0보다 한 톤 진하게 — 바다 위에서 읽히게)
+const TRACK = '#64748b';
+const WARM = '#ea580c'; // 열대 성질(태풍)
+const PEAK = '#dc2626'; // 최성기
+const COLD = '#2563eb'; // 온대저기압으로 변질된 뒤
+const TXT = '#334155';
+const TXT_DIM = '#475569';
 
 const stageColor = (i) => (i === T2_STAGES.length - 1 ? COLD : i === 2 ? PEAK : WARM);
-const posOf = (s) => [s.x, 0, zOfLat(s.lat)];
+const posOf = (s) => [xOfLon(s.lon), zOfLat(s.lat)];
 
-const norm = (v) => {
-  const n = Math.hypot(v[0], v[1], v[2]) || 1;
-  return [v[0] / n, v[1] / n, v[2] / n];
-};
-const arrow = (origin, dir, length, thickness, color, extra = {}) => ({
-  type: 'arrow', origin, dir: norm(dir), length, thickness, color, alpha: 1, ...extra,
-});
-const label = (pos, text, color, extra = {}) => ({
-  type: 'label', pos, text, size: 11, weight: 600, color, ...extra,
+/** 육지 — 얇은 판을 바다 위에 얹는다. 해안선 대신 **덩어리의 배치**로 지도를 만든다 */
+const island = (x0, x1, z0, z1) => vol({
+  x0, x1, y0: 0.0, y1: 0.008, z0, z1, color: rgba(LAND, 0.98), pattern: 4, at: 0,
 });
 
 /**
- * 그 단계의 태풍 자신 — **반시계 접선 화살표 링**(북반구 저기압성 회전).
- * T1과 같은 부호 규약이다(spin +1 = 위에서 봤을 때 반시계).
+ * 그 단계의 태풍 자신 — **구름 소용돌이 + 반시계 접선 화살표**.
+ * 저기압성 접선은 `p × ŷ = (-pz, 0, px)`(T1과 같은 부호 규약).
  * ⚠️ `until`을 주는 것이 이 그림의 전부다 — 태풍은 **한 번에 한 자리에만** 있어야
- * 하므로 다음 단계로 넘어가면 사라져야 한다(누적이면 태풍이 5마리가 된다).
+ * 하므로 다음 단계로 넘어가면 사라져야 한다.
  */
-function stormRing(stage, i, n = 6) {
-  const c = posOf(stage);
-  const r = 0.13 + stage.power * 0.24;
+function storm(stage, i) {
+  const [cx, cz] = posOf(stage);
+  const r = 0.05 + stage.power * 0.08;
   const color = stageColor(i);
-  const items = [];
-  for (let k = 0; k < n; k += 1) {
-    const a = (k / n) * TAU;
+  const cloud = i === 2
+    // 최성기만 적란운 타워 — 「키가 가장 높다」를 구름으로도 말한다
+    ? cbTower({ x: cx, z: cz, top: H(0.34 + stage.height * 0.5), at: i }).map((b) => ({ ...b, until: i }))
+    : [0, 1, 2, 3].map((k) => {
+      const a = (k / 4) * TAU + 0.4;
+      return puff({
+        x: cx + Math.cos(a) * r, y: H(0.06 + stage.power * 0.1), z: cz + Math.sin(a) * r * 0.9,
+        s: 0.6 + stage.power * 0.7,
+        color: rgba(i === 4 ? '#cbd5e1' : '#e2e8f0', 0.92), at: i, until: i,
+      });
+    });
+  const spin = [0, 1, 2, 3].flatMap((k) => {
+    const a = (k / 4) * TAU;
     const p = [Math.cos(a), 0, Math.sin(a)];
-    const t = [p[2], 0, -p[0]]; // ŷ × p = 반시계(위에서 볼 때)
-    items.push(arrow([c[0] + p[0] * r, 0.02, c[2] + p[2] * r], t, 0.12 + stage.power * 0.1,
-      0.12 + stage.power * 0.3, color, { at: i, until: i, storm: stage.key, spin: +1 }));
-  }
-  return items;
+    return flow({
+      from: [cx + p[0] * r, H(0.02), cz + p[2] * r],
+      dir: [-p[2], 0, p[0]], // p × ŷ — 반시계(북반구 저기압성)
+      travel: 0.05 + stage.power * 0.05, count: 1,
+      scale: 0.026 + stage.power * 0.03, color: rgba(color, 0.95), speed: 0.7, at: i, until: i,
+    }).map((arw) => ({ ...arw, storm: stage.key, spin: 1 }));
+  });
+  return [...cloud, ...spin];
 }
 
-/** 세력의 키 — 수직 화살표. 최성기에 가장 높고 ET에서 낮아진다(수직 = 특이점 분기) */
+/** 세력의 키 — 수직 화살표. 최성기에 가장 높고 ET에서 낮아진다 */
 function powerColumn(stage, i) {
-  const c = posOf(stage);
-  return arrow([c[0], 0.02, c[2]], [0, 1, 0], stage.height, 0.16 + stage.power * 0.34,
-    stageColor(i), { at: i, until: i, column: stage.key });
+  const [cx, cz] = posOf(stage);
+  return flow({
+    from: [cx, H(0.03), cz], dir: [0, 1, 0], travel: stage.height * 0.3, count: 1,
+    scale: 0.028 + stage.power * 0.036, color: rgba(stageColor(i), 0.95), speed: 0.42, at: i, until: i,
+  }).map((a) => ({ ...a, column: stage.key, height: stage.height }));
 }
 
-/** 이동 화살표 — **길이가 곧 속도**다. 정체는 길이가 거의 0이 된다 */
+/** 이동 화살표 — **왕복 거리가 곧 속도**다. 정체는 거의 움직이지 않는다 */
 function motionArrow(stage, i) {
   const next = T2_STAGES[Math.min(i + 1, T2_STAGES.length - 1)];
-  const c = posOf(stage);
-  const to = posOf(next);
-  const dir = i === T2_STAGES.length - 1 ? [0.4, 0, -1] : [to[0] - c[0], 0, to[2] - c[2]];
-  return arrow([c[0], 0.03, c[2]], dir, speedLen(stage.speedKmh), 0.3, TEXT,
-    { at: i, until: i, motion: stage.key, speedKmh: stage.speedKmh });
+  const [cx, cz] = posOf(stage);
+  const [nx, nz] = posOf(next);
+  const dir = i === T2_STAGES.length - 1 ? [0.5, 0, 1] : [nx - cx, 0, nz - cz];
+  return flow({
+    from: [cx, H(0.015), cz], dir, travel: speedLen(stage.speedKmh), count: 1,
+    scale: 0.05, color: rgba(TXT, 0.92), speed: 0.5, at: i, until: i,
+  }).map((a) => ({ ...a, motion: stage.key, speedKmh: stage.speedKmh, travelLen: speedLen(stage.speedKmh) }));
+}
+
+/** 지나온 경로 — **누적**(at만 주고 until을 안 준다). 자국이 남아야 「생애」다 */
+function trackDots(i) {
+  const [ax, az] = posOf(T2_STAGES[i]);
+  const [bx, bz] = posOf(T2_STAGES[i + 1]);
+  return [0.25, 0.5, 0.75].map((u) => {
+    const x = ax + (bx - ax) * u;
+    const z = az + (bz - az) * u;
+    return {
+      ...vol({
+        x0: x - 0.008, x1: x + 0.008, y0: 0.008, y1: 0.012,
+        z0: z - 0.006, z1: z + 0.006, color: rgba(TRACK, 0.85), at: i + 1,
+      }),
+      track: true,
+    };
+  });
 }
 
 export const T2_STEPS = Object.freeze(T2_STAGES.map((s) => ({ key: s.key, title: s.title })));
 
-export const TYPHOON_LIFECYCLE_SCENE = Object.freeze({
-  id: 't2-typhoon-lifecycle',
-  background: null,
-  // 거의 위에서 내려다보는 시점 — 지도이기 때문이다. 다만 완전 수직은 아니어서
-  // 세력의 키(수직 화살표)가 입체로 읽힌다.
-  // ⚠️ yaw는 **0이어야 한다** — 조금만 틀어도 위도선이 화면에서 기울어 지도가
-  // 아니라 비스듬한 판이 된다(실기기에서 확인). pitch는 지도로 읽히되 세력의 키가
-  // 납작해지지 않는 선에서 잡았다.
-  camera: { yaw: 0, pitch: 64, dist: 2.85, fov: 34, target: [0.05, 0.1, -0.02] },
+export const TYPHOON_LIFECYCLE_SCENE = composeScene({
+  night: false,
+  sea: { from: 0, to: 1 }, // 바닥 전체가 북서태평양 — 그 위에 육지를 얹는다
   items: [
-    // ── 무대: 위도선 ─ 전향대(20~30°)를 띠로 강조한다 ────────────────────────
-    ...[10, 20, 30, 40].map((lat) => ({
-      type: 'line',
-      points: [[-1.0, 0, zOfLat(lat)], [1.0, 0, zOfLat(lat)]],
-      color: lat === 20 || lat === 30 ? '#64748b' : GRID,
-      alpha: lat === 20 || lat === 30 ? 0.8 : 0.45,
-      at: 0,
-    })),
-    label([-1.0, 0.03, zOfLat(20)], '북위 20°', '#94a3b8', { at: 0, size: 10 }),
-    label([-1.0, 0.03, zOfLat(30)], '북위 30°', '#94a3b8', { at: 0, size: 10 }),
-    label([0.95, 0.03, zOfLat(14)], '무역풍대 — 서쪽으로', '#94a3b8', { at: 1, size: 10 }),
-    label([-0.75, 0.03, zOfLat(34)], '편서풍대 — 동쪽으로', '#94a3b8', { at: 3, size: 10 }),
+    // ── 무대: 지도 ──────────────────────────────────────────────────────────
+    // 🔴 종전에 **없던 것이 바로 이것**이다. 위도선만 있고 육지가 없으면
+    //    「태풍이 어디로 가는가」가 좌표놀이가 된다.
+    island(0, xOfLon(126), zOfLat(27), 0.42), // 아시아 대륙 북부
+    island(0, xOfLon(122), zOfLat(12), zOfLat(27)), // 중국 남부~인도차이나
+    island(xOfLon(126), xOfLon(129.5), zOfLat(34), zOfLat(38.5)), // 한반도
+    island(xOfLon(129), xOfLon(132), zOfLat(31), zOfLat(34)), // 규슈
+    island(xOfLon(131), xOfLon(141), zOfLat(33), zOfLat(37)), // 혼슈
+    island(xOfLon(140), xOfLon(145), zOfLat(41), 0.42), // 홋카이도
+    island(xOfLon(120), xOfLon(122), zOfLat(22), zOfLat(25)), // 대만
+    island(xOfLon(120), xOfLon(124), zOfLat(10), zOfLat(18)), // 필리핀
+    label({ x: xOfLon(127.5), y: H(0.02), z: zOfLat(36), text: '한반도', color: '#3f6212', at: 0, size: 9.5 }),
+    // 전향대(북위 20~30°)를 글자로 못박는다 — 격자는 무대가 이미 그린다
+    label({ x: 0.06, y: H(0.01), z: zOfLat(20), text: '북위 20°', color: TXT_DIM, at: 0, size: 9.5 }),
+    label({ x: 0.06, y: H(0.01), z: zOfLat(30), text: '북위 30°', color: TXT_DIM, at: 0, size: 9.5 }),
+    label({ x: 0.9, y: H(0.01), z: zOfLat(13), text: '무역풍대 — 서쪽으로', color: TXT_DIM, at: 1, size: 9.5 }),
+    label({ x: 0.86, y: H(0.01), z: zOfLat(35), text: '편서풍대 — 동쪽으로', color: TXT_DIM, at: 3, size: 9.5 }),
 
-    // ── 경로: 단계가 지나간 자리는 **남는다**(누적. at만 주고 until을 안 준다) ─
-    ...T2_STAGES.slice(0, -1).map((s, i) => ({
-      type: 'line',
-      points: [posOf(s), posOf(T2_STAGES[i + 1])],
-      color: i === 2 ? COLD : TRACK,
-      alpha: 0.85,
-      at: i + 1,
-      track: true,
-    })),
+    // ── 경로: 지나온 자리는 남는다(누적) ────────────────────────────────────
+    ...T2_STAGES.slice(0, -1).flatMap((_, i) => trackDots(i)),
 
     // ── 각 단계의 태풍 자신 — **그 단계에만**(at = until) ────────────────────
     ...T2_STAGES.flatMap((s, i) => [
-      ...stormRing(s, i),
-      powerColumn(s, i),
-      motionArrow(s, i),
-      label([s.x, s.height + 0.14, zOfLat(s.lat)], `${i + 1}. ${s.title}`, stageColor(i), { at: i, until: i, size: 12 }),
-      // ⚠️ 긴 문장을 태풍 옆에 두면 **화면 밖으로 잘린다**(실기기 확인). 라벨은 앵커
-      // 중앙 정렬이라 x를 가운데로 당기고 위도만 따라가게 한다.
-      label([-0.02, 0.04, zOfLat(s.lat) + 0.34], s.note, '#cbd5e1', { at: i, until: i, size: 10 }),
-      // 속도 라벨은 **경로 반대쪽**(서쪽)에 붙인다 — 동쪽에 붙이면 형성기(x=0.92)에서 화면 밖이다
-      label([s.x - 0.42, 0.08, zOfLat(s.lat) + 0.02], `${s.speedKmh}km/h`, TEXT, { at: i, until: i, size: 10 }),
+      ...storm(s, i),
+      powerColumn(s, i)[0],
+      motionArrow(s, i)[0],
+      label({ x: posOf(s)[0], y: H(0.34 + s.height * 0.5), z: posOf(s)[1], text: `${i + 1}. ${s.title}`, color: stageColor(i), at: i, until: i, size: 11 }),
+      label({ x: posOf(s)[0], y: H(0.02), z: posOf(s)[1] - 0.05, text: `${s.speedKmh}km/h`, color: TXT, at: i, until: i, size: 9.5 }),
+      // 긴 문장은 태풍 옆이 아니라 **상자 앞쪽 아래**에 눕힌다 — 옆에 두면 잘린다
+      label({ x: 0.5, y: H(-0.12), z: 0.0, text: s.note, color: TXT_DIM, at: i, until: i, size: 10 }),
     ]),
+    // 최성기에만 비를 뿌린다 — 세력이 최대라는 것을 강수로도 말한다
+    precip({ x0: xOfLon(127) - 0.07, x1: xOfLon(127) + 0.07, y1: H(0.5), z0: zOfLat(24) - 0.05, z1: zOfLat(24) + 0.05, slant: 0.16, speed: 1.5, count: 26, at: 2 }),
 
-    // 🔴 전향점 — 이 그림의 주인공. 최성기 단계에서만 못박는다
-    label([-0.3, 0.02, zOfLat(24) - 0.2], '전향 — 여기서 약 하루 정체한다', PEAK, { at: 2, until: 2, size: 11 }),
-    label([-0.05, 0.02, zOfLat(31) - 0.22], '전향 뒤 급가속 — 느리게 오다가 갑자기 빨라진다', TEXT, { at: 3, until: 3, size: 11 }),
-    label([-0.02, 0.02, zOfLat(38) - 0.24], '온대저기압으로 변질(ET) — 태풍으로서의 일생을 마친 것', COLD, { at: 4, until: 4, size: 11 }),
-    label([0.0, 0.02, zOfLat(9)], '수명 평균 5일(길게 10~15일)', '#94a3b8', { at: 4, size: 10 }),
+    // 🔴 전향점 — 이 그림의 주인공. 해당 단계에서만 못박는다
+    label({ x: 0.5, y: H(-0.24), z: 0.0, text: '전향 — 여기서 약 하루 정체한다', color: PEAK, at: 2, until: 2, size: 11 }),
+    label({ x: 0.5, y: H(-0.24), z: 0.0, text: '전향 뒤 급가속 — 느리게 오다가 갑자기 빨라진다', color: TXT, at: 3, until: 3, size: 11 }),
+    label({ x: 0.5, y: H(-0.24), z: 0.0, text: '온대저기압으로 변질(ET) — 태풍으로서의 일생을 마친 것', color: COLD, at: 4, until: 4, size: 11 }),
+    label({ x: 0.5, y: H(-0.36), z: 0.0, text: '수명 평균 5일(길게 10~15일)', color: TXT_DIM, at: 4, size: 9.5 }),
   ],
 });
 
@@ -174,10 +216,10 @@ export function t2Checks() {
   return {
     // 한 단계에 태풍은 **하나**여야 한다 — 배타 표시가 살아 있는지의 값
     stormsPerStep: T2_STAGES.map((_, s) => new Set(rings.filter((r) => (r.at ?? 0) <= s && s <= (r.until ?? Infinity)).map((r) => r.storm)).size),
-    // 전향 정체 → 급가속: 길이가 그 순서를 그대로 담고 있어야 한다
-    stallLen: motions.find((m) => m.motion === 'peak').length,
-    growLen: motions.find((m) => m.motion === 'grow').length,
-    accelLen: motions.find((m) => m.motion === 'accel').length,
+    // 전향 정체 → 급가속: 이동 거리가 그 순서를 그대로 담고 있어야 한다
+    stallLen: motions.find((m) => m.motion === 'peak').travelLen,
+    growLen: motions.find((m) => m.motion === 'grow').travelLen,
+    accelLen: motions.find((m) => m.motion === 'accel').travelLen,
     recurveLat: T2_STAGES[2].lat,
     peakHeight: T2_STAGES[2].height,
     lastKey: T2_STAGES[T2_STAGES.length - 1].key,
