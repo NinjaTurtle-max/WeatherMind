@@ -303,6 +303,8 @@ export default {
     nicknameLabel: 'Nickname (optional)',
     nicknamePlaceholder: 'e.g. CloudChaser',
     nicknameHint: "This is the name shown on leagues and rankings. Leave it blank and we'll pick one for you.",
+    goalLabel: 'Daily goal (optional)',
+    goalHint: 'Choose how many questions a day. You can change it later.',
     nicknameTaken: 'That name is already taken — please try another one.',
     submit: 'Next — take the placement check →',
     skip: 'Skip →',

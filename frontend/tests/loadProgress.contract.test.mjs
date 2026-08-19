@@ -226,6 +226,34 @@ try {
   //
   // 🔴 이 단정이 이번 실패의 직접 재발 방지다. 종전 검수가 「번들에 문자열이
   //    있는지」만 봤고, 그래서 진입점이 **한 곳도 없는** 실서버가 초록이었다.
+  // ── ⑦ 시작 시점에 **하루 목표를 묻는다** ────────────────────────────────────
+  // 🔴 클라이언트 지시는 **두 문장이고 앞 문장이 요구**다:
+  //   *"시작 시점에서 목표량과 수준을 물어야 하는데 그것도 없어, 즉 내정보란에는
+  //     목표선정과 수준 선택이 필요없어 첫 배치고사 시점 제외"*
+  // ⑥(걷어내기)만 하고 이것을 안 하면 **앞 문장을 어긴 상태**가 된다 — 오히려
+  // 「물어야 하는데 없다」가 더 넓어진다(배치고사를 건너뛴 사람에게 자리가 0이 된다).
+  await scenario('⑦ 진입 화면이 하루 목표를 묻는다 — 단, 막지는 않는다', async () => {
+    useAuthStore.setState({ accessToken: null, refreshToken: null, user: null });
+    const r = mountApp('/');
+    await waitFor(() => $('[data-testid="entry-info"]'), 8000, '⑦ 진입 화면');
+
+    // ⑦-a 목표 선택이 **실재한다**(배치고사를 보든 안 보든 모두가 지나는 자리)
+    ok(Boolean($('[data-testid="entry-info-goals"]')), '⑦-a 🔴 시작 시점에 하루 목표를 묻는다');
+
+    // ⑦-b 값을 **하드코딩하지 않는다** — 선택지 수가 DAILY_GOAL_CHOICES와 같다.
+    // 서버가 그 밖의 값을 422로 막고 상한이 세션 길이 정합으로 움직이는 중이라,
+    // 화면이 값을 직접 적으면 그 순간 갈린다.
+    const { DAILY_GOAL_CHOICES } = await vite.ssrLoadModule('/src/lib/onboardingGate.js');
+    const btns = $('[data-testid="entry-info-goals"]').querySelectorAll('button');
+    ok(btns.length === DAILY_GOAL_CHOICES.length,
+      `⑦-b 선택지가 DAILY_GOAL_CHOICES에서 온다 — 화면 ${btns.length}개 · 소유자 ${DAILY_GOAL_CHOICES.length}개`);
+
+    // ⑦-c 🔴 **선택 항목이다.** 필수로 만들면 주 동선이 입력을 요구하게 되어
+    // 대회 규정에 걸린다 — 안 골라도 「건너뛰기」가 살아 있어야 한다.
+    ok(Boolean($('[data-testid="entry-info-skip"]')), '⑦-c 🔴 목표를 안 골라도 건너뛰기가 있다(규정)');
+    r.unmount();
+  });
+
   await scenario('① 진입 화면에 「진도 불러오기」 진입점이 렌더된다', async () => {
     await coldOpen();
     const r = mountApp('/');

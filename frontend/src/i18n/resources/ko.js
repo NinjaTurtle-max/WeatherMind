@@ -367,6 +367,8 @@ export default {
     nicknameLabel: '닉네임 (선택)',
     nicknamePlaceholder: '예: 구름사냥꾼',
     nicknameHint: '리그와 순위표에 보일 이름이에요. 비워 두면 자동으로 지어 드려요.',
+    goalLabel: '하루 목표 (선택)',
+    goalHint: '하루에 몇 문항을 풀지 정해요. 나중에 바꿀 수 있어요.',
     // 서버가 중복을 알려줄 때만 뜬다(오늘은 유일성 제약이 없어 뜨지 않는다).
     nicknameTaken: '이미 쓰고 있는 이름이에요. 다른 이름으로 바꿔 주세요.',
     submit: '다음 — 실력 진단 받기 →',

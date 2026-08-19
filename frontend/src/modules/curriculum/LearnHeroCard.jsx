@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import Mascot from '../../components/Mascot';
 import { ENTRY_MASCOT } from './learnEntry';
-import { GOAL_ANCHOR } from '../progress/DailyGoal';
 import { useT } from '../../i18n';
 
 /**
@@ -123,10 +122,14 @@ export default function LearnHeroCard({
         </span>
       ) : (
         <Link
-          // 목표 설정 카드는 내 정보 **꼬리**에 있다 — 해시 없이 `/me`로 보내면
-          // 능력 분석 판 두 화면 위에 떨어져 목표를 정하러 온 사람이 목표 카드를
-          // 못 본다(2026-08-11 코드 리뷰). 앵커 문자열은 DailyGoal이 소유한다.
-          to={`/me#${GOAL_ANCHOR}`}
+          // 🔴 **2026-08-19: 목적지가 바뀌었다.** 종전에는 `/me#daily-goal`로 보냈는데
+          // 그 화면의 목표 피커가 **클라이언트 지시로 걷혔다**(내 정보에는 목표
+          // 선정이 필요 없다 — 시작 시점에 묻는다). 앵커를 그대로 두면 링크가
+          // **빈 화면 끝으로** 간다. 그래서 **목표를 실제로 묻는 자리**인 배치고사
+          // 결과 화면(`PlacementSummary`의 `DailyGoalPicker`)으로 보낸다.
+          // ⚠️ 종전 주석의 근거(2026-08-11 리뷰 — 해시 없이 `/me`로 보내면 목표
+          // 카드를 못 본다)는 **그 카드가 있을 때의 이야기**라 이제 적용되지 않는다.
+          to="/onboarding/placement"
           data-testid="learn-goal"
           data-goal-state="unset"
           className="mt-3.5 block whitespace-nowrap text-[11.5px] font-bold text-sky-300 hover:text-sky-200"

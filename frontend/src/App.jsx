@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import client from './api/client';
-import { authApi } from './api';
+import { authApi, progressApi } from './api';
 import { translate, getCurrentLocale } from './i18n/core.js';
 import LoadingSpinner from './components/LoadingSpinner';
 import Layout from './components/Layout';
@@ -351,6 +351,9 @@ function RequireAuth() {
    * 응답의 종류를 화면에 알릴 통로가 없다. 여기로 올려 배선을 하나로 만든다.
    */
   const [entryNickname, setEntryNickname] = useState('');
+  // 하루 목표는 **발급 뒤에** 저장한다(토큰이 있어야 `PATCH /progress/daily-goal`이
+  // 산다). 그래서 값을 상태로 들고 있다가 발급 성공 시점에 보낸다.
+  const [entryGoal, setEntryGoal] = useState(null);
   const needsEntryInfo = atEntry && entryChoice === undefined;
 
   useEffect(() => {
@@ -373,6 +376,13 @@ function RequireAuth() {
     issueGuestOnce(entryChoice ?? null, entryNickname).then((ok) => {
       guestSettled = true;
       guestFailed = !ok;
+      // 🔴 **시작 시점에 고른 하루 목표를 여기서 저장한다**(2026-08-19).
+      // 발급이 성공한 뒤라야 토큰이 있다. 실패는 삼킨다 — 목표는 **선택 항목**이라
+      // 저장이 안 됐다고 진입을 막으면 대회 규정(주 동선이 입력을 요구하면 안 된다)에
+      // 걸린다. 못 정한 채로 들어가도 학습은 돈다.
+      if (ok && entryGoal) {
+        progressApi.setDailyGoal(entryGoal).catch(() => {});
+      }
       // 🔴 **이름이 겹쳤을 때만** 정보 입력 화면으로 되돌린다 — 학습자가 고칠 수
       //    있는 유일한 실패다. 나머지 실패는 아래 `guestFailed` 분기가 재시도
       //    화면으로 받는다(MT-29 계약 ③ — 실패를 폼으로 보내지 않는다).
@@ -404,8 +414,9 @@ function RequireAuth() {
    * 대신 **경로를 먼저 바꾸고** 발급은 위 effect에 맡긴다 — 토큰이 생기는 순간
    * 이미 배치고사 라우트에 서 있으므로 어느 쪽이 먼저 끝나도 도착지가 같다.
    */
-  const finishEntryInfo = ({ level = null, nickname = '' } = {}) => {
+  const finishEntryInfo = ({ level = null, nickname = '', goal = null } = {}) => {
     setEntryChoice(level ?? null);
+    setEntryGoal(goal ?? null);
     // 이름은 **상태로** 받는다 — 종전 인터셉터 우회는 응답의 종류를 화면에
     // 알릴 통로가 없어 409에서 이름이 조용히 증발했다(대장 §4.16).
     setEntryNickname(nickname ?? '');
