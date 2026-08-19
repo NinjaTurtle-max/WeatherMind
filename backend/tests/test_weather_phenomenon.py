@@ -66,9 +66,29 @@ class TestVocabulary:
         속하지만 **실황 판정으로는 도달할 수 없다**(조건 4개 동시 성립을 실황
         카테고리로 알 수 없다). 그래서 사문 판정의 대상은 `CLASSIFIABLE`이고,
         **T3가 말한 9종은 그쪽**이다.
+
+        🔴 **두 수의 관계를 여기 적어 둔다 — 안 적으면 다음 사람이 둘을 같이 올린다**
+        (MT-18, 2026-08-18). 두 단정은 **독립이 아니라 종속**이고 그 규칙은 하나다:
+
+            len(PHENOMENA) = len(CLASSIFIABLE) + len(BOARD_ONLY_PHENOMENA)
+
+        · `PHENOMENA`는 `board_rules.json`의 거울이라 **규칙이 내는 결과가 늘면
+          반드시 함께 오른다.**
+        · `CLASSIFIABLE`은 **실황(KMA 카테고리)으로 도달 가능한** 집합이다. 새 결과가
+          `BOARD_ONLY_PHENOMENA`로 들어가면 **여기서 빠지므로 9는 그대로 참**이다.
+        · 그래서 **9가 오르는 유일한 경우는 `classify_phenomenon`이 실제로 낼 수 있는
+          현상이 새로 생겼을 때**다. 보드 전용 결과를 추가하면서 9를 같이 올리면,
+          「실황이 만들 수 없는 것을 만들라」는 요구가 되어 사문 판정이 거짓말을 한다.
+
+        MT-18(2026-08-18): 12 → **14**(`typhoon`·`tropical_night`). 둘 다 조건 4개
+        동시 성립이라 실황으로 도달 불가 → BOARD_ONLY로 들어가고 **9는 안 변한다**
+        (BOARD_ONLY는 3 → 5). 아래 세 단정이 그 산식을 함께 지킨다.
         """
-        assert len(wp.PHENOMENA) == len(set(wp.PHENOMENA)) == 12
+        assert len(wp.PHENOMENA) == len(set(wp.PHENOMENA)) == 14
         assert len(wp.CLASSIFIABLE) == 9, "T3 완료 판정의 9종은 실황 도달 집합이다"
+        assert len(wp.PHENOMENA) == len(wp.CLASSIFIABLE) + len(
+            wp.BOARD_ONLY_PHENOMENA
+        ), "세 집합의 산식이 깨졌다 — 보드 전용 결과가 CLASSIFIABLE에 새지 않는지 확인할 것"
         assert set(wp.BOARD_ONLY_PHENOMENA) < set(wp.PHENOMENA)
 
     def test_cloudy는_어휘가_아니다(self):

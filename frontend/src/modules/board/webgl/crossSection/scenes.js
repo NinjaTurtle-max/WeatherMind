@@ -578,6 +578,118 @@ const floodRiskSaturatedInflow = () => [
   label({ x: 0.90, y: H(0.44), text: V.runoffGathersLow, color: '#0369a1', at: 3, size: 10 }),
 ];
 
+// ── ㉣ 변동 기상요소 3종(2026-08-18) ────────────────────────────────────────
+// 규칙만 들어오고 장면이 없어 `buildScene`이 null → GL이 SVG로 폴백하고 있었다.
+// 계약 테스트 2종(STORYBOARDS 1:1 · 규칙 전건 커버)이 그것을 잡는다.
+// 단계 인덱스는 SVG 스토리보드와 **같은 메커니즘 순서**를 공유해야 한다.
+
+/** cold_front_squall_storm: 지면 가열 → 전선이 밀어 올림 → 바람 시어 → 조직된 폭우 */
+const coldFrontSquallStorm = () => [
+  bb({ x: 0.86, y: H(1.0), z: 0.06, w: 0.17, h: 0.17, color: rgba('#f59e0b', 0.95), kind: 2, at: 0 }),
+  vol({ x0: 0.3, x1: 1, y1: H(0.14), color: rgba('#fdba74', 0.34), at: 0 }),
+  ...flow({ from: [0.62, H(0.04), ZC], dir: [-0.1, 1, 0], travel: 0.2, count: 3, color: rgba('#ea580c', 0.9), at: 0, speed: 0.5 }),
+  label({ x: 0.6, y: H(0.24), text: V.groundHeating, color: '#c2410c', at: 0, size: 10 }),
+
+  wedge({ x0: 0, x1: 0.34, tx0: 0.0, tx1: 0.1, y1: H(0.62), color: COLD_FILL, at: 1 }),
+  frontSlab({ xb: 0.34, xt: 0.1, y1: H(0.62), color: COLD_EDGE, at: 1 }),
+  label({ x: 0.14, y: H(0.34), text: V.coldAir, color: COLD_TXT, at: 1 }),
+  ...flow({ from: [0.4, H(0.06), ZC], dir: [0.5, 1, 0], travel: 0.3, count: 3, color: rgba('#dc2626', 0.9), at: 1, speed: 0.58 }),
+  label({ x: 0.6, y: H(0.5), text: V.warmHumidAir, color: WARM_TXT, at: 1, size: 10 }),
+
+  // 시어 — 위는 길고 동쪽으로, 아래는 짧고 서쪽으로. 두 화살표가 **같이** 보여야
+  // 「차이」로 읽히므로 한 단계에 묶는다.
+  ...flow({ from: [0.34, H(0.92), ZC], dir: [1, 0, 0], travel: 0.4, count: 2, color: rgba('#7c3aed', 0.9), at: 2, speed: 0.7 }),
+  ...flow({ from: [0.74, H(0.22), ZC], dir: [-1, 0, 0], travel: 0.18, count: 2, scale: 0.04, color: rgba('#7c3aed', 0.85), at: 2, speed: 0.35 }),
+  label({ x: 0.7, y: H(1.02), text: V.windShear, color: '#6d28d9', at: 2, size: 10 }),
+
+  ...cbTower({ x: 0.56, top: H(1.0), at: 3 }),
+  label({ x: 0.74, y: H(1.06), text: V.cumulonimbus, at: 3, size: 10 }),
+  precip({ x0: 0.44, x1: 0.7, y1: H(0.72), slant: 0.32, speed: 1.75, count: 34, at: 3 }),
+  label({ x: 0.56, y: H(0.16), text: V.organizedStorm, color: '#1e3a8a', at: 3, size: 10 }),
+];
+
+/** siberian_gale_wildfire: 찬 건조 기단 → 산 넘는 바람 → 일사로 더 마름 → 불씨 확산 */
+const siberianGaleWildfire = () => [
+  vol({ x0: 0, x1: 0.42, y1: H(0.56), color: rgba('#bfdbfe', 0.55), at: 0 }),
+  label({ x: 0.16, y: H(0.34), text: V.siberianCp, color: COLD_TXT, at: 0, size: 10 }),
+  label({ x: 0.16, y: H(0.2), text: V.coldDry, color: COLD_TXT, at: 0, size: 10 }),
+
+  wedge({ x0: 0.4, x1: 0.6, tx0: 0.49, tx1: 0.51, y1: H(0.44), color: rgba('#a8a29e', 0.8), at: 1 }),
+  label({ x: 0.5, y: H(0.52), text: V.mountainRange, color: '#57534e', at: 1, size: 9 }),
+  ...flow({ from: [0.14, H(0.34), ZC], dir: [1, 0.1, 0], travel: 0.26, count: 3, color: rgba('#0e7490', 0.9), at: 1, speed: 0.7, spreadY: 0.02 }),
+  ...flow({ from: [0.6, H(0.4), ZC], dir: [1, -0.5, 0], travel: 0.3, count: 3, color: rgba('#c2410c', 0.9), at: 1, speed: 0.85, spreadY: 0.02 }),
+  label({ x: 0.84, y: H(0.34), text: V.dryWarmWind, color: '#c2410c', at: 1, size: 10 }),
+  bb({ x: 0.5, y: 0.004, w: 0.86, h: 0.1, color: rgba('#ca8a04', 0.42), kind: 3, at: 1 }),
+  label({ x: 0.5, y: H(0.1), text: V.driedLeavesTwigs, color: '#92400e', at: 1, size: 10 }),
+
+  bb({ x: 0.88, y: H(1.0), z: 0.06, w: 0.17, h: 0.17, color: rgba('#f59e0b', 0.95), kind: 2, at: 2 }),
+  ...flow({ from: [0.84, H(0.78), ZC], dir: [-0.25, -1, 0], travel: 0.3, count: 3, scale: 0.04, color: rgba('#f59e0b', 0.9), at: 2, speed: 0.5 }),
+  label({ x: 0.8, y: H(0.9), text: V.strongSun, color: '#b45309', at: 2, size: 10 }),
+
+  bb({ x: 0.6, y: H(0.12), w: 0.13, h: 0.22, color: rgba('#ea580c', 0.9), kind: 2, at: 3 }),
+  bb({ x: 0.6, y: H(0.08), w: 0.07, h: 0.13, color: rgba('#fbbf24', 0.95), kind: 2, at: 3 }),
+  ...flow({ from: [0.54, H(0.3), ZC], dir: [-1, 0.42, 0], travel: 0.32, count: 3, scale: 0.03, color: rgba('#f97316', 0.95), at: 3, speed: 0.95, spreadZ: 0.1 }),
+  label({ x: 0.3, y: H(0.62), text: V.embersRideWind, color: '#c2410c', at: 3, size: 10 }),
+  label({ x: 0.5, y: H(1.06), text: V.clearSkyWildfire, color: '#b45309', at: 3, size: 11 }),
+];
+
+/** front_convergence_flood: 정체 → 습기 유입 → 햇볕 차단 → 물 고임 */
+const frontConvergenceFlood = () => [
+  wedge({ x0: 0, x1: 0.46, tx0: 0.0, tx1: 0.06, y1: H(0.56), color: COLD_FILL, at: 0 }),
+  wedge({ x0: 0.54, x1: 1, tx0: 0.94, tx1: 1.0, y1: H(0.56), color: rgba('#fca5a5', 0.42), at: 0 }),
+  frontSlab({ xb: 0.5, xt: 0.52, y1: H(0.72), color: rgba('#7c3aed', 0.5), at: 0, thick: 0.02 }),
+  label({ x: 0.5, y: H(0.8), text: V.stationaryFront, color: '#6d28d9', at: 0, size: 10 }),
+
+  ...flow({ from: [0.06, H(0.24), ZC], dir: [1, 0.1, 0], travel: 0.4, count: 3, color: rgba('#0d9488', 0.92), at: 1, speed: 0.62, spreadZ: 0.14 }),
+  label({ x: 0.26, y: H(0.5), text: V.vapourKeepsArriving, color: '#0f766e', at: 1, size: 10 }),
+
+  ...layerBand({ x0: 0.14, x1: 0.9, y: H(0.68), at: 2, n: 4 }),
+  label({ x: 0.5, y: H(0.94), text: V.cloudBlocksSun, color: '#475569', at: 2, size: 10 }),
+
+  precip({ x0: 0.2, x1: 0.5, y1: H(0.64), slant: 0.06, speed: 0.85, count: 26, at: 3 }),
+  precip({ x0: 0.52, x1: 0.84, y1: H(0.64), slant: 0.06, speed: 0.85, count: 26, at: 3 }),
+  bb({ x: 0.5, y: 0.004, w: 0.94, h: 0.12, color: rgba('#38bdf8', 0.55), kind: 3, at: 3 }),
+  label({ x: 0.5, y: H(0.18), text: V.groundCannotAbsorb, color: '#0c4a6e', at: 3, size: 10 }),
+];
+
+/** tropical_cyclone_genesis: 바다 가열 → 잠열 방출 → 약한 시어로 조직 → 눈벽 */
+const tropicalCycloneGenesis = () => [
+  bb({ x: 0.12, y: H(1.0), z: 0.06, w: 0.17, h: 0.17, color: rgba('#f59e0b', 0.95), kind: 2, at: 0 }),
+  vol({ x0: 0, x1: 1, y1: H(0.2), color: rgba('#fca5a5', 0.3), at: 0 }),
+  ...flow({ from: [0.5, H(0.04), ZC], dir: [0, 1, 0], travel: 0.24, count: 3, color: rgba('#dc2626', 0.9), at: 0, speed: 0.5 }),
+  label({ x: 0.3, y: H(0.3), text: V.warmHumidAir, color: WARM_TXT, at: 0, size: 10 }),
+
+  ...[0.44, 0.56].map((x) => puff({ x, y: H(0.6), s: 1.2, at: 1 })),
+  label({ x: 0.78, y: H(0.4), text: V.latentHeatFuel, color: '#b91c1c', at: 1, size: 10 }),
+
+  // 시어가 **작다** = 위아래 화살표가 같은 쪽으로 나란하다(squall과 반대 문법).
+  ...flow({ from: [0.34, H(1.0), ZC], dir: [1, 0, 0], travel: 0.26, count: 2, color: rgba('#7c3aed', 0.85), at: 2, speed: 0.5 }),
+  ...flow({ from: [0.34, H(0.7), ZC], dir: [1, 0, 0], travel: 0.24, count: 2, color: rgba('#7c3aed', 0.85), at: 2, speed: 0.5 }),
+  label({ x: 0.5, y: H(1.1), text: V.lowShearColumn, color: '#6d28d9', at: 2, size: 10 }),
+
+  ...cbTower({ x: 0.38, top: H(0.96), at: 3 }),
+  ...cbTower({ x: 0.64, top: H(0.92), at: 3 }),
+  precip({ x0: 0.32, x1: 0.72, y1: H(0.7), slant: 0.28, speed: 1.6, count: 30, at: 3 }),
+  label({ x: 0.8, y: H(0.2), text: V.eyewallStrongest, color: '#b91c1c', at: 3, size: 10 }),
+];
+
+/** greenhouse_tropical_night: 낮 축열 → 장파 방출 → 수증기가 되돌림 → 안 식는 밤 */
+const greenhouseTropicalNight = () => [
+  bb({ x: 0.5, y: 0.004, w: 0.94, h: 0.12, color: rgba('#f97316', 0.5), kind: 3, at: 0 }),
+  label({ x: 0.5, y: H(0.14), text: V.heatAccumulates, color: '#fed7aa', at: 0, size: 10 }),
+
+  ...flow({ from: [0.3, H(0.1), ZC], dir: [0, 1, 0], travel: 0.24, count: 2, color: rgba('#fb923c', 0.9), at: 1, speed: 0.45 }),
+  ...flow({ from: [0.7, H(0.1), ZC], dir: [0, 1, 0], travel: 0.24, count: 2, color: rgba('#fb923c', 0.9), at: 1, speed: 0.45 }),
+  label({ x: 0.5, y: H(0.56), text: V.groundEmitsLongwave, color: '#fdba74', at: 1, size: 10 }),
+
+  vol({ x0: 0, x1: 1, y0: H(0.34), y1: H(0.62), color: rgba('#38bdf8', 0.2), at: 2 }),
+  ...flow({ from: [0.34, H(0.56), ZC], dir: [-0.2, -1, 0], travel: 0.3, count: 2, color: rgba('#fb923c', 0.9), at: 2, speed: 0.5 }),
+  ...flow({ from: [0.68, H(0.56), ZC], dir: [0.2, -1, 0], travel: 0.3, count: 2, color: rgba('#fb923c', 0.9), at: 2, speed: 0.5 }),
+  label({ x: 0.5, y: H(0.74), text: V.longwaveTrapped, color: '#7dd3fc', at: 2, size: 10 }),
+
+  label({ x: 0.5, y: H(1.06), text: V.noWindNoMixing, color: '#fca5a5', at: 3, size: 10 }),
+];
+
 // ── 레지스트리 ──────────────────────────────────────────────────────────────
 /**
  * rule_id → 장면. `STORYBOARDS`(캡션·단계 수의 단일 진실원)와 키가 일치해야 하며
@@ -600,6 +712,11 @@ export const SCENES = {
   dry_convection_clear: { build: dryConvectionClear },
   wildfire_risk_dry_gale: { build: wildfireRiskDryGale },
   flood_risk_saturated_inflow: { build: floodRiskSaturatedInflow, sea: { from: 0, to: 0.2 } },
+  cold_front_squall_storm: { build: coldFrontSquallStorm },
+  siberian_gale_wildfire: { build: siberianGaleWildfire },
+  front_convergence_flood: { build: frontConvergenceFlood, sea: { from: 0, to: 0.18 } },
+  tropical_cyclone_genesis: { build: tropicalCycloneGenesis, sea: { from: 0, to: 1 } },
+  greenhouse_tropical_night: { build: greenhouseTropicalNight, night: true },
 };
 
 /** 장면 전체(지표 레이어 + 단계 아이템) 조립 — 단계 필터는 renderer가 수행 */

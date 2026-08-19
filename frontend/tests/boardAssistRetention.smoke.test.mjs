@@ -99,7 +99,7 @@ window.XMLHttpRequest.prototype.open = function (method, url, ...rest) {
   return origXhrOpen.call(this, method, url, ...rest);
 };
 
-const { createElement } = await import('react');
+const { createElement, useState } = await import('react');
 const { createRoot } = await import('react-dom/client');
 const { MemoryRouter } = await import('react-router-dom');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
@@ -110,8 +110,8 @@ const SessionSummary = (await vite.ssrLoadModule('/src/modules/session/SessionSu
 const SessionPage = (await vite.ssrLoadModule('/src/modules/session/SessionPage.jsx')).default;
 const { comboPraise, COMBO_PRAISE } = await vite.ssrLoadModule('/src/modules/session/SessionRunner.jsx');
 const ResultBanner = (await vite.ssrLoadModule('/src/modules/quiz/ResultBanner.jsx')).default;
-const { hintRulesForGoal } = await vite.ssrLoadModule('/src/modules/board/AtmosphereBoard.jsx');
-const { zoneStates, createBoard } = await vite.ssrLoadModule('/src/lib/boardEngine.js');
+const { hintRulesForGoal, EXPLAIN_AFTER_MISSES } = await vite.ssrLoadModule('/src/modules/board/AtmosphereBoard.jsx');
+const { zoneStates, createBoard, evaluateBoard } = await vite.ssrLoadModule('/src/lib/boardEngine.js');
 const { AIR_MASS_META, FRONT_META } = await vite.ssrLoadModule('/src/modules/board/boardDisplay.js');
 const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
 
@@ -332,6 +332,129 @@ try {
     assert(!text().includes('습기를 60 이상'), '문항 저작 hints의 임계 수치가 렌더됐다');
   });
 
+  // ── 2-b. ①안(N-3): N회 미통과 후 현상 해설 공개 ─────────────────────────────
+  // **왜 이 계약이 필요한가**: board 문항 **전건**이 template_json.correct_answer가
+  // 빈 값이고 힌트는 2단이 상한이라, 못 푸는 학습자가 답에 닿는 경로가 **하나도
+  // 없었다**(N-3). 3단은 그 경로다. 위 시나리오 2가 "노출하지 않는다"를 지키므로,
+  // 여기서는 반대 방향 — **N회에서는 실제로 열린다**를 고정한다. 둘 중 하나만
+  // 있으면 다른 쪽이 조용히 죽는다.
+  //
+  // 미통과를 세는 주체가 AtmosphereBoard 내부 state라, 실제 루프(제출 → 판정 →
+  // 재도전)를 돌려야 한다. BoardPage가 하는 일(setResult(res) / setResult(null))만
+  // 그대로 흉내 내는 최소 하네스를 쓴다.
+  await scenario('①안: N회 미통과 후 현상 해설이 열린다(그 전에는 안 열린다)', async () => {
+    assert(EXPLAIN_AFTER_MISSES === 3,
+      `N이 바뀌었다(${EXPLAIN_AFTER_MISSES}) — 사다리 2단을 밟아 볼 기회가 있는 최소값이 근거다`
+      + '(힌트를 몇 단 켰는지는 조건이 아니다 — 아래 ⓔ). '
+      + '바꾸려면 AtmosphereBoard.jsx의 근거 주석을 함께 고칠 것');
+
+    // 이 퍼즐(수도권 소나기 · palette front:cold + moisture)의 성립 규칙
+    const RULE = RULES.find((r) => r.id === 'cold_front_shower');
+    assert(RULE, 'cold_front_shower 규칙이 사라졌다');
+
+    const FAIL_PHENOMENA = [0, 1, 2, 3].map((zone) => ({
+      zone, zone_name: `존${zone}`, phenomenon: 'cloudy', cloud: 'cumulus', rule_id: null, explain: null,
+    }));
+
+    function Harness() {
+      const [result, setResult] = useState(null);
+      return createElement('div', null,
+        createElement(AtmosphereBoard, {
+          puzzle: PUZZLE,
+          onSubmit: () => {},
+          result,
+        }),
+        // BoardPage의 판정 수신(onSuccess → setResult)과 재도전(setResult(null))
+        createElement('button', {
+          onClick: () => setResult({ passed: false, phenomena: FAIL_PHENOMENA, feedback: '아직이에요' }),
+        }, 'T-미통과'),
+        createElement('button', {
+          onClick: () => setResult({ passed: false, outOfClouds: true, feedback: '구름 부족' }),
+        }, 'T-구름부족'),
+        // 네트워크 실패 — BoardPage는 phenomena 없이 passed:false를 넣는다
+        createElement('button', {
+          onClick: () => setResult({ passed: false, feedback: '제출 실패' }),
+        }, 'T-제출실패'),
+        createElement('button', { onClick: () => setResult(null) }, 'T-재도전'),
+      );
+    }
+
+    mount(createElement(Harness));
+    await waitFor(() => findButton('힌트 보기') != null, 6000, '하네스 초기 렌더');
+    await sleep(200);
+
+    const explainBlock = () => window.document.querySelector('[data-testid="board-hint-explain"]');
+    const miss = async () => {
+      click(findButton('T-미통과'));
+      await sleep(60);
+      click(findButton('T-재도전'));
+      await sleep(60);
+    };
+
+    assert(explainBlock() == null, '아무것도 안 틀렸는데 해설이 이미 열려 있다');
+
+    // ⓐ 세지 않아야 하는 것들 — 구름 부족·제출 실패는 학습자가 틀린 것이 아니다.
+    // 이걸 세면 서버가 흔들릴 때 답이 저절로 열린다.
+    for (const label of ['T-구름부족', 'T-제출실패']) {
+      for (let i = 0; i < EXPLAIN_AFTER_MISSES + 1; i += 1) {
+        click(findButton(label));
+        await sleep(60);
+        click(findButton('T-재도전'));
+        await sleep(60);
+      }
+    }
+    assert(explainBlock() == null,
+      `구름 부족·제출 실패를 미통과로 셌다 — ${EXPLAIN_AFTER_MISSES + 1}회씩인데 해설이 열렸다`);
+
+    // ⓑ N-1회까지는 안 열린다
+    for (let i = 1; i < EXPLAIN_AFTER_MISSES; i += 1) {
+      await miss();
+      assert(explainBlock() == null, `${i}회 미통과인데 해설이 열렸다(N=${EXPLAIN_AFTER_MISSES})`);
+    }
+
+    // ⓒ N회에서 열린다 — 규칙 explain **전문**이 그대로
+    await miss();
+    await waitFor(() => explainBlock() != null, 4000,
+      `${EXPLAIN_AFTER_MISSES}회 미통과인데 해설이 안 열렸다 — 답에 닿을 길이 다시 사라졌다`);
+    const shown = explainBlock().textContent ?? '';
+    assert(shown.includes(RULE.explain),
+      `해설이 규칙 explain 전문이 아니다: ${shown.slice(0, 120)}`);
+
+    // ⓓ 3단이어도 **여전히 안 내보내는 것**: 존 좌표·임계 수치.
+    // (정답 요소명은 explain에 원래 들어 있고 그것이 ①안의 의도다 —
+    //  AtmosphereBoard 머리말 §3.5 3) 참조. 그래서 ANSWER_LABELS는 안 문다.)
+    assert(!/\d/.test(shown), `해설 블록에 숫자(존 좌표·임계 수치)가 새어 나왔다: ${shown.slice(0, 160)}`);
+    for (const cond of RULE.when) {
+      assert(!shown.includes(cond), `해설 블록이 규칙 조건 원문 "${cond}"을 그렸다`);
+    }
+    // 문항 저작 hints(정답 배치를 그대로 알려주는 문구)는 3단에서도 안 쓴다
+    assert(!text().includes('한랭전선을 놓고'), '3단에서 문항 저작 hints가 렌더됐다');
+    assert(!text().includes('습기를 60 이상'), '3단에서 문항 저작 hints의 임계 수치가 렌더됐다');
+
+    // ⓔ **힌트를 한 번도 열지 않았는데 열렸다** — 그 분리가 계약이다.
+    // 승인된 계약(N-3 ①안)은 「3회 미통과 후」 그 자체이고 `hintLevel`을 조건으로
+    // 걸지 않는다(근거: AtmosphereBoard.jsx의 EXPLAIN_AFTER_MISSES 독스트링 —
+    // 오답은 구름을 태우고 힌트는 안 태우므로, 게이팅하면 힌트를 안 켠 **가장 막힌**
+    // 학습자가 도움에 닿으려고 돈 내는 오답을 더 하게 된다).
+    // 위 ⓐ~ⓒ 루프는 「힌트 보기」를 한 번도 누르지 않았다 — 그 사실 자체를 단정으로
+    // 못박아, `hintLevel` 게이팅이 나중에 「수정」으로 들어오거나 이 시나리오가
+    // 힌트를 먼저 켜도록 바뀌면 계약이 조용히 사라지지 않게 한다.
+    // ⚠️ 바로 아래 ⓕ가 CTA를 누르므로 이 단정은 **반드시 ⓕ 앞**에 있어야 한다.
+    assert(window.document.querySelector('[data-testid="board-hint"]')
+      ?.getAttribute('data-hint-level') === '0',
+      '이 시나리오가 힌트를 먼저 켰다 — 「힌트 없이 3회 미통과 → 공개」를 더 이상 검증하지 않는다');
+    assert(!text().includes('힌트 1:'), '힌트 1단이 열려 있다 — 위 단정과 함께 무너졌다');
+
+    // ⓕ 해설이 열린 뒤에는 「힌트는 정답 배치를 알려주지 않아요」가 사라진다
+    // — 남겨두면 화면이 스스로 거짓말을 한다.
+    click(findButton('힌트 보기'));
+    await sleep(60);
+    click(findButton('힌트 보기'));
+    await sleep(80);
+    assert(!text().includes('정답 배치를 알려주지 않아요'),
+      '해설을 열어 놓고도 "정답 배치를 알려주지 않아요"가 남아 있다');
+  });
+
   // ── 3. hint_needs 데이터 계약 (전종 · 정답 요소·수치 미포함) ────────────────
   // R13(2026-08-07): 규칙이 8 → 13종으로 늘었다. `RULES.length === 8` 리터럴 핀은
   // **확장을 막을 뿐 지켜야 할 실질을 지키지 않았다** — 규칙이 조용히 사라지거나
@@ -407,6 +530,24 @@ try {
     }
   });
 
+  // ── 3-c. ①안 3단이 여는 `explain` 전건에 임계 수치가 없다 (§3.5 「수치 임계 미공개」) ──
+  // 🔴 **종전에는 계약이 아니라 스팟 체크였다**(2026-08-14 코드 리뷰). `BoardHintPanel`
+  // 주석이 *"규칙 15건의 explain 전건에 숫자가 없음을 실측 확인했다"*고 적었지만,
+  // 그 실측은 **한 번 돌려 본 것**이라 다음 규칙 저작에서 조용히 깨진다.
+  // 3단은 학습자에게 **그대로** 나가므로(N-3 ①안) 여기가 §3.5의 마지막 방어선이다.
+  //
+  // 왜 「숫자 없음」인가: 배치 좌표·수치 임계는 **여전히 미공개**가 계약이다(3단이
+  // 여는 것은 요소명까지다 — R10-01 §3.5). explain에 「습기를 60 이상」류가 들어오면
+  // 그 선이 무너진다. 바로 위 3-a가 `hint_needs`에 같은 검사를 거는 것과 한 쌍이다.
+  await scenario('①안 3단: 규칙 explain 전건에 임계 수치가 없다(§3.5 수치 미공개)', async () => {
+    assert(RULES.length > 0, '규칙이 비었다');
+    for (const rule of RULES) {
+      const ex = rule.explain ?? '';
+      assert(typeof ex === 'string' && ex.length > 0, `${rule.id}: explain이 없다 — 3단이 빈 칸을 연다`);
+      assert(!/\d/.test(ex), `${rule.id}: explain에 임계 수치가 들어 있다 — 3단이 그대로 노출한다`);
+    }
+  });
+
   // ── 3-b. 시드 보드 퍼즐 전건에서 힌트 2단이 무내용 폴백에 빠지지 않는다 (P2-2) ──
   // hintRules가 비면 2단은 "팔레트 종류를 하나씩 시험해 보세요"가 되어 값이 0에
   // 가깝다. 폴백 자체는 방어 코드로 남기되(규칙 로드 실패·생성 문항), **실데이터가
@@ -435,6 +576,56 @@ try {
     // 규칙 8종이 모두 어느 퍼즐에서든 후보로 쓰인다 = 저작한 hint_needs가 사장되지 않는다
     const unused = RULES.map((r) => r.id).filter((id) => !covered.has(id));
     assert(unused.length === 0, `어느 시드 퍼즐에서도 후보가 되지 않는 규칙: ${unused.join(', ')}`);
+
+    // 🔴 **「후보 1개」 래칫의 대체 — 폐기가 아니다** (PM 판정 2026-08-18).
+    //
+    // 종전 이 자리에는 `multi.length <= 1`이 있었다(개수를 모으던 `multi` 배열도
+    // 함께 지웠다 — 단정 없이 채우기만 하던 변수가 「감시한다」는 착각을 남긴다).
+    // 그 래칫이 막으려던 **원 위험**은
+    // 「①안 3단이 **엉뚱한 해설**을 연다」였고, 개수는 그 위험의 **간접 지표**였다
+    // (후보가 하나뿐이면 고를 여지가 없으니 안전하다는 논리).
+    //
+    // ㉣(변동 기상요소)로 상위 보드의 팔레트가 4종이 되자 그 지표가 무너졌다 —
+    // **팔레트가 넓어지면 여러 경로가 도달 가능해지는 것이 정상**이기 때문이다
+    // (실측: order 50 = 후보 3개). 개수를 강제하면 ㉣의 목적 자체를 막는다.
+    //
+    // 그래서 **같은 위험을 직접 막는 계약으로 바꾼다**: 3단이 여는 해설이
+    // **그 판에서 엔진이 실제로 적용하는 규칙의 것**과 같은가. 이러면 후보가
+    // 몇 개든 「보여주는 해설 = 그 판의 설계 경로」가 보장되고, 팔레트가 더 넓어져도
+    // 계약이 계속 참이다. (`[0]`이 결정적인 것은 규칙 파일이 priority 내림차순이고
+    // **priority 전역 유일**이 위에서 이미 단정되기 때문이다 — 동률이면 [0]이
+    // 비결정적이 되어 이 계약이 흔들린다.)
+    for (const it of boards) {
+      const t = it.template_json ?? {};
+      const goal = t.goal_conditions?.[0] ?? null;
+      const zs = zoneStates(createBoard(t.initial_state))[goal.zone] ?? null;
+      const cands = hintRulesForGoal(RULES, goal, t.palette ?? [], zs);
+      if (cands.length === 0) continue; // 폴백 0건은 위에서 이미 단정했다
+      const shown = cands[0];
+
+      // 그 규칙이 성립하는 배치를 만든다 — 존재 조건은 요소를 놓고, 수치 조건은
+      // 임계를 넘겨 둔다(±5는 `test_board_progression`의 재난 도달성 검사와 같은 관례).
+      const elements = [];
+      for (const cond of shown.when) {
+        const presence = /^(air_mass|front):([a-z_]+)$/.exec(cond);
+        if (presence) {
+          elements.push({ type: presence[1], subtype: presence[2], zone: goal.zone });
+          continue;
+        }
+        const numeric = /^(moisture|sun|wind)(>=|<=)(\d+(?:\.\d+)?)$/.exec(cond);
+        assert(numeric, `${shown.id}: 알 수 없는 조건 문법 ${cond}`);
+        const v = Number(numeric[3]);
+        elements.push({
+          type: numeric[1],
+          level: numeric[2] === '>=' ? Math.min(100, v + 5) : Math.max(0, v - 5),
+          zone: goal.zone,
+        });
+      }
+      const applied = evaluateBoard({ zones: t.initial_state.zones, elements }, RULES)
+        .find((p) => p.zone === goal.zone);
+      assert(applied?.rule_id === shown.id,
+        `${t.title}: 3단이 여는 해설(${shown.id})과 엔진이 적용하는 규칙(${applied?.rule_id})이 다르다 — 학습자가 자기 배치와 무관한 설명을 읽는다`);
+    }
   });
 
   // ── 4. 판정 확정 후 "판정 중..." 잔존 없음 (§3.5 마감 2) ────────────────────

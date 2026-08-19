@@ -421,7 +421,14 @@ class TestValidateRules:
             be.validate_rules(dup)
 
     def test_phenomenon_enum밖_거부(self):
-        bad = [{**MINI_RULES[0], "then": {"phenomenon": "typhoon", "cloud": "none"}}]
+        """⚠️ **표본은 「그럴듯한 기상 낱말」이면 안 된다**(2026-08-18 MT-18).
+
+        여기 있던 표본은 `"typhoon"`이었고, MT-18이 태풍 보드를 저작해 그 값이
+        **실제 어휘가 되는 순간 이 테스트가 거짓으로 통과**했다 — 검증기가 망가져도
+        모르는 상태가 된다. 그래서 표본을 **기상 현상이 될 수 없는 낱말**로 바꾼다.
+        어휘를 늘릴 때 이 자리를 다시 밟지 않게 하려는 것이 이 주석의 목적이다.
+        """
+        bad = [{**MINI_RULES[0], "then": {"phenomenon": "지진", "cloud": "none"}}]
         with pytest.raises(BoardRulesError):
             be.validate_rules(bad)
 

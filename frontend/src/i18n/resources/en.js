@@ -17,6 +17,23 @@
  * 번역은 FE-D2 직접 작성(§6.3 — UI 문구라 G1 불요).
  */
 export default {
+  mascot: {
+    guidebot: 'Cloudy',
+    cloud: 'Cloudy',
+    sun: 'Sunny',
+    drop: 'Droplet',
+    bolt: 'Bolt',
+    typhoon: 'Typhoon',
+    snow: 'Snowflake',
+    rainbow: 'Rainbow',
+    moon: 'Moon',
+    snowcloud: 'Snow cloud',
+    raincloud: 'Rain cloud',
+    fire: 'Blaze',
+    thermometer: 'Thermometer',
+    wind: 'Breezy',
+    grass: 'Grass',
+  },
   streak: {
     title: '{count}-day streak',
     days: 'days',
@@ -357,6 +374,7 @@ export default {
     basisMeasured: 'based on {count} response(s)',
     empty: 'No ability data yet. Complete a session and your per-concept analysis will appear.',
     mastery: {
+      radarAria: 'Mastery radar by concept — {list}',
       title: 'Concept mastery',
       subtitle: '"Current level" is what you can solve today; this side is the chance you have learned each concept.',
       empty: 'Answer some questions and we will start tracking what you have learned.',

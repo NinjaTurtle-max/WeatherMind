@@ -364,5 +364,107 @@ console.log('④ 화면마다 말하는 캐릭터는 하나 — 배너는 담당
   }
 }
 
+console.log('⑤ 개념 태그 : 그림 — 폴백으로 떨어지는 태그가 없다');
+// 2026-08-18. `conceptCharacter.js` 머리말이 「개념 14 : 그림 14 완전 1:1」이라고
+// 선언한다. 그 선언을 사람이 지킬 수는 없다 — 개념 태그는 **시드가** 늘리고
+// 그림은 사람이 따로 넣는 것이라, 태그만 늘면 그 개념은 조용히 폴백(구름)으로
+// 떨어져 홈·복습 줄이 같은 얼굴로 채워진다. 실제로 기초과학 6종이 들어올 때
+// 정확히 그랬다(머리말이 그 경위를 적어 놓았다).
+//
+// ⚠️ 같은 부류의 공백이 이번 주에 반복됐다 — 보드 규칙 5종이 단면 장면 없이
+//    들어와 main이 빨갰다. **콘텐츠가 늘 때 짝을 강제하는 계약**이 그 답이다.
+// 태그의 소유자는 시드(`content_items.json`)이고 그림의 소유자는 SRC다.
+{
+  // ⚠️ **태그 목록의 소유자는 시드가 아니라 백엔드다.** 화면에 행을 만드는 것은
+  //    `weatherbrain_service.CONCEPT_TAGS`이고(가입 시 그 전 태그의 θ를 초기화한다),
+  //    시드는 그 태그에 문항이 붙었는지를 말할 뿐이다. 저작보다 먼저 태그를 여는
+  //    것이 이 저장소의 **문서화된 패턴**이라(재난 2종이 그랬다), 시드만 보면
+  //    「열렸지만 아직 문항 없는 태그」가 조용히 폴백으로 떨어진다.
+  //    그래서 **둘의 합집합**을 본다 — 어느 쪽에서 늘어도 걸린다.
+  const seed = JSON.parse(readFileSync(join(ROOT, '../database/seed/content_items.json'), 'utf8'));
+  const backend = readFileSync(join(ROOT, '../backend/app/services/weatherbrain_service.py'), 'utf8');
+  // ⚠️ `indexOf(')')`로 끝을 잡으면 `tuple[str, ...]`의 닫는 괄호에서 끊겨 5종만
+  //    읽힌다. 대입 뒤 **여는 괄호**부터 그 짝까지를 잡는다.
+  const beAt = backend.indexOf('CONCEPT_TAGS: tuple');
+  const beOpen = backend.indexOf('(', backend.indexOf('=', beAt));
+  const beBlock = backend.slice(beOpen, backend.indexOf('\n)', beOpen));
+  const beTags = [...beBlock.matchAll(/"([a-z_0-9]+)"/g)].map((m) => m[1]);
+  ok(beTags.length >= 6, `백엔드 CONCEPT_TAGS를 읽었다 — ${beTags.length}종`);
+  const tags = [...new Set([...seed.map((it) => it.concept_tag).filter(Boolean), ...beTags])].sort();
+  const src = readFileSync(join(ROOT, 'src/components/conceptCharacter.js'), 'utf8');
+  const body = src.slice(src.indexOf('const BY_CONCEPT'), src.indexOf('};', src.indexOf('const BY_CONCEPT')));
+  const map = Object.fromEntries([...body.matchAll(/([a-z_0-9]+):\s*'([a-z]+)'/g)].map((m) => [m[1], m[2]]));
+  ok(tags.length > 0, `개념 태그 합집합(시드 ∪ 백엔드) — ${tags.length}종`);
+
+  const missing = tags.filter((t) => !map[t]);
+  ok(
+    missing.length === 0,
+    `모든 개념 태그에 그림이 배정돼 있다 — 빠진 것 ${missing.length}건${missing.length ? ` (${missing})` : ''}`,
+  );
+
+  // SRC에만 있고 LABEL에 없으면 `MASCOT_NAMES[name]`이 undefined라
+  // `decorative={false}` 호출부에서 **alt가 빈 문자열**이 된다 — 장식이 아니라고
+  // 선언해 놓고 읽어 줄 이름이 없는 상태다. wind·grass를 넣을 때 실제로 그랬다.
+  // ⚠️ **2026-08-19: LABEL이 리터럴에서 i18n getter로 바뀌었다**(이름이 `<img alt>`로
+  // 나가는 사용자 문자열이라 외부화). 이 단정이 그 변경에 **정확히 울어 줬다** —
+  // 텍스트 파서가 형태 변화에 걸린 것이고, 그래서 파서를 새 형태에 맞춘다.
+  // 🔴 파서를 고칠 때 **검사가 약해지지 않았는지**가 관건이라, 오히려 한 겹 더 문다:
+  // 종전에는 「키가 있다」까지만 봤고 이제 **그 키의 실제 문구가 리소스에 있는지**까지 본다.
+  // (외부화 뒤에는 키만 있고 리소스가 비면 alt가 키 원문이 되어 더 나쁘다)
+  const labelBlock = MASCOT_JSX.slice(MASCOT_JSX.indexOf('const LABEL = {'), MASCOT_JSX.indexOf(']', MASCOT_JSX.indexOf('const LABEL = {')));
+  const labels = [...labelBlock.matchAll(/'(\w+)'/g)].map((m) => m[1]);
+  ok(labels.length > 0, `LABEL 키 목록을 읽었다 — ${labels.length}종`);
+  const noLabel = NAMES.filter((n) => !labels.includes(n));
+  ok(
+    noLabel.length === 0,
+    `SRC의 전 캐릭터에 이름표가 있다 — 빠진 것 ${noLabel.length}건${noLabel.length ? ` (${noLabel})` : ''}`,
+  );
+
+  const koRes = readFileSync(join(ROOT, 'src/i18n/resources/ko.js'), 'utf8');
+  const mascotBlock = koRes.slice(koRes.indexOf('  mascot: {'), koRes.indexOf('},', koRes.indexOf('  mascot: {')));
+  const resKeys = [...mascotBlock.matchAll(/^\s{4}(\w+):/gm)].map((m) => m[1]);
+  const noString = labels.filter((n) => !resKeys.includes(n));
+  ok(
+    noString.length === 0,
+    `이름표 키마다 ko 리소스에 실제 문구가 있다 — 빠진 것 ${noString.length}건${noString.length ? ` (${noString})` : ''}`,
+  );
+
+  // 유닛 노드 아이콘도 같은 짝이다 — `CurriculumHome.CONCEPT_ICON` 머리말이
+  // "캐릭터 배정과 짝을 맞춘다"고 선언한다. 빠지면 그 개념만 책 아이콘('📘')이
+  // 되어, 같은 개념이 유닛 노드와 능력 분석에서 다른 얼굴로 보인다.
+  const home = readFileSync(join(ROOT, 'src/modules/curriculum/CurriculumHome.jsx'), 'utf8');
+  const iconBlock = home.slice(home.indexOf('const CONCEPT_ICON = {'), home.indexOf('};', home.indexOf('const CONCEPT_ICON = {')));
+  const iconTags = [...iconBlock.matchAll(/^\s{2}([a-z_0-9]+):/gm)].map((m) => m[1]);
+  const noIcon = tags.filter((t) => !iconTags.includes(t));
+  ok(
+    noIcon.length === 0,
+    `모든 개념 태그에 유닛 노드 아이콘이 있다 — 빠진 것 ${noIcon.length}건${noIcon.length ? ` (${noIcon})` : ''}`,
+  );
+
+  const unknown = [...new Set(Object.values(map))].filter((c) => !NAMES.includes(c));
+  ok(
+    unknown.length === 0,
+    `배정된 그림이 전부 SRC에 있다 — 없는 것 ${unknown.length}건${unknown.length ? ` (${unknown})` : ''}`,
+  );
+
+  // 겹침 0은 **선언이지 불변식이 아니다** — 태그가 그림보다 많아지면 다시
+  // 겹칠 수 있고 그것 자체가 결함은 아니다. 다만 선언해 둔 동안에는 그 말이
+  // 참이어야 하므로 선언과 실제를 대조한다.
+  //
+  // ⚠️ **산문을 정규식으로 읽지 않는다.** 처음엔 머리말에서 「완전 1:1」을
+  //    찾았는데, 그 머리말은 §0-5(틀린 기술은 지우지 말고 경위를 남긴다)에 따라
+  //    **철회된 종전 문구를 인용째 보존**한다 — 나중에 태그가 그림보다 많아져
+  //    선언을 접어도 인용문 때문에 정규식이 계속 참이 되어 main이 빨개진다.
+  //    그때 빠져나가려면 남겨야 할 이력을 지워야 한다. 그래서 기계가 읽는
+  //    표식 한 줄에 건다 — 접을 때는 그 줄만 지운다.
+  const claims1to1 = /@contract\s+concept-character-1to1/.test(src);
+  const used = Object.keys(map).filter((t) => tags.includes(t)).map((t) => map[t]);
+  const dupes = used.length - new Set(used).size;
+  ok(
+    !claims1to1 || dupes === 0,
+    `머리말이 1:1이라 적었으면 실제로 겹침이 없다 — 겹침 ${dupes}건`,
+  );
+}
+
 console.log(failures === 0 ? '\n전부 통과' : `\n실패 ${failures}건`);
 process.exit(failures === 0 ? 0 : 1);

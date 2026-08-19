@@ -217,7 +217,7 @@ step_config() {
 #               영구 소실시키던 결함의 회귀 감시. logout()의 삭제 범위도 함께 못박는다
 # board_engine 공유 벡터(test:board)는 node_modules 없이 도는 전용 `board` 단계가
 # 소유하므로 여기서 중복 실행하지 않는다.
-FRONT_TESTS=(explore explore-goals session session-blocks entry-flow placement visual gating board-entry assist webgl overlay i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective knowledge-level onboarding-save guide-bot guide-bot-3d session-expiry)
+FRONT_TESTS=(explore explore-goals session session-blocks entry-flow placement visual gating board-entry assist webgl overlay display-parity i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective knowledge-level onboarding-save guide-bot guide-bot-3d session-expiry)
 
 step_frontend() {
   banner "frontend: build + 스모크 ${#FRONT_TESTS[@]}종 (선택)"

@@ -22,6 +22,26 @@
  *    (조각을 이어 붙이면 원문과 바이트 동일).
  */
 export default {
+  // 마스코트 이름 — `<img alt>`로 나가 **스크린리더가 읽는 사용자 문자열**이다.
+  // 소유자는 `components/Mascot.jsx`의 `LABEL`(여기를 읽는다) · 그림 배정은
+  // `SideNav.TUTOR_BY_PATH`. 🔴 ko 값은 원문 바이트 동일 — 스모크가 단정한다.
+  mascot: {
+    guidebot: '구름이',
+    cloud: '구름이',
+    sun: '태양이',
+    drop: '물방울이',
+    bolt: '번개',
+    typhoon: '태풍이',
+    snow: '눈결정',
+    rainbow: '무지개',
+    moon: '달님',
+    snowcloud: '눈구름',
+    raincloud: '비구름',
+    fire: '불꽃이',
+    thermometer: '온도계',
+    wind: '바람이',
+    grass: '풀',
+  },
   streak: {
     // StreakBadge (파일럿): title 툴팁 전체 문구 + 최협폭에서 접히는 단위 표기
     title: '연속 출석 {count}일',
@@ -427,6 +447,7 @@ export default {
     empty: '아직 능력 데이터가 없어요. 세션을 풀면 개념별 이해도가 분석돼요.',
     // BKT 숙련도(R13-01 §5-1) — θ와 다른 축임을 화면에서 읽히게 하는 문구.
     mastery: {
+      radarAria: '개념별 숙련도 레이더 — {list}',
       title: '개념 숙련도',
       // ⚠️ 「위/아래」로 쓰지 말 것 — 2026-08-10에 두 축이 좌우로 갈렸는데 이
       // 문구만 세로 시절 그대로였다. 좁은 화면에서는 다시 위아래로 쌓이므로

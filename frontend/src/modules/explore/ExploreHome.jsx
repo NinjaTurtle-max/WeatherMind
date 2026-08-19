@@ -48,6 +48,18 @@ const SIMS = [
     inputsKey: 'detective.entry.inputs',
     badgeKey: 'detective.entry.badge',
   },
+  // MT-30 과거 예보 — 탐정과 같은 이유로 탐구 홈에 세운다(탭 넘침 방지).
+  // 배지 문구는 탐정과 반대다: 탐정은 **가상** 자료라고 밝히고, 여기는 **실제
+  // 공개 기록이지만 고정 날짜**라고 밝힌다. 둘 다 자료의 성격을 숨기지 않는 것이
+  // 요점이다(과거 관측 적재 경로가 없어 픽스처인 사정 — hindcast_service 독스트링).
+  {
+    to: '/hindcast',
+    icon: '🕰️',
+    titleKey: 'hindcast.entry.title',
+    descriptionKey: 'hindcast.entry.desc',
+    inputsKey: 'hindcast.entry.inputs',
+    badgeKey: 'hindcast.entry.badge',
+  },
 ];
 
 export default function ExploreHome() {

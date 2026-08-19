@@ -43,11 +43,17 @@ const CONCEPT_ICON = {
   anomaly: '⚡',
   // 기초과학 코스(basic-science)
   temperature_heat: '🌡️',
-  radiation_budget: '☀️',
-  pressure_basics: '🎈',
+  // 2026-08-18 — 캐릭터가 sun → grass, cloud → wind로 바뀌어 아이콘도 함께 옮겼다.
+  // 짝이 어긋나면 같은 개념이 유닛 노드와 능력 분석에서 **다른 얼굴**로 보인다.
+  radiation_budget: '🌿',
+  pressure_basics: '💨',
   density_buoyancy: '🌈',
   phase_change: '💧',
   energy_transfer: '🌙',
+  // 재난 축 2종 — 표에 없어 폴백('📘')으로 떨어져 있었다(2026-08-18에 발견).
+  // 캐릭터는 진작 있었다(fire · raincloud).
+  wildfire_weather: '🔥',
+  flood_response: '🌊',
 };
 
 // 세로 경로의 좌우 지그재그 오프셋(%) — 섹션 내 유닛 순서로 순환
