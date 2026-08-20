@@ -369,17 +369,38 @@ def select_feedback(
     passed: bool,
     rules: list[dict[str, Any]],
 ) -> str:
-    """board 피드백 (§3.4 — RAG 호출 없이): 정답이면 성립 규칙 explain,
-    오답이면 hints 1단계(hints[0]). 해당 자료가 없으면 정적 폴백 문구."""
+    """board 피드백 (§3.4 — RAG 호출 없이): 정답이면 성립 규칙 explain **+ 사람이 쓴
+    해설**, 오답이면 hints 1단계(hints[0]). 해당 자료가 없으면 정적 폴백 문구.
+
+    🔴 **통과 시 해설을 이어 붙인다**(2026-08-20 클라이언트 판정). 종전에는 규칙
+    `explain`만 돌려주고 `template_json.explanation_hint`를 **무시**했다 —
+    `answer_service.build_feedback`이 board를 이 함수로 빼면서 해설 경로에 닿지
+    않았고, `test_feedback_source.py`가 그 무시를 픽스처 문자열로 못박고 있었다.
+
+    ⚠️ **왜 「대체」가 아니라 「이어 붙임」인가**: `explain`은 퍼즐을 푸는 동안
+    힌트로 이미 노출된다. 그것만 다시 주면 배울 것이 늘지 않는다 — 해설은 **한 걸음
+    더 나가는 글**이므로(왜 그 임계인가·실제 대기에서 무엇에 해당하는가) 둘이 순서를
+    갖는다: **판정 근거(규칙) → 그 다음 한 걸음(해설)**.
+
+    ⚠️ **해설이 없는 판은 규칙 설명만 나간다** — 전건 저작이 아니므로(2026-08-20
+    실측: board 64판 중 해설 보유 26) 이어 붙일 것이 없으면 종전과 **같은 문자열**을
+    돌려야 한다. 그 회귀 0이 이 변경의 조건이다.
+
+    ⚠️ **출처 배지는 `"board"`를 유지한다**(같은 날 판정). 사람 글이 섞이지만 배지가
+    「AI 피드백」이라 말하지 않으므로 거짓이 아니다 — 그 표기 오류가 바로
+    `test_feedback_source.py`를 만든 사고였다(심사 배점 ⑤에 직결).
+    """
     if passed:
         rules_by_id = {rule["id"]: rule for rule in rules}
+        authored = str(template.get("explanation_hint") or "").strip()
         for goal in template.get("goal_conditions") or []:
             zone = goal.get("zone")
             if isinstance(zone, int) and 0 <= zone < ZONE_COUNT:
                 rule = rules_by_id.get(phenomena[zone].get("rule_id"))
                 if rule:
-                    return rule["explain"]
-        return FEEDBACK_PASS_DEFAULT
+                    # 해설이 없으면 **종전과 바이트 동일**해야 한다(회귀 0).
+                    return f"{rule['explain']}\n\n{authored}" if authored else rule["explain"]
+        return f"{FEEDBACK_PASS_DEFAULT}\n\n{authored}" if authored else FEEDBACK_PASS_DEFAULT
     hints = template.get("hints") or []
     if hints and isinstance(hints[0], str) and hints[0].strip():
         return hints[0]

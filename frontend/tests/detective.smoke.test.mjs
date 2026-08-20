@@ -147,9 +147,12 @@ let reactRoot = mount('/explore');
 await waitFor(() => text().includes('기후 탐정'), 10000, '탐구 홈 탐정 카드');
 const entryLink = $$('a').find((a) => a.getAttribute('href') === '/detective');
 ok(Boolean(entryLink), '탐구 홈(/explore)에 /detective 진입 카드가 있다');
+// ⚠️ 2026-08-20: 이 단정이 **옛 배지 문구**('가상 관측 자료')를 읽고 있었다. 문구를
+//    「재구성」으로 옮기면서 **읽는 쪽을 함께** 고친다 — 한쪽만 고치면 이 스모크가
+//    빨강이 되고, 더 나쁘게는 문구를 되돌리는 압력이 된다.
 ok(
-  entryLink?.textContent.includes('가상 관측 자료'),
-  `탐정 카드는 시뮬 배지가 아니라 가상 자료 고지를 단다 — "${entryLink?.textContent.slice(-30) ?? ''}"`,
+  entryLink?.textContent.includes('재구성'),
+  `탐정 카드는 시뮬 배지가 아니라 자료 성격 고지를 단다 — "${entryLink?.textContent.slice(-40) ?? ''}"`,
 );
 reactRoot.unmount();
 
@@ -346,6 +349,49 @@ window.XMLHttpRequest = RealXHR;
     cap >= 1080,
     `목록 폭 상한이 3열을 담는다(${cap}px) — 760이면 3열이 한 칸 240px로 눌린다`,
   );
+}
+
+// ── 🔴 안내 문구가 「재구성」이고, 날짜를 못박지 않는다 (2026-08-20 판정) ─────────
+//
+// 클라이언트 판정: *「과거 날짜를 명확히 하지 말고 과거 언제쯤이였는지 정도로」*.
+// 종전 문구는 *"가상의 관측 지점에서 얻은 예시 자료다. 실제 관측 기록이 아니며…"*로
+// **「가상이라 현실과 무관하다」**로 읽혔다. 뜻을 「되풀이되는 실제 날씨를 닮게 다시
+// 지었다」로 옮기면서 **날짜는 붙이지 않는다.**
+//
+// ⚠️⚠️ **이 계약이 못 무는 것 — 문구의 「뜻」이다.** 기계는 「관측치를 그대로 썼다로
+//    읽히는가」를 판정할 수 없다. 물을 수 있는 것은 **필수 표현의 존재**와
+//    **금칙 표현(못박은 날짜)의 부재**뿐이고, 그 둘로 되돌아감만 막는다.
+{
+  const cases = JSON.parse(
+    readFileSync(resolve(root, '../database/seed/detective_cases.json'), 'utf-8'),
+  );
+  ok(cases.length >= 6, `사건을 읽었다 — ${cases.length}건 (파싱이 죽으면 아래가 공집합을 통과한다)`);
+
+  for (const c of cases) {
+    const note = c.intro?.data_note ?? '';
+    ok(note.includes('재구성'), `${c.case_id}: 안내 문구가 「재구성」을 말한다`);
+    // 「값은 구성값」의 뜻을 버리지 않았는가 — 「그대로 옮긴 것이 아니」라는 부정이 남아야 한다
+    ok(/그대로 옮긴 것이 아니|관측치는 아니/.test(note),
+       `${c.case_id}: 「그날의 관측치를 그대로 쓴 것이 아니다」가 남아 있다`);
+    // 🔴 못박은 날짜 금지 — 연도(4자리)·월일 표기가 들어오면 없는 특정성이 된다
+    ok(!/\d{4}\s*년|\d{4}-\d{2}-\d{2}|\d{1,2}월\s*\d{1,2}일/.test(note),
+       `${c.case_id}: 안내 문구에 못박은 날짜가 없다 — 실제 값: ${note.slice(0, 40)}…`);
+    ok(!/\d{4}\s*년|\d{4}-\d{2}-\d{2}|\d{1,2}월\s*\d{1,2}일/.test(c.intro?.period ?? ''),
+       `${c.case_id}: 기간에도 못박은 날짜가 없다 — 실제 값: ${c.intro?.period}`);
+    // 가상 지점·fictional 플래그는 유지되어야 한다(값이 구성값이므로 앞뒤가 맞는다)
+    ok(c.intro?.fictional === true, `${c.case_id}: fictional 플래그가 유지된다`);
+  }
+
+  // 화면 배지가 데이터와 **같은 말**을 하는가 — 한쪽만 고치면 화면이 데이터와 다른 말을 한다
+  for (const loc of ['ko', 'en']) {
+    const src = readFileSync(resolve(root, `src/i18n/resources/detective.${loc}.js`), 'utf-8');
+    const badge = src.match(/badge:\s*'([^']*)'/)?.[1] ?? '';
+    ok(badge.length > 0, `${loc}: 진입 카드 배지 문구를 읽었다`);
+    ok(/재구성|Reconstructed/.test(badge),
+       `${loc}: 배지도 「재구성」을 말한다 — 실제 값: ${badge}`);
+    ok(!/실제 기록이 아니에요|not a real record/.test(badge),
+       `${loc}: 종전의 「현실과 무관」 표현으로 되돌아가지 않았다`);
+  }
 }
 
 await vite.close();

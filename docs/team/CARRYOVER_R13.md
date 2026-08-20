@@ -5956,6 +5956,20 @@ frontend  FAIL  build OK · 테스트 실패: learn-path
 
 ⚠️ **§3-2의 나머지 절반**(*"심화는 탐정·시뮬레이터 자동 추천·연결"*)은 **확인하지 않았다** —
 제안서 기준 1:1 감사가 별도로 돌고 있고 그 범위에 들어 있다(겹치면 두 번 센다).
+
+#### 같은 회차에 확인한 나머지 2조항 — **어긋남 없음**
+
+🔴 **경위를 남긴다: 이 둘을 처음에는 「기존 자산입니다」로 재보지 않고 단정했다.**
+그 뒤에 좌표로 확인했고 결과는 참이었지만, **「측정했다」와 「그럴 것이다」를 갈라
+적기로 한 규칙을 내가 먼저 어겼다.** 아래는 재본 뒤의 값이다.
+
+| 조항 | 좌표 | 판정 |
+|---|---|---|
+| **§2-5** PostgreSQL 5개 핵심 테이블 + RLS | `backend/alembic/versions/20260710_0001_initial_schema.py:30-36` `RLS_TABLES` = `users`·`quiz_logs`·`weak_tags`·`attendance`·`league_results`, `:187-192`가 각 테이블에 `ENABLE ROW LEVEL SECURITY` + `CREATE POLICY user_isolation` | ✅ **제안서가 지목한 다섯과 정확히 일치**. 모델도 전건 존재(`models/user.py`·`quiz_log.py`·`weak_tag.py`·`attendance.py`·`league_result.py`) |
+| **§2-3** IRT 기반 추정 | `ai-worker/app/weatherbrain/irt.py`(+`placement.py`·`priors.py`·`knowledge_tracing.py`) · 소비자 `backend/app/services/weatherbrain_service.py` | ✅ 존재. **위 §3-2의 `weak_theta_threshold`가 곧 이 IRT를 약점 판정에 쓰는 자리**다 |
+
+⚠️ 이 둘은 **존재·좌표 확인**이고 **동작 검증은 아니다**(RLS 실격리는 2026-08-05에 실DB로
+검증됐다는 별도 기록이 CLAUDE.md에 있고, 그것은 내가 이번에 재현하지 않았다).
 ## §5.23 대기화학·경계층 — **엔진 확장 판정**(실측) 그리고 MT-18의 정직한 상태 (2026-08-19)
 
 PM 요구: *「배치 요소를 하나 더 열면 화학·경계층이 되는가」를 실측 판정하라. 된다면 하고,
