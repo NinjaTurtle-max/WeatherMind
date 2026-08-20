@@ -351,7 +351,7 @@ export default {
     choiceCaption: '하루 {items}문항',
     itemsUnit: '{items}문항',
     pickerTitle: '🎯 하루 목표를 정해요',
-    pickerBody: '작게 시작해도 매일이 더 중요해요. 언제든 바꿀 수 있어요.',
+    pickerBody: '작게 시작해도 매일이 더 중요해요.',
     saved: '좋아요 — 오늘부터 하루 {items}문항이 목표예요.',
     // 내 정보 조회 실패 — 현재 목표를 모르니 선택지를 내주지 않고, 대신 자리를
     // 비우지 않는다(목표를 정하러 앵커를 타고 온 사람이 빈 화면 끝을 본다).
@@ -388,9 +388,9 @@ export default {
     // 「안 적어도 된다」가 화면에서 읽히지 않으면 사용자는 막힌 줄 알고 되돌아간다.
     nicknameLabel: '닉네임 (선택)',
     nicknamePlaceholder: '예: 구름사냥꾼',
-    nicknameHint: '리그와 순위표에 보일 이름이에요. 비워 두면 자동으로 지어 드려요.',
+    nicknameHint: '리그와 순위표에 보일 이름이에요. 비워 두면 자동으로 지어 드려요. 이름은 나중에 바꿀 수 있어요.',
     goalLabel: '하루 목표 (선택)',
-    goalHint: '하루에 몇 문항을 풀지 정해요. 나중에 바꿀 수 있어요.',
+    goalHint: '하루에 몇 문항을 풀지 정해요.',
     // 서버가 중복을 알려줄 때만 뜬다(오늘은 유일성 제약이 없어 뜨지 않는다).
     nicknameTaken: '이미 쓰고 있는 이름이에요. 다른 이름으로 바꿔 주세요.',
     submit: '다음 — 실력 진단 받기 →',
@@ -716,8 +716,8 @@ export default {
     bulkFailBody: '잠시 후 다시 시도해 주세요. 푼 답안은 그대로 남아 있어요.',
     bulkFinalizing: '결과를 계산하고 있어요…',
     leave: {
-      title: '지금 나가면 오늘 진도가 사라져요',
-      remaining: '{remaining}문항만 더 풀면 오늘 진도와 스트릭이 기록돼요. ',
+      title: '지금까지 푼 것은 그대로 남아요',
+      remaining: '{remaining}문항만 더 풀면 오늘 목표를 채워요. ',
       almost: '조금만 더 하면 끝나요. ',
       // 만회 라운드 전용 (2026-08-12) — 만회 중에는 본문 `total - answered`가 **0**이라
       // 위 `almost`("조금만 더 하면 끝나요")가 떴는데, 그건 거짓이다: 남은 것은
