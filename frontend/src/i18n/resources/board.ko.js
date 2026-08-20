@@ -275,7 +275,7 @@ export default {
         spotFireAhead: '날아간 불씨가 앞에 새 불을 놓아요',
         newCellsUpwind: '바람 위쪽에서 새 비구름이 계속 생겨요',
         soilAlreadyFull: '땅속 틈이 이미 물로 찼어요',
-        runoffGathersLow: '못 스민 물이 낮은 곳으로 모여요',
+        runoffGathersLow: '못 스며든 물이 낮은 곳으로 모여요',
         forestedRidge: '숲이 우거진 산등성이 — 비탈을 타고 더 빨라져요',
         cityImpervious: '도시 — 포장된 땅은 물을 먹지 못해요',
         fireRunsUphill: '불은 비탈을 더 빨리 올라가요',
@@ -429,7 +429,7 @@ export default {
             '센 바람이 바다에서 수증기를 쉬지 않고 실어 와요.',
             '비를 뿌리고 흩어진 자리를 다음 비구름이 곧 채워요.',
             '그래서 비가 그치지 않고 같은 곳에 계속 내려요.',
-            '땅이 스며들 수 있는 양을 넘겨 물이 고이기 시작해요.',
+            '땅에 스며들 수 있는 양을 넘겨 물이 고이기 시작해요.',
           ],
         },
         cold_front_squall_storm: {
@@ -515,18 +515,21 @@ export default {
         // 늘리는 동안 아무도 이 표에 행을 안 넣었다. `ZoneAnnotation`이 `if (!text)
         // return null`이라 **조용히 안 뜬다** — 크래시가 없어 아무도 못 봤다.
         // 문구 규약: 「원인,\n결과」 2줄. 줄바꿈이 리더선 라벨의 2줄 배치를 만든다.
+        // ⚠️ 어투도 규약이다 — 20종이 **명사형으로 끝난다**('맑음'·'폭염 지속'·
+        // '산불 경보급'). 08-19에 붙은 12종 중 4종만 '-다' 서술형이라 같은 지도
+        // 위에서 라벨이 두 어투로 갈려 있었다(2026-08-19 정정, 뜻은 그대로).
         tropical_cyclone_genesis: '뜨겁고 습한 바다,\n태풍의 씨앗',
         greenhouse_tropical_night: '열이 갇힌 밤,\n식지 않는 도시',
         cold_front_squall_storm: '찬 공기가 밀어 올려,\n한 줄로 선 뇌우',
         siberian_gale_wildfire: '메마른 공기에 강풍,\n산불 경보급',
-        front_convergence_flood: '정체전선에 강풍,\n물이 빠지지 않는다',
-        flood_risk_saturated_inflow: '수증기가 계속 유입,\n땅이 다 찼다',
-        wildfire_risk_dry_gale: '건조한 강풍,\n불씨가 날아간다',
+        front_convergence_flood: '정체전선에 강풍,\n물이 빠지지 않음',
+        flood_risk_saturated_inflow: '수증기가 계속 유입,\n땅이 다 찼음',
+        wildfire_risk_dry_gale: '건조한 강풍,\n불씨가 날아감',
         okhotsk_sea_fog: '찬 바다 위 습한 공기,\n바다 안개',
-        okhotsk_foehn_clear: '산을 넘어온 건조 공기,\n맑고 따뜻',
+        okhotsk_foehn_clear: '산을 넘어온 건조 공기,\n맑고 따뜻함',
         yangtze_mild_clear: '온화한 대륙 공기,\n맑음',
         yangtze_morning_fog: '약한 햇빛에 습기,\n아침 안개',
-        dry_convection_clear: '강한 햇빛에 건조,\n구름이 못 자란다',
+        dry_convection_clear: '강한 햇빛에 건조,\n구름이 못 자람',
       },
       mapAria: '한반도 대기 보드 지도 — 4개 지역 노드에 요소를 배치하세요',
       zoneAria: '{name} 존{goal} — 현재 {phenomenon}',
@@ -609,7 +612,7 @@ export default {
       subtitle: '조건을 직접 움직여 보며 날씨와 기후의 원리를 체험하는 공간이에요.',
       typhoonTitle: '태풍 만들기',
       typhoonDesc: '바다 온도와 바람 시어를 조절해 태풍이 언제, 얼마나 강하게 발달하는지 직접 확인해요.',
-      typhoonInputs: 'SST 24~32℃ · 연직시어 약/중/강',
+      typhoonInputs: 'SST 24~32℃ · 연직 시어 약/중/강',
       climateTitle: '기후변화 체험',
       climateDesc: 'CO₂ 농도를 움직여 지구 평균기온·해수면·폭염일수가 어떻게 반응하는지 살펴봐요.',
       climateInputs: 'CO₂ 280~560ppm',
