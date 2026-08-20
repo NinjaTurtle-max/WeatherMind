@@ -14,7 +14,10 @@ export default {
       title: 'Climate Detective',
       desc: 'Find out why two observation sites diverged by collecting clues. Investigate before you answer.',
       inputs: 'Time series · 7 clue cards',
-      badge: 'Fictional observations — not a real record',
+      // 🔴 2026-08-20 — ko와 같은 판정. 종전 "Fictional observations"는 「현실과
+      //    무관」으로 읽혔다. 되풀이되는 실제 날씨를 닮게 지은 것이므로 「재구성」으로
+      //    옮기고, **날짜는 붙이지 않는다**(「과거 언제쯤」까지만).
+      badge: 'Reconstructed from weather that recurs — not one day’s observations',
     },
     list: {
       title: '🔎 Climate Detective',
