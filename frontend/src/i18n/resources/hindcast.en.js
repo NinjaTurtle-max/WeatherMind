@@ -30,6 +30,8 @@ export default {
       normalLabel: 'Normal',
     },
     play: {
+      lockedNote: '🔒 Your submitted forecast — one attempt per round',
+      otherCase: 'Try another round →',
       backToList: '← All rounds',
       loading: 'Opening the round...',
       notFoundTitle: 'Round not found',

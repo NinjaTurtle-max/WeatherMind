@@ -41,6 +41,10 @@ export default {
       normalLabel: '평년값',
     },
     play: {
+      // 판정 뒤 잠긴 입력칸의 한 줄(2026-08-19). ⚠️ **「다시 도전」이라고 쓰지
+      // 말 것** — 서버가 회차당 1회라(409 ALREADY_SUBMITTED) 그 말은 거짓이 된다.
+      lockedNote: '🔒 제출한 예보예요 — 회차당 한 번만 낼 수 있어요',
+      otherCase: '다른 회차 도전하기 →',
       backToList: '← 회차 목록',
       loading: '회차 자료를 여는 중이에요...',
       notFoundTitle: '회차를 찾을 수 없어요',

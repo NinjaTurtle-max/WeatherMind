@@ -34,9 +34,15 @@ export default function CaseListPage() {
           같은 문장(`hindcast.entry.desc`)을 쓴다.
           ⚠️ 「데모용 고정 날짜」 고지(DemoDataNotice)는 **배너 아래 그대로** 둔다.
              배너 안으로 넣으면 자료의 성격을 밝히는 줄이 장식으로 읽힌다. */}
-      <Link to="/explore" className="inline-block text-xs font-bold text-slate-500 hover:text-sky-600">
-        {t('hindcast.list.back')}
-      </Link>
+      {/* 상단 줄 — 왼쪽 뒤로가기 · 오른쪽 「데모용 고정 날짜」 고지.
+          탐구 실험실 넷과 같은 관례다. 숨기는 게 아니라 자리를 옮긴 것이다
+          (고지 자체는 이 항목의 정직성 — DemoDataNotice 머리말 참조). */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <Link to="/explore" className="shrink-0 text-xs font-bold text-slate-500 hover:text-sky-600">
+          {t('hindcast.list.back')}
+        </Link>
+        <DemoDataNotice inline />
+      </div>
       <HeroBanner
         testId="hindcast-hero"
         mascot="rainbow"
@@ -46,8 +52,6 @@ export default function CaseListPage() {
         description={t('hindcast.entry.desc')}
       />
 
-      {/* 「데모용 고정 날짜」 고지 — 목록 최상단. 숨기지 않는다. */}
-      <DemoDataNotice />
 
       {casesQ.isLoading && <LoadingSpinner label={t('hindcast.list.loading')} />}
 
@@ -81,8 +85,17 @@ export default function CaseListPage() {
         </div>
       )}
 
+      {/* 🔴 **3열 격자**(2026-08-19 사용자 지시). 종전에는 카드가 한 줄에 하나라
+          1,120px 폭을 다 먹고 화면 아래가 통째로 비었다.
+          기후 탐정 목록과 **같은 규격**이다 — 둘은 탐구 홈에서 나란히 들어가는
+          형제라 목록이 다르게 생기면 다른 서비스처럼 읽힌다.
+          ⚠️ `lg`가 아니라 `xl`인 것도 그쪽과 같다: lg(1024) 뷰포트에서는 셸이
+             769px이라 3열이면 한 칸 246px로 눌린다.
+          ⚠️ 이 주석을 아래 `&& (` **안쪽 첫 줄**로 옮기지 말 것 — JSX 주석이 그
+             자리에 오면 `{...}`가 객체 리터럴로 파싱돼 빌드가 깨진다. 탐정
+             목록에도 같은 경고가 붙어 있는데 **여기서 또 밟았다**(2026-08-19). */}
       {casesQ.isSuccess && cases.length > 0 && (
-        <ul className="space-y-3" data-testid="hindcast-case-list">
+        <ul className="grid max-w-[1120px] grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="hindcast-case-list">
           {cases.map((c) => (
             <li key={c.case_id}>
               <Link
