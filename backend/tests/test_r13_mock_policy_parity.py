@@ -1397,17 +1397,40 @@ class TestLevelGroupReseed:
         priors = {k: float(v) for k, v in wb.LEVEL_GROUP_ITEM_B.items()}
         default_b = float(wb.DEFAULT_ITEM_B)
 
+        # 🔴 **행 생성은 결함이 아니라 서버 규칙이다**(2026-08-21 정정).
+        #   종전 단정은 `len(out) == len(rows)`로 **행 수 불변을 요구**했고, 사유를
+        #   *「개념이 사라지거나 늘면 대표 θ의 분모가 달라져 천장이 엉뚱하게 움직인다」*
+        #   라 적었다. **그 걱정은 참인데 결론이 거꾸로였다** — 서버가 바로 그 일을 한다:
+        #   `reseed_unmeasured_priors`가 `weatherbrain_service.CONCEPT_TAGS` **전건**에
+        #   upsert하고, `_upsert_abilities` 독스트링이 *「없는 행은 그대로 생성된다」*고
+        #   소유한다. ⇒ 분모가 달라지는 것이 **서버의 동작**이므로, 목이 그것을 막으면
+        #   **목만 다른 분모를 지킨다.**
+        #   🔴 이 단정 때문에 실제 결함이 초록으로 남아 있었다: θ 0건 계정이 재신고하면
+        #   서버는 행이 생겨 천장이 유한해지고 다시 잠기는데 **목은 전건 열림**이었다.
+        #   ⇒ 이제 **개념 집합**을 문다 — 「있던 행 ∪ 능력 개념 전건」이어야 한다.
+        server_tags = set(wb.CONCEPT_TAGS)
         bad = []
         for case in policy["reseed_samples"]:
             want_prior = priors.get(case["to"], default_b)
-            assert len(case["out"]) == len(case["rows"]), (
-                f"재파종이 행 수를 바꿨다({case['to']}) — 개념이 사라지거나 늘면 "
-                "대표 θ의 분모가 달라져 천장이 엉뚱하게 움직인다"
+            src_by_tag = {r["concept_tag"]: r for r in case["rows"]}
+            out_by_tag = {r["concept_tag"]: r for r in case["out"]}
+            want_tags = set(src_by_tag) | server_tags
+            assert set(out_by_tag) == want_tags, (
+                f"재파종 뒤 개념 집합이 서버와 다르다({case['to']}) — "
+                f"빠진 것 {sorted(want_tags - set(out_by_tag))} · "
+                f"군더더기 {sorted(set(out_by_tag) - want_tags)}. 서버는 "
+                "`CONCEPT_TAGS` 전건에 upsert하므로 **없는 행이 생긴다** — 목이 그것을 "
+                "안 하면 θ 0건 계정에서 천장이 갈린다(목은 미상=전건 열림, 서버는 잠김)"
             )
-            for src_row, out_row in zip(case["rows"], case["out"]):
-                assert out_row["concept_tag"] == src_row["concept_tag"], (
-                    "재파종이 개념 순서·이름을 바꿨다"
-                )
+            for tag in sorted(want_tags - set(src_by_tag)):
+                born = out_by_tag[tag]
+                if float(born["theta"]) != want_prior or born["num_responses"] != 0:
+                    bad.append(
+                        f"{case['to']}/{tag}: 새로 생긴 행이 θ={born['theta']}·"
+                        f"n={born['num_responses']} — 사전값 {want_prior}·n=0이어야 한다"
+                    )
+            for tag, src_row in src_by_tag.items():
+                out_row = out_by_tag[tag]
                 if out_row["num_responses"] != src_row["num_responses"]:
                     bad.append(
                         f"{case['to']}/{src_row['concept_tag']}: n이 "

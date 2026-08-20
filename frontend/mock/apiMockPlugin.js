@@ -596,12 +596,36 @@ let devAbilities = seedAbilities(mockAuth.levelGroup);
  * 그래야 `__mockPolicy().reseed_samples`로 **규칙째** 내보내 서버가 직접 재게 할 수
  * 있다(표만 맞고 규칙이 갈렸던 palette 갈래의 재발 방지 — §5 관례).
  */
-const reseedUnmeasuredAbilities = (rows, levelGroup) =>
-  rows.map((r) =>
-    r.num_responses === 0
-      ? { ...r, theta: LEVEL_GROUP_ITEM_B[levelGroup] ?? DEFAULT_ITEM_B }
-      : r,
-  );
+// 🔴 **θ 행이 사는 개념 축 — 위 `CONCEPT_TAGS`(6종)와 다르다.**
+//   서버 `weatherbrain_service.CONCEPT_TAGS`는 **14종**(기상 6 + 기초과학 6 + 재난 2)
+//   이고 `seed_placement`·`reseed_unmeasured_priors`가 **그 전건**에 upsert한다.
+//   위 `CONCEPT_TAGS`(6종)는 실은 서버 **`PLACEMENT_QUIZ_TAGS`**(진단 도메인)와 같고
+//   **이름만 같다** — 그 자리 주석도 「진단 도메인은 기상 6종」이라 적는다.
+//   ⚠️ 이름이 같아 **같은 것으로 읽히는 함정**이라 축을 갈라 둔다. 재파종이 6종만
+//   훑으면 서버는 14행을 만드는데 목은 6행이라 **천장이 갈린다**(θ 0건 계정에서).
+const ABILITY_CONCEPT_TAGS = [
+  'air_mass', 'anomaly', 'co2_climate', 'heat_island', 'pressure_front', 'typhoon',
+  'temperature_heat', 'radiation_budget', 'pressure_basics', 'phase_change',
+  'density_buoyancy', 'energy_transfer', 'wildfire_weather', 'flood_response',
+];
+
+// 🔴 **없는 행은 만든다**(2026-08-21 수리). 종전에는 `rows.map`이라 **있는 행만**
+//   훑었고, 서버 `_upsert_abilities`는 독스트링이 *「없는 행은 그대로 생성된다」*고
+//   적는다. 귀결이 화면에 닿았다: **θ 0건 계정이 재신고하면 서버는 행이 생겨 천장이
+//   유한해지고 다시 잠기는데, 목은 행이 없어 천장 미상 → 전건 열림**이었다.
+//   ⚠️ 그때 계약이 초록이던 이유는 **표본이 전부 기존 행이라 이 갈래를 안 밟아서**다
+//   — 그래서 아래 `RESEED_SAMPLES`에 **행이 빠진 표본**을 함께 넣는다.
+const reseedUnmeasuredAbilities = (rows, levelGroup) => {
+  const prior = LEVEL_GROUP_ITEM_B[levelGroup] ?? DEFAULT_ITEM_B;
+  const byTag = new Map(rows.map((r) => [r.concept_tag, r]));
+  // 있던 행: 미측정만 갈아탄다(측정된 행은 한 필드도 안 건드린다).
+  const out = rows.map((r) => (r.num_responses === 0 ? { ...r, theta: prior } : r));
+  // 없던 행: 사전값으로 **생성**한다 — 서버 upsert의 INSERT 갈래.
+  for (const tag of ABILITY_CONCEPT_TAGS) {
+    if (!byTag.has(tag)) out.push({ concept_tag: tag, theta: prior, num_responses: 0 });
+  }
+  return out;
+};
 
 /** 위 규칙을 목의 실제 저장소에 적용한다 — 규칙의 소유자는 위 순수 함수 하나다. */
 function applyReseedUnmeasured(levelGroup) {
@@ -633,6 +657,15 @@ const RESEED_SAMPLES = [
   ] },
   { to: 'expert', rows: [
     { concept_tag: 'air_mass', theta: -1.2, num_responses: 1 },  // n=1도 측정이다
+    { concept_tag: 'typhoon', theta: -1.0, num_responses: 0 },
+  ] },
+  // 🔴 **행이 빠진 표본**(2026-08-21 신설). 이 갈래를 안 밟으면 「없는 행을 만드는가」가
+  //   계약에 안 걸린다 — 실제로 그래서 목과 서버가 갈린 채 **초록**이었다.
+  //   θ 0건 계정(행 자체가 없다)이 재신고하는 자리이고, **심사위원의 첫 진입**이 그것이다.
+  { to: 'middle_high', rows: [] },
+  // 일부만 있는 갈래 — 「있는 것은 갈아타고 없는 것은 생긴다」가 한 표본에서 함께 걸린다.
+  { to: 'expert', rows: [
+    { concept_tag: 'air_mass', theta: 2.4, num_responses: 3 },
     { concept_tag: 'typhoon', theta: -1.0, num_responses: 0 },
   ] },
   { to: 'adult', rows: [
