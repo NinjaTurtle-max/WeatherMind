@@ -4021,6 +4021,31 @@ JS      JSON.parse(...)                     → 3   · Number.isInteger  true  �
    적힌 것은 아무도 다시 열지 않는다.**
 
 
+## §4.35 🔴 **`/code-review` 게이트가 「누가 어떻게 실행하는가」를 안 적어 뒀다**
+
+수신자: **PM · 계약을 쓰는 사람 전원** · 2026-08-21
+
+`CLAUDE.md:351`이 「`/code-review` 게이트는 **위임 불가** — 메인(PM)이 브랜치 단위로
+직접 실행」이라고 적어 두었는데, 실측(2026-08-21)하면:
+
+- **저장소가 소유한 실행체는 없다.** `~/.claude/commands/`·프로젝트
+  `.claude/commands/`는 **디렉터리 자체가 부재**하고, `git grep -il "code-review"`는
+  CLAUDE.md·docs 4종·테스트 3종만 낸다(명령 정의 0건).
+  `~/.claude/plugins/marketplaces/claude-plugins-official/plugins/code-review/commands/code-review.md`가
+  있으나 **마켓플레이스 캐시**이고 `~/.claude/plugins/config.json`에 설치 항목은 0건이다.
+- **실행 수단은 하네스 내장 `/code-review` 뿐이고, 그것은 사람이 프롬프트에 직접 쳐야
+  도는 것이다** — 세션은 스스로 못 띄운다(메인 실측: `ListAgents`에 `code-review` 없음 ·
+  시스템 지침이 "user-triggered … cannot launch it yourself"로 명시).
+
+⇒ 계약은 「PM이 직접 실행」이라고만 적었고, **그 PM이 세션일 때 실행 수단이 없다**는
+것은 어디에도 안 적혀 있다. 그래서 2026-08-20 하루 동안 브랜치 15개가 게이트를
+**한 번도 안 타고** 병합 대기로 쌓였다.
+
+⚠️ 오늘 열세 자리에서 고친 것과 같은 형태의 문서판이다 — **계약이 있는데 그것을 지키는
+실행 경로가 안 적혀 있다.** 대회 후 문장을 참으로 고쳐라: 실행 주체가 **사람인지
+세션인지**를 밝히고, 세션이 돌 수 있어야 한다면 **저장소 소유 실행체**를 만들 것.
+
+
 ## §5.1 8/13 이후 닫힌 것 — 5건 (전부 실측·커밋 대조)
 
 | 무엇 | 커밋 | 실측 근거 |
