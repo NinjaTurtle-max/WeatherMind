@@ -5,7 +5,7 @@ board_difficulty·order_puzzles_for_theta는 DB 의존이 없는 순수 함수�
 test_grader_registry 관례). 난이도 분포는 실 시드(content_items.json)의 board
 **전건**을 직접 로드해 1~3이 모두 나옴을 고정한다 (test_seed_contract 관례).
 ⚠️ 이 자리에 「board **12건**」이 적혀 있었고 R12 시절 값이라 **거짓이었다**
-(2026-08-20 시점 실측 61건). 아래 단정들이 이미 개수를 갖고 있으므로 머리말은
+(2026-08-20 시점 실측 62건). 아래 단정들이 이미 개수를 갖고 있으므로 머리말은
 개수를 갖지 않는다 — 두 곳에 적으면 한쪽만 갱신된다(CLAUDE.md §0-2).
 
 실행: backend 디렉토리에서 `python -m pytest tests/test_board_difficulty.py -q`.
@@ -85,7 +85,7 @@ class TestBoardDifficultySeedDistribution:
         # R12 §9 13건 → R13 2일차 통합에서 +21(2일차 저작 7 + 규칙 확장 10 + 재난 4)
         # staging 승격(2026-08-14): 46 → **49**(CO-I-2/X-1 잔여 3건, 난이도 2)
         # 경계층·대기역학·대기물리 6판(2026-08-20): 55 → **61**(전건 난이도 3)
-        assert len(boards) == 61
+        assert len(boards) == 62
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
@@ -129,8 +129,8 @@ class TestBoardDifficultySeedDistribution:
         # goal_only(2) + palette 4종(+1) + expert 사전 b(+1) → 클램프 3이다. 1·2는
         # 안 변한다. **가중을 건드리지 않았다는 것이 이 갱신의 내용**이고, 그래서
         # 늘어난 자리가 3 한 칸뿐인 것 자체가 파생 경로가 그대로임을 증언한다.
-        assert dist == {1: 23, 2: 16, 3: 22}, f"난이도 분포가 바뀌었다: {dict(sorted(dist.items()))}"
-        assert len(boards) == 61
+        assert dist == {1: 23, 2: 16, 3: 23}, f"난이도 분포가 바뀌었다: {dict(sorted(dist.items()))}"
+        assert len(boards) == 62
 
     def test_전문가_단계_보드는_상위_밴드에만_열린다(self):
         """🔴 **개수가 아니라 요구로 쓴 계약이다**(2026-08-20 리드 지시 §7).

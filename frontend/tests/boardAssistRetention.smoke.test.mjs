@@ -612,7 +612,13 @@ try {
           elements.push({ type: presence[1], subtype: presence[2], zone: goal.zone });
           continue;
         }
-        const numeric = /^(moisture|sun|wind)(>=|<=)(\d+(?:\.\d+)?)$/.exec(cond);
+        // 🔴 이 정규식은 **손으로 베낀 세 번째 사본**이다 — 소유자는
+        //    `backend/app/services/board_engine.py`의 `_NUMERIC_RE`이고 프론트 미러가
+        //    `src/lib/boardEngine.js`다. 2026-08-20에 배치 요소 `aerosol`이 들어올 때
+        //    엔진 두 벌은 함께 고쳐졌는데 **여기만 남아** 새 규칙이
+        //    「알 수 없는 조건 문법」으로 떨어졌다. 즉 이 줄이 「두 벌이 갈린다」의
+        //    세 번째 자리다. ⚠️ 새 조절값을 들일 때 **여기까지 세 곳**을 고쳐야 한다.
+        const numeric = /^(moisture|sun|wind|aerosol)(>=|<=)(\d+(?:\.\d+)?)$/.exec(cond);
         assert(numeric, `${shown.id}: 알 수 없는 조건 문법 ${cond}`);
         const v = Number(numeric[3]);
         elements.push({

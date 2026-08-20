@@ -201,7 +201,7 @@ class TestSeedBoardRoundTrip:
         # **말미에 붙였다** — 전건 난이도 3(expert · goal_only · palette 4종)이라
         # 난이도 3 블록 끝에 append하는 것이 위 단조 증가 계약을 지키는 유일한 자리다
         # (난이도 2를 넣었던 staging 승격분이 자리를 옮겨야 했던 것과 대칭이다).
-        assert len(self.boards) == 61
+        assert len(self.boards) == 62
 
     def test_전건_렌더_필수_필드_온전(self):
         for i, item in enumerate(self.boards):

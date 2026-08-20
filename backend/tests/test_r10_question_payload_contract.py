@@ -227,7 +227,7 @@ class TestSeedTypeCoverage:
         # 높은 2조건 규칙이 먼저 이겨 「가르치려는 요소를 빼도 목표를 채운다」가 된다.
         # 보드가 안 쓰던 개념 태그 4종(phase_change·temperature_heat·energy_transfer·
         # radiation_budget)을 활용해 대기물리·경계층 축을 태그 수준에서도 열었다.
-        assert len(_seed_items()) == 1027
+        assert len(_seed_items()) == 1028
 
 
 class TestEverySeedItemIsPlayable:

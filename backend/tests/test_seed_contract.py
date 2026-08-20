@@ -140,7 +140,7 @@ class TestSeedSchema:
         # (severe_storm·typhoon·tropical_night)만 목표로 쓴다. 개념 태그는 보드가
         # 안 쓰던 4종(phase_change·temperature_heat·energy_transfer·radiation_budget)을
         # **활용**했다(ALLOWED_CONCEPT_TAGS 안이라 개방이 아니다).
-        assert len(SEED_ITEMS) == 1027
+        assert len(SEED_ITEMS) == 1028
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
