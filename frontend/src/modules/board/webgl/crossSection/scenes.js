@@ -213,14 +213,27 @@ export function groundLayer({ night = false, sea = null }) {
     //     되어 `ground` 예산을 하나 더 쓴다. `MAX_GROUND = 8`이고 그런 장면은
     //     `siberian_snow`(0.06~0.56)·`yangtze_morning_fog`(0.26~0.44) 둘뿐이며
     //     둘 다 여유 안이다(계약 7-i가 전 장면을 훑는다).
+    // 🔴 **흙도 함께 자른다 — 윗면만 잘랐더니 흙이 바다를 덮었다**(같은 날 재실측).
+    //   지면 윗면만 갈라 냈더니 이번엔 **심층토**(`#d6c9a8` · x 0~1 · nearness
+    //   0.4168)가 바다(0.2113)보다 나중에 그려져 그 자리를 덮었다. 정렬 키에서
+    //   x가 지배적이라(0.5487x) **x 0~1을 덮는 판은 서쪽 끝 판을 언제나 앞지른다**
+    //   — 순서로는 못 이긴다. 자를 것을 덜 잘랐던 것이다.
+    //   ⇒ 바다 구간에서는 **흙도 비우고 바다가 그 깊이를 통째로 갖는다**
+    //     (y -0.07~0.002). 단면에서 바다가 **물기둥**으로 보이는 것이 관례이기도
+    //     하다 — 얇은 띠보다 이쪽이 옳다.
     const from = sea.from ?? 0;
     const to = sea.to;
-    if (from > 0) items.push(vol({ x0: 0, x1: from, y0: -0.02, y1: 0.0, color: veg, pattern: 4, layer: 'ground' }));
-    if (to < 1) items.push(vol({ x0: to, x1: 1, y0: -0.02, y1: 0.0, color: veg, pattern: 4, layer: 'ground' }));
+    const band = (x0, x1) => {
+      items.push(vol({ x0, x1, y0: -0.02, y1: 0.0, color: veg, pattern: 4, layer: 'ground' }));
+      items.push(vol({ x0, x1, y0: -0.07, y1: -0.02, color: rgba('#d6c9a8', 1), pattern: 2, layer: 'ground' }));
+    };
+    if (from > 0) band(0, from);
+    if (to < 1) band(to, 1);
     items.push(vol({
-      x0: from, x1: to, y0: -0.014, y1: 0.002,
+      x0: from, x1: to, y0: -0.07, y1: 0.002,
       color: rgba('#7dd3fc', 0.97), pattern: 3, layer: 'ground',
     }));
+    return items;
   }
   items.push(vol({ x0: 0, x1: 1, y0: -0.07, y1: -0.02, color: rgba('#d6c9a8', 1), pattern: 2, layer: 'ground' }));
   return items;
