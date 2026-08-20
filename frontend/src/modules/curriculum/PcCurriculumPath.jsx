@@ -124,15 +124,15 @@ export const PATH_DOT_PX = 64;
  * 전부 남는다(2026-08-19 확대 확인). 보드 칩을 24 → 16px로 줄일 때 "이보다 작게
  * 하면 🧩가 안 읽힌다"고 적은 것과 같은 절충이다(2026-08-13 선례).
  *
- * ## ⚠️ 소유자가 CSS에서 여기로 옮겨졌다 — index.css의 0.55는 **죽은 값**이다
+ * ## ⚠️ 소유자가 CSS에서 여기로 옮겨졌다 — **이제 소유자는 이 상수 하나뿐이다**
  *
  * 종전 소유자는 `src/styles/index.css`의 `.wm-dot { font-size: calc(var(--dot) * 0.55) }`
- * 였다. ⑪-b는 그 파일을 배타 소유하지 않으므로 **JSX 인라인 style이 그 선언을
- * 덮는다**(인라인 > 클래스). 남은 0.55 줄은 이제 화면에 닿지 않는다 —
- * **지우는 것은 index.css 소유자 몫**이고, 그때까지 두 값이 병존한다.
- * 이 저장소가 「소유자가 둘이 되면 조용히 갈린다」고 여러 번 적어 둔 그 상태이므로,
- * `learnPath` 스모크 ⑪-b가 **인라인이 실제로 붙어 있는지를 런타임에서** 문다.
- * 인라인이 지워지면 화면이 말없이 0.55로 되돌아가기 때문이다.
+ * 였다. ⑪-b는 그 파일을 배타 소유하지 않았으므로 **JSX 인라인 style이 그 선언을
+ * 덮는** 형태로 착지했고, 0.55 줄은 화면에 닿지 않는 **죽은 값**으로 남았다.
+ * 그 줄은 **2026-08-20(FU-16)에 걷혔다** — 그 자리에는 되돌리지 말라는 주석만 남는다.
+ * 그래서 인라인이 지워졌을 때의 결과도 바뀌었다: 화면이 0.55로 되돌아가는 것이
+ * 아니라 **상속 폰트 크기**(≈14px)로 쪼그라든다. 어느 쪽이든 결함이므로
+ * `learnPath` 스모크 ⑪-b가 **인라인이 실제로 붙어 있는지를 런타임에서** 계속 문다.
  *
  * ⚠️ 반응형 분기는 **없다.** `--dot`이 상수 64px 하나이므로 이 비율 하나가 전 폭에
  * 걸린다(320~1920px 실측 확인). 지름을 다시 뷰포트에서 역산하기 시작하면
@@ -760,10 +760,11 @@ function Stage({ section, index, panelId, introOpen, onToggleIntro, energyBlocke
                 className={`wm-dot relative grid place-items-center rounded-full border-0 p-0 transition focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-sky-700 ${
                   blocked ? 'cursor-not-allowed' : 'hover:translate-y-[3px] active:scale-95'
                 } ${!locked && energyBlocked ? 'opacity-60' : ''}`}
-                // ⚠️ **아이콘 크기는 여기가 소유한다** — `index.css`의 `.wm-dot`에
-                // 남은 `font-size: calc(var(--dot) * 0.55)`를 인라인으로 덮는다.
-                // 경위·근거·죽은 값 처리는 `PATH_ICON_RATIO` 주석이 소유한다.
-                // 지우면 화면이 말없이 0.55로 되돌아간다 — 스모크 ⑪-b가 문다.
+                // ⚠️ **아이콘 크기는 여기가 소유한다 — 이제 유일한 소유자다.**
+                // `index.css`의 `.wm-dot`에 있던 `font-size: calc(var(--dot) * 0.55)`
+                // 는 FU-16(2026-08-20)에 걷혔다. 경위·근거는 `PATH_ICON_RATIO`
+                // 주석이 소유한다. 지우면 아이콘이 상속 크기로 쪼그라든다 —
+                // 스모크 ⑪-b가 런타임에서 문다.
                 style={{ ...badgeStyle(status), fontSize: `calc(var(--dot) * ${PATH_ICON_RATIO})` }}
               >
                 {unitIcon(unit, status)}
