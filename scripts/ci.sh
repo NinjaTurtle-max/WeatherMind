@@ -59,6 +59,10 @@ PYTHON="${PYTHON:-python3}"
 RESULTS=()
 FAILED=0
 
+# 종목 종료의 **갈래 판정**(단정 실패 / 안 돌았다 / 죽었다) — 사유는 그 파일 머리글.
+# shellcheck source=lib/test_outcome.sh
+. "$ROOT/scripts/lib/test_outcome.sh"
+
 record() { # record <단계> <OK|SKIP|FAIL> <비고>
   RESULTS+=("$1|$2|$3")
   [ "$2" = "FAIL" ] && FAILED=1
@@ -230,15 +234,32 @@ step_frontend() {
     record "frontend" "FAIL" "vite build 실패 (위 출력 참조)"
     return 0
   fi
+  # 🔴 **갈래를 갈라 적는다**(2026-08-20 FU-18). 종전엔 이름만 모아
+  #   「테스트 실패: home guest-convert」였고, 그래서 「단정이 틀렸다」와
+  #   **「파일이 아예 안 돌았다」**가 한 문장으로 뭉개졌다. 판별은
+  #   `scripts/lib/test_outcome.sh`가 소유한다(사유·근거는 그 파일 머리글).
+  # ⚠️ `NO_COLOR=1` — ANSI 색상코드가 줄 앞에 끼면 판정 줄을 못 읽는다.
+  # ⚠️ 출력은 그대로 콘솔에 흘리면서(`tee`) 사본을 남긴다. 사람이 보는 것과
+  #    도구가 세는 것이 **같은 출력**이어야 한다.
   local bad=()
+  local nostart=0
+  local logdir
+  logdir="$(mktemp -d)"
   for t in "${FRONT_TESTS[@]}"; do
     echo "· npm run test:$t"
-    if ! (cd "$ROOT/frontend" && npm run "test:$t"); then
-      bad+=("$t")
-    fi
+    # ⚠️ `env -C`를 쓰지 않는다 — 오래된 coreutils에 없다. 서브셸 `cd`가 이식성 있다.
+    if run_suite_outcome "$t" "$logdir" \
+        bash -c 'cd "$1" && npm run "test:$2"' _ "$ROOT/frontend" "$t"; then continue; fi
+    [ "$OUTCOME_KIND" = "nostart" ] && nostart=1
+    bad+=("$OUTCOME_LINE")
   done
+  rm -rf "$logdir"
   if [ "${#bad[@]}" -ne 0 ]; then
-    record "frontend" "FAIL" "build OK · 테스트 실패: ${bad[*]} (위 출력 참조)"
+    local head="테스트 실패"
+    # 「안 돌았다」가 하나라도 있으면 **그것을 머리로** 올린다 — 단정 실패에 섞여
+    # 눈에 안 들어오면 이 갈래를 만든 뜻이 없다.
+    [ "$nostart" -eq 1 ] && head="🔴 안 돌은 종목 있음"
+    record "frontend" "FAIL" "build OK · $head: ${bad[*]}"
   else
     record "frontend" "OK" "vite build + 스모크 ${#FRONT_TESTS[@]}종 통과 (${FRONT_TESTS[*]})"
   fi
