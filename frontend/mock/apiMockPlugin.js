@@ -471,20 +471,40 @@ function reviewQueuePayload(nowMs = Date.now()) {
 // takenNicknames는 서버 **닉네임 유일성 검사**의 대응물이다 —
 // ⚠️ **DB 유니크 제약이 아니다.** `users.nickname`에는 제약이 없고(기존 게스트가
 // 자동 닉네임 `게스트-xxxxxx`를 공유해 인덱스가 만들어지지 않는다) 유일성은
-// `guest_login`이 **신고 경로에서만** SELECT로 확인한다(대장 §4.16).
+// 라우터가 **SELECT로** 확인한다(대장 §4.16).
 // registeredEmails와 **같은 관례**로, 이미 쓰이고 있는 이름 1건을 시드해 409 경로를
 // 목 위에서 재현한다. 시드값은 새로 지어낸 이름이 아니라 **목이 이미 「쓰이고 있다」고
 // 선언한 이름**이다: `meResponse`의 정식 계정 닉네임 '날씨러버'.
 // ⚠️ 리그 리더보드의 닉네임 10종은 **시드하지 않는다.** 그 배열의 '구름사냥꾼'은
 // i18n 예시 문구(`entryInfo.nicknamePlaceholder`)이자 entryFlow ⑧-a가 실제로 적어
 // 넣는 이름이라, 시드하면 「적은 이름이 바디에 실린다」 계약이 409로 무너진다.
-// nickname은 현재 게스트가 신고한 이름(없으면 null → 서버 자동 닉네임 자리).
+//
+// 🔴 **집합(Set)이 아니라 「이름 → 소유자」 지도(Map)다**(2026-08-21). 종전에는
+//   이름만 담았고, 그래서 **자기 제외를 흉내 낼 수가 없었다** — 서버의 갱신 경로
+//   둘(`PATCH /auth/me` · `POST /auth/guest/convert`)은 `User.id != db_user.id`를
+//   함께 걸어 「자기 이름을 그대로 다시 저장」을 통과시킨다(`_ensure_nickname_available`).
+//   소유자를 모르는 집합으로는 그 갈래가 원리적으로 재현되지 않는다.
+//   ⚠️ **이름은 그대로 `takenNicknames`다** — `test_auth_resume`의
+//   `"takenNicknames" not in handler`(불러오기가 이 지도를 안 본다)가 이 식별자로
+//   물고 있어서, 개명하면 그 단정이 **조용히 공허해진다**.
+// nickname은 현재 계정이 신고한 이름(없으면 null → 서버 자동 닉네임 자리).
+//
+// 🔴 **서버는 발급마다 새 유저 「행」을 만든다** — 목은 단일 유저 세계라 「지금
+//   요청을 보낸 행이 누구인가」를 `actorId` 하나로 흉내 낸다. 자기 제외가 이 id로
+//   걸린다. 생성 경로(register·guest_login)는 새 id로 갈아타므로 **앞선 발급이
+//   차지한 이름은 「남의 이름」이 된다**(서버에서 옛 행이 그 이름을 그대로 들고
+//   남아 있는 것과 같다).
+const MOCK_USER_ID = '2b1c8b1e-0000-4000-8000-000000000001';
 const mockAuth = {
   isGuest: false,
   levelGroup: 'middle_high', // 서버 GUEST_LEVEL_GROUP과 같은 무정보 기본값
   nickname: null,
+  actorId: MOCK_USER_ID,
+  rowsCreated: 0, // 새 행 id 발급용 — 생성 경로마다 1
   registeredEmails: new Set(['taken@weathermind.dev']),
-  takenNicknames: new Set(['날씨러버']),
+  // '날씨러버'의 소유자는 **지금 이 계정**이다(`meResponse`의 정식 계정 닉네임이
+  // 그 이름이라, 남의 것으로 두면 「자기 이름을 그대로 다시 저장」이 409가 된다).
+  takenNicknames: new Map([['날씨러버', MOCK_USER_ID]]),
   /**
    * 🔴 **저장을 마친 계정의 자격** — `POST /auth/resume`의 목 대응물
    * (2026-08-19 오후 · 클라이언트 결정 「불러오기는 로그인 인증으로」).
@@ -512,7 +532,193 @@ const LEVEL_GROUPS = ['elementary', 'middle_high', 'adult'];
 // 이 도메인이라, 목 응답도 같은 규약을 따라야 "게스트인데 게스트가 아니라고 읽힘"이
 // 생기지 않는다(RFC 2606 예약 TLD).
 const GUEST_EMAIL_DOMAIN = 'guest.weathermind.invalid';
-const MOCK_USER_ID = '2b1c8b1e-0000-4000-8000-000000000001';
+// ⚠️ `MOCK_USER_ID`의 선언은 **위 `mockAuth` 앞**으로 옮겼다(2026-08-21) —
+//    `takenNicknames` 시드가 그 값을 읽는데 const는 호이스팅되지 않아(TDZ) 여기
+//    두면 모듈 초기화에서 죽는다. `LEVEL_GROUP_ITEM_B`가 같은 이유로 먼저 옮겨졌다.
+
+// ── 닉네임 유일성 — 서버 writer **넷**이 지나는 문 하나 (2026-08-21) ──────────
+//
+// 🔴 **종전 목은 `guest_login` 하나에서만 흉내 냈다.** 서버는 `5cf90bd`
+//   (`fix/nickname-uniqueness-writers`)에서 검사 소유자를 `_ensure_nickname_available`
+//   하나로 모으고 **writer 넷 전건**(register · guest_login · convert_guest ·
+//   update_me)이 그 문을 지나게 했다. 목이 하나만 막으면 dev 화면에서 중복이
+//   통과하고, **프런트 스모크가 목 위에서 도므로 「중복이 통과하는 상태」가 계약으로
+//   굳는다** — 이 저장소가 반복해 밟은 형태다.
+//
+// 서버에서 읽어 온 규칙 넷(각각 아래 표·함수가 소유한다):
+//   ① 검사는 writer 넷 전건이 지나는 **함수 하나**다
+//   ② **자기 제외는 갱신 둘만** — 생성 둘은 자기 행이 아직 없어 제외할 대상이 없다
+//   ③ **다듬기(trim)는 라우터가 아니라 스키마**가 한다(검사값 = 저장값. 갈리면
+//      `'홍길동 '`이 검사를 통과해 `'홍길동'`으로 저장되는 눈에 안 보이는 중복이 된다)
+//   ④ 검사는 **생성·갱신보다 앞**이다(409에 고아 유저가 안 남는다)
+
+/** 서버 `schemas/auth.normalize_nickname`의 사본 — **목의 다듬기 소유자 하나**.
+ *  문자열이 아니면 그대로 흘려보내 형태 검증(422)에 맡긴다(서버와 같은 방향). */
+const normalizeNickname = (value) => (typeof value === 'string' ? value.trim() : value);
+
+/** 서버 writer 넷의 성질 표 — `__mockPolicy().nickname_writers`로 노출한다.
+ *
+ *  · creates      새 유저 행을 만드는 경로인가(register·guest_login)
+ *  · excludesSelf 자기 행을 검사에서 빼는가 — **갱신 둘만 참**
+ *  · required     닉네임이 필수 필드인가(`RegisterRequest.nickname`만 필수)
+ *  · blankIsAbsent 다듬어서 빈 문자열이면 「안 보냄」으로 접는가
+ *                 (`UpdateMeRequest._trim_nickname_update`만 그렇다. 형제 셋은
+ *                  `min_length=1`이 걸린 생성/전환이라 422로 떨군다) */
+const NICKNAME_WRITERS = {
+  register: { creates: true, excludesSelf: false, required: true, blankIsAbsent: false },
+  guest_login: { creates: true, excludesSelf: false, required: false, blankIsAbsent: false },
+  convert_guest: { creates: false, excludesSelf: true, required: false, blankIsAbsent: false },
+  update_me: { creates: false, excludesSelf: true, required: false, blankIsAbsent: true },
+};
+
+const NICKNAME_MAX = 50; // 서버 `users.nickname` String(50) · 스키마 max_length
+
+/**
+ * 닉네임 writer **한 걸음** — 서버 `_ensure_nickname_available` + 스키마 정규화의 사본.
+ *
+ * ⚠️ **순수 함수로 둔다** — 목 상태를 읽지 않고 세계를 인자로 받는다. 그래야
+ * `__mockPolicy().nickname_samples`로 **규칙째** 내보내 서버가 직접 재게 할 수 있다
+ * (표만 맞고 규칙이 갈렸던 자리들의 재발 방지 — `reseed_samples`와 같은 관례).
+ *
+ * @param path    'register' | 'guest_login' | 'convert_guest' | 'update_me'
+ * @param owners  [[닉네임, 소유자 id], …] — 서버 `users` 행의 흉내
+ * @param actorId 지금 요청을 보낸 행의 id — **자기 제외의 대상**
+ * @param newId   생성 경로가 만들 새 행의 id
+ * @param raw     바디에 실려 온 값. `undefined`·`null`이면 「안 보냄」
+ * @returns {{status, code, detail, nickname, owners, actorId, created}}
+ *   `status !== 200`이면 `owners`는 **한 칸도 안 바뀐 그대로**이고 `created`는 거짓이다
+ *   (④ — 거절에 행이 안 남는다).
+ */
+function nicknameWrite({ path, owners, actorId, newId, raw }) {
+  const w = NICKNAME_WRITERS[path];
+  const keep = { owners: owners.map((pair) => [...pair]), actorId, created: false };
+  const reject = (status, code, detail) => ({
+    ...keep, status, code, detail, nickname: null,
+  });
+  if (!w) return reject(500, 'UNKNOWN_WRITER', `알 수 없는 writer: ${path}`);
+
+  // ③ 다듬기가 **먼저**다 — 그 뒤에 길이 제약이 걸려야 공백뿐인 이름이 422로
+  //    떨어지고, 50자 이름 뒤의 공백 하나가 상한 초과로 거절되지 않는다
+  //    (서버 `mode="before"`의 이유).
+  const value = normalizeNickname(raw);
+  const absent =
+    raw === undefined || raw === null || (w.blankIsAbsent && value === '');
+  if (absent) {
+    if (w.required) {
+      return reject(422, 'VALIDATION_ERROR', '닉네임은 1~50자로 적어 주세요.');
+    }
+    // 「안 적음」 — 생성 경로는 서버가 자동 닉네임을 붙이고(그 이름은 검사를 안
+    // 지나간다) 갱신 경로는 기존 이름을 그대로 둔다.
+    return { ...keep, status: 200, code: null, detail: null, nickname: null,
+      created: w.creates, actorId: w.creates ? newId : actorId };
+  }
+  if (typeof value !== 'string' || value.length < 1 || value.length > NICKNAME_MAX) {
+    return reject(422, 'VALIDATION_ERROR', '닉네임은 1~50자로 적어 주세요.');
+  }
+
+  // ①② 유일성 — 소유자를 보고, **갱신 둘만** 자기 행을 뺀다.
+  const owner = keep.owners.find(([name]) => name === value)?.[1];
+  const taken = owner !== undefined && !(w.excludesSelf && owner === actorId);
+  if (taken) return reject(409, 'NICKNAME_TAKEN', '이미 사용 중인 닉네임입니다.');
+
+  // 통과 — 여기서야 세계가 바뀐다(④: 위 거절들은 세계를 안 건드리고 돌아갔다).
+  const nextActor = w.creates ? newId : actorId;
+  const next = w.creates
+    ? keep.owners // 생성: 앞선 행들은 자기 이름을 그대로 들고 남는다
+    : keep.owners.filter(([, o]) => o !== actorId); // 갱신: 같은 행의 옛 이름은 풀린다
+  return {
+    status: 200, code: null, detail: null, nickname: value,
+    owners: [...next, [value, nextActor]], actorId: nextActor, created: w.creates,
+  };
+}
+
+/** 위 규칙을 목의 실제 상태에 적용한다 — 규칙의 소유자는 위 순수 함수 하나다.
+ *  🔴 `status !== 200`이면 **목 상태를 한 줄도 안 건드리고** 돌아간다(④). */
+function applyNicknameWrite(path, raw) {
+  const v = nicknameWrite({
+    path,
+    owners: [...mockAuth.takenNicknames],
+    actorId: mockAuth.actorId,
+    newId: `${MOCK_USER_ID}-r${mockAuth.rowsCreated + 1}`,
+    raw,
+  });
+  if (v.status !== 200) return v;
+  mockAuth.takenNicknames = new Map(v.owners);
+  mockAuth.actorId = v.actorId;
+  if (v.created) mockAuth.rowsCreated += 1;
+  return v;
+}
+
+/**
+ * `__mockPolicy().nickname_samples`의 입력 — **갈리면 답이 실제로 달라지는** 표본이라야
+ * 한다. 🔴 오늘 「고쳤는데 표본이 그 갈래를 안 밟아서 계약이 초록」이 세 번 나왔다.
+ * 그래서 밟는 갈래를 표본마다 `walks`에 적어 둔다(계약이 그 이름으로 운다):
+ *   · 경로 **넷 각각** — 하나만 고치고 나머지가 조용한 것을 막는다
+ *   · **자기 제외 있는 곳/없는 곳** — 같은 이름 재저장이 갱신 둘은 200, 생성 둘은 409
+ *   · **trim** — 앞뒤 공백만 다른 이름이 같은 이름으로 취급되는가 · **저장값도** 다듬겼는가
+ *   · **거절에 행이 안 남는가** — `owners`가 그대로이고 `created`가 거짓인가
+ */
+const NICKNAME_SAMPLES = [
+  // ── 경로 넷 각각: 남의 이름은 전건 409 ─────────────────────────────────────
+  { walks: 'register:남의_이름', path: 'register', actor: 'me', raw: '남의이름',
+    owners: [['남의이름', 'other']] },
+  { walks: 'guest_login:남의_이름', path: 'guest_login', actor: 'me', raw: '남의이름',
+    owners: [['남의이름', 'other']] },
+  { walks: 'convert_guest:남의_이름', path: 'convert_guest', actor: 'me', raw: '남의이름',
+    owners: [['남의이름', 'other']] },
+  { walks: 'update_me:남의_이름', path: 'update_me', actor: 'me', raw: '남의이름',
+    owners: [['남의이름', 'other']] },
+  // ── 자기 이름 재저장: 갱신 둘은 통과 · 생성 둘은 409 ───────────────────────
+  { walks: 'register:자기_이름', path: 'register', actor: 'me', raw: '내이름',
+    owners: [['내이름', 'me']] },
+  { walks: 'guest_login:자기_이름', path: 'guest_login', actor: 'me', raw: '내이름',
+    owners: [['내이름', 'me']] },
+  { walks: 'convert_guest:자기_이름', path: 'convert_guest', actor: 'me', raw: '내이름',
+    owners: [['내이름', 'me']] },
+  { walks: 'update_me:자기_이름', path: 'update_me', actor: 'me', raw: '내이름',
+    owners: [['내이름', 'me']] },
+  // ── trim: 공백만 다른 이름은 같은 이름이다(경로 넷 전건) ────────────────────
+  { walks: 'register:공백만_다른_남의_이름', path: 'register', actor: 'me', raw: ' 남의이름 ',
+    owners: [['남의이름', 'other']] },
+  { walks: 'guest_login:공백만_다른_남의_이름', path: 'guest_login', actor: 'me', raw: ' 남의이름 ',
+    owners: [['남의이름', 'other']] },
+  { walks: 'convert_guest:공백만_다른_남의_이름', path: 'convert_guest', actor: 'me', raw: ' 남의이름 ',
+    owners: [['남의이름', 'other']] },
+  { walks: 'update_me:공백만_다른_남의_이름', path: 'update_me', actor: 'me', raw: ' 남의이름 ',
+    owners: [['남의이름', 'other']] },
+  // 🔴 **저장값도 다듬긴다** — 판정만 보면 「검사만 다듬고 저장은 안 다듬는」 갈래가
+  //    조용하다. 그것이 정확히 눈에 안 보이는 중복이 생기는 방식이다.
+  { walks: 'guest_login:다듬은_값이_저장된다', path: 'guest_login', actor: 'me', raw: '  새이름  ',
+    owners: [] },
+  { walks: 'update_me:다듬은_값이_저장된다', path: 'update_me', actor: 'me', raw: '  새이름  ',
+    owners: [['내이름', 'me']] },
+  // 상한은 **다듬은 뒤에** 잰다 — 50자 + 공백 하나는 통과한다.
+  { walks: 'guest_login:상한은_다듬은_뒤에', path: 'guest_login', actor: 'me',
+    raw: `${'가'.repeat(NICKNAME_MAX)} `, owners: [] },
+  { walks: 'guest_login:상한_초과', path: 'guest_login', actor: 'me',
+    raw: '가'.repeat(NICKNAME_MAX + 1), owners: [] },
+  // ── 「안 보냄」과 공백뿐인 이름 ─────────────────────────────────────────────
+  { walks: 'register:필수_부재', path: 'register', actor: 'me', raw: undefined, owners: [] },
+  { walks: 'guest_login:선택_부재', path: 'guest_login', actor: 'me', raw: undefined, owners: [] },
+  { walks: 'convert_guest:선택_부재', path: 'convert_guest', actor: 'me', raw: undefined,
+    owners: [['내이름', 'me']] },
+  { walks: 'update_me:선택_부재', path: 'update_me', actor: 'me', raw: undefined,
+    owners: [['내이름', 'me']] },
+  // 공백뿐인 이름: update_me만 「안 보냄」으로 접히고(200·무변경) 형제 셋은 422다.
+  { walks: 'update_me:공백뿐인_이름은_부재다', path: 'update_me', actor: 'me', raw: '   ',
+    owners: [['내이름', 'me']] },
+  { walks: 'guest_login:공백뿐인_이름은_422다', path: 'guest_login', actor: 'me', raw: '   ',
+    owners: [] },
+  { walks: 'convert_guest:공백뿐인_이름은_422다', path: 'convert_guest', actor: 'me', raw: '\t\n ',
+    owners: [] },
+  { walks: 'register:공백뿐인_이름은_422다', path: 'register', actor: 'me', raw: ' ', owners: [] },
+  // ── 대소문자는 **안 접는다**(표시 이름 정책이라 인증 계층이 혼자 정할 것이 아니다) ──
+  { walks: 'guest_login:대소문자는_안_접는다', path: 'guest_login', actor: 'me', raw: 'Cloud',
+    owners: [['cloud', 'other']] },
+  // ── 자동 부여 닉네임은 이 문을 안 지난다(겹쳐 있는 기존 행 때문에 발급이 막힌다) ──
+  { walks: 'guest_login:이름_없는_발급은_검사를_안_한다', path: 'guest_login', actor: 'me',
+    raw: null, owners: [['게스트-2b1c8b', 'other']] },
+];
 
 /** GET/PATCH /auth/me 응답 (서버 MeResponse 5필드 — R13 CO-P-4/P-5/P-10).
  *  서버가 "너는 누구인가"를 알려주는 유일한 경로다. 게스트 판별이 클라 상태에만
@@ -523,9 +729,13 @@ const meResponse = () => ({
   email: mockAuth.isGuest
     ? `guest-${MOCK_USER_ID}@${GUEST_EMAIL_DOMAIN}`
     : 'demo@weathermind.dev',
-  // 게스트가 이름을 신고했으면 그 이름으로 유저가 만들어진 것이다 — 신고가 없으면
-  // 서버가 짓는 자동 닉네임(`게스트-{uuid6}`)의 목 대응물로 되돌아간다.
-  nickname: mockAuth.isGuest ? (mockAuth.nickname ?? '게스트-2b1c8b') : '날씨러버',
+  // 이름을 신고했으면 그 이름으로 행이 만들어진(또는 갱신된) 것이다 — 신고가 없으면
+  // 게스트는 서버가 짓는 자동 닉네임(`게스트-{uuid6}`)의 목 대응물, 정식 계정은
+  // `takenNicknames` 시드와 같은 이름으로 되돌아간다.
+  // 🔴 **정식 계정도 신고분을 읽는다**(2026-08-21). 종전에는 비게스트 가지가
+  //   `'날씨러버'` 리터럴 고정이라 `PATCH /auth/me {nickname}`이 통과해도 화면이
+  //   **옛 이름을 계속 보여줬다** — 서버는 갱신된 행을 그대로 돌려준다.
+  nickname: mockAuth.nickname ?? (mockAuth.isGuest ? '게스트-2b1c8b' : '날씨러버'),
   is_guest: mockAuth.isGuest,
   level_group: mockAuth.levelGroup,
 });
@@ -2519,9 +2729,17 @@ function gradeSessionItem(item, rawAnswer) {
 }
 
 const routes = {
+  // 🔴 **닉네임 유일성은 여기도 지난다**(2026-08-21 · 서버 `5cf90bd`). 종전에는
+  //    `guest_login` 하나만 막았고, 그래서 「진입에선 막히는 이름이 가입에선 통과하는」
+  //    이음매를 목이 그대로 리허설했다. 규칙의 소유자는 `nicknameWrite` 하나다.
+  //    ⚠️ 검사는 **유저 생성보다 앞**이다 — 뒤로 밀리면 409에도 계정 상태가 남는다
+  //    (서버 `register`가 세운 순서 계약. 여기서 「생성」은 아래 세 줄이다).
   'POST /auth/register': (body) => {
+    const gate = applyNicknameWrite('register', body?.nickname);
+    if (gate.status !== 200) return [gate.status, { detail: gate.detail, code: gate.code }];
     if (body?.email) mockAuth.registeredEmails.add(body.email); // convert 중복 판정 공유
     mockAuth.isGuest = false;
+    mockAuth.nickname = gate.nickname;
     // 🔴 서버 `register`는 `RegisterRequest.level_group`(필수)을 저장하고 그 밴드로
     //    `seed_placement`를 부른다 — 목이 둘 다 안 해서 **가입 학령이 증발했다.**
     //    그 결과 보드 천장이 언제나 무정보 기본값 자리에 머물렀다(판정 A로 드러남).
@@ -2534,6 +2752,12 @@ const routes = {
   },
   'POST /auth/login': () => {
     mockAuth.isGuest = false;
+    // ⚠️ 신고분을 **비운다** — 로그인은 다른 행으로 갈아타는 것이라, 앞선 게스트가
+    // 적어 둔 이름이 남으면 `GET /auth/me`가 남의 이름을 답한다.
+    mockAuth.nickname = null;
+    // 그 「다른 행」은 시드된 정식 계정이다 — `takenNicknames`가 '날씨러버'의 소유자로
+    // 적어 둔 바로 그 행이라, 로그인 뒤 자기 이름 재저장이 자기 제외로 통과한다.
+    mockAuth.actorId = MOCK_USER_ID;
     return [200, { access_token: 'mock-access', refresh_token: 'mock-refresh' }];
   },
   // R11-01 J: 게스트 인증 — 서버 POST /auth/guest와 형태 동일(201 + LoginResponse
@@ -2551,17 +2775,13 @@ const routes = {
     if (body?.level_group != null && !LEVEL_GROUPS.includes(body.level_group)) {
       return [422, { detail: '알 수 없는 학습 수준입니다.', code: 'VALIDATION_ERROR' }];
     }
-    const nickname = body?.nickname ?? null;
-    // 서버 GuestStartRequest.nickname의 `min_length=1, max_length=50` 대응 —
-    // 「안 적음」의 서버 표현은 빈 문자열이 아니라 **필드 부재**다. 이 분기가 없으면
-    // 목에서만 빈 이름이 유효한 닉네임으로 접수돼 실서버 422를 리허설할 수 없다.
-    if (nickname !== null && (typeof nickname !== 'string' || nickname.length < 1 || nickname.length > 50)) {
-      return [422, { detail: '닉네임은 1~50자로 적어 주세요.', code: 'VALIDATION_ERROR' }];
-    }
-    if (nickname !== null && mockAuth.takenNicknames.has(nickname)) {
-      return [409, { detail: '이미 사용 중인 닉네임입니다.', code: 'NICKNAME_TAKEN' }];
-    }
-    if (nickname !== null) mockAuth.takenNicknames.add(nickname);
+    // 형태 검증(422 — 서버 `GuestStartRequest.nickname`의 `min_length=1,
+    // max_length=50`. 「안 적음」의 서버 표현은 빈 문자열이 아니라 **필드 부재**다)과
+    // 유일성(409)은 writer 넷이 공유하는 문 하나가 소유한다 — `nicknameWrite`.
+    // ⚠️ 검사는 **발급보다 앞**이다: 아래 세 줄(게스트 전환·학령·θ 파종)이 「생성」이고,
+    //    그 앞에서 거절해야 409에 고아 계정이 안 남는다.
+    const gate = applyNicknameWrite('guest_login', body?.nickname);
+    if (gate.status !== 200) return [gate.status, { detail: gate.detail, code: gate.code }];
     mockAuth.isGuest = true;
     mockAuth.levelGroup = body?.level_group ?? 'middle_high';
     // 🔴 서버 `guest_login`도 **`seed_placement`를 부른다**(`routers/auth.py`) — 그래서
@@ -2571,7 +2791,8 @@ const routes = {
     // ⚠️ 이름을 **매번** 덮어쓴다(신고가 없으면 null). 서버는 발급마다 새 유저 행을
     // 새 자동 닉네임으로 만들므로, 앞선 발급의 이름이 다음 무바디 발급에 남으면
     // 「닉네임 없이 부르면 종전과 동일」이 한 프로세스 안에서 깨진다.
-    mockAuth.nickname = nickname;
+    // 값은 문 하나가 **다듬어 돌려준 것**이다 — 여기서 다시 다듬으면 사본이 생긴다.
+    mockAuth.nickname = gate.nickname;
     return [201, { access_token: 'mock-guest-access', refresh_token: 'mock-guest-refresh' }];
   },
   // 진도 불러오기(2026-08-19 **오후** — 클라이언트 결정, 주최측 확인 후) —
@@ -2621,6 +2842,14 @@ const routes = {
     if (mockAuth.registeredEmails.has(body.email)) {
       return [409, { detail: '이미 등록된 이메일입니다.', code: 'EMAIL_ALREADY_EXISTS' }];
     }
+    // 🔴 **닉네임 유일성은 여기도 지난다 — 그리고 자기 제외형이다**(서버 `5cf90bd`).
+    //    전환은 **같은 행 갱신**이라 자기 이름을 그대로 다시 실어 보내는 것이 정상
+    //    동선이다(전환 화면이 게스트 닉네임을 채워서 띄운다) — 제외하지 않으면
+    //    전환이 통째로 막힌다. 생성 경로의 형태를 그대로 베끼지 말 것.
+    //    ⚠️ 검사는 **갱신보다 앞**이다: 아래 세 줄(이메일 등록·저장 자격·게스트 해제)이
+    //    갱신이고, 뒤로 밀면 409로 끝나는 요청도 이메일을 이미 갈아 놓고 남는다.
+    const gate = applyNicknameWrite('convert_guest', body?.nickname);
+    if (gate.status !== 200) return [gate.status, { detail: gate.detail, code: gate.code }];
     mockAuth.registeredEmails.add(body.email);
     // 🔴 **저장이 곧 불러오기의 열쇠가 된다**(2026-08-19 오후). 이 한 줄이 없으면
     //    목에서 「저장했는데 그 자격으로 못 연다」가 되고, 그것이 정확히 오전 판이
@@ -2692,6 +2921,16 @@ const routes = {
     if (!LEVEL_GROUPS.includes(body?.level_group)) {
       return [422, { detail: '알 수 없는 학습 수준입니다.', code: 'VALIDATION_ERROR' }];
     }
+    // 🔴 **닉네임도 이 통로로 바꾼다 — 자기 제외형이다**(서버 `5cf90bd` · 8/18 롤링분 ③).
+    //    학령만 바꾸는 호출이 닉네임을 함께 실어 보내는 것이 정상 동선이라, 제외하지
+    //    않으면 「이름은 그대로 두고 학령만 바꾸는」 갱신이 409로 막힌다.
+    //    ⚠️ 검사는 **갱신보다 앞**이다: 아래 두 줄(학령·θ 재파종)이 갱신이고, 뒤로
+    //    밀면 409로 끝나는 요청이 학령과 θ를 이미 갈아 놓고 남는다(서버는 닉네임
+    //    검사 뒤에야 `db_user.level_group`을 대입한다).
+    const gate = applyNicknameWrite('update_me', body?.nickname);
+    if (gate.status !== 200) return [gate.status, { detail: gate.detail, code: gate.code }];
+    // 「안 보냄」이면 이름은 건드리지 않는다(문이 null을 돌려준다).
+    if (gate.nickname !== null) mockAuth.nickname = gate.nickname;
     mockAuth.levelGroup = body.level_group;
     // 🔴 **미측정 θ만 재파종한다**(2026-08-20 재파종 판정). 규칙의 소유자는
     //    `reseedUnmeasuredAbilities` 하나이고 경위는 그 선언부가 갖는다.
@@ -3817,6 +4056,32 @@ export const __mockPolicy = () => ({
     rows,
     out: reseedUnmeasuredAbilities(rows, to),
   })),
+  // 🔴 **닉네임 유일성 — 그물 밖에 있던 규칙**(2026-08-21 · server `5cf90bd`
+  //    `_ensure_nickname_available` + `schemas/auth.normalize_nickname`).
+  //    노출이 없으면 서버가 검사를 넓혀도 목은 조용히 옛 범위로 남는다 — 실제로
+  //    그랬다(서버는 writer 넷, 목은 `guest_login` 하나).
+  //    ⚠️ 표(writer 성질)와 **규칙**(같은 입력에 같은 답)을 둘 다 내보낸다: 표만
+  //    맞고 규칙이 갈린 것이 이 저장소가 여러 번 밟은 형태다.
+  nickname_writers: NICKNAME_WRITERS,
+  nickname_max: NICKNAME_MAX,
+  //    출력에는 **판정만이 아니라 세계의 뒷모습**을 함께 싣는다 — 거절에 행이
+  //    남는지(고아)와 저장값이 다듬겼는지는 status만으로는 보이지 않는다.
+  nickname_samples: NICKNAME_SAMPLES.map(({ walks, path, owners, actor, raw }) => {
+    const out = nicknameWrite({
+      path, owners, actorId: actor, newId: 'new-row', raw,
+    });
+    return {
+      walks, path, actor, raw: raw === undefined ? null : raw,
+      raw_absent: raw === undefined,
+      owners_in: owners,
+      status: out.status,
+      code: out.code,
+      stored: out.nickname,
+      owners_out: out.owners,
+      created: out.created,
+      actor_out: out.actorId,
+    };
+  }),
   duel_win_xp: MOCK_DUEL_WIN_XP, // server duel_service.DUEL_WIN_XP
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
   guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN
