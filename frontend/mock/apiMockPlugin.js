@@ -875,10 +875,28 @@ function curriculumPayload() {
         };
       }),
   }));
-  // 'current' 승격 — 백엔드 build_curriculum과 동일: 트리 노출 순서 전체에서
-  // 첫 'unlocked' 정확히 1개만 current (없으면 0개).
-  const firstOpen = sections.flatMap((s) => s.units).find((v) => v.status === 'unlocked');
-  if (firstOpen) firstOpen.status = 'current';
+  // 'current' 승격 — 백엔드 `build_curriculum`과 **같은 규칙**이다.
+  //
+  // 🔴 **2026-08-19 결함 ⑧**: 종전에는 「첫 'unlocked'」였다. 배치 선해제는 잠금만
+  // 풀고 `cleared_at`을 안 채우므로, 고등으로 진단받아 여러 유닛을 인정받은 학습자도
+  // 그것들이 전부 미클리어라 **커서가 맨 앞으로 떨어졌다** — 화면에 「섹션 1 · 초등
+  // 3~4학년」이 뜨고 배치를 본 흔적이 사라졌다.
+  //
+  // 이제 **배치가 연 구간의 끝**에 선다. 구간 **다음** 유닛이 아닌 이유: 그것은
+  // 잠겨 있다(선해제 밖에서는 선행 왕관을 요구하는데 배치는 왕관을 주지 않는다).
+  // ⚠️ **배치를 안 본 학습자(`preUnlockedUnits`가 빔)는 종전 그대로 맨 앞**이다 —
+  // 이 분기가 없으면 신규 학습자가 갑자기 뒤쪽 유닛으로 떨어진다.
+  const flatUnits = sections.flatMap((s) => s.units);
+  const openUnits = flatUnits.filter((v) => v.status === 'unlocked');
+  if (openUnits.length > 0) {
+    const inside = openUnits.filter((v) => preUnlockedUnits.has(v.id));
+    // 인정 구간이 전부 클리어됐으면 그 밖의 첫 열린 유닛으로 자연 승계한다.
+    const target =
+      preUnlockedUnits.size > 0 && inside.length > 0
+        ? inside[inside.length - 1]
+        : openUnits[0];
+    target.status = 'current';
+  }
   return { sections };
 }
 

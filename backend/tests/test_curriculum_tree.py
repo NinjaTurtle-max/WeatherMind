@@ -245,13 +245,35 @@ class TestStatus:
         statuses = [v["status"] for v in views.values()]
         assert statuses.count("current") == 1
 
-    def test_unlocked_열렸으나_current_아님(self):
+    def test_배치_선해제면_커서가_구간의_끝에_선다(self):
+        """🔴 **2026-08-19 결함 ⑧ — 종전 이 테스트가 결함을 계약으로 굳히고 있었다.**
+
+        종전 이름은 `test_unlocked_열렸으나_current_아님`이고 `u1`이 `current`라고
+        단정했다. 그런데 `unlock_floor=3`은 **배치가 세 유닛을 인정했다**는 뜻이고,
+        그때 커서가 맨 앞(u1)에 서면 **인정받은 것을 처음부터 다시 하라는 화면**이 된다.
+        실서버에서 고등으로 진단받아 75유닛을 인정받은 계정이 「섹션 1 · 초등 3~4학년」을
+        봤다.
+
+        ⇒ 커서는 **인정 구간의 끝**(u3)에 선다. 앞 유닛들은 `unlocked`로 남아 있어
+        **되돌아갈 수 있다** — 커서 위치와 접근 가능성은 다른 축이다.
+        """
         u1, u2, u3 = chain(3)
         views = flat_views(cs.build_curriculum([u1, u2, u3], {}, unlock_floor=3))
-        assert views[u1.slug]["status"] == "current"
+        assert views[u3.slug]["status"] == "current"
+        assert views[u1.slug]["status"] == "unlocked"
         assert views[u2.slug]["status"] == "unlocked"
-        assert views[u3.slug]["status"] == "unlocked"
         assert all(v["locked"] is False for v in views.values())
+
+    def test_배치를_안_봤으면_커서가_맨_앞이다(self):
+        """⑧의 반대 축 — **신규 학습자를 깨뜨리지 않는다.**
+
+        `unlock_floor == 0`(배치 미실시)이면 종전 그대로 맨 앞에서 시작한다.
+        이 분기가 없으면 신규 학습자가 갑자기 뒤쪽 유닛으로 떨어진다.
+        """
+        u1, u2, u3 = chain(3)
+        views = flat_views(cs.build_curriculum([u1, u2, u3], {}))
+        assert views[u1.slug]["status"] == "current"
+        assert views[u2.slug]["status"] == "locked"
 
     def test_locked(self):
         u1, u2, u3 = chain(3)
@@ -560,8 +582,12 @@ class TestRealUnitsJson:
 
         경위·근거·상한 가드의 소유자는 `test_placement_unlock_level.py`다.
 
-        선해제 유닛은 왕관 0 그대로(잠금만 해제)이고, current는 첫 미클리어
-        유닛(w01-pressure-front — 클리어 강제 아님)에 남는다.
+        선해제 유닛은 왕관 0 그대로(잠금만 해제)다.
+
+        🔴 **2026-08-19 정정(결함 ⑧)**: 종전에 이 독스트링은 *"current는 첫 미클리어
+        유닛(w01-pressure-front)에 남는다"*고 적었고 단정도 그랬다. **그것이 결함이었다** —
+        62유닛을 인정받고도 커서가 맨 앞에 서면 배치를 본 흔적이 화면에서 사라진다.
+        이제 커서는 **인정 구간의 끝**에 선다.
         """
         units = _units_from_json(_load_real_units())
         abilities = [ability("pressure_front", 0.8, n=5)]  # θ 0.8 → 5단계
@@ -577,7 +603,13 @@ class TestRealUnitsJson:
         assert opened == expected
         # 잠금만 해제 — 왕관·클리어는 소급되지 않는다
         assert all(flat[uid]["crowns"] == 0 for uid in opened)
-        assert flat["w01-pressure-front"]["status"] == "current"
+        # 🔴 커서는 **인정 구간의 끝**에 선다(결함 ⑧). 맨 앞은 열려 있되 current가 아니다.
+        ordered = cs.ordered_units(units)
+        last_recognised = ordered[floor - 1].slug
+        assert flat[last_recognised]["status"] == "current", (
+            f"배치가 {floor}유닛을 인정했는데 커서가 구간 끝({last_recognised})에 없다"
+        )
+        assert flat["w01-pressure-front"]["status"] == "unlocked"
         # 같은 섹션 안의 뒤쪽 유닛도 열린다 — 개념 경계가 더는 끊지 않는다
         assert flat["w01-air-mass"]["status"] == "unlocked"
         assert flat["w01-wildfire-weather"]["status"] == "unlocked"
