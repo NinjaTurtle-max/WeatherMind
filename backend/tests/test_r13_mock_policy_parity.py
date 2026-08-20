@@ -1456,8 +1456,8 @@ class TestLevelGroupReseed:
         body = _route_body_of(mock_src, "PATCH /auth/me")
         assert re.search(r"applyReseedUnmeasured\(\s*body\.level_group\s*\)", body), (
             "목 `PATCH /auth/me`가 재파종을 부르지 않는다 — 학령만 바꾸고 θ를 그대로 "
-            "두면 천장이 안 움직이고, 잠금 배너의 「학습 수준 바꾸기」 CTA가 화면에서 "
-            "아무것도 열지 못한다(종전 상태)"
+            "두면 천장이 한 칸도 안 움직여 **재신고가 보드에 대해 아무 뜻도 없어진다**"
+            "(2026-08-20 재파종 판정 이전의 상태)"
         )
         # 규칙의 소유자가 **하나**인지 — 핸들러가 사전표를 직접 읽으면 규칙이 둘이 되고,
         # 그러면 `reseed_samples`(순수 함수 파생)가 화면 경로를 대변하지 못한다.
@@ -1516,7 +1516,7 @@ class TestLevelGroupReseed:
         }
         assert called, (
             "서버 `update_me`가 재파종을 아예 안 부른다 — 학령만 바꾸고 θ를 그대로 "
-            "두면 천장이 한 칸도 안 움직이고, 잠금 배너 CTA가 못 지키는 약속이 된다"
+            "두면 천장이 한 칸도 안 움직여 재신고가 보드에 대해 아무 뜻도 없어진다"
         )
         for name in sorted(called):
             impl = None

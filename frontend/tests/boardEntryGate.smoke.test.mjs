@@ -577,7 +577,7 @@ try {
     const reseeded = await api('GET', '/board/puzzles');
     const reseedCeiling = assertTailPartition(reseeded.body, '성인(재신고)');
     assert(reseedCeiling > mhCeiling,
-      `전건 미측정인데 재신고로 천장이 안 움직였다 — ${mhCeiling} → ${reseedCeiling}. 재신고는 미측정 개념의 θ를 새 밴드 사전으로 갈아타야 한다(서버 reseed_unmeasured_priors). 안 움직이면 잠금 배너의 「학습 수준 바꾸기」 CTA가 못 지키는 약속이 된다`);
+      `전건 미측정인데 재신고로 천장이 안 움직였다 — ${mhCeiling} → ${reseedCeiling}. 재신고는 미측정 개념의 θ를 새 밴드 사전으로 갈아타야 한다(서버 reseed_unmeasured_priors). 안 움직이면 재신고가 천장에 대해 아무 뜻도 없어진다`);
     const reseedOpen = openIds(reseeded.body);
     assert([...mhOpen].every((id) => reseedOpen.has(id)),
       '재신고로 수준을 **올렸는데** 종전에 열려 있던 칸이 닫혔다 — 열림은 단조여야 한다');
