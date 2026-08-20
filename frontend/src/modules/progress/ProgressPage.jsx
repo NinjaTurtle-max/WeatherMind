@@ -290,10 +290,21 @@ export default function ProgressPage() {
           1,090 → **520px**. 1024까지 가로 넘침 없음(칸 345px).
           ⚠️ **간격의 소유자는 이 격자의 `gap-4`다.** 자식들이 들고 있던
              `mt-4`는 함께 걷었다 — 남겨 두면 2열에서 두 열의 첫 줄이 어긋난다.
+             ⚠️ 처음에 `LevelGroupCard`의 뿌리를 빠뜨려 오른쪽 열 머리가 왼쪽보다
+                **16px 내려가 있었다**(2026-08-20 사용자 지적). 그 카드의 뿌리는
+                이 파일 아래쪽 별도 함수라 격자 본문만 훑던 계약이 못 봤다.
+          ⚠️ **`mt-6`은 절 사이 간격이다.** 위는 분석(읽는 것), 여기부터는 설정
+             (바꾸는 것)이라 카드 사이 `gap-4`보다 한 단 넓게 벌린다. 0이던
+             동안에는 능력 분석 판과 붙어 한 덩어리로 읽혔다.
+          ⚠️ **`items-start`가 아니다**(2026-08-20 사용자 지시 — "진도 저장 카드
+             끝나는 위치랑 오른쪽 카드들 일치"). 오른쪽 열이 늘어나야 그 차이를
+             학습 수준 카드가 먹는다. 배지 컬렉션과 **같은 흡수 짝**이고, 같은
+             함정도 그대로다: 여기서 `items-start`를 되살리면 열이 내용 높이에서
+             멈춰 `flex-1`이 먹을 것이 없어진다.
           ⚠️ **순서는 이 격자가 아니라 자식의 order가 정한다** — 좁은 화면에서
              1열로 접힐 때 진도 저장이 맨 앞이어야 한다(위 주석: "잃으면 끝인
              것"이라 설정 둘과 무게가 다르다). 격자 DOM 순서가 이미 그 순서다. */}
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
         {/* 진도 저장 — 정보 입력 (2026-08-12 클라이언트 요구 ⑴).
             설정 묶음의 **맨 앞**이다: 학습 수준·하루 목표는 취향이고, 이것은
             "잃으면 끝인 것"을 지키는 행동이라 같은 무게가 아니다.
@@ -301,8 +312,11 @@ export default function ProgressPage() {
             해시 스크롤은 이 파일 위쪽 useEffect가 이미 소유한다. */}
         <SaveProgressCard />
 
-        {/* 오른쪽 열 — 설정 둘. 각각 3버튼짜리라 나란히 두면 왼쪽 폼과 높이가 맞는다. */}
-        <div className="flex flex-col gap-4">
+        {/* 오른쪽 열 — 설정 둘. 왼쪽 폼이 더 길어서 남는 높이가 생기는데,
+            그 차이를 **학습 수준 카드가 먹는다**(`LevelGroupCard`의 `flex-1`).
+            하루 목표는 그대로 둔다(2026-08-20 사용자 지시) — 3버튼 한 줄짜리
+            카드를 늘리면 배지 대신 학습 지역을 늘렸을 때와 같은 빈 카드가 된다. */}
+        <div className="flex flex-col gap-4 lg:h-full">
           {/* 설정 — 학습 수준 (R13 CO-P-5) */}
           <LevelGroupCard />
 
@@ -524,11 +538,22 @@ function LevelGroupCard() {
   // (틀린 현재값을 보여 주고 바꾸게 하는 것보다 없는 편이 낫다).
   if (!me?.level_group) return null;
 
+  // 🔴 뿌리에 `mt-4`가 없다 — 간격의 임자는 **꼬리 격자의 `gap-4`**다.
+  //    2026-08-20에 꼬리를 2열로 접을 때 이 한 장만 빠뜨려서, 오른쪽 열 머리가
+  //    왼쪽 진도 저장보다 16px 내려가 있었다(사용자 지적).
+  // 🔴 `flex-1` — 왼쪽 폼이 더 길어 남는 높이를 **이 카드가 먹는다**.
+  //    바깥 격자가 `items-start`가 아니어야(= 열이 늘어나야) 먹을 것이 생긴다.
+  //    배지 컬렉션과 같은 짝이고, 한쪽만 있으면 조용히 어긋난다.
   return (
-    <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+    <div className="flex flex-1 flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
       <p className="text-sm font-extrabold text-slate-900">{t('profile.levelGroupTitle')}</p>
       <p className="mt-0.5 text-xs text-slate-500">{t('profile.levelGroupBody')}</p>
-      <div className="mt-3 grid grid-cols-3 gap-2" data-level-group={me.level_group}>
+      {/* 🔴 **세로 1열**이다(2026-08-20 사용자 지시 — "보기 세 개를 가로 말고
+          세로로 배치해서 카드 크기를 세로로 키워줘"). 가로 3열이면 카드가
+          140px에서 멈춰 오른쪽 열이 왼쪽 폼보다 한참 짧았다.
+          ⚠️ 버튼마다 `flex-1`이라 남는 높이를 셋이 **똑같이** 나눠 갖는다.
+             컨테이너만 늘리면 버튼은 그대로고 바닥에 빈 띠가 생긴다. */}
+      <div className="mt-3 flex flex-1 flex-col gap-2" data-level-group={me.level_group}>
         {LEVEL_GROUPS.map((g) => (
           <button
             key={g.value}
@@ -540,7 +565,7 @@ function LevelGroupCard() {
               setNotice(null);
               mutation.mutate(g.value);
             }}
-            className={`rounded-xl border px-2 py-2.5 text-sm font-medium transition disabled:opacity-50 ${
+            className={`flex flex-1 items-center justify-center rounded-xl border px-2 py-2.5 text-sm font-medium transition disabled:opacity-50 ${
               me.level_group === g.value
                 ? 'border-sky-600 bg-sky-50 text-sky-700'
                 : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
