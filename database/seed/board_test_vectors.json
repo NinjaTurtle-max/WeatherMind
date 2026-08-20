@@ -2202,5 +2202,236 @@
         "passed": false
       }
     ]
+  },
+  {
+    "name": "mt19b_cloud_sequence_reads_warm_front: 판독 2 — 구름 순서를 읽어 온난전선을 고른다",
+    "note_authoring": "판독 1(board_order 47)과 **한 쌍**이다: 같은 「전선을 놓는다」인데 읽는 단서가 반대다 — 47은 적란운·좁은 강수·기온 급강하(한랭), 이 판은 구름이 차례로 낮아지고 두꺼워지는 하늘·넓고 약한 연속 강수(온난). **그 대비가 판독의 본체**이므로 존 0에 한랭전선을 같이 놓아 **다른 전선은 다른 날씨를 낸다**를 함께 고정한다 — 아무 전선이나 놓아도 통과하면 읽을 이유가 없다. 존 2는 물기만으로는 안 된다는 것, 존 3은 임계 50이 경계 포함이라는 것. ⚠️ 팔레트에 `sun`이 없다: 넣으면 convective_shower(sun>=80)가 전선 없이 목표에 닿아 판독이 채점에서 빠진다(판독 1에서 실측한 함정).",
+    "board": {
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
+      "elements": [
+        {
+          "type": "front",
+          "subtype": "cold",
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 60,
+          "zone": 0
+        },
+        {
+          "type": "front",
+          "subtype": "warm",
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 60,
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 100,
+          "zone": 2
+        },
+        {
+          "type": "front",
+          "subtype": "warm",
+          "zone": 3
+        },
+        {
+          "type": "moisture",
+          "level": 50,
+          "zone": 3
+        }
+      ]
+    },
+    "expected": [
+      {
+        "zone": 0,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "rain",
+        "cloud": "nimbostratus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "rain",
+        "cloud": "nimbostratus"
+      }
+    ],
+    "goals": [
+      {
+        "note": "구름 순서를 읽어 온난전선을 놓으면 넓고 약한 비가 성립한다",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "rain"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "🔴 같은 물기로 한랭전선을 놓으면 **다른 날씨**다 — 판독이 채점에 걸린다",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "rain"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "물기만으로는 비가 오지 않는다 — 전선이 필요조건이다",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "rain"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "경계 포함: 물기 50에서 성립한다",
+        "conditions": [
+          {
+            "zone": 3,
+            "phenomenon": "rain"
+          }
+        ],
+        "passed": true
+      }
+    ]
+  },
+  {
+    "name": "mt18_static_stability_contrast: 안정도 — 같은 물기, 지면 가열만 갈린다",
+    "note_authoring": "board_order 57의 계약. 이 판의 본체는 **대비**이므로 두 존을 같게 만들거나 한쪽만 맞히면 반드시 실패해야 한다 — 안 걸리면 안정도를 안 가르치고도 통과한다. 존 0·1이 의도한 답(불안정/안정), 존 2는 **같은 물기인데 일사만 중간**이라 어느 규칙도 성립하지 않는 구간(임계 사이가 비어 있다는 것 자체가 계약이다), 존 3은 **경계 포함**(일사 80·물기 60).",
+    "board": {
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
+      "elements": [
+        {
+          "type": "sun",
+          "level": 90,
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 70,
+          "zone": 0
+        },
+        {
+          "type": "sun",
+          "level": 20,
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 1
+        },
+        {
+          "type": "sun",
+          "level": 55,
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 2
+        },
+        {
+          "type": "sun",
+          "level": 80,
+          "zone": 3
+        },
+        {
+          "type": "moisture",
+          "level": 60,
+          "zone": 3
+        }
+      ]
+    },
+    "expected": [
+      {
+        "zone": 0,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "fog",
+        "cloud": "stratus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "shower",
+        "cloud": "cumulonimbus"
+      }
+    ],
+    "goals": [
+      {
+        "note": "지면을 강하게 데우면 공기가 연직으로 자란다(불안정)",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "shower"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "🔴 같은 물기라도 지면이 식으면 깔린다(안정) — 갈린 것은 물기가 아니다",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "fog"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "일사가 중간이면 어느 쪽도 아니다 — 임계 사이에 빈 구간이 있다",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "shower"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "경계 포함: 일사 80·물기 60에서 성립한다",
+        "conditions": [
+          {
+            "zone": 3,
+            "phenomenon": "shower"
+          }
+        ],
+        "passed": true
+      }
+    ]
   }
 ]
