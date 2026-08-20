@@ -53,15 +53,26 @@ const TARGETS = [
   //    라벨을 기대하면 실패한다(`구름 반사 27`로 잡았다가 실측으로 걸렀다).
   //    ⚠️ 캡션 문자열로 갈아타지 **않았다** — 캡션은 패널이 그리므로 `scene`이
   //    null이어도 뜬다. 위 주석의 「껍데기+장면 라벨 짝」이 깨진다.
+  //
+  // 🔴 **장면 라벨은 `labels`로 분리해 완전일치로 문다**(2026-08-21). 종전에는 셋 다
+  //    `expects`에 섞여 `html.includes()`로 걸렸고, 그래서 라벨이 `태양` → `태양X`로
+  //    **변질돼도 초록이었다**(부분문자열이므로). 이제 `labels`는 렌더된 **원소 하나의
+  //    텍스트 전체**와 `===`로 맞춰야 통과한다 — 아래 `elementTexts()` 참조.
+  //    ⚠️ 껍데기(패널 제목)·단계(캡션 제목)는 `expects`에 **그대로 둔다**. 그 둘은
+  //    의도적으로 긴 문자열의 부분이다 — `지구는 받은 만큼 내보낸다`의 실제 렌더값은
+  //    `… — 복사수지`이고 `눈과 눈벽`은 `따뜻한 바다 위 — 눈과 눈벽`이다. 완전일치로
+  //    바꾸려면 기대 문구 자체를 다시 써야 하는데 그것은 다른 판정이라 손대지 않는다.
   { path: '/src/modules/explore/TyphoonSimPage.jsx',
     name: 'TyphoonSimPage',
     expects: ['태풍', '왜 그럴까', 'href="/learn"',
-      '태풍 단면 — 하층과 상층은 반대로 감긴다', '권운 차양', '눈과 눈벽', // T1 껍데기+장면+단계
-      '태풍의 일생 — 발생에서 온대저기압까지', '북위 20°'] }, // T2 껍데기+장면
+      '태풍 단면 — 하층과 상층은 반대로 감긴다', '눈과 눈벽', // T1 껍데기+단계
+      '태풍의 일생 — 발생에서 온대저기압까지'], // T2 껍데기
+    labels: ['권운 차양', '북위 20°'] }, // T1·T2 0단계 장면 라벨(완전일치)
   { path: '/src/modules/explore/ClimateSimPage.jsx',
     name: 'ClimateSimPage',
     expects: ['기후변화', '폭염일수', 'href="/learn"',
-      '지구는 받은 만큼 내보낸다', '태양', '들어오는 햇빛 100'] }, // C1 껍데기+장면+단계
+      '지구는 받은 만큼 내보낸다', '들어오는 햇빛 100'], // C1 껍데기+단계
+    labels: ['태양'] }, // C1 0단계 장면 라벨(완전일치)
   // ⚠️ 이 자리에 *"T2는 단계 제목이 장면 라벨과 같은 `T2_STAGES.title`에서 나오므로
   // 문자열로 가를 수 없다"*고 적혀 있었고 **2026-08-19에 거짓이 됐다** — 라벨 가독성
   // 지적 뒤 T2가 **캔버스 라벨은 `T2_STAGES.short`, 캡션 제목은 `title`**로 갈라졌다
@@ -84,6 +95,23 @@ const server = await createServer({
 
 let failed = 0;
 
+/**
+ * 렌더된 HTML에서 **잎 원소 하나의 텍스트 전체**를 모은다 — 장면 라벨 완전일치용.
+ *
+ * 장면 라벨은 `labelsFor()`가 좌표를 계산하고 호출측이 글자만 겹쳐 그린다. SSR(이
+ * 스모크)에서는 SVG 폴백이 `<text …>권운 차양</text>`로, 실브라우저 GL 경로에서는
+ * `SchematicGL`이 `<span …>권운 차양</span>`로 그린다 — 그래서 두 태그를 함께 본다.
+ * 🔴 `html.includes(라벨)`을 대신하는 것이 요점이다. 포함 검사는 `태양X`·`권운 차양막`
+ * 처럼 **라벨이 변질돼도 초록**이었다. 여기서는 원소 텍스트와 `===`라야 통과한다.
+ */
+const elementTexts = (html) => {
+  const found = new Set();
+  const re = /<(text|span)\b[^>]*>([^<]*)<\/\1>/g;
+  let m;
+  while ((m = re.exec(html)) !== null) found.add(m[2]);
+  return found;
+};
+
 /** MT-21 위성 도식 검사용 — 위 루프의 expects 방식과 달리 컴포넌트를 직접 그린다. */
 const checkMt21 = (name, cond) => {
   if (cond) {
@@ -94,7 +122,7 @@ const checkMt21 = (name, cond) => {
   }
 };
 try {
-  for (const { path, name, expects } of TARGETS) {
+  for (const { path, name, expects, labels = [] } of TARGETS) {
     const mod = await server.ssrLoadModule(path);
     if (typeof mod.default !== 'function') {
       console.error(`FAIL ${name}: default export가 컴포넌트가 아닙니다`);
@@ -113,7 +141,18 @@ try {
       failed += 1;
       continue;
     }
-    console.log(`PASS ${name} (${html.length} chars)`);
+    // 장면 라벨은 **완전일치**. 실패 시 기대값과 실제로 그려진 라벨 후보를 함께
+    // 찍는다 — 「무엇이 무엇으로 바뀌었나」를 눈으로 읽어야 판정이 된다.
+    const texts = elementTexts(html);
+    const badLabels = labels.filter((s) => !texts.has(s));
+    if (badLabels.length > 0) {
+      const near = [...texts].filter((t) => t && badLabels.some((s) => t.includes(s) || s.includes(t)));
+      console.error(`FAIL ${name}: 장면 라벨 완전일치 실패 — 기대 ${badLabels.join(', ')}`
+        + ` / 실제 근접 라벨 ${near.length ? near.join(', ') : '(없음)'}`);
+      failed += 1;
+      continue;
+    }
+    console.log(`PASS ${name} (${html.length} chars, 장면 라벨 완전일치 ${labels.length}건)`);
   }
 
   // CO-S-10 덤: `/explore/typhoon`·`/explore/climate`가 Layout의 isWide 목록에
