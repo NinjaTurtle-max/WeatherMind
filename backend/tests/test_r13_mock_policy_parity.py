@@ -822,8 +822,15 @@ class TestUnnettedCopies:
             return isinstance(v, bool)
 
         def is_real_float(v) -> bool:
-            """비정수 실수만 본다 — `3.0`은 JSON을 건너며 int 3이 되어 구분이 없다
-            (JS에 int/float 구분 자체가 없다). 그 한계는 목 주석이 소유한다."""
+            """비정수 실수만 본다.
+
+            🔴 **정정(2026-08-20 실측)**: 종전 주석은 *"`3.0`은 JSON을 건너며 int 3이
+            되어 구분이 없다"*고 적었는데 **거짓이다.** 파이썬은 `3.0`을 float으로
+            읽어 `isinstance(v, int)`가 False다 → 서버 10000, 목 3. **갈린다.**
+            ⇒ 「볼 수 없다」가 아니라 **목이 재현할 수 없는 실제 불일치**다
+              (`JSON.parse`가 `3.0`을 `3`으로 접는다). 시드에 소수가 0건이라 지금은
+              잠재이고, 표본 편입 여부는 판정 대기다(넣으면 면제 사유가 필요하다).
+            여기서 비정수만 보는 이유는 **재현 가능한 갈래만 대조**하기 위해서다."""
             return isinstance(v, float) and not v.is_integer()
 
         assert any(
