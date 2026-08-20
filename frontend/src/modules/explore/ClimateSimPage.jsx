@@ -211,43 +211,63 @@ export default function ClimateSimPage() {
 
       {/* 오른쪽 열 — CO₂ 농도(입력) 위, 그것이 낳는 지표 둘 아래. 순서가 인과다. */}
       <div className="flex flex-col gap-3">
-      {/* CO2 슬라이더 카드 */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      {/* CO2 슬라이더 카드 — 🔴 **오른쪽 열의 남는 세로를 여기가 먹는다**
+          (2026-08-19 사용자 지시 — 지표 둘을 한 줄로 눕히고 "그 남은 한 줄 여백을
+          CO₂ 농도 슬라이드 크기를 세로로 더 키워서 맞춰줘").
+
+          `flex-1`이 그 몫이다: 왼쪽 곡선이 행 높이를 정하고, 지표 줄은 제 높이만
+          쓰고, 남는 것을 이 카드가 가져간다. 그래서 **두 열이 같은 줄에서 끝난다.**
+          ⚠️ 높이를 숫자로 박으면 안 된다 — 행 높이는 곡선의 폭(= 뷰포트)이 정하므로
+          1536·1280·1024에서 값이 다 다르다. 실측 CO₂ 카드 271 / 271 / 271은
+          우연이 아니라 지표 줄(130)과 간격(12)을 뺀 나머지다.
+
+          늘어난 자리는 슬라이더 뭉치가 쓴다(`justify-center`) — 카드만 키우고
+          내용을 위에 붙이면 아래가 빈 상자가 된다. 트랙도 함께 두꺼워진다
+          (전역 `input[type=range]`는 h-2 · 여기만 h-3): 세로로 큰 카드에서
+          2px 트랙은 카드 한복판에 실 한 줄이 그어진 것처럼 보인다. */}
+      <div className="flex flex-1 flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div className="flex items-baseline justify-between">
           <label htmlFor="explore-co2" className="text-sm font-bold text-slate-700">
             {t('explore.climate.co2Label')}
           </label>
-          <span className="text-sm font-extrabold text-sky-700">{co2}ppm</span>
+          <span className="text-lg font-extrabold text-sky-700">{co2}ppm</span>
         </div>
-        <input
-          id="explore-co2"
-          type="range"
-          min={CO2_MIN}
-          max={CO2_MAX}
-          step={1}
-          value={co2}
-          onChange={(e) => setCo2(Number(e.target.value))}
-          className="mt-2 w-full accent-sky-600"
-        />
-        <div className="flex justify-between text-[10px] text-slate-400">
-          <span>{t('explore.climate.scaleMin', { min: CO2_MIN })}</span>
-          <span className="font-bold text-slate-500">{t('explore.climate.scaleNow', { n: CO2_PRESENT_DAY })}</span>
-          <span>{t('explore.climate.scaleMax', { max: CO2_MAX })}</span>
+        <div className="flex flex-1 flex-col justify-center py-2">
+          <input
+            id="explore-co2"
+            type="range"
+            min={CO2_MIN}
+            max={CO2_MAX}
+            step={1}
+            value={co2}
+            onChange={(e) => setCo2(Number(e.target.value))}
+            // `!h-3` — 전역 h-2를 이 화면에서만 덮는다. 전역을 키우면 태풍
+            // 실험실·보드 조절값까지 함께 두꺼워진다(그쪽은 카드가 낮아 지금이 맞다).
+            className="!h-3 w-full accent-sky-600"
+          />
+          <div className="mt-2 flex justify-between text-[10px] text-slate-400">
+            <span>{t('explore.climate.scaleMin', { min: CO2_MIN })}</span>
+            <span className="font-bold text-slate-500">{t('explore.climate.scaleNow', { n: CO2_PRESENT_DAY })}</span>
+            <span>{t('explore.climate.scaleMax', { max: CO2_MAX })}</span>
+          </div>
         </div>
         <button
           type="button"
           onClick={() => setCo2(CO2_PRESENT_DAY)}
-          className="mt-2 w-full rounded-xl bg-slate-100 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200"
+          className="w-full rounded-xl bg-slate-100 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200"
         >
           {t('explore.climate.reset')}
         </button>
       </div>
 
-      {/* 파생 지표 카드 2종 — 2열 구간에서는 **세로로 쌓는다**(오른쪽 열이 좁아
-          가로로 두면 한 칸이 220px라 「연간 폭염일수」가 두 줄로 접힌다).
-          한 열로 접히는 좁은 화면에서는 종전대로 나란히 둔다 — 거기서는 폭이
-          충분하고, 세로로 쌓으면 화면만 길어진다. */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
+      {/* 파생 지표 카드 2종 — **어느 폭에서나 한 줄**이다(2026-08-19 사용자 지시
+          "해수면 상승·연간 폭염일수를 한 줄에 배치할 수 있게 가로 크기 줄여").
+          ⚠️ 하루 전 판에서 이 줄이 `lg:grid-cols-1`로 세로 배치였다. 그때 근거로
+          「좁은 열에서 한 칸 220px라 라벨이 두 줄로 접힌다」고 적었는데 **실측
+          없이 어림한 값이라 틀렸다** — 실제 한 칸은 1536에서 250px이고 「연간
+          폭염일수」는 한 줄에 든다. 세로로 쌓을 이유가 없었다.
+          한 칸이 가장 좁아지는 lg(1024)에서 169px인데 거기서도 한 줄이다(실측). */}
+      <div className="grid grid-cols-2 gap-3">
         <IndicatorCard
           icon="🌊"
           title={t('explore.climate.seaTitle')}
