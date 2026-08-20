@@ -28,10 +28,13 @@ import Mascot from './Mascot';
  *   - note     **큰 제목 바로 아래** 작은 글씨 한 줄(2026-08-19 사용자 지시 —
  *              "교육용 단순화 모델이에요~ 이건 튜터 카드 안에 넣고 큰 제목 아래에
  *              작은 글씨로"). 모델 고지처럼 **제목에 딸린 단서**를 위한 자리다.
- *              ⚠️ `description`과 **같이 쓰지 말 것.** 둘 다 설명문이라 한 배너에
- *              두 벌이 되고, 제목 열이 좁아져(설명이 360px를 가져간다) 이 줄이
- *              두 줄로 접히면서 **배너가 h=90을 넘는다**(실측 101). 설명을 비우면
- *              제목 열이 1,018px이 되어 한 줄에 들고 치수가 유지된다.
+ *              ⚠️ **`description`과 같이 쓰면 배너가 h=90을 넘는다.** 설명이 폭을
+ *              가져가 제목 열이 좁아지고 이 줄이 두 줄로 접히기 때문이다.
+ *              · 설명을 비우면 제목 열이 1,018px이라 한 줄 → h=90 유지(기후변화)
+ *              · 둘 다 필요하면 `tightDescription`을 함께 켤 것(태풍) — 그래도
+ *                h=104다. 그 8~14px은 **받아들인 값**이고, 그 화면만 배너가
+ *                조금 높다. 종전에 이 자리에 "같이 쓰지 말 것"이라 적었는데
+ *                2026-08-19 사용자 지시로 둘 다 요구되어 정정한다(실측 104).
  *   - right    오른쪽 끝 슬롯(배지·칩 등). 없으면 제목 열이 폭을 다 쓴다.
  *   - as       eyebrow 태그. 화면에 다른 h1이 없으면 'h1'을 줄 것 — 보드 목록
  *              배너가 배너로 바뀌면서 그 화면만 heading이 0개가 된 전례가 있다.
@@ -41,6 +44,7 @@ export default function HeroBanner({
   eyebrow,
   title,
   description = null,
+  tightDescription = false,
   note = null,
   right = null,
   as: Eyebrow = 'p',
@@ -116,8 +120,17 @@ export default function HeroBanner({
           늘어나며 드러난다. 좁은 화면 접기는 `hidden` 하나로 충분하다:
           `.hidden`(7835)보다 `.lg\:line-clamp-2`(54676)가 뒤라 lg에서
           -webkit-box가 이겨 스스로 펴진다. */}
+      {/* 🔴 `tightDescription` — **한 줄에 들어가는 작은 변형**(2026-08-19 사용자
+          지시 "이 글씨 크기 줄여서 한 줄로"). 두 벌을 **완성된 문자열 리터럴**로
+          적는다: Tailwind는 소스 텍스트를 훑어 클래스를 만들므로 조각을 템플릿
+          문자열로 이어 붙이면 CSS가 아예 안 생긴다(보드 음수 여백에서 겪은 그것).
+          차이는 셋뿐이다 — 글자 11.5 → 10 · 줄간격 relaxed → snug · xl 폭 360 →
+          430(그 폭이라야 한 줄에 든다). `line-clamp-2`는 **양쪽 다 남긴다**:
+          좁은 화면에서 한 줄을 고집하면 잘라야 하는데, 잘린 문장보다 두 줄이 낫다. */}
       {description && (
-        <p className="hidden min-w-0 basis-[300px] text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2 xl:basis-[360px]">
+        <p className={tightDescription
+          ? 'hidden min-w-0 basis-[300px] text-[10px] leading-snug text-slate-300 lg:line-clamp-2 xl:basis-[430px]'
+          : 'hidden min-w-0 basis-[300px] text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2 xl:basis-[360px]'}>
           {description}
         </p>
       )}

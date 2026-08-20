@@ -227,15 +227,25 @@ export default function TyphoonSimPage() {
         as="h1"
         eyebrow={t('explore.typhoon.title')}
         title={t('explore.typhoon.heroTitle')}
-        description={t('explore.home.typhoonDesc')}
+        // 🔴 오른쪽 한 줄 + 제목 아래 고지(2026-08-19 사용자 지시).
+        // ⚠️ 문구가 `explore.home.typhoonDesc`(탐구 홈 카드)에서 **전용 키로
+        //    갈렸다** — 사용자가 이 배너의 문장을 따로 지정했고, 홈 카드는 카드
+        //    폭에 맞춘 긴 문장이 여전히 맞다. 두 자리가 같은 문장을 쓰지 않는
+        //    첫 예외라 여기 적어 둔다(기후 탐정·과거 예보는 아직 공유한다).
+        description={t('explore.typhoon.heroDesc')}
+        tightDescription
+        // 태풍 고지는 **가운데 낱말이 굵다**(「경향」) — 문자열 하나가 아니라
+        // 조각 셋이라 노드로 넘긴다. `note`는 ReactNode를 그대로 받는다.
+        note={
+          <>
+            {t('explore.typhoon.disclaimer1')} <b>{t('explore.typhoon.disclaimerBold')}</b>
+            {t('explore.typhoon.disclaimer2')}
+          </>
+        }
         right={
           <span className={`rounded-full px-3 py-1 text-xs font-bold ${meta.badge}`}>{t(meta.labelKey)}</span>
         }
       />
-
-      <p className="rounded-xl bg-slate-100 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
-        {t('explore.typhoon.disclaimer1')} <b>{t('explore.typhoon.disclaimerBold')}</b>{t('explore.typhoon.disclaimer2')}
-      </p>
 
       {/* 탐구 목표(MT-24) — **슬라이더보다 위**에 둔다. 화면에 들어선 사람이
           "무엇을 해 보면 되는지"를 조작하기 전에 읽어야 목표가 목표로 작동한다.

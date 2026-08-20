@@ -283,7 +283,12 @@ ok(
   // ⚠️ **클래스 전체**를 잡는다(종전에는 `basis-[300px]` **뒤**만 캡처했다).
   // 앵커에 넣은 토큰은 캡처에서 빠지므로, 그 토큰을 단정하는 줄이 영원히
   // 실패한다 — 폭 계약을 추가하다 실제로 그렇게 걸렸다.
-  const descCls = banner.match(/<p className="(hidden min-w-0 [^"]*)"/)?.[1] ?? '';
+  // ⚠️ 설명 클래스는 이제 **두 벌**이다(2026-08-19 `tightDescription` 신설).
+  //    두 벌 다 완성된 리터럴이라 그대로 뽑아 **각각** 아래 계약을 물린다 —
+  //    한 벌만 검사하면 다른 벌이 조용히 어긋난다.
+  const descVariants = [...banner.matchAll(/'(hidden min-w-0 [^']*)'/g)].map((m) => m[1]);
+  ok(descVariants.length === 2, `설명 클래스 두 벌(기본·tight)을 읽었다 — ${descVariants.length}건`);
+  for (const descCls of descVariants) {
   ok(
     /line-clamp-2/.test(descCls),
     `배너 설명이 두 줄까지 접힌다 — 실제 "${descCls.trim()}"`,
@@ -309,9 +314,10 @@ ok(
   // **제목이 «…»로 잘린다** — 실측으로 확인하고 xl로 물렸다. 기본값을 360으로
   // 올리는 「간단한」 수정이 그 회귀다.
   ok(
-    /\bbasis-\[300px\]/.test(descCls) && /\bxl:basis-\[360px\]/.test(descCls),
-    `설명 폭이 xl에서만 넓어진다(기본 300 · xl 360) — 실제 "${descCls.trim()}"`,
+    /\bbasis-\[300px\]/.test(descCls) && /\bxl:basis-\[(360|430)px\]/.test(descCls),
+    `설명 폭이 xl에서만 넓어진다(기본 300 · xl 360|430) — 실제 "${descCls.trim()}"`,
   );
+  }
 
   // ── `note`(제목 아래 작은 글씨)도 같은 62px 예산 안에 있다 ─────────────────
   // 2026-08-19에 「교육용 단순화 모델」 고지가 배너 안, 제목 바로 아래로 들어왔다.
@@ -328,21 +334,28 @@ ok(
   ok(/line-clamp-2/.test(noteCls), '제목 아래 고지가 두 줄까지만 접힌다 — 세 줄이면 62px 원을 넘긴다');
   ok(!/\bhidden\b/.test(noteCls), '제목 아래 고지는 좁은 화면에서도 접히지 않는다 — 안내가 아니라 고지다');
 
-  // 🔴 **`description`과 `note`를 한 배너에 같이 주면 안 된다.** 설명이 360px를
-  // 가져가면 제목 열이 658px로 좁아져 고지가 두 줄이 되고, 위 56px 예산이
-  // 무너져 배너가 h=101이 된다(실측). 호출부 전수 검사 — 소스에 새 배너가
-  // 늘어도 자동으로 걸린다.
+  // 🔴 **`description`과 `note`를 같이 주면 배너가 h=90을 넘는다.** 설명이 폭을
+  // 가져가 제목 열이 좁아지고 고지가 두 줄이 되면서 위 56px 예산이 무너진다.
+  //   · 기후변화: 설명을 비웠다 → 제목 열 1,018px, 고지 한 줄, **h=90 유지**
+  //   · 태풍: 둘 다 요구됐다(2026-08-19 사용자 지시) → `tightDescription`으로
+  //     설명을 10px 한 줄로 눌러 **h=104**에서 멈췄다. 켜지 않으면 설명이 두
+  //     줄까지 벌어져 더 높아진다.
+  // 그래서 계약은 「같이 쓰지 마라」가 아니라 **「같이 쓰려면 tight를 켜라」**다.
+  // ⚠️ 종전 이 자리에 "같이 쓰지 않는다"는 절대 금지가 있었고, 하루 만에 사용자
+  //    지시로 뒤집혔다. 지우지 않고 정정하는 이유는 그 금지가 기후변화에서
+  //    설명을 비운 **판단의 근거**였기 때문이다 — 그 판단 자체는 여전히 유효하다.
+  // 호출부 전수 검사 — 소스에 새 배너가 늘어도 자동으로 걸린다.
   const jsxFiles = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const full = resolve(dir, e.name);
     return e.isDirectory() ? jsxFiles(full) : (e.name.endsWith('.jsx') ? [full] : []);
   });
   for (const file of jsxFiles(resolve(root, 'src'))) {
     const src = readFileSync(file, 'utf8');
-    for (const call of src.match(/<HeroBanner[\s\S]*?\/>/g) ?? []) {
-      if (!/\bnote=/.test(call)) continue;
+    for (const call of src.match(/<HeroBanner[\s\S]*?\n {6}\/>/g) ?? []) {
+      if (!/\bnote=/.test(call) || !/\bdescription=/.test(call)) continue;
       ok(
-        !/\bdescription=/.test(call),
-        `${file.slice(root.length + 1)}: 배너가 description과 note를 같이 쓰지 않는다 — 둘 다 주면 고지가 두 줄이 되어 h=90이 깨진다`,
+        /\btightDescription\b/.test(call),
+        `${file.slice(root.length + 1)}: description과 note를 같이 쓰는 배너는 tightDescription을 켠다 — 안 켜면 설명이 두 줄로 벌어져 배너가 h=104보다 높아진다`,
       );
     }
   }
