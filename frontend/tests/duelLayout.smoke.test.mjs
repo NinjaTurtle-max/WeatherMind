@@ -313,11 +313,20 @@ ok(
   // 1024·1152에서 360을 주면 예보·리그 배너(CompeteLayout 카드 안이라 더 좁다)의
   // **제목이 «…»로 잘린다** — 실측으로 확인하고 xl로 물렸다. 기본값을 360으로
   // 올리는 「간단한」 수정이 그 회귀다.
-  ok(
-    /\bbasis-\[300px\]/.test(descCls) && /\bxl:basis-\[(360|430)px\]/.test(descCls),
-    `설명 폭이 xl에서만 넓어진다(기본 300 · xl 360|430) — 실제 "${descCls.trim()}"`,
-  );
   }
+  // 🔴 **폭의 소유자가 `<p>`에서 감싼 열로 올라왔다**(2026-08-19 — 고지가 이 열
+  // 위쪽으로 들어오면서 둘이 같은 폭을 써야 한다). 계약 자체는 그대로다:
+  //   · 기본 xl **360** — 2026-08-18 실측으로 고른 값(탐구 안내문 한 줄 = 351px)
+  //   · tight xl **430** — 10px 문구가 한 줄에 드는 폭(2026-08-19)
+  // ⚠️ **기본을 430으로 올리지 말 것.** 예보·리그 배너는 `CompeteLayout` 카드
+  //    안이라 더 좁아 제목 열이 70px 더 눌린다. 1024·1152에서 360을 준 것만으로도
+  //    제목이 «…»로 잘렸던 전례가 있다(그래서 xl 아래는 300 그대로).
+  const colVariants = [...banner.matchAll(/'(flex min-w-0 basis-\[300px\][^']*)'/g)].map((m) => m[1]);
+  ok(colVariants.length === 2, `설명 열 클래스 두 벌을 읽었다 — ${colVariants.length}건`);
+  ok(
+    colVariants.some((c) => /xl:basis-\[360px\]/.test(c)) && colVariants.some((c) => /xl:basis-\[430px\]/.test(c)),
+    `기본 열은 xl 360 · tight 열은 xl 430 — 실제 ${JSON.stringify(colVariants.map((c) => c.match(/xl:basis-\[\d+px\]/)?.[0]))}`,
+  );
 
   // ── `note`(제목 아래 작은 글씨)도 같은 62px 예산 안에 있다 ─────────────────
   // 2026-08-19에 「교육용 단순화 모델」 고지가 배너 안, 제목 바로 아래로 들어왔다.
@@ -329,36 +338,31 @@ ok(
   //   ⓑ 두 줄 상한(`line-clamp-2`)이 없으면 긴 고지가 세 줄이 되어 원을 넘긴다.
   //   ⓒ **`hidden`을 붙이지 않는다** — 이 자리에 오는 것은 안내가 아니라 고지라
   //      좁은 화면에서 사라지면 안 된다(설명 `description`과 다른 점이 그것이다).
-  const noteCls = banner.match(/<p className="(mt-0\.5 line-clamp-2[^"]*)"/)?.[1] ?? '';
-  ok(/\bmt-0\.5\b/.test(noteCls), `제목 아래 고지의 간격이 mt-0.5다 — 실제 "${noteCls.trim()}"`);
-  ok(/line-clamp-2/.test(noteCls), '제목 아래 고지가 두 줄까지만 접힌다 — 세 줄이면 62px 원을 넘긴다');
-  ok(!/\bhidden\b/.test(noteCls), '제목 아래 고지는 좁은 화면에서도 접히지 않는다 — 안내가 아니라 고지다');
+  // ⚠️ **접두가 아니라 고유 토큰으로 잡는다.** 종전에는 `line-clamp-2`로 시작하는
+  //    것을 찾았는데, 앞에 `hidden`을 끼워 넣는 변이가 「매치 실패 → 빈 문자열 →
+  //    hidden 없음」으로 **통과했다**(변이 검증에서 잡혔다). 고지에만 있는
+  //    `text-sky-200/85`를 앵커로 삼으면 클래스가 어떻게 늘어나도 잡힌다.
+  const noteCls = banner.match(/<p className="([^"]*text-sky-200\/85[^"]*)"/)?.[1] ?? '';
+  ok(Boolean(noteCls), `고지 클래스를 읽었다 — 실제 "${noteCls.trim()}"`);
+  ok(/line-clamp-2/.test(noteCls), '고지가 두 줄까지만 접힌다 — 세 줄이면 62px 원을 넘긴다');
+  ok(!/\bhidden\b/.test(noteCls), '고지는 좁은 화면에서도 접히지 않는다 — 안내가 아니라 고지다');
+  // 🔴 **고지는 제목 열이 아니라 오른쪽 열 안에 있어야 한다**(2026-08-19).
+  //    제목 아래에 뒀을 때는 제목 열이 eyebrow 14 + 제목 26 + 고지 2줄 29 = 71로
+  //    마스코트 원(62)을 넘겨 **태풍 배너가 104**였다. 오른쪽으로 옮기니 제목 열
+  //    40 · 이 열 32라 둘 다 62 안이고 **전 화면 h=90**이 됐다(7종 실측).
+  //    되돌리면 그 화면만 배너가 높아지는데 눈에 잘 안 띈다 — 구조로 못박는다.
+  const titleCol = banner.slice(banner.indexOf('<Eyebrow'), banner.indexOf('{(note || description)'));
+  ok(!/\{note\}/.test(titleCol), '고지가 제목 열 안에 없다 — 제목 아래로 되돌리면 그 배너만 h=104가 된다');
 
-  // 🔴 **`description`과 `note`를 같이 주면 배너가 h=90을 넘는다.** 설명이 폭을
-  // 가져가 제목 열이 좁아지고 고지가 두 줄이 되면서 위 56px 예산이 무너진다.
-  //   · 기후변화: 설명을 비웠다 → 제목 열 1,018px, 고지 한 줄, **h=90 유지**
-  //   · 태풍: 둘 다 요구됐다(2026-08-19 사용자 지시) → `tightDescription`으로
-  //     설명을 10px 한 줄로 눌러 **h=104**에서 멈췄다. 켜지 않으면 설명이 두
-  //     줄까지 벌어져 더 높아진다.
-  // 그래서 계약은 「같이 쓰지 마라」가 아니라 **「같이 쓰려면 tight를 켜라」**다.
-  // ⚠️ 종전 이 자리에 "같이 쓰지 않는다"는 절대 금지가 있었고, 하루 만에 사용자
-  //    지시로 뒤집혔다. 지우지 않고 정정하는 이유는 그 금지가 기후변화에서
-  //    설명을 비운 **판단의 근거**였기 때문이다 — 그 판단 자체는 여전히 유효하다.
-  // 호출부 전수 검사 — 소스에 새 배너가 늘어도 자동으로 걸린다.
-  const jsxFiles = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-    const full = resolve(dir, e.name);
-    return e.isDirectory() ? jsxFiles(full) : (e.name.endsWith('.jsx') ? [full] : []);
-  });
-  for (const file of jsxFiles(resolve(root, 'src'))) {
-    const src = readFileSync(file, 'utf8');
-    for (const call of src.match(/<HeroBanner[\s\S]*?\n {6}\/>/g) ?? []) {
-      if (!/\bnote=/.test(call) || !/\bdescription=/.test(call)) continue;
-      ok(
-        /\btightDescription\b/.test(call),
-        `${file.slice(root.length + 1)}: description과 note를 같이 쓰는 배너는 tightDescription을 켠다 — 안 켜면 설명이 두 줄로 벌어져 배너가 h=104보다 높아진다`,
-      );
-    }
-  }
+  // ⚠️ **정정 2026-08-19(3판).** 이 자리에는 하루 사이 두 판이 있었다:
+  //   1판 "description과 note를 같이 쓰지 말 것"(고지가 제목 아래 → 같이 쓰면 h=101)
+  //   2판 "같이 쓰려면 tightDescription을 켤 것"(태풍이 둘 다 필요 → h=104에서 멈춤)
+  //   3판(지금) **제약 자체가 사라졌다** — 고지가 오른쪽 열로 옮겨 가면서 둘이
+  //        같은 열에 위아래로 서고, 합쳐도 32px이라 62px 원 안이다(전 화면 h=90).
+  // 세 판을 다 남기는 이유: 1·2판의 금지가 기후변화에서 설명을 비우고 태풍에서
+  // tight를 켠 **판단의 근거**였고, 그 자국이 코드에 남아 있기 때문이다.
+  // 남는 계약은 높이가 아니라 **높이가 실제로 유지되는지**다 — 위 titleCol 검사와
+  // `mascotAssets` ⓔ(넓은 셸)가 그것을 맡는다.
 }
 
 // ── ⑤ 시각 라벨이 실서버 형식을 읽는가 (2026-08-10 실기동 회귀) ─────────────

@@ -222,8 +222,28 @@ try {
     closeGrid > -1 && inGrid('<AnomalyCurve') && inGrid("explore.climate.co2Label") && inGrid('<IndicatorCard'));
   checkMt21('ⓓ 탐구 목표는 격자 위(상단)에 남는다 — 사용자 지시 1',
     climateSrc.indexOf('<GoalPanel') > -1 && climateSrc.indexOf('<GoalPanel') < gridOpen);
-  checkMt21('ⓓ 「왜 그럴까」와 CTA는 격자 아래(하단)에 남는다 — 사용자 지시 3',
-    at("explore.common.whyTitle") > closeGrid && at("explore.climate.cta") > closeGrid);
+  // ⚠️ **정정(2026-08-19 3판).** 이 줄은 종전에 「왜 그럴까도 격자 아래」였다.
+  //    그때는 참이었다 — 지표 둘이 세로로 쌓여 오른쪽 열이 이미 길었기 때문에
+  //    *"긴 문단 셋을 좁은 열에 넣으면 그쪽만 혼자 길어진다"*가 성립했다.
+  //    지표가 한 줄로 눕고(147px) 왼쪽이 곡선+슬라이더로 길어지면서 **오히려
+  //    오른쪽에 자리가 남게 됐고**, 사용자 지시로 해설이 그 자리로 들어왔다.
+  //    지우지 않고 정정하는 이유는 종전 문장이 그 판에서는 옳은 판단이었기
+  //    때문이다 — 배치가 바뀌면 근거도 바뀐다는 것이 여기 남길 교훈이다.
+  //    지금 격자 밖 하단에 남는 것은 **CTA 하나**다.
+  checkMt21('ⓓ 「왜 그럴까」가 오른쪽 열 안, 지표 바로 아래다',
+    at("explore.common.whyTitle") > -1 && at("explore.common.whyTitle") < closeGrid
+      && at('<IndicatorCard') < at("explore.common.whyTitle"));
+  checkMt21('ⓓ CTA만 격자 아래(하단)에 남는다', at("explore.climate.cta") > closeGrid);
+  // 왼쪽은 곡선 → 슬라이더 순이다(곡선 위 점을 보며 그 아래를 미는 동선).
+  checkMt21('ⓓ 왼쪽 열은 곡선 → CO₂ 슬라이더 순이다',
+    at('<AnomalyCurve') < at("explore.climate.co2Label")
+      && at("explore.climate.co2Label") < at('<IndicatorCard'));
+  // 🔴 **양쪽 열이 각자 `flex-1` 카드를 하나씩 갖는다** — 더 짧은 쪽이 남는
+  //    세로를 흡수해 두 열이 같은 줄에서 끝난다. 어느 쪽이 짧은지는 뷰포트가
+  //    정한다(1536·1280은 오른쪽이 짧고, 1024는 왼쪽이 짧다 — 좁을수록 해설
+  //    문단이 늘어난다). 한쪽에만 달면 반대 폭에서 그 열 아래가 빈다(실측 96px).
+  checkMt21('ⓓ 두 열이 각자 flex-1 카드를 하나씩 갖는다 (한쪽만 달면 반대 폭에서 빈다)',
+    (climateSrc.match(/className="flex flex-1 flex-col rounded-2xl/g) ?? []).length === 2);
   // ⓔ **지표 둘은 어느 폭에서나 한 줄**이고, 그래서 오른쪽 열에 한 줄이 남는다.
   //    그 남은 자리를 CO₂ 카드가 `flex-1`로 먹어 **두 열이 같은 줄에서 끝난다**
   //    (2026-08-19 사용자 지시). 둘은 한 쌍이다 — 지표를 다시 세로로 쌓으면 남는
@@ -233,7 +253,10 @@ try {
   //    1536/1280/1024에서 336/312/302로 다 다르다.
   checkMt21('ⓔ 지표 2종이 어느 폭에서나 한 줄이다 (lg 예외 없음)',
     /className="grid grid-cols-2 gap-3"/.test(climateSrc));
-  checkMt21('ⓔ 남는 한 줄을 CO₂ 카드가 먹는다 — flex-1 (없으면 오른쪽 열 아래가 빈다)',
+  // ⚠️ 라벨 정정 — 이 카드의 `flex-1`은 종전에 "오른쪽 열의 남는 줄을 먹는다"는
+  //    뜻이었다. 3판에서 카드가 왼쪽 열로 옮겨 가며 뜻이 바뀌었다: 이제는
+  //    **왼쪽 열이 짧을 때만**(1024) 늘어난다. 검사 대상은 같고 이유가 다르다.
+  checkMt21('ⓔ CO₂ 카드가 왼쪽 열의 흡수자다 — flex-1 (없으면 1024에서 왼쪽 아래가 96px 빈다)',
     /<div className="flex flex-1 flex-col rounded-2xl bg-white p-4/.test(climateSrc));
   checkMt21('ⓔ 늘어난 자리를 슬라이더 뭉치가 쓴다 — 위에 붙이면 카드가 빈 상자가 된다',
     /<div className="flex flex-1 flex-col justify-center py-2">/.test(climateSrc));
@@ -298,7 +321,10 @@ try {
    * 시절에는 부모 `space-y-4`와 값이 같아 안 보였지만, 격자 칸이 되는 순간 옆
    * 칸보다 16px 내려앉는다. 자기 여백을 가진 컴포넌트를 격자에 넣을 때의 함정이다.
    */
-  const tSat2 = typhoonSrc.indexOf('lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]');
+  // 비율은 1.35 → **1.9**로 커졌다(2026-08-19 2차 지시 "위성지도 크기 더 키우고").
+  // 값을 못박는다 — 「크기」가 이 지시의 본체라 되돌아가면 지시가 무효가 된다.
+  // 실측 1536: 도식 723×599(종전 634×543) · 해설 381×599(격자 stretch로 자동 일치).
+  const tSat2 = typhoonSrc.indexOf('lg:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]');
   const tWhy = typhoonSrc.indexOf("explore.common.whyTitle");
   const tCta = typhoonSrc.indexOf("explore.typhoon.cta");
   checkMt21('㉱ 태풍: 위성 도식 ↔ 왜 그럴까 2열 격자가 있다', tSat2 > -1);
