@@ -928,3 +928,10 @@ class TestUnnettedCopies:
         got = _json.loads(out.stdout)
         want = [wb.mastery_label(p, c) for p, c in cases]
         assert got == want, f"숙련 라벨 규칙이 갈렸다 — 목 {got} vs 서버 {want}"
+
+    def test_리그_분반_설정이_같다(self, policy):
+        """`GET /league/division`을 목에 넣으면서 서버 설정 사본이 둘 생겼다.
+        값이 같아도 노출이 없으면 서버가 바뀔 때 조용하다(오늘의 형태)."""
+        from app.core.config import settings
+        assert policy["league_division_size"] == settings.LEAGUE_DIVISION_SIZE
+        assert policy["league_neighbor_span"] == settings.LEAGUE_NEIGHBOR_SPAN

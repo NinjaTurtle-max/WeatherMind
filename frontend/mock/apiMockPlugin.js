@@ -2197,6 +2197,48 @@ function gradeSessionItem(item, rawAnswer) {
   return answer === correct;
 }
 
+/**
+ * 코스 목록 — `GET /courses`와 `GET /courses/:slug`가 **같은 배열**을 본다.
+ * 상세를 따로 적으면 사본이 하나 더 생긴다(오늘 종일 잡아온 그 형태).
+ */
+const MOCK_COURSES = [
+  {
+    id: 'weather',
+    title: '날씨와 기후',
+    description: '하늘을 읽는 법부터 기후 변화까지',
+    course_order: 1,
+    prereq_course_id: null,
+    is_default: true,
+    units_total: 138,
+  },
+  {
+    id: 'basic-science',
+    title: '기초 과학',
+    description: '온도·압력·물의 상태 변화',
+    course_order: 2,
+    prereq_course_id: null,
+    is_default: false,
+    units_total: 99,
+  },
+];
+
+/** 리그 분반 — server `Settings.LEAGUE_DIVISION_SIZE` · `LEAGUE_NEIGHBOR_SPAN` 사본. */
+const MOCK_LEAGUE_DIVISION_SIZE = 30;
+const MOCK_LEAGUE_NEIGHBOR_SPAN = 3;
+
+/** 리더보드 행 — `GET /league/leaderboard`와 `GET /league/division`이 함께 쓴다. */
+const leaderboardRows = () =>
+  Array.from({ length: 10 }, (_, i) => {
+    const elo = 1400 - i * 22;
+    return {
+      rank: i + 1,
+      nickname: ['하늘지기', '비요미', '구름사냥꾼', '태풍의눈', '무지개탐정', '요미', '맑음이', '천둥벌거숭이', '이슬비', '바람돌이'][i],
+      accuracy_score: Math.round((97 - i * 4.3) * 10) / 10,
+      elo_rating: elo,
+      tier: tierFromElo(elo),
+    };
+  });
+
 const routes = {
   'POST /auth/register': (body) => {
     if (body?.email) mockAuth.registeredEmails.add(body.email); // convert 중복 판정 공유
@@ -2289,31 +2331,16 @@ const routes = {
    * **2개 미만이면 탭을 안 그리므로**(단일 코스 = 고를 것이 없다) 둘 다 있어야
    * 코스 전환 경로가 목 위에서 재현된다.
    */
-  'GET /courses': () => [
-    200,
-    {
-      courses: [
-        {
-          id: 'weather',
-          title: '날씨와 기후',
-          description: '하늘을 읽는 법부터 기후 변화까지',
-          course_order: 1,
-          prereq_course_id: null,
-          is_default: true,
-          units_total: 138,
-        },
-        {
-          id: 'basic-science',
-          title: '기초 과학',
-          description: '온도·압력·물의 상태 변화',
-          course_order: 2,
-          prereq_course_id: null,
-          is_default: false,
-          units_total: 99,
-        },
-      ],
-    },
-  ],
+  'GET /courses': () => [200, { courses: MOCK_COURSES }],
+  // 🔴 **코스 상세** — 서버 `curriculum.get_course`(`CourseOut`)가 있는데 목엔 없어서
+  //   dev에서 dev 프록시로 빠져나갔다(2026-08-20 전수 대조). 미존재는 서버와 같은
+  //   404 `COURSE_NOT_FOUND`.
+  // ⚠️ 목록과 **같은 배열**을 본다 — 상세를 따로 적으면 사본이 하나 더 생긴다.
+  'GET /courses/:slug': (_body, params) => {
+    const course = MOCK_COURSES.find((c) => c.id === params?.slug);
+    if (!course) return [404, { detail: '코스를 찾을 수 없습니다', code: 'COURSE_NOT_FOUND' }];
+    return [200, course];
+  },
   'POST /auth/refresh': () => [200, { access_token: 'mock-access-2' }],
   'POST /auth/logout': () => [200, { success: true }],
 
@@ -3096,19 +3123,43 @@ const routes = {
     state.predicted = true;
     return [200, { submitted: true }];
   },
-  'GET /league/leaderboard': () => [
-    200,
-    Array.from({ length: 10 }, (_, i) => {
-      const elo = 1400 - i * 22;
-      return {
-        rank: i + 1,
-        nickname: ['하늘지기', '비요미', '구름사냥꾼', '태풍의눈', '무지개탐정', '요미', '맑음이', '천둥벌거숭이', '이슬비', '바람돌이'][i],
-        accuracy_score: Math.round((97 - i * 4.3) * 10) / 10,
-        elo_rating: elo,
-        tier: tierFromElo(elo), // 리더보드 행 티어 (§3.2)
-      };
-    }),
-  ],
+  'GET /league/leaderboard': () => [200, leaderboardRows()],
+  // 🔴 **분반** — 서버 `league.get_division`(`LeagueDivision`)이 있는데 목엔 없었다.
+  //   `division_size`·`neighbors`는 서버 설정 사본이라 `__mockPolicy()`로 노출한다.
+  'GET /league/division': () => {
+    const board = leaderboardRows();
+    const myRank = 4; // 목의 나는 4위(리더보드 4번째 줄)
+    const lo = Math.max(0, myRank - 1 - MOCK_LEAGUE_NEIGHBOR_SPAN);
+    const hi = Math.min(board.length, myRank + MOCK_LEAGUE_NEIGHBOR_SPAN);
+    const entries = board.slice(lo, hi).map((r) => ({
+      ...r,
+      global_rank: r.rank,
+      is_me: r.rank === myRank,
+    }));
+    const me = board[myRank - 1];
+    const above = board[myRank - 2];
+    const below = board[myRank];
+    const gap = (a, b) =>
+      a?.accuracy_score == null || b?.accuracy_score == null
+        ? null
+        : Math.round((a.accuracy_score - b.accuracy_score) * 10) / 10;
+    return [
+      200,
+      {
+        week_start: weekStartISO(),
+        division_size: MOCK_LEAGUE_DIVISION_SIZE,
+        division_index: 0,
+        division_count: 1,
+        division_member_count: board.length,
+        total_participants: board.length,
+        my_rank: myRank,
+        my_global_rank: myRank,
+        gap_above: gap(above, me),
+        gap_below: gap(me, below),
+        entries,
+      },
+    ];
+  },
   'GET /league/me/results': () => [
     200,
     state.predicted
@@ -3470,6 +3521,9 @@ export const __mockPolicy = () => ({
     mastered: MOCK_MASTERY_MASTERED_MIN,
     learning: MOCK_MASTERY_LEARNING_MIN,
   },
+  // 리그 분반 — server Settings.LEAGUE_DIVISION_SIZE · LEAGUE_NEIGHBOR_SPAN
+  league_division_size: MOCK_LEAGUE_DIVISION_SIZE,
+  league_neighbor_span: MOCK_LEAGUE_NEIGHBOR_SPAN,
   duel_win_xp: MOCK_DUEL_WIN_XP, // server duel_service.DUEL_WIN_XP
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
   guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN
