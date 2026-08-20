@@ -1391,6 +1391,8 @@ await vite.close();
     `⑪-c 조건부 예외 목록에 죽은 항목이 없다 — 표에 없는 것 ${orphanExceptions.length}종`
       + `${orphanExceptions.length ? ` (${orphanExceptions.map(({ cp }) => `U+${cp.codePointAt(0).toString(16).toUpperCase()}`)})` : ''}`,
   );
+}
+
 // ── ⑦ 배치 인정이 게이지에 남는다 (2026-08-19 결함 ⑦) ────────────────────────
 // 🔴 종전 화면은 **`cleared`만** 세서, 고등으로 진단받아 75유닛을 인정받은 학습자가
 // `0 / 138 유닛`을 봤다 — 배치가 화면에서 통째로 사라진 상태였고 클라이언트가
