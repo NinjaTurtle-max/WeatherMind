@@ -146,6 +146,35 @@ function mount(element, initialPath = '/board') {
   return reactRoot;
 }
 
+/**
+ * 목록 응답을 **미리 심어** 마운트한다 — 목이 못 만드는 payload를 보기 위한 통로.
+ *
+ * 왜 필요한가: 배지 미표시 가드는 `knowledge_level`이 **null**일 때를 지키는데,
+ * 목 뱅크의 board 문항은 전건 단계가 채워져 있어(미분류 0건) 실호출로는 그 갈래를
+ * 밟을 수 없다. 목을 고치는 것은 남의 파일이고, 목을 고쳐서 볼 것도 아니다 —
+ * 지켜야 하는 것은 「필드가 비면 아무것도 그리지 않는다」는 **화면의 성질**이다.
+ * 그래서 react-query 캐시에 목록을 심고 그 화면만 본다.
+ *
+ * ⚠️ `gcTime`을 무한으로 둔다 — 기본 0이면 관찰자가 붙기 전에 심은 데이터가
+ * 회수돼 컴포넌트가 실호출로 되돌아간다(그러면 이 함수가 아무 일도 안 한다).
+ * 컴포넌트의 `staleTime`(60s)이 기본값을 이기므로 재요청도 나가지 않는다.
+ */
+function mountWithBoardList(element, list, initialPath = '/board') {
+  safeUnmount();
+  const container = window.document.getElementById('root');
+  const reactRoot = createRoot(container);
+  currentRoot = reactRoot;
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, gcTime: Infinity } },
+  });
+  qc.setQueryData(['board', 'puzzles'], list);
+  reactRoot.render(
+    createElement(QueryClientProvider, { client: qc },
+      createElement(MemoryRouter, { initialEntries: [initialPath] }, element)),
+  );
+  return reactRoot;
+}
+
 const api = async (method, path, body) => {
   const res = await fetch(`${origin}/api/v1${path}`, {
     method,
@@ -251,12 +280,13 @@ try {
     assert(list.body.every((p) => 'cleared' in p), 'cleared 필드가 목록에 있어야 함');
 
     const { r } = await mountListAndFindCard();
-    // 난이도 라벨은 '난이도 {쉬움|보통|어려움}' 꼴이다. 예전에는 특정 라벨
-    // 낱말('도전')을 단정했는데, 문구를 바꾸는 순간 검사 절반이 조용히 죽는다
-    // (2026-08-06에 '도전' → '어려움'으로 바꾸며 드러났다). 낱말이 아니라
-    // **배지가 붙었다는 사실**을 본다.
-    assert(text().includes('✓ 클리어') || text().includes('난이도 '),
-      '잔량 0에서 클리어/난이도 배지가 사라졌다(목록을 차단한 회귀)');
+    // 낱말이 아니라 **배지가 붙었다는 사실**을 본다. 특정 라벨을 단정하면 문구가
+    // 바뀌는 순간 검사 절반이 조용히 죽는다 — 이 파일에서 두 번 그랬다('도전' →
+    // '어려움' 2026-08-06 · '난이도 ' 접두어 → 지식 단계 표기 2026-08-20).
+    // 그래서 이제 **문구가 아니라 속성**(data-knowledge-level)을 본다: 배지가
+    // 무슨 낱말을 쓰든 붙어 있으면 잡히고, 사라지면 어떤 문구 개편에도 안 죽는다.
+    assert(text().includes('✓ 클리어') || window.document.querySelector('[data-knowledge-level]'),
+      '잔량 0에서 클리어/단계 배지가 사라졌다(목록을 차단한 회귀)');
     assert(!text().includes('퍼즐을 불러오지 못했어요'), '잔량 0에서 목록이 에러 화면이 됐다');
     // 자유 실험은 **보드에서 사라졌다**(2026-08-10 탐구로 이사) — 카드가 남아
     // 있으면 "채점되는 것"과 "채점 안 되는 것"이 한 판에 다시 섞인다.
@@ -397,10 +427,21 @@ try {
     }
   });
 
-  // ── 7. 학습 수준 잠금 (2026-08-10 사용자 지시) ────────────────────────────
+  // ── 7. 학습 수준 잠금 (2026-08-10 사용자 지시 · 2026-08-20 축 전환) ───────
   //
-  // 열쇠는 진도가 아니라 `users.level_group`이다: 초등은 쉬움, 중·고등은 보통까지,
-  // 성인은 전부. 여기서 지키는 것은 셋이다 —
+  // 열쇠는 진도가 아니라 `users.level_group`이다. ⚠️ **잠기는 대상이 바뀌었다**:
+  // 종전에는 학령 파생 `difficulty`(1~3)를 잠갔고 이 시나리오도 `p.difficulty === 3`
+  // 으로 칸을 골랐는데, 그 필드는 **응답에 없다**(축이 `knowledge_level` 1~10으로
+  // 갈아탔다). 그래서 필드가 사라진 날부터 이 시나리오는 「난이도 1·3 퍼즐이 둘 다
+  // 있어야」에서 터져 있었다 — 잠금을 검사하지 못한 채로.
+  //
+  // ⚠️ **천장 값을 여기 박지 않는다**(2/4/6/9는 목·서버가 소유하고, 층 수 N도 자란다).
+  // 대신 **성질**을 문다: 잠긴 집합은 층 순서의 **꼬리**다 —
+  //   ceiling = 안 잠긴 칸의 최대 층  ⇒  (층 ≤ ceiling ⟺ 안 잠김)
+  // 이 성질은 천장이 몇이든, 층이 10칸이든 12칸이든 참이라야 한다. 값을 베끼면
+  // 목이 바뀔 때 테스트가 조용히 낡지만, 성질은 낡지 않는다.
+  //
+  // 여기서 지키는 것은 셋이다 —
   //   ① 잠긴 칸을 **눌러도 상세 요청이 안 나간다**(누르기 전에 알린다, §3.1)
   //   ② 서버가 실제로 막는다(403 PUZZLE_LOCKED) — 화면만 막으면 주소창으로 뚫린다
   //   ③ **수준을 바꾸면 그 자리에서 열린다** — 여는 통로가 없으면 벽이다
@@ -414,11 +455,29 @@ try {
     assert(before.status === 200, `학령 설정 실패 (${before.status})`);
 
     const list = await api('GET', '/board/puzzles');
-    const hard = list.body.find((p) => p.difficulty === 3);
-    const easy = list.body.find((p) => p.difficulty === 1);
-    assert(hard && easy, '목 뱅크에 난이도 1·3 퍼즐이 둘 다 있어야 이 계약을 볼 수 있다');
-    assert(hard.locked === true, '중·고등인데 어려움이 안 잠겼다');
-    assert(easy.locked === false, '중·고등인데 쉬움이 잠겼다');
+    // 잠긴 집합이 층 순서의 꼬리인지 — 천장을 응답에서 **되읽어** 판정한다.
+    const tierOf = (p) => p.knowledge_level;
+    const assertTailPartition = (body, who) => {
+      const open = body.filter((p) => !p.locked && tierOf(p) != null).map(tierOf);
+      const shut = body.filter((p) => p.locked).map(tierOf);
+      assert(open.length > 0, `${who}: 안 잠긴 칸이 하나도 없다 — 못 여는 것이 열리는 것보다 나쁘다`);
+      const ceiling = Math.max(...open);
+      assert(shut.every((tier) => tier > ceiling),
+        `${who}: 천장(${ceiling}) 이하인데 잠긴 칸이 있다 — 잠긴 집합이 층 순서의 꼬리가 아니다 [${shut.filter((v) => v <= ceiling).join(',')}]`);
+      // 층 미상(null)은 **절대 잠기지 않는다**(서버 locked_tiers와 같은 규칙 —
+      // 「못 여는 것이 열리는 것보다 나쁘다」). 값이 비는 순간 퍼즐이 통째로
+      // 사라지는 것을 막는 가드라, 잠금 쪽에서도 같이 물어야 한다.
+      assert(body.filter((p) => tierOf(p) == null).every((p) => !p.locked),
+        `${who}: 층 미상(null) 칸이 잠겼다 — 미상은 잠그지 않는다`);
+      return ceiling;
+    };
+
+    const mhCeiling = assertTailPartition(list.body, '중·고등');
+    const hard = list.body.find((p) => p.locked);
+    const easy = list.body.find((p) => !p.locked);
+    assert(hard && easy,
+      `중·고등에서 잠긴 칸과 열린 칸이 둘 다 있어야 이 계약을 볼 수 있다 — 천장 ${mhCeiling}, 잠김 ${list.body.filter((p) => p.locked).length}건`);
+    assert(tierOf(hard) > mhCeiling, '잠긴 칸의 층이 천장보다 높지 않다');
 
     // ② 서버가 막는다 — 화면을 거치지 않고 직접 부른다
     const blocked = await api('GET', `/board/puzzles/${hard.content_item_id}`);
@@ -452,8 +511,17 @@ try {
     const up = await api('PATCH', '/auth/me', { level_group: 'adult' });
     assert(up.status === 200 && up.body?.level_group === 'adult', '학령 상향 실패');
     const opened = await api('GET', '/board/puzzles');
-    assert(opened.body.every((p) => p.locked === false),
-      `성인인데 잠긴 퍼즐이 남았다: ${opened.body.filter((p) => p.locked).length}건`);
+    // ⚠️ **「성인은 전부 열린다」를 단정하지 않는다** — 2026-08-20에 거짓이 됐다.
+    // 축이 10층이 되며 천장도 층 단위가 되어 성인 위에 밴드가 하나 더 있고(그
+    // 위에도 못 여는 층이 남는다), 그래서 「전부」는 어떤 밴드에서도 참이 아닐 수
+    // 있다. 무는 것은 **단조성**이다: 수준을 올리면 천장이 오르고, 방금 잠겨
+    // 있던 칸이 열린다. 그것이 「여는 통로가 있다」의 실질이다.
+    const adultCeiling = assertTailPartition(opened.body, '성인');
+    assert(adultCeiling > mhCeiling,
+      `수준을 올렸는데 천장이 안 올랐다 — 중·고등 ${mhCeiling} → 성인 ${adultCeiling}`);
+    const hardNow = opened.body.find((p) => p.content_item_id === hard.content_item_id);
+    assert(hardNow?.locked === false,
+      `중·고등에서 잠겼던 ${tierOf(hard)}층 칸이 성인에서도 잠겼다 (천장 ${adultCeiling})`);
     // ⚠️ 여기서 **200을 단정하지 않는다**(2026-08-12 합성). 수준 잠금이 풀려도
     // 순차 잠금(MT-24)이 남아 있을 수 있다 — 어려움 퍼즐은 코스 뒤쪽이라 앞을
     // 안 풀었으면 BOARD_LOCKED다. 그건 결함이 아니라 **다른 축의 정상 동작**이고,
@@ -465,49 +533,128 @@ try {
     assert(nowOk.status === 200 || nowOk.body?.code === 'BOARD_LOCKED',
       `수준·순차 말고 다른 이유로 막혔다 — ${nowOk.status} ${nowOk.body?.code}`);
 
-    // 초등은 보통까지 잠긴다(세 밴드 중 마지막 하나)
+    // 초등은 천장이 더 낮다(밴드 셋 중 마지막 하나 — 방향이 반대인 쪽도 본다)
     await api('PATCH', '/auth/me', { level_group: 'elementary' });
     const elem = await api('GET', '/board/puzzles');
-    assert(elem.body.filter((p) => p.difficulty === 2).every((p) => p.locked),
-      '초등인데 보통이 열려 있다');
-    assert(elem.body.filter((p) => p.difficulty === 1).every((p) => !p.locked),
-      '초등인데 쉬움이 잠겼다');
+    const elemCeiling = assertTailPartition(elem.body, '초등');
+    assert(elemCeiling < mhCeiling,
+      `초등 천장이 중·고등보다 낮지 않다 — 초등 ${elemCeiling} vs 중·고등 ${mhCeiling}`);
+    // 🔴 **`filter(...).every(...)`는 빈 배열에서 true다.** 종전 이 자리의 두
+    // 단정이 `p.difficulty`(없어진 필드)로 걸러서, 필드가 사라진 뒤에도 **빈
+    // 배열을 통과시키며 초록일 수 있었다**(이 저장소가 오늘 여러 번 잡은 형태:
+    // 계약이 옳게 돌면서 아무것도 안 지킨다). 그래서 **센 다음에 단정한다** —
+    // 「읽었다」를 확인하는 이 한 줄이 빠지면 아래 두 줄이 공집합을 통과한다.
+    const aboveCeiling = elem.body.filter((p) => tierOf(p) > elemCeiling);
+    const atOrBelow = elem.body.filter((p) => tierOf(p) != null && tierOf(p) <= elemCeiling);
+    assert(aboveCeiling.length > 0 && atOrBelow.length > 0,
+      `초등: 천장 위/아래 칸을 둘 다 읽어야 한다 — 위 ${aboveCeiling.length}건 · 아래 ${atOrBelow.length}건 (0이면 아래 두 단정이 공집합을 통과한다)`);
+    assert(aboveCeiling.every((p) => p.locked), '초등인데 천장 위 층이 열려 있다');
+    assert(atOrBelow.every((p) => !p.locked), '초등인데 천장 이하 층이 잠겼다');
    } finally {
     await api('PATCH', '/auth/me', { level_group: 'middle_high' });
    }
   });
 
-  // ── #32b 난이도 라벨은 교과 과정 표기다 ──────────────────────────────────
-  // 왜 여기냐: 바로 위 시나리오가 **학습 수준 잠금**을 검사한다. 라벨과 잠금은
-  // 한 몸이라(초등→1, 중·고등→2까지, 성인→전부) 같은 파일에서 함께 물어야
-  // 한쪽만 바뀌는 드리프트가 잡힌다.
+  // ── #32b 난이도 배지는 교과 과정 표기다 — **지식 단계 10칸 판**(2026-08-20) ──
+  //
+  // 뜻을 새 축으로 다시 썼다(지우지 않았다). 종전 판이 무는 것은 셋이었고 그중
+  // 둘은 **소유자가 옮겨 갔고 하나는 거짓이 됐다**:
+  //   ⑴ 「상대 난이도 어휘로 안 돌아간다」 → 살아 있다. 다만 볼 곳이 board 리소스의
+  //      difficulty1~3이 아니라 `ability.knowledgeLevel.name`이다(그 키 5개는
+  //      2026-08-20에 삭제 — 소비처가 이 배지 하나뿐이었다).
+  //   ⑵ 「배지 낱말 = 잠금 안내문 낱말」(한 몸 계약) → **버린다.** 배지는 이제
+  //      지식 단계(1~10)를 말하고 `lockedBannerBody`는 학령 밴드를 말한다. 두
+  //      문장이 다른 축이라 「같은 낱말」을 요구하면 옳은 상태를 빨강으로 만든다.
+  //      ⚠️ 그 안내문은 지금 **거짓**이다(「성인은 전부 열려요」 ↔ 성인 위에 밴드가
+  //      더 있고 그 위 층은 안 열린다). 배지 담당 소유 밖이라 여기서 고치지 않고
+  //      **보고**했다 — 문구 소유자가 고치면 그때 계약도 이 자리에 붙인다.
+  //   ⑶ 새로 문다: 지운 키가 되살아나지 않을 것 · 배지가 죽은 필드를 다시 읽지
+  //      않을 것. 이 파일이 오늘 밟은 함정이 정확히 그것이다(없는 필드를 읽고도
+  //      계약이 「돌기는」 했다).
   //
   // 낱말 자체를 단정하지 **않는다** — 이 파일이 2026-08-06에 「도전」을 단정했다가
-  // 문구가 바뀌며 조용히 죽은 전례가 있다(위 248행 시나리오 주석). 대신 두 가지
-  // **성질**을 문다: ⑴ 상대 난이도 어휘로 되돌아가지 않았을 것 ⑵ 세 라벨이
-  // 잠금 안내문에 그대로 등장할 것(배지와 안내가 같은 낱말을 쓸 것).
-  await scenario('#32b: 난이도 라벨이 교과 과정 표기이고 잠금 안내와 같은 낱말을 쓴다', async () => {
+  // 문구가 바뀌며 조용히 죽은 전례가 있다. 성질만 문다.
+  await scenario('#32b: 배지 표기가 지식 단계 교과 과정 표기이고 죽은 축으로 되돌아가지 않았다', async () => {
     const RELATIVE_WORDS = {
       ko: ['쉬움', '보통', '어려움', '도전'],
       en: ['Easy', 'Normal', 'Hard'],
     };
+    // 죽은 축의 라벨 — 배지가 다시 학령 3낱말로 되돌아가면 잡는다.
+    const DEAD_BAND_LABELS = {
+      ko: ['초등', '중·고등', '성인'],
+      en: ['Elementary', 'Mid & high', 'Adult'],
+    };
     for (const locale of ['ko', 'en']) {
-      const res = (await vite.ssrLoadModule(`/src/i18n/resources/board.${locale}.js`)).default;
-      const page = res.board.page;
-      const labels = [page.difficulty1, page.difficulty2, page.difficulty3];
-
+      const res = (await vite.ssrLoadModule(`/src/i18n/resources/${locale}.js`)).default;
+      const names = res.ability?.knowledgeLevel?.name;
+      assert(names && Object.keys(names).length > 0,
+        `${locale}: ability.knowledgeLevel.name이 없다 — 배지 명칭표의 소유자다`);
+      const labels = Object.values(names);
       assert(labels.every((l) => typeof l === 'string' && l.trim()),
-        `${locale}: difficulty1~3 라벨이 비었다`);
-      for (const word of RELATIVE_WORDS[locale]) {
+        `${locale}: 단계 표시명에 빈 값이 있다 (${labels.length}칸)`);
+      for (const word of [...RELATIVE_WORDS[locale], ...DEAD_BAND_LABELS[locale]]) {
         assert(!labels.includes(word),
-          `${locale}: 난이도 라벨이 상대 난이도 어휘 「${word}」로 되돌아갔다 — #32b는 교과 과정 표기다`);
+          `${locale}: 단계 표시명이 죽은 어휘 「${word}」로 되돌아갔다 — #32b는 교과 과정 표기다`);
       }
-      // ⑵ 한 몸 계약: 라벨 3개가 전부 잠금 안내문 안에 있어야 한다.
-      for (const label of labels) {
-        assert(page.lockedBannerBody.includes(label),
-          `${locale}: 잠금 안내문이 라벨 「${label}」을 안 쓴다 — 배지와 안내가 다른 말을 하면 학습자가 두 축으로 읽는다`);
-      }
+      // 지운 키가 되살아나지 않는다(두 번째 사본 = 두 배지가 갈리는 길).
+      const boardPage = (await vite.ssrLoadModule(`/src/i18n/resources/board.${locale}.js`)).default.board.page;
+      const revived = Object.keys(boardPage).filter((k) => k.startsWith('difficulty'));
+      assert(revived.length === 0,
+        `${locale}: 지운 배지 키가 되살아났다 — ${revived.join(', ')} (명칭표 소유자는 ability.knowledgeLevel.name 하나다)`);
     }
+    // 배지가 **없어진 필드**를 다시 읽지 않는다. 소스 계약으로 무는 이유: 그
+    // 필드를 읽으면 화면에서 배지가 **조용히 사라질** 뿐이라 문구 단정으로는
+    // 「무엇이 없는지」가 안 잡힌다(2026-08-20에 실제로 그 상태였다).
+    const src = await readFile(resolve(root, 'src/modules/board/BoardPage.jsx'), 'utf8');
+    assert(!/puzzle\.difficulty\b/.test(src),
+      'BoardPage가 puzzle.difficulty를 다시 읽는다 — 서버 응답에 없는 필드다(배지가 전 칸에서 사라진다)');
+    assert(src.includes('KNOWLEDGE_LEVEL_NAME'),
+      'BoardPage가 KNOWLEDGE_LEVEL_NAME을 안 읽는다 — 명칭표를 이 파일에서 지으면 세 화면이 갈린다');
+  });
+
+  // ── 🔴 역검증: 배지가 화면에 뜨는지 · 값이 없으면 미표시인지 ───────────────
+  //
+  // 위 시나리오는 **리소스와 소스**를 본다. 그것만으로는 「사전에 이름이 있다」와
+  // 「화면에 그 이름이 뜬다」가 구분되지 않는다(이 파일이 오늘 밟은 함정: 계약이
+  // 옳게 돌면서 아무것도 안 지킨다). 그래서 실제로 마운트해 DOM을 본다.
+  //
+  // 심어서 보는 이유는 `mountWithBoardList` 주석이 소유한다 — 요약하면 목 뱅크에
+  // 단계 null인 board 문항이 없어 실호출로는 가드 갈래를 밟을 수 없다.
+  await scenario('배지: 단계가 있으면 교과 표기가 뜨고, null이면 배지가 아예 없다', async () => {
+    const { KNOWLEDGE_LEVEL_NAME } = await vite.ssrLoadModule('/src/lib/abilityDisplay.js');
+    const LEVEL = 7;
+    const expected = KNOWLEDGE_LEVEL_NAME[LEVEL];
+    assert(typeof expected === 'string' && expected.trim(),
+      `단계 ${LEVEL}의 표시명을 사전에서 못 읽었다 — 이 단정의 기준 자체가 거짓이 된다`);
+
+    const puzzle = (id, level) => ({
+      content_item_id: id,
+      knowledge_level: level,
+      template_json: { title: `단계표기-${id}`, mode: 'goal' },
+      cleared: false,
+      locked: false,
+      unlocked: true,
+    });
+    const seeded = [puzzle('lv-known', LEVEL), puzzle('lv-null', null)];
+
+    const r = mountWithBoardList(createElement(BoardPage), seeded);
+    // 두 칸이 **다 떴는지** 먼저 본다 — 한 칸만 떠 있으면 아래 「배지 1개」가
+    // 엉뚱한 이유로 통과한다.
+    await waitFor(() => text().includes('단계표기-lv-known'), 6000, '심은 목록 렌더');
+    assert(text().includes('단계표기-lv-null'),
+      '단계 null 칸의 제목이 안 떴다 — 값이 없으면 카드째 사라지는 것은 회귀다(배지만 감춘다)');
+
+    const badges = [...window.document.querySelectorAll('[data-knowledge-level]')];
+    assert(badges.length === 1,
+      `배지가 정확히 1개여야 한다(단계 있는 칸에만) — 실제 ${badges.length}개 [${badges.map((b) => b.getAttribute('data-knowledge-level')).join(',')}]`);
+    assert(badges[0].getAttribute('data-knowledge-level') === String(LEVEL),
+      `배지가 다른 단계를 가리킨다 — ${badges[0].getAttribute('data-knowledge-level')}`);
+    assert(badges[0].textContent.includes(expected),
+      `배지 문구에 교과 표기 「${expected}」가 없다 — 실제 「${badges[0].textContent}」`);
+    // 읽어 주는 이름은 줄지 않는다(compact든 아니든 전체 문구).
+    assert((badges[0].getAttribute('aria-label') ?? '').includes(expected),
+      `배지 aria-label이 단계 이름을 안 읽어 준다 — 「${badges[0].getAttribute('aria-label')}」`);
+    r.unmount();
   });
 
   // ── 503 BOARD_RULES_UNAVAILABLE은 내부 진단 문자열을 화면에 흘리지 않는다 ──
