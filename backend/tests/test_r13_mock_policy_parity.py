@@ -775,3 +775,9 @@ class TestUnnettedCopies:
             f"{c['template']}/{c['level_group']}: 목 {c['out']} vs 서버 {srv}"
             for c, srv in bad
         )
+
+    def test_대결_승리_XP가_같다(self, policy):
+        """액수를 프론트가 하드코딩하지 않도록 서버가 보내는 값이다(R10).
+        목도 그 값을 흉내내므로 사본이고, 사본이면 대조해야 한다."""
+        from app.services import duel_service
+        assert policy["duel_win_xp"] == duel_service.DUEL_WIN_XP

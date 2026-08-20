@@ -678,6 +678,8 @@ function devStatePayload() {
     // unlock_floor: 배치 θ 선해제가 연 선두 연속 유닛 수 (backend placement_unlock_floor)
     unlock_floor: preUnlockedUnits.size,
     clouds: state.clouds,
+    // 서버 `DevState.max_clouds` — 목이 빼먹고 있었다(2026-08-20 전수 대조).
+    max_clouds: CLOUD_MAX,
     streak_count: state.streak,
     placement_done: state.placementDone,
     // θ 파생 약점 (R8-01 §3.5, backend build_state와 동일 규칙): n>0 AND θ<0.41.
@@ -1261,8 +1263,18 @@ function duelTodayPayload() {
     user_score: null,
     ai_score: null,
     result: null,
+    // 서버 `_duel_xp_earned(result)` — 정산 전이면 null. 오늘 대결은 미정산이다.
+    // ⚠️ 액수를 프론트가 하드코딩하지 않도록 **서버가 보내는** 필드다(R10).
+    xp_earned: null,
   };
 }
+
+/**
+ * 대결 승리 XP — server `duel_service.DUEL_WIN_XP`의 **사본**.
+ * `__mockPolicy().duel_win_xp`로 노출해 서버 실값과 대조한다(오늘 그물 밖 사본
+ * 넷을 메운 것과 같은 이유 — 값이 같아도 노출이 없으면 서버가 바뀔 때 조용하다).
+ */
+const MOCK_DUEL_WIN_XP = 15;
 
 const nextLevelXp = (level) => 50 * (level + 1) ** 2;
 
@@ -2569,6 +2581,9 @@ const routes = {
         mode: s.mode,
         items: sessionItemsOf(s),
         progress: sessionProgress(s),
+        // 서버 `SessionToday.closing_step` — 배치 세션은 마감 단계가 없어 null이지만
+        // **필드는 있어야 한다**. 없으면 화면이 `undefined`와 `null`을 구분 못 한다.
+        closing_step: closingStepPayload(s.mode),
       },
     ];
   },
@@ -2869,7 +2884,10 @@ const routes = {
     }
     state.clouds = Math.max(0, Math.min(CLOUD_MAX, Math.round(clouds)));
     state.cloudsUpdatedAt = Date.now();
-    return [200, devStatePayload()];
+    // 서버 `DevCloudsResult`는 `{clouds, max}`다. 목은 개발 패널이 한 번에 갱신되도록
+    // 상태 전체를 돌려주지만, **서버가 주는 두 필드는 반드시 들어 있어야 한다** —
+    // `max`가 없어서 화면이 상한을 못 읽던 자리다(2026-08-20 전수 대조).
+    return [200, { ...devStatePayload(), max: CLOUD_MAX }];
   },
   // POST /dev/curriculum {action:"unlock_all"|"crown"|"reset", unit_slug?, crowns?}
   'POST /dev/curriculum': (body) => {
@@ -2942,6 +2960,7 @@ const routes = {
             actual_value: null,
             accuracy_score: null,
             elo_rating_after: null,
+            tier: state.tier, // 서버 `LeagueResultOut.tier` — 목이 빼먹고 있었다
           },
         ]
       : [],
@@ -3148,6 +3167,7 @@ const routes = {
         user_score: 92.1,
         ai_score: 78.3,
         result: 'win',
+        xp_earned: MOCK_DUEL_WIN_XP, // 서버 `_duel_xp_earned`: win이면 DUEL_WIN_XP, 그 외 0
         caster_grade: 'nimbostratus',
         evidence: ['pop_trend', 'recent_rain'],
         evidence_review: [
@@ -3272,6 +3292,7 @@ export const __mockPolicy = () => ({
   board_difficulty_samples: BOARD_DIFFICULTY_SAMPLES.map((c) => ({
     ...c, out: boardDifficulty(c.template, c.level_group),
   })),
+  duel_win_xp: MOCK_DUEL_WIN_XP, // server duel_service.DUEL_WIN_XP
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
   guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN
   // 왕관 정책 (server routers/session.py — §2.10 소유권 이전)
