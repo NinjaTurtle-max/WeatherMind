@@ -199,6 +199,47 @@ class TestBoardLockParity:
             f"LOOKAHEAD가 다르다 — 목 {m.group(1)} vs 서버 {BOARD_UNLOCK_LOOKAHEAD}"
         )
 
+    def test_층_추출_규칙이_같다(self, mock_src: str):
+        """**같은 값이 아니라 같은 규칙** — 목이 「무엇을 층으로 인정하나」(2026-08-20 신설).
+
+        🔴 **B조가 변이로 확인한 함정을 이 파일에도 적용한 것이다**: *행동(값) 대조로는
+        안 잡혔다 — 시드가 정수만 써서 값이 같았기 때문이다.* 이 파일도 천장 표·층수·
+        LOOKAHEAD **값**을 대조하지만, 값이 같아도 **판정 규칙**이 갈리면 저작이
+        경계값을 밟는 날 갈라진다.
+
+        무는 것 둘:
+          ⑴ 목의 층 추출이 서버 `board_tier`와 **같은 모양의 가드**를 쓴다 —
+             서버 `return level if isinstance(level, int) else None` ↔ 목
+             `typeof seed.knowledge_level === 'number' ? … : null`.
+             ⚠️ `??`나 `||`로 바꾸면 **문자열·false가 층이 된다**(`'3' ?? null`은
+             `'3'`이고, 그 값은 `> ceiling` 비교에서 조용히 강제 변환된다).
+          ⑵ 그 가드가 **실제 경로에 있다** — `BOARD_PUZZLES`가
+             `knowledge_level: boardTierOf(seed)`로 짓는다. 헬퍼만 있고 짓는 자리가
+             원시 필드를 그대로 읽으면 ⑴이 장식이 된다(B조가 「프로덕션과 표본이 같은
+             비교 함수를 쓰는가」를 함수 **이름**으로 대조한 것과 같은 이유다).
+
+        ⚠️ **이 단정은 고치는 방향을 정하지 않는다** — 양쪽이 **이미 같고**, 서버·목
+        어느 쪽도 이 모양을 다투지 않는다. 방향이 다투어지는 자리(null 층 퍼즐의
+        「아래는 인정」 판정)는 여기서 단정하지 않고 판정 대기로 올렸다.
+        """
+        decl = re.search(r"const boardTierOf\s*=(.*?);", mock_src, re.S)
+        assert decl, "목에서 boardTierOf를 못 찾았다 — 이 계약을 갱신할 것"
+        code = _js_code(decl.group(1))
+        assert re.search(r"typeof\s+seed\.knowledge_level\s*===\s*'number'", code), (
+            "목의 층 추출이 서버 `board_tier`의 `isinstance(level, int)`와 다른 "
+            "가드를 쓴다 — `??`·`||`로 두면 문자열·false가 층이 되고, 값이 같은 "
+            "동안은 아무도 모른다(B조 변이 실측: 시드가 정수만 써서 행동 대조로는 "
+            f"안 잡혔다). 지금 모양: {code.strip()!r}"
+        )
+        assert re.search(r":\s*null", code), (
+            "층이 미상일 때 목이 `null`을 내지 않는다 — 서버 `board_tier`는 `None`을 "
+            f"내고 그때 잠그지 않는 것이 규칙이다. 지금 모양: {code.strip()!r}"
+        )
+        assert re.search(r"knowledge_level:\s*boardTierOf\(", _js_code(mock_src)), (
+            "BOARD_PUZZLES가 `boardTierOf`를 거치지 않고 층을 짓는다 — 가드가 "
+            "경로에 없으면 위 두 단정이 장식이 된다"
+        )
+
     def test_목이_천장_아래를_인정한다(self, mock_src: str):
         """🔴 결함 ⑨의 본체 — **「아래는 인정」이 목에도 있는가.**
 
