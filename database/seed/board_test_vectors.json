@@ -2258,5 +2258,341 @@
         "cloud": "cumulus"
       }
     ]
+  },
+  {
+    "name": "aerosol_haze_thresholds: 야간 역전층 연무(nocturnal_inversion_haze) — 임계 경계 전건 · 한 조건씩만 빼면 성립하지 않는다",
+    "note_authoring": "존 0은 **네 임계를 정확히**(aerosol 70 · sun 30 · wind 15 · moisture 30) 놓아 `>=`·`<=`의 포함 관계를 못박는다. 존 1~3은 **한 번에 한 조건씩만** 어긋나게 둔 칸이다(에어로졸 69 / 일사 31 / 바람 16) — 그래야 어느 조건이 실제로 판정에 기여하는지 갈린다. 네 조건 중 하나라도 방향이 다르면 성립 규칙이 없어 기본 판정(cloudy/cumulus)으로 떨어진다. 습기 조건이 어긋난 갈래는 **다른 현상이 나오는 쪽이 교육 가치가 크므로** 다음 벡터(`aerosol_haze_not_hijacked`)의 존 2가 담당한다.",
+    "board": {
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
+      "elements": [
+        {
+          "type": "aerosol",
+          "level": 70,
+          "zone": 0
+        },
+        {
+          "type": "sun",
+          "level": 30,
+          "zone": 0
+        },
+        {
+          "type": "wind",
+          "level": 15,
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 30,
+          "zone": 0
+        },
+        {
+          "type": "aerosol",
+          "level": 69,
+          "zone": 1
+        },
+        {
+          "type": "sun",
+          "level": 30,
+          "zone": 1
+        },
+        {
+          "type": "wind",
+          "level": 15,
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 30,
+          "zone": 1
+        },
+        {
+          "type": "aerosol",
+          "level": 90,
+          "zone": 2
+        },
+        {
+          "type": "sun",
+          "level": 31,
+          "zone": 2
+        },
+        {
+          "type": "wind",
+          "level": 15,
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 30,
+          "zone": 2
+        },
+        {
+          "type": "aerosol",
+          "level": 90,
+          "zone": 3
+        },
+        {
+          "type": "sun",
+          "level": 20,
+          "zone": 3
+        },
+        {
+          "type": "wind",
+          "level": 16,
+          "zone": 3
+        },
+        {
+          "type": "moisture",
+          "level": 30,
+          "zone": 3
+        }
+      ]
+    },
+    "expected": [
+      {
+        "zone": 0,
+        "phenomenon": "fog",
+        "cloud": "none"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
+    ],
+    "goals": [
+      {
+        "note": "경계 포함: 에어로졸 70·일사 30·바람 15·습기 30 전건이 성립한다",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "fog",
+            "cloud": "none"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "에어로졸이 69면 고농도 구간에 못 미쳐 미달 — 이 요소가 판정에 실제로 기여한다",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "fog",
+            "cloud": "none"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "일사가 31이면 밤이 아니라 미달 — 낮에는 위아래로 섞여 쌓이지 않는다",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "fog",
+            "cloud": "none"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "바람이 16이면(기본값 20 아래이긴 하나 임계 초과) 옆으로 실려 나가 미달",
+        "conditions": [
+          {
+            "zone": 3,
+            "phenomenon": "fog",
+            "cloud": "none"
+          }
+        ],
+        "passed": false
+      }
+    ]
+  },
+  {
+    "name": "aerosol_haze_not_hijacked: 낮은 조건 수 규칙이 연무를 가로채지 않는다 · 에어로졸을 빼면 판정이 뒤집힌다 · 물현상(안개)과 먼지현상(연무)의 대비",
+    "note_authoring": "🔴 **이 벡터가 무는 것이 세 가지다.**\nⓐ **가로채기 없음**: 존 0은 시베리아 기단 + 건조라 `siberian_clear`(priority 30)의 조건도 함께 성립한다. priority 134가 이겨 연무가 나와야 한다 — 입자가 쌓여 시정이 떨어진 하늘은 「맑음」이 아니다. 이 규칙의 priority를 30 미만으로 내리면 이 칸이 즉시 `clear`로 뒤집힌다(대장 Z-2가 등재한 「장식이 된 규칙」의 형태).\nⓑ **요소가 장식이 아니다**: 존 1은 존 0과 **에어로졸만 없는** 칸이고(미배치 기본값 0) 판정이 `clear`로 갈린다. 아래 goals가 그 칸에서 연무 목표가 **실패**하는 것을 함께 못박으므로, 「가르치려는 요소를 안 놓고도 목표를 채운다」가 구조적으로 불가능하다.\nⓒ **물현상 ↔ 먼지현상 대비**: 존 2는 존 0과 **습기만 반대**(90)인 칸이고 `radiation_fog`가 이겨 `(fog, stratus)`가 나온다. 같은 밤·같은 약풍·같은 고농도인데 **습도가 갈림길**이다 — 관측 규정이 안개·박무를 「대기 물현상」(안개는 상대습도 100%에 가깝고 박무는 80% 이상), 연무를 「대기 먼지현상」(건조한 입자)으로 **다르게 분류**하는 그 경계다. 구름 축(`stratus` ↔ `none`)이 두 갈래를 구분하므로 목표 판정도 갈린다.\n존 3은 **에어로졸만 90**이고 나머지는 미배치(일사 50·바람 20·습기 40)라 아무 규칙도 안 선다 — 「양이 많아도 섞이면 쌓이지 않는다」.",
+    "board": {
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
+      "elements": [
+        {
+          "type": "air_mass",
+          "subtype": "siberian",
+          "zone": 0
+        },
+        {
+          "type": "aerosol",
+          "level": 80,
+          "zone": 0
+        },
+        {
+          "type": "sun",
+          "level": 20,
+          "zone": 0
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 0
+        },
+        {
+          "type": "moisture",
+          "level": 20,
+          "zone": 0
+        },
+        {
+          "type": "air_mass",
+          "subtype": "siberian",
+          "zone": 1
+        },
+        {
+          "type": "sun",
+          "level": 20,
+          "zone": 1
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 1
+        },
+        {
+          "type": "moisture",
+          "level": 20,
+          "zone": 1
+        },
+        {
+          "type": "aerosol",
+          "level": 90,
+          "zone": 2
+        },
+        {
+          "type": "sun",
+          "level": 20,
+          "zone": 2
+        },
+        {
+          "type": "wind",
+          "level": 10,
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 90,
+          "zone": 2
+        },
+        {
+          "type": "aerosol",
+          "level": 90,
+          "zone": 3
+        }
+      ]
+    },
+    "expected": [
+      {
+        "zone": 0,
+        "phenomenon": "fog",
+        "cloud": "none"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "clear",
+        "cloud": "none"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "fog",
+        "cloud": "stratus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
+    ],
+    "goals": [
+      {
+        "note": "ⓐ 기단이 놓여 `siberian_clear`(30)도 성립하지만 연무(134)가 이긴다 — 저조건 규칙이 가로채지 않는다",
+        "conditions": [
+          {
+            "zone": 0,
+            "phenomenon": "fog",
+            "cloud": "none"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "🔴 ⓑ 에어로졸만 빼면(기본값 0) 연무 목표가 실패한다 — 이 요소를 놓지 않고 목표를 채우는 길이 없다",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "fog",
+            "cloud": "none"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "ⓑ-2 그 칸의 실제 판정은 맑음이다(같은 배치에서 에어로졸 유무가 판정을 뒤집는다)",
+        "conditions": [
+          {
+            "zone": 1,
+            "phenomenon": "clear",
+            "cloud": "none"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "ⓒ 습기만 90으로 올리면 물현상(복사안개 · stratus)이 되어 먼지현상 목표는 실패한다",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "fog",
+            "cloud": "none"
+          }
+        ],
+        "passed": false
+      },
+      {
+        "note": "ⓒ-2 그 칸은 안개다 — 구름 축이 두 갈래를 구분한다",
+        "conditions": [
+          {
+            "zone": 2,
+            "phenomenon": "fog",
+            "cloud": "stratus"
+          }
+        ],
+        "passed": true
+      },
+      {
+        "note": "에어로졸만 많고 밤·약풍·건조가 없으면 미달 — 양이 아니라 쌓일 조건이 판정을 만든다",
+        "conditions": [
+          {
+            "zone": 3,
+            "phenomenon": "fog",
+            "cloud": "none"
+          }
+        ],
+        "passed": false
+      }
+    ]
   }
 ]
