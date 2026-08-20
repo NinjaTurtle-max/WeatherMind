@@ -124,7 +124,11 @@ export default function CaseChart({ series = [], markers = [] }) {
                     <ReferenceLine
                       key={`${marker.clue_id}-${marker.x}`}
                       x={marker.x}
-                      stroke="#f59e0b"
+                      // 🔴 **붉은 실과 같은 색**(2026-08-19). 단서 메모의 「차트
+                      // 어느 지점」 줄이 같은 `#B8443C`라, 두 곳이 한 가닥으로
+                      // 읽힌다 — 종전 amber는 「가상 자료 고지」 배지와 같은 색이라
+                      // 기준선이 경고처럼 보였다.
+                      stroke="#B8443C"
                       strokeDasharray="4 3"
                       label={{ value: '🔎', position: 'top', fontSize: 12 }}
                     />

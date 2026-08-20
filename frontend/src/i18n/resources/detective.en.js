@@ -41,6 +41,8 @@ export default {
       fictional: 'Fictional data',
       region: 'Stations',
       period: 'Observation period',
+      caseFileLabel: 'CASE FILE',
+      evidenceNo: 'EVIDENCE {n}',
       chartsTitle: '1. Study the data',
       chartsHint: 'Opening a clue marks its moment on the chart.',
       chartAria: '{label} time series chart',

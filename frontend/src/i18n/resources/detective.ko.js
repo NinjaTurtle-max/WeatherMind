@@ -41,6 +41,10 @@ export default {
       fictional: '가상 자료',
       region: '관측 지점',
       period: '관측 기간',
+      // 「사건 게시판」 결의 등사 라벨(2026-08-19). **대문자 mono로 찍히므로**
+      // 낱말을 길게 쓰지 말 것 — 메모 한 칸이 약 250px이고 라벨은 그 위 한 줄이다.
+      caseFileLabel: 'CASE FILE',
+      evidenceNo: 'EVIDENCE {n}',
       chartsTitle: '① 자료 살펴보기',
       chartsHint: '단서를 열면 그 시점이 차트에 표시돼요.',
       chartAria: '{label} 시계열 그래프',
