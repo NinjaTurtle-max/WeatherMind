@@ -36,6 +36,7 @@ import asyncio
 import re
 import uuid
 from types import SimpleNamespace
+from typing import get_args
 
 import pytest
 from fastapi.testclient import TestClient
@@ -45,12 +46,19 @@ from sqlalchemy.sql.dml import Insert
 from app.core.dependencies import get_current_user, get_db
 from app.main import app
 from app.models.user import User
-from app.routers import auth
 from app.routers import board as board_router
+from app.schemas.auth import LevelGroup
 from app.services import ai_client
 from app.services import weatherbrain_service as wb
 
 TABLE = "user_concept_ability"
+
+# 🔴 **신고 가능한 밴드는 4종이 아니라 3종이다.** 소유자는 `schemas.auth.LevelGroup`
+# 하나이고 여기서 파생만 한다(여기 나열하면 드리프트한다). `expert`는 θ가 **측정으로
+# 도달하는** 밴드일 뿐 사람이 신고할 수 있는 값이 아니라, `PATCH /auth/me`에 실으면
+# 422다 — 라우터 계약은 이 집합으로만 문다. 서비스 함수
+# (`reseed_unmeasured_priors`)는 밴드를 가리지 않으므로 그쪽 계약은 4종 전건이다.
+DECLARABLE_BANDS: tuple[str, ...] = get_args(LevelGroup)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -225,9 +233,7 @@ class TestReseedTouchesOnlyUnmeasured:
         db = _UpsertSim(user, rows)
         user.level_group = new_band
         seen: list = []
-        asyncio.run(
-            _reseed_with_stub(db, user, _placement_stub(seen))
-        )
+        _reseed_with_stub(db, user, _placement_stub(seen))
         return db, seen
 
     def test_미측정_개념은_새_밴드_사전값으로_갈아탄다(self):
@@ -272,22 +278,23 @@ class TestReseedTouchesOnlyUnmeasured:
         user = _user(level_group="elementary")
         db = _UpsertSim(user, {})
         user.level_group = "adult"
-        asyncio.run(_reseed_with_stub(db, user, _placement_stub([])))
+        _reseed_with_stub(db, user, _placement_stub([]))
         assert set(db.rows) == set(wb.CONCEPT_TAGS)
 
 
 def _reseed_with_stub(db, user, stub):
-    """`ai_client.weatherbrain_placement`만 대역으로 갈아끼우고 실함수를 부른다."""
+    """`ai_client.weatherbrain_placement`만 대역으로 갈아끼우고 **실함수**를 부른다.
+
+    `wb.ai_client is ai_client`(같은 모듈 객체)라 갈아끼우는 자리는 하나뿐이다.
+    반환은 코루틴이 아니라 **결과**다 — 호출부에서 다시 `asyncio.run`으로 감싸면
+    `ValueError: a coroutine was expected`로 죽는다(그 상태로 한 번 커밋됐다).
+    """
     original = ai_client.weatherbrain_placement
     ai_client.weatherbrain_placement = stub
-    wb.ai_client.weatherbrain_placement = stub
     try:
-        return asyncio.get_event_loop_policy().new_event_loop().run_until_complete(
-            wb.reseed_unmeasured_priors(db, user)
-        )
+        return asyncio.run(wb.reseed_unmeasured_priors(db, user))
     finally:
         ai_client.weatherbrain_placement = original
-        wb.ai_client.weatherbrain_placement = original
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -310,13 +317,63 @@ def _ceiling(db: _UpsertSim, user: User) -> int | None:
     return asyncio.run(board_router.learner_tier(_AggDB(), user))
 
 
+class _BoardResult:
+    """`_unlocked_ids_for`가 쓰는 두 질의 모양을 겸한다 — 퍼즐 목록·집계 θ."""
+
+    def __init__(self, items, theta):
+        self._items = items
+        self._theta = theta
+
+    def scalars(self):
+        return self
+
+    def all(self):
+        return self._items
+
+    def scalar_one(self):
+        return self._theta
+
+
+class _BoardDB:
+    def __init__(self, items, theta):
+        self._items, self._theta = items, theta
+
+    async def execute(self, stmt, params=None):
+        return _BoardResult(self._items, self._theta)
+
+
+def _puzzles(per_tier: int = 3) -> list:
+    """층 1..N × per_tier — `board_tier`·`order_puzzles_for_progress`가 먹는 모양."""
+    return [
+        SimpleNamespace(
+            id=uuid.uuid4(),
+            knowledge_level=tier,
+            template_json={"board_order": tier * 100 + order},
+        )
+        for tier in range(wb.KNOWLEDGE_LEVEL_MIN, wb.KNOWLEDGE_LEVEL_MAX + 1)
+        for order in range(per_tier)
+    ]
+
+
+def _unlocked(db: _UpsertSim, user: User, items: list) -> set:
+    """**실경로 그대로** — 저장된 행 → 집계 θ → `_unlocked_ids_for`.
+
+    열림 합성을 이 파일에서 다시 짜지 않는다(짜면 드리프트한다). 라우터의
+    네 갈래 OR(순차·천장 아래 인정·층 미상·천장 미상)을 그대로 탄다.
+    """
+    theta = wb.overall_theta(db.abilities())
+    return asyncio.run(
+        board_router._unlocked_ids_for(_BoardDB(items, theta), user, set())
+    )
+
+
 class TestCeilingActuallyMoves:
     """🔴 **약속이 참이 되는 자리.** 「학습 수준 바꾸기」를 눌러 학령을 올리면
     잠긴 층이 실제로 줄어야 한다. 여기가 안 울면 배너 CTA는 문구일 뿐이다."""
 
     def _reseed(self, db, user, new_band):
         user.level_group = new_band
-        asyncio.run(_reseed_with_stub(db, user, _placement_stub([])))
+        _reseed_with_stub(db, user, _placement_stub([]))
 
     def test_재신고하면_천장이_올라가고_잠긴_층이_줄어든다(self):
         user = _user("elementary")
@@ -337,6 +394,29 @@ class TestCeilingActuallyMoves:
         )
         assert locked_after < locked_before, (
             "잠긴 층이 줄지 않았다 — 화면에서는 아무것도 안 열린 것과 같다"
+        )
+
+    def test_재신고하면_열린_퍼즐이_실제로_늘어난다(self):
+        """🔴 **잠긴 층이 줄어드는 것만으로는 부족하다.**
+
+        천장 담당이 2026-08-20에 실측한 결함이 정확히 그 자리다 — θ 행이 없는
+        유저는 `locked_tiers(None) == set()`이라 아무 층도 안 잠기는데 열림 합성이
+        정수 천장을 요구해서 **열린 것도 0건**이었다(`locked=False`인데
+        `unlocked=False`). 그래서 이 계약은 **열림 쪽**을 직접 문다: 재신고 뒤
+        열린 퍼즐 집합이 **진짜로 커져야** 사용자에게 무슨 일이 일어난 것이다.
+        """
+        user = _user("elementary")
+        db = _UpsertSim(user, _prior_rows("elementary"))
+        items = _puzzles()
+
+        before = _unlocked(db, user, items)
+        self._reseed(db, user, DECLARABLE_BANDS[-1])
+        after = _unlocked(db, user, items)
+
+        assert before, "재신고 전에 열린 퍼즐이 0건이다 — 하네스가 틀렸거나 전건 403이다"
+        assert before < after, (
+            f"잠긴 층은 줄었는데 열린 퍼즐이 안 늘었다({len(before)} → {len(after)}) — "
+            "사용자에게는 아무 일도 안 일어난 것과 같다"
         )
 
     def test_내려서_재신고하면_천장이_내려간다(self):
@@ -399,33 +479,46 @@ def patch_me():
 
 
 class TestPatchMeWiring:
+    TOP_DECLARABLE = DECLARABLE_BANDS[-1]
+
     def test_학령을_바꾸면_θ_행이_실제로_바뀐다(self, patch_me, monkeypatch):
         """배선 계약 — `update_me`가 재파종을 부르지 않으면 여기가 운다."""
         client, db, _ = patch_me
         monkeypatch.setattr(
             ai_client, "weatherbrain_placement", _placement_stub([])
         )
-        monkeypatch.setattr(
-            wb.ai_client, "weatherbrain_placement", _placement_stub([])
-        )
         before = wb.overall_theta(db.abilities())
 
-        resp = client.patch("/api/v1/auth/me", json={"level_group": "expert"})
+        resp = client.patch(
+            "/api/v1/auth/me", json={"level_group": self.TOP_DECLARABLE}
+        )
 
         assert resp.status_code == 200, resp.text
-        assert resp.json()["level_group"] == "expert"
+        assert resp.json()["level_group"] == self.TOP_DECLARABLE
         assert wb.overall_theta(db.abilities()) == pytest.approx(
-            wb.band_prior_theta("expert")
+            wb.band_prior_theta(self.TOP_DECLARABLE)
         ), f"재신고가 θ에 안 닿았다(그대로 {before})"
+
+    @pytest.mark.parametrize("band", DECLARABLE_BANDS)
+    def test_신고_가능한_밴드_전건이_θ까지_닿는다(
+        self, patch_me, monkeypatch, band
+    ):
+        """한 밴드만 배선된 상태를 걸러낸다 — 목록의 소유자는 `LevelGroup`이다."""
+        client, db, _ = patch_me
+        monkeypatch.setattr(
+            ai_client, "weatherbrain_placement", _placement_stub([])
+        )
+        resp = client.patch("/api/v1/auth/me", json={"level_group": band})
+        assert resp.status_code == 200, resp.text
+        assert wb.overall_theta(db.abilities()) == pytest.approx(
+            wb.band_prior_theta(band)
+        )
 
     def test_학령과_θ가_같은_커밋에_착지한다(self, patch_me, monkeypatch):
         """커밋이 하나여야 학령만 저장되고 θ는 안 바뀐 중간 상태가 안 생긴다."""
         client, db, _ = patch_me
         monkeypatch.setattr(
             ai_client, "weatherbrain_placement", _placement_stub([])
-        )
-        monkeypatch.setattr(
-            wb.ai_client, "weatherbrain_placement", _placement_stub([])
         )
         client.patch("/api/v1/auth/me", json={"level_group": "adult"})
         assert db.commits == 1, f"커밋이 {db.commits}회 — 학령과 θ가 갈라진다"
@@ -440,7 +533,6 @@ class TestPatchMeWiring:
             raise ai_client.AIWorkerError("ai-worker down")
 
         monkeypatch.setattr(ai_client, "weatherbrain_placement", _down)
-        monkeypatch.setattr(wb.ai_client, "weatherbrain_placement", _down)
         before = {tag: dict(row) for tag, row in db.rows.items()}
 
         resp = client.patch("/api/v1/auth/me", json={"level_group": "adult"})
@@ -465,9 +557,6 @@ class TestPatchMeWiring:
         monkeypatch.setattr(_UpsertSim, "execute", _spy)
         monkeypatch.setattr(
             ai_client, "weatherbrain_placement", _placement_stub([])
-        )
-        monkeypatch.setattr(
-            wb.ai_client, "weatherbrain_placement", _placement_stub([])
         )
         client.patch("/api/v1/auth/me", json={"level_group": "adult"})
 
