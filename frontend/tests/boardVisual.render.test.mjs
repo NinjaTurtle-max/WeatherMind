@@ -592,6 +592,80 @@ try {
       cloudy.length === 0,
     );
 
+    // ── 산불 **경보급**: 캡션이 말하는 「번짐」이 화면에서 일어나는가 (MT-23 3차) ──
+    //
+    // 2026-08-19 클라이언트: *"「작은 불씨 하나가 바람을 타고 순식간에 번져요」
+    // 이 부분이 주황색 타원으로만 설명하는 게 너무 빈약해"*. 이 저장소에서 **세
+    // 번째** 같은 유형이다(홍수가 「잠긴다」면서 안 잠갔고, 첫 판 태풍 단면은
+    // 「태풍」이라면서 그림이 0개였다). 그래서 판정 기준은 「요소를 추가했다」가
+    // 아니라 **「말하는 현상이 화면에서 일어나는가」**다.
+    //
+    // 🔴 **무엇이 있으면 「번졌다」로 치는가** — 개수만 세면 **자리가 틀려도 통과**한다
+    //    (PM이 홍수에서 밟은 함정이 그 자리다: 「일부 잠김」을 중심으로 재서 앞줄
+    //    5채 중 4채가 빠졌다). 그래서 **셋이 이어져 있을 때만** 번진 것으로 친다:
+    //      ① 출발 — 작은 불씨 하나(role="source")
+    //      ② 경로 — 그 불에서 **출발**해 바람 아래로 가는 불티(data-cs="ember")
+    //      ③ 도착 — 그 경로가 **끝나는 자리에** 붙은 새 불(role="spot") 여럿
+    //    ②의 시작이 ①에 붙어 있고 ②의 끝이 ③의 범위 안이라는 것까지 재야
+    //    「불씨가 날아가 거기에 불을 놓았다」가 된다.
+    //
+    // 🔴 **방향은 손으로 적지 않는다.** 「동쪽」이라고 쓰면 장면이 좌우 반전돼도
+    //    테스트가 같이 틀린다. 1단계 활강풍 화살표(data-cs="wind")에서 부호를 캐
+    //    **그 부호와 같은지**를 묻는다 — 종전 판이 정확히 이걸 어겼다(불티가
+    //    `cx = 168 − 17i`로 바람을 거슬러 날아 **틀린 것을 가르치고 있었다**).
+    const sgw = sceneAt('siberian_gale_wildfire', 3);
+    const [sgWind] = marks(sceneAt('siberian_gale_wildfire', 1), 'wind');
+    const sgSrc = marks(sgw, 'flame').filter((f) => f.role === 'source');
+    const sgSpots = marks(sgw, 'flame').filter((f) => f.role === 'spot').sort((a, b) => a.x - b.x);
+    const [sgEmber] = marks(sgw, 'ember');
+    // 공허 통과 방지 — 관계를 묻기 **전에** 파싱 개수를 단정한다.
+    check('산불 경보급: 활강풍 화살표(wind)를 찾았다', Boolean(sgWind), '없으면 아래 방향 단정이 전부 공허해진다');
+    check(`산불 경보급: 출발한 불씨가 하나다(source ${sgSrc.length}개)`, sgSrc.length === 1, '캡션이 「작은 불씨 하나」다');
+    check(`산불 경보급: 비화 경로(ember)를 찾았다`, Boolean(sgEmber));
+    check(`산불 경보급: 도착한 새 불이 여럿이다(spot ${sgSpots.length}개)`, sgSpots.length >= 3);
+    if (sgWind && sgSrc.length === 1 && sgEmber && sgSpots.length >= 3) {
+      const [src] = sgSrc;
+      const downwind = Math.sign(sgWind.x2 - sgWind.x1); // 장면에서 캔 부호
+      check(
+        `산불 경보급: 불티가 **바람을 타고** 간다 — 바람 ${sgWind.x1}→${sgWind.x2} · 불티 ${sgEmber.x1}→${sgEmber.x2}`,
+        Math.sign(sgEmber.x2 - sgEmber.x1) === downwind,
+        '부호가 어긋나면 「바람을 타고 번진다」를 그림이 정반대로 가르친다.',
+      );
+      check(
+        `산불 경보급: 불티가 **그 불에서** 출발한다 — 불 x=${src.x} · 경로 시작 x=${sgEmber.x1}`,
+        Math.abs(sgEmber.x1 - src.x) <= 10,
+        '출발이 불에 안 붙어 있으면 「불씨 하나가」가 아니라 떠도는 화살표다.',
+      );
+      check(
+        `산불 경보급: 새 불이 전부 **바람 아래**다 — 불 x=${src.x} · 새 불 x [${sgSpots.map((f) => f.x).join(', ')}]`,
+        sgSpots.every((f) => Math.sign(f.x - src.x) === downwind),
+      );
+      check(
+        `산불 경보급: 불티가 **떨어진 자리에** 새 불이 있다 — 경로 끝 x=${sgEmber.x2} · 새 불 범위 [${sgSpots[0].x}, ${sgSpots[sgSpots.length - 1].x}]`,
+        sgEmber.x2 >= sgSpots[0].x - 12 && sgEmber.x2 <= sgSpots[sgSpots.length - 1].x + 12,
+        '경로의 끝과 새 불이 따로 놀면 「거기에 불을 놓았다」가 성립하지 않는다.',
+      );
+      check(
+        `산불 경보급: 새 불이 전부 지표에 선다 — y [${sgSpots.map((f) => f.y).join(', ')}] (불씨 y=${src.y})`,
+        sgSpots.every((f) => Math.abs(f.y - src.y) < 0.6),
+        '개수만 세면 하늘에 뜬 불꽃도 통과한다.',
+      );
+      check(
+        `산불 경보급: 번진 거리가 실재한다 — ${(sgSpots[sgSpots.length - 1].x - src.x).toFixed(1)}px`,
+        Math.abs(sgSpots[sgSpots.length - 1].x - src.x) >= 40,
+      );
+      // 탈 것이 있어야 「불이 붙었다」가 성립한다 — 풍하쪽 숲
+      const sgTrees = marks(sceneAt('siberian_gale_wildfire', 1), 'tree')
+        .filter((t) => Math.sign(t.x - src.x) === downwind);
+      check(`산불 경보급: 바람 아래에 탈 것(숲)이 있다(${sgTrees.length}그루)`, sgTrees.length >= 3);
+    }
+    // 경보급이 위험급보다 **세다** — 빈약하면 두 단계가 뒤집혀 읽힌다.
+    // 크기가 아니라 **새 불의 수**로 센다(크기는 손보면 흔들리고 수는 현상이다).
+    check(
+      `산불: 경보급의 새 불(${sgSpots.length})이 위험급(${spot.length})보다 많다 — 등급 역전 방지`,
+      sgSpots.length > spot.length,
+    );
+
     // ── 홍수: 도시 단면이고, 포장면 ↔ 투수면 대비가 있고, 물이 도로 위로 오른다 ──
     const flTerrain = sceneAt('flood_risk_saturated_inflow', 0);
     const [paved] = marks(flTerrain, 'paved');
