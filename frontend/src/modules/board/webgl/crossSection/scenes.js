@@ -733,7 +733,17 @@ const siberianGaleWildfire = () => [
   label({ x: 0.5, y: H(0.52), text: V.mountainRange, color: '#57534e', at: 1, size: 9 }),
   ...flow({ from: [0.14, H(0.34), ZC], dir: [1, 0.1, 0], travel: 0.26, count: 3, color: rgba('#0e7490', 0.9), at: 1, speed: 0.7, spreadY: 0.02 }),
   ...flow({ from: [0.6, H(0.4), ZC], dir: [1, -0.5, 0], travel: 0.3, count: 3, color: rgba('#c2410c', 0.9), at: 1, speed: 0.85, spreadY: 0.02 }),
-  label({ x: 0.84, y: H(0.48), text: V.dryWarmWind, color: '#c2410c', at: 1, size: 10 }),
+  // 🔴 **`until: 2` — 3단계에 걷는다**(2026-08-20, 통합 브랜치 `integ/rolling-0820`에서
+  //   발견). 이 PR이 좌표를 H(0.34) → H(0.48)로 올려 1·2단계 겹침을 풀었는데,
+  //   **#146이 같은 장면 3단계에 `spotFireAhead`(x 0.92 · H(0.52))를 새로 세우면서**
+  //   그 자리와 붙었다. 각 PR은 초록이고 **합쳐야만 보이는 겹침**이다.
+  //   ⇒ 좌표를 또 옮기지 않는다. 이 계약이 자기 주석에 *「값을 올리지 말 것 — 새
+  //     장면이 걸리면 **라벨을 걷는 쪽이 답**이다」*라고 적어 두었고, 마침
+  //     `dryWarmWind`는 **역할이 1~2단계(마른 바람이 불어 든다)에서 끝난다** —
+  //     3단계의 말은 「그 바람을 타고 불티가 앞에 새 불을 놓는다」이고 그것은
+  //     `spotFireAhead`가 한다. 남겨 두면 **같은 말을 두 라벨이 나눠 하는 셈**이다.
+  //   ⚠️ 좌표 H(0.48)은 그대로 둔다. 되돌리면 이 PR이 푼 1·2단계 겹침이 살아난다.
+  label({ x: 0.84, y: H(0.48), text: V.dryWarmWind, color: '#c2410c', at: 1, until: 2, size: 10 }),
   bb({ x: 0.5, y: 0.004, w: 0.86, h: 0.1, color: rgba('#ca8a04', 0.42), kind: 3, at: 1 }),
   label({ x: 0.5, y: H(0.1), text: V.driedLeavesTwigs, color: '#92400e', at: 1, size: 10 }),
 
