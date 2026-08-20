@@ -12,7 +12,11 @@ from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 
-from app.routers.board import board_difficulty, order_puzzles_for_theta
+from app.routers.board import (
+    board_difficulty,
+    locked_difficulties,
+    order_puzzles_for_theta,
+)
 from app.services import weatherbrain_service as wb
 
 SEED_PATH = (
@@ -77,7 +81,8 @@ class TestBoardDifficultySeedDistribution:
         boards = self._seed_boards()
         # R12 §9 13건 → R13 2일차 통합에서 +21(2일차 저작 7 + 규칙 확장 10 + 재난 4)
         # staging 승격(2026-08-14): 46 → **49**(CO-I-2/X-1 잔여 3건, 난이도 2)
-        assert len(boards) == 55
+        # 경계층·대기역학·대기물리 6판(2026-08-20): 55 → **61**(전건 난이도 3)
+        assert len(boards) == 61
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
@@ -117,8 +122,52 @@ class TestBoardDifficultySeedDistribution:
         # `ci.sh`가 pyflakes를 `backend/app`에만 돌리므로 **미사용 변수도 안 잡힌다.**
         # 분포 고정이 **난이도 가중 드리프트를 잡는 유일한 계측기**라 되살린다:
         # 개수만 보면 「보드가 늘었다」는 알지만 **어느 칸으로 늘었는지**를 못 본다.
-        assert dist == {1: 23, 2: 16, 3: 16}, f"난이도 분포가 바뀌었다: {dict(sorted(dist.items()))}"
-        assert len(boards) == 55
+        # 경계층·대기역학·대기물리 6판(2026-08-20): **3이 16 → 22.** 여섯 판 전부
+        # goal_only(2) + palette 4종(+1) + expert 사전 b(+1) → 클램프 3이다. 1·2는
+        # 안 변한다. **가중을 건드리지 않았다는 것이 이 갱신의 내용**이고, 그래서
+        # 늘어난 자리가 3 한 칸뿐인 것 자체가 파생 경로가 그대로임을 증언한다.
+        assert dist == {1: 23, 2: 16, 3: 22}, f"난이도 분포가 바뀌었다: {dict(sorted(dist.items()))}"
+        assert len(boards) == 61
+
+    def test_전문가_단계_보드는_상위_밴드에만_열린다(self):
+        """🔴 **개수가 아니라 요구로 쓴 계약이다**(2026-08-20 리드 지시 §7).
+
+        형제 테스트들이 「지금 몇 건인가」를 못박는 것과 축이 다르다 — 저작이 늘면
+        저쪽은 갱신을 요구하지만 여기는 **저작이 늘어도 그대로 참이어야** 한다.
+        지키는 것은 두 가지다:
+
+          ① 지식 단계 7~10에 **expert 밴드 보드가 존재**한다 — 상위 단계 학습자가
+            어느 칸으로 배정돼도 보드 자리가 비지 않는다(세션 배합의 board 1건이
+            폴백으로 열화하는 것을 데이터 쪽에서 막는다).
+          ② 그 보드는 **전건 난이도 3으로 파생**돼 초등·중고등에 잠긴다 —
+            「전문가 수준」의 실제 구현 지점은 최상위 필드가 아니라 이 파생값이다
+            (board 문항의 `difficulty`는 전건 None이다).
+
+        ⚠️ ②를 「난이도 3짜리가 N건이다」로 쓰면 안 된다. 그러면 전문가 보드를
+        **빼는** 변경에도 헛울고, 새로 들어온 보드가 난이도 2로 새는 것은 못 본다.
+        """
+        expert = [
+            e for e in self._seed_boards()
+            if e["level_group"] == "expert" and (e.get("knowledge_level") or 0) >= 7
+        ]
+        levels = {e["knowledge_level"] for e in expert}
+        assert levels == {7, 8, 9, 10}, (
+            f"expert 보드가 없는 상위 단계: {sorted({7, 8, 9, 10} - levels)} — "
+            "그 칸으로 배정된 학습자는 보드 자리를 하위 단계 폴백으로 받는다"
+        )
+        leaked = [
+            (e["template_json"]["title"], board_difficulty(e["template_json"], "expert"))
+            for e in expert
+            if board_difficulty(e["template_json"], e["level_group"]) != 3
+        ]
+        assert not leaked, (
+            f"전문가 보드가 난이도 3으로 파생되지 않는다: {leaked} — "
+            "mode가 guided거나 palette가 3종 미만이면 초등·중고등에도 열린다"
+        )
+        for band in ("elementary", "middle_high"):
+            assert 3 in locked_difficulties(band), f"{band}에 난이도 3이 열려 있다"
+        for band in ("adult", "expert"):
+            assert 3 not in locked_difficulties(band), f"{band}에 난이도 3이 잠겼다"
 
 
 def _puzzle(name: str, level_group: str):
