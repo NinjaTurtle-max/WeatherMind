@@ -66,22 +66,18 @@ export default {
       title: '오늘은 어떤 날씨를 만들어 볼까요?',
     },
     page: {
-      // 난이도 라벨은 **교과 과정 표기**다(#32b · 2026-08-14 멘토 지목).
-      // 종전 '쉬움/보통/어려움'은 서비스에서 보드만 쓰던 예외였다 — 지식 단계는
-      // 이미 「초등 3~4학년」…「기상청 현업」(KnowledgeLevelCard)으로 통일돼 있다.
-      //
-      // ⚠️ 이 셋은 **잠금 문구(lockedBannerBody)와 한 몸**이다. 잠금은 학교급으로
-      // 갈리므로(초등→1, 중·고등→2까지, 성인→전부) 라벨이 곧 「누구에게 열리는
-      // 칸인가」를 말한다. 한쪽만 고치면 배지와 안내가 서로 다른 말을 한다.
-      // 계약 감시: boardEntryGate.smoke.test.mjs 「난이도 라벨은 교과 과정 표기다」.
-      //
-      // ⚠️ 짧게 유지할 것 — 잠긴 칸에서는 배지(compact)와 잠금 사유가 한 줄에
-      // 같이 선다(아래 배지 줄 주석의 187px 실측). 낱말을 늘리면 사유가 잘린다.
-      difficulty1: '초등',
-      difficulty2: '중·고등',
-      difficulty3: '성인',
-      difficultyAria: '난이도: {label}',
-      difficultyText: '난이도 {label}',
+      // ⚠️ **난이도 배지 키 5개(difficulty1~3·difficultyAria·difficultyText)는
+      // 2026-08-20에 지웠다.** 지운 사실을 적어 두는 이유: 이 낱말들이 잠금 안내
+      // (lockedBannerBody)·스모크 계약·BoardPage 주석 세 곳에서 인용됐고, 조용히
+      // 사라지면 그 인용이 무엇을 가리켰는지 추적이 끊긴다.
+      //   · 종전 값: '초등' · '중·고등' · '성인' + '난이도: {label}' · '난이도 {label}'
+      //   · 사유: 배지의 축이 학령 파생 `difficulty`(1~3)에서 **지식 단계**
+      //     `knowledge_level`(1~10)로 갈아탔다. 10칸 명칭의 소유자는
+      //     `{ko,en}.js`의 `ability.knowledgeLevel.name` 하나뿐이고, 배지 문구
+      //     틀은 세션 배지와 공유한다(`session.knowledgeLevel`·`...Aria`).
+      //     여기에 두 번째 사본을 만들면 두 배지가 갈린다.
+      //   · 소비처는 BoardPage의 배지 하나뿐이었다(2026-08-20 전 저장소 grep).
+      // 원문·2026-08-18 폭 실측 주석은 git 히스토리에 있다.
       sandboxQuestion: '자유 실험 — 요소를 마음껏 배치하고 어떤 날씨가 만들어지는지 관찰해 보세요',
       toastCrown: '👑 왕관 획득 — {title}',
       toastFirstClear: '🧩 첫 클리어! +{xp} XP',

@@ -59,43 +59,25 @@ export default {
       title: 'What weather shall we build today?',
     },
     page: {
-      // School-level labels, not Easy/Normal/Hard (#32b) — mirrors board.ko.js.
-      // Kept short on purpose: on a locked card the compact badge shares one
-      // row with the lock reason (see the badge-row comment in BoardPage.jsx).
-      //
-      // ⚠️ **MEASURED 2026-08-18 — leave these three labels alone.**
-      //    Badge row inner width **158px** (xl 1920), gap 6px. The badge is
-      //    `shrink-0` (BoardPage.jsx:76) so it never yields width; the lock
-      //    reason absorbs the whole loss via `truncate` (BoardPage.jsx:724).
-      //    Measured: Elementary 64 · Mid & high 59 · Adult 30 · 중·고등(ko) 32.
-      //    Against the **old** `cardLocked` 'Above your level' (92px):
-      //      Elementary  64+6+92 = 162 > 158  → 🔴 ellipsis
-      //      Mid & high  59+6+92 = 157 vs 158 → passed by **1px**
-      //      Adult       30+6+92 = 128        → fine
-      //    No wrapping — the row height is fixed at 25px. Ellipsis was the
-      //    only defect.
-      //    ⚠️ The review flagged `difficulty2`, but the card that actually
-      //    broke was **`difficulty1`** — and shortening only that label would
-      //    have left Mid & high passing by 1px, a value that flips with a
-      //    different font load, renderer or OS. The 92px reason string is the
-      //    **common term of all three cards**, so the fix went to
-      //    `cardLocked`/`lockedHint` below and these labels are untouched.
-      //    ⚠️ Measurement method — keep this caveat: the app is ko-locked
-      //    (`detectLocale`), so **no en screen was rendered**. The en strings
-      //    were measured against the running screen's real badge-row classes,
-      //    inner width and font stack. 187px appears in older comments as a
-      //    quoted **cell** width; the row-inner basis is 158px.
-      //    Shortlist kept **only** as a fallback if some future measurement
-      //    says difficulty2 itself must shrink (not applied — do not apply):
-      //      'Mid-high' (8ch) · 'Secondary' (9ch) · 'Middle+' (7ch)
-      //    Prefer 'Secondary' on meaning (one school tier, not two joined);
-      //    prefer 'Mid-high' on width. Whichever wins, `difficultyAria` keeps
-      //    the full wording — the spoken name must not shrink (BoardPage.jsx:75).
-      difficulty1: 'Elementary',
-      difficulty2: 'Mid & high',
-      difficulty3: 'Adult',
-      difficultyAria: 'Difficulty: {label}',
-      difficultyText: 'Difficulty {label}',
+      // ⚠️ **The five difficulty-badge keys were deleted on 2026-08-20**
+      //    (difficulty1~3 · difficultyAria · difficultyText). Recorded rather
+      //    than silently dropped, because those words were cited from three
+      //    places: `lockedBannerBody` below, the boardEntryGate smoke contract,
+      //    and BoardPage's badge-row comment.
+      //      · Old values: 'Elementary' · 'Mid & high' · 'Adult'
+      //        + 'Difficulty: {label}' · 'Difficulty {label}'
+      //      · Why: the badge axis moved from school-derived `difficulty`
+      //        (1~3) to **knowledge level** (`knowledge_level`, 1~10). The ten
+      //        names have exactly one owner, `ability.knowledgeLevel.name` in
+      //        `{ko,en}.js`, and the badge frame is shared with the session
+      //        badge (`session.knowledgeLevel` / `...Aria`). A second copy here
+      //        would let the two badges drift apart.
+      //      · Only consumer was BoardPage's badge (repo-wide grep, 2026-08-20).
+      //    The 2026-08-18 width measurement that lived here (158px badge-row
+      //    basis, per-label pixel table, the unapplied 'Secondary'/'Mid-high'
+      //    shortlist) is **archived in git history** and its still-live part
+      //    (the 158px basis and the ellipsis arithmetic) was copied into the
+      //    badge-row comment in BoardPage.jsx, which now owns it.
       sandboxQuestion: 'Sandbox — place elements freely and observe what weather emerges',
       toastCrown: '👑 Crown earned — {title}',
       toastFirstClear: '🧩 First clear! +{xp} XP',
