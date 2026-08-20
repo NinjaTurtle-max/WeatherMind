@@ -787,35 +787,30 @@ class TestUnnettedCopies:
         from app.services import weatherbrain_service as wb
         assert policy["level_group_tone"] == dict(wb.LEVEL_GROUP_TONE)
 
-    def test_보드_난이도_규칙이_같은_답을_낸다(self, policy):
-        """🔴 **표가 아니라 규칙을 잰다.**
-
-        `board_band_max_difficulty`(표)는 이미 대조되고 있었는데 **규칙**은 아니었다.
-        실제로 갈려 있었다 — 서버는 `isinstance(palette, (list, dict))`로 세고 목은
-        배열만 셌다. 시드 55건이 전부 배열이라 **오늘만** 답이 같았다.
-        ⇒ 목이 내려보낸 표본의 입력을 **서버 함수에 그대로 넣어** 답을 대조한다.
-        ⚠️ 표본에 **객체 palette가 들어 있는지**까지 확인한다 — 그 갈래가 빠지면
-           이 검사가 다시 「입력이 그 갈래를 안 밟아서」 초록이 된다.
-        """
-        from app.routers.board import board_difficulty
-
-        samples = policy["board_difficulty_samples"]
-        assert samples, "목이 보드 난이도 표본을 안 내보낸다"
-        # ⚠️ **3개 이상인 객체**여야 한다(2026-08-20 되돌림에서 잡힘). 처음엔
-        #    "객체 palette가 하나라도 있으면 됨"으로 썼는데, 2개짜리 객체가
-        #    표본에 남아 있어 **3개 이상 갈래를 지워도 이 검사가 통과**했다.
-        #    갈리는 지점은 `len(palette) >= 3`이므로 그 지점을 밟는 표본을 요구한다.
-        assert any(
-            isinstance(c["template"].get("palette"), dict)
-            and len(c["template"]["palette"]) >= 3
-            for c in samples
-        ), "표본에 **3개 이상인 객체 palette**가 없다 — 규칙이 갈려도 답이 같아 초록이 된다"
-        bad = [
-            (c, board_difficulty(c["template"], c["level_group"]))
-            for c in samples
-            if board_difficulty(c["template"], c["level_group"]) != c["out"]
-        ]
-        assert not bad, "목과 서버의 보드 난이도 규칙이 갈렸다: " + "; ".join(
-            f"{c['template']}/{c['level_group']}: 목 {c['out']} vs 서버 {srv}"
-            for c, srv in bad
-        )
+    # ═══════════════════════════════════════════════════════════════
+    # 🔴 철거: test_보드_난이도_규칙이_같은_답을_낸다 (2026-08-20) — 경위만 남긴다
+    # ═══════════════════════════════════════════════════════════════
+    #
+    # 무엇을 재던 테스트였나: **표가 아니라 규칙**. 목이 `board_difficulty_samples`로
+    # 내려보낸 입력 표본을 서버 `routers/board.board_difficulty`에 그대로 넣어 답을
+    # 대조했다. 표(`board_band_max_difficulty`)는 이미 대조되고 있었는데 규칙은
+    # 아니었고, 실제로 갈려 있었다 — 서버는 `isinstance(palette, (list, dict))`로
+    # 세고 목은 배열만 셌다. 시드가 전부 배열이라 **답만 같았다.** 그래서 표본에
+    # **3개 이상인 객체 palette**가 들어 있는지까지 요구했다(2개짜리만 남으면
+    # `len(palette) >= 3` 갈래를 지워도 초록이 된다 — 되돌림에서 잡힌 함정).
+    #
+    # 왜 지웠나: 서버 `board_difficulty`가 **함수째 철거됐다**(축 교체 커밋
+    # `482a893`·`routers/board.py`의 「철거된 파생 축」 블록). 잴 대상이 없어져
+    # 이 테스트는 ImportError로 죽었다 — 초록이 아니라 **부재**다.
+    #
+    # 성질이 어디로 갔나: **어디로도 안 갔다.** 새 축의 퍼즐 층은 파생이 아니라
+    # 저작값이라(`board_tier`가 `content_items.knowledge_level`을 읽을 뿐) 대조할
+    # 「규칙」이 애초에 없다. 남은 규칙은 **잠금 규칙**(천장 위 전 층이 잠긴다:
+    # 서버 `locked_tiers` ↔ 목 `lockedBoardTiers`)이고 그것은 지금 **아무 그물에도
+    # 없다** — `__mockPolicy()`가 목의 잠긴 집합 계산을 노출하지 않는다. 이 테스트가
+    # 쓰던 방법(입력 표본을 내려보내 서버가 직접 재기)이 그 자리에 필요하고,
+    # 목 파일은 이 세션 소유가 아니라 리드 판정 대기로 보고했다.
+    #
+    # ⚠️ 목은 아직 `boardDifficulty`·`BOARD_DIFFICULTY_SAMPLES` 사본을 들고 있고
+    # `__mockPolicy()`가 `board_difficulty_samples`를 계속 내보낸다 — 서버 짝이
+    # 없어졌으므로 **대조되지 않는 죽은 사본**이다(리드 소유, 보고함).
