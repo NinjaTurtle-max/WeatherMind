@@ -25,16 +25,13 @@ import Mascot from './Mascot';
  *              title에 넣으면 1440에서도 잘린다(2026-08-12 리뷰 실측).
  *              **최대 두 줄까지 접힌다**(2026-08-17) — 한 문장은 다 보인다.
  *              그보다 길면 잘리니, 넘치면 배너가 아니라 문구를 줄일 것.
- *   - note     **큰 제목 바로 아래** 작은 글씨 한 줄(2026-08-19 사용자 지시 —
- *              "교육용 단순화 모델이에요~ 이건 튜터 카드 안에 넣고 큰 제목 아래에
- *              작은 글씨로"). 모델 고지처럼 **제목에 딸린 단서**를 위한 자리다.
- *              ⚠️ **`description`과 같이 쓰면 배너가 h=90을 넘는다.** 설명이 폭을
- *              가져가 제목 열이 좁아지고 이 줄이 두 줄로 접히기 때문이다.
- *              · 설명을 비우면 제목 열이 1,018px이라 한 줄 → h=90 유지(기후변화)
- *              · 둘 다 필요하면 `tightDescription`을 함께 켤 것(태풍) — 그래도
- *                h=104다. 그 8~14px은 **받아들인 값**이고, 그 화면만 배너가
- *                조금 높다. 종전에 이 자리에 "같이 쓰지 말 것"이라 적었는데
- *                2026-08-19 사용자 지시로 둘 다 요구되어 정정한다(실측 104).
+ *   ⚠️ **`note` 슬롯은 철거됐다(2026-08-19).** 「교육용 단순화 모델」 고지를
+ *              배너 안에 넣으려고 하루 동안 두 자리를 시도했다 — 제목 아래(h=104)
+ *              → 오른쪽 열 위(h=90). 그러다 사용자가 **"튜터 카드 아예 밖으로"**
+ *              라고 정정해, 고지는 배너 **위쪽 줄**(뒤로가기 링크와 같은 행,
+ *              오른쪽 정렬)로 나갔다. 호출부가 0건이 된 prop을 남기면 대장이
+ *              말하는 「만들어 두고 안 쓰는 것」이 되므로 지운다.
+ *              되살릴 일이 있으면 이 문단이 그 두 자리의 실측을 갖고 있다.
  *   - right    오른쪽 끝 슬롯(배지·칩 등). 없으면 제목 열이 폭을 다 쓴다.
  *   - as       eyebrow 태그. 화면에 다른 h1이 없으면 'h1'을 줄 것 — 보드 목록
  *              배너가 배너로 바뀌면서 그 화면만 heading이 0개가 된 전례가 있다.
@@ -45,7 +42,6 @@ export default function HeroBanner({
   title,
   description = null,
   tightDescription = false,
-  note = null,
   right = null,
   as: Eyebrow = 'p',
   testId,
@@ -112,39 +108,20 @@ export default function HeroBanner({
           차이는 셋뿐이다 — 글자 11.5 → 10 · 줄간격 relaxed → snug · xl 폭 360 →
           430(그 폭이라야 한 줄에 든다). `line-clamp-2`는 **양쪽 다 남긴다**:
           좁은 화면에서 한 줄을 고집하면 잘라야 하는데, 잘린 문장보다 두 줄이 낫다. */}
-      {/* 🔴 **오른쪽 열 — 고지가 위, 설명이 아래**(2026-08-19 사용자 지시
-          "교육용 단순화 모델입니다~ 이 멘트를 오른쪽 상단(튜터 카드 오른쪽 위)에").
-          제목 아래에 있던 고지가 여기로 올라왔다.
-
-          🔴 **이 이사가 h=90을 되찾아 준다.** 제목 아래에 있을 때는 제목 열이
-          eyebrow 14 + 제목 26 + 고지 두 줄 29 = 71로 마스코트 원(62)을 넘겨
-          태풍 배너가 104였다. 오른쪽으로 오면 제목 열은 40으로 줄고 이 열은
-          고지 14 + 간격 4 + 설명 14 = 32라 둘 다 62 안이다.
-
-          ⚠️ **고지는 `hidden`으로 접지 않는다**(설명과 다른 점) — 안내가 아니라
-          고지라 좁은 화면에서 사라지면 안 된다. 그래서 열 자체는 늘 서고
-          설명만 접힌다. 폭(basis)의 소유자가 `<p>`에서 이 열로 올라왔다. */}
-      {(note || description) && (
-        // 폭은 **변형마다 다르다** — 기본 xl 360(2026-08-18에 실측으로 고른 값
-        // 「탐구 안내문이 한 줄로 펴지는 데 351px」), tight는 430(10px 문구가
-        // 한 줄에 드는 폭). 기본을 430으로 올리면 예보·리그 배너(CompeteLayout
-        // 카드 안이라 더 좁다)의 제목 열이 70px 더 눌린다 — 올리지 말 것.
-        <div className={tightDescription
-          ? 'flex min-w-0 basis-[300px] flex-col gap-1 xl:basis-[430px]'
-          : 'flex min-w-0 basis-[300px] flex-col gap-1 xl:basis-[360px]'}>
-          {note && (
-            <p className="line-clamp-2 text-[10px] leading-snug text-sky-200/85">
-              {note}
-            </p>
-          )}
-          {description && (
-            <p className={tightDescription
-              ? 'hidden min-w-0 text-[10px] leading-snug text-slate-300 lg:line-clamp-2'
-              : 'hidden min-w-0 text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2'}>
-              {description}
-            </p>
-          )}
-        </div>
+      {/* 🔴 `tightDescription` — **한 줄에 들어가는 작은 변형**(2026-08-19 사용자
+          지시 "이 글씨 크기 줄여서 한 줄로"). 두 벌을 **완성된 문자열 리터럴**로
+          적는다: Tailwind는 소스 텍스트를 훑어 클래스를 만들므로 조각을 템플릿
+          문자열로 이어 붙이면 CSS가 아예 안 생긴다.
+          차이는 셋 — 글자 11.5 → 10 · 줄간격 relaxed → snug · xl 폭 360 → 430.
+          ⚠️ **기본 폭 360을 올리지 말 것.** 예보·리그 배너는 `CompeteLayout`
+          카드 안이라 더 좁아 제목 열이 눌린다(1024·1152에서 제목이 «…»로
+          잘렸던 전례). 430은 tight 변형에만 준다. */}
+      {description && (
+        <p className={tightDescription
+          ? 'hidden min-w-0 basis-[300px] text-[10px] leading-snug text-slate-300 lg:line-clamp-2 xl:basis-[430px]'
+          : 'hidden min-w-0 basis-[300px] text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2 xl:basis-[360px]'}>
+          {description}
+        </p>
       )}
 
       {right}

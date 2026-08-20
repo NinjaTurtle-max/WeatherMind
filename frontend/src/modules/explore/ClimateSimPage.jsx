@@ -146,23 +146,35 @@ export default function ClimateSimPage() {
           (`mascotAssets.contract` ④가 그 표와 여기를 대조한다).
           태풍 실험실과 같은 꼴로 짠다 — 배너를 얹지 않고 **종전 제목 줄을
           바꿔 넣고**, 아노말리 배지는 `right` 슬롯으로 자리를 지킨다. */}
-      <Link to="/explore" className="inline-block text-xs font-medium text-sky-600 hover:text-sky-700">
-        {t('explore.common.back')}
-      </Link>
+      {/* 🔴 **상단 줄 — 왼쪽 뒤로가기 · 오른쪽 모델 고지**(2026-08-19 사용자
+          정정 "튜터 카드 아예 밖으로 빼달라는 말이었어").
+
+          고지는 하루 동안 세 자리를 거쳤다: 배너 아래 회색 띠 → 배너 안 제목
+          아래(h=104) → 배너 안 오른쪽 열(h=90) → **배너 밖 위쪽 줄**(지금).
+          경위를 남기는 이유는 그때마다 배너 치수 계약을 손댔기 때문이다 —
+          지금은 배너가 고지를 아예 모르므로 그 계약이 단순해졌다(h=90 고정).
+
+          뒤로가기와 **같은 행**에 두는 것이 요점이다. 위에 한 줄을 더 얹으면
+          화면이 그만큼 길어지는데, 이 화면들을 손보는 내내 사용자가 세로를
+          줄이라고 해 왔다. 왼쪽은 링크, 오른쪽은 고지라 서로 자리를 뺏지 않는다.
+          ⚠️ 좁은 화면에서는 `flex-wrap`으로 두 줄이 되고 고지가 왼쪽 정렬로
+          떨어진다 — `sm:text-right`라 그때는 오른쪽 정렬을 풀어 준다. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <Link to="/explore" className="shrink-0 text-xs font-medium text-sky-600 hover:text-sky-700">
+          {t('explore.common.back')}
+        </Link>
+        <p className="min-w-0 text-[10.5px] leading-snug text-slate-400 sm:text-right">
+          {t('explore.climate.disclaimer')}
+        </p>
+      </div>
       <HeroBanner
         testId="climate-hero"
         mascot="thermometer"
         as="h1"
         eyebrow={t('explore.climate.title')}
         title={t('explore.climate.heroTitle')}
-        // 🔴 **모델 고지를 배너 오른쪽 위로**(2026-08-19 사용자 지시 — 처음엔
-        // 제목 아래였다가 「오른쪽 상단」으로 옮겼다).
-        // ⚠️ 어제 이 자리에 *"`description`을 함께 쓰지 않는다 — 제목 열이 좁아져
-        //    고지가 두 줄이 되고 배너가 101이 된다"*고 적었는데, 고지가 오른쪽
-        //    열로 가면서 **그 제약이 사라졌다**(제목 열이 다시 폭을 다 쓴다).
-        //    설명은 태풍처럼 전용 키로 두지 않고 탐구 홈 카드 문장을 그대로 쓴다 —
-        //    사용자가 이 화면의 문구를 따로 지정하지 않았다.
-        note={t('explore.climate.disclaimer')}
+        // 설명은 탐구 홈 카드 문장을 그대로 쓴다 — 사용자가 이 화면의 문구를
+        // 따로 지정하지 않았다(태풍만 전용 키를 받았다).
         description={t('explore.home.climateDesc')}
         tightDescription
         right={
