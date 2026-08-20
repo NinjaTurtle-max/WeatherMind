@@ -48,6 +48,61 @@ export function unitToRatio(v) {
   return Math.min(1, Math.max(0.12, Number(v) || 0));
 }
 
+/**
+ * 빈 자리 표시 — **레이더가 앉을 자리**를 점선으로 그린다.
+ *
+ * 데이터가 없을 때 문구 한 줄만 남기면 열이 통째로 빈다. 숙련도(BKT)는 응답이
+ * 하나도 없으면 행이 0건인데, θ 쪽은 **응답 0회여도 사전분포로 개념 전건이
+ * 뜬다** — 그래서 갓 가입한 학습자에게는 왼쪽이 레이더+행 여럿, 오른쪽이 한
+ * 줄인 상태가 **기본값**이다(2026-08-20). 그 상태가 "고장"이 아니라 "여기
+ * 채워집니다"로 읽히게 하는 것이 이 부품의 일이다.
+ *
+ * ⚠️ 치수(cx·cy·R·링 비율)는 본체와 **같은 값을 쓴다** — 자리 표시가 실제
+ * 레이더보다 크거나 작으면, 데이터가 들어찬 순간 그림이 튀어 보인다.
+ * ⚠️ 다각형이 아니라 **원**이다. 각을 그리면 그 각의 수가 "개념 몇 종"으로
+ * 읽히는데, 아직 아무 개념도 없다는 것이 이 그림의 내용이다.
+ */
+export function AbilityRadarPlaceholder({
+  className = '',
+  ariaLabel = null,
+  testId = 'ability-radar-placeholder',
+}) {
+  const t = useT();
+  const cx = 100;
+  const cy = 100;
+  const R = 80;
+  return (
+    <svg
+      viewBox="0 0 200 200"
+      data-testid={testId}
+      className={`flex-none ${className}`}
+      role="img"
+      aria-label={ariaLabel ?? t('weatherBrain.mastery.emptyAria')}
+    >
+      <g fill="none" stroke="#DDE8F1" strokeWidth="1" strokeDasharray="4 4">
+        {[1, 0.66, 0.33].map((r) => (
+          <circle key={r} cx={cx} cy={cy} r={R * r} />
+        ))}
+      </g>
+      <g stroke="#E8EFF5" strokeWidth="1">
+        {[0, 1, 2, 3, 4, 5].map((i) => {
+          const a = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+          return (
+            <line
+              key={i}
+              x1={cx}
+              y1={cy}
+              x2={(cx + Math.cos(a) * R).toFixed(1)}
+              y2={(cy + Math.sin(a) * R).toFixed(1)}
+            />
+          );
+        })}
+      </g>
+      <circle cx={cx} cy={cy} r="3" fill="#DDE8F1" />
+    </svg>
+  );
+}
+
 export default function AbilityRadar({
   abilities = [],
   className = '',

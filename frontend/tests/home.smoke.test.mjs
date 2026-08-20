@@ -35,6 +35,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import http from 'node:http';
+// 「없다/있다」를 소스로 물을 때 주석을 걷는 도구 — 경위는 그 파일이 소유한다.
+import { codeOnly } from './helpers/sourceScan.mjs';
 
 process.env.NODE_ENV = 'production';
 
@@ -522,10 +524,15 @@ await new Promise((r) => httpServer.close(r));
     /testId="mastery-radar"[\s\S]{0,200}?tone=\{RADAR_TONES\.emerald\}/.test(panel),
     'ⓐ 숙련도 레이더가 초록(emerald) 색조다',
   );
+  // ⚠️ **셋이다**(2026-08-20). 숙련도가 비었을 때 자리를 그리는 점선 표시
+  //    (AbilityRadarPlaceholder)가 세 번째로 들어왔고, **그것도 같은 치수여야**
+  //    데이터가 들어찬 순간 그림이 튀지 않는다 — 빈 자리와 그 자리를 채울 것이
+  //    다른 크기면 자리 표시라는 뜻 자체가 성립하지 않는다.
+  //    이 짝은 실제로 붉게 울어서 발견됐다(2 → 3이 되며 ⓑ가 실패했다).
   const sizes = [...panel.matchAll(/className="h-\[(\d+)px\] w-\[(\d+)px\]"/g)].map((m) => `${m[1]}x${m[2]}`);
   ok(
-    sizes.length === 2 && sizes[0] === sizes[1],
-    `ⓑ 두 레이더 치수가 같다 — ${sizes.join(' / ')}`,
+    sizes.length === 3 && new Set(sizes).size === 1,
+    `ⓑ 두 레이더와 빈 자리 표시가 같은 치수다(계 3회) — ${sizes.join(' / ')}`,
   );
   const thresholds = (panel.match(/RADAR_MIN_CONCEPTS/g) ?? []).length;
   ok(
@@ -551,6 +558,25 @@ await new Promise((r) => httpServer.close(r));
   ok(
     minH === 2,
     `ⓔ 두 열의 설명이 같은 최소 높이를 갖는다(계 2회) — 실제 ${minH}회`,
+  );
+  // ⓕ **빈 숙련도에도 그림이 앉는다**(2026-08-20). 종전 빈 상태는 문구 한 줄이
+  //    전부라, 왼쪽이 레이더+행 여럿인데 오른쪽은 두 줄에서 끝나 열 하나가
+  //    통째로 비었다. 그런데 그 상태는 예외가 아니라 **갓 가입한 학습자의
+  //    기본값**이다 — θ는 응답 0회여도 사전분포로 개념 전건이 뜨고
+  //    숙련도(BKT)는 응답이 쌓여야 행이 생긴다. 그래서 「데이터 없음」이 「고장」으로 읽혔다.
+  //    ⚠️ 자리 표시는 **레이더 자리(mt-3)와 같은 블록** 안에 있어야 한다 —
+  //    문구만 남기고 그림을 걷어내는 것이 정확히 되돌아가는 길이다.
+  //    ⚠️ 주석을 걷고 본다 — 이 결정의 경위를 적은 소스 주석에 부품 이름이
+  //    그대로 들어 있어, 원본을 훑으면 그림을 지워도 조용히 통과한다.
+  const panelCode = codeOnly(panel);
+  const emptyBranch = panelCode.match(/masteryRows\.length === 0 \? \(([\s\S]*?)\) : \(/)?.[1] ?? '';
+  ok(
+    /<AbilityRadarPlaceholder/.test(emptyBranch),
+    'ⓕ 숙련도가 비면 레이더 자리를 점선으로 그린다(문구 한 줄로 끝내지 않는다)',
+  );
+  ok(
+    /weatherBrain\.mastery\.empty/.test(emptyBranch),
+    'ⓖ 그림만 남기고 사유 문구를 잃지 않았다 — 점선은 "왜 비었나"를 말하지 못한다',
   );
 }
 
