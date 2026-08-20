@@ -575,6 +575,47 @@ await new Promise((r) => httpServer.close(r));
   );
 }
 
+// ── /me 두 열은 같은 줄에서 끝난다 — 남는 높이의 임자는 **배지** 하나 ───────
+/**
+ * 2026-08-19 저녁 사용자 지시("배지 컬렉션 세로 길이를 더 늘려서 여백 맞춰줘").
+ * 실측: 흡수가 없으면 왼쪽 바닥 807 ↔ 오른쪽 865 — **58px이 흰 여백**으로 남는다.
+ *
+ * 🔴 **세 곳이 한 쌍이다.** 하나만 있으면 조용히 어긋난다:
+ *   ⓐ `ProgressPage` 배지 슬롯의 `lg:flex-1` — 열의 남는 높이를 이 칸이 먹는다
+ *   ⓑ `BadgeCollection`의 `h-full` + 격자 `flex-1` — 받은 높이를 **타일까지**
+ *      내려보낸다. ⓐ만 있으면 카드만 커지고 타일은 그대로라 그 차이가 다시
+ *      흰 여백이 된다(카드 안쪽으로 자리만 옮긴 셈).
+ *   ⓒ 두 열을 늘이는 격자 — `lg:items-start`가 붙으면 열이 내용 높이에서 멈춰
+ *      `flex-1`이 먹을 것이 없어진다. 2026-08-12에 실제로 그 이유로 걷어냈다.
+ *
+ * ⚠️ 흡수 칸을 **학습 지역으로 옮기지 말 것.** 안이 한 줄뿐인 카드가 142px까지
+ *    늘어 빈 카드가 된다 — 2026-08-12에 그렇게 만들었다가 하루 만에 되돌렸다.
+ * ⚠️ 이 클래스는 하루에 **두 번 뒤집혔다**(오전에 걷고 저녁에 되살림). 두 지시가
+ *    모순이 아니라 그 사이에 화면이 바뀌었기 때문이다 — 능력 분석 탭이 걷히고
+ *    학습 지역이 왼쪽으로 돌아오면서 58px을 먹을 칸이 사라졌다. 되돌리려는
+ *    사람이 그 경위를 모르고 손대지 않도록 여기서 붙잡는다.
+ */
+{
+  const page = readFileSync(resolve(root, 'src/modules/progress/ProgressPage.jsx'), 'utf8');
+  const badges = readFileSync(resolve(root, 'src/modules/progress/BadgeCollection.jsx'), 'utf8');
+  const slot = page.match(/<div className="([^"]*)"[\s\S]{0,80}?<BadgeCollection/)?.[1] ?? '';
+  ok(/\blg:flex-1\b/.test(slot), `ⓐ 배지 슬롯이 남는 높이를 먹는다 — 실제 "${slot}"`);
+  ok(
+    /className="flex h-full flex-col">/.test(badges) && /\$\{collapsed \? '' : 'flex-1'\}/.test(badges),
+    'ⓑ 배지 카드가 받은 높이를 타일까지 내려보낸다 (h-full + 격자 flex-1)',
+  );
+  const regionSlot = page.match(/<div className="([^"]*)"[\s\S]{0,80}?<RegionCard/)?.[1] ?? '';
+  ok(
+    !/\bflex-1\b/.test(regionSlot),
+    `ⓐ 학습 지역은 흡수하지 않는다 — 한 줄 카드가 늘면 빈 카드가 된다. 실제 "${regionSlot}"`,
+  );
+  const grid = page.match(/<div className="(grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/)?.[1] ?? '';
+  ok(
+    /lg:grid-cols-2/.test(grid) && !/lg:items-start/.test(grid),
+    `ⓒ 두 열이 같은 높이로 늘어난다 (items-start 없음) — 실제 "${grid}"`,
+  );
+}
+
 if (failed) {
   console.error(`\n실패 ${failed}건`);
   process.exit(1);
