@@ -27,7 +27,7 @@ export default function CaseListPage() {
   const cases = casesQ.data?.cases ?? [];
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="space-y-4 pt-2">
       {/* 🔴 **상단 튜터 배너**(2026-08-19 사용자 지시). 담당은 **무지개**이고,
           소유자는 `SideNav.TUTOR_BY_PATH`의 `/hindcast` 행이다.
           기후 탐정과 같은 꼴 — 종전 제목 줄을 바꿔 넣고, 설명은 탐구 홈 카드와

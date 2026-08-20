@@ -22,7 +22,7 @@
  *      (같은 앱의 ClosingForecastStep은 D+2로 올바르게 안내했는데 gate·duel 문구만
  *       "오늘의 기온"·"내일 정산"이라 두 화면이 같은 사실을 다르게 말했다.)
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -166,6 +166,60 @@ check('CO-R-9: 같은 앱의 ClosingForecastStep도 D+2를 쓴다(두 화면이 
     /setDate\(\s*[a-zA-Z]+\.getDate\(\)\s*\+\s*2\s*\)/.test(src) || /\+\s*2\b/.test(src),
     'ClosingForecastStep의 D+2 산출을 찾지 못했다 — 두 화면의 근거가 갈라졌는지 재확인 필요',
   );
+});
+
+// ── 화면 사이에서 어긋나던 두 가지 (2026-08-19 전 화면 실측) ────────────────
+/**
+ * 이 파일이 「화면이 사실과 다른 말을 하는 것」을 무는 자리라, 「화면마다 같은
+ * 것이 다르게 생긴 것」도 여기서 문다. 둘 다 **한 화면만 봐서는 안 보이고**
+ * 화면을 오갈 때만 드러난다는 성질이 같다.
+ */
+check('전 화면의 바깥 여백이 pt-2다 — py-4면 화면을 오갈 때 본문이 8px 내려앉는다', () => {
+  // 2026-08-17에 탐구 홈에서 사용자가 제보해 고친 결함인데, **하위 실험실 넷
+  // (태풍·기후변화·탐정·과거예보, 목록과 상세 합쳐 여섯 자리)에는 남아 있었다.**
+  // 실측 2026-08-19: 실험실 첫 내용 y=80~85 ↔ 나머지 화면 72~74.
+  // 아래 여백을 `py`로 주면 `Layout`의 `pb-8`과도 중복된다.
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const full = resolve(dir, e.name);
+    return e.isDirectory() ? walk(full) : (e.name.endsWith('.jsx') ? [full] : []);
+  });
+  const bad = [];
+  for (const f of walk(resolve(repoRoot, 'frontend/src/modules'))) {
+    const src = readFileSync(f, 'utf8');
+    for (const m of src.match(/className="space-y-[\d.]+ py-\d+"/g) ?? []) {
+      bad.push(`${f.split('/modules/')[1]}: ${m}`);
+    }
+  }
+  assert(bad.length === 0, `페이지 루트에 py-*가 남아 있다 — pt-2여야 한다\n    ${bad.join('\n    ')}`);
+});
+
+check('뒤로가기 링크가 한 꼴이다 — 12px/14px·medium/bold·slate/sky가 섞여 있었다', () => {
+  // 같은 「← 목록으로」인데 2026-08-19까지 **네 가지 꼴**이 있었다. 위치용 접두어
+  // (`shrink-0`·`inline-block`·`mb-2`)만 자리마다 다르고 **글자 계열은 하나**여야 한다.
+  const STD = 'text-xs font-bold text-slate-500 hover:text-sky-600';
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const full = resolve(dir, e.name);
+    return e.isDirectory() ? walk(full) : (e.name.endsWith('.jsx') ? [full] : []);
+  });
+  const bad = [];
+  for (const f of walk(resolve(repoRoot, 'frontend/src/modules'))) {
+    const src = readFileSync(f, 'utf8');
+    // 뒤로가기 문구를 쓰는 요소의 className만 본다(다른 링크·버튼은 관심 밖).
+    for (const m of src.match(/className="([^"]*)"[^>]*>\s*\{t\('[^']*(common\.back|list\.back|backToList)'\)\}/g) ?? []) {
+      const cls = m.match(/className="([^"]*)"/)[1];
+      // ⚠️ **알약 버튼은 뺀다.** 같은 문구를 쓰지만 역할이 다르다 — 오류 화면의
+      //    「나가는 문」은 본문 위 작은 링크가 아니라 CTA다(탐정 사건 로드 실패
+      //    화면이 그렇다). 텍스트 링크만 한 꼴로 모으는 것이 이 계약의 뜻이다.
+      if (/\brounded-full\b/.test(cls)) continue;
+      if (!cls.endsWith(STD)) bad.push(`${f.split('/modules/')[1]}: "${cls}"`);
+    }
+    // onClick 꼴(보드 목록 복귀 버튼)도 같은 계열이어야 한다.
+    for (const m of src.match(/onClick=\{backToList\} className="([^"]*)"/g) ?? []) {
+      const cls = m.match(/className="([^"]*)"/)[1];
+      if (!cls.endsWith(STD)) bad.push(`${f.split('/modules/')[1]}: "${cls}"`);
+    }
+  }
+  assert(bad.length === 0, `뒤로가기 링크가 표준 꼴과 다르다 (…${STD})\n    ${bad.join('\n    ')}`);
 });
 
 if (failed > 0) {

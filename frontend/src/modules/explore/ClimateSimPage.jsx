@@ -140,12 +140,7 @@ export default function ClimateSimPage() {
   const whyLines = explainWhy(t, co2, result);
 
   return (
-    <div className="space-y-4 py-4">
-      {/* 🔴 **상단 튜터 배너**(2026-08-19 사용자 지시). 담당은 **온도계**이고,
-          소유자는 `SideNav.TUTOR_BY_PATH`의 `/explore/climate` 행이다
-          (`mascotAssets.contract` ④가 그 표와 여기를 대조한다).
-          태풍 실험실과 같은 꼴로 짠다 — 배너를 얹지 않고 **종전 제목 줄을
-          바꿔 넣고**, 아노말리 배지는 `right` 슬롯으로 자리를 지킨다. */}
+    <div className="space-y-4 pt-2">
       {/* 🔴 **상단 줄 — 왼쪽 뒤로가기 · 오른쪽 모델 고지**(2026-08-19 사용자
           정정 "튜터 카드 아예 밖으로 빼달라는 말이었어").
 
@@ -160,13 +155,18 @@ export default function ClimateSimPage() {
           ⚠️ 좁은 화면에서는 `flex-wrap`으로 두 줄이 되고 고지가 왼쪽 정렬로
           떨어진다 — `sm:text-right`라 그때는 오른쪽 정렬을 풀어 준다. */}
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <Link to="/explore" className="shrink-0 text-xs font-medium text-sky-600 hover:text-sky-700">
+        <Link to="/explore" className="shrink-0 text-xs font-bold text-slate-500 hover:text-sky-600">
           {t('explore.common.back')}
         </Link>
         <p className="min-w-0 text-[10.5px] leading-snug text-slate-400 sm:text-right">
           {t('explore.climate.disclaimer')}
         </p>
       </div>
+      {/* 튜터 배너 — 담당은 **온도계**이고 소유자는 `SideNav.TUTOR_BY_PATH`의
+          `/explore/climate` 행이다(`mascotAssets.contract` ④가 대조한다).
+          ⚠️ 이 주석은 2026-08-19에 **상단 줄 위에 떠 있었다** — 고지를 배너 밖으로
+             빼면서 그 사이에 새 블록이 들어왔는데 주석만 제자리에 남아, 배너를
+             설명하는 글이 엉뚱한 요소를 가리켰다. 옮기면 주석도 따라가야 한다. */}
       <HeroBanner
         testId="climate-hero"
         mascot="thermometer"

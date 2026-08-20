@@ -683,7 +683,12 @@ function NextGoalsCard({ me }) {
 
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-      <h2 className="mb-3 text-sm font-extrabold text-slate-900">🎯 {t('profile.nextGoals')}</h2>
+      {/* `text-base` — 열 카드 제목의 표준 크기다(2026-08-19 정정). 이 카드만
+          `text-sm`(14px)이라 형제 넷(배지·일일 퀘스트·지식 단계·능력 분석)이
+          전부 16px인 사이에서 혼자 작았다.
+          ⚠️ 꼬리의 설정 카드들(진도 저장·학습 수준·하루 목표·학습 지역)은
+             `text-sm` 그대로다 — 그쪽은 한 단 아래 위계라 일부러 작다. */}
+      <h2 className="mb-3 text-base font-extrabold text-slate-900">🎯 {t('profile.nextGoals')}</h2>
       <div className="flex flex-col gap-3">
         {nextXp > 0 && (
           <GoalRow
