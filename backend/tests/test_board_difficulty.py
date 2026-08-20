@@ -3,7 +3,10 @@
 board_difficulty·order_puzzles_for_theta는 DB 의존이 없는 순수 함수라 축별
 가중·클램프·θ 유/무 분기를 DB 없이 검증한다 (board_clear_xp를 검증하는
 test_grader_registry 관례). 난이도 분포는 실 시드(content_items.json)의 board
-12건을 직접 로드해 1~3이 모두 나옴을 고정한다 (test_seed_contract 관례).
+**전건**을 직접 로드해 1~3이 모두 나옴을 고정한다 (test_seed_contract 관례).
+⚠️ 이 자리에 「board **12건**」이 적혀 있었고 R12 시절 값이라 **거짓이었다**
+(2026-08-20 시점 실측 61건). 아래 단정들이 이미 개수를 갖고 있으므로 머리말은
+개수를 갖지 않는다 — 두 곳에 적으면 한쪽만 갱신된다(CLAUDE.md §0-2).
 
 실행: backend 디렉토리에서 `python -m pytest tests/test_board_difficulty.py -q`.
 """
