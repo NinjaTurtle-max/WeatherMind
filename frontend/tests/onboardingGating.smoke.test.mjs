@@ -324,10 +324,15 @@ try {
       '/onboarding/placement',
     );
     await waitFor(() => text().includes('하루 목표를 정해요'), 4000, '목표 선택 스텝 렌더');
+    // 값을 여기 적지 않는다 — 소유자는 `lib/onboardingGate.js`의 DAILY_GOAL_CHOICES다.
+    // 2026-08-19에 상한이 9 → 10(세션 문항 수)으로 바뀌었고, 그때 이 줄이 `9문항`을
+    // 못박고 있어 함께 빨강이 났다. 파생으로 바꿔 다음 변경 때는 안 울게 한다 —
+    // **값 정합 자체는** `backend/tests/test_daily_goal_session_parity.py`가 문다.
+    const goalMax = Math.max(...gateMod.DAILY_GOAL_CHOICES.map((c) => c.items));
     const btn = [...window.document.querySelectorAll('button')].find((b) =>
-      b.textContent.includes('9문항'),
+      b.textContent.includes(`${goalMax}문항`),
     );
-    assert(btn, '9문항 선택 버튼이 없다');
+    assert(btn, `${goalMax}문항 선택 버튼이 없다`);
     btn.dispatchEvent(new window.Event('click', { bubbles: true }));
     await waitFor(
       () => xhrLog.slice(mark).some((l) => l === 'PUT /api/v1/progress/daily-goal'),
@@ -335,8 +340,11 @@ try {
       'PUT /progress/daily-goal 발화',
     );
     const me = await api('GET', '/progress/me');
-    assert(me.body.daily_goal_items === 9, `선택이 서버에 저장돼야 함 — 실제 ${me.body.daily_goal_items}`);
-    await waitFor(() => text().includes('오늘부터 하루 9문항'), 3000, '저장 확인 문구');
+    assert(
+      me.body.daily_goal_items === goalMax,
+      `선택이 서버에 저장돼야 함 — 실제 ${me.body.daily_goal_items}`,
+    );
+    await waitFor(() => text().includes(`오늘부터 하루 ${goalMax}문항`), 3000, '저장 확인 문구');
     r.unmount();
   });
   // ── 6. Layout 배선: 세션 완료가 실제로 집계되고 배치고사는 제외된다 ───────

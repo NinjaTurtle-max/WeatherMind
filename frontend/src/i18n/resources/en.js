@@ -263,7 +263,7 @@ export default {
     choiceLabel: {
       3: 'Light',
       5: 'Steady',
-      9: 'Intense',
+      10: 'Intense',
     },
     choiceCaption: '{items} questions a day',
     itemsUnit: '{items} questions',
