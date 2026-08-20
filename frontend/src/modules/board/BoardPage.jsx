@@ -10,6 +10,8 @@ import AtmosphereBoard from './AtmosphereBoard';
 import { phenomenonMeta } from './boardDisplay';
 import { SymbolIcon } from './boardSymbols';
 import { ZONES } from '../../lib/boardEngine';
+// 지식 단계 표기 — 명칭표의 소유자는 abilityDisplay(리소스 파생)다. 여기서 짓지 않는다.
+import { KNOWLEDGE_LEVEL_NAME, selectKnowledgeLevel } from '../../lib/abilityDisplay';
 // 존 표시명 — 서버 zone_name(한국어)을 로케일 리소스로 덮는다(MT-28)
 import { zoneLabel } from './PeninsulaMap';
 import { useT } from '../../i18n';
@@ -59,36 +61,59 @@ import { useT } from '../../i18n';
  * 화면 상태: LOADING → ERROR(재시도) → LIST(목록) → PLAY(선택 퍼즐 플레이).
  */
 
-// 난이도 배지(R7-02 S5) — 색 구분 + 텍스트 병기(색맹 접근성: 색에만 의존하지 않음)
-// 라벨은 i18n 키로 — 렌더 시 로케일에 맞춰 해석한다(R11-01 §6.3 외부화).
-// 배경 없이 **글자만** 쓴다(2026-08-06) — 알약 배경이 칸마다 색 덩어리로 튀어,
-// 정작 신호인 「깬 칸(초록) / 미클리어(회색)」보다 먼저 눈에 들어왔다.
-// 색은 남기되 접근성 규칙은 그대로다: 색에만 의존하지 않고 텍스트를 병기한다.
-const DIFFICULTY_META = {
-  1: { labelKey: 'board.page.difficulty1', className: 'text-emerald-600' },
-  2: { labelKey: 'board.page.difficulty2', className: 'text-amber-600' },
-  3: { labelKey: 'board.page.difficulty3', className: 'text-rose-600' },
-};
-
-// compact — 「난이도」 접두어를 떼고 등급만 쓴다. 잠긴 칸에서만 켠다: 같은 줄에
-// 잠금 사유가 따라붙어 접두어까지 놓을 폭이 없다(en에서 「Difficulty ___」 접두어를
-// 붙인 채로는 사유 문구가 줄임표에 걸린다).
-// ⚠️ 폭의 기준은 **배지 행 내폭 158px**이다(2026-08-18 실측, xl 1920). 종전 이
-// 자리에 적혀 있던 「187px 칸」은 **칸** 폭 인용값이라 이 행의 기준이 아니었고,
-// 함께 적혀 있던 「Previous tier first」는 **지금 없는 문자열**이다(현재 순차 잠금
-// 사유는 `lockedHint`). 수치의 소유자는 `board.en.js` difficulty1~3 주석이다.
-// **읽어 주는 이름은 줄지 않는다** — aria-label은 두 경우 모두 전체 문구다.
-function DifficultyBadge({ difficulty, compact = false }) {
+/**
+ * 난이도 배지(R7-02 S5 → 2026-08-20 축 전환) — **지식 단계 10칸 교과 표기**.
+ *
+ * 왜 바뀌었나: 잠금·표기 축이 학령 파생 `difficulty`(1~3 → 초등/중·고등/성인)에서
+ * `knowledge_level`(1~10)로 갈아탔다(클라이언트 판정 「지금 유닛 난이도와 똑같이
+ * 세분화」). 서버 스키마·목이 먼저 갈아타 `difficulty`는 **응답에 없다** — 이 배지가
+ * 그 필드를 계속 읽으면 전 칸에서 조용히 사라진다(실제로 스모크 2건이 그렇게 죽어
+ * 있었다).
+ *
+ * ⚠️ **명칭표를 여기서 짓지 않는다.** 10단계 이름의 단일 소유자는
+ * `i18n/resources/{ko,en}.js`의 `ability.knowledgeLevel.name`이고, 이 컴포넌트는
+ * `lib/abilityDisplay.js`의 `KNOWLEDGE_LEVEL_NAME`(그 리소스 파생 사전)만 읽는다.
+ * 세션의 `ItemKnowledgeLevelBadge`(SessionRunner)·/me의 `KnowledgeLevelCard`와
+ * **같은 사전을 본다** — 세 화면이 같은 단계를 다른 이름으로 부르는 일이 구조적으로
+ * 불가능하다. 문구 키(`session.knowledgeLevel*`)도 세션 배지와 공유한다: 보드 퍼즐도
+ * `content_items` 한 건이라 「이 문항의 학습 수준」이 그대로 맞는 말이고, 두 번째
+ * 사본을 만들면 두 배지가 갈린다.
+ *
+ * 🔴 **부재 시 미표시 가드가 이 함수의 본체다.** `knowledge_level`은 null일 수 있고
+ * (미분류 문항·구 백엔드는 필드 자체가 없다) 리소스에 없는 단계일 수도 있다(N 확장
+ * 중). 어느 쪽이든 **아무것도 그리지 않는다** — 빈 배지도 "?"도 금지다. 종전
+ * `if (!meta) return null`이 지키던 성질을 그대로 이어받는다(선별은
+ * `selectKnowledgeLevel`이 정수 아님·0 이하를 null로 접어 준다).
+ *
+ * 배경 없이 **글자만** 쓴다(2026-08-06) — 알약 배경이 칸마다 색 덩어리로 튀어,
+ * 정작 신호인 「깬 칸(초록) / 미클리어(회색)」보다 먼저 눈에 들어왔다.
+ * ⚠️ **색 구분은 없어졌다**(단색 slate). 종전 3색(emerald/amber/rose)은 죽은 3밴드
+ * 축에 1:1로 걸려 있던 것이라 10칸으로는 옮길 수 없었고, 10색 램프를 새로 지으면
+ * 이 파일이 단계 수 N을 박게 된다(`abilityDisplay.js`가 스스로 금지한 그 일이다).
+ * 접근성 규칙은 애초에 「색에만 의존하지 않는다」였으므로 잃은 것은 장식뿐이다 —
+ * 단계를 색으로도 보이려면 램프의 소유자를 abilityDisplay 쪽에 세울 것.
+ *
+ * compact — 「🪜」 틀을 떼고 단계 이름만 쓴다. 잠긴 칸에서만 켠다: 같은 줄에 잠금
+ * 사유가 따라붙어 틀까지 놓을 폭이 없다.
+ * ⚠️ 폭의 기준은 **배지 행 내폭 158px**이다(2026-08-18 실측, xl 1920). 그 실측은
+ * 「Elementary(64px)」 시절 값이고, 교과 표기는 그보다 **훨씬 길다**(en
+ * `Undergraduate Atmospheric Science`). 그래서 배지의 `shrink-0`을 걷고
+ * `min-w-0 truncate`로 바꿨다 — 안 걷으면 잠긴 en 카드에서 행이 넘친다.
+ * **읽어 주는 이름은 줄지 않는다**: aria-label은 두 경우 모두 전체 문구다.
+ */
+function KnowledgeLevelBadge({ puzzle, compact = false }) {
   const t = useT();
-  const meta = DIFFICULTY_META[difficulty];
-  if (!meta) return null; // 구 백엔드(difficulty 부재) 하위 호환 — 배지 미표시
-  const label = t(meta.labelKey);
+  const picked = selectKnowledgeLevel(puzzle);
+  if (!picked) return null; // knowledge_level 부재·null — 배지 미표시
+  const name = KNOWLEDGE_LEVEL_NAME[picked.level];
+  if (!name) return null; // 리소스에 없는 단계(N 확장 중) — 지어내지 않고 감춘다
   return (
     <span
-      aria-label={t('board.page.difficultyAria', { label })}
-      className={`shrink-0 text-[11px] font-bold ${meta.className}`}
+      data-knowledge-level={picked.level}
+      aria-label={t('session.knowledgeLevelAria', { level: picked.level, name })}
+      className="min-w-0 truncate text-[11px] font-bold text-slate-500"
     >
-      {compact ? label : t('board.page.difficultyText', { label })}
+      {compact ? name : t('session.knowledgeLevel', { name })}
     </span>
   );
 }
@@ -725,20 +750,28 @@ function PuzzlePiece({ puzzle, index, cols, total, energyBlocked, regenMin, pend
             이모지를 뺐고(이미 칸 오른쪽 위에 있어 중복이었다), 잠긴 칸에서는
             배지를 compact로 줄였다. 여기에 무엇을 더 붙이기 전에 **en으로**
             xl(6열)에서 줄임표가 나는지 재 볼 것 — ko는 통과하고 en만 깨진다.
-            ⚠️ 폭을 잃는 쪽은 **항상 사유 문구**다: 배지가 `shrink-0`(:76)이라
-            안 줄고, 사유 span만 `truncate`(:724)로 잘린다.
+            ⚠️ **폭 균형이 2026-08-20에 뒤집혔다.** 종전에는 배지가 `shrink-0`이라
+            안 줄고 사유 span만 `truncate`로 잘렸다. 축이 지식 단계로 갈아타며 배지
+            문구가 학령 3낱말(en 최장 `Elementary` 64px)에서 **교과 표기**(en
+            `Undergraduate Atmospheric Science`)로 길어져, `shrink-0`을 그대로 두면
+            잠긴 en 카드에서 행이 통째로 넘친다. 그래서 배지를 `min-w-0 truncate`로
+            바꿨다 — 이제 **둘 다 줄어든다**. 읽어 주는 이름은 안 줄어든다(aria).
+            ⚠️ **미실측이다**: 아래 158px 실측은 학령 라벨로 잰 값이고, 교과 표기로
+            다시 재지 않았다. 이 행에 무엇을 더 붙이기 전에 **en으로** xl(6열)에서
+            재 볼 것 — ko는 통과하고 en만 깨지는 자리다.
             ⚠️ **두 잠금 사유를 따로 재야 한다.** `cardLocked`(수준 잠김)와
             `lockedHint`(순차 잠김)는 문구도 폭도 다르고, 순차 잠김은 **어느
-            난이도에서나** 나므로 가장 넓은 배지(en Elementary 64px)와 만난다 —
-            그쪽이 실제 최악 케이스다.
+            단계에서나** 나므로 가장 넓은 배지와 만난다 — 그쪽이 최악 케이스다.
             ⚠️ 실측(2026-08-18)은 이 행의 내폭이 **158px**임을 말한다 — 위 :90의
             「칸 187px」은 **칸** 폭 인용값이고 이 행의 기준이 아니다. en에서
             `Elementary`(64) + 6 + 「Above your level」(92) = 162 > 158로 줄임표가
             났고, 그래서 en 사유 문구 2건을 줄였다(🔒도 en `lockedHint`에서 뺐다 —
-            자물쇠는 :674에 이미 있다). 측정 근거·후보·미적용 축약안은
-            `i18n/resources/board.en.js`의 difficulty1~3 주석이 소유한다. */}
+            자물쇠는 :674에 이미 있다). 측정 근거·후보·미적용 축약안을 담고 있던
+            `board.en.js`의 difficulty1~3 주석은 그 키가 지워질 때 함께 사라진다 —
+            **158px 기준과 위 계산은 그래서 여기로 옮겨 적었다.** 원문은 git
+            히스토리(`board.en.js`, 2026-08-18)에 있다. */}
         <div className="mt-auto flex items-center gap-1.5 pt-2">
-          <DifficultyBadge difficulty={puzzle.difficulty} compact={locked} />
+          <KnowledgeLevelBadge puzzle={puzzle} compact={locked} />
           {pending && <span className="text-[11px] font-bold text-sky-700">{t('board.page.opening')}</span>}
           {/* 누르기 전에 알린다(§3.1) — 429/403을 받고 나서가 아니다.
               잠김이 이긴다: 구름이 차도 안 열리는데 "회복까지 N분"이라고 하면
