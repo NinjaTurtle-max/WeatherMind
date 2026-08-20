@@ -2726,11 +2726,25 @@ const routes = {
   ],
   // GET /progress/abilities (R6 WeatherBrain) — 약한 개념(θ 낮은 순) 우선 정렬.
   // R7-03에서 devAbilities 저장소를 공유해 /dev/theta 조작이 즉시 반영된다.
+  // 🔴 **`knowledge_level`·`knowledge_level_max`를 함께 싣는다**(2026-08-20).
+  //   목이 이 둘을 빼먹고 있었고, `/me`의 WeatherBrainPanel이 그 필드로 교과 표기를
+  //   그리므로 **없으면 4밴드(「초급」)로 내려앉았다** — QA 롤링 0820 ⑴
+  //   「`/me` 개념 칩 6개가 전부 초급」의 원인이 이것이다. 같은 날 배치고사 결과
+  //   화면에서 고친 것(`PlacementAbility`)과 **같은 형태이고 자리만 달랐다.**
+  // ⚠️ 값을 손으로 넣지 않는다 — 서버 `weatherbrain_service.theta_to_knowledge_level`과
+  //   **같은 경계**(`THETA_KNOWLEDGE_LEVEL_BOUNDS`)로 θ에서 파생한다. 그 경계는
+  //   `__mockPolicy()`로 노출돼 `test_r13_mock_policy_parity`가 서버 실값과 대조한다.
   'GET /progress/abilities': () => [
     200,
     abilityRows()
       .sort((a, b) => a.theta - b.theta)
-      .map((row) => ({ ...row, level_label: levelFromTheta(row.theta), updated_at: null })),
+      .map((row) => ({
+        ...row,
+        level_label: levelFromTheta(row.theta),
+        knowledge_level: thetaToKnowledgeLevel(row.theta),
+        knowledge_level_max: KNOWLEDGE_LEVEL_MAX,
+        updated_at: null,
+      })),
   ],
 
   // ── 개발자 모드 (R7-03 계약 — /dev/*) ──────────────────────────────────────
