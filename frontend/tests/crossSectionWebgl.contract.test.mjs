@@ -754,19 +754,30 @@ try {
     {
       const overlap1 = (a, b, i) => Math.max(0, Math.min(hi(a, i), hi(b, i)) - Math.max(lo(a, i), lo(b, i)));
       const dryTop = surfaceGround.filter((it) => it !== bodyTop && !water.includes(it));
+      // 🔴 **묻는 것은 「겹치나」가 아니라 「보이나」다**(2026-08-20 정정).
+      //   물이 지면 전역(x 0~1)으로 넓어지자 `groundLayer()`의 바다 스트립과 겹쳤는데,
+      //   바다는 **물에 통째로, 불투명하게, 나중에** 덮이므로 화면에 안 나온다 —
+      //   그런데도 겹침만 세던 이 계약이 울었다. **헛우는 계약은 안 우는 계약만큼 나쁘다**
+      //   (다음 사람이 문턱을 풀어 버린다).
+      //   ⇒ 마른 얼룩은 셋 중 하나를 만족해야 한다: ⓐ 물과 안 겹치거나, ⓑ 어떤 물판
+      //     **하나**에 x·z가 통째로 들어가고 그 물판이 **불투명하며 더 나중에** 그려지거나.
+      //   ⚠️ 「나중에」가 핵심이다. 포장면(nearness 0.5227)은 얕은 물(0.4850)에 통째로
+      //     들어가지만 **더 나중에** 그려져 물 위에 뜬다 — 그래서 여전히 운다.
+      const inside = (d, w) => lo(d, 0) >= lo(w, 0) - 1e-9 && hi(d, 0) <= hi(w, 0) + 1e-9
+        && lo(d, 2) >= lo(w, 2) - 1e-9 && hi(d, 2) <= hi(w, 2) + 1e-9;
       const clashes = [];
       for (const d of dryTop) {
-        for (const w of water) {
-          const a = overlap1(d, w, 0) * overlap1(d, w, 2);
-          if (a > 1e-6) clashes.push(`${d.color.slice(0, 3).map((v) => Math.round(v * 255)).join(',')}×${a.toFixed(3)}`);
-        }
+        const touches = water.filter((w) => overlap1(d, w, 0) * overlap1(d, w, 2) > 1e-6);
+        if (!touches.length) continue;
+        const buried = water.some((w) => inside(d, w) && w.color[3] >= 1 - 1e-9 && order(w) > order(d));
+        if (!buried) clashes.push(`${d.color.slice(0, 3).map((v) => Math.round(v * 255)).join(',')}@${order(d).toFixed(3)}`);
       }
       check(
-        `3단계에 물과 겹치는 마른 지표면이 없다 — 지표 판 ${surfaceGround.length}장(물 ${water.length} · 마름 ${dryTop.length}), 겹침 ${clashes.length}건`,
+        `3단계에 물 위로 드러나는 마른 지표면이 없다 — 지표 판 ${surfaceGround.length}장(물 ${water.length} · 마름 ${dryTop.length}), 드러난 것 ${clashes.length}건`,
         water.length >= 1 && clashes.length === 0,
         water.length === 0
           ? '3단계에 지표수가 없다 — 선별식이 낡았나? 공허 통과 방지로 실패로 둔다.'
-          : `마른 지표면이 물과 겹친다(${clashes.join(' / ')}). 둘 중 하나가 반드시 다른 하나를 덮는다 — `
+          : `마른 지표면이 물 위로 드러난다(${clashes.join(' / ')}). 물에 통째로 묻히지도, 물을 피하지도 않았다 — `
             + '정렬 키가 어느 쪽을 나중에 놓든 「잠긴 면」이 거짓이 된다. 포장면과 지표수는 '
             + '**같은 자리의 두 상태**이므로, 마른 면을 `until`로 걷고 그 자리를 물이 갖게 할 것.',
       );
@@ -790,15 +801,26 @@ try {
       const short = body ? water.filter((w) => lo(w, 2) > lo(body, 2) + 1e-9
         || hi(w, 2) < hi(body, 2) - 1e-9
         || hi(w, 0) < hi(body, 0) - 1e-9) : [];
+      // 🔴 **합집합이 몸통 윗면을 x로도 다 덮어야 한다**(2026-08-20 클라이언트:
+      //   *"범람한 물이 블록마냥 딱 잘려 있어 이상한데 다 채워줘"*).
+      //   위 `short`는 판 **하나하나**가 동·앞·뒤 변에 물렸는지만 본다 — 서쪽은
+      //   계조 때문에 판마다 다르므로 못 본다. 그래서 서쪽은 **합집합으로** 따로 잰다.
+      //   ⚠️ 되돌림 시험에서 이 줄 없이 물을 x0 0.335로 되돌려도 **전 계약이 조용했다.**
+      //     8차의 「투수/불투수 대비를 위해 서쪽을 비운다」가 이 지시로 폐기됐고,
+      //     그 대비는 이제 0~2단계가 소유한다.
+      const wx = water.length ? [Math.min(...water.map((w) => lo(w, 0))), Math.max(...water.map((w) => hi(w, 0)))] : null;
+      const westGap = body && wx ? Math.max(0, wx[0] - lo(body, 0)) : 0;
       check(
         `물판이 저마다 몸통 변에 물린다 — 몸통 x~${body ? hi(body, 0).toFixed(3) : '?'} · z ${body ? `${lo(body, 2).toFixed(3)}~${hi(body, 2).toFixed(3)}` : '?'}, `
-          + `못 미친 판 ${short.length}장${short.length ? ` (${short.map((w) => `x~${hi(w, 0).toFixed(3)} z ${lo(w, 2).toFixed(3)}~${hi(w, 2).toFixed(3)}`).join(' / ')})` : ''}`,
-        !!body && water.length >= 1 && short.length === 0,
+          + `못 미친 판 ${short.length}장${short.length ? ` (${short.map((w) => `x~${hi(w, 0).toFixed(3)} z ${lo(w, 2).toFixed(3)}~${hi(w, 2).toFixed(3)}`).join(' / ')})` : ''}`
+          + ` · 서쪽 빈 폭 ${westGap.toFixed(3)}`,
+        !!body && water.length >= 1 && short.length === 0 && westGap <= 1e-9,
         !body || water.length === 0
           ? '몸통 또는 지표수를 못 찾았다 — 선별식이 낡았다. 공허 통과 방지로 실패로 둔다.'
-          : '물판이 몸통 변에 못 미친다 ⇒ 그 자리에 마른 띠가 남는다. 물이 `air`였을 때 '
-            + '정렬을 이기려고 z0을 앞으로 당긴 값이 남아 있지 않은지 볼 것 — `ground`는 정렬을 '
-            + '이길 필요가 없다. (서쪽 변은 의도된 것이라 안 본다.)',
+          : `물판이 몸통 변에 못 미치거나(${short.length}장) 서쪽이 ${westGap.toFixed(3)}만큼 비었다 `
+            + '⇒ 그 자리에 마른 띠가 남고, 화면에서 **물이 블록으로 잘린 것**으로 읽힌다. '
+            + '물이 `air`였을 때 정렬을 이기려고 z0을 앞으로 당긴 값이 남아 있지 않은지 볼 것 — '
+            + '`ground`는 정렬을 이길 필요가 없다.',
       );
     }
 
