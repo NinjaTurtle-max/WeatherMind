@@ -179,6 +179,87 @@ class TestMockDerivesFromSeed:
             f"(프로덕션: {comparator}) — 규칙 사본이 둘로 갈렸다"
         )
 
+    def test_해설_출처를_서버와_같은_우선순위로_낸다(self, mock_src):
+        """🔴 **사람이 쓴 해설에 「AI」 배지가 붙고 있었다**(2026-08-20 전수 대조).
+
+        목이 `feedback_source`를 **아예 안 보냈고**, 화면(`FeedbackPanel`)이 부재를
+        `ai`로 폴백한다. 그 파일 주석이 스스로 적어 두었다 —
+        *「배점 ⑤(생성형 AI 활용)에 직결되는 표기 오류」*.
+
+        서버 소유자는 `answer_service.feedback_source()`이고 **우선순위가 규칙**이다:
+        board → `board`, 사람 저작 해설 있으면 → `authored`, 없으면 → `ai`.
+        ⚠️ 값이 아니라 **우선순위**를 문다 — board인데 hint도 있는 문항에서
+           `authored`로 새면 「사람 글」과 「보드 판정」이 뒤바뀐다.
+        """
+        from app.services.answer_service import feedback_source
+
+        cases = [
+            {"question_type": "board", "explanation_hint": "사람이 쓴 해설"},
+            {"question_type": "board"},
+            {"question_type": "multiple_choice", "explanation_hint": "사람이 쓴 해설"},
+            {"question_type": "multiple_choice", "explanation_hint": "   "},
+            {"question_type": "multiple_choice"},
+            {"question_type": "slider", "explanation_hint": "사람이 쓴 해설"},
+        ]
+        out = subprocess.run(
+            [
+                "node", "--input-type=module", "-e",
+                "import { __feedbackSourceOf } from "
+                f"'{MOCK_PATH}';"
+                "const cs = JSON.parse(process.argv[1]);"
+                "process.stdout.write(JSON.stringify("
+                "cs.map((c) => __feedbackSourceOf(c.question_type, c))));",
+                "--", __import__("json").dumps(cases),
+            ],
+            capture_output=True, text=True, timeout=60,
+        )
+        assert out.returncode == 0, f"목 함수 호출 실패:\n{out.stdout}\n{out.stderr}"
+        got = __import__("json").loads(out.stdout)
+        want = [feedback_source(c) for c in cases]
+        assert got == want, (
+            f"해설 출처 규칙이 갈렸다 — 목 {got} vs 서버 {want}\n"
+            "  (부재를 화면이 `ai`로 폴백하므로, 갈리면 사람 글에 AI 배지가 붙는다)"
+        )
+
+    def test_해설_출처를_응답에_싣는다(self, mock_src):
+        """🔴 **규칙이 맞아도 안 실으면 소용없다** — 원래 결함이 바로 그것이었다.
+
+        앞 검사는 파생 **규칙**을 문다. 되돌림에서 확인했다: 규칙은 그대로 두고
+        **호출부만** 상수로 바꿨더니 앞 검사가 **통과**했다. 목이 값을 안 실으면
+        화면은 다시 `ai`로 폴백한다 — 고치기 전과 같은 상태다.
+        ⇒ 답안 응답이 그 값을 **실제로 싣는지**, 그리고 그 값이 **파생분인지**를 문다.
+
+        ⚠️ 한계: 소스 문자열 검사다. 실행 대조는 `frontend/scripts/mock_capture.mjs`가
+           하고, 그쪽은 **분기 하나만** 밟는다(만회 분기·보드 분기는 표본 밖).
+           그래서 여기서는 **답안 응답 자리 수만큼** 실렸는지를 센다.
+        """
+        # ⚠️ 선별식은 **답안 결과 객체**만 잡아야 한다. 처음엔 `is_correct: isCorrect,`로
+        #    썼다가 배치 일괄채점 등 6자리를 잡아 **기준선에서 빨강**이 났다 —
+        #    계약이 코드를 틀렸다고 한 것이 아니라 **선별식이 틀렸다.**
+        #    답안 결과는 `feedback`을 `_mock`의 정·오답 문구로 고르는 자리다.
+        results = re.findall(
+            r"feedback: isCorrect \? item\._mock\.feedbackCorrect", mock_src
+        )
+        carried = re.findall(r"feedback_source: item\._mock\.feedbackSource", mock_src)
+        assert results, "답안 응답 자리를 못 찾았다 — 선별식이 낡았다(공허 통과 방지)"
+        assert len(carried) == len(results), (
+            f"답안 응답 {len(results)}자리 중 {len(carried)}곳만 `feedback_source`를 싣는다 "
+            "— 안 싣는 자리는 화면이 `ai`로 폴백해 사람 글에 AI 배지가 붙는다"
+        )
+        # 🔴 **파생 링크도 문다.** 되돌림에서 확인했다: 규칙 함수와 응답 적재를 그대로
+        #    두고 **그 사이 호출부만** 상수로 바꿨더니 앞의 두 검사가 **둘 다 통과**했다.
+        #    그러면 모든 문항이 `ai`가 되어 고치기 전과 같다 — 사슬은 **세 마디**다:
+        #    규칙(`feedbackSourceOf`) → 파생(`seedGrading`) → 적재(응답).
+        assert re.search(
+            r"const feedbackSource = feedbackSourceOf\(", mock_src
+        ), (
+            "`seedGrading`이 `feedbackSourceOf`로 파생하지 않는다 — 규칙과 응답이 멀쩡해도 "
+            "그 사이가 상수면 모든 문항이 같은 출처가 된다"
+        )
+        assert "feedback_source: 'ai'" not in mock_src, (
+            "`feedback_source`를 상수로 박았다 — 파생이 아니면 서버 규칙이 바뀔 때 조용히 갈린다"
+        )
+
     def test_목의_하루_경계가_KST다(self, mock_src):
         """목의 "오늘" == 서버의 "오늘" (KST). R10-01 D9 — 웨이브 2 확인 항목.
 

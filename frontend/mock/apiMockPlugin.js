@@ -274,32 +274,50 @@ function fillLiveSlots(value) {
 // 슬라이더 허용 오차 — backend answer_service.SLIDER_TOLERANCE와 동일값
 const SLIDER_TOLERANCE = 10;
 
+/**
+ * 해설의 **출처** — server `answer_service.feedback_source()`의 사본.
+ * 우선순위까지 같다: board면 `board`, 사람이 쓴 해설(`explanation_hint`)이 있으면
+ * `authored`, 없으면 `ai`.
+ *
+ * 🔴 **목이 이 필드를 아예 안 보내고 있었다**(2026-08-20 전수 대조). 화면
+ * (`FeedbackPanel`)이 **부재를 `ai`로 폴백**하므로, 목으로 도는 화면은 **사람이
+ * 저작한 해설에도 「AI」 배지**를 붙였다. 그 파일 주석이 스스로 적어 두었다 —
+ * *「배점 ⑤(생성형 AI 활용)에 직결되는 표기 오류」*.
+ * ⚠️ 값을 손으로 넣지 않는다. 서버와 **같은 우선순위로 파생**한다.
+ */
+function feedbackSourceOf(questionType, template) {
+  if (questionType === 'board') return 'board';
+  return String(template?.explanation_hint ?? '').trim() ? 'authored' : 'ai';
+}
+
 /** 시드 template_json → 목 전용 채점 정보(_mock). 응답 직전 stripMock이 제거한다. */
 function seedGrading(questionType, template) {
   const correct = template.correct_answer ?? '';
   const hint = template.explanation_hint ?? '';
+  const feedbackSource = feedbackSourceOf(questionType, template);
   const feedbackCorrect = hint ? `정확해요! ${hint}` : '정확해요!';
   const feedbackWrong = hint
     ? `아쉬워요! 정답은 "${correct}"이에요. ${hint}`
     : `아쉬워요! 정답은 "${correct}"이에요.`;
   if (questionType === 'board') {
     return {
+      feedbackSource,
       goal_conditions: template.goal_conditions ?? [],
       feedbackCorrect: '정확해요! 목표 대기현상을 만들었어요.',
       feedbackWrong: `아직이에요. ${template.hints?.[0] ?? '배치를 바꿔 다시 시도해 보세요.'}`,
     };
   }
   if (questionType === 'slider') {
-    return { correct, tolerance: SLIDER_TOLERANCE, feedbackCorrect, feedbackWrong };
+    return { correct, tolerance: SLIDER_TOLERANCE, feedbackCorrect, feedbackWrong, feedbackSource };
   }
   if (questionType === 'match') {
-    return { correct, pairs: template.pairs ?? [], feedbackCorrect, feedbackWrong };
+    return { correct, pairs: template.pairs ?? [], feedbackCorrect, feedbackWrong, feedbackSource };
   }
   if (questionType === 'ordering') {
-    return { correct, correctOrder: correct, feedbackCorrect, feedbackWrong };
+    return { correct, correctOrder: correct, feedbackCorrect, feedbackWrong, feedbackSource };
   }
   // multiple_choice·short_answer·cloze — 텍스트 채점은 공백·대소문자 무시
-  return { correct, accept: [correct], feedbackCorrect, feedbackWrong };
+  return { correct, accept: [correct], feedbackCorrect, feedbackWrong, feedbackSource };
 }
 
 /** 시드 1건 → SessionItem 모양의 목 문항(+_mock). 서버 _to_session_item과 같은 형태. */
@@ -2378,6 +2396,8 @@ const routes = {
           is_correct: isCorrect,
           correct_answer: item._mock.correct ?? null,
           feedback: isCorrect ? item._mock.feedbackCorrect : item._mock.feedbackWrong,
+          // 해설의 출처(R13 CO-I-1) — 없으면 화면이 `ai`로 폴백해 **사람 글에 AI 배지**가 붙는다.
+          feedback_source: item._mock.feedbackSource ?? 'ai',
           xp_earned: 0,
           xp_base: 0,
           xp_weak_bonus: 0,
@@ -2416,6 +2436,8 @@ const routes = {
         is_correct: isCorrect,
         correct_answer: item._mock.correct ?? null,
         feedback: isCorrect ? item._mock.feedbackCorrect : item._mock.feedbackWrong,
+        // 해설의 출처(R13 CO-I-1) — 없으면 화면이 `ai`로 폴백해 **사람 글에 AI 배지**가 붙는다.
+        feedback_source: item._mock.feedbackSource ?? 'ai',
         xp_earned: xp,
         // R10-01 §3.5 마감 3 (additive): "약점 극복 +N" 분리 표기용 실측 분해값
         xp_base: xpParts.xp_base,
@@ -3402,6 +3424,9 @@ export const __progressMePayload = progressMePayload;
 
 /** `GET /progress/abilities`가 실제로 쓰는 함수 — 계약이 같은 것을 문다. */
 export const __abilitiesPayload = abilitiesPayload;
+
+/** 해설 출처 파생 — 계약이 **라우트가 쓰는 바로 그 규칙**을 부른다. */
+export const __feedbackSourceOf = feedbackSourceOf;
 
 export default function apiMockPlugin() {
   return {
