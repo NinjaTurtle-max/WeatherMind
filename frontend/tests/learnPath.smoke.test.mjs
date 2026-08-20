@@ -1116,6 +1116,39 @@ await render({});
 }
 
 await vite.close();
+
+// ── ⑦ 배치 인정이 게이지에 남는다 (2026-08-19 결함 ⑦) ────────────────────────
+// 🔴 종전 화면은 **`cleared`만** 세서, 고등으로 진단받아 75유닛을 인정받은 학습자가
+// `0 / 138 유닛`을 봤다 — 배치가 화면에서 통째로 사라진 상태였고 클라이언트가
+// *"이전 수준 단계가 해지가 되면 완료 게이지가 안 차있어요"*로 반려했다.
+// ⚠️ 그렇다고 인정분을 **완료로 세면 거짓**이다. 그래서 **두 수를 함께** 본다.
+{
+  // 배치가 앞 6유닛을 인정한 상태: cleared 0 · unlocked/current 6 · 나머지 잠김
+  let m = 0;
+  const placed = SHAPE.map(([name, count]) => ({
+    section: name, subtitle: null, est_minutes: null, topics: [],
+    units: Array.from({ length: count }, (_, i) => {
+      const idx = m++;
+      return {
+        id: `p${idx}`, title: `유닛 ${idx + 1}`,
+        concept_tag: 'air_mass', kind: 'quiz', crowns: 0,
+        status: idx < 6 ? (idx === 5 ? 'current' : 'unlocked') : 'locked',
+      };
+    }),
+  }));
+  await render({ sections: placed });
+  const html = container.textContent;
+  // ⚠️ 「0 / 12 유닛」 부재로는 못 잡는다 — 새 라벨(「인정 6 · 푼 0 / 12 유닛」) 안에
+  // 그 문자열이 **부분 문자열로 들어간다.** 처음 이 단정을 그렇게 썼다가 빨강을 봤고,
+  // 그것이 정확한 단정이 아니었다. 라벨 **전체**를 문다.
+  ok(/인정 6 · 푼 0 \/ 12 유닛/.test(html),
+     '⑦ 하단 게이지가 「인정 n · 푼 m / 전체」 형태로 두 수를 함께 보인다');
+  ok(/인정 6/.test(html), '⑦ 인정 수(6)가 화면에 그대로 드러난다');
+  ok(/푼 0/.test(html), '⑦ 푼 수(0)도 함께 드러난다 — 한 숫자로 뭉개지 않는다');
+  ok(!/완료 6/.test(html) && !/6\s*\/\s*12 완료/.test(html),
+     '🔴 ⑦ 「완료」라는 말이 인정 구간을 가리키지 않는다 — 안 푼 것을 완료라 부르면 거짓이다');
+}
+
 if (failures) {
   console.error(`\n실패 ${failures}건`);
   process.exit(1);

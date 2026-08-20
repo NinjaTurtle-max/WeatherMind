@@ -468,6 +468,7 @@ export default {
       scrollHint: '↓ Scroll for more of this section',
       progressLabel: 'Progress',
       unitCount: '{done} / {total} units',
+      unitCountWithRecognised: 'Recognised {recognised} · Solved {done} / {total} units',
     },
     switcher: {
       aria: 'Choose a course',

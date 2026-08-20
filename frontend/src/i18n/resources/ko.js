@@ -556,6 +556,7 @@ export default {
       scrollHint: '↓ 스크롤해서 이 섹션 더 보기',
       progressLabel: '현재 진도',
       unitCount: '{done} / {total} 유닛',
+      unitCountWithRecognised: '인정 {recognised} · 푼 {done} / {total} 유닛',
     },
     switcher: {
       aria: '코스 선택',
