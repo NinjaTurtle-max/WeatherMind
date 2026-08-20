@@ -102,10 +102,30 @@ class DetectiveSolution(BaseModel):
 class DetectiveSolveResult(BaseModel):
     """제출 결과 — 판정·피드백은 항상, 해설은 정답일 때만.
 
-    xp_earned는 지금 항상 0이다. 케이스 진행을 서버가 보존하지 않기로 했고
+    xp_earned는 **한때 항상 0이었다.** 케이스 진행을 서버가 보존하지 않기로 했고
     (quiz_logs에 content_item_id NULL 행을 새로 만들면 복습 큐·약점 태그·BKT가
     가리킬 문항 없는 태그를 받는다), 영속 없이 XP를 주면 재제출로 무한 적립된다.
-    데이터의 xp_reward는 표시용으로만 내려보낸다 — 실제 적립은 PM 판정 대기.
+    데이터의 xp_reward는 표시용으로만 내려보냈다 — 실제 적립은 PM 판정 대기였다.
+
+    ⤷ **2026-08-20에 이렇게 닫았다 (PM 판정: 적립한다 · 새 마이그레이션 없이).**
+    위 두 사유는 지금도 유효한 제약이고, 둘 다 **비켜 간 것이지 뒤집힌 게 아니다.**
+
+    · 무한 적립 — `quiz_logs`에 케이스당 마커 1행(`quiz_id="detective-{case_id}"`)
+      을 남기고, **최초 정답**일 때만 `xp_reward`를 준다. 재제출은 0이다.
+      멱등 키는 (user_id, quiz_id)이고 존재 조회가 곧 「이미 받았다」다.
+    · 문항 없는 태그 — 마커의 `is_correct`를 **NULL로 둔다.** 그 계열이 전부
+      `is_correct IS NOT NULL`로 거르기 때문에 이 행은 복습 큐
+      (`review_schedule_service.history_stmt`)·일일 퀘스트(`quest_service`)·
+      일일 목표 카운트(`progress._count_answered_today`) 어디에도 안 들어간다.
+      보드 클리어 집합은 `question_type='board'`로, 세션 계열은 `session_id`·
+      `content_item_id IS NOT NULL`로 이미 걸러 낸다. BKT/θ는 로그를 훑지 않고
+      `answer_service`가 응답 시점에 쓰므로 애초에 무관하다.
+    · 남은 것 — 유니크 제약이 없어(=DDL 금지) 같은 케이스 동시 제출이 겹치면
+      이중 적립 창이 있다. 보드의 read-then-insert와 동일한 창이다.
+
+    따라서 xp_earned는 **실제 적립액**이다: 최초 정답이면 그 케이스의 xp_reward,
+    그 밖(재제출·오답·부분정답)은 0. 오답은 마커를 남기지 않으므로 다시 도전해
+    받을 수 있다.
     """
 
     verdict: Verdict

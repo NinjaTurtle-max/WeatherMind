@@ -1,6 +1,6 @@
 """XP · 레벨 · 스트릭 계산 (docs/specs/07_gamification_spec.md 공식 그대로).
 
-XP 원천 전수 카탈로그 — 유저 XP(users.xp)를 바꾸는 경로 전부, 11종 (R8-01 §3.6).
+XP 원천 전수 카탈로그 — 유저 XP(users.xp)를 바꾸는 경로 전부, 12종 (R8-01 §3.6).
 XP는 소비·게이팅이 없는 순수 보상 표시축이다(진척 모델은 07 §0).
 
 | # | 원천 | XP | 지급 위치 | 출처 |
@@ -16,6 +16,7 @@ XP는 소비·게이팅이 없는 순수 보상 표시축이다(진척 모델은
 | 9 | 퀘스트 weak_correct_1 완료 | +10 | quest_service.recalculate_quests | R4-01 §3.1 |
 | 10 | 퀘스트 live_answered 완료 | +5 | quest_service.recalculate_quests | R4-01 §3.1 |
 | 11 | 예보 대결 승리 | +15 (duel_service.DUEL_WIN_XP) | celery settle_daily_duel | R4-01 §3.4 |
+| 12 | 기후 탐정 케이스 최초 정답 | +30~35 (**상수 없음** — 케이스 데이터의 `xp_reward`) | detective.py solve | 07 §1 로드맵 → 2026-08-20 구현 |
 
 - 약점 개념 정답 배율: 원천 1·3의 합에 1.5배 (WEAK_TAG_XP_MULTIPLIER) —
   독립 원천이 아니라 배율. 이 모듈은 배율만 소유하고 **약점 여부는 판정하지
@@ -25,7 +26,12 @@ XP는 소비·게이팅이 없는 순수 보상 표시축이다(진척 모델은
   (UPDATE users SET xp = xp + :bonus)로 지급. 상수 단일 소유는 duel_service,
   복제본 드리프트는 tests/test_xp_contract.py 교차 계약 테스트가 감시.
 - 진단(placement) 세션은 grant_xp=False — 원천 1~3 미지급(answer_service).
-- 로드맵(미구현, 상수 없음): 기후 탐정 +30 · 리그 상위 10% +40 (07 §1 로드맵 절).
+- 원천 12는 이 모듈에 상수를 두지 않는다: 보상액이 케이스마다 다른 **저작 데이터**
+  (`database/seed/detective_cases.json`의 `xp_reward`, 현행 6건 합 185)라서
+  단일 소유자가 시드 파일이다. 최초 정답 1회 멱등(마커는 quiz_logs) — 상세는
+  `routers/detective.py`·`schemas/detective.py`가 소유한다.
+- 로드맵(미구현, 상수 없음): 리그 상위 10% +40 (07 §1 로드맵 절).
+  기후 탐정은 2026-08-20에 원천 12로 구현돼 이 줄에서 내려갔다.
 """
 import math
 import uuid
