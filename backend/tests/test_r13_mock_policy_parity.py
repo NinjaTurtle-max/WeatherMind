@@ -1297,3 +1297,257 @@ class TestUnnettedCopies:
             "커서를 붙잡으면 LOOKAHEAD 창의 한 칸을 먹어 천장층 마지막 칸이 안 열린다"
             "(판정 2의 「줄에 서지 않는다」)"
         )
+
+    def test_목도_천장_미상_학습자를_전건_연다(self, mock_src):
+        """🔴 **서버가 2026-08-20에 고친 결함이 목에도 그대로 있었다**(실측).
+
+        서버 `unassessed_ids`가 그 수리다: `learner_tier`가 `None`을 낼 때
+        `locked_tiers(None) == set()`이라 **아무 층도 안 잠기는데**, 열림 합성의
+        갈래가 전부 정수 천장을 요구해 열린 집합이 **층 미상 퍼즐만** 남았다 —
+        `locked=False`인데 `unlocked=False`인 **유령 칸이 보드 전체 규모**였고,
+        진입·채점이 전건 403이었다.
+
+        🔴 **목의 `unlockedBoardIds`가 같은 모양이었다**: 천장 아래 판정이
+        `typeof ceiling === 'number' && …`이라 천장 미상에서 거짓이고, 천장층
+        순차 목록도 `=== ceiling`이라 비며, 남는 것은 `tierless(p)` 갈래뿐이다.
+        ⇒ 목이 그 상태를 재현하면 **화면이 통째로 잠긴 것처럼** 보인다. 재현조차
+        못 하면 dev 화면으로는 이 결함을 **영영 못 본다** — 그것이 이 저장소가
+        반복해 밟은 형태라, 목에도 같은 수리를 넣고 그 자리를 여기서 문다.
+
+        ⚠️ 소스 계약인 이유: `unlockedBoardIds`는 인자를 못 받는다(리드 소유
+        `test_board_mock_parity`가 `function unlockedBoardIds() {` 선언 모양을
+        **변이 치환의 기준**으로 쓴다 — 인자를 붙이면 그 치환이 0회가 되어 리드
+        계약이 운다). 그래서 규칙째 내보내지 못하고 구문으로 문다. 행동 대조는
+        board-entry 스모크가 목을 실제로 태워서 한다.
+        """
+        body = _fn_body_of(mock_src, "unlockedBoardIds")
+        # ⚠️ **「전건」까지 문다.** 분기가 있어도 `new Set()`을 돌려주면 결함 그대로다 —
+        #    반환이 `items` 전건에서 만들어지는지 확인한다(빈 집합을 통과시키지 않는다).
+        assert re.search(
+            r"if\s*\(\s*typeof ceiling\s*!==\s*'number'\s*\)\s*\{?\s*"
+            r"return new Set\(\s*items\.map\(",
+            body,
+        ), (
+            "목에 「천장이 미상이면 전건 열림」 분기가 없다 — 서버 `unassessed_ids`가 "
+            "그 자리다. 없으면 θ 행이 없는 계정에서 `locked=False`인데 "
+            "`unlocked=False`인 유령 칸이 **보드 전체**가 된다(2026-08-20 서버 실측: "
+            "층 있는 9건 중 열린 것 0건)"
+        )
+
+    def test_목이_천장_미상_상태에_도달할_수_있다(self, mock_src):
+        """재현 못 하는 갈래는 **없는 갈래**다 — 위 수리를 화면으로 볼 통로가 있는가.
+
+        서버에서 θ 행 0건은 `seed_placement`가 ai-worker 장애로 조용히 실패한
+        상태다(`routers/auth.py`·`dev.reset_me` 양쪽이 그 관례를 적어 뒀다).
+        목에는 그 장애가 없으므로 **그 조건을 dev 레버로 재현**한다.
+
+        ⚠️ 이 레버는 **목에만 있다**(서버 `/dev/reset-me`에 대응 필드가 없다).
+        서버 라우트 표면을 늘린 것이 아니라 **서버 장애 상황을 시뮬레이션**하는
+        자리라 목에 두었고, 판정이 필요하면 되돌릴 수 있게 한 곳에 모아 두었다.
+        """
+        body = _route_body_of(mock_src, "POST /dev/reset-me")
+        assert "placement_failed" in body, (
+            "목 `/dev/reset-me`에 θ 행 0건을 만드는 레버가 없다 — 그러면 "
+            "`unassessed` 갈래를 **화면으로 볼 방법이 없고**, 서버가 실측으로 잡은 "
+            "그 결함을 목 위 스모크는 영원히 못 본다"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 🔴 학령 **재신고**의 θ 재파종 (2026-08-20 재파종 판정)
+# ═══════════════════════════════════════════════════════════════
+class TestLevelGroupReseed:
+    """`PATCH /auth/me`가 θ를 어떻게 건드리는가 — 목↔서버 **규칙** 대조.
+
+    **판정 문언**: 재신고는 **미측정 개념(`num_responses == 0`)의 θ만** 새 학령의
+    사전 b로 갈아탄다. **측정된 행은 안 건드린다.**
+
+    왜 이것이 천장의 이야기인가: 보드 잠금 천장의 소유자는 `learner_tier`이고
+    **θ 파생**이다(판정 A). 그래서 재신고가 θ를 건드리느냐가 곧 **화면에서 퍼즐이
+    더 열리느냐**다 — 종전에는 아무도 안 건드려서 천장이 못 움직였고, 잠금 배너의
+    「학습 수준 바꾸기」 CTA가 아무것도 열지 못했다.
+
+    ⚠️ **값(2·4·6·9·노출 판수)을 여기 박지 않는다.** 전부 사전 b 파생이라 사전값이
+    바뀌면 함께 움직여야 한다 — 기대값은 **서버 상수에서 파생시킨다.**
+
+    ⚠️ **착지 순서를 기록해 둔다**: 이 계약을 처음 쓸 때(2026-08-20) 서버
+    `update_me`는 θ를 한 줄도 안 건드렸고, 브리핑 판정에 따라 목을 **판정 문언**에
+    맞췄다. 그 뒤 서버가 `de9796a`로 착지했고 **실제 구현과 대조한 결과 규칙이
+    같았다** — 가드는 `_upsert_abilities`의 SQL
+    `DO UPDATE … WHERE num_responses = 0`이고, 재신고 경로는
+    `reseed_unmeasured_priors`가 `only_unmeasured=True`로 부른다.
+    """
+
+    @needs_node
+    def test_목의_재신고가_미측정_행만_갈아탄다(self, policy):
+        """🔴 **표가 아니라 규칙** — 목의 순수 함수가 낸 답을 서버 상수로 다시 잰다.
+
+        기대값의 출처는 서버 `weatherbrain_service.LEVEL_GROUP_ITEM_B`·
+        `DEFAULT_ITEM_B`다. 목의 사본(`policy["level_group_item_b"]`)을 쓰지 않는다 —
+        쓰면 이 계약이 **자기 자신을 대조한다**(CO-J-9가 생긴 방식).
+
+        두 갈래가 **답이 실제로 다르다**:
+          · 미측정(n=0) → θ가 목표 밴드 사전 b로 **바뀐다**. 안 바뀌면 재신고해도
+            천장이 안 움직이고, 화면에서 퍼즐이 더 안 열린다.
+          · 측정(n>0) → θ가 **그대로**다. 덮으면 대표 θ가 n 가중이라 그 행이 천장을
+            혼자 정하는 만큼, **한 번 푼 사람의 천장이 재신고로 무너진다.**
+        """
+        from app.services import weatherbrain_service as wb
+
+        priors = {k: float(v) for k, v in wb.LEVEL_GROUP_ITEM_B.items()}
+        default_b = float(wb.DEFAULT_ITEM_B)
+
+        bad = []
+        for case in policy["reseed_samples"]:
+            want_prior = priors.get(case["to"], default_b)
+            assert len(case["out"]) == len(case["rows"]), (
+                f"재파종이 행 수를 바꿨다({case['to']}) — 개념이 사라지거나 늘면 "
+                "대표 θ의 분모가 달라져 천장이 엉뚱하게 움직인다"
+            )
+            for src_row, out_row in zip(case["rows"], case["out"]):
+                assert out_row["concept_tag"] == src_row["concept_tag"], (
+                    "재파종이 개념 순서·이름을 바꿨다"
+                )
+                if out_row["num_responses"] != src_row["num_responses"]:
+                    bad.append(
+                        f"{case['to']}/{src_row['concept_tag']}: n이 "
+                        f"{src_row['num_responses']} → {out_row['num_responses']}로 "
+                        "바뀌었다 — 재신고는 응답 수를 건드리지 않는다"
+                    )
+                    continue
+                want = (
+                    want_prior
+                    if src_row["num_responses"] == 0
+                    else float(src_row["theta"])
+                )
+                if float(out_row["theta"]) != want:
+                    kind = "미측정" if src_row["num_responses"] == 0 else "🔴 측정된 행"
+                    bad.append(
+                        f"{case['to']}/{src_row['concept_tag']}({kind}, "
+                        f"n={src_row['num_responses']}): θ {src_row['theta']} → "
+                        f"{out_row['theta']}, 서버 규칙은 {want}"
+                    )
+        assert not bad, (
+            "목의 재신고 재파종이 서버 규칙과 갈렸다 — 미측정만 사전 b로 갈아타고 "
+            "측정된 행은 그대로여야 한다:\n  " + "\n  ".join(bad)
+        )
+
+    @needs_node
+    def test_재파종_표본이_갈래를_밟는다(self, policy):
+        """표본이 **갈리면 답이 실제로 달라지는** 모양인지 — 헬퍼가 사유를 소유한다."""
+        from app.services import weatherbrain_service as wb
+
+        _assert_reseed_samples_tread_branches(
+            policy["reseed_samples"],
+            {k: float(v) for k, v in wb.LEVEL_GROUP_ITEM_B.items()},
+            float(wb.DEFAULT_ITEM_B),
+        )
+
+    def test_목이_재신고_경로에서_실제로_재파종한다(self, mock_src):
+        """**이음매**를 문다 — 규칙이 있어도 `PATCH /auth/me`가 안 부르면 죽은 코드다.
+
+        `reseed_samples`는 **함수를 직접 태워** 만든 값이라, 핸들러가 그 함수를
+        안 불러도 초록이다. 그래서 노출(규칙)과 배선(이음매)을 따로 문다 — 목이
+        정책을 노출하면서 화면 경로는 안 쓰던 것이 이 저장소가 여러 번 밟은 형태다.
+
+        ⚠️ 주석을 걷은 뒤에 찾는다: 이 핸들러의 주석은 판정 문언과 함수 이름을
+        그대로 인용하고 있어서, 안 걷으면 **설명이 곧 구현**으로 읽힌다.
+        """
+        body = _route_body_of(mock_src, "PATCH /auth/me")
+        assert re.search(r"applyReseedUnmeasured\(\s*body\.level_group\s*\)", body), (
+            "목 `PATCH /auth/me`가 재파종을 부르지 않는다 — 학령만 바꾸고 θ를 그대로 "
+            "두면 천장이 안 움직이고, 잠금 배너의 「학습 수준 바꾸기」 CTA가 화면에서 "
+            "아무것도 열지 못한다(종전 상태)"
+        )
+        # 규칙의 소유자가 **하나**인지 — 핸들러가 사전표를 직접 읽으면 규칙이 둘이 되고,
+        # 그러면 `reseed_samples`(순수 함수 파생)가 화면 경로를 대변하지 못한다.
+        assert "LEVEL_GROUP_ITEM_B" not in body, (
+            "목 `PATCH /auth/me`가 사전 b 표를 **직접** 읽는다 — 규칙의 소유자는 "
+            "`reseedUnmeasuredAbilities` 하나여야 파리티가 화면 경로를 대변한다"
+        )
+
+    def test_목의_재파종_가드가_미측정만_본다(self, mock_src):
+        """규칙 본문의 갈림 조건 — **`num_responses`를 본다**는 것까지 소스로 못박는다.
+
+        행동 대조(`reseed_samples`)가 이미 있는데 왜 소스도 무는가: 표본은 목이
+        스스로 고른 것이라, 다음 사람이 가드를 `theta === 0` 같은 **다른 축**으로
+        바꾸면서 표본도 함께 손대면 둘 다 조용하다. 축의 이름은 서버가 소유한다
+        (`UserConceptAbility.num_responses`) — 그 이름을 여기서 못박는다.
+        """
+        m = re.search(
+            r"const reseedUnmeasuredAbilities = \((.*?)\n\s*\);", mock_src, re.S
+        )
+        assert m, "목에서 `reseedUnmeasuredAbilities`를 못 찾았다 — 이름/모양이 바뀌었나"
+        rule = _strip_js_comments(m.group(1))
+        assert re.search(r"num_responses\s*===\s*0", rule), (
+            "목의 재파종 가드가 `num_responses === 0`이 아니다 — 「측정됐는가」의 "
+            "축은 서버 `UserConceptAbility.num_responses`가 소유한다. 다른 축으로 "
+            "바꾸면 사람이 푼 θ가 재신고 한 번에 지워진다"
+        )
+
+    def test_서버_재신고가_측정된_θ를_덮지_않는다(self, auth_src):
+        """🔴 **서버 쪽 그물** — 재파종을 가드 없이 착지시키면 운다.
+
+        `seed_placement`는 `_upsert_abilities`를 **조건 없이** 불러 전 개념 행을
+        덮어쓴다. 재신고에 그것을 그대로 부르면 「측정된 행 보호」가 무너지고,
+        한 번 푼 사람의 대표 θ가 (n 가중이므로) 사전값으로 되돌아가 **천장이
+        내려앉는다.**
+
+        🔴 **실제 착지를 대조한 결과를 적어 둔다**(2026-08-20 `de9796a`):
+        `update_me`는 `seed_placement`가 아니라 `reseed_unmeasured_priors`를 부르고,
+        그 함수는 `_upsert_abilities(..., only_unmeasured=True)`로 위임한다. 가드는
+        파이썬이 아니라 **SQL의 `DO UPDATE … WHERE num_responses = 0`**에 있다
+        (읽고-쓰기 사이에 들어온 채점 1건이 사전값으로 되돌아가는 창을 없애려고).
+        ⇒ 그래서 가드를 **호출된 함수 본문에서만** 찾으면 헛운다. **한 홉을 따라간다.**
+
+        ⚠️ 플래그만 붙고 **플래그가 아무것도 안 하는** 갈래를 함께 문다 — 그것이
+        이 저장소가 여러 번 밟은 「값은 같은데 규칙이 갈렸다」의 서버판이다.
+        """
+        body = _py_fn_body(auth_src, "update_me")
+        assert "seed_placement" not in body, (
+            "서버 `update_me`가 `seed_placement`를 부른다 — 그 함수는 전 개념 행을 "
+            "조건 없이 덮어쓰므로 **측정된 θ까지 지운다**. 재파종은 "
+            "`num_responses == 0`인 행만 갈아타야 한다(재파종 판정)"
+        )
+
+        wb_src = WEATHERBRAIN_SERVICE.read_text(encoding="utf-8")
+        called = {
+            m.group(1) for m in re.finditer(r"\b(\w*reseed\w*)\s*\(", body)
+        }
+        assert called, (
+            "서버 `update_me`가 재파종을 아예 안 부른다 — 학령만 바꾸고 θ를 그대로 "
+            "두면 천장이 한 칸도 안 움직이고, 잠금 배너 CTA가 못 지키는 약속이 된다"
+        )
+        for name in sorted(called):
+            impl = None
+            for src in (auth_src, wb_src):
+                if re.search(rf"^(?:async )?def {re.escape(name)}\(", src, re.M):
+                    impl = _py_fn_body(src, name)
+                    break
+            assert impl is not None, (
+                f"서버 `update_me`가 `{name}()`을 부르는데 그 구현을 auth.py에도 "
+                "weatherbrain_service.py에도 못 찾았다 — 재파종이 제3의 자리에 "
+                "착지했다. 이 계약을 그 자리로 넓힐 것(대조 없는 재파종은 금지다)"
+            )
+            direct = re.search(r"num_responses\s*==\s*0", impl)
+            delegated = re.search(r"only_unmeasured\s*=\s*True", impl)
+            assert direct or delegated, (
+                f"서버 재파종 `{name}()`이 미측정 가드에 닿지 않는다 — "
+                "`num_responses == 0`을 직접 보거나 `only_unmeasured=True`로 "
+                "위임해야 한다. 측정된 행까지 갈아타면 한 번 푼 사람의 천장이 "
+                "재신고로 무너진다"
+            )
+            if delegated and not direct:
+                # 🔴 플래그가 **실제로 가드하는지**까지 따라간다. 이름만 있고 SQL에
+                #    조건이 없으면 규칙은 갈린 채 값만 같다.
+                owner = _py_fn_body(wb_src, "_upsert_abilities")
+                assert "only_unmeasured" in owner, (
+                    "`only_unmeasured` 플래그를 받는 자리가 `_upsert_abilities`가 "
+                    "아니다 — 이 계약을 그 자리로 옮길 것"
+                )
+                assert re.search(r"num_responses\s*==\s*0", owner), (
+                    "🔴 `only_unmeasured=True`로 부르는데 `_upsert_abilities`에 "
+                    "`num_responses == 0` 가드가 **없다** — 플래그가 아무것도 하지 "
+                    "않는다. 이름은 맞고 규칙은 갈린 상태이고, 측정된 θ가 재신고로 "
+                    "지워진다"
+                )

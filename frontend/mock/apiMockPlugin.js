@@ -2124,6 +2124,25 @@ function unlockedBoardIds() {
   // 🔴 천장은 **학습자 단계**에서 온다 — 밴드 표를 직접 읽지 않는다(판정 A).
   //    경위는 `learnerTier` 독스트링이 소유한다(목은 밴드, 서버는 θ로 갈려 있었다).
   const ceiling = learnerTier();
+
+  // 🔴 **천장이 미상이면 전건 열림** — 서버 `routers/board.unassessed_ids`의 사본
+  // (2026-08-20 서버 실측으로 드러난 결함의 수리이고, **목에도 같은 결함이 있었다**).
+  //
+  // `lockedBoardTiers()`가 미상 천장에서 아무것도 안 잠그는데, 아래 열림 합성은
+  // 세 갈래가 **전부 정수 천장을 요구**한다: 「천장 아래」는 `typeof ceiling ===
+  // 'number'`라 거짓이고, 천장층 순차 목록은 `=== ceiling`이라 비고, 남는 것은
+  // `tierless(p)` 갈래뿐이다. ⇒ θ 행이 없는 계정에서 층이 있는 퍼즐이 전부
+  // **`locked=false`인데 `unlocked=false`** — 목록에 자물쇠도 안 뜨면서 진입·채점이
+  // 전건 403이 된다(서버 실측: 층 있는 9건 중 열린 것 0건).
+  //
+  // ⚠️ **왜 「순차 폴백」이 아니라 「전건 열림」인가**: 「못 여는 것이 열리는 것보다
+  // 나쁘다」가 이 축의 지배 원칙이고(`lockedBoardTiers`·미상 퍼즐 분기가 같은 관례를
+  // 잇는다), 근거가 **하나도 없을 때** 세운 순서는 아무 근거 없이 만든 벽이다.
+  // 층 미상 **퍼즐**의 「열리되 줄에 서지 않는다」를 천장 미상 **학습자**에 적용한 것.
+  if (typeof ceiling !== 'number') {
+    return new Set(items.map((p) => p.content_item_id));
+  }
+
   const tierless = (p) => p.knowledge_level === null || p.knowledge_level === undefined;
 
   const unlocked = new Set(
@@ -3323,7 +3342,16 @@ const routes = {
       cloudsUpdatedAt: Date.now(),
       placementDone: false,
     });
-    devAbilities = seedAbilities(mockAuth.levelGroup); // 지금 밴드의 사전 θ로 되돌린다
+    // 🔴 **`placement_failed: true`는 목에만 있는 레버다**(서버 `/dev/reset-me`에
+    //    대응 필드가 없다 — 라우트 표면을 늘린 것이 아니라 **서버 장애 상황을
+    //    시뮬레이션**하는 자리다). 서버에서 θ 행 0건은 `seed_placement`가 ai-worker
+    //    장애로 조용히 실패한 상태이고(가입·게스트 발급·`dev.reset_me` 셋 다 그
+    //    관례를 적어 뒀다), 목에는 그 장애가 없어 **재현할 길이 아예 없었다.**
+    //    재현 못 하는 갈래는 없는 갈래다 — 위 `unlockedBoardIds`의 「천장 미상 전건
+    //    열림」을 화면으로 볼 유일한 통로라서 둔다. 판정이 필요하면 이 한 줄만 되돌린다.
+    devAbilities = body?.placement_failed === true
+      ? new Map() // θ 행 0건 = 천장 미상(`learnerTier() === null`)
+      : seedAbilities(mockAuth.levelGroup); // 지금 밴드의 사전 θ로 되돌린다
     unitProgress.clear();
     preUnlockedUnits.clear();
     sessions.clear();
