@@ -437,8 +437,16 @@ try {
   // ⑵ `users.level_group` → **학습자 단계**(θ 파생, 2026-08-20 판정 A). 지금 참은
   // ⑵이고, 밴드는 그 θ의 **초기값이 오는 자리**로 물러났다(`seed_placement`).
   // ⇒ 그래서 이 시나리오는 밴드가 아니라 **θ를 움직여** 천장이 따라오는지 본다.
-  //   밴드만 바꿔도 천장이 움직이면 그것이 **결함**이다(③-a가 그것을 문다) —
-  //   서버 `update_me`가 `seed_placement`를 부르지 않으므로 실서버는 안 움직인다.
+  //
+  // 🔴 **여기 적혀 있던 한 줄이 낡았다**(2026-08-20 재파종 판정 — 경위를 남긴다):
+  //   *"밴드만 바꿔도 천장이 움직이면 그것이 **결함**이다 — 서버 `update_me`가
+  //   `seed_placement`를 부르지 않으므로 실서버는 안 움직인다"*.
+  //   서버가 `de9796a`로 **재파종을 착지**시켜 그 전제가 뒤집혔다: 재신고는
+  //   `reseed_unmeasured_priors`로 **미측정 개념의 θ만** 새 밴드 사전으로 갈아탄다.
+  //   ⇒ 밴드는 여전히 천장의 **규칙**이 아니지만(판정 A 그대로 — `learner_tier`는
+  //   `level_group`을 안 읽는다) **θ의 입력**이므로, 전건 미측정 계정에서는
+  //   재신고만으로 천장이 **실제로 움직이고 그것이 옳다.** 결함은 이제 반대쪽에
+  //   있다 — **측정된 행까지 덮는 것**(③-a2가 그것을 문다).
   //
   // ⚠️ **잠기는 대상이 바뀌었다**:
   // 종전에는 학령 파생 `difficulty`(1~3)를 잠갔고 이 시나리오도 `p.difficulty === 3`
@@ -456,12 +464,25 @@ try {
   //   ① 잠긴 칸을 **눌러도 상세 요청이 안 나간다**(누르기 전에 알린다, §3.1)
   //   ② 서버가 실제로 막는다(403 PUZZLE_LOCKED) — 화면만 막으면 주소창으로 뚫린다
   //   ③ **수준을 바꾸면 그 자리에서 열린다** — 여는 통로가 없으면 벽이다
-  await scenario('단계 잠금: 잠긴 칸은 상세를 안 부르고, 밴드로는 안 열리고 단계가 오르면 열린다', async () => {
+  await scenario('단계 잠금: 잠긴 칸은 상세를 안 부르고, 재신고는 미측정분만 열고, 단계가 오르면 열린다', async () => {
    // 목의 학령은 프로세스 전역이라 **실패해도** 원복해야 한다. 원복을 본문
    // 끝에 두면 단정 하나가 터진 순간 목이 elementary/adult로 남고, 뒤에 붙는
    // 시나리오가 엉뚱한 이유로 실패한다(2026-08-10 코드 리뷰).
    try {
     await api('POST', '/dev/clouds', { clouds: 5 });
+    // 🔴 **전건 미측정으로 맞추고 시작한다**(2026-08-20 재파종 판정 이후).
+    //    대표 θ는 n 가중 평균이라 **측정된 행이 하나라도 있으면 그 행이 천장을 혼자
+    //    정한다** — 앞 시나리오가 n을 붙여 놓았으면 아래 ③-a(재신고로 천장이 움직인다)가
+    //    **원인이 안 보이는 이유로** 실패한다. 프로세스 역사에 기대지 않고 명시한다.
+    const tagsAtStart = (await api('GET', '/progress/abilities')).body.map((a) => a.concept_tag);
+    assert(tagsAtStart.length > 0, '개념 목록이 비었다 — 이 시나리오의 기준이 없다');
+    await api('POST', '/dev/theta', {
+      abilities: tagsAtStart.map((concept_tag) => ({
+        concept_tag,
+        theta: mockPolicy.level_group_item_b.middle_high,
+        num_responses: 0,
+      })),
+    });
     const before = await api('PATCH', '/auth/me', { level_group: 'middle_high' });
     assert(before.status === 200, `학령 설정 실패 (${before.status})`);
 
@@ -518,22 +539,84 @@ try {
     assert(!xhrLog.slice(mark).includes(hardDetail), '비활성인 잠긴 카드가 상세를 호출했다');
     r.unmount();
 
-    // ③-a 🔴 **밴드만 바꿔도 천장은 움직이지 않는다** (2026-08-20 판정 A)
+    // ③-a 🔴 **재신고하면 미측정 계정의 천장이 실제로 움직인다** (2026-08-20 재파종 판정)
     //
-    // 종전 이 자리는 *「수준을 올리면 열린다」*였고 `PATCH /auth/me`로 천장을
-    // 올렸다. **그 계약은 축이 바뀌어 뜻을 다시 쓴다**(지운 것이 아니다):
-    // 천장의 소유자가 `users.level_group`에서 **학습자 단계**(θ 파생)로 옮겨 갔다.
-    // 서버 `learner_tier`가 밴드 폴백을 철거했고, `update_me`는 `seed_placement`를
-    // 부르지 않는다 — 즉 **실서버에서도 학령만 바꾸면 보드는 그대로다.** 목이
-    // 종전처럼 열어 주면 목으로 본 화면이 실서버에서 거짓이 된다(CO-J-9의 모양).
+    // 🔴 **이 자리의 뜻을 다시 썼다 — 지운 것이 아니고, 무는 갈래는 늘었다.**
+    // 경위를 남긴다(이 계약이 두 번 인용된 자리이기 때문이다):
+    //   · 원래 *「수준을 올리면 열린다」* — 열쇠가 `users.level_group`이던 시절.
+    //   · 그 다음 *「밴드만 바꿔도 천장은 움직이지 않는다」* — 판정 A로 천장의 소유자가
+    //     **학습자 단계**(θ 파생)로 옮겨 갔고, 서버 `update_me`가 θ를 한 줄도 안
+    //     건드렸으므로 그때는 **참이었다.**
+    //   · 지금 — 서버가 `de9796a`로 **재파종을 착지**시켰다
+    //     (`reseed_unmeasured_priors` → `_upsert_abilities(only_unmeasured=True)`).
+    //     밴드는 여전히 천장의 **규칙**이 아니지만 **θ의 입력**이므로, 재신고는
+    //     **미측정 개념의 θ를 갈아타 천장을 실제로 움직인다.**
+    //
+    // ⇒ 종전은 「안 움직인다」 **한 갈래**였고 지금은 **「무엇이 움직이고 무엇이
+    //   보호되나」 두 갈래**다(③-a · ③-a2). 판정 A는 그대로다: 천장 계산은 여전히
+    //   `level_group`을 안 읽는다 — 바뀌는 것은 θ 자신이다.
+    //
+    // ⚠️ **판수·천장 값을 단정하지 않는다**(사전 b 파생이라 사전값이 바뀌면 함께
+    //    움직인다). 무는 것은 **단조성**이고, 실측값은 사람이 읽도록 **찍기만** 한다.
+    const openIds = (rows) => new Set(rows.filter((p) => !p.locked).map((p) => p.content_item_id));
+    const mhOpen = openIds(list.body);
     const up = await api('PATCH', '/auth/me', { level_group: 'adult' });
     assert(up.status === 200 && up.body?.level_group === 'adult', '학령 상향 실패');
-    const bandOnly = await api('GET', '/board/puzzles');
-    const bandOnlyCeiling = assertTailPartition(bandOnly.body, '성인(밴드만)');
-    assert(bandOnlyCeiling === mhCeiling,
-      `밴드만 바꿨는데 천장이 움직였다 — ${mhCeiling} → ${bandOnlyCeiling}. 천장의 소유자는 학습자 단계이고 밴드는 θ의 초기값이 오는 자리일 뿐이다(판정 A). 서버 update_me는 seed_placement를 부르지 않는다`);
-    assert(bandOnly.body.find((p) => p.content_item_id === hard.content_item_id)?.locked === true,
-      '밴드만 올렸는데 잠긴 칸이 열렸다 — 실서버는 안 열어 준다');
+    const reseeded = await api('GET', '/board/puzzles');
+    const reseedCeiling = assertTailPartition(reseeded.body, '성인(재신고)');
+    assert(reseedCeiling > mhCeiling,
+      `전건 미측정인데 재신고로 천장이 안 움직였다 — ${mhCeiling} → ${reseedCeiling}. 재신고는 미측정 개념의 θ를 새 밴드 사전으로 갈아타야 한다(서버 reseed_unmeasured_priors). 안 움직이면 잠금 배너의 「학습 수준 바꾸기」 CTA가 못 지키는 약속이 된다`);
+    const reseedOpen = openIds(reseeded.body);
+    assert([...mhOpen].every((id) => reseedOpen.has(id)),
+      '재신고로 수준을 **올렸는데** 종전에 열려 있던 칸이 닫혔다 — 열림은 단조여야 한다');
+    assert(reseedOpen.size > mhOpen.size,
+      `재신고로 천장은 올랐는데 열린 판이 안 늘었다 — ${mhOpen.size} → ${reseedOpen.size}`);
+    console.log(`  · 노출 판수 실측: 중·고등 천장 ${mhCeiling} · ${mhOpen.size}판 → (재신고) 성인 천장 ${reseedCeiling} · ${reseedOpen.size}판`);
+
+    // ③-a2 🔴 **측정된 행은 재신고가 못 덮는다** — 한 번 푼 사람의 진도가 증발하지 않는다
+    //
+    // ⚠️ 측정 θ를 목표 밴드 사전값과 **멀리** 심는다. 가까우면 「전건 덮기」 결함이
+    //    답을 안 바꿔 이 단정이 **공허하게 초록**이다(이 저장소가 오늘 세 번 밟은 형태).
+    // ⚠️ 대표 θ가 n 가중이라 **측정된 행 하나가 천장을 혼자 정한다** — 그래서
+    //    「초등으로 재신고해도 천장이 안 내려앉는다」가 덮기 결함의 직접 신호다.
+    const measuredTag = tagsAtStart[0];
+    const expertPrior = mockPolicy.level_group_item_b.expert;
+    const reseedElemPrior = mockPolicy.level_group_item_b.elementary;
+    assert(typeof expertPrior === 'number' && typeof reseedElemPrior === 'number',
+      '사전 b를 목 정책에서 못 읽었다 — 이 시나리오의 기준 자체가 거짓이 된다');
+    assert(Math.abs(expertPrior - reseedElemPrior) > 0.5,
+      `측정 θ와 목표 사전값이 너무 가깝다(${expertPrior} vs ${reseedElemPrior}) — 전건 덮기 결함이 답을 안 바꿔 아래 단정이 공허해진다`);
+    await api('POST', '/dev/theta', {
+      abilities: [{ concept_tag: measuredTag, theta: expertPrior, num_responses: 5 }],
+    });
+    const measuredCeiling = assertTailPartition((await api('GET', '/board/puzzles')).body, '측정 후');
+    const down = await api('PATCH', '/auth/me', { level_group: 'elementary' });
+    assert(down.status === 200, `학령 하향 실패 (${down.status})`);
+
+    const afterRows = (await api('GET', '/progress/abilities')).body;
+    const kept = afterRows.find((a) => a.concept_tag === measuredTag);
+    assert(kept, `측정한 개념(${measuredTag})이 응답에서 사라졌다`);
+    assert(Math.abs(kept.theta - expertPrior) < 1e-6,
+      `🔴 재신고가 **측정된** θ를 덮었다 — ${measuredTag}: ${expertPrior} → ${kept.theta}. 사람이 푼 결과가 학령 재신고 한 번에 지워진다`);
+    assert(kept.num_responses === 5,
+      `재신고가 측정 행의 응답 수를 건드렸다 — 5 → ${kept.num_responses}`);
+    // 반대 갈래도 함께 밟는다 — 안 밟으면 「아무것도 안 한다」가 이 단정을 통과한다.
+    const unmeasured = afterRows.filter((a) => a.num_responses === 0);
+    assert(unmeasured.length > 0,
+      '미측정 행이 하나도 없다 — 아래 단정이 공집합을 통과한다(filter().every()는 빈 배열에서 참)');
+    assert(unmeasured.every((a) => Math.abs(a.theta - reseedElemPrior) < 1e-6),
+      `재신고가 **미측정** θ를 안 갈아탔다 — 초등 사전 ${reseedElemPrior}이어야 하는데 [${unmeasured.map((a) => a.theta).join(',')}]`);
+    // 천장은 측정된 행이 지킨다 — 덮였다면 여기서 내려앉는다.
+    const protectedCeiling = assertTailPartition((await api('GET', '/board/puzzles')).body, '초등 재신고(측정 행 보호)');
+    assert(protectedCeiling === measuredCeiling,
+      `🔴 측정된 행이 있는데 초등 재신고로 천장이 ${measuredCeiling} → ${protectedCeiling}로 내려앉았다 — 재파종이 측정분까지 덮었다는 뜻이다`);
+    console.log(`  · 노출 판수 실측(측정 행 보호): 측정 후 천장 ${measuredCeiling} → 초등 재신고 후 천장 ${protectedCeiling}(유지)`);
+
+    // ③-b의 전제(**전건 n=0 → 대표 θ가 단순 평균**)를 되돌린다.
+    await api('POST', '/dev/theta', {
+      abilities: [{ concept_tag: measuredTag, theta: reseedElemPrior, num_responses: 0 }],
+    });
+    await api('PATCH', '/auth/me', { level_group: 'middle_high' });
 
     // ③-b **학습자 단계가 오르면 열린다** — 여는 통로가 없으면 벽이다
     //
@@ -609,6 +692,62 @@ try {
     await api('POST', '/dev/theta', {
       abilities: tags.map((concept_tag) => ({ concept_tag, theta: back })),
     });
+   }
+  });
+
+  // ── 7-b. 🔴 천장 미상(θ 근거 0건) 학습자 — **전건 열림** ─────────────────────
+  //
+  // 🔴 **서버가 실측으로 잡은 결함이고, 목에도 같은 모양이 있었다**(2026-08-20).
+  // 서버 수리는 `routers/board.unassessed_ids`이고 그 독스트링이 경위를 소유한다:
+  // `learner_tier`가 `None`을 낼 때 `locked_tiers(None) == set()`이라 **아무 층도
+  // 안 잠기는데**, 열림 합성 세 갈래가 전부 정수 천장을 요구해 열린 집합에 **층
+  // 미상 퍼즐만** 남았다 ⇒ `locked=false`라 목록에 자물쇠도 안 뜨는데 진입·채점이
+  // **전건 403 BOARD_LOCKED**(실측: 층 있는 9건 중 열린 것 0건).
+  //
+  // 🔴 **왜 이 시나리오가 필요한가 — 그물 구멍이었다.** 기존 계약들은 「천장 미상에서
+  // **잠기는 층이 0**」까지만 보고 **열림 축을 안 봤다.** 잠금과 열림은 축이 둘이라,
+  // 한쪽만 보면 「자물쇠는 없는데 아무 데도 못 들어가는」 상태가 **초록으로 통과한다.**
+  // 그 둘이 함께여야 「못 여는 것이 열리는 것보다 나쁘다」가 참이 된다.
+  //
+  // ⚠️ 이 갈래는 **시드로는 영원히 안 밟힌다**(가입·게스트 발급 양쪽이 θ를 심는다).
+  //    그래서 목에 `POST /dev/reset-me {placement_failed:true}` 레버를 두어
+  //    「placement가 조용히 실패한 계정」을 재현한다 — 재현 못 하는 갈래는 없는 갈래다.
+  await scenario('천장 미상: 잠기지도 않고, 층이 있는 퍼즐도 **열린다**', async () => {
+   try {
+    await api('POST', '/dev/clouds', { clouds: 5 });
+    const reset = await api('POST', '/dev/reset-me', { reset: true, placement_failed: true });
+    assert(reset.status === 200, `θ 없는 상태 재현 실패 (${reset.status})`);
+    const rows = (await api('GET', '/progress/abilities')).body;
+    assert(rows.length === 0,
+      `θ 행이 0건이어야 이 갈래를 밟는다 — 실제 ${rows.length}건. 0이 아니면 아래 단정들이 **엉뚱한 상태**를 재고 있다`);
+
+    const list = await api('GET', '/board/puzzles');
+    assert(list.status === 200, `천장 미상에서 목록이 ${list.status}`);
+    // 🔴 **층이 있는 퍼즐로만 센다.** 층 미상 퍼즐은 이 결함이 있어도 열려 있었으므로
+    //    (그것만 남는 것이 결함의 증상이다) 섞으면 결함이 가려진다.
+    const tiered = list.body.filter((p) => p.knowledge_level != null);
+    assert(tiered.length > 0,
+      '층이 있는 퍼즐이 하나도 없다 — 아래 단정이 공집합을 통과한다(filter().every()는 빈 배열에서 참)');
+
+    // ⑴ 잠금 축 — 근거가 없으면 아무 층도 안 잠근다(기존 계약이 보던 자리).
+    assert(tiered.every((p) => !p.locked),
+      `천장 미상인데 잠긴 칸이 있다 — [${tiered.filter((p) => p.locked).map((p) => p.knowledge_level).join(',')}]`);
+    // ⑵ 🔴 **열림 축 — 여기가 구멍이었다.** `locked=false`인데 `unlocked=false`면
+    //    자물쇠는 안 뜨는데 진입이 403인 **유령 칸**이다.
+    const ghosts = tiered.filter((p) => !p.unlocked);
+    assert(ghosts.length === 0,
+      `천장 미상인데 층 있는 퍼즐 ${ghosts.length}/${tiered.length}건이 안 열렸다 — locked=false인데 unlocked=false인 **유령 칸**이다(서버 unassessed_ids가 고친 그 결함). 자물쇠도 안 뜨면서 진입은 403이라 학습자에게는 화면이 통째로 죽은 것으로 보인다`);
+
+    // ⑶ 화면 표시가 아니라 **서버가 실제로 열어 주는지** — 주소창으로 직접 들어간다.
+    const enter = await api('GET', `/board/puzzles/${tiered[0].content_item_id}`);
+    assert(enter.status === 200,
+      `천장 미상 학습자가 퍼즐에 못 들어간다 — ${enter.status} ${enter.body?.code}. 목록이 열렸다고 말하면서 진입이 막히면 그것이 결함의 본체다`);
+    console.log(`  · 노출 판수 실측(천장 미상): 층 있는 ${tiered.length}건 전건 열림 · 잠긴 것 0건`);
+   } finally {
+    // 🔴 θ 행을 지운 채로 나가면 뒤 시나리오가 **천장 미상**에서 돌고, 그 실패는
+    //    원인이 안 보인다. `placement_failed` 없이 한 번 더 불러 사전 θ를 되심는다.
+    await api('POST', '/dev/reset-me', { reset: true });
+    await api('PATCH', '/auth/me', { level_group: 'middle_high' });
    }
   });
 
