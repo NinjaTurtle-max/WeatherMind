@@ -42,6 +42,12 @@
 #              board·match·ordering은 correct_answer 없이 채점(goal_conditions·
 #              pairs·items)하므로 빈 정답 키로 비교하면 같은 개념의 전 퍼즐이
 #              서로 중복으로 오탈락한다(2026-08-05 본시드 실측 9건 과탐).
+#   ⑦ revert   **승격 되돌림 감시** (--staging 전용, 2026-08-21) — 본시드와 멱등 키가
+#              같은데 선지·정답이 다른 staging 항목을 탈락시킨다. seed_content가
+#              template_json을 통째로 덮으므로 그 항목은 재승격 시 본시드 교정을
+#              조용히 되돌리는 탄환이다. 상세 근거는 `promotion_option_drift` 머리.
+#              ④와 달리 **원시 키**(정규화 없음)를 쓴다 — 재는 대상이 저작 중복이
+#              아니라 SQL UPDATE의 실제 사정거리이기 때문이다.
 #   ⑤ vocab    단계 금칙 어휘 (R13-01 §2.3 → docs/specs/12 §7.4로 개정) —
 #              문항의 template_json **전체 문자열**(질문·선지·정답·items·pairs·해설·
 #              힌트·guide_steps)에 등장하는 용어의 도입 단계가 문항의
@@ -199,6 +205,71 @@ def promoted_indexes(items: list[dict], base_items: list[dict]) -> list[int]:
         if text_key in base_text or (has_answer and answer_key in base_answer):
             hits.append(i)
     return hits
+
+
+# ── ⑦ 승격 되돌림 감시 (2026-08-21) ──────────────────────────────────────────
+# **막는 것**: staging 재승격이 본시드의 채점면(선지·정답)을 조용히 옛 값으로
+# 되돌리는 것.
+#
+# 왜 가능한가 — `backend/app/scripts/seed_content.py`는 인자로 받은 **아무 파일이나**
+# 적재할 수 있고(`sys.argv[1]`), 멱등 키가 `(concept_tag, template_json->>
+# 'question_text')`이며, 키가 맞으면 `existing.template_json = entry["template_json"]`로
+# **template_json을 통째로 덮는다**(같은 파일 249~260줄). 그래서 지문을 그대로 두고
+# 선지만 고친 교정은 **키가 안 바뀌어** staging 원본이 그대로 UPDATE 탄환이 된다.
+# 실물 사례: 최장-선지 편향 교정(120문항·선지 360줄, 커밋 ba14f6b..afdab80)은
+# `correct_answer` 전건 바이트 동일 · `question_text` 무접촉이라, 겹치는 staging
+# 108건을 재승격하면 선지 324줄이 경고 한 줄 없이 옛 값으로 돌아간다.
+#
+# ⚠️ **키는 seed_content와 같은 원시 키여야 한다** — ④의 `author_items.dedupe_keys`
+# (정규화 지문 + 정답 서명 폴백)를 쓰면 안 된다. 저 키는 저작 중복을 찾는 다른
+# 술어이고, 여기서 재야 하는 것은 **SQL UPDATE가 실제로 무엇을 집는가**다. 감시가
+# 지키려는 문장과 다른 키로 재면 감시는 다른 것을 재게 된다.
+#
+# ⚠️ **비교면을 template_json 전체로 넓히지 말 것** — 2026-08-21 실측으로 원시키
+# 일치 895건 중 template_json 전체 상이가 67건이다(승격 뒤 본시드에서만 손본
+# explanation_hint·refs 등 — 정상 상태). 넓히면 첫날부터 구조적 red가 되고 그
+# 압력이 게이트를 약화시킨다(④가 같은 이유로 같은 선택을 했다). 채점면인
+# options·correct_answer만 보면 같은 실측에서 **0건**이다.
+DRIFT_FIELDS = ("options", "correct_answer")
+
+
+def promotion_key(item: dict) -> tuple[str, str]:
+    """seed_content 멱등 키와 **같은** 원시 키 — (concept_tag, question_text).
+
+    정규화하지 않는다. UPDATE 대상 판정이 `.astext ==` 정확 일치이므로, 정규화하면
+    감시가 실제 UPDATE보다 넓게 잡아 오탐이 난다.
+    """
+    template = item.get("template_json") or {}
+    return (str(item.get("concept_tag") or ""), str(template.get("question_text") or ""))
+
+
+def promotion_option_drift(
+    items: list[dict], base_items: list[dict]
+) -> list[tuple[int, str, str, str]]:
+    """재승격이 본시드 채점면을 덮어쓸 자리. 반환: (인덱스, 개념, 지문, 필드).
+
+    순수 함수. staging 항목이 본시드와 **같은 멱등 키**를 가지면서 선지나 정답이
+    다르면 한 줄씩 낸다. 키가 없는(=미승격) 항목은 UPDATE가 아니라 INSERT라
+    되돌릴 것이 없으므로 보지 않는다.
+    """
+    base_by_key: dict[tuple[str, str], dict] = {}
+    for item in base_items:
+        base_by_key.setdefault(promotion_key(item), item)
+
+    drifted: list[tuple[int, str, str, str]] = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        key = promotion_key(item)
+        base = base_by_key.get(key)
+        if base is None:
+            continue
+        template = item.get("template_json") or {}
+        base_template = base.get("template_json") or {}
+        for field in DRIFT_FIELDS:
+            if template.get(field) != base_template.get(field):
+                drifted.append((index, key[0], key[1], field))
+    return drifted
 
 
 def load_render_required() -> dict[str, tuple[str, ...]]:
@@ -1058,17 +1129,51 @@ def run_staging(*, pipeline: dict, staging_dir: Path = STAGING_DIR) -> int:
     print("── staging 승격 현황 (정보 — 탈락 사유 아님) ────────────────")
     print(f"본시드: {DEFAULT_SEED_PATH.name} ({len(base_items)}문항)")
     remaining_total = 0
+    # ⑦ 승격 되돌림 감시는 **문항 파일 전부**를 돈다 — lint 한시 제외분(au1·au2)도
+    # 포함한다. DB 적재 경로는 lint 제외 목록을 읽지 않으므로, 제외분을 빼면
+    # 「lint가 안 보는 파일로 되돌리기」라는 구멍이 그대로 남는다.
+    drift_rows: list[tuple[str, int, str, str, str]] = []
     for path in staging_item_files(staging_dir):
         items = author_items.load_seed(path)
         promoted = len(promoted_indexes(items, base_items))
         remaining = len(items) - promoted
         remaining_total += remaining
         flag = " [lint 한시 제외]" if path.name in STAGING_PENDING_LEVEL else ""
+        drift = promotion_option_drift(items, base_items)
+        drift_rows.extend((path.name, *row) for row in drift)
+        mark = f" · 🔴 되돌림 {len(drift)}" if drift else ""
         print(
             f"  {author_items._pad(path.name, 34)}: "
-            f"{len(items):3d}문항 중 승격 {promoted:3d} · 미승격 {remaining:3d}{flag}"
+            f"{len(items):3d}문항 중 승격 {promoted:3d} · 미승격 {remaining:3d}{flag}{mark}"
         )
     print(f"  → 미승격 잔여 합계: {remaining_total}문항")
+
+    print("")
+    print("── ⑦ 승격 되돌림 감시 (선지·정답) ──────────────────────────")
+    if not drift_rows:
+        print(
+            f"  갈린 곳 없음 — 승격된 staging 항목의 {'·'.join(DRIFT_FIELDS)}가 "
+            "본시드와 전건 일치한다. 재승격이 채점면을 되돌리지 않는다."
+        )
+    else:
+        drift_files = sorted({name for name, *_ in drift_rows})
+        print(
+            f"  🔴 {len(drift_rows)}곳 / {len(drift_files)}파일 — 이 staging 항목들은 "
+            "본시드와 **멱등 키가 같은데 채점면이 다르다.**"
+        )
+        print(
+            "  seed_content가 template_json을 통째로 덮으므로, 이 파일을 재승격하면 "
+            "본시드의 선지·정답이 staging 값으로 되돌아간다(경고 없음)."
+        )
+        print(
+            "  고치는 법: **본시드가 정본이다.** staging의 해당 항목을 본시드 현재 "
+            "값으로 갱신하라 — 본시드를 staging에 맞추지 말 것."
+        )
+        for name, index, tag, text, field in drift_rows[:40]:
+            head = text[:52] + ("…" if len(text) > 52 else "")
+            print(f"    - {name}[{index}] ({tag}) {field} 상이 — {head}")
+        if len(drift_rows) > 40:
+            print(f"    … 그리고 {len(drift_rows) - 40}곳 더")
 
     print("")
     for name, reason in STAGING_NOT_ITEMS.items():
@@ -1080,6 +1185,16 @@ def run_staging(*, pipeline: dict, staging_dir: Path = STAGING_DIR) -> int:
         print(
             f"[lint_seed_items] FAIL — staging {len(failed_files)}파일 탈락: "
             f"{', '.join(failed_files)}",
+            file=sys.stderr,
+        )
+        return 1
+    if drift_rows:
+        # ⑦은 파일 lint와 별개의 탈락 사유다 — 항목 자체는 스키마·게이트를 다 통과해도
+        # (교정 전 선지는 어제까지 본시드에 있던 정상 문항이다) 재승격이 되돌림이 된다.
+        print(
+            f"[lint_seed_items] FAIL — 승격 되돌림 {len(drift_rows)}곳: "
+            f"{', '.join(sorted({name for name, *_ in drift_rows}))} "
+            "(위 ⑦ 절 참조 — staging을 본시드 현재 값으로 갱신하라)",
             file=sys.stderr,
         )
         return 1

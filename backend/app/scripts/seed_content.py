@@ -229,9 +229,28 @@ def validate_entry(entry: dict[str, Any], index: int) -> list[str]:
     return errors
 
 
+# 채점면 — UPDATE가 이 값을 바꾸면 「같은 문항의 갱신」이 아니라 **채점 결과가 바뀌는
+# 사건**이다. 되돌림 감시(아래 upsert_entries)와 lint ⑦이 같은 두 필드를 본다.
+GRADING_SURFACE_FIELDS = ("options", "correct_answer")
+
+
 async def upsert_entries(entries: list[dict[str, Any]]) -> tuple[int, int]:
-    """검증 통과분을 멱등 upsert. 반환: (inserted, updated)."""
+    """검증 통과분을 멱등 upsert. 반환: (inserted, updated).
+
+    ⚠️ **되돌림 통로가 여기 있다**(2026-08-21). 멱등 키는 `(concept_tag,
+    question_text)`인데 UPDATE는 `template_json`을 **통째로** 덮는다. 그래서 지문을
+    두고 선지만 고친 교정은 키가 안 바뀌어, `database/seed/staging/`에 남은 옛 원본을
+    이 스크립트에 인자로 주면(`python -m app.scripts.seed_content <staging파일>`)
+    교정이 경고 없이 되돌아간다. 실물: 최장-선지 편향 교정 120문항·선지 360줄
+    (ba14f6b..afdab80) ↔ 겹치는 staging 108건.
+
+    **막는 층은 여기가 아니다** — `scripts/lint_seed_items.py --staging` ⑦이 CI에서
+    갈림을 탈락시킨다. 여기서는 **멈추지 않고 알리기만** 한다: 교정된 본시드를
+    정상 승격할 때도 같은 120행의 선지가 바뀌므로, 여기서 막으면 정상 배포가
+    막힌다. 이 출력은 코드 방어가 뚫렸을 때 사람이 볼 마지막 줄이다.
+    """
     inserted = updated = 0
+    drifted: list[tuple[str, str, str]] = []
     async with async_session() as session:
         async with session.begin():
             for entry in entries:
@@ -247,6 +266,13 @@ async def upsert_entries(entries: list[dict[str, Any]]) -> tuple[int, int]:
                 ).scalar_one_or_none()
 
                 if existing is not None:
+                    # 덮기 **전에** 채점면을 대조한다 — 덮은 뒤에는 옛 값을 알 수 없다.
+                    old_template = existing.template_json or {}
+                    for field in GRADING_SURFACE_FIELDS:
+                        if old_template.get(field) != entry["template_json"].get(field):
+                            drifted.append(
+                                (entry["concept_tag"], question_text, field)
+                            )
                     existing.level_group = entry["level_group"]
                     # 키가 없으면 NULL로 되돌린다 — 시드 파일이 SSOT라는 기존 관례
                     # (source·status와 같은 취급). 재분류 결과를 파일에서 지우면
@@ -274,6 +300,22 @@ async def upsert_entries(entries: list[dict[str, Any]]) -> tuple[int, int]:
                         )
                     )
                     inserted += 1
+
+    if drifted:
+        print(
+            f"[seed_content] ⚠️ 채점면 덮어쓰기 {len(drifted)}곳 — 같은 멱등 키의 "
+            "기존 행에서 선지·정답이 **바뀌었다**."
+        )
+        print(
+            "[seed_content]    의도한 교정 배포라면 정상이다. staging 파일을 "
+            "적재한 것이라면 **교정을 되돌린 것이다** — 즉시 본시드로 재적재하라."
+        )
+        for concept_tag, question_text, field in drifted[:20]:
+            head = question_text[:52] + ("…" if len(question_text) > 52 else "")
+            print(f"[seed_content]    - ({concept_tag}) {field} — {head}")
+        if len(drifted) > 20:
+            print(f"[seed_content]    … 그리고 {len(drifted) - 20}곳 더")
+
     return inserted, updated
 
 

@@ -602,3 +602,139 @@ class TestBoardRulesSeedContract:
         for token in ("front:cold", "front:warm", "front:stationary",
                       "air_mass:siberian", "air_mass:north_pacific"):
             assert token in conditions, f"필수 조건 요소 누락: {token}"
+
+
+# ── 승격 되돌림 계약 (2026-08-21) ────────────────────────────────────────────
+# **막는 것**: `database/seed/staging/`에 남은 옛 원본을 재승격해 본시드의 채점면
+# (선지·정답)을 조용히 옛 값으로 되돌리는 것.
+#
+# **왜 이 계약이 필요한가.** 이 결함은 문항 하나만 보면 보이지 않는다 — 옛 선지는
+# 어제까지 본시드에 있던 정상 문항이라 스키마·게이트 어디에도 걸리지 않고,
+# `lint_seed_items`도 계약도 전부 초록인 채로 **승격 한 번이면 사라진다.**
+# 통로는 `app.scripts.seed_content.upsert_entries`다: 멱등 키가 `(concept_tag,
+# question_text)`인데 UPDATE가 `template_json`을 **통째로** 덮으므로, 지문을 두고
+# 선지만 고친 교정은 키가 안 바뀌어 staging 원본이 그대로 UPDATE 탄환이 된다.
+# 실물: 최장-선지 편향 교정 120문항·선지 360줄(ba14f6b..afdab80) ↔ 겹치는 staging
+# 108건·선지 324줄(2026-08-21 실측).
+#
+# 판정기는 `scripts/lint_seed_items.promotion_option_drift` 하나다 — 여기 사본을
+# 두지 않는다(두 벌이 되면 한쪽만 고쳐지고 감시가 갈린다).
+def _load_lint_module():
+    """scripts/lint_seed_items.py를 모듈로 로드 (test_level_vocabulary와 같은 관례)."""
+    import importlib.util
+
+    scripts_dir = REPO_ROOT / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    spec = importlib.util.spec_from_file_location(
+        "lint_seed_items", scripts_dir / "lint_seed_items.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["lint_seed_items"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+class TestPromotionRevertGuard:
+    """staging 재승격이 본시드 채점면을 되돌릴 수 없다."""
+
+    @pytest.fixture(scope="class")
+    def lint(self):
+        return _load_lint_module()
+
+    def test_감지기가_seed_content와_같은_멱등_키를_쓴다(self, lint):
+        """키가 다르면 감시는 UPDATE가 아닌 다른 것을 잰다.
+
+        `upsert_entries`의 WHERE는 concept_tag + template_json->>'question_text'
+        **정확 일치**다. 감지기가 정규화 키(author_items.dedupe_keys)로 갈아타면
+        실제 UPDATE보다 넓게 잡아 오탐이 나고, 좁게 잡으면 되돌림을 놓친다.
+        """
+        item = {
+            "concept_tag": "typhoon",
+            "template_json": {"question_text": "  태풍  이란?  "},
+        }
+        assert lint.promotion_key(item) == ("typhoon", "  태풍  이란?  "), (
+            "promotion_key가 지문을 정규화했다 — seed_content의 .astext == 와 어긋난다"
+        )
+
+    def test_채점면만_본다(self, lint):
+        """비교면은 options·correct_answer 두 필드다.
+
+        template_json 전체로 넓히면 안 된다 — 승격 뒤 본시드에서만 손본
+        explanation_hint·refs 등이 정상적으로 갈려 있어(2026-08-21 실측: 원시키
+        일치 895건 중 전체 상이 67건) 첫날부터 구조적 red가 되고, 그 압력이
+        게이트를 약화시킨다.
+        """
+        assert lint.DRIFT_FIELDS == ("options", "correct_answer")
+
+    def test_되돌림이_있으면_감지기가_운다(self, lint):
+        """🔴 양성 대조군 — 갈린 곳이 0인 동안 감지기가 죽어도 아무도 모른다.
+
+        본시드에 있는 문항의 선지 한 줄만 바꾼 가짜 staging을 만들어, 감지기가
+        **그 자리를 지목하는지** 확인한다. 이 단정이 없으면 위 두 테스트를
+        통과하는 no-op 감지기가 계약을 초록으로 통과시킨다.
+        """
+        base = next(
+            item
+            for item in SEED_ITEMS
+            if item.get("question_type") == "multiple_choice"
+            and (item.get("template_json") or {}).get("options")
+        )
+        import copy
+
+        # 같은 멱등 키 · 선지 한 줄만 옛 값처럼 되돌린 staging 사본
+        stale = copy.deepcopy(base)
+        stale["template_json"]["options"] = list(
+            stale["template_json"]["options"]
+        )
+        stale["template_json"]["options"][0] = "되돌아간 옛 오답 — 부자연스럽게 긴 선지"
+
+        drift = lint.promotion_option_drift([stale], SEED_ITEMS)
+        assert drift, "선지가 갈렸는데 감지기가 조용하다 — 감시가 죽어 있다"
+        assert [row[3] for row in drift] == ["options"], drift
+        assert drift[0][0] == 0 and drift[0][1] == base["concept_tag"], drift
+
+        # 정답이 갈린 경우도 잡는다 (더 나쁜 되돌림)
+        stale_answer = copy.deepcopy(base)
+        stale_answer["template_json"]["correct_answer"] = "되돌아간 옛 정답"
+        answer_drift = lint.promotion_option_drift([stale_answer], SEED_ITEMS)
+        assert any(row[3] == "correct_answer" for row in answer_drift), answer_drift
+
+    def test_같은_항목은_조용하다(self, lint):
+        """음성 대조군 — 본시드 자신을 넣으면 갈린 곳이 0이어야 한다."""
+        assert lint.promotion_option_drift(SEED_ITEMS, SEED_ITEMS) == []
+
+    def test_미승격_항목은_되돌림이_아니다(self, lint):
+        """멱등 키가 본시드에 없으면 UPDATE가 아니라 INSERT — 되돌릴 것이 없다."""
+        newcomer = {
+            "concept_tag": "typhoon",
+            "question_type": "multiple_choice",
+            "template_json": {
+                "question_text": "이 지문은 본시드에 없다 (계약 테스트 전용 문자열)",
+                "options": ["가", "나", "다", "라"],
+                "correct_answer": "가",
+            },
+        }
+        assert lint.promotion_option_drift([newcomer], SEED_ITEMS) == []
+
+    def test_staging_전건이_본시드_채점면과_일치한다(self, lint):
+        """🔴 본계약 — 지금 갈린 곳이 하나도 없다.
+
+        붉어지면 뜻: **staging에 본시드 교정을 되돌릴 탄환이 들어왔다.**
+        고치는 법은 **본시드가 정본**이라는 방향 하나다 — staging의 해당 항목을
+        본시드 현재 값으로 갱신하라. 반대로 하면 교정이 사라진다.
+        """
+        staging_dir = REPO_ROOT / "database" / "seed" / "staging"
+        offenders: list[str] = []
+        # lint 한시 제외분(au1·au2)도 본다 — DB 적재 경로는 제외 목록을 읽지 않는다.
+        for path in sorted(staging_dir.glob("*.json")):
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(raw, list):
+                continue  # 문항 배열이 아닌 정의 파일(r13_item_templates 등)
+            for index, tag, text, field in lint.promotion_option_drift(raw, SEED_ITEMS):
+                offenders.append(f"{path.name}[{index}] ({tag}) {field} — {text[:40]}")
+        assert not offenders, (
+            f"staging {len(offenders)}곳이 본시드와 채점면이 갈렸다 — 재승격하면 "
+            "본시드가 되돌아간다. staging을 본시드 값으로 갱신할 것:\n"
+            + "\n".join(offenders[:20])
+        )
