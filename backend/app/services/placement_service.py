@@ -87,7 +87,8 @@ def to_progress_abilities(abilities: Sequence[dict]) -> list[dict[str, Any]]:
     """내부 θ 형식({theta, se, n}) → /progress/abilities 응답 형식 (§3.1 보강).
 
     배치고사 완료 응답의 abilities 원소는 ConceptAbilityOut과 동일 형식
-    ({concept_tag, theta, theta_se, num_responses, level_label})이어야 한다 —
+    ({concept_tag, theta, theta_se, num_responses, level_label, knowledge_level,
+    knowledge_level_max})이어야 한다 —
     프론트가 진단 화면과 같은 렌더러를 쓴다. level_label은
     weatherbrain_service.theta_level_label 재사용(경계 단일 소유).
     """
@@ -98,6 +99,12 @@ def to_progress_abilities(abilities: Sequence[dict]) -> list[dict[str, Any]]:
             "theta_se": float(ab["se"]),
             "num_responses": int(ab["n"]),
             "level_label": weatherbrain_service.theta_level_label(float(ab["theta"])),
+            # 같은 θ의 N단계 해상도 — `/progress/abilities`와 **같은 함수**를 쓴다
+            # (경계 단일 소유). 위 docstring의 「동일 형식」이 이 두 줄로 다시 참이 된다.
+            "knowledge_level": weatherbrain_service.theta_to_knowledge_level(
+                float(ab["theta"])
+            ),
+            "knowledge_level_max": weatherbrain_service.KNOWLEDGE_LEVEL_MAX,
         }
         for ab in abilities
     ]
