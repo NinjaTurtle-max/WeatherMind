@@ -37,7 +37,15 @@ git merge-tree --write-tree --name-only HEAD origin/main     # 로컬 미푸시�
 | **로컬 `HEAD`** × `origin/main` | **14** | `frontend/package.json`이 **추가로 충돌**한다 |
 | 워킹트리(미커밋 4인분 포함) | **측정 불가** | 아래 0.4 |
 
-로컬 `HEAD`(`0bc46db`)는 `origin/integ/rolling-0820`(`8020b71`)보다 **3커밋 앞서 있고 아직 푸시되지 않았다**:
+로컬 `HEAD`는 `origin/integ/rolling-0820`(`8020b71`)보다 앞서 있고 **아직 푸시되지 않았다**.
+조사 중에도 다른 작업자들이 계속 커밋해 **측정 시작 시점 3커밋 → 문서 커밋 시점 8커밋**으로 늘었다:
+
+```sh
+git merge-tree --write-tree --name-only HEAD origin/main   # 0bc46db 기준 14 · 98e1c7b 기준에서도 14 (동일)
+```
+
+⇒ 그 사이 늘어난 5커밋(`e377180` `89b3992` `e4337c9` `47551c5` + 본 문서)은 **충돌 집합을 바꾸지 않았다.**
+아래 3커밋은 측정 시작 시점의 미푸시분이다:
 
 ```
 0bc46db feat(detective): 서버가 주는 XP를 화면이 말하게 한다 — 0은 그리지 않는다
