@@ -6850,3 +6850,47 @@ B·C = 보정/개방 규칙 + CO-U-3 밴드 충돌 해소 + 계약 + 목 파리�
 🔴 **중요한 것**: **목에 의존하는 스모크(board-entry · visual · placement 등)가 전건
 초록**이다 ⇒ 축 교체·병합이 목을 깨뜨리지 않았다. 목 담당 작업의 기준선이다.
 ⚠️ 종전 알려진 목록의 `test:webgl`은 **이번 실측에서 통과**했다 — 그 목록이 낡았다.
+
+### §5.28 기후 탐정 XP 미적립 — 마이그레이션이 필요한가 (2026-08-20 실측 · 측정만)
+
+`routers/detective.py`의 `xp_earned=0` 고정을 여는 데 **새 alembic 마이그레이션이
+필요한가**만 쟀다. **코드는 건드리지 않았다.** 이 측정으로 클라이언트가 「동결 전에
+여는가」를 판정한다.
+
+#### ⑴ 적립 배관은 이미 있다 — DDL 0
+
+`xp_service.add_xp(session, user_id, amount)`(`:159`)가 하는 일은
+**`UPDATE users SET xp = xp + n`** 하나다. 새 테이블·컬럼을 쓰지 않는다.
+
+**다른 적립 경로는 전부 같은 함수를 쓴다**(좌표): `routers/board.py:862` ·
+`routers/progress.py:394` · `services/quest_service.py:365` ·
+`services/answer_service.py:436` · `services/curriculum_service.py:1611`.
+
+#### ⑵ 🔴 그런데 탐정에는 영속이 **0건**이다
+
+`backend/app/models/` · `database/init.sql` · `backend/alembic/versions/` 전체에서
+`detective` **히트 0건**. 테이블도 컬럼도 마이그레이션도 없다.
+
+그리고 `schemas/detective.py:105~107`이 **사유를 이미 적어 두었다**:
+*「케이스 진행을 서버가 보존하지 않기로 했고 … **영속 없이 XP를 주면 재제출로 무한
+적립된다**」*. ⇒ `xp_earned=0`은 **배관이 없어서가 아니라 중복 방어가 없어서**다.
+**이 구분이 이 측정의 핵심**이고, 「적립 경로가 없다」로 읽으면 잘못된 결론이 난다.
+
+#### ⑶ DDL 없이 끼울 기존 자리 — 없다
+
+| 후보 | 왜 안 되나 |
+|---|---|
+| `users`의 범용 JSONB | **없다** — 컬럼 전건이 스칼라·날짜다 |
+| `user_progress` 테이블 | **테이블 자체가 없다**(모델 디렉터리에 없음) |
+| `sessions.recipe_json`·`route_decision` · `duels.user_pred` · `league_results.predicted_value` · `hindcast_attempts.*` | 전부 **다른 도메인 소유**. 탐정 진행을 얹으면 그 테이블의 뜻이 오염된다 |
+| `quiz_logs` | `content_item_id` 축이고 **탐정 케이스는 `content_items`가 아니다**(`detective_cases.json` 별도 시드). 얹으려면 nullable화 또는 합성 문항이 필요하고 그것도 스키마·의미 변경이다 |
+
+#### ⇒ 답
+
+**「이 유저가 이 케이스를 이미 풀었다」를 저장할 자리가 없고 기존 자리에 끼울 수도 없다.
+⇒ 새 테이블(또는 `users` 신규 컬럼) = 새 alembic 마이그레이션이 필요하다.**
+어드바이저 기준(스키마 변경 → **동결 전야 반대**)에 걸린다. 판정은 클라이언트 몫이다.
+
+⚠️ **재지 않은 것**: 「중복 방어를 포기하고 무한 적립을 감수한다」면 마이그레이션 없이
+한 줄로 열린다. 그것이 열 만한 것인지는 **제품 판정**이라 재지 않았다 — 세션이 정할
+것이 아니다.
