@@ -83,3 +83,11 @@ class UserUnitProgress(Base):
     cleared_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # 이 유닛 세션을 **한 번이라도 끝냈는가** — 진행(잠금 해제)의 소유자다.
+    # 🔴 `crowns`와 **다른 축**이다(2026-08-19 결함 ⑩): 왕관은 만점·하루 첫·최초
+    # 완료가 모두 참일 때만 나가는 **보상**이고, 이것은 「해 봤다」는 **사실**이다.
+    # 종전에는 `is_locked`가 `crowns >= 1`을 봐서 **한 문항만 틀려도 다음 유닛이
+    # 안 열렸다.** 사유는 `curriculum_service.is_locked` 독스트링이 소유한다.
+    attempted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

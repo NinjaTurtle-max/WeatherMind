@@ -548,11 +548,20 @@ class TestTwoLocksCompose:
         순서를 세는 곳이 둘(목록·단건)이라 한 곳만 고치면 목록은 열렸다고 그리는데
         진입은 막는 상태가 되고, 그게 이 저장소가 반복해서 겪은 실패다.
         그래서 `compute_unlocked_ids` 호출 전건이 걸러진 목록을 받는지 소스로 본다.
+
+        🔴 **2026-08-19 갱신(결함 ⑨)**: 허용 목록에 `ceiling_tier`를 더한다.
+        그 함수는 난이도가 **천장과 같은 것만** 남기므로 `sequenceable`(천장 **이하**
+        전부)보다 **더 강한 필터**다 — 이 계약의 의도(「난이도로 먼저 거른다」)를
+        더 좁게 만족한다. 이름만 보는 가드라 **의도는 지켰는데 빨강이 났고**, 그것이
+        이 가드가 값을 한다는 증거이기도 하다(경로가 바뀌면 사람이 보게 만든다).
+        ⚠️ 허용 목록을 늘릴 때는 **그 함수가 정말 난이도로 거르는지** 확인할 것 —
+        이름만 맞고 안 거르면 이 계약이 장식이 된다.
         """
         # `def ` 뒤는 정의라 뺀다 — 거기 오는 것은 인자 이름이지 호출 인자가 아니다.
+        DIFFICULTY_FILTERS = ("sequenceable", "ceiling_tier")
         for call in re.finditer(r"(?<!def )compute_unlocked_ids\(\s*([^,]+),", ROUTER_SRC):
             arg = call.group(1).strip()
-            assert "sequenceable" in arg, (
+            assert any(f in arg for f in DIFFICULTY_FILTERS), (
                 f"난이도로 거르지 않은 목록으로 순서를 센다: compute_unlocked_ids({arg}…) "
                 "— 초등 학습자의 사슬이 보통 칸에서 영구히 끊긴다"
             )
@@ -560,3 +569,78 @@ class TestTwoLocksCompose:
             "정의 1 + 호출 2(목록·단건)를 기대했다 — 호출 지점이 줄었다면 "
             "어느 경로가 순차 잠금을 안 보게 된 것이다"
         )
+
+
+class TestLevelUnlocksBelowCeiling:
+    """🔴 결함 ⑨ — **수준이 천장만 올리고 시작 위치를 안 옮기던 것** (2026-08-19).
+
+    실서버 실측: `level_group=adult` 계정이 `/board`에서 **49판 중 01~04만** 열렸고
+    05부터 전건 🔒「앞 퍼즐부터」였다. `ko.js`가 *"보드에서 열리는 난이도가 이 설정을
+    따라가요"*라고 약속하는데 지켜지지 않았다.
+
+    실측한 원인은 `sequenceable`이 **아니다** — 그것은 이미 난이도로 먼저 거르고
+    있었다(2026-08-12 판정이 그 자리를 고쳤다). 원인은 `compute_unlocked_ids`가
+    **거른 목록의 맨 앞부터** 센다는 것이었다: 갓 시작한 성인은 `cursor=0`이라
+    LOOKAHEAD 3칸만 열린다. **⑧과 같은 뿌리**(수준이 「최대치」만 정하고 시작 위치는
+    언제나 1번)다.
+
+    고침은 선행 학습 앱의 관례를 따른다 — **「수준을 인정받으면 그 아래는 열린다」**이지
+    **「순서를 없앤다」가 아니다.** 순차(MT-24)는 **천장 난이도 안에서 그대로** 산다.
+    """
+
+    @staticmethod
+    def _items(counts: dict[int, int]):
+        """난이도별 개수로 가짜 퍼즐 목록을 만든다(board_difficulty가 그 값을 내도록)."""
+        out = []
+        n = 0
+        for difficulty, count in sorted(counts.items()):
+            for _ in range(count):
+                n += 1
+                # board_difficulty: guided=1 · goal_only=2 · palette>=3 +1 · adult +1
+                if difficulty == 1:
+                    tj = {"mode": "guided", "palette": ["a"], "board_order": n}
+                    band = "elementary"
+                elif difficulty == 2:
+                    tj = {"mode": "goal_only", "palette": ["a"], "board_order": n}
+                    band = "elementary"
+                else:
+                    tj = {"mode": "goal_only", "palette": ["a", "b", "c"],
+                          "board_order": n}
+                    band = "adult"
+                out.append(SimpleNamespace(id=n, template_json=tj, level_group=band))
+        return out
+
+    def test_성인은_아래_난이도가_전부_열린다(self):
+        """AC: `adult`로 진입 시 열린 판이 **4판보다 많아야** 한다."""
+        items = self._items({1: 10, 2: 8, 3: 6})
+        for it in items:
+            assert board_router.board_difficulty(it.template_json, it.level_group) in (1, 2, 3)
+        unlocked = board_router.compute_unlocked_ids(
+            board_router.ceiling_tier(items, "adult"), set()
+        ) | board_router.below_ceiling_ids(items, "adult")
+        # 1·2층 18판이 인정되고 3층에서 순차(커서 + LOOKAHEAD 2 = 3판)
+        assert len(unlocked) > 4, f"성인인데 {len(unlocked)}판만 열렸다"
+        assert len(unlocked) == 18 + 3, sorted(unlocked)
+
+    def test_초등은_아무것도_안_바뀐다(self):
+        """🔴 **천장을 여는 수정이 바닥을 무너뜨리지 않는다.**
+
+        초등은 천장이 1이라 「아래」가 비어 있고 1층이 곧 자기 층이라 순차 그대로다.
+        어려운 판이 갑자기 열리면 안 된다.
+        """
+        items = self._items({1: 10, 2: 8, 3: 6})
+        unlocked = board_router.compute_unlocked_ids(
+            board_router.ceiling_tier(items, "elementary"), set()
+        ) | board_router.below_ceiling_ids(items, "elementary")
+        assert len(unlocked) == 3, f"초등에 {len(unlocked)}판이 열렸다"
+        opened = [i for i in items if i.id in unlocked]
+        assert all(
+            board_router.board_difficulty(i.template_json, i.level_group) == 1 for i in opened
+        ), "초등에게 1층 밖 퍼즐이 열렸다"
+
+    def test_중고등은_1층만_인정된다(self):
+        items = self._items({1: 10, 2: 8, 3: 6})
+        unlocked = board_router.compute_unlocked_ids(
+            board_router.ceiling_tier(items, "middle_high"), set()
+        ) | board_router.below_ceiling_ids(items, "middle_high")
+        assert len(unlocked) == 10 + 3, sorted(unlocked)

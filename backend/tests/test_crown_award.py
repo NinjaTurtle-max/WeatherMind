@@ -166,13 +166,30 @@ class TestPickCrownUnit:
 
 
 class FakeDB:
-    """로더가 전부 monkeypatch되는 배선 테스트용 — get만 유닛을 돌려준다."""
+    """로더가 전부 monkeypatch되는 배선 테스트용 — get만 유닛을 돌려준다.
+
+    🔴 **2026-08-19: `execute`·`add`가 생겼다.** `unit_result_for_session`이
+    `mark_unit_attempted`를 부르게 되면서(결함 ⑩ — 진행과 보상을 가른 것) 이
+    대역물이 실제 쿼리를 한 번 받는다. `scalar_one_or_none()`이 None을 주므로
+    그 함수는 **진도 행을 새로 만드는 경로**를 타고, `add`가 그것을 삼킨다.
+    ⚠️ 여기서 진도 행을 흉내 내지 **않는** 것이 의도다 — 이 파일의 관심은
+    **왕관 배선**이고, `attempted_at`이 실제로 채워지는지는
+    `test_unit_unlock_on_complete.py`가 소유한다. 두 곳에서 같은 것을 확인하면
+    한쪽이 낡아도 조용해진다.
+    """
 
     def __init__(self, unit=None):
         self.unit = unit
+        self.added: list = []
 
     async def get(self, model, pk):
         return self.unit
+
+    async def execute(self, stmt):
+        return SimpleNamespace(scalar_one_or_none=lambda: None)
+
+    def add(self, obj):
+        self.added.append(obj)
 
     async def flush(self):
         pass
@@ -596,8 +613,12 @@ class TestCompleteSessionUnitResult:
         그래서 라우터가 두 번째 호출을 `grant_crown=False`로 내려야 한다.
         """
         unit = SimpleNamespace(id=uuid.uuid4(), crown_target=2)
+        # `attempted_at` — 모델에 실제로 있는 컬럼이므로(0017) 대역물도 가진다.
+        # 여기를 비우고 `mark_unit_attempted`를 `getattr`로 무르게 하는 반대편
+        # 해법은 **컬럼이 없어도 조용히 통과**시켜, 진행 기록이 안 남는 회귀를
+        # 이 테스트가 못 잡게 만든다.
         prog = SimpleNamespace(user_id=_FAKE_USER.id, unit_id=unit.id, crowns=0,
-                               cleared_at=None)
+                               cleared_at=None, attempted_at=None)
 
         class _ProgDB:
             """grant_unit_crown이 만지는 3개(get·execute·flush)만 응답."""

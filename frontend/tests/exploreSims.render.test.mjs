@@ -35,8 +35,41 @@ const TARGETS = [
   { path: '/src/modules/explore/ExploreHome.jsx', name: 'ExploreHome', expects: ['탐구', '교육용 단순화 모델'] },
   // CO-S-10(2026-08-08): 두 시뮬의 θ 루프 CTA는 라벨이 "학습 경로에서 이어가기"인데
   // 목적지가 `/`(홈)였다 — 학습 경로는 `/learn`이다. href를 계약으로 고정한다.
-  { path: '/src/modules/explore/TyphoonSimPage.jsx', name: 'TyphoonSimPage', expects: ['태풍', '왜 그럴까', 'href="/learn"'] },
-  { path: '/src/modules/explore/ClimateSimPage.jsx', name: 'ClimateSimPage', expects: ['기후변화', '폭염일수', 'href="/learn"'] },
+  // MT-22 배선(2026-08-18): 각 화면의 기대 문구에 **껍데기 1개 + 장면 라벨 1개**를
+  // 짝으로 더한다. 껍데기(패널 제목)만 물면 `scene={null}`로 바꿔도 초록이고, 장면
+  // 라벨만 물면 패널이 없어도 라벨은 뜬다 — 둘이 있어야 「그 장면이 그 자리에
+  // 배선됐다」가 된다. 장면 라벨은 `labelsFor()`가 SSR에서도 계산해 DOM으로 겹쳐
+  // 그리는 값이라 문자열로 잡힌다(GL은 글자를 그리지 않는다).
+  // ⚠️ 이것은 **DOM 라벨이 나온다**까지이고 **실브라우저에서 화살표가 그려진다**는
+  // 아니다(R10-06 — 스텁이 초록인데 단면이 한 번도 안 떴던 전례. 그 구분은
+  // crossSectionWebgl.contract.test.mjs 머리 주석이 소유한다).
+  // ⚠️ **장면 라벨 기대 문구가 2026-08-19에 바뀌었다** — 문구를 따라간 것이지
+  //    계약을 느슨하게 한 것이 아니다. 종전 기대는 `구름 꼭대기 16km`(T1)·
+  //    `햇빛 100 (340`(C1)이었는데, 둘 다 **캔버스 안에 있던 긴 문장**이라
+  //    보드 문법(긴 문장은 캔버스 밖 캡션 · 캔버스 안은 짧은 명사구)에 맞춰
+  //    `STEPS[].note`로 옮겨졌다. 그래서 **같은 성격의 다른 장면 라벨**로 바꾼다:
+  //    T1 `권운 차양`(0단계 무대) · T2 `북위 20°`(전향대 눈금) · C1 `태양`.
+  //    🔴 **셋 다 0단계 라벨이어야 한다** — SSR은 step 0만 그리므로 1단계 이후
+  //    라벨을 기대하면 실패한다(`구름 반사 27`로 잡았다가 실측으로 걸렀다).
+  //    ⚠️ 캡션 문자열로 갈아타지 **않았다** — 캡션은 패널이 그리므로 `scene`이
+  //    null이어도 뜬다. 위 주석의 「껍데기+장면 라벨 짝」이 깨진다.
+  { path: '/src/modules/explore/TyphoonSimPage.jsx',
+    name: 'TyphoonSimPage',
+    expects: ['태풍', '왜 그럴까', 'href="/learn"',
+      '태풍 단면 — 하층과 상층은 반대로 감긴다', '권운 차양', '눈과 눈벽', // T1 껍데기+장면+단계
+      '태풍의 일생 — 발생에서 온대저기압까지', '북위 20°'] }, // T2 껍데기+장면
+  { path: '/src/modules/explore/ClimateSimPage.jsx',
+    name: 'ClimateSimPage',
+    expects: ['기후변화', '폭염일수', 'href="/learn"',
+      '지구는 받은 만큼 내보낸다', '태양', '들어오는 햇빛 100'] }, // C1 껍데기+장면+단계
+  // ⚠️ 이 자리에 *"T2는 단계 제목이 장면 라벨과 같은 `T2_STAGES.title`에서 나오므로
+  // 문자열로 가를 수 없다"*고 적혀 있었고 **2026-08-19에 거짓이 됐다** — 라벨 가독성
+  // 지적 뒤 T2가 **캔버스 라벨은 `T2_STAGES.short`, 캡션 제목은 `title`**로 갈라졌다
+  // (예: 캔버스 「온대저기압」 ↔ 캡션 「쇠퇴 · 온대저기압으로 변질」). 이제 T2도 T1·C1
+  // 처럼 갈린다. 경위를 남기는 이유는 이 문장이 **왜 T2만 기대 문구가 둘뿐인지**의
+  // 근거로 쓰여 왔기 때문이다.
+  // ⚠️ 그래도 기대 문구는 `북위 20°`(0단계 무대 라벨) 그대로 둔다 — `short`는 그 단계
+  // 에만 뜨는데(`until: i`) SSR은 step 0만 그리므로 여기서는 쓸 수 없다.
 ];
 
 const server = await createServer({
@@ -193,6 +226,83 @@ try {
   const cssSrc = await readFile(resolve(root, 'src/styles/index.css'), 'utf8');
   checkMt21('ⓑ 스크롤바 자리를 늘 비운다 — 화면을 오갈 때 본문이 옆으로 안 밀린다',
     /scrollbar-gutter:\s*stable/.test(cssSrc));
+
+  // ── ⑬ 「숫자만 바뀌고 그림이 안 바뀌면 탐구가 아니다」 (2026-08-19) ────────
+  /**
+   * 클라이언트가 준 AC 그대로다. 이 화면에는 그 결함이 **미리 놓여 있었다** —
+   * 곡선 `useMemo`의 의존성이 `[]`이고 주석이 *"상수 기반 — 의존성 없음"*이었다.
+   * 민감도가 조작 변수가 된 순간 곡선은 첫 렌더로 얼어붙는다.
+   *
+   * ⚠️ **못 무는 것을 밝힌다**: jsdom·SSR에 래스터라이저가 없어 「눈에 보인다」는
+   * 원리적으로 측정 불가다. 여기서 재는 것은 **폴리라인 좌표 문자열과 축 눈금이
+   * 실제로 달라지는지**까지다. 「그려졌다」가 아니라 「좌표가 달라졌다」다.
+   */
+  {
+    const page = await server.ssrLoadModule('/src/modules/explore/ClimateSimPage.jsx');
+    const sims = await server.ssrLoadModule('/src/lib/exploreSims.js');
+    const pageSrc = await readFile(
+      resolve(root, 'src/modules/explore/ClimateSimPage.jsx'), 'utf8');
+    // 주석을 걷는다 — 산문을 값으로 읽으면 고쳐 놓고도 빨강이 나고, 반대로
+    // 주석이 단정을 만족시켜 지워도 초록이 된다(양쪽 다 이번 라운드에 실제로 났다).
+    const code = pageSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+    // ⓐ 곡선이 민감도에 따라 실제로 달라진다 — 이 티켓의 본체
+    const curveLo = page.anomalyCurvePoints(sims.CLIMATE_SENSITIVITY_MIN);
+    const curveMid = page.anomalyCurvePoints(sims.CLIMATE_SENSITIVITY);
+    const curveHi = page.anomalyCurvePoints(sims.CLIMATE_SENSITIVITY_MAX);
+    checkMt21('⑬ⓐ 곡선 좌표가 민감도마다 다르다(셋이 서로 다르다)',
+      curveLo !== curveMid && curveMid !== curveHi && curveLo !== curveHi);
+    // 방향까지 — 민감도가 높으면 곡선이 **위로** 간다(SVG는 y가 작을수록 위).
+    const lastY = (pts) => Number(pts.split(' ').at(-1).split(',')[1]);
+    checkMt21(
+      `⑬ⓐ 민감도가 높을수록 곡선 끝이 위로 간다 (${lastY(curveHi)} < ${lastY(curveMid)} < ${lastY(curveLo)})`,
+      lastY(curveHi) < lastY(curveMid) && lastY(curveMid) < lastY(curveLo));
+
+    // 🔴 ⓑ 축이 **현재 민감도에 묶이지 않았다.** 묶이면 y = anomaly/maxY 에서
+    //    S가 약분돼 **어떤 민감도에서도 곡선이 똑같아진다** — ⓐ가 그것을 잡지만,
+    //    왜 그런지가 여기 남아 있어야 다음 사람이 maxY를 되돌리지 않는다.
+    checkMt21('⑬ⓑ 축 상한이 슬라이더 최대치로 고정이다(현재 민감도가 아니다)',
+      sims.CLIMATE_SENSITIVITY_MAX === page.CURVE_MAX_Y
+      && page.CURVE_MAX_Y !== sims.CLIMATE_SENSITIVITY);
+    checkMt21(`⑬ⓑ y 눈금이 축 상한까지 있다 — 최대 ${Math.max(...page.CURVE_Y_TICKS)}℃`,
+      Math.max(...page.CURVE_Y_TICKS) >= Math.floor(page.CURVE_MAX_Y));
+    // 곡선 전 좌표가 그림 안에 있다 — 축이 좁으면 곡선이 위로 삐져나간다.
+    const ys = curveHi.split(' ').map((p) => Number(p.split(',')[1]));
+    checkMt21('⑬ⓑ 최대 민감도에서도 곡선이 그림 안에 있다',
+      Math.min(...ys) >= page.CURVE_VIEW.pad.top);
+
+    // ⓒ 값을 넣는 자리와 의존성 목록은 **한 쌍**이다 — 둘 중 하나만 고치면
+    //   결함이 그대로 남는다(원래 결함이 정확히 그 형태였다).
+    checkMt21('⑬ⓒ 곡선 useMemo가 민감도를 의존성으로 갖는다',
+      /useMemo\(\s*\(\)\s*=>\s*anomalyCurvePoints\(sensitivity\)\s*,\s*\[\s*sensitivity\s*\]\s*\)/.test(code));
+
+    // ⓓ 조작 변수가 화면에 **3개** 있다(축이 하나면 「바꿔가며」가 성립하지 않는다)
+    const sliders = code.match(/type="range"/g) ?? [];
+    checkMt21(`⑬ⓓ 조작 변수가 3개다 — 실제 ${sliders.length}개`, sliders.length === 3);
+
+    // ⓔ 범위에 자료 근거가 붙어 있다 — 근거 없는 범위는 교육적 거짓이다.
+    const libSrc = await readFile(resolve(root, 'src/lib/exploreSims.js'), 'utf8');
+    checkMt21('⑬ⓔ 슬라이더 범위에 1차 자료 출처가 붙어 있다(IPCC URL)',
+      /ipcc\.ch\/report\/ar6/i.test(libSrc));
+
+    // 🔴 ⓕ 변수가 된 값을 **문구에 못박지 않았다.** 못박으면 슬라이더를 올려도
+    //    설명만 옛 숫자를 말해 화면이 자기 그래프와 다른 말을 한다.
+    for (const loc of ['ko', 'en']) {
+      const res = await readFile(resolve(root, `src/i18n/resources/board.${loc}.js`), 'utf8');
+      const climate = res.slice(res.indexOf('climate: {'));
+      const disclaimer = climate.match(/disclaimer:\s*'([^']*)'/)?.[1] ?? '';
+      const seaNote = climate.match(/seaNote:\s*'([^']*)'/)?.[1] ?? '';
+      checkMt21(`⑬ⓕ ${loc} disclaimer가 민감도를 보간으로 받는다`,
+        disclaimer.includes('{sens}') && !/S\s*=\s*3\.0/.test(disclaimer));
+      checkMt21(`⑬ⓕ ${loc} seaNote가 해수면 계수를 보간으로 받는다`,
+        seaNote.includes('{k}') && !/\b23\s*cm/i.test(seaNote));
+    }
+    // 그리고 호출부가 실제로 넘긴다 — 리소스만 고치면 `{k}`가 화면에 그대로 뜬다.
+    checkMt21('⑬ⓕ seaNote 호출부가 계수를 넘긴다',
+      /seaNote'\s*,\s*\{\s*k:\s*seaLevelPerDeg\s*\}/.test(code));
+    checkMt21('⑬ⓕ disclaimer 호출부가 민감도를 넘긴다',
+      /disclaimer'\s*,\s*\{\s*sens:/.test(code));
+  }
 } finally {
   await server.close();
 }

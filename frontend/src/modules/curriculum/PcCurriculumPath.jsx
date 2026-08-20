@@ -831,6 +831,22 @@ export default function PcCurriculumPath({
   //  `blueEndIndex`는 export로 남아 스모크가 계속 문다. 2026-08-13)
 
   const clearedCount = statuses.filter((s) => s === 'cleared').length;
+  // 🔴 **배치로 「인정」받은 것과 실제로 「푼」 것은 다른 축이다**(2026-08-19 결함 ⑦).
+  //
+  // 종전에는 게이지가 `cleared`만 셌다. 배치 선해제는 `unlock_floor`로 **잠금만**
+  // 풀고 `cleared_at`을 채우지 않으므로, 고등으로 진단받아 75유닛을 인정받은
+  // 학습자도 `0 / 138`을 봤다 — **배치가 화면에서 통째로 사라진 상태**였고
+  // 클라이언트가 *"이전 수준 단계가 해지가 되면 완료 게이지가 안 차있어요"*로 반려했다.
+  //
+  // ⚠️ 그렇다고 인정분을 **완료로 세면 거짓**이다(학습자는 그 유닛을 풀지 않았다).
+  // 그래서 **두 수를 따로 세어 함께** 보인다. 숫자 하나로 뭉개면 어느 쪽이든 거짓이 된다.
+  //
+  // 「인정」 = cleared가 아니면서 **잠기지 않은** 유닛. 배치 선해제가 만드는 집합이
+  // 정확히 그것이다. 배치를 안 본 학습자는 이 수가 작아(선행 사슬이 한두 칸만 연다)
+  // 막대가 사실상 지금과 같다 — **신규 화면을 흔들지 않는다.**
+  const recognisedCount = statuses.filter(
+    (s) => s === 'unlocked' || s === 'current',
+  ).length;
   const currentIdx = statuses.indexOf('current');
 
   /**
@@ -1146,14 +1162,31 @@ export default function PcCurriculumPath({
                 {currentUnit.title}
               </span>
             )}
-            <span className="h-[7px] w-[120px] flex-none overflow-hidden rounded-full bg-sky-100">
+            {/* 두 톤 막대 — 인정(옅게) 위에 완료(진하게)를 겹친다. 겹치는 순서가
+                중요하다: 완료는 인정의 **부분집합이 아니라 별개 축**이라 나란히 두면
+                합이 100%를 넘을 수 있다. 그래서 인정을 바탕으로 깔고 완료를 그 위에
+                왼쪽부터 그린다 — 눈으로 「얼마나 인정받았고 그중 얼마를 실제로 풀었나」가
+                읽힌다. */}
+            <span className="relative h-[7px] w-[120px] flex-none overflow-hidden rounded-full bg-sky-100">
               <i
-                className="block h-full rounded-full bg-sky-600"
+                className="absolute inset-y-0 left-0 block rounded-full bg-sky-200"
+                style={{
+                  width: `${Math.round(((recognisedCount + clearedCount) / flat.length) * 100)}%`,
+                }}
+              />
+              <i
+                className="absolute inset-y-0 left-0 block rounded-full bg-sky-600"
                 style={{ width: `${Math.round((clearedCount / flat.length) * 100)}%` }}
               />
             </span>
             <span className="flex-none text-[11.5px] font-bold tabular-nums text-slate-500">
-              {t('curriculum.path.unitCount', { done: clearedCount, total: flat.length })}
+              {recognisedCount > 0
+                ? t('curriculum.path.unitCountWithRecognised', {
+                    recognised: recognisedCount,
+                    done: clearedCount,
+                    total: flat.length,
+                  })
+                : t('curriculum.path.unitCount', { done: clearedCount, total: flat.length })}
             </span>
             {/* 「이어서 학습하기」 버튼이 있던 자리 — 스크롤 힌트가 대신 선다
                 (2026-08-09 사용자 지시). 버튼을 빼도 잃는 통로가 없다: 같은 곳으로

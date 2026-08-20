@@ -51,12 +51,28 @@ function tNow(key, params) {
  */
 
 /**
- * 일일 목표 선택지 (§3.4·D4 — 허용값 {3,5,9}, 그 밖은 서버가 422 VALIDATION_ERROR)
+ * 하루 세션 문항 수 — 서버 `Settings.SESSION_RECIPE`(live2·new4·review3·board1)의
+ * **총합**이다. 여기 값을 바꾸려면 서버 배합을 먼저 바꿔야 한다(권위는 서버 소유).
+ * 정합은 `backend/tests/test_daily_goal_session_parity.py`가 문다.
+ */
+export const SESSION_ITEMS = 10;
+
+/**
+ * 일일 목표 선택지 (§3.4·D4 — 그 밖의 값은 서버가 422 VALIDATION_ERROR)
+ *
+ * ⚠️ **2026-08-19: 최대값이 9 → `SESSION_ITEMS`로 바뀌었다.** 종전 `{3,5,9}`는
+ * 서버 주석이 *"SESSION_RECIPE와 독립 — 표시용 카운터 타깃"*이라 밝힌 대로
+ * 의도된 값이었지만 **화면에서 어긋났다**: 고를 수 있는 최대가 9인데 하루 세션은
+ * 10문항이라 **「오늘 목표 10/9」**가 뜬다. 클라이언트 반려 원문 —
+ * *"문제 개수도 하루 세션 개수와 맞지도 않아"*.
+ * 3·5는 "한 세션을 다 못 해도 괜찮다"는 부분 목표라 그대로다. 독립이어야 했던 것은
+ * **선택지의 존재**이지 **상한**이 아니었다.
+ *
  * label·caption은 리소스(`dailyGoal.*`) 파생 getter — export 형태(객체 배열의
  * 문자열 속성)는 유지하고, 소비처(DailyGoalPicker — useT 구독)의 리렌더 시점에
  * 현재 로케일로 풀린다. ko 값은 종전과 바이트 동일.
  */
-export const DAILY_GOAL_CHOICES = [3, 5, 9].map((items) => ({
+export const DAILY_GOAL_CHOICES = [3, 5, SESSION_ITEMS].map((items) => ({
   items,
   get label() {
     return tNow(`dailyGoal.choiceLabel.${items}`);

@@ -200,6 +200,7 @@ step_config() {
 #  웨이브 1~S5에서 추가됐지만 CI에 없어 회귀를 잡지 못하던 공백이었다.)
 #   explore     탐구 시뮬 + 렌더 스모크            session     세션 러너 렌더
 #   placement   배치고사 진입                      visual      보드 레이아웃 계약·강수 엔진·보드 비주얼 SSR
+#   placement-skip 「모르겠어요」 — 센티널 값·일반 세션 유출 금지·전건 스킵 finalize
 #   gating      온보딩 점진적 잠금 해제            board-entry 보드 진입 게이트(구름 잔량 차단)
 #   assist      보드 언두·점진적 힌트 유지         webgl       단면 3D 드로우콜 예산·SCENES↔STORYBOARDS 정합
 #   overlay     지도 오버레이 정점·좌표 경계·파티클 상한·FLOW_META 사본 대조
@@ -209,6 +210,9 @@ step_config() {
 #   duel        예보 대결 배치: 2열·격자 항목 최소폭·오른쪽 열 sticky·태풍이 튜터
 #   home-entry  홈 진입 통합(R13 §2.5): 진입 카드 1개·우선순위 3분기·보조 강등
 #   hint-character 보드 힌트 교사 캐릭터(R13 §2.6): 단계별 표정 전환·문구 불변
+#   load-progress 진도 불러오기(2026-08-19): 진입 화면의 진입점이 **렌더**되는가 ·
+#                 닉네임만 받는가(password·email 입력란 **부재**) · 그 진입점이
+#                 주 동선(건너뛰기·다음)을 막지 않는가
 #   session-retry 만회 라운드(R13 §2.1)·만회 상한 5(§2.11)·완료 화면 블록 구분
 #                 표기(§2.10)·예보 마감 단계(A-1 노출/미노출)
 #   detective   기후 탐정(R13 CO-N-2): /explore 진입 카드·단서 하한 미만 제출 잠금·
@@ -217,7 +221,7 @@ step_config() {
 #               영구 소실시키던 결함의 회귀 감시. logout()의 삭제 범위도 함께 못박는다
 # board_engine 공유 벡터(test:board)는 node_modules 없이 도는 전용 `board` 단계가
 # 소유하므로 여기서 중복 실행하지 않는다.
-FRONT_TESTS=(explore explore-goals session session-blocks entry-flow placement visual gating board-entry assist webgl overlay display-parity i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective knowledge-level onboarding-save guide-bot guide-bot-3d session-expiry)
+FRONT_TESTS=(explore explore-goals session session-blocks entry-flow load-progress placement placement-skip visual gating board-entry assist webgl schematic overlay display-parity i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective knowledge-level onboarding-save guide-bot guide-bot-3d session-expiry)
 
 step_frontend() {
   banner "frontend: build + 스모크 ${#FRONT_TESTS[@]}종 (선택)"

@@ -510,6 +510,37 @@ try {
     }
   });
 
+  // ── 503 BOARD_RULES_UNAVAILABLE은 내부 진단 문자열을 화면에 흘리지 않는다 ──
+  // 2026-08-19 실사고: 도커 백엔드 이미지가 낡아(코드는 이미지 COPY · 시드는
+  // 바인드 마운트라 **따로 낡는다**) 새 규칙 파일을 옛 PHENOMENA로 검증했고,
+  // 세션 화면의 「AI 피드백」 자리에
+  //   rules[0](tropical_cyclone_genesis): phenomenon 'typhoon' enum 밖
+  // 이 그대로 떴다. 그 503은 `main.py`의 board_rules_handler가 detail에 예외
+  // 문자열을 담아 내려보내는데, 두 제출 경로가 err.detail을 우선 쓰고 있었다.
+  //
+  // 소스 계약으로 무는 이유: 이 분기는 규칙 파일이 깨져야만 도는 경로라
+  // 실마운트로 재현하려면 서버 데이터를 일부러 망가뜨려야 한다. 대신 **두
+  // 경로가 같은 키를 쓰는지**를 본다 — 한쪽만 고치는 것이 이 결함의 재발 꼴이다.
+  await scenario('보드 503(BOARD_RULES_UNAVAILABLE)이 두 제출 경로에서 사람 말로 나온다', async () => {
+    const KEY = 'board.page.rulesUnavailable';
+    // ⑴ 문구가 ko·en 양쪽에 있고, 진단 어휘를 흉내내지 않는다.
+    for (const locale of ['ko', 'en']) {
+      const res = (await vite.ssrLoadModule(`/src/i18n/resources/board.${locale}.js`)).default;
+      const msg = res.board?.page?.rulesUnavailable;
+      assert(typeof msg === 'string' && msg.trim(), `${locale}: ${KEY} 누락`);
+      assert(!/rules\[|enum|phenomenon/i.test(msg),
+        `${locale}: ${KEY}가 내부 진단 어휘를 담았다 — 학습자에게 규칙 배열이 보이면 안 된다`);
+    }
+    // ⑵ 두 제출 경로 모두 이 코드에서 err.detail이 아니라 위 키를 쓴다.
+    for (const rel of ['src/modules/board/BoardPage.jsx', 'src/modules/session/SessionRunner.jsx']) {
+      const src = await readFile(resolve(root, rel), 'utf8');
+      assert(src.includes("'BOARD_RULES_UNAVAILABLE'"),
+        `${rel}: BOARD_RULES_UNAVAILABLE 분기가 없다 — 503 detail이 그대로 화면에 나간다`);
+      assert(src.includes(`t('${KEY}')`),
+        `${rel}: 503 분기가 ${KEY}를 쓰지 않는다 (두 화면이 같은 503을 다른 말로 설명하면 안 된다)`);
+    }
+  });
+
 } finally {
   await vite.close();
   httpServer.close();

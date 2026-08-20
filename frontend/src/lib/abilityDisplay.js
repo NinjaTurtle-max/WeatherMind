@@ -140,3 +140,38 @@ export function selectKnowledgeLevel(source) {
   const max = row?.knowledge_level_max;
   return { level, max: Number.isInteger(max) && max >= level ? max : null };
 }
+
+/**
+ * **개념 한 행 → 화면에 쓸 난이도 표기 한 줄.** /me의 WeatherBrain 판이 쓴다.
+ *
+ * 왜 이 함수가 생겼나(2026-08-19 사용자 지적): 같은 카드 안에서 「현재 지식 단계」
+ * 카드는 **교과 단계**(「고등학교 진로선택」)로 말하는데 개념별 칩만 **범용 4밴드**
+ * (「초급/중급/고급」)로 말해, 한 화면이 같은 사람의 난이도를 두 어휘로 이야기했다.
+ * 클라이언트 요구는 「쉬움/보통/어려움 대신 교과 과정 기준」이므로 **표기를** 교과
+ * 단계로 모은다. ⚠️ 바뀌는 것은 **표기뿐**이다 — `level_label` 축도 `LEVEL_KO`·
+ * `LEVEL_CHIP`·`THETA_BAND_*`도 한 글자 안 건드린다(서버 스키마가 "level_label을
+ * 대체하지 않는다 — 두 축이 공존한다"고 의도로 적어 두었다). 칩 **색**은 여전히
+ * `LEVEL_CHIP[level_label]`이 소유한다.
+ *
+ * 🔴 **폴백이 이 함수의 본체다.** `knowledge_level`이 null·부재일 수 있다:
+ *   · `GET /progress/mastery`는 그 개념의 θ 행이 없으면 **null을 준다**
+ *     (routers/progress.py의 `levels.get(concept_tag)` — 주석이 그렇게 적었다).
+ *   · 구 백엔드·목(mock)은 필드를 아예 안 보낸다.
+ * 종전 4밴드 라벨은 **n=0에서도 항상 무언가를 줬으므로**(schemas/progress.py),
+ * 여기서 빈칸을 돌려주면 그것이 회귀다. 그래서 **4밴드로 내려앉는다.**
+ *
+ * 왜 4밴드가 옳은 폴백인가(지어내는 게 아니다): 서버가 두 축의 **왕복 항등**을
+ * 보장한다 — `level_group_of_knowledge_level(theta_to_knowledge_level(θ))`가
+ * 반드시 `level_label`과 같은 밴드다(weatherbrain_service). 즉 밴드는 같은 θ를
+ * **더 굵게 본 것**이라 틀린 말을 하지 않는다. 반대로 θ에서 단계를 프론트가
+ * 파생하면 10단계 경계(`_derive_knowledge_level_bounds`)를 여기 베껴야 하는데,
+ * 이 파일이 스스로 "단계 수 N을 여기 박지 않는다"고 금지한 그 일이다.
+ */
+export function knowledgeLevelLabel(row) {
+  return (
+    KNOWLEDGE_LEVEL_NAME[row?.knowledge_level]
+    ?? LEVEL_KO[row?.level_label]
+    ?? row?.level_label
+    ?? LEVEL_KO.beginner
+  );
+}

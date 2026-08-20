@@ -140,7 +140,11 @@ class TestSeedSchema:
         # (severe_storm·typhoon·tropical_night)만 목표로 쓴다. 개념 태그는 보드가
         # 안 쓰던 4종(phase_change·temperature_heat·energy_transfer·radiation_budget)을
         # **활용**했다(ALLOWED_CONCEPT_TAGS 안이라 개방이 아니다).
-        assert len(SEED_ITEMS) == 1028
+        # 🔴 병합(2026-08-20 `integ/rolling-0820`): 위 6판 + 연무 1판(board_order 62,
+        # 대기화학 축 첫 문항) + 통합 브랜치 2판 = **1030 · board 64판**. 양쪽 항목을
+        # **전건 보존**해 합집합으로 해결했고(멱등 키 `(concept_tag, question_text)`로
+        # 대조 — 잃은 항목 0), 그래서 이 값은 어느 한쪽 판이 아니라 **합집합 실측**이다.
+        assert len(SEED_ITEMS) == 1030
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS

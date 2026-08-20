@@ -6,8 +6,8 @@ import { progressApi } from '../../api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {
   CONCEPT_KO,
-  LEVEL_KO,
   LEVEL_CHIP,
+  knowledgeLevelLabel,
   COLOR_MEASURED,
   COLOR_PRIOR,
   thetaToScore,
@@ -17,11 +17,17 @@ import { useT } from '../../i18n';
 /**
  * WeatherBrainPanel (R6 WeatherBrain) — 개념별 능력(θ) 분석 패널.
  * GET /progress/abilities → [{concept_tag, theta, theta_se, num_responses,
- *   level_label, updated_at}] (약한 개념 우선 정렬).
+ *   level_label, knowledge_level(+_max), updated_at}] (약한 개념 우선 정렬).
+ *   ⚠️ `knowledge_level`을 이 목록에 **꼭 적어 둔다** — 2026-08-19에 칩·레이더가
+ *   그 필드를 소비하기 시작했는데 이 줄은 소비 전 목록 그대로였다. 낡은 필드
+ *   목록은 다음 사람이 "안 내려오는 값"으로 읽고 폴백을 지우게 만든다(§0).
  *
  * WeatherMind 자체 적응형 모델(WeatherBrain)이 개념별 이해도를 추정해 난이도를
  * 배정한다. θ(로짓 -3..3)를 0..100 표시 스케일로 정규화해 가로 막대로 보여주고,
  * num_responses===0(사전 배정, 아직 측정 아님) 개념은 옅은 막대·안내 문구로 구분한다.
+ * 막대 끝 칩의 **글자는 교과 단계**(knowledge_level)이고 **색은 4밴드**
+ * (level_label)다 — 두 축이 한 칩에 겹쳐 있는 것이 아니라, 표기만 교과 단계로
+ * 모으고 색이 쓰던 축은 그대로 둔 것이다(lib/abilityDisplay.knowledgeLevelLabel).
  * θ 표시 헬퍼(정규화·한글 라벨·칩 색)는 lib/abilityDisplay로 추출해
  * 배치고사 결과 화면(R7-01 S3)과 공유하며, 막대도 같은 div 관용구를 쓴다
  * (PlacementSummary와 동일 — 차트 라이브러리 불사용).
@@ -164,7 +170,24 @@ export default function WeatherBrainPanel() {
                     <span className="shrink-0 text-[11px] font-bold tabular-nums text-slate-600">
                       {percent}%
                     </span>
+                    {/* 🔴 **이 칩은 교과 단계로 바꾸지 않는다**(2026-08-19 · PM 승인).
+                        `m.level_label`은 θ 4밴드(초급/중급/고급/최상급)가 아니라
+                        **BKT 숙련 축**이다 — insufficient·beginning·learning·mastered이고
+                        화면 문구는 「데이터 부족 · 아직 익히는 중 · 거의 익힘 · 숙련」이다.
+                        「이 개념을 익혔을 확률」을 「어느 교과 단계인가」로 갈아 끼우면
+                        **숙련 정보가 사라진다**(난이도 축은 왼쪽 θ 칩이 이미 말한다).
+                        두 축은 대체가 아니라 공존이다 — 왼쪽 칩이 교과 단계로 바뀌었다고
+                        해서 여기도 같이 갈아엎지 말 것.
+
+                        🔴 **함정은 두 축이 필드 이름을 공유한다는 것이다** —
+                        `ConceptAbilityOut.level_label`(θ 4밴드)과
+                        `ConceptMasteryOut.level_label`(BKT 4상태)이 **같은 이름**이다.
+                        그래서 소스를 훑으면 여기가 θ 밴드로 보이고, 실제로
+                        2026-08-19 지시가 이 줄을 포함한 3곳으로 나갔다(PM 실측 후 2곳으로
+                        정정). 값이 무엇인지는 **이름이 아니라 어느 응답에서 왔는지**가
+                        정한다: 이 `m`은 `GET /progress/mastery`의 행이다. */}
                     <span
+                      data-testid="mastery-level-chip"
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
                         MASTERY_CHIP[m.level_label] ?? MASTERY_CHIP.insufficient
                       }`}
@@ -232,7 +255,12 @@ export default function WeatherBrainPanel() {
     name: CONCEPT_KO[a.concept_tag] ?? a.concept_tag,
     score: thetaToScore(a.theta),
     theta: typeof a.theta === 'number' ? a.theta : 0,
-    levelKo: LEVEL_KO[a.level_label] ?? a.level_label ?? LEVEL_KO.beginner,
+    // 🔴 칩 **글자**는 교과 단계다(2026-08-19 사용자 지적 — 같은 카드 위 「현재
+    // 지식 단계」가 「고등학교 진로선택」이라 말하는데 여기만 「중급」이었다).
+    // 칩 **색**은 아래에서 여전히 `LEVEL_CHIP[level_label]`이 고르므로 `level_label`을
+    // 계속 실어 보낸다 — 축을 지운 게 아니라 표기만 바꾼 것이라는 사실이 여기 남는다.
+    // null·부재 폴백(4밴드)은 knowledgeLevelLabel이 소유한다.
+    levelKo: knowledgeLevelLabel(a),
     level_label: a.level_label,
     num_responses: a.num_responses ?? 0,
     isPrior: (a.num_responses ?? 0) === 0,
@@ -295,6 +323,11 @@ export default function WeatherBrainPanel() {
           임계는 AbilityRadar가 소유한다(RADAR_MIN_CONCEPTS) — 여기서 다시 정하지
           않고 **같은 상수를 읽는다**. 숫자를 베끼면 그쪽이 바뀔 때 빈 줄이
           조용히 되살아난다. */}
+      {/* ⚠️ 아래 `abilities`에 `knowledge_level`을 **반드시 실어 보낸다** — 레이더의
+          기본 aria-label이 그 값으로 교과 단계를 읽는다. 빠뜨리면 그림의 낭독만
+          조용히 4밴드 폴백으로 되돌아가, 눈으로 보는 칩(교과 단계)과 스크린리더가
+          듣는 문구가 갈린다. `level_label`도 그 폴백의 재료라 함께 남긴다
+          (축을 지운 것이 아니라 표기만 바꾼 것이다). */}
       {rows.length >= RADAR_MIN_CONCEPTS && (
         <div className="mt-3 flex justify-center">
           <AbilityRadar
@@ -302,6 +335,7 @@ export default function WeatherBrainPanel() {
               concept_tag: a.concept_tag,
               theta: a.theta,
               level_label: a.level_label,
+              knowledge_level: a.knowledge_level,
             }))}
             className="h-[224px] w-[224px]"
           />
@@ -354,7 +388,11 @@ export default function WeatherBrainPanel() {
                   {t('weatherBrain.priorNote')}
                 </span>
               )}
+              {/* data-testid — 계약이 **렌더된 칩 하나**를 집어 글자를 재기 위한 손잡이다.
+                  `knowledge_level`이 null일 때 여기가 **빈칸이 되는 것**이 이 변경의
+                  회귀 지점이라, 소스 grep이 아니라 실제 노드의 textContent를 물어야 한다. */}
               <span
+                data-testid="ability-level-chip"
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
                   LEVEL_CHIP[row.level_label] ?? 'bg-slate-100 text-slate-600'
                 }`}

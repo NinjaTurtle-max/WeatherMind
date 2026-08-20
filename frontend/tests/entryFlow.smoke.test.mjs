@@ -208,12 +208,19 @@ const api = async (method, path, body) => {
 };
 
 const $ = (sel) => window.document.querySelector(sel);
+// ⑬(2026-08-19)에서 추가 — 「없음」을 실패 메시지에 **몇 개인지**로 말하려면
+// 셀 수 있어야 한다. `loadProgress.contract`와 같은 관례.
+const $$ = (sel) => [...window.document.querySelectorAll(sel)];
 const text = () => window.document.body.textContent ?? '';
 const guestCalls = (mark) => xhrLog.slice(mark).filter((l) => l === 'POST /api/v1/auth/guest');
 
 let failed = 0;
 const ok = (cond, label) => {
-  console.log(`${cond ? 'PASS' : 'FAIL'} ${label}`);
+  // 라벨은 문자열이거나 **함수**다 — 함수는 실패했을 때만 화면을 훑으라는 뜻이고,
+  // 그대로 찍으면 실패 메시지 자리에 **소스 코드**가 나와 원인을 못 가리킨다
+  // (`loadProgress.contract`가 같은 함정을 먼저 적어 두었다. 2026-08-19에 여기서도
+  //  실제로 그렇게 찍혀서 맞춘다 — `waitFor`는 이미 함수 라벨을 받고 있었다).
+  console.log(`${cond ? 'PASS' : 'FAIL'} ${typeof label === 'function' ? label() : label}`);
   if (!cond) failed += 1;
 };
 async function scenario(name, fn) {
@@ -610,14 +617,24 @@ try {
     );
 
     // ⑩-b 「진도 불러오기」 → 목적지가 실제로 그려진다(토큰 없이 통과)
+    //
+    // ⚠️ **2026-08-19에 폼이 두 번 바뀌었다** — 오전에 이메일·비밀번호 →
+    // 닉네임 하나, 오후에 다시 이메일·비밀번호(클라이언트 결정 — *"닉네임을 통한
+    // 호출은 보안의 개별성이 약하기에"*). 그래서 여기는 **폼의 생김새를 재지
+    // 않는다**: 재는 것은 「토큰 없이 이 라우트에 닿는가」이고, 목적지 표식
+    // (`load-progress`)이 그 판정의 안정된 소유자다. 폼의 구성은
+    // `loadProgress.contract` ③이 소유한다(그쪽이 닉네임 입력란의 **부재**와
+    // 나가는 바디 키까지 단정한다).
+    // 🔴 종전에 여기가 `input[name="nickname"]`을 봤는데, 그것은 폼이 바뀔 때마다
+    //    같이 고쳐야 하는 단정이라 **두 번 연속 이 줄을 고치게 만들었다.**
     $('[data-testid="session-expired-load"]').click();
     await waitFor(
-      () => text().includes('저장할 때 쓴 이메일과 비밀번호'),
+      () => $('[data-testid="load-progress"]'),
       8000,
       () => `진도 불러오기 화면 — 실제 본문 "${text().slice(0, 120)}"`,
     );
     ok(
-      Boolean($('input[name="email"]')) && Boolean($('input[name="password"]')),
+      Boolean($('[data-testid="load-progress"]')),
       '⑩-b 「진도 불러오기」가 실제 화면에 닿는다(토큰 게이트 통과)',
     );
     r.unmount();
@@ -715,6 +732,139 @@ try {
     } finally {
       client.interceptors.response.eject(slow);
     }
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⑬ 재방문 복귀 화면 (2026-08-19 클라이언트 지시 ⑫-b)
+  // ═════════════════════════════════════════════════════════════════════════
+  /**
+   * 🔴 **이 블록이 세우는 계약 하나는 종전에 아무도 명시로 물지 않았다.**
+   * 「토큰이 있으면 `/`가 학습으로 간다」를 **우연히** 무고 있던 것은
+   * `homeEntry.smoke`였다(그 파일은 토큰을 심고 `initialEntries: ['/']`로 마운트해
+   * `learn-entry`를 기다렸다). 그 파일이 스스로 밝힌 목적은 전부 `/learn` 화면의
+   * 계약이라 `/`는 그 파일의 대상이 아니었고, ⑫-b로 `/`가 복귀 화면 자리가 되면서
+   * 거기를 `/learn`으로 옮겼다. **그 전에 이 블록을 세운다** — 순서를 바꾸면
+   * 아무도 안 무는 구간이 남는다(2026-08-19 PM 조건 ①).
+   *
+   * 무는 것 넷:
+   *   ⓐ 재방문(`/`에 토큰을 갖고 들어옴) → 복귀 화면. **아무것도 다시 묻지 않고**
+   *      한 번 눌러 학습에 도달한다.
+   *   ⓑ 🔴 **딥링크 무개입** — 토큰을 갖고 `/learn`으로 들어오면 복귀 화면이 없다.
+   *      규정(「로그인 없이 열려야」)의 가장 강한 형태이고, 게이트는 `/` 하나다.
+   *   ⓒ 🔴 **401(만료)이 먼저다** — 토큰을 갖고 들어왔다가 지워지면 복귀 화면이
+   *      아니라 만료 화면이다.
+   *   ⓓ 첫 방문·발급 직후의 `/`는 **종전 그대로** 학습으로 간다(복귀 화면 없음).
+   */
+  await scenario('⑬-a 재방문 `/`는 복귀 화면이고, 아무것도 다시 묻지 않는다', async () => {
+    const mark = await coldOpen();
+    // **재방문 = 페이지 로드가 시작될 때 이미 토큰이 있다.** persist 복원분을 심는다.
+    useAuthStore.getState().setTokens({
+      accessToken: 'returning-access',
+      refreshToken: 'returning-refresh',
+    });
+    const r = mountApp('/');
+    await waitFor(
+      () => $('[data-testid="entry-return"]'),
+      8000,
+      () => `⑬-a 재방문인데 복귀 화면이 안 뜬다 — 실제 "${text().replace(/\s+/g, ' ').slice(0, 140)}"`,
+    );
+    ok(Boolean($('[data-testid="entry-return"]')), '⑬-a 🔴 재방문 `/`에 복귀 화면이 뜬다');
+
+    // 🔴 **아무것도 다시 묻지 않는다** — ④⑤ 반려의 재발 방지. 없음을 문다.
+    ok(
+      $('[data-testid="entry-return"] input') === null &&
+        $('[data-testid="entry-return"] select') === null,
+      `⑬-a 🔴 복귀 화면에 입력이 하나도 없다 — 실제 input ${$$('[data-testid="entry-return"] input').length}개`,
+    );
+    ok(!$('[data-testid="entry-info"]'), '⑬-a 첫 접속 정보 입력 화면이 아니다(수준을 다시 안 묻는다)');
+    ok(!$('[data-testid="entry-info-levels"]'), '⑬-a 🔴 학습 수준을 다시 묻지 않는다');
+    ok(!$('[data-testid="entry-info-goals"]'), '⑬-a 🔴 하루 목표를 다시 묻지 않는다');
+    ok(!$('[data-testid="entry-info-nickname"]'), '⑬-a 🔴 닉네임을 다시 묻지 않는다');
+    // 규정 — 금칙어는 여기도 0건이다.
+    ok(!text().includes('로그인'), '⑬-a 화면에 「로그인」 문구가 없다(규정)');
+    ok(!text().includes('회원가입'), '⑬-a 화면에 「회원가입」 문구가 없다(규정)');
+    // 부 CTA가 있다 — 「이어서 학습」(주)과 「진도 불러오기」(부).
+    ok(Boolean($('[data-testid="entry-return-load"]')), '⑬-a 「진도 불러오기」가 부 CTA로 있다');
+    ok(
+      guestCalls(mark).length === 0,
+      `⑬-a 재방문은 새 게스트를 발급하지 않는다 — 실제 ${guestCalls(mark).length}회`,
+    );
+
+    // 🔴 **한 번 눌러 학습에 들어간다.**
+    $('[data-testid="entry-return-continue"]').click();
+    await waitFor(() => $('[data-testid="learn-entry"]'), 8000, '⑬-a 「이어서 학습」 뒤 학습 화면');
+    ok(Boolean($('[data-testid="learn-entry"]')), '⑬-a 🔴 「이어서 학습」 한 번으로 학습에 도달한다');
+    ok(
+      useAuthStore.getState().accessToken === 'returning-access',
+      '⑬-a 들고 있던 토큰(=진도)이 그대로다 — 계정이 갈리지 않는다',
+    );
+    r.unmount();
+  });
+
+  await scenario('⑬-b 🔴 딥링크는 복귀 화면을 타지 않는다(규정)', async () => {
+    await coldOpen();
+    useAuthStore.getState().setTokens({
+      accessToken: 'returning-access',
+      refreshToken: 'returning-refresh',
+    });
+    const r = mountApp('/learn'); // 토큰을 갖고 딥링크
+    await waitFor(() => $('[data-testid="learn-entry"]'), 8000, '딥링크 학습 화면');
+    ok($('[data-testid="entry-return"]') === null, '⑬-b 🔴 딥링크에 복귀 화면이 없다(조작 0회)');
+
+    // 🔴 **그리고 앱 안에서 `/`로 되돌아와도 뜨지 않는다.**
+    //    `SpineBadge`(헤더 로고 옆 배지)가 `to="/"`라, 게이트를 **첫 렌더 경로로**
+    //    굳히지 않으면 학습 중에 복귀 화면이 끼어든다 — 방금 학습하던 사람에게
+    //    「다시 오셨네요」가 뜨고 「진도 불러오기」를 권한다.
+    //    ⚠️ 링크를 못 찾으면 **이유를 말하고 실패**한다. 조용히 건너뛰면
+    //    「눌러 봤는데 안 뜨더라」와 「누를 것이 없었다」가 구분되지 않는다.
+    await waitFor(
+      () => $$('a[href="/"]').length > 0,
+      8000,
+      () => '⑬-b 앱 안에서 `/`로 돌아가는 링크(SpineBadge)를 못 찾았다 — 이 경로를 잴 수 없다',
+    );
+    $$('a[href="/"]')[0].click();
+    await sleep(400); // 라우팅 + 리렌더
+    ok(
+      $('[data-testid="entry-return"]') === null,
+      () => `⑬-b 🔴 앱 안에서 \`/\`로 돌아와도 복귀 화면이 없다 — 실제 "${text().replace(/\s+/g, ' ').slice(0, 140)}"`,
+    );
+    r.unmount();
+  });
+
+  await scenario('⑬-c 🔴 만료(401)가 복귀 화면보다 먼저다', async () => {
+    await coldOpen();
+    useAuthStore.getState().setTokens({
+      accessToken: 'returning-access',
+      refreshToken: 'returning-refresh',
+    });
+    const r = mountApp('/');
+    await waitFor(() => $('[data-testid="entry-return"]'), 8000, '복귀 화면');
+    // 401 인터셉터가 하는 일과 같다 — 토큰만 지운다.
+    useAuthStore.getState().logout();
+    await waitFor(
+      () => $('[data-testid="session-expired"]'),
+      8000,
+      () => `⑬-c 토큰이 지워졌는데 만료 화면이 아니다 — 실제 "${text().replace(/\s+/g, ' ').slice(0, 140)}"`,
+    );
+    ok(Boolean($('[data-testid="session-expired"]')), '⑬-c 🔴 토큰이 지워지면 만료 화면이 이긴다');
+    ok($('[data-testid="entry-return"]') === null, '⑬-c 복귀 화면이 만료 안내를 가리지 않는다');
+    r.unmount();
+  });
+
+  await scenario('⑬-d 첫 방문·발급 직후의 `/`는 종전대로 학습으로 간다', async () => {
+    const mark = await coldOpen();
+    const r = mountApp('/');
+    await waitFor(() => $('[data-testid="entry-info-skip"]'), 8000, '첫 접속 정보 입력 화면');
+    ok($('[data-testid="entry-return"]') === null, '⑬-d 첫 방문에는 복귀 화면이 없다');
+    $('[data-testid="entry-info-skip"]').click();
+    // 발급이 끝나면 `/`가 다시 그려진다 — 그때도 복귀 화면이 아니어야 한다.
+    await waitFor(() => $('[data-testid="learn-entry"]'), 8000, '⑬-d 발급 직후 학습 화면');
+    ok(
+      $('[data-testid="entry-return"]') === null,
+      '⑬-d 🔴 발급 직후 `/`가 복귀 화면으로 새지 않는다(방금 온 사람이다)',
+    );
+    ok(guestCalls(mark).length === 1, '⑬-d 발급은 여전히 정확히 1회다');
+    r.unmount();
   });
 } finally {
   await vite.close();

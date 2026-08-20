@@ -155,6 +155,27 @@ export function retryQueueOf(wrongIds) {
  * 값을 바꾸면 스모크가 함께 따라가야 계약이지 상수 대조가 아니다.
  */
 export const RETRY_MERCY_ROUNDS = 3;
+
+/**
+ * 「모르겠어요」 센티널 (2026-08-19 클라이언트 지시 — 배치고사 문항 스킵).
+ *
+ * **와이어 형식**: 스킵한 문항은 답안 `answer`에 이 문자열을 담아 보낸다. 서버는
+ * 이것을 **오답으로 채점**한다(안 푼 것이 아니라 틀린 것 — 그래야 θ 배정이 그
+ * 문항을 못 본 것으로 취급하지 않는다).
+ *
+ * ⚠️ **값의 소유자는 백엔드의 `PLACEMENT_SKIP_SENTINEL`이고 여기는 그 사본이다.**
+ * 프론트·목(`mock/apiMockPlugin.js`)·서버 **세 자리가 같은 리터럴**이어야 하며,
+ * 그 정합은 목 담당이 계약 테스트로 문다. 값을 바꾸려면 세 자리를 함께 바꾼다.
+ *
+ * ⚠️ **새 필드를 만들지 않는다.** 서버 답안 스키마가 `extra='forbid'`라 `skipped`
+ * 같은 플래그를 얹으면 요청 **전체**가 422가 된다 — 한 문항의 스킵이 세션의 전
+ * 문항을 날린다. 그래서 스킵은 기존 `answer` 필드에 태워 보낸다.
+ *
+ * ⚠️ **빈 문자열은 금지다.** 목의 slider 채점이 `Number('')` = 0으로 접어서
+ * 정답 0 근방의 문항을 **정답으로** 판정한다 — 스킵이 정답이 되는 정반대 결과다.
+ */
+export const PLACEMENT_SKIP_SENTINEL = '__skip__';
+
 export default function SessionRunner({
   queryKey,
   loadSession,
@@ -308,11 +329,21 @@ export default function SessionRunner({
       // 계약 문서 초안의 "409 아님"은 오류였다). 이건 채점 실패가 아니라 "이미
       // 해결된 문항"이라는 뜻이므로 재시도 버튼을 띄우면 안 된다 — 다음으로 넘긴다.
       const alreadyAnswered = err.code === 'ALREADY_ANSWERED';
+      // 503 BOARD_RULES_UNAVAILABLE(보드 문항 전용) — 규칙 파일 부재·스키마 오류.
+      // detail이 `rules[0](tropical_cyclone_genesis): phenomenon 'typhoon' enum 밖`
+      // 같은 내부 진단 문자열이라 그대로 찍으면 학습자가 규칙 배열 인덱스를 본다.
+      // ⚠️ 이 문구는 **BoardPage와 같은 키**를 쓴다 — 같은 503을 두 화면이 다른
+      //    말로 설명하면 같은 판이 화면마다 다른 사고처럼 보인다.
+      const rulesUnavailable = err.code === 'BOARD_RULES_UNAVAILABLE';
       if (outOfClouds) queryClient.invalidateQueries({ queryKey: ['progress', 'energy'] });
       showFeedback({
         is_correct: false,
         correct_answer: null,
-        feedback: alreadyAnswered ? t('session.retry.alreadyResolved') : (err.detail ?? t('session.submitFailed')),
+        feedback: alreadyAnswered
+          ? t('session.retry.alreadyResolved')
+          : rulesUnavailable
+            ? t('board.page.rulesUnavailable')
+            : (err.detail ?? t('session.submitFailed')),
         xp_earned: 0,
         // 409는 진행 수를 움직이면 안 된다 — 서버 진행값을 못 받았으므로 현재 값을 고정한다
         ...(alreadyAnswered ? { session_progress: { answered, total } } : {}),
@@ -534,6 +565,26 @@ export default function SessionRunner({
       elapsedSec,
       boardState: options.boardState,
     });
+  };
+
+  /**
+   * 「모르겠어요」 — 배치고사 문항 스킵(2026-08-19 클라이언트 지시).
+   *
+   * 하는 일은 **답안으로 센티널을 제출하는 것뿐**이다. 별도 경로를 만들지 않고
+   * `handleSubmit`을 타는 이유가 계약이다: 스킵도 `advanceBulk`로 `answered`를
+   * 올려야 마지막 문항 뒤 일괄 제출(finalizeBulk) 이펙트가 발화한다
+   * (`answered >= total`). 「수집하지 않고 인덱스만 넘김」으로 만들면 진단이
+   * 영영 끝나지 않거나 문항 누락으로 complete가 409가 된다.
+   *
+   * ⚠️ `bulkMode` 가드가 **이 기능이 일반 세션(daily·unit)으로 새지 않게 하는
+   * 유일한 지점**이다(렌더 게이트와 짝). 일반 세션은 문항마다 서버 채점·구름
+   * 소모·만회 라운드가 붙으므로, 센티널이 그쪽으로 새면 안 푼 문항이 오답으로
+   * 기록되면서 만회 큐에까지 들어간다. 가드를 **두 겹으로 만들지 않았다** —
+   * 한 겹을 깨면 계약 테스트가 반드시 울어야 하기 때문이다.
+   */
+  const handleSkip = () => {
+    if (!bulkMode) return;
+    handleSubmit(PLACEMENT_SKIP_SENTINEL);
   };
 
   /**
@@ -760,6 +811,11 @@ export default function SessionRunner({
   }
 
   const outOfClouds = answerState?._outOfClouds;
+  // 해설을 그리는 조건. 넓은 화면 카드(「다음 문항」 위)와 좁은 화면 고정 말풍선이
+  // **떨어진 두 자리**에 있어서(2026-08-19 순서 교체) 조건을 한 곳이 갖는다 —
+  // 한쪽만 고치면 화면 폭에 따라 해설이 뜨거나 안 뜨는 차이가 조용히 생긴다.
+  // 구름 소진·409는 각자 전용 안내를 그리므로 그 위에 해설을 겹치지 않는다.
+  const showExplanation = !outOfClouds && !answerState?._alreadyAnswered;
 
   return (
     <div className="pt-2">
@@ -873,6 +929,39 @@ export default function SessionRunner({
       {isSubmitting && status === SESSION_STATUS.IN_PROGRESS && (
         <LoadingSpinner label={t('session.grading')} />
       )}
+
+      {/* 「모르겠어요」(2026-08-19 클라이언트 지시) — **배치고사에서만**.
+          🔴 게이트는 `bulkMode` 하나다. `SessionRunner`는 daily·unit과 공유되고
+          그쪽에는 XP·구름·만회 라운드가 붙으므로 새면 파급이 크다. bulkMode의
+          유일한 사용처가 배치고사(PlacementPage)이고 이 컴포넌트의 docstring이
+          그것을 「배치고사 전용」이라고 이미 소유한다 — 그래서 여기서 조건을
+          새로 짓지 않고 그 하나에 얹는다.
+
+          위치: 유형별 제출 버튼은 `QuestionCard` 안에 5곳 흩어져 있으므로 그
+          아래 **공용 자리에 한 번만** 둔다. 객관식은 선택지 클릭이 곧 제출이라
+          (QuestionCard) 버튼이 선택지 **아래**에 와야 「고르지 않고도 넘어갈 수
+          있다」로 읽힌다.
+
+          문구: 페이지 전체를 이탈하는 헤더의 「건너뛰기 →」(placement.skip)와
+          **같은 낱말을 쓰지 않는다** — 문항 하나를 넘기는 버튼과 진단을 통째로
+          버리는 버튼이 같은 말이면 학습자가 구별할 수 없다. 아래 note가 오답
+          처리라는 것도 미리 말한다(눌러 놓고 나중에 아는 일이 없게). */}
+      {bulkMode && status === SESSION_STATUS.IN_PROGRESS && currentItem && (
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={handleSkip}
+            disabled={isSubmitting}
+            data-session-skip=""
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-500 transition hover:border-slate-400 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {t('placement.dontKnow')}
+          </button>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+            {t('placement.dontKnowNote')}
+          </p>
+        </div>
+      )}
       </div>
 
       {/* 오른쪽 열 — 정답·해설. 답을 고르기 전에는 자리만 지킨다(lg 이상에서만). */}
@@ -926,6 +1015,22 @@ export default function SessionRunner({
               <ResultBanner result={answerState} />
             </>
           )}
+          {/* 🔴 **해설이 「다음 문항」보다 위다**(2026-08-19 사용자 지시 — 종전에는
+              배너 → 버튼 → 해설 순이라 해설을 읽기 전에 버튼이 먼저 눈에 들어왔다).
+              읽고 나서 넘어가는 순서로 뒤집는다.
+              ⚠️ 좁은 화면 몫(`lg:hidden` FeedbackPanel)은 **같이 올리지 않는다** —
+              그쪽은 `fixed bottom-14` 오버레이라 DOM 순서가 화면에 안 보이는 대신,
+              같이 딸린 `h-40` 자리막이는 흐름에 있다. 그걸 버튼 위로 올리면 좁은
+              화면에서 버튼이 160px 아래로 밀린다. 그래서 lg 카드만 여기로 온다. */}
+          {showExplanation && (
+            <div className="mt-4 hidden lg:block">
+              <FeedbackCard
+                message={answerState.feedback}
+                isCorrect={answerState.is_correct}
+                source={answerState.feedback_source}
+              />
+            </div>
+          )}
           <button
             type="button"
             onClick={handleNext}
@@ -953,7 +1058,8 @@ export default function SessionRunner({
           {/* 만회 탈출구(2026-08-12) — N바퀴 실패한 문항에만, **주 CTA 아래 작게**.
               위 버튼("다음 만회 문항 →")이 여전히 기본값이다: 넘어가기는 학습자가
               스스로 고르는 부차 선택지여야 「만회할 때까지」의 취지가 산다.
-              해설은 바로 아래 FeedbackCard/FeedbackPanel에 이미 떠 있다. */}
+              해설은 이미 떠 있다 — 넓은 화면은 **버튼 위**(FeedbackCard, 2026-08-19
+              순서 교체), 좁은 화면은 화면 아래 고정 말풍선(FeedbackPanel). */}
           {mercyOpen && (
             <div data-session-mercy="" className="mt-2 text-center">
               <button
@@ -969,29 +1075,19 @@ export default function SessionRunner({
               </p>
             </div>
           )}
-          {!outOfClouds && !answerState._alreadyAnswered && (
-            <>
-              {/* 넓은 화면: 해설이 **오른쪽 열 안에** 들어간다 — 화면 아래를 덮는
-                  오버레이가 필요 없다. 좁은 화면: 종전 그대로 고정 말풍선.
-                  둘은 같은 본문(FeedbackBubble)을 그린다. */}
-              <div className="mt-4 hidden lg:block">
-                <FeedbackCard
-                  message={answerState.feedback}
-                  isCorrect={answerState.is_correct}
-                  source={answerState.feedback_source}
-                />
-              </div>
-              <div className="lg:hidden">
-                <FeedbackPanel
-                  message={answerState.feedback}
-                  isCorrect={answerState.is_correct}
-                  source={answerState.feedback_source}
-                />
-                {/* 고정 말풍선이 가리는 만큼의 바닥 여백 — 오버레이가 없는
-                    넓은 화면에는 필요 없다. */}
-                <div className="h-40" />
-              </div>
-            </>
+          {/* 좁은 화면 몫만 남는다 — 넓은 화면 카드는 위 「다음 문항」 **앞**으로
+              옮겼다(2026-08-19). 둘은 같은 본문(FeedbackBubble)을 그린다. */}
+          {showExplanation && (
+            <div className="lg:hidden">
+              <FeedbackPanel
+                message={answerState.feedback}
+                isCorrect={answerState.is_correct}
+                source={answerState.feedback_source}
+              />
+              {/* 고정 말풍선이 가리는 만큼의 바닥 여백 — 오버레이가 없는
+                  넓은 화면에는 필요 없다. */}
+              <div className="h-40" />
+            </div>
           )}
         </>
       )}

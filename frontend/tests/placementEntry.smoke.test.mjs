@@ -304,6 +304,182 @@ try {
       throw new Error('같은 문항이 두 번 나왔다 — 개념 순환에서 시드 중복 제거가 빠졌다');
     }
   });
+
+  // ── 6~7. 「모르겠어요」 스킵이 **목 위에서** 서버와 같이 도는가 ─────────────
+  //
+  // 🔴 이 두 시나리오가 이 기능에서 가장 위험한 자리를 지킨다: 프론트 스모크는
+  // 전부 목 위에서 돌기 때문에, 목이 서버를 안 따라오면 스모크가 **결함 상태를
+  // 계약으로 굳힌다**(다른 갈림은 「안 닿았다」에서 멈추지만 이것은 틀린 상태를
+  // 옳다고 증명한다). 목에는 *"서버와 같다"*는 주석이 이미 있었고 그래도 갈렸다.
+  //
+  // 값 대조(세 자리가 같은 리터럴인가)는 backend
+  // `test_placement_skip_mock_parity.py`가 소유하고, 여기서는 **HTTP 왕복으로
+  // 실제 채점 결과가 나오는가**를 본다 — 정책을 신고하면서 페이로드는 안 따라오는
+  // 갈림이 CO-J-9의 모양이었다.
+  //
+  // ⚠️ 센티널을 `src`에서 import하지 않고 **리터럴로 적는다.** 이 스모크는
+  // 「프론트와 목이 같은 상수를 참조한다」가 아니라 **「와이어에 이 바이트가
+  // 실리면 오답이 나온다」**를 검증하는 자리다 — 상수를 공유하면 양쪽이 함께
+  // 틀렸을 때도 초록이다.
+  const SKIP = '__skip__';
+
+  const startFreshPlacement = async () => {
+    const reset = await fetch(`${origin}/api/v1/dev/placement`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reset' }), // 세션·완료표시·선해제 전부 철회
+    });
+    if (reset.status !== 200) throw new Error(`/dev/placement reset 실패 (${reset.status})`);
+    const res = await fetch(`${origin}/api/v1/onboarding/placement/start`, { method: 'POST' });
+    if (res.status !== 200) throw new Error(`placement/start 실패 (${res.status})`);
+    return res.json();
+  };
+
+  // ── 6. 선재 결함 회귀 가드: **빈 답**은 목에서도 오답이다 ──────────────────
+  //
+  // ⚠️ 이것이 센티널 형식을 정한 실측 근거다(스킵과 **별개로 선재했다**).
+  // 목 `gradeSessionItem`의 slider가 `Number('') = 0`이라 `|0 - 정답| <= 허용오차`가
+  // 성립해, 배치고사 2번 문항(정답 `7` · 허용오차 10)에서 **빈 답이 「정답」**이었다.
+  // 서버 `_grade_slider`는 `float('')` → ValueError → 오답이다 — 목과 서버가
+  // **정반대** 판정을 내는 자리이고, 그래서 스킵 표식으로 빈 문자열을 쓰지 않는다.
+  //
+  // 스킵 시나리오와 따로 두는 이유: 센티널만 검증하면 이 결함은 그대로 살아 있고
+  // (프론트가 빈 답을 못 보내게 하는 것은 계약이 아니라 구현이다), 되살아나도
+  // 붉어지는 것이 없다.
+  await scenario('빈 답은 목에서도 오답이다 (slider Number("")=0 선재 결함 가드)', async () => {
+    const body = await startFreshPlacement();
+    const slider = (body.items ?? []).find((it) => it.question_type === 'slider');
+    if (!slider) throw new Error('배치고사에 slider 문항이 없다 — 이 가드의 대상이 사라졌다');
+
+    const res = await fetch(`${origin}/api/v1/onboarding/placement/submit-all`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers: [{ quiz_id: slider.quiz_id, answer: '' }] }),
+    });
+    const graded = await res.json();
+    const outcome = (graded.results ?? [])[0];
+    if (!outcome) throw new Error(`채점 결과가 없다: ${JSON.stringify(graded)}`);
+    if (outcome.is_correct !== false) {
+      throw new Error(
+        `빈 답이 「정답」으로 채점됐다(${slider.question_text}) — 목이 Number("")=0으로 `
+          + '접었다. 서버는 float("") ValueError로 오답이다: 목 위 스모크가 '
+          + '서버와 정반대 판정을 초록으로 통과시키는 상태다',
+      );
+    }
+  });
+
+  // ── 7. 전건 스킵: 오답으로 채점 · 진척 만석 · 정상 종료 · 선해제 0 ─────────
+  //
+  // 판정 확정분(서버와 같아야 하는 것): 스킵 → `is_correct=false` · 진척 **올림**.
+  // 「안 푼 것」이 아니라 「틀린 것」이라서 진척이 오르고, 그래서 전건 스킵 세션도
+  // `complete`가 409 SESSION_NOT_COMPLETED에 걸리지 않고 **정상 종료**한다 —
+  // 진척이 안 오르면 학습자가 배치고사를 끝낼 수 없다.
+  //
+  // ⚠️ **θ 값을 서버와 대조하지 않는다.** 목은 `(정답률 - 0.5) * 2.4` 선형 근사이고
+  // 서버는 IRT EAP 추정이다(의도된 근사 — backend 계약 독스트링 참조). 여기서 보는
+  // 것은 **`is_correct=false`가 실제로 기록됐는가**의 귀결뿐이다: 전건 오답이면
+  // θ가 음수여야 하고, 선해제(`unlock_floor`)는 0이어야 한다. 선해제 규칙 자체도
+  // 목은 근사라 개수를 못박지 않고 **방향**(스킵이 늘면 열리는 유닛이 줄어든다)만 본다.
+  await scenario('전건 스킵: 전부 오답 · 진척 만석 · 정상 종료 · 선해제 0', async () => {
+    const body = await startFreshPlacement();
+    const items = body.items ?? [];
+    if (items.length === 0) throw new Error('배치고사 문항이 0건이다');
+
+    const res = await fetch(`${origin}/api/v1/onboarding/placement/submit-all`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        answers: items.map((it) => ({ quiz_id: it.quiz_id, answer: SKIP })),
+      }),
+    });
+    if (res.status !== 200) throw new Error(`submit-all이 ${res.status}다 — 센티널이 거부됐다`);
+    const graded = await res.json();
+
+    // ① 전건 오답 — 유형별로 갈리지 않는다(6유형 전부 스킵 가능)
+    const notWrong = (graded.results ?? []).filter((r) => r.is_correct !== false);
+    if (notWrong.length > 0) {
+      const types = notWrong.map((r) => {
+        const it = items.find((i) => i.quiz_id === r.quiz_id);
+        return `${it?.question_type ?? '?'}(${r.quiz_id})`;
+      });
+      throw new Error(
+        `스킵이 오답이 아닌 문항 ${notWrong.length}건: ${types.join(', ')} — `
+          + '「모르겠다 한것은 틀린 것으로」(클라이언트 지시)를 목이 안 지킨다',
+      );
+    }
+    if ((graded.results ?? []).length !== items.length) {
+      throw new Error(`채점 결과가 ${graded.results?.length}건 — 문항은 ${items.length}건이다`);
+    }
+
+    // ② 진척 올림 — 스킵은 「안 푼 문항」이 아니다
+    const { answered, total } = graded.progress ?? {};
+    if (answered !== items.length || total !== items.length) {
+      throw new Error(
+        `전건 스킵인데 진척이 ${answered}/${total}다 — 스킵이 진척을 안 올리면 `
+          + 'complete가 409로 막혀 배치고사를 끝낼 수 없다',
+      );
+    }
+
+    // ③ 정상 종료 — 409 SESSION_NOT_COMPLETED에 걸리지 않는다
+    const done = await fetch(`${origin}/api/v1/session/${body.session_id}/complete`, {
+      method: 'POST',
+    });
+    const summary = await done.json();
+    if (done.status !== 200) {
+      throw new Error(
+        `전건 스킵 세션의 complete가 ${done.status}다(${summary?.code ?? ''}) — `
+          + '스킵만 한 학습자가 진단 화면에 갇힌다',
+      );
+    }
+    // ⚠️ 응답의 `placement_done`은 **못 박힌 리터럴**이라 단정으로 쓸 수 없다 —
+    // 역검증에서 드러났다: 목의 `state.placementDone = true`를 지워도 페이로드는
+    // 여전히 `placement_done: true`를 실어 이 스모크가 **초록**이었다. 저장이
+    // 안 됐으므로 학습자는 다음 진입에서 진단을 다시 받는다. 그래서 페이로드가
+    // 아니라 **남는 상태**를 본다(아래 ⑤에서 /dev/state로).
+    if (summary.placement_done !== true) {
+      throw new Error('complete 응답에 placement_done이 없다 — 계약 필드가 사라졌다');
+    }
+    if (summary.correct_count !== 0) {
+      throw new Error(`전건 스킵인데 correct_count가 ${summary.correct_count}다`);
+    }
+
+    // ④ θ는 **값이 아니라 부호**만 본다(위 ⚠️ 참조) — 전건 오답의 귀결
+    const abilities = summary.abilities ?? [];
+    if (abilities.length === 0) throw new Error('배치 결과에 abilities가 없다');
+    const nonNegative = abilities.filter((a) => a.theta >= 0);
+    if (nonNegative.length > 0) {
+      throw new Error(
+        `전건 스킵인데 θ >= 0인 개념이 있다: ${nonNegative.map((a) => `${a.concept_tag}=${a.theta}`).join(', ')}`
+          + ' — 스킵이 is_correct=false로 기록되지 않았거나 집계에서 빠졌다',
+      );
+    }
+    // 스킵도 표본이다 — 분모에서 빠지면 「안 본 개념」이 되어 θ가 사전값에 머문다
+    const noSample = abilities.filter((a) => !(a.num_responses > 0));
+    if (noSample.length > 0) {
+      throw new Error(
+        `스킵한 문항이 표본에 안 셌다: ${noSample.map((a) => a.concept_tag).join(', ')}`
+          + ' — 「안 푼 것」으로 취급되면 배치고사가 스킵을 보상한다',
+      );
+    }
+
+    // ⑤ **남는 상태** — 응답 페이로드가 아니라 서버가 기억하는 것을 본다
+    const devState = await (await fetch(`${origin}/api/v1/dev/state`)).json();
+    if (devState.placement_done !== true) {
+      throw new Error(
+        '전건 스킵 세션을 끝냈는데 진단 완료가 **저장되지 않았다** — 학습자가 '
+          + '다음 진입에서 진단을 처음부터 다시 받는다(응답의 placement_done은 '
+          + '못 박힌 리터럴이라 이 갈림을 못 본다)',
+      );
+    }
+    // 선해제 방향 — 개수를 못박지 않고 「전건 스킵이면 안 열린다」만 본다
+    if (devState.unlock_floor !== 0) {
+      throw new Error(
+        `전건 스킵인데 유닛 ${devState.unlock_floor}개가 선해제됐다 — 스킵이 늘면 `
+          + '열리는 유닛은 줄어드는 방향이어야 한다',
+      );
+    }
+    console.log(`     ↳ 전건 스킵 ${items.length}문항 → 전부 오답 · θ 전건 음수 · 선해제 0`);
+  });
 } finally {
   await vite.close();
   httpServer.close();
@@ -313,5 +489,7 @@ if (failed > 0) {
   console.error(`\n${failed}건 실패`);
   process.exit(1);
 }
-console.log('OK: 콜드 오픈→배치고사 진입 + /daily 제거 + 유닛 세션 실마운트 스모크 통과');
+console.log(
+  'OK: 콜드 오픈→배치고사 진입 + /daily 제거 + 유닛 세션 실마운트 + 「모르겠어요」 스킵 스모크 통과',
+);
 process.exit(0);
