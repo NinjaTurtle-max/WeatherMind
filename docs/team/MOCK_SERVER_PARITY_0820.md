@@ -107,3 +107,46 @@
   - POST /session/*/complete — HTTP 404
   - PUT /progress/daily-goal — HTTP 422
   - PUT /progress/region — HTTP 422
+
+
+# 축 ②: 재구현 사본 — 목이 서버 로직을 자체 구현한 자리
+
+필드 유무와 **다른 축**이다. 같은 입력에 같은 답이 나오는지를 따로 쟀다.
+
+## 실측 — `board_difficulty`
+
+시드의 **board 문항 55건 전건**에 서버 `routers/board.board_difficulty`와 목
+`boardDifficulty`를 각각 돌려 비교했다.
+
+    불일치 **0 / 55** (산출 분포 1:23 · 2:16 · 3:16)
+
+⚠️ **그런데 두 구현의 「규칙」은 이미 갈려 있다.**
+
+    서버: isinstance(palette, (list, dict)) and len(palette) >= 3
+    목  : Array.isArray(palette) && palette.length >= 3
+
+시드 55건의 palette가 **전부 배열**이라 오늘은 답이 같다. **객체 palette가 한 건이라도
+저작되는 순간 목만 난이도가 1 낮아진다.** 지금 초록인 것은 규칙이 같아서가 아니라
+**입력이 아직 그 갈래를 안 밟아서**다.
+
+## 🔴 파리티 그물이 안 덮는 사본 — 값은 오늘 같지만 **아무도 안 본다**
+
+`__mockPolicy()`가 노출하는 것만 `test_r13_mock_policy_parity`가 대조한다.
+아래는 사본인데 **노출돼 있지 않다** — 서버가 바뀌어도 조용하다.
+
+| 목의 사본 | 서버 원본 | 오늘 값 | 노출? |
+|---|---|---|---|
+| `LEVEL_GROUP_ITEM_B` | `weatherbrain_service.LEVEL_GROUP_ITEM_B` | 일치 | ❌ |
+| `DEFAULT_ITEM_B` | 같음 | 일치(0.0) | ❌ |
+| `LEVEL_GROUP_TONE` | `weatherbrain_service.LEVEL_GROUP_TONE` | 일치 | ❌ |
+| `boardDifficulty` **규칙** | `routers/board.board_difficulty` | 위 ⚠️ 참조 | ❌(표만 노출) |
+| `thetaToLevelGroup` | `weatherbrain_service` 4밴드 | 미검 | ❌ |
+
+⚠️ `board_band_max_difficulty`·`theta_knowledge_level_bounds`·`knowledge_level_max`는
+노출돼 **이미 대조되고 있다.** 문제는 **같은 파일 안에서 어떤 사본은 그물에 있고
+어떤 사본은 없다**는 것이다 — 있는 쪽만 보고 「목은 대조된다」고 읽기 쉽다.
+
+## 이 축에서 못 한 것
+
+`compute_unlocked_ids`(보드 순차 잠금)·`order_puzzles_for_progress`(정렬)·
+`mastery_label`도 목이 사본을 갖고 있다. **안 쟀다** — 시간이 모자랐다.

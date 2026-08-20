@@ -7,6 +7,8 @@ ai-worker 장애 시에는 저장된 θ(또는 빈 결과)로 폴백하므로 �
 
 흐름:
   가입      → seed_placement: level_group 사전으로 개념별 초기 θ 배정(행 생성).
+  학령 재신고 → reseed_unmeasured_priors: **아직 측정되지 않은 개념(n=0)만** 새
+                밴드 사전값으로 갈아탄다 — 측정된 행은 데이터가 이긴다.
   세션 발급 → refresh_abilities: 누적 응답으로 θ 재추정·upsert 후 Router에 공급.
   숙련 조회 → load_mastery: quiz_logs 시퀀스로 BKT P(숙련) 파생(저장 없음, R13 §5-1).
 """
@@ -617,9 +619,23 @@ async def _assemble_responses(
 
 
 async def _upsert_abilities(
-    db: AsyncDBSession, user: User, abilities: list[dict]
+    db: AsyncDBSession,
+    user: User,
+    abilities: list[dict],
+    *,
+    only_unmeasured: bool = False,
 ) -> None:
-    """추정 θ를 user_concept_ability에 upsert (weak_tags upsert 패턴 복제)."""
+    """추정 θ를 user_concept_ability에 upsert (weak_tags upsert 패턴 복제).
+
+    `only_unmeasured=True`면 **충돌 행 중 `num_responses = 0`인 것만** 갱신한다
+    (없는 행은 그대로 생성된다). 기본값 False는 종전 그대로 조건 없이 덮어쓴다 —
+    `refresh_abilities`·`seed_placement`(가입)는 **측정 결과 자체를 쓰는 자리**라
+    가드가 붙으면 안 된다.
+
+    🔴 가드를 **파이썬이 아니라 SQL의 `DO UPDATE ... WHERE`에 두는 이유**: 읽고
+    나서 쓰는 형태(측정된 태그를 SELECT로 걸러내고 나머지만 upsert)는 그 사이에
+    들어온 채점 1건을 사전값으로 되돌린다. 조건을 같은 문장 안에 두면 그 창이 없다.
+    """
     for ab in abilities:
         stmt = pg_insert(UserConceptAbility).values(
             user_id=user.id,
@@ -635,6 +651,11 @@ async def _upsert_abilities(
                 "num_responses": ab["n"],
                 "updated_at": text("now()"),
             },
+            **(
+                {"where": UserConceptAbility.num_responses == 0}
+                if only_unmeasured
+                else {}
+            ),
         )
         await db.execute(stmt)
 
@@ -813,4 +834,43 @@ async def seed_placement(db: AsyncDBSession, user: User) -> list[dict]:
 
     abilities = result.get("abilities", [])
     await _upsert_abilities(db, user, abilities)
+    return abilities
+
+
+async def reseed_unmeasured_priors(db: AsyncDBSession, user: User) -> list[dict]:
+    """학령 **재신고** 시 θ 사전값 갈아타기 — `PATCH /auth/me`가 부른다.
+
+    🔴 **왜 필요한가**: 천장(`routers/board.learner_tier`)의 유일한 입력은
+    `overall_knowledge_level` = θ 파생인데, θ에 학령이 들어가는 통로는
+    `seed_placement`(가입·게스트 발급) **한 번뿐**이었다. 그래서 재신고는
+    `users.level_group`만 바꾸고 천장은 한 칸도 안 움직였고, 잠금 배너의
+    「학습 수준 바꾸기」 CTA가 **못 지키는 약속**이었다. 이 함수가 그 구멍이다.
+
+    🔴 **판정 A(천장은 학령 밴드를 읽지 않는다)와 부딪히지 않는 이유**:
+    밴드는 여기서 **천장의 규칙**이 아니라 **θ의 입력**이다. 천장 계산은 여전히
+    `overall_knowledge_level`(θ) 하나만 보고 `level_group`을 읽지 않는다 —
+    `test_천장_계산이_학령_밴드를_읽지_않는다`가 무는 것은 그 자리이고, 이
+    함수는 그 자리에 손대지 않는다. 바뀌는 것은 **θ 자신**이다.
+
+    🔴 **측정된 행은 손대지 않는다**(`only_unmeasured=True`). 사전값은
+    「아직 아무것도 모를 때의 추정」이라 실제 응답이 이긴다 — `decide_route`가
+    *"n=0은 약점이 아니라 정보 없음"*이라 적은 것과 같은 원칙이다. 순진하게
+    `seed_placement`를 다시 부르면 이미 푼 문항의 결과가 사전값으로 되돌아가고
+    `num_responses`가 0이 된다(`_upsert_abilities`가 조건 없이 덮어쓰므로).
+
+    ai-worker 장애 시 조용히 넘어간다 — `seed_placement`가 가입을 실패시키지
+    않는 것과 같은 관례다. **재신고 자체(level_group 저장)는 성공해야 한다.**
+    """
+    try:
+        result = await ai_client.weatherbrain_placement(
+            level_group=user.level_group, concept_tags=list(CONCEPT_TAGS)
+        )
+    except AIWorkerError:
+        logger.warning(
+            "weatherbrain placement 실패 — 학령 재신고는 진행 (user=%s)", user.id
+        )
+        return []
+
+    abilities = result.get("abilities", [])
+    await _upsert_abilities(db, user, abilities, only_unmeasured=True)
     return abilities

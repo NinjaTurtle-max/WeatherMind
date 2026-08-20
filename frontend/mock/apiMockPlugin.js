@@ -229,32 +229,50 @@ function fillLiveSlots(value) {
 // 슬라이더 허용 오차 — backend answer_service.SLIDER_TOLERANCE와 동일값
 const SLIDER_TOLERANCE = 10;
 
+/**
+ * 해설의 **출처** — server `answer_service.feedback_source()`의 사본.
+ * 우선순위까지 같다: board면 `board`, 사람이 쓴 해설(`explanation_hint`)이 있으면
+ * `authored`, 없으면 `ai`.
+ *
+ * 🔴 **목이 이 필드를 아예 안 보내고 있었다**(2026-08-20 전수 대조). 화면
+ * (`FeedbackPanel`)이 **부재를 `ai`로 폴백**하므로, 목으로 도는 화면은 **사람이
+ * 저작한 해설에도 「AI」 배지**를 붙였다. 그 파일 주석이 스스로 적어 두었다 —
+ * *「배점 ⑤(생성형 AI 활용)에 직결되는 표기 오류」*.
+ * ⚠️ 값을 손으로 넣지 않는다. 서버와 **같은 우선순위로 파생**한다.
+ */
+function feedbackSourceOf(questionType, template) {
+  if (questionType === 'board') return 'board';
+  return String(template?.explanation_hint ?? '').trim() ? 'authored' : 'ai';
+}
+
 /** 시드 template_json → 목 전용 채점 정보(_mock). 응답 직전 stripMock이 제거한다. */
 function seedGrading(questionType, template) {
   const correct = template.correct_answer ?? '';
   const hint = template.explanation_hint ?? '';
+  const feedbackSource = feedbackSourceOf(questionType, template);
   const feedbackCorrect = hint ? `정확해요! ${hint}` : '정확해요!';
   const feedbackWrong = hint
     ? `아쉬워요! 정답은 "${correct}"이에요. ${hint}`
     : `아쉬워요! 정답은 "${correct}"이에요.`;
   if (questionType === 'board') {
     return {
+      feedbackSource,
       goal_conditions: template.goal_conditions ?? [],
       feedbackCorrect: '정확해요! 목표 대기현상을 만들었어요.',
       feedbackWrong: `아직이에요. ${template.hints?.[0] ?? '배치를 바꿔 다시 시도해 보세요.'}`,
     };
   }
   if (questionType === 'slider') {
-    return { correct, tolerance: SLIDER_TOLERANCE, feedbackCorrect, feedbackWrong };
+    return { correct, tolerance: SLIDER_TOLERANCE, feedbackCorrect, feedbackWrong, feedbackSource };
   }
   if (questionType === 'match') {
-    return { correct, pairs: template.pairs ?? [], feedbackCorrect, feedbackWrong };
+    return { correct, pairs: template.pairs ?? [], feedbackCorrect, feedbackWrong, feedbackSource };
   }
   if (questionType === 'ordering') {
-    return { correct, correctOrder: correct, feedbackCorrect, feedbackWrong };
+    return { correct, correctOrder: correct, feedbackCorrect, feedbackWrong, feedbackSource };
   }
   // multiple_choice·short_answer·cloze — 텍스트 채점은 공백·대소문자 무시
-  return { correct, accept: [correct], feedbackCorrect, feedbackWrong };
+  return { correct, accept: [correct], feedbackCorrect, feedbackWrong, feedbackSource };
 }
 
 /** 시드 1건 → SessionItem 모양의 목 문항(+_mock). 서버 _to_session_item과 같은 형태. */
@@ -517,12 +535,148 @@ const meResponse = () => ({
 // VITE_MOCK_DEV=0 으로 같은 404 모드를 재현한다(기본은 켜짐).
 const DEV_MODE = process.env.VITE_MOCK_DEV !== '0';
 
+// 사전 b — backend weatherbrain_service.LEVEL_GROUP_ITEM_B의 사본.
+// R13에서 밴드가 4종(expert 추가)이 되면서 서버가 "adult" **문자열 비교**를 버리고
+// b 임계로 바꿨는데, 목이 문자열 비교로 남아 있었다. 그래서 expert 문항이 서버에선
+// 어려움(3)인데 목에선 보통(2)으로 떠, 화면상 난이도가 되돌아가는 것처럼 보였다
+// (실측: board_order 32~34가 목에서만 보통. 서버 시드 34건은 단조 증가가 맞다).
+// ⚠️ **선언 자리를 위로 옮겼다**(2026-08-20) — `seedAbilities`가 이 표를 읽는데
+//    const는 호이스팅되지 않아(TDZ) 아래에 두면 모듈 초기화에서 죽는다.
+const LEVEL_GROUP_ITEM_B = { elementary: -1.0, middle_high: 0.0, adult: 1.0, expert: 2.0 };
+const DEFAULT_ITEM_B = 0.0;
+
 // 개념별 능력(θ) 저장소 — /dev/state·/dev/theta·(배치 완료 시 갱신) 공유.
-// 초기값은 사전(prior) 배정 흉내: θ 0.0 · num_responses 0.
 const CONCEPT_TAGS = ['air_mass', 'anomaly', 'co2_climate', 'heat_island', 'pressure_front', 'typhoon'];
-const seedAbilities = () =>
-  new Map(CONCEPT_TAGS.map((tag) => [tag, { theta: 0.0, num_responses: 0 }]));
-let devAbilities = seedAbilities();
+/**
+ * 가입 직후 개념별 θ 배정 — 서버 `weatherbrain_service.seed_placement`의 **사본**이다.
+ *
+ * 🔴 **초기값이 `0.0` 고정이었고, 그것이 서버와 갈려 있었다**(2026-08-20 판정 A).
+ * 서버는 ai-worker placement에 `level_group`을 넘겨 **밴드 사전값(b)**을 θ로 심는다
+ * — 그래서 갓 만든 계정도 밴드별로 다른 θ를 갖는다. 목이 전 밴드에서 0.0을 심으면
+ * 「진단 전 기본 단계」가 언제나 middle_high 값이 되어, dev 화면이 초등·성인 계정을
+ * **재현할 수 없다.**
+ *
+ * ⚠️ **이것이 「밴드로 천장을 정하는 것」이 아니다.** 밴드는 θ의 **초기값이 오는
+ * 자리**일 뿐이고, 천장은 그 θ에서 파생된 **학습자 단계**(`learnerTier`)가 소유한다
+ * — 서버가 판정 1로 밴드 폴백을 철거한 뒤의 모양 그대로다. 이 구분을 지우면
+ * 다음 사람이 「밴드 → 천장」 폴백으로 되돌린다(그 경로는 이미 철거됐다).
+ * ⚠️ `num_responses: 0`은 그대로다 — 사전값은 응답이 아니다(서버도 그렇다).
+ */
+const seedAbilities = (levelGroup) =>
+  new Map(
+    CONCEPT_TAGS.map((tag) => [
+      tag,
+      { theta: LEVEL_GROUP_ITEM_B[levelGroup] ?? DEFAULT_ITEM_B, num_responses: 0 },
+    ]),
+  );
+let devAbilities = seedAbilities(mockAuth.levelGroup);
+
+/**
+ * 🔴 **학령 재신고(`PATCH /auth/me`)의 θ 재파종 규칙** — 서버 `update_me`의 사본이다
+ * (2026-08-20 재파종 판정).
+ *
+ * 규칙은 **한 줄**이다: **미측정 개념(`num_responses === 0`)의 θ만** 새 학령의 사전
+ * b로 갈아탄다. **측정된 행(`num_responses > 0`)은 안 건드린다** — 그 θ는 사람이
+ * 실제로 푼 결과라, 학령을 다시 적었다고 지워지면 진도가 증발한다.
+ *
+ * ⚠️ **이 자리는 종전에 「아무것도 안 한다」였고 그 기술이 낡았다.** 경위를 남긴다
+ * (지우면 그 값을 근거로 쓴 판단이 그대로 살아남는다 — CLAUDE.md §0-5):
+ *   · 종전 목·서버 모두 재신고에서 θ를 안 건드렸고, 그래서 **천장이 안 움직였다.**
+ *     그 귀결로 잠금 배너의 「학습 수준 바꾸기」 CTA가 아무것도 열지 못했고,
+ *     스모크 ③-a가 *「밴드만 바꾸면 천장은 그대로」*를 **계약으로 못박고 있었다.**
+ *   · 이제 재신고는 **미측정분에 한해** 천장을 움직인다. 그래서 갓 만든 계정
+ *     (전건 n=0)은 재신고 즉시 더 열리고, 이미 푼 계정은 그대로다.
+ *
+ * ⚠️ **「전건 갈아타기」로 되돌리지 말 것.** 대표 θ는 n 가중 평균이라(서버
+ * `overall_theta`) 측정된 행 하나가 있으면 그 행이 대표 θ를 **혼자** 정한다 —
+ * 즉 측정분까지 덮으면 **한 번 푼 사람의 천장이 재신고로 무너진다.** 그 갈래를
+ * `test_r13_mock_policy_parity`(규칙 대조)와 board-entry 스모크(행동)가 문다.
+ *
+ * ⚠️ **순수 함수로 둔다** — 목 상태(`devAbilities`)를 읽지 않고 행 배열만 받는다.
+ * 그래야 `__mockPolicy().reseed_samples`로 **규칙째** 내보내 서버가 직접 재게 할 수
+ * 있다(표만 맞고 규칙이 갈렸던 palette 갈래의 재발 방지 — §5 관례).
+ */
+// 🔴 **θ 행이 사는 개념 축 — 위 `CONCEPT_TAGS`(6종)와 다르다.**
+//   서버 `weatherbrain_service.CONCEPT_TAGS`는 **14종**(기상 6 + 기초과학 6 + 재난 2)
+//   이고 `seed_placement`·`reseed_unmeasured_priors`가 **그 전건**에 upsert한다.
+//   위 `CONCEPT_TAGS`(6종)는 실은 서버 **`PLACEMENT_QUIZ_TAGS`**(진단 도메인)와 같고
+//   **이름만 같다** — 그 자리 주석도 「진단 도메인은 기상 6종」이라 적는다.
+//   ⚠️ 이름이 같아 **같은 것으로 읽히는 함정**이라 축을 갈라 둔다. 재파종이 6종만
+//   훑으면 서버는 14행을 만드는데 목은 6행이라 **천장이 갈린다**(θ 0건 계정에서).
+const ABILITY_CONCEPT_TAGS = [
+  'air_mass', 'anomaly', 'co2_climate', 'heat_island', 'pressure_front', 'typhoon',
+  'temperature_heat', 'radiation_budget', 'pressure_basics', 'phase_change',
+  'density_buoyancy', 'energy_transfer', 'wildfire_weather', 'flood_response',
+];
+
+// 🔴 **없는 행은 만든다**(2026-08-21 수리). 종전에는 `rows.map`이라 **있는 행만**
+//   훑었고, 서버 `_upsert_abilities`는 독스트링이 *「없는 행은 그대로 생성된다」*고
+//   적는다. 귀결이 화면에 닿았다: **θ 0건 계정이 재신고하면 서버는 행이 생겨 천장이
+//   유한해지고 다시 잠기는데, 목은 행이 없어 천장 미상 → 전건 열림**이었다.
+//   ⚠️ 그때 계약이 초록이던 이유는 **표본이 전부 기존 행이라 이 갈래를 안 밟아서**다
+//   — 그래서 아래 `RESEED_SAMPLES`에 **행이 빠진 표본**을 함께 넣는다.
+const reseedUnmeasuredAbilities = (rows, levelGroup) => {
+  const prior = LEVEL_GROUP_ITEM_B[levelGroup] ?? DEFAULT_ITEM_B;
+  const byTag = new Map(rows.map((r) => [r.concept_tag, r]));
+  // 있던 행: 미측정만 갈아탄다(측정된 행은 한 필드도 안 건드린다).
+  const out = rows.map((r) => (r.num_responses === 0 ? { ...r, theta: prior } : r));
+  // 없던 행: 사전값으로 **생성**한다 — 서버 upsert의 INSERT 갈래.
+  for (const tag of ABILITY_CONCEPT_TAGS) {
+    if (!byTag.has(tag)) out.push({ concept_tag: tag, theta: prior, num_responses: 0 });
+  }
+  return out;
+};
+
+/** 위 규칙을 목의 실제 저장소에 적용한다 — 규칙의 소유자는 위 순수 함수 하나다. */
+function applyReseedUnmeasured(levelGroup) {
+  const rows = [...devAbilities.entries()].map(([concept_tag, a]) => ({
+    concept_tag,
+    theta: a.theta,
+    num_responses: a.num_responses,
+  }));
+  devAbilities = new Map(
+    reseedUnmeasuredAbilities(rows, levelGroup).map((r) => [
+      r.concept_tag,
+      { theta: r.theta, num_responses: r.num_responses },
+    ]),
+  );
+}
+
+/**
+ * `__mockPolicy().reseed_samples`의 입력 — **갈리면 답이 실제로 달라지는** 표본이라야
+ * 한다(2026-08-20에 「값은 같은데 규칙이 갈렸다」를 세 번 밟았다).
+ *   · 측정된 행의 θ는 목표 밴드의 사전 b와 **멀리** 둔다 — 가까우면 「전건 덮기」
+ *     결함이 답을 안 바꿔 계약이 공허하게 초록이다.
+ *   · 미측정 행의 θ도 목표 사전 b와 다르게 둔다 — 같으면 「재파종 안 함」이 안 걸린다.
+ *   · 알 수 없는 밴드 갈래(사전표에 없는 키 → DEFAULT_ITEM_B)도 한 건 밟는다.
+ */
+const RESEED_SAMPLES = [
+  { to: 'elementary', rows: [
+    { concept_tag: 'air_mass', theta: 2.4, num_responses: 7 },   // 측정 — 보호 대상
+    { concept_tag: 'typhoon', theta: 0.0, num_responses: 0 },    // 미측정 — 갈아탄다
+  ] },
+  { to: 'expert', rows: [
+    { concept_tag: 'air_mass', theta: -1.2, num_responses: 1 },  // n=1도 측정이다
+    { concept_tag: 'typhoon', theta: -1.0, num_responses: 0 },
+  ] },
+  // 🔴 **행이 빠진 표본**(2026-08-21 신설). 이 갈래를 안 밟으면 「없는 행을 만드는가」가
+  //   계약에 안 걸린다 — 실제로 그래서 목과 서버가 갈린 채 **초록**이었다.
+  //   θ 0건 계정(행 자체가 없다)이 재신고하는 자리이고, **심사위원의 첫 진입**이 그것이다.
+  { to: 'middle_high', rows: [] },
+  // 일부만 있는 갈래 — 「있는 것은 갈아타고 없는 것은 생긴다」가 한 표본에서 함께 걸린다.
+  { to: 'expert', rows: [
+    { concept_tag: 'air_mass', theta: 2.4, num_responses: 3 },
+    { concept_tag: 'typhoon', theta: -1.0, num_responses: 0 },
+  ] },
+  { to: 'adult', rows: [
+    { concept_tag: 'air_mass', theta: -0.7, num_responses: 0 },
+    { concept_tag: 'typhoon', theta: -0.7, num_responses: 0 },
+  ] },
+  { to: '알-수-없는-밴드', rows: [
+    { concept_tag: 'air_mass', theta: 2.2, num_responses: 3 },
+    { concept_tag: 'typhoon', theta: 2.2, num_responses: 0 },    // → DEFAULT_ITEM_B
+  ] },
+];
 
 const abilitySE = (n) => Number((1 / Math.sqrt(n + 1)).toFixed(2));
 const abilityRows = () =>
@@ -532,6 +686,33 @@ const abilityRows = () =>
     theta_se: abilitySE(num_responses),
     num_responses,
   }));
+
+/**
+ * `GET /progress/abilities` 응답 — 라우트가 부르는 **바로 이 함수**를
+ * `__abilitiesPayload`로 내보내 계약이 같은 것을 문다(§5 관례).
+ *
+ * 🔴 **`knowledge_level`을 함께 싣는다**(2026-08-20). 안 실어서 `/me`의 개념 칩이
+ *   전부 「초급」이었다 — WeatherBrainPanel이 이 필드로 교과 표기를 그리고,
+ *   없으면 4밴드로 내려앉는다(QA 롤링 0820 ⑴의 원인).
+ *
+ * ⚠️ **단계는 반올림 전 θ로 낸다.** `abilityRows()`는 표시용으로 θ를 소수 2자리로
+ *   자르는데(0.4951 → 0.50) 서버는 원값으로 센다. 그 한 칸 차이가 「10단계 중 N」을
+ *   통째로 바꾼다 — `/progress/me`가 같은 자리에서 이미 한 번 겪었고
+ *   `knowledgeLevel.test.mjs`가 그 경위를 들고 있다.
+ */
+const abilitiesPayload = () =>
+  [...devAbilities.entries()]
+    .map(([concept_tag, { theta, num_responses }]) => ({
+      concept_tag,
+      theta: Number(theta.toFixed(2)),
+      theta_se: abilitySE(num_responses),
+      num_responses,
+      level_label: levelFromTheta(theta),
+      knowledge_level: thetaToKnowledgeLevel(theta), // ← 원 θ
+      knowledge_level_max: KNOWLEDGE_LEVEL_MAX,
+      updated_at: null,
+    }))
+    .sort((a, b) => a.theta - b.theta);
 
 /**
  * 대표 θ — backend `weatherbrain_service.overall_theta`와 **같은 규칙**이다:
@@ -587,6 +768,33 @@ function knowledgeLevelNow() {
 }
 
 /**
+ * 🔴 **보드 잠금의 천장 — 서버 `routers/board.learner_tier`의 사본이다**(2026-08-20 판정 A).
+ *
+ * 서버 규칙은 이제 **하나**다: `overall_knowledge_level`(θ 파생) → 없으면 `null`
+ * → **잠그지 않는다.** 밴드 폴백(`knowledge_level_of_level_group`)은 **철거됐다**
+ * (클라이언트 판정: *「상관 쓰지 말고 그냥 10단계로」* → 확정 갈래 A).
+ *
+ * ⚠️ **목이 여기서 갈려 있었다**(서버 담당 실측, 소유 밖 발견으로 접수):
+ * `lockedBoardTiers`·`unlockedBoardIds`가 `BOARD_LEVEL_GROUP_TIER[mockAuth.levelGroup]`
+ * — 즉 **밴드 파생**을 천장으로 썼다. 서버는 θ 파생이므로 **목은 밴드 · 서버는 θ**였고,
+ * 그 갈림을 무는 그물이 없었다(밴드 표 대조는 「1순위 경로만 본다」로 초록).
+ * ⇒ 천장의 소유자를 **이 함수 하나**로 옮긴다. 서버가 이음매를 하나로 유지하는
+ *   이유와 같다 — 천장 규칙이 또 바뀔 때 고칠 곳이 한 곳이어야 한다.
+ *
+ * ⚠️ **밴드가 사라진 것이 아니라 자리가 바뀌었다**: 밴드는 `seedAbilities`(=
+ * `seed_placement` 사본)가 심는 **θ의 초기값**이 오는 자리다. 그래서 갓 만든 계정의
+ * 천장은 여전히 밴드별로 다르고(초등 2·중고 4·성인 6·expert 9), 그 값은 여기서
+ * **파생**된다 — 표를 읽어서가 아니다. `BOARD_LEVEL_GROUP_TIER`는 이제 그 파생의
+ * **기대값 표**이고 파리티 계약이 무는 대상일 뿐이다(그 선언부 주석 참조).
+ *
+ * ⚠️ θ 행이 없으면 `null` — 그때는 `lockedBoardTiers()`가 아무것도 잠그지 않는다
+ * (서버 `locked_tiers(None) == set()`와 같은 방향).
+ */
+function learnerTier() {
+  return knowledgeLevelNow();
+}
+
+/**
  * θ → 출제 대상 레벨 그룹. 경계는 backend `weatherbrain_service.LEVEL_GROUP_BANDS`
  * (·ai-worker theta_to_target_level_group)와 동일하다.
  *
@@ -621,6 +829,8 @@ function devStatePayload() {
     // unlock_floor: 배치 θ 선해제가 연 선두 연속 유닛 수 (backend placement_unlock_floor)
     unlock_floor: preUnlockedUnits.size,
     clouds: state.clouds,
+    // 서버 `DevState.max_clouds` — 목이 빼먹고 있었다(2026-08-20 전수 대조).
+    max_clouds: CLOUD_MAX,
     streak_count: state.streak,
     placement_done: state.placementDone,
     // θ 파생 약점 (R8-01 §3.5, backend build_state와 동일 규칙): n>0 AND θ<0.41.
@@ -1232,8 +1442,18 @@ function duelTodayPayload() {
     user_score: null,
     ai_score: null,
     result: null,
+    // 서버 `_duel_xp_earned(result)` — 정산 전이면 null. 오늘 대결은 미정산이다.
+    // ⚠️ 액수를 프론트가 하드코딩하지 않도록 **서버가 보내는** 필드다(R10).
+    xp_earned: null,
   };
 }
+
+/**
+ * 대결 승리 XP — server `duel_service.DUEL_WIN_XP`의 **사본**.
+ * `__mockPolicy().duel_win_xp`로 노출해 서버 실값과 대조한다(오늘 그물 밖 사본
+ * 넷을 메운 것과 같은 이유 — 값이 같아도 노출이 없으면 서버가 바뀔 때 조용하다).
+ */
+const MOCK_DUEL_WIN_XP = 15;
 
 const nextLevelXp = (level) => 50 * (level + 1) ** 2;
 
@@ -1577,18 +1797,18 @@ function ensurePlacementSession() {
 // 인접 정렬 — 목은 정렬하지 않음). 시드 순서가 마침 난이도 오름차순이라, "클라이언트가
 // 재정렬하지 않는다"는 성질은 이 목록만으로는 더 이상 눈으로 구분되지 않는다.
 // content_item_id는 시드 순서로 결정적 합성(실서버는 DB UUID).
-// 사전 b — backend weatherbrain_service.LEVEL_GROUP_ITEM_B의 사본.
-// R13에서 밴드가 4종(expert 추가)이 되면서 서버가 "adult" **문자열 비교**를 버리고
-// b 임계로 바꿨는데, 목이 문자열 비교로 남아 있었다. 그래서 expert 문항이 서버에선
-// 어려움(3)인데 목에선 보통(2)으로 떠, 화면상 난이도가 되돌아가는 것처럼 보였다
-// (실측: board_order 32~34가 목에서만 보통. 서버 시드 34건은 단조 증가가 맞다).
-const LEVEL_GROUP_ITEM_B = { elementary: -1.0, middle_high: 0.0, adult: 1.0, expert: 2.0 };
-const DEFAULT_ITEM_B = 0.0;
-
 function boardDifficulty(template, levelGroup) {
   let score = template.mode === 'guided' ? 1 : 2;
   if (template.time_limit_sec) score += 1;
-  if (Array.isArray(template.palette) && template.palette.length >= 3) score += 1;
+  // 🔴 **서버는 배열 **또는 객체**를 센다**(`isinstance(palette, (list, dict))`).
+  //   목은 배열만 봤다 — 시드 55건이 전부 배열이라 **오늘만** 답이 같았고, 객체
+  //   palette가 한 건이라도 저작되면 목만 난이도가 1 낮아진다. 초록인 이유가
+  //   「규칙이 같아서」가 아니라 「입력이 그 갈래를 안 밟아서」였다(2026-08-20 실측).
+  const pal = template.palette;
+  const palSize = Array.isArray(pal)
+    ? pal.length
+    : (pal && typeof pal === 'object' ? Object.keys(pal).length : 0);
+  if (palSize >= 3) score += 1;
   const priorB = LEVEL_GROUP_ITEM_B[levelGroup] ?? DEFAULT_ITEM_B;
   if (priorB >= LEVEL_GROUP_ITEM_B.adult) score += 1;
   return Math.max(1, Math.min(3, score));
@@ -1599,20 +1819,162 @@ function boardDifficulty(template, levelGroup) {
 // 잠금 판정이 실서버와 갈린다.
 // 서버와 같은 폴백 — `??`로 두면 board_order=0이 맨 앞으로 가는데 서버는
 // 정수가 아닌 값만 뒤로 보낸다(0은 정수라 그대로 0). 판정이 갈리지 않게 맞춘다.
-const boardOrderOf = (seed) => {
-  const v = seed.template_json?.board_order;
-  return typeof v === 'number' ? v : 10000;
+//
+// 🔴 서버 판정은 파이썬 `isinstance(value, int)`다. `typeof v === 'number'`로는
+//    두 갈래가 갈렸다(2026-08-20 실측 — 시드 55건이 전부 정수라 **답만** 같았다):
+//    ⑴ **비정수 실수**: 파이썬에서 int가 아니므로 뒤(10000)로 간다. JS는 number라
+//       앞으로 보냈다 — `2.5`가 `3`보다 앞에 서던 자리다.
+//    ⑵ **불리언**: 파이썬에서 bool은 int라 `true`가 키 1, `false`가 키 0으로
+//       **맨 앞에 선다**. JS는 boolean이라 뒤로 보냈다. 서버 쪽 기벽이지만
+//       서버가 권위라 그대로 베낀다.
+//    ⚠️ 남는 한계: `3.0`처럼 **정수값 실수**는 서버에선 뒤로 가지만 JS에는 그런
+//       구분 자체가 없다(`Number.isInteger(3.0) === true`). JSON을 건너면 파이썬도
+//       int 3으로 읽으므로 계약도 이 갈래는 볼 수 없다 — 시드가 정수만 쓰는 한
+//       도달하지 않는 자리라 여기 적어 두는 것으로 갈음한다.
+//
+// ── 병합(2026-08-20 A조 ↔ B조) ────────────────────────────────────────────
+// 🔴 퍼즐의 **층** = 지식 단계(A조 축 교체). 서버 `board_tier`의 사본이고 파생이
+//    아니라 **저작값**이다 — 꾸밀 규칙이 없다.
+// 🔴 **A조 첫 판은 `typeof v === 'number'`를 썼고, 그것이 위에 적힌 바로 그 함정
+//    이었다.** 같은 트리에서 B조가 `boardOrderOf`의 같은 결함을 잡아 놓은 채였다 —
+//    한 파일 안에서 한쪽은 고쳐지고 한쪽은 새로 만들어졌다. 그래서 **같은 가드**로
+//    통일한다. 경위를 남기는 이유는 이 형태가 오늘 세 번 나왔기 때문이다.
+// ⚠️ 서버 `board_tier`는 `isinstance(level, int)`이므로 **bool도 통과한다**
+//    (파이썬에서 bool은 int다) — `true`면 값 자체가 1처럼 비교된다. 그 기벽까지 베낀다.
+// ⚠️ 미상은 `10000`이 아니라 **`null`**이다 — 층의 부재는 정렬 꼬리 뿐 아니라
+//    **「잠그지 않는다」는 뜻**을 갖는다(서버 `locked_tiers`). 정렬에서만 `?? 10000`을
+//    씌운다. 여기서 10000을 내면 미상 퍼즐이 10층으로 취급돼 전 밴드에서 잠긴다.
+const boardTierOf = (seed) => {
+  const v = seed?.knowledge_level;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  return Number.isInteger(v) ? v : null;
 };
 
+const boardOrderOf = (seed) => {
+  const v = seed?.template_json?.board_order;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  return Number.isInteger(v) ? v : 10000;
+};
+
+/**
+ * 서버 `routers/board.order_puzzles_for_progress`의 **사본** — 이름을 붙여
+ * 뺐다(2026-08-20). 인라인 `.sort()`로 두면 규칙을 표본에 태워 서버가 다시 풀게
+ * 할 수 없고, 그러면 「값이 같은 오늘만 조용한」 사본이 하나 더 남는다.
+ * JS `Array.sort`도 파이썬 `sorted`도 **안정 정렬**이라 동률·전건 부재는 입력
+ * 순서를 지킨다 — 그 성질까지 표본이 밟는다.
+ */
+// 🔴 **이름이 `byBoardOrder`였다**(2026-08-20 병합 전). 축이 (board_order) 하나에서
+//    **(지식 단계, board_order)**로 바뀌어 이름과 본문을 함께 고쳤다 — 이름만 남기면
+//    다음 사람이 board_order만 보는 줄 안다.
+// ⚠️ **한 곳에 두고 프로덕션(`BOARD_PUZZLES`)과 표본(`orderPuzzlesForProgress`)이
+//    함께 쓰는 것이 요점**이다. 프로덕션만 인라인 비교식으로 갈라 놓으면
+//    **표본은 초록인데 화면 순서만 갈린다**(B조 되돌림 실측: 인라인으로 바꿔도 53건
+//    전건 통과 — 시드가 정수만 써서 산출이 같기 때문. 행동 대조로는 못 잡는다).
+//    그래서 `test_보드_퍼즐_정렬이_표본과_같은_규칙을_쓴다`가 **링크를 직접** 문다.
+const byTierThenBoardOrder = (a, b) =>
+  (boardTierOf(a) ?? 10000) - (boardTierOf(b) ?? 10000)
+  || boardOrderOf(a) - boardOrderOf(b);
+
+const orderPuzzlesForProgress = (items) => items.slice().sort(byTierThenBoardOrder);
+
+/**
+ * 정렬 **규칙**을 서버가 직접 재도록 내보내는 입력 표본(`board_difficulty_samples`
+ * 관례). ⚠️ **정렬 키를 값으로 박지 않는다** — 키 축이 바뀌면(A조가 지식 단계를
+ * 얹는 중) 값 대조는 헛울거나 조용히 틀린다. 「같은 입력에 같은 **순서**가
+ * 나오는가」만 묻는다.
+ * ⚠️ 표본은 **갈리면 순서가 실제로 달라지는** 모양이어야 한다 — 실수 뒤에는
+ *    그보다 **큰 정수**를, 불리언 옆에는 **1보다 큰 정수**를 둔다. 그러지 않으면
+ *    갈래는 밟는데 답이 같아 계약이 초록으로 통과한다(오늘 palette 2개짜리가
+ *    그렇게 되돌림을 놓쳤다).
+ *
+ * 🔴 **모양이 바뀌었다**(2026-08-20 판정 4): 항목이 「템플릿 배열」에서
+ * `{ templates, tiers? }`로 늘었다. **층(지식 단계)은 `template_json` 안이 아니라
+ * 컬럼(속성)**이라 템플릿만으로는 1차 키를 실을 수 없기 때문이다 — 서버
+ * `board_tier`도 `getattr(item, "knowledge_level")`을 읽는다.
+ * `tiers`가 없는 항목은 전건 층 미상(null)이고, 그때 답은 축이 늘기 전과 같다
+ * (전부 같은 1차 키 → 2차 키 `board_order`가 결정) — 그래서 위 ⓐ~ⓘ는 손대지 않았다.
+ */
+const BOARD_ORDER_SAMPLES = [
+  // ⓐ 평범한 정수 — 뒤섞인 입력이 오름차순으로 선다
+  { templates: [{ board_order: 3 }, { board_order: 1 }, { board_order: 2 }] },
+  // ⓑ 0은 「없음」이 아니다 — `??` 폴백으로 되돌아가면 여기서 운다
+  { templates: [{}, { board_order: 0 }] },
+  // ⓒ 🔴 비정수 실수 + **그보다 큰 정수**. 서버는 2.5를 뒤로 보내 [1,0]이고
+  //    `typeof number`로 두면 2.5 < 3이라 [0,1] — 순서가 갈린다
+  { templates: [{ board_order: 2.5 }, { board_order: 3 }] },
+  // ⓓ 🔴 불리언 + **1보다 큰 정수**. 서버는 true=1·false=0이라 [2,1,0]이고
+  //    boolean을 뒤로 보내면 [0,1,2] — 순서가 갈린다
+  { templates: [{ board_order: 5 }, { board_order: true }, { board_order: false }] },
+  // ⓔ 동률 안정성 — 같은 키끼리는 입력 순서를 지킨다
+  { templates: [{ board_order: 2, tag: 'a' }, { board_order: 1 }, { board_order: 2, tag: 'b' }] },
+  // ⓕ 전건 부재 안정성 — 전부 10000이라 입력 순서 그대로
+  { templates: [{}, { tag: 'x' }, {}] },
+  // ⓖ 정수가 아닌 값(문자열·null)은 뒤로, 있는 정수는 앞으로
+  { templates: [{ board_order: '3' }, { board_order: null }, { board_order: 7 }] },
+  // ⓗ 음수도 정수다 — 뒤로 가지 않는다
+  { templates: [{ board_order: -1 }, { board_order: 0 }] },
+  // ⓘ template_json 자체가 null — 서버 `(item.template_json or {})`와 같은 자리
+  { templates: [null, { board_order: 1 }] },
+
+  // ── 🔴 층 축(지식 단계) 갈래 — 2026-08-20 판정 4 ───────────────────────────
+  // 위 ⓐ~ⓘ는 `board_order` 축만 밟는다. 정렬 키가 **(층, board_order)**로 늘었으므로
+  // 층 축을 안 밟으면 **1차 키가 갈려도 조용히 통과한다** — 이 파일 위쪽 주석이
+  // *「축 변경 후 이 표본으로 재대조할 것」*이라 스스로 적어 둔 그 자리다.
+  // ⚠️ 전부 **갈리면 순서가 실제로 달라지는** 모양으로 만들었다: 층이 답을 정해야
+  //    하는 갈래에서는 `board_order`를 **전건 같은 값**으로 둬서 2차 키가 답을
+  //    가리지 못하게 한다. 그러지 않으면 갈래는 밟는데 답이 같다(palette 2개짜리).
+  //
+  // ⓙ 🔴 **층 순서와 board_order 순서가 서로 반대** — 이 표본이 핵심이다. 두 키가
+  //    같은 방향이면 **어느 키로 정렬해도 답이 같아** 1차 키를 잃어도 조용하다.
+  //    층 우선 [0,1,2] ↔ board_order 우선 [2,1,0].
+  {
+    tiers: [1, 2, 3],
+    templates: [{ board_order: 3 }, { board_order: 2 }, { board_order: 1 }],
+  },
+  // ⓚ 층 **부재 + 존재**(board_order 동일) — 부재가 뒤로 가는가. `?? 0`처럼 앞으로
+  //    보내는 폴백으로 되돌리면 [0,1]이 되어 순서가 갈린다.
+  {
+    tiers: [null, 3],
+    templates: [{ board_order: 1 }, { board_order: 1 }],
+  },
+  // ⓛ 층 **동률** — 1차 키가 같으면 2차 키(board_order)로 떨어진다. 2차 키를
+  //    잃으면 안정 정렬이 입력 순서 [0,1]을 내어 갈린다.
+  {
+    tiers: [4, 4],
+    templates: [{ board_order: 2 }, { board_order: 1 }],
+  },
+  // ⓜ 🔴 층이 **비정수 실수** + 그보다 큰 정수(board_order 동일). 서버
+  //    `isinstance(level, int)`는 2.5를 뒤로 보내 [1,0]이고, `typeof v === 'number'`로
+  //    두면 2.5 < 3이라 [0,1] — `boardTierOf`의 가드가 갈리는 바로 그 자리다.
+  {
+    tiers: [2.5, 3],
+    templates: [{ board_order: 1 }, { board_order: 1 }],
+  },
+  // ⓝ 🔴 층이 **불리언** + 1보다 큰 정수(board_order 동일). 파이썬에서 bool은 int라
+  //    `true`=1·`false`=0으로 **맨 앞**에 선다 → [2,1,0]. 뒤로 보내면 [0,1,2].
+  {
+    tiers: [5, true, false],
+    templates: [{ board_order: 1 }, { board_order: 1 }, { board_order: 1 }],
+  },
+];
+
+// ⚠️ **`SEED_ITEMS.filter(...)`가 대입 바로 뒤에 붙어 있어야 한다** —
+//   `test_r10_mock_parity_contract::test_보드_퍼즐이_시드_board에서_파생된다`가
+//   그 형태를 문다(손으로 베낀 배열 리터럴 차단). 2026-08-20에 정렬을
+//   `orderPuzzlesForProgress(...)`로 **감쌌다가 그 계약이 울었고**, 계약의 정규식을
+//   넓히는 대신 **코드를 계약에 맞추는 쪽으로 판정**이 났다(클라이언트).
+//   ⇒ 감싸지 않고 **같은 비교 함수**(`byTierThenBoardOrder` — 병합 전 이름은
+//     `byBoardOrder`였고 축이 (지식 단계, board_order)로 늘며 개명됐다)를 태운다.
+//     그러면 표본이 무는
+//     `orderPuzzlesForProgress`와 여기가 **한 규칙**을 공유해 사본이 안 생긴다.
 const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board')
-  .slice()
-  .sort((a, b) => boardOrderOf(a) - boardOrderOf(b))
+  .sort(byTierThenBoardOrder)
   .map((seed, i) => {
     const n = i + 1;
     const template = seed.template_json ?? {};
     return {
       content_item_id: `b${String(n).padStart(7, '0')}-0000-4000-8000-${String(n).padStart(12, '0')}`,
-      difficulty: boardDifficulty(template, seed.level_group),
+      knowledge_level: boardTierOf(seed),
       concept_tag: seed.concept_tag,
       // 세션 payload 화이트리스트(정답성 필드 구조적 제외) + **보드 목록 전용 표시 필드**.
       // /board/puzzles는 세션 문항 표면이 아니다 — 실서버는 template_json을 통째로
@@ -1637,39 +1999,103 @@ const clearedBoardPuzzles = new Set();
 // 서버는 이것을 quiz_logs 마커 행으로 갖는다(routers/detective.detective_quiz_id).
 const awardedDetectiveCases = new Set();
 
-// 학습 수준 → 열리는 최고 난이도. 서버 `routers/board.BAND_MAX_DIFFICULTY`의
-// **사본**이고, `__mockPolicy().board_band_max_difficulty`로 노출해
-// test_r13_mock_policy_parity가 서버 표와 실값 대조한다(CO-J-9 관례).
-const BOARD_BAND_MAX_DIFFICULTY = {
-  elementary: 1,
-  middle_high: 2,
-  adult: 3,
-  expert: 3,
+// 🔴 학습 수준 → **천장 층**(2026-08-20 축 교체). 서버는 천장을 θ 파생값
+// (`overall_knowledge_level`)에서 얻는데 목에는 θ 테이블이 없다 — 그래서
+// **진단 전 기본값 표**를 옮긴다. 값의 출처는 서버
+// `theta_to_knowledge_level(LEVEL_GROUP_ITEM_B[밴드])` 실측이다(2026-08-20):
+//   elementary −1.0 → 2 · middle_high 0.0 → 4 · adult 1.0 → 6 · expert 2.0 → 9
+// ⚠️ 이것이 **클라이언트가 승인한 노출 표**(초등 8판·성인 48판)를 재현하는 경로다.
+// ⚠️ 서버의 두 번째 폴백(`knowledge_level_of_level_group` — 1·3·5·7)과 값이 다르다.
+//    선재 어긋남이고 대장에 기록돼 있다. 목은 **1순위 경로만** 흉내 낸다.
+// `__mockPolicy().board_level_group_tier`로 노출해 파리티가 실값을 대조한다 —
+// 노출하지 않으면 축이 갈려도 그물이 아무 소리를 안 낸다(B조 실측).
+// 🔴 ⚠️ **이 표는 「천장의 소유자」가 아니다 — 그리고 이제 아무 코드도 읽지 않는다.**
+//
+// 2026-08-20 판정 A 확정: 천장은 **학습자 단계**(`learnerTier()` = θ 파생)가 소유한다.
+// 밴드 폴백은 서버에서 철거됐고(`learner_tier`), 목도 그 자리를 옮겼다 — 종전에는
+// `lockedBoardTiers`·`unlockedBoardIds`가 이 표를 직접 읽어 **목은 밴드 · 서버는 θ**로
+// 갈려 있었다(서버 담당 실측). 그 갈림을 무는 그물이 없었다: 이 표의 값 대조는
+// 「1순위 경로만 본다」로 **초록**이었다.
+//
+// ⇒ 그런데 **지우지 않는다.** 두 이유다:
+//   ⑴ 지우면 파리티 계약이 무는 대상이 사라진다 —
+//      `test_보드_밴드_천장이_서버_파생값과_같다`(실값)와
+//      `test_board_mock_parity::test_밴드_천장표가_같다`(소스)가 이 표를 서버
+//      `theta_to_knowledge_level(LEVEL_GROUP_ITEM_B[밴드])`로 **파생시켜** 대조한다.
+//   ⑵ 이 표는 이제 **「밴드 → 천장」 규칙이 아니라 그 파생의 기대값 표**다.
+//      실제 경로는 `seedAbilities`(= 서버 `seed_placement` 사본)가 밴드 사전 b를 θ로
+//      심고 → `learnerTier()`가 그 θ에서 단계를 낸다. **밴드는 규칙이 아니라 초기값의
+//      출처**다. 값이 같은 것은 두 경로가 같은 사전값을 쓰기 때문이지, 여기를
+//      읽어서가 아니다.
+//      ⚠️ 이 구분을 지우면 다음 사람이 이 표를 「밴드 폴백」으로 읽고 되돌린다 —
+//      그 경로는 철거됐다.
+// ⚠️ **값을 계약으로 못박지 않는다**(2·4·6·9도, 판수도): 사전값 파생이라 사전 b가
+//    바뀌면 함께 움직여야 한다. 그래서 위 두 계약도 값을 적지 않고 서버에서 파생시킨다.
+const BOARD_LEVEL_GROUP_TIER = {
+  elementary: 2,
+  middle_high: 4,
+  adult: 6,
+  expert: 9,
 };
-const BOARD_DEFAULT_MAX_DIFFICULTY = 3; // 미상 밴드는 잠그지 않는다(서버와 같다)
-const BOARD_DIFFICULTIES = [1, 2, 3];
+/**
+ * `boardDifficulty` 규칙을 서버가 직접 재도록 내보내는 **입력 표본**.
+ * ⚠️ **객체 palette를 반드시 포함한다** — 시드가 전부 배열이라 그 갈래를 아무도
+ *    안 밟았고, 그래서 규칙이 갈린 채로 답만 같았다(2026-08-20).
+ */
+const BOARD_DIFFICULTY_SAMPLES = [
+  { template: { mode: 'guided' }, level_group: 'elementary' },
+  { template: { mode: 'goal_only' }, level_group: 'middle_high' },
+  { template: { mode: 'guided', time_limit_sec: 60 }, level_group: 'middle_high' },
+  { template: { mode: 'guided', palette: ['a', 'b', 'c'] }, level_group: 'middle_high' },
+  { template: { mode: 'guided', palette: { a: 1, b: 2, c: 3 } }, level_group: 'middle_high' }, // ← 객체 갈래
+  { template: { mode: 'guided', palette: { a: 1, b: 2 } }, level_group: 'middle_high' },
+  { template: { mode: 'goal_only', time_limit_sec: 30, palette: ['a', 'b', 'c'] }, level_group: 'adult' },
+  { template: {}, level_group: 'expert' },
+];
+
+// 층 수 — 서버 `KNOWLEDGE_LEVEL_MAX` 사본. 파리티가 실값을 대조한다.
+const BOARD_TIER_MAX = 10;
+const BOARD_TIERS = Array.from({ length: BOARD_TIER_MAX }, (_, i) => i + 1);
 
 /**
- * 잠긴 난이도 집합 — 서버 `routers/board.locked_difficulties`의 **사본**이다.
- * 초등은 쉬움만, 중·고등은 쉬움·보통, 성인은 전부(2026-08-10). 열쇠는 진도가
- * 아니라 `users.level_group`이라, 목에서도 PATCH /auth/me로 수준을 바꾸면
- * 그 자리에서 열린다 — 스모크가 그 왕복을 볼 수 있다.
+ * 잠긴 **층** 집합 — 서버 `routers/board.locked_tiers`의 **사본**이다.
+ *
+ * 🔴 **열쇠가 바뀌었다**(2026-08-20 판정 A). 이 자리에 *"초등은 쉬움만, 중·고등은
+ * 쉬움·보통, 성인은 전부(2026-08-10). 열쇠는 진도가 아니라 `users.level_group`이라,
+ * 목에서도 PATCH /auth/me로 수준을 바꾸면 그 자리에서 열린다"*고 적혀 있었고
+ * **두 문장 다 낡았다**:
+ *   · 앞 문장 — 축이 학령 파생 난이도(3칸)에서 지식 단계(10칸)로 갈아탔다.
+ *     그리고 **「성인은 전부」는 거짓**이다(성인 천장 위에 층이 더 있다).
+ *   · 뒤 문장 — 열쇠는 이제 `level_group`이 **아니다.** 천장의 소유자는
+ *     `learnerTier()`(θ 파생 학습자 단계)이고, 서버도 그렇다. 밴드는 그 θ의
+ *     **초기값**이 오는 자리로 물러났다(`seedAbilities`).
+ * ⚠️ **「PATCH /auth/me만으로는 천장이 안 움직인다」고 적혀 있었고 그 기술이
+ *    낡았다**(2026-08-20 재파종 판정). 재신고는 **미측정 개념의 θ만** 새 학령
+ *    사전값으로 갈아타므로(`reseedUnmeasuredAbilities`), **전건 미측정인 계정에서는
+ *    재신고만으로 천장이 실제로 움직인다.** 반대로 이미 푼 계정은 대표 θ가 n
+ *    가중이라 측정된 행이 천장을 계속 정한다 — 그래서 「움직인다/안 움직인다」가
+ *    아니라 **「무엇이 움직이는가」**가 규칙이다.
  */
-function lockedBoardDifficulties() {
-  const ceiling = BOARD_BAND_MAX_DIFFICULTY[mockAuth.levelGroup] ?? BOARD_DEFAULT_MAX_DIFFICULTY;
-  return new Set(BOARD_DIFFICULTIES.filter((d) => d > ceiling));
+function lockedBoardTiers() {
+  // ⚠️ **미상 천장은 잠그지 않는다**(서버 `locked_tiers(None) == set()`와 같다) —
+  //    「못 여는 것이 열리는 것보다 나쁘다」. θ 행이 없는 계정(콜드스타트)에서
+  //    퍼즐이 통째로 사라지는 것을 막는다.
+  const ceiling = learnerTier();
+  if (typeof ceiling !== 'number') return new Set();
+  return new Set(BOARD_TIERS.filter((t) => t > ceiling));
 }
 
 /** BoardPuzzle 1건 (서버 schemas/board.BoardPuzzle) — 목록·상세가 공유한다.
  *  R10-01 D1: 상세 엔드포인트는 단건 전용 스키마를 만들지 않고 이 형태를 그대로 쓴다. */
 const boardPuzzlePayload = (p, locked = null) => ({
   content_item_id: p.content_item_id,
-  difficulty: p.difficulty ?? 1, // R7-02 S5: 난이도 1|2|3
+  // 🔴 `difficulty`(파생 1~3) **제거** — 서버 스키마와 같은 이름·같은 축이다.
+  knowledge_level: p.knowledge_level ?? null,
   template_json: p.template_json,
   cleared: clearedBoardPuzzles.has(p.content_item_id),
   // 잠금 두 축이 다 실린다(서버 schemas/board.BoardPuzzle과 같다).
   // 상세는 잠긴 퍼즐이 그 앞에서 403이라 둘 다 "안 잠김"으로 나간다.
-  locked: locked === null ? false : locked.has(p.difficulty ?? 1),
+  locked: locked === null ? false : locked.has(p.knowledge_level),
   unlocked: unlockedBoardIds().has(p.content_item_id), // MT-24
 });
 
@@ -1684,6 +2110,23 @@ const MOCK_BOARD_UNLOCK_LOOKAHEAD = 2;
  * 계속 초록으로 통과시킨다 — 목↔서버 정책이 갈라졌던 CO-J-9와 같은 형태다.
  * `BOARD_PUZZLES`는 이미 board_order로 정렬돼 있다(선언부 참고).
  */
+// 🔴 **인자를 받게 만들려다 되돌렸다 — 경위를 남긴다**(2026-08-20 판정 2).
+//
+// 하려던 것: 이 규칙을 순수 함수로 열어 `__mockPolicy().board_unlock_samples`로
+// **규칙째** 내보내기(서버가 같은 이유로 `below_ceiling_ids`·`ceiling_tier`·
+// `compute_unlocked_ids`로 쪼개 뒀다 — *"잠금 규칙만 따로 고정할 수 있어야 회귀를
+// 싸게 잡는다"*). 지금 이 규칙은 **행동 그물이 없다** — 파리티 파일이 그 공백을
+// 적어 뒀다: *"`__mockPolicy()`가 목의 잠긴 집합 계산을 노출하지 않는다"*.
+//
+// 왜 못 했나: `test_board_mock_parity._fn_body`가 **`function unlockedBoardIds()`**
+// — 인자 없는 그 형태를 정규식으로 찾고, 몸통에서 「천장 아래 인정」·「천장층 순차」
+// 구문을 확인한다(결함 ⑨의 본체). 빼내면 `test_목이_천장_아래를_인정한다`가 울고,
+// 기본 인자를 붙이면 `\(\)`가 안 맞아 **함수를 아예 못 찾는다.** 그 파일은 리드
+// 소유라 손대지 않고 **코드를 계약에 맞췄다**(같은 날 `BOARD_PUZZLES` 정렬에서
+// 내려온 판정과 같은 방향 — 정규식을 넓히지 않고 코드를 맞춘다).
+// ⇒ 대신 아래 두 갈래를 **소스 계약**으로 물렸다(`test_r13_mock_policy_parity`의
+//   `test_층이_미상인_퍼즐은_열리되_줄에_서지_않는다`). 행동 대조는 리드가
+//   `_fn_body` 정규식을 인자까지 받게 넓히면 곧바로 열린다 — 보고했다.
 function unlockedBoardIds() {
   // 🔴 **서버 `below_ceiling_ids` + `ceiling_tier`와 같은 규칙**(2026-08-19 결함 ⑨).
   //
@@ -1698,21 +2141,68 @@ function unlockedBoardIds() {
   // ⚠️ 순차 대상을 천장층으로 **좁히지 않으면 천장층이 하나도 안 열린다**: 커서가
   // 1층 맨 앞에 서고 LOOKAHEAD 창이 통째로 1층에 떨어지는데, 그 1층은 이미 인정으로
   // 열려 있어 창이 아무것도 추가하지 못한다(서버 쪽에서 계약 테스트가 그 형태를 잡았다).
-  const ceiling = BOARD_BAND_MAX_DIFFICULTY[mockAuth.levelGroup] ?? BOARD_DEFAULT_MAX_DIFFICULTY;
 
-  // 천장 아래는 순차와 무관하게 열린다
+  // 🔴 **판정 2 — 층이 미상인 퍼즐은 「열리되 줄에 서지 않는다」**(2026-08-20).
+  //
+  // ⚠️ **목은 이 갈래를 이미 열고 있었지만 그것은 우연이었다**: 아래 필터가
+  // `p.knowledge_level < ceiling`이고 JS에서 `null < 6`이 **참**이라 미상 퍼즐이
+  // 「천장 아래」로 새어 들어갔다. 우연히 맞는 코드는 **다음 사람이 「버그」로 보고
+  // 고친다** — 그러면 미상 퍼즐이 `locked=false`인데 `unlocked=false`가 되어
+  // **누구에게도, 영원히** 안 열린다(저작 실수 하나가 콘텐츠를 소리 없이 증발시킨다).
+  // 그래서 **명시 분기**로 올린다. 근거는 `lockedBoardTiers`가 이미 이어받은
+  // 「미상은 잠그지 않는다」 관례와 같다 — *못 여는 것이 열리는 것보다 나쁘다.*
+  //
+  // ⚠️ **우연과 달라지는 자리가 하나 있다**: 종전 우연은 천장이 **숫자일 때만**
+  // 참이었다(`null < undefined`는 거짓). 명시 분기는 **천장이 미상이어도** 미상
+  // 퍼즐을 연다. 판정 문언(「열리되」)에 조건이 없어 그대로 따랐고, 그 자리는
+  // 서버 담당 몫이라 보고했다.
+  const items = BOARD_PUZZLES;
+  const cleared = clearedBoardPuzzles;
+  // 🔴 천장은 **학습자 단계**에서 온다 — 밴드 표를 직접 읽지 않는다(판정 A).
+  //    경위는 `learnerTier` 독스트링이 소유한다(목은 밴드, 서버는 θ로 갈려 있었다).
+  const ceiling = learnerTier();
+
+  // 🔴 **천장이 미상이면 전건 열림** — 서버 `routers/board.unassessed_ids`의 사본
+  // (2026-08-20 서버 실측으로 드러난 결함의 수리이고, **목에도 같은 결함이 있었다**).
+  //
+  // `lockedBoardTiers()`가 미상 천장에서 아무것도 안 잠그는데, 아래 열림 합성은
+  // 세 갈래가 **전부 정수 천장을 요구**한다: 「천장 아래」는 `typeof ceiling ===
+  // 'number'`라 거짓이고, 천장층 순차 목록은 `=== ceiling`이라 비고, 남는 것은
+  // `tierless(p)` 갈래뿐이다. ⇒ θ 행이 없는 계정에서 층이 있는 퍼즐이 전부
+  // **`locked=false`인데 `unlocked=false`** — 목록에 자물쇠도 안 뜨면서 진입·채점이
+  // 전건 403이 된다(서버 실측: 층 있는 9건 중 열린 것 0건).
+  //
+  // ⚠️ **왜 「순차 폴백」이 아니라 「전건 열림」인가**: 「못 여는 것이 열리는 것보다
+  // 나쁘다」가 이 축의 지배 원칙이고(`lockedBoardTiers`·미상 퍼즐 분기가 같은 관례를
+  // 잇는다), 근거가 **하나도 없을 때** 세운 순서는 아무 근거 없이 만든 벽이다.
+  // 층 미상 **퍼즐**의 「열리되 줄에 서지 않는다」를 천장 미상 **학습자**에 적용한 것.
+  if (typeof ceiling !== 'number') {
+    return new Set(items.map((p) => p.content_item_id));
+  }
+
+  const tierless = (p) => p.knowledge_level === null || p.knowledge_level === undefined;
+
   const unlocked = new Set(
-    BOARD_PUZZLES.filter((p) => (p.difficulty ?? 1) < ceiling).map(
-      (p) => p.content_item_id,
-    ),
+    items
+      .filter((p) => {
+        if (tierless(p)) return true; // ← 판정 2: 미상은 언제나 열림(명시 분기)
+        // 천장 아래 층은 순차와 무관하게 열린다. ⚠️ 천장이 미상이면 「아래」가
+        //    정의되지 않아 빈 집합이고, 그때는 `lockedBoardTiers()`가 아무것도 잠그지 않는다.
+        return typeof ceiling === 'number' && p.knowledge_level < ceiling;
+      })
+      .map((p) => p.content_item_id),
   );
   // 이미 깬 칸은 언제나 열린다(서버 compute_unlocked_ids 규칙 ⑴)
-  for (const p of BOARD_PUZZLES) {
-    if (clearedBoardPuzzles.has(p.content_item_id)) unlocked.add(p.content_item_id);
+  for (const p of items) {
+    if (cleared.has(p.content_item_id)) unlocked.add(p.content_item_id);
   }
-  // 천장 층 **안에서만** 순차를 센다(규칙 ⑵)
-  const tier = BOARD_PUZZLES.filter((p) => (p.difficulty ?? 1) === ceiling);
-  let cursor = tier.findIndex((p) => !clearedBoardPuzzles.has(p.content_item_id));
+  // 천장 층 **안에서만** 순차를 센다(규칙 ⑵).
+  // ⚠️ **미상은 여기서 빠진다**(판정 2의 「줄에 서지 않는다」) — 아무 층에나 끼우면
+  //    그 층의 순서 의미가 깨지고, 미상 퍼즐 하나가 **커서를 붙잡아** 뒤 칸을
+  //    막을 수 있다. `=== ceiling`이 이미 미상을 걸러내지만(null !== 숫자), 그것도
+  //    우연에 기대는 형태라 조건을 눈에 보이게 적는다.
+  const tier = items.filter((p) => !tierless(p) && p.knowledge_level === ceiling);
+  let cursor = tier.findIndex((p) => !cleared.has(p.content_item_id));
   if (cursor < 0) cursor = tier.length;
   for (const p of tier.slice(cursor, cursor + MOCK_BOARD_UNLOCK_LOOKAHEAD + 1)) {
     unlocked.add(p.content_item_id);
@@ -2036,6 +2526,11 @@ const routes = {
   'POST /auth/register': (body) => {
     if (body?.email) mockAuth.registeredEmails.add(body.email); // convert 중복 판정 공유
     mockAuth.isGuest = false;
+    // 🔴 서버 `register`는 `RegisterRequest.level_group`(필수)을 저장하고 그 밴드로
+    //    `seed_placement`를 부른다 — 목이 둘 다 안 해서 **가입 학령이 증발했다.**
+    //    그 결과 보드 천장이 언제나 무정보 기본값 자리에 머물렀다(판정 A로 드러남).
+    if (body?.level_group) mockAuth.levelGroup = body.level_group;
+    devAbilities = seedAbilities(mockAuth.levelGroup); // ← seed_placement 사본
     return [
       201,
       { user_id: '2b1c8b1e-0000-4000-8000-000000000001', access_token: 'mock-access' },
@@ -2073,6 +2568,10 @@ const routes = {
     if (nickname !== null) mockAuth.takenNicknames.add(nickname);
     mockAuth.isGuest = true;
     mockAuth.levelGroup = body?.level_group ?? 'middle_high';
+    // 🔴 서버 `guest_login`도 **`seed_placement`를 부른다**(`routers/auth.py`) — 그래서
+    //    갓 만든 게스트도 밴드 사전 θ를 갖고, 보드 천장이 그 θ에서 파생된다.
+    //    목이 이것을 안 하면 「초등으로 시작한 게스트」를 dev에서 재현할 수 없다.
+    devAbilities = seedAbilities(mockAuth.levelGroup);
     // ⚠️ 이름을 **매번** 덮어쓴다(신고가 없으면 null). 서버는 발급마다 새 유저 행을
     // 새 자동 닉네임으로 만들므로, 앞선 발급의 이름이 다음 무바디 발급에 남으면
     // 「닉네임 없이 부르면 종전과 동일」이 한 프로세스 안에서 깨진다.
@@ -2198,6 +2697,13 @@ const routes = {
       return [422, { detail: '알 수 없는 학습 수준입니다.', code: 'VALIDATION_ERROR' }];
     }
     mockAuth.levelGroup = body.level_group;
+    // 🔴 **미측정 θ만 재파종한다**(2026-08-20 재파종 판정). 규칙의 소유자는
+    //    `reseedUnmeasuredAbilities` 하나이고 경위는 그 선언부가 갖는다.
+    //    ⚠️ **종전 기술은 「여기서 θ를 다시 심지 않는다 — 서버가 안 하기 때문이다」
+    //    였고 낡았다.** 그때는 학령을 바꿔도 천장이 안 움직였고, 그 귀결로 잠금
+    //    배너의 「학습 수준 바꾸기」 CTA가 아무것도 열지 못했다. 이제 갓 만든 계정
+    //    (전건 n=0)은 재신고 즉시 천장이 움직인다 — 측정된 행은 그대로다.
+    applyReseedUnmeasured(body.level_group);
     return [200, meResponse()];
   },
 
@@ -2340,6 +2846,8 @@ const routes = {
           is_correct: isCorrect,
           correct_answer: item._mock.correct ?? null,
           feedback: isCorrect ? item._mock.feedbackCorrect : item._mock.feedbackWrong,
+          // 해설의 출처(R13 CO-I-1) — 없으면 화면이 `ai`로 폴백해 **사람 글에 AI 배지**가 붙는다.
+          feedback_source: item._mock.feedbackSource ?? 'ai',
           xp_earned: 0,
           xp_base: 0,
           xp_weak_bonus: 0,
@@ -2378,6 +2886,8 @@ const routes = {
         is_correct: isCorrect,
         correct_answer: item._mock.correct ?? null,
         feedback: isCorrect ? item._mock.feedbackCorrect : item._mock.feedbackWrong,
+        // 해설의 출처(R13 CO-I-1) — 없으면 화면이 `ai`로 폴백해 **사람 글에 AI 배지**가 붙는다.
+        feedback_source: item._mock.feedbackSource ?? 'ai',
         xp_earned: xp,
         // R10-01 §3.5 마감 3 (additive): "약점 극복 +N" 분리 표기용 실측 분해값
         xp_base: xpParts.xp_base,
@@ -2618,6 +3128,9 @@ const routes = {
         mode: s.mode,
         items: sessionItemsOf(s),
         progress: sessionProgress(s),
+        // 서버 `SessionToday.closing_step` — 배치 세션은 마감 단계가 없어 null이지만
+        // **필드는 있어야 한다**. 없으면 화면이 `undefined`와 `null`을 구분 못 한다.
+        closing_step: closingStepPayload(s.mode),
       },
     ];
   },
@@ -2658,7 +3171,7 @@ const routes = {
   'GET /board/regions': () => [200, BOARD_REGIONS],
   // 목록은 **무차단**(R10-01 D1) — 잔량 0이어도 퍼즐 화면·cleared 표시는 열린다.
   'GET /board/puzzles': () => {
-    const locked = lockedBoardDifficulties();
+    const locked = lockedBoardTiers();
     return [200, BOARD_PUZZLES.map((p) => boardPuzzlePayload(p, locked))];
   },
   // GET /board/puzzles/{content_item_id} (R10-01 D1 신설) — 단건 BoardPuzzle.
@@ -2674,7 +3187,7 @@ const routes = {
     // OUT_OF_CLOUDS로 나가서, 잔량 0인 사람이 "구름이 없어서"라는 틀린 이유를 듣고
     // 20분을 기다린 뒤 다시 막힌다. 잠긴 칸은 구름을 써도 안 열린다.
     // 난이도가 먼저인 것도 서버와 같다 — 그쪽이 더 바깥 조건이다.
-    if (lockedBoardDifficulties().has(puzzle.difficulty ?? 1)) {
+    if (lockedBoardTiers().has(puzzle.knowledge_level)) {
       return [403, { detail: '내 정보에서 학습 수준을 올리면 열려요.', code: 'PUZZLE_LOCKED' }];
     }
     if (!unlockedBoardIds().has(puzzle.content_item_id)) return boardLockedError();
@@ -2691,7 +3204,7 @@ const routes = {
     }
     // 잠금 둘 다 **판정보다 먼저**다(서버와 같은 순서). 진입(GET)만 막으면
     // attempt를 직접 POST해서 판정·XP·클리어를 다 받아간다.
-    if (lockedBoardDifficulties().has(puzzle.difficulty ?? 1)) {
+    if (lockedBoardTiers().has(puzzle.knowledge_level)) {
       return [403, { detail: '내 정보에서 학습 수준을 올리면 열려요.', code: 'PUZZLE_LOCKED' }];
     }
     if (!unlockedBoardIds().has(puzzle.content_item_id)) return boardLockedError();
@@ -2826,12 +3339,15 @@ const routes = {
   ],
   // GET /progress/abilities (R6 WeatherBrain) — 약한 개념(θ 낮은 순) 우선 정렬.
   // R7-03에서 devAbilities 저장소를 공유해 /dev/theta 조작이 즉시 반영된다.
-  'GET /progress/abilities': () => [
-    200,
-    abilityRows()
-      .sort((a, b) => a.theta - b.theta)
-      .map((row) => ({ ...row, level_label: levelFromTheta(row.theta), updated_at: null })),
-  ],
+  // 🔴 **`knowledge_level`·`knowledge_level_max`를 함께 싣는다**(2026-08-20).
+  //   목이 이 둘을 빼먹고 있었고, `/me`의 WeatherBrainPanel이 그 필드로 교과 표기를
+  //   그리므로 **없으면 4밴드(「초급」)로 내려앉았다** — QA 롤링 0820 ⑴
+  //   「`/me` 개념 칩 6개가 전부 초급」의 원인이 이것이다. 같은 날 배치고사 결과
+  //   화면에서 고친 것(`PlacementAbility`)과 **같은 형태이고 자리만 달랐다.**
+  // ⚠️ 값을 손으로 넣지 않는다 — 서버 `weatherbrain_service.theta_to_knowledge_level`과
+  //   **같은 경계**(`THETA_KNOWLEDGE_LEVEL_BOUNDS`)로 θ에서 파생한다. 그 경계는
+  //   `__mockPolicy()`로 노출돼 `test_r13_mock_policy_parity`가 서버 실값과 대조한다.
+  'GET /progress/abilities': () => [200, abilitiesPayload()],
 
   // ── 개발자 모드 (R7-03 계약 — /dev/*) ──────────────────────────────────────
   // DEV_MODE(=VITE_MOCK_DEV!=='0')가 꺼지면 실서버(FastAPI 라우터 미등록)와
@@ -2863,7 +3379,16 @@ const routes = {
       cloudsUpdatedAt: Date.now(),
       placementDone: false,
     });
-    devAbilities = seedAbilities();
+    // 🔴 **`placement_failed: true`는 목에만 있는 레버다**(서버 `/dev/reset-me`에
+    //    대응 필드가 없다 — 라우트 표면을 늘린 것이 아니라 **서버 장애 상황을
+    //    시뮬레이션**하는 자리다). 서버에서 θ 행 0건은 `seed_placement`가 ai-worker
+    //    장애로 조용히 실패한 상태이고(가입·게스트 발급·`dev.reset_me` 셋 다 그
+    //    관례를 적어 뒀다), 목에는 그 장애가 없어 **재현할 길이 아예 없었다.**
+    //    재현 못 하는 갈래는 없는 갈래다 — 위 `unlockedBoardIds`의 「천장 미상 전건
+    //    열림」을 화면으로 볼 유일한 통로라서 둔다. 판정이 필요하면 이 한 줄만 되돌린다.
+    devAbilities = body?.placement_failed === true
+      ? new Map() // θ 행 0건 = 천장 미상(`learnerTier() === null`)
+      : seedAbilities(mockAuth.levelGroup); // 지금 밴드의 사전 θ로 되돌린다
     unitProgress.clear();
     preUnlockedUnits.clear();
     sessions.clear();
@@ -2914,7 +3439,10 @@ const routes = {
     }
     state.clouds = Math.max(0, Math.min(CLOUD_MAX, Math.round(clouds)));
     state.cloudsUpdatedAt = Date.now();
-    return [200, devStatePayload()];
+    // 서버 `DevCloudsResult`는 `{clouds, max}`다. 목은 개발 패널이 한 번에 갱신되도록
+    // 상태 전체를 돌려주지만, **서버가 주는 두 필드는 반드시 들어 있어야 한다** —
+    // `max`가 없어서 화면이 상한을 못 읽던 자리다(2026-08-20 전수 대조).
+    return [200, { ...devStatePayload(), max: CLOUD_MAX }];
   },
   // POST /dev/curriculum {action:"unlock_all"|"crown"|"reset", unit_slug?, crowns?}
   'POST /dev/curriculum': (body) => {
@@ -2990,6 +3518,7 @@ const routes = {
             actual_value: null,
             accuracy_score: null,
             elo_rating_after: null,
+            tier: state.tier, // 서버 `LeagueResultOut.tier` — 목이 빼먹고 있었다
           },
         ]
       : [],
@@ -3136,6 +3665,7 @@ const routes = {
         user_score: 92.1,
         ai_score: 78.3,
         result: 'win',
+        xp_earned: MOCK_DUEL_WIN_XP, // 서버 `_duel_xp_earned`: win이면 DUEL_WIN_XP, 그 외 0
         caster_grade: 'nimbostratus',
         evidence: ['pop_trend', 'recent_rain'],
         evidence_review: [
@@ -3249,11 +3779,64 @@ export const __mockPolicy = () => ({
   // 학령 (server schemas/auth.LevelGroup)
   level_groups: LEVEL_GROUPS,
   // 보드 난이도 잠금 (server routers/board.BAND_MAX_DIFFICULTY)
-  board_band_max_difficulty: BOARD_BAND_MAX_DIFFICULTY,
+  // 🔴 새 축을 노출한다 — 파리티 그물이 **값만** 보므로, 노출하지 않으면 서버가
+  //    축을 바꿔도 목이 옛 축으로 계산하며 아무도 안 운다(B조 실측 2026-08-20).
+  board_level_group_tier: BOARD_LEVEL_GROUP_TIER,
+  board_tier_max: BOARD_TIER_MAX,
   // 지식 단계 축 (server weatherbrain_service.KNOWLEDGE_LEVEL_MAX ·
   // THETA_KNOWLEDGE_LEVEL_BOUNDS) — /progress/me의 분모와 경계다.
   knowledge_level_max: KNOWLEDGE_LEVEL_MAX,
   theta_knowledge_level_bounds: THETA_KNOWLEDGE_LEVEL_BOUNDS,
+  // 🔴 **그물 밖이던 사본 넷**(2026-08-20 전수 대조). 값이 서버와 같아도
+  //   노출이 없으면 **서버가 바뀔 때 아무 소리가 안 난다.** 같은 파일 안에서
+  //   어떤 사본은 대조되고 어떤 사본은 안 되던 것이 위험이었다.
+  level_group_item_b: LEVEL_GROUP_ITEM_B,   // server weatherbrain_service.LEVEL_GROUP_ITEM_B
+  default_item_b: DEFAULT_ITEM_B,           // server weatherbrain_service.DEFAULT_ITEM_B
+  level_group_tone: LEVEL_GROUP_TONE,       // server weatherbrain_service.LEVEL_GROUP_TONE
+  // ⚠️ 표가 아니라 **규칙**을 노출한다 — 같은 입력에 같은 답을 내는지 서버가
+  //    직접 재게 한다. 표만 맞고 규칙이 갈린 것이 palette 갈래였다.
+  board_difficulty_samples: BOARD_DIFFICULTY_SAMPLES.map((c) => ({
+    ...c, out: boardDifficulty(c.template, c.level_group),
+  })),
+  // ⚠️ 같은 이유로 **진행 순서 규칙**도 규칙째 노출한다 (server
+  //    routers/board.order_puzzles_for_progress — 2026-08-20).
+  //    출력은 정렬 키가 아니라 **입력 인덱스의 순열**이다: 키를 값으로 박으면
+  //    A조가 축을 `(지식 단계, board_order)`로 갈아탈 때 헛울거나 조용히 틀린다.
+  //    순열로 물으면 축이 바뀌어도 「같은 입력에 같은 순서인가」는 그대로 성립한다.
+  //    🔴 **층은 `template_json` 안이 아니라 컬럼(속성)으로 싣는다**(2026-08-20
+  //    판정 4) — 서버 `board_tier`가 `getattr(item, "knowledge_level")`을 읽으므로
+  //    템플릿 안에 넣으면 양쪽 모두 「층 없음」으로 읽고 **1차 키를 안 밟는다.**
+  //    `tiers`가 없는 표본은 전건 null로 정규화해 내보낸다(JSON에서 `undefined`가
+  //    조용히 사라지는 것을 막는다 — 사라지면 파이썬 쪽이 길이를 못 맞춘다).
+  board_order_samples: BOARD_ORDER_SAMPLES.map(({ templates, tiers }) => ({
+    templates,
+    tiers: tiers ?? templates.map(() => null),
+    out: orderPuzzlesForProgress(
+      templates.map((t, i) => ({
+        i,
+        knowledge_level: tiers ? tiers[i] : null,
+        template_json: t,
+      })),
+    ).map((x) => x.i),
+  })),
+  // 🔴 **열림 규칙(잠금의 짝)은 여기서 노출하지 못했다 — 공백을 명시해 둔다.**
+  //    2026-08-20 판정 2를 규칙째 내보내려 `board_unlock_samples`를 만들었다가
+  //    되돌렸다: `unlockedBoardIds`가 인자를 받으면 리드 소유
+  //    `test_board_mock_parity._fn_body`의 `function unlockedBoardIds()` 정규식이
+  //    함수를 아예 못 찾는다(그 함수 선언부 주석이 경위를 소유한다). 그래서 판정 2의
+  //    두 갈래는 **소스 계약**으로 물렸고(`test_층이_미상인_퍼즐은_열리되_줄에_서지_않는다`),
+  //    행동 대조는 그 정규식이 인자를 받게 넓혀질 때 이 자리에 붙인다.
+  // 🔴 **학령 재신고의 θ 재파종 규칙**(server routers/auth.update_me — 2026-08-20).
+  //    표가 아니라 **규칙**을 내보낸다: 목의 순수 함수에 표본을 실제로 통과시킨
+  //    결과를 싣고, 서버는 자기 사전표로 같은 답이 나오는지 직접 잰다.
+  //    ⚠️ 사전 b 값을 여기 리터럴로 적지 않는다 — `level_group_item_b`가 이미
+  //    같은 파일에서 대조되고 있고, 값을 두 번 적으면 계약이 자기 사본을 본다.
+  reseed_samples: RESEED_SAMPLES.map(({ to, rows }) => ({
+    to,
+    rows,
+    out: reseedUnmeasuredAbilities(rows, to),
+  })),
+  duel_win_xp: MOCK_DUEL_WIN_XP, // server duel_service.DUEL_WIN_XP
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
   guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN
   // 왕관 정책 (server routers/session.py — §2.10 소유권 이전)
@@ -3286,6 +3869,12 @@ export const __thetaToLevelGroup = thetaToLevelGroup;
 
 /** 라우트가 쓰는 바로 그 /progress/me 페이로드(사본 아님). */
 export const __progressMePayload = progressMePayload;
+
+/** `GET /progress/abilities`가 실제로 쓰는 함수 — 계약이 같은 것을 문다. */
+export const __abilitiesPayload = abilitiesPayload;
+
+/** 해설 출처 파생 — 계약이 **라우트가 쓰는 바로 그 규칙**을 부른다. */
+export const __feedbackSourceOf = feedbackSourceOf;
 
 export default function apiMockPlugin() {
   return {

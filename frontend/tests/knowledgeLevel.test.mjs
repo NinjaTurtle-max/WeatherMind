@@ -232,7 +232,7 @@ check('사용자 1인의 대표 단계는 ProgressMe(/progress/me)에 있다', (
 //
 // 목 라우트가 쓰는 **바로 그 함수**를 불러 선택자에 통과시킨다. 목이 필드를
 // 다시 잃으면 여기서 먼저 운다.
-const { __progressMePayload } = await import('../mock/apiMockPlugin.js');
+const { __progressMePayload, __abilitiesPayload } = await import('../mock/apiMockPlugin.js');
 
 check('목의 /progress/me가 지식 단계 두 필드를 보낸다', () => {
   const me = __progressMePayload();
@@ -260,6 +260,37 @@ check('목 응답이 선택자를 통과한다(= 카드가 뜬다)', () => {
 // 표시용으로 θ를 소수 2자리로 자르는데(θ=0.4951 → 0.50) 서버는 원값으로 센다.
 // 그 한 칸 차이가 화면의 「10단계 중 N단계」를 통째로 바꾼다.
 // 파이썬 패리티 테스트는 **변환 함수**만 대조하므로 이 파생 경로는 여기서 문다.
+check('🔴 목의 /progress/abilities도 지식 단계 두 필드를 보낸다', () => {
+  // 🔴 **실증으로 나온 구멍**(2026-08-20 전수 대조). 목이 이 둘을 안 보내고 있었고
+  //   `/me`의 개념 칩이 전부 「초급」이었다(QA 롤링 0820 ⑴). 그런데 **필드를 빼도
+  //   전 스위트가 조용했다** — 실렌더 검사들이 자기 픽스처를 그리기 때문이다.
+  //   ⇒ 라우트가 쓰는 **바로 그 함수**를 불러 문다(§5의 `__progressMePayload` 관례).
+  const rows = __abilitiesPayload();
+  assert(rows.length > 0, '목 abilities가 비었다 — 선별식이 낡았나?');
+  for (const r of rows) {
+    assert(
+      Number.isInteger(r.knowledge_level),
+      `${r.concept_tag}의 knowledge_level이 정수가 아니다 — ${JSON.stringify(r.knowledge_level)} `
+        + '(없으면 /me 개념 칩이 4밴드 「초급」으로 내려앉는다)',
+    );
+    assert(Number.isInteger(r.knowledge_level_max), `${r.concept_tag}의 knowledge_level_max가 없다`);
+  }
+});
+
+check('🔴 목 abilities가 **반올림 전** θ로 단계를 낸다', () => {
+  // `/progress/me`가 같은 자리에서 이미 겪었다(바로 아래 검사) — 표시용 θ는 소수
+  // 2자리로 잘리는데 서버는 원값으로 세므로 경계에서 한 칸 갈린다.
+  const src = readFileSync(resolve(here, '..', 'mock', 'apiMockPlugin.js'), 'utf8');
+  const fn = src.slice(src.indexOf('const abilitiesPayload ='));
+  const body = fn.slice(0, fn.indexOf('\n    .sort('));
+  assert(
+    !/knowledge_level:\s*thetaToKnowledgeLevel\(\s*Number\(/.test(body)
+      && !/knowledge_level:\s*thetaToKnowledgeLevel\(row\.theta\)/.test(body),
+    'abilities가 반올림된 θ로 단계를 낸다 — 서버는 원값이라 경계에서 한 칸 갈린다',
+  );
+  assert(body.includes('devAbilities'), 'abilitiesPayload가 원 저장소(devAbilities)를 안 본다');
+});
+
 check('목이 반올림 전 θ로 단계를 낸다', () => {
   const src = readFileSync(resolve(here, '..', 'mock', 'apiMockPlugin.js'), 'utf8');
   const fn = src.slice(src.indexOf('function knowledgeLevelNow()'));

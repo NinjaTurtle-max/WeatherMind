@@ -24,6 +24,7 @@ from pathlib import Path
 import pytest
 
 from app.core.config import settings
+from app.routers.board import BOARD_TIERS
 from app.routers.session import QUESTION_PAYLOAD_FIELDS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -123,10 +124,142 @@ class TestMockDerivesFromSeed:
         ), "목이 content_items.json을 읽지 않는다 — 손으로 베낀 사본은 드리프트한다"
 
     def test_보드_퍼즐이_시드_board에서_파생된다(self, mock_src):
+        """🔴 **한 번 느슨해졌다가 되돌렸다**(2026-08-20, 클라이언트 판정).
+
+        정렬을 `orderPuzzlesForProgress(...)`로 감싸자 대입 뒤 글자가 달라져 이
+        계약이 울었다(파생 자체는 그대로였다). 그때 **정규식을 `[^;]*`으로 넓혀**
+        통과시켰고, 근거는 *「코드를 정규식에 맞춰 비트는 쪽이 더 나쁘다」*였다.
+
+        🔴 **결말: 넓히지도 비틀지도 않았다.** 판정이 「되돌린다」→「넓힘 유지」로
+        오갔는데, 되돌리기를 **실제로 손으로 해 보다가 셋째 형태**가 나왔다:
+        비교 함수 `byBoardOrder`를 빼서 **프로덕션과 표본이 그것을 공유**한다.
+        그러면 ⑴ 이 정규식이 요구하는 파생 형태가 그대로 지켜지고 ⑵ 표본이 무는
+        `orderPuzzlesForProgress`와 프로덕션이 **한 규칙**이라 사본이 안 생긴다.
+        **계약도 코드도 무르지 않는다.** 어드바이저가 앞 판정을 개정해 이 안을
+        채택했다.
+
+        ⚠️ 남길 원칙: **「계약 vs 코드」 갈림이 오면 판정 전에 「둘 다 안 무르는
+           셋째 형태가 있는가」를 먼저 묻는다.** 이 건은 판정자 둘이 연속으로
+           이분법을 그대로 받았고, 셋째를 찾은 것은 **되돌리기를 실제로 해 본 쪽**
+           이었다.
+        ⚠️ 그리고 계약을 느슨하게 하는 것은 세션이 스스로 결정하지 않는다
+           (같은 날 생긴 규정 — 이 건이 그 파이프의 첫 사례다).
+        """
         assert re.search(
             r"const BOARD_PUZZLES = SEED_ITEMS\.filter\(\(it\) => it\.question_type === 'board'\)",
             mock_src,
         ), "BOARD_PUZZLES가 시드 파생이 아니다 — 숫자를 손으로 맞추면 다시 갈라진다"
+
+    def test_보드_퍼즐_정렬이_표본과_같은_규칙을_쓴다(self, mock_src):
+        """🔴 **공유가 이 안의 요점이라 공유 자체를 문다**(2026-08-20).
+
+        정렬 규칙을 `byBoardOrder` 한 곳에 두고 **프로덕션(`BOARD_PUZZLES`)과
+        표본(`orderPuzzlesForProgress` → `board_order_samples`)이 함께 쓰는 것**이
+        「계약도 코드도 안 무르는 셋째 형태」의 핵심이다. 프로덕션만 다른 인라인
+        정렬로 갈라 놓으면 **표본은 여전히 초록인데 화면 순서만 갈린다.**
+
+        ⚠️ 되돌림에서 실제로 그랬다 — 프로덕션을 인라인 비교식으로 바꿔도
+           **53건 전부 통과**했다. 시드가 정수만 써서 오늘 산출이 같기 때문이고,
+           **행동 대조로는 못 잡는다**(오늘 세 번 밟은 「입력이 갈래를 안 밟아서
+           초록」이 여기서도 성립한다). 그래서 **링크를 직접** 문다.
+        """
+        m = re.search(
+            r"const BOARD_PUZZLES = SEED_ITEMS\.filter\([^\n]*\)\s*\n\s*\.sort\((\w+)\)",
+            mock_src,
+        )
+        assert m, (
+            "BOARD_PUZZLES가 이름 붙은 비교 함수로 정렬되지 않는다 — 인라인 정렬로 갈라지면 "
+            "표본이 무는 규칙과 화면이 쓰는 규칙이 달라진다"
+        )
+        comparator = m.group(1)
+        assert re.search(
+            rf"const orderPuzzlesForProgress = \(items\) => items\.slice\(\)\.sort\({comparator}\)",
+            mock_src,
+        ), (
+            f"표본이 무는 `orderPuzzlesForProgress`가 프로덕션과 다른 비교 함수를 쓴다 "
+            f"(프로덕션: {comparator}) — 규칙 사본이 둘로 갈렸다"
+        )
+
+    def test_해설_출처를_서버와_같은_우선순위로_낸다(self, mock_src):
+        """🔴 **사람이 쓴 해설에 「AI」 배지가 붙고 있었다**(2026-08-20 전수 대조).
+
+        목이 `feedback_source`를 **아예 안 보냈고**, 화면(`FeedbackPanel`)이 부재를
+        `ai`로 폴백한다. 그 파일 주석이 스스로 적어 두었다 —
+        *「배점 ⑤(생성형 AI 활용)에 직결되는 표기 오류」*.
+
+        서버 소유자는 `answer_service.feedback_source()`이고 **우선순위가 규칙**이다:
+        board → `board`, 사람 저작 해설 있으면 → `authored`, 없으면 → `ai`.
+        ⚠️ 값이 아니라 **우선순위**를 문다 — board인데 hint도 있는 문항에서
+           `authored`로 새면 「사람 글」과 「보드 판정」이 뒤바뀐다.
+        """
+        from app.services.answer_service import feedback_source
+
+        cases = [
+            {"question_type": "board", "explanation_hint": "사람이 쓴 해설"},
+            {"question_type": "board"},
+            {"question_type": "multiple_choice", "explanation_hint": "사람이 쓴 해설"},
+            {"question_type": "multiple_choice", "explanation_hint": "   "},
+            {"question_type": "multiple_choice"},
+            {"question_type": "slider", "explanation_hint": "사람이 쓴 해설"},
+        ]
+        out = subprocess.run(
+            [
+                "node", "--input-type=module", "-e",
+                "import { __feedbackSourceOf } from "
+                f"'{MOCK_PATH}';"
+                "const cs = JSON.parse(process.argv[1]);"
+                "process.stdout.write(JSON.stringify("
+                "cs.map((c) => __feedbackSourceOf(c.question_type, c))));",
+                "--", __import__("json").dumps(cases),
+            ],
+            capture_output=True, text=True, timeout=60,
+        )
+        assert out.returncode == 0, f"목 함수 호출 실패:\n{out.stdout}\n{out.stderr}"
+        got = __import__("json").loads(out.stdout)
+        want = [feedback_source(c) for c in cases]
+        assert got == want, (
+            f"해설 출처 규칙이 갈렸다 — 목 {got} vs 서버 {want}\n"
+            "  (부재를 화면이 `ai`로 폴백하므로, 갈리면 사람 글에 AI 배지가 붙는다)"
+        )
+
+    def test_해설_출처를_응답에_싣는다(self, mock_src):
+        """🔴 **규칙이 맞아도 안 실으면 소용없다** — 원래 결함이 바로 그것이었다.
+
+        앞 검사는 파생 **규칙**을 문다. 되돌림에서 확인했다: 규칙은 그대로 두고
+        **호출부만** 상수로 바꿨더니 앞 검사가 **통과**했다. 목이 값을 안 실으면
+        화면은 다시 `ai`로 폴백한다 — 고치기 전과 같은 상태다.
+        ⇒ 답안 응답이 그 값을 **실제로 싣는지**, 그리고 그 값이 **파생분인지**를 문다.
+
+        ⚠️ 한계: 소스 문자열 검사다. 실행 대조는 `frontend/scripts/mock_capture.mjs`가
+           하고, 그쪽은 **분기 하나만** 밟는다(만회 분기·보드 분기는 표본 밖).
+           그래서 여기서는 **답안 응답 자리 수만큼** 실렸는지를 센다.
+        """
+        # ⚠️ 선별식은 **답안 결과 객체**만 잡아야 한다. 처음엔 `is_correct: isCorrect,`로
+        #    썼다가 배치 일괄채점 등 6자리를 잡아 **기준선에서 빨강**이 났다 —
+        #    계약이 코드를 틀렸다고 한 것이 아니라 **선별식이 틀렸다.**
+        #    답안 결과는 `feedback`을 `_mock`의 정·오답 문구로 고르는 자리다.
+        results = re.findall(
+            r"feedback: isCorrect \? item\._mock\.feedbackCorrect", mock_src
+        )
+        carried = re.findall(r"feedback_source: item\._mock\.feedbackSource", mock_src)
+        assert results, "답안 응답 자리를 못 찾았다 — 선별식이 낡았다(공허 통과 방지)"
+        assert len(carried) == len(results), (
+            f"답안 응답 {len(results)}자리 중 {len(carried)}곳만 `feedback_source`를 싣는다 "
+            "— 안 싣는 자리는 화면이 `ai`로 폴백해 사람 글에 AI 배지가 붙는다"
+        )
+        # 🔴 **파생 링크도 문다.** 되돌림에서 확인했다: 규칙 함수와 응답 적재를 그대로
+        #    두고 **그 사이 호출부만** 상수로 바꿨더니 앞의 두 검사가 **둘 다 통과**했다.
+        #    그러면 모든 문항이 `ai`가 되어 고치기 전과 같다 — 사슬은 **세 마디**다:
+        #    규칙(`feedbackSourceOf`) → 파생(`seedGrading`) → 적재(응답).
+        assert re.search(
+            r"const feedbackSource = feedbackSourceOf\(", mock_src
+        ), (
+            "`seedGrading`이 `feedbackSourceOf`로 파생하지 않는다 — 규칙과 응답이 멀쩡해도 "
+            "그 사이가 상수면 모든 문항이 같은 출처가 된다"
+        )
+        assert "feedback_source: 'ai'" not in mock_src, (
+            "`feedback_source`를 상수로 박았다 — 파생이 아니면 서버 규칙이 바뀔 때 조용히 갈린다"
+        )
 
     def test_목의_하루_경계가_KST다(self, mock_src):
         """목의 "오늘" == 서버의 "오늘" (KST). R10-01 D9 — 웨이브 2 확인 항목.
@@ -350,8 +483,22 @@ class TestMockServerParity:
             for field in required:
                 if field not in template:
                     broken.append(f"{puzzle['content_item_id']}: {field} 없음")
-            if puzzle.get("difficulty") not in (1, 2, 3):
-                broken.append(f"{puzzle['content_item_id']}: difficulty={puzzle.get('difficulty')}")
+            # 🔴 2026-08-20 축 교체: `difficulty`(파생 1~3)가 응답에서 **사라졌다**.
+            #    종전 단정은 `difficulty in (1, 2, 3)`이었고, 축이 갈아탄 뒤 64판 전건이
+            #    `None`이 되어 **이 파일이 빨강**이었다(어느 담당 목록에도 없던 자리 —
+            #    소거 담당이 잔재 조사에서 찾았다).
+            # ⚠️ 새 축은 **값이 없을 수 있다**(`knowledge_level`은 저작값이고 미저작
+            #    문항이 있을 수 있다). 그때는 잠그지 않는 것이 규칙이므로(`locked_tiers`)
+            #    「값이 반드시 있다」로 물면 **잠금 정책과 어긋난 계약**이 된다.
+            #    ⇒ 있으면 **정의역 안**인지만 본다.
+            tier = puzzle.get("knowledge_level")
+            if tier is not None and tier not in BOARD_TIERS:
+                broken.append(f"{puzzle['content_item_id']}: knowledge_level={tier} — 층 정의역 밖")
+            if "difficulty" in puzzle:
+                broken.append(
+                    f"{puzzle['content_item_id']}: 옛 파생 필드 difficulty가 살아 있다 "
+                    "— 한 축에 이름이 둘이면 읽는 사람이 어느 뜻인지 알 방법이 없다"
+                )
         assert not broken, "목 보드 퍼즐 렌더 필드 누락:\n  " + "\n  ".join(broken)
 
     def test_지도_좌표가_시드와_같다(self, fixtures):

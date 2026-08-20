@@ -206,13 +206,18 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   const unsetGoal = $('[data-testid="learn-goal"]');
   ok(Boolean(unsetGoal), '목표 미설정이어도 오늘의 목표 자리가 남는다');
   ok(unsetGoal?.getAttribute('data-goal-state') === 'unset', '미설정 상태로 표시된다');
-  // 설정 통로는 내 정보다 — 카드가 좁아 3버튼 피커를 박지 않는다(2026-08-09 결정).
-  // **해시까지 본다**(2026-08-11): 목표 카드가 내 정보 꼬리로 내려가면서 그냥
-  // `/me`로 보내면 능력 분석 판 두 화면 위에 떨어진다. 목표를 정하러 온 사람이
-  // 목표 카드를 못 보는 링크는 통로가 아니다. 앵커가 실재하는지는 ⑦에서 본다.
+  // 🔴 **목적지가 바뀌었다**(2026-08-19 클라이언트 지시 · 2026-08-20 어드바이저 판정으로
+  // 이 계약을 집행). 종전 단정은 `'/me#daily-goal'`이었고, 근거는 *「카드가 좁아 3버튼
+  // 피커를 박지 않는다」(08-09) + 「해시까지 본다 — 그냥 `/me`로 보내면 능력 분석 판
+  // 두 화면 위에 떨어진다」(08-11)* 였다. **그 근거는 카드가 `/me`에 있을 때의
+  // 이야기다.** 지금은 없다 — 「내 정보에는 목표 선정이 필요 없다, 시작 시점에 묻는다」
+  // 로 피커가 걷혔고(`LearnHeroCard.jsx:129`가 그 경위를 소유한다), 앵커를 그대로 두면
+  // 링크가 **빈 화면 끝으로** 간다. 그래서 **목표를 실제로 묻는 자리**로 보낸다.
+  // ⚠️ 단정을 지운 것이 아니라 **방향을 바꿨다** — 앵커가 실재하는지는 ⑦이 계속 보되,
+  //    이제 **없어야 한다**를 문다(⑥-b와 같은 방향). 피커 자체는 ⑨가 사는 자리에서 센다.
   ok(
-    unsetGoal?.getAttribute('href') === '/me#daily-goal',
-    `미설정 자리가 목표 카드로 보낸다 — 실제 ${unsetGoal?.getAttribute('href')}`,
+    unsetGoal?.getAttribute('href') === '/onboarding/placement',
+    `미설정 자리가 목표를 묻는 자리로 보낸다 — 실제 ${unsetGoal?.getAttribute('href')}`,
   );
   // ⚠️ **접히는 열 안으로 들어가지 않았는가.** 2026-08-10 코드 리뷰에서 잡혔다:
   // 목표가 `hidden lg:block` 열 안에 있어 1024px 미만에서 표시와 설정 통로가
@@ -396,53 +401,81 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
   ok((radar.getAttribute('aria-label') ?? '').length > 0, '레이더가 읽을 수 있는 요약(aria-label)을 준다');
   ok($$('ul li').length > 0, '기존 가로 막대 목록이 그대로 남아 있다');
 
-  // 목표 설정 카드 — /learn 배너의 「목표 미설정」이 겨냥하는 **앵커가 실재하는가**.
-  // 위 ④는 href만 본다: 링크가 `#daily-goal`을 가리켜도 그런 id가 없으면
-  // 브라우저는 페이지 맨 위에 그냥 떨어뜨린다(끊긴 통로가 초록으로 통과한다).
-  // 기다림과 판정을 나눈다 — 맨 `await waitFor(...)`는 던지므로 이 블록의
-  // 나머지와 **서버 정리(vite.close·httpServer.close)까지 건너뛴다**.
-  // ⚠️ 이 파일에 그런 맨 waitFor가 아직 여럿 남아 있다(같은 블록에도 있다) —
-  // 여기만 고쳤다고 파일 전체가 그 규칙을 지키는 것은 아니다. 새로 쓸 때 이
-  // 꼴을 따르고, 기존 것은 손대는 김에 하나씩 옮긴다(2026-08-11 코드 리뷰).
-  const goalCard = await waitFor(() => $('#daily-goal') !== null, 6000, '')
-    .then(() => true)
-    .catch(() => false);
-  ok(goalCard, '내 정보에 목표 설정 카드(#daily-goal)가 없다');
-
-  // **저장해도 사라지지 않는다** + **확인 문구가 이번 저장에만 뜬다**.
+  // 🔴 **없음을 문다**(2026-08-20 판정 집행). 종전에는 `/me`에 `#daily-goal` 카드가
+  // **있어야** 한다고 물었다. 그 피커는 **클라이언트 지시로 걷혔고**(내 정보에는 목표
+  // 선정이 필요 없다 — 시작 시점에 묻는다), `loadProgress.contract` ⑥-b가 이미 같은
+  // 방향을 물며 **통과 중이었다.** 즉 두 계약이 서로 반대였고 이쪽만 안 따라왔다.
   //
-  // ⚠️ 이 검사는 한 번 **헛돌았다**(2026-08-11 코드 리뷰). 위 ④에서 이미 목표를
-  // 5로 저장해 목이 그 값을 들고 있어서, `waitFor(확인 문구)`가 클릭과 무관하게
-  // 0ms에 통과했다. 계측해 보니 클릭 **전에** 이미 확인 문구가 떠 있었다.
-  // 그래서 순서를 뒤집는다: 새로 연 /me에는 확인 문구가 **없어야** 하고(방금
-  // 저장한 게 아니다), **다른 값**을 눌러야 그 값으로 뜬다.
+  // ⚠️ **있는 것만 세면 카드가 되살아나도 조용하다** — ⑥-b가 적어 둔 그 이유가 여기도
+  // 그대로다. 그래서 `grep`이 아니라 **실제 렌더 결과**를 본다.
+  // ⚠️ 커버리지는 **지운 것이 아니라 옮겼다** — 피커가 몇 개 버튼을 주고 눌렀을 때
+  //    저장되는지는 **⑨**가 그 카드가 실제로 사는 자리에서 센다.
+  ok(!$('#daily-goal'), '🔴 /me에 목표 설정 카드가 없다(피커는 진입 시점으로 옮겨졌다)');
   ok(
-    !text().includes('오늘부터 하루'),
-    '아무것도 안 눌렀는데 저장 확인 문구가 떠 있다(이미 정해 둔 사람에게 매번 뜬다)',
+    !text().includes('하루 목표를 정해요'),
+    '🔴 /me에 하루 목표 피커 제목이 없다',
   );
-  // ④가 5문항으로 저장해 뒀다 — 겹치지 않게 **세 번째 버튼**을 누른다.
-  //
-  // 🔴 **문항 수를 여기 적지 않는다**(2026-08-20 정정). 종전엔 `'하루 9문항'`을
-  //   문자열로 박아 뒀는데, **이 커밋이 바로 그 9를 10으로 바꾼 커밋**이다
-  //   (`DAILY_GOAL_CHOICES = [3, 5, SESSION_ITEMS]` · `SESSION_ITEMS = 10`).
-  //   그래서 이 브랜치는 **자기 자신만으로도 붉었다** — 통합에서 처음 보인 것이
-  //   아니라 처음부터 붉었고, 다른 빨강에 섞여 안 보였을 뿐이다.
-  //   ⇒ 기대값을 **선택지에서 읽는다.** 상한이 또 바뀌어도 이 계약은 안 낡는다.
+
+  r.unmount();
+}
+
+// ── ⑨ 하루 목표 피커 — **카드가 실제로 사는 자리에서 센다** ─────────────────
+//
+// 🔴 ⑦이 「`/me`에 없다」로 바뀌면서 **피커 자체를 아무도 안 보게 될 뻔했다.** 그것이
+// 이 블록이 있는 이유다 — 커버리지를 **지우지 않고 옮긴다.**
+// ⚠️ `mount('/onboarding/placement')`로는 **안 보인다.** 그 라우트 진입은 배치고사
+//    **시작**이고, 피커는 `PlacementSummary`(완료 후 결과 화면) 안에 있다. 그래서
+//    컴포넌트를 직접 마운트한다 — 우회가 아니라 **카드가 사는 자리**다.
+// ⚠️ `home.smoke:400`의 경고를 지킨다: *「href만 맞추고 카드를 안 만드는 수리」*는
+//    계약을 통과시키고 사용자는 못 가는 형태다. ④의 href와 이 블록이 **한 쌍**이라야
+//    통로가 끝까지 이어진 것이 증명된다.
+{
   const { DAILY_GOAL_CHOICES } = await vite.ssrLoadModule('/src/lib/onboardingGate.js');
-  const goalBtns = $$('#daily-goal button');
+  const PlacementSummary = (await vite.ssrLoadModule('/src/modules/onboarding/PlacementSummary.jsx')).default;
+
+  const container = window.document.getElementById('root');
+  const reactRoot = createRoot(container);
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, gcTime: 0, staleTime: 0 } },
+  });
+  reactRoot.render(
+    createElement(QueryClientProvider, { client: qc },
+      createElement(MemoryRouter, { initialEntries: ['/onboarding/placement'] },
+        createElement(PlacementSummary, { summary: { abilities: [], total: 6, correct_count: 4 }, onDone: () => {} }))),
+  );
+
+  // 🔴 **`#daily-goal`로 찾지 않는다 — 그 앵커는 앱 어디에도 없다**(2026-08-20 실측).
+  //    `DailyGoalPicker`는 `id`를 **prop으로** 받는데(`DailyGoal.jsx:42`) 넘기는 곳이
+  //    **0곳**이고, `GOAL_ANCHOR`(`:31`)는 내보내기만 하고 **소비처가 없다**. 즉 옛 ④가
+  //    가리키던 `#daily-goal`은 **처음부터 닿을 수 없는 주소**였다 — 목적지를 바꾼 것이
+  //    옳았다는 증거이기도 하다. ⇒ 피커의 **실제 표식**(제목)으로 찾는다.
+  const PICKER_TITLE = '하루 목표를 정해요';
+  await waitFor(() => text().includes(PICKER_TITLE), 6000, '결과 화면의 목표 설정 카드');
+  // 제목을 품은 **가장 안쪽** div = 피커 뿌리(문서 순서라 마지막이 최심부다).
+  const picker = $$('div').filter((d) => d.textContent.includes(PICKER_TITLE)).pop();
+  ok(Boolean(picker), '🔴 목표를 묻는 자리에 카드가 실재한다(④의 링크가 닿는 곳)');
+
+  // 🔴 **개수를 그대로 문다.** `> 0`으로 약화하고 싶어지는 자리다 — 그러면 선택지가
+  //    하나로 줄어도 조용하다. 기대값은 **선택지에서 읽는다**(상한이 또 바뀌어도 안 낡는다).
+  // ⚠️ 피커 **안**의 버튼만 센다 — 결과 화면에는 「학습 시작하기」 버튼도 있다.
+  const goalBtns = [...picker.querySelectorAll('button')];
   ok(goalBtns.length === DAILY_GOAL_CHOICES.length,
     `목표 선택 버튼 ${DAILY_GOAL_CHOICES.length}개 — 실제 ${goalBtns.length}`);
+
   if (goalBtns.length === DAILY_GOAL_CHOICES.length) {
+    // ⚠️ 확인 문구는 **이번 저장에만** 떠야 한다 — 아무것도 안 눌렀는데 떠 있으면
+    //    이미 정해 둔 사람에게 매번 뜬다(2026-08-11에 실제로 헛돌았던 자리다).
+    ok(!text().includes('오늘부터 하루'), '아무것도 안 눌렀는데 저장 확인 문구가 떠 있다');
     const pick = DAILY_GOAL_CHOICES[DAILY_GOAL_CHOICES.length - 1].items;
     goalBtns[goalBtns.length - 1].dispatchEvent(new window.Event('click', { bubbles: true }));
     const saved = await waitFor(() => text().includes(`하루 ${pick}문항`), 6000, '')
       .then(() => true)
       .catch(() => false);
     ok(saved, `${pick}문항을 눌렀는데 저장 확인 문구가 안 뜬다`);
-    ok(Boolean($('#daily-goal')), '저장 직후 목표 카드가 사라졌다(확인 문구를 볼 수 없다)');
+    ok(text().includes(PICKER_TITLE), '저장 직후 목표 카드가 사라졌다(확인 문구를 볼 수 없다)');
   }
 
-  r.unmount();
+  reactRoot.unmount();
 }
 
 // ── ⑧ 모바일 겹침 **구조** 계약 (B3 — 대장 §4.15) ──────────────────────────

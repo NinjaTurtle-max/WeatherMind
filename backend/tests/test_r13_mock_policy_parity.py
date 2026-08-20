@@ -21,6 +21,7 @@ import json
 import re
 import shutil
 import subprocess
+from itertools import permutations
 from pathlib import Path
 
 import pytest
@@ -32,6 +33,10 @@ from app.services import session_service
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MOCK_PATH = REPO_ROOT / "frontend" / "mock" / "apiMockPlugin.js"
 SESSION_ROUTER = REPO_ROOT / "backend" / "app" / "routers" / "session.py"
+AUTH_ROUTER = REPO_ROOT / "backend" / "app" / "routers" / "auth.py"
+WEATHERBRAIN_SERVICE = (
+    REPO_ROOT / "backend" / "app" / "services" / "weatherbrain_service.py"
+)
 
 NODE = shutil.which("node")
 needs_node = pytest.mark.skipif(
@@ -65,6 +70,301 @@ def policy() -> dict:
 @pytest.fixture(scope="module")
 def session_src() -> str:
     return SESSION_ROUTER.read_text(encoding="utf-8")
+
+
+@pytest.fixture(scope="module")
+def mock_src() -> str:
+    return MOCK_PATH.read_text(encoding="utf-8")
+
+
+@pytest.fixture(scope="module")
+def auth_src() -> str:
+    return AUTH_ROUTER.read_text(encoding="utf-8")
+
+
+def _fn_body_of(src: str, name: str) -> str:
+    """`function <name>() {` 부터 열 0의 `}` 까지 — **코드부만** 돌려준다.
+
+    🔴 **주석을 반드시 걷는다.** 이 저장소는 문자열 존재로 정책을 재는 검사가
+    **주석 하나에 속은** 전례를 갖고 있다(`grant_crown=False`가 경위 설명 주석에
+    남아 있어 계약이 초록이었다). 이 파일이 무는 목 주석에는 판정 문언이 그대로
+    인용돼 있어서, 걷지 않으면 **설명이 곧 구현**으로 읽힌다.
+    """
+    m = re.search(rf"function {re.escape(name)}\(\)\s*\{{(.*?)\n\}}", src, re.S)
+    assert m, f"목에서 {name}를 못 찾았다 — 이름이 바뀌었나(이 계약을 갱신할 것)"
+    no_block = re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S)
+    return "\n".join(
+        line for line in no_block.splitlines() if not line.lstrip().startswith("//")
+    )
+
+
+def _strip_js_comments(body: str) -> str:
+    """`_fn_body_of`와 **같은 이유**로 주석을 걷는다(그 독스트링이 경위를 소유한다)."""
+    no_block = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
+    return "\n".join(
+        line for line in no_block.splitlines() if not line.lstrip().startswith("//")
+    )
+
+
+def _route_body_of(src: str, route: str) -> str:
+    """목 `routes` 표의 한 핸들러 몸통 — **코드부만** 돌려준다.
+
+    `_fn_body_of`가 `function name()` 선언만 찾으므로 화살표 핸들러
+    (`'PATCH /auth/me': (body) => { … }`)는 그 정규식으로 잡히지 않는다.
+    중괄호를 세어 끝을 찾는다 — 문자열 안 중괄호에 속을 수 있으나, 이 핸들러들은
+    한글 문구를 큰따옴표 없이 담고 중괄호를 문자열에 넣지 않는다(넣게 되면 이
+    헬퍼가 먼저 터지므로 조용히 틀리지는 않는다).
+
+    🔴 **주석을 반드시 걷는다.** 이 계약이 무는 핸들러 주석에는 재파종 규칙과
+    함수 이름이 그대로 인용돼 있어서, 걷지 않으면 **설명이 곧 구현**으로 읽힌다
+    (이 저장소가 `grant_crown=False`에서 실제로 속은 형태).
+    """
+    head = re.search(rf"['\"]{re.escape(route)}['\"]\s*:\s*\([^)]*\)\s*=>\s*\{{", src)
+    assert head, f"목 routes에서 `{route}` 핸들러를 못 찾았다 — 모양이 바뀌었나"
+    depth, i = 0, head.end() - 1
+    for i in range(head.end() - 1, len(src)):
+        if src[i] == "{":
+            depth += 1
+        elif src[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+    return _strip_js_comments(src[head.end() : i])
+
+
+def _py_fn_body(src: str, name: str) -> str:
+    """파이썬 함수 몸통 — **독스트링과 `#` 주석을 걷은** 코드부만.
+
+    JS 쪽과 같은 이유다: 서버 `update_me`의 독스트링에는 판정 문언이 인용될
+    것이므로, 걷지 않으면 「설명이 곧 구현」이 된다.
+    """
+    m = re.search(
+        rf"^(?:async )?def {re.escape(name)}\(.*?(?=\n@|\n(?:async )?def |\Z)",
+        src,
+        re.S | re.M,
+    )
+    assert m, f"서버에서 {name}를 못 찾았다 — 이름이 바뀌었나(이 계약을 갱신할 것)"
+    no_doc = re.sub(r'"""(?:.|\n)*?"""', "", m.group(0))
+    return "\n".join(
+        line.split("#")[0] for line in no_doc.splitlines()
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 학령 재신고 θ 재파종 표본의 **갈래 밟기** — 모듈 수준 헬퍼 (2026-08-20)
+# ═══════════════════════════════════════════════════════════════
+#
+# 🔴 위 `_assert_samples_tread_branches`와 **같은 이유로 밖에 있다**: 역검증이
+# 「표본에서 갈림 표본을 빼면 이 단정이 우는가」를 **목 파일을 임시 편집하지 않고**
+# 확인할 수 있어야 한다(공유 워크트리 — 남의 측정을 거짓으로 만들지 않는다).
+#
+# 왜 필요한가: 재파종은 **답이 같아 보이기 쉬운** 규칙이다. 목이 「전건 갈아타기」로
+# 잘못 구현돼 있어도, 표본의 측정된 행 θ가 마침 목표 사전값 근처면 답이 안 갈린다 —
+# 2026-08-20에 `palette` 갈래가 정확히 그렇게 공허하게 초록이었다.
+def _assert_reseed_samples_tread_branches(
+    samples: list, priors: dict, default_b: float
+) -> None:
+    assert samples, "목이 재파종 표본(`reseed_samples`)을 안 내보낸다"
+
+    def target(case):
+        return priors.get(case["to"], default_b)
+
+    # ⑴ **측정된 행이 목표 사전값과 멀리 있어야** 「전건 덮기」 결함이 답을 바꾼다.
+    guarded = [
+        r
+        for s in samples
+        for r in s["rows"]
+        if r["num_responses"] > 0 and abs(float(r["theta"]) - target(s)) > 0.5
+    ]
+    assert guarded, (
+        "표본에 **측정된 행(n>0)이 목표 사전값과 뚜렷이 다른** 경우가 없다 — "
+        "그러면 재파종이 측정분까지 덮어도 답이 안 갈려 이 계약이 공허하게 초록이다"
+    )
+    # ⑵ **미측정 행이 목표 사전값과 달라야** 「재파종을 아예 안 한다」가 답을 바꾼다.
+    moved = [
+        r
+        for s in samples
+        for r in s["rows"]
+        if r["num_responses"] == 0 and abs(float(r["theta"]) - target(s)) > 0.5
+    ]
+    assert moved, (
+        "표본에 **미측정 행(n=0)이 목표 사전값과 뚜렷이 다른** 경우가 없다 — "
+        "그러면 재파종을 안 해도 답이 같아 「천장이 움직인다」가 검사되지 않는다"
+    )
+    # ⑶ **n=1 경계** — 가드를 `n > 1`로 잘못 쓰면 여기서만 갈린다.
+    assert any(r["num_responses"] == 1 for s in samples for r in s["rows"]), (
+        "표본에 `num_responses == 1`인 행이 없다 — 「측정됐다」의 경계라, 이 갈래를 "
+        "안 밟으면 가드가 한 칸 밀려도(n>1) 조용히 통과한다"
+    )
+    # ⑷ **사전표에 없는 밴드** — 기본값 폴백 갈래.
+    assert any(s["to"] not in priors for s in samples), (
+        "표본이 **알 수 없는 밴드** 갈래를 안 밟는다 — `?? DEFAULT_ITEM_B` 폴백이 "
+        "갈려도 아무도 안 운다"
+    )
+    # ⑸ 목표 사전값이 **서로 다른 밴드 둘 이상** — 한 밴드만 밟으면 목이 표를
+    #    안 읽고 상수를 돌려줘도 통과한다.
+    assert len({target(s) for s in samples}) >= 2, (
+        "표본의 목표 사전값이 한 종류뿐이다 — 목이 밴드 표를 읽지 않고 상수를 "
+        "심어도 답이 같다"
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 보드 진행 순서 표본의 **갈래 밟기** — 모듈 수준 헬퍼 (2026-08-20 판정 4)
+# ═══════════════════════════════════════════════════════════════
+#
+# 🔴 **테스트 안에 있던 것을 밖으로 뺐다**(단정은 한 줄도 지우지 않았고 늘렸다).
+# 이유는 역검증이다: 「표본에서 갈림 표본을 빼면 이 단정이 우는가」를 확인하려면
+# **목 파일을 임시로 편집하지 않고** 표본만 걸러 이 함수에 넘길 수 있어야 한다
+# (같은 날 신설된 역검증 규칙 — 공유 워크트리에서 남의 측정을 거짓으로 만들지 않는다).
+#
+# 왜 이 단정들이 있나: **갈래를 밟는 것만으로는 부족하다.** 갈리면 답이 실제로
+# 달라지는 표본이어야 한다 — 2026-08-20에 `palette` 갈래가 2개짜리만 남아
+# `len(palette) >= 3` 가지를 지워도 초록이었고, 같은 함정을 하루에 세 번 밟았다.
+
+
+def _is_bool(v) -> bool:
+    """⚠️ 파이썬에서 `isinstance(True, int)`는 참이므로 bool을 **먼저** 가른다."""
+    return isinstance(v, bool)
+
+
+def _is_int(v) -> bool:
+    return not _is_bool(v) and isinstance(v, int)
+
+
+def _is_real_float(v) -> bool:
+    """비정수 실수만 본다 — `3.0`은 JSON을 건너며 int 3이 되어 구분이 없다
+    (JS에 int/float 구분 자체가 없다). 그 한계는 목 주석이 소유한다."""
+    return isinstance(v, float) and not v.is_integer()
+
+
+def _orders_of(case) -> list:
+    """2차 키 축(`template_json.board_order`)의 값들."""
+    return [(t or {}).get("board_order") for t in case["templates"]]
+
+
+def _tiers_of(case) -> list:
+    """1차 키 축(**컬럼** `knowledge_level`)의 값들.
+
+    ⚠️ 층은 `template_json` 안이 아니라 속성이다 — 서버 `board_tier`가
+    `getattr(item, "knowledge_level")`을 읽는다. 목이 `tiers`를 안 실어 보내는
+    표본(축이 늘기 전부터 있던 ⓐ~ⓘ)은 전건 미상으로 읽는다.
+    """
+    tiers = case.get("tiers")
+    if not tiers:
+        return [None] * len(case["templates"])
+    return list(tiers)
+
+
+def _assert_samples_tread_branches(samples: list) -> None:
+    """표본이 **갈리면 순서가 실제로 달라지는** 모양인지 문다.
+
+    두 축을 같은 방식으로 문다 — 2차 키(`board_order`) 네 갈래는 2026-08-20
+    B조가 세운 것이고, 1차 키(층) 다섯 갈래가 같은 날 판정 4로 붙었다.
+    """
+    # ── 2차 키(board_order) 축 ────────────────────────────────────────────
+    assert any(
+        any(_is_real_float(v) for v in _orders_of(c))
+        and any(
+            _is_int(v) and v > f
+            for v in _orders_of(c)
+            for f in _orders_of(c)
+            if _is_real_float(f)
+        )
+        for c in samples
+    ), (
+        "표본에 **비정수 실수 + 그보다 큰 정수** 조합이 없다 — 실수를 뒤로 "
+        "보내든 앞에 두든 순서가 같아 규칙이 갈려도 초록이 된다"
+    )
+    assert any(
+        any(_is_bool(v) for v in _orders_of(c))
+        and any(_is_int(v) and v > 1 for v in _orders_of(c))
+        for c in samples
+    ), (
+        "표본에 **불리언 + 1보다 큰 정수** 조합이 없다 — bool을 맨 앞에 세우든 "
+        "뒤로 보내든 순서가 같아 규칙이 갈려도 초록이 된다"
+    )
+    assert any(
+        len([v for v in _orders_of(c) if _is_int(v)])
+        != len({v for v in _orders_of(c) if _is_int(v)})
+        for c in samples
+    ), "표본에 **동률**이 없다 — 안정 정렬이 깨져도 아무 소리가 안 난다"
+    assert any(
+        any(v is None for v in _orders_of(c))
+        and any(isinstance(v, int) for v in _orders_of(c))
+        for c in samples
+    ), "표본에 **없는 것과 있는 것이 섞인** 경우가 없다 — 뒤로 보내는 규칙을 못 본다"
+
+    # ── 1차 키(층 = 지식 단계) 축 — 판정 4 ────────────────────────────────
+    # ⚠️ 층이 답을 정해야 하는 갈래에서는 `board_order`가 **전건 같은 값**이어야
+    #    한다. 2차 키가 갈래마다 다르면 그것이 답을 정해 버려서, 층 규칙이 갈려도
+    #    순서가 같아진다(= 갈래는 밟는데 조용하다).
+    def tier_decides(c) -> bool:
+        return len(set(_orders_of(c))) == 1
+
+    assert any(
+        any(v is None for v in _tiers_of(c))
+        and any(_is_int(v) for v in _tiers_of(c))
+        and tier_decides(c)
+        for c in samples
+    ), (
+        "표본에 **층이 없는 것과 있는 것이 섞이고 board_order가 전건 같은** 경우가 "
+        "없다 — 층 부재를 뒤로 보내든 앞으로 보내든 순서가 같아 조용히 통과한다"
+    )
+    assert any(
+        len([v for v in _tiers_of(c) if _is_int(v)])
+        != len({v for v in _tiers_of(c) if _is_int(v)})
+        and len(set(_orders_of(c))) > 1
+        for c in samples
+    ), (
+        "표본에 **층 동률 + board_order 상이**가 없다 — 2차 키를 통째로 잃어도 "
+        "(안정 정렬이 입력 순서를 내므로) 아무 소리가 안 난다"
+    )
+    assert any(
+        any(_is_real_float(v) for v in _tiers_of(c))
+        and any(
+            _is_int(v) and v > f
+            for v in _tiers_of(c)
+            for f in _tiers_of(c)
+            if _is_real_float(f)
+        )
+        and tier_decides(c)
+        for c in samples
+    ), (
+        "표본에 **층이 비정수 실수 + 그보다 큰 정수 층**인 경우가 없다 — 목의 층 "
+        "추출 가드가 `typeof v === 'number'`로 되돌아가도 순서가 같아 조용하다"
+    )
+    assert any(
+        any(_is_bool(v) for v in _tiers_of(c))
+        and any(_is_int(v) and v > 1 for v in _tiers_of(c))
+        and tier_decides(c)
+        for c in samples
+    ), (
+        "표본에 **층이 불리언 + 1보다 큰 정수 층**인 경우가 없다 — 파이썬에서 "
+        "bool은 int라 `true`가 키 1로 맨 앞에 서는데, 그 기벽이 갈려도 조용하다"
+    )
+    # 🔴 **가장 중요한 갈래** — 두 축이 같은 방향이면 어느 키로 정렬해도 답이 같아
+    #    「1차 키가 층이다」를 잃어도 조용하다. 그래서 **서로 반대인** 쌍을 요구한다.
+    #    ⚠️ 여기서 정렬 규칙을 다시 구현하지 않는다(사본이 된다) — 「층은 오름,
+    #    board_order는 내림인 쌍이 존재하는가」라는 **표본 모양**만 본다.
+    assert any(
+        any(
+            ti < tj and oi > oj
+            for (ti, oi), (tj, oj) in permutations(
+                [
+                    (t, o)
+                    for t, o in zip(_tiers_of(c), _orders_of(c))
+                    if _is_int(t) and _is_int(o)
+                ],
+                2,
+            )
+        )
+        for c in samples
+    ), (
+        "표본에 **층 순서와 board_order 순서가 서로 반대인** 쌍이 없다 — 두 축이 "
+        "같은 방향이면 어느 키로 정렬해도 답이 같아, 1차 키가 층에서 board_order로 "
+        "되돌아가도 조용히 통과한다"
+    )
 
 
 @needs_node
@@ -205,16 +505,44 @@ class TestLevelGroups:
 
         assert policy["guest_email_domain"] == GUEST_EMAIL_DOMAIN
 
-    def test_보드_난이도_잠금표가_같다(self, policy):
-        """학습 수준 → 열리는 최고 난이도 (2026-08-10).
+    def test_보드_밴드_천장이_서버_파생값과_같다(self, policy):
+        """학습 수준 → 열리는 **최고 층**(2026-08-20 축 교체).
 
-        목이 서버보다 **느슨하면** 목 위 스모크·디자인 확인에서는 열리는 퍼즐이
+        종전 이 자리는 `board_band_max_difficulty`(학령→파생 난이도 1~3 표)를
+        대조했다. 퍼즐 잠금 축이 **지식 단계(1~10)**로 갈아탔으므로 그 표는 목에서
+        사라졌고, 같은 성질을 새 축에서 잰다 — 지키는 것은 그때와 같다:
+        목이 서버보다 **느슨하면** 목 위 스모크·디자인 확인에서 열리는 퍼즐이
         실서버에서 403이 되고, **빡빡하면** 그 반대다. 어느 쪽이든 목으로 본
-        화면이 거짓말이 된다 — CO-J-9가 정확히 그 모양이었다.
-        """
-        from app.routers.board import BAND_MAX_DIFFICULTY
+        화면이 거짓말이 된다(CO-J-9가 정확히 그 모양이었다).
 
-        assert policy["board_band_max_difficulty"] == BAND_MAX_DIFFICULTY
+        🔴 **기대값을 여기 다시 적지 않는다.** 서버 함수를 그 자리에서 불러
+        파생시킨다 — 값을 옮겨 적으면 이 계약이 자기 사본을 대조하게 되고,
+        그것이 애초에 J-9가 생긴 방식이다. 서버 dict를 돌며 만들기 때문에
+        **밴드가 목에서 사라지는 것(키 집합 드리프트)까지** 이 한 줄이 문다.
+
+        ⚠️ 이것은 서버 천장 파생의 **1순위 경로**(진단 전 기본 θ = 사전 b)만
+        대조한다. 서버의 두 번째 폴백 `knowledge_level_of_level_group`(1·3·5·7)은
+        값이 다르고 그것은 **선재 어긋남**이라 대장에 기록돼 있다 — 이 테스트를
+        그쪽 폴백으로 "고치지" 말 것. 목은 1순위 경로만 흉내 낸다.
+        """
+        from app.services import weatherbrain_service as wb
+
+        assert policy["board_level_group_tier"] == {
+            band: wb.theta_to_knowledge_level(item_b)
+            for band, item_b in wb.LEVEL_GROUP_ITEM_B.items()
+        }
+
+    def test_보드_층수가_같다(self, policy):
+        """층의 **개수**(잠금 집합의 정의역) — 서버 `KNOWLEDGE_LEVEL_MAX`.
+
+        천장 표가 같아도 층수가 갈리면 잠긴 집합이 갈린다: 목이 10층까지 세고
+        서버가 6층까지 세면 7~10층 퍼즐이 목에서만 존재하는 화면이 된다.
+        (`routers/board.BOARD_TIERS`도 이 상수에서 나온다 — 층수의 소유자는
+        `schemas/progress.KNOWLEDGE_LEVEL_MAX` 하나다.)
+        """
+        from app.schemas.progress import KNOWLEDGE_LEVEL_MAX
+
+        assert policy["board_tier_max"] == KNOWLEDGE_LEVEL_MAX
 
 
 @needs_node
@@ -732,3 +1060,517 @@ class TestNoLoginInMainFlow:
             "`hadAccount`가 persist에 실리지 않는다 — 새로고침을 못 건너므로 "
             "있으나 마나 하다"
         )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 🔴 그물 밖이던 사본 넷 (2026-08-20 전수 대조에서 드러남)
+# ═══════════════════════════════════════════════════════════════
+class TestUnnettedCopies:
+    """목이 서버 로직을 **자체 구현**한 자리 중 `__mockPolicy()`에 안 실려 있던 것들.
+
+    값이 오늘 같아도 노출이 없으면 **서버가 바뀔 때 아무 소리가 안 난다.**
+    같은 파일 안에서 어떤 사본은 대조되고 어떤 사본은 안 되던 것이 위험이었다 —
+    있는 쪽만 보고 「목은 대조된다」고 읽기 쉽다.
+    """
+
+    def test_사전_b_표가_같다(self, policy):
+        from app.services import weatherbrain_service as wb
+        assert policy["level_group_item_b"] == {
+            k: float(v) for k, v in wb.LEVEL_GROUP_ITEM_B.items()
+        }
+
+    def test_기본_b가_같다(self, policy):
+        from app.services import weatherbrain_service as wb
+        assert policy["default_item_b"] == float(wb.DEFAULT_ITEM_B)
+
+    def test_표현_톤_표가_같다(self, policy):
+        from app.services import weatherbrain_service as wb
+        assert policy["level_group_tone"] == dict(wb.LEVEL_GROUP_TONE)
+
+    # ═══════════════════════════════════════════════════════════════
+    # 🔴 철거: test_보드_난이도_규칙이_같은_답을_낸다 (2026-08-20) — 경위만 남긴다
+    # ═══════════════════════════════════════════════════════════════
+    #
+    # 무엇을 재던 테스트였나: **표가 아니라 규칙**. 목이 `board_difficulty_samples`로
+    # 내려보낸 입력 표본을 서버 `routers/board.board_difficulty`에 그대로 넣어 답을
+    # 대조했다. 표(`board_band_max_difficulty`)는 이미 대조되고 있었는데 규칙은
+    # 아니었고, 실제로 갈려 있었다 — 서버는 `isinstance(palette, (list, dict))`로
+    # 세고 목은 배열만 셌다. 시드가 전부 배열이라 **답만 같았다.** 그래서 표본에
+    # **3개 이상인 객체 palette**가 들어 있는지까지 요구했다(2개짜리만 남으면
+    # `len(palette) >= 3` 갈래를 지워도 초록이 된다 — 되돌림에서 잡힌 함정).
+    #
+    # 왜 지웠나: 서버 `board_difficulty`가 **함수째 철거됐다**(축 교체 커밋
+    # `482a893`·`routers/board.py`의 「철거된 파생 축」 블록). 잴 대상이 없어져
+    # 이 테스트는 ImportError로 죽었다 — 초록이 아니라 **부재**다.
+    #
+    # 성질이 어디로 갔나: **어디로도 안 갔다.** 새 축의 퍼즐 층은 파생이 아니라
+    # 저작값이라(`board_tier`가 `content_items.knowledge_level`을 읽을 뿐) 대조할
+    # 「규칙」이 애초에 없다. 남은 규칙은 **잠금 규칙**(천장 위 전 층이 잠긴다:
+    # 서버 `locked_tiers` ↔ 목 `lockedBoardTiers`)이고 그것은 지금 **아무 그물에도
+    # 없다** — `__mockPolicy()`가 목의 잠긴 집합 계산을 노출하지 않는다. 이 테스트가
+    # 쓰던 방법(입력 표본을 내려보내 서버가 직접 재기)이 그 자리에 필요하고,
+    # 목 파일은 이 세션 소유가 아니라 리드 판정 대기로 보고했다.
+    #
+    # ⚠️ 목은 아직 `boardDifficulty`·`BOARD_DIFFICULTY_SAMPLES` 사본을 들고 있고
+    # `__mockPolicy()`가 `board_difficulty_samples`를 계속 내보낸다 — 서버 짝이
+    # 없어졌으므로 **대조되지 않는 죽은 사본**이다(리드 소유, 보고함).
+    # ── 병합 해소 경위 (2026-08-20 `integ` — A조 ↔ B조) ──────────────────────
+    # B조 판에는 이 자리에 `test_보드_난이도_규칙이_같은_답을_낸다`가 **살아 있었다.**
+    # 살릴 수 없었다 — 그 테스트가 임포트하는 `routers.board.board_difficulty`가
+    # **함수째 철거됐기 때문**이다(A조 축 교체). 그대로 두면 초록이 아니라
+    # **ImportError**다. 어드바이저 판정으로 그 삭제가 승인됐고, 조건은
+    # 「승계 핀이 착지할 것」이었다 — 승계자는 `test_board_difficulty.py`의
+    # `test_시드_board_지식_단계_분포_고정`이다(같은 날 착지).
+    #
+    # 🔴 **B조가 그 테스트에 넣은 「갈래를 밟는 표본」 요구는 죽지 않았다.**
+    # *"표본에 3개 이상인 객체 palette가 있는지까지 확인한다 — 그 갈래가 빠지면
+    # 이 검사가 다시 「입력이 그 갈래를 안 밟아서」 초록이 된다"*. 그 원칙은
+    # 아래 `test_보드_진행_순서_규칙이_같은_순서를_낸다`가 **네 갈래**(비정수 실수 ·
+    # 불리언 · 동률 · 부재)로 이어받았고, 축 교체분(지식 단계)은 A조가 표본을
+    # 늘려 받는다. 원칙은 남고 그것을 태우던 함수만 없어졌다.
+
+    def test_대결_승리_XP가_같다(self, policy):
+        """액수를 프론트가 하드코딩하지 않도록 서버가 보내는 값이다(R10).
+        목도 그 값을 흉내내므로 사본이고, 사본이면 대조해야 한다."""
+        from app.services import duel_service
+        assert policy["duel_win_xp"] == duel_service.DUEL_WIN_XP
+
+    def test_보드_진행_순서_규칙이_같은_순서를_낸다(self, policy):
+        """🔴 **표가 아니라 규칙 — 그리고 키가 아니라 순서를 잰다.**
+
+        `order_puzzles_for_progress`(server routers/board)의 목 사본이 그물 밖에
+        있었다. 2026-08-20 실측:
+        - 시드 board 55건 전건은 **양쪽이 같은 순서**(1..55)를 냈다 — 값만 보면 조용하다.
+        - 그런데 **규칙은 이미 갈려 있었다.** 서버 판정은 파이썬
+          `isinstance(value, int)`인데 목은 `typeof v === 'number'`였다:
+          ⑴ 비정수 실수 `2.5` — 서버 키 10000(뒤로) / 목 키 2.5(앞으로)
+          ⑵ `true`/`false` — 파이썬에서 bool은 int라 서버 키 1·0(맨 앞) /
+             목 키 10000(뒤로)
+          시드가 정수만 써서 **오늘만** 답이 같았다(palette 갈래와 같은 형태).
+        ⇒ 목을 서버에 맞췄고, 목이 내려보낸 표본을 **서버 함수가 다시 풀어** 대조한다.
+
+        ⚠️ **정렬 키를 값으로 박지 않는다.** A조가 잠금 축을 3단계 → 10단계로
+           갈아타며 정렬 키를 `(지식 단계, board_order)`로 바꾸는 중이다. 키를
+           단정하면 그때 헛울고, 순열을 단정하면 「같은 입력에 같은 순서인가」가
+           축이 바뀐 뒤에도 그대로 성립한다. **축 변경 후 이 표본으로 재대조할 것.**
+
+        🔴 **그 재대조를 했다**(2026-08-20 판정 4). 정렬 키가 실제로
+        `(층, board_order)`로 늘었고, 표본은 **board_order 축만 밟고 있었다** —
+        1차 키가 갈려도 조용히 통과하는 상태였다. 그래서
+        ⑴ 아이템 조립이 층을 **속성으로** 싣고(서버 `board_tier`가
+           `getattr(item, "knowledge_level")`을 읽는다 — `template_json` 안에 넣으면
+           양쪽이 모두 「층 없음」으로 읽어 1차 키를 안 밟는다),
+        ⑵ 갈래 밟기 단정이 **층 축 다섯 갈래**를 더 문다
+           (`_assert_samples_tread_branches` — 부재·동률·비정수 실수·불리언 ·
+           🔴 **두 축이 서로 반대인 표본**).
+        """
+        from types import SimpleNamespace
+
+        from app.routers.board import order_puzzles_for_progress
+
+        samples = policy["board_order_samples"]
+        assert samples, "목이 보드 진행 순서 표본을 안 내보낸다"
+
+        _assert_samples_tread_branches(samples)
+
+        # ── 본 대조 ── 목의 입력을 서버 함수에 그대로 넣어 **순열**을 맞춰 본다.
+        bad = []
+        for case in samples:
+            tiers = _tiers_of(case)
+            items = [
+                SimpleNamespace(i=i, knowledge_level=tiers[i], template_json=t)
+                for i, t in enumerate(case["templates"])
+            ]
+            srv = [x.i for x in order_puzzles_for_progress(items)]
+            if srv != case["out"]:
+                bad.append((case, srv))
+        assert not bad, "목과 서버의 보드 진행 순서 규칙이 갈렸다: " + "; ".join(
+            f"{c['templates']}: 목 {c['out']} vs 서버 {srv}" for c, srv in bad
+        )
+
+    def test_목의_천장이_학습자_단계에서_온다(self, mock_src):
+        """🔴 **2026-08-20 판정 A — 목은 밴드, 서버는 θ로 갈려 있었다.**
+
+        서버 담당 실측(소유 밖 발견으로 접수): 목 `lockedBoardTiers`·
+        `unlockedBoardIds`가 `BOARD_LEVEL_GROUP_TIER[mockAuth.levelGroup]` — **밴드
+        파생**을 천장으로 썼다. 서버는 판정 1로 밴드 폴백을 철거해 천장이 **θ 파생
+        학습자 단계**뿐이다. **그 갈림을 무는 그물이 없었다**: 밴드 표 값 대조는
+        「1순위 경로만 본다」로 초록이었고(두 경로가 같은 사전값을 쓰니 값이 같다),
+        `__mockPolicy()`는 잠금 계산을 노출하지 않는다.
+
+        ⇒ **이음매를 문다**: 두 잠금 함수가 천장을 `learnerTier()`에서 가져오고,
+        밴드 표를 **직접 읽지 않는다.**
+
+        ⚠️ **값을 박지 않는다**(2·4·6·9도, 판수도). 그 값은 사전 b 파생이라 사전값이
+        바뀌면 함께 움직여야 한다 — 값 대조는 이미 두 계약이 서버에서 **파생시켜**
+        하고 있다(`test_보드_밴드_천장이_서버_파생값과_같다` ·
+        `test_board_mock_parity::test_밴드_천장표가_같다`).
+        ⚠️ 밴드가 사라진 것이 아니라 **자리가 바뀌었다**: `seedAbilities`(= 서버
+        `seed_placement` 사본)가 밴드 사전 b를 θ로 심는다. 그것까지 함께 문다 —
+        안 심으면 갓 만든 초등 계정이 목에서 중·고등처럼 보인다(그 상태였다).
+        """
+        for fn in ("lockedBoardTiers", "unlockedBoardIds"):
+            body = _fn_body_of(mock_src, fn)
+            assert re.search(r"const ceiling = learnerTier\(\)", body), (
+                f"목 `{fn}`이 천장을 `learnerTier()`에서 가져오지 않는다 — 천장의 "
+                "소유자는 학습자 단계다(판정 A). 이음매가 둘로 갈리면 한쪽만 고쳐진다"
+            )
+            assert "BOARD_LEVEL_GROUP_TIER" not in body, (
+                f"목 `{fn}`이 밴드 표를 **직접** 읽는다 — 서버는 밴드 폴백을 철거했다"
+                "(`learner_tier`). 그 표는 이제 파리티가 무는 기대값 표일 뿐이다"
+            )
+
+        # `learnerTier`가 θ 경로인가 — 밴드를 다시 끌어오지 않는지까지 본다.
+        seam = _fn_body_of(mock_src, "learnerTier")
+        assert re.search(r"return knowledgeLevelNow\(\)", seam), (
+            "목 `learnerTier`가 `knowledgeLevelNow()`(θ 파생)를 안 쓴다 — 서버 "
+            "`learner_tier`는 `overall_knowledge_level` 하나뿐이다"
+        )
+        assert "level_group" not in seam.lower().replace("levelgroup", "level_group"), (
+            "목 `learnerTier`가 학령을 읽는다 — 판정 1이 철거한 그 경로다"
+        )
+
+        # 밴드는 **θ의 초기값**이 오는 자리다(서버 `seed_placement` 사본).
+        seed = re.search(
+            r"const seedAbilities = \((\w+)\) =>(.*?)\n\s*\);", mock_src, re.S
+        )
+        assert seed, "목에서 seedAbilities를 못 찾았다 — 이름/모양이 바뀌었나"
+        assert re.search(r"LEVEL_GROUP_ITEM_B\[\w+\]", seed.group(2)), (
+            "목 `seedAbilities`가 밴드 사전 b를 θ로 심지 않는다 — 서버 "
+            "`seed_placement`는 `level_group`을 ai-worker placement에 넘겨 사전값을 "
+            "심는다. 안 심으면 갓 만든 초등·성인 계정을 dev에서 재현할 수 없다"
+        )
+
+    def test_층이_미상인_퍼즐은_열리되_줄에_서지_않는다(self, mock_src):
+        """🔴 **2026-08-20 판정 2** — 목의 **열림 규칙**은 지금도 행동 그물이 없다.
+
+        이 파일이 그 공백을 스스로 적어 뒀다: *"남은 규칙은 **잠금 규칙**이고 그것은
+        지금 **아무 그물에도 없다** — `__mockPolicy()`가 목의 잠긴 집합 계산을
+        노출하지 않는다"*. 표본으로 열려고 `unlockedBoardIds`에 인자를 붙였다가
+        **되돌렸다**: 리드 소유 `test_board_mock_parity._fn_body`가
+        `function unlockedBoardIds()` — 인자 없는 그 형태를 정규식으로 찾으므로
+        인자를 붙이면 그쪽이 함수를 아예 못 찾는다. 그 파일을 손대지 않는 쪽을 골랐고
+        (정규식을 넓히지 않고 코드를 맞추는 것이 같은 날 내려온 판정 방향이다),
+        행동 대조는 그 정규식이 넓혀질 때 붙일 자리로 **보고**했다.
+
+        그래서 여기서는 **소스 계약**으로 문다 — 무는 것은 판정 문언 둘이다:
+          ⑴ **열린다** — 층이 미상인 퍼즐을 여는 **명시 분기**가 있다.
+             ⚠️ 목은 이것을 **이미 우연히** 하고 있었다(`null < 6`이 참). 우연히
+             맞는 코드는 다음 사람이 「버그」로 보고 고치고, 고치면 미상 퍼즐이
+             `locked=false`인데 `unlocked=false`가 되어 **누구에게도, 영원히**
+             안 열린다 — 저작 실수 하나가 콘텐츠를 소리 없이 증발시킨다.
+             그래서 「우연히 맞는 상태」와 「명시 분기」를 구별해 문다: 분기가 없으면
+             이 단정이 운다.
+          ⑵ **줄에 서지 않는다** — 천장층 순차 목록에서 미상을 **명시적으로** 뺀다.
+             `=== ceiling`이 이미 미상을 걸러내지만(null !== 숫자) 그것도 우연이다.
+
+        ⚠️ 소스 계약의 한계를 적어 둔다: 이것은 **구문이 그 자리에 있는지**만 본다
+        (리드 파일의 `test_목이_천장_아래를_인정한다`와 같은 방법·같은 한계).
+        행동 동치는 표본이 열릴 때 문다.
+        """
+        body = _fn_body_of(mock_src, "unlockedBoardIds")
+
+        # ⑴ 미상을 여는 명시 분기 — 「미상이면 true」가 한 줄로 보여야 한다.
+        assert re.search(
+            r"if\s*\(\s*tierless\(\w+\)\s*\)\s*return\s+true", body
+        ), (
+            "목에 「층이 미상이면 열림」 **명시 분기**가 없다 — `null < ceiling`이 "
+            "참인 것에 기대는 우연한 열림으로 되돌아가면, 다음 사람이 그것을 버그로 "
+            "고치는 순간 미상 퍼즐이 누구에게도 안 열린다(판정 2)"
+        )
+        # 미상 판정 자체가 서버 `board_tier`와 같은 방향인지 — `null`·`undefined`
+        # 둘 다 미상으로 본다(목은 `boardTierOf`가 null을 내고, 심긴 목록은
+        # 필드가 아예 없을 수도 있다).
+        assert re.search(
+            r"const\s+tierless\s*=\s*\(\w+\)\s*=>\s*[^\n]*knowledge_level\s*===\s*null",
+            body,
+        ), (
+            "목의 미상 판정이 `knowledge_level === null`을 안 본다 — `!p.knowledge_level`"
+            "로 두면 **0층·false가 미상이 되어** 함께 열린다"
+        )
+        # ⑵ 순차 목록에서 미상을 명시적으로 뺀다.
+        assert re.search(
+            r"filter\(\s*\(\w+\)\s*=>\s*!tierless\(\w+\)\s*&&[^\n]*knowledge_level\s*===?\s*ceiling",
+            body,
+        ), (
+            "천장층 순차 목록이 미상을 **명시적으로** 빼지 않는다 — 미상 퍼즐이 "
+            "커서를 붙잡으면 LOOKAHEAD 창의 한 칸을 먹어 천장층 마지막 칸이 안 열린다"
+            "(판정 2의 「줄에 서지 않는다」)"
+        )
+
+    def test_목도_천장_미상_학습자를_전건_연다(self, mock_src):
+        """🔴 **서버가 2026-08-20에 고친 결함이 목에도 그대로 있었다**(실측).
+
+        서버 `unassessed_ids`가 그 수리다: `learner_tier`가 `None`을 낼 때
+        `locked_tiers(None) == set()`이라 **아무 층도 안 잠기는데**, 열림 합성의
+        갈래가 전부 정수 천장을 요구해 열린 집합이 **층 미상 퍼즐만** 남았다 —
+        `locked=False`인데 `unlocked=False`인 **유령 칸이 보드 전체 규모**였고,
+        진입·채점이 전건 403이었다.
+
+        🔴 **목의 `unlockedBoardIds`가 같은 모양이었다**: 천장 아래 판정이
+        `typeof ceiling === 'number' && …`이라 천장 미상에서 거짓이고, 천장층
+        순차 목록도 `=== ceiling`이라 비며, 남는 것은 `tierless(p)` 갈래뿐이다.
+        ⇒ 목이 그 상태를 재현하면 **화면이 통째로 잠긴 것처럼** 보인다. 재현조차
+        못 하면 dev 화면으로는 이 결함을 **영영 못 본다** — 그것이 이 저장소가
+        반복해 밟은 형태라, 목에도 같은 수리를 넣고 그 자리를 여기서 문다.
+
+        ⚠️ 소스 계약인 이유: `unlockedBoardIds`는 인자를 못 받는다(리드 소유
+        `test_board_mock_parity`가 `function unlockedBoardIds() {` 선언 모양을
+        **변이 치환의 기준**으로 쓴다 — 인자를 붙이면 그 치환이 0회가 되어 리드
+        계약이 운다). 그래서 규칙째 내보내지 못하고 구문으로 문다. 행동 대조는
+        board-entry 스모크가 목을 실제로 태워서 한다.
+        """
+        body = _fn_body_of(mock_src, "unlockedBoardIds")
+        # ⚠️ **「전건」까지 문다.** 분기가 있어도 `new Set()`을 돌려주면 결함 그대로다 —
+        #    반환이 `items` 전건에서 만들어지는지 확인한다(빈 집합을 통과시키지 않는다).
+        assert re.search(
+            r"if\s*\(\s*typeof ceiling\s*!==\s*'number'\s*\)\s*\{?\s*"
+            r"return new Set\(\s*items\.map\(",
+            body,
+        ), (
+            "목에 「천장이 미상이면 전건 열림」 분기가 없다 — 서버 `unassessed_ids`가 "
+            "그 자리다. 없으면 θ 행이 없는 계정에서 `locked=False`인데 "
+            "`unlocked=False`인 유령 칸이 **보드 전체**가 된다(2026-08-20 서버 실측: "
+            "층 있는 9건 중 열린 것 0건)"
+        )
+
+    def test_목이_천장_미상_상태에_도달할_수_있다(self, mock_src):
+        """재현 못 하는 갈래는 **없는 갈래**다 — 위 수리를 화면으로 볼 통로가 있는가.
+
+        서버에서 θ 행 0건은 `seed_placement`가 ai-worker 장애로 조용히 실패한
+        상태다(`routers/auth.py`·`dev.reset_me` 양쪽이 그 관례를 적어 뒀다).
+        목에는 그 장애가 없으므로 **그 조건을 dev 레버로 재현**한다.
+
+        ⚠️ 이 레버는 **목에만 있다**(서버 `/dev/reset-me`에 대응 필드가 없다).
+        서버 라우트 표면을 늘린 것이 아니라 **서버 장애 상황을 시뮬레이션**하는
+        자리라 목에 두었고, 판정이 필요하면 되돌릴 수 있게 한 곳에 모아 두었다.
+        """
+        body = _route_body_of(mock_src, "POST /dev/reset-me")
+        assert "placement_failed" in body, (
+            "목 `/dev/reset-me`에 θ 행 0건을 만드는 레버가 없다 — 그러면 "
+            "`unassessed` 갈래를 **화면으로 볼 방법이 없고**, 서버가 실측으로 잡은 "
+            "그 결함을 목 위 스모크는 영원히 못 본다"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 🔴 학령 **재신고**의 θ 재파종 (2026-08-20 재파종 판정)
+# ═══════════════════════════════════════════════════════════════
+class TestLevelGroupReseed:
+    """`PATCH /auth/me`가 θ를 어떻게 건드리는가 — 목↔서버 **규칙** 대조.
+
+    **판정 문언**: 재신고는 **미측정 개념(`num_responses == 0`)의 θ만** 새 학령의
+    사전 b로 갈아탄다. **측정된 행은 안 건드린다.**
+
+    왜 이것이 천장의 이야기인가: 보드 잠금 천장의 소유자는 `learner_tier`이고
+    **θ 파생**이다(판정 A). 그래서 재신고가 θ를 건드리느냐가 곧 **화면에서 퍼즐이
+    더 열리느냐**다 — 종전에는 아무도 안 건드려서 천장이 못 움직였고, 잠금 배너의
+    「학습 수준 바꾸기」 CTA가 아무것도 열지 못했다.
+
+    ⚠️ **값(2·4·6·9·노출 판수)을 여기 박지 않는다.** 전부 사전 b 파생이라 사전값이
+    바뀌면 함께 움직여야 한다 — 기대값은 **서버 상수에서 파생시킨다.**
+
+    ⚠️ **착지 순서를 기록해 둔다**: 이 계약을 처음 쓸 때(2026-08-20) 서버
+    `update_me`는 θ를 한 줄도 안 건드렸고, 브리핑 판정에 따라 목을 **판정 문언**에
+    맞췄다. 그 뒤 서버가 `de9796a`로 착지했고 **실제 구현과 대조한 결과 규칙이
+    같았다** — 가드는 `_upsert_abilities`의 SQL
+    `DO UPDATE … WHERE num_responses = 0`이고, 재신고 경로는
+    `reseed_unmeasured_priors`가 `only_unmeasured=True`로 부른다.
+    """
+
+    @needs_node
+    def test_목의_재신고가_미측정_행만_갈아탄다(self, policy):
+        """🔴 **표가 아니라 규칙** — 목의 순수 함수가 낸 답을 서버 상수로 다시 잰다.
+
+        기대값의 출처는 서버 `weatherbrain_service.LEVEL_GROUP_ITEM_B`·
+        `DEFAULT_ITEM_B`다. 목의 사본(`policy["level_group_item_b"]`)을 쓰지 않는다 —
+        쓰면 이 계약이 **자기 자신을 대조한다**(CO-J-9가 생긴 방식).
+
+        두 갈래가 **답이 실제로 다르다**:
+          · 미측정(n=0) → θ가 목표 밴드 사전 b로 **바뀐다**. 안 바뀌면 재신고해도
+            천장이 안 움직이고, 화면에서 퍼즐이 더 안 열린다.
+          · 측정(n>0) → θ가 **그대로**다. 덮으면 대표 θ가 n 가중이라 그 행이 천장을
+            혼자 정하는 만큼, **한 번 푼 사람의 천장이 재신고로 무너진다.**
+        """
+        from app.services import weatherbrain_service as wb
+
+        priors = {k: float(v) for k, v in wb.LEVEL_GROUP_ITEM_B.items()}
+        default_b = float(wb.DEFAULT_ITEM_B)
+
+        # 🔴 **행 생성은 결함이 아니라 서버 규칙이다**(2026-08-21 정정).
+        #   종전 단정은 `len(out) == len(rows)`로 **행 수 불변을 요구**했고, 사유를
+        #   *「개념이 사라지거나 늘면 대표 θ의 분모가 달라져 천장이 엉뚱하게 움직인다」*
+        #   라 적었다. **그 걱정은 참인데 결론이 거꾸로였다** — 서버가 바로 그 일을 한다:
+        #   `reseed_unmeasured_priors`가 `weatherbrain_service.CONCEPT_TAGS` **전건**에
+        #   upsert하고, `_upsert_abilities` 독스트링이 *「없는 행은 그대로 생성된다」*고
+        #   소유한다. ⇒ 분모가 달라지는 것이 **서버의 동작**이므로, 목이 그것을 막으면
+        #   **목만 다른 분모를 지킨다.**
+        #   🔴 이 단정 때문에 실제 결함이 초록으로 남아 있었다: θ 0건 계정이 재신고하면
+        #   서버는 행이 생겨 천장이 유한해지고 다시 잠기는데 **목은 전건 열림**이었다.
+        #   ⇒ 이제 **개념 집합**을 문다 — 「있던 행 ∪ 능력 개념 전건」이어야 한다.
+        server_tags = set(wb.CONCEPT_TAGS)
+        bad = []
+        for case in policy["reseed_samples"]:
+            want_prior = priors.get(case["to"], default_b)
+            src_by_tag = {r["concept_tag"]: r for r in case["rows"]}
+            out_by_tag = {r["concept_tag"]: r for r in case["out"]}
+            want_tags = set(src_by_tag) | server_tags
+            assert set(out_by_tag) == want_tags, (
+                f"재파종 뒤 개념 집합이 서버와 다르다({case['to']}) — "
+                f"빠진 것 {sorted(want_tags - set(out_by_tag))} · "
+                f"군더더기 {sorted(set(out_by_tag) - want_tags)}. 서버는 "
+                "`CONCEPT_TAGS` 전건에 upsert하므로 **없는 행이 생긴다** — 목이 그것을 "
+                "안 하면 θ 0건 계정에서 천장이 갈린다(목은 미상=전건 열림, 서버는 잠김)"
+            )
+            for tag in sorted(want_tags - set(src_by_tag)):
+                born = out_by_tag[tag]
+                if float(born["theta"]) != want_prior or born["num_responses"] != 0:
+                    bad.append(
+                        f"{case['to']}/{tag}: 새로 생긴 행이 θ={born['theta']}·"
+                        f"n={born['num_responses']} — 사전값 {want_prior}·n=0이어야 한다"
+                    )
+            for tag, src_row in src_by_tag.items():
+                out_row = out_by_tag[tag]
+                if out_row["num_responses"] != src_row["num_responses"]:
+                    bad.append(
+                        f"{case['to']}/{src_row['concept_tag']}: n이 "
+                        f"{src_row['num_responses']} → {out_row['num_responses']}로 "
+                        "바뀌었다 — 재신고는 응답 수를 건드리지 않는다"
+                    )
+                    continue
+                want = (
+                    want_prior
+                    if src_row["num_responses"] == 0
+                    else float(src_row["theta"])
+                )
+                if float(out_row["theta"]) != want:
+                    kind = "미측정" if src_row["num_responses"] == 0 else "🔴 측정된 행"
+                    bad.append(
+                        f"{case['to']}/{src_row['concept_tag']}({kind}, "
+                        f"n={src_row['num_responses']}): θ {src_row['theta']} → "
+                        f"{out_row['theta']}, 서버 규칙은 {want}"
+                    )
+        assert not bad, (
+            "목의 재신고 재파종이 서버 규칙과 갈렸다 — 미측정만 사전 b로 갈아타고 "
+            "측정된 행은 그대로여야 한다:\n  " + "\n  ".join(bad)
+        )
+
+    @needs_node
+    def test_재파종_표본이_갈래를_밟는다(self, policy):
+        """표본이 **갈리면 답이 실제로 달라지는** 모양인지 — 헬퍼가 사유를 소유한다."""
+        from app.services import weatherbrain_service as wb
+
+        _assert_reseed_samples_tread_branches(
+            policy["reseed_samples"],
+            {k: float(v) for k, v in wb.LEVEL_GROUP_ITEM_B.items()},
+            float(wb.DEFAULT_ITEM_B),
+        )
+
+    def test_목이_재신고_경로에서_실제로_재파종한다(self, mock_src):
+        """**이음매**를 문다 — 규칙이 있어도 `PATCH /auth/me`가 안 부르면 죽은 코드다.
+
+        `reseed_samples`는 **함수를 직접 태워** 만든 값이라, 핸들러가 그 함수를
+        안 불러도 초록이다. 그래서 노출(규칙)과 배선(이음매)을 따로 문다 — 목이
+        정책을 노출하면서 화면 경로는 안 쓰던 것이 이 저장소가 여러 번 밟은 형태다.
+
+        ⚠️ 주석을 걷은 뒤에 찾는다: 이 핸들러의 주석은 판정 문언과 함수 이름을
+        그대로 인용하고 있어서, 안 걷으면 **설명이 곧 구현**으로 읽힌다.
+        """
+        body = _route_body_of(mock_src, "PATCH /auth/me")
+        assert re.search(r"applyReseedUnmeasured\(\s*body\.level_group\s*\)", body), (
+            "목 `PATCH /auth/me`가 재파종을 부르지 않는다 — 학령만 바꾸고 θ를 그대로 "
+            "두면 천장이 한 칸도 안 움직여 **재신고가 보드에 대해 아무 뜻도 없어진다**"
+            "(2026-08-20 재파종 판정 이전의 상태)"
+        )
+        # 규칙의 소유자가 **하나**인지 — 핸들러가 사전표를 직접 읽으면 규칙이 둘이 되고,
+        # 그러면 `reseed_samples`(순수 함수 파생)가 화면 경로를 대변하지 못한다.
+        assert "LEVEL_GROUP_ITEM_B" not in body, (
+            "목 `PATCH /auth/me`가 사전 b 표를 **직접** 읽는다 — 규칙의 소유자는 "
+            "`reseedUnmeasuredAbilities` 하나여야 파리티가 화면 경로를 대변한다"
+        )
+
+    def test_목의_재파종_가드가_미측정만_본다(self, mock_src):
+        """규칙 본문의 갈림 조건 — **`num_responses`를 본다**는 것까지 소스로 못박는다.
+
+        행동 대조(`reseed_samples`)가 이미 있는데 왜 소스도 무는가: 표본은 목이
+        스스로 고른 것이라, 다음 사람이 가드를 `theta === 0` 같은 **다른 축**으로
+        바꾸면서 표본도 함께 손대면 둘 다 조용하다. 축의 이름은 서버가 소유한다
+        (`UserConceptAbility.num_responses`) — 그 이름을 여기서 못박는다.
+        """
+        m = re.search(
+            r"const reseedUnmeasuredAbilities = \((.*?)\n\s*\);", mock_src, re.S
+        )
+        assert m, "목에서 `reseedUnmeasuredAbilities`를 못 찾았다 — 이름/모양이 바뀌었나"
+        rule = _strip_js_comments(m.group(1))
+        assert re.search(r"num_responses\s*===\s*0", rule), (
+            "목의 재파종 가드가 `num_responses === 0`이 아니다 — 「측정됐는가」의 "
+            "축은 서버 `UserConceptAbility.num_responses`가 소유한다. 다른 축으로 "
+            "바꾸면 사람이 푼 θ가 재신고 한 번에 지워진다"
+        )
+
+    def test_서버_재신고가_측정된_θ를_덮지_않는다(self, auth_src):
+        """🔴 **서버 쪽 그물** — 재파종을 가드 없이 착지시키면 운다.
+
+        `seed_placement`는 `_upsert_abilities`를 **조건 없이** 불러 전 개념 행을
+        덮어쓴다. 재신고에 그것을 그대로 부르면 「측정된 행 보호」가 무너지고,
+        한 번 푼 사람의 대표 θ가 (n 가중이므로) 사전값으로 되돌아가 **천장이
+        내려앉는다.**
+
+        🔴 **실제 착지를 대조한 결과를 적어 둔다**(2026-08-20 `de9796a`):
+        `update_me`는 `seed_placement`가 아니라 `reseed_unmeasured_priors`를 부르고,
+        그 함수는 `_upsert_abilities(..., only_unmeasured=True)`로 위임한다. 가드는
+        파이썬이 아니라 **SQL의 `DO UPDATE … WHERE num_responses = 0`**에 있다
+        (읽고-쓰기 사이에 들어온 채점 1건이 사전값으로 되돌아가는 창을 없애려고).
+        ⇒ 그래서 가드를 **호출된 함수 본문에서만** 찾으면 헛운다. **한 홉을 따라간다.**
+
+        ⚠️ 플래그만 붙고 **플래그가 아무것도 안 하는** 갈래를 함께 문다 — 그것이
+        이 저장소가 여러 번 밟은 「값은 같은데 규칙이 갈렸다」의 서버판이다.
+        """
+        body = _py_fn_body(auth_src, "update_me")
+        assert "seed_placement" not in body, (
+            "서버 `update_me`가 `seed_placement`를 부른다 — 그 함수는 전 개념 행을 "
+            "조건 없이 덮어쓰므로 **측정된 θ까지 지운다**. 재파종은 "
+            "`num_responses == 0`인 행만 갈아타야 한다(재파종 판정)"
+        )
+
+        wb_src = WEATHERBRAIN_SERVICE.read_text(encoding="utf-8")
+        called = {
+            m.group(1) for m in re.finditer(r"\b(\w*reseed\w*)\s*\(", body)
+        }
+        assert called, (
+            "서버 `update_me`가 재파종을 아예 안 부른다 — 학령만 바꾸고 θ를 그대로 "
+            "두면 천장이 한 칸도 안 움직여 재신고가 보드에 대해 아무 뜻도 없어진다"
+        )
+        for name in sorted(called):
+            impl = None
+            for src in (auth_src, wb_src):
+                if re.search(rf"^(?:async )?def {re.escape(name)}\(", src, re.M):
+                    impl = _py_fn_body(src, name)
+                    break
+            assert impl is not None, (
+                f"서버 `update_me`가 `{name}()`을 부르는데 그 구현을 auth.py에도 "
+                "weatherbrain_service.py에도 못 찾았다 — 재파종이 제3의 자리에 "
+                "착지했다. 이 계약을 그 자리로 넓힐 것(대조 없는 재파종은 금지다)"
+            )
+            direct = re.search(r"num_responses\s*==\s*0", impl)
+            delegated = re.search(r"only_unmeasured\s*=\s*True", impl)
+            assert direct or delegated, (
+                f"서버 재파종 `{name}()`이 미측정 가드에 닿지 않는다 — "
+                "`num_responses == 0`을 직접 보거나 `only_unmeasured=True`로 "
+                "위임해야 한다. 측정된 행까지 갈아타면 한 번 푼 사람의 천장이 "
+                "재신고로 무너진다"
+            )
+            if delegated and not direct:
+                # 🔴 플래그가 **실제로 가드하는지**까지 따라간다. 이름만 있고 SQL에
+                #    조건이 없으면 규칙은 갈린 채 값만 같다.
+                owner = _py_fn_body(wb_src, "_upsert_abilities")
+                assert "only_unmeasured" in owner, (
+                    "`only_unmeasured` 플래그를 받는 자리가 `_upsert_abilities`가 "
+                    "아니다 — 이 계약을 그 자리로 옮길 것"
+                )
+                assert re.search(r"num_responses\s*==\s*0", owner), (
+                    "🔴 `only_unmeasured=True`로 부르는데 `_upsert_abilities`에 "
+                    "`num_responses == 0` 가드가 **없다** — 플래그가 아무것도 하지 "
+                    "않는다. 이름은 맞고 규칙은 갈린 상태이고, 측정된 θ가 재신고로 "
+                    "지워진다"
+                )

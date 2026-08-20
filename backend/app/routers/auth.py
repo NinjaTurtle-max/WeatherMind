@@ -603,6 +603,10 @@ async def update_me(
 
     convert_guest와 같은 패턴이다: `get_current_user`는 별도 세션으로 유저를 읽으므로
     갱신은 이 요청의 db 세션에서 같은 PK 행을 다시 얻어 수행한다(새 행 생성 없음).
+
+    🔴 **재신고는 θ까지 간다** — `reseed_unmeasured_priors`가 **미측정 개념만**
+    새 밴드 사전값으로 갈아탄다(아래 주석·그 함수 독스트링이 근거를 소유한다).
+    ai-worker가 죽어 있어도 이 엔드포인트는 200이다(그 함수가 삼킨다).
     """
     db_user = await db.get(User, user.id)
     if db_user is None:  # 세션 검증~갱신 사이 행 소멸 — 사실상 도달 불가 방어선
@@ -631,6 +635,23 @@ async def update_me(
     # 재신고는 도장을 **덮어쓴다**: 마지막 신고가 참값이고, 그 이전 로그는
     # `answered_at < level_group_declared_at`으로 재보정에서 갈린다.
     db_user.level_group_declared_at = _declared_now()
+    # 🔴 **재신고는 θ 사전값도 갈아탄다** — 이게 없으면 학령을 바꿔도 보드 천장이
+    # 안 움직인다(잠금 배너 CTA 「학습 수준 바꾸기」가 못 지키는 약속이 된다).
+    # 천장의 유일한 입력은 θ 파생(`board.learner_tier` → `overall_knowledge_level`)
+    # 이고, θ에 학령이 들어가는 통로는 여기까지 `seed_placement`(가입) 한 번뿐이었다.
+    # ⚠️ 판정 A와 부딪히지 않는다: 밴드는 **천장의 규칙**이 아니라 **θ의 입력**이다
+    # (근거는 `reseed_unmeasured_priors` 독스트링). 천장 계산은 여전히 level_group을
+    # 읽지 않는다.
+    # ⚠️ **측정된 개념은 손대지 않는다** — 사전값은 정보가 없을 때의 추정이고
+    # 실제 응답이 이긴다. 그 가드도 그 함수가 소유한다.
+    # user_concept_ability는 RLS(user_isolation) 대상이라 register와 **같은 이유로**
+    # 쓰기 전에 app.current_user_id를 주입한다(get_db는 무RLS 컨텍스트 — WITH CHECK).
+    # 커밋은 아래 하나뿐이다: 학령과 θ가 같은 트랜잭션에서 함께 착지해야 한다.
+    await db.execute(
+        text("SELECT set_config('app.current_user_id', :uid, true)"),
+        {"uid": str(db_user.id)},
+    )
+    await weatherbrain_service.reseed_unmeasured_priors(db, db_user)
     await db.commit()
     return MeResponse(
         user_id=db_user.id,
