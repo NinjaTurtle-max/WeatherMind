@@ -53,7 +53,7 @@ export default {
         cumulus: { label: '적운' },
         none: { label: '구름 없음' },
       },
-      element: { moisture: '습기', sun: '일사', wind: '바람' },
+      element: { moisture: '습기', sun: '일사', wind: '바람', aerosol: '에어로졸(미세먼지·황사)' },
     },
     common: {
       // assist·board-entry 스모크가 '구름이 모두 흩어졌어요'를 단정
@@ -148,6 +148,7 @@ export default {
         moisture: '습기',
         sun: '일사',
         wind: '바람',
+        aerosol: '에어로졸 계열',
       },
       // 태양이 문제 배너의 eyebrow(2026-08-11) — 미션 문장 위에 붙는 한 줄
       missionEyebrow: '🎯 이번 미션',
@@ -181,6 +182,7 @@ export default {
       moisture: '💧 습기',
       sun: '☀️ 일사',
       wind: '🌬️ 바람',
+      aerosol: '🟤 에어로졸(미세먼지·황사)',
       // R13 재난 축(CO-A3·CO-K4) — 판정이 재난일 때만 뜨는 배너
       disasterWildfireTitle: '🔥 산불 위험',
       disasterWildfireBody: '공기가 메말라 불이 붙기 쉽고, 센 바람이 불씨를 실어 날라요.',

@@ -15,7 +15,7 @@ SPRINT_R3_01.md §3.3·§3.6·§3.7이 신규 4유형(board/match/ordering/cloze
 | 1단  | answer_in_options     | multiple_choice    | correct_answer가 options에 포함                   |
 | 1단  | slider_range          | slider             | 정답이 0~100 범위의 숫자(숫자 문자열 허용)        |
 | 1단  | question_length       | 전체               | question_text 10~300자                            |
-| 1단  | board_initial_state   | board              | §3.1 스키마 유효 — 요소 type·subtype enum, 존 0~3, 존당 기단/전선 최대 1, moisture/sun 수치 0~100 |
+| 1단  | board_initial_state   | board              | §3.1 스키마 유효 — 요소 type·subtype enum, 존 0~3, 존당 기단/전선 최대 1, 조절값 0~100 |
 | 1단  | board_goal_conditions | board              | 비어있지 않음, 각 항목 zone 0~3·phenomenon이 §3.2 enum 내 |
 | 1단  | board_palette         | board              | palette 비어있지 않음                              |
 | 1단  | board_guide_steps     | board              | mode가 guided 또는 goal_only, guided면 guide_steps 존재 |
@@ -98,12 +98,18 @@ QUESTION_TEXT_MIN, QUESTION_TEXT_MAX = 10, 300
 
 # ── board 기준값 (§3.1·§3.2·§3.3) ─────────────────────────────────────────
 BOARD_ZONE_MIN, BOARD_ZONE_MAX = 0, 3  # 한반도 단면 4존 (index 0~3 고정)
-BOARD_LEVEL_MIN, BOARD_LEVEL_MAX = 0, 100  # moisture/sun 수치
+BOARD_LEVEL_MIN, BOARD_LEVEL_MAX = 0, 100  # 조절값(BOARD_LEVEL_TYPES) 수치
 BOARD_ELEMENT_SUBTYPES = {
     "air_mass": ("siberian", "north_pacific", "yangtze", "okhotsk"),
     "front": ("cold", "warm", "stationary"),
 }
-BOARD_LEVEL_TYPES = ("moisture", "sun")
+# 🔴 **여기 `wind`가 빠져 있었다 — 2026-08-20에 발견.** 소유자
+# (`board_engine.LEVEL_TYPES`)는 ㉣ 확장에서 이미 wind를 들였는데 이 사본이 안 따라와,
+# `initial_state`에 wind 요소를 둔 board 문항은 이 게이트에서 *"type이 허용값이 아님"*으로
+# 탈락한다. 규칙·문항을 같은 PR에 넣어도 **게이트가 먼저 막는다**는 그 함정의 실례다
+# (그 형태를 이 파일 PHENOMENON_ENUM 주석이 이미 경고해 두었는데 level 쪽은 놓쳤다).
+# aerosol과 함께 채운다 — 소유자는 여전히 `board_engine.LEVEL_TYPES`이고 여기는 사본이다.
+BOARD_LEVEL_TYPES = ("moisture", "sun", "wind", "aerosol")
 # 존당 최대 1개 제약 대상 (§3.1: 존당 기단 최대 1, 전선 최대 1)
 BOARD_PER_ZONE_UNIQUE_TYPES = ("air_mass", "front")
 PHENOMENON_ENUM = (
@@ -733,7 +739,7 @@ def _board_initial_state_errors(state) -> list[str]:
     """initial_state의 §3.1 스키마 위반 사유 목록을 반환한다 (없으면 빈 리스트).
 
     검증 항목(§3.7): 요소 type·subtype enum, zone 0~3, 존당 기단/전선 최대 1,
-    moisture/sun 수치 0~100. 잠금 표시("locked": true) 등 부가 키는 허용.
+    조절값(moisture·sun·wind·aerosol) 0~100. 잠금 표시("locked": true) 등 부가 키는 허용.
     goal_only 퍼즐의 빈 보드(elements: [])는 유효하다.
     """
     if not isinstance(state, dict):
@@ -768,7 +774,7 @@ def _board_initial_state_errors(state) -> list[str]:
                     f"elements[{i}] {etype} subtype이 enum"
                     f"({', '.join(BOARD_ELEMENT_SUBTYPES[etype])}) 밖: {subtype}"
                 )
-        else:  # moisture | sun
+        else:  # 조절값 — BOARD_LEVEL_TYPES
             level = element.get("level")
             if not _is_number(level) or not (
                 BOARD_LEVEL_MIN <= level <= BOARD_LEVEL_MAX

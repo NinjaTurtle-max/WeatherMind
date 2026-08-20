@@ -2202,5 +2202,61 @@
         "passed": false
       }
     ]
+  },
+  {
+    "name": "aerosol_element_accepted: 에어로졸을 놓아도 규칙이 없으면 판정이 안 바뀐다 — 기본값 0 · 요소 수용 (대기화학 축)",
+    "note_authoring": "🔴 **이 벡터가 무는 것은 「새 요소를 양쪽 엔진이 함께 받아들이는가」다.** `aerosol`이 파이썬 `PLACEABLE_TYPES`·JS `ELEMENT_TYPES` 중 **한쪽에만** 들어가면 러너가 그 케이스를 FAIL로 세운다(양쪽 러너가 판정 전에 보드 검증을 먼저 부른다) — 두 벌 정합의 첫 관문이다. 존 1은 **에어로졸만 90으로 놓은 칸**이라 「요소를 놓아도 그것을 요구하는 규칙이 없으면 판정이 안 바뀐다」를 함께 못박는다: 누가 `aerosol>=N`을 낮은 조건 수로 저작하면 이 칸이 먼저 운다. 존 3은 **아무것도 안 놓은 칸**이고, 기본값을 0이 아닌 값으로 잘못 넣으면 aerosol 규칙이 들어온 뒤 이 존이 뒤집힌다(그때 `test_확장_규칙은_미배치_존_기본상태에서_성립하지_않는다`와 함께 붉어진다).",
+    "board": {
+      "zones": [
+        "서해",
+        "수도권",
+        "태백산맥",
+        "동해안"
+      ],
+      "elements": [
+        {
+          "type": "aerosol",
+          "level": 0,
+          "zone": 0
+        },
+        {
+          "type": "aerosol",
+          "level": 90,
+          "zone": 1
+        },
+        {
+          "type": "aerosol",
+          "level": 100,
+          "zone": 2
+        },
+        {
+          "type": "moisture",
+          "level": 40,
+          "zone": 2
+        }
+      ]
+    },
+    "expected": [
+      {
+        "zone": 0,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 1,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 2,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      },
+      {
+        "zone": 3,
+        "phenomenon": "cloudy",
+        "cloud": "cumulus"
+      }
+    ]
   }
 ]

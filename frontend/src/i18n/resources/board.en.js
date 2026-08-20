@@ -50,7 +50,7 @@ export default {
         cumulus: { label: 'Cumulus' },
         none: { label: 'No cloud' },
       },
-      element: { moisture: 'Moisture', sun: 'Sunlight', wind: 'Wind' },
+      element: { moisture: 'Moisture', sun: 'Sunlight', wind: 'Wind', aerosol: 'Aerosol (particulates)' },
     },
     common: {
       outOfClouds: '☁️ Your clouds have all drifted away',
@@ -188,6 +188,7 @@ export default {
         moisture: 'Moisture',
         sun: 'Insolation',
         wind: 'Wind',
+        aerosol: 'Aerosol family',
       },
       missionEyebrow: '🎯 This mission',
       missionSandbox: '🧪 Free experiment',
@@ -217,6 +218,7 @@ export default {
       moisture: '💧 Moisture',
       sun: '☀️ Insolation',
       wind: '🌬️ Wind',
+      aerosol: '🟤 Aerosol (particulates)',
       // R13 disaster axis (CO-A3 / CO-K4) — banner shown only when the verdict is a hazard
       disasterWildfireTitle: '🔥 Wildfire risk',
       disasterWildfireBody: 'The air is parched so fuel ignites easily, and strong wind carries embers.',

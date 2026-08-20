@@ -98,6 +98,12 @@ export function parsePaletteToken(token) {
   if (token === 'sun') return { type: 'sun', label: tx('board.meta.element.sun'), icon: '☀️' };
   // wind는 세기(level) 요소다 — 방향(subtype)이 아니다. 근거는 board_engine.py 도크스트링.
   if (token === 'wind') return { type: 'wind', label: tx('board.meta.element.wind'), icon: '🌬️' };
+  // aerosol = 입자상 물질(미세먼지·황사)의 **양**. 아이콘을 안개(🌫️)와 일부러 다르게
+  // 둔다 — 이 요소가 만드는 판정이 `fog` 어휘를 쓰기 때문에(어휘 확장이 이 작업의
+  // 소유 밖) 팔레트 칩과 결과 아이콘이 같으면 「놓은 것」과 「생긴 것」이 화면에서
+  // 구별되지 않는다.
+  if (token === 'aerosol')
+    return { type: 'aerosol', label: tx('board.meta.element.aerosol'), icon: '🟤' };
   const [type, subtype] = token.split(':');
   if (type === 'air_mass') {
     const meta = AIR_MASS_META[subtype] ?? { label: subtype, icon: '🌀' };

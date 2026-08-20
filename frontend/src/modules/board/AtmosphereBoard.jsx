@@ -6,6 +6,7 @@ import {
   DEFAULT_MOISTURE,
   DEFAULT_SUN,
   DEFAULT_WIND,
+  DEFAULT_AEROSOL,
   createBoard,
   evaluateBoard,
   checkGoals,
@@ -48,6 +49,7 @@ export const HINT_KIND_LABEL = Object.freeze({
   moisture: 'board.atmosphere.kind.moisture',
   sun: 'board.atmosphere.kind.sun',
   wind: 'board.atmosphere.kind.wind',
+  aerosol: 'board.atmosphere.kind.aerosol',
 });
 
 /** 조절값(level) 요소의 미배치 기본값 — 엔진 상수와 같은 값이어야 한다 (§3.1) */
@@ -55,6 +57,7 @@ const LEVEL_DEFAULTS = Object.freeze({
   moisture: DEFAULT_MOISTURE,
   sun: DEFAULT_SUN,
   wind: DEFAULT_WIND,
+  aerosol: DEFAULT_AEROSOL,
 });
 
 /**
@@ -106,7 +109,7 @@ function sameElements(a, b) {
 export function ruleHintKinds(rule) {
   const kinds = [];
   for (const cond of rule?.when ?? []) {
-    const m = /^(air_mass|front|moisture|sun|wind)/.exec(String(cond).trim());
+    const m = /^(air_mass|front|moisture|sun|wind|aerosol)/.exec(String(cond).trim());
     if (m && !kinds.includes(m[1])) kinds.push(m[1]);
   }
   return kinds;
@@ -126,7 +129,7 @@ export function conditionReachable(condition, palette, zoneState) {
     if ((palette ?? []).includes(`${type}:${subtype}`)) return true;
     return zoneState?.[type === 'air_mass' ? 'airMass' : 'front'] === subtype;
   }
-  const numeric = /^(moisture|sun|wind)(>=|<=)(\d+(?:\.\d+)?)$/.exec(cond);
+  const numeric = /^(moisture|sun|wind|aerosol)(>=|<=)(\d+(?:\.\d+)?)$/.exec(cond);
   if (numeric) {
     const [, field, op, raw] = numeric;
     if ((palette ?? []).includes(field)) return true; // 슬라이더로 도달 가능
@@ -383,6 +386,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
         { type: 'moisture', labelKey: 'board.atmosphere.moisture' },
         { type: 'sun', labelKey: 'board.atmosphere.sun' },
         { type: 'wind', labelKey: 'board.atmosphere.wind' },
+        { type: 'aerosol', labelKey: 'board.atmosphere.aerosol' },
       ].filter((knob) => palette.includes(knob.type)),
     [palette],
   );
@@ -984,7 +988,7 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
               )}
             </div>
 
-            {/* moisture/sun/wind 슬라이더 (팔레트 허용 시) */}
+            {/* 조절값 슬라이더 — levelKnobs (팔레트 허용 시) */}
             {levelKnobs.map((knob) => (
               <ZoneSlider
                 key={knob.type}
