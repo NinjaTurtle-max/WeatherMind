@@ -111,32 +111,38 @@ async def get_rules(
     ]
 
 
-# 학습 수준(users.level_group) → 열리는 **최고 난이도**. 2026-08-10 사용자 지시:
-# 초등 쉬움 · 중고등 쉬움+보통 · 성인 전부. expert는 adult와 같다 — board_difficulty가
-# 3에서 클램프하므로 그 위가 없다.
+# ═══════════════════════════════════════════════════════════════
+# 🔴 철거된 파생 축 — 경위만 남긴다 (2026-08-20)
+# ═══════════════════════════════════════════════════════════════
 #
-# ⚠️ **첫 판의 「전건 클리어 사다리」를 대체한 것이다**(같은 날 뒤집혔다). 그쪽은
-# 쉬움 23칸을 다 깨야 보통이 열려서, 심사위원이 로그인 없이 여는 데모에서 보통·
-# 어려움을 볼 방법이 없었다(HACKATHON_RULES). 지금은 열쇠가 **진도가 아니라 수준**
-# 이라 「내 정보 → 학습 수준」 한 번으로 바뀐다.
+# 여기 있던 것: `BAND_MAX_DIFFICULTY`(학령 → 열리는 최고 난이도 el 1 · mh 2 ·
+# adult 3 · expert 3) · `DEFAULT_MAX_DIFFICULTY`(3, 미상 밴드는 잠그지 않는다) ·
+# `BOARD_DIFFICULTIES`((1, 2, 3), 잠금 집합의 정의역).
 #
-# 값 목록은 users.level_group CHECK 제약(모델)·schemas/auth.LevelGroup과 같아야
-# 한다. 목(apiMockPlugin `__mockPolicy().board_band_max_difficulty`)이 이 표의
-# 사본을 들고 있고 test_r13_mock_policy_parity가 실값으로 대조한다.
-BAND_MAX_DIFFICULTY: dict[str, int] = {
-    "elementary": 1,
-    "middle_high": 2,
-    "adult": 3,
-    "expert": 3,
-}
-
-# 미상 밴드는 **잠그지 않는다**. 밴드가 늘었는데 이 표를 안 고치면 그 밴드 유저가
-# 보드를 통째로 잃는데, 못 여는 것이 열리는 것보다 나쁘다(board_difficulty의
-# "상위 밴드가 늘어도 easy로 오분류되지 않는다"와 같은 방향).
-DEFAULT_MAX_DIFFICULTY = 3
-
-# board_difficulty가 내는 값의 전 범위(1~3 클램프). 잠금 집합의 정의역이다.
-BOARD_DIFFICULTIES: tuple[int, ...] = (1, 2, 3)
+# 왜 지웠나: 잠금·표기 축이 **학령 파생 난이도(3칸)에서 지식 단계(1~10)**로
+# 갈아탔다(클라이언트 판정 — 유닛과 같은 축). 세 상수의 소비자는 `locked_difficulties`·
+# `band_ceiling`·`board_difficulty` 셋뿐이었고 그 셋이 함께 철거됐다. 남겨 두면
+# **같은 축에 이름이 둘**이 되고, 그것이 이 저장소가 `level_label`로 이미 치른 값이다.
+#
+# 각 상수가 지키던 성질이 어디로 갔나:
+#   · 학령 → 천장 = `learner_tier()`(θ 파생, 밴드 폴백). **DB 파생이라 상수표가 아니다.**
+#   · 「미상은 잠그지 않는다」 = `locked_tiers(None) == set()`가 **그대로 이어받았다**
+#     (그 함수 독스트링이 이 상수의 관례를 인용하며 승계를 밝힌다).
+#   · 잠금 집합의 정의역 = `BOARD_TIERS`.
+#
+# ⚠️ 함께 사라진 경위 2건을 여기 보존한다(지운 주석이 유일 소유자였다):
+#   ⑴ 이 표는 **첫 판의 「전건 클리어 사다리」를 대체한 것**이다(2026-08-10, 같은 날
+#      뒤집혔다). 그쪽은 쉬움 23칸을 다 깨야 보통이 열려서, 심사위원이 로그인 없이
+#      여는 데모에서 보통·어려움을 볼 방법이 없었다(HACKATHON_RULES). 새 축도 이
+#      판단을 물려받는다 — **천장이 진도가 아니라 수준에서 온다.**
+#   ⑵ 값 목록이 users.level_group CHECK 제약·schemas/auth.LevelGroup과 같아야 한다는
+#      정합 요구. 새 축에서 그 정합의 짝은 `weatherbrain_service`의 밴드 → 단계 표다.
+#
+# 🔴 ⚠️ **목이 아직 이 축으로 돌아간다.** `frontend/mock/apiMockPlugin.js`가
+# `BOARD_BAND_MAX_DIFFICULTY`·`BOARD_DIFFICULTIES`·`boardDifficulty` 사본을 들고
+# 잠그고, `boardPuzzlePayload`가 `difficulty`를 싣는다(서버는 `knowledge_level`).
+# 목↔서버가 **지금 이미 갈라져 있고** 그 갈림을 보던 파리티 계약이 이 철거로 무너진다.
+# 목은 이 세션 소유가 아니라 손대지 않고 보고했다 — 리드 판정 대기.
 
 # ═══════════════════════════════════════════════════════════════
 # 🔴 퍼즐 층 = **유닛과 같은 축**(지식 단계 1~N) — 2026-08-20 클라이언트 판정
@@ -213,49 +219,40 @@ async def learner_tier(db: AsyncSession, user: User) -> int | None:
     return None
 
 
-def locked_difficulties(level_group: str | None) -> set[int]:
-    """학습 수준 → **잠긴 난이도 집합**.
-
-    초등학생은 쉬움만, 중·고등학생은 쉬움·보통, 성인은 전부 열린다
-    (2026-08-10 사용자 지시). 열쇠는 온보딩에서 정해진 `users.level_group`이고,
-    「내 정보 → 학습 수준」(PATCH /auth/me)이 그것을 바꾸는 통로다.
-
-    난이도 **안에서는 순서가 없다** — 열린 묶음의 퍼즐은 아무거나 고른다
-    (2026-08-06에 퍼즐 단위 순차 잠금을 걷어낸 결정 그대로다).
-
-    DB를 타지 않는 순수 함수다(board_difficulty·order_puzzles_for_progress 관례) —
-    잠금 규칙만 따로 고정할 수 있어야 회귀를 싸게 잡는다.
-    """
-    ceiling = BAND_MAX_DIFFICULTY.get(level_group or "", DEFAULT_MAX_DIFFICULTY)
-    return {d for d in BOARD_DIFFICULTIES if d > ceiling}
-
-
-def board_difficulty(template_json: dict, level_group: str) -> int:
-    """보드 퍼즐 난이도 라벨 1(쉬움)~3(어려움) — R7-02 §3.5 (표시 전용, 잠금 없음).
-
-    규칙(순수 함수 — 가중은 시드 12건에서 1~3이 고루 나오도록 조정, 테스트 고정):
-    - 기본점: mode == "guided"(단계 안내) → 1, 그 외(goal_only 등 목표만 제시) → 2
-    - time_limit_sec 존재(양수) → +1 (시간 압박)
-    - palette 요소 3개 이상 → +1 (배치 조합 공간 확대)
-    - 사전 b가 adult 이상인 밴드(adult·expert) → +1 (서버측 유일 난이도 축 —
-      content_items.level_group). R13 §2.2로 밴드가 4종이 되면서 "adult" 문자열
-      비교에서 사전 b 임계로 바꿨다 — 상위 밴드가 늘어도 easy로 오분류되지 않는다.
-      결과가 3에서 클램프되므로 adult/expert의 표시값은 여전히 같다.
-    - 상한 3·하한 1 클램프
-    """
-    template = template_json or {}
-    score = 1 if template.get("mode") == "guided" else 2
-    if template.get("time_limit_sec"):
-        score += 1
-    palette = template.get("palette")
-    if isinstance(palette, (list, dict)) and len(palette) >= 3:
-        score += 1
-    prior_b = weatherbrain_service.LEVEL_GROUP_ITEM_B.get(
-        level_group, weatherbrain_service.DEFAULT_ITEM_B
-    )
-    if prior_b >= weatherbrain_service.LEVEL_GROUP_ITEM_B["adult"]:
-        score += 1
-    return max(1, min(3, score))
+# ═══════════════════════════════════════════════════════════════
+# 🔴 철거: `locked_difficulties` · `board_difficulty` (2026-08-20)
+# ═══════════════════════════════════════════════════════════════
+#
+# ⑴ `locked_difficulties(level_group) -> set[int]` — 학습 수준 → 잠긴 난이도 집합.
+#    **성질은 `locked_tiers(ceiling)`가 그대로 이어받았다**(그쪽 독스트링이 "형태가
+#    같다"고 밝힌다). 바뀐 것은 층의 개수와 천장의 출처뿐이다.
+#    ⚠️ 함께 사라지는 경위 하나를 보존한다: *"난이도 **안에서는** 순서가 없다 —
+#    열린 묶음의 퍼즐은 아무거나 고른다"*(2026-08-06에 퍼즐 단위 순차 잠금을
+#    걷어낸 결정). 새 축에서 그 성질은 **한 층 안의 순차**로 좁혀졌다
+#    (`ceiling_tier` + `compute_unlocked_ids`) — 즉 **뒤집혔고**, 뒤집은 것은
+#    MT-24와 결함 ⑨이지 이 철거가 아니다.
+#
+# ⑵ `board_difficulty(template_json, level_group) -> 1|2|3` — R7-02 §3.5 파생 라벨.
+#    규칙: guided 1 / 그 외 2 기본 · `time_limit_sec` +1 · `palette`≥3 +1 ·
+#    사전 b가 adult 이상 +1 · 1~3 클램프.
+#    **대체자가 없다 — 퍼즐의 층은 파생이 아니라 저작값이다**(`board_tier` =
+#    `content_items.knowledge_level`). 응답 필드도 `knowledge_level`로 교체됐다.
+#
+#    🔴 ⚠️ **다만 이 함수의 가중은 「저작 규율」이기도 했고 그쪽은 참으로 남는다.**
+#    「팔레트가 많으면(배치 조합 공간이 넓으면) 어렵다」·「시간제한이 있으면 어렵다」는
+#    축과 무관하게 맞다 — 조작 가지 수가 실제 난이도다. 파생으로 **자동 계산되던** 그
+#    규율이 이제 **저작자가 `knowledge_level`을 손으로 정할 때 지켜야 하는 것**이 됐고,
+#    그것을 무는 계약은 지금 **없다.** 감시자 공백이라 보고했다(리드 판정 대기).
+#
+#    ⚠️ 파급 하나 더 — **CARRYOVER Z-1의 차단이 풀린다.** 산불 규칙을 `sun>=70`
+#    3조건으로 되돌리지 못한 유일한 사유가 *"팔레트가 3이 되면 `palette>=3` 가산이
+#    board_order 9를 난이도 1→2로 올려 단조 증가 계약이 깨진다"*였다
+#    (`board_rules.json` wildfire_risk_dry_gale `note_authoring` · CARRYOVER §Z-1).
+#    가산이 없어졌으므로 그 사유가 소멸한다. 시드·규칙·문서는 이 세션 소유가
+#    아니라 손대지 않고 보고했다 — Z-1 재개 판단은 데이터·커리큘럼 소관.
+#
+#    ⚠️ `weatherbrain_service.LEVEL_GROUP_ITEM_B`는 **계속 쓰인다**
+#    (`order_puzzles_for_theta`의 θ 근접 정렬) — 이 철거로 죽는 상수가 아니다.
 
 
 def order_puzzles_for_progress(items: list) -> list:
@@ -335,9 +332,11 @@ def compute_unlocked_ids(ordered_items: list, cleared: set) -> set:
     return unlocked
 
 
-def band_ceiling(level_group: str | None) -> int:
-    """이 학습 수준의 **천장 난이도**. `locked_difficulties`의 짝(같은 표를 읽는다)."""
-    return BAND_MAX_DIFFICULTY.get(level_group or "", DEFAULT_MAX_DIFFICULTY)
+# 🔴 철거: `band_ceiling(level_group) -> int` (2026-08-20). `locked_difficulties`의
+# 짝으로 같은 상수표를 읽어 **학령 → 천장 난이도**를 냈다. 성질은 `learner_tier()`가
+# 이어받았다 — 다만 그쪽은 **θ 파생이 1순위**이고 밴드는 폴백이라 순수 함수가 아니다
+# (그래서 조회만 라우터로 올라갔다). 아래 잠금 헬퍼 셋이 `level_group` 대신 **정수
+# 천장**을 받는 것이 그 분리의 자국이다.
 
 
 def below_ceiling_ids(items: list, ceiling: int | None) -> set:
