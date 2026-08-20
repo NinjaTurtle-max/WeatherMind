@@ -205,6 +205,9 @@ try {
   // 카메라는 **camera.js가 소유한다** — 방위·고도·거리를 여기 베끼면 갈린 순간
   // 이 계약이 거짓을 단정한다(오늘 낡은 수로 겪은 그 형태).
   const { isoCamera } = await server.ssrLoadModule('/src/modules/board/webgl/crossSection/camera.js');
+  // 라벨 투영은 **렌더러가 소유한다**(`labelsFor`) — 여기서 투영을 다시 구현하면
+  // 갈린 순간 이 계약이 화면과 다른 것을 재게 된다.
+  const { labelsFor } = rendererMod;
   const { STORYBOARDS } = panelMod;
 
   // ── 1) SCENES ↔ STORYBOARDS 키 정합 ───────────────────────────────────────
@@ -548,23 +551,31 @@ try {
     const at3 = items.filter((it) => it.type === 'solid' && step >= (it.at ?? 0) && (it.until === undefined || step <= it.until));
     // 물 = 3단계에 등장하고 pattern 3(잔물결)인 지표수. 지하·빗물받이는 y가 음수라 뺀다.
     const water = at3.filter((it) => (it.at ?? 0) === 3 && it.pattern === 3 && centerOf(it)[1] > 0);
+    // 🔴 **「쪼개야 한다」던 단정을 뒤집었다**(2026-08-19 7차, 클라이언트:
+    //   *"모든 물 렌더링을 앞으로 당기고"*).
+    //   3차는 물을 **6조각**으로, 5차는 **2판**으로 쪼개 중심 깊이 정렬을 이겼다.
+    //   그때 단정은 「여러 조각으로 나뉘어 있는가」(≥2)였다 — **해법을 계약으로
+    //   굳힌 것**이고, 그 해법이 틀렸다. 조각을 늘리는 것은 **원인을 늘려 증상을
+    //   덮는 것**이었다(클라이언트: *"레이어를 너무 많이 쌓아서"*).
+    //   7차는 **물을 한 판으로 합치고 덮을 것들을 뒤로 보내** 풀었다.
+    //   ⇒ 이제 묻는 것은 **조각 수가 아니라 「물이 가장 앞인가」**이고, 그것은
+    //     7-b가 묻는다. 여기서는 **한 판이라는 단순함**만 래칫으로 지킨다.
     check(
-      `홍수 3단계 지표수가 여러 조각으로 나뉘어 있다 (실측 ${water.length}조각)`,
-      water.length >= 2,
-      '지표수가 한 상자면 중심 깊이 정렬이 건물마다 이길 수 없다 — 벽이 물을 덮어 수면선이 사라진다.',
-    );
-    // 🔴 **쪼개는 쪽으로 도망가지 못하게 상한도 둔다**(클라이언트: *"레이어를
-    //   너무 많이 쌓아서 그래"*). 3차에 저는 물을 6조각으로 쪼개 정렬을 이겼는데,
-    //   그것은 **원인을 늘려 증상을 덮은 것**이었다. 4차에서 물체를 줄여
-    //   (solid 29 → 19) 2판으로 성립시켰다. 다시 조각을 늘려 푸는 것을 막는다.
-    check(
-      `홍수 지표수가 2판을 넘지 않는다 (실측 ${water.length})`,
-      water.length <= 2,
-      '조각을 늘려 정렬을 이기는 것은 원인을 늘리는 것이다 — 물체를 줄여 풀어야 한다. ' +
+      `홍수 지표수가 한 판이다 (실측 ${water.length})`,
+      water.length === 1,
+      '물을 쪼개 정렬을 이기려 하지 말 것 — **덮을 것들을 뒤로 보내는 것**이 답이다. ' +
         '깊이 테스트가 없는 화가 알고리즘에서는 상자가 많을수록 어느 배치도 안전하지 않다.',
     );
     // 잠겨야 할 것 = 3단계 수면(물 조각의 y 상단) 아래에 중심이 있는 도시 물체
     const surfaceTop = Math.max(...water.map((w) => w.center[1] + w.size[1] / 2));
+    // 🔴 **침수 구간을 물에서 파생한다**(2026-08-19 5차). 첫 판은 `c[2] < 0.20`을
+    //   **하드코딩**했는데, 그것은 4차 배치(고지대가 카메라 쪽)의 값이었다.
+    //   5차에서 배치를 뒤집자 **장면은 옳은데 계약이 빨강**이 났다 —
+    //   오늘 반복된 「낡은 값 인용」이 계약 안에서 일어난 것이다.
+    //   물이 어디 있는지는 물 조각이 안다. 여기 숫자를 적지 않는다.
+    const floodZ0 = Math.min(...water.map((w) => w.center[2] - w.size[2] / 2));
+    const floodZ1 = Math.max(...water.map((w) => w.center[2] + w.size[2] / 2));
+    const inFloodZone = (c) => c[2] > floodZ0 && c[2] < floodZ1;
     // 🔴 **선별식 정정(첫 판이 틀렸다)**: 「**일부** 잠김」은 물체의 **밑면**이
     //   수면 아래라는 뜻이다. 첫 판은 **중심**이 수면 아래인 것만 골라서
     //   **앞줄 건물 5채 중 4채가 빠졌다**(중심 y 0.049~0.064 > 수면 0.046).
@@ -577,7 +588,7 @@ try {
       return (
         top > 0 &&                      // 지면 위로 나와 있다(지하·하수는 제외)
         bottom < surfaceTop - 1e-9 &&   // 밑면이 수면 아래 = **일부 잠김**
-        c[2] < 0.20 &&                  // 저지대 줄(고지대 z 0.20~Z는 마른 채다)
+        inFloodZone(c) &&               // 물의 z 구간 안(고지대는 그 밖이고 마른 채다)
         c[0] > 0.33                     // 도시 구간(풀밭 0.21~0.335 제외)
       );
     });
@@ -601,8 +612,14 @@ try {
     //   「작은」의 기준은 건물과 가르는 것이다 — 차는 높이 0.024~0.030이고
     //   가장 낮은 건물도 0.092다. 0.06은 그 사이의 여유 있는 경계다.
     {
-      const CAR_MAX_H = 0.06;
-      const small = at3.filter((it) => !water.includes(it) && it.size[1] <= CAR_MAX_H && it.center[2] < 0.20 && it.center[0] > 0.33);
+      // 🔴 **높이만 보던 첫 판이 뚫렸다**(2026-08-19 변이③): 물을 창문선 아래로
+      //   내려도 초록이었다. **포장면**(y 두께 0.008이지만 폭 0.665 × 깊이 0.295인
+      //   판)이 「온전히 잠긴 작은 물체」로 세어졌기 때문이다.
+      //   ⇒ 「작은」은 **세 축 전부**로 재야 한다. 자는 **뭉툭한 물체**다 —
+      //      차는 0.070 × 0.030 × 0.052이고 가장 낮은 건물도 높이 0.092다.
+      const CAR_MAX = [0.12, 0.06, 0.12];
+      const compact = (it) => it.size.every((v, i) => v <= CAR_MAX[i]);
+      const small = at3.filter((it) => !water.includes(it) && compact(it) && inFloodZone(it.center) && it.center[0] > 0.33);
       const straddling = small.filter((it) => {
         const bottom = it.center[1] - it.size[1] / 2;
         const top = it.center[1] + it.size[1] / 2;
@@ -631,6 +648,199 @@ try {
     );
   }
 
+  // ── 7-b) 🔴 **물을 가리는 것이 없는가** ────────────────────────────────────
+  // **2026-08-19 클라이언트가 갤러리에서 직접 봤다**:
+  //   *"홍수에서 물레이어 위에 건물하고 차량이 있어서 물이 가려지는게 나만 보여?"*
+  //
+  // 🔴 **4차 계약이 이것을 못 잡았다.** 「잠겨야 할 것마다 **더 가까운 물 조각이
+  // 있는가**」만 물었고 **「물보다 더 가까운 것이 있는가」를 묻지 않았다.**
+  // 그래서 4차는 고지대(높이 0.080 · alpha 0.94)를 **물 전체 앞**에 세우고도
+  // 전 단정이 초록이었다 — 수면이 0.046인데 그보다 높은 불투명 벽이 앞을 막았다.
+  //
+  // ⚠️ **한 방향만 묻는 단정은 반대 방향으로 자유롭다.** 오늘 네 번째 형태다.
+  {
+    const FLOOD = 'flood_risk_saturated_inflow';
+    const items = buildScene(FLOOD)?.items ?? [];
+    const { eye, forward } = isoCamera();
+    const depth = (p) => (p[0] - eye[0]) * forward[0] + (p[1] - eye[1]) * forward[1] + (p[2] - eye[2]) * forward[2];
+    const step = 3;
+    const at3 = items.filter((it) => it.type === 'solid' && step >= (it.at ?? 0) && (it.until === undefined || step <= it.until));
+    const water = at3.filter((it) => (it.at ?? 0) === 3 && it.pattern === 3 && it.center[1] > 0);
+    const nearestWater = Math.min(...water.map((w) => depth(w.center)));
+    // 「가린다」의 조건: 물보다 카메라에 가깝고(먼저가 아니라 **나중에** 그려진다)
+    // 반투명이 아니다(alpha ≥ 0.9면 뒤가 안 보인다) + 수면보다 위로 솟아 있다.
+    const surfaceTop = Math.max(...water.map((w) => w.center[1] + w.size[1] / 2));
+    const blockers = at3.filter((it) => {
+      if (water.includes(it)) return false;
+      const top = it.center[1] + it.size[1] / 2;
+      return depth(it.center) < nearestWater && it.color[3] >= 0.9 && top > surfaceTop;
+    });
+    check(
+      `홍수 3단계에서 물을 가리는 불투명 물체가 없다 (검사 ${at3.length}개)`,
+      blockers.length === 0,
+      `이 물체들이 **물보다 카메라에 가깝고 불투명하며 수면보다 높다** ⇒ 나중에 그려져 물을 덮는다. ` +
+        `깊이 테스트가 없으므로 **잠긴 땅을 카메라 쪽에, 마른 땅을 뒤에** 두어야 한다: ` +
+        blockers.map((it) => `x=${it.center[0].toFixed(3)} y=${it.center[1].toFixed(3)} z=${it.center[2].toFixed(3)} h=${it.size[1].toFixed(3)} a=${it.color[3]}`).join(' / '),
+    );
+  }
+
+  // ── 7-e) 🔴 **잠긴 정도가 여러 단계인가** ────────────────────────────────
+  // **2026-08-19 클라이언트가 침수 도판을 참고로 지정**(freepik "FLOOD ISOMETRIC").
+  // ⚠️ 따라 그리지 않았다 — 가져온 것은 규약이다.
+  //
+  // 그 도판에서 **깊이를 읽게 하는 것은 물 색이 아니다** — 「지붕만 남은 집」과
+  // 「벽 절반인 집」이 **함께** 있는 것이다. 한 단계만 있으면 「물이 있다」까지만
+  // 읽히고 **얼마나 깊은지**는 안 읽힌다. 차(자)는 절대 기준을 주고, **집집마다
+  // 다른 잠김**은 상대 기준을 준다 — 둘이 다른 일을 한다.
+  //
+  // ⚠️ **값이 아니라 분포를 묻는다.** 잠긴 비율의 최대 - 최소가 충분히 벌어졌는가.
+  //    특정 높이를 못박으면 더 나은 배치가 빨강이 된다(오늘 「쪼개야 한다」로 겪었다).
+  {
+    const FLOOD = 'flood_risk_saturated_inflow';
+    const items = buildScene(FLOOD)?.items ?? [];
+    const step = 3;
+    const at3 = items.filter((it) => it.type === 'solid' && step >= (it.at ?? 0) && (it.until === undefined || step <= it.until));
+    const water = at3.filter((it) => (it.at ?? 0) === 3 && it.pattern === 3 && it.center[1] > 0);
+    const surfaceTop = Math.max(...water.map((w) => w.center[1] + w.size[1] / 2));
+    // 건물 = 지표에 서고 높이가 차보다 큰 것(0.06 초과 — 자 계약과 같은 경계)
+    const ratios = at3
+      .filter((it) => {
+        const bottom = it.center[1] - it.size[1] / 2;
+        return !water.includes(it) && it.size[1] > 0.06 && Math.abs(bottom) < 1e-6 && it.center[0] > 0.33;
+      })
+      .map((it) => Math.min(1, (surfaceTop - (it.center[1] - it.size[1] / 2)) / it.size[1]));
+    const spread = ratios.length ? Math.max(...ratios) - Math.min(...ratios) : 0;
+    const MIN_SPREAD = 0.2;
+    check(
+      `잠긴 정도가 여러 단계다 — 건물 ${ratios.length}채, 비율 ${ratios.map((r) => `${Math.round(r * 100)}%`).join(' · ')} (편차 ${Math.round(spread * 100)}%p ≥ ${MIN_SPREAD * 100}%p)`,
+      ratios.length >= 3 && spread >= MIN_SPREAD,
+      ratios.length < 3
+        ? `지표에 선 건물이 ${ratios.length}채뿐이다 — 여러 단계를 보일 수 없다.`
+        : `건물들이 **비슷한 비율로** 잠겨 있다(편차 ${Math.round(spread * 100)}%p). ` +
+          `「지붕만 남은 집」과 「벽 절반인 집」이 함께 있어야 **얼마나 깊은지**가 읽힌다 — ` +
+          `한 단계만 있으면 「물이 있다」까지만 읽힌다.`,
+    );
+  }
+
+  // ── 7-c) 🔴 **라벨이 겹치지 않는가 · 프레임을 넘지 않는가** ────────────────
+  // **2026-08-19 클라이언트**: *"글자 렌더링 겹침 확인하고 안 겹치도록"*.
+  //
+  // 라벨은 GL이 아니라 **SVG `<text>`**로 그려진다(`CrossSectionGL.jsx`):
+  //   x = left/100 × 260 · y = top/100 × 150 · fontSize = size × 0.6 · anchor=middle
+  // 그래서 겹침은 **화면 좌표에서만** 재진다 — 장면 좌표로는 알 수 없다.
+  //
+  // ⚠️ **글자 폭은 추정이다**(CJK 1.0em · 그 밖 0.55em · 공백 0.3em). 실제 폰트
+  //    메트릭이 아니므로 **절대 판정이 아니라 회귀 감시**로 쓴다. 그래서 아래는
+  //    래칫이다 — 「오늘보다 늘지 않는다」. 값을 **올리지 말 것**.
+  // ⚠️ 남은 8건 중 **7건이 산불 2장면**이고 그 장면은 다른 조가 쥐고 있다
+  //    (`wildfire_risk_dry_gale` 4+2 · `siberian_gale_wildfire` 1). 그 작업이
+  //    착지하면 이 값을 내린다.
+  {
+    const VB_W = 260;
+    const VB_H = 150;
+    const LABEL_SCALE = 0.6; // CrossSectionGL.jsx가 소유 — 갈리면 이 계산이 거짓
+    const isCJK = (c) => /[가-힣ㄱ-ㅎㅏ-ㅣ一-鿿]/.test(c);
+    const widthEm = (t) => [...t].reduce((w, c) => w + (c === ' ' ? 0.3 : isCJK(c) ? 1.0 : 0.55), 0);
+    const boxOf = (l) => {
+      const fs = l.size * LABEL_SCALE;
+      const lines = String(l.text).split('\n');
+      const w = Math.max(...lines.map(widthEm)) * fs;
+      const cx = (l.left / 100) * VB_W;
+      const by = (l.top / 100) * VB_H;
+      return { x0: cx - w / 2, x1: cx + w / 2, y0: by - fs * 0.8, y1: by + fs * 0.2 + (lines.length - 1) * fs * 1.25 };
+    };
+    const overlaps = (a, b) =>
+      Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) > 0.5 && Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) > 0.5;
+    let ov = 0;
+    let out = 0;
+    const floodBad = [];
+    for (const id of Object.keys(SCENES)) {
+      const scene = buildScene(id);
+      const steps = STORYBOARDS[id]?.length ?? 4;
+      for (let step = 0; step < steps; step += 1) {
+        const boxes = labelsFor(scene, step, VB_W / VB_H).map(boxOf);
+        let localOv = 0;
+        for (let i = 0; i < boxes.length; i += 1) {
+          for (let j = i + 1; j < boxes.length; j += 1) if (overlaps(boxes[i], boxes[j])) localOv += 1;
+        }
+        const localOut = boxes.filter((b) => b.x0 < 0 || b.x1 > VB_W || b.y0 < 0 || b.y1 > VB_H).length;
+        ov += localOv;
+        out += localOut;
+        if (id === 'flood_risk_saturated_inflow' && (localOv || localOut)) floodBad.push(`step${step}: 겹침 ${localOv} · 프레임밖 ${localOut}`);
+      }
+    }
+    // 오늘의 값(래칫) — 내릴 때만 고친다
+    // 🔴 8/6 → **2/2로 조인다**(2026-08-19). 이 PR이 산불 라벨을 5→2로 줄여
+    //    그 여유를 만들었고, **느슨한 채로 두면 이 PR이 고친 것을 계약이 못 지킨다**
+    //    — 되돌림 확인에서 `forestedRidge`의 `until`을 되돌려도 8 안이라 안 울었다.
+    //    ⚠️ 값을 **올리지 말 것.** 새 장면이 걸리면 라벨을 걷는 쪽이 답이다.
+    const MAX_OVERLAP = 2;
+    const MAX_OUTSIDE = 2;
+    check(
+      `라벨 겹침이 ${MAX_OVERLAP}건을 넘지 않는다 (실측 ${ov})`,
+      ov <= MAX_OVERLAP,
+      `라벨이 서로 가려 읽을 수 없다. **이 상한을 올리지 말 것** — 좌표를 벌리거나 ` +
+        `역할 끝난 라벨을 \`until\`로 걷는다.`,
+    );
+    check(
+      `프레임 밖 라벨이 ${MAX_OUTSIDE}건을 넘지 않는다 (실측 ${out})`,
+      out <= MAX_OUTSIDE,
+      `라벨이 260×150 뷰박스를 넘어 잘린다.`,
+    );
+    check(
+      `홍수는 겹침·프레임밖이 **0**이다 (PM 소유 장면)`,
+      floodBad.length === 0,
+      `홍수 라벨이 겹치거나 프레임을 넘었다: ${floodBad.join(' / ')}`,
+    );
+  }
+
+  // ── 7-d) 🔴 **전선면은 경사면이다** ───────────────────────────────────────
+  // **2026-08-19 클라이언트가 교재 도판을 지정**(「정체전선의 3차원 모식도」,
+  // 출처 `The Atmosphere`). ⚠️ 도판을 따라 그리지 않았다 — 복제·트레이싱 금지이고
+  // 제출물 저작권 위험이다. 가져온 것은 **표준 기상 규약**이고 저작물이 아니다.
+  //
+  // 규약: **찬 공기는 밀도가 커서 아래에 쐐기로 눕고, 따뜻한 공기는 그 위로
+  // 올라탄다. 둘의 경계면(전선면)은 경사면이다** — 수직이면 물리가 아니다.
+  // 종전에 이 요구를 지키는 단정이 **0건**이었다: 정체전선의 전선면을 수직으로
+  // 되돌리고 두 기단을 같은 높이로 만드는 변이가 **둘 다 통과했다.**
+  //
+  // 🔴 그리고 이 계약을 세우다 **`front_convergence_flood`의 전선면이 shear
+  //    0.020(거의 수직)**임을 찾았다. 나머지 4종은 -0.440 · -0.340 · +0.640 ·
+  //    -0.240으로 전부 기울어 있었다 — **분포에서 벗어난 한 장면**이었다.
+  //
+  // ⚠️ 이것은 **요구**이지 방법이 아니다. 다만 지금은 「경사」를 `shear[0]`으로
+  //    표현하므로 그 값을 본다. **경사면을 다른 프리미티브로 표현하게 되면 이
+  //    단정을 의도적으로 갱신할 것** — 그때 빨강이 나는 것은 회귀가 아니다.
+  {
+    const MIN_SLOPE = 0.15; // 전선 5종 중 최소가 0.240이었다 — 여유를 두고 절반 아래
+    const flat = [];
+    for (const id of Object.keys(SCENES)) {
+      for (const it of buildScene(id)?.items ?? []) {
+        if (it.type !== 'solid' || it.pattern !== 1) continue; // pattern 1 = frontSlab
+        if (Math.abs(it.shear[0]) < MIN_SLOPE) flat.push(`${id} shear=${it.shear[0].toFixed(3)}`);
+      }
+    }
+    check(
+      `전선면이 전부 경사면이다 (|shear| ≥ ${MIN_SLOPE})`,
+      flat.length === 0,
+      `전선면이 수직에 가깝다 — 찬 공기가 아래로 눕고 따뜻한 공기가 위로 올라타는 ` +
+        `구조가 그림에서 사라진다: ${flat.join(' / ')}`,
+    );
+    // 정체전선 — **찬 기단이 따뜻한 기단보다 낮다**(아래에 깔린다)
+    const wedges = (buildScene('stationary_front_monsoon')?.items ?? [])
+      .filter((it) => it.type === 'solid' && it.taper && it.taper[0] !== 1);
+    const cold = wedges.find((w) => w.center[0] < 0.5);
+    const warm = wedges.find((w) => w.center[0] >= 0.5);
+    check(
+      `정체전선에서 찬 기단이 따뜻한 기단보다 낮다 (찬 ${cold ? cold.size[1].toFixed(3) : '?'} < 따뜻 ${warm ? warm.size[1].toFixed(3) : '?'})`,
+      Boolean(cold && warm) && cold.size[1] < warm.size[1],
+      !cold || !warm
+        ? '정체전선에서 두 기단 쐐기를 못 찾았다 — 선별식이 낡았나? 공허 통과 방지로 실패로 둔다.'
+        : '두 기단이 같은 높이면 「찬 공기가 **아래에 깔리고** 따뜻한 공기가 **위로 올라탄다」가 ' +
+          '보이지 않는다 — 나란히 선 두 덩이가 된다.',
+    );
+  }
+
   // ── 8) 장면 복잡도 — **래칫**: 오늘보다 더 쌓을 수 없다 ────────────────────
   // 🔴 **2026-08-19 클라이언트 지적: *"레이어를 너무 많이 쌓아서 그래"*.**
   // 실측이 지적을 뒷받침했다 — 홍수가 20장면 중 **solid 29(2위의 3배)** ·
@@ -654,9 +864,9 @@ try {
       // 그 장면은 *"주황색 타원으로만 설명하는 게 너무 빈약해"* 반려로 재작업
       // 중이다(다른 조 소유). 그 작업이 착지하면 이 값을 내릴 것.
       anyLabels: 10,
-      // 홍수 — 4차 재작성으로 solid 29 → 19, 라벨 10 → 5로 줄인 값이다.
-      // 되돌리거나 다시 쌓으면 여기가 빨강이 난다.
-      floodSolids: 19,
+      // 홍수 — 재작성으로 solid **29 → 19 → 15**(7차에서 고지대 슬래브 + 건물
+      // 2채 + 물 한 판을 뺐다), 라벨 10 → 5. 되돌리거나 다시 쌓으면 빨강이다.
+      floodSolids: 15,
       floodLabels: 5,
     };
     const measure = (id) => {
