@@ -125,7 +125,11 @@ async def get_rules(
 # **같은 축에 이름이 둘**이 되고, 그것이 이 저장소가 `level_label`로 이미 치른 값이다.
 #
 # 각 상수가 지키던 성질이 어디로 갔나:
-#   · 학령 → 천장 = `learner_tier()`(θ 파생, 밴드 폴백). **DB 파생이라 상수표가 아니다.**
+#   · 학령 → 천장 = `learner_tier()`. **DB 파생이라 상수표가 아니다.**
+#     ⚠️ 여기 *"(θ 파생, 밴드 폴백)"*이라 적혀 있었고 **2026-08-20 판정 1로 거짓이
+#     됐다** — 밴드 폴백은 천장 경로에서 철거됐다(경위는 `learner_tier` 독스트링).
+#     정정만 하고 지우지 않는 이유: 이 줄이 「학령 잠금의 성질이 어디로 갔나」의
+#     추적 경로로 인용됐다.
 #   · 「미상은 잠그지 않는다」 = `locked_tiers(None) == set()`가 **그대로 이어받았다**
 #     (그 함수 독스트링이 이 상수의 관례를 인용하며 승계를 밝힌다).
 #   · 잠금 집합의 정의역 = `BOARD_TIERS`.
@@ -183,6 +187,22 @@ def board_tier(item) -> int | None:
     `board_difficulty`(조작 복잡도 파생)와 뜻이 다르다 — 이쪽은 **교과 단계**이고
     유닛·문항이 쓰는 그 축이다. 값이 없으면 `None`이고, 그때는 **잠그지 않는다**
     (아래 `locked_tiers`의 미상 처리와 같은 방향).
+
+    🔴 **2026-08-20 판정 2 — 층이 `None`인 퍼즐은 「열리되 줄에 서지 않는다」.**
+    종전 동작을 경위로 남긴다: `below_ceiling_ids`가 `is not None`으로 가드하고
+    `ceiling_tier`가 `== ceiling`으로 걸러서, 층이 미상인 퍼즐은 **어느 천장에서도
+    열린 집합에 한 번도 들어가지 못했다** — 즉 `locked`는 False인데 `unlocked`도
+    영원히 False라 **누구에게도, 영원히** 안 열렸다. **저작 실수 하나가 콘텐츠를
+    소리 없이 증발시키는 구조**였다(실측 시드 board는 지금 미상 0건이라 아무도
+    못 봤을 뿐이다 — 그래서 픽스처가 그 갈래를 밟는다).
+
+    ⇒ 지금은 두 갈래로 명시 처리한다:
+      · **잠금** — 미상은 **모든 천장에서 열림**. 근거는 `locked_tiers`가 이미
+        이어받은 `DEFAULT_MAX_DIFFICULTY`의 미상-밴드 관례(*"못 여는 것이 열리는
+        것보다 나쁘다"*)이고, **층이 미상인 퍼즐은 미상-밴드 학습자와 같은 형태**다.
+      · **순차** — `tierless_ids`가 따로 열고 `sequenceable`·`ceiling_tier`에서는
+        **빠진다**. 아무 층에나 끼우면 그 층의 순서 의미가 깨진다(미상-밴드 학습자
+        쪽과 같은 처리).
     """
     level = getattr(item, "knowledge_level", None)
     return level if isinstance(level, int) else None
@@ -203,29 +223,41 @@ def locked_tiers(ceiling: int | None) -> set[int]:
 
 
 async def learner_tier(db: AsyncSession, user: User) -> int | None:
-    """학습자의 **천장 층**. 유닛·`GET /progress/me`가 쓰는 그 값을 그대로 쓴다.
+    """🔴 **천장의 소유자는 이 함수 하나다** — 갈아끼울 수 있는 단일 이음매.
 
-    우선순위와 그 근거(2026-08-20 실측):
-      ① `weatherbrain_service.overall_knowledge_level` — θ 파생. **이것이 1순위인
-         이유는 클라이언트가 승인한 노출 표가 이 경로의 값**이기 때문이다
-         (진단 전 기본: 초등 **2** · 중고등 4 · 성인 **6** · expert 9).
-      ② θ 행이 아예 없을 때만 **밴드 폴백**(`knowledge_level_of_level_group`).
-      ③ 둘 다 없으면 `None` → **잠그지 않는다.**
+    보드 잠금이 천장을 묻는 자리는 넷(목록·단건 진입·채점·`_unlocked_ids_for`)이고
+    **전부 이 함수만 부른다.** 천장을 정하는 규칙이 바뀔 때 고칠 곳이 하나여야
+    하기 때문이다.
 
-    🔴 ⚠️ **①과 ②는 값이 다르다 — 선재 어긋남이고 이 변경이 그것을 사용자에게 보이게
-    만든다.** 실측: 초등 2↔1 · 중고등 4↔3 · 성인 6↔5 · expert 9↔7. 지금까지는 그
-    차이가 **표기**에만 나타나 눈에 안 띄었지만, 층이 곧 **보이는 퍼즐 수**가 되므로
-    같은 학령인데 θ 행이 있는 학습자와 없는 학습자가 다른 판수를 본다.
-    사다리 하나를 버리는 결정은 배치고사·표기까지 걸리는 별건이라 여기서 고치지
-    않고 대장에 어긋남으로 남겼다(2026-08-20).
+    🔴 ⚠️ **추천 판정이 이 자리를 대신할지 이 위에 얹힐지는 판정 대기다**
+    (2026-08-20 클라이언트 원문: *「단계 10개로 하고 추천 시스템으로 추천 단계에
+    맞게 보드가 열리도록」*). ⇒ **천장의 소유자는 「추천 시스템이 판정한 단계」**이고,
+    지금 여기 있는 θ 파생값은 **과도 상태의 값**이다. 그 배선은 아직 없으므로
+    **이 세션에서 설계를 고르지 않았다** — 대신 이음매를 하나로 유지해 둔다.
+    ⚠️ 그래서 계약은 **「천장 == 학습자의 `knowledge_level`」을 물지 않는다.**
+    그것을 박으면 추천 판정이 천장을 정하는 순간 헛울고 되돌리게 된다.
+
+    지금 규칙(2026-08-20 판정 1 집행 후):
+      ① `weatherbrain_service.overall_knowledge_level` — θ 파생.
+      ② θ 행이 아예 없으면 `None` → **잠그지 않는다**(`locked_tiers(None) == set()`).
+
+    🔴 **철거 경위 — 밴드 폴백을 뺐다.** 종전 ②는 *"θ 행이 없으면
+    `knowledge_level_of_level_group(user.level_group)`"*이었고, 그래서 천장의 출처가
+    **사다리 둘**(θ 파생 ↔ 밴드 최하)이었다. 클라이언트 지시는 *「상관 쓰지 말고
+    그냥 10단계로 나누라」*이고, 두 사다리는 실측으로 값이 달랐다(초등 2↔1 ·
+    중고등 4↔3 · 성인 6↔5 · expert 9↔7) — 층이 곧 **보이는 퍼즐 수**가 된 뒤로는
+    그 어긋남이 「같은 학령인데 판수가 다르다」로 사용자에게 보였다. 축을 하나로
+    줄이는 것이 그 어긋남을 없애는 길이다.
+
+    ⚠️ **`knowledge_level_of_level_group` 함수 자체는 살아 있다** —
+    `placement_service`(사전 θ 배정)와 `weatherbrain_service`(문항 b 파생·표기)가
+    계속 쓴다. 여기 **천장 경로에서만** 빠졌다.
+    ⚠️ **실제 노출 값은 거의 안 바뀐다**: `seed_placement`가 가입·게스트 발급 양쪽에서
+    θ 행을 심으므로(`routers/auth.py`) 정상 유저는 ① 경로로 간다. 없어진 것은
+    **θ 행이 아예 없는 유저의 폴백**뿐이고, 그 유저는 이제 **잠기지 않는다.**
     """
     level = await weatherbrain_service.overall_knowledge_level(db, user)
-    if isinstance(level, int):
-        return level
-    band = getattr(user, "level_group", None)
-    if band:
-        return weatherbrain_service.knowledge_level_of_level_group(band)
-    return None
+    return level if isinstance(level, int) else None
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -343,9 +375,11 @@ def compute_unlocked_ids(ordered_items: list, cleared: set) -> set:
 
 # 🔴 철거: `band_ceiling(level_group) -> int` (2026-08-20). `locked_difficulties`의
 # 짝으로 같은 상수표를 읽어 **학령 → 천장 난이도**를 냈다. 성질은 `learner_tier()`가
-# 이어받았다 — 다만 그쪽은 **θ 파생이 1순위**이고 밴드는 폴백이라 순수 함수가 아니다
-# (그래서 조회만 라우터로 올라갔다). 아래 잠금 헬퍼 셋이 `level_group` 대신 **정수
-# 천장**을 받는 것이 그 분리의 자국이다.
+# 이어받았다 — 다만 그쪽은 DB 조회를 타므로 순수 함수가 아니다(그래서 조회만
+# 라우터로 올라갔다). 아래 잠금 헬퍼 셋이 `level_group` 대신 **정수 천장**을 받는
+# 것이 그 분리의 자국이다.
+# ⚠️ 여기 *"θ 파생이 1순위이고 밴드는 폴백"*이라 적혀 있었고 **2026-08-20 판정 1로
+# 거짓이 됐다** — 폴백이 없으므로 「1순위」라는 말 자체가 뜻을 잃었다. 정정만 남긴다.
 
 
 def below_ceiling_ids(items: list, ceiling: int | None) -> set:
@@ -380,6 +414,33 @@ def below_ceiling_ids(items: list, ceiling: int | None) -> set:
         for item in items
         if (t := board_tier(item)) is not None and t < ceiling
     }
+
+
+def tierless_ids(items: list) -> set:
+    """**층이 미상인 퍼즐 id** — 모든 천장에서 열리고, 줄에는 서지 않는다 (판정 2).
+
+    🔴 이 함수가 없으면 층이 `None`인 퍼즐이 **누구에게도, 영원히** 안 열린다:
+    `locked_tiers`의 어느 층에도 안 걸려 `locked=False`인데(잠긴 것으로 표시되지도
+    않는다) `below_ceiling_ids`는 `is not None`으로, `ceiling_tier`는 `== ceiling`으로
+    걸러서 **열린 집합에 들어갈 통로가 하나도 없었다.** ⇒ 저작 실수 하나가 콘텐츠를
+    **소리 없이** 증발시키는 구조였고, 「잠겼다」는 신호조차 없어 화면에서도 원인을
+    알 수 없었다.
+
+    ⚠️ **왜 「열림」이 옳은가**: 「못 여는 것이 열리는 것보다 나쁘다」 —
+    `DEFAULT_MAX_DIFFICULTY`가 미상 밴드에 세워 둔 관례이고 `locked_tiers(None)`이
+    이미 이어받았다. 층이 미상인 **퍼즐**은 그 미상-밴드 **학습자**와 같은 형태다.
+
+    ⚠️ **왜 커서에는 안 끼우나**: 순차는 **한 층 안의 순서**에만 뜻이 있다
+    (`ceiling_tier` 독스트링). 층을 모르는 퍼즐을 아무 층에 끼우면 그 층의 순서
+    의미가 깨지고, 「다음에 할 것」이 미상 퍼즐로 밀려 층의 난이도 곡선이 흔들린다.
+    미상-밴드 학습자를 「잠그지 않지만 사다리에도 안 세운다」로 처리하는 것과 같다.
+
+    ⚠️ 실측(2026-08-20): 시드 board 64건 전건이 `knowledge_level` 정수이고 미상은
+    **0건**이다. 즉 **이 함수는 지금 시드에서 아무 id도 내지 않는다** — 그래서
+    계약은 시드가 아니라 **픽스처로 이 갈래를 밟는다**(시드만 보면 분기가 영원히
+    실행되지 않아 「입력이 갈래를 안 밟아서 초록」이 된다).
+    """
+    return {item.id for item in items if board_tier(item) is None}
 
 
 def ceiling_tier(items: list, ceiling: int | None) -> list:
@@ -419,9 +480,20 @@ def sequenceable(items: list, ceiling: int | None) -> list:
     합쳐 놓고 전체 목록에서 순서를 세면 사슬이 끊긴다)은 **층이 3칸이든 N칸이든
     같다** — 그래서 이 필터의 존재 이유가 바뀌지 않는다. 오히려 층이 촘촘해져
     「다음 칸이 잠긴 층」인 상황이 더 자주 생기므로 **더 필요해졌다.**
+
+    🔴 **2026-08-20 판정 2: 층이 미상(`None`)인 퍼즐은 여기서 빠진다.** 종전에는
+    `None not in locked`가 참이라 **미상 퍼즐이 줄에 섞여 들어왔다** — 어느 층에도
+    속하지 않는 칸이 커서 앞에 서면 그 층의 순서 의미가 깨진다. 대신 그 퍼즐은
+    `tierless_ids`가 순차와 무관하게 열어 준다(「열리되 줄에 서지 않는다」).
+    ⚠️ 빼기만 하고 `tierless_ids`를 OR로 합치지 않으면 **그 퍼즐이 통째로 잠긴다** —
+    두 변경은 한 쌍이다.
     """
     locked = locked_tiers(ceiling)
-    return [item for item in items if board_tier(item) not in locked]
+    return [
+        item
+        for item in items
+        if (t := board_tier(item)) is not None and t not in locked
+    ]
 
 
 async def _unlocked_ids_for(db: AsyncSession, user: User, cleared: set) -> set:
@@ -448,10 +520,16 @@ async def _unlocked_ids_for(db: AsyncSession, user: User, cleared: set) -> set:
     # 순차(내 층에서 어디까지) **OR** 천장 아래 인정(내 층 아래는 이미 지났다) — 결함 ⑨.
     # 🔴 천장의 출처가 학령에서 **지식 단계**로 갈아탔다(2026-08-20) — 조회는 여기서
     # 한 번만 하고, 규칙 함수 셋은 정수만 받아 순수 함수로 남는다.
+    # 🔴 세 갈래 OR (2026-08-20 판정 2로 하나 늘었다): 순차(내 층에서 어디까지) ·
+    # 천장 아래 인정(내 층 아래는 이미 지났다) · **층 미상은 무조건 열림**.
     ceiling = await learner_tier(db, user)
-    return compute_unlocked_ids(
-        ceiling_tier(order_puzzles_for_progress(items), ceiling), cleared
-    ) | below_ceiling_ids(items, ceiling)
+    return (
+        compute_unlocked_ids(
+            ceiling_tier(order_puzzles_for_progress(items), ceiling), cleared
+        )
+        | below_ceiling_ids(items, ceiling)
+        | tierless_ids(items)
+    )
 
 
 def order_puzzles_for_theta(items: list, theta: float | None) -> list:
@@ -527,9 +605,16 @@ async def list_puzzles(
     **잠금이 둘이고 축이 다르다**(2026-08-12 병합 판정 — 둘 다 사용자 지시라
     어느 한쪽을 버리면 지시 하나를 되돌리게 된다):
 
-    ⑴ **학습 수준 잠금**(`locked`, 2026-08-10 지시) — 초등은 쉬움만, 중·고등은
-       쉬움·보통, 성인은 전부. 규칙은 `locked_difficulties`가 소유하고 열쇠는
-       `users.level_group`이다.
+    ⑴ **학습 수준 잠금**(`locked`, 2026-08-10 지시) — 천장 위 층은 잠긴다. 규칙은
+       `locked_tiers`가 소유하고 **천장은 `learner_tier` 하나가 소유**한다.
+       ⚠️ 여기 *"초등은 쉬움만, 중·고등은 쉬움·보통, 성인은 전부. 규칙은
+       `locked_difficulties`가 소유하고 열쇠는 `users.level_group`"*이라 적혀 있었고
+       **전부 거짓이 됐다**(2026-08-20 정정): 「쉬움/보통」 3칸 라벨은 철거됐고,
+       `locked_difficulties`도 철거됐고, **열쇠가 `users.level_group`이 아니다**
+       (판정 1로 밴드가 천장 경로에서 빠졌다). 정정만 하고 지우지 않는 이유는
+       이 문장이 두 잠금의 축이 다른 근거로 인용됐기 때문이다.
+    ⑶ **층 미상은 어느 축에도 안 걸린다** — `locked=False`이고 `tierless_ids`가
+       열어 준다(판정 2). 종전에는 `unlocked`도 영원히 False라 유령 칸이 됐다.
     ⑵ **순차 잠금**(`unlocked`, MT-24 · 2026-08-11 멘토링 피드백) — ⑴로 열린
        난이도 **안에서** 어디까지 왔는가. 종전 기술 *"잠금 없다(2026-08-06 제품
        결정)"*는 **번복됐다.** 번복 사유를 지우지 않고 남긴다: 당시 걷어낸 이유는
@@ -569,16 +654,22 @@ async def list_puzzles(
     # 순서는 **층으로 거른 뒤** 센다(`sequenceable`) + **천장 아래는 인정**한다
     # (`below_ceiling_ids` — 결함 ⑨). 두 축이 AND가 아니라 OR로 합쳐지는 자리다:
     # 순차는 「내 층에서 어디까지 왔나」를, 인정은 「내 층 아래는 이미 지났다」를 말한다.
-    unlocked = compute_unlocked_ids(
-        ceiling_tier(items, ceiling), cleared
-    ) | below_ceiling_ids(items, ceiling)
+    # 🔴 판정 2: **층 미상은 무조건 열림**(`tierless_ids`) — 종전에는 열린 집합에
+    # 들어갈 통로가 없어 `locked=False`인데 `unlocked=False`인 유령 칸이 됐다.
+    unlocked = (
+        compute_unlocked_ids(ceiling_tier(items, ceiling), cleared)
+        | below_ceiling_ids(items, ceiling)
+        | tierless_ids(items)
+    )
     return [
         BoardPuzzle(
             content_item_id=item.id,
             template_json=item.template_json or {},
             cleared=done,
             knowledge_level=tier,
-            locked=tier in locked,
+            # 층 미상은 **모든 천장에서 열림** — 명시 분기(판정 2). `None in set[int]`가
+            # 우연히 False인 것에 기대지 않는다(정의역이 바뀌면 그 우연이 깨진다).
+            locked=tier is not None and tier in locked,
             unlocked=item.id in unlocked,
         )
         for item, tier, done in graded
@@ -626,7 +717,8 @@ async def get_puzzle_detail(
     # 난이도 잠금 — **구름 검사보다 먼저**다. 잠긴 퍼즐은 잔량이 있어도 못 여는데,
     # 순서를 바꾸면 잔량 0인 사람이 "구름이 없어서"라는 틀린 이유를 듣는다.
     # 화면도 막지만 여기서 다시 막는다 — 주소창으로 들어오면 화면 판정은 없다.
-    if difficulty in locked_tiers(ceiling):
+    # 🔴 판정 2: **층 미상은 잠금 판정 앞의 명시 분기로 통과**시킨다.
+    if difficulty is not None and difficulty in locked_tiers(ceiling):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
@@ -692,8 +784,10 @@ async def attempt_puzzle(
     # attempt를 직접 POST해서 판정·XP·왕관·클리어 기록을 다 받아갈 수 있다 —
     # 진입 게이트가 지키려던 것이 통째로 새는 구멍이다. 판정 **전에** 막는다.
     # 🔴 축이 지식 단계로 갈아탔다(2026-08-20) — 목록·단건 진입과 **같은 판정**이다.
+    # 🔴 판정 2: **층 미상은 잠금 판정 앞의 명시 분기로 통과**시킨다.
     locked = locked_tiers(await learner_tier(db, user))
-    if board_tier(item) in locked:
+    tier = board_tier(item)
+    if tier is not None and tier in locked:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
