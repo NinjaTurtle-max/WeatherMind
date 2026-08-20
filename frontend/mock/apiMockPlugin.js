@@ -1681,6 +1681,11 @@ function boardDifficulty(template, levelGroup) {
 // 잠금 판정이 실서버와 갈린다.
 // 서버와 같은 폴백 — `??`로 두면 board_order=0이 맨 앞으로 가는데 서버는
 // 정수가 아닌 값만 뒤로 보낸다(0은 정수라 그대로 0). 판정이 갈리지 않게 맞춘다.
+// 🔴 퍼즐의 **층** = 지식 단계(2026-08-20 축 교체). 서버 `board_tier`의 사본이고
+// 파생이 아니라 **저작값**이다 — 꾸밀 규칙이 없다.
+const boardTierOf = (seed) =>
+  typeof seed.knowledge_level === 'number' ? seed.knowledge_level : null;
+
 const boardOrderOf = (seed) => {
   const v = seed.template_json?.board_order;
   return typeof v === 'number' ? v : 10000;
@@ -1688,13 +1693,19 @@ const boardOrderOf = (seed) => {
 
 const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board')
   .slice()
-  .sort((a, b) => boardOrderOf(a) - boardOrderOf(b))
+  // 🔴 정렬 키가 **(층, board_order)**다 — 서버 `order_puzzles_for_progress`와 같다.
+  //    안 맞추면 같은 시드에서 목록 순서가 서버와 달라진다(실측: 44/64칸 이동).
+  .sort(
+    (a, b) =>
+      (boardTierOf(a) ?? 10000) - (boardTierOf(b) ?? 10000)
+      || boardOrderOf(a) - boardOrderOf(b),
+  )
   .map((seed, i) => {
     const n = i + 1;
     const template = seed.template_json ?? {};
     return {
       content_item_id: `b${String(n).padStart(7, '0')}-0000-4000-8000-${String(n).padStart(12, '0')}`,
-      difficulty: boardDifficulty(template, seed.level_group),
+      knowledge_level: boardTierOf(seed),
       concept_tag: seed.concept_tag,
       // 세션 payload 화이트리스트(정답성 필드 구조적 제외) + **보드 목록 전용 표시 필드**.
       // /board/puzzles는 세션 문항 표면이 아니다 — 실서버는 template_json을 통째로
@@ -1715,14 +1726,21 @@ const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board')
 // 최초 클리어 기록 (content_item_id 집합) — 재도전 0 XP (§3.5)
 const clearedBoardPuzzles = new Set();
 
-// 학습 수준 → 열리는 최고 난이도. 서버 `routers/board.BAND_MAX_DIFFICULTY`의
-// **사본**이고, `__mockPolicy().board_band_max_difficulty`로 노출해
-// test_r13_mock_policy_parity가 서버 표와 실값 대조한다(CO-J-9 관례).
-const BOARD_BAND_MAX_DIFFICULTY = {
-  elementary: 1,
-  middle_high: 2,
-  adult: 3,
-  expert: 3,
+// 🔴 학습 수준 → **천장 층**(2026-08-20 축 교체). 서버는 천장을 θ 파생값
+// (`overall_knowledge_level`)에서 얻는데 목에는 θ 테이블이 없다 — 그래서
+// **진단 전 기본값 표**를 옮긴다. 값의 출처는 서버
+// `theta_to_knowledge_level(LEVEL_GROUP_ITEM_B[밴드])` 실측이다(2026-08-20):
+//   elementary −1.0 → 2 · middle_high 0.0 → 4 · adult 1.0 → 6 · expert 2.0 → 9
+// ⚠️ 이것이 **클라이언트가 승인한 노출 표**(초등 8판·성인 48판)를 재현하는 경로다.
+// ⚠️ 서버의 두 번째 폴백(`knowledge_level_of_level_group` — 1·3·5·7)과 값이 다르다.
+//    선재 어긋남이고 대장에 기록돼 있다. 목은 **1순위 경로만** 흉내 낸다.
+// `__mockPolicy().board_level_group_tier`로 노출해 파리티가 실값을 대조한다 —
+// 노출하지 않으면 축이 갈려도 그물이 아무 소리를 안 낸다(B조 실측).
+const BOARD_LEVEL_GROUP_TIER = {
+  elementary: 2,
+  middle_high: 4,
+  adult: 6,
+  expert: 9,
 };
 /**
  * `boardDifficulty` 규칙을 서버가 직접 재도록 내보내는 **입력 표본**.
@@ -1740,8 +1758,9 @@ const BOARD_DIFFICULTY_SAMPLES = [
   { template: {}, level_group: 'expert' },
 ];
 
-const BOARD_DEFAULT_MAX_DIFFICULTY = 3; // 미상 밴드는 잠그지 않는다(서버와 같다)
-const BOARD_DIFFICULTIES = [1, 2, 3];
+// 층 수 — 서버 `KNOWLEDGE_LEVEL_MAX` 사본. 파리티가 실값을 대조한다.
+const BOARD_TIER_MAX = 10;
+const BOARD_TIERS = Array.from({ length: BOARD_TIER_MAX }, (_, i) => i + 1);
 
 /**
  * 잠긴 난이도 집합 — 서버 `routers/board.locked_difficulties`의 **사본**이다.
@@ -1749,21 +1768,25 @@ const BOARD_DIFFICULTIES = [1, 2, 3];
  * 아니라 `users.level_group`이라, 목에서도 PATCH /auth/me로 수준을 바꾸면
  * 그 자리에서 열린다 — 스모크가 그 왕복을 볼 수 있다.
  */
-function lockedBoardDifficulties() {
-  const ceiling = BOARD_BAND_MAX_DIFFICULTY[mockAuth.levelGroup] ?? BOARD_DEFAULT_MAX_DIFFICULTY;
-  return new Set(BOARD_DIFFICULTIES.filter((d) => d > ceiling));
+function lockedBoardTiers() {
+  // ⚠️ **미상 밴드는 잠그지 않는다**(서버 `locked_tiers`와 같다) — 「못 여는 것이
+  //    열리는 것보다 나쁘다」. 값이 비는 순간 퍼즐이 통째로 사라지는 것을 막는다.
+  const ceiling = BOARD_LEVEL_GROUP_TIER[mockAuth.levelGroup];
+  if (typeof ceiling !== 'number') return new Set();
+  return new Set(BOARD_TIERS.filter((t) => t > ceiling));
 }
 
 /** BoardPuzzle 1건 (서버 schemas/board.BoardPuzzle) — 목록·상세가 공유한다.
  *  R10-01 D1: 상세 엔드포인트는 단건 전용 스키마를 만들지 않고 이 형태를 그대로 쓴다. */
 const boardPuzzlePayload = (p, locked = null) => ({
   content_item_id: p.content_item_id,
-  difficulty: p.difficulty ?? 1, // R7-02 S5: 난이도 1|2|3
+  // 🔴 `difficulty`(파생 1~3) **제거** — 서버 스키마와 같은 이름·같은 축이다.
+  knowledge_level: p.knowledge_level ?? null,
   template_json: p.template_json,
   cleared: clearedBoardPuzzles.has(p.content_item_id),
   // 잠금 두 축이 다 실린다(서버 schemas/board.BoardPuzzle과 같다).
   // 상세는 잠긴 퍼즐이 그 앞에서 403이라 둘 다 "안 잠김"으로 나간다.
-  locked: locked === null ? false : locked.has(p.difficulty ?? 1),
+  locked: locked === null ? false : locked.has(p.knowledge_level),
   unlocked: unlockedBoardIds().has(p.content_item_id), // MT-24
 });
 
@@ -1792,20 +1815,21 @@ function unlockedBoardIds() {
   // ⚠️ 순차 대상을 천장층으로 **좁히지 않으면 천장층이 하나도 안 열린다**: 커서가
   // 1층 맨 앞에 서고 LOOKAHEAD 창이 통째로 1층에 떨어지는데, 그 1층은 이미 인정으로
   // 열려 있어 창이 아무것도 추가하지 못한다(서버 쪽에서 계약 테스트가 그 형태를 잡았다).
-  const ceiling = BOARD_BAND_MAX_DIFFICULTY[mockAuth.levelGroup] ?? BOARD_DEFAULT_MAX_DIFFICULTY;
+  const ceiling = BOARD_LEVEL_GROUP_TIER[mockAuth.levelGroup];
 
-  // 천장 아래는 순차와 무관하게 열린다
+  // 천장 아래 층은 순차와 무관하게 열린다. ⚠️ 천장이 미상이면 「아래」가 정의되지
+  //    않아 빈 집합이고, 그때는 `lockedBoardTiers()`가 아무것도 잠그지 않는다.
   const unlocked = new Set(
-    BOARD_PUZZLES.filter((p) => (p.difficulty ?? 1) < ceiling).map(
-      (p) => p.content_item_id,
-    ),
+    BOARD_PUZZLES.filter(
+      (p) => typeof ceiling === 'number' && p.knowledge_level < ceiling,
+    ).map((p) => p.content_item_id),
   );
   // 이미 깬 칸은 언제나 열린다(서버 compute_unlocked_ids 규칙 ⑴)
   for (const p of BOARD_PUZZLES) {
     if (clearedBoardPuzzles.has(p.content_item_id)) unlocked.add(p.content_item_id);
   }
   // 천장 층 **안에서만** 순차를 센다(규칙 ⑵)
-  const tier = BOARD_PUZZLES.filter((p) => (p.difficulty ?? 1) === ceiling);
+  const tier = BOARD_PUZZLES.filter((p) => p.knowledge_level === ceiling);
   let cursor = tier.findIndex((p) => !clearedBoardPuzzles.has(p.content_item_id));
   if (cursor < 0) cursor = tier.length;
   for (const p of tier.slice(cursor, cursor + MOCK_BOARD_UNLOCK_LOOKAHEAD + 1)) {
@@ -2748,7 +2772,7 @@ const routes = {
   'GET /board/regions': () => [200, BOARD_REGIONS],
   // 목록은 **무차단**(R10-01 D1) — 잔량 0이어도 퍼즐 화면·cleared 표시는 열린다.
   'GET /board/puzzles': () => {
-    const locked = lockedBoardDifficulties();
+    const locked = lockedBoardTiers();
     return [200, BOARD_PUZZLES.map((p) => boardPuzzlePayload(p, locked))];
   },
   // GET /board/puzzles/{content_item_id} (R10-01 D1 신설) — 단건 BoardPuzzle.
@@ -2764,7 +2788,7 @@ const routes = {
     // OUT_OF_CLOUDS로 나가서, 잔량 0인 사람이 "구름이 없어서"라는 틀린 이유를 듣고
     // 20분을 기다린 뒤 다시 막힌다. 잠긴 칸은 구름을 써도 안 열린다.
     // 난이도가 먼저인 것도 서버와 같다 — 그쪽이 더 바깥 조건이다.
-    if (lockedBoardDifficulties().has(puzzle.difficulty ?? 1)) {
+    if (lockedBoardTiers().has(puzzle.knowledge_level)) {
       return [403, { detail: '내 정보에서 학습 수준을 올리면 열려요.', code: 'PUZZLE_LOCKED' }];
     }
     if (!unlockedBoardIds().has(puzzle.content_item_id)) return boardLockedError();
@@ -2781,7 +2805,7 @@ const routes = {
     }
     // 잠금 둘 다 **판정보다 먼저**다(서버와 같은 순서). 진입(GET)만 막으면
     // attempt를 직접 POST해서 판정·XP·클리어를 다 받아간다.
-    if (lockedBoardDifficulties().has(puzzle.difficulty ?? 1)) {
+    if (lockedBoardTiers().has(puzzle.knowledge_level)) {
       return [403, { detail: '내 정보에서 학습 수준을 올리면 열려요.', code: 'PUZZLE_LOCKED' }];
     }
     if (!unlockedBoardIds().has(puzzle.content_item_id)) return boardLockedError();
@@ -3403,7 +3427,10 @@ export const __mockPolicy = () => ({
   // 학령 (server schemas/auth.LevelGroup)
   level_groups: LEVEL_GROUPS,
   // 보드 난이도 잠금 (server routers/board.BAND_MAX_DIFFICULTY)
-  board_band_max_difficulty: BOARD_BAND_MAX_DIFFICULTY,
+  // 🔴 새 축을 노출한다 — 파리티 그물이 **값만** 보므로, 노출하지 않으면 서버가
+  //    축을 바꿔도 목이 옛 축으로 계산하며 아무도 안 운다(B조 실측 2026-08-20).
+  board_level_group_tier: BOARD_LEVEL_GROUP_TIER,
+  board_tier_max: BOARD_TIER_MAX,
   // 지식 단계 축 (server weatherbrain_service.KNOWLEDGE_LEVEL_MAX ·
   // THETA_KNOWLEDGE_LEVEL_BOUNDS) — /progress/me의 분모와 경계다.
   knowledge_level_max: KNOWLEDGE_LEVEL_MAX,
