@@ -4,6 +4,7 @@
 | POST | /login    | {email, password} → {access_token, refresh_token} |
 | POST | /guest    | {level_group?, nickname?} (바디 선택) → {access_token, refresh_token} (R11-01 J — 실 유저 생성. 닉네임 중복은 409 NICKNAME_TAKEN) |
 | POST | /guest/convert | Bearer + {email, password, nickname?} → {access_token, refresh_token} (같은 user_id 유지) |
+| POST | /resume   | {email, password} → {access_token, refresh_token} (2026-08-19 오후 — 「진도 불러오기」. 자격 불일치는 401 INVALID_CREDENTIALS. **같은 날 오전의 `{nickname}` 판을 뒤집었다** — 아래 `/resume` 절 주석이 경위를 소유한다) |
 | POST | /refresh  | {refresh_token} → {access_token} |
 | GET  | /me       | Bearer → {user_id, email, nickname, is_guest, level_group} (R13 P-4) |
 | PATCH| /me       | Bearer + {level_group} → MeResponse (R13 P-5 — 학령 변경 통로) |
@@ -148,13 +149,12 @@ async def register(
 async def login(
     request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)
 ) -> LoginResponse:
-    result = await db.execute(select(User).where(User.email == body.email))
-    user = result.scalar_one_or_none()
-    if user is None or not verify_password(body.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"detail": "이메일 또는 비밀번호가 올바르지 않습니다.", "code": "INVALID_CREDENTIALS"},
-        )
+    # ⚠️ 자격 검사는 **여기 있지 않다** — `_authenticate`(아래 `/resume` 옆)가
+    #    단일 소유자다. 2026-08-19에 「진도 불러오기」가 같은 자격을 받게 되면서
+    #    검사가 두 벌이 될 뻔했고, 두 벌이면 한쪽만 조여지는 날 **약한 쪽이 그
+    #    계정의 실효 강도**가 된다. 응답 문구·코드(401 INVALID_CREDENTIALS)는
+    #    바뀌지 않았다 — 옮겼을 뿐이다.
+    user = await _authenticate(db, body.email, body.password)
 
     refresh_token = create_refresh_token(str(user.id))
     await _store_session(user.id, refresh_token)
@@ -251,6 +251,23 @@ class UpdateMeRequest(BaseModel):
     """
 
     level_group: LevelGroup
+    # 🔴 **닉네임도 이 통로로 바꾼다**(2026-08-19 · 8/18 롤링분 ③).
+    # 종전에는 닉네임 writer가 **최초 진입(`EntryInfoPage`) 1회뿐**이었다 —
+    # `App.jsx`의 `needsEntryInfo = atEntry && entryChoice === undefined`가
+    # **이미 들어온 사용자에게는 영영 거짓**이라, 한 번 지나가면 「기상 학습자」
+    # (`ko.js` `defaultNickname`)로 고정됐다. 클라이언트가 실화면에서 잡았다.
+    #
+    # ⚠️ **`None`과 「안 보냄」을 가른다.** `model_fields_set`으로 본다 —
+    # 학령만 바꾸는 기존 호출이 닉네임을 지우면 안 되기 때문이다.
+    nickname: str | None = None
+
+    @field_validator("nickname")
+    @classmethod
+    def _trim_nickname_update(cls, value: object) -> object:
+        if isinstance(value, str):
+            trimmed = value.strip()
+            return trimmed or None
+        return value
 
 
 class MeResponse(BaseModel):
@@ -349,6 +366,118 @@ async def guest_login(
     )
     await weatherbrain_service.seed_placement(db, user)
     await db.commit()
+
+    refresh_token = create_refresh_token(str(user.id))
+    await _store_session(user.id, refresh_token)
+
+    return LoginResponse(
+        access_token=create_access_token(str(user.id), user.level_group),
+        refresh_token=refresh_token,
+    )
+
+
+# ── 진도 불러오기 (2026-08-19 클라이언트 결정 — 주최측 확인 후) ──────────────
+#
+# 🔴 **같은 날 앞선 결정을 뒤집는다.** 8/19 오전 판은 이 엔드포인트를 `{nickname}`
+#    하나로 만들었다. 그 판의 사유는 옳았다 — 진입 화면이 이름을 적게 해 놓고
+#    「진도 불러오기」는 이메일·비밀번호를 요구해서 **원리적으로 아무도 못 여는
+#    문**이었다(게스트 비밀번호는 무작위 시크릿). 고쳐야 할 것이 있었던 것은 맞다.
+#    바꾼 것은 **어느 쪽에 맞추는가**다. 같은 날 오후, 주최측 확인을 거쳐
+#    클라이언트가 정했다:
+#      *"로그인이 있어도 되나 게스트모드와의 기능적·체험적 부분에 있어 차가
+#        나타나지 않으면 된다. 닉네임을 통한 호출은 **보안의 개별성이 약하기에**
+#        로그인을 통한 진도 불러오기가 맞는 것 같다"*
+#
+# 🔴 **왜 서버를 고치는가 — 결함이 여기 있었기 때문이다.**
+#    화면만 이메일·비밀번호로 바꾸면 「닉네임 하나로 남의 계정 토큰을 받는 통로」가
+#    **서버에 그대로 남는다.** 그때 약한 것은 없어지지 않고 **가려지기만** 한다 —
+#    `curl -d '{"nickname":"날씨러버"}' …/auth/resume` 한 번이면 그 사람의 진도가
+#    열린다. 브라우저를 거칠 이유가 없다. 그래서 고치는 자리가 화면이 아니라 여기다.
+#
+# 🔴 **짝이 맞는다는 것이 이 변경의 핵심이다.** 진도 **저장**은 이미
+#    `POST /auth/guest/convert {email, password}`다 — 8/19 오전 판은 저장과
+#    불러오기가 **서로 다른 열쇠**를 쓰게 두었다(저장은 이메일+비번, 불러오기는
+#    닉네임). 이제 같은 열쇠다: 저장할 때 정한 것으로 불러온다.
+#
+# ⚠️ **닉네임 조회를 되살리지 말 것.** `users.nickname`에는 유니크 제약이 없어서
+#    (위 `guest_login`의 「엔드포인트 검사이고 DB 제약이 아니다」 주석) 같은 이름의
+#    행이 여럿 존재할 수 있고, 그래서 옛 판은 404 `NICKNAME_NOT_FOUND` ·
+#    409 `NICKNAME_AMBIGUOUS`라는 분기를 갖고 있었다. 그 분기는 **자기가 무엇을
+#    자백하는지** 말해 준다 — 「그 이름은 있다/없다」를 응답으로 알려 주는 것은
+#    이름 열거(enumeration) 표면이고, 그 위에 확인 절차가 하나도 없었다.
+#    지금은 존재 여부를 가르지 않고 **401 하나로 뭉친다**(`login`과 같은 의미론).
+#
+# ⚠️ **게스트로 제한하지 않는 것은 그대로다.** 다만 뜻이 달라졌다 — 옛 판에서는
+#    「정식 계정 사용자에게 다른 문이 없어서」였고, 지금은 애초에 자격을 가진 사람만
+#    통과하므로 게스트/정식을 가를 이유 자체가 없다. 게스트는 이 문을 **못 연다**
+#    (무작위 시크릿). 그래도 규정은 안 깨진다 — 게스트는 이 문이 필요 없고
+#    (토큰이 localStorage에 남아 있다) 전 기능을 로그인 없이 쓴다.
+#
+# ⚠️ 레이트리밋은 형제들과 같은 `LIMIT_AUTH`. 이제는 비밀번호 대입을 막는 몫이다.
+
+
+class ResumeRequest(BaseModel):
+    """진도 불러오기 요청 — **저장할 때 쓴 이메일과 비밀번호**다.
+
+    `LoginRequest`와 형태가 같아야 한다(같은 자격을 같은 방식으로 받는다). 그
+    정합은 `test_auth_resume.py`가 두 모델의 필드 집합을 대조해 감시한다 —
+    사본을 만들어 두면 한쪽만 조여지는 날 조용히 갈린다.
+
+    ⚠️ **`nickname` 필드를 되살리지 말 것.** 여기에 이름이 들어오는 순간
+    「이름만으로 여는 문」이 되살아난다 — 그것이 이 변경이 닫은 결함이다.
+    """
+
+    email: str = Field(max_length=255)
+    password: str
+
+
+async def _authenticate(db: AsyncSession, email: str, password: str) -> User:
+    """이메일+비밀번호로 계정을 연다 — `login`과 `resume`의 **단일 소유자**.
+
+    🔴 **두 벌로 쓰지 않는 이유가 계약이다.** 불러오기는 로그인과 「같은 자격
+    검사」여야 한다는 것이 8/19 결정의 내용인데, 검사를 복사하면 한쪽만 조여지는
+    날(예: 잠금·2단계·해시 마이그레이션) 두 문의 강도가 갈린다 — 그리고 약한
+    쪽이 그 계정의 실효 강도가 된다.
+
+    ⚠️ **없는 계정과 틀린 비밀번호를 가르지 않는다.** 가르면 응답이
+    「그 이메일은 있다」를 자백해 계정 열거 표면이 된다. 옛 닉네임 판이
+    404 `NICKNAME_NOT_FOUND`로 정확히 그것을 하고 있었다.
+    """
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if user is None or not verify_password(password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "detail": "이메일 또는 비밀번호가 올바르지 않습니다.",
+                "code": "INVALID_CREDENTIALS",
+            },
+        )
+    return user
+
+
+@router.post("/resume", response_model=LoginResponse)
+@limiter.limit(LIMIT_AUTH)
+async def resume_with_credentials(
+    request: Request, body: ResumeRequest, db: AsyncSession = Depends(get_db)
+) -> LoginResponse:
+    """저장할 때 쓴 자격으로 그 사람의 진도(=계정)로 돌아간다.
+
+    유저를 **만들지 않는다.** `seed_placement`도 부르지 않는다 — 이미 있는 계정을
+    여는 것이라 θ·XP·스트릭은 그 행에 그대로 붙어 있다. 하는 일은 `login`과 같다.
+
+    ⚠️ **그러면 `/login`과 무엇이 다른가 — 이름뿐이고, 그 이름이 제품 계약이다.**
+    화면에 「로그인」이라는 낱말을 쓸 수 없고(대회 규정 — i18n 금칙어 계약이 ko·en
+    리소스 값 전체를 훑는다) 프론트가 부르는 통로의 이름이 화면의 이름과 같아야
+    추적이 끊기지 않는다. 자격 검사는 `_authenticate` **한 곳**이 소유하므로
+    두 문의 강도가 갈릴 여지는 없다.
+
+    ⚠️ RLS: `users` SELECT는 `app_auth_users` 정책(인증 카탈로그 예외,
+    `docs/specs/08`)이 이미 허용한다 — `login`과 **같은 조회**라 정책을 늘리지
+    않는다. 옛 닉네임 판은 `users.nickname` 조회라 같은 예외를 다른 열로 쓰고
+    있었는데, 그것도 함께 걷혔다.
+    """
+    user = await _authenticate(db, body.email, body.password)
 
     refresh_token = create_refresh_token(str(user.id))
     await _store_session(user.id, refresh_token)
@@ -481,6 +610,22 @@ async def update_me(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"detail": "유효하지 않은 사용자입니다.", "code": "INVALID_CREDENTIALS"},
         )
+    # 닉네임은 **온 경우에만** 건드린다(위 스키마 주석 참조).
+    if "nickname" in body.model_fields_set and body.nickname is not None:
+        # 유일성은 `POST /guest`의 신고 경로와 **같은 규칙**이다(그 자리의 긴 주석이
+        # 왜 DB 제약이 아닌지를 소유한다). 자기 자신은 제외해야 「같은 이름으로
+        # 다시 저장」이 409가 되지 않는다.
+        taken = await db.execute(
+            select(User.id).where(
+                User.nickname == body.nickname, User.id != db_user.id
+            )
+        )
+        if taken.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"detail": "이미 사용 중인 닉네임입니다.", "code": "NICKNAME_TAKEN"},
+            )
+        db_user.nickname = body.nickname
     db_user.level_group = body.level_group
     # UpdateMeRequest.level_group은 필수 필드 — 이 경로는 언제나 명시 신고다(0015).
     # 재신고는 도장을 **덮어쓴다**: 마지막 신고가 참값이고, 그 이전 로그는

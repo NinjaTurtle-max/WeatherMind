@@ -1,0 +1,519 @@
+/**
+ * 진도 불러오기 계약 — **저장할 때 쓴 자격으로 돌아온다**
+ * (2026-08-19 **오후** 클라이언트 결정, 주최측 확인 후) —
+ *   node tests/loadProgress.contract.test.mjs
+ *
+ * ## 왜 있나 — 「번들에 문자열이 있는지만 보고 화면을 안 열어서」 놓쳤다
+ * 실서버가 두 가지를 동시에 틀리고 있었다.
+ *   · 진입 화면에 **불러오기 진입점이 없었다** — `/login` URL을 직접 아는 사람만
+ *     닿았다. 화면이 이름을 적게 해 놓고 그 이름으로 돌아올 문이 안 보였다.
+ *   · 불러오기 화면이 요구하는 것과 저장 화면이 정하는 것이 **서로 달랐다.**
+ * 둘 다 「문구가 저장소에 있다」로는 초록이었다. 그래서 이 파일의 단정은 예외 없이
+ * **실제로 마운트한 화면의 렌더 결과**를 본다 — 소스 grep도, 번들 문자열도 아니다.
+ *
+ * ## 🔴 계약 ③이 **정반대로 뒤집혔다** — 지우지 말고 사유를 읽을 것
+ * 같은 날 오전 판의 ③은 *"`input[type=password]`·`input[type=email]`이 **없다**"*
+ * 였다. **단정의 형태는 옳았고 지금도 그 형태다** — 있는 것만 세는 계약은 필드가
+ * 되살아나도 조용하므로 **없음을 문다**. 틀린 것은 형태가 아니라 **무엇이 없어야
+ * 하는가**였고, 그 전제를 클라이언트가 뒤집었다:
+ *   *"닉네임을 통한 호출은 **보안의 개별성이 약하기에** 로그인을 통한 진도
+ *     불러오기가 맞는 것 같다"*
+ * 그래서 지금은 **닉네임 입력란의 부재**를 문다. 저장(`guest/convert`)이 이미
+ * 이메일+비밀번호였으므로 이제 저장과 불러오기가 **같은 열쇠**를 쓴다.
+ *
+ * ## 🔴 이 파일만으로는 그 결함을 **못 잡는다** — 반드시 알아야 한다
+ * 진짜 결함은 화면이 아니라 **서버**에 있었다. `POST /auth/resume`가 `{nickname}`
+ * 하나로 토큰을 줬으므로, 화면을 아무리 고쳐도 `curl` 한 번이면 이름만으로 남의
+ * 진도가 열린다 — 그리고 이 파일은 폼만 보고, 폼은 이름을 안 보내므로 **초록이다.**
+ * 그 축의 소유자는 `backend/tests/test_auth_resume.py`의 `TestNicknameDoorIsClosed`다.
+ * 여기는 「프론트가 서버 계약대로 부르고 응답대로 말하는가」까지다.
+ *
+ * ## 지키는 계약
+ *   ① **진입 화면에 불러오기 진입점이 렌더된다.** 맨 URL(`/`) 콜드 오픈 — 첫
+ *      방문자가 아니라 **돌아온 사람**이 보는 자리이므로, 아무것도 적기 전에
+ *      화면에 있어야 한다.
+ *   ② 그것을 누르면 **불러오기 화면이 실제로 뜬다.** 라우트 문자열이 아니라
+ *      렌더된 폼을 본다(그 둘이 갈리는 것이 8/13 사고였다 — 라우트만 걷혔다).
+ *   ③ 🔴 **불러오기가 이메일+비밀번호를 묻고, 닉네임으로는 안 열린다.**
+ *      `input[name="nickname"]`이 **없다**는 것과, 나가는 요청 바디의 키가 정확히
+ *      `['email','password']`라는 것을 함께 단정한다 — 화면에 없어도 코드가 실어
+ *      보내면 계약이 아니다.
+ *   ④ 🔴 **불러오기가 진입을 막지 않는다.** ①과 **반대 방향**의 단정이고 둘 다
+ *      있어야 한다 — 하나만 있으면 「진입점을 키우다가 주 동선을 덮는」 변경이
+ *      조용히 통과한다. 규정(「로그인·결제 없이 열려야」)이 금지하는 것은 주
+ *      동선이 계정을 요구하는 것이고, 불러오기는 **선택 경로**다.
+ *        ⓐ 「건너뛰기」가 여전히 렌더되고, 눌러서 **학습 화면에 도달**한다.
+ *        ⓑ 「다음」도 종전대로 학령만 고르면 열린다.
+ *        ⓒ 불러오기는 **필수 단계가 아니다** — 아무것도 안 넣고 앞으로 간다.
+ *   ⑤ 실제로 **돌아와진다.** 저장한 자격을 넣으면 토큰이 갈리고 학습으로 간다.
+ *      틀린 자격은 **그 자리에서** 한 갈래로 안내된다(계정 열거를 만들지 않으려고
+ *      「없는 계정」과 「틀린 비밀번호」를 가르지 않는다 — 서버 401과 1:1).
+ *
+ * ## 🔴 이 파일이 **못 무는 것** — 읽는 사람이 알아야 한다
+ *   · **실화면(브라우저) 확인이 아니다.** jsdom 렌더라 CSS·레이아웃·겹침·색 대비를
+ *     모른다. 「진입점이 렌더 트리에 있다」와 「사람 눈에 보인다」는 다르다.
+ *   · **서버의 이름 통로를 못 본다**(위 참조). 그 축은 backend 계약이 소유한다.
+ *   · **게스트가 이 문을 못 여는 것**은 결함이 아니라 설계다(무작위 시크릿) —
+ *     게스트는 이 화면이 필요 없고, 그 경계는 ④가 무는 「주 동선 불차단」이다.
+ *
+ * 관례는 `entryFlow.smoke`와 동일: 테스트 러너 의존 없음, vite middlewareMode +
+ * mock/apiMockPlugin(실 XHR) + jsdom 실마운트, 하네스 로케일 **ko 고정**.
+ */
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import http from 'node:http';
+
+process.env.NODE_ENV = 'production';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const { createServer } = await import('vite');
+const { default: apiMockPlugin } = await import('../mock/apiMockPlugin.js');
+
+const vite = await createServer({
+  root,
+  logLevel: 'error',
+  plugins: [apiMockPlugin()],
+  server: { middlewareMode: true, hmr: false },
+  appType: 'custom',
+  optimizeDeps: { noDiscovery: true, include: [] },
+});
+const httpServer = http.createServer(vite.middlewares);
+await new Promise((r) => httpServer.listen(0, '127.0.0.1', r));
+const origin = `http://127.0.0.1:${httpServer.address().port}`;
+
+// ── jsdom 전역 배선 (react 모듈 로드 전에) ──────────────────────────────────
+const { JSDOM } = await import('jsdom');
+const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
+  url: `${origin}/`,
+  pretendToBeVisual: true,
+});
+const { window } = dom;
+globalThis.window = window;
+globalThis.document = window.document;
+Object.defineProperty(globalThis, 'navigator', { value: window.navigator, configurable: true });
+globalThis.localStorage = window.localStorage;
+globalThis.sessionStorage = window.sessionStorage;
+// 한국어 문구를 단정하므로 제품 기본 로케일로 고정
+window.localStorage.setItem('weathermind.locale', 'ko');
+for (const k of ['HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'Event', 'CustomEvent', 'MouseEvent', 'MutationObserver', 'getComputedStyle']) {
+  globalThis[k] = window[k];
+}
+globalThis.requestAnimationFrame = window.requestAnimationFrame?.bind(window) ?? ((cb) => setTimeout(cb, 16));
+globalThis.cancelAnimationFrame = window.cancelAnimationFrame?.bind(window) ?? clearTimeout;
+globalThis.XMLHttpRequest = window.XMLHttpRequest;
+if (!window.matchMedia) {
+  window.matchMedia = () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {} });
+}
+globalThis.matchMedia = window.matchMedia;
+class NoopResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+window.ResizeObserver = NoopResizeObserver;
+globalThis.ResizeObserver = NoopResizeObserver;
+
+const xhrLog = [];
+const origXhrOpen = window.XMLHttpRequest.prototype.open;
+window.XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+  xhrLog.push(`${method} ${url}`);
+  this.__wmUrl = url;
+  return origXhrOpen.call(this, method, url, ...rest);
+};
+
+/**
+ * 불러오기 요청 바디를 **전선에서** 집는다(③). axios 인터셉터가 아니라 XHR
+ * `send()`인 이유는 `entryFlow`가 적어 둔 것과 같다 — 인터셉터 관측은 등록 순서에
+ * 기대므로 계약이 아니라 사고다. `send()`가 받는 문자열은 **실제로 나간 바이트**다.
+ */
+const resumeBodies = [];
+const origXhrSend = window.XMLHttpRequest.prototype.send;
+window.XMLHttpRequest.prototype.send = function (body) {
+  if (this.__wmUrl === '/api/v1/auth/resume') {
+    resumeBodies.push(body == null ? undefined : JSON.parse(body));
+  }
+  return origXhrSend.call(this, body);
+};
+
+const { createElement } = await import('react');
+const { createRoot } = await import('react-dom/client');
+const { MemoryRouter } = await import('react-router-dom');
+const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+
+const AppMod = await vite.ssrLoadModule('/src/App.jsx');
+const App = AppMod.default;
+const { resetGuestAutoIssue } = AppMod;
+const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function waitFor(pred, timeoutMs = 8000, label = '') {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    if (pred()) return true;
+    await sleep(40);
+  }
+  throw new Error(`시간 초과(${timeoutMs}ms): ${typeof label === 'function' ? label() : label}`);
+}
+
+/**
+ * 마운트한 루트 — **시나리오가 끝나면 실패했더라도 반드시 걷는다.**
+ * 안 걷으면 다음 `mountApp`이 같은 `#root`에 두 번째 루트를 만들어 프로세스가
+ * 통째로 죽고, 그러면 뒤 계약이 「붉다」가 아니라 「돌지도 못했다」가 된다
+ * (`entryFlow.smoke`가 실측으로 남긴 함정).
+ */
+const liveRoots = [];
+function mountApp(path) {
+  const container = window.document.getElementById('root');
+  const reactRoot = createRoot(container);
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, gcTime: 0, staleTime: 0 } },
+  });
+  reactRoot.render(
+    createElement(QueryClientProvider, { client: qc },
+      createElement(MemoryRouter, { initialEntries: [path] }, createElement(App))),
+  );
+  let unmounted = false;
+  const handle = {
+    unmount() {
+      if (unmounted) return;
+      unmounted = true;
+      try {
+        reactRoot.unmount();
+      } catch {
+        /* 이미 걷힌 뒤 — 정리 경로라 삼킨다 */
+      }
+    },
+  };
+  liveRoots.push(handle);
+  return handle;
+}
+
+const $ = (sel) => window.document.querySelector(sel);
+const $$ = (sel) => [...window.document.querySelectorAll(sel)];
+const text = () => window.document.body.textContent ?? '';
+
+let failed = 0;
+const ok = (cond, label) => {
+  // 라벨은 문자열이거나 **함수**다(실패했을 때만 화면을 훑도록) — 함수를 그대로
+  // 찍으면 실패 메시지 자리에 소스 코드가 나와 원인을 못 가리킨다.
+  console.log(`${cond ? 'PASS' : 'FAIL'} ${typeof label === 'function' ? label() : label}`);
+  if (!cond) failed += 1;
+};
+async function scenario(name, fn) {
+  try {
+    await fn();
+  } catch (err) {
+    failed += 1;
+    console.error(`FAIL ${name}: ${err?.message ?? err}`);
+  } finally {
+    while (liveRoots.length) liveRoots.pop().unmount();
+  }
+}
+
+/**
+ * 첫 접속 상태로 되돌린다 — 토큰·모듈 플래그·관측 버퍼 전부.
+ * ⚠️ 지우기 전에 조용해질 때까지 기다린다: 앞 마운트의 요청이 아직 날고 있으면
+ * 그 401을 인터셉터가 받아 토큰을 되살리고, 「게이트를 안 탔다」와 「이미 토큰이
+ * 있었다」가 구분되지 않는다(`entryFlow`·`onboardingGating`이 남긴 함정).
+ */
+async function coldOpen() {
+  await sleep(600);
+  resetGuestAutoIssue();
+  useAuthStore.getState().logout();
+  // `hadAccount`는 logout()이 지우지 않는다(persist — 만료 화면의 근거) —
+  // 남겨 두면 첫 접속이 만료 화면으로 갈려 정보 입력 화면이 아예 안 뜬다.
+  useAuthStore.getState().forgetAccount();
+  resumeBodies.length = 0;
+  return xhrLog.length;
+}
+
+/** React 제어 입력 채우기 — onboardingSave·guest-convert 스모크와 같은 관례. */
+function fillInput(input, value) {
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  setter.call(input, value);
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+
+/**
+ * 목이 「저장을 마쳤다」고 선언한 계정 — `mockAuth.savedAccounts` 시드.
+ * ⚠️ 값을 여기서 지어내지 않는다. 목이 소유하고, 서버 계약
+ * (`test_auth_resume`의 `SAVED_EMAIL`)이 같은 값을 쓴다.
+ */
+const SAVED_EMAIL = 'saved@weathermind.dev';
+const SAVED_PASSWORD = 'weathermind-8';
+
+try {
+  // ── ① 진입 화면에 진입점이 **렌더**된다 ────────────────────────────────────
+  //
+  // 🔴 이 단정이 이번 실패의 직접 재발 방지다. 종전 검수가 「번들에 문자열이
+  //    있는지」만 봤고, 그래서 진입점이 **한 곳도 없는** 실서버가 초록이었다.
+  // ── ⑦ 시작 시점에 **하루 목표를 묻는다** ────────────────────────────────────
+  // 🔴 클라이언트 지시는 **두 문장이고 앞 문장이 요구**다:
+  //   *"시작 시점에서 목표량과 수준을 물어야 하는데 그것도 없어, 즉 내정보란에는
+  //     목표선정과 수준 선택이 필요없어 첫 배치고사 시점 제외"*
+  // ⑥(걷어내기)만 하고 이것을 안 하면 **앞 문장을 어긴 상태**가 된다 — 오히려
+  // 「물어야 하는데 없다」가 더 넓어진다(배치고사를 건너뛴 사람에게 자리가 0이 된다).
+  await scenario('⑦ 진입 화면이 하루 목표를 묻는다 — 단, 막지는 않는다', async () => {
+    useAuthStore.setState({ accessToken: null, refreshToken: null, user: null });
+    const r = mountApp('/');
+    await waitFor(() => $('[data-testid="entry-info"]'), 8000, '⑦ 진입 화면');
+
+    // ⑦-a 목표 선택이 **실재한다**(배치고사를 보든 안 보든 모두가 지나는 자리)
+    ok(Boolean($('[data-testid="entry-info-goals"]')), '⑦-a 🔴 시작 시점에 하루 목표를 묻는다');
+
+    // ⑦-b 값을 **하드코딩하지 않는다** — 선택지 수가 DAILY_GOAL_CHOICES와 같다.
+    // 서버가 그 밖의 값을 422로 막고 상한이 세션 길이 정합으로 움직이는 중이라,
+    // 화면이 값을 직접 적으면 그 순간 갈린다.
+    const { DAILY_GOAL_CHOICES } = await vite.ssrLoadModule('/src/lib/onboardingGate.js');
+    const btns = $('[data-testid="entry-info-goals"]').querySelectorAll('button');
+    ok(btns.length === DAILY_GOAL_CHOICES.length,
+      `⑦-b 선택지가 DAILY_GOAL_CHOICES에서 온다 — 화면 ${btns.length}개 · 소유자 ${DAILY_GOAL_CHOICES.length}개`);
+
+    // ⑦-c 🔴 **선택 항목이다.** 필수로 만들면 주 동선이 입력을 요구하게 되어
+    // 대회 규정에 걸린다 — 안 골라도 「건너뛰기」가 살아 있어야 한다.
+    ok(Boolean($('[data-testid="entry-info-skip"]')), '⑦-c 🔴 목표를 안 골라도 건너뛰기가 있다(규정)');
+    r.unmount();
+  });
+
+  await scenario('① 진입 화면에 「진도 불러오기」 진입점이 렌더된다', async () => {
+    await coldOpen();
+    const r = mountApp('/');
+    await waitFor(() => $('[data-testid="entry-info"]'), 8000, '첫 접속 정보 입력 화면');
+    const link = $('[data-testid="entry-info-load"]');
+    ok(
+      Boolean(link),
+      () => `① 🔴 진입 화면에 불러오기 진입점이 없다 — 화면 텍스트 "${text().replace(/\s+/g, ' ').slice(0, 120)}"`,
+    );
+    ok(
+      (link?.textContent ?? '').includes('진도 불러오기'),
+      `① 진입점이 무엇인지 읽힌다 — 실제 "${link?.textContent ?? '(없음)'}"`,
+    );
+    // 「건너뛰기와 같은 층위」 — 같은 부모 안에 나란히 있다(지시 원문).
+    ok(
+      link?.parentElement === $('[data-testid="entry-info-skip"]')?.parentElement,
+      '① 「건너뛰기」와 같은 층위에 있다',
+    );
+    // 규정 — 진입점이 생겨도 금칙 문구는 여전히 0건이어야 한다.
+    ok(!text().includes('로그인'), '① 진입점이 생겨도 화면에 「로그인」 문구가 없다');
+    ok(!text().includes('회원가입'), '① 화면에 「회원가입」 문구가 없다');
+    r.unmount();
+  });
+
+  // ── ② 누르면 불러오기 화면이 **실제로 뜬다** ────────────────────────────────
+  await scenario('② 진입점을 누르면 불러오기 화면이 렌더된다', async () => {
+    await coldOpen();
+    const r = mountApp('/');
+    await waitFor(() => $('[data-testid="entry-info-load"]'), 8000, '진입 화면의 불러오기 진입점');
+    $('[data-testid="entry-info-load"]').click();
+    await waitFor(
+      () => $('[data-testid="load-progress"]'),
+      8000,
+      () => `② 진입점을 눌렀는데 불러오기 화면이 뜨지 않았다 — 실제 "${text().replace(/\s+/g, ' ').slice(0, 120)}"`,
+    );
+    ok(Boolean($('[data-testid="load-progress"]')), '② 불러오기 화면이 뜬다(라우트 문자열이 아니라 렌더)');
+    ok(text().includes('진도 불러오기'), '② 화면이 자기 이름을 말한다');
+    r.unmount();
+  });
+
+  // ── ③ 🔴 이메일+비밀번호를 묻는다 · 닉네임으로는 안 열린다 ──────────────────
+  //
+  // 🔴 **이 시나리오는 오전 판의 정반대다.** 그때는 password·email의 **부재**를
+  //    쟀다. 형태(없음을 문다)는 그대로 두고 **전제만 뒤집었다** — 무엇이 없어야
+  //    하는가가 클라이언트 결정으로 바뀌었기 때문이다(파일 머리 주석 참조).
+  await scenario('③ 불러오기가 이메일+비밀번호를 묻는다 — 닉네임으로는 안 열린다', async () => {
+    await coldOpen();
+    const r = mountApp('/login');
+    await waitFor(() => $('[data-testid="load-progress"]'), 8000, '불러오기 화면');
+
+    // 있어야 하는 것 — 실제로 렌더된 입력란을 본다.
+    ok(
+      Boolean($('[data-testid="load-progress"] input[name="email"]')),
+      `③ 이메일 입력란이 있다 — 실제 ${JSON.stringify($$('[data-testid="load-progress"] input').map((i) => i.name))}`,
+    );
+    ok(
+      Boolean($('[data-testid="load-progress"] input[name="password"]')),
+      '③ 비밀번호 입력란이 있다',
+    );
+    ok(
+      $('[data-testid="load-progress"] input[name="password"]')?.type === 'password',
+      `③ 비밀번호가 가려진다(type=password) — 실제 "${$('[data-testid="load-progress"] input[name="password"]')?.type}"`,
+    );
+
+    // 🔴 **부재**를 단정한다 — 있는 것만 세면 필드가 되살아나도 조용하다.
+    ok(
+      $('input[name="nickname"]') === null,
+      `③ 🔴 닉네임 입력란이 없다 — 실제 ${$$('input[name="nickname"]').length}개`,
+    );
+    const inputs = $$('[data-testid="load-progress"] input');
+    ok(
+      JSON.stringify(inputs.map((i) => i.name)) === JSON.stringify(['email', 'password']),
+      `③ 입력란이 이메일·비밀번호 둘뿐이다 — 실제 ${JSON.stringify(inputs.map((i) => i.name))}`,
+    );
+    // 안내 문구도 함께 — 문구만 닉네임을 안내하면 필드가 없어도 거짓말이 남는다.
+    ok(
+      !text().includes('닉네임'),
+      `③ 안내 문구가 닉네임을 요구하지 않는다 — 실제 "${text().replace(/\s+/g, ' ').slice(0, 140)}"`,
+    );
+    // 규정 — 이메일·비밀번호를 물어도 금칙 문구는 여전히 0건이어야 한다.
+    ok(!text().includes('로그인'), '③ 화면에 「로그인」 문구가 없다(규정)');
+    ok(!text().includes('회원가입'), '③ 화면에 「회원가입」 문구가 없다(규정)');
+
+    // 나가는 바디까지 — 화면에 없어도 코드가 실어 보내면 계약이 아니다.
+    fillInput($('[data-testid="load-progress"] input[name="email"]'), SAVED_EMAIL);
+    fillInput($('[data-testid="load-progress"] input[name="password"]'), SAVED_PASSWORD);
+    $('[data-testid="load-progress-submit"]').click();
+    await waitFor(() => resumeBodies.length >= 1, 8000, 'POST /auth/resume 발화');
+    ok(
+      JSON.stringify(Object.keys(resumeBodies[0] ?? {}).sort()) ===
+        JSON.stringify(['email', 'password']),
+      `③ 🔴 요청 바디가 {email, password}뿐이다(닉네임이 실리지 않는다) — 실제 ${JSON.stringify(Object.keys(resumeBodies[0] ?? {}))}`,
+    );
+    r.unmount();
+  });
+
+  // ── ④ 🔴 불러오기가 진입을 막지 않는다 (①과 반대 방향) ──────────────────────
+  //
+  // 🔴 ①만 있으면 「진입점을 크게 만들다가 주 동선을 덮는」 변경이 조용히 통과한다.
+  //    규정이 금지하는 것은 주 동선이 계정을 요구하는 것이고, 불러오기는 선택이다.
+  await scenario('④ 진입점이 주 동선을 막지 않는다(건너뛰기·다음 그대로)', async () => {
+    const mark = await coldOpen();
+    const r = mountApp('/');
+    await waitFor(() => $('[data-testid="entry-info"]'), 8000, '첫 접속 정보 입력 화면');
+
+    // ⓑ 「다음」은 종전대로 — 학령만 고르면 열린다(불러오기와 무관).
+    ok(
+      $('[data-testid="entry-info-submit"]').disabled === true,
+      '④-b 아무것도 안 고르면 「다음」이 잠겨 있다(종전 계약 유지)',
+    );
+    $('[data-testid="entry-info-levels"] button[data-level="elementary"]').click();
+    await sleep(60);
+    ok(
+      $('[data-testid="entry-info-submit"]').disabled === false,
+      '④-b 🔴 학령만 고르면 「다음」이 열린다 — 불러오기는 관문이 아니다',
+    );
+
+    // ⓐⓒ 「건너뛰기」가 여전히 렌더되고, 아무것도 안 넣고 학습에 도달한다.
+    const skip = $('[data-testid="entry-info-skip"]');
+    ok(Boolean(skip) && skip.disabled !== true, '④-a 「건너뛰기」가 여전히 있고 눌린다');
+    // 없으면 여기서 **이유를 말하고** 멈춘다 — 그냥 `skip.click()`을 하면
+    // "Cannot read properties of null"이 나와 실패 메시지가 원인을 안 가리킨다.
+    if (!skip) throw new Error('④ 「건너뛰기」 출구가 사라졌다 — 주 동선의 출구가 없으면 ④-c(입력 0회로 학습 도달)를 잴 수 없다');
+    skip.click();
+    await waitFor(
+      () => xhrLog.slice(mark).some((l) => l === 'GET /api/v1/curriculum'),
+      8000,
+      '④-c 건너뛰었는데 학습 화면에 도달하지 못했다',
+    );
+    await waitFor(() => $('[data-testid="learn-entry"]'), 8000, '학습 진입 카드');
+    ok(
+      Boolean($('[data-testid="learn-entry"]')),
+      '④-c 🔴 불러오기를 쓰지 않고 입력 0회로 학습 화면이 열린다(규정)',
+    );
+    ok(
+      resumeBodies.length === 0,
+      `④-c 주 동선은 불러오기를 부르지 않는다 — 실제 ${resumeBodies.length}회`,
+    );
+    r.unmount();
+  });
+
+  // ── ⑤ 실제로 돌아와진다 · 실패는 한 갈래로 말한다 ──────────────────────────
+  const fillCreds = (email, password) => {
+    fillInput($('[data-testid="load-progress"] input[name="email"]'), email);
+    fillInput($('[data-testid="load-progress"] input[name="password"]'), password);
+  };
+
+  await scenario('⑤ 저장한 자격으로 돌아오고, 틀린 자격은 한 갈래로 말한다', async () => {
+    await coldOpen();
+    const r = mountApp('/login');
+    await waitFor(() => $('[data-testid="load-progress"]'), 8000, '불러오기 화면');
+
+    // ⑤-a 틀린 비밀번호 → 그 자리에서 안내
+    fillCreds(SAVED_EMAIL, '틀린비밀번호');
+    $('[data-testid="load-progress-submit"]').click();
+    await waitFor(() => $('[data-testid="load-progress-error"]'), 8000, '실패 안내');
+    const wrongPwText = $('[data-testid="load-progress-error"]').textContent;
+    ok(
+      wrongPwText.includes('이메일 또는 비밀번호가 맞지 않아요'),
+      `⑤-a 틀린 자격은 리소스 문구로 말한다(서버 detail보다 앞) — 실제 "${wrongPwText}"`,
+    );
+    ok(
+      Boolean($('[data-testid="load-progress"]')),
+      '⑤-a 실패해도 이 화면에 남는다(다른 화면으로 튕기지 않는다)',
+    );
+    ok(
+      useAuthStore.getState().accessToken !== 'mock-resume-access',
+      '⑤-a 🔴 틀린 자격으로는 토큰이 갈리지 않는다',
+    );
+
+    // ⑤-b 🔴 **없는 계정도 똑같은 문구다.** 가르면 화면이 「그 이메일은 있다」를
+    //    자백한다(계정 열거) — 서버도 401 하나로 뭉치므로 화면도 하나여야 한다.
+    //    ⚠️ 오전 판은 여기가 「없는 이름」/「동명이인」 **두 갈래**였고, 그 갈라짐이
+    //    바로 이름 통로가 존재 여부를 응답으로 알려 주던 자국이다.
+    fillCreds('아무도아닌사람@weathermind.dev', SAVED_PASSWORD);
+    $('[data-testid="load-progress-submit"]').click();
+    await sleep(400); // 문구가 같으므로 「바뀜」을 못 기다린다 — 왕복을 기다린다
+    await waitFor(() => $('[data-testid="load-progress-error"]'), 8000, '실패 안내');
+    ok(
+      $('[data-testid="load-progress-error"]').textContent === wrongPwText,
+      `⑤-b 🔴 없는 계정과 틀린 비밀번호가 **같은 안내**다(계정 열거 방지) — 실제 "${$('[data-testid="load-progress-error"]')?.textContent}"`,
+    );
+
+    // ⑤-c 저장한 자격 → 토큰이 갈리고 학습으로 간다
+    fillCreds(SAVED_EMAIL, SAVED_PASSWORD);
+    $('[data-testid="load-progress-submit"]').click();
+    await waitFor(
+      () => useAuthStore.getState().accessToken === 'mock-resume-access',
+      8000,
+      () => `⑤-c 불러오기 토큰 — 실제 "${useAuthStore.getState().accessToken}"`,
+    );
+    ok(true, '⑤-c 🔴 저장한 자격으로 그 계정의 토큰을 받는다(새로 시작이 아니다)');
+    await waitFor(() => $('[data-testid="learn-entry"]'), 8000, '학습 화면');
+    ok(Boolean($('[data-testid="learn-entry"]')), '⑤-c 불러온 뒤 학습 화면으로 간다');
+    r.unmount();
+  });
+
+  // ── ⑥ `/me`에서 두 피커가 **없다** · 이름은 **바꿀 수 있다** ─────────────────
+  // 🔴 **없음을 무는 단정이다.** 있는 것만 세면 카드가 되살아나도 조용하다 —
+  // 8/18에 놓친 6건이 정확히 그 형태였다(번들에 문자열이 있는지만 보고 화면을
+  // 안 봤다). 그래서 `grep`이 아니라 **실제 렌더 결과**를 본다.
+  await scenario('⑥ /me — 수준·목표 피커 없음 + 닉네임 변경 있음', async () => {
+    useAuthStore.setState({ accessToken: 'mock-access', refreshToken: 'mock-refresh',
+      user: { id: 1, nickname: '테스트이름', level_group: 'adult' } });
+    const r = mountApp('/me');
+    await waitFor(() => $('[data-nickname-edit]'), 8000, '⑥ 프로필 화면');
+
+    // ⑥-a 🔴 학습 수준 카드가 없다 — 종전 `data-level-group` 속성이 그 카드의 표식이었다
+    ok(!$('[data-level-group]'), '⑥-a 🔴 /me에 학습 수준 선택이 없다');
+
+    // ⑥-b 🔴 하루 목표 **피커**가 없다. 진행 미터는 별개이므로 피커 고유 문구로 본다
+    const body = document.body.textContent ?? '';
+    ok(!body.includes('하루 목표를 정해요'),
+      `⑥-b 🔴 /me에 하루 목표 피커가 없다 — 실제 본문에 그 제목이 ${body.includes('하루 목표를 정해요') ? '있다' : '없다'}`);
+
+    // ⑥-c 이름을 바꿀 통로가 **실재한다**(③) — 최초 진입을 지난 사용자의 유일한 길
+    // ⚠️ **되돌림 실측(2026-08-19): 이 단정은 「자기 자리」에서 울지 않는다.**
+    // `data-nickname-edit`를 지우면 위 `waitFor`가 먼저 시간 초과로 죽어
+    // `⑥ 프로필 화면` 이름으로 실패한다. 신호는 남지만 **원인을 덜 정확히**
+    // 가리킨다. 그대로 두는 이유: 그 표식이 화면이 떴는지 판정하는 유일한
+    // 안정 표식이라, 앞의 대기를 다른 것으로 바꾸면 화면이 안 뜬 상태를
+    // 「없다」로 오독할 수 있다. **약점을 지우지 않고 적어 둔다.**
+    ok(Boolean($('[data-nickname-edit]')), '⑥-c 🔴 닉네임 변경 통로가 화면에 있다');
+
+    // ⑥-d 누르면 입력이 열린다 — 버튼만 있고 안 열리는 상태를 막는다
+    $('[data-nickname-edit]').click();
+    await waitFor(() => document.querySelector('input[type="text"]'), 8000, '⑥-d 이름 입력');
+    ok(Boolean(document.querySelector('input[type="text"]')), '⑥-d 누르면 이름 입력이 열린다');
+    r.unmount();
+  });
+
+} finally {
+  await vite.close();
+  httpServer.close();
+}
+
+if (failed > 0) {
+  console.error(`\n${failed}건 실패`);
+  process.exit(1);
+}
+console.log('OK: 진도 불러오기(진입점 렌더 · 이메일+비밀번호 · 주 동선 불차단 · 왕복) 통과');
+process.exit(0);

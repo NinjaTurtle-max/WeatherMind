@@ -208,9 +208,20 @@ const ok = (cond, label) => {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, gcTime: 0, staleTime: 0 } },
   });
+  // ⚠️ **2026-08-19(⑫-b): 진입 경로가 `/` → `/learn`으로 바뀌었다.** 사유를 남긴다 —
+  // `/`는 이제 **재방문 복귀 화면**이 서는 자리다(토큰을 갖고 맨 URL로 들어오면
+  // 「이어서 학습」·「진도 불러오기」를 묻는다). 이 파일은 그 위(:105)에서 토큰을
+  // 심으므로 `/`로 마운트하면 정확히 그 상태가 되어 `learn-entry`에 닿지 못한다.
+  //
+  // 🔴 **무는 것은 하나도 잃지 않는다.** 이 파일이 스스로 밝힌 목적(머리 주석
+  // 1~5: 진입 카드 1개 · 우선순위 · 보조 링크 · 탭 7개 · ko/en)은 전부 **`/learn`
+  // 화면의 계약**이고, `/` → `/learn` 리다이렉트는 이 파일의 대상이 아니었다.
+  // 그것을 **우연히** 무고 있던 것은 사실이므로, 명시 단정으로 옮겨 두었다:
+  // `entryFlow.smoke` ⑬-b·⑬-d가 「딥링크·발급 직후·앱 안 복귀에는 복귀 화면이 없다」를
+  // 문다(그 커밋이 이 줄보다 **먼저**다 — 아무도 안 무는 구간을 만들지 않으려고).
   reactRoot.render(
     createElement(QueryClientProvider, { client: qc },
-      createElement(MemoryRouter, { initialEntries: ['/'] }, createElement(App))),
+      createElement(MemoryRouter, { initialEntries: ['/learn'] }, createElement(App))),
   );
 
   await waitFor(() => $('[data-testid="learn-entry"]') !== null, 8000, '진입 카드 렌더');
