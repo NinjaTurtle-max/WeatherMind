@@ -814,3 +814,112 @@ class TestUnnettedCopies:
     # ⚠️ 목은 아직 `boardDifficulty`·`BOARD_DIFFICULTY_SAMPLES` 사본을 들고 있고
     # `__mockPolicy()`가 `board_difficulty_samples`를 계속 내보낸다 — 서버 짝이
     # 없어졌으므로 **대조되지 않는 죽은 사본**이다(리드 소유, 보고함).
+    # ── 병합 해소 경위 (2026-08-20 `integ` — A조 ↔ B조) ──────────────────────
+    # B조 판에는 이 자리에 `test_보드_난이도_규칙이_같은_답을_낸다`가 **살아 있었다.**
+    # 살릴 수 없었다 — 그 테스트가 임포트하는 `routers.board.board_difficulty`가
+    # **함수째 철거됐기 때문**이다(A조 축 교체). 그대로 두면 초록이 아니라
+    # **ImportError**다. 어드바이저 판정으로 그 삭제가 승인됐고, 조건은
+    # 「승계 핀이 착지할 것」이었다 — 승계자는 `test_board_difficulty.py`의
+    # `test_시드_board_지식_단계_분포_고정`이다(같은 날 착지).
+    #
+    # 🔴 **B조가 그 테스트에 넣은 「갈래를 밟는 표본」 요구는 죽지 않았다.**
+    # *"표본에 3개 이상인 객체 palette가 있는지까지 확인한다 — 그 갈래가 빠지면
+    # 이 검사가 다시 「입력이 그 갈래를 안 밟아서」 초록이 된다"*. 그 원칙은
+    # 아래 `test_보드_진행_순서_규칙이_같은_순서를_낸다`가 **네 갈래**(비정수 실수 ·
+    # 불리언 · 동률 · 부재)로 이어받았고, 축 교체분(지식 단계)은 A조가 표본을
+    # 늘려 받는다. 원칙은 남고 그것을 태우던 함수만 없어졌다.
+
+    def test_대결_승리_XP가_같다(self, policy):
+        """액수를 프론트가 하드코딩하지 않도록 서버가 보내는 값이다(R10).
+        목도 그 값을 흉내내므로 사본이고, 사본이면 대조해야 한다."""
+        from app.services import duel_service
+        assert policy["duel_win_xp"] == duel_service.DUEL_WIN_XP
+
+    def test_보드_진행_순서_규칙이_같은_순서를_낸다(self, policy):
+        """🔴 **표가 아니라 규칙 — 그리고 키가 아니라 순서를 잰다.**
+
+        `order_puzzles_for_progress`(server routers/board)의 목 사본이 그물 밖에
+        있었다. 2026-08-20 실측:
+        - 시드 board 55건 전건은 **양쪽이 같은 순서**(1..55)를 냈다 — 값만 보면 조용하다.
+        - 그런데 **규칙은 이미 갈려 있었다.** 서버 판정은 파이썬
+          `isinstance(value, int)`인데 목은 `typeof v === 'number'`였다:
+          ⑴ 비정수 실수 `2.5` — 서버 키 10000(뒤로) / 목 키 2.5(앞으로)
+          ⑵ `true`/`false` — 파이썬에서 bool은 int라 서버 키 1·0(맨 앞) /
+             목 키 10000(뒤로)
+          시드가 정수만 써서 **오늘만** 답이 같았다(palette 갈래와 같은 형태).
+        ⇒ 목을 서버에 맞췄고, 목이 내려보낸 표본을 **서버 함수가 다시 풀어** 대조한다.
+
+        ⚠️ **정렬 키를 값으로 박지 않는다.** A조가 잠금 축을 3단계 → 10단계로
+           갈아타며 정렬 키를 `(지식 단계, board_order)`로 바꾸는 중이다. 키를
+           단정하면 그때 헛울고, 순열을 단정하면 「같은 입력에 같은 순서인가」가
+           축이 바뀐 뒤에도 그대로 성립한다. **축 변경 후 이 표본으로 재대조할 것.**
+        """
+        from types import SimpleNamespace
+
+        from app.routers.board import order_puzzles_for_progress
+
+        samples = policy["board_order_samples"]
+        assert samples, "목이 보드 진행 순서 표본을 안 내보낸다"
+
+        # ── 갈래 밟기 ── 표본이 **갈리면 순서가 실제로 달라지는** 모양인지 먼저
+        #    확인한다. 갈래만 밟고 답이 같으면 되돌림이 안 운다(오늘 palette
+        #    2개짜리가 그렇게 통과했다).
+        def orders(case) -> list:
+            return [
+                (t or {}).get("board_order")
+                for t in case["templates"]
+            ]
+
+        # ⚠️ 파이썬에서 `isinstance(True, int)`는 참이므로 bool을 **먼저** 가른다.
+        def is_bool(v) -> bool:
+            return isinstance(v, bool)
+
+        def is_real_float(v) -> bool:
+            """비정수 실수만 본다 — `3.0`은 JSON을 건너며 int 3이 되어 구분이 없다
+            (JS에 int/float 구분 자체가 없다). 그 한계는 목 주석이 소유한다."""
+            return isinstance(v, float) and not v.is_integer()
+
+        assert any(
+            any(is_real_float(v) for v in orders(c))
+            and any(
+                not is_bool(v) and isinstance(v, int) and v > f
+                for v in orders(c)
+                for f in orders(c)
+                if is_real_float(f)
+            )
+            for c in samples
+        ), (
+            "표본에 **비정수 실수 + 그보다 큰 정수** 조합이 없다 — 실수를 뒤로 "
+            "보내든 앞에 두든 순서가 같아 규칙이 갈려도 초록이 된다"
+        )
+        assert any(
+            any(is_bool(v) for v in orders(c))
+            and any(not is_bool(v) and isinstance(v, int) and v > 1 for v in orders(c))
+            for c in samples
+        ), (
+            "표본에 **불리언 + 1보다 큰 정수** 조합이 없다 — bool을 맨 앞에 세우든 "
+            "뒤로 보내든 순서가 같아 규칙이 갈려도 초록이 된다"
+        )
+        assert any(
+            len([v for v in orders(c) if not is_bool(v) and isinstance(v, int)])
+            != len({v for v in orders(c) if not is_bool(v) and isinstance(v, int)})
+            for c in samples
+        ), "표본에 **동률**이 없다 — 안정 정렬이 깨져도 아무 소리가 안 난다"
+        assert any(
+            any(v is None for v in orders(c)) and any(isinstance(v, int) for v in orders(c))
+            for c in samples
+        ), "표본에 **없는 것과 있는 것이 섞인** 경우가 없다 — 뒤로 보내는 규칙을 못 본다"
+
+        # ── 본 대조 ── 목의 입력을 서버 함수에 그대로 넣어 **순열**을 맞춰 본다.
+        bad = []
+        for case in samples:
+            items = [
+                SimpleNamespace(i=i, template_json=t)
+                for i, t in enumerate(case["templates"])
+            ]
+            srv = [x.i for x in order_puzzles_for_progress(items)]
+            if srv != case["out"]:
+                bad.append((case, srv))
+        assert not bad, "목과 서버의 보드 진행 순서 규칙이 갈렸다: " + "; ".join(
+            f"{c['templates']}: 목 {c['out']} vs 서버 {srv}" for c, srv in bad
+        )

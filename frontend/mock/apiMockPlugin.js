@@ -274,32 +274,50 @@ function fillLiveSlots(value) {
 // 슬라이더 허용 오차 — backend answer_service.SLIDER_TOLERANCE와 동일값
 const SLIDER_TOLERANCE = 10;
 
+/**
+ * 해설의 **출처** — server `answer_service.feedback_source()`의 사본.
+ * 우선순위까지 같다: board면 `board`, 사람이 쓴 해설(`explanation_hint`)이 있으면
+ * `authored`, 없으면 `ai`.
+ *
+ * 🔴 **목이 이 필드를 아예 안 보내고 있었다**(2026-08-20 전수 대조). 화면
+ * (`FeedbackPanel`)이 **부재를 `ai`로 폴백**하므로, 목으로 도는 화면은 **사람이
+ * 저작한 해설에도 「AI」 배지**를 붙였다. 그 파일 주석이 스스로 적어 두었다 —
+ * *「배점 ⑤(생성형 AI 활용)에 직결되는 표기 오류」*.
+ * ⚠️ 값을 손으로 넣지 않는다. 서버와 **같은 우선순위로 파생**한다.
+ */
+function feedbackSourceOf(questionType, template) {
+  if (questionType === 'board') return 'board';
+  return String(template?.explanation_hint ?? '').trim() ? 'authored' : 'ai';
+}
+
 /** 시드 template_json → 목 전용 채점 정보(_mock). 응답 직전 stripMock이 제거한다. */
 function seedGrading(questionType, template) {
   const correct = template.correct_answer ?? '';
   const hint = template.explanation_hint ?? '';
+  const feedbackSource = feedbackSourceOf(questionType, template);
   const feedbackCorrect = hint ? `정확해요! ${hint}` : '정확해요!';
   const feedbackWrong = hint
     ? `아쉬워요! 정답은 "${correct}"이에요. ${hint}`
     : `아쉬워요! 정답은 "${correct}"이에요.`;
   if (questionType === 'board') {
     return {
+      feedbackSource,
       goal_conditions: template.goal_conditions ?? [],
       feedbackCorrect: '정확해요! 목표 대기현상을 만들었어요.',
       feedbackWrong: `아직이에요. ${template.hints?.[0] ?? '배치를 바꿔 다시 시도해 보세요.'}`,
     };
   }
   if (questionType === 'slider') {
-    return { correct, tolerance: SLIDER_TOLERANCE, feedbackCorrect, feedbackWrong };
+    return { correct, tolerance: SLIDER_TOLERANCE, feedbackCorrect, feedbackWrong, feedbackSource };
   }
   if (questionType === 'match') {
-    return { correct, pairs: template.pairs ?? [], feedbackCorrect, feedbackWrong };
+    return { correct, pairs: template.pairs ?? [], feedbackCorrect, feedbackWrong, feedbackSource };
   }
   if (questionType === 'ordering') {
-    return { correct, correctOrder: correct, feedbackCorrect, feedbackWrong };
+    return { correct, correctOrder: correct, feedbackCorrect, feedbackWrong, feedbackSource };
   }
   // multiple_choice·short_answer·cloze — 텍스트 채점은 공백·대소문자 무시
-  return { correct, accept: [correct], feedbackCorrect, feedbackWrong };
+  return { correct, accept: [correct], feedbackCorrect, feedbackWrong, feedbackSource };
 }
 
 /** 시드 1건 → SessionItem 모양의 목 문항(+_mock). 서버 _to_session_item과 같은 형태. */
@@ -695,6 +713,8 @@ function devStatePayload() {
     // unlock_floor: 배치 θ 선해제가 연 선두 연속 유닛 수 (backend placement_unlock_floor)
     unlock_floor: preUnlockedUnits.size,
     clouds: state.clouds,
+    // 서버 `DevState.max_clouds` — 목이 빼먹고 있었다(2026-08-20 전수 대조).
+    max_clouds: CLOUD_MAX,
     streak_count: state.streak,
     placement_done: state.placementDone,
     // θ 파생 약점 (R8-01 §3.5, backend build_state와 동일 규칙): n>0 AND θ<0.41.
@@ -1306,8 +1326,18 @@ function duelTodayPayload() {
     user_score: null,
     ai_score: null,
     result: null,
+    // 서버 `_duel_xp_earned(result)` — 정산 전이면 null. 오늘 대결은 미정산이다.
+    // ⚠️ 액수를 프론트가 하드코딩하지 않도록 **서버가 보내는** 필드다(R10).
+    xp_earned: null,
   };
 }
+
+/**
+ * 대결 승리 XP — server `duel_service.DUEL_WIN_XP`의 **사본**.
+ * `__mockPolicy().duel_win_xp`로 노출해 서버 실값과 대조한다(오늘 그물 밖 사본
+ * 넷을 메운 것과 같은 이유 — 값이 같아도 노출이 없으면 서버가 바뀔 때 조용하다).
+ */
+const MOCK_DUEL_WIN_XP = 15;
 
 const nextLevelXp = (level) => 50 * (level + 1) ** 2;
 
@@ -1681,25 +1711,108 @@ function boardDifficulty(template, levelGroup) {
 // 잠금 판정이 실서버와 갈린다.
 // 서버와 같은 폴백 — `??`로 두면 board_order=0이 맨 앞으로 가는데 서버는
 // 정수가 아닌 값만 뒤로 보낸다(0은 정수라 그대로 0). 판정이 갈리지 않게 맞춘다.
-// 🔴 퍼즐의 **층** = 지식 단계(2026-08-20 축 교체). 서버 `board_tier`의 사본이고
-// 파생이 아니라 **저작값**이다 — 꾸밀 규칙이 없다.
-const boardTierOf = (seed) =>
-  typeof seed.knowledge_level === 'number' ? seed.knowledge_level : null;
-
-const boardOrderOf = (seed) => {
-  const v = seed.template_json?.board_order;
-  return typeof v === 'number' ? v : 10000;
+//
+// 🔴 서버 판정은 파이썬 `isinstance(value, int)`다. `typeof v === 'number'`로는
+//    두 갈래가 갈렸다(2026-08-20 실측 — 시드 55건이 전부 정수라 **답만** 같았다):
+//    ⑴ **비정수 실수**: 파이썬에서 int가 아니므로 뒤(10000)로 간다. JS는 number라
+//       앞으로 보냈다 — `2.5`가 `3`보다 앞에 서던 자리다.
+//    ⑵ **불리언**: 파이썬에서 bool은 int라 `true`가 키 1, `false`가 키 0으로
+//       **맨 앞에 선다**. JS는 boolean이라 뒤로 보냈다. 서버 쪽 기벽이지만
+//       서버가 권위라 그대로 베낀다.
+//    ⚠️ 남는 한계: `3.0`처럼 **정수값 실수**는 서버에선 뒤로 가지만 JS에는 그런
+//       구분 자체가 없다(`Number.isInteger(3.0) === true`). JSON을 건너면 파이썬도
+//       int 3으로 읽으므로 계약도 이 갈래는 볼 수 없다 — 시드가 정수만 쓰는 한
+//       도달하지 않는 자리라 여기 적어 두는 것으로 갈음한다.
+//
+// ── 병합(2026-08-20 A조 ↔ B조) ────────────────────────────────────────────
+// 🔴 퍼즐의 **층** = 지식 단계(A조 축 교체). 서버 `board_tier`의 사본이고 파생이
+//    아니라 **저작값**이다 — 꾸밀 규칙이 없다.
+// 🔴 **A조 첫 판은 `typeof v === 'number'`를 썼고, 그것이 위에 적힌 바로 그 함정
+//    이었다.** 같은 트리에서 B조가 `boardOrderOf`의 같은 결함을 잡아 놓은 채였다 —
+//    한 파일 안에서 한쪽은 고쳐지고 한쪽은 새로 만들어졌다. 그래서 **같은 가드**로
+//    통일한다. 경위를 남기는 이유는 이 형태가 오늘 세 번 나왔기 때문이다.
+// ⚠️ 서버 `board_tier`는 `isinstance(level, int)`이므로 **bool도 통과한다**
+//    (파이썬에서 bool은 int다) — `true`면 값 자체가 1처럼 비교된다. 그 기벽까지 베낀다.
+// ⚠️ 미상은 `10000`이 아니라 **`null`**이다 — 층의 부재는 정렬 꼬리 뿐 아니라
+//    **「잠그지 않는다」는 뜻**을 갖는다(서버 `locked_tiers`). 정렬에서만 `?? 10000`을
+//    씌운다. 여기서 10000을 내면 미상 퍼즐이 10층으로 취급돼 전 밴드에서 잠긴다.
+const boardTierOf = (seed) => {
+  const v = seed?.knowledge_level;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  return Number.isInteger(v) ? v : null;
 };
 
+const boardOrderOf = (seed) => {
+  const v = seed?.template_json?.board_order;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  return Number.isInteger(v) ? v : 10000;
+};
+
+/**
+ * 서버 `routers/board.order_puzzles_for_progress`의 **사본** — 이름을 붙여
+ * 뺐다(2026-08-20). 인라인 `.sort()`로 두면 규칙을 표본에 태워 서버가 다시 풀게
+ * 할 수 없고, 그러면 「값이 같은 오늘만 조용한」 사본이 하나 더 남는다.
+ * JS `Array.sort`도 파이썬 `sorted`도 **안정 정렬**이라 동률·전건 부재는 입력
+ * 순서를 지킨다 — 그 성질까지 표본이 밟는다.
+ */
+// 🔴 **이름이 `byBoardOrder`였다**(2026-08-20 병합 전). 축이 (board_order) 하나에서
+//    **(지식 단계, board_order)**로 바뀌어 이름과 본문을 함께 고쳤다 — 이름만 남기면
+//    다음 사람이 board_order만 보는 줄 안다.
+// ⚠️ **한 곳에 두고 프로덕션(`BOARD_PUZZLES`)과 표본(`orderPuzzlesForProgress`)이
+//    함께 쓰는 것이 요점**이다. 프로덕션만 인라인 비교식으로 갈라 놓으면
+//    **표본은 초록인데 화면 순서만 갈린다**(B조 되돌림 실측: 인라인으로 바꿔도 53건
+//    전건 통과 — 시드가 정수만 써서 산출이 같기 때문. 행동 대조로는 못 잡는다).
+//    그래서 `test_보드_퍼즐_정렬이_표본과_같은_규칙을_쓴다`가 **링크를 직접** 문다.
+const byTierThenBoardOrder = (a, b) =>
+  (boardTierOf(a) ?? 10000) - (boardTierOf(b) ?? 10000)
+  || boardOrderOf(a) - boardOrderOf(b);
+
+const orderPuzzlesForProgress = (items) => items.slice().sort(byTierThenBoardOrder);
+
+/**
+ * 정렬 **규칙**을 서버가 직접 재도록 내보내는 입력 표본(`board_difficulty_samples`
+ * 관례). ⚠️ **정렬 키를 값으로 박지 않는다** — 키 축이 바뀌면(A조가 지식 단계를
+ * 얹는 중) 값 대조는 헛울거나 조용히 틀린다. 「같은 입력에 같은 **순서**가
+ * 나오는가」만 묻는다.
+ * ⚠️ 표본은 **갈리면 순서가 실제로 달라지는** 모양이어야 한다 — 실수 뒤에는
+ *    그보다 **큰 정수**를, 불리언 옆에는 **1보다 큰 정수**를 둔다. 그러지 않으면
+ *    갈래는 밟는데 답이 같아 계약이 초록으로 통과한다(오늘 palette 2개짜리가
+ *    그렇게 되돌림을 놓쳤다).
+ */
+const BOARD_ORDER_SAMPLES = [
+  // ⓐ 평범한 정수 — 뒤섞인 입력이 오름차순으로 선다
+  [{ board_order: 3 }, { board_order: 1 }, { board_order: 2 }],
+  // ⓑ 0은 「없음」이 아니다 — `??` 폴백으로 되돌아가면 여기서 운다
+  [{}, { board_order: 0 }],
+  // ⓒ 🔴 비정수 실수 + **그보다 큰 정수**. 서버는 2.5를 뒤로 보내 [1,0]이고
+  //    `typeof number`로 두면 2.5 < 3이라 [0,1] — 순서가 갈린다
+  [{ board_order: 2.5 }, { board_order: 3 }],
+  // ⓓ 🔴 불리언 + **1보다 큰 정수**. 서버는 true=1·false=0이라 [2,1,0]이고
+  //    boolean을 뒤로 보내면 [0,1,2] — 순서가 갈린다
+  [{ board_order: 5 }, { board_order: true }, { board_order: false }],
+  // ⓔ 동률 안정성 — 같은 키끼리는 입력 순서를 지킨다
+  [{ board_order: 2, tag: 'a' }, { board_order: 1 }, { board_order: 2, tag: 'b' }],
+  // ⓕ 전건 부재 안정성 — 전부 10000이라 입력 순서 그대로
+  [{}, { tag: 'x' }, {}],
+  // ⓖ 정수가 아닌 값(문자열·null)은 뒤로, 있는 정수는 앞으로
+  [{ board_order: '3' }, { board_order: null }, { board_order: 7 }],
+  // ⓗ 음수도 정수다 — 뒤로 가지 않는다
+  [{ board_order: -1 }, { board_order: 0 }],
+  // ⓘ template_json 자체가 null — 서버 `(item.template_json or {})`와 같은 자리
+  [null, { board_order: 1 }],
+];
+
+// ⚠️ **`SEED_ITEMS.filter(...)`가 대입 바로 뒤에 붙어 있어야 한다** —
+//   `test_r10_mock_parity_contract::test_보드_퍼즐이_시드_board에서_파생된다`가
+//   그 형태를 문다(손으로 베낀 배열 리터럴 차단). 2026-08-20에 정렬을
+//   `orderPuzzlesForProgress(...)`로 **감쌌다가 그 계약이 울었고**, 계약의 정규식을
+//   넓히는 대신 **코드를 계약에 맞추는 쪽으로 판정**이 났다(클라이언트).
+//   ⇒ 감싸지 않고 **같은 비교 함수**(`byTierThenBoardOrder` — 병합 전 이름은
+//     `byBoardOrder`였고 축이 (지식 단계, board_order)로 늘며 개명됐다)를 태운다.
+//     그러면 표본이 무는
+//     `orderPuzzlesForProgress`와 여기가 **한 규칙**을 공유해 사본이 안 생긴다.
 const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board')
-  .slice()
-  // 🔴 정렬 키가 **(층, board_order)**다 — 서버 `order_puzzles_for_progress`와 같다.
-  //    안 맞추면 같은 시드에서 목록 순서가 서버와 달라진다(실측: 44/64칸 이동).
-  .sort(
-    (a, b) =>
-      (boardTierOf(a) ?? 10000) - (boardTierOf(b) ?? 10000)
-      || boardOrderOf(a) - boardOrderOf(b),
-  )
+  .sort(byTierThenBoardOrder)
   .map((seed, i) => {
     const n = i + 1;
     const template = seed.template_json ?? {};
@@ -2458,6 +2571,8 @@ const routes = {
           is_correct: isCorrect,
           correct_answer: item._mock.correct ?? null,
           feedback: isCorrect ? item._mock.feedbackCorrect : item._mock.feedbackWrong,
+          // 해설의 출처(R13 CO-I-1) — 없으면 화면이 `ai`로 폴백해 **사람 글에 AI 배지**가 붙는다.
+          feedback_source: item._mock.feedbackSource ?? 'ai',
           xp_earned: 0,
           xp_base: 0,
           xp_weak_bonus: 0,
@@ -2496,6 +2611,8 @@ const routes = {
         is_correct: isCorrect,
         correct_answer: item._mock.correct ?? null,
         feedback: isCorrect ? item._mock.feedbackCorrect : item._mock.feedbackWrong,
+        // 해설의 출처(R13 CO-I-1) — 없으면 화면이 `ai`로 폴백해 **사람 글에 AI 배지**가 붙는다.
+        feedback_source: item._mock.feedbackSource ?? 'ai',
         xp_earned: xp,
         // R10-01 §3.5 마감 3 (additive): "약점 극복 +N" 분리 표기용 실측 분해값
         xp_base: xpParts.xp_base,
@@ -2732,6 +2849,9 @@ const routes = {
         mode: s.mode,
         items: sessionItemsOf(s),
         progress: sessionProgress(s),
+        // 서버 `SessionToday.closing_step` — 배치 세션은 마감 단계가 없어 null이지만
+        // **필드는 있어야 한다**. 없으면 화면이 `undefined`와 `null`을 구분 못 한다.
+        closing_step: closingStepPayload(s.mode),
       },
     ];
   },
@@ -3032,7 +3152,10 @@ const routes = {
     }
     state.clouds = Math.max(0, Math.min(CLOUD_MAX, Math.round(clouds)));
     state.cloudsUpdatedAt = Date.now();
-    return [200, devStatePayload()];
+    // 서버 `DevCloudsResult`는 `{clouds, max}`다. 목은 개발 패널이 한 번에 갱신되도록
+    // 상태 전체를 돌려주지만, **서버가 주는 두 필드는 반드시 들어 있어야 한다** —
+    // `max`가 없어서 화면이 상한을 못 읽던 자리다(2026-08-20 전수 대조).
+    return [200, { ...devStatePayload(), max: CLOUD_MAX }];
   },
   // POST /dev/curriculum {action:"unlock_all"|"crown"|"reset", unit_slug?, crowns?}
   'POST /dev/curriculum': (body) => {
@@ -3108,6 +3231,7 @@ const routes = {
             actual_value: null,
             accuracy_score: null,
             elo_rating_after: null,
+            tier: state.tier, // 서버 `LeagueResultOut.tier` — 목이 빼먹고 있었다
           },
         ]
       : [],
@@ -3314,6 +3438,7 @@ const routes = {
         user_score: 92.1,
         ai_score: 78.3,
         result: 'win',
+        xp_earned: MOCK_DUEL_WIN_XP, // 서버 `_duel_xp_earned`: win이면 DUEL_WIN_XP, 그 외 0
         caster_grade: 'nimbostratus',
         evidence: ['pop_trend', 'recent_rain'],
         evidence_review: [
@@ -3446,6 +3571,18 @@ export const __mockPolicy = () => ({
   board_difficulty_samples: BOARD_DIFFICULTY_SAMPLES.map((c) => ({
     ...c, out: boardDifficulty(c.template, c.level_group),
   })),
+  // ⚠️ 같은 이유로 **진행 순서 규칙**도 규칙째 노출한다 (server
+  //    routers/board.order_puzzles_for_progress — 2026-08-20).
+  //    출력은 정렬 키가 아니라 **입력 인덱스의 순열**이다: 키를 값으로 박으면
+  //    A조가 축을 `(지식 단계, board_order)`로 갈아탈 때 헛울거나 조용히 틀린다.
+  //    순열로 물으면 축이 바뀌어도 「같은 입력에 같은 순서인가」는 그대로 성립한다.
+  board_order_samples: BOARD_ORDER_SAMPLES.map((templates) => ({
+    templates,
+    out: orderPuzzlesForProgress(
+      templates.map((t, i) => ({ i, template_json: t })),
+    ).map((x) => x.i),
+  })),
+  duel_win_xp: MOCK_DUEL_WIN_XP, // server duel_service.DUEL_WIN_XP
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
   guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN
   // 왕관 정책 (server routers/session.py — §2.10 소유권 이전)
@@ -3481,6 +3618,9 @@ export const __progressMePayload = progressMePayload;
 
 /** `GET /progress/abilities`가 실제로 쓰는 함수 — 계약이 같은 것을 문다. */
 export const __abilitiesPayload = abilitiesPayload;
+
+/** 해설 출처 파생 — 계약이 **라우트가 쓰는 바로 그 규칙**을 부른다. */
+export const __feedbackSourceOf = feedbackSourceOf;
 
 export default function apiMockPlugin() {
   return {
