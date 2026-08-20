@@ -644,6 +644,23 @@ try {
     assert(text().includes('단계표기-lv-null'),
       '단계 null 칸의 제목이 안 떴다 — 값이 없으면 카드째 사라지는 것은 회귀다(배지만 감춘다)');
 
+    // 🔴 **속성만 세면 이 단정은 공허하다**(2026-08-20 역검증에서 실제로 걸렸다).
+    // 가드를 통째로 걷고 배지를 무조건 그리게 만들어도 **초록이었다**: 단계가
+    // null이면 `data-knowledge-level={null}`이 되고 **React가 null 속성을 아예
+    // 안 그린다.** 즉 초록의 이유가 「가드가 산다」가 아니라 「React가 지워 준다」
+    // 였다 — 같은 방어가 두 자리에 있어 앞쪽이 먼저 먹은 형태(함정 ①).
+    // 그래서 **칸의 글자**를 직접 본다: 단계 null 칸에는 번호·아이콘·제목 말고
+    // 아무 글자도 없어야 한다. 이쪽은 배지가 무엇을 그리든(이름·'???'·빈 틀) 잡는다.
+    const nullCard = buttons().find((b) => (b.textContent ?? '').includes('단계표기-lv-null'));
+    assert(nullCard, '단계 null 칸의 카드를 못 찾았다');
+    const extra = (nullCard.textContent ?? '')
+      .replace(/^\d+/, '') // 칸 번호(위치 기반)
+      .replace('▶', '') // 상태 아이콘(aria-hidden)
+      .replace('단계표기-lv-null', '')
+      .trim();
+    assert(extra === '',
+      `단계 null 칸에 배지가 그려졌다 — 카드에 남은 군더더기 글자 「${extra}」 (빈 배지도 '?'도 금지다)`);
+
     const badges = [...window.document.querySelectorAll('[data-knowledge-level]')];
     assert(badges.length === 1,
       `배지가 정확히 1개여야 한다(단계 있는 칸에만) — 실제 ${badges.length}개 [${badges.map((b) => b.getAttribute('data-knowledge-level')).join(',')}]`);
