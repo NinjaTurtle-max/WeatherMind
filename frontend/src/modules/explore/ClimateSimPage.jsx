@@ -184,6 +184,22 @@ export default function ClimateSimPage() {
         }}
       />
 
+      {/* 🔴 **2열 구간**(2026-08-19 사용자 지시 — "아노말리 그래프 크기 줄여서
+          왼쪽, 오른쪽에는 CO2 농도·해수면 상승·연간 폭염일수").
+
+          왜 이 둘만 묶이나: 곡선은 **CO₂ 하나에만 반응하는 그림**이고 오른쪽 셋은
+          그 CO₂와 그것이 낳는 값들이다. 슬라이더를 밀 때 눈이 오가야 하는 범위가
+          이 사각형 안으로 들어온다 — 종전에는 곡선(582px)이 슬라이더를 화면
+          밖으로 밀어내 **미는 손과 움직이는 그림이 같이 안 보였다**.
+          탐구 목표는 위에 그대로, 「왜 그럴까」와 CTA는 아래에 그대로 남는다
+          (사용자 지시 1·3) — 그 셋은 CO₂ 값에 따라 자리가 바뀌지 않는다.
+
+          ⚠️ **곡선을 "줄인다"고 높이를 박지 않았다.** `AnomalyCurve`는 viewBox
+          SVG에 `w-full`이라 **폭이 줄면 높이가 따라 준다** — 열을 나누는 것만으로
+          582 → 약 380이 된다. `h-…`를 박으면 뷰포트마다 그림이 찌그러진다.
+          ⚠️ `lg:` 아래에서는 한 열로 접힌다. 그때 곡선이 먼저 오는 순서는
+          종전과 같다(곡선 → 슬라이더 → 지표). */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       {/* 아노말리 곡선 카드 */}
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <p className="text-sm font-bold text-slate-700">{t('explore.climate.anomalyTitle')}</p>
@@ -193,6 +209,8 @@ export default function ClimateSimPage() {
         </div>
       </div>
 
+      {/* 오른쪽 열 — CO₂ 농도(입력) 위, 그것이 낳는 지표 둘 아래. 순서가 인과다. */}
+      <div className="flex flex-col gap-3">
       {/* CO2 슬라이더 카드 */}
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div className="flex items-baseline justify-between">
@@ -225,8 +243,11 @@ export default function ClimateSimPage() {
         </button>
       </div>
 
-      {/* 파생 지표 카드 2종 */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* 파생 지표 카드 2종 — 2열 구간에서는 **세로로 쌓는다**(오른쪽 열이 좁아
+          가로로 두면 한 칸이 220px라 「연간 폭염일수」가 두 줄로 접힌다).
+          한 열로 접히는 좁은 화면에서는 종전대로 나란히 둔다 — 거기서는 폭이
+          충분하고, 세로로 쌓으면 화면만 길어진다. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
         <IndicatorCard
           icon="🌊"
           title={t('explore.climate.seaTitle')}
@@ -243,7 +264,11 @@ export default function ClimateSimPage() {
         />
       </div>
 
-      {/* 왜 그럴까 설명 패널 */}
+      </div>{/* /오른쪽 열 */}
+      </div>{/* /2열 구간 */}
+
+      {/* 왜 그럴까 설명 패널 — 2열 **밖**이다(사용자 지시 3 "나머지 그대로 하단").
+          긴 문단 셋이라 좁은 열에 넣으면 오른쪽 열만 혼자 길어진다. */}
       <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
         <p className="text-sm font-bold text-sky-800">{t('explore.common.whyTitle')}</p>
         <ul className="mt-2 space-y-2">
