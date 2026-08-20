@@ -272,6 +272,19 @@ try {
   checkMt21('㉰ 발달 곡선에 고정 높이를 박지 않았다 — 폭이 줄면 높이가 따라 준다',
     !/<DevelopmentCurve[\s\S]{0,200}?className="[^"]*\bh-\[/.test(typhoonSrc));
 
+  // ── 태풍 배너: 고지는 안으로 · 오른쪽 한 줄 (2026-08-19 사용자 지시) ───────
+  // "여기서도 교육용 단순 모델이에요~ 는 튜터 카드 안으로. 그리고 튜터 카드
+  //  오른쪽에 … 이 글씨 크기 줄여서 한 줄로."
+  // 기후변화와 다른 점 둘: ⑴ 고지에 굵은 낱말(「경향」)이 있어 문자열이 아니라
+  // 노드로 넘긴다 ⑵ 설명을 **비우지 않고** tight로 눌렀다(사용자가 둘 다 요구).
+  // 실측 1536: 배너 h=104 · 설명 430×14(한 줄) · 고지 429×29(두 줄).
+  checkMt21('㉳ 태풍: 고지가 배너 안으로 들어갔다 (굵은 낱말이 있어 노드로)',
+    /note=\{\s*<>/.test(typhoonSrc) && /explore\.typhoon\.disclaimerBold/.test(typhoonSrc));
+  checkMt21('㉳ 배너 밖 회색 고지 띠는 남아 있지 않다',
+    !/bg-slate-100 px-3 py-2[^"]*"[\s\S]{0,120}explore\.typhoon\.disclaimer1/.test(typhoonSrc));
+  checkMt21('㉳ 오른쪽 문구가 한 줄 변형(tightDescription)이고 전용 키를 쓴다',
+    /\btightDescription\b/.test(typhoonSrc) && /description=\{t\('explore\.typhoon\.heroDesc'\)\}/.test(typhoonSrc));
+
   // ── 태풍: 위성 도식 왼쪽 · 「왜 그럴까」 오른쪽 (2026-08-19 사용자 지시) ────
   /**
    * "위성 도식 크기 줄이고 오른쪽에 왜그럴까 배치. 태풍개념문제풀기는 그대로 유지."

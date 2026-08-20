@@ -656,6 +656,7 @@ export default {
       eyeCalm: 'Calm sea',
       title: '🌪️ Build a Typhoon',
       heroTitle: 'What kind of sea gives birth to a typhoon?',
+      heroDesc: 'See when and how a typhoon grows, from sea temperature and wind shear',
       disclaimer1: 'This is a simplified educational model. It is not a real typhoon forecast (numerical model) — it captures only the',
       disclaimerBold: 'tendency',
       disclaimer2: ' of how sea temperature and wind shear affect typhoon development, as a deterministic approximation.',
