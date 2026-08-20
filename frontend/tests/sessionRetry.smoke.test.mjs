@@ -547,6 +547,71 @@ try {
       `retry_resolved_count ${wrongAt.size} 기대 — ${done.retry_resolved_count}`);
   });
 
+  // ── 1a. 서버 기본값 5필드가 **어느 갈래에서도** 응답에 있다 ────────────────
+  // 왜 생겼나(2026-08-20): 목이 `...(phenomena ? { phenomena } : {})` ·
+  // `...(placementResult ?? {})`로 **필드를 통째로 지우고** 있었다. 서버는
+  // `AnswerResult.phenomena=None · is_retry=False · retry_correct=None`,
+  // `SessionCompleteResult.abilities=None · placement_done=None`을 **항상 싣는다**.
+  // 같은 목이 `closing_step`에 대해 이미 못박아 둔 기준이 근거다 —
+  // *「null이지만 필드는 있어야 한다. 없으면 화면이 `undefined`와 `null`을 구분
+  // 못 한다」*. 새 규칙이 아니라 그 기준을 다섯에 똑같이 적용한 것이다.
+  // ⚠️ `in`으로 묻는다 — `!== true` 같은 값 검사는 필드가 **없어도** 통과한다
+  //    (실제로 위 시나리오의 `data.is_retry !== true`가 부재를 못 봤다).
+  await scenario('🔴 서버 기본값 5필드가 어느 갈래에서도 응답에 실린다 (undefined ≠ null)', async () => {
+    await resetMe();
+    const { data: s } = await api('GET', '/session/today');
+    const plain = s.items.find((it) => it.question_type !== 'board');
+    assert(plain, '비board 문항이 없다 — 배합이 바뀌었다면 이 시나리오를 다시 판정할 것');
+
+    // ⓐ 최초 제출(오답) 갈래 — 만회 두 필드와 phenomena가 서버 기본값으로 실린다
+    const { data: first } = await api(
+      'POST', `/session/${s.session_id}/answer`, answerBody(plain, false),
+    );
+    for (const [key, want] of [['is_retry', false], ['retry_correct', null], ['phenomena', null]]) {
+      assert(key in first,
+        `최초 제출 응답에 \`${key}\` 필드가 **없다** — 서버는 기본값을 싣는다. ` +
+        '조건부 spread로 필드를 지우면 화면이 undefined와 null을 구분 못 한다.');
+      assert(first[key] === want,
+        `최초 제출 \`${key}\`가 서버 기본값 ${JSON.stringify(want)}이 아니다 — ${JSON.stringify(first[key])}`);
+    }
+
+    // ⓑ 만회 재제출 갈래 — 같은 세 필드가 **같이** 있어야 한다(갈래마다 모양이
+    //    다르면 화면이 갈래를 먼저 알아내야 한다)
+    const { data: retried } = await api(
+      'POST', `/session/${s.session_id}/answer`, answerBody(plain, true),
+    );
+    assert(retried.is_retry === true && retried.retry_correct === true,
+      '만회 갈래 배선이 깨졌다 — 아래 필드 검사의 전제가 성립하지 않는다');
+    assert('phenomena' in retried,
+      '만회 응답에 `phenomena` 필드가 **없다** — 최초 제출 갈래에만 있으면 모양이 갈린다');
+    assert(retried.phenomena === null,
+      `만회 \`phenomena\`가 null이 아니다 — ${JSON.stringify(retried.phenomena)}`);
+
+    // ⓒ board 갈래 — `?? null`이 **실값을 덮지 않는다**는 반대편 가드.
+    //    null 고정이 계약이 아니라 「필드가 항상 있다」가 계약이다.
+    const board = s.items.find((it) => it.question_type === 'board');
+    assert(board, 'board 문항이 없다 — 배합이 바뀌었다면 phenomena 실값 가드를 다시 둘 것');
+    const { data: boardRes } = await api(
+      'POST', `/session/${s.session_id}/answer`, answerBody(board, true),
+    );
+    assert(Array.isArray(boardRes.phenomena) && boardRes.phenomena.length > 0,
+      `board 응답의 phenomena가 실값이 아니다 — ${JSON.stringify(boardRes.phenomena)}`);
+
+    // ⓓ daily 완료 갈래 — 배치 전용 두 필드가 null로 실린다
+    for (const item of s.items) {
+      if (item.quiz_id === plain.quiz_id || item.quiz_id === board.quiz_id) continue;
+      await api('POST', `/session/${s.session_id}/answer`, answerBody(item, true));
+    }
+    const { data: done } = await api('POST', `/session/${s.session_id}/complete`);
+    for (const key of ['placement_done', 'abilities']) {
+      assert(key in done,
+        `daily 완료 응답에 \`${key}\` 필드가 **없다** — 서버 SessionCompleteResult는 ` +
+        '배치 세션이 아니어도 기본값 None을 싣는다.');
+      assert(done[key] === null,
+        `daily 완료 \`${key}\`가 null이 아니다 — ${JSON.stringify(done[key])}`);
+    }
+  });
+
   // ── 1b. 만회로 해결한 유닛 세션은 왕관을 주지 않는다 ────────────────────────
   // ⚠️ **주석 정정(2026-08-12).** 종전 제목·주석은 「유닛 세션은 **연습 전용**이라
   // 왕관을 주지 않는다(§2.10 소유권 이전)」였다. 그 기술은 이제 거짓이다 —

@@ -1760,8 +1760,11 @@ function boardDifficulty(template, levelGroup) {
 //    ⚠️ 지금은 **잠재**다 — 시드 원문에 소수 `board_order`가 **0건**임을 실측했다
 //       (`grep '"board_order"\s*:\s*-?\d+\.\d+'` → 없음). 저작이 하나라도
 //       소수를 쓰면 그 칸의 순서가 목과 서버에서 갈린다.
-//    🔴 표본에 넣을지는 **판정 대기**다 — 넣으면 파리티가 붉어지므로 면제 사유를
-//       달아야 하고, 그건 계약을 무르는 쪽이라 세션이 스스로 하지 않는다.
+//    ✅ **등재 완료(2026-08-20)** — 아래 `BOARD_ORDER_RAW_SAMPLES`가 이 갈래를
+//       **원본 JSON 텍스트**로 실어 보내고, 계약
+//       `test_r13_mock_policy_parity::test_정수값_실수는_재현불가_불일치로_등재돼_있다`가
+//       불일치를 **없애는 대신 못박는다**. 면제가 아니라 대장이다 — 어느 한쪽이
+//       바뀌면(또는 시드에 소수가 들어오면) 그 계약이 울고 재판정이 열린다.
 const boardOrderOf = (seed) => {
   const v = seed?.template_json?.board_order;
   if (typeof v === 'boolean') return v ? 1 : 0;
@@ -1810,6 +1813,35 @@ const BOARD_ORDER_SAMPLES = [
   [{ board_order: -1 }, { board_order: 0 }],
   // ⓘ template_json 자체가 null — 서버 `(item.template_json or {})`와 같은 자리
   [null, { board_order: 1 }],
+];
+
+/**
+ * 🔴 **「재현 불가한 알려진 불일치」 대장** — 값이 아니라 **원본 JSON 텍스트**로 낸다.
+ *
+ * 왜 텍스트인가(2026-08-20 실측): `board_order: 3.0`은 **값 표본으로는 계약이 볼 수
+ * 없다.** 전송로가 접어 버리기 때문이다 —
+ *   `JSON.stringify(3.0)` → `"3"` → 파이썬 `json.loads` → **int 3**.
+ * 그래서 `BOARD_ORDER_SAMPLES`(객체 표본)에 넣으면 ⓐ와 바이트가 같아져 **초록으로
+ * 통과한다**. 울지도 않는 갈래에 면제 사유를 다는 것은 계약을 무르는 짓이므로 하지
+ * 않는다. 텍스트로 실어 보내면 **각자의 파서가 각자대로 읽어** 갈림이 그대로 남는다:
+ *   파이썬  `json.loads('{"board_order":3.0}')` → `3.0` · `isinstance(int)` **False** → 10000
+ *   JS      `JSON.parse(...)`                    → `3`   · `Number.isInteger` **true**  → 3
+ * (목이 읽는 시드도 같은 경로다 — 파일 텍스트를 `JSON.parse`한다. 꾸민 입력이 아니다.)
+ *
+ * ⚠️ **목은 서버를 따라갈 수 없다.** `JSON.parse`가 `3.0`을 `3`으로 접으므로 JS 쪽에서
+ *    구분을 되살릴 방법이 없다. 그래서 이것은 「측정 불가」가 아니라 **「재현 불가한
+ *    실제 불일치」**다. 계약은 이 갈림을 **없애는 대신 못박는다** — 지금은 잠재이지만
+ *    (시드에 소수 `board_order` 0건) 저작이 하나라도 소수를 쓰면 그 칸의 순서가 갈린다.
+ * ⚠️ 표본은 **갈리면 순서가 실제로 달라지는** 모양이어야 한다(객체 표본과 같은 기준) —
+ *    정수값 실수 뒤에 **그보다 큰 정수**를 둔다. 서버는 3.0을 뒤(10000)로 보내 [1,0]이고
+ *    목은 3<5라 [0,1]이다.
+ */
+const BOARD_ORDER_RAW_SAMPLES = [
+  {
+    json: '[{"board_order":3.0},{"board_order":5}]',
+    // 어느 자리가 「정수값 실수」인가 — 계약이 서버 키가 뒤로 갔는지 확인할 때 쓴다
+    integral_float_index: 0,
+  },
 ];
 
 // ⚠️ **`SEED_ITEMS.filter(...)`가 대입 바로 뒤에 붙어 있어야 한다** —
@@ -2518,7 +2550,11 @@ const routes = {
           clouds: remaining.clouds,
           is_retry: true,
           retry_correct: isCorrect,
-          ...(phenomena ? { phenomena } : {}),
+          // ⚠️ **조건부 spread 금지.** 서버 `AnswerResult.phenomena`는 기본값 `None`이라
+          // 보드가 아닌 문항에도 `phenomena: null`이 실린다. 목이 필드를 통째로 지우면
+          // 화면이 `undefined`와 `null`을 구분 못 한다 — 같은 파일 `closing_step`이
+          // 이미 못박아 둔 기준이고(R13 A-1), 새 규칙이 아니라 그 적용이다.
+          phenomena: phenomena ?? null,
         },
       ];
     }
@@ -2558,7 +2594,13 @@ const routes = {
         // D10-1 (additive): 오답 피드백 "구름 −1" 표기용 실측값
         clouds_spent: spend.clouds_spent,
         clouds: spend.clouds,
-        ...(phenomena ? { phenomena } : {}),
+        // ⚠️ 위 만회 갈래와 **같은 세 필드가 같이 있어야 한다.** 서버
+        // `AnswerResult`의 기본값이 `is_retry=False · retry_correct=None ·
+        // phenomena=None`이라 최초 제출 응답에도 셋 다 실린다. 여기서 빼 두면
+        // 화면이 "만회 아님"과 "만회 여부를 모름"을 구분할 수 없다.
+        is_retry: false,
+        retry_correct: null,
+        phenomena: phenomena ?? null,
       },
     ];
   },
@@ -2758,7 +2800,12 @@ const routes = {
         all_resolved: allResolved, // R13-01 §2.1 — 만회 포함 전건 해결(왕관 판정값)
         retry_resolved_count: retryResolvedCount, // R13-01 §2.1 — "만회 완료 N문항"
         closing_step: closingStepPayload(s.mode), // R13 A-1 — 15문항 뒤 예보 단계(additive)
-        ...(placementResult ?? {}),
+        // ⚠️ **조건부 spread 금지** — 바로 윗줄 `closing_step`과 같은 이유다.
+        // 서버 `SessionCompleteResult`는 `abilities`·`placement_done` 둘 다 기본값
+        // `None`이라 daily·unit 완료 응답에도 **필드가 실린다**. 목이 통째로 지우면
+        // 화면이 `undefined`와 `null`을 구분 못 한다.
+        placement_done: placementResult?.placement_done ?? null,
+        abilities: placementResult?.abilities ?? null,
       },
     ];
   },
@@ -3523,6 +3570,16 @@ export const __mockPolicy = () => ({
     templates,
     out: orderPuzzlesForProgress(
       templates.map((t, i) => ({ i, template_json: t })),
+    ).map((x) => x.i),
+  })),
+  // 🔴 **재현 불가한 알려진 불일치 대장**(BOARD_ORDER_RAW_SAMPLES 주석 참조).
+  //    값이 아니라 원본 JSON 텍스트를 실어 보내고, `out`은 **목이 그 텍스트를
+  //    자기 파서로 읽었을 때**의 순열이다. 계약은 서버 파서로 같은 텍스트를 읽어
+  //    갈림이 **여전히 그대로인지**를 못박는다 — 면제가 아니라 등재다.
+  board_order_raw_samples: BOARD_ORDER_RAW_SAMPLES.map((c) => ({
+    ...c,
+    out: orderPuzzlesForProgress(
+      JSON.parse(c.json).map((t, i) => ({ i, template_json: t })),
     ).map((x) => x.i),
   })),
   // BKT 숙련 사본 셋 — ai-worker `knowledge_tracing` · backend `weatherbrain_service`

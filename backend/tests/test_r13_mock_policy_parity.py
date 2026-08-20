@@ -878,6 +878,95 @@ class TestUnnettedCopies:
             f"{c['templates']}: 목 {c['out']} vs 서버 {srv}" for c, srv in bad
         )
 
+    def test_정수값_실수는_재현불가_불일치로_등재돼_있다(self, policy):
+        """🔴 **면제가 아니라 대장이다** — 갈림을 없애는 대신 **못박는다**.
+
+        무엇이 갈리나(2026-08-20 실측). `board_order`가 `3.0`처럼 **정수값 실수**로
+        저작되면 두 파서가 다르게 읽는다:
+            파이썬  json.loads('{"board_order":3.0}') → 3.0 · isinstance(int) False → 10000(뒤)
+            JS      JSON.parse(...)                    → 3   · Number.isInteger true → 3(앞)
+        **목이 서버를 따라갈 방법이 없다** — `JSON.parse`가 `3.0`을 `3`으로 접으므로
+        JS 쪽에서 구분을 되살릴 수 없다. 「측정 불가」가 아니라 **「재현 불가한 실제
+        불일치」**다.
+
+        왜 객체 표본(`board_order_samples`)에 넣지 않았나. 넣을 수가 없다 —
+        **전송로가 먼저 접는다**: `JSON.stringify(3.0)` → `"3"` → 파이썬 `int 3`.
+        객체 표본에 넣으면 평범한 정수 갈래와 바이트가 같아져 **초록으로 통과한다**.
+        울지도 않는 갈래에 면제 사유를 다는 것은 계약을 무르는 짓이라 하지 않았다.
+        대신 목이 **원본 JSON 텍스트**를 실어 보내고(`board_order_raw_samples`)
+        여기서 **서버 파서로 다시 읽어** 갈림을 실측한다.
+
+        이 계약이 무엇을 지키나(느슨하게 하는 것이 아니라 **더 조인다**):
+          ⑴ 갈림이 **여전히 그대로**인가 — 어느 한쪽이 바뀌면 여기서 울고 재판정이
+             열린다. 조용히 사라지지도, 조용히 커지지도 못한다.
+          ⑵ 갈리는 **이유**가 그대로인가 — 서버가 정수값 실수를 뒤(10000)로 보내고
+             목은 앞에 세운다.
+          ⑶ **잠재가 잠재인가** — 시드 원문에 소수 `board_order`가 0건이어야 한다.
+             종전엔 주석에 「실측했다」고 적혀만 있었다. 저작이 하나라도 소수를 쓰면
+             그 칸의 순서가 실사용에서 갈리므로, 그 순간 이 계약이 울어야 한다.
+        ⚠️ 나머지 갈래는 위 `test_보드_진행_순서_규칙이_같은_순서를_낸다`가 지금처럼
+           **엄격히** 대조한다. 여기서 면제되는 것은 없다.
+        """
+        from types import SimpleNamespace
+
+        from app.routers.board import order_puzzles_for_progress
+
+        samples = policy["board_order_raw_samples"]
+        assert samples, "목이 「재현 불가한 알려진 불일치」 대장을 안 내보낸다"
+
+        for case in samples:
+            templates = json.loads(case["json"])
+            idx = case["integral_float_index"]
+            value = templates[idx]["board_order"]
+            # ⓐ 전송로가 접지 않았는가 — 텍스트로 실어 보낸 이유 자체를 못박는다.
+            #    값 표본이었다면 여기서 `int`가 나왔을 것이고 대장은 무의미해진다.
+            assert isinstance(value, float) and not isinstance(value, bool), (
+                f"{case['json']}: 서버 파서가 {idx}번을 실수로 읽지 않았다 — "
+                "표본이 텍스트가 아니라 값으로 실려 왔나(전송로가 접었다)"
+            )
+            assert value.is_integer(), (
+                f"{case['json']}: {idx}번이 **정수값** 실수가 아니다 — 비정수 실수는 "
+                "객체 표본 ⓒ가 이미 엄격히 대조한다. 이 대장은 목이 재현할 수 "
+                "없는 갈래만 담는다"
+            )
+
+            items = [
+                SimpleNamespace(i=i, template_json=t) for i, t in enumerate(templates)
+            ]
+            srv = [x.i for x in order_puzzles_for_progress(items)]
+
+            # ⓑ 갈리는 **이유**: 서버는 정수값 실수를 「없음」으로 보아 뒤로 보내고,
+            #    목은 정수로 읽어 앞에 세운다.
+            assert srv[-1] == idx, (
+                f"{case['json']}: 서버가 정수값 실수를 뒤로 보내지 않았다 "
+                f"(순열 {srv}) — order_puzzles_for_progress의 판정이 바뀌었다면 "
+                "이 대장을 재판정할 것"
+            )
+            assert case["out"][0] == idx, (
+                f"{case['json']}: 목이 정수값 실수를 앞에 세우지 않았다 "
+                f"(순열 {case['out']}) — 목 쪽이 바뀌었다면 대장을 재판정할 것"
+            )
+            # ⓒ 갈림이 **여전히** 살아 있는가. 같아졌다면 누군가 한쪽을 고친
+            #    것이므로 대장에서 빼고 객체 표본으로 옮겨야 한다.
+            assert srv != case["out"], (
+                f"{case['json']}: 목과 서버 순열이 같아졌다(둘 다 {srv}) — "
+                "「재현 불가한 불일치」가 해소됐다는 뜻이다. 이 대장에서 빼고 "
+                "board_order_samples로 옮겨 엄격 대조로 되돌릴 것"
+            )
+
+        # ⓓ **잠재가 잠재인가** — 시드에 소수 board_order가 들어오면 위 갈림이
+        #    실사용에서 살아난다. 주석에 「실측했다」고 적어 두는 대신 계약이 잰다.
+        seed = (REPO_ROOT / "database" / "seed" / "content_items.json").read_text(
+            encoding="utf-8"
+        )
+        decimals = re.findall(r'"board_order"\s*:\s*-?\d+\.\d+', seed)
+        assert not decimals, (
+            f"시드에 소수 board_order가 {len(decimals)}건 들어왔다: {decimals[:5]} — "
+            "정수값 실수는 목과 서버의 정렬이 **실제로 갈리는** 갈래이고 목은 이를 "
+            "재현할 수 없다(JSON.parse가 3.0을 3으로 접는다). 저작을 정수로 되돌리거나, "
+            "서버 order_puzzles_for_progress의 판정을 재설계할 것"
+        )
+
     def test_BKT_서빙_사전값이_같다(self, policy):
         """목에 `GET /progress/mastery`가 **아예 없어** dev에서 BKT 패널이 통째로
         안 그려졌다(2026-08-20). 넣으면서 사본이 셋 생겼으므로 셋 다 문다."""
