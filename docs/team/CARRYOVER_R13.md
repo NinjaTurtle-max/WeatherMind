@@ -3578,15 +3578,47 @@ en 화면이 살아나면 오해 지점이 된다.
 변이가 도달하지 못하거나, 표본이 한 종류뿐이거나, 앵커가 엉뚱한 곳을 짚으면
 초록은 아무 뜻이 없다. §4.9와 같은 계열의 오늘 세 번째~다섯 번째 사례다.
 
-## §4.18 닉네임 유일성이 writer 4곳 중 1곳에만 걸린다 — 수신자: 대회 후
+## §4.18 닉네임 유일성이 writer ~~4곳 중 1곳~~ **4곳 전건**에 걸린다 — 수신자: ~~대회 후~~ → **앞당겨짐 · 2026-08-21 닫힘**
 
 `nickname` writer는 넷이다: `register` · `guest_login` · `guest/convert` ·
-`PATCH /auth/me`. **검사는 `guest_login` 하나에만** 있다. 그래서 「진입에선 막히는
+`PATCH /auth/me`. ~~**검사는 `guest_login` 하나에만** 있다.~~ 그래서 「진입에선 막히는
 이름이 전환에선 통과하는」 이음매가 생긴다.
 
-동결 전에 넷을 다 막는 것은 **범위 확대**라 하지 않는다. 팀 계정(`DEV`·`DEV1`…)은
+~~동결 전에 넷을 다 막는 것은 **범위 확대**라 하지 않는다.~~ 팀 계정(`DEV`·`DEV1`…)은
 검사 없는 writer를 지나므로 **사람이 조율**한다 — §4.5와 함께 읽을 것.
-`ConvertRequest.nickname`은 **다듬지도 않는다**(`guest_login`만 trim한다).
+~~`ConvertRequest.nickname`은 **다듬지도 않는다**(`guest_login`만 trim한다).~~
+
+### 🔴 정정 — 「1곳」은 **두 번** 틀렸다 (2026-08-21)
+
+**① 이 절이 적힌 뒤에 이미 2곳이었다.** 8/19에 `PATCH /auth/me`가 닉네임 writer가
+되면서 검사를 함께 달았는데(`auth.py:626`) **이 절이 그것을 안 받았다.** 「1곳」은
+그날부터 낡은 수치였고 `DEFERRED_AUDIT_0820.md` B11이 실측 **2곳**으로 이미 정정해
+두었다 — 대장의 수를 대장 자신이 갱신하지 않으면 다음 사람이 없는 일을 하러 온다.
+
+**② 지금은 4곳 전건이다** — `5cf90bd`. 검사 소유자 `_ensure_nickname_available`
+**1개** · 호출 **4곳**(`auth.py:178` register · `:399` guest_login · `:598`
+convert_guest · `:690` update_me) · 409를 내는 자리 **1곳**(`:157`). 갱신 2경로
+(`convert_guest`·`update_me`)만 `exclude_user_id`를 넘긴다 — 안 넘기면 **자기 이름을
+그대로 다시 저장할 때 409**가 나서 전환·갱신이 통째로 막힌다. trim도 소유자가 하나다
+(`schemas/auth.py:12 normalize_nickname` · writer 스키마 4벌 전건 `mode="before"`):
+검사값과 저장값이 갈리면 `"홍길동 "`이 검사를 통과해 `"홍길동"`으로 저장되는 **눈에 안
+보이는 중복**이 생긴다. 계약은 `backend/tests/test_nickname_uniqueness.py` **526줄**
+신설(경로별 클래스 4) — `PATCH /auth/me`는 8/19부터 코드만 있고 **계약이 0건**이던
+자리라 그 공백도 함께 메워졌다.
+
+🔴 **「범위 확대」가 아니라 「수신 시점 변경」이다.** 취소선 친 판단이 뒤집힌 것이
+아니라 **수신자가 「대회 후」에서 앞당겨진 것**이고, 앞당긴 것은 **클라이언트 지시**다.
+
+⚠️ **이 커밋은 이 트리에 없다** — `merge-base --is-ancestor 5cf90bd HEAD`가 거짓이고
+`branch --contains`가 `fix/nickname-uniqueness-writers` **단독**을 낸다. **이 트리
+실측은 여전히 2곳**(`auth.py:341`·`:626`)이라 ②의 좌표는 병합 전에는 확인되지 않는다
+(`DEFERRED_AUDIT_0820.md` §4-17 B21과 같은 형태).
+
+⚠️ **목이 아직 안 따라갔다**(2026-08-21 실측 · `frontend/mock/apiMockPlugin.js`).
+`register`·`guest/convert`·`PATCH /auth/me`가 409 `NICKNAME_TAKEN`을 흉내 내지 않고
+`:2052` 주석이 아직 「`guest_login`의 신고 경로」라고 적는다 — **목 위에서 검증하는
+프론트는 그 화면을 영영 못 본다.** 다른 세션이 그 파일을 편집 중이라 **이 세션은 안
+만졌다**(집행 이관).
 
 ## §4.19 DB 부분 유니크 인덱스 승격 — 수신자: 대회 후
 
