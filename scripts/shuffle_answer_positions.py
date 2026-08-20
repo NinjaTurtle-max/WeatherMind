@@ -176,16 +176,24 @@ _BARE_ORDINAL_RE = re.compile(
 # ⚠️ **「오답」·「틀리」가 없었다**(2026-08-18 리뷰 실행 재현) — 「두 번째 선지는
 # **오답이다**」가 셔플·게이트 **두 층 모두를 통과**했다. 가장 흔한 표현이 빠져 있었고,
 # 「틀린 설명이다」가 잡히던 것은 「설명이다」라는 **중립 어미에 우연히** 걸린 것이라
-# 방어가 아니었다. 이 목록은 **셔플용(광역)**이다 — 게이트는 자기 목록을 따로 쓴다.
+# 방어가 아니었다.
+# ⚠️ **2026-08-21 정정: 이제 이 목록이 유일하다.** 종전 주석은 「셔플용(광역)이고
+# 게이트는 자기 목록을 따로 쓴다」였는데, 그 「따로」가 곧
+# `test_answer_position_balance`의 사설 사본이었고 **예고대로 한쪽만 자랐다** —
+# 위의 「오답」·「틀리」·「틀린」이 그쪽에 안 가서 「세 번째 선지는 오답이다」가 CI를
+# 통과했다. 사본은 지웠고 그 계약이 이 목록을 부른다.
 # ⛔ **여기에 「않」·「없」·「반대」·「어긋」을 넣지 말 것** (2026-08-19 되돌림).
 # 2026-08-18에 「게이트 쪽 공백이 여기도 있다」며 넷을 넣었는데, 3차 리뷰가 그것이
 # **MT-15를 조용히 해친다**는 것을 실행으로 보였다: 「나머지는 **오답이다**」·
 # 「…가 아니다」류는 **맞는 해설의 표준 마무리 관용구**인데, 그것이 `hint_contradicts`를
 # True로 만들면 그 문항이 **재배치에서 영구 제외**되고 `skipped_bare`에 잘못 집계된다
 # (정답 위치 쏠림에서 그 문항들만 남는다 — MT-15가 고치려던 바로 그 상태).
-# 이 목록은 **셔플 전용(광역)**이고 오탐 비용이 「안 옮김」이라지만, 그 「안 옮김」이
-# 누적되는 것이 MT-15의 결함 자체다. 넓히려면 **어느 문항이 재배치에서 빠지는지**를
-# 먼저 세고 그 수를 계약으로 걸 것.
+# 오탐 비용이 「안 옮김」이라지만, 그 「안 옮김」이 누적되는 것이 MT-15의 결함
+# 자체다. 넓히려면 **어느 문항이 재배치에서 빠지는지**를 먼저 세고 그 수를 계약으로 걸 것.
+# ⚠️ **2026-08-21 · 낱말을 빼서 오탐을 고치지 않았다.** 여기 든 「나머지는 오답이다」
+# 오탐(이월 P-12)은 **낱말이 아니라 창**의 문제였다 — 그 문장은 정답을 지목하는
+# 문장과 **다른 절**에 있는데 글자 수 창이 건너가 붙였다. 창을 절로 바꿔 닫았고
+# 목록은 **한 낱말도 줄이지 않았다**(줄이면 진짜 모순을 놓치는 쪽으로 무너진다).
 WRONG_CONTEXT = (
     "오답", "틀리", "틀린", "오독", "잘못", "아니", "혼동", "헷갈",
     "설명이다", "기준이다", "것이고", "것이다",
@@ -199,6 +207,49 @@ _ORDINAL_ALT = "|".join(
 _ORDINAL_CAP_RE = re.compile("(" + _ORDINAL_ALT + ")" + _OPTION_NOUNS)
 _BARE_ORDINAL_CAP_RE = re.compile("(" + _ORDINAL_ALT + ")")
 
+# ── 절 경계 — 창을 **글자 수가 아니라 절**로 잡는다 (2026-08-21 · 오탐 기제 ②) ──
+# ⚠️ 종전 창은 `[서수-10, 서수+45]`라는 **글자 수**였다. 한국어는 주어가 앞, 서술어가
+# 뒤라 그 창은 **이웃 절의 서술어를 그대로 빨아들인다** — 실측:
+#   · 「두 번째는 … 혼동한 **것이고**, 세 번째는 여름 내륙의 열저기압이며」
+#     (본시드 온대저기압) — 3번의 근거가 **전부 2번 절에서 새어 온 것**이다.
+#     3번 절 자체에는 오답을 뜻하는 낱말이 하나도 없다.
+#   · 「두 번째와 세 번째는 각각 A와 B, 네 번째는 C의 **기준이다**」(폭염중대경보) —
+#     같은 한 절인데 45자 안에 든 3·4번만 걸리고 2번은 빠진다. **뜻이 아니라 산술이다.**
+# 이 새는 창은 「…오독이고, **세 번째 선지가 정답이다**」처럼 **바로 옆에 정답을
+# 지목하는 절**이 오면 그 정답 자리를 모순으로 신고한다 — 그것이 오탐의 본체다.
+#
+# **축을 바꾼다**: 창 = 그 서수가 속한 **절**. 경계는 둘뿐이다.
+#   ⑴ 문장 끝(`.!?…` 뒤에 공백이나 끝) — 「3.7배」·「0.5mm」를 쪼개지 않으려고
+#      **뒤에 공백/끝을 요구**한다.
+#   ⑵ **주격·주제로 표시된 다른 서수**(「세 번째 선지는」·「네 번째는」·「… 선지의」)
+#      의 시작 위치. 그 자리에서 새 절이 열린다.
+# ⚠️ **⑵의 「주격 표시」가 2026-08-14 절 경계가 실패한 이유를 닫는 조각이다.** 그때는
+# 이웃 서수를 **표시와 무관하게** 경계로 삼아 「첫 번째 선지는, **두 번째 선지와**
+# 마찬가지로, 오독이다」를 끊었고 진짜 모순을 놓쳤다. 「선지**와**」는 공동격이라
+# 절을 열지 않는다 — 그래서 여기서는 경계가 아니고, 그 진짜 모순은 계속 걸린다
+# (`test_절을_건너_걸린_모순은_셔플이_잡는다`가 그것을 문다).
+_SENTENCE_BREAK_RE = re.compile(r"[.!?…]+(?=\s|$)")
+_SUBJECT_MARKED_ORDINAL_RE = re.compile(
+    "(?:" + _ORDINAL_ALT + ")" + _OPTION_NOUNS + "?" + r"(?:은|는|이|가|의|도)"
+)
+
+
+def clause_bounds(hint: str) -> list[int]:
+    """절이 열리는 위치들 — 오름차순, 항상 0을 포함한다."""
+    points = {0, len(hint)}
+    for m in _SENTENCE_BREAK_RE.finditer(hint):
+        points.add(m.end())
+    for m in _SUBJECT_MARKED_ORDINAL_RE.finditer(hint):
+        points.add(m.start())
+    return sorted(points)
+
+
+def _clause_window(hint: str, points: list[int], at: int) -> str:
+    """`at`에 있는 서수가 속한 절의 원문."""
+    left = max((p for p in points if p <= at), default=0)
+    right = min((p for p in points if p > at), default=len(hint))
+    return hint[left:right]
+
 
 def hint_contradicts(hint: str, options: list, answer) -> bool:
     """해설이 **정답 자리**를 오답이라 말하는가.
@@ -209,14 +260,15 @@ def hint_contradicts(hint: str, options: list, answer) -> bool:
     if not hint or not options or answer not in options:
         return False
     correct = options.index(answer) + 1
-    # 스캔 자체는 `ordinal_hits`가 소유한다 — 셔플은 **명사 가드도 절 경계도 없이**
-    # 넓게 본다. 오탐 비용이 「안 옮김」뿐이기 때문이다.
-    # ⚠️ **2026-08-18 정정**: 2026-08-14에 절 경계를 도입하면서 이 호출까지 함께
-    # 좁아졌고, 주석은 「종전대로 넓게 본다」인 채였다 — 코드와 설명이 갈렸다.
-    # 그 사이 「첫 번째 선지는, 두 번째 선지와 마찬가지로, 오독이다」 같은
-    # **절을 건너 걸린 진짜 모순을 놓쳤다**(실행 재현). 명시적으로 되돌린다.
+    # 스캔 자체는 `ordinal_hits`가 소유한다 — 셔플은 **명사 가드 없이** 넓게 본다.
+    # 오탐 비용이 「안 옮김」뿐이기 때문이다.
+    # ⚠️ **창은 절이다**(2026-08-21). 종전에는 「끊지 않는다」였고, 그래서
+    # 「…오독이고, 세 번째 선지가 정답이다」의 **정답 절**이 옆 절의 「오독」으로
+    # 규탄됐다. 절 경계는 **주격으로 표시된 서수**에서만 열리므로
+    # 「첫 번째 선지는, 두 번째 선지**와** 마찬가지로, 오독이다」는 여전히 한 절이고
+    # 그 진짜 모순은 계속 걸린다 — 2026-08-14 절 경계가 놓쳤던 바로 그 부류다.
     return correct in ordinal_slots_with_context(
-        hint, WRONG_CONTEXT, noun_guarded=False, clause_bounded=False
+        hint, WRONG_CONTEXT, noun_guarded=False
     )
 
 
@@ -224,10 +276,7 @@ def ordinal_hits(
     hint: str,
     *,
     noun_guarded: bool,
-    clause_bounded: bool = True,
     last_slot: int | None = None,
-    before: int = 10,
-    after: int = 45,
 ) -> list[tuple[int, str]]:
     """서수 표기마다 `(자리 번호, 그 주변 텍스트)`를 낸다 — **스캔만** 한다.
 
@@ -237,16 +286,12 @@ def ordinal_hits(
     시켰고, 셔플은 「오답」 어휘를 **아예 못 잡았다**). 스캔은 한 곳이 소유하고
     낱말·부정 판정은 각자 갖는 것이 옳은 분할이다.
 
-    `clause_bounded`:
-      · **True** — 창을 이웃 서수에서 끊는다.
-        ⛔ **지금 이 값을 쓰는 호출자가 없다**(2026-08-19). 유일한 소비자였던 게이트의
-        극성 판정(⑥ⓐ)이 절제됐다. 창을 어디서 끊어야 하는가는 **판정 층의 문제**였고,
-        세 라운드가 그 경계를 세 번 옮기면서 매번 새 오탐을 냈다 — 그러니 이 손잡이를
-        **다시 쓰려는 사람은 먼저 판정 층이 왜 나갔는지 읽을 것**
-        (`lint_seed_items.py` 모듈 머리 ⛔ · CARRYOVER 이월 행).
-      · **False(셔플)** — 끊지 않는다. 「첫 번째 선지는, **두 번째 선지와
-        마찬가지로**, 오독이다」처럼 **절을 건너 걸린 진짜 모순**을 잡아야 하기
-        때문이다. 좁히면 그 부류를 놓친다(2026-08-18 실행 재현).
+    **창은 절이다** — `clause_bounds`가 정한다(2026-08-21 · 종전 `clause_bounded`·
+    `before`·`after` 손잡이를 대신한다). 글자 수 창이 이웃 절의 서술어를 빨아들여
+    **옆 절이 지목한 오답 낱말로 이 자리를 규탄**하던 것이 오탐의 기제였다 —
+    근거는 위 `_SENTENCE_BREAK_RE` 머리에 실측과 함께 적어 두었다.
+    ⚠️ 손잡이를 되살리지 말 것: 「끊는다/안 끊는다」의 이지선다가 세 라운드 동안
+    오탐과 미탐을 번갈아 낸 이유는 **끊는 자리가 서수가 아니라 절이었기** 때문이다.
 
     `last_slot`: 「마지막」이 가리키는 자리. ⚠️ `ORDINAL_VARIANTS`는 「마지막」을
     **4로 하드코딩**한다 — 4지선다가 전제였고 현 시드는 실제로 전건 4지라 지금은
@@ -257,10 +302,7 @@ def ordinal_hits(
     if not hint:
         return []
     pattern = _ORDINAL_CAP_RE if noun_guarded else _BARE_ORDINAL_CAP_RE
-    bounds = (
-        [(m.start(), m.end()) for m in _BARE_ORDINAL_CAP_RE.finditer(hint)]
-        if clause_bounded else []
-    )
+    points = clause_bounds(hint)
     hits: list[tuple[int, str]] = []
     for match in pattern.finditer(hint):
         token = match.group(1)
@@ -269,15 +311,7 @@ def ordinal_hits(
             continue
         if token == "마지막" and last_slot is not None:
             slot = last_slot
-        left = max(0, match.start() - before)
-        right = match.start() + after
-        for b_start, b_end in bounds:
-            if b_end <= match.start():
-                left = max(left, b_end)
-            elif b_start > match.start():
-                right = min(right, b_start)
-                break
-        hits.append((slot, hint[left:right]))
+        hits.append((slot, _clause_window(hint, points, match.start())))
     return hits
 
 
@@ -286,12 +320,9 @@ def ordinal_slots_with_context(
     context_words,
     *,
     noun_guarded: bool,
-    clause_bounded: bool = True,
     last_slot: int | None = None,
-    before: int = 10,
-    after: int = 45,
 ) -> set[int]:
-    """서수 표기 **주변**에 `context_words` 중 하나가 있는 자리 번호 집합.
+    """서수 표기가 **속한 절 안에** `context_words` 중 하나가 있는 자리 번호 집합.
 
     `hint_contradicts`가 하던 스캔을 꺼내 **양쪽 방향이 함께 쓰는 한 곳**으로 만든
     것이다(2026-08-14 코드 리뷰). 그 전에는 lint 쪽이 같은 루프를 손으로 다시
@@ -307,16 +338,17 @@ def ordinal_slots_with_context(
         요구하면 그 부류가 통째로 빠진다.
     좁힌 대가는 **「두 번째는 오독」처럼 명사 없는 진짜 결함을 게이트가 놓치는 것**인데,
     그쪽은 셔플이 계속 넓게 보므로 위치 재배치 시점에 다시 걸린다.
+
+    ⚠️ **「주변」이 아니라 「그 절 안」이다**(2026-08-21). 글자 수 창은 옆 절의
+    서술어를 빨아들여 **정답을 지목하는 절을 모순으로 신고**했다 — `ordinal_hits`
+    머리의 실측을 볼 것.
     """
     return {
         slot
         for slot, window in ordinal_hits(
             hint,
             noun_guarded=noun_guarded,
-            clause_bounded=clause_bounded,
             last_slot=last_slot,
-            before=before,
-            after=after,
         )
         if any(w in window for w in context_words)
     }
