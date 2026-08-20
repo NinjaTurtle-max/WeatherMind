@@ -1962,6 +1962,23 @@ const MOCK_BOARD_UNLOCK_LOOKAHEAD = 2;
  * 계속 초록으로 통과시킨다 — 목↔서버 정책이 갈라졌던 CO-J-9와 같은 형태다.
  * `BOARD_PUZZLES`는 이미 board_order로 정렬돼 있다(선언부 참고).
  */
+// 🔴 **인자를 받게 만들려다 되돌렸다 — 경위를 남긴다**(2026-08-20 판정 2).
+//
+// 하려던 것: 이 규칙을 순수 함수로 열어 `__mockPolicy().board_unlock_samples`로
+// **규칙째** 내보내기(서버가 같은 이유로 `below_ceiling_ids`·`ceiling_tier`·
+// `compute_unlocked_ids`로 쪼개 뒀다 — *"잠금 규칙만 따로 고정할 수 있어야 회귀를
+// 싸게 잡는다"*). 지금 이 규칙은 **행동 그물이 없다** — 파리티 파일이 그 공백을
+// 적어 뒀다: *"`__mockPolicy()`가 목의 잠긴 집합 계산을 노출하지 않는다"*.
+//
+// 왜 못 했나: `test_board_mock_parity._fn_body`가 **`function unlockedBoardIds()`**
+// — 인자 없는 그 형태를 정규식으로 찾고, 몸통에서 「천장 아래 인정」·「천장층 순차」
+// 구문을 확인한다(결함 ⑨의 본체). 빼내면 `test_목이_천장_아래를_인정한다`가 울고,
+// 기본 인자를 붙이면 `\(\)`가 안 맞아 **함수를 아예 못 찾는다.** 그 파일은 리드
+// 소유라 손대지 않고 **코드를 계약에 맞췄다**(같은 날 `BOARD_PUZZLES` 정렬에서
+// 내려온 판정과 같은 방향 — 정규식을 넓히지 않고 코드를 맞춘다).
+// ⇒ 대신 아래 두 갈래를 **소스 계약**으로 물렸다(`test_r13_mock_policy_parity`의
+//   `test_층이_미상인_퍼즐은_열리되_줄에_서지_않는다`). 행동 대조는 리드가
+//   `_fn_body` 정규식을 인자까지 받게 넓히면 곧바로 열린다 — 보고했다.
 function unlockedBoardIds() {
   // 🔴 **서버 `below_ceiling_ids` + `ceiling_tier`와 같은 규칙**(2026-08-19 결함 ⑨).
   //
@@ -1976,22 +1993,47 @@ function unlockedBoardIds() {
   // ⚠️ 순차 대상을 천장층으로 **좁히지 않으면 천장층이 하나도 안 열린다**: 커서가
   // 1층 맨 앞에 서고 LOOKAHEAD 창이 통째로 1층에 떨어지는데, 그 1층은 이미 인정으로
   // 열려 있어 창이 아무것도 추가하지 못한다(서버 쪽에서 계약 테스트가 그 형태를 잡았다).
-  const ceiling = BOARD_LEVEL_GROUP_TIER[mockAuth.levelGroup];
 
-  // 천장 아래 층은 순차와 무관하게 열린다. ⚠️ 천장이 미상이면 「아래」가 정의되지
-  //    않아 빈 집합이고, 그때는 `lockedBoardTiers()`가 아무것도 잠그지 않는다.
+  // 🔴 **판정 2 — 층이 미상인 퍼즐은 「열리되 줄에 서지 않는다」**(2026-08-20).
+  //
+  // ⚠️ **목은 이 갈래를 이미 열고 있었지만 그것은 우연이었다**: 아래 필터가
+  // `p.knowledge_level < ceiling`이고 JS에서 `null < 6`이 **참**이라 미상 퍼즐이
+  // 「천장 아래」로 새어 들어갔다. 우연히 맞는 코드는 **다음 사람이 「버그」로 보고
+  // 고친다** — 그러면 미상 퍼즐이 `locked=false`인데 `unlocked=false`가 되어
+  // **누구에게도, 영원히** 안 열린다(저작 실수 하나가 콘텐츠를 소리 없이 증발시킨다).
+  // 그래서 **명시 분기**로 올린다. 근거는 `lockedBoardTiers`가 이미 이어받은
+  // 「미상은 잠그지 않는다」 관례와 같다 — *못 여는 것이 열리는 것보다 나쁘다.*
+  //
+  // ⚠️ **우연과 달라지는 자리가 하나 있다**: 종전 우연은 천장이 **숫자일 때만**
+  // 참이었다(`null < undefined`는 거짓). 명시 분기는 **천장이 미상이어도** 미상
+  // 퍼즐을 연다. 판정 문언(「열리되」)에 조건이 없어 그대로 따랐고, 그 자리는
+  // 서버 담당 몫이라 보고했다.
+  const items = BOARD_PUZZLES;
+  const cleared = clearedBoardPuzzles;
+  const ceiling = BOARD_LEVEL_GROUP_TIER[mockAuth.levelGroup];
+  const tierless = (p) => p.knowledge_level === null || p.knowledge_level === undefined;
+
   const unlocked = new Set(
-    BOARD_PUZZLES.filter(
-      (p) => typeof ceiling === 'number' && p.knowledge_level < ceiling,
-    ).map((p) => p.content_item_id),
+    items
+      .filter((p) => {
+        if (tierless(p)) return true; // ← 판정 2: 미상은 언제나 열림(명시 분기)
+        // 천장 아래 층은 순차와 무관하게 열린다. ⚠️ 천장이 미상이면 「아래」가
+        //    정의되지 않아 빈 집합이고, 그때는 `lockedBoardTiers()`가 아무것도 잠그지 않는다.
+        return typeof ceiling === 'number' && p.knowledge_level < ceiling;
+      })
+      .map((p) => p.content_item_id),
   );
   // 이미 깬 칸은 언제나 열린다(서버 compute_unlocked_ids 규칙 ⑴)
-  for (const p of BOARD_PUZZLES) {
-    if (clearedBoardPuzzles.has(p.content_item_id)) unlocked.add(p.content_item_id);
+  for (const p of items) {
+    if (cleared.has(p.content_item_id)) unlocked.add(p.content_item_id);
   }
-  // 천장 층 **안에서만** 순차를 센다(규칙 ⑵)
-  const tier = BOARD_PUZZLES.filter((p) => p.knowledge_level === ceiling);
-  let cursor = tier.findIndex((p) => !clearedBoardPuzzles.has(p.content_item_id));
+  // 천장 층 **안에서만** 순차를 센다(규칙 ⑵).
+  // ⚠️ **미상은 여기서 빠진다**(판정 2의 「줄에 서지 않는다」) — 아무 층에나 끼우면
+  //    그 층의 순서 의미가 깨지고, 미상 퍼즐 하나가 **커서를 붙잡아** 뒤 칸을
+  //    막을 수 있다. `=== ceiling`이 이미 미상을 걸러내지만(null !== 숫자), 그것도
+  //    우연에 기대는 형태라 조건을 눈에 보이게 적는다.
+  const tier = items.filter((p) => !tierless(p) && p.knowledge_level === ceiling);
+  let cursor = tier.findIndex((p) => !cleared.has(p.content_item_id));
   if (cursor < 0) cursor = tier.length;
   for (const p of tier.slice(cursor, cursor + MOCK_BOARD_UNLOCK_LOOKAHEAD + 1)) {
     unlocked.add(p.content_item_id);
@@ -3640,6 +3682,13 @@ export const __mockPolicy = () => ({
       })),
     ).map((x) => x.i),
   })),
+  // 🔴 **열림 규칙(잠금의 짝)은 여기서 노출하지 못했다 — 공백을 명시해 둔다.**
+  //    2026-08-20 판정 2를 규칙째 내보내려 `board_unlock_samples`를 만들었다가
+  //    되돌렸다: `unlockedBoardIds`가 인자를 받으면 리드 소유
+  //    `test_board_mock_parity._fn_body`의 `function unlockedBoardIds()` 정규식이
+  //    함수를 아예 못 찾는다(그 함수 선언부 주석이 경위를 소유한다). 그래서 판정 2의
+  //    두 갈래는 **소스 계약**으로 물렸고(`test_층이_미상인_퍼즐은_열리되_줄에_서지_않는다`),
+  //    행동 대조는 그 정규식이 인자를 받게 넓혀질 때 이 자리에 붙인다.
   duel_win_xp: MOCK_DUEL_WIN_XP, // server duel_service.DUEL_WIN_XP
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
   guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN

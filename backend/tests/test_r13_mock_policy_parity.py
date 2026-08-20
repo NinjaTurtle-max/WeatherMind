@@ -68,6 +68,27 @@ def session_src() -> str:
     return SESSION_ROUTER.read_text(encoding="utf-8")
 
 
+@pytest.fixture(scope="module")
+def mock_src() -> str:
+    return MOCK_PATH.read_text(encoding="utf-8")
+
+
+def _fn_body_of(src: str, name: str) -> str:
+    """`function <name>() {` 부터 열 0의 `}` 까지 — **코드부만** 돌려준다.
+
+    🔴 **주석을 반드시 걷는다.** 이 저장소는 문자열 존재로 정책을 재는 검사가
+    **주석 하나에 속은** 전례를 갖고 있다(`grant_crown=False`가 경위 설명 주석에
+    남아 있어 계약이 초록이었다). 이 파일이 무는 목 주석에는 판정 문언이 그대로
+    인용돼 있어서, 걷지 않으면 **설명이 곧 구현**으로 읽힌다.
+    """
+    m = re.search(rf"function {re.escape(name)}\(\)\s*\{{(.*?)\n\}}", src, re.S)
+    assert m, f"목에서 {name}를 못 찾았다 — 이름이 바뀌었나(이 계약을 갱신할 것)"
+    no_block = re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S)
+    return "\n".join(
+        line for line in no_block.splitlines() if not line.lstrip().startswith("//")
+    )
+
+
 # ═══════════════════════════════════════════════════════════════
 # 보드 진행 순서 표본의 **갈래 밟기** — 모듈 수준 헬퍼 (2026-08-20 판정 4)
 # ═══════════════════════════════════════════════════════════════
@@ -1045,4 +1066,61 @@ class TestUnnettedCopies:
                 bad.append((case, srv))
         assert not bad, "목과 서버의 보드 진행 순서 규칙이 갈렸다: " + "; ".join(
             f"{c['templates']}: 목 {c['out']} vs 서버 {srv}" for c, srv in bad
+        )
+
+    def test_층이_미상인_퍼즐은_열리되_줄에_서지_않는다(self, mock_src):
+        """🔴 **2026-08-20 판정 2** — 목의 **열림 규칙**은 지금도 행동 그물이 없다.
+
+        이 파일이 그 공백을 스스로 적어 뒀다: *"남은 규칙은 **잠금 규칙**이고 그것은
+        지금 **아무 그물에도 없다** — `__mockPolicy()`가 목의 잠긴 집합 계산을
+        노출하지 않는다"*. 표본으로 열려고 `unlockedBoardIds`에 인자를 붙였다가
+        **되돌렸다**: 리드 소유 `test_board_mock_parity._fn_body`가
+        `function unlockedBoardIds()` — 인자 없는 그 형태를 정규식으로 찾으므로
+        인자를 붙이면 그쪽이 함수를 아예 못 찾는다. 그 파일을 손대지 않는 쪽을 골랐고
+        (정규식을 넓히지 않고 코드를 맞추는 것이 같은 날 내려온 판정 방향이다),
+        행동 대조는 그 정규식이 넓혀질 때 붙일 자리로 **보고**했다.
+
+        그래서 여기서는 **소스 계약**으로 문다 — 무는 것은 판정 문언 둘이다:
+          ⑴ **열린다** — 층이 미상인 퍼즐을 여는 **명시 분기**가 있다.
+             ⚠️ 목은 이것을 **이미 우연히** 하고 있었다(`null < 6`이 참). 우연히
+             맞는 코드는 다음 사람이 「버그」로 보고 고치고, 고치면 미상 퍼즐이
+             `locked=false`인데 `unlocked=false`가 되어 **누구에게도, 영원히**
+             안 열린다 — 저작 실수 하나가 콘텐츠를 소리 없이 증발시킨다.
+             그래서 「우연히 맞는 상태」와 「명시 분기」를 구별해 문다: 분기가 없으면
+             이 단정이 운다.
+          ⑵ **줄에 서지 않는다** — 천장층 순차 목록에서 미상을 **명시적으로** 뺀다.
+             `=== ceiling`이 이미 미상을 걸러내지만(null !== 숫자) 그것도 우연이다.
+
+        ⚠️ 소스 계약의 한계를 적어 둔다: 이것은 **구문이 그 자리에 있는지**만 본다
+        (리드 파일의 `test_목이_천장_아래를_인정한다`와 같은 방법·같은 한계).
+        행동 동치는 표본이 열릴 때 문다.
+        """
+        body = _fn_body_of(mock_src, "unlockedBoardIds")
+
+        # ⑴ 미상을 여는 명시 분기 — 「미상이면 true」가 한 줄로 보여야 한다.
+        assert re.search(
+            r"if\s*\(\s*tierless\(\w+\)\s*\)\s*return\s+true", body
+        ), (
+            "목에 「층이 미상이면 열림」 **명시 분기**가 없다 — `null < ceiling`이 "
+            "참인 것에 기대는 우연한 열림으로 되돌아가면, 다음 사람이 그것을 버그로 "
+            "고치는 순간 미상 퍼즐이 누구에게도 안 열린다(판정 2)"
+        )
+        # 미상 판정 자체가 서버 `board_tier`와 같은 방향인지 — `null`·`undefined`
+        # 둘 다 미상으로 본다(목은 `boardTierOf`가 null을 내고, 심긴 목록은
+        # 필드가 아예 없을 수도 있다).
+        assert re.search(
+            r"const\s+tierless\s*=\s*\(\w+\)\s*=>\s*[^\n]*knowledge_level\s*===\s*null",
+            body,
+        ), (
+            "목의 미상 판정이 `knowledge_level === null`을 안 본다 — `!p.knowledge_level`"
+            "로 두면 **0층·false가 미상이 되어** 함께 열린다"
+        )
+        # ⑵ 순차 목록에서 미상을 명시적으로 뺀다.
+        assert re.search(
+            r"filter\(\s*\(\w+\)\s*=>\s*!tierless\(\w+\)\s*&&[^\n]*knowledge_level\s*===?\s*ceiling",
+            body,
+        ), (
+            "천장층 순차 목록이 미상을 **명시적으로** 빼지 않는다 — 미상 퍼즐이 "
+            "커서를 붙잡으면 LOOKAHEAD 창의 한 칸을 먹어 천장층 마지막 칸이 안 열린다"
+            "(판정 2의 「줄에 서지 않는다」)"
         )
