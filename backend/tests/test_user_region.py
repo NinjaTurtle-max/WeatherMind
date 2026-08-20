@@ -15,6 +15,11 @@ test_spine_aggregate·test_course_structure의 하네스 패턴):
   같은 채점 축("서울 기준 전국 대결") — 경로 분리를 여기서 못박는다.
 - 게스트 전환(POST /auth/guest/convert)은 같은 행 갱신이라 region이 보존된다.
 - 마이그레이션 0010: revision 체인·downgrade·단일 head (0009 관례).
+
+⚠️ **「네트워크 없이」가 한동안 참이 아니었다**(2026-08-21 실측·복구).
+`TestSessionLiveSlotWiring`의 배합 부족분이 quiz-generate 폴백으로 새어 실제로
+`ai-worker:8001`을 쳤고, 초록이던 것은 DNS 즉시 실패 덕분이었을 뿐이다. 그 자리에
+같은 예외로 떨어지는 대역을 놓아 **원칙이 다시 참이 됐다**(`fake_generate` 주석).
 """
 import asyncio
 import importlib.util
@@ -280,6 +285,27 @@ class TestSessionLiveSlotWiring:
         )
         monkeypatch.setattr(session_service, "_fetch_pools", fake_pools)
         monkeypatch.setattr(session_service, "allocate_quiz_ids", fake_quiz_ids)
+
+        async def fake_generate(**kwargs):
+            """quiz-generate 폴백을 **실 소켓 없이** 그대로 실패시킨다.
+
+            🔴 **이 스텁은 네트워크만 끊는다 — 판정은 한 글자도 안 바뀐다.**
+            부족분이 생기면 `create_daily_session`이 `asyncio.gather(...,
+            return_exceptions=True)`로 이 호출을 병렬로 낸다. 종전에는 그것이
+            `http://ai-worker:8001/internal/quiz-generate`로 **실제로 나갔고**,
+            초록이던 이유는 오직 **DNS가 즉시 실패해서** AIWorkerError로 떨어진
+            것뿐이었다(실측: 이 클래스 2건에서 왕복 4콜). 그 호스트명이 해석되는
+            환경(도커 compose 네트워크·CI에 ai-worker가 뜬 경우)에서는 같은 자리가
+            타임아웃 대기가 되고, 최악에는 **실제 LLM 과금**이 난다.
+            같은 예외로 떨어뜨리므로 수집·로깅·부분 성공 경로는 종전과 동일하다.
+
+            ⚠️ 성공 응답을 만들어 주지 **않는다**. 그러면 세션 구성이 달라져
+            이 클래스가 무는 것(실황 지역 배선)이 다른 재료 위에서 검사된다 —
+            스텁은 네트워크를 끊는 것이지 재료를 바꾸는 것이 아니다.
+            """
+            raise session_service.AIWorkerError("quiz-generate 대역 — 네트워크 차단")
+
+        monkeypatch.setattr(session_service.ai_client, "quiz_generate", fake_generate)
 
         class _EmptyResult:
             def scalars(self):
