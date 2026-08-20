@@ -17,6 +17,7 @@ import math
 
 import pytest
 
+from app.schemas.progress import KNOWLEDGE_LEVEL_MAX
 from app.scripts.seed_content import ALLOWED_CONCEPT_TAGS, ALLOWED_LEVEL_GROUPS
 from app.services import placement_service as ps
 from app.services import weatherbrain_service as wb
@@ -156,31 +157,96 @@ class TestPlacementDomainUnchanged:
             )
 
 
-class TestBoardDifficultyBand:
-    """보드 난이도 라벨의 '어려운 밴드' 판정 — R13 §2.2 파급 지점.
+class TestBandTierLadder:
+    """밴드 → 보드 천장 사다리가 밴드를 뭉개지 않는다 — R13 §2.2 파급 지점.
 
-    'adult' 문자열 동등비교였다면 expert 퍼즐이 elementary와 같은 취급을 받는다.
+    🔴 **2026-08-20 축 교체로 다시 썼다**(옛 이름 `TestBoardDifficultyBand`).
+    종전에는 파생 함수 `routers/board.board_difficulty(template, level_group)`의
+    **학령 가산**을 물었다: expert·adult는 +1, 그 아래는 가산 없음, 미지 밴드는 중립.
+    파생축이 철거돼 그 함수가 없어졌으므로 **같은 걱정을 새 축에서 다시 문다.**
+
+    지키는 걱정은 축이 바뀌어도 그대로다 — 원문: *「'adult' 문자열 동등비교였다면
+    expert 퍼즐이 elementary와 같은 취급을 받는다」*. 즉 **밴드가 뭉개지지 않는가.**
+
+    ⚠️ **새 축이 오히려 더 잘게 가른다.** 옛 축에서는 1~3 클램프 때문에
+    `board_difficulty(expert) == board_difficulty(adult) == 3`이었다 — 클램프가
+    expert와 adult의 차이를 **지우고 있었다.** 새 축에서는 둘이 다르다(아래 실측).
+    그래서 이 재작성은 느슨해지는 것이 아니라 **조이는 것**이다.
+
+    ⚠️ **사다리가 둘이고 값이 다르다**(대장 §5.27-a · 클라이언트 판정 대기):
+    `theta_to_knowledge_level(LEVEL_GROUP_ITEM_B[밴드])`는 밴드의 **중심**,
+    `knowledge_level_of_level_group`은 밴드의 **최하**를 준다. 둘 다 원칙이 있어
+    어느 쪽도 버그가 아니다. ⇒ **이 클래스는 어느 쪽이 맞는지 정하지 않는다.**
+    값을 박지 않고 **양쪽에 공통인 성질**만 물어, 판정이 어느 쪽으로 나도 살아남는다.
     """
 
-    def test_expert_퍼즐은_adult와_같은_가산(self):
-        from app.routers.board import board_difficulty
+    LADDERS = ("center", "floor")
 
-        template = {"mode": "goal_only"}
-        assert board_difficulty(template, "expert") == board_difficulty(
-            template, "adult"
-        ) == 3
+    @staticmethod
+    def _ladder(kind: str):
+        """밴드 → 천장 층. 두 사다리를 같은 모양으로 감싼다(값은 각자 소유자가 낸다)."""
+        if kind == "center":
+            return lambda band: wb.theta_to_knowledge_level(wb.LEVEL_GROUP_ITEM_B[band])
+        return wb.knowledge_level_of_level_group
 
-    def test_하위_밴드는_가산_없음(self):
-        from app.routers.board import board_difficulty
+    # 신고 가능한 밴드의 오름차순 — 이 순서 자체가 계약이다.
+    ORDERED_BANDS = ("elementary", "middle_high", "adult", "expert")
 
-        template = {"mode": "goal_only"}
-        assert board_difficulty(template, "elementary") == 2
-        assert board_difficulty(template, "middle_high") == 2
+    @pytest.mark.parametrize("kind", LADDERS)
+    def test_사다리가_밴드_순서대로_단조_증가한다(self, kind):
+        """🔴 뭉개짐 감지기 — **두 밴드가 같은 천장을 받으면 여기서 운다.**
 
-    def test_미지_밴드는_중립(self):
-        from app.routers.board import board_difficulty
+        옛 계약이 물던 *"expert가 elementary와 같은 취급"*의 새 축 판이다. 등호를
+        허용하지 않는 이유: 클램프가 expert와 adult를 같게 만들던 것이 옛 축의
+        결함이었고, 되돌아가면 **상위 두 밴드가 같은 판만 보게 된다.**
+        """
+        ladder = self._ladder(kind)
+        tiers = [ladder(b) for b in self.ORDERED_BANDS]
+        assert tiers == sorted(set(tiers)), (
+            f"{kind} 사다리가 단조 증가가 아니거나 밴드가 뭉개졌다: "
+            f"{dict(zip(self.ORDERED_BANDS, tiers))}"
+        )
 
-        assert board_difficulty({"mode": "goal_only"}, "ghost") == 2
+    @pytest.mark.parametrize("kind", LADDERS)
+    def test_사다리가_단계_정의역_안에_있다(self, kind):
+        """천장이 정의역을 벗어나면 잠금이 무력해지거나(위) 전건 잠긴다(아래).
+
+        ⚠️ 상한 숫자를 여기 적지 않는다 — 소유자는 `KNOWLEDGE_LEVEL_MAX` 하나다.
+        """
+        ladder = self._ladder(kind)
+        for band in self.ORDERED_BANDS:
+            tier = ladder(band)
+            assert isinstance(tier, int), f"{kind}/{band}: 천장이 정수가 아니다 — {tier!r}"
+            assert 1 <= tier <= KNOWLEDGE_LEVEL_MAX, (
+                f"{kind}/{band}: 천장 {tier}가 1~{KNOWLEDGE_LEVEL_MAX} 밖이다"
+            )
+
+    @pytest.mark.parametrize("band", [None, "", "ghost", "unknown_band"])
+    def test_미지_밴드는_중립_밴드의_천장을_받는다(self, band):
+        """옛 `test_미지_밴드는_중립`의 새 축 판 — **측정해서 쓴 단정이다.**
+
+        🔴 「미지 밴드는 잠기지 않는다」로 쓰지 않았다. 실측(2026-08-20)에서 미지 밴드는
+        `knowledge_level_of_level_group`으로부터 **천장 3을 받는다** — 즉 그 위 층은
+        **실제로 잠긴다.** 「잠그지 않는다」가 참인 것은 `locked_tiers(None)` 한 갈래,
+        즉 **천장 자체가 None일 때**뿐이고 그것은 별 계약이 문다.
+        그 함수가 스스로 *"미지 밴드는 NEUTRAL_LEVEL_GROUP의 최하 단계"*라 적으므로
+        **중립 밴드와 같은 값**인지를 문다 — 값을 박지 않아 중립 밴드가 바뀌어도 산다.
+        """
+        assert wb.knowledge_level_of_level_group(band) == (
+            wb.knowledge_level_of_level_group(wb.NEUTRAL_LEVEL_GROUP)
+        ), f"미지 밴드 {band!r}가 중립 밴드와 다른 천장을 받는다"
+
+    def test_두_사다리가_미지_밴드에서_같은_밴드로_떨어진다(self):
+        """두 사다리가 값은 달라도 **미지 밴드를 같은 밴드로 보낸다**는 것은 불변식이다.
+
+        중심 사다리는 `DEFAULT_ITEM_B`(중립 b)를, 최하 사다리는 `NEUTRAL_LEVEL_GROUP`을
+        경유한다 — 경로가 다르므로 한쪽만 고치면 갈린다. 그 갈림을 여기서 잡는다.
+        ⚠️ 두 사다리의 **값**을 대조하는 것이 아니다(값은 달라도 된다 — §5.27-a).
+        각자 자기 사다리 안에서 「미지 = 중립 밴드」인지를 본다.
+        """
+        assert wb.theta_to_knowledge_level(wb.DEFAULT_ITEM_B) == (
+            wb.theta_to_knowledge_level(wb.LEVEL_GROUP_ITEM_B[wb.NEUTRAL_LEVEL_GROUP])
+        ), "중심 사다리의 미지 밴드 기본값이 중립 밴드와 다른 단계로 간다"
 
 
 class TestDisasterConceptTags:
