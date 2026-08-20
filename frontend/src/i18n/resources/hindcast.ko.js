@@ -24,6 +24,7 @@ export default {
     },
     list: {
       title: '🕰️ 과거 예보 도전',
+      heroTitle: '그날의 예보자가 되어 볼까요?',
       subtitle: '실제로 있었던 하루의 관측을 서버가 이미 알고 있어요. 그날의 예보자가 되어 맞혀 보세요.',
       back: '← 탐구',
       loading: '회차를 불러오고 있어요...',

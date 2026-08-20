@@ -71,6 +71,13 @@ export default function Layout() {
     // 폭을 묶고 있어 안 넓어진다"고 적혀 있었으나, 목록을 3열로 바꾸면서 그
     // 상한을 1120으로 풀었다(2026-08-18). 두 화면 모두 xl에서 열이 늘어난다.
     || pathname.startsWith('/detective')
+    // 과거 예보(2026-08-19) — **탐구 실험실 다섯 중 혼자만 576px 셸이었다.**
+    // 그 자체로도 좁지만, 상단 튜터 배너가 들어오면서 곧바로 깨졌다: HeroBanner는
+    // 제목 열(220px)과 설명 열(300px)이 한 줄에 서는 것을 전제로 치수를 맞춰
+    // 놓았는데(h=90), 576px 셸에서는 둘이 못 서서 **줄바꿈되어 h=139**가 됐다.
+    // 「배너 치수는 어디서나 같다」가 깨지면 화면을 오갈 때 배너 아래 본문이
+    // 49px씩 튄다. 실측: /hindcast 1536에서 139 → 90.
+    || pathname.startsWith('/hindcast')
     || isBoard;
   const shellWidth = isWide ? 'md:max-w-6xl' : '';
   const accessToken = useAuthStore((s) => s.accessToken);

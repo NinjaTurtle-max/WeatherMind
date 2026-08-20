@@ -35,9 +35,27 @@ const TUTOR_BY_PATH = [
   // 행이 그 몫을 전부 받는다. 세션 라우트가 또 늘면 여기에 행을 더할 것.
   { match: (p) => p === '/learn' || p.startsWith('/learn/'), name: 'drop', key: 'learn' },
   { match: (p) => p === '/duel' || p.startsWith('/duel/'), name: 'typhoon', key: 'duel' },
+  // ── 실험실 5종은 **각자 담당이 따로 있다**(2026-08-19 사용자 지시) ──────────
+  // 종전에는 `/explore/*`가 전부 아래 번개 행으로 떨어져, 탐구 홈과 그 안의
+  // 실험실 다섯이 같은 얼굴로 말했다. 실험실마다 다루는 것이 다르므로 담당도
+  // 다르다는 것이 이 다섯 줄의 뜻이다.
+  // ⚠️ **반드시 아래 `/explore` 행보다 먼저** 온다 — 이 표는 위에서부터 첫
+  //    일치를 쓰는 꼴이라, 뒤에 두면 넓은 `startsWith('/explore/')`가 먼저 먹는다.
+  // ⚠️ **다른 화면과 얼굴이 겹치는 둘이 있다**: 태양은 대기 보드(/board)와,
+  //    태풍이는 예보 대결(/duel)과 같다. 겹침 자체는 계약 위반이 아니다 —
+  //    이 표가 막는 것은 「한 화면에서 두 캐릭터가 말하는 것」이지 「한 캐릭터가
+  //    두 화면을 맡는 것」이 아니다. 그리고 둘 다 뜻이 맞다: 자유 실험은 대기
+  //    보드와 **같은 판**이고(AtmosphereBoard가 그린다), 태풍 만들기는 태풍이다.
+  { match: (p) => p === '/explore/sandbox', name: 'sun', key: 'sandbox' },
+  { match: (p) => p === '/explore/typhoon', name: 'typhoon', key: 'typhoonLab' },
+  { match: (p) => p === '/explore/climate', name: 'thermometer', key: 'climateLab' },
   // 탐구 — **번개**(2026-08-17 사용자 지시. 2026-08-12에 구름이로 명시했던
   // 것을 바꿨다). 같은 날 잠깐 리그와 겹쳤다가, 리그가 눈송이가 되면서 풀렸다.
   { match: (p) => p === '/explore' || p.startsWith('/explore/'), name: 'bolt', key: 'explore' },
+  // 기후 탐정·과거 예보는 탐구 홈에서 들어가지만 **라우트가 `/explore` 밖**이라
+  // (탭 넘침 방지로 내비를 안 늘렸다 — ExploreHome 주석) 위 다섯 줄과 떨어져 있다.
+  { match: (p) => p === '/detective' || p.startsWith('/detective/'), name: 'wind', key: 'detective' },
+  { match: (p) => p === '/hindcast' || p.startsWith('/hindcast/'), name: 'rainbow', key: 'hindcast' },
   // 리그 — **눈송이**(2026-08-17 사용자 지시 "기상 리그도 예보랑 똑같이 튜터
   // 카드가 있었으면, 눈결정으로"). 리그가 배너를 갖게 된 것이 같은 지시다.
   { match: (p) => p === '/league' || p.startsWith('/league/'), name: 'snow', key: 'league' },

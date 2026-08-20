@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { fetchHindcastCases } from '../../api/hindcast';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import HeroBanner from '../../components/HeroBanner';
 import { useT } from '../../i18n';
 import DemoDataNotice from './DemoDataNotice';
 
@@ -27,13 +28,23 @@ export default function CaseListPage() {
 
   return (
     <div className="space-y-4 py-4">
-      <div>
-        <Link to="/explore" className="text-xs font-bold text-slate-500 hover:text-sky-600">
-          {t('hindcast.list.back')}
-        </Link>
-        <h1 className="mt-1 text-lg font-extrabold text-slate-800">{t('hindcast.list.title')}</h1>
-        <p className="mt-1 text-xs text-slate-500">{t('hindcast.list.subtitle')}</p>
-      </div>
+      {/* 🔴 **상단 튜터 배너**(2026-08-19 사용자 지시). 담당은 **무지개**이고,
+          소유자는 `SideNav.TUTOR_BY_PATH`의 `/hindcast` 행이다.
+          기후 탐정과 같은 꼴 — 종전 제목 줄을 바꿔 넣고, 설명은 탐구 홈 카드와
+          같은 문장(`hindcast.entry.desc`)을 쓴다.
+          ⚠️ 「데모용 고정 날짜」 고지(DemoDataNotice)는 **배너 아래 그대로** 둔다.
+             배너 안으로 넣으면 자료의 성격을 밝히는 줄이 장식으로 읽힌다. */}
+      <Link to="/explore" className="inline-block text-xs font-bold text-slate-500 hover:text-sky-600">
+        {t('hindcast.list.back')}
+      </Link>
+      <HeroBanner
+        testId="hindcast-hero"
+        mascot="rainbow"
+        as="h1"
+        eyebrow={t('hindcast.list.title')}
+        title={t('hindcast.list.heroTitle')}
+        description={t('hindcast.entry.desc')}
+      />
 
       {/* 「데모용 고정 날짜」 고지 — 목록 최상단. 숨기지 않는다. */}
       <DemoDataNotice />
