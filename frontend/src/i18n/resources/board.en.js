@@ -144,7 +144,12 @@ export default {
       //     speak different axes) — see the #32b smoke scenario for that trail.
       lockedBannerTitle: '🔒 Open up to your level for now',
       lockedBannerBody: 'Puzzles up to your level are open. Higher levels open as your level goes up.',
-      lockedBannerCta: 'Change learning level',
+      // 🔴 See the ko file for the full provenance. In short, the old
+      //   'Change learning level' was false twice over: `/me` no longer has a
+      //   level picker (client ruling: chosen once at entry), and only three
+      //   bands are declarable, so re-declaring can never reach the top tiers.
+      //   Practice is what raises the level — that is the product's axis.
+      lockedBannerCta: 'Raise your level by practicing',
       blockedSuffix: ' (out of clouds)',
       blockedTitle: 'Opens when a cloud recovers — in about {min} min',
       // MT-24 sequential lock. Deliberately worded apart from the energy block:

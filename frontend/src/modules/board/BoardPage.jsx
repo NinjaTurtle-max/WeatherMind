@@ -554,8 +554,15 @@ export default function BoardPage() {
           <p className="min-w-0 flex-1 text-xs leading-relaxed text-slate-500">
             {t('board.page.lockedBannerBody')}
           </p>
+          {/* 🔴 **목적지가 `/me`였고 거짓이었다**(2026-08-21). 그 화면에는 학습
+              수준 카드가 없고(클라이언트 판정으로 걷힘), 있었다 해도 신고로 닿는
+              천장에는 상한이 있다. **상위 층을 여는 길은 푸는 것뿐**이라 그리로
+              보낸다 — 문구(`lockedBannerCta`)와 목적지가 **같은 것을 말해야** 한다.
+              ⚠️ 문구만 고치고 목적지를 두면 「참인 말을 하고 엉뚱한 데로 보내는」
+              형태가 된다(오늘 `#daily-goal`이 정확히 그 꼴이었다 — 링크는
+              가리키는데 그 앵커가 앱에 없었다). */}
           <Link
-            to="/me"
+            to="/learn"
             className="flex-none rounded-full bg-white px-3 py-1.5 text-xs font-extrabold text-sky-700 ring-1 ring-sky-200 transition hover:bg-sky-50"
           >
             {t('board.page.lockedBannerCta')}
