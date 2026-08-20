@@ -180,13 +180,27 @@ def _user(level_group: str = "elementary", email: str | None = None) -> User:
     return user
 
 
-def _prior_rows(level_group: str, n: int = 0) -> dict:
-    """`seed_placement` 직후의 행 — 전 개념이 그 밴드 사전값·n=0."""
-    prior = wb.band_prior_theta(level_group)
+def _prior_rows(level_group: str, n: int = 0, theta: float | None = None) -> dict:
+    """`seed_placement` 직후의 행 — 전 개념이 그 밴드 사전값·n=0.
+
+    `theta`를 주면 그 값으로 심는다(밴드 전건을 도는 계약이 **어느 밴드에서도
+    공허하게 참이 되지 않게** 하려는 자리 — 아래 `NO_BAND_THETA` 참조).
+    """
+    value = wb.band_prior_theta(level_group) if theta is None else theta
     return {
-        tag: {"theta": prior, "theta_se": 1.0, "num_responses": n}
+        tag: {"theta": value, "theta_se": 1.0, "num_responses": n}
         for tag in wb.CONCEPT_TAGS
     }
+
+
+# 어느 밴드 사전값과도 다른 θ — 라우터 계약의 출발점.
+# 🔴 출발점이 목표 밴드와 같으면 「재신고가 θ에 닿았다」가 **아무 일도 안 해도
+# 참**이 된다(역검증에서 실제로 `[elementary]` 한 칸이 안 울었다). 어느 밴드도
+# 아닌 자리에서 출발해야 3밴드 전건이 실제로 움직임을 문다.
+NO_BAND_THETA: float = 0.37
+assert NO_BAND_THETA not in {
+    wb.band_prior_theta(b) for b in wb.LEVEL_GROUP_BANDS
+}, "출발점이 어느 밴드 사전값과 겹친다 — 그 밴드 계약이 공허하게 참이 된다"
 
 
 def _placement_stub(level_group_seen: list, se: float = 1.0):
@@ -468,7 +482,7 @@ class TestCeilingActuallyMoves:
 def patch_me():
     """`PATCH /auth/me` 왕복 — get_db·get_current_user만 대역(네트워크 차단)."""
     user = _user("elementary")
-    db = _UpsertSim(user, _prior_rows("elementary"))
+    db = _UpsertSim(user, _prior_rows("elementary", theta=NO_BAND_THETA))
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[get_current_user] = lambda: user
     try:
