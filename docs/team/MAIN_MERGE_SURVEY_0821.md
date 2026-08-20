@@ -93,7 +93,11 @@ comm -12 <(git status --porcelain | awk '{print $NF}' | sort) <(git diff --name-
 | 13 | `frontend/tests/uiCopy.contract.test.mjs` | 내용 | **1** | 거짓 약속 제거 계약 84줄 말미 | 화면 간 어긋남 계약 53줄 말미 | **기계적 합집합** |
 | 14 | `scripts/ci.sh:228-234` | 내용 | **1** | 종목 4종 추가 + FU-18 갈래 판별 | 종목 `hindcast` 1종 추가 | **합집합 §5** |
 
-**합계: 충돌 파일 14 · 내용 충돌 헝크 14 · modify/delete 5.**
+**합계: 충돌 파일 14 · 내용 충돌 파일 9 · 내용 충돌 헝크 13 · modify/delete 5.**
+
+```sh
+grep -c '^충돌 (내용)' <(git merge-tree --write-tree --name-only HEAD origin/main)   # 9
+```
 
 헝크 수를 재는 명령:
 ```sh
@@ -533,6 +537,55 @@ integ의 FU-18 갈래 판별(`step_frontend`)은 **그대로 살린다** — 이
 | ② | **`/me` 꼬리** — `LevelGroupCard`·`DailyGoalPicker` 존폐. 08-19/08-20 지시가 반대 방향 | §4.2 | 6단계 · `home.smoke` 21줄 |
 | ③ | **`ci.sh`의 `hindcast` 종목** (①에 종속) | §5.2 | 7단계 |
 | ④ | **ClimateSimPage `:499`** 되돌리기 버튼 — `resetAll`(integ) vs `setCo2`(main) | §6.1 | 5단계 |
+
+---
+
+---
+
+## §11. 자매 문서 `docs/team/MERGE_CHECKLIST_0821.md`(`e4337c9`, B조)와의 대조
+
+조사 중 B조가 같은 병합을 **실제로 한 번 돌려 보고** 체크리스트를 커밋했다.
+**두 문서는 겹치지 않고 서로를 메운다** — 병합 담당자는 **둘 다** 읽어야 한다.
+
+### 11.1 B조에만 있는 것 (실측 확인함 — 이 문서의 §2에 없던 자리 3건)
+
+| 자리 | 확인 |
+|---|---|
+| `backend/alembic/versions/20260818_0016_hindcast_attempts.py` — **남긴다** | `git cat-file -e HEAD:…` → **존재**. `83c28da`가 지우지 않았고 `0017`이 그 위에 선다. 마이그레이션은 append-only 🔴 **되살릴 때는 테이블이 이미 있다는 것부터 확인** |
+| `backend/tests/test_rls_role_contract.py` · `backend/app/scripts/rls_app_role.sql` — **남긴다** | `git grep -c hindcast HEAD -- …` → **각 2자리**(B조 표기 3·2와 세는 법 차이) |
+| `hindcast.smoke.test.mjs`가 죽는 정확한 좌표 | `origin/main:frontend/tests/hindcast.smoke.test.mjs:52-54`가 `CasePlayPage`·`CaseListPage`·`DemoDataNotice`를 `read()`한다 — B조 실측 `ENOENT`와 일치 |
+
+### 11.2 이 문서에만 있는 것 (B조 ①의 「안 뜨는 지뢰」는 **1건이 아니라 4건**이다)
+
+B조 ①은 `hindcast.smoke.test.mjs` 1건을 들었다. 같은 형태가 **셋 더** 있다 — §3:
+
+| 지뢰 | B조 문서 |
+|---|---|
+| §3.1 `mascotAssets.contract.test.mjs:350`이 삭제된 `hindcast/CaseListPage.jsx`를 `readFileSync` | ❌ 없음 |
+| §3.2 `home.smoke.test.mjs` main 추가분 227줄이 integ가 지운 `<LevelGroupCard/>`·`<DailyGoalPicker`를 문다 | ❌ 없음 |
+| §3.4 main의 detective 계약이 **미커밋** `detective/CasePlayPage.jsx`를 소스 스캔 | ❌ 없음 |
+| `Layout.jsx:80` · `SideNav.jsx:57`의 `/hindcast` 참조가 충돌 없이 유입 | ❌ 없음 |
+
+### 11.3 🔴 두 문서가 **다르게 말하는 자리 1건 — 판정자가 알아야 한다**
+
+| | B조 `MERGE_CHECKLIST_0821.md` ② | 이 문서 §2.4 |
+|---|---|---|
+| hindcast | *"**철거가 이긴다**"* — **판정을 내렸다** | **판정 필요 ①** — 양쪽 장부만 적고 정하지 않았다 |
+
+B조의 근거(*"삭제는 클라이언트 직접 지시이고 A조 수정은 그보다 앞선 작업"*)는 사실로 맞다.
+그러나 **`70d9c57`·`a5fd1aa`는 `83c28da`(8/19)보다 뒤인 8/20~21 작업**이고, main 작업자는
+삭제 지시를 모른 채 만들었다. ⇒ **「앞선 작업이라 진다」는 시간 근거는 성립하지 않는다.**
+남는 근거는 「클라이언트 지시」 하나뿐이고, 그것은 **강하지만 판정은 여전히 클라이언트 몫**이다.
+
+또한 B조 ④의 UU 목록은 **8건**인데 실측은 **9건**이다 — `frontend/package.json`이 빠져 있다
+(`test:detective-xp`(`0bc46db`) vs `test:hindcast`가 `:43` 같은 줄. B조 측정 시점에 아직
+미커밋이었을 것으로 보인다). **§1 #1을 함께 볼 것.**
+
+### 11.4 겹쳐서 서로를 확증하는 것
+
+`ci.sh`를 **양쪽 `FRONT_TESTS` 합집합**으로 해소하고 *"종목이 한쪽에만 있으면 사라지고,
+사라지면 그 계약은 영구히 안 돌고 실패도 안 남는다"* — **두 문서가 독립적으로 같은 결론**.
+합집합 명세는 이 문서 §5.2(37종, `hindcast`는 판정 종속).
 
 ---
 
