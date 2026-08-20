@@ -744,6 +744,69 @@ await render({});
     !/scroll-snap-align\s*:/.test(stageRule),
     '.wm-stage에 scroll-snap-align이 되살아나지 않았다(스냅포트가 없으면 죽은 선언이다)',
   );
+
+  // ── ㉶ **클립 박스 안의 행은 「남은 만큼」을 받는다** (2026-08-20) ────────────
+  //
+  // 🔴 요구(정체가 아니라 요구로 적는다): `.wm-track`은 `overflow: hidden`인
+  //    **클립 박스**이고 그 안에 세로로 여러 행이 산다 — 코스 탭 줄 · 스크롤러 ·
+  //    진도 바. **어떤 행도 상자 전체 높이를 주장해서도, 흐름에서 들려서도 안 된다.**
+  //      · 전체 높이를 주장하면 → 형제 높이만큼 클립 경계 **밖으로** 밀려 나간다
+  //      · 흐름에서 들리면(absolute) → 자리를 차지하지 않고 아래를 **덮는다**
+  //    둘 다 결과가 같다: **스크롤로 되돌릴 수 없는 픽셀**이 상자 아래에 생기고,
+  //    거기가 곧 끝까지 내렸을 때 마지막 노드가 서는 자리다.
+  //
+  // 이 요구는 실제 결함에서 나왔다(클라이언트 제보 "이모티콘이 해상도 사이즈
+  // 따라 짤리네"). 브라우저 실측(1024×776 · 마지막 섹션 14칸 · 끝까지 스크롤):
+  //   고치기 전  scrollerRect.bottom − trackRect.bottom = +41.75 = 탭 줄 높이
+  //              마지막 노드 밑변 − trackRect.bottom    = +13.50 (잘림)
+  //   고친 뒤    scrollerRect.bottom − trackRect.bottom = −34.25 (진도 바 몫)
+  //              마지막 노드 밑변 − trackRect.bottom    = −62.50 (여유)
+  //
+  // ⚠️⚠️ **이 계약이 못 무는 것 — 「잘렸다/안 잘렸다」 그 자체다.**
+  //    jsdom·SSR에는 래스터라이저도 레이아웃도 없다. `getBoundingClientRect()`가
+  //    전부 0을 돌려주므로 클립 박스와 노드 박스를 **비교할 수 없고**, 하물며
+  //    "그림이 잘려 보이는가"는 원리적으로 측정 불가다. 그래서 여기서 무는 것은
+  //    **잘림을 만들어 낸 구조가 돌아오지 않았는가** 하나뿐이다:
+  //      ㉠ 트랙이 세로 flex 열인가(행들이 높이를 나눠 갖는 유일한 구조)
+  //      ㉡ 스크롤러가 전체 높이를 주장하지 않는가
+  //      ㉢ 트랙의 직계 행 중 흐름 밖으로 들린 것이 없는가
+  //    px 값은 위 실측표가 소유한다 — 재현이 필요하면 브라우저로 다시 잰다.
+  //    ⚠️ 문턱(41.75·13.5 같은 값)을 단정에 박지 않는다. 그것은 코스 2개·현재
+  //    문구일 때의 값이고, 코스가 늘거나 문구가 길어지면 값이 바뀐다 —
+  //    **틀려야 하는 것은 값이 아니라 구조**다.
+  const trackRule = cut('.wm-track {', '.wm-scroller {');
+  ok(
+    /display:\s*flex/.test(trackRule) && /flex-direction:\s*column/.test(trackRule),
+    '🔴 ㉶㉠ .wm-track이 세로 flex 열이다 — 클립 박스 안의 행들이 높이를 나눠 갖는 유일한 구조',
+  );
+  // ⚠️ 이 단정은 **주석을 걷은 `css`**(:572)를 봐야 성립한다. 바로 위 `.wm-scroller`
+  //    주석이 "`height: 100%`로 되돌리지 말 것"이라고 그 문자열을 **인용**하기
+  //    때문이다 — 원문을 그대로 grep하면 근거를 지워야 통과하는 가드가 된다.
+  //    이 파일이 `min-height: 0`·`--dot: max(...)`에서 이미 겪은 함정과 같다.
+  ok(
+    !/height:\s*100%/.test(scrollerRule),
+    '🔴 ㉶㉡ .wm-scroller가 트랙 전체 높이를 주장하지 않는다 — 100%는 형제(탭 줄)를 모르므로 그만큼 클립 밖으로 나간다',
+  );
+  ok(
+    /flex:\s*1/.test(scrollerRule) && /min-height:\s*0/.test(scrollerRule),
+    '㉶㉡ .wm-scroller가 남은 높이만 받고(flex:1) 내용보다 작아질 수 있다(min-height:0 — auto면 긴 섹션에서 다시 넘쳐 나간다)',
+  );
+  // ㉢ **흐름 밖으로 들린 행이 없다.** CSS가 아니라 **런타임 클래스**로 문다 —
+  //    이 행들은 Tailwind 클래스를 JSX가 붙이므로 index.css에는 흔적이 없다.
+  //    (jsdom에 레이아웃은 없지만 class·DOM 구조는 실물이다.)
+  //    ⚠️ 특정 요소(진도 바)를 지목하지 않고 **직계 자식 전부**를 본다 — 지목하면
+  //    "새 행을 absolute로 하나 더 붙이는" 회귀를 조용히 통과시킨다.
+  const trackEl = container.querySelector('.wm-track');
+  ok(trackEl, `㉶㉢ 트랙이 마운트됐다 — 직계 행 ${trackEl?.children.length ?? 0}개`);
+  const lifted = [...(trackEl?.children ?? [])].filter((el) =>
+    el.classList.contains('absolute') || el.classList.contains('fixed'),
+  );
+  ok(
+    lifted.length === 0,
+    '🔴 ㉶㉢ 트랙의 직계 행 중 흐름 밖으로 들린 것이 없다(들린 행은 자리를 안 차지하고 아래를 덮는다) — '
+      + `실제 ${lifted.length}개${lifted.length ? `: ${lifted.map((el) => el.className.slice(0, 40)).join(' | ')}` : ''}`,
+  );
+
   // ㉵ **여기 있던 `scroll-behavior: smooth` 한정 단정은 걷었다**(대장 §4.10,
   //    2026-08-14). 지운 것이지 완화한 것이 아니다 — 위 :660의 단정이
   //    **엄밀히 더 강하다**:
