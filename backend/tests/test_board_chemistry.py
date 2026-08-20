@@ -43,6 +43,7 @@ JS_ENGINE = REPO_ROOT / "frontend" / "src" / "lib" / "boardEngine.js"
 JS_BOARD_UI = REPO_ROOT / "frontend" / "src" / "modules" / "board" / "AtmosphereBoard.jsx"
 AI_VALIDATE = REPO_ROOT / "ai-worker" / "app" / "chains" / "validate_chain.py"
 RULES_PATH = REPO_ROOT / "database" / "seed" / "board_rules.json"
+SEED_PATH = REPO_ROOT / "database" / "seed" / "content_items.json"
 
 AEROSOL = "aerosol"
 
@@ -310,6 +311,51 @@ class TestChemistryAxisExists:
                     f"{other['id']}가 {rule['id']}와 같은 결과 {mine}를 내면서 "
                     "에어로졸을 요구하지 않는다 — 그 규칙이 지름길이 되어 "
                     "에어로졸을 놓지 않고도 목표를 채울 수 있다"
+                )
+
+    def test_aerosol_규칙을_목표로_삼는_문항은_cloud를_명시한다(self):
+        """🔴 **위 단정의 전제가 틀렸다 — 그래서 이 단정이 따로 필요하다.**
+
+        위 독스트링이 *"`check_goals`는 `(phenomenon, cloud)`만 본다"*고 적었는데
+        **거짓이다.** 실제 구현은 `phenomenon`을 **항상** 비교하고 `cloud`는
+        **목표에 있을 때만** 본다(`board_engine.check_goals` — `if "cloud" in goal`).
+
+        ⇒ **판정 축이 두 곳에서 다르다**:
+          · ㉣의 「고유 결과」·위 지름길 단정 → `(phenomenon, cloud)` **쌍**
+          · 문항 목표 판정 → 목표가 쓴 만큼. `cloud`를 안 쓰면 **phenomenon 하나**
+
+        그래서 규칙 층이 안전해도 **목표 층에서 뚫린다.** 실측(2026-08-20): 연무 규칙
+        `(fog, none)`을 목표로 삼은 문항이 `phenomenon: fog`만 적었더니, 에어로졸을
+        **안 놓고 습기만 올려** `radiation_fog`(fog, stratus)로 목표가 달성됐다 —
+        가르치려는 요소가 장식이 된 것이고 위 단정은 초록이었다.
+
+        ⚠️ **이 결함은 「에어로졸」의 문제가 아니라 축 어긋남의 문제**이므로, 같은
+        형태가 다른 목표에도 생길 수 있다. 여기서는 이 축(aerosol)만 문다 —
+        전 규칙으로 넓히는 것은 목표별 「그 현상을 내는 규칙이 유일한가」를
+        따져야 해서 별건이다(못 무는 것을 문다고 적지 않는다).
+        """
+        seed = json.loads(SEED_PATH.read_text(encoding="utf-8"))
+        rules = json.loads(RULES_PATH.read_text(encoding="utf-8"))
+        aerosol_outcomes = {
+            r["then"]["phenomenon"] for r in rules if any(AEROSOL in c for c in r["when"])
+        }
+        assert aerosol_outcomes, "aerosol 규칙이 없다 — 위 단정이 먼저 울어야 한다"
+
+        for item in seed:
+            if item.get("question_type") != "board":
+                continue
+            tj = item.get("template_json") or {}
+            palette = tj.get("palette") or []
+            if AEROSOL not in palette:
+                continue
+            for goal in tj.get("goal_conditions") or []:
+                if goal.get("phenomenon") not in aerosol_outcomes:
+                    continue
+                assert "cloud" in goal, (
+                    f"board_order {tj.get('board_order')}: 팔레트에 에어로졸을 두고 "
+                    f"목표를 '{goal.get('phenomenon')}'로만 적었다 — 그 현상을 내는 "
+                    "다른 규칙이 있으면 에어로졸을 놓지 않고도 목표가 달성된다. "
+                    "목표에 cloud를 명시해 결과 쌍으로 판정하게 할 것"
                 )
 
     def test_aerosol_규칙은_자기_조건으로_실제로_발화하고_요소를_빼면_결과가_바뀐다(self, rules):
