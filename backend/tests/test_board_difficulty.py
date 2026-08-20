@@ -86,7 +86,14 @@ class TestBoardDifficultySeedDistribution:
         # staging 승격(2026-08-14): 46 → **49**(CO-I-2/X-1 잔여 3건, 난이도 2)
         # 경계층·대기역학·대기물리 6판(2026-08-20): 55 → **61**(전건 난이도 3)
         # 🔴 병합(2026-08-20): 내 6판 + 연무 1판 + 통합 브랜치 2판 = **64**
-        assert len(boards) == 64
+        # MT-18 잔여 — 경계층·대기역학·대기물리 보드 4판(2026-08-21): board **64 → 68**
+        # (`board_order` 65~68 · kl8 2 · kl10 2). 전건 expert · goal_only · palette 4종이라
+        # 난이도 3으로 파생돼 **말미 append가 단조 증가 계약을 지키는 자리**다.
+        # **새 규칙·새 배치 요소·새 현상 어휘 0건** — 기존 4조건 규칙 4종
+        # (greenhouse_tropical_night · tropical_cyclone_genesis · cold_front_squall_storm ·
+        # siberian_gale_wildfire)의 **고유 결과**만 목표로 삼는다. 보드가 안 쓰던 개념 태그
+        # `heat_island`를 활용했다(ALLOWED_CONCEPT_TAGS 안 — 개방이 아니다).
+        assert len(boards) == 68
         dist = Counter(
             board_difficulty(e["template_json"], e["level_group"]) for e in boards
         )
@@ -141,8 +148,11 @@ class TestBoardDifficultySeedDistribution:
         # 🔴 병합(2026-08-20 `integ/rolling-0820`): 양쪽 증보를 합쳐 **3이 25**다
         # (내 6판 + 연무 1판 + 통합 브랜치 2판). 1·2는 여전히 안 변한다 —
         # **가중을 아무도 건드리지 않았다는 것이 이 값의 내용**이다.
-        assert dist == {1: 23, 2: 16, 3: 25}, f"난이도 분포가 바뀌었다: {dict(sorted(dist.items()))}"
-        assert len(boards) == 64
+        # MT-18 잔여 4판(2026-08-21): **3이 25 → 29.** 1·2는 그대로다 —
+        # 네 판이 전부 expert · goal_only · palette 4종이라 클램프 3으로 파생되고,
+        # **가중은 아무도 건드리지 않았다**는 것이 이 값의 내용이다.
+        assert dist == {1: 23, 2: 16, 3: 29}, f"난이도 분포가 바뀌었다: {dict(sorted(dist.items()))}"
+        assert len(boards) == 68
 
     def test_전문가_단계_보드는_상위_밴드에만_열린다(self):
         """🔴 **개수가 아니라 요구로 쓴 계약이다**(2026-08-20 리드 지시 §7).

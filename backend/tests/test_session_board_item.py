@@ -202,7 +202,14 @@ class TestSeedBoardRoundTrip:
         # 난이도 3 블록 끝에 append하는 것이 위 단조 증가 계약을 지키는 유일한 자리다
         # (난이도 2를 넣었던 staging 승격분이 자리를 옮겨야 했던 것과 대칭이다).
         # 🔴 병합(2026-08-20): 연무 1판 + 통합 브랜치 2판 = **64**
-        assert len(self.boards) == 64
+        # MT-18 잔여 — 경계층·대기역학·대기물리 보드 4판(2026-08-21): board **64 → 68**
+        # (`board_order` 65~68 · kl8 2 · kl10 2). 전건 expert · goal_only · palette 4종이라
+        # 난이도 3으로 파생돼 **말미 append가 단조 증가 계약을 지키는 자리**다.
+        # **새 규칙·새 배치 요소·새 현상 어휘 0건** — 기존 4조건 규칙 4종
+        # (greenhouse_tropical_night · tropical_cyclone_genesis · cold_front_squall_storm ·
+        # siberian_gale_wildfire)의 **고유 결과**만 목표로 삼는다. 보드가 안 쓰던 개념 태그
+        # `heat_island`를 활용했다(ALLOWED_CONCEPT_TAGS 안 — 개방이 아니다).
+        assert len(self.boards) == 68
 
     def test_전건_렌더_필수_필드_온전(self):
         for i, item in enumerate(self.boards):

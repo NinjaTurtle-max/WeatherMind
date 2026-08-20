@@ -144,7 +144,15 @@ class TestSeedSchema:
         # 대기화학 축 첫 문항) + 통합 브랜치 2판 = **1030 · board 64판**. 양쪽 항목을
         # **전건 보존**해 합집합으로 해결했고(멱등 키 `(concept_tag, question_text)`로
         # 대조 — 잃은 항목 0), 그래서 이 값은 어느 한쪽 판이 아니라 **합집합 실측**이다.
-        assert len(SEED_ITEMS) == 1030
+        # MT-18 잔여 — 경계층·대기역학·대기물리 보드 4판(2026-08-21): board **64 → 68**
+        # (`board_order` 65~68 · kl8 2 · kl10 2). 전건 expert · goal_only · palette 4종이라
+        # 난이도 3으로 파생돼 **말미 append가 단조 증가 계약을 지키는 자리**다.
+        # **새 규칙·새 배치 요소·새 현상 어휘 0건** — 기존 4조건 규칙 4종
+        # (greenhouse_tropical_night · tropical_cyclone_genesis · cold_front_squall_storm ·
+        # siberian_gale_wildfire)의 **고유 결과**만 목표로 삼는다. 보드가 안 쓰던 개념 태그
+        # `heat_island`를 활용했다(ALLOWED_CONCEPT_TAGS 안 — 개방이 아니다).
+        # ⇒ **1034문항 · board 68판**이다.
+        assert len(SEED_ITEMS) == 1034
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS

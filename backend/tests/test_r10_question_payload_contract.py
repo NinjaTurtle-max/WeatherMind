@@ -228,7 +228,15 @@ class TestSeedTypeCoverage:
         # 보드가 안 쓰던 개념 태그 4종(phase_change·temperature_heat·energy_transfer·
         # radiation_budget)을 활용해 대기물리·경계층 축을 태그 수준에서도 열었다.
         # 🔴 병합(2026-08-20): 연무 1판 + 통합 브랜치 2판 = **1030** · board **64**
-        assert len(_seed_items()) == 1030
+        # MT-18 잔여 — 경계층·대기역학·대기물리 보드 4판(2026-08-21): board **64 → 68**
+        # (`board_order` 65~68 · kl8 2 · kl10 2). 전건 expert · goal_only · palette 4종이라
+        # 난이도 3으로 파생돼 **말미 append가 단조 증가 계약을 지키는 자리**다.
+        # **새 규칙·새 배치 요소·새 현상 어휘 0건** — 기존 4조건 규칙 4종
+        # (greenhouse_tropical_night · tropical_cyclone_genesis · cold_front_squall_storm ·
+        # siberian_gale_wildfire)의 **고유 결과**만 목표로 삼는다. 보드가 안 쓰던 개념 태그
+        # `heat_island`를 활용했다(ALLOWED_CONCEPT_TAGS 안 — 개방이 아니다).
+        # ⇒ **1034문항 · board 68판**이다.
+        assert len(_seed_items()) == 1034
 
 
 class TestEverySeedItemIsPlayable:

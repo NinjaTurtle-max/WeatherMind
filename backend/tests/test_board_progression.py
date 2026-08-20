@@ -170,7 +170,11 @@ class TestDisasterBoards:
         ㉣ 개통(2026-08-18): 10 → **12**. 새 4조건 규칙을 쓰는 상위 보드 2판
         (산불 kl9 · 침수 kl10)이 재난 축에 들어왔다 — 소나기판은 재난이 아니다.
         """
-        assert len(self._disaster_items()) == 12
+        # MT-18 잔여(2026-08-21): 12 → **13**. 「며칠째 마른 산」(kl10 · board_order 68 ·
+        # wildfire_weather)이 재난 축에 들어왔다 — 기존 `siberian_gale_wildfire`(4조건)의
+        # 고유 결과 `wildfire_warning`을 목표로 삼고 **새 규칙은 0건**이다. 나머지 두 단정
+        # (목표가 재난 enum · 팔레트로 실제 도달 가능)이 이 판을 그대로 검사한다.
+        assert len(self._disaster_items()) == 13
 
     def test_목표가_재난_현상이다(self):
         for item in self._disaster_items():
