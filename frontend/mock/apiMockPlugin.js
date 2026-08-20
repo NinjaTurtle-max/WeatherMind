@@ -582,12 +582,41 @@ const meResponse = () => ({
 // VITE_MOCK_DEV=0 으로 같은 404 모드를 재현한다(기본은 켜짐).
 const DEV_MODE = process.env.VITE_MOCK_DEV !== '0';
 
+// 사전 b — backend weatherbrain_service.LEVEL_GROUP_ITEM_B의 사본.
+// R13에서 밴드가 4종(expert 추가)이 되면서 서버가 "adult" **문자열 비교**를 버리고
+// b 임계로 바꿨는데, 목이 문자열 비교로 남아 있었다. 그래서 expert 문항이 서버에선
+// 어려움(3)인데 목에선 보통(2)으로 떠, 화면상 난이도가 되돌아가는 것처럼 보였다
+// (실측: board_order 32~34가 목에서만 보통. 서버 시드 34건은 단조 증가가 맞다).
+// ⚠️ **선언 자리를 위로 옮겼다**(2026-08-20) — `seedAbilities`가 이 표를 읽는데
+//    const는 호이스팅되지 않아(TDZ) 아래에 두면 모듈 초기화에서 죽는다.
+const LEVEL_GROUP_ITEM_B = { elementary: -1.0, middle_high: 0.0, adult: 1.0, expert: 2.0 };
+const DEFAULT_ITEM_B = 0.0;
+
 // 개념별 능력(θ) 저장소 — /dev/state·/dev/theta·(배치 완료 시 갱신) 공유.
-// 초기값은 사전(prior) 배정 흉내: θ 0.0 · num_responses 0.
 const CONCEPT_TAGS = ['air_mass', 'anomaly', 'co2_climate', 'heat_island', 'pressure_front', 'typhoon'];
-const seedAbilities = () =>
-  new Map(CONCEPT_TAGS.map((tag) => [tag, { theta: 0.0, num_responses: 0 }]));
-let devAbilities = seedAbilities();
+/**
+ * 가입 직후 개념별 θ 배정 — 서버 `weatherbrain_service.seed_placement`의 **사본**이다.
+ *
+ * 🔴 **초기값이 `0.0` 고정이었고, 그것이 서버와 갈려 있었다**(2026-08-20 판정 A).
+ * 서버는 ai-worker placement에 `level_group`을 넘겨 **밴드 사전값(b)**을 θ로 심는다
+ * — 그래서 갓 만든 계정도 밴드별로 다른 θ를 갖는다. 목이 전 밴드에서 0.0을 심으면
+ * 「진단 전 기본 단계」가 언제나 middle_high 값이 되어, dev 화면이 초등·성인 계정을
+ * **재현할 수 없다.**
+ *
+ * ⚠️ **이것이 「밴드로 천장을 정하는 것」이 아니다.** 밴드는 θ의 **초기값이 오는
+ * 자리**일 뿐이고, 천장은 그 θ에서 파생된 **학습자 단계**(`learnerTier`)가 소유한다
+ * — 서버가 판정 1로 밴드 폴백을 철거한 뒤의 모양 그대로다. 이 구분을 지우면
+ * 다음 사람이 「밴드 → 천장」 폴백으로 되돌린다(그 경로는 이미 철거됐다).
+ * ⚠️ `num_responses: 0`은 그대로다 — 사전값은 응답이 아니다(서버도 그렇다).
+ */
+const seedAbilities = (levelGroup) =>
+  new Map(
+    CONCEPT_TAGS.map((tag) => [
+      tag,
+      { theta: LEVEL_GROUP_ITEM_B[levelGroup] ?? DEFAULT_ITEM_B, num_responses: 0 },
+    ]),
+  );
+let devAbilities = seedAbilities(mockAuth.levelGroup);
 
 const abilitySE = (n) => Number((1 / Math.sqrt(n + 1)).toFixed(2));
 const abilityRows = () =>
@@ -676,6 +705,33 @@ function knowledgeLevelNow() {
   }));
   const theta = overallTheta(rows);
   return theta === null ? null : thetaToKnowledgeLevel(theta);
+}
+
+/**
+ * 🔴 **보드 잠금의 천장 — 서버 `routers/board.learner_tier`의 사본이다**(2026-08-20 판정 A).
+ *
+ * 서버 규칙은 이제 **하나**다: `overall_knowledge_level`(θ 파생) → 없으면 `null`
+ * → **잠그지 않는다.** 밴드 폴백(`knowledge_level_of_level_group`)은 **철거됐다**
+ * (클라이언트 판정: *「상관 쓰지 말고 그냥 10단계로」* → 확정 갈래 A).
+ *
+ * ⚠️ **목이 여기서 갈려 있었다**(서버 담당 실측, 소유 밖 발견으로 접수):
+ * `lockedBoardTiers`·`unlockedBoardIds`가 `BOARD_LEVEL_GROUP_TIER[mockAuth.levelGroup]`
+ * — 즉 **밴드 파생**을 천장으로 썼다. 서버는 θ 파생이므로 **목은 밴드 · 서버는 θ**였고,
+ * 그 갈림을 무는 그물이 없었다(밴드 표 대조는 「1순위 경로만 본다」로 초록).
+ * ⇒ 천장의 소유자를 **이 함수 하나**로 옮긴다. 서버가 이음매를 하나로 유지하는
+ *   이유와 같다 — 천장 규칙이 또 바뀔 때 고칠 곳이 한 곳이어야 한다.
+ *
+ * ⚠️ **밴드가 사라진 것이 아니라 자리가 바뀌었다**: 밴드는 `seedAbilities`(=
+ * `seed_placement` 사본)가 심는 **θ의 초기값**이 오는 자리다. 그래서 갓 만든 계정의
+ * 천장은 여전히 밴드별로 다르고(초등 2·중고 4·성인 6·expert 9), 그 값은 여기서
+ * **파생**된다 — 표를 읽어서가 아니다. `BOARD_LEVEL_GROUP_TIER`는 이제 그 파생의
+ * **기대값 표**이고 파리티 계약이 무는 대상일 뿐이다(그 선언부 주석 참조).
+ *
+ * ⚠️ θ 행이 없으면 `null` — 그때는 `lockedBoardTiers()`가 아무것도 잠그지 않는다
+ * (서버 `locked_tiers(None) == set()`와 같은 방향).
+ */
+function learnerTier() {
+  return knowledgeLevelNow();
 }
 
 /**
@@ -1681,14 +1737,6 @@ function ensurePlacementSession() {
 // 인접 정렬 — 목은 정렬하지 않음). 시드 순서가 마침 난이도 오름차순이라, "클라이언트가
 // 재정렬하지 않는다"는 성질은 이 목록만으로는 더 이상 눈으로 구분되지 않는다.
 // content_item_id는 시드 순서로 결정적 합성(실서버는 DB UUID).
-// 사전 b — backend weatherbrain_service.LEVEL_GROUP_ITEM_B의 사본.
-// R13에서 밴드가 4종(expert 추가)이 되면서 서버가 "adult" **문자열 비교**를 버리고
-// b 임계로 바꿨는데, 목이 문자열 비교로 남아 있었다. 그래서 expert 문항이 서버에선
-// 어려움(3)인데 목에선 보통(2)으로 떠, 화면상 난이도가 되돌아가는 것처럼 보였다
-// (실측: board_order 32~34가 목에서만 보통. 서버 시드 34건은 단조 증가가 맞다).
-const LEVEL_GROUP_ITEM_B = { elementary: -1.0, middle_high: 0.0, adult: 1.0, expert: 2.0 };
-const DEFAULT_ITEM_B = 0.0;
-
 function boardDifficulty(template, levelGroup) {
   let score = template.mode === 'guided' ? 1 : 2;
   if (template.time_limit_sec) score += 1;
@@ -1897,26 +1945,28 @@ const clearedBoardPuzzles = new Set();
 //    선재 어긋남이고 대장에 기록돼 있다. 목은 **1순위 경로만** 흉내 낸다.
 // `__mockPolicy().board_level_group_tier`로 노출해 파리티가 실값을 대조한다 —
 // 노출하지 않으면 축이 갈려도 그물이 아무 소리를 안 낸다(B조 실측).
-// 🔴 ⚠️ **이 표는 「천장의 소유자」가 아니다 — 소유자는 판정 대기다**(2026-08-20).
+// 🔴 ⚠️ **이 표는 「천장의 소유자」가 아니다 — 그리고 이제 아무 코드도 읽지 않는다.**
 //
-// 판정 1이 *「밴드를 천장 계산에서 완전히 빼고 10단계 하나로」*였고, 서버는 그것을
-// 집행했다(`learner_tier`에서 밴드 폴백 철거). 그 판정이 다시 뒤집혀
-// *「추천 시스템이 판정한 단계까지 열림」*이 됐고, **그 배선은 아직 없다**
-// (`docs/team/CARRYOVER_R13.md` §5.27-h가 갈래 A~D를 올려 놨다 — 추천 판정은
-// 단계를 내놓지 않고, 천장을 그쪽에서 가져오면 밴드가 뒷문으로 다시 들어온다).
+// 2026-08-20 판정 A 확정: 천장은 **학습자 단계**(`learnerTier()` = θ 파생)가 소유한다.
+// 밴드 폴백은 서버에서 철거됐고(`learner_tier`), 목도 그 자리를 옮겼다 — 종전에는
+// `lockedBoardTiers`·`unlockedBoardIds`가 이 표를 직접 읽어 **목은 밴드 · 서버는 θ**로
+// 갈려 있었다(서버 담당 실측). 그 갈림을 무는 그물이 없었다: 이 표의 값 대조는
+// 「1순위 경로만 본다」로 **초록**이었다.
 //
-// ⇒ 그래서 이 표는 **지우지 않고 남긴다.** 두 가지 이유다:
+// ⇒ 그런데 **지우지 않는다.** 두 이유다:
 //   ⑴ 지우면 파리티 계약이 무는 대상이 사라진다 —
-//      `test_보드_밴드_천장이_서버_파생값과_같다`가 이 표를 서버
+//      `test_보드_밴드_천장이_서버_파생값과_같다`(실값)와
+//      `test_board_mock_parity::test_밴드_천장표가_같다`(소스)가 이 표를 서버
 //      `theta_to_knowledge_level(LEVEL_GROUP_ITEM_B[밴드])`로 **파생시켜** 대조한다.
-//   ⑵ 목이 재현하는 것은 **「밴드로 천장을 정하는 것」이 아니라 「가입 시 사전 θ를
-//      심는 것」**이다(서버 `seed_placement` + θ→단계). 갓 만든 게스트도 서버에서
-//      같은 값을 받는 이유가 그것이고, 목에는 θ 테이블이 없어 그 **결과값**만 표로 둔다.
-//      ⚠️ 이 구분을 안 적으면 다음 사람이 이 표를 「밴드 폴백」으로 읽고 되돌린다.
-// ⚠️ 천장의 새 소유자가 정해지면 **그때 함께 정리할 자리**다. 그 전에 여기서
-//    계약을 「천장 == 학습자의 knowledge_level」로 못박지 않는다 — 추천 판정이
-//    천장을 정하는 순간 헛울고 되돌리게 된다(같은 이유로 서버 `learner_tier`
-//    독스트링도 그 단정을 금지한다).
+//   ⑵ 이 표는 이제 **「밴드 → 천장」 규칙이 아니라 그 파생의 기대값 표**다.
+//      실제 경로는 `seedAbilities`(= 서버 `seed_placement` 사본)가 밴드 사전 b를 θ로
+//      심고 → `learnerTier()`가 그 θ에서 단계를 낸다. **밴드는 규칙이 아니라 초기값의
+//      출처**다. 값이 같은 것은 두 경로가 같은 사전값을 쓰기 때문이지, 여기를
+//      읽어서가 아니다.
+//      ⚠️ 이 구분을 지우면 다음 사람이 이 표를 「밴드 폴백」으로 읽고 되돌린다 —
+//      그 경로는 철거됐다.
+// ⚠️ **값을 계약으로 못박지 않는다**(2·4·6·9도, 판수도): 사전값 파생이라 사전 b가
+//    바뀌면 함께 움직여야 한다. 그래서 위 두 계약도 값을 적지 않고 서버에서 파생시킨다.
 const BOARD_LEVEL_GROUP_TIER = {
   elementary: 2,
   middle_high: 4,
@@ -1944,15 +1994,26 @@ const BOARD_TIER_MAX = 10;
 const BOARD_TIERS = Array.from({ length: BOARD_TIER_MAX }, (_, i) => i + 1);
 
 /**
- * 잠긴 난이도 집합 — 서버 `routers/board.locked_difficulties`의 **사본**이다.
- * 초등은 쉬움만, 중·고등은 쉬움·보통, 성인은 전부(2026-08-10). 열쇠는 진도가
- * 아니라 `users.level_group`이라, 목에서도 PATCH /auth/me로 수준을 바꾸면
- * 그 자리에서 열린다 — 스모크가 그 왕복을 볼 수 있다.
+ * 잠긴 **층** 집합 — 서버 `routers/board.locked_tiers`의 **사본**이다.
+ *
+ * 🔴 **열쇠가 바뀌었다**(2026-08-20 판정 A). 이 자리에 *"초등은 쉬움만, 중·고등은
+ * 쉬움·보통, 성인은 전부(2026-08-10). 열쇠는 진도가 아니라 `users.level_group`이라,
+ * 목에서도 PATCH /auth/me로 수준을 바꾸면 그 자리에서 열린다"*고 적혀 있었고
+ * **두 문장 다 낡았다**:
+ *   · 앞 문장 — 축이 학령 파생 난이도(3칸)에서 지식 단계(10칸)로 갈아탔다.
+ *     그리고 **「성인은 전부」는 거짓**이다(성인 천장 위에 층이 더 있다).
+ *   · 뒤 문장 — 열쇠는 이제 `level_group`이 **아니다.** 천장의 소유자는
+ *     `learnerTier()`(θ 파생 학습자 단계)이고, 서버도 그렇다. 밴드는 그 θ의
+ *     **초기값**이 오는 자리로 물러났다(`seedAbilities`).
+ * ⚠️ 그래서 **PATCH /auth/me만으로는 천장이 안 움직인다** — 서버 `update_me`도
+ *    `seed_placement`를 부르지 않으므로 그쪽이 참값이다. 스모크는 θ를 움직여
+ *    (`POST /dev/theta`) 그 왕복을 본다.
  */
 function lockedBoardTiers() {
-  // ⚠️ **미상 밴드는 잠그지 않는다**(서버 `locked_tiers`와 같다) — 「못 여는 것이
-  //    열리는 것보다 나쁘다」. 값이 비는 순간 퍼즐이 통째로 사라지는 것을 막는다.
-  const ceiling = BOARD_LEVEL_GROUP_TIER[mockAuth.levelGroup];
+  // ⚠️ **미상 천장은 잠그지 않는다**(서버 `locked_tiers(None) == set()`와 같다) —
+  //    「못 여는 것이 열리는 것보다 나쁘다」. θ 행이 없는 계정(콜드스타트)에서
+  //    퍼즐이 통째로 사라지는 것을 막는다.
+  const ceiling = learnerTier();
   if (typeof ceiling !== 'number') return new Set();
   return new Set(BOARD_TIERS.filter((t) => t > ceiling));
 }
@@ -2030,7 +2091,9 @@ function unlockedBoardIds() {
   // 서버 담당 몫이라 보고했다.
   const items = BOARD_PUZZLES;
   const cleared = clearedBoardPuzzles;
-  const ceiling = BOARD_LEVEL_GROUP_TIER[mockAuth.levelGroup];
+  // 🔴 천장은 **학습자 단계**에서 온다 — 밴드 표를 직접 읽지 않는다(판정 A).
+  //    경위는 `learnerTier` 독스트링이 소유한다(목은 밴드, 서버는 θ로 갈려 있었다).
+  const ceiling = learnerTier();
   const tierless = (p) => p.knowledge_level === null || p.knowledge_level === undefined;
 
   const unlocked = new Set(
@@ -2377,6 +2440,11 @@ const routes = {
   'POST /auth/register': (body) => {
     if (body?.email) mockAuth.registeredEmails.add(body.email); // convert 중복 판정 공유
     mockAuth.isGuest = false;
+    // 🔴 서버 `register`는 `RegisterRequest.level_group`(필수)을 저장하고 그 밴드로
+    //    `seed_placement`를 부른다 — 목이 둘 다 안 해서 **가입 학령이 증발했다.**
+    //    그 결과 보드 천장이 언제나 무정보 기본값 자리에 머물렀다(판정 A로 드러남).
+    if (body?.level_group) mockAuth.levelGroup = body.level_group;
+    devAbilities = seedAbilities(mockAuth.levelGroup); // ← seed_placement 사본
     return [
       201,
       { user_id: '2b1c8b1e-0000-4000-8000-000000000001', access_token: 'mock-access' },
@@ -2414,6 +2482,10 @@ const routes = {
     if (nickname !== null) mockAuth.takenNicknames.add(nickname);
     mockAuth.isGuest = true;
     mockAuth.levelGroup = body?.level_group ?? 'middle_high';
+    // 🔴 서버 `guest_login`도 **`seed_placement`를 부른다**(`routers/auth.py`) — 그래서
+    //    갓 만든 게스트도 밴드 사전 θ를 갖고, 보드 천장이 그 θ에서 파생된다.
+    //    목이 이것을 안 하면 「초등으로 시작한 게스트」를 dev에서 재현할 수 없다.
+    devAbilities = seedAbilities(mockAuth.levelGroup);
     // ⚠️ 이름을 **매번** 덮어쓴다(신고가 없으면 null). 서버는 발급마다 새 유저 행을
     // 새 자동 닉네임으로 만들므로, 앞선 발급의 이름이 다음 무바디 발급에 남으면
     // 「닉네임 없이 부르면 종전과 동일」이 한 프로세스 안에서 깨진다.
@@ -2539,6 +2611,14 @@ const routes = {
       return [422, { detail: '알 수 없는 학습 수준입니다.', code: 'VALIDATION_ERROR' }];
     }
     mockAuth.levelGroup = body.level_group;
+    // 🔴 ⚠️ **여기서 θ를 다시 심지 않는다 — 서버가 안 하기 때문이다.**
+    //    서버 `update_me`는 `level_group`·신고 도장만 갱신하고 `seed_placement`를
+    //    부르지 않는다(위 주석의 *"θ·XP·진도는 보존된다"*가 그 사실이다).
+    //    ⇒ **학습 수준만 바꿔도 보드 천장은 움직이지 않는다**(천장의 소유자가
+    //    학습자 단계로 옮겨 갔으므로 — 판정 A). 목을 서버보다 느슨하게 만들면
+    //    목에서 열리던 퍼즐이 실서버에서 403이 된다(CO-J-9의 그 모양).
+    //    ⚠️ 그 귀결로 **잠금 배너의 「학습 수준 바꾸기」 CTA는 실서버에서 아무것도
+    //    열지 못한다** — 문구 소유 밖(BoardPage의 이동 대상)이라 보고했다.
     return [200, meResponse()];
   },
 
@@ -3211,7 +3291,7 @@ const routes = {
       cloudsUpdatedAt: Date.now(),
       placementDone: false,
     });
-    devAbilities = seedAbilities();
+    devAbilities = seedAbilities(mockAuth.levelGroup); // 지금 밴드의 사전 θ로 되돌린다
     unitProgress.clear();
     preUnlockedUnits.clear();
     sessions.clear();

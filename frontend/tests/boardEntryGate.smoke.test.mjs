@@ -35,7 +35,11 @@ process.env.NODE_ENV = 'production';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { createServer } = await import('vite');
-const { default: apiMockPlugin } = await import('../mock/apiMockPlugin.js');
+// `__mockPolicy()`는 목이 서버 사본 상수를 내보내는 창구다(§5 관례). 여기서 쓰는
+// 이유: 잠금 시나리오가 θ를 움직여야 하는데 **경계값·사전값을 이 파일에 베끼면**
+// 서버가 그것을 바꾸는 날 시나리오가 조용히 낡는다(값이 아니라 경로를 쓴다).
+const { default: apiMockPlugin, __mockPolicy } = await import('../mock/apiMockPlugin.js');
+const mockPolicy = __mockPolicy();
 
 const vite = await createServer({
   root,
@@ -429,7 +433,14 @@ try {
 
   // ── 7. 학습 수준 잠금 (2026-08-10 사용자 지시 · 2026-08-20 축 전환) ───────
   //
-  // 열쇠는 진도가 아니라 `users.level_group`이다. ⚠️ **잠기는 대상이 바뀌었다**:
+  // 🔴 **열쇠가 두 번 바뀌었다.** ⑴ 진도 → `users.level_group`(2026-08-10)
+  // ⑵ `users.level_group` → **학습자 단계**(θ 파생, 2026-08-20 판정 A). 지금 참은
+  // ⑵이고, 밴드는 그 θ의 **초기값이 오는 자리**로 물러났다(`seed_placement`).
+  // ⇒ 그래서 이 시나리오는 밴드가 아니라 **θ를 움직여** 천장이 따라오는지 본다.
+  //   밴드만 바꿔도 천장이 움직이면 그것이 **결함**이다(③-a가 그것을 문다) —
+  //   서버 `update_me`가 `seed_placement`를 부르지 않으므로 실서버는 안 움직인다.
+  //
+  // ⚠️ **잠기는 대상이 바뀌었다**:
   // 종전에는 학령 파생 `difficulty`(1~3)를 잠갔고 이 시나리오도 `p.difficulty === 3`
   // 으로 칸을 골랐는데, 그 필드는 **응답에 없다**(축이 `knowledge_level` 1~10으로
   // 갈아탔다). 그래서 필드가 사라진 날부터 이 시나리오는 「난이도 1·3 퍼즐이 둘 다
@@ -445,7 +456,7 @@ try {
   //   ① 잠긴 칸을 **눌러도 상세 요청이 안 나간다**(누르기 전에 알린다, §3.1)
   //   ② 서버가 실제로 막는다(403 PUZZLE_LOCKED) — 화면만 막으면 주소창으로 뚫린다
   //   ③ **수준을 바꾸면 그 자리에서 열린다** — 여는 통로가 없으면 벽이다
-  await scenario('학습 수준 잠금: 잠긴 칸은 상세를 안 부르고, 수준을 올리면 열린다', async () => {
+  await scenario('단계 잠금: 잠긴 칸은 상세를 안 부르고, 밴드로는 안 열리고 단계가 오르면 열린다', async () => {
    // 목의 학령은 프로세스 전역이라 **실패해도** 원복해야 한다. 원복을 본문
    // 끝에 두면 단정 하나가 터진 순간 목이 elementary/adult로 남고, 뒤에 붙는
    // 시나리오가 엉뚱한 이유로 실패한다(2026-08-10 코드 리뷰).
@@ -507,21 +518,53 @@ try {
     assert(!xhrLog.slice(mark).includes(hardDetail), '비활성인 잠긴 카드가 상세를 호출했다');
     r.unmount();
 
-    // ③ 수준을 올리면 열린다
+    // ③-a 🔴 **밴드만 바꿔도 천장은 움직이지 않는다** (2026-08-20 판정 A)
+    //
+    // 종전 이 자리는 *「수준을 올리면 열린다」*였고 `PATCH /auth/me`로 천장을
+    // 올렸다. **그 계약은 축이 바뀌어 뜻을 다시 쓴다**(지운 것이 아니다):
+    // 천장의 소유자가 `users.level_group`에서 **학습자 단계**(θ 파생)로 옮겨 갔다.
+    // 서버 `learner_tier`가 밴드 폴백을 철거했고, `update_me`는 `seed_placement`를
+    // 부르지 않는다 — 즉 **실서버에서도 학령만 바꾸면 보드는 그대로다.** 목이
+    // 종전처럼 열어 주면 목으로 본 화면이 실서버에서 거짓이 된다(CO-J-9의 모양).
     const up = await api('PATCH', '/auth/me', { level_group: 'adult' });
     assert(up.status === 200 && up.body?.level_group === 'adult', '학령 상향 실패');
+    const bandOnly = await api('GET', '/board/puzzles');
+    const bandOnlyCeiling = assertTailPartition(bandOnly.body, '성인(밴드만)');
+    assert(bandOnlyCeiling === mhCeiling,
+      `밴드만 바꿨는데 천장이 움직였다 — ${mhCeiling} → ${bandOnlyCeiling}. 천장의 소유자는 학습자 단계이고 밴드는 θ의 초기값이 오는 자리일 뿐이다(판정 A). 서버 update_me는 seed_placement를 부르지 않는다`);
+    assert(bandOnly.body.find((p) => p.content_item_id === hard.content_item_id)?.locked === true,
+      '밴드만 올렸는데 잠긴 칸이 열렸다 — 실서버는 안 열어 준다');
+
+    // ③-b **학습자 단계가 오르면 열린다** — 여는 통로가 없으면 벽이다
+    //
+    // ⚠️ **θ 값을 여기 박지 않는다.** 목이 노출하는 경계표에서 「천장보다 한 층
+    //    위」가 되는 θ를 파생시킨다 — 경계가 바뀌어도 이 시나리오는 낡지 않는다.
+    //    (`thetaToKnowledgeLevel`은 `findIndex(θ < bound)`이므로 단계 L의 하단
+    //     경계는 `bounds[L-2]`다.)
+    // ⚠️ 개념 **전건**을 올린다: 대표 θ가 n 가중 평균이고 시드는 n=0이라 단순
+    //    평균이므로, 한 개념만 올리면 평균이 거의 안 움직인다(조용히 안 열린다).
+    const bounds = mockPolicy.theta_knowledge_level_bounds;
+    const targetLevel = mhCeiling + 1;
+    const targetTheta = bounds[targetLevel - 2];
+    assert(typeof targetTheta === 'number',
+      `단계 ${targetLevel}의 하단 경계를 경계표에서 못 읽었다 — 이 시나리오의 기준 자체가 거짓이 된다`);
+    const tags = (await api('GET', '/progress/abilities')).body.map((a) => a.concept_tag);
+    assert(tags.length > 0, '개념 목록이 비었다 — θ를 올릴 대상이 없다');
+    const raised = await api('POST', '/dev/theta', {
+      abilities: tags.map((concept_tag) => ({ concept_tag, theta: targetTheta })),
+    });
+    assert(raised.status === 200, `θ 상향 실패 (${raised.status})`);
+
     const opened = await api('GET', '/board/puzzles');
-    // ⚠️ **「성인은 전부 열린다」를 단정하지 않는다** — 2026-08-20에 거짓이 됐다.
-    // 축이 10층이 되며 천장도 층 단위가 되어 성인 위에 밴드가 하나 더 있고(그
-    // 위에도 못 여는 층이 남는다), 그래서 「전부」는 어떤 밴드에서도 참이 아닐 수
-    // 있다. 무는 것은 **단조성**이다: 수준을 올리면 천장이 오르고, 방금 잠겨
-    // 있던 칸이 열린다. 그것이 「여는 통로가 있다」의 실질이다.
-    const adultCeiling = assertTailPartition(opened.body, '성인');
-    assert(adultCeiling > mhCeiling,
-      `수준을 올렸는데 천장이 안 올랐다 — 중·고등 ${mhCeiling} → 성인 ${adultCeiling}`);
+    // ⚠️ **「전부 열린다」를 단정하지 않는다** — 2026-08-20에 거짓이 됐다. 층이
+    // 10칸이 되어 어느 단계에서도 위에 못 여는 층이 남을 수 있다. 무는 것은
+    // **단조성**이다: 학습자 단계가 오르면 천장이 오르고, 방금 잠겨 있던 칸이 열린다.
+    const raisedCeiling = assertTailPartition(opened.body, '단계 상향');
+    assert(raisedCeiling > mhCeiling,
+      `학습자 단계를 올렸는데 천장이 안 올랐다 — ${mhCeiling} → ${raisedCeiling}`);
     const hardNow = opened.body.find((p) => p.content_item_id === hard.content_item_id);
     assert(hardNow?.locked === false,
-      `중·고등에서 잠겼던 ${tierOf(hard)}층 칸이 성인에서도 잠겼다 (천장 ${adultCeiling})`);
+      `단계 ${mhCeiling}에서 잠겼던 ${tierOf(hard)}층 칸이 단계 ${raisedCeiling}에서도 잠겼다`);
     // ⚠️ 여기서 **200을 단정하지 않는다**(2026-08-12 합성). 수준 잠금이 풀려도
     // 순차 잠금(MT-24)이 남아 있을 수 있다 — 어려움 퍼즐은 코스 뒤쪽이라 앞을
     // 안 풀었으면 BOARD_LOCKED다. 그건 결함이 아니라 **다른 축의 정상 동작**이고,
@@ -533,12 +576,19 @@ try {
     assert(nowOk.status === 200 || nowOk.body?.code === 'BOARD_LOCKED',
       `수준·순차 말고 다른 이유로 막혔다 — ${nowOk.status} ${nowOk.body?.code}`);
 
-    // 초등은 천장이 더 낮다(밴드 셋 중 마지막 하나 — 방향이 반대인 쪽도 본다)
-    await api('PATCH', '/auth/me', { level_group: 'elementary' });
+    // ③-c 방향이 반대인 쪽도 본다 — **초등으로 갓 시작한 계정의 θ**를 심는다.
+    //    ⚠️ 값이 아니라 **경로**를 쓴다: 서버 `seed_placement`가 심는 밴드 사전 b
+    //    (`LEVEL_GROUP_ITEM_B`)를 목이 노출하는 실값에서 읽어 그대로 심는다.
+    //    그래서 사전값이 바뀌어도 이 시나리오는 낡지 않는다.
+    const elemPrior = mockPolicy.level_group_item_b.elementary;
+    assert(typeof elemPrior === 'number', '초등 사전 b를 목 정책에서 못 읽었다');
+    await api('POST', '/dev/theta', {
+      abilities: tags.map((concept_tag) => ({ concept_tag, theta: elemPrior })),
+    });
     const elem = await api('GET', '/board/puzzles');
-    const elemCeiling = assertTailPartition(elem.body, '초등');
+    const elemCeiling = assertTailPartition(elem.body, '초등 사전 θ');
     assert(elemCeiling < mhCeiling,
-      `초등 천장이 중·고등보다 낮지 않다 — 초등 ${elemCeiling} vs 중·고등 ${mhCeiling}`);
+      `초등 사전 θ의 천장이 중·고등보다 낮지 않다 — 초등 ${elemCeiling} vs 중·고등 ${mhCeiling}`);
     // 🔴 **`filter(...).every(...)`는 빈 배열에서 true다.** 종전 이 자리의 두
     // 단정이 `p.difficulty`(없어진 필드)로 걸러서, 필드가 사라진 뒤에도 **빈
     // 배열을 통과시키며 초록일 수 있었다**(이 저장소가 오늘 여러 번 잡은 형태:
@@ -551,7 +601,14 @@ try {
     assert(aboveCeiling.every((p) => p.locked), '초등인데 천장 위 층이 열려 있다');
     assert(atOrBelow.every((p) => !p.locked), '초등인데 천장 이하 층이 잠겼다');
    } finally {
+    // 목의 학령·θ는 **프로세스 전역**이라 실패해도 둘 다 원복한다. θ를 두고 나가면
+    // 뒤 시나리오가 엉뚱한 천장에서 돌고, 그 실패는 원인이 안 보인다.
     await api('PATCH', '/auth/me', { level_group: 'middle_high' });
+    const back = mockPolicy.level_group_item_b.middle_high;
+    const tags = (await api('GET', '/progress/abilities')).body.map((a) => a.concept_tag);
+    await api('POST', '/dev/theta', {
+      abilities: tags.map((concept_tag) => ({ concept_tag, theta: back })),
+    });
    }
   });
 

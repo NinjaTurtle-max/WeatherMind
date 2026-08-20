@@ -1068,6 +1068,59 @@ class TestUnnettedCopies:
             f"{c['templates']}: 목 {c['out']} vs 서버 {srv}" for c, srv in bad
         )
 
+    def test_목의_천장이_학습자_단계에서_온다(self, mock_src):
+        """🔴 **2026-08-20 판정 A — 목은 밴드, 서버는 θ로 갈려 있었다.**
+
+        서버 담당 실측(소유 밖 발견으로 접수): 목 `lockedBoardTiers`·
+        `unlockedBoardIds`가 `BOARD_LEVEL_GROUP_TIER[mockAuth.levelGroup]` — **밴드
+        파생**을 천장으로 썼다. 서버는 판정 1로 밴드 폴백을 철거해 천장이 **θ 파생
+        학습자 단계**뿐이다. **그 갈림을 무는 그물이 없었다**: 밴드 표 값 대조는
+        「1순위 경로만 본다」로 초록이었고(두 경로가 같은 사전값을 쓰니 값이 같다),
+        `__mockPolicy()`는 잠금 계산을 노출하지 않는다.
+
+        ⇒ **이음매를 문다**: 두 잠금 함수가 천장을 `learnerTier()`에서 가져오고,
+        밴드 표를 **직접 읽지 않는다.**
+
+        ⚠️ **값을 박지 않는다**(2·4·6·9도, 판수도). 그 값은 사전 b 파생이라 사전값이
+        바뀌면 함께 움직여야 한다 — 값 대조는 이미 두 계약이 서버에서 **파생시켜**
+        하고 있다(`test_보드_밴드_천장이_서버_파생값과_같다` ·
+        `test_board_mock_parity::test_밴드_천장표가_같다`).
+        ⚠️ 밴드가 사라진 것이 아니라 **자리가 바뀌었다**: `seedAbilities`(= 서버
+        `seed_placement` 사본)가 밴드 사전 b를 θ로 심는다. 그것까지 함께 문다 —
+        안 심으면 갓 만든 초등 계정이 목에서 중·고등처럼 보인다(그 상태였다).
+        """
+        for fn in ("lockedBoardTiers", "unlockedBoardIds"):
+            body = _fn_body_of(mock_src, fn)
+            assert re.search(r"const ceiling = learnerTier\(\)", body), (
+                f"목 `{fn}`이 천장을 `learnerTier()`에서 가져오지 않는다 — 천장의 "
+                "소유자는 학습자 단계다(판정 A). 이음매가 둘로 갈리면 한쪽만 고쳐진다"
+            )
+            assert "BOARD_LEVEL_GROUP_TIER" not in body, (
+                f"목 `{fn}`이 밴드 표를 **직접** 읽는다 — 서버는 밴드 폴백을 철거했다"
+                "(`learner_tier`). 그 표는 이제 파리티가 무는 기대값 표일 뿐이다"
+            )
+
+        # `learnerTier`가 θ 경로인가 — 밴드를 다시 끌어오지 않는지까지 본다.
+        seam = _fn_body_of(mock_src, "learnerTier")
+        assert re.search(r"return knowledgeLevelNow\(\)", seam), (
+            "목 `learnerTier`가 `knowledgeLevelNow()`(θ 파생)를 안 쓴다 — 서버 "
+            "`learner_tier`는 `overall_knowledge_level` 하나뿐이다"
+        )
+        assert "level_group" not in seam.lower().replace("levelgroup", "level_group"), (
+            "목 `learnerTier`가 학령을 읽는다 — 판정 1이 철거한 그 경로다"
+        )
+
+        # 밴드는 **θ의 초기값**이 오는 자리다(서버 `seed_placement` 사본).
+        seed = re.search(
+            r"const seedAbilities = \((\w+)\) =>(.*?)\n\s*\);", mock_src, re.S
+        )
+        assert seed, "목에서 seedAbilities를 못 찾았다 — 이름/모양이 바뀌었나"
+        assert re.search(r"LEVEL_GROUP_ITEM_B\[\w+\]", seed.group(2)), (
+            "목 `seedAbilities`가 밴드 사전 b를 θ로 심지 않는다 — 서버 "
+            "`seed_placement`는 `level_group`을 ai-worker placement에 넘겨 사전값을 "
+            "심는다. 안 심으면 갓 만든 초등·성인 계정을 dev에서 재현할 수 없다"
+        )
+
     def test_층이_미상인_퍼즐은_열리되_줄에_서지_않는다(self, mock_src):
         """🔴 **2026-08-20 판정 2** — 목의 **열림 규칙**은 지금도 행동 그물이 없다.
 
