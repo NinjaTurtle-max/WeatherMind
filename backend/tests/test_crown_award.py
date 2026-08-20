@@ -684,6 +684,17 @@ class _Result:
     def scalar_one_or_none(self):
         return self.value
 
+    def scalar_one(self):
+        """🔴 2026-08-20: 퍼즐 잠금 축이 **지식 단계**로 갈아타면서 attempt 경로가
+        `weatherbrain_service.overall_knowledge_level`(집계 1행)을 타게 됐다 — 그
+        함수가 `scalar_one()`을 쓰므로 이 대역도 응답해야 한다.
+
+        ⚠️ 그 귀결을 적어 둔다: **보드 목록·진입·채점이 각각 집계 질의 1회를 더 쓴다.**
+        천장의 출처가 `users` 컬럼이 아니라 θ 파생값이라 피할 길이 지금 없다
+        (`users`에 `knowledge_level` 컬럼이 없다 — 2026-08-20 확인).
+        """
+        return self.value
+
 
 class BoardFakeDB:
     """attempt_puzzle 배선 테스트용 — ContentItem 조회만 응답, 나머지는 noop."""
@@ -692,6 +703,19 @@ class BoardFakeDB:
         self.item = item
 
     async def execute(self, stmt):
+        # 🔴 2026-08-20: 잠금 축이 지식 단계로 갈아타면서 attempt가 **집계 질의**
+        #    (overall_knowledge_level)를 하나 더 탄다. 모든 질의에 같은 값을 돌려주면
+        #    그 집계가 ContentItem을 받아 `float()`에서 죽는다.
+        #    ⇒ ContentItem 조회가 아닌 것은 **None**을 돌려 θ 행 부재로 만든다.
+        #      그러면 `learner_tier`가 밴드 폴백(elementary → 1)을 타고, 이 대역의
+        #      퍼즐이 단계 미상이라 `locked_tiers`가 아무것도 잠그지 않는다 —
+        #      왕관 배선을 보는 이 테스트의 의도(잠금에 막히지 않고 채점까지 간다)와
+        #      같은 방향이다.
+        if getattr(stmt, "column_descriptions", None):
+            entity = stmt.column_descriptions[0].get("entity")
+            if entity is not None and getattr(entity, "__name__", "") == "ContentItem":
+                return _Result(self.item)
+            return _Result(None)
         return _Result(self.item)
 
     async def get(self, model, pk):
