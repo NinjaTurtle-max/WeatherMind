@@ -168,6 +168,29 @@ check('CO-R-9: 같은 앱의 ClosingForecastStep도 D+2를 쓴다(두 화면이 
   );
 });
 
+// ── 5. 진입 첫 화면이 **없는 통로를 약속하지 않는다** ──────────────────────
+check('⑸ 진입 안내가 「내 정보에서 바꿀 수 있다」고 말하지 않는다', () => {
+  // 🔴 **2026-08-20 클라이언트 판정**: *「진입에서 한 번 고르면 고정이야」* ⇒
+  //   `/me`의 학습 수준 카드는 되살리지 않는다(#148의 삭제 확정).
+  //   그런데 진입 첫 화면이 *"나중에 내 정보에서 언제든 바꿀 수 있어요"*라고
+  //   약속하고 있었다 — **가리키는 통로가 0곳**이다.
+  //
+  // ⚠️ 문안만 고치면 다음 사람이 되돌린다. 그래서 계약이 **약속의 방향**을 문다.
+  //   낱말 하나가 아니라 「바꿀 수 있다」는 뜻 전체를 막는다.
+  // ⚠️ **하루 목표(`entryInfo.goalHint`·`goal.pickerBody`)는 여기서 안 본다** —
+  //   다른 축이고 통로를 되살릴지 판정 대기다. 같이 물면 그 판정이 이 계약을
+  //   헛울게 만든다.
+  const ko = RESOURCES.ko.entryInfo.note;
+  const en = RESOURCES.en.entryInfo.note;
+  assert(!/내\s*정보/.test(ko) && !/바꿀\s*수\s*있/.test(ko),
+    `entryInfo.note가 없는 통로를 약속한다: "${ko}"`);
+  assert(!/my\s*info/i.test(en) && !/\bchange\b/i.test(en),
+    `en entryInfo.note: "${en}"`);
+  // 공허 통과 방지 — 이 키가 사라지거나 비면 위 두 단정이 저절로 참이 된다.
+  assert(typeof ko === 'string' && ko.length >= 8, `entryInfo.note(ko)가 비었다: "${ko}"`);
+  assert(typeof en === 'string' && en.length >= 8, `entryInfo.note(en)이 비었다: "${en}"`);
+});
+
 if (failed > 0) {
   console.error(`\n실패 ${failed}건`);
   process.exitCode = 1;
