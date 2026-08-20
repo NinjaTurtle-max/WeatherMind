@@ -155,7 +155,14 @@ export default function ClimateSimPage() {
         as="h1"
         eyebrow={t('explore.climate.title')}
         title={t('explore.climate.heroTitle')}
-        description={t('explore.home.climateDesc')}
+        // 🔴 **모델 고지를 배너 안, 제목 바로 아래로**(2026-08-19 사용자 지시).
+        // 종전에는 배너 아래 회색 띠 한 장으로 따로 서 있었다.
+        // ⚠️ **`description`을 함께 쓰지 않는다.** 설명(explore.home.climateDesc)은
+        //    탐구 홈 카드에서 이미 읽은 같은 문장이고, 그것을 오른쪽에 남기면
+        //    제목 열이 658px로 좁아져 고지가 두 줄로 접히며 배너가 h=90 → 101이
+        //    된다(실측). 비우면 제목 열이 1,018px이라 고지가 한 줄에 들어간다.
+        //    한 배너에 설명문 두 벌을 두지 않는 편이 읽기에도 낫다.
+        note={t('explore.climate.disclaimer')}
         right={
           // 칩 바탕이 `slate-100` → **흰색**이다. 남색 배너 위에서 slate-100은
           // 거의 안 보이고, 글자색(anomalyColor)은 전부 600단계라 남색 직접
@@ -166,10 +173,6 @@ export default function ClimateSimPage() {
           </span>
         }
       />
-
-      <p className="rounded-xl bg-slate-100 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
-        {t('explore.climate.disclaimer')}
-      </p>
 
       {/* 탐구 목표(MT-24) — 슬라이더보다 위. 판정 입력은 **화면에 뜨는 반올림값**
           그대로다(result.anomaly는 소수 2자리) — 원시값으로 다시 계산해 비교하면

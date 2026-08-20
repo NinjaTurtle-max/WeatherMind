@@ -247,10 +247,38 @@ export default function TyphoonSimPage() {
         facts={{ sst, shear, intensity: result.intensity, category: result.category }}
       />
 
-      {/* 시각화 카드 */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <TyphoonEye intensity={result.intensity} />
-        <IntensityGauge intensity={result.intensity} color={CHART_ACCENT} />
+      {/* 🔴 **2열 구간 — 바람개비 왼쪽 · 발달 곡선 오른쪽**(2026-08-19 사용자 지시
+          "해수면 온도 슬라이드는 고정, 바로 위에 바람개비를 왼쪽, 오른쪽에는
+          발달곡선 그래프 크기 줄여서 배치").
+
+          곡선이 여기까지 **올라온다** — 종전에는 위성 도식 아래(화면 2,100px
+          지점)에 있어, 슬라이더를 미는 동안 강도가 시간에 따라 어떻게 자라는지를
+          같이 볼 수 없었다. 바람개비(지금 세기)와 곡선(앞으로의 세기)은 **같은
+          값의 두 표현**이라 나란히 서는 것이 맞다.
+
+          비율이 1 : 1.35인 이유: 바람개비는 `h-36 w-36`(144px)·게이지는
+          `w-48`(192px)로 **폭이 고정**이라 넓은 열을 줘도 안 커진다. 반대로 곡선은
+          viewBox SVG라 폭을 준 만큼 커진다 — 남는 폭은 곡선이 가져간다.
+          왼쪽 카드는 남는 세로를 `justify-center`로 흘린다(위에 붙이면 아래가
+          빈 상자로 보인다). */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
+        {/* 시각화 카드 — 바람개비 + 강도 게이지 */}
+        <div className="flex flex-col justify-center rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <TyphoonEye intensity={result.intensity} />
+          <IntensityGauge intensity={result.intensity} color={CHART_ACCENT} />
+        </div>
+
+        {/* 발달 곡선 카드 — 「크기 줄여서」는 높이를 박는 게 아니라 **열을 나누는
+            것**이다. `DevelopmentCurve`는 viewBox 280×110에 `w-full`이라 폭이 줄면
+            높이가 비례해 따라 준다(실측 519 → 361). h-…를 박으면 곡선이 찌그러진다. */}
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <p className="text-sm font-bold text-slate-700">{t('explore.typhoon.curveTitle')}</p>
+          <p className="text-[11px] text-slate-400">{t('explore.typhoon.curveSub')}</p>
+          <div className="mt-2">
+            <DevelopmentCurve curve={result.curve} color={CHART_ACCENT} />
+          </div>
+          <p className="text-right text-[10px] text-slate-400">{t('explore.typhoon.timeAxis')}</p>
+        </div>
       </div>
 
       {/* 조건 입력 카드 */}
@@ -304,16 +332,6 @@ export default function TyphoonSimPage() {
       {/* 위성 도식(MT-21) — §0.5ⓔ가 정한 자리다. expert 밴드에만 붙이면
           θ>1.5가 필요해 심사 5분 동선에서 아무도 못 본다(CO-N-4) → **상시 노출**. */}
       <SatelliteView intensity={result.intensity} shear={shear} />
-
-      {/* 발달 곡선 카드 */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <p className="text-sm font-bold text-slate-700">{t('explore.typhoon.curveTitle')}</p>
-        <p className="text-[11px] text-slate-400">{t('explore.typhoon.curveSub')}</p>
-        <div className="mt-2">
-          <DevelopmentCurve curve={result.curve} color={CHART_ACCENT} />
-        </div>
-        <p className="text-right text-[10px] text-slate-400">{t('explore.typhoon.timeAxis')}</p>
-      </div>
 
       {/* 왜 그럴까 설명 패널 */}
       <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">

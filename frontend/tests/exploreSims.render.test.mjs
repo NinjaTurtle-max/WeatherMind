@@ -245,6 +245,40 @@ try {
   const cssRange = cssSrc.match(/input\[type='range'\][\s\S]{0,160}/)?.[0] ?? '';
   checkMt21('ⓖ 두꺼운 트랙은 기후변화에만 — 전역 기본은 h-2 그대로',
     /!h-3/.test(climateSrc) && /@apply h-2\b/.test(cssRange));
+  // ── 태풍 만들기: 바람개비 왼쪽 · 발달 곡선 오른쪽 (2026-08-19 사용자 지시) ──
+  /**
+   * "해수면 온도 슬라이드는 고정, 바로 위에 바람개비를 왼쪽, 오른쪽에는
+   *  발달곡선 그래프 크기 줄여서 배치."
+   *
+   * 곡선이 **위성 도식 아래에서 여기까지 올라온다.** 그래서 두 가지를 함께 문다:
+   *   ㉮ 새 자리에 있는가  ㉯ **옛 자리에 사본이 남지 않았는가**
+   * 옮기면서 원본을 안 지우면 같은 그래프가 화면에 두 번 뜬다 — 붙여넣기로
+   * 옮기는 종류의 변경에서 가장 흔한 실패다.
+   * 「크기 줄여서」는 높이를 박는 게 아니라 열을 나누는 것이다(실측 519 → 361).
+   * 실브라우저 1536: 두 열 470/634 · 행 328 · pageH 2733 → 2246.
+   */
+  const typhoonSrc = await readFile(resolve(root, 'src/modules/explore/TyphoonSimPage.jsx'), 'utf8');
+  const tGrid = typhoonSrc.indexOf('lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]');
+  const tSst = typhoonSrc.indexOf("explore.typhoon.sstLabel");
+  const tSat = typhoonSrc.indexOf('<SatelliteView');
+  checkMt21('㉮ 태풍: 바람개비 ↔ 발달 곡선 2열 격자가 있다', tGrid > -1);
+  checkMt21('㉮ 격자 안에 바람개비(TyphoonEye)와 발달 곡선이 함께 있다',
+    tGrid > -1 && typhoonSrc.indexOf('<TyphoonEye') > tGrid
+      && typhoonSrc.indexOf('<DevelopmentCurve') > tGrid);
+  checkMt21('㉮ 그 격자가 해수면온도 슬라이더 **바로 위**다 — 슬라이더는 제자리 고정',
+    tGrid > -1 && tSst > tGrid && tSat > tSst);
+  checkMt21('㉯ 발달 곡선이 옛 자리(위성 도식 아래)에 남아 있지 않다 — 그래프가 두 번 뜨면 안 된다',
+    (typhoonSrc.match(/<DevelopmentCurve/g) ?? []).length === 1);
+  checkMt21('㉰ 발달 곡선에 고정 높이를 박지 않았다 — 폭이 줄면 높이가 따라 준다',
+    !/<DevelopmentCurve[\s\S]{0,200}?className="[^"]*\bh-\[/.test(typhoonSrc));
+
+  // ⓘ 모델 고지가 **배너 안 제목 아래**에 있고, 배너 밖 회색 띠는 사라졌다
+  //    (2026-08-19 사용자 지시). 둘 다 남으면 같은 문장이 화면에 두 번 뜬다 —
+  //    옮기다 원본을 안 지우는 것이 이 종류의 흔한 실수라 **없는 것까지** 문다.
+  checkMt21('ⓘ 모델 고지가 배너 안으로 들어갔다 (note prop)',
+    /note=\{t\('explore\.climate\.disclaimer'\)\}/.test(climateSrc));
+  checkMt21('ⓘ 배너 밖 회색 고지 띠는 남아 있지 않다 (같은 문장이 두 번 뜨면 안 된다)',
+    !/bg-slate-100 px-3 py-2[^"]*"[\s\S]{0,80}explore\.climate\.disclaimer/.test(climateSrc));
   // ⓗ 「탐구 목표」 제목만 한 단계 크다(2026-08-19 사용자 지시). 항목 글자는
   //    그대로여야 한다 — 같이 키우면 카드가 커져 2열 행 높이가 밀린다.
   const goalSrc = await readFile(resolve(root, 'src/modules/explore/GoalPanel.jsx'), 'utf8');
