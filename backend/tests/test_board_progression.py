@@ -140,6 +140,34 @@ class TestSeedAuthoring:
             same = [r.template_json["board_order"] for r in rows if r.knowledge_level == tier]
             assert same == sorted(same), f"층 {tier} 안에서 저작 순서가 뒤집혔다: {same}"
 
+    def test_시드_board의_층이_정의역_안이다(self):
+        """🔴 **파생 라벨 정의역 단정의 새 축 짝** (2026-08-20).
+
+        종전에는 `board_difficulty(...) in (1, 2, 3)`으로 **파생 라벨**이 정의역
+        안인지를 가짜 픽스처 위에서 봤다. 새 축은 저작값이라 정의역을 벗어날 수 있는
+        곳이 **시드 실물**이고, 벗어나면 그 퍼즐은 `locked_tiers`의 어느 층에도 안
+        걸려 **천장을 올려도 영구히 안 열린다**(`BOARD_TIERS` 밖이므로).
+
+        ⚠️ **미저작(`None`)은 탈락 사유로 쓰지 않는다.** 「반드시 있다」로 물면
+        `locked_tiers(None)`·`board_tier`의 **「미상은 잠그지 않는다」 정책과 정면으로
+        어긋난다** — 정책이 허용하는 상태를 계약이 금지하면 둘 중 하나가 거짓이 된다.
+        실측(2026-08-20): board **64건 · knowledge_level 전건 정수 · None 0건 ·
+        분포 1:4 2:4 3:7 4:26 5:5 6:2 7:4 8:4 9:5 10:3**. 지금 0건이라도 계약은
+        None을 허용한 채 **정의역만** 문다.
+        ⚠️ 그래서 아래 첫 두 단정이 있다 — 전건 미저작·빈 목록이면 정의역 단정이
+        아무것도 안 보면서 초록이 된다(빈 필터가 통과하는 그 형태).
+        """
+        tiers = [i.get("knowledge_level") for i in _board_items()]
+        assert tiers, "시드에 board 문항이 없다 — 아래 단정이 공허해진다"
+        assert any(isinstance(t, int) for t in tiers), (
+            "board 전건이 미저작(knowledge_level=None)이다 — 정의역 단정이 공허해진다"
+        )
+        out = [t for t in tiers if t is not None and t not in board_router.BOARD_TIERS]
+        assert not out, (
+            f"층이 정의역({board_router.BOARD_TIERS[0]}~{board_router.BOARD_TIERS[-1]}) 밖인 퍼즐: {out} "
+            "— 어느 층에도 안 걸려 천장을 올려도 영구히 안 열린다"
+        )
+
     def test_요약은_카드_한_줄에_들어가는_길이다(self):
         """퍼즐 칸은 좁다 — 길면 잘려서 무슨 미션인지 알 수 없다."""
         long = [
@@ -428,17 +456,44 @@ def test_잠금은_진입과_채점_양쪽에_먼저_걸린다(func, must_preced
     )
 
 
-def test_밴드_표가_users_level_group_CHECK와_같다():
-    """모델 CHECK 제약이 허용하는 밴드는 전부 표에 있어야 한다 — 빠지면 그 밴드
-    유저가 조용히 DEFAULT(전부 열림)로 떨어져 잠금이 무력해진다."""
+def _check_constraint_bands() -> set[str]:
+    """`users.level_group` CHECK 제약이 허용하는 밴드 — DB가 실제로 받는 값 집합."""
     from app.models.user import User
 
     constraint = next(
         c for c in User.__table_args__ if getattr(c, "name", "") == "ck_users_level_group"
     )
-    bands = set(re.findall(r"'([a-z_]+)'", str(constraint.sqltext)))
-    assert bands == set(BAND_MAX_DIFFICULTY), (
-        f"CHECK 제약 {bands} ↔ BAND_MAX_DIFFICULTY {set(BAND_MAX_DIFFICULTY)}"
+    return set(re.findall(r"'([a-z_]+)'", str(constraint.sqltext)))
+
+
+@pytest.mark.parametrize("band", sorted(_check_constraint_bands()))
+def test_CHECK가_받는_밴드는_전부_자기_천장을_갖는다(band):
+    """CHECK 제약이 허용하는 밴드는 전부 **천장 표**에 있어야 한다 — 빠지면 그 밴드
+    유저의 천장이 조용히 **중립 밴드의 천장**으로 떨어진다.
+
+    🔴 **축 교체로 실패 모드가 바뀌었다**(2026-08-20). 종전 단정은
+    `set(BAND_MAX_DIFFICULTY)`와 대조했고 독스트링이 *"빠지면 그 밴드 유저가 조용히
+    DEFAULT(전부 열림)로 떨어져 잠금이 무력해진다"*고 적었다. 새 축의 천장 표는
+    `weatherbrain_service.KNOWLEDGE_LEVEL_BANDS`이고 그 표에 없는 밴드는
+    `knowledge_level_of_level_group`이 **NEUTRAL_LEVEL_GROUP(중고등)의 최하 단계**로
+    받는다 — 즉 결과가 「전부 열림」이 아니라 **반대로 과잉 잠금**이다(expert 유저가
+    천장 7이 아니라 3을 받아 4층 이상을 통째로 잃는다). 실패 모드가 뒤집혔으므로
+    옛 문장을 지우지 않고 정정해 남긴다(CLAUDE.md §0-5).
+
+    ⚠️ **`test_two_axis_levels.py`와 중복이 아니다.** 그쪽은 표 자체의 정합
+    (CHECK ↔ `LEVEL_GROUP_BANDS` ↔ `KNOWLEDGE_LEVEL_BANDS` 왕복)을 소유하고,
+    여기가 무는 것은 **보드 잠금의 천장 출처가 그 표에 묶여 있다**는 것이다
+    (`learner_tier`의 밴드 폴백 → `locked_tiers`). 나중에 「중복이니 지우자」로
+    읽히지 않게 이 차이를 적어 둔다.
+    """
+    ceiling = weatherbrain_service.knowledge_level_of_level_group(band)
+    assert ceiling in range(1, KNOWLEDGE_LEVEL_MAX + 1), (
+        f"{band}의 천장 {ceiling}이 층의 정의역 밖이다"
+    )
+    # 판별 단정 — 표에서 밴드가 빠지면 중립 폴백으로 떨어지고 왕복이 깨진다.
+    assert weatherbrain_service.level_group_of_knowledge_level(ceiling) == band, (
+        f"{band}의 천장 {ceiling}이 다른 밴드({weatherbrain_service.level_group_of_knowledge_level(ceiling)})"
+        "의 층이다 — CHECK가 받는 밴드가 천장 표에서 빠졌다"
     )
 
 
@@ -712,36 +767,56 @@ class TestLevelUnlocksBelowCeiling:
                 ))
         return out
 
-    def test_성인은_아래_난이도가_전부_열린다(self):
-        """AC: `adult`로 진입 시 열린 판이 **4판보다 많아야** 한다."""
+    def test_천장3은_아래_층이_전부_열린다(self):
+        """AC(결함 ⑨): 자기 층보다 아래가 있는 학습자는 열린 판이 **4판보다 많아야**
+        한다 — 실서버에서 `adult` 계정이 49판 중 01~04만 봤다.
+
+        🔴 종전 이름은 「성인은…」이었고 **거짓이 됐다**(2026-08-20 개명): 새 축에서
+        성인의 밴드 폴백 천장은 3이 아니라 **5**다. 여기서 3은 「학령」이 아니라
+        픽스처가 만든 세 층 중 맨 위라는 뜻이고, 무는 성질(아래층 인정 + 자기 층
+        순차)은 천장이 몇이든 같다.
+        """
         items = self._items({1: 10, 2: 8, 3: 6})
+        # 🔴 축 교체(2026-08-20). 종전 단정은 픽스처가 꾸민 `template_json`에서
+        # `board_difficulty`가 정말 1·2·3을 내는지 봤다 — 파생축 시절에는 픽스처가
+        # 규칙을 태워야 뜻이 있었기 때문이다. 새 축은 **저작값**이므로 같은 자리에서
+        # 물 것은 「라우터가 읽는 층 = 저작값」이다(`board_tier`가 다른 속성을 보게
+        # 바뀌면 아래 개수 단정이 통째로 무의미해지므로 여기서 먼저 잡는다).
         for it in items:
-            assert board_router.board_difficulty(it.template_json, it.level_group) in (1, 2, 3)
+            assert board_router.board_tier(it) == it.knowledge_level
         unlocked = board_router.compute_unlocked_ids(
             board_router.ceiling_tier(items, 3), set()
         ) | board_router.below_ceiling_ids(items, 3)
         # 1·2층 18판이 인정되고 3층에서 순차(커서 + LOOKAHEAD 2 = 3판)
-        assert len(unlocked) > 4, f"성인인데 {len(unlocked)}판만 열렸다"
+        assert len(unlocked) > 4, f"천장 3인데 {len(unlocked)}판만 열렸다"
         assert len(unlocked) == 18 + 3, sorted(unlocked)
 
-    def test_초등은_아무것도_안_바뀐다(self):
+    def test_최하층_천장은_아무것도_안_바뀐다(self):
         """🔴 **천장을 여는 수정이 바닥을 무너뜨리지 않는다.**
 
-        초등은 천장이 1이라 「아래」가 비어 있고 1층이 곧 자기 층이라 순차 그대로다.
+        천장이 1이면 「아래」가 비어 있고 1층이 곧 자기 층이라 순차 그대로다.
         어려운 판이 갑자기 열리면 안 된다.
+
+        🔴 종전 이름은 「초등은…」이었다. 밴드 폴백으로는 초등이 실제로 1이지만
+        θ 파생 기본값은 **2**라 이름이 밴드·θ 둘 중 어느 사다리를 말하는지 갈린다
+        (라우터가 그 어긋남을 대장에 남겼다) — 그래서 **천장 값**으로 부른다.
         """
         items = self._items({1: 10, 2: 8, 3: 6})
         unlocked = board_router.compute_unlocked_ids(
             board_router.ceiling_tier(items, 1), set()
         ) | board_router.below_ceiling_ids(items, 1)
-        assert len(unlocked) == 3, f"초등에 {len(unlocked)}판이 열렸다"
+        assert len(unlocked) == 3, f"천장 1에 {len(unlocked)}판이 열렸다"
         opened = [i for i in items if i.id in unlocked]
         # 🔴 뜻은 그대로, 축만 새것 — 「자기 층 밖이 열리지 않았다」.
         assert all(board_router.board_tier(i) == 1 for i in opened), (
             "천장 1인 학습자에게 1층 밖 퍼즐이 열렸다"
         )
 
-    def test_중고등은_1층만_인정된다(self):
+    def test_천장2는_1층만_인정된다(self):
+        """🔴 종전 이름은 「중고등은…」이었고 거짓이다 — 중고등의 밴드 폴백 천장은
+        2가 아니라 **3**이다(2026-08-20 개명). 무는 성질은 「천장 아래 한 층은 전부
+        인정 + 자기 층은 순차」로 천장 값과 무관하게 같다.
+        """
         items = self._items({1: 10, 2: 8, 3: 6})
         unlocked = board_router.compute_unlocked_ids(
             board_router.ceiling_tier(items, 2), set()
