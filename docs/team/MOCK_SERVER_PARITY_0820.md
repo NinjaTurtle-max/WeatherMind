@@ -321,3 +321,158 @@
 · **값 대조** — 이 문서 전체가 **필드 유무** 축이다. 같은 입력에 같은 값이 나오는지는
   §축 ②가 `board_difficulty` 하나만 쟀고 나머지는 그대로 미검이다.
 · **목 수정** — 위 표의 어느 것도 고치지 않았다. 지시대로 목록만이다.
+
+
+---
+
+# 커버리지 3판 — 2026-08-20 (밤). 대조 성사 **50 / 50**
+
+기점: `chore/mock-parity-recheck` ← `origin/fix/mock-copy-parity-rest2` (`1ddae33`).
+**목은 한 줄도 안 고쳤다.** 오늘 목에 들어간 7커밋(`7e86763`·`2b5383e`·`6400d9e`·
+`ca4288c`·`47093a1`·`fb7da06`·`119a7de`·`2c8ae50`)이 실제로 응답에 실리는지를
+**다시 전수로** 쟀다.
+
+## ⚠️ 먼저 적는다 — 2판 도구가 이 기점에 **없었다**
+
+지시는 *「도구는 이미 있다」*였는데, 2판의 수집기·대조기는 `chore/mock-parity-coverage`
+에만 있고 `fix/mock-copy-parity-rest2`에는 **1판 버전(정적 추출)**만 있었다.
+`python3 scripts/mock_parity.py . /tmp/live.json`은 2판 대조기라야 도는 형태다.
+⇒ 세 커밋을 체리픽해 옮겨 왔다 — `8c4c39b`(수집기) · `d54b2e3`(대조기) ·
+`8714b5a`(2판 문서). **셋 다 파일 하나씩이고 목·백엔드는 안 건드린다.**
+
+## 3판 수집기 수정 1건 — 마지막 404는 **목이 아니라 우리 탓**이었다
+
+`GET /courses/:slug`가 2판에서 404로 「대조 못 함」에 남아 있었다. 사유는 `:caseId`와
+**똑같다** — 치환표에 `:slug`가 없어 URL에 **문자 그대로 `:slug`가 실려 나갔고**, 목은
+규정대로 404 `COURSE_NOT_FOUND`를 냈다. 목록에서 진짜 코스 키를 캐는 정탐을 넣자
+200 · 차이 0으로 성사했다(목·서버 둘 다 `view["id"]`로 찾는다 — 규칙도 같다).
+⇒ 이것이 **응답모델 있는 경로 50개 전건 대조(성사 50/50)**를 만든 마지막 한 건이다.
+
+## 숫자 — 1판 / 2판 / 3판
+
+| 축 | 1판 | 2판 | 3판 |
+|---|---:|---:|---:|
+| **대조 성사 / 서버 응답모델 경로** | 30 / 46 | 48 / 51 | **50 / 50** |
+| 목이 응답을 준 경로 | 56 | 57 | 59 |
+| **목에없음(총)** | 12 | 12 | **11** |
+| ㄴ 그중 화면이 읽는 것 | 9 | 8 | **7** |
+| **목에만(총)** | 28 | 61 | **61** |
+| 대조 못 함(응답모델 있는 경로 중) | 26 | 3 | **0** |
+| 잴 수 없음(서버가 `response_model` 미선언) | (8로 오기) | 5 | 5 |
+| 목에만 있고 서버에 경로가 없는 것 | — | 4 | 4 |
+
+⚠️ **인계받은 「직전 48/51 · 목에없음 9 · 목에만 30」에서 뒤 두 수는 2판의 총계가
+아니다** — 2판 §「새로 나온 차이」의 부분합이다. 2판 총계는 **목에없음 12 · 목에만 61**
+(2판 §전체 합계). 3판은 총계끼리 비교한다.
+
+### 분모가 51 → 50으로 준 것은 목이 아니라 **기점 차이**다
+
+2판은 통합 병합(`3a0b8f4`) 위에서 돌았고 거기엔 `POST /auth/resume`(LoginResponse)이
+있다. 지시받은 3판 기점(rest2)은 그 통합보다 **앞서 갈라져 그 경로가 없다**(확인:
+`backend/app/routers/auth.py`에 `resume` 0회 · 2판 기점엔 459행에 있다). 51 − 1 = 50.
+
+    성사 48 → 50 = −1(auth/resume가 서버에 없다)
+                  +3(오늘 목에 신설: /progress/mastery · /league/division · /courses/:slug)
+                  ... 중 courses/:slug는 위 수집기 수정으로 비로소 잡혔다
+
+⚠️ 기점이 다르므로 `backend/app/routers`도 갈려 있다(auth·board·progress · schemas/session).
+**2판→3판 차이 전부를 「오늘 목 작업의 성과」로 읽으면 안 된다.** 아래 §새로 생긴 차이는
+그래서 행 단위로 댄다.
+
+## 두 번 돌렸다 — 출력이 **바이트까지 같다**(결정적)
+
+    cd frontend && VITE_MOCK=1 node scripts/mock_capture.mjs > /tmp/live1.json
+    cd frontend && VITE_MOCK=1 node scripts/mock_capture.mjs > /tmp/live2.json
+    diff /tmp/live1.json /tmp/live2.json        → 차이 없음
+    python3 scripts/mock_parity.py . /tmp/liveN.json  (두 번)
+    diff (입력 경로 문자열만 제외)              → 차이 없음
+
+수집기가 실행마다 유일한 이메일·닉네임을 쓰지만 그것은 **요청 쪽**이라 응답 키에
+안 새어 나온다. 확인했다.
+
+## 오늘 닫힌 것 — **실행 응답으로 확인**(추측 아님)
+
+| 오늘 커밋 | 경로 | 확인 대상 | 실행 결과 |
+|---|---|---|---|
+| `7e86763` | `GET /progress/abilities` | `knowledge_level` | ✅ 200, 키에 있음 |
+| `7e86763` | `GET /progress/abilities` | `knowledge_level_max` | ✅ 200, 키에 있음 |
+| `fb7da06` | `POST /session/*/answer` | `feedback_source` | ✅ 200, 키에 있음 |
+| `2b5383e` | `GET /dev/state` | `max_clouds` | ✅ |
+| `2b5383e` | `POST /dev/clouds` | `max` | ✅ |
+| `2b5383e` | `GET /duel/today` | `xp_earned` | ✅ |
+| `2b5383e` | `POST /duel/today` | `xp_earned` | ✅ |
+| `2b5383e` | `GET /duel/history` | `xp_earned` | ✅ |
+| `2b5383e` | `GET /league/me/results` | `tier` | ✅ |
+| `2b5383e` | `POST /onboarding/placement/start` | `closing_step` | ✅ |
+| `119a7de` | `GET /progress/mastery` **신설** | 경로 자체 | ✅ 200 · 9키 · 대조 차이 0 |
+| `2c8ae50` | `GET /league/division` **신설** | 경로 자체 | ✅ 200 · 11키 · 대조 차이 0 |
+| `2c8ae50` | `GET /courses/:slug` **신설** | 경로 자체 | ✅ 200 · 7키 · 대조 차이 0 |
+
+**13/13 닫혔다.** 2판이 「목에 그 경로가 아예 없다」로 적은 3건(`GET /courses/*` ·
+`GET /league/division` · `GET /progress/mastery`)이 **전부 사라졌다.**
+
+### 규칙 축(정렬·난이도)은 응답 키로 증명되지 않는다 — 계약 테스트로 댄다
+
+`47093a1`(정렬 규칙 한 곳으로) · `6400d9e`(진행 순서 사본) · `ca4288c`(파생 링크)는
+**필드 유무가 아니라 규칙**이라 실행 수집으로는 아무것도 못 댄다. 이 기점에서
+계약 테스트를 돌렸다:
+
+    backend/tests/test_r13_mock_policy_parity.py
+    backend/tests/test_r10_mock_parity_contract.py
+    → 61 passed
+
+그중 이 축을 직접 무는 것: `test_보드_진행_순서_규칙이_같은_순서를_낸다` ·
+`test_보드_난이도_규칙이_같은_답을_낸다` · `test_숙련_라벨_규칙이_같은_답을_낸다` ·
+`test_BKT_서빙_사전값이_같다` · `test_콜드스타트_경계가_같다` ·
+`test_리그_분반_설정이_같다` · `test_대결_승리_XP가_같다`.
+⚠️ **초록은 「같은 표본에서 같은 답」이지 「규칙이 같다」가 아니다** — 1판 §축②의
+`board_difficulty` 경고(값은 같은데 규칙이 갈려 있었다)가 그대로 유효하다.
+
+## 새로 생긴 차이 — **0건.** 닫힌 것 1건
+
+| 갈래 | 2판 총계 | 3판 총계 | 행 단위 변동 |
+|---|---:|---:|---|
+| 목에없음 | 12 | **11** | `POST /session/*/answer` · `feedback_source` **1건 빠짐(=닫혔다)**. 나머지 11행은 2판과 같은 행 |
+| 목에만 | 61 | **61** | **행 집합 그대로**(dev 6경로 57 + `progress/me.max_clouds` + `duel/history.caster_grade` + `curriculum/units/*/session`의 `unit`·`unit_id`) |
+
+**오늘 목 작업이 새 차이를 만들지 않았다.** 신설 3경로는 전부 차이 0으로 붙었고,
+필드 10건은 전부 실렸다.
+
+## 아직 열려 있는 목에없음 11건 — **고치지 않았다. 목록이다.**
+
+| 경로 | 필드 | 스키마 | src 참조 | 성격 |
+|---|---|---|---:|---|
+| `POST /session/*/answer` | `retry_correct` | SessionAnswerResult | 9 | 분기 의존(만회 재제출 분기에만) |
+| `POST /dev/reset-me` | `reset` | DevResetResult | 6 | **아예 없다** |
+| `POST /session/*/answer` | `phenomena` | SessionAnswerResult | 6 | 분기 의존(board 유형에만) |
+| `POST /session/*/complete` | `abilities` | SessionCompleteResult | 6 | 분기 의존(배치고사 완료에만) |
+| `POST /session/*/complete` | `placement_done` | SessionCompleteResult | 5 | 분기 의존(배치고사 완료에만) |
+| `POST /curriculum/units/*/session` | `closing_step` | SessionToday | 3 | **아예 없다**(같은 스키마인 `/session/today`·`placement/start`는 싣는다) |
+| `POST /session/*/answer` | `is_retry` | SessionAnswerResult | 3 | 분기 의존(만회 분기에만) |
+| `POST /dev/curriculum` | `action` | DevCurriculumResult | 0 | 1판부터 이월 |
+| `POST /dev/curriculum` | `affected` | DevCurriculumResult | 0 | 1판부터 이월 |
+| `POST /dev/streak` | `last_login_date` | DevStreakResult | 0 | **아예 없다** |
+| `POST /dev/theta` | `updated` | DevThetaResult | 0 | 1판부터 이월 |
+
+⚠️ 2판의 경고 그대로: **「분기 의존」은 「차이 없음」이 아니다.** 서버는
+`response_model` 덕에 기본값으로 **항상** 내보내고, 목은 분기에서만 키를 만든다 —
+`'is_retry' in res`로 가르는 코드는 목과 서버에서 다르게 돈다.
+
+## 🔴 3판 결과에 **낡은 것이 섞여 있다** — hindcast 3경로
+
+`GET /hindcast/cases` · `GET /hindcast/attempts` · `POST /hindcast/cases/*/predict`가
+성사 50에 들어 있다. 그런데 **MT-30(과거 예보)은 `83c28da`로 통째 삭제됐고, 그 커밋은
+이 기점에 없다**(확인: `git merge-base --is-ancestor 83c28da 1ddae33` → 거짓 ·
+`backend/app/routers/hindcast.py`가 아직 있다). 통합 기준으로 읽을 때는 **분모·분자에서
+셋을 빼고** 봐야 한다 ⇒ **실질 47 / 47**. 차이 행은 원래 0이라 표는 안 흔들린다.
+
+## 3판이 안 한 것 — **사유와 함께**
+
+| 못 본 것 | 건수 | 사유 |
+|---|---:|---|
+| `response_model` 미선언 경로 | 5 | `GET /board/regions`·`/board/rules`·`/detective/cases`·`/detective/cases/*`·`POST /detective/cases/*/solve`. **대조의 기준이 서버에 없다** — 「차이 없음」이 아니라 **「잴 수 없음」**. 서버가 응답 모델을 선언해야 한다(이번 범위 밖) |
+| 목에만 있고 서버에 경로가 없는 것 | 4 | `GET /quiz/today`·`GET /quiz/history`·`POST /quiz/*/answer`·`GET /session/*`. 목이 든 옛 경로라 애초에 대조 대상이 아니다(2판 §⑶) |
+| 분기별 표본 | — | **경로당 표본 하나**다. 만회 재제출·board 문항·배치고사 완료 분기의 응답 모양은 3판도 **안 봤다**(위 「분기 의존」 5건이 그 자리) |
+| 값 대조 | — | 이 절 전체가 **필드 유무** 축이다. 같은 입력에 같은 값인지는 §축②가 `board_difficulty` 하나만 쟀고 나머지는 미검 |
+| 빈 배열 경로 | 0 | 3판에선 `null`(표본 없음)로 떨어진 경로가 없다 — 수집기 정탐이 전부 표본을 만들었다. **빈 배열을 「필드 없음」으로 읽지 않는다**는 구별은 그대로 살아 있다 |
+| 목 수정 | 0 | **한 줄도 안 고쳤다.** 지시대로 목록만이다 |

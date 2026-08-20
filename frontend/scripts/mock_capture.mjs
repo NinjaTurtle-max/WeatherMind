@@ -195,6 +195,14 @@ if (dCase?.case_id) {
   };
 }
 
+// ── ④-2 코스 상세 → `GET /courses/:slug` (3판 추가) ──────────────────────────
+// 🔴 2판까지 이 경로는 **404**로 「대조 못 함」에 남아 있었다. 사유는 `:caseId`와
+//    똑같다 — 치환표에 `:slug`가 없어 URL에 **문자 그대로 `:slug`가 실려 나갔고**,
+//    목은 규정대로 404 COURSE_NOT_FOUND를 냈다. 목이 아니라 **수집기 탓**이다.
+//    ⇒ 목록에서 진짜 코스 키를 캔다(서버 `get_course`도 목도 `view["id"]`로 찾는다).
+const course0 = ((await callMock('GET', '/courses')).json?.courses ?? [])[0];
+if (course0?.id) PARAM['GET /courses/:slug'] = { ':slug': course0.id };
+
 // ── ⑤ 과거 예보 회차 ─────────────────────────────────────────────────────────
 const hCase = ((await callMock('GET', '/hindcast/cases')).json?.cases ?? [])[0];
 if (hCase?.case_id) {
