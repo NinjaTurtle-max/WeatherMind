@@ -53,7 +53,7 @@ export default {
         cumulus: { label: '적운' },
         none: { label: '구름 없음' },
       },
-      element: { moisture: '습기', sun: '일사', wind: '바람' },
+      element: { moisture: '습기', sun: '일사', wind: '바람', aerosol: '에어로졸(미세먼지·황사)' },
     },
     common: {
       // assist·board-entry 스모크가 '구름이 모두 흩어졌어요'를 단정
@@ -156,6 +156,7 @@ export default {
         moisture: '습기',
         sun: '일사',
         wind: '바람',
+        aerosol: '에어로졸 계열',
       },
       // 태양이 문제 배너의 eyebrow(2026-08-11) — 미션 문장 위에 붙는 한 줄
       missionEyebrow: '🎯 이번 미션',
@@ -189,6 +190,7 @@ export default {
       moisture: '💧 습기',
       sun: '☀️ 일사',
       wind: '🌬️ 바람',
+      aerosol: '🟤 에어로졸(미세먼지·황사)',
       // R13 재난 축(CO-A3·CO-K4) — 판정이 재난일 때만 뜨는 배너
       disasterWildfireTitle: '🔥 산불 위험',
       disasterWildfireBody: '공기가 메말라 불이 붙기 쉽고, 센 바람이 불씨를 실어 날라요.',
@@ -485,6 +487,19 @@ export default {
             '열을 섞어 흩을 바람마저 약해서 밤새 기온이 내려가지 않아요.',
           ],
         },
+        // 대기화학 축(2026-08-20). 장면은 `radiation_fog`의 것을 재키잉했으므로
+        // **3단계 문구가 그 장면의 라벨(「수증기 응결 → 안개층」)을 정정하는 자리**다 —
+        // 이 규칙은 건조를 요구하므로 갇히는 것이 물방울이 아니다. 단계 수 4는
+        // 장면의 단계 수와 같아야 한다(crossSectionWebgl.contract).
+        nocturnal_inversion_haze: {
+          title: '야간 안정층 + 약한 바람 — 마른 입자가 갇힌 밤',
+          steps: [
+            '해가 넘어가면 지표가 열을 내보내며 빠르게 식어요(복사냉각).',
+            '식은 지표에 닿은 아래층 공기가 위층보다 차가워져, 위아래로 섞이지 못하는 층이 생겨요.',
+            '이 얕은 층에 갇히는 것은 물방울이 아니라 눈에 보이지 않는 마른 입자예요 — 그래서 안개가 아니라 연무예요.',
+            '옆으로 실어 낼 바람마저 약해 이른 아침까지 시야가 흐려요. 해가 떠 섞임이 되살아나면 농도가 내려가요.',
+          ],
+        },
       },
       badgeConfirmed: '✓ 서버 판정',
       badgePreview: '미리보기',
@@ -537,7 +552,13 @@ export default {
         okhotsk_foehn_clear: '산을 넘어온 건조 공기,\n맑고 따뜻함',
         yangtze_mild_clear: '온화한 대륙 공기,\n맑음',
         yangtze_morning_fog: '약한 햇빛에 습기,\n아침 안개',
+        // ⚠️ 병합(2026-08-20) — 이 줄은 **상대 판을 쓴다.** 어투 규약(명사형 종결)을
+        //    정리한 브랜치가 「못 자란다 → 못 자람」으로 고쳤고, 내 판은 그 수정이
+        //    없는 기준판이었다. 이어 붙이면 **같은 키가 두 번** 나오고 뒤엣것이
+        //    조용히 이기므로, 규약을 지킨 쪽을 남긴다.
         dry_convection_clear: '강한 햇빛에 건조,\n구름이 못 자람',
+        // 대기화학 축(2026-08-20). 어투 규약대로 **명사형으로 끝낸다**.
+        nocturnal_inversion_haze: '밤에 갇힌 마른 입자,\n연무로 시야 흐림',
       },
       mapAria: '한반도 대기 보드 지도 — 4개 지역 노드에 요소를 배치하세요',
       zoneAria: '{name} 존{goal} — 현재 {phenomenon}',

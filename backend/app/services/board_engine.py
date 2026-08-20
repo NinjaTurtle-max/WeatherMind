@@ -3,11 +3,12 @@
 순수 함수 모듈: DB·네트워크 의존 없음. 프론트 JS 인터프리터와 동일 입력→동일
 판정을 보장해야 하므로(§ R3-S1 AC), 판정 의미론을 여기 명문화한다:
 
-- 보드(§3.1): 존 0~3 고정. 배치 요소는 air_mass·front·moisture·sun·**wind** 5종이고
-  존당 기단·전선 각 최대 1, moisture/sun/wind 존당 각 최대 1(0~100). 미배치 존의
-  moisture/sun/wind는 기본값 40/50/**20**.
+- 보드(§3.1): 존 0~3 고정. 배치 요소는 air_mass·front·moisture·sun·wind·**aerosol**
+  6종이고 존당 기단·전선 각 최대 1, 조절값(level) 요소도 존당 각 최대 1(0~100).
+  미배치 존의 기본값은 moisture 40 / sun 50 / wind 20 / **aerosol 0**.
 - 조건(§3.2)은 정확히 2형만 허용: "<type>:<subtype>"(존재 검사, type은
-  air_mass|front) / "<field><op><숫자>"(field는 moisture|sun|wind, op는 >=·<= 만).
+  air_mass|front) / "<field><op><숫자>"(field는 moisture|sun|wind|aerosol,
+  op는 >=·<= 만).
   그 외 문법은 규칙 스키마 검증에서 거부한다(인터프리터 단순성 유지 — 계약 고정).
 
 - **wind는 왜 subtype(방향)이 아니라 level(세기)인가** (R13 재난 보드 확장):
@@ -38,15 +39,32 @@ ZONE_COUNT = len(ZONES)
 AIR_MASS_SUBTYPES = frozenset({"siberian", "north_pacific", "yangtze", "okhotsk"})
 FRONT_SUBTYPES = frozenset({"cold", "warm", "stationary"})
 ELEMENT_SUBTYPES = {"air_mass": AIR_MASS_SUBTYPES, "front": FRONT_SUBTYPES}
-LEVEL_TYPES = ("moisture", "sun", "wind")    # 존당 1개, level 0~100
-PLACEABLE_TYPES = frozenset({"air_mass", "front", "moisture", "sun", "wind"})
+LEVEL_TYPES = ("moisture", "sun", "wind", "aerosol")  # 존당 1개, level 0~100
+PLACEABLE_TYPES = frozenset({"air_mass", "front", *LEVEL_TYPES})
 DEFAULT_MOISTURE = 40                        # 미배치 존 기본값 (§3.1)
 DEFAULT_SUN = 50
 # 평상시 약한 바람. 낮게 잡는 것이 계약이다 — 재난 규칙이 wind>= 로 발화하므로
 # 기본값이 높으면 **미배치 존 전부가 재난으로 뒤집힌다**
 # (test_seed_contract.test_확장_규칙은_미배치_존_기본상태에서_성립하지_않는다).
 DEFAULT_WIND = 20
-LEVEL_DEFAULTS = {"moisture": DEFAULT_MOISTURE, "sun": DEFAULT_SUN, "wind": DEFAULT_WIND}
+# 에어로졸(입자상 물질)의 미배치 기본값은 **0이어야 한다** — wind의 20과 달리
+# 「평상시 값」이 아니라 **0이 계약**이다. 근거가 두 겹이다:
+#   ⑴ 구조: wind의 기본값 20 때문에 `wind<=20` 같은 조건은 **미배치 존이 기본값으로
+#      충족**해 그 요소가 장식이 된다(그래서 태풍·열대야가 `wind<=15`를 쓴다).
+#      기본값을 0으로 두면 `aerosol>=N`(N>0) 형태의 조건은 **학습자가 명시적으로
+#      놓아야만** 성립하므로 그 함정이 원천적으로 없다.
+#   ⑵ 의미: 습기·일사·바람은 아무 날에도 어느 값이든 있지만, 에어로졸 조건이 뜻하는
+#      것은 「평상시 배경 농도」가 아니라 **오염물이 실려 들어오거나 쌓인 상태**다.
+#      배치하지 않은 존은 그 상태가 아니므로 0이 옳다.
+# test_seed_contract.test_확장_규칙은_미배치_존_기본상태에서_성립하지_않는다 및
+# test_board_chemistry가 이 값을 양쪽(파이썬·JS)에서 함께 문다.
+DEFAULT_AEROSOL = 0
+LEVEL_DEFAULTS = {
+    "moisture": DEFAULT_MOISTURE,
+    "sun": DEFAULT_SUN,
+    "wind": DEFAULT_WIND,
+    "aerosol": DEFAULT_AEROSOL,
+}
 
 # ── 판정 출력 계약 (§3.2) ──
 # wildfire_risk·flood_risk는 R13 재난 축 확장(CO-A3·CO-K4) — "재난 보드가 clear를
@@ -90,7 +108,12 @@ _rules_cache: dict[str, list[dict[str, Any]]] = {}
 
 # 조건 문법 2형 (§3.2) — 이 두 정규식 외의 문법은 전부 거부
 _PRESENCE_RE = re.compile(r"^(air_mass|front):([a-z_]+)$")
-_NUMERIC_RE = re.compile(r"^(moisture|sun|wind)(>=|<=)(\d+(?:\.\d+)?)$")
+# 🔴 필드 목록을 **손으로 두 번 적지 않는다** — `LEVEL_TYPES`에서 만든다.
+# 종전에는 `(moisture|sun|wind)`가 리터럴로 박혀 있었고, 그래서 조절값 요소를
+# 하나 늘리려면 「LEVEL_TYPES·PLACEABLE_TYPES·이 정규식」 세 곳을 손으로 맞춰야
+# 했다. 하나만 빠뜨리면 **요소는 놓을 수 있는데 조건으로는 못 쓰는**(또는 그 반대의)
+# 반쪽 요소가 조용히 생긴다 — 판정이 아니라 저작에서만 드러나는 종류의 결함이다.
+_NUMERIC_RE = re.compile(rf"^({'|'.join(LEVEL_TYPES)})(>=|<=)(\d+(?:\.\d+)?)$")
 
 
 class BoardValidationError(Exception):
@@ -188,7 +211,7 @@ def zone_states(board: dict[str, Any]) -> list[dict[str, Any]]:
 def parse_condition(condition: Any) -> tuple:
     """조건 문자열 → ("presence", type, subtype) | ("numeric", field, op, value).
 
-    §3.2 문법 2형 외에는 BoardRulesError (op는 >=·<= 만, field는 moisture|sun|wind).
+    §3.2 문법 2형 외에는 BoardRulesError (op는 >=·<= 만, field는 LEVEL_TYPES).
     """
     if not isinstance(condition, str):
         raise BoardRulesError(f"조건은 문자열이어야 합니다: {condition!r}")
@@ -203,7 +226,7 @@ def parse_condition(condition: Any) -> tuple:
         return ("numeric", match.group(1), match.group(2), float(match.group(3)))
     raise BoardRulesError(
         f"허용되지 않는 조건 문법: {condition!r} "
-        "(\"air_mass|front:<subtype>\" 또는 \"moisture|sun|wind>=|<=<숫자>\" 만 허용)"
+        f"(\"air_mass|front:<subtype>\" 또는 \"{'|'.join(LEVEL_TYPES)}>=|<=<숫자>\" 만 허용)"
     )
 
 

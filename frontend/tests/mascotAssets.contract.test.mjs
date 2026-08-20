@@ -429,11 +429,20 @@ console.log('⑤ 개념 태그 : 그림 — 폴백으로 떨어지는 태그가 
     `이름표 키마다 ko 리소스에 실제 문구가 있다 — 빠진 것 ${noString.length}건${noString.length ? ` (${noString})` : ''}`,
   );
 
-  // 유닛 노드 아이콘도 같은 짝이다 — `CurriculumHome.CONCEPT_ICON` 머리말이
-  // "캐릭터 배정과 짝을 맞춘다"고 선언한다. 빠지면 그 개념만 책 아이콘('📘')이
-  // 되어, 같은 개념이 유닛 노드와 능력 분석에서 다른 얼굴로 보인다.
-  const home = readFileSync(join(ROOT, 'src/modules/curriculum/CurriculumHome.jsx'), 'utf8');
-  const iconBlock = home.slice(home.indexOf('const CONCEPT_ICON = {'), home.indexOf('};', home.indexOf('const CONCEPT_ICON = {')));
+  // 유닛 노드 아이콘도 같은 짝이다 — 표 머리말이 "캐릭터 배정과 짝을 맞춘다"고
+  // 선언한다. 빠지면 그 개념만 책 아이콘('📘')이 되어, 같은 개념이 유닛 노드와
+  // 능력 분석에서 다른 얼굴로 보인다.
+  //
+  // 🔴 **2026-08-19: 소유자가 옮겼다.** 표는 `CurriculumHome.jsx`에 있었고
+  // 결함 ⑪-a(큰 화면이 개념 아이콘을 상태 아이콘으로 덮어쓰던 것)를 고치면서
+  // **`unitIcon.js`가 단일 소유**하게 됐다. 이 테스트가 옛 자리를 계속 읽어
+  // **빈 블록을 슬라이스하고 전 태그가 「빠졌다」로 나왔다** — ⑪-a가 만든 회귀이고
+  // `ci.sh frontend`를 막고 있었다(⑪-b 담당이 찾았다).
+  // ⚠️ 표를 옮길 때 **읽는 쪽을 함께 고쳐야 한다**는 것이 교훈이다. 이 저장소가
+  // 오늘만 네 번 겪은 「두 벌이 갈린다」의 거울상이다 — 한 벌로 모으는 수정도
+  // **읽던 자리를 남겨 두면 깨진다.**
+  const iconSrc = readFileSync(join(ROOT, 'src/modules/curriculum/unitIcon.js'), 'utf8');
+  const iconBlock = iconSrc.slice(iconSrc.indexOf('CONCEPT_ICON = {'), iconSrc.indexOf('};', iconSrc.indexOf('CONCEPT_ICON = {')));
   const iconTags = [...iconBlock.matchAll(/^\s{2}([a-z_0-9]+):/gm)].map((m) => m[1]);
   const noIcon = tags.filter((t) => !iconTags.includes(t));
   ok(

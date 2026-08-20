@@ -219,7 +219,16 @@ class TestSeedTypeCoverage:
         # `test_weather_phenomenon.TestSeedCoverage`가 「현상마다 실제 board 문항이
         # 있다」를 물어, 규칙만 넣으면 새 현상 2종에서 즉시 빨강이 된다.
         # ⇒ 두 몫을 합쳐 **1021문항 · board 55판**이다.
-        assert len(_seed_items()) == 1023
+        # 경계층·대기역학·대기물리 보드 6판(2026-08-20): **+6 = 1027** · board 55 → **61**.
+        # 클라이언트 지시(전문가 수준 대기역학·대기물리 다양화). **새 규칙·새 요소·새
+        # 개념 태그 0건** — 기존 4조건 규칙 3종(cold_front_squall_storm ·
+        # tropical_cyclone_genesis · greenhouse_tropical_night)의 **고유 결과**만
+        # 목표로 삼았다. 4조건 규칙이 아닌 목표(fog·clear·shower)를 쓰면 우선순위가
+        # 높은 2조건 규칙이 먼저 이겨 「가르치려는 요소를 빼도 목표를 채운다」가 된다.
+        # 보드가 안 쓰던 개념 태그 4종(phase_change·temperature_heat·energy_transfer·
+        # radiation_budget)을 활용해 대기물리·경계층 축을 태그 수준에서도 열었다.
+        # 🔴 병합(2026-08-20): 연무 1판 + 통합 브랜치 2판 = **1030** · board **64**
+        assert len(_seed_items()) == 1030
 
 
 class TestEverySeedItemIsPlayable:
