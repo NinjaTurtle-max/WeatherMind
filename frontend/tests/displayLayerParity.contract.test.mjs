@@ -396,23 +396,14 @@ try {
     // 12종이 무표시였다(표가 규칙 8종 시절에 멈춤). 문구를 ko/en 저작해 닫혔다.
     // 행을 남기지 않는다 — **낡은 면제를 남기면 다음 회귀를 덮는다.**
 
-    // ── REGISTRY.phenomenon: 재난·경보 5종에 SVG 심볼이 없다 ───────────────
-    // ⚠️ 이것은 **크래시도 무표시도 아니다.** EMOJI_FALLBACK이 PHENOMENON_META의
-    // 아이콘(🔥·🌊·⛈️·🚨)으로 그리므로 ❔가 아니라 제대로 된 이모지가 뜬다.
-    // 즉 「설계된 폴백」이고 지금 무해하다. 그래도 CORRECT_ABSENCES가 아니라
-    // 여기 두는 이유: 이 레지스트리의 의도된 최종 상태는 **전 현상 SVG**이고
-    // (그래서 8종을 손으로 그렸다), 이모지는 과도기 표현이기 때문이다.
-    ...['wildfire_risk', 'flood_risk', 'severe_storm', 'wildfire_warning', 'flood_warning',
-        // MT-18이 들인 2종도 같은 성질이다(2026-08-19 등재 · PM 판정).
-        // **심볼을 새로 저작하지 않는다**: ⑴ 이모지 폴백이라 화면이 안 깨지고
-        // ⑵ 8/20이 마지막 창인데 심볼 저작은 **실기기 검증이 필요한 종류**이며
-        // 그 검증이 지금 막혀 있고 ⑶ 면제가 **양방향 래칫**이라 나중에 채우면
-        // 「지우라」고 운다 — 잊히지 않는다. **수신자: 심볼 저작 담당(대회 후).**
-        'typhoon', 'tropical_night',
-    ].map((key) => ({
-      table: 'REGISTRY.phenomenon', key,
-      why: 'SVG 심볼 미저작 — EMOJI_FALLBACK이 PHENOMENON_META 이모지로 그려 화면 무해. 심볼 저작은 대회 후(수신자: 심볼 저작 담당). 최종 상태는 전 현상 SVG.',
-    })),
+    // ── REGISTRY.phenomenon ✅ **해소(2026-08-21 저작)** ──────────────────────
+    // 재난 7종(wildfire_risk·wildfire_warning·flood_risk·flood_warning·
+    // severe_storm·typhoon·tropical_night)이 EMOJI_FALLBACK으로만 그려졌고,
+    // 이 자리에 「심볼을 새로 저작하지 않는다(대회 후)」로 걸려 있었다.
+    // 전 7종을 `boardSymbols.jsx`에 저작해 레지스트리 8종 → **15종**이 됐다.
+    // 행을 남기지 않는다 — **낡은 면제를 남기면 다음 회귀를 덮는다.**
+    // ⚠️ `EMOJI_FALLBACK`은 그대로 둔다: 새 현상이 들어올 때의 안전망이고,
+    //    지우면 미저작 현상이 ❔도 아닌 빈칸이 된다.
 
     // ── PRECIP_META ✅ **해소(#122)** ─────────────────────────────────────────
     // severe_storm·flood_warning·typhoon이 채워졌다. 행 삭제.

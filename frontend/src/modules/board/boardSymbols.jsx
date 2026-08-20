@@ -9,7 +9,24 @@
  *  - 온난전선: 빨간 밴드 + 채운 반원
  *  - 정체전선: 파랑/빨강 교대(삼각·반원 반대편)
  *  - 기단: 원 + 한랭(파랑 계열)/온난(빨강 계열) 색 + 기단 약어(cP·mP·mT·cT)
- *  - 현상: 비/소나기/장마/눈/안개/폭염/맑음/흐림 아이콘
+ *  - 현상: 비/소나기/장마/눈/안개/폭염/맑음/흐림 + 재난 7종 아이콘
+ *
+ * ── 재난 7종의 표기 문법 (2026-08-20 저작) ───────────────────────────────────
+ * 이 7종은 종전에 `EMOJI_FALLBACK`으로 그려졌고 계약이 면제로 등재하고 있었다
+ * (`tests/displayLayerParity.contract.test.mjs` KNOWN_GAPS). 저작하면서 **한 눈에
+ * 갈리는 것**을 예쁜 것보다 앞에 뒀다 — 두 현상이 비슷해 보이면 실패다.
+ *
+ *  · **주의보(`_risk`) ↔ 경보(`_warning`)는 같은 그림 + 배지로 가른다.** 같은
+ *    재난이므로 **다른 그림을 주면 학습자가 다른 사건으로 읽는다.** 경보급에만
+ *    `AlertBadge`(빨간 삼각형)를 오른쪽 위에 얹어 「같은 재난, 더 높은 등급」으로
+ *    읽히게 한다. 삼각형 안에 `!`를 넣지 않는다 — 20px(`h-5 w-5` 칩)과 지도
+ *    `scale 0.4`에서 뭉개지고, 채운 삼각형만으로 이미 경고로 읽힌다.
+ *  · **홍수는 「채운 면」, 안개는 「가는 선」.** 둘 다 물결이라 겹칠 뻔했다 —
+ *    물을 불투명 면으로 칠하고 잠긴 건물을 세워 갈랐다.
+ *  · **번개는 15종 중 `severe_storm`에만 있다.** 소나기(어두운 구름 + 사선 비)와
+ *    갈리는 유일한 단서가 그것이다.
+ *  · **밤은 초승달로 말한다.** `tropical_night`은 열기 물결을 `heatwave`와 공유하는데
+ *    (같은 「더위」 축이라 옳다), 위가 광선 달린 해냐 초승달이냐로 갈린다.
  *
  * 교체 지점 단일화: 렌더러는 이 파일의 <Glyph>(SVG userSpace용)나
  * <SymbolIcon>(HTML 컨텍스트용)만 쓴다. 레지스트리에 없는 값은 boardDisplay의
@@ -37,6 +54,12 @@ const C = {
   sun: '#f59e0b', // amber-500
   heat: '#f97316', // orange-500
   fog: '#94a3b8',
+  // ── 재난 7종 전용 (2026-08-20) ────────────────────────────────────────────
+  alert: '#dc2626', // red-600 — 경보 배지. warm과 같은 값이지만 뜻이 달라 이름을 나눈다
+  flood: '#0369a1', // sky-700 — 불어난 물의 앞면(rain보다 어두워 「깊다」로 읽힌다)
+  bolt: '#facc15', // yellow-400 — 번개
+  night: '#475569', // slate-600 — 초승달
+  ground: '#166534', // green-800 — 불타는 산의 지면
 };
 
 // ── 공용 프리미티브 ──────────────────────────────────────────────────────────
@@ -298,6 +321,162 @@ function CloudySymbol() {
   );
 }
 
+// ── 재난 아이콘 (파일 머리말 「재난 7종의 표기 문법」이 이 절의 설계다) ──────
+/**
+ * 경보 배지 — 오른쪽 위 채운 빨간 삼각형.
+ *
+ * `_risk`(주의보)와 `_warning`(경보)은 **같은 재난**이므로 밑그림을 공유하고
+ * 등급만 이것으로 가른다. 안에 `!`를 넣지 않는다 — h-5(20px)와 지도 scale 0.4에서
+ * 뭉개진다. 흰 테두리는 뒤 그림 위에 얹혔을 때 실루엣이 묻히지 않게 한다.
+ */
+function AlertBadge() {
+  return (
+    <path
+      d="M7.3,-11.0 L11.2,-4.6 L3.4,-4.6 Z"
+      fill={C.alert}
+      stroke="#ffffff"
+      strokeWidth="1.1"
+      strokeLinejoin="round"
+    />
+  );
+}
+
+/** 불꽃 — 바깥 주황 + 안쪽 노랑 심 */
+function FlameShape({ x = 0, y = 0, scale = 1 }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${scale})`}>
+      <path
+        d="M0,-9.4 C4.4,-4.8 6.6,-2.0 6.6,1.2 C6.6,5.2 3.6,8.0 0,8.0 C-3.6,8.0 -6.6,5.2 -6.6,1.2 C-6.6,-1.6 -4.8,-3.8 -2.6,-6.6 C-2.2,-3.8 -1.0,-2.6 0.3,-2.2 C0.7,-4.6 0.5,-7.0 0,-9.4 Z"
+        fill={C.warmDry}
+      />
+      <path
+        d="M0,-1.4 C2.3,1.0 3.2,2.6 3.2,4.0 C3.2,6.0 1.7,7.2 0,7.2 C-1.7,7.2 -3.2,6.0 -3.2,4.0 C-3.2,2.4 -1.6,1.0 0,-1.4 Z"
+        fill={C.sun}
+      />
+    </g>
+  );
+}
+
+/** 산불 — 불꽃 + 초록 지면(「산」이 타는 것임을 말한다) */
+function WildfireShape() {
+  return (
+    <g>
+      <FlameShape y={-1.4} scale={1.02} />
+      <path d="M-9.5,10.4 L-5.6,5.4 L-2.4,10.4 Z" fill={C.ground} opacity="0.85" />
+      <path d="M2.6,10.4 L6.2,5.8 L9.5,10.4 Z" fill={C.ground} opacity="0.85" />
+      <line x1="-10.5" y1="10.6" x2="10.5" y2="10.6" stroke={C.ground} strokeWidth="1.6" strokeLinecap="round" />
+    </g>
+  );
+}
+
+/**
+ * 홍수 — **불투명하게 채운 물의 면** + 잠긴 건물.
+ * 안개(`FogSymbol`)도 물결이라 실루엣이 겹칠 뻔했다. 안개는 「가는 선」,
+ * 홍수는 「채운 면」으로 갈랐다.
+ */
+function FloodShape() {
+  return (
+    <g>
+      <rect x="-7.0" y="-9.5" width="7.2" height="14" fill={C.cloudDark} />
+      <rect x="1.4" y="-3.4" width="5.4" height="7.9" fill={C.cloud} />
+      <rect x="-5.6" y="-7.8" width="2.0" height="2.0" fill="#ffffff" />
+      <rect x="-2.4" y="-7.8" width="2.0" height="2.0" fill="#ffffff" />
+      <rect x="-5.6" y="-4.2" width="2.0" height="2.0" fill="#ffffff" />
+      <path d="M-11,0.8 q2.75,-2.0 5.5,0 t5.5,0 t5.5,0 t5.5,0 L11,11 L-11,11 Z" fill={C.rain} />
+      <path d="M-11,4.6 q2.75,-2.0 5.5,0 t5.5,0 t5.5,0 t5.5,0 L11,11 L-11,11 Z" fill={C.flood} />
+    </g>
+  );
+}
+
+/**
+ * 호우·강풍(`severe_storm`) — 어두운 구름 + 사선 비 + **번개**.
+ * 번개는 15종 가운데 여기에만 있다. 소나기(`ShowerSymbol`)와 갈리는 유일한 단서다.
+ */
+function SevereStormSymbol() {
+  return (
+    <g>
+      <CloudShape fill={C.cloudDark} y="-5" scale="1" />
+      <RainStrokes count={2} y={3.4} length={5.4} gap={11.5} slant={18} width={1.5} />
+      {/* 빗줄기와 겹치지 않게 폭을 좁히고 상자 안(-12..12)에 들어오게 줄였다 */}
+      <g transform="translate(0 -0.6) scale(0.88)">
+        <path
+          d="M1.6,0.6 L-3.8,0.6 L-1.0,5.2 L-3.6,5.2 L2.6,11.4 L0.4,6.4 L3.2,6.4 Z"
+          fill={C.bolt}
+          stroke={C.warmDry}
+          strokeWidth="0.7"
+          strokeLinejoin="round"
+        />
+      </g>
+    </g>
+  );
+}
+
+/**
+ * 태풍 — 두 팔 소용돌이 + 가운데 눈.
+ * 기단 심볼(원 + 약어)과 실루엣이 겹치지 않도록 **채운 원을 쓰지 않는다.**
+ */
+function TyphoonSymbol() {
+  return (
+    <g transform="scale(0.9)" fill="none" stroke={C.cold} strokeLinecap="round">
+      {[0, 180].map((deg) => (
+        <path
+          key={deg}
+          d="M0,-2.8 A5.6,5.6 0 0 1 6.4,2.4 A9.4,9.4 0 0 1 -1.2,10.2"
+          strokeWidth="2.4"
+          transform={`rotate(${deg})`}
+        />
+      ))}
+      <circle r="1.9" strokeWidth="1.6" />
+    </g>
+  );
+}
+
+/**
+ * 열대야 — 초승달 + 열기 물결.
+ * 물결은 `HeatwaveSymbol`과 **일부러 공유한다**(같은 「더위」 축이라 그것이 옳다).
+ * 갈리는 곳은 위다 — 광선 달린 해냐, 초승달이냐.
+ */
+function TropicalNightSymbol() {
+  return (
+    <g>
+      <g transform="translate(0 0.8)">
+        <path
+          d="M-2.06,-11.66 A6.5,6.5 0 1 0 5.73,-2.43 A6.3,6.3 0 0 1 -2.06,-11.66 Z"
+          fill={C.night}
+        />
+      </g>
+      <WaveLine y={6.5} width={13} color={C.heat} strokeWidth={1.2} />
+      <WaveLine y={9.5} width={13} color={C.heat} strokeWidth={1.2} opacity={0.6} />
+    </g>
+  );
+}
+
+function WildfireRiskSymbol() {
+  return <WildfireShape />;
+}
+
+function WildfireWarningSymbol() {
+  return (
+    <g>
+      <WildfireShape />
+      <AlertBadge />
+    </g>
+  );
+}
+
+function FloodRiskSymbol() {
+  return <FloodShape />;
+}
+
+function FloodWarningSymbol() {
+  return (
+    <g>
+      <FloodShape />
+      <AlertBadge />
+    </g>
+  );
+}
+
 // ── 구름(판정 출력 cloud enum) 아이콘 ───────────────────────────────────────
 function CumulonimbusSymbol() {
   // 키 큰 적란운 — 모루(윗면 평평) + 수직 발달
@@ -362,6 +541,14 @@ const REGISTRY = {
     heatwave: HeatwaveSymbol,
     clear: ClearSymbol,
     cloudy: CloudySymbol,
+    // 재난 7종 (2026-08-20 저작 — 종전 EMOJI_FALLBACK)
+    wildfire_risk: WildfireRiskSymbol,
+    wildfire_warning: WildfireWarningSymbol,
+    flood_risk: FloodRiskSymbol,
+    flood_warning: FloodWarningSymbol,
+    severe_storm: SevereStormSymbol,
+    typhoon: TyphoonSymbol,
+    tropical_night: TropicalNightSymbol,
   },
   cloud: {
     cumulonimbus: CumulonimbusSymbol,
