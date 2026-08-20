@@ -165,22 +165,25 @@
   {
     "concept_tag": "temperature_heat",
     "level_group": "middle_high",
-    "question_type": "slider",
+    "question_type": "multiple_choice",
     "template_json": {
       "question_text": "물 1g의 온도를 1℃ 올리는 데 필요한 열량은 몇 cal인가? (단위: cal)",
-      "correct_answer": "1",
-      "explanation_hint": "물의 비열은 1cal/(g·℃)입니다. 어떤 물질 1g의 온도를 1℃ 올리는 데 필요한 열량을 그 물질의 비열이라고 해요.",
-      "min": 0,
-      "max": 10,
-      "step": 1,
-      "unit": "cal"
+      "options": [
+        "4.2cal",
+        "80cal",
+        "1cal",
+        "539cal"
+      ],
+      "correct_answer": "1cal",
+      "explanation_hint": "물의 비열은 1cal/(g·℃)입니다. 어떤 물질 1g의 온도를 1℃ 올리는 데 필요한 열량을 그 물질의 비열이라고 해요."
     },
     "uses_live_slots": false,
     "source": {
       "kind": "claude-authored",
       "refs": [
         "climate_concepts: temperature_heat-2",
-        "sprint: R12 AU-2 (SPRINT_R11_01 §9, specs/11 §3)"
+        "sprint: R12 AU-2 (SPRINT_R11_01 §9, specs/11 §3)",
+        "2026-08-20 slider→multiple_choice 전환 — 관용오차 ±10은 **절대값**이라 눈금 폭이 그보다 좁으면 무엇을 짚어도 정답이었다(lint slider_indiscriminate). 지문은 시드 멱등 키((concept_tag, question_text))라 한 글자도 바꾸지 않는다 — 바꾸면 upsert가 삽입이 되고 구 슬라이더 행이 실DB에 active로 남는다."
       ]
     },
     "status": "active"
@@ -627,22 +630,25 @@
   {
     "concept_tag": "density_buoyancy",
     "level_group": "middle_high",
-    "question_type": "slider",
+    "question_type": "multiple_choice",
     "template_json": {
       "question_text": "물의 밀도가 가장 커지는 온도는 약 몇 ℃인가? (단위: ℃)",
-      "correct_answer": "4",
-      "explanation_hint": "물은 약 4℃에서 밀도가 가장 큽니다. 그래서 겨울 호수는 표면부터 얼고, 바닥 쪽 물은 4℃ 부근을 유지해 물고기가 살 수 있어요.",
-      "min": 0,
-      "max": 10,
-      "step": 1,
-      "unit": "℃"
+      "options": [
+        "약 0℃",
+        "약 4℃",
+        "약 20℃",
+        "약 100℃"
+      ],
+      "correct_answer": "약 4℃",
+      "explanation_hint": "물은 약 4℃에서 밀도가 가장 큽니다. 그래서 겨울 호수는 표면부터 얼고, 바닥 쪽 물은 4℃ 부근을 유지해 물고기가 살 수 있어요."
     },
     "uses_live_slots": false,
     "source": {
       "kind": "claude-authored",
       "refs": [
         "climate_concepts: density_buoyancy-1",
-        "sprint: R12 AU-2 (SPRINT_R11_01 §9, specs/11 §3)"
+        "sprint: R12 AU-2 (SPRINT_R11_01 §9, specs/11 §3)",
+        "2026-08-20 slider→multiple_choice 전환 — 관용오차 ±10은 **절대값**이라 눈금 폭이 그보다 좁으면 무엇을 짚어도 정답이었다(lint slider_indiscriminate). 지문은 시드 멱등 키((concept_tag, question_text))라 한 글자도 바꾸지 않는다 — 바꾸면 upsert가 삽입이 되고 구 슬라이더 행이 실DB에 active로 남는다."
       ]
     },
     "status": "active"
