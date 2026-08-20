@@ -24,6 +24,7 @@ from pathlib import Path
 import pytest
 
 from app.core.config import settings
+from app.routers.board import BOARD_TIERS
 from app.routers.session import QUESTION_PAYLOAD_FIELDS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -350,8 +351,22 @@ class TestMockServerParity:
             for field in required:
                 if field not in template:
                     broken.append(f"{puzzle['content_item_id']}: {field} 없음")
-            if puzzle.get("difficulty") not in (1, 2, 3):
-                broken.append(f"{puzzle['content_item_id']}: difficulty={puzzle.get('difficulty')}")
+            # 🔴 2026-08-20 축 교체: `difficulty`(파생 1~3)가 응답에서 **사라졌다**.
+            #    종전 단정은 `difficulty in (1, 2, 3)`이었고, 축이 갈아탄 뒤 64판 전건이
+            #    `None`이 되어 **이 파일이 빨강**이었다(어느 담당 목록에도 없던 자리 —
+            #    소거 담당이 잔재 조사에서 찾았다).
+            # ⚠️ 새 축은 **값이 없을 수 있다**(`knowledge_level`은 저작값이고 미저작
+            #    문항이 있을 수 있다). 그때는 잠그지 않는 것이 규칙이므로(`locked_tiers`)
+            #    「값이 반드시 있다」로 물면 **잠금 정책과 어긋난 계약**이 된다.
+            #    ⇒ 있으면 **정의역 안**인지만 본다.
+            tier = puzzle.get("knowledge_level")
+            if tier is not None and tier not in BOARD_TIERS:
+                broken.append(f"{puzzle['content_item_id']}: knowledge_level={tier} — 층 정의역 밖")
+            if "difficulty" in puzzle:
+                broken.append(
+                    f"{puzzle['content_item_id']}: 옛 파생 필드 difficulty가 살아 있다 "
+                    "— 한 축에 이름이 둘이면 읽는 사람이 어느 뜻인지 알 방법이 없다"
+                )
         assert not broken, "목 보드 퍼즐 렌더 필드 누락:\n  " + "\n  ".join(broken)
 
     def test_지도_좌표가_시드와_같다(self, fixtures):
