@@ -390,20 +390,44 @@ def test_천장_미상은_아무것도_잠그지_않는다():
 
 
 @pytest.mark.parametrize("band", [None, "", "unknown_band"])
-def test_미상_밴드는_보드를_통째로_잃지_않는다(band):
-    """표에 없는 밴드가 보드를 통째로 잃는 쪽이 열리는 쪽보다 나쁘다.
+def test_미지_밴드는_중립_밴드의_천장을_받는다(band):
+    """🔴 **종전 이름 「미상 밴드는 잠그지 않는다」는 거짓이었다**(2026-08-20).
 
-    🔴 **축 교체로 단정 모양이 바뀌었다**(2026-08-20). 종전에는 밴드가 잠금 표의
-    **키**여서 표에 없으면 `DEFAULT_MAX_DIFFICULTY`(전부 열림)로 떨어졌고, 그래서
-    「밴드가 미상이면 안 잠근다」로 물었다. 새 축에서 밴드는 천장의 **폴백 출처**일
-    뿐이다 — `learner_tier`가 `if band:`로 갈라 참일 때만 밴드 표를 읽으므로
-    여기서도 같은 분기를 태운다(안 태우면 프로덕션이 가지 않는 길을 무는 셈이다).
+    두 겹으로 공허했다: ⑴ 세 표본이 `band`를 쓰지 않고 전부 `locked_tiers(None)`을
+    봤다(표본 3인 척하며 같은 것을 세 번). ⑵ 이름의 주장이 실제 경로에서 거짓이다 —
+    **측정값**(2026-08-20): `knowledge_level_of_level_group`는 세 값 전부에
+    **중립 밴드(middle_high)의 단계**를 주고(실측 3), 그 천장은 `locked_tiers`에서
+    **4층 이상을 잠근다.** 「잠그지 않는다」가 참인 갈래는 **천장이 None일 때**뿐이고
+    그것은 위 `test_천장_미상은_아무것도_잠그지_않는다`가 따로 소유한다.
+
+    ⚠️ 값(3)을 박지 않고 **중립 밴드로** 표현한다 — 이 저장소에 밴드→단계 사다리가
+    둘 있고(밴드 최하 1·3·5·7 ↔ 밴드 중심 2·4·6·9) 어느 쪽을 쓸지 **판정 대기**다
+    (대장 §5.27-a). 값을 박으면 판정 후 되돌린다. 성질만 문다.
+
+    ⚠️ 실제 경로(`learner_tier`)는 `if band:`로 갈린다 — falsy 밴드는 사다리를
+    **부르지 않고** None 천장으로 간다. 두 층 다 물어야 어느 쪽이 바뀌어도 보인다.
     """
-    ceiling = weatherbrain_service.knowledge_level_of_level_group(band) if band else None
+    ceiling = weatherbrain_service.knowledge_level_of_level_group(band)
+    assert ceiling == weatherbrain_service.knowledge_level_of_level_group(
+        weatherbrain_service.NEUTRAL_LEVEL_GROUP
+    ), f"미지 밴드 {band!r}가 중립 밴드가 아닌 천장 {ceiling}을 받았다"
+
+    # 시스템이 하는 일을 적는다 — 미지 밴드는 **잠근다**(위층이 실재한다).
+    assert locked_tiers(ceiling), (
+        f"중립 천장 {ceiling} 위에 잠기는 층이 없다 — 중립이 정의역 상한으로 올라갔다면 "
+        "이 표본은 아무것도 안 보게 된다"
+    )
+    # 그래도 보드를 통째로 잃지는 않는다(축이 바뀌어도 남는 판단 —
+    # 「못 여는 것이 열리는 것보다 나쁘다」).
     opened = set(range(1, KNOWLEDGE_LEVEL_MAX + 1)) - locked_tiers(ceiling)
-    assert opened, f"밴드 {band!r}의 천장 {ceiling}에서 전 층이 잠겼다"
-    if ceiling is not None:
-        assert ceiling in opened, "자기 천장 층이 잠겼다"
+    assert ceiling in opened, f"천장 {ceiling} 자기 층이 잠겼다"
+
+    # 실제 경로(`learner_tier`)의 분기 재현 — falsy 밴드는 사다리를 **안 타고**
+    # None 천장으로 가므로 잠기는 층이 없고, truthy 미지 밴드는 중립 천장 위가 잠긴다.
+    effective = ceiling if band else None
+    assert locked_tiers(effective) == (
+        set(range(ceiling + 1, KNOWLEDGE_LEVEL_MAX + 1)) if band else set()
+    )
 
 
 def test_진도는_잠금을_바꾸지_않는다():
@@ -658,38 +682,46 @@ def _graded_item(order, tier):
 
 
 class TestTwoLocksCompose:
-    def test_초등의_사슬이_보통_칸에서_끊기지_않는다(self):
+    def test_천장1의_사슬이_위층_칸에서_끊기지_않는다(self):
         """**이 파일에서 가장 중요한 한 건.**
 
-        난이도로 거르지 않고 전체 위에서 순서를 세면, 초등 학습자의 진행 커서
-        다음 칸이 「보통」인 순간 거기서 영구히 멈춘다 — 그 칸은 수준 잠금으로
+        층으로 거르지 않고 전체 위에서 순서를 세면, 천장이 낮은 학습자의 진행 커서
+        다음 칸이 **잠긴 위층**인 순간 거기서 영구히 멈춘다 — 그 칸은 수준 잠금으로
         못 깨고, 커서는 깨야만 넘어간다. 두 잠금이 각각은 옳은데 **조합에서만**
         생기는 갇힘이라, 어느 한쪽 테스트도 이걸 못 본다.
+
+        🔴 종전 이름·본문은 「초등의 사슬이 **보통** 칸에서」였다(2026-08-20 개명).
+        「쉬움·보통」은 철거된 파생 3칸 라벨이고, 「초등」은 밴드 폴백에서만 1이라
+        θ 사다리(기본 2)와 갈린다 — 그래서 **천장 값**으로 부른다. 단정은 불변이다.
         """
-        # 쉬움·보통이 번갈아 나오는 코스 — 2번째가 벌써 보통이다.
+        # 1층과 위층이 번갈아 나오는 코스 — 2번째가 벌써 천장 밖이다.
         course = [
             _graded_item(0, 1), _graded_item(1, 2), _graded_item(2, 1),
             _graded_item(3, 2), _graded_item(4, 1),
         ]
         pool = board_router.sequenceable(course, 1)
         assert [i.template_json["board_order"] for i in pool] == [0, 2, 4], (
-            "초등에게 남아야 할 것은 쉬움 3칸이다"
+            "천장 1에게 남아야 할 것은 1층 3칸이다"
         )
 
-        # 첫 칸을 깨면 **다음 쉬움 칸**이 열려야 한다 — 보통 칸에서 막히면 안 된다.
+        # 첫 칸을 깨면 **다음 1층 칸**이 열려야 한다 — 잠긴 위층에서 막히면 안 된다.
         unlocked = board_router.compute_unlocked_ids(pool, {pool[0].id})
-        assert pool[1].id in unlocked, "쉬움을 깼는데 다음 쉬움이 안 열렸다 — 사슬이 끊겼다"
+        assert pool[1].id in unlocked, "1층을 깼는데 다음 1층이 안 열렸다 — 사슬이 끊겼다"
 
         # 끝까지 간다: 매번 하나씩 깨도 다음이 계속 열린다.
         cleared = set()
         for item in pool:
             assert item.id in board_router.compute_unlocked_ids(pool, cleared), (
-                "초등 학습자가 자기 수준 안에서 끝까지 못 간다"
+                "학습자가 자기 천장 안에서 끝까지 못 간다"
             )
             cleared.add(item.id)
 
-    def test_잠긴_난이도는_순서_계산에서_빠진다(self):
-        """성인은 전부 세고, 초등은 쉬움만 센다 — 세는 대상 자체가 다르다."""
+    def test_잠긴_층은_순서_계산에서_빠진다(self):
+        """천장 3은 3층까지 다 세고, 천장 1은 1층만 센다 — 세는 대상 자체가 다르다.
+
+        🔴 종전 문장은 *"성인은 전부 세고, 초등은 쉬움만 센다"*였다(2026-08-20 정정) —
+        성인의 천장은 3이 아니라 5이고 「쉬움」은 철거된 라벨이다. 단정은 불변이다.
+        """
         course = [_graded_item(0, 1), _graded_item(1, 3), _graded_item(2, 1)]
         assert len(board_router.sequenceable(course, 3)) == 3
         assert len(board_router.sequenceable(course, 1)) == 2
