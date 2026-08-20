@@ -1,10 +1,10 @@
 import {
   CONCEPT_KO,
-  LEVEL_KO,
   LEVEL_CHIP,
   COLOR_MEASURED,
   thetaToScore,
   levelFromTheta,
+  knowledgeLevelLabel,
 } from '../../lib/abilityDisplay';
 import { DailyGoalPicker } from '../progress/DailyGoal';
 import { useT } from '../../i18n';
@@ -41,6 +41,7 @@ export default function PlacementSummary({ summary, onDone }) {
       {abilities.length > 0 ? (
         <div className="mt-6 flex flex-col gap-3 text-left">
           {abilities.map((a) => {
+            // 칩 **색**은 4밴드가 계속 소유한다(`LEVEL_CHIP`) — 바뀌는 것은 **표기**뿐이다.
             const level = a.level_label ?? levelFromTheta(a.theta); // 서버값 우선, 부재 시 폴백
             return (
               <div key={a.concept_tag}>
@@ -53,7 +54,7 @@ export default function PlacementSummary({ summary, onDone }) {
                       LEVEL_CHIP[level] ?? 'bg-slate-100 text-slate-600'
                     }`}
                   >
-                    {LEVEL_KO[level] ?? level}
+                    {knowledgeLevelLabel(a)}
                   </span>
                 </div>
                 <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">

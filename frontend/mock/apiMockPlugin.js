@@ -2447,6 +2447,10 @@ const routes = {
             theta_se: Number((1 / Math.sqrt(n + 1)).toFixed(2)),
             num_responses: n,
             level_label: levelFromTheta(theta),
+            // 서버 `PlacementAbility`가 R13-02 T3의 두 필드를 실어 보낸다 —
+            // 목이 안 보내면 배치 결과 화면만 「초급」으로 남는다(2026-08-20).
+            knowledge_level: thetaToKnowledgeLevel(theta),
+            knowledge_level_max: KNOWLEDGE_LEVEL_MAX,
           };
         }),
       };
