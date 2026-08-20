@@ -119,14 +119,58 @@ const quantize = (intensity) =>
 const spriteKey = (q, shear, part) => `${q}|${shear}|${part}`;
 
 /**
+ * **이 세력에 얹을 스프라이트가 있는가.** 세력은 구간으로 양자화되므로
+ * `INTENSITY_STEP`의 절반 미만은 0구간으로 떨어지고, 0구간에는 스프라이트가 없다.
+ *
+ * 🔴 **그리기 게이트는 이 판정 하나만 쓴다.** 종전에는 그리기가 `nowIntensity > 0.5`
+ * 라는 **별도 숫자 문턱**을 갖고 있어서, 그 사이 구간(0.5 < 세력 < 구간 하한)이
+ * 게이트를 통과한 뒤 **없는 스프라이트를 읽었다** —
+ * `TypeError: Cannot read properties of null (reading 'outer')`이 나고 이 패널이
+ * 언마운트되며 (에러 바운더리가 없어) 태풍 화면 전체가 백지가 됐다.
+ *
+ * 두 갈래로 밟힌다. 둘 다 2026-08-19 실측이다:
+ *  ⑴ **조작** — 해수면온도를 내려 태풍을 없애는 도중 세력이 그 구간을 지난다.
+ *     **탐구 목표 1번이 시키는 조작**이라 학습자가 반드시 한다(실브라우저 재현:
+ *     `feat/schematic-3d-mt22` 화면에서 백지).
+ *  ⑵ **가만히 둬도** — 재생이 생애 말기로 가며 세력이 그 구간을 지난다. 화면
+ *     기본값(28℃·약시어)에서 84프레임 중 19장이 그 구간이고, 아무 조작 없이
+ *     **약 7.3초** 만에 터진다(2D 컨텍스트를 준 node 하네스 실측).
+ * 문턱을 둘로 두지 않는 것이 이 함수가 존재하는 이유다.
+ */
+export const hasStormSprite = (intensity) => quantize(intensity) > 0;
+
+/**
+ * 2D 컨텍스트 부재 경고 — **한 번만** 낸다. 그리기는 매 프레임 도는 자리라
+ * 여기서 매번 짖으면 콘솔이 그것만으로 가득 찬다.
+ */
+let warnedNo2d = false;
+function warnNo2dOnce() {
+  if (warnedNo2d) return;
+  warnedNo2d = true;
+  // 영문 진단 — 화면에 나가는 문구가 아니라 개발자·CI가 읽는 줄이다
+  // (코드 안 한국어는 displayLayerParity 계약이 전수 감시한다).
+  console.warn('[SatelliteView] no 2D canvas context — cloud sprites skipped (chrome-only render).');
+}
+
+/**
  * 스프라이트 1장. `part`가 'core'면 안쪽만, 'outer'면 바깥만 담는다(경계는 부드럽게
  * 겹쳐서 이음매가 안 보이게 한다). 둘을 다른 속도로 돌리면 차등 회전이 된다.
+ *
+ * ⚠️ **2D 컨텍스트가 없으면 `null`을 돌려준다.** jsdom(래스터라이저 없음)이나
+ * 컨텍스트가 고갈된 환경이 그렇다 — 종전에는 여기서 곧장 `c.createImageData`를
+ * 불러 `TypeError`로 죽었고, 그 때문에 이 화면에 **마운트 계약을 걸 수 없었다**
+ * (스모크가 전부 이 지점에서 멎었다). 스프라이트가 없으면 구름만 빠지고
+ * 바다·해안선·경로·격자는 그대로 그려진다.
  */
 function buildSprite(q, shear, part) {
   const cv = document.createElement('canvas');
   cv.width = SPRITE;
   cv.height = SPRITE;
-  const c = cv.getContext('2d');
+  const c = typeof cv.getContext === 'function' ? cv.getContext('2d') : null;
+  if (!c) {
+    warnNo2dOnce();
+    return null;
+  }
   const img = c.createImageData(SPRITE, SPRITE);
   const px = img.data;
   const half = SPRITE / 2;
@@ -177,7 +221,15 @@ function warmSprites(shear, onProgress, signal) {
     const t0 = performance.now();
     while (jobs.length && performance.now() - t0 < BUDGET_MS) {
       const [q, part] = jobs.shift();
-      spriteCache.set(spriteKey(q, shear, part), buildSprite(q, shear, part));
+      const sprite = buildSprite(q, shear, part);
+      // 컨텍스트가 없는 환경 — 남은 일감을 더 굽지 않고 **예열을 끝난 것으로 본다.**
+      // 진행률을 0에 멈춰 두면 화면은 안 죽어도 「예열 중」 판이 캔버스를 영영 덮어
+      // 조용히 고장 난 것처럼 보인다. 근거는 buildSprite가 콘솔에 한 번 남긴다.
+      if (!sprite) {
+        onProgress(1);
+        return;
+      }
+      spriteCache.set(spriteKey(q, shear, part), sprite);
       done += 1;
     }
     onProgress(done / total);
@@ -186,20 +238,30 @@ function warmSprites(shear, onProgress, signal) {
   step();
 }
 
-/** 캐시 조회 — {core, outer} 두 겹. 없으면 즉석 생성(예열 전 첫 프레임 대비). */
+/**
+ * 캐시 조회 — {core, outer} 두 겹. 없으면 즉석 생성(예열 전 첫 프레임 대비).
+ *
+ * `null`을 돌려주는 경우가 **둘**이고 호출부는 둘을 같게 다루면 된다(구름만 뺀다):
+ *   ⑴ 세력이 양자화 하한 미만 — 얹을 구름이 없는 것이 **옳다**(태풍이 없다).
+ *   ⑵ 2D 컨텍스트가 없는 환경 — 만들 수가 없다.
+ * ⚠️ 캐시에 `null`을 넣지 않는다. 넣으면 컨텍스트가 생긴 뒤에도 그 키가 영영 빈다.
+ */
 function stormSprites(intensity, shear) {
+  if (!hasStormSprite(intensity)) return null;
   const q = quantize(intensity);
-  if (q <= 0) return null;
   const get = (part) => {
     const key = spriteKey(q, shear, part);
     let sp = spriteCache.get(key);
     if (!sp) {
       sp = buildSprite(q, shear, part);
+      if (!sp) return null;
       spriteCache.set(key, sp);
     }
     return sp;
   };
-  return { core: get('core'), outer: get('outer') };
+  const core = get('core');
+  const outer = get('outer');
+  return core && outer ? { core, outer } : null;
 }
 
 // 재생 한 바퀴(초). 위성 루프처럼 **띄엄띄엄** 넘긴다 — 실제 위성도 10분 간격
@@ -252,6 +314,9 @@ export default function SatelliteView({ intensity, shear }) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || typeof window === 'undefined') return;
+    // 집주인 관례(realisticEffects.jsx:56·CrossSectionGL.jsx:41)와 같은 두 겹 가드 —
+    // 캔버스 노드가 있어도 `getContext` 자체가 없는 환경이 있다.
+    if (typeof canvas.getContext !== 'function') return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -296,8 +361,14 @@ export default function SatelliteView({ intensity, shear }) {
 
     // ── ③ 구름 — 캐시된 스프라이트를 위치·크기만 바꿔 얹는다 ──
     // 투명도를 가진 스프라이트라 육지가 그대로 비친다(lighter 합성이 아니다).
-    if (nowIntensity > 0.5) {
-      const sp = stormSprites(nowIntensity, shear);
+    //
+    // 🔴 **게이트는 스프라이트 유무 하나다**(`hasStormSprite` 주석 참조). 종전의
+    // `nowIntensity > 0.5`라는 별도 숫자 문턱을 없앤 자리다 — 그 문턱과 양자화
+    // 하한(12.5) 사이 구간이 게이트를 통과한 뒤 없는 스프라이트를 읽었다.
+    // 구름이 없어도 ①②④⑤(바다·육지·경로·격자)는 그대로 그려진다: **태풍이 없는
+    // 빈 바다도 정상 화면**이고, 그것이 이 화면 탐구 목표 1번의 달성 상태다.
+    const sp = stormSprites(nowIntensity, shear);
+    if (sp) {
       const d = radius * 2 * 1.6; // 스프라이트가 반경 1.6까지 담고 있다
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';

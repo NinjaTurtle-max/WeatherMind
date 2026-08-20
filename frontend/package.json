@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:board": "node tests/boardEngine.vectors.test.mjs",
-    "test:explore": "node tests/exploreSims.test.mjs && node tests/exploreSims.render.test.mjs",
+    "test:explore": "node tests/exploreSims.test.mjs && node tests/exploreSims.render.test.mjs && node tests/exploreMount.smoke.test.mjs",
     "test:explore-goals": "node tests/exploreGoals.test.mjs",
     "test:session-blocks": "node tests/sessionBlocks.contract.test.mjs",
     "test:entry-flow": "node tests/entryFlow.smoke.test.mjs",
