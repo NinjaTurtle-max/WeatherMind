@@ -14,7 +14,6 @@ import TyphoonSimPage from './modules/explore/TyphoonSimPage';
 import ClimateSimPage from './modules/explore/ClimateSimPage';
 import SandboxPage from './modules/explore/SandboxPage';
 import DetectiveRoutes from './modules/detective/DetectiveRoutes';
-import HindcastRoutes from './modules/hindcast/HindcastRoutes';
 import LeaguePage from './modules/league/LeaguePage';
 import DuelPage from './modules/duel/DuelPage';
 import ProgressPage from './modules/progress/ProgressPage';
@@ -672,8 +671,6 @@ export default function App() {
           <Route path="/explore/sandbox" element={<SandboxPage />} />
           {/* R13 기후 탐정(CO-N-2) — 하위 경로는 모듈이 소유한다(DetectiveRoutes). */}
           <Route path="/detective/*" element={<DetectiveRoutes />} />
-          {/* MT-30 과거 예보 — 하위 경로는 모듈이 소유한다(HindcastRoutes). */}
-          <Route path="/hindcast/*" element={<HindcastRoutes />} />
           <Route path="/duel" element={<DuelPage />} />
           <Route path="/league" element={<LeaguePage />} />
           <Route path="/me" element={<ProgressPage />} />

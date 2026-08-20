@@ -6615,3 +6615,61 @@ DB `sessions` 행이 소유한다(`models/session.py:24`·`session_service.py:30
 ⚠️ **이 절에 없는 것**: 알려진 빨강 3건(`test:webgl`·`test:guest-convert`·`test:home`)은
 PM 확정 사실로만 반영했고 재진단하지 않았다. 셋 다 위 79행 중 어느 행의 근거도 아니다.
 발표·제출 문서는 이 감사의 범위 밖이다.
+
+---
+
+## §5.29 🔴 **과거 예보(MT-30) 전면 삭제 — 클라이언트 지시 집행** (2026-08-20)
+
+**판정이 아니라 집행이다.** 2026-08-20 클라이언트 지시로 과거 예보(hindcast) 기능을
+프로그램에서 통째로 걷었다. 이 절은 무엇이 사라졌고 **무엇이 남았는지**를 적는다 —
+되돌릴 사람이 읽을 좌표이기 때문이다. 삭제는 되돌리기 쉽게 **한 커밋**으로 했다.
+
+### 지운 것 — 파일 14개 + 참조 6자리
+
+| 어디 | 무엇 |
+|---|---|
+| backend | `models/hindcast_attempt.py` · `routers/hindcast.py` · `schemas/hindcast.py` · `services/hindcast_service.py` · `tests/test_hindcast_router.py` · `tests/test_hindcast_mock_parity.py` |
+| frontend | `src/api/hindcast.js` · `src/i18n/resources/hindcast.{ko,en}.js` · `src/modules/hindcast/` 5개(`HindcastRoutes`·`CaseListPage`·`CasePlayPage`·`ResultCard`·`DemoDataNotice`) |
+| 참조 | `frontend/src/App.jsx`(라우트+import) · `frontend/src/modules/explore/ExploreHome.jsx`(탐구 카드) · `frontend/src/i18n/core.js`(리소스 등록 **ko·en 양쪽**) · `frontend/mock/apiMockPlugin.js`(픽스처·헬퍼·상태 2자리·목 라우트 3종) · `backend/app/main.py`(import+`include_router`) · `backend/app/models/__init__.py`(import+`__all__`) |
+
+### 🔴 남긴 것 — 지우지 않은 이유
+
+| 무엇 | 왜 남겼나 |
+|---|---|
+| `backend/alembic/versions/20260818_0016_hindcast_attempts.py` | **이미 실DB에 적용됐고** 그 위에 `20260819_0017_unit_attempted_at.py`가 `down_revision = "0016_hindcast_attempts"`로 서 있다. 지우면 사슬을 다시 엮어야 하고 적용된 DB와 어긋난다. 동결 하루 전에 할 일이 아니다 |
+| `backend/tests/test_rls_role_contract.py`의 `hindcast_attempts` 3자리 | **테이블이 남으니 RLS 계약도 남는다.** 지우면 「접근 제한 확인을 빠뜨린 테이블」로 오해된다. 이 계약은 `RLS_TABLES` 리터럴과 SQL **본문 텍스트**를 대조할 뿐 ORM `Base.metadata`를 보지 않아, 모델을 지워도 초록이다(확인함) |
+| `backend/app/scripts/rls_app_role.sql`의 언급 2자리 | 위와 같은 이유 — 남는 테이블에 대한 RLS 서술이다 |
+| `docs/` 안의 기록 | **이력이다.** 대장·`TODO_CLIENT_0814.md`·`MOCK_SERVER_PARITY_0820.md`의 언급은 그대로 둔다 |
+| `frontend/dist/` | 빌드 산출물(추적 안 됨) |
+
+### 🔴 남는 사실 두 개 — 판정이 아니라 기록이다
+
+**⑴ `hindcast_attempts` 테이블이 DB에 빈 채로 남는다.** 마이그레이션 0016을 남겼으니
+테이블도 남고, 이제 그 테이블에 쓰는 코드가 하나도 없다. **화면에는 안 보인다** — 빈
+테이블 하나가 남는 것과 마이그레이션 사슬을 다시 엮는 것을 견주면 후자가 위험하다.
+되살릴 때는 테이블이 이미 있다는 것부터 확인할 것.
+
+**⑵ 🔴 제안서 활용 데이터 ③(과거관측 API)과 클라이언트 체크리스트의 「과거 자료 기반
+과거 예보 방식 검토」가 이 삭제로 프로그램에서 사라진다.** MT-30은 그 두 항목에 닿아
+있던 유일한 화면이었다(`TODO_CLIENT_0814.md` C8). 삭제 뒤 그 요구에 대응하는 코드는
+**0건**이고, §5.28·§5.27이 세운 제안서 ↔ 코드 대응표에서 그 행이 빈다. 이것을 제안서·
+발표 문서에 어떻게 적을지는 **이 절의 범위가 아니다** — 사라졌다는 사실만 남긴다.
+
+### 함께 고친 것 하나 — 탐구 카드 5 → 4장
+
+`ExploreHome.jsx`의 `SIMS`가 5장에서 4장이 됐다. **카드 개수를 세는 계약은 없다**(전수
+확인함 — `exploreSims.render`·`mascotAssets.contract`는 경로와 문구만 본다). 그래서
+계약 수정은 없었고, **열 수도 3열 그대로 뒀다**: 3열은 2026-08-19 사용자 지시("가로 3줄,
+세로 2줄")이고, 4장이 됐다고 4열로 되돌리는 것은 그 지시를 다시 판정하는 일이라 삭제
+집행의 범위가 아니다. **지금 배치는 3+1**이고, 열을 되돌릴지는 PM 판정 몫이다(같은 취지의
+주석을 그 파일에 남겼다).
+
+### 확인
+
+- backend `pytest tests -q` → **6339 passed / 0 failed** / 44 skipped / 1 xfailed
+  (종전 6398 → hindcast 테스트 2파일이 사라져 59건 감소. **판정 기준은 실패 0**)
+- frontend `test:i18n`(ko·en 키 패리티) · `test:explore` · `test:entry-flow` **전건 초록**
+- `npm run build` **성공**
+- `scripts/ci.sh`의 `FRONT_TESTS` 35종에 **hindcast 전용 종목은 없었다** — 배열 무접촉
+- 에러 코드 3종(`CASE_NOT_FOUND`·`INVALID_PREDICTION`·`ALREADY_SUBMITTED`)은 모두
+  detective·duel과 **공유**라 `test_error_code_contract.py` 수정 불필요(확인함)

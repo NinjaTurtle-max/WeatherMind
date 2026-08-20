@@ -48,18 +48,6 @@ const SIMS = [
     inputsKey: 'detective.entry.inputs',
     badgeKey: 'detective.entry.badge',
   },
-  // MT-30 과거 예보 — 탐정과 같은 이유로 탐구 홈에 세운다(탭 넘침 방지).
-  // 배지 문구는 탐정과 반대다: 탐정은 **가상** 자료라고 밝히고, 여기는 **실제
-  // 공개 기록이지만 고정 날짜**라고 밝힌다. 둘 다 자료의 성격을 숨기지 않는 것이
-  // 요점이다(과거 관측 적재 경로가 없어 픽스처인 사정 — hindcast_service 독스트링).
-  {
-    to: '/hindcast',
-    icon: '🕰️',
-    titleKey: 'hindcast.entry.title',
-    descriptionKey: 'hindcast.entry.desc',
-    inputsKey: 'hindcast.entry.inputs',
-    badgeKey: 'hindcast.entry.badge',
-  },
 ];
 
 export default function ExploreHome() {
@@ -101,7 +89,12 @@ export default function ExploreHome() {
           장만 남았다. 3열이면 3+2다 — 「넷이 한눈에」였던 종전 근거는 카드가
           넷을 넘으면서 유효하지 않다(한 줄에 다 넣는 것이 애초에 불가능).
           ⚠️ 카드 수를 적을 때는 위 `SIMS` 배열을 세고 적을 것 — 처음에
-          「5→6장」이라 적었다가 틀렸다(실측 5장). */}
+          「5→6장」이라 적었다가 틀렸다(실측 5장).
+          ⚠️ **지금은 4장이다** — 과거 예보(MT-30)가 2026-08-20 클라이언트 지시로
+          통째 삭제되면서 5 → 4장이 됐다. **열 수는 3열 그대로 둔다**: 3열은
+          8/19 사용자 지시이고, 4장이 됐다고 4열로 되돌리는 것은 그 지시를 다시
+          판정하는 일이라 삭제 집행의 범위가 아니다(지금 배치는 3+1). 열을
+          되돌릴지는 PM 판정 몫. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {SIMS.map((sim) => (
           <Link
