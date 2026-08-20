@@ -46,6 +46,21 @@ from app.services.weather_api import get_today_weather, user_region
 # 슬라이더 채점 허용 오차 (0~100 스케일)
 SLIDER_TOLERANCE = 10.0
 
+# 배치고사 「모르겠어요」 센티널 (2026-08-19 클라이언트 지시) — **이 상수의 단일 소유자**.
+# 프론트·목이 같은 리터럴을 쓰고, 정합은 목 담당이 계약 테스트로 문다.
+#
+# 왜 새 필드가 아니라 기존 `answer`에 담는 센티널인가:
+# `schemas/onboarding.py`의 PlacementAnswerItem·PlacementSubmitAllRequest가
+# extra='forbid'라 새 필드는 **구 백엔드 + 신 프론트에서 요청 전체가 422**가 되어
+# 백엔드 선배포가 강제된다(동결 직전에 만들 수 없는 배포 순서 제약).
+# 왜 빈 문자열이 아닌가: 목의 slider가 `Number("")=0`으로 채점해 정답값이 허용오차
+# 안인 문항을 **정답**으로 판정하는데 서버는 ValueError로 오답이다 — 목과 서버가
+# 정반대 판정을 내는, 이 저장소에서 반복된 결함의 모양 그대로다.
+# 비어 있지 않은 센티널은 6유형 채점기에서 구조적으로도 오답이지만(float/int 파싱
+# 실패 · ':' 없음 · 문자열 불일치) `grade`가 **명시적으로** 오답을 못박는다 —
+# 구조적 우연에 기대면 `correct_answer`가 우연히 센티널과 같은 문항에서 뒤집힌다.
+PLACEMENT_SKIP_SENTINEL = "__skip__"
+
 Grader = Callable[[dict[str, Any], str], bool]
 
 
@@ -186,8 +201,28 @@ GRADERS: dict[str, Grader] = {
 }
 
 
+def is_skip(answer: str) -> bool:
+    """「모르겠어요」로 건너뛴 제출인가 — 센티널 **완전 일치**(순수 함수).
+
+    strip·casefold를 **의도적으로 하지 않는다**: 관대하게 받으면 센티널이
+    "매직 문자열 한 벌"로 번식하고, 근사값(" __skip__ ")은 어차피 6유형 채점기에서
+    오답이라 관대함이 사는 값이 없다.
+    """
+    return answer == PLACEMENT_SKIP_SENTINEL
+
+
 def grade(question: dict[str, Any], answer: str) -> bool:
-    """유형별 채점기로 위임 (§3.6 레지스트리). 미등록 유형은 문자열 일치 폴백."""
+    """유형별 채점기로 위임 (§3.6 레지스트리). 미등록 유형은 문자열 일치 폴백.
+
+    스킵(「모르겠어요」)은 유형·문항과 무관하게 **오답**이다(2026-08-19 클라이언트
+    지시 — "모르겠다 한것은 틀린 것으로 모델에"). 여기 한 줄로 못박는 이유는 두 가지다:
+    ① 문항별 경로와 bulk 경로가 **같은 이 함수**를 타므로 계약이 갈릴 자리가 없다.
+    ② 구조적 우연에 기대지 않는다 — `correct_answer`가 센티널과 같은 문항이 생기면
+       `_grade_text`는 스킵을 **정답**으로 판정한다(그 문항이 오늘 뱅크에 없다는 것은
+       계약이 아니라 상태다).
+    """
+    if is_skip(answer):
+        return False
     grader = GRADERS.get(question.get("question_type"), _grade_text)
     return grader(question, answer)
 
@@ -406,7 +441,11 @@ async def submit_answer_for_log(
     log.answered_at = datetime.now(timezone.utc)
 
     # 뱅크 문항 노출·정답 통계 — 원자 UPDATE (전역 콘텐츠, 동시 제출 경합)
-    if log.content_item_id is not None:
+    # **스킵은 세지 않는다**(2026-08-19, A조 판단): 이 통계는 `irt.calibrate_items`로
+    # 흘러 문항 난이도 b를 만든다. 학습자가 **안 푼** 사실은 문항 난이도에 대한
+    # 증거가 아니므로, 세면 스킵된 문항이 실제보다 어려워진다(θ·선발이 함께 오염).
+    # weak_tags는 반대로 **센다** — 그쪽은 학습자 축이고, 모르는 개념은 약점이 맞다.
+    if log.content_item_id is not None and not is_skip(answer):
         await db.execute(
             update(ContentItem)
             .where(ContentItem.id == log.content_item_id)
@@ -496,8 +535,10 @@ async def submit_answers_bulk(
         log.elapsed_sec = elapsed_sec
         log.answered_at = now
 
-        # 뱅크 문항 노출·정답 통계 — 원자 UPDATE (submit_answer_for_log 동일)
-        if log.content_item_id is not None:
+        # 뱅크 문항 노출·정답 통계 — 원자 UPDATE (submit_answer_for_log 동일).
+        # 스킵 제외도 그쪽과 **동일**하다 — 두 경로가 갈리면 배치고사 스킵의 의미가
+        # 제출 경로에 따라 달라진다(프론트가 bulk를 쓴다는 것은 계약이 아니다).
+        if log.content_item_id is not None and not is_skip(answer):
             await db.execute(
                 update(ContentItem)
                 .where(ContentItem.id == log.content_item_id)

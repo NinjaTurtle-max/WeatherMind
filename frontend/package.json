@@ -15,6 +15,7 @@
     "test:session": "node tests/sessionRunner.render.test.mjs",
     "test:session-retry": "node tests/sessionRetry.smoke.test.mjs",
     "test:placement": "node tests/placementEntry.smoke.test.mjs",
+    "test:placement-skip": "node tests/placementSkip.smoke.test.mjs",
     "test:gating": "node tests/onboardingGating.smoke.test.mjs",
     "test:board-entry": "node tests/boardEntryGate.smoke.test.mjs",
     "test:assist": "node tests/boardAssistRetention.smoke.test.mjs",
