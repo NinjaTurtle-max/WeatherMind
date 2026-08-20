@@ -71,21 +71,6 @@ export default function HeroBanner({
         <p className="mt-0.5 truncate text-[21px] font-extrabold leading-tight tracking-[-0.02em] text-white">
           {title}
         </p>
-        {/* 제목에 딸린 단서 한 줄. `line-clamp-2`로 상한을 둔다 — 좁은 화면에서
-            두 줄까지는 마스코트 원(62px) 안에 들어가지만 세 줄이면 넘친다.
-            ⚠️ 위 `description`처럼 `hidden`으로 접지 않는다: 이 자리에 오는 것은
-            안내가 아니라 **고지**(교육용 모델이라는 단서)라, 좁은 화면에서
-            사라지면 안 되는 종류다. */}
-        {/* ⚠️ 간격이 `mt-1`이 아니라 **`mt-0.5`**다. 넓은 화면에서 제목 열은
-            eyebrow 14 + 제목 26 + 여백 2 + 고지 14 = 56이고, 배너 높이를 정하는
-            것은 마스코트 원 **62**다. `mt-1`(4px)이면 열이 64가 되어 원을
-            2px 넘겨 배너가 90 → 92가 된다 — 다른 화면과 어긋나는 그 2px이다.
-            (실측으로 잡았다: 1536에서 92 → 90) */}
-        {note && (
-          <p className="mt-0.5 line-clamp-2 text-[10.5px] leading-snug text-sky-200/85">
-            {note}
-          </p>
-        )}
       </div>
 
       {/* 설명 — 좁아지면 접는다. 접혀도 잃는 정보가 없어야 한다(안내문 전용).
@@ -127,12 +112,39 @@ export default function HeroBanner({
           차이는 셋뿐이다 — 글자 11.5 → 10 · 줄간격 relaxed → snug · xl 폭 360 →
           430(그 폭이라야 한 줄에 든다). `line-clamp-2`는 **양쪽 다 남긴다**:
           좁은 화면에서 한 줄을 고집하면 잘라야 하는데, 잘린 문장보다 두 줄이 낫다. */}
-      {description && (
-        <p className={tightDescription
-          ? 'hidden min-w-0 basis-[300px] text-[10px] leading-snug text-slate-300 lg:line-clamp-2 xl:basis-[430px]'
-          : 'hidden min-w-0 basis-[300px] text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2 xl:basis-[360px]'}>
-          {description}
-        </p>
+      {/* 🔴 **오른쪽 열 — 고지가 위, 설명이 아래**(2026-08-19 사용자 지시
+          "교육용 단순화 모델입니다~ 이 멘트를 오른쪽 상단(튜터 카드 오른쪽 위)에").
+          제목 아래에 있던 고지가 여기로 올라왔다.
+
+          🔴 **이 이사가 h=90을 되찾아 준다.** 제목 아래에 있을 때는 제목 열이
+          eyebrow 14 + 제목 26 + 고지 두 줄 29 = 71로 마스코트 원(62)을 넘겨
+          태풍 배너가 104였다. 오른쪽으로 오면 제목 열은 40으로 줄고 이 열은
+          고지 14 + 간격 4 + 설명 14 = 32라 둘 다 62 안이다.
+
+          ⚠️ **고지는 `hidden`으로 접지 않는다**(설명과 다른 점) — 안내가 아니라
+          고지라 좁은 화면에서 사라지면 안 된다. 그래서 열 자체는 늘 서고
+          설명만 접힌다. 폭(basis)의 소유자가 `<p>`에서 이 열로 올라왔다. */}
+      {(note || description) && (
+        // 폭은 **변형마다 다르다** — 기본 xl 360(2026-08-18에 실측으로 고른 값
+        // 「탐구 안내문이 한 줄로 펴지는 데 351px」), tight는 430(10px 문구가
+        // 한 줄에 드는 폭). 기본을 430으로 올리면 예보·리그 배너(CompeteLayout
+        // 카드 안이라 더 좁다)의 제목 열이 70px 더 눌린다 — 올리지 말 것.
+        <div className={tightDescription
+          ? 'flex min-w-0 basis-[300px] flex-col gap-1 xl:basis-[430px]'
+          : 'flex min-w-0 basis-[300px] flex-col gap-1 xl:basis-[360px]'}>
+          {note && (
+            <p className="line-clamp-2 text-[10px] leading-snug text-sky-200/85">
+              {note}
+            </p>
+          )}
+          {description && (
+            <p className={tightDescription
+              ? 'hidden min-w-0 text-[10px] leading-snug text-slate-300 lg:line-clamp-2'
+              : 'hidden min-w-0 text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2'}>
+              {description}
+            </p>
+          )}
+        </div>
       )}
 
       {right}

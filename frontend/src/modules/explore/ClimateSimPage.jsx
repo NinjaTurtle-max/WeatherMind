@@ -155,14 +155,16 @@ export default function ClimateSimPage() {
         as="h1"
         eyebrow={t('explore.climate.title')}
         title={t('explore.climate.heroTitle')}
-        // 🔴 **모델 고지를 배너 안, 제목 바로 아래로**(2026-08-19 사용자 지시).
-        // 종전에는 배너 아래 회색 띠 한 장으로 따로 서 있었다.
-        // ⚠️ **`description`을 함께 쓰지 않는다.** 설명(explore.home.climateDesc)은
-        //    탐구 홈 카드에서 이미 읽은 같은 문장이고, 그것을 오른쪽에 남기면
-        //    제목 열이 658px로 좁아져 고지가 두 줄로 접히며 배너가 h=90 → 101이
-        //    된다(실측). 비우면 제목 열이 1,018px이라 고지가 한 줄에 들어간다.
-        //    한 배너에 설명문 두 벌을 두지 않는 편이 읽기에도 낫다.
+        // 🔴 **모델 고지를 배너 오른쪽 위로**(2026-08-19 사용자 지시 — 처음엔
+        // 제목 아래였다가 「오른쪽 상단」으로 옮겼다).
+        // ⚠️ 어제 이 자리에 *"`description`을 함께 쓰지 않는다 — 제목 열이 좁아져
+        //    고지가 두 줄이 되고 배너가 101이 된다"*고 적었는데, 고지가 오른쪽
+        //    열로 가면서 **그 제약이 사라졌다**(제목 열이 다시 폭을 다 쓴다).
+        //    설명은 태풍처럼 전용 키로 두지 않고 탐구 홈 카드 문장을 그대로 쓴다 —
+        //    사용자가 이 화면의 문구를 따로 지정하지 않았다.
         note={t('explore.climate.disclaimer')}
+        description={t('explore.home.climateDesc')}
+        tightDescription
         right={
           // 칩 바탕이 `slate-100` → **흰색**이다. 남색 배너 위에서 slate-100은
           // 거의 안 보이고, 글자색(anomalyColor)은 전부 600단계라 남색 직접

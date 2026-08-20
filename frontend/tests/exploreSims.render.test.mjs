@@ -321,7 +321,10 @@ try {
    * 시절에는 부모 `space-y-4`와 값이 같아 안 보였지만, 격자 칸이 되는 순간 옆
    * 칸보다 16px 내려앉는다. 자기 여백을 가진 컴포넌트를 격자에 넣을 때의 함정이다.
    */
-  const tSat2 = typhoonSrc.indexOf('lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]');
+  // 비율은 1.35 → **1.9**로 커졌다(2026-08-19 2차 지시 "위성지도 크기 더 키우고").
+  // 값을 못박는다 — 「크기」가 이 지시의 본체라 되돌아가면 지시가 무효가 된다.
+  // 실측 1536: 도식 723×599(종전 634×543) · 해설 381×599(격자 stretch로 자동 일치).
+  const tSat2 = typhoonSrc.indexOf('lg:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]');
   const tWhy = typhoonSrc.indexOf("explore.common.whyTitle");
   const tCta = typhoonSrc.indexOf("explore.typhoon.cta");
   checkMt21('㉱ 태풍: 위성 도식 ↔ 왜 그럴까 2열 격자가 있다', tSat2 > -1);
