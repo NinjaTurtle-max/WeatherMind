@@ -27,8 +27,8 @@ from types import SimpleNamespace
 import pytest
 
 from app.services import curriculum_service as cs
+from app.services import session_service
 from app.services import weatherbrain_service as wb
-from app.services import session_service, weatherbrain_service as wb
 
 SEED_DIR = Path(__file__).resolve().parents[2] / "database" / "seed"
 BANDS = wb.LEVEL_GROUP_BANDS

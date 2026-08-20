@@ -202,7 +202,7 @@ step_config() {
 # 새 스모크를 추가하면 **여기에도 등록**해야 CI가 그 계약을 지킨다.
 # (R10-01 웨이브 2에서 gating·board-entry·assist·webgl·overlay 5종 편입:
 #  웨이브 1~S5에서 추가됐지만 CI에 없어 회귀를 잡지 못하던 공백이었다.)
-#   explore     탐구 시뮬 + 렌더 스모크            session     세션 러너 렌더
+#   explore     탐구 시뮬 + 렌더 + 마운트 스모크   session     세션 러너 렌더
 #   placement   배치고사 진입                      visual      보드 레이아웃 계약·강수 엔진·보드 비주얼 SSR
 #   placement-skip 「모르겠어요」 — 센티널 값·일반 세션 유출 금지·전건 스킵 finalize
 #   gating      온보딩 점진적 잠금 해제            board-entry 보드 진입 게이트(구름 잔량 차단)
