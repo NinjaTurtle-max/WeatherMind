@@ -79,3 +79,70 @@ scripts/ci.sh
 
 ⚠️ 백엔드 수는 세션마다 다르다. **어느 커밋에서 쟀는지 없는 수는 대조에 쓰지 말 것.**
 오늘 그 형태로 두 번 어긋났다(1021 vs 1030은 세는 법이 아니라 **트리 차이**였다).
+
+---
+
+# ⑦ 🔴 병합 원칙 — 한쪽을 통째로 받으면 반드시 무언가를 잃는다
+
+`origin/main`의 `f8c3918 fix(ui): 화면 사이에서 어긋나던 셋`이 **9개 파일**을 고쳤고
+그중 **7자리가 우리 트리에 안 들어와 있다**(A조 읽기 전용 실측, `git show origin/main:`).
+
+## 원칙 두 줄
+
+> **코드 파일 — 「우리 로직 + main 표현」.**
+> 슬라이더 3개·`resetAll`은 우리 것, 여백·링크·주석 위치는 main 것.
+>
+> **계약 파일 — 「우리 재작성 + main 신규 단정」.**
+> 한쪽을 통째로 받으면 **계약이 사라지고, 사라진 계약은 실패도 안 남긴다.**
+
+## 표현을 main에서 받을 자리 (전건 우리가 옛 값)
+
+| 파일 · 줄 | 우리 (옛) | main (고침) |
+|---|---|---|
+| `explore/ClimateSimPage.jsx:236` | `space-y-4 py-4` | `space-y-4 pt-2` |
+| `explore/ClimateSimPage.jsx:239` | `text-xs font-medium text-sky-600 hover:text-sky-700` | `shrink-0 text-xs font-bold text-slate-500 hover:text-sky-600` |
+| `explore/TyphoonSimPage.jsx:216` | `space-y-4 py-4` | `space-y-4 pt-2` |
+| `explore/TyphoonSimPage.jsx:219` | `text-xs font-medium text-sky-600 hover:text-sky-700` | `shrink-0 text-xs font-bold text-slate-500 hover:text-sky-600` |
+| `explore/SandboxPage.jsx:63` | `text-sm font-medium … hover:text-slate-700` | `text-xs font-bold … hover:text-sky-600` |
+| `board/BoardPage.jsx:357` | `text-sm font-medium … hover:text-slate-700` | `text-xs font-bold … hover:text-sky-600` |
+| `progress/ProgressPage.jsx:622` | `mb-3 text-sm font-extrabold` | `mb-3 text-base font-extrabold` + 주석 |
+
+🔴 **`shrink-0`은 우리 쪽 두 파일에 0건이다.** 클래스 문자열을 **통째로** 받아야 그것까지 온다.
+부분만 받으면 또 갈린다.
+
+⚠️ **`ProgressPage`의 것은 여백이 아니라 위계다** — 「🎯 다음 목표」 카드만 14px이라 형제 넷
+(배지·일일 퀘스트·지식 단계·능력 분석)이 전부 16px인 사이에서 혼자 작았다. 다른 여섯과
+**성질이 달라 같은 규칙으로 뭉뚱그리면 안 된다.**
+
+## 🔴 우리 것을 지킬 자리
+
+- `ClimateSimPage` **`type="range"` 3개**(co2 · sensitivity · seaLevelPerDeg) — main은 **1개**뿐.
+- `ClimateSimPage` **`resetAll`** — main은 `setCo2` 인라인. **배타가 아니라 우리가 진상위집합**이고,
+  main 것을 받으면 「초기화」가 **3개 중 1개만** 되돌린다. 버튼이 초기화라고 말하는데
+  감도·해수면이 남는다 — **못 지킬 약속**이고, 클라이언트가 *「왜 너가 판단해서 잘라」*로
+  되살린 ⑬ 조작 변수 2건이 **동작에서** 죽는다.
+- 초기화 버튼 높이 `py-1.5`(우리) ↔ `py-2`(main) — **의도적으로 우리 값 유지 · 근거 미확인.**
+  `f8c3918` diff에 없어 그 커밋 주제에 속하지 않는다. 근거가 나오면 그때 바꾼다.
+
+## 🔴 계약 파일 둘 — 제일 위험하다
+
+```
+frontend/tests/home.smoke.test.mjs        main +27줄   ← 우리가 오늘 다시 씀(d6d6c99, 하루 목표 계약 이동)
+frontend/tests/uiCopy.contract.test.mjs   main +56줄   ← 우리가 오늘 절 ⑹⑺ 신설
+```
+**단정 단위로 갈라라.** 「main이 새로 세운 단정」과 「main이 옛 설계를 물고 있는 단정」은 다르다.
+
+⚠️ `uiCopy.contract`는 **클라이언트 판정으로 문구 셋을 걷은 뒤** 세운 파일이다
+(「바꿀 수 있다」·「언제든」·「나중에」 금지). **main의 +56줄이 걷힌 문구를 되살리는 단정이면
+받으면 안 되고, 왜 안 받는지를 그 자리에 남겨야 한다.**
+
+## `BoardPage.jsx` — 양쪽이 만난다
+
+main 몫은 `:357`(뒤로가기 링크), 우리 몫은 `:560`대(CTA, `6b7cfb5`). **자리가 달라 충돌은
+안 나지만 한쪽을 통째로 받으면 다른 쪽이 죽는다.**
+
+## ⚠️ 이 결함의 성질 — 왜 우리가 못 잡았나
+
+**한 화면만 보면 안 보이고 화면을 오갈 때만 드러난다**(본문이 8~13px 내려앉는다).
+⇒ **화면 단위 스모크가 원리적으로 못 잡는 부류**다. 그리고 **2026-08-17 사용자 제보 계열**이라
+잃으면 같은 제보를 다시 받는다.
