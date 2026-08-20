@@ -125,10 +125,25 @@ export default {
       // ⚠️ Predicted, **not** certified — the margin table is the measurement
       // role's to produce, on the same 158px basis.
       cardLocked: 'Above level',
-      lockedBannerTitle: '🔒 You see the difficulties your learning level opens',
-      // Same words as difficulty1~3 above — the badge and this banner must not
-      // name the same tier two different ways.
-      lockedBannerBody: 'Elementary students open Elementary, middle/high students up to Mid & high, adults open all tiers up to Adult.',
+      // 🔴 **Rewritten 2026-08-20 (판정 3).** Former values kept here on purpose:
+      //   · title: '🔒 You see the difficulties your learning level opens'
+      //   · body:  'Elementary students open Elementary, middle/high students up
+      //             to Mid & high, adults open all tiers up to Adult.'
+      //   · Why ⑴ **"adults open all tiers" became false.** The lock axis moved
+      //     from school-band-derived difficulty (3 tiers) to knowledge level
+      //     (10 tiers); there is a band above Adult, so adults do not open the
+      //     upper levels either.
+      //   · Why ⑵ the band-based phrasing itself is dead — the band is **not**
+      //     the owner of the ceiling (판정 1), and the new owner is still
+      //     **pending judgment**. So the copy says only what stays true whoever
+      //     owns it: "up to your level".
+      //   · Why ⑶ 🔴 **no tier counts, no puzzle counts.** A number here goes
+      //     stale the moment the axis moves — that is exactly how "9 questions
+      //     a day" turned false the same day.
+      //   · The old "same words as the badge" pact was dropped (the two now
+      //     speak different axes) — see the #32b smoke scenario for that trail.
+      lockedBannerTitle: '🔒 Open up to your level for now',
+      lockedBannerBody: 'Puzzles up to your level are open. Higher levels open as your level goes up.',
       lockedBannerCta: 'Change learning level',
       blockedSuffix: ' (out of clouds)',
       blockedTitle: 'Opens when a cloud recovers — in about {min} min',
