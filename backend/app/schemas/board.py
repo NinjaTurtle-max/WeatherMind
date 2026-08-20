@@ -16,16 +16,30 @@ from app.schemas.reward import QuestReward
 class BoardPuzzle(BaseModel):
     """GET /puzzles 항목 — active board 문항 + cleared 여부 + 난이도 라벨.
 
-    difficulty: 1(쉬움)~3(어려움) — routers.board.board_difficulty가 template_json
-    (mode·time_limit_sec·palette)과 level_group에서 산출(R7-02 §3.5).
+    ⚠️ **이 자리에 `difficulty` 설명이 있었고 낡았다**(2026-08-20 정정). 종전 기술:
+    *"difficulty: 1(쉬움)~3(어려움) — routers.board.board_difficulty가 template_json
+    (mode·time_limit_sec·palette)과 level_group에서 산출(R7-02 §3.5)"*. 그 필드와
+    그 함수는 **둘 다 철거됐다** — 응답 필드는 아래 `knowledge_level`이고 값은
+    파생이 아니라 **저작값**(`content_items.knowledge_level`)이다. 경위를 남기는
+    이유는 이 독스트링이 화면·목·계약 여러 곳에서 「난이도의 정의」로 인용됐기
+    때문이다. 조용히 지우면 파생 규칙이 아직 산다는 오해가 남는다.
 
     **잠금은 두 축이고 둘 다 산다**(2026-08-12 병합 판정). 서로 다른 것을 막으므로
     합쳐도 모순이 아니고, 어느 한쪽을 버리면 사용자 지시 하나를 되돌리게 된다:
 
-    locked: **학습 수준** 잠금(2026-08-10 지시) — *어느 난이도에 들어갈 수 있는가*.
-    초등은 쉬움, 중·고등은 보통까지, 성인은 전부. 규칙은
-    routers.board.locked_difficulties가 소유하고 열쇠는 users.level_group이다
-    (진도가 아니다 — 「내 정보 → 학습 수준」이 통로).
+    locked: **학습 수준** 잠금(2026-08-10 지시) — *어느 층에 들어갈 수 있는가*.
+    규칙의 소유자는 `routers.board.locked_tiers(ceiling)`이고 「천장 위 전 층이
+    잠긴다 · 천장이 미상이면 아무것도 잠그지 않는다」가 그 내용이다.
+    ⚠️ **종전 기술이 낡았다**(2026-08-20 정정): *"초등은 쉬움, 중·고등은 보통까지,
+    성인은 전부. 규칙은 routers.board.locked_difficulties가 소유하고 열쇠는
+    users.level_group이다"*. 셋 다 거짓이 됐다 — ⑴ 축이 난이도 3칸에서 **지식 단계
+    10칸**으로 갈아탔고 ⑵ `locked_difficulties`는 **철거**됐고 ⑶ 열쇠가
+    `users.level_group`이 아니다(학령 밴드를 천장 계산에서 빼는 것이 클라이언트
+    판정이다).
+    🔴 **천장의 소유자는 판정 대기다** — 클라이언트 지시가 「추천 시스템이 판정한
+    단계까지 열림」이고, 추천 시스템(`router_chain`)이 내놓는 것은 단계가 아니라
+    `focused|general|advanced` 세 갈래다. 갈래와 실측은 대장 §5.27-h가 소유한다.
+    ⇒ **이 자리에 새 열쇠 이름을 적지 않는다.** 적으면 판정 후 또 낡는다.
 
     unlocked: **순차** 잠금(MT-24, 2026-08-11 멘토링 지시) — *열린 난이도 안에서
     어디까지 왔는가*. 2026-08-06에 "고를 자유가 없다"고 걷어냈던 것을 되살린 것이고,
