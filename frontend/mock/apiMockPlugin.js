@@ -1648,14 +1648,70 @@ function boardDifficulty(template, levelGroup) {
 // 잠금 판정이 실서버와 갈린다.
 // 서버와 같은 폴백 — `??`로 두면 board_order=0이 맨 앞으로 가는데 서버는
 // 정수가 아닌 값만 뒤로 보낸다(0은 정수라 그대로 0). 판정이 갈리지 않게 맞춘다.
+//
+// 🔴 서버 판정은 파이썬 `isinstance(value, int)`다. `typeof v === 'number'`로는
+//    두 갈래가 갈렸다(2026-08-20 실측 — 시드 55건이 전부 정수라 **답만** 같았다):
+//    ⑴ **비정수 실수**: 파이썬에서 int가 아니므로 뒤(10000)로 간다. JS는 number라
+//       앞으로 보냈다 — `2.5`가 `3`보다 앞에 서던 자리다.
+//    ⑵ **불리언**: 파이썬에서 bool은 int라 `true`가 키 1, `false`가 키 0으로
+//       **맨 앞에 선다**. JS는 boolean이라 뒤로 보냈다. 서버 쪽 기벽이지만
+//       서버가 권위라 그대로 베낀다.
+//    ⚠️ 남는 한계: `3.0`처럼 **정수값 실수**는 서버에선 뒤로 가지만 JS에는 그런
+//       구분 자체가 없다(`Number.isInteger(3.0) === true`). JSON을 건너면 파이썬도
+//       int 3으로 읽으므로 계약도 이 갈래는 볼 수 없다 — 시드가 정수만 쓰는 한
+//       도달하지 않는 자리라 여기 적어 두는 것으로 갈음한다.
 const boardOrderOf = (seed) => {
-  const v = seed.template_json?.board_order;
-  return typeof v === 'number' ? v : 10000;
+  const v = seed?.template_json?.board_order;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  return Number.isInteger(v) ? v : 10000;
 };
 
-const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board')
-  .slice()
-  .sort((a, b) => boardOrderOf(a) - boardOrderOf(b))
+/**
+ * 서버 `routers/board.order_puzzles_for_progress`의 **사본** — 이름을 붙여
+ * 뺐다(2026-08-20). 인라인 `.sort()`로 두면 규칙을 표본에 태워 서버가 다시 풀게
+ * 할 수 없고, 그러면 「값이 같은 오늘만 조용한」 사본이 하나 더 남는다.
+ * JS `Array.sort`도 파이썬 `sorted`도 **안정 정렬**이라 동률·전건 부재는 입력
+ * 순서를 지킨다 — 그 성질까지 표본이 밟는다.
+ */
+const orderPuzzlesForProgress = (items) =>
+  items.slice().sort((a, b) => boardOrderOf(a) - boardOrderOf(b));
+
+/**
+ * 정렬 **규칙**을 서버가 직접 재도록 내보내는 입력 표본(`board_difficulty_samples`
+ * 관례). ⚠️ **정렬 키를 값으로 박지 않는다** — 키 축이 바뀌면(A조가 지식 단계를
+ * 얹는 중) 값 대조는 헛울거나 조용히 틀린다. 「같은 입력에 같은 **순서**가
+ * 나오는가」만 묻는다.
+ * ⚠️ 표본은 **갈리면 순서가 실제로 달라지는** 모양이어야 한다 — 실수 뒤에는
+ *    그보다 **큰 정수**를, 불리언 옆에는 **1보다 큰 정수**를 둔다. 그러지 않으면
+ *    갈래는 밟는데 답이 같아 계약이 초록으로 통과한다(오늘 palette 2개짜리가
+ *    그렇게 되돌림을 놓쳤다).
+ */
+const BOARD_ORDER_SAMPLES = [
+  // ⓐ 평범한 정수 — 뒤섞인 입력이 오름차순으로 선다
+  [{ board_order: 3 }, { board_order: 1 }, { board_order: 2 }],
+  // ⓑ 0은 「없음」이 아니다 — `??` 폴백으로 되돌아가면 여기서 운다
+  [{}, { board_order: 0 }],
+  // ⓒ 🔴 비정수 실수 + **그보다 큰 정수**. 서버는 2.5를 뒤로 보내 [1,0]이고
+  //    `typeof number`로 두면 2.5 < 3이라 [0,1] — 순서가 갈린다
+  [{ board_order: 2.5 }, { board_order: 3 }],
+  // ⓓ 🔴 불리언 + **1보다 큰 정수**. 서버는 true=1·false=0이라 [2,1,0]이고
+  //    boolean을 뒤로 보내면 [0,1,2] — 순서가 갈린다
+  [{ board_order: 5 }, { board_order: true }, { board_order: false }],
+  // ⓔ 동률 안정성 — 같은 키끼리는 입력 순서를 지킨다
+  [{ board_order: 2, tag: 'a' }, { board_order: 1 }, { board_order: 2, tag: 'b' }],
+  // ⓕ 전건 부재 안정성 — 전부 10000이라 입력 순서 그대로
+  [{}, { tag: 'x' }, {}],
+  // ⓖ 정수가 아닌 값(문자열·null)은 뒤로, 있는 정수는 앞으로
+  [{ board_order: '3' }, { board_order: null }, { board_order: 7 }],
+  // ⓗ 음수도 정수다 — 뒤로 가지 않는다
+  [{ board_order: -1 }, { board_order: 0 }],
+  // ⓘ template_json 자체가 null — 서버 `(item.template_json or {})`와 같은 자리
+  [null, { board_order: 1 }],
+];
+
+const BOARD_PUZZLES = orderPuzzlesForProgress(
+  SEED_ITEMS.filter((it) => it.question_type === 'board'),
+)
   .map((seed, i) => {
     const n = i + 1;
     const template = seed.template_json ?? {};
@@ -3291,6 +3347,17 @@ export const __mockPolicy = () => ({
   //    직접 재게 한다. 표만 맞고 규칙이 갈린 것이 palette 갈래였다.
   board_difficulty_samples: BOARD_DIFFICULTY_SAMPLES.map((c) => ({
     ...c, out: boardDifficulty(c.template, c.level_group),
+  })),
+  // ⚠️ 같은 이유로 **진행 순서 규칙**도 규칙째 노출한다 (server
+  //    routers/board.order_puzzles_for_progress — 2026-08-20).
+  //    출력은 정렬 키가 아니라 **입력 인덱스의 순열**이다: 키를 값으로 박으면
+  //    A조가 축을 `(지식 단계, board_order)`로 갈아탈 때 헛울거나 조용히 틀린다.
+  //    순열로 물으면 축이 바뀌어도 「같은 입력에 같은 순서인가」는 그대로 성립한다.
+  board_order_samples: BOARD_ORDER_SAMPLES.map((templates) => ({
+    templates,
+    out: orderPuzzlesForProgress(
+      templates.map((t, i) => ({ i, template_json: t })),
+    ).map((x) => x.i),
   })),
   duel_win_xp: MOCK_DUEL_WIN_XP, // server duel_service.DUEL_WIN_XP
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
