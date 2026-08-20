@@ -224,10 +224,32 @@ try {
     climateSrc.indexOf('<GoalPanel') > -1 && climateSrc.indexOf('<GoalPanel') < gridOpen);
   checkMt21('ⓓ 「왜 그럴까」와 CTA는 격자 아래(하단)에 남는다 — 사용자 지시 3',
     at("explore.common.whyTitle") > closeGrid && at("explore.climate.cta") > closeGrid);
-  checkMt21('ⓔ 지표 2종이 lg에서 세로로 쌓인다 (좁은 열에서 가로면 라벨이 접힌다)',
-    /grid-cols-2 gap-3 lg:grid-cols-1/.test(climateSrc));
+  // ⓔ **지표 둘은 어느 폭에서나 한 줄**이고, 그래서 오른쪽 열에 한 줄이 남는다.
+  //    그 남은 자리를 CO₂ 카드가 `flex-1`로 먹어 **두 열이 같은 줄에서 끝난다**
+  //    (2026-08-19 사용자 지시). 둘은 한 쌍이다 — 지표를 다시 세로로 쌓으면 남는
+  //    자리가 없어져 flex-1이 할 일이 사라지고, flex-1을 빼면 오른쪽 열 아래가
+  //    빈 상자가 된다. 실측 1536: 곡선 336 = CO₂ 177 + 지표 147 + 간격 12.
+  //    ⚠️ 높이를 숫자로 박으면 안 된다 — 행 높이는 곡선의 폭(=뷰포트)이 정해
+  //    1536/1280/1024에서 336/312/302로 다 다르다.
+  checkMt21('ⓔ 지표 2종이 어느 폭에서나 한 줄이다 (lg 예외 없음)',
+    /className="grid grid-cols-2 gap-3"/.test(climateSrc));
+  checkMt21('ⓔ 남는 한 줄을 CO₂ 카드가 먹는다 — flex-1 (없으면 오른쪽 열 아래가 빈다)',
+    /<div className="flex flex-1 flex-col rounded-2xl bg-white p-4/.test(climateSrc));
+  checkMt21('ⓔ 늘어난 자리를 슬라이더 뭉치가 쓴다 — 위에 붙이면 카드가 빈 상자가 된다',
+    /<div className="flex flex-1 flex-col justify-center py-2">/.test(climateSrc));
   checkMt21('ⓕ 곡선에 고정 높이를 박지 않았다 — 폭이 줄면 높이가 따라 준다',
     !/<AnomalyCurve[\s\S]{0,200}?className="[^"]*\bh-\[/.test(climateSrc));
+  // ⓖ 슬라이더 트랙은 **이 화면에서만** 두껍다. 전역 `input[type=range]`(h-2)를
+  //    키우면 태풍 실험실·보드 조절값까지 함께 두꺼워진다(그쪽은 카드가 낮아
+  //    지금이 맞다). `!h-3`가 그 국소 덮어쓰기다.
+  const cssRange = cssSrc.match(/input\[type='range'\][\s\S]{0,160}/)?.[0] ?? '';
+  checkMt21('ⓖ 두꺼운 트랙은 기후변화에만 — 전역 기본은 h-2 그대로',
+    /!h-3/.test(climateSrc) && /@apply h-2\b/.test(cssRange));
+  // ⓗ 「탐구 목표」 제목만 한 단계 크다(2026-08-19 사용자 지시). 항목 글자는
+  //    그대로여야 한다 — 같이 키우면 카드가 커져 2열 행 높이가 밀린다.
+  const goalSrc = await readFile(resolve(root, 'src/modules/explore/GoalPanel.jsx'), 'utf8');
+  checkMt21('ⓗ 「탐구 목표」 제목이 text-base다 (항목 글자는 그대로)',
+    /<p className="text-base font-bold text-slate-700">\{t\('explore\.goals\.title'\)\}<\/p>/.test(goalSrc));
 } finally {
   await server.close();
 }
