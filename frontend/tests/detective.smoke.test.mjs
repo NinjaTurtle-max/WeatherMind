@@ -387,6 +387,21 @@ window.XMLHttpRequest = RealXHR;
     /role="radiogroup"[\s\S]{0,120}?className="grid grid-cols-1 gap-2 sm:grid-cols-2"/.test(play),
     '추리 보기가 2×2 격자다 (종전 세로 일자 나열)',
   );
+  // 🔴 **전폭이다**(2026-08-19 2차 지시 "전부 가로로 길이 늘려서"). 왼쪽 열 안에
+  // 있던 동안 한 칸이 291px이라 보기가 두 줄로 접히며 납작한 알약처럼 보였다.
+  // 격자 **밖**으로 나와 한 칸 556px — 대부분의 보기가 한 줄에 든다.
+  // 들여쓰기로 판정한다: 격자 자식은 8칸, 페이지 직계는 6칸.
+  const hypLine = play.split('\n').find((l) => l.includes('aria-labelledby="detective-hypotheses"') && l.includes('<section'));
+  ok(
+    /^ {6}<section/.test(hypLine ?? ''),
+    `추리 절이 2열 격자 **밖**(전폭)이다 — 들여쓰기 ${(hypLine ?? '').length - (hypLine ?? '').trimStart().length}칸`,
+  );
+  // ⚠️ 넓어지면 글이 한 줄이 되어 **오히려 더 납작해진다**(실측 68 → 44 예상).
+  //    높이를 따로 잡는 것이 같은 지시의 뒷부분이다("세로로도 살짝 더 키워서").
+  ok(
+    /className=\{`flex min-h-\[68px\] w-full items-center rounded-2xl px-4 py-3/.test(play),
+    '추리 보기에 최소 높이와 세로 가운데 정렬이 있다 — 한 줄이 되어도 납작해지지 않는다',
+  );
   // 배너 오른쪽 설명을 **한 줄**로(사용자 지시). `tightDescription`이 10px·xl 430px
   // 변형이고, 실측으로 이 문장이 그 폭에 한 줄로 든다(h=14 · 배너 90 유지).
   // ⚠️ 아래 「사건 목록」 절의 `list`는 **여기보다 뒤에 선언**된다(TDZ) — 그대로
