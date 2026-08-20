@@ -10,6 +10,7 @@ import {
 // MT-24 탐구 목표 — 「변수를 바꿔보며」에 「해냈다」를 붙인다.
 import GoalPanel from './GoalPanel';
 import { CLIMATE_GOALS } from './exploreGoals';
+import HeroBanner from '../../components/HeroBanner';
 import { useT } from '../../i18n';
 
 /**
@@ -140,17 +141,31 @@ export default function ClimateSimPage() {
 
   return (
     <div className="space-y-4 py-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link to="/explore" className="text-xs font-medium text-sky-600 hover:text-sky-700">
-            {t('explore.common.back')}
-          </Link>
-          <h1 className="text-lg font-extrabold text-slate-800">{t('explore.climate.title')}</h1>
-        </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-extrabold" style={{ color }}>
-          +{result.anomaly.toFixed(2)}℃
-        </span>
-      </div>
+      {/* 🔴 **상단 튜터 배너**(2026-08-19 사용자 지시). 담당은 **온도계**이고,
+          소유자는 `SideNav.TUTOR_BY_PATH`의 `/explore/climate` 행이다
+          (`mascotAssets.contract` ④가 그 표와 여기를 대조한다).
+          태풍 실험실과 같은 꼴로 짠다 — 배너를 얹지 않고 **종전 제목 줄을
+          바꿔 넣고**, 아노말리 배지는 `right` 슬롯으로 자리를 지킨다. */}
+      <Link to="/explore" className="inline-block text-xs font-medium text-sky-600 hover:text-sky-700">
+        {t('explore.common.back')}
+      </Link>
+      <HeroBanner
+        testId="climate-hero"
+        mascot="thermometer"
+        as="h1"
+        eyebrow={t('explore.climate.title')}
+        title={t('explore.climate.heroTitle')}
+        description={t('explore.home.climateDesc')}
+        right={
+          // 칩 바탕이 `slate-100` → **흰색**이다. 남색 배너 위에서 slate-100은
+          // 거의 안 보이고, 글자색(anomalyColor)은 전부 600단계라 남색 직접
+          // 배치도 대비가 안 난다 — 흰 칩을 깔아야 그 색이 살아난다.
+          // 색은 심각도를 나르는 채널이라 **없애지 않는다**(0.75/1.5/2.25 경계).
+          <span className="rounded-full bg-white px-3 py-1 text-xs font-extrabold" style={{ color }}>
+            +{result.anomaly.toFixed(2)}℃
+          </span>
+        }
+      />
 
       <p className="rounded-xl bg-slate-100 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
         {t('explore.climate.disclaimer')}

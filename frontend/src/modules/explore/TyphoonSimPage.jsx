@@ -11,6 +11,7 @@ import {
   SST_MIN,
   SST_MAX,
 } from '../../lib/exploreSims';
+import HeroBanner from '../../components/HeroBanner';
 import { useT } from '../../i18n';
 
 /**
@@ -210,15 +211,27 @@ export default function TyphoonSimPage() {
 
   return (
     <div className="space-y-4 py-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link to="/explore" className="text-xs font-medium text-sky-600 hover:text-sky-700">
-            {t('explore.common.back')}
-          </Link>
-          <h1 className="text-lg font-extrabold text-slate-800">{t('explore.typhoon.title')}</h1>
-        </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-bold ${meta.badge}`}>{t(meta.labelKey)}</span>
-      </div>
+      {/* 🔴 **상단 튜터 배너**(2026-08-19 사용자 지시 — "모든 각 실험실 화면에
+          마찬가지로 상단 튜터 카드"). 담당은 **태풍이**이고, 소유자는
+          `SideNav.TUTOR_BY_PATH`의 `/explore/typhoon` 행이다
+          (`mascotAssets.contract` ④가 그 표와 여기를 대조한다).
+          ⚠️ 배너를 **더하지 않고 종전 제목 줄을 바꿔 넣었다** — 위에 얹으면
+          화면이 그만큼 길어지는데, 같은 지시의 다른 절반이 "세로로 길지 않게"다.
+          등급 배지는 배너의 `right` 슬롯으로 들어가 자리를 그대로 지킨다. */}
+      <Link to="/explore" className="inline-block text-xs font-medium text-sky-600 hover:text-sky-700">
+        {t('explore.common.back')}
+      </Link>
+      <HeroBanner
+        testId="typhoon-hero"
+        mascot="typhoon"
+        as="h1"
+        eyebrow={t('explore.typhoon.title')}
+        title={t('explore.typhoon.heroTitle')}
+        description={t('explore.home.typhoonDesc')}
+        right={
+          <span className={`rounded-full px-3 py-1 text-xs font-bold ${meta.badge}`}>{t(meta.labelKey)}</span>
+        }
+      />
 
       <p className="rounded-xl bg-slate-100 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
         {t('explore.typhoon.disclaimer1')} <b>{t('explore.typhoon.disclaimerBold')}</b>{t('explore.typhoon.disclaimer2')}

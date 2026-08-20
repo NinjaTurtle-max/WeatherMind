@@ -13,6 +13,7 @@ export default {
     },
     list: {
       title: '🕰️ Hindcast Challenge',
+      heroTitle: "Ready to be that day's forecaster?",
       subtitle: 'The server already knows what actually happened on these days. Step in as that day&apos;s forecaster.',
       back: '← Explore',
       loading: 'Loading rounds...',

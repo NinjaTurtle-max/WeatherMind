@@ -637,6 +637,10 @@ export default {
       eyeSpinning: '회전하는 태풍 눈',
       eyeCalm: '잔잔한 바다',
       title: '🌪️ 태풍 만들기',
+      // 상단 튜터 배너(2026-08-19) — eyebrow는 위 `title`, description은
+      // 탐구 홈 카드와 **같은 문장**(`explore.home.typhoonDesc`)을 쓴다.
+      // 들어오기 전에 읽은 소개와 들어와서 읽는 소개가 다르면 다른 화면처럼 읽힌다.
+      heroTitle: '태풍은 어떤 바다에서 태어날까요?',
       disclaimer1: '교육용 단순화 모델이에요. 실제 태풍 예측(수치 모델)이 아니라, 바다 온도와 바람 시어가 태풍 발달에 미치는',
       disclaimerBold: '경향',
       disclaimer2: '만 담은 결정적 근사예요.',
@@ -661,6 +665,7 @@ export default {
       curveAria: 'CO2 {co2}ppm에서 온도 아노말리 {anomaly}℃',
       presentMark: '현재≈{n}',
       title: '🌡️ 기후변화 체험',
+      heroTitle: 'CO₂가 오르면 무엇이 먼저 달라질까요?',
       disclaimer: '교육용 단순화 모델이에요. ΔT = S·log₂(C/C₀), S=3.0℃(배증당) 로그 감도 근사로, 실제 기후 전망(수치 모델)·특정 연도 예측이 아니에요.',
       anomalyTitle: '지구 평균기온 아노말리',
       anomalySub: '산업화 이전(280ppm) 대비 상승분 — 로그 감도 곡선',
