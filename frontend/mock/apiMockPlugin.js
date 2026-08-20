@@ -1673,8 +1673,9 @@ const boardOrderOf = (seed) => {
  * JS `Array.sort`도 파이썬 `sorted`도 **안정 정렬**이라 동률·전건 부재는 입력
  * 순서를 지킨다 — 그 성질까지 표본이 밟는다.
  */
-const orderPuzzlesForProgress = (items) =>
-  items.slice().sort((a, b) => boardOrderOf(a) - boardOrderOf(b));
+const byBoardOrder = (a, b) => boardOrderOf(a) - boardOrderOf(b);
+
+const orderPuzzlesForProgress = (items) => items.slice().sort(byBoardOrder);
 
 /**
  * 정렬 **규칙**을 서버가 직접 재도록 내보내는 입력 표본(`board_difficulty_samples`
@@ -1709,9 +1710,15 @@ const BOARD_ORDER_SAMPLES = [
   [null, { board_order: 1 }],
 ];
 
-const BOARD_PUZZLES = orderPuzzlesForProgress(
-  SEED_ITEMS.filter((it) => it.question_type === 'board'),
-)
+// ⚠️ **`SEED_ITEMS.filter(...)`가 대입 바로 뒤에 붙어 있어야 한다** —
+//   `test_r10_mock_parity_contract::test_보드_퍼즐이_시드_board에서_파생된다`가
+//   그 형태를 문다(손으로 베낀 배열 리터럴 차단). 2026-08-20에 정렬을
+//   `orderPuzzlesForProgress(...)`로 **감쌌다가 그 계약이 울었고**, 계약의 정규식을
+//   넓히는 대신 **코드를 계약에 맞추는 쪽으로 판정**이 났다(클라이언트).
+//   ⇒ 감싸지 않고 **같은 비교 함수**(`byBoardOrder`)를 태운다. 그러면 표본이 무는
+//     `orderPuzzlesForProgress`와 여기가 **한 규칙**을 공유해 사본이 안 생긴다.
+const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board')
+  .sort(byBoardOrder)
   .map((seed, i) => {
     const n = i + 1;
     const template = seed.template_json ?? {};

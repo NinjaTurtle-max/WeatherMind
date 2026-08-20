@@ -123,20 +123,61 @@ class TestMockDerivesFromSeed:
         ), "목이 content_items.json을 읽지 않는다 — 손으로 베낀 사본은 드리프트한다"
 
     def test_보드_퍼즐이_시드_board에서_파생된다(self, mock_src):
-        """⚠️ 이 계약이 무는 것은 **파생 링크**이지 한 줄의 생김새가 아니다.
+        """🔴 **한 번 느슨해졌다가 되돌렸다**(2026-08-20, 클라이언트 판정).
 
-        2026-08-20에 정렬을 `orderPuzzlesForProgress(...)`로 감싸자(그래야 규칙을
-        표본에 태워 서버가 다시 풀 수 있다) 대입 뒤 글자가 달라져 이 계약이
-        울었다 — 파생은 그대로인데. 그래서 대입과 `SEED_ITEMS.filter(...)` 사이에
-        **감싸는 표현을 허용**한다. `[^;]*`이 `;`을 못 넘으므로 손으로 베낀 배열
-        리터럴은 여전히 걸린다(이 계약의 실제 목적).
+        정렬을 `orderPuzzlesForProgress(...)`로 감싸자 대입 뒤 글자가 달라져 이
+        계약이 울었다(파생 자체는 그대로였다). 그때 **정규식을 `[^;]*`으로 넓혀**
+        통과시켰고, 근거는 *「코드를 정규식에 맞춰 비트는 쪽이 더 나쁘다」*였다.
+
+        🔴 **결말: 넓히지도 비틀지도 않았다.** 판정이 「되돌린다」→「넓힘 유지」로
+        오갔는데, 되돌리기를 **실제로 손으로 해 보다가 셋째 형태**가 나왔다:
+        비교 함수 `byBoardOrder`를 빼서 **프로덕션과 표본이 그것을 공유**한다.
+        그러면 ⑴ 이 정규식이 요구하는 파생 형태가 그대로 지켜지고 ⑵ 표본이 무는
+        `orderPuzzlesForProgress`와 프로덕션이 **한 규칙**이라 사본이 안 생긴다.
+        **계약도 코드도 무르지 않는다.** 어드바이저가 앞 판정을 개정해 이 안을
+        채택했다.
+
+        ⚠️ 남길 원칙: **「계약 vs 코드」 갈림이 오면 판정 전에 「둘 다 안 무르는
+           셋째 형태가 있는가」를 먼저 묻는다.** 이 건은 판정자 둘이 연속으로
+           이분법을 그대로 받았고, 셋째를 찾은 것은 **되돌리기를 실제로 해 본 쪽**
+           이었다.
+        ⚠️ 그리고 계약을 느슨하게 하는 것은 세션이 스스로 결정하지 않는다
+           (같은 날 생긴 규정 — 이 건이 그 파이프의 첫 사례다).
         """
         assert re.search(
-            r"const BOARD_PUZZLES = [^;]*"
-            r"SEED_ITEMS\.filter\(\(it\) => it\.question_type === 'board'\)",
+            r"const BOARD_PUZZLES = SEED_ITEMS\.filter\(\(it\) => it\.question_type === 'board'\)",
             mock_src,
-            re.S,
         ), "BOARD_PUZZLES가 시드 파생이 아니다 — 숫자를 손으로 맞추면 다시 갈라진다"
+
+    def test_보드_퍼즐_정렬이_표본과_같은_규칙을_쓴다(self, mock_src):
+        """🔴 **공유가 이 안의 요점이라 공유 자체를 문다**(2026-08-20).
+
+        정렬 규칙을 `byBoardOrder` 한 곳에 두고 **프로덕션(`BOARD_PUZZLES`)과
+        표본(`orderPuzzlesForProgress` → `board_order_samples`)이 함께 쓰는 것**이
+        「계약도 코드도 안 무르는 셋째 형태」의 핵심이다. 프로덕션만 다른 인라인
+        정렬로 갈라 놓으면 **표본은 여전히 초록인데 화면 순서만 갈린다.**
+
+        ⚠️ 되돌림에서 실제로 그랬다 — 프로덕션을 인라인 비교식으로 바꿔도
+           **53건 전부 통과**했다. 시드가 정수만 써서 오늘 산출이 같기 때문이고,
+           **행동 대조로는 못 잡는다**(오늘 세 번 밟은 「입력이 갈래를 안 밟아서
+           초록」이 여기서도 성립한다). 그래서 **링크를 직접** 문다.
+        """
+        m = re.search(
+            r"const BOARD_PUZZLES = SEED_ITEMS\.filter\([^\n]*\)\s*\n\s*\.sort\((\w+)\)",
+            mock_src,
+        )
+        assert m, (
+            "BOARD_PUZZLES가 이름 붙은 비교 함수로 정렬되지 않는다 — 인라인 정렬로 갈라지면 "
+            "표본이 무는 규칙과 화면이 쓰는 규칙이 달라진다"
+        )
+        comparator = m.group(1)
+        assert re.search(
+            rf"const orderPuzzlesForProgress = \(items\) => items\.slice\(\)\.sort\({comparator}\)",
+            mock_src,
+        ), (
+            f"표본이 무는 `orderPuzzlesForProgress`가 프로덕션과 다른 비교 함수를 쓴다 "
+            f"(프로덕션: {comparator}) — 규칙 사본이 둘로 갈렸다"
+        )
 
     def test_목의_하루_경계가_KST다(self, mock_src):
         """목의 "오늘" == 서버의 "오늘" (KST). R10-01 D9 — 웨이브 2 확인 항목.
