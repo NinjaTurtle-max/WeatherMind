@@ -530,8 +530,20 @@ try {
     const hardCard = buttons().find((b) => (b.textContent ?? '').includes(hardTitle));
     assert(hardCard?.disabled, '잠긴 퍼즐 카드가 비활성이 아니다');
     assert(text().includes('수준 올리면 열림'), '잠긴 칸에 사유가 안 뜬다');
-    // 여는 통로가 화면에 있어야 한다 — 사유만 있고 방법이 없으면 벽이다
-    assert(window.document.querySelector('a[href="/me"]'), '잠금 안내에 학습 수준 통로가 없다');
+    // 여는 통로가 화면에 있어야 한다 — 사유만 있고 방법이 없으면 벽이다.
+    //
+    // 🔴 **성질은 그대로이고 조준만 옮겼다**(2026-08-20 판정 ⓐ, `6b7cfb5`). 종전
+    // 주소는 `/me`였고 **두 겹으로 거짓**이었다 — 경위를 남긴다(조용히 고치면 다음
+    // 사람이 `/me`로 되돌린다):
+    //   ⑴ `/me`에 학습 수준 카드가 **없다**. 클라이언트 판정 「진입에서 한 번 고르면
+    //      고정」으로 걷혔다(`91e42de`) — 가도 할 수 있는 것이 없었다.
+    //   ⑵ 있었다 해도 신고 가능한 밴드는 **3종뿐**이다(`schemas/auth.LevelGroup` —
+    //      `expert`가 없다). 재신고로 닿는 천장은 `adult` 사전값 파생이 상한이라
+    //      **상위 4층은 신고로 영영 안 열린다.** 상위 층은 **측정으로만** 열린다.
+    // ⇒ 이제 참인 통로는 「풀면서 단계 올리기」(`/learn`)다. **주소를 단정한다** —
+    //   「링크가 하나라도 있다」로 무르면 「사유만 있고 방법이 없는 벽」을 다시 못 잡는다.
+    assert(window.document.querySelector('a[href="/learn"]'),
+      '잠금 안내에 **단계를 올리는 통로**가 없다 — 사유만 있고 방법이 없으면 벽이다');
     const mark = xhrLog.length;
     click(hardCard);
     await sleep(300);
@@ -834,8 +846,33 @@ try {
     };
     // 새 축의 낱말 — 배지(`ability.knowledgeLevel`)와 같은 축이어야 한다.
     const AXIS_WORD = { ko: '단계', en: 'level' };
+    // 🔴 **못 지킬 약속의 어법**(`uiCopy.contract` ⑹⑺) — CTA가 되돌아가기 쉬운 자리다.
+    //    「나중에 바꿀 수 있어요」류는 **범위를 안 말하는 옛 문구**이고, 실제로 이
+    //    배너의 CTA가 그렇게 두 겹으로 거짓이었다(`6b7cfb5`: `/me`에 학습 수준 카드가
+    //    없고, 있었어도 신고 밴드 3종으로는 상위 4층에 영영 못 닿는다).
+    const EMPTY_PROMISE_WORDS = {
+      ko: ['나중에', '언제든', '바꿀 수 있', '변경할 수 있', '학습 수준 바꾸'],
+      en: ['later', 'anytime', 'any time', 'you can change', 'change your level'],
+    };
     for (const locale of ['ko', 'en']) {
       const page = (await vite.ssrLoadModule(`/src/i18n/resources/board.${locale}.js`)).default.board.page;
+      // 🔴 **CTA를 같은 검사에 넣는다**(2026-08-20 PM 지시 — 조이는 것이라 집행).
+      //    종전에는 제목·본문만 봐서, **CTA가 못 지킬 약속으로 되돌아가도 아무도
+      //    안 울었다.** 실제로 되돌아간 것이 아니라 **처음부터 거짓이었고**, 그
+      //    거짓을 이 그물이 한 번도 못 봤다.
+      //    ⚠️ CTA에는 축 낱말(「단계」/level)을 요구하지 않는다 — 버튼은 **행동**을
+      //    말하는 자리라 축 명사를 강제하면 「단계 보기」 같은 빈 말로 통과한다.
+      //    대신 **못 지킬 약속의 어법**을 금지해 「무엇을 하면 열리는가」만 남긴다.
+      const cta = page.lockedBannerCta;
+      assert(typeof cta === 'string' && cta.trim(),
+        `${locale}: lockedBannerCta가 비었다 — 사유만 있고 방법이 없으면 벽이다`);
+      for (const word of [...DEAD_BAND_WORDS[locale], ...EMPTY_PROMISE_WORDS[locale]]) {
+        assert(!cta.toLowerCase().includes(word.toLowerCase()),
+          `${locale}: lockedBannerCta가 못 지킬 약속/죽은 학령 낱말 「${word}」로 되돌아갔다 — 상위 층은 **측정으로만** 열린다(판정 ⓐ). 신고 밴드는 3종뿐이라 재신고로는 상위 4층에 영영 못 닿는다. 지금 문구: ${cta}`);
+      }
+      assert(!/\d/.test(cta),
+        `${locale}: lockedBannerCta에 숫자가 박혔다 — 단계 수·판수는 갈리면 거짓이 된다. 지금 문구: ${cta}`);
+
       for (const key of ['lockedBannerTitle', 'lockedBannerBody']) {
         const copy = page[key];
         assert(typeof copy === 'string' && copy.trim(),
