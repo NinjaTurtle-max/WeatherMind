@@ -695,6 +695,7 @@ try {
       `초등: 천장 위/아래 칸을 둘 다 읽어야 한다 — 위 ${aboveCeiling.length}건 · 아래 ${atOrBelow.length}건 (0이면 아래 두 단정이 공집합을 통과한다)`);
     assert(aboveCeiling.every((p) => p.locked), '초등인데 천장 위 층이 열려 있다');
     assert(atOrBelow.every((p) => !p.locked), '초등인데 천장 이하 층이 잠겼다');
+    console.log(`  · 노출 판수 실측: 초등 사전 θ 천장 ${elemCeiling} · ${openIds(elem.body).size}판`);
    } finally {
     // 목의 학령·θ는 **프로세스 전역**이라 실패해도 둘 다 원복한다. θ를 두고 나가면
     // 뒤 시나리오가 엉뚱한 천장에서 돌고, 그 실패는 원인이 안 보인다.
