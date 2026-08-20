@@ -123,9 +123,19 @@ class TestMockDerivesFromSeed:
         ), "목이 content_items.json을 읽지 않는다 — 손으로 베낀 사본은 드리프트한다"
 
     def test_보드_퍼즐이_시드_board에서_파생된다(self, mock_src):
+        """⚠️ 이 계약이 무는 것은 **파생 링크**이지 한 줄의 생김새가 아니다.
+
+        2026-08-20에 정렬을 `orderPuzzlesForProgress(...)`로 감싸자(그래야 규칙을
+        표본에 태워 서버가 다시 풀 수 있다) 대입 뒤 글자가 달라져 이 계약이
+        울었다 — 파생은 그대로인데. 그래서 대입과 `SEED_ITEMS.filter(...)` 사이에
+        **감싸는 표현을 허용**한다. `[^;]*`이 `;`을 못 넘으므로 손으로 베낀 배열
+        리터럴은 여전히 걸린다(이 계약의 실제 목적).
+        """
         assert re.search(
-            r"const BOARD_PUZZLES = SEED_ITEMS\.filter\(\(it\) => it\.question_type === 'board'\)",
+            r"const BOARD_PUZZLES = [^;]*"
+            r"SEED_ITEMS\.filter\(\(it\) => it\.question_type === 'board'\)",
             mock_src,
+            re.S,
         ), "BOARD_PUZZLES가 시드 파생이 아니다 — 숫자를 손으로 맞추면 다시 갈라진다"
 
     def test_목의_하루_경계가_KST다(self, mock_src):
