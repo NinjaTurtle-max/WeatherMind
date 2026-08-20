@@ -1113,9 +1113,31 @@ export default function PcCurriculumPath({
             )}
           </div>
 
-          {/* 트랙 하단 진도 바 — 노드 라벨을 뺀 만큼 "지금 어디"를 여기서 말한다 */}
-          <div className="absolute inset-x-0 bottom-0 z-[3] flex items-center gap-2.5 border-t border-slate-200 bg-white/95 px-3.5 py-2 backdrop-blur">
-            <span className="text-[11.5px] font-extrabold text-slate-500">
+          {/* 트랙 하단 진도 바 — 노드 라벨을 뺀 만큼 "지금 어디"를 여기서 말한다.
+              🔴 **`absolute`를 되돌리지 말 것 — 흐름 안의 세 번째 행이다**(2026-08-20).
+              종전 `absolute inset-x-0 bottom-0 … bg-white/95 backdrop-blur`는 자리를
+              차지하지 않고 스크롤러의 **아래를 덮었다.** 트랙 안쪽 맨 아래는 스크롤을
+              끝까지 내렸을 때 마지막 노드가 서는 자리라, 그 노드의 밑변이 불투명한
+              흰 바에 가려 **잘린 것처럼 보였다** — 클립 결함을 고친 뒤에도 남았다.
+              브라우저 실측(820×776 · 14칸 · 클립 수정 후, 이 커밋 전):
+                노드 밑변이 바 top보다 22.75px 아래 = 그만큼이 바에 덮였다
+              가림도 잘림과 같은 성질이다 — **스크롤로 되돌릴 수 없는 픽셀**이다.
+              흐름에 넣으면 `.wm-track`의 flex 열이 탭 줄·스크롤러·이 바를 나눠
+              가지므로 덮을 자리가 아예 없어진다(빼야 할 값을 아무도 모른다).
+              곁따라 걷은 죽은 값 셋: `inset-x-0 bottom-0`(흐름에서는 무의미) ·
+              `z-[3]`(static 요소의 z-index는 무시된다) · `backdrop-blur`와
+              `bg-white/95`의 반투명(뒤에 아무것도 없으면 흐릴 것이 없다).
+              ⚠️ `.wm-track`의 `position: relative`는 **남긴다.** 이제 절대배치
+              자식은 없지만, 그것을 걷으면 후손의 `offsetParent`가 바뀐다 —
+              `stage.offsetTop`이 트랙 기준이라 42px 어긋났던 사고가 이 파일에
+              기록돼 있다(2026-08-13). 좌표계를 다시 흔들 이유가 없다. */}
+          <div className="flex flex-none items-center gap-2.5 border-t border-slate-200 bg-white px-3.5 py-2">
+            {/* `flex-none whitespace-nowrap` — 흐름에 들어온 뒤로 이 바의 높이가
+                **스크롤러의 높이를 직접 깎는다.** 라벨이 두 줄로 접히면 그만큼
+                경로가 짧아진다(실측 820px에서 바가 34.25 → 51.5px). 접히는 것은
+                이 라벨 하나이고, 줄어들 몫은 이미 `truncate`를 가진 유닛명이
+                맡는다. */}
+            <span className="flex-none whitespace-nowrap text-[11.5px] font-extrabold text-slate-500">
               {t('curriculum.path.progressLabel')}
             </span>
             {currentUnit && (
