@@ -12,8 +12,27 @@ import { useT } from '../../i18n';
  * 그대로 그리면 en 모드에서 한국어가 나온다(MT-28에서 실제로 잡은 결함 유형).
  * 서버 필드는 API를 직접 보는 심사자용으로 따로 남아 있다.
  */
-export default function DemoDataNotice() {
+/**
+ * `inline` — 카드가 아니라 **한 줄**로 낸다(2026-08-19). 회차 화면이 2열이 되면서
+ * 이 고지가 본문에서 62px을 쓰는 노란 띠로 남아 있을 이유가 없어졌다. 탐구 실험실
+ * 넷이 이미 「뒤로가기와 같은 행, 오른쪽 정렬 작은 글씨」 관례를 쓴다.
+ * ⚠️ **접거나 숨기는 선택지는 없다.** 위 머리말대로 이 고지는 이 항목의 정직성
+ *    자체다 — 줄이는 것은 되지만 없애는 것은 안 된다. 그래서 `hidden`이 아니라
+ *    글자 크기만 줄였고, `data-testid`는 두 꼴이 같아 스모크가 양쪽을 다 잡는다.
+ */
+export default function DemoDataNotice({ inline = false }) {
   const t = useT();
+  if (inline) {
+    return (
+      <p
+        data-testid="hindcast-demo-notice"
+        className="min-w-0 text-[10.5px] leading-snug text-amber-700 sm:text-right"
+      >
+        <span className="font-bold">{t('hindcast.disclosure.label')}: </span>
+        {t('hindcast.disclosure.body')}
+      </p>
+    );
+  }
   return (
     <div
       data-testid="hindcast-demo-notice"
