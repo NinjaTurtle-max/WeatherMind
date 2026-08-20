@@ -1,8 +1,10 @@
 """보드 진행 순서 — 저작 순서 정렬 + 시드 저작 상태.
 
 정렬은 DB 의존이 없는 순수 함수(`order_puzzles_for_progress`)라 DB 없이 고정한다
-(test_board_difficulty 관례). 시드 실물의 저작 상태(제목·요약·순서 완비)도 여기서
-함께 지킨다 — 하나만 빠져도 카드가 빈 칸으로 뜬다.
+(`test_board_difficulty.py` 관례 — 그 파일이 무는 **파생 난이도 축은 2026-08-20에
+철거됐고** 지금은 철거 경위만 남았지만, 「순수 규칙은 DB 없이 고정한다」는 관례는
+그대로 살아 있다). 시드 실물의 저작 상태(제목·요약·순서 완비)도 여기서 함께 지킨다
+— 하나만 빠져도 카드가 빈 칸으로 뜬다.
 
 ⚠️ 순차 잠금은 넣었다가 걷어냈다(2026-08-06) — 학습자가 아무 퍼즐이나 고른다.
 순서는 화면 배치(난이도 오름차순 격자)의 근거일 뿐 강제가 아니다.
@@ -16,7 +18,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from app.routers import board as board_router
-from app.routers.board import board_difficulty, order_puzzles_for_progress
+from app.routers.board import order_puzzles_for_progress
 
 
 SEED_PATH = (
@@ -294,52 +296,99 @@ class TestDisasterBoards:
 
 # ── 학습 수준 잠금 (2026-08-10 사용자 지시) ──────────────────────────────────
 #
-# 초등은 쉬움만, 중·고등은 쉬움·보통, 성인은 전부. 열쇠는 진도가 아니라
-# `users.level_group`이다.
+# **천장 위 층은 잠기고 천장 이하는 열린다.** 열쇠는 진도가 아니라 학습 수준이다.
+#
+# 🔴 **2026-08-20 축 교체**: 종전에는 열쇠가 `users.level_group`이고 잠기는 것이
+# **학령 파생 난이도 3칸**이었다(*"초등은 쉬움만, 중·고등은 쉬움·보통, 성인은 전부"*).
+# 지금은 **지식 단계(1~N, 유닛과 같은 축)**이고 천장의 출처는 `learner_tier()`
+# (θ 파생 1순위 · 밴드 폴백 2순위)다. **규칙의 형태는 그대로**라 아래 단정들은
+# 뜻을 그대로 옮겨 적은 것이다 — 바뀐 것은 층의 개수와 천장의 출처뿐이다.
+# ⚠️ 그래서 **테스트 이름을 밴드로 부르면 거짓이 된다**: 실측 밴드 폴백은
+# 초등 1 · 중고등 3 · 성인 5 · expert 7이므로 「성인 = 천장 10」 같은 이름은
+# 아무 근거가 없다(2026-08-20 개명 — 이름을 성질로 되돌렸다).
 #
 # ⚠️ 이 파일 머리말이 「순차 잠금은 걷어냈다」고 적어 둔 것과 **어긋나지 않는다**.
 # 걷어낸 것은 퍼즐 하나하나가 앞 퍼즐을 요구하던 잠금이고(고를 자유가 없었다),
-# 여기는 난이도 묶음 자체를 수준으로 여닫을 뿐 묶음 **안에서는** 아무거나 고른다.
+# 여기는 층 자체를 수준으로 여닫는다. ⚠️ 다만 「열린 묶음 안에서는 아무거나」는
+# 더 이상 참이 아니다 — MT-24·결함 ⑨가 **자기 층 안의 순차**를 되살렸다.
 #
 # ⚠️ 같은 날의 첫 판은 「쉬움 전건 클리어 → 보통 개방」이었고 그 테스트가 여기
 # 있었다. 뒤집힌 이유는 심사다 — 로그인 없이 여는 화면에서 쉬움 23칸을 깨야
-# 보통이 열리면 심사위원은 보통·어려움을 못 본다(HACKATHON_RULES).
+# 보통이 열리면 심사위원은 보통·어려움을 못 본다(HACKATHON_RULES). 새 축도 이
+# 판단을 물려받는다: **천장이 진도가 아니라 수준에서 온다.**
 #
-# 규칙은 DB를 안 타는 순수 함수라 여기서 전 분기를 고정한다.
+# 규칙은 DB를 안 타는 순수 함수라 여기서 전 분기를 고정한다(천장 조회만 DB를 탄다).
 import pytest
 
-from app.routers.board import BAND_MAX_DIFFICULTY, locked_difficulties, locked_tiers
+from app.routers.board import locked_tiers
+# 층의 개수를 여기 적지 않는다(CLAUDE.md §0-2) — 소유자는 라우터가 인용하는 그 한 곳이다.
+from app.schemas.progress import KNOWLEDGE_LEVEL_MAX
+from app.services import weatherbrain_service
 
 
-def test_초등은_쉬움만_열린다():
-    assert locked_tiers(1) == set(range(2, 11))
+@pytest.mark.parametrize("ceiling", list(range(1, KNOWLEDGE_LEVEL_MAX + 1)))
+def test_천장_위_전_층이_잠긴다(ceiling):
+    """종전 이름은 「초등은 쉬움만」·「중고등은 쉬움과 보통」이었고 **거짓이 됐다**
+    (초등의 천장은 1이 아니라 밴드 폴백 1·θ 기본 2이고, 중고등은 3이다).
+    단정이 물던 것은 밴드 매핑이 아니라 `locked_tiers`의 **정의역 성질**이라
+    이름만 성질로 되돌리고, 두 칸만 보던 것을 **전 천장으로 넓혔다**(2026-08-20).
+
+    ⚠️ 기대값을 `{t for t in BOARD_TIERS if t > ceiling}`로 쓰지 않는다 — 그것은
+    프로덕션 식 그대로라 계약이 자기 자신을 읽고 만족한다. `range`로 독립 서술한다.
+    """
+    assert locked_tiers(ceiling) == set(range(ceiling + 1, KNOWLEDGE_LEVEL_MAX + 1))
 
 
-def test_중고등은_쉬움과_보통이_열린다():
-    assert locked_tiers(2) == set(range(3, 11))
+@pytest.mark.parametrize("ceiling", list(range(1, KNOWLEDGE_LEVEL_MAX + 1)))
+def test_천장_이하는_한_층도_잠기지_않는다(ceiling):
+    """반대 방향의 off-by-one — 자기 층이 잠기면 그 학습자는 열린 판이 0이 된다."""
+    assert not locked_tiers(ceiling) & set(range(1, ceiling + 1))
 
 
-def test_성인은_전부_열린다():
-    assert locked_tiers(10) == set()
+def test_천장이_정의역_상한이면_아무것도_잠기지_않는다():
+    assert locked_tiers(KNOWLEDGE_LEVEL_MAX) == set()
 
 
-def test_expert도_전부_열린다():
-    # board_difficulty가 3에서 클램프하므로 adult 위가 없다 — 같은 결과여야 한다.
-    assert locked_tiers(10) == locked_tiers(11) == set()
+def test_천장이_정의역을_넘어도_같다():
+    """종전 이름은 「expert도 전부 열린다」였고 사유가 *"board_difficulty가 3에서
+    클램프하므로"*였다 — 그 함수는 철거됐다. 단정이 실제로 물던 것은 **정의역을
+    넘는 천장에서도 결과가 같다**(위쪽 클램프)는 성질이다."""
+    assert locked_tiers(KNOWLEDGE_LEVEL_MAX + 1) == locked_tiers(KNOWLEDGE_LEVEL_MAX) == set()
 
 
-@pytest.mark.parametrize("band", [None, "", "unknown_band"])
-def test_미상_밴드는_잠그지_않는다(band):
-    """표에 없는 밴드가 보드를 통째로 잃는 쪽이 열리는 쪽보다 나쁘다."""
+def test_천장_미상은_아무것도_잠그지_않는다():
+    """못 여는 것이 열리는 것보다 나쁘다 — `DEFAULT_MAX_DIFFICULTY`의 관례 승계."""
     assert locked_tiers(None) == set()
 
 
+@pytest.mark.parametrize("band", [None, "", "unknown_band"])
+def test_미상_밴드는_보드를_통째로_잃지_않는다(band):
+    """표에 없는 밴드가 보드를 통째로 잃는 쪽이 열리는 쪽보다 나쁘다.
+
+    🔴 **축 교체로 단정 모양이 바뀌었다**(2026-08-20). 종전에는 밴드가 잠금 표의
+    **키**여서 표에 없으면 `DEFAULT_MAX_DIFFICULTY`(전부 열림)로 떨어졌고, 그래서
+    「밴드가 미상이면 안 잠근다」로 물었다. 새 축에서 밴드는 천장의 **폴백 출처**일
+    뿐이다 — `learner_tier`가 `if band:`로 갈라 참일 때만 밴드 표를 읽으므로
+    여기서도 같은 분기를 태운다(안 태우면 프로덕션이 가지 않는 길을 무는 셈이다).
+    """
+    ceiling = weatherbrain_service.knowledge_level_of_level_group(band) if band else None
+    opened = set(range(1, KNOWLEDGE_LEVEL_MAX + 1)) - locked_tiers(ceiling)
+    assert opened, f"밴드 {band!r}의 천장 {ceiling}에서 전 층이 잠겼다"
+    if ceiling is not None:
+        assert ceiling in opened, "자기 천장 층이 잠겼다"
+
+
 def test_진도는_잠금을_바꾸지_않는다():
-    """열쇠는 클리어 수가 아니라 수준이다 — 인자에 진도가 들어갈 자리가 없다."""
+    """열쇠는 클리어 수가 아니라 수준이다 — 인자에 진도가 들어갈 자리가 없다.
+
+    🔴 축 교체(2026-08-20): 종전에는 `locked_difficulties(level_group)`의 시그니처를
+    봤다. 그 함수는 철거됐고 성질은 `locked_tiers(ceiling)`가 이어받았다 — 인자가
+    학령에서 **정수 천장**으로 바뀌었을 뿐 「진도가 인자에 없다」는 그대로다.
+    """
     import inspect
 
-    params = list(inspect.signature(locked_difficulties).parameters)
-    assert params == ["level_group"], (
+    params = list(inspect.signature(locked_tiers).parameters)
+    assert params == ["ceiling"], (
         f"시그니처가 {params} — 진도 기반 사다리로 되돌아갔는지 확인할 것"
     )
 
