@@ -5747,3 +5747,166 @@ PM 요구 원문은 *「대기 경계층 수치 모델 등 **대기역학·화�
 | # | 무엇 | 수신자 | 시점 |
 |---|---|---|---|
 | **P-15** | 목이 재구현한 **나머지 서버 로직 전수 조사** — 각각에 정합 계약이 필요한지 판정. 지금은 두 곳만 물려 있고 나머지는 「주석이 같다고 말한다」 상태다 | 게이트 담당 | 대회 후 |
+
+---
+
+## §5.26 제안서·멘토 피드백 30항목 — 코드와 1:1 감사 (2026-08-20)
+
+기준은 **통합 브랜치 `integ/rolling-0820`**(21개 PR 중 18개 병합, HEAD `8290008`)이고
+`origin/main`이 아니다. 클라이언트가 준 체크리스트 원문을 그대로 행으로 펴고, 각 행마다
+**그 코드가 화면·응답에 닿는 경로**를 좌표로 달았다 — 파일이 있다는 것은 근거로 쓰지
+않았다. 시드 수치는 `content_items.json` **1,023건** · board **57판**(A조 전문가 6판 미병합)
+실측이고, 실행 코드 대조는 PM 실측 `/health` `code_fingerprint` = `2664714f10ec`이다.
+집계는 전부 python3 드라이버로 했다(zsh 단어분할·글롭 사고 회피 — §5.6).
+
+🔴 **먼저 수치 정정: 체크리스트는 30항목이 아니라 35항목이다.** 체크박스가 **32개**이고
+「(참고 지시)」가 세 갈래(브릴리언트 · 수학·물리 참고자료 · 인지적 이용)라 **35행**이다.
+갈래별로 4·5·5·3·3·2·1+3·1·8이다. **35행 전건을 감사했다.**
+
+### ⓐ 배포/기술
+
+| 항목 | 클라이언트 | 실측 | 좌표 | 어긋남 |
+|---|---|---|---|---|
+| 클라우드 배포 | `[x]` | **충족** | `docs/DEPLOY.md:71`(제출 URL `34-47-71-146.sslip.io`) · `docker-compose.prod.yml:88·95·104`(GHCR 이미지 7종) · `backend/app/main.py:377`(`code_fingerprint` — PM 실측 일치) | — |
+| API 게이트 검사 | `[x]` | **충족** | `ai-worker/app/llm_budget.py:59-63`(`serving_mode` 기본 `dummy`) · `:135-136`(총 $5·일 $1 상한) · `ai-worker/app/llm_provider.py:109`(**호출 조립 앞**에 게이트가 선다) · `:212`(`record`로 지출 적립) · `.env.example:185` | — |
+| 영어 변환 안 되는 부분 확인 | `[x]` | **충족** | `frontend/src/i18n/core.js:59-61`(`detectLocale()`이 **항상 ko** — 저장값·navigator 미참조) · `frontend/tests/i18n.smoke.test.mjs:19-23`(시나리오 5 — 화면에 전환 통로 0건 · `en` 저장값도 ko로 연다) | 「번역 완료」가 아니라 **영어 기능 제거**로 닫혔다(8/13 클라이언트 결정). ⚠️ i18n 밖 한국어 문자열 리터럴 **145건**이 남아 있고 그중 **65건이 모식도 3장면**이다(`schematic/typhoonSectionScene.js:302·308·316` 등) — ko 전용이라 지금 화면에는 안 보이지만 MT-22 이월의 실체다 |
+| 로그인 창 제거 | `[x]` | **충족** | `frontend/src/App.jsx:648`(`/login`은 **`LoadProgressPage`**=진도 불러오기를 렌더) · `:622-625`(`RedirectIfAuthed` 제거 기록) · `frontend/tests/onboardingSave.contract.test.mjs:205·237`(ko·en **값 전체**에 「로그인」·「회원가입」·`login`·`sign up` 금칙) | — (URL 문자열 `/login`은 의도적 존치 — 렌더 텍스트의 금칙어가 0이라 규정과 충돌하지 않는다) |
+
+### ⓑ 콘텐츠/난이도
+
+| 항목 | 클라이언트 | 실측 | 좌표 | 어긋남 |
+|---|---|---|---|---|
+| 탐구 활동(태풍·기후변화·다양화) 디벨롭 | `[x]` | **충족** | `App.jsx:668·669·672·674·676`(탐구 계열 입구 5종: 태풍·기후·샌드박스·기후탐정·과거예보) · 태풍 조작 변수는 **3**(`TyphoonSimPage.jsx:258` sst 슬라이더 + shear 선택 + `:297`이 렌더하는 `SatelliteView.jsx:502`의 자기 슬라이더) · `ClimateSimPage.jsx:309·336·371`(3) · `explore/exploreGoals.js:98·136`(목표 판정) · `database/seed/detective_cases.json`(**6케이스**) | — (파일 단위로 세지 않고 **공유 컴포넌트로 들어오는 슬라이더를 포함**해 셌다 — §3의 사고 형태) |
+| 과학적 정합성 체크 | `[ ]` | 🔴 **부분** | `backend/tests/test_factuality_gate.py:1`(MT-14 게이트 실재, `scripts/ci.sh` `test` 단계에서 돈다) · `scripts/lint_seed_items.py:784`(`found_factual`) · 그러나 `test_factuality_gate.py:6`이 인용하는 `answer_service.py`의 자인 *「2단 LLM 게이트는 「이 진술이 참인가」를 묻지 않는다」* + §5.24(긴 선지 찍기 **63.5%**) + §5.22ⓐ8(해설이 정답을 틀렸다 2건 수리) | **반대 방향의 어긋남** — 클라이언트는 미완으로 뒀는데 결정적 게이트는 이미 서 있다. 다만 「참인가」는 여전히 코드가 못 본다 |
+| 문제 10개로 축소 | `[x]` | **충족** | `backend/app/core/config.py:103`(`SESSION_RECIPE` 합 = **10**) · `session_service.py:84`(`SESSION_SIZE = sum(...)` — 크기의 소유자) · `curriculum_service.py:1313-1314`(하루 첫 세션 10 · 이후 4) | ⚠️ **두 번째 이후 유닛 세션은 4**다(`config.py:139`). 「10」은 하루 첫 세션=데일리 세션의 값이다 |
+| 에너지 10개 | `[x]` | **충족** | `backend/app/core/config.py:177`(`CLOUD_MAX = 10`) · `energy_service.py:41·171·189`(응답의 `max`가 같은 상수) · `frontend/src/components/Layout.jsx:245`(`<CloudEnergyBadge />` — **전 화면 헤더에 상시 렌더**) · `CloudEnergyBadge.jsx:21` | — |
+| 정답 위치 조정(1번 쏠림 분산) | `[x]` | **충족** | PM 실측 인용: 객관식 **310건** · 1번 28.7% / 2번 21.9% / 3번 29.7% / 4번 19.7%(미판정 0) · `scripts/shuffle_answer_positions.py` · `backend/tests/test_answer_position_balance.py:1`(**집합 성질**이라 per-item 게이트로는 원리적으로 안 보인다고 스스로 적는다) | — |
+
+### ⓒ 시각화/UI
+
+| 항목 | 클라이언트 | 실측 | 좌표 | 어긋남 |
+|---|---|---|---|---|
+| 위성지도 | `[x]` | **충족** | `TyphoonSimPage.jsx:297`(`<SatelliteView>` 렌더 — 상시 노출) · `SatelliteView.jsx:272` · `explore/satelliteField.js:1-9`(나선·난류·비대칭 — 동심원 도해가 아니다) · 지도 축은 `AtmosphereBoard.jsx:881`의 `<PeninsulaMap>` → `PeninsulaMap.jsx:115`가 `MapOverlayGL`을 동적 적재 | — |
+| 캐릭터 안내봇 기능 제작 | `[x]` | **충족** | `frontend/src/components/Layout.jsx:349`(`<GuideBot>` — 모든 Layout 화면에 고정) · `GuideBot.jsx:6-20`(말풍선이 `role="status"`, 문구 소유자는 `lib/guideRules.js`) · `GuideBot3D.jsx` + `lib/guideBotMesh.js:44`(mesh 로더·폴백) · `frontend/tests/guideBot.smoke.test.mjs`·`guideBot3d.smoke.test.mjs` | — (대장 §0.8.3 MT-26의 「대화 0」은 낡았다 — 아래 ⓘ 참조) |
+| 보드 순차적 열림 | `[x]` | **충족** | `backend/app/routers/board.py:219`(`compute_unlocked_ids`) · `:295`(`sequenceable` — **난이도로 거른 뒤** 센다) · `:525`·`:594`(잠긴 판은 **403**, 화면 감춤이 아니다) · `frontend/src/modules/board/BoardPage.jsx:634`(`seqLocked` UI) · `backend/tests/test_board_progression.py:561`(`DIFFICULTY_FILTERS` — 「직접 부르는 테스트는 라우터가 안 써도 초록」을 막는 **배선 단정**) · `backend/tests/test_board_mock_parity.py`(목 정합) | — |
+| 3DGL 모식도 개선 | `[x]` | 🔴 **부분** | `AtmosphereBoard.jsx:1310·1366`(`<CrossSectionPanel>` 렌더) → `board/webgl/crossSection/scenes.js:1106`(`SCENES` **20장면** 전건 등록) · 탐구 쪽은 `TyphoonSimPage.jsx:8`·`ClimateSimPage.jsx:22` → `explore/SchematicPanel.jsx` → `schematic/SchematicGL.jsx` | 통합 브랜치의 **`test:webgl`이 빨강**이다(라벨 겹침 3>2 — PM 확정, 재진단하지 않음). 그래서 「개선」이 계약으로 닫히지 않았다 |
+| 산불-홍수 모식도 이미지 개선 | `[x]` | **충족** | `crossSection/scenes.js:519-568`(`wildfireRiskDryGale` — 산·화선 비대칭·비화) · `:664`(`floodRiskSaturatedInflow`) · `:145-160`(🔴 「홍수인데 도시가 잠기지 않는다」 수리 = #155) · `:128-141`(`tree()`·건물 소품 — 8/18 클라이언트 지적 2건) · `:1120-1124`(`SCENES` 등록 = 화면에 닿는 경로) | — |
+
+### ⓓ 보드 콘텐츠 확장
+
+| 항목 | 클라이언트 | 실측 | 좌표 | 어긋남 |
+|---|---|---|---|---|
+| 전문가 수준 대기 경계층 수치 모델 등 대기역학·화학·물리 보드 다양화 | `[ ]` | 🔴 **부분** | 실측 board **57판** 중 `knowledge_level ≥ 7`이 **9판**(kl7 1·kl8 1·kl9 4·kl10 3) — 역학 「태풍이 자랄 조건」(kl9) · 물리 「식지 않는 밤」(kl10) · 「빠져나갈 새가 없다」(kl10). **경계층은 표현 불가**: `backend/app/services/board_engine.py:41`(`LEVEL_TYPES`가 moisture·sun·wind **3축뿐**) · `:93`(`_NUMERIC_RE`가 그 3축을 문법으로 못박고 **파이썬·JS에 복제**) | **반대 방향** — 「미이행」이 아니라 §5.23 판정 그대로 **역학✅·물리✅·화학 부분·경계층 미이행**이다. 축 추가는 채점 문법을 여는 일이라 동결 전 검증이 안 된다 |
+| 수준 상승에 따른 변동 기상요소 추가 | `[x]` | **충족** | `database/seed/board_rules.json`에 **4조건 규칙 5종**(`tropical_cyclone_genesis`·`greenhouse_tropical_night`·`cold_front_squall_storm`·`siberian_gale_wildfire`·`front_convergence_flood` — 3종은 `46e3ef4` ㉣, 2종은 `f45e1aa` MT-18. §5.22의 「3종」과 합치한다) · 그 조건을 읽는 경로는 `board_engine.py:93`·`:150`·`:201` · 실측 팔레트 변동요소 평균 **kl4 1.27 → kl9 2.75 · kl10 2.67** | — (kl7·kl8은 각 1.0이라 **단조 증가는 아니다**. 상위 두 칸에서만 오른다) |
+| 일기도 등 보드 및 학습 콘텐츠 추가 | `[x]` | **충족** | 시드 board에 「일기도가 가리킨 전선」(kl6, MT-19) 실재 · 전선 계열 상위 판 「저기압 앞쪽 비」(kl5)·「고기압 아래 새벽」(kl5) · 화면 도달은 `backend/app/routers/board.py:457·467`(`/board/puzzles` 응답이 `unlocked`와 함께 내려간다) | — (§5.19가 범위 지정한 **판독 2판 중 1판**만 착지했다는 사실은 그대로다) |
+
+### ⓔ 교육멘토 피드백
+
+| 항목 | 클라이언트 | 실측 | 좌표 | 어긋남 |
+|---|---|---|---|---|
+| 문항 난이도를 보다 순차적·체감적으로 구성 | `[ ]` | 🔴 **부분** | 서빙 해상도는 닫혔다 — `session_service.py:883`(**daily도** `rank_by_knowledge_level`을 탄다. `:848`의 「daily만 밴드에 멈춰 있었다」는 과거형이 맞다) · `curriculum_service.py:1032·1058`(「한 단계 위는 막고 아래는 가르친다」). 커서 결함⑧도 닫혔다 — `curriculum_service.py:710-722`(배치를 본 학습자는 **열린 구간의 끝**에서 시작). **그러나 「체감」의 반대 증거**가 §5.24 실측이다: 가장 긴 선지 찍기 적중률 **63.5%**(상위 4칸 **72.0%**·무작위 25%) | **반대 방향** — 구조(10단계 정렬·커서)는 착지했고 남은 것은 **문항 자체의 서식 결함**이다. 이 구별을 안 적으면 다음 사람이 정렬 코드를 또 판다 |
+| 피드백 제공 시 할루시네이션 가능성 고려 | `[x]` | **충족** | `backend/app/services/answer_service.py:278`(board는 `board_engine.select_feedback` — **RAG 미호출**) · `:283`(사람이 저작한 `explanation_hint`가 **LLM보다 앞**) · `:293`(그 뒤에야 `rag_feedback`) · `ai-worker/app/llm_budget.py:59-63`(기본 `dummy` = 정적 문구) · `backend/tests/test_authored_feedback_coverage.py`·`test_feedback_source.py` | — (§5.24가 지적한 「데이터 칸만 세지 말 것」의 반례를 여기서 지켰다 — `explanation_hint`를 세는 대신 **그 칸을 읽는 분기**를 좌표로 달았다) |
+| 그래픽 보드 기반 인터랙티브 기상현상 이해를 핵심 강점으로 부각 | `[x]` | **충족** | 발표 축: `WeatherMind 발표자료.pptx` **slide6**(「(4) 체험∙참여형 설계 — 대기 보드: 기상요소를 직접 배치해 목표 날씨를 만드는 시뮬레이션 / 조작 결과 즉시 반영 / 학습 개념과 조작을 1:1 연결」) · 화면 축: `frontend/src/components/navItems.js:17·22`(보드·탐구가 **주 내비 2칸**) · `i18n/resources/board.ko.js:618`(탐구 대문 「무엇을 직접 움직여 볼까요?」) | — ⚠️ 그 발표자료의 **수치 6건이 코드와 어긋난다**(아래 ⓘ) |
+
+### ⓕ 과학 분야 피드백
+
+| 항목 | 클라이언트 | 실측 | 좌표 | 어긋남 |
+|---|---|---|---|---|
+| 사용자 대상 전체 학습 활동 내용 구성 | `[ ]` | **충족** | 「구성」을 **구조적 충족**으로 읽고 쟀다: `database/seed/units.json` **237유닛 / 13섹션 / 2코스**(weather 138 · basic-science 99 — 빈 섹션 **0**) · `section_meta.json` 13행이 units의 섹션과 **정확히 일치**(양방향 차집합 0) · 14개 `concept_tag` 전건이 `문항 ≥ 유닛×4`를 만족(굶는 유닛 0 — `config.py:128`의 성립 조건과 같은 축) · 활동 입구 9종 `App.jsx:662-679` | **반대 방향** — 클라이언트는 미완으로 뒀는데 구조는 전건 채워져 있다. 얇은 끝은 **hindcast 2회차(둘 다 서울)**다(`hindcast_service.py:84`) |
+| 대상별 교과목 구분 필요 | `[x]` | **충족** | PM 확정 ⓐ(「진입에서 한 번 고르면 고정」): `frontend/src/modules/onboarding/EntryInfoPage.jsx:37`(`elementary`·`middle_high`·`adult`) · `database/seed/courses.json`(기초과학 → 날씨와 기후 **선수 구조**) · `modules/curriculum/CourseSwitcher.jsx` | — ⚠️ PM 확정 그대로: 서버 `PATCH /auth/me`(`backend/app/routers/auth.py:10`)와 프론트 래퍼(`frontend/src/api/auth.js:70`)는 **아직 살아 있다** |
+
+### ⓖ 서비스 분야 피드백
+
+| 항목 | 클라이언트 | 실측 | 좌표 | 어긋남 |
+|---|---|---|---|---|
+| 사용자 본인의 수준을 명확히 인지할 수 있도록 설계 | `[x]` | **충족** | `frontend/src/modules/progress/ProgressPage.jsx:249`(`<KnowledgeLevelCard />`) · `:267`(`<WeatherBrainPanel />` — 개념별 숙련) · `modules/onboarding/PlacementSummary.jsx:41-56`(배치 직후 개념별 막대) | — (다만 `PlacementSummary.jsx:56`의 라벨 문제는 **아래 난이도 표기 항목**이 소유한다) |
+| (참고) 브릴리언트(Brilliant) 앱 기반 학습 방식 참고 | `(참고)` | **미충족** | 저장소 전체 `brilliant` grep **0건**(이 대장 자신 `:2049` MT-32 행 말고 0) · 참고 설계를 담은 스펙·결정 기록 0건 | — (MT-32로 이미 이월돼 있다 — 시점 **9/14~**) |
+| (참고) 수학·물리 학습 참고자료로 활용 | `(참고)` | **미충족** | `database/seed/units.json`의 basic-science **99유닛**(열과 빛 32 · 공기의 무게 32 · 물과 에너지 35)은 실재하나, 그것은 **기상의 선수 개념**이고 「수학·물리 학습 참고자료」로의 설계 근거는 0건 | MT-32의 「그릇이 비어서가 아니라 **참고 설계가 없어서**」가 8/20에도 그대로 참이다 |
+| (참고) 인지적 이용 관점 반영 | `(참고)` | **측정불가** | 판정 대상이 되는 관측 가능한 형태가 지시문에 없다. 관련 좌표는 `answer_service.py:288`(초등 톤 완화)과 `frontend/src/lib/onboardingGate.js:13-17`(표시 계층) 둘뿐이고, 둘 다 「인지적 이용」의 지표라고 주장할 근거가 없다 | 아래 ⓗ에 판정 조건을 적었다 |
+
+### ⓗ 기술 분야 · 종합 피드백
+
+| 항목 | 클라이언트 | 실측 | 좌표 | 어긋남 |
+|---|---|---|---|---|
+| 데이터 학습 중심으로 배포 안정성 확보 필수 | `[x]` | **충족** | `docker-compose.prod.yml:88-136`(7서비스 전건 `mem_limit` — 실측값 주석 동반) · `backend/app/main.py:350·377`(`/health` + 지문) · `scripts/ci.sh:7`(lint→test→board→config→frontend→seed→authoring 7단계) · 무키 폴백 `llm_provider.py:109` · 재학습 축은 `celery/app/tasks/retrain.py:28` + `celery_app.py:49-52`(매일 03:00 beat) | — ⚠️ 서빙 숙련도 모수는 여전히 사전값이다(`ai-worker/app/main.py:466` `params_source="prior"`) |
+| 자료·설명 검증 — 난이도 상승 시 검증 강화 | `[ ]` | 🔴 **부분** | `backend/tests/test_factuality_gate.py`(MT-16) · `scripts/lint_seed_items.py:339`(`vocabulary_errors`) + `database/seed/level_vocabulary.json`(단계별 어휘·`mechanism_markers`) · `scripts/lint_seed_items.py:319`(`_term_threshold`가 **단계에 따라** 임계를 바꾼다) · `backend/tests/test_level_vocabulary.py` | **반대 방향** — 단계별 강화 장치는 실재한다. 그런데 **강화의 방향이 어휘**이고, §5.24가 잰 상위 4칸 **72.0%**는 어휘가 아니라 **서식**이라 그 게이트를 통과한다 |
+| 실시간 예보 어려움 → 과거 자료 기반 「과거 예보」 검토 | `[x]` | **충족** | `App.jsx:676`(`/hindcast/*`) → `modules/hindcast/HindcastRoutes.jsx:17-19`(목록·플레이) · `backend/app/routers/hindcast.py` · `backend/app/services/hindcast_service.py:84`(`HINDCAST_CASES` 2회차)·`:188`(활성 회차만)·`:206`(보류분은 **404** — 화면 감춤이 아니다) · 마이그레이션 `20260818_0016_hindcast_attempts.py` | — ⚠️ §5.22 그대로: 회차 **2건(둘 다 서울)**이고 「과거 관측을 서버에 적재하는 경로가 아직 없다」는 데모 고지가 화면에 뜬다 |
+| API 훈련 고도화 필요 | `[ ]` | 🔴 **부분** | 있는 것: `celery/app/tasks/retrain.py:28`(누적 `quiz_logs` → IRT b 재보정) · `celery_app.py:49-52`(매일 03:00) · `ai-worker/app/main.py:197`(`/internal/weatherbrain/calibrate`). 없는 것: `ai-worker/app/main.py:211`의 **BKT 재적합 투입구에 호출자 0건**(그래서 `:466`이 `"prior"`) · `fit_bkt`(`weatherbrain/knowledge_tracing.py:224`)는 합성 검증 전용 · **LLM 미세조정 코드 0건**(`ai-worker`·`backend` 전체에 `fine-tune`·`.fit(`·`train(` 진입점 없음) | **반대 방향** — 「고도화 없음」이 아니라 **b 재보정만 배선되고 BKT 재적합은 투입구까지**다. 그리고 재보정은 표본 가드(`retrain.py:24-25` 응답 200·문항당 20) 때문에 실운영 로그가 쌓이기 전엔 **스킵**한다 |
+| 난이도 표기를 교과 과정 기준으로 직접 표현 | `[x]` | 🔴 **부분** | 교과 축은 착지 — `database/seed/units.json`의 13섹션이 「초등 3~4학년 … 고등학교 진로선택 … 학부 대기과학 … 기상청 현업」이고 `section_meta.json`이 같은 이름을 소유한다. **그러나** `frontend/src/modules/onboarding/PlacementSummary.jsx:56`이 개념별로 아직 「초급/중급/고급」을 렌더한다(PM 확정) | `/me` 두 화면은 #151로 닫혔으나 **배치 직후 요약 화면 하나가 남았다**. 학습자가 자기 수준을 **처음** 보는 자리라 남은 자리 중 가장 눈에 띈다 |
+| 문제은행 형태보다 시각화·인터랙티브 강화 | `[x]` | **충족** | 실측 인터랙티브 표면: board **57판**(드래그 배치 `modules/board/useBoardDrag.js`) · 단면 3D **20장면**(`crossSection/scenes.js:1106`) · 탐구 모식도 3장면(`explore/schematic/`) · 지도 WebGL 오버레이(`webgl/mapOverlay/MapOverlayGL.jsx:52`) · 위성 도식(`SatelliteView.jsx:272`) · 탐정 6케이스 · hindcast 2회차 | — (MT-25는 이미 배포분에 있었다 — §0.8.3-b) |
+| 초등~성인 범위가 넓어 사용자별 세심한 난이도 조절 필요 | `[x]` | **충족** | 두 축이 갈려 있다 — `level_group` 3종(`EntryInfoPage.jsx:37`) × `knowledge_level` **10단계**. 서빙 해상도: `session_service.py:883`(daily) · `curriculum_service.py:1032·1058`(유닛) — **같은 함수·같은 배수**를 쓴다(`session_service.py:854-855`가 그 이유를 적는다) · 풀 밴드는 `pool_level_groups`(`session_service.py:844`) | — |
+| 웹 배포 및 구동 안정성 확보 | `[x]` | **충족** | `docker-compose.prod.yml:39·46`(Caddy TLS 종단) · `docs/DEPLOY.md:66-89`(🔴 ephemeral IP면 stop/start에서 **제출 URL이 죽는다** — static 승격 확인 절차) · `:320`(외부 확인은 `/` 200까지) · `:331`(`/health` 비공개) · `infra/Caddyfile` | — |
+| 초등학생 대상 난이도 조절 | `[x]` | **충족** | `backend/app/services/answer_service.py:283` → `tone_text.soften_for_tone(hint, effective_tone(user))`(**초등에서만** 문말 완화, 변환 불가 문장이 하나라도 있으면 원문 유지) · `backend/tests/test_child_tone_feedback.py` · `scripts/lint_seed_items.py:339` + `level_vocabulary.json`(초등 칸 어휘 상한) · `units.json` 「초등 3~4학년」 13유닛 · 「초등 5~6학년」 11유닛 | — |
+
+### 🔴 클라이언트 표기와 실측이 어긋난 것
+
+여덟 행이고, **모두 「부분」 방향이거나 반대 방향**이다 — 「충족으로 적혀 있는데 실제로는
+아무것도 없다」는 행은 **0건**이다.
+
+| 항목 | 표기 → 실측 | 왜 |
+|---|---|---|
+| 과학적 정합성 체크 | `[ ]` → **부분** | 결정적 사실성 게이트(MT-14)가 이미 CI에서 돈다. 코드가 못 보는 것은 「참인가」와 **선지 서식**뿐이다 |
+| 3DGL 모식도 개선 | `[x]` → **부분** | 20장면이 화면에 닿지만 통합 브랜치의 `test:webgl`이 빨강(라벨 겹침 3>2)이라 계약이 닫히지 않았다 |
+| 전문가 대기 경계층 보드 | `[ ]` → **부분** | 역학·물리는 kl9·kl10 보드로 착지했고 화학은 부분, **경계층만** 미이행이다(`board_engine.py:41`의 3축 한계) |
+| 문항 난이도 순차·체감 | `[ ]` → **부분** | 10단계 정렬과 커서(결함⑧)는 닫혔다. 남은 것은 **문항 서식**(긴 선지 63.5%)이고 코드가 아니라 저작의 몫이다 |
+| 전체 학습 활동 내용 구성 | `[ ]` → **충족** | 13섹션 전건 유닛 · 14개념 전건 `문항≥유닛×4` · 활동 입구 9종. 구조상 빈 칸이 없다 |
+| 자료·설명 검증(난이도↑) | `[ ]` → **부분** | 단계별 어휘 임계(`_term_threshold`)가 실재한다. 강화 축이 **어휘**라 서식 결함을 못 본다 |
+| API 훈련 고도화 | `[ ]` → **부분** | IRT b 재보정은 celery beat까지 배선됐다. BKT 재적합은 **투입구까지**이고 서빙은 `"prior"`다 |
+| 난이도 표기 교과 기준 | `[x]` → **부분** | 13섹션 이름은 교과 과정이다. `PlacementSummary.jsx:56` 한 자리가 「초급/중급/고급」으로 남았다 |
+
+### 측정불가로 남은 것 — 무엇이 있으면 판정되는가
+
+한 행뿐이다.
+
+| 항목 | 왜 못 재나 | 무엇이 있으면 판정되는가 |
+|---|---|---|
+| (참고) **인지적 이용 관점 반영** | 지시문이 가리키는 **관측 가능한 대상**이 없다. 「인지적」에 해당한다고 주장할 코드가 저장소에 여러 개 있고(톤 완화·표시 게이트·세션 길이), 그중 어느 것이 이 지시의 수신자인지 정할 근거가 0건이다. 추측으로 「충족」을 적는 것이 이 감사에서 가장 나쁜 결과이므로 적지 않았다 | 클라이언트가 **관측 가능한 형태 하나**를 지목하면 즉시 판정된다. 예: 「한 화면의 새 개념 수 상한」 · 「세션당 신규 문항 상한」 · 「연속 오답 시 난이도 하강 규칙」 — 셋 다 코드에 좌표가 있거나 없음을 1회 grep으로 확정할 수 있다 |
+
+### ⓘ 이 감사가 새로 발견한 것
+
+**⑴ 🔴 발표자료의 수치 6건이 코드와 어긋난다 — 그리고 제출 URL 칸이 비어 있다.**
+`WeatherMind 발표자료.pptx`(11장) 본문을 추출해 대조했다. 이것은 `HACKATHON_RULES.md`
+§1.2가 **제출물 ⓪**로 등재한 문서이고, 8/22 발표 질의 5분은 정확히 이런 수치를 겨눈다.
+
+| 장 | 적혀 있는 것 | 8/20 실측 |
+|---|---|---|
+| slide1 · slide2 | 「**[배포 후 접속 URL 입력 예정 — 현재 localhost 개발 서버]**」 | 🔴 **플레이스홀더 그대로.** 제출 URL은 `34-47-71-146.sslip.io`(`docs/DEPLOY.md:71`) |
+| slide3 | 「지식 수준 **6단계** × 표현 톤 3종」 · 「지식 축 6단계」 | **10단계**(`content_items.json` `knowledge_level` 1~10) |
+| slide3 | 「문항 **237건**을 전수 분류」 | **1,023건** |
+| slide4 | 「커리큘럼(2코스 · **7섹션 · 20유닛**)」 | 2코스 · **13섹션 · 237유닛**(`units.json`) |
+| slide9 | 「실서버 배포(**8/9**)」 · 「6단계 기준 문항 **237건 → 1,500건**」 | 배포는 8/18 롤링까지 왔고 문항은 이미 1,023건이다 |
+| slide11 | 「세션 1회(**15문항**) 약 130원 — 피드백 생성 **16콜**」 | **10문항**(`config.py:103`)이고, 해설 우선 분기(`answer_service.py:283`) 때문에 유료 콜은 **해설 없는 문항과 생성 문항으로만** 나간다 |
+
+⚠️ **slide6·slide8은 정확하다** — 대기 보드·7유형 결정적 채점·근거 주입형 피드백·무키
+동작·`gemini-3.1-flash-lite`(`ai-worker/app/config.py:22`와 일치)는 코드와 맞는다.
+**낡은 것은 규모 수치와 URL 칸**이다.
+
+| # | 무엇 | 수신자 | 시점 |
+|---|---|---|---|
+| **P-16** | 🔴 **발표자료 수치 6건 갱신 + 제출 URL 기입** — slide1·2 URL · slide3 「6단계/237건」 · slide4 「7섹션 20유닛」 · slide9 · slide11 「15문항/16콜」. 값의 소유자는 각각 `content_items.json`·`units.json`·`config.py:103`이다 | PM | **8/21 동결 전** |
+
+**⑵ `session_service.py`의 주석 두 곳이 아직 「15문항」이다.**
+`:131`(*「배합은 15문항 그대로다」*)과 `:851`(*「세션 15문항 중 10문항이 이 경로로」*).
+배합의 소유자는 `config.py:103`이고 합은 **10**이다. 동작 결함은 아니지만, `:851`은
+**해상도 판정의 근거를 설명하는 자리**라 다음 사람이 「10문항 중 몇이 이 경로인가」를
+잘못 셀 수 있다.
+
+**⑶ 대장 §0.8.3 MT 표의 네 행이 8/20 기준으로 낡았다.** §0.8.3-b가 「세 번째로 낡았다」를
+적은 그 표이고, **네 번째**다. 이번 원인은 라벨이 아니라 **그 뒤에 실제로 일이 됐기
+때문**이다.
+
+| 행 | 적혀 있는 것 | 8/20 실측 |
+|---|---|---|
+| **MT-23** | 산불–홍수 모식도 「**미반영**」 | 착지 — `scenes.js:519·664`, 도시 침수 수리 `#155`(`:145-160`) |
+| **MT-26** | 안내봇 「부분 — **대화 0**」 | 착지 — `Layout.jsx:349`의 `<GuideBot>`이 `role="status"` 말풍선을 갖고 문구 소유자는 `lib/guideRules.js`다 |
+| **MT-27** | 탐구 디벨롭 「탐정 **2건뿐**」 | `detective_cases.json` **6케이스** |
+| **MT-30** | 과거 예보 「`hindcast` grep **저장소 전체 0건**」 | 라우트·서비스·마이그레이션 전건 착지(`App.jsx:676` 외) |
+
+**⑷ `docs/MENTORING_ALIGNMENT.md:173`의 M-4가 낡았다.** *「발표자료(PPT/PDF) 자체가
+미착수」*라 적혀 있으나 저장소 루트에 **11장 pptx 2판**(개정판·`원본-0807`)이 있다.
+낡은 것은 「미착수」이고, 실제 문제는 위 ⑴의 **수치**다. ⚠️ 이 행을 그대로 두면 다음
+사람이 **새로 만들려 하고**, 그 사이 낡은 판이 제출된다.
+
+⚠️ **이 절에 없는 것**: 통합 브랜치의 알려진 빨강 3건(`test:webgl` · `test:guest-convert`
+CO-P-5 · `test:home` `/` 리다이렉트)은 **PM 확정 사실로 반영만** 했고 다시 진단하지
+않았다. `test:guest-convert`·`test:home`은 위 35행 중 어느 행의 근거도 아니다.
