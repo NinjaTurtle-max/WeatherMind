@@ -402,15 +402,25 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
     !text().includes('오늘부터 하루'),
     '아무것도 안 눌렀는데 저장 확인 문구가 떠 있다(이미 정해 둔 사람에게 매번 뜬다)',
   );
-  // ④가 5문항으로 저장해 뒀다 — 겹치지 않게 9문항(세 번째 버튼)을 누른다.
+  // ④가 5문항으로 저장해 뒀다 — 겹치지 않게 **세 번째 버튼**을 누른다.
+  //
+  // 🔴 **문항 수를 여기 적지 않는다**(2026-08-20 정정). 종전엔 `'하루 9문항'`을
+  //   문자열로 박아 뒀는데, **이 커밋이 바로 그 9를 10으로 바꾼 커밋**이다
+  //   (`DAILY_GOAL_CHOICES = [3, 5, SESSION_ITEMS]` · `SESSION_ITEMS = 10`).
+  //   그래서 이 브랜치는 **자기 자신만으로도 붉었다** — 통합에서 처음 보인 것이
+  //   아니라 처음부터 붉었고, 다른 빨강에 섞여 안 보였을 뿐이다.
+  //   ⇒ 기대값을 **선택지에서 읽는다.** 상한이 또 바뀌어도 이 계약은 안 낡는다.
+  const { DAILY_GOAL_CHOICES } = await vite.ssrLoadModule('/src/lib/onboardingGate.js');
   const goalBtns = $$('#daily-goal button');
-  ok(goalBtns.length === 3, `목표 선택 버튼 3개 — 실제 ${goalBtns.length}`);
-  if (goalBtns.length === 3) {
-    goalBtns[2].dispatchEvent(new window.Event('click', { bubbles: true }));
-    const saved = await waitFor(() => text().includes('하루 9문항'), 6000, '')
+  ok(goalBtns.length === DAILY_GOAL_CHOICES.length,
+    `목표 선택 버튼 ${DAILY_GOAL_CHOICES.length}개 — 실제 ${goalBtns.length}`);
+  if (goalBtns.length === DAILY_GOAL_CHOICES.length) {
+    const pick = DAILY_GOAL_CHOICES[DAILY_GOAL_CHOICES.length - 1].items;
+    goalBtns[goalBtns.length - 1].dispatchEvent(new window.Event('click', { bubbles: true }));
+    const saved = await waitFor(() => text().includes(`하루 ${pick}문항`), 6000, '')
       .then(() => true)
       .catch(() => false);
-    ok(saved, '9문항을 눌렀는데 저장 확인 문구가 안 뜬다');
+    ok(saved, `${pick}문항을 눌렀는데 저장 확인 문구가 안 뜬다`);
     ok(Boolean($('#daily-goal')), '저장 직후 목표 카드가 사라졌다(확인 문구를 볼 수 없다)');
   }
 
