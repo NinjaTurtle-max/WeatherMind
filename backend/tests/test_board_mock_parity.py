@@ -207,12 +207,37 @@ class TestBoardLockParity:
         LOOKAHEAD **값**을 대조하지만, 값이 같아도 **판정 규칙**이 갈리면 저작이
         경계값을 밟는 날 갈라진다.
 
-        무는 것 둘:
-          ⑴ 목의 층 추출이 서버 `board_tier`와 **같은 모양의 가드**를 쓴다 —
-             서버 `return level if isinstance(level, int) else None` ↔ 목
-             `typeof seed.knowledge_level === 'number' ? … : null`.
+        🔴 **이 계약은 두 곳이 틀린 채로 빨강이었다**(2026-08-20 수리 · 어드바이저 판정).
+        경위를 남기는 이유는 이것이 **§5.25ⓓ 일곱 번째 형태(「판정 기준 자체가 거짓」)의
+        실례**이고, 그 이름으로 인용될 값이 있어서다.
+
+          ⓐ **기준이 거짓이었다.** 종전에는 목이
+             `typeof seed.knowledge_level === 'number'`를 쓸 것을 **요구**했다.
+             그런데 **같은 병합에서 그 가드가 서버와 갈린다고 증명**됐다 — 서버 판정은
+             파이썬 `isinstance(value, int)`이고, JS `typeof v === 'number'`는
+             **비정수 실수 `2.5`를 층으로 인정**한다(파이썬은 int가 아니라 거른다).
+             거꾸로 **파이썬에서 bool은 int**라 `True`가 통과하는데 JS `typeof`는
+             boolean을 거른다. ⇒ **양방향으로 갈렸다.**
+          ⓑ **계측기가 망가져 있었다.** 정규식이 `const boardTierOf\\s*=(.*?);`라
+             **첫 세미콜론까지만** 잡았다. 목이 블록 본문으로 바뀐 뒤로는
+             `'(seed) => {\n  const v = seed?.knowledge_level'`**조각만** 캡처했고,
+             그 뒤 단정 2건은 **볼 대상이 없어 공허**했다. 즉 **아무것도 안 잡는
+             계약**이었다.
+
+        ⇒ 판정: **둘 다 「완화」가 아니라 「수리」다.** 규정(「계약을 느슨하게 하는 것은
+        세션이 스스로 못 한다」)의 판정 기준은 **변이 보존** — 고친 뒤 **잡는 변이가
+        줄어드는가**를 본다. ⓐ는 옛 형태를 **금지**하므로 조이기이고, ⓑ는
+        **아무것도 안 잡던 것을 잡게** 만들므로 조이기다(대장 §5.27-k, 규정 해석 선례 ②).
+
+        무는 것 셋:
+          ⑴ 목의 층 추출이 서버 `board_tier`의 `isinstance(level, int)`와 **같은
+             판정**을 한다 — bool을 **먼저** 가르고(파이썬에서 bool은 int라 `true`가
+             통과한다), 정수 여부는 `Number.isInteger`로 본다(`typeof === 'number'`는
+             `2.5`를 통과시켜 서버와 갈린다), 미상은 `null`.
              ⚠️ `??`나 `||`로 바꾸면 **문자열·false가 층이 된다**(`'3' ?? null`은
              `'3'`이고, 그 값은 `> ceiling` 비교에서 조용히 강제 변환된다).
+          ⓒ **계측기 자신을 문다** — 캡처가 함수 **본문까지** 닿았는지 확인한다.
+             ⓑ가 재발하면(정규식을 다시 좁히면) 여기가 **먼저** 운다.
           ⑵ 그 가드가 **실제 경로에 있다** — `BOARD_PUZZLES`가
              `knowledge_level: boardTierOf(seed)`로 짓는다. 헬퍼만 있고 짓는 자리가
              원시 필드를 그대로 읽으면 ⑴이 장식이 된다(B조가 「프로덕션과 표본이 같은
@@ -222,14 +247,38 @@ class TestBoardLockParity:
         어느 쪽도 이 모양을 다투지 않는다. 방향이 다투어지는 자리(null 층 퍼즐의
         「아래는 인정」 판정)는 여기서 단정하지 않고 판정 대기로 올렸다.
         """
-        decl = re.search(r"const boardTierOf\s*=(.*?);", mock_src, re.S)
+        # 🔴 **선언 전체를 잡는다.** 종전 `(.*?);`는 첫 세미콜론에서 끊겨 블록 본문의
+        #    조각만 캡처했고 뒤 단정들이 공허했다(위 ⓑ). 화살표 본문이 블록이든 한 줄
+        #    식이든 **다음 최상위 선언 직전까지** 가져온다.
+        decl = re.search(
+            r"const boardTierOf\s*=(.*?)(?=\n(?:const |function |export |/\*\*))",
+            mock_src,
+            re.S,
+        )
         assert decl, "목에서 boardTierOf를 못 찾았다 — 이 계약을 갱신할 것"
         code = _js_code(decl.group(1))
-        assert re.search(r"typeof\s+seed\.knowledge_level\s*===\s*'number'", code), (
-            "목의 층 추출이 서버 `board_tier`의 `isinstance(level, int)`와 다른 "
-            "가드를 쓴다 — `??`·`||`로 두면 문자열·false가 층이 되고, 값이 같은 "
-            "동안은 아무도 모른다(B조 변이 실측: 시드가 정수만 써서 행동 대조로는 "
-            f"안 잡혔다). 지금 모양: {code.strip()!r}"
+
+        # ── ⓒ 계측기 자신을 먼저 문다 ──────────────────────────────────────────
+        # 캡처가 **본문까지** 닿지 않으면 아래 단정들은 볼 대상이 없어 **공허하게
+        # 초록**이 된다. 그 상태가 종전 이 계약의 모습이었다. 정규식을 다시 좁히면
+        # 여기가 **먼저** 운다 — 「치환 0회 단정」과 같은 형태로, 계측기를 역검증한다.
+        assert "return" in code, (
+            "`boardTierOf` 캡처가 함수 본문에 못 닿았다 — 아래 단정들이 볼 대상이 "
+            f"없어 공허해진다(정규식을 좁히면 이 형태가 된다). 캡처: {code.strip()!r}"
+        )
+
+        assert re.search(r"Number\.isInteger\(", code), (
+            "목의 층 추출이 `Number.isInteger`로 정수를 판정하지 않는다 — 서버는 "
+            "파이썬 `isinstance(level, int)`라 **비정수 실수를 거른다**. JS "
+            "`typeof v === 'number'`로 두면 `2.5`가 층이 되어 서버와 갈리고, "
+            "시드가 정수만 쓰는 동안은 **값이 같아 아무도 모른다**(B조 변이 실측). "
+            f"지금 모양: {code.strip()!r}"
+        )
+        assert re.search(r"===\s*'boolean'", code), (
+            "목이 boolean을 **먼저 가르지 않는다** — 파이썬에서 `bool`은 `int`라 "
+            "서버 `isinstance(level, int)`는 `True`를 **통과시킨다**(값 1처럼 쓰인다). "
+            "JS `Number.isInteger(true)`는 `false`라 목만 미상으로 떨어뜨린다. "
+            f"서버가 권위이므로 그 기벽까지 베낀다. 지금 모양: {code.strip()!r}"
         )
         assert re.search(r":\s*null", code), (
             "층이 미상일 때 목이 `null`을 내지 않는다 — 서버 `board_tier`는 `None`을 "
