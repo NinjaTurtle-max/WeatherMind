@@ -201,6 +201,13 @@ export default {
       disasterFloodWarningTitle: '🚨 호우 침수 경보급',
       disasterFloodWarningBody: '전선이 겹쳐 비가 퍼붓는데 물이 빠질 곳이 없어요. 도시가 잠길 수 있어요.',
       resultSuccess: '🎉 성공! 목표 대기현상을 만들었어요',
+      // 4조건 성취(2026-08-20) — 조건 4개가 동시에 맞아야만 나는 규칙을 낸 판에서만
+      // 뜬다. ⚠️ **약속을 하지 않는다**: 「나중에」·「언제든」·「바꿀 수 있」은 이
+      // 저장소가 통로 없는 약속으로 못박아 금지한 어휘다(uiCopy.contract ⑸⑹).
+      // ⚠️ `{conditions}`는 규칙 `when` 4개를 사람 말로 이은 것이고, 그 조각은
+      // `conditionLabel`이 리소스에서 만든다 — 여기에 요소 이름을 다시 적지 않는다.
+      fourConditionTitle: '🏅 4조건 규칙 달성! 지름길로는 못 내는 판이에요',
+      fourConditionMet: '네 조건을 한꺼번에 맞췄어요 — {conditions}',
       resultFail: '아직이에요 — 배치를 바꿔 다시 시도해 보세요',
       timeoutTitle: '⏱ 시간 초과! 제한 시간 안에 완성하지 못했어요',
       timeoutRetry: '다시 도전 ({sec}초)',

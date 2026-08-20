@@ -153,6 +153,48 @@ export function hintRulesForGoal(rules, goal, palette, zoneState) {
 }
 
 /**
+ * 4조건 규칙의 **고유 결과**를 낸 판정인가 — 목표 존에서 발화한 규칙의 `when`이 4개인가.
+ *
+ * 🔴 **판정이 아니라 조회다.** 엔진(`evaluateBoard`·서버 `board_engine.evaluate`)이
+ * 이미 정한 `rule_id`를 규칙 파일에서 되찾을 뿐이고, 통과·실패는 여기서 한 글자도
+ * 바뀌지 않는다. 4조건 규칙이 「최고 성취」인 근거는 board_engine.py PHENOMENA 주석에
+ * 있다 — 지름길(2조건)로는 낼 수 없고, 가르치려는 요소를 실제로 놓아야만 난다.
+ *
+ * ⚠️ **현상 이름으로 판별하지 않는다.** 경보급 5종(severe_storm·wildfire_warning·
+ * flood_warning·typhoon·tropical_night)만 열거하면 `nocturnal_inversion_haze`를
+ * 놓친다 — 조건이 4개인데 결과는 평범한 `fog`다(실측: 21종 중 4조건 규칙 **6종**).
+ * 조건 수를 세는 쪽이 규칙 파일이 늘어도 저절로 맞는다.
+ *
+ * ⚠️ **목표 존만 본다.** 다른 존이 곁다리로 4조건을 낸 것은 이 문항이 요구한 성취가
+ * 아니다(`check_goals`도 목표 존만 본다).
+ */
+export function fourConditionRule(rules, phenomena, goalZone) {
+  const zone = Number.isInteger(goalZone) ? goalZone : 0;
+  const fired = (phenomena ?? []).find((p) => p?.zone === zone);
+  if (!fired?.rule_id) return null;
+  const rule = (rules ?? []).find((r) => r?.id === fired.rule_id);
+  return (rule?.when?.length ?? 0) === 4 ? rule : null;
+}
+
+/**
+ * 규칙 조건 하나를 사람이 읽는 한 조각으로 — "북태평양 기단" · "습기 ≥ 90".
+ *
+ * 🔴 **한국어 리터럴이 없다**(displayLayerParity가 이 파일을 전수로 문다). 이름은
+ * 전부 `boardDisplay`의 리소스 파생 getter에서 오고, 남는 것은 로케일 무관인
+ * 부등호·숫자뿐이다. `>=`를 `≥`로 바꾸는 것은 번역이 아니라 **기호 표기**다.
+ */
+export function conditionLabel(condition) {
+  const cond = String(condition ?? '').trim();
+  const exists = /^(air_mass|front):([a-z_]+)$/.exec(cond);
+  if (exists) return subtypeLabel(exists[1], exists[2]);
+  const numeric = /^(moisture|sun|wind|aerosol)(>=|<=)(\d+(?:\.\d+)?)$/.exec(cond);
+  if (numeric) {
+    return `${parsePaletteToken(numeric[1]).label} ${numeric[2] === '>=' ? '≥' : '≤'} ${numeric[3]}`;
+  }
+  return cond;
+}
+
+/**
  * AtmosphereBoard (R3-01 S3·S5) — 한반도 단면 4존 대기 보드 플레이어.
  * 연습 탭(BoardPage)과 세션 문항(QuestionCard board 분기)이 공유한다.
  *
@@ -463,6 +505,13 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     : Array.isArray(phenomena)
       ? phenomena // 세션: AnswerResult.phenomena (§3.3 ⑤)
       : null;
+  // 4조건 성취 — **표시 전용**(2026-08-20). 엔진이 이미 낸 rule_id를 규칙에서
+  // 되찾을 뿐이라 판정은 무접촉이다. 통과했을 때만 본다: 미통과 판에서 곁다리로
+  // 4조건이 발화해도 그것은 이 문항이 요구한 성취가 아니다.
+  const fourCondition = useMemo(
+    () => (result?.passed ? fourConditionRule(rules, confirmedPhenomena, goalZone) : null),
+    [result?.passed, rules, confirmedPhenomena, goalZone],
+  );
   const stageZone = confirmedPhenomena ? (goalZone ?? activeZone ?? 0) : (activeZone ?? goalZone ?? 0);
   const stageResult = confirmedPhenomena
     ? (confirmedPhenomena.find((p) => p.zone === stageZone) ?? confirmedPhenomena[stageZone] ?? null)
@@ -1067,6 +1116,22 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
           <p className={`text-sm font-bold ${result.passed ? 'text-emerald-700' : 'text-orange-700'}`}>
             {result.passed ? t('board.atmosphere.resultSuccess') : t('board.atmosphere.resultFail')}
           </p>
+          {/* 4조건 성취 배지 — 조건 4개가 동시에 맞아야만 나는 규칙을 낸 판에서만 뜬다.
+              🔴 **새 화면·새 라우트·애니메이션을 만들지 않는다.** 이미 뜨는 판정 배너
+              안의 두 줄이다(축하 한 줄 + 무엇을 맞췄는지 한 줄). 종전에는 이 성취가
+              화면에서 **아무 표시도 없이** 지나갔다 — 지름길로 낸 통과와 글자가 같았다. */}
+          {fourCondition && (
+            <div data-board-four-condition={fourCondition.id} className="mt-1.5 rounded-lg bg-emerald-100/70 px-2.5 py-1.5">
+              <p className="text-xs font-extrabold text-emerald-800">
+                {t('board.atmosphere.fourConditionTitle')}
+              </p>
+              <p className="mt-0.5 text-[11px] font-bold text-emerald-700">
+                {t('board.atmosphere.fourConditionMet', {
+                  conditions: fourCondition.when.map(conditionLabel).join(' · '),
+                })}
+              </p>
+            </div>
+          )}
           {result.feedback && <p className="mt-1 whitespace-pre-line text-xs text-slate-600">{result.feedback}</p>}
         </div>
       )}

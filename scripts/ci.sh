@@ -226,9 +226,12 @@ step_config() {
 #               xp_earned를 따라간다(상수 사본 금지). 서버 적립(918a8e8)의 프론트측 짝
 #   session-expiry 갱신 실패 분류(401·403만 만료) — 끊긴 연결이 게스트 계정을
 #               영구 소실시키던 결함의 회귀 감시. logout()의 삭제 범위도 함께 못박는다
+#   board-four-condition 4조건 성취 표시(2026-08-20): 4조건 규칙으로 통과하면 뜨고 ·
+#               2조건으로 통과한 판에서는 안 뜨며(대조군이 **통과 판**이다) · 판별이
+#               현상 이름 목록이 아니라 조건 수라 결과가 평범한 fog인 4조건도 잡는다
 # board_engine 공유 벡터(test:board)는 node_modules 없이 도는 전용 `board` 단계가
 # 소유하므로 여기서 중복 실행하지 않는다.
-FRONT_TESTS=(explore explore-goals session session-blocks entry-flow load-progress placement placement-skip visual gating board-entry assist webgl schematic overlay display-parity i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective detective-xp knowledge-level onboarding-save guide-bot guide-bot-3d session-expiry
+FRONT_TESTS=(explore explore-goals session session-blocks entry-flow load-progress placement placement-skip visual gating board-entry board-four-condition assist webgl schematic overlay display-parity i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective detective-xp knowledge-level onboarding-save guide-bot guide-bot-3d session-expiry
   error-boundary
 )
 

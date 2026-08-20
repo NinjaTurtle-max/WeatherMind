@@ -175,3 +175,89 @@ class TestEverySlotAnswerIsSolvable:
         assert grade(question, yesterday_rendered["correct_answer"]) is False, (
             f"{_label(item, index)} 어제 정답이 오늘도 정답이다 — 정답이 고정이다"
         )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 밴드 안 정답 슬롯 유일성 (2026-08-20)
+# ═══════════════════════════════════════════════════════════════
+#
+# 왜 필요한가 — **정답이 날마다 바뀌어도 「무엇을 묻는지」가 고정이면 외워서 맞힌다.**
+# 위 계약들은 문항 **한 건씩** 본다: 정답이 슬롯인가, 치환되는가, 어제 값이 오답인가.
+# 전부 초록인 채로 실측이 이랬다(2026-08-20):
+#
+#     elementary  {today.temp_min} 2벌 · {today.temp_max} 2벌
+#     adult       {today.temp_max} 2벌
+#
+# 학습자는 한 밴드 안에서만 문항을 만나므로(`level_group`이 진입에서 고정된다),
+# elementary 학습자에게는 실황 정답이 **사실상 기온 두 종류**뿐이다. 지문을 안 읽고
+# 「실황이면 최고기온」으로 찍어도 절반이 맞는다 — 문항을 몰라도 맞히는 길이고,
+# 그 길이 열려 있는 동안은 정답이 날마다 바뀌는 것이 난이도를 만들지 못한다.
+#
+# ⚠️ **개수 하한이 아니라 유일성으로 문다.** 「밴드마다 슬롯 3종 이상」 같은 하한은
+# 슬롯이 5종뿐이라 밴드가 커지면 저절로 깨지고, 반대로 문항이 2건인 밴드에서는
+# 공허하게 통과한다. 유일성은 밴드 크기와 무관하게 같은 것을 말한다.
+#
+# 상한은 구조가 이미 준다: 허용 슬롯이 5종(`ALLOWED_SLOTS`)이므로 한 밴드의 슬롯
+# 정답 문항은 **최대 5건**이다. 그 위로 저작하려면 슬롯 계약(§3.3)을 먼저 넓혀야
+# 하고, 그때 이 테스트가 먼저 붉어져 그 판단을 사람에게 돌린다.
+
+
+def _band_of(item: dict) -> str:
+    return str(item.get("level_group") or "(미분류)")
+
+
+def _slot_of(item: dict) -> str:
+    return SLOT_RE.findall(_answer_of(item))[0]
+
+
+class TestSlotAnswersDifferWithinBand:
+    """같은 밴드 안에서 실황 정답 슬롯이 겹치지 않는다."""
+
+    def test_밴드마다_정답_슬롯이_서로_다르다(self):
+        by_band: dict[str, list[tuple[str, str]]] = {}
+        for index, item in SLOT_ANSWER_ITEMS:
+            by_band.setdefault(_band_of(item), []).append(
+                (_slot_of(item), _label(item, index))
+            )
+
+        collisions = []
+        for band, entries in sorted(by_band.items()):
+            seen: dict[str, list[str]] = {}
+            for slot, label in entries:
+                seen.setdefault(slot, []).append(label)
+            for slot, labels in sorted(seen.items()):
+                if len(labels) > 1:
+                    collisions.append(f"{band} · {slot} × {len(labels)}벌: {labels}")
+
+        assert not collisions, (
+            "같은 밴드 안에서 실황 정답 슬롯이 겹친다 — 학습자가 지문을 안 읽고 "
+            "「이 밴드의 실황이면 늘 이 값」으로 외워서 맞힐 수 있다:\n  "
+            + "\n  ".join(collisions)
+        )
+
+    def test_이_계약이_공허하지_않다(self):
+        """겹칠 **재료가 있는** 밴드가 실제로 있는가 — 공허 통과 방지.
+
+        슬롯 정답 문항이 밴드마다 1건뿐이면 위 단정은 저절로 참이다. 그때는 계약이
+        지키는 것이 없으므로, 「2건 이상인 밴드가 하나라도 있다」를 함께 문다.
+        """
+        counts: dict[str, int] = {}
+        for _, item in SLOT_ANSWER_ITEMS:
+            band = _band_of(item)
+            counts[band] = counts.get(band, 0) + 1
+        assert any(n >= 2 for n in counts.values()), (
+            f"슬롯 정답 문항이 밴드마다 1건 이하다({counts}) — 유일성 단정이 공허하다"
+        )
+
+    def test_미분류_밴드에_슬롯_정답_문항이_없다(self):
+        """`level_group`이 없으면 어느 밴드에서 겹치는지 판정할 수 없다.
+
+        위 단정은 미분류를 하나의 밴드로 묶어 보므로 판정이 성립하기는 하지만,
+        그 묶음은 화면에서 학습자가 만나는 단위가 아니다 — 애초에 없어야 한다.
+        """
+        unclassified = [
+            _label(item, index)
+            for index, item in SLOT_ANSWER_ITEMS
+            if not item.get("level_group")
+        ]
+        assert not unclassified, f"level_group 없는 슬롯 정답 문항: {unclassified}"

@@ -2092,9 +2092,9 @@
     "knowledge_level": 1,
     "question_type": "short_answer",
     "template_json": {
-      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도예요. 하루 중 가장 더울 때 에어컨을 세게 틀면 전기를 많이 써서 이산화탄소가 더 나와요. 오늘 가장 더웠던 때의 기온은 몇 도일까요? 숫자만 적어 보세요.",
-      "correct_answer": "{today.temp_max}",
-      "explanation_hint": "예보에서 말하는 최고기온이 하루 중 가장 더울 때의 기온이에요. 그때 전기를 아끼면 이산화탄소도 함께 줄어들어요."
+      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도, 비 올 확률은 {today.rain_prob}%예요. 이산화탄소가 늘어 공기가 더워지면 공기가 품는 물이 많아져서, 비가 한 번에 세차게 쏟아지는 날이 잦아져요. 오늘 비가 올 가능성은 몇 %일까요? 숫자만 적어 보세요.",
+      "correct_answer": "{today.rain_prob}",
+      "explanation_hint": "비 올 확률은 오늘 같은 날씨에서 비가 내릴 가능성이 얼마나 되는지 알려 주는 값이에요. 더워진 공기가 물을 더 많이 품게 되면서 한 번에 쏟아지는 비가 늘고 있어요."
     },
     "uses_live_slots": true,
     "source": {
@@ -2104,7 +2104,8 @@
         "생활 속 탄소 감축",
         "knowledge_level=1 · 적용 규칙: R1 무적발 → 사람 판정 1 · uses_live_slots(하늘 주입은 배경) (docs/specs/12 §4)",
         "knowledge_level=1 · 결정 용어: 기후변화 대응 행동([4과16-03])",
-        "SPRINT_R13_02 §T3 실황 계산 — multiple_choice → short_answer 전환, correct_answer가 {today.temp_max}이라 매일 정답이 바뀐다 (슬롯이 배경 장식이던 문항을 오늘 값 읽기로 바꾼다)"
+        "SPRINT_R13_02 §T3 실황 계산 — multiple_choice → short_answer 전환, correct_answer가 {today.rain_prob}이라 매일 정답이 바뀐다 (슬롯이 배경 장식이던 문항을 오늘 값 읽기로 바꾼다)",
+        "2026-08-20 실황 정답 슬롯 다양화 — elementary 밴드에서 {today.temp_max}가 2벌이라 「실황이면 최고기온」으로 외워서 맞힐 수 있었다. 평년값 대조(anomaly) 쪽이 최고기온의 소유자이므로 이 문항을 강수 확률로 옮긴다(온난화–집중호우 축은 이 개념의 교육과정 안에 있다)"
       ]
     },
     "status": "active"
@@ -26977,16 +26978,17 @@
     "knowledge_level": 2,
     "question_type": "short_answer",
     "template_json": {
-      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도예요. 하루 중 기온이 가장 낮은 새벽에 온도계가 가리키는 값은 몇 도일까요? 숫자만 적어 보세요.",
-      "correct_answer": "{today.temp_min}",
-      "explanation_hint": "하루 기온은 새벽에 가장 낮고 오후에 가장 높아요. 그래서 예보에서 말하는 최저기온이 새벽에 나타나는 값이에요."
+      "question_text": "오늘 {today.region}의 하늘은 '{today.sky}', 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도예요. 낮에 해가 구름에 가리면 땅이 덜 데워져서 기온도 덜 올라가요. 오늘 해가 얼마나 가려졌는지 알려 주는 하늘의 상태는 어떤가요? 맑음·구름많음·흐림 가운데 하나를 그대로 적어 보세요.",
+      "correct_answer": "{today.sky}",
+      "explanation_hint": "하늘의 상태는 구름이 해를 얼마나 가리는지를 알려 줘요. 구름이 많을수록 땅에 닿는 햇빛이 줄어서 낮에 기온이 덜 올라가요."
     },
     "uses_live_slots": true,
     "source": {
       "kind": "seed",
       "refs": [
         "climate_concepts: temperature_heat",
-        "SPRINT_R13_02 §T3 실황 계산 — correct_answer가 {today.temp_min}이라 매일 정답이 바뀐다",
+        "SPRINT_R13_02 §T3 실황 계산 — correct_answer가 {today.sky}라 매일 정답이 바뀐다",
+        "2026-08-20 실황 정답 슬롯 다양화 — elementary 밴드에서 {today.temp_min}이 2벌이라 「실황이면 최저기온」으로 외워서 맞힐 수 있었다. 열섬(열대야 판정 축) 쪽이 최저기온의 소유자이므로 이 문항을 하늘 상태로 옮긴다(밴드 안 정답 슬롯 유일성은 test_live_answer_contract가 문다)",
         "knowledge_level=2 · 적용 규칙: R1 → 2(기온 측정·관찰, 까닭 아님) (docs/specs/12 §4)"
       ]
     },
@@ -27019,16 +27021,17 @@
     "knowledge_level": 5,
     "question_type": "short_answer",
     "template_json": {
-      "question_text": "오늘 {today.region}의 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도다. 지면이 데워지고 그 열이 대기로 옮겨가는 데 시간이 걸리므로 기온의 정점은 태양 고도가 가장 높은 정오가 아니라 두세 시간 뒤 오후에 나타난다. 오늘 그 정점에서 기록되는 기온은 몇 도인가? 숫자만 쓰시오.",
-      "correct_answer": "{today.temp_max}",
-      "explanation_hint": "일사량의 정점과 기온의 정점은 어긋난다. 지면이 흡수한 에너지가 대기로 전달되는 동안 기온은 계속 오르므로, 하루의 최고기온은 이른 오후에 나타난다."
+      "question_text": "오늘 {today.region}의 하늘은 '{today.sky}', 최고기온은 {today.temp_max}도, 최저기온은 {today.temp_min}도다. 지표에 도달하는 일사량은 구름이 태양 복사를 얼마나 가로막느냐에 따라 크게 달라지고, 그 차이가 낮 동안 지면이 얻는 에너지를 좌우한다. 오늘 그 가로막는 정도를 알려 주는 관측 값은 무엇인가? 맑음·구름많음·흐림 가운데 하나를 그대로 쓰시오.",
+      "correct_answer": "{today.sky}",
+      "explanation_hint": "구름은 태양 복사를 반사하고 흡수해 지표에 닿는 일사량을 줄인다. 기온이 아니라 하늘의 상태가 그날 들어오는 에너지의 크기를 말해 주는 값이다."
     },
     "uses_live_slots": true,
     "source": {
       "kind": "seed",
       "refs": [
         "climate_concepts: radiation_budget",
-        "SPRINT_R13_02 §T3 실황 계산 — correct_answer가 {today.temp_max}",
+        "SPRINT_R13_02 §T3 실황 계산 — correct_answer가 {today.sky}",
+        "2026-08-20 실황 정답 슬롯 다양화 — adult 밴드에서 {today.temp_max}가 2벌이라 「실황이면 최고기온」으로 외워서 맞힐 수 있었다. 폭염 특보 기준(anomaly) 쪽이 최고기온의 소유자이므로 이 문항을 하늘 상태로 옮긴다 — 복사수지의 입력 항(들어오는 일사)을 묻게 되어 야간 종점(최저기온)을 묻는 짝 문항과도 축이 갈린다",
         "knowledge_level=5 · 적용 규칙: R1 → 5(에너지 수지를 정성적으로 종합, 역학 배제) (docs/specs/12 §4)"
       ]
     },

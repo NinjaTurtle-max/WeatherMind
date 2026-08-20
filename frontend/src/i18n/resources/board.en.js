@@ -230,6 +230,11 @@ export default {
       disasterFloodWarningTitle: '🚨 Flood warning',
       disasterFloodWarningBody: 'Fronts converge and rain pours down with nowhere to drain — the city can go under.',
       resultSuccess: '🎉 Success! You created the target atmospheric phenomenon',
+      // Four-condition achievement (2026-08-20). Deliberately promises nothing —
+      // 'later'/'anytime'/'change' are the words this repo forbids in copy that
+      // would name a route that does not exist (uiCopy.contract ⑸⑹).
+      fourConditionTitle: '🏅 Four-condition rule! No shortcut can produce this one',
+      fourConditionMet: 'You matched all four at once — {conditions}',
       resultFail: 'Not yet — change your placement and try again',
       timeoutTitle: '⏱ Time is up! The board was not completed within the limit',
       timeoutRetry: 'Try again ({sec}s)',
