@@ -698,7 +698,9 @@ await new Promise((r) => httpServer.close(r));
   //    처음에는 첫 매치만 봤는데, 꼬리 격자가 생기면서 "어느 쪽을 본 것인지"가
   //    파일 순서에 달리게 됐다 — 위아래가 뒤바뀌면 계약이 조용히 반대를 문다.
   //    그래서 **개수까지 세고 순서로 가리킨다.**
-  const grids = [...page.matchAll(/<div className="(grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/g)]
+  // ⚠️ 앞에 다른 클래스가 붙을 수 있다(`mt-6 grid …`) — `grid`로 시작한다고
+  //    단정하면 여백을 더한 순간 격자 하나가 목록에서 사라진다(실제로 그랬다).
+  const grids = [...page.matchAll(/<div className="([^"]*grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/g)]
     .map((m) => m[1]);
   ok(grids.length === 2, `ⓒ0 같은 꼴의 격자가 둘이다(본문·꼬리) — 실제 ${grids.length}개`);
   ok(
@@ -715,17 +717,30 @@ await new Promise((r) => httpServer.close(r));
  * 였다 — 숫자 두 개짜리 칸이 그 폭이던 과거 예보와 같은 종류의 결함이다.
  * 실측(1536): 화면 2,267 → 1,973px · 이메일 칸 1,090 → 520px.
  *
- * 되돌아가는 길이 둘이라 둘을 문다:
+ * 되돌아가는 길이 여럿이라 하나씩 문다:
  *  ⓕ 세 카드가 **전부 그 격자 안**에 있다 — 새 설정 카드를 격자 **밖**에
  *    붙이면 그 한 장만 다시 전폭이 되어 규칙이 또 중간에 바뀐다
  *  ⓖ 격자 안 카드가 자기 `mt-4`를 갖지 않는다 — 간격의 임자는 `gap-4` 하나다.
  *    (셋 다 `mt-4`를 들고 있었고, 2열이 되면서 두 열의 첫 줄이 어긋났다)
- * ⓗ 꼬리 격자는 `lg:items-start`가 **있어야** 한다 — 없으면 오른쪽 설정 둘이
- *    왼쪽 폼 높이까지 늘어난다. 본문 격자와 정반대라 헷갈리기 쉬운 자리다.
+ *  ⓗ 꼬리 격자에 **위 여백**이 있다 — 0이던 동안 능력 분석 판과 붙어 한 덩어리로
+ *    읽혔다(2026-08-20 사용자 지적).
+ *  ⓘ 오른쪽 열이 **늘어나고**(`lg:h-full`) 그 높이를 **학습 수준 카드가 먹는다**
+ *    (`flex-1`). 배지 컬렉션과 같은 흡수 짝이라 함정도 같다 — 셋 중 하나만
+ *    있으면 조용히 어긋난다.
+ *  ⓙ 학습 수준 보기가 **세로 1열**이다 — 가로 3열로 되돌리면 카드가 140px에서
+ *    멈춰 ⓘ가 먹을 것을 잃는다.
+ *
+ * 🔴 **ⓗ는 하루 만에 뒤집혔다.** 처음 2열로 접을 때는 `lg:items-start`를
+ *    **요구**했는데(오른쪽 설정이 왼쪽 폼 높이로 늘지 않게), 같은 날 사용자가
+ *    *"진도 저장 카드 끝나는 위치랑 오른쪽 카드들 일치"*를 지시하면서 정확히
+ *    반대가 됐다. 두 지시가 모순이 아니라 **그 사이에 학습 수준 카드가 세로로
+ *    커져 먹을 수 있게 됐다** — 종전에는 늘려 봐야 빈 띠만 생겼다.
+ *    본문 격자는 여전히 `items-start`가 **없어야** 하므로(배지 흡수), 이제
+ *    두 격자의 요구가 같다. 다시 갈라질 수 있으니 각각 따로 단정한다.
  */
 {
   const page = readFileSync(resolve(root, 'src/modules/progress/ProgressPage.jsx'), 'utf8');
-  const open = page.indexOf('<div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">');
+  const open = page.indexOf('grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">', page.indexOf('꼬리 설정 묶음'));
   const close = page.indexOf('/꼬리 2열');
   const tail = open >= 0 && close > open ? page.slice(open, close) : '';
   ok(tail.length > 0, '꼬리 2열 격자를 소스에서 찾았다');
@@ -749,13 +764,24 @@ await new Promise((r) => httpServer.close(r));
   // ⚠️ 진도 저장 카드의 뿌리는 **같은 파일 아래쪽 별도 함수**에 있다(격자 안이
   //    아니다). 그래서 격자 본문이 아니라 testid로 찾아 본다.
   const saveRoot = page.match(/data-testid="save-progress-card"\s*\n\s*className="([^"]*)"/)?.[1] ?? '';
+  // 🔴 **학습 수준 카드의 뿌리도 격자 밖에 있다.** 처음에 진도 저장만 따로 보고
+  //    이 한 장을 빠뜨렸는데, 그 카드가 `mt-4`를 그대로 들고 있어서 **오른쪽 열
+  //    머리가 16px 내려간 채로 병합됐다**(사용자가 화면에서 잡았다). 계약이
+  //    "격자 본문 + 예외 하나"로 쓰이면 예외가 늘 때마다 같은 구멍이 생긴다 —
+  //    그래서 뿌리를 **목록**으로 들고 하나씩 확인한다.
+  const levelRoot = page.match(/return \(\s*\n\s*<div className="([^"]*)">\s*\n\s*<p className="text-sm font-extrabold text-slate-900">\{t\('profile\.levelGroupTitle'\)\}/)?.[1] ?? '';
+  const roots = [['save-progress-card', saveRoot], ['LevelGroupCard', levelRoot]];
+  ok(
+    roots.every(([, cls]) => cls.length > 0),
+    `ⓖ0 격자 밖 카드 뿌리를 둘 다 찾았다 — ${roots.map(([n, c]) => `${n}=${c ? 'o' : 'x'}`).join(' ')}`,
+  );
   // 🔴 `\bmt-4\b`로 쓰면 **`scroll-mt-4`에 걸린다** — `-`가 단어 문자가 아니라
   //    그 뒤에서 경계가 성립하기 때문이다. 처음에 그렇게 써서 셋 다 붉었고,
   //    `scroll-mt-4`는 해시 스크롤 여백이라 걷으면 안 되는 값이다.
   //    Tailwind 클래스를 셀 때는 하이픈까지 막는 경계를 쓸 것.
   const MT4 = /(?<![\w-])mt-4(?![\w-])/;
   const strays = [
-    ...(MT4.test(saveRoot) ? ['save-progress-card'] : []),
+    ...roots.filter(([, cls]) => MT4.test(cls)).map(([name]) => name),
     ...[...tail.matchAll(/className="([^"]*)"/g)].map((m) => m[1]).filter((c) => MT4.test(c)),
   ];
   ok(
@@ -764,11 +790,35 @@ await new Promise((r) => httpServer.close(r));
   );
   // ⚠️ 위 블록의 `grids`를 **빌려 쓰지 않는다** — 블록 스코프라 여기서는
   //    ReferenceError다(이 파일에서 실제로 한 번 그렇게 깨뜨렸다). 다시 센다.
-  const tailGrid = [...page.matchAll(/<div className="(grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/g)]
+  // ⚠️ 앞에 다른 클래스가 붙을 수 있다(`mt-6 grid …`) — `grid`로 시작한다고
+  //    단정하면 여백을 더한 순간 **격자를 못 찾고 계약이 통째로 조용해진다**.
+  //    실제로 `mt-6`을 붙이며 그렇게 됐다.
+  const tailGrid = [...page.matchAll(/<div className="([^"]*grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/g)]
     .map((m) => m[1])[1] ?? '';
   ok(
-    /lg:items-start/.test(tailGrid),
-    `ⓗ 꼬리 격자는 items-start다(오른쪽 설정이 왼쪽 폼 높이로 늘지 않게) — 실제 "${tailGrid}"`,
+    /(?<![\w-])mt-6(?![\w-])/.test(tailGrid),
+    `ⓗ 꼬리 격자가 분석 판과 붙지 않는다(절 사이 여백) — 실제 "${tailGrid}"`,
+  );
+  ok(
+    !/lg:items-start/.test(tailGrid),
+    `ⓘ0 꼬리 격자가 두 열을 늘인다(items-start 없음) — 실제 "${tailGrid}"`,
+  );
+  // ⓘ 흡수 3점 세트. 배지 컬렉션(ⓐⓑⓒ)과 같은 모양이고, 하나만 빠져도 흰 여백이
+  //   그대로 남는다: 열이 안 늘거나(h-full) · 카드가 안 먹거나(flex-1) ·
+  //   카드만 커지고 버튼은 그대로거나(버튼 flex-1 — 바닥에 빈 띠가 생긴다).
+  const rightCol = page.match(/<div className="(flex flex-col gap-4[^"]*)">/)?.[1] ?? '';
+  ok(/lg:h-full/.test(rightCol), `ⓘ1 오른쪽 열이 행 높이만큼 늘어난다 — 실제 "${rightCol}"`);
+  ok(
+    /(?<![\w-])flex flex-1 flex-col rounded-2xl/.test(levelRoot),
+    `ⓘ2 학습 수준 카드가 남는 높이를 먹는다 — 실제 "${levelRoot}"`,
+  );
+  const btnCls = page.match(/className=\{`([^`]*)\$\{\s*\n?\s*me\.level_group === g\.value/)?.[1] ?? '';
+  ok(/(?<![\w-])flex-1(?![\w-])/.test(btnCls), `ⓘ3 보기 셋이 남는 높이를 나눠 갖는다 — 실제 "${btnCls.trim()}"`);
+  // ⓙ 세로 1열. 가로 3열로 되돌리면 카드가 140px에서 멈춰 ⓘ가 먹을 것을 잃는다.
+  const btnGroup = page.match(/<div className="([^"]*)" data-level-group=/)?.[1] ?? '';
+  ok(
+    /flex-col/.test(btnGroup) && !/grid-cols-3/.test(btnGroup),
+    `ⓙ 학습 수준 보기가 세로 1열이다 — 실제 "${btnGroup}"`,
   );
 }
 
