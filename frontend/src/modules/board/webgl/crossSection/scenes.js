@@ -717,6 +717,10 @@ export const SCENES = {
   front_convergence_flood: { build: frontConvergenceFlood, sea: { from: 0, to: 0.18 } },
   tropical_cyclone_genesis: { build: tropicalCycloneGenesis, sea: { from: 0, to: 1 } },
   greenhouse_tropical_night: { build: greenhouseTropicalNight, night: true },
+  // 대기화학 축(2026-08-20) — `radiationFog` 재키잉. 근거는 CrossSectionPanel의
+  // 같은 자리 주석(SCENE_BY_RULE)에 한 번만 적었다. 단계 수도 그쪽과 같은 4단계라
+  // story `steps`가 그대로 맞는다(crossSectionWebgl.contract가 그 정합을 문다).
+  nocturnal_inversion_haze: { build: radiationFog, night: true },
 };
 
 /** 장면 전체(지표 레이어 + 단계 아이템) 조립 — 단계 필터는 renderer가 수행 */

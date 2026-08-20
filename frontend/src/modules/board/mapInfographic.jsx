@@ -308,6 +308,8 @@ const RULE_ANNOTATION_IDS = [
   'yangtze_mild_clear',
   'yangtze_morning_fog',
   'dry_convection_clear',
+  // 대기화학 축(2026-08-20)
+  'nocturnal_inversion_haze',
 ];
 
 // 인덱싱 형태(`RULE_ANNOTATIONS[ruleId]` → 문자열)를 그대로 유지한다 — 소비처가

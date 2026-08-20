@@ -510,6 +510,15 @@ export default {
             'With too little wind to mix the heat away, the temperature never drops overnight.',
           ],
         },
+        nocturnal_inversion_haze: {
+          title: 'Nocturnal stable layer + light wind — a night that traps dry particles',
+          steps: [
+            'After sunset the ground radiates its heat away and cools quickly (radiative cooling).',
+            'Air touching the cooled ground becomes colder than the layer above, so the two cannot mix.',
+            'What is trapped in that shallow layer is not water droplets but invisible dry particles — so this is haze, not fog.',
+            'With too little wind to carry them away, visibility stays poor until early morning. Once the sun warms the ground, mixing resumes and the concentration falls.',
+          ],
+        },
       },
       badgeConfirmed: '✓ Server verdict',
       badgePreview: 'Preview',
@@ -554,6 +563,7 @@ export default {
         yangtze_mild_clear: 'Mild continental air,\nclear',
         yangtze_morning_fog: 'Weak sun, lingering damp,\nmorning fog',
         dry_convection_clear: 'Strong sun but dry,\nclouds cannot grow',
+        nocturnal_inversion_haze: 'Particles trapped at night,\nhazy low visibility',
       },
       mapAria: 'Korean Peninsula atmosphere board map — place elements on the 4 region nodes',
       zoneAria: '{name} zone{goal} — currently {phenomenon}',

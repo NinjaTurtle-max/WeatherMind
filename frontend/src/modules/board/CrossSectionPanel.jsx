@@ -1302,6 +1302,12 @@ export const SCENE_BY_RULE = {
   // 태풍 씨앗·열대야(2026-08-18) — 같은 공백이 두 번째로 반복돼 함께 채웠다.
   tropical_cyclone_genesis: CycloneGenesisScene,
   greenhouse_tropical_night: TropicalNightScene,
+  // 대기화학 축(2026-08-20) — **복사안개 장면을 재키잉**한다(새 장면 저작은 이 작업의
+  // 소유 밖 · 리드 확정). 4단계 중 3단계가 그대로 맞는다: 복사냉각 → 지표 부근 냉각
+  // (= 이 규칙이 말하는 야간 안정층) → 이른 아침의 저시정. 안 맞는 한 자리는 3단계
+  // 라벨 「수증기 응결 → 안개층」이고, story 3단계 문구가 그 자리에서 「갇히는 것은
+  // 물방울이 아니라 마른 입자」라고 정정한다. 전용 장면 저작은 이 파일 소유자 몫.
+  nocturnal_inversion_haze: RadiationFogScene,
 };
 
 /**
