@@ -196,15 +196,17 @@
     "concept_tag": "density_buoyancy",
     "level_group": "expert",
     "knowledge_level": 7,
-    "question_type": "slider",
+    "question_type": "multiple_choice",
     "template_json": {
       "question_text": "어느 맑은 날 지표 기온이 20℃, 높이 1km 지점의 기온이 12℃로 관측됐다. 주변 공기가 높이 1km마다 식는 정도인 환경 감률은 몇 ℃/km인가? (단위: ℃/km)",
-      "correct_answer": "8",
-      "explanation_hint": "20℃에서 12℃로 8℃ 떨어졌으므로 환경 감률은 8℃/km다. 구름이 없는 공기 덩어리가 스스로 식는 정도는 약 10℃/km이므로, 올라간 공기는 주변보다 차가워지고 무거워져 제자리로 되돌아온다. 구름이 없는 한 이 대기는 안정하다.",
-      "min": 0,
-      "max": 15,
-      "step": 0.5,
-      "unit": "℃/km"
+      "options": [
+        "10℃/km",
+        "6.5℃/km",
+        "8℃/km",
+        "12℃/km"
+      ],
+      "correct_answer": "8℃/km",
+      "explanation_hint": "20℃에서 12℃로 8℃ 떨어졌으므로 환경 감률은 8℃/km다. 구름이 없는 공기 덩어리가 스스로 식는 정도는 약 10℃/km이므로, 올라간 공기는 주변보다 차가워지고 무거워져 제자리로 되돌아온다. 구름이 없는 한 이 대기는 안정하다."
     },
     "uses_live_slots": false,
     "source": {
@@ -212,7 +214,8 @@
       "refs": [
         "R13 2일차 CT-4",
         "판정: R1 환경 감률·단열 감률(introduced_at 6) / R2 +1(계산 뒤 안정도 판정) / R3 미해당 — 관측값에서 구하는 계산 결과다",
-        "성취기준 [12지시03-03] 해설 '단열변화와 단열 감률을 고려한 대기의 안정도'"
+        "성취기준 [12지시03-03] 해설 '단열변화와 단열 감률을 고려한 대기의 안정도'",
+        "2026-08-20 slider→multiple_choice 전환 — 관용오차 ±10은 **절대값**이라 눈금 폭이 그보다 좁으면 무엇을 짚어도 정답이었다(lint slider_indiscriminate). 지문은 시드 멱등 키((concept_tag, question_text))라 한 글자도 바꾸지 않는다 — 바꾸면 upsert가 삽입이 되고 구 슬라이더 행이 실DB에 active로 남는다."
       ]
     },
     "status": "active"

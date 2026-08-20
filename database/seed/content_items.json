@@ -1305,15 +1305,17 @@
     "concept_tag": "co2_climate",
     "level_group": "adult",
     "knowledge_level": 5,
-    "question_type": "slider",
+    "question_type": "multiple_choice",
     "template_json": {
       "question_text": "파리협정에서 세계 각국은 지구 평균기온 상승 폭을 산업화 이전 대비 몇 ℃보다 훨씬 낮게 억제하기로 합의했는가? (단위: ℃)",
-      "correct_answer": "2",
-      "explanation_hint": "파리협정(2015)의 목표는 산업화 이전 대비 기온 상승을 2℃보다 훨씬 낮게 억제하고, 나아가 1.5℃ 이내로 제한하도록 노력하는 것입니다. 이를 위해 각국이 온실가스 감축 목표를 제출합니다.",
-      "min": 0,
-      "max": 5,
-      "step": 0.5,
-      "unit": "℃"
+      "options": [
+        "2℃",
+        "1.5℃",
+        "3℃",
+        "1℃"
+      ],
+      "correct_answer": "2℃",
+      "explanation_hint": "파리협정(2015)의 목표는 산업화 이전 대비 기온 상승을 2℃보다 훨씬 낮게 억제하고, 나아가 1.5℃ 이내로 제한하도록 노력하는 것입니다. 이를 위해 각국이 온실가스 감축 목표를 제출합니다."
     },
     "uses_live_slots": false,
     "source": {
@@ -1322,7 +1324,8 @@
         "R12 §9",
         "파리협정 기온 목표",
         "knowledge_level=5 · 적용 규칙: 사람 판정 5(국제사회 대응) (docs/specs/12 §4)",
-        "knowledge_level=5 · 결정 용어: 파리협정 [12기환03]"
+        "knowledge_level=5 · 결정 용어: 파리협정 [12기환03]",
+        "2026-08-20 slider→multiple_choice 전환 — 관용오차 ±10은 **절대값**이라 눈금 폭이 그보다 좁으면 무엇을 짚어도 정답이었다(lint slider_indiscriminate). 지문은 시드 멱등 키((concept_tag, question_text))라 한 글자도 바꾸지 않는다 — 바꾸면 upsert가 삽입이 되고 구 슬라이더 행이 실DB에 active로 남는다."
       ]
     },
     "status": "active"
@@ -2549,15 +2552,17 @@
     "concept_tag": "temperature_heat",
     "level_group": "middle_high",
     "knowledge_level": 3,
-    "question_type": "slider",
+    "question_type": "multiple_choice",
     "template_json": {
       "question_text": "물 1g의 온도를 1℃ 올리는 데 필요한 열량은 몇 cal인가? (단위: cal)",
-      "correct_answer": "1",
-      "explanation_hint": "물의 비열은 1cal/(g·℃)입니다. 어떤 물질 1g의 온도를 1℃ 올리는 데 필요한 열량을 그 물질의 비열이라고 해요.",
-      "min": 0,
-      "max": 40,
-      "step": 1,
-      "unit": "cal"
+      "options": [
+        "4.2cal",
+        "80cal",
+        "1cal",
+        "539cal"
+      ],
+      "correct_answer": "1cal",
+      "explanation_hint": "물의 비열은 1cal/(g·℃)입니다. 어떤 물질 1g의 온도를 1℃ 올리는 데 필요한 열량을 그 물질의 비열이라고 해요."
     },
     "uses_live_slots": false,
     "source": {
@@ -2566,7 +2571,8 @@
         "climate_concepts: temperature_heat-2",
         "sprint: R12 AU-2 (SPRINT_R11_01 §9, specs/11 §3)",
         "knowledge_level=3 · 적용 규칙: R1 → 3 · R3 미적용(1cal은 [9과03-03] 교과 수치) (docs/specs/12 §4)",
-        "knowledge_level=3 · 결정 용어: 비열([9과03-03])"
+        "knowledge_level=3 · 결정 용어: 비열([9과03-03])",
+        "2026-08-20 slider→multiple_choice 전환 — 관용오차 ±10은 **절대값**이라 눈금 폭이 그보다 좁으면 무엇을 짚어도 정답이었다(lint slider_indiscriminate). 지문은 시드 멱등 키((concept_tag, question_text))라 한 글자도 바꾸지 않는다 — 바꾸면 upsert가 삽입이 되고 구 슬라이더 행이 실DB에 active로 남는다."
       ]
     },
     "status": "active"
@@ -3071,15 +3077,17 @@
     "concept_tag": "density_buoyancy",
     "level_group": "middle_high",
     "knowledge_level": 3,
-    "question_type": "slider",
+    "question_type": "multiple_choice",
     "template_json": {
       "question_text": "물의 밀도가 가장 커지는 온도는 약 몇 ℃인가? (단위: ℃)",
-      "correct_answer": "4",
-      "explanation_hint": "물은 약 4℃에서 밀도가 가장 큽니다. 그래서 겨울 호수는 표면부터 얼고, 바닥 쪽 물은 4℃ 부근을 유지해 물고기가 살 수 있어요.",
-      "min": 0,
-      "max": 40,
-      "step": 1,
-      "unit": "℃"
+      "options": [
+        "약 0℃",
+        "약 4℃",
+        "약 20℃",
+        "약 100℃"
+      ],
+      "correct_answer": "약 4℃",
+      "explanation_hint": "물은 약 4℃에서 밀도가 가장 큽니다. 그래서 겨울 호수는 표면부터 얼고, 바닥 쪽 물은 4℃ 부근을 유지해 물고기가 살 수 있어요."
     },
     "uses_live_slots": false,
     "source": {
@@ -3088,7 +3096,8 @@
         "climate_concepts: density_buoyancy-1",
         "sprint: R12 AU-2 (SPRINT_R11_01 §9, specs/11 §3)",
         "knowledge_level=3 · 적용 규칙: 사람 판정 3 · R3 미적용(4℃는 교과 수치) (docs/specs/12 §4)",
-        "knowledge_level=3 · 결정 용어: 밀도(중학 물질·에너지)"
+        "knowledge_level=3 · 결정 용어: 밀도(중학 물질·에너지)",
+        "2026-08-20 slider→multiple_choice 전환 — 관용오차 ±10은 **절대값**이라 눈금 폭이 그보다 좁으면 무엇을 짚어도 정답이었다(lint slider_indiscriminate). 지문은 시드 멱등 키((concept_tag, question_text))라 한 글자도 바꾸지 않는다 — 바꾸면 upsert가 삽입이 되고 구 슬라이더 행이 실DB에 active로 남는다."
       ]
     },
     "status": "active"
@@ -4096,15 +4105,17 @@
     "concept_tag": "phase_change",
     "level_group": "elementary",
     "knowledge_level": 1,
-    "question_type": "slider",
+    "question_type": "multiple_choice",
     "template_json": {
       "question_text": "물은 얼음, 물, 수증기처럼 모습을 바꾼다. 물이 가질 수 있는 상태는 모두 몇 가지인가? (단위: 가지)",
-      "correct_answer": "3",
-      "explanation_hint": "물은 얼음, 물, 수증기의 세 가지 상태로 모습을 바꾼다. 셋은 모두 같은 물이며 모습만 달라진 것이다.",
-      "min": 0,
-      "max": 6,
-      "step": 1,
-      "unit": "가지"
+      "options": [
+        "4가지",
+        "2가지",
+        "6가지",
+        "3가지"
+      ],
+      "correct_answer": "3가지",
+      "explanation_hint": "물은 얼음, 물, 수증기의 세 가지 상태로 모습을 바꾼다. 셋은 모두 같은 물이며 모습만 달라진 것이다."
     },
     "uses_live_slots": false,
     "source": {
@@ -4113,7 +4124,8 @@
         "R13 2일차 CT-2",
         "판정: R1 물의 세 가지 상태(1단계 도입) / R2 +0",
         "성취기준 [4과10-01]",
-        "R3 미해당 — '세 가지 상태'는 성취기준 문면의 수치다(실무 기준 아님)"
+        "R3 미해당 — '세 가지 상태'는 성취기준 문면의 수치다(실무 기준 아님)",
+        "2026-08-20 slider→multiple_choice 전환 — 관용오차 ±10은 **절대값**이라 눈금 폭이 그보다 좁으면 무엇을 짚어도 정답이었다(lint slider_indiscriminate). 지문은 시드 멱등 키((concept_tag, question_text))라 한 글자도 바꾸지 않는다 — 바꾸면 upsert가 삽입이 되고 구 슬라이더 행이 실DB에 active로 남는다."
       ]
     },
     "status": "active"
@@ -4948,15 +4960,17 @@
     "concept_tag": "density_buoyancy",
     "level_group": "expert",
     "knowledge_level": 7,
-    "question_type": "slider",
+    "question_type": "multiple_choice",
     "template_json": {
       "question_text": "어느 맑은 날 지표 기온이 20℃, 높이 1km 지점의 기온이 12℃로 관측됐다. 주변 공기가 높이 1km마다 식는 정도인 환경 감률은 몇 ℃/km인가? (단위: ℃/km)",
-      "correct_answer": "8",
-      "explanation_hint": "20℃에서 12℃로 8℃ 떨어졌으므로 환경 감률은 8℃/km다. 구름이 없는 공기 덩어리가 스스로 식는 정도는 약 10℃/km이므로, 올라간 공기는 주변보다 차가워지고 무거워져 제자리로 되돌아온다. 구름이 없는 한 이 대기는 안정하다.",
-      "min": 0,
-      "max": 40,
-      "step": 0.5,
-      "unit": "℃/km"
+      "options": [
+        "10℃/km",
+        "6.5℃/km",
+        "8℃/km",
+        "12℃/km"
+      ],
+      "correct_answer": "8℃/km",
+      "explanation_hint": "20℃에서 12℃로 8℃ 떨어졌으므로 환경 감률은 8℃/km다. 구름이 없는 공기 덩어리가 스스로 식는 정도는 약 10℃/km이므로, 올라간 공기는 주변보다 차가워지고 무거워져 제자리로 되돌아온다. 구름이 없는 한 이 대기는 안정하다."
     },
     "uses_live_slots": false,
     "source": {
@@ -4964,7 +4978,8 @@
       "refs": [
         "R13 2일차 CT-4",
         "판정: R1 환경 감률·단열 감률(introduced_at 6) / R2 +1(계산 뒤 안정도 판정) / R3 미해당 — 관측값에서 구하는 계산 결과다",
-        "성취기준 [12지시03-03] 해설 '단열변화와 단열 감률을 고려한 대기의 안정도'"
+        "성취기준 [12지시03-03] 해설 '단열변화와 단열 감률을 고려한 대기의 안정도'",
+        "2026-08-20 slider→multiple_choice 전환 — 관용오차 ±10은 **절대값**이라 눈금 폭이 그보다 좁으면 무엇을 짚어도 정답이었다(lint slider_indiscriminate). 지문은 시드 멱등 키((concept_tag, question_text))라 한 글자도 바꾸지 않는다 — 바꾸면 upsert가 삽입이 되고 구 슬라이더 행이 실DB에 active로 남는다."
       ]
     },
     "status": "active"
@@ -9209,14 +9224,16 @@
     "concept_tag": "typhoon",
     "level_group": "elementary",
     "knowledge_level": 2,
-    "question_type": "slider",
+    "question_type": "multiple_choice",
     "template_json": {
       "question_text": "우리나라에 태풍이 가장 많이 오는 달은 몇 월인지 슬라이더로 표시하라.",
-      "correct_answer": "8",
-      "min": 1,
-      "max": 12,
-      "step": 1,
-      "unit": "월",
+      "options": [
+        "8월",
+        "10월",
+        "6월",
+        "7월"
+      ],
+      "correct_answer": "8월",
       "explanation_hint": "태풍은 바닷물이 가장 따뜻해지는 늦여름에 많이 만들어진다. 우리나라에는 8월 무렵 가장 자주 온다."
     },
     "uses_live_slots": false,
@@ -9224,7 +9241,7 @@
       "kind": "seed",
       "refs": [
         "knowledge_level=2 · 초5~6 자료에서 규칙성 찾기",
-        "slider 범위 12 — 관용오차보다 좁으나 step=1 정수 눈금이라 의미가 있다"
+        "2026-08-20 slider→multiple_choice 전환 — 관용오차 ±10은 **절대값**이라 눈금 폭이 그보다 좁으면 무엇을 짚어도 정답이었다(lint slider_indiscriminate). 지문은 시드 멱등 키((concept_tag, question_text))라 한 글자도 바꾸지 않는다 — 바꾸면 upsert가 삽입이 되고 구 슬라이더 행이 실DB에 active로 남는다."
       ]
     },
     "status": "active"

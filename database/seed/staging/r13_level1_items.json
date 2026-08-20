@@ -298,15 +298,17 @@
     "concept_tag": "phase_change",
     "level_group": "elementary",
     "knowledge_level": 1,
-    "question_type": "slider",
+    "question_type": "multiple_choice",
     "template_json": {
       "question_text": "물은 얼음, 물, 수증기처럼 모습을 바꾼다. 물이 가질 수 있는 상태는 모두 몇 가지인가? (단위: 가지)",
-      "correct_answer": "3",
-      "explanation_hint": "물은 얼음, 물, 수증기의 세 가지 상태로 모습을 바꾼다. 셋은 모두 같은 물이며 모습만 달라진 것이다.",
-      "min": 0,
-      "max": 6,
-      "step": 1,
-      "unit": "가지"
+      "options": [
+        "4가지",
+        "2가지",
+        "6가지",
+        "3가지"
+      ],
+      "correct_answer": "3가지",
+      "explanation_hint": "물은 얼음, 물, 수증기의 세 가지 상태로 모습을 바꾼다. 셋은 모두 같은 물이며 모습만 달라진 것이다."
     },
     "uses_live_slots": false,
     "source": {
@@ -315,7 +317,8 @@
         "R13 2일차 CT-2",
         "판정: R1 물의 세 가지 상태(1단계 도입) / R2 +0",
         "성취기준 [4과10-01]",
-        "R3 미해당 — '세 가지 상태'는 성취기준 문면의 수치다(실무 기준 아님)"
+        "R3 미해당 — '세 가지 상태'는 성취기준 문면의 수치다(실무 기준 아님)",
+        "2026-08-20 slider→multiple_choice 전환 — 관용오차 ±10은 **절대값**이라 눈금 폭이 그보다 좁으면 무엇을 짚어도 정답이었다(lint slider_indiscriminate). 지문은 시드 멱등 키((concept_tag, question_text))라 한 글자도 바꾸지 않는다 — 바꾸면 upsert가 삽입이 되고 구 슬라이더 행이 실DB에 active로 남는다."
       ]
     },
     "status": "active"

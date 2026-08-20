@@ -411,14 +411,16 @@
     "concept_tag": "typhoon",
     "level_group": "elementary",
     "knowledge_level": 2,
-    "question_type": "slider",
+    "question_type": "multiple_choice",
     "template_json": {
       "question_text": "우리나라에 태풍이 가장 많이 오는 달은 몇 월인지 슬라이더로 표시하라.",
-      "correct_answer": "8",
-      "min": 1,
-      "max": 12,
-      "step": 1,
-      "unit": "월",
+      "options": [
+        "8월",
+        "10월",
+        "6월",
+        "7월"
+      ],
+      "correct_answer": "8월",
       "explanation_hint": "태풍은 바닷물이 가장 따뜻해지는 늦여름에 많이 만들어진다. 우리나라에는 8월 무렵 가장 자주 온다."
     },
     "uses_live_slots": false,
@@ -426,7 +428,7 @@
       "kind": "seed",
       "refs": [
         "knowledge_level=2 · 초5~6 자료에서 규칙성 찾기",
-        "slider 범위 12 — 관용오차보다 좁으나 step=1 정수 눈금이라 의미가 있다"
+        "2026-08-20 slider→multiple_choice 전환 — 관용오차 ±10은 **절대값**이라 눈금 폭이 그보다 좁으면 무엇을 짚어도 정답이었다(lint slider_indiscriminate). 지문은 시드 멱등 키((concept_tag, question_text))라 한 글자도 바꾸지 않는다 — 바꾸면 upsert가 삽입이 되고 구 슬라이더 행이 실DB에 active로 남는다."
       ]
     },
     "status": "active"
