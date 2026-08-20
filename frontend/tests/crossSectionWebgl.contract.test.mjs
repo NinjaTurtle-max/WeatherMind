@@ -20,6 +20,12 @@
  *     존재(오타·이름 변경 시 조용히 no-op 되는 것을 잡는다)
  *  4) SCENES ↔ STORYBOARDS 키 1:1 + board_rules.json **전 규칙** 커버 +
  *     3D 아이템의 단계 인덱스(at)가 스토리보드 단계 수를 넘지 않음
+ *  6) 🔴 **탐구 모식도 3종**(MT-22 재제작, 2026-08-19) — 이 무대의 요구 집합이
+ *     「보드 규칙 전건」에서 **「규칙 전건 + 탐구 장면」**으로 넓어졌다.
+ *     탐구 장면은 규칙이 아니므로 `composeScene`으로 들어오고 `SCENES`에 **없어야**
+ *     한다. 가짜 rule_id를 끼워 넣으면 위 4)의 1:1 정합이 **거짓이 된다**(계약이
+ *     초록인데 아무것도 안 지키는 상태). 그래서 「없음」까지 계약으로 못박고,
+ *     예산 스윕은 규칙과 **같은 잣대**로 함께 돈다.
  *  5) **컨텍스트 생명주기 — dispose 후 재초기화**(R10-06 실브라우저 결함). 아래 참조.
  *
  * ── 스텁의 한계와 그 보완 (R10-06) ──────────────────────────────────────────
@@ -61,6 +67,8 @@ const EXPECTED_MAX_PASSES = 8;
  *   WM_FAULT=lose-ctx   dispose 직후 테스트가 직접 loseContext를 부른다
  *                       (= 고쳐지기 전 renderer.dispose()와 동일한 관측 →
  *                          컨텍스트 생명주기 가드가 실제로 빨개지는지 증명)
+ *   WM_FAULT=explore-rule 탐구 장면을 SCENES에 가짜 rule_id로 끼워 넣는다
+ *                       (= 진입점을 안 넓히고 규칙 목록을 오염시킨 것과 같은 관측)
  */
 const FAULT = process.env.WM_FAULT ?? '';
 
@@ -288,6 +296,45 @@ try {
     }
   }
 
+  // ── 1-c) 🔴 탐구 모식도 3종 — 넓어진 진입점(composeScene) ─────────────────
+  const { composeScene } = scenesMod;
+  check('진입점 — composeScene(외부 장면 조립)이 있다',
+    typeof composeScene === 'function',
+    '없으면 탐구 장면이 rule_id를 가장하거나 무대를 복제하는 길밖에 없다.');
+  {
+    const probe = composeScene({ items: [] });
+    check('진입점 — composeScene이 무대(하늘·지표 레이어)를 얹어 돌려준다',
+      Boolean(probe.sky?.top) && probe.items.filter((it) => it.layer === 'ground').length >= 2,
+      JSON.stringify({ sky: Boolean(probe.sky), items: probe.items.length }));
+  }
+  const EXPLORE = [
+    ['C1 복사수지', '/src/modules/explore/schematic/radiationScene.js', 'RADIATION_SCENE', 'RADIATION_STEPS'],
+    ['T1 태풍 단면', '/src/modules/explore/schematic/typhoonSectionScene.js', 'TYPHOON_SECTION_SCENE', 'T1_STEPS'],
+    ['T2 태풍 생애', '/src/modules/explore/schematic/typhoonLifecycleScene.js', 'TYPHOON_LIFECYCLE_SCENE', 'T2_STEPS'],
+  ];
+  const exploreScenes = [];
+  for (const [name, path, sceneKey, stepKey] of EXPLORE) {
+    const mod = await server.ssrLoadModule(path);
+    const scene = mod[sceneKey];
+    const steps = mod[stepKey];
+    check(`탐구 — ${name} 장면·단계가 있다`, Boolean(scene?.items?.length) && Boolean(steps?.length));
+    exploreScenes.push([name, scene, steps.length]);
+    check(`탐구 — ${name}의 최대 단계 at < 단계 수 ${steps.length}`,
+      scene.items.every((it) => (it.at ?? 0) < steps.length),
+      '단계 수를 넘는 at은 절대 보이지 않는 아이템이다.');
+  }
+  {
+    // 🔴 가짜 매핑 금지 — 탐구 장면 id가 규칙 목록을 오염시키면 4)가 거짓이 된다
+    const ids = FAULT === 'explore-rule'
+      ? [...Object.keys(SCENES), 'c1-radiation-budget']
+      : Object.keys(SCENES);
+    const intruders = ids.filter((k) => !ruleKeys.includes(k) && !storyKeys.includes(k));
+    check('탐구 — 탐구 장면이 SCENES(규칙 목록)를 오염시키지 않았다',
+      intruders.length === 0,
+      `규칙도 스토리보드도 아닌 키: [${intruders}] — 진입점을 넓히는 대신 규칙 목록에 끼워 넣으면 ` +
+      'STORYBOARDS 1:1 계약이 초록인 채로 거짓이 된다.');
+  }
+
   // ── 2) 드로우콜 예산 ──────────────────────────────────────────────────────
   const WHO_BUDGET =
     'renderer.js 성능 계약(§3.2): 컨텍스트 1개 · 프레임당 드로우콜 ≤ 32. ' +
@@ -311,10 +358,14 @@ try {
   let minCalls = Infinity;
   let maxPrecipSeen = 0;
 
-  for (const id of Object.keys(SCENES)) {
-    const scene = buildScene(id);
+  // 규칙 장면(rule_id) + **탐구 장면 3종**을 같은 잣대로 돈다(요구 집합이 넓어졌다)
+  const SWEEP = [
+    ...Object.keys(SCENES).map((id) => [id, buildScene(id), STORYBOARDS[id]?.steps.length ?? 4]),
+    ...exploreScenes,
+  ];
+  for (const [id, scene, stepCount] of SWEEP) {
     r.setScene(scene);
-    const steps = STORYBOARDS[id]?.steps.length ?? 4;
+    const steps = stepCount;
     let t = 10;
     for (let step = 0; step < steps; step += 1) {
       r.setStep(step, t);
@@ -340,7 +391,7 @@ try {
   }
 
   check(
-    `규칙 ${Object.keys(SCENES).length}종 × 전 단계 ${framesMeasured}프레임 모두 드로우콜 ≤ ${DRAW_BUDGET} (실측 최대 ${worst.calls}: ${worst.rule} step ${worst.step})`,
+    `장면 ${SWEEP.length}종(규칙 ${Object.keys(SCENES).length} + 탐구 ${exploreScenes.length}) × 전 단계 ${framesMeasured}프레임 모두 드로우콜 ≤ ${DRAW_BUDGET} (실측 최대 ${worst.calls}: ${worst.rule} step ${worst.step})`,
     worst.calls <= DRAW_BUDGET,
     WHO_BUDGET,
   );
