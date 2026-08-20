@@ -206,6 +206,10 @@ export function conditionLabel(condition) {
  *   - phenomena: 서버 판정 존별 현상 배열만 (R9-01 §3.3 ⑤ 세션 경로 —
  *     세션은 피드백 UI(ResultBanner)를 부모가 그리므로 결과 배너 없이
  *     확정 리플레이(현상 스테이지)만 트리거한다)
+ *   - passed: 세션 경로의 통과 여부(`AnswerResult.is_correct`) — **표시 전용**.
+ *     `phenomena`와 짝이다: 그 배열만으로는 「목표를 이뤘는가」를 알 수 없어
+ *     4조건 성취 배지가 세션에서 영영 안 떴다(2026-08-21). 연습 탭은 이 값 대신
+ *     `result.passed`를 쓴다 — 두 경로가 같은 것을 다른 이름으로 받는다.
  *   - sandbox: 자유 실험 모드 (R9-01 §3.3 ⑥) — 목표·채점·제출 없이 배치→
  *     로컬 엔진 즉시 반응만. 서버 호출 0 (구름 미소모·로그 없음).
  *
@@ -284,7 +288,7 @@ export const EXPLAIN_AFTER_MISSES = 3;
  * 1개다(`goal_conditions` zone 단일 — 문항 수는 늘어나므로 세지 않는다). 값 자체는
  * 존마다 그대로 따로 갖는다.
  */
-export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null, phenomena = null, sandbox = false, layout = 'stacked' }) {
+export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, submitting = false, result = null, phenomena = null, passed = null, sandbox = false, layout = 'stacked' }) {
   const wide = layout === 'wide';
   const t = useT();
   const [board, setBoard] = useState(() => createBoard(puzzle?.initial_state));
@@ -505,12 +509,20 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     : Array.isArray(phenomena)
       ? phenomena // 세션: AnswerResult.phenomena (§3.3 ⑤)
       : null;
+  // 통과 여부는 **두 경로에서 다른 곳으로 온다**(2026-08-21).
+  //   연습 탭  : `result.passed`      — POST /puzzles/{id}/attempt 응답
+  //   세션 문항: `passed` prop        — QuestionCard가 `AnswerResult.is_correct`를 넘긴다
+  // 🔴 **여기서 다시 판정하지 않는다.** 세션 경로에도 로컬 `checkGoals`가 있지만
+  // 그것을 쓰면 표시가 아니라 재채점이 된다 — 서버가 낸 값만 받는다. board 유형의
+  // `is_correct`는 `answer_service.evaluate_board_answer`가 `phenomena`와 **같은
+  // 호출에서** 낸 값이라 둘이 어긋날 수 없다(재제출 경로도 같은 함수 한 번).
+  const verdictPassed = result ? result.passed === true : passed === true;
   // 4조건 성취 — **표시 전용**(2026-08-20). 엔진이 이미 낸 rule_id를 규칙에서
   // 되찾을 뿐이라 판정은 무접촉이다. 통과했을 때만 본다: 미통과 판에서 곁다리로
   // 4조건이 발화해도 그것은 이 문항이 요구한 성취가 아니다.
   const fourCondition = useMemo(
-    () => (result?.passed ? fourConditionRule(rules, confirmedPhenomena, goalZone) : null),
-    [result?.passed, rules, confirmedPhenomena, goalZone],
+    () => (verdictPassed ? fourConditionRule(rules, confirmedPhenomena, goalZone) : null),
+    [verdictPassed, rules, confirmedPhenomena, goalZone],
   );
   const stageZone = confirmedPhenomena ? (goalZone ?? activeZone ?? 0) : (activeZone ?? goalZone ?? 0);
   const stageResult = confirmedPhenomena
@@ -1093,11 +1105,44 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
     />
   );
 
+  /* 4조건 성취 배지 — 조건 4개가 동시에 맞아야만 나는 규칙을 낸 판에서만 뜬다.
+     🔴 **새 화면·새 라우트·애니메이션을 만들지 않는다.** 두 줄이다(축하 한 줄 +
+     무엇을 맞췄는지 한 줄). 종전에는 이 성취가 화면에서 **아무 표시도 없이**
+     지나갔다 — 지름길로 낸 통과와 글자가 같았다.
+     ⚠️ **인스턴스는 하나다** — 아래 판정 배너 안(연습 탭)과 배너 밖(세션 문항)
+     중 한쪽만 그린다(`!result` 가드). 두 벌이 마운트되면
+     `data-board-four-condition`이 중복돼 계약이 무엇을 셌는지 알 수 없게 된다. */
+  const fourConditionBadge = fourCondition && (
+    <div data-board-four-condition={fourCondition.id} className="rounded-lg bg-emerald-100/70 px-2.5 py-1.5">
+      <p className="text-xs font-extrabold text-emerald-800">
+        {t('board.atmosphere.fourConditionTitle')}
+      </p>
+      <p className="mt-0.5 text-[11px] font-bold text-emerald-700">
+        {t('board.atmosphere.fourConditionMet', {
+          conditions: fourCondition.when.map(conditionLabel).join(' · '),
+        })}
+      </p>
+    </div>
+  );
+
   // 판정 영역이 **실제로 무언가를 그리는가** — wide 배치에서 순서용 래퍼를 씌울지
   // 판단하는 데 쓴다. 아무것도 안 그리는데 래퍼를 씌우면 빈 격자칸이 gap만 벌린다.
-  const hasVerdict = Boolean(result) || timedOut;
+  // 🔴 **세션 문항 경로가 여기에 걸려 있다**(2026-08-21): 그 경로는 `result`가
+  // 없어 종전에는 이 값이 언제나 false였고, 그래서 wide 배치에서 성취 배지를
+  // 담을 격자칸 자체가 안 생겼다 — 배지는 만들어졌는데 그릴 자리가 없었다.
+  const hasVerdict = Boolean(result) || timedOut || Boolean(fourCondition);
   const verdictBlock = (
     <>
+      {/* 세션 문항 경로 — 판정 배너는 `SessionRunner`가 갖고 있어 여기엔 없다.
+          그래서 배지가 홀로 설 카드를 준다(연습 탭과 **같은 판별·같은 문구·같은
+          표시**, 담는 그릇만 다르다). 학습자가 4조건을 내는 것은 연습 탭보다
+          세션 중이 더 흔한데 종전에는 그쪽에서 아무 말도 안 했다. */}
+      {!result && fourConditionBadge && (
+        <div className="rounded-xl bg-emerald-50 px-4 py-3 ring-1 ring-emerald-200">
+          {fourConditionBadge}
+        </div>
+      )}
+
       {/* 구름 소진(§3.3) — 에너지 부족 안내(판정 실패와 구분) */}
       {result?.outOfClouds && (
         <div className="rounded-xl bg-rose-50 px-4 py-3 ring-1 ring-rose-200">
@@ -1116,22 +1161,8 @@ export default function AtmosphereBoard({ puzzle, onSubmit, disabled = false, su
           <p className={`text-sm font-bold ${result.passed ? 'text-emerald-700' : 'text-orange-700'}`}>
             {result.passed ? t('board.atmosphere.resultSuccess') : t('board.atmosphere.resultFail')}
           </p>
-          {/* 4조건 성취 배지 — 조건 4개가 동시에 맞아야만 나는 규칙을 낸 판에서만 뜬다.
-              🔴 **새 화면·새 라우트·애니메이션을 만들지 않는다.** 이미 뜨는 판정 배너
-              안의 두 줄이다(축하 한 줄 + 무엇을 맞췄는지 한 줄). 종전에는 이 성취가
-              화면에서 **아무 표시도 없이** 지나갔다 — 지름길로 낸 통과와 글자가 같았다. */}
-          {fourCondition && (
-            <div data-board-four-condition={fourCondition.id} className="mt-1.5 rounded-lg bg-emerald-100/70 px-2.5 py-1.5">
-              <p className="text-xs font-extrabold text-emerald-800">
-                {t('board.atmosphere.fourConditionTitle')}
-              </p>
-              <p className="mt-0.5 text-[11px] font-bold text-emerald-700">
-                {t('board.atmosphere.fourConditionMet', {
-                  conditions: fourCondition.when.map(conditionLabel).join(' · '),
-                })}
-              </p>
-            </div>
-          )}
+          {/* 연습 탭 — 이미 뜨는 판정 배너 **안**에 얹는다(자리만 여기서 정한다) */}
+          {fourConditionBadge && <div className="mt-1.5">{fourConditionBadge}</div>}
           {result.feedback && <p className="mt-1 whitespace-pre-line text-xs text-slate-600">{result.feedback}</p>}
         </div>
       )}

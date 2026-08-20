@@ -20,6 +20,15 @@
  *   ⓐ 4조건 규칙으로 통과한 판에서 표시가 **뜬다**
  *   ⓑ 3조건 이하 규칙으로 통과한 판에서는 **안 뜬다**
  *
+ * 그리고 이 계약은 **두 경로 모두**에서 성립해야 한다(2026-08-21 추가 ⑦⑧).
+ * 종전에는 연습 탭(`result` prop)에서만 성립했다 — 세션 문항 경로는 `result` 없이
+ * `phenomena`만 받으므로 배지의 통과 조건이 언제나 거짓이었고, **학습자가 4조건을
+ * 내는 것이 더 흔한 쪽**(세션)에서 성취가 통째로 안 보였다.
+ *   ⑦ 세션 경로(`phenomena` + `passed`)에서도 ⓐ·ⓑ·③이 그대로 성립한다
+ *   ⑧ 그 배선이 **QuestionCard까지 이어져 있다** — 보드가 `passed`를 받을 줄 알아도
+ *      부모가 안 넘기면 화면은 여전히 조용하다(선언은 됐는데 배선이 없는 반쪽 편집).
+ *      그래서 ⑧은 AtmosphereBoard가 아니라 **QuestionCard를 렌더**해서 문다.
+ *
  * ⚠️ ⓑ의 대조군을 **미통과 판으로 두면 안 된다.** 미통과 판은 배지가 아니라 성공
  * 배너 전체가 없으므로 「안 뜬다」가 저절로 참이 되어 아무것도 못 지킨다. 가르는
  * 힘은 **통과했는데 4조건이 아닌 판**에서만 나온다 — 그래서 ⓑ는 2조건
@@ -189,6 +198,111 @@ try {
     check('⑤ 2조건 규칙은 성취가 아니다', fourConditionRule(rules, at(2, two), 2) === null);
     check('⑤ 규칙 미로드(빈 배열)에서 터지지 않는다', fourConditionRule([], at(2, four), 2) === null);
     check('⑤ phenomena 없음에서 터지지 않는다', fourConditionRule(rules, null, 2) === null);
+  }
+
+  // ── ⑦ 세션 문항 경로 — `result` 없이 `phenomena` + `passed`로 온다 ──────────
+  //
+  // 🔴 **여기가 반쪽이었다.** 연습 탭은 `result={passed, phenomena}` 한 덩어리를
+  // 받지만 세션은 판정 배너를 부모(SessionRunner)가 소유하므로 `result`를 안 넘긴다.
+  // 그래서 `result?.passed` 하나에 걸려 있던 배지는 세션에서 영영 거짓이었다.
+  function sessionHtml({ ruleId, passed }) {
+    const qc = new QueryClient();
+    qc.setQueryData(['board', 'rules'], rules);
+    const rule = rules.find((r) => r.id === ruleId);
+    const puzzle = {
+      question_text: '수도권에 목표 현상을 만들어 보세요',
+      initial_state: { elements: [] },
+      palette: ['front:cold', 'moisture', 'sun', 'wind'],
+      goal_conditions: [{ zone: GOAL_ZONE, phenomenon: rule.then.phenomenon }],
+      hints: [],
+    };
+    // 세션이 실제로 넘기는 것과 **같은 prop 집합**이다(QuestionCard 참조).
+    return render(h(QueryClientProvider, { client: qc },
+      h(AtmosphereBoard, { puzzle, layout: 'wide', phenomena: verdictFor(ruleId), passed })));
+  }
+
+  {
+    const html = sessionHtml({ ruleId: 'cold_front_squall_storm', passed: true });
+    check('⑦ⓐ 세션 4조건 통과: 성취 표시가 마크업에 있다',
+      html.includes('data-board-four-condition="cold_front_squall_storm"'),
+      '세션은 result가 없다 — 통과 여부를 passed로 받지 않으면 여기서 죽는다');
+    check('⑦ⓐ 세션에서도 축하 한 줄이 실제 글자로 뜬다', html.includes('4조건 규칙 달성'));
+    const rule = rules.find((r) => r.id === 'cold_front_squall_storm');
+    const missing = rule.when.map(conditionLabel).filter((label) => !html.includes(label));
+    check(`⑦ⓐ 세션에서도 맞춘 조건 4개가 전부 표시된다`, missing.length === 0, `누락: ${missing.join(', ')}`);
+    // 🔴 **인스턴스가 하나다** — 배지를 두 자리(배너 안·배너 밖)에 두면서 가드가
+    //    빠지면 같은 성취가 두 번 그려진다. 개수로 문다.
+    check('⑦ⓐ 성취 표시가 정확히 한 번만 그려진다',
+      (html.match(/data-board-four-condition/g) ?? []).length === 1,
+      `${(html.match(/data-board-four-condition/g) ?? []).length}회`);
+    // 세션은 부모가 판정 배너를 그린다 — 보드가 「🎉 성공!」을 겹쳐 그리면 안 된다.
+    check('⑦ⓐ 세션 경로가 연습 탭 판정 배너까지 끌고 오지 않는다',
+      !html.includes('성공!'), '세션은 ResultBanner가 부모에 있다 — 두 벌이 된다');
+  }
+  {
+    const html = sessionHtml({ ruleId: 'cold_front_shower', passed: true });
+    check('⑦ⓑ 세션 2조건 통과: 성취 표시가 없다', !html.includes('data-board-four-condition'));
+    // 대조군이 공허하지 않다 — 그 판도 확정 리플레이(단면 패널)는 떠 있다.
+    check('⑦ⓑ 그 판도 서버 확정 리플레이는 떠 있다(대조군이 공허하지 않다)',
+      html.includes('data-cross-section') || html.includes('수도권'),
+      '아무것도 안 그려졌다면 ⓑ는 저절로 참이다');
+  }
+  {
+    const html = sessionHtml({ ruleId: 'cold_front_squall_storm', passed: false });
+    check('⑦③ 세션 미통과 판: 4조건이 발화해도 성취 표시가 없다',
+      !html.includes('data-board-four-condition'));
+  }
+  {
+    const html = sessionHtml({ ruleId: 'nocturnal_inversion_haze', passed: true });
+    check('⑦④ 세션에서도 판별이 현상 이름 목록이 아니다(fog인데 뜬다)',
+      html.includes('data-board-four-condition="nocturnal_inversion_haze"'));
+  }
+
+  // ── ⑧ 배선이 QuestionCard까지 이어져 있다 ─────────────────────────────────
+  //
+  // 🔴 ⑦은 AtmosphereBoard에 prop을 **직접** 꽂으므로, 보드가 `passed`를 읽을 줄
+  // 알지만 **부모가 안 넘기는** 반쪽 상태를 통과시킨다. 그 상태에서 실제 화면은
+  // 여전히 조용하다. 그래서 여기서는 세션이 실제로 렌더하는 것(QuestionCard)을
+  // 렌더하고 서버 응답 모양(AnswerResult)을 그대로 넣는다.
+  {
+    const cardMod = await server.ssrLoadModule('/src/modules/quiz/QuestionCard.jsx');
+    const QuestionCard = cardMod.default;
+    const cardHtml = ({ ruleId, is_correct }) => {
+      const qc = new QueryClient();
+      qc.setQueryData(['board', 'rules'], rules);
+      const rule = rules.find((r) => r.id === ruleId);
+      const question = {
+        quiz_id: 'q-four-condition',
+        concept_tag: 'pressure_front',
+        question_type: 'board',
+        question_text: '수도권에 목표 현상을 만들어 보세요',
+        template_json: {
+          question_text: '수도권에 목표 현상을 만들어 보세요',
+          initial_state: { elements: [] },
+          palette: ['front:cold', 'moisture', 'sun', 'wind'],
+          goal_conditions: [{ zone: GOAL_ZONE, phenomenon: rule.then.phenomenon }],
+          hints: [],
+        },
+      };
+      // AnswerResult(schemas/quiz.py) 모양 그대로 — is_correct와 phenomena는
+      // 서버가 **같은 호출**(evaluate_board_answer)에서 낸 짝이다.
+      const answerResult = { is_correct, phenomena: verdictFor(ruleId), feedback: rule.explain, xp_earned: 0 };
+      return render(h(QueryClientProvider, { client: qc },
+        h(QuestionCard, { question, disabled: true, onSubmit: () => {}, answerResult })));
+    };
+
+    const ok = cardHtml({ ruleId: 'cold_front_squall_storm', is_correct: true });
+    check('⑧ QuestionCard(세션 실렌더) 4조건 정답: 성취 표시가 뜬다',
+      ok.includes('data-board-four-condition="cold_front_squall_storm"'),
+      'QuestionCard가 is_correct를 passed로 넘기지 않으면 여기서 죽는다 — 보드만 고친 반쪽');
+    check('⑧ QuestionCard 경로에서도 정확히 한 번만 그려진다',
+      (ok.match(/data-board-four-condition/g) ?? []).length === 1);
+
+    const bad = cardHtml({ ruleId: 'cold_front_squall_storm', is_correct: false });
+    check('⑧ QuestionCard 오답: 4조건이 발화해도 안 뜬다', !bad.includes('data-board-four-condition'));
+
+    const two = cardHtml({ ruleId: 'cold_front_shower', is_correct: true });
+    check('⑧ QuestionCard 2조건 정답: 안 뜬다', !two.includes('data-board-four-condition'));
   }
 
   // ── ⑥ 문구가 없는 통로를 약속하지 않는다 (uiCopy.contract ⑸⑹와 같은 원칙) ──
