@@ -329,23 +329,38 @@ export default function TyphoonSimPage() {
         </div>
       </div>
 
-      {/* 위성 도식(MT-21) — §0.5ⓔ가 정한 자리다. expert 밴드에만 붙이면
-          θ>1.5가 필요해 심사 5분 동선에서 아무도 못 본다(CO-N-4) → **상시 노출**. */}
-      <SatelliteView intensity={result.intensity} shear={shear} />
+      {/* 🔴 **2열 구간 — 위성 도식 왼쪽 · 「왜 그럴까」 오른쪽**(2026-08-19 사용자
+          지시 "위성 도식 크기 줄이고 오른쪽에 왜그럴까 배치"). CTA는 지시대로
+          아래에 가로로 그대로 남는다.
 
-      {/* 왜 그럴까 설명 패널 */}
-      <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
-        <p className="text-sm font-bold text-sky-800">{t('explore.common.whyTitle')}</p>
-        <ul className="mt-2 space-y-2">
-          {whyLines.map((line, i) => (
-            <li key={i} className="text-xs leading-relaxed text-sky-900">
-              {line}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 border-t border-sky-100 pt-2 text-[10px] leading-relaxed text-sky-700/70">
-          {t('explore.typhoon.caveat')}
-        </p>
+          도식과 해설이 짝인 이유: 해설 문장이 **지금 화면의 도식을 설명한다**
+          (시어가 약하면 「기둥이 곧게 선다」, 강하면 「흐트러진다」). 종전에는
+          도식 847px을 지나 스크롤해야 그 문장이 나와, 읽을 때는 그림이 화면
+          밖이었다.
+
+          비율 1.35 : 1 — 도식은 `aspect-ratio 720/450`이라 폭을 준 만큼 커지고,
+          해설은 문단 셋이라 좁아도 세로로 늘 뿐이다. 넓은 쪽을 그림이 갖는다.
+          「크기 줄여서」는 높이를 박는 게 아니라 열을 나누는 것이다 — 캔버스가
+          `w-full`이라 폭이 줄면 높이가 비례해 따라 준다(실측 847 → 508). */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        {/* 위성 도식(MT-21) — §0.5ⓔ가 정한 자리다. expert 밴드에만 붙이면
+            θ>1.5가 필요해 심사 5분 동선에서 아무도 못 본다(CO-N-4) → **상시 노출**. */}
+        <SatelliteView intensity={result.intensity} shear={shear} />
+
+        {/* 왜 그럴까 설명 패널 */}
+        <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
+          <p className="text-sm font-bold text-sky-800">{t('explore.common.whyTitle')}</p>
+          <ul className="mt-2 space-y-2">
+            {whyLines.map((line, i) => (
+              <li key={i} className="text-xs leading-relaxed text-sky-900">
+                {line}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 border-t border-sky-100 pt-2 text-[10px] leading-relaxed text-sky-700/70">
+            {t('explore.typhoon.caveat')}
+          </p>
+        </div>
       </div>
 
       {/* θ 루프 연결 CTA */}

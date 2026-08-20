@@ -272,6 +272,37 @@ try {
   checkMt21('㉰ 발달 곡선에 고정 높이를 박지 않았다 — 폭이 줄면 높이가 따라 준다',
     !/<DevelopmentCurve[\s\S]{0,200}?className="[^"]*\bh-\[/.test(typhoonSrc));
 
+  // ── 태풍: 위성 도식 왼쪽 · 「왜 그럴까」 오른쪽 (2026-08-19 사용자 지시) ────
+  /**
+   * "위성 도식 크기 줄이고 오른쪽에 왜그럴까 배치. 태풍개념문제풀기는 그대로 유지."
+   *
+   * 도식과 해설이 짝인 이유: 해설 문장이 **지금 화면의 도식을 설명한다**(시어가
+   * 약하면 「기둥이 곧게 선다」, 강하면 「흐트러진다」). 종전에는 도식 847px을
+   * 지나 스크롤해야 그 문장이 나와 읽을 때는 그림이 화면 밖이었다.
+   * 실측 1536: 두 열 634/470 · 행 543(도식 847 → 543) · pageH 2246 → 1782.
+   *
+   * ㉲가 요점이다 — `SatelliteView`가 **자기 `mt-4`를 갖고 있었다.** 세로로 쌓이던
+   * 시절에는 부모 `space-y-4`와 값이 같아 안 보였지만, 격자 칸이 되는 순간 옆
+   * 칸보다 16px 내려앉는다. 자기 여백을 가진 컴포넌트를 격자에 넣을 때의 함정이다.
+   */
+  const tSat2 = typhoonSrc.indexOf('lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]');
+  const tWhy = typhoonSrc.indexOf("explore.common.whyTitle");
+  const tCta = typhoonSrc.indexOf("explore.typhoon.cta");
+  checkMt21('㉱ 태풍: 위성 도식 ↔ 왜 그럴까 2열 격자가 있다', tSat2 > -1);
+  checkMt21('㉱ 격자 안에 위성 도식과 해설이 함께 있다',
+    tSat2 > -1 && typhoonSrc.indexOf('<SatelliteView') > tSat2 && tWhy > tSat2);
+  // CTA가 격자 **밖**인지는 들여쓰기로 본다 — 격자 자식은 8칸, 페이지 직계는 6칸.
+  // "해설 뒤에 온다"만 보면 격자 **안** 오른쪽 열에 딸려 들어가도 통과한다
+  // (보드 판정 카드가 같은 종류의 약한 계약으로 700px에 갇힌 전례가 있다).
+  const ctaLine = typhoonSrc.slice(0, tCta).split('\n').reverse().find((l) => l.includes('<Link')) ?? '';
+  checkMt21(`㉱ CTA는 격자 밖 하단에 그대로 남는다 — 들여쓰기 ${ctaLine.length - ctaLine.trimStart().length}칸`,
+    tCta > tWhy && /^ {6}<Link$/.test(ctaLine));
+  checkMt21('㉲ 「왜 그럴까」가 화면에 한 번만 있다 — 옮기며 사본을 남기지 않았다',
+    (typhoonSrc.match(/explore\.common\.whyTitle/g) ?? []).length === 1);
+  const satSrc = await readFile(resolve(root, 'src/modules/explore/SatelliteView.jsx'), 'utf8');
+  checkMt21('㉲ 위성 도식이 자기 여백(mt-4)을 갖지 않는다 — 격자 칸에서 옆 칸보다 16px 내려앉는다',
+    !/<figure className="[^"]*\bmt-4\b/.test(satSrc));
+
   // ⓘ 모델 고지가 **배너 안 제목 아래**에 있고, 배너 밖 회색 띠는 사라졌다
   //    (2026-08-19 사용자 지시). 둘 다 남으면 같은 문장이 화면에 두 번 뜬다 —
   //    옮기다 원본을 안 지우는 것이 이 종류의 흔한 실수라 **없는 것까지** 문다.
