@@ -167,6 +167,15 @@ class PlacementAbility(BaseModel):
     theta_se: float
     num_responses: int
     level_label: str
+    # 🔴 **동일 형식이라는 위 약속이 깨져 있었다**(2026-08-20). R13-02 T3에서
+    #   `ConceptAbilityOut`에 두 필드가 붙었는데 여기만 안 따라왔고, 그래서
+    #   배치고사 **결과 화면만** 난이도를 「초급/중급/고급」으로 말했다 —
+    #   `/me`는 이미 교과 표기(「고등학교 진로선택」)로 바뀐 뒤였다.
+    #   프론트가 θ에서 단계를 파생할 수는 없다(단계 경계는 서버가 소유하고,
+    #   `abilityDisplay.js`가 스스로 "단계 수 N을 여기 박지 않는다"고 금지했다).
+    #   ⇒ 서버가 실어 보낸다. `/progress/abilities`와 **같은 함수**로 만든다.
+    knowledge_level: int | None = None
+    knowledge_level_max: int | None = None
 
 
 class UnitResult(BaseModel):

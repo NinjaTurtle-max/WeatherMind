@@ -514,6 +514,23 @@ const mockAuth = {
   nickname: null,
   registeredEmails: new Set(['taken@weathermind.dev']),
   takenNicknames: new Set(['날씨러버']),
+  /**
+   * 🔴 **저장을 마친 계정의 자격** — `POST /auth/resume`의 목 대응물
+   * (2026-08-19 오후 · 클라이언트 결정 「불러오기는 로그인 인증으로」).
+   *
+   * ⚠️ **`takenNicknames`가 아니라 여기가 불러오기의 소유자다.** 같은 날 오전
+   * 판은 닉네임 집합을 열쇠로 썼는데, 그러면 **이름만 맞히면 남의 진도가 열린다** —
+   * 화면이 아니라 서버가 그랬고, 목도 그것을 그대로 리허설하고 있었다.
+   *
+   * ⚠️ 시드는 지어낸 값이 아니라 **목이 이미 「등록돼 있다」고 선언한 이메일**
+   * (`registeredEmails`)과 짝을 맞춘다 — 저장(`guest/convert`)이 넣는 그 집합이다.
+   * 비밀번호는 서버 `SaveProgressForm`의 `minLength=8`을 만족해야 목에서만
+   * 통과하는 값이 안 생긴다.
+   *
+   * ⚠️ **게스트는 여기 없다.** 서버에서 게스트 비밀번호는 무작위 시크릿이라 이
+   * 문을 못 연다 — 목이 게스트를 넣어 두면 실서버에 없는 경로가 초록이 된다.
+   */
+  savedAccounts: new Map([['saved@weathermind.dev', 'weathermind-8']]),
 };
 
 // 서버 schemas/auth.LevelGroup Literal과 같은 3값 — 목이 사본을 갖는 대신
@@ -697,8 +714,11 @@ const CLOUD_MAX = 10;
 const CLOUD_REGEN_MS = 20 * 60 * 1000; // 20분당 1개 회복
 const CLOUD_COST = 1; // 소모 1회분 (R10-01 §3.1: 수치 불변, 트리거만 변경)
 
-// 일일 목표 허용값 (R10-01 §3.4·D4) — SESSION_RECIPE(합 10)와 독립된 표시용 타깃.
-const DAILY_GOAL_CHOICES = [3, 5, 9];
+// 일일 목표 허용값 (R10-01 §3.4·D4) — 서버 `routers/progress.py`와 같아야 한다.
+// ⚠️ 2026-08-19: 최대값이 9 → 하루 세션 문항 수(SESSION_RECIPE 합 10)로 바뀌었다.
+// 종전에는 "SESSION_RECIPE와 독립된 표시용 타깃"이라 적혀 있었고 설계로는 옳았으나
+// 화면에서 「오늘 목표 10/9」가 됐다(클라이언트 반려). 3·5는 부분 목표라 그대로다.
+const DAILY_GOAL_CHOICES = [3, 5, 10];
 
 /** 지연 회복(§3.3): 읽기·소모 시점에 elapsed로 회복량 계산·clamp·anchor 갱신 */
 function regenClouds() {
@@ -831,25 +851,32 @@ const UNITS = [
 // user_unit_progress 흉내 (unit_id → {crowns, cleared_at}). 첫 유닛 1개를 클리어 상태로 시드
 // → u2 열림(현재), u3 잠금, u4 열림, u5 잠금 혼합을 학습 홈에서 보여준다.
 const unitProgress = new Map([
-  ['u0000001-0000-4000-8000-000000000001', { crowns: 1, cleared_at: '2026-07-18T09:00:00Z' }],
+  ['u0000001-0000-4000-8000-000000000001', { crowns: 1, cleared_at: '2026-07-18T09:00:00Z', attempted_at: '2026-07-18T09:00:00Z' }],
 ]);
 
 // id 또는 slug로 조회 — 프론트 라우트는 트리의 id를, spine.current_unit은 slug를 쓴다(R8-01 §3.3).
 const getUnit = (idOrSlug) => UNITS.find((u) => u.id === idOrSlug || u.slug === idOrSlug) ?? null;
 const getUnitProgress = (id) => {
-  if (!unitProgress.has(id)) unitProgress.set(id, { crowns: 0, cleared_at: null });
+  if (!unitProgress.has(id)) unitProgress.set(id, { crowns: 0, cleared_at: null, attempted_at: null });
   return unitProgress.get(id);
 };
 // 배치 θ 선해제(R7-02 S4): 배치 실응답 θ로 선두 연속 잠금 유닛이 왕관 0인 채
 // 열릴 수 있다(백엔드 파생). 목은 선해제된 유닛 id 집합으로 흉내 낸다.
 const preUnlockedUnits = new Set();
 
-/** 선행 잠금(§3.2): prereq 유닛 crowns>=1 이어야 열림. 첫 유닛(무 prereq)은 항상 열림.
- *  배치 θ 선해제(R7-02 S4) 유닛은 왕관 0이어도 열림. */
+/** 선행 잠금(§3.2) — 서버 `curriculum_service.is_locked`와 **같은 규칙**이어야 한다.
+ *  🔴 2026-08-19 결함 ⑩: 종전에는 `prereq.crowns >= 1`만 봤고 서버도 같았는데,
+ *  왕관이 만점·하루 첫·최초 완료를 모두 요구해 **한 문항만 틀려도 다음이 안 열렸다.**
+ *  진행과 보상을 갈랐다 — `attempted_at`(해 봤다)이 잠금을 풀고 `crowns`는 보상이다.
+ *  `crowns >= 1`은 OR로 남긴다(왕관만 올리는 유입로가 있다 — 배지·/dev).
+ *  첫 유닛(무 prereq)은 항상 열림 · 배치 θ 선해제(R7-02 S4)도 열림.
+ *  ⚠️ 이 함수와 서버가 갈리면 dev에서만 되는(또는 안 되는) 결함이 된다 —
+ *  `backend/tests/test_curriculum_mock_parity.py`가 그것을 문다. */
 const isUnitLocked = (unit) => {
   if (!unit.prereq_unit_id) return false;
   if (preUnlockedUnits.has(unit.id)) return false;
-  return (unitProgress.get(unit.prereq_unit_id)?.crowns ?? 0) < 1;
+  const p = unitProgress.get(unit.prereq_unit_id);
+  return !((p?.crowns ?? 0) >= 1 || p?.attempted_at != null);
 };
 
 /** 섹션 표시 메타 — 서버는 database/seed/section_meta.json이 소유한다.
@@ -901,10 +928,28 @@ function curriculumPayload() {
         };
       }),
   }));
-  // 'current' 승격 — 백엔드 build_curriculum과 동일: 트리 노출 순서 전체에서
-  // 첫 'unlocked' 정확히 1개만 current (없으면 0개).
-  const firstOpen = sections.flatMap((s) => s.units).find((v) => v.status === 'unlocked');
-  if (firstOpen) firstOpen.status = 'current';
+  // 'current' 승격 — 백엔드 `build_curriculum`과 **같은 규칙**이다.
+  //
+  // 🔴 **2026-08-19 결함 ⑧**: 종전에는 「첫 'unlocked'」였다. 배치 선해제는 잠금만
+  // 풀고 `cleared_at`을 안 채우므로, 고등으로 진단받아 여러 유닛을 인정받은 학습자도
+  // 그것들이 전부 미클리어라 **커서가 맨 앞으로 떨어졌다** — 화면에 「섹션 1 · 초등
+  // 3~4학년」이 뜨고 배치를 본 흔적이 사라졌다.
+  //
+  // 이제 **배치가 연 구간의 끝**에 선다. 구간 **다음** 유닛이 아닌 이유: 그것은
+  // 잠겨 있다(선해제 밖에서는 선행 왕관을 요구하는데 배치는 왕관을 주지 않는다).
+  // ⚠️ **배치를 안 본 학습자(`preUnlockedUnits`가 빔)는 종전 그대로 맨 앞**이다 —
+  // 이 분기가 없으면 신규 학습자가 갑자기 뒤쪽 유닛으로 떨어진다.
+  const flatUnits = sections.flatMap((s) => s.units);
+  const openUnits = flatUnits.filter((v) => v.status === 'unlocked');
+  if (openUnits.length > 0) {
+    const inside = openUnits.filter((v) => preUnlockedUnits.has(v.id));
+    // 인정 구간이 전부 클리어됐으면 그 밖의 첫 열린 유닛으로 자연 승계한다.
+    const target =
+      preUnlockedUnits.size > 0 && inside.length > 0
+        ? inside[inside.length - 1]
+        : openUnits[0];
+    target.status = 'current';
+  }
   return { sections };
 }
 
@@ -1746,20 +1791,36 @@ const MOCK_BOARD_UNLOCK_LOOKAHEAD = 2;
  * `BOARD_PUZZLES`는 이미 board_order로 정렬돼 있다(선언부 참고).
  */
 function unlockedBoardIds() {
-  // 서버 `sequenceable`과 같다 — 순서는 **난이도가 열린 퍼즐 안에서만** 센다.
-  // 전체 위에서 세면 초등 학습자의 다음 칸이 「보통」인 순간 사슬이 영구히 끊긴다
-  // (그 칸은 난이도로 막혀 못 깨고, 커서는 깨야만 넘어간다).
-  const lockedDiff = lockedBoardDifficulties();
-  const pool = BOARD_PUZZLES.filter((p) => !lockedDiff.has(p.difficulty ?? 1));
+  // 🔴 **서버 `below_ceiling_ids` + `ceiling_tier`와 같은 규칙**(2026-08-19 결함 ⑨).
+  //
+  // 종전에는 `sequenceable`(천장 **이하** 전부) 위에서 순차를 셌다. 그러면 수준이
+  // **천장만 올리고 시작 위치를 안 옮겨** 성인도 1번부터 3칸씩 걸었다 — PM이 로컬
+  // dev에서 **성인인데 01~03만 열리는 것**을 화면으로 확인했다.
+  //
+  // 고침은 「아래는 인정, 내 층은 순차」다:
+  //   · 천장보다 **낮은** 난이도 → 전부 열림(이미 자기 수준 아래다)
+  //   · **천장** 난이도 → 순차 그대로(MT-24 유지 — 난이도 곡선이 거기서 산다)
+  //
+  // ⚠️ 순차 대상을 천장층으로 **좁히지 않으면 천장층이 하나도 안 열린다**: 커서가
+  // 1층 맨 앞에 서고 LOOKAHEAD 창이 통째로 1층에 떨어지는데, 그 1층은 이미 인정으로
+  // 열려 있어 창이 아무것도 추가하지 못한다(서버 쪽에서 계약 테스트가 그 형태를 잡았다).
+  const ceiling = BOARD_BAND_MAX_DIFFICULTY[mockAuth.levelGroup] ?? BOARD_DEFAULT_MAX_DIFFICULTY;
 
+  // 천장 아래는 순차와 무관하게 열린다
   const unlocked = new Set(
-    pool.filter((p) => clearedBoardPuzzles.has(p.content_item_id)).map(
+    BOARD_PUZZLES.filter((p) => (p.difficulty ?? 1) < ceiling).map(
       (p) => p.content_item_id,
     ),
   );
-  let cursor = pool.findIndex((p) => !clearedBoardPuzzles.has(p.content_item_id));
-  if (cursor < 0) cursor = pool.length;
-  for (const p of pool.slice(cursor, cursor + MOCK_BOARD_UNLOCK_LOOKAHEAD + 1)) {
+  // 이미 깬 칸은 언제나 열린다(서버 compute_unlocked_ids 규칙 ⑴)
+  for (const p of BOARD_PUZZLES) {
+    if (clearedBoardPuzzles.has(p.content_item_id)) unlocked.add(p.content_item_id);
+  }
+  // 천장 층 **안에서만** 순차를 센다(규칙 ⑵)
+  const tier = BOARD_PUZZLES.filter((p) => (p.difficulty ?? 1) === ceiling);
+  let cursor = tier.findIndex((p) => !clearedBoardPuzzles.has(p.content_item_id));
+  if (cursor < 0) cursor = tier.length;
+  for (const p of tier.slice(cursor, cursor + MOCK_BOARD_UNLOCK_LOOKAHEAD + 1)) {
     unlocked.add(p.content_item_id);
   }
   return unlocked;
@@ -2015,12 +2076,46 @@ const sessionItemsOf = (s) =>
     };
   });
 
+/**
+ * 배치고사 「모르겠어요」 센티널 — server `PLACEMENT_SKIP_SENTINEL`의 목 대응물.
+ *
+ * 건너뛴 문항은 **새 필드가 아니라 기존 `answer` 필드에 이 값**으로 온다
+ * (서버 `PlacementAnswerItem`이 `extra='forbid'`라 필드를 늘릴 통로가 없다).
+ *
+ * ⚠️ **왜 빈 문자열이 아닌가 — 목이 빈 답을 「정답」으로 채점하던 자리다.**
+ * `answer: str = ""`가 서버 스키마 기본값이라 "빈 답 = 스킵"이 자연스러워 보이지만,
+ * 이 파일의 slider 채점이 `Number('')` → **0**이어서 `|0 - 정답| <= 허용오차`가
+ * 되고, **정답값이 허용오차 이하인 slider 문항은 빈 답이 정답**이 됐다. 서버
+ * `_grade_slider`는 `float('')` → ValueError → 오답이다. 즉 빈 문자열을 표식으로
+ * 쓰면 스킵이 목에서만 정답이 되고, **프론트 스모크가 목 위에서 도는 탓에 그
+ * 결함이 계약으로 굳는다**(「목이 서버를 안 따라와 화면에 안 닿는다」의 최악 형태).
+ * 비어 있지 않은 센티널은 양쪽 채점기에서 **구조적으로 오답**이다
+ * (`float('__skip__')` → ValueError / `Number('__skip__')` → NaN).
+ *
+ * 값의 **단일 소유자는 서버 상수**이고 목은 같은 리터럴을 쓴다. 세 자리(서버 상수·
+ * 프론트·목)가 같은 값인지는 backend `test_placement_skip_mock_parity.py`가 문다 —
+ * ⚠️ 여기 주석에 "서버와 같다"고 적는 것은 계약이 아니다(이 파일에 그 주석이
+ * 이미 있었고 그래도 갈렸다).
+ */
+const MOCK_PLACEMENT_SKIP_SENTINEL = '__skip__';
+
 function gradeSessionItem(item, rawAnswer) {
   const answer = String(rawAnswer ?? '').trim();
   const { correct, accept, tolerance } = item._mock;
   const norm = (v) => v.replace(/\s+/g, '').toLowerCase();
 
+  // 「모르겠어요」 = 무조건 오답 (유형 분기보다 **앞**이다).
+  // 센티널은 어느 분기에서도 우연히 오답이지만, 그 우연에 기대지 않는다: 규칙이
+  // 유형별 채점의 부수효과로만 성립하면 채점기를 손댈 때 조용히 뒤집힌다.
+  // 진척(`answered`)은 호출자가 결과를 저장하면서 올라간다 — 스킵도 「푼 문항」이다.
+  if (answer === MOCK_PLACEMENT_SKIP_SENTINEL) return false;
+
   if (item.question_type === 'slider') {
+    // ⚠️ **파싱 성공 여부를 먼저 본다** — 서버 `_grade_slider`는 `float()` 실패를
+    // 오답으로 떨구는데, JS `Number('')`는 0이라 목만 「정답」이 됐다(선재 결함:
+    // 정답값 <= 허용오차인 문항에서 빈 답이 통과. 스킵과 별개로 존재했다).
+    // 빈 문자열은 `Number.isFinite(Number(''))`가 true라 따로 걸러야 한다.
+    if (answer === '' || !Number.isFinite(Number(answer))) return false;
     return Math.abs(Number(answer) - Number(correct)) <= (tolerance ?? 0);
   }
   if (item.question_type === 'short_answer' || item.question_type === 'cloze') {
@@ -2090,6 +2185,38 @@ const routes = {
     mockAuth.nickname = nickname;
     return [201, { access_token: 'mock-guest-access', refresh_token: 'mock-guest-refresh' }];
   },
+  // 진도 불러오기(2026-08-19 **오후** — 클라이언트 결정, 주최측 확인 후) —
+  // 서버 `POST /auth/resume`와 형태 동일: {email, password} → 200 LoginResponse ·
+  // 자격 불일치 401 INVALID_CREDENTIALS · 형태 위반 422.
+  // 드리프트는 backend `test_auth_resume`가 감시한다.
+  //
+  // 🔴 **같은 날 오전 판을 뒤집는다.** 그 판은 `{nickname}` 하나를 받아
+  //    `mockAuth.takenNicknames`에 있으면 토큰을 줬다 — 즉 **이름만 맞히면 남의
+  //    진도가 열렸고**, 서버가 실제로 그랬다. 화면만 고치면 그 통로는 curl로
+  //    그대로 남는다(대장 §4.14 · 이 파일과 서버가 함께 바뀌어야 하는 이유).
+  //    그래서 404 `NICKNAME_NOT_FOUND` · 409 `NICKNAME_AMBIGUOUS` 분기도 함께
+  //    걷힌다 — 그 둘은 「그 이름이 있다/없다」를 응답으로 자백하는 열거 표면이었다.
+  //
+  // 「이 자격이 있는가」의 소유자는 `mockAuth.savedAccounts` **하나**다 — 저장
+  // (`guest/convert`)이 넣는 바로 그 맵이라, 목 안에서 「저장 → 불러오기」가 한
+  // 왕복으로 성립한다. 사본을 만들면 저장한 자격으로 못 여는 목이 된다.
+  'POST /auth/resume': (body) => {
+    const email = typeof body?.email === 'string' ? body.email : null;
+    const password = typeof body?.password === 'string' ? body.password : null;
+    // 서버 ResumeRequest = LoginRequest 형태 — 둘 다 필수다.
+    if (!email || !password || email.length > 255) {
+      return [422, { detail: 'email·password가 필요합니다.', code: 'VALIDATION_ERROR' }];
+    }
+    // ⚠️ **없는 계정과 틀린 비밀번호를 가르지 않는다**(서버 `_authenticate`와 같은
+    //    의미론). 가르면 응답이 「그 이메일은 있다」를 자백한다.
+    if (mockAuth.savedAccounts.get(email) !== password) {
+      return [401, { detail: '이메일 또는 비밀번호가 올바르지 않습니다.', code: 'INVALID_CREDENTIALS' }];
+    }
+    // 그 계정의 주인으로 갈아탄다 — 저장을 마친 사람이므로 게스트가 아니다.
+    mockAuth.isGuest = false;
+    mockAuth.nickname = null;
+    return [200, { access_token: 'mock-resume-access', refresh_token: 'mock-resume-refresh' }];
+  },
   // R11-01 §6.2: 게스트→정식 계정 전환 — BE-1 서버 계약 그대로.
   // 게스트 아님 → 409 NOT_GUEST · 이메일 중복 → register 의미론(409 EMAIL_ALREADY_EXISTS,
   // backend routers/auth.register와 동일 코드) · 성공 → 200 LoginResponse(토큰 재발급).
@@ -2106,6 +2233,10 @@ const routes = {
       return [409, { detail: '이미 등록된 이메일입니다.', code: 'EMAIL_ALREADY_EXISTS' }];
     }
     mockAuth.registeredEmails.add(body.email);
+    // 🔴 **저장이 곧 불러오기의 열쇠가 된다**(2026-08-19 오후). 이 한 줄이 없으면
+    //    목에서 「저장했는데 그 자격으로 못 연다」가 되고, 그것이 정확히 오전 판이
+    //    실서버에서 겪은 결함(저장과 불러오기가 서로 다른 열쇠)의 목 버전이다.
+    mockAuth.savedAccounts.set(body.email, body.password);
     mockAuth.isGuest = false;
     return [
       200,
@@ -2436,6 +2567,14 @@ const routes = {
       // 20"이다. grantUnitCrown의 반환 4필드 계약(crown_award 페이로드)은 건드리지
       // 않으려고 전/후 스냅샷으로 판정한다.
       const wasCleared = getUnitProgress(s.unit_id).cleared_at != null;
+      // 🔴 진행 기록은 **왕관과 무관하게 무조건**(2026-08-19 결함 ⑩ — 서버
+      // `unit_result_for_session`이 `grant_crown` 분기 **앞**에서 하는 것과 같다).
+      // 오답이 있어도·재완료여도 「해 봤다」는 사실은 참이고 다음 유닛은 그것으로
+      // 열린다. 멱등 — 첫 시도 시각을 보존한다.
+      {
+        const pr = getUnitProgress(s.unit_id);
+        if (pr.attempted_at == null) pr.attempted_at = new Date().toISOString();
+      }
       if (grantCrown) grantUnitCrown(unit ?? null);
       const prog = getUnitProgress(s.unit_id);
       const newlyCleared = !wasCleared && prog.cleared_at != null;
@@ -2510,6 +2649,10 @@ const routes = {
             theta_se: Number((1 / Math.sqrt(n + 1)).toFixed(2)),
             num_responses: n,
             level_label: levelFromTheta(theta),
+            // 서버 `PlacementAbility`가 R13-02 T3의 두 필드를 실어 보낸다 —
+            // 목이 안 보내면 배치 결과 화면만 「초급」으로 남는다(2026-08-20).
+            knowledge_level: thetaToKnowledgeLevel(theta),
+            knowledge_level_max: KNOWLEDGE_LEVEL_MAX,
           };
         }),
       };
@@ -2904,6 +3047,9 @@ const routes = {
       const prog = getUnitProgress(unit.id);
       prog.crowns = Math.max(0, Number(body?.crowns ?? 1) || 0);
       prog.cleared_at = prog.crowns >= unit.crown_target ? new Date().toISOString() : null;
+      // /dev 경로도 진행 축을 채운다 — 왕관만 올리고 attempted_at을 비워 두면
+      // 「왕관은 있는데 다음이 안 열린다」가 되고, 그것이 결함 ⑩의 형태다.
+      if (prog.crowns > 0 && prog.attempted_at == null) prog.attempted_at = new Date().toISOString();
     } else {
       return [422, { detail: 'action은 unlock_all|crown|reset 입니다', code: 'VALIDATION_ERROR' }];
     }
@@ -3273,6 +3419,11 @@ export const __mockPolicy = () => ({
   // 내보내면 배열이 6건에 멈춰 있어도 패리티가 초록이라 결함이 그대로 산다 —
   // 이 항목이 애초에 그렇게 생겼다(결함 ④).
   placement_size: PLACEMENT_ITEMS.length,
+  // 배치고사 「모르겠어요」 센티널 (server PLACEMENT_SKIP_SENTINEL).
+  // ⚠️ 리터럴을 다시 적지 말고 **상수 식별자를 내보낸다** — 값을 여기 복사하면
+  // 이 항목이 자기 사본을 대조하게 되고, 그것이 에너지 상수 3종이 갈렸던 방식이다
+  // (CO-J-9). 세 자리 대조는 `test_placement_skip_mock_parity.py`가 소유한다.
+  placement_skip_sentinel: MOCK_PLACEMENT_SKIP_SENTINEL,
   // 학령 (server schemas/auth.LevelGroup)
   level_groups: LEVEL_GROUPS,
   // 보드 난이도 잠금 (server routers/board.BAND_MAX_DIFFICULTY)

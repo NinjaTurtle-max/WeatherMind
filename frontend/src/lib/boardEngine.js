@@ -3,16 +3,16 @@
  *
  * 백엔드(Python) 인터프리터와 **동일 의미론**을 보증해야 하는 모듈이다 (R3-S1).
  *  - 보드 모델(§3.1): 한반도 단면 4존(서해·수도권·태백산맥·동해안), 배치 요소는
- *    air_mass / front / moisture / sun / **wind** 5종. 존당 기단 최대 1·전선 최대 1·
- *    moisture/sun/wind 각 1. 구름·현상은 판정 **출력**이며 배치할 수 없다.
+ *    air_mass / front / moisture / sun / wind / **aerosol** 6종. 존당 기단 최대 1·
+ *    전선 최대 1·조절값(LEVEL_TYPES) 각 1. 구름·현상은 판정 **출력**이며 배치할 수 없다.
  *  - 규칙 문법(§3.2): 조건은 정확히 2형만 허용 —
  *      ① "<type>:<subtype>"          존재 검사 (예: "front:cold")
- *      ② "<field><op><숫자>"          수치 비교, op ∈ {>=, <=}, field ∈ {moisture, sun, wind}
+ *      ② "<field><op><숫자>"          수치 비교, op ∈ {>=, <=}, field ∈ LEVEL_TYPES
  *    조건은 전부 **같은 존**에서 AND로 성립해야 한다.
  *  - 판정: 존별로 성립한 규칙 중 priority 최고 1개 적용(동률이면 규칙 배열의
  *    앞선 것 — 계약상 같은 조건·같은 priority 모순은 데이터 저작 단계에서 금지).
  *    성립 규칙이 없으면 기본값 {phenomenon: "cloudy", cloud: "cumulus"}.
- *  - 미배치 존 기본값: moisture 40, sun 50, wind 20.
+ *  - 미배치 존 기본값: moisture 40, sun 50, wind 20, **aerosol 0**.
  *
  * wind가 방향(subtype)이 아니라 세기(level)인 근거는 board_engine.py 모듈
  * 도크스트링에 있다(단일 서술 — 여기서 복제하지 않는다). 요지: 조건은 전부 같은
@@ -27,8 +27,8 @@
 
 // ── §3.1 상수 ──────────────────────────────────────────────────────────────
 export const ZONES = Object.freeze(['서해', '수도권', '태백산맥', '동해안']); // index 0~3 고정
-export const ELEMENT_TYPES = Object.freeze(['air_mass', 'front', 'moisture', 'sun', 'wind']);
-export const LEVEL_TYPES = Object.freeze(['moisture', 'sun', 'wind']); // 0~100 조절값
+export const LEVEL_TYPES = Object.freeze(['moisture', 'sun', 'wind', 'aerosol']); // 0~100 조절값
+export const ELEMENT_TYPES = Object.freeze(['air_mass', 'front', ...LEVEL_TYPES]);
 export const AIR_MASS_SUBTYPES = Object.freeze(['siberian', 'north_pacific', 'yangtze', 'okhotsk']);
 export const FRONT_SUBTYPES = Object.freeze(['cold', 'warm', 'stationary']);
 export const PHENOMENON_ENUM = Object.freeze([
@@ -48,6 +48,12 @@ export const DEFAULT_SUN = 50;
 // 평상시 약한 바람. 낮게 잡는 것이 계약 — 재난 규칙이 wind>=로 발화하므로 기본값이
 // 높으면 미배치 존 전부가 재난으로 뒤집힌다(백엔드 DEFAULT_WIND와 같은 값이어야 한다).
 export const DEFAULT_WIND = 20;
+// 에어로졸(입자상 물질) 기본값은 **0**이다 — wind의 20과 성질이 다르다. 0이어야
+// `aerosol>=N` 조건이 「학습자가 명시적으로 놓아야만 성립」하고, 미배치 존이 기본값으로
+// 조건을 충족해 요소가 장식이 되는 함정(wind가 그래서 <=15를 쓴다)이 원천적으로 없다.
+// 근거 서술의 소유자는 board_engine.py DEFAULT_AEROSOL 주석이다(여기서 복제하지 않는다).
+// 두 벌이 갈리지 않는 것은 backend/tests/test_board_chemistry.py가 문다.
+export const DEFAULT_AEROSOL = 0;
 export const DEFAULT_RESULT = Object.freeze({ phenomenon: 'cloudy', cloud: 'cumulus' }); // §3.2 기본 판정
 
 // ── §3.1 보드 상태 검증 ────────────────────────────────────────────────────
@@ -122,6 +128,7 @@ export function zoneStates(board) {
     moisture: DEFAULT_MOISTURE,
     sun: DEFAULT_SUN,
     wind: DEFAULT_WIND,
+    aerosol: DEFAULT_AEROSOL,
   }));
   for (const el of board?.elements ?? []) {
     const zs = zones[el?.zone];
@@ -135,7 +142,10 @@ export function zoneStates(board) {
 
 // 조건 문법 2형 (§3.2 — 이 문법 외 금지)
 const COND_EXISTS = /^(air_mass|front)\s*:\s*([a-z_]+)$/; // "<type>:<subtype>"
-const COND_NUMBER = /^(moisture|sun|wind)\s*(>=|<=)\s*(\d+(?:\.\d+)?)$/; // "<field><op><숫자>"
+// 🔴 필드 목록은 `LEVEL_TYPES`에서 만든다 — 리터럴로 두 번 적으면 조절값 요소를
+// 늘릴 때 한쪽만 고쳐 「놓을 수는 있는데 조건으로는 못 쓰는」 반쪽 요소가 생긴다
+// (파이썬 `_NUMERIC_RE`와 같은 구조 · 그 정합은 test_board_chemistry가 문다).
+const COND_NUMBER = new RegExp(`^(${LEVEL_TYPES.join('|')})\\s*(>=|<=)\\s*(\\d+(?:\\.\\d+)?)$`);
 
 /**
  * 단일 조건이 존 상태(zoneStates 항목)에서 성립하는지 판정.

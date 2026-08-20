@@ -49,6 +49,8 @@ export default {
     data: 'Data: KMA Weather Nuri · KMA API Hub',
   },
   common: {
+    save: 'Save',
+    cancel: 'Cancel',
     loading: 'Loading…',
     retry: 'Try again',
     retryLater: 'Please try again in a moment.',
@@ -132,14 +134,31 @@ export default {
   // ⚠️ Never the words "log in" / "sign up" here either — the banned-word contract
   //    scans en values too. "Load my progress" is the name. Entry point is the one
   //    line on the save card (`fromSave`); never a nav link (MT-29 계약).
+  // ⚠️ 2026-08-19 **오전**: email·password를 걷고 닉네임 하나로 바꿨다.
+  // 🔴 2026-08-19 **오후**: 다시 email·password다(클라이언트 결정 — 주최측 확인 후).
+  //    경위는 `ko.js`의 같은 자리 주석이 소유한다. 요지는 저장(`guest/convert`)이
+  //    이미 email+password라 **저장과 불러오기가 같은 열쇠**가 됐다는 것이고, 진짜
+  //    결함은 화면이 아니라 이름 하나로 토큰을 주던 **서버**에 있었다는 것이다.
+  // ⚠️ 금칙어 계약이 en 값에서 **`login` 부분문자열**까지 보므로 "log in"·"login"을
+  //    쓰지 말 것 — "Load your progress"가 이름이다.
   loadProgress: {
     fromSave: 'Already saved? Load your progress',
     title: 'Load your progress',
-    body: 'Enter the email and password you saved with, and you will be back where you left off.',
+    body: 'Enter the email and password you saved your progress with, and you will be back where you left off.',
+    // 🔴 아래 네 줄은 안 쓰이지만 **남긴다** — 오전 판의 닉네임 통로가 무엇을
+    //    감당할 수 없었는지의 증거다(`ambiguous`가 그것을 문구로 자백한다).
+    //    사유 전문은 `ko.js`의 같은 자리가 소유한다.
+    nicknameLabel: 'Nickname',
+    nicknamePlaceholder: 'e.g. CloudChaser',
+    notFound: "We couldn't find progress saved under that name. Please check the nickname.",
+    ambiguous: 'Several people share that name, so we cannot tell which progress is yours. Please save under a different name.',
     submit: 'Load my progress',
     submitting: 'Loading your progress…',
-    failed: "Couldn't load your progress. Please check the email and password and try again.",
+    // 🔴 실패는 한 갈래다 — 가르면 "that email exists"를 자백한다(계정 열거).
+    invalidCredentials: "That email and password don't match. Please use the ones you saved with.",
+    failed: "Couldn't load your progress. Please try again in a moment.",
     back: '← Back to learning',
+    noAccountNote: "If you haven't saved yet, just head back and keep learning — you can save any time.",
   },
   // Region notice (2026-08-12 request ③) — an inline banner, never a modal.
   regionNotice: {
@@ -263,12 +282,12 @@ export default {
     choiceLabel: {
       3: 'Light',
       5: 'Steady',
-      9: 'Intense',
+      10: 'Intense',
     },
     choiceCaption: '{items} questions a day',
     itemsUnit: '{items} questions',
     pickerTitle: '🎯 Set your daily goal',
-    pickerBody: 'Starting small is fine — showing up daily matters more. You can change it anytime.',
+    pickerBody: 'Starting small is fine — showing up daily matters more.',
     saved: 'Great — from today, your goal is {items} questions a day.',
     loadFailed: "Couldn't load your setting right now. Please try again in a moment.",
     saveFailed: "Couldn't save your goal. {detail} Please tap again.",
@@ -293,14 +312,34 @@ export default {
     },
     nicknameLabel: 'Nickname (optional)',
     nicknamePlaceholder: 'e.g. CloudChaser',
-    nicknameHint: "This is the name shown on leagues and rankings. Leave it blank and we'll pick one for you.",
+    nicknameHint: "This is the name shown on leagues and rankings. Leave it blank and we'll pick one for you. You can change it later.",
+    goalLabel: 'Daily goal (optional)',
+    goalHint: 'Choose how many questions a day.',
     nicknameTaken: 'That name is already taken — please try another one.',
     submit: 'Next — take the placement check →',
     skip: 'Skip →',
-    note: 'You can change this any time under My Info.',
+    // See the ko note — the My Info door was removed (2026-08-20 client ruling).
+    note: 'You start right away at the level you pick here.',
+    // The "returning visitor" slot (2026-08-19). ⚠️ Never the words "log in" /
+    // "sign up" — the banned-word contract scans en values too (and it matches
+    // the bare substring `login`).
+    loadProgressCta: 'Load your progress →',
+    // 🔴 The returning-visitor screen (2026-08-19 ⑫-b) — the second face of `/`.
+    // ⚠️ It asks **nothing** again: no level, no nickname, no goal. That is why
+    //    this block has no labels or placeholders — four strings is the contract.
+    //    사유 전문은 `ko.js`의 같은 자리가 소유한다.
+    return: {
+      title: 'Welcome back!',
+      body: 'Pick up right where you left off. Nothing to set up again.',
+      continue: 'Continue learning →',
+      load: 'Load your progress',
+    },
   },
   placement: {
+    // 이 skip은 **진단 전체를 그만두는** 헤더 버튼이다 — 문항 스킵(dontKnow)과 별개.
     skip: 'Skip →',
+    dontKnow: "I don't know — count as wrong",
+    dontKnowNote: "You can move on without picking an answer. Questions you skip are graded as incorrect.",
     title: 'Placement — find my level',
     hint: "🧭 Just 10 questions — it's okay to get them wrong, it's only a check-in!",
     finalizingTitle: 'Finding your level…',
@@ -326,6 +365,9 @@ export default {
     goalLevel: 'Reach level {level}',
     goalStreak: 'Reach a {days}-day streak',
     defaultNickname: 'Weather Learner',
+    nicknameEdit: 'Change name',
+    nicknameTaken: 'That name is already taken. Please try another.',
+    nicknameFailed: 'Could not change the name. Please try again shortly.',
     levelXp: 'Lv.{level} · {xp} XP total',
     streakStat: 'Day streak',
     placementBannerTitle: "You haven't taken the placement yet",
@@ -468,6 +510,7 @@ export default {
       scrollHint: '↓ Scroll for more of this section',
       progressLabel: 'Progress',
       unitCount: '{done} / {total} units',
+      unitCountWithRecognised: 'Recognised {recognised} · Solved {done} / {total} units',
     },
     switcher: {
       aria: 'Choose a course',
@@ -547,8 +590,8 @@ export default {
     bulkFailBody: 'Please try again in a moment. Your answers are safe.',
     bulkFinalizing: 'Computing your results…',
     leave: {
-      title: "Leave now and today's progress is lost",
-      remaining: "Just {remaining} more and today's progress and streak are saved. ",
+      title: 'What you have answered so far is kept',
+      remaining: 'Just {remaining} more to reach today\u2019s goal. ',
       almost: "You're almost done. ",
       retryRemaining: 'You still have {remaining} to recover. The session ends once you get them all. ',
       tail: 'If you stop here, only what you have answered so far counts.',

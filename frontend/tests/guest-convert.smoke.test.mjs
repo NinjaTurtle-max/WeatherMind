@@ -26,6 +26,7 @@
  * 동일하게 폴백에도 시드) · 게스트 여부는 앱과 같은 경로(POST /auth/guest ·
  * /auth/login)로 구동.
  */
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import http from 'node:http';
@@ -391,33 +392,63 @@ try {
   // 로그인 화면 쪽은 `backend/tests/test_r13_mock_policy_parity.py`의
   // `TestNoLoginInMainFlow`가 라우트 참조 0건으로 감시한다.
 
-  // ── 7. 학습 수준 변경 통로 (R13 CO-P-5) ───────────────────────────────────
-  // 학령 신고 writer가 `POST /auth/register`의 필드 하나뿐이라, 게스트로 들어온
-  // 사람은 초등학생이든 성인이든 **평생 middle_high**였고 배치고사로도 못 바꿨다.
-  await scenario('CO-P-5: 게스트도 내 정보에서 학습 수준을 바꾼다(서버에 반영)', async () => {
+  // ── 7. 🔴 **학령은 진입에서 한 번 — 그다음은 고정** (R13 CO-P-5 뒤집기) ────
+  //
+  // 종전 이 절은 *"게스트도 내 정보에서 학습 수준을 바꾼다"*를 물었다. 사유는
+  // 「게스트로 들어온 사람이 평생 middle_high에 갇힌다」였고, 그 갇힘은 **진입에서
+  // 학령을 받게 되면서 해소됐다**(`EntryInfoPage` → `POST /auth/guest {level_group}`).
+  //
+  // **2026-08-20 클라이언트 판정: *「진입에서 한 번 고르면 고정이야」*** —
+  // `/me`의 학습 수준 카드는 되살리지 않는다. #148의 삭제가 확정이다.
+  //
+  // 🔴 **그래서 이 절을 지우지 않고 뒤집는다.** 지우면 「고정」을 지키는 것이
+  //   아무것도 안 남는다 — 서버의 `PATCH /auth/me {level_group}`은 **그대로 열려
+  //   있고**(`backend/app/routers/auth.py`), 프론트 래퍼
+  //   `api/auth.js: updateLevelGroup`도 살아 있다. 화면 하나만 붙이면 「고정」이
+  //   조용히 깨지는데 계약은 초록인 채다. 그 형태를 여기서 막는다.
+  //
+  // ⚠️ **래퍼를 지우지 않는 이유** — 호출부가 0곳이 아니다. `App.jsx`의
+  //   `finishEntryInfo`가 부른다: 토큰이 **이미 발급된 뒤에** 진입 정보를 마치는
+  //   가지(경합·되돌아온 진입)에서, 발급 바디 대신 이 통로로 학령을 싣는다.
+  //   그것도 **진입에서 고르는 한 번**이지 진입 후 변경이 아니다. 그래서 계약은
+  //   「래퍼가 없다」가 아니라 **「진입 완료 처리 말고는 아무도 안 부른다」**를 문다.
+  await scenario('CO-P-5(뒤집기): 진입 뒤에는 학령을 바꿀 통로가 없다', async () => {
     const g = await api('POST', '/auth/guest');
     authenticateGuest(g.body.access_token);
-    const before = await api('GET', '/auth/me');
-    assert(before.body.level_group === 'middle_high', '게스트 시작 기본값이 middle_high가 아니다');
 
+    // ⑴ `/me`에 학습 수준 카드가 **없다**
     const r = mount(createElement(App), '/me');
-    await waitFor(() => window.document.querySelector('[data-level-group]'), 6000, '학습 수준 카드');
-    const card = () => window.document.querySelector('[data-level-group]');
-    assert(card().getAttribute('data-level-group') === 'middle_high',
-      '카드가 서버의 현재 학령을 반영하지 않는다');
-
-    const pick = (label) =>
-      [...card().querySelectorAll('button')].find((b) => b.textContent.trim() === label);
-    assert(pick('중·고등학생').getAttribute('aria-pressed') === 'true', '현재 선택이 표시되지 않는다');
-    click(pick('초등학생'));
-    await waitFor(() => card()?.getAttribute('data-level-group') === 'elementary', 4000, '학령 변경 반영');
-
-    const after = await api('GET', '/auth/me');
-    assert(after.body.level_group === 'elementary',
-      `서버에 반영되지 않았다 — ${after.body.level_group}`);
-    assert(text().includes('학습 수준을 바꿨어요'), '변경 결과를 사용자에게 알리지 않는다');
+    await waitFor(() => text().includes('내 정보') || text().length > 0, 4000, '/me 마운트');
+    await new Promise((res) => { setTimeout(res, 300); });
+    assert(window.document.querySelector('[data-level-group]') == null,
+      '/me에 학습 수준 카드가 되살아났다 — 진입 1회 고정 판정과 어긋난다');
     r.unmount();
+
+    // ⑵ 🔴 `updateLevelGroup`을 부르는 곳이 **진입 완료 처리 하나뿐**이다.
+    //    소스를 읽어서 센다 — 화면을 아무리 마운트해도 「안 부른다」는 못 보인다.
+    const SRC_DIR = resolve(root, 'src');
+    const files = [];
+    const walk = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const full = resolve(dir, e.name);
+        if (e.isDirectory()) walk(full);
+        else if (/\.(js|jsx)$/.test(e.name)) files.push(full);
+      }
+    };
+    walk(SRC_DIR);
+    const callers = files.filter((f) => f !== resolve(SRC_DIR, 'api/auth.js'))
+      .filter((f) => /updateLevelGroup\s*\(/.test(readFileSync(f, 'utf8')));
+    const rel = callers.map((f) => f.slice(SRC_DIR.length + 1));
+    assert(callers.length === 1 && rel[0] === 'App.jsx',
+      `학령 변경 통로를 부르는 곳이 진입 완료 처리 하나가 아니다 — ${rel.join(' / ') || '0곳'}`);
+    // 그 하나가 **진입 완료 처리**인지까지 본다(파일만 맞고 자리가 다르면 무의미).
+    const appSrc = readFileSync(resolve(SRC_DIR, 'App.jsx'), 'utf8');
+    const fn = appSrc.slice(appSrc.indexOf('const finishEntryInfo'),
+      appSrc.indexOf('const finishEntryInfo') + 1400);
+    assert(/updateLevelGroup\s*\(/.test(fn),
+      '`updateLevelGroup` 호출이 `finishEntryInfo` 밖으로 옮겨졌다 — 진입 밖 변경 통로가 생겼다');
   });
+
 } finally {
   await vite.close();
   httpServer.close();

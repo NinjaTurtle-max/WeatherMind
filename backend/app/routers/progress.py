@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.dependencies import get_current_user, get_db_with_rls
 from app.models.attendance import Attendance
 from app.models.quiz_log import QuizLog
@@ -54,8 +55,19 @@ from app.services.weather_api import KMA_GRID, KST
 router = APIRouter(prefix="/api/v1/progress", tags=["progress"])
 
 # 일일 목표 허용값 (R10-01 §3.4·D4) — mock의 DAILY_GOAL_CHOICES와 동일.
-# SESSION_RECIPE(합 10)와 **독립**이다: 표시용 카운터 타깃이지 세션 배합이 아니다.
-DAILY_GOAL_CHOICES = (3, 5, 9)
+#
+# ⚠️ **2026-08-19: 최대값이 9 → SESSION_RECIPE 총합으로 바뀌었다.** 이 자리에는
+# *"SESSION_RECIPE(합 10)와 **독립**이다: 표시용 카운터 타깃이지 세션 배합이 아니다"*
+# 라고 적혀 있었고 설계로는 옳았지만, **화면에서 어긋났다**: 학습자가 고를 수 있는
+# 최대가 9인데 하루 세션은 10문항이라 **「오늘 목표 10/9」가 뜬다.** 목표를 넘겨서
+# 끝나는 것이 매일 기본값이면 목표는 목표가 아니다. 클라이언트 반려 원문 —
+# *"문제 개수도 하루 세션 개수와 맞지도 않아"*(2026-08-19).
+#
+# 그래서 **최대값만** 배합 총합에 묶는다. 3·5는 "한 세션을 다 못 해도 괜찮다"는
+# 부분 목표라 그대로다 — 독립이어야 하는 것은 **선택지의 존재**이지 **상한**이
+# 아니었다. 이 파생을 사람이 지키지 않는다: `test_daily_goal_session_parity`가
+# 한쪽만 바뀌면 운다(§0-3 — 값은 테스트에 못박는다).
+DAILY_GOAL_CHOICES = (3, 5, sum(settings.SESSION_RECIPE.values()))
 
 
 async def _count_answered_today(

@@ -59,6 +59,10 @@ PYTHON="${PYTHON:-python3}"
 RESULTS=()
 FAILED=0
 
+# 종목 종료의 **갈래 판정**(단정 실패 / 안 돌았다 / 죽었다) — 사유는 그 파일 머리글.
+# shellcheck source=lib/test_outcome.sh
+. "$ROOT/scripts/lib/test_outcome.sh"
+
 record() { # record <단계> <OK|SKIP|FAIL> <비고>
   RESULTS+=("$1|$2|$3")
   [ "$2" = "FAIL" ] && FAILED=1
@@ -200,6 +204,7 @@ step_config() {
 #  웨이브 1~S5에서 추가됐지만 CI에 없어 회귀를 잡지 못하던 공백이었다.)
 #   explore     탐구 시뮬 + 렌더 스모크            session     세션 러너 렌더
 #   placement   배치고사 진입                      visual      보드 레이아웃 계약·강수 엔진·보드 비주얼 SSR
+#   placement-skip 「모르겠어요」 — 센티널 값·일반 세션 유출 금지·전건 스킵 finalize
 #   gating      온보딩 점진적 잠금 해제            board-entry 보드 진입 게이트(구름 잔량 차단)
 #   assist      보드 언두·점진적 힌트 유지         webgl       단면 3D 드로우콜 예산·SCENES↔STORYBOARDS 정합
 #   overlay     지도 오버레이 정점·좌표 경계·파티클 상한·FLOW_META 사본 대조
@@ -209,6 +214,9 @@ step_config() {
 #   duel        예보 대결 배치: 2열·격자 항목 최소폭·오른쪽 열 sticky·태풍이 튜터
 #   home-entry  홈 진입 통합(R13 §2.5): 진입 카드 1개·우선순위 3분기·보조 강등
 #   hint-character 보드 힌트 교사 캐릭터(R13 §2.6): 단계별 표정 전환·문구 불변
+#   load-progress 진도 불러오기(2026-08-19): 진입 화면의 진입점이 **렌더**되는가 ·
+#                 닉네임만 받는가(password·email 입력란 **부재**) · 그 진입점이
+#                 주 동선(건너뛰기·다음)을 막지 않는가
 #   session-retry 만회 라운드(R13 §2.1)·만회 상한 5(§2.11)·완료 화면 블록 구분
 #                 표기(§2.10)·예보 마감 단계(A-1 노출/미노출)
 #   detective   기후 탐정(R13 CO-N-2): /explore 진입 카드·단서 하한 미만 제출 잠금·
@@ -217,7 +225,7 @@ step_config() {
 #               영구 소실시키던 결함의 회귀 감시. logout()의 삭제 범위도 함께 못박는다
 # board_engine 공유 벡터(test:board)는 node_modules 없이 도는 전용 `board` 단계가
 # 소유하므로 여기서 중복 실행하지 않는다.
-FRONT_TESTS=(explore explore-goals session session-blocks entry-flow placement visual gating board-entry assist webgl overlay display-parity i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective knowledge-level onboarding-save guide-bot guide-bot-3d session-expiry)
+FRONT_TESTS=(explore explore-goals session session-blocks entry-flow load-progress placement placement-skip visual gating board-entry assist webgl schematic overlay display-parity i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective knowledge-level onboarding-save guide-bot guide-bot-3d session-expiry)
 
 step_frontend() {
   banner "frontend: build + 스모크 ${#FRONT_TESTS[@]}종 (선택)"
@@ -230,15 +238,32 @@ step_frontend() {
     record "frontend" "FAIL" "vite build 실패 (위 출력 참조)"
     return 0
   fi
+  # 🔴 **갈래를 갈라 적는다**(2026-08-20 FU-18). 종전엔 이름만 모아
+  #   「테스트 실패: home guest-convert」였고, 그래서 「단정이 틀렸다」와
+  #   **「파일이 아예 안 돌았다」**가 한 문장으로 뭉개졌다. 판별은
+  #   `scripts/lib/test_outcome.sh`가 소유한다(사유·근거는 그 파일 머리글).
+  # ⚠️ `NO_COLOR=1` — ANSI 색상코드가 줄 앞에 끼면 판정 줄을 못 읽는다.
+  # ⚠️ 출력은 그대로 콘솔에 흘리면서(`tee`) 사본을 남긴다. 사람이 보는 것과
+  #    도구가 세는 것이 **같은 출력**이어야 한다.
   local bad=()
+  local nostart=0
+  local logdir
+  logdir="$(mktemp -d)"
   for t in "${FRONT_TESTS[@]}"; do
     echo "· npm run test:$t"
-    if ! (cd "$ROOT/frontend" && npm run "test:$t"); then
-      bad+=("$t")
-    fi
+    # ⚠️ `env -C`를 쓰지 않는다 — 오래된 coreutils에 없다. 서브셸 `cd`가 이식성 있다.
+    if run_suite_outcome "$t" "$logdir" \
+        bash -c 'cd "$1" && npm run "test:$2"' _ "$ROOT/frontend" "$t"; then continue; fi
+    [ "$OUTCOME_KIND" = "nostart" ] && nostart=1
+    bad+=("$OUTCOME_LINE")
   done
+  rm -rf "$logdir"
   if [ "${#bad[@]}" -ne 0 ]; then
-    record "frontend" "FAIL" "build OK · 테스트 실패: ${bad[*]} (위 출력 참조)"
+    local head="테스트 실패"
+    # 「안 돌았다」가 하나라도 있으면 **그것을 머리로** 올린다 — 단정 실패에 섞여
+    # 눈에 안 들어오면 이 갈래를 만든 뜻이 없다.
+    [ "$nostart" -eq 1 ] && head="🔴 안 돌은 종목 있음"
+    record "frontend" "FAIL" "build OK · $head: ${bad[*]}"
   else
     record "frontend" "OK" "vite build + 스모크 ${#FRONT_TESTS[@]}종 통과 (${FRONT_TESTS[*]})"
   fi

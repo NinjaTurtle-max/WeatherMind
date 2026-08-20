@@ -101,6 +101,7 @@ const PcCurriculumPath = mod.default;
 const {
   blueEndIndex, stageDoneCount, joinK, estDaysOf, curvePath,
   PATH_DOT_PX, PATH_GAP_PX, PATH_AMP_PX, PATH_HIT_PX, PATH_WAVE_PERIOD, PATH_LINE_PX,
+  PATH_ICON_RATIO,
   alignScrollTop, hasMoreBelow,
 } = mod;
 
@@ -743,6 +744,69 @@ await render({});
     !/scroll-snap-align\s*:/.test(stageRule),
     '.wm-stage에 scroll-snap-align이 되살아나지 않았다(스냅포트가 없으면 죽은 선언이다)',
   );
+
+  // ── ㉶ **클립 박스 안의 행은 「남은 만큼」을 받는다** (2026-08-20) ────────────
+  //
+  // 🔴 요구(정체가 아니라 요구로 적는다): `.wm-track`은 `overflow: hidden`인
+  //    **클립 박스**이고 그 안에 세로로 여러 행이 산다 — 코스 탭 줄 · 스크롤러 ·
+  //    진도 바. **어떤 행도 상자 전체 높이를 주장해서도, 흐름에서 들려서도 안 된다.**
+  //      · 전체 높이를 주장하면 → 형제 높이만큼 클립 경계 **밖으로** 밀려 나간다
+  //      · 흐름에서 들리면(absolute) → 자리를 차지하지 않고 아래를 **덮는다**
+  //    둘 다 결과가 같다: **스크롤로 되돌릴 수 없는 픽셀**이 상자 아래에 생기고,
+  //    거기가 곧 끝까지 내렸을 때 마지막 노드가 서는 자리다.
+  //
+  // 이 요구는 실제 결함에서 나왔다(클라이언트 제보 "이모티콘이 해상도 사이즈
+  // 따라 짤리네"). 브라우저 실측(1024×776 · 마지막 섹션 14칸 · 끝까지 스크롤):
+  //   고치기 전  scrollerRect.bottom − trackRect.bottom = +41.75 = 탭 줄 높이
+  //              마지막 노드 밑변 − trackRect.bottom    = +13.50 (잘림)
+  //   고친 뒤    scrollerRect.bottom − trackRect.bottom = −34.25 (진도 바 몫)
+  //              마지막 노드 밑변 − trackRect.bottom    = −62.50 (여유)
+  //
+  // ⚠️⚠️ **이 계약이 못 무는 것 — 「잘렸다/안 잘렸다」 그 자체다.**
+  //    jsdom·SSR에는 래스터라이저도 레이아웃도 없다. `getBoundingClientRect()`가
+  //    전부 0을 돌려주므로 클립 박스와 노드 박스를 **비교할 수 없고**, 하물며
+  //    "그림이 잘려 보이는가"는 원리적으로 측정 불가다. 그래서 여기서 무는 것은
+  //    **잘림을 만들어 낸 구조가 돌아오지 않았는가** 하나뿐이다:
+  //      ㉠ 트랙이 세로 flex 열인가(행들이 높이를 나눠 갖는 유일한 구조)
+  //      ㉡ 스크롤러가 전체 높이를 주장하지 않는가
+  //      ㉢ 트랙의 직계 행 중 흐름 밖으로 들린 것이 없는가
+  //    px 값은 위 실측표가 소유한다 — 재현이 필요하면 브라우저로 다시 잰다.
+  //    ⚠️ 문턱(41.75·13.5 같은 값)을 단정에 박지 않는다. 그것은 코스 2개·현재
+  //    문구일 때의 값이고, 코스가 늘거나 문구가 길어지면 값이 바뀐다 —
+  //    **틀려야 하는 것은 값이 아니라 구조**다.
+  const trackRule = cut('.wm-track {', '.wm-scroller {');
+  ok(
+    /display:\s*flex/.test(trackRule) && /flex-direction:\s*column/.test(trackRule),
+    '🔴 ㉶㉠ .wm-track이 세로 flex 열이다 — 클립 박스 안의 행들이 높이를 나눠 갖는 유일한 구조',
+  );
+  // ⚠️ 이 단정은 **주석을 걷은 `css`**(:572)를 봐야 성립한다. 바로 위 `.wm-scroller`
+  //    주석이 "`height: 100%`로 되돌리지 말 것"이라고 그 문자열을 **인용**하기
+  //    때문이다 — 원문을 그대로 grep하면 근거를 지워야 통과하는 가드가 된다.
+  //    이 파일이 `min-height: 0`·`--dot: max(...)`에서 이미 겪은 함정과 같다.
+  ok(
+    !/height:\s*100%/.test(scrollerRule),
+    '🔴 ㉶㉡ .wm-scroller가 트랙 전체 높이를 주장하지 않는다 — 100%는 형제(탭 줄)를 모르므로 그만큼 클립 밖으로 나간다',
+  );
+  ok(
+    /flex:\s*1/.test(scrollerRule) && /min-height:\s*0/.test(scrollerRule),
+    '㉶㉡ .wm-scroller가 남은 높이만 받고(flex:1) 내용보다 작아질 수 있다(min-height:0 — auto면 긴 섹션에서 다시 넘쳐 나간다)',
+  );
+  // ㉢ **흐름 밖으로 들린 행이 없다.** CSS가 아니라 **런타임 클래스**로 문다 —
+  //    이 행들은 Tailwind 클래스를 JSX가 붙이므로 index.css에는 흔적이 없다.
+  //    (jsdom에 레이아웃은 없지만 class·DOM 구조는 실물이다.)
+  //    ⚠️ 특정 요소(진도 바)를 지목하지 않고 **직계 자식 전부**를 본다 — 지목하면
+  //    "새 행을 absolute로 하나 더 붙이는" 회귀를 조용히 통과시킨다.
+  const trackEl = container.querySelector('.wm-track');
+  ok(trackEl, `㉶㉢ 트랙이 마운트됐다 — 직계 행 ${trackEl?.children.length ?? 0}개`);
+  const lifted = [...(trackEl?.children ?? [])].filter((el) =>
+    el.classList.contains('absolute') || el.classList.contains('fixed'),
+  );
+  ok(
+    lifted.length === 0,
+    '🔴 ㉶㉢ 트랙의 직계 행 중 흐름 밖으로 들린 것이 없다(들린 행은 자리를 안 차지하고 아래를 덮는다) — '
+      + `실제 ${lifted.length}개${lifted.length ? `: ${lifted.map((el) => el.className.slice(0, 40)).join(' | ')}` : ''}`,
+  );
+
   // ㉵ **여기 있던 `scroll-behavior: smooth` 한정 단정은 걷었다**(대장 §4.10,
   //    2026-08-14). 지운 것이지 완화한 것이 아니다 — 위 :660의 단정이
   //    **엄밀히 더 강하다**:
@@ -1115,7 +1179,252 @@ await render({});
   ok(/unit:\s*'drop'/.test(entry), '진입 카드 화자가 물방울이(drop)다');
 }
 
+// ── ⑪-b 아이콘이 원 안에 든다: 비율의 소유자는 **JSX 인라인**이다 (2026-08-19) ──
+//
+// 🔴 결함: 노드 지름 64px에 아이콘이 `0.55 × 64 = 35.2px`이었다. macOS/Chrome
+// 실측(2026-08-19, Apple Color Emoji)으로 잉크 상자는 **폰트 크기의 1.079배**
+// (35.2px에서 38×38 정사각. 17종 전건 동일 — 비트맵 폰트라 글리프마다 같다).
+// 정사각 잉크가 **내접원**(반지름 32) 안에 들려면 반대각선 `0.763×F ≤ 32`,
+// 즉 `F ≤ 41.9px = 0.655 × 지름`이 상한이다. 0.55는 그 상한의 84%라
+// **여유가 16%뿐**이고, 3배 확대로 보면 🌈·🌊가 원 테두리에 닿는다(실측 스크린샷).
+// 잉크 상자가 macOS보다 큰 플랫폼(Segoe UI Emoji·Noto Color Emoji는 아웃라인
+// 폰트라 글리프마다 다르다)에서는 그 16%를 먹고 **테두리를 넘는다** — 클라이언트가
+// 본 「해상도 사이즈 따라 짤린다」의 후보다.
+//
+// ⚠️ **소유자가 옮겨졌다.** 종전 소유자는 `src/styles/index.css`의
+// `.wm-dot { font-size: calc(var(--dot) * 0.55) }`였는데, ⑪-b는 그 파일을 배타
+// 소유하지 않아 손대지 못했다. 그래서 **JSX 인라인 style이 그 선언을 덮는**
+// 형태로 착지했고, 0.55 줄은 **죽은 값**으로 남았다 — 그 줄은 FU-16(2026-08-20)에
+// index.css 소유자가 걷었다. 그래서 인라인이 지워졌을 때의 결과가 바뀌었다:
+// 0.55로 되돌아가는 것이 아니라 **상속 크기**로 쪼그라든다. 어느 쪽이든 결함이라
+// 이 계약은 그대로 **런타임에서** 인라인의 존재를 문다.
+{
+  await render({}); // 앞 블록들이 구름 0·접힘 등으로 상태를 흔들어 놓았으므로 원복
+  const ratioNodes = [...container.querySelectorAll('.wm-dot')];
+  ok(ratioNodes.length > 0, `⑪-b 노드가 마운트됐다 — ${ratioNodes.length}개`);
+  const want = `calc(var(--dot) * ${PATH_ICON_RATIO})`;
+  const inlineSizes = new Set(ratioNodes.map((b) => b.style.fontSize));
+  ok(
+    inlineSizes.size === 1 && inlineSizes.has(want),
+    `🔴 ⑪-b 전 노드가 인라인으로 아이콘 크기를 소유한다 — 기대 '${want}' / 실제 ${[...inlineSizes].map((v) => `'${v}'`).join(',')}`,
+  );
+}
+
 await vite.close();
+
+// ── ⑪-b 비율 자체가 기하 상한과 판독 바닥 사이에 있다 ────────────────────────
+{
+  // ㉮ 내접원 상한. 잉크 상자 한 변 = 1.079×F(macOS 실측)이므로 반대각선은
+  //    0.7629×F. 지름 D의 내접원 반지름은 D/2 → `0.7629 × ratio × D ≤ 0.5 × D`
+  //    ⇒ `ratio ≤ 0.655`. 그 상한을 그대로 쓰면 이질 플랫폼 여유가 0이라
+  //    **0.5로 끊는다** = 잉크가 macOS보다 31% 커져도 원 안에 든다(0.55는 19%).
+  const INK_PER_FONT = 1.079; // 2026-08-19 macOS/Chrome canvas measureText 실측
+  const halfDiag = (INK_PER_FONT * Math.SQRT2) / 2; // 0.7629
+  ok(
+    PATH_ICON_RATIO <= 0.5,
+    `🔴 ⑪-b 아이콘 비율 ≤ 0.5 — 내접원 상한 ${(0.5 / halfDiag).toFixed(3)}에 이질 플랫폼 여유 `
+      + `${((0.5 / halfDiag / PATH_ICON_RATIO - 1) * 100).toFixed(0)}%를 남긴다. 실제 ${PATH_ICON_RATIO}`,
+  );
+  ok(
+    PATH_ICON_RATIO * PATH_DOT_PX * halfDiag <= PATH_DOT_PX / 2,
+    `⑪-b 잉크 반대각선이 내접원 반지름 안 — ${(PATH_ICON_RATIO * PATH_DOT_PX * halfDiag).toFixed(1)}px `
+      + `/ ${PATH_DOT_PX / 2}px`,
+  );
+  // ㉯ 판독 바닥. 모바일 UnitNode가 같은 64px 노드에 24px(=0.375)로 그리는데
+  //    확대 없이 읽힌다(2026-08-19 실측 스크린샷). 그 아래로는 내려가지 않는다 —
+  //    보드 칩 🧩을 24 → 16px로 줄일 때 "이보다 작게 하면 안 읽힌다"고 적은
+  //    것과 같은 절충이다(2026-08-13 선례).
+  ok(
+    PATH_ICON_RATIO >= 0.375,
+    `🔴 ⑪-b 아이콘 비율 ≥ 0.375 — 모바일 24/64가 판독 바닥이다. 실제 ${PATH_ICON_RATIO}`,
+  );
+}
+
+// ── ⑪-a 아이콘 규칙: 두 화면이 **같은 소유자**를 읽는다 (2026-08-19) ──────────
+// 🔴 종전에 PC가 `STATUS_ICON[status] ?? '🌀'`로 **개념 아이콘을 덮어써서**, 열린
+// 유닛이 많아질수록 화면이 **회오리 도배**가 됐다(클라이언트 지적). 작은 화면은
+// 처음부터 개념 아이콘을 썼다 — **두 화면이 다른 규칙**이었다.
+// ⚠️ 주석으로 「같다」고 적어 두면 갈린다(오늘 세 번 봤다: 목↔서버·ko↔en·PC↔모바일).
+// 그래서 **소스에서 확인**한다 — 두 화면이 `unitIcon`만 부르고 자기 표를 안 갖는지.
+{
+  // ⚠️ **주석을 걷고 본다.** 처음엔 원문 그대로 검사했다가 빨강이 났다 — 수정 사유를
+  // 적은 주석 안에 「종전에 `STATUS_ICON = {…}`이 있었다」는 문장이 들어 있어서
+  // **자기 설명이 자기 계약에 걸렸다.** 계약은 **산문이 아니라 코드**를 봐야 한다.
+  // (같은 형태를 오늘 ⑦에서도 겪었다: 새 라벨 안에 옛 문자열이 부분 문자열로 들어갔다.)
+  const stripComments = (src) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const pcSrc = stripComments(readFileSync(resolve(root, 'src/modules/curriculum/PcCurriculumPath.jsx'), 'utf-8'));
+  const mbSrc = stripComments(readFileSync(resolve(root, 'src/modules/curriculum/CurriculumHome.jsx'), 'utf-8'));
+  const ruleSrc = stripComments(readFileSync(resolve(root, 'src/modules/curriculum/unitIcon.js'), 'utf-8'));
+
+  ok(/unitIcon\(unit,\s*status\)/.test(pcSrc), '⑪-a PC가 unitIcon()을 부른다');
+  ok(/unitIcon\(unit,\s*status\)/.test(mbSrc), '⑪-a 모바일이 unitIcon()을 부른다');
+  ok(!/STATUS_ICON\s*=/.test(pcSrc),
+     '🔴 ⑪-a PC가 자기 상태 아이콘 표를 다시 갖지 않는다 — 두 벌이 되면 또 갈린다');
+  ok(!/const CONCEPT_ICON\s*=/.test(mbSrc),
+     '🔴 ⑪-a 모바일이 자기 개념 아이콘 표를 다시 갖지 않는다 — 표는 unitIcon.js 소유다');
+
+  // 규칙 자체 — `unlocked`가 상태 표에 **없어야** 한다(그게 이 수정의 본체다)
+  const statusTable = /const STATUS_WINS\s*=\s*\{([^}]*)\}/.exec(ruleSrc);
+  ok(statusTable, '⑪-a unitIcon.js가 상태 표를 갖는다');
+  ok(!/unlocked/.test(statusTable?.[1] ?? 'unlocked'),
+     '🔴 ⑪-a 상태 표에 unlocked가 없다 — 있으면 열린 유닛이 다시 한 아이콘으로 덮인다');
+  for (const tag of ['pressure_front', 'typhoon', 'air_mass', 'wildfire_weather', 'flood_response']) {
+    ok(ruleSrc.includes(`${tag}:`), `⑪-a 개념 표에 ${tag}가 있다`);
+  }
+}
+
+// ── ⑪-c 아이콘이 흑백(텍스트 표현)으로 떨어지지 않는다 (2026-08-19) ───────────
+// 🔴 `anomaly`가 U+26A1 **단독**이라 macOS/Chrome에서 잉크가 `24×17.9`였다 —
+// 같은 줄 다른 아이콘은 전건 `38×38`이라 **혼자 작고 좁게** 보였다. VS16(U+FE0F)이
+// 붙으면 브라우저가 이모지 표현을 쓴다.
+//
+// ⚠️ **특정 글자를 하드코딩하지 않는다** — 표는 계속 자라고(오늘만 재난 축 2종·
+// 기초과학 6종이 붙었다) 사람이 새 글자마다 VS16을 기억할 수는 없다. 그래서
+// **조건에 맞는 값 전건**을 본다. 조건이 두 갈래인 것이 이 계약의 요점이다:
+//
+//   ㉠ **속성 기반** — 유니코드가 기본 표현을 텍스트로 정한 글자
+//      (`Emoji=Yes` ∧ `Emoji_Presentation=No`). ☀ U+2600 · ☁ U+2601 ·
+//      ❄ U+2744 · ⚠ U+26A0 · ⛈ U+26C8 · 🌤 U+1F324 · 🌫 U+1F32B 계열이고,
+//      표에 이미 있는 🌡 U+1F321 · 🌪 U+1F32A · 🏙 U+1F3D9가 그렇다.
+//      **다음에 ☀를 추가해도 이 단정이 문다.**
+//
+//   ㉡ **조건부 예외** — `Emoji_Presentation=Yes`인데도 **스택에 따라** 흑백으로
+//      떨어질 수 있는 글자. ㉠만으로는 **영원히 못 잡는다.** U+26A1이 그 경우다:
+//      유니코드 15.1에서 `Emoji_Presentation=Yes`인데(Node `\p{...}`·파이썬
+//      `regex` 양쪽 실측) 브라우저는 기본 표현을 보기 **전에 CSS 폰트 스택을 먼저
+//      걷고**, 스택 앞쪽에 U+26A1 글리프를 가진 **텍스트 폰트**가 있으면 그쪽이
+//      뽑혀 정사각 em을 안 채운다.
+//
+//      🔴 **정정(2026-08-19 재실측) — 이 줄에 「그래도 `24×17.9`로 떨어졌다」고
+//      적혀 있었고 그것은 이 플랫폼에서 거짓이다.** 실제 페이지 스택
+//      (`Pretendard…, -apple-system, …`) 아래에서 bare `⚡`과 `⚡️`는 canvas 잉크·
+//      칠해진 픽셀·화면 픽셀이 **전부 동일**하다(둘 다 38×38 프레임 / 25×35 칠 /
+//      유채색 97.3%). 이 맥에서는 **결함이 재현되지 않는다** — 스택에 적힌
+//      Pretendard·Noto Sans KR·Segoe UI·Roboto가 **전부 미설치**이고 실제로 닿는
+//      `-apple-system`(SF)에는 U+26A1 글리프가 **없어** Apple Color Emoji로 떨어진다.
+//
+//      ⚠️ 그리고 `24×17.9`는 **폰트를 이름으로 명시해서 얻은 값**이다 — 20여 종을
+//      훑어 그 값을 소수 1자리까지 재현하는 것은 `Apple Symbols` 하나뿐이었고,
+//      그 폰트는 설치돼 있으나 **페이지 스택에는 없다.** 축도 뒤집혀 적혀 있었다:
+//      폭 **17.9** × 높이 **24**(세로로 긴 흑백 번개)다.
+//
+//      ⇒ **그러면 이 가드는 왜 남는가.** 그 조건이 실제로 성립하는 것을 봤기
+//      때문이다 — `Apple Symbols`를 스택 앞에 세우면 bare는 흑백 17.9×24로
+//      떨어지고 **VS16을 붙이면 38×38 컬러로 회복된다.** 그리고 우리 스택 첫
+//      항목인 **Pretendard가 웹폰트로 실제 적재되는 순간** 같은 조건이 성립할 수
+//      있다(지금은 미설치라 조용하다). 즉 이 목록은 **수리가 아니라 예방**이다.
+//      🔴 「유니코드가 Yes라던데?」로 지우지 말 것 — 지우면 예방이 사라진다.
+//      지울 근거는 유니코드 표가 아니라 **스택이 바뀌지 않는다는 보장**이다.
+{
+  const stripComments = (src) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  // ⚠️ 주석을 먼저 걷는다. 머리말이 **VS16 없는 옛 ⚡을 이력으로 인용**하고 있고
+  //    (§0-5: 틀린 기술은 지우지 말고 경위를 남긴다), 수정 사유 주석도 그 글자를
+  //    다시 적는다 — 산문을 값으로 읽으면 고쳐 놓고도 빨강이 난다.
+  // 🔴 **이모지 표를 가진 자리 전부를 훑는다 — 한 자리만 고치면 N곳 중 N-1을 고친 것**이다.
+  //    ⑪-c를 유닛 노드에서만 고쳤을 때 `BadgeCollection`의 `streak_30`이 U+26A1 단독으로
+  //    남아 있었고, **그 자리를 찾은 것은 계약이 아니라 사람**이었다. 그래서 계약을 넓혔다.
+  //    ⚠️ 새 이모지 표가 생기면 여기 경로를 추가해야 한다 — 그것을 잊는 것이 이 계약의
+  //    유일한 구멍이고, 아래 `values.length` 하한이 **표가 옮겨진 것만** 잡는다(표가
+  //    새로 **생긴** 것은 못 잡는다). 못 무는 것을 문다고 적지 않는다.
+  const ICON_TABLE_FILES = [
+    'src/modules/curriculum/unitIcon.js',
+    'src/modules/progress/BadgeCollection.jsx',
+  ];
+  const iconSrc = ICON_TABLE_FILES
+    .map((rel) => stripComments(readFileSync(resolve(root, rel), 'utf-8')))
+    .join('\n');
+  const VS16 = '️';
+  // 표 두 개(CONCEPT_ICON·STATUS_WINS)와 폴백('📘')을 **한 번에** 훑는다 —
+  // 자리를 나열하면 새 표가 생겼을 때 조용히 빠진다.
+  const values = [...new Set([...iconSrc.matchAll(/'([^']*)'/g)].map((m) => m[1]))]
+    .filter((v) => [...v].some((c) => c.codePointAt(0) > 0x2000));
+
+  // 파싱이 실제로 표를 잡았는지 먼저 확인한다 — 정규식이 0건을 반환하면 아래
+  // 단정 둘이 **공집합을 통과**하고, 계약이 있는 척만 하게 된다(오늘 mascot
+  // 계약이 옛 자리를 슬라이스해 빈 블록을 검사한 것과 같은 함정이다).
+  ok(values.length >= 15, `⑪-c 아이콘 값을 읽었다 — ${values.length}종 (표가 옮겨지면 여기가 먼저 운다)`);
+
+  const baseOf = (v) => String.fromCodePoint(v.codePointAt(0));
+  const textDefault = values.filter((v) => {
+    const base = baseOf(v);
+    return /\p{Emoji}/u.test(base) && !/\p{Emoji_Presentation}/u.test(base);
+  });
+  const bareTextDefault = textDefault.filter((v) => !v.includes(VS16));
+  ok(
+    bareTextDefault.length === 0,
+    `🔴 ⑪-c 기본 텍스트 표현 문자는 VS16을 갖는다 — Emoji_Presentation=No ${textDefault.length}종 중 `
+      + `VS16 없는 것 ${bareTextDefault.length}종`
+      + `${bareTextDefault.length ? ` (${bareTextDefault.map((v) => `U+${v.codePointAt(0).toString(16).toUpperCase()}`)})` : ''}`,
+  );
+
+  // 조건부 예외 목록. 값이 아니라 **코드포인트로** 적는다 — 소스에 보이지 않는
+  // VS16을 넣으면 목록 자신이 판정 대상과 구별되지 않는다.
+  const CONDITIONAL_MONOCHROME = [
+    {
+      cp: '⚡',
+      // 🔴 사유를 정정했다 — 종전 'macOS/Chrome 잉크 24×17.9'는 **페이지 스택이 아니라
+      //    이름을 명시한 Apple Symbols**의 값이었다(축도 뒤집혀 있었다). 이 맥의 실제
+      //    스택에서는 bare와 VS16이 구별되지 않는다. 남기는 근거는 **예방**이다.
+      why: 'Apple Symbols를 스택 앞에 세우면 bare는 흑백 17.9×24, VS16은 38×38 컬러'
+        + ' — 실제 페이지 스택에서는 차이 0(2026-08-19 재실측). 스택 첫 항목 Pretendard가'
+        + ' 웹폰트로 적재되면 같은 조건이 성립할 수 있어 예방으로 남긴다',
+    },
+  ];
+  const bareMeasured = CONDITIONAL_MONOCHROME.filter(({ cp }) =>
+    values.some((v) => v.startsWith(cp) && !v.includes(VS16)));
+  ok(
+    bareMeasured.length === 0,
+    `🔴 ⑪-c 스택에 따라 흑백이 될 수 있는 문자는 VS16을 갖는다 — 빠진 것 ${bareMeasured.length}종`
+      + `${bareMeasured.length
+        ? ` (${bareMeasured.map(({ cp, why }) => `U+${cp.codePointAt(0).toString(16).toUpperCase()}: ${why}`).join(' / ')})`
+        : ''}`,
+  );
+
+  // 예외 목록이 **죽지 않았는지** 본다 — 그 글자가 표에서 사라지면 위 단정은
+  // 공집합으로 조용히 통과한다. 배정이 바뀌어 정말 빠졌다면 목록에서 지울 것이고,
+  // 그 판단을 사람이 하도록 여기서 소리를 낸다.
+  const orphanExceptions = CONDITIONAL_MONOCHROME.filter(({ cp }) => !values.some((v) => v.startsWith(cp)));
+  ok(
+    orphanExceptions.length === 0,
+    `⑪-c 조건부 예외 목록에 죽은 항목이 없다 — 표에 없는 것 ${orphanExceptions.length}종`
+      + `${orphanExceptions.length ? ` (${orphanExceptions.map(({ cp }) => `U+${cp.codePointAt(0).toString(16).toUpperCase()}`)})` : ''}`,
+  );
+}
+
+// ── ⑦ 배치 인정이 게이지에 남는다 (2026-08-19 결함 ⑦) ────────────────────────
+// 🔴 종전 화면은 **`cleared`만** 세서, 고등으로 진단받아 75유닛을 인정받은 학습자가
+// `0 / 138 유닛`을 봤다 — 배치가 화면에서 통째로 사라진 상태였고 클라이언트가
+// *"이전 수준 단계가 해지가 되면 완료 게이지가 안 차있어요"*로 반려했다.
+// ⚠️ 그렇다고 인정분을 **완료로 세면 거짓**이다. 그래서 **두 수를 함께** 본다.
+{
+  // 배치가 앞 6유닛을 인정한 상태: cleared 0 · unlocked/current 6 · 나머지 잠김
+  let m = 0;
+  const placed = SHAPE.map(([name, count]) => ({
+    section: name, subtitle: null, est_minutes: null, topics: [],
+    units: Array.from({ length: count }, (_, i) => {
+      const idx = m++;
+      return {
+        id: `p${idx}`, title: `유닛 ${idx + 1}`,
+        concept_tag: 'air_mass', kind: 'quiz', crowns: 0,
+        status: idx < 6 ? (idx === 5 ? 'current' : 'unlocked') : 'locked',
+      };
+    }),
+  }));
+  await render({ sections: placed });
+  const html = container.textContent;
+  // ⚠️ 「0 / 12 유닛」 부재로는 못 잡는다 — 새 라벨(「인정 6 · 푼 0 / 12 유닛」) 안에
+  // 그 문자열이 **부분 문자열로 들어간다.** 처음 이 단정을 그렇게 썼다가 빨강을 봤고,
+  // 그것이 정확한 단정이 아니었다. 라벨 **전체**를 문다.
+  ok(/인정 6 · 푼 0 \/ 12 유닛/.test(html),
+     '⑦ 하단 게이지가 「인정 n · 푼 m / 전체」 형태로 두 수를 함께 보인다');
+  ok(/인정 6/.test(html), '⑦ 인정 수(6)가 화면에 그대로 드러난다');
+  ok(/푼 0/.test(html), '⑦ 푼 수(0)도 함께 드러난다 — 한 숫자로 뭉개지 않는다');
+  ok(!/완료 6/.test(html) && !/6\s*\/\s*12 완료/.test(html),
+     '🔴 ⑦ 「완료」라는 말이 인정 구간을 가리키지 않는다 — 안 푼 것을 완료라 부르면 거짓이다');
+}
+
 if (failures) {
   console.error(`\n실패 ${failures}건`);
   process.exit(1);

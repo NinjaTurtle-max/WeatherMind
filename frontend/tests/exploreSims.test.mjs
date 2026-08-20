@@ -15,7 +15,13 @@ import {
   CO2_BASELINE,
   CO2_MAX,
   CLIMATE_SENSITIVITY,
+  CLIMATE_SENSITIVITY_MIN,
+  CLIMATE_SENSITIVITY_MAX,
+  SEA_LEVEL_CM_PER_DEG,
+  SEA_LEVEL_CM_PER_DEG_MIN,
+  SEA_LEVEL_CM_PER_DEG_MAX,
   HEAT_DAYS_BASELINE,
+  HEAT_DAYS_GROWTH,
 } from '../src/lib/exploreSims.js';
 
 let failed = 0;
@@ -145,6 +151,77 @@ for (const sst of [27, 28.5, 30, 32]) {
   const a = climateResponse({ co2: 427 });
   const b = climateResponse({ co2: 427 });
   check('기후 결정성(같은 입력=같은 출력)', JSON.stringify(a) === JSON.stringify(b));
+}
+
+// ── ⑬ 조작 변수 3축 (2026-08-19) ──────────────────────────────────────────
+/**
+ * 대회 배점 「변수를 바꿔가며」 — 축이 하나면 비교가 성립하지 않아 CO₂ 하나였던
+ * 것을 3개로 늘렸다. **무엇이 참이면 「탐구가 성립한다」인가**를 먼저 정의한다:
+ *
+ *   ⓐ 세 축이 각각 **결과를 바꾼다**(안 바꾸는 축은 조작 변수가 아니다)
+ *   ⓑ 각 축이 **자기가 책임지는 지표만** 바꾼다(해수면 계수가 폭염일수를
+ *      움직이면 학습자는 무엇 때문에 값이 커졌는지 분리할 수 없다)
+ *   ⓒ **한 인자 호출이 값을 안 바꾼다**(기존 호출·기존 계약 불변)
+ *   ⓓ 범위 밖 입력이 **범위로 클램프**된다(교육적으로 거짓인 값이 안 나온다)
+ *
+ * 「그림이 따라 움직인다」(이 티켓의 본체)는 곡선이 JSX 쪽에 있어
+ * tests/exploreSims.render.test.mjs가 소유한다.
+ */
+{
+  // ⓒ 하위 호환 — 새 인자를 생략·null·NaN으로 줘도 현행 상수와 같아야 한다.
+  //    ⚠️ 기대값을 여기 다시 못박지 않는다(§0-2). 「명시 기본값 호출과 같다」로
+  //    물면 상수가 바뀌어도 계약이 따라오고, 상수 자체의 값은 위 블록들이 문다.
+  const oneArg = climateResponse({ co2: 420 });
+  const explicit = climateResponse({
+    co2: 420,
+    sensitivity: CLIMATE_SENSITIVITY,
+    seaLevelPerDeg: SEA_LEVEL_CM_PER_DEG,
+  });
+  check('⑬ⓒ 한 인자 호출 = 명시 기본값 호출', JSON.stringify(oneArg) === JSON.stringify(explicit),
+    `${JSON.stringify(oneArg)} vs ${JSON.stringify(explicit)}`);
+  for (const bad of [null, undefined, NaN, 'x']) {
+    const r = climateResponse({ co2: 420, sensitivity: bad, seaLevelPerDeg: bad });
+    check(`⑬ⓒ 못 쓰는 입력(${String(bad)})은 기본값으로 떨어진다`,
+      JSON.stringify(r) === JSON.stringify(explicit));
+  }
+
+  // ⓐ 세 축이 각각 결과를 바꾼다
+  const lo = climateResponse({ co2: 420, sensitivity: CLIMATE_SENSITIVITY_MIN });
+  const hi = climateResponse({ co2: 420, sensitivity: CLIMATE_SENSITIVITY_MAX });
+  check('⑬ⓐ 민감도가 온도를 바꾼다', lo.anomaly < oneArg.anomaly && oneArg.anomaly < hi.anomaly,
+    `${lo.anomaly} < ${oneArg.anomaly} < ${hi.anomaly}`);
+  const seaLo = climateResponse({ co2: 420, seaLevelPerDeg: SEA_LEVEL_CM_PER_DEG_MIN });
+  const seaHi = climateResponse({ co2: 420, seaLevelPerDeg: SEA_LEVEL_CM_PER_DEG_MAX });
+  check('⑬ⓐ 해수면 계수가 해수면을 바꾼다',
+    seaLo.sea_level < oneArg.sea_level && oneArg.sea_level < seaHi.sea_level,
+    `${seaLo.sea_level} < ${oneArg.sea_level} < ${seaHi.sea_level}`);
+  check('⑬ⓐ CO₂가 세 지표 전부를 바꾼다',
+    climateResponse({ co2: 300 }).anomaly < oneArg.anomaly
+    && climateResponse({ co2: 300 }).sea_level < oneArg.sea_level
+    && climateResponse({ co2: 300 }).heat_days < oneArg.heat_days);
+
+  // ⓑ 축이 자기 지표만 바꾼다 — 축 분리가 이 화면의 교육적 요점이다
+  check('⑬ⓑ 해수면 계수는 온도를 안 바꾼다',
+    seaLo.anomaly === oneArg.anomaly && seaHi.anomaly === oneArg.anomaly);
+  check('⑬ⓑ 해수면 계수는 폭염일수를 안 바꾼다',
+    seaLo.heat_days === oneArg.heat_days && seaHi.heat_days === oneArg.heat_days);
+  check('⑬ⓑ 민감도는 해수면·폭염일수도 함께 바꾼다(온도가 그 둘의 원인이므로)',
+    hi.sea_level > oneArg.sea_level && hi.heat_days > oneArg.heat_days);
+
+  // ⓓ 클램프 — 범위 밖은 범위로. AR6가 배제한 1.5℃ 아래가 화면에 나오면 안 된다.
+  check('⑬ⓓ 민감도 하한 클램프',
+    climateResponse({ co2: 560, sensitivity: 0.5 }).anomaly === CLIMATE_SENSITIVITY_MIN);
+  check('⑬ⓓ 민감도 상한 클램프',
+    climateResponse({ co2: 560, sensitivity: 99 }).anomaly === CLIMATE_SENSITIVITY_MAX);
+  const clampSea = climateResponse({ co2: 560, seaLevelPerDeg: 9999 });
+  check('⑬ⓓ 해수면 계수 상한 클램프',
+    clampSea.sea_level === Math.round(CLIMATE_SENSITIVITY * SEA_LEVEL_CM_PER_DEG_MAX),
+    `sea_level=${clampSea.sea_level}`);
+
+  // 폭염 계수는 **일부러** 슬라이더가 아니다(1차 자료에 합의 범위가 없다 —
+  // lib 쪽 주석이 경위를 소유). 기본값이 살아 있는지만 확인한다: 승격됐다면
+  // 이 줄이 아니라 위 ⓐ에 축이 하나 더 있어야 한다.
+  check('⑬ 폭염 계수는 상수로 남아 있다', HEAT_DAYS_GROWTH === 1.9 && HEAT_DAYS_BASELINE === 10);
 }
 
 // ---------------------------------------------------------------------------

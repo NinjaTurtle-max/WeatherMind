@@ -434,6 +434,16 @@ class TestToProgressAbilities:
                 "theta_se": 0.9,
                 "num_responses": 3,
                 "level_label": "beginner",
+                # 🔴 2026-08-20: `knowledge_level`·`_max`가 늘었다. 배치고사 결과
+                # 화면이 **교과 단계로 말하려면** 이 두 필드가 응답에 있어야 한다
+                # (클라이언트 판정 「10단계 교과 표기 유지」). 종전에는 스키마에
+                # 아예 없어서 화면이 4밴드(「초급」)로 내려앉았다 — 그 자리가
+                # `to_progress_abilities`이고, 이 단정이 **필드 집합 전체를**
+                # 문고 있었으므로 함께 갱신한다.
+                # ⚠️ 값의 소유자는 `weatherbrain_service.theta_to_knowledge_level`
+                # 이다. 여기 숫자를 손으로 고치지 말고 그 함수를 볼 것.
+                "knowledge_level": 2,
+                "knowledge_level_max": 10,
             }
         ]
 

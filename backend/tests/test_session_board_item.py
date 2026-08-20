@@ -197,7 +197,12 @@ class TestSeedBoardRoundTrip:
         # 그래서 옮겼다). 난이도 2 블록 끝인 36 다음 **37~39**로 넣고 옛 37~46을
         # +3 밀었다. 순차 잠금(MT-24)이 이 순서 위에 서 있으므로 자리가 계약이다.
         # ㉣ 개통(2026-08-18): 49 → **52**. 요소 4종 팔레트를 쓰는 첫 보드들이다.
-        assert len(self.boards) == 55
+        # 경계층·대기역학·대기물리 6판(2026-08-20): 55 → **61**. board_order 56~61을
+        # **말미에 붙였다** — 전건 난이도 3(expert · goal_only · palette 4종)이라
+        # 난이도 3 블록 끝에 append하는 것이 위 단조 증가 계약을 지키는 유일한 자리다
+        # (난이도 2를 넣었던 staging 승격분이 자리를 옮겨야 했던 것과 대칭이다).
+        # 🔴 병합(2026-08-20): 연무 1판 + 통합 브랜치 2판 = **64**
+        assert len(self.boards) == 64
 
     def test_전건_렌더_필수_필드_온전(self):
         for i, item in enumerate(self.boards):

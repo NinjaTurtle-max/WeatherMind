@@ -35,7 +35,7 @@ export default {
         wildfire_risk: { label: 'Wildfire risk' },
         flood_risk: { label: 'Flood risk' },
         // ㉣ warning tier (2026-08-18) — only when all four conditions hold.
-        severe_storm: { label: 'Organized thunderstorm' },
+        severe_storm: { label: 'Organised thunderstorm' },
         wildfire_warning: { label: 'Wildfire warning' },
         flood_warning: { label: 'Flood warning' },
         // MT-18 expert boards (2026-08-18) — typhoon · greenhouse effect.
@@ -50,7 +50,7 @@ export default {
         cumulus: { label: 'Cumulus' },
         none: { label: 'No cloud' },
       },
-      element: { moisture: 'Moisture', sun: 'Sunlight', wind: 'Wind' },
+      element: { moisture: 'Moisture', sun: 'Sunlight', wind: 'Wind', aerosol: 'Aerosol (particulates)' },
     },
     common: {
       outOfClouds: '☁️ Your clouds have all drifted away',
@@ -189,6 +189,7 @@ export default {
         moisture: 'Moisture',
         sun: 'Insolation',
         wind: 'Wind',
+        aerosol: 'Aerosol family',
       },
       missionEyebrow: '🎯 This mission',
       missionSandbox: '🧪 Free experiment',
@@ -218,6 +219,7 @@ export default {
       moisture: '💧 Moisture',
       sun: '☀️ Insolation',
       wind: '🌬️ Wind',
+      aerosol: '🟤 Aerosol (particulates)',
       // R13 disaster axis (CO-A3 / CO-K4) — banner shown only when the verdict is a hazard
       disasterWildfireTitle: '🔥 Wildfire risk',
       disasterWildfireBody: 'The air is parched so fuel ignites easily, and strong wind carries embers.',
@@ -509,6 +511,15 @@ export default {
             'With too little wind to mix the heat away, the temperature never drops overnight.',
           ],
         },
+        nocturnal_inversion_haze: {
+          title: 'Nocturnal stable layer + light wind — a night that traps dry particles',
+          steps: [
+            'After sunset the ground radiates its heat away and cools quickly (radiative cooling).',
+            'Air touching the cooled ground becomes colder than the layer above, so the two cannot mix.',
+            'What is trapped in that shallow layer is not water droplets but invisible dry particles — so this is haze, not fog.',
+            'With too little wind to carry them away, visibility stays poor until early morning. Once the sun warms the ground, mixing resumes and the concentration falls.',
+          ],
+        },
       },
       badgeConfirmed: '✓ Server verdict',
       badgePreview: 'Preview',
@@ -553,6 +564,7 @@ export default {
         yangtze_mild_clear: 'Mild continental air,\nclear',
         yangtze_morning_fog: 'Weak sun, lingering damp,\nmorning fog',
         dry_convection_clear: 'Strong sun but dry,\nclouds cannot grow',
+        nocturnal_inversion_haze: 'Particles trapped at night,\nhazy low visibility',
       },
       mapAria: 'Korean Peninsula atmosphere board map — place elements on the 4 region nodes',
       zoneAria: '{name} zone{goal} — currently {phenomenon}',
@@ -560,6 +572,10 @@ export default {
     },
   },
   explore: {
+    schematic: {
+      ariaLabel: 'Schematic',
+      unsupported: 'This device cannot display the 3D schematic.',
+    },
     // MT-21: satellite schematic (modules/explore/SatelliteView.jsx).
     // schematicBadge is a contract, not decoration — the panel must say it is not
     // real imagery (the re-scope from KMA photography is what made F3 feasible).
@@ -642,9 +658,9 @@ export default {
       shearWeak: 'Weak',
       shearModerate: 'Moderate',
       shearStrong: 'Strong',
-      whyBelow: 'The sea surface temperature is {sst}°C, below the genesis threshold (26.5°C). A typhoon runs on the latent heat of condensation released by water vapor that a warm ocean supplies — if the sea is colder than this, the fuel supply falls short and the vortex cannot grow into a typhoon.',
+      whyBelow: 'The sea surface temperature is {sst}°C, below the genesis threshold (26.5°C). A typhoon runs on the latent heat of condensation released by water vapour that a warm ocean supplies — if the sea is colder than this, the fuel supply falls short and the vortex cannot grow into a typhoon.',
       whyBelowCta: 'Raise the slider above 26.5°C and a typhoon will begin to form.',
-      whyAbove: 'The ocean is {diff}°C warmer than the threshold (26.5°C). The warmer the sea, the more active the evaporation and the more water vapor is supplied — and the heat released as that vapor condenses drives the typhoon engine harder.',
+      whyAbove: 'The ocean is {diff}°C warmer than the threshold (26.5°C). The warmer the sea, the more active the evaporation and the more water vapour is supplied — and the heat released as that vapour condenses drives the typhoon engine harder.',
       whyShearWeak: 'The vertical wind shear (change of wind with height) is weak, so the typhoon column (warm core) stands upright. With its structure undisturbed, all the energy the ocean provides goes into intensification.',
       whyShearModerate: 'With moderate vertical shear, the typhoon column tilts slightly. When upper and lower winds pull in different directions, heat cannot gather in one place — so at the same sea temperature it develops less than under weak shear.',
       whyShearStrong: 'Strong vertical shear tilts the typhoon column sharply and shears its top away. However warm the ocean is, a collapsed structure cannot intensify — that is why the development curve bends over in its later half.',
@@ -674,12 +690,14 @@ export default {
       why1: 'CO₂ is a greenhouse gas that absorbs the infrared (heat) Earth emits and sends it back. If the concentration rises from {baseline} ppm (pre-industrial) to {co2} ppm, global mean temperature in this model rises by about {anomaly}°C.',
       why2: 'The key point is that temperature responds logarithmically (per doubling), not in proportion to concentration. Each doubling of CO₂ (280→560 ppm) adds about {sens}°C. The same +10 ppm has a larger effect when the concentration is low.',
       whyBaseline: 'This is the pre-industrial level — the reference point (0°C anomaly).',
-      whyPast: 'This range is the path humanity has already traveled. Since the Industrial Revolution, fossil-fuel burning has raised the concentration from {baseline} ppm to about {present} ppm today.',
+      whyPast: 'This range is the path humanity has already travelled. Since the Industrial Revolution, fossil-fuel burning has raised the concentration from {baseline} ppm to about {present} ppm today.',
       whyFuture: 'Beyond {present} ppm (today’s approximate level) lies a future decided by our choices. Warmer seawater expands (thermal expansion) and melting ice raises sea level — and even a small rise in mean temperature makes extreme heat far more frequent.',
       curveAria: 'Temperature anomaly {anomaly}°C at CO2 {co2} ppm',
       presentMark: 'now≈{n}',
       title: '🌡️ Experience Climate Change',
-      disclaimer: 'This is a simplified educational model. ΔT = S·log₂(C/C₀) with S = 3.0°C per doubling — a logarithmic-sensitivity approximation, not a real climate projection (numerical model) or a prediction for any specific year.',
+      // ⚠️ Do not hard-code S — it became an adjustable variable (2026-08-19), so a
+      // fixed number would make the text contradict the graph the learner is moving.
+      disclaimer: 'This is a simplified educational model. ΔT = S·log₂(C/C₀) with S = {sens}°C per doubling — a logarithmic-sensitivity approximation, not a real climate projection (numerical model) or a prediction for any specific year.',
       anomalyTitle: 'Global mean temperature anomaly',
       anomalySub: 'Rise relative to pre-industrial (280 ppm) — logarithmic sensitivity curve',
       co2Label: 'CO₂ concentration',
@@ -687,9 +705,27 @@ export default {
       scaleNow: 'now ≈ {n} ppm',
       scaleMax: '{max} ppm doubling',
       reset: 'Reset to current concentration',
+      // ── ⑬ two adjustable variables added (2026-08-19). The ranges' evidence lives in
+      //    the constant declarations in `lib/exploreSims.js` (IPCC AR6 quotes + URLs).
+      varsTitle: 'Try changing',
+      sensLabel: 'Climate sensitivity (per CO₂ doubling)',
+      sensScaleMin: '{min}°C',
+      sensScaleLikely: 'likely {lo}–{hi}°C',
+      sensScaleMax: '{max}°C',
+      sensSource: 'IPCC AR6 assessed a very likely range of 2–5°C. The best estimate is 3.0°C, and it is virtually certain to be above 1.5°C.',
+      seaSlopeLabel: 'Sea-level response (per 1°C)',
+      seaSlopeScaleMin: '{min} cm',
+      seaSlopeScaleNow: 'default {n} cm',
+      seaSlopeScaleMax: '{max} cm',
+      // ⚠️ Keep "not an assessed confidence interval" — IPCC never assessed cm/°C
+      //    itself; this envelope is derived by dividing 2100 sea-level by warming.
+      seaSlopeSource: 'An exploratory range derived from the 2100 sea-level and warming figures in the IPCC AR6 Summary for Policymakers. It is not an assessed confidence interval, and over millennia the value is far larger.',
+      whySens: 'Sensitivity is currently {sens}°C. IPCC judged {lo}–{hi}°C to be the likely range, so raising this warms the planet more at the same concentration.',
+      whySea: 'With a sea-level response of {k} cm per 1°C, a {anomaly}°C rise gives about {sea} cm of sea-level rise.',
       seaTitle: 'Sea level rise',
       seaUnit: 'cm',
-      seaNote: 'Educational approximation condensing thermal expansion and glacier melt to about 23 cm per 1°C',
+      // ⚠️ Do not hard-code the coefficient — it is now an adjustable variable.
+      seaNote: 'Educational approximation condensing thermal expansion and glacier melt to about {k} cm per 1°C',
       heatTitle: 'Heatwave days per year',
       heatUnit: 'days',
       heatNote: 'Educational approximation: from a baseline of 10 days/year, roughly ×1.9 per 1°C',

@@ -53,7 +53,7 @@ export default {
         cumulus: { label: '적운' },
         none: { label: '구름 없음' },
       },
-      element: { moisture: '습기', sun: '일사', wind: '바람' },
+      element: { moisture: '습기', sun: '일사', wind: '바람', aerosol: '에어로졸(미세먼지·황사)' },
     },
     common: {
       // assist·board-entry 스모크가 '구름이 모두 흩어졌어요'를 단정
@@ -156,6 +156,7 @@ export default {
         moisture: '습기',
         sun: '일사',
         wind: '바람',
+        aerosol: '에어로졸 계열',
       },
       // 태양이 문제 배너의 eyebrow(2026-08-11) — 미션 문장 위에 붙는 한 줄
       missionEyebrow: '🎯 이번 미션',
@@ -189,6 +190,7 @@ export default {
       moisture: '💧 습기',
       sun: '☀️ 일사',
       wind: '🌬️ 바람',
+      aerosol: '🟤 에어로졸(미세먼지·황사)',
       // R13 재난 축(CO-A3·CO-K4) — 판정이 재난일 때만 뜨는 배너
       disasterWildfireTitle: '🔥 산불 위험',
       disasterWildfireBody: '공기가 메말라 불이 붙기 쉽고, 센 바람이 불씨를 실어 날라요.',
@@ -283,7 +285,7 @@ export default {
         spotFireAhead: '날아간 불씨가 앞에 새 불을 놓아요',
         newCellsUpwind: '바람 위쪽에서 새 비구름이 계속 생겨요',
         soilAlreadyFull: '땅속 틈이 이미 물로 찼어요',
-        runoffGathersLow: '못 스민 물이 낮은 곳으로 모여요',
+        runoffGathersLow: '못 스며든 물이 낮은 곳으로 모여요',
         forestedRidge: '숲이 우거진 산등성이 — 비탈을 타고 더 빨라져요',
         cityImpervious: '도시 — 포장된 땅은 물을 먹지 못해요',
         fireRunsUphill: '불은 비탈을 더 빨리 올라가요',
@@ -437,7 +439,7 @@ export default {
             '센 바람이 바다에서 수증기를 쉬지 않고 실어 와요.',
             '비를 뿌리고 흩어진 자리를 다음 비구름이 곧 채워요.',
             '그래서 비가 그치지 않고 같은 곳에 계속 내려요.',
-            '땅이 스며들 수 있는 양을 넘겨 물이 고이기 시작해요.',
+            '땅에 스며들 수 있는 양을 넘겨 물이 고이기 시작해요.',
           ],
         },
         cold_front_squall_storm: {
@@ -485,6 +487,19 @@ export default {
             '열을 섞어 흩을 바람마저 약해서 밤새 기온이 내려가지 않아요.',
           ],
         },
+        // 대기화학 축(2026-08-20). 장면은 `radiation_fog`의 것을 재키잉했으므로
+        // **3단계 문구가 그 장면의 라벨(「수증기 응결 → 안개층」)을 정정하는 자리**다 —
+        // 이 규칙은 건조를 요구하므로 갇히는 것이 물방울이 아니다. 단계 수 4는
+        // 장면의 단계 수와 같아야 한다(crossSectionWebgl.contract).
+        nocturnal_inversion_haze: {
+          title: '야간 안정층 + 약한 바람 — 마른 입자가 갇힌 밤',
+          steps: [
+            '해가 넘어가면 지표가 열을 내보내며 빠르게 식어요(복사냉각).',
+            '식은 지표에 닿은 아래층 공기가 위층보다 차가워져, 위아래로 섞이지 못하는 층이 생겨요.',
+            '이 얕은 층에 갇히는 것은 물방울이 아니라 눈에 보이지 않는 마른 입자예요 — 그래서 안개가 아니라 연무예요.',
+            '옆으로 실어 낼 바람마저 약해 이른 아침까지 시야가 흐려요. 해가 떠 섞임이 되살아나면 농도가 내려가요.',
+          ],
+        },
       },
       badgeConfirmed: '✓ 서버 판정',
       badgePreview: '미리보기',
@@ -523,18 +538,27 @@ export default {
         // 늘리는 동안 아무도 이 표에 행을 안 넣었다. `ZoneAnnotation`이 `if (!text)
         // return null`이라 **조용히 안 뜬다** — 크래시가 없어 아무도 못 봤다.
         // 문구 규약: 「원인,\n결과」 2줄. 줄바꿈이 리더선 라벨의 2줄 배치를 만든다.
+        // ⚠️ 어투도 규약이다 — 20종이 **명사형으로 끝난다**('맑음'·'폭염 지속'·
+        // '산불 경보급'). 08-19에 붙은 12종 중 4종만 '-다' 서술형이라 같은 지도
+        // 위에서 라벨이 두 어투로 갈려 있었다(2026-08-19 정정, 뜻은 그대로).
         tropical_cyclone_genesis: '뜨겁고 습한 바다,\n태풍의 씨앗',
         greenhouse_tropical_night: '열이 갇힌 밤,\n식지 않는 도시',
         cold_front_squall_storm: '찬 공기가 밀어 올려,\n한 줄로 선 뇌우',
         siberian_gale_wildfire: '메마른 공기에 강풍,\n산불 경보급',
-        front_convergence_flood: '정체전선에 강풍,\n물이 빠지지 않는다',
-        flood_risk_saturated_inflow: '수증기가 계속 유입,\n땅이 다 찼다',
-        wildfire_risk_dry_gale: '건조한 강풍,\n불씨가 날아간다',
+        front_convergence_flood: '정체전선에 강풍,\n물이 빠지지 않음',
+        flood_risk_saturated_inflow: '수증기가 계속 유입,\n땅이 다 찼음',
+        wildfire_risk_dry_gale: '건조한 강풍,\n불씨가 날아감',
         okhotsk_sea_fog: '찬 바다 위 습한 공기,\n바다 안개',
-        okhotsk_foehn_clear: '산을 넘어온 건조 공기,\n맑고 따뜻',
+        okhotsk_foehn_clear: '산을 넘어온 건조 공기,\n맑고 따뜻함',
         yangtze_mild_clear: '온화한 대륙 공기,\n맑음',
         yangtze_morning_fog: '약한 햇빛에 습기,\n아침 안개',
-        dry_convection_clear: '강한 햇빛에 건조,\n구름이 못 자란다',
+        // ⚠️ 병합(2026-08-20) — 이 줄은 **상대 판을 쓴다.** 어투 규약(명사형 종결)을
+        //    정리한 브랜치가 「못 자란다 → 못 자람」으로 고쳤고, 내 판은 그 수정이
+        //    없는 기준판이었다. 이어 붙이면 **같은 키가 두 번** 나오고 뒤엣것이
+        //    조용히 이기므로, 규약을 지킨 쪽을 남긴다.
+        dry_convection_clear: '강한 햇빛에 건조,\n구름이 못 자람',
+        // 대기화학 축(2026-08-20). 어투 규약대로 **명사형으로 끝낸다**.
+        nocturnal_inversion_haze: '밤에 갇힌 마른 입자,\n연무로 시야 흐림',
       },
       mapAria: '한반도 대기 보드 지도 — 4개 지역 노드에 요소를 배치하세요',
       zoneAria: '{name} 존{goal} — 현재 {phenomenon}',
@@ -542,6 +566,14 @@ export default {
     },
   },
   explore: {
+    // MT-22: 입체 화살표 모식도 껍데기(explore/schematic/SchematicGL.jsx).
+    // 🔴 **이 둘만 리소스로 뺀다** — ariaLabel은 스크린리더가 읽고, 폴백 문구는
+    // WebGL2가 없을 때 화면에 그대로 뜬다. 둘 다 **사용자 문자열**이다.
+    // 장면 데이터(radiationScene 등)의 text/title은 대장 §4.25 이월분이라 여기 없다.
+    schematic: {
+      ariaLabel: '모식도',
+      unsupported: '이 기기에서는 입체 모식도를 표시할 수 없습니다.',
+    },
     // MT-21: 위성 도식 오버레이(modules/explore/SatelliteView.jsx).
     // ⚠️ 원 F3(KMA 실사 위성 영상)를 **우리가 그리는 도식**으로 재범위한 결과라
     // schematicBadge는 장식이 아니라 계약이다 — 실사가 아님을 화면이 말해야 한다.
@@ -609,7 +641,7 @@ export default {
       subtitle: '조건을 직접 움직여 보며 날씨와 기후의 원리를 체험하는 공간이에요.',
       typhoonTitle: '태풍 만들기',
       typhoonDesc: '바다 온도와 바람 시어를 조절해 태풍이 언제, 얼마나 강하게 발달하는지 직접 확인해요.',
-      typhoonInputs: 'SST 24~32℃ · 연직시어 약/중/강',
+      typhoonInputs: 'SST 24~32℃ · 연직 시어 약/중/강',
       climateTitle: '기후변화 체험',
       climateDesc: 'CO₂ 농도를 움직여 지구 평균기온·해수면·폭염일수가 어떻게 반응하는지 살펴봐요.',
       climateInputs: 'CO₂ 280~560ppm',
@@ -661,7 +693,9 @@ export default {
       curveAria: 'CO2 {co2}ppm에서 온도 아노말리 {anomaly}℃',
       presentMark: '현재≈{n}',
       title: '🌡️ 기후변화 체험',
-      disclaimer: '교육용 단순화 모델이에요. ΔT = S·log₂(C/C₀), S=3.0℃(배증당) 로그 감도 근사로, 실제 기후 전망(수치 모델)·특정 연도 예측이 아니에요.',
+      // ⚠️ S를 문장에 못박지 말 것 — 민감도가 조작 변수가 된 뒤로(2026-08-19) 상수를
+      // 적어 두면 슬라이더를 올려도 설명만 "3.0℃"라 화면이 자기 그래프와 다른 말을 한다.
+      disclaimer: '교육용 단순화 모델이에요. ΔT = S·log₂(C/C₀), S={sens}℃(배증당) 로그 감도 근사로, 실제 기후 전망(수치 모델)·특정 연도 예측이 아니에요.',
       anomalyTitle: '지구 평균기온 아노말리',
       anomalySub: '산업화 이전(280ppm) 대비 상승분 — 로그 감도 곡선',
       co2Label: 'CO₂ 농도',
@@ -669,9 +703,27 @@ export default {
       scaleNow: '현재 ≈ {n}ppm',
       scaleMax: '{max}ppm 배증',
       reset: '현재 농도로 되돌리기',
+      // ── ⑬ 조작 변수 2종 추가(2026-08-19). 범위의 근거는 `lib/exploreSims.js`의
+      //    상수 선언 위 주석이 소유한다(IPCC AR6 원문 인용·URL).
+      varsTitle: '바꿔보기',
+      sensLabel: '기후민감도 (CO₂ 두 배당)',
+      sensScaleMin: '{min}℃',
+      sensScaleLikely: '가능성 높음 {lo}~{hi}℃',
+      sensScaleMax: '{max}℃',
+      sensSource: 'IPCC AR6이 평가한 폭 2~5℃(가능성 매우 높음)예요. 가장 그럴듯한 값은 3.0℃이고, 1.5℃보다 작을 가능성은 거의 없다고 봤어요.',
+      seaSlopeLabel: '해수면 반응 (1℃당)',
+      seaSlopeScaleMin: '{min}cm',
+      seaSlopeScaleNow: '기본 {n}cm',
+      seaSlopeScaleMax: '{max}cm',
+      // ⚠️ 「평가된 신뢰구간이 아니다」를 지우지 말 것 — IPCC가 cm/℃ 자체를 평가한
+      //    값은 없고, 이 폭은 2100년 해수면과 승온 평가값을 나눠 만든 탐구용이다.
+      seaSlopeSource: 'IPCC AR6 요약보고서의 2100년 해수면·기온 값에서 만든 탐구용 폭이에요. 평가된 신뢰구간은 아니고, 천 년 단위로 보면 이보다 훨씬 커요.',
+      whySens: '지금 민감도는 {sens}℃예요. IPCC가 가능성이 높다고 본 구간은 {lo}~{hi}℃라, 이 값을 올리면 같은 농도에서도 더 많이 더워져요.',
+      whySea: '해수면 반응을 1℃당 {k}cm로 두면, {anomaly}℃ 상승은 해수면 약 {sea}cm가 돼요.',
       seaTitle: '해수면 상승',
       seaUnit: 'cm',
-      seaNote: '열팽창·빙하 융해를 1℃당 약 23cm로 축약한 교육 근사',
+      // ⚠️ 계수를 문장에 못박지 말 것 — 조작 변수가 됐다(위 `seaSlopeLabel`).
+      seaNote: '열팽창·빙하 융해를 1℃당 약 {k}cm로 축약한 교육 근사',
       heatTitle: '연간 폭염일수',
       heatUnit: '일',
       heatNote: '기준 10일/년에서 1℃당 약 1.9배로 늘어나는 교육 근사',

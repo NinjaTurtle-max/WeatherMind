@@ -161,9 +161,27 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
 // ── ① `/` → `/learn` 리다이렉트 + 화면 구성 ─────────────────────────────────
 {
   const r = mount('/');
-  // 리다이렉트가 걸리면 학습 트랙이 뜬다(홈에는 트랙이 없었다).
-  await waitFor(() => $('.wm-scroller') !== null, 6000, '/ → /learn 리다이렉트 후 학습 트랙');
-  ok(true, '`/`가 학습 화면으로 리다이렉트된다');
+  // 🔴 **재방문은 이제 복귀 화면을 한 번 거친다**(2026-08-20, ⑫-b 클라이언트 지시분).
+  //
+  //   이 파일 머리에서 `setTokens({ accessToken: 't-home' })`를 먼저 심으므로
+  //   `shouldShowReturnScreen('/')`가 참이고, `/`는 `<Navigate to="/learn">`가
+  //   아니라 `ReturnHome`을 세운다. 종전 단정은 「`/`는 **항상** 리다이렉트한다」던
+  //   시절 그대로라 `.wm-scroller`를 6초 기다리다 죽었다.
+  //   #148의 diff에 `homeEntry.smoke`는 있고 이 파일은 없었다 — **누락**이다.
+  //
+  //   ⚠️ 게이트를 무르게 만들어 통과시키지 않는다. 그러면 클라이언트가 지시한
+  //     ⑫-b가 계약상 사라진다. **계약이 화면을 지나가게** 고친다 —
+  //     그러면 지키는 것이 하나 **늘어난다**: 「재방문은 복귀 화면을 거쳐 학습으로
+  //     간다」. 종전 계약은 그 문장을 아예 갖고 있지 않았다.
+  await waitFor(() => $('[data-testid="entry-return"]') !== null, 6000,
+    '재방문 `/` → 복귀 화면');
+  ok(true, '토큰이 있는 재방문에서 `/`가 복귀 화면을 세운다');
+  const cont = $('[data-testid="entry-return-continue"]');
+  ok(Boolean(cont), '복귀 화면에 「계속하기」가 없다 — 학습으로 갈 통로가 막힌다');
+  cont?.dispatchEvent(new window.Event('click', { bubbles: true }));
+  // 「계속하기」가 학습으로 보낸다 — 여기서부터는 종전 계약 그대로다.
+  await waitFor(() => $('.wm-scroller') !== null, 6000, '복귀 화면 → /learn 학습 트랙');
+  ok(true, '복귀 화면의 「계속하기」가 학습 화면으로 보낸다');
 
   // 탭바·사이드바가 같은 목록을 쓴다(둘 다 DOM에 있다 — CSS로만 갈린다)
   const tabs = $$('[data-testid="tabbar"] a');
@@ -402,15 +420,25 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
     !text().includes('오늘부터 하루'),
     '아무것도 안 눌렀는데 저장 확인 문구가 떠 있다(이미 정해 둔 사람에게 매번 뜬다)',
   );
-  // ④가 5문항으로 저장해 뒀다 — 겹치지 않게 9문항(세 번째 버튼)을 누른다.
+  // ④가 5문항으로 저장해 뒀다 — 겹치지 않게 **세 번째 버튼**을 누른다.
+  //
+  // 🔴 **문항 수를 여기 적지 않는다**(2026-08-20 정정). 종전엔 `'하루 9문항'`을
+  //   문자열로 박아 뒀는데, **이 커밋이 바로 그 9를 10으로 바꾼 커밋**이다
+  //   (`DAILY_GOAL_CHOICES = [3, 5, SESSION_ITEMS]` · `SESSION_ITEMS = 10`).
+  //   그래서 이 브랜치는 **자기 자신만으로도 붉었다** — 통합에서 처음 보인 것이
+  //   아니라 처음부터 붉었고, 다른 빨강에 섞여 안 보였을 뿐이다.
+  //   ⇒ 기대값을 **선택지에서 읽는다.** 상한이 또 바뀌어도 이 계약은 안 낡는다.
+  const { DAILY_GOAL_CHOICES } = await vite.ssrLoadModule('/src/lib/onboardingGate.js');
   const goalBtns = $$('#daily-goal button');
-  ok(goalBtns.length === 3, `목표 선택 버튼 3개 — 실제 ${goalBtns.length}`);
-  if (goalBtns.length === 3) {
-    goalBtns[2].dispatchEvent(new window.Event('click', { bubbles: true }));
-    const saved = await waitFor(() => text().includes('하루 9문항'), 6000, '')
+  ok(goalBtns.length === DAILY_GOAL_CHOICES.length,
+    `목표 선택 버튼 ${DAILY_GOAL_CHOICES.length}개 — 실제 ${goalBtns.length}`);
+  if (goalBtns.length === DAILY_GOAL_CHOICES.length) {
+    const pick = DAILY_GOAL_CHOICES[DAILY_GOAL_CHOICES.length - 1].items;
+    goalBtns[goalBtns.length - 1].dispatchEvent(new window.Event('click', { bubbles: true }));
+    const saved = await waitFor(() => text().includes(`하루 ${pick}문항`), 6000, '')
       .then(() => true)
       .catch(() => false);
-    ok(saved, '9문항을 눌렀는데 저장 확인 문구가 안 뜬다');
+    ok(saved, `${pick}문항을 눌렀는데 저장 확인 문구가 안 뜬다`);
     ok(Boolean($('#daily-goal')), '저장 직후 목표 카드가 사라졌다(확인 문구를 볼 수 없다)');
   }
 

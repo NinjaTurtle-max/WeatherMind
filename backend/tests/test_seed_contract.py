@@ -132,7 +132,19 @@ class TestSeedSchema:
         # `test_weather_phenomenon.TestSeedCoverage`가 「현상마다 실제 board 문항이
         # 있다」를 물어, 규칙만 넣으면 새 현상 2종에서 즉시 빨강이 된다.
         # ⇒ 두 몫을 합쳐 **1021문항 · board 55판**이다.
-        assert len(SEED_ITEMS) == 1021
+        # 경계층·대기역학·대기물리 보드 6판(2026-08-20): **+6 = 1027** · board **61판**.
+        # board_order **56~61** — 전건 expert · goal_only · palette 4종이라
+        # board_difficulty가 3으로 파생돼 초등·중고등에 잠긴다. 얇았던 kl7·kl8이
+        # 각 1 → 4건이 됐다. **새 규칙·새 배치 요소 0건**이라 규칙 파일·엔진·현상
+        # 어휘·표시 계층이 한 줄도 안 바뀐다 — 기존 4조건 규칙의 고유 결과
+        # (severe_storm·typhoon·tropical_night)만 목표로 쓴다. 개념 태그는 보드가
+        # 안 쓰던 4종(phase_change·temperature_heat·energy_transfer·radiation_budget)을
+        # **활용**했다(ALLOWED_CONCEPT_TAGS 안이라 개방이 아니다).
+        # 🔴 병합(2026-08-20 `integ/rolling-0820`): 위 6판 + 연무 1판(board_order 62,
+        # 대기화학 축 첫 문항) + 통합 브랜치 2판 = **1030 · board 64판**. 양쪽 항목을
+        # **전건 보존**해 합집합으로 해결했고(멱등 키 `(concept_tag, question_text)`로
+        # 대조 — 잃은 항목 0), 그래서 이 값은 어느 한쪽 판이 아니라 **합집합 실측**이다.
+        assert len(SEED_ITEMS) == 1030
 
     @pytest.mark.parametrize(
         ("index", "item"), list(enumerate(SEED_ITEMS)), ids=ITEM_IDS
