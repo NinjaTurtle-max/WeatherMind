@@ -705,12 +705,19 @@ try {
       const sorted = [...water].sort((a, b) => lum(b) - lum(a));
       const faint = sorted[0];
       const deep = sorted[sorted.length - 1];
-      const nested = water.length >= 2
-        && lo(deep, 0) >= lo(faint, 0) - 1e-9 && hi(deep, 0) <= hi(faint, 0) + 1e-9
-        && lo(deep, 2) >= lo(faint, 2) - 1e-9 && hi(deep, 2) <= hi(faint, 2) + 1e-9;
+      // ⚠️ **사슬 전체를 본다**(2026-08-20 정정). 종전엔 **양 끝 두 장만** 비교했다.
+      //    클라이언트가 *"블록마냥 딱 잘려 있어"*라고 반려해 계조를 2단 → 3단으로
+      //    늘리자, **가운데 판은 순서도 포함관계도 아무도 안 보는** 상태가 됐다.
+      //    가운데가 어긋나면 화면에서는 계조가 아니라 **엉뚱한 띠 하나**로 보인다.
+      const chained = sorted.every((it, k) => k === 0 || (
+        order(it) > order(sorted[k - 1])
+        && lo(it, 0) >= lo(sorted[k - 1], 0) - 1e-9 && hi(it, 0) <= hi(sorted[k - 1], 0) + 1e-9
+        && lo(it, 2) >= lo(sorted[k - 1], 2) - 1e-9 && hi(it, 2) <= hi(sorted[k - 1], 2) + 1e-9
+      ));
+      const nested = water.length >= 2 && chained;
       check(
         `물의 색 계조가 살아 있다 — ${water.length}장, 밝기 ${water.map((w) => lum(w).toFixed(3)).join(' / ')} · `
-          + `진한 쪽이 나중(${order(deep).toFixed(4)} > ${order(faint).toFixed(4)}) · 가운데다(${nested})`,
+          + `옅은 쪽부터 차례로 안쪽·나중이다(${nested}) · 양 끝 순서 ${order(deep).toFixed(4)} > ${order(faint).toFixed(4)}`,
         water.length >= 2 && lum(faint) - lum(deep) >= 0.10 && order(deep) > order(faint) && nested,
         water.length < 2
           ? '지표수가 한 장뿐이라 **깊이를 말할 수단이 없다** — 두께를 뺐으므로 남은 것은 색 계조뿐이다.'
