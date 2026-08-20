@@ -559,6 +559,8 @@ try {
     // 부풀고, 사용자 문자열이 면제에 묻히면 en 복원 때 화면이 깨진다.
     { file: 'src/modules/explore/schematic/glCore.js', lines: 2,
       why: '셰이더 컴파일·링크 실패 시 throw하는 **개발자 진단**이다. 사용자 화면에는 SchematicGL의 폴백 문구(리소스)가 뜨고 이 문자열은 콘솔에만 남는다 — 번역 대상이 아니다.' },
+    { file: 'src/components/RouteErrorBoundary.jsx', lines: 1,
+      why: '경계가 삼킨 예외를 남기는 **console.error 한 줄**이다 — 화면에는 errorBoundary.* 리소스가 뜨고 이 문자열은 콘솔에만 남는다. glCore.js와 같은 형태(개발자 진단). 🔴 이 파일의 **화면 문구를 여기에 얹지 말 것**: 화면에 나가는 것은 전부 리소스에 있고, errorBoundary.contract ③⑧⑨가 그것을 문다.' },
     { file: 'src/lib/boardEngine.js', lines: 11,
       why: '서버 어휘 미러(ZONES·조건 파서 주석 문자열) — 화면 표시명은 board.map.zone에서 온다(PeninsulaMap.zoneLabel).' },
     { file: 'src/modules/board/boardLayout.js', lines: 4,

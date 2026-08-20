@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
+import RouteErrorBoundary from './components/RouteErrorBoundary';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import client from './api/client';
@@ -625,6 +626,13 @@ function RequireAuth() {
 
 export default function App() {
   return (
+    // 라우트 상위 에러 바운더리 — 컴포넌트 하나의 예외가 화면 전체를 백지로
+    // 만드는 것을 막는다(이월 대장 §4.31 회수, 2026-08-20).
+    // ⚠️ **`<Routes>`보다 위**여야 한다. 안쪽에 두면 라우트 element가 던질 때
+    //    경계가 그 element와 함께 언마운트돼 아무것도 못 잡는다.
+    // ⚠️ 경계가 잡으면 라우팅으로는 못 빠져나온다 — 그래서 대체 화면의 되돌아갈
+    //    길이 `<Link>`가 아니라 `window.location`이다(RouteErrorBoundary 주석 참고).
+    <RouteErrorBoundary>
     <Routes>
       <Route element={<RequireAuth />}>
         {/* 온보딩 배치고사 — 탭바 없는 전체 화면(Layout 밖) */}
@@ -679,5 +687,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </RouteErrorBoundary>
   );
 }

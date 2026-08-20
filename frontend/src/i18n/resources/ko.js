@@ -366,6 +366,17 @@ export default {
     generic: '요청 처리 중 오류가 발생했어요.',
     network: '서버에 연결할 수 없어요. 네트워크를 확인해 주세요.',
   },
+  // 라우트 상위 에러 바운더리(components/RouteErrorBoundary.jsx — 이월 대장 §4.31).
+  // ⚠️ **약속을 넣지 말 것**: 「나중에」·「언제든」·「바꿀 수 있」은 `uiCopy.contract`
+  //    ⑹⑺이 금지한 어법이고, 여기도 같은 원칙을 따른다 — 우리가 못 지키는 통로를
+  //    말하지 않는다. 「다시 시도해 주세요」까지가 참이다.
+  // ⚠️ 예외 내용(스택·컴포넌트 이름)을 문구에 끼워 넣지 말 것. 그것은 콘솔 몫이다.
+  errorBoundary: {
+    title: '이 화면을 표시하지 못했어요',
+    body: '예상하지 못한 문제가 생겨 화면을 그리지 못했어요. 다시 시도해 주세요.',
+    retry: '다시 시도',
+    home: '학습 화면으로',
+  },
   // 온보딩 배치고사(modules/onboarding/**)
   // 첫 접속 정보 입력(modules/onboarding/EntryInfoPage.jsx — 2026-08-13 요구 ⑵⑶).
   // ⚠️ 「로그인」·「회원가입」은 규정 금칙어다(onboardingSave.contract ③⑧이 렌더

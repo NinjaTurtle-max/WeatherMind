@@ -299,6 +299,16 @@ export default {
     generic: 'Something went wrong while processing your request.',
     network: "Can't reach the server. Please check your network.",
   },
+  // Route-level error boundary (components/RouteErrorBoundary.jsx) — see ko.js
+  // for the full note. ⚠️ No promises here ("later", "anytime", "you can change"):
+  // uiCopy.contract ⑹⑺ bans that phrasing and the same principle applies.
+  // ⚠️ Never interpolate the exception (stack, component name) — that is console-only.
+  errorBoundary: {
+    title: "This screen couldn't be shown",
+    body: 'Something unexpected went wrong while drawing this screen. Please try again.',
+    retry: 'Try again',
+    home: 'Back to learning',
+  },
   // 첫 접속 정보 입력(EntryInfoPage) — ko.js의 같은 블록 주석 참고.
   // ⚠️ 금칙어는 영어도 문다('log in'·'login'·'sign up'·'sign-up', 소문자 부분일치).
   entryInfo: {
