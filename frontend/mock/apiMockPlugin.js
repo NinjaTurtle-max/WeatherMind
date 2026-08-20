@@ -1778,28 +1778,76 @@ const orderPuzzlesForProgress = (items) => items.slice().sort(byTierThenBoardOrd
  *    그보다 **큰 정수**를, 불리언 옆에는 **1보다 큰 정수**를 둔다. 그러지 않으면
  *    갈래는 밟는데 답이 같아 계약이 초록으로 통과한다(오늘 palette 2개짜리가
  *    그렇게 되돌림을 놓쳤다).
+ *
+ * 🔴 **모양이 바뀌었다**(2026-08-20 판정 4): 항목이 「템플릿 배열」에서
+ * `{ templates, tiers? }`로 늘었다. **층(지식 단계)은 `template_json` 안이 아니라
+ * 컬럼(속성)**이라 템플릿만으로는 1차 키를 실을 수 없기 때문이다 — 서버
+ * `board_tier`도 `getattr(item, "knowledge_level")`을 읽는다.
+ * `tiers`가 없는 항목은 전건 층 미상(null)이고, 그때 답은 축이 늘기 전과 같다
+ * (전부 같은 1차 키 → 2차 키 `board_order`가 결정) — 그래서 위 ⓐ~ⓘ는 손대지 않았다.
  */
 const BOARD_ORDER_SAMPLES = [
   // ⓐ 평범한 정수 — 뒤섞인 입력이 오름차순으로 선다
-  [{ board_order: 3 }, { board_order: 1 }, { board_order: 2 }],
+  { templates: [{ board_order: 3 }, { board_order: 1 }, { board_order: 2 }] },
   // ⓑ 0은 「없음」이 아니다 — `??` 폴백으로 되돌아가면 여기서 운다
-  [{}, { board_order: 0 }],
+  { templates: [{}, { board_order: 0 }] },
   // ⓒ 🔴 비정수 실수 + **그보다 큰 정수**. 서버는 2.5를 뒤로 보내 [1,0]이고
   //    `typeof number`로 두면 2.5 < 3이라 [0,1] — 순서가 갈린다
-  [{ board_order: 2.5 }, { board_order: 3 }],
+  { templates: [{ board_order: 2.5 }, { board_order: 3 }] },
   // ⓓ 🔴 불리언 + **1보다 큰 정수**. 서버는 true=1·false=0이라 [2,1,0]이고
   //    boolean을 뒤로 보내면 [0,1,2] — 순서가 갈린다
-  [{ board_order: 5 }, { board_order: true }, { board_order: false }],
+  { templates: [{ board_order: 5 }, { board_order: true }, { board_order: false }] },
   // ⓔ 동률 안정성 — 같은 키끼리는 입력 순서를 지킨다
-  [{ board_order: 2, tag: 'a' }, { board_order: 1 }, { board_order: 2, tag: 'b' }],
+  { templates: [{ board_order: 2, tag: 'a' }, { board_order: 1 }, { board_order: 2, tag: 'b' }] },
   // ⓕ 전건 부재 안정성 — 전부 10000이라 입력 순서 그대로
-  [{}, { tag: 'x' }, {}],
+  { templates: [{}, { tag: 'x' }, {}] },
   // ⓖ 정수가 아닌 값(문자열·null)은 뒤로, 있는 정수는 앞으로
-  [{ board_order: '3' }, { board_order: null }, { board_order: 7 }],
+  { templates: [{ board_order: '3' }, { board_order: null }, { board_order: 7 }] },
   // ⓗ 음수도 정수다 — 뒤로 가지 않는다
-  [{ board_order: -1 }, { board_order: 0 }],
+  { templates: [{ board_order: -1 }, { board_order: 0 }] },
   // ⓘ template_json 자체가 null — 서버 `(item.template_json or {})`와 같은 자리
-  [null, { board_order: 1 }],
+  { templates: [null, { board_order: 1 }] },
+
+  // ── 🔴 층 축(지식 단계) 갈래 — 2026-08-20 판정 4 ───────────────────────────
+  // 위 ⓐ~ⓘ는 `board_order` 축만 밟는다. 정렬 키가 **(층, board_order)**로 늘었으므로
+  // 층 축을 안 밟으면 **1차 키가 갈려도 조용히 통과한다** — 이 파일 위쪽 주석이
+  // *「축 변경 후 이 표본으로 재대조할 것」*이라 스스로 적어 둔 그 자리다.
+  // ⚠️ 전부 **갈리면 순서가 실제로 달라지는** 모양으로 만들었다: 층이 답을 정해야
+  //    하는 갈래에서는 `board_order`를 **전건 같은 값**으로 둬서 2차 키가 답을
+  //    가리지 못하게 한다. 그러지 않으면 갈래는 밟는데 답이 같다(palette 2개짜리).
+  //
+  // ⓙ 🔴 **층 순서와 board_order 순서가 서로 반대** — 이 표본이 핵심이다. 두 키가
+  //    같은 방향이면 **어느 키로 정렬해도 답이 같아** 1차 키를 잃어도 조용하다.
+  //    층 우선 [0,1,2] ↔ board_order 우선 [2,1,0].
+  {
+    tiers: [1, 2, 3],
+    templates: [{ board_order: 3 }, { board_order: 2 }, { board_order: 1 }],
+  },
+  // ⓚ 층 **부재 + 존재**(board_order 동일) — 부재가 뒤로 가는가. `?? 0`처럼 앞으로
+  //    보내는 폴백으로 되돌리면 [0,1]이 되어 순서가 갈린다.
+  {
+    tiers: [null, 3],
+    templates: [{ board_order: 1 }, { board_order: 1 }],
+  },
+  // ⓛ 층 **동률** — 1차 키가 같으면 2차 키(board_order)로 떨어진다. 2차 키를
+  //    잃으면 안정 정렬이 입력 순서 [0,1]을 내어 갈린다.
+  {
+    tiers: [4, 4],
+    templates: [{ board_order: 2 }, { board_order: 1 }],
+  },
+  // ⓜ 🔴 층이 **비정수 실수** + 그보다 큰 정수(board_order 동일). 서버
+  //    `isinstance(level, int)`는 2.5를 뒤로 보내 [1,0]이고, `typeof v === 'number'`로
+  //    두면 2.5 < 3이라 [0,1] — `boardTierOf`의 가드가 갈리는 바로 그 자리다.
+  {
+    tiers: [2.5, 3],
+    templates: [{ board_order: 1 }, { board_order: 1 }],
+  },
+  // ⓝ 🔴 층이 **불리언** + 1보다 큰 정수(board_order 동일). 파이썬에서 bool은 int라
+  //    `true`=1·`false`=0으로 **맨 앞**에 선다 → [2,1,0]. 뒤로 보내면 [0,1,2].
+  {
+    tiers: [5, true, false],
+    templates: [{ board_order: 1 }, { board_order: 1 }, { board_order: 1 }],
+  },
 ];
 
 // ⚠️ **`SEED_ITEMS.filter(...)`가 대입 바로 뒤에 붙어 있어야 한다** —
@@ -3576,10 +3624,20 @@ export const __mockPolicy = () => ({
   //    출력은 정렬 키가 아니라 **입력 인덱스의 순열**이다: 키를 값으로 박으면
   //    A조가 축을 `(지식 단계, board_order)`로 갈아탈 때 헛울거나 조용히 틀린다.
   //    순열로 물으면 축이 바뀌어도 「같은 입력에 같은 순서인가」는 그대로 성립한다.
-  board_order_samples: BOARD_ORDER_SAMPLES.map((templates) => ({
+  //    🔴 **층은 `template_json` 안이 아니라 컬럼(속성)으로 싣는다**(2026-08-20
+  //    판정 4) — 서버 `board_tier`가 `getattr(item, "knowledge_level")`을 읽으므로
+  //    템플릿 안에 넣으면 양쪽 모두 「층 없음」으로 읽고 **1차 키를 안 밟는다.**
+  //    `tiers`가 없는 표본은 전건 null로 정규화해 내보낸다(JSON에서 `undefined`가
+  //    조용히 사라지는 것을 막는다 — 사라지면 파이썬 쪽이 길이를 못 맞춘다).
+  board_order_samples: BOARD_ORDER_SAMPLES.map(({ templates, tiers }) => ({
     templates,
+    tiers: tiers ?? templates.map(() => null),
     out: orderPuzzlesForProgress(
-      templates.map((t, i) => ({ i, template_json: t })),
+      templates.map((t, i) => ({
+        i,
+        knowledge_level: tiers ? tiers[i] : null,
+        template_json: t,
+      })),
     ).map((x) => x.i),
   })),
   duel_win_xp: MOCK_DUEL_WIN_XP, // server duel_service.DUEL_WIN_XP

@@ -21,6 +21,7 @@ import json
 import re
 import shutil
 import subprocess
+from itertools import permutations
 from pathlib import Path
 
 import pytest
@@ -65,6 +66,164 @@ def policy() -> dict:
 @pytest.fixture(scope="module")
 def session_src() -> str:
     return SESSION_ROUTER.read_text(encoding="utf-8")
+
+
+# ═══════════════════════════════════════════════════════════════
+# 보드 진행 순서 표본의 **갈래 밟기** — 모듈 수준 헬퍼 (2026-08-20 판정 4)
+# ═══════════════════════════════════════════════════════════════
+#
+# 🔴 **테스트 안에 있던 것을 밖으로 뺐다**(단정은 한 줄도 지우지 않았고 늘렸다).
+# 이유는 역검증이다: 「표본에서 갈림 표본을 빼면 이 단정이 우는가」를 확인하려면
+# **목 파일을 임시로 편집하지 않고** 표본만 걸러 이 함수에 넘길 수 있어야 한다
+# (같은 날 신설된 역검증 규칙 — 공유 워크트리에서 남의 측정을 거짓으로 만들지 않는다).
+#
+# 왜 이 단정들이 있나: **갈래를 밟는 것만으로는 부족하다.** 갈리면 답이 실제로
+# 달라지는 표본이어야 한다 — 2026-08-20에 `palette` 갈래가 2개짜리만 남아
+# `len(palette) >= 3` 가지를 지워도 초록이었고, 같은 함정을 하루에 세 번 밟았다.
+
+
+def _is_bool(v) -> bool:
+    """⚠️ 파이썬에서 `isinstance(True, int)`는 참이므로 bool을 **먼저** 가른다."""
+    return isinstance(v, bool)
+
+
+def _is_int(v) -> bool:
+    return not _is_bool(v) and isinstance(v, int)
+
+
+def _is_real_float(v) -> bool:
+    """비정수 실수만 본다 — `3.0`은 JSON을 건너며 int 3이 되어 구분이 없다
+    (JS에 int/float 구분 자체가 없다). 그 한계는 목 주석이 소유한다."""
+    return isinstance(v, float) and not v.is_integer()
+
+
+def _orders_of(case) -> list:
+    """2차 키 축(`template_json.board_order`)의 값들."""
+    return [(t or {}).get("board_order") for t in case["templates"]]
+
+
+def _tiers_of(case) -> list:
+    """1차 키 축(**컬럼** `knowledge_level`)의 값들.
+
+    ⚠️ 층은 `template_json` 안이 아니라 속성이다 — 서버 `board_tier`가
+    `getattr(item, "knowledge_level")`을 읽는다. 목이 `tiers`를 안 실어 보내는
+    표본(축이 늘기 전부터 있던 ⓐ~ⓘ)은 전건 미상으로 읽는다.
+    """
+    tiers = case.get("tiers")
+    if not tiers:
+        return [None] * len(case["templates"])
+    return list(tiers)
+
+
+def _assert_samples_tread_branches(samples: list) -> None:
+    """표본이 **갈리면 순서가 실제로 달라지는** 모양인지 문다.
+
+    두 축을 같은 방식으로 문다 — 2차 키(`board_order`) 네 갈래는 2026-08-20
+    B조가 세운 것이고, 1차 키(층) 다섯 갈래가 같은 날 판정 4로 붙었다.
+    """
+    # ── 2차 키(board_order) 축 ────────────────────────────────────────────
+    assert any(
+        any(_is_real_float(v) for v in _orders_of(c))
+        and any(
+            _is_int(v) and v > f
+            for v in _orders_of(c)
+            for f in _orders_of(c)
+            if _is_real_float(f)
+        )
+        for c in samples
+    ), (
+        "표본에 **비정수 실수 + 그보다 큰 정수** 조합이 없다 — 실수를 뒤로 "
+        "보내든 앞에 두든 순서가 같아 규칙이 갈려도 초록이 된다"
+    )
+    assert any(
+        any(_is_bool(v) for v in _orders_of(c))
+        and any(_is_int(v) and v > 1 for v in _orders_of(c))
+        for c in samples
+    ), (
+        "표본에 **불리언 + 1보다 큰 정수** 조합이 없다 — bool을 맨 앞에 세우든 "
+        "뒤로 보내든 순서가 같아 규칙이 갈려도 초록이 된다"
+    )
+    assert any(
+        len([v for v in _orders_of(c) if _is_int(v)])
+        != len({v for v in _orders_of(c) if _is_int(v)})
+        for c in samples
+    ), "표본에 **동률**이 없다 — 안정 정렬이 깨져도 아무 소리가 안 난다"
+    assert any(
+        any(v is None for v in _orders_of(c))
+        and any(isinstance(v, int) for v in _orders_of(c))
+        for c in samples
+    ), "표본에 **없는 것과 있는 것이 섞인** 경우가 없다 — 뒤로 보내는 규칙을 못 본다"
+
+    # ── 1차 키(층 = 지식 단계) 축 — 판정 4 ────────────────────────────────
+    # ⚠️ 층이 답을 정해야 하는 갈래에서는 `board_order`가 **전건 같은 값**이어야
+    #    한다. 2차 키가 갈래마다 다르면 그것이 답을 정해 버려서, 층 규칙이 갈려도
+    #    순서가 같아진다(= 갈래는 밟는데 조용하다).
+    def tier_decides(c) -> bool:
+        return len(set(_orders_of(c))) == 1
+
+    assert any(
+        any(v is None for v in _tiers_of(c))
+        and any(_is_int(v) for v in _tiers_of(c))
+        and tier_decides(c)
+        for c in samples
+    ), (
+        "표본에 **층이 없는 것과 있는 것이 섞이고 board_order가 전건 같은** 경우가 "
+        "없다 — 층 부재를 뒤로 보내든 앞으로 보내든 순서가 같아 조용히 통과한다"
+    )
+    assert any(
+        len([v for v in _tiers_of(c) if _is_int(v)])
+        != len({v for v in _tiers_of(c) if _is_int(v)})
+        and len(set(_orders_of(c))) > 1
+        for c in samples
+    ), (
+        "표본에 **층 동률 + board_order 상이**가 없다 — 2차 키를 통째로 잃어도 "
+        "(안정 정렬이 입력 순서를 내므로) 아무 소리가 안 난다"
+    )
+    assert any(
+        any(_is_real_float(v) for v in _tiers_of(c))
+        and any(
+            _is_int(v) and v > f
+            for v in _tiers_of(c)
+            for f in _tiers_of(c)
+            if _is_real_float(f)
+        )
+        and tier_decides(c)
+        for c in samples
+    ), (
+        "표본에 **층이 비정수 실수 + 그보다 큰 정수 층**인 경우가 없다 — 목의 층 "
+        "추출 가드가 `typeof v === 'number'`로 되돌아가도 순서가 같아 조용하다"
+    )
+    assert any(
+        any(_is_bool(v) for v in _tiers_of(c))
+        and any(_is_int(v) and v > 1 for v in _tiers_of(c))
+        and tier_decides(c)
+        for c in samples
+    ), (
+        "표본에 **층이 불리언 + 1보다 큰 정수 층**인 경우가 없다 — 파이썬에서 "
+        "bool은 int라 `true`가 키 1로 맨 앞에 서는데, 그 기벽이 갈려도 조용하다"
+    )
+    # 🔴 **가장 중요한 갈래** — 두 축이 같은 방향이면 어느 키로 정렬해도 답이 같아
+    #    「1차 키가 층이다」를 잃어도 조용하다. 그래서 **서로 반대인** 쌍을 요구한다.
+    #    ⚠️ 여기서 정렬 규칙을 다시 구현하지 않는다(사본이 된다) — 「층은 오름,
+    #    board_order는 내림인 쌍이 존재하는가」라는 **표본 모양**만 본다.
+    assert any(
+        any(
+            ti < tj and oi > oj
+            for (ti, oi), (tj, oj) in permutations(
+                [
+                    (t, o)
+                    for t, o in zip(_tiers_of(c), _orders_of(c))
+                    if _is_int(t) and _is_int(o)
+                ],
+                2,
+            )
+        )
+        for c in samples
+    ), (
+        "표본에 **층 순서와 board_order 순서가 서로 반대인** 쌍이 없다 — 두 축이 "
+        "같은 방향이면 어느 키로 정렬해도 답이 같아, 1차 키가 층에서 board_order로 "
+        "되돌아가도 조용히 통과한다"
+    )
 
 
 @needs_node
@@ -853,6 +1012,16 @@ class TestUnnettedCopies:
            갈아타며 정렬 키를 `(지식 단계, board_order)`로 바꾸는 중이다. 키를
            단정하면 그때 헛울고, 순열을 단정하면 「같은 입력에 같은 순서인가」가
            축이 바뀐 뒤에도 그대로 성립한다. **축 변경 후 이 표본으로 재대조할 것.**
+
+        🔴 **그 재대조를 했다**(2026-08-20 판정 4). 정렬 키가 실제로
+        `(층, board_order)`로 늘었고, 표본은 **board_order 축만 밟고 있었다** —
+        1차 키가 갈려도 조용히 통과하는 상태였다. 그래서
+        ⑴ 아이템 조립이 층을 **속성으로** 싣고(서버 `board_tier`가
+           `getattr(item, "knowledge_level")`을 읽는다 — `template_json` 안에 넣으면
+           양쪽이 모두 「층 없음」으로 읽어 1차 키를 안 밟는다),
+        ⑵ 갈래 밟기 단정이 **층 축 다섯 갈래**를 더 문다
+           (`_assert_samples_tread_branches` — 부재·동률·비정수 실수·불리언 ·
+           🔴 **두 축이 서로 반대인 표본**).
         """
         from types import SimpleNamespace
 
@@ -861,60 +1030,14 @@ class TestUnnettedCopies:
         samples = policy["board_order_samples"]
         assert samples, "목이 보드 진행 순서 표본을 안 내보낸다"
 
-        # ── 갈래 밟기 ── 표본이 **갈리면 순서가 실제로 달라지는** 모양인지 먼저
-        #    확인한다. 갈래만 밟고 답이 같으면 되돌림이 안 운다(오늘 palette
-        #    2개짜리가 그렇게 통과했다).
-        def orders(case) -> list:
-            return [
-                (t or {}).get("board_order")
-                for t in case["templates"]
-            ]
-
-        # ⚠️ 파이썬에서 `isinstance(True, int)`는 참이므로 bool을 **먼저** 가른다.
-        def is_bool(v) -> bool:
-            return isinstance(v, bool)
-
-        def is_real_float(v) -> bool:
-            """비정수 실수만 본다 — `3.0`은 JSON을 건너며 int 3이 되어 구분이 없다
-            (JS에 int/float 구분 자체가 없다). 그 한계는 목 주석이 소유한다."""
-            return isinstance(v, float) and not v.is_integer()
-
-        assert any(
-            any(is_real_float(v) for v in orders(c))
-            and any(
-                not is_bool(v) and isinstance(v, int) and v > f
-                for v in orders(c)
-                for f in orders(c)
-                if is_real_float(f)
-            )
-            for c in samples
-        ), (
-            "표본에 **비정수 실수 + 그보다 큰 정수** 조합이 없다 — 실수를 뒤로 "
-            "보내든 앞에 두든 순서가 같아 규칙이 갈려도 초록이 된다"
-        )
-        assert any(
-            any(is_bool(v) for v in orders(c))
-            and any(not is_bool(v) and isinstance(v, int) and v > 1 for v in orders(c))
-            for c in samples
-        ), (
-            "표본에 **불리언 + 1보다 큰 정수** 조합이 없다 — bool을 맨 앞에 세우든 "
-            "뒤로 보내든 순서가 같아 규칙이 갈려도 초록이 된다"
-        )
-        assert any(
-            len([v for v in orders(c) if not is_bool(v) and isinstance(v, int)])
-            != len({v for v in orders(c) if not is_bool(v) and isinstance(v, int)})
-            for c in samples
-        ), "표본에 **동률**이 없다 — 안정 정렬이 깨져도 아무 소리가 안 난다"
-        assert any(
-            any(v is None for v in orders(c)) and any(isinstance(v, int) for v in orders(c))
-            for c in samples
-        ), "표본에 **없는 것과 있는 것이 섞인** 경우가 없다 — 뒤로 보내는 규칙을 못 본다"
+        _assert_samples_tread_branches(samples)
 
         # ── 본 대조 ── 목의 입력을 서버 함수에 그대로 넣어 **순열**을 맞춰 본다.
         bad = []
         for case in samples:
+            tiers = _tiers_of(case)
             items = [
-                SimpleNamespace(i=i, template_json=t)
+                SimpleNamespace(i=i, knowledge_level=tiers[i], template_json=t)
                 for i, t in enumerate(case["templates"])
             ]
             srv = [x.i for x in order_puzzles_for_progress(items)]
