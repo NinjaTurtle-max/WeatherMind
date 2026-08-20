@@ -675,6 +675,80 @@ FACTUAL_BASELINE: dict[str, dict[str, str]] = {
 }
 
 
+# ── ⑥ⓑ′ 자리 참조 **감시** (명사 없는 서수 — 판별이 아니라 열거) ────────────
+# 🔴 **왜 자동 판별이 불가능한가**: 서수가 가리키는 번호와 그 번호의 선지가 **뜻으로**
+# 맞는지는 문장을 읽어야 안다(「전향력」인 선지를 「열저기압」이라 부르는지). 기계가
+# 그 판정을 하려던 자리가 ⑥ⓐ이고, 세 라운드 전부 오탐으로 끝나 2026-08-19에
+# 절제됐다(모듈 머리 ⛔ — 「반대」가 판정어가 아니라 기상 어휘였다). **여기서 다시
+# 시도하지 말 것.** 이 층은 **열거만** 한다.
+#
+# 왜 그럼에도 게이트가 이것을 내는가 — 2026-08-21에 이 클래스의 실제 결함이 하나
+# 나왔다: 시드 [881](온대저기압 에너지원)의 해설이 「세 번째는 여름 내륙의
+# 열저기압이며」라고 했는데 그 내용은 **4번 선지**였다(3번은 전향력). ⑥ⓑ는 명사
+# 가드(「~ 선지」)를 요구하므로 이것을 **못 봤고**, 셔플도 명사 없는 서수를 그냥
+# 건너뛴다(test_명사_없는_자리_참조는_파이프라인이_그냥_지나친다). 곧 **아무 층도
+# 보지 않는 클래스**였다. 결함의 모양이 ⑥ⓐ와 다르다는 점이 중요하다 — 정오를
+# 뒤집어 말하는 것이 아니라 **오답 라벨이 한 칸 밀린 것**이라, 학습자는 3번이 왜
+# 틀렸는지 읽으면서 4번 설명을 읽는다.
+#
+# 그래서 ⑥ 래칫과 **같은 규칙**을 쓴다(부분집합·question_text 키·새로 생기면 탈락).
+# 탈락 사유 STAGES에는 넣지 않는다 — 이것은 「이 문항이 틀렸다」가 아니라 「사람이
+# 읽어야 한다」이고, 둘을 같은 칸에 세면 다음 사람이 판별로 착각한다.
+#
+# **세는 규칙과 잰 날**을 함께 적는다(이 파일이 낡은 수치로 두 번 데었다):
+# *mc 해설 중 `hint_has_bare_ordinal`이 참인 **문항 수**(서수 출현 수가 아니다)*
+#   · **시드 1,034건 · mc 310건**(2026-08-21 실측): **3건**. [881] 수리 전에는 4건이었다.
+#   · 명사 **있는** 서수 7건은 위 FACTUAL_BASELINE["ordinal_ref"]가 든다 —
+#     **사람이 읽을 자리 참조 목록은 그 7건 + 이 3건 = 10건**이고, 리포트는 둘을
+#     나란히 낸다. 한쪽만 읽으면 [881]류를 또 놓친다.
+ORDINAL_WATCH_BASELINE: dict[str, str] = {
+    "2026년에 새로 만들어진 폭염중대경보의 발표 기준으로 옳은 것은 무엇인가?": (
+        "「두 번째와 세 번째는 각각 …, 네 번째는 …」 — 2·3·4번과 내용이 맞는다"
+        "(2026-08-21 사람 확인)."
+    ),
+    (
+        "같은 크기의 기압 경도가 걸린 두 지점이 있다. 한 곳은 위도 20도, 다른 곳은 위도 60도이고"
+        " 둘 다 마찰이 거의 없는 상공이다. 전향력 인자는 위도가 높을수록 커진다."
+        " 두 곳 지균풍의 풍속을 비교한 것으로 옳은 것은?"
+    ): (
+        "「네 번째 선지 … 세 번째는」 — 3·4번과 내용이 맞는다(2026-08-21 사람 확인)."
+        " 명사 있는 쪽은 ordinal_ref 래칫에도 있다."
+    ),
+    (
+        "중심 기압 940hPa인 태풍이 만조 시각에 얕고 좁은 만으로 들어온다. 바람은 만 안쪽을 향해"
+        " 강하게 분다. 해면 상승에 대한 판단으로 옳은 것은?"
+    ): (
+        "「두 번째 몫」 — **선지가 아니라 앞 문장이 든 물리적 기여분**이다."
+        " 이 항이 곧 「기계가 판별하면 안 되는 이유」의 실물이다."
+    ),
+}
+
+
+def hint_bare_ordinal_watch(item: dict) -> str | None:
+    """객관식 해설이 **명사 없는 서수**로 선지를 가리킬 수 있는가 (판정 아님·열거).
+
+    ⑥ⓑ(`hint_ordinal_errors`)와 배타적이지 않다 — 한 해설에 「네 번째 선지」와
+    「세 번째」가 함께 있으면 양쪽에 다 잡힌다([880]이 그렇다). 겹치는 것을 굳이
+    지우지 않는다: ⑥ⓑ는 **셔플에서 깨진다**를 말하고 이쪽은 **사람이 읽어야 한다**를
+    말한다. 사유가 다르므로 한쪽이 사라져도 다른 쪽은 남아야 한다.
+    """
+    if item.get("question_type") != "multiple_choice":
+        return None
+    hint = str((item.get("template_json") or {}).get("explanation_hint") or "")
+    if not shuffle_tool.hint_has_bare_ordinal(hint):
+        return None
+    return (
+        "해설이 명사 없는 서수로 무언가를 가리킨다 — 그것이 **선지 번호**라면"
+        " 가리킨 번호와 그 선지의 내용이 맞는지 **사람이 읽어서** 확인할 것"
+        " (기계는 판정하지 않는다 — ⑥ⓐ 절제 사유)"
+    )
+
+
+def watch_index() -> set[str]:
+    """감시 래칫을 대조용 정규화 키로 편다 — 키 규칙은 baseline_index와 같다."""
+    return {author_items.normalize_text(text) for text in ORDINAL_WATCH_BASELINE}
+
+
 def baseline_index() -> dict[str, set[str]]:
     """래칫 목록을 대조용 정규화 키로 편다 — 키 규칙은 dedupe_keys와 같다."""
     return {
@@ -714,6 +788,18 @@ class LintResult:
     # 래칫 목록에 있어 탈락시키지 않은 ⑥ 계열 적발 — **숨기지 않고 따로 센다.**
     # 조용히 빼면 목록이 잊히고, 잊힌 예외는 규칙이 없는 것과 같다.
     baseline: list[Finding] = field(default_factory=list)
+    # ⑥ⓑ′ 자리 참조 감시 — **탈락 목록이 아니다**(findings에 넣지 않는다).
+    # 「사람이 읽어야 하는 문항」의 열거이고, 래칫 밖의 새 것만 탈락시킨다.
+    watch: list[Finding] = field(default_factory=list)
+
+    @property
+    def watch_new(self) -> list[Finding]:
+        """감시 래칫 **밖**의 새 자리 참조 — 이것만 게이트를 붉힌다."""
+        known = watch_index()
+        return [
+            f for f in self.watch
+            if author_items.normalize_text(f.question_text) not in known
+        ]
 
     @property
     def stage_counts(self) -> Counter:
@@ -838,6 +924,13 @@ def lint_items(
         if ordinal_errors:
             found_factual("fact_ordinal", ordinal_errors)
 
+        # ⑥ⓑ′ 자리 참조 감시 — **탈락 사유가 아니라 열거**다. STAGES에 넣지 않는다.
+        watch_reason = hint_bare_ordinal_watch(item)
+        if watch_reason:
+            result.watch.append(
+                Finding(i, "ordinal_watch", concept_tag, text, [watch_reason])
+            )
+
         # ⑥ⓒ 채점 정합 — 채점기에 걸어 보면 문항이 성립하지 않는 것(래칫).
         grade_errors = grading_errors(item, grading=grading)
         if grade_errors:
@@ -893,6 +986,34 @@ def format_report(
             head = f.question_text[:48] + ("…" if len(f.question_text) > 48 else "")
             lines.append(f"    - [{f.index}] ({f.concept_tag}) {head}")
 
+    # ⑥ⓑ′ 자리 참조 감시 — **판별이 아니라 열거**다. 0건이어도 낸다: 이 목록이
+    # 비어 있다는 사실 자체가 사람이 확인해야 할 상태다(⑥ⓑ 래칫 7건과 함께 읽을 것).
+    ordinal_ratchet = [f for f in result.baseline if f.stage == "fact_ordinal"]
+    lines += [
+        "",
+        f"자리 참조 감시 (⑥ⓑ′ 명사 없는 서수 — 탈락 아님, **사람이 읽을 목록**):"
+        f" {len(result.watch)}건"
+        f" / ⑥ⓑ 래칫(명사 있는 서수) {len(ordinal_ratchet)}건"
+        f" = 읽을 문항 {len(result.watch) + len(ordinal_ratchet)}건",
+        "  🔴 자동 판별은 불가능하다 — 서수가 가리킨 번호와 그 선지의 **뜻**이 맞는지는"
+        " 읽어야 알고, 기계 판정은 ⑥ⓐ에서 세 라운드 전부 오탐으로 끝나 절제됐다"
+        " (모듈 머리 ⛔). 여기 있는 것을 「결함」으로 세지 말고, 여기 **없는데** 서수를"
+        " 쓴 새 문항이 없는지를 볼 것.",
+        "  세는 규칙: mc 해설 중 명사 없는 서수를 품은 **문항 수**(서수 출현 수 아님).",
+    ]
+    notes = {
+        author_items.normalize_text(text): note
+        for text, note in ORDINAL_WATCH_BASELINE.items()
+    }
+    for f in result.watch:
+        head = f.question_text[:48] + ("…" if len(f.question_text) > 48 else "")
+        note = notes.get(author_items.normalize_text(f.question_text))
+        mark = "" if note else "  🔴 신규 — 래칫 밖"
+        lines.append(f"    - [{f.index}] ({f.concept_tag}) {head}{mark}")
+        lines += [f"        · {note}"] if note else [
+            f"        · {reason}" for reason in f.reasons
+        ]
+
     lines += ["", "탈락 상세:"]
     if not result.findings:
         lines.append("  (없음 — 전건 통과)")
@@ -928,7 +1049,9 @@ def run_staging(*, pipeline: dict, staging_dir: Path = STAGING_DIR) -> int:
         checked += len(items)
         result = lint_items(items, base_items=None, **pipeline)
         print(format_report(result, target=path, base=None))
-        if result.findings:
+        # 감시 래칫 밖의 새 자리 참조도 파일을 탈락시킨다 — **저작이 들어오는 문이
+        # 여기**이고, 본시드에서만 막으면 이미 승격된 뒤에 잡는 셈이 된다.
+        if result.findings or result.watch_new:
             failed_files.append(path.name)
 
     print("")
@@ -1042,6 +1165,19 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"[lint_seed_items] FAIL — {len(result.failed_indexes)}문항 탈락 "
             f"(사유 {len(result.findings)}건). 위 상세를 해소할 것.",
+            file=sys.stderr,
+        )
+        return 1
+    if result.watch_new:
+        # 붉히는 것은 「틀렸다」가 아니라 「아무도 안 읽었다」이다 — 해소는 둘 중 하나:
+        # 해설을 선지 **내용** 참조로 고치거나, 사람이 읽고 ORDINAL_WATCH_BASELINE에
+        # 판정 메모와 함께 올리거나.
+        print(
+            f"[lint_seed_items] FAIL — 감시 래칫 밖의 새 자리 참조 "
+            f"{len(result.watch_new)}건: "
+            + ", ".join(f"[{f.index}] {f.question_text[:32]}" for f in result.watch_new)
+            + ". 해설을 선지 **내용** 참조로 고치거나, 읽고 ORDINAL_WATCH_BASELINE에"
+            " 판정을 적을 것.",
             file=sys.stderr,
         )
         return 1

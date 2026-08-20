@@ -171,6 +171,58 @@ def test_래칫_밖의_새_자리_참조는_탈락한다():
     assert "fact_ordinal" in stages, "래칫 밖의 새 자리 참조를 통과시켰다"
 
 
+# ── ⑥ⓑ′ 자리 참조 **감시** (명사 없는 서수 — 열거이지 판정이 아니다) ────────
+# 2026-08-21에 이 클래스의 실제 결함이 하나 나왔다: 시드 [881]의 해설이
+# 「세 번째는 여름 내륙의 열저기압이며」라고 했는데 그 내용은 **4번 선지**였다
+# (3번은 전향력). ⑥ⓑ는 명사 가드 때문에 못 봤고 셔플은 건너뛴다(아래 미탐 픽스처).
+# 결함의 모양이 ⑥ⓐ와 다르다 — 정오를 뒤집은 게 아니라 **오답 라벨이 한 칸 밀렸다**.
+# 그래서 판정이 아니라 **열거**를 게이트가 맡는다: 목록 밖의 새것만 붉힌다.
+def test_명사_없는_서수는_감시_목록에_열거된다():
+    """탈락 사유(findings)가 아니라 **감시(watch)**에 담긴다 — 둘을 섞지 않는다.
+
+    섞으면 다음 사람이 이 열거를 「기계가 판정했다」로 읽고, 그 착각이 ⑥ⓐ를
+    되살린다(모듈 머리 ⛔ — 세 라운드 전부 오탐).
+    """
+    fresh = _mc("세 번째는 여름 열저기압이다.", options=OPTIONS, answer="맑아진다")
+    result = _lint_one(fresh)
+    assert [f.stage for f in result.watch] == ["ordinal_watch"]
+    assert "ordinal_watch" not in {f.stage for f in result.findings}
+
+
+def test_감시_래칫_밖의_새_자리_참조만_붉힌다():
+    """기지 3건은 통과하고 새것은 막는다 — ⑥ 래칫과 **같은 규칙**(부분집합·본문 키).
+
+    이것이 「감시」의 전부다: *이 문항이 틀렸다*가 아니라 *아무도 안 읽었다*.
+    """
+    fresh = _mc("두 번째는 태풍의 에너지원이다.", options=OPTIONS, answer="맑아진다")
+    assert _lint_one(fresh).watch_new, "래칫 밖의 새 자리 참조를 조용히 통과시켰다"
+
+    text = fresh["template_json"]["question_text"]
+    lint.ORDINAL_WATCH_BASELINE[text] = "테스트용 — 사람이 읽었다는 표시"
+    try:
+        assert not _lint_one(fresh).watch_new, "래칫에 올렸는데도 붉어진다"
+    finally:
+        del lint.ORDINAL_WATCH_BASELINE[text]
+
+
+def test_본시드의_자리_참조가_전부_감시_래칫_안에_있다():
+    """본시드가 이 게이트에 대해 **초록**임을 실물로 단정한다.
+
+    ⚠️ 인구를 여기 숫자로 적지 않는다 — 시드는 매일 자란다. 단정하는 것은
+    「래칫 밖이 0건」이지 「3건이다」가 아니다(이 파일이 낡은 수치로 두 번 데었다).
+    """
+    items = json.loads(SEED.read_text(encoding="utf-8"))
+    result = lint.lint_items(
+        items,
+        backend=_NULL_BACKEND,
+        ai=_NULL_AI,
+        render_required={},
+        vocabulary=_NULL_VOCAB,
+        grading=_GRADING,
+    )
+    assert not result.watch_new, [f.question_text[:40] for f in result.watch_new]
+
+
 # ── ⑥ⓒ 채점 정합 ────────────────────────────────────────────────────────────
 def test_눈금_전체가_관용오차_안이면_걸린다():
     """「오독이 정답 처리」 — 무엇을 짚어도 정답이면 채점이 성립하지 않는다.
@@ -298,6 +350,12 @@ def test_자릿수_콤마가_붙은_단위_결합_정답도_잡는다():
 
 def test_명사_없는_자리_참조는_파이프라인이_그냥_지나친다(tmp_path):
     """🔴 **의도된 미탐이고, 백스톱은 없다** (PM 판정 2026-08-18 · ⓑ 정직한 미탐 기록).
+
+    ⚠️ **2026-08-21 갱신 — 「백스톱은 없다」는 이제 「판정 백스톱은 없다」로 읽어야
+    한다.** 이 클래스의 실물 결함([881] 오답 라벨이 한 칸 밀린 것)이 나왔고, 그
+    대응으로 ⑥ⓑ′ **감시 래칫**(`ORDINAL_WATCH_BASELINE`)이 붙었다. 그것은 **판정이
+    아니라 열거**다 — 아래 두 단정(⑥ⓑ가 안 본다 · 셔플이 건너뛴다)은 **그대로 참**이고,
+    달라진 것은 「새로 생기면 사람이 읽도록 게이트가 붉어진다」뿐이다.
 
     「두 번째는 오독이다」는 **진짜 결함**인데 **두 층 다** 통과한다. 게이트는 명사 가드
     (「~ 선지/보기/답지/선택지」)를 요구하기로 했고 — 그 대가로 오탐 4종

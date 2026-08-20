@@ -146,3 +146,70 @@ main 몫은 `:357`(뒤로가기 링크), 우리 몫은 `:560`대(CTA, `6b7cfb5`)
 **한 화면만 보면 안 보이고 화면을 오갈 때만 드러난다**(본문이 8~13px 내려앉는다).
 ⇒ **화면 단위 스모크가 원리적으로 못 잡는 부류**다. 그리고 **2026-08-17 사용자 제보 계열**이라
 잃으면 같은 제보를 다시 받는다.
+
+---
+
+# ⑧ 🔴 충돌 목록은 **줄의 겹침**을 보지 **뜻의 의존**을 안 본다
+
+오늘 **세 번** 같은 형태가 나왔다. 전부 **충돌 0으로 끝나는데 깨진다.**
+
+| # | 자리 | 어떻게 조용한가 |
+|---|---|---|
+| 1 | `frontend/tests/hindcast.smoke.test.mjs` | **한쪽만 추가**한 파일이라 그냥 살아남고, 지워진 파일 셋을 읽어 `ENOENT` |
+| 2 | `git cat-file -e`가 「없음」 | 명령이 **거짓 음성**을 냈다(`ls-tree`가 참) |
+| 3 | `uiCopy.contract.test.mjs`의 `readdirSync` | **한쪽이 지운 import를 다른 쪽이 여전히 쓴다** → `ReferenceError` |
+
+## ③의 실측 (B조)
+
+```
+c697913  import { readFileSync, readdirSync } from 'node:fs';   (공통 베이스)
+92e146e  import { readFileSync, readdirSync } from 'node:fs';   (표기 통일 — 안 건드림)
+8020b71  import { readFileSync } from 'node:fs';                🔴 통합이 뺌
+```
+통합이 `walk()`를 쓰던 「바깥 여백 pt-2」 검사를 들어내면서 **유일한 사용처가 사라져 import도
+같이 걷었다.** 정당한 정리다. 그런데 표기 통일이 더한 83줄이 **`readdirSync`를 쓴다**
+(하드코딩 `°C` 검사가 `frontend/src`를 순회한다).
+
+⇒ 병합하면 import 줄은 **「한쪽이 안 건드렸고 다른 쪽이 지웠으니」 자동으로 지운 판으로 접힌다.**
+**충돌 표시가 안 난다.** 실측: `import 목록 = readFileSync` / `본문 readdirSync 호출 1회` → 정의 안 됨.
+
+🔴 **해소할 때 import 줄에 `readdirSync`를 되살릴 것. 한 낱말이다.**
+
+## ⇒ 규칙
+
+> **병합이 충돌 0으로 끝나도 그것은 「합쳐졌다」이지 「돈다」가 아니다.**
+> 병합 직후 **반드시 실제로 돌려라** — 최소한 `node tests/uiCopy.contract.test.mjs`와
+> `FRONT_TESTS` 전 종목. 충돌 목록만 보고 넘기면 이 부류는 **하나도 안 잡힌다.**
+
+# ⑨ 정정 — `uiCopy.contract`는 **세 갈래가 아니라 두 갈래**다
+
+앞서 ⑦에 「main +56줄」이라 적었으나 **참이 아니다.** B조 실측:
+
+```
+c697913 (공통 베이스)   230줄
+e3d2a24 (A조)           230줄   ← 베이스와 diff 0
+6a81a71 (main)          230줄   ← 베이스와 diff 0
+8020b71 (통합)          261줄   ← 168~225 구간을 들어내고 다시 씀
+92e146e (표기 통일)     313줄   ← 파일 끝에 +83, 삭제 0 (순수 추가)
+```
+`f8c3918`은 **A조 커밋**이고 이미 `c697913`(PR #170 머지)에 들어 있다.
+⇒ **갈래는 「통합 vs 표기 통일」 둘뿐이고, 표기 통일은 순수 추가라 기존 단정과 안 겹친다.**
+남는 위험은 위 ⑧의 import 한 줄이다.
+
+⚠️ 이 정정 자체가 교훈이다 — **A조 보고를 PM이 재지 않고 체크리스트에 옮겨 적었고,
+B조가 재서 갈랐다.** 옮겨 적기 전에 한 번 세는 것이 비용이 훨씬 싸다.
+
+# ⑩ 브랜치 팁 (병합 대상)
+
+```
+origin/fix/hint-contradicts-falsepos      7bdd738
+origin/fix/nickname-uniqueness-writers    5cf90bd
+origin/fix/notation-unify                 92e146e
+origin/fix/mock-copy-parity-rest2         a6985d6
+origin/docs/carryover-422-424             68821e5
+```
+A조 계열은 `origin/feat/expert-boards-atmos` 및 파생 — 착지 보고 시점의 팁으로 확정할 것.
+
+⚠️ `a6985d6`의 `apiMockPlugin.js` **+266/−45**는 A조가 병합한 `fb7da06`에 **없다**.
+`merge-tree` 실측 충돌 **2건**: `frontend/mock/apiMockPlugin.js` · `backend/tests/test_r13_mock_policy_parity.py`.
+**「우리 것 + B조 266줄」로 손으로 합칠 것.**
