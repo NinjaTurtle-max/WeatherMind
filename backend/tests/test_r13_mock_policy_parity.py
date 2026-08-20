@@ -205,16 +205,44 @@ class TestLevelGroups:
 
         assert policy["guest_email_domain"] == GUEST_EMAIL_DOMAIN
 
-    def test_보드_난이도_잠금표가_같다(self, policy):
-        """학습 수준 → 열리는 최고 난이도 (2026-08-10).
+    def test_보드_밴드_천장이_서버_파생값과_같다(self, policy):
+        """학습 수준 → 열리는 **최고 층**(2026-08-20 축 교체).
 
-        목이 서버보다 **느슨하면** 목 위 스모크·디자인 확인에서는 열리는 퍼즐이
+        종전 이 자리는 `board_band_max_difficulty`(학령→파생 난이도 1~3 표)를
+        대조했다. 퍼즐 잠금 축이 **지식 단계(1~10)**로 갈아탔으므로 그 표는 목에서
+        사라졌고, 같은 성질을 새 축에서 잰다 — 지키는 것은 그때와 같다:
+        목이 서버보다 **느슨하면** 목 위 스모크·디자인 확인에서 열리는 퍼즐이
         실서버에서 403이 되고, **빡빡하면** 그 반대다. 어느 쪽이든 목으로 본
-        화면이 거짓말이 된다 — CO-J-9가 정확히 그 모양이었다.
-        """
-        from app.routers.board import BAND_MAX_DIFFICULTY
+        화면이 거짓말이 된다(CO-J-9가 정확히 그 모양이었다).
 
-        assert policy["board_band_max_difficulty"] == BAND_MAX_DIFFICULTY
+        🔴 **기대값을 여기 다시 적지 않는다.** 서버 함수를 그 자리에서 불러
+        파생시킨다 — 값을 옮겨 적으면 이 계약이 자기 사본을 대조하게 되고,
+        그것이 애초에 J-9가 생긴 방식이다. 서버 dict를 돌며 만들기 때문에
+        **밴드가 목에서 사라지는 것(키 집합 드리프트)까지** 이 한 줄이 문다.
+
+        ⚠️ 이것은 서버 천장 파생의 **1순위 경로**(진단 전 기본 θ = 사전 b)만
+        대조한다. 서버의 두 번째 폴백 `knowledge_level_of_level_group`(1·3·5·7)은
+        값이 다르고 그것은 **선재 어긋남**이라 대장에 기록돼 있다 — 이 테스트를
+        그쪽 폴백으로 "고치지" 말 것. 목은 1순위 경로만 흉내 낸다.
+        """
+        from app.services import weatherbrain_service as wb
+
+        assert policy["board_level_group_tier"] == {
+            band: wb.theta_to_knowledge_level(item_b)
+            for band, item_b in wb.LEVEL_GROUP_ITEM_B.items()
+        }
+
+    def test_보드_층수가_같다(self, policy):
+        """층의 **개수**(잠금 집합의 정의역) — 서버 `KNOWLEDGE_LEVEL_MAX`.
+
+        천장 표가 같아도 층수가 갈리면 잠긴 집합이 갈린다: 목이 10층까지 세고
+        서버가 6층까지 세면 7~10층 퍼즐이 목에서만 존재하는 화면이 된다.
+        (`routers/board.BOARD_TIERS`도 이 상수에서 나온다 — 층수의 소유자는
+        `schemas/progress.KNOWLEDGE_LEVEL_MAX` 하나다.)
+        """
+        from app.schemas.progress import KNOWLEDGE_LEVEL_MAX
+
+        assert policy["board_tier_max"] == KNOWLEDGE_LEVEL_MAX
 
 
 @needs_node
