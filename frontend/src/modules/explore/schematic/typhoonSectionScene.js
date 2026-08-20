@@ -57,6 +57,19 @@ import {
   H, ZC, Z, bb, flow, label, precip, composeScene,
 } from '../../board/webgl/crossSection/scenes.js';
 import { rgba } from '../../board/webgl/crossSection/glCore.js';
+// core만 import — index.js(zustand)를 끌면 순수 node 경로가 죽는다(i18n/core.js 주석).
+// 데이터 모듈이라 훅을 못 쓴다: `crossSectionLabels.js`(보드 장면 어휘)와 같은 형태다.
+import { translate, getCurrentLocale } from '../../../i18n/core.js';
+
+/**
+ * 화면 문자열 — `explore.schematic.t1.*`(board.ko.js·board.en.js) 조회 한 통로.
+ * ⚠️ **수치는 리소스가 아니라 `T1_FACTS`가 소유한다** — 리소스는 `{seaC}` 같은
+ * 자리만 갖고 값은 아래에서 넘긴다(조사 수치의 단일 소유자를 지킨다).
+ * 2026-08-20 §4.25 이월 집행: 이 파일의 한국어 리터럴이 전부 여기로 나갔다.
+ * ⚠️ 모듈 상수(`T1_STEPS`·장면 배열)가 쓰므로 **적재 시점**에 풀린다 — 보드 장면이
+ * `build()` 시점에 푸는 것과 시점만 다르고, `detectLocale()`이 ko 고정이라 결과는 같다.
+ */
+const L = (key, params) => translate(getCurrentLocale(), `explore.schematic.t1.${key}`, params);
 
 /** 가로 축척 — 이 값으로 나눈 km가 월드 단위다(상자 폭 1.0 = 600km) */
 export const KM_PER_UNIT = 600;
@@ -187,28 +200,30 @@ export function tangent(p, spin) {
 export const T1_STEPS = Object.freeze([
   {
     key: 'stage',
-    title: '따뜻한 바다 위 — 눈과 눈벽',
-    note: `해수면 ${T1_FACTS.warmSeaC}°C 이상이 연료다. 가운데 지름 20~50km가 비어 있고(눈) 그 둘레를 가장 높은 구름 벽이 감싼다 — 꼭대기는 ${T1_FACTS.cloudTopKm}km 안팎(12~20km).`,
+    title: L('steps.stage.title'),
+    note: L('steps.stage.note', { seaC: T1_FACTS.warmSeaC, cloudTopKm: T1_FACTS.cloudTopKm }),
   },
   {
     key: 'inflow',
-    title: '하층 — 반시계로 빨려 든다',
-    note: '바다 위 공기가 반시계로 감기면서 중심으로 모여든다. 모이는 만큼 올라갈 수밖에 없다.',
+    title: L('steps.inflow.title'),
+    note: L('steps.inflow.note'),
   },
   {
     key: 'updraft',
-    title: '눈벽은 솟고 눈은 가라앉는다',
-    note: '모인 공기는 눈벽에서 솟는다. 그 반작용으로 한가운데는 오히려 가라앉아 바람이 약하고 맑다 — 비도 눈벽 아래에만 온다.',
+    title: L('steps.updraft.title'),
+    note: L('steps.updraft.note'),
   },
   {
     key: 'outflow',
-    title: '상층 — 시계로 빠져나간다',
-    note: '올라간 공기는 꼭대기의 권운 차양을 따라 밖으로 퍼진다. 이때 감김은 시계 방향 — 하층과 **반대**다.',
+    title: L('steps.outflow.title'),
+    note: L('steps.outflow.note'),
   },
   {
     key: 'danger',
-    title: '최대 풍속은 눈벽 · 오른쪽이 위험반원',
-    note: `가장 센 바람은 중심이 아니라 눈벽, 중심에서 ${T1_FACTS.maxWindInnerKm}~${T1_FACTS.maxWindOuterKm}km다. 진행 방향 오른쪽이 더 세다(위험반원). 최성기 중심기압은 ${T1_FACTS.minPressureHpa}hPa 안팎.`,
+    title: L('steps.danger.title'),
+    note: L('steps.danger.note', {
+      innerKm: T1_FACTS.maxWindInnerKm, outerKm: T1_FACTS.maxWindOuterKm, pressureHpa: T1_FACTS.minPressureHpa,
+    }),
   },
 ]);
 
@@ -294,18 +309,18 @@ export const TYPHOON_SECTION_SCENE = composeScene({
     bb({ x: 0.5, y: 0.004, w: 1.0, h: 0.1, color: rgba('#fb923c', 0.4), kind: 3, at: 0 }),
     // `until: 1` — 연료(따뜻한 바다)는 **하층이 빨려 드는 1단계까지**가 몫이다.
     // 2단계부터는 이야기가 위로 올라가고, 이 수치는 0단계 캡션이 이미 말한다.
-    label({ x: 0.17, y: H(0.06), text: `바다 ${T1_FACTS.warmSeaC}°C 이상`, color: WARM_TXT, at: 0, until: 1, size: 10 }),
+    label({ x: 0.17, y: H(0.06), text: L('labels.warmSea', { seaC: T1_FACTS.warmSeaC }), color: WARM_TXT, at: 0, until: 1, size: 10 }),
     // 나선 비구름대 — 눈벽보다 **먼저** 놓아 painter 정렬에서 뒤로 간다
     ...rainBands({ side: -1, at: 0 }),
     ...rainBands({ side: +1, at: 0 }),
     // `until: 0` — 무대를 소개하는 이름표다. 아치는 끝까지 그려지고 이름만 걷는다.
-    label({ x: 0.10, y: H(0.78), text: '나선 비구름대', color: '#475569', at: 0, until: 0, size: 9.5 }),
+    label({ x: 0.10, y: H(0.78), text: L('labels.rainBands'), color: '#475569', at: 0, until: 0, size: 9.5 }),
     // 🔴 눈벽 — 좌우 한 쌍이 **위로 갈수록 바깥으로** 기운다(모래시계)
     ...eyewall({ side: -1, at: 0 }),
     ...eyewall({ side: +1, at: 0 }),
     // 🔴 `until` **없음** — 끝까지 남는다. 4단계의 「최대 풍속」이 이 이름표와 짝일
     //    때에만 사실 ①(가장 센 곳은 중심이 아니라 **눈벽**)이 화면에서 성립한다.
-    label({ x: EYE_X - R_WALL - 0.15, y: H(0.66), text: '눈벽', color: WALL_TXT, at: 0, size: 11 }),
+    label({ x: EYE_X - R_WALL - 0.15, y: H(0.66), text: L('labels.eyewall'), color: WALL_TXT, at: 0, size: 11 }),
     // 🔴 권운 차양 — 아래보다 넓다. 이것이 0단계를 태풍으로 만든다
     ...cirrusCanopy({ at: 0 }),
     // ⚠️ 높이 H(1.16) — 차양(H(1.03)) 바로 위다. 실측: H(1.16)은 화면 상단 1.3%로 계약(>2%)에 걸렸다. 보드 라벨의 상단
@@ -313,10 +328,10 @@ export const TYPHOON_SECTION_SCENE = composeScene({
     // 🔴 `until: 0` — **0단계에는 반드시 남아야 한다**: `exploreSims.render.test`가
     //    T1의 「껍데기 + 장면 라벨」 짝을 이 문자열로 확인하고 SSR은 step 0만 그린다.
     //    3단계에서 상층이 이 차양을 따라 퍼지지만 그 사실은 3단계 캡션이 말한다.
-    label({ x: 0.31, y: H(1.10), text: '권운 차양', color: '#64748b', at: 0, until: 0, size: 10 }),
+    label({ x: 0.31, y: H(1.10), text: L('labels.cirrusShield'), color: '#64748b', at: 0, until: 0, size: 10 }),
     // 눈 — 구름을 **비워 두는 것**이 그림이다(중앙에 아무것도 놓지 않는다).
     // `until: 2` — 2단계에서 「하강 · 맑음」이 같은 자리를 이어받는다.
-    label({ x: EYE_X, y: H(0.42), text: '눈', color: EYE_TXT, at: 0, until: 2, size: 11 }),
+    label({ x: EYE_X, y: H(0.42), text: L('labels.eye'), color: EYE_TXT, at: 0, until: 2, size: 11 }),
 
     // ── 1단계: 하층이 빨려 든다 — 반시계(spin +1) ───────────────────────────
     // 동쪽(오른쪽)은 접선이 북(+z), 서쪽은 남(-z) — 그것이 반시계다.
@@ -328,7 +343,7 @@ export const TYPHOON_SECTION_SCENE = composeScene({
     // 🔴 `until: 3` — **3단계까지는 반드시 남는다.** 「하층 수렴 ↔ 상층 발산」이 한
     //    화면에 함께 떠야 사실 ②(아래·위 감김이 반대)가 글자로 성립하고, 그 짝이
     //    맺어지는 곳이 3단계다. 4단계는 「어디가 센가」라 이 몫이 끝난다.
-    label({ x: 0.16, y: H(0.24), text: '하층 수렴', color: SEA_TXT, at: 1, until: 3, size: 10 }),
+    label({ x: 0.16, y: H(0.24), text: L('labels.lowConvergence'), color: SEA_TXT, at: 1, until: 3, size: 10 }),
 
     // ── 2단계: 눈벽은 솟고 눈은 가라앉는다 ──────────────────────────────────
     // 🔴 **여기가 전체 최대 굵기**다 — 최대 풍속은 눈벽이지 중심이 아니다.
@@ -336,11 +351,11 @@ export const TYPHOON_SECTION_SCENE = composeScene({
     ...limb({ side: -1, x: EYE_X - R_WALL, y: H(0.14), radialGain: -0.12, spin: +1, rise: 2.6, thickness: T1_THICKNESS.eyewall, color: WALL, travel: 0.26, count: 3, speed: 0.62, at: 2 }),
     // `until: 2` — 「솟는다」는 2단계의 말이고, 4단계에서 같은 눈벽을 가리키는 말은
     // 「최대 풍속」이다. 둘을 함께 띄우면 같은 화살표에 이름표가 둘 붙는다.
-    label({ x: EYE_X + R_WALL + 0.19, y: H(0.56), text: '상승', color: WALL_TXT, at: 2, until: 2, size: 11 }),
+    label({ x: EYE_X + R_WALL + 0.19, y: H(0.56), text: L('labels.updraft'), color: WALL_TXT, at: 2, until: 2, size: 11 }),
     // 눈 속 — 하강기류·약풍·맑음. **가장 가는 화살표**여야 한다
     ...flow({ from: [EYE_X, H(0.66), ZC], dir: [0, -1, 0], travel: 0.22, count: 1, scale: T1_THICKNESS.eye, color: rgba('#94a3b8', 0.95), speed: 0.24, at: 2 })
       .map((a) => ({ ...a, eye: true })),
-    label({ x: EYE_X, y: H(0.16), text: '하강 · 맑음', color: EYE_TXT, at: 2, size: 10 }),
+    label({ x: EYE_X, y: H(0.16), text: L('labels.subsidenceClear'), color: EYE_TXT, at: 2, size: 10 }),
     // 눈벽 아래에만 비가 온다 — 눈에는 안 온다는 것이 이 배치의 뜻이다
     precip({ x0: EYE_X - R_WALL - 0.07, x1: EYE_X - R_WALL + 0.05, y1: H(0.7), z0: 0.06, z1: Z - 0.06, slant: 0.3, speed: 1.7, count: 26, at: 2 }),
     precip({ x0: EYE_X + R_WALL - 0.05, x1: EYE_X + R_WALL + 0.07, y1: H(0.7), z0: 0.06, z1: Z - 0.06, slant: 0.3, speed: 1.7, count: 26, at: 2 }),
@@ -350,15 +365,15 @@ export const TYPHOON_SECTION_SCENE = composeScene({
     //    실루엣이다(아래는 모이고 위는 퍼진다). 감김의 부호(z)는 그대로다.
     ...limb({ side: +1, x: EYE_X + R_WALL + 0.10, y: Y_TOP, radialGain: 1.8, spin: -1, rise: 0.12, thickness: T1_THICKNESS.outflow, color: OUT, travel: 0.34, count: 3, speed: 0.56, at: 3, dangerous: false }),
     ...limb({ side: -1, x: EYE_X - R_WALL - 0.10, y: Y_TOP, radialGain: 1.8, spin: -1, rise: 0.12, thickness: T1_THICKNESS.outflow, color: OUT, travel: 0.34, count: 3, speed: 0.56, at: 3, dangerous: false }),
-    label({ x: 0.76, y: H(1.16), text: '상층 발산', color: OUT_TXT, at: 3, size: 11 }),
+    label({ x: 0.76, y: H(1.16), text: L('labels.upperDivergence'), color: OUT_TXT, at: 3, size: 11 }),
 
     // ── 4단계: 그래서 어디가 센가 ───────────────────────────────────────────
     // 진행 방향은 바닥 평면 위에 둔다(지도 시점 바닥이 보드 문법의 절반이다)
     ...flow({ from: [0.5, 0.012, 0.04], dir: MOTION_DIR, travel: 0.16, count: 1, scale: 0.05, color: rgba('#334155', 0.9), speed: 0.3, at: 4 })
       .map((a) => ({ ...a, motion: true })),
-    label({ x: 0.46, y: H(-0.12), text: '진행 방향(북)', color: '#334155', at: 4, size: 10 }),
-    label({ x: 0.85, y: H(0.30), text: '위험반원', color: '#b91c1c', at: 4, size: 11 }),
-    label({ x: 0.30, y: H(0.36), text: '최대 풍속', color: WALL_TXT, at: 4, size: 10 }),
+    label({ x: 0.46, y: H(-0.12), text: L('labels.motionNorth'), color: '#334155', at: 4, size: 10 }),
+    label({ x: 0.85, y: H(0.30), text: L('labels.dangerousSemicircle'), color: '#b91c1c', at: 4, size: 11 }),
+    label({ x: 0.30, y: H(0.36), text: L('labels.maxWind'), color: WALL_TXT, at: 4, size: 10 }),
   ],
 });
 

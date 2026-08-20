@@ -279,11 +279,11 @@ export default function ClimateSimPage() {
           (경로)를 말한다 — 온실효과가 「나가는 열이 붙잡히는 것」임은 수치 카드로는
           보이지 않는다. 슬라이더 **위**에 두어 조작 전에 구조를 먼저 읽게 한다. */}
       <SchematicPanel
-        title="지구는 받은 만큼 내보낸다 — 복사수지"
-        caption="화살표 굵기가 에너지 양이다. 단계를 넘기며 본다."
+        title={t('explore.schematic.card.c1.title')}
+        caption={t('explore.schematic.card.c1.caption')}
         scene={RADIATION_SCENE}
         steps={RADIATION_STEPS}
-        ariaLabel="지구 복사수지 입체 모식도"
+        ariaLabel={t('explore.schematic.card.c1.aria')}
       />
 
       {/* ── 조작 변수 3개 (대회 배점 「변수를 바꿔가며」) ─────────────────────

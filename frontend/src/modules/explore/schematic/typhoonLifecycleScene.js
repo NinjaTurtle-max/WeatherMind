@@ -59,6 +59,17 @@ import {
   H, vol, bb, cbTower, flow, label, precip, puff, composeScene,
 } from '../../board/webgl/crossSection/scenes.js';
 import { rgba } from '../../board/webgl/crossSection/glCore.js';
+// core만 import — index.js(zustand)를 끌면 순수 node 경로가 죽는다(i18n/core.js 주석).
+// 데이터 모듈이라 훅을 못 쓴다: `crossSectionLabels.js`(보드 장면 어휘)와 같은 형태다.
+import { translate, getCurrentLocale } from '../../../i18n/core.js';
+
+/**
+ * 화면 문자열 — `explore.schematic.t2.*`(board.ko.js·board.en.js) 조회 한 통로.
+ * 2026-08-20 §4.25 이월 집행: 이 파일의 한국어 리터럴이 전부 여기로 나갔다.
+ * ⚠️ 모듈 상수(`T2_STAGES`)가 쓰므로 **적재 시점**에 풀린다 — 보드 장면이 `build()`
+ * 시점에 푸는 것과 시점만 다르고, `detectLocale()`이 ko 고정이라 결과는 같다.
+ */
+const L = (key, params) => translate(getCurrentLocale(), `explore.schematic.t2.${key}`, params);
 
 const TAU = Math.PI * 2;
 
@@ -85,15 +96,15 @@ export const zOfLat = (lat) => (lat - GEO.south) * 0.0125;
  * 이 필드가 없어도 그림은 깨지지 않고 **길어지기만** 한다. 그 되돌림이 곧 결함이다.
  */
 export const T2_STAGES = Object.freeze([
-  { key: 'form', title: '형성기', short: '형성기', lat: 12, lon: 145, speedKmh: 20, power: 0.28, height: 0.3, note: '해수면 26.5°C 이상 · 잠열이 에너지원' },
-  { key: 'grow', title: '발달기', short: '발달기', lat: 17, lon: 132, speedKmh: 23, power: 0.44, height: 0.52, note: '무역풍을 타고 서~서북서 20~25km/h' },
+  { key: 'form', title: L('stages.form.title'), short: L('stages.form.short'), lat: 12, lon: 145, speedKmh: 20, power: 0.28, height: 0.3, note: L('stages.form.note') },
+  { key: 'grow', title: L('stages.grow.title'), short: L('stages.grow.short'), lat: 17, lon: 132, speedKmh: 23, power: 0.44, height: 0.52, note: L('stages.grow.note') },
   // 「전향」은 지도 위 전향점 라벨이 따로 말한다 — 캔버스에서 두 번 쓰지 않는다
-  { key: 'peak', title: '최성기 · 전향', short: '최성기', lat: 24, lon: 127, speedKmh: 5, power: 0.62, height: 0.86, note: '북위 20~30°에서 전향한다 — 여기서 약 하루 정체한다' },
-  { key: 'accel', title: '전향 후 급가속', short: '급가속', lat: 31, lon: 134, speedKmh: 38, power: 0.5, height: 0.66, note: '편서풍을 타고 북~북동 35~40km/h — 느리게 오다가 갑자기 빨라진다' },
+  { key: 'peak', title: L('stages.peak.title'), short: L('stages.peak.short'), lat: 24, lon: 127, speedKmh: 5, power: 0.62, height: 0.86, note: L('stages.peak.note') },
+  { key: 'accel', title: L('stages.accel.title'), short: L('stages.accel.short'), lat: 31, lon: 134, speedKmh: 38, power: 0.5, height: 0.66, note: L('stages.accel.note') },
   // 🔴 `short`가 「쇠퇴」가 아니라 **「온대저기압」**인 이유: 이 단계의 사실은
   //    「약해진다」가 아니라 **「성질이 바뀐다(ET)」**다. 캔버스에 남길 명사구 하나를
   //    고른다면 **변한 뒤의 이름**이어야 그 사실이 화면에서 사라지지 않는다.
-  { key: 'et', title: '쇠퇴 · 온대저기압으로 변질', short: '온대저기압', lat: 38, lon: 145, speedKmh: 55, power: 0.3, height: 0.34, note: '수증기 공급이 끊긴다 — 사라지는 것이 아니라 성질이 바뀐다(ET). 수명은 평균 5일(길게 10~15일).' },
+  { key: 'et', title: L('stages.et.title'), short: L('stages.et.short'), lat: 38, lon: 145, speedKmh: 55, power: 0.3, height: 0.34, note: L('stages.et.note') },
 ]);
 
 // ── 색 — 보드 팔레트 ────────────────────────────────────────────────────────
@@ -204,19 +215,19 @@ export const TYPHOON_LIFECYCLE_SCENE = composeScene({
     island(xOfLon(120), xOfLon(122), zOfLat(22), zOfLat(25)), // 대만
     island(xOfLon(120), xOfLon(124), zOfLat(10), zOfLat(18)), // 필리핀
     // 지도의 유일한 지명 — 태풍이 어디를 지나는지의 기준이라 끝까지 남는다
-    label({ x: xOfLon(127.5), y: H(0.02), z: zOfLat(36), text: '한반도', color: '#3f6212', at: 0, size: 9.5 }),
+    label({ x: xOfLon(127.5), y: H(0.02), z: zOfLat(36), text: L('labels.koreanPeninsula'), color: '#3f6212', at: 0, size: 9.5 }),
     // 전향대(북위 20~30°)를 글자로 못박는다 — 격자는 무대가 이미 그린다.
     // 🔴 `until: 2` — **전향이 일어나는 2단계까지**가 이 눈금의 몫이다. 전향한
     //    뒤(3·4단계)에는 「전향대가 어디였나」가 이야기에서 빠지고, 지나온 자리는
     //    경로 점과 「전향」 라벨이 대신 말한다. 🔴 0단계에는 반드시 남아야 한다 —
     //    `exploreSims.render.test`가 SSR step 0에서 「북위 20°」로 T2 배선을 확인한다.
-    label({ x: 0.05, y: H(0.01), z: zOfLat(20), text: '북위 20°', color: TXT_DIM, at: 0, until: 2, size: 9.5 }),
-    label({ x: 0.05, y: H(0.01), z: zOfLat(30), text: '북위 30°', color: TXT_DIM, at: 0, until: 2, size: 9.5 }),
+    label({ x: 0.05, y: H(0.01), z: zOfLat(20), text: L('labels.lat20'), color: TXT_DIM, at: 0, until: 2, size: 9.5 }),
+    label({ x: 0.05, y: H(0.01), z: zOfLat(30), text: L('labels.lat30'), color: TXT_DIM, at: 0, until: 2, size: 9.5 }),
     // 바람대는 **그 바람을 타는 단계에만** 뜬다 — 무역풍은 발달기(1), 편서풍은
     // 전향 뒤(3~4)다. 종전에는 무역풍대가 마지막 단계까지 남아, 이미 편서풍을 타고
     // 있는 태풍 옆에서 무역풍대를 함께 가리키고 있었다.
-    label({ x: 0.92, y: H(0.01), z: zOfLat(13), text: '무역풍대', color: TXT_DIM, at: 1, until: 1, size: 9.5 }),
-    label({ x: 0.9, y: H(0.01), z: zOfLat(35), text: '편서풍대', color: TXT_DIM, at: 3, size: 9.5 }),
+    label({ x: 0.92, y: H(0.01), z: zOfLat(13), text: L('labels.tradeWinds'), color: TXT_DIM, at: 1, until: 1, size: 9.5 }),
+    label({ x: 0.9, y: H(0.01), z: zOfLat(35), text: L('labels.westerlies'), color: TXT_DIM, at: 3, size: 9.5 }),
 
     // ── 경로: 지나온 자리는 남는다(누적) ────────────────────────────────────
     ...T2_STAGES.slice(0, -1).flatMap((_, i) => trackDots(i)),
@@ -236,7 +247,7 @@ export const TYPHOON_LIFECYCLE_SCENE = composeScene({
     precip({ x0: xOfLon(127) - 0.07, x1: xOfLon(127) + 0.07, y1: H(0.5), z0: zOfLat(24) - 0.05, z1: zOfLat(24) + 0.05, slant: 0.16, speed: 1.5, count: 26, at: 2 }),
 
     // 🔴 전향점 — 이 그림의 주인공. 짧은 명사구로만 못박는다(문장은 캡션이 맡는다)
-    label({ x: xOfLon(123), y: H(0.02), z: zOfLat(21), text: '전향', color: PEAK, at: 2, size: 11 }),
+    label({ x: xOfLon(123), y: H(0.02), z: zOfLat(21), text: L('labels.recurve'), color: PEAK, at: 2, size: 11 }),
   ],
 });
 

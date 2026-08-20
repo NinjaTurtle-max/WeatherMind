@@ -302,18 +302,18 @@ export default function TyphoonSimPage() {
           **시간**이다. 앞의 것들이 위에서 본 평면이라 「하층과 상층이 반대로 감긴다」·
           「전향 뒤 급가속」은 어느 것도 보여주지 못한다. */}
       <SchematicPanel
-        title="태풍 단면 — 하층과 상층은 반대로 감긴다"
-        caption="굵기가 풍속이다. 가장 센 곳은 가운데가 아니라 눈벽이다."
+        title={t('explore.schematic.card.t1.title')}
+        caption={t('explore.schematic.card.t1.caption')}
         scene={TYPHOON_SECTION_SCENE}
         steps={T1_STEPS}
-        ariaLabel="태풍 단면 입체 모식도"
+        ariaLabel={t('explore.schematic.card.t1.aria')}
       />
       <SchematicPanel
-        title="태풍의 일생 — 발생에서 온대저기압까지"
-        caption="화살표 길이가 이동 속도다. 전향에서 멈췄다가 갑자기 빨라진다."
+        title={t('explore.schematic.card.t2.title')}
+        caption={t('explore.schematic.card.t2.caption')}
         scene={TYPHOON_LIFECYCLE_SCENE}
         steps={T2_STEPS}
-        ariaLabel="태풍 생애 입체 모식도"
+        ariaLabel={t('explore.schematic.card.t2.aria')}
       />
 
       {/* 발달 곡선 카드 */}

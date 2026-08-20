@@ -566,13 +566,161 @@ export default {
     },
   },
   explore: {
-    // MT-22: 입체 화살표 모식도 껍데기(explore/schematic/SchematicGL.jsx).
-    // 🔴 **이 둘만 리소스로 뺀다** — ariaLabel은 스크린리더가 읽고, 폴백 문구는
-    // WebGL2가 없을 때 화면에 그대로 뜬다. 둘 다 **사용자 문자열**이다.
-    // 장면 데이터(radiationScene 등)의 text/title은 대장 §4.25 이월분이라 여기 없다.
+    // MT-22: 입체 모식도 3종(explore/SchematicPanel.jsx · explore/schematic/**).
+    //
+    // ✅ **전면 외부화 집행(2026-08-20 · 클라이언트가 §4.25 이월을 돌려받았다).**
+    // 종전 주석은 *"이 둘만 리소스로 뺀다 — 장면 데이터의 text/title은 §4.25
+    // 이월분이라 여기 없다"*였다. **그 이월이 여기서 닫힌다** — 카드 제목·설명·aria,
+    // 단계 컨트롤, 단계 제목·캡션, 캔버스 라벨이 전부 아래에 있고
+    // `displayLayerParity.contract`의 `HANGUL_GAPS`에서 MT-22 항목 6건이 사라졌다.
+    //
+    // ⚠️ **값은 한 글자도 안 바꿨다.** 이 작업은 「같은 글자를 다른 곳에서 읽게
+    // 하는 것」이지 문안 변경이 아니다 — 바꾸면 `exploreSims.render.test`(장면 라벨로
+    // 배선을 확인)와 `schematicGl.contract`(ET 문구를 정규식으로 문다)가 운다.
+    //
+    // 🔴 **숫자는 리소스가 소유하지 않는다.** `{wm2}`·`{seaC}` 같은 자리표시자로 두고
+    // 값은 코드 상수(`TOA_INSOLATION_WM2`·`T1_FACTS`)가 그대로 넘긴다 — 조사 수치의
+    // 단일 소유자가 리소스로 새면 계약이 무는 값과 화면이 갈릴 수 있다.
     schematic: {
       ariaLabel: '모식도',
       unsupported: '이 기기에서는 입체 모식도를 표시할 수 없습니다.',
+      // 단계 컨트롤(SchematicPanel) — `pause`는 aria 전용, `stop`은 화면에 뜨는
+      // 글자다. 둘은 **다른 문자열**이라 키를 합치지 않는다.
+      panel: {
+        play: '재생',
+        stop: '정지',
+        pause: '일시정지',
+        prev: '이전',
+        prevAria: '이전 단계',
+        next: '다음',
+        nextAria: '다음 단계',
+        // 🔴 **한 키에 다 담는다.** 조각으로 쓰면 React가 텍스트 노드를 갈라
+        // `1<!-- -->/<!-- -->5단계`가 되고 문자열로 확인하는 스모크가 못 잡는다
+        // (SchematicPanel이 그 실측을 주석으로 갖고 있다).
+        counter: '{n}/{total}단계',
+        dotAria: '{n}단계 — {title}',
+      },
+      // 카드 껍데기 — 호출부(ClimateSimPage·TyphoonSimPage)가 넘기는 제목·설명·aria.
+      // ⚠️ `card.*.title`은 `exploreSims.render.test`가 「껍데기」로 무는 문자열이다.
+      card: {
+        c1: {
+          title: '지구는 받은 만큼 내보낸다 — 복사수지',
+          caption: '화살표 굵기가 에너지 양이다. 단계를 넘기며 본다.',
+          aria: '지구 복사수지 입체 모식도',
+        },
+        t1: {
+          title: '태풍 단면 — 하층과 상층은 반대로 감긴다',
+          caption: '굵기가 풍속이다. 가장 센 곳은 가운데가 아니라 눈벽이다.',
+          aria: '태풍 단면 입체 모식도',
+        },
+        t2: {
+          title: '태풍의 일생 — 발생에서 온대저기압까지',
+          caption: '화살표 길이가 이동 속도다. 전향에서 멈췄다가 갑자기 빨라진다.',
+          aria: '태풍 생애 입체 모식도',
+        },
+      },
+      // C1 복사수지 — `steps`는 캔버스 밖 캡션, `labels`는 캔버스에 겹쳐 그리는
+      // 짧은 명사구다(보드 문법: 긴 문장은 캔버스 밖).
+      c1: {
+        steps: {
+          incoming: {
+            title: '들어오는 햇빛 100',
+            note: '대기권 밖에 닿는 햇빛 전부를 100으로 놓고 센다 — 실제 값은 {wm2} W/m²다.',
+          },
+          reflect: {
+            title: '되돌아 나가는 빛 35',
+            note: '35는 지구를 데우지 못하고 그대로 되나간다 — 구름 27 · 대기 6 · 눈과 얼음 2. 밝은 것일수록 많이 되쏜다.',
+          },
+          absorb: {
+            title: '흡수해서 데우는 65',
+            note: '남은 65만 흡수된다 — 지표 51 · 대기 14. 지구를 데우는 몫은 이것이 전부다.',
+          },
+          outgoing: {
+            title: '우주로 나가는 열 65',
+            note: '데운 만큼 장파로 내보낸다. 지표에서 대기로 올라가는 34는 잠열 19 · 대류 9 · 온실기체가 붙잡는 6이다. 그렇게 붙잡힌 열을 온실기체 층이 **다시 아래로도** 내보내는 것이 온실효과다.',
+          },
+          imbalance: {
+            title: '남는 {wm2} W/m²가 온난화',
+            note: '흡수 65와 방출 65가 거의 같다. 그 「거의」가 남기는 +{wm2} W/m²({units}단위)가 해마다 쌓이는 것이 온난화다.',
+          },
+        },
+        labels: {
+          // ⚠️ `sun`은 `exploreSims.render.test`가 C1의 **0단계 장면 라벨**로 무는 값이다.
+          sun: '태양',
+          sunlight: '햇빛 100',
+          cloudReflect: '구름 반사 27',
+          airReflect: '대기 반사 6',
+          iceReflect: '눈·얼음 2',
+          surfaceAbsorb: '지표 흡수 51',
+          airAbsorb: '대기 흡수 14',
+          surfaceToAir: '지표→대기 34',
+          backRadiation: '되돌아오는 열',
+          atmWindow: '대기창 17',
+          airEmit: '대기 방출 48',
+          residual: '남는 {units}',
+        },
+      },
+      // T1 태풍 단면
+      t1: {
+        steps: {
+          stage: {
+            title: '따뜻한 바다 위 — 눈과 눈벽',
+            note: '해수면 {seaC}°C 이상이 연료다. 가운데 지름 20~50km가 비어 있고(눈) 그 둘레를 가장 높은 구름 벽이 감싼다 — 꼭대기는 {cloudTopKm}km 안팎(12~20km).',
+          },
+          inflow: {
+            title: '하층 — 반시계로 빨려 든다',
+            note: '바다 위 공기가 반시계로 감기면서 중심으로 모여든다. 모이는 만큼 올라갈 수밖에 없다.',
+          },
+          updraft: {
+            title: '눈벽은 솟고 눈은 가라앉는다',
+            note: '모인 공기는 눈벽에서 솟는다. 그 반작용으로 한가운데는 오히려 가라앉아 바람이 약하고 맑다 — 비도 눈벽 아래에만 온다.',
+          },
+          outflow: {
+            title: '상층 — 시계로 빠져나간다',
+            note: '올라간 공기는 꼭대기의 권운 차양을 따라 밖으로 퍼진다. 이때 감김은 시계 방향 — 하층과 **반대**다.',
+          },
+          danger: {
+            title: '최대 풍속은 눈벽 · 오른쪽이 위험반원',
+            note: '가장 센 바람은 중심이 아니라 눈벽, 중심에서 {innerKm}~{outerKm}km다. 진행 방향 오른쪽이 더 세다(위험반원). 최성기 중심기압은 {pressureHpa}hPa 안팎.',
+          },
+        },
+        labels: {
+          warmSea: '바다 {seaC}°C 이상',
+          rainBands: '나선 비구름대',
+          eyewall: '눈벽',
+          // ⚠️ `cirrusShield`는 `exploreSims.render.test`가 T1의 **0단계 장면 라벨**로 문다.
+          cirrusShield: '권운 차양',
+          eye: '눈',
+          lowConvergence: '하층 수렴',
+          updraft: '상승',
+          subsidenceClear: '하강 · 맑음',
+          upperDivergence: '상층 발산',
+          motionNorth: '진행 방향(북)',
+          dangerousSemicircle: '위험반원',
+          maxWind: '최대 풍속',
+        },
+      },
+      // T2 태풍의 생애 — `short`는 캔버스 명사구, `title`은 캡션 제목이다(둘이 갈렸다).
+      t2: {
+        stages: {
+          form: { title: '형성기', short: '형성기', note: '해수면 26.5°C 이상 · 잠열이 에너지원' },
+          grow: { title: '발달기', short: '발달기', note: '무역풍을 타고 서~서북서 20~25km/h' },
+          peak: { title: '최성기 · 전향', short: '최성기', note: '북위 20~30°에서 전향한다 — 여기서 약 하루 정체한다' },
+          accel: { title: '전향 후 급가속', short: '급가속', note: '편서풍을 타고 북~북동 35~40km/h — 느리게 오다가 갑자기 빨라진다' },
+          // 🔴 이 `note`는 `schematicGl.contract`가 **정규식으로 문다**
+          //    (`/성질이 바뀐/` 참 · `/사라진다$/` 거짓). 뜻을 바꾸면 운다.
+          et: { title: '쇠퇴 · 온대저기압으로 변질', short: '온대저기압', note: '수증기 공급이 끊긴다 — 사라지는 것이 아니라 성질이 바뀐다(ET). 수명은 평균 5일(길게 10~15일).' },
+        },
+        labels: {
+          koreanPeninsula: '한반도',
+          // ⚠️ `lat20`은 `exploreSims.render.test`가 T2의 **0단계 장면 라벨**로 문다.
+          lat20: '북위 20°',
+          lat30: '북위 30°',
+          tradeWinds: '무역풍대',
+          westerlies: '편서풍대',
+          recurve: '전향',
+        },
+      },
     },
     // MT-21: 위성 도식 오버레이(modules/explore/SatelliteView.jsx).
     // ⚠️ 원 F3(KMA 실사 위성 영상)를 **우리가 그리는 도식**으로 재범위한 결과라

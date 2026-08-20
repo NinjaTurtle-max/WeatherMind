@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import CrossSectionGL from '../board/webgl/crossSection/CrossSectionGL';
 import { usePrefersReducedMotion } from '../board/realisticEffects';
+import { useT } from '../../i18n';
 
 /**
  * SchematicPanel — 모식도 한 장을 **탐구 화면의 카드로** 놓는 껍데기 (MT-22 배선).
@@ -46,8 +47,10 @@ import { usePrefersReducedMotion } from '../board/realisticEffects';
  *     「떠 있는 글자 목록」과 같은 형태다. 그래서 `steps[].note`를 받아 여기서
  *     캡션 둘째 줄로 뿌린다. `note`는 **없어도 된다**(있는 장면만 쓴다).
  *
- * ⚠️ 문구가 한국어 리터럴이다(여기와 호출부의 제목·설명). 외부화는 §4.25 이월이고
- * `displayLayerParity.contract`의 `HANGUL_GAPS`가 줄 수로 못박는다.
+ * ✅ **i18n 외부화 완료(2026-08-20 · §4.25 이월 집행).** 여기의 단계 컨트롤 라벨과
+ * 호출부가 넘기는 제목·설명·aria가 전부 `explore.schematic.*`(board.ko.js·board.en.js)로
+ * 나갔고, `displayLayerParity.contract`의 `HANGUL_GAPS`에서 MT-22 6건이 사라졌다.
+ * **값은 한 글자도 바꾸지 않았다** — 「같은 글자를 다른 곳에서 읽게 하는 것」이다.
  */
 
 /** 단계당 재생 시간(ms) — 보드 `CrossSectionPanel.STEP_MS`와 같은 값이다 */
@@ -57,6 +60,7 @@ export default function SchematicPanel({ title, caption, scene, steps, ariaLabel
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [failed, setFailed] = useState(false);
+  const t = useT();
   const reduced = usePrefersReducedMotion();
   const last = steps.length - 1;
 
@@ -102,7 +106,9 @@ export default function SchematicPanel({ title, caption, scene, steps, ariaLabel
             {/* 한 표현식으로 묶는다 — 조각으로 쓰면 React가 텍스트 노드를 갈라
                 `1<!-- -->/<!-- -->5단계`가 되고, 문자열로 확인하는 스모크가
                 "화면에 뜨는 그대로"를 못 잡는다(하네스에서 실측). */}
-            <span className="font-bold text-sky-700">{`${step + 1}/${steps.length}단계`}</span>{' '}
+            <span className="font-bold text-sky-700">
+              {t('explore.schematic.panel.counter', { n: step + 1, total: steps.length })}
+            </span>{' '}
             {steps[step].title}
           </p>
           {/* 🔴 캔버스에 넣지 않는 긴 문장의 자리 — 판단 ⑸ 참조 */}
@@ -114,28 +120,28 @@ export default function SchematicPanel({ title, caption, scene, steps, ariaLabel
             <button
               type="button"
               onClick={() => setPlaying((p) => !p)}
-              aria-label={playing ? '일시정지' : '재생'}
+              aria-label={playing ? t('explore.schematic.panel.pause') : t('explore.schematic.panel.play')}
               className="rounded-lg bg-sky-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-sky-700"
             >
-              {playing ? '정지' : '재생'}
+              {playing ? t('explore.schematic.panel.stop') : t('explore.schematic.panel.play')}
             </button>
             <button
               type="button"
               onClick={() => { setPlaying(false); setStep((n) => Math.max(0, n - 1)); }}
               disabled={step === 0}
-              aria-label="이전 단계"
+              aria-label={t('explore.schematic.panel.prevAria')}
               className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200 disabled:opacity-40"
             >
-              이전
+              {t('explore.schematic.panel.prev')}
             </button>
             <button
               type="button"
               onClick={() => { setPlaying(false); setStep((n) => Math.min(last, n + 1)); }}
               disabled={step === last}
-              aria-label="다음 단계"
+              aria-label={t('explore.schematic.panel.nextAria')}
               className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200 disabled:opacity-40"
             >
-              다음
+              {t('explore.schematic.panel.next')}
             </button>
             <div className="ml-1 flex items-center gap-1">
               {steps.map((s, i) => (
@@ -143,7 +149,7 @@ export default function SchematicPanel({ title, caption, scene, steps, ariaLabel
                   key={s.key}
                   type="button"
                   onClick={() => { setPlaying(false); setStep(i); }}
-                  aria-label={`${i + 1}단계 — ${s.title}`}
+                  aria-label={t('explore.schematic.panel.dotAria', { n: i + 1, title: s.title })}
                   aria-current={i === step}
                   className={`h-1.5 w-4 rounded-full transition-colors ${
                     i === step ? 'bg-sky-600' : 'bg-slate-200 hover:bg-slate-300'

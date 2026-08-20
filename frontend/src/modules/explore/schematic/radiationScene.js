@@ -75,13 +75,25 @@
  *
  * ⚠️ **글자는 GL이 그리지 않는다.** `label` 항목은 `labelsFor()`가 화면 백분율로
  * 돌려주고 `CrossSectionGL`이 **흰 헤일로 SVG 텍스트**로 겹쳐 그린다(보드와 같은
- * 문법·같은 레이어). 그래서 한국어 문자열이 이 파일에 리터럴로 있고, 그 면제는
- * `displayLayerParity.contract`의 `HANGUL_GAPS`가 줄 수로 못박는다(§4.25 이월).
+ * 문법·같은 레이어). 그래서 **사용자 문자열**이고, ✅ 2026-08-20에 전부
+ * `explore.schematic.c1.*`로 나갔다(§4.25 이월 집행 — `HANGUL_GAPS`에서 삭제).
+ * ⚠️ **숫자는 여전히 이 파일이 소유한다** — 리소스는 `{wm2}`·`{units}` 자리만 갖고
+ * 값은 아래 상수가 넘긴다. 조사 수치의 단일 소유자가 리소스로 새면 계약이 무는
+ * 값과 화면이 갈릴 수 있다.
+ * ⚠️ 리소스 조회는 **모듈 적재 시점**에 풀린다(`RAW_ITEMS`가 모듈 상수라서). 보드
+ * 장면이 `build()` 시점에 푸는 것과 시점만 다르고, `detectLocale()`이 ko 고정이라
+ * 결과는 같다.
  */
 import {
   H, ZC, vol, bb, flow, label, layerBand, composeScene,
 } from '../../board/webgl/crossSection/scenes.js';
 import { rgba } from '../../board/webgl/crossSection/glCore.js';
+// core만 import — index.js(zustand)를 끌면 순수 node 경로가 죽는다(i18n/core.js 주석).
+// 데이터 모듈이라 훅을 못 쓴다: `crossSectionLabels.js`(보드 장면 어휘)와 같은 형태다.
+import { translate, getCurrentLocale } from '../../../i18n/core.js';
+
+/** 화면 문자열 — `explore.schematic.c1.*`(board.ko.js·board.en.js) 조회 한 통로 */
+const L = (key, params) => translate(getCurrentLocale(), `explore.schematic.c1.${key}`, params);
 
 /** 100단위 정규화의 기준 — 이 값이 100단위다(W/m²) */
 export const TOA_INSOLATION_WM2 = 340;
@@ -210,31 +222,31 @@ function paint(items, P) {
 export const RADIATION_STEPS = Object.freeze([
   {
     key: 'incoming',
-    title: '들어오는 햇빛 100',
-    note: `대기권 밖에 닿는 햇빛 전부를 100으로 놓고 센다 — 실제 값은 ${TOA_INSOLATION_WM2} W/m²다.`,
+    title: L('steps.incoming.title'),
+    note: L('steps.incoming.note', { wm2: TOA_INSOLATION_WM2 }),
   },
   {
     key: 'reflect',
-    title: '되돌아 나가는 빛 35',
-    note: '35는 지구를 데우지 못하고 그대로 되나간다 — 구름 27 · 대기 6 · 눈과 얼음 2. 밝은 것일수록 많이 되쏜다.',
+    title: L('steps.reflect.title'),
+    note: L('steps.reflect.note'),
   },
   {
     key: 'absorb',
-    title: '흡수해서 데우는 65',
-    note: '남은 65만 흡수된다 — 지표 51 · 대기 14. 지구를 데우는 몫은 이것이 전부다.',
+    title: L('steps.absorb.title'),
+    note: L('steps.absorb.note'),
   },
   {
     key: 'outgoing',
-    title: '우주로 나가는 열 65',
+    title: L('steps.outgoing.title'),
     // 🔴 캔버스에서 걷은 뜻이 여기로 왔다(2026-08-19 가독성 지적): 지표→대기 34의
     //    갈래별 내역(잠열 19 · 대류 9 · 온실기체가 붙잡는 6)과 온실기체 층의 이름.
     //    캔버스에는 합계 「지표→대기 34」만 남는다 — 수치를 지운 것이 아니라 옮겼다.
-    note: '데운 만큼 장파로 내보낸다. 지표에서 대기로 올라가는 34는 잠열 19 · 대류 9 · 온실기체가 붙잡는 6이다. 그렇게 붙잡힌 열을 온실기체 층이 **다시 아래로도** 내보내는 것이 온실효과다.',
+    note: L('steps.outgoing.note'),
   },
   {
     key: 'imbalance',
-    title: `남는 ${EEI_WM2} W/m²가 온난화`,
-    note: `흡수 65와 방출 65가 거의 같다. 그 「거의」가 남기는 +${EEI_WM2} W/m²(${EEI_UNITS}단위)가 해마다 쌓이는 것이 온난화다.`,
+    title: L('steps.imbalance.title', { wm2: EEI_WM2 }),
+    note: L('steps.imbalance.note', { wm2: EEI_WM2, units: EEI_UNITS }),
   },
 ]);
 
@@ -258,11 +270,11 @@ const RAW_ITEMS = [
   // ⚠️ `until: 0` — 🔴 **0단계에는 남아 있어야 한다**(SSR은 step 0만 그리므로
   //    이 라벨이 1단계로 밀리면 위 시험이 즉시 깨진다). 해를 「태양」이라 부르는 일은
   //    무대 소개라 그 자리에서 끝나고, 해 자체(빌보드)는 끝까지 그대로 뜬다.
-  label({ x: 0.07, y: H(0.86), text: '태양', color: tok('SUN_TXT'), at: 0, until: 0, size: 10 }),
+  label({ x: 0.07, y: H(0.86), text: L('labels.sun'), color: tok('SUN_TXT'), at: 0, until: 0, size: 10 }),
   ...beam({ from: [0.17, H(1.02), ZC], dir: [0.1, -1, 0], travel: 0.34, units: UNITS.incoming, color: 'SUN', at: 0, speed: 0.42 }),
   // 100단위의 기준 — 2단계(「남은 65만 흡수」)까지 남겨 **100 = 35 + 65**가 한 화면에
   // 보이게 하고, 그 뒤로는 걷는다(3단계부터는 65의 행방이 이야기라 100이 안 쓰인다).
-  label({ x: 0.25, y: H(1.0), text: '햇빛 100', color: tok('SUN_TXT'), at: 0, until: 2, size: 11 }),
+  label({ x: 0.25, y: H(1.0), text: L('labels.sunlight'), color: tok('SUN_TXT'), at: 0, until: 2, size: 11 }),
 
   // ── 1단계: 일부는 되나간다 (35) ─────────────────────────────────────────
   // 🔴 구름이 **실제로 있어야** 「구름이 되반사한다」가 그림이 된다. 종전에는
@@ -272,21 +284,21 @@ const RAW_ITEMS = [
   //    되나가는 **화살표는 끝까지 남는다**(그림은 누적이고 라벨만 걷는다).
   ...layerBand({ x0: 0.26, x1: 0.68, y: H(CLOUD_H), at: 1, dark: false, n: 3 }),
   ...beam({ from: [0.31, H(CLOUD_H + 0.08), ZC + 0.06], dir: [-0.1, 1, 0], travel: 0.3, units: UNITS.reflectCloud, color: 'REFLECT', at: 1, speed: 0.44 }),
-  label({ x: 0.41, y: H(0.9), text: '구름 반사 27', color: tok('REFLECT_TXT'), at: 1, until: 2, size: 10 }),
+  label({ x: 0.41, y: H(0.9), text: L('labels.cloudReflect'), color: tok('REFLECT_TXT'), at: 1, until: 2, size: 10 }),
   ...beam({ from: [0.08, H(0.5), ZC - 0.06], dir: [-0.04, 1, 0], travel: 0.26, units: UNITS.reflectAir, color: 'REFLECT', at: 1, speed: 0.36 }),
-  label({ x: 0.04, y: H(0.66), text: '대기 반사 6', color: tok('REFLECT_TXT'), at: 1, until: 2, size: 10 }),
+  label({ x: 0.04, y: H(0.66), text: L('labels.airReflect'), color: tok('REFLECT_TXT'), at: 1, until: 2, size: 10 }),
   // 눈·얼음 — 흰 지면 조각이 있어야 「밝은 표면이 되쏜다」가 읽힌다
   bb({ x: 0.46, y: 0.006, w: 0.2, h: 0.055, color: rgba('#f8fafc', 0.9), kind: 3, at: 1 }),
   ...beam({ from: [0.46, H(0.05), ZC], dir: [0.04, 1, 0], travel: 0.24, units: UNITS.reflectSurface, color: 'REFLECT', at: 1, speed: 0.3 }),
-  label({ x: 0.48, y: H(0.32), text: '눈·얼음 2', color: tok('REFLECT_TXT'), at: 1, until: 2, size: 10 }),
+  label({ x: 0.48, y: H(0.32), text: L('labels.iceReflect'), color: tok('REFLECT_TXT'), at: 1, until: 2, size: 10 }),
 
   // ── 2단계: 나머지가 데운다 (65) ─────────────────────────────────────────
   ...beam({ from: [0.2, H(0.34), ZC], dir: [0.04, -1, 0], travel: 0.2, units: UNITS.absorbSurface, color: 'ABSORB', at: 2, speed: 0.46 }),
   // 지면 가열 — 보드의 `groundHeating` 관용구(bb kind 3, 주황 번짐) 그대로
   bb({ x: 0.34, y: 0.004, w: 0.62, h: 0.16, color: rgba('#fb923c', 0.5), kind: 3, at: 2 }),
-  label({ x: 0.19, y: H(0.12), text: '지표 흡수 51', color: tok('ABSORB_TXT'), at: 2, size: 10 }),
+  label({ x: 0.19, y: H(0.12), text: L('labels.surfaceAbsorb'), color: tok('ABSORB_TXT'), at: 2, size: 10 }),
   ...beam({ from: [0.6, H(0.74), ZC - 0.04], dir: [0.02, -1, 0], travel: 0.12, units: UNITS.absorbAir, color: 'ABSORB', at: 2, speed: 0.34 }),
-  label({ x: 0.64, y: H(0.82), text: '대기 흡수 14', color: tok('ABSORB_TXT'), at: 2, size: 10 }),
+  label({ x: 0.64, y: H(0.82), text: L('labels.airAbsorb'), color: tok('ABSORB_TXT'), at: 2, size: 10 }),
 
   // ── 3단계: 데운 만큼 내보낸다 (65) + 붙잡힌다 ───────────────────────────
   // 온실기체 층 — **반투명 볼륨**이다. 보드가 기단을 그리는 그 문법이고,
@@ -306,25 +318,25 @@ const RAW_ITEMS = [
   ...beam({ from: [0.62, H(0.05), ZC + 0.05], dir: [0, 1, 0], travel: 0.22, units: UNITS.latent, color: 'LATENT', at: 3, speed: 0.5 }),
   ...beam({ from: [0.71, H(0.05), ZC + 0.05], dir: [0, 1, 0], travel: 0.2, units: UNITS.thermals, color: 'LATENT', at: 3, speed: 0.44 }),
   ...beam({ from: [0.79, H(0.05), ZC + 0.05], dir: [0, 1, 0], travel: 0.2, units: UNITS.surfaceIR, color: 'LONGWAVE', at: 3, speed: 0.4 }),
-  label({ x: 0.68, y: H(0.3), text: '지표→대기 34', color: tok('LATENT_TXT'), at: 3, until: 3, size: 10 }),
+  label({ x: 0.68, y: H(0.3), text: L('labels.surfaceToAir'), color: tok('LATENT_TXT'), at: 3, until: 3, size: 10 }),
   // 🔴 되돌아 내려오는 장파 — **온실효과의 본체**다. 위로 나가는 화살표만
   //    그리면 「나간다」로 끝나고 온실효과가 화면에서 사라진다.
   //    ⚠️ 이 라벨에는 `until`을 주지 않는다 — 걷으면 캔버스에서 온실효과를 말하는
   //    글자가 사라지고, 4단계 캡션은 그것을 다시 말하지 않는다(사실이 화면에서 증발).
   ...flow({ from: [0.66, H(GHG_LO + 0.02), ZC - 0.08], dir: [-0.12, -1, 0], travel: 0.16, count: 2, scale: 0.036, color: tok('LONGWAVE', 0.9), speed: 0.5, at: 3, spreadZ: 0.09 }),
-  label({ x: 0.47, y: H(0.62), text: '되돌아오는 열', color: tok('LONGWAVE_TXT'), at: 3, size: 10 }),
+  label({ x: 0.47, y: H(0.62), text: L('labels.backRadiation'), color: tok('LONGWAVE_TXT'), at: 3, size: 10 }),
   // 우주로 나가는 65
   ...beam({ from: [0.93, H(0.05), ZC - 0.02], dir: [0.02, 1, 0], travel: 0.42, units: UNITS.windowIR, color: 'LONGWAVE', at: 3, speed: 0.42 }),
-  label({ x: 0.96, y: H(0.5), text: '대기창 17', color: tok('LONGWAVE_TXT'), at: 3, size: 10 }),
+  label({ x: 0.96, y: H(0.5), text: L('labels.atmWindow'), color: tok('LONGWAVE_TXT'), at: 3, size: 10 }),
   ...beam({ from: [0.86, H(GHG_HI + 0.06), ZC + 0.04], dir: [0.04, 1, 0], travel: 0.3, units: UNITS.atmosphereIR, color: 'LONGWAVE', at: 3, speed: 0.46 }),
-  label({ x: 0.87, y: H(1.12), text: '대기 방출 48', color: tok('LONGWAVE_TXT'), at: 3, size: 10 }),
+  label({ x: 0.87, y: H(1.12), text: L('labels.airEmit'), color: tok('LONGWAVE_TXT'), at: 3, size: 10 }),
 
   // ── 4단계: 그런데 조금이 안 나간다 ──────────────────────────────────────
   // 🔴 **여기만 굵기가 비례가 아니다.** 0.3단위를 비례로 그리면 화면에서
   //    존재하지 않는다. 「보이지 않는 것」과 「없는 것」은 다르므로 바닥 굵기로
   //    세우고 **짧게** 그려 다른 갈래와 급이 다름을 길이로 말한다.
   ...flow({ from: [0.5, H(0.72), ZC - 0.12], dir: [0, 1, 0], travel: 0.08, count: 1, scale: scaleFor(EEI_UNITS), color: tok('EEI', 0.95), speed: 0.28, at: 4 }),
-  label({ x: 0.5, y: H(0.94), text: `남는 ${EEI_UNITS}`, color: tok('EEI'), at: 4, size: 11 }),
+  label({ x: 0.5, y: H(0.94), text: L('labels.residual', { units: EEI_UNITS }), color: tok('EEI'), at: 4, size: 11 }),
 ];
 
 /** 바다 스트립 — 잔디/바다 대비가 「지표」를 **지구의 표면**으로 읽히게 한다 */

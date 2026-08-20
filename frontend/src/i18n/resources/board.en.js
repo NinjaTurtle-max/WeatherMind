@@ -572,9 +572,135 @@ export default {
     },
   },
   explore: {
+    // MT-22 3D schematics — full externalisation landed 2026-08-20.
+    // Placeholders ({wm2}, {seaC}, …) are filled by code constants, not by this
+    // file: the research numbers keep a single owner in the scene modules.
     schematic: {
       ariaLabel: 'Schematic',
       unsupported: 'This device cannot display the 3D schematic.',
+      panel: {
+        play: 'Play',
+        stop: 'Stop',
+        pause: 'Pause',
+        prev: 'Previous',
+        prevAria: 'Previous step',
+        next: 'Next',
+        nextAria: 'Next step',
+        counter: 'Step {n}/{total}',
+        dotAria: 'Step {n} — {title}',
+      },
+      card: {
+        c1: {
+          title: 'The Earth sends back out what it takes in — the radiation budget',
+          caption: 'Arrow thickness is the amount of energy. Step through it.',
+          aria: '3D schematic of the Earth radiation budget',
+        },
+        t1: {
+          title: 'Typhoon cross-section — low and upper levels spiral in opposite directions',
+          caption: 'Thickness is wind speed. The strongest place is the eyewall, not the centre.',
+          aria: '3D schematic of a typhoon cross-section',
+        },
+        t2: {
+          title: 'The life of a typhoon — from genesis to extratropical cyclone',
+          caption: 'Arrow length is travel speed. It stalls at recurvature, then speeds up sharply.',
+          aria: '3D schematic of a typhoon life cycle',
+        },
+      },
+      c1: {
+        steps: {
+          incoming: {
+            title: 'Incoming sunlight 100',
+            note: 'All the sunlight reaching the top of the atmosphere is counted as 100 — the real value is {wm2} W/m².',
+          },
+          reflect: {
+            title: 'Reflected straight back 35',
+            note: '35 leaves again without warming the Earth — cloud 27 · atmosphere 6 · snow and ice 2. The brighter a surface, the more it throws back.',
+          },
+          absorb: {
+            title: 'Absorbed and warming 65',
+            note: 'Only the remaining 65 is absorbed — surface 51 · atmosphere 14. That is the whole share that warms the Earth.',
+          },
+          outgoing: {
+            title: 'Heat leaving for space 65',
+            note: 'It emits as longwave exactly what it was warmed by. The 34 rising from surface to atmosphere is latent heat 19 · convection 9 · greenhouse absorption 6. The greenhouse layer sending that trapped heat **back down as well** is the greenhouse effect.',
+          },
+          imbalance: {
+            title: 'The leftover {wm2} W/m² is warming',
+            note: 'Absorbed 65 and emitted 65 are almost equal. The +{wm2} W/m² ({units} units) that “almost” leaves behind piles up year after year — that is warming.',
+          },
+        },
+        labels: {
+          sun: 'Sun',
+          sunlight: 'Sunlight 100',
+          cloudReflect: 'Cloud reflection 27',
+          airReflect: 'Air reflection 6',
+          iceReflect: 'Snow and ice 2',
+          surfaceAbsorb: 'Surface absorbs 51',
+          airAbsorb: 'Atmosphere absorbs 14',
+          surfaceToAir: 'Surface→air 34',
+          backRadiation: 'Heat coming back',
+          atmWindow: 'Atmospheric window 17',
+          airEmit: 'Atmosphere emits 48',
+          residual: 'Leftover {units}',
+        },
+      },
+      t1: {
+        steps: {
+          stage: {
+            title: 'Over a warm ocean — the eye and the eyewall',
+            note: 'A sea surface above {seaC}°C is the fuel. The middle, 20–50 km across, is empty (the eye) and the tallest wall of cloud wraps around it — its top sits near {cloudTopKm} km (12–20 km).',
+          },
+          inflow: {
+            title: 'Low level — drawn in anticlockwise',
+            note: 'Air over the sea spirals anticlockwise and gathers towards the centre. Whatever gathers has nowhere to go but up.',
+          },
+          updraft: {
+            title: 'The eyewall rises, the eye sinks',
+            note: 'The gathered air shoots up at the eyewall. In reaction the very centre sinks instead, so the wind is weak and the sky is clear — rain falls only under the eyewall.',
+          },
+          outflow: {
+            title: 'Upper level — flowing out clockwise',
+            note: 'The risen air spreads outward along the cirrus shield at the top. Here the spiral runs clockwise — the **opposite** of the low level.',
+          },
+          danger: {
+            title: 'Strongest wind at the eyewall · the right side is the dangerous semicircle',
+            note: 'The strongest wind is not at the centre but at the eyewall, {innerKm}–{outerKm} km out. The right of the direction of travel is stronger (the dangerous semicircle). Central pressure at peak is around {pressureHpa} hPa.',
+          },
+        },
+        labels: {
+          warmSea: 'Sea above {seaC}°C',
+          rainBands: 'Spiral rainbands',
+          eyewall: 'Eyewall',
+          cirrusShield: 'Cirrus shield',
+          eye: 'Eye',
+          lowConvergence: 'Low-level convergence',
+          updraft: 'Rising',
+          subsidenceClear: 'Sinking · clear',
+          upperDivergence: 'Upper-level divergence',
+          motionNorth: 'Direction of travel (north)',
+          dangerousSemicircle: 'Dangerous semicircle',
+          maxWind: 'Strongest wind',
+        },
+      },
+      t2: {
+        stages: {
+          form: { title: 'Formation', short: 'Formation', note: 'Sea surface above 26.5°C · latent heat is the energy source' },
+          grow: { title: 'Development', short: 'Development', note: 'Riding the trade winds, W–WNW at 20–25 km/h' },
+          peak: { title: 'Peak · recurvature', short: 'Peak', note: 'It recurves between 20°N and 30°N — and stalls here for about a day' },
+          accel: { title: 'Sharp acceleration after recurving', short: 'Acceleration', note: 'Riding the westerlies, N–NE at 35–40 km/h — slow on the way, then abruptly fast' },
+          // The contract reads this note with a regex: it must say the storm
+          // changes its nature (ET), never that it disappears.
+          et: { title: 'Decay · transition to an extratropical cyclone', short: 'Extratropical cyclone', note: 'The vapour supply is cut off — it does not disappear, its nature changes (ET). Lifetime averages 5 days (up to 10–15).' },
+        },
+        labels: {
+          koreanPeninsula: 'Korean Peninsula',
+          lat20: '20°N',
+          lat30: '30°N',
+          tradeWinds: 'Trade wind belt',
+          westerlies: 'Westerly belt',
+          recurve: 'Recurvature',
+        },
+      },
     },
     // MT-21: satellite schematic (modules/explore/SatelliteView.jsx).
     // schematicBadge is a contract, not decoration — the panel must say it is not
