@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { fetchDetectiveCase, submitSolve } from '../../api/detective';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { useProgressStore } from '../../store/progressStore';
 import { useT } from '../../i18n';
 import CaseChart from './CaseChart';
 
@@ -21,10 +22,20 @@ import CaseChart from './CaseChart';
  *     ✅/❌ 이모지가 아니라 문장을 읽어 준다(3분기 — 정답·부분정답·오답).
  *   - 단서 조사 진행도도 같은 방식으로 announce한다(몇 개 더 열어야 하는지).
  *   - 단서 카드는 button + aria-expanded, 가설은 radiogroup.
+ *
+ * XP 적립 표시(2026-08-20):
+ *   서버가 **최초 정답 1회만** `xp_reward`를 싣는다(918a8e8 — `quiz_logs` 마커).
+ *   그 값이 화면에 소비처가 0곳이라 **학습자가 받고도 몰랐다.** 표시는 기존
+ *   관례를 그대로 쓴다 — 값은 `addXp`로 헤더 잔량에 반영(보드 `BoardPage`
+ *   최초 클리어와 같은 자리), 문구는 리소스, 배지는 예보 대결의 호박색 알약.
+ *   🔴 **0은 그리지 않는다.** 재제출은 `xp_earned=0`인데 그것을 「+0 XP」로
+ *   그리면 보상이 벌로 읽힌다 — 정답인데 0이면 「이미 받았다」만 말한다.
  */
 export default function CasePlayPage() {
   const { caseId } = useParams();
   const t = useT();
+  const queryClient = useQueryClient();
+  const addXp = useProgressStore((s) => s.addXp);
   const [opened, setOpened] = useState(() => new Set());
   const [picked, setPicked] = useState(null);
   const [result, setResult] = useState(null);
@@ -41,6 +52,14 @@ export default function CasePlayPage() {
     onSuccess: (data) => {
       setResult(data);
       setSubmitError(null);
+      // 실제로 적립됐을 때만 헤더 잔량을 움직인다(재제출은 0 — 서버가 안 준다).
+      // ⚠️ 퀘스트 캐시는 **일부러 건드리지 않는다**: 탐정 마커는 is_correct가
+      //    NULL이라 quest_service·복습 큐가 애초에 보지 않는다(918a8e8).
+      const gained = Number(data?.xp_earned) || 0;
+      if (gained > 0) {
+        addXp(gained);
+        queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
+      }
     },
     onError: (error) => {
       setResult(null);
@@ -91,6 +110,12 @@ export default function CasePlayPage() {
           ? 'detective.play.resultPartial'
           : 'detective.play.resultIncorrect',
     );
+  // 적립액은 **응답이 소유한다** — 케이스마다 다르고(30·35) 상수 사본을 두면
+  // 시드가 바뀔 때 화면만 조용히 거짓말한다.
+  const xpEarned = Number(result?.xp_earned) || 0;
+  // 정답인데 0 = 이미 받은 케이스(오답·부분정답의 0은 「아직 못 받았다」라
+  // 아무 말도 하지 않는 것이 맞다).
+  const xpAlreadyGranted = Boolean(result) && result.verdict === 'correct' && xpEarned === 0;
 
   function toggleClue(clueId) {
     setOpened((prev) => {
@@ -281,6 +306,22 @@ export default function CasePlayPage() {
             }`}
           >
             <p className="text-[13px] font-extrabold text-slate-800">{verdictLine}</p>
+            {/* 획득 XP — 라이브 영역 **안**이라 판정과 함께 읽힌다(별도 announce 불필요) */}
+            {xpEarned > 0 && (
+              <p className="mt-2" data-testid="detective-xp">
+                <span className="inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+                  {t('detective.play.xpEarned', { xp: xpEarned })}
+                </span>
+              </p>
+            )}
+            {xpAlreadyGranted && (
+              <p
+                className="mt-2 text-[11.5px] font-bold text-slate-500"
+                data-testid="detective-xp-already"
+              >
+                {t('detective.play.xpAlready')}
+              </p>
+            )}
             <p className="mt-2 text-[12.5px] leading-relaxed text-slate-700">{result.feedback}</p>
 
             {result.supporting_clues?.length > 0 && (

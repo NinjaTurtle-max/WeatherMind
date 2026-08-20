@@ -1633,6 +1633,10 @@ const BOARD_PUZZLES = SEED_ITEMS.filter((it) => it.question_type === 'board')
 // 최초 클리어 기록 (content_item_id 집합) — 재도전 0 XP (§3.5)
 const clearedBoardPuzzles = new Set();
 
+// 기후 탐정 XP 적립 기록 (case_id 집합) — 최초 정답 1회만, 재제출 0 (2026-08-20).
+// 서버는 이것을 quiz_logs 마커 행으로 갖는다(routers/detective.detective_quiz_id).
+const awardedDetectiveCases = new Set();
+
 // 학습 수준 → 열리는 최고 난이도. 서버 `routers/board.BAND_MAX_DIFFICULTY`의
 // **사본**이고, `__mockPolicy().board_band_max_difficulty`로 노출해
 // test_r13_mock_policy_parity가 서버 표와 실값 대조한다(CO-J-9 관례).
@@ -3053,6 +3057,15 @@ const routes = {
     if (!h) return [422, { detail: '알 수 없는 가설이에요', code: 'UNKNOWN_HYPOTHESIS' }];
     const correct = h.verdict === 'correct';
     const sol = c.solution ?? {};
+    // 멱등 마커 — 서버의 quiz_logs 마커 행(quiz_id="detective-{case_id}")에
+    // 대응한다. 보드의 clearedBoardPuzzles와 같은 자리·같은 방식.
+    const firstSolve = correct && !awardedDetectiveCases.has(c.case_id);
+    let xpEarned = 0;
+    if (firstSolve) {
+      awardedDetectiveCases.add(c.case_id);
+      xpEarned = c.xp_reward ?? 0;
+      state.xp += xpEarned;
+    }
     return [
       200,
       {
@@ -3068,7 +3081,13 @@ const routes = {
               next_step_hint: sol.next_step_hint ?? '',
             }
           : null,
-        xp_earned: 0, // 서버와 동일 — 영속이 없어 적립하지 않는다
+        // 🔴 **최초 정답 1회만** 적립(2026-08-20, 서버 918a8e8과 같은 규칙).
+        //    종전 주석은 "영속이 없어 적립하지 않는다"였고 그때는 참이었다 —
+        //    서버가 quiz_logs 마커로 멱등을 얻은 뒤로는 거짓이다.
+        //    ⚠️ 재제출·오답·부분정답은 **0을 싣는다**(키를 지우지 않는다).
+        //    ⚠️ bumpQuest를 부르지 않는다 — 마커의 is_correct가 NULL이라
+        //       서버 쪽에서도 퀘스트·복습 큐가 이 행을 보지 않는다.
+        xp_earned: xpEarned,
         opened_clue_count: opened.size,
         min_clues: minClues,
       },

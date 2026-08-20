@@ -68,6 +68,12 @@ export default {
       verdictCorrect: '해결',
       verdictPartial: '부분 정답',
       verdictIncorrect: '오답',
+      // 🔴 XP 적립 표시(2026-08-20) — 서버 `xp_earned`가 **실제 적립액**이 된
+      //    뒤(918a8e8) 화면에 소비처가 0곳이라 학습자가 받고도 몰랐다.
+      //    ⚠️ `xpAlready`는 **정답인데 0**일 때만 쓴다. 0을 「+0 XP 획득」처럼
+      //    그리면 보상이 아니라 벌로 읽힌다.
+      xpEarned: '첫 해결 보상 +{xp} XP',
+      xpAlready: '이 사건의 보상은 첫 해결 때 이미 받았어요.',
       supportingTitle: '이 판단이 근거로 삼은 단서',
       solutionTitle: '사건 정리',
       takeawayLabel: '기억할 것',

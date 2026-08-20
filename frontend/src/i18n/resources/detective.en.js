@@ -65,6 +65,10 @@ export default {
       verdictCorrect: 'Solved',
       verdictPartial: 'Partly right',
       verdictIncorrect: 'Incorrect',
+      // See detective.ko.js — shown only when xp_earned > 0; `xpAlready` only
+      // when the verdict is correct and the reward was already granted.
+      xpEarned: 'First solve +{xp} XP',
+      xpAlready: 'The reward for this case was already granted on your first solve.',
       supportingTitle: 'Clues this judgement rests on',
       solutionTitle: 'Case summary',
       takeawayLabel: 'Remember',
