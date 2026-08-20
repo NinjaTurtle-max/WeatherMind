@@ -233,8 +233,16 @@ class TestOrderPuzzlesForTheta:
 
 
 class TestBoardPuzzleSchema:
-    def test_difficulty_필드_additive(self):
-        """BoardPuzzle에 difficulty(int)가 추가됐고 기존 필드는 유지된다."""
+    def test_knowledge_level_필드가_difficulty를_대체했다(self):
+        """🔴 **축 교체**(2026-08-20): `difficulty`(파생 1~3)를 **제거**하고
+        `knowledge_level`(유닛과 같은 축)로 바꿨다.
+
+        여기서 무는 것은 두 가지다:
+          ① 새 필드가 값을 받는다
+          ② 🔴 **옛 필드가 정말 사라졌다** — 남아 있으면 「같은 축에 이름 둘」이 되고
+            그것이 이 저장소가 `level_label`로 이미 치른 값이다. 어드바이저 판정 ⓒ의
+            요점이 「좀비 필드를 남기지 않는다」였다.
+        """
         import uuid
 
         from app.schemas.board import BoardPuzzle
@@ -243,9 +251,17 @@ class TestBoardPuzzleSchema:
             content_item_id=uuid.uuid4(),
             template_json={"mode": "guided"},
             cleared=False,
-            difficulty=1,
+            knowledge_level=7,
         )
-        assert puzzle.difficulty == 1
+        assert puzzle.knowledge_level == 7
+        assert "difficulty" not in BoardPuzzle.model_fields, (
+            "옛 파생 축이 응답에 남아 있다 — 한 축에 이름이 둘이면 읽는 사람이 "
+            "어느 뜻인지 알 방법이 없다"
+        )
+        # 값이 없는 문항도 실린다(그때는 잠그지 않는다 — locked_tiers).
+        assert BoardPuzzle(
+            content_item_id=uuid.uuid4(), template_json={}, cleared=False
+        ).knowledge_level is None
 
 
 class TestMockParity:

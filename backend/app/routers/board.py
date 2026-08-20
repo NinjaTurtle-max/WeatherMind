@@ -551,11 +551,11 @@ async def list_puzzles(
             content_item_id=item.id,
             template_json=item.template_json or {},
             cleared=done,
-            difficulty=difficulty,
-            locked=difficulty in locked,
+            knowledge_level=tier,
+            locked=tier in locked,
             unlocked=item.id in unlocked,
         )
-        for item, difficulty, done in graded
+        for item, tier, done in graded
     ]
 
 
@@ -629,7 +629,7 @@ async def get_puzzle_detail(
         content_item_id=item.id,
         template_json=item.template_json or {},
         cleared=item.id in cleared,
-        difficulty=difficulty,
+        knowledge_level=difficulty,
         # 여기 도달했다면 두 축 모두 열린 것 — 위 가드 둘을 지나야 온다.
         locked=False,
         unlocked=True,

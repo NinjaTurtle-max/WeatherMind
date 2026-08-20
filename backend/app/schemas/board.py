@@ -44,7 +44,14 @@ class BoardPuzzle(BaseModel):
     content_item_id: UUID
     template_json: dict[str, Any]
     cleared: bool
-    difficulty: int
+    # 🔴 2026-08-20: `difficulty`(파생 1~3)를 **제거하고 이 필드로 교체**했다
+    # (클라이언트 판정 「지금 유닛 난이도와 똑같이 세분화」 · 어드바이저 판정 ⓒ).
+    # 이름이 `knowledge_level`인 것이 요점이다 — 유닛·문항·표기가 쓰는 그 축과
+    # **같은 이름**이어야 한다. 한 축에 이름을 둘 두면 이 저장소가 `level_label`로
+    # 이미 치른 값을 다시 치른다.
+    # ⚠️ **범위 숫자를 여기 적지 않는다** — 소유자는 `schemas/progress.KNOWLEDGE_LEVEL_MAX`
+    # 하나다. 값이 없는 문항은 `None`이고 그때는 **잠그지 않는다**(routers.board.locked_tiers).
+    knowledge_level: int | None = None
     # 두 기본값의 방향이 반대인 것은 의도다 — **구 클라이언트·구 응답에서 잠금이
     # 조용히 생기지 않아야** 한다. 각각 "안 잠김"이 기본이다.
     locked: bool = False

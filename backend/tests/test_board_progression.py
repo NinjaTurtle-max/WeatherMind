@@ -252,30 +252,30 @@ class TestDisasterBoards:
 # 규칙은 DB를 안 타는 순수 함수라 여기서 전 분기를 고정한다.
 import pytest
 
-from app.routers.board import BAND_MAX_DIFFICULTY, locked_difficulties
+from app.routers.board import BAND_MAX_DIFFICULTY, locked_difficulties, locked_tiers
 
 
 def test_초등은_쉬움만_열린다():
-    assert locked_difficulties("elementary") == {2, 3}
+    assert locked_tiers(1) == set(range(2, 11))
 
 
 def test_중고등은_쉬움과_보통이_열린다():
-    assert locked_difficulties("middle_high") == {3}
+    assert locked_tiers(2) == set(range(3, 11))
 
 
 def test_성인은_전부_열린다():
-    assert locked_difficulties("adult") == set()
+    assert locked_tiers(10) == set()
 
 
 def test_expert도_전부_열린다():
     # board_difficulty가 3에서 클램프하므로 adult 위가 없다 — 같은 결과여야 한다.
-    assert locked_difficulties("expert") == locked_difficulties("adult") == set()
+    assert locked_tiers(10) == locked_tiers(11) == set()
 
 
 @pytest.mark.parametrize("band", [None, "", "unknown_band"])
 def test_미상_밴드는_잠그지_않는다(band):
     """표에 없는 밴드가 보드를 통째로 잃는 쪽이 열리는 쪽보다 나쁘다."""
-    assert locked_difficulties(band) == set()
+    assert locked_tiers(None) == set()
 
 
 def test_진도는_잠금을_바꾸지_않는다():
@@ -315,10 +315,10 @@ def _func_block(name: str) -> str:
 )
 def test_잠금은_진입과_채점_양쪽에_먼저_걸린다(func, must_precede):
     block = _func_block(func)
-    assert "locked_difficulties(user.level_group)" in block, (
+    assert "locked_tiers(" in block, (
         f"{func}에 학습 수준 잠금 검사가 없다"
     )
-    assert block.index("locked_difficulties") < block.index(must_precede), (
+    assert block.index("locked_tiers") < block.index(must_precede), (
         f"{func}: 잠금 검사가 {must_precede}보다 뒤에 있다"
     )
 
@@ -477,24 +477,23 @@ class TestListNotBlocked:
 # 순서를 잘못 세면 그 조합에서만 학습자가 갇힌다 — 어느 한쪽 테스트로도 안 잡힌다.
 
 
-def _graded_item(order, difficulty):
-    """난이도가 정해진 퍼즐 — board_difficulty가 그 값을 내도록 template를 짠다.
+def _graded_item(order, tier):
+    """🔴 **층이 정해진 퍼즐** (2026-08-20 축 교체).
 
-    ⚠️ 난이도를 인자로 받는 대신 **실제 산출 규칙을 태운다.** 여기서 값을 꾸며
-    넣으면 규칙이 바뀌었을 때 이 테스트만 옛 세계에서 초록으로 남는다.
+    종전에는 `board_difficulty`가 목표값을 내도록 `template`을 꾸몄다 — *"난이도를
+    인자로 받는 대신 실제 산출 규칙을 태운다"*는 이유였고 그때는 옳았다(난이도가
+    **파생값**이었으므로 규칙을 안 태우면 이 테스트만 옛 세계에 남았다).
+
+    ⚠️ **새 축은 파생이 아니라 저작값**이다(`content_items.knowledge_level`). 태울
+    규칙이 없으므로 값을 그대로 붙이는 것이 옳고, 오히려 template을 꾸미면
+    **없는 파생을 흉내내는** 것이 된다.
     """
-    template = {"board_order": order}
-    if difficulty >= 2:
-        template["mode"] = "goal_only"
-    else:
-        template["mode"] = "guided"
-    if difficulty >= 3:
-        template["time_limit_sec"] = 120
     return SimpleNamespace(
         id=uuid.uuid4(),
-        template_json=template,
+        template_json={"board_order": order},
         level_group="middle_high",
         concept_tag="air_mass",
+        knowledge_level=tier,
     )
 
 
@@ -512,7 +511,7 @@ class TestTwoLocksCompose:
             _graded_item(0, 1), _graded_item(1, 2), _graded_item(2, 1),
             _graded_item(3, 2), _graded_item(4, 1),
         ]
-        pool = board_router.sequenceable(course, "elementary")
+        pool = board_router.sequenceable(course, 1)
         assert [i.template_json["board_order"] for i in pool] == [0, 2, 4], (
             "초등에게 남아야 할 것은 쉬움 3칸이다"
         )
@@ -532,14 +531,14 @@ class TestTwoLocksCompose:
     def test_잠긴_난이도는_순서_계산에서_빠진다(self):
         """성인은 전부 세고, 초등은 쉬움만 센다 — 세는 대상 자체가 다르다."""
         course = [_graded_item(0, 1), _graded_item(1, 3), _graded_item(2, 1)]
-        assert len(board_router.sequenceable(course, "adult")) == 3
-        assert len(board_router.sequenceable(course, "elementary")) == 2
+        assert len(board_router.sequenceable(course, 3)) == 3
+        assert len(board_router.sequenceable(course, 1)) == 2
 
     def test_수준을_올리면_셀_대상이_넓어진다(self):
         """PATCH /auth/me로 수준이 바뀌면 재계산이 공짜로 따라온다는 것의 근거."""
         course = [_graded_item(0, 1), _graded_item(1, 2)]
-        assert len(board_router.sequenceable(course, "elementary")) == 1
-        assert len(board_router.sequenceable(course, "middle_high")) == 2
+        assert len(board_router.sequenceable(course, 1)) == 1
+        assert len(board_router.sequenceable(course, 2)) == 2
 
     def test_순서를_세는_모든_곳이_난이도로_먼저_거른다(self):
         """위 계약이 **실제 경로에 연결돼 있는가** — 순수 함수 테스트의 사각이다.
@@ -590,24 +589,22 @@ class TestLevelUnlocksBelowCeiling:
 
     @staticmethod
     def _items(counts: dict[int, int]):
-        """난이도별 개수로 가짜 퍼즐 목록을 만든다(board_difficulty가 그 값을 내도록)."""
+        """**층별 개수**로 가짜 퍼즐 목록을 만든다 (2026-08-20 축 교체).
+
+        ⚠️ 종전에는 `board_difficulty`가 목표 난이도를 내도록 `mode`·`palette`·밴드를
+        꾸몄다. 새 축은 **저작값**이라 꾸밀 파생이 없다 — 층을 그대로 붙인다.
+        """
         out = []
         n = 0
-        for difficulty, count in sorted(counts.items()):
+        for tier, count in sorted(counts.items()):
             for _ in range(count):
                 n += 1
-                # board_difficulty: guided=1 · goal_only=2 · palette>=3 +1 · adult +1
-                if difficulty == 1:
-                    tj = {"mode": "guided", "palette": ["a"], "board_order": n}
-                    band = "elementary"
-                elif difficulty == 2:
-                    tj = {"mode": "goal_only", "palette": ["a"], "board_order": n}
-                    band = "elementary"
-                else:
-                    tj = {"mode": "goal_only", "palette": ["a", "b", "c"],
-                          "board_order": n}
-                    band = "adult"
-                out.append(SimpleNamespace(id=n, template_json=tj, level_group=band))
+                out.append(SimpleNamespace(
+                    id=n,
+                    template_json={"board_order": n},
+                    level_group="middle_high",
+                    knowledge_level=tier,
+                ))
         return out
 
     def test_성인은_아래_난이도가_전부_열린다(self):
@@ -616,8 +613,8 @@ class TestLevelUnlocksBelowCeiling:
         for it in items:
             assert board_router.board_difficulty(it.template_json, it.level_group) in (1, 2, 3)
         unlocked = board_router.compute_unlocked_ids(
-            board_router.ceiling_tier(items, "adult"), set()
-        ) | board_router.below_ceiling_ids(items, "adult")
+            board_router.ceiling_tier(items, 3), set()
+        ) | board_router.below_ceiling_ids(items, 3)
         # 1·2층 18판이 인정되고 3층에서 순차(커서 + LOOKAHEAD 2 = 3판)
         assert len(unlocked) > 4, f"성인인데 {len(unlocked)}판만 열렸다"
         assert len(unlocked) == 18 + 3, sorted(unlocked)
@@ -630,17 +627,18 @@ class TestLevelUnlocksBelowCeiling:
         """
         items = self._items({1: 10, 2: 8, 3: 6})
         unlocked = board_router.compute_unlocked_ids(
-            board_router.ceiling_tier(items, "elementary"), set()
-        ) | board_router.below_ceiling_ids(items, "elementary")
+            board_router.ceiling_tier(items, 1), set()
+        ) | board_router.below_ceiling_ids(items, 1)
         assert len(unlocked) == 3, f"초등에 {len(unlocked)}판이 열렸다"
         opened = [i for i in items if i.id in unlocked]
-        assert all(
-            board_router.board_difficulty(i.template_json, i.level_group) == 1 for i in opened
-        ), "초등에게 1층 밖 퍼즐이 열렸다"
+        # 🔴 뜻은 그대로, 축만 새것 — 「자기 층 밖이 열리지 않았다」.
+        assert all(board_router.board_tier(i) == 1 for i in opened), (
+            "천장 1인 학습자에게 1층 밖 퍼즐이 열렸다"
+        )
 
     def test_중고등은_1층만_인정된다(self):
         items = self._items({1: 10, 2: 8, 3: 6})
         unlocked = board_router.compute_unlocked_ids(
-            board_router.ceiling_tier(items, "middle_high"), set()
-        ) | board_router.below_ceiling_ids(items, "middle_high")
+            board_router.ceiling_tier(items, 2), set()
+        ) | board_router.below_ceiling_ids(items, 2)
         assert len(unlocked) == 10 + 3, sorted(unlocked)
