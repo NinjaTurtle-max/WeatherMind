@@ -27675,5 +27675,342 @@
       ]
     },
     "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "자유대기에서는 기압경도력과 전향력이 맞서 지균풍이 등압선과 나란히 분다. 그러나 지표에 붙은 대기경계층 안에서는 마찰이 더해져 그 균형이 깨지고, 지상풍은 등압선을 비스듬히 가로질러 기압이 낮은 쪽으로 불어 들어간다(열린 바다 위에서는 약 10°, 거친 산지에서는 약 30°). 그렇게 아래에서 모여든 공기는 갈 곳이 없어 위로 오른다. 동해안(존 3)에 한랭전선을 놓고, 경계층으로 모여든 습한 공기가 데워진 지면 위에서 흩어지지 않는 소나기로 자라게 해 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:cold",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "severe_storm"
+        }
+      ],
+      "hints": [
+        "자유대기의 지균 평형은 기압경도력과 전향력 둘만의 균형이다. 경계층에서는 세 번째 힘인 마찰이 끼어들어 바람을 저기압 쪽으로 꺾고, 그 꺾임이 곧 하층 수렴이다.",
+        "찬 공기가 파고드는 전선을 동해안에 놓고 물기와 지면을 데우는 햇볕은 높게, 위아래 흐름의 차이를 만드는 바람도 함께 세게 올려야 한다. 넷 중 하나만 방향이 달라도 소나기는 한 번 쏟고 흩어진다."
+      ],
+      "explanation_hint": "경계층은 마찰이 지배하는 층이다. 마찰이 전향력과의 균형을 깨 지상풍이 등압선을 가로지르고(열린 바다 약 10°, 거친 산지 약 30°), 저기압 쪽으로 모여든 공기가 상승한다. 여기에 한랭전선의 강제 상승·지면 가열·상하층 바람 차이가 겹쳐야 대류가 조직돼 오래 간다. 넷 중 하나가 빠지면 판정은 소나기(한 번 쏟고 흩어짐)나 흐림으로 내려앉는다. 횡단각 출처: 위키백과 「Planetary boundary layer」 — cross-isobar angle 10° over open water, 30° over rough hilly terrain.",
+      "correct_answer": "",
+      "board_order": 56,
+      "title": "마찰이 만든 수렴",
+      "summary": "경계층 수렴으로 동해안에 소나기를 조직해요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "클라이언트 지시(2026-08-20) — 대기 경계층·대기역학·대기물리를 전문가 단계로 가르치는 보드. 수치 모델은 만들지 않는다(R3 시뮬레이터 금지 · 보드 엔진은 결정적 규칙).",
+        "board_rules.json: cold_front_squall_storm (기존 4조건 규칙 재사용 — 신규 규칙 저작 없음)",
+        "새 규칙·새 배치 요소·새 개념 태그 0건 — 기존 4조건 규칙의 고유 결과만 목표로 삼는다. 4조건 규칙이 아닌 목표(fog·clear·shower 등)를 쓰면 우선순위가 높은 2조건 규칙이 먼저 이겨 「가르치려는 요소를 빼도 목표를 채운다」가 된다(실측: fog 목표 + [기단·일사·습기] 팔레트는 기단을 안 놓아도 radiation_fog(pri 50)가 발화한다).",
+        "난이도 3 파생 확인 — board_difficulty(template_json, 'expert') = 2(goal_only) + 1(palette 4종) + 1(expert 사전 b) = 3(클램프). 초등(천장 1)·중고등(천장 2)에는 잠기고 성인·전문가에만 열린다.",
+        "판정: R5 + R3 — 결정 용어 = 지균풍·기압경도력·전향력·지상풍. level_vocabulary.json이 넷 모두 introduced_at=7로 소유한다 → 7단계",
+        "수치 출처: https://en.wikipedia.org/wiki/Planetary_boundary_layer (2026-08-20 확인) — \"The cross-isobar angle of the diverted ageostrophic flow near the surface ranges from 10° over open water, to 30° over rough hilly terrain\". 이미지 복제·트레이싱 없음(수치만)",
+        "board_order 51(kl9 · 존 1)과 같은 규칙을 쓰지만 존이 다르고 가르치는 축이 다르다 — 51은 시어의 조직화, 이 판은 경계층 마찰이 만드는 하층 수렴이다(2축 분리의 선례: board_order 50 「산 넘어 마른 바람」 ↔ 46 「높새바람 넘기」)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "phase_change",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "대기는 정역학 평형에 가까워 위로 갈수록 기압이 낮아진다. 그래서 습한 공기 덩이가 억지로 들려 오르다 자유대류고도(LFC)를 넘으면, 그때부터는 주위보다 가벼워져 스스로 올라간다 — 수증기가 물방울로 맺힐 때 내놓는 잠열이 덩이를 계속 데워 주기 때문이다. 그 오름은 주위와 밀도가 같아지는 평형고도에서 멈춘다. 동해상(존 3)에 해수면 온도 26.5℃ 이상의 따뜻한 바다에서 올라온 덥고 습한 공기를 들이고, 위아래 바람 차이는 작게 두어 그 사다리가 하나의 기둥으로 서게 해 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:north_pacific",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "typhoon"
+        }
+      ],
+      "hints": [
+        "덩이가 스스로 올라가려면 주위보다 가벼워야 한다. 물방울이 맺힐 때 나오는 잠열이 그 가벼움을 계속 만들어 주므로, 바다에서 올라오는 물기가 많을수록 사다리가 높아진다.",
+        "덥고 습한 기단을 동해상에 놓고 물기와 햇볕은 아주 높게 올린 뒤 바람은 아주 낮게 두어야 한다. 바람을 아예 놓지 않으면 기본값이 남아 기둥이 위아래로 어긋난다 — 낮게 놓는 것까지가 조작이다."
+      ],
+      "explanation_hint": "부력은 밀도 차이다. 정역학 평형에 놓인 대기에서 덩이가 LFC를 넘으면 주위보다 가벼워지고, 응결이 내놓는 잠열이 그 상태를 이어 주어 평형고도까지 올라간다. 태풍의 연료가 바로 이 잠열이라 따뜻한 바다(해수면 26.5℃ 이상)와 많은 물기가 함께 필요하다. 다만 연료만으로는 부족하다 — 위아래 바람 차이가 크면 자라던 기둥이 어긋나 흩어지므로 그 차이가 작아야 한다. 바람을 놓지 않으면 기본값 20이 남아 조건에 미달하고 판정은 폭염으로 내려앉는다. 수치 출처: docs/design/research/RESEARCH_MT18_EXPERT_BOARD.md(SST 26.5℃ · 연직 시어 10m/s 미만).",
+      "correct_answer": "",
+      "board_order": 57,
+      "title": "부력의 사다리",
+      "summary": "잠열이 만든 부력으로 동해상에 태풍 씨앗을 키워요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "개념 태그 판정(A조 리드 지시 2026-08-20) — 보드가 안 쓰던 phase_change를 쓴다. 태풍의 연료는 응결 잠열이라 상태변화 축이 본체이고, moisture 조절값이 그 축을 직접 표현한다. 종전에는 이 물리가 typhoon·density_buoyancy로만 태깅돼 상태변화 축에 보드가 0건이었다.",
+        "클라이언트 지시(2026-08-20) — 대기 경계층·대기역학·대기물리를 전문가 단계로 가르치는 보드. 수치 모델은 만들지 않는다(R3 시뮬레이터 금지 · 보드 엔진은 결정적 규칙).",
+        "board_rules.json: tropical_cyclone_genesis (기존 4조건 규칙 재사용 — 신규 규칙 저작 없음)",
+        "새 규칙·새 배치 요소·새 개념 태그 0건 — 기존 4조건 규칙의 고유 결과만 목표로 삼는다. 4조건 규칙이 아닌 목표(fog·clear·shower 등)를 쓰면 우선순위가 높은 2조건 규칙이 먼저 이겨 「가르치려는 요소를 빼도 목표를 채운다」가 된다(실측: fog 목표 + [기단·일사·습기] 팔레트는 기단을 안 놓아도 radiation_fog(pri 50)가 발화한다).",
+        "난이도 3 파생 확인 — board_difficulty(template_json, 'expert') = 2(goal_only) + 1(palette 4종) + 1(expert 사전 b) = 3(클램프). 초등(천장 1)·중고등(천장 2)에는 잠기고 성인·전문가에만 열린다.",
+        "판정: R5 + R3 — 결정 용어 = 정역학·LFC·평형고도. level_vocabulary.json이 셋 모두 introduced_at=7로 소유한다 → 7단계",
+        "수치 출처(기존 저장소 자산 재사용): docs/design/research/RESEARCH_MT18_EXPERT_BOARD.md · RESEARCH_MT22_CO2_TYPHOON.md §3 T1 — SST 26.5℃ 이상, 연직 시어 10m/s 미만. 이미지 복제·트레이싱 없음",
+        "board_order 54(kl9 · 존 0)와 같은 규칙이지만 존이 다르고 축이 다르다 — 54는 발생·유지 조건의 목록, 이 판은 부력이 어디서 시작해 어디서 멈추는가(LFC → 평형고도)다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "temperature_heat",
+    "level_group": "expert",
+    "knowledge_level": 7,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "낮에는 지면이 데워져 아래가 뜨겁고 위가 차므로 기온감률이 커지고 공기가 잘 섞인다. 해가 넘어가면 지표가 먼저 식어 아래가 더 차가워지고, 환경감률이 뒤집힌 얕은 안정층(중위도 밤에 흔히 300m 안팎)이 지표에 깔려 난류가 죽는다. 이때 열이 우주로 곧장 빠져나가면 기온이 밤새 급히 내려가지만, 공기 속 물기가 지표가 내보낸 긴 파장을 붙잡아 되돌려 보내면 그 냉각이 멈춘다. 동해안(존 3)에 덥고 습한 공기를 들이고 해가 넘어간 밤을 만들어, 얕은 안정층 아래에서 기온이 내려가지 않는 상태를 재현해 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:north_pacific",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 3,
+          "phenomenon": "tropical_night"
+        }
+      ],
+      "hints": [
+        "밤에 지표 부근의 감률이 뒤집히면 공기가 섞이지 않는다. 그래서 지표가 내보낸 열이 되돌아오는지 아닌지가 그 얕은 층의 기온을 그대로 결정한다.",
+        "덥고 습한 기단을 동해안에 놓고 물기는 아주 높게, 햇볕은 아주 낮게(해가 넘어간 밤), 바람도 낮게 두어야 한다. 바람이 세면 안정층이 부서져 열이 섞여 흩어진다."
+      ],
+      "explanation_hint": "밤의 경계층은 낮과 성질이 반대다. 지표가 먼저 식어 감률이 뒤집히면 얕은 안정층이 깔리고 난류가 죽어, 그 층의 기온은 열이 되돌아오는 양에 그대로 매인다. 되돌리는 주체는 눈에 보이는 구름이 아니라 공기 속에 섞여 있는 기체다 — 수증기가 그 몫의 1위이고 이산화탄소도 같은 일을 한다. 되돌림 자체는 정상이고 없으면 밤이 훨씬 더 추워진다. 문제는 되돌리는 기체가 늘어 그 정도가 과해지는 것이다. 바람을 세게 두면 안정층이 부서져 열이 섞이므로 조건에 닿지 않는다. 안정층 두께 출처: 위키백과 「Planetary boundary layer」 — \"a nocturnal PBL in mid-latitudes could be typically 300 m in thickness\".",
+      "correct_answer": "",
+      "board_order": 58,
+      "title": "뒤집힌 감률",
+      "summary": "밤에 뒤집힌 감률 아래 동해안이 식지 않게 해요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "개념 태그 판정(A조 리드 지시 2026-08-20) — 보드가 안 쓰던 temperature_heat를 쓴다. 이 판이 묻는 것은 야간 냉각과 기온 감률의 역전이라 온도·열 축이 본체다. co2_climate로 태깅하면 결과(열대야)만 남고 감률이라는 기전이 태그에서 사라진다.",
+        "클라이언트 지시(2026-08-20) — 대기 경계층·대기역학·대기물리를 전문가 단계로 가르치는 보드. 수치 모델은 만들지 않는다(R3 시뮬레이터 금지 · 보드 엔진은 결정적 규칙).",
+        "board_rules.json: greenhouse_tropical_night (기존 4조건 규칙 재사용 — 신규 규칙 저작 없음)",
+        "새 규칙·새 배치 요소·새 개념 태그 0건 — 기존 4조건 규칙의 고유 결과만 목표로 삼는다. 4조건 규칙이 아닌 목표(fog·clear·shower 등)를 쓰면 우선순위가 높은 2조건 규칙이 먼저 이겨 「가르치려는 요소를 빼도 목표를 채운다」가 된다(실측: fog 목표 + [기단·일사·습기] 팔레트는 기단을 안 놓아도 radiation_fog(pri 50)가 발화한다).",
+        "난이도 3 파생 확인 — board_difficulty(template_json, 'expert') = 2(goal_only) + 1(palette 4종) + 1(expert 사전 b) = 3(클램프). 초등(천장 1)·중고등(천장 2)에는 잠기고 성인·전문가에만 열린다.",
+        "판정: R5 + R3 — 결정 용어 = 기온감률·환경감률. level_vocabulary.json이 둘 모두 introduced_at=7로 소유한다 → 7단계",
+        "수치 출처: https://en.wikipedia.org/wiki/Planetary_boundary_layer (2026-08-20 확인) — \"a nocturnal PBL in mid-latitudes could be typically 300 m in thickness\"",
+        "RESEARCH_MT22_CO2_TYPHOON.md §3 C1의 경고를 지킨다: 「CO₂를 놓으면 더워진다」로 만들면 기전이 빠진 채 결과만 남는다. 조작 대상은 되돌리는 기체(수증기)와 밤이고, 기여도 수치는 지문에 넣지 않았다",
+        "board_order 55(kl10 · 존 1)와 같은 규칙이지만 존이 다르고 축이 다르다 — 55는 단파·장파의 왕복 구조, 이 판은 그 왕복이 왜 얕은 야간 경계층에서 기온을 그대로 결정하는가다"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "energy_transfer",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "온위는 공기 덩이를 기준 기압면까지 단열로 끌어내렸을 때의 기온이라, 오르내림만으로는 변하지 않는다. 낮 동안 지면에서 올라온 열이 아래에서부터 공기를 섞으면 경계층 안에서는 온위가 높이에 관계없이 거의 일정해지고(혼합층), 여기에 수증기가 품은 잠열까지 셈에 넣은 상당온위가 높은 공기가 층 전체에 쌓인다. 그 공기가 태백산맥(존 2)에서 한랭전선에 들려 올라가고 위아래 바람 차이까지 크면, 소나기가 흩어지지 않고 한 덩어리로 조직된다. 존 2에 그 상태를 만들어 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:cold",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 2,
+          "phenomenon": "severe_storm"
+        }
+      ],
+      "hints": [
+        "온위가 높이에 관계없이 고르다는 것은 그 층이 이미 잘 섞여 있다는 뜻이다. 섞인 층에 상당온위가 높은 공기가 쌓이면, 들어 올릴 힘만 생겨도 곧 대류가 된다.",
+        "찬 공기가 파고드는 전선을 태백산맥에 놓고 물기·햇볕·바람을 모두 높은 쪽으로 올려야 한다. 넷 중 하나가 모자라면 소나기가 한 번 쏟고 흩어진다."
+      ],
+      "explanation_hint": "온위는 단열로 오르내려도 변하지 않는 양이라, 층이 섞였는지 아닌지를 재는 자가 된다. 지면 가열로 섞인 혼합층에서는 온위가 높이에 관계없이 고르고, 수증기의 잠열까지 더한 상당온위가 높으면 들려 올라갈 때 내놓을 에너지가 많다는 뜻이다. 여기에 한랭전선의 강제 상승과 큰 위아래 바람 차이가 겹칠 때 비로소 대류가 조직된다 — 물기와 전선만으로는 소나기가 한 번 쏟고 흩어진다. 산맥이 무대인 것은 지형이 같은 공기를 한 번 더 들어 올리기 때문이다.",
+      "correct_answer": "",
+      "board_order": 59,
+      "title": "온위가 고른 층",
+      "summary": "상당온위 높은 공기를 산맥에서 들어 올려요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "개념 태그 판정(A조 리드 지시 2026-08-20) — 보드가 안 쓰던 energy_transfer를 쓴다. 혼합층은 지면에서 올라온 열이 난류로 층을 섞은 결과이고, 온위가 고르다는 것이 곧 그 수송의 자국이다. 리드 지적대로 greenhouse_tropical_night의 explain이 이미 「열을 섞어 흩어 줄 바람」으로 이 개념을 가르치는데 태그가 없었다.",
+        "클라이언트 지시(2026-08-20) — 대기 경계층·대기역학·대기물리를 전문가 단계로 가르치는 보드. 수치 모델은 만들지 않는다(R3 시뮬레이터 금지 · 보드 엔진은 결정적 규칙).",
+        "board_rules.json: cold_front_squall_storm (기존 4조건 규칙 재사용 — 신규 규칙 저작 없음)",
+        "새 규칙·새 배치 요소·새 개념 태그 0건 — 기존 4조건 규칙의 고유 결과만 목표로 삼는다. 4조건 규칙이 아닌 목표(fog·clear·shower 등)를 쓰면 우선순위가 높은 2조건 규칙이 먼저 이겨 「가르치려는 요소를 빼도 목표를 채운다」가 된다(실측: fog 목표 + [기단·일사·습기] 팔레트는 기단을 안 놓아도 radiation_fog(pri 50)가 발화한다).",
+        "난이도 3 파생 확인 — board_difficulty(template_json, 'expert') = 2(goal_only) + 1(palette 4종) + 1(expert 사전 b) = 3(클램프). 초등(천장 1)·중고등(천장 2)에는 잠기고 성인·전문가에만 열린다.",
+        "판정: R5 + R3 — 결정 용어 = 온위·상당온위. level_vocabulary.json이 둘 모두 introduced_at=8로 소유한다 → 8단계",
+        "수치 주장 0건 — 온위의 정의와 혼합층의 온위 균일성은 정성 서술이라 새 숫자를 쓰지 않았다(기준 기압면 값을 지문에서 뺀 것도 같은 이유)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "pressure_front",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "상층과 하층의 바람 차이는 우연이 아니다. 남북으로 기온이 다르면 등압면이 기울고, 그 기울기가 높이에 따라 바람을 바꾼다 — 이것이 온도풍이다. 기온 차가 큰 경압 대기에서는 위로 갈수록 바람이 세져 위아래 바람 차이가 커지고, 그 차이가 상승 기류와 하강 기류를 서로 다른 자리에 앉혀 대류를 조직한다. 수도권(존 1)과 태백산맥(존 2) 두 칸에 한랭전선과 큰 바람 차이를 함께 만들어, 조직된 소나기가 두 곳에 동시에 서게 해 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "front:cold",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "severe_storm"
+        },
+        {
+          "zone": 2,
+          "phenomenon": "severe_storm"
+        }
+      ],
+      "hints": [
+        "위아래 바람 차이를 만드는 뿌리는 남북 기온 차다. 기온 차가 큰 날일수록 상층 바람이 세지고, 그 차이가 대류를 흩어지게 하는 대신 조직하게 만든다.",
+        "두 칸 모두에 찬 공기가 파고드는 전선을 놓고 물기·햇볕·바람을 함께 높게 올려야 한다. 한 칸만 맞으면 목표는 달성되지 않는다."
+      ],
+      "explanation_hint": "위아래 바람 차이는 하늘이 마음대로 정하는 값이 아니라 남북 기온 차의 결과다. 기온 차가 크면 등압면이 기울고, 그 기울기가 높이에 따라 바람을 바꾼다(온도풍). 경압성이 큰 날에 상층 바람이 세지는 까닭이 여기 있고, 그렇게 커진 차이가 상승과 하강을 서로 다른 자리에 앉혀 대류를 조직한다. 두 칸을 동시에 요구하는 것은 조직된 대류가 한 점이 아니라 띠로 서기 때문이다 — 한 칸만 맞추면 목표는 성립하지 않는다.",
+      "correct_answer": "",
+      "board_order": 60,
+      "title": "시어가 어디서 오나",
+      "summary": "온도풍이 만든 시어로 두 칸을 함께 조직해요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "클라이언트 지시(2026-08-20) — 대기 경계층·대기역학·대기물리를 전문가 단계로 가르치는 보드. 수치 모델은 만들지 않는다(R3 시뮬레이터 금지 · 보드 엔진은 결정적 규칙).",
+        "board_rules.json: cold_front_squall_storm (기존 4조건 규칙 재사용 — 신규 규칙 저작 없음)",
+        "새 규칙·새 배치 요소·새 개념 태그 0건 — 기존 4조건 규칙의 고유 결과만 목표로 삼는다. 4조건 규칙이 아닌 목표(fog·clear·shower 등)를 쓰면 우선순위가 높은 2조건 규칙이 먼저 이겨 「가르치려는 요소를 빼도 목표를 채운다」가 된다(실측: fog 목표 + [기단·일사·습기] 팔레트는 기단을 안 놓아도 radiation_fog(pri 50)가 발화한다).",
+        "난이도 3 파생 확인 — board_difficulty(template_json, 'expert') = 2(goal_only) + 1(palette 4종) + 1(expert 사전 b) = 3(클램프). 초등(천장 1)·중고등(천장 2)에는 잠기고 성인·전문가에만 열린다.",
+        "판정: R5 + R3 — 결정 용어 = 온도풍·경압. level_vocabulary.json이 둘 모두 introduced_at=8로 소유한다 → 8단계",
+        "다존 목표 선례: board_order 49 「건조경보 두 칸」·17 「동시에 잠기는 두 칸」 — 존을 늘리는 것은 새 문법이 아니라 goal_conditions 배열이다",
+        "수치 주장 0건 — 온도풍 관계는 정성 서술로만 쓴다(엔진에 방향축이 없어 수치 시어를 판정에 쓸 수 없다)"
+      ]
+    },
+    "status": "active"
+  },
+  {
+    "concept_tag": "radiation_budget",
+    "level_group": "expert",
+    "knowledge_level": 8,
+    "question_type": "board",
+    "template_json": {
+      "question_text": "낮에 들어온 짧은 파장의 빛은 일부가 되쏘여 나가고 나머지가 흡수돼 열이 된다. 되쏘는 비율이 알베도이고, 지구 전체로는 0.3쯤인데 아스팔트와 건물이 덮인 도시와 물이 넓은 해안은 그보다 낮아 낮 동안 열을 더 많이 저장한다. 밤이 되면 저장된 열이 긴 파장으로 나가려 하지만, 공기 속 물기가 그것을 붙잡아 되돌려 보내면 기온이 내려가지 않는다. 수도권(존 1)과 동해안(존 3) 두 칸에 덥고 습한 공기와 해가 넘어간 밤을 함께 만들어, 두 곳이 같은 밤에 식지 않는 이상을 재현해 보자.",
+      "mode": "goal_only",
+      "initial_state": {
+        "zones": [
+          "서해",
+          "수도권",
+          "태백산맥",
+          "동해안"
+        ],
+        "elements": []
+      },
+      "palette": [
+        "air_mass:north_pacific",
+        "moisture",
+        "sun",
+        "wind"
+      ],
+      "goal_conditions": [
+        {
+          "zone": 1,
+          "phenomenon": "tropical_night"
+        },
+        {
+          "zone": 3,
+          "phenomenon": "tropical_night"
+        }
+      ],
+      "hints": [
+        "낮에 얼마를 저장했느냐와 밤에 얼마를 되돌려 받느냐는 다른 축이다. 이 판에서 조작하는 것은 되돌림 쪽이다 — 열을 붙잡아 두는 물기와, 해가 넘어간 밤이다.",
+        "두 칸 모두에 덥고 습한 기단을 놓고 물기는 높게, 햇볕과 바람은 낮게 두어야 한다. 한 칸만 맞으면 목표는 달성되지 않는다."
+      ],
+      "explanation_hint": "낮의 저장과 밤의 되돌림은 다른 축이다. 알베도가 낮은 지표(도시의 아스팔트, 넓은 물)는 낮에 열을 더 많이 받아 두지만, 그 열이 밤새 남는지는 되돌림이 정한다 — 공기 속 물기가 지표가 내보낸 긴 파장을 붙잡아 되돌려 보내고, 바람이 약해 열이 섞여 흩어지지 않을 때 기온이 내려가지 않는다. 그래서 이 판이 조작하게 하는 것은 알베도가 아니라 기단·물기·밤·바람 넷이다. 두 칸을 동시에 요구하는 것은 열대야가 한 지점의 사건이 아니라 넓은 지역에 함께 나타나는 이상이기 때문이다. 알베도 수치 출처: docs/design/research/RESEARCH_MT22_CO2_TYPHOON.md §3 C1(지구 알베도 ≈ 0.3).",
+      "correct_answer": "",
+      "board_order": 61,
+      "title": "두 칸이 함께 더운 밤",
+      "summary": "도시와 해안이 같은 밤에 식지 않게 해요."
+    },
+    "uses_live_slots": false,
+    "source": {
+      "kind": "claude-authored",
+      "refs": [
+        "개념 태그 판정(A조 리드 지시 2026-08-20) — 보드가 안 쓰던 radiation_budget를 쓴다. 이 판은 들어온 단파 중 되쏘는 몫(알베도)과 나가려는 장파 중 되돌아오는 몫을 함께 다루므로 복사수지 그 자체다. 기존 co2_climate 보드 2건은 결과(열대야)만 태깅하고 있었다.",
+        "클라이언트 지시(2026-08-20) — 대기 경계층·대기역학·대기물리를 전문가 단계로 가르치는 보드. 수치 모델은 만들지 않는다(R3 시뮬레이터 금지 · 보드 엔진은 결정적 규칙).",
+        "board_rules.json: greenhouse_tropical_night (기존 4조건 규칙 재사용 — 신규 규칙 저작 없음)",
+        "새 규칙·새 배치 요소·새 개념 태그 0건 — 기존 4조건 규칙의 고유 결과만 목표로 삼는다. 4조건 규칙이 아닌 목표(fog·clear·shower 등)를 쓰면 우선순위가 높은 2조건 규칙이 먼저 이겨 「가르치려는 요소를 빼도 목표를 채운다」가 된다(실측: fog 목표 + [기단·일사·습기] 팔레트는 기단을 안 놓아도 radiation_fog(pri 50)가 발화한다).",
+        "난이도 3 파생 확인 — board_difficulty(template_json, 'expert') = 2(goal_only) + 1(palette 4종) + 1(expert 사전 b) = 3(클램프). 초등(천장 1)·중고등(천장 2)에는 잠기고 성인·전문가에만 열린다.",
+        "판정: R5 + R3 — 결정 용어 = 알베도. level_vocabulary.json이 introduced_at=8로 소유한다 → 8단계",
+        "수치 출처(기존 저장소 자산 재사용): docs/design/research/RESEARCH_MT22_CO2_TYPHOON.md §3 C1 — 지구 알베도 ≈ 0.3, TOA 입사 340 W/m² 정규화. 이미지 복제·트레이싱 없음(수치만)",
+        "⚠️ 알베도는 단파(낮)의 양이라 밤 판정에 쓸 수 없다 — 지문에서 **낮의 배경**으로만 쓰고 조작 대상에서 뺐다. 조작은 엔진의 네 축(기단·습기·일사·바람)에만 걸린다",
+        "다존 목표 선례: board_order 22 「물러나지 않는 더위」(anomaly · heatwave 두 칸) — 같은 태그의 같은 문법이다"
+      ]
+    },
+    "status": "active"
   }
 ]
