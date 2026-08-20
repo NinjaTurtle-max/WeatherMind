@@ -21,7 +21,7 @@
  * "클래스가 붙어 있다"까지만 본다 — 실제 픽셀은 브라우저 실측으로 확인했고,
  * 여기서 막고 싶은 것은 그 클래스가 정리 중에 사라지는 회귀다.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import http from 'node:http';
@@ -312,6 +312,40 @@ ok(
     /\bbasis-\[300px\]/.test(descCls) && /\bxl:basis-\[360px\]/.test(descCls),
     `설명 폭이 xl에서만 넓어진다(기본 300 · xl 360) — 실제 "${descCls.trim()}"`,
   );
+
+  // ── `note`(제목 아래 작은 글씨)도 같은 62px 예산 안에 있다 ─────────────────
+  // 2026-08-19에 「교육용 단순화 모델」 고지가 배너 안, 제목 바로 아래로 들어왔다.
+  // 그 줄이 배너 높이를 밀지 않으려면 제목 열이 마스코트 원(62px)을 넘지 않아야
+  // 하고, 예산은 빠듯하다: eyebrow 14 + 제목 26 + 여백 2 + 고지 14 = **56**.
+  //   ⓐ 간격이 `mt-1`(4px)이면 열이 64가 되어 배너가 90 → **92**가 된다.
+  //      2px짜리라 눈으로는 안 보이고 화면을 오갈 때 본문이 튀는 것으로만 나타난다
+  //      (실측으로 잡았다). 그래서 `mt-0.5`를 못박는다.
+  //   ⓑ 두 줄 상한(`line-clamp-2`)이 없으면 긴 고지가 세 줄이 되어 원을 넘긴다.
+  //   ⓒ **`hidden`을 붙이지 않는다** — 이 자리에 오는 것은 안내가 아니라 고지라
+  //      좁은 화면에서 사라지면 안 된다(설명 `description`과 다른 점이 그것이다).
+  const noteCls = banner.match(/<p className="(mt-0\.5 line-clamp-2[^"]*)"/)?.[1] ?? '';
+  ok(/\bmt-0\.5\b/.test(noteCls), `제목 아래 고지의 간격이 mt-0.5다 — 실제 "${noteCls.trim()}"`);
+  ok(/line-clamp-2/.test(noteCls), '제목 아래 고지가 두 줄까지만 접힌다 — 세 줄이면 62px 원을 넘긴다');
+  ok(!/\bhidden\b/.test(noteCls), '제목 아래 고지는 좁은 화면에서도 접히지 않는다 — 안내가 아니라 고지다');
+
+  // 🔴 **`description`과 `note`를 한 배너에 같이 주면 안 된다.** 설명이 360px를
+  // 가져가면 제목 열이 658px로 좁아져 고지가 두 줄이 되고, 위 56px 예산이
+  // 무너져 배너가 h=101이 된다(실측). 호출부 전수 검사 — 소스에 새 배너가
+  // 늘어도 자동으로 걸린다.
+  const jsxFiles = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const full = resolve(dir, e.name);
+    return e.isDirectory() ? jsxFiles(full) : (e.name.endsWith('.jsx') ? [full] : []);
+  });
+  for (const file of jsxFiles(resolve(root, 'src'))) {
+    const src = readFileSync(file, 'utf8');
+    for (const call of src.match(/<HeroBanner[\s\S]*?\/>/g) ?? []) {
+      if (!/\bnote=/.test(call)) continue;
+      ok(
+        !/\bdescription=/.test(call),
+        `${file.slice(root.length + 1)}: 배너가 description과 note를 같이 쓰지 않는다 — 둘 다 주면 고지가 두 줄이 되어 h=90이 깨진다`,
+      );
+    }
+  }
 }
 
 // ── ⑤ 시각 라벨이 실서버 형식을 읽는가 (2026-08-10 실기동 회귀) ─────────────
