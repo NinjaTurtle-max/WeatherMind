@@ -33,6 +33,10 @@ from app.services import session_service
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MOCK_PATH = REPO_ROOT / "frontend" / "mock" / "apiMockPlugin.js"
 SESSION_ROUTER = REPO_ROOT / "backend" / "app" / "routers" / "session.py"
+AUTH_ROUTER = REPO_ROOT / "backend" / "app" / "routers" / "auth.py"
+WEATHERBRAIN_SERVICE = (
+    REPO_ROOT / "backend" / "app" / "services" / "weatherbrain_service.py"
+)
 
 NODE = shutil.which("node")
 needs_node = pytest.mark.skipif(
@@ -73,6 +77,11 @@ def mock_src() -> str:
     return MOCK_PATH.read_text(encoding="utf-8")
 
 
+@pytest.fixture(scope="module")
+def auth_src() -> str:
+    return AUTH_ROUTER.read_text(encoding="utf-8")
+
+
 def _fn_body_of(src: str, name: str) -> str:
     """`function <name>() {` 부터 열 0의 `}` 까지 — **코드부만** 돌려준다.
 
@@ -86,6 +95,117 @@ def _fn_body_of(src: str, name: str) -> str:
     no_block = re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S)
     return "\n".join(
         line for line in no_block.splitlines() if not line.lstrip().startswith("//")
+    )
+
+
+def _strip_js_comments(body: str) -> str:
+    """`_fn_body_of`와 **같은 이유**로 주석을 걷는다(그 독스트링이 경위를 소유한다)."""
+    no_block = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
+    return "\n".join(
+        line for line in no_block.splitlines() if not line.lstrip().startswith("//")
+    )
+
+
+def _route_body_of(src: str, route: str) -> str:
+    """목 `routes` 표의 한 핸들러 몸통 — **코드부만** 돌려준다.
+
+    `_fn_body_of`가 `function name()` 선언만 찾으므로 화살표 핸들러
+    (`'PATCH /auth/me': (body) => { … }`)는 그 정규식으로 잡히지 않는다.
+    중괄호를 세어 끝을 찾는다 — 문자열 안 중괄호에 속을 수 있으나, 이 핸들러들은
+    한글 문구를 큰따옴표 없이 담고 중괄호를 문자열에 넣지 않는다(넣게 되면 이
+    헬퍼가 먼저 터지므로 조용히 틀리지는 않는다).
+
+    🔴 **주석을 반드시 걷는다.** 이 계약이 무는 핸들러 주석에는 재파종 규칙과
+    함수 이름이 그대로 인용돼 있어서, 걷지 않으면 **설명이 곧 구현**으로 읽힌다
+    (이 저장소가 `grant_crown=False`에서 실제로 속은 형태).
+    """
+    head = re.search(rf"['\"]{re.escape(route)}['\"]\s*:\s*\([^)]*\)\s*=>\s*\{{", src)
+    assert head, f"목 routes에서 `{route}` 핸들러를 못 찾았다 — 모양이 바뀌었나"
+    depth, i = 0, head.end() - 1
+    for i in range(head.end() - 1, len(src)):
+        if src[i] == "{":
+            depth += 1
+        elif src[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+    return _strip_js_comments(src[head.end() : i])
+
+
+def _py_fn_body(src: str, name: str) -> str:
+    """파이썬 함수 몸통 — **독스트링과 `#` 주석을 걷은** 코드부만.
+
+    JS 쪽과 같은 이유다: 서버 `update_me`의 독스트링에는 판정 문언이 인용될
+    것이므로, 걷지 않으면 「설명이 곧 구현」이 된다.
+    """
+    m = re.search(
+        rf"^(?:async )?def {re.escape(name)}\(.*?(?=\n@|\n(?:async )?def |\Z)",
+        src,
+        re.S | re.M,
+    )
+    assert m, f"서버에서 {name}를 못 찾았다 — 이름이 바뀌었나(이 계약을 갱신할 것)"
+    no_doc = re.sub(r'"""(?:.|\n)*?"""', "", m.group(0))
+    return "\n".join(
+        line.split("#")[0] for line in no_doc.splitlines()
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 학령 재신고 θ 재파종 표본의 **갈래 밟기** — 모듈 수준 헬퍼 (2026-08-20)
+# ═══════════════════════════════════════════════════════════════
+#
+# 🔴 위 `_assert_samples_tread_branches`와 **같은 이유로 밖에 있다**: 역검증이
+# 「표본에서 갈림 표본을 빼면 이 단정이 우는가」를 **목 파일을 임시 편집하지 않고**
+# 확인할 수 있어야 한다(공유 워크트리 — 남의 측정을 거짓으로 만들지 않는다).
+#
+# 왜 필요한가: 재파종은 **답이 같아 보이기 쉬운** 규칙이다. 목이 「전건 갈아타기」로
+# 잘못 구현돼 있어도, 표본의 측정된 행 θ가 마침 목표 사전값 근처면 답이 안 갈린다 —
+# 2026-08-20에 `palette` 갈래가 정확히 그렇게 공허하게 초록이었다.
+def _assert_reseed_samples_tread_branches(
+    samples: list, priors: dict, default_b: float
+) -> None:
+    assert samples, "목이 재파종 표본(`reseed_samples`)을 안 내보낸다"
+
+    def target(case):
+        return priors.get(case["to"], default_b)
+
+    # ⑴ **측정된 행이 목표 사전값과 멀리 있어야** 「전건 덮기」 결함이 답을 바꾼다.
+    guarded = [
+        r
+        for s in samples
+        for r in s["rows"]
+        if r["num_responses"] > 0 and abs(float(r["theta"]) - target(s)) > 0.5
+    ]
+    assert guarded, (
+        "표본에 **측정된 행(n>0)이 목표 사전값과 뚜렷이 다른** 경우가 없다 — "
+        "그러면 재파종이 측정분까지 덮어도 답이 안 갈려 이 계약이 공허하게 초록이다"
+    )
+    # ⑵ **미측정 행이 목표 사전값과 달라야** 「재파종을 아예 안 한다」가 답을 바꾼다.
+    moved = [
+        r
+        for s in samples
+        for r in s["rows"]
+        if r["num_responses"] == 0 and abs(float(r["theta"]) - target(s)) > 0.5
+    ]
+    assert moved, (
+        "표본에 **미측정 행(n=0)이 목표 사전값과 뚜렷이 다른** 경우가 없다 — "
+        "그러면 재파종을 안 해도 답이 같아 「천장이 움직인다」가 검사되지 않는다"
+    )
+    # ⑶ **n=1 경계** — 가드를 `n > 1`로 잘못 쓰면 여기서만 갈린다.
+    assert any(r["num_responses"] == 1 for s in samples for r in s["rows"]), (
+        "표본에 `num_responses == 1`인 행이 없다 — 「측정됐다」의 경계라, 이 갈래를 "
+        "안 밟으면 가드가 한 칸 밀려도(n>1) 조용히 통과한다"
+    )
+    # ⑷ **사전표에 없는 밴드** — 기본값 폴백 갈래.
+    assert any(s["to"] not in priors for s in samples), (
+        "표본이 **알 수 없는 밴드** 갈래를 안 밟는다 — `?? DEFAULT_ITEM_B` 폴백이 "
+        "갈려도 아무도 안 운다"
+    )
+    # ⑸ 목표 사전값이 **서로 다른 밴드 둘 이상** — 한 밴드만 밟으면 목이 표를
+    #    안 읽고 상수를 돌려줘도 통과한다.
+    assert len({target(s) for s in samples}) >= 2, (
+        "표본의 목표 사전값이 한 종류뿐이다 — 목이 밴드 표를 읽지 않고 상수를 "
+        "심어도 답이 같다"
     )
 
 

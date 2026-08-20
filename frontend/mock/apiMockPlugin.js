@@ -571,6 +571,80 @@ const seedAbilities = (levelGroup) =>
   );
 let devAbilities = seedAbilities(mockAuth.levelGroup);
 
+/**
+ * 🔴 **학령 재신고(`PATCH /auth/me`)의 θ 재파종 규칙** — 서버 `update_me`의 사본이다
+ * (2026-08-20 재파종 판정).
+ *
+ * 규칙은 **한 줄**이다: **미측정 개념(`num_responses === 0`)의 θ만** 새 학령의 사전
+ * b로 갈아탄다. **측정된 행(`num_responses > 0`)은 안 건드린다** — 그 θ는 사람이
+ * 실제로 푼 결과라, 학령을 다시 적었다고 지워지면 진도가 증발한다.
+ *
+ * ⚠️ **이 자리는 종전에 「아무것도 안 한다」였고 그 기술이 낡았다.** 경위를 남긴다
+ * (지우면 그 값을 근거로 쓴 판단이 그대로 살아남는다 — CLAUDE.md §0-5):
+ *   · 종전 목·서버 모두 재신고에서 θ를 안 건드렸고, 그래서 **천장이 안 움직였다.**
+ *     그 귀결로 잠금 배너의 「학습 수준 바꾸기」 CTA가 아무것도 열지 못했고,
+ *     스모크 ③-a가 *「밴드만 바꾸면 천장은 그대로」*를 **계약으로 못박고 있었다.**
+ *   · 이제 재신고는 **미측정분에 한해** 천장을 움직인다. 그래서 갓 만든 계정
+ *     (전건 n=0)은 재신고 즉시 더 열리고, 이미 푼 계정은 그대로다.
+ *
+ * ⚠️ **「전건 갈아타기」로 되돌리지 말 것.** 대표 θ는 n 가중 평균이라(서버
+ * `overall_theta`) 측정된 행 하나가 있으면 그 행이 대표 θ를 **혼자** 정한다 —
+ * 즉 측정분까지 덮으면 **한 번 푼 사람의 천장이 재신고로 무너진다.** 그 갈래를
+ * `test_r13_mock_policy_parity`(규칙 대조)와 board-entry 스모크(행동)가 문다.
+ *
+ * ⚠️ **순수 함수로 둔다** — 목 상태(`devAbilities`)를 읽지 않고 행 배열만 받는다.
+ * 그래야 `__mockPolicy().reseed_samples`로 **규칙째** 내보내 서버가 직접 재게 할 수
+ * 있다(표만 맞고 규칙이 갈렸던 palette 갈래의 재발 방지 — §5 관례).
+ */
+const reseedUnmeasuredAbilities = (rows, levelGroup) =>
+  rows.map((r) =>
+    r.num_responses === 0
+      ? { ...r, theta: LEVEL_GROUP_ITEM_B[levelGroup] ?? DEFAULT_ITEM_B }
+      : r,
+  );
+
+/** 위 규칙을 목의 실제 저장소에 적용한다 — 규칙의 소유자는 위 순수 함수 하나다. */
+function applyReseedUnmeasured(levelGroup) {
+  const rows = [...devAbilities.entries()].map(([concept_tag, a]) => ({
+    concept_tag,
+    theta: a.theta,
+    num_responses: a.num_responses,
+  }));
+  devAbilities = new Map(
+    reseedUnmeasuredAbilities(rows, levelGroup).map((r) => [
+      r.concept_tag,
+      { theta: r.theta, num_responses: r.num_responses },
+    ]),
+  );
+}
+
+/**
+ * `__mockPolicy().reseed_samples`의 입력 — **갈리면 답이 실제로 달라지는** 표본이라야
+ * 한다(2026-08-20에 「값은 같은데 규칙이 갈렸다」를 세 번 밟았다).
+ *   · 측정된 행의 θ는 목표 밴드의 사전 b와 **멀리** 둔다 — 가까우면 「전건 덮기」
+ *     결함이 답을 안 바꿔 계약이 공허하게 초록이다.
+ *   · 미측정 행의 θ도 목표 사전 b와 다르게 둔다 — 같으면 「재파종 안 함」이 안 걸린다.
+ *   · 알 수 없는 밴드 갈래(사전표에 없는 키 → DEFAULT_ITEM_B)도 한 건 밟는다.
+ */
+const RESEED_SAMPLES = [
+  { to: 'elementary', rows: [
+    { concept_tag: 'air_mass', theta: 2.4, num_responses: 7 },   // 측정 — 보호 대상
+    { concept_tag: 'typhoon', theta: 0.0, num_responses: 0 },    // 미측정 — 갈아탄다
+  ] },
+  { to: 'expert', rows: [
+    { concept_tag: 'air_mass', theta: -1.2, num_responses: 1 },  // n=1도 측정이다
+    { concept_tag: 'typhoon', theta: -1.0, num_responses: 0 },
+  ] },
+  { to: 'adult', rows: [
+    { concept_tag: 'air_mass', theta: -0.7, num_responses: 0 },
+    { concept_tag: 'typhoon', theta: -0.7, num_responses: 0 },
+  ] },
+  { to: '알-수-없는-밴드', rows: [
+    { concept_tag: 'air_mass', theta: 2.2, num_responses: 3 },
+    { concept_tag: 'typhoon', theta: 2.2, num_responses: 0 },    // → DEFAULT_ITEM_B
+  ] },
+];
+
 const abilitySE = (n) => Number((1 / Math.sqrt(n + 1)).toFixed(2));
 const abilityRows = () =>
   [...devAbilities.entries()].map(([concept_tag, { theta, num_responses }]) => ({
@@ -1958,9 +2032,12 @@ const BOARD_TIERS = Array.from({ length: BOARD_TIER_MAX }, (_, i) => i + 1);
  *   · 뒤 문장 — 열쇠는 이제 `level_group`이 **아니다.** 천장의 소유자는
  *     `learnerTier()`(θ 파생 학습자 단계)이고, 서버도 그렇다. 밴드는 그 θ의
  *     **초기값**이 오는 자리로 물러났다(`seedAbilities`).
- * ⚠️ 그래서 **PATCH /auth/me만으로는 천장이 안 움직인다** — 서버 `update_me`도
- *    `seed_placement`를 부르지 않으므로 그쪽이 참값이다. 스모크는 θ를 움직여
- *    (`POST /dev/theta`) 그 왕복을 본다.
+ * ⚠️ **「PATCH /auth/me만으로는 천장이 안 움직인다」고 적혀 있었고 그 기술이
+ *    낡았다**(2026-08-20 재파종 판정). 재신고는 **미측정 개념의 θ만** 새 학령
+ *    사전값으로 갈아타므로(`reseedUnmeasuredAbilities`), **전건 미측정인 계정에서는
+ *    재신고만으로 천장이 실제로 움직인다.** 반대로 이미 푼 계정은 대표 θ가 n
+ *    가중이라 측정된 행이 천장을 계속 정한다 — 그래서 「움직인다/안 움직인다」가
+ *    아니라 **「무엇이 움직이는가」**가 규칙이다.
  */
 function lockedBoardTiers() {
   // ⚠️ **미상 천장은 잠그지 않는다**(서버 `locked_tiers(None) == set()`와 같다) —
@@ -2564,14 +2641,13 @@ const routes = {
       return [422, { detail: '알 수 없는 학습 수준입니다.', code: 'VALIDATION_ERROR' }];
     }
     mockAuth.levelGroup = body.level_group;
-    // 🔴 ⚠️ **여기서 θ를 다시 심지 않는다 — 서버가 안 하기 때문이다.**
-    //    서버 `update_me`는 `level_group`·신고 도장만 갱신하고 `seed_placement`를
-    //    부르지 않는다(위 주석의 *"θ·XP·진도는 보존된다"*가 그 사실이다).
-    //    ⇒ **학습 수준만 바꿔도 보드 천장은 움직이지 않는다**(천장의 소유자가
-    //    학습자 단계로 옮겨 갔으므로 — 판정 A). 목을 서버보다 느슨하게 만들면
-    //    목에서 열리던 퍼즐이 실서버에서 403이 된다(CO-J-9의 그 모양).
-    //    ⚠️ 그 귀결로 **잠금 배너의 「학습 수준 바꾸기」 CTA는 실서버에서 아무것도
-    //    열지 못한다** — 문구 소유 밖(BoardPage의 이동 대상)이라 보고했다.
+    // 🔴 **미측정 θ만 재파종한다**(2026-08-20 재파종 판정). 규칙의 소유자는
+    //    `reseedUnmeasuredAbilities` 하나이고 경위는 그 선언부가 갖는다.
+    //    ⚠️ **종전 기술은 「여기서 θ를 다시 심지 않는다 — 서버가 안 하기 때문이다」
+    //    였고 낡았다.** 그때는 학령을 바꿔도 천장이 안 움직였고, 그 귀결로 잠금
+    //    배너의 「학습 수준 바꾸기」 CTA가 아무것도 열지 못했다. 이제 갓 만든 계정
+    //    (전건 n=0)은 재신고 즉시 천장이 움직인다 — 측정된 행은 그대로다.
+    applyReseedUnmeasured(body.level_group);
     return [200, meResponse()];
   },
 
@@ -3670,6 +3746,16 @@ export const __mockPolicy = () => ({
   //    함수를 아예 못 찾는다(그 함수 선언부 주석이 경위를 소유한다). 그래서 판정 2의
   //    두 갈래는 **소스 계약**으로 물렸고(`test_층이_미상인_퍼즐은_열리되_줄에_서지_않는다`),
   //    행동 대조는 그 정규식이 인자를 받게 넓혀질 때 이 자리에 붙인다.
+  // 🔴 **학령 재신고의 θ 재파종 규칙**(server routers/auth.update_me — 2026-08-20).
+  //    표가 아니라 **규칙**을 내보낸다: 목의 순수 함수에 표본을 실제로 통과시킨
+  //    결과를 싣고, 서버는 자기 사전표로 같은 답이 나오는지 직접 잰다.
+  //    ⚠️ 사전 b 값을 여기 리터럴로 적지 않는다 — `level_group_item_b`가 이미
+  //    같은 파일에서 대조되고 있고, 값을 두 번 적으면 계약이 자기 사본을 본다.
+  reseed_samples: RESEED_SAMPLES.map(({ to, rows }) => ({
+    to,
+    rows,
+    out: reseedUnmeasuredAbilities(rows, to),
+  })),
   duel_win_xp: MOCK_DUEL_WIN_XP, // server duel_service.DUEL_WIN_XP
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
   guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN

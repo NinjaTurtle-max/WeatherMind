@@ -251,9 +251,30 @@ async def learner_tier(db: AsyncSession, user: User) -> int | None:
     ⚠️ 계약은 **값(2·4·6·9 같은 숫자)을 박지 않는다** — 그것은 `seed_placement`
     사전값의 파생이라 사전값이 바뀌면 헛운다. 무는 것은 **이음매**다.
 
-    지금 규칙(2026-08-20 판정 1 집행 후):
-      ① `weatherbrain_service.overall_knowledge_level` — θ 파생.
-      ② θ 행이 아예 없으면 `None` → **잠그지 않는다**(`locked_tiers(None) == set()`).
+    🔴 **폴백 사다리 — 순서가 계약이다**(2026-08-20 판정 1 집행 후). 칸은 둘뿐이고
+    아래로 갈수록 근거가 약하다. **중간에 다른 칸을 끼우지 않는다** — 끼우면 그것이
+    곧 「천장의 출처가 둘」이고, 그 상태를 판정 1이 걷어냈다.
+      ① `weatherbrain_service.overall_knowledge_level` — θ 파생. **값이 나오면 그
+         값이 그대로 천장이다**(가공·클램프 없음. 여기서 손을 대면 사다리의 뜻이
+         「θ 파생」이 아니라 「θ에서 시작한 무엇」이 된다).
+      ② θ 행이 아예 없으면 `None` = **근거가 하나도 없다** → **아무것도 잠그지
+         않고 전부 연다.** 두 짝이 함께 있어야 성립한다:
+           · 층 잠금 — `locked_tiers(None) == set()`(잠기는 층 0)
+           · 열림 — `unassessed_ids(items, None)` = 전건(순차 커서도 안 세운다)
+         ⚠️ 후자가 없으면 **아무것도 안 잠겼는데 아무것도 안 열린** 상태가 된다
+         (`unassessed_ids` 독스트링의 실측 결함). 「못 여는 것이 열리는 것보다
+         나쁘다」는 두 축 **양쪽**에서 지켜야 참이다.
+
+    🔴 ⚠️ **밴드는 천장의 「규칙」이 아니라 θ **초기값의 출처**다 — 이 구분이 판정 1의
+    핵심이다.** 밴드가 천장 계산에 안 들어간다는 것이 「밴드가 아무 영향도 없다」는
+    뜻은 아니다: 학령을 신고하면 `placement_service`의 사전 θ 배정(`seed_placement`)이
+    그 밴드로 θ를 심고, 그 θ가 ①을 타고 천장이 된다. 지금 다른 담당이 배선 중인
+    「학령 재신고 → 미측정 개념의 사전 θ 재파종」도 같은 형태다 — **밴드는 ① 위쪽
+    상류에서 θ에 들어오고, 이 함수 안으로는 들어오지 않는다.**
+    ⇒ 그래서 여기서 `user.level_group`을 읽는 것은 언제나 틀렸다(그 값은 이미 θ에
+    반영돼 있고, 다시 읽으면 **같은 신호를 두 번** 세는 데다 사다리가 둘이 된다).
+    계약 `test_천장_계산이_학령_밴드를_읽지_않는다`·`test_천장의_입력은_θ_경로뿐이다`가
+    그 금지를 문다.
 
     🔴 **철거 경위 — 밴드 폴백을 뺐다.** 종전 ②는 *"θ 행이 없으면
     `knowledge_level_of_level_group(user.level_group)`"*이었고, 그래서 천장의 출처가
@@ -457,6 +478,42 @@ def tierless_ids(items: list) -> set:
     return {item.id for item in items if board_tier(item) is None}
 
 
+def unassessed_ids(items: list, ceiling: int | None) -> set:
+    """**천장이 미상일 때(θ 근거 0건) 전건 열림** — 사다리 ②의 열림 쪽 짝.
+
+    🔴 **2026-08-20 실측으로 드러난 결함**(이 함수가 그 수리다). `learner_tier`가
+    `None`을 낼 때 `locked_tiers(None) == set()`이라 **아무 층도 안 잠기는데**,
+    열림 합성의 세 갈래가 전부 정수 천장을 요구해서 열린 집합이 **층 미상 퍼즐만**
+    남았다:
+      · `ceiling_tier(items, None) -> []`(자기 층이 정의되지 않는다)
+      · `below_ceiling_ids(items, None) -> set()`(아무것도 「아래」가 아니다)
+      · `tierless_ids` — 층이 미상인 퍼즐만
+    ⇒ θ 행이 없는 유저는 `locked=False`인데 `unlocked=False`라 목록에 자물쇠도 안
+    뜨면서 진입·채점이 전건 **403 BOARD_LOCKED**였다. **판정 2가 퍼즐 하나에서
+    고친 유령 칸이 보드 전체 규모로 남아 있던 것**이다(실측: 층 있는 9건 중 열린
+    것 0건).
+
+    ⚠️ **이 결함은 결함 ⑨의 부산물**이다 — 종전 합성은 `sequenceable`(천장 이하
+    전부, 천장 미상이면 `locked`가 비어 **전건 통과**) 위에서 순차를 셌으므로 천장
+    미상에서도 앞 칸이 열렸다. 결함 ⑨ 수리가 순차의 셀 대상을 `ceiling_tier`(자기
+    층만)로 좁히면서 그 통로가 막혔다. 수리가 다른 갈래를 막는 형태라 **경위를
+    남긴다** — 되돌릴 때 둘을 함께 봐야 한다.
+
+    ⚠️ **왜 「순차 폴백」이 아니라 「전건 열림」인가**: 「못 여는 것이 열리는 것보다
+    나쁘다」가 이 축의 지배 원칙이고(`locked_tiers`·`tierless_ids` 독스트링이 같은
+    관례를 인용한다), 근거가 **하나도 없을 때** 순서를 세우면 그 순서는 아무 근거
+    없이 만든 벽이다. 층 미상 **퍼즐**을 「열리되 줄에 서지 않는다」로 두는 것과
+    같은 형태를 천장 미상 **학습자**에게 적용한 것이다.
+
+    ⚠️ 실측(2026-08-20): `seed_placement`가 가입·게스트 발급 양쪽에서 θ 행을 심으므로
+    (`routers/auth.py`) 정상 유저는 이 갈래를 **밟지 않는다** — 시드로는 영원히 실행
+    되지 않는 분기라 계약은 **픽스처로 밟는다**(`tierless_ids`와 같은 이유).
+    """
+    if ceiling is not None:
+        return set()
+    return {item.id for item in items}
+
+
 def ceiling_tier(items: list, ceiling: int | None) -> list:
     """순차가 **셀 대상** — 학습자의 **천장 난이도** 퍼즐만.
 
@@ -534,8 +591,10 @@ async def _unlocked_ids_for(db: AsyncSession, user: User, cleared: set) -> set:
     # 순차(내 층에서 어디까지) **OR** 천장 아래 인정(내 층 아래는 이미 지났다) — 결함 ⑨.
     # 🔴 천장의 출처가 학령에서 **지식 단계**로 갈아탔다(2026-08-20) — 조회는 여기서
     # 한 번만 하고, 규칙 함수 셋은 정수만 받아 순수 함수로 남는다.
-    # 🔴 세 갈래 OR (2026-08-20 판정 2로 하나 늘었다): 순차(내 층에서 어디까지) ·
-    # 천장 아래 인정(내 층 아래는 이미 지났다) · **층 미상은 무조건 열림**.
+    # 🔴 네 갈래 OR (판정 2로 셋, 2026-08-20 천장 미상 수리로 넷): 순차(내 층에서
+    # 어디까지) · 천장 아래 인정(내 층 아래는 이미 지났다) · **층 미상은 무조건 열림** ·
+    # **천장 미상(θ 근거 0건)이면 전건 열림**. 넷째가 없으면 θ 행이 없는 유저에게
+    # 앞 셋이 전부 빈 집합을 내서 보드가 통째로 403이 된다(`unassessed_ids` 독스트링).
     ceiling = await learner_tier(db, user)
     return (
         compute_unlocked_ids(
@@ -543,6 +602,7 @@ async def _unlocked_ids_for(db: AsyncSession, user: User, cleared: set) -> set:
         )
         | below_ceiling_ids(items, ceiling)
         | tierless_ids(items)
+        | unassessed_ids(items, ceiling)
     )
 
 
@@ -670,10 +730,14 @@ async def list_puzzles(
     # 순차는 「내 층에서 어디까지 왔나」를, 인정은 「내 층 아래는 이미 지났다」를 말한다.
     # 🔴 판정 2: **층 미상은 무조건 열림**(`tierless_ids`) — 종전에는 열린 집합에
     # 들어갈 통로가 없어 `locked=False`인데 `unlocked=False`인 유령 칸이 됐다.
+    # 🔴 2026-08-20: **천장 미상이면 전건 열림**(`unassessed_ids`) — 같은 유령 칸이
+    # θ 행 없는 유저에게 **보드 전체 규모**로 남아 있었다(앞 세 갈래가 전부 정수
+    # 천장을 요구한다). 목록·단건이 **같은 네 갈래**를 쓰는 것이 계약이다.
     unlocked = (
         compute_unlocked_ids(ceiling_tier(items, ceiling), cleared)
         | below_ceiling_ids(items, ceiling)
         | tierless_ids(items)
+        | unassessed_ids(items, ceiling)
     )
     return [
         BoardPuzzle(

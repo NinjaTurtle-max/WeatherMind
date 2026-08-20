@@ -1082,11 +1082,15 @@ def _mixed_course():
 
 
 def _open_ids(items, ceiling, cleared=frozenset()):
-    """라우터의 열림 판정을 그대로 합성한다 — 세 갈래 OR.
+    """라우터의 열림 판정을 그대로 합성한다 — **네 갈래 OR**.
 
     ⚠️ 프로덕션 식을 베끼는 것이라 **동어반복 위험**이 있다. 그래서 이 절은 합성값만
-    보지 않고 ⑴ 세 함수 각각의 성질과 ⑵ 라우터가 정말 세 갈래를 OR로 합치는지
+    보지 않고 ⑴ 네 함수 각각의 성질과 ⑵ 라우터가 정말 네 갈래를 OR로 합치는지
     (소스 가드)를 **따로** 문다.
+
+    🔴 2026-08-20: 갈래가 셋에서 **넷**이 됐다(`unassessed_ids` — 천장 미상이면 전건
+    열림). 이 거울을 안 고치면 아래 계약들이 **라우터가 실제로 여는 것보다 적게**
+    보면서 초록이 된다.
     """
     return (
         board_router.compute_unlocked_ids(
@@ -1094,6 +1098,7 @@ def _open_ids(items, ceiling, cleared=frozenset()):
         )
         | board_router.below_ceiling_ids(items, ceiling)
         | board_router.tierless_ids(items)
+        | board_router.unassessed_ids(items, ceiling)
     )
 
 
@@ -1211,3 +1216,352 @@ class TestTierlessPuzzles:
         assert re.search(r"if (\w+) is not None and \1 in locked", block), (
             f"{func}: 잠금 판정 앞에 「층 미상은 열림」 명시 분기가 없다"
         )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 🔴 폴백 사다리 — 「못 여는 것이 열리는 것보다 나쁘다」를 **명시 계약**으로
+#    (2026-08-20 PM 지시)
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# 무는 것 넷:
+#   ① **사다리의 순서** — θ 있음 → 그 값이 **그대로** 천장. θ 없음 → `None`.
+#      칸이 둘뿐이고 중간에 밴드가 끼지 않는다(판정 A).
+#   ② **천장이 실력을 따라 움직인다** — θ가 오르면 천장이 오르고, 그 결과 **실제로
+#      더 많은 퍼즐이 열린다**(`locked`·`unlocked` 양쪽).
+#   ③ **아무 근거도 없으면 잠그지 않는다** — 천장 `None` → 잠기는 층 0 **그리고**
+#      열린 퍼즐 전건. 두 축 **양쪽**을 봐야 참이다.
+#   ④ 위 셋이 **실제 라우터 경로에 연결돼 있다**(순수 함수 계약의 사각 — 소스 가드).
+#
+# 🔴 **안 무는 것: 값**(2·4·6·9 같은 숫자). θ→단계 사다리의 숫자는 `seed_placement`
+# 사전값의 파생이라 사전값이 바뀌면 **헛울고 되돌리게 된다.** 무는 것은 **성질**이다:
+# 사다리의 통과성(identity) · 단조성 · 열림 집합의 **포함 관계**.
+#
+# 🔴 **③은 실측으로 거짓이었다**(2026-08-20 — 이 절이 그 수리의 증인이다).
+# `locked_tiers(None) == set()`이라 **아무 층도 안 잠기는데**, 열림 합성의 세 갈래가
+# 전부 정수 천장을 요구해서 θ 행 없는 유저의 열린 퍼즐이 **층 미상 건뿐**이었다
+# (실측: 층 있는 9건 중 0건). `locked=False`인데 `unlocked=False`라 자물쇠도 안 뜨고
+# 진입·채점은 전건 403 — **판정 2가 퍼즐 하나에서 고친 유령 칸의 보드 전체 판**이다.
+# 수리는 `unassessed_ids`이고, 그 함수 독스트링이 경위(결함 ⑨의 부산물)를 소유한다.
+
+
+def _ladder_course(per_tier: int = 5):
+    """**전 층에 표본이 있는 코스** + 층 미상 2건(속성 부재 · 값 None).
+
+    ⚠️ 층마다 `BOARD_UNLOCK_LOOKAHEAD + 1`보다 **많이** 둔다 — 그래야 「자기 층은
+    순차」가 실제로 일부만 열고, 천장이 한 칸 오를 때 열림이 **정말 늘어난다**.
+    같지 않으면 단조성 단정이 「어차피 다 열려서」 참이 되어 공허해진다.
+    """
+    assert per_tier > board_router.BOARD_UNLOCK_LOOKAHEAD + 1, (
+        "층마다 순차가 남기는 칸이 없으면 단조성 계약이 공허해진다"
+    )
+    course = []
+    order = 0
+    for tier in range(1, KNOWLEDGE_LEVEL_MAX + 1):
+        for _ in range(per_tier):
+            course.append(_graded_item(order, tier))
+            order += 1
+    course.append(_tierless(order))
+    course.append(_graded_item(order + 1, None))
+    return course
+
+
+def test_표본이_전_층과_미상_갈래를_모두_밟는다():
+    """🔴 **이 절 전체의 전제** — 픽스처가 갈래를 정말 밟는가(AC 4).
+
+    시드로는 밟을 수 없는 갈래가 둘이다: ⑴ 층 미상 퍼즐(시드 board 64건 전건 정수 —
+    2026-08-20 실측) ⑵ 천장 미상 학습자(`seed_placement`가 가입·게스트 발급 양쪽에서
+    θ를 심는다). 픽스처가 그 둘을 밟지 않으면 아래 계약이 **「입력이 갈래를 안
+    밟아서 초록」**이 된다.
+    """
+    course = _ladder_course()
+    tiers = {board_router.board_tier(i) for i in course}
+    assert tiers >= set(range(1, KNOWLEDGE_LEVEL_MAX + 1)), (
+        f"표본이 밟지 않은 층이 있다: {sorted(set(range(1, KNOWLEDGE_LEVEL_MAX + 1)) - tiers)}"
+    )
+    assert None in tiers, "표본에 층 미상 갈래가 없다"
+    tierless = [i for i in course if board_router.board_tier(i) is None]
+    assert not hasattr(tierless[0], "knowledge_level")
+    assert getattr(tierless[1], "knowledge_level", "missing") is None
+    # 층마다 순차가 **남기는 칸**이 있어야 천장 상승이 열림을 늘린다.
+    for tier in range(1, KNOWLEDGE_LEVEL_MAX + 1):
+        same = board_router.ceiling_tier(course, tier)
+        assert len(same) > len(board_router.compute_unlocked_ids(same, set())), (
+            f"{tier}층이 순차로 전건 열린다 — 천장 상승분이 안 보인다"
+        )
+
+
+# ── ① 사다리의 순서 ──────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("tier", list(range(1, KNOWLEDGE_LEVEL_MAX + 1)))
+@pytest.mark.parametrize("band", ["elementary", "expert", None])
+def test_θ가_있으면_그_값이_그대로_천장이다(tier, band, monkeypatch):
+    """🔴 **사다리 ①** — θ 경로가 값을 내면 **가공 없이** 그것이 천장이다.
+
+    ⚠️ **값을 박지 않는다.** 특정 학습자가 몇 층인지는 `seed_placement` 사전값의
+    파생이라 여기서 물면 헛운다. 무는 것은 **통과성**(identity)이다: 입력으로 준
+    값이 그대로 나오는가. 정의역 전건(1~MAX)을 표본으로 돌려 「어떤 층에서는
+    클램프된다」류의 가공이 끼어들면 그 층에서 운다.
+
+    ⚠️ **밴드를 함께 흔드는 이유**: `band=None` 하나만 보면 「사다리 ②가 falsy라서
+    안 탔다」와 구별이 안 된다. **truthy 밴드에서도 θ 값 그대로**여야 ①이 ②보다
+    먼저라는 것이 참이 된다(판정 A — 밴드는 천장 계산에 안 들어간다).
+    """
+    called = []
+
+    async def _theta(db, user):
+        called.append(user)
+        return tier
+
+    monkeypatch.setattr(weatherbrain_service, "overall_knowledge_level", _theta)
+    user = SimpleNamespace(id=uuid.uuid4(), level_group=band)
+    ceiling = asyncio.run(board_router.learner_tier(_NoDB(), user))
+    # 🔴 갈래를 정말 밟았다는 증명 — 패치가 안 걸렸으면 아래 단정이 무엇을 보는지
+    # 알 수 없다(_NoDB가 DB 우회를 따로 막지만, 「불렸다」는 여기서 못박는다).
+    assert called == [user], (
+        f"θ 경로가 {len(called)}번 불렸다 — 천장이 θ에서 오지 않았거나 "
+        "monkeypatch가 이 경로에 안 걸렸다"
+    )
+    assert ceiling == tier, (
+        f"θ 경로가 {tier}를 냈는데 천장이 {ceiling}이다 — 사다리 ①과 천장 사이에 "
+        "가공(클램프·밴드 보정 등)이 끼었다"
+    )
+
+
+def test_사다리는_두_칸뿐이고_중간이_없다(monkeypatch):
+    """**판별 단정** — θ가 「값 아님」을 내면 곧장 ②(`None`)로 간다.
+
+    중간 칸(밴드 폴백 같은 것)이 들어오면 여기서 정수가 나온다. 위
+    `test_θ가_없으면_밴드가_있어도_잠기지_않는다`가 `None` 하나를 보는 데 비해,
+    이쪽은 **정수가 아닌 값 전반**을 봐서 「타입만 맞으면 통과시키는 새 칸」도 잡는다.
+    """
+    for bad in (None, "3", 3.7):
+        async def _theta(db, user, _bad=bad):
+            return _bad
+
+        monkeypatch.setattr(weatherbrain_service, "overall_knowledge_level", _theta)
+        user = SimpleNamespace(id=uuid.uuid4(), level_group="expert")
+        ceiling = asyncio.run(board_router.learner_tier(_NoDB(), user))
+        assert ceiling is None, (
+            f"θ 경로가 {bad!r}를 냈는데 천장이 {ceiling}이다 — 사다리에 칸이 늘었거나 "
+            "정수가 아닌 값이 천장으로 샜다"
+        )
+
+
+# ── ② 천장이 실력을 따라 움직인다 ────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("ceiling", list(range(1, KNOWLEDGE_LEVEL_MAX)))
+def test_천장이_오르면_잠기는_층이_줄어든다(ceiling):
+    """단조성(잠금 축) — 천장이 한 칸 오르면 잠기는 층이 **진부분집합**이 된다.
+
+    ⚠️ 「같거나 줄어든다」가 아니라 **진짜 줄어든다**를 문다. 등호를 허용하면
+    「천장이 올라도 아무것도 안 바뀌는」 구현이 통과한다 — 그것이 결함 ⑧·⑨의 형태다
+    (수준이 「열 수 있는 최대치」만 정하고 실제로는 아무것도 안 열리던 것).
+    """
+    higher, lower = locked_tiers(ceiling), locked_tiers(ceiling + 1)
+    assert lower < higher, (
+        f"천장 {ceiling}→{ceiling + 1}인데 잠긴 층이 {sorted(higher)}→{sorted(lower)}"
+    )
+
+
+@pytest.mark.parametrize("ceiling", list(range(1, KNOWLEDGE_LEVEL_MAX)))
+def test_천장이_오르면_열린_퍼즐이_는다(ceiling):
+    """단조성(열림 축) — **열림 집합의 포함 관계**를 문다.
+
+    잠긴 층이 줄어드는 것만으로는 부족하다: 결함 ⑨가 정확히 그 상태였다(천장은
+    올랐는데 커서가 맨 앞에 서서 **열린 판이 안 늘었다**). 그래서 「집합이 커진다」를
+    **진부분집합**으로 문다.
+
+    ⚠️ 값(몇 판)을 박지 않는다 — 픽스처를 바꾸면 헛운다. 포함 관계만 본다.
+    """
+    course = _ladder_course()
+    lower, higher = _open_ids(course, ceiling), _open_ids(course, ceiling + 1)
+    assert lower < higher, (
+        f"천장 {ceiling}→{ceiling + 1}인데 열림이 {len(lower)}→{len(higher)}판 "
+        "— 천장만 오르고 실제로 열리는 것이 안 늘었다(결함 ⑨의 형태)"
+    )
+
+
+def test_천장이_오르면_잠긴_퍼즐이_줄고_열린_퍼즐이_는다():
+    """**화면이 보는 두 축**을 한자리에서 — `locked`·`unlocked` 양쪽이 같은 방향으로
+    움직이는가. 라우터가 `BoardPuzzle`에 싣는 그 두 필드의 계산식을 그대로 쓴다.
+    """
+    course = _ladder_course()
+    prev_locked, prev_open = None, None
+    for ceiling in range(1, KNOWLEDGE_LEVEL_MAX + 1):
+        locked = {
+            i.id
+            for i in course
+            # 라우터 식: `locked=tier is not None and tier in locked`
+            if (t := board_router.board_tier(i)) is not None
+            and t in locked_tiers(ceiling)
+        }
+        opened = _open_ids(course, ceiling)
+        assert not locked & opened, (
+            f"천장 {ceiling}: 잠긴 것으로 그리면서 동시에 여는 퍼즐이 있다"
+        )
+        if prev_locked is not None:
+            assert locked < prev_locked, f"천장 {ceiling}에서 잠긴 퍼즐이 안 줄었다"
+            assert opened > prev_open, f"천장 {ceiling}에서 열린 퍼즐이 안 늘었다"
+        prev_locked, prev_open = locked, opened
+
+
+def test_θ가_오르면_천장과_열림이_따라_오른다(monkeypatch):
+    """🔴 **끝에서 끝까지** — θ 추정 → `learner_tier` → 잠금/열림.
+
+    위 두 계약은 **정수 천장**을 직접 넣는다. 그러면 「천장이 θ에서 온다」는 절반이
+    빠진 채 초록이 된다(순수 함수 테스트의 사각). 여기서는 **θ 경로만 흔들고**
+    천장을 라우터가 스스로 구하게 한다.
+
+    ⚠️ 값을 박지 않는다 — θ를 몇으로 주면 몇 층인지가 아니라, **오르면 따라 오른다**만.
+    """
+    course = _ladder_course()
+    user = SimpleNamespace(id=uuid.uuid4(), level_group="elementary")
+    seen = []
+    for tier in range(1, KNOWLEDGE_LEVEL_MAX + 1):
+        async def _theta(db, u, _t=tier):
+            return _t
+
+        monkeypatch.setattr(weatherbrain_service, "overall_knowledge_level", _theta)
+        ceiling = asyncio.run(board_router.learner_tier(_NoDB(), user))
+        seen.append((ceiling, _open_ids(course, ceiling)))
+
+    ceilings = [c for c, _ in seen]
+    assert ceilings == sorted(ceilings) and len(set(ceilings)) == len(ceilings), (
+        f"θ가 오르는데 천장이 따라 오르지 않았다: {ceilings}"
+    )
+    for (c_low, open_low), (c_high, open_high) in zip(seen, seen[1:]):
+        assert open_low < open_high, (
+            f"천장 {c_low}→{c_high}인데 열린 퍼즐이 안 늘었다 — 실력이 올라도 "
+            "화면이 그대로다"
+        )
+
+
+# ── ③ 아무 근거도 없으면 잠그지 않는다 ───────────────────────────────────────
+
+
+@pytest.mark.parametrize("cleared_n", [0, 1, 7])
+def test_근거가_없으면_전건_열린다(cleared_n):
+    """🔴 **PM 지시의 핵심** — 천장 `None`(θ 행 0건)이면 **한 판도 안 잠긴다.**
+
+    ⚠️ 「잠기는 층이 없다」만으로는 **거짓이 아니라 절반**이다. 실측 결함(2026-08-20)이
+    정확히 그 절반이었다: 잠긴 층은 0인데 열린 퍼즐도 층 미상 건뿐이라, 화면에는
+    자물쇠가 없는데 들어가면 전건 403 BOARD_LOCKED였다. **두 축 양쪽**을 문다.
+
+    ⚠️ `cleared`를 흔드는 이유: 「전건 열림」이 진도에 **의존하지 않아야** 한다.
+    깬 칸 수에 따라 갈리면 그것은 순차 커서가 살아 있다는 뜻이다.
+    """
+    course = _ladder_course()
+    cleared = {i.id for i in course[:cleared_n]}
+    opened = _open_ids(course, None, cleared)
+    missing = [i.id for i in course if i.id not in opened]
+    assert not missing, (
+        f"천장 미상인데 {len(missing)}판이 안 열렸다 — 아무 근거도 없이 잠근 것이다"
+    )
+    assert locked_tiers(None) == set(), "천장이 없는데 잠기는 층이 있다"
+
+
+def test_근거가_없을_때_전건_열림은_전용_갈래가_한다():
+    """🔴 **픽스처가 갈래를 정말 밟는다는 증명**(AC 4) 겸 회귀 증인.
+
+    위 계약이 「어쩌다 다른 갈래가 열어 줘서」 초록일 수 있다. 그래서 **전용 갈래를
+    빼면 실제로 구멍이 난다**는 것을 여기서 못박는다 — 이것이 2026-08-20 실측
+    결함의 모습 그대로다(층 있는 퍼즐이 하나도 안 열렸다).
+    """
+    course = _ladder_course()
+    without = (
+        board_router.compute_unlocked_ids(
+            board_router.ceiling_tier(course, None), set()
+        )
+        | board_router.below_ceiling_ids(course, None)
+        | board_router.tierless_ids(course)
+    )
+    tiered = {i.id for i in course if board_router.board_tier(i) is not None}
+    assert not (without & tiered), (
+        "전용 갈래 없이도 층 있는 퍼즐이 열린다 — 아래 단정이 무엇을 무는지 "
+        "다시 볼 것(다른 갈래가 천장 미상을 처리하기 시작했다면 설계 변경이다)"
+    )
+    assert board_router.unassessed_ids(course, None) == {i.id for i in course}
+    # 천장이 **있으면** 이 갈래는 아무것도 하지 않는다 — 정상 경로를 안 건드린다.
+    for ceiling in range(1, KNOWLEDGE_LEVEL_MAX + 1):
+        assert board_router.unassessed_ids(course, ceiling) == set(), (
+            f"천장 {ceiling}인데 전건 열림 갈래가 끼어들었다 — 잠금이 통째로 무력해진다"
+        )
+
+
+def test_θ가_없으면_전건_열린다_끝에서_끝까지(monkeypatch):
+    """③을 **θ 경로부터** 다시 — 천장을 직접 넣지 않고 라우터가 구하게 한다.
+
+    ⚠️ 밴드를 truthy로 준다: 밴드가 뒷문으로 들어오면 천장이 정수가 되어 이 단정이
+    운다(판정 A의 짝).
+    """
+    async def _no_theta(db, user):
+        return None
+
+    monkeypatch.setattr(weatherbrain_service, "overall_knowledge_level", _no_theta)
+    user = SimpleNamespace(id=uuid.uuid4(), level_group="expert")
+    ceiling = asyncio.run(board_router.learner_tier(_NoDB(), user))
+    assert ceiling is None, f"θ가 없는데 천장 {ceiling}이 나왔다"
+    course = _ladder_course()
+    assert _open_ids(course, ceiling) == {i.id for i in course}
+
+
+# ── ④ 라우터 경로에 연결돼 있는가 ────────────────────────────────────────────
+
+
+def test_라우터가_전건_열림_갈래를_OR로_합친다():
+    """순수 함수 계약의 사각 — `unassessed_ids`를 직접 부르는 테스트는 라우터가
+    그것을 **안 써도** 초록이다. 열림을 합치는 곳이 둘(목록 `list_puzzles` ·
+    단건·채점이 쓰는 `_unlocked_ids_for`)이라 한 곳만 고치면 목록은 열렸다고
+    그리는데 진입은 403이 된다 — 이 저장소가 반복해서 겪은 실패다.
+    """
+    assert ROUTER_SRC.count("unassessed_ids(") >= 3, (
+        "정의 1 + 호출 2(목록 · `_unlocked_ids_for`)를 기대했다 — 호출 지점이 "
+        "줄었다면 어느 경로가 θ 없는 유저에게 보드를 통째로 잠그기 시작한 것이다"
+    )
+    assert ROUTER_SRC.count("| unassessed_ids(items, ceiling)") >= 2, (
+        "`unassessed_ids`의 산출이 열림 합성(OR)에 안 들어갔다 — 부르기만 하고 "
+        "버리면 θ 없는 유저의 보드는 여전히 전건 403이다"
+    )
+
+
+def test_열림을_합치는_두_곳이_같은_갈래를_쓴다():
+    """목록과 단건이 **같은 판정**을 쓰는가 — 갈래 이름 넷이 양쪽에 다 있는지 본다.
+
+    표시(목록)와 차단(단건·채점)이 갈리면 「열렸다고 그려 놓고 들어가면 막는」
+    상태가 된다. 그 형태를 이 저장소는 여러 번 겪었다.
+    """
+    BRANCHES = (
+        "compute_unlocked_ids(",
+        "below_ceiling_ids(items, ceiling)",
+        "tierless_ids(items)",
+        "unassessed_ids(items, ceiling)",
+    )
+    listing = ROUTER_SRC[ROUTER_SRC.index("async def list_puzzles") :]
+    listing = listing[: listing.index("async def _load_puzzle_or_404")]
+    single = _func_block("_unlocked_ids_for")
+    for branch in BRANCHES:
+        assert branch in listing, f"목록이 `{branch}` 갈래를 안 쓴다"
+        assert branch in single, f"단건·채점 경로가 `{branch}` 갈래를 안 쓴다"
+
+
+def test_사다리_경위가_문서로_남아_있다():
+    """🔴 **밴드는 천장의 「규칙」이 아니라 θ 초기값의 출처다**(PM 지시 — 이 구분을
+    주석에 남기라).
+
+    이 구분이 사라지면 「밴드를 아예 안 쓴다」로 오독되고, 그러면 **학령 재신고 →
+    사전 θ 재파종**(다른 담당 배선 중)이 판정 A 위반으로 보인다. 실제로는 밴드가
+    **① 위쪽 상류에서 θ에 들어오는** 것이라 아무 충돌이 없다.
+
+    ⚠️ 문자열을 무는 계약이라 **문구가 바뀌면 운다.** 그래도 두는 이유: 이 구분은
+    코드로 표현되지 않는다(코드에는 밴드가 **없다**는 사실만 있다). 없는 것의
+    이유는 글로만 남는다.
+    """
+    doc = ast.get_docstring(_learner_tier_node()) or ""
+    assert "초기값의 출처" in doc, (
+        "`learner_tier` 독스트링에 「밴드 = θ 초기값의 출처」 구분이 없다 — "
+        "판정 A가 「밴드를 아예 안 쓴다」로 오독되고 재파종 배선이 위반으로 보인다"
+    )
+    for rung in ("①", "②"):
+        assert rung in doc, f"폴백 사다리의 {rung} 칸이 독스트링에 없다"
