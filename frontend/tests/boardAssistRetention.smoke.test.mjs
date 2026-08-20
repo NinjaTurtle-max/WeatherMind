@@ -791,7 +791,19 @@ try {
       const evt = new window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
       link.dispatchEvent(evt);
       assert(evt.defaultPrevented, '내부 링크 이탈이 가로채지지 않았다(확인 없이 진도 이탈)');
-      await waitFor(() => text().includes('지금 나가면 오늘 진도가 사라져요'), 4000, '확인 1단 렌더');
+      // 🔴 **걷힌 문구를 기다리고 있었다**(2026-08-20 수리). 종전에는
+      //    `'지금 나가면 오늘 진도가 사라져요'`를 기다렸는데, 그 문구는
+      //    **클라이언트 판정으로 걷혔다**(`90e202b` — 「화면이 지키지 못할 약속 셋을
+      //    걷는다」). 진도는 실제로 **안 사라진다** — 그래서 거짓 약속이었다.
+      //    `frontend/src` 전체에 그 문자열이 **0건**이라 4000ms는 영원히 안 왔다.
+      //    ⇒ **지금 참인 문구**를 문다. 상한은 안 건드린다(원인이 느림이 아니다).
+      // ⚠️ 커버리지를 **옮기지 지우지 않는다** — 확인 1단이 뜨는지, 그 안에 남은
+      //    문항 수 안내가 있는지 둘 다 본다(옛 단정은 앞의 것만 봤다).
+      await waitFor(() => text().includes('지금까지 푼 것은 그대로 남아요'), 4000, '확인 1단 렌더');
+      assert(
+        /\d+문항만 더 풀면 오늘 목표를 채워요/.test(text()),
+        '확인 1단에 남은 문항 안내가 없다(무엇을 잃는지가 아니라 무엇이 남는지를 말해야 한다)',
+      );
 
       const dialog = window.document.querySelector('[role="dialog"]');
       assert(dialog, 'role=dialog가 없다(접근성 계약)');

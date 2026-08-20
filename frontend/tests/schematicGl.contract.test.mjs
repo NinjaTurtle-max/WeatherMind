@@ -134,8 +134,27 @@ try {
       JSON.stringify(scene.sky));
 
     const ground = scene.items.filter((it) => it.type === 'solid' && it.layer === 'ground');
-    check(`${name} — 지표 레이어(잔디·흙 앞단면·바다)가 깔린다`, ground.length >= 3,
-      `${ground.length}개 — composeScene의 groundLayer를 지나지 않았다`);
+    // 🔴 **개수가 아니라 「폭을 덮는가」를 문다**(2026-08-20 수리).
+    //    종전 단정은 `ground.length >= 3`(잔디·흙·바다 세 장)이었다. 그런데
+    //    `groundLayer`가 **바다 구간에서 잔디와 흙을 비우도록** 바뀌었고
+    //    (`scenes.js:216~223` — 흙이 바다를 덮는 것을 순서로 못 이겨 잘라 냈다),
+    //    `tropical_cyclone_genesis`는 `sea: {from: 0, to: 1}`이라 **자르고 나면
+    //    지면 조각이 0개**가 된다. 그 파일 주석이 *「화면이 통째로 바다다 —
+    //    그것이 그 장면의 뜻이다」*라고 의도임을 밝힌다. ⇒ **회귀가 아니라 계약이
+    //    낡았다**(T1·T2 태풍 단면이 그 장면을 쓴다).
+    // ⚠️ **약화가 아니라 강화다.** 개수 3은 **틈**을 못 본다 — 세 장이 있어도
+    //    가운데가 비면 「검은 상자」가 그대로 보인다. 폭 덮기는 그것까지 막고,
+    //    바다 한 장짜리 장면도 **정직하게** 통과시킨다.
+    // ⚠️ `vol()`이 `x0/x1`을 **`center`·`size`로 바꿔** 내보낸다(실측: 항목 키가
+    //    `center,size,taper,shear,…`이고 `x0`은 없다). x 구간을 되돌려 셈한다 —
+    //    `x0` 그대로 읽으면 전건 0이 되어 **모든 장면이 빨강**이 된다(실제로 그랬다).
+    const cover = ground
+      .map((it) => [it.center[0] - it.size[0] / 2, it.center[0] + it.size[0] / 2])
+      .sort((a, b) => a[0] - b[0])
+      .reduce((acc, [x0, x1]) => (x0 <= acc + 1e-6 ? Math.max(acc, x1) : acc), 0);
+    check(`${name} — 지표 레이어가 화면 폭을 덮는다(무대 바닥에 구멍이 없다)`,
+      ground.length >= 1 && cover >= 1 - 1e-6,
+      `${ground.length}개 · 덮은 폭 ${cover.toFixed(3)} — composeScene의 groundLayer를 지나지 않았거나 사이에 틈이 있다`);
 
     for (let s = 0; s < steps.length; s += 1) {
       let vis = visibleAt(scene, s);
