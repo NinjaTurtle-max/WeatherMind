@@ -35,6 +35,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import http from 'node:http';
+// 「없다/있다」를 소스로 물을 때 주석을 걷는 도구 — 경위는 그 파일이 소유한다.
+import { codeOnly } from './helpers/sourceScan.mjs';
 
 process.env.NODE_ENV = 'production';
 
@@ -522,10 +524,15 @@ await new Promise((r) => httpServer.close(r));
     /testId="mastery-radar"[\s\S]{0,200}?tone=\{RADAR_TONES\.emerald\}/.test(panel),
     'ⓐ 숙련도 레이더가 초록(emerald) 색조다',
   );
+  // ⚠️ **셋이다**(2026-08-20). 숙련도가 비었을 때 자리를 그리는 점선 표시
+  //    (AbilityRadarPlaceholder)가 세 번째로 들어왔고, **그것도 같은 치수여야**
+  //    데이터가 들어찬 순간 그림이 튀지 않는다 — 빈 자리와 그 자리를 채울 것이
+  //    다른 크기면 자리 표시라는 뜻 자체가 성립하지 않는다.
+  //    이 짝은 실제로 붉게 울어서 발견됐다(2 → 3이 되며 ⓑ가 실패했다).
   const sizes = [...panel.matchAll(/className="h-\[(\d+)px\] w-\[(\d+)px\]"/g)].map((m) => `${m[1]}x${m[2]}`);
   ok(
-    sizes.length === 2 && sizes[0] === sizes[1],
-    `ⓑ 두 레이더 치수가 같다 — ${sizes.join(' / ')}`,
+    sizes.length === 3 && new Set(sizes).size === 1,
+    `ⓑ 두 레이더와 빈 자리 표시가 같은 치수다(계 3회) — ${sizes.join(' / ')}`,
   );
   const thresholds = (panel.match(/RADAR_MIN_CONCEPTS/g) ?? []).length;
   ok(
@@ -552,6 +559,25 @@ await new Promise((r) => httpServer.close(r));
     minH === 2,
     `ⓔ 두 열의 설명이 같은 최소 높이를 갖는다(계 2회) — 실제 ${minH}회`,
   );
+  // ⓕ **빈 숙련도에도 그림이 앉는다**(2026-08-20). 종전 빈 상태는 문구 한 줄이
+  //    전부라, 왼쪽이 레이더+행 여럿인데 오른쪽은 두 줄에서 끝나 열 하나가
+  //    통째로 비었다. 그런데 그 상태는 예외가 아니라 **갓 가입한 학습자의
+  //    기본값**이다 — θ는 응답 0회여도 사전분포로 개념 전건이 뜨고
+  //    숙련도(BKT)는 응답이 쌓여야 행이 생긴다. 그래서 「데이터 없음」이 「고장」으로 읽혔다.
+  //    ⚠️ 자리 표시는 **레이더 자리(mt-3)와 같은 블록** 안에 있어야 한다 —
+  //    문구만 남기고 그림을 걷어내는 것이 정확히 되돌아가는 길이다.
+  //    ⚠️ 주석을 걷고 본다 — 이 결정의 경위를 적은 소스 주석에 부품 이름이
+  //    그대로 들어 있어, 원본을 훑으면 그림을 지워도 조용히 통과한다.
+  const panelCode = codeOnly(panel);
+  const emptyBranch = panelCode.match(/masteryRows\.length === 0 \? \(([\s\S]*?)\) : \(/)?.[1] ?? '';
+  ok(
+    /<AbilityRadarPlaceholder/.test(emptyBranch),
+    'ⓕ 숙련도가 비면 레이더 자리를 점선으로 그린다(문구 한 줄로 끝내지 않는다)',
+  );
+  ok(
+    /weatherBrain\.mastery\.empty/.test(emptyBranch),
+    'ⓖ 그림만 남기고 사유 문구를 잃지 않았다 — 점선은 "왜 비었나"를 말하지 못한다',
+  );
 }
 
 // ── 능력 분석 탭과 그 자리는 **한 쌍**이다 (2026-08-19) ─────────────────────
@@ -577,7 +603,8 @@ await new Promise((r) => httpServer.close(r));
 
 // ── 학습 튜터 카드의 여백은 **세로만** 키운다 (2026-08-19) ─────────────────
 /**
- * 사용자 지시 "세로로 길이 아주 조금만 더" → `py-5`(20) → `py-6`(24), 257 → 265px.
+ * 사용자 지시 두 번(2026-08-19 "아주 조금만 더" · 2026-08-20 "아주 약간 더") →
+ * py-5 → py-6 → **py-7**, 카드 257 → 265 → 273px.
  *
  * 🔴 **가로(`px-[18px]`)를 같이 키우면 안 된다.** 이 카드가 사는 열은 248~264px로
  * 고정이라(`md:w-[248px] lg:w-[264px]`) 안쪽 폭이 줄면 부제와 유닛명이 한 글자씩
@@ -592,7 +619,10 @@ await new Promise((r) => httpServer.close(r));
 {
   const hero = readFileSync(resolve(root, 'src/modules/curriculum/LearnHeroCard.jsx'), 'utf8');
   const cls = hero.match(/className="(rounded-\[20px\] bg-gradient-to-b[^"]*)"/)?.[1] ?? '';
-  ok(/\bpy-6\b/.test(cls), `학습 튜터 카드의 세로 여백이 py-6 — 실제 "${cls}"`);
+  // 이틀에 걸쳐 **두 번** 커졌다: py-5(20) → py-6(24) → py-7(28). 카드 257 → 273px.
+  // 두 번 다 아래 카드 묶음이 흡수해 **열 높이가 800 그대로**였다(트랙과 같은 값) —
+  // 더 키우려면 그 여유가 남았는지 먼저 재야 한다.
+  ok(/\bpy-7\b/.test(cls), `학습 튜터 카드의 세로 여백이 py-7 — 실제 "${cls}"`);
   ok(
     // ⚠️ 끝에 `\b`를 붙이지 말 것 — `]`도 뒤따르는 공백도 단어 문자가 아니라
     //    경계가 성립하지 않아 **항상 거짓**이 된다(여기서 실제로 밟았다).
@@ -662,10 +692,83 @@ await new Promise((r) => httpServer.close(r));
     !/\bflex-1\b/.test(regionSlot),
     `ⓐ 학습 지역은 흡수하지 않는다 — 한 줄 카드가 늘면 빈 카드가 된다. 실제 "${regionSlot}"`,
   );
-  const grid = page.match(/<div className="(grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/)?.[1] ?? '';
+  // ⚠️ **이 화면에는 같은 꼴의 격자가 둘이고 요구가 정반대다**(2026-08-20).
+  //    위(본문)는 `items-start`가 **없어야** 배지가 남는 높이를 먹고, 아래(꼬리
+  //    설정)는 **있어야** 오른쪽 설정 둘이 왼쪽 폼 높이까지 늘어나지 않는다.
+  //    처음에는 첫 매치만 봤는데, 꼬리 격자가 생기면서 "어느 쪽을 본 것인지"가
+  //    파일 순서에 달리게 됐다 — 위아래가 뒤바뀌면 계약이 조용히 반대를 문다.
+  //    그래서 **개수까지 세고 순서로 가리킨다.**
+  const grids = [...page.matchAll(/<div className="(grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/g)]
+    .map((m) => m[1]);
+  ok(grids.length === 2, `ⓒ0 같은 꼴의 격자가 둘이다(본문·꼬리) — 실제 ${grids.length}개`);
   ok(
-    /lg:grid-cols-2/.test(grid) && !/lg:items-start/.test(grid),
-    `ⓒ 두 열이 같은 높이로 늘어난다 (items-start 없음) — 실제 "${grid}"`,
+    /lg:grid-cols-2/.test(grids[0] ?? '') && !/lg:items-start/.test(grids[0] ?? ''),
+    `ⓒ 본문 두 열이 같은 높이로 늘어난다 (items-start 없음) — 실제 "${grids[0]}"`,
+  );
+}
+
+// ── /me 꼬리 설정 묶음도 **2열**이다 (2026-08-20) ───────────────────────────
+/**
+ * 위 절반은 2열인데 꼬리(진도 저장·학습 수준·하루 목표)만 전폭 1열이라 **한
+ * 화면 안에서 배치 규칙이 중간에 바뀌었다.** /me가 앱에서 가장 긴 화면(2,267px)
+ * 이던 이유의 대부분이 이 구간이고, 특히 진도 저장의 이메일 칸이 **1,090px**
+ * 였다 — 숫자 두 개짜리 칸이 그 폭이던 과거 예보와 같은 종류의 결함이다.
+ * 실측(1536): 화면 2,267 → 1,973px · 이메일 칸 1,090 → 520px.
+ *
+ * 되돌아가는 길이 둘이라 둘을 문다:
+ *  ⓕ 세 카드가 **전부 그 격자 안**에 있다 — 새 설정 카드를 격자 **밖**에
+ *    붙이면 그 한 장만 다시 전폭이 되어 규칙이 또 중간에 바뀐다
+ *  ⓖ 격자 안 카드가 자기 `mt-4`를 갖지 않는다 — 간격의 임자는 `gap-4` 하나다.
+ *    (셋 다 `mt-4`를 들고 있었고, 2열이 되면서 두 열의 첫 줄이 어긋났다)
+ * ⓗ 꼬리 격자는 `lg:items-start`가 **있어야** 한다 — 없으면 오른쪽 설정 둘이
+ *    왼쪽 폼 높이까지 늘어난다. 본문 격자와 정반대라 헷갈리기 쉬운 자리다.
+ */
+{
+  const page = readFileSync(resolve(root, 'src/modules/progress/ProgressPage.jsx'), 'utf8');
+  const open = page.indexOf('<div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">');
+  const close = page.indexOf('/꼬리 2열');
+  const tail = open >= 0 && close > open ? page.slice(open, close) : '';
+  ok(tail.length > 0, '꼬리 2열 격자를 소스에서 찾았다');
+  const inside = ['<SaveProgressCard />', '<LevelGroupCard />', '<DailyGoalPicker'].filter(
+    (tag) => tail.includes(tag),
+  );
+  ok(
+    inside.length === 3,
+    `ⓕ 꼬리 설정 셋이 모두 2열 격자 안에 있다 — 실제 ${inside.length}/3`,
+  );
+  // ⓕ2 **셋을 이름으로 세는 것만으로는 부족하다** — 진짜 재발 경로는 "넷째
+  //     카드를 격자 **뒤에** 붙이는 것"이고, 이름 목록은 그것을 못 본다(처음에
+  //     그렇게 써 놓고 주석에는 잡는다고 적었다). 그래서 격자가 닫힌 뒤부터
+  //     컴포넌트 끝까지에 **여는 태그가 하나도 없어야** 한다고 못박는다.
+  const after = tail.length ? page.slice(close, page.indexOf('\n}', close)) : '';
+  const trailing = [...after.matchAll(/<([A-Za-z][\w.]*)/g)].map((m) => m[1]);
+  ok(
+    trailing.length === 0,
+    `ⓕ2 격자 뒤에 붙은 카드가 없다(넷째를 밖에 두면 그 한 장만 전폭이 된다) — 실제 ${trailing.join(' / ') || '없음'}`,
+  );
+  // ⚠️ 진도 저장 카드의 뿌리는 **같은 파일 아래쪽 별도 함수**에 있다(격자 안이
+  //    아니다). 그래서 격자 본문이 아니라 testid로 찾아 본다.
+  const saveRoot = page.match(/data-testid="save-progress-card"\s*\n\s*className="([^"]*)"/)?.[1] ?? '';
+  // 🔴 `\bmt-4\b`로 쓰면 **`scroll-mt-4`에 걸린다** — `-`가 단어 문자가 아니라
+  //    그 뒤에서 경계가 성립하기 때문이다. 처음에 그렇게 써서 셋 다 붉었고,
+  //    `scroll-mt-4`는 해시 스크롤 여백이라 걷으면 안 되는 값이다.
+  //    Tailwind 클래스를 셀 때는 하이픈까지 막는 경계를 쓸 것.
+  const MT4 = /(?<![\w-])mt-4(?![\w-])/;
+  const strays = [
+    ...(MT4.test(saveRoot) ? ['save-progress-card'] : []),
+    ...[...tail.matchAll(/className="([^"]*)"/g)].map((m) => m[1]).filter((c) => MT4.test(c)),
+  ];
+  ok(
+    strays.length === 0,
+    `ⓖ 간격의 임자는 격자 gap-4 하나다(자식 mt-4 없음) — 실제 ${strays.join(' / ') || '없음'}`,
+  );
+  // ⚠️ 위 블록의 `grids`를 **빌려 쓰지 않는다** — 블록 스코프라 여기서는
+  //    ReferenceError다(이 파일에서 실제로 한 번 그렇게 깨뜨렸다). 다시 센다.
+  const tailGrid = [...page.matchAll(/<div className="(grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/g)]
+    .map((m) => m[1])[1] ?? '';
+  ok(
+    /lg:items-start/.test(tailGrid),
+    `ⓗ 꼬리 격자는 items-start다(오른쪽 설정이 왼쪽 폼 높이로 늘지 않게) — 실제 "${tailGrid}"`,
   );
 }
 

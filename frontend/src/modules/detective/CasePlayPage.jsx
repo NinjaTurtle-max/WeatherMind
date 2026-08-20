@@ -202,56 +202,6 @@ export default function CasePlayPage() {
           <CaseChart series={detail.series} markers={markers} />
         </section>
 
-        <section aria-labelledby="detective-hypotheses">
-        <h2 id="detective-hypotheses" className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-          {t('detective.play.hypothesesTitle')}
-        </h2>
-        <p className="mb-2 mt-0.5 text-[11px] text-slate-500">
-          {t('detective.play.hypothesesHint')}
-        </p>
-        {/* 🔴 **2×2 격자**(2026-08-19 사용자 지시 — "가로가 길고 세로가 짧게해서
-            2X2로"). 종전에는 세로로 넷을 일자로 쌓아 블록이 길쭉했다.
-            ⚠️ 한 칸이 좁아지므로(1536에서 약 290px) 보기 문장이 두 줄로 접힌다 —
-               그래서 `items-stretch`가 기본인 격자에 기대 **네 칸의 높이를 맞춘다**.
-               한 칸만 길어지면 2×2가 어긋나 보인다.
-            ⚠️ `sm` 미만은 한 열이다. 290px 칸에 두 줄이면 읽히지만 145px에서는
-               넉 줄이 된다. */}
-        <div role="radiogroup" aria-labelledby="detective-hypotheses" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {detail.hypotheses.map((h) => (
-            <button
-              key={h.hypothesis_id}
-              type="button"
-              role="radio"
-              aria-checked={picked === h.hypothesis_id}
-              onClick={() => setPicked(h.hypothesis_id)}
-              data-testid={`detective-hypothesis-${h.hypothesis_id}`}
-              className={`block w-full rounded-2xl p-3 text-left text-[12.5px] leading-relaxed ring-1 transition ${
-                picked === h.hypothesis_id
-                  ? 'bg-sky-50 font-bold text-sky-900 ring-sky-400'
-                  : 'bg-white text-slate-700 ring-slate-200 hover:ring-sky-300'
-              }`}
-            >
-              {h.text}
-            </button>
-          ))}
-        </div>
-
-        {remaining > 0 && (
-          <p className="mt-2 text-[11.5px] font-bold text-amber-700">
-            {t('detective.play.lockedHint', { remaining })}
-          </p>
-        )}
-
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={() => solveMutation.mutate()}
-          data-testid="detective-submit"
-          className="mt-3 w-full rounded-full bg-sky-600 px-4 py-3 text-sm font-extrabold text-white disabled:bg-slate-300"
-        >
-          {solveMutation.isPending ? t('detective.play.submitting') : t('detective.play.submit')}
-        </button>
-        </section>
         </div>{/* /왼쪽 열 */}
 
         <div className="space-y-4">
@@ -348,6 +298,70 @@ export default function CasePlayPage() {
 
         </div>{/* /오른쪽 열 */}
       </div>{/* /2열 */}
+
+      {/* ── ③ 추리 — **전폭**이다(2026-08-19 사용자 지시 "전부 가로로 길이
+          늘려서"). 왼쪽 열 안에 있던 동안 한 칸이 291px이라 보기 문장이 두 줄로
+          접히며 납작한 알약처럼 보였다. 전폭 2×2면 한 칸이 **약 560px**로 늘어
+          대부분의 보기가 한 줄에 든다(실측 291 → 560).
+          ⚠️ **대가가 있다**: 격자 밖이라 왼쪽 차트의 `sticky`가 여기까지 따라오지
+             않는다. 스크롤해서 보기를 고를 때 차트가 화면에서 사라질 수 있다 —
+             차트 바로 아래 붙여 두려던 종전 배치의 값을 폭과 맞바꾼 것이다.
+          ⚠️ 넓어지면 글이 한 줄이 되어 **오히려 더 납작해진다.** 그래서 높이를
+             `min-h-[68px]` + 세로 가운데 정렬로 따로 잡는다(같은 지시의 뒷부분
+             "세로로도 살짝 더 키워서 너무 납작해 보이지 않게"). */}
+      <section aria-labelledby="detective-hypotheses">
+      <h2 id="detective-hypotheses" className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+        {t('detective.play.hypothesesTitle')}
+      </h2>
+      <p className="mb-2 mt-0.5 text-[11px] text-slate-500">
+        {t('detective.play.hypothesesHint')}
+      </p>
+      {/* 🔴 **2×2 격자**(2026-08-19 사용자 지시 — "가로가 길고 세로가 짧게해서
+          2X2로"). 종전에는 세로로 넷을 일자로 쌓아 블록이 길쭉했다.
+          ⚠️ 한 칸이 좁아지므로(1536에서 약 290px) 보기 문장이 두 줄로 접힌다 —
+             그래서 `items-stretch`가 기본인 격자에 기대 **네 칸의 높이를 맞춘다**.
+             한 칸만 길어지면 2×2가 어긋나 보인다.
+          ⚠️ `sm` 미만은 한 열이다. 290px 칸에 두 줄이면 읽히지만 145px에서는
+             넉 줄이 된다. */}
+      <div role="radiogroup" aria-labelledby="detective-hypotheses" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {detail.hypotheses.map((h) => (
+          <button
+            key={h.hypothesis_id}
+            type="button"
+            role="radio"
+            aria-checked={picked === h.hypothesis_id}
+            onClick={() => setPicked(h.hypothesis_id)}
+            data-testid={`detective-hypothesis-${h.hypothesis_id}`}
+            // `min-h-[68px]` + 세로 가운데 — 전폭에서 보기가 한 줄이 되면 카드가
+            // 44px까지 얇아져 **오히려 더 납작해진다.** 높이를 따로 잡아 네 칸을
+            // 같은 덩치로 세운다(격자 기본 stretch가 두 줄짜리 칸에 맞춘다).
+            className={`flex min-h-[68px] w-full items-center rounded-2xl px-4 py-3 text-left text-[12.5px] leading-relaxed ring-1 transition ${
+              picked === h.hypothesis_id
+                ? 'bg-sky-50 font-bold text-sky-900 ring-sky-400'
+                : 'bg-white text-slate-700 ring-slate-200 hover:ring-sky-300'
+            }`}
+          >
+            {h.text}
+          </button>
+        ))}
+      </div>
+
+      {remaining > 0 && (
+        <p className="mt-2 text-[11.5px] font-bold text-amber-700">
+          {t('detective.play.lockedHint', { remaining })}
+        </p>
+      )}
+
+      <button
+        type="button"
+        disabled={!canSubmit}
+        onClick={() => solveMutation.mutate()}
+        data-testid="detective-submit"
+        className="mt-3 w-full rounded-full bg-sky-600 px-4 py-3 text-sm font-extrabold text-white disabled:bg-slate-300"
+      >
+        {solveMutation.isPending ? t('detective.play.submitting') : t('detective.play.submit')}
+      </button>
+      </section>
 
       {/* ── 판정 announce (CO-S-A1) — 비어 있어도 DOM에 상주해야 라이브 영역이 산다 ── */}
       <div

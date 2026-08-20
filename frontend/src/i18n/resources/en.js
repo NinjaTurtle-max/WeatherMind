@@ -378,6 +378,7 @@ export default {
       title: 'Concept mastery',
       subtitle: '"Current level" is what you can solve today; this side is the chance you have learned each concept.',
       empty: 'Answer some questions and we will start tracking what you have learned.',
+      emptyAria: 'Concept mastery radar — no data yet',
       insufficient: 'not enough data',
       beginning: 'still learning',
       learning: 'almost there',
