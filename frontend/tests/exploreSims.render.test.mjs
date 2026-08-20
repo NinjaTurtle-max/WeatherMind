@@ -301,10 +301,23 @@ try {
   // 기후변화와 다른 점 둘: ⑴ 고지에 굵은 낱말(「경향」)이 있어 문자열이 아니라
   // 노드로 넘긴다 ⑵ 설명을 **비우지 않고** tight로 눌렀다(사용자가 둘 다 요구).
   // 실측 1536: 배너 h=104 · 설명 430×14(한 줄) · 고지 429×29(두 줄).
-  checkMt21('㉳ 태풍: 고지가 배너 안으로 들어갔다 (굵은 낱말이 있어 노드로)',
-    /note=\{\s*<>/.test(typhoonSrc) && /explore\.typhoon\.disclaimerBold/.test(typhoonSrc));
-  checkMt21('㉳ 배너 밖 회색 고지 띠는 남아 있지 않다',
-    !/bg-slate-100 px-3 py-2[^"]*"[\s\S]{0,120}explore\.typhoon\.disclaimer1/.test(typhoonSrc));
+  // ⚠️ **정정(2026-08-19 최종).** 이 줄은 종전에 「고지가 배너 **안**으로
+  //    들어갔다」였다. 사용자가 "튜터 카드 아예 밖으로"라고 정정해 고지는
+  //    배너 **위쪽 줄**(뒤로가기 링크와 같은 행, 오른쪽 정렬)로 나갔다.
+  //    자리를 네 번 옮긴 항목이라(아래 회색 띠 → 제목 아래 → 오른쪽 열 → 위쪽
+  //    줄) **지금 자리**를 구조로 못박는다: 배너 **직전 형제**여야 한다.
+  const typhoonTopRow = typhoonSrc.slice(0, typhoonSrc.indexOf('<HeroBanner'));
+  checkMt21('㉳ 태풍: 고지가 배너 **밖** 위쪽 줄에 있다 (배너보다 앞)',
+    typhoonTopRow.includes("explore.typhoon.disclaimer1")
+      && /sm:text-right/.test(typhoonTopRow));
+  // ⚠️ **`<HeroBanner …/>` 호출만 본다.** 파일 전체에서 `note=`를 찾으면
+  //    `IndicatorCard`의 동명 prop(해수면·폭염일수 카드의 각주)에 걸린다 —
+  //    실제로 그렇게 써서 기후변화 쪽이 붉어졌다.
+  const heroCall = (src) => src.match(/<HeroBanner[\s\S]*?\n {6}\/>/)?.[0] ?? '';
+  checkMt21('㉳ 배너는 고지를 모른다 — note를 넘기지 않는다',
+    !/\bnote=/.test(heroCall(typhoonSrc)));
+  checkMt21('㉳ 고지가 화면에 한 번만 있다 — 옮기며 사본을 남기지 않았다',
+    (typhoonSrc.match(/explore\.typhoon\.disclaimer1/g) ?? []).length === 1);
   checkMt21('㉳ 오른쪽 문구가 한 줄 변형(tightDescription)이고 전용 키를 쓴다',
     /\btightDescription\b/.test(typhoonSrc) && /description=\{t\('explore\.typhoon\.heroDesc'\)\}/.test(typhoonSrc));
 
@@ -345,10 +358,13 @@ try {
   // ⓘ 모델 고지가 **배너 안 제목 아래**에 있고, 배너 밖 회색 띠는 사라졌다
   //    (2026-08-19 사용자 지시). 둘 다 남으면 같은 문장이 화면에 두 번 뜬다 —
   //    옮기다 원본을 안 지우는 것이 이 종류의 흔한 실수라 **없는 것까지** 문다.
-  checkMt21('ⓘ 모델 고지가 배너 안으로 들어갔다 (note prop)',
-    /note=\{t\('explore\.climate\.disclaimer'\)\}/.test(climateSrc));
-  checkMt21('ⓘ 배너 밖 회색 고지 띠는 남아 있지 않다 (같은 문장이 두 번 뜨면 안 된다)',
-    !/bg-slate-100 px-3 py-2[^"]*"[\s\S]{0,80}explore\.climate\.disclaimer/.test(climateSrc));
+  // ⚠️ 태풍 ㉳와 **같은 정정**이다(2026-08-19 최종 — "튜터 카드 아예 밖으로").
+  const climateTopRow = climateSrc.slice(0, climateSrc.indexOf('<HeroBanner'));
+  checkMt21('ⓘ 기후변화: 고지가 배너 **밖** 위쪽 줄에 있다 (배너보다 앞)',
+    climateTopRow.includes("explore.climate.disclaimer") && /sm:text-right/.test(climateTopRow));
+  checkMt21('ⓘ 배너는 고지를 모른다 — note를 넘기지 않는다', !/\bnote=/.test(heroCall(climateSrc)));
+  checkMt21('ⓘ 고지가 화면에 한 번만 있다 — 옮기며 사본을 남기지 않았다',
+    (climateSrc.match(/explore\.climate\.disclaimer/g) ?? []).length === 1);
   // ⓗ 「탐구 목표」 제목만 한 단계 크다(2026-08-19 사용자 지시). 항목 글자는
   //    그대로여야 한다 — 같이 키우면 카드가 커져 2열 행 높이가 밀린다.
   const goalSrc = await readFile(resolve(root, 'src/modules/explore/GoalPanel.jsx'), 'utf8');

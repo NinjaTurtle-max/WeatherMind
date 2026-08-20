@@ -218,9 +218,28 @@ export default function TyphoonSimPage() {
           ⚠️ 배너를 **더하지 않고 종전 제목 줄을 바꿔 넣었다** — 위에 얹으면
           화면이 그만큼 길어지는데, 같은 지시의 다른 절반이 "세로로 길지 않게"다.
           등급 배지는 배너의 `right` 슬롯으로 들어가 자리를 그대로 지킨다. */}
-      <Link to="/explore" className="inline-block text-xs font-medium text-sky-600 hover:text-sky-700">
-        {t('explore.common.back')}
-      </Link>
+      {/* 🔴 **상단 줄 — 왼쪽 뒤로가기 · 오른쪽 모델 고지**(2026-08-19 사용자
+          정정 "튜터 카드 아예 밖으로 빼달라는 말이었어").
+
+          고지는 하루 동안 세 자리를 거쳤다: 배너 아래 회색 띠 → 배너 안 제목
+          아래(h=104) → 배너 안 오른쪽 열(h=90) → **배너 밖 위쪽 줄**(지금).
+          경위를 남기는 이유는 그때마다 배너 치수 계약을 손댔기 때문이다 —
+          지금은 배너가 고지를 아예 모르므로 그 계약이 단순해졌다(h=90 고정).
+
+          뒤로가기와 **같은 행**에 두는 것이 요점이다. 위에 한 줄을 더 얹으면
+          화면이 그만큼 길어지는데, 이 화면들을 손보는 내내 사용자가 세로를
+          줄이라고 해 왔다. 왼쪽은 링크, 오른쪽은 고지라 서로 자리를 뺏지 않는다.
+          ⚠️ 좁은 화면에서는 `flex-wrap`으로 두 줄이 되고 고지가 왼쪽 정렬로
+          떨어진다 — `sm:text-right`라 그때는 오른쪽 정렬을 풀어 준다. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <Link to="/explore" className="shrink-0 text-xs font-medium text-sky-600 hover:text-sky-700">
+          {t('explore.common.back')}
+        </Link>
+        <p className="min-w-0 text-[10.5px] leading-snug text-slate-400 sm:text-right">
+          {t('explore.typhoon.disclaimer1')} <b className="font-bold text-slate-500">{t('explore.typhoon.disclaimerBold')}</b>
+          {t('explore.typhoon.disclaimer2')}
+        </p>
+      </div>
       <HeroBanner
         testId="typhoon-hero"
         mascot="typhoon"
@@ -234,14 +253,6 @@ export default function TyphoonSimPage() {
         //    첫 예외라 여기 적어 둔다(기후 탐정·과거 예보는 아직 공유한다).
         description={t('explore.typhoon.heroDesc')}
         tightDescription
-        // 태풍 고지는 **가운데 낱말이 굵다**(「경향」) — 문자열 하나가 아니라
-        // 조각 셋이라 노드로 넘긴다. `note`는 ReactNode를 그대로 받는다.
-        note={
-          <>
-            {t('explore.typhoon.disclaimer1')} <b>{t('explore.typhoon.disclaimerBold')}</b>
-            {t('explore.typhoon.disclaimer2')}
-          </>
-        }
         right={
           <span className={`rounded-full px-3 py-1 text-xs font-bold ${meta.badge}`}>{t(meta.labelKey)}</span>
         }
