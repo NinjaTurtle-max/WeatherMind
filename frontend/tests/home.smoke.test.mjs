@@ -601,6 +601,33 @@ await new Promise((r) => httpServer.close(r));
   );
 }
 
+// ── /me 열 카드 제목은 한 크기다 (2026-08-19 전 화면 실측) ──────────────────
+/**
+ * 배지·일일 퀘스트·지식 단계·능력 분석 넷은 두 열의 **같은 급 카드**인데
+ * 「다음 목표」만 `text-sm`(14px)이라 혼자 작았다. 화면을 훑을 때 위계가 흐려진다.
+ * ⚠️ 꼬리의 설정 카드들(진도 저장·학습 수준·하루 목표·학습 지역)은 `text-sm`
+ *    그대로다 — 그쪽은 **한 단 아래 위계**라 일부러 작다. 그래서 「전부 16px」이
+ *    아니라 **「열 카드 넷 + 다음 목표」만** 문다.
+ */
+{
+  const files = {
+    '배지': 'src/modules/progress/BadgeCollection.jsx',
+    '일일 퀘스트': 'src/modules/progress/QuestList.jsx',
+    '지식 단계': 'src/modules/progress/KnowledgeLevelCard.jsx',
+    '능력 분석': 'src/modules/progress/WeatherBrainPanel.jsx',
+    '다음 목표': 'src/modules/progress/ProgressPage.jsx',
+  };
+  const odd = [];
+  for (const [name, f] of Object.entries(files)) {
+    const src = readFileSync(resolve(root, f), 'utf8');
+    const hit = name === '다음 목표'
+      ? /<h2 className="mb-3 (text-\w+) font-extrabold text-slate-900">/.exec(src)
+      : /<h2 className="(text-\w+) font-extrabold text-slate-900">/.exec(src);
+    if (hit?.[1] !== 'text-base') odd.push(`${name}=${hit?.[1] ?? '(못 찾음)'}`);
+  }
+  ok(odd.length === 0, `열 카드 제목 다섯이 모두 text-base다 — 어긋난 것 ${odd.join(' ') || '없음'}`);
+}
+
 // ── /me 두 열은 같은 줄에서 끝난다 — 남는 높이의 임자는 **배지** 하나 ───────
 /**
  * 2026-08-19 저녁 사용자 지시("배지 컬렉션 세로 길이를 더 늘려서 여백 맞춰줘").

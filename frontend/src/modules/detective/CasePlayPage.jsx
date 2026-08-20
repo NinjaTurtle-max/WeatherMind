@@ -101,8 +101,19 @@ export default function CasePlayPage() {
     });
   }
 
+  // ⚠️ 바깥 여백은 **`pt-2`**다 — 앱의 모든 화면이 그것이다. 여기만 `py-4`면
+  //    첫 내용이 8px 아래에서 시작해 화면을 오갈 때 한 칸 내려앉는다. 2026-08-17에
+  //    탐구 홈에서 사용자가 제보해 고친 결함인데 **하위 실험실 넷(태풍·기후변화·
+  //    탐정·과거예보, 목록과 상세 합쳐 여섯 자리)에는 남아 있었다** — 그 화면들을
+  //    하루 종일 손보면서도 못 봤다(2026-08-19 실측: 실험실 y=80~85 ↔ 나머지 72~74).
+  //    아래 여백을 `py`로 주지 않는 것도 계약이다 — `Layout`의 `main`이 `pb-8`을
+  //    이미 갖고 있어 중복이 된다. 여섯 자리가 같은 값이어야 하므로 `home.smoke`가
+  //    전 화면을 훑어 문다.
+  // ⚠️ 이 주석을 `return (` **안쪽 첫 줄로 옮기지 말 것** — JSX 주석이 그 자리에
+  //    오면 `{...}`가 객체 리터럴로 파싱돼 빌드가 깨진다. 같은 함정을 오늘만
+  //    **세 번** 밟았다(탐정 목록 · 과거예보 목록 · 여기).
   return (
-    <div className="space-y-4 py-4">
+    <div className="space-y-4 pt-2">
       {/* ══ 「사건 게시판」 결 ══════════════════════════════════════════════
           2026-08-19 사용자 지시 — "심플한 디자인 틀은 벗어나지 않고, 가로로
           꽉차게 배치 유지하면서 (탐정 게시판) 컨셉이 **살짝** 섞였으면".
@@ -198,7 +209,14 @@ export default function CasePlayPage() {
         <p className="mb-2 mt-0.5 text-[11px] text-slate-500">
           {t('detective.play.hypothesesHint')}
         </p>
-        <div role="radiogroup" aria-labelledby="detective-hypotheses" className="space-y-2">
+        {/* 🔴 **2×2 격자**(2026-08-19 사용자 지시 — "가로가 길고 세로가 짧게해서
+            2X2로"). 종전에는 세로로 넷을 일자로 쌓아 블록이 길쭉했다.
+            ⚠️ 한 칸이 좁아지므로(1536에서 약 290px) 보기 문장이 두 줄로 접힌다 —
+               그래서 `items-stretch`가 기본인 격자에 기대 **네 칸의 높이를 맞춘다**.
+               한 칸만 길어지면 2×2가 어긋나 보인다.
+            ⚠️ `sm` 미만은 한 열이다. 290px 칸에 두 줄이면 읽히지만 145px에서는
+               넉 줄이 된다. */}
+        <div role="radiogroup" aria-labelledby="detective-hypotheses" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {detail.hypotheses.map((h) => (
             <button
               key={h.hypothesis_id}

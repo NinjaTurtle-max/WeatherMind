@@ -51,7 +51,7 @@ export default function CasePlayPage() {
 
   if (casesQ.isSuccess && !kase) {
     return (
-      <div className="space-y-4 py-4">
+      <div className="space-y-4 pt-2">
         <Link to="/hindcast" className="text-xs font-bold text-slate-500 hover:text-sky-600">
           {t('hindcast.play.backToList')}
         </Link>
@@ -83,7 +83,7 @@ export default function CasePlayPage() {
   const lockedRain = shown?.user_pred?.rain_prob ?? '';
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="space-y-4 pt-2">
       {/* 상단 줄 — 왼쪽 뒤로가기 · 오른쪽 「데모용 고정 날짜」 고지.
           탐구 실험실 넷이 이미 쓰는 관례다(고지는 배너·카드 밖 위쪽 줄).
           종전에는 노란 띠 한 장이 본문에서 62px을 썼다. */}

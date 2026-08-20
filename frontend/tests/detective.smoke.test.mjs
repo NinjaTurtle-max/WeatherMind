@@ -378,6 +378,22 @@ window.XMLHttpRequest = RealXHR;
     '㉡ 절 제목이 등사 라벨(mono·대문자·자간)이다 — 「증거 서류」 결의 본체',
   );
 
+  // ── 추리 보기 2×2 · 배너 설명 한 줄 (2026-08-19 사용자 지시) ───────────────
+  // "가로가 길고 세로가 짧게해서 2X2로" — 종전에는 `space-y-2`로 넷을 세로로
+  // 일자로 쌓아 블록이 길쭉했다(실측 그룹 591×230 → **591×137**, 네 칸 291×65로
+  // 균일). 격자 기본 `items-stretch`에 기대 네 칸 높이를 맞춘다 — 한 칸만
+  // 길어지면 2×2가 어긋나 보인다.
+  ok(
+    /role="radiogroup"[\s\S]{0,120}?className="grid grid-cols-1 gap-2 sm:grid-cols-2"/.test(play),
+    '추리 보기가 2×2 격자다 (종전 세로 일자 나열)',
+  );
+  // 배너 오른쪽 설명을 **한 줄**로(사용자 지시). `tightDescription`이 10px·xl 430px
+  // 변형이고, 실측으로 이 문장이 그 폭에 한 줄로 든다(h=14 · 배너 90 유지).
+  // ⚠️ 아래 「사건 목록」 절의 `list`는 **여기보다 뒤에 선언**된다(TDZ) — 그대로
+  //    쓰면 ReferenceError로 파일이 통째로 죽는다(실제로 밟았다). 따로 읽는다.
+  const listSrc = readFileSync(resolve(root, 'src/modules/detective/CaseListPage.jsx'), 'utf-8');
+  ok(/\btightDescription\b/.test(listSrc), '사건 목록 배너 설명이 한 줄 변형이다');
+
   // 사건 목록도 같은 이유로 짝이다(2026-08-18 "가로2줄 세로3줄 → 가로3줄 세로2줄").
   // ⚠️ **열 수와 폭 상한을 함께** 봐야 한다. `max-w-[760px]`이 남은 채 3열로
   // 바꾸면 격자가 760에 묶여 한 칸이 240px로 **작아진다** — 사용자가 본 것과

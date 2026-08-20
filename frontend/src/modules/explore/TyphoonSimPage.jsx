@@ -210,7 +210,7 @@ export default function TyphoonSimPage() {
   const whyLines = explainWhy(t, sst, shear, result);
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="space-y-4 pt-2">
       {/* 🔴 **상단 튜터 배너**(2026-08-19 사용자 지시 — "모든 각 실험실 화면에
           마찬가지로 상단 튜터 카드"). 담당은 **태풍이**이고, 소유자는
           `SideNav.TUTOR_BY_PATH`의 `/explore/typhoon` 행이다
@@ -232,7 +232,7 @@ export default function TyphoonSimPage() {
           ⚠️ 좁은 화면에서는 `flex-wrap`으로 두 줄이 되고 고지가 왼쪽 정렬로
           떨어진다 — `sm:text-right`라 그때는 오른쪽 정렬을 풀어 준다. */}
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <Link to="/explore" className="shrink-0 text-xs font-medium text-sky-600 hover:text-sky-700">
+        <Link to="/explore" className="shrink-0 text-xs font-bold text-slate-500 hover:text-sky-600">
           {t('explore.common.back')}
         </Link>
         <p className="min-w-0 text-[10.5px] leading-snug text-slate-400 sm:text-right">
