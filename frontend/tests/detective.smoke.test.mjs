@@ -28,6 +28,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
 import http from 'node:http';
+// 「없다/있다」를 소스로 물을 때 주석을 걷는 도구 — 경위는 그 파일이 소유한다.
+import { codeOnly } from './helpers/sourceScan.mjs';
 
 process.env.NODE_ENV = 'production';
 
@@ -366,6 +368,45 @@ window.XMLHttpRequest = RealXHR;
   ok(
     !/#f43f5e/i.test(chart) && !/stroke="#f59e0b"/.test(chart),
     '㉠ 기준선이 오류색(rose)이나 고지색(amber)으로 되돌아가지 않았다',
+  );
+  /*
+   * ㉢ **선 그리기는 마운트 때 한 번뿐이다** (2026-08-20 사용자 지적 — "단서 누를
+   *    때마다 왼쪽에 그래프가 다시 그려지지?").
+   *
+   *    단서를 열면 `ReferenceLine`이 하나 늘어 차트의 children이 바뀌고, recharts는
+   *    그때 `Line.points`를 새로 만든다. 그런데 `data`를 넘긴 차트는 children이
+   *    바뀌어도 `updateId`(=`animationId`)를 올리지 않아 `prevPoints`가 끝까지
+   *    undefined로 남고, 그리기 조건 `!prevPoints && totalLength > 0`이 **매번
+   *    참**이 된다 — 그래서 단서를 열 때마다 자료가 1.5초씩 되그려졌다.
+   *    조사한 것이 자료 위에 **쌓이는** 그림인데 쌓을 때마다 리셋되면 뜻이 반대가 된다.
+   *
+   *    jsdom에는 애니메이션도 레이아웃도 없어 여기서는 **소스로** 문다.
+   *    실측(Chromium rAF 프레임 대조)은 원본 도입부 66종·클릭 63종 →
+   *    고친 뒤 도입부 59종·클릭 2종(그 2종은 `dasharray` 속성이 떨어지는 것뿐이라
+   *    둘 다 실선이다). 되돌아가는 길이 셋이라 셋을 다 문다.
+   */
+  const chartCode = codeOnly(chart);
+  ok(
+    /isAnimationActive=\{animate\}/.test(chartCode)
+      && /const animate = !reduced && !introDone\.current/.test(chartCode),
+    '㉢1 선 애니메이션이 래치를 거친다(무조건 !reduced가 아니다)',
+  );
+  // ⚠️ 래치는 **렌더 중에** 서야 한다. `useEffect`로 미루면 플래그가 그 렌더
+  //    **뒤에** 서므로 **첫 단서 한 번은 그대로 다시 그려진다** — 고쳤다고 믿기
+  //    딱 좋은 자리라 못박는다.
+  const latch = chartCode.match(/const introDone = useRef\(false\);\s*\n\s*(.+)/)?.[1] ?? '';
+  ok(
+    /^if \(markers\.length > 0\) introDone\.current = true;/.test(latch.trim()),
+    `㉢2 래치가 렌더 중에 선다(useEffect로 미루지 않았다) — 실제 "${latch.trim()}"`,
+  );
+  // ⚠️ `onAnimationEnd`를 「도입부가 끝났다」 신호로 쓰지 않는다. 그 콜백은 선이
+  //    실제로 그려졌을 때만 오는 것이 아니라 **첫 렌더의 정적 곡선에서도** 온다
+  //    (`totalLength`가 아직 0이라 그리기를 건너뛴 그 렌더). 그래서 그것으로 끄면
+  //    진짜 그리기 전에 플래그가 서서 **도입부 연출이 통째로 죽는다** — 실제로
+  //    첫 시도가 그랬고 실측(도입부 프레임 168개 전부 동일)으로 잡았다.
+  ok(
+    !/onAnimationEnd/.test(chartCode),
+    '㉢3 도입부 종료를 onAnimationEnd로 판정하지 않는다(정적 렌더에서도 불려 연출이 죽는다)',
   );
   const css = readFileSync(resolve(root, 'src/styles/index.css'), 'utf-8');
   const indexHtml = readFileSync(resolve(root, 'index.html'), 'utf-8');
