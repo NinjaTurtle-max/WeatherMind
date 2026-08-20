@@ -406,19 +406,49 @@ class TestParityInstrument:
         가장 날카로운 증거다 — 「찾았다」만 보면 인자 캡처를 본문으로 잘못 돌려주는
         형태를 놓친다.
 
-        🔴 **치환 0회를 먼저 단정한다.** 목의 선언 모양이 바뀌면 변이가 조용히
-        no-op이 되고, 그러면 이 단정도 공허해진다(계측기 역검증의 정석 형태).
+        🔴 **치환 0회를 먼저 단정한다** — 단, **0회의 뜻이 두 가지**라 갈라서 본다.
+        이것이 이 단정의 핵심이고, 안 갈랐다면 이 계약은 **자기가 열어 준 바로 그
+        변경에서 울었을 것**이다:
+
+          ⓐ 목이 **아직 인자 없는 형태**다 → 변이가 걸린다. 위 본문 동일성을 문다.
+          ⓑ 목이 **이미 순수 함수로 열렸다**(인자를 받는다) → 변이가 no-op이다.
+             이때 0회는 **결함이 아니라 목표 달성**이다 — 이 계약이 열어 주려던
+             변경이 실제로 착지한 상태이므로, `_fn_body`가 **실소스에서** 그 함수를
+             찾아 본문에 닿는 것 자체가 지키려던 성질이다.
+
+        ⚠️ ⓑ를 안 갈라 두면 **목 담당이 순수 함수 전환을 하는 순간 이 파일이
+        빨개진다.** 그런데 이 파일은 리드 소유라 그 담당이 못 고친다 — 되돌리는
+        수밖에 없고, 그것이 **애초에 이 벽이 오래 산 방식**이다(2026-08-20에 실제로
+        그렇게 되돌려졌다). 같은 벽을 다시 세우지 않으려고 두 갈래를 다 연다.
+
+        ⚠️ 되돌림 감시는 이 단정에 기대지 않는다 — 그쪽 소유자는 아래
+        `test_연_인자_정규식이_좁힌_것의_진상위집합이다`이고, 그것은 목의 모양과
+        **무관하게** 운다. 여기가 고유하게 무는 것은 **인자를 받는 선언에서
+        group(1)이 여전히 본문인가**(인자 캡처로 밀리지 않았나)이고, 두 갈래 다
+        그것을 문다.
         """
+        LIVE = "function unlockedBoardIds() {"
         broken = mock_src.replace(
-            "function unlockedBoardIds() {",
-            "function unlockedBoardIds(puzzles = BOARD_PUZZLES) {",
-            1,
+            LIVE, "function unlockedBoardIds(puzzles = BOARD_PUZZLES) {", 1
         )
-        assert broken != mock_src, (
-            "변이 치환이 0회다 — 목의 `function unlockedBoardIds() {` 선언 모양이 "
-            "바뀌었다. 이 계약을 갱신할 것(0회면 아래 단정이 원본을 원본과 비교하는 "
-            "공허한 단정이 된다)"
-        )
+
+        if broken == mock_src:
+            # ⓑ 목이 이미 인자를 받는다 — 변이가 아니라 **실소스**로 같은 성질을 문다.
+            assert re.search(
+                r"function unlockedBoardIds\(\s*\w", mock_src
+            ), (
+                "변이 치환이 0회인데 목이 인자를 받는 형태도 아니다 — 목의 "
+                "`unlockedBoardIds` 선언 모양이 이 계약이 모르는 것으로 바뀌었다. "
+                "이 계약을 갱신할 것(0회를 그냥 통과시키면 단정이 공허해진다)"
+            )
+            body = _fn_body(mock_src, "unlockedBoardIds")  # 본문 도달은 여기서 단정된다
+            assert "ceiling" in body, (
+                "목이 순수 함수로 열렸는데 `_fn_body` 캡처가 규칙 본문에 못 닿았다 "
+                f"— 지금 캡처: {body.strip()[:200]!r}"
+            )
+            return
+
+        # ⓐ 아직 인자 없는 형태 — 변이 전후 **본문이 같아야** 한다.
         assert _fn_body(broken, "unlockedBoardIds") == _fn_body(
             mock_src, "unlockedBoardIds"
         ), (
