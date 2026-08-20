@@ -318,7 +318,8 @@ export default {
     nicknameTaken: 'That name is already taken — please try another one.',
     submit: 'Next — take the placement check →',
     skip: 'Skip →',
-    note: 'You can change this any time under My Info.',
+    // See the ko note — the My Info door was removed (2026-08-20 client ruling).
+    note: 'You start right away at the level you pick here.',
     // The "returning visitor" slot (2026-08-19). ⚠️ Never the words "log in" /
     // "sign up" — the banned-word contract scans en values too (and it matches
     // the bare substring `login`).
