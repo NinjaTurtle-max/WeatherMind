@@ -1,5 +1,21 @@
 """목(apiMockPlugin.js) ↔ 서버 스키마 필드 전수 대조 — 목록만 만든다(고치지 않는다).
 
+## 두 가지 모드
+
+    python3 scripts/mock_parity.py .                      # 정적 추출(아래 ⑶)
+    python3 scripts/mock_parity.py . /tmp/live.json       # 🟢 **실행 수집** 모드
+
+**실행 수집 모드를 쓸 것.** `frontend/scripts/mock_capture.mjs`가 목을 실제로
+띄워 받아 온 응답의 최상위 키를 그대로 쓴다. 정적 추출은 목 핸들러 과반이
+`return [200, devStatePayload()]`처럼 **함수 호출**을 돌려주므로 절반을 못 본다 —
+그 한계를 남겨 두려고 지우지 않았을 뿐, 판정의 근거로 쓰지 않는다.
+
+⚠️ 실행 수집 모드의 **대조 가능 판정**(못 본 것을 「차이 없음」으로 적지 않기 위한 규칙):
+   · 2xx 아님            → 대조 불가(HTTP 코드를 사유로 적는다)
+   · `keys` 가 `null`    → **빈 배열 = 표본 없음**. 필드가 없는 게 아니다
+   · `keys` 가 `[]`      → 객체가 아닌 응답(스칼라·문자열) — 대조 불가
+   · 서버 `response_model` 없음 → 대조 **불가**(서버 라우터 쪽 사정, 여기 범위 밖)
+
 방법:
   ⑴ backend/app/routers/*.py 의 `@router.<verb>("<path>", ..., response_model=X)`
      → 경로별 응답 스키마
@@ -22,8 +38,13 @@ import sys
 from pathlib import Path
 
 ROOT = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+LIVE = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else None
 ROUTERS = sorted((ROOT / "backend/app/routers").glob("*.py"))
-SCHEMAS = sorted((ROOT / "backend/app/schemas").glob("*.py"))
+# 🔴 스키마가 `schemas/`에만 있다는 전제가 틀렸다. `MeResponse`는 **라우터 파일 안**
+#    (`routers/auth.py:273`)에 있어서 필드 집합이 빈 채로 나왔고, 그 바람에
+#    `GET /auth/me`·`PATCH /auth/me` 두 경로가 「스키마 MeResponse 파싱 0」으로
+#    대조 못 함에 남았다 — **목이 아니라 이 도구의 결함**이었다.
+SCHEMAS = sorted((ROOT / "backend/app/schemas").glob("*.py")) + ROUTERS
 MOCK = ROOT / "frontend/mock/apiMockPlugin.js"
 SRC = ROOT / "frontend/src"
 
@@ -52,6 +73,12 @@ for f in SCHEMAS:
     for i, m in enumerate(marks):
         end = marks[i + 1].start() if i + 1 < len(marks) else len(text)
         body = text[m.end():end]
+        # ⚠️ 라우터 파일에는 클래스 뒤에 **함수**가 온다. 다음 클래스까지를 통째로
+        #    본문으로 잡으면 `async def me(\n    user: User = ...` 같은 4칸 들여쓴
+        #    인자가 필드로 섞인다 — 첫 최상위 구문(열 0의 `def`·`@`·`if` 등)에서 끊는다.
+        cut = re.search(r"^\S", body, re.M)
+        if cut:
+            body = body[:cut.start()]
         bases = [b.strip() for b in m.group(2).split(",") if b.strip()]
         fields = {
             n for n in FIELD_RE.findall(body)
@@ -73,26 +100,44 @@ def fields_of(name: str, seen: set[str] | None = None) -> set[str]:
 
 
 # ── ⑴ 라우터 → 경로별 응답 스키마 ────────────────────────────────────────────
+# 🔴 `@router.`만 보던 판은 **한 파일을 통째로 놓쳤다.** `routers/curriculum.py`는
+#    라우터를 셋(`router`·`curriculum_router`·`courses_router`) 두는데, 데코레이터가
+#    `@curriculum_router.get(...)`이라 정규식에 안 걸렸다. 그래서 첫 판이
+#    `GET /courses`·`GET /curriculum`·`POST /curriculum/units/*/session`을
+#    **「response_model 없음」으로 적었는데 그건 틀렸다** — 셋 다 선언돼 있다
+#    (`CoursesOut`·`CurriculumOut`·`SessionToday`). 도구가 못 본 것을 서버 탓으로
+#    돌린 셈이다. ⇒ 이름 붙은 라우터와 **그 라우터의 prefix**를 따로 읽는다.
+ROUTER_RE = re.compile(r'^(\w+)\s*=\s*APIRouter\((.*?)\)\s*$', re.S | re.M)
 DEC_RE = re.compile(
-    r'@router\.(get|post|patch|put|delete)\(\s*"([^"]+)"(.*?)\)\s*\n\s*(?:async\s+)?def',
+    # 경로가 **빈 문자열**인 데코레이터가 있다(`@curriculum_router.get("")` — prefix가
+    # 곧 경로다). `[^"]+`는 그걸 못 잡아 `GET /curriculum`·`GET /courses`가 통째로
+    # 사라졌다 ⇒ `*`여야 한다.
+    r'@(\w+)\.(get|post|patch|put|delete)\(\s*"([^"]*)"(.*?)\)\s*\n\s*(?:async\s+)?def',
     re.S,
 )
 server: dict[str, str] = {}   # 'VERB /path' → 스키마명
+# 🔴 `response_model`을 **선언 안 한** 서버 경로. 대조의 기준이 없으므로 목이 옳은지
+#    그른지 **말할 수 없다.** 「차이 없음」이 아니라 「잴 수 없음」이다 — 목록으로 남긴다.
+no_model: set[str] = set()
 for f in ROUTERS:
     text = f.read_text(encoding="utf-8")
-    prefix = ""
-    pm = re.search(r'APIRouter\([^)]*prefix="([^"]*)"', text, re.S)
-    if pm:
-        prefix = pm.group(1)
+    prefixes: dict[str, str] = {}
+    for rm2 in ROUTER_RE.finditer(text):
+        pm = re.search(r'prefix="([^"]*)"', rm2.group(2))
+        prefixes[rm2.group(1)] = pm.group(1) if pm else ""
     for m in DEC_RE.finditer(text):
-        verb, path, rest = m.group(1).upper(), m.group(2), m.group(3)
+        rname, verb, path, rest = m.group(1), m.group(2).upper(), m.group(3), m.group(4)
+        if rname not in prefixes:
+            continue
+        full = (prefixes[rname] + path) or "/"
         rm = re.search(r"response_model=([\w\[\]\. |]+)", rest)
         if not rm:
+            no_model.add(norm(verb, full))
             continue
         model = rm.group(1).strip().rstrip(",")
         inner = re.sub(r"^list\[|\]$", "", model).strip()
-        full = (prefix + path) or "/"
         server[norm(verb, full)] = inner
+no_model -= set(server)
 
 # ── ⑶ 목 → 경로별 **반환 객체**의 최상위 키 ─────────────────────────────────
 # ⚠️ 핸들러 본문의 **모든** 객체 리터럴을 긁으면(첫 판) 「목에만 있는 필드」가
@@ -195,6 +240,29 @@ for i, m in enumerate(keys):
     elif key not in unresolved:
         unresolved[key] = "(return [code, {...}] 형태 아님)"
 
+# ── ⑶′ 실행 수집(mock_capture.mjs) 결과가 있으면 **그것으로 갈아 끼운다** ──────
+# 정적 추출은 위 ⑶에서 이미 돌았지만, `live`가 있으면 그쪽이 이긴다. 실제로 목이
+# 돌려준 JSON의 최상위 키라서 함수 호출·분기·확산 연산자를 전부 통과한 값이다.
+live_reason: dict[str, str] = {}   # 'VERB /path' → 대조 불가 사유
+if LIVE:
+    captured = json.loads(LIVE.read_text(encoding="utf-8"))
+    mock, unresolved = {}, {}
+    for raw, rec in captured.items():
+        vk = raw.split(" ", 1)
+        key = norm(vk[0], vk[1])
+        status, ks = rec.get("status"), rec.get("keys")
+        if not (200 <= (status or 0) < 300):
+            live_reason[key] = f"HTTP {status}"
+        elif ks is None:
+            # ⚠️ 목이 `[]`를 줬다. **필드가 없는 게 아니라 표본이 없는 것**이다.
+            #    이걸 빈 필드집합으로 읽으면 스키마 전 필드가 「목에없음」으로 뒤집힌다
+            #    (첫 판에서 `GET /progress/weak-tags`가 실제로 그렇게 나왔다).
+            live_reason[key] = "빈 배열 — 표본 없음"
+        elif not ks:
+            live_reason[key] = "객체가 아닌 응답 — 최상위 키 없음"
+        else:
+            mock[key] = set(ks)
+
 # ── ⑷ 대조 ───────────────────────────────────────────────────────────────────
 src_blob = ""
 for p in SRC.rglob("*"):
@@ -207,15 +275,19 @@ def readers(field: str) -> int:
 
 
 rows = []
-matched = 0
+matched: list[str] = []
+unmatched: dict[str, str] = {}
 for key, model in sorted(server.items()):
     if key not in mock:
+        unmatched[key] = live_reason.get(key) or unresolved.get(key) or "목에 그 경로 없음"
         continue
-    matched += 1
     sf = fields_of(model)
     mf = mock[key]
     if not sf:
+        # 스키마 이름은 찾았는데 필드를 못 읽었다 — **대조 성사가 아니다.**
+        unmatched[key] = f"스키마 {model} 파싱 0"
         continue
+    matched.append(key)
     for miss in sorted(sf - mf):
         rows.append((key, "목에없음", miss, model, readers(miss)))
     for extra in sorted(mf - sf):
@@ -223,7 +295,9 @@ for key, model in sorted(server.items()):
             continue
         rows.append((key, "목에만", extra, model, readers(extra)))
 
-print(f"# 서버 응답모델 경로 {len(server)} · 목 경로 {len(mock)} · 이름이 겹친 경로 {matched}")
+src_label = f"실행 수집 {LIVE}" if LIVE else "정적 추출(한계 있음)"
+print(f"# 대조 성사 **{len(matched)}** / 서버 응답모델 {len(server)} "
+      f"· 목 응답 {len(mock)} · 수집원: {src_label}")
 print()
 print("| 경로 | 갈래 | 필드 | 스키마 | src 참조수 |")
 print("|---|---|---|---|---|")
@@ -234,7 +308,22 @@ print(f"합계: 목에없음 {sum(1 for r in rows if r[1]=='목에없음')} "
       f"(그중 src가 읽는 것 {sum(1 for r in rows if r[1]=='목에없음' and r[4]>0)}) · "
       f"목에만 {sum(1 for r in rows if r[1]=='목에만')}")
 print()
-print("## 🔴 정적 추출로는 대조 못 한 서버 경로 — 「차이 없음」이 아니라 「안 봤다」")
-for k in sorted(set(server) - set(mock)):
-    why = unresolved.get(k, "목에 그 경로 없음")
-    print(f"  - {k}  ({server[k]}) — {why}")
+print(f"## 대조가 성사된 서버 경로 {len(matched)}개 — 이 목록 밖은 **안 본 것**이다")
+for k in matched:
+    print(f"  - {k}  ({server[k]})")
+print()
+print("## 🔴 대조 못 한 서버 경로 — 「차이 없음」이 아니라 「안 봤다」")
+print(f"(응답모델 있는 {len(server)}개 중 {len(unmatched)}개)")
+for k in sorted(unmatched):
+    print(f"  - {k}  ({server[k]}) — {unmatched[k]}")
+print()
+print("## 🔴 `response_model`을 선언 안 한 서버 경로 — **잴 수 없다**")
+print(f"({len(no_model)}개. 대조의 기준이 서버에 없다 — 목을 탓할 수도 편들 수도 없다.")
+print(" 고치려면 서버 라우터가 응답 모델을 선언해야 한다 — 이번 범위 밖이다.)")
+for k in sorted(no_model):
+    print(f"  - {k}")
+print()
+print(f"## 목이 응답을 준 경로 {len(mock)}개 중 서버 응답모델과 짝이 없는 것")
+for k in sorted(set(mock) - set(server)):
+    tag = " (response_model 없음)" if k in no_model else ""
+    print(f"  - {k}{tag}")
