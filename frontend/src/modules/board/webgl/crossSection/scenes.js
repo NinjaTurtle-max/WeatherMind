@@ -191,23 +191,54 @@ export function label({ x, y, z = 0.04, text, color = '#334155', size = 11, at, 
 // ── 지표 레이어(전 장면 공통) ───────────────────────────────────────────────
 /** 지표 평면 + 바다 스트립 + 토양 앞단면 — 항상 표시(단계 무관) */
 export function groundLayer({ night = false, sea = null }) {
-  const items = [
-    vol({ x0: 0, x1: 1, y0: -0.02, y1: 0.0, color: night ? rgba('#43533f', 1) : rgba('#c6dbb0', 1), pattern: 4, layer: 'ground' }),
-    vol({ x0: 0, x1: 1, y0: -0.07, y1: -0.02, color: rgba('#d6c9a8', 1), pattern: 2, layer: 'ground' }),
-  ];
-  if (sea) {
-    // `until` — 어떤 단계부터 바다를 걷을지. 기본은 안 걷는다.
-    // 🔴 홍수만 쓴다: 3단계엔 범람수가 해안까지 덮어 바다 구간이 **물 밑**이 되고,
-    //    `RATCHET.floodSolids = 18`에서 한 칸이 모자랐다. 화면에는 변화가 없다 —
-    //    이 스트립은 몸통 윗면(nearness 0.4294)이 자기(0.2113)보다 나중에 그려져
-    //    **어차피 안 보인다**(2026-08-20 실측, `groundLayer` 공통 결함으로 따로 올림).
-    items.splice(1, 0, vol({
-      x0: sea.from ?? 0, x1: sea.to, y0: -0.014, y1: 0.002,
-      color: rgba('#7dd3fc', 0.97), pattern: 3, layer: 'ground', until: sea.until,
+  const veg = night ? rgba('#43533f', 1) : rgba('#c6dbb0', 1);
+  const items = [];
+  if (!sea) {
+    items.push(vol({ x0: 0, x1: 1, y0: -0.02, y1: 0.0, color: veg, pattern: 4, layer: 'ground' }));
+  } else {
+    // 🔴 **바다 구간에서 지면 윗면을 갈라 낸다**(2026-08-20 클라이언트 지시).
+    //
+    //   종전엔 지면 윗면이 x 0~1 한 장이고 그 **위에** 바다 스트립을 얹었다.
+    //   그런데 `renderer.js`가 모든 solid를 중심 깊이로 정렬한 뒤 그리므로
+    //   (`solids.sort` → `pushSolid`), **바다가 지면보다 먼저 그려지고 지면 윗면이
+    //   바다를 통째로 덮었다.** 실측 nearness — 바다 0.2113 < 지면 0.4294.
+    //   바다 윗면(y 0.002)이 지면 윗면(y 0)보다 0.002 높아 **뒷줄 가장자리에
+    //   실선 한 줄**만 남았다. 몸통 윗면을 자홍, 바다를 노랑으로 칠해 확인했다.
+    //
+    //   ⇒ 겹치게 두고 순서로 이기려 하지 않는다 — **애초에 안 겹치게 자른다.**
+    //     `tropical_cyclone_genesis`(sea 0~1)는 자르고 나면 지면 조각이 **0개**가
+    //     되어 화면이 통째로 바다다. 그것이 그 장면의 뜻이다.
+    //
+    //   ⚠️ 바다가 **안쪽**에 있으면(`from > 0` 이면서 `to < 1`) 지면이 두 조각이
+    //     되어 `ground` 예산을 하나 더 쓴다. `MAX_GROUND = 8`이고 그런 장면은
+    //     `siberian_snow`(0.06~0.56)·`yangtze_morning_fog`(0.26~0.44) 둘뿐이며
+    //     둘 다 여유 안이다(계약 7-i가 전 장면을 훑는다).
+    // 🔴 **흙도 함께 자른다 — 윗면만 잘랐더니 흙이 바다를 덮었다**(같은 날 재실측).
+    //   지면 윗면만 갈라 냈더니 이번엔 **심층토**(`#d6c9a8` · x 0~1 · nearness
+    //   0.4168)가 바다(0.2113)보다 나중에 그려져 그 자리를 덮었다. 정렬 키에서
+    //   x가 지배적이라(0.5487x) **x 0~1을 덮는 판은 서쪽 끝 판을 언제나 앞지른다**
+    //   — 순서로는 못 이긴다. 자를 것을 덜 잘랐던 것이다.
+    //   ⇒ 바다 구간에서는 **흙도 비우고 바다가 그 깊이를 통째로 갖는다**
+    //     (y -0.07~0.002). 단면에서 바다가 **물기둥**으로 보이는 것이 관례이기도
+    //     하다 — 얇은 띠보다 이쪽이 옳다.
+    const from = sea.from ?? 0;
+    const to = sea.to;
+    const band = (x0, x1) => {
+      items.push(vol({ x0, x1, y0: -0.02, y1: 0.0, color: veg, pattern: 4, layer: 'ground' }));
+      items.push(vol({ x0, x1, y0: -0.07, y1: -0.02, color: rgba('#d6c9a8', 1), pattern: 2, layer: 'ground' }));
+    };
+    if (from > 0) band(0, from);
+    if (to < 1) band(to, 1);
+    items.push(vol({
+      x0: from, x1: to, y0: -0.07, y1: 0.002,
+      color: rgba('#7dd3fc', 0.97), pattern: 3, layer: 'ground',
     }));
+    return items;
   }
+  items.push(vol({ x0: 0, x1: 1, y0: -0.07, y1: -0.02, color: rgba('#d6c9a8', 1), pattern: 2, layer: 'ground' }));
   return items;
 }
+
 
 // ── 장면 v1 (도입 당시 8종 — rule_id ↔ STORYBOARDS 단계 인덱스와 1:1) ──
 
@@ -587,8 +618,19 @@ const wildfireRiskDryGale = () => [
  *   ⚠️ 앞줄 x를 뒷줄 사이에 **엇물린다.** 나란히 세우면 앞줄이 뒷줄을 가려
  *     두 줄인 것이 안 보인다.
  */
-const ZROW_BACK = 0.13;
+const ZROW_BACK = 0.09;
+const ZROW_MID = 0.20;
 const ZROW_FRONT = 0.31;
+/**
+ * 빗물받이가 놓이는 깊이 — **줄과 줄 사이 길**이다.
+ *
+ * 🔴 종전 z 0.19~0.25는 가운데 줄 띠(0.155~0.245)를 **관통**했다(계약 7-F2가 잡았다).
+ *   9차에 클라이언트가 반려한 「레이어를 쌓아서 부정합」이 정확히 그 상태다 —
+ *   깊이 띠가 겹치면 앞뒤가 물체마다 갈린다.
+ * ⇒ 가운데 줄과 앞줄 사이 틈(0.245~0.265)에 **얇게** 눕힌다. 빗물받이는 길바닥
+ *   격자라 깊이가 얇은 것이 오히려 맞다.
+ */
+const ZDRAIN = 0.255;
 /** 지하·빗물받이가 붙는 줄 — 지하는 뒷줄 건물 밑, 빗물받이는 두 줄 사이 길 */
 const ZOBJ = ZROW_BACK;
 
@@ -642,10 +684,14 @@ const sunk = (c) => [
  *     있었으므로 함께 고쳤다 — 요구가 「여러 단계」에서 「한 선에 여럿이 잘린다」로
  *     바뀐 것이지, 요구를 없앤 것이 아니다.
  *
- * ⚠️ **다섯 채가 상한이다.** `RATCHET.floodSolids = 18`이고 3단계 solid는
- *    ground 7 + (건물 × 2조각) + 지하 1 + 빗물받이 1이라 건물은 **5채가 정확히 18**.
- *    3줄로 늘리려면 래칫을 올려야 하는데 그 계약이 *"이 상한을 올리지 말 것"*이라고
- *    적혀 있으므로 **여기서 올리지 않는다.** 두 줄 + 엇물림으로 깊이를 만든다.
+ * 🔴 **두 줄 → 세 줄, 다섯 채 → 여덟 채**(2026-08-20 클라이언트: *"3줄로 가게
+ *    래칫 올려"*). 직전 판은 `RATCHET.floodSolids = 18`에 걸려 다섯 채가 상한이었고,
+ *    그 계약이 *"이 상한을 올리지 말 것"*이라 적혀 있어 **제 판단으로는 안 올렸다.**
+ *    클라이언트가 올리라고 판정했으므로 올린다 — 사유와 새 상한은 계약 쪽 주석이
+ *    소유한다.
+ *    줄 깊이 0.09 / 0.20 / 0.31 — 건물 깊이가 0.09 고정이라 세 띠
+ *    (0.045~0.135 · 0.155~0.245 · 0.265~0.355)가 **서로 안 겹친다.**
+ *    가운데 줄만 x를 엇물려 세 줄이 격자로 읽히게 한다.
  *
  * 높이 0.092 · 수면 0.042 ⇒ **46%** — 마른 것도 잠긴 것도 아닌 중간이라 잘린 선이
  * 가장 잘 읽히는 자리다.
@@ -656,9 +702,13 @@ const FLOOD_CITY = [
   { x: 0.34, z: ZROW_BACK, h: FLOOD_H, w: 0.055, color: rgba('#a8a29e', 0.95) },
   { x: 0.55, z: ZROW_BACK, h: FLOOD_H, w: 0.055, color: rgba('#94a3b8', 0.95) },
   { x: 0.76, z: ZROW_BACK, h: FLOOD_H, w: 0.055, color: rgba('#a8a29e', 0.95) },
-  // 앞줄 2채 — 뒷줄 **사이**에 엇물린다
-  { x: 0.445, z: ZROW_FRONT, h: FLOOD_H, w: 0.055, color: rgba('#94a3b8', 0.95) },
-  { x: 0.655, z: ZROW_FRONT, h: FLOOD_H, w: 0.055, color: rgba('#a8a29e', 0.95) },
+  // 가운데 줄 2채 — 뒷줄·앞줄 **사이**에 엇물린다
+  { x: 0.445, z: ZROW_MID, h: FLOOD_H, w: 0.055, color: rgba('#94a3b8', 0.95) },
+  { x: 0.655, z: ZROW_MID, h: FLOOD_H, w: 0.055, color: rgba('#a8a29e', 0.95) },
+  // 앞줄 3채 — 뒷줄과 같은 x. 등축에서 좌하로 내려앉아 서로 안 가린다.
+  { x: 0.34, z: ZROW_FRONT, h: FLOOD_H, w: 0.055, color: rgba('#94a3b8', 0.95) },
+  { x: 0.55, z: ZROW_FRONT, h: FLOOD_H, w: 0.055, color: rgba('#a8a29e', 0.95) },
+  { x: 0.76, z: ZROW_FRONT, h: FLOOD_H, w: 0.055, color: rgba('#94a3b8', 0.95) },
 ];
 
 const floodRiskSaturatedInflow = () => [
@@ -736,8 +786,8 @@ const floodRiskSaturatedInflow = () => [
   vol({ x0: 0.525, x1: 0.575, y0: -0.050, y1: -0.002, color: rgba('#0284c7', 0.78), z0: ZROW_BACK - 0.045, z1: ZROW_BACK + 0.045, pattern: 3, at: 3 }),
   // 빗물받이 — 배수 용량의 화신. 2단계에서 삼키다 3단계에서 역류한다.
   // 3단계엔 수면(0.042) 한참 아래라 **물속**이다 ⇒ alpha를 낮춰 물이 비쳐 오르게 한다.
-  vol({ x0: 0.580, x1: 0.620, y0: -0.044, y1: 0.007, color: rgba('#44403c', 0.96), z0: 0.22 - 0.03, z1: 0.22 + 0.03, at: 0, until: 2 }),
-  vol({ x0: 0.580, x1: 0.620, y0: -0.044, y1: 0.007, color: sunk(rgba('#44403c', 0.96)), z0: 0.22 - 0.03, z1: 0.22 + 0.03, at: 3 }),
+  vol({ x0: 0.580, x1: 0.620, y0: -0.044, y1: 0.007, color: rgba('#44403c', 0.96), z0: ZDRAIN - 0.009, z1: ZDRAIN + 0.009, at: 0, until: 2 }),
+  vol({ x0: 0.580, x1: 0.620, y0: -0.044, y1: 0.007, color: sunk(rgba('#44403c', 0.96)), z0: ZDRAIN - 0.009, z1: ZDRAIN + 0.009, at: 3 }),
   // 🔴 **차는 뺐다**(2026-08-20 클라이언트 지시). 자 노릇은 위 `FLOOD_CITY`의
   //   **네 채가 저마다 다르게 잠긴 것**으로 넘겼다 — 사유는 그쪽 주석이 소유한다.
   //   `car()` 헬퍼도 함께 지웠다(호출자가 이 장면뿐이었다). 되살릴 일이 있으면
@@ -771,7 +821,7 @@ const floodRiskSaturatedInflow = () => [
   //   걷는다」는 이 파일이 라벨에 이미 쓰던 규칙인데 화살표에만 안 걸려 있었다.
   precip({ x0: 0.24, x1: 0.98, y1: H(0.82), kind: 'rain', slant: 0.14, speed: 1.25, count: 34, at: 2 }),
   ...flow({ from: [0.275, H(0.10), ZC], dir: [0, -1, 0], travel: 0.06, count: 2, scale: 0.034, color: rgba('#15803d', 0.9), at: 2, until: 2, speed: 0.5, spreadZ: 0.1 }),
-  ...flow({ from: [0.600, H(0.11), 0.22], dir: [0, -1, 0], travel: 0.075, count: 1, scale: 0.038, color: rgba('#0369a1', 0.9), at: 2, until: 2, speed: 0.6 }),
+  ...flow({ from: [0.600, H(0.11), ZDRAIN], dir: [0, -1, 0], travel: 0.075, count: 1, scale: 0.038, color: rgba('#0369a1', 0.9), at: 2, until: 2, speed: 0.6 }),
 
   // 3 — **포화·배수 초과**(조사 §3C·§3F). 순서가 문법이다: 땅속이 차고 → 위에 고이고 →
   //     빗물받이가 역류하고 → 지하부터 잠기고 → 못 스민 물이 포장면을 타고 흐른다.
@@ -904,14 +954,24 @@ const floodRiskSaturatedInflow = () => [
   //       `MAX_GROUND = 8` 안이다.
   //     실측 nearness(= 0.5487x + 0.3584y + 0.7553z) — 진할수록 나중이어야 한다:
   //       얕음 0.4850 < 중간 0.5530 < 깊음 0.6211. 밝기는 0.687 / 0.576 / 0.378.
-  vol({ x0: 0, x1: 1.0, y0: -0.018, y1: 0.002, z0: 0, z1: Z,
+  //   ⓖ 🔴 **서쪽 끝이 0 → 0.2 — 바다 스트립을 고친 대가다**(2026-08-20).
+  //     `groundLayer()`가 바다 구간에서 지면 윗면을 갈라 내면서 이 장면의 육지
+  //     조각이 x **0.2~1**이 됐다. 그러자 그 조각의 중심이 동쪽으로 밀려
+  //     **정렬에서 물을 앞질렀다** — 실측 nearness 육지 0.4842 > 물(x 0~1) 0.4301.
+  //     즉 **풀밭이 물 위에 덧칠**됐다(계약 7-G2가 잡았다).
+  //     ⇒ 물의 x를 **육지 조각과 같게** 맞춘다. 중심이 같아지고 y가 조금 높아
+  //       물이 **아슬하게 나중**이 된다 — 실측 여유 0.0007.
+  //       ⚠️ 여유가 얇다. 좌표를 만지면 뒤집힌다. 뒤집히면 7-G2가 운다(실증).
+  //     ⚠️ x 0~0.2는 이제 **바다**가 갖는다. 「다 채워줘」는 지켜진다 — 마른 지면이
+  //       0이고 해안은 바다, 육지는 범람수다. 종전엔 그 자리가 **맨 지면**이었다.
+  vol({ x0: 0.20, x1: 1.0, y0: -0.018, y1: 0.002, z0: 0, z1: Z,
     color: rgba('#22d3ee', 1), pattern: 3, at: 3, layer: 'ground' }),
   vol({ x0: 0.45, x1: 1.0, y0: -0.022, y1: 0.003, z0: 0, z1: Z,
     color: rgba('#06b6d4', 1), pattern: 3, at: 3, layer: 'ground' }),
   vol({ x0: 0.70, x1: 1.0, y0: -0.026, y1: 0.004, z0: 0, z1: Z,
     color: rgba('#0e7490', 1), pattern: 3, at: 3, layer: 'ground' }),
   // 빗물받이 역류 — 아래로 못 내려가니 위로 되올라온다
-  ...flow({ from: [0.600, H(0.03), 0.22], dir: [0, 1, 0], travel: 0.065, count: 2, scale: 0.04, color: rgba('#075985', 0.98), at: 3, speed: 0.7, spreadZ: 0.045 }),
+  ...flow({ from: [0.600, H(0.03), ZDRAIN], dir: [0, 1, 0], travel: 0.065, count: 2, scale: 0.04, color: rgba('#075985', 0.98), at: 3, speed: 0.7, spreadZ: 0.045 }),
   // 유출 — **포장면이 물살을 빠르게 한다**(§3F). 화살표는 수면 위에 둔다.
   // 🔴 **도시 동쪽 빈 구역으로 물린다**(2026-08-20 실렌더 반려: *"좌향 화살표
   //   하나가 가운데 높은 건물 면 위에 얹히고, 또 하나가 오른쪽 건물에 반쯤
@@ -1118,7 +1178,7 @@ export const SCENES = {
   yangtze_morning_fog: { build: yangtzeMorningFog, night: true, sea: { from: 0.26, to: 0.44 } },
   dry_convection_clear: { build: dryConvectionClear },
   wildfire_risk_dry_gale: { build: wildfireRiskDryGale },
-  flood_risk_saturated_inflow: { build: floodRiskSaturatedInflow, sea: { from: 0, to: 0.2, until: 2 } },
+  flood_risk_saturated_inflow: { build: floodRiskSaturatedInflow, sea: { from: 0, to: 0.2 } },
   cold_front_squall_storm: { build: coldFrontSquallStorm },
   siberian_gale_wildfire: { build: siberianGaleWildfire },
   front_convergence_flood: { build: frontConvergenceFlood, sea: { from: 0, to: 0.18 } },

@@ -168,6 +168,91 @@ check('CO-R-9: 같은 앱의 ClosingForecastStep도 D+2를 쓴다(두 화면이 
   );
 });
 
+// ── 5. 진입 첫 화면이 **없는 통로를 약속하지 않는다** ──────────────────────
+check('⑸ 진입 안내가 「내 정보에서 바꿀 수 있다」고 말하지 않는다', () => {
+  // 🔴 **2026-08-20 클라이언트 판정**: *「진입에서 한 번 고르면 고정이야」* ⇒
+  //   `/me`의 학습 수준 카드는 되살리지 않는다(#148의 삭제 확정).
+  //   그런데 진입 첫 화면이 *"나중에 내 정보에서 언제든 바꿀 수 있어요"*라고
+  //   약속하고 있었다 — **가리키는 통로가 0곳**이다.
+  //
+  // ⚠️ 문안만 고치면 다음 사람이 되돌린다. 그래서 계약이 **약속의 방향**을 문다.
+  //   낱말 하나가 아니라 「바꿀 수 있다」는 뜻 전체를 막는다.
+  // ⚠️ **하루 목표는 여기서 안 본다** — 다른 축이고 아래 ⑹이 따로 문다
+  //   (2026-08-20 판정: 「안내를 제거」. 판정 대기였던 시절의 주석을 갱신했다).
+  const ko = RESOURCES.ko.entryInfo.note;
+  const en = RESOURCES.en.entryInfo.note;
+  assert(!/내\s*정보/.test(ko) && !/바꿀\s*수\s*있/.test(ko),
+    `entryInfo.note가 없는 통로를 약속한다: "${ko}"`);
+  assert(!/my\s*info/i.test(en) && !/\bchange\b/i.test(en),
+    `en entryInfo.note: "${en}"`);
+  // 공허 통과 방지 — 이 키가 사라지거나 비면 위 두 단정이 저절로 참이 된다.
+  assert(typeof ko === 'string' && ko.length >= 8, `entryInfo.note(ko)가 비었다: "${ko}"`);
+  assert(typeof en === 'string' && en.length >= 8, `entryInfo.note(en)이 비었다: "${en}"`);
+});
+
+// ── 6. 하루 목표도 **없는 통로를 약속하지 않는다** ─────────────────────────
+check('⑹ 하루 목표 안내가 「나중에/언제든 바꿀 수 있다」고 말하지 않는다', () => {
+  // 🔴 **2026-08-20 클라이언트 판정**: *「「바꿀 수 있다」고 약속을 안 하면 돼.
+  //   즉 이 안내를 제거하면 되잖니」* ⇒ **통로를 만들지 않고 약속을 걷는다.**
+  //   `/me`에 하루 목표 카드는 0곳이다(#148이 걷었고 되살리지 않는다).
+  //
+  // 두 자리다: 진입 첫 화면(`entryInfo.goalHint`)과 배치고사 결과 화면의
+  // 목표 고르기(`dailyGoal.pickerBody` — `DailyGoalPicker`가 렌더하고 그
+  // 컴포넌트는 `PlacementSummary`에서만 쓰인다). **둘 다 진입 동선이다.**
+  //
+  // ⚠️ ⑸와 같은 원칙 — 낱말이 아니라 **뜻**을 막는다.
+  const targets = [
+    ['ko', 'entryInfo.goalHint', RESOURCES.ko.entryInfo.goalHint],
+    ['ko', 'dailyGoal.pickerBody', RESOURCES.ko.dailyGoal.pickerBody],
+  ];
+  for (const [loc, key, val] of targets) {
+    assert(!/바꿀\s*수\s*있/.test(val) && !/언제든/.test(val) && !/나중에/.test(val),
+      `${loc} ${key}가 없는 통로를 약속한다: "${val}"`);
+    // 공허 통과 방지 — 키가 사라지거나 비면 위 단정이 저절로 참이 된다.
+    assert(typeof val === 'string' && val.length >= 8, `${loc} ${key}가 비었다: "${val}"`);
+  }
+  const enTargets = [
+    ['entryInfo.goalHint', RESOURCES.en.entryInfo.goalHint],
+    ['dailyGoal.pickerBody', RESOURCES.en.dailyGoal.pickerBody],
+  ];
+  for (const [key, val] of enTargets) {
+    assert(!/\bchange\b/i.test(val) && !/\blater\b/i.test(val) && !/\banytime\b/i.test(val),
+      `en ${key}: "${val}"`);
+    assert(typeof val === 'string' && val.length >= 8, `en ${key}가 비었다: "${val}"`);
+  }
+});
+
+// ── 7. 이탈 안내가 **서버가 하는 일과 같은 말**을 한다 ──────────────────────
+check('⑺ 이탈 안내가 「진도가 사라진다」고 말하지 않는다', () => {
+  // 🔴 **2026-08-20 실측**: 답안은 **문항을 제출할 때마다 즉시 저장**된다
+  //   (`answer_service`가 매 제출에 flush). 「오늘 진도」는 그 저장분을 **그날
+  //   날짜로 센 것**이고(`routers/progress._count_answered_today` — 세션 소속과
+  //   무관), 스트릭은 세션 완료가 아니라 **출석 체크**(`POST /progress/attendance`)로
+  //   오른다. ⇒ 중간에 나가도 **오늘 진도는 사라지지 않는다.**
+  //   종전 문구 *"지금 나가면 오늘 진도가 사라져요"* / *"…더 풀면 오늘 진도와
+  //   스트릭이 기록돼요"*는 **학습자를 잡아 두려는 거짓**이었다.
+  //
+  // ⚠️ 같은 형태의 선례가 이 묶음에 이미 있다 — 만회 라운드에서 남은 수가 0이라
+  //   `almost`("조금만 더 하면 끝나요")가 거짓이었고 그래서 `retryRemaining`이
+  //   따로 생겼다. **문구가 서버 동작을 따라오지 않는** 같은 뿌리다.
+  const leave = RESOURCES.ko.session.leave;
+  assert(!/사라|없어지|잃/.test(leave.title),
+    `leave.title이 사라진다고 말한다: "${leave.title}"`);
+  assert(!/기록돼요|저장돼요/.test(leave.remaining),
+    `leave.remaining이 "이제부터 기록된다"고 말한다: "${leave.remaining}"`);
+  // 참인 문구는 남아 있어야 한다 — 지우고 통과하는 길을 막는다.
+  assert(/푼\s*만큼/.test(leave.tail), `leave.tail(참)이 사라졌다: "${leave.tail}"`);
+  for (const k of ['title', 'remaining', 'tail']) {
+    assert(typeof leave[k] === 'string' && leave[k].length >= 6, `leave.${k}가 비었다`);
+  }
+  const en = RESOURCES.en.session.leave;
+  assert(!/\blost\b|\blose\b/i.test(en.title), `en leave.title: "${en.title}"`);
+  assert(!/\bsaved\b/i.test(en.remaining), `en leave.remaining: "${en.remaining}"`);
+  for (const k of ['title', 'remaining', 'tail']) {
+    assert(typeof en[k] === 'string' && en[k].length >= 6, `en leave.${k}가 비었다`);
+  }
+});
+
 if (failed > 0) {
   console.error(`\n실패 ${failed}건`);
   process.exitCode = 1;

@@ -5954,6 +5954,60 @@ frontend  FAIL  build OK · 테스트 실패: learn-path
 먼저 잡힌다.** 그 상수는 `is_weak_concept` shim 전용이고 그 함수 주석이 스스로
 *"[Deprecated — R8-01 §3.5]"*라 밝힌다. **약점 판정의 소유자는 `weatherbrain_service`다.**
 
+#### ✅ **그 함정을 소거했다 — 표시가 아니라 제거로** (2026-08-20, 후속 집행)
+
+위 함정 표시는 **경고로 남기지 않고 원인을 없앴다.** 위 표의 세 번째 행
+(`xp_service.py:59`)은 이제 **역사적 좌표다 — 그 줄에 상수는 없다.**
+
+**① 호출자 전수 측정 (지우기 전에)** — `backend/app`·`backend/tests`·`celery`·
+`ai-worker` 전부 + `getattr` 동적 접근까지 훑었다.
+
+| 심볼 | 프로덕션 호출자 | 테스트 호출자 |
+|---|---|---|
+| `WEAK_ACCURACY_THRESHOLD` | **0** (정의 자신 + shim 내부 1건뿐) | 1 (`test_gamification_formulas.py`) |
+| `is_weak_concept()` | **0** | 1 (같은 파일) |
+
+⇒ 「살아 있는 이중 경로」가 아니라 **진짜 죽은 코드**였다. 그래서 지웠다.
+
+**② 지운 것 · 남긴 것** — 테스트를 지울 때 **그 테스트가 지키던 성질을 먼저 이름 붙였다:**
+
+| 지운 단정 | 지키던 성질 | 판단 |
+|---|---|---|
+| `_tag("59.99") is True` | 실측 정답률 < 60 → 약점 | **삭제** — 폐기된 축 그 자체. 프로덕션 소비자 0 |
+| `_tag(0, total=0) is False` | 🔴 **한 번도 안 푼 태그는 약점이 아니다** | **현행에서 이미 지켜짐** → 삭제 안전. `weak_concepts`의 `n > 0`이 같은 성질을 물고, `TestWeakConceptJudgment.test_응답_0건_사전값뿐이면_약점_아님`이 그것을 고정한다 |
+| `is_weak_concept(None) is False` | None 방어 | **삭제** — shim 시그니처 전용. `weak_concepts`는 리스트를 받아 대응 개념이 없다 |
+| `"Deprecated" in __doc__` | 폐기 표시 유지 | **삭제** — 함수와 함께 죽는 메타 단정 |
+
+**남긴 것**(건드리지 않았다): `update_weak_tag()`(`answer_service`가 살아서 부른다 —
+`weak_tags` 적재는 계속된다) · `session_service.py:769`(아래 ④의 폴백에 먹인다) ·
+`get_weak_tag()`(호출자 0이지만 이 임무 범위 밖 — §946 기록 그대로 남겨 둔다).
+
+**③ 함정 방지 주석** — `backend/app/services/weatherbrain_service.py:343-367`
+(현행 소유자 `WEAK_EXPECTED_P` 바로 위, 이제 `:369`). 넣은 것 네 가지:
+제안서 좌표(`PROPOSAL_REQUIREMENTS.md:154`)와 **「정답률」이라는 낱말**(검색이 여기 닿게) ·
+두 축의 대조 · **왜 바꿨는지**(b가 문항 난이도 흡수 · `n > 0`이 미풀이 태그 보호) ·
+🪦 **묘비** — 지운 두 이름을 주석 본문에 적어 뒀다. 그 이름으로 grep해도 **후임 자리에 닿는다.**
+
+**④ ⚠️ 그런데 실측 정답률 축은 완전히 죽지 않았다 — 살아 있는 자리가 1곳 있다**
+
+소거 중 확인했다: `ai-worker/app/chains/router_chain.py:27`
+`ACCURACY_FOCUS_THRESHOLD = 60`이 **실측 `accuracy_rate`로 판정하며 살아 있다**(`:109`).
+지우지 않았고 지워선 안 된다 — **약점 판정이 아니라 세션 라우팅**이고, θ가 없을 때
+(콜드스타트·추정 실패)만 도는 **폴백**이다. 이미 §6462 행이 같은 사실을 적고 있어
+중복 서술하지 않는다. 위 ③ 주석이 이 자리를 **명시적으로 가리켜** 두 축의 혼동을 막는다.
+
+**⑤ 백엔드 — 측정값과 산술을 갈라 적는다**
+
+- **실측(소거 후)**: **6399 passed / 44 skipped / 1 xfailed / 0 failed** (`NO_COLOR=1`).
+- **산술(측정 아님)**: 이 HEAD의 **소거 전** 값은 **6401**이다 — 현재 6399 + 내가 삭제한
+  테스트 **정확히 2건**, 추가 **0건**(`git diff`로 확인). 즉 내 변경의 순효과는 **−2**이고,
+  그 2건은 위 ②의 `test_구_기준_동작_유지`·`test_docstring이_deprecated를_명시`와 일치한다.
+- **A조 기준선 6398과의 차이**: 실측 6399는 기준선 **이상**이므로 **회귀가 아니다.**
+  6398 → 6401(소거 전)의 **+3은 내 변경 이전에 이미 있었다.** A조 측정 이후 이 브랜치에
+  병합된 분(`test_feedback_source.py`·`test_ci_outcome_kinds.py` 계열)에서 온 것으로
+  🔴 **추정**한다 — A조가 어느 커밋에서 셌는지 모르므로 **측정이 아니라 추정이다.**
+  (직전 `ecd2e6a`는 테스트 수를 늘리지 않았다 — 기존 테스트 안의 단정만 갱신했다. 실측.)
+
 ⚠️ **§3-2의 나머지 절반**(*"심화는 탐정·시뮬레이터 자동 추천·연결"*)은 **확인하지 않았다** —
 제안서 기준 1:1 감사가 별도로 돌고 있고 그 범위에 들어 있다(겹치면 두 번 센다).
 
@@ -6176,7 +6230,12 @@ PM 요구 원문은 *「대기 경계층 수치 모델 등 **대기역학·화�
 
 ---
 
-## §5.26 제안서·멘토 피드백 35항목 — 코드와 1:1 감사 (2026-08-20)
+## §5.28 제안서·멘토 피드백 35항목 — 코드와 1:1 감사 (2026-08-20)
+
+⚠️ **번호 정정(2026-08-20 PM)**: 이 절은 처음 `§5.26`으로 붙었으나 같은 번호를
+A조가 **7분 먼저** 썼다(`3706c9a` 12:03 · 이 절 `5861bae` 12:10). 먼저 쓴 쪽이
+번호를 갖는 규칙으로 `§5.28`로 옮겼다. **기준이 다른 두 감사가 있으니 헷갈리지 말 것** —
+이 절은 **클라이언트 체크리스트** 기준이고, `§5.27`이 **제안서 원문** 기준이다.
 
 기준은 **통합 브랜치 `integ/rolling-0820`**(21개 PR 중 18개 병합, HEAD `8290008`)이고
 `origin/main`이 아니다. 클라이언트가 준 체크리스트 원문을 그대로 행으로 펴고, 각 행마다
@@ -6941,3 +7000,285 @@ B·C = 보정/개방 규칙 + CO-U-3 밴드 충돌 해소 + 계약 + 목 파리�
 ⚠️ **재지 않은 것**: 「185를 정확히 주는」 다른 방어(예: 세션당 1회 · 하루 1회 캡)가
 마이그레이션 없이 가능한지는 **설계 판단이라 재지 않았다.** §5.28 ⑶이 밝힌 대로 유저별
 영속 자리가 없다는 사실만 남긴다.
+
+---
+
+> ⚠️ **병합 자국**(2026-08-20 `feat/expert-boards-atmos` ← `integ/rolling-0820`):
+> 위·아래가 **두 갈래에서 각자 자란 절**이다. 양쪽 다 덧붙이기였고 **한 줄도 지우지
+> 않았다.** 위가 보드 축 교체(A조 §5.27~5.28), 아래가 통합 브랜치 몫이다.
+
+## §5.27 제안서 요구 ↔ 코드 1:1 감사 — 심사 기준 원문 기준 (2026-08-20)
+
+기준은 **통합 브랜치 `integ/rolling-0820`**이고 `origin/main`이 아니다. 실측은 **HEAD
+`e72645b`**(B조 `feat/resume-login-and-return` 병합분 포함)의 나무에서 했고, 실행 코드 대조는
+PM 실측 `/health` `code_fingerprint` = `2664714f10ec`이다. 시드는 **A조 미병합 상태의
+`content_items.json` 1,023건 · board 57판**이며 이 절의 모든 수치는 **그 값**이다.
+
+⚠️ **감사 도중 A조 최종(`5796950` — `feat/expert-boards-atmos`)이 이 브랜치에 병합됐다.**
+그 결과 지금 시드는 **1,030건 · board 64판**이다(board만 +7. `multiple_choice` 310 ·
+`short_answer` 155 · `cloze` 158 · `slider` 107 · `match` 125 · `ordering` 111은 **불변**이라
+아래 §3-1① 유형 실측은 그대로 유효하다). 백엔드 pytest는 A조 병합본 **6,369 통과**다.
+병합이 건드린 프론트 파일(`AtmosphereBoard.jsx`·`boardEngine.js`·커리큘럼 3파일 등)은
+**줄이 밀렸을 수 있다** — 아래 표의 좌표 중 확인한 것 하나를 이미 갱신했다
+(`AtmosphereBoard.jsx` `<PeninsulaMap>`이 `:881` → **`:885`**). 집계는 전부 python3
+드라이버로 했다(§5.6).
+
+🔴 **§5.26과 무엇이 다른가.** §5.26은 **클라이언트가 준 체크리스트 35항목**을 기준으로 했다.
+이번 기준은 **제안서 양식2(개발계획서) 원문**이고, SSOT는 `docs/team/PROPOSAL_REQUIREMENTS.md`
+(커밋 `60d3552`에서 스캔 PDF를 전사한 파일)다. 체크리스트는 「무엇을 더 해 달라」의 목록이고
+제안서는 **「무엇을 하겠다고 심사위원에게 적었는가」**다 — 두 문서가 겹치는 행이 많지 않다.
+실제로 이번에 **미충족 7건 중 6건이 §5.26에 행조차 없었다.**
+
+조항 총 **79행**(SSOT 절 구조 그대로 쪼갠 수)이고 판정은
+**충족 41 / 부분 30 / 미충족 7 / 측정불가 1**이다.
+
+판정 규칙은 §5.26과 같다 — **파일 존재는 근거로 쓰지 않았고**, 화면·응답에 닿는 경로를
+좌표로 달았다. 서술형 조항(§1-1 한계·§1-3 기대효과·§2-7 일정)은 **그 문장의 대응물이
+코드에 있는가**로 읽었고, 대응물을 특정할 수 없으면 `측정불가`로 적었다.
+
+### §1 개발 목적 및 필요성
+
+| 조항 | 실측 판정 | 좌표 | 어긋남 |
+|---|---|---|---|
+| §1-1 ① 일방향·정적 콘텐츠 → 실시간 학습 한계 | **충족** | `backend/app/services/session_service.py:235`(`fill_live_slots` — `{today.*}`를 Redis 실황으로 치환) · `backend/app/core/config.py:103`(`SESSION_RECIPE` `live: 2`) · `celery/app/tasks/weather.py:52`(매일 수집→캐시) | — |
+| §1-1 ② AI 예측·시뮬레이션 체험형 환경 부족 | **충족** | `frontend/src/modules/explore/ClimateSimPage.jsx:309·336·371`(슬라이더 3) · `TyphoonSimPage.jsx:297`(`<SatelliteView>`) · `backend/app/routers/duel.py:228-244`(적응형 캐스터 예측) | — |
+| §1-1 ③ 전문 데이터 활용 장벽 | **충족** | `backend/app/services/weather_api.py:460`(단기예보)·`:737`(과거관측) · `backend/app/routers/duel.py:157-186`(브리핑이 예보·실측을 함께 화면으로) · `frontend/src/modules/duel/BriefingRoom.jsx` | — |
+| §1-2 ① '오늘의 날씨'가 매일 새로운 학습 콘텐츠 | 🔴 **부분** | `config.py:103`(10문항 중 실황 **2**) · `session_service.py:235` · `:18`(board 목표 = 오늘 실황에서 판정한 현상) · 시드 `uses_live_slots=true` **20건 / 1,023** | 「매일 새로워지는」의 캐리어는 **실황 2문항 + 보드 목표 1**이고 남은 7문항은 고정 뱅크다. 뱅크의 **2.0%**만 오늘 날씨를 탄다 |
+| §1-2 ② 이해도·오답 패턴 분석 적응형 + 수준별 체험 | **충족** | `answer_service.py:434`(`update_weak_tag`) · `session_service.py:749-785`(`decide_route`) · `ai-worker/app/chains/router_chain.py:70-120` · `session_service.py:883`(`rank_by_knowledge_level`) | — |
+| §1-2 ③ 게이미피케이션 + 탐구형 + AI 결합 | **충족** | `backend/app/services/xp_service.py:49·62·170` · `frontend/src/components/Layout.jsx:245`(`<CloudEnergyBadge>`)·`:246`(`<StreakBadge>`) · `frontend/src/App.jsx:662-679`(활동 입구 9종) | — |
+| §1-3 ① 스트릭·XP로 학습 습관 | **충족** | `xp_service.py:49`(마일스톤 보너스)·`:62`(7/30/100)·`:170`(`update_streak`) · `backend/app/routers/progress.py:354`(`/attendance`) · `Layout.jsx:246`(전 화면 헤더 상시) | — |
+| §1-3 ② 데이터 탐색·시각화 → 해석 능력 | **충족** | `frontend/src/modules/detective/CaseChart.jsx:24·93·125`(연 단서가 차트 기준선으로 쌓인다) · `board/AtmosphereBoard.jsx:885`(`<PeninsulaMap>` → `MapOverlayGL`) · `explore/SatelliteView.jsx:272` | — |
+| §1-3 ③ **시뮬레이션으로 기후변화의 영향을 체험** | 🔴 **부분** | `ClimateSimPage.jsx:309`(co2)·`:336`(sensitivity)·`:371`(sea-slope) · `:259`(`CLIMATE_GOALS`) · `explore/exploreGoals.js:133` | 조작축이 **CO₂·기후민감도·해수면 기울기 3개**고 제안서가 적은 **기온·강수량 축이 없다**. 시나리오 비교 화면 0(아래 §3-1③) |
+| §1-b 사용자 = 초·중·고·일반 성인 | **충족** | `frontend/src/modules/onboarding/EntryInfoPage.jsx:37`(`elementary`·`middle_high`·`adult`) · `database/seed/section_meta.json`(13섹션 = 초등 3~4학년 … 기상청 현업) | — |
+| §1-b 개발 형태 = 웹 기반 인터랙티브 | **충족** | `docs/DEPLOY.md:71`(제출 URL) · `frontend/Dockerfile:18-23`(nginx 정적 서빙) · `infra/Caddyfile` | — |
+| §1-c 데이터① 단기예보 `getVilageFcst` | **충족** | `backend/app/core/config.py:49` · `weather_api.py:460` · `celery/app/config.py:57` · `celery/app/tasks/weather.py:52`(수집→캐시) | — |
+| §1-c 데이터② 중기예보 `getMidLandFcst` | 🔴 **미충족** | 함수는 있다 `weather_api.py:535`. 그런데 **호출자 0건** — `backend/app/routers/league.py:84-97`가 `mid_forecast={}` **빈 dict 고정**이라 자인하고, `frontend/src/modules/league/LeaguePage.jsx:32`가 「raw JSON 대신 `/duel/briefing` 재사용」을 기록한다 | 제안서 3대 데이터 중 1종이 **화면·응답 어디에도 닿지 않는다.** 대장 CO-Q-6은 이것을 「쿼터 소모」로 등재했는데, 서버 호출이 걷힌 지금은 성격이 **「요구 자체가 비었다」**로 바뀌었다 |
+| §1-c 데이터③ 과거관측 `getAsosDalyInfoList` | 🔴 **부분** | 엔드포인트가 **교체**됐다 — `core/config.py:54`(typ01 `kma_sfcdd.php`) · `docs/specs/06_kma_api_parsing_spec.md:115`(「API허브에는 `AsosDalyInfoService`가 없다」) · 호출 경로는 `routers/duel.py:181`(브리핑 최근 실측)·`celery/app/tasks/league.py:83`(주간 정산) | ⓐ 제안서가 적은 엔드포인트가 API허브에 없어 대체품으로 갔다(근거 있는 교체). ⓑ **「이상기후 사례 데이터」로는 안 쓰인다** — 그 용도의 소비처인 탐정 6케이스가 전건 가상 데이터다(아래 §3-1②) |
+| §1-c 개념① 기압·전선·태풍 | **충족** | 시드 태그 실측(1,023 기준) `pressure_front` **100** · `pressure_basics` **61** · `typhoon` **81** · 그 태그를 읽는 경로 `session_service.py:563`(풀 조회) · `database/seed/climate_concepts.json`(전 14태그 문서) | — |
+| §1-c 개념② 기단·대기순환 | 🔴 **부분** | `air_mass` **85** ✅ · 그런데 **대기순환 개념 태그가 없다** — 14태그 어디에도 순환 축이 없고(`climate_concepts.json`), 표현은 `section_meta.json` 「고등학교 공통」 topics(엘니뇨·라니냐·무역풍·높새바람)에만 있다 | 순환은 **유닛 주제로만** 있고 개념 태그(=약점 추적·RAG 문서·라우팅의 단위)가 아니다. 그래서 적응형 루프가 「대기순환이 약하다」를 셀 수 없다 |
+| §1-c 개념③ 열섬효과 | **충족** | `heat_island` **68** · `database/seed/detective_cases.json` `night_that_would_not_cool`(kl4) · `board/webgl/crossSection/scenes.js`(등록 장면) | — |
+| §1-c 개념④ **CO₂와 기후변화** | **충족** | `co2_climate` **65** · `ClimateSimPage.jsx:309`(CO₂ 슬라이더가 화면에) · `exploreGoals.js:133`(`CLIMATE_GOALS` 2종) | — |
+| §1-c 개념⑤ 이상기후 인과관계 | **충족** | `anomaly` **83** · `backend/app/routers/detective.py:140-200`(가설 판정 → `solution.explanation`) · `CasePlayPage.jsx:23`(가설 radiogroup) | — |
+
+### §2 적용 기술 및 실현 구체성
+
+| 조항 | 실측 판정 | 좌표 | 어긋남 |
+|---|---|---|---|
+| §2-1 프론트엔드 React+Vite — 퀴즈·탐정·시뮬레이터·리그 모듈 | **충족** | `frontend/src/App.jsx:662-679`(입구 9종) · `modules/session/SessionRunner.jsx` · `modules/detective/DetectiveRoutes.jsx` · `modules/explore/ClimateSimPage.jsx` · `modules/league/LeaguePage.jsx` | — (네 모듈 전건 라우트 실재. 내용 판정은 아래 §3-1) |
+| §2-1 AI WeatherBrain+LangChain — Router·RAG·QuizGen Chain | **충족** | `ai-worker/app/main.py:36`(세 체인 import)·`:272`(`/internal/router-decide`)·`:197` · `chains/rag_chain.py:209` · `chains/quiz_gen_chain.py:411` · 호출측 `backend/app/services/ai_client.py:63·140·185` | ⚠️ Router Chain은 **LangChain 런너블이 아니다** — `router_chain.py:3`이 「LLM 호출 없이 순수 로직」이라 자인한다. 세 체인 중 둘만 LangChain이다 |
+| §2-1 백엔드 FastAPI+Celery Beat — REST·일일 스케줄러 | **충족** | `backend/app/main.py:350·377` · `celery/app/celery_app.py:37-56`(beat 4건: 02:00 수집 · 월 03:30 리그 정산 · 03:00 재학습 · 04:00 대결 정산) | — |
+| §2-1 DB ① PostgreSQL(RLS) ② Redis ③ **Chroma DB** | 🔴 **부분** | ① `backend/alembic/versions/20260710_0001_initial_schema.py:30-36·187-192` ✅ ② `backend/app/routers/auth.py:81`·`celery/app/celery_app.py:16`(broker) ✅ ③ **없다** — compose 서비스 목록에 `chroma` 없음(양쪽 파일) · `ai-worker/app/config.py:24-26`(임베딩·벡터스토어 설정 삭제 기록) · `chains/rag_chain.py:13-30`(철거 근거 5개항) | ③ **Chroma는 R13 3일차(2026-08-07)에 철거됐다.** 근거는 적혀 있고 타당하다(코퍼스 41항목·태그를 이미 알고 있음·세 번째 제공자 키 불필요). 다만 제안서 대비로는 **3개 중 1개가 빈다** |
+| §2-1 인프라 Docker Compose **7개 컨테이너** | 🔴 **부분** | 실측 서비스 — `docker-compose.yml`: **8**개(`:19` frontend · `:31` backend · `:70` ai-worker · `:85` celery-worker · `:98` celery-beat · `:107` postgres · `:121` db-backup · `:137` redis) / `docker-compose.prod.yml`: **9**개(위 8 + `:38` caddy) | 이름·개수가 넷 갈린다: **`chroma` 없음** · 제안서의 `weatherbrain-worker`는 실제 `ai-worker` · 제안서의 `celery` 1개가 **worker·beat 2개** · 제안서에 없는 `db-backup`(prod는 `caddy`도) |
+| §2-1 AI 모델 ① WeatherBrain(자체 Fine-tuning) ② **Gemini 3.1 Flash-Lite** ③ text-embedding-3-small | 🔴 **부분** | ② **충족** `ai-worker/app/config.py:22`(`gemini-3.1-flash-lite`) · `chains/quiz_gen_chain.py:411` ① **부분** — `weatherbrain/irt.py`·`knowledge_tracing.py`는 **통계 모델**이고 미세조정 코드는 0건(§5.26 ⓗ 인용) · 서빙 모수는 `ai-worker/app/main.py:466` `params_source="prior"` ③ **미충족** — `rag_chain.py:25`가 그 키를 「발급 계획에 없는 키」로 적고 철거를 기록 | ① 「자체 Fine-tuning 모델」은 코드에 없다 — 있는 것은 IRT·BKT이고 IRT b 재보정만 배선돼 있다. ③ 세 번째 모델이 통째로 사라졌다 |
+| §2-2 단기예보 — **매일 새벽 2시** 수집 · Redis **TTL 1시간** | **충족** | `celery/app/celery_app.py:38-41`(`crontab(hour=2, minute=0)`) · `celery/app/tasks/weather.py:52`(`setex`) · `celery/app/config.py:69`(`60*60`) · `backend/app/services/weather_api.py:64`(같은 값 백엔드 사본) | — (수치 2건이 제안서와 정확히 같다) |
+| §2-2 중기예보 — **주 1회** 수집 · 리그 기준 데이터 | 🔴 **미충족** | `celery_app.py:37-56`의 beat 4건에 **중기예보 수집 태스크 0건** · `routers/league.py:84-97`(`mid_forecast={}` 고정) · `LeaguePage.jsx:32` | 「주 1회」에 해당하는 것은 **리그 정산**(월 03:30, `celery_app.py:42-46`)이고 그것은 **실측 수집**이다. 중기예보는 수집도, 화면 도달도 없다 |
+| §2-2 과거관측 — **월별** 수집 · 이상기후 아카이브를 Chroma에 임베딩 | 🔴 **미충족** | 월별 beat 태스크 **0건**(`celery_app.py:37-56`) · Chroma 없음(위) · `celery/app/tasks/weather.py:7-11`이 자인: *「`POST /internal/embed-weather`는 ai-worker에 **존재한 적이 없다** — 매일 404를 받고 except로 삼켜졌다」* · 실제 과거관측은 **요청 때마다 실호출**(`routers/duel.py:181` · `hindcast_service.py:13-15`) | 세 갈래가 동시에 비었다: 월별 배치 없음 · 아카이브 영속 테이블 없음 · 임베딩 없음. `hindcast_service.py:13-15`가 「영속 테이블에 넣는 코드가 없다」를 이미 적어 뒀다 |
+| §2-2 API 장애 대응 — 캐시 fallback · 중복 호출 방지 | **충족** | `weather_api.py:129-132`(실패 마커 TTL **5분**)·`:504`·`:762`(실패 시 마커 기록) · `:518`·`:766`(성공 캐시) · `routers/duel.py:185-186`(부분 실패도 200 유지) | — (KMA 3경로 중 중기예보만 캐시·마커가 없었고, 그 경로는 위와 같이 걷혔다) |
+| §2-3 WeatherBrain — `quiz_logs`·`weak_tags` 기반 **IRT** 재학습 · 난이도·수준 동시 추정 · Router 분기 | 🔴 **부분** | `celery/app/tasks/retrain.py:28`(누적 `quiz_logs` → b 재보정)·`:23`(`MIN_TOTAL_RESPONSES = 200`)·`:53` · `celery_app.py:47-51`(매일 03:00) · `ai-worker/app/main.py:197`(`/calibrate`) · `weatherbrain/irt.py` · `router_chain.py:70` | 세 갈래로 얕다: ⓐ 재보정은 표본 가드(전체 200·문항당 20) 미달 시 **스킵** ⓑ BKT 재적합 투입구(`ai-worker/app/main.py:211`)에 **호출자 0** → 서빙이 `"prior"` ⓒ Router Chain은 **「AI 모듈 분기」가 아니라** 출제 경로(focused/general/advanced) 분기다 |
+| §2-3 Gemini — Quiz Gen Chain · RAG Chain | 🔴 **부분** | `quiz_gen_chain.py:411`(`messages\|llm\|StrOutputParser`) · `rag_chain.py:209` · 호출측 `ai_client.py:185`·`:140` · 게이트 `ai-worker/app/llm_budget.py:59-63`(기본 `dummy`) | ⓐ RAG의 「Chroma DB 검색」이 **개념 태그 직접 조회**로 교체됐다(`rag_chain.py:13-30`) ⓑ 기본 `serving_mode=dummy`라 **무키 운영에서 두 체인 모두 정적 문구**다 ⓒ 생성은 뱅크 부족분 폴백이고 유닛 세션엔 아예 없다(`curriculum_service.py:1395`) |
+| §2-3 text-embedding-3-small → Chroma 적재 | 🔴 **미충족** | `ai-worker/app/config.py:24-26`(설정 삭제 기록) · `rag_chain.py:25`(그 키가 발급 계획에 없다) · 저장소 전체 실사용 0건 | 조항 전체가 비었다 |
+| §2-3 LangChain — Router·RAG·QuizGen | 🔴 **부분** | `rag_chain.py:55`(`StrOutputParser` import)·`:204-209`(`ChatPromptTemplate\|llm\|parser`) · `quiz_gen_chain.py:405-411` | 세 체인 중 **둘**이 LangChain이다 — Router는 순수 함수(`router_chain.py:3`) |
+| §2-4 System Prompt — 역할·톤·JSON 스키마 고정 | **충족** | `quiz_gen_chain.py:56`(역할·출력 JSON 규칙) · `rag_chain.py:85`(피드백 역할)·`:104`(문서 없을 때 변형) · 톤 축은 `backend/app/services/tone_text.py:17` | — |
+| §2-4 Few-shot — 객관식·슬라이더·**예측형** 유형별 예시 | 🔴 **부분** | `quiz_gen_chain.py:131-168`(`FEW_SHOT_EXAMPLES` **6종**: multiple_choice·short_answer·slider·cloze·match·ordering) · `:365`·`:383`(프롬프트 조립) | **「예측형」 예시가 없다.** 예측은 생성 체인의 유형이 아니라 리그·대결이 소유한다(`routers/league.py:101`·`routers/duel.py`). 대신 제안서에 없는 3유형(cloze·match·ordering)이 있다 |
+| §2-4 Context Injection — **Chroma 검색 결과**를 프롬프트에 주입, 환각 방지 | 🔴 **부분** | `rag_chain.py:169`(시드 로드)·`:182`(`[참고 지식 i]` 블록)·`:204`(주입) · `:100-108`(문서 없으면 「참고 지식」 줄 **자체를** 뺀다 — 「사실만 써라, 그런데 사실은 없다」 자기모순 회피) | 주입원이 **Chroma 검색이 아니라 `climate_concepts.json` 직접 조회**(41항목·14태그)다. **환각 방지의 실효는 오히려 더 강하다**(검색 실패라는 실패 양식이 소멸) — 어긋남은 「방지되는가」가 아니라 「무엇으로 방지하는가」다 |
+| §2-4 Output Parser — JSON → 프론트 자동 렌더 | **충족** | `quiz_gen_chain.py:428`(`_parse_output`) · `chains/json_output.py:4`(코드펜스 방어 공용) · `backend/app/routers/session.py` `QUESTION_PAYLOAD_FIELDS` → `frontend/src/modules/quiz/QuestionCard.jsx:35-38`(`template_json`에서 슬라이더 파라미터를 읽어 렌더) | — |
+| §2-5 PostgreSQL **5개 핵심 테이블** + **RLS** `user_id` 격리 | **충족** | `20260710_0001_initial_schema.py:30-36`(`RLS_TABLES` = `users`·`quiz_logs`·`weak_tags`·`attendance`·`league_results` — **정확히 그 5개**)·`:187-192`(`ENABLE ROW LEVEL SECURITY` + `user_isolation` 정책 · `current_setting('app.current_user_id')`) · 모델 `backend/app/models/{user,quiz_log,weak_tag,attendance,league_result}.py` | — (실제 테이블은 **18개**다. 5개는 「핵심」이 맞고 RLS도 그 뒤 `sessions`·`user_concept_ability`·`user_unit_progress`로 **확장**됐다 — `20260719_0002:111` 등) |
+| §2-5 Chroma **3개 컬렉션**(`weather_daily`·`climate_concepts`·`anomaly_cases`) | 🔴 **미충족** | `weather_daily`는 `celery/app/tasks/weather.py:7`의 **철거 기록**에만 등장 · `anomaly_cases`는 저장소 전체 **0건** · `climate_concepts`는 컬렉션이 아니라 **시드 JSON 파일**(`rag_chain.py:81` `CONCEPTS_FILENAME`) | 3컬렉션 전건 없음. 이름 하나(`climate_concepts`)만 **다른 형태로** 살아남았다 |
+| §2-5 Redis 4종 — 캐시 TTL 1h · 세션 7일 · Celery 브로커 · **일일 문제 캐시 TTL 24h** | 🔴 **부분** | ① `weather_api.py:64`·`celery/app/config.py:69` ✅ ② `backend/app/routers/auth.py:55`(`JWT_REFRESH_EXPIRE_DAYS`)·`:81`(`setex`)·`:97`(슬라이딩 갱신) ✅ ③ `celery_app.py:16`(broker=`REDIS_URL`) ✅ ④ **없다** — 세션은 발급 시 **DB `sessions` 테이블**에 적재(`backend/app/models/session.py:24` · `session_service.py:306`)이고 24h Redis 캐시 코드 0건 | 4종 중 **3종 충족·1종 없음**. 없는 이유는 설계 교체다(일일 문제를 캐시가 아니라 세션 행으로 소유) — 그래도 조항으로는 빈다 |
+| §2-6 **7개 컨테이너** 목록(frontend React+Nginx …) | 🔴 **부분** | §2-1 인프라 행과 같은 좌표. Nginx는 맞다 — `frontend/Dockerfile:18-23`(`nginx:alpine` + `nginx.conf`). prod는 그 앞에 **Caddy가 TLS 종단으로 선다**(`docker-compose.prod.yml:38-46`) | 위와 같은 넷(chroma 없음 · ai-worker 개명 · celery 2분할 · db-backup·caddy 추가) |
+| §2-6 **단일 명령 기동** + 공개 URL | **충족** | `README.md:29`(`docker compose up -d --build`) · `docs/DEPLOY.md:71`(제출 URL `34-47-71-146.sslip.io`) · `docker-compose.prod.yml:88-136`(GHCR 이미지 + 전건 `mem_limit`) | — |
+| §2-6 심사위원 기기에서 공개 URL 즉시 접속·시연 | **충족** | `docs/DEPLOY.md:71` · `:320`(외부 확인은 `/` 200) · `:331`(`/health` 비공개) · `infra/Caddyfile` · `frontend/src/App.jsx:648`(로그인 없이 진입 — 규정 요건) | ⚠️ `docs/DEPLOY.md:66-89` 그대로: 외부 IP가 ephemeral이면 stop/start에서 **URL 문자열 자체가 죽는다**(sslip.io는 호스트명이 곧 IP). static 예약 확인이 남아 있다 |
+| §2-6 전 서비스 컨테이너화 · 재현성 · 로컬 의존 최소 | **충족** | `docker-compose.prod.yml:88-136`(7서비스 `mem_limit` 실측 주석 동반) · `docs/DEPLOY.md:62`(`restart: unless-stopped`) · `scripts/ci.sh:7`(7단계 파이프라인) | — |
+| §2-7 7.3~7.22 API 연동 · PG 스키마 확정 · React 기본 UI | **충족** | `backend/alembic/versions/20260710_0001_initial_schema.py`(7/10) · `weather_api.py` · `frontend/src/App.jsx` | — |
+| §2-7 7.23~8.7 퀴즈 모듈 완성 · WeatherBrain 초기 학습 · Gemini RAG · Compose | 🔴 **부분** | `20260723_0006_weatherbrain.py`(7/23) · `rag_chain.py` · `docker-compose.yml` · 퀴즈는 `SessionRunner.jsx`·`routers/session.py` | 「WeatherBrain **초기 모델 학습**」에 해당하는 것은 `ai-worker/app/weatherbrain/priors.py`의 **사전값 배정**이고 학습 실행이 아니다 |
+| §2-7 8.7 중간 점검 — 퀴즈·RAG 피드백·XP·스트릭 시연 | **충족** | `xp_service.py:49·62` · `answer_service.py:283`·`:292` · `Layout.jsx:246` | — |
+| §2-7 8.8~8.20 **탐정·시뮬레이터·리그 모듈 구현** · 오답 패턴 분석 완성 | **충족** | `backend/app/routers/detective.py:105·140` · `ClimateSimPage.jsx:309` · `routers/league.py:101` · 오답 축 `answer_service.py:434` + `router_chain.py:27·109` | — (세 모듈 전건 착지. 각 모듈 내부의 얕은 곳은 아래 §3-1이 소유한다) |
+| §2-7 8.21 전체 통합 테스트 · 클라우드 배포 · 공개 URL | **충족(선행)** | 백엔드 pytest **6,334 통과**(통합 브랜치 — PM 확정 인용) · `scripts/ci.sh:7` · `docs/DEPLOY.md:71` | 일정보다 **앞서** 닫혔다(8/18 롤링 배포). ⚠️ 알려진 프론트 빨강 3건(`test:webgl`·`test:guest-convert`·`test:home`)은 PM 확정 사실로 반영만 했다 |
+| §2-7 8.22 전체 시연(퀴즈 → AI 오답 피드백 → 맞춤형 학습) | **측정불가** | 세 단계의 코드 경로는 있다 — `SessionRunner.jsx:217` → `answer_service.py:283`·`:292` → `session_service.py:883` | 「그 날 시연이 되는가」는 **8/22의 실행 사건**이라 코드로 판정할 수 없다. 판정 조건은 아래 「측정불가」 절 |
+
+### 🔴 §3-1 네 모듈 12칸
+
+이 표가 이 감사의 심장이다 — 「체험·참여형 설계」 배점의 근거 조항이고, 12칸을 각각
+독립 행으로 판정했다. **충족 4 / 부분 8 / 미충족 0.** 「아무것도 없다」는 칸은 없고,
+**여덟 칸이 제안서가 적은 것보다 좁다.**
+
+| 모듈 | 항 | 실측 판정 | 좌표 | 어긋남 |
+|---|---|---|---|---|
+| ① 퀴즈 | 사용자 조작 — 객관식·주관식·슬라이더형 | **충족** | `frontend/src/modules/quiz/QuestionCard.jsx:9-15`(**7유형** 렌더 분기) · `:35-38`(슬라이더 파라미터를 `template_json`에서) · 시드 실측(1,023) `multiple_choice` 310 · `short_answer` 155 · `cloze` 158 · `slider` **107** · `backend/app/routers/session.py` `QUESTION_PAYLOAD_FIELDS`(그 칸을 응답에 싣는 자리) | — 제안서 3종을 **넘는다**: `match` 125 · `ordering` 111 · `board` 57이 추가돼 있다 |
+| ① 퀴즈 | 상호작용 흐름 — 접속(출석 체크) → 문제 → 답변 → AI 피드백 | 🔴 **부분** | `frontend/src/modules/session/SessionRunner.jsx:217`(`useAttendance(attendance)`) → `frontend/src/hooks/useAttendance.js:37` → `backend/app/routers/progress.py:354`(`POST /attendance`) → `QuestionCard.jsx` → `backend/app/services/answer_service.py:278`(board 분기)·`:283`(사람 저작 해설이 **LLM보다 앞**)·`:292`(`rag_feedback`) | 네 칸 중 마지막이 제안서와 다르다 — **기본값이 AI가 아니다**: `ai-worker/app/llm_budget.py:59-63`이 `serving_mode` 기본 `dummy`이고, 해설이 있는 문항은 `:283`에서 끝나 LLM에 가지 않는다. 「AI 피드백」이 아니라 **「저작 해설 우선 · AI는 폴백」**이다(환각 대책으로는 옳은 방향) |
+| ① 퀴즈 | 학습 성과 — 오늘 날씨의 과학적 원리 · 일일 리터러시 | 🔴 **부분** | `config.py:103`(10문항 중 실황 **2**) · `session_service.py:235`(슬롯 치환)·`:18`(board 목표 = 오늘 현상) · 시드 실황 **20건 / 1,023** | 「오늘 날씨의」를 나르는 문항이 세션의 **2/10**이고 뱅크의 **2.0%**다. 나머지는 오늘과 무관한 고정 문항이다 |
+| ② 탐정 | 사용자 조작 — **실제 이상기후 사례**를 클릭·탐색, 단서 수집 후 인과 추론 | 🔴 **부분** | 조작은 있다 — `frontend/src/modules/detective/CasePlayPage.jsx:95`(`toggleClue` — 한 번 연 단서는 닫히지 않는다)·`:165`(단서 카드 button+aria-expanded)·`:23`(가설 radiogroup) · `CaseChart.jsx:24·93·125`(연 단서만 차트 기준선으로) · `backend/app/routers/detective.py:157-170`(`min_clues` **서버** 강제 — 화면 잠금 우회 불가) | 🔴 **「실제」가 아니다.** `database/seed/detective_cases.json` 6케이스 전건이 `intro.fictional: true`이고 `intro.data_note`가 *「가상의 관측 지점에서 얻은 예시 자료다. 실제 관측 기록이 아니며」*를 화면에 적는다. 제안서가 든 예(2024년 7월 서울 집중호우) 같은 **실사건 케이스 0건** |
+| ② 탐정 | 상호작용 흐름 — 사건 → 탐색 → 단서 → 추론 → **AI 피드백·추가 탐구 제안** → 해결 | 🔴 **부분** | `CasePlayPage.jsx:12-14`(3단계 상태 기술) · `routers/detective.py:191`(`feedback`)·`:194-197`(`solution.explanation`·`takeaway`·`next_step_hint`) | ⓐ 피드백이 **AI가 아니다** — 시드 `hypotheses[].feedback` 저작이고, 케이스 `source.refs`가 *「LLM 무관: AI_FEEDBACK 단계의 문구를 미리 저작했다」*고 자인한다(LLM 호출 0) ⓑ 「추가 탐구 제안」(`next_step_hint`)은 **정답일 때만** 내려간다(`detective.py:193` 주석 — 오답 반복으로 해설을 긁는 것을 막는 의도) |
+| ② 탐정 | 학습 성과 — 발생 원리 · 추론 능력 · 데이터 해석 | **충족** | `routers/detective.py:196`(`explanation`·`takeaway`) · `CaseChart.jsx:93·125`(조사한 만큼 자료 위에 쌓인다) · `detective.py:157-170`(단서 하한을 서버가 강제하므로 **탐색 없이 정답에 도달할 수 없다**) | ⚠️ `detective.py:198` `xp_earned=0` — **영속이 없어 적립하지 않는다.** 성과가 진도·스트릭에 남지 않는다 |
+| ③ 시뮬레이터 | 사용자 조작 — **CO₂ 농도·기온·강수량 등** 기후 변수를 직접 조절 | 🔴 **부분** | `ClimateSimPage.jsx:309`(co2 `type="range"`)·`:336`(sensitivity)·`:371`(sea-slope) · `:216`(co2 useState가 첫 번째여야 한다는 계약 주석) · 모델은 `frontend/src/lib/exploreSims.js` | 🔴 **기온·강수량 조작 축이 없다**(PM 실측과 일치). 기온은 조작이 아니라 **산출**(`anomaly` — `ClimateSimPage.jsx:51-54`)이고 **강수량은 축 자체가 없다**. 조작 변수 3개 중 제안서가 이름을 적은 것은 CO₂ 하나다 |
+| ③ 시뮬레이터 | 상호작용 흐름 — 변수 선택 → 슬라이더 → 그래프 즉시 → 결과 → **여러 시나리오 비교 및 최적 전략 탐색** | 🔴 **부분** | 즉시 반영은 있다 — `ClimateSimPage.jsx:256`·`:295`(원시값 재계산으로 비교 기준 유지) · `:259`(`goals={CLIMATE_GOALS}`) · `explore/exploreGoals.js:133` | 🔴 **두 칸이 비었다**: ⓐ 「변수 선택」 단계가 없다(3슬라이더 상시 노출) ⓑ **「여러 시나리오 비교」·「최적 전략 탐색」이 없다** — 상태를 저장해 나란히 놓는 화면이 0이고 비교·시나리오 i18n 키 **0개**(PM 실측). 제안서 흐름 5칸 중 3칸만 있다 |
+| ③ 시뮬레이터 | 학습 성과 — 변수 간 인과 체험 · 기후위기 대응 인식 | 🔴 **부분** | `exploreGoals.js:133`(`CLIMATE_GOALS` 2종 — 목표 판정 실재) · `ClimateSimPage.jsx:51-66`(`explainWhy` — CO₂·민감도·해수면 기울기를 문장으로 설명) | 인과가 **CO₂ → 기온 → 해수면 단일 사슬**이다. 「대응」 축(감축 전략·정책 선택)이 없어 「대응의 중요성 인식」을 나르는 조작이 없다 |
+| ④ 리그 | 사용자 조작 — **중기예보를 참고**해 주간 예측 · 1주일 후 실측 비교 | 🔴 **부분** | 예측 입력·비교는 있다 — `LeaguePage.jsx:207-213`(`temp_max`·`temp_min`·`rain_prob` 입력 + `temp_min > temp_max` 검증) → `backend/app/routers/league.py:101`(`POST /predict`, 주 1회) → `celery/app/tasks/league.py:83`(실측 산출)·`:180`(비교) | 🔴 **첫 칸이 끊겼다** — 「중기예보를 참고해」의 재료가 화면에 없다: `routers/league.py:84-97`가 `mid_forecast={}` **빈 dict 고정**이라 스스로 적고, 화면은 **단기예보 기반** `/duel/briefing`을 본다(`LeaguePage.jsx:32`). 3~10일 예보를 보고 주간을 예측하는 조작이 성립하지 않는다 |
+| ④ 리그 | 상호작용 흐름 — 확인 → 입력 → 실측 비교 → 점수 산정 → **ELO 레이팅 갱신** | **충족** | `routers/league.py:101` → `celery/app/tasks/league.py:151`(`settle_weekly_league`)·`:46`(`accuracy_score` — 오차 기반)·`:55`(`update_elo`)·`:60`(`tier_from_elo`)·`:191-199`(한 UPDATE로 `actual_value`·`accuracy_score`·`elo_rating_after`·tier) · 화면 도달은 `routers/league.py:164-184`(리더보드가 `elo_rating_after`를 정렬키로 읽는다) | 첫 칸(중기예보 확인)만 위와 같이 비어 있다. ELO 갱신은 **끝까지 배선돼 있다** |
+| ④ 리그 | 학습 성과 — 예보 불확실성 이해 · 데이터 기반 판단력 | **충족** | `celery/app/tasks/league.py:46-53`(기온·강수확률 절대오차로 채점 — 「맞다/틀리다」가 아니라 오차) · `backend/app/routers/duel.py:228-244`(적응형 캐스터 — 티어별 노이즈 배율) · `frontend/src/modules/duel/CasterJudgmentCard.jsx` | 주간 정산이라 피드백 주기가 **1주**다. 일일 피드백은 예보 대결(`duel`, 04:00 정산 `celery_app.py:52-56`)이 메운다 |
+
+### §3-2 적응형 학습 · §3-3 수준별 분기
+
+| 조항 | 실측 판정 | 좌표 | 어긋남 |
+|---|---|---|---|
+| §3-2 학습 분석 — `weak_tags` 자동 추출 · Router Chain 경로 분기 | **충족** | `answer_service.py:434`(`xp_service.update_weak_tag`)·`:415`(문항별 뒤집힘을 없앤 근거) · `xp_service.py:103` · `session_service.py:749-785`(`decide_route`)·`:1404` · `ai_client.py:63` → `ai-worker/app/main.py:272` → `router_chain.py:70` | — |
+| §3-2 집중 학습 — **정답률 60% 미만** 반복 문제 | 🔴 **부분** | `router_chain.py:27`(`ACCURACY_FOCUS_THRESHOLD = 60`)·`:109`(그 임계로 `focused` 판정) | **60%는 폴백 경로다.** 1순위는 θ 임계(`router_chain.py:53-66` `focus_theta_threshold` · `:98`)이고, θ가 있으면(`n>0` 개념 존재) **60% 분기는 돌지 않는다**(`:95-107`). 제안서가 적은 수치는 콜드스타트·추정 실패에서만 유효하다 |
+| §3-2 일반 학습 — 오늘 날씨 기반 퀴즈 **매일 새롭게 생성** | 🔴 **부분** | `session_service.py:37`(3단 `quiz-generate` 병렬)·`:235` · `config.py:103`(live 2) · `ai_client.py:185` · 게이트 `llm_budget.py:59-63` | 생성은 **뱅크 부족분 폴백**이고 기본 `dummy`라 상시 경로가 아니다. 유닛 세션엔 폴백이 **아예 없다**(`curriculum_service.py:1395`). 「매일 새롭게」의 실제 캐리어는 생성이 아니라 **실황 슬롯 치환**이다 |
+| §3-2 심화 학습 — **기후 탐정·기후 시뮬레이터 등 심화 탐구 콘텐츠 자동 추천 및 연결** | 🔴 **미충족** | `route="advanced"`의 소비처는 **출제 난이도뿐**이다 — `session_service.py:1670`·`:1722`(생성 호출에 `route`를 실어 보내는 자리)가 전부고, 탐구·탐정·시뮬레이터를 **권하는 코드는 0건** · 탐구 입구는 학습 상태와 무관하게 상시 노출(`frontend/src/components/navItems.js:19-22`) | 조항의 동사가 「추천 및 연결」인데 **추천기가 없다.** 「체험·참여형」과 「적응형」을 잇는 유일한 조항이라 배점상 무게가 있다 |
+| §3-2 맞춤형 — 지속 재분석으로 경로 자동 조정 | **충족** | `session_service.py:1402-1403`(발급마다 θ 재추정 **정확히 1회**)·`:1406`(`weak_concepts`) · `:883`(daily도 `rank_by_knowledge_level`) · `curriculum_service.py:710-722`(배치를 본 학습자는 열린 구간의 **끝**에서 시작 — 결함⑧ 수리) | — |
+| §3-3 초등 — 애니메이션·직관 시각화 · **AI가 기상 용어를 쉬운 표현으로 변환** | 🔴 **부분** | `answer_service.py:283` → `tone_text.soften_for_tone(hint, effective_tone(user))` · `scripts/lint_seed_items.py:339` + `database/seed/level_vocabulary.json`(초등 어휘 상한) · `database/seed/units.json` 「초등 3~4학년」·「초등 5~6학년」 섹션 · 시각화는 `board/webgl/crossSection/scenes.js:1106`(`SCENES` **20장면** — A조 병합 후 **21**, `nocturnal_inversion_haze` 추가) | 「**AI가** 변환」이 아니다 — **규칙 기반 문말 완화 + 저작 시점 어휘 상한**이고 LLM을 부르지 않는다(무키 동작 계약상 의도된 선택). 「애니메이션」 전용 자산도 없다 — 3D 모식도가 그 자리를 대신한다 |
+| §3-3 중·고 — 중2 과학 「날씨와 우리 생활」 등 **교과과정 연계** · 실제 KMA 데이터 탐구 | 🔴 **부분** | 교과 축: `database/seed/section_meta.json` 「중학교 물질·에너지」·「중학교 유체 지구」 · `content_items.json`의 `source.refs`에 **성취기준 코드 188회 인용 / 168문항**(예 `[6과06-03]`·`[9과03-02]`) · 실데이터 축: `routers/duel.py:181`(브리핑 실측)·`hindcast` 2회차 | ⓐ 단원명 「**날씨와 우리 생활**」은 저장소 전체 **0건** ⓑ 성취기준 코드는 `source.refs`= **저작 근거 필드**라 학습자 화면에 닿지 않는다. 연계는 **섹션 이름 수준**이고 성취기준 수준이 아니다 |
+| §3-3 일반 성인 — **심층 시뮬레이션과 기상 리그를 중심으로** 실전형 | 🔴 **미충족** | `EntryInfoPage.jsx:37`에 `adult`가 있다. 그런데 `frontend/src/components/navItems.js:15-31`이 **전 학령 동일 5탭**이고 주석이 *「탭을 자물쇠로 막지 않는다」*를 판정으로 적는다 · `level_group`으로 모듈을 가리거나 앞세우는 코드 **0건** | `adult`가 바꾸는 것은 **문항 난이도 사전값(`weatherbrain/priors.py`)과 톤**뿐이다. 「시뮬레이션·리그 중심」에 해당하는 배치·기본 진입·추천이 없다 — 성인과 초등이 **같은 화면 순서**를 본다 |
+
+### §4 창의성 및 차별성
+
+| 조항 | 실측 판정 | 좌표 | 어긋남 |
+|---|---|---|---|
+| §4-1 매일 바뀌는 학습 콘텐츠 | 🔴 **부분** | `config.py:103`(live 2/10) · `session_service.py:235`·`:18` · 실황 시드 20/1,023 | §1-2①과 같은 뿌리 — 「매일 바뀌는」의 폭이 세션의 2/10이다 |
+| §4-1 함께 성장하는 AI | 🔴 **부분** | `celery/app/tasks/retrain.py:28`·`celery_app.py:47-51`(매일 03:00) · `ai-worker/app/main.py:197` | 구조는 맞으나 ⓐ 표본 가드(`retrain.py:23` 200 · 문항당 20) 미달 시 **스킵** ⓑ BKT 재적합은 투입구까지(`main.py:211` 호출자 0) → 서빙 `"prior"`(`:466`). 실운영 로그가 쌓이기 전엔 「성장」이 관측되지 않는다 |
+| §4-1 맥락을 이해하는 AI 피드백(RAG) | 🔴 **부분** | `rag_chain.py:169·182·204`(개념 문서 주입) · `answer_service.py:292` | 검색이 아니라 **태그 직접 조회**이고, 해설이 있는 문항은 `answer_service.py:283`에서 끝나 RAG에 가지 않는다. 기본 `dummy`(`llm_budget.py:59-63`)까지 겹쳐 무키 운영에서 RAG는 **드물게** 돈다 |
+| §4-1 유연한 AI 운영 — **단일 LLM 기반으로도 운영 가능** | **충족** | `ai-worker/app/llm_provider.py:70`(용도별 `*_PROVIDER` env — 기본 Gemini)·`:82`(OpenAI 호환 전반: OpenRouter·Groq·Ollama)·`:109`(무키·예산 초과면 dummy) · `llm_budget.py:55` | — (오히려 제안서보다 넓다: 공급자 교체 + 무키 폴백 2단) |
+| §4-1 전문지식의 대중화 | **충족** | `backend/app/services/tone_text.py` · `answer_service.py:283`·`:288`(초등만 완화) · `database/seed/level_vocabulary.json` · `scripts/lint_seed_items.py:319`(`_term_threshold` — 단계에 따라 임계가 바뀐다) | — |
+| §4-1 스트릭·XP·리그로 습관 형성 | **충족** | `xp_service.py:49·62·170` · `Layout.jsx:245·246`(전 화면 헤더) · `routers/league.py:101` · `config.py:177`(`CLOUD_MAX = 10`) | — |
+| §4-2 Duolingo × Brilliant.org × Khan Academy = WeatherMind | **충족(메커니즘)** | Duolingo 축 — `xp_service.py:62`(스트릭 마일스톤)·`config.py:177`(에너지 10)·`session_service.py:84`(`SESSION_SIZE`=배합 총합 10 · 만점 왕관 축) / Brilliant 축 — board **57판**(`modules/board/useBoardDrag.js`)·탐정 6케이스·탐구 슬라이더 / Khan 축 — `router_chain.py:70`·`session_service.py:883` | ⚠️ 세 이름은 코드·스펙에 **0건**이다(§5.26 ⓖ 실측과 동일). **메커니즘은 있고 참고 설계 기록이 없다** — MT-32가 소유한 상태 그대로다 |
+| §4-2 3서비스 메커니즘을 기상·기후에 융합 | **충족** | 위와 같은 좌표 + `navItems.js:15-31`(다섯 축이 한 내비에 나란히) | — |
+| §4-2 **웹 기반·별도 설치 없이 URL만으로** | **충족** | `docs/DEPLOY.md:71` · `frontend/Dockerfile:18-23` · `infra/Caddyfile` · `frontend/src/App.jsx:648`(`/login`이 진도 불러오기 — 로그인 벽 없음) | — (대회 규정 「로그인·결제 없이 열려야」와 같은 축) |
+
+### 🔴 제안서에 있는데 코드에 없는 것
+
+**미충족 7건.** 각 3줄 이내로 적는다. 「부분」 29건은 위 표의 「어긋남」 열이 소유한다.
+
+**⑴ 중기예보(`getMidLandFcst`)가 화면에 닿지 않는다** — §1-c②·§2-2②·§3-1④ 사용자 조작.
+함수는 `weather_api.py:535`에 있으나 **호출자 0건**이고 `routers/league.py:84-97`가
+`mid_forecast={}` 고정을 자인한다. 제안서 3대 데이터 중 1종, 리그 조작의 첫 칸이 비었다.
+
+**⑵ Chroma DB 3컬렉션** — §2-5②. `weather_daily`는 철거 기록(`tasks/weather.py:7`)에만,
+`anomaly_cases`는 저장소 전체 0건, `climate_concepts`는 컬렉션이 아니라 시드 JSON이다.
+철거 근거는 `rag_chain.py:13-30`에 적혀 있고 타당하다 — **없어진 것이 아니라 교체됐다.**
+
+**⑶ text-embedding-3-small** — §2-3③(그리고 §2-1 AI 모델 ③). `ai-worker/app/config.py:24-26`이
+삭제를 기록하고 `rag_chain.py:25`가 「발급 계획에 없는 키」라 적는다. 제안서 AI 모델 3종 중
+1종이 통째로 빠졌다.
+
+**⑷ 과거관측 월별 수집 · 이상기후 아카이브** — §2-2③. 월별 beat 태스크 0건이고
+영속 테이블이 없다(`hindcast_service.py:13-15`가 자인). `POST /internal/embed-weather`는
+`tasks/weather.py:7-11`의 자인대로 **존재한 적이 없다.**
+
+**⑸ 심화 탐구 콘텐츠 자동 추천·연결** — §3-2. `route="advanced"`의 소비처가
+출제 난이도뿐(`session_service.py:1670·1722`)이고 탐정·시뮬레이터를 권하는 코드가 0건이다.
+「체험·참여형」과 「적응형」을 잇는 조항인데 **추천기가 없다.**
+
+**⑹ 일반 성인의 「심층 시뮬레이션·기상 리그 중심」 배치** — §3-3. `navItems.js:15-31`이
+전 학령 동일 5탭이고 `level_group`으로 모듈을 앞세우는 코드가 0건이다. `adult`가 바꾸는
+것은 난이도 사전값과 톤뿐 — **성인과 초등이 같은 화면 순서를 본다.**
+
+**⑺ Redis 「일일 문제 캐시 TTL 24시간」** — §2-5③의 4종 중 1종. 세션은 Redis가 아니라
+DB `sessions` 행이 소유한다(`models/session.py:24`·`session_service.py:306`). 나머지 3종
+(캐시 1h·세션 7일·브로커)은 수치까지 정확히 일치한다.
+
+### 측정불가 — 무엇이 있으면 판정되는가
+
+한 행뿐이다.
+
+| 조항 | 왜 못 재나 | 무엇이 있으면 판정되는가 |
+|---|---|---|
+| §2-7 **8.22 전체 서비스 시연**(퀴즈 → AI 오답 피드백 → 맞춤형 학습) | 이것은 코드 상태가 아니라 **8/22의 실행 사건**이다. 세 단계의 경로는 좌표로 있으나(`SessionRunner.jsx:217` → `answer_service.py:283`·`:292` → `session_service.py:883`), 「그 순서로 심사위원 앞에서 돌았는가」는 코드가 답할 수 없다 | ⓐ 제출 URL에서 그 3단계를 순서대로 통과하는 **E2E 스모크 1건**(현재 프론트 계약은 컴포넌트 단위이고 배포 URL을 타지 않는다) 또는 ⓑ 시연 스크립트 + 각 단계의 기대 화면을 적은 문서. 둘 중 하나가 있으면 즉시 판정된다 |
+
+### §5.28(체크리스트 기준)이 놓쳤던 것
+
+§5.26은 성실했지만 **기준 문서가 달랐다.** 아래는 제안서를 기준으로 삼자 비로소 보인 것들이고,
+§5.26의 판정이 틀렸다는 뜻이 아니라 **그 표에 행이 없었다**는 뜻이다.
+
+| 무엇 | §5.26에서 | 제안서 기준으로 보면 |
+|---|---|---|
+| **Chroma·임베딩 철거** | 행 없음 | 제안서 조항 **5행**(§2-1 DB③·§2-1 모델③·§2-3③·§2-4③·§2-5②)을 동시에 비운다. 제안서 대비 **최대 단일 어긋남 원인** |
+| **중기예보 경로** | 대장 CO-Q-6이 「쿼터 소모」로만 등재 | §1-c②·§2-2②·§3-1④를 세 곳에서 비운다. 소모는 끝났고 남은 문제는 **요구가 비었다**는 것 |
+| **7개 컨테이너 목록** | 「클라우드 배포」 행에서 **GHCR 이미지 7종**만 셌다 | compose **서비스 이름·개수**로 대조하면 넷이 갈린다(chroma 없음 · ai-worker 개명 · celery 2분할 · db-backup·caddy 추가) |
+| **탐정 6케이스의 데이터 출처** | 「탐구 디벨롭」 행에서 **6케이스**를 충족 근거로 셌다(그 체크리스트에는 맞다) | 제안서 §3-1②는 「**실제** 이상기후 사례」를 적었고 6케이스 전건이 `fictional: true`다 |
+| **심화 추천** | 행 없음 | §3-2의 다섯 줄 중 하나가 통째로 비었다 |
+| **성인 분기** | 「초등~성인 난이도 조절」을 충족으로 판정(맞다 — 난이도 축) | §3-3은 난이도가 아니라 **콘텐츠 중심의 이동**을 적었고 그것은 0건이다 |
+| **Redis 4종** | 행 없음 | 3종 충족 · 「일일 문제 캐시 24h」 1종 없음 |
+
+### 이 감사가 새로 발견한 것
+
+**⑴ 🔴 「없어진 것」과 「교체된 것」을 제안서는 구별하지 못한다.** 미충족 7건 중 **4건**
+(⑵⑶⑷⑺)이 **근거를 적고 교체한 결과**다 — Chroma는 `rag_chain.py:13-30`, 과거관측
+엔드포인트는 `docs/specs/06:115`, 일일 캐시는 세션 테이블로. 코드 판단으로는 옳고,
+품질도 내려가지 않았다(검색 실패라는 실패 양식이 소멸). **그런데 심사위원이 보는 문서는
+제안서다.** 이 절이 그 대응표 자체다.
+
+**⑵ 🔴 §3-1 12칸 중 「부분」이 8칸이고 형태가 같다** — 모듈이 없는 것이 아니라
+**모듈마다 제안서가 적은 3항 중 한두 칸이 좁다**: ①은 흐름의 마지막 칸(AI 피드백 → 저작
+해설 우선)과 성과(실황 2/10), ②는 조작의 「실제」(가상 데이터)와 흐름의 피드백·제안,
+③은 **세 칸 전건**(기온·강수량 축 없음 · 시나리오 비교·최적 전략 없음 · 대응 축 없음),
+④는 조작의 첫 칸(중기예보). 8/22 질의가 조항의 3항을 따라 물으면 그 칸에서 멈춘다.
+
+**⑶ 대기순환이 개념 태그가 아니다**(§1-c②). 14태그에 순환 축이 없어 **적응형 루프가
+「대기순환이 약하다」를 셀 수 없다.** 유닛 주제(엘니뇨·무역풍)로만 있어 화면에는 보이는데
+`weak_tags`·RAG 문서·라우팅의 단위가 아니다 — 지금까지 어느 절도 이 구별을 적지 않았다.
+
+**⑷ 탐정의 학습 성과가 진도에 남지 않는다** — `routers/detective.py:198` `xp_earned=0`
+(*「영속이 없어 적립하지 않는다」*). 제안서 §3-1②의 「학습 성과」는 화면에서 충족되지만
+스트릭·XP·왕관 어디에도 흔적이 없어, **여섯 케이스를 다 풀어도 진도가 0**이다.
+
+⚠️ **이 절에 없는 것**: 알려진 빨강 3건(`test:webgl`·`test:guest-convert`·`test:home`)은
+PM 확정 사실로만 반영했고 재진단하지 않았다. 셋 다 위 79행 중 어느 행의 근거도 아니다.
+발표·제출 문서는 이 감사의 범위 밖이다.
+
+---
+
+## §5.29 🔴 **과거 예보(MT-30) 전면 삭제 — 클라이언트 지시 집행** (2026-08-20)
+
+**판정이 아니라 집행이다.** 2026-08-20 클라이언트 지시로 과거 예보(hindcast) 기능을
+프로그램에서 통째로 걷었다. 이 절은 무엇이 사라졌고 **무엇이 남았는지**를 적는다 —
+되돌릴 사람이 읽을 좌표이기 때문이다. 삭제는 되돌리기 쉽게 **한 커밋**으로 했다.
+
+### 지운 것 — 파일 14개 + 참조 6자리
+
+| 어디 | 무엇 |
+|---|---|
+| backend | `models/hindcast_attempt.py` · `routers/hindcast.py` · `schemas/hindcast.py` · `services/hindcast_service.py` · `tests/test_hindcast_router.py` · `tests/test_hindcast_mock_parity.py` |
+| frontend | `src/api/hindcast.js` · `src/i18n/resources/hindcast.{ko,en}.js` · `src/modules/hindcast/` 5개(`HindcastRoutes`·`CaseListPage`·`CasePlayPage`·`ResultCard`·`DemoDataNotice`) |
+| 참조 | `frontend/src/App.jsx`(라우트+import) · `frontend/src/modules/explore/ExploreHome.jsx`(탐구 카드) · `frontend/src/i18n/core.js`(리소스 등록 **ko·en 양쪽**) · `frontend/mock/apiMockPlugin.js`(픽스처·헬퍼·상태 2자리·목 라우트 3종) · `backend/app/main.py`(import+`include_router`) · `backend/app/models/__init__.py`(import+`__all__`) |
+
+### 🔴 남긴 것 — 지우지 않은 이유
+
+| 무엇 | 왜 남겼나 |
+|---|---|
+| `backend/alembic/versions/20260818_0016_hindcast_attempts.py` | **이미 실DB에 적용됐고** 그 위에 `20260819_0017_unit_attempted_at.py`가 `down_revision = "0016_hindcast_attempts"`로 서 있다. 지우면 사슬을 다시 엮어야 하고 적용된 DB와 어긋난다. 동결 하루 전에 할 일이 아니다 |
+| `backend/tests/test_rls_role_contract.py`의 `hindcast_attempts` 3자리 | **테이블이 남으니 RLS 계약도 남는다.** 지우면 「접근 제한 확인을 빠뜨린 테이블」로 오해된다. 이 계약은 `RLS_TABLES` 리터럴과 SQL **본문 텍스트**를 대조할 뿐 ORM `Base.metadata`를 보지 않아, 모델을 지워도 초록이다(확인함) |
+| `backend/app/scripts/rls_app_role.sql`의 언급 2자리 | 위와 같은 이유 — 남는 테이블에 대한 RLS 서술이다 |
+| `docs/` 안의 기록 | **이력이다.** 대장·`TODO_CLIENT_0814.md`·`MOCK_SERVER_PARITY_0820.md`의 언급은 그대로 둔다 |
+| `frontend/dist/` | 빌드 산출물(추적 안 됨) |
+
+### 🔴 남는 사실 두 개 — 판정이 아니라 기록이다
+
+**⑴ `hindcast_attempts` 테이블이 DB에 빈 채로 남는다.** 마이그레이션 0016을 남겼으니
+테이블도 남고, 이제 그 테이블에 쓰는 코드가 하나도 없다. **화면에는 안 보인다** — 빈
+테이블 하나가 남는 것과 마이그레이션 사슬을 다시 엮는 것을 견주면 후자가 위험하다.
+되살릴 때는 테이블이 이미 있다는 것부터 확인할 것.
+
+**⑵ 🔴 제안서 활용 데이터 ③(과거관측 API)과 클라이언트 체크리스트의 「과거 자료 기반
+과거 예보 방식 검토」가 이 삭제로 프로그램에서 사라진다.** MT-30은 그 두 항목에 닿아
+있던 유일한 화면이었다(`TODO_CLIENT_0814.md` C8). 삭제 뒤 그 요구에 대응하는 코드는
+**0건**이고, §5.28·§5.27이 세운 제안서 ↔ 코드 대응표에서 그 행이 빈다. 이것을 제안서·
+발표 문서에 어떻게 적을지는 **이 절의 범위가 아니다** — 사라졌다는 사실만 남긴다.
+
+### 함께 고친 것 하나 — 탐구 카드 5 → 4장
+
+`ExploreHome.jsx`의 `SIMS`가 5장에서 4장이 됐다. **카드 개수를 세는 계약은 없다**(전수
+확인함 — `exploreSims.render`·`mascotAssets.contract`는 경로와 문구만 본다). 그래서
+계약 수정은 없었고, **열 수도 3열 그대로 뒀다**: 3열은 2026-08-19 사용자 지시("가로 3줄,
+세로 2줄")이고, 4장이 됐다고 4열로 되돌리는 것은 그 지시를 다시 판정하는 일이라 삭제
+집행의 범위가 아니다. **지금 배치는 3+1**이고, 열을 되돌릴지는 PM 판정 몫이다(같은 취지의
+주석을 그 파일에 남겼다).
+
+### 확인
+
+- backend `pytest tests -q` → **6339 passed / 0 failed** / 44 skipped / 1 xfailed
+  (종전 6398 → hindcast 테스트 2파일이 사라져 59건 감소. **판정 기준은 실패 0**)
+- frontend `test:i18n`(ko·en 키 패리티) · `test:explore` · `test:entry-flow` **전건 초록**
+- `npm run build` **성공**
+- `scripts/ci.sh`의 `FRONT_TESTS` 35종에 **hindcast 전용 종목은 없었다** — 배열 무접촉
+- 에러 코드 3종(`CASE_NOT_FOUND`·`INVALID_PREDICTION`·`ALREADY_SUBMITTED`)은 모두
+  detective·duel과 **공유**라 `test_error_code_contract.py` 수정 불필요(확인함)

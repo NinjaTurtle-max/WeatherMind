@@ -161,9 +161,27 @@ ok(!NAV_ITEMS.some((i) => i.to === '/'), '내비에서 홈(/)이 빠졌다 — �
 // ── ① `/` → `/learn` 리다이렉트 + 화면 구성 ─────────────────────────────────
 {
   const r = mount('/');
-  // 리다이렉트가 걸리면 학습 트랙이 뜬다(홈에는 트랙이 없었다).
-  await waitFor(() => $('.wm-scroller') !== null, 6000, '/ → /learn 리다이렉트 후 학습 트랙');
-  ok(true, '`/`가 학습 화면으로 리다이렉트된다');
+  // 🔴 **재방문은 이제 복귀 화면을 한 번 거친다**(2026-08-20, ⑫-b 클라이언트 지시분).
+  //
+  //   이 파일 머리에서 `setTokens({ accessToken: 't-home' })`를 먼저 심으므로
+  //   `shouldShowReturnScreen('/')`가 참이고, `/`는 `<Navigate to="/learn">`가
+  //   아니라 `ReturnHome`을 세운다. 종전 단정은 「`/`는 **항상** 리다이렉트한다」던
+  //   시절 그대로라 `.wm-scroller`를 6초 기다리다 죽었다.
+  //   #148의 diff에 `homeEntry.smoke`는 있고 이 파일은 없었다 — **누락**이다.
+  //
+  //   ⚠️ 게이트를 무르게 만들어 통과시키지 않는다. 그러면 클라이언트가 지시한
+  //     ⑫-b가 계약상 사라진다. **계약이 화면을 지나가게** 고친다 —
+  //     그러면 지키는 것이 하나 **늘어난다**: 「재방문은 복귀 화면을 거쳐 학습으로
+  //     간다」. 종전 계약은 그 문장을 아예 갖고 있지 않았다.
+  await waitFor(() => $('[data-testid="entry-return"]') !== null, 6000,
+    '재방문 `/` → 복귀 화면');
+  ok(true, '토큰이 있는 재방문에서 `/`가 복귀 화면을 세운다');
+  const cont = $('[data-testid="entry-return-continue"]');
+  ok(Boolean(cont), '복귀 화면에 「계속하기」가 없다 — 학습으로 갈 통로가 막힌다');
+  cont?.dispatchEvent(new window.Event('click', { bubbles: true }));
+  // 「계속하기」가 학습으로 보낸다 — 여기서부터는 종전 계약 그대로다.
+  await waitFor(() => $('.wm-scroller') !== null, 6000, '복귀 화면 → /learn 학습 트랙');
+  ok(true, '복귀 화면의 「계속하기」가 학습 화면으로 보낸다');
 
   // 탭바·사이드바가 같은 목록을 쓴다(둘 다 DOM에 있다 — CSS로만 갈린다)
   const tabs = $$('[data-testid="tabbar"] a');

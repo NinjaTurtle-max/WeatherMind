@@ -7,9 +7,6 @@
 15 * 1.5 = 22.5 → 22. 스펙은 반올림 방식을 규정하지 않으므로 현재 구현값을
 회귀 기준으로 고정한다 (변경 시 이 테스트가 알려준다). TEST_PLAN.md 참조.
 """
-from decimal import Decimal
-from types import SimpleNamespace
-
 import pytest
 
 from app.services.league_service import (
@@ -20,8 +17,6 @@ from app.services.league_service import (
 )
 from app.services.weatherbrain_service import weak_concepts, weak_theta_threshold
 from app.services.xp_service import (
-    WEAK_ACCURACY_THRESHOLD,
-    is_weak_concept,
     level_from_xp,
     next_level_xp,
     quiz_xp,
@@ -91,7 +86,9 @@ class TestWeakConceptJudgment:
 
     weatherbrain_service.weak_concepts: num_responses > 0 AND
     θ < weak_theta_threshold(level_group) = 사전 b + ln(0.6/0.4).
-    구 accuracy_rate < 60 기준(is_weak_concept)은 deprecated shim.
+
+    구 accuracy_rate < 60 축(xp_service.WEAK_ACCURACY_THRESHOLD·is_weak_concept)은
+    2026-08-20 소거됐다 — 프로덕션 호출자 0. 이 클래스가 그 자리를 대신 지킨다.
     """
 
     @staticmethod
@@ -117,23 +114,6 @@ class TestWeakConceptJudgment:
         """같은 θ=0.0이라도 초등(임계 −0.594)은 정상, 성인(임계 1.405)은 약점."""
         assert weak_concepts(self._ab(0.0), "elementary") == []
         assert weak_concepts(self._ab(0.0), "adult") == ["typhoon"]
-
-
-class TestIsWeakConceptDeprecatedShim:
-    """deprecated shim(구 accuracy_rate < 60) 동작 보존 — 신규 소비 금지."""
-
-    @staticmethod
-    def _tag(rate, total=10):
-        return SimpleNamespace(total_count=total, accuracy_rate=Decimal(str(rate)))
-
-    def test_구_기준_동작_유지(self):
-        assert is_weak_concept(self._tag("59.99")) is True
-        assert is_weak_concept(self._tag(WEAK_ACCURACY_THRESHOLD)) is False
-        assert is_weak_concept(None) is False
-        assert is_weak_concept(self._tag(0, total=0)) is False
-
-    def test_docstring이_deprecated를_명시(self):
-        assert "Deprecated" in is_weak_concept.__doc__
 
 
 class TestAccuracyScore:

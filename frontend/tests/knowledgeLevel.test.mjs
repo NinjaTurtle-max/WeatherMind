@@ -500,6 +500,83 @@ check('목 단계에 라벨이 있다(카드가 키 문자열을 그대로 띄�
       }
     });
     noLevel.root.unmount();
+
+    // ── 7. 🔴 **배치고사 결과 화면도 같은 어휘로 말한다** — 실렌더 (2026-08-20) ──
+    // 감사에서 **이 화면만 잔존**으로 나왔다. `/me`는 교과 단계로 바뀌었는데
+    // `PlacementSummary`는 `LEVEL_KO[level]`로 「초급/중급/고급」을 그대로 그렸고,
+    // 그 화면이 **학습자가 수준 표기를 처음 보는 자리**다.
+    //
+    // 🔴 **표기만 바꿔서는 안 고쳐졌다.** `PlacementAbility`(서버 스키마)에
+    //   `knowledge_level`이 **없었다** — R13-02 T3에서 `ConceptAbilityOut`에만
+    //   붙고 여기는 안 따라왔다. 그래서 `knowledgeLevelLabel`을 붙여도 폴백이 다시
+    //   4밴드로 내려앉아 화면이 그대로였을 것이다. 스키마·변환기·목까지 함께 고쳤고,
+    //   **이 절이 그 세 곳이 다시 갈라지는 것을 잡는다.**
+    // ⚠️ 폴백 자체는 죽이지 않는다(구 백엔드 방어) — ⓕ가 그것을 따로 문다.
+    const PlacementSummary = (await vite.ssrLoadModule('/src/modules/onboarding/PlacementSummary.jsx')).default;
+    const placeRow = (tag, i, withLevel) => ({
+      concept_tag: tag,
+      theta: -1 + i * 0.8,
+      theta_se: 0.4,
+      num_responses: 3,
+      level_label: ['beginner', 'intermediate', 'advanced', 'expert'][i],
+      ...(withLevel ? { knowledge_level: [2, 5, 7, 10][i], knowledge_level_max: 10 } : {}),
+    });
+    async function renderPlacement(withLevel) {
+      const container = window.document.getElementById('root');
+      const qc = new QueryClient({
+        defaultOptions: {
+          queries: { retry: false, refetchOnWindowFocus: false, gcTime: Infinity, staleTime: Infinity },
+        },
+      });
+      const root = createRoot(container);
+      root.render(createElement(QueryClientProvider, { client: qc },
+        createElement(PlacementSummary, {
+          summary: {
+            abilities: CONCEPTS.map((t, i) => placeRow(t, i, withLevel)),
+            total: 12,
+            correct_count: 7,
+          },
+        })));
+      for (let i = 0; i < 60 && !(window.document.body.textContent ?? '').trim(); i += 1) await sleep(30);
+      await sleep(60);
+      return {
+        root,
+        body: (window.document.body.textContent ?? '').replace(/\s+/g, ' ').trim(),
+      };
+    }
+
+    const placed = await renderPlacement(true);
+    check('ⓔ 실렌더: 배치고사 결과의 개념 칩이 교과 단계로 뜬다', () => {
+      const names = Object.values(RESOURCES.ko.ability.knowledgeLevel.name);
+      const hit = names.filter((n) => placed.body.includes(n));
+      assert(hit.length >= 2,
+        `교과 단계 표기가 ${hit.length}개뿐이다 — 화면: ${placed.body.slice(0, 220)}`);
+      for (const w of ['초급', '중급', '고급', '최상급']) {
+        assert(!placed.body.includes(w),
+          `단계를 받았는데 4밴드 「${w}」이 남아 있다 — 화면: ${placed.body.slice(0, 220)}`);
+      }
+    });
+    placed.root.unmount();
+
+    const placedNo = await renderPlacement(false);
+    check('ⓕ 🔴 실렌더: 배치 결과도 단계가 없으면 4밴드로 내려앉는다 (빈칸 금지)', () => {
+      const some = ['초급', '중급', '고급', '최상급'].some((w) => placedNo.body.includes(w));
+      assert(some, `단계도 밴드도 없이 빈칸이다 — 화면: ${placedNo.body.slice(0, 220)}`);
+    });
+    placedNo.root.unmount();
+
+    check('ⓖ 🔴 목도 배치 결과에 단계를 실어 보낸다 (dev 화면만 「초급」으로 남는 것 방지)', () => {
+      // 위 ⓔ·ⓕ는 **픽스처**를 그린다 — 화면이 값을 받으면 잘 그리는지만 본다.
+      // 목이 그 값을 안 보내면 `npm run dev`로 보는 화면은 그대로 4밴드이고
+      // 아무도 안 운다(되돌림에서 실증: 목에서 필드를 빼도 전 스위트 초록).
+      // 서버 쪽은 backend `TestPlacementAbilityExposesKnowledgeLevel`이 문다.
+      const mock = readFileSync(resolve(here, '..', 'mock/apiMockPlugin.js'), 'utf-8');
+      const block = mock.slice(mock.indexOf('placementResult = {'), mock.indexOf('placementResult = {') + 900);
+      assert(/knowledge_level:\s*thetaToKnowledgeLevel\(/.test(block),
+        '목의 배치 완료 응답에 knowledge_level이 없다 — dev 화면의 개념 칩만 「초급」으로 남는다');
+      assert(/knowledge_level_max:/.test(block),
+        '목의 배치 완료 응답에 knowledge_level_max가 없다');
+    });
   } finally {
     await vite.close();
   }

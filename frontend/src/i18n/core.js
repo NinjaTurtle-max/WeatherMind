@@ -19,13 +19,10 @@ import detectiveEn from './resources/detective.en.js';
 // 안내봇(MT-26)도 같은 이유로 파일을 갈랐다 — 최상위 키는 guide.* 하나뿐.
 import guideKo from './resources/guide.ko.js';
 import guideEn from './resources/guide.en.js';
-// 과거 예보(MT-30)도 같은 이유로 파일을 갈랐다 — 최상위 키는 hindcast.* 하나뿐.
-import hindcastKo from './resources/hindcast.ko.js';
-import hindcastEn from './resources/hindcast.en.js';
 
 export const RESOURCES = {
-  ko: { ...ko, ...boardKo, ...detectiveKo, ...guideKo, ...hindcastKo },
-  en: { ...en, ...boardEn, ...detectiveEn, ...guideEn, ...hindcastEn },
+  ko: { ...ko, ...boardKo, ...detectiveKo, ...guideKo },
+  en: { ...en, ...boardEn, ...detectiveEn, ...guideEn },
 };
 export const SUPPORTED_LOCALES = Object.keys(RESOURCES);
 export const DEFAULT_LOCALE = 'ko';

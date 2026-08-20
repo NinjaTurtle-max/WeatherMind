@@ -287,7 +287,7 @@ export default {
     choiceCaption: '{items} questions a day',
     itemsUnit: '{items} questions',
     pickerTitle: '🎯 Set your daily goal',
-    pickerBody: 'Starting small is fine — showing up daily matters more. You can change it anytime.',
+    pickerBody: 'Starting small is fine — showing up daily matters more.',
     saved: 'Great — from today, your goal is {items} questions a day.',
     loadFailed: "Couldn't load your setting right now. Please try again in a moment.",
     saveFailed: "Couldn't save your goal. {detail} Please tap again.",
@@ -312,13 +312,14 @@ export default {
     },
     nicknameLabel: 'Nickname (optional)',
     nicknamePlaceholder: 'e.g. CloudChaser',
-    nicknameHint: "This is the name shown on leagues and rankings. Leave it blank and we'll pick one for you.",
+    nicknameHint: "This is the name shown on leagues and rankings. Leave it blank and we'll pick one for you. You can change it later.",
     goalLabel: 'Daily goal (optional)',
-    goalHint: 'Choose how many questions a day. You can change it later.',
+    goalHint: 'Choose how many questions a day.',
     nicknameTaken: 'That name is already taken — please try another one.',
     submit: 'Next — take the placement check →',
     skip: 'Skip →',
-    note: 'You can change this any time under My Info.',
+    // See the ko note — the My Info door was removed (2026-08-20 client ruling).
+    note: 'You start right away at the level you pick here.',
     // The "returning visitor" slot (2026-08-19). ⚠️ Never the words "log in" /
     // "sign up" — the banned-word contract scans en values too (and it matches
     // the bare substring `login`).
@@ -589,8 +590,8 @@ export default {
     bulkFailBody: 'Please try again in a moment. Your answers are safe.',
     bulkFinalizing: 'Computing your results…',
     leave: {
-      title: "Leave now and today's progress is lost",
-      remaining: "Just {remaining} more and today's progress and streak are saved. ",
+      title: 'What you have answered so far is kept',
+      remaining: 'Just {remaining} more to reach today\u2019s goal. ',
       almost: "You're almost done. ",
       retryRemaining: 'You still have {remaining} to recover. The session ends once you get them all. ',
       tail: 'If you stop here, only what you have answered so far counts.',

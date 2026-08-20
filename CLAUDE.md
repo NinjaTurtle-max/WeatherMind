@@ -251,7 +251,15 @@ docs/               ROADMAP(전략 SSOT) · specs/(00~12) · team/(프로세스�
   세션이 굶지 않는다 — 확장 직후에는 **6·9단계가 0건**이었다. 미분류(kl 없음) **0건**.
 - **학령 밴드**(2026-08-14 재실측) `elementary 200 · middle_high 208 · adult 203 · expert 404`
   (expert가 4칸(7~10)을 담당하므로 두 배다 — 편중이 아니라 파생표 그대로다)
-- **`explanation_hint` 전건 저작 — 비board 966/966(2026-08-13 실측, 미저작 0건)**.
+- **`explanation_hint` 전건 저작 — 1,030/1,030(2026-08-20 실측, 미저작 0건)**:
+  **비board 966/966** + **board 64/64**. ⚠️ board 서술이 종전 "26/64 · 전건 저작이
+  아니다"였다 — 2026-08-20에 **해설 없던 37판**(board_order 1~11 · 24~47 · 56 · 57)을
+  저작해 닫혔고, `board_engine.select_feedback`의 「해설 없으면 규칙 설명만」 분기는
+  이제 **실데이터에서 안 타는 분기**다(새 판이 해설 없이 들어올 때만 탄다).
+  🔴 **이 수를 기억으로 적지 말 것 — 세어서 적을 것.** 소유자는
+  `database/seed/content_items.json`이고 세는 방법은 한 줄이다:
+  `python3 -c "import json;i=json.load(open('database/seed/content_items.json'));print(sum(1 for x in i if (x['template_json'].get('explanation_hint') or '').strip()),len(i))"`
+  (board만 따로 세려면 `x.get('question_type')=='board'`으로 걸러 같은 식을 쓴다.)
   ⚠️ 종전 "909건 · 954건 중 95% · 해설 없는 45건만 LLM 몫"은 `ba038f0`(2026-08-13,
   S-8) 전 값이다. 경위를 남기는 이유는 그 「45건」이 **G1 비용 판단의 근거**로
   이 문서 안 다른 절에서 인용됐기 때문이다 — 이제 **뱅크 문항의 LLM 해설 몫은 0**이고,

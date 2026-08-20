@@ -32,6 +32,8 @@ import pytest
 
 from app.routers import progress as progress_router
 from app.schemas.progress import ConceptAbilityOut, ConceptMasteryOut, ProgressMe
+from app.schemas.session import PlacementAbility
+from app.services import placement_service
 from app.services import weatherbrain_service as wb
 
 BASE = datetime(2026, 8, 11, 9, 0, tzinfo=timezone.utc)
@@ -175,6 +177,62 @@ class TestAbilitiesExposesKnowledgeLevel:
         )
         assert bare.knowledge_level is None
         assert bare.knowledge_level_max == wb.KNOWLEDGE_LEVEL_MAX
+
+
+# ═══════════════════════════════════════════════════════════════
+# 배치고사 완료 응답 — **학습자가 수준 표기를 처음 보는 화면**
+# ═══════════════════════════════════════════════════════════════
+class TestPlacementAbilityExposesKnowledgeLevel:
+    """🔴 2026-08-20 감사: `/me`는 교과 단계로 바뀌었는데 **배치고사 결과 화면만**
+    「초급/중급/고급」으로 남아 있었다. 원인은 화면이 아니라 **스키마**였다 —
+    R13-02 T3에서 `ConceptAbilityOut`에 두 필드가 붙을 때 `PlacementAbility`가
+    안 따라왔고, 그래서 프론트가 표기 함수를 붙여도 폴백이 4밴드로 내려앉는다.
+
+    프론트는 θ에서 단계를 파생할 수 없다(단계 경계는 서버가 소유하고,
+    `abilityDisplay.js`가 스스로 그것을 금지했다). 그러니 **서버가 실어 보내야만**
+    그 화면이 교과 단계를 말할 수 있다.
+    """
+
+    def _call(self, thetas):
+        rows = [
+            {"concept_tag": f"c{i}", "theta": t, "se": 0.4, "n": 3}
+            for i, t in enumerate(thetas)
+        ]
+        return placement_service.to_progress_abilities(rows)
+
+    def test_두_필드가_실린다(self):
+        out = self._call([0.7])[0]
+        assert out["knowledge_level"] is not None, (
+            "배치 결과에 knowledge_level이 없다 ⇒ 결과 화면이 4밴드로 내려앉는다"
+        )
+        assert out["knowledge_level_max"] == wb.KNOWLEDGE_LEVEL_MAX
+
+    def test_같은_θ면_progress_abilities와_같은_단계를_말한다(self):
+        """두 화면이 같은 사람의 같은 개념을 **다르게** 말하면 안 된다.
+        기대값 사본을 쓰지 않는다 — 서버 함수끼리 대조한다."""
+        for theta in (-1.4, -0.2, 0.6, 1.8, 2.4):
+            out = self._call([theta])[0]
+            assert out["knowledge_level"] == wb.theta_to_knowledge_level(theta), (
+                f"θ={theta}: 배치 {out['knowledge_level']} vs "
+                f"abilities {wb.theta_to_knowledge_level(theta)}"
+            )
+
+    def test_스키마가_그_값을_받는다(self):
+        """dict만 맞고 `PlacementAbility`가 필드를 안 들고 있으면 직렬화에서 버려진다 —
+        그러면 화면은 그대로 「초급」이고 이 파일의 위 두 검사는 통과한다."""
+        payload = self._call([0.7])[0]
+        model = PlacementAbility(**payload)
+        dumped = model.model_dump()
+        assert dumped["knowledge_level"] == payload["knowledge_level"]
+        assert dumped["knowledge_level_max"] == wb.KNOWLEDGE_LEVEL_MAX
+
+    def test_필드_집합이_ConceptAbilityOut을_덮는다(self):
+        """docstring이 「/progress/abilities와 동일 형식」이라고 약속한다.
+        그 약속이 깨진 것이 이번 결함의 뿌리이므로 **약속 자체를 검사로 세운다.**
+        (updated_at은 완료 직후라 뜻이 없어 제외 — 그 예외도 여기 적어 둔다.)"""
+        expected = set(ConceptAbilityOut.model_fields) - {"updated_at"}
+        actual = set(PlacementAbility.model_fields)
+        assert expected <= actual, f"빠진 필드: {sorted(expected - actual)}"
 
 
 # ═══════════════════════════════════════════════════════════════

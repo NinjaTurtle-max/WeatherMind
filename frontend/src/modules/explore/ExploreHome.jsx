@@ -48,18 +48,6 @@ const SIMS = [
     inputsKey: 'detective.entry.inputs',
     badgeKey: 'detective.entry.badge',
   },
-  // MT-30 과거 예보 — 탐정과 같은 이유로 탐구 홈에 세운다(탭 넘침 방지).
-  // 배지 문구는 탐정과 반대다: 탐정은 **가상** 자료라고 밝히고, 여기는 **실제
-  // 공개 기록이지만 고정 날짜**라고 밝힌다. 둘 다 자료의 성격을 숨기지 않는 것이
-  // 요점이다(과거 관측 적재 경로가 없어 픽스처인 사정 — hindcast_service 독스트링).
-  {
-    to: '/hindcast',
-    icon: '🕰️',
-    titleKey: 'hindcast.entry.title',
-    descriptionKey: 'hindcast.entry.desc',
-    inputsKey: 'hindcast.entry.inputs',
-    badgeKey: 'hindcast.entry.badge',
-  },
 ];
 
 export default function ExploreHome() {
@@ -94,15 +82,25 @@ export default function ExploreHome() {
           그래서 셋을 줄였다: `max-w-[760px]` 해제(넷이 들어갈 폭이 필요하다) ·
           `aspect-square` 해제(1/4 폭에서 정사각이면 카드가 270px 기둥이 된다 —
           높이는 내용이 정하게 둔다) · 여백과 글자 한 단계 축소.
-          계단은 1 / sm 2 / **xl 3**이다. lg(1024)에서 열을 더 늘리면 한 칸이
-          226px라 제목이 두 줄로 접히면서 카드마다 높이가 달라진다.
+          (그때) 계단은 1 / sm 2 / **xl 3**이었다 — 지금은 아래 8/20 항이 현행이다.
+          lg(1024)에서 열을 더 늘리면 한 칸이 226px라 제목이 두 줄로 접히면서
+          카드마다 높이가 달라진다(이 제약은 지금도 유효 — lg는 2열이다).
           ⚠️ **4열 → 3열**(2026-08-19 사용자 지시 "가로 3줄, 세로 2줄"). 카드가
           과거 예보 합류로 4 → 5장이 되면서 4열은 **4+1**로 접혀 둘째 줄에 한
           장만 남았다. 3열이면 3+2다 — 「넷이 한눈에」였던 종전 근거는 카드가
           넷을 넘으면서 유효하지 않다(한 줄에 다 넣는 것이 애초에 불가능).
           ⚠️ 카드 수를 적을 때는 위 `SIMS` 배열을 세고 적을 것 — 처음에
-          「5→6장」이라 적었다가 틀렸다(실측 5장). */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          「5→6장」이라 적었다가 틀렸다(실측 5장).
+          ⚠️ **다시 4열이다**(2026-08-20 클라이언트 판정 "4열로 바꿔 그럼").
+          과거 예보(MT-30)가 같은 날 통째 삭제되어 카드가 5 → **4장**이 됐고,
+          8/19에 3열로 줄인 근거가 바로 **「5장이라 4열이면 4+1로 접힌다」**였다.
+          카드가 4장이면 4열이 **4+0**(한 줄)이라 그 근거가 사라진다.
+          계단은 1 / sm 2 / **xl 4**다. xl(1280) 4열이면 한 칸이 약 290px로
+          8/19에 우려한 226px(lg 4열)보다 넓다 — lg를 4열로 올리지 않는 이유가
+          그것이므로 **lg는 손대지 않는다**.
+          ⚠️ **카드가 다시 5장이 되면 이 4열은 4+1로 접힌다** — 카드를 늘리는
+          사람이 열 수를 함께 판정받을 것. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {SIMS.map((sim) => (
           <Link
             key={sim.to}
