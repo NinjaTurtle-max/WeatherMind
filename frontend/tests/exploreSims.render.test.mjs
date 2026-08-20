@@ -193,6 +193,41 @@ try {
   const cssSrc = await readFile(resolve(root, 'src/styles/index.css'), 'utf8');
   checkMt21('ⓑ 스크롤바 자리를 늘 비운다 — 화면을 오갈 때 본문이 옆으로 안 밀린다',
     /scrollbar-gutter:\s*stable/.test(cssSrc));
+
+  // ── 기후변화 체험 2열 배치 (2026-08-19 사용자 지시) ────────────────────────
+  /**
+   * "아노말리 그래프 크기 줄여서 왼쪽, 오른쪽에는 CO₂ 농도·해수면 상승·연간
+   *  폭염일수. 탐구 목표는 그대로 상단 유지, 나머지 그대로 하단."
+   *
+   * 세 자리가 **각각 계약**이다 — 하나만 움직여도 지시가 깨진다:
+   *   ⓒ 곡선과 오른쪽 열이 같은 격자의 **직계 자식**일 것(래퍼 안에 들어가면
+   *      2열이 안 선다 — 보드 판정 카드가 같은 실수로 700px에 갇힌 전례)
+   *   ⓓ 탐구 목표·「왜 그럴까」·CTA는 격자 **밖**일 것(지시 1·3)
+   *   ⓔ 지표 2종은 lg에서 세로로 쌓일 것(좁은 열에서 가로면 한 칸 220px라
+   *      「연간 폭염일수」가 두 줄로 접힌다)
+   *   ⓕ 곡선에 **고정 높이를 박지 않을 것** — viewBox SVG라 폭이 줄면 높이가
+   *      따라 준다(582 → 413 실측). h-…를 박으면 뷰포트마다 찌그러진다.
+   * jsdom에 CSS 엔진이 없어 두 열을 좌표로 못 재므로 소스로 문다.
+   * 실브라우저 1536 실측: 두 열 591/513 · 행 높이 413 동일 · pageH 1701 → 1243.
+   */
+  const climateSrc = await readFile(resolve(root, 'src/modules/explore/ClimateSimPage.jsx'), 'utf8');
+  const gridOpen = climateSrc.indexOf('lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]');
+  checkMt21('ⓒ 기후변화: 곡선 ↔ 지표 열 2열 격자가 있다', gridOpen > -1);
+  const gridBody = gridOpen > -1 ? climateSrc.slice(gridOpen) : '';
+  // 격자 열림 이후 등장 순서로 자리를 판정한다.
+  const at = (s) => gridBody.indexOf(s);
+  const closeGrid = at('{/* /2열 구간 */}');
+  const inGrid = (s) => at(s) > -1 && at(s) < closeGrid;
+  checkMt21('ⓒ 곡선·CO₂·지표 2종이 전부 격자 안이다',
+    closeGrid > -1 && inGrid('<AnomalyCurve') && inGrid("explore.climate.co2Label") && inGrid('<IndicatorCard'));
+  checkMt21('ⓓ 탐구 목표는 격자 위(상단)에 남는다 — 사용자 지시 1',
+    climateSrc.indexOf('<GoalPanel') > -1 && climateSrc.indexOf('<GoalPanel') < gridOpen);
+  checkMt21('ⓓ 「왜 그럴까」와 CTA는 격자 아래(하단)에 남는다 — 사용자 지시 3',
+    at("explore.common.whyTitle") > closeGrid && at("explore.climate.cta") > closeGrid);
+  checkMt21('ⓔ 지표 2종이 lg에서 세로로 쌓인다 (좁은 열에서 가로면 라벨이 접힌다)',
+    /grid-cols-2 gap-3 lg:grid-cols-1/.test(climateSrc));
+  checkMt21('ⓕ 곡선에 고정 높이를 박지 않았다 — 폭이 줄면 높이가 따라 준다',
+    !/<AnomalyCurve[\s\S]{0,200}?className="[^"]*\bh-\[/.test(climateSrc));
 } finally {
   await server.close();
 }
