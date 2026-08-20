@@ -280,61 +280,79 @@ export default function ProgressPage() {
         <WeatherBrainPanel />
       </div>
 
-      {/* 진도 저장 — 정보 입력 (2026-08-12 클라이언트 요구 ⑴).
-          설정 묶음의 **맨 앞**이다: 학습 수준·하루 목표는 취향이고, 이것은
-          "잃으면 끝인 것"을 지키는 행동이라 같은 무게가 아니다.
-          앵커 id는 학습 화면 오른쪽 저장 노드(`/me#save-progress`)의 목적지다 —
-          해시 스크롤은 이 파일 위쪽 useEffect가 이미 소유한다. */}
-      <SaveProgressCard />
+      {/* ── 꼬리 설정 묶음 — **2열**이다(2026-08-20 전 화면 실측) ──────────────
+          위 절반은 2열인데 여기부터 전폭 1열이라 **한 화면 안에서 배치 규칙이
+          중간에 바뀌었다.** /me가 2,267px로 앱에서 가장 긴 화면이 된 것도 대부분
+          이 구간이고, 특히 진도 저장의 이메일·비밀번호 칸이 **1,090px**였다 —
+          숫자 두 개짜리 칸이 그 폭이던 과거 예보와 같은 종류의 결함이다.
+          왼쪽에 진도 저장(폼이라 세로가 길다), 오른쪽에 설정 둘(각 3버튼)을
+          쌓아 높이를 맞춘다. 실측(1536): 화면 2,267 → **1,973px** · 이메일 칸
+          1,090 → **520px**. 1024까지 가로 넘침 없음(칸 345px).
+          ⚠️ **간격의 소유자는 이 격자의 `gap-4`다.** 자식들이 들고 있던
+             `mt-4`는 함께 걷었다 — 남겨 두면 2열에서 두 열의 첫 줄이 어긋난다.
+          ⚠️ **순서는 이 격자가 아니라 자식의 order가 정한다** — 좁은 화면에서
+             1열로 접힐 때 진도 저장이 맨 앞이어야 한다(위 주석: "잃으면 끝인
+             것"이라 설정 둘과 무게가 다르다). 격자 DOM 순서가 이미 그 순서다. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">
+        {/* 진도 저장 — 정보 입력 (2026-08-12 클라이언트 요구 ⑴).
+            설정 묶음의 **맨 앞**이다: 학습 수준·하루 목표는 취향이고, 이것은
+            "잃으면 끝인 것"을 지키는 행동이라 같은 무게가 아니다.
+            앵커 id는 학습 화면 오른쪽 저장 노드(`/me#save-progress`)의 목적지다 —
+            해시 스크롤은 이 파일 위쪽 useEffect가 이미 소유한다. */}
+        <SaveProgressCard />
 
-      {/* 설정 — 학습 수준 (R13 CO-P-5) */}
-      <LevelGroupCard />
+        {/* 오른쪽 열 — 설정 둘. 각각 3버튼짜리라 나란히 두면 왼쪽 폼과 높이가 맞는다. */}
+        <div className="flex flex-col gap-4">
+          {/* 설정 — 학습 수준 (R13 CO-P-5) */}
+          <LevelGroupCard />
 
-      {/* 설정 — 하루 목표. 2026-08-11(사용자 지시)에 오른쪽 맨 위에서 **내려왔다**.
-          지우지 않고 옮긴 이유: 이 화면이 목표를 정하는 **유일한 통로**다.
-          배치고사를 건너뛴 사람(게스트 자동 발급이 주 동선이다)은 여기 말고
-          정할 데가 없고, /learn 배너의 「목표 미설정」 링크도 여기로 온다.
+          {/* 설정 — 하루 목표. 2026-08-11(사용자 지시)에 오른쪽 맨 위에서 **내려왔다**.
+              지우지 않고 옮긴 이유: 이 화면이 목표를 정하는 **유일한 통로**다.
+              배치고사를 건너뛴 사람(게스트 자동 발급이 주 동선이다)은 여기 말고
+              정할 데가 없고, /learn 배너의 「목표 미설정」 링크도 여기로 온다.
 
-          ⚠️ **미설정일 때만 띄우지 말 것**(2026-08-11 코드 리뷰). 저장에 성공하면
-          picker의 onSuccess가 같은 캐시를 갱신하므로 카드가 그 자리에서 사라져,
-          「N문항으로 정했어요」 확인 문구를 아무도 못 본다 — 누른 순간 화면에서
-          지워지는 버튼이 된다. 학습 수준 카드와 같이 **늘 떠 있는 설정**으로 둔다
-          (picker가 현재 선택을 강조하고 저장 문구도 스스로 띄운다).
-          진행도 표시(DailyGoalMeter)는 걷었다 — /learn 배너와 세션 완료 화면이
-          같은 값을 이미 보여준다.
+              ⚠️ **미설정일 때만 띄우지 말 것**(2026-08-11 코드 리뷰). 저장에 성공하면
+              picker의 onSuccess가 같은 캐시를 갱신하므로 카드가 그 자리에서 사라져,
+              「N문항으로 정했어요」 확인 문구를 아무도 못 본다 — 누른 순간 화면에서
+              지워지는 버튼이 된다. 학습 수준 카드와 같이 **늘 떠 있는 설정**으로 둔다
+              (picker가 현재 선택을 강조하고 저장 문구도 스스로 띄운다).
+              진행도 표시(DailyGoalMeter)는 걷었다 — /learn 배너와 세션 완료 화면이
+              같은 값을 이미 보여준다.
 
-          ⚠️ `me`는 **기다린다**(LevelGroupCard와 같은 이유). 조회 전에 그리면
-          현재값을 모르는 채로 아무것도 강조되지 않아, 이미 9문항으로 정해 둔
-          사람이 「미설정」으로 읽고 모르게 덮어쓴다. 저장 뒤에는 `me`가 그대로
-          참이라 카드도 그대로 남는다 — 위 ⚠️와 충돌하지 않는다.
+              ⚠️ `me`는 **기다린다**(LevelGroupCard와 같은 이유). 조회 전에 그리면
+              현재값을 모르는 채로 아무것도 강조되지 않아, 이미 9문항으로 정해 둔
+              사람이 「미설정」으로 읽고 모르게 덮어쓴다. 저장 뒤에는 `me`가 그대로
+              참이라 카드도 그대로 남는다 — 위 ⚠️와 충돌하지 않는다.
 
-          ⚠️ 조회가 **실패하면 자리를 비우지 않는다**(2026-08-11 코드 리뷰).
-          `me &&`만 두면 실패 시 카드가 조용히 사라져, 목표를 정하러 앵커를 타고
-          온 사람이 빈 화면 끝을 본다 — 통로가 끊긴 것과 같은데 이유도 안 보인다.
-          현재값을 모르니 선택지는 안 내주고, **왜 못 그리는지와 다시 시도**를
-          같은 자리(같은 앵커 id)에 놓는다. */}
-      {me ? (
-        <DailyGoalPicker id={GOAL_ANCHOR} className="mt-4 scroll-mt-4" />
-      ) : meFailed ? (
-        <div
-          id={GOAL_ANCHOR}
-          className="mt-4 scroll-mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
-        >
-          <p className="text-sm font-extrabold text-slate-900">{t('dailyGoal.pickerTitle')}</p>
-          <p className="mt-0.5 text-xs text-slate-500">{t('dailyGoal.loadFailed')}</p>
-          {/* 재시도 중에는 **눌린 티가 나야 한다**(2026-08-11 코드 리뷰).
-              react-query는 실패 상태를 유지한 채 다시 부르므로, 표시를 안 바꾸면
-              백엔드가 죽어 있는 사람에게는 눌러도 아무 일이 없는 버튼이 된다. */}
-          <button
-            type="button"
-            disabled={meFetching}
-            onClick={() => refetchMe()}
-            className="mt-3 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {meFetching ? t('common.loading') : t('common.retry')}
-          </button>
-        </div>
-      ) : null}
+              ⚠️ 조회가 **실패하면 자리를 비우지 않는다**(2026-08-11 코드 리뷰).
+              `me &&`만 두면 실패 시 카드가 조용히 사라져, 목표를 정하러 앵커를 타고
+              온 사람이 빈 화면 끝을 본다 — 통로가 끊긴 것과 같은데 이유도 안 보인다.
+              현재값을 모르니 선택지는 안 내주고, **왜 못 그리는지와 다시 시도**를
+              같은 자리(같은 앵커 id)에 놓는다. */}
+          {me ? (
+            <DailyGoalPicker id={GOAL_ANCHOR} className="scroll-mt-4" />
+          ) : meFailed ? (
+            <div
+              id={GOAL_ANCHOR}
+              className="scroll-mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+            >
+              <p className="text-sm font-extrabold text-slate-900">{t('dailyGoal.pickerTitle')}</p>
+              <p className="mt-0.5 text-xs text-slate-500">{t('dailyGoal.loadFailed')}</p>
+              {/* 재시도 중에는 **눌린 티가 나야 한다**(2026-08-11 코드 리뷰).
+                  react-query는 실패 상태를 유지한 채 다시 부르므로, 표시를 안 바꾸면
+                  백엔드가 죽어 있는 사람에게는 눌러도 아무 일이 없는 버튼이 된다. */}
+              <button
+                type="button"
+                disabled={meFetching}
+                onClick={() => refetchMe()}
+                className="mt-3 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {meFetching ? t('common.loading') : t('common.retry')}
+              </button>
+            </div>
+          ) : null}
+        </div>{/* /오른쪽 열 */}
+      </div>{/* /꼬리 2열 */}
     </div>
   );
 }
@@ -419,7 +437,7 @@ function SaveProgressCard() {
     <div
       id="save-progress"
       data-testid="save-progress-card"
-      className="mt-4 scroll-mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+      className="scroll-mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
     >
       <p className="text-sm font-extrabold text-slate-900">
         <span aria-hidden="true">💾</span> {t('saveProgress.cardTitle')}

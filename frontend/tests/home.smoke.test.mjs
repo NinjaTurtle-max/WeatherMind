@@ -666,10 +666,83 @@ await new Promise((r) => httpServer.close(r));
     !/\bflex-1\b/.test(regionSlot),
     `ⓐ 학습 지역은 흡수하지 않는다 — 한 줄 카드가 늘면 빈 카드가 된다. 실제 "${regionSlot}"`,
   );
-  const grid = page.match(/<div className="(grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/)?.[1] ?? '';
+  // ⚠️ **이 화면에는 같은 꼴의 격자가 둘이고 요구가 정반대다**(2026-08-20).
+  //    위(본문)는 `items-start`가 **없어야** 배지가 남는 높이를 먹고, 아래(꼬리
+  //    설정)는 **있어야** 오른쪽 설정 둘이 왼쪽 폼 높이까지 늘어나지 않는다.
+  //    처음에는 첫 매치만 봤는데, 꼬리 격자가 생기면서 "어느 쪽을 본 것인지"가
+  //    파일 순서에 달리게 됐다 — 위아래가 뒤바뀌면 계약이 조용히 반대를 문다.
+  //    그래서 **개수까지 세고 순서로 가리킨다.**
+  const grids = [...page.matchAll(/<div className="(grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/g)]
+    .map((m) => m[1]);
+  ok(grids.length === 2, `ⓒ0 같은 꼴의 격자가 둘이다(본문·꼬리) — 실제 ${grids.length}개`);
   ok(
-    /lg:grid-cols-2/.test(grid) && !/lg:items-start/.test(grid),
-    `ⓒ 두 열이 같은 높이로 늘어난다 (items-start 없음) — 실제 "${grid}"`,
+    /lg:grid-cols-2/.test(grids[0] ?? '') && !/lg:items-start/.test(grids[0] ?? ''),
+    `ⓒ 본문 두 열이 같은 높이로 늘어난다 (items-start 없음) — 실제 "${grids[0]}"`,
+  );
+}
+
+// ── /me 꼬리 설정 묶음도 **2열**이다 (2026-08-20) ───────────────────────────
+/**
+ * 위 절반은 2열인데 꼬리(진도 저장·학습 수준·하루 목표)만 전폭 1열이라 **한
+ * 화면 안에서 배치 규칙이 중간에 바뀌었다.** /me가 앱에서 가장 긴 화면(2,267px)
+ * 이던 이유의 대부분이 이 구간이고, 특히 진도 저장의 이메일 칸이 **1,090px**
+ * 였다 — 숫자 두 개짜리 칸이 그 폭이던 과거 예보와 같은 종류의 결함이다.
+ * 실측(1536): 화면 2,267 → 1,973px · 이메일 칸 1,090 → 520px.
+ *
+ * 되돌아가는 길이 둘이라 둘을 문다:
+ *  ⓕ 세 카드가 **전부 그 격자 안**에 있다 — 새 설정 카드를 격자 **밖**에
+ *    붙이면 그 한 장만 다시 전폭이 되어 규칙이 또 중간에 바뀐다
+ *  ⓖ 격자 안 카드가 자기 `mt-4`를 갖지 않는다 — 간격의 임자는 `gap-4` 하나다.
+ *    (셋 다 `mt-4`를 들고 있었고, 2열이 되면서 두 열의 첫 줄이 어긋났다)
+ * ⓗ 꼬리 격자는 `lg:items-start`가 **있어야** 한다 — 없으면 오른쪽 설정 둘이
+ *    왼쪽 폼 높이까지 늘어난다. 본문 격자와 정반대라 헷갈리기 쉬운 자리다.
+ */
+{
+  const page = readFileSync(resolve(root, 'src/modules/progress/ProgressPage.jsx'), 'utf8');
+  const open = page.indexOf('<div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">');
+  const close = page.indexOf('/꼬리 2열');
+  const tail = open >= 0 && close > open ? page.slice(open, close) : '';
+  ok(tail.length > 0, '꼬리 2열 격자를 소스에서 찾았다');
+  const inside = ['<SaveProgressCard />', '<LevelGroupCard />', '<DailyGoalPicker'].filter(
+    (tag) => tail.includes(tag),
+  );
+  ok(
+    inside.length === 3,
+    `ⓕ 꼬리 설정 셋이 모두 2열 격자 안에 있다 — 실제 ${inside.length}/3`,
+  );
+  // ⓕ2 **셋을 이름으로 세는 것만으로는 부족하다** — 진짜 재발 경로는 "넷째
+  //     카드를 격자 **뒤에** 붙이는 것"이고, 이름 목록은 그것을 못 본다(처음에
+  //     그렇게 써 놓고 주석에는 잡는다고 적었다). 그래서 격자가 닫힌 뒤부터
+  //     컴포넌트 끝까지에 **여는 태그가 하나도 없어야** 한다고 못박는다.
+  const after = tail.length ? page.slice(close, page.indexOf('\n}', close)) : '';
+  const trailing = [...after.matchAll(/<([A-Za-z][\w.]*)/g)].map((m) => m[1]);
+  ok(
+    trailing.length === 0,
+    `ⓕ2 격자 뒤에 붙은 카드가 없다(넷째를 밖에 두면 그 한 장만 전폭이 된다) — 실제 ${trailing.join(' / ') || '없음'}`,
+  );
+  // ⚠️ 진도 저장 카드의 뿌리는 **같은 파일 아래쪽 별도 함수**에 있다(격자 안이
+  //    아니다). 그래서 격자 본문이 아니라 testid로 찾아 본다.
+  const saveRoot = page.match(/data-testid="save-progress-card"\s*\n\s*className="([^"]*)"/)?.[1] ?? '';
+  // 🔴 `\bmt-4\b`로 쓰면 **`scroll-mt-4`에 걸린다** — `-`가 단어 문자가 아니라
+  //    그 뒤에서 경계가 성립하기 때문이다. 처음에 그렇게 써서 셋 다 붉었고,
+  //    `scroll-mt-4`는 해시 스크롤 여백이라 걷으면 안 되는 값이다.
+  //    Tailwind 클래스를 셀 때는 하이픈까지 막는 경계를 쓸 것.
+  const MT4 = /(?<![\w-])mt-4(?![\w-])/;
+  const strays = [
+    ...(MT4.test(saveRoot) ? ['save-progress-card'] : []),
+    ...[...tail.matchAll(/className="([^"]*)"/g)].map((m) => m[1]).filter((c) => MT4.test(c)),
+  ];
+  ok(
+    strays.length === 0,
+    `ⓖ 간격의 임자는 격자 gap-4 하나다(자식 mt-4 없음) — 실제 ${strays.join(' / ') || '없음'}`,
+  );
+  // ⚠️ 위 블록의 `grids`를 **빌려 쓰지 않는다** — 블록 스코프라 여기서는
+  //    ReferenceError다(이 파일에서 실제로 한 번 그렇게 깨뜨렸다). 다시 센다.
+  const tailGrid = [...page.matchAll(/<div className="(grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/g)]
+    .map((m) => m[1])[1] ?? '';
+  ok(
+    /lg:items-start/.test(tailGrid),
+    `ⓗ 꼬리 격자는 items-start다(오른쪽 설정이 왼쪽 폼 높이로 늘지 않게) — 실제 "${tailGrid}"`,
   );
 }
 
