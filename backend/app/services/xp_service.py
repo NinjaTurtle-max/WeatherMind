@@ -18,9 +18,9 @@ XP는 소비·게이팅이 없는 순수 보상 표시축이다(진척 모델은
 | 11 | 예보 대결 승리 | +15 (duel_service.DUEL_WIN_XP) | celery settle_daily_duel | R4-01 §3.4 |
 
 - 약점 개념 정답 배율: 원천 1·3의 합에 1.5배 (WEAK_TAG_XP_MULTIPLIER) —
-  독립 원천이 아니라 배율. 약점 판정은 θ 파생 단일 공급원
-  weatherbrain_service.weak_concepts(학령 상대 임계 — R8-01 §3.5)이고, 이
-  모듈의 is_weak_concept(구 accuracy_rate < 60 기준)는 deprecated shim.
+  독립 원천이 아니라 배율. 이 모듈은 배율만 소유하고 **약점 여부는 판정하지
+  않는다**. 판정의 단일 공급원은 weatherbrain_service.weak_concepts(θ 파생,
+  학령 상대 임계 — R8-01 §3.5)이고, is_weak 인자는 그 결과를 받아 온다.
 - 원천 11만 add_xp를 거치지 않는다: celery는 별도 빌드 컨텍스트라 생 SQL
   (UPDATE users SET xp = xp + :bonus)로 지급. 상수 단일 소유는 duel_service,
   복제본 드리프트는 tests/test_xp_contract.py 교차 계약 테스트가 감시.
@@ -30,7 +30,6 @@ XP는 소비·게이팅이 없는 순수 보상 표시축이다(진척 모델은
 import math
 import uuid
 from datetime import date, timedelta
-from decimal import Decimal
 
 from sqlalchemy import select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -54,10 +53,6 @@ XP_UNIT_CLEAR = 20
 
 # 약점 개념 정답 보너스 배율
 WEAK_TAG_XP_MULTIPLIER = 1.5
-# [Deprecated — R8-01 §3.5] 구 accuracy 기준 임계. is_weak_concept shim 전용 —
-# 약점 판정 소비자는 weatherbrain_service.WEAK_EXPECTED_P·weak_theta_threshold를 쓴다.
-WEAK_ACCURACY_THRESHOLD = 60
-
 # 스트릭 마일스톤 (7일/30일/100일 달성 시 배지 + 보너스 XP)
 STREAK_MILESTONES = (7, 30, 100)
 
@@ -84,20 +79,6 @@ async def get_weak_tag(
         )
     )
     return result.scalar_one_or_none()
-
-
-def is_weak_concept(weak_tag: WeakTag | None) -> bool:
-    """[Deprecated — R8-01 §3.5] 구 accuracy 기준 약점 판정의 하위 호환 shim.
-
-    weak 판정의 단일 공급원은 weatherbrain_service.weak_concepts(θ 파생,
-    학령 상대 임계)로 이관됐다 — 신규 소비 금지. 동작은 구 기준 그대로 유지:
-    accuracy_rate < 60 → 약점 개념 (한 번도 안 푼 태그는 약점 아님).
-    """
-    if weak_tag is None or weak_tag.total_count == 0:
-        return False
-    return weak_tag.accuracy_rate is not None and weak_tag.accuracy_rate < Decimal(
-        WEAK_ACCURACY_THRESHOLD
-    )
 
 
 async def update_weak_tag(
@@ -150,7 +131,9 @@ def quiz_xp_breakdown(
 def quiz_xp(is_correct: bool, is_first_try: bool, is_weak: bool) -> int:
     """퀴즈 1문항 XP: 정답 +10 (+첫 시도 정답 +5), 오답 +2.
 
-    약점 개념(accuracy_rate < 60) 정답이면 1.5배 (약점 극복 유도).
+    약점 개념 정답이면 1.5배 (약점 극복 유도). is_weak 판정은 이 모듈이 아니라
+    weatherbrain_service.weak_concepts(θ 파생)가 소유한다 — 옛 accuracy_rate < 60
+    축은 아니다.
     계산은 quiz_xp_breakdown 단일 소유 — 여기서는 분해값을 합산만 한다.
     """
     return sum(quiz_xp_breakdown(is_correct, is_first_try, is_weak))
