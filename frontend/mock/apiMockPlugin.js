@@ -581,6 +581,33 @@ const abilityRows = () =>
   }));
 
 /**
+ * `GET /progress/abilities` 응답 — 라우트가 부르는 **바로 이 함수**를
+ * `__abilitiesPayload`로 내보내 계약이 같은 것을 문다(§5 관례).
+ *
+ * 🔴 **`knowledge_level`을 함께 싣는다**(2026-08-20). 안 실어서 `/me`의 개념 칩이
+ *   전부 「초급」이었다 — WeatherBrainPanel이 이 필드로 교과 표기를 그리고,
+ *   없으면 4밴드로 내려앉는다(QA 롤링 0820 ⑴의 원인).
+ *
+ * ⚠️ **단계는 반올림 전 θ로 낸다.** `abilityRows()`는 표시용으로 θ를 소수 2자리로
+ *   자르는데(0.4951 → 0.50) 서버는 원값으로 센다. 그 한 칸 차이가 「10단계 중 N」을
+ *   통째로 바꾼다 — `/progress/me`가 같은 자리에서 이미 한 번 겪었고
+ *   `knowledgeLevel.test.mjs`가 그 경위를 들고 있다.
+ */
+const abilitiesPayload = () =>
+  [...devAbilities.entries()]
+    .map(([concept_tag, { theta, num_responses }]) => ({
+      concept_tag,
+      theta: Number(theta.toFixed(2)),
+      theta_se: abilitySE(num_responses),
+      num_responses,
+      level_label: levelFromTheta(theta),
+      knowledge_level: thetaToKnowledgeLevel(theta), // ← 원 θ
+      knowledge_level_max: KNOWLEDGE_LEVEL_MAX,
+      updated_at: null,
+    }))
+    .sort((a, b) => a.theta - b.theta);
+
+/**
  * 대표 θ — backend `weatherbrain_service.overall_theta`와 **같은 규칙**이다:
  * n 가중 평균, 전부 n=0이면 단순 평균, 행이 없으면 null(콜드스타트).
  * 종전에는 devStatePayload가 여기서 단순 평균만 썼는데, 시드가 n=0이라 값이
@@ -1635,7 +1662,15 @@ const DEFAULT_ITEM_B = 0.0;
 function boardDifficulty(template, levelGroup) {
   let score = template.mode === 'guided' ? 1 : 2;
   if (template.time_limit_sec) score += 1;
-  if (Array.isArray(template.palette) && template.palette.length >= 3) score += 1;
+  // 🔴 **서버는 배열 **또는 객체**를 센다**(`isinstance(palette, (list, dict))`).
+  //   목은 배열만 봤다 — 시드 55건이 전부 배열이라 **오늘만** 답이 같았고, 객체
+  //   palette가 한 건이라도 저작되면 목만 난이도가 1 낮아진다. 초록인 이유가
+  //   「규칙이 같아서」가 아니라 「입력이 그 갈래를 안 밟아서」였다(2026-08-20 실측).
+  const pal = template.palette;
+  const palSize = Array.isArray(pal)
+    ? pal.length
+    : (pal && typeof pal === 'object' ? Object.keys(pal).length : 0);
+  if (palSize >= 3) score += 1;
   const priorB = LEVEL_GROUP_ITEM_B[levelGroup] ?? DEFAULT_ITEM_B;
   if (priorB >= LEVEL_GROUP_ITEM_B.adult) score += 1;
   return Math.max(1, Math.min(3, score));
@@ -1689,6 +1724,22 @@ const BOARD_BAND_MAX_DIFFICULTY = {
   adult: 3,
   expert: 3,
 };
+/**
+ * `boardDifficulty` 규칙을 서버가 직접 재도록 내보내는 **입력 표본**.
+ * ⚠️ **객체 palette를 반드시 포함한다** — 시드가 전부 배열이라 그 갈래를 아무도
+ *    안 밟았고, 그래서 규칙이 갈린 채로 답만 같았다(2026-08-20).
+ */
+const BOARD_DIFFICULTY_SAMPLES = [
+  { template: { mode: 'guided' }, level_group: 'elementary' },
+  { template: { mode: 'goal_only' }, level_group: 'middle_high' },
+  { template: { mode: 'guided', time_limit_sec: 60 }, level_group: 'middle_high' },
+  { template: { mode: 'guided', palette: ['a', 'b', 'c'] }, level_group: 'middle_high' },
+  { template: { mode: 'guided', palette: { a: 1, b: 2, c: 3 } }, level_group: 'middle_high' }, // ← 객체 갈래
+  { template: { mode: 'guided', palette: { a: 1, b: 2 } }, level_group: 'middle_high' },
+  { template: { mode: 'goal_only', time_limit_sec: 30, palette: ['a', 'b', 'c'] }, level_group: 'adult' },
+  { template: {}, level_group: 'expert' },
+];
+
 const BOARD_DEFAULT_MAX_DIFFICULTY = 3; // 미상 밴드는 잠그지 않는다(서버와 같다)
 const BOARD_DIFFICULTIES = [1, 2, 3];
 
@@ -2865,12 +2916,15 @@ const routes = {
   ],
   // GET /progress/abilities (R6 WeatherBrain) — 약한 개념(θ 낮은 순) 우선 정렬.
   // R7-03에서 devAbilities 저장소를 공유해 /dev/theta 조작이 즉시 반영된다.
-  'GET /progress/abilities': () => [
-    200,
-    abilityRows()
-      .sort((a, b) => a.theta - b.theta)
-      .map((row) => ({ ...row, level_label: levelFromTheta(row.theta), updated_at: null })),
-  ],
+  // 🔴 **`knowledge_level`·`knowledge_level_max`를 함께 싣는다**(2026-08-20).
+  //   목이 이 둘을 빼먹고 있었고, `/me`의 WeatherBrainPanel이 그 필드로 교과 표기를
+  //   그리므로 **없으면 4밴드(「초급」)로 내려앉았다** — QA 롤링 0820 ⑴
+  //   「`/me` 개념 칩 6개가 전부 초급」의 원인이 이것이다. 같은 날 배치고사 결과
+  //   화면에서 고친 것(`PlacementAbility`)과 **같은 형태이고 자리만 달랐다.**
+  // ⚠️ 값을 손으로 넣지 않는다 — 서버 `weatherbrain_service.theta_to_knowledge_level`과
+  //   **같은 경계**(`THETA_KNOWLEDGE_LEVEL_BOUNDS`)로 θ에서 파생한다. 그 경계는
+  //   `__mockPolicy()`로 노출돼 `test_r13_mock_policy_parity`가 서버 실값과 대조한다.
+  'GET /progress/abilities': () => [200, abilitiesPayload()],
 
   // ── 개발자 모드 (R7-03 계약 — /dev/*) ──────────────────────────────────────
   // DEV_MODE(=VITE_MOCK_DEV!=='0')가 꺼지면 실서버(FastAPI 라우터 미등록)와
@@ -3354,6 +3408,17 @@ export const __mockPolicy = () => ({
   // THETA_KNOWLEDGE_LEVEL_BOUNDS) — /progress/me의 분모와 경계다.
   knowledge_level_max: KNOWLEDGE_LEVEL_MAX,
   theta_knowledge_level_bounds: THETA_KNOWLEDGE_LEVEL_BOUNDS,
+  // 🔴 **그물 밖이던 사본 넷**(2026-08-20 전수 대조). 값이 서버와 같아도
+  //   노출이 없으면 **서버가 바뀔 때 아무 소리가 안 난다.** 같은 파일 안에서
+  //   어떤 사본은 대조되고 어떤 사본은 안 되던 것이 위험이었다.
+  level_group_item_b: LEVEL_GROUP_ITEM_B,   // server weatherbrain_service.LEVEL_GROUP_ITEM_B
+  default_item_b: DEFAULT_ITEM_B,           // server weatherbrain_service.DEFAULT_ITEM_B
+  level_group_tone: LEVEL_GROUP_TONE,       // server weatherbrain_service.LEVEL_GROUP_TONE
+  // ⚠️ 표가 아니라 **규칙**을 노출한다 — 같은 입력에 같은 답을 내는지 서버가
+  //    직접 재게 한다. 표만 맞고 규칙이 갈린 것이 palette 갈래였다.
+  board_difficulty_samples: BOARD_DIFFICULTY_SAMPLES.map((c) => ({
+    ...c, out: boardDifficulty(c.template, c.level_group),
+  })),
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
   guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN
   // 왕관 정책 (server routers/session.py — §2.10 소유권 이전)
@@ -3386,6 +3451,9 @@ export const __thetaToLevelGroup = thetaToLevelGroup;
 
 /** 라우트가 쓰는 바로 그 /progress/me 페이로드(사본 아님). */
 export const __progressMePayload = progressMePayload;
+
+/** `GET /progress/abilities`가 실제로 쓰는 함수 — 계약이 같은 것을 문다. */
+export const __abilitiesPayload = abilitiesPayload;
 
 export default function apiMockPlugin() {
   return {

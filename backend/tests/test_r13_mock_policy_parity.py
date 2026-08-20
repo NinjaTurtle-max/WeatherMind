@@ -732,3 +732,62 @@ class TestNoLoginInMainFlow:
             "`hadAccount`가 persist에 실리지 않는다 — 새로고침을 못 건너므로 "
             "있으나 마나 하다"
         )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 🔴 그물 밖이던 사본 넷 (2026-08-20 전수 대조에서 드러남)
+# ═══════════════════════════════════════════════════════════════
+class TestUnnettedCopies:
+    """목이 서버 로직을 **자체 구현**한 자리 중 `__mockPolicy()`에 안 실려 있던 것들.
+
+    값이 오늘 같아도 노출이 없으면 **서버가 바뀔 때 아무 소리가 안 난다.**
+    같은 파일 안에서 어떤 사본은 대조되고 어떤 사본은 안 되던 것이 위험이었다 —
+    있는 쪽만 보고 「목은 대조된다」고 읽기 쉽다.
+    """
+
+    def test_사전_b_표가_같다(self, policy):
+        from app.services import weatherbrain_service as wb
+        assert policy["level_group_item_b"] == {
+            k: float(v) for k, v in wb.LEVEL_GROUP_ITEM_B.items()
+        }
+
+    def test_기본_b가_같다(self, policy):
+        from app.services import weatherbrain_service as wb
+        assert policy["default_item_b"] == float(wb.DEFAULT_ITEM_B)
+
+    def test_표현_톤_표가_같다(self, policy):
+        from app.services import weatherbrain_service as wb
+        assert policy["level_group_tone"] == dict(wb.LEVEL_GROUP_TONE)
+
+    def test_보드_난이도_규칙이_같은_답을_낸다(self, policy):
+        """🔴 **표가 아니라 규칙을 잰다.**
+
+        `board_band_max_difficulty`(표)는 이미 대조되고 있었는데 **규칙**은 아니었다.
+        실제로 갈려 있었다 — 서버는 `isinstance(palette, (list, dict))`로 세고 목은
+        배열만 셌다. 시드 55건이 전부 배열이라 **오늘만** 답이 같았다.
+        ⇒ 목이 내려보낸 표본의 입력을 **서버 함수에 그대로 넣어** 답을 대조한다.
+        ⚠️ 표본에 **객체 palette가 들어 있는지**까지 확인한다 — 그 갈래가 빠지면
+           이 검사가 다시 「입력이 그 갈래를 안 밟아서」 초록이 된다.
+        """
+        from app.routers.board import board_difficulty
+
+        samples = policy["board_difficulty_samples"]
+        assert samples, "목이 보드 난이도 표본을 안 내보낸다"
+        # ⚠️ **3개 이상인 객체**여야 한다(2026-08-20 되돌림에서 잡힘). 처음엔
+        #    "객체 palette가 하나라도 있으면 됨"으로 썼는데, 2개짜리 객체가
+        #    표본에 남아 있어 **3개 이상 갈래를 지워도 이 검사가 통과**했다.
+        #    갈리는 지점은 `len(palette) >= 3`이므로 그 지점을 밟는 표본을 요구한다.
+        assert any(
+            isinstance(c["template"].get("palette"), dict)
+            and len(c["template"]["palette"]) >= 3
+            for c in samples
+        ), "표본에 **3개 이상인 객체 palette**가 없다 — 규칙이 갈려도 답이 같아 초록이 된다"
+        bad = [
+            (c, board_difficulty(c["template"], c["level_group"]))
+            for c in samples
+            if board_difficulty(c["template"], c["level_group"]) != c["out"]
+        ]
+        assert not bad, "목과 서버의 보드 난이도 규칙이 갈렸다: " + "; ".join(
+            f"{c['template']}/{c['level_group']}: 목 {c['out']} vs 서버 {srv}"
+            for c, srv in bad
+        )
