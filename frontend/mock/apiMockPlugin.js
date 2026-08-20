@@ -274,6 +274,79 @@ function fillLiveSlots(value) {
 // 슬라이더 허용 오차 — backend answer_service.SLIDER_TOLERANCE와 동일값
 const SLIDER_TOLERANCE = 10;
 
+// ── BKT 숙련(`GET /progress/mastery`) — R13-01 §5-1 ─────────────────────────
+// 🔴 **목에 이 라우트가 아예 없었다**(2026-08-20 전수 대조). 404라서
+//   `WeatherBrainPanel`의 BKT 섹션이 **dev에서 통째로 안 그려졌다**
+//   (`mastery.isError → return null`). 「사본이 갈렸다」가 아니라 **「없다」**였다.
+//
+// 사본이 셋이라 셋 다 `__mockPolicy()`로 노출한다 — 값이 같아도 노출이 없으면
+// 서버가 바뀔 때 조용하다(오늘 그물 밖 사본들과 같은 이유):
+//   ⑴ BKT 서빙 사전값 — ai-worker `knowledge_tracing.SERVING_PRIOR`
+//   ⑵ 콜드스타트 경계 — ai-worker `MASTERY_MIN_RESPONSES`
+//   ⑶ 라벨 임계 — backend `weatherbrain_service.MASTERY_*_MIN`
+// ⚠️ **`cold_start`가 값보다 먼저다** — 참이면 p와 무관하게 `insufficient`.
+const MOCK_BKT = { p_init: 0.3, p_learn: 0.2, p_guess: 0.25, p_slip: 0.15 };
+const MOCK_MASTERY_MIN_RESPONSES = 3;
+const MOCK_MASTERY_MASTERED_MIN = 0.8;
+const MOCK_MASTERY_LEARNING_MIN = 0.5;
+
+/** 응답 시퀀스 → 현재 P(숙련). ai-worker `trace_mastery`의 사본. */
+function traceMastery(corrects) {
+  const { p_init: pi, p_learn: T, p_guess: G, p_slip: S } = MOCK_BKT;
+  let p = pi;
+  for (const ok of corrects) {
+    const post = ok
+      ? (p * (1 - S)) / (p * (1 - S) + (1 - p) * G)
+      : (p * S) / (p * S + (1 - p) * (1 - G));
+    p = post + (1 - post) * T;
+  }
+  return p;
+}
+
+/** ai-worker `predict_p_correct`의 사본. */
+const predictPCorrect = (p) =>
+  p * (1 - MOCK_BKT.p_slip) + (1 - p) * MOCK_BKT.p_guess;
+
+/** backend `weatherbrain_service.mastery_label`의 사본 — **콜드스타트가 먼저**. */
+function masteryLabel(pMastery, coldStart) {
+  if (coldStart) return 'insufficient';
+  if (pMastery >= MOCK_MASTERY_MASTERED_MIN) return 'mastered';
+  if (pMastery >= MOCK_MASTERY_LEARNING_MIN) return 'learning';
+  return 'beginning';
+}
+
+/**
+ * `GET /progress/mastery` 응답 — 라우트가 부르는 **바로 이 함수**를
+ * `__masteryPayload`로 내보내 계약이 같은 것을 문다.
+ * ⚠️ **관측 0건 개념은 목록에 안 넣는다**(서버 `load_mastery` 계약) — θ가 전 개념
+ *    행을 갖는 것과 **의도적으로 다르다.**
+ */
+const masteryPayload = () => {
+  const byConcept = new Map();
+  for (const a of answerHistory) {
+    if (!byConcept.has(a.concept_tag)) byConcept.set(a.concept_tag, []);
+    byConcept.get(a.concept_tag).push(Boolean(a.is_correct));
+  }
+  return [...byConcept.entries()]
+    .map(([concept_tag, corrects]) => {
+      const p = traceMastery(corrects);
+      const coldStart = corrects.length < MOCK_MASTERY_MIN_RESPONSES;
+      const theta = devAbilities.get(concept_tag)?.theta;
+      return {
+        concept_tag,
+        p_mastery: p,
+        p_next_correct: predictPCorrect(p),
+        num_responses: corrects.length,
+        cold_start: coldStart,
+        level_label: masteryLabel(p, coldStart),
+        params_source: 'prior',
+        knowledge_level: theta == null ? null : thetaToKnowledgeLevel(theta),
+        knowledge_level_max: KNOWLEDGE_LEVEL_MAX,
+      };
+    })
+    .sort((a, b) => a.p_mastery - b.p_mastery);
+};
+
 /**
  * 해설의 **출처** — server `answer_service.feedback_source()`의 사본.
  * 우선순위까지 같다: board면 `board`, 사람이 쓴 해설(`explanation_hint`)이 있으면
@@ -2886,6 +2959,8 @@ const routes = {
   //   **같은 경계**(`THETA_KNOWLEDGE_LEVEL_BOUNDS`)로 θ에서 파생한다. 그 경계는
   //   `__mockPolicy()`로 노출돼 `test_r13_mock_policy_parity`가 서버 실값과 대조한다.
   'GET /progress/abilities': () => [200, abilitiesPayload()],
+  // BKT 숙련 — 목에 없어서 dev에서 패널이 통째로 안 그려졌다(2026-08-20).
+  'GET /progress/mastery': () => [200, masteryPayload()],
 
   // ── 개발자 모드 (R7-03 계약 — /dev/*) ──────────────────────────────────────
   // DEV_MODE(=VITE_MOCK_DEV!=='0')가 꺼지면 실서버(FastAPI 라우터 미등록)와
@@ -3388,6 +3463,13 @@ export const __mockPolicy = () => ({
       templates.map((t, i) => ({ i, template_json: t })),
     ).map((x) => x.i),
   })),
+  // BKT 숙련 사본 셋 — ai-worker `knowledge_tracing` · backend `weatherbrain_service`
+  bkt_serving_prior: MOCK_BKT,
+  mastery_min_responses: MOCK_MASTERY_MIN_RESPONSES,
+  mastery_thresholds: {
+    mastered: MOCK_MASTERY_MASTERED_MIN,
+    learning: MOCK_MASTERY_LEARNING_MIN,
+  },
   duel_win_xp: MOCK_DUEL_WIN_XP, // server duel_service.DUEL_WIN_XP
   guest_level_group: 'middle_high', // server routers/auth.GUEST_LEVEL_GROUP
   guest_email_domain: GUEST_EMAIL_DOMAIN, // server routers/auth.GUEST_EMAIL_DOMAIN
@@ -3427,6 +3509,10 @@ export const __abilitiesPayload = abilitiesPayload;
 
 /** 해설 출처 파생 — 계약이 **라우트가 쓰는 바로 그 규칙**을 부른다. */
 export const __feedbackSourceOf = feedbackSourceOf;
+
+/** `GET /progress/mastery`가 실제로 쓰는 함수 · 라벨 규칙 — 계약이 같은 것을 문다. */
+export const __masteryPayload = masteryPayload;
+export const __masteryLabel = masteryLabel;
 
 export default function apiMockPlugin() {
   return {

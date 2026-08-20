@@ -870,3 +870,61 @@ class TestUnnettedCopies:
         assert not bad, "목과 서버의 보드 진행 순서 규칙이 갈렸다: " + "; ".join(
             f"{c['templates']}: 목 {c['out']} vs 서버 {srv}" for c, srv in bad
         )
+
+    def test_BKT_서빙_사전값이_같다(self, policy):
+        """목에 `GET /progress/mastery`가 **아예 없어** dev에서 BKT 패널이 통째로
+        안 그려졌다(2026-08-20). 넣으면서 사본이 셋 생겼으므로 셋 다 문다."""
+        import importlib
+        kt = importlib.import_module("app.weatherbrain.knowledge_tracing") \
+            if False else None
+        from pathlib import Path
+        import re as _re
+        src = (Path(__file__).resolve().parents[2] / "ai-worker" / "app"
+               / "weatherbrain" / "knowledge_tracing.py").read_text(encoding="utf-8")
+        m = _re.search(
+            r"DEFAULT_INIT = BKTParams\(p_init=([\d.]+), p_learn=([\d.]+), "
+            r"p_guess=([\d.]+), p_slip=([\d.]+)\)", src)
+        assert m, "ai-worker에서 서빙 사전값을 못 읽었다 — 선별식이 낡았다"
+        want = dict(zip(("p_init", "p_learn", "p_guess", "p_slip"),
+                        (float(m.group(i)) for i in range(1, 5))))
+        assert policy["bkt_serving_prior"] == want
+
+    def test_콜드스타트_경계가_같다(self, policy):
+        from pathlib import Path
+        import re as _re
+        src = (Path(__file__).resolve().parents[2] / "ai-worker" / "app"
+               / "weatherbrain" / "knowledge_tracing.py").read_text(encoding="utf-8")
+        m = _re.search(r"MASTERY_MIN_RESPONSES = (\d+)", src)
+        assert m, "ai-worker에서 콜드스타트 경계를 못 읽었다"
+        assert policy["mastery_min_responses"] == int(m.group(1))
+
+    def test_숙련_라벨_임계가_같다(self, policy):
+        from app.services import weatherbrain_service as wb
+        assert policy["mastery_thresholds"] == {
+            "mastered": wb.MASTERY_MASTERED_MIN,
+            "learning": wb.MASTERY_LEARNING_MIN,
+        }
+
+    def test_숙련_라벨_규칙이_같은_답을_낸다(self):
+        """🔴 **`cold_start`가 값보다 먼저다.** 임계만 맞고 순서가 갈리면
+        데이터가 부족한 개념이 `mastered`로 뜬다 — 값 대조로는 안 잡힌다."""
+        import json as _json
+        import subprocess as _sp
+        from app.services import weatherbrain_service as wb
+
+        cases = [
+            (0.95, True), (0.95, False), (0.8, False), (0.8 - 1e-9, False),
+            (0.5, False), (0.5 - 1e-9, False), (0.0, False), (0.0, True),
+        ]
+        out = _sp.run(
+            ["node", "--input-type=module", "-e",
+             f"import {{ __masteryLabel }} from '{MOCK_PATH}';"
+             "const cs = JSON.parse(process.argv[1]);"
+             "process.stdout.write(JSON.stringify(cs.map(([p, c]) => __masteryLabel(p, c))));",
+             "--", _json.dumps(cases)],
+            capture_output=True, text=True, timeout=60,
+        )
+        assert out.returncode == 0, f"목 함수 호출 실패:\n{out.stdout}\n{out.stderr}"
+        got = _json.loads(out.stdout)
+        want = [wb.mastery_label(p, c) for p, c in cases]
+        assert got == want, f"숙련 라벨 규칙이 갈렸다 — 목 {got} vs 서버 {want}"
