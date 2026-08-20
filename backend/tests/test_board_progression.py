@@ -71,16 +71,72 @@ class TestSeedAuthoring:
             "두 퍼즐이 같은 자리를 차지하면 어느 쪽을 먼저 열지가 입력 순서에 달린다"
         )
 
-    def test_첫_퍼즐은_가장_쉬운_난이도다(self):
-        """처음 들어온 학습자가 만나는 한 칸 — 여기가 어려우면 문이 닫힌다."""
-        first = min(_board_items(), key=lambda i: i["template_json"]["board_order"])
-        assert board_difficulty(first["template_json"], first["level_group"]) == 1
+    def test_목록_첫_칸은_가장_쉬운_입력이다(self):
+        """처음 들어온 학습자가 만나는 한 칸 — 여기가 어려우면 문이 닫힌다.
 
-    def test_난이도가_쉬움_보통_어려움_순으로_단조_증가한다(self):
-        """화면이 난이도 순 격자라 순서가 곧 난이도 흐름이다 — 되돌아가면 안 된다."""
-        rows = sorted(_board_items(), key=lambda i: i["template_json"]["board_order"])
-        diffs = [board_difficulty(i["template_json"], i["level_group"]) for i in rows]
-        assert diffs == sorted(diffs), f"난이도가 되돌아간다: {diffs}"
+        🔴 **2026-08-20: 파생 점수(`board_difficulty`)가 아니라 입력을 직접 문다**
+        (어드바이저 판정). 파생 축이 죽었으므로 그 점수로 물면 **아무 화면에도 없는
+        축을 초록 계약이 지키는** 상태가 된다 — 「옳게 돌며 아무것도 안 지킨다」다.
+        입력 단정이 임계 비교보다 **강하고 명확**하다.
+
+        ⚠️ 「첫 칸」의 뜻이 바뀌었다 — **런타임 목록의 첫 칸**이다(`board_order` 1번이
+        아니다). 정렬 키가 `(층, board_order)`라 층이 먼저 선다.
+        🔴 실측으로 남긴다: `board_order` **1번의 지식 단계는 2**이고 전체 최솟값은
+        1이다. 새 정렬에서 1번은 **5번째**로 밀린다. 시드를 고치지 않았다 — 클라이언트가
+        시드 단계값 손대기를 막았고, 정렬이 그 어긋남을 흡수한다.
+        """
+        first = order_puzzles_for_progress([
+            SimpleNamespace(
+                id=i["template_json"]["board_order"],
+                template_json=i["template_json"],
+                level_group=i["level_group"],
+                knowledge_level=i.get("knowledge_level"),
+            )
+            for i in _board_items()
+        ])[0]
+        tj = first.template_json
+        tiers = [i.get("knowledge_level") for i in _board_items()]
+        assert first.knowledge_level == min(t for t in tiers if t), (
+            f"목록 첫 칸의 층이 최하층이 아니다: {first.knowledge_level}"
+        )
+        assert tj.get("mode") == "guided", f"첫 칸이 안내 모드가 아니다: {tj.get('mode')}"
+        assert not tj.get("time_limit_sec"), "첫 칸에 시간제한이 걸려 있다"
+        assert len(tj.get("palette") or []) <= 2, (
+            f"첫 칸 팔레트가 {len(tj.get('palette') or [])}종 — 처음 만나는 칸은 조작이 적어야 한다"
+        )
+
+    def test_목록이_층_오름차순으로_선다(self):
+        """화면이 순서 격자라 **목록 순서가 곧 흐름**이다 — 되돌아가면 안 된다.
+
+        🔴 **2026-08-20: 지키는 자리가 시드 파일에서 런타임 목록으로 옮겨졌다**
+        (어드바이저 판정). 종전에는 시드의 `board_order` 순으로 파생 난이도가 비감소인지
+        물었고, 그것이 저작자에게 **「난이도 3짜리는 말미에 append」**라는 규율을
+        강제했다. 정렬 키가 `(층, board_order)`가 된 지금 그 규율은 **정렬이 흡수한다** —
+        버리는 것이 아니라 **필요 없어진다.**
+
+        ⚠️ **시드를 옛 축 그대로 두고 층 단조를 시드에 물면 빨강이다** — 실측 역전 쌍
+        52개가 전부 단계 4 행에서 나오고, 고치려면 시드 단계값을 손대야 하는데 그것이
+        막혀 있다. 그래서 **런타임 순서**를 문다.
+
+        ⚠️⚠️ **이 계약은 동어반복 근처다** — 정렬로 만든 성질을 정렬로 확인한다. 값은
+        「지금 맞나」가 아니라 **「다음 사람이 키를 되돌리는 회귀를 막는 래칫」**이다.
+        정렬 키를 `board_order` 단독으로 되돌리면 **정확히 층 4 → 층 2 이음새에서** 운다.
+        """
+        rows = order_puzzles_for_progress([
+            SimpleNamespace(
+                id=i["template_json"]["board_order"],
+                template_json=i["template_json"],
+                level_group=i["level_group"],
+                knowledge_level=i.get("knowledge_level"),
+            )
+            for i in _board_items()
+        ])
+        tiers = [r.knowledge_level for r in rows]
+        assert tiers == sorted(tiers), f"목록에서 층이 되돌아간다: {tiers}"
+        # 2차 키 — 같은 층 안에서는 저작 순서(board_order)가 산다
+        for tier in set(tiers):
+            same = [r.template_json["board_order"] for r in rows if r.knowledge_level == tier]
+            assert same == sorted(same), f"층 {tier} 안에서 저작 순서가 뒤집혔다: {same}"
 
     def test_요약은_카드_한_줄에_들어가는_길이다(self):
         """퍼즐 칸은 좁다 — 길면 잘려서 무슨 미션인지 알 수 없다."""

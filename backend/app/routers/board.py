@@ -271,11 +271,29 @@ def order_puzzles_for_progress(items: list) -> list:
     ⚠️ θ 근접 정렬(order_puzzles_for_theta)을 **대체**한다. 화면이 난이도 순 격자라
     개인별로 순서가 흔들리면 "쉬움부터 차례로"가 성립하지 않는다. θ 함수는 세션
     문항 풀에서 계속 쓰이므로 남겨 둔다.
+
+    🔴 **2026-08-20: 정렬 키가 `(층, board_order)`로 바뀌었다** (어드바이저 판정).
+
+    배지가 지식 단계로 갈아탄 순간 **목록이 눈에 보이게 뒤섞인다** — 실측: 정렬을
+    안 바꾸면 `board_order` 24번 「초등 5~6학년」이 「중학교」 12판 **뒤**에 온다.
+    새 키로 세우면 **44/64칸이 자리를 옮긴다**(그만큼 어긋나 있었다는 뜻이다).
+    「유닛과 **똑같이**」의 귀결이다 — 유닛은 섹션(=단계) 오름차순으로 제시된다.
+
+    ⚠️ **시드는 한 줄도 안 건드린다.** 종전 계약이 강제하던 저작 규율(난이도 3짜리는
+    말미에 append)은 이 정렬이 **흡수**한다 — 버리는 것이 아니라 **필요 없어진다.**
+    저작자가 자리를 잘못 잡아도 화면 순서는 층부터 선다.
+
+    ⚠️ **`board_order`는 2차 키로 그대로 산다** — 같은 층 안의 순서는 여전히 시드가
+    소유한다(위 문단의 「순서를 서버가 파생하지 않는다」가 그 층 안에서 유지된다).
     """
-    def order_of(item) -> int:
+    def order_of(item) -> tuple[int, int]:
         # `or`로 기본값을 주면 board_order=0이 "없음"으로 삼켜진다 — 명시 비교.
         value = (item.template_json or {}).get("board_order")
-        return value if isinstance(value, int) else 10_000
+        tier = board_tier(item)
+        return (
+            tier if tier is not None else 10_000,
+            value if isinstance(value, int) else 10_000,
+        )
 
     return sorted(items, key=order_of)
 
