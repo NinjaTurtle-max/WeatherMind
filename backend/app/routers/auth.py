@@ -1,9 +1,9 @@
 """Auth API (/api/v1/auth) — 02번 스펙.
 
-| POST | /register | {email, password, nickname, level_group} → {user_id, access_token} |
+| POST | /register | {email, password, nickname, level_group} → {user_id, access_token} (닉네임 중복은 409 NICKNAME_TAKEN) |
 | POST | /login    | {email, password} → {access_token, refresh_token} |
 | POST | /guest    | {level_group?, nickname?} (바디 선택) → {access_token, refresh_token} (R11-01 J — 실 유저 생성. 닉네임 중복은 409 NICKNAME_TAKEN) |
-| POST | /guest/convert | Bearer + {email, password, nickname?} → {access_token, refresh_token} (같은 user_id 유지) |
+| POST | /guest/convert | Bearer + {email, password, nickname?} → {access_token, refresh_token} (같은 user_id 유지. 닉네임 중복은 409 NICKNAME_TAKEN — 자기 자신은 제외) |
 | POST | /resume   | {email, password} → {access_token, refresh_token} (2026-08-19 오후 — 「진도 불러오기」. 자격 불일치는 401 INVALID_CREDENTIALS. **같은 날 오전의 `{nickname}` 판을 뒤집었다** — 아래 `/resume` 절 주석이 경위를 소유한다) |
 | POST | /refresh  | {refresh_token} → {access_token} |
 | GET  | /me       | Bearer → {user_id, email, nickname, is_guest, level_group} (R13 P-4) |
@@ -48,6 +48,7 @@ from app.schemas.auth import (
     RefreshResponse,
     RegisterRequest,
     RegisterResponse,
+    normalize_nickname,
 )
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -97,6 +98,66 @@ async def _touch_session(user_id: str) -> None:
     await redis.expire(f"session:{user_id}", SESSION_TTL)
 
 
+async def _ensure_nickname_available(
+    db: AsyncSession,
+    nickname: str,
+    *,
+    exclude_user_id: uuid.UUID | None = None,
+) -> None:
+    """닉네임 유일성 — **닉네임 writer 전건이 지나는 단 하나의 문**(2026-08-21).
+
+    ── 범위: writer 전건 ────────────────────────────────────────────────────
+    닉네임을 쓰는 경로는 넷이다: `register` · `guest_login` · `convert_guest` ·
+    `update_me`. **넷 다 여기를 지난다.**
+
+    🔴 **종전에는 왜 좁았나 — 지우지 말 것(이력).** 초판(R13)은 이 검사를
+    `guest_login`의 신고 경로 **하나에만** 두었고, 그 자리의 주석은 「이 엔드포인트의
+    신고 경로가 검사의 전 범위다」라고 스스로 못박고 있었다. 사유는 두 가지였다:
+    ① `users.nickname`에 unique 인덱스를 **걸 수 없다**(아래 참조) ② 그러니 넷 다
+    물리면 「DB가 못 지키는 전역 규칙」이 된다. ②는 틀린 추론이었다 — DB 제약이
+    없다는 사실은 **네 문을 다 좁게 두는 근거가 아니라 네 문 다 최선을 다해야 하는
+    근거**다. 실제 귀결은 「진입에선 막히는 이름이 전환·가입에선 통과하는」 이음매였고
+    (`CARRYOVER_R13.md` §4.18 · `DEFERRED_AUDIT_0820.md` B11), 그 이음매로 들어온
+    동명이인이 리더보드·프로필에 그대로 뜬다. 2026-08-21에 뜻을 뒤집었다.
+
+    ── 여전히 참인 것 — 지우지 말 것 ────────────────────────────────────────
+    ① **엔드포인트 검사이고 DB 제약이 아니다.** `users.nickname`에 unique 인덱스를
+       걸 수 없다: 기존 게스트들이 자동 부여 닉네임(`게스트-{hex6}`)을 공유하므로
+       **인덱스 생성 자체가 실패**한다. 승격하려면 **자동 부여 닉네임부터 유일하게
+       만드는 것이 선행**이고, 순서가 뒤바뀌면 마이그레이션이 실패한다(B12 — 범위 밖).
+    ② **자동 부여 닉네임은 이 문을 안 지난다.** `guest_login`이 이름을 신고받지
+       못했을 때 스스로 붙이는 `게스트-{hex6}`는 검사 없이 저장된다 — 이미 겹쳐 있는
+       기존 행들 때문에 검사를 걸면 **발급 자체가 막힌다**. 「writer 전건」은 **사람이
+       고른 이름 전건**이라는 뜻이다.
+    ③ ⚠️ **경합 창이 실재한다** — 같은 이름을 두 요청이 동시에 보내면 둘 다
+       SELECT에서 「없음」을 보고 둘 다 쓴다(TOCTOU). DB 제약이 없으니 막을 최후
+       방어선도 없다. **해커톤 규모(동시 진입 수십 명)에서 감수하기로 한 결정**이고,
+       실패 모드는 "이름이 겹친 사용자 두 명"뿐이라 데이터 손상도 인증 우회도 아니다.
+       넓힌다고 이 창이 커지지도 작아지지도 않는다.
+
+    ── 갱신 경로는 자기 제외형이어야 한다 ───────────────────────────────────
+    🔴 `exclude_user_id`를 **반드시** 넘겨야 하는 경로가 둘이다(`convert_guest`·
+    `update_me`). 넘기지 않으면 사용자가 **자기 이름을 그대로 다시 저장**할 때
+    자기 행에 걸려 409가 난다 — 「닉네임은 그대로 두고 이메일만 바꾸는」 전환과
+    「닉네임은 그대로 두고 학령만 바꾸는」 갱신이 통째로 막힌다. 생성 경로
+    (`register`·`guest_login`)는 아직 행이 없으므로 넘길 것이 없다.
+
+    ⚠️ **검사값 = 저장값.** 여기 들어오는 이름은 스키마의 `normalize_nickname`이
+    이미 다듬은 값이어야 한다. 라우터가 따로 다듬으면 두 자리가 갈라지고, 갈라지는
+    순간 `"홍길동 "`이 검사를 통과해 `"홍길동"`으로 저장되는 **눈에 보이지 않는
+    중복**이 생긴다(그 계약은 `schemas/auth.py`의 함수 주석이 소유한다).
+    """
+    conditions = [User.nickname == nickname]
+    if exclude_user_id is not None:
+        conditions.append(User.id != exclude_user_id)
+    taken = await db.execute(select(User.id).where(*conditions))
+    if taken.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"detail": "이미 사용 중인 닉네임입니다.", "code": "NICKNAME_TAKEN"},
+        )
+
+
 @router.post(
     "/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED
 )
@@ -110,6 +171,11 @@ async def register(
             status_code=status.HTTP_409_CONFLICT,
             detail={"detail": "이미 등록된 이메일입니다.", "code": "EMAIL_ALREADY_EXISTS"},
         )
+
+    # 유일성 검사는 **유저 생성보다 앞**이다 — 뒤로 밀리면 409에도 고아 유저·해싱·
+    # θ 배정이 남는다(`guest_login`이 세운 순서 계약과 같다). 생성 경로라 자기 제외는
+    # 없다: 아직 자기 행이 없다.
+    await _ensure_nickname_available(db, body.nickname)
 
     user = User(
         email=body.email,
@@ -208,28 +274,25 @@ class GuestStartRequest(BaseModel):
     level_group: LevelGroup = Field(default=GUEST_LEVEL_GROUP)
     nickname: str | None = Field(default=None, min_length=1, max_length=50)
 
-    @field_validator("nickname", mode="before")
-    @classmethod
-    def _trim_nickname(cls, value: object) -> object:
-        """앞뒤 공백은 다듬는다. 대소문자는 접지 않는다 — **의도적으로 고른 비대칭**.
-
-        · **trim은 한다.** 「구름」과 「구름 」은 화면에서 구분되지 않으므로 유일성
-          검사가 그 둘을 다른 이름으로 보면 **눈에 보이지 않는 중복**이 생긴다.
-          프론트가 이미 `nickname.trim()`으로 실어 보내므로(`EntryInfoPage.jsx`의
-          `leave()`) 서버가 같은 규칙이면 두 층이 어긋나지 않고, 다른 클라이언트가
-          다듬지 않고 보내도 결과가 같아진다.
-        · **대소문자는 안 접는다.** 한글에는 무의미하고 영문 닉네임에만 작용해
-          「Cloud」와 「cloud」를 같은 이름으로 만드는데, 그건 유일성 규칙이 아니라
-          **표시 이름 정책**이라 이 엔드포인트가 혼자 정할 것이 아니다. 접기를
-          도입하려면 `register`·`guest/convert`까지 같은 규칙이어야 한다(지금은
-          그 둘이 유일성 자체를 안 본다 — 아래 검사 주석 ①).
-
-        `mode="before"`인 이유: 다듬은 **뒤에** 길이 제약이 걸려야 한다. 그래야
-        공백뿐인 이름이 422로 떨어지고(다듬으면 빈 문자열 → min_length=1 위반),
-        50자 이름 뒤에 공백 하나가 붙었다고 상한 초과로 거절되지 않는다.
-        문자열이 아닌 입력은 그대로 흘려보내 pydantic의 타입 오류에 맡긴다.
-        """
-        return value.strip() if isinstance(value, str) else value
+    # 앞뒤 공백은 다듬는다. 대소문자는 접지 않는다 — **의도적으로 고른 비대칭**.
+    #
+    # · **trim은 한다.** 「구름」과 「구름 」은 화면에서 구분되지 않으므로 유일성
+    #   검사가 그 둘을 다른 이름으로 보면 **눈에 보이지 않는 중복**이 생긴다.
+    #   프론트가 이미 `nickname.trim()`으로 실어 보내므로(`EntryInfoPage.jsx`의
+    #   `leave()`) 서버가 같은 규칙이면 두 층이 어긋나지 않고, 다른 클라이언트가
+    #   다듬지 않고 보내도 결과가 같아진다.
+    # · **대소문자는 안 접는다.** 한글에는 무의미하고 영문 닉네임에만 작용해
+    #   「Cloud」와 「cloud」를 같은 이름으로 만드는데, 그건 유일성 규칙이 아니라
+    #   **표시 이름 정책**이라 인증 계층이 혼자 정할 것이 아니다. 접기를 도입하려면
+    #   writer 전건이 같은 규칙이어야 하는데, 이제 정규화 소유자가 하나이므로
+    #   (`normalize_nickname`) 그날 고칠 자리도 하나다. 종전에는 이 자리에
+    #   「`register`·`guest/convert`는 유일성 자체를 안 본다」고 적혀 있었다 —
+    #   2026-08-21에 검사가 writer 전건으로 넓어져 그 문장이 무효가 됐다.
+    #
+    # 다듬기 자체는 `schemas.auth.normalize_nickname`이 소유한다 — 검사값과 저장값이
+    # 같아야 한다는 계약이 경로마다 다른 사본을 못 견딘다. `mode="before"`인 이유도
+    # 그쪽 주석에 있다(다듬은 뒤에 길이 제약이 걸려야 공백뿐인 이름이 422가 된다).
+    _trim_nickname = field_validator("nickname", mode="before")(normalize_nickname)
 
 
 class UpdateMeRequest(BaseModel):
@@ -261,13 +324,21 @@ class UpdateMeRequest(BaseModel):
     # 학령만 바꾸는 기존 호출이 닉네임을 지우면 안 되기 때문이다.
     nickname: str | None = None
 
-    @field_validator("nickname")
+    @field_validator("nickname", mode="before")
     @classmethod
     def _trim_nickname_update(cls, value: object) -> object:
-        if isinstance(value, str):
-            trimmed = value.strip()
+        """writer 전건과 **같은 정규화**를 쓴다 — 그 위에 이 경로만의 규칙 하나.
+
+        `normalize_nickname`으로 다듬은 값이 빈 문자열이면 `None`으로 접는다:
+        여기서 `None`은 「닉네임은 건드리지 마라」이고(위 `model_fields_set` 주석),
+        공백뿐인 이름은 「바꾸겠다」로 읽을 수 없기 때문이다. 형제 경로들은 같은
+        입력을 422로 떨군다 — 그쪽은 `min_length=1`이 걸린 **생성/전환**이라
+        「안 적음」의 표현이 필드 부재이지 빈 문자열이 아니기 때문이다.
+        """
+        trimmed = normalize_nickname(value)
+        if isinstance(trimmed, str):
             return trimmed or None
-        return value
+        return trimmed
 
 
 class MeResponse(BaseModel):
@@ -308,38 +379,24 @@ async def guest_login(
     사람과 `/learn` 딥링크로 처음 온 사람이 여기로 들어와 같은 middle_high가
     되는데, 그 구분이 8/18 재보정의 유일한 단서다.
 
-    닉네임을 신고하면 중복은 409 `NICKNAME_TAKEN`이다(아래 유일성 주석 참조).
+    닉네임을 신고하면 중복은 409 `NICKNAME_TAKEN`이다 — 닉네임 writer 전건과 같은
+    규칙이고, 근거는 `_ensure_nickname_available`이 소유한다.
     """
     guest_id = uuid.uuid4()
     # 신고된 닉네임(없으면 None). 무바디·닉네임 미기재가 같은 None으로 접힌다.
     wanted_nickname = body.nickname if body is not None else None
 
-    # ── 닉네임 유일성 — **엔드포인트 검사이고, DB 제약이 아니다** ──────────────
-    # `users.nickname`에 unique 인덱스를 걸 수 없다: 기존 게스트들이 자동 부여
-    # 닉네임(`게스트-{hex6}`)을 공유하므로 **인덱스 생성 자체가 실패**한다. 그래서
-    # 마이그레이션·새 컬럼 없이 여기서만 본다.
+    # ── 닉네임 유일성 ────────────────────────────────────────────────────────
+    # 근거·범위·한계는 전부 `_ensure_nickname_available`이 소유한다(옛 판에서는 이
+    # 자리의 긴 주석이 소유했고, 그 주석이 「이 엔드포인트의 신고 경로가 검사의 전
+    # 범위다」라고 못박고 있었다 — 2026-08-21에 writer 전건으로 뒤집으면서 소유권을
+    # 검사 함수로 옮겼다. 옛 사유는 그쪽 주석에 이력으로 남아 있다).
     #
-    # 그 선택의 귀결이 둘이다.
-    #  ① 유일성은 **신고한 이름에만** 걸린다 — 자동 부여 닉네임은 이 분기를 안
-    #     지나가므로 서로 겹쳐도 통과한다(그게 지금 실존하는 상태이기도 하다).
-    #     같은 이유로 `register`·`guest/convert`가 정하는 닉네임도 이 검사를 안
-    #     지나간다: 그 둘까지 물리면 유일성이 전역 규칙이 되어 DB 제약 없이는
-    #     지킬 수 없다. **이 엔드포인트의 신고 경로**가 검사의 전 범위다.
-    #  ② ⚠️ **경합 창이 실재한다** — 같은 이름을 두 요청이 동시에 보내면 둘 다
-    #     SELECT에서 「없음」을 보고 둘 다 INSERT한다(TOCTOU). DB 제약이 없으니
-    #     막을 최후 방어선도 없다. **해커톤 규모(동시 진입 수십 명)에서 감수하기로
-    #     한 결정**이고, 실패 모드는 "이름이 겹친 게스트 두 명"뿐이라 데이터 손상도
-    #     인증 우회도 아니다. 나중에 "왜 DB로 안 막았나"를 묻게 되면 답은 위 ①의
-    #     인덱스 불가이고, 되돌리려면 **자동 닉네임부터 유일하게 만드는 것이 선행**이다.
+    # 여기서만 참인 것: 이름을 **신고했을 때만** 검사한다. 신고가 없으면 아래에서
+    # `게스트-{hex6}`를 자동 부여하는데, 기존 행들이 그 형태를 이미 공유하고 있어
+    # 검사를 걸면 **발급 자체가 막힌다**(검사 함수 주석 ②).
     if wanted_nickname is not None:
-        taken = await db.execute(
-            select(User.id).where(User.nickname == wanted_nickname)
-        )
-        if taken.scalar_one_or_none() is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={"detail": "이미 사용 중인 닉네임입니다.", "code": "NICKNAME_TAKEN"},
-            )
+        await _ensure_nickname_available(db, wanted_nickname)
 
     # ⚠️ **파싱된 값이 아니라 "필드가 왔는가"를 본다.** `level_group`에는 pydantic
     # 기본값(middle_high)이 채워지므로, `body.level_group`을 보면 무바디·빈 바디·
@@ -530,6 +587,18 @@ async def convert_guest(
             detail={"detail": "유효하지 않은 사용자입니다.", "code": "INVALID_CREDENTIALS"},
         )
 
+    # 🔴 **자기 제외형**이어야 한다 — 전환은 **같은 행 갱신**이라 자기 이름을 그대로
+    # 다시 실어 보내는 것이 정상 동선이다(전환 화면은 게스트 닉네임을 채워서 띄운다).
+    # 제외하지 않으면 자기 행에 걸려 409가 나고 전환이 통째로 막힌다.
+    # 종전에는 이 경로에 검사가 **아예 없었다**(검사 함수 주석의 이력 참조).
+    #
+    # 검사는 **갱신보다 앞**이다 — 뒤에 두면 409로 끝나는 요청도 이메일·비밀번호를
+    # 이미 갈아 놓은 상태로 세션에 남긴다(`register`의 순서 계약과 같은 이유).
+    if body.nickname is not None:
+        await _ensure_nickname_available(
+            db, body.nickname, exclude_user_id=db_user.id
+        )
+
     db_user.email = body.email
     db_user.password_hash = hash_password(body.password)
     if body.nickname is not None:
@@ -612,19 +681,15 @@ async def update_me(
         )
     # 닉네임은 **온 경우에만** 건드린다(위 스키마 주석 참조).
     if "nickname" in body.model_fields_set and body.nickname is not None:
-        # 유일성은 `POST /guest`의 신고 경로와 **같은 규칙**이다(그 자리의 긴 주석이
-        # 왜 DB 제약이 아닌지를 소유한다). 자기 자신은 제외해야 「같은 이름으로
-        # 다시 저장」이 409가 되지 않는다.
-        taken = await db.execute(
-            select(User.id).where(
-                User.nickname == body.nickname, User.id != db_user.id
-            )
+        # 유일성은 닉네임 writer **전건과 같은 규칙**이다 —
+        # `_ensure_nickname_available`이 근거를 소유한다(옛 주석은 「`POST /guest`의
+        # 신고 경로와 같은 규칙」이라고 적었는데, 그때는 규칙이 그 한 경로에만
+        # 있었기 때문이다).
+        # 🔴 자기 자신은 제외해야 「같은 이름으로 다시 저장」이 409가 되지 않는다 —
+        # 학령만 바꾸는 호출이 닉네임을 함께 실어 보내는 것이 정상 동선이다.
+        await _ensure_nickname_available(
+            db, body.nickname, exclude_user_id=db_user.id
         )
-        if taken.scalar_one_or_none() is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={"detail": "이미 사용 중인 닉네임입니다.", "code": "NICKNAME_TAKEN"},
-            )
         db_user.nickname = body.nickname
     db_user.level_group = body.level_group
     # UpdateMeRequest.level_group은 필수 필드 — 이 경로는 언제나 명시 신고다(0015).

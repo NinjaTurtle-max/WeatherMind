@@ -1,7 +1,7 @@
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 LevelGroup = Literal["elementary", "middle_high", "adult"]
 
@@ -9,11 +9,39 @@ LevelGroup = Literal["elementary", "middle_high", "adult"]
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
 
+def normalize_nickname(value: object) -> object:
+    """닉네임 정규화 — **닉네임 writer 전건의 유일한 소유자**(2026-08-21).
+
+    🔴 **이것이 유일성 검사의 전제다.** 검사가 보는 값과 실제로 저장되는 값이
+    다르면 유일성은 이름만 남는다 — `"홍길동 "`이 검사(다듬은 `"홍길동"`은 아직
+    없다고 판정)를 통과한 뒤 다듬지 않은 채 저장되면, 화면에서 구분되지 않는
+    **눈에 보이지 않는 중복**이 그대로 생긴다. 그래서 정규화는 라우터가 아니라
+    **스키마**가 한다: 라우터가 보는 `body.nickname`이 이미 다듬어진 값 하나뿐이면
+    검사값과 저장값이 **구조적으로** 같아진다(맞춰야 할 두 자리가 애초에 없다).
+
+    ⚠️ **대소문자는 접지 않는다** — 한글에는 무의미하고 영문 닉네임에만 작용해
+    「Cloud」와 「cloud」를 같은 이름으로 만든다. 그건 유일성 규칙이 아니라 **표시
+    이름 정책**이라 인증 계층이 혼자 정할 것이 아니다(`GuestStartRequest`의
+    검증기 주석이 이 비대칭의 근거를 소유한다).
+
+    ⚠️ 문자열이 아닌 입력은 그대로 흘려보내 pydantic의 타입 오류에 맡긴다.
+    호출은 전부 `mode="before"`여야 한다 — 다듬은 **뒤에** 길이 제약이 걸려야
+    공백뿐인 이름이 422로 떨어지고, 50자 이름 뒤의 공백 하나가 상한 초과로
+    거절되지 않는다.
+    """
+    return value.strip() if isinstance(value, str) else value
+
+
 class RegisterRequest(BaseModel):
     email: str = Field(max_length=255, pattern=EMAIL_PATTERN)
     password: str = Field(min_length=8, max_length=128)
     nickname: str = Field(min_length=1, max_length=50)
     level_group: LevelGroup
+
+    # 종전에는 여기만 **다듬지 않았다** — 유일성 검사가 `guest_login`에만 있어서
+    # 「검사값 = 저장값」이 성립해야 할 자리가 register에는 아예 없었기 때문이다.
+    # 검사가 writer 전건으로 넓어진 지금은 다듬기도 전건이어야 한다.
+    _trim_nickname = field_validator("nickname", mode="before")(normalize_nickname)
 
 
 class RegisterResponse(BaseModel):
@@ -32,6 +60,12 @@ class ConvertRequest(BaseModel):
     email: str = Field(max_length=255, pattern=EMAIL_PATTERN)
     password: str = Field(min_length=8, max_length=128)
     nickname: str | None = Field(default=None, min_length=1, max_length=50)
+
+    # 종전에는 여기도 다듬지 않았다(위 `RegisterRequest`와 같은 사유·같은 정정).
+    # 상한·하한이 `GuestStartRequest.nickname`과 같은 값이어야 하듯(진입 화면과
+    # 전환 화면이 다른 규칙을 쓰면 「여기선 되고 저기선 안 되는」 이름이 생긴다)
+    # 정규화도 같은 함수여야 한다.
+    _trim_nickname = field_validator("nickname", mode="before")(normalize_nickname)
 
 
 class LoginRequest(BaseModel):

@@ -527,8 +527,15 @@ class TestGuestLevelGroup:
 #
 # 유일성은 **엔드포인트 검사**다(마이그레이션·새 컬럼 없음). `users.nickname`에
 # unique 인덱스를 걸 수 없기 때문이다 — 기존 게스트들이 자동 부여 닉네임을 공유해
-# 인덱스 생성 자체가 실패한다. 그 귀결로 유일성은 **신고한 이름에만** 걸리고,
-# 경합 창(TOCTOU)은 해커톤 규모에서 감수한다(라우터 주석이 근거를 소유).
+# 인덱스 생성 자체가 실패한다. 경합 창(TOCTOU)은 해커톤 규모에서 감수한다
+# (라우터의 `_ensure_nickname_available` 주석이 근거를 소유).
+#
+# 🔴 **범위가 2026-08-21에 뒤집혔다.** 초판은 「유일성은 이 엔드포인트의 **신고
+# 경로에서만** 돈다」였고 `register`·`guest/convert`는 무검사였다. 지금은 **닉네임
+# writer 전건**이 같은 문을 지난다 — 전건 계약의 소유자는
+# `test_nickname_uniqueness.py`이고 이 절은 그중 `POST /auth/guest`의 몫이다.
+# 아래 「자동 부여 닉네임은 검사를 안 지나간다」는 넓힘 뒤에도 **그대로 참**이다:
+# 「writer 전건」은 **사람이 고른 이름 전건**이라는 뜻이다.
 
 
 class TestGuestNickname:
@@ -576,10 +583,16 @@ class TestGuestNickname:
         assert post_guest(client, json={"nickname": "내이름"}).status_code == 201
         assert fake_db.added[-1].nickname == "내이름"
 
-    def test_유일성은_신고_경로에서만_돈다(self, client, fake_db):
-        """자동 부여 닉네임은 검사 분기를 안 지나간다 — 「신고한 이름에만 유일성」의 본체.
+    def test_자동_부여_닉네임은_검사를_안_지나간다(self, client, fake_db):
+        """검사 분기를 지나는 것은 **신고한 이름뿐**이다.
 
         (그래서 기존 게스트들이 `게스트-xxxxxx`를 공유해도 발급이 막히지 않는다.)
+
+        ⚠️ **이름을 2026-08-21에 바꿨다 — 단정은 그대로다.** 옛 이름은
+        `test_유일성은_신고_경로에서만_돈다`였는데, 그때는 그 문장이 **검사의 전
+        범위**를 뜻했다(`register`·`guest/convert`는 무검사였다). 검사가 writer
+        전건으로 넓어진 지금 그 이름은 거짓을 말한다 — 여기서 재는 것은 처음부터
+        「자동 부여는 건너뛴다」 하나였고, 그 예외는 넓힘 뒤에도 참이다.
         """
         def nickname_selects():
             return [s for s, _ in fake_db.executed if "users.nickname" in str(s)]
