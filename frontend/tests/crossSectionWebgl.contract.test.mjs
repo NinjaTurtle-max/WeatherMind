@@ -618,15 +618,26 @@ try {
         //    문턱은 수면선 자신이다.
         .filter((it) => inCity(it) && it.size[1] > waterline && Math.abs(lo(it, 1)) < 1e-6)
         .map((it) => Math.min(1, (waterline - lo(it, 1)) / it.size[1]));
-      const spread = ratios.length ? Math.max(...ratios) - Math.min(...ratios) : 0;
-      const MIN_SPREAD = 0.2;
+      // 🔴 **요구가 바뀌었다 — 「여러 단계」에서 「읽히는 깊이」로**(2026-08-20
+      //   클라이언트: *"건물의 높이는 다 동일하게 해줘"*).
+      //   종전 요구는 조사 §2⑺의 **잠긴 정도 4단계**였고 편차 20%p를 물었다.
+      //   높이를 같게 하라는 지시로 그 어휘가 없어졌으므로, **요구를 없애는 대신
+      //   바꾼다**: 잠긴 비율이 **읽히는 구간**(25~85%)에 있어야 한다.
+      //   ⚠️ 이 구간이 요구인 이유 — 15%면 「젖었나」로, 90%면 「집이 아예 없나」로
+      //     읽혀 **둘 다 수위를 말하지 못한다.** 편차가 사라진 지금 깊이를 지는 것은
+      //     이 한 값이므로 상·하한을 **둘 다** 문다.
+      //   ⚠️ 「몇 채인가」는 7-F가 문다. 여기서는 **비율만** 본다.
+      const LOW = 0.25;
+      const HIGH = 0.85;
+      const outOfBand = ratios.filter((r) => r < LOW - 1e-9 || r > HIGH + 1e-9);
       check(
-        `잠긴 정도가 여러 단계다 — 건물 ${ratios.length}채, 비율 ${ratios.map((r) => `${Math.round(r * 100)}%`).join(' · ')} (편차 ${Math.round(spread * 100)}%p ≥ ${MIN_SPREAD * 100}%p)`,
-        ratios.length >= 3 && spread >= MIN_SPREAD,
+        `잠긴 정도가 읽히는 깊이다 — 건물 ${ratios.length}채, 비율 ${ratios.map((r) => `${Math.round(r * 100)}%`).join(' · ')} (전부 ${LOW * 100}~${HIGH * 100}% 안: ${outOfBand.length === 0})`,
+        ratios.length >= 3 && outOfBand.length === 0,
         ratios.length < 3
-          ? `지표에 선 건물이 ${ratios.length}채뿐이다 — 여러 단계를 보일 수 없다.`
-          : `건물들이 **비슷한 비율로** 잠겨 있다(편차 ${Math.round(spread * 100)}%p). `
-            + `「지붕만 남은 집」과 「벽 절반인 집」이 함께 있어야 **얼마나 깊은지**가 읽힌다.`,
+          ? `지표에 선 건물이 ${ratios.length}채뿐이다 — 수면선을 한 줄로 보일 수 없다.`
+          : `잠긴 비율이 읽히는 구간(${LOW * 100}~${HIGH * 100}%)을 벗어난 건물 ${outOfBand.length}채`
+            + `(${outOfBand.map((r) => `${Math.round(r * 100)}%`).join(' · ')}). `
+            + '너무 얕으면 「젖었나」로, 너무 깊으면 「집이 없나」로 읽혀 **둘 다 수위를 말하지 못한다.**',
       );
     }
 
@@ -669,16 +680,24 @@ try {
         const top = Math.max(...parts.map((it) => hi(it, 1)));
         return Math.min(1, waterline / top);
       });
-      const spread = cutRatios.length ? Math.max(...cutRatios) - Math.min(...cutRatios) : 0;
+      // 🔴 **편차를 묻던 자리를 「같은 선에 여럿」으로 바꾼다**(2026-08-20 지시로
+      //   높이가 균일해져 편차가 구조적으로 0이 됐다). 높이가 같으면 잘린 자리가
+      //   **곧 수위**이고, 그것을 읽게 하는 것은 **한 선에 여러 채가 걸리는 것**이다.
+      //   ⚠️ 넷 이상을 요구한다 — 둘이면 「그 집이 낮은 건가」와 구별이 안 되고,
+      //     넷이 같은 높이에서 같이 잘려야 「물이 여기까지」로 읽힌다.
+      //   ⚠️ 그리고 **잘린 높이가 서로 같아야** 한다. 하나라도 어긋나면 선이 끊긴다.
+      const cutYs = cutColumns.map(([, parts]) => Math.max(...parts
+        .filter((it) => hi(it, 1) <= waterline + eps && lo(it, 1) >= -eps).map((it) => hi(it, 1))));
+      const sameLine = cutYs.length > 0 && Math.max(...cutYs) - Math.min(...cutYs) <= 1e-6;
       check(
         `깊이를 잴 **자**가 있다 — 수면선에서 갈린 물건 ${cutColumns.length}개(지표에 선 조각 ${grounded.length}), `
-          + `잠긴 비율 ${cutRatios.map((r) => `${Math.round(r * 100)}%`).join(' · ') || '없음'} (편차 ${Math.round(spread * 100)}%p)`,
-        cutColumns.length >= 2 && spread >= 0.2,
-        cutColumns.length < 2
-          ? '수면선에서 **위·아래가 다른 색으로 갈린 물건**이 2개 미만이다 ⇒ 깊이를 잴 자가 없다. '
-            + '자는 **수면 위와 아래가 함께 보여야** 자 노릇을 한다(조사 §2⑴ · 2차 반려의 원인).'
-          : `갈린 물건들이 **비슷한 비율로** 잠겨 있다(편차 ${Math.round(spread * 100)}%p). `
-            + '「지붕만 남은 집」과 「벽 절반인 집」이 함께 있어야 얼마나 깊은지가 읽힌다(조사 §2⑺).',
+          + `잘린 높이가 한 줄(${sameLine}), 잠긴 비율 ${cutRatios.map((r) => `${Math.round(r * 100)}%`).join(' · ') || '없음'}`,
+        cutColumns.length >= 4 && sameLine,
+        cutColumns.length < 4
+          ? `수면선에서 **위·아래가 다른 색으로 갈린 물건**이 ${cutColumns.length}개뿐이다(4개 이상 필요) ⇒ `
+            + '높이가 균일한 판에서는 **한 선에 여럿이 걸리는 것**이 곧 자다. 둘뿐이면 「그 집이 낮은 건가」와 '
+            + '구별되지 않는다(조사 §2⑴ · 2차 반려의 원인).'
+          : `잘린 높이가 서로 다르다(${cutYs.map((v) => v.toFixed(4)).join(' / ')}) ⇒ 수면선이 끊긴다.`,
       );
     }
 
