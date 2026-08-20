@@ -320,15 +320,62 @@ window.XMLHttpRequest = RealXHR;
 {
   const play = readFileSync(resolve(root, 'src/modules/detective/CasePlayPage.jsx'), 'utf-8');
   const clueUl = play.match(/<ul className="(grid grid-cols-1[^"]*)"/)?.[1] ?? '';
+  // ⚠️ **정정(2026-08-19).** 이 줄은 `xl:grid-cols-4`를 요구했다. 그때는 옳았다 —
+  //    단서 구역이 셸 **전폭**(1,120px)을 써서 4열이면 한 칸 268px였다.
+  //    사건 화면이 2열이 되면서(왼쪽 자료·추리 / 오른쪽 단서) 단서가 오른쪽 열
+  //    (1,536에서 약 500px) 안으로 들어갔고, 거기서 4열이면 한 칸 **118px** —
+  //    라벨 한 줄도 못 들어간다. **열을 줄인 게 아니라 그릇이 바뀌었다.**
+  //    ⓑ(넓은 셸)는 그대로 유효하다: 셸이 576이면 2열도 눌린다.
   ok(
-    /\bxl:grid-cols-4\b/.test(clueUl),
-    `단서 목록이 xl에서 4열이다 — 실제 "${clueUl}"`,
+    /\bsm:grid-cols-2\b/.test(clueUl) && !/\bgrid-cols-[34]\b/.test(clueUl),
+    `단서 목록이 오른쪽 열 안에서 2열이다 — 실제 "${clueUl}"`,
   );
   const layout = readFileSync(resolve(root, 'src/components/Layout.jsx'), 'utf-8');
   const isWide = layout.slice(layout.indexOf('const isWide ='), layout.indexOf('const shellWidth'));
   ok(
     /pathname\.startsWith\('\/detective'\)/.test(isWide),
     '탐정 화면이 넓은 셸을 쓴다 — 아니면 4열이 한 칸 130px로 눌린다',
+  );
+
+  // ── 「사건 게시판」 결 (2026-08-19 사용자 지시 "컨셉이 살짝 섞였으면") ──────
+  /**
+   * 심플한 틀을 지키면서 다섯 가지만 빌려 왔다. 그중 **뜻을 지닌 둘**을 문다 —
+   * 나머지(크라프트 바탕·압정·미세 회전)는 순수 장식이라 바뀌어도 기능이 안 깨진다.
+   *
+   *  ㉠ **붉은 실은 한 색이다.** 단서 메모의 「차트 어느 지점」 줄과 차트의
+   *     기준선(`ReferenceLine`)이 같은 `#B8443C`여야 «이 메모가 저 지점에 묶여
+   *     있다»가 읽힌다. 한쪽만 바꾸면 실이 끊긴다 — 두 파일에 걸친 짝이라
+   *     사람 눈으로는 두 화면을 나란히 놓고 봐야 알아챈다.
+   *     ⚠️ 앱의 `rose-500`(오류)과 **다른 값**인 것도 계약이다. 같은 빨강이면
+   *        기준선이 경고로 읽힌다(종전 amber는 「가상 자료 고지」 배지 색이라
+   *        같은 이유로 틀렸다).
+   *  ㉡ **웹폰트를 들이지 않았다.** 손글씨체가 분위기에는 맞지만 이 앱은 시스템
+   *     글꼴만 쓴다 — 폰트 하나를 위해 외부 의존을 들이면 로드 실패 시 화면이
+   *     조용히 달라진다. 등사 라벨(`font-mono`)이 그 몫을 대신한다.
+   */
+  const chart = readFileSync(resolve(root, 'src/modules/detective/CaseChart.jsx'), 'utf-8');
+  const THREAD = '#B8443C';
+  // ⚠️ **주석이 아니라 실제 값**을 본다. 처음에는 `chart.includes(THREAD)`로
+  //    썼는데, 색을 amber로 되돌리는 변이에서도 **내가 쓴 주석 안의 색 문자열**
+  //    이 남아 통과했다(변이 검증에서 잡혔다). 기준선의 `stroke=` 값을 뽑는다.
+  const lineStroke = chart.match(/<ReferenceLine[\s\S]{0,400}?stroke="(#[0-9A-Fa-f]{6})"/)?.[1];
+  ok(
+    lineStroke === THREAD && play.includes(`bg-[${THREAD}]`),
+    `㉠ 붉은 실이 한 색이다 — 차트 기준선 ${lineStroke} · 단서 메모 실 ${THREAD}`,
+  );
+  ok(
+    !/#f43f5e/i.test(chart) && !/stroke="#f59e0b"/.test(chart),
+    '㉠ 기준선이 오류색(rose)이나 고지색(amber)으로 되돌아가지 않았다',
+  );
+  const css = readFileSync(resolve(root, 'src/styles/index.css'), 'utf-8');
+  const indexHtml = readFileSync(resolve(root, 'index.html'), 'utf-8');
+  ok(
+    !/@import\s+url\(|fonts\.googleapis\.com/.test(css + indexHtml),
+    '㉡ 웹폰트 의존이 없다 — 등사 라벨은 시스템 mono로 낸다',
+  );
+  ok(
+    /font-mono[^"]*uppercase[^"]*tracking-\[0\.18em\]/.test(play),
+    '㉡ 절 제목이 등사 라벨(mono·대문자·자간)이다 — 「증거 서류」 결의 본체',
   );
 
   // 사건 목록도 같은 이유로 짝이다(2026-08-18 "가로2줄 세로3줄 → 가로3줄 세로2줄").
@@ -355,3 +402,10 @@ if (failed) {
   process.exit(1);
 }
 console.log('\nOK: 기후 탐정(진입·단서 게이트·정답 비노출·판정 announce·빈 상태) 스모크 통과');
+// ⚠️ **명시적 종료가 필요하다**(2026-08-19 실측으로 발견). jsdom XHR이 vite 개발
+// 서버와 맺은 keep-alive 소켓 2개가 남아 `httpServer.close()`가 계속 기다리고,
+// **OK를 찍고도 200초 넘게 프로세스가 안 끝난다.** 실패 경로는 위에서
+// `process.exit(1)`로 강제 종료하고 있었으므로 **초록일 때만** 느렸다 — 그래서
+// 아무도 못 보던 CI 시간 낭비다(이 파일만 그랬다. 다른 스모크 대부분은 이미
+// 같은 줄을 갖고 있다). 실측 200초+ → 4초.
+process.exit(0);
