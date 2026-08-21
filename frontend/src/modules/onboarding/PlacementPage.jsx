@@ -97,6 +97,10 @@ export default function PlacementPage() {
           // placement_done·초기 θ 반영 (홈 헤더 /progress/me, 프로필 능력 분석)
           queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
           queryClient.invalidateQueries({ queryKey: ['progress', 'abilities'] });
+          // 배치로 정해진 천장이 유닛 잠금 상태(locked)를 바꾼다 — 이걸 안 지우면
+          // /learn의 30초 staleTime 캐시가 배치 이전 잠금 상태를 그대로 들고 있어서
+          // 새로고침 전까지 다른 섹션 유닛이 disabled로 남는다(2026-08-21 실측).
+          queryClient.invalidateQueries({ queryKey: ['curriculum'] });
         }}
         renderSummary={(summary) => <PlacementSummary summary={summary} onDone={goHome} />}
       />
