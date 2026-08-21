@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import AbilityRadar, { RADAR_MIN_CONCEPTS, RADAR_TONES, unitToRatio } from './AbilityRadar';
+import AbilityRadar, {
+  AbilityRadarPlaceholder,
+  RADAR_MIN_CONCEPTS,
+  RADAR_TONES,
+  unitToRatio,
+} from './AbilityRadar';
 import Mascot from '../../components/Mascot';
 import { conceptCharacter } from '../../components/conceptCharacter';
 import { progressApi } from '../../api';
@@ -115,8 +120,22 @@ export default function WeatherBrainPanel() {
             />
           </div>
         )}
+        {/* 🔴 **빈 상태에도 그림이 앉는다**(2026-08-20). 종전에는 문구 한 줄뿐이라
+            왼쪽이 레이더+행 여럿인데 오른쪽은 두 줄에서 끝나, 열 하나가
+            통째로 비었다. 그런데 그 상태는 예외가 아니라 **갓 가입한 학습자의 기본값**
+            이다 — θ는 응답 0회여도 사전분포로 개념 전건이 뜨고 숙련도(BKT)는
+            응답이 쌓여야 행이 생기기 때문이다.
+            자리 표시는 실제 레이더와 **같은 치수**를 쓴다(AbilityRadar가 소유) —
+            데이터가 들어찬 순간 그림이 튀지 않게 하는 값이다.
+            ⚠️ 행 높이까지 맞추려 유령 행을 그리지는 않는다. 없는 값을 그린
+            막대는 "0%로 측정됐다"로 읽힌다 — 빈 것과 0은 다른 사실이다. */}
         {masteryRows.length === 0 ? (
-          <p className="mt-2 text-xs text-slate-400">{t('weatherBrain.mastery.empty')}</p>
+          <div className="mt-3 flex flex-col items-center gap-2">
+            <AbilityRadarPlaceholder testId="mastery-radar-placeholder" className="h-[224px] w-[224px]" />
+            <p className="max-w-[280px] text-center text-xs leading-relaxed text-slate-400">
+              {t('weatherBrain.mastery.empty')}
+            </p>
+          </div>
         ) : (
           <ul className="mt-2 flex flex-col gap-2.5">
             {masteryRows.map((m) => {

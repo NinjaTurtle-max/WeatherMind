@@ -24,6 +24,7 @@ export default {
     },
     list: {
       title: '🔎 기후 탐정',
+      heroTitle: '두 지점의 기록이 왜 갈렸을까요?',
       subtitle: '실제 관측 자료처럼 구성된 사건 기록을 읽고, 단서를 모아 원인을 밝혀내요.',
       empty: '아직 열린 사건이 없어요',
       emptyBody: '사건 파일이 준비되는 대로 여기에 올라와요. 그동안 탐구 시뮬로 조건을 바꿔 볼 수 있어요.',
@@ -46,6 +47,10 @@ export default {
       fictional: '가상 자료',
       region: '관측 지점',
       period: '관측 기간',
+      // 「사건 게시판」 결의 등사 라벨(2026-08-19). **대문자 mono로 찍히므로**
+      // 낱말을 길게 쓰지 말 것 — 메모 한 칸이 약 250px이고 라벨은 그 위 한 줄이다.
+      caseFileLabel: 'CASE FILE',
+      evidenceNo: 'EVIDENCE {n}',
       chartsTitle: '① 자료 살펴보기',
       chartsHint: '단서를 열면 그 시점이 차트에 표시돼요.',
       chartAria: '{label} 시계열 그래프',

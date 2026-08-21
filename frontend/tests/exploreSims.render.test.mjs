@@ -342,7 +342,183 @@ try {
     checkMt21('⑬ⓕ disclaimer 호출부가 민감도를 넘긴다',
       /disclaimer'\s*,\s*\{\s*sens:/.test(code));
   }
-} finally {
+
+  // ── 기후변화 체험 2열 배치 (2026-08-19 사용자 지시) ────────────────────────
+  /**
+   * "아노말리 그래프 크기 줄여서 왼쪽, 오른쪽에는 CO₂ 농도·해수면 상승·연간
+   *  폭염일수. 탐구 목표는 그대로 상단 유지, 나머지 그대로 하단."
+   *
+   * 세 자리가 **각각 계약**이다 — 하나만 움직여도 지시가 깨진다:
+   *   ⓒ 곡선과 오른쪽 열이 같은 격자의 **직계 자식**일 것(래퍼 안에 들어가면
+   *      2열이 안 선다 — 보드 판정 카드가 같은 실수로 700px에 갇힌 전례)
+   *   ⓓ 탐구 목표·「왜 그럴까」·CTA는 격자 **밖**일 것(지시 1·3)
+   *   ⓔ 지표 2종은 lg에서 세로로 쌓일 것(좁은 열에서 가로면 한 칸 220px라
+   *      「연간 폭염일수」가 두 줄로 접힌다)
+   *   ⓕ 곡선에 **고정 높이를 박지 않을 것** — viewBox SVG라 폭이 줄면 높이가
+   *      따라 준다(582 → 413 실측). h-…를 박으면 뷰포트마다 찌그러진다.
+   * jsdom에 CSS 엔진이 없어 두 열을 좌표로 못 재므로 소스로 문다.
+   * 실브라우저 1536 실측: 두 열 591/513 · 행 높이 413 동일 · pageH 1701 → 1243.
+   */
+  const climateSrc = await readFile(resolve(root, 'src/modules/explore/ClimateSimPage.jsx'), 'utf8');
+  const gridOpen = climateSrc.indexOf('lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]');
+  checkMt21('ⓒ 기후변화: 곡선 ↔ 지표 열 2열 격자가 있다', gridOpen > -1);
+  const gridBody = gridOpen > -1 ? climateSrc.slice(gridOpen) : '';
+  // 격자 열림 이후 등장 순서로 자리를 판정한다.
+  const at = (s) => gridBody.indexOf(s);
+  const closeGrid = at('{/* /2열 구간 */}');
+  const inGrid = (s) => at(s) > -1 && at(s) < closeGrid;
+  checkMt21('ⓒ 곡선·CO₂·지표 2종이 전부 격자 안이다',
+    closeGrid > -1 && inGrid('<AnomalyCurve') && inGrid("explore.climate.co2Label") && inGrid('<IndicatorCard'));
+  checkMt21('ⓓ 탐구 목표는 격자 위(상단)에 남는다 — 사용자 지시 1',
+    climateSrc.indexOf('<GoalPanel') > -1 && climateSrc.indexOf('<GoalPanel') < gridOpen);
+  // ⚠️ **정정(2026-08-19 3판).** 이 줄은 종전에 「왜 그럴까도 격자 아래」였다.
+  //    그때는 참이었다 — 지표 둘이 세로로 쌓여 오른쪽 열이 이미 길었기 때문에
+  //    *"긴 문단 셋을 좁은 열에 넣으면 그쪽만 혼자 길어진다"*가 성립했다.
+  //    지표가 한 줄로 눕고(147px) 왼쪽이 곡선+슬라이더로 길어지면서 **오히려
+  //    오른쪽에 자리가 남게 됐고**, 사용자 지시로 해설이 그 자리로 들어왔다.
+  //    지우지 않고 정정하는 이유는 종전 문장이 그 판에서는 옳은 판단이었기
+  //    때문이다 — 배치가 바뀌면 근거도 바뀐다는 것이 여기 남길 교훈이다.
+  //    지금 격자 밖 하단에 남는 것은 **CTA 하나**다.
+  checkMt21('ⓓ 「왜 그럴까」가 오른쪽 열 안, 지표 바로 아래다',
+    at("explore.common.whyTitle") > -1 && at("explore.common.whyTitle") < closeGrid
+      && at('<IndicatorCard') < at("explore.common.whyTitle"));
+  checkMt21('ⓓ CTA만 격자 아래(하단)에 남는다', at("explore.climate.cta") > closeGrid);
+  // 왼쪽은 곡선 → 슬라이더 순이다(곡선 위 점을 보며 그 아래를 미는 동선).
+  checkMt21('ⓓ 왼쪽 열은 곡선 → CO₂ 슬라이더 순이다',
+    at('<AnomalyCurve') < at("explore.climate.co2Label")
+      && at("explore.climate.co2Label") < at('<IndicatorCard'));
+  // 🔴 **양쪽 열이 각자 `flex-1` 카드를 하나씩 갖는다** — 더 짧은 쪽이 남는
+  //    세로를 흡수해 두 열이 같은 줄에서 끝난다. 어느 쪽이 짧은지는 뷰포트가
+  //    정한다(1536·1280은 오른쪽이 짧고, 1024는 왼쪽이 짧다 — 좁을수록 해설
+  //    문단이 늘어난다). 한쪽에만 달면 반대 폭에서 그 열 아래가 빈다(실측 96px).
+  checkMt21('ⓓ 두 열이 각자 flex-1 카드를 하나씩 갖는다 (한쪽만 달면 반대 폭에서 빈다)',
+    (climateSrc.match(/className="flex flex-1 flex-col rounded-2xl/g) ?? []).length === 2);
+  // ⓔ **지표 둘은 어느 폭에서나 한 줄**이고, 그래서 오른쪽 열에 한 줄이 남는다.
+  //    그 남은 자리를 CO₂ 카드가 `flex-1`로 먹어 **두 열이 같은 줄에서 끝난다**
+  //    (2026-08-19 사용자 지시). 둘은 한 쌍이다 — 지표를 다시 세로로 쌓으면 남는
+  //    자리가 없어져 flex-1이 할 일이 사라지고, flex-1을 빼면 오른쪽 열 아래가
+  //    빈 상자가 된다. 실측 1536: 곡선 336 = CO₂ 177 + 지표 147 + 간격 12.
+  //    ⚠️ 높이를 숫자로 박으면 안 된다 — 행 높이는 곡선의 폭(=뷰포트)이 정해
+  //    1536/1280/1024에서 336/312/302로 다 다르다.
+  checkMt21('ⓔ 지표 2종이 어느 폭에서나 한 줄이다 (lg 예외 없음)',
+    /className="grid grid-cols-2 gap-3"/.test(climateSrc));
+  // ⚠️ 라벨 정정 — 이 카드의 `flex-1`은 종전에 "오른쪽 열의 남는 줄을 먹는다"는
+  //    뜻이었다. 3판에서 카드가 왼쪽 열로 옮겨 가며 뜻이 바뀌었다: 이제는
+  //    **왼쪽 열이 짧을 때만**(1024) 늘어난다. 검사 대상은 같고 이유가 다르다.
+  checkMt21('ⓔ CO₂ 카드가 왼쪽 열의 흡수자다 — flex-1 (없으면 1024에서 왼쪽 아래가 96px 빈다)',
+    /<div className="flex flex-1 flex-col rounded-2xl bg-white p-4/.test(climateSrc));
+  checkMt21('ⓔ 늘어난 자리를 슬라이더 뭉치가 쓴다 — 위에 붙이면 카드가 빈 상자가 된다',
+    /<div className="flex flex-1 flex-col justify-center py-2">/.test(climateSrc));
+  checkMt21('ⓕ 곡선에 고정 높이를 박지 않았다 — 폭이 줄면 높이가 따라 준다',
+    !/<AnomalyCurve[\s\S]{0,200}?className="[^"]*\bh-\[/.test(climateSrc));
+  // ⓖ 슬라이더 트랙은 **이 화면에서만** 두껍다. 전역 `input[type=range]`(h-2)를
+  //    키우면 태풍 실험실·보드 조절값까지 함께 두꺼워진다(그쪽은 카드가 낮아
+  //    지금이 맞다). `!h-3`가 그 국소 덮어쓰기다.
+  const cssRange = cssSrc.match(/input\[type='range'\][\s\S]{0,160}/)?.[0] ?? '';
+  checkMt21('ⓖ 두꺼운 트랙은 기후변화에만 — 전역 기본은 h-2 그대로',
+    /!h-3/.test(climateSrc) && /@apply h-2\b/.test(cssRange));
+  // ── 태풍 만들기: 바람개비 왼쪽 · 발달 곡선 오른쪽 (2026-08-19 사용자 지시) ──
+  /**
+   * "해수면 온도 슬라이드는 고정, 바로 위에 바람개비를 왼쪽, 오른쪽에는
+   *  발달곡선 그래프 크기 줄여서 배치."
+   *
+   * 곡선이 **위성 도식 아래에서 여기까지 올라온다.** 그래서 두 가지를 함께 문다:
+   *   ㉮ 새 자리에 있는가  ㉯ **옛 자리에 사본이 남지 않았는가**
+   * 옮기면서 원본을 안 지우면 같은 그래프가 화면에 두 번 뜬다 — 붙여넣기로
+   * 옮기는 종류의 변경에서 가장 흔한 실패다.
+   * 「크기 줄여서」는 높이를 박는 게 아니라 열을 나누는 것이다(실측 519 → 361).
+   * 실브라우저 1536: 두 열 470/634 · 행 328 · pageH 2733 → 2246.
+   */
+  const typhoonSrc = await readFile(resolve(root, 'src/modules/explore/TyphoonSimPage.jsx'), 'utf8');
+  const tGrid = typhoonSrc.indexOf('lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]');
+  const tSst = typhoonSrc.indexOf("explore.typhoon.sstLabel");
+  const tSat = typhoonSrc.indexOf('<SatelliteView');
+  checkMt21('㉮ 태풍: 바람개비 ↔ 발달 곡선 2열 격자가 있다', tGrid > -1);
+  checkMt21('㉮ 격자 안에 바람개비(TyphoonEye)와 발달 곡선이 함께 있다',
+    tGrid > -1 && typhoonSrc.indexOf('<TyphoonEye') > tGrid
+      && typhoonSrc.indexOf('<DevelopmentCurve') > tGrid);
+  checkMt21('㉮ 그 격자가 해수면온도 슬라이더 **바로 위**다 — 슬라이더는 제자리 고정',
+    tGrid > -1 && tSst > tGrid && tSat > tSst);
+  checkMt21('㉯ 발달 곡선이 옛 자리(위성 도식 아래)에 남아 있지 않다 — 그래프가 두 번 뜨면 안 된다',
+    (typhoonSrc.match(/<DevelopmentCurve/g) ?? []).length === 1);
+  checkMt21('㉰ 발달 곡선에 고정 높이를 박지 않았다 — 폭이 줄면 높이가 따라 준다',
+    !/<DevelopmentCurve[\s\S]{0,200}?className="[^"]*\bh-\[/.test(typhoonSrc));
+
+  // ── 태풍 배너: 고지는 안으로 · 오른쪽 한 줄 (2026-08-19 사용자 지시) ───────
+  // "여기서도 교육용 단순 모델이에요~ 는 튜터 카드 안으로. 그리고 튜터 카드
+  //  오른쪽에 … 이 글씨 크기 줄여서 한 줄로."
+  // 기후변화와 다른 점 둘: ⑴ 고지에 굵은 낱말(「경향」)이 있어 문자열이 아니라
+  // 노드로 넘긴다 ⑵ 설명을 **비우지 않고** tight로 눌렀다(사용자가 둘 다 요구).
+  // 실측 1536: 배너 h=104 · 설명 430×14(한 줄) · 고지 429×29(두 줄).
+  // ⚠️ **정정(2026-08-19 최종).** 이 줄은 종전에 「고지가 배너 **안**으로
+  //    들어갔다」였다. 사용자가 "튜터 카드 아예 밖으로"라고 정정해 고지는
+  //    배너 **위쪽 줄**(뒤로가기 링크와 같은 행, 오른쪽 정렬)로 나갔다.
+  //    자리를 네 번 옮긴 항목이라(아래 회색 띠 → 제목 아래 → 오른쪽 열 → 위쪽
+  //    줄) **지금 자리**를 구조로 못박는다: 배너 **직전 형제**여야 한다.
+  const typhoonTopRow = typhoonSrc.slice(0, typhoonSrc.indexOf('<HeroBanner'));
+  checkMt21('㉳ 태풍: 고지가 배너 **밖** 위쪽 줄에 있다 (배너보다 앞)',
+    typhoonTopRow.includes("explore.typhoon.disclaimer1")
+      && /sm:text-right/.test(typhoonTopRow));
+  // ⚠️ **`<HeroBanner …/>` 호출만 본다.** 파일 전체에서 `note=`를 찾으면
+  //    `IndicatorCard`의 동명 prop(해수면·폭염일수 카드의 각주)에 걸린다 —
+  //    실제로 그렇게 써서 기후변화 쪽이 붉어졌다.
+  const heroCall = (src) => src.match(/<HeroBanner[\s\S]*?\n {6}\/>/)?.[0] ?? '';
+  checkMt21('㉳ 배너는 고지를 모른다 — note를 넘기지 않는다',
+    !/\bnote=/.test(heroCall(typhoonSrc)));
+  checkMt21('㉳ 고지가 화면에 한 번만 있다 — 옮기며 사본을 남기지 않았다',
+    (typhoonSrc.match(/explore\.typhoon\.disclaimer1/g) ?? []).length === 1);
+  checkMt21('㉳ 오른쪽 문구가 한 줄 변형(tightDescription)이고 전용 키를 쓴다',
+    /\btightDescription\b/.test(typhoonSrc) && /description=\{t\('explore\.typhoon\.heroDesc'\)\}/.test(typhoonSrc));
+
+  // ── 태풍: 위성 도식 왼쪽 · 「왜 그럴까」 오른쪽 (2026-08-19 사용자 지시) ────
+  /**
+   * "위성 도식 크기 줄이고 오른쪽에 왜그럴까 배치. 태풍개념문제풀기는 그대로 유지."
+   *
+   * 도식과 해설이 짝인 이유: 해설 문장이 **지금 화면의 도식을 설명한다**(시어가
+   * 약하면 「기둥이 곧게 선다」, 강하면 「흐트러진다」). 종전에는 도식 847px을
+   * 지나 스크롤해야 그 문장이 나와 읽을 때는 그림이 화면 밖이었다.
+   * 실측 1536: 두 열 634/470 · 행 543(도식 847 → 543) · pageH 2246 → 1782.
+   *
+   * ㉲가 요점이다 — `SatelliteView`가 **자기 `mt-4`를 갖고 있었다.** 세로로 쌓이던
+   * 시절에는 부모 `space-y-4`와 값이 같아 안 보였지만, 격자 칸이 되는 순간 옆
+   * 칸보다 16px 내려앉는다. 자기 여백을 가진 컴포넌트를 격자에 넣을 때의 함정이다.
+   */
+  // 비율은 1.35 → **1.9**로 커졌다(2026-08-19 2차 지시 "위성지도 크기 더 키우고").
+  // 값을 못박는다 — 「크기」가 이 지시의 본체라 되돌아가면 지시가 무효가 된다.
+  // 실측 1536: 도식 723×599(종전 634×543) · 해설 381×599(격자 stretch로 자동 일치).
+  const tSat2 = typhoonSrc.indexOf('lg:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]');
+  const tWhy = typhoonSrc.indexOf("explore.common.whyTitle");
+  const tCta = typhoonSrc.indexOf("explore.typhoon.cta");
+  checkMt21('㉱ 태풍: 위성 도식 ↔ 왜 그럴까 2열 격자가 있다', tSat2 > -1);
+  checkMt21('㉱ 격자 안에 위성 도식과 해설이 함께 있다',
+    tSat2 > -1 && typhoonSrc.indexOf('<SatelliteView') > tSat2 && tWhy > tSat2);
+  // CTA가 격자 **밖**인지는 들여쓰기로 본다 — 격자 자식은 8칸, 페이지 직계는 6칸.
+  // "해설 뒤에 온다"만 보면 격자 **안** 오른쪽 열에 딸려 들어가도 통과한다
+  // (보드 판정 카드가 같은 종류의 약한 계약으로 700px에 갇힌 전례가 있다).
+  const ctaLine = typhoonSrc.slice(0, tCta).split('\n').reverse().find((l) => l.includes('<Link')) ?? '';
+  checkMt21(`㉱ CTA는 격자 밖 하단에 그대로 남는다 — 들여쓰기 ${ctaLine.length - ctaLine.trimStart().length}칸`,
+    tCta > tWhy && /^ {6}<Link$/.test(ctaLine));
+  checkMt21('㉲ 「왜 그럴까」가 화면에 한 번만 있다 — 옮기며 사본을 남기지 않았다',
+    (typhoonSrc.match(/explore\.common\.whyTitle/g) ?? []).length === 1);
+  const satSrc = await readFile(resolve(root, 'src/modules/explore/SatelliteView.jsx'), 'utf8');
+  checkMt21('㉲ 위성 도식이 자기 여백(mt-4)을 갖지 않는다 — 격자 칸에서 옆 칸보다 16px 내려앉는다',
+    !/<figure className="[^"]*\bmt-4\b/.test(satSrc));
+
+  // ⓘ 모델 고지가 **배너 안 제목 아래**에 있고, 배너 밖 회색 띠는 사라졌다
+  //    (2026-08-19 사용자 지시). 둘 다 남으면 같은 문장이 화면에 두 번 뜬다 —
+  //    옮기다 원본을 안 지우는 것이 이 종류의 흔한 실수라 **없는 것까지** 문다.
+  // ⚠️ 태풍 ㉳와 **같은 정정**이다(2026-08-19 최종 — "튜터 카드 아예 밖으로").
+  const climateTopRow = climateSrc.slice(0, climateSrc.indexOf('<HeroBanner'));
+  checkMt21('ⓘ 기후변화: 고지가 배너 **밖** 위쪽 줄에 있다 (배너보다 앞)',
+    climateTopRow.includes("explore.climate.disclaimer") && /sm:text-right/.test(climateTopRow));
+  checkMt21('ⓘ 배너는 고지를 모른다 — note를 넘기지 않는다', !/\bnote=/.test(heroCall(climateSrc)));
+  checkMt21('ⓘ 고지가 화면에 한 번만 있다 — 옮기며 사본을 남기지 않았다',
+    (climateSrc.match(/explore\.climate\.disclaimer/g) ?? []).length === 1);
+  // ⓗ 「탐구 목표」 제목만 한 단계 크다(2026-08-19 사용자 지시). 항목 글자는
+  //    그대로여야 한다 — 같이 키우면 카드가 커져 2열 행 높이가 밀린다.
+  const goalSrc = await readFile(resolve(root, 'src/modules/explore/GoalPanel.jsx'), 'utf8');
+  checkMt21('ⓗ 「탐구 목표」 제목이 text-base다 (항목 글자는 그대로)',
+    /<p className="text-base font-bold text-slate-700">\{t\('explore\.goals\.title'\)\}<\/p>/.test(goalSrc));} finally {
   await server.close();
 }
 

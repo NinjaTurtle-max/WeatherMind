@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { fetchDetectiveCases } from '../../api/detective';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import HeroBanner from '../../components/HeroBanner';
 import { useT } from '../../i18n';
 
 /**
@@ -20,14 +21,33 @@ export default function CaseListPage() {
   });
 
   return (
-    <div className="space-y-4 py-4">
-      <div>
-        <Link to="/explore" className="text-xs font-bold text-slate-500 hover:text-sky-600">
-          {t('detective.list.back')}
-        </Link>
-        <h1 className="mt-1 text-lg font-extrabold text-slate-800">{t('detective.list.title')}</h1>
-        <p className="mt-1 text-xs text-slate-500">{t('detective.list.subtitle')}</p>
-      </div>
+    <div className="space-y-4 pt-2">
+      {/* 🔴 **상단 튜터 배너**(2026-08-19 사용자 지시 — "모든 각 실험실 화면에
+          마찬가지로 상단 튜터 카드"). 담당은 **바람이**이고, 소유자는
+          `SideNav.TUTOR_BY_PATH`의 `/detective` 행이다(`mascotAssets.contract` ④).
+          ⚠️ 배너를 **더하지 않고 종전 제목 줄을 바꿔 넣었다** — 위에 얹으면 화면이
+          그만큼 길어지는데, 같은 지시의 다른 절반이 "세로로 길지 않게"다.
+          설명은 탐구 홈 카드와 **같은 문장**(`detective.entry.desc`)이다: 들어오기
+          전에 읽은 소개와 들어와서 읽는 소개가 다르면 다른 화면처럼 읽힌다. */}
+      {/* ⚠️ 뒤로가기 링크의 **표준 꼴**이다:
+            `text-xs font-bold text-slate-500 hover:text-sky-600`
+          2026-08-19까지 앱 안에 **네 가지**가 섞여 있었다 — 12px/14px · medium/bold ·
+          slate/sky. 같은 동작인데 화면마다 크기와 색이 달라, 화면을 오가면 눈에
+          띄었다. 여덟 자리를 이 값으로 모았고 `uiCopy.contract`가 어긋남을 문다.
+          (flex 상단 줄 안에서는 앞에 `shrink-0`을 붙인다 — 옆 고지가 길어도 링크가
+           줄어들지 않게. 그 밖에는 `inline-block`이나 `mb-2`가 붙는다.) */}
+      <Link to="/explore" className="inline-block text-xs font-bold text-slate-500 hover:text-sky-600">
+        {t('detective.list.back')}
+      </Link>
+      <HeroBanner
+        testId="detective-hero"
+        mascot="wind"
+        as="h1"
+        eyebrow={t('detective.list.title')}
+        title={t('detective.list.heroTitle')}
+        description={t('detective.entry.desc')}
+        tightDescription
+      />
 
       {casesQ.isLoading && <LoadingSpinner label={t('detective.list.loading')} />}
 

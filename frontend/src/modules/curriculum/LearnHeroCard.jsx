@@ -68,7 +68,15 @@ export default function LearnHeroCard({
     <div
       data-testid="learn-entry"
       data-entry-kind={entry.kind}
-      className="rounded-[20px] bg-gradient-to-b from-[#1F3A5F] to-[#16293F] px-[18px] py-5 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
+      // 세로 여백 `py-5`(20) → `py-6`(24) → **`py-7`(28)**(사용자 지시 두 번 —
+      // 2026-08-19 "아주 조금만 더" · 2026-08-20 "아주 약간 더"). 카드 257 → 265 → 273px.
+      // ⚠️ **가로(`px-[18px]`)는 건드리지 않는다.** 이 열은 248~264px로 고정이고
+      //    안쪽 폭이 줄면 부제·유닛명이 한 글자씩 더 접힌다(이 파일 제1 계약 —
+      //    「한 열 폭 안에서 끝난다」).
+      // ⚠️ 늘린 만큼 오른쪽 열이 길어지고, 그만큼 **왼쪽 경로 트랙 밑에 빈
+      //    자리**가 생긴다(머리말의 그 경고다). 실측으로 8px이라 눈에 안 띄는
+      //    범위에서 멈췄다 — 더 키우려면 트랙 높이와 함께 봐야 한다.
+      className="rounded-[20px] bg-gradient-to-b from-[#1F3A5F] to-[#16293F] px-[18px] py-7 shadow-[0_2px_10px_rgba(15,23,42,0.18)]"
     >
       {/* 머리 — 마스코트 + 머리글/제목. 화자가 먼저 오고 그 뒤에 말할 내용이 온다.
           원형 배경을 깔아 남색 위에서 실루엣이 뜨게 한다(투명 PNG라 배경 없이

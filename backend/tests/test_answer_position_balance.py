@@ -22,7 +22,6 @@
 몰림)만 잡고 정상 변동은 통과시킨다.
 """
 import collections
-import re
 import json
 from pathlib import Path
 
@@ -161,26 +160,39 @@ def test_staging도_같은_기준을_받는다(path):
 # 순서를 섞자 그 서수가 다른 선지를 가리키게 됐다. **3건은 정답을 오독이라고
 # 말했다** — 맞힌 학습자에게 틀렸다고 가르치는 것이라, 이 커밋이 고치려던 결함의
 # 정반대 방향으로 같은 피해를 낸다.
-ORDINAL_VARIANTS = {
-    1: ("첫 번째", "첫번째", "1번", "①"),
-    2: ("두 번째", "두번째", "2번", "②"),
-    3: ("세 번째", "세번째", "3번", "③"),
-    4: ("네 번째", "네번째", "4번", "④", "마지막 선지", "마지막 보기"),
-}
-_SLOT_OF = {v: k for k, vs in ORDINAL_VARIANTS.items() for v in vs}
-_ORDINAL_RE = re.compile(
-    "|".join(
-        re.escape(v)
-        for vs in ORDINAL_VARIANTS.values()
-        for v in sorted(vs, key=len, reverse=True)
-    )
-)
-# 이 말과 함께 자리를 가리키면 그 자리는 **오답**이라는 뜻이다.
-WRONG_CONTEXT = ("오독", "잘못", "아니", "혼동", "설명이다", "기준이다", "것이고", "것이다", "헷갈")
+# ⚠️ **여기 사설 사본이 있었다 — 2026-08-21에 소유자 호출로 갈았다.**
+# `ORDINAL_VARIANTS`·`_SLOT_OF`·`_ORDINAL_RE`·`WRONG_CONTEXT`가 손으로 다시 쓰여
+# 있었다(`test_seed_contract`가 「이미 **세 번째** 사본」이라 적어 둔 그것). 결과는
+# 예고된 대로였다 — **한쪽만 자랐다**: 소유자가 2026-08-18에 넣은 「오답」·「틀리」·
+# 「틀린」이 이 사본에 안 왔고, 서수도 「마지막」(명사 없는 것)·「①번」·「1번」이 빠져
+# 「세 번째 선지는 **오답이다**」가 이 계약을 그냥 통과했다.
+# 그리고 **오탐 기제까지 복제돼 있었다**: `[서수-10, 서수+45]`라는 글자 수 창이
+# 옆 절의 서술어를 빨아들여 「…오독이고, **세 번째 선지가 정답이다**」의 그 정답
+# 자리를 모순으로 신고했다. 사본을 지우면 소유자 쪽 수리가 **한 번에** 온다.
+# ⇒ 판정은 `shuffle_answer_positions.hint_contradicts`가 단독으로 한다.
+def _shuffle_tool():
+    """서수·모순 판정의 소유 모듈 — `scripts/`는 패키지가 아니라 경로로 싣는다."""
+    import importlib.util
+    import sys
+
+    if "wm_shuffle" in sys.modules:
+        return sys.modules["wm_shuffle"]
+    path = SEED.parents[2] / "scripts" / "shuffle_answer_positions.py"
+    spec = importlib.util.spec_from_file_location("wm_shuffle", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["wm_shuffle"] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def _hint_contradictions(items):
-    """해설이 **정답 자리**를 오답이라 말하는 문항 목록."""
+    """해설이 **정답 자리**를 오답이라 말하는 문항 목록.
+
+    ⚠️ 판정은 소유자가 한다 — 여기서 다시 세지 않는다. 아래 `evidence`는 **실패
+    문구용**이라 판정에 쓰이지 않는다: 둘이 갈려도 탈락 여부는 흔들리지 않고,
+    문구가 비면 해설 원문이 그대로 나와 그 사실이 눈에 보인다.
+    """
+    tool = _shuffle_tool()
     bad = []
     for item in items:
         if item.get("question_type") != "multiple_choice":
@@ -190,13 +202,21 @@ def _hint_contradictions(items):
         options, answer = template.get("options"), template.get("correct_answer")
         if not hint or not options or answer not in options:
             continue
+        if not tool.hint_contradicts(hint, options, answer):
+            continue
         correct = options.index(answer) + 1
-        for match in _ORDINAL_RE.finditer(hint):
-            if _SLOT_OF[match.group(0)] != correct:
-                continue
-            around = hint[max(0, match.start() - 10) : match.start() + 45]
-            if any(w in around for w in WRONG_CONTEXT):
-                bad.append((str(template.get("question_text"))[:40], match.group(0), around))
+        evidence = [
+            window
+            for slot, window in tool.ordinal_hits(hint, noun_guarded=False)
+            if slot == correct and any(w in window for w in tool.WRONG_CONTEXT)
+        ]
+        bad.append(
+            (
+                str(template.get("question_text"))[:40],
+                f"{correct}번 자리",
+                evidence[0] if evidence else hint,
+            )
+        )
     return bad
 
 
@@ -236,15 +256,9 @@ class TestShuffleToolInvariants:
 
     @pytest.fixture(scope="class")
     def tool(self):
-        import importlib.util
-        import sys
-
-        path = SEED.parents[2] / "scripts" / "shuffle_answer_positions.py"
-        spec = importlib.util.spec_from_file_location("wm_shuffle", path)
-        module = importlib.util.module_from_spec(spec)
-        sys.modules["wm_shuffle"] = module
-        spec.loader.exec_module(module)
-        return module
+        # 적재기를 두 벌 두지 않는다 — 위 `_hint_contradictions`와 **같은 모듈 객체**여야
+        # 한쪽만 재적재되는 일이 없다.
+        return _shuffle_tool()
 
     def test_정답이_앵커면_건드리지_않는다(self, tool):
         """「둘 다 아니다」가 정답일 때 보기가 하나 늘고 정답이 두 번 실렸다."""

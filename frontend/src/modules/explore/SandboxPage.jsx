@@ -60,7 +60,7 @@ export default function SandboxPage() {
     <div className="pt-2">
       <Link
         to="/explore"
-        className="mb-2 inline-block text-sm font-medium text-slate-500 hover:text-slate-700"
+        className="mb-2 inline-block text-xs font-bold text-slate-500 hover:text-sky-600"
       >
         {t('explore.common.back')}
       </Link>

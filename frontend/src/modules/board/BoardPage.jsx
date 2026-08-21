@@ -354,7 +354,7 @@ export default function BoardPage() {
             {toast}
           </div>
         )}
-        <button type="button" onClick={backToList} className="mb-2 text-sm font-medium text-slate-500 hover:text-slate-700">
+        <button type="button" onClick={backToList} className="mb-2 text-xs font-bold text-slate-500 hover:text-sky-600">
           {t('board.page.backToList')}
         </button>
         <AtmosphereBoard

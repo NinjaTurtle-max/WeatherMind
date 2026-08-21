@@ -15,6 +15,7 @@ import {
   SST_MIN,
   SST_MAX,
 } from '../../lib/exploreSims';
+import HeroBanner from '../../components/HeroBanner';
 import { useT } from '../../i18n';
 
 /**
@@ -213,20 +214,53 @@ export default function TyphoonSimPage() {
   const whyLines = explainWhy(t, sst, shear, result);
 
   return (
-    <div className="space-y-4 py-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link to="/explore" className="text-xs font-medium text-sky-600 hover:text-sky-700">
-            {t('explore.common.back')}
-          </Link>
-          <h1 className="text-lg font-extrabold text-slate-800">{t('explore.typhoon.title')}</h1>
-        </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-bold ${meta.badge}`}>{t(meta.labelKey)}</span>
-      </div>
+    <div className="space-y-4 pt-2">
+      {/* 🔴 **상단 튜터 배너**(2026-08-19 사용자 지시 — "모든 각 실험실 화면에
+          마찬가지로 상단 튜터 카드"). 담당은 **태풍이**이고, 소유자는
+          `SideNav.TUTOR_BY_PATH`의 `/explore/typhoon` 행이다
+          (`mascotAssets.contract` ④가 그 표와 여기를 대조한다).
+          ⚠️ 배너를 **더하지 않고 종전 제목 줄을 바꿔 넣었다** — 위에 얹으면
+          화면이 그만큼 길어지는데, 같은 지시의 다른 절반이 "세로로 길지 않게"다.
+          등급 배지는 배너의 `right` 슬롯으로 들어가 자리를 그대로 지킨다. */}
+      {/* 🔴 **상단 줄 — 왼쪽 뒤로가기 · 오른쪽 모델 고지**(2026-08-19 사용자
+          정정 "튜터 카드 아예 밖으로 빼달라는 말이었어").
 
-      <p className="rounded-xl bg-slate-100 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
-        {t('explore.typhoon.disclaimer1')} <b>{t('explore.typhoon.disclaimerBold')}</b>{t('explore.typhoon.disclaimer2')}
-      </p>
+          고지는 하루 동안 세 자리를 거쳤다: 배너 아래 회색 띠 → 배너 안 제목
+          아래(h=104) → 배너 안 오른쪽 열(h=90) → **배너 밖 위쪽 줄**(지금).
+          경위를 남기는 이유는 그때마다 배너 치수 계약을 손댔기 때문이다 —
+          지금은 배너가 고지를 아예 모르므로 그 계약이 단순해졌다(h=90 고정).
+
+          뒤로가기와 **같은 행**에 두는 것이 요점이다. 위에 한 줄을 더 얹으면
+          화면이 그만큼 길어지는데, 이 화면들을 손보는 내내 사용자가 세로를
+          줄이라고 해 왔다. 왼쪽은 링크, 오른쪽은 고지라 서로 자리를 뺏지 않는다.
+          ⚠️ 좁은 화면에서는 `flex-wrap`으로 두 줄이 되고 고지가 왼쪽 정렬로
+          떨어진다 — `sm:text-right`라 그때는 오른쪽 정렬을 풀어 준다. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <Link to="/explore" className="shrink-0 text-xs font-bold text-slate-500 hover:text-sky-600">
+          {t('explore.common.back')}
+        </Link>
+        <p className="min-w-0 text-[10.5px] leading-snug text-slate-400 sm:text-right">
+          {t('explore.typhoon.disclaimer1')} <b className="font-bold text-slate-500">{t('explore.typhoon.disclaimerBold')}</b>
+          {t('explore.typhoon.disclaimer2')}
+        </p>
+      </div>
+      <HeroBanner
+        testId="typhoon-hero"
+        mascot="typhoon"
+        as="h1"
+        eyebrow={t('explore.typhoon.title')}
+        title={t('explore.typhoon.heroTitle')}
+        // 🔴 오른쪽 한 줄 + 제목 아래 고지(2026-08-19 사용자 지시).
+        // ⚠️ 문구가 `explore.home.typhoonDesc`(탐구 홈 카드)에서 **전용 키로
+        //    갈렸다** — 사용자가 이 배너의 문장을 따로 지정했고, 홈 카드는 카드
+        //    폭에 맞춘 긴 문장이 여전히 맞다. 두 자리가 같은 문장을 쓰지 않는
+        //    첫 예외라 여기 적어 둔다(기후 탐정·과거 예보는 아직 공유한다).
+        description={t('explore.typhoon.heroDesc')}
+        tightDescription
+        right={
+          <span className={`rounded-full px-3 py-1 text-xs font-bold ${meta.badge}`}>{t(meta.labelKey)}</span>
+        }
+      />
 
       {/* 탐구 목표(MT-24) — **슬라이더보다 위**에 둔다. 화면에 들어선 사람이
           "무엇을 해 보면 되는지"를 조작하기 전에 읽어야 목표가 목표로 작동한다.
@@ -238,10 +272,38 @@ export default function TyphoonSimPage() {
         facts={{ sst, shear, intensity: result.intensity, category: result.category }}
       />
 
-      {/* 시각화 카드 */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <TyphoonEye intensity={result.intensity} />
-        <IntensityGauge intensity={result.intensity} color={CHART_ACCENT} />
+      {/* 🔴 **2열 구간 — 바람개비 왼쪽 · 발달 곡선 오른쪽**(2026-08-19 사용자 지시
+          "해수면 온도 슬라이드는 고정, 바로 위에 바람개비를 왼쪽, 오른쪽에는
+          발달곡선 그래프 크기 줄여서 배치").
+
+          곡선이 여기까지 **올라온다** — 종전에는 위성 도식 아래(화면 2,100px
+          지점)에 있어, 슬라이더를 미는 동안 강도가 시간에 따라 어떻게 자라는지를
+          같이 볼 수 없었다. 바람개비(지금 세기)와 곡선(앞으로의 세기)은 **같은
+          값의 두 표현**이라 나란히 서는 것이 맞다.
+
+          비율이 1 : 1.35인 이유: 바람개비는 `h-36 w-36`(144px)·게이지는
+          `w-48`(192px)로 **폭이 고정**이라 넓은 열을 줘도 안 커진다. 반대로 곡선은
+          viewBox SVG라 폭을 준 만큼 커진다 — 남는 폭은 곡선이 가져간다.
+          왼쪽 카드는 남는 세로를 `justify-center`로 흘린다(위에 붙이면 아래가
+          빈 상자로 보인다). */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
+        {/* 시각화 카드 — 바람개비 + 강도 게이지 */}
+        <div className="flex flex-col justify-center rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <TyphoonEye intensity={result.intensity} />
+          <IntensityGauge intensity={result.intensity} color={CHART_ACCENT} />
+        </div>
+
+        {/* 발달 곡선 카드 — 「크기 줄여서」는 높이를 박는 게 아니라 **열을 나누는
+            것**이다. `DevelopmentCurve`는 viewBox 280×110에 `w-full`이라 폭이 줄면
+            높이가 비례해 따라 준다(실측 519 → 361). h-…를 박으면 곡선이 찌그러진다. */}
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <p className="text-sm font-bold text-slate-700">{t('explore.typhoon.curveTitle')}</p>
+          <p className="text-[11px] text-slate-400">{t('explore.typhoon.curveSub')}</p>
+          <div className="mt-2">
+            <DevelopmentCurve curve={result.curve} color={CHART_ACCENT} />
+          </div>
+          <p className="text-right text-[10px] text-slate-400">{t('explore.typhoon.timeAxis')}</p>
+        </div>
       </div>
 
       {/* 조건 입력 카드 */}
@@ -292,15 +354,50 @@ export default function TyphoonSimPage() {
         </div>
       </div>
 
-      {/* 위성 도식(MT-21) — §0.5ⓔ가 정한 자리다. expert 밴드에만 붙이면
-          θ>1.5가 필요해 심사 5분 동선에서 아무도 못 본다(CO-N-4) → **상시 노출**. */}
-      <SatelliteView intensity={result.intensity} shear={shear} />
+      {/* 🔴 **2열 구간 — 위성 도식 왼쪽 · 「왜 그럴까」 오른쪽**(2026-08-19 사용자
+          지시 "위성 도식 크기 줄이고 오른쪽에 왜그럴까 배치"). CTA는 지시대로
+          아래에 가로로 그대로 남는다.
+
+          도식과 해설이 짝인 이유: 해설 문장이 **지금 화면의 도식을 설명한다**
+          (시어가 약하면 「기둥이 곧게 선다」, 강하면 「흐트러진다」). 종전에는
+          도식 847px을 지나 스크롤해야 그 문장이 나와, 읽을 때는 그림이 화면
+          밖이었다.
+
+          비율 **1.9 : 1**(2026-08-19 2차 지시 "위성지도 크기 더 키우고, 오른쪽
+          왜그럴까를 세로로 길게 해서 위성지도랑 세로 길이 맞춰줘"). 1.35였다.
+          도식은 `aspect-ratio 720/450`이라 폭을 준 만큼 커지고, 해설은 문단
+          셋이라 좁아져도 세로로 늘 뿐이다 — 넓은 쪽을 그림이 갖는 것이 맞다.
+          「세로 길이 맞춰」는 따로 손댈 것이 없다: 해설 카드는 격자 칸이라
+          기본값(`stretch`)으로 행 높이를 그대로 받는다. 도식이 커지면 행이
+          커지고 해설도 함께 길어진다 — 실측 두 열이 늘 같은 높이다. */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]">
+        {/* 위성 도식(MT-21) — §0.5ⓔ가 정한 자리다. expert 밴드에만 붙이면
+            θ>1.5가 필요해 심사 5분 동선에서 아무도 못 본다(CO-N-4) → **상시 노출**. */}
+        <SatelliteView intensity={result.intensity} shear={shear} />
+
+        {/* 왜 그럴까 설명 패널 */}
+        <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
+          <p className="text-sm font-bold text-sky-800">{t('explore.common.whyTitle')}</p>
+          <ul className="mt-2 space-y-2">
+            {whyLines.map((line, i) => (
+              <li key={i} className="text-xs leading-relaxed text-sky-900">
+                {line}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 border-t border-sky-100 pt-2 text-[10px] leading-relaxed text-sky-700/70">
+            {t('explore.typhoon.caveat')}
+          </p>
+        </div>
+      </div>
 
       {/* 입체 모식도 2종(MT-22) — 기존 시각화(TyphoonEye·게이지·위성 도식)를
           **하나도 걷어내지 않고 뒤에 덧붙인다.** 셋이 말하는 축이 다르기 때문이다:
           눈 그림은 세기(크기), 위성 도식은 비대칭, 그리고 이 둘은 **연직 구조**와
           **시간**이다. 앞의 것들이 위에서 본 평면이라 「하층과 상층이 반대로 감긴다」·
-          「전향 뒤 급가속」은 어느 것도 보여주지 못한다. */}
+          「전향 뒤 급가속」은 어느 것도 보여주지 못한다.
+          ⚠️ 2열 격자 **밖**이다 — 안에 넣으면 도식 ↔ 해설의 짝이 깨지고, 아래
+             CTA의 들여쓰기(6칸) 계약도 함께 흔들린다. */}
       <SchematicPanel
         title={t('explore.schematic.card.t1.title')}
         caption={t('explore.schematic.card.t1.caption')}
@@ -315,31 +412,6 @@ export default function TyphoonSimPage() {
         steps={T2_STEPS}
         ariaLabel={t('explore.schematic.card.t2.aria')}
       />
-
-      {/* 발달 곡선 카드 */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <p className="text-sm font-bold text-slate-700">{t('explore.typhoon.curveTitle')}</p>
-        <p className="text-[11px] text-slate-400">{t('explore.typhoon.curveSub')}</p>
-        <div className="mt-2">
-          <DevelopmentCurve curve={result.curve} color={CHART_ACCENT} />
-        </div>
-        <p className="text-right text-[10px] text-slate-400">{t('explore.typhoon.timeAxis')}</p>
-      </div>
-
-      {/* 왜 그럴까 설명 패널 */}
-      <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
-        <p className="text-sm font-bold text-sky-800">{t('explore.common.whyTitle')}</p>
-        <ul className="mt-2 space-y-2">
-          {whyLines.map((line, i) => (
-            <li key={i} className="text-xs leading-relaxed text-sky-900">
-              {line}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 border-t border-sky-100 pt-2 text-[10px] leading-relaxed text-sky-700/70">
-          {t('explore.typhoon.caveat')}
-        </p>
-      </div>
 
       {/* θ 루프 연결 CTA */}
       {/* CO-S-10: 라벨은 "학습 경로에서 이어가기"인데 목적지가 `/`(홈)였다 —

@@ -446,7 +446,11 @@ export default function SatelliteView({ intensity, shear }) {
     : 'explore.satellite.ariaNone';
 
   return (
-    <figure className="mt-4 overflow-hidden rounded-2xl bg-slate-950 ring-1 ring-slate-700">
+    // ⚠️ **자기 여백(`mt-4`)을 갖지 않는다**(2026-08-19). 이 도식이 2열 격자의
+    // 한 칸이 되면서, 자기 마진이 있으면 옆 칸(「왜 그럴까」)보다 16px 내려앉는다.
+    // 세로로 쌓이던 시절에도 부모의 `space-y-4`가 같은 16px을 이미 주고 있어
+    // 실제로는 중복이었다 — 값이 같아 눈에 안 띄었을 뿐이다.
+    <figure className="overflow-hidden rounded-2xl bg-slate-950 ring-1 ring-slate-700">
       {/* 산출물 머리 — 실제 위성 영상의 라벨 띠를 흉내 내되 **우리 이름**을 쓴다 */}
       <figcaption className="flex items-baseline justify-between gap-2 border-b border-slate-800 px-3 py-2">
         <span className="font-mono text-[10px] font-bold tracking-wider text-slate-300">

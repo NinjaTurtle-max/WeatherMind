@@ -25,6 +25,13 @@ import Mascot from './Mascot';
  *              title에 넣으면 1440에서도 잘린다(2026-08-12 리뷰 실측).
  *              **최대 두 줄까지 접힌다**(2026-08-17) — 한 문장은 다 보인다.
  *              그보다 길면 잘리니, 넘치면 배너가 아니라 문구를 줄일 것.
+ *   ⚠️ **`note` 슬롯은 철거됐다(2026-08-19).** 「교육용 단순화 모델」 고지를
+ *              배너 안에 넣으려고 하루 동안 두 자리를 시도했다 — 제목 아래(h=104)
+ *              → 오른쪽 열 위(h=90). 그러다 사용자가 **"튜터 카드 아예 밖으로"**
+ *              라고 정정해, 고지는 배너 **위쪽 줄**(뒤로가기 링크와 같은 행,
+ *              오른쪽 정렬)로 나갔다. 호출부가 0건이 된 prop을 남기면 대장이
+ *              말하는 「만들어 두고 안 쓰는 것」이 되므로 지운다.
+ *              되살릴 일이 있으면 이 문단이 그 두 자리의 실측을 갖고 있다.
  *   - right    오른쪽 끝 슬롯(배지·칩 등). 없으면 제목 열이 폭을 다 쓴다.
  *   - as       eyebrow 태그. 화면에 다른 h1이 없으면 'h1'을 줄 것 — 보드 목록
  *              배너가 배너로 바뀌면서 그 화면만 heading이 0개가 된 전례가 있다.
@@ -34,6 +41,7 @@ export default function HeroBanner({
   eyebrow,
   title,
   description = null,
+  tightDescription = false,
   right = null,
   as: Eyebrow = 'p',
   testId,
@@ -93,8 +101,25 @@ export default function HeroBanner({
           늘어나며 드러난다. 좁은 화면 접기는 `hidden` 하나로 충분하다:
           `.hidden`(7835)보다 `.lg\:line-clamp-2`(54676)가 뒤라 lg에서
           -webkit-box가 이겨 스스로 펴진다. */}
+      {/* 🔴 `tightDescription` — **한 줄에 들어가는 작은 변형**(2026-08-19 사용자
+          지시 "이 글씨 크기 줄여서 한 줄로"). 두 벌을 **완성된 문자열 리터럴**로
+          적는다: Tailwind는 소스 텍스트를 훑어 클래스를 만들므로 조각을 템플릿
+          문자열로 이어 붙이면 CSS가 아예 안 생긴다(보드 음수 여백에서 겪은 그것).
+          차이는 셋뿐이다 — 글자 11.5 → 10 · 줄간격 relaxed → snug · xl 폭 360 →
+          430(그 폭이라야 한 줄에 든다). `line-clamp-2`는 **양쪽 다 남긴다**:
+          좁은 화면에서 한 줄을 고집하면 잘라야 하는데, 잘린 문장보다 두 줄이 낫다. */}
+      {/* 🔴 `tightDescription` — **한 줄에 들어가는 작은 변형**(2026-08-19 사용자
+          지시 "이 글씨 크기 줄여서 한 줄로"). 두 벌을 **완성된 문자열 리터럴**로
+          적는다: Tailwind는 소스 텍스트를 훑어 클래스를 만들므로 조각을 템플릿
+          문자열로 이어 붙이면 CSS가 아예 안 생긴다.
+          차이는 셋 — 글자 11.5 → 10 · 줄간격 relaxed → snug · xl 폭 360 → 430.
+          ⚠️ **기본 폭 360을 올리지 말 것.** 예보·리그 배너는 `CompeteLayout`
+          카드 안이라 더 좁아 제목 열이 눌린다(1024·1152에서 제목이 «…»로
+          잘렸던 전례). 430은 tight 변형에만 준다. */}
       {description && (
-        <p className="hidden min-w-0 basis-[300px] text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2 xl:basis-[360px]">
+        <p className={tightDescription
+          ? 'hidden min-w-0 basis-[300px] text-[10px] leading-snug text-slate-300 lg:line-clamp-2 xl:basis-[430px]'
+          : 'hidden min-w-0 basis-[300px] text-[11.5px] leading-relaxed text-slate-300 lg:line-clamp-2 xl:basis-[360px]'}>
           {description}
         </p>
       )}

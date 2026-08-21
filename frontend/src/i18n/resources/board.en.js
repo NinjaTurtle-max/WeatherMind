@@ -804,6 +804,8 @@ export default {
       eyeSpinning: 'Rotating typhoon eye',
       eyeCalm: 'Calm sea',
       title: '🌪️ Build a Typhoon',
+      heroTitle: 'What kind of sea gives birth to a typhoon?',
+      heroDesc: 'See when and how a typhoon grows, from sea temperature and wind shear',
       disclaimer1: 'This is a simplified educational model. It is not a real typhoon forecast (numerical model) — it captures only the',
       disclaimerBold: 'tendency',
       disclaimer2: ' of how sea temperature and wind shear affect typhoon development, as a deterministic approximation.',
@@ -831,6 +833,7 @@ export default {
       // ⚠️ Do not hard-code S — it became an adjustable variable (2026-08-19), so a
       // fixed number would make the text contradict the graph the learner is moving.
       disclaimer: 'This is a simplified educational model. ΔT = S·log₂(C/C₀) with S = {sens}°C per doubling — a logarithmic-sensitivity approximation, not a real climate projection (numerical model) or a prediction for any specific year.',
+      heroTitle: 'As CO₂ rises, what changes first?',
       anomalyTitle: 'Global mean temperature anomaly',
       anomalySub: 'Rise relative to pre-industrial (280 ppm) — logarithmic sensitivity curve',
       co2Label: 'CO₂ concentration',

@@ -126,160 +126,266 @@ export default function CasePlayPage() {
     });
   }
 
+  // ⚠️ 바깥 여백은 **`pt-2`**다 — 앱의 모든 화면이 그것이다. 여기만 `py-4`면
+  //    첫 내용이 8px 아래에서 시작해 화면을 오갈 때 한 칸 내려앉는다. 2026-08-17에
+  //    탐구 홈에서 사용자가 제보해 고친 결함인데 **하위 실험실 넷(태풍·기후변화·
+  //    탐정·과거예보, 목록과 상세 합쳐 여섯 자리)에는 남아 있었다** — 그 화면들을
+  //    하루 종일 손보면서도 못 봤다(2026-08-19 실측: 실험실 y=80~85 ↔ 나머지 72~74).
+  //    아래 여백을 `py`로 주지 않는 것도 계약이다 — `Layout`의 `main`이 `pb-8`을
+  //    이미 갖고 있어 중복이 된다. 여섯 자리가 같은 값이어야 하므로 `home.smoke`가
+  //    전 화면을 훑어 문다.
+  // ⚠️ 이 주석을 `return (` **안쪽 첫 줄로 옮기지 말 것** — JSX 주석이 그 자리에
+  //    오면 `{...}`가 객체 리터럴로 파싱돼 빌드가 깨진다. 같은 함정을 오늘만
+  //    **세 번** 밟았다(탐정 목록 · 과거예보 목록 · 여기).
   return (
-    <div className="space-y-5 py-4">
-      <div>
-        <Link to="/detective" className="text-xs font-bold text-slate-500 hover:text-sky-600">
+    <div className="space-y-4 pt-2">
+      {/* ══ 「사건 게시판」 결 ══════════════════════════════════════════════
+          2026-08-19 사용자 지시 — "심플한 디자인 틀은 벗어나지 않고, 가로로
+          꽉차게 배치 유지하면서 (탐정 게시판) 컨셉이 **살짝** 섞였으면".
+
+          그래서 **다섯 가지만** 빌려 왔다. 전부 기존 토큰 위의 얇은 층이고,
+          카드 모양(rounded-2xl)·글자 크기·간격 체계는 그대로다:
+            ① 크라프트 판 — 단서 구역 바탕을 종이색(#F6F0E4)으로. 코르크판.
+            ② 압정 — 메모마다 벽돌색 점 하나(위 가운데).
+            ③ 미세 회전 — ±0.5°. 그 이상은 격자가 어긋난 것처럼 보인다.
+            ④ 붉은 실 — **장식이 아니라 뜻이다.** 「이 단서가 차트의 저 지점을
+               가리킨다」와 「이 단서가 정답의 근거였다」에만 쓴다.
+            ⑤ 등사 라벨 — `font-mono` 대문자. CASE FILE · EVIDENCE 0N.
+          ⚠️ **웹폰트는 쓰지 않는다.** 손글씨체가 분위기에는 맞지만 이 앱은
+             시스템 글꼴만 쓰고(styles/index.css) 폰트 하나를 위해 외부 의존을
+             들이면 로드 실패 시 화면이 조용히 달라진다. 등사 라벨(mono)이
+             「증거 서류」 느낌을 대신한다 — 참고 이미지의 타자기 문서와 같은 결.
+          ⚠️ 벽돌색은 `#B8443C`다. 앱의 `rose-500`(오류)과 **일부러 다른 값**을
+             쓴다 — 같은 빨강이면 실이 오류로 읽힌다. */}
+
+      {/* 상단 줄 — 왼쪽 뒤로가기 · 오른쪽 가상 자료 고지(탐구 실험실 관례). */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <Link to="/detective" className="shrink-0 text-xs font-bold text-slate-500 hover:text-sky-600">
           {t('detective.play.backToList')}
         </Link>
-        <h1 className="mt-1 text-lg font-extrabold text-slate-800">{detail.title}</h1>
-        <p className="mt-1 text-[13px] font-bold text-sky-700">{intro.headline}</p>
-        <p className="mt-2 text-[12.5px] leading-relaxed text-slate-600">{intro.body}</p>
-        <dl className="mt-3 grid gap-1 text-[11px] text-slate-500">
-          {intro.region && (
-            <div>
-              <dt className="inline font-bold">{t('detective.play.region')}: </dt>
-              <dd className="inline">{intro.region}</dd>
-            </div>
-          )}
-          {intro.period && (
-            <div>
-              <dt className="inline font-bold">{t('detective.play.period')}: </dt>
-              <dd className="inline">{intro.period}</dd>
-            </div>
-          )}
-        </dl>
-        {/* 가상 자료 고지 — 실제 관측 기록으로 읽히면 안 된다(케이스 데이터의 계약) */}
         {intro.data_note && (
-          <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800 ring-1 ring-amber-200">
+          <p className="min-w-0 text-[10.5px] leading-snug text-amber-700 sm:text-right">
             <span className="font-bold">{t('detective.play.dataNoteLabel')}: </span>
             {intro.data_note}
           </p>
         )}
       </div>
 
-      <section aria-labelledby="detective-charts">
-        <h2 id="detective-charts" className="text-sm font-extrabold text-slate-800">
-          {t('detective.play.chartsTitle')}
-        </h2>
-        <p className="mb-2 mt-0.5 text-[11px] text-slate-500">{t('detective.play.chartsHint')}</p>
-        <CaseChart series={detail.series} markers={markers} />
-      </section>
+      {/* ── 사건 파일 헤더 ──────────────────────────────────────────────────
+          크라프트 판 위의 서류 한 장. 왼쪽에 사건 개요, 오른쪽에 관측 지점·기간을
+          등사 라벨로 세운다 — 세로로 쌓던 `<dl>`을 옆으로 눕히면서 높이가 준다. */}
+      <header className="rounded-2xl bg-[#F6F0E4] p-4 ring-1 ring-[#E0D3BC]">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div className="min-w-0 flex-1 basis-[420px]">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#8A7A61]">
+              {t('detective.play.caseFileLabel')}
+            </p>
+            <h1 className="mt-0.5 text-lg font-extrabold text-slate-800">{detail.title}</h1>
+            <p className="mt-1 text-[13px] font-bold text-[#B8443C]">{intro.headline}</p>
+            <p className="mt-2 text-[12.5px] leading-relaxed text-slate-700">{intro.body}</p>
+          </div>
+          {(intro.region || intro.period) && (
+            <dl className="shrink-0 space-y-1 font-mono text-[10.5px] text-[#6F6250]">
+              {intro.region && (
+                <div>
+                  <dt className="inline font-bold uppercase tracking-[0.1em]">{t('detective.play.region')} </dt>
+                  <dd className="inline">{intro.region}</dd>
+                </div>
+              )}
+              {intro.period && (
+                <div>
+                  <dt className="inline font-bold uppercase tracking-[0.1em]">{t('detective.play.period')} </dt>
+                  <dd className="inline">{intro.period}</dd>
+                </div>
+              )}
+            </dl>
+          )}
+        </div>
+      </header>
 
-      <section aria-labelledby="detective-clues">
-        <h2 id="detective-clues" className="text-sm font-extrabold text-slate-800">
-          {t('detective.play.cluesTitle')}
-        </h2>
-        <p className="mb-2 mt-0.5 text-[11px] text-slate-500">
-          {t('detective.play.cluesHint', { min: minClues })}
-        </p>
-        <p
-          role="status"
-          aria-live="polite"
-          className="mb-2 text-[11.5px] font-bold text-sky-700"
-          data-testid="detective-clue-progress"
-        >
-          {t('detective.play.progress', { opened: opened.size, total: clues.length })}
-        </p>
-        {/* 단서 7개 — `xl`부터 **4열**이라 두 줄로 끝난다(2026-08-18 사용자 지시.
-            종전 2열 4줄). 카드 폭은 그대로다: 셸이 576 → 1152로 넓어졌기 때문에
-            (`Layout.jsx` isWide에 /detective 추가) 열이 늘어도 한 칸이 268px다.
-            ⚠️ `lg`가 아니라 `xl`인 이유 — lg(1024) 뷰포트에서는 사이드바를 뺀
-            셸이 784px이라 4열이면 한 칸 180px로 눌린다. */}
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {clues.map((clue) => {
-            const isOpen = opened.has(clue.clue_id);
-            const isSupport = result?.supporting_clues?.includes(clue.clue_id);
-            return (
-              <li key={clue.clue_id}>
-                <button
-                  type="button"
-                  onClick={() => toggleClue(clue.clue_id)}
-                  aria-expanded={isOpen}
-                  data-testid={`detective-clue-${clue.clue_id}`}
-                  className={`w-full rounded-2xl p-3 text-left ring-1 transition ${
-                    isSupport
-                      ? 'bg-amber-50 ring-amber-300'
-                      : isOpen
-                        ? 'bg-white ring-slate-200'
-                        : 'bg-slate-50 ring-slate-200 hover:ring-sky-300'
-                  }`}
-                >
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span className="text-[12.5px] font-bold text-slate-800">
+      {/* ── 2열 — 왼쪽 자료(붙박이) · 오른쪽 조사와 추리 ────────────────────
+          왼쪽이 `sticky`인 것이 이 화면의 요점이다: 단서를 열면 그 시각이 차트에
+          기준선으로 찍히는데, 세로로 쌓여 있던 종전 배치에서는 추리 보기를 고를
+          때쯤 그 표시가 화면 위로 사라졌다(실측 pageH 1,244).
+          ⚠️ `lg:` 이상에서만 붙박인다. 한 열로 접히는 좁은 화면에서 sticky를
+             켜면 차트가 화면 절반을 계속 덮는다. */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start">
+        {/* 왼쪽 = **보고 판단하는 곳**(자료 + 추리), 오른쪽 = **조사하는 곳**(단서).
+            추리를 차트 **바로 아래**에 두는 것이 이 배치의 값이다: 보기를 고를 때
+            근거인 차트가 눈앞에 있고, 결론 버튼도 붙박이라 단서를 열다가 곧바로
+            마무리할 수 있다.
+            ⚠️ 번호는 ①자료 → ②단서 → ③추리 그대로다. 눈은 왼위 → 오른쪽 →
+               왼아래로 도는데, 번호가 그 순서를 대신 말해 준다.
+            ⚠️ 처음에는 왼쪽에 차트만 뒀다가 되돌렸다 — 실측으로 **왼쪽 288 ·
+               오른쪽 777**이 나와 왼쪽 아래가 489px 비었다. */}
+        <div className="space-y-4 lg:sticky lg:top-20">
+        <section aria-labelledby="detective-charts">
+          <h2 id="detective-charts" className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+            {t('detective.play.chartsTitle')}
+          </h2>
+          <p className="mb-2 mt-0.5 text-[11px] text-slate-500">{t('detective.play.chartsHint')}</p>
+          <CaseChart series={detail.series} markers={markers} />
+        </section>
+
+        </div>{/* /왼쪽 열 */}
+
+        <div className="space-y-4">
+        <section aria-labelledby="detective-clues" className="rounded-2xl bg-[#F6F0E4] p-3 ring-1 ring-[#E0D3BC]">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 id="detective-clues" className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#8A7A61]">
+              {t('detective.play.cluesTitle')}
+            </h2>
+            <p
+              role="status"
+              aria-live="polite"
+              className="font-mono text-[10.5px] font-bold text-[#B8443C]"
+              data-testid="detective-clue-progress"
+            >
+              {t('detective.play.progress', { opened: opened.size, total: clues.length })}
+            </p>
+          </div>
+          <p className="mb-2 mt-0.5 text-[11px] text-[#6F6250]">
+            {t('detective.play.cluesHint', { min: minClues })}
+          </p>
+          {/* 단서 메모 — 크라프트 판 위 **2열**이다.
+              ⚠️ **`xl:grid-cols-4`에서 내려왔다(2026-08-19).** 그 4열은 단서
+                 구역이 셸 **전폭**(1,120px)을 쓰던 시절의 값이고, 그때는 한 칸이
+                 268px였다. 지금은 오른쪽 열(1,536에서 약 500px) 안이라 4열이면
+                 한 칸 118px — 라벨 한 줄도 못 들어간다. 열을 줄인 것이 아니라
+                 **그릇이 바뀐 것**이다. */}
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {clues.map((clue, i) => {
+              const isOpen = opened.has(clue.clue_id);
+              const isSupport = result?.supporting_clues?.includes(clue.clue_id);
+              return (
+                <li key={clue.clue_id}>
+                  <button
+                    type="button"
+                    onClick={() => toggleClue(clue.clue_id)}
+                    aria-expanded={isOpen}
+                    data-testid={`detective-clue-${clue.clue_id}`}
+                    // 미세 회전은 **짝·홀로 갈린다** — 전부 같은 방향이면 판이
+                    // 통째로 기운 것처럼 보인다. 누르는 동안 곧게 펴진다.
+                    className={`relative w-full rounded-xl px-3 pb-3 pt-4 text-left shadow-sm ring-1 transition hover:rotate-0 motion-reduce:transition-none ${
+                      i % 2 === 0 ? '-rotate-[0.5deg]' : 'rotate-[0.5deg]'
+                    } ${
+                      isSupport
+                        ? 'bg-[#FFFCF5] ring-2 ring-[#B8443C]'
+                        : isOpen
+                          ? 'bg-[#FFFCF5] ring-[#E0D3BC]'
+                          : 'bg-white/80 ring-[#E0D3BC] hover:ring-sky-300'
+                    }`}
+                  >
+                    {/* 압정 */}
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-1/2 top-1.5 h-2 w-2 -translate-x-1/2 rounded-full bg-[#B8443C] shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+                    />
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[#A2937B]">
+                        {t('detective.play.evidenceNo', { n: String(i + 1).padStart(2, '0') })}
+                      </span>
+                      <span className="shrink-0 text-[10px] font-bold text-slate-500">
+                        {isOpen ? t('detective.play.clueOpened') : t('detective.play.clueLocked')}
+                      </span>
+                    </span>
+                    <span className="mt-0.5 block text-[12.5px] font-bold text-slate-800">
                       {isOpen ? '🔎 ' : '🔒 '}
                       {clue.label}
                     </span>
-                    <span className="shrink-0 text-[10.5px] font-bold text-slate-500">
-                      {isOpen ? t('detective.play.clueOpened') : t('detective.play.clueLocked')}
-                    </span>
-                  </span>
-                  {isOpen && (
-                    <>
-                      <span className="mt-1.5 block text-[12px] leading-relaxed text-slate-600">
-                        {clue.text}
-                      </span>
-                      {clue.x && (
-                        <span className="mt-1 block text-[10.5px] font-medium text-amber-700">
-                          {t('detective.play.clueMarker', {
-                            metric:
-                              detail.series.find((s) => s.metric_id === clue.metric_id)
-                                ?.metric_label ?? '',
-                            x: clue.x,
-                          })}
+                    {isOpen && (
+                      <>
+                        <span className="mt-1.5 block text-[12px] leading-relaxed text-slate-600">
+                          {clue.text}
                         </span>
-                      )}
-                    </>
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+                        {clue.x && (
+                          // 🔴 붉은 실 — 이 줄이 「이 메모가 차트의 저 지점에
+                          // 묶여 있다」는 표시다. 차트 기준선과 같은 뜻이라
+                          // 색을 맞춘다(CaseChart의 marker stroke).
+                          <span className="mt-1.5 flex items-center gap-1.5 text-[10.5px] font-bold text-[#B8443C]">
+                            <span aria-hidden="true" className="h-px w-4 flex-none bg-[#B8443C]" />
+                            {t('detective.play.clueMarker', {
+                              metric:
+                                detail.series.find((s) => s.metric_id === clue.metric_id)
+                                  ?.metric_label ?? '',
+                              x: clue.x,
+                            })}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
 
+        </div>{/* /오른쪽 열 */}
+      </div>{/* /2열 */}
+
+      {/* ── ③ 추리 — **전폭**이다(2026-08-19 사용자 지시 "전부 가로로 길이
+          늘려서"). 왼쪽 열 안에 있던 동안 한 칸이 291px이라 보기 문장이 두 줄로
+          접히며 납작한 알약처럼 보였다. 전폭 2×2면 한 칸이 **약 560px**로 늘어
+          대부분의 보기가 한 줄에 든다(실측 291 → 560).
+          ⚠️ **대가가 있다**: 격자 밖이라 왼쪽 차트의 `sticky`가 여기까지 따라오지
+             않는다. 스크롤해서 보기를 고를 때 차트가 화면에서 사라질 수 있다 —
+             차트 바로 아래 붙여 두려던 종전 배치의 값을 폭과 맞바꾼 것이다.
+          ⚠️ 넓어지면 글이 한 줄이 되어 **오히려 더 납작해진다.** 그래서 높이를
+             `min-h-[68px]` + 세로 가운데 정렬로 따로 잡는다(같은 지시의 뒷부분
+             "세로로도 살짝 더 키워서 너무 납작해 보이지 않게"). */}
       <section aria-labelledby="detective-hypotheses">
-        <h2 id="detective-hypotheses" className="text-sm font-extrabold text-slate-800">
-          {t('detective.play.hypothesesTitle')}
-        </h2>
-        <p className="mb-2 mt-0.5 text-[11px] text-slate-500">
-          {t('detective.play.hypothesesHint')}
+      <h2 id="detective-hypotheses" className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+        {t('detective.play.hypothesesTitle')}
+      </h2>
+      <p className="mb-2 mt-0.5 text-[11px] text-slate-500">
+        {t('detective.play.hypothesesHint')}
+      </p>
+      {/* 🔴 **2×2 격자**(2026-08-19 사용자 지시 — "가로가 길고 세로가 짧게해서
+          2X2로"). 종전에는 세로로 넷을 일자로 쌓아 블록이 길쭉했다.
+          ⚠️ 한 칸이 좁아지므로(1536에서 약 290px) 보기 문장이 두 줄로 접힌다 —
+             그래서 `items-stretch`가 기본인 격자에 기대 **네 칸의 높이를 맞춘다**.
+             한 칸만 길어지면 2×2가 어긋나 보인다.
+          ⚠️ `sm` 미만은 한 열이다. 290px 칸에 두 줄이면 읽히지만 145px에서는
+             넉 줄이 된다. */}
+      <div role="radiogroup" aria-labelledby="detective-hypotheses" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {detail.hypotheses.map((h) => (
+          <button
+            key={h.hypothesis_id}
+            type="button"
+            role="radio"
+            aria-checked={picked === h.hypothesis_id}
+            onClick={() => setPicked(h.hypothesis_id)}
+            data-testid={`detective-hypothesis-${h.hypothesis_id}`}
+            // `min-h-[68px]` + 세로 가운데 — 전폭에서 보기가 한 줄이 되면 카드가
+            // 44px까지 얇아져 **오히려 더 납작해진다.** 높이를 따로 잡아 네 칸을
+            // 같은 덩치로 세운다(격자 기본 stretch가 두 줄짜리 칸에 맞춘다).
+            className={`flex min-h-[68px] w-full items-center rounded-2xl px-4 py-3 text-left text-[12.5px] leading-relaxed ring-1 transition ${
+              picked === h.hypothesis_id
+                ? 'bg-sky-50 font-bold text-sky-900 ring-sky-400'
+                : 'bg-white text-slate-700 ring-slate-200 hover:ring-sky-300'
+            }`}
+          >
+            {h.text}
+          </button>
+        ))}
+      </div>
+
+      {remaining > 0 && (
+        <p className="mt-2 text-[11.5px] font-bold text-amber-700">
+          {t('detective.play.lockedHint', { remaining })}
         </p>
-        <div role="radiogroup" aria-labelledby="detective-hypotheses" className="space-y-2">
-          {detail.hypotheses.map((h) => (
-            <button
-              key={h.hypothesis_id}
-              type="button"
-              role="radio"
-              aria-checked={picked === h.hypothesis_id}
-              onClick={() => setPicked(h.hypothesis_id)}
-              data-testid={`detective-hypothesis-${h.hypothesis_id}`}
-              className={`block w-full rounded-2xl p-3 text-left text-[12.5px] leading-relaxed ring-1 transition ${
-                picked === h.hypothesis_id
-                  ? 'bg-sky-50 font-bold text-sky-900 ring-sky-400'
-                  : 'bg-white text-slate-700 ring-slate-200 hover:ring-sky-300'
-              }`}
-            >
-              {h.text}
-            </button>
-          ))}
-        </div>
+      )}
 
-        {remaining > 0 && (
-          <p className="mt-2 text-[11.5px] font-bold text-amber-700">
-            {t('detective.play.lockedHint', { remaining })}
-          </p>
-        )}
-
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={() => solveMutation.mutate()}
-          data-testid="detective-submit"
-          className="mt-3 w-full rounded-full bg-sky-600 px-4 py-3 text-sm font-extrabold text-white disabled:bg-slate-300"
-        >
-          {solveMutation.isPending ? t('detective.play.submitting') : t('detective.play.submit')}
-        </button>
+      <button
+        type="button"
+        disabled={!canSubmit}
+        onClick={() => solveMutation.mutate()}
+        data-testid="detective-submit"
+        className="mt-3 w-full rounded-full bg-sky-600 px-4 py-3 text-sm font-extrabold text-white disabled:bg-slate-300"
+      >
+        {solveMutation.isPending ? t('detective.play.submitting') : t('detective.play.submit')}
+      </button>
       </section>
 
       {/* ── 판정 announce (CO-S-A1) — 비어 있어도 DOM에 상주해야 라이브 영역이 산다 ── */}

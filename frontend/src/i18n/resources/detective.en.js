@@ -21,6 +21,7 @@ export default {
     },
     list: {
       title: '🔎 Climate Detective',
+      heroTitle: 'Why did the two stations disagree?',
       subtitle: 'Read a case file built from realistic observations, gather clues, and work out the cause.',
       empty: 'No open cases yet',
       emptyBody: 'Case files will show up here as they are prepared. Meanwhile you can change conditions in the explore sims.',
@@ -43,6 +44,8 @@ export default {
       fictional: 'Fictional data',
       region: 'Stations',
       period: 'Observation period',
+      caseFileLabel: 'CASE FILE',
+      evidenceNo: 'EVIDENCE {n}',
       chartsTitle: '1. Study the data',
       chartsHint: 'Opening a clue marks its moment on the chart.',
       chartAria: '{label} time series chart',

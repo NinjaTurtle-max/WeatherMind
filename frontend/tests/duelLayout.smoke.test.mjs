@@ -21,7 +21,7 @@
  * "클래스가 붙어 있다"까지만 본다 — 실제 픽셀은 브라우저 실측으로 확인했고,
  * 여기서 막고 싶은 것은 그 클래스가 정리 중에 사라지는 회귀다.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import http from 'node:http';
@@ -283,7 +283,12 @@ ok(
   // ⚠️ **클래스 전체**를 잡는다(종전에는 `basis-[300px]` **뒤**만 캡처했다).
   // 앵커에 넣은 토큰은 캡처에서 빠지므로, 그 토큰을 단정하는 줄이 영원히
   // 실패한다 — 폭 계약을 추가하다 실제로 그렇게 걸렸다.
-  const descCls = banner.match(/<p className="(hidden min-w-0 [^"]*)"/)?.[1] ?? '';
+  // ⚠️ 설명 클래스는 이제 **두 벌**이다(2026-08-19 `tightDescription` 신설).
+  //    두 벌 다 완성된 리터럴이라 그대로 뽑아 **각각** 아래 계약을 물린다 —
+  //    한 벌만 검사하면 다른 벌이 조용히 어긋난다.
+  const descVariants = [...banner.matchAll(/'(hidden min-w-0 [^']*)'/g)].map((m) => m[1]);
+  ok(descVariants.length === 2, `설명 클래스 두 벌(기본·tight)을 읽었다 — ${descVariants.length}건`);
+  for (const descCls of descVariants) {
   ok(
     /line-clamp-2/.test(descCls),
     `배너 설명이 두 줄까지 접힌다 — 실제 "${descCls.trim()}"`,
@@ -308,10 +313,35 @@ ok(
   // 1024·1152에서 360을 주면 예보·리그 배너(CompeteLayout 카드 안이라 더 좁다)의
   // **제목이 «…»로 잘린다** — 실측으로 확인하고 xl로 물렸다. 기본값을 360으로
   // 올리는 「간단한」 수정이 그 회귀다.
+  }
+  // 🔴 **폭의 소유자가 다시 `<p>`다**(2026-08-19 — 고지가 배너 밖으로 나가면서
+  // 그것을 감싸려고 만들었던 열이 없어졌다). 값은 그대로:
+  //   · 기본 xl **360** — 2026-08-18 실측(탐구 안내문 한 줄 = 351px)
+  //   · tight xl **430** — 10px 문구가 한 줄에 드는 폭(2026-08-19)
+  // ⚠️ **기본을 430으로 올리지 말 것.** 예보·리그 배너는 `CompeteLayout` 카드
+  //    안이라 더 좁아 제목 열이 70px 더 눌린다(1024·1152에서 360만으로도 제목이
+  //    «…»로 잘렸던 전례가 있어 xl 아래는 300 그대로다).
   ok(
-    /\bbasis-\[300px\]/.test(descCls) && /\bxl:basis-\[360px\]/.test(descCls),
-    `설명 폭이 xl에서만 넓어진다(기본 300 · xl 360) — 실제 "${descCls.trim()}"`,
+    descVariants.some((c) => /xl:basis-\[360px\]/.test(c)) && descVariants.some((c) => /xl:basis-\[430px\]/.test(c)),
+    `기본 설명은 xl 360 · tight는 xl 430 — 실제 ${JSON.stringify(descVariants.map((c) => c.match(/xl:basis-\[\d+px\]/)?.[0]))}`,
   );
+
+  // 🔴 **`note` 슬롯은 철거됐다** — 「교육용 단순화 모델」 고지는 배너 **밖**
+  // 위쪽 줄로 나갔다(사용자 정정 "튜터 카드 아예 밖으로"). 하루 사이 배너 안
+  // 두 자리를 거쳤고(제목 아래 h=104 · 오른쪽 열 h=90) 그때마다 이 파일의 치수
+  // 계약을 손댔다. 되돌아오면 그 계약이 다시 흔들리므로 **슬롯이 없는 상태**를
+  // 못박는다. 배너는 이제 고지를 아예 모른다 → h=90이 무조건 성립한다.
+  ok(!/\bnote\b/.test(banner.slice(banner.indexOf('export default function'))),
+     '배너 렌더부에 note 슬롯이 없다 — 고지는 배너 밖(상단 줄) 소유다');
+  // ⚠️ **정정 2026-08-19(3판).** 이 자리에는 하루 사이 두 판이 있었다:
+  //   1판 "description과 note를 같이 쓰지 말 것"(고지가 제목 아래 → 같이 쓰면 h=101)
+  //   2판 "같이 쓰려면 tightDescription을 켤 것"(태풍이 둘 다 필요 → h=104에서 멈춤)
+  //   3판(지금) **제약 자체가 사라졌다** — 고지가 오른쪽 열로 옮겨 가면서 둘이
+  //        같은 열에 위아래로 서고, 합쳐도 32px이라 62px 원 안이다(전 화면 h=90).
+  // 세 판을 다 남기는 이유: 1·2판의 금지가 기후변화에서 설명을 비우고 태풍에서
+  // tight를 켠 **판단의 근거**였고, 그 자국이 코드에 남아 있기 때문이다.
+  // 남는 계약은 높이가 아니라 **높이가 실제로 유지되는지**다 — 위 titleCol 검사와
+  // `mascotAssets` ⓔ(넓은 셸)가 그것을 맡는다.
 }
 
 // ── ⑤ 시각 라벨이 실서버 형식을 읽는가 (2026-08-10 실기동 회귀) ─────────────

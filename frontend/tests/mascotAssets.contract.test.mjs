@@ -339,10 +339,24 @@ console.log('④ 화면마다 말하는 캐릭터는 하나 — 배너는 담당
     ['/explore', 'src/modules/explore/ExploreHome.jsx'],
     ['/duel', 'src/modules/duel/DuelPage.jsx'],
     ['/league', 'src/modules/league/LeaguePage.jsx'],
+    // 실험실 5종(2026-08-19 사용자 지시 "모든 각 실험실 화면에 상단 튜터 카드").
+    // ⚠️ **자유 실험과 대기 보드는 같은 파일을 가리킨다** — 자유 실험의 튜터
+    //    카드는 따로 세운 배너가 아니라 `AtmosphereBoard`의 미션 배너 그 자체다
+    //    (자유 실험은 대기 보드와 **같은 판**이라 판이 자기 배너를 들고 온다).
+    //    그래서 두 경로가 같은 파일을 검사하고, 담당표도 둘 다 `sun`이어야 한다.
+    //    그 파일은 `mascot="…"` prop이 아니라 `<Mascot name="…">`로 그리므로
+    //    아래 `used`가 두 꼴을 모두 읽는다.
+    ['/board', 'src/modules/board/AtmosphereBoard.jsx'],
+    ['/explore/sandbox', 'src/modules/board/AtmosphereBoard.jsx'],
+    ['/explore/typhoon', 'src/modules/explore/TyphoonSimPage.jsx'],
+    ['/explore/climate', 'src/modules/explore/ClimateSimPage.jsx'],
+    ['/detective', 'src/modules/detective/CaseListPage.jsx'],
+    ['/hindcast', 'src/modules/hindcast/CaseListPage.jsx'],
   ];
   for (const [path, file] of banners) {
     const src = readFileSync(join(ROOT, file), 'utf8');
-    const used = src.match(/mascot="([a-z]+)"/)?.[1];
+    const used = src.match(/mascot="([a-z]+)"/)?.[1]
+      ?? src.match(/<Mascot\s+name="([a-z]+)"/)?.[1];
     ok(path in assigned, `${path} 배너의 담당이 표에 있다 — 없으면 담당이 정해지지 않은 화면이다`);
     ok(
       used === assigned[path],
@@ -361,6 +375,31 @@ console.log('④ 화면마다 말하는 캐릭터는 하나 — 배너는 담당
       all.size === 1 && all.has(assigned[path]),
       `${path} 화면의 캐릭터가 담당표 하나뿐이다 — 쓰인 것 ${JSON.stringify([...all])} · 표 ${assigned[path]}`,
     );
+  }
+
+  // ⓔ **배너를 세운 화면은 넓은 셸이어야 한다**(2026-08-19 실측으로 발견).
+  //
+  // HeroBanner의 치수(h=90)는 「제목 열(220px)과 설명 열(300px)이 **한 줄에
+  // 선다**」를 전제로 맞춰져 있다. `Layout`의 좁은 셸(`max-w-xl` = 576px)에서는
+  // 둘이 못 서서 배너가 두 줄로 접히고 **h=139**가 된다 — 그 순간 「배너 치수는
+  // 어디서나 같다」가 깨져, 화면을 오갈 때 배너 아래 본문이 49px씩 튄다.
+  // /hindcast가 상단 튜터 카드를 받자마자 정확히 그렇게 됐다(실측 139 → 90).
+  //
+  // 둘은 **한 쌍**이다: 배너를 세우면 `Layout.isWide`에도 넣어야 한다. 소스로
+  // 무는 이유는 jsdom에 CSS 엔진이 없어 두 줄 접힘을 좌표로 못 재기 때문이다.
+  {
+    const layout = readFileSync(join(ROOT, 'src/components/Layout.jsx'), 'utf8');
+    // isBoard(위에서 따로 선언된다)부터 shellWidth 직전까지가 폭 판정 구간이다.
+    const widthBlock = layout.slice(layout.indexOf('const isBoard ='), layout.indexOf('const shellWidth'));
+    const exact = new Set([...widthBlock.matchAll(/pathname === '([^']+)'/g)].map((m) => m[1]));
+    const prefixes = [...widthBlock.matchAll(/pathname\.startsWith\('([^']+)'\)/g)].map((m) => m[1]);
+    ok(exact.size + prefixes.length >= 6, `Layout의 폭 판정을 읽었다 — 정확 ${exact.size}건 · 접두 ${prefixes.length}건`);
+    for (const [path] of banners) {
+      ok(
+        exact.has(path) || prefixes.some((pre) => path.startsWith(pre)),
+        `${path}는 넓은 셸(Layout.isWide)이다 — 576px 셸에서는 배너가 두 줄로 접혀 h=90 계약이 깨진다`,
+      );
+    }
   }
 }
 

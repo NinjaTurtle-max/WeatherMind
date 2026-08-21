@@ -63,7 +63,13 @@ export default function GoalPanel({ goals, facts }) {
       aria-label={t('explore.goals.title')}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm font-bold text-slate-700">{t('explore.goals.title')}</p>
+        {/* 🔴 제목만 한 단계 크게(2026-08-19 사용자 지시 — "「탐구 목표」 이 제목
+            글씨 크기만 조금 더 키워줘"). `text-sm`(14) → `text-base`(16).
+            ⚠️ **목표 항목의 글자는 건드리지 않는다** — 지시가 「이 제목 글씨만」
+            이고, 항목까지 키우면 카드가 통째로 커져 2열 행 높이가 밀린다.
+            같은 이유로 옆의 달성 배지도 그대로다: `items-baseline` 정렬이라
+            제목만 커져도 두 글자의 밑선은 그대로 맞는다. */}
+        <p className="text-base font-bold text-slate-700">{t('explore.goals.title')}</p>
         <span
           className={`rounded-full px-2.5 py-0.5 text-[11px] font-extrabold ${
             allDone ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'

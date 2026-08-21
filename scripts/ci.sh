@@ -231,9 +231,7 @@ step_config() {
 #               현상 이름 목록이 아니라 조건 수라 결과가 평범한 fog인 4조건도 잡는다
 # board_engine 공유 벡터(test:board)는 node_modules 없이 도는 전용 `board` 단계가
 # 소유하므로 여기서 중복 실행하지 않는다.
-FRONT_TESTS=(explore explore-goals session session-blocks entry-flow load-progress placement placement-skip visual gating board-entry board-four-condition assist webgl schematic overlay display-parity i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective detective-xp knowledge-level onboarding-save guide-bot guide-bot-3d session-expiry
-  error-boundary
-)
+FRONT_TESTS=(explore explore-goals session session-blocks entry-flow load-progress placement placement-skip visual gating board-entry board-four-condition assist webgl schematic overlay display-parity i18n ui-copy course-select guest-convert review-queue region learn-path home home-entry mascot duel hint-character session-retry detective detective-xp knowledge-level onboarding-save guide-bot guide-bot-3d session-expiry error-boundary)
 
 step_frontend() {
   banner "frontend: build + 스모크 ${#FRONT_TESTS[@]}종 (선택)"
