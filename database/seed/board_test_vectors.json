@@ -2825,5 +2825,58 @@
         "passed": true
       }
     ]
+  },
+  {
+    "name": "mt19_chart_read_front_choice: 일기도 판독(board_order 53) — 전선을 잘못 읽으면 목표에 닿지 않는다",
+    "note_authoring": "MT-19 판독 1판의 **역검증을 계약으로 고정**한다. 그 보드의 팔레트는 전선 3종 + 습기이고 목표는 서해상 shower/cumulonimbus다. 판독이 실제로 채점되는지는 「틀린 전선을 놓으면 떨어지는가」로만 확인된다 — 그 실패를 여기 네 존에 나란히 놓았다(존별 판정이 독립이라 한 보드로 네 갈래를 잰다). ⚠️ **팔레트에 `sun`이 없는 것이 설계**다: sun이 있으면 `convective_shower`(sun>=80·moisture>=60)로 **전선 없이** 같은 목표에 닿아 판독이 채점 대상에서 빠진다.",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "front", "subtype": "cold", "zone": 0},
+        {"type": "moisture", "level": 70, "zone": 0},
+        {"type": "front", "subtype": "warm", "zone": 1},
+        {"type": "moisture", "level": 70, "zone": 1},
+        {"type": "front", "subtype": "stationary", "zone": 2},
+        {"type": "moisture", "level": 70, "zone": 2},
+        {"type": "moisture", "level": 100, "zone": 3}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "shower", "cloud": "cumulonimbus"},
+      {"zone": 1, "phenomenon": "rain", "cloud": "nimbostratus"},
+      {"zone": 2, "phenomenon": "persistent_rain", "cloud": "nimbostratus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ],
+    "goals": [
+      {"note": "한랭전선으로 읽으면 충족 — 적란운·좁은 강수·통과 후 기온 급강하가 그 단서다", "conditions": [{"zone": 0, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": true},
+      {"note": "온난전선으로 오독하면 난층운·약한 비라 미달", "conditions": [{"zone": 1, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": false},
+      {"note": "정체전선으로 오독하면 여러 날 이어지는 비라 미달", "conditions": [{"zone": 2, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": false},
+      {"note": "전선을 안 놓으면 물기를 100까지 올려도 미달 — 판독을 건너뛸 지름길이 없다", "conditions": [{"zone": 3, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": false}
+    ]
+  },
+  {
+    "name": "mt19_chart_read_moisture_threshold: 전선만 맞혀도 물기가 임계에 못 미치면 구름이 자라지 않는다",
+    "note_authoring": "같은 판의 둘째 축. 팔레트의 습기가 **장식이 아님**을 고정한다 — 미배치(기본 40)와 임계 미달(55)은 떨어지고 임계(60)에서 성립한다. 경계값 자체는 TestBoundary6059가 따로 물지만, 그것은 규칙의 경계이고 여기는 **이 보드의 목표**가 그 경계에 걸린다는 계약이다.",
+    "board": {
+      "zones": ["서해", "수도권", "태백산맥", "동해안"],
+      "elements": [
+        {"type": "front", "subtype": "cold", "zone": 0},
+        {"type": "front", "subtype": "cold", "zone": 1},
+        {"type": "moisture", "level": 55, "zone": 1},
+        {"type": "front", "subtype": "cold", "zone": 2},
+        {"type": "moisture", "level": 60, "zone": 2}
+      ]
+    },
+    "expected": [
+      {"zone": 0, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 1, "phenomenon": "cloudy", "cloud": "cumulus"},
+      {"zone": 2, "phenomenon": "shower", "cloud": "cumulonimbus"},
+      {"zone": 3, "phenomenon": "cloudy", "cloud": "cumulus"}
+    ],
+    "goals": [
+      {"note": "습기를 아예 안 놓으면(기본 40) 전선이 맞아도 미달", "conditions": [{"zone": 0, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": false},
+      {"note": "55는 임계 미달이라 미달", "conditions": [{"zone": 1, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": false},
+      {"note": "60에서 성립 — 경계 포함", "conditions": [{"zone": 2, "phenomenon": "shower", "cloud": "cumulonimbus"}], "passed": true}
+    ]
   }
 ]
