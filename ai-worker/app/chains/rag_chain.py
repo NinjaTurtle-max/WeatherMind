@@ -200,8 +200,17 @@ def _cached_chain(
     실어서, OpenRouter → 로컬 Ollama처럼 **모델명이 같고 엔드포인트만 다른** 전환이
     조용히 옛 클라이언트를 재사용했다(`validate_chain`은 이미 둘 다 싣고 있었다).
     """
+    # ⚠️ **system 메시지 하나뿐이면 Gemini가 400을 낸다** — 무키(dummy) 운영으로만
+    # 지내는 동안 아무도 실호출을 안 해봐서 미탐으로 남아 있었다(2026-08-21 실키
+    # 첫 호출에서 발견: "GenerateContentRequest.contents: contents is not
+    # specified"). `contents`는 system_instruction과 분리된 turn이 최소 1개
+    # 있어야 한다. 입력 변수는 그대로 system 템플릿에 두고, human 쪽은 실행을
+    # 지시하는 고정 문구만 더한다 — 데이터 배선을 안 건드리는 최소 수정이다.
     prompt = ChatPromptTemplate.from_messages(
-        [("system", SYSTEM_PROMPT if with_context else SYSTEM_PROMPT_NO_CONTEXT)]
+        [
+            ("system", SYSTEM_PROMPT if with_context else SYSTEM_PROMPT_NO_CONTEXT),
+            ("human", "위 지침과 입력에 따라 피드백을 작성하세요."),
+        ]
     )
     # 런타임은 CO-B7이 "전건 유료 Gemini"로 정한 구간이지만, 통로는 열어 둔다 —
     # 결정이 바뀌어도 코드를 안 고치게 하는 것이 이 층의 목적이다.
