@@ -1,6 +1,11 @@
 /**
  * scenes — **전 규칙** 단면 장면 기술(記述) (R10-C / S2 · R13 확장 5종).
  *
+ * ⚠️ 종수를 여기 적지 않는다(CLAUDE.md §0-2). 소유자는 `database/seed/board_rules.json`
+ * 하나이고 「규칙 수 === SCENES 키 수 === STORYBOARDS 키 수」는
+ * `crossSectionWebgl.contract`가 문다 — 종전에 적혀 있던 "13종"은 규칙이 15종·18종이
+ * 된 뒤에도 그대로 남아 있었고, 실제로 그 표가 늘지 않은 것이 MT-24의 결함이었다.
+ *
  * **서버 계약·rule_id 매핑 불변**: 입력은 기존과 동일한 로컬 엔진 산출
  * {현상·구름·rule_id·explain}이고, 여기서는 rule_id → 3D 장면만 매핑한다.
  * 단계 시퀀스·캡션은 `CrossSectionPanel.STORYBOARDS`가 단일 진실원이며 이 파일은
@@ -1157,6 +1162,7 @@ const greenhouseTropicalNight = () => [
   label({ x: 0.5, y: H(1.06), text: V.noWindNoMixing, color: '#fca5a5', at: 3, size: 10 }),
 ];
 
+
 // ── 레지스트리 ──────────────────────────────────────────────────────────────
 /**
  * rule_id → 장면. `STORYBOARDS`(캡션·단계 수의 단일 진실원)와 키가 일치해야 하며
@@ -1179,6 +1185,7 @@ export const SCENES = {
   dry_convection_clear: { build: dryConvectionClear },
   wildfire_risk_dry_gale: { build: wildfireRiskDryGale },
   flood_risk_saturated_inflow: { build: floodRiskSaturatedInflow, sea: { from: 0, to: 0.2 } },
+  // ㉣ 변동 기상요소(MT-24) — 규칙만 있고 장면이 없던 3종
   cold_front_squall_storm: { build: coldFrontSquallStorm },
   siberian_gale_wildfire: { build: siberianGaleWildfire },
   front_convergence_flood: { build: frontConvergenceFlood, sea: { from: 0, to: 0.18 } },
