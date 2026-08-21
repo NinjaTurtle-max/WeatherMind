@@ -160,7 +160,7 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 |---|---|---|
 | 동아시아 해안선 좌표 (`frontend/src/modules/explore/coastline.js`) | Natural Earth 1:50m `ne_50m_land` — [naturalearthdata.com](https://www.naturalearthdata.com/) | **퍼블릭 도메인** — *"No permission is needed to use Natural Earth."* |
 | 기상 실황·예보 데이터 | **기상청 API허브**(apihub.kma.go.kr) — 공공데이터포털(data.go.kr)과 별개 시스템 | 공공누리(KOGL) 마크 적용, **출처표시 의무 확인됨**(apihub.kma.go.kr/policy.do). 정확한 유형 번호(제1~4유형)는 같은 페이지 하단 마크로 직접 확인 요망 — 일반적으로 기상청 공공데이터는 제1유형(출처표시만 조건, 상업적 이용·변경 허용)이 통용되나 API허브 자체 페이지에서 최종 확인 필요 |
-| 마스코트·아이콘 PNG 12종 + `guidebot.png`·`guidebot.mesh` (`frontend/public/`) | **팀이 생성형 AI 도구로 직접 제작** (2026-08-14 확인) | AI 생성 자산 — 제3자 저작물 아님 |
+| 마스코트·아이콘 PNG 14종 + `guidebot.png`·`guidebot.mesh` (`frontend/public/`) | **팀이 생성형 AI 도구로 직접 제작**(1080² 캔버스 생성 → 내용 경계 크롭). 최초 12종은 2026-08-14 확인, `grass.png`·`wind.png` 2종은 8/18 같은 파이프라인으로 추가(개념 14종 : 그림 14종 1:1 매칭 완결) | AI 생성 자산 — 제3자 저작물 아님 |
 | 3D 마스코트 (`design/mascot/weathermind-bot.glb`) | **팀이 생성형 AI 도구로 직접 제작** (2026-08-14 확인). `guidebot.png`는 `scripts/render_mascot_glb.py`, `guidebot.mesh`는 `scripts/bake_mascot_glb.py`가 이 파일에서 결정적으로 생성한 파생물 | AI 생성 자산 — 원본과 동일 |
 | 문항 본문·해설 (`database/seed/`) | 프로젝트 팀 직접 저작 | 이 저장소의 MIT를 따름 |
 
