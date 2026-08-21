@@ -436,7 +436,15 @@ function NicknameLine() {
   const [error, setError] = useState(null);
 
   const mutation = useMutation({
-    mutationFn: authApi.updateNickname,
+    // 🔴 **현재 학령을 함께 싣는다** — `PATCH /auth/me`가 명시 신고 경로라
+    //   `level_group`이 필수다(안 보내면 422). 값은 **바꾸지 않는다**: 지금 값을
+    //   그대로 다시 신고하는 것이고, 그때 재보정 도장이 안 움직이는 것은 서버가
+    //   보장한다(`update_me`의 `stamp_moves` 가드).
+    // ⚠️ 스토어의 `user.level_group`을 쓴다(`GET /auth/me` 응답이 싣는다). 비어 있으면
+    //   중립 기본값으로 떨어뜨린다 — `undefined`를 보내면 **다시 422**이고, 그것이
+    //   이 수리가 고치려는 바로 그 증상이다.
+    mutationFn: (nickname) =>
+      authApi.updateNickname(nickname, user?.level_group ?? 'middle_high'),
     onSuccess: (data) => {
       // 서버가 돌려준 값을 쓴다 — 트림·정규화가 서버 몫이라 화면이 앞서면 갈린다.
       setUser({ ...(user ?? {}), nickname: data?.nickname ?? draft.trim() });
