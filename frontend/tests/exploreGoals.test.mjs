@@ -183,6 +183,27 @@ try {
         && at(en, 'explore.goals.progress').includes(`{${p}}`)));
   }
 
+  // ── ⑷b 목표 항목은 **가로로 눕는다** (2026-08-21 사용자 판단) ────────────
+  /*
+   * 목표 셋이 세로로 쌓여 카드가 279px였다. 한 행이 1,088px 폭에 **제목 + 한 줄**
+   * 뿐이라 옆으로 남는 폭을 아무도 안 썼다 — 실측 279 → 170px.
+   *
+   * ⚠️ 이 패널은 **태풍·기후 두 화면이 공유한다.** 여기서 열 수를 바꾸면 두 곳이
+   *    같이 바뀐다 — 그래서 한쪽 화면만 보고 고치지 말 것.
+   * ⚠️ 좁은 화면에서는 **접혀야 한다.** `sm:`·`lg:` 없이 3열을 박으면 휴대폰에서
+   *    한 칸이 120px가 되어 제목부터 감긴다. 그래서 「3열」이 아니라
+   *    「좁으면 1열 → sm 2열 → lg 3열」이 계약이다.
+   */
+  {
+    const panel = await readFile(resolve(root, 'src/modules/explore/GoalPanel.jsx'), 'utf8');
+    const listCls = panel.match(/<ul className="([^"]*)">/)?.[1] ?? '';
+    check(`목표 목록이 격자다(세로 쌓기 아님) — 실제 "${listCls}"`,
+      /\bgrid\b/.test(listCls) && !/space-y-/.test(listCls));
+    check(`목표 격자가 좁은 화면에서 접힌다(sm 2열 · lg 3열) — 실제 "${listCls}"`,
+      /sm:grid-cols-2/.test(listCls) && /lg:grid-cols-3/.test(listCls)
+        && !/(?<!:)grid-cols-3/.test(listCls));
+  }
+
   // ── ⑸ SSR — 목표 패널이 실제로 화면에 뜬다 ──────────────────────────────
   for (const [path, name, total] of [
     ['/src/modules/explore/TyphoonSimPage.jsx', 'TyphoonSimPage', G.TYPHOON_GOALS.length],

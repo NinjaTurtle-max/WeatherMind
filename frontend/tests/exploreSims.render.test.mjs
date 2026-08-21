@@ -542,6 +542,25 @@ try {
     schemLines.length === 2 && schemLines.every((l) => /^ {8}<SchematicPanel$/.test(l)));
   checkMt21('㉴ 모식도 격자가 CTA를 삼키지 않았다 — CTA는 여전히 격자 밖이다',
     tCta > schemClose);
+  /*
+   * ㉵ **자리는 「목표 뒤 · 조작 앞」이다** (2026-08-21 사용자 지시 — "목표랑
+   *    그래프 사이에 모식도 두 개를 배치").
+   *
+   *    종전에는 화면 맨 아래였다. 그 자리의 근거로 적혀 있던 「축이 달라서 뒤에
+   *    덧붙인다」는 **함께 둔다의 이유이지 뒤에 둔다의 이유가 아니었고**, 맨 아래
+   *    모식도는 조작을 마치고 스크롤을 멈춘 사람에게 없는 것과 같았다.
+   *    이제 순서가 「무엇을 해 볼까(목표) → 어떻게 생겼나(모식도) → 직접
+   *    돌려보기(조작·결과)」다.
+   *
+   *    ⚠️ 「목표 뒤」만 물면 부족하다 — 맨 아래로 되돌려도 목표보다는 뒤다.
+   *       **조작 행보다 앞**인지가 이 지시의 본체라 둘을 함께 문다.
+   */
+  const tGoalPanel = typhoonSrc.indexOf('<GoalPanel');
+  checkMt21('㉵ 모식도가 탐구 목표 뒤에 온다', tGoalPanel > -1 && tSchemGrid > tGoalPanel);
+  checkMt21('㉵ 모식도가 조작·결과 행보다 **앞**에 온다 — 맨 아래로 되돌리면 붉어진다',
+    tGrid > -1 && schemClose < tGrid);
+  checkMt21('㉵ 모식도가 위성 도식보다도 앞이다 — 개념을 먼저 보고 손을 댄다',
+    tSat2 > -1 && schemClose < tSat2);
   const satSrc = await readFile(resolve(root, 'src/modules/explore/SatelliteView.jsx'), 'utf8');
   checkMt21('㉲ 위성 도식이 자기 여백(mt-4)을 갖지 않는다 — 격자 칸에서 옆 칸보다 16px 내려앉는다',
     !/<figure className="[^"]*\bmt-4\b/.test(satSrc));
