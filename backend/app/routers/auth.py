@@ -630,11 +630,21 @@ async def update_me(
                 detail={"detail": "이미 사용 중인 닉네임입니다.", "code": "NICKNAME_TAKEN"},
             )
         db_user.nickname = body.nickname
+    # 🔴 **도장은 값이 실제로 바뀔 때만 옮긴다**(2026-08-21 · 선재 결함 수리).
+    #   바로 아래 종전 주석이 사유를 *「마지막 신고가 참값이고, 그 이전 로그는
+    #   `answered_at < level_group_declared_at`으로 재보정에서 갈린다」*로 적는데,
+    #   **그 사유는 「값이 바뀐 재신고」에만 참이다.** 같은 밴드를 다시 신고하면
+    #   마지막 신고 = 종전 값이라 **갈릴 이전 로그가 없다** — 도장을 옮길 이유가 없다.
+    #   ⚠️ 지금까지는 조건 없이 갱신해서, **아무것도 안 바뀌었는데 이전 응답이
+    #   재보정에서 갈렸다.** 선재 결함이고, 닉네임 변경이 이 경로를 타면서 드러났다
+    #   (닉네임만 고치려는 호출도 학령을 함께 실어 보낸다 — 이 경로가 명시 신고라서다).
+    #   🔴 **가드가 과하게 잠그지 않는다는 것**은 계약이 따로 문다(값이 실제로 바뀌면
+    #   도장이 움직인다) — 그것이 없으면 이 분기를 `if False:`로 바꿔도 초록이다.
+    stamp_moves = db_user.level_group != body.level_group
     db_user.level_group = body.level_group
     # UpdateMeRequest.level_group은 필수 필드 — 이 경로는 언제나 명시 신고다(0015).
-    # 재신고는 도장을 **덮어쓴다**: 마지막 신고가 참값이고, 그 이전 로그는
-    # `answered_at < level_group_declared_at`으로 재보정에서 갈린다.
-    db_user.level_group_declared_at = _declared_now()
+    if stamp_moves:
+        db_user.level_group_declared_at = _declared_now()
     # 🔴 **재신고는 θ 사전값도 갈아탄다** — 이게 없으면 학령을 바꿔도 보드 천장이
     # 안 움직인다(잠금 배너 CTA 「학습 수준 바꾸기」가 못 지키는 약속이 된다).
     # 천장의 유일한 입력은 θ 파생(`board.learner_tier` → `overall_knowledge_level`)

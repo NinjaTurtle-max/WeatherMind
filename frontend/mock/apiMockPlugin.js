@@ -2931,6 +2931,13 @@ const routes = {
     if (gate.status !== 200) return [gate.status, { detail: gate.detail, code: gate.code }];
     // 「안 보냄」이면 이름은 건드리지 않는다(문이 null을 돌려준다).
     if (gate.nickname !== null) mockAuth.nickname = gate.nickname;
+    // 🔴 **도장은 값이 실제로 바뀔 때만 옮긴다**(서버 `update_me`의 `stamp_moves` 사본).
+    //   같은 밴드를 다시 신고하면 갈릴 이전 로그가 없다 — 닉네임만 바꾸는 호출이
+    //   학령을 함께 실어 보내는 것이 정상 동선이라 이 가드가 없으면 **이름만 바꿨는데
+    //   재보정 경계가 움직인다.**
+    if (mockAuth.levelGroup !== body.level_group) {
+      mockAuth.levelGroupDeclaredAt = new Date().toISOString();
+    }
     mockAuth.levelGroup = body.level_group;
     // 🔴 **미측정 θ만 재파종한다**(2026-08-20 재파종 판정). 규칙의 소유자는
     //    `reseedUnmeasuredAbilities` 하나이고 경위는 그 선언부가 갖는다.

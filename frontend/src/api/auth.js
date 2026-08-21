@@ -81,8 +81,17 @@ export async function updateLevelGroup(level_group) {
  * 이미 "게스트가 갇히지 않게 하는 통로"로 존재한다.
  * 중복은 409 `NICKNAME_TAKEN`(자기 자신은 제외된다).
  */
-export async function updateNickname(nickname) {
-  const res = await client.patch('/auth/me', { nickname });
+export async function updateNickname(nickname, levelGroup) {
+  // 🔴 **학령을 함께 보낸다 — 안 보내면 422다**(2026-08-21 수리).
+  //   `UpdateMeRequest.level_group`이 **기본값 없는 필수 필드**라(그 독스트링:
+  //   *「이 경로는 언제나 명시 신고다(0015)」*) `{nickname}`만 보내면 pydantic이
+  //   `('level_group',) missing`으로 거절한다. ⇒ **이 버튼은 눌러도 항상 422였다.**
+  //   ⚠️ 목도 같은 422를 냈다 — **파리티는 맞고 기능이 죽은** 형태라 목↔서버 대조로는
+  //   원리적으로 안 잡혔고, 스모크는 입력만 열고 **제출하지 않아** 초록이었다.
+  //   ⚠️ 서버 계약을 뒤집는 쪽(선택 필드화)을 고르지 않았다 — 그러면 재파종이
+  //   학령 없이 불릴 수 있게 된다. **같은 값을 다시 신고하는 것**이 옳은 형태이고,
+  //   그때 도장이 안 움직이는 것은 서버가 보장한다(`update_me`의 `stamp_moves`).
+  const res = await client.patch('/auth/me', { nickname, level_group: levelGroup });
   return res.data;
 }
 
