@@ -500,6 +500,48 @@ try {
     tCta > tWhy && /^ {6}<Link$/.test(ctaLine));
   checkMt21('㉲ 「왜 그럴까」가 화면에 한 번만 있다 — 옮기며 사본을 남기지 않았다',
     (typhoonSrc.match(/explore\.common\.whyTitle/g) ?? []).length === 1);
+  /*
+   * ㉴ **모식도 둘은 나란히 선다** (2026-08-21 사용자 지시 — "모식도 두 개 사이즈
+   *    모두 줄여서 왼쪽·오른쪽 배치").
+   *
+   *    세로로 쌓았을 때 둘이 780px씩, **화면의 절반(1,560/3,348px)**을 먹었다.
+   *    2열로 접어 실측 3,348 → 2,224px(-34%). 캔버스 520×300(종전 1,088×628)이고
+   *    캔버스 라벨은 그 폭에서도 읽힌다(실측 확인).
+   *
+   *    ⚠️ 높이를 직접 못 박을 수 없다 — 화면비를 `CrossSectionGL`이 260:150으로
+   *       고정하므로 **열 폭이 유일한 손잡이**다. 그래서 계약도 격자를 문다.
+   *    ⚠️ 두 열은 **같은 비율**이어야 한다. 한쪽을 넓히면 캔버스 높이가 갈려
+   *       두 카드의 캡션 줄이 어긋나고 나란한 것으로 안 읽힌다.
+   *    ⚠️ CTA는 이 격자 **밖**에 남아야 한다 — 위 ㉱와 같은 이유이고, 격자가
+   *       하나 늘었으므로 그 계약이 새 격자에도 걸리는지 다시 본다.
+   */
+  const tSchemGrid = typhoonSrc.indexOf('<div className="grid gap-4 lg:grid-cols-2">');
+  const tT1 = typhoonSrc.indexOf('explore.schematic.card.t1.title');
+  const tT2 = typhoonSrc.indexOf('explore.schematic.card.t2.title');
+  checkMt21('㉴ 태풍: 모식도 2열 격자가 있다', tSchemGrid > -1);
+  /*
+   * 🔴 **「격자 뒤에 온다」도 「들여쓰기 8칸」도 담기를 증명하지 못한다.**
+   *    처음에 그 둘로 썼는데, 한 장을 격자 **밖**으로 빼되 들여쓰기만 8칸으로
+   *    남기는 변이가 **그대로 통과했다**(돌연변이 검증에서 잡혔다). 위 ㉱가
+   *    "격자 뒤에 온다만 보면 딸려 들어가도 통과한다"고 적어 둔 바로 그 교훈을
+   *    한 줄 아래에서 되풀이한 것이다.
+   *    그래서 격자의 **닫는 태그 위치를 실제로 찾아** 그 안쪽인지 본다:
+   *    페이지 직계 격자라 닫는 줄은 6칸 `</div>`이고, 그것이 이 격자의 끝이다.
+   */
+  const schemClose = typhoonSrc.indexOf('\n      </div>', tSchemGrid);
+  // ⚠️ 이름은 `inSchemGrid` — 같은 파일 위쪽에 다른 `inGrid`가 이미 있다.
+  //    처음에 `inGrid`로 써서 파일 전체가 SyntaxError로 죽었다(이 파일에서
+  //    블록 스코프 밖 재선언이 두 번째다).
+  const inSchemGrid = (i) => tSchemGrid > -1 && schemClose > -1 && i > tSchemGrid && i < schemClose;
+  checkMt21(`㉴ 모식도 둘이 격자 **안**에 있다(닫는 태그까지 확인) — t1 ${inSchemGrid(tT1)} · t2 ${inSchemGrid(tT2)}`,
+    inSchemGrid(tT1) && inSchemGrid(tT2));
+  // 담기를 확인한 뒤에야 들여쓰기가 뜻을 갖는다 — 둘 다 격자 직계(8칸)여야
+  // 한 칸씩 차지한다(하나가 다른 하나를 감싸도 위 검사는 통과한다).
+  const schemLines = (typhoonSrc.match(/^ *<SchematicPanel$/gm) ?? []);
+  checkMt21(`㉴ 두 패널 모두 격자 직계 자식이다(들여쓰기 8칸) — 실제 ${schemLines.map((l) => l.length - l.trimStart().length).join('/')}`,
+    schemLines.length === 2 && schemLines.every((l) => /^ {8}<SchematicPanel$/.test(l)));
+  checkMt21('㉴ 모식도 격자가 CTA를 삼키지 않았다 — CTA는 여전히 격자 밖이다',
+    tCta > schemClose);
   const satSrc = await readFile(resolve(root, 'src/modules/explore/SatelliteView.jsx'), 'utf8');
   checkMt21('㉲ 위성 도식이 자기 여백(mt-4)을 갖지 않는다 — 격자 칸에서 옆 칸보다 16px 내려앉는다',
     !/<figure className="[^"]*\bmt-4\b/.test(satSrc));
