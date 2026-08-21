@@ -209,22 +209,25 @@
   {
     "concept_tag": "co2_climate",
     "level_group": "adult",
-    "question_type": "slider",
+    "question_type": "multiple_choice",
     "template_json": {
       "question_text": "파리협정에서 세계 각국은 지구 평균기온 상승 폭을 산업화 이전 대비 몇 ℃보다 훨씬 낮게 억제하기로 합의했는가? (단위: ℃)",
-      "correct_answer": "2",
-      "explanation_hint": "파리협정(2015)의 목표는 산업화 이전 대비 기온 상승을 2℃보다 훨씬 낮게 억제하고, 나아가 1.5℃ 이내로 제한하도록 노력하는 것입니다. 이를 위해 각국이 온실가스 감축 목표를 제출합니다.",
-      "min": 0,
-      "max": 5,
-      "step": 0.5,
-      "unit": "℃"
+      "options": [
+        "2℃",
+        "1.5℃",
+        "3℃",
+        "1℃"
+      ],
+      "correct_answer": "2℃",
+      "explanation_hint": "파리협정(2015)의 목표는 산업화 이전 대비 기온 상승을 2℃보다 훨씬 낮게 억제하고, 나아가 1.5℃ 이내로 제한하도록 노력하는 것입니다. 이를 위해 각국이 온실가스 감축 목표를 제출합니다."
     },
     "uses_live_slots": false,
     "source": {
       "kind": "claude-authored",
       "refs": [
         "R12 §9",
-        "파리협정 기온 목표"
+        "파리협정 기온 목표",
+        "2026-08-20 slider→multiple_choice 전환 — 관용오차 ±10은 **절대값**이라 눈금 폭이 그보다 좁으면 무엇을 짚어도 정답이었다(lint slider_indiscriminate). 지문은 시드 멱등 키((concept_tag, question_text))라 한 글자도 바꾸지 않는다 — 바꾸면 upsert가 삽입이 되고 구 슬라이더 행이 실DB에 active로 남는다."
       ]
     },
     "status": "active"
