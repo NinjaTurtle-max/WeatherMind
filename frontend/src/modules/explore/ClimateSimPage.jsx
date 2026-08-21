@@ -396,7 +396,7 @@ export default function ClimateSimPage() {
               {t('explore.climate.sensLabel')}
             </label>
             <span className="text-sm font-extrabold text-sky-700">
-              {sensitivity.toFixed(1)}℃
+              {sensitivity.toFixed(1)}{t('common.celsius')}
             </span>
           </div>
           <input
@@ -431,7 +431,7 @@ export default function ClimateSimPage() {
               {t('explore.climate.seaSlopeLabel')}
             </label>
             <span className="text-sm font-extrabold text-sky-700">
-              {seaLevelPerDeg}cm/℃
+              {seaLevelPerDeg}cm/{t('common.celsius')}
             </span>
           </div>
           <input

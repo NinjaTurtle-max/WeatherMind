@@ -351,7 +351,6 @@ console.log('④ 화면마다 말하는 캐릭터는 하나 — 배너는 담당
     ['/explore/typhoon', 'src/modules/explore/TyphoonSimPage.jsx'],
     ['/explore/climate', 'src/modules/explore/ClimateSimPage.jsx'],
     ['/detective', 'src/modules/detective/CaseListPage.jsx'],
-    ['/hindcast', 'src/modules/hindcast/CaseListPage.jsx'],
   ];
   for (const [path, file] of banners) {
     const src = readFileSync(join(ROOT, file), 'utf8');

@@ -76,7 +76,7 @@ function categoryOf(intensity) {
  *
  * intensity = round((15 + 85 · excess/5.5) · shearFactor)
  *   - excess = max(0, sst − 26.5), 5.5 = 입력 최대 초과분(32 − 26.5)
- *   - sst < 26.5 ⇒ 발생 없음(category 'none', intensity 0, 곡선 평탄)
+ *   - sst <= 26.5 ⇒ 발생 없음(category 'none', intensity 0, 곡선 평탄)
  *   - sst 고정 시 시어 약→강 단조감소, 시어 고정 시 sst 단조증가(비감소)
  *
  * 발달 곡선: 로지스틱 성장 L(t) = 1/(1+e^−(t−4)/1.6) 을 [0, intensity]로 정규화한

@@ -763,7 +763,10 @@ await new Promise((r) => httpServer.close(r));
   //    단정하면 여백을 더한 순간 격자 하나가 목록에서 사라진다(실제로 그랬다).
   const grids = [...page.matchAll(/<div className="([^"]*grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/g)]
     .map((m) => m[1]);
-  ok(grids.length === 2, `ⓒ0 같은 꼴의 격자가 둘이다(본문·꼬리) — 실제 ${grids.length}개`);
+  // 🔴 2 → 1 (2026-08-21 병합). 꼬리 2열 격자는 학습 수준·하루 목표 카드와 짝이었고
+  //    그 둘이 8/19 클라이언트 지시로 철거됐다(「진입에서 한 번 고르면 고정」).
+  //    격자만 남기면 한 칸짜리 2열이 된다.
+  ok(grids.length === 1, `ⓒ0 같은 꼴의 격자가 하나다(본문) — 실제 ${grids.length}개`);
   ok(
     /lg:grid-cols-2/.test(grids[0] ?? '') && !/lg:items-start/.test(grids[0] ?? ''),
     `ⓒ 본문 두 열이 같은 높이로 늘어난다 (items-start 없음) — 실제 "${grids[0]}"`,
@@ -801,26 +804,14 @@ await new Promise((r) => httpServer.close(r));
  */
 {
   const page = readFileSync(resolve(root, 'src/modules/progress/ProgressPage.jsx'), 'utf8');
-  const open = page.indexOf('grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">', page.indexOf('꼬리 설정 묶음'));
-  const close = page.indexOf('/꼬리 2열');
-  const tail = open >= 0 && close > open ? page.slice(open, close) : '';
-  ok(tail.length > 0, '꼬리 2열 격자를 소스에서 찾았다');
-  const inside = ['<SaveProgressCard />', '<LevelGroupCard />', '<DailyGoalPicker'].filter(
-    (tag) => tail.includes(tag),
-  );
+  // 🔴 **뒤집는다**(2026-08-21 병합) — 종전에는 「꼬리 2열 격자 안에 셋이 있다」였다.
+  //    학습 수준·하루 목표 카드가 8/19 클라이언트 지시로 철거되어 셋 중 둘이 없다.
+  //    ⇒ 이제 지켜야 할 것은 **그 둘이 되살아나지 않는 것**이다. 단정을 지우지 않고
+  //    방향만 바꾼다 — 지우면 되살아나도 아무도 안 운다.
+  const gone = ['<LevelGroupCard />', '<DailyGoalPicker'].filter((tag) => page.includes(tag));
   ok(
-    inside.length === 3,
-    `ⓕ 꼬리 설정 셋이 모두 2열 격자 안에 있다 — 실제 ${inside.length}/3`,
-  );
-  // ⓕ2 **셋을 이름으로 세는 것만으로는 부족하다** — 진짜 재발 경로는 "넷째
-  //     카드를 격자 **뒤에** 붙이는 것"이고, 이름 목록은 그것을 못 본다(처음에
-  //     그렇게 써 놓고 주석에는 잡는다고 적었다). 그래서 격자가 닫힌 뒤부터
-  //     컴포넌트 끝까지에 **여는 태그가 하나도 없어야** 한다고 못박는다.
-  const after = tail.length ? page.slice(close, page.indexOf('\n}', close)) : '';
-  const trailing = [...after.matchAll(/<([A-Za-z][\w.]*)/g)].map((m) => m[1]);
-  ok(
-    trailing.length === 0,
-    `ⓕ2 격자 뒤에 붙은 카드가 없다(넷째를 밖에 두면 그 한 장만 전폭이 된다) — 실제 ${trailing.join(' / ') || '없음'}`,
+    gone.length === 0,
+    `ⓕ 철거된 카드가 되살아났다(8/19 판정: 진입에서 한 번 고르면 고정) — ${gone.join(' / ')}`,
   );
   // ⚠️ 진도 저장 카드의 뿌리는 **같은 파일 아래쪽 별도 함수**에 있다(격자 안이
   //    아니다). 그래서 격자 본문이 아니라 testid로 찾아 본다.
@@ -830,56 +821,33 @@ await new Promise((r) => httpServer.close(r));
   //    머리가 16px 내려간 채로 병합됐다**(사용자가 화면에서 잡았다). 계약이
   //    "격자 본문 + 예외 하나"로 쓰이면 예외가 늘 때마다 같은 구멍이 생긴다 —
   //    그래서 뿌리를 **목록**으로 들고 하나씩 확인한다.
-  const levelRoot = page.match(/return \(\s*\n\s*<div className="([^"]*)">\s*\n\s*<p className="text-sm font-extrabold text-slate-900">\{t\('profile\.levelGroupTitle'\)\}/)?.[1] ?? '';
-  const roots = [['save-progress-card', saveRoot], ['LevelGroupCard', levelRoot]];
-  ok(
-    roots.every(([, cls]) => cls.length > 0),
-    `ⓖ0 격자 밖 카드 뿌리를 둘 다 찾았다 — ${roots.map(([n, c]) => `${n}=${c ? 'o' : 'x'}`).join(' ')}`,
-  );
-  // 🔴 `\bmt-4\b`로 쓰면 **`scroll-mt-4`에 걸린다** — `-`가 단어 문자가 아니라
-  //    그 뒤에서 경계가 성립하기 때문이다. 처음에 그렇게 써서 셋 다 붉었고,
-  //    `scroll-mt-4`는 해시 스크롤 여백이라 걷으면 안 되는 값이다.
-  //    Tailwind 클래스를 셀 때는 하이픈까지 막는 경계를 쓸 것.
-  const MT4 = /(?<![\w-])mt-4(?![\w-])/;
-  const strays = [
-    ...roots.filter(([, cls]) => MT4.test(cls)).map(([name]) => name),
-    ...[...tail.matchAll(/className="([^"]*)"/g)].map((m) => m[1]).filter((c) => MT4.test(c)),
-  ];
-  ok(
-    strays.length === 0,
-    `ⓖ 간격의 임자는 격자 gap-4 하나다(자식 mt-4 없음) — 실제 ${strays.join(' / ') || '없음'}`,
-  );
-  // ⚠️ 위 블록의 `grids`를 **빌려 쓰지 않는다** — 블록 스코프라 여기서는
-  //    ReferenceError다(이 파일에서 실제로 한 번 그렇게 깨뜨렸다). 다시 센다.
-  // ⚠️ 앞에 다른 클래스가 붙을 수 있다(`mt-6 grid …`) — `grid`로 시작한다고
-  //    단정하면 여백을 더한 순간 **격자를 못 찾고 계약이 통째로 조용해진다**.
-  //    실제로 `mt-6`을 붙이며 그렇게 됐다.
-  const tailGrid = [...page.matchAll(/<div className="([^"]*grid grid-cols-\[minmax\(0,1fr\)\][^"]*)"/g)]
-    .map((m) => m[1])[1] ?? '';
-  ok(
-    /(?<![\w-])mt-6(?![\w-])/.test(tailGrid),
-    `ⓗ 꼬리 격자가 분석 판과 붙지 않는다(절 사이 여백) — 실제 "${tailGrid}"`,
+  // 🔴 **여기부터 ⓙ까지 통째로 뒤집혔다**(2026-08-21 병합).
+  //    종전에는 「꼬리 2열 격자 안에 학습 수준·하루 목표·진도 저장 셋이 있고
+  //    간격·높이 흡수가 맞다」를 물었다. 그런데 앞의 둘이 **8/19 클라이언트 지시로
+  //    철거**됐다(「진입에서 한 번 고르면 고정」). 격자도 함께 사라졌다.
+  //    ⇒ 지킬 것이 「배치」에서 **「되살아나지 않음」**으로 바뀌었다. 단정을 지우지
+  //    않고 방향을 바꾼다 — 지우면 되살아나도 아무도 안 운다.
+  // 🔴 **주석은 코드가 아니다** — 철거 경위를 적은 주석에 이름이 남아 있어
+  //    처음에 그것까지 잡았다(§4.34와 같은 형태). 주석·문자열을 걷고 본다.
+  const pageCode = page
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((l) => !l.trimStart().startsWith('//'))
+    .map((l) => l.replace(/\/\/.*$/, ''))
+    .join('\n');
+  const revived = ['<LevelGroupCard', '<DailyGoalPicker', 'LEVEL_GROUPS ='].filter((t) =>
+    pageCode.includes(t),
   );
   ok(
-    !/lg:items-start/.test(tailGrid),
-    `ⓘ0 꼬리 격자가 두 열을 늘인다(items-start 없음) — 실제 "${tailGrid}"`,
+    revived.length === 0,
+    `ⓖ 철거된 학습 수준·하루 목표 카드가 되살아났다(8/19 판정) — ${revived.join(' / ')}`,
   );
-  // ⓘ 흡수 3점 세트. 배지 컬렉션(ⓐⓑⓒ)과 같은 모양이고, 하나만 빠져도 흰 여백이
-  //   그대로 남는다: 열이 안 늘거나(h-full) · 카드가 안 먹거나(flex-1) ·
-  //   카드만 커지고 버튼은 그대로거나(버튼 flex-1 — 바닥에 빈 띠가 생긴다).
-  const rightCol = page.match(/<div className="(flex flex-col gap-4[^"]*)">/)?.[1] ?? '';
-  ok(/lg:h-full/.test(rightCol), `ⓘ1 오른쪽 열이 행 높이만큼 늘어난다 — 실제 "${rightCol}"`);
+  // ⓖ2 진도 저장 카드는 **남는다.** 꼬리 격자를 안 받았으므로 `mt-4`의 임자가
+  //    다시 이 카드다 — 그 사실을 뭄(격자가 다시 오면 여기가 중복 여백이 된다).
+  ok(/data-testid="save-progress-card"/.test(pageCode), 'ⓖ2 진도 저장 카드가 있다');
   ok(
-    /(?<![\w-])flex flex-1 flex-col rounded-2xl/.test(levelRoot),
-    `ⓘ2 학습 수준 카드가 남는 높이를 먹는다 — 실제 "${levelRoot}"`,
-  );
-  const btnCls = page.match(/className=\{`([^`]*)\$\{\s*\n?\s*me\.level_group === g\.value/)?.[1] ?? '';
-  ok(/(?<![\w-])flex-1(?![\w-])/.test(btnCls), `ⓘ3 보기 셋이 남는 높이를 나눠 갖는다 — 실제 "${btnCls.trim()}"`);
-  // ⓙ 세로 1열. 가로 3열로 되돌리면 카드가 140px에서 멈춰 ⓘ가 먹을 것을 잃는다.
-  const btnGroup = page.match(/<div className="([^"]*)" data-level-group=/)?.[1] ?? '';
-  ok(
-    /flex-col/.test(btnGroup) && !/grid-cols-3/.test(btnGroup),
-    `ⓙ 학습 수준 보기가 세로 1열이다 — 실제 "${btnGroup}"`,
+    /data-testid="save-progress-card"[\s\S]{0,400}?className="mt-4 /.test(pageCode),
+    'ⓖ3 진도 저장 카드가 제 여백(mt-4)을 들고 있다 — 격자를 안 받았으므로 임자가 여기다',
   );
 }
 
