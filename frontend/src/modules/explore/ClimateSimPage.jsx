@@ -331,18 +331,6 @@ export default function ClimateSimPage() {
         </div>
       </div>
 
-      {/* C1 복사수지 입체 모식도(MT-22) — **곡선 카드를 대체하지 않고 덧붙인다.**
-          곡선은 "얼마나 더워지나"(결과)를 말하고, 이 그림은 "그 열이 어디로 다니나"
-          (경로)를 말한다 — 온실효과가 「나가는 열이 붙잡히는 것」임은 수치 카드로는
-          보이지 않는다. 슬라이더 **위**에 두어 조작 전에 구조를 먼저 읽게 한다. */}
-      <SchematicPanel
-        title={t('explore.schematic.card.c1.title')}
-        caption={t('explore.schematic.card.c1.caption')}
-        scene={RADIATION_SCENE}
-        steps={RADIATION_STEPS}
-        ariaLabel={t('explore.schematic.card.c1.aria')}
-      />
-
       {/* ── 조작 변수 3개 (대회 배점 「변수를 바꿔가며」) ─────────────────────
           ⓐ CO₂ 농도        — 원인. 세 지표 전부를 움직인다
           ⓑ 기후민감도       — 원인의 불확실성. 세 지표 전부 + **곡선 모양**을 움직인다
@@ -469,8 +457,29 @@ export default function ClimateSimPage() {
 
       </div>{/* /왼쪽 열 */}
 
-      {/* 오른쪽 열 — 지표 둘(숫자로 받는 결과) 위, 해설(말로 받는 결과) 아래. */}
+      {/* 오른쪽 열 — 모식도(구조) 위, 지표 둘(숫자로 받는 결과) 아래. */}
       <div className="flex flex-col gap-3">
+      {/* C1 복사수지 입체 모식도(MT-22) — **오른쪽 열 맨 위**
+          (2026-08-21 사용자 지시 — "왼쪽에는 아노말리 그래프·슬라이드, 오른쪽에는
+          애니메이션 모식도와 해수면상승·폭염일수").
+
+          🔴 **왼쪽 열에서 넘어왔다.** 종전 주석은 *"슬라이더 위에 두어 조작 전에
+          구조를 먼저 읽게 한다"*고 적었고 그 뜻은 지금도 살아 있다 — 다만 이제
+          그 「먼저」를 **위아래가 아니라 좌우**가 맡는다. 왼쪽 열이 곡선+슬라이더
+          (원인을 만지는 쪽)로 모이고, 오른쪽 열이 모식도+지표(결과를 받는 쪽)로
+          모이면서 한 열 안에서 성격이 섞이지 않는다.
+          곡선은 "얼마나 더워지나"(결과), 이 그림은 "그 열이 어디로 다니나"(경로)라
+          서로를 대체하지 않는다는 것은 그대로다.
+          ⚠️ 화면비는 `CrossSectionGL`이 260:150으로 고정한다 — 높이를 못 박지
+             말고 **열 폭으로만** 조절할 것. */}
+      <SchematicPanel
+        title={t('explore.schematic.card.c1.title')}
+        caption={t('explore.schematic.card.c1.caption')}
+        scene={RADIATION_SCENE}
+        steps={RADIATION_STEPS}
+        ariaLabel={t('explore.schematic.card.c1.aria')}
+      />
+
       {/* 파생 지표 카드 2종 — **어느 폭에서나 한 줄**이다(2026-08-19 사용자 지시
           "해수면 상승·연간 폭염일수를 한 줄에 배치할 수 있게 가로 크기 줄여").
           ⚠️ 하루 전 판에서 이 줄이 `lg:grid-cols-1`로 세로 배치였다. 그때 근거로
@@ -478,7 +487,7 @@ export default function ClimateSimPage() {
           없이 어림한 값이라 틀렸다** — 실제 한 칸은 1536에서 250px이고 「연간
           폭염일수」는 한 줄에 든다. 세로로 쌓을 이유가 없었다.
           한 칸이 가장 좁아지는 lg(1024)에서 169px인데 거기서도 한 줄이다(실측). */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
         <IndicatorCard
           icon="🌊"
           title={t('explore.climate.seaTitle')}
@@ -497,14 +506,11 @@ export default function ClimateSimPage() {
         />
       </div>
 
-      {/* 왜 그럴까 설명 패널 — 🔴 **오른쪽 열 아래, 지표 바로 밑**(2026-08-19
-          사용자 지시 "왜그럴까를 바로 아래에 크기 맞춰서"). `flex-1`이 그
-          「크기 맞춰서」다: 지표 줄은 제 높이(147px)만 쓰고, 왼쪽 열(곡선 +
-          슬라이더)이 정한 행 높이에서 남는 것을 이 카드가 가져간다 —
-          그래서 두 열이 같은 줄에서 끝난다.
-          ⚠️ 높이를 숫자로 박지 말 것. 행 높이는 곡선의 폭(= 뷰포트)이 정하므로
-          폭마다 다르다. */}
-      <div className="flex flex-1 flex-col rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
+      </div>{/* /오른쪽 열 */}
+      </div>{/* /2열 구간 */}
+
+      {/* 왜 그럴까 — 전폭 (시안 나) */}
+      <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
         <p className="text-sm font-bold text-sky-800">{t('explore.common.whyTitle')}</p>
         <ul className="mt-2 space-y-2">
           {whyLines.map((line, i) => (
@@ -517,9 +523,6 @@ export default function ClimateSimPage() {
           {t('explore.climate.caveat')}
         </p>
       </div>
-
-      </div>{/* /오른쪽 열 */}
-      </div>{/* /2열 구간 */}
 
       {/* θ 루프 연결 CTA */}
       {/* CO-S-10: 라벨은 "학습 경로에서 이어가기"인데 목적지가 `/`(홈)였다 —

@@ -819,6 +819,13 @@ export default {
       curveSub: 'How intensity changes over time (educational, dimensionless time)',
       timeAxis: 'Time →',
       caveat: 'Simplification: real typhoon genesis also needs atmospheric stratification, moisture content, Earth’s rotation (Coriolis), and more — and the intensity index is not actual wind speed or central pressure.',
+      stage1Label: 'Step 1 · Learn',
+      stage1Title: 'What does a typhoon look like inside?',
+      stage1Body: 'Take a look at these two views first — then you will warm the sea yourself and build one.',
+      stage2Label: 'Step 2 · Build',
+      toMission: 'Go build a typhoon →',
+      skipToMission: 'Skip to building',
+      backToConcept: '← Back to the concept',
       cta: '🌪️ Take the typhoon concept quiz — continue on your learning path',
     },
     climate: {

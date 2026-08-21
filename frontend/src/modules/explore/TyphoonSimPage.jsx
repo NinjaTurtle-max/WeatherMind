@@ -204,10 +204,40 @@ function TyphoonEye({ intensity }) {
   );
 }
 
-export default function TyphoonSimPage() {
+/*
+ * `initialStage`는 **시험용 이음매**다(2026-08-21). 기본값이 제품 동작이고,
+ * 그 기본값이 무엇인지도 계약이 따로 문다(`exploreGoals`) — 이음매를 넣었다고
+ * 제품 기본이 조용히 바뀌지 않게 하려는 것이다.
+ *
+ * 왜 필요한가: 2막의 목표·조작·해설은 **버튼을 눌러야 뜬다.** 그런데 그 계약들을
+ * 소유한 스모크 둘(`exploreGoals`·`exploreSims.render`)은 `renderToString`이라
+ * 클릭이 없다. 이음매가 없으면 「목표 패널이 실제로 뜬다」를 소스 대조로 낮춰야
+ * 하는데, 그것은 **배선이 아니라 글자를 확인하는 것**이라 계약이 약해진다.
+ * 이음매로 두 막을 각각 렌더해 「1막엔 모식도만·2막엔 모식도가 없다」까지 문다.
+ */
+export default function TyphoonSimPage({ initialStage = 'concept' }) {
   const t = useT();
   const [sst, setSst] = useState(28);
   const [shear, setShear] = useState('weak');
+  /*
+   * 🔴 **화면이 두 막이다**(2026-08-21 사용자 지시 — "모식도 두 개가 태풍의 개념
+   * 설명이잖아 이걸 먼저 크게 보고 다음으로 미션을 깨러 가는 느낌으로").
+   *
+   * 지시의 출발점은 불편이었다: 미션을 하는 내내 **머리 위에서 그림 둘이 계속
+   * 움직였다.** 그 둘은 조작에 반응하지 않는 **개념 설명**이라, 손이 슬라이더에
+   * 가 있는 동안 시선만 뺏는 자리였다. 크기를 줄이는 것으로는 안 풀린다 —
+   * 작아져도 계속 움직이고, 작아지면 개념 설명으로서도 못 읽힌다.
+   *
+   * 그래서 **자리를 나눈다**: 1막은 개념(그림이 주인공, 크게), 2막은 미션(조작과
+   * 결과만). 2막에서는 모식도가 **언마운트되므로 아예 안 움직인다** — 숨기는
+   * 것과 다르다(숨기면 타이머와 GL 컨텍스트가 계속 산다).
+   *
+   * ⚠️ 슬라이더 값은 이 컴포넌트가 들고 있으므로 두 막을 오가도 **그대로 남는다**.
+   *    막을 라우트로 가르면 그 값이 날아간다 — 그래서 상태로 가른다.
+   * ⚠️ 들어오면 **1막부터**다. 다만 되돌아온 사람을 붙잡지 않도록 1막에
+   *    「바로 만들러 가기」를 함께 둔다.
+   */
+  const [stage, setStage] = useState(initialStage);
 
   const result = useMemo(() => typhoonIntensity({ sst, shear }), [sst, shear]);
   const meta = CATEGORY_META[result.category];
@@ -262,57 +292,103 @@ export default function TyphoonSimPage() {
         }
       />
 
-      {/* 탐구 목표(MT-24) — **슬라이더보다 위**에 둔다. 화면에 들어선 사람이
-          "무엇을 해 보면 되는지"를 조작하기 전에 읽어야 목표가 목표로 작동한다.
-          판정 입력은 슬라이더 값(sst·shear)과 모델 산출(intensity·category)을
-          합친 평평한 객체다 — **화면에 뜨는 값 그대로**여야 "보이는 숫자와 판정이
-          다르다"가 안 생긴다. */}
-      <GoalPanel
-        goals={TYPHOON_GOALS}
-        facts={{ sst, shear, intensity: result.intensity, category: result.category }}
-      />
+      {stage === 'concept' ? (
+        <>
+          {/* ── 1막 「알아보기」 ─────────────────────────────────────────────
+              🔴 **전폭 세로 2장이다.** 어제 「크기 줄여서 왼쪽·오른쪽」으로 나란히
+              세웠던 그 격자를 여기서 **되돌린다** — 그때는 이 둘이 미션 흐름 한가운데
+              끼어 있어서 길이를 줄이는 것이 전부였고, 지금은 **이 화면의 주인공**이라
+              작게 둘 이유가 없다. 캔버스 520×300 → 1,088×628.
+              같은 값이 반대로 뒤집힌 이유가 「구성이 바뀌었다」인 것이 요점이다.
+              ⚠️ 높이는 못 박지 않는다 — 화면비를 `CrossSectionGL`이 260:150으로
+                 고정하므로 폭이 유일한 손잡이다. */}
+          <section aria-labelledby="typhoon-stage1" className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-sky-600">
+              {t('explore.typhoon.stage1Label')}
+            </p>
+            <h2 id="typhoon-stage1" className="mt-0.5 text-base font-extrabold text-slate-900">
+              {t('explore.typhoon.stage1Title')}
+            </h2>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              {t('explore.typhoon.stage1Body')}
+            </p>
+          </section>
 
-      {/* 입체 모식도 2종(MT-22) — **목표와 조작 사이**에 선다
-          (2026-08-21 사용자 지시 — "목표랑 그래프 사이에 모식도 두 개를 크기
-          줄여서 왼쪽·오른쪽에 배치").
+          {/* ⚠️ **자동 재생은 앞의 한 장만**이다. 둘을 같이 돌리면 서로 다른
+              리듬으로 움직여 어느 쪽을 봐야 할지가 사라진다 — 그것이 이번 지시의
+              출발점이었다. 뒤의 한 장은 첫 단계에 멈춰 서고, 재생 버튼은 그대로다. */}
+          <SchematicPanel
+            title={t('explore.schematic.card.t1.title')}
+            caption={t('explore.schematic.card.t1.caption')}
+            scene={TYPHOON_SECTION_SCENE}
+            steps={T1_STEPS}
+            ariaLabel={t('explore.schematic.card.t1.aria')}
+          />
+          <SchematicPanel
+            title={t('explore.schematic.card.t2.title')}
+            caption={t('explore.schematic.card.t2.caption')}
+            scene={TYPHOON_LIFECYCLE_SCENE}
+            steps={T2_STEPS}
+            ariaLabel={t('explore.schematic.card.t2.aria')}
+            autoPlay={false}
+          />
 
-          🔴 **자리가 화면 맨 아래에서 여기로 올라왔다.** 종전 주석은 이 둘이
-          *"기존 시각화 뒤에 덧붙는다"*고 적었고 근거는 「앞의 것들이 위에서 본
-          평면이라 연직 구조와 시간을 못 보여준다」였다. 그 근거는 **지금도 참**
-          이지만 순서의 근거는 아니었다 — 축이 다르다는 것은 「함께 둔다」의
-          이유이지 「뒤에 둔다」의 이유가 아니다. 맨 아래에 두면 조작을 마치고
-          스크롤을 멈춘 사람에게는 **없는 것과 같다.**
-          이제 순서는 「무엇을 해 볼까(목표) → 태풍이 어떻게 생겼나(모식도) →
-          직접 돌려보기(조작·결과)」다. 개념을 먼저 보고 손을 대는 쪽이 탐구다.
+          {/* 1막의 출구 — 큰 버튼 하나가 다음 막을 연다. 그 아래 작은 글씨는
+              **되돌아온 사람의 지름길**이다(같은 곳으로 가지만 무게가 다르다). */}
+          <button
+            type="button"
+            onClick={() => setStage('mission')}
+            className="block w-full rounded-2xl bg-sky-600 py-3.5 text-center text-sm font-bold text-white shadow-sm hover:bg-sky-700"
+          >
+            {t('explore.typhoon.toMission')}
+          </button>
+        </>
+      ) : (
+        <>
+          {/* ── 2막 「만들어보기」 ───────────────────────────────────────────
+              모식도는 **여기 없다** — 그래서 미션 중에는 화면에서 아무것도
+              저 혼자 움직이지 않는다. 개념이 다시 필요하면 아래 줄로 1막에 간다. */}
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setStage('concept')}
+              className="text-xs font-bold text-slate-500 hover:text-sky-600"
+            >
+              {t('explore.typhoon.backToConcept')}
+            </button>
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-sky-600">
+              {t('explore.typhoon.stage2Label')}
+            </p>
+          </div>
 
-          ⚠️ 두 열은 같은 비율(1fr 1fr)이어야 한다 — 화면비를 `CrossSectionGL`이
-             260:150으로 고정하므로 폭이 갈리면 캔버스 높이가 갈리고, 두 카드의
-             캡션 줄이 어긋나 나란한 것으로 안 읽힌다.
-          ⚠️ 위성 도식 ↔ 해설 2열 격자 **밖**이다. 안에 넣으면 도식 ↔ 해설의 짝이
-             깨지고 CTA 들여쓰기(6칸) 계약도 함께 흔들린다. */}
-      {/* 🔴 **모식도 둘은 나란히 선다**(2026-08-21 사용자 지시 — "모식도 두 개
-          사이즈 모두 줄여서 왼쪽·오른쪽 배치"). 세로로 쌓았을 때 둘이 780px씩
-          **화면의 절반(1,560/3,348px)**을 먹었다.
-          ⚠️ 캔버스 화면비는 `CrossSectionGL`이 260:150으로 고정한다 — 높이를
-             직접 못 박고 **열 폭으로만** 조절한다. 폭이 반이면 높이도 반이다.
-          ⚠️ 두 열은 **같은 비율**이어야 한다(1fr 1fr). 한쪽을 넓히면 캔버스
-             높이가 갈려 두 카드의 캡션 줄이 어긋난다 — 나란한 것으로 안 읽힌다. */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <SchematicPanel
-          title={t('explore.schematic.card.t1.title')}
-          caption={t('explore.schematic.card.t1.caption')}
-          scene={TYPHOON_SECTION_SCENE}
-          steps={T1_STEPS}
-          ariaLabel={t('explore.schematic.card.t1.aria')}
+        {/* 탐구 목표(MT-24) — **슬라이더보다 위**에 둔다. 화면에 들어선 사람이
+            "무엇을 해 보면 되는지"를 조작하기 전에 읽어야 목표가 목표로 작동한다.
+            판정 입력은 슬라이더 값(sst·shear)과 모델 산출(intensity·category)을
+            합친 평평한 객체다 — **화면에 뜨는 값 그대로**여야 "보이는 숫자와 판정이
+            다르다"가 안 생긴다. */}
+        <GoalPanel
+          goals={TYPHOON_GOALS}
+          facts={{ sst, shear, intensity: result.intensity, category: result.category }}
         />
-        <SchematicPanel
-          title={t('explore.schematic.card.t2.title')}
-          caption={t('explore.schematic.card.t2.caption')}
-          scene={TYPHOON_LIFECYCLE_SCENE}
-          steps={T2_STEPS}
-          ariaLabel={t('explore.schematic.card.t2.aria')}
-        />
-      </div>
+
+        {/* 입체 모식도 2종(MT-22) — **목표와 조작 사이**에 선다
+            (2026-08-21 사용자 지시 — "목표랑 그래프 사이에 모식도 두 개를 크기
+            줄여서 왼쪽·오른쪽에 배치").
+
+            🔴 **자리가 화면 맨 아래에서 여기로 올라왔다.** 종전 주석은 이 둘이
+            *"기존 시각화 뒤에 덧붙는다"*고 적었고 근거는 「앞의 것들이 위에서 본
+            평면이라 연직 구조와 시간을 못 보여준다」였다. 그 근거는 **지금도 참**
+            이지만 순서의 근거는 아니었다 — 축이 다르다는 것은 「함께 둔다」의
+            이유이지 「뒤에 둔다」의 이유가 아니다. 맨 아래에 두면 조작을 마치고
+            스크롤을 멈춘 사람에게는 **없는 것과 같다.**
+            이제 순서는 「무엇을 해 볼까(목표) → 태풍이 어떻게 생겼나(모식도) →
+            직접 돌려보기(조작·결과)」다. 개념을 먼저 보고 손을 대는 쪽이 탐구다.
+
+            ⚠️ 두 열은 같은 비율(1fr 1fr)이어야 한다 — 화면비를 `CrossSectionGL`이
+               260:150으로 고정하므로 폭이 갈리면 캔버스 높이가 갈리고, 두 카드의
+               캡션 줄이 어긋나 나란한 것으로 안 읽힌다.
+            ⚠️ 위성 도식 ↔ 해설 2열 격자 **밖**이다. 안에 넣으면 도식 ↔ 해설의 짝이
+               깨지고 CTA 들여쓰기(6칸) 계약도 함께 흔들린다. */}
 
       {/* 🔴 **2열 구간 — 바람개비 왼쪽 · 발달 곡선 오른쪽**(2026-08-19 사용자 지시
           "해수면 온도 슬라이드는 고정, 바로 위에 바람개비를 왼쪽, 오른쪽에는
@@ -443,6 +519,8 @@ export default function TyphoonSimPage() {
       >
         {t('explore.typhoon.cta')}
       </Link>
+        </>
+      )}
     </div>
   );
 }
