@@ -1,9 +1,21 @@
 # WeatherMind
 
 날씨 데이터 기반 기후 학습 서비스 — 오늘의 AI 퀴즈 · 기후 시뮬레이터 · 날씨 예측 리그.
-R3~R5: 지도 기반 대기 보드 · 단계별 커리큘럼(유닛 트리·왕관 진도) · 구름 에너지(소모/회복 리텐션 루프).
+지도 기반 대기 보드 · 단계별 커리큘럼(유닛 트리·왕관 진도) · 구름 에너지(소모/회복 리텐션 루프).
 
-상세 스펙은 `docs/specs/`(SSOT), 실행 계획·표준 결정사항은 `docs/DEVELOPMENT_PLAN.md` 참조.
+이 README는 **단독으로 실행·배포·기여가 가능하도록** 필요한 내용을 전부 담습니다
+(내부 스프린트·회고 문서는 제출 소스에서 제외했습니다 — 실행에 필요하지 않기 때문입니다).
+
+> ⚠️ **제출 이후 운영 관련 중요 고지 — Gemini API 크레딧**
+>
+> 이 프로젝트는 문항 자동 생성·2단 품질 검증·학습 피드백 생성에 Google Gemini API를
+> 씁니다. 제출 시점(2026-08-21) 기준 **잔여 크레딧은 약 ₩9,996원**이며, 결제
+> 자동 충전을 설정해 두지 않았습니다. 심사·시연 기간 중 이 크레딧이 소진되면(대략
+> 8/22 이후) Gemini 호출이 실패하기 시작할 수 있습니다 — 단, 이 경우에도 서비스가
+> 죽지 않고 **자동으로 저작된 정적 피드백·폴백 문제 뱅크로 강등**되어 핵심 기능
+> (문제 풀이·채점·진도·보드·시뮬레이터)은 계속 정상 동작합니다(`ai-worker/app/llm_budget.py`
+> 의 live→fallback→dummy 강등 사다리). 실시간 AI 생성 문항·개인화 피드백만 일시적으로
+> 사전 저작 콘텐츠로 대체됩니다.
 
 ## 아키텍처
 
@@ -15,6 +27,17 @@ R3~R5: 지도 기반 대기 보드 · 단계별 커리큘럼(유닛 트리·왕�
 | celery-worker / celery-beat | - | 날씨 수집, 주간 리그 정산, 일일 예보 대결 정산, WeatherBrain 재학습 |
 | postgres | 5432(내부) | 스키마·RLS는 Alembic 마이그레이션이 소유 (init.sql은 EXTENSION만) |
 | redis | 6379(내부) | 캐시 `weather:{date}:{region}`(1h) / `quiz:{date}:{level_group}`(24h) / `session:{user_id}`(7d) |
+
+## 실행에 필요한 모델·데이터셋
+
+| 구분 | 무엇 | 어디서 얻나 | 없으면 |
+|---|---|---|---|
+| **LLM** | Google Gemini (`gemini-3.1-flash-lite` 기본값, `.env`의 `GEMINI_MODEL`로 교체 가능) | [Google AI Studio](https://ai.studio/)에서 API 키 발급 → `.env`의 `GEMINI_API_KEY` | 키가 없으면(빈 값·플레이스홀더) **자동으로 무키 모드로 동작** — 문항은 사전 저작된 폴백 뱅크에서, 피드백은 정적 격려 문구에서 나간다. 앱이 죽지 않는다(`ai-worker/app/llm_provider.py`) |
+| **기상 실황·예보 데이터** | 기상청 API허브(공공 API) | [apihub.kma.go.kr](https://apihub.kma.go.kr/)에서 무료 발급 → `.env`의 `KMA_API_KEY`(예비 키 `KMA_API_KEY_SPARE` 선택) | 없으면 실황 연동 화면(오늘의 날씨 기반 문항 등)이 캐시·기본값으로 대체된다 |
+| **문항 뱅크** (`database/seed/content_items.json`) | 팀이 직접 저작한 문항 1,034건(LLM 생성 아님, 비용 0) | 저장소에 포함 — 별도 다운로드 불필요 | — |
+| **보드 규칙** (`database/seed/board_rules.json`) | 대기 보드 판정 규칙 21종 | 저장소에 포함 | — |
+| **개념 문서** (`database/seed/climate_concepts.json`) | 피드백 생성 시 참조하는 근거 문서(RAG 아님 — 직접 조회) | 저장소에 포함 | — |
+| **DB/캐시** | PostgreSQL 16 · Redis 7.2 | `docker-compose.yml`이 자동으로 띄움 | — |
 
 ## 로컬 실행 순서
 
@@ -31,8 +54,8 @@ docker compose up -d --build
 # 3. DB 마이그레이션 (backend 컨테이너 안에서)
 docker compose exec backend alembic upgrade head
 
-# (벡터 시드 적재 단계는 R13 3일차에 사라졌다 — ai-worker의 개념 문서는
-#  ./database/seed 마운트로 직접 읽힌다. 근거: docs/specs/03 §3.1)
+# (별도 벡터 임베딩·검색 단계는 없다 — ai-worker의 개념 문서는
+#  ./database/seed 마운트로 직접 읽힌다)
 
 # 4. 시드 적재 (전부 멱등 upsert — 권장 순서: content → units → badges)
 docker compose exec backend python -m app.scripts.seed_content   # 문항 뱅크(세션 배합 1차 소스)
@@ -50,8 +73,9 @@ curl http://localhost:8001/health
 bash scripts/smoke.sh          # 또는: scripts/ci.sh smoke
 ```
 
-운영 절차(상태 확인·장애 대응·롤백·스모크 운영)는 `docs/team/RUNBOOK.md` 참조.
-커밋 전 로컬 CI: `scripts/ci.sh` (lint → test → compose config → frontend build).
+배포 절차(서버 준비·최초 기동·운영 중 갱신)는 `docs/DEPLOY.md`에 상세히 있습니다(제출
+소스에는 포함하지 않았으나, 필요 시 팀 저장소에서 확인 가능). 커밋 전 로컬 CI:
+`scripts/ci.sh` (lint → test → compose config → frontend build).
 통합·릴리스 전에는 opt-in 스모크(`scripts/ci.sh smoke` — 기본 실행엔 미포함)로
 DB 실경로(마이그레이션·RLS·θ 왕복·배치고사)까지 확인한다.
 
@@ -80,7 +104,7 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 `dev.cmd`(또는 백엔드 기동 + `VITE_MOCK` 없이 `npm run dev`)를 쓸 것 — 이 차이를
 화면 결함으로 오인한 전례가 있다(2026-08-18).
 
-## API 개요 (`/api/v1`, 상세는 docs/specs/02_api_spec.md)
+## API 개요 (`/api/v1`)
 
 - `POST /auth/register` · `/login` · `/refresh` · `/logout`
 - `GET /quiz/today` · `POST /quiz/{quiz_id}/answer` · `GET /quiz/history`
@@ -104,8 +128,7 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 
 ## 적응 학습 엔진(WeatherBrain) — 검증된 범위
 
-숫자를 인용할 때 **그 숫자가 무엇의 지표인지**까지 함께 적는다. 발표·대외 문안의
-정본은 `docs/MENTORING_ALIGNMENT.md`이고, 아래는 그 요약이다.
+숫자를 인용할 때 **그 숫자가 무엇의 지표인지**까지 함께 적는다. 아래는 검증 범위 요약이다.
 
 | 구성 | 무엇인가 | 검증된 것 |
 |---|---|---|
@@ -124,7 +147,7 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 ## 이번 라운드 범위 밖 (로드맵)
 
 - AI 캐스터 롤플레이 — `ROADMAP` §2 마일스톤 4의 장기 정의에 있으나 **미구현**
-  (완료 판정 범위 밖 — `docs/ROADMAP.md` §1)
+  (완료 판정 범위 밖)
 - 실기동 통합 테스트 — 실제 KMA/Gemini API 키 발급 후 진행
 
 ## 라이선스와 출처
@@ -136,7 +159,7 @@ cd frontend && npm install && npm run dev   # 보통 5173포트
 | 무엇 | 출처 | 라이선스 |
 |---|---|---|
 | 동아시아 해안선 좌표 (`frontend/src/modules/explore/coastline.js`) | Natural Earth 1:50m `ne_50m_land` — [naturalearthdata.com](https://www.naturalearthdata.com/) | **퍼블릭 도메인** — *"No permission is needed to use Natural Earth."* |
-| 기상 실황·예보 데이터 | **기상청 API허브**(apihub.kma.go.kr) — 공공데이터포털(data.go.kr)과 별개 시스템 | 출처 표시: 「기상청 API허브」. 공공누리(KOGL) 적용 유형은 제출 전 확인 후 이 칸에 기재 |
+| 기상 실황·예보 데이터 | **기상청 API허브**(apihub.kma.go.kr) — 공공데이터포털(data.go.kr)과 별개 시스템 | 공공누리(KOGL) 마크 적용, **출처표시 의무 확인됨**(apihub.kma.go.kr/policy.do). 정확한 유형 번호(제1~4유형)는 같은 페이지 하단 마크로 직접 확인 요망 — 일반적으로 기상청 공공데이터는 제1유형(출처표시만 조건, 상업적 이용·변경 허용)이 통용되나 API허브 자체 페이지에서 최종 확인 필요 |
 | 마스코트·아이콘 PNG 12종 + `guidebot.png`·`guidebot.mesh` (`frontend/public/`) | **팀이 생성형 AI 도구로 직접 제작** (2026-08-14 확인) | AI 생성 자산 — 제3자 저작물 아님 |
 | 3D 마스코트 (`design/mascot/weathermind-bot.glb`) | **팀이 생성형 AI 도구로 직접 제작** (2026-08-14 확인). `guidebot.png`는 `scripts/render_mascot_glb.py`, `guidebot.mesh`는 `scripts/bake_mascot_glb.py`가 이 파일에서 결정적으로 생성한 파생물 | AI 생성 자산 — 원본과 동일 |
 | 문항 본문·해설 (`database/seed/`) | 프로젝트 팀 직접 저작 | 이 저장소의 MIT를 따름 |
