@@ -453,7 +453,7 @@ export default {
     finalizingBody: 'WeatherBrain이 방금 푼 문항을 분석해 딱 맞는 수준을 계산하고 있어요.',
     doneTitle: '진단 완료!',
     scored: '{total}문항 중 {correct}문항을 맞혔어요. ',
-    doneBody: '이제 WeatherBrain이 내 수준에 맞는 문제를 준비해요.',
+    doneBody: '이제 WeatherBrain이 내 수준에 맞는 문항을 준비해요.',
     barsNote: '막대가 짧을수록 앞으로 더 자주 만나게 될 개념이에요. 진단 결과는 프로필의 WeatherBrain 능력 분석에서 계속 갱신돼요.',
     emptyAbilities: '진단 결과가 아직 준비되지 않았어요. 학습을 진행하면 능력 분석이 채워져요.',
     start: '학습 시작하기 →',
@@ -480,7 +480,7 @@ export default {
     levelXp: 'Lv.{level} · 누적 {xp} XP',
     streakStat: '연속 출석',
     placementBannerTitle: '아직 실력 진단 전이에요',
-    placementBannerBody: '10문항 진단을 받으면 WeatherBrain이 내 수준에 맞는 문제를 골라줘요.',
+    placementBannerBody: '10문항 진단을 받으면 WeatherBrain이 내 수준에 맞는 문항을 골라줘요.',
     placementBannerCta: '진단 받고 내 수준 찾기 →',
     // 학습 수준 설정 (R13 P-5) — 게스트가 평생 middle_high에 갇히지 않게 하는 통로
     levelGroupTitle: '🎚️ 학습 수준',
@@ -525,7 +525,7 @@ export default {
     ability: { title: '지금 실력' },
     introSeg1: 'WeatherMind 자체 적응형 모델 ',
     introStrong: 'WeatherBrain',
-    introSeg2: '이 개념별 이해도를 추정해 문제 난이도를 맞춰줘요. 막대가 짧을수록 더 연습이 필요한 개념이에요.',
+    introSeg2: '이 개념별 이해도를 추정해 문항 난이도를 맞춰줘요. 막대가 짧을수록 더 연습이 필요한 개념이에요.',
     priorNote: '아직 응답 없음 · 초기 배정',
     rowTitle: 'θ {theta} · {basis}',
     basisPrior: '초기 배정',
@@ -539,7 +539,7 @@ export default {
       // 문구만 세로 시절 그대로였다. 좁은 화면에서는 다시 위아래로 쌓이므로
       // **방향을 말하지 않고 이름으로 가리킨다**(어느 배치에서도 맞는다).
       subtitle: '「지금 실력」이 오늘 풀 수 있는 정도라면, 이쪽은 「이 개념을 익혔을 확률」이에요.',
-      empty: '문제를 풀면 개념을 익혔는지 추적하기 시작해요.',
+      empty: '문항을 풀면 개념을 익혔는지 추적하기 시작해요.',
       // 빈 자리 표시(AbilityRadarPlaceholder)의 대체 텍스트 — 그림 자체가 "아직
       // 없다"는 내용이라, 스크린리더에는 **비었다는 사실**을 말해야 한다.
       emptyAria: '개념 숙련도 레이더 — 아직 데이터가 없어요',
@@ -547,8 +547,8 @@ export default {
       beginning: '아직 익히는 중',
       learning: '거의 익힘',
       mastered: '숙련',
-      rowTitle: '익혔을 확률 {percent}% · 다음 문제 정답 확률 {next}% · 응답 {count}회',
-      nextHint: '다음 문제 정답 확률 {next}%',
+      rowTitle: '익혔을 확률 {percent}% · 다음 문항 정답 확률 {next}% · 응답 {count}회',
+      nextHint: '다음 문항 정답 확률 {next}%',
     },
   },
   // ── 홈 유래 문구 ──────────────────────────────────────────────────────────
@@ -852,7 +852,7 @@ export default {
       title: '내일 예보를 맞혀보세요',
       desc: 'AI 캐스터와 내일 실측을 두고 대결해요. 승리 시 +15 XP! (하루 1회)',
       notice: '📡 참고 예보 — 최고 {max}℃ · 강수확률 {prob}%',
-      tempMax: '내일 최고기온(°C)',
+      tempMax: '내일 최고기온(℃)',
       rainProb: '강수확률(%)',
       submit: '예보 제출 (1일 1회)',
     },
@@ -953,8 +953,8 @@ export default {
     submittedTitle: '이번 주 예측 제출 완료! ✅',
     submittedBody: '주간 정산 후 실제 날씨와 비교해 ELO가 반영돼요.',
     formTitle: '이번 주 날씨를 예측해보세요',
-    tempMax: '최고기온(°C)',
-    tempMin: '최저기온(°C)',
+    tempMax: '최고기온(℃)',
+    tempMin: '최저기온(℃)',
     rainProb: '강수확률(%)',
     submit: '예측 제출 (주 1회)',
     minOverMax: '최저기온이 최고기온보다 높을 수 없어요.',

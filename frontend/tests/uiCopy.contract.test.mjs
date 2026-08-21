@@ -306,6 +306,89 @@ check('뒤로가기 링크가 한 꼴이다 — 12px/14px·medium/bold·slate/sk
   }
   assert(bad.length === 0, `뒤로가기 링크가 표준 꼴과 다르다 (…${STD})\n    ${bad.join('\n    ')}`);});
 
+// ── 표기 통일 (fix/notation-unify, 2026-08-21) ──────────────────────────────
+/**
+ * 왜 여기인가: 이 파일은 「화면마다 같은 것이 다르게 생긴 것」을 무는 자리다.
+ * 표기 흔들림 3종이 정확히 그 부류였다 — 한 화면은 `°C`, 옆 화면은 `℃`.
+ *
+ * 실측(HEAD 기준, 손대기 전):
+ *   온도 — ko 계열 `℃` 38줄 vs `°C` 3줄 / en 계열 `°C` 28줄 vs `℃` 13줄
+ *   문항 — ko 값에 `문제` 6곳(ko.js) · `퀴즈` 2곳(board.ko.js cta)
+ *   예보 — `기상예보`·`날씨예보`는 프론트 리소스에 0곳(시드에만 있고 그건 남의 소유)
+ *
+ * 판정: **언어마다 그 언어의 다수 관례로 모은다.**
+ *   ko = `℃`(U+2103) — KS X 1001 계보의 한국어 조판 관례이고 이미 다수다.
+ *   en = `°C`(U+00B0 + C) — U+2103은 CJK 호환 문자라 NFKC가 `°C`로 분해한다.
+ *        영문 본문에 넣으면 CJK 폰트로 폴백해 글자폭이 튄다. SI 표기도 `°C`다.
+ *
+ * ⚠️ 값(RESOURCES)만 본다 — **파일 원문을 스캔하면 안 된다.** board.ko.js:91·160의
+ *    `문제`는 주석("서버 데이터·배포 문제")이라 원문 스캔은 거짓 실패를 낸다.
+ * ⚠️ 앞으로 생길 거짓 실패 한 부류: 오류 문구의 「문제가 발생했어요」. 그때는
+ *    정규식을 넓히지 말고 문구를 「오류가 발생했어요」로 고쳐라 — 금지어를 예외로
+ *    빼기 시작하면 이 계약은 그 순간 없는 것이 된다.
+ */
+const BANNED_NOTATION = {
+  ko: [
+    ['°C', '℃'],
+    ['도씨', '℃'],
+    ['섭씨', '℃'],
+    ['문제', '문항'],
+    ['퀴즈', '문항'],
+    ['기상예보', '예보'],
+    ['날씨예보', '예보'],
+  ],
+  // en에는 문항/예보 대응 흔들림이 없다(영어는 문제/문항을 가르지 않는다).
+  // 온도만 반대 방향으로 문다.
+  en: [['℃', '°C']],
+};
+
+/** RESOURCES 트리의 문자열 값을 (키 경로, 값)으로 펼친다. */
+function flattenStrings(node, path = [], out = []) {
+  if (typeof node === 'string') {
+    out.push([path.join('.'), node]);
+  } else if (node && typeof node === 'object') {
+    for (const [k, v] of Object.entries(node)) flattenStrings(v, [...path, k], out);
+  }
+  return out;
+}
+
+for (const [locale, bans] of Object.entries(BANNED_NOTATION)) {
+  const entries = flattenStrings(RESOURCES[locale]);
+  for (const [bad, good] of bans) {
+    check(`표기 통일: ${locale} 리소스 값에 「${bad}」가 없다 (→ 「${good}」)`, () => {
+      const hits = entries
+        .filter(([, value]) => value.includes(bad))
+        .map(([key, value]) => `${locale}.${key} = "${value}"`);
+      assert(
+        hits.length === 0,
+        `${locale} 리소스에 금지 표기 「${bad}」가 ${hits.length}곳 남아 있다 — 「${good}」로 통일한다\n    ${hits.join('\n    ')}`,
+      );
+    });
+  }
+}
+
+check('표기 통일: 화면 컴포넌트에 하드코딩된 「°C」가 없다 (ko 전용 렌더 — ℃여야 한다)', () => {
+  // 온도 단위를 하드코딩해 그리는 자리가 15곳쯤 있다(DuelPage·ResultCard·
+  // TyphoonSimPage·ClimateSimPage 등 — 리소스를 거치지 않는다). `detectLocale()`이
+  // ko 고정이라 **사용자가 보는 것은 언제나 이쪽**이고, 지금 전부 `℃`다.
+  // 리소스만 물면 이 15곳으로 흔들림이 되돌아온다 — 그래서 함께 문다.
+  // en 리소스 두 계열은 당연히 제외한다(en의 정답이 `°C`다).
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const full = resolve(dir, e.name);
+    if (e.isDirectory()) return walk(full);
+    return /\.(js|jsx)$/.test(e.name) ? [full] : [];
+  });
+  const bad = [];
+  for (const f of walk(resolve(repoRoot, 'frontend/src'))) {
+    if (/\/i18n\/resources\/(en|[a-z]+\.en)\.js$/.test(f)) continue;
+    const src = readFileSync(f, 'utf8');
+    src.split('\n').forEach((line, i) => {
+      if (line.includes('°C')) bad.push(`${f.split('/frontend/')[1]}:${i + 1}: ${line.trim()}`);
+    });
+  }
+  assert(bad.length === 0, `ko가 그리는 자리에 「°C」가 있다 — 「℃」로 통일한다\n    ${bad.join('\n    ')}`);
+});
+
 if (failed > 0) {
   console.error(`\n실패 ${failed}건`);
   process.exitCode = 1;
