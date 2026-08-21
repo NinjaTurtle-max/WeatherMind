@@ -56,9 +56,17 @@ import { useT } from '../../i18n';
 /** 단계당 재생 시간(ms) — 보드 `CrossSectionPanel.STEP_MS`와 같은 값이다 */
 const STEP_MS = 1400;
 
-export default function SchematicPanel({ title, caption, scene, steps, ariaLabel }) {
+/*
+ * `autoPlay=false`면 **멈춘 채로 뜬다**(2026-08-21 사용자 지시 — "애니메이션
+ * 모식도 두 개가 계속 움직여서 싫은데"). 두 장을 한 화면에 놓으면 각자 1.4초
+ * 마다 단계를 넘겨 **서로 다른 리듬으로 동시에 움직인다** — 어느 쪽을 봐야
+ * 하는지가 사라진다. 그래서 개념 화면에서도 **한 번에 한 장만** 자동 재생하고
+ * 나머지는 첫 단계에 멈춰 세운다(재생 버튼은 그대로라 언제든 돌릴 수 있다).
+ * ⚠️ 기본값은 `true`다 — 기존 호출부(기후 C1)의 동작을 바꾸지 않는다.
+ */
+export default function SchematicPanel({ title, caption, scene, steps, ariaLabel, autoPlay = true }) {
   const [step, setStep] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(autoPlay);
   const [failed, setFailed] = useState(false);
   const t = useT();
   const reduced = usePrefersReducedMotion();
