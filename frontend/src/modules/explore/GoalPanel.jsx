@@ -81,7 +81,7 @@ export default function GoalPanel({ goals, facts }) {
         </span>
       </div>
 
-      <ul className="mt-3 space-y-2">
+      <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {goals.map((goal, i) => (
           <li
             key={goal.id}

@@ -272,6 +272,48 @@ export default function TyphoonSimPage() {
         facts={{ sst, shear, intensity: result.intensity, category: result.category }}
       />
 
+      {/* 입체 모식도 2종(MT-22) — **목표와 조작 사이**에 선다
+          (2026-08-21 사용자 지시 — "목표랑 그래프 사이에 모식도 두 개를 크기
+          줄여서 왼쪽·오른쪽에 배치").
+
+          🔴 **자리가 화면 맨 아래에서 여기로 올라왔다.** 종전 주석은 이 둘이
+          *"기존 시각화 뒤에 덧붙는다"*고 적었고 근거는 「앞의 것들이 위에서 본
+          평면이라 연직 구조와 시간을 못 보여준다」였다. 그 근거는 **지금도 참**
+          이지만 순서의 근거는 아니었다 — 축이 다르다는 것은 「함께 둔다」의
+          이유이지 「뒤에 둔다」의 이유가 아니다. 맨 아래에 두면 조작을 마치고
+          스크롤을 멈춘 사람에게는 **없는 것과 같다.**
+          이제 순서는 「무엇을 해 볼까(목표) → 태풍이 어떻게 생겼나(모식도) →
+          직접 돌려보기(조작·결과)」다. 개념을 먼저 보고 손을 대는 쪽이 탐구다.
+
+          ⚠️ 두 열은 같은 비율(1fr 1fr)이어야 한다 — 화면비를 `CrossSectionGL`이
+             260:150으로 고정하므로 폭이 갈리면 캔버스 높이가 갈리고, 두 카드의
+             캡션 줄이 어긋나 나란한 것으로 안 읽힌다.
+          ⚠️ 위성 도식 ↔ 해설 2열 격자 **밖**이다. 안에 넣으면 도식 ↔ 해설의 짝이
+             깨지고 CTA 들여쓰기(6칸) 계약도 함께 흔들린다. */}
+      {/* 🔴 **모식도 둘은 나란히 선다**(2026-08-21 사용자 지시 — "모식도 두 개
+          사이즈 모두 줄여서 왼쪽·오른쪽 배치"). 세로로 쌓았을 때 둘이 780px씩
+          **화면의 절반(1,560/3,348px)**을 먹었다.
+          ⚠️ 캔버스 화면비는 `CrossSectionGL`이 260:150으로 고정한다 — 높이를
+             직접 못 박고 **열 폭으로만** 조절한다. 폭이 반이면 높이도 반이다.
+          ⚠️ 두 열은 **같은 비율**이어야 한다(1fr 1fr). 한쪽을 넓히면 캔버스
+             높이가 갈려 두 카드의 캡션 줄이 어긋난다 — 나란한 것으로 안 읽힌다. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <SchematicPanel
+          title={t('explore.schematic.card.t1.title')}
+          caption={t('explore.schematic.card.t1.caption')}
+          scene={TYPHOON_SECTION_SCENE}
+          steps={T1_STEPS}
+          ariaLabel={t('explore.schematic.card.t1.aria')}
+        />
+        <SchematicPanel
+          title={t('explore.schematic.card.t2.title')}
+          caption={t('explore.schematic.card.t2.caption')}
+          scene={TYPHOON_LIFECYCLE_SCENE}
+          steps={T2_STEPS}
+          ariaLabel={t('explore.schematic.card.t2.aria')}
+        />
+      </div>
+
       {/* 🔴 **2열 구간 — 바람개비 왼쪽 · 발달 곡선 오른쪽**(2026-08-19 사용자 지시
           "해수면 온도 슬라이드는 고정, 바로 위에 바람개비를 왼쪽, 오른쪽에는
           발달곡선 그래프 크기 줄여서 배치").
@@ -389,37 +431,6 @@ export default function TyphoonSimPage() {
             {t('explore.typhoon.caveat')}
           </p>
         </div>
-      </div>
-
-      {/* 입체 모식도 2종(MT-22) — 기존 시각화(TyphoonEye·게이지·위성 도식)를
-          **하나도 걷어내지 않고 뒤에 덧붙인다.** 셋이 말하는 축이 다르기 때문이다:
-          눈 그림은 세기(크기), 위성 도식은 비대칭, 그리고 이 둘은 **연직 구조**와
-          **시간**이다. 앞의 것들이 위에서 본 평면이라 「하층과 상층이 반대로 감긴다」·
-          「전향 뒤 급가속」은 어느 것도 보여주지 못한다.
-          ⚠️ 2열 격자 **밖**이다 — 안에 넣으면 도식 ↔ 해설의 짝이 깨지고, 아래
-             CTA의 들여쓰기(6칸) 계약도 함께 흔들린다. */}
-      {/* 🔴 **모식도 둘은 나란히 선다**(2026-08-21 사용자 지시 — "모식도 두 개
-          사이즈 모두 줄여서 왼쪽·오른쪽 배치"). 세로로 쌓았을 때 둘이 780px씩
-          **화면의 절반(1,560/3,348px)**을 먹었다.
-          ⚠️ 캔버스 화면비는 `CrossSectionGL`이 260:150으로 고정한다 — 높이를
-             직접 못 박고 **열 폭으로만** 조절한다. 폭이 반이면 높이도 반이다.
-          ⚠️ 두 열은 **같은 비율**이어야 한다(1fr 1fr). 한쪽을 넓히면 캔버스
-             높이가 갈려 두 카드의 캡션 줄이 어긋난다 — 나란한 것으로 안 읽힌다. */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <SchematicPanel
-          title={t('explore.schematic.card.t1.title')}
-          caption={t('explore.schematic.card.t1.caption')}
-          scene={TYPHOON_SECTION_SCENE}
-          steps={T1_STEPS}
-          ariaLabel={t('explore.schematic.card.t1.aria')}
-        />
-        <SchematicPanel
-          title={t('explore.schematic.card.t2.title')}
-          caption={t('explore.schematic.card.t2.caption')}
-          scene={TYPHOON_LIFECYCLE_SCENE}
-          steps={T2_STEPS}
-          ariaLabel={t('explore.schematic.card.t2.aria')}
-        />
       </div>
 
       {/* θ 루프 연결 CTA */}
