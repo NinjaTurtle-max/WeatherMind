@@ -54,7 +54,7 @@ export default function CasterJudgmentCard({ baseForecast, aiPred, casterGrade }
           {baseForecast ? (
             <>
               {t('duel.judge.tempPrefix')}
-              <b>{baseForecast.temp_max}℃</b>
+              <b>{baseForecast.temp_max}{t('common.celsius')}</b>
               {t('duel.judge.rainMid')}
               <b>{baseForecast.rain_prob}%</b>
             </>
@@ -71,7 +71,7 @@ export default function CasterJudgmentCard({ baseForecast, aiPred, casterGrade }
         <StepArrow />
         <JudgmentStep no="3" title={t('duel.judge.step3')}>
           {t('duel.judge.tempPrefix')}
-          <b>{aiPred.temp_max}℃</b>
+          <b>{aiPred.temp_max}{t('common.celsius')}</b>
           {t('duel.judge.rainMid')}
           <b>{aiPred.rain_prob}%</b>
         </JudgmentStep>

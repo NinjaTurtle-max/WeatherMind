@@ -322,7 +322,7 @@ function PredColumn({ title, pred, score, highlight = false }) {
   return (
     <div className={`rounded-xl p-3 text-center ring-1 ${highlight ? 'bg-sky-50 ring-sky-200' : 'bg-slate-50 ring-slate-200'}`}>
       <p className="text-xs font-bold text-slate-600">{title}</p>
-      <p className="mt-1.5 text-sm font-extrabold text-slate-800">{fmt(pred?.temp_max)}℃</p>
+      <p className="mt-1.5 text-sm font-extrabold text-slate-800">{fmt(pred?.temp_max)}{t('common.celsius')}</p>
       <p className="text-xs text-slate-500">{t('duel.rainShort', { prob: fmt(pred?.rain_prob) })}</p>
       {score != null && (
         <p className="mt-1 text-[11px] font-bold text-sky-600">{t('duel.accuracy', { score: fmt(score) })}</p>

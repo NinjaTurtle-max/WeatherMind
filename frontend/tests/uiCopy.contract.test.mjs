@@ -24,7 +24,7 @@
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, resolve, sep } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..', '..');
@@ -367,19 +367,21 @@ for (const [locale, bans] of Object.entries(BANNED_NOTATION)) {
   }
 }
 
+const walkSrc = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+  const full = resolve(dir, e.name);
+  if (e.isDirectory()) return walkSrc(full);
+  return /\.(js|jsx)$/.test(e.name) ? [full] : [];
+});
+
 check('표기 통일: 화면 컴포넌트에 하드코딩된 「°C」가 없다 (ko 전용 렌더 — ℃여야 한다)', () => {
-  // 온도 단위를 하드코딩해 그리는 자리가 15곳쯤 있다(DuelPage·ResultCard·
-  // TyphoonSimPage·ClimateSimPage 등 — 리소스를 거치지 않는다). `detectLocale()`이
-  // ko 고정이라 **사용자가 보는 것은 언제나 이쪽**이고, 지금 전부 `℃`다.
-  // 리소스만 물면 이 15곳으로 흔들림이 되돌아온다 — 그래서 함께 문다.
+  // 종전에는 온도 단위를 하드코딩해 그리는 자리가 12곳 있었다(DuelPage·ResultCard·
+  // TyphoonSimPage·ClimateSimPage 등 — 리소스를 거치지 않았다). **2026-08-21에
+  // 전부 `common.celsius`로 나갔고**, 아래 「℃」 검사가 되돌아오는 것을 막는다.
+  // 이 검사는 그 반대 방향으로 남는다: 코드에 `°C`를 직접 적으면 `detectLocale()`이
+  // ko 고정이라 사용자에게 en 표기가 그대로 나간다.
   // en 리소스 두 계열은 당연히 제외한다(en의 정답이 `°C`다).
-  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-    const full = resolve(dir, e.name);
-    if (e.isDirectory()) return walk(full);
-    return /\.(js|jsx)$/.test(e.name) ? [full] : [];
-  });
   const bad = [];
-  for (const f of walk(resolve(repoRoot, 'frontend/src'))) {
+  for (const f of walkSrc(resolve(repoRoot, 'frontend/src'))) {
     if (/\/i18n\/resources\/(en|[a-z]+\.en)\.js$/.test(f)) continue;
     const src = readFileSync(f, 'utf8');
     src.split('\n').forEach((line, i) => {
@@ -387,6 +389,52 @@ check('표기 통일: 화면 컴포넌트에 하드코딩된 「°C」가 없다
     });
   }
   assert(bad.length === 0, `ko가 그리는 자리에 「°C」가 있다 — 「℃」로 통일한다\n    ${bad.join('\n    ')}`);
+});
+
+/**
+ * 🔴 **반대 방향 — 되돌림의 나머지 절반**(2026-08-21).
+ *
+ * 위 검사와 리소스 값 검사만 있을 때, **컴포넌트를 `℃` 리터럴로 되돌리면 아무것도
+ * 울지 않았다.** 리소스에 키가 있어도 소비처가 안 읽으면 그 키는 장식이고,
+ * `°C`만 물면 「ko 리터럴로 되돌리기」가 공짜다 — 실제로 이 흔들림이 처음 생긴 경로다.
+ * `common.celsius`는 **언어별로 갈리는 값**(ko `℃` / en `°C`)이라, 리터럴이 하나라도
+ * 남으면 en 렌더가 그 자리에서만 CJK 글리프로 튄다.
+ *
+ * ⚠️ 주석은 화면이 아니다 — 블록·행 주석을 걷어낸 코드만 본다. 걷어내는 방식은
+ *    `displayLayerParity.contract.test.mjs`의 `hangulLines`와 **같게** 맞췄다
+ *    (두 탐지기가 다르게 세면 어느 쪽이 참인지 사람이 판정하게 된다).
+ *    실제로 주석에 `℃`가 있는 파일이 여럿이다(exploreSims.js JSDoc의 26.5℃ 임계,
+ *    briefingDisplay.js 색 주석, CaseChart.jsx 축 설명, ClimateSimPage.jsx의 눈금 주석).
+ *    한 군데만 다르다: 블록 주석을 **줄 수를 보존한 채** 지운다. `hangulLines`는
+ *    통째로 지워 줄이 당겨지는데, 그쪽은 줄 수만 세고 이쪽은 **위반 줄 번호를
+ *    보고**하기 때문이다 — 당겨진 번호를 보고하면 다음 사람이 엉뚱한 줄을 연다.
+ *    (걸리는 줄의 집합은 같다. 한 블록 주석의 앞뒤 코드에 `℃`가 동시에 있을 때만
+ *     1줄 ↔ 2줄로 갈리는데, 그건 주석이 아니라 코드라 어느 쪽이든 운다.)
+ * ⚠️ `src/i18n/resources/`는 **규칙으로** 뺀다 — 외부화의 목적지라 한국어 표기가
+ *    있는 것이 옳고, 새 리소스 파일이 생겨도 자동으로 옳다. en 값의 `℃`는 위
+ *    BANNED_NOTATION.en이 이미 값 단위로 문다.
+ */
+check('표기 통일: 화면 컴포넌트에 하드코딩된 「℃」가 없다 (리소스 common.celsius를 읽어야 한다)', () => {
+  const RESOURCE_DIR = `${sep}src${sep}i18n${sep}resources${sep}`;
+  const codeLines = (abs) =>
+    readFileSync(abs, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ''))
+      .split('\n')
+      .map((l, i) => [i + 1, l])
+      .filter(([, l]) => !l.trimStart().startsWith('//'))
+      .map(([i, l]) => [i, l.replace(/\/\/.*$/, '')]);
+  const bad = [];
+  for (const f of walkSrc(resolve(repoRoot, 'frontend/src'))) {
+    if (f.includes(RESOURCE_DIR)) continue;
+    for (const [no, line] of codeLines(f)) {
+      if (line.includes('℃')) bad.push(`${f.split('/frontend/')[1]}:${no}: ${line.trim()}`);
+    }
+  }
+  assert(
+    bad.length === 0,
+    `컴포넌트가 「℃」를 직접 그린다 — {t('common.celsius')}로 읽을 것 ` +
+      `(ko는 ℃, en은 °C다 · 리터럴이면 en에서 CJK 글리프가 튄다)\n    ${bad.join('\n    ')}`,
+  );
 });
 
 if (failed > 0) {

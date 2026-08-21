@@ -70,7 +70,7 @@ export default function BriefingRoom({ briefing, loading = false, error = false,
     <Card>
       <BriefingHeader briefing={briefing} />
 
-      <SectionTitle color={CHART_COLORS.temp} title={t('briefing.tempTitle')} unit="℃" />
+      <SectionTitle color={CHART_COLORS.temp} title={t('briefing.tempTitle')} unit={t('common.celsius')} />
       <TempChart rows={rows} tmx={tmx} tmn={tmn} />
 
       <SectionTitle color={CHART_COLORS.pop} title={t('briefing.popTitle')} unit="%" />

@@ -54,6 +54,10 @@ export default {
     loading: 'Loading…',
     retry: 'Try again',
     retryLater: 'Please try again in a moment.',
+    // Degree symbol — deliberately NOT the same glyph as ko (see ko.js common.celsius).
+    // en uses `°C` (U+00B0 + C): U+2103 is a CJK compatibility character that falls back
+    // to a CJK font in English text and jumps the glyph width. SI also writes `°C`.
+    celsius: '°C',
   },
   nav: {
     primary: 'Main menu',
