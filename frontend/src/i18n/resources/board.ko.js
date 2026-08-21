@@ -690,7 +690,7 @@ export default {
         steps: {
           stage: {
             title: '따뜻한 바다 위 — 눈과 눈벽',
-            note: '해수면 {seaC}°C 이상이 연료다. 가운데 지름 20~50km가 비어 있고(눈) 그 둘레를 가장 높은 구름 벽이 감싼다 — 꼭대기는 {cloudTopKm}km 안팎(12~20km).',
+            note: '해수면 {seaC}℃ 이상이 연료다. 가운데 지름 20~50km가 비어 있고(눈) 그 둘레를 가장 높은 구름 벽이 감싼다 — 꼭대기는 {cloudTopKm}km 안팎(12~20km).',
           },
           inflow: {
             title: '하층 — 반시계로 빨려 든다',
@@ -710,7 +710,7 @@ export default {
           },
         },
         labels: {
-          warmSea: '바다 {seaC}°C 이상',
+          warmSea: '바다 {seaC}℃ 이상',
           rainBands: '나선 비구름대',
           eyewall: '눈벽',
           // ⚠️ `cirrusShield`는 `exploreSims.render.test`가 T1의 **0단계 장면 라벨**로 문다.
@@ -728,7 +728,7 @@ export default {
       // T2 태풍의 생애 — `short`는 캔버스 명사구, `title`은 캡션 제목이다(둘이 갈렸다).
       t2: {
         stages: {
-          form: { title: '형성기', short: '형성기', note: '해수면 26.5°C 이상 · 잠열이 에너지원' },
+          form: { title: '형성기', short: '형성기', note: '해수면 26.5℃ 이상 · 잠열이 에너지원' },
           grow: { title: '발달기', short: '발달기', note: '무역풍을 타고 서~서북서 20~25km/h' },
           peak: { title: '최성기 · 전향', short: '최성기', note: '북위 20~30°에서 전향한다 — 여기서 약 하루 정체한다' },
           accel: { title: '전향 후 급가속', short: '급가속', note: '편서풍을 타고 북~북동 35~40km/h — 느리게 오다가 갑자기 빨라진다' },

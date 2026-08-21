@@ -383,9 +383,16 @@ check('표기 통일: 화면 컴포넌트에 하드코딩된 「°C」가 없다
   const bad = [];
   for (const f of walkSrc(resolve(repoRoot, 'frontend/src'))) {
     if (/\/i18n\/resources\/(en|[a-z]+\.en)\.js$/.test(f)) continue;
-    const src = readFileSync(f, 'utf8');
+    // 🔴 **주석은 화면이 아니다** — 아래 형제 「℃」 검사와 같은 방식으로 걷는다.
+    //    2026-08-21 병합에서 이 검사만 그 처리가 빠져 있어 IPCC AR6 원문 인용
+    //    (`exploreSims.js` JSDoc의 "ECS is 3°C …")을 붉혔다. 그 인용은 **출처 원문이라
+    //    표기를 바꾸면 인용이 아니게 된다** — 계약을 느슨하게 한 것이 아니라
+    //    화면만 보도록 대상을 바로잡은 것이다.
+    const src = readFileSync(f, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ''));
     src.split('\n').forEach((line, i) => {
-      if (line.includes('°C')) bad.push(`${f.split('/frontend/')[1]}:${i + 1}: ${line.trim()}`);
+      const code = line.trimStart().startsWith('//') ? '' : line.replace(/\/\/.*$/, '');
+      if (code.includes('°C')) bad.push(`${f.split('/frontend/')[1]}:${i + 1}: ${line.trim()}`);
     });
   }
   assert(bad.length === 0, `ko가 그리는 자리에 「°C」가 있다 — 「℃」로 통일한다\n    ${bad.join('\n    ')}`);
