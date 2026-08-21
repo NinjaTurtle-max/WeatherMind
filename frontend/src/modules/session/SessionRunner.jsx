@@ -1196,14 +1196,24 @@ function useLeaveIntent(active) {
       window.removeEventListener('beforeunload', onBeforeUnload);
       window.removeEventListener('popstate', onPopState);
       document.removeEventListener('click', onClickCapture, true);
-      // 센티널 회수(P2-1): 리스너를 먼저 떼었으므로 이 back()이 유발하는 popstate는
-      // 아무것도 트리거하지 않는다. **최상단 항목이 우리 센티널일 때만** 되돌린다 —
-      // 그 사이 다른 화면으로 이동했다면(그만두기 등) 최상단은 라우터의 항목이고,
-      // 남의 히스토리를 건드리면 안 된다(그 경우는 leave()의 replace가 처리한다).
-      // 회수하지 않으면 세션을 열 때마다 헛도는 뒤로가기가 1칸씩 쌓인다.
+      // 센티널 회수(P2-1) — **`back()`이 아니라 `replaceState`로 마커만 지운다**
+      // (2026-08-21 정정). 종전엔 `history.back()`을 썼는데, React 18
+      // StrictMode(dev)가 이 effect를 마운트→cleanup→재마운트로 **두 번** 태우면
+      // 1차 cleanup의 `back()`이 비동기로 큐잉된 채 남아 있다가, 2차 마운트가
+      // 유닛 세션을 정상 렌더한 **직후** 뒤늦게 실행돼 브라우저를 실제로 한 칸
+      // 뒤로 보냈다 — 화면이 0.2초 렌더됐다 `/learn`으로 튕기는 것으로 관측됐다
+      // (실측: 유닛 클릭 → 문항 2/10 렌더 → 즉시 /learn 복귀). `back()`은 실제
+      // 내비게이션이라 얼마나 걸릴지 우리가 못 정하지만, `replaceState`는 URL을
+      // 안 바꾸고 **동기로** 끝나 그 경쟁이 생길 자리가 없다.
+      // **최상단 항목이 우리 센티널일 때만** 지운다 — 그 사이 다른 화면으로
+      // 이동했다면(그만두기 등) 최상단은 라우터의 항목이고, 남의 히스토리를
+      // 건드리면 안 된다(그 경우는 leave()의 replace가 처리한다).
       if (!sentinel) return;
       try {
-        if (window.history.state?.wmLeaveGuard) window.history.back();
+        if (window.history.state?.wmLeaveGuard) {
+          const { wmLeaveGuard, ...rest } = window.history.state;
+          window.history.replaceState(rest, '');
+        }
       } catch {
         /* 히스토리 조작 불가 환경 — no-op */
       }
