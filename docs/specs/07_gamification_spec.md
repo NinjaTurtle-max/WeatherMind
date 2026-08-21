@@ -15,7 +15,7 @@
 | **XP · 레벨** | 보상 표시축 — **소비·게이팅 없음**(순수 표시값) | `users`(xp) — 레벨은 `level_from_xp` 파생(비저장) | §1 카탈로그 11종 원천 |
 | **θ (WeatherBrain)** | 개념별 능력 추정(IRT 2PL) — 출제 라우팅·선해제·약점 판정 | `user_concept_ability`(theta·num_responses), `item_params`(a·b) | 가입 시 배치고사 초기화, 세션 경계 재추정(EAP), celery 재학습(JML b 보정). 상세 03 §5 |
 | **ELO · 티어** | 예측 리그 경쟁 | `league_results`(elo_rating_after·tier) | celery 주간 정산 `settle_weekly_league` (§5) |
-| **구름 에너지** | 시도 게이트(소모 자원) | `users`(clouds·clouds_updated_at) | 시도당 −1, 20분당 +1 회복, 만렙 5 (`Settings.CLOUD_*`). 소진 시 429 `OUT_OF_CLOUDS`. 스트릭 프리즈(§3)와 별개 자원 |
+| **구름 에너지** | 시도 게이트(소모 자원) | `users`(clouds·clouds_updated_at) | 시도당 −1, 20분당 +1 회복, 만렙 ~~5~~ → **10** (2026-08-20 실측 정정 — 코드가 참이다. 소유자는 `backend/app/core/config.py`의 `CLOUD_MAX`이고 2026-08-11 멘토링 피드백 MT-7로 5 → 10이 됐는데 이 표만 낡아 있었다. 세는 법 한 줄: `grep -n 'CLOUD_MAX' backend/app/core/config.py`) (`Settings.CLOUD_*`). 소진 시 429 `OUT_OF_CLOUDS`. 스트릭 프리즈(§3)와 별개 자원 |
 
 - XP는 어떤 기능도 잠그지 않는다. 게이트는 구름 에너지(시도)와 스파인(유닛
   잠금)·θ(선해제)가 담당한다.
