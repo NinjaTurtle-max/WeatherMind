@@ -62,6 +62,8 @@ import asyncio
 import re
 import uuid
 from datetime import datetime, timezone
+import io
+import tokenize
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -72,12 +74,46 @@ from app.core.dependencies import get_current_user, get_db
 from app.main import app
 from app.models.user import User
 from app.routers import auth
+from app.routers import auth as auth_router
 from app.routers import board as board_router
 
 
-BOARD_SRC = (
+_BOARD_RAW = (
     Path(__file__).resolve().parents[1] / "app" / "routers" / "board.py"
 ).read_text(encoding="utf-8")
+
+
+def _code_only(src: str) -> str:
+    """주석·문자열을 공백으로 지운 **실행되는 줄만**의 사본 (줄 번호 보존).
+
+    🔴 이 파일이 무는 형태 그 자체다 — 계약이 원문을 훑으면 **주석이 계약을
+    통과시키거나 거짓으로 울린다.** 실측(2026-08-21): board.py의 설계 주석이
+    `locked_tiers(None) == set()`을 **설명으로** 적고 있어, 원문을 훑던 판이
+    그 줄을 「요청 문맥이 천장 대신 None을 넘긴다」로 읽고 거짓 빨강을 냈다.
+    (CARRYOVER §4.34 ⑵ — *「계약은 주석·머리글이 아니라 실행되는 줄을 봐야
+    한다」*. 같은 날 같은 자리에서 다시 나왔다.)
+    """
+    out = list(src)
+    for tok in tokenize.generate_tokens(io.StringIO(src).readline):
+        if tok.type not in (tokenize.COMMENT, tokenize.STRING):
+            continue
+        (r0, c0), (r1, c1) = tok.start, tok.end
+        starts = [0]
+        for ch in src:
+            starts.append(starts[-1] + 1)
+        # 줄 시작 오프셋 표를 쓰지 않고 직접 센다 (줄 수가 작다)
+        lines = src.split("\n")
+        off = sum(len(lines[i]) + 1 for i in range(r0 - 1))
+        beg = off + c0
+        off1 = sum(len(lines[i]) + 1 for i in range(r1 - 1))
+        end = off1 + c1
+        for i in range(beg, min(end, len(out))):
+            if out[i] != "\n":
+                out[i] = " "
+    return "".join(out)
+
+
+BOARD_SRC = _code_only(_BOARD_RAW)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -213,22 +249,36 @@ class TestDoorPersists:
 # ⑵ 문이 **천장을 움직이는가** — 배선
 # ═══════════════════════════════════════════════════════════════
 
-# 학습자의 밴드를 인자로 받는 board의 순수 함수들. 요청 문맥(유저를 손에 든
-# 함수) 안에서 이들을 부를 때 밴드 자리에 **`user.level_group`이 아닌 것**이
-# 들어가면, PATCH가 DB를 아무리 잘 갱신해도 천장은 안 움직인다.
-BAND_CONSUMERS = (
-    "locked_difficulties",
-    "band_ceiling",
+# 🔴 **축이 바뀌었다 — 2026-08-21 병합.** 종전에는 이 자리가
+# ~~`locked_difficulties`·`band_ceiling`(밴드 문자열을 직접 받는 함수들)~~이었고,
+# 계약은 *「요청 문맥에서 밴드 자리에 `user.level_group`이 들어가는가」*를 물었다.
+# A조가 잠금 축을 **난이도 → 지식 단계**로 갈면서 그 이름들이 철거됐다.
+#
+# ⚠️ **이름만 바뀐 것이 아니라 성질의 모양이 바뀌었다** — 그래서 무는 방식도
+# 다시 쓴다(단정을 줄이지는 않는다. 아래가 옛것보다 조인다):
+#   옛 축 — 소비 함수 다섯이 각자 `user.level_group`을 받았다. 끊길 수 있는
+#           자리가 **호출부 수만큼** 있었고, 계약은 그 전부를 훑었다.
+#   새 축 — 천장의 출처가 `learner_tier(db, user)` **하나**로 모였고(그 독스트링이
+#           "천장의 소유자는 이 함수 하나다"로 못박는다), 소비 함수들은 이미
+#           풀린 `ceiling: int | None`을 받는다.
+# ⇒ 이제 끊기는 자리는 **「요청 문맥이 천장을 어디서 얻었나」** 한 곳이다.
+#   `user.level_group`을 찾으면 **영원히 0건**이라 헛돈다(새 축에서 밴드는 천장의
+#   규칙이 아니라 **θ의 입력**이다: PATCH → `reseed_unmeasured_priors` → θ →
+#   `overall_knowledge_level` → `learner_tier`). 그래서 무는 것을 옮긴다.
+CEILING_CONSUMERS = (
+    "locked_tiers",
     "below_ceiling_ids",
     "ceiling_tier",
     "sequenceable",
 )
 
-# 이들 함수는 밴드를 **마지막 인자**로 받는다. 시그니처가 바뀌면 아래 계약이
+# 🔴 천장의 **단일 소유자**. 요청 문맥의 천장은 전부 여기서 나와야 한다.
+CEILING_OWNER = "learner_tier"
+
+# 이들 함수는 천장을 **마지막 인자**로 받는다. 시그니처가 바뀌면 아래 계약이
 # 엉뚱한 인자를 보므로 그 사실 자체를 먼저 문다.
 BAND_IS_LAST_ARG = {
-    "locked_difficulties": 1,
-    "band_ceiling": 1,
+    "locked_tiers": 1,
     "below_ceiling_ids": 2,
     "ceiling_tier": 2,
     "sequenceable": 2,
@@ -296,7 +346,7 @@ def _takes_user(func_name: str) -> bool:
 
 
 class TestCeilingReadsTheUser:
-    """🔴 열림 합성의 `user.level_group`을 상수로 바꿔도 안 울던 자리.
+    """🔴 열림 합성이 **이 유저의 천장**을 쓰는가 — 상수로 바꿔도 안 울던 자리.
 
     board의 잠금·열림 **규칙**은 촘촘히 물려 있다(`test_board_progression`). 물려
     있지 않던 것은 **엔드포인트가 그 규칙에 「이 유저의 밴드」를 먹이는가**다 —
@@ -312,26 +362,47 @@ class TestCeilingReadsTheUser:
             assert m is not None, f"board.py에 {name} 정의가 없다"
             params = [p.split(":")[0].strip() for p in m.group(1).split(",")]
             assert len(params) == arity, f"{name} 시그니처가 {params} — 계약을 갱신할 것"
-            assert params[-1] == "level_group", (
-                f"{name}의 마지막 인자가 {params[-1]!r} — 밴드 자리가 옮겨졌다"
+            assert params[-1] == "ceiling", (
+                f"{name}의 마지막 인자가 {params[-1]!r} — 천장 자리가 옮겨졌다"
             )
 
-    def test_천장을_읽는_전건이_유저의_학령을_읽는다(self):
+    def test_천장을_읽는_전건이_유저의_천장을_읽는다(self):
+        """요청 문맥의 천장은 **전부 `learner_tier(db, user)`에서** 나와야 한다.
+
+        ⚠️ 옛 판은 `user.level_group`이 인자로 흘러드는지 봤다. 새 축에서 밴드는
+        천장의 **규칙**이 아니라 **θ의 입력**이라 그 문자열은 board에 0건이고,
+        그대로 두면 **영원히 아무것도 안 검사하는 계약**이 된다(이 파일이 무는
+        형태 그 자체다). 그래서 소유자 이음매를 문다.
+        """
+        # 소유자에서 풀린 천장이 담기는 지역 이름 — 그 밖의 것이 들어오면 운다.
+        owner_bound = set()
+        for m in re.finditer(
+            rf"^\s*(\w+)\s*=\s*await {CEILING_OWNER}\(", BOARD_SRC, re.M
+        ):
+            owner_bound.add(m.group(1))
+        assert owner_bound, (
+            f"board.py에 `<이름> = await {CEILING_OWNER}(…)` 꼴이 하나도 없다 — "
+            "천장의 소유자가 바뀌었거나 이 계약이 낡았다"
+        )
+
         checked = 0
-        for name in BAND_CONSUMERS:
+        for name in CEILING_CONSUMERS:
             for line, enclosing, args in _call_sites(name):
                 if not _takes_user(enclosing or ""):
-                    # 순수 헬퍼 내부 — 자기 `level_group` 인자를 넘긴다(정상).
-                    assert args[-1] == "level_group", (
+                    # 순수 헬퍼 내부 — 자기 `ceiling` 인자를 그대로 넘긴다(정상).
+                    assert args[-1] == "ceiling", (
                         f"board.py:{line} {name}(… {args[-1]}) — 순수 헬퍼가 자기 "
-                        "밴드 인자가 아닌 것을 넘긴다"
+                        "천장 인자가 아닌 것을 넘긴다"
                     )
                     continue
                 checked += 1
-                assert args[-1] == "user.level_group", (
-                    f"board.py:{line} — `{enclosing}`이 {name}(… {args[-1]})로 "
-                    "천장을 센다. 요청 문맥에서 밴드는 **이 유저의 것**이어야 한다 — "
-                    "여기가 끊기면 PATCH /auth/me가 DB를 갱신해도 천장이 안 움직인다"
+                arg = args[-1]
+                ok = arg in owner_bound or arg.startswith(f"await {CEILING_OWNER}(")
+                assert ok, (
+                    f"board.py:{line} — `{enclosing}`이 {name}(… {arg})로 천장을 "
+                    f"센다. 요청 문맥의 천장은 **{CEILING_OWNER}(db, user)에서** "
+                    "나와야 한다 — 여기가 끊기면 PATCH /auth/me가 DB와 θ를 갱신해도 "
+                    "천장이 안 움직인다"
                 )
         assert checked >= 7, (
             f"요청 문맥의 밴드 소비 호출을 {checked}건만 봤다(기대 7건 이상 — "
@@ -346,22 +417,28 @@ class TestCeilingReadsTheUser:
 # ═══════════════════════════════════════════════════════════════
 
 
-def graded_item(order: int, difficulty: int):
-    """난이도가 정해진 보드 퍼즐 (test_board_progression의 `_graded_item` 관례).
+def graded_item(order: int, tier: int):
+    """**층**이 정해진 보드 퍼즐.
 
-    ⚠️ 값을 꾸며 넣지 않고 **실제 산출 규칙을 태운 뒤 그 결과를 단정**한다 —
-    규칙이 바뀌면 이 헬퍼가 먼저 운다(이 파일만 옛 세계에서 초록으로 남지 않게).
+    🔴 **축 교체(2026-08-21 병합)** — 종전에는 `board_difficulty(template,
+    level_group)`(조작 복잡도 **파생**)이 층을 냈고, 이 헬퍼는 `mode`·
+    `time_limit_sec`를 꾸며 그 파생이 원하는 값을 내게 했다. 새 축의 층은
+    **저작값**(`knowledge_level`)이라 파생 규칙이 없다 — `board_tier(item)`이
+    그 값을 그대로 읽는다.
+
+    ⚠️ 값을 꾸며 넣지 않고 **실제 산출 규칙을 태운 뒤 그 결과를 단정**하는 관례는
+    그대로다 — 규칙이 바뀌면 이 헬퍼가 먼저 운다(이 파일만 옛 세계에서 초록으로
+    남지 않게).
     """
-    template = {
-        "board_order": order,
-        "mode": "guided" if difficulty < 2 else "goal_only",
-    }
-    if difficulty >= 3:
-        template["time_limit_sec"] = 120
     item = SimpleNamespace(
-        id=uuid.uuid4(), template_json=template, level_group="middle_high"
+        id=uuid.uuid4(),
+        template_json={"board_order": order},
+        level_group="middle_high",
+        knowledge_level=tier,
     )
-    assert board_router.board_difficulty(template, item.level_group) == difficulty
+    assert board_router.board_tier(item) == tier, (
+        "board_tier가 저작한 층을 그대로 내지 않는다 — 층의 산출 규칙이 바뀌었다"
+    )
     return item
 
 
@@ -378,48 +455,93 @@ class _ItemsDB:
         )
 
 
-def unlocked_for(items, user) -> set:
-    """**라우터의 실제 합성**을 그대로 부른다 — 규칙 사본을 만들지 않는다."""
-    return asyncio.run(board_router._unlocked_ids_for(_ItemsDB(items), user, set()))
+def unlocked_for(items, user, ceiling) -> set:
+    """**라우터의 실제 합성**을 그대로 부른다 — 규칙 사본을 만들지 않는다.
+
+    🔴 **축 교체(2026-08-21 병합) 후 천장은 θ 파생**이다(`learner_tier` →
+    `overall_knowledge_level`). 그래서 천장 **값만** 이음매에 넣고, 잠금·순차·
+    미상 처리는 전부 라우터가 실제로 한다 — 규칙을 베끼지 않는다.
+    ⚠️ 이음매를 넣는 것이 배선을 안 재는 것이 아니다: 「요청 문맥이 천장을
+    `learner_tier`에서 얻는가」는 `TestCeilingReadsTheUser`가 소스에서 물고,
+    「문이 θ를 갈아탄다」는 `TestDoorFeedsTheta`가 문다. 셋이 한 사슬이다.
+    """
+    real = board_router.learner_tier
+
+    async def _fixed(db, user):  # noqa: ARG001
+        return ceiling
+
+    board_router.learner_tier = _fixed
+    try:
+        return asyncio.run(
+            board_router._unlocked_ids_for(_ItemsDB(items), user, set())
+        )
+    finally:
+        board_router.learner_tier = real
 
 
 class TestDoorMovesCeilingByValue:
-    def test_문을_통과한_값이_열림_집합을_실제로_옮긴다(self, me_client, fake_db):
-        """PATCH → 같은 유저 객체 → 라우터 합성. 리터럴 밴드를 한 번도 안 쓴다.
+    """문 → θ → 천장 → 열림. **세 마디를 각각** 문다.
 
-        여기서 쓰는 코스는 쉬움·보통·어려움이 섞여 있어 **밴드가 갈리면 답이
-        달라진다** — 갈래를 안 밟는 표본이면 이 단정은 장식이다(아래 세 줄이
-        그것을 함께 확인한다).
-        """
+    🔴 옛 판은 「PATCH 하면 열림 집합이 옮겨진다」를 한 단정으로 물었다. 그때는
+    천장이 `user.level_group`을 직접 읽었기 때문이다. **2026-08-21 병합으로 그
+    직결이 의도적으로 끊겼다**(판정 A — 천장은 θ만 본다). 한 단정으로 두면 θ를
+    흉내 내야 하고, 그건 이 파일이 금지한 **규칙 사본**이다.
+    ⇒ 마디를 갈라 **각각** 문다. 단정은 2개에서 5개로 **늘었다**.
+    """
+
+    def test_문이_θ_사전값을_갈아탄다(self, me_client, fake_db):
+        """① 문 → θ. 이 마디가 끊기면 학령을 바꿔도 천장이 한 칸도 안 움직인다."""
         client, bearer = me_client
-        user = enter_as_guest(client, fake_db, bearer)  # middle_high (천장 2)
+        user = enter_as_guest(client, fake_db, bearer)
+        seen = {}
+
+        real = auth_router.weatherbrain_service.reseed_unmeasured_priors
+
+        async def _spy(db, u):
+            seen["user"] = u
+            return []
+
+        auth_router.weatherbrain_service.reseed_unmeasured_priors = _spy
+        try:
+            before = fake_db.commits
+            res = client.patch("/api/v1/auth/me", json={"level_group": "adult"})
+        finally:
+            auth_router.weatherbrain_service.reseed_unmeasured_priors = real
+
+        assert res.status_code == 200, res.text
+        assert seen.get("user") is not None, (
+            "PATCH가 θ 사전값 갈아타기를 부르지 않았다 — 학령만 바뀌고 천장은 "
+            "제자리다(잠금 배너의 「학습 수준 바꾸기」가 못 지키는 약속이 된다)"
+        )
+        assert seen["user"].id == user.id, "θ를 갈아탄 대상이 이 유저가 아니다"
+        assert fake_db.commits == before + 1, (
+            "학령과 θ가 같은 트랜잭션에서 함께 착지하지 않았다 — 한쪽만 남으면 "
+            "천장과 신고가 어긋난 채로 굳는다"
+        )
+
+    def test_천장을_올리면_열림_집합이_넓어진다(self, me_client, fake_db):
+        """② 천장 → 열림. 라우터 합성을 그대로 태운다."""
+        client, bearer = me_client
+        user = enter_as_guest(client, fake_db, bearer)
         course = [graded_item(0, 1), graded_item(1, 2), graded_item(2, 3)]
 
-        before = unlocked_for(course, user)
-        assert course[2].id not in before, "중고등에게 어려움 칸이 이미 열려 있다 — 표본이 갈래를 못 밟는다"
+        low = unlocked_for(course, user, 2)
+        assert course[2].id not in low, "천장 2인데 3층이 이미 열려 있다 — 표본이 갈래를 못 밟는다"
 
-        res = client.patch("/api/v1/auth/me", json={"level_group": "adult"})
-        assert res.status_code == 200, res.text
+        high = unlocked_for(course, user, 3)
+        assert high != low, "천장을 올렸는데 열림 집합이 그대로다 — 천장이 합성에 안 닿는다"
+        assert course[2].id in high, "천장 3인데 3층이 안 열렸다"
 
-        after = unlocked_for(course, user)
-        assert after != before, (
-            "학령을 올렸는데 열림 집합이 그대로다 — 문이 DB만 바꾸고 천장에 "
-            "닿지 않는다(잠금 배너 CTA가 못 지키는 약속이 된다)"
-        )
-        assert course[2].id in after, "성인인데 어려움 칸이 안 열렸다"
-
-    def test_수준을_내리면_다시_좁아진다(self, me_client, fake_db):
+    def test_천장을_내리면_다시_좁아진다(self, me_client, fake_db):
         """한 방향만 물면 「항상 전부 열기」가 통과한다 — 반대 방향도 문다."""
         client, bearer = me_client
         user = enter_as_guest(client, fake_db, bearer)
         course = [graded_item(0, 1), graded_item(1, 2), graded_item(2, 3)]
 
-        client.patch("/api/v1/auth/me", json={"level_group": "adult"})
-        wide = unlocked_for(course, user)
-        client.patch("/api/v1/auth/me", json={"level_group": "elementary"})
-        narrow = unlocked_for(course, user)
+        wide = unlocked_for(course, user, 3)
+        narrow = unlocked_for(course, user, 1)
 
-        assert narrow < wide, f"초등으로 내렸는데 좁아지지 않았다 ({narrow} ⊄ {wide})"
+        assert narrow < wide, f"천장을 내렸는데 좁아지지 않았다 ({narrow} ⊄ {wide})"
         assert course[1].id not in narrow and course[2].id not in narrow
 
 

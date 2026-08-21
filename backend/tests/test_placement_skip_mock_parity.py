@@ -323,11 +323,23 @@ class TestMockRuleSkeleton:
         이 뼈대가 깨지면(예: 스킵을 `continue`로 건너뛰면) 스킵한 문항이
         **안 본 문항**이 되어 θ가 안 떨어지고, 배치고사가 스킵을 보상한다.
         """
-        block = re.search(
+        # 🔴 **선택자가 첫 일치를 집던 자리**(2026-08-21). `const byConcept =
+        # new Map();`은 이제 목에 **두 곳**이다 — `masteryPayload`(숙련도 집계)가
+        # 같은 꼴을 하나 더 만들었고, 그쪽이 파일 앞에 있어 `re.search`가 그것을
+        # 집었다. 코드는 멀쩡한데 계약이 **엉뚱한 루프**를 보고 붉었다.
+        # ⇒ 배치 루프만 갖는 표식(`s.answers[item.quiz_id]`)으로 좁히고,
+        #   **일치가 정확히 하나인지**도 함께 문다. 하나로 좁히지 않으면 다음에
+        #   또 다른 루프가 앞에 서는 순간 같은 일이 반복된다.
+        blocks = re.findall(
             r"const byConcept = new Map\(\);(.*?)\n      \}", mock_code, re.S
         )
-        assert block, "목의 배치 θ 집계 루프를 못 찾았다 — 이 계약을 갱신할 것"
-        body = block.group(1)
+        cand = [b for b in blocks if "s.answers[item.quiz_id]" in b]
+        assert len(cand) == 1, (
+            f"배치 θ 집계 루프 후보가 {len(cand)}건이다(전체 byConcept 루프 "
+            f"{len(blocks)}건). 정확히 하나여야 이 계약이 무는 대상이 확정된다 — "
+            "표식(`s.answers[item.quiz_id]`)이 바뀌었는지 확인할 것"
+        )
+        body = cand[0]
         assert "agg.n += 1" in body, "개념별 분모(n) 증가를 못 찾았다"
         assert "agg.correct += 1" in body, "개념별 분자(correct) 증가를 못 찾았다"
         # 분모 증가가 is_correct 게이트보다 **앞**이라야 무조건이다.
