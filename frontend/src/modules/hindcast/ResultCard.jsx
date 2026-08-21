@@ -38,7 +38,7 @@ export default function ResultCard({ result }) {
         <div className="rounded-xl bg-sky-50 p-2">
           <p className="text-[10px] font-extrabold text-sky-700">{t('hindcast.result.you')}</p>
           <p className="mt-0.5 text-xs font-bold text-slate-800">
-            {result.user_pred.temp_max}℃ · {result.user_pred.rain_prob}%
+            {result.user_pred.temp_max}{t('common.celsius')} · {result.user_pred.rain_prob}%
           </p>
           <p className="mt-0.5 text-[10px] text-slate-500">
             {t('hindcast.result.score')} {result.user_score}
@@ -47,7 +47,7 @@ export default function ResultCard({ result }) {
         <div className="rounded-xl bg-slate-50 p-2">
           <p className="text-[10px] font-extrabold text-slate-600">{t('hindcast.result.caster')}</p>
           <p className="mt-0.5 text-xs font-bold text-slate-800">
-            {result.ai_pred.temp_max}℃ · {result.ai_pred.rain_prob}%
+            {result.ai_pred.temp_max}{t('common.celsius')} · {result.ai_pred.rain_prob}%
           </p>
           <p className="mt-0.5 text-[10px] text-slate-500">
             {t('hindcast.result.score')} {result.ai_score}
@@ -57,7 +57,7 @@ export default function ResultCard({ result }) {
           <p className="text-[10px] font-extrabold text-emerald-700">
             {t('hindcast.result.actual')}
           </p>
-          <p className="mt-0.5 text-xs font-bold text-slate-800">{result.actual.temp_max}℃</p>
+          <p className="mt-0.5 text-xs font-bold text-slate-800">{result.actual.temp_max}{t('common.celsius')}</p>
           <p className="mt-0.5 text-[10px] text-slate-500">
             {rained ? t('hindcast.result.rained') : t('hindcast.result.noRain')}
           </p>

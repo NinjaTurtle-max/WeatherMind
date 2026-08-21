@@ -121,7 +121,7 @@ export default function CaseListPage() {
 
                 {/* 평년값 — 실측이 아니라 판단 재료(duel base_forecast와 같은 위치) */}
                 <p className="mt-2 text-[11px] font-bold text-slate-500">
-                  {t('hindcast.list.normalLabel')} {c.climatology.temp_max}℃ ·{' '}
+                  {t('hindcast.list.normalLabel')} {c.climatology.temp_max}{t('common.celsius')} ·{' '}
                   {c.climatology.rain_prob}%
                 </p>
 

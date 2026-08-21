@@ -84,7 +84,7 @@ function AnomalyCurve({ co2, anomaly }) {
         <g key={g}>
           <line x1={pad.left} x2={w - pad.right} y1={yOf(g)} y2={yOf(g)} stroke="#f1f5f9" strokeWidth="1" />
           <text x={pad.left - 4} y={yOf(g) + 3} textAnchor="end" fontSize="9" className="fill-slate-400">
-            +{g}℃
+            +{g}{t('common.celsius')}
           </text>
         </g>
       ))}
@@ -183,7 +183,7 @@ export default function ClimateSimPage() {
           // 배치도 대비가 안 난다 — 흰 칩을 깔아야 그 색이 살아난다.
           // 색은 심각도를 나르는 채널이라 **없애지 않는다**(0.75/1.5/2.25 경계).
           <span className="rounded-full bg-white px-3 py-1 text-xs font-extrabold" style={{ color }}>
-            +{result.anomaly.toFixed(2)}℃
+            +{result.anomaly.toFixed(2)}{t('common.celsius')}
           </span>
         }
       />

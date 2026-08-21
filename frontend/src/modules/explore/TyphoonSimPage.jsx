@@ -309,7 +309,7 @@ export default function TyphoonSimPage() {
             <label htmlFor="explore-sst" className="text-sm font-bold text-slate-700">
               {t('explore.typhoon.sstLabel')}
             </label>
-            <span className="text-sm font-extrabold text-sky-700">{sst.toFixed(1)}℃</span>
+            <span className="text-sm font-extrabold text-sky-700">{sst.toFixed(1)}{t('common.celsius')}</span>
           </div>
           <input
             id="explore-sst"

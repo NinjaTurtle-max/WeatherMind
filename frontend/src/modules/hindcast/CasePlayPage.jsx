@@ -116,7 +116,7 @@ export default function CasePlayPage() {
           <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
             <p className="text-xs font-extrabold text-slate-700">{t('hindcast.play.normalTitle')}</p>
             <p className="mt-1 text-sm font-bold text-slate-800">
-              {kase?.climatology.temp_max}℃ · {kase?.climatology.rain_prob}%
+              {kase?.climatology.temp_max}{t('common.celsius')} · {kase?.climatology.rain_prob}%
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
               {t('hindcast.play.normalHint')}
