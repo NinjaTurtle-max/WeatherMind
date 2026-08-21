@@ -229,6 +229,79 @@ function fillLiveSlots(value) {
 // 슬라이더 허용 오차 — backend answer_service.SLIDER_TOLERANCE와 동일값
 const SLIDER_TOLERANCE = 10;
 
+// ── BKT 숙련(`GET /progress/mastery`) — R13-01 §5-1 ─────────────────────────
+// 🔴 **목에 이 라우트가 아예 없었다**(2026-08-20 전수 대조). 404라서
+//   `WeatherBrainPanel`의 BKT 섹션이 **dev에서 통째로 안 그려졌다**
+//   (`mastery.isError → return null`). 「사본이 갈렸다」가 아니라 **「없다」**였다.
+//
+// 사본이 셋이라 셋 다 `__mockPolicy()`로 노출한다 — 값이 같아도 노출이 없으면
+// 서버가 바뀔 때 조용하다(오늘 그물 밖 사본들과 같은 이유):
+//   ⑴ BKT 서빙 사전값 — ai-worker `knowledge_tracing.SERVING_PRIOR`
+//   ⑵ 콜드스타트 경계 — ai-worker `MASTERY_MIN_RESPONSES`
+//   ⑶ 라벨 임계 — backend `weatherbrain_service.MASTERY_*_MIN`
+// ⚠️ **`cold_start`가 값보다 먼저다** — 참이면 p와 무관하게 `insufficient`.
+const MOCK_BKT = { p_init: 0.3, p_learn: 0.2, p_guess: 0.25, p_slip: 0.15 };
+const MOCK_MASTERY_MIN_RESPONSES = 3;
+const MOCK_MASTERY_MASTERED_MIN = 0.8;
+const MOCK_MASTERY_LEARNING_MIN = 0.5;
+
+/** 응답 시퀀스 → 현재 P(숙련). ai-worker `trace_mastery`의 사본. */
+function traceMastery(corrects) {
+  const { p_init: pi, p_learn: T, p_guess: G, p_slip: S } = MOCK_BKT;
+  let p = pi;
+  for (const ok of corrects) {
+    const post = ok
+      ? (p * (1 - S)) / (p * (1 - S) + (1 - p) * G)
+      : (p * S) / (p * S + (1 - p) * (1 - G));
+    p = post + (1 - post) * T;
+  }
+  return p;
+}
+
+/** ai-worker `predict_p_correct`의 사본. */
+const predictPCorrect = (p) =>
+  p * (1 - MOCK_BKT.p_slip) + (1 - p) * MOCK_BKT.p_guess;
+
+/** backend `weatherbrain_service.mastery_label`의 사본 — **콜드스타트가 먼저**. */
+function masteryLabel(pMastery, coldStart) {
+  if (coldStart) return 'insufficient';
+  if (pMastery >= MOCK_MASTERY_MASTERED_MIN) return 'mastered';
+  if (pMastery >= MOCK_MASTERY_LEARNING_MIN) return 'learning';
+  return 'beginning';
+}
+
+/**
+ * `GET /progress/mastery` 응답 — 라우트가 부르는 **바로 이 함수**를
+ * `__masteryPayload`로 내보내 계약이 같은 것을 문다.
+ * ⚠️ **관측 0건 개념은 목록에 안 넣는다**(서버 `load_mastery` 계약) — θ가 전 개념
+ *    행을 갖는 것과 **의도적으로 다르다.**
+ */
+const masteryPayload = () => {
+  const byConcept = new Map();
+  for (const a of answerHistory) {
+    if (!byConcept.has(a.concept_tag)) byConcept.set(a.concept_tag, []);
+    byConcept.get(a.concept_tag).push(Boolean(a.is_correct));
+  }
+  return [...byConcept.entries()]
+    .map(([concept_tag, corrects]) => {
+      const p = traceMastery(corrects);
+      const coldStart = corrects.length < MOCK_MASTERY_MIN_RESPONSES;
+      const theta = devAbilities.get(concept_tag)?.theta;
+      return {
+        concept_tag,
+        p_mastery: p,
+        p_next_correct: predictPCorrect(p),
+        num_responses: corrects.length,
+        cold_start: coldStart,
+        level_label: masteryLabel(p, coldStart),
+        params_source: 'prior',
+        knowledge_level: theta == null ? null : thetaToKnowledgeLevel(theta),
+        knowledge_level_max: KNOWLEDGE_LEVEL_MAX,
+      };
+    })
+    .sort((a, b) => a.p_mastery - b.p_mastery);
+};
+
 /**
  * 해설의 **출처** — server `answer_service.feedback_source()`의 사본.
  * 우선순위까지 같다: board면 `board`, 사람이 쓴 해설(`explanation_hint`)이 있으면
@@ -1958,6 +2031,35 @@ const BOARD_ORDER_SAMPLES = [
   },
 ];
 
+/**
+ * 🔴 **「재현 불가한 알려진 불일치」 대장** — 값이 아니라 **원본 JSON 텍스트**로 낸다.
+ *
+ * 왜 텍스트인가(2026-08-20 실측): `board_order: 3.0`은 **값 표본으로는 계약이 볼 수
+ * 없다.** 전송로가 접어 버리기 때문이다 —
+ *   `JSON.stringify(3.0)` → `"3"` → 파이썬 `json.loads` → **int 3**.
+ * 그래서 `BOARD_ORDER_SAMPLES`(객체 표본)에 넣으면 ⓐ와 바이트가 같아져 **초록으로
+ * 통과한다**. 울지도 않는 갈래에 면제 사유를 다는 것은 계약을 무르는 짓이므로 하지
+ * 않는다. 텍스트로 실어 보내면 **각자의 파서가 각자대로 읽어** 갈림이 그대로 남는다:
+ *   파이썬  `json.loads('{"board_order":3.0}')` → `3.0` · `isinstance(int)` **False** → 10000
+ *   JS      `JSON.parse(...)`                    → `3`   · `Number.isInteger` **true**  → 3
+ * (목이 읽는 시드도 같은 경로다 — 파일 텍스트를 `JSON.parse`한다. 꾸민 입력이 아니다.)
+ *
+ * ⚠️ **목은 서버를 따라갈 수 없다.** `JSON.parse`가 `3.0`을 `3`으로 접으므로 JS 쪽에서
+ *    구분을 되살릴 방법이 없다. 그래서 이것은 「측정 불가」가 아니라 **「재현 불가한
+ *    실제 불일치」**다. 계약은 이 갈림을 **없애는 대신 못박는다** — 지금은 잠재이지만
+ *    (시드에 소수 `board_order` 0건) 저작이 하나라도 소수를 쓰면 그 칸의 순서가 갈린다.
+ * ⚠️ 표본은 **갈리면 순서가 실제로 달라지는** 모양이어야 한다(객체 표본과 같은 기준) —
+ *    정수값 실수 뒤에 **그보다 큰 정수**를 둔다. 서버는 3.0을 뒤(10000)로 보내 [1,0]이고
+ *    목은 3<5라 [0,1]이다.
+ */
+const BOARD_ORDER_RAW_SAMPLES = [
+  {
+    json: '[{"board_order":3.0},{"board_order":5}]',
+    // 어느 자리가 「정수값 실수」인가 — 계약이 서버 키가 뒤로 갔는지 확인할 때 쓴다
+    integral_float_index: 0,
+  },
+];
+
 // ⚠️ **`SEED_ITEMS.filter(...)`가 대입 바로 뒤에 붙어 있어야 한다** —
 //   `test_r10_mock_parity_contract::test_보드_퍼즐이_시드_board에서_파생된다`가
 //   그 형태를 문다(손으로 베낀 배열 리터럴 차단). 2026-08-20에 정렬을
@@ -2522,6 +2624,48 @@ function gradeSessionItem(item, rawAnswer) {
   return answer === correct;
 }
 
+/**
+ * 코스 목록 — `GET /courses`와 `GET /courses/:slug`가 **같은 배열**을 본다.
+ * 상세를 따로 적으면 사본이 하나 더 생긴다(오늘 종일 잡아온 그 형태).
+ */
+const MOCK_COURSES = [
+  {
+    id: 'weather',
+    title: '날씨와 기후',
+    description: '하늘을 읽는 법부터 기후 변화까지',
+    course_order: 1,
+    prereq_course_id: null,
+    is_default: true,
+    units_total: 138,
+  },
+  {
+    id: 'basic-science',
+    title: '기초 과학',
+    description: '온도·압력·물의 상태 변화',
+    course_order: 2,
+    prereq_course_id: null,
+    is_default: false,
+    units_total: 99,
+  },
+];
+
+/** 리그 분반 — server `Settings.LEAGUE_DIVISION_SIZE` · `LEAGUE_NEIGHBOR_SPAN` 사본. */
+const MOCK_LEAGUE_DIVISION_SIZE = 30;
+const MOCK_LEAGUE_NEIGHBOR_SPAN = 3;
+
+/** 리더보드 행 — `GET /league/leaderboard`와 `GET /league/division`이 함께 쓴다. */
+const leaderboardRows = () =>
+  Array.from({ length: 10 }, (_, i) => {
+    const elo = 1400 - i * 22;
+    return {
+      rank: i + 1,
+      nickname: ['하늘지기', '비요미', '구름사냥꾼', '태풍의눈', '무지개탐정', '요미', '맑음이', '천둥벌거숭이', '이슬비', '바람돌이'][i],
+      accuracy_score: Math.round((97 - i * 4.3) * 10) / 10,
+      elo_rating: elo,
+      tier: tierFromElo(elo),
+    };
+  });
+
 const routes = {
   'POST /auth/register': (body) => {
     if (body?.email) mockAuth.registeredEmails.add(body.email); // convert 중복 판정 공유
@@ -2659,31 +2803,16 @@ const routes = {
    * **2개 미만이면 탭을 안 그리므로**(단일 코스 = 고를 것이 없다) 둘 다 있어야
    * 코스 전환 경로가 목 위에서 재현된다.
    */
-  'GET /courses': () => [
-    200,
-    {
-      courses: [
-        {
-          id: 'weather',
-          title: '날씨와 기후',
-          description: '하늘을 읽는 법부터 기후 변화까지',
-          course_order: 1,
-          prereq_course_id: null,
-          is_default: true,
-          units_total: 138,
-        },
-        {
-          id: 'basic-science',
-          title: '기초 과학',
-          description: '온도·압력·물의 상태 변화',
-          course_order: 2,
-          prereq_course_id: null,
-          is_default: false,
-          units_total: 99,
-        },
-      ],
-    },
-  ],
+  'GET /courses': () => [200, { courses: MOCK_COURSES }],
+  // 🔴 **코스 상세** — 서버 `curriculum.get_course`(`CourseOut`)가 있는데 목엔 없어서
+  //   dev에서 dev 프록시로 빠져나갔다(2026-08-20 전수 대조). 미존재는 서버와 같은
+  //   404 `COURSE_NOT_FOUND`.
+  // ⚠️ 목록과 **같은 배열**을 본다 — 상세를 따로 적으면 사본이 하나 더 생긴다.
+  'GET /courses/:slug': (_body, params) => {
+    const course = MOCK_COURSES.find((c) => c.id === params?.slug);
+    if (!course) return [404, { detail: '코스를 찾을 수 없습니다', code: 'COURSE_NOT_FOUND' }];
+    return [200, course];
+  },
   'POST /auth/refresh': () => [200, { access_token: 'mock-access-2' }],
   'POST /auth/logout': () => [200, { success: true }],
 
@@ -2857,7 +2986,11 @@ const routes = {
           clouds: remaining.clouds,
           is_retry: true,
           retry_correct: isCorrect,
-          ...(phenomena ? { phenomena } : {}),
+          // ⚠️ **조건부 spread 금지.** 서버 `AnswerResult.phenomena`는 기본값 `None`이라
+          // 보드가 아닌 문항에도 `phenomena: null`이 실린다. 목이 필드를 통째로 지우면
+          // 화면이 `undefined`와 `null`을 구분 못 한다 — 같은 파일 `closing_step`이
+          // 이미 못박아 둔 기준이고(R13 A-1), 새 규칙이 아니라 그 적용이다.
+          phenomena: phenomena ?? null,
         },
       ];
     }
@@ -2897,7 +3030,13 @@ const routes = {
         // D10-1 (additive): 오답 피드백 "구름 −1" 표기용 실측값
         clouds_spent: spend.clouds_spent,
         clouds: spend.clouds,
-        ...(phenomena ? { phenomena } : {}),
+        // ⚠️ 위 만회 갈래와 **같은 세 필드가 같이 있어야 한다.** 서버
+        // `AnswerResult`의 기본값이 `is_retry=False · retry_correct=None ·
+        // phenomena=None`이라 최초 제출 응답에도 셋 다 실린다. 여기서 빼 두면
+        // 화면이 "만회 아님"과 "만회 여부를 모름"을 구분할 수 없다.
+        is_retry: false,
+        retry_correct: null,
+        phenomena: phenomena ?? null,
       },
     ];
   },
@@ -3109,7 +3248,12 @@ const routes = {
         all_resolved: allResolved, // R13-01 §2.1 — 만회 포함 전건 해결(왕관 판정값)
         retry_resolved_count: retryResolvedCount, // R13-01 §2.1 — "만회 완료 N문항"
         closing_step: closingStepPayload(s.mode), // R13 A-1 — 15문항 뒤 예보 단계(additive)
-        ...(placementResult ?? {}),
+        // ⚠️ **조건부 spread 금지** — 바로 윗줄 `closing_step`과 같은 이유다.
+        // 서버 `SessionCompleteResult`는 `abilities`·`placement_done` 둘 다 기본값
+        // `None`이라 daily·unit 완료 응답에도 **필드가 실린다**. 목이 통째로 지우면
+        // 화면이 `undefined`와 `null`을 구분 못 한다.
+        placement_done: placementResult?.placement_done ?? null,
+        abilities: placementResult?.abilities ?? null,
       },
     ];
   },
@@ -3348,6 +3492,8 @@ const routes = {
   //   **같은 경계**(`THETA_KNOWLEDGE_LEVEL_BOUNDS`)로 θ에서 파생한다. 그 경계는
   //   `__mockPolicy()`로 노출돼 `test_r13_mock_policy_parity`가 서버 실값과 대조한다.
   'GET /progress/abilities': () => [200, abilitiesPayload()],
+  // BKT 숙련 — 목에 없어서 dev에서 패널이 통째로 안 그려졌다(2026-08-20).
+  'GET /progress/mastery': () => [200, masteryPayload()],
 
   // ── 개발자 모드 (R7-03 계약 — /dev/*) ──────────────────────────────────────
   // DEV_MODE(=VITE_MOCK_DEV!=='0')가 꺼지면 실서버(FastAPI 라우터 미등록)와
@@ -3494,19 +3640,43 @@ const routes = {
     state.predicted = true;
     return [200, { submitted: true }];
   },
-  'GET /league/leaderboard': () => [
-    200,
-    Array.from({ length: 10 }, (_, i) => {
-      const elo = 1400 - i * 22;
-      return {
-        rank: i + 1,
-        nickname: ['하늘지기', '비요미', '구름사냥꾼', '태풍의눈', '무지개탐정', '요미', '맑음이', '천둥벌거숭이', '이슬비', '바람돌이'][i],
-        accuracy_score: Math.round((97 - i * 4.3) * 10) / 10,
-        elo_rating: elo,
-        tier: tierFromElo(elo), // 리더보드 행 티어 (§3.2)
-      };
-    }),
-  ],
+  'GET /league/leaderboard': () => [200, leaderboardRows()],
+  // 🔴 **분반** — 서버 `league.get_division`(`LeagueDivision`)이 있는데 목엔 없었다.
+  //   `division_size`·`neighbors`는 서버 설정 사본이라 `__mockPolicy()`로 노출한다.
+  'GET /league/division': () => {
+    const board = leaderboardRows();
+    const myRank = 4; // 목의 나는 4위(리더보드 4번째 줄)
+    const lo = Math.max(0, myRank - 1 - MOCK_LEAGUE_NEIGHBOR_SPAN);
+    const hi = Math.min(board.length, myRank + MOCK_LEAGUE_NEIGHBOR_SPAN);
+    const entries = board.slice(lo, hi).map((r) => ({
+      ...r,
+      global_rank: r.rank,
+      is_me: r.rank === myRank,
+    }));
+    const me = board[myRank - 1];
+    const above = board[myRank - 2];
+    const below = board[myRank];
+    const gap = (a, b) =>
+      a?.accuracy_score == null || b?.accuracy_score == null
+        ? null
+        : Math.round((a.accuracy_score - b.accuracy_score) * 10) / 10;
+    return [
+      200,
+      {
+        week_start: weekStartISO(),
+        division_size: MOCK_LEAGUE_DIVISION_SIZE,
+        division_index: 0,
+        division_count: 1,
+        division_member_count: board.length,
+        total_participants: board.length,
+        my_rank: myRank,
+        my_global_rank: myRank,
+        gap_above: gap(above, me),
+        gap_below: gap(me, below),
+        entries,
+      },
+    ];
+  },
   'GET /league/me/results': () => [
     200,
     state.predicted
@@ -3875,6 +4045,10 @@ export const __abilitiesPayload = abilitiesPayload;
 
 /** 해설 출처 파생 — 계약이 **라우트가 쓰는 바로 그 규칙**을 부른다. */
 export const __feedbackSourceOf = feedbackSourceOf;
+
+/** `GET /progress/mastery`가 실제로 쓰는 함수 · 라벨 규칙 — 계약이 같은 것을 문다. */
+export const __masteryPayload = masteryPayload;
+export const __masteryLabel = masteryLabel;
 
 export default function apiMockPlugin() {
   return {
