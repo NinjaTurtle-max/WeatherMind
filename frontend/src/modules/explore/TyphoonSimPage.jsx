@@ -398,20 +398,29 @@ export default function TyphoonSimPage() {
           「전향 뒤 급가속」은 어느 것도 보여주지 못한다.
           ⚠️ 2열 격자 **밖**이다 — 안에 넣으면 도식 ↔ 해설의 짝이 깨지고, 아래
              CTA의 들여쓰기(6칸) 계약도 함께 흔들린다. */}
-      <SchematicPanel
-        title={t('explore.schematic.card.t1.title')}
-        caption={t('explore.schematic.card.t1.caption')}
-        scene={TYPHOON_SECTION_SCENE}
-        steps={T1_STEPS}
-        ariaLabel={t('explore.schematic.card.t1.aria')}
-      />
-      <SchematicPanel
-        title={t('explore.schematic.card.t2.title')}
-        caption={t('explore.schematic.card.t2.caption')}
-        scene={TYPHOON_LIFECYCLE_SCENE}
-        steps={T2_STEPS}
-        ariaLabel={t('explore.schematic.card.t2.aria')}
-      />
+      {/* 🔴 **모식도 둘은 나란히 선다**(2026-08-21 사용자 지시 — "모식도 두 개
+          사이즈 모두 줄여서 왼쪽·오른쪽 배치"). 세로로 쌓았을 때 둘이 780px씩
+          **화면의 절반(1,560/3,348px)**을 먹었다.
+          ⚠️ 캔버스 화면비는 `CrossSectionGL`이 260:150으로 고정한다 — 높이를
+             직접 못 박고 **열 폭으로만** 조절한다. 폭이 반이면 높이도 반이다.
+          ⚠️ 두 열은 **같은 비율**이어야 한다(1fr 1fr). 한쪽을 넓히면 캔버스
+             높이가 갈려 두 카드의 캡션 줄이 어긋난다 — 나란한 것으로 안 읽힌다. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <SchematicPanel
+          title={t('explore.schematic.card.t1.title')}
+          caption={t('explore.schematic.card.t1.caption')}
+          scene={TYPHOON_SECTION_SCENE}
+          steps={T1_STEPS}
+          ariaLabel={t('explore.schematic.card.t1.aria')}
+        />
+        <SchematicPanel
+          title={t('explore.schematic.card.t2.title')}
+          caption={t('explore.schematic.card.t2.caption')}
+          scene={TYPHOON_LIFECYCLE_SCENE}
+          steps={T2_STEPS}
+          ariaLabel={t('explore.schematic.card.t2.aria')}
+        />
+      </div>
 
       {/* θ 루프 연결 CTA */}
       {/* CO-S-10: 라벨은 "학습 경로에서 이어가기"인데 목적지가 `/`(홈)였다 —
