@@ -15,6 +15,7 @@
  *    `src/` 밖(`frontend/gallery/`)에만 파일을 만든다.
  */
 import { useEffect, useMemo, useState } from 'react';
+import CrossSectionGL from '../src/modules/board/webgl/crossSection/CrossSectionGL.jsx';
 
 // ── 보드 단면 (GL 쪽) ───────────────────────────────────────────────────────
 import { SCENES } from '../src/modules/board/webgl/crossSection/scenes.js';
@@ -345,12 +346,152 @@ const ADJACENCY = [
   { label: '탐구 C1ⓑ — 복사수지 파장 관례', route: '/explore/climate', scene: RADIATION_SCENE_SPECTRAL, step: RADIATION_STEPS.length - 1 },
 ];
 
+// 6 core weather scenes target
+const TARGET_SCENES = [
+  { id: 'cold_front_shower', num: '01', title: '한랭전선 — 소나기' },
+  { id: 'stationary_front_monsoon', num: '02', title: '정체전선 — 장맛비' },
+  { id: 'warm_front_steady_rain', num: '03', title: '온난전선 — 약한 비' },
+  { id: 'siberian_snow', num: '04', title: '시베리아 변질 — 서해안 폭설' },
+  { id: 'convective_shower', num: '05', title: '대류 — 오후 소나기' },
+  { id: 'radiation_fog', num: '06', title: '복사안개' }
+];
+
+function SchematicVideoRecorder() {
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const [step, setStep] = useState(0);
+  const [recording, setRecording] = useState(false);
+  const [status, setStatus] = useState('대기 중');
+  
+  const currentRule = activeIdx >= 0 ? TARGET_SCENES[activeIdx] : null;
+  const currentStory = currentRule ? STORYBOARDS[currentRule.id] : null;
+  
+  const startRecording = async () => {
+    if (activeIdx < 0) return;
+    setRecording(true);
+    setStatus('녹화 시작 중...');
+    setStep(0);
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const canvas = document.querySelector('.recorder-canvas-container canvas');
+    if (!canvas) {
+      setStatus('에러: 캔버스를 찾을 수 없습니다.');
+      setRecording(false);
+      return;
+    }
+    
+    const stream = canvas.captureStream(30);
+    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+    const chunks = [];
+    
+    recorder.ondataavailable = (e) => chunks.push(e.data);
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${currentRule.num}_${currentRule.title.replace(' — ', '_')}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setRecording(false);
+      setStatus('녹화 완료! 다운로드되었습니다.');
+    };
+    
+    recorder.start();
+    setStatus('녹화 진행 중 (1단계)...');
+    
+    const stepsCount = currentStory.steps.length;
+    for (let i = 1; i < stepsCount; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1400));
+      setStep(i);
+      setStatus(`녹화 진행 중 (${i + 1}단계)...`);
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 1400));
+    recorder.stop();
+    setStatus('저장 중...');
+  };
+  
+  const recordAll = async () => {
+    for (let i = 0; i < TARGET_SCENES.length; i++) {
+      setActiveIdx(i);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await startRecording();
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+    setActiveIdx(-1);
+    setStatus('모든 3D 모식도 녹화 완료!');
+  };
+
+  return (
+    <Card style={{ marginBottom: 20, border: `2px solid ${C.accent}`, background: '#f0f9ff' }}>
+      <h3 style={{ margin: '0 0 10px', color: C.accent, fontSize: 16 }}>🎥 3D 모식도 비디오 자동 녹화기 (PPT 및 발표용)</h3>
+      <p style={{ fontSize: 12, color: C.dim, margin: '0 0 12px', lineHeight: 1.6 }}>
+        아래 버튼을 누르면 6종의 3D 모식도가 순차적으로 재생되면서 <b>웹캠이나 화면 캡처 없이 브라우저 자체에서 직접 고화질 비디오(.webm) 파일로 렌더링 및 녹화</b>되어 다운로드 폴더에 저장됩니다. (webm 파일은 최신 파워포인트에서 바로 재생 가능합니다.)
+      </p>
+      
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+        <button 
+          onClick={recordAll} 
+          disabled={recording}
+          style={{ background: C.accent, color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', cursor: 'pointer', opacity: recording ? 0.6 : 1 }}
+        >
+          🔴 6종 전체 자동 녹화 및 다운로드 시작
+        </button>
+        
+        <select 
+          value={activeIdx} 
+          onChange={(e) => setActiveIdx(Number(e.target.value))}
+          disabled={recording}
+          style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${C.line}`, fontSize: 12 }}
+        >
+          <option value={-1}>녹화할 장면 개별 선택...</option>
+          {TARGET_SCENES.map((s, idx) => (
+            <option key={s.id} value={idx}>{s.num} - {s.title}</option>
+          ))}
+        </select>
+        
+        {activeIdx >= 0 && (
+          <button 
+            onClick={startRecording} 
+            disabled={recording}
+            style={{ background: C.ink, color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', cursor: 'pointer', opacity: recording ? 0.6 : 1 }}
+          >
+            선택 장면 1개만 녹화
+          </button>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+        <div style={{ fontSize: 12, fontWeight: 'bold', color: recording ? C.warn : C.ok }}>
+          현재 상태: {status}
+        </div>
+        {recording && currentStory && (
+          <div style={{ fontSize: 11, color: C.dim }}>
+            {currentRule?.title} - {step + 1} / {currentStory.steps.length} 단계 녹화 중...
+          </div>
+        )}
+      </div>
+
+      {activeIdx >= 0 && (
+        <div 
+          className="recorder-canvas-container" 
+          style={{ width: 260, height: 150, marginTop: 12, border: `1px solid ${C.line}`, background: '#000', borderRadius: 6, overflow: 'hidden' }}
+        >
+          <CrossSectionGL ruleId={currentRule.id} step={step} onFail={() => setStatus('WebGL 로드 실패')} />
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 export default function Gallery() {
   return (
     <div style={{ background: C.page, minHeight: '100vh', padding: '20px 16px 80px', color: C.ink, fontFamily: 'system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif' }}>
       <GLGauge />
       <div style={{ maxWidth: 1560, margin: '0 auto' }}>
+        <SchematicVideoRecorder />
         <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>WeatherMind — 모식도 전수 갤러리</h1>
         <p style={{ fontSize: 13, color: C.dim, lineHeight: 1.8, marginTop: 8 }}>
           이 페이지는 <b>판정 도구</b>다. 저장소의 모든 모식도를 <b>실제 컴포넌트로 브라우저에서 그려</b> 늘어놓는다 —
