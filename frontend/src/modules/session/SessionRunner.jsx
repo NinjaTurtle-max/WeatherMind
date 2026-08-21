@@ -1127,12 +1127,18 @@ export default function SessionRunner({
  */
 function useLeaveIntent(active) {
   const [intent, setIntent] = useState(null);
+  // StrictMode(dev)가 mount→cleanup→재마운트를 동기로 두 번 태울 때, 1차
+  // cleanup의 회수 예약과 2차 마운트를 구분하는 토큰. ref는 그 더블인보크
+  // 사이에도 살아남는다(state·컴포넌트 인스턴스는 안 갈린다) — 아래 회수 코드
+  // 참고.
+  const generationRef = useRef(0);
 
   useEffect(() => {
     if (!active) {
       setIntent(null);
       return undefined;
     }
+    const myGeneration = ++generationRef.current;
 
     const onBeforeUnload = (e) => {
       e.preventDefault();
@@ -1196,27 +1202,36 @@ function useLeaveIntent(active) {
       window.removeEventListener('beforeunload', onBeforeUnload);
       window.removeEventListener('popstate', onPopState);
       document.removeEventListener('click', onClickCapture, true);
-      // 센티널 회수(P2-1) — **`back()`이 아니라 `replaceState`로 마커만 지운다**
-      // (2026-08-21 정정). 종전엔 `history.back()`을 썼는데, React 18
-      // StrictMode(dev)가 이 effect를 마운트→cleanup→재마운트로 **두 번** 태우면
-      // 1차 cleanup의 `back()`이 비동기로 큐잉된 채 남아 있다가, 2차 마운트가
-      // 유닛 세션을 정상 렌더한 **직후** 뒤늦게 실행돼 브라우저를 실제로 한 칸
-      // 뒤로 보냈다 — 화면이 0.2초 렌더됐다 `/learn`으로 튕기는 것으로 관측됐다
-      // (실측: 유닛 클릭 → 문항 2/10 렌더 → 즉시 /learn 복귀). `back()`은 실제
-      // 내비게이션이라 얼마나 걸릴지 우리가 못 정하지만, `replaceState`는 URL을
-      // 안 바꾸고 **동기로** 끝나 그 경쟁이 생길 자리가 없다.
-      // **최상단 항목이 우리 센티널일 때만** 지운다 — 그 사이 다른 화면으로
-      // 이동했다면(그만두기 등) 최상단은 라우터의 항목이고, 남의 히스토리를
-      // 건드리면 안 된다(그 경우는 leave()의 replace가 처리한다).
+      // 센티널 회수(P2-1) — **`back()`을 한 틱 미루고, 그사이 재마운트가
+      // 있었으면 건너뛴다**(2026-08-21 정정, replaceState 시도는 폐기).
+      //
+      // 종전엔 cleanup에서 바로 `history.back()`을 불렀다. React 18
+      // StrictMode(dev)가 이 effect를 마운트→cleanup→재마운트로 **동기** 두 번
+      // 태우면 1차 cleanup의 `back()`이 비동기로 큐잉된 채 남아 있다가, 2차
+      // 마운트가 유닛 세션을 정상 렌더한 **직후** 뒤늦게 실행돼 브라우저를
+      // 실제로 한 칸 뒤로 보냈다 — 화면이 0.2초 렌더됐다 `/learn`으로 튕기는
+      // 것으로 관측됨(실측: 유닛 클릭 → 문항 2/10 렌더 → 즉시 /learn 복귀).
+      //
+      // `replaceState`로 마커만 지우는 시도는 그 레이스는 없앴지만 **entry
+      // 자체가 안 빠져** `boardAssistRetention` 스모크가 잡은 회귀를 냈다
+      // (세션을 열 때마다 히스토리 길이가 2씩 자란다 — 종전 `back()`이 지키던
+      // "회수 안 하면 헛도는 뒤로가기가 쌓인다"를 그대로 재현했다).
+      //
+      // 그래서 **`back()`은 유지하되 실행을 한 틱 미룬다.** `generationRef`는
+      // StrictMode의 동기 재마운트에서도 살아남으므로(컴포넌트 인스턴스 자체는
+      // 안 갈린다), 미루는 사이 재마운트가 새 세대를 찍었으면(`myGeneration`이
+      // 낡았으면) 이 back()은 **StrictMode 팬텀 cleanup**이었다는 뜻이라
+      // 건너뛴다. 진짜 언마운트라면 그사이 아무도 세대를 안 올리므로 back()이
+      // 정상 발화해 entry를 그대로 회수한다.
       if (!sentinel) return;
-      try {
-        if (window.history.state?.wmLeaveGuard) {
-          const { wmLeaveGuard, ...rest } = window.history.state;
-          window.history.replaceState(rest, '');
+      setTimeout(() => {
+        if (generationRef.current !== myGeneration) return; // StrictMode 팬텀 — 재마운트가 이미 있었다
+        try {
+          if (window.history.state?.wmLeaveGuard) window.history.back();
+        } catch {
+          /* 히스토리 조작 불가 환경 — no-op */
         }
-      } catch {
-        /* 히스토리 조작 불가 환경 — no-op */
-      }
+      }, 0);
     };
   }, [active]);
 
