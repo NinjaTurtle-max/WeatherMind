@@ -213,3 +213,45 @@ A조 계열은 `origin/feat/expert-boards-atmos` 및 파생 — 착지 보고 �
 ⚠️ `a6985d6`의 `apiMockPlugin.js` **+266/−45**는 A조가 병합한 `fb7da06`에 **없다**.
 `merge-tree` 실측 충돌 **2건**: `frontend/mock/apiMockPlugin.js` · `backend/tests/test_r13_mock_policy_parity.py`.
 **「우리 것 + B조 266줄」로 손으로 합칠 것.**
+
+---
+
+# ⑪ 🔴 병합 필수 단계 — `ci.sh seed`가 **설계대로** 붉어진다
+
+**`4a697cd`이 승격 되돌림 감시(lint ⑦)를 심어 놨고, 선지 편향 교정(`afdab80`, A조 계열)이
+병합되는 순간 그 감시가 스스로 무장한다.**
+
+## 왜 붉어지나
+
+승격 스크립트 `backend/app/scripts/seed_content.py`의 멱등 키는
+`(concept_tag, template_json->>'question_text')` **정확 일치**이고, UPDATE는
+`existing.template_json = entry["template_json"]`로 **template_json을 통째로 덮는다** — **선지까지.**
+
+선지 편향 교정은 **지문을 안 바꿨다**(선지만 고쳤다). ⇒ 키가 그대로라서 **staging을 다시
+승격하면 옛 선지로 UPDATE된다.**
+
+실측(워커): 겹침 **108건 / 18파일 / 선지 324줄**, 그 108건의 선지가 **108/108 전건 옛 값**
+(정답 갈림 0건).
+
+## ⇒ 병합자가 할 일 (순서 고정)
+
+1. 병합 후 `python3 scripts/lint_seed_items.py --staging`을 돌린다.
+2. **⑦이 「되돌림 108곳/18파일」로 붉어지면 그것이 정상**이다. 감시가 제 일을 한 것이다.
+3. **⑦ 출력이 18파일 목록을 낸다.** 그 목록대로 `database/seed/staging/`의 해당 108건 선지를
+   **본시드 값으로 갱신**한다.
+4. 🔴 **방향을 절대 반대로 하지 마라 — 본시드가 정본이다.** staging 쪽을 정본으로 삼으면
+   **교정이 사라진다.** 실패 메시지와 단정문에 그 방향이 자립형으로 박혀 있다.
+5. 갱신 후 `measure_option_length_bias.py`가 **24~25% 대**를 유지하는지 재확인한다.
+
+⚠️ **워커가 1번(staging 갱신)을 일부러 안 했다.** 그 브랜치에는 교정이 없어서
+「지금 값 = 옛 값」이었고, 교정본 선지를 앞질러 써 넣는 것은 지시 없는 병합이라 멈췄다.
+**옳은 판단이다** — 그 시점이 곧 이 병합이다.
+
+⚠️ `seed_content.py`의 경고는 **멈추지 않는다**(정상 승격도 같은 120행을 바꾸므로).
+경고 전용 층이고 실DB 실행 검증은 안 됐다 — **무른 층으로 알고 있을 것.**
+
+## 곁가지 — 게이트 밖에 있는 두 파일
+
+`au1_weather_items.json`·`au2_basic_science_items.json`이 `knowledge_level` 0건으로 **한시
+제외** 중이라 ⑦ 외의 게이트에서 빠져 있다. 108건 중 **11건이 `au2`에** 있다 — ⑦은 그 둘까지
+순회하도록 만들어져 있어서 잡히지만, **다른 게이트는 못 본다.**

@@ -19,7 +19,9 @@ import { conceptLabel as conceptLabelOf, useT } from '../../i18n';
  *
  * answerResult (R9-01 §3.3 ⑤, board 분기 전용): 세션 채점 응답(AnswerResult).
  * phenomena가 있으면 AtmosphereBoard가 서버 판정 확정 리플레이(현상 애니메이션)를
- * 재생한다. 다른 유형은 무시(기존 렌더 불변).
+ * 재생하고, is_correct는 `passed`로 넘겨 4조건 성취 배지의 통과 조건이 된다
+ * (2026-08-21 — 종전에는 phenomena만 넘겨서 세션 중 성취가 표시되지 않았다).
+ * 다른 유형은 무시(기존 렌더 불변).
  */
 export default function QuestionCard({ question, disabled, onSubmit, answerResult = null }) {
   const t = useT();
@@ -171,6 +173,13 @@ export default function QuestionCard({ question, disabled, onSubmit, answerResul
           submitting={disabled}
           layout="wide"
           phenomena={answerResult?.phenomena ?? null}
+          // 🔴 **`phenomena`만으로는 4조건 성취를 못 띄운다**(2026-08-21). 판정
+          // 배너는 `result` prop에 달려 있는데 세션은 그것을 안 넘기므로, 보드가
+          // 「통과했는가」를 알 방법이 없었다 — 세션 중에 4조건을 내도 화면이
+          // 아무 말도 안 했다. board 유형의 `is_correct`는 서버가 `phenomena`와
+          // **같은 호출**(`answer_service.evaluate_board_answer`)에서 낸 값이라
+          // 둘이 어긋날 수 없다. 표시 전용이고 채점은 무접촉이다.
+          passed={answerResult?.is_correct ?? null}
           onSubmit={(boardState) => onSubmit('', { boardState })}
         />
       )}

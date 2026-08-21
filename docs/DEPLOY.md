@@ -492,6 +492,27 @@ git diff --name-only <이전sha>..HEAD | grep -E 'alembic/versions/|database/see
 | 위 어느 것도 아님 | 없음 — 이미지 교체만으로 끝난다 |
 
 시드 스크립트는 전부 멱등이라 **의심되면 그냥 돌리는 쪽이 안전하다.**
+단, 위 표의 **파일만** 그렇다 — 다음 줄이 그 예외다.
+
+### 🔴 9.0a′ `database/seed/staging/`을 적재하지 마라 — 멱등이 되돌림이 된다
+
+`seed_content`는 **인자로 준 아무 파일이나** 적재한다(`... seed_content <경로>`).
+그런데 멱등 키는 `(concept_tag, question_text)`인데 UPDATE는 **`template_json`을
+통째로 덮는다.** 그래서 **지문을 두고 선지만 고친 교정은 키가 안 바뀌고**,
+`staging/`에 남아 있는 승격 전 원본을 다시 적재하면 그 교정이 **경고 한 줄 없이
+옛 값으로 되돌아간다.** 「멱등이니까 다시 돌려도 안전하다」가 여기서만 거짓이다.
+
+- 실물: 최장-선지 편향 교정 120문항·선지 360줄(`ba14f6b..afdab80`) ↔ 겹치는
+  staging 108건·선지 324줄(2026-08-21 실측). 정답은 전건 무접촉이었다.
+- **적재 대상은 `database/seed/content_items.json` 하나다.** staging은 저작 작업
+  디렉터리이고 승격 후에도 원본이 남으므로, 적재 경로에 올려서는 안 된다.
+- 코드 방어 2층: `scripts/lint_seed_items.py --staging` ⑦이 갈림을 **CI에서 탈락**
+  시키고(`backend/tests/test_seed_contract.py::TestPromotionRevertGuard`가 같은
+  계약), `seed_content`는 채점면을 덮을 때 **경고를 출력**한다(막지는 않는다 —
+  교정된 본시드의 정상 배포도 같은 행을 바꾸므로).
+- ⑦이 붉어지면 방향은 하나다: **본시드가 정본이므로 staging을 본시드 값으로
+  갱신한다.** 반대로 하면 교정이 사라진다.
+
 
 ### 🔴 9.0a 시드를 갱신해도 **이미 발급된 세션은 안 바뀐다**
 
