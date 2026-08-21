@@ -204,13 +204,36 @@ try {
         && !/(?<!:)grid-cols-3/.test(listCls));
   }
 
+  // ── ⑸b 태풍의 **기본 막은 개념**이다 (2026-08-21) ────────────────────────
+  /*
+   * 위 ⑸가 목표 패널을 보려고 `initialStage="mission"` 이음매를 쓴다. 이음매가
+   * 생기면 **제품 기본값이 조용히 바뀌어도 아무도 안 운다** — 그 구멍을 여기서 막는다.
+   * 지시의 본체가 「개념을 **먼저** 보고 미션으로」라, 기본이 미션이 되는 순간
+   * 그 연출이 통째로 사라진다.
+   */
+  {
+    const src = await readFile(resolve(root, 'src/modules/explore/TyphoonSimPage.jsx'), 'utf8');
+    check("태풍의 기본 막이 '개념'이다 (이음매 기본값)",
+      /initialStage = 'concept'/.test(src));
+    const mod = await server.ssrLoadModule('/src/modules/explore/TyphoonSimPage.jsx');
+    const html = renderToString(createElement(MemoryRouter, null, createElement(mod.default)));
+    check('기본 렌더에 목표·조작이 없다 — 1막은 개념만 보여 준다',
+      !html.includes('탐구 목표') && !html.includes('해수면온도'));
+    check('기본 렌더에 모식도 둘이 다 있다 — 개념이 1막의 내용이다',
+      html.includes('태풍 단면') && html.includes('태풍의 일생'));
+  }
+
   // ── ⑸ SSR — 목표 패널이 실제로 화면에 뜬다 ──────────────────────────────
   for (const [path, name, total] of [
     ['/src/modules/explore/TyphoonSimPage.jsx', 'TyphoonSimPage', G.TYPHOON_GOALS.length],
     ['/src/modules/explore/ClimateSimPage.jsx', 'ClimateSimPage', G.CLIMATE_GOALS.length],
   ]) {
     const mod = await server.ssrLoadModule(path);
-    const html = renderToString(createElement(MemoryRouter, null, createElement(mod.default)));
+    // ⚠️ 태풍은 **2막 구성**이라(2026-08-21) 목표 패널이 「만들어보기」 막에 있다 —
+    //    기본 렌더는 개념 막이므로 여기서는 이음매로 그 막을 그린다. 제품 기본이
+    //    바뀌지 않았다는 것은 바로 아래 별도 단정이 지킨다.
+    const props = name === 'TyphoonSimPage' ? { initialStage: 'mission' } : null;
+    const html = renderToString(createElement(MemoryRouter, null, createElement(mod.default, props)));
     check(`${name}: 목표 패널이 렌더된다`, html.includes('탐구 목표'));
     check(`${name}: 첫 화면 진행도가 0 / ${total}`, html.includes(`0 / ${total} 달성`));
     // 기본 입력에서 달성 0건이므로 「달성!」 배지는 **한 건도 없어야** 한다(⑵의 화면판).

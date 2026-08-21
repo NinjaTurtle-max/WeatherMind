@@ -260,7 +260,12 @@ try {
   // ── ② 화면 전체 — 태풍 시뮬 페이지(위성 도식을 품는다) ────────────────────
   {
     drain();
-    const m = await mount(createElement(TyphoonSimPage, null));
+    // ⚠️ **2막(미션) 막을 띄운다**(2026-08-21). 태풍 화면이 두 막으로 갈리면서
+    //    기본 렌더는 개념 막이고 위성 도식은 미션 막에 있다 — 기본으로 띄우면
+    //    이 절의 단정 셋이 「위성이 없다」로 붉어지는데, 그건 회귀가 아니라
+    //    **다른 막을 보고 있는 것**이다. 제품 기본이 개념 막이라는 사실은
+    //    `exploreGoals`가 따로 문다(이음매가 기본값을 가리지 않게).
+    const m = await mount(createElement(TyphoonSimPage, { initialStage: 'mission' }));
     let errs = drain();
     check('② TyphoonSimPage가 2D 컨텍스트 없이도 예외 없이 마운트된다', errs.length === 0, fmt(errs));
     // ⚠️ 요소 **개수**를 단정하지 않는다 — MT-22 입체 모식도가 병합되면 이 화면에

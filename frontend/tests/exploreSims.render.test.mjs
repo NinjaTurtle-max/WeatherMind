@@ -62,12 +62,20 @@ const TARGETS = [
   //    의도적으로 긴 문자열의 부분이다 — `지구는 받은 만큼 내보낸다`의 실제 렌더값은
   //    `… — 복사수지`이고 `눈과 눈벽`은 `따뜻한 바다 위 — 눈과 눈벽`이다. 완전일치로
   //    바꾸려면 기대 문구 자체를 다시 써야 하는데 그것은 다른 판정이라 손대지 않는다.
+  // ⚠️ 태풍은 **2막 구성**이다(2026-08-21). 기본 렌더는 개념 막이라 「왜 그럴까」·
+  //    학습 CTA는 여기 없다 — 그 둘은 아래 「2막」 항목이 이음매로 따로 문다.
+  //    모식도 껍데기·단계·장면 라벨은 **1막의 내용**이므로 여기 그대로 남는다.
   { path: '/src/modules/explore/TyphoonSimPage.jsx',
-    name: 'TyphoonSimPage',
-    expects: ['태풍', '왜 그럴까', 'href="/learn"',
+    name: 'TyphoonSimPage(1막 개념)',
+    expects: ['태풍',
       '태풍 단면 — 하층과 상층은 반대로 감긴다', '눈과 눈벽', // T1 껍데기+단계
       '태풍의 일생 — 발생에서 온대저기압까지'], // T2 껍데기
     labels: ['권운 차양', '북위 20°'] }, // T1·T2 0단계 장면 라벨(완전일치)
+  { path: '/src/modules/explore/TyphoonSimPage.jsx',
+    name: 'TyphoonSimPage(2막 미션)',
+    props: { initialStage: 'mission' },
+    expects: ['왜 그럴까', 'href="/learn"', '탐구 목표', '해수면온도'],
+    labels: [] },
   { path: '/src/modules/explore/ClimateSimPage.jsx',
     name: 'ClimateSimPage',
     expects: ['기후변화', '폭염일수', 'href="/learn"',
@@ -113,6 +121,18 @@ const elementTexts = (html) => {
 };
 
 /** MT-21 위성 도식 검사용 — 위 루프의 expects 방식과 달리 컴포넌트를 직접 그린다. */
+/*
+ * 🔴 **돌연변이 검증을 할 때: 변이가 「유효한 JSX」여야 한다.**
+ *
+ * 2026-08-21에 여기서 밟았다. 격자 계약을 확인하려고 여는 `<div>`만 끼워 넣었는데
+ * **닫는 태그가 없어 `ssrLoadModule`이 먼저 터졌다** — 아래 `try`가 그것을 받아
+ * 루프를 빠져나가는 바람에 소스 계약은 **한 줄도 실행되지 않았고**, 출력에 FAIL이
+ * 없으니 「가드가 못 잡는다」로 읽혔다. 실제로는 가드가 멀쩡했다.
+ *
+ * 그래서 변이를 만들 때는 **`npx vite build`가 통과하는지 먼저 보고** 계약을 돌린다.
+ * FAIL이 안 나오는 것에는 두 가지 뜻이 있다 — 「가드가 못 잡았다」와 「가드까지
+ * 가지도 못했다」. 둘을 가르지 않으면 검증이 검증이 아니다.
+ */
 const checkMt21 = (name, cond) => {
   if (cond) {
     console.log(`PASS ${name}`);
@@ -122,14 +142,14 @@ const checkMt21 = (name, cond) => {
   }
 };
 try {
-  for (const { path, name, expects, labels = [] } of TARGETS) {
+  for (const { path, name, expects, labels = [], props } of TARGETS) {
     const mod = await server.ssrLoadModule(path);
     if (typeof mod.default !== 'function') {
       console.error(`FAIL ${name}: default export가 컴포넌트가 아닙니다`);
       failed += 1;
       continue;
     }
-    const html = renderToString(createElement(MemoryRouter, null, createElement(mod.default)));
+    const html = renderToString(createElement(MemoryRouter, null, createElement(mod.default, props ?? null)));
     if (!html || html.length === 0) {
       console.error(`FAIL ${name}: 렌더 결과가 비어 있습니다`);
       failed += 1;
@@ -544,66 +564,69 @@ try {
   checkMt21('㉲ 「왜 그럴까」가 화면에 한 번만 있다 — 옮기며 사본을 남기지 않았다',
     (typhoonSrc.match(/explore\.common\.whyTitle/g) ?? []).length === 1);
   /*
-   * ㉴ **모식도 둘은 나란히 선다** (2026-08-21 사용자 지시 — "모식도 두 개 사이즈
-   *    모두 줄여서 왼쪽·오른쪽 배치").
+   * ㉴ **태풍 화면은 두 막이다** (2026-08-21 사용자 지시 — "모식도 두 개가 태풍의
+   *    개념 설명이잖아 이걸 먼저 크게 보고 다음으로 미션을 깨러 가는 느낌으로").
    *
-   *    세로로 쌓았을 때 둘이 780px씩, **화면의 절반(1,560/3,348px)**을 먹었다.
-   *    2열로 접어 실측 3,348 → 2,224px(-34%). 캔버스 520×300(종전 1,088×628)이고
-   *    캔버스 라벨은 그 폭에서도 읽힌다(실측 확인).
+   *    출발점은 불편이었다: 미션을 하는 내내 **머리 위에서 그림 둘이 계속 움직였다.**
+   *    그 둘은 조작에 반응하지 않는 개념 설명이라 시선만 뺏는 자리였고, 크기를 줄여도
+   *    안 풀린다 — 작아져도 계속 움직이고, 작아지면 개념 설명으로서도 못 읽힌다.
    *
-   *    ⚠️ 높이를 직접 못 박을 수 없다 — 화면비를 `CrossSectionGL`이 260:150으로
-   *       고정하므로 **열 폭이 유일한 손잡이**다. 그래서 계약도 격자를 문다.
-   *    ⚠️ 두 열은 **같은 비율**이어야 한다. 한쪽을 넓히면 캔버스 높이가 갈려
-   *       두 카드의 캡션 줄이 어긋나고 나란한 것으로 안 읽힌다.
-   *    ⚠️ CTA는 이 격자 **밖**에 남아야 한다 — 위 ㉱와 같은 이유이고, 격자가
-   *       하나 늘었으므로 그 계약이 새 격자에도 걸리는지 다시 본다.
+   *    🔴 **어제의 ㉴를 뒤집는다.** 하루 전 이 자리 계약은 「모식도 둘은 나란히 선다
+   *    (2열 격자·520×300)」였다. 그 판단은 **그 구성에서 옳았다** — 미션 흐름 한가운데
+   *    끼어 있었으므로 길이를 줄이는 것이 전부였다. 자기 막을 갖게 된 지금은 작게 둘
+   *    이유가 없어 **전폭 세로 2장(1,088×628)**으로 되돌린다. 지우지 않고 정정하는
+   *    이유는 다음 사람이 「왜 어제 줄인 걸 다시 키웠나」를 물을 것이기 때문이다.
+   *
+   *    실측: 1막 2,023px(캔버스 1,088×628 둘) · 2막 1,679px(모식도 캔버스 0개).
    */
-  const tSchemGrid = typhoonSrc.indexOf('<div className="grid gap-4 lg:grid-cols-2">');
+  const tStage = typhoonSrc.indexOf("const [stage, setStage] = useState(initialStage)");
+  checkMt21('㉴ 화면이 두 막으로 갈렸다 (stage 상태)', tStage > -1);
   const tT1 = typhoonSrc.indexOf('explore.schematic.card.t1.title');
   const tT2 = typhoonSrc.indexOf('explore.schematic.card.t2.title');
-  checkMt21('㉴ 태풍: 모식도 2열 격자가 있다', tSchemGrid > -1);
+  const tConcept = typhoonSrc.indexOf("{stage === 'concept' ? (");
+  const tMissionArm = typhoonSrc.indexOf('      ) : (\n', tConcept);
+  const inConcept = (i) => tConcept > -1 && tMissionArm > tConcept && i > tConcept && i < tMissionArm;
+  checkMt21(`㉴ 모식도 둘이 **1막(개념)** 가지 안이다 — t1 ${inConcept(tT1)} · t2 ${inConcept(tT2)}`,
+    inConcept(tT1) && inConcept(tT2));
+  checkMt21('㉴ 목표·조작·해설은 **2막** 가지다 — 1막에 미션이 새어 들어오면 붉어진다',
+    !inConcept(typhoonSrc.indexOf('<GoalPanel'))
+      && !inConcept(typhoonSrc.indexOf("explore.typhoon.sstLabel"))
+      && !inConcept(typhoonSrc.indexOf("explore.common.whyTitle")));
+  // ⚠️ **모식도가 2열 격자로 되돌아가면 붉어진다.** 「크게」가 이 지시의 본체라,
+  //    같은 자리에 다시 `lg:grid-cols-2`를 두면 어제 상태로 조용히 돌아간다.
+  checkMt21('㉴ 1막의 모식도는 전폭이다 (2열 격자로 되돌아가지 않았다)',
+    !/grid gap-4 lg:grid-cols-2">/.test(typhoonSrc.slice(tConcept, tMissionArm)));
   /*
-   * 🔴 **「격자 뒤에 온다」도 「들여쓰기 8칸」도 담기를 증명하지 못한다.**
-   *    처음에 그 둘로 썼는데, 한 장을 격자 **밖**으로 빼되 들여쓰기만 8칸으로
-   *    남기는 변이가 **그대로 통과했다**(돌연변이 검증에서 잡혔다). 위 ㉱가
-   *    "격자 뒤에 온다만 보면 딸려 들어가도 통과한다"고 적어 둔 바로 그 교훈을
-   *    한 줄 아래에서 되풀이한 것이다.
-   *    그래서 격자의 **닫는 태그 위치를 실제로 찾아** 그 안쪽인지 본다:
-   *    페이지 직계 격자라 닫는 줄은 6칸 `</div>`이고, 그것이 이 격자의 끝이다.
+   * ㉵ **한 번에 한 장만 움직인다.** 둘을 같이 돌리면 각자 1.4초마다 단계를 넘겨
+   *    서로 다른 리듬으로 움직인다 — 어느 쪽을 봐야 하는지가 사라지고, 그것이
+   *    이번 지시의 출발점이었다. 뒤의 한 장은 첫 단계에 멈춰 세운다(실측: 5초 뒤
+   *    T1은 4/5→3/5로 넘어가는데 T2는 1/5 그대로).
+   *    ⚠️ 기본값은 `true`라 기후 C1은 종전대로 돈다 — 그 기본값도 함께 문다.
    */
-  const schemClose = typhoonSrc.indexOf('\n      </div>', tSchemGrid);
-  // ⚠️ 이름은 `inSchemGrid` — 같은 파일 위쪽에 다른 `inGrid`가 이미 있다.
-  //    처음에 `inGrid`로 써서 파일 전체가 SyntaxError로 죽었다(이 파일에서
-  //    블록 스코프 밖 재선언이 두 번째다).
-  const inSchemGrid = (i) => tSchemGrid > -1 && schemClose > -1 && i > tSchemGrid && i < schemClose;
-  checkMt21(`㉴ 모식도 둘이 격자 **안**에 있다(닫는 태그까지 확인) — t1 ${inSchemGrid(tT1)} · t2 ${inSchemGrid(tT2)}`,
-    inSchemGrid(tT1) && inSchemGrid(tT2));
-  // 담기를 확인한 뒤에야 들여쓰기가 뜻을 갖는다 — 둘 다 격자 직계(8칸)여야
-  // 한 칸씩 차지한다(하나가 다른 하나를 감싸도 위 검사는 통과한다).
-  const schemLines = (typhoonSrc.match(/^ *<SchematicPanel$/gm) ?? []);
-  checkMt21(`㉴ 두 패널 모두 격자 직계 자식이다(들여쓰기 8칸) — 실제 ${schemLines.map((l) => l.length - l.trimStart().length).join('/')}`,
-    schemLines.length === 2 && schemLines.every((l) => /^ {8}<SchematicPanel$/.test(l)));
-  checkMt21('㉴ 모식도 격자가 CTA를 삼키지 않았다 — CTA는 여전히 격자 밖이다',
-    tCta > schemClose);
+  const panelSrc = await readFile(resolve(root, 'src/modules/explore/SchematicPanel.jsx'), 'utf8');
+  checkMt21('㉵ SchematicPanel이 autoPlay를 받고 기본은 재생이다',
+    /autoPlay = true/.test(panelSrc) && /useState\(autoPlay\)/.test(panelSrc));
+  const autoOff = (typhoonSrc.match(/autoPlay=\{false\}/g) ?? []).length;
+  checkMt21(`㉵ 태풍 1막에서 자동 재생은 한 장뿐이다 (autoPlay={false} 1회) — 실제 ${autoOff}회`,
+    autoOff === 1);
+  const climateAuto = (climateSrc.match(/autoPlay=/g) ?? []).length;
+  checkMt21(`㉵ 기후 C1은 종전대로 자동 재생이다 (autoPlay 안 넘긴다) — 실제 ${climateAuto}회`,
+    climateAuto === 0);
   /*
-   * ㉵ **자리는 「목표 뒤 · 조작 앞」이다** (2026-08-21 사용자 지시 — "목표랑
-   *    그래프 사이에 모식도 두 개를 배치").
-   *
-   *    종전에는 화면 맨 아래였다. 그 자리의 근거로 적혀 있던 「축이 달라서 뒤에
-   *    덧붙인다」는 **함께 둔다의 이유이지 뒤에 둔다의 이유가 아니었고**, 맨 아래
-   *    모식도는 조작을 마치고 스크롤을 멈춘 사람에게 없는 것과 같았다.
-   *    이제 순서가 「무엇을 해 볼까(목표) → 어떻게 생겼나(모식도) → 직접
-   *    돌려보기(조작·결과)」다.
-   *
-   *    ⚠️ 「목표 뒤」만 물면 부족하다 — 맨 아래로 되돌려도 목표보다는 뒤다.
-   *       **조작 행보다 앞**인지가 이 지시의 본체라 둘을 함께 문다.
+   * ㉶ **2막에는 모식도가 아예 없다.** 이것이 지시의 본체다 — 미션 중에 저 혼자
+   *    움직이는 것이 없어야 한다. 숨기는 것(`hidden`)으로 때우면 타이머와 GL
+   *    컨텍스트가 계속 살아 있어 「안 움직인다」가 거짓이 된다. 그래서 **렌더 결과**로
+   *    확인한다 — 소스로는 「숨김」과 「없음」을 가를 수 없다.
    */
-  const tGoalPanel = typhoonSrc.indexOf('<GoalPanel');
-  checkMt21('㉵ 모식도가 탐구 목표 뒤에 온다', tGoalPanel > -1 && tSchemGrid > tGoalPanel);
-  checkMt21('㉵ 모식도가 조작·결과 행보다 **앞**에 온다 — 맨 아래로 되돌리면 붉어진다',
-    tGrid > -1 && schemClose < tGrid);
-  checkMt21('㉵ 모식도가 위성 도식보다도 앞이다 — 개념을 먼저 보고 손을 댄다',
-    tSat2 > -1 && schemClose < tSat2);
+  {
+    const mod = await server.ssrLoadModule('/src/modules/explore/TyphoonSimPage.jsx');
+    const missionHtml = renderToString(
+      createElement(MemoryRouter, null, createElement(mod.default, { initialStage: 'mission' })));
+    checkMt21('㉶ 2막 렌더에 모식도가 한 장도 없다 (숨김이 아니라 언마운트)',
+      !missionHtml.includes('태풍 단면') && !missionHtml.includes('태풍의 일생'));
+    checkMt21('㉶ 2막에 개념으로 되돌아가는 통로가 있다 — 없으면 그림을 다시 못 본다',
+      missionHtml.includes('개념 다시 보기'));
+  }
   const satSrc = await readFile(resolve(root, 'src/modules/explore/SatelliteView.jsx'), 'utf8');
   checkMt21('㉲ 위성 도식이 자기 여백(mt-4)을 갖지 않는다 — 격자 칸에서 옆 칸보다 16px 내려앉는다',
     !/<figure className="[^"]*\bmt-4\b/.test(satSrc));
